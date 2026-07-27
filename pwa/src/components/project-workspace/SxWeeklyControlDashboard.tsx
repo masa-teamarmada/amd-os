@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useState } from "react";
 import {
   ArrowRight,
   CalendarClock,
@@ -31,6 +31,7 @@ import type {
   SxManagementIssue,
   SxTrackKey,
 } from "@/lib/sx-management";
+import { deriveSxUnifiedTimeline } from "@/lib/sx-executive-control-deck";
 import {
   sxWeeklyIssueAttentionScore,
   sxWeeklyIssueIsOverdue,
@@ -44,6 +45,7 @@ import {
   sxWeeklyWeekRangeLabel,
   type SxWeeklyIssueStage,
 } from "@/lib/sx-weekly-control";
+import { SxUnifiedTimeline } from "./SxUnifiedTimeline";
 import styles from "./weekly-control.module.css";
 
 type StageKey = SxWeeklyIssueStage;
@@ -77,11 +79,11 @@ const TRACKS: Array<{ key: SxTrackKey; label: string; short: string; accent: str
   { key: "organizational_building", label: "体制構築", short: "体制", accent: "#76637b" },
 ];
 
-const STAGES: Array<{ key: StageKey; index: string; label: string; description: string }> = [
-  { key: "intake", index: "01", label: "要整理", description: "担当・期限・検証方法を置く" },
-  { key: "validating", index: "02", label: "検証中", description: "根拠と反証を更新する" },
-  { key: "decision", index: "03", label: "判断待ち", description: "会議で決め切る" },
-  { key: "resolved", index: "04", label: "決定・棄却", description: "判断と証跡を残す" },
+const STAGES: Array<{ key: StageKey; index: string; label: string }> = [
+  { key: "intake", index: "01", label: "要整理" },
+  { key: "validating", index: "02", label: "検証中" },
+  { key: "decision", index: "03", label: "判断待ち" },
+  { key: "resolved", index: "04", label: "決定・棄却" },
 ];
 
 const CONFIDENCE_OPTIONS = [
@@ -539,6 +541,7 @@ export function SxWeeklyControlDashboard({ bundle, access }: { bundle: ProjectWo
   const [query, setQuery] = useState("");
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(null);
 
   const allIssues = useMemo(() => [...management.issues].sort((left, right) => sxWeeklyIssueAttentionScore(right, management.asOf) - sxWeeklyIssueAttentionScore(left, management.asOf) || (sxWeeklyIssueNextDueDate(left) || "9999").localeCompare(sxWeeklyIssueNextDueDate(right) || "9999")), [management]);
   const counts = useMemo(() => ({
@@ -560,6 +563,17 @@ export function SxWeeklyControlDashboard({ bundle, access }: { bundle: ProjectWo
   const pendingDecisions = management.decisions.filter((decision) => decision.status === "open").sort((left, right) => Number(right.isThisWeek) - Number(left.isThisWeek) || (left.dueDate || "9999").localeCompare(right.dueDate || "9999")).slice(0, 3);
   const interventions = allIssues.filter((issue) => sxWeeklyIssueNeedsAttention(issue, management.asOf)).slice(0, 3);
   const enteredMembers = bundle.members.filter((member) => member.plannedHours > 0 || member.actualHours > 0).length;
+  const timeline = useMemo(() => deriveSxUnifiedTimeline({
+    today: management.asOf,
+    milestones: management.milestones,
+    criticalPathSlugs: management.judgment.criticalPathSlugs,
+    dagValid: management.judgment.dagValid,
+    tracks: management.tracks.map((track) => ({ key: track.key, label: track.label, shortLabel: track.shortLabel, accent: track.accent, deltaDays: track.deltaDays, dateCertainty: track.dateCertainty, maxIssue: track.maxIssue })),
+    objectiveTargetDate: management.objective?.targetDate ?? null,
+    interventionRows: [],
+    pinCount: 0,
+  }), [management]);
+  const selectedMilestone = management.milestones.find((milestone) => milestone.id === selectedMilestoneId) ?? null;
 
   function handleSaved(next: SxManagementBundle, message: string) {
     setManagement(next);
@@ -587,17 +601,16 @@ export function SxWeeklyControlDashboard({ bundle, access }: { bundle: ProjectWo
             <div>
               <p className={styles.eyebrow}>{sxWeeklyWeekRangeLabel(bundle.currentWeekStart)} / WEEKLY CONTROL</p>
               <h1>週次管制 <span>/ {bundle.project.projectName}</span></h1>
-              <p>変化を見つけ、判断し、次の一手まで決め切る。計画の正しさではなく、今週の介入に焦点を合わせる画面。</p>
             </div>
             <div className={styles.readinessStamp}>
               <span>画面</span><strong>運用準備中</strong><small>情報抽出は次工程</small>
             </div>
           </div>
           <nav className={styles.sectionNav} aria-label="週次管制ナビ">
-            <a href="#weekly-change">今週の変化</a>
-            <a href="#track-exceptions">4本柱</a>
+            <a href="#weekly-change">週次差分</a>
+            <a href="#project-gantt">ガント</a>
             <a href="#issue-hypothesis">論点・仮説</a>
-            <a href="#input-readiness">入力準備</a>
+            <a href="#input-readiness">データ接続</a>
           </nav>
         </header>
 
@@ -611,13 +624,12 @@ export function SxWeeklyControlDashboard({ bundle, access }: { bundle: ProjectWo
 
         <section id="weekly-change" className={styles.section}>
           <div className={styles.sectionHeading}>
-            <div><p className={styles.eyebrow}>WEEKLY CHANGE RAIL</p><h2>先週から、何が変わって、何を決めるか</h2></div>
-            <p>差分抽出をつなぐ前の完成形。空欄をゼロ扱いせず、未接続として残す。</p>
+            <div><h2>週次差分・判断・介入</h2></div>
           </div>
           <div className={styles.flowRail}>
             <article className={styles.flowStep}>
               <div className={styles.flowNumber}>01</div><div className={styles.flowIcon}><GitBranch aria-hidden="true" /></div>
-              <p className={styles.flowKicker}>先週 → 今週</p><h3>変化を拾う</h3>
+              <p className={styles.flowKicker}>先週 → 今週</p><h3>先週からの差分</h3>
               <ul className={styles.placeholderList}>
                 <li><span>完了した成果</span><b>抽出接続待ち</b></li>
                 <li><span>予測日の変更</span><b>抽出接続待ち</b></li>
@@ -626,40 +638,40 @@ export function SxWeeklyControlDashboard({ bundle, access }: { bundle: ProjectWo
             </article>
             <article className={styles.flowStep}>
               <div className={styles.flowNumber}>02</div><div className={styles.flowIcon}><Target aria-hidden="true" /></div>
-              <p className={styles.flowKicker}>今回の会議</p><h3>決め切る</h3>
+              <p className={styles.flowKicker}>今回の会議</p><h3>今週の判断</h3>
               <div className={styles.flowItems}>{pendingDecisions.length > 0 ? pendingDecisions.map((decision) => <div key={decision.id}><span>{trackMeta(decision.track).short}</span><p>{decision.title}</p><small>{decision.ownerLabel || "担当未設定"} · {formatDate(decision.dueDate)}</small></div>) : <p className={styles.emptyState}>判断対象の抽出待ち</p>}</div>
             </article>
             <article className={styles.flowStep}>
               <div className={styles.flowNumber}>03</div><div className={styles.flowIcon}><ArrowRight aria-hidden="true" /></div>
-              <p className={styles.flowKicker}>決定 → 介入</p><h3>次の一手を置く</h3>
+              <p className={styles.flowKicker}>決定 → 介入</p><h3>決定後の介入</h3>
               <div className={styles.flowItems}>{interventions.length > 0 ? interventions.map((issue) => <div key={issue.id}><span>{sxWeeklyIssueIsOverdue(issue, management.asOf) ? "期限超過" : sxWeeklyIssueIsStale(issue, management.asOf) ? "更新切れ" : "要整理"}</span><p>{issue.title}</p><small>{sxWeeklyValueMissing(issue.ownerLabel) ? "担当を置く" : issue.ownerLabel} · {sxWeeklyIssueNextDueDate(issue) ? formatDate(sxWeeklyIssueNextDueDate(issue)) : "期限を置く"}</small></div>) : <p className={styles.emptyState}>介入候補の抽出待ち</p>}</div>
             </article>
           </div>
         </section>
 
-        <section id="track-exceptions" className={styles.section}>
+        <section id="project-gantt" className={styles.section}>
           <div className={styles.sectionHeading}>
-            <div><p className={styles.eyebrow}>EXCEPTION TIMELINE</p><h2>4本柱は、例外だけを見る</h2></div>
-            <p>全計画を並べ直さず、現在ゲート・予測差分・最大論点だけを1行で確認する。</p>
+            <div><h2>全体ガント</h2></div>
+            <p>基準日 {formatDate(management.asOf)}</p>
           </div>
-          <div className={styles.trackTable}>
-            <div className={styles.trackHeader}><span>柱</span><span>現在ゲート</span><span>予定 → 予測</span><span>最大論点 / 担当</span><span>状態</span></div>
-            {TRACKS.map((track) => {
-              const summary = management.tracks.find((item) => item.key === track.key);
-              return <article className={styles.trackRow} key={track.key} style={{ "--track-accent": track.accent } as CSSProperties}>
-                <div className={styles.trackName}><i /><strong>{track.label}</strong></div>
-                <div><b>{summary?.gate || "現行ゲート未接続"}</b><small>{summary?.nextDeliverable || "次の成果の抽出待ち"}</small></div>
-                <div className={styles.dateDelta}><span>{formatDate(summary?.plannedEnd)}</span><ArrowRight aria-hidden="true" /><strong>{formatDate(summary?.forecastEnd)}</strong><small>{summary?.deltaDays == null ? "差分未算定" : summary.deltaDays > 0 ? `+${summary.deltaDays}日` : `${summary.deltaDays}日`}</small></div>
-                <div><b>{summary?.maxIssue || "最大論点の抽出待ち"}</b><small>{summary?.ownerLabel || "担当未設定"}</small></div>
-                <div><span className={`${styles.statusBadge} ${statusTone(summary?.status || "open")}`}>{summary?.statusLabel || "未評価"}</span></div>
-              </article>;
-            })}
+          <div className={styles.ganttFrame}>
+            <SxUnifiedTimeline timeline={timeline} asOf={management.asOf} selectedMilestoneId={selectedMilestoneId} onSelectMilestone={setSelectedMilestoneId} canManage={false} onEditMilestone={() => {}} onCreateMilestone={() => {}} showPins={false} />
           </div>
+          {selectedMilestone && <div className={styles.ganttSelection} aria-live="polite">
+            <div><span>選択中</span><strong>{selectedMilestone.title}</strong></div>
+            <dl>
+              <div><dt>ゲート</dt><dd>{selectedMilestone.gate || "未設定"}</dd></div>
+              <div><dt>担当</dt><dd>{selectedMilestone.ownerLabel || "担当未設定"}</dd></div>
+              <div><dt>予定</dt><dd>{formatDate(selectedMilestone.plannedEnd)}</dd></div>
+              <div><dt>予測</dt><dd>{formatDate(selectedMilestone.forecastEnd)}</dd></div>
+            </dl>
+            <Link href={`/project/${encodeURIComponent(bundle.project.projectId)}/workspace#management-plan`}>計画詳細<ArrowRight aria-hidden="true" /></Link>
+          </div>}
         </section>
 
         <section id="issue-hypothesis" className={styles.section}>
           <div className={styles.issueHeading}>
-            <div><p className={styles.eyebrow}>ISSUE &amp; HYPOTHESIS CONTROL</p><h2>論点と仮説を、忘れられない流れに乗せる</h2><p>担当・期限・次の検証・根拠・最終確認日が欠けたら、要フォローへ自動で浮かせる。</p></div>
+            <div><h2>論点・仮説リスト</h2></div>
             {management.canManage && <button type="button" className={styles.primaryButton} onClick={() => setEditor({ kind: "create_issue" })}><Plus aria-hidden="true" />論点を起票</button>}
           </div>
           <div className={styles.controls}>
@@ -671,14 +683,14 @@ export function SxWeeklyControlDashboard({ bundle, access }: { bundle: ProjectWo
           </div>
           <div className={styles.issueBoard}>
             {STAGES.map((stage) => <section className={styles.stageColumn} key={stage.key}>
-              <header><span>{stage.index}</span><div><h3>{stage.label}</h3><p>{stage.description}</p></div><strong>{stageGroups[stage.key].length}</strong></header>
+              <header><span>{stage.index}</span><div><h3>{stage.label}</h3></div><strong>{stageGroups[stage.key].length}</strong></header>
               <div className={styles.stageCards}>{stageGroups[stage.key].map((issue) => <IssueCard key={issue.id} issue={issue} asOf={management.asOf} canManage={management.canManage} onEdit={setEditor} />)}{stageGroups[stage.key].length === 0 && <div className={styles.columnEmpty}><CircleDot aria-hidden="true" /><p>{query || viewFilter !== "all" || trackFilter !== "all" ? "条件に合う論点なし" : "この段階の論点なし"}</p></div>}</div>
             </section>)}
           </div>
         </section>
 
         <section id="input-readiness" className={styles.inputSection}>
-          <div><p className={styles.eyebrow}>INPUT READINESS</p><h2>情報を入れる前の接続口</h2><p>UIの受け皿を先に固定し、計画・進捗の正本から差分を抽出する工程は次に分離する。</p></div>
+          <div><h2>データ接続状況</h2></div>
           <div className={styles.inputCards}>
             <article><FileSearch aria-hidden="true" /><div><span>週次差分</span><strong>接続待ち</strong><small>完了・予測変更・新しい詰まり</small></div></article>
             <article><FlaskConical aria-hidden="true" /><div><span>論点・仮説</span><strong>{management.issues.length}件</strong><small>現行管理台帳から仮表示</small></div></article>

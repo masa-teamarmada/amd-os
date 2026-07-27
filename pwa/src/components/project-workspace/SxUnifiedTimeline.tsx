@@ -105,6 +105,7 @@ export function SxUnifiedTimeline({
   canManage,
   onEditMilestone,
   onCreateMilestone,
+  showPins = true,
 }: {
   timeline: SxEcdUnifiedTimeline;
   asOf: string;
@@ -113,6 +114,7 @@ export function SxUnifiedTimeline({
   canManage: boolean;
   onEditMilestone: (milestoneId: string) => void;
   onCreateMilestone: (track: string | null) => void;
+  showPins?: boolean;
 }) {
   // ピンはクリックで下方向へ飛ばさない（2026-07-27 まさ確定）。hover/focusで中身を出す。
   const [hoveredPin, setHoveredPin] = useState<string | null>(null);
@@ -126,9 +128,10 @@ export function SxUnifiedTimeline({
   }
 
   const lanesHeight = lanesTotalHeight(timeline.lanes);
-  const gridHeight = PIN_ROW_H + lanesHeight;
+  const pinRowHeight = showPins ? PIN_ROW_H : 0;
+  const gridHeight = pinRowHeight + lanesHeight;
   const criticalPolyline = timeline.criticalPoints
-    .map((point) => ({ x: point.pct, y: PIN_ROW_H + rowCenterY(timeline.lanes, point.laneIndex, point.rowIndex) }))
+    .map((point) => ({ x: point.pct, y: pinRowHeight + rowCenterY(timeline.lanes, point.laneIndex, point.rowIndex) }))
     .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
 
   return (
@@ -156,9 +159,11 @@ export function SxUnifiedTimeline({
           <div className="grid grid-cols-[minmax(170px,205px)_minmax(0,1fr)]">
             {/* 左ラベル列（横スクロール中も固定） */}
             <div className="sticky left-0 z-30 border-r border-[#e8e2d6] bg-[#fffdf7]">
-              <div className="flex items-center border-b border-[#e8e2d6] pr-2" style={{ height: PIN_ROW_H }}>
-                <span className="text-[9px] font-semibold text-[#69665d]">ボール・介入（①〜は下の一覧と同番号）</span>
-              </div>
+              {showPins && (
+                <div className="flex items-center border-b border-[#e8e2d6] pr-2" style={{ height: PIN_ROW_H }}>
+                  <span className="text-[9px] font-semibold text-[#69665d]">ボール・介入（①〜は下の一覧と同番号）</span>
+                </div>
+              )}
               {timeline.lanes.map((lane) => (
                 <div key={lane.key} style={{ marginBottom: LANE_GAP }}>
                   <div className="group/lane flex min-w-0 items-center gap-1.5 border-b border-[#d6cebf] pr-2" style={{ height: LANE_HEADER_H }}>
@@ -250,7 +255,7 @@ export function SxUnifiedTimeline({
               )}
 
               {/* ピン行 */}
-              <div className="absolute inset-x-0 top-0 border-b border-[#e8e2d6]" style={{ height: PIN_ROW_H }}>
+              {showPins && <div className="absolute inset-x-0 top-0 border-b border-[#e8e2d6]" style={{ height: PIN_ROW_H }}>
                 {[...timeline.pins].sort((a, b) => b.rank - a.rank).map((pin) => (
                   <span
                     key={pin.key}
@@ -281,10 +286,10 @@ export function SxUnifiedTimeline({
                     )}
                   </span>
                 ))}
-              </div>
+              </div>}
 
               {/* レーン行のバー */}
-              <div className="absolute inset-x-0" style={{ top: PIN_ROW_H }}>
+              <div className="absolute inset-x-0" style={{ top: pinRowHeight }}>
                 {timeline.lanes.map((lane) => (
                   <div key={lane.key} style={{ marginBottom: LANE_GAP }}>
                     <div className="flex items-center border-b border-[#d6cebf] pl-2" style={{ height: LANE_HEADER_H }}>
@@ -303,7 +308,7 @@ export function SxUnifiedTimeline({
 
           {/* 凡例と非表示分の明示 */}
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[9px] text-[#9b9487]">
-            <span>バー=計画期間（開始→予定）で薄い塗り ・ 濃い塗り=完了した範囲（登録済みの進捗。すべて薄いのは進捗未登録のため） ・ 縦線=予定日 ・ ◇=予測日（中抜き=仮） ・ 灰バー=仮置きの日程での遅れ（根拠未確認） / 橙バー=根拠のある遅れ見込み / 赤=期限超過 ・ 太字+黒左罫=重要経路 ・ 破線=前提のつながり（前のゲートの結果が次の前提になる。台帳の依存登録から描画。日程上は並行して進む区間もある） ・ ①ピン=介入の期日（橙=相手側ボール / 黒=当方 / 白抜き=ボール未確認 / 黄リング=月精度）</span>
+            <span>バー=計画期間（開始→予定）で薄い塗り ・ 濃い塗り=完了した範囲（登録済みの進捗。すべて薄いのは進捗未登録のため） ・ 縦線=予定日 ・ ◇=予測日（中抜き=仮） ・ 灰バー=仮置きの日程での遅れ（根拠未確認） / 橙バー=根拠のある遅れ見込み / 赤=期限超過 ・ 太字+黒左罫=重要経路 ・ 破線=前提のつながり（前のゲートの結果が次の前提になる。台帳の依存登録から描画。日程上は並行して進む区間もある）{showPins ? " ・ ①ピン=介入の期日（橙=相手側ボール / 黒=当方 / 白抜き=ボール未確認 / 黄リング=月精度）" : ""}</span>
             {(timeline.undatedCount > 0 || timeline.completedCount > 0) && (
               <span className="font-semibold text-[#69665d]">
                 {timeline.undatedCount > 0 ? `日程未登録 ${timeline.undatedCount}件` : ""}{timeline.undatedCount > 0 && timeline.completedCount > 0 ? " ・ " : ""}{timeline.completedCount > 0 ? `完了 ${timeline.completedCount}件` : ""}（下の詳細表で確認）

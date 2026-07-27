@@ -68,9 +68,14 @@ expectIncludes("src/app/(app)/project/[projectId]/weekly-control/page.tsx", [
 ]);
 
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
-  "WEEKLY CHANGE RAIL",
+  "週次差分・判断・介入",
   "先週 → 今週",
-  "論点と仮説を、忘れられない流れに乗せる",
+  "全体ガント",
+  "論点・仮説リスト",
+  "データ接続状況",
+  "deriveSxUnifiedTimeline",
+  "SxUnifiedTimeline",
+  "showPins={false}",
   "抽出接続前 · 現行台帳の仮表示",
   "sxWeeklyIssueNextDueDate",
   "sxWeeklyIssueLastActivity",
@@ -82,6 +87,12 @@ expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", 
   "edit_action",
   "sxWeeklyIssueNextMove",
   "sxWeeklyWeekRangeLabel",
+]);
+
+expectNotIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
+  "論点と仮説を、忘れられない流れに乗せる",
+  "4本柱は、例外だけを見る",
+  "情報を入れる前の接続口",
 ]);
 
 expectIncludes("src/lib/sx-weekly-control.ts", [
