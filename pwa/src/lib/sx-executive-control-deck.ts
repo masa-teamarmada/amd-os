@@ -1086,7 +1086,7 @@ export function deriveSxVerdictSummary(params: {
       business = {
         label: "実際の遅れなし",
         tone: "unknown",
-        detail: `仮置きの見込みは予定より最大${maxOf(provisionalSlips)}日後ろ`,
+        detail: `仮置きの見込みは予定より最大${maxOf(provisionalSlips)}日遅れ`,
         provisional: true,
       };
     } else if (!allDatesKnown) {
@@ -1169,6 +1169,8 @@ export interface SxEcdTimelinePin {
   duePct: number;
   dueDatePrecision?: SxEcdDatePrecision;
   anchor: string;
+  /** 止まるゲート。ピンにカーソルを合わせただけで介入の中身が読めるようにするため持たせる。 */
+  gate: string;
   /** amber pin = 相手側/双方が持つボール、ink pin = 当方・担当側、hollow = ボール未確認。 */
   side: "partner" | "sx" | "unknown";
 }
@@ -1347,6 +1349,7 @@ export function deriveSxUnifiedTimeline(params: {
       duePct: dateToPct(row.dueDate as string, domainStart, domainEnd),
       dueDatePrecision: row.dueDatePrecision,
       anchor: row.anchor,
+      gate: row.gate,
       side: row.ballSide === "相手側" || row.ballSide === "双方" ? "partner" : row.ballSide === "未確認" || (row.ballSide === "担当" && row.ballOwner === "未確認") ? "unknown" : "sx",
     }));
   // 期日が近接するピンは横に最小間隔だけずらして重なりを消す（日付自体は変えない。位置補正のみ）。

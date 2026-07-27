@@ -522,6 +522,11 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "sx-partner-journey",
   "関係の流れ（これまで → 現在地 → ゴール）",
   "当方ボール",
+  // Round 22: 未接触のPoC候補先(数十社)は台帳へ流し込まず、専用ボードで数として見る。
+  // この除外が外れると、ボールと約束を5秒で読む台帳の役割が壊れる。
+  "sxIsUntouchedPocCandidate",
+  "ledgerPartners",
+  "sx-partner-poc-pointer",
   'border-l-[#b5533f]',
   // 2026-07-24: 外部PJメンバーにも見えるSX関係先台帳で内部コードネーム(まさ/かる/ちこ)を
   // そのまま出さないための表示専用正規化。この import が落ちると本文/担当/ボール等に
@@ -870,18 +875,22 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "rowCenterY",
   "criticalPolyline",
   "min-w-[880px]",
-  "onPinClick",
+  "data-sx-pin",
   // Round 20: 行クリックはモーダル、管理者は図から直接 追加/編集できる。
   "sxFormatSlip",
   "onEditMilestone",
   "onCreateMilestone",
   "canManage",
-  "灰バー=仮置きで予定より後ろ（実際の遅れではない）",
+  "灰バー=仮置きの日程での遅れ（根拠未確認）",
   "重要経路の順序",
   "担当未確認",
   "日程未登録",
   "aria-pressed",
   "focus-visible:outline",
+  // Round 22: ピンはクリックで飛ばさずhoverで中身を出す。遅れ語は「遅れ/前倒し」の二択。
+  "sx-pin-hovercard",
+  "onMouseEnter",
+  "止まるゲート:",
 ]);
 expectIncludes("src/lib/sx-executive-control-deck.ts", [
   // Provisional dates / missing dates must never resolve to a false-green current/future state.
@@ -2435,3 +2444,24 @@ expectIncludes("../ios/AMDOS/Core/Services/SupabaseService.swift", [
 ]);
 
 console.log("critical PWA UI anchors ok");
+
+// Round 22 (2026-07-27): PoC候補先ボード。関係先台帳とは役割が違うので別面で持つ。
+expectIncludes("src/components/project-workspace/SxPocCandidateBoard.tsx", [
+  "sx-poc-board",
+  "deriveSxPocBoard",
+  "排液 調達済",
+  "未接触の候補",
+  "母集団の総数と必要社数は台帳未登録",
+]);
+expectIncludes("src/lib/sx-poc-candidates.ts", [
+  "sxIsPocCandidate",
+  "sxIsUntouchedPocCandidate",
+  "deriveSxPocBoard",
+  "SX_POC_ROLE_PREFIX",
+  "roleLabel.startsWith",
+]);
+expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
+  "management-poc",
+  "PoC候補先リスト",
+  "SxPocCandidateBoard",
+]);

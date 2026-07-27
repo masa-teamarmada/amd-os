@@ -34,6 +34,7 @@ import { SxExecutiveControlDeck } from "./SxExecutiveControlDeck";
 import { SxDevelopmentThemeBoard } from "./SxDevelopmentThemeBoard";
 import { SxProofOutcomes } from "./SxProofOutcomes";
 import { SxPartnerPipeline } from "./SxPartnerPipeline";
+import { SxPocCandidateBoard } from "./SxPocCandidateBoard";
 import { sxPartnerDisplay, sxPartnerName } from "./sx-visual-shared";
 import { nominalizeSxActionLabel } from "@/lib/sx-action-label";
 import { sxNormalizePublicName } from "@/lib/sx-name-normalize";
@@ -1046,7 +1047,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
   };
 
   useEffect(() => {
-    const sectionIds = ["management-summary", "management-plan", "management-proof", "management-issues", "management-partners", "management-capacity"];
+    const sectionIds = ["management-summary", "management-plan", "management-proof", "management-issues", "management-partners", "management-poc", "management-capacity"];
     const sections = sectionIds.map((id) => document.getElementById(id)).filter((section): section is HTMLElement => Boolean(section));
     if (sections.length === 0) return;
     const observer = new IntersectionObserver((entries) => {
@@ -1062,7 +1063,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
     if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement || activeElement instanceof HTMLSelectElement || (activeElement instanceof HTMLElement && activeElement.isContentEditable)) return;
     return () => undefined;
   }, [selectedMilestoneId]);
-  const managementNavItems: Array<[string, string]> = [["management-summary", "経営サマリー"], ["management-plan", "計画詳細"], ["management-proof", "技術証明"], ["management-issues", "論点・仮説"], ["management-partners", "関係先"], ["management-capacity", "実行・体制"]];
+  const managementNavItems: Array<[string, string]> = [["management-summary", "経営サマリー"], ["management-plan", "計画詳細"], ["management-proof", "技術証明"], ["management-issues", "論点・仮説"], ["management-partners", "関係先"], ["management-poc", "PoC候補先"], ["management-capacity", "実行・体制"]];
 
   return (
     <div className="amd-desk-page-skin sx-management-workspace w-full min-w-0 max-w-full min-h-screen overflow-x-clip px-3 py-4 sm:px-5 lg:px-8 lg:py-7">
@@ -1188,6 +1189,19 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
             onAddRole={(partnerId) => setCreating({ resource: "partner_role", initialValues: { partner_id: partnerId } })}
             onEditRole={(roleId) => setEditing({ resource: "partner_role", id: roleId })}
           />
+        </section>
+
+        <section id="management-poc" className="rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6" aria-labelledby="poc-heading">
+          <SectionHeader
+            headingId="poc-heading"
+            kicker="PoC先確保"
+            title="PoC候補先リスト"
+            description="多量排出事業者の公表データから絞り込んだ候補先と、実際に接触が進んでいる先を、排液の調達に近い順で並べる。1社ずつのボールと約束は関係先リストで追う。"
+            action={<EditAction canManage={management.canManage} label="候補先を追加" onClick={() => setCreating({ resource: "partner", initialValues: { role_label: "PoC候補先（排液提供）", primary_track: "business_development", relationship_stage: "candidate" } })} />}
+          />
+          <div className="mt-4">
+            <SxPocCandidateBoard management={management} onEditPartner={(partnerId) => setEditing({ resource: "partner", id: partnerId })} />
+          </div>
         </section>
 
         <details id="management-ledger" className="scroll-mt-20 rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6" data-testid="sx-management-ledger">

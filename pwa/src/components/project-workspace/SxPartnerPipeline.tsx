@@ -12,6 +12,7 @@ import type {
 import { SX_PROOF_DEFINITIONS, SX_PROOF_THEME_SLUGS, SX_THEME_PROOF_MAP, type SxProofThemeSlug } from "@/lib/sx-proof-mapping";
 import { nominalizeSxActionLabel, nominalizeSxNextActionLabel } from "@/lib/sx-action-label";
 import { sxNormalizePublicName } from "@/lib/sx-name-normalize";
+import { sxIsUntouchedPocCandidate } from "@/lib/sx-poc-candidates";
 import {
   SxBadge,
   sxAllHoldingsForPartnerAudit,
@@ -495,17 +496,22 @@ export function SxPartnerPipeline({
   const milestoneTitleById = new Map(management.milestones.map((milestone) => [milestone.id, nominalizeSxActionLabel(milestone.title)]));
   const milestoneSlugById = new Map(management.milestones.map((milestone) => [milestone.id, milestone.slug]));
 
+  // 未接触のPoC候補先はこの台帳へ出さない。数十社を7列+履歴で並べると、ボールと約束を
+  // 5秒で読むという台帳の役割が壊れるため、専用の「PoC候補先リスト」で数として見る
+  // （2026-07-27 まさ指示。接触が始まった先は関係として、ここへ自動で戻ってくる）。
+  const ledgerPartners = management.partners.filter((partner) => !sxIsUntouchedPocCandidate(partner));
+  const untouchedPocCount = management.partners.length - ledgerPartners.length;
   const filterablePartners = activeRoleKind
-    ? management.partners.filter((partner) => (partner.roles.find((role) => role.isPrimary)?.roleKind || "unclassified") === activeRoleKind)
-    : management.partners;
+    ? ledgerPartners.filter((partner) => (partner.roles.find((role) => role.isPrimary)?.roleKind || "unclassified") === activeRoleKind)
+    : ledgerPartners;
   // Both trailing sections read from the role-filtered list too (spec P1: role filter中の保留欄も選択
   // roleに合うものだけ) — selecting a category must narrow 保留/終了 exactly like the main groups.
   const deferredPartners = filterablePartners.filter((partner) => partner.deferredLowPriority);
   const endedPartners = filterablePartners.filter((partner) => !partner.deferredLowPriority && sxIsPartnerEnded(partner));
   const groups = sxGroupPartnersByPrimaryClassification(filterablePartners);
 
-  const counts = sxComputeControlBandCounts(management.partners, management.asOf);
-  const roleCounts = sxPrimaryRoleKindCounts(management.partners);
+  const counts = sxComputeControlBandCounts(ledgerPartners, management.asOf);
+  const roleCounts = sxPrimaryRoleKindCounts(ledgerPartners);
 
   const rowGridCols = "grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:grid-cols-[1fr_1fr] xl:grid-cols-[128px_minmax(130px,1fr)_minmax(130px,1fr)_120px_120px_108px_124px]";
   const rowGapCols = "gap-x-2 md:gap-x-3 xl:gap-x-2";
@@ -550,6 +556,13 @@ export function SxPartnerPipeline({
           （groups.length === 0 だけを見ると「該当なし」を誤表示してしまう）。 */}
       {groups.length === 0 && deferredPartners.length === 0 && endedPartners.length === 0 && (
         <p className="px-3 py-6 text-center text-xs text-[#69665d]">該当する関係先はまだないよ。</p>
+      )}
+      {untouchedPocCount > 0 && (
+        <p className="border-b border-[#e4ddd0] bg-[#f8f5ec] px-3 py-1.5 text-[10px] text-[#69665d]" data-testid="sx-partner-poc-pointer">
+          まだ接触していないPoC候補先 {untouchedPocCount}社は
+          <a href="#management-poc" className="mx-1 font-semibold text-[#38745d] underline">PoC候補先リスト</a>
+          にまとめている。接触が始まった先はこの台帳へ出る。
+        </p>
       )}
       {groups.map((group) => (
         <div key={group.key}>

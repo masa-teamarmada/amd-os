@@ -1970,3 +1970,9 @@ Book A執筆規範 (japanese-tech-writing + cognitive-rhythm-writing) をSESSION
 - 対応: 7箇所すべて `await supabase.auth.signOut({ scope: "local" })` へ。route冒頭に既定値の罠を説明するコメントを追加。リダイレクト先・cookie削除・`markCalendarStatus` は無変更で、変えたのはセッション失効範囲だけ。
 - 再発防止: `check_pwa_critical_ui.cjs` に引数なし `supabase.auth.signOut()` を禁じる `expectNotIncludes` と、`{ scope: "local" }` 付きが7箇所ある `expectCountAtLeast` を追加。7箇所全部を戻した場合と1箇所だけ戻したコピペ事故の両方で `test:critical-ui` が落ちることを退行注入で確認済み。
 - 検証: critical-ui / `tsc --noEmit` 0件 / 対象eslint 0件 / production build 成功。本番実害は未発生（潜在バグ）のため画面差分なし。
+### 追補2（2026-07-27、v3.49.31 実使用フィードバック6件）
+
+- まさ指摘: ①「予定より28日後ろ」がまだ分からない、遅れ/前倒しのどちらかにして ②ガント上の丸番号をクリックすると下へスクロールするのがイケてない、hoverで出して ③「山地正洋」とフルネームなのは変、名字だけに ④SMBCの「窓口移管方針を確認した」は誤り。石原先生から「これ自分がやりとりしないといけないのか？」と疑問が出ただけなので初回面談実施までに戻す。ゴールはEWIR参画 ⑤パートナーズファンドのゴールは出資確定、そこまでにデューデリジェンスが要る ⑥かるが作ったPoC候補先リストの数十社を関係先へ入れ、リスト自体もダッシュボードへ。
+- 対応: `sxFormatSlip`から「後ろ」を全廃 / ピンを`sx-pin-hovercard`のhover表示へ（`onPinClick`廃止、pinへgateを追加）/ 表示名を名字へ / SMBCは該当interaction・work itemを非表示化しゴールと次の一手を実態へ / PFへデューデリジェンスのwork item追加 / `SxPocCandidateBoard`+`management-poc`節を新設し、既存の管理API経由で候補38件・接触先12件を登録。未接触の候補は関係先台帳から外して件数と導線だけ残す。
+- 候補先データの出典: `SX_多量排出事業者リスト_260623.pptx`（かる作成、6地域の多量排出事業者公表データから抽出）と `SX_BNV_260721.pptx` p.5（ルート別の相談中/合意済/調達済）。母集団件数と必要社数（30-40社）は資料にはあるが台帳未登録のため画面へは書いていない。
+- 未解決: ファインケムはBNV資料では「合意済・排液取得前」だが、台帳では低優先・保留のまま（まさの保留指示が優先）。せとのわ紹介の3件は社名未記載のため未登録。

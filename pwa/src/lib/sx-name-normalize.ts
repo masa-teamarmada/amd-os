@@ -3,8 +3,8 @@
  * the SX partner surface, which external partner members can see. Never
  * mutates DB values or API payloads — call only at render time.
  *
- * Canonical mapping (confirmed against knowledge/sx.md): まさ→山地正洋,
- * かる→輕部琢真, ちこ→遠藤千穂.
+ * Canonical mapping (confirmed against knowledge/sx.md): まさ→山地,
+ * かる→輕部, ちこ→遠藤.
  *
  * A naive replaceAll/regex-boundary approach is unsafe in Japanese: there is
  * no whitespace between words, so "the alias is not preceded/followed by a
@@ -50,9 +50,9 @@
  */
 
 const CODE_NAME_TO_REAL_NAME: ReadonlyArray<readonly [string, string]> = [
-  ["まさ", "山地正洋"],
-  ["かる", "輕部琢真"],
-  ["ちこ", "遠藤千穂"],
+  ["まさ", "山地"],
+  ["かる", "輕部"],
+  ["ちこ", "遠藤"],
 ];
 
 const REAL_NAME_BY_CODE_NAME: ReadonlyMap<string, string> = new Map(CODE_NAME_TO_REAL_NAME);

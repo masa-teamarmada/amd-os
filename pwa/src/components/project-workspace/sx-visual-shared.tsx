@@ -117,13 +117,13 @@ export function sxFormatDelta(deltaDays: number | null, dateCertainty: "confirme
 }
 
 /** 予定と予測の差を、方向が一目で分かる言葉にする（「差」だけでは進みか遅れか読めないため、
- * 必ず「遅れ/後ろ/前倒し」を言う）。仮日程どうしの差を「遅れ」と言い切らない。 */
+ * 必ず「遅れ/前倒し」のどちらかを言う。まさ確定2026-07-27: 「後ろ」は方向が伝わらないので使わない）。仮日程の差には（仮置き）を添えて根拠の弱さを示す。 */
 export function sxFormatSlip(deltaDays: number | null, slipKind: "overdue" | "confirmed_slip" | "provisional_slip" | "none") {
   if (slipKind === "overdue") return "期限超過";
   if (deltaDays == null) return "差分未算定";
   if (slipKind === "confirmed_slip") return `予定より${deltaDays}日遅れ見込み`;
-  if (slipKind === "provisional_slip") return `予定より${deltaDays}日後ろ（仮置き）`;
-  return deltaDays === 0 ? "予定どおり" : deltaDays < 0 ? `予定より${Math.abs(deltaDays)}日前倒し` : `予定より${deltaDays}日後ろ`;
+  if (slipKind === "provisional_slip") return `予定より${deltaDays}日遅れ（仮置き）`;
+  return deltaDays === 0 ? "予定どおり" : deltaDays < 0 ? `予定より${Math.abs(deltaDays)}日前倒し` : `予定より${deltaDays}日遅れ`;
 }
 
 /** Evidence completeness for a pillar's signal strip: owner / completion criteria / measured KPI / verified confidence. Never averages progress_pct into this. */

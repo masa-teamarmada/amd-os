@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Flag } from "lucide-react";
 import type { SxEcdUnifiedTimeline, SxEcdTimelineLane, SxEcdTimelineRow } from "@/lib/sx-executive-control-deck";
 import { sxFormatDate, sxFormatSlip } from "./sx-visual-shared";
@@ -95,7 +96,6 @@ export function SxUnifiedTimeline({
   asOf,
   selectedMilestoneId,
   onSelectMilestone,
-  onPinClick,
   canManage,
   onEditMilestone,
   onCreateMilestone,
@@ -104,11 +104,13 @@ export function SxUnifiedTimeline({
   asOf: string;
   selectedMilestoneId: string | null;
   onSelectMilestone: (milestoneId: string | null) => void;
-  onPinClick: (anchor: string) => void;
   canManage: boolean;
   onEditMilestone: (milestoneId: string) => void;
   onCreateMilestone: (track: string | null) => void;
 }) {
+  // ピンはクリックで下方向へ飛ばさない（2026-07-27 まさ確定）。hover/focusで中身を出す。
+  const [hoveredPin, setHoveredPin] = useState<string | null>(null);
+
   if (!timeline.valid) {
     return (
       <p className="rounded-md border border-dashed border-[#b5533f] bg-[#f9e4e1] px-2.5 py-2 text-[11px] font-semibold text-[#8c3329]" data-testid="sx-unified-timeline">
@@ -244,21 +246,34 @@ export function SxUnifiedTimeline({
               {/* ピン行 */}
               <div className="absolute inset-x-0 top-0 border-b border-[#e8e2d6]" style={{ height: PIN_ROW_H }}>
                 {[...timeline.pins].sort((a, b) => b.rank - a.rank).map((pin) => (
-                  <a
+                  <span
                     key={pin.key}
-                    href={pin.anchor.startsWith("#") ? pin.anchor : `#${pin.anchor}`}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      onPinClick(pin.anchor);
-                    }}
                     data-sx-pin={pin.rank}
-                    className={`absolute top-1/2 z-10 flex h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-[10px] font-bold leading-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${pin.side === "partner" ? "bg-[#bf7b2c] text-white" : pin.side === "unknown" ? "border-2 border-[#24231f] bg-[#fffdf7] text-[#24231f]" : "bg-[#24231f] text-white"} ${pin.dueDatePrecision === "month" ? "ring-2 ring-[#e3c994]" : ""}`}
+                    tabIndex={0}
+                    role="button"
+                    onMouseEnter={() => setHoveredPin(pin.key)}
+                    onMouseLeave={() => setHoveredPin((current) => (current === pin.key ? null : current))}
+                    onFocus={() => setHoveredPin(pin.key)}
+                    onBlur={() => setHoveredPin((current) => (current === pin.key ? null : current))}
+                    className={`absolute top-1/2 z-10 flex h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 cursor-default items-center justify-center rounded-full text-[10px] font-bold leading-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${pin.side === "partner" ? "bg-[#bf7b2c] text-white" : pin.side === "unknown" ? "border-2 border-[#24231f] bg-[#fffdf7] text-[#24231f]" : "bg-[#24231f] text-white"} ${pin.dueDatePrecision === "month" ? "ring-2 ring-[#e3c994]" : ""}`}
                     style={{ left: `${pin.duePct}%` }}
-                    title={`${pin.rank} ${pin.target}（期限 ${pin.dueDate}${pin.dueDatePrecision === "month" ? "・月精度" : ""}）`}
-                    aria-label={`介入${pin.rank}番 ${pin.target} 期限位置`}
+                    aria-label={`介入${pin.rank}番 ${pin.target}。ボール ${pin.ballSide}・${pin.ballOwner}。期限 ${pin.dueDate}${pin.dueDatePrecision === "month" ? "（月精度）" : ""}。止まるゲート ${pin.gate}`}
                   >
                     {pin.rank}
-                  </a>
+                    {hoveredPin === pin.key && (
+                      <span
+                        data-testid="sx-pin-hovercard"
+                        className={`pointer-events-none absolute top-[22px] z-30 w-[230px] rounded-md border border-[#d6cebf] bg-[#fffdf7] px-2 py-1.5 text-left shadow-[0_6px_16px_rgba(36,35,31,0.16)] ${pin.duePct > 70 ? "right-0 translate-x-[10px]" : "left-0 -translate-x-[10px]"}`}
+                      >
+                        <span className="block text-[11px] font-bold leading-4 text-[#24231f]">{pin.rank}. {pin.target}</span>
+                        <span className={`mt-0.5 block text-[10px] font-semibold leading-4 ${pin.side === "sx" ? "text-[#8c3329]" : "text-[#514e47]"}`}>
+                          {pin.side === "sx" ? `当方ボール・${pin.ballOwner}` : `${pin.ballSide}・${pin.ballOwner}`}
+                        </span>
+                        <span className="mt-0.5 block text-[10px] leading-4 text-[#514e47]">期限 {pin.dueDate}{pin.dueDatePrecision === "month" ? "（日付未確認）" : ""}</span>
+                        <span className="mt-0.5 block text-[10px] leading-4 text-[#514e47]">止まるゲート: {pin.gate}</span>
+                      </span>
+                    )}
+                  </span>
                 ))}
               </div>
 
@@ -282,7 +297,7 @@ export function SxUnifiedTimeline({
 
           {/* 凡例と非表示分の明示 */}
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[9px] text-[#9b9487]">
-            <span>バー=計画（開始→予定） ・ 縦線=予定日 ・ ◇=予測日（中抜き=仮） ・ 灰バー=仮置きで予定より後ろ（実際の遅れではない） / 橙バー=根拠のある遅れ見込み / 赤=期限超過 ・ 太字+黒左罫=重要経路 ・ 破線=重要経路の順序（前のゲートが終わってから次へ進む依存のつながり） ・ ①ピン=介入の期日（橙=相手側ボール / 黒=当方 / 白抜き=ボール未確認 / 黄リング=月精度）</span>
+            <span>バー=計画（開始→予定） ・ 縦線=予定日 ・ ◇=予測日（中抜き=仮） ・ 灰バー=仮置きの日程での遅れ（根拠未確認） / 橙バー=根拠のある遅れ見込み / 赤=期限超過 ・ 太字+黒左罫=重要経路 ・ 破線=重要経路の順序（前のゲートが終わってから次へ進む依存のつながり） ・ ①ピン=介入の期日（橙=相手側ボール / 黒=当方 / 白抜き=ボール未確認 / 黄リング=月精度）</span>
             {(timeline.undatedCount > 0 || timeline.completedCount > 0) && (
               <span className="font-semibold text-[#69665d]">
                 {timeline.undatedCount > 0 ? `日程未登録 ${timeline.undatedCount}件` : ""}{timeline.undatedCount > 0 && timeline.completedCount > 0 ? " ・ " : ""}{timeline.completedCount > 0 ? `完了 ${timeline.completedCount}件` : ""}（下の詳細表で確認）

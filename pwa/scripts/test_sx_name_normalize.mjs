@@ -2,28 +2,28 @@ import assert from "node:assert/strict";
 import { sxNormalizePublicName, sxNormalizePublicNameForTest } from "../src/lib/sx-name-normalize.ts";
 
 const cases = [
-  ["まさへ引き継ぐ", "山地正洋へ引き継ぐ"],
-  ["まさが窓口", "山地正洋が窓口"],
-  ["石原先生 → まさ", "石原先生 → 山地正洋"],
-  ["まさ", "山地正洋"],
-  ["まさ・かる", "山地正洋・輕部琢真"],
-  ["かるが担当", "輕部琢真が担当"],
-  ["ちこへ確認", "遠藤千穂へ確認"],
-  ["まさの確認待ち", "山地正洋の確認待ち"],
-  ["まさから連絡", "山地正洋から連絡"],
-  ["まさ、かる、ちこ", "山地正洋、輕部琢真、遠藤千穂"],
+  ["まさへ引き継ぐ", "山地へ引き継ぐ"],
+  ["まさが窓口", "山地が窓口"],
+  ["石原先生 → まさ", "石原先生 → 山地"],
+  ["まさ", "山地"],
+  ["まさ・かる", "山地・輕部"],
+  ["かるが担当", "輕部が担当"],
+  ["ちこへ確認", "遠藤へ確認"],
+  ["まさの確認待ち", "山地の確認待ち"],
+  ["まさから連絡", "山地から連絡"],
+  ["まさ、かる、ちこ", "山地、輕部、遠藤"],
   // P1-1: natural Japanese left contexts (preceding particle establishes boundary)
-  ["担当はまさ", "担当は山地正洋"],
-  ["窓口担当はまさへ確認", "窓口担当は山地正洋へ確認"],
-  ["石原先生からまさへ引き継ぐ", "石原先生から山地正洋へ引き継ぐ"],
+  ["担当はまさ", "担当は山地"],
+  ["窓口担当はまさへ確認", "窓口担当は山地へ確認"],
+  ["石原先生からまさへ引き継ぐ", "石原先生から山地へ引き継ぐ"],
   // P1-1: honorifics / separators establishing right boundary
-  ["まささん", "山地正洋さん"],
-  ["まさ：確認待ち", "山地正洋：確認待ち"],
-  ["「まさ」", "「山地正洋」"],
+  ["まささん", "山地さん"],
+  ["まさ：確認待ち", "山地：確認待ち"],
+  ["「まさ」", "「山地」"],
   // P1-1: compound trailing particles (whitelisted)
-  ["まさへの引継ぎ", "山地正洋への引継ぎ"],
-  ["まさとの合意", "山地正洋との合意"],
-  ["まさからの連絡", "山地正洋からの連絡"],
+  ["まさへの引継ぎ", "山地への引継ぎ"],
+  ["まさとの合意", "山地との合意"],
+  ["まさからの連絡", "山地からの連絡"],
   // P1-2: explicit person-role/introduction prefixes glued to an alias so
   // Intl.Segmenter reads "は"+alias as a single dictionary word (e.g. はかる
   // as the verb 測る/計る), hiding the alias from the normal boundary scan.
@@ -31,9 +31,9 @@ const cases = [
 
 const ROLE_PREFIXES = ["担当は", "窓口は", "窓口担当は", "担当者は"];
 const ALIAS_REAL_NAMES = [
-  ["まさ", "山地正洋"],
-  ["かる", "輕部琢真"],
-  ["ちこ", "遠藤千穂"],
+  ["まさ", "山地"],
+  ["かる", "輕部"],
+  ["ちこ", "遠藤"],
 ];
 const SUFFIXES = [
   { suffix: "", label: "bare" },
@@ -53,9 +53,9 @@ for (const prefix of ROLE_PREFIXES) {
 
 // Mid-sentence role context (prefix not at string start).
 cases.push(
-  ["石原先生に窓口担当はかるへ確認をお願いした", "石原先生に窓口担当は輕部琢真へ確認をお願いした"],
-  ["来週から担当はちこさんに変わります", "来週から担当は遠藤千穂さんに変わります"],
-  ["新しい担当者はまさです", "新しい担当者は山地正洋です"],
+  ["石原先生に窓口担当はかるへ確認をお願いした", "石原先生に窓口担当は輕部へ確認をお願いした"],
+  ["来週から担当はちこさんに変わります", "来週から担当は遠藤さんに変わります"],
+  ["新しい担当者はまさです", "新しい担当者は山地です"],
 );
 
 // P1-3: role-noun + connector left-context, exhaustive across は/が/の/と for
@@ -70,10 +70,10 @@ for (const connector of ROLE_CONNECTORS) {
 
 // P1-3: explicit examples from the corruption report.
 cases.push(
-  ["担当がかる", "担当が輕部琢真"],
-  ["担当がちこ", "担当が遠藤千穂"],
-  ["担当のちこ", "担当の遠藤千穂"],
-  ["担当とかる", "担当と輕部琢真"],
+  ["担当がかる", "担当が輕部"],
+  ["担当がちこ", "担当が遠藤"],
+  ["担当のちこ", "担当の遠藤"],
+  ["担当とかる", "担当と輕部"],
 );
 
 // P1-3: suffix end / さん / へ確認 combined with the role-connector left
@@ -98,13 +98,13 @@ for (const [alias, realName] of ALIAS_REAL_NAMES) {
 // P1-4: generalized role/side markers (uppercase acronyms + Japanese
 // compounds ending in a role-marker word), from the follow-up review.
 cases.push(
-  ["CEOはまさ", "CEOは山地正洋"],
-  ["COOはまさ", "COOは山地正洋"],
-  ["PMはかる", "PMは輕部琢真"],
-  ["PLはかる", "PLは輕部琢真"],
-  ["技術DDはちこ", "技術DDは遠藤千穂"],
-  ["SX側はまさ", "SX側は山地正洋"],
-  ["大学側からまさへ引継ぎ", "大学側から山地正洋へ引継ぎ"],
+  ["CEOはまさ", "CEOは山地"],
+  ["COOはまさ", "COOは山地"],
+  ["PMはかる", "PMは輕部"],
+  ["PLはかる", "PLは輕部"],
+  ["技術DDはちこ", "技術DDは遠藤"],
+  ["SX側はまさ", "SX側は山地"],
+  ["大学側からまさへ引継ぎ", "大学側から山地へ引継ぎ"],
 );
 
 for (const [input, expected] of cases) {

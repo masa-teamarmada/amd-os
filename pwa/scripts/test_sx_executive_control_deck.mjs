@@ -360,7 +360,7 @@ function issue(overrides = {}) {
   const row = queue.rows.find((item) => item.kind === "partner_work_item");
   assert.ok(row, "expected a partner_work_item row");
   assert.equal(row.ballSide, "相手側");
-  assert.equal(row.ballOwner, "山地正洋"); // まさ normalized to real name on the external-visible surface
+  assert.equal(row.ballOwner, "山地"); // まさ normalized to real name on the external-visible surface
   assert.ok(row.target.includes("パートナーX"));
   assert.equal(row.entityId, "partner-1");
 }
@@ -511,7 +511,7 @@ function issue(overrides = {}) {
   assert.equal(row.ballSide, "SX側");
   assert.equal(row.ballOwner, "石原先生");
   assert.ok(row.target.includes("SMBC"));
-  assert.ok(row.target.includes("山地正洋"), "まさ must be normalized to the real name on this external-visible surface");
+  assert.ok(row.target.includes("山地"), "まさ must be normalized to the real name on this external-visible surface");
   assert.ok(!row.target.includes("まさへ"), "the raw code-name phrase must not leak through unnormalized");
 }
 
@@ -729,7 +729,7 @@ function issue(overrides = {}) {
   assert.equal(summary.business.label, "実際の遅れなし");
   assert.equal(summary.business.tone, "unknown");
   assert.equal(summary.business.provisional, true);
-  assert.equal(summary.business.detail, "仮置きの見込みは予定より最大28日後ろ");
+  assert.equal(summary.business.detail, "仮置きの見込みは予定より最大28日遅れ");
   assert.equal(summary.operations.verdictLabel, "判定不能");
   assert.equal(summary.step2.known, false);
   assert.equal(summary.step2.label, "未確認");
@@ -908,7 +908,7 @@ function issue(overrides = {}) {
   });
   assert.equal(provisionalOnly.business.label, "実際の遅れなし");
   assert.equal(provisionalOnly.business.tone, "unknown");
-  assert.equal(provisionalOnly.business.detail, "仮置きの見込みは予定より最大7日後ろ");
+  assert.equal(provisionalOnly.business.detail, "仮置きの見込みは予定より最大7日遅れ");
   assert.equal(provisionalOnly.business.provisional, true);
 
   // 根拠のある見直しは従来どおり「遅延見込み」でamber

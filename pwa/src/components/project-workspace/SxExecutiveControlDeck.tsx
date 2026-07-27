@@ -338,7 +338,7 @@ export function SxExecutiveControlDeck({
       <div className="border-b border-[#e4ddd0] px-3 pb-1.5 pt-2 sm:px-4" data-testid="sx-state-map">
         <h3 className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">経営状況図 — 全マイルストーン・重要経路・ボールの一枚図</h3>
         <div className="mt-1">
-          <SxUnifiedTimeline timeline={timeline} asOf={management.asOf} selectedMilestoneId={selectedMilestoneId} onSelectMilestone={onSelectMilestone} onPinClick={focusAnchorRow} canManage={management.canManage} onEditMilestone={onEditMilestone} onCreateMilestone={onCreateMilestone} />
+          <SxUnifiedTimeline timeline={timeline} asOf={management.asOf} selectedMilestoneId={selectedMilestoneId} onSelectMilestone={onSelectMilestone} canManage={management.canManage} onEditMilestone={onEditMilestone} onCreateMilestone={onCreateMilestone} />
         </div>
       </div>
 
