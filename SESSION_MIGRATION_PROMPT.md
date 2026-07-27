@@ -4,7 +4,7 @@
 cd /Users/masa/projects/AMD/amd-os
 
 あなたは、株式会社チームアルマダの社内OS「AMD OS」を引き継ぐえいみ。
-今回の受領済み作業は、admin月初合意画面の対象月選択を手入力からプルダウンへ変え、202606の「対象外」が何を意味するか画面で説明できるようにしたこと。これは `6dd7d130` としてmain・productionへ反映済みで、次セッションは同じ実装をやり直さない。別 worker の予定額変更理由 `0330c547` とSX資金計画画面 `8d1fbada` は `origin/main` に入っているが未レビューで、productionには未deploy。
+今回の受領済み作業は、admin月初合意画面の対象月選択を手入力からプルダウンへ変え、202606の「対象外」が何を意味するか画面で説明できるようにしたこと。これは `6dd7d130` としてmain・productionへ反映済みで、次セッションは同じ実装をやり直さない。別 worker の予定額変更理由 `0330c547`、SX資金計画画面 `8d1fbada`、再読み込み型修正 `a3b278bb` は `origin/main` に入っているが未レビューで、productionには未反映。
 
 ## 最初に読む順
 
@@ -29,7 +29,7 @@ cd /Users/masa/projects/AMD/amd-os
 
 - cwd: `/Users/masa/projects/AMD/amd-os`
 - canonical branch: `main`
-- deployed production HEAD: `6dd7d130`。`origin/main`は`b78e4fff`まで進み、その履歴には`0330c547`、`8d1fbada`、`a3b278bb`とhandoff更新commit群が含まれる。local HEADは`c9865236`でoriginよりhandoff更新1commit先行。productionは未deployのまま採否判断を待つ。
+- deployed production HEAD: `6dd7d130`。`origin/main`は`b78e4fff`まで進み、その履歴には`0330c547`、`8d1fbada`、`a3b278bb`とhandoff更新commit群が含まれる。local HEADは`6ea4b067`でoriginよりhandoff更新3commit先行。productionは未反映のまま採否判断を待つ。
 - accepted production: `https://amd-os-pwa.vercel.app`、`v3.51.3`、`git_sha=6dd7d1307e85179d6a2cd521d82fdd686827b4fe`、`git_branch=main`、`dirty=false`。
 - local `pwa/src/lib/build-info.ts` は別workerの`a3b278bb`上で`v3.51.6`。productionは`v3.51.3`のままなので、local値を鵜呑みにせず、レビュー後にversionを確定する。
 - accepted commit: `c760851c fix(pwa): select monthly agreement month`
@@ -44,13 +44,13 @@ cd /Users/masa/projects/AMD/amd-os
 
 別 worker の再読み込みボタン型修正・変更履歴・build version更新は `a3b278bb fix(pwa): restore monthly agreement reload typing` としてcommit済み。これは `0330c547` の月初合意変更と、`8d1fbada` のSX資金計画画面変更とは別の未レビューcommitとして保全する。
 
-これは今回のプルダウンcommit・本番deployには含まれていない。`0330c547` は予定額変更理由の保存と合意停止を含み、`8d1fbada` はSX資金計画画面の表示・判定・検査・仕様同期を含み、`a3b278bb` は再読み込みボタン型修正・変更履歴・build version更新を含むため、まさの採否判断なしにpush・revertしない。採用する場合は、まず現行mainとの差分全体を読み、migration適用状況、`npm run test:monthly-agreement-diff`、`npm run test:critical-ui`、`npx tsc --noEmit`、対象eslint、`npm run build`を通し、production`v3.51.3`より新しいbuild versionへ整理してからdeployする。
+これは今回のプルダウンcommit・本番deployには含まれていない。`0330c547` は予定額変更理由の保存と合意停止を含み、`8d1fbada` はSX資金計画画面の表示・判定・検査・仕様同期を含み、`a3b278bb` は再読み込みボタン型修正・変更履歴・build version更新を含むため、まさの採否判断なしにproductionへ反映・revertしない。採用する場合は、まず現行mainとの差分全体を読み、migration適用状況、`npm run test:monthly-agreement-diff`、`npm run test:critical-ui`、`npx tsc --noEmit`、対象eslint、`npm run build`を通し、production`v3.51.3`より新しいbuild versionへ整理してからdeployする。
 
 ## 次タスク
 
 1. 開始時に `git status -sb --untracked-files=all`、`git log --oneline origin/main..HEAD`、`git diff --stat`、`git diff --name-only --diff-filter=U`、`curl -fsS https://amd-os-pwa.vercel.app/api/build-info` をread-onlyで確認する。
 2. `0330c547`、`8d1fbada`、`a3b278bb`をそれぞれ採用するか、まず全commit差分をレビューする。前者はDB schema/migration・合意API・admin画面のblocking契約、次はSX画面の判定契約、後者はreloadイベント型とbuild version契約を確認する。変更理由は自動推測せず、現在snapshotに紐づく人間の理由だけを保存する。
-3. 採用する場合は、テスト・build・本番versionを確認後、まさの明示判断を得てdeploy scriptでpushする。採用しない場合は、対象commitとWIPを所有者と照合してからrecoverableな保全または安全な削除を別closeoutで行う。
+3. 採用する場合は、テスト・build・本番versionを確認後、まさの明示判断を得てdeploy scriptでproduction反映へ進める。採用しない場合は、対象commitとWIPを所有者と照合してからrecoverableな保全または安全な削除を別closeoutで行う。
 4. 月選択だけの追加実装は不要。すでにproductionで確認済み。
 
 ## 確立済みの運用ルール
