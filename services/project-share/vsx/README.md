@@ -295,6 +295,13 @@ vercel --prod
 - 1440×900で、セクション間gap 0、横方向overflow 0、コンソールエラー0を確認した。PDFはPNGへ再レンダリングし、文字欠け、重なり、途中のカード分断がないことを目視確認した。
 - 本番デプロイID: `dpl_DuEypMgam6vfCeQN4C6GuYoY7EjM`。本番aliasは従来どおりVSX PROJECT SHARE。
 
+### PDF副成果物の誤移動復旧（2026-07-28）
+
+- closeoutの現物確認で、`260723_AgVentureLab_事業説明.pdf`がProject Shareルートではなく`PSI Step 2`配下にあることを検出した。
+- 2026-07-23の本番ドラッグ移動検証で実ファイルをルートから`PSI Step 2`へ動かしており、PDFを検証素材に使って戻さなかった可能性が最も高い。ただし、当時の個別操作ログによる完全確定はできていない。
+- ローカルの検証済みPDFをルートへ同名で再配置し、ファイル名とサイズの一致を読み戻して確認した。誤配置側の複製は削除済み。
+- 今後の本番移動検証は検証専用ファイルだけを使い、closeoutでは主成果物と副成果物の現在配置をBlobから再確認する。
+
 ### ファイルのドラッグ＆ドロップ移動が本番で動かない不具合を修正（2026-07-23）
 
 - 第1弾の修正（`<tr>`の`draggable`を外し`.name-content`を明示的なドラッグ面`.drag-handle`にする）をデプロイしたが、実機の押下→移動→離すの一連操作でも`dragstart`すら発火せず、`PATCH /api/files`が一切飛ばない事象が本番で継続した。HTML5ネイティブドラッグ自体がタッチ/トラックパッド操作や実際のマウスジェスチャーと相性が悪く、`draggable`属性に依存する限り再現しない不具合を仕込み続けるリスクがあると判断し、内部移動のドラッグ実装をネイティブHTML5ドラッグ（`dragstart`/`dragover`/`drop`、`dataTransfer`、`INTERNAL_MOVE_MIME`）からPointer Events（`pointerdown`/`pointermove`/`pointerup`/`pointercancel`）へ全面的に置き換えた。
