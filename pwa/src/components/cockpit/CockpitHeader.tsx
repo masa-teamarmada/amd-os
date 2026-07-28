@@ -105,21 +105,22 @@ function contractGridClass(blockCount: number) {
 
 function legacyCurrentContract(project: Props["project"]): ProjectCurrentContract | null {
   const terms = project.contractTerms;
-  if (!terms && !project.feeAmount) return null;
-  const nda = terms?.nda;
-  const hasContractEvidence = Boolean(terms?.currentContractId || terms?.sourceTitle || nda);
+  if (!terms) return null;
+  const nda = terms.nda;
+  const hasContractEvidence = Boolean(terms.currentContractId || terms.sourceTitle || nda);
+  if (!hasContractEvidence) return null;
   return {
-    contractId: terms?.currentContractId || null,
-    title: terms?.currentContractTitle || (nda ? "秘密保持契約" : terms?.sourceTitle || "PJ設定（契約未確認）"),
-    contractType: terms?.currentContractType || (nda ? "nda" : project.projectType || "contract"),
-    status: terms?.currentContractStatus || (nda ? "要押印確認" : hasContractEvidence ? "状態未確認" : "契約未確認"),
-    signatureStatus: terms?.signatureStatus || nda?.signatureStatus || null,
-    counterpartyName: terms?.counterpartyName || project.clientName || null,
-    effectiveDate: terms?.contractStartYm || nda?.effectiveDate || null,
-    expirationDate: terms?.contractEndYm || null,
-    renewalType: terms?.renewalType || nda?.term || null,
-    renewalNoticeDate: terms?.renewalNoticeDate || null,
-    terms: hasContractEvidence ? terms || {} : {},
+    contractId: terms.currentContractId || null,
+    title: terms.currentContractTitle || (nda ? "秘密保持契約" : terms.sourceTitle || "契約"),
+    contractType: terms.currentContractType || (nda ? "nda" : project.projectType || "contract"),
+    status: terms.currentContractStatus || (nda ? "要押印確認" : "状態未確認"),
+    signatureStatus: terms.signatureStatus || nda?.signatureStatus || null,
+    counterpartyName: terms.counterpartyName || project.clientName || null,
+    effectiveDate: terms.contractStartYm || nda?.effectiveDate || null,
+    expirationDate: terms.contractEndYm || null,
+    renewalType: terms.renewalType || nda?.term || null,
+    renewalNoticeDate: terms.renewalNoticeDate || null,
+    terms: terms || {},
   };
 }
 
@@ -140,7 +141,6 @@ function CurrentContractTerms({ contract, project }: { contract: ProjectCurrentC
   const periodEnd = ymLabel(contract.expirationDate || terms.contractEndYm);
   const contractAmount = formatYen(terms.amountTaxExclTotal);
   const contractMonthlyFee = formatYen(terms.monthlyFeeYen);
-  const projectMonthlyFee = formatYen(project.feeAmount);
   const payment = paymentDueRuleLabel(project.paymentDueRule, project.paymentDueDay);
   const summary = terms.cockpitSummary || {};
   const isNda = contract.contractType === "nda";
@@ -148,9 +148,7 @@ function CurrentContractTerms({ contract, project }: { contract: ProjectCurrentC
     ? `税抜総額 ${contractAmount}`
     : contractMonthlyFee
       ? `${feeTypeLabel(project.feeType) || "月額"} ${contractMonthlyFee}`
-      : projectMonthlyFee
-        ? `${feeTypeLabel(project.feeType) || "PJ設定"} ${projectMonthlyFee}`
-        : "金額未確認";
+      : "金額未確認";
   const invoiceTiming = textTerm(summary.invoiceTiming)
     || (terms.billingStartYm ? `請求開始 ${ymLabel(terms.billingStartYm)}` : "請求時期未確認");
   const paymentTiming = textTerm(summary.paymentTiming)
