@@ -248,9 +248,155 @@ export const SX_ANNUAL_PROJECTION: SxAnnualProjection[] = [
   { fiscalYear: 2035, revenueYen: 20_000_000_000, costOfSalesYen: 6_000_000_000, executiveCompensationYen: 45_000_000, salariesAndBonusesYen: 3_300_000_000, researchAndDevelopmentYen: 900_000_000, sellingGeneralAdministrativeYen: 3_755_000_000, subsidySpecialGainYen: 0, subsidyCompressionLossYen: 0, capexYen: 1_500_000_000, equityFundingYen: 10_000_000_000, subsidyCashReceiptYen: 0 },
 ];
 
-export function sxAnnualProjectionWithCash() {
+export const SX_ANNUAL_PROJECTION_FISCAL_YEARS = SX_ANNUAL_PROJECTION.map((year) => year.fiscalYear);
+
+export interface SxAnnualProjectionYearParameters {
+  revenueYen: number;
+  costOfSalesYen: number;
+  executiveHeadcount: number;
+  executiveAnnualCompensationPerPersonYen: number;
+  employeeHeadcount: number;
+  employeeAnnualCompensationPerPersonYen: number;
+  executiveAnnualTravelPerPersonYen: number;
+  employeeAnnualTravelPerPersonYen: number;
+  executiveAnnualConsumablesPerPersonYen: number;
+  employeeAnnualConsumablesPerPersonYen: number;
+  researchAndDevelopmentBaseYen: number;
+  otherSellingGeneralAdministrativeBaseYen: number;
+  otherCapexYen: number;
+  subsidySpecialGainYen: number;
+  subsidyCompressionLossYen: number;
+  subsidyCashReceiptYen: number;
+}
+
+export interface SxAnnualProjectionFactoryProject {
+  id: "pilot" | "demonstration" | "full-scale" | "second-line";
+  label: string;
+  fiscalYear: number;
+  costYen: number;
+}
+
+export interface SxAnnualProjectionParameters {
+  annualByFiscalYear: Record<number, SxAnnualProjectionYearParameters>;
+  nonIpoEquityFundingYenByFiscalYear: Record<number, number>;
+  factoryProjects: SxAnnualProjectionFactoryProject[];
+  ipoFiscalYear: number;
+  ipoProceedsYen: number;
+}
+
+const DEFAULT_EXECUTIVE_HEADCOUNTS = [1, 1, 1, 2, 3, 3, 4, 5, 5] as const;
+const DEFAULT_EXECUTIVE_COMPENSATION_PER_PERSON_YEN = [9_000_000, 12_000_000, 15_000_000, 9_000_000, 7_000_000, 8_000_000, 7_500_000, 7_200_000, 9_000_000] as const;
+const DEFAULT_EMPLOYEE_HEADCOUNTS = [2, 4, 6, 10, 20, 30, 50, 80, 120] as const;
+const DEFAULT_EMPLOYEE_COMPENSATION_PER_PERSON_YEN = [9_000_000, 10_500_000, 12_000_000, 13_000_000, 13_000_000, 16_000_000, 18_000_000, 21_250_000, 27_500_000] as const;
+const DEFAULT_EXECUTIVE_TRAVEL_PER_PERSON_YEN = 600_000;
+const DEFAULT_EMPLOYEE_TRAVEL_PER_PERSON_YEN = 300_000;
+const DEFAULT_EXECUTIVE_CONSUMABLES_PER_PERSON_YEN = 200_000;
+const DEFAULT_EMPLOYEE_CONSUMABLES_PER_PERSON_YEN = 150_000;
+const DEFAULT_FACTORY_COST_BY_FISCAL_YEAR: Record<number, number> = {
+  2027: 40_000_000,
+  2029: 160_000_000,
+  2031: 600_000_000,
+  2033: 800_000_000,
+};
+
+function defaultAnnualParameters(year: SxAnnualProjection, index: number): SxAnnualProjectionYearParameters {
+  const executiveHeadcount = DEFAULT_EXECUTIVE_HEADCOUNTS[index];
+  const employeeHeadcount = DEFAULT_EMPLOYEE_HEADCOUNTS[index];
+  const executiveAnnualTravelYen = executiveHeadcount * DEFAULT_EXECUTIVE_TRAVEL_PER_PERSON_YEN;
+  const employeeAnnualTravelYen = employeeHeadcount * DEFAULT_EMPLOYEE_TRAVEL_PER_PERSON_YEN;
+  const executiveAnnualConsumablesYen = executiveHeadcount * DEFAULT_EXECUTIVE_CONSUMABLES_PER_PERSON_YEN;
+  const employeeAnnualConsumablesYen = employeeHeadcount * DEFAULT_EMPLOYEE_CONSUMABLES_PER_PERSON_YEN;
+
+  return {
+    revenueYen: year.revenueYen,
+    costOfSalesYen: year.costOfSalesYen,
+    executiveHeadcount,
+    executiveAnnualCompensationPerPersonYen: DEFAULT_EXECUTIVE_COMPENSATION_PER_PERSON_YEN[index],
+    employeeHeadcount,
+    employeeAnnualCompensationPerPersonYen: DEFAULT_EMPLOYEE_COMPENSATION_PER_PERSON_YEN[index],
+    executiveAnnualTravelPerPersonYen: DEFAULT_EXECUTIVE_TRAVEL_PER_PERSON_YEN,
+    employeeAnnualTravelPerPersonYen: DEFAULT_EMPLOYEE_TRAVEL_PER_PERSON_YEN,
+    executiveAnnualConsumablesPerPersonYen: DEFAULT_EXECUTIVE_CONSUMABLES_PER_PERSON_YEN,
+    employeeAnnualConsumablesPerPersonYen: DEFAULT_EMPLOYEE_CONSUMABLES_PER_PERSON_YEN,
+    researchAndDevelopmentBaseYen: year.researchAndDevelopmentYen,
+    otherSellingGeneralAdministrativeBaseYen: year.sellingGeneralAdministrativeYen - executiveAnnualTravelYen - employeeAnnualTravelYen - executiveAnnualConsumablesYen - employeeAnnualConsumablesYen,
+    otherCapexYen: year.capexYen - (DEFAULT_FACTORY_COST_BY_FISCAL_YEAR[year.fiscalYear] ?? 0),
+    subsidySpecialGainYen: year.subsidySpecialGainYen,
+    subsidyCompressionLossYen: year.subsidyCompressionLossYen,
+    subsidyCashReceiptYen: year.subsidyCashReceiptYen,
+  };
+}
+
+const DEFAULT_ANNUAL_BY_FISCAL_YEAR = Object.fromEntries(
+  SX_ANNUAL_PROJECTION.map((year, index) => [year.fiscalYear, defaultAnnualParameters(year, index)]),
+) as Record<number, SxAnnualProjectionYearParameters>;
+
+export const SX_ANNUAL_PROJECTION_DEFAULT_PARAMETERS: SxAnnualProjectionParameters = {
+  annualByFiscalYear: DEFAULT_ANNUAL_BY_FISCAL_YEAR,
+  nonIpoEquityFundingYenByFiscalYear: Object.fromEntries(
+    SX_ANNUAL_PROJECTION.map((year) => [year.fiscalYear, year.fiscalYear === 2035 ? 0 : year.equityFundingYen]),
+  ),
+  factoryProjects: [
+    { id: "pilot", label: "小規模パイロット設備", fiscalYear: 2027, costYen: 40_000_000 },
+    { id: "demonstration", label: "自社量産実証工場", fiscalYear: 2029, costYen: 160_000_000 },
+    { id: "full-scale", label: "本格自社工場", fiscalYear: 2031, costYen: 600_000_000 },
+    { id: "second-line", label: "第二ライン・自動倉庫", fiscalYear: 2033, costYen: 800_000_000 },
+  ],
+  ipoFiscalYear: 2035,
+  ipoProceedsYen: 10_000_000_000,
+};
+
+export function createSxAnnualProjectionParameters(): SxAnnualProjectionParameters {
+  return {
+    annualByFiscalYear: Object.fromEntries(
+      Object.entries(SX_ANNUAL_PROJECTION_DEFAULT_PARAMETERS.annualByFiscalYear).map(([fiscalYear, values]) => [fiscalYear, { ...values }]),
+    ),
+    nonIpoEquityFundingYenByFiscalYear: { ...SX_ANNUAL_PROJECTION_DEFAULT_PARAMETERS.nonIpoEquityFundingYenByFiscalYear },
+    factoryProjects: SX_ANNUAL_PROJECTION_DEFAULT_PARAMETERS.factoryProjects.map((factory) => ({ ...factory })),
+    ipoFiscalYear: SX_ANNUAL_PROJECTION_DEFAULT_PARAMETERS.ipoFiscalYear,
+    ipoProceedsYen: SX_ANNUAL_PROJECTION_DEFAULT_PARAMETERS.ipoProceedsYen,
+  };
+}
+
+function nonNegativeYen(value: number | undefined): number {
+  return Number.isFinite(value) ? Math.max(0, value ?? 0) : 0;
+}
+
+function nonNegativeHeadcount(value: number | undefined): number {
+  return Math.round(nonNegativeYen(value));
+}
+
+export function sxAnnualProjectionWithCash(parameters: SxAnnualProjectionParameters = SX_ANNUAL_PROJECTION_DEFAULT_PARAMETERS) {
   let closingCashYen = 0;
-  return SX_ANNUAL_PROJECTION.map((year) => {
+  return SX_ANNUAL_PROJECTION.map((baseline, index) => {
+    const values = parameters.annualByFiscalYear[baseline.fiscalYear] ?? defaultAnnualParameters(baseline, index);
+    const executiveHeadcount = nonNegativeHeadcount(values.executiveHeadcount);
+    const employeeHeadcount = nonNegativeHeadcount(values.employeeHeadcount);
+    const executiveCompensationYen = executiveHeadcount * nonNegativeYen(values.executiveAnnualCompensationPerPersonYen);
+    const salariesAndBonusesYen = employeeHeadcount * nonNegativeYen(values.employeeAnnualCompensationPerPersonYen);
+    const travelAndConsumablesYen = (
+      executiveHeadcount * (nonNegativeYen(values.executiveAnnualTravelPerPersonYen) + nonNegativeYen(values.executiveAnnualConsumablesPerPersonYen))
+      + employeeHeadcount * (nonNegativeYen(values.employeeAnnualTravelPerPersonYen) + nonNegativeYen(values.employeeAnnualConsumablesPerPersonYen))
+    );
+    const capexYen = nonNegativeYen(values.otherCapexYen) + parameters.factoryProjects
+      .filter((factory) => factory.fiscalYear === baseline.fiscalYear)
+      .reduce((sum, factory) => sum + nonNegativeYen(factory.costYen), 0);
+    const equityFundingYen = nonNegativeYen(parameters.nonIpoEquityFundingYenByFiscalYear[baseline.fiscalYear])
+      + (parameters.ipoFiscalYear === baseline.fiscalYear ? nonNegativeYen(parameters.ipoProceedsYen) : 0);
+    const year = {
+      fiscalYear: baseline.fiscalYear,
+      revenueYen: nonNegativeYen(values.revenueYen),
+      costOfSalesYen: nonNegativeYen(values.costOfSalesYen),
+      executiveCompensationYen,
+      salariesAndBonusesYen,
+      researchAndDevelopmentYen: nonNegativeYen(values.researchAndDevelopmentBaseYen),
+      sellingGeneralAdministrativeYen: nonNegativeYen(values.otherSellingGeneralAdministrativeBaseYen) + travelAndConsumablesYen,
+      subsidySpecialGainYen: nonNegativeYen(values.subsidySpecialGainYen),
+      subsidyCompressionLossYen: nonNegativeYen(values.subsidyCompressionLossYen),
+      capexYen,
+      equityFundingYen,
+      subsidyCashReceiptYen: nonNegativeYen(values.subsidyCashReceiptYen),
+    };
     const sellingGeneralAdministrativeTotalYen = year.executiveCompensationYen + year.salariesAndBonusesYen + year.researchAndDevelopmentYen + year.sellingGeneralAdministrativeYen;
     const operatingExpenseYen = year.costOfSalesYen + sellingGeneralAdministrativeTotalYen;
     const grossProfitYen = year.revenueYen - year.costOfSalesYen;

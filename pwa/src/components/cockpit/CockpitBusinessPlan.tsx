@@ -4,11 +4,14 @@ import { useEffect, useState, type ReactNode } from "react";
 import {
   BriefcaseBusiness,
   Building2,
+  ChevronDown,
   CircleAlert,
   Factory,
   FlaskConical,
   Landmark,
+  RotateCcw,
   ShieldCheck,
+  SlidersHorizontal,
   UsersRound,
   type LucideIcon,
 } from "lucide-react";
@@ -17,8 +20,13 @@ import {
   SX_BUSINESS_PLAN_ASSUMPTIONS,
   SX_BUSINESS_PLAN_PHASES,
   SX_BUSINESS_PLAN_UPDATED_ON,
+  SX_ANNUAL_PROJECTION_FISCAL_YEARS,
+  createSxAnnualProjectionParameters,
   sxAnnualProjectionWithCash,
   type SxBusinessPlanLane,
+  type SxAnnualProjectionFactoryProject,
+  type SxAnnualProjectionParameters,
+  type SxAnnualProjectionYearParameters,
   type SxXrlTarget,
 } from "@/lib/sx-business-plan";
 import CapitalPlanWorkspace from "./CapitalPlanWorkspace";
@@ -216,8 +224,145 @@ function PhaseMatrix() {
   );
 }
 
+type AnnualParameterField = keyof SxAnnualProjectionYearParameters;
+
+interface AnnualParameterRow {
+  key: AnnualParameterField;
+  label: string;
+  kind?: "money" | "headcount";
+}
+
+function ParameterValueInput({
+  label,
+  fiscalYear,
+  value,
+  kind = "money",
+  onChange,
+}: {
+  label: string;
+  fiscalYear: number;
+  value: number;
+  kind?: "money" | "headcount";
+  onChange: (value: number) => void;
+}) {
+  const isMoney = kind === "money";
+  const displayValue = isMoney ? value / 1_000_000 : value;
+  return (
+    <input
+      aria-label={`${label} FY${String(fiscalYear).slice(-2)}${isMoney ? "（百万円）" : "（人）"}`}
+      className="h-10 w-full min-w-[76px] rounded-lg border border-slate-200 bg-white px-2 text-right font-mono text-xs tabular-nums text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+      type="number"
+      min="0"
+      step={isMoney ? "0.1" : "1"}
+      value={displayValue}
+      onChange={(event) => {
+        const next = event.currentTarget.valueAsNumber;
+        onChange(Number.isFinite(next) ? Math.max(0, isMoney ? next * 1_000_000 : Math.round(next)) : 0);
+      }}
+    />
+  );
+}
+
+function AnnualParameterTable({
+  title,
+  description,
+  rows,
+  parameters,
+  onChange,
+}: {
+  title: string;
+  description: string;
+  rows: AnnualParameterRow[];
+  parameters: SxAnnualProjectionParameters;
+  onChange: (fiscalYear: number, key: AnnualParameterField, value: number) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50/60">
+      <div className="border-b border-slate-200 px-4 py-3">
+        <h3 className="text-sm font-bold text-slate-950">{title}</h3>
+        <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{description}</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[1060px] text-xs">
+          <thead className="bg-slate-100 text-slate-600">
+            <tr>
+              <th className="sticky left-0 z-10 w-[250px] border-r border-slate-200 bg-slate-100 px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.12em]">入力項目</th>
+              {SX_ANNUAL_PROJECTION_FISCAL_YEARS.map((fiscalYear) => <th key={fiscalYear} className="min-w-[88px] px-2 py-2.5 text-right font-mono text-[11px]">FY{String(fiscalYear).slice(-2)}</th>)}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200 bg-white">
+            {rows.map((row) => (
+              <tr key={row.key}>
+                <th className="sticky left-0 z-10 border-r border-slate-200 bg-white px-4 py-2.5 text-left text-[11px] font-semibold text-slate-700">
+                  {row.label}<span className="ml-1 font-normal text-slate-400">{row.kind === "headcount" ? "人" : "百万円"}</span>
+                </th>
+                {SX_ANNUAL_PROJECTION_FISCAL_YEARS.map((fiscalYear) => (
+                  <td key={fiscalYear} className="px-2 py-2">
+                    <ParameterValueInput
+                      label={row.label}
+                      fiscalYear={fiscalYear}
+                      value={parameters.annualByFiscalYear[fiscalYear][row.key]}
+                      kind={row.kind}
+                      onChange={(value) => onChange(fiscalYear, row.key, value)}
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+const BUSINESS_AND_GRANT_PARAMETER_ROWS: AnnualParameterRow[] = [
+  { key: "revenueYen", label: "売上高" },
+  { key: "costOfSalesYen", label: "売上原価" },
+  { key: "researchAndDevelopmentBaseYen", label: "研究開発費（基礎額）" },
+  { key: "otherSellingGeneralAdministrativeBaseYen", label: "その他販管費（基礎額）" },
+  { key: "subsidySpecialGainYen", label: "助成金収入（特別利益）" },
+  { key: "subsidyCompressionLossYen", label: "圧縮損（特別損失）" },
+  { key: "subsidyCashReceiptYen", label: "助成金入金（資金繰り）" },
+  { key: "otherCapexYen", label: "工場以外の設備投資" },
+];
+
+const WORKFORCE_PARAMETER_ROWS: AnnualParameterRow[] = [
+  { key: "executiveHeadcount", label: "役員人数", kind: "headcount" },
+  { key: "executiveAnnualCompensationPerPersonYen", label: "役員報酬／人" },
+  { key: "executiveAnnualTravelPerPersonYen", label: "役員の旅費／人" },
+  { key: "executiveAnnualConsumablesPerPersonYen", label: "役員の消耗品費／人" },
+  { key: "employeeHeadcount", label: "社員人数", kind: "headcount" },
+  { key: "employeeAnnualCompensationPerPersonYen", label: "給与・賞与／人" },
+  { key: "employeeAnnualTravelPerPersonYen", label: "社員の旅費／人" },
+  { key: "employeeAnnualConsumablesPerPersonYen", label: "社員の消耗品費／人" },
+];
+
 function AnnualProjectionTable() {
-  const projection = sxAnnualProjectionWithCash();
+  const [parameters, setParameters] = useState<SxAnnualProjectionParameters>(() => createSxAnnualProjectionParameters());
+  const projection = sxAnnualProjectionWithCash(parameters);
+  const hasParameterChanges = JSON.stringify(parameters) !== JSON.stringify(createSxAnnualProjectionParameters());
+  const updateYearParameter = (fiscalYear: number, key: AnnualParameterField, value: number) => {
+    setParameters((current) => ({
+      ...current,
+      annualByFiscalYear: {
+        ...current.annualByFiscalYear,
+        [fiscalYear]: { ...current.annualByFiscalYear[fiscalYear], [key]: value },
+      },
+    }));
+  };
+  const updateFactory = (id: SxAnnualProjectionFactoryProject["id"], update: Partial<SxAnnualProjectionFactoryProject>) => {
+    setParameters((current) => ({
+      ...current,
+      factoryProjects: current.factoryProjects.map((factory) => factory.id === id ? { ...factory, ...update } : factory),
+    }));
+  };
+  const updateNonIpoFunding = (fiscalYear: number, value: number) => {
+    setParameters((current) => ({
+      ...current,
+      nonIpoEquityFundingYenByFiscalYear: { ...current.nonIpoEquityFundingYenByFiscalYear, [fiscalYear]: value },
+    }));
+  };
   const rows = [
     { key: "revenueYen", label: "売上高", tone: "text-slate-950", emphasis: true },
     { key: "costOfSalesYen", label: "売上原価", tone: "text-slate-700" },
@@ -270,6 +415,77 @@ function AnnualProjectionTable() {
       <div className="border-t border-slate-200 bg-slate-50 px-5 py-3 text-[10px] leading-5 text-slate-600 sm:px-6">
         Seed 1.5億円はSeries Aを2028年10月までに実行する前提。PoC遅延・設備超過・A調達遅延のいずれかが起きる場合は、非希薄化資金かブリッジを先に設計する。
       </div>
+      <details className="group border-t border-slate-200" data-testid="sx-annual-parameters">
+        <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-4 px-5 py-3 text-slate-800 marker:content-none sm:px-6 [&::-webkit-details-marker]:hidden">
+          <span className="flex items-center gap-2 text-sm font-bold"><SlidersHorizontal className="size-4 text-indigo-700" /> 前提パラメータ <span className="text-[11px] font-normal text-slate-500">この画面だけの試算</span>{hasParameterChanges && <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">変更あり</span>}</span>
+          <span className="flex shrink-0 items-center gap-1 text-[11px] font-semibold text-indigo-700"><span className="group-open:hidden">開く</span><span className="hidden group-open:inline">閉じる</span> <ChevronDown className="size-4 transition group-open:rotate-180" /></span>
+        </summary>
+        <div className="border-t border-slate-200 bg-slate-50 p-4 sm:p-6">
+          <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
+            <p className="max-w-3xl text-xs leading-5 text-slate-600">金額入力は年額・百万円。人員を変えると、役員報酬・給与・旅費・消耗品費まで連動する。ここで変わるのは年次試算だけで、保存済みの資本政策、株主構成、会社情報は変更しない。再読み込みすると初期値に戻る。</p>
+            <button type="button" className="inline-flex min-h-[40px] shrink-0 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40" onClick={() => setParameters(createSxAnnualProjectionParameters())} disabled={!hasParameterChanges}><RotateCcw className="size-3.5" /> 初期値に戻す</button>
+          </div>
+
+          <div className="mt-5 space-y-5">
+            <AnnualParameterTable title="事業・助成金・その他投資" description="売上、原価、助成金は年度別の前提。工場以外の設備投資は、研究機器・車両・情報基盤などを置く。" rows={BUSINESS_AND_GRANT_PARAMETER_ROWS} parameters={parameters} onChange={updateYearParameter} />
+            <AnnualParameterTable title="人員・単価" description="役員と社員は人数・報酬・旅費・消耗品費を分ける。役員報酬と給与・賞与の行へ人数×単価が反映される。" rows={WORKFORCE_PARAMETER_ROWS} parameters={parameters} onChange={updateYearParameter} />
+
+            <div className="rounded-xl border border-slate-200 bg-white">
+              <div className="border-b border-slate-200 px-4 py-3">
+                <h3 className="text-sm font-bold text-slate-950">自社工場の段階投資</h3>
+                <p className="mt-0.5 text-[11px] leading-4 text-slate-500">培養・包装をSXの自社ノウハウとして内製する前提。建設年度と投資額を変えると、設備投資と期末現預金へ反映する。</p>
+              </div>
+              <div className="grid gap-3 p-4 md:grid-cols-2">
+                {parameters.factoryProjects.map((factory) => (
+                  <div key={factory.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-xs font-bold text-slate-800">{factory.label}</p>
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <label className="text-[10px] font-semibold text-slate-500">建設年度
+                        <select aria-label={`${factory.label}の建設年度`} className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" value={factory.fiscalYear} onChange={(event) => updateFactory(factory.id, { fiscalYear: Number(event.target.value) })}>
+                          {SX_ANNUAL_PROJECTION_FISCAL_YEARS.map((fiscalYear) => <option key={fiscalYear} value={fiscalYear}>FY{String(fiscalYear).slice(-2)}</option>)}
+                        </select>
+                      </label>
+                      <label className="text-[10px] font-semibold text-slate-500">投資額（百万円）
+                        <ParameterValueInput label={`${factory.label}の投資額`} fiscalYear={factory.fiscalYear} value={factory.costYen} onChange={(costYen) => updateFactory(factory.id, { costYen })} />
+                      </label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+              <div className="rounded-xl border border-slate-200 bg-white">
+                <div className="border-b border-slate-200 px-4 py-3">
+                  <h3 className="text-sm font-bold text-slate-950">株式調達（IPO除く）</h3>
+                  <p className="mt-0.5 text-[11px] leading-4 text-slate-500">Seed・Series A/B/Cなど、IPO以外の資金流入を年度別に置く。資本政策表そのものの保存内容は変えない。</p>
+                </div>
+                <div className="overflow-x-auto">
+                  <div className="grid min-w-[900px] grid-cols-9 gap-2 p-4">
+                    {SX_ANNUAL_PROJECTION_FISCAL_YEARS.map((fiscalYear) => (
+                      <label key={fiscalYear} className="text-[10px] font-semibold text-slate-500">FY{String(fiscalYear).slice(-2)}<ParameterValueInput label={`IPO以外の株式調達 FY${String(fiscalYear).slice(-2)}`} fiscalYear={fiscalYear} value={parameters.nonIpoEquityFundingYenByFiscalYear[fiscalYear]} onChange={(value) => updateNonIpoFunding(fiscalYear, value)} /></label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4">
+                <h3 className="text-sm font-bold text-slate-950">IPOの時期と調達額</h3>
+                <p className="mt-1 text-[11px] leading-4 text-slate-600">IPOによる公募調達だけを、選んだ年度の株式調達へ足す。</p>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <label className="text-[10px] font-semibold text-slate-600">IPO年度
+                    <select aria-label="IPO年度" className="mt-1 h-10 w-full rounded-lg border border-indigo-200 bg-white px-2 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" value={parameters.ipoFiscalYear} onChange={(event) => setParameters((current) => ({ ...current, ipoFiscalYear: Number(event.target.value) }))}>
+                      {SX_ANNUAL_PROJECTION_FISCAL_YEARS.map((fiscalYear) => <option key={fiscalYear} value={fiscalYear}>FY{String(fiscalYear).slice(-2)}</option>)}
+                    </select>
+                  </label>
+                  <label className="text-[10px] font-semibold text-slate-600">公募調達額（百万円）
+                    <ParameterValueInput label="IPOの公募調達額" fiscalYear={parameters.ipoFiscalYear} value={parameters.ipoProceedsYen} onChange={(ipoProceedsYen) => setParameters((current) => ({ ...current, ipoProceedsYen }))} />
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </details>
     </SectionShell>
   );
 }

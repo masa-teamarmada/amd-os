@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { checkPublishEligibility, safeDeriveCapitalPlan } from "../src/lib/capital-plan.ts";
 import {
+  SX_ANNUAL_PROJECTION,
   SX_BUSINESS_PLAN_PHASES,
   SX_CAPITAL_PLAN_DOCUMENT,
+  createSxAnnualProjectionParameters,
   sxAnnualProjectionWithCash,
   sxPhaseBudgetVariance,
 } from "../src/lib/sx-business-plan.ts";
@@ -53,6 +55,11 @@ assert.equal(eligibility.blockingIssues.length, 0, "資本政策に凍結ブロ�
 const annual = sxAnnualProjectionWithCash();
 assert.equal(annual.length, 9, "FY27〜FY35の9年度");
 assert.ok(annual.every((year) => year.closingCashYen >= 0), "簡易期末現預金が途中でマイナスにならない");
+assert.deepEqual(
+  annual.map(({ sellingGeneralAdministrativeTotalYen: _sellingGeneralAdministrativeTotalYen, operatingExpenseYen: _operatingExpenseYen, grossProfitYen: _grossProfitYen, operatingIncomeYen: _operatingIncomeYen, pretaxIncomeYen: _pretaxIncomeYen, closingCashYen: _closingCashYen, ...year }) => year),
+  SX_ANNUAL_PROJECTION,
+  "初期パラメータは元の年次試算原案と一致する",
+);
 for (const year of annual) {
   assert.equal(
     year.operatingExpenseYen,
@@ -62,5 +69,23 @@ for (const year of annual) {
   assert.equal(year.grossProfitYen, year.revenueYen - year.costOfSalesYen, `FY${year.fiscalYear}: 売上総利益を検算`);
   assert.equal(year.pretaxIncomeYen, year.operatingIncomeYen + year.subsidySpecialGainYen - year.subsidyCompressionLossYen, `FY${year.fiscalYear}: 助成金特別損益を分離`);
 }
+
+const workforceScenario = createSxAnnualProjectionParameters();
+workforceScenario.annualByFiscalYear[2027].executiveHeadcount = 2;
+workforceScenario.annualByFiscalYear[2027].employeeAnnualTravelPerPersonYen = 500_000;
+workforceScenario.factoryProjects = workforceScenario.factoryProjects.map((factory) => factory.id === "pilot" ? { ...factory, costYen: 50_000_000 } : factory);
+const workforceAnnual = sxAnnualProjectionWithCash(workforceScenario);
+const workforceFy27 = workforceAnnual.find((year) => year.fiscalYear === 2027)!;
+assert.equal(workforceFy27.executiveCompensationYen, 18_000_000, "役員人数×役員報酬が役員報酬へ反映される");
+assert.equal(workforceFy27.sellingGeneralAdministrativeYen, 39_200_000, "社員の旅費単価が販管費へ反映される");
+assert.equal(workforceFy27.capexYen, 50_000_000, "工場投資額が設備投資へ反映される");
+assert.equal(workforceFy27.closingCashYen, 79_800_000, "人件費・旅費・工場費の差分が期末現預金へ反映される");
+
+const ipoScenario = createSxAnnualProjectionParameters();
+ipoScenario.ipoFiscalYear = 2034;
+ipoScenario.ipoProceedsYen = 8_000_000_000;
+const ipoAnnual = sxAnnualProjectionWithCash(ipoScenario);
+assert.equal(ipoAnnual.find((year) => year.fiscalYear === 2034)?.equityFundingYen, 8_000_000_000, "IPO時期と調達額が選択年度の株式調達へ反映される");
+assert.equal(ipoAnnual.find((year) => year.fiscalYear === 2035)?.equityFundingYen, 0, "IPOを前倒しすると元年度のIPO資金は残らない");
 
 console.log("sx business plan: ok");
