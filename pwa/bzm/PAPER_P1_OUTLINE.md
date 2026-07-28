@@ -1,5 +1,7 @@
 # PAPER_P1_OUTLINE.md — S2 段落 outline (英語)
 
+> **投稿停止中の旧アウトライン（2026-07-29）**：Book A版の旧定理撤回とBZM 2.0の主張境界を反映していないため、このまま本文化または投稿へ用いない。P1固有の追加条件を持つ定理は別途再検証する。再設計の正本は`BZM_2_0_REVISION_REQUIREMENTS.md`、決定はD-062。
+
 *位置づけ: P1 (Research Policy 論文) の S2 成果物。L1 = `PAPER_P1_MASTER_PLAN.md`、進捗 = `PAPER_P1_PROGRESS.md`。各段落 = 「番号 (words) — claim | math | cites」。S3 では各エントリを 1 段落の英文に展開する。日本語の注記は起草用スキャフォールドで、S3 で消える。*
 
 *初版: 2026-07-03。タイトル (b) 確定反映。*

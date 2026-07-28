@@ -45,6 +45,13 @@ export interface BzmNumberedChapter extends BzmChapterConfig {
 }
 
 export const BZM_PARTS: BzmPartConfig[] = [
+  {
+    key: "bzm-2-revision",
+    label: "BZM 2.0 改訂",
+    description: "2026-07-29に確定した主張境界、理論改訂要件、Book A章別差分、検証計画。現行実装の説明ではなく、次期改訂の正本。",
+    slugs: ["BZM_2_0_REVISION_REQUIREMENTS"],
+  },
+
   // ============================================================
   // Book A 教科書『ディープテック起業の経営学』(仮題、PF-012 で 2026-07-03 起草開始)
   // — 15章 = 数式全部入り (PF-001)。L1 = pwa/bzm/BOOK_A_MASTER_PLAN.md。
@@ -277,6 +284,13 @@ export const BZM_PARTS: BzmPartConfig[] = [
 ];
 
 export const BZM_CHAPTERS: BzmChapterConfig[] = [
+  {
+    slug: "BZM_2_0_REVISION_REQUIREMENTS",
+    title: "BZM 2.0 改訂要求書",
+    summary: "現行BZMを診断体系として位置付け、旧二層非可換性定理の撤回、六層構造、Book A全15章の改訂範囲、前向き検証と採用条件を定める次期改訂の正本。",
+    status: "in-progress",
+  },
+
   // --- Book A 教科書 15章 (PF-012、L1 = BOOK_A_MASTER_PLAN.md、L3 = BOOK_A_CHAPTER_*_PROGRESS.md) ---
   // 巻頭・巻末は 2026-07-17 起草、2026-07-18 登録 (まさ 2026-07-18 フィードバック対応:
   // /bzm の入口が旧版アーカイブの序文に飛んでいた導線バグを塞ぎ、Book A を巻頭から巻末まで揃える)。
@@ -291,7 +305,7 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   { slug: "book-a-ch-9", title: "第8章 — 統合スコアと律速診断 — 乗法モデルの設計と校正", summary: "9軸 Cobb-Douglas 乗法 (+1 シフト) 統合と律速診断 (次の一手の機械的抽出)。なぜ足し算でなく掛け算か。採点ワークシートで中間課題に接続。28p。起草中 (v1 draft)。", status: "in-progress" },
   { slug: "book-a-ch-10", title: "第9章 — GO/WAIT/NO_GO — 最適停止としての設立判断 (SPS≠GO)", summary: "設立判断を実物オプションの最適停止として導出: GO(t,i) = 𝟙[σ_SU ≥ θ_σ*]·g_TRL(t)。SPS≠GO の1ページ図解正本と必須演習「SPS 高だが WAIT」。「やめる/待つ」を教える本書の差別化の核。30p。", status: "in-progress" },
   { slug: "book-a-ch-11", title: "第10章 — 苗床を測る — エコシステム構築率 ECR の8軸と加重和", summary: "案件を生み出す装置を測る第二の観測層。ECR 加重和 (充足率)・8軸 rubric・軸7のゲート性・unknown vs not_started。「張るのは案件、通うのは苗床」。28p。", status: "in-progress" },
-  { slug: "book-a-ch-12", title: "第11章 — 二層非可換性 — 案件と機関を混ぜてはいけない理由", summary: "SPS (乗法・案件) と ECR (加重和・機関) を単一スコアへ結合してはならないことを、公理 A1-A4 の不可能性定理ステートメント+証明スケッチと Simpson 反転 worked example で示す「読む数学」の回。26p。", status: "in-progress" },
+  { slug: "book-a-ch-12", title: "第11章 — 測定分離 — 案件と機関をどう接続するか", summary: "旧二層非可換性定理を反例 Φ(g,h)=gh により撤回し、案件の現在状態と機関が次期状態へ与える効果を分ける測定分離原則へ改訂。Simpson 反転、案件構成差、並置の実務を扱う。26p。", status: "in-progress" },
   { slug: "book-a-ch-13", title: "第12章 — ラウンドテーブル — 二層を結合する組成機構 [仮説的第三柱]", summary: "RT = Before Zero の DTSU を keystone に据えた多者・連鎖・相互牽制の共同体 ℛ。成立3条件の命題化・CRL/ICT レンズ・Ψ 分解仮説 (検証プログラム付き仮説と明示)。独禁注意喚起 Box 必置。32p。", status: "in-progress" },
   { slug: "book-a-ch-13-5", title: "第13章 — CEOという難問 — 機能は分割できても、愛情の総量だけは外注できない", summary: "章頭は「肩書のまま決める機能を失った男」(一枚の組織図)。CEO 像の通時変化・制度と市場の不整合・機能分割 (第5章 §5.7 の実務適用)・エバンジェリスト機能の非外注性・育成可能性・肩書だけの CEO という7つの問いを実話で辿り、Before Zero から法人化後までの一気通貫供給を解として示す「問い×実話」変奏章。AMD の実践は序章/あとがき/著者性 Box でのみ明かす (a案)。26p。", status: "in-progress" },
   { slug: "book-a-ch-14", title: "第14章 — 出口ポートフォリオ — シーズごとに正しいサイズの成功を", summary: "本書の看板主張: ユニコーン単願ではなく出口ポートフォリオを設計する。絶対スケール+達成率の2読み方式の正準オーナー回。「サイズを選ぶ」という第三の判断。26p。起草中 (理論パート 14.1-14.9 正本化済み、章頭 14.0 は別途)。", status: "in-progress" },
@@ -401,7 +415,7 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   {
     slug: "2026-06-25_book2_evol_econ_surgery",
     title: "Book II OPENER 構造手術 Rev 1 — 進化経済批判 NO → 条件付き受理",
-    summary: "5 経済学者批判で唯一 NO だった進化経済査読を条件付き受理に動かす構造手術。Ch 10 を Book II の OPENER に移し、BZM の進化経済学への 3 寄与 (B 起動時の τ_x レジーム切換え / F-CES の委譲不可コア / 二層非可換性) を形式的に書き起こす。",
+    summary: "旧進化経済改訂案の履歴。B 起動時の τ_x レジーム切換えと F-CES に加え、当時は二層非可換性を寄与候補としていたが、この第三候補は 2026-07-29 に撤回し、測定分離と交互作用検証へ改訂する。",
   },
   {
     slug: "2026-06-25_book2_evol_econ_major_revision",
@@ -416,7 +430,7 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   { slug: "new-book0-ch-0-2a", title: "Ch 0.2a — 四スクールからの継承", summary: "Shane / Sarasvathy / Etzkowitz / Nelson-Winter からの理論的継承。18p。", status: "not-started" },
   { slug: "new-book0-ch-0-2b", title: "Ch 0.2b — 未engage の文献群", summary: "Reynolds-Curtin PSED I/II / Stam-van de Ven entrepreneurial ecosystems / Cohen-Levinthal ACAP / Teece dynamic capabilities を未engage 文献として処理。10p。", status: "not-started" },
   { slug: "new-book0-ch-0-3", title: "Ch 0.3 — 二層 readiness 方法論", summary: "宣言形 (導出は Book II)。Nelson-Winter 選抜環境本格展開はここ (Ch 5.0/5.3 から逆流委託、D-048)。12p。", status: "not-started" },
-  { slug: "new-book0-ch-0-4", title: "Ch 0.4 — 本書の貢献の三つ", summary: "何を新規に主張するか。load-bearing 定理 (二層非可換性 / GO 最適停止 / F-CES) の front-load 予告。8p。", status: "not-started" },
+  { slug: "new-book0-ch-0-4", title: "Ch 0.4 — 本書の貢献候補", summary: "何を新規に主張し、何を仮説または運用原則に限定するかを分ける。旧二層非可換性定理は撤回済み。GO と F-CES も検証前提を明示して再審査する。8p。", status: "not-started" },
 
   // Book I — 領土の定義 (110p, 4 章)
   { slug: "new-book1-ch-1", title: "Ch 1 — 状態空間と観測量", summary: "Before Zero を測るとはどういうことか。状態空間 (= プロジェクトを 1 点として打つ多次元の空間)、観測量 (= 状態から漏れ出てくる代理指標)、二層観測 (= 案件層 SPS + 機関層 ECR) の足場を立てる章。30p。執筆中 (§1.0 章頭フックから着手)。", status: "in-progress", level: 1 },
@@ -452,19 +466,19 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   // Ch 5 §5.0 サブセクション (level 3)
   { slug: "new-book2-ch-5-section-0-1", title: "§5.0.1 — 対照的な二領域と政策密度 P の段階的上昇", summary: "2020Q4-2023Q4 の同一窓に CX (カーボンニュートラル/GX) 系と YD (養殖/フード) 系を並置観察。片方は Triple Helix 三レーンが同位相加速し σ_SU が本書最高水準、他方は政策密度 P_t が立ち上がらず σ_SU 低位張り付き。非対称の起点 = 2020/10/26 CN 宣言。MS-SSM への動機素材。完成 v3 (2,280 字、5 段落、まさレビュー反映済み)、引用+式入りの v4 起草中。", status: "completed", level: 3 },
   { slug: "new-book2-ch-5-section-0-2", title: "§5.0.2 — CX 三位一体加速の事実構造", summary: "GX 経済移行債・GX-ETS・SIP CE 第3期の連続立ち上げによる公募予算 B 並走、CVC/VC 脱炭素配分 V ピーク、論文 N + 研究費 I_R 連動上昇、政策-研究ラグ 8-12Q → 4-6Q 縮減、σ_SU 本書最高水準到達 (S₂ レジーム予告)。1,500-2,000 字。", status: "not-started", level: 3 },
-  { slug: "new-book2-ch-5-section-0-3", title: "§5.0.3 — 対照事例 YD と σ_SU の必要条件性", summary: "YD 系領域 μ_G フラット、Cobb-Douglas 幾何平均構造による σ_SU 抑制、AMD OS UE 律速 NO_GO、σ_SU は GO の必要条件であって十分条件ではない (二層非可換性入口)、K=3 レジーム S₀/S₁/S₂ 物語的予告。1,500-2,000 字。", status: "not-started", level: 3 },
+  { slug: "new-book2-ch-5-section-0-3", title: "§5.0.3 — 対照事例 YD と σ_SU の条件", summary: "YD 系領域 μ_G フラット、Cobb-Douglas 幾何平均構造による σ_SU 抑制、AMD OS UE 律速 NO_GOを再検討する。σ_SUをGOの必要条件とする旧主張は未校正であり、目的別ゲート候補として反証可能な形へ改訂する。1,500-2,000 字。", status: "not-started", level: 3 },
   { slug: "new-book2-ch-5-section-0-4", title: "§5.0.4 — 方法論的位置取りと本章境界宣言", summary: "Markov イベント記述妥当性、Nelson-Winter 選抜環境への意味論的橋渡し (D-048 圧縮、Book 0 Ch 0.3 へ逆流)、Ch 5 射程と他章への委託、load-bearing 命題 5.1/5.1b/5.3b/5.5/5.6 + cross-walk 三定理 + 系 5.1.4 の予告、§5.1 D-047 pre-commit への橋渡し。1,500-2,000 字。", status: "not-started", level: 3 },
   { slug: "new-book2-ch-5-5", title: "Ch 5.5 — GO ゲートの導出", summary: "実オプション最適停止からの一次条件。GO(t,i) = 𝟙[σ_SU ≥ θ_σ*] · g_TRL(t)、θ_σ* は (P, F, B, レジーム遷移) に対して内生的。18p。", status: "not-started" },
   { slug: "new-book2-ch-6", title: "Ch 6 — SPS = P × R × S 期待値分解", summary: "honest 位置付け。22p。", status: "not-started" },
   { slug: "new-book2-ch-7", title: "Ch 7 — S の内部構造 — F-CES と委譲不可能コア", summary: "F = CES(F_char, F_cap; a, ρ)。形式定義 + 校正手続き。38p。", status: "not-started" },
   { slug: "new-book2-ch-8", title: "Ch 8 — 戦略余力動学", summary: "2D jump-diffusion と τ_x/τ_y、y 5 成分集約 (cash/moat/trust/options/focus)。32p。", status: "not-started" },
-  { slug: "new-book2-ch-9", title: "Ch 9 — ECR 加重和の導出", summary: "ECR = 100 · Σ w_k A_k / Σ w_k。二層非可換性定理の代数的バックボーン。34p。", status: "not-started" },
+  { slug: "new-book2-ch-9", title: "Ch 9 — ECR 三層測定", summary: "現行ECRの加重和を自前ストックの診断へ限定し、実効サービス、流量成果、coverage、confidence、evidence freshnessを分離する。34p。", status: "not-started" },
   { slug: "new-book2-ch-9-5", title: "Ch 9.5 — ラウンドテーブル — 二層を結合する組成機構", summary: "RT を仮説的第三柱として組み込む新章 (D-056)。組 ℛ の形式定義 / 成立3条件の命題化 (多者性・連鎖性・相互牽制) / 観測レンズ CRL・ICT / 排他的主経路割当と leave-one-out / 仮説 9.5.H (Ψ 分解 = Murmann coupling の法人化前カーネル)。28p。skeleton ステージ2確定済 (D-057)。", status: "not-started" },
   { slug: "new-book2-ch-10-0", title: "Ch 10.0 — プロローグ", summary: "物語的橋渡し。", status: "not-started" },
   { slug: "new-book2-ch-10-1", title: "Ch 10.1 — 設定 — 6 軽微修正課題 C1-C6 と本章の射程", summary: "進化経済 persona 軽微修正 6 件。", status: "not-started" },
   { slug: "new-book2-ch-10-2", title: "Ch 10.2 — C1 レジーム切換え B (法人化境界) の formal definition", summary: "Jovanovic (1982) noisy selection の二レジーム拡張。", status: "not-started" },
   { slug: "new-book2-ch-10-3", title: "Ch 10.3 — C2 F-CES ρ Kmenta 識別", summary: "命題 1 + 系 1 + 事前登録 H_C2: ρ<0。", status: "not-started" },
-  { slug: "new-book2-ch-10-4", title: "Ch 10.4 — C3 Theorem 3 二層非可換性 Arrow スタイル不可能性", summary: "4 公理 A1-A4 + 系 3.1 (Simpson 反転 / 四分位不安定性 / Hausman 棄却)。", status: "not-started" },
+  { slug: "new-book2-ch-10-4", title: "Ch 10.4 — 測定分離と交互作用検証", summary: "旧Arrowスタイル不可能性定理は反例により撤回。案件の現在状態と機関の次期効果を分離し、Simpson反転、構成差、交互作用の前向き検証を扱う。", status: "not-started" },
   { slug: "new-book2-ch-10-5", title: "Ch 10.5 — Klepper 入れ子 (統合ハザード + 命題 4-5)", summary: "h(t,n;θ) = 𝟙{t<τ_B}·h_pre + 𝟙{t≥τ_B}·h_post。", status: "not-started" },
   { slug: "new-book2-ch-10-6", title: "Ch 10.6 — Malerba SSI 全射 φ + レーン重み w(L)", summary: "φ: {1..8} → 2^{K,A,I,D,T} + 命題 5.M / 5.L + 系 5.NW。", status: "not-started" },
   { slug: "new-book2-ch-10-7", title: "Ch 10.7 — Murmann 双方向 ECR-SPS coupling", summary: "命題 10.6.3 + 定理 10.6.5 + 系 10.6.4。", status: "not-started" },

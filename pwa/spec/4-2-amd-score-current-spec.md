@@ -2,9 +2,11 @@
 
 > **この章は何か**: AMD Score の PWA 実装、DB、route、計算境界の確定仕様。理論導出は `/bzm`、詳細履歴は `pwa/design/amd_score.md` にも残す。
 
+> **2026-07-29 主張境界**: この章が確定するのは現行PWAの計算・表示契約であり、SPSの予測妥当性または因果妥当性ではない。現行SPSは9軸の診断指数で、企業価値、期待事業価値、成功確率、生存確率を表す検証済みモデルではない。点数差・点数比と`alpha`を経済的な間隔または弾力性として解釈しない。SPS順位とbottleneckだけでGO、NO_GO、投資額、投入人月を決めない。BZM 2.0の改訂要件は [`BZM_2_0_REVISION_REQUIREMENTS.md`](../bzm/BZM_2_0_REVISION_REQUIREMENTS.md) を参照する。
+
 ## 定義
 
-AMD Score の現行 primary model は **SPS = Seed Prospect Score (シーズ有望度)**。構造は `M x P x R x S` の4因子。PWA の主表示は SPS を前面に出し、旧 7 軸 Cobb-Douglas / M-X-F は legacy AMD comparison と evidence chain として残す。
+AMD Score の現行 primary model は **SPS = Seed Prospect Score (シーズ有望度)**。表示構造は `M x P x R x S` の4因子で、実計算は9軸を一層で乗法集約する。PWA の主表示は SPS を前面に出し、旧 7 軸 Cobb-Douglas / M-X-F は legacy AMD comparison と evidence chain として残す。
 
 > **呼称の正本 (2026-07-11 まさ確定、[`pwa/bzm/terminology_glossary.md`](../bzm/terminology_glossary.md) §1.5)**: 旧称 PRS は廃止済み。SPS は和名「シーズ有望度」の略であって成分の頭字ではないため、4因子化しても名称は壊れず、MPRS への改称は不要 (まさ再確認 2026-07-16)。コード変数 (`calculatePrsScore` / `PrsComponentBreakdown` 等)・DB 列 (`prs_potential` / `prs_r_net`)・テストコマンド (`test:prs-mprs-grouping`) は内部識別子として据え置き、**表示テキスト・文書の呼称のみ SPS を使う**。アーカイブ・過去ログ内の「PRS」は「= 現 SPS」と読む。
 

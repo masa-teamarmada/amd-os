@@ -1,5 +1,7 @@
 # PAPER_P1_DRAFT.md — S3 英語本文 draft
 
+> **投稿停止・独立再検証（2026-07-29）**：Book A版の旧二層非可換性定理は、反例 $\Phi(g,h)=gh$ により撤回した。本稿の定理は追加条件を持つ別命題であり、この反例だけで偽とは断定しないが、仮定、証明、適用領域を独立に再検証するまで投稿可能稿として扱わない。再設計の正本は `BZM_2_0_REVISION_REQUIREMENTS.md`、決定は `BOOK_DECISIONS.md` D-062。
+
 *L1 = `PAPER_P1_MASTER_PLAN.md` / S2 = `PAPER_P1_OUTLINE.md` / L3 = `PAPER_P1_PROGRESS.md`。数式は LaTeX 記法。証明の完全版は S4 で SM-A〜E に分離。Tier A 語彙規律・校正定数非公開 (PF-010)・type名/composite 開示。*
 
 ---

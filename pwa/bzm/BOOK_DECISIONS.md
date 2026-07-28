@@ -86,10 +86,11 @@
 - **rationale**: 5 経済学者 persona 全員が「load-bearing 形式的対象なしには新領域宣言不可」。Major revision (2026-06-25) で Ch 10 OPENER が load-bearing 中核に昇格し、進化経済への形式接続 3 つ (Klepper / Malerba / Murmann) が並行理論から真の精緻化への移行根拠
 - **applies_to_chapters**: Ch 0.4 (front-load), Ch 5.5, Ch 7, Ch 9, Ch 10.3, Ch 10.4, Ch 10.5, Ch 10.6, Ch 10.7, Ch 26b, Ch 38
 - **date**: 2026-06-27 (supersedes D-004 旧版の中核命題 3 つ)
-- **status**: active
+- **status**: superseded
+- **superseded_by**: D-062。旧二層非可換性定理の撤回により、中核命題群を一括で検証済みとみなす設計を廃止。各数理対象を主張単位で再審査する。
 
 ### D-005: 確定モデル正本所在 (メタ判断)
-- **judgment**: SPS = `pwa/design/amd_score.md`、ECR = `pwa/design/institution_readiness.md`、F-CES / σ_SU / GO / S / Theorem 3 / 統合ハザード / 全射 φ / 双方向 coupling / h パラメータ族 / Andrews-Quandt sup-Wald = `pwa/bzm/2026-06-25_book2_evol_econ_major_revision.md` + Book 0-VI 提案 + BZSF が正本。式そのものは正本 md に置き、L1 §4 表は正準オーナー紐付けのみを管理
+- **judgment**: SPS = `pwa/design/amd_score.md`、ECR = `pwa/design/institution_readiness.md`、F-CES / σ_SU / GO / S / 統合ハザード / 全射 φ / 双方向 coupling / h パラメータ族 / Andrews-Quandt sup-Wald = `pwa/bzm/2026-06-25_book2_evol_econ_major_revision.md` + Book 0-VI 提案 + BZSF が旧来の正本。式そのものは正本mdに置き、L1 §4表は正準オーナー紐付けのみを管理する。**2026-07-29追記**：Theorem 3はD-062により撤回済み。BZM 2.0の主張境界と改訂要件は`BZM_2_0_REVISION_REQUIREMENTS.md`を優先する。
 - **rationale**: 式を L2 にも持つと正本更新時に二重保守。メタ判断 (正本所在) のみ L2 化
 - **applies_to_chapters**: 全 Book、特に Ch 2 / Ch 3 / Ch 5 / Ch 5.5 / Ch 6 / Ch 7 / Ch 8 / Ch 9 / Ch 10
 - **date**: 2026-06-27
@@ -107,7 +108,8 @@
 - **rationale**: Ch 10 OPENER が load-bearing 中核に昇格、Ch 10.4 Theorem 3 を Ch 9 ECR 加重和より先行させて Arrow スタイル骨格を立てる。Ch 6 SPS 期待値分解は Ch 7/8/9 で S 内部を展開した後の方が整合的
 - **applies_to_chapters**: 全 Book
 - **date**: 2026-06-27 (supersedes D-007 旧版)
-- **status**: active
+- **status**: superseded
+- **superseded_by**: D-062。Theorem 3先行を前提とする書き順を停止し、BZM 2.0の六層分離と検証設計から再構成する。
 
 ### D-008: 章型 = 章頭ストーリー → 解説 → 匿名化実例 → 章末の問い
 - **judgment**: 4 要素章型。例外は L1 §11 参照 (Book II load-bearing 章 / Ch 10 OPENER 11 節 / Book III 機関章 / Book VI 宣言章)
@@ -333,7 +335,8 @@
 - **rationale**: D-004 で「中核命題 3 つ」と名前のみだったものを Arrow スタイル不可能性として独立判決化。Cambridge UP 級と進化経済 persona が評価
 - **applies_to_chapters**: Ch 9, Ch 10.4, Ch 25, Ch 26
 - **date**: 2026-06-27
-- **status**: active
+- **status**: superseded
+- **superseded_by**: D-062。反例により旧定理を撤回し、測定分離原則と遷移効果の交互作用検証へ置換する。
 
 ### D-040: シャープ → ファジー境界 h パラメータ族 (C6)
 - **judgment**: 定義 6.1 (B_h(t) = K((t-t*_mid)/h), Gaussian-CDF or logistic) + 命題 6.1 (シャープな C1 = lim h↓0, Ch 11.5 滑らかな極限 = lim h↑∞) + 命題 6.2 (Bai-Perron 1998 多重分断検定で [t*_start, t*_end] を一致推定) + 反証可能主張 F6 (corr(ĥ_i, σ_{ΔSPS,i}) > 0)。正準オーナー = Ch 10.8
@@ -386,7 +389,7 @@
 - **status**: active
 
 ### D-047: Book II load-bearing 章の証明深さ = スケッチ本文 + 完全証明付録 A
-- **judgment**: Ch 5 (§5.1 cross-walk 三定理 / §5.2 識別補題 / §5.3 MS-SSM 命題 / §5.4 命題 5.5) および Book II load-bearing 章 (Ch 5.5 GO 演算子 / Ch 7 F-CES / Ch 9 ECR 加重和 / Ch 10.3 ρ Kmenta / Ch 10.4 Theorem 3 / Ch 10.5-10.8 など) の証明は本文ではスケッチ (5-10 行)、完全証明は付録 A 数学補遺に逃がす。§5.1 冒頭で本方針を pre-commit
+- **judgment**: Ch 5 (§5.1 cross-walk 三定理 / §5.2 識別補題 / §5.3 MS-SSM 命題 / §5.4 命題 5.5) および Book II load-bearing 章 (Ch 5.5 GO 演算子 / Ch 7 F-CES / Ch 9 ECR 加重和 / Ch 10.3 ρ Kmenta / Ch 10.5-10.8 など) の証明は本文ではスケッチ (5-10 行)、完全証明は付録 A 数学補遺に逃がす。§5.1 冒頭で本方針を pre-commitする。**2026-07-29追記**：旧Ch 10.4 Theorem 3はD-062により撤回したため、この方針の対象外。
 - **rationale**: 28p heavy 数学の頁配分上、全証明本文は §5.6 装置適用 demonstration を圧迫し、Triple Helix 文献への貢献 3 点 (§5.7) も短縮を余儀なくされる。Cambridge UP モノグラフの慣例的方針 (証明スケッチ + 詳細付録) とも整合。Ch 5 Kingpin 3 として擦り合わせ確定
 - **applies_to_chapters**: Ch 5, Ch 5.5, Ch 7, Ch 9, Ch 10.3, Ch 10.4, Ch 10.5, Ch 10.6, Ch 10.7, Ch 10.8, 付録 A
 - **date**: 2026-06-27
@@ -491,11 +494,19 @@
 
 ### D-061: P1 著者体制 = 石原先生 (愛媛大) 共著方針 + framing 修正 (測定理論が主役・BZM をタイトルに明示)
 - **judgment**: (i) **P1 は石原先生 (愛媛大) との共著方針で確定**。時間がかかっても共著で入ってもらう (まさ 2026-07-03「最初の一報だから、石原先生と愛媛大の名前を借りたほうが審査通りそう」)。ただし gift authorship にしない — CRediT で役割を明記できる実質貢献 (先行研究の位置づけ・機関側視点・査読対応) をお願いする設計。打診は Book A 共著打診 (PF-007 / §7-6) と合流した1パッケージで行う。執筆 (S2-S3) は打診と並行して進める (共著確定を待たない)。(ii) **P1 の framing 修正**: 論文の主役は「Before Zero Model = 設立前領域の二層測定理論・観測系の提案」。GO/no-go 演算子は「観測系の上の運用帰結」として従属配置する (まさ 2026-07-03「go/no-go にこのモデルを使えるっちゃ使えるんだけど、本質からはズレてる」)。(iii) **タイトルに「Before Zero Model」を明示する** (まさ指定)。
-- **rationale**: RP は著者情報が査読者に見える運用であり、大学所属研究者との共著は editor の第一印象 (デスクリジェクト回避) と §2 related work の実質品質の両方に効く。framing は「単一スコア不可能性 → だから二層」という定理の役割を保ちつつ、モデル提案を主語にする。
+- **rationale**: RP は著者情報が査読者に見える運用であり、大学所属研究者との共著は editor の第一印象 (デスクリジェクト回避) と §2 related work の実質品質の両方に効く。2026-07-29以降、旧「単一スコア不可能性」はD-062により撤回し、測定目的の分離と前向き検証をframingの根拠にする。
 - **applies_to_chapters**: P1 全体、`PAPER_P1_MASTER_PLAN.md` §1/§2/§10、BOOKS_PORTFOLIO §7-6 (打診パッケージの中身拡張)
 - **date**: 2026-07-03
 - **status**: active
 - **supersedes**: なし
+
+### D-062: Book A版の旧二層非可換性定理を撤回し、BZM 2.0の主張境界と測定分離を採用
+- **judgment**: (i) Book A版の旧「二層非可換性定理」と公理A1〜A4による証明を撤回する。(ii) SPSは現行の符号化・重み・集約規則による診断指数であり、企業価値、成功確率、経済的距離、最適資源配分を表すとは主張しない。(iii) 案件の現在状態と、機関・AMDの介入が次期状態へ与える効果を別の測定対象にする。(iv) P1旧稿は投稿可能稿として扱わない。P1固有の追加条件を持つ定理は、この反例だけで偽とは断定せず、Book A版と別の定理として仮定、証明、適用領域を独立に再検証する。論文全体は測定論と前向き検証を中核に再設計する。
+- **rationale**: $\Phi(g,h)=gh$ は境界で機関感応度がゼロ、内部で正という旧公理を同時に満たすため、旧不可能性は導けない。加えて、診断、予測、判断、介入を同じ尺度へ畳み込むと反証対象と運用責任が不明確になる。
+- **applies_to_chapters**: Book A Ch 1 / 9 / 10 / 11 / 15、P1全体、SPS・ECR・GO関連文書
+- **date**: 2026-07-29
+- **status**: active
+- **supersedes**: D-004の中核命題一括指定、P-008e、P-010。D-061の共著方針とBZMをタイトルに明示する方針は維持するが、Book A版の旧定理をそのまま主役とするframingは撤回する。
 
 ---
 
@@ -583,7 +594,7 @@
 - **question**: A3 の defense を Ch 10.4 内で完結させるか、付録 A で別途展開するか
 - **applies_to_chapters**: Ch 10.4, 付録 A
 - **date**: 2026-06-27
-- **status**: pending
+- **status**: resolved → D-062（Theorem 3自体を撤回したため、defense scopeは不要）
 
 ### ~~P-009: ICC (Industrial and Corporate Change) 第三伴走を publishing path に追加するか~~ → ✅ D-059 で確定 (2026-07-03)
 - **question**: モノグラフ編集者 publication_recommendation で §10.6-10.7 を N=64 試験データ到着後に ICC へ抽出する三段ポートフォリオ案。D-001 の 2 chevron を 3 chevron に拡張するか、ICC を別 avenue として保留するか
@@ -596,7 +607,7 @@
 - **note**: 現状暫定で Ch 10.4 → Ch 9 (Arrow スタイル骨格を先に立てる) を採用 (D-007)
 - **applies_to_chapters**: Ch 9, Ch 10.4, L1 §6 書き順
 - **date**: 2026-06-27
-- **status**: pending
+- **status**: resolved → D-062（旧定理を撤回し、測定分離と遷移効果の前向き検証へ置換）
 
 ### P-011: §10.9 N≈32 試験の OSF 事前登録タイミング
 - **question**: AMD パイプライン上の active PJ (AMD-8) は既に観測中、機関後付け 7 + 国際 17 がいつ揃うか不明。事前登録タイミングは (a) AMD-8 のみ先行登録 (b) 全 N=32 を待つ (c) wave 設計で段階登録、のどれにするか
@@ -610,6 +621,9 @@
 
 - D-002 (2026-06-25, superseded by D-002 2026-06-27 版): 総ページ 870p → 940p
 - D-004 (2026-06-25, superseded by D-004 2026-06-27 版): 中核命題 3 つ + 登録簿 → 6 つ + 登録簿
+- D-004 (2026-06-27, superseded by D-062): 旧二層非可換性定理を含む中核命題一括指定 → 主張単位の再審査
+- D-007 (2026-06-27, superseded by D-062): Theorem 3先行の書き順 → BZM 2.0から再構成
+- D-039 (2026-06-27, superseded by D-062): Theorem 3の正準オーナー指定 → 定理撤回
 - D-007 (2026-06-25, superseded by D-007 2026-06-27 版): 書き順 Ch 5/5.5/9 先行 → Ch 5/5.5/10.4/9/7/10.3/8/10.5-10 10 先行
 - D-011 (2026-06-25, superseded by D-034): 機関匿名化方針の暫定運用を独立判決化
 - D-014 (2026-06-25, superseded by D-014 2026-06-27 版): 6 ステージ pipeline + Tier B 追加ステージ
@@ -621,4 +635,3 @@
 ---
 
 *L2 終端。次の entry は D-062 から、または P-012 から append すること。append-only、既存 entry の改変は status / supersedes / superseded_by の書き換えのみ許可。*
-

@@ -1,6 +1,8 @@
 # ECR 実装仕様
 
 > **この章は何か**: 研究機関 ECR (Ecosystem Construction Rate / エコシステム構築率) の PWA 実装、DB、評価 UI、API contract。理論と rubric は `/bzm/7-1-ers-ecosystem-readiness` と `/bzm/9-4-ers-rubric`。
+
+> **2026-07-29 主張境界**：この章が確定するのは現行PWAの入力、計算、表示、保存契約であり、ECRの成果妥当性または因果妥当性ではない。現行ECRは自前の制度・装置を中心とする診断指数で、機関成果の確率、外部連携を含む実効サービス能力、案件処理速度、支援の因果効果を表す検証済み尺度ではない。Lv1〜5を順序尺度として扱い、総合ECRだけで機関順位、支援優先順位、AMDの営業提案を決めない。BZM 2.0では自前ストック、実効サービス、流量成果へ分離する。改訂要件は [`BZM_2_0_REVISION_REQUIREMENTS.md`](../bzm/BZM_2_0_REVISION_REQUIREMENTS.md) を参照する。
 >
 > **呼称**: 旧称 ERS (Ecosystem Readiness Score) は 2026-07-11 まさ確定で廃止 (`pwa/bzm/terminology_glossary.md` §1.5)。式・計算は不変で、`ers.ts` / `fetchErsBundle` などのコード・route slug は内部識別子として据え置き。アーカイブ内の「ERS」は「= 現 ECR」と読む。
 

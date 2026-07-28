@@ -1,5 +1,7 @@
 # PAPER_P1_MASTER_PLAN.md — Research Policy 論文 (P1) 抽出設計正本 (L1)
 
+> **旧計画・再設計中（2026-07-29）**：Book A版の旧二層非可換性定理の撤回を受け、本計画はD-062により投稿停止した。P1固有の追加条件を持つ定理は別命題として独立再検証する。以下は履歴と素材台帳として保存し、P1は診断・予測・判断・介入の分離と前向き検証を中核に再設計する。現行正本は`BZM_2_0_REVISION_REQUIREMENTS.md`。
+
 *位置づけ: PF-013 第1波 P1 = D-001 の執行。モノグラフ Ch 5/5.5/9/10.4 の load-bearing 定理を Research Policy (RP) 論文として抽出するための不変項 (節構成・word budget・スコープ境界・規律・パイプライン)。章単位の進捗は `PAPER_P1_PROGRESS.md` (L3、ステージ2着手時に新設)。変更は `BOOK_DECISIONS.md` (L2) への判例化を先行させる。*
 
 *初版: 2026-07-03 / source: PF-013 (Publication-first、2026年内投稿目標) + D-001/D-059 + Ch 5/5.5/9/10.4 skeleton 資産*

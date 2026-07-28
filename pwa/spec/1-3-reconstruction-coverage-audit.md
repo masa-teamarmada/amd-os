@@ -27,8 +27,8 @@
 | L2 extraction overall | `3-1`〜`3-6`, `3-9`〜`3-13`, `5-3` | `partial` | H-1 のmeeting flow深掘り、D-5M-2D-6の個別schema、D-7の実 schedule / BZM commit loop をさらに column-level 化 |
 | notifications / 採否 | `3-7` | `partial` | `applyApprovedNotification()` の kind 別分岐を全件 table 化 |
 | cockpit | `3-8` | `partial` | PM routine stepId は廃止済み。monthly/reward modal / Edge Function bridge 境界は補完済み。kanban、meeting detail attachments、score tabs は未完 |
-| AMD Score / FRL | `4-1`, `4-2` | `partial` | alpha retrofit UI、XRL revision API、Triple Helix recompute の詳細 |
-| ECR | `4-3` | `partial` | 制度比較seedと投入手順は反映済み。rubric は `/bzm/9-4` 依存で、ECR 8軸rubricのPWA seed同期手順は追加余地あり |
+| AMD Score / FRL | `4-1`, `4-2` | `partial` | alpha retrofit UI、XRL revision API、Triple Helix recompute の詳細。2026-07-29に現行SPSを診断指数とする主張境界を追加したが、時点固定の前向き検証、独立複数評価者、重み・符号化・集約方式の感度分析は未実施 |
+| ECR | `4-3` | `partial` | 制度比較seedと投入手順、2026-07-29の主張境界は反映済み。rubric は `/bzm/9-4` 依存で、ECR 8軸rubricのPWA seed同期、自前ストック・実効サービス・流量成果の三層化、独立複数評価者、成果妥当性検証は未実装 |
 | Admin / Finance / Reward | 未移行 | `not yet` | manual 6章・7章、`reward-summary.ts`、GAS payout PDF の spec 化 |
 | Atlas / Seeds / VC / Scholar | 未移行 | `not yet` | manual 4-1/4-2/5章、design `atlas.md` / `seeds.md` / `vc_list.md` の spec 化 |
 | GAS | `5-2`, `5-3`, `5-5` | `partial` | GAS file/function 別の current / deprecated 表 |

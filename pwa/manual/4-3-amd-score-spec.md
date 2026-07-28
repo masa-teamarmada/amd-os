@@ -1,6 +1,6 @@
 # AMD Score 詳細仕様
 
-AMD Score は、PJ / SU の価値・成熟度を数値化する指標。現行画面の主表示は **SPS Primary** (`M x P x R x S`)。M / X / F と 7 軸 Cobb-Douglas は **legacy AMD comparison** として残し、SPS の根拠・履歴比較・旧モデル確認に使う。
+AMD Score は、PJ / SU の9軸を現行の符号化・重み・乗法集約規則で束ねる診断指標。現行画面の主表示は **SPS Primary** (`M x P x R x S`)。M / X / F と 7 軸 Cobb-Douglas は **legacy AMD comparison** として残し、SPS の根拠・履歴比較・旧モデル確認に使う。
 
 > **2026-07-16 まさ確定**: σ_SU (マクロ追い風) を S から分離して独立因子 M へ格上げし、S を自走力 (FRL × R_net) に純化した。総合スコアの数値・重み・履歴は完全に不変で、変わるのは内訳のグルーピングとラベルだけ。
 >
@@ -10,11 +10,13 @@ AMD Score は、PJ / SU の価値・成熟度を数値化する指標。現行�
 
 > 実装者向けの確定仕様は [/spec/4-2-amd-score-current-spec](/spec/4-2-amd-score-current-spec)。理論導出は `/bzm`、日常画面での読み方はこの章に置く。
 
+> **2026-07-29 主張境界**: 現行SPSは診断指数であり、企業価値、期待事業価値、成功確率、生存確率を表す検証済みモデルではない。0〜9点は現時点では順序尺度として扱い、SPSの点数差・点数比・`alpha`に経済的な間隔や弾力性の意味があるとはみなさない。SPS順位と律速表示だけでGO、NO_GO、投資額、投入人月を決めない。改訂要件は [`BZM_2_0_REVISION_REQUIREMENTS.md`](../bzm/BZM_2_0_REVISION_REQUIREMENTS.md) を参照する。
+
 ## 先にここだけ読む
 
-AMD Score は PJ / SU の価値評価。AMD 全社の健康度を見る AMD Management Score とは別物。
+AMD Score は PJ / SU の比較と弱点診断に使う指数。AMD 全社の健康度を見る AMD Management Score とは別物。
 
-SPS (M·P·R·S) は、PJ が立ち上がるための4つの必要条件を掛け合わせるモデル。
+SPS (M·P·R·S) は、PJを診断する9軸を4つの問いへ整理して表示する現行モデル。4因子は概念上のグループであり、実計算は9軸を一層で乗法集約する。
 
 | 要素 | 意味 | 何を見るか | 主なデータ |
 |---|---|---|---|
@@ -23,7 +25,7 @@ SPS (M·P·R·S) は、PJ が立ち上がるための4つの必要条件を掛�
 | `R` | Reach / Readiness | その天井へ届くための会社側 readiness | TRL / BRL / GRL / SRL / HRL |
 | `S` | 自走力 (Survival = FRL × R_net) | 外の資金が止まっても自分の力で走り続けられる体質 | FRL / `prs_r_net` |
 
-足し算ではなく掛け算にするのは、4つが「どれか1つ高ければOK」ではないから。Potential が大きくても Reach が低ければ届かない。Macrotrend が吹いていても自走力が無ければ、環境で延命しているだけになる。積にすると、弱い要素が自然に全体を抑え、4つが同時に揃った時だけ score が伸びる。
+足し算ではなく掛け算にする現在の理由は、弱い軸が総合点を抑える診断規則を採用したため。Potential が大きくても Reach が低ければ届きにくく、Macrotrend が吹いていても自走力が無ければ環境への依存が残る。ただし、この乗法集約が将来成果を最もよく予測することは未検証であり、他の符号化・重み・集約方法に対する感度確認が必要。
 
 `P` / `R_net` が未入力なら、SPS は `INPUT NEEDED` / review pending として止める。legacy AMD score を代わりに主表示へ戻さない。
 
@@ -126,7 +128,7 @@ AMD Score
 | `sigma_SU` | 0-9 | Triple Helix 合成値。学・産・官の追い風 | `mu_A` / `mu_I` / `mu_G` から算出 | 上記3系列 |
 | `FRL_final` | 0-9 | Founder Readiness。創業者・経営中核の readiness | `resolveFrl()`。`frl_cap` があれば CES、なければ `frl` | ALQ 4因子、Grit、Resilience、経営実行力、AMD寄与 |
 | `R_net` / `prs_r_net` | 0-9 / null | 純残存力。粗利・運営コスト・本命PJへの資源毀損を見た生存力 | 詳細画面でレビュー保存。未入力は null | 収益化見込み、運営コスト、リソース毀損、事業優先度 |
-| `alpha_x` | 正数 | 各軸の重み / 弾力性 | `SPS_ALPHA_DEFAULT` または `amd_score_alpha` | retrofit / review |
+| `alpha_x` | 正数 | 各軸の現行重み。経済学上の弾力性としては未検証 | `SPS_ALPHA_DEFAULT` または `amd_score_alpha` | retrofit / review |
 
 ## SPS Input Resolution
 

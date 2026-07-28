@@ -1,5 +1,7 @@
 # PAPER_P1_SM.md — Supplementary Material (Online) draft
 
+> **投稿停止中の旧補足資料（2026-07-29）**：Book A版の旧定理撤回とBZM 2.0の主張境界を反映していないため、投稿資料として使用しない。P1固有の追加条件を持つ定理は、この反例だけで偽とは断定せず、独立に再検証する。反例と改訂理由は`BZM_2_0_REVISION_REQUIREMENTS.md` §4.1を参照する。
+
 *P1 の SM。本文 = `PAPER_P1_DRAFT.md`。SM-A/B/C は証明エージェント起草 → えいみ検収で統合。SM-D/E はえいみ直書き。*
 
 ---
