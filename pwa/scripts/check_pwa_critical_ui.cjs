@@ -1488,6 +1488,7 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "gateOnly",
   "事前合意額：通常",
   "payoutAmountOverride",
+  "fmtFlowYen(entry.payoutAmountOverride.amountYen)",
 ]);
 
 expectIncludes("src/app/api/cron/payout-notice-prebuild/route.ts", [

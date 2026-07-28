@@ -7,7 +7,7 @@
 
 ### [finance/reward] 旧制度の事前合意額を支払通知書だけへ固定する経路がなかった (2026-07-28)
 
-- **状態**: クローズ (2026-07-28 — migration 199 / build `v3.51.14`)。
+- **状態**: クローズ (2026-07-28 — migration 199 / build `v3.51.14`、0円表示補正 `v3.51.15`)。
 - **症状**: ZMP 2026年6月稼働分は旧制度で4人の税抜額を事前合意していたが、`/admin/payouts` は現行MS・ポイント計算の こう12,480円 / あび36,660円 / うめ7,995円 / しん23,205円を再同期していた。`monthly_reward_payout` や `payout_notices` だけを直接直しても、正式PDF発行前の再計算で元へ戻る状態だった。
 - **原因**: 通常月の手入力報酬を禁止し、MS・PlanCycle・responsibilityから再計算する原則はあった一方、ポイント制移行前に合意済みの金額を復元する限定経路がなかった。MSを合意額へ合わせると、同じMS・stock/carryを読む7月以降まで動かす危険があった。
 - **対応内容**: 2026年6月以前だけを許可するappend-only `legacy_reward_payout_amount_override_events` を追加し、最新 `set` / `clear` を `loadTargetData()` の返却cycleへ非破壊適用した。支払snapshot/PDFは固定額を使うが、`billing_cycles.reward_summary_json`、MS、pt、share、stock/carry、将来差額台帳は更新しない。画面には通常計算額→事前合意額を表示する。0円は `monthly_reward_payout` に監査値を残し、未送付の旧PDFを削除して新規通知書を作らない。

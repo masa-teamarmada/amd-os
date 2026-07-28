@@ -2558,7 +2558,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                                     className="rounded border border-sky-200 bg-sky-50 px-1 text-sky-900"
                                     title={`${entry.payoutAmountOverride.reason} / 承認: ${entry.payoutAmountOverride.authorizedBy}`}
                                   >
-                                    事前合意額：通常 {fmtYen(entry.payoutAmountOverride.calculatedTotalPayYen)} → 固定 {fmtYen(entry.payoutAmountOverride.amountYen)}
+                                    事前合意額：通常 {fmtFlowYen(entry.payoutAmountOverride.calculatedTotalPayYen)} → 固定 {fmtFlowYen(entry.payoutAmountOverride.amountYen)}
                                   </span>
                                 ) : null}
                                 {entry.carryInYen > 0 ? (
