@@ -16,6 +16,11 @@ import {
 } from "@/lib/monthly-work-agreement-payout-gate";
 import { syncRewardSummariesForBillingCycles } from "@/lib/reward-summary";
 import type { ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
+import {
+  applyLegacyPayoutAmountOverridesToCycles,
+  type AppliedPayoutAmountOverride,
+  type PayoutAmountOverrideEventRow,
+} from "@/lib/payout-amount-overrides";
 
 export const runtime = "nodejs";
 
@@ -101,6 +106,7 @@ type RewardMemberRow = {
   officer_reserve_yen?: unknown;
   payoutExcluded?: unknown;
   payout_excluded?: unknown;
+  payoutAmountOverride?: AppliedPayoutAmountOverride;
 };
 
 type RewardSummary = {
@@ -165,6 +171,7 @@ type PayoutEntry = {
   extra_paid_yen: number;
   regular_stock_yen: number;
   extra_stock_yen: number;
+  payout_amount_override?: AppliedPayoutAmountOverride;
 };
 
 type MonthlyRewardPayoutRow = PayoutEntry & {
@@ -659,7 +666,8 @@ function buildPayoutEntries(cycles: BillingCycleRow[], excludedMemberIds: Set<st
       if (!memberId) continue;
       if (excludedMemberIds.has(memberId)) continue;
       const totalPay = yenValue(member.totalPay ?? member.total_pay);
-      if (totalPay <= 0) continue;
+      const payoutAmountOverride = member.payoutAmountOverride;
+      if (totalPay <= 0 && !payoutAmountOverride) continue;
       const basePay = yenValue(member.basePay ?? member.base_pay);
       const bonusPt = yenValue(member.bonusPt ?? member.bonus_pt);
       const extraBasePay = yenValue(member.extraBasePay ?? member.extra_base_pay);
@@ -685,6 +693,7 @@ function buildPayoutEntries(cycles: BillingCycleRow[], excludedMemberIds: Set<st
         extra_paid_yen: extraPaidYen,
         regular_stock_yen: yenValue(member.regularStockYen ?? member.regular_stock_yen),
         extra_stock_yen: yenValue(member.extraStockYen ?? member.extra_stock_yen),
+        payout_amount_override: payoutAmountOverride,
       });
     }
     entries.push(...cycleEntries);
@@ -725,11 +734,13 @@ function aggregateNotices(ym: string, entries: PayoutEntry[], members: MemberRow
     if (excludedMembers.has(entry.member_id)) continue;
     byMember.set(entry.member_id, (byMember.get(entry.member_id) ?? 0) + entry.total_pay);
   }
-  return [...byMember.entries()].map(([member_id, total_yen]) => ({
-    member_id,
-    ym,
-    total_yen: Math.round(total_yen),
-  }));
+  return [...byMember.entries()]
+    .map(([member_id, total_yen]) => ({
+      member_id,
+      ym,
+      total_yen: Math.round(total_yen),
+    }))
+    .filter((notice) => notice.total_yen > 0);
 }
 
 function ymShortLabel(ym: string): string {
@@ -1153,7 +1164,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
       cycleMap.set(cycleKey(row), { ...row, invoice_ym: effectiveYm });
     }
   }
-  const cycles = [...cycleMap.values()].sort(cycleSort);
+  let cycles = [...cycleMap.values()].sort(cycleSort);
   const forecastCycles = ((forecastCyclesRes.data ?? []) as BillingCycleRow[]).sort(cycleSort);
   const forecastPaymentCycleMap = new Map<string, BillingCycleRow>();
   for (const row of (forecastPaymentCandidateCyclesRes.data ?? []) as BillingCycleRow[]) {
@@ -1163,7 +1174,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
       forecastPaymentCycleMap.set(cycleKey(row), { ...row, invoice_ym: effectiveYm });
     }
   }
-  const forecastPaymentCycles = [...forecastPaymentCycleMap.values()].sort(cycleSort);
+  let forecastPaymentCycles = [...forecastPaymentCycleMap.values()].sort(cycleSort);
 
   if (options.refreshRewards) {
     const cycleByKey = new Map<string, BillingCycleRow>();
@@ -1196,7 +1207,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
   const sourceYms = [...new Set(cycles.map((cycle) => cycle.ym))];
   const projectIds = [...new Set(cycles.map((cycle) => cycle.project_id))];
 
-  const [payoutsRes, noticesRes, extraRevenueRes] = await Promise.all([
+  const [payoutsRes, noticesRes, extraRevenueRes, payoutAmountOverridesRes] = await Promise.all([
     sourceYms.length > 0 && projectIds.length > 0
       ? db
           .from("monthly_reward_payout")
@@ -1213,11 +1224,24 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
       .select("project_id, ym, invoice_ym, extra_revenue_json")
       .not("extra_revenue_json", "is", null)
       .limit(2000),
+    sourceYms.length > 0 && projectIds.length > 0
+      ? db
+          .from("legacy_reward_payout_amount_override_events")
+          .select("id, event_key, project_id, source_ym, member_id, action, amount_yen, reason, authorized_by, created_at")
+          .in("source_ym", sourceYms)
+          .in("project_id", projectIds)
+          .order("id", { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   if (payoutsRes.error) throw payoutsRes.error;
   if (noticesRes.error) throw noticesRes.error;
   if (extraRevenueRes.error) throw extraRevenueRes.error;
+  if (payoutAmountOverridesRes.error) throw payoutAmountOverridesRes.error;
+
+  const payoutAmountOverrides = (payoutAmountOverridesRes.data ?? []) as PayoutAmountOverrideEventRow[];
+  cycles = applyLegacyPayoutAmountOverridesToCycles(cycles, payoutAmountOverrides);
+  forecastPaymentCycles = applyLegacyPayoutAmountOverridesToCycles(forecastPaymentCycles, payoutAmountOverrides);
 
   // 将来月の capped 使用額は通常GETでも再計算せず、日次/手動 refresh で作られた
   // billing_cycles.reward_summary_json から集計する。画面を開いただけで重い
@@ -1259,6 +1283,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
     payouts: payoutsRes.data ?? [],
     notices: noticesRes.data ?? [],
     expectedEntries,
+    payoutAmountOverrides,
     payoutAgreementGate,
     refreshedRewards: Boolean(options.refreshRewards),
   };

@@ -234,7 +234,8 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 報酬キャッシュ再計算: 明示的な「報酬キャッシュ再計算」操作または保存系処理だけが `refreshRewards=1` / `refreshRewards: true` で再計算する。
 - 0円キャッシュ: 報酬対象メンバーがいない月も `reward_summary_json.members=[]` の0円キャッシュとして保存し、`forecastCapped` では key 有りの0円として扱う。`null` の未計算扱いにして budget fallback へ落とさない。
 - 報酬キャッシュ日次更新: `payout-reward-cache-refresh` cron が毎日03:05 JSTに、前月 + 当月から先12か月のメンバー支払月、および同じ窓内の稼働月について `billing_cycles.reward_summary_json` を再生成する。支払月対象は `projects.payment_due_rule` / `payment_due_day` で判定し、`billing_cycles.invoice_ym` は使わない。手動で `ym=YYYYMM&lookahead=11` を付けると、指定月から先12か月のキャッシュを作れる。
-- 予定担当比率のみ: 報酬計算は MS の期間按分で当月消化ptを出し、`milestone_responsibility.share` で分配する。活動ログ由来の実績配分や手入力報酬 override は使わない。
+- 予定担当比率のみ: 報酬計算は MS の期間按分で当月消化ptを出し、`milestone_responsibility.share` で分配する。活動ログ由来の実績配分や通常月の手入力報酬 override は使わない。
+- 旧制度の事前合意額: `source_ym <= 202606` に限り、`legacy_reward_payout_amount_override_events` の最新append-only eventを支払snapshot/PDFへだけ適用する。MS・pt・share・`billing_cycles.reward_summary_json`・stock/carry・将来差額は変更しない。画面は `事前合意額：通常 X円 → 固定 Y円` を表示し、0円は監査snapshotを残すが通知書を発行しない。
 - 支払額の同期: 画面の支払額・PDF生成の元データは、最新の `billing_cycles.reward_summary_json` から計算した値を正にする。`monthly_reward_payout.total_pay` と `payout_notices.total_yen` は保存済み額で表示値を固定するためではなく、夜間の先回り生成または正式PDF発行時に同期される税抜スナップショットとして扱う。`/admin/payouts` を開いただけでは保存しない。送付操作は同期・PDF生成を行わず、保存済み正式PDFが最新DBと一致するかだけを照合する。
 - 月初合意支払gate: `member × 稼働月 × PJ` で未合意 / 条件更新あり / 修正要望中を server-side に止める。2026年6月以前の稼働月 (`source_ym <= 202606`) は導入前/移行月として gate 上 `合意済` 扱いにし、2026年7月以降から通常判定にする。6月は契約改定前かつシステム未完成期間だったため、合意条件として支払いを止めない。移行月だけで blocker が無い場合、admin UI は個別メンバー一覧ではなく「対象支払行 / 移行月スキップ / blocker 0」の summary を表示する。
 - 縦型PJ収支表: 「全体収支」列とPJ列を並べ、クライアント支払、バッファ、本契約cap、本契約支払、別財布支払、役員分、役員相殺、本契約残り、メンバー別支払を確認できる。
@@ -252,6 +253,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/payouts` の支払通知書PDF確認、報酬キャッシュ、報酬キャッシュ日次cron、縦型PJ収支表、GAS側の改善版支払通知書PDFフォーマット anchor を検査する。
 - `pwa/scripts/check_pwa_critical_ui.cjs` が `本契約発生` / `別財布発生` / `regularBasePay` / `extraBasePay` anchor も検査する。
+- `npm run test:payout-amount-overrides` が、旧制度月上限・最新event優先・clear・0円・元reward cache非破壊を検査する。
 - 支払通知書PDFの golden PNG は `pwa/scripts/__fixtures__/payout_notice_golden.png` (改善版フォーマットの 1 ページ目を PNG 化したもの) を正本とし、`pwa/scripts/__fixtures__/payout_notice_golden.png.sha256` に SHA256 を固定する。`npm run test:critical-ui` が golden の存在と SHA256 一致を検査し、 fixture が壊れていれば落ちる。
 - 改善版PDFを意図的に更新したら、まさが新PNGを目視確認したうえで `payout_notice_golden.png` と `payout_notice_golden.png.sha256` を再生成して commit する。新規 PDF を PNG 化したファイルとの突合は `npm run test:payout-notice-pdf -- --diff <input.png>` で同じスクリプトを再利用する。
 - この画面で UI を削る変更は、`FEATURE_REGISTRY.md` と `SPEC_pwa.md` を同時に更新する。

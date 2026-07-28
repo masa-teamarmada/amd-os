@@ -6,6 +6,7 @@ import { fetchCockpitFromSupabase, type CockpitData } from "@/lib/supabase-data"
 import { expandExtraRevenueCash, type ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 import { basePayoutCapYen, contractBackedClientAmount } from "@/lib/contract-money";
 import { effectiveMemberPayoutYmForCycle } from "@/lib/payment-groups";
+import type { AppliedPayoutAmountOverride } from "@/lib/payout-amount-overrides";
 
 type Member = {
   member_id: string;
@@ -90,6 +91,7 @@ type RewardMember = {
   extra_company_reserve_yen?: number;
   officerReserveYen?: number;
   officer_reserve_yen?: number;
+  payoutAmountOverride?: AppliedPayoutAmountOverride;
 };
 
 type RewardSummary = {
@@ -235,6 +237,7 @@ type PayoutEntry = {
   carryInYen: number;
   stockYen: number;
   cappedFrom: number;
+  payoutAmountOverride?: AppliedPayoutAmountOverride;
 };
 
 type PayoutAgreementGateStatus =
@@ -805,7 +808,8 @@ function buildEntries(
           ? Math.round(numberValue(member.regularPaidYen ?? member.regular_paid_yen))
           : Math.max(0, totalPay - extraPaidYen);
       const resolvedExtraPaidYen = options.useCompanyReserveYen ? extraCompanyReserveYen : extraPaidYen;
-      if (totalPay <= 0 && stockYen <= 0 && grossDueYen <= 0) continue;
+      const payoutAmountOverride = member.payoutAmountOverride;
+      if (totalPay <= 0 && stockYen <= 0 && grossDueYen <= 0 && !payoutAmountOverride) continue;
 
       cycleEntries.push({
         projectId: cycle.project_id,
@@ -829,6 +833,7 @@ function buildEntries(
         carryInYen,
         stockYen,
         cappedFrom,
+        payoutAmountOverride,
       });
     }
     entries.push(...cycleEntries);
@@ -1817,7 +1822,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
       row.entries.push(entry);
       const saved = payoutMap.get(entryKey(entry));
       if (saved) row.savedTotal += Math.round(numberValue(saved.total_pay));
-      if (entry.totalPay > 0 && (!saved || Math.round(numberValue(saved.total_pay)) !== entry.totalPay)) row.isSaved = false;
+      if (!saved || Math.round(numberValue(saved.total_pay)) !== entry.totalPay) row.isSaved = false;
       byMember.set(entry.memberId, row);
     }
 
@@ -1832,6 +1837,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     const map = new Map<string, number>();
     for (const entry of expectedEntries) {
       if (payoutExcludedMemberIds.has(entry.memberId)) continue;
+      if (entry.totalPay <= 0) continue;
       map.set(entry.memberId, (map.get(entry.memberId) ?? 0) + entry.totalPay);
     }
     return map;
@@ -2546,6 +2552,14 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                                   ) : null}
                                   {entry.bonusPt > 0 ? (
                                     <span className="text-muted-foreground">bonus {fmtYen(entry.bonusPt)}</span>
+                                ) : null}
+                                {entry.payoutAmountOverride ? (
+                                  <span
+                                    className="rounded border border-sky-200 bg-sky-50 px-1 text-sky-900"
+                                    title={`${entry.payoutAmountOverride.reason} / 承認: ${entry.payoutAmountOverride.authorizedBy}`}
+                                  >
+                                    事前合意額：通常 {fmtYen(entry.payoutAmountOverride.calculatedTotalPayYen)} → 固定 {fmtYen(entry.payoutAmountOverride.amountYen)}
+                                  </span>
                                 ) : null}
                                 {entry.carryInYen > 0 ? (
                                   <span className="text-sky-700">繰越 {fmtYen(entry.carryInYen)}</span>

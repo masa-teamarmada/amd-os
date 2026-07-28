@@ -84,13 +84,17 @@ flowchart TD
 
 MS / PlanCycle が未設定の PJ は報酬計算対象外。支払が必要な場合は、先にMS / PlanCycle / responsibility を作る。
 
+例外は、ポイント制移行前の旧制度月 (`source_ym <= 202606`) について、当時すでに事前合意していた税抜額を復元する場合だけ。`legacy_reward_payout_amount_override_events` に、PJ・稼働月・メンバー・税抜額・理由・承認者を append-only event として残し、対象ごとの最新 `set` / `clear` を支払スナップショットと支払通知書PDFにだけ適用する。通常月へ使えないよう DB とコードの両方で `202606` 上限を持つ。
+
+この固定額は `billing_cycles.reward_summary_json`、MS、pt、share、`stockYen`、`carryInYen`、`reward_member_liability_offsets` へ書き戻さない。したがって翌月以降の報酬計算・繰越・控除を動かさない。画面では隠れた上書きにせず、明細内に `事前合意額：通常 X円 → 固定 Y円` と理由・承認者を表示する。固定額が0円なら `monthly_reward_payout.total_pay=0` を監査スナップショットとして残す一方、未送付の旧PDFは削除し、新しい0円通知書は発行しない。送付済みPDFは従来どおり上書きしない。
+
 ### 2. メンバー別支払額確認
 
 メンバー行 × PJ 列のマトリクス。 各セルに per-PJ の per-member 支払額。 行末に各メンバーの月次合計、 PJ 列末に各 PJ の月次合計。
 
 この表が `/admin/payouts` の主作業面なので、サマリ直下・報酬債務台帳より上に置く。
 
-支払通知書の正式発行に使う税抜支払額は、最新の報酬キャッシュから `monthly_reward_payout` と `payout_notices.total_yen` に同期する。画面を開いただけでは保存せず、夜間の `payout-notice-prebuild` cron、正式PDF発行、一括発行のタイミングで同期する。同期時点ではメール送信しない。金額が変わった未送付 PDF は `pdf_url` / `last_generated_at` をクリアし、次の一括発行・cron prebuild で再生成対象へ戻す。金額が変わっていなくても、未送付PDFの `last_generated_at` より `members.updated_at` が新しい場合は、メンバー台帳の住所・宛名・登録番号が変わった可能性があるため再生成対象にする。送付操作はPDF生成を行わず、保存済み正式PDFが最新DBと一致しているかだけを照合してから確認モーダルを開く。
+支払通知書の正式発行に使う税抜支払額は、最新の報酬キャッシュへ旧制度月の事前合意額eventを支払レイヤーで適用してから、`monthly_reward_payout` と `payout_notices.total_yen` に同期する。画面を開いただけでは保存せず、夜間の `payout-notice-prebuild` cron、正式PDF発行、一括発行のタイミングで同期する。同期時点ではメール送信しない。金額が変わった未送付 PDF は `pdf_url` / `last_generated_at` をクリアし、次の一括発行・cron prebuild で再生成対象へ戻す。金額が変わっていなくても、未送付PDFの `last_generated_at` より `members.updated_at` が新しい場合は、メンバー台帳の住所・宛名・登録番号が変わった可能性があるため再生成対象にする。送付操作はPDF生成を行わず、保存済み正式PDFが最新DBと一致しているかだけを照合してから確認モーダルを開く。
 
 UI では通常の同期差分をバッジ表示しない。差分があっても画面表示中に自動POSTはしない。開きっぱなしのタブでは 60 秒ごとに read-only 再取得し、夜間 cron や別操作で同期済みになった状態へ追随する。正式な個別発行・全員分PDF一括発行・強制再発行は、サーバー側で最新計算額を同期し、その後に DB から `members` / `monthly_reward_payout` / `payout_notices` を読み直してから実行する。金額が変わっていなくても、`/admin/members` で更新した `contractor_name` / `member_address` / `invoice_registration_number` は再発行PDFへ反映する。送付確認は再生成せず、保存済みPDFの `total_yen` / `last_generated_at` / `notice_no` / `pdf_url` と最新DBを照合する。古いPDF・未発行PDF・確認用PDF・金額不一致PDFは送付できず、先に `支払通知書発行` または `強制再発行` で正式PDFを作り直す。運用者が先に保存ボタンを押す必要はない。月初合意 gate や本契約cap blocker がある場合だけ `同期できない` を表示して同期を止め、admin override または blocker 解消を待つ。
 

@@ -9,7 +9,8 @@
  * - 既存業務記録 (monthly_reports / reimbursements / member_monthly_work_agreements /
  *   member_ms_activities / milestone_responsibility / milestone_monthly_contribution_allocations
  *   / monthly_reward_payout / member_monthly_work_agreement_requests
- *   / member_monthly_work_agreement_payout_overrides) で (project_id, member_id) が
+ *   / member_monthly_work_agreement_payout_overrides / legacy_reward_payout_amount_override_events)
+ *   で (project_id, member_id) が
  *   参照されているかを SELECT count(*) で確認
  * - 参照があれば 409 + 各テーブル件数を返す (UI 側で件数表示 + 強制削除確認ダイアログ)
  * - body.force=true なら参照を無視して DELETE (= まさが業務記録 dangling を受け入れた場合)
@@ -28,6 +29,7 @@ const REFERENCE_TABLES: Array<{ table: string; label: string }> = [
   { table: "member_monthly_work_agreements", label: "月次稼働合意 (合意済み)" },
   { table: "member_monthly_work_agreement_requests", label: "月次稼働合意 (リクエスト)" },
   { table: "member_monthly_work_agreement_payout_overrides", label: "月次稼働合意 (上書き)" },
+  { table: "legacy_reward_payout_amount_override_events", label: "旧制度の事前合意支払額" },
   { table: "member_ms_activities", label: "MS 進捗活動" },
   { table: "milestone_responsibility", label: "MS 担当" },
   { table: "milestone_monthly_contribution_allocations", label: "MS 月次貢献配分" },

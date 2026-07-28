@@ -48,6 +48,7 @@
     "test:project-management-rls": "node scripts/test_project_management_rls.mjs",
     "test:sx-management-rls": "npm run test:project-management-rls",
     "test:payout-notice-pdf": "node scripts/check_payout_notice_pdf_golden.cjs",
+    "test:payout-amount-overrides": "node --experimental-strip-types scripts/check_payout_amount_overrides.mts",
     "test:management-score-retention": "node scripts/check_management_score_retention_logic.cjs",
     "test:management-score-missing-data": "node scripts/check_management_score_missing_data_logic.cjs",
     "test:management-score-p0-p2": "node scripts/check_management_score_p0_p2.cjs",

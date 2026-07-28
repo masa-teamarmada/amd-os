@@ -1465,6 +1465,8 @@ expectIncludes("src/app/api/admin/payouts/route.ts", [
   "pdfPreparedBeforeSend",
   "最新 DB 正本",
   "金額差分が無くても",
+  "legacy_reward_payout_amount_override_events",
+  "applyLegacyPayoutAmountOverridesToCycles",
 ]);
 
 expectNotIncludes("src/app/api/admin/payouts/route.ts", [
@@ -1484,6 +1486,8 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "skipInitialFetchRef",
   "payoutDataHint",
   "gateOnly",
+  "事前合意額：通常",
+  "payoutAmountOverride",
 ]);
 
 expectIncludes("src/app/api/cron/payout-notice-prebuild/route.ts", [
