@@ -2482,7 +2482,7 @@ expectNotIncludes("src/components/cockpit/CapitalPlanMatrix.tsx", [
 
 // SX事業計画（2026-07-28）: SIP準拠GRL、百万円PL、助成金の会計/資金繰り分離と、初期閉じの手動シナリオを保護する。
 expectIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
-  "GRLはSIP準拠のガバナンス成熟度レベル（1〜8）",
+  "GRL：SIP準拠のガバナンス成熟度（1〜8）",
   "内閣府SIPの定義",
   "単位：百万円",
   "役員報酬",
@@ -2500,6 +2500,21 @@ expectIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
 ]);
 expectNotIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
   'data-testid="sx-annual-parameters" open',
+  "事業計画｜ラウンド間で何を証明するか",
+  "SX phase map",
+  "培養は自社ノウハウ・自社工場、製品は包装して顧客拠点へ輸送する前提。",
+  "暫定原案",
+  "annual model",
+  "フェーズ予算と売上仮説を年度へ置き直した暫定PL・投資・資金調達。",
+  "Seed 1.5億円はSeries Aを2028年10月までに実行する前提。",
+  "この画面だけの試算",
+  "ownership & funding",
+  "上段の100%棒グラフで希薄化推移",
+  "初期持分：CEO 75% / 杉浦先生 20% / まさ・AMD 5%",
+  "SX_BUSINESS_PLAN_ASSUMPTIONS",
+  "SX_BUSINESS_PLAN_UPDATED_ON",
+  "development lane",
+  ">budget<",
 ]);
 
 // CapitalPlanWorkspace (2026-07-17): VC提出用の凍結(freeze)エクスポート導線とモバイル44pxを保護する。

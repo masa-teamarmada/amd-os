@@ -3,10 +3,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   BriefcaseBusiness,
-  Building2,
   ChevronDown,
   CircleAlert,
-  Factory,
   FlaskConical,
   Landmark,
   RotateCcw,
@@ -17,9 +15,7 @@ import {
 } from "lucide-react";
 import type { CompanyOverviewData } from "@/lib/company-overview";
 import {
-  SX_BUSINESS_PLAN_ASSUMPTIONS,
   SX_BUSINESS_PLAN_PHASES,
-  SX_BUSINESS_PLAN_UPDATED_ON,
   SX_ANNUAL_PROJECTION_FISCAL_YEARS,
   createSxAnnualProjectionParameters,
   sxAnnualProjectionWithCash,
@@ -113,21 +109,8 @@ function XrlStrip({ target, keys }: { target: SxXrlTarget; keys?: Array<keyof Sx
 function PhaseMatrix() {
   return (
     <SectionShell>
-      <div className="border-b border-slate-200 bg-slate-50 px-5 py-5 sm:px-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-indigo-700">
-              <Factory className="size-4" /> SX phase map
-            </div>
-            <h2 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">事業計画｜ラウンド間で何を証明するか</h2>
-            <p className="mt-2 max-w-3xl text-xs leading-5 text-slate-600 sm:text-[13px]">
-              培養は自社ノウハウ・自社工場、製品は包装して顧客拠点へ輸送する前提。金額は各フェーズ内の使途総額で、次列へ進むには出口条件とXRLの両方を満たす。
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-[11px] font-medium text-slate-600">
-            <CircleAlert className="size-4 shrink-0" /> 暫定原案｜{SX_BUSINESS_PLAN_UPDATED_ON}
-          </div>
-        </div>
+      <div className="border-b border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
+        <h2 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">フェーズマトリクス</h2>
       </div>
 
       <div className="overflow-x-auto" data-testid="sx-business-plan-phase-matrix">
@@ -135,8 +118,7 @@ function PhaseMatrix() {
           <thead>
             <tr>
               <th className="sticky left-0 top-0 z-30 w-[156px] border-b border-r border-slate-200 bg-slate-950 px-4 py-4 align-bottom text-white">
-                <span className="block text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">development lane</span>
-                <span className="mt-1 block text-sm font-bold">開発レーン</span>
+                <span className="block text-sm font-bold">開発レーン</span>
               </th>
               {SX_BUSINESS_PLAN_PHASES.map((phase) => (
                 <th key={phase.id} className="sticky top-0 z-20 w-[270px] border-b border-r border-slate-700 bg-slate-950 px-4 py-4 align-top text-white last:border-r-0">
@@ -174,9 +156,8 @@ function PhaseMatrix() {
                     return (
                       <td key={phase.id} className="border-b border-r border-slate-200 p-0 align-top last:border-r-0">
                         <div className="flex min-h-[245px] flex-col px-4 py-4">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">budget</span>
-                            <span className="font-mono text-sm font-black tabular-nums text-slate-950">{formatOku(lane.costYen)}</span>
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="font-mono text-sm font-black tabular-nums text-slate-950" aria-label={`費用 ${formatOku(lane.costYen)}`}>{formatOku(lane.costYen)}</span>
                           </div>
                           <ul className="mt-3 space-y-2 text-[11px] leading-[1.55] text-slate-700">
                             {lane.activities.map((activity) => (
@@ -206,17 +187,9 @@ function PhaseMatrix() {
         </table>
       </div>
 
-      <div className="border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
-        <div className="grid gap-2 lg:grid-cols-2">
-          {SX_BUSINESS_PLAN_ASSUMPTIONS.map((assumption) => (
-            <div key={assumption} className="flex gap-2 text-[11px] leading-5 text-slate-600">
-              <span className="mt-2 size-1.5 shrink-0 rounded-full bg-indigo-400" />
-              <span>{assumption}</span>
-            </div>
-          ))}
-        </div>
-        <div className="mt-4 border-t border-slate-200 pt-3 text-[11px] leading-5 text-slate-600">
-          <span className="font-semibold text-slate-800">GRLはSIP準拠のガバナンス成熟度レベル（1〜8）</span>。制度・規制・標準・ガイドラインが社会実装を支える状態を示し、採用・役割・内部運用はHRLで扱う。{" "}
+      <div className="border-t border-slate-200 bg-slate-50 px-5 py-3 text-[11px] leading-5 text-slate-600 sm:px-6">
+        <div>
+          <span className="font-semibold text-slate-800">GRL：SIP準拠のガバナンス成熟度（1〜8）</span>{" "}
           <a className="font-semibold text-indigo-700 underline underline-offset-2 hover:text-indigo-900" href="https://www8.cao.go.jp/cstp/stmain/pdf/230201_besshi_13_1.pdf" target="_blank" rel="noreferrer">内閣府SIPの定義</a>
         </div>
       </div>
@@ -265,13 +238,11 @@ function ParameterValueInput({
 
 function AnnualParameterTable({
   title,
-  description,
   rows,
   parameters,
   onChange,
 }: {
   title: string;
-  description: string;
   rows: AnnualParameterRow[];
   parameters: SxAnnualProjectionParameters;
   onChange: (fiscalYear: number, key: AnnualParameterField, value: number) => void;
@@ -280,7 +251,6 @@ function AnnualParameterTable({
     <div className="rounded-xl border border-slate-200 bg-slate-50/60">
       <div className="border-b border-slate-200 px-4 py-3">
         <h3 className="text-sm font-bold text-slate-950">{title}</h3>
-        <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{description}</p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1060px] text-xs">
@@ -383,12 +353,8 @@ function AnnualProjectionTable() {
 
   return (
     <SectionShell>
-      <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-5 sm:flex-row sm:items-end sm:justify-between sm:px-6">
-        <div>
-          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-700"><Building2 className="size-4" /> annual model</div>
-          <h2 className="mt-2 text-lg font-bold tracking-tight text-slate-950">年次試算表</h2>
-          <p className="mt-1 text-xs leading-5 text-slate-500">フェーズ予算と売上仮説を年度へ置き直した暫定PL・投資・資金調達。単位は百万円。</p>
-        </div>
+      <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-6">
+        <h2 className="text-lg font-bold tracking-tight text-slate-950">年次試算表</h2>
         <div className="text-[10px] leading-4 text-slate-500">期末現預金 = 前年残 + 営業利益 − 設備投資 + 株式調達 + 助成金入金<br />圧縮損は会計上の特別損失。税金・借入・運転資金増減は未反映</div>
       </div>
       <div className="overflow-x-auto" data-testid="sx-annual-projection-table">
@@ -412,28 +378,24 @@ function AnnualProjectionTable() {
           </tbody>
         </table>
       </div>
-      <div className="border-t border-slate-200 bg-slate-50 px-5 py-3 text-[10px] leading-5 text-slate-600 sm:px-6">
-        Seed 1.5億円はSeries Aを2028年10月までに実行する前提。PoC遅延・設備超過・A調達遅延のいずれかが起きる場合は、非希薄化資金かブリッジを先に設計する。
-      </div>
       <details className="group border-t border-slate-200" data-testid="sx-annual-parameters">
         <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-4 px-5 py-3 text-slate-800 marker:content-none sm:px-6 [&::-webkit-details-marker]:hidden">
-          <span className="flex items-center gap-2 text-sm font-bold"><SlidersHorizontal className="size-4 text-indigo-700" /> 前提パラメータ <span className="text-[11px] font-normal text-slate-500">この画面だけの試算</span>{hasParameterChanges && <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">変更あり</span>}</span>
+          <span className="flex items-center gap-2 text-sm font-bold"><SlidersHorizontal className="size-4 text-indigo-700" /> 前提パラメータ {hasParameterChanges && <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">変更あり</span>}</span>
           <span className="flex shrink-0 items-center gap-1 text-[11px] font-semibold text-indigo-700"><span className="group-open:hidden">開く</span><span className="hidden group-open:inline">閉じる</span> <ChevronDown className="size-4 transition group-open:rotate-180" /></span>
         </summary>
         <div className="border-t border-slate-200 bg-slate-50 p-4 sm:p-6">
           <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
-            <p className="max-w-3xl text-xs leading-5 text-slate-600">金額入力は年額・百万円。人員を変えると、役員報酬・給与・旅費・消耗品費まで連動する。ここで変わるのは年次試算だけで、保存済みの資本政策、株主構成、会社情報は変更しない。再読み込みすると初期値に戻る。</p>
+            <p className="max-w-3xl text-xs leading-5 text-slate-600">保存済みの資本政策・株主構成・会社情報は変更しない。再読み込みで初期値に戻る。</p>
             <button type="button" className="inline-flex min-h-[40px] shrink-0 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40" onClick={() => setParameters(createSxAnnualProjectionParameters())} disabled={!hasParameterChanges}><RotateCcw className="size-3.5" /> 初期値に戻す</button>
           </div>
 
           <div className="mt-5 space-y-5">
-            <AnnualParameterTable title="事業・助成金・その他投資" description="売上、原価、助成金は年度別の前提。工場以外の設備投資は、研究機器・車両・情報基盤などを置く。" rows={BUSINESS_AND_GRANT_PARAMETER_ROWS} parameters={parameters} onChange={updateYearParameter} />
-            <AnnualParameterTable title="人員・単価" description="役員と社員は人数・報酬・旅費・消耗品費を分ける。役員報酬と給与・賞与の行へ人数×単価が反映される。" rows={WORKFORCE_PARAMETER_ROWS} parameters={parameters} onChange={updateYearParameter} />
+            <AnnualParameterTable title="事業・助成金・その他投資" rows={BUSINESS_AND_GRANT_PARAMETER_ROWS} parameters={parameters} onChange={updateYearParameter} />
+            <AnnualParameterTable title="人員・単価" rows={WORKFORCE_PARAMETER_ROWS} parameters={parameters} onChange={updateYearParameter} />
 
             <div className="rounded-xl border border-slate-200 bg-white">
               <div className="border-b border-slate-200 px-4 py-3">
                 <h3 className="text-sm font-bold text-slate-950">自社工場の段階投資</h3>
-                <p className="mt-0.5 text-[11px] leading-4 text-slate-500">培養・包装をSXの自社ノウハウとして内製する前提。建設年度と投資額を変えると、設備投資と期末現預金へ反映する。</p>
               </div>
               <div className="grid gap-3 p-4 md:grid-cols-2">
                 {parameters.factoryProjects.map((factory) => (
@@ -458,7 +420,6 @@ function AnnualProjectionTable() {
               <div className="rounded-xl border border-slate-200 bg-white">
                 <div className="border-b border-slate-200 px-4 py-3">
                   <h3 className="text-sm font-bold text-slate-950">株式調達（IPO除く）</h3>
-                  <p className="mt-0.5 text-[11px] leading-4 text-slate-500">Seed・Series A/B/Cなど、IPO以外の資金流入を年度別に置く。資本政策表そのものの保存内容は変えない。</p>
                 </div>
                 <div className="overflow-x-auto">
                   <div className="grid min-w-[900px] grid-cols-9 gap-2 p-4">
@@ -470,7 +431,6 @@ function AnnualProjectionTable() {
               </div>
               <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4">
                 <h3 className="text-sm font-bold text-slate-950">IPOの時期と調達額</h3>
-                <p className="mt-1 text-[11px] leading-4 text-slate-600">IPOによる公募調達だけを、選んだ年度の株式調達へ足す。</p>
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <label className="text-[10px] font-semibold text-slate-600">IPO年度
                     <select aria-label="IPO年度" className="mt-1 h-10 w-full rounded-lg border border-indigo-200 bg-white px-2 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" value={parameters.ipoFiscalYear} onChange={(event) => setParameters((current) => ({ ...current, ipoFiscalYear: Number(event.target.value) }))}>
@@ -513,13 +473,8 @@ export function CockpitBusinessPlan({ projectId, projectName }: CockpitBusinessP
       <PhaseMatrix />
 
       <div>
-        <div className="mb-3 flex flex-col gap-2 px-1 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-700">ownership & funding</div>
-            <h2 className="mt-1 text-lg font-bold tracking-tight text-slate-950">株主構成・資本政策</h2>
-            <p className="mt-1 text-xs leading-5 text-slate-500">上段の100%棒グラフで希薄化推移、その下の資本政策表で各ラウンドの条件と株主別持分を確認する。</p>
-          </div>
-          <div className="text-[10px] text-slate-500">初期持分：CEO 75% / 杉浦先生 20% / まさ・AMD 5%</div>
+        <div className="mb-3 px-1">
+          <h2 className="text-lg font-bold tracking-tight text-slate-950">株主構成・資本政策</h2>
         </div>
         {companyDataError && (
           <div className="mb-3 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">

@@ -44,15 +44,6 @@ export interface SxAnnualProjection {
   subsidyCashReceiptYen: number;
 }
 
-export const SX_BUSINESS_PLAN_UPDATED_ON = "2026-07-28";
-
-export const SX_BUSINESS_PLAN_ASSUMPTIONS = [
-  "シアノバクテリアの培養条件・品質管理・包装条件はSXの中核ノウハウとして自社保有する",
-  "培養したシアノバクテリアをパッケージングして顧客拠点へ輸送し、顧客設備で使用してもらう",
-  "自社工場は一括投資せず、Seedの小規模パイロット設備、Series Aの自社量産実証工場、Series Bの本格工場へ段階投資する",
-  "中島先生は株主計画に含めず、設立時持分はCEO 75%・杉浦先生 20%・まさ／AMD 5%を原案とする",
-] as const;
-
 export const SX_BUSINESS_PLAN_PHASES: SxBusinessPlanPhase[] = [
   {
     id: "psi",
