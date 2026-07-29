@@ -29,7 +29,7 @@ cd /Users/masa/projects/AMD/amd-os
 
 - canonical cwd / branch: `/Users/masa/projects/AMD/amd-os` / `main`
 - accepted implementation: `700a438e fix(pwa): correct MS noncash allocation budget guard`
-- accepted production: `v3.51.17` / implementation SHA `700a438e...` は反映済み。その後、別ownerのW-Prep文書commit `f936e278` もmain・productionへ反映された。closeout文書commitがさらに後続するため、開始時にlocal HEAD・origin/main・production `/api/build-info` を読み直す。
+- accepted production: `v3.51.17` / implementation SHA `700a438e...` は反映済み。その後、別ownerのW-Prep文書commit `f936e278` と、このpromptを含むcloseout文書commitもmain・productionへ反映済み。正確なcurrent SHAは開始時にlocal HEAD・origin/main・production `/api/build-info` から読み直す。
 - SX current truth: client 10,480,000円 / buffer 1,800,000円 / PJ budget 5,642,000円 / cash payout 1,942,752円 / 対象外配賦 3,085,723円 / obligation 5,028,475円 / 期末未払0円 / 残予算613,525円。
 - 画面の旧9,069,525円は、実際の当月非現金配賦合計3,085,723円に、同じ債務を翌月へ持つ月末stock残高5,983,802円を9か月分重複加算した値。`stockYen` はフローではなく残高スナップショットなので期間合計しない。
 - 13ptは120pt中107pt配賦後に意図して残した将来MS用バッファ。未配賦ptは報酬債務を発生させず、保存停止条件ではない。

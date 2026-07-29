@@ -19,8 +19,8 @@ Topic: SX MS予算不足の誤判定と「会社留保」水増しの修正close
 
 - canonical branch: `main`
 - accepted implementation commit: `700a438e8393e17e791bbb05070fe88a15b17d50` (`fix(pwa): correct MS noncash allocation budget guard`)
-- implementation commitは `origin/main` とproductionへ反映済み。closeout文書commitはこのHANDOFFを含む現在のmain HEADとして別に積まれるため、次セッション開始時に `git rev-parse HEAD` と `/api/build-info` を読み直す。
-- accepted production build: `v3.51.17` / `git_branch=main` / `dirty=false`
+- implementation commitは `origin/main` とproductionへ反映済み。このHANDOFFを含むcloseout文書commitもcurrent main HEADとしてproductionへ反映済み。正確なSHAは次セッション開始時に `git rev-parse HEAD` と `/api/build-info` で読み直す。
+- accepted production build: `v3.51.17` / current main HEAD / `git_branch=main` / `dirty=false`
 - accepted SX current truth: client 10,480,000円 / buffer 1,800,000円 / PJ budget 5,642,000円 / cash payout 1,942,752円 / 対象外配賦 3,085,723円 / obligation 5,028,475円 / 期末未払0円 / 残予算613,525円。
 - no DB/payment mutation: 今回はコード・仕様・検査・表示だけを変更し、報酬行や支払データは書き換えていない。
 - worktrees: root checkout 1件のみ。clean detached worktree `b108` は状態・空patchを `/Users/masa/.codex/cleanup_archives/` に保全後、registryから削除済み。
@@ -63,5 +63,5 @@ SXで再び保存停止が出た場合だけ、最初にproduction `/api/build-i
 - durable note: design/manual正本、`pwa/BUGS.md` の2026-07-29 finance/admin-ms項目、`pwa/design_log/sessions_2026-07.md`
 - design_log: 更新あり。理由は製品コード・finance計算・UI・検査・deployの実装履歴だから。
 - main alignment: `main aligned`
-- production alignment: accepted implementation `700a438e` / `v3.51.17` はproduction反映済み。closeout文書commitの最終SHAはcloseout後の `/api/build-info` で再確認する。
-- archive condition: SX側はcloseout済み。最終closeout文書commitのpush・production SHA・live dirty inventoryを確認して判定する。
+- production alignment: accepted implementation `700a438e` と、このHANDOFFを含むcurrent main HEADはproduction反映済み。`/api/build-info` は `v3.51.17` / `main` / `dirty=false`。
+- archive condition: `archive ok`。root checkoutはclean、ahead/behind 0/0、worktreeはroot 1件、local branchはmainのみ。
