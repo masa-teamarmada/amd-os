@@ -43,13 +43,39 @@ async function main() {
   if (!report) throw new Error("notification body is empty");
 
   assertSanitized(report);
+
+  const actionRequired = trimmedOrNull(args["action-required"]);
+  const actionUrl = trimmedOrNull(args["action-url"]);
+  const actionLabel = trimmedOrNull(args["action-label"]);
+  const completionCondition = trimmedOrNull(args["completion-condition"]);
+  if ((outcome === "review_required" || outcome === "blocked") && (!actionRequired || !actionUrl || !completionCondition)) {
+    throw new Error(
+      "--outcome review_required and --outcome blocked require --action-required, --action-url, and --completion-condition (all three).",
+    );
+  }
+  assertSanitized(actionRequired || "");
+  assertSanitized(completionCondition || "");
+  if (actionUrl && (actionUrl.startsWith("//") || !/^(https?:\/\/|\/)/.test(actionUrl))) {
+    throw new Error("--action-url must start with http(s):// or / (an internal route).");
+  }
+
   const body = buildNotificationBody(outcome, report);
 
   const runKey = String(args["run-key"] || buildDefaultRunKey()).trim();
   const source = String(args.source || "h1_meeting_flow").trim();
-  const link = String(args.link || "/notifications").trim();
+  const link = String(args.link || actionUrl || "").trim();
   const dryRun = Boolean(args["dry-run"]);
   const now = new Date().toISOString();
+
+  const hasAction = !!(actionRequired && completionCondition);
+  const actionContract = {
+    action_owner: hasAction ? "まさ" : "none",
+    action_required: actionRequired || null,
+    action_label: actionLabel || null,
+    action_url: actionUrl || null,
+    completion_condition: completionCondition || null,
+    why_now: OUTCOMES[outcome].guidance,
+  };
 
   const row = {
     kind: "h1_report",
@@ -65,6 +91,7 @@ async function main() {
       notification_channel: OUTCOMES[outcome].notificationChannel,
       generated_at: now,
       sanitized: true,
+      action_contract: actionContract,
       notification_contract: {
         destination_label: "対象PJの会議記録・予定カード",
         changes: ["本文に記した対象会議の記録、予定カード、議事録ひも付けの確認結果"],
@@ -133,6 +160,12 @@ function requiredOutcome(value) {
 
 function buildNotificationBody(outcome, report) {
   return `${H1_EXPLANATION}\n${OUTCOMES[outcome].guidance}\n\n${report}`;
+}
+
+function trimmedOrNull(value) {
+  if (value === undefined || value === null || value === true || value === false) return null;
+  const trimmed = String(value).trim();
+  return trimmed || null;
 }
 
 function readBody(parsedArgs) {
