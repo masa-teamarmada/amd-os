@@ -13,7 +13,7 @@ import {
   FileSearch,
   FlaskConical,
   GitBranch,
-  Lightbulb,
+  Mail,
   Pencil,
   Plus,
   RefreshCw,
@@ -49,6 +49,9 @@ import {
   type SxWeeklyIssueStage,
 } from "@/lib/sx-weekly-control";
 import { SxUnifiedTimeline } from "./SxUnifiedTimeline";
+import { SxPartnerEmailLedger } from "./SxPartnerEmailLedger";
+import { SxPartnerPipeline } from "./SxPartnerPipeline";
+import { SxPocCandidateBoard } from "./SxPocCandidateBoard";
 import styles from "./weekly-control.module.css";
 
 type StageKey = SxWeeklyIssueStage;
@@ -862,6 +865,7 @@ export function SxWeeklyControlDashboard({ bundle, access }: { bundle: ProjectWo
           <nav className={styles.sectionNav} aria-label="週次管制ナビ">
             <a href="#weekly-change">週次差分</a>
             <a href="#project-gantt">ガント</a>
+            <a href="#partner-ledger">関係先</a>
             <a href="#issue-hypothesis">論点・仮説</a>
             <a href="#input-readiness">データ接続</a>
           </nav>
@@ -936,6 +940,24 @@ export function SxWeeklyControlDashboard({ bundle, access }: { bundle: ProjectWo
           </div>
         </section>
 
+        <section id="partner-ledger" className={styles.section}>
+          <div className={styles.sectionHeading}>
+            <div><h2>関係先リスト</h2><p>最新のメール接点、現在のボール、次の約束を関係先ごとに確認</p></div>
+            <p>メールは要点・日付・往復方向だけを表示</p>
+          </div>
+          <div className="space-y-4">
+            <SxPartnerEmailLedger management={management} />
+            <SxPartnerPipeline management={management} />
+          </div>
+          <div className="mt-5 border-t border-[#bbb3a7] pt-5">
+            <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+              <div><h3 className="text-lg font-bold tracking-[-0.025em] text-[#24231f]">PoC候補先リスト</h3></div>
+              <Link className="text-[11px] font-bold text-[#235f4b] underline" href={`/project/${encodeURIComponent(bundle.project.projectId)}/workspace#management-poc`}>候補先を編集</Link>
+            </div>
+            <SxPocCandidateBoard management={management} />
+          </div>
+        </section>
+
         <section id="issue-hypothesis" className={styles.section}>
           <div className={styles.issueHeading}>
             <div><h2>論点・仮説リスト</h2></div>
@@ -962,7 +984,7 @@ export function SxWeeklyControlDashboard({ bundle, access }: { bundle: ProjectWo
             <article><FileSearch aria-hidden="true" /><div><span>週次差分</span><strong>接続待ち</strong><small>完了・予測変更・新しい詰まり</small></div></article>
             <article><FlaskConical aria-hidden="true" /><div><span>論点・仮説</span><strong>{management.issues.length}件</strong><small>現行管理台帳から仮表示</small></div></article>
             <article><CalendarClock aria-hidden="true" /><div><span>人員配分</span><strong>{bundle.effort.actualHours.toFixed(1)}h</strong><small>入力 {enteredMembers}/{bundle.members.length}名 · 現行工数台帳</small></div></article>
-            <article><Lightbulb aria-hidden="true" /><div><span>検証履歴</span><strong>{management.validationRuns.length}件</strong><small>次の検証と結果の接続口</small></div></article>
+            <article><Mail aria-hidden="true" /><div><span>メール接点</span><strong>{management.partnerInteractions.filter((item) => item.interactionKind === "email").length}件</strong><small>本文・アドレスは非保存</small></div></article>
           </div>
         </section>
         <footer className={styles.pageFooter}><span>基準日 {formatDate(management.asOf)} · 表示値は現行台帳の仮表示</span><Link href={`/project/${encodeURIComponent(bundle.project.projectId)}/workspace#management-plan`}>計画詳細を既存画面で開く<ArrowRight aria-hidden="true" /></Link></footer>

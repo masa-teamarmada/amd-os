@@ -2632,6 +2632,33 @@ expectIncludes("../ios/AMDOS/Core/Services/SupabaseService.swift", [
 
 console.log("critical PWA UI anchors ok");
 
+// Round 22 (2026-07-29): the weekly-control route must keep the partner/Poc
+// lists and the sanitized Gmail interaction lane. Raw message bodies and
+// addresses are never part of the visible ledger contract.
+expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
+  'href="#partner-ledger"',
+  '<SxPartnerEmailLedger management={management} />',
+  '<SxPartnerPipeline management={management} />',
+  '<SxPocCandidateBoard management={management} />',
+]);
+expectIncludes("src/components/project-workspace/SxPartnerEmailLedger.tsx", [
+  'data-testid="sx-partner-email-ledger"',
+  "本文・アドレスは非保存",
+  "emailInteractions(partner)",
+  "sxBallSideLabel(partner.currentBallSide)",
+]);
+expectIncludes("scripts/migrations/201_sx_poc_email_interactions.sql", [
+  "interaction_kind",
+  "'email'",
+  "gmail-thread:",
+  "結果と次の約束は未確認",
+  "email_count < 11",
+]);
+expectIncludes("src/lib/sx-partner-holdings.ts", [
+  "Gmail確認（本文・宛先は非保存）",
+  "/^gmail-(?:thread|message):/i",
+]);
+
 // Round 22 (2026-07-27): PoC候補先ボード。関係先台帳とは役割が違うので別面で持つ。
 expectIncludes("src/components/project-workspace/SxPocCandidateBoard.tsx", [
   "sx-poc-board",

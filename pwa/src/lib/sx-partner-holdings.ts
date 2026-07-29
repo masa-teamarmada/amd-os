@@ -133,6 +133,8 @@ export function sxSourceKindLabel(kind: SxSourceKind): string {
 export function sxSourceRefDisplayLabel(sourceRef: string | null): string | null {
   if (!sourceRef) return null;
   if (/^https?:\/\//i.test(sourceRef)) return "外部リンク（詳細は編集画面で確認）";
+  if (/^gmail-(?:thread|message):/i.test(sourceRef)) return "Gmail確認（本文・宛先は非保存）";
+  if (/^gmail-review:/i.test(sourceRef)) return "Gmail確認";
   const trackingKeyMatch = sourceRef.match(/^user:(\d{4}-\d{2}-\d{2})#(.+)$/);
   if (trackingKeyMatch) return `手動記録 ${trackingKeyMatch[1]}`;
   return sourceRef.length > 24 ? `${sourceRef.slice(0, 24)}…` : sourceRef;

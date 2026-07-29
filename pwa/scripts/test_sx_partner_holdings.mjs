@@ -151,6 +151,7 @@ function partner(overrides = {}) {
   assert.equal(sxSourceRefDisplayLabel(null), null);
   assert.equal(sxSourceRefDisplayLabel("https://example.com/secret-token?key=abc"), "外部リンク（詳細は編集画面で確認）", "a raw URL must never render verbatim");
   assert.equal(sxSourceRefDisplayLabel("user:2026-07-23#partner-progress"), "手動記録 2026-07-23", "an internal tracking-key shape must be reformatted, not shown verbatim");
+  assert.equal(sxSourceRefDisplayLabel("gmail-thread:19f4569cec6cf572"), "Gmail確認（本文・宛先は非保存）", "a Gmail thread id must never render verbatim");
   assert.equal(sxSourceRefDisplayLabel("PWA共有管理画面"), "PWA共有管理画面", "a short, already-human label passes through unchanged");
 }
 
