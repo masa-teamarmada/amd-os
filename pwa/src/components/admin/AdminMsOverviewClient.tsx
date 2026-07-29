@@ -790,7 +790,7 @@ function EditActionBar({
               ? "bg-red-500/10 text-red-500"
               : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300")
           }
-          title={`クライアント支払 ${fmtRevisionYen(rewardRevision.budgetImpact.clientPaymentYen)} / バッファ ${fmtRevisionYen(rewardRevision.budgetImpact.bufferYen)} / 原資上限 ${fmtRevisionYen(rewardRevision.budgetImpact.sourceBudgetYen)} / PJ予算 ${fmtRevisionYen(rewardRevision.budgetImpact.pjBudgetYen)} / メンバー支払 ${fmtRevisionYen(rewardRevision.budgetImpact.memberPayoutYen)} / 会社留保 ${fmtRevisionYen(rewardRevision.budgetImpact.companyReserveYen)} / 期末未払 ${fmtRevisionYen(rewardRevision.budgetImpact.seasonEndShortageYen)}`}
+          title={`クライアント支払 ${fmtRevisionYen(rewardRevision.budgetImpact.clientPaymentYen)} / バッファ ${fmtRevisionYen(rewardRevision.budgetImpact.bufferYen)} / 原資上限 ${fmtRevisionYen(rewardRevision.budgetImpact.sourceBudgetYen)} / PJ予算 ${fmtRevisionYen(rewardRevision.budgetImpact.pjBudgetYen)} / メンバー支払 ${fmtRevisionYen(rewardRevision.budgetImpact.memberPayoutYen)} / 支払対象外メンバー配賦(現金支払なし) ${fmtRevisionYen(rewardRevision.budgetImpact.companyReserveYen)} / 期末未払 ${fmtRevisionYen(rewardRevision.budgetImpact.seasonEndShortageYen)}`}
         >
           {rewardRevision.budgetImpact.seasonEndShortageYen > 0
             ? `不足額 ${fmtRevisionYen(rewardRevision.budgetImpact.seasonEndShortageYen)}`
@@ -963,10 +963,10 @@ function RewardRevisionSafetyPanel({
             title={`支払済み固定 ${fmtRevisionYen(budgetImpact.fixedPaidYen)} / これから支払予定 ${fmtRevisionYen(budgetImpact.futureProjectedPayYen)}`}
           />
           <BudgetImpactCell
-            label="会社留保"
+            label="対象外配賦"
             value={budgetImpact.companyReserveYen}
             tone={budgetImpact.companyReserveYen > 0 ? "green" : "muted"}
-            title="役員など支払通知書対象外の当月割当をAMD側に留保する額"
+            title="支払対象外メンバー配賦（現金支払なし）— members.exclude_from_payout_notice=true のメンバーへの当月PJ予算内cap按分額。現金支払は発生せず内部配賦として残る。35%のAMDマージンとは別枠"
           />
           <BudgetImpactCell
             label="支払済み固定"
@@ -1065,7 +1065,12 @@ function SeasonFinanceGuardBanner({
         <BudgetImpactCell label="原資上限" value={impact.sourceBudgetYen} tone={impact.isSourceOverBudget ? "red" : "muted"} />
         <BudgetImpactCell label="PJ予算" value={impact.pjBudgetYen} />
         <BudgetImpactCell label="メンバー支払" value={impact.memberPayoutYen} />
-        <BudgetImpactCell label="会社留保" value={impact.companyReserveYen} tone={impact.companyReserveYen > 0 ? "green" : "muted"} />
+        <BudgetImpactCell
+          label="対象外配賦"
+          value={impact.companyReserveYen}
+          tone={impact.companyReserveYen > 0 ? "green" : "muted"}
+          title="支払対象外メンバー配賦（現金支払なし）"
+        />
         <BudgetImpactCell
           label={impact.seasonEndShortageYen > 0 ? "期末未払" : impact.isSourceOverBudget ? "原資超過" : "予算不足"}
           value={impact.seasonEndShortageYen > 0 ? impact.seasonEndShortageYen : impact.isSourceOverBudget ? impact.sourceBudgetOverrunYen : impact.budgetShortageYen}

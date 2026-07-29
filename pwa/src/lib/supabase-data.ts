@@ -14,6 +14,7 @@ import {
   buildExtraRevenueCashByYm,
   parseSeasonBufferTotal,
 } from "@/lib/finance/season-finance";
+import { externalUnpaidStockYen, fundedNonCashAllocationYen } from "@/lib/reward-finance-summary";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -1818,31 +1819,18 @@ function rewardSummaryNumber(
   return sumRewardMemberField(summary, fallbackFields);
 }
 
-function rewardMemberStockYen(member: RewardSummaryMember): number {
-  return rewardNumber(member.stockYen ?? member.deferredYen);
+/**
+ * 支払対象外メンバー配賦 (会社留保) の「当月割当済み額」= 当月の非現金配賦フロー。
+ * stockYen (月末残高スナップショット) はここに含めない — 含めると月次ループで残高を
+ * 毎月加算してしまい、シーズン義務が実際の何倍にも膨らむ (SX ¥9,069,525 重複加算バグ,
+ * まさ確定 2026-07-29)。期末未払残 (外部・支払対象メンバー分) は
+ * externalUnpaidStockYen で最終月のみ単発スナップショットとして別途扱う。
+ */
+function rewardSummaryCompanyReserveFunded(summary: RewardSummary | null | undefined): number {
+  return fundedNonCashAllocationYen(summary);
 }
 
-function rewardMemberIsCompanyReserve(member: RewardSummaryMember): boolean {
-  return member.payoutExcluded === true || rewardNumber(member.companyReserveYen ?? member.officerReserveYen) > 0;
-}
-
-function rewardSummaryExternalUnpaidStock(summary: RewardSummary | null | undefined): number {
-  return (summary?.members || []).reduce((sum, member) => {
-    if (rewardMemberIsCompanyReserve(member)) return sum;
-    return sum + rewardMemberStockYen(member);
-  }, 0);
-}
-
-function rewardSummaryCompanyReserveWithPending(summary: RewardSummary | null | undefined): number {
-  const funded = rewardSummaryNumber(summary, "companyReserveYen", ["companyReserveYen", "officerReserveYen"]);
-  const pending = (summary?.members || []).reduce((sum, member) => {
-    if (!rewardMemberIsCompanyReserve(member)) return sum;
-    return sum + rewardMemberStockYen(member);
-  }, 0);
-  return funded + pending;
-}
-
-function buildCockpitSeasonFinance({
+export function buildCockpitSeasonFinance({
   planCycle,
   projectRow,
   billingRows,
@@ -1913,8 +1901,8 @@ function buildCockpitSeasonFinance({
     const extraBudgetYen = row?.extra_budget_yen == null ? 0 : rewardNumber(row.extra_budget_yen);
     const pjBudgetYen = regularBudgetYen + extraBudgetYen;
     const memberPayoutYen = rewardSummaryNumber(summary, "totalPaySum", ["totalPay"]);
-    const companyReserveYen = rewardSummaryCompanyReserveWithPending(summary);
-    const unpaidStockYen = rewardSummaryExternalUnpaidStock(summary);
+    const companyReserveYen = rewardSummaryCompanyReserveFunded(summary);
+    const unpaidStockYen = externalUnpaidStockYen(summary);
     const cashBalanceYen = clientPaymentYen - bufferYen - memberPayoutYen;
     const rewardObligationYen = memberPayoutYen + companyReserveYen + unpaidStockYen;
     const remainingAfterObligationYen = pjBudgetYen - rewardObligationYen;

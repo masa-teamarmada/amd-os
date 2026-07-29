@@ -24,6 +24,7 @@ import {
 } from "@/lib/reward-summary";
 import { isCapExtraTag } from "@/lib/admin/ms-overview-calc";
 import { capExtraPointBasisForMilestone, totalPointBasisForCycle } from "@/lib/season-point-basis";
+import { externalUnpaidStockYen, fundedNonCashAllocationYen } from "@/lib/reward-finance-summary";
 
 export const runtime = "nodejs";
 
@@ -342,34 +343,19 @@ function rewardSummaryTotalPay(summary: RewardSummary | null): number {
   return (summary?.members ?? []).reduce((sum, member) => sum + Math.max(0, Math.round(safeNumber(member.totalPay))), 0);
 }
 
-type RewardSummaryMember = RewardSummary["members"][number];
-
-function rewardMemberStockYen(member: RewardSummaryMember): number {
-  return Math.max(0, Math.round(safeNumber(member.stockYen ?? member.deferredYen)));
-}
-
-function rewardMemberIsCompanyReserve(member: RewardSummaryMember): boolean {
-  return member.payoutExcluded === true || safeNumber(member.companyReserveYen ?? member.officerReserveYen) > 0;
-}
-
+/**
+ * 支払対象外メンバー配賦 (会社留保) の「当月割当済み額」= 当月の非現金配賦フロー。
+ * stockYen (月末残高スナップショット) はここに含めない — 含めると月次ループで残高を
+ * 毎月加算してしまい、シーズン義務が実際の何倍にも膨らむ (SX ¥9,069,525 重複加算バグ,
+ * まさ確定 2026-07-29)。期末未払残は外部 (現金支払対象) 分だけ rewardSummaryFinalStock
+ * で単月スナップショットとして別に扱う。
+ */
 function rewardSummaryCompanyReserve(summary: RewardSummary | null): number {
-  const explicit = Math.round(safeNumber(summary?.companyReserveYen));
-  const funded = explicit > 0 ? explicit : (summary?.members ?? []).reduce((sum, member) => {
-    const reserve = safeNumber(member.companyReserveYen ?? member.officerReserveYen);
-    return sum + Math.max(0, Math.round(reserve));
-  }, 0);
-  const pending = (summary?.members ?? []).reduce((sum, member) => {
-    if (!rewardMemberIsCompanyReserve(member)) return sum;
-    return sum + rewardMemberStockYen(member);
-  }, 0);
-  return funded + pending;
+  return fundedNonCashAllocationYen(summary);
 }
 
 function rewardSummaryFinalStock(summary: RewardSummary | null): number {
-  return (summary?.members ?? []).reduce((sum, member) => {
-    if (rewardMemberIsCompanyReserve(member)) return sum;
-    return sum + rewardMemberStockYen(member);
-  }, 0);
+  return externalUnpaidStockYen(summary);
 }
 
 function rewardCycleHasVerifiedPaidEvidence(cycle: ProtectedBillingCycleRow): boolean {

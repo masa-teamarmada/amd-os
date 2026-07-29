@@ -10,7 +10,9 @@
 
 ## まず一行で
 
-> **「PJ 予算 × 65% から契約バッファと会社留保を先取りした残額」を、 「その月の MS 消化度合」と「メンバーごとの背負い度 (share)」で按分する**。
+> **「クライアント支払 − 契約バッファ」の65%を PJ メンバー予算とし、その枠内を「その月の MS 消化度合」と「メンバーごとの背負い度 (share)」で按分する**。
+
+残り35%は AMD 運営費30% + クローザー報酬5%の外枠で、PJメンバー予算や下記の「対象外配賦」には含めない。`companyReserveYen` は35%を意味せず、65%枠内で支払対象外メンバーへ割り当たった非現金配賦の互換フィールド名。
 
 つまり、 PJ がたくさん進んだ月はみんなの報酬が増えて、 進まなかった月は少なくなる。 同じ MS でも、 share が大きい人ほど多く取る。
 
@@ -40,10 +42,10 @@
 | `grossDue` | `totalPay + carryIn` (= cap 前にメンバーが「本来もらえる額」) |
 | `capBudgetYen` | 月次の支払上限 |
 | `budget_buffer_amount` | 契約上 AMD が先に回収する会社バッファの当月消化額。当月の `invoice × 65%` から先に差し引き、外部支払 cap には回さない |
-| `companyReserveYen` / `officerReserveYen` | 役員メンバーに通常の cap 按分で割り当たった役員向け報酬相当額。OS内部では会社留保として検算に使うが、支払通知書やメンバー向け PJ cockpit には出さない |
-| `externalPayoutCapYen` | 通常の cap 按分後、非役員メンバーの支払/stock返済に実際に使われた額 |
+| `companyReserveYen` / `officerReserveYen` | `exclude_from_payout_notice=true` の支払対象外メンバーに、通常の65% cap 按分で割り当たった非現金配賦。35%のAMD運営費・クローザー報酬とは別。`officer*` は互換名であり `is_officer` は分類に使わない |
+| `externalPayoutCapYen` | 通常の cap 按分後、`exclude_from_payout_notice=false` の支払対象メンバーへの支払/stock返済に実際に使われた額 |
 | `carryIn` | 前月から繰越された未払い分 |
-| `stockYen` / `deferredYen` | cap 超過で翌月へ繰り越す分 (= 同義)。非役員・支払対象メンバー分は外部への未払残、役員分は会社留保の未充当繰越として読む |
+| `stockYen` / `deferredYen` | cap 超過で翌月へ繰り越す月末残高 (= 同義)。支払対象メンバー分は外部への未払残、支払対象外メンバー分は非現金配賦の未充当繰越として読む。月次フローのように月ごとに合計しない |
 
 ---
 
@@ -70,32 +72,31 @@ totalPay[member]  = basePay[member] + bonusPt[member]        # bonusPt は現状
 # キャップ制御 (= 月次支払上限)
 grossDue[member]  = totalPay[member] + carryIn[member]
 
-# 会社留保も他メンバーと同じ cap 按分に入れる
+# 支払対象外メンバーも他メンバーと同じ65% cap 按分に入れる
 contractBufferYen = billing_cycles.budget_buffer_amount
-# 役員 (officer) も非役員と同じく過去 stock を carryIn として母数に入れる (2026-06-19 まさ確定)
-grossDueForCap[officer] = basePay[officer] + carryIn[officer]
-grossDueForCap[nonOfficer] = grossDue[nonOfficer]
+# 支払対象外メンバーも支払対象メンバーと同じく過去 stock を carryIn として母数に入れる
+grossDueForCap[nonCashMember] = basePay[nonCashMember] + carryIn[nonCashMember]
+grossDueForCap[cashMember] = grossDue[cashMember]
 
 if Σ grossDueForCap[all eligible] ≤ capBudgetYen:
     allocated[member] = grossDueForCap[member]
 else:
     allocated[member] = round(capBudgetYen × grossDueForCap[member] / Σ grossDueForCap[all eligible])  # 按分
 
-paid[nonOfficer] = allocated[nonOfficer]
-stockYen[nonOfficer] = grossDue[nonOfficer] − paid[nonOfficer] # 翌月へ繰越
-companyReserveYen[officer] = allocated[officer]            # 役員向け報酬相当額として会社留保に計上 (現金支払 0)
-# 役員も cap 不足で留保しきれなかった分は stock として翌月へ繰り越す (= 非役員と同じ)。
-# これで「年間原資 × pt 比」が役員 (= AMD 会社留保) でも成立し、年間で pt 比に収束する。
-companyReserveUnfundedYen[officer] = grossDueForCap[officer] − allocated[officer]
-stockYen[officer] = companyReserveUnfundedYen[officer]      # 翌月 carryIn[officer] へ
-paid[officer] = 0
+paid[cashMember] = allocated[cashMember]
+stockYen[cashMember] = grossDue[cashMember] − paid[cashMember] # 翌月へ繰越
+companyReserveYen[nonCashMember] = allocated[nonCashMember]     # 65%枠内の非現金配賦 (現金支払 0)
+# 支払対象外メンバーも cap 不足で配賦しきれなかった分は stock として翌月へ繰り越す。
+companyReserveUnfundedYen[nonCashMember] = grossDueForCap[nonCashMember] − allocated[nonCashMember]
+stockYen[nonCashMember] = companyReserveUnfundedYen[nonCashMember]
+paid[nonCashMember] = 0
 ```
 
-> **2026-06-19 まさ確定 — 役員 stock 繰越**: 旧実装は役員 (`is_officer`) の `carryIn` を 0 にし、cap 不足月に留保しきれなかった分 (`companyReserveUnfundedYen`) を翌月へ繰り越さず捨てていた。SX のように cap が慢性的に逼迫する PJ では、これにより**役員 (= AMD 会社留保) が年間で pt 比どおりに受け取れず構造的に取りこぼす**事故になっていた (SX 現行サイクルだけで役員計 約189万、3 active PJ で約192万)。役員も非役員と同じく stock を繰り越す方式に変更し、`年間原資 = Σ(pt × pt単価)`、`Σ月cap = 年間原資` の下で**月次の前後はあっても年間で全員 pt 比に収束**することをシミュレーション+本番再計算で検証済み。実装は `pwa/src/lib/reward-summary.ts` の `applyRewardCapsForMonth` (cap 按分母数に officer の carryIn を含める / 役員返却ブロックで `stockYen` を繰り越す) の 2 箇所。
+> **2026-06-19 まさ確定 — 支払対象外メンバーの stock 繰越 / 2026-07-29 分類根拠訂正**: 旧実装は当時の「役員」区分の `carryIn` を 0 にし、cap 不足月に配賦しきれなかった分 (`companyReserveUnfundedYen`) を翌月へ繰り越さず捨てていた。SX のように cap が慢性的に逼迫する PJ では、年間で pt 比どおりに配賦できない構造的な取りこぼしになる。stock を他メンバーと同じく繰り越し、月次の前後はあっても年間で pt 比に収束させる。2026-07-29以降、その対象判定は `is_officer` ではなく `exclude_from_payout_notice=true` のみ。あき・りりのような非役員も対象になり、役員でも `exclude=false` なら現金支払対象になる。
 
 > **2026-07-03 まさ確定 — 未使用 cap 繰越**: `stockYen` だけを翌月へ繰り越し、当月に使い切らなかった `budget_yen` (= 月次支払 cap) を捨てる旧挙動は禁止。前半の MS 消化が薄く後半に厚い PJ では、年間原資 `Σ月cap` が足りていても終盤だけ cap 不足になり、シーズン末に未払い残が残るため。`buildRewardSummary` は plan cycle 先頭から時系列に `regularUnusedCapCarryOutYen = max(0, effectiveRegularCapBudgetYen - regularGrossDueForCap)` を計算し、次月の `regularCapCarryInYen` として足す。つまり、当月の配分に使う上限は `effectiveRegularCapBudgetYen = regularCapBudgetYen + regularCapCarryInYen`。別財布 (`cap_extra`) は `extra_budget_yen` が明示された月だけ同じく `extraUnusedCapCarryOutYen` を繰り越し、`NULL` (= cap 未設定・需要全額即払い) の月では未使用別財布 cap を発生させない。
 
-> **2026-07-03 まさ確定 — シーズン終了時 stock ゼロ必須 / 自動上乗せ禁止**: すべての plan cycle は `period_end_ym` の計算後に、支払通知対象メンバーへの未払残を 0 円で閉じることを絶対条件にする。ただし、報酬計算側が最終月に自動で cap を足してゼロに見せることは禁止。`buildRewardSummary` は月次 cap と未使用 cap 繰越だけで計算し、それでも最終月に外部メンバー分の `stockYen` が残る場合は不足額としてそのまま出す。raw の `carryOverYen` には役員の会社留保未充当分も含まれうるため、`/admin/ms-overview` / PJ cockpit の `期末未払残` は外部メンバー分だけを合計し、役員繰越は会社留保側の内部検算として扱う。`/admin/ms-overview` の編集モードは保存前検算でクライアント支払額、バッファ、原資上限、PJ予算、メンバー支払額、期末未払残を表示し、外部向け期末未払残、PJ予算不足、または PJ予算の原資上限超過が 1 円でもある場合は `blocked` として保存を止める。AMD運営側が認識していないところでバッファ/運営費が勝手に削られてゼロ着地に見える設計は禁止。
+> **2026-07-03 まさ確定 — シーズン終了時 stock ゼロ必須 / 自動上乗せ禁止 / 2026-07-29 分類根拠訂正**: すべての plan cycle は `period_end_ym` の計算後に、支払対象メンバーへの未払残を 0 円で閉じることを絶対条件にする。ただし、報酬計算側が最終月に自動で cap を足してゼロに見せることは禁止。`buildRewardSummary` は月次 cap と未使用 cap 繰越だけで計算し、それでも最終月に支払対象メンバー分の `stockYen` が残る場合は不足額としてそのまま出す。raw の `carryOverYen` には支払対象外メンバーの非現金配賦未充当分も含まれうるため、`/admin/ms-overview` / PJ cockpit の `期末未払残` は支払対象メンバー分だけを最終月に一度だけ読み、対象外メンバーの繰越は内部収束チェックとして扱う。`stockYen` は残高スナップショットなので複数月を合計しない。`/admin/ms-overview` の編集モードは保存前検算でクライアント支払額、バッファ、原資上限、PJ予算、メンバー支払額、対象外配賦、期末未払残を表示し、外部向け期末未払残、PJ予算不足、または PJ予算の原資上限超過が 1 円でもある場合は `blocked` として保存を止める。AMD運営側が認識していないところでバッファ/運営費が勝手に削られてゼロ着地に見える設計は禁止。
 
 > **pt単価の原資定義 (まさ正本)**: `PJ予算 = (請求額 − バッファ) × 65%`、`本契約pt単価 = PJ予算 ÷ (シーズン期間の月数 × 10pt)`。バッファ (= 営業費用・旅費等、AMD が請求額から先取りする PJ コスト枠) は **pt単価の計算に必ず反映**する。現行実装の `deriveRewardBudgetForPt` は `value_plan_cycles.budget_yen` をそのまま原資に使うため、**`value_plan_cycles.budget_yen` にバッファ反映後の額 `(請求額 − バッファ) × 65%` を入れる**ことで正しい pt単価になる (SX は 2026-06-19 に 6,812,000 → 5,642,000 へ是正済み)。通常 MS の配分 pt 合計が増減しても、本契約 pt単価は変動させない。バッファを第一級入力にしてロジック側で自動控除する恒久実装は別タスク。
 
@@ -302,19 +303,19 @@ monthly_fixed 契約の Contract Apply は、バッファなしの場合、未�
 
 契約最終月に `ptUnit = round(cycleBudget / totalPt)` の円丸めで少額の stock が残る場合も、報酬計算側が自動で cap を増やしてはいけない。MS保存前検算で不足額として表示し、必要なら admin が契約・PJ予算・MS設計を明示的に直してから保存する。通常月 cap は契約月額 × 65% と未使用 cap 繰越だけで計算し、暗黙の精算枠は作らない。
 
-### 会社留保の扱い
+### 支払対象外メンバーへの非現金配賦の扱い（互換名: 会社留保）
 
 cap は次の順番で扱う。これは全 PJ 共通で、特定 PJ だけの例外ルールにはしない。
 
 1. `value_plan_cycles.buffer_breakdown_json` / `billing_cycles.budget_buffer_amount`: シーズン原資にバッファ内訳がある場合は、それが最優先の正本であり、月次請求サイクル側では二重控除しない。シーズン内訳が無い PJ だけ、契約台帳にある会社回収バッファを `billing_cycles.budget_buffer_amount` として月ごとに消化する。`projects.contract_terms_json.companyReserveBufferYen` などに総額があれば、契約自動確定が月ごとに未消化分を `budget_buffer_amount` へ入れる。`companyReserveBufferMonthlyYen` などの月次上限がある場合は、その金額を超えて一気に回収しない。
-2. `members.is_officer=true` の当月 `basePay`: 役員も非役員・支払対象メンバーと同じ cap 按分に入れる。割り当たった額だけを `reward_summary_json.members[].companyReserveYen` / `officerReserveYen` に残し、`totalPay=0` のまま支払通知書からは除外する。
-3. 非役員・支払対象メンバーの `grossDue`: 当月稼働分 + 前月 stock の返済を、役員 basePay と同じ cap 按分に入れる。
+2. `members.exclude_from_payout_notice=true` の当月 `basePay`: 役職に関係なく支払対象メンバーと同じ65% cap 按分に入れる。割り当たった額だけを `reward_summary_json.members[].companyReserveYen` / `officerReserveYen` に残し、`totalPay=0` のまま支払通知書からは除外する。これは35%のAMD運営費・クローザー報酬ではない。
+3. `members.exclude_from_payout_notice=false` の支払対象メンバーの `grossDue`: 当月稼働分 + 前月 stock の返済を、対象外メンバーの `basePay + carryIn` と同じ cap 按分に入れる。
 
-役員の過去 `stockYen` は外部支払予定へは繰り越さない。役員分は「外部への未払い債務」ではなく会社留保の未充当分なので、次月以降の cap 按分には非役員と同じく carryIn として入れ、`companyReserveYen` / `officerReserveYen` へ収束させる。非役員メンバーの stock は従来どおり外部未払残として翌月以降へ繰り越す。
+支払対象外メンバーの過去 `stockYen` は外部支払予定へは含めない。「外部への未払い債務」ではなく非現金配賦の未充当分なので、次月以降の cap 按分には他メンバーと同じく carryIn として入れ、`companyReserveYen` / `officerReserveYen` へ収束させる。支払対象メンバーの stock は外部未払残として翌月以降へ繰り越す。
 
 ### キャップ超過時の按分
 
-`Σ grossDueForCap[eligible] ≤ capBudgetYen` なら非役員支払分と役員会社留保分をそのまま全額充当 (= `capped = false`)。
+`Σ grossDueForCap[eligible] ≤ capBudgetYen` なら現金支払分と支払対象外の非現金配賦分をそのまま全額充当 (= `capped = false`)。
 
 `Σ grossDueForCap[eligible] > capBudgetYen` のとき:
 
@@ -327,7 +328,7 @@ for each member in members:                      # earnedPt 降順
     else:
         allocated = round(remainingCap × grossDueForCap / remainingGross)
     allocated = max(0, min(grossDueForCap, allocated)) # クランプ
-    if member is officer:
+    if member.exclude_from_payout_notice:
         member.companyReserveYen = allocated
         member.totalPay = 0
         member.companyReserveUnfundedYen = grossDueForCap − allocated
@@ -346,7 +347,7 @@ for each member in members:                      # earnedPt 降順
 
 特例: **当月の members 配列に居なくても、 前月 stockYen が残ってるメンバーは「carry-only 行」として members に追加** される (= `earnedPt = 0, basePay = 0, grossDue = carryIn`)。 これで「過去に働いて未払いだったメンバー」が忘れ去られない。
 
-`stockYen` はその月に新しく発生した未払い額ではなく、`carryIn + 当月発生 - totalPay` 後の**月末未払い残高**。UIでは `stockYen` だけを単独表示せず、`/admin/payouts` の報酬債務台帳で支払通知対象メンバー分の `carryInYen` / 当月発生 / `totalPay` / `stockYen` を同じ行に並べる。役員分の `stockYen` は会社留保の未充当繰越として扱い、報酬債務台帳の未払い残には混ぜない。
+`stockYen` はその月に新しく発生した未払い額ではなく、`carryIn + 当月発生 - totalPay` 後の**月末未払い残高**。複数月の `stockYen` を合計すると同じ残高を重複計上するため禁止。UIでは `stockYen` だけを単独表示せず、`/admin/payouts` の報酬債務台帳で支払対象メンバー分の `carryInYen` / 当月発生 / `totalPay` / `stockYen` を同じ行に並べる。支払対象外メンバー分は非現金配賦の未充当繰越として扱い、外部への未払い残には混ぜない。
 
 契約開始前に実働がある PJ では、契約前の稼働月は `budget_yen = 0` のまま `grossDue` と `stockYen` を発生させる。契約開始後の月では、前月までの `stockYen` が `carryInYen` になり、当月発生分と同じ cap の中で支払・繰越される。このため `stockYen` が大きいこと自体は異常ではなく、「どの月から来た残高か」を台帳で確認する。
 
@@ -361,7 +362,7 @@ MS をシーズン途中で修正し、すでに protected な月 (`reward_paid_
 - 同じ旧制度月の事前合意額を通知書へ復元する場合は、`legacy_reward_payout_amount_override_events` を支払レイヤーで読む。これは報酬再計算や liability offset ではない。`reward_summary_json`・MS・stock/carryを変えず、`monthly_reward_payout` と未送付の支払通知書だけを事前合意額へ同期する。DB/codeとも `source_ym <= 202606` 以外には適用しない。
 - 同じ MS 編集由来の pending 行は、保存し直すたびに `voided` へ置き換える。差額は常に「protected 月の保存済み cache」と「現在の MS 設計で再計算した本来値」の差として再作成する。
 
-先12か月の見通しでは、会社留保を `出` に混ぜない。`キャッシュ支払` は外部支払だけ、`会社留保` は `cap/売上枠 - 外部支払`、`報酬債務` は外部メンバーへの月末未払い残、`cap超過チェック` は報酬需要と cap/売上枠の差だけを見る。各表のセルは、その表で確認したい主数字を優先し、別目的の補助数字を混ぜない。`stockYen` は残高なので、12か月分の単純合計を「未払い総額」として読まない。報酬債務表の合計列はピークではなく、最終月に外部メンバーへの未払い残がゼロ着地するかを最優先で表示する。役員分の繰越は会社留保側の内部検算で追う。
+先12か月の見通しでは、支払対象外メンバーへの非現金配賦を `出` に混ぜない。`キャッシュ支払` は支払対象メンバーへの現金支払だけ、`対象外配賦` は65% cap内の非現金配賦、`報酬債務` は支払対象メンバーへの月末未払い残、`cap超過チェック` は報酬需要と cap/売上枠の差だけを見る。各表のセルは、その表で確認したい主数字を優先し、別目的の補助数字を混ぜない。`stockYen` は残高なので、12か月分の単純合計を「未払い総額」として読まない。報酬債務表の合計列はピークではなく、最終月に支払対象メンバーへの未払い残がゼロ着地するかを最優先で表示する。対象外メンバー分の繰越は非現金配賦側の内部検算で追う。
 
 ---
 
@@ -391,11 +392,11 @@ payYen[member]   = round(earnedPt[member] × ptUnit)      # = そのまま支払
 
 ## 月次収支シミュレータの売上原価 (= 予実管理)
 
-`/management-score` の live 月次試算表は、将来各月の**売上原価**を `/admin/payouts` と同じ capped 外部支払予定で投影する。`billing_cycles.reward_summary_json.externalRegularPayoutCapYen + externalExtraPayoutCapYen` が正本で、役員会社留保・会社留保・未払い残・uncapped の理論需要は原価/cash out に混ぜない。
+`/management-score` の live 月次試算表は、将来各月の**売上原価**を `/admin/payouts` と同じ capped 外部支払予定で投影する。`billing_cycles.reward_summary_json.externalRegularPayoutCapYen + externalExtraPayoutCapYen` が正本で、支払対象外メンバーへの非現金配賦・未払い残・uncapped の理論需要は原価/cash out に混ぜない。
 
 `/management-score` 下部の「PJ別 先12か月収支」表は、支払予定 (capped) とは別に `MS月割 +{pt}pt / {N}MS` を表示する。これは報酬計算をもう一度行う列ではなく、`value_milestones.period_start_ym`〜`target_ym` と `anchoredExpectedCumPctForYm` から、その月にどの程度MSが進む前提かを目視確認するための監査表示。PM locked 行があるMSは `PM確定` として表示し、非確定の `routine_auto` / LLM推定行は正本にしない。
 
-> **`/admin/payouts`「先12か月 PJ収支」表の将来「支払予定」は capped + 役員除外を使う (2026-06-17, v0.25.4 / 2026-07-17 月次試算表へ正本化)**: `/admin/payouts` の支払予定列は、実際にいくら払うか = **capped (月次キャップ `budget_yen` + stock 繰越平準化)** が正本。`computeForwardCappedMemberCosts` が plan cycle 期間の各月を `buildRewardSummary` で投影し、`is_officer` / `exclude_from_payout_notice` のメンバーは支払予定から**単に落とす** (再配分しない = AMD 持ち出しが無限に膨らむのを防ぐ)。**将来月の支払予定や月次試算表の売上原価に uncapped を入れたり `budget_yen` を決め打ちコピーするのは禁止**。役員のみ PJ や支払対象メンバーがいない PJ は capped 外部支払予定 = ¥0 が正しい結果なので、値 0 を「未計算」と誤判定してフォールバックに落とさないこと。
+> **`/admin/payouts`「先12か月 PJ収支」表の将来「支払予定」は capped + 支払対象外除外を使う (2026-06-17, v0.25.4 / 2026-07-17 月次試算表へ正本化 / 2026-07-29 支払区分の根拠を `exclude_from_payout_notice` に統一)**: `/admin/payouts` の支払予定列は、実際にいくら払うか = **capped (月次キャップ `budget_yen` + stock 繰越平準化)** が正本。支払対象かどうかの唯一の根拠は `members.exclude_from_payout_notice` であり、`is_officer` は支払分類に使わない (役員でも exclude=false なら支払対象、あき/りりのように非役員でも exclude=true なら支払対象外)。`computeForwardCappedMemberCosts` が plan cycle 期間の各月を `buildRewardSummary` で投影する際、`exclude_from_payout_notice=true` のメンバーも 65% PJ 予算内の cap 按分には**参加させ**、その割当済み額を非現金の内部配賦 (`companyReserveYen`) に回す。`payableMembers` (現金支払予定の対象) を求める最終フィルタでのみ `payoutExcluded` で除外する — cap 配分自体から落とすわけではない。**将来月の支払予定や月次試算表の売上原価に uncapped を入れたり `budget_yen` を決め打ちコピーするのは禁止**。支払対象外メンバーだけの PJ や支払対象メンバーがいない PJ は capped 外部支払予定 = ¥0 が正しい結果なので、値 0 を「未計算」と誤判定してフォールバックに落とさないこと。
 
 - **入力**: live テーブル (`projects` の `monthly_fixed` / `value_plan_cycles` (active) / `value_milestones` の `period_start_ym`・`target_ym`・`points` / `milestone_responsibility` / `billing_cycles`)。 旧 `company_budget_inputs` の凍結スナップショットは使わない。
 - **売上原価 = 将来各月の capped 外部支払予定**。`/admin/payouts` の支払通知フローと同じ `reward_summary_json` を読む。

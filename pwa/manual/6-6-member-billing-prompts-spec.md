@@ -77,7 +77,7 @@ OS 上では PM/PL/参加メンバーのいずれにも月次確認 TODO を出�
 
 `members.exclude_from_payout_notice=true` かつ `members.is_officer=false` のメンバー (= 例: りり / ID006 NIMS 無償出向、あき / ID029 無報酬稼働) は `/mypage` / `/dashboard` 埋め込みの **報酬額表示が `ー`**。reward 計算キャッシュ自体は他メンバー集計の整合のため残すが、支払通知書・月初合意・支払 gate では `not_required` にする。
 
-`members.is_officer=true` のメンバーは支払通知書発行対象から除外するが、報酬計算上は会社留保 (`companyReserveYen` / `officerReserveYen`) として金額を残す。`is_officer=true` かつ `exclude_from_payout_notice=true` の場合、`/mypage` は金額を隠さず表示し、`（役員のため支払対象外）` を添える。
+支払通知書発行対象から除外するかどうかの唯一の根拠は `members.exclude_from_payout_notice=true` であり、`is_officer` は使わない (2026-07-29 まさ確定: あき/ID029・りり/ID006 は非役員だが支払対象外、既存役員は `exclude_from_payout_notice=true` で揃っている)。`exclude_from_payout_notice=true` のメンバーは 65% PJ 予算内の cap 按分には参加させたうえで、割当済み額を現金支払ではなく内部配賦 (`companyReserveYen` / `officerReserveYen`、UI表示は「対象外配賦」) として残す。`is_officer=true` かつ `exclude_from_payout_notice=true` の場合、`/mypage` は金額を隠さず表示し、`（支払対象外）` を添える。
 
 ### 月次集計の前提 ym レンジ
 

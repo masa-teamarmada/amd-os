@@ -971,9 +971,9 @@ export function applyRewardCapsForMonth(
 
     if (payoutExcludedMemberIds.has(memberId) && !companyReserveMemberIds.has(memberId)) continue;
 
-    // 役員 (companyReserve) も非役員と同じく過去 stock を carryIn として cap 按分の母数に入れる。
-    // 旧実装は役員だけ carryIn=0 にしており、cap 不足月の役員分が unfunded として消え、
-    // 年間で役員 (= AMD 会社留保) が pt 比どおりに受け取れない構造損失があった (まさ確定 2026-06-19)。
+    // 支払対象外メンバー (companyReserve) も支払対象メンバーと同じく過去 stock を
+    // carryIn として cap 按分の母数に入れる。旧実装は旧「役員」区分だけ carryIn=0 にしており、
+    // cap 不足月の非現金配賦分が unfunded として消える構造損失があった (2026-06-19、区分根拠は2026-07-29訂正)。
     regularInputs.push({
       memberId,
       basePay: adjustedRegular.basePay,
@@ -1097,8 +1097,8 @@ export function applyRewardCapsForMonth(
           carryInYen,
           grossDueYen,
           cappedFrom: companyReserveUnfundedYen > 0 ? grossDueYen : undefined,
-          // 役員は現金支払 0 だが、cap 不足で当月会社留保しきれなかった分は
-          // stock として翌月へ繰り越す (非役員と同じ扱い)。これで年間で pt 比に収束する。
+          // 支払対象外メンバーは現金支払 0 だが、cap 不足で当月配賦しきれなかった分は
+          // stock として翌月へ繰り越す (支払対象メンバーと同じ扱い)。これで年間で pt 比に収束する。
           deferredYen: stockYen,
           stockYen,
           regularBasePay: regular.basePay,
@@ -1663,13 +1663,15 @@ async function computeRewardSummaryForCycle(
       .map((row) => row.member_id)
   );
 
+  // 支払対象の分類根拠は exclude_from_payout_notice (支払うべきか否か)。is_officer は使わない —
+  // 役員かどうかは支払分類と無関係 (まさ確定 2026-07-29)。exclude=true のメンバーも支払対象メンバーと
+  // 同じ 65% cap 按分に参加させ、割当額は現金支払 0 の非現金内部配賦 (companyReserveYen 等) として残す。
+  // cap 配分から丸ごと落とす旧 payoutExcludedMemberIds 経路は使わない (支払対象外メンバーの割当が消えてしまうため)。
   const memberMap: Record<string, string> = {};
   const companyReserveMemberIds = new Set<string>();
-  const payoutExcludedMemberIds = new Set<string>();
   for (const member of (membersRes.data ?? []) as MemberRow[]) {
     memberMap[member.member_id] = member.code_name || member.member_name || member.member_id;
-    if (member.is_officer) companyReserveMemberIds.add(member.member_id);
-    if (member.exclude_from_payout_notice) payoutExcludedMemberIds.add(member.member_id);
+    if (member.exclude_from_payout_notice) companyReserveMemberIds.add(member.member_id);
   }
 
   const rewardSummary = buildRewardSummary({
@@ -1679,7 +1681,6 @@ async function computeRewardSummaryForCycle(
     responsibilities,
     activeMemberIds,
     companyReserveMemberIds,
-    payoutExcludedMemberIds,
     memberMap,
     billing,
     billingsByYm: new Map(((billingRangeRes.data ?? []) as BillingRow[]).map((row) => [row.ym, row])),
@@ -1922,25 +1923,25 @@ export async function computeForwardUncappedMemberCosts(
 
 export interface ForwardCappedMonth {
   ym: string;
-  /** その月に実際に支払う capped 報酬 (円, 月次キャップ + 繰越平準化適用後 / 役員・支払対象外を除外済み) */
+  /** その月に実際に支払う capped 報酬 (円, 月次キャップ + 繰越平準化適用後 / 支払対象外を除外済み) */
   cappedTotalYen: number;
-  /** 本契約capを使う capped 額。役員の会社留保分も含める。 */
+  /** 本契約capを使う capped 額。支払対象外メンバーへの非現金配賦も含める。 */
   cappedRegularYen: number;
-  /** 別財布(cap_extra)を使う capped 額。役員の会社留保分も含める。 */
+  /** 別財布(cap_extra)を使う capped 額。支払対象外メンバーへの非現金配賦も含める。 */
   cappedExtraYen: number;
-  /** 本契約capから外部メンバーへ実際に支払う額。会社留保は含めない。 */
+  /** 本契約capから支払対象メンバーへ実際に支払う額。非現金配賦は含めない。 */
   cappedRegularExternalYen: number;
-  /** 別財布から外部メンバーへ実際に支払う額。会社留保は含めない。 */
+  /** 別財布から支払対象メンバーへ実際に支払う額。非現金配賦は含めない。 */
   cappedExtraExternalYen: number;
-  /** 本契約capで役員向け報酬相当額として会社留保に計上する額。 */
+  /** 本契約capで支払対象外メンバーへ非現金配賦する額。フィールド名は互換維持。 */
   regularCompanyReserveYen: number;
-  /** 別財布で役員向け報酬相当額として会社留保に計上する額。 */
+  /** 別財布で支払対象外メンバーへ非現金配賦する額。フィールド名は互換維持。 */
   extraCompanyReserveYen: number;
   /** 本契約capに対する当月の報酬需要。carry-in を含む。 */
   regularGrossDueYen: number;
   /** 別財布に対する当月の報酬需要。carry-in を含む。 */
   extraGrossDueYen: number;
-  /** 非役員メンバーへの月末未払い残。 */
+  /** 支払対象メンバーへの月末未払い残。 */
   carryOverYen: number;
   /** シーズン最終月に未払残をゼロへ閉じるため追加した精算枠。 */
   finalCapTopUpYen: number;
@@ -1960,9 +1961,10 @@ export interface ForwardCappedMonth {
  *   capped は月次支払上限 (budget_yen) + stock 繰越平準化が入るので「支払予定」の正本 (spec 7-1)。
  * - cap + carryIn 連鎖は `buildRewardSummary` が内部で planCycle 全期間を時系列に回して処理する
  *   (= ここで carryIn を手で連鎖させる必要はない)。期間全 billing を billingsByYm で渡す。
- * - 役員 (is_officer) は通常メンバーと同じ cap 配分に入れ、会社留保分として regular/extra に分けて返す。
- * - 支払対象外 (exclude_from_payout_notice) のメンバーは cap 配分から単に落とす。
- *   抜けた share を他メンバーに再配分はしない (再配分すると AMD 持ち出しが無限に膨らむため。i 案)。
+ * - 支払対象外 (exclude_from_payout_notice) のメンバーも通常メンバーと同じ cap 配分に入れ、
+ *   割当額を非現金の内部配賦 (regular/extraCompanyReserveYen) として regular/extra に分けて返す。
+ *   is_officer は支払分類の根拠にしない (まさ確定 2026-07-29)。抜けた share を他メンバーに
+ *   再配分することはない (再配分すると AMD 持ち出しが無限に膨らむため)。
  *
  * anchorYm はアンカー月 (= 当月)。billing_cycle が無い月はスキップ。
  */
@@ -2047,13 +2049,12 @@ export async function computeForwardCappedMemberCosts(
       .map((row) => row.member_id)
   );
   const memberMap: Record<string, string> = {};
-  // 支払対象外メンバーは cap 配分から落とす。役員は同じ cap 配分に入れたうえで会社留保に振る。
-  const excludedMemberIds = new Set<string>();
+  // 支払対象外メンバー (exclude_from_payout_notice) も支払対象メンバーと同じ cap 配分に入れたうえで
+  // 非現金の内部配賦 (companyReserveYen 等) に振る。is_officer は支払分類の根拠にしない (まさ確定 2026-07-29)。
   const companyReserveMemberIds = new Set<string>();
   for (const member of (membersRes.data ?? []) as MemberRow[]) {
     memberMap[member.member_id] = member.code_name || member.member_name || member.member_id;
-    if (member.is_officer) companyReserveMemberIds.add(member.member_id);
-    if (member.exclude_from_payout_notice) excludedMemberIds.add(member.member_id);
+    if (member.exclude_from_payout_notice) companyReserveMemberIds.add(member.member_id);
   }
 
   const progress = (progressRes.data ?? []) as ProgressRow[];
@@ -2081,7 +2082,6 @@ export async function computeForwardCappedMemberCosts(
       responsibilities,
       activeMemberIds,
       companyReserveMemberIds,
-      payoutExcludedMemberIds: excludedMemberIds,
       memberMap,
       billing,
       billingsByYm: billingByYm,
@@ -2090,7 +2090,9 @@ export async function computeForwardCappedMemberCosts(
       liabilityOffsetsByYm,
     });
     const members = summary?.members ?? [];
-    const payableMembers = members.filter((m) => !excludedMemberIds.has(m.memberId) && !m.payoutExcluded);
+    // payoutExcluded は companyReserveMemberIds (= exclude_from_payout_notice) メンバーの
+    // 全レコードに立つ。cash-payable な将来払いプロジェクションからはこの1本の判定だけで十分。
+    const payableMembers = members.filter((m) => !m.payoutExcluded);
     const cappedRegularExternalYen = summary?.externalRegularPayoutCapYen ?? payableMembers.reduce((sum, m) => sum + (m.regularPaidYen || 0), 0);
     const cappedExtraExternalYen = summary?.externalExtraPayoutCapYen ?? payableMembers.reduce((sum, m) => sum + (m.extraPaidYen || 0), 0);
     const regularCompanyReserveYen = summary?.regularCompanyReserveYen || 0;

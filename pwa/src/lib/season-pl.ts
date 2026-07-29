@@ -15,7 +15,8 @@
  *  - 未割当pt:      Σ(earnedPt) < total_points → MS未設定 (SX 0.93pt の穴)
  *  - 原資≠Σ月cap:   value_plan_cycles.budget_yen ≠ Σ billing_cycles.budget_yen → cap/原資不整合 (ZMP)
  *  - pt単価過大:    pt単価 ≠ (請求額−バッファ)×65% ÷ total_points → バッファ未反映バグ
- *  - 役員取りこぼし: 最終月で役員stockが0に収束しない → 役員繰越が効いてない
+ *  - 取りこぼし:    最終月で支払対象外メンバー (exclude_from_payout_notice=true) の
+ *                  stockが0に収束しない → 非現金配賦の繰越が効いてない
  */
 
 import {
@@ -50,7 +51,7 @@ function effectiveMilestonePoints(ms: Pick<MilestoneInput, "points" | "tag" | "p
 
 // 「閉じ検算」「原資=Σ月cap」「pt単価」の許容誤差 (丸め誤差吸収, 円)。
 const CLOSE_TOLERANCE_YEN = 5;
-// 役員 stock 収束許容誤差 (円)。
+// 支払対象外メンバーの stock 収束許容誤差 (円)。定数名は互換維持。
 const OFFICER_STOCK_TOLERANCE_YEN = 5;
 // 未割当 pt 許容誤差 (pt)。MS 0.93pt のような穴をここで検出する。
 const UNASSIGNED_PT_TOLERANCE = 0.01;
@@ -129,8 +130,9 @@ export type BufferItem = { label: string; amount: number };
 export type SeasonPlMember = {
   memberId: string;
   memberName: string;
+  /** フィールド名は互換維持のため isOfficer だが、値は exclude_from_payout_notice 由来 (支払対象外=true) */
   isOfficer: boolean;
-  /** 役員=会社留保 / 非役員=現金支払 (支払通知書区分) */
+  /** 支払対象外メンバー=company_reserve (非現金配賦) / 支払対象メンバー=cash (現金支払)。is_officer は根拠にしない */
   reserveKind: "cash" | "company_reserve";
   /** シーズン累計の獲得pt (実績消化分) */
   earnedPt: number;
@@ -142,7 +144,7 @@ export type SeasonPlMember = {
   budgetShareYen: number;
   /** うち別財布 (cap_extra) プール由来の予算取り分。0 なら本契約のみ */
   extraBudgetShareYen: number;
-  /** シーズン累計の実支払 (非役員=現金 / 役員=会社留保) */
+  /** シーズン累計の配賦済み額 (支払対象=現金 / 支払対象外=非現金配賦) */
   paidYen: number;
   /** 最終月末の繰越stock (= 未払い債務)。最終的に 0 に収束するのが正 */
   finalStockYen: number;
@@ -175,7 +177,7 @@ export type SeasonPlChecks = {
   ptUnitConsistent: boolean;
   ptUnitExpected: number;
   ptUnitDeltaYen: number;
-  /** 最終月で役員stockが0に収束するか */
+  /** 最終月で支払対象外メンバーのstockが0に収束するか。フィールド名は互換維持 */
   officerStockConverges: boolean;
   officerFinalStockYen: number;
 };
@@ -401,17 +403,17 @@ export function computeSeasonPl({
   const billingsByYm = new Map<string, BillingInput>(billings.map((row) => [row.ym, row]));
   const cycleMonths = cycleMonthsRange(planCycle);
 
+  // 報酬の現金支払 / 非現金配賦 (会社留保) の区分は is_officer ではなく
+  // exclude_from_payout_notice を正本とする (まさ確定 2026-07-29)。
+  // is_officer は役員フラグとして残すが、金銭計算の分類根拠には使わない。
   const memberMap: Record<string, string> = {};
-  const officerIds = new Set<string>();
   const companyReserveMemberIds = new Set<string>();
+  // cap 配分から丸ごと除外するための Set。exclude_from_payout_notice のメンバーは
+  // cap 配分そのものには参加させ、現金支払を 0 にするだけなので、ここは空のまま渡す。
   const payoutExcludedMemberIds = new Set<string>();
   for (const member of members) {
     memberMap[member.member_id] = member.code_name || member.member_name || member.member_id;
-    if (member.is_officer) {
-      officerIds.add(member.member_id);
-      companyReserveMemberIds.add(member.member_id);
-    }
-    if (member.exclude_from_payout_notice) payoutExcludedMemberIds.add(member.member_id);
+    if (member.exclude_from_payout_notice) companyReserveMemberIds.add(member.member_id);
   }
   const effectiveActiveMemberIds = activeMemberIds ?? new Set(members.map((m) => m.member_id));
 
@@ -498,8 +500,10 @@ export function computeSeasonPl({
       } else {
         agg.regularEarnedPt += numberValue(member.earnedPt);
       }
-      // 非役員は totalPay (現金支払)、役員は companyReserveYen (会社留保) を実支払とみなす。
-      agg.paidYen += officerIds.has(member.memberId)
+      // 支払対象メンバー (exclude_from_payout_notice=false) は totalPay (現金支払)、
+      // 支払対象外メンバー (exclude_from_payout_notice=true) は companyReserveYen
+      // (非現金配賦=会社留保) を実支払相当額とみなす。is_officer は分類根拠にしない。
+      agg.paidYen += companyReserveMemberIds.has(member.memberId)
         ? Math.max(0, Math.round(numberValue(member.companyReserveYen)))
         : Math.max(0, Math.round(member.totalPay));
       aggByMember.set(member.memberId, agg);
@@ -520,7 +524,9 @@ export function computeSeasonPl({
   const memberIds = new Set<string>([...aggByMember.keys(), ...finalStockByMember.keys()]);
   const seasonMembers: SeasonPlMember[] = [...memberIds]
     .map((memberId): SeasonPlMember => {
-      const isOfficer = officerIds.has(memberId);
+      // フィールド名は互換維持のため isOfficer/company_reserve のままだが、値の根拠は
+      // exclude_from_payout_notice (支払対象外区分)。is_officer は分類に使わない。
+      const isOfficer = companyReserveMemberIds.has(memberId);
       const agg = aggByMember.get(memberId);
       const earnedPt = Math.round((agg?.earnedPt ?? 0) * 100) / 100;
       const regularEarnedPt = Math.round((agg?.regularEarnedPt ?? 0) * 100) / 100;
@@ -596,7 +602,8 @@ export function computeSeasonPl({
   const ptUnitDeltaYen = ptUnitYen - ptUnitExpected;
   const ptUnitConsistent = regularPointsSum <= 0 || Math.abs(ptUnitDeltaYen) <= CLOSE_TOLERANCE_YEN;
 
-  // 役員取りこぼし: 最終月で役員stockが0に収束しない
+  // 取りこぼし: 最終月で支払対象外メンバー (isOfficer=exclude_from_payout_notice由来) の
+  // 非現金配賦stockが0に収束しない。フィールド名は互換維持で officer* のまま。
   const officerStockConverges = officerFinalStockYen <= OFFICER_STOCK_TOLERANCE_YEN;
 
   const checks: SeasonPlChecks = {
