@@ -35,11 +35,12 @@ const reviewRequired = rowFor("review_required", [
   "--action-required", "確認して判断する",
   "--action-url", "/project/p01/cockpit",
   "--completion-condition", "内容を確認し判断したら完了",
+  "--link", "/notifications",
 ]);
 assert.equal(reviewRequired.title, "会議確認: 確認が必要");
 assert.equal(reviewRequired.meta.action_contract.action_owner, "まさ");
-assert.equal(reviewRequired.meta.action_contract.action_label, null);
 assert.equal(reviewRequired.link, "/project/p01/cockpit");
+assert.equal(reviewRequired.meta.action_contract.action_label, null);
 
 const reviewRequiredWithoutAction = runNotification(["--outcome", "review_required"]);
 assert.notEqual(reviewRequiredWithoutAction.status, 0);

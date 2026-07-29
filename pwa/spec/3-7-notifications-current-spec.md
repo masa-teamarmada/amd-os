@@ -19,7 +19,7 @@ server page は以下を取得して `NotificationsClient` に渡す。
 
 UI は `open` / `unread` / `answered` / `feedback` で絞り込み、展開時に `read_at` を楽観更新する。
 
-すべての通知カードは、操作を促す場合に **「確認・反映先」「追加・更新する情報」「この操作の結果」** を同じカード内に表示する。writer がこの action contract を持たない `app_notifications` は、実行結果の報告として表示し、そこから正本反映済みとは判断させない。追加先が未定義の候補は肯定操作の根拠にしない。
+L2/MTG通知カードは、操作を促す場合に **「確認・反映先」「追加・更新する情報」「この操作の結果」** を同じカード内に表示する。`app_notifications` は `meta.action_contract` の `action_owner/action_required/action_label/action_url/completion_condition/why_now` を正本として、全カードに **「まさがやること」「開く場所」「完了条件」** を表示する。完了報告は `action_owner='none'` で「対応不要」を明示する。追加先や行動が未定義の候補は肯定操作・緊急扱いの根拠にしない。
 
 展開時の詳細欄は、kind ごとに正本テーブルを lazy fetch して表示する。個別 fetch が未実装、または候補行が通知作成後に移動/統合されて見つからない場合でも、「DB未反映」と断定せず、通知本文を fallback 詳細として表示する。D-11 `news_mention` は `project_media_mentions` を `metadata_json.source_url` / `occurred_on` / title fallback で引き、保存済みの掲載行を表示する。ただし `coverage_gap` は例外。元の `l2_coverage_gaps` 行が見つからない場合、汎用 fallback や内部IDを見せず、タイトルを「コピー前に元情報を確認」に変え、「このカードだけではコピー対象を判断できない」と表示して肯定ボタンを disabled にする。
 
@@ -41,7 +41,7 @@ PWA の右下ポップアップは `pwa/src/components/notifications/CriticalRea
 
 | source | 判定材料 |
 |---|---|
-| `app_notifications` | `kind='connector_auth'` は常に `critical`。`meta.priority/severity/urgency/notification_priority/notification_channel/risk_level` が `critical` / `urgent` / `blocker` 等なら `critical`。title/body/meta reason に再認証・blocker・事故・緊急・期限超過等の運用緊急語がある場合も `critical`。 |
+| `app_notifications` | 明示priorityや運用緊急語はcritical候補にすぎない。`action_owner!='none'` かつ具体行動・直接URL・完了条件が全部揃う場合だけ `critical`。旧 `connector_auth` は直接の再認証URLがある場合だけ `critical`。 |
 | `l2_notifications` | 明示 `notification_priority='critical'`、または `metadata_json` の priority/severity/reason/blocker_kind 等に期限超過 / blocker / 再認証 / 緊急等の運用緊急語がある場合は `critical`。その他の L2 候補は `normal`。`l2_kind` / `importance >= 8` / title / summary だけでは `critical` にせず、契約予兆・総会/役会・D-11メディア掲載も通常レビューに残す。 |
 | `meeting_notifications` | 常に `normal`。MTGサマリは一次記録なので、NDA / 契約 / 法務 / SHA / COI / 再認証 / blocker 等の語が含まれても右下ポップアップにはしない。緊急扱いが必要なものは `connector_auth` / `guardrail_match` / `contract_signals` 等の専用通知で出す。 |
 
@@ -124,7 +124,9 @@ PWA / iPhone の `textbook_insight` 表示は、候補の本文を「OSの見立
 - `/notifications` は non-admin で表示されない。
 - `/notifications` は OS通知と L2/MTGレビューをそれぞれ「緊急性の高い通知」「通常通知」に分ける。
 - critical 未読通知は `/notifications` の表示に加えて右下ポップアップにも出る。
-- `connector_auth` は `critical` に入り、通常レビュー候補は `normal` に入る。
+- `connector_auth` は直接の再認証先がある場合だけ `critical` に入り、対応先がないものと通常レビュー候補は `normal` に入る。
+- `app_notifications` の全カードに「まさがやること / 開く場所 / 完了条件」が出る。結果報告は「対応不要」と表示する。
+- app通知の明示criticalは、具体行動・直接URL・完了条件が欠けたら `normal` へ降格する。
 - MTGサマリ本文に NDA / 契約 / 法務 / SHA / COI / 再認証 / blocker 等があっても `critical` にならない。必要な緊急通知は `connector_auth` / 明示 `notification_priority='critical'` / 期限超過 / blocker 等で出す。
 - L2候補は「要対応」というラベルや high importance だけでは `critical` にならない。期限超過 / blocker / 明示 critical の場合だけ右下ポップアップ対象にする。
 - `?notification_id=` / `?meeting_id=` で開いた通知は、最新100件に含まれない場合も追加取得して表示し、自動展開する。

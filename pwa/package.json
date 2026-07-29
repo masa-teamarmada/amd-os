@@ -66,6 +66,7 @@
     "test:h1-local-notion-fallback": "node scripts/check_h1_local_notion_fallback.mjs",
     "test:h1-meeting-summary-reviewer": "node scripts/check_h1_meeting_summary_reviewer.mjs",
     "test:h1-notification-policy": "node scripts/check_h1_notification_policy.mjs",
+    "test:notification-action-contract": "node --experimental-strip-types scripts/check_notification_action_contract.mts",
     "notify:connector-auth": "node scripts/notify_connector_auth.mjs",
     "notify:h1-report": "node scripts/notify_h1_report.mjs",
     "health:l2": "node scripts/l2_health_check.mjs",

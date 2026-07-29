@@ -13,6 +13,7 @@ export type NotificationKind =
   | "task_created"
   | "connector_auth"
   | "h1_report"
+  | "meeting_action"
   | "misc";
 
 export interface AppNotification {
@@ -38,6 +39,7 @@ export const NOTIFICATION_KIND_LABEL: Record<string, string> = {
   task_created: "タスク追加",
   connector_auth: "再認証",
   h1_report: "H-1報告",
+  meeting_action: "会議の要対応",
   misc: "その他",
 };
 

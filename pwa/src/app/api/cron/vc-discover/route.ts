@@ -280,6 +280,18 @@ ${recentUrls.slice(0, 50).join("\n") || "(なし)"}
         source_url: it.news_source_url,
         is_new_vc: isNewVc,
         vc_name: it.vc_name,
+        action_contract: {
+          action_owner: "まさ",
+          action_required: isNewVc
+            ? "新規VCの情報と一次ソースを確認し、追客対象にするか見送るか決める。"
+            : "VCニュースを確認し、VC情報やファンド情報を更新する必要があるか決める。",
+          action_label: isNewVc ? "新規VCを確認" : "VCニュースを確認",
+          action_url: `/vcs/${vcId}`,
+          completion_condition: isNewVc
+            ? "追客対象にするか見送るかを決めたら完了。"
+            : "情報更新の要否を決め、必要ならVCページへ反映したら完了。",
+          why_now: "新しいVC情報を検知したため。",
+        },
       },
       related_vc_id: vcId,
       source: "cron_vc_discover",

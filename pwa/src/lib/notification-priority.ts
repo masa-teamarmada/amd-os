@@ -47,12 +47,20 @@ export function notificationPriorityLabel(priority: NotificationPriority): strin
 }
 
 export function appNotificationPriority(notification: AppNotificationLike): NotificationPriority {
-  if (notification.kind === "connector_auth") return "critical";
-  if (hasExplicitCritical(notification.meta)) return "critical";
-  if (hasOperationalCriticalToken([notification.kind, notification.source, notification.title, notification.body, metaText(notification.meta)])) {
-    return "critical";
+  if (notification.kind === "connector_auth") {
+    return hasCompleteActionContract(notification.meta) || hasDirectReauthUrl(notification.meta)
+      ? "critical"
+      : "normal";
   }
-  return "normal";
+
+  const flaggedCritical =
+    hasExplicitCritical(notification.meta) ||
+    hasOperationalCriticalToken([notification.kind, notification.source, notification.title, notification.body, metaText(notification.meta)]);
+  if (!flaggedCritical) return "normal";
+
+  // まさ本人が取るべき行動・URL・完了条件が揃わない critical は、
+  // 対応しようがない通知として normal へ降格する (connector_auth は上で別扱い済み)。
+  return hasCompleteActionContract(notification.meta) ? "critical" : "normal";
 }
 
 export function l2NotificationPriority(notification: L2NotificationLike): NotificationPriority {
@@ -69,6 +77,43 @@ export function meetingNotificationPriority(notification: MeetingNotificationLik
   return "normal";
 }
 
+export type ActionContract = {
+  actionOwner: string;
+  actionRequired: string | null;
+  actionLabel: string | null;
+  actionUrl: string | null;
+  completionCondition: string | null;
+  whyNow: string | null;
+};
+
+/**
+ * `meta.action_contract` の正本形式。action_owner が "none" のときは
+ * まさの対応が不要な通知 (完了報告など) を表す。
+ */
+const ACTION_KEYS = ["action_owner", "action_required", "action_url", "action_label", "completion_condition", "why_now"];
+
+export function parseActionContract(meta: Record<string, unknown> | null | undefined): ActionContract | null {
+  const primary = objectValue(meta?.action_contract);
+  const legacy = objectValue(meta?.notification_contract);
+  const legacyHasActionKeys = !!legacy && ACTION_KEYS.some((key) => key in legacy);
+  const raw = primary || (legacyHasActionKeys ? legacy : null);
+  if (!raw) return null;
+  return {
+    actionOwner: textValue(raw.action_owner) || "none",
+    actionRequired: textValue(raw.action_required) || null,
+    actionLabel: textValue(raw.action_label) || null,
+    actionUrl: textValue(raw.action_url) || null,
+    completionCondition: textValue(raw.completion_condition) || null,
+    whyNow: textValue(raw.why_now) || null,
+  };
+}
+
+export function hasCompleteActionContract(meta: Record<string, unknown> | null | undefined): boolean {
+  const contract = parseActionContract(meta);
+  if (!contract) return false;
+  return contract.actionOwner !== "none" && !!contract.actionRequired && !!contract.actionUrl && !!contract.completionCondition;
+}
+
 function hasExplicitCritical(meta: Record<string, unknown> | null | undefined): boolean {
   if (!meta) return false;
   if (meta.critical === true || meta.is_critical === true) return true;
@@ -77,6 +122,16 @@ function hasExplicitCritical(meta: Record<string, unknown> | null | undefined): 
     if (["critical", "urgent", "blocker", "事故", "緊急"].includes(value)) return true;
   }
   return false;
+}
+
+function hasDirectReauthUrl(meta: Record<string, unknown> | null | undefined): boolean {
+  if (!meta) return false;
+  return [meta.reauth_url, meta.reauth_install_url, meta.reauth_app_url]
+    .some((value) => isActionableUrl(textValue(value)));
+}
+
+function isActionableUrl(value: string): boolean {
+  return /^(https?:\/\/|app:\/\/|\/(?!\/))/.test(value);
 }
 
 function hasOperationalCriticalToken(values: Array<string | null | undefined>): boolean {

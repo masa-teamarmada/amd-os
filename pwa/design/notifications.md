@@ -1,6 +1,6 @@
 # 通知 + つくよみ修正依頼 — 設計の正本
 
-最終更新: 2026-07-24 (通知 action contract / 開催履歴候補の採用経路)
+最終更新: 2026-07-29 (全app通知の対応契約 / 緊急通知の実行可能性gate)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
 ---
@@ -19,7 +19,9 @@ connector 再認証は `app_notifications(kind='connector_auth')` に置く。H-
 
 ## 通知 action contract
 
-操作を求める通知は、表示用 metadata に `destination_label`、`changes[]`、`approval_effect`（報告通知は `effect`）を持ち、PWA/iOSで **追加先 / 追加・更新する情報 / この操作の結果** として同じ順番で出す。契約がない通知は「実行結果の報告」として明示し、正本更新の判断をさせない。
+L2候補の操作契約は、表示用 metadata に `destination_label`、`changes[]`、`approval_effect`（報告通知は `effect`）を持ち、PWA/iOSで **追加先 / 追加・更新する情報 / この操作の結果** として同じ順番で出す。
+
+`app_notifications` は `meta.action_contract` に `action_owner`、`action_required`、`action_label`、`action_url`、`completion_condition`、`why_now` を持つ。PWAの全カードは **まさがやること / 開く場所 / 完了条件** を必ず出す。処理完了報告は `action_owner='none'` として「対応不要」を明示し、必要なら確認先だけ残す。既存行に契約がない場合はkind別の安全な説明を表示するが、新しいwriterは契約なしで通知を作らない。
 
 ガバナンスの候補は `coverage_gap + proposed_target_l2='shareholder_meeting'`。候補作成時点では `l2_coverage_gaps.review_status='candidate'` だけで、`project_shareholder_meetings` は増やさない。採用時にだけ `POST /api/notifications/feedback` が会議種別、開催日、議題、決議、添付ファイル名を `project_shareholder_meetings` へ1行追加する。追加先は `会社概要 → 総会・取締役会`。メール送信、Driveアップロード、元資料の更新はしない。添付URL、メール本文、source hashは表示用の開催履歴に持ち込まない。
 
@@ -27,15 +29,15 @@ PWA は admin session 中に `CriticalRealtimeNotify` が `app_notifications` / 
 
 Swift は `app_notifications.native_notified_at IS NULL` の `connector_auth` を起動時/foreground復帰時に拾い、ローカル通知を即表示する。通知を表示したら `native_notified_at` を打つが、これは「Swiftへ配信済み」だけを表し、PWA/Swift共通の人間既読は引き続き `read_at`。Swift通知をタップすると通知ボックスを挟まず `reauth_url` を開き、`read_at` を打つ。ただし再認証リンクが閉じたり失敗した場合に再試行できるよう、Swift通知ボックスの「既読」タブにも `connector_auth` を残し、「再認証を開く」ボタンを出す。再認証は復旧レーンで、L2抽出の terminal blocker ではない。
 
-通知は表示上 `normal` と `critical` に分ける。`normal` は「OSに新データが入った / 候補が増えた / 通常レビュー」で、既存の L2 候補・MTGサマリ・VCニュース・通常の gap が入る。`critical` は「まさが見落とすと事故るもの」で、Notion等の connector 再認証、明示 critical の重大 guardrail 発火、重要 automation blocker が入る。MTG本文に NDA / 契約 / 法務 / SHA / COI / 再認証 / blocker などの語が出ただけでは critical にしない。`action_item` も「要対応」というラベルだけでは critical にしない。契約予兆や総会/役会も kind だけでは鳴らさず、明示 critical / 期限超過 / blocker / high以上の経営ガードレール発火になった時点で鳴らす。2026-06-27時点では DB 列を増やさず、`pwa/src/lib/notification-priority.ts` が既存の `kind/l2_kind/importance/meta/title/summary` から分類する。将来のDB案は `notification_priority text check in ('normal','critical') default 'normal'` を3通知テーブルに追加し、writer 明示値を優先、空なら同じ導出関数で補完する。
+通知は表示上 `normal` と `critical` に分ける。`normal` は「OSに新データが入った / 候補が増えた / 通常レビュー」で、既存の L2 候補・MTGサマリ・VCニュース・通常の gap が入る。`critical` は「まさが見落とすと事故り、かつ今すぐ実行できるもの」。`app_notifications` は緊急語や明示priorityだけではcriticalにせず、`action_owner!='none'` かつ `action_required` / `action_url` / `completion_condition` が全部揃った場合だけcriticalにする。connector再認証の旧行は、直接の再認証URLがある場合だけcriticalを維持する。MTG本文に NDA / 契約 / 法務 / SHA / COI / 再認証 / blocker などの語が出ただけでは critical にしない。`action_item` も「要対応」というラベルだけでは critical にしない。2026-07-29時点では DB 列を増やさず、`pwa/src/lib/notification-priority.ts` が既存列とaction contractから分類する。
 
-H-1 (`app_notifications.kind='h1_report'`) は、会議記録・予定カード・ノーションひも付けを新規保存または更新した `updated`、人の判断が必要な `review_required`、必要な処理が止まった `blocked` だけを作る。候補なし、既存カードの確認だけ、変更なしはsanitized reportとautomation memoryだけを残し、通知行を作らない。writerは `--outcome` を必須にし、本文の先頭へ「H-1は何をする定期確認か」と今回見るべきことを日本語で入れる。`updated` と `review_required` はnormal、`blocked` はcriticalとする。
+H-1 (`app_notifications.kind='h1_report'`) は、会議記録・予定カード・ノーションひも付けを新規保存または更新した `updated`、人の判断が必要な `review_required`、必要な処理が止まった `blocked` だけを作る。候補なし、既存カードの確認だけ、変更なしはsanitized reportとautomation memoryだけを残し、通知行を作らない。`review_required` / `blocked` は具体行動・直接URL・完了条件の3点が必須で、揃わない失敗は通知せずreport/memoryへ残して次回runで再試行する。`updated` と `review_required` はnormal、3点が揃った `blocked` だけcriticalとする。
 
 分類ルール:
 
 | source | critical 判定 |
 |---|---|
-| `app_notifications` | `kind='connector_auth'` は常に critical。`meta.priority/severity/urgency/notification_priority/notification_channel/risk_level` が `critical` / `urgent` / `blocker` 等、または title/body/meta reason に再認証・blocker・事故・緊急・期限超過等があれば critical。 |
+| `app_notifications` | critical候補で、かつ `action_owner!='none'`・具体行動・直接URL・完了条件が全部揃う場合だけcritical。旧 `connector_auth` は直接の再認証URLがある場合だけcritical。 |
 | `l2_notifications` | 明示 `notification_priority='critical'`、または `metadata_json` の priority/severity/reason/blocker_kind 等に期限超過 / blocker / 再認証 / 緊急等の運用緊急語があれば critical。通常の候補追加・レビューは normal。`l2_kind` / `importance >= 8` / title / summary だけでは critical にせず、契約予兆・総会/役会・D-11メディア掲載も通常レビューに残す。 |
 | `meeting_notifications` | 常に normal。MTG本文は一次記録なので、再認証 / blocker / 緊急等の語が含まれても右下ポップアップにはしない。緊急扱いが必要なものは `app_notifications(kind='connector_auth')` または `l2_notifications(l2_kind='guardrail_match'/'contract_signals' 等)` として別に出す。 |
 
@@ -292,6 +294,7 @@ D-5 OS台帳差分と M-2 XRL根拠は、全文保存ではなく「OSへ入れ�
 
 | 日付 | 変更 |
 |---|---|
+| 2026-07-29 | **通知を実行可能な形へ統一**: `app_notifications.meta.action_contract` に、まさがやること・直接開く場所・完了条件・理由を保存する。全OS通知カードで3点を表示し、完了報告は対応不要を明示する。app通知のcriticalは、具体行動・直接URL・完了条件が全部揃う場合だけ許可する。H-1の一時的なsource取得失敗は通知せず再試行し、判断/停止通知も3点が欠ける場合は作らない。 |
 | 2026-07-24 | **H-1 空振り通知停止**: H-1は会議記録・予定カード・ノーションひも付けを更新した時、人の判断が必要な時、処理が止まった時だけ `app_notifications(kind='h1_report')` を作る。候補なし、既存カード確認だけ、変更なしは内部reportとautomation memoryだけを残す。writerの `--outcome` を必須にし、通知本文の先頭でH-1の役割を説明する。 |
 | 2026-07-16 | **coverage_gap 通知の空カード防止**: 元候補が見つからない / 通知本文が薄すぎるカードは `重要メモにコピーする？` と聞かず、`コピー前に元情報を確認` に変えて「このカードだけではコピー対象を判断できない」と表示。肯定ボタンを disabled にし、`通知本文と確認先を見て判断してね` や scope ID を出さない。 |
 | 2026-07-16 | **coverage_gap 通知の質問化 v4**: 詳細欄から「会議メモで見つかった内容」「通知した理由」を廃止し、「コピーされる文章」「判断の目安」「コピーしても起きないこと」に変更。監査メモではなく、重要メモへ実際に残る一文を先頭に出す。 |

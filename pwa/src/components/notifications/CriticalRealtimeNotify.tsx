@@ -6,6 +6,7 @@ import {
   appNotificationPriority,
   l2NotificationPriority,
   meetingNotificationPriority,
+  parseActionContract,
 } from "@/lib/notification-priority";
 
 type AppCriticalRow = {
@@ -26,6 +27,8 @@ type AppCriticalRow = {
     notification_priority?: string;
     notification_channel?: string;
     risk_level?: string;
+    action_contract?: Record<string, unknown>;
+    notification_contract?: Record<string, unknown>;
   } | null;
   source: string | null;
   read_at: string | null;
@@ -67,8 +70,10 @@ type CriticalNotification =
       title: string;
       body: string | null;
       badge: string;
+      actionRequired: string;
       actionLabel: string;
       actionUrl: string;
+      completionCondition: string;
       createdAt: string;
       browserTag: string;
       row: AppCriticalRow;
@@ -80,8 +85,10 @@ type CriticalNotification =
       title: string;
       body: string | null;
       badge: string;
+      actionRequired: string;
       actionLabel: string;
       actionUrl: string;
+      completionCondition: string;
       createdAt: string;
       browserTag: string;
       row: L2CriticalRow;
@@ -93,8 +100,10 @@ type CriticalNotification =
       title: string;
       body: string | null;
       badge: string;
+      actionRequired: string;
       actionLabel: string;
       actionUrl: string;
+      completionCondition: string;
       createdAt: string;
       browserTag: string;
       row: MeetingCriticalRow;
@@ -234,7 +243,7 @@ export function CriticalRealtimeNotify() {
   const openItems = items.filter((candidate) => !closedKeys.has(candidate.key));
 
   return (
-    <div className="fixed bottom-4 right-4 z-[90] w-[min(380px,calc(100vw-2rem))] rounded-[8px] border border-red-300 bg-white p-3 text-sm shadow-xl">
+    <div className="fixed bottom-4 right-4 z-[90] w-[min(380px,calc(100vw-2rem))] rounded-lg border border-red-300 bg-background p-3 text-sm shadow-xl dark:border-red-900">
       <div className="flex items-start gap-3">
         <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-red-50 text-red-600">
           !
@@ -253,10 +262,14 @@ export function CriticalRealtimeNotify() {
               {item.body}
             </p>
           )}
+          <div className="mt-3 rounded-md border border-red-200 bg-red-50/60 p-2.5 text-xs leading-relaxed text-red-950 dark:border-red-900 dark:bg-red-950/25 dark:text-red-100">
+            <div><span className="font-semibold">まさがやること: </span>{item.actionRequired}</div>
+            <div className="mt-1"><span className="font-semibold">完了条件: </span>{item.completionCondition}</div>
+          </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <button
               onClick={() => openCriticalNotification(item, supabase)}
-              className="rounded-[6px] bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+              className="min-h-8 rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
             >
               {item.actionLabel}
             </button>
@@ -266,14 +279,14 @@ export function CriticalRealtimeNotify() {
                   const next = await window.Notification.requestPermission();
                   setPermission(next);
                 }}
-                className="rounded-[6px] border border-border px-3 py-1.5 text-xs hover:bg-muted"
+                className="min-h-8 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 ブラウザ通知を許可
               </button>
             )}
             <button
               onClick={closeForSession}
-              className="rounded-[6px] border border-border px-3 py-1.5 text-xs hover:bg-muted"
+              className="min-h-8 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               閉じる
             </button>
@@ -286,8 +299,14 @@ export function CriticalRealtimeNotify() {
 
 function appRowToCritical(row: AppCriticalRow): CriticalNotification[] {
   if (appNotificationPriority(row) !== "critical") return [];
-  const url = reauthUrl(row) || row.link || "/notifications";
-  const actionLabel = row.kind === "connector_auth" ? "再認証を開く" : "開く";
+  const contract = parseActionContract(row.meta as Record<string, unknown> | null);
+  const url = contract?.actionUrl || reauthUrl(row) || (row.link === "/notifications" ? "" : row.link) || "";
+  if (!url) return [];
+  const actionRequired = contract?.actionRequired
+    || (row.kind === "connector_auth" ? "対象サービスを再認証する。" : "通知先を開いて、記載された対応を終える。");
+  const completionCondition = contract?.completionCondition
+    || (row.kind === "connector_auth" ? "再認証後、対象の処理が次回実行で成功したら完了。" : "通知先で必要な対応を完了する。");
+  const actionLabel = contract?.actionLabel || (row.kind === "connector_auth" ? "再認証を開く" : "対応先を開く");
   return [{
     source: "app",
     key: `app:${row.id}:${row.updated_at}`,
@@ -295,8 +314,10 @@ function appRowToCritical(row: AppCriticalRow): CriticalNotification[] {
     title: row.title,
     body: row.body || row.meta?.reason || null,
     badge: row.kind === "connector_auth" ? "再認証" : "OS通知",
+    actionRequired,
     actionLabel,
     actionUrl: url,
+    completionCondition,
     createdAt: row.updated_at || row.created_at,
     browserTag: `critical-app-${row.id}-${row.updated_at}`,
     row,
@@ -312,8 +333,10 @@ function l2RowToCritical(row: L2CriticalRow): CriticalNotification[] {
     title: row.title,
     body: row.summary,
     badge: L2_KIND_LABEL[row.l2_kind] ?? row.l2_kind,
+    actionRequired: "通知を開いて、候補の根拠と反映先を確認し、採否を決める。",
     actionLabel: "通知ページで確認",
     actionUrl: `/notifications?notification_id=${encodeURIComponent(row.notification_id)}`,
+    completionCondition: "採用・不採用・コメントのいずれかを保存したら完了。",
     createdAt: row.notified_at || row.created_at,
     browserTag: `critical-l2-${row.notification_id}-${row.notified_at || row.created_at}`,
     row,
@@ -329,8 +352,10 @@ function meetingRowToCritical(row: MeetingCriticalRow): CriticalNotification[] {
     title: row.title,
     body: row.summary_short,
     badge: "MTG",
+    actionRequired: "会議記録を開いて内容を確認する。",
     actionLabel: "通知ページで確認",
     actionUrl: `/notifications?meeting_id=${encodeURIComponent(row.meeting_id)}`,
+    completionCondition: "確認または修正コメントを保存したら完了。",
     createdAt: row.notified_at || row.created_at,
     browserTag: `critical-meeting-${row.meeting_id}-${row.notified_at || row.created_at}`,
     row,
@@ -357,7 +382,7 @@ function reauthUrl(row: AppCriticalRow) {
 }
 
 function compactBody(item: CriticalNotification) {
-  const body = item.body || "通知ページで確認してね。";
+  const body = `やること: ${item.actionRequired}\n完了: ${item.completionCondition}`;
   return body.length > 180 ? `${body.slice(0, 177)}...` : body;
 }
 

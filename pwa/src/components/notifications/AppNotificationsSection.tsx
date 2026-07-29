@@ -14,6 +14,8 @@ import {
 import {
   appNotificationPriority,
   notificationPriorityLabel,
+  parseActionContract,
+  type ActionContract,
   type NotificationPriority,
 } from "@/lib/notification-priority";
 
@@ -142,6 +144,7 @@ function NotificationRow({
   onChange: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const isUnread = !item.read_at;
   const meta = item.meta as {
     source_url?: string;
@@ -158,7 +161,7 @@ function NotificationRow({
     reason?: string;
   } | null;
   const primaryReauthUrl = meta?.reauth_url || meta?.reauth_install_url || meta?.reauth_app_url;
-  const actionContract = appNotificationActionContract(item.meta);
+  const actionInfo = resolveActionInfo(item, primaryReauthUrl);
 
   const onRead = async () => {
     setBusy(true);
@@ -185,7 +188,7 @@ function NotificationRow({
             : "border-border"
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 text-[11px] mb-1 flex-wrap">
             <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
@@ -212,29 +215,42 @@ function NotificationRow({
           </div>
           <div className="font-medium text-sm">{item.title}</div>
           {item.body && (
-            <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap line-clamp-3">{item.body}</p>
+            <>
+              <p className={`mt-1 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground ${
+                needsReadMore(item.body) && !expanded ? "line-clamp-3" : ""
+              }`}>
+                {item.body}
+              </p>
+              {needsReadMore(item.body) && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded((v) => !v)}
+                  className="mt-1 rounded text-[11px] font-medium text-primary underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {expanded ? "閉じる" : "続きを読む"}
+                </button>
+              )}
+            </>
           )}
-          <div className="mt-2 rounded border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-600">
-            {actionContract ? (
-              <>
-                <div><span className="font-medium">確認・反映先: </span>{actionContract.destination}</div>
-                <div className="mt-1"><span className="font-medium">追加・更新する情報: </span>{actionContract.changes.join(" / ")}</div>
-                <div className="mt-1"><span className="font-medium">この通知の扱い: </span>{actionContract.effect}</div>
-              </>
-            ) : (
-              <div>この通知は実行結果の報告。追加先・更新内容が記録されていないため、このカードから正本の反映完了とは判断しない。</div>
-            )}
-          </div>
+          <dl className="mt-3 space-y-2 rounded-md border border-border bg-muted/35 p-3 text-xs leading-relaxed">
+            {actionInfo.whyNow && <ActionDetailRow label="いま出た理由">{actionInfo.whyNow}</ActionDetailRow>}
+            <ActionDetailRow label="まさがやること">{actionInfo.actionRequired}</ActionDetailRow>
+            <ActionDetailRow label="開く場所">
+              {actionInfo.actionUrl ? (
+                <SmartLink
+                  href={actionInfo.actionUrl}
+                  onClick={() => { if (isUnread) markNotificationRead(item.id).then(onChange); }}
+                  className="inline-flex min-h-7 items-center rounded-md border border-primary/35 bg-background px-2.5 py-1 font-medium text-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {actionInfo.actionLabel || "対応する"}
+                </SmartLink>
+              ) : (
+                <span className="text-muted-foreground">{actionInfo.openLocationFallback}</span>
+              )}
+            </ActionDetailRow>
+            <ActionDetailRow label="完了条件">{actionInfo.completionCondition}</ActionDetailRow>
+          </dl>
           <div className="flex items-center gap-2 text-[11px] mt-2">
-            {item.link && (
-              <SmartLink
-                href={item.link}
-                onClick={() => { if (isUnread) markNotificationRead(item.id).then(onChange); }}
-                className="underline text-primary"
-              >
-                {item.link}
-              </SmartLink>
-            )}
             {meta?.source_url && (
               <a
                 href={meta.source_url}
@@ -244,15 +260,6 @@ function NotificationRow({
               >
                 source
               </a>
-            )}
-            {primaryReauthUrl && (
-              <SmartLink
-                href={primaryReauthUrl}
-                onClick={() => { if (isUnread) markNotificationRead(item.id).then(onChange); }}
-                className="rounded border border-primary/40 px-2 py-0.5 text-primary hover:bg-primary/10 text-[10px] whitespace-nowrap"
-              >
-                再認証を開く
-              </SmartLink>
             )}
             {meta?.reauth_app_url && meta.reauth_app_url !== primaryReauthUrl && (
               <SmartLink
@@ -266,12 +273,12 @@ function NotificationRow({
             {meta?.task_id && <span className="text-muted-foreground text-[10px] truncate">{meta.project_id} / {meta.task_id}</span>}
           </div>
         </div>
-        <div className="flex flex-col gap-1.5 shrink-0">
+        <div className="flex shrink-0 gap-2 sm:flex-col">
           {isUnread && (
             <button
               onClick={onRead}
               disabled={busy}
-              className="text-xs px-3 py-1 rounded border border-primary/40 text-primary hover:bg-primary/10 disabled:opacity-50 whitespace-nowrap"
+              className="min-h-8 whitespace-nowrap rounded-md border border-primary/40 px-3 py-1.5 text-xs text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
             >
               ✓ 既読
             </button>
@@ -279,7 +286,7 @@ function NotificationRow({
           <button
             onClick={onDismiss}
             disabled={busy}
-            className="text-xs px-3 py-1 rounded border border-border text-muted-foreground hover:bg-muted disabled:opacity-50 whitespace-nowrap"
+            className="min-h-8 whitespace-nowrap rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
           >
             ✕ 削除
           </button>
@@ -289,18 +296,91 @@ function NotificationRow({
   );
 }
 
-function appNotificationActionContract(meta: Record<string, unknown> | null): { destination: string; changes: string[]; effect: string } | null {
-  const raw = meta?.action_contract ?? meta?.notification_contract;
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  const contract = raw as Record<string, unknown>;
-  const destination = typeof contract.destination_label === "string" ? contract.destination_label.trim() : "";
-  const changes = Array.isArray(contract.changes)
-    ? contract.changes.filter((value): value is string => typeof value === "string" && value.trim().length > 0).map((value) => value.trim())
-    : [];
-  const effect = typeof contract.effect === "string"
-    ? contract.effect.trim()
-    : typeof contract.approval_effect === "string" ? contract.approval_effect.trim() : "";
-  return destination && changes.length > 0 && effect ? { destination, changes, effect } : null;
+function ActionDetailRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="grid grid-cols-[88px_minmax(0,1fr)] items-start gap-2">
+      <dt className="font-medium text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 text-foreground">{children}</dd>
+    </div>
+  );
+}
+
+type ActionInfo = {
+  actionRequired: string;
+  actionLabel: string | null;
+  actionUrl: string | null;
+  completionCondition: string;
+  openLocationFallback: string;
+  whyNow: string | null;
+};
+
+const KIND_FALLBACK_ACTION: Record<string, Omit<ActionInfo, "actionUrl" | "openLocationFallback" | "whyNow">> = {
+  vc_new: { actionRequired: "新規VCの情報を確認して、必要なら次の動きを決める。", actionLabel: "対応する", completionCondition: "内容を確認し、必要な対応(スルー含む)を決めたら完了。" },
+  vc_news: { actionRequired: "VCニュースの内容を確認する。", actionLabel: "対応する", completionCondition: "内容を確認したら完了。" },
+  vc_fund: { actionRequired: "ファンド更新情報を確認する。", actionLabel: "対応する", completionCondition: "内容を確認したら完了。" },
+  task_created: { actionRequired: "追加されたタスクを確認する。", actionLabel: "対応する", completionCondition: "タスク内容を確認したら完了。" },
+  meeting_action: { actionRequired: "担当者・期限・内容を確認し、必要なら修正またはフォローする。", actionLabel: "要対応を確認", completionCondition: "担当者と期限が正しい状態で、次の対応を決めたら完了。" },
+};
+
+/**
+ * 通知カードの「まさがやること / 開く場所 / 完了条件」を解決する。
+ * meta.action_contract (action_owner/action_required/action_label/action_url/completion_condition) が
+ * 正本。無い通知は kind 別の安全な fallback を出す (「対応不要」を安易に断定しない)。
+ */
+function resolveActionInfo(item: AppNotification, primaryReauthUrl?: string): ActionInfo {
+  const contract: ActionContract | null = parseActionContract(item.meta as Record<string, unknown> | null);
+
+  if (contract && contract.actionOwner === "none") {
+    return {
+      actionRequired: contract.actionRequired || "対応不要。実行結果の報告だよ。",
+      actionLabel: contract.actionLabel,
+      actionUrl: contract.actionUrl,
+      completionCondition: contract.completionCondition || "対応不要。",
+      openLocationFallback: "開く場所なし",
+      whyNow: contract.whyNow,
+    };
+  }
+
+  if (contract && contract.actionRequired && contract.completionCondition) {
+    return {
+      actionRequired: contract.actionRequired,
+      actionLabel: contract.actionLabel,
+      actionUrl: contract.actionUrl,
+      completionCondition: contract.completionCondition,
+      openLocationFallback: "開く場所なし",
+      whyNow: contract.whyNow,
+    };
+  }
+
+  if (item.kind === "connector_auth") {
+    return {
+      actionRequired: "再認証する。",
+      actionLabel: "再認証を開く",
+      actionUrl: primaryReauthUrl || null,
+      completionCondition: "再認証が完了し、この通知が消えること。",
+      openLocationFallback: "再認証リンクなし。内容を確認して対応方法を判断する。",
+      whyNow: "接続エラーを検知したため。",
+    };
+  }
+
+  const fallback = KIND_FALLBACK_ACTION[item.kind];
+  if (fallback) {
+    return {
+      ...fallback,
+      actionUrl: item.link && item.link !== "/notifications" ? item.link : null,
+      openLocationFallback: "この一覧の本文を確認する。",
+      whyNow: null,
+    };
+  }
+
+  return {
+    actionRequired: "この通知には対応契約が記録されていない。本文を読んで対応が必要か判断する。",
+    actionLabel: null,
+    actionUrl: item.link && item.link !== "/notifications" ? item.link : null,
+    completionCondition: "内容を確認し、必要な対応(対応不要の判断含む)を終えたら完了。",
+    openLocationFallback: "この一覧の本文を確認する。",
+    whyNow: null,
+  };
 }
 
 function SmartLink({
@@ -334,6 +414,10 @@ function SmartLink({
       {children}
     </a>
   );
+}
+
+function needsReadMore(body: string) {
+  return body.length > 180 || body.split("\n").length >= 4;
 }
 
 function isInternalHref(href: string) {

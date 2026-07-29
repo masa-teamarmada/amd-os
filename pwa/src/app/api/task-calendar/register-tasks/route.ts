@@ -162,6 +162,14 @@ export async function POST(req: NextRequest) {
             project_id: source.projectId,
             source_kind: source.sourceKind,
             source_key: source.sourceKey,
+            action_contract: {
+              action_owner: "none",
+              action_required: "対応不要。H-1が予定由来のタスクを追加済み。必要なら内容だけ確認する。",
+              action_label: "追加されたタスクを見る",
+              action_url: `/project/${source.projectId}/cockpit`,
+              completion_condition: "タスク作成済み。この通知に対する追加対応は不要。",
+              why_now: "会議または予定からタスクを新規作成したため。",
+            },
           },
         }).then(() => undefined, () => undefined);
       }

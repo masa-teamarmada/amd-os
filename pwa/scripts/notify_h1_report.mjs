@@ -63,11 +63,11 @@ async function main() {
 
   const runKey = String(args["run-key"] || buildDefaultRunKey()).trim();
   const source = String(args.source || "h1_meeting_flow").trim();
-  const link = String(args.link || actionUrl || "").trim();
+  const link = String(actionUrl || args.link || "").trim();
   const dryRun = Boolean(args["dry-run"]);
   const now = new Date().toISOString();
 
-  const hasAction = !!(actionRequired && completionCondition);
+  const hasAction = !!(actionRequired && actionUrl && completionCondition);
   const actionContract = {
     action_owner: hasAction ? "まさ" : "none",
     action_required: actionRequired || null,

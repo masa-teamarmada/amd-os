@@ -729,7 +729,21 @@ export async function POST(req: NextRequest) {
       body: a.detail,
       link,
       source: "meeting_workflow",
-      meta: { meeting_id: row.meeting_id, prep_meeting_id: primaryPrepMeetingId, action_id: a.action_id },
+      meta: {
+        meeting_id: row.meeting_id,
+        prep_meeting_id: primaryPrepMeetingId,
+        action_id: a.action_id,
+        action_contract: {
+          action_owner: "まさ",
+          action_required: a.owner_member_id
+            ? "担当者・期限・内容を確認し、必要なら修正またはフォローする。"
+            : "担当者と期限を決め、必要なフォローを設定する。",
+          action_label: "要対応を確認",
+          action_url: link,
+          completion_condition: "担当者と期限が正しい状態で、実行またはフォローの予定が決まったら完了。",
+          why_now: "会議から次回までの要対応を新規抽出したため。",
+        },
+      },
     })));
   }
 

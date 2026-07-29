@@ -21,6 +21,6 @@ AMD OS の H-1 Meeting Flow をバックグラウンドで実行する。
 終了:
 - raw本文、個人情報、secret、Drive/Calendar URLを出さない短い日本語のsanitized reportを `reports/` とautomation memoryへ必ず保存する。報告の最初に「H-1は、終わった会議の記録、議事録なしの再確認、前後24時間の予定カード、ノーション議事録のひも付けを整える定期確認」と書く。
 - OS通知を作るのは次だけ: 会議記録・予定カード・ノーションひも付けを新規保存または更新した (`updated`)、人の判断が必要 (`review_required`)、必要な処理が止まった (`blocked`)。既存カードの確認だけ、候補なし、変更なしはOS通知を作らない。通知する時だけ `cd /Users/masa/projects/AMD/amd-os/pwa && npm run notify:h1-report -- --outcome "<updated|review_required|blocked>" --run-key "$H1_BACKGROUND_RUN_ID" --body-file <sanitized_report_file>` を使う。
-- `--outcome review_required` と `--outcome blocked` はどちらも `--action-required "<まさが取る具体的な行動>"` `--action-url "<直接開くURL>"` `--completion-condition "<何が起きたら完了か>"` の3つが必須。`--action-label` は任意。3つを埋められない状態は`blocked`ではなく`review_required`にする。
+- `--outcome review_required` と `--outcome blocked` はどちらも `--action-required "<まさが取る具体的な行動>"` `--action-url "<直接開くURL>"` `--completion-condition "<何が起きたら完了か>"` の3つが必須。`--action-label` は任意。3つを埋められない状態はOS通知にせず、reportとautomation memoryへ記録して次回runで再試行する。
 - reportを保存し、OS通知が必要な場合はその成功後に、`/Users/masa/.codex/automations/amd-os-l6-meeting-flow/run_state/background_completed/$H1_BACKGROUND_RUN_ID.json` に `state='reported'` と `reported_at_jst` だけを保存する。これはrunner完了証跡であり、thread idやthread操作は含めない。
 - 正常処理を固定時間で打ち切らない。失敗時は原因をautomation memoryへ残す。

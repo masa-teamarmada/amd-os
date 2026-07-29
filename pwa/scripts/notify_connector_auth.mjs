@@ -28,7 +28,7 @@ async function main() {
     connectorMeta.app_url ||
     "",
   ).trim();
-  const link = String(args.link || "/notifications").trim();
+  const link = String(reauthUrl || args.link || "").trim();
   const dedupeHours = clampInt(args["dedupe-hours"], 1, 168, 24);
   const dryRun = Boolean(args["dry-run"]);
   const detectedAt = new Date().toISOString();
@@ -54,6 +54,18 @@ async function main() {
       fallback_continues: true,
       detected_at: detectedAt,
       dedupe_hours: dedupeHours,
+      action_contract: {
+        action_owner: reauthUrl ? "まさ" : "none",
+        action_required: reauthUrl
+          ? `${connectorLabelJa(connector)}を再認証する。`
+          : "対応不要。直接の再認証先を取得できていないため、運用側で再試行する。",
+        action_label: reauthUrl ? "再認証を開く" : null,
+        action_url: reauthUrl || null,
+        completion_condition: reauthUrl
+          ? `再認証後、次回のH-1で${connectorLabelJa(connector)}の取得が成功したら完了。`
+          : `次回のH-1で${connectorLabelJa(connector)}の接続先を再取得できたら完了。`,
+        why_now: `${connectorLabelJa(connector)}の接続エラーを検知したため。`,
+      },
     },
   };
 

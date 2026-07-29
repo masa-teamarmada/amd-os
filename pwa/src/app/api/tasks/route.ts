@@ -293,6 +293,14 @@ export async function POST(req: NextRequest) {
         agent_kind: row.agent_kind,
         agent_session_id: row.agent_session_id,
         agent_session_url: row.agent_session_url,
+        action_contract: {
+          action_owner: "none",
+          action_required: "対応不要。エージェントがタスクを追加済み。必要なら内容だけ確認する。",
+          action_label: "追加されたタスクを見る",
+          action_url: `/project/${projectId}/cockpit`,
+          completion_condition: "タスク作成済み。この通知に対する追加対応は不要。",
+          why_now: `${access.actor}がタスクを追加したため。`,
+        },
       },
     }).then(() => undefined, () => undefined);
   }
