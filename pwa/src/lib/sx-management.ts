@@ -152,6 +152,34 @@ export type SxManagementMilestone = {
   isBlocked: boolean;
 };
 
+export type SxTask = {
+  id: string;
+  projectId: string;
+  milestoneId: string;
+  parentTaskId: string | null;
+  track: SxTrackKey | null;
+  title: string;
+  description: string | null;
+  status: "unassessed" | "on_track" | "attention" | "at_risk" | "blocked" | "completed";
+  plannedStart: string | null;
+  plannedEnd: string | null;
+  forecastEnd: string | null;
+  actualEnd: string | null;
+  progressPct: number;
+  dateCertainty: "confirmed" | "provisional";
+  ownerMemberId: string | null;
+  ownerLabel: string;
+  completionCriteria: string | null;
+  forecastChangeReason: string | null;
+  sortOrder: number;
+  lastVerifiedAt: string;
+  confidence: SxConfidence;
+  sourceKind: SxSourceKind;
+  sourceRef: string | null;
+  createdBy: string | null;
+  updatedBy: string | null;
+};
+
 export type SxHypothesis = {
   id: string;
   issueId: string;
@@ -559,6 +587,7 @@ export type SxManagementBundle = {
   judgment: SxJudgment;
   tracks: SxTrackSummary[];
   milestones: SxManagementMilestone[];
+  tasks: SxTask[];
   issues: SxManagementIssue[];
   hypotheses: SxHypothesis[];
   evidence: SxEvidence[];
@@ -811,6 +840,20 @@ function mapAction(row: RawRow): SxActionItem {
   };
 }
 
+function mapTask(row: RawRow): SxTask {
+  return {
+    id: stringValue(row, "id"), projectId: stringValue(row, "project_id"), milestoneId: stringValue(row, "milestone_id"),
+    parentTaskId: nullableString(row, "parent_task_id"), track: SX_TRACKS.some((item) => item.key === row.track) ? (row.track as SxTrackKey) : null,
+    title: stringValue(row, "title"), description: nullableString(row, "description"), status: asStatus(row.status),
+    plannedStart: nullableString(row, "planned_start"), plannedEnd: nullableString(row, "planned_end"), forecastEnd: nullableString(row, "forecast_end"), actualEnd: nullableString(row, "actual_end"),
+    progressPct: numberValue(row, "progress_pct"), dateCertainty: row.date_certainty === "confirmed" ? "confirmed" : "provisional",
+    ownerMemberId: nullableString(row, "owner_member_id"), ownerLabel: stringValue(row, "owner_label", "担当未確認"),
+    completionCriteria: nullableString(row, "completion_criteria"), forecastChangeReason: nullableString(row, "forecast_change_reason"), sortOrder: numberValue(row, "sort_order"),
+    lastVerifiedAt: stringValue(row, "last_verified_at"), confidence: asConfidence(row.confidence), sourceKind: asSourceKind(row.source_kind), sourceRef: nullableString(row, "source_ref"),
+    createdBy: nullableString(row, "created_by"), updatedBy: nullableString(row, "updated_by"),
+  };
+}
+
 function mapCommitment(row: RawRow): SxPartnerCommitment {
   return {
     id: stringValue(row, "id"), partnerId: stringValue(row, "partner_id"), title: stringValue(row, "title"), commitmentText: stringValue(row, "commitment_text"),
@@ -1015,6 +1058,7 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
     live("project_management_milestones", "id,project_id,objective_id,outcome_id,slug,track,title,gate,status,planned_start,planned_end,forecast_end,actual_end,progress_pct,date_certainty,owner_member_id,owner_label,next_deliverable,max_issue,completion_criteria,completion_evidence,criticality,baseline_plan_version,forecast_change_reason,status_source,status_reason,status_override_reason,status_override_expires_on,status_override_approved_by,last_verified_at,confidence,source_kind,source_ref,sort_order").order("sort_order"),
     live("project_management_kpis", "id,project_id,outcome_id,track,slug,title,metric_kind,baseline,target,actual,unit,threshold,threshold_rule,threshold_upper,measurement_date,frequency,source_label,confidence,last_verified_at,source_kind,source_ref").order("track"),
     plain("project_management_milestone_kpis", "project_id,milestone_id,kpi_id"),
+    live("project_management_tasks", "id,project_id,milestone_id,parent_task_id,track,title,description,status,planned_start,planned_end,forecast_end,actual_end,progress_pct,date_certainty,owner_member_id,owner_label,completion_criteria,forecast_change_reason,sort_order,last_verified_at,confidence,source_kind,source_ref,created_by,updated_by").order("sort_order"),
     live("project_management_milestone_dependencies", "id,project_id,predecessor_milestone_id,successor_milestone_id,dependency_type,required,lag_days,note").order("created_at"),
     live("project_management_issues", "id,project_id,milestone_id,outcome_id,slug,track,title,knowledge_type,status,owner_label,due_date,last_verified_at,confidence,source_kind,source_ref,sort_order").order("sort_order"),
     live("project_management_hypotheses", "id,project_id,issue_id,statement,status,owner_label,due_date,confidence,last_verified_at,source_kind,source_ref").order("due_date"),
@@ -1041,12 +1085,13 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
   const error = results.find((result) => result.error)?.error;
   if (error) throw new Error(`SX management bundle: ${error.message}`);
   const rows = results.map((result) => (result.data || []) as unknown as RawRow[]);
-  const [objectiveRows, outcomeRows, milestoneRows, kpiRows, milestoneKpiRows, dependencyRows, issueRows, hypothesisRows, evidenceRows, validationRows, decisionRows, actionRows, historyRows, partnerRows, partnerTrackRows, commitmentRows, interactionRows, partnerRoleRows, partnerWorkItemRows, milestoneIssueRows, milestonePartnerRows, raciRows, capacityRows, technicalRows, fundingRows, roleRows, auditRows] = rows;
+  const [objectiveRows, outcomeRows, milestoneRows, kpiRows, milestoneKpiRows, taskRows, dependencyRows, issueRows, hypothesisRows, evidenceRows, validationRows, decisionRows, actionRows, historyRows, partnerRows, partnerTrackRows, commitmentRows, interactionRows, partnerRoleRows, partnerWorkItemRows, milestoneIssueRows, milestonePartnerRows, raciRows, capacityRows, technicalRows, fundingRows, roleRows, auditRows] = rows;
 
   const objectiveRow = objectiveRows[0];
   const objective: SxObjective | null = objectiveRow ? { id: stringValue(objectiveRow, "id"), slug: stringValue(objectiveRow, "slug"), title: stringValue(objectiveRow, "title"), definitionOfDone: stringValue(objectiveRow, "definition_of_done"), targetDate: nullableString(objectiveRow, "target_date"), dateCertainty: objectiveRow.date_certainty === "confirmed" ? "confirmed" : "provisional", status: (objectiveRow.status as SxObjective["status"]) || "unassessed", lastVerifiedAt: stringValue(objectiveRow, "last_verified_at"), confidence: asConfidence(objectiveRow.confidence), sourceKind: asSourceKind(objectiveRow.source_kind), sourceRef: nullableString(objectiveRow, "source_ref") } : null;
   const outcomes: SxOutcome[] = outcomeRows.map((row) => ({ id: stringValue(row, "id"), objectiveId: stringValue(row, "objective_id"), slug: stringValue(row, "slug"), track: asTrack(row.track), title: stringValue(row, "title"), definitionOfDone: stringValue(row, "definition_of_done"), ownerLabel: stringValue(row, "owner_label", "担当未確認"), status: (row.status as SxOutcome["status"]) || "unassessed", lastVerifiedAt: stringValue(row, "last_verified_at"), confidence: asConfidence(row.confidence) }));
   const kpis = kpiRows.map(mapKpi);
+  const tasks: SxTask[] = taskRows.map(mapTask);
   const milestoneById = new Map(milestoneRows.map((row) => [stringValue(row, "id"), row]));
   const baseLogicMilestones = milestoneRows.map(toLogicMilestone);
   const logicById = new Map(baseLogicMilestones.map((milestone) => [milestone.id, milestone]));
@@ -1162,5 +1207,5 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
   const judgment = computeSxJudgment(tracks, milestones, decisions, today, { kpis, actions, commitments: judgmentCommitments, roles: organizationRoles, dag, objectivePresent: Boolean(objective), outcomesCount: outcomes.length });
   const partnerRoles = partners.flatMap((partner) => partner.roles);
   const partnerWorkItems = partners.flatMap((partner) => partner.workItems);
-  return { asOf: today, horizonMonths: horizonMonths(objective, milestones, today), objective, outcomes, kpis, dependencies: dependencyDtos, dag, judgment, tracks, milestones, issues, hypotheses, evidence, validationRuns, decisions, actions, partners, partnerCommitments: commitments, partnerInteractions: interactions, partnerRoles, partnerWorkItems, technicalTests, fundingSnapshots, organizationRoles, raci, capacity, history, fieldAudit, canManage, hasData: Boolean(objective || outcomes.length || milestones.length || issues.length || partners.length || decisions.length) };
+  return { asOf: today, horizonMonths: horizonMonths(objective, milestones, today), objective, outcomes, kpis, dependencies: dependencyDtos, dag, judgment, tracks, milestones, tasks, issues, hypotheses, evidence, validationRuns, decisions, actions, partners, partnerCommitments: commitments, partnerInteractions: interactions, partnerRoles, partnerWorkItems, technicalTests, fundingSnapshots, organizationRoles, raci, capacity, history, fieldAudit, canManage, hasData: Boolean(objective || outcomes.length || milestones.length || issues.length || partners.length || decisions.length) };
 }

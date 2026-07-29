@@ -1,98 +1,189 @@
 "use client";
 
-import { useState } from "react";
-import { Flag } from "lucide-react";
-import type { SxEcdUnifiedTimeline, SxEcdTimelineLane, SxEcdTimelineRow } from "@/lib/sx-executive-control-deck";
+import { useMemo, useRef, useState } from "react";
+import { ChevronsDownUp, ChevronsUpDown, ChevronRight, Flag, Plus } from "lucide-react";
+import type { SxEcdTimelineRow, SxEcdUnifiedTimeline, SxEcdSlipKind } from "@/lib/sx-executive-control-deck";
+import type { SxTask } from "@/lib/sx-management";
 import { sxFormatDate, sxFormatSlip } from "./sx-visual-shared";
 
-/**
- * 統合タイムライン（経営状況図）。旧・経営状況図レール / 事業化ロードマップ / 全件ガントの
- * 3枚を1枚へ統合した唯一の時間軸ビュー。月グリッド・今日線・設立目標旗の共通座標系に、柱レーン
- * ごとの全マイルストーン（計画バー+予定tick+予測◇+遅延幅）、重要経路の接続線、①〜⑤ボールピン
- * （各介入の自身の期日位置）を重ねる。行の高さは固定で、接続線のy座標は行indexから決定的に出す。
- */
-
-// .sx-management-workspace のグローバル規則で button は min-height 44px（操作領域契約）。
-// ラベル行とバー行の高さは同じ定数で固定し、接続線のy座標をindex計算で一致させる。
-const MONTH_ROW_H = 20;
-const PIN_ROW_H = 24;
-const LANE_HEADER_H = 22;
-const ROW_H = 44;
+const MONTH_ROW_H = 24;
+const PIN_ROW_H = 26;
+const LANE_HEADER_H = 28;
+const ROW_H = 58;
 const LANE_GAP = 2;
 
-const ROW_STATE_TEXT: Record<SxEcdTimelineRow["state"], string> = {
+type DisplayRow = {
+  id: string;
+  entity: "milestone" | "task";
+  milestoneId: string;
+  parentTaskId: string | null;
+  depth: number;
+  title: string;
+  state: SxEcdTimelineRow["state"];
+  slipKind: SxEcdSlipKind;
+  isCritical: boolean;
+  isCurrent: boolean;
+  plannedStart: string | null;
+  plannedEnd: string | null;
+  forecastEnd: string | null;
+  plannedStartPct: number | null;
+  plannedEndPct: number | null;
+  forecastPct: number | null;
+  deltaDays: number | null;
+  dateCertainty: "confirmed" | "provisional" | null;
+  ownerLabel: string;
+  progressPct: number;
+  progressRegistered: boolean;
+  hasChildren: boolean;
+};
+
+const ROW_STATE_TEXT: Record<DisplayRow["state"], string> = {
   complete: "完了",
-  current: "現在",
+  current: "進行中",
   future: "予定",
   blocked: "停止",
   overdue: "期限超過",
-  unassessed: "要確認",
-  attention: "要注意",
+  unassessed: "進捗未登録",
+  attention: "要確認",
 };
 
-/** 行が縦に積み上がる座標系での、各レーン・各行のy中心を返す（SVG接続線用）。 */
-function rowCenterY(lanes: SxEcdTimelineLane[], laneIndex: number, rowIndex: number): number {
-  let y = 0;
-  for (let i = 0; i < laneIndex; i += 1) {
-    y += LANE_HEADER_H + lanes[i].rows.length * ROW_H + LANE_GAP;
-  }
-  y += LANE_HEADER_H + rowIndex * ROW_H + ROW_H / 2;
-  return y;
+function dateToPct(date: string | null, domainStart: string, domainEnd: string) {
+  if (!date) return null;
+  const start = Date.parse(`${domainStart}T00:00:00.000Z`);
+  const end = Date.parse(`${domainEnd}T00:00:00.000Z`);
+  const value = Date.parse(`${date}T00:00:00.000Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(value) || end <= start) return null;
+  return Math.min(100, Math.max(0, ((value - start) / (end - start)) * 100));
 }
 
-function lanesTotalHeight(lanes: SxEcdTimelineLane[]): number {
+function diffDays(from: string | null, to: string | null) {
+  if (!from || !to) return null;
+  return Math.round((Date.parse(`${to}T00:00:00.000Z`) - Date.parse(`${from}T00:00:00.000Z`)) / 86400000);
+}
+
+function classifyTask(task: SxTask, asOf: string, deltaDays: number | null): { state: DisplayRow["state"]; slipKind: SxEcdSlipKind } {
+  if (task.status === "completed") return { state: "complete", slipKind: "none" };
+  if (task.status === "blocked") return { state: "blocked", slipKind: "none" };
+  if (task.plannedEnd && task.plannedEnd < asOf) return { state: "overdue", slipKind: "overdue" };
+  const slipKind: SxEcdSlipKind = deltaDays != null && deltaDays > 0
+    ? task.dateCertainty === "confirmed" || Boolean(task.forecastChangeReason?.trim()) ? "confirmed_slip" : "provisional_slip"
+    : "none";
+  if (task.status === "unassessed") return { state: "unassessed", slipKind };
+  if (task.status === "attention" || task.status === "at_risk") return { state: "attention", slipKind };
+  return { state: task.progressPct > 0 ? "current" : "future", slipKind };
+}
+
+function milestoneDisplayRow(row: SxEcdTimelineRow, hasChildren: boolean): DisplayRow {
+  return {
+    id: row.milestoneId,
+    entity: "milestone",
+    milestoneId: row.milestoneId,
+    parentTaskId: null,
+    depth: 0,
+    title: row.title,
+    state: row.state,
+    slipKind: row.slipKind,
+    isCritical: row.isCritical,
+    isCurrent: row.isCurrent,
+    plannedStart: row.plannedStart,
+    plannedEnd: row.plannedEnd,
+    forecastEnd: row.forecastEnd,
+    plannedStartPct: row.plannedStartPct,
+    plannedEndPct: row.plannedEndPct,
+    forecastPct: row.forecastPct,
+    deltaDays: row.deltaDays,
+    dateCertainty: row.dateCertainty,
+    ownerLabel: row.ownerLabel,
+    progressPct: row.progressPct,
+    progressRegistered: row.state !== "unassessed",
+    hasChildren,
+  };
+}
+
+function taskDisplayRow(task: SxTask, depth: number, hasChildren: boolean, timeline: SxEcdUnifiedTimeline, asOf: string): DisplayRow {
+  const deltaDays = diffDays(task.plannedEnd, task.forecastEnd);
+  const classified = classifyTask(task, asOf, deltaDays);
+  return {
+    id: task.id,
+    entity: "task",
+    milestoneId: task.milestoneId,
+    parentTaskId: task.parentTaskId,
+    depth,
+    title: task.title,
+    state: classified.state,
+    slipKind: classified.slipKind,
+    isCritical: false,
+    isCurrent: classified.state === "current",
+    plannedStart: task.plannedStart,
+    plannedEnd: task.plannedEnd,
+    forecastEnd: task.forecastEnd,
+    plannedStartPct: dateToPct(task.plannedStart, timeline.domainStart, timeline.domainEnd),
+    plannedEndPct: dateToPct(task.plannedEnd, timeline.domainStart, timeline.domainEnd),
+    forecastPct: dateToPct(task.forecastEnd, timeline.domainStart, timeline.domainEnd),
+    deltaDays,
+    dateCertainty: task.dateCertainty,
+    ownerLabel: task.ownerLabel,
+    progressPct: task.progressPct,
+    progressRegistered: task.status !== "unassessed",
+    hasChildren,
+  };
+}
+
+function rowCenterY(lanes: Array<{ rows: DisplayRow[] }>, laneIndex: number, rowIndex: number) {
+  let y = 0;
+  for (let index = 0; index < laneIndex; index += 1) y += LANE_HEADER_H + lanes[index].rows.length * ROW_H + LANE_GAP;
+  return y + LANE_HEADER_H + rowIndex * ROW_H + ROW_H / 2;
+}
+
+function lanesTotalHeight(lanes: Array<{ rows: DisplayRow[] }>) {
   return lanes.reduce((sum, lane) => sum + LANE_HEADER_H + lane.rows.length * ROW_H + LANE_GAP, 0);
 }
 
-function RowBar({ row, accent }: { row: SxEcdTimelineRow; accent: string }) {
+function deltaText(row: DisplayRow) {
+  if (row.slipKind === "provisional_slip") return row.deltaDays != null ? `${row.deltaDays > 0 ? "+" : ""}${row.deltaDays}日（仮）` : "未算定";
+  return sxFormatSlip(row.deltaDays, row.slipKind);
+}
+
+function RowBar({ row, accent, selected, onSelect }: { row: DisplayRow; accent: string; selected: boolean; onSelect: () => void }) {
   const barStart = row.plannedStartPct ?? row.plannedEndPct ?? row.forecastPct ?? 0;
   const plannedEnd = row.plannedEndPct;
   const forecast = row.forecastPct;
-  const slipStart = plannedEnd ?? barStart;
   const slipEnd = forecast != null && plannedEnd != null && forecast > plannedEnd ? forecast : null;
   const provisional = row.dateCertainty === "provisional";
-  const deltaLabel = sxFormatSlip(row.deltaDays, row.slipKind);
-  const showDelta = row.deltaDays != null && (row.deltaDays > 0 || row.isCritical);
-  const labelAnchor = forecast ?? plannedEnd ?? barStart;
-  // 仮置きの予測差は警告色にしない（実測の遅れと同じ見た目にすると誤読する）。
-  const slipTone = row.slipKind === "overdue" ? "bg-[#b5533f]" : row.slipKind === "confirmed_slip" ? "bg-[#c99a4b]" : "bg-[#b3ab9c]";
-  const slipTextTone = row.slipKind === "overdue" ? "text-[#8c3329]" : row.slipKind === "confirmed_slip" ? "text-[#765022]" : "text-[#77726a]";
+  const slipTone = row.slipKind === "overdue" ? "#b5533f" : row.slipKind === "confirmed_slip" ? "#c99a4b" : "#aaa398";
   return (
-    <div className="relative h-full w-full" aria-hidden="true">
-      {/* 二段塗り（2026-07-27 まさ確定・2回目）: 薄い塗り=計画期間、濃い塗り=完了した範囲
-          （progressPct）。均一な単色は「今日線より右まで終わった」と誤読され、枠だけの白抜きは
-          色が死ぬ。濃い塗りだけが完了の主張で、薄い塗りは予定の主張。仮日程は薄側をさらに淡く。 */}
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`relative block h-full w-full text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${selected ? "bg-[#e8f2eb]/70" : "hover:bg-[#f8f5ec]/70"}`}
+      aria-label={`${row.title}の詳細を開く`}
+    >
       {plannedEnd != null && (
-        <span
-          className="absolute top-1/2 h-[8px] -translate-y-1/2 overflow-hidden rounded-sm"
-          style={{ left: `${barStart}%`, width: `${Math.max(plannedEnd - barStart, 0.4)}%`, background: `${accent}${provisional ? "3d" : "66"}` }}
-        >
-          {row.progressPct > 0 && (
-            <span className="absolute inset-y-0 left-0 block" style={{ width: `${row.progressPct}%`, background: accent }} />
-          )}
+        <span className="absolute top-[19px] h-[10px] overflow-hidden rounded-sm border" style={{ left: `${barStart}%`, width: `${Math.max(plannedEnd - barStart, 0.5)}%`, borderColor: `${accent}99`, background: `${accent}${provisional ? "24" : "3d"}` }}>
+          {row.progressRegistered && row.progressPct > 0 && <span className="absolute inset-y-0 left-0" style={{ width: `${row.progressPct}%`, background: accent }} />}
         </span>
       )}
-      {/* 予定tick */}
-      {plannedEnd != null && <span className="absolute top-1/2 h-[14px] w-[2px] -translate-y-1/2 bg-[#514e47]" style={{ left: `${plannedEnd}%` }} />}
-      {/* 遅延幅: 予定→予測 */}
-      {slipEnd != null && (
-        <span className={`absolute top-1/2 h-[3px] -translate-y-1/2 rounded-full ${slipTone} ${row.slipKind === "provisional_slip" ? "opacity-70" : ""}`} style={{ left: `${slipStart}%`, width: `${Math.max(slipEnd - slipStart, 0.3)}%` }} />
-      )}
-      {/* 予測◇ */}
-      {forecast != null && (
-        <span
-          className={`absolute top-1/2 h-[9px] w-[9px] -translate-x-1/2 -translate-y-1/2 rotate-45 border-[1.5px] ${provisional ? "bg-[#fffdf7]" : ""}`}
-          style={{ left: `${forecast}%`, borderColor: accent, background: provisional ? undefined : accent }}
-        />
-      )}
-      {showDelta && (
-        <span
-          className={`absolute top-1/2 z-10 -translate-y-1/2 whitespace-nowrap text-[9px] font-semibold ${labelAnchor > 90 ? "-translate-x-full" : "ml-1.5"} rounded-sm bg-[#fffdf7]/95 px-0.5 ${slipTextTone}`}
-          style={{ left: `${labelAnchor}%` }}
-        >
-          {deltaLabel}
-        </span>
-      )}
+      {plannedEnd != null && <span className="absolute top-[15px] h-[18px] w-[2px] bg-[#514e47]" style={{ left: `${plannedEnd}%` }} />}
+      {slipEnd != null && <span className="absolute top-[23px] h-[3px]" style={{ left: `${plannedEnd ?? barStart}%`, width: `${Math.max(slipEnd - (plannedEnd ?? barStart), 0.3)}%`, background: slipTone }} />}
+      {forecast != null && <span className="absolute top-[18px] h-[10px] w-[10px] -translate-x-1/2 rotate-45 border-[1.5px]" style={{ left: `${forecast}%`, borderColor: accent, background: provisional ? "#fffdf7" : accent }} />}
+      <span className="absolute inset-x-1 bottom-1 flex items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] font-semibold text-[#69665d]">
+        <span>予定 {sxFormatDate(row.plannedEnd).slice(5)}</span>
+        <span className={row.progressRegistered ? "text-[#315f7d]" : "text-[#765022]"}>進捗 {row.progressRegistered ? `${row.progressPct}%` : "未登録"}</span>
+        <span>予測 {sxFormatDate(row.forecastEnd).slice(5)}</span>
+        <span className={row.slipKind === "overdue" ? "text-[#8c3329]" : row.slipKind === "confirmed_slip" ? "text-[#765022]" : "text-[#77726a]"}>差 {deltaText(row)}</span>
+      </span>
+    </button>
+  );
+}
+
+function Legend() {
+  return (
+    <div className="mb-2 grid gap-px border border-[#d6cebf] bg-[#d6cebf] text-[10px] text-[#514e47] sm:grid-cols-2 xl:grid-cols-5" aria-label="ガントの読み方">
+      <div className="flex min-h-11 items-center gap-2 bg-[#fffdf7] px-2"><span className="h-2.5 w-10 rounded-sm border border-[#7da18f] bg-[#dceae2]" /><span><b>計画期間</b><br />薄いバー</span></div>
+      <div className="flex min-h-11 items-center gap-2 bg-[#fffdf7] px-2"><span className="h-2.5 w-10 rounded-sm bg-[#38745d]" /><span><b>完了した範囲</b><br />濃い塗り・進捗率</span></div>
+      <div className="flex min-h-11 items-center gap-2 bg-[#fffdf7] px-2"><span className="h-5 w-0.5 bg-[#514e47]" /><span><b>計画完了日</b><br />縦線</span></div>
+      <div className="flex min-h-11 items-center gap-2 bg-[#fffdf7] px-2"><span className="h-3 w-3 rotate-45 border-2 border-[#38745d] bg-[#fffdf7]" /><span><b>完了見込み日</b><br />ひし形</span></div>
+      <div className="flex min-h-11 items-center gap-2 bg-[#fffdf7] px-2"><span className="flex items-center"><i className="h-0.5 w-8 bg-[#aaa398]" /><i className="h-2.5 w-2.5 rotate-45 border border-[#77726a] bg-[#fffdf7]" /></span><span><b>予定→見込みの差</b><br />進捗ではない</span></div>
     </div>
   );
 }
@@ -101,222 +192,180 @@ export function SxUnifiedTimeline({
   timeline,
   asOf,
   selectedMilestoneId,
+  selectedTaskId = null,
+  tasks = [],
   onSelectMilestone,
+  onSelectTask = () => {},
   canManage,
   onEditMilestone,
   onCreateMilestone,
+  onEditTask = () => {},
+  onCreateTask = () => {},
   showPins = true,
 }: {
   timeline: SxEcdUnifiedTimeline;
   asOf: string;
   selectedMilestoneId: string | null;
+  selectedTaskId?: string | null;
+  tasks?: SxTask[];
   onSelectMilestone: (milestoneId: string | null) => void;
+  onSelectTask?: (taskId: string | null) => void;
   canManage: boolean;
   onEditMilestone: (milestoneId: string) => void;
   onCreateMilestone: (track: string | null) => void;
+  onEditTask?: (taskId: string) => void;
+  onCreateTask?: (milestoneId: string, parentTaskId: string | null) => void;
   showPins?: boolean;
 }) {
-  // ピンはクリックで下方向へ飛ばさない（2026-07-27 まさ確定）。hover/focusで中身を出す。
+  const [expandedMilestones, setExpandedMilestones] = useState<Set<string>>(() => new Set());
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(() => new Set());
   const [hoveredPin, setHoveredPin] = useState<string | null>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+
+  const taskChildren = useMemo(() => {
+    const map = new Map<string, SxTask[]>();
+    for (const task of tasks) {
+      const key = task.parentTaskId || `milestone:${task.milestoneId}`;
+      map.set(key, [...(map.get(key) || []), task]);
+    }
+    for (const children of map.values()) children.sort((left, right) => left.sortOrder - right.sortOrder || left.title.localeCompare(right.title));
+    return map;
+  }, [tasks]);
+
+  const visibleLanes = useMemo(() => timeline.lanes.map((lane) => {
+    const rows: DisplayRow[] = [];
+    const appendChildren = (milestoneId: string, parentTaskId: string | null, depth: number) => {
+      const key = parentTaskId || `milestone:${milestoneId}`;
+      for (const task of taskChildren.get(key) || []) {
+        const children = taskChildren.get(task.id) || [];
+        rows.push(taskDisplayRow(task, depth, children.length > 0, timeline, asOf));
+        if (children.length > 0 && expandedTasks.has(task.id)) appendChildren(milestoneId, task.id, depth + 1);
+      }
+    };
+    for (const milestone of lane.rows) {
+      const children = taskChildren.get(`milestone:${milestone.milestoneId}`) || [];
+      rows.push(milestoneDisplayRow(milestone, children.length > 0));
+      if (children.length > 0 && expandedMilestones.has(milestone.milestoneId)) appendChildren(milestone.milestoneId, null, 1);
+    }
+    return { lane, rows };
+  }), [asOf, expandedMilestones, expandedTasks, taskChildren, timeline]);
 
   if (!timeline.valid) {
-    return (
-      <p className="rounded-md border border-dashed border-[#b5533f] bg-[#f9e4e1] px-2.5 py-2 text-[11px] font-semibold text-[#8c3329]" data-testid="sx-unified-timeline">
-        {timeline.reason}
-      </p>
-    );
+    return <p className="border border-dashed border-[#b5533f] bg-[#f9e4e1] px-3 py-3 text-[11px] font-semibold text-[#8c3329]" data-testid="sx-unified-timeline">{timeline.reason}</p>;
   }
 
-  const lanesHeight = lanesTotalHeight(timeline.lanes);
+  const hasAnyChildren = taskChildren.size > 0;
+  const allExpanded = hasAnyChildren && timeline.lanes.every((lane) => lane.rows.every((row) => !taskChildren.has(`milestone:${row.milestoneId}`) || expandedMilestones.has(row.milestoneId))) && tasks.every((task) => !taskChildren.has(task.id) || expandedTasks.has(task.id));
+  const lanesHeight = lanesTotalHeight(visibleLanes);
   const pinRowHeight = showPins ? PIN_ROW_H : 0;
   const gridHeight = pinRowHeight + lanesHeight;
-  const criticalPolyline = timeline.criticalPoints
-    .map((point) => ({ x: point.pct, y: pinRowHeight + rowCenterY(timeline.lanes, point.laneIndex, point.rowIndex) }))
-    .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+  const criticalPolyline = timeline.criticalPoints.flatMap((point) => {
+    const laneIndex = visibleLanes.findIndex(({ lane }) => lane.key === timeline.lanes[point.laneIndex]?.key);
+    if (laneIndex < 0) return [];
+    const rowIndex = visibleLanes[laneIndex].rows.findIndex((row) => row.entity === "milestone" && timeline.lanes[point.laneIndex]?.rows[point.rowIndex]?.milestoneId === row.id);
+    return rowIndex < 0 ? [] : [{ x: point.pct, y: pinRowHeight + rowCenterY(visibleLanes, laneIndex, rowIndex) }];
+  });
+
+  function toggleAll() {
+    if (allExpanded) {
+      setExpandedMilestones(new Set());
+      setExpandedTasks(new Set());
+    } else {
+      setExpandedMilestones(new Set(timeline.lanes.flatMap((lane) => lane.rows.map((row) => row.milestoneId))));
+      setExpandedTasks(new Set(tasks.map((task) => task.id)));
+    }
+  }
+
+  function select(row: DisplayRow) {
+    if (row.entity === "milestone") {
+      onSelectTask(null);
+      onSelectMilestone(row.id);
+    } else {
+      onSelectMilestone(null);
+      onSelectTask(row.id);
+    }
+    if (window.innerWidth <= 900) {
+      requestAnimationFrame(() => {
+        document.querySelector<HTMLElement>(`[data-plan-row="${row.entity}:${row.id}"]`)?.scrollIntoView({ block: "start" });
+      });
+    }
+  }
+
+  const selectedTask = tasks.find((task) => task.id === selectedTaskId) || null;
+  const createUnderMilestoneId = selectedTask?.milestoneId || selectedMilestoneId;
 
   return (
     <div data-testid="sx-unified-timeline">
-      <div className="overflow-x-auto">
-        <div className="min-w-[880px]">
-          {/* 月ヘッダー */}
-          <div className="grid grid-cols-[minmax(170px,205px)_minmax(0,1fr)] items-end" style={{ height: MONTH_ROW_H }}>
-            <p className="sticky left-0 z-30 bg-[#fffdf7] pr-2 text-[9px] font-semibold tracking-[0.1em] text-[#9b9487]">柱 / マイルストーン</p>
-            <div className="relative h-full" role="presentation">
-              {timeline.months.map((month) => (
-                <span key={month.pct} className={`absolute bottom-0 -translate-x-0 pl-1 text-[9px] leading-tight ${month.isYearStart ? "font-bold text-[#24231f]" : "text-[#777166]"}`} style={{ left: `${month.pct}%` }}>
-                  {month.label}
-                </span>
-              ))}
-              {timeline.objectivePct != null && (
-                <span className="absolute bottom-0 z-10 flex -translate-x-full items-center gap-0.5 whitespace-nowrap pr-0.5 text-[9px] font-bold text-[#5f4a66]" style={{ left: `${timeline.objectivePct}%` }}>
-                  <Flag className="h-3 w-3" aria-hidden="true" />設立 {sxFormatDate(timeline.objectiveDate)}
-                </span>
-              )}
+      <Legend />
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        {canManage && <button type="button" onClick={() => onCreateMilestone(null)} className="inline-flex min-h-11 items-center gap-1 border border-[#315f7d] bg-[#315f7d] px-3 text-[11px] font-bold text-white"><Plus className="h-3.5 w-3.5" />工程</button>}
+        {canManage && <button type="button" disabled={!createUnderMilestoneId} onClick={() => createUnderMilestoneId && onCreateTask(createUnderMilestoneId, selectedTask?.id || null)} className="inline-flex min-h-11 items-center gap-1 border border-[#bfc8c2] bg-[#fffdf7] px-3 text-[11px] font-bold text-[#205f49] disabled:cursor-not-allowed disabled:opacity-45"><Plus className="h-3.5 w-3.5" />{selectedTask ? "子タスク" : "タスク"}</button>}
+        <button type="button" disabled={!hasAnyChildren} onClick={toggleAll} className="inline-flex min-h-11 items-center gap-1 border border-[#d6cebf] bg-[#fffdf7] px-3 text-[11px] font-semibold text-[#514e47] disabled:cursor-not-allowed disabled:opacity-45">{allExpanded ? <ChevronsDownUp className="h-3.5 w-3.5" /> : <ChevronsUpDown className="h-3.5 w-3.5" />}{allExpanded ? "すべて閉じる" : "すべて展開"}</button>
+        <button type="button" onClick={() => { const node = scrollerRef.current; if (node) node.scrollTo({ left: Math.max(0, (node.scrollWidth - node.clientWidth) * timeline.todayPct / 100 - node.clientWidth * 0.5), behavior: "smooth" }); }} className="min-h-11 border border-[#d6cebf] bg-[#fffdf7] px-3 text-[11px] font-semibold text-[#514e47]">今日へ</button>
+        <span className="ml-auto text-[10px] text-[#777166]">横に動かせるよ <span aria-hidden="true">↔</span></span>
+      </div>
+
+      <div ref={scrollerRef} className="relative overflow-x-auto overscroll-x-contain border border-[#d6cebf] bg-[#fffdf7] shadow-[inset_-14px_0_12px_-14px_rgba(36,35,31,0.42)]" tabIndex={0} aria-label="ガントチャート。左右にスクロールできる">
+        <div className="min-w-[1080px]">
+          <div className="grid grid-cols-[minmax(275px,320px)_minmax(0,1fr)] items-end" style={{ height: MONTH_ROW_H }}>
+            <p className="sticky left-0 z-30 bg-[#fffdf7] px-2 text-[9px] font-semibold tracking-[0.1em] text-[#777166]">工程 / タスク</p>
+            <div className="relative h-full">
+              {timeline.months.map((month) => <span key={month.pct} className={`absolute bottom-1 pl-1 text-[9px] ${month.isYearStart ? "font-bold text-[#24231f]" : "text-[#777166]"}`} style={{ left: `${month.pct}%` }}>{month.label}</span>)}
+              {timeline.objectivePct != null && <span className="absolute bottom-0 z-10 flex -translate-x-full items-center gap-0.5 whitespace-nowrap pr-1 text-[9px] font-bold text-[#5f4a66]" style={{ left: `${timeline.objectivePct}%` }}><Flag className="h-3 w-3" />設立 {sxFormatDate(timeline.objectiveDate)}</span>}
             </div>
           </div>
 
-          {/* ピン行 + レーン群（共通の縦グリッド背景） */}
-          <div className="grid grid-cols-[minmax(170px,205px)_minmax(0,1fr)]">
-            {/* 左ラベル列（横スクロール中も固定） */}
-            <div className="sticky left-0 z-30 border-r border-[#e8e2d6] bg-[#fffdf7]">
-              {showPins && (
-                <div className="flex items-center border-b border-[#e8e2d6] pr-2" style={{ height: PIN_ROW_H }}>
-                  <span className="text-[9px] font-semibold text-[#69665d]">ボール・介入（①〜は下の一覧と同番号）</span>
-                </div>
-              )}
-              {timeline.lanes.map((lane) => (
-                <div key={lane.key} style={{ marginBottom: LANE_GAP }}>
-                  <div className="group/lane flex min-w-0 items-center gap-1.5 border-b border-[#d6cebf] pr-2" style={{ height: LANE_HEADER_H }}>
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ background: lane.accent }} aria-hidden="true" />
-                    <span className="shrink-0 text-[10px] font-bold text-[#24231f]">{lane.label}</span>
-                    <span className={`shrink-0 text-[9px] font-semibold ${lane.slipKind === "overdue" ? "text-[#8c3329]" : lane.slipKind === "confirmed_slip" ? "text-[#765022]" : "text-[#69665d]"}`}>{sxFormatSlip(lane.deltaDays, lane.slipKind)}</span>
-                    {canManage && (
-                      <button
-                        type="button"
-                        onClick={() => onCreateMilestone(lane.key === "unknown" ? null : lane.key)}
-                        className="ml-auto hidden h-[18px] min-h-0 shrink-0 items-center rounded border border-[#cfc7b9] px-1 text-[10px] font-semibold leading-none text-[#38745d] hover:bg-[#e8f2eb] focus-visible:flex focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] group-hover/lane:flex"
-                        aria-label={`${lane.label}にマイルストーンを追加`}
-                        title={`${lane.label}にマイルストーンを追加`}
-                      >
-                        ＋
-                      </button>
-                    )}
-                  </div>
-                  {lane.rows.map((row) => {
-                    const selected = selectedMilestoneId === row.milestoneId;
-                    return (
-                      <div key={row.slug} className="group relative" style={{ height: ROW_H }}>
-                      <button
-                        type="button"
-                        onClick={() => onSelectMilestone(row.milestoneId)}
-                        aria-label={`${row.title} ${ROW_STATE_TEXT[row.state]}${row.isCurrent ? " 現在地" : ""} 予定 ${sxFormatDate(row.plannedEnd)} 予測 ${sxFormatDate(row.forecastEnd)} ${sxFormatSlip(row.deltaDays, row.slipKind)} 担当 ${row.ownerLabel}。詳細を開く`}
-                        aria-pressed={selected}
-                        className={`flex w-full min-w-0 items-center gap-1 border-b border-[#f1eee5] pr-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${selected ? "bg-[#e8f2eb]" : "hover:bg-[#f8f5ec]"} ${row.isCritical ? "border-l-[3px] pl-1" : "pl-2"}`}
-                        style={{ height: ROW_H, borderLeftColor: row.isCritical ? "#24231f" : undefined }}
-                      >
-                        <span className={`min-w-0 truncate text-[10px] leading-tight ${row.isCritical ? "font-bold text-[#24231f]" : "font-medium text-[#514e47]"}`} title={row.title}>{row.title}</span>
-                        {row.isCurrent && <span className="shrink-0 rounded-sm bg-[#38745d] px-1 py-px text-[8px] font-bold leading-tight text-white">現在地</span>}
-                        {row.ownerLabel === "担当未確認" && <span className="shrink-0 text-[8px] font-semibold text-[#765022]">担当?</span>}
-                      </button>
-                      {canManage && (
-                        <button
-                          type="button"
-                          onClick={() => onEditMilestone(row.milestoneId)}
-                          className="absolute right-0 top-1/2 hidden h-6 min-h-0 w-6 -translate-y-1/2 items-center justify-center rounded border border-[#cfc7b9] bg-[#fffdf7] text-[10px] text-[#69665d] hover:bg-[#f8f5ec] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] group-hover:flex focus-visible:flex"
-                          aria-label={`${row.title}の日程・担当を編集`}
-                          title="日程・担当を編集"
-                        >
-                          ✎
-                        </button>
-                      )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
+          <div className="grid grid-cols-[minmax(275px,320px)_minmax(0,1fr)]">
+            <div className="sticky left-0 z-30 border-r border-[#d6cebf] bg-[#fffdf7]">
+              {showPins && <div className="flex items-center border-b border-[#e8e2d6] px-2 text-[9px] font-semibold text-[#69665d]" style={{ height: PIN_ROW_H }}>介入の期限</div>}
+              {visibleLanes.map(({ lane, rows }) => <div key={lane.key} style={{ marginBottom: LANE_GAP }}>
+                <div className="flex items-center gap-1.5 border-b border-[#d6cebf] px-2" style={{ height: LANE_HEADER_H }}><span className="h-2.5 w-2.5" style={{ background: lane.accent }} /><span className="text-[10px] font-bold text-[#24231f]">{lane.label}</span><span className="text-[10px] text-[#777166]">工程 {lane.rows.length} / タスク {tasks.filter((task) => task.track === lane.key || (!task.track && lane.rows.some((row) => row.milestoneId === task.milestoneId))).length}</span></div>
+                {rows.map((row) => {
+                  const selected = row.entity === "milestone" ? selectedMilestoneId === row.id : selectedTaskId === row.id;
+                  const expanded = row.entity === "milestone" ? expandedMilestones.has(row.id) : expandedTasks.has(row.id);
+                  return <div key={`${row.entity}-${row.id}`} data-plan-row={`${row.entity}:${row.id}`} className={`group relative flex scroll-mt-3 border-b border-[#f1eee5] ${selected ? "bg-[#e8f2eb]" : "hover:bg-[#f8f5ec]"}`} style={{ height: ROW_H, paddingLeft: row.depth * 15 }}>
+                    <button
+                      type="button"
+                      disabled={!row.hasChildren}
+                      onClick={() => {
+                        if (!row.hasChildren) return;
+                        const update = (current: Set<string>) => { const next = new Set(current); if (next.has(row.id)) next.delete(row.id); else next.add(row.id); return next; };
+                        if (row.entity === "milestone") setExpandedMilestones(update); else setExpandedTasks(update);
+                      }}
+                      className={`flex w-8 shrink-0 items-center justify-center text-[#69665d] ${row.hasChildren ? "" : "opacity-0"}`}
+                      aria-label={expanded ? `${row.title}を折りたたむ` : `${row.title}を展開する`}
+                    ><ChevronRight className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-90" : ""}`} /></button>
+                    <button type="button" onClick={() => select(row)} className={`min-w-0 flex-1 px-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${row.isCritical ? "border-l-[3px] border-[#24231f]" : ""}`} aria-pressed={selected}>
+                      <span className="flex items-center gap-1"><b className={`truncate text-[10px] ${row.entity === "task" ? "font-medium" : "font-bold"}`}>{row.title}</b>{row.entity === "task" && <i className="shrink-0 border border-[#d6cebf] px-1 text-[8px] not-italic text-[#69665d]">タスク</i>}{row.isCurrent && <i className="shrink-0 bg-[#38745d] px-1 text-[8px] not-italic text-white">進行中</i>}</span>
+                      <span className="mt-1 flex items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] text-[#777166]"><em className="not-italic">{ROW_STATE_TEXT[row.state]}</em><span>{row.ownerLabel}</span><span className={row.progressRegistered ? "text-[#315f7d]" : "text-[#765022]"}>進捗 {row.progressRegistered ? `${row.progressPct}%` : "未登録"}</span></span>
+                    </button>
+                    {canManage && <button type="button" onClick={() => row.entity === "milestone" ? onEditMilestone(row.id) : onEditTask(row.id)} className="mr-1 hidden min-w-11 items-center justify-center text-[10px] font-semibold text-[#315f7d] underline underline-offset-2 group-hover:flex focus-visible:flex">編集</button>}
+                  </div>;
+                })}
+              </div>)}
             </div>
 
-            {/* 時間エリア */}
             <div className="relative" style={{ height: gridHeight }}>
-              {/* 縦グリッド・今日線・設立目標線 */}
-              {timeline.months.map((month) => (
-                <span key={`grid-${month.pct}`} className={`absolute top-0 w-px ${month.isYearStart ? "bg-[#cfc7b9]" : "bg-[#eee9df]"}`} style={{ left: `${month.pct}%`, height: gridHeight }} aria-hidden="true" />
-              ))}
-              {timeline.objectivePct != null && (
-                <span className="absolute top-0 border-l-2 border-dotted border-[#76637b]" style={{ left: `${timeline.objectivePct}%`, height: gridHeight }} aria-hidden="true" />
-              )}
-              <span className="absolute top-0 z-10 w-[2px] bg-[#24231f]" style={{ left: `${timeline.todayPct}%`, height: gridHeight }} aria-hidden="true" />
-              <span className="absolute z-20 -translate-x-1/2 rounded-sm bg-[#24231f] px-1 py-px text-[8px] font-bold leading-tight text-white" style={{ left: `${timeline.todayPct}%`, top: -2 }}>
-                今日 {sxFormatDate(asOf).slice(5)}
-              </span>
+              {timeline.months.map((month) => <span key={`grid-${month.pct}`} className={`absolute top-0 w-px ${month.isYearStart ? "bg-[#cfc7b9]" : "bg-[#eee9df]"}`} style={{ left: `${month.pct}%`, height: gridHeight }} />)}
+              {timeline.objectivePct != null && <span className="absolute top-0 border-l-2 border-dotted border-[#76637b]" style={{ left: `${timeline.objectivePct}%`, height: gridHeight }} />}
+              <span className="absolute top-0 z-10 w-[2px] bg-[#24231f]" style={{ left: `${timeline.todayPct}%`, height: gridHeight }} />
+              <span className="absolute z-20 -translate-x-1/2 bg-[#24231f] px-1 py-px text-[8px] font-bold text-white" style={{ left: `${timeline.todayPct}%`, top: -1 }}>今日 {sxFormatDate(asOf).slice(5)}</span>
 
-              {/* 重要経路の接続線 */}
-              {criticalPolyline.length >= 2 && (
-                <>
-                  <svg className="pointer-events-none absolute inset-0 z-[5]" width="100%" height={gridHeight} preserveAspectRatio="none" viewBox={`0 0 100 ${gridHeight}`} aria-hidden="true">
-                    <polyline
-                      points={criticalPolyline.map((point) => `${point.x},${point.y}`).join(" ")}
-                      fill="none"
-                      stroke="#24231f"
-                      strokeWidth="1.2"
-                      strokeDasharray="3 2.2"
-                      vectorEffect="non-scaling-stroke"
-                    />
-                  </svg>
-                  {/* 破線が何を意味するかを図中で名乗る（凡例だけに頼らない） */}
-                  <span
-                    className="pointer-events-none absolute z-[6] -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-sm bg-[#fffdf7]/95 px-1 text-[9px] font-semibold text-[#514e47]"
-                    style={{ left: `${(criticalPolyline[0].x + criticalPolyline[1].x) / 2}%`, top: (criticalPolyline[0].y + criticalPolyline[1].y) / 2 }}
-                    aria-hidden="true"
-                  >
-                    前提のつながり
-                  </span>
-                </>
-              )}
+              {criticalPolyline.length >= 2 && <svg className="pointer-events-none absolute inset-0 z-[5]" width="100%" height={gridHeight} preserveAspectRatio="none" viewBox={`0 0 100 ${gridHeight}`} aria-label="重要経路"><polyline points={criticalPolyline.map((point) => `${point.x},${point.y}`).join(" ")} fill="none" stroke="#24231f" strokeWidth="1.1" strokeDasharray="3 2.2" vectorEffect="non-scaling-stroke" /></svg>}
 
-              {/* ピン行 */}
-              {showPins && <div className="absolute inset-x-0 top-0 border-b border-[#e8e2d6]" style={{ height: PIN_ROW_H }}>
-                {[...timeline.pins].sort((a, b) => b.rank - a.rank).map((pin) => (
-                  <span
-                    key={pin.key}
-                    data-sx-pin={pin.rank}
-                    tabIndex={0}
-                    role="button"
-                    onMouseEnter={() => setHoveredPin(pin.key)}
-                    onMouseLeave={() => setHoveredPin((current) => (current === pin.key ? null : current))}
-                    onFocus={() => setHoveredPin(pin.key)}
-                    onBlur={() => setHoveredPin((current) => (current === pin.key ? null : current))}
-                    className={`absolute top-1/2 z-10 flex h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 cursor-default items-center justify-center rounded-full text-[10px] font-bold leading-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${pin.side === "partner" ? "bg-[#bf7b2c] text-white" : pin.side === "unknown" ? "border-2 border-[#24231f] bg-[#fffdf7] text-[#24231f]" : "bg-[#24231f] text-white"} ${pin.dueDatePrecision === "month" ? "ring-2 ring-[#e3c994]" : ""}`}
-                    style={{ left: `${pin.duePct}%` }}
-                    aria-label={`介入${pin.rank}番 ${pin.target}。ボール ${pin.ballSide}・${pin.ballOwner}。期限 ${pin.dueDate}${pin.dueDatePrecision === "month" ? "（月精度）" : ""}。止まるゲート ${pin.gate}`}
-                  >
-                    {pin.rank}
-                    {hoveredPin === pin.key && (
-                      <span
-                        data-testid="sx-pin-hovercard"
-                        className={`pointer-events-none absolute top-[22px] z-30 w-[230px] rounded-md border border-[#d6cebf] bg-[#fffdf7] px-2 py-1.5 text-left shadow-[0_6px_16px_rgba(36,35,31,0.16)] ${pin.duePct > 70 ? "right-0 translate-x-[10px]" : "left-0 -translate-x-[10px]"}`}
-                      >
-                        <span className="block text-[11px] font-bold leading-4 text-[#24231f]">{pin.rank}. {pin.target}</span>
-                        <span className={`mt-0.5 block text-[10px] font-semibold leading-4 ${pin.side === "sx" ? "text-[#8c3329]" : "text-[#514e47]"}`}>
-                          {pin.side === "sx" ? `当方ボール・${pin.ballOwner}` : `${pin.ballSide}・${pin.ballOwner}`}
-                        </span>
-                        <span className="mt-0.5 block text-[10px] leading-4 text-[#514e47]">期限 {pin.dueDate}{pin.dueDatePrecision === "month" ? "（日付未確認）" : ""}</span>
-                        <span className="mt-0.5 block text-[10px] leading-4 text-[#514e47]">止まるゲート: {pin.gate}</span>
-                      </span>
-                    )}
-                  </span>
-                ))}
-              </div>}
+              {showPins && <div className="absolute inset-x-0 top-0 border-b border-[#e8e2d6]" style={{ height: PIN_ROW_H }}>{timeline.pins.map((pin) => <span key={pin.key} tabIndex={0} role="button" onMouseEnter={() => setHoveredPin(pin.key)} onMouseLeave={() => setHoveredPin(null)} onFocus={() => setHoveredPin(pin.key)} onBlur={() => setHoveredPin(null)} className={`absolute top-1/2 z-20 flex h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-[10px] font-bold ${pin.side === "partner" ? "bg-[#bf7b2c] text-white" : pin.side === "unknown" ? "border-2 border-[#24231f] bg-[#fffdf7]" : "bg-[#24231f] text-white"}`} style={{ left: `${pin.duePct}%` }}>{pin.rank}{hoveredPin === pin.key && <span className="absolute top-6 z-30 w-[220px] border border-[#d6cebf] bg-[#fffdf7] p-2 text-left text-[10px] text-[#514e47] shadow-lg"><b className="block text-[#24231f]">{pin.target}</b>担当 {pin.ballOwner}<br />期限 {pin.dueDate}</span>}</span>)}</div>}
 
-              {/* レーン行のバー */}
               <div className="absolute inset-x-0" style={{ top: pinRowHeight }}>
-                {timeline.lanes.map((lane) => (
-                  <div key={lane.key} style={{ marginBottom: LANE_GAP }}>
-                    <div className="flex items-center border-b border-[#d6cebf] pl-2" style={{ height: LANE_HEADER_H }}>
-                      {lane.maxIssue && <span className="min-w-0 truncate text-[9px] text-[#8c3329]" title={`詰まり: ${lane.maxIssue}`}>詰まり: {lane.maxIssue}</span>}
-                    </div>
-                    {lane.rows.map((row) => (
-                      <div key={row.slug} className={`border-b border-[#f1eee5] ${row.isCurrent ? "bg-[#f4f9f5]" : ""}`} style={{ height: ROW_H }}>
-                        <RowBar row={row} accent={lane.accent} />
-                      </div>
-                    ))}
-                  </div>
-                ))}
+                {visibleLanes.map(({ lane, rows }) => <div key={lane.key} style={{ marginBottom: LANE_GAP }}>
+                  <div className="flex items-center border-b border-[#d6cebf] px-2 text-[10px] text-[#8c3329]" style={{ height: LANE_HEADER_H }}>{lane.maxIssue ? `詰まり: ${lane.maxIssue}` : ""}</div>
+                  {rows.map((row) => <div key={`${row.entity}-${row.id}`} className="border-b border-[#f1eee5]" style={{ height: ROW_H }}><RowBar row={row} accent={lane.accent} selected={row.entity === "milestone" ? selectedMilestoneId === row.id : selectedTaskId === row.id} onSelect={() => select(row)} /></div>)}
+                </div>)}
               </div>
             </div>
           </div>
-
-          {/* 凡例と非表示分の明示 */}
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[9px] text-[#9b9487]">
-            <span>バー=計画期間（開始→予定）で薄い塗り ・ 濃い塗り=完了した範囲（登録済みの進捗。すべて薄いのは進捗未登録のため） ・ 縦線=予定日 ・ ◇=予測日（中抜き=仮） ・ 灰バー=仮置きの日程での遅れ（根拠未確認） / 橙バー=根拠のある遅れ見込み / 赤=期限超過 ・ 太字+黒左罫=重要経路 ・ 破線=前提のつながり（前のゲートの結果が次の前提になる。台帳の依存登録から描画。日程上は並行して進む区間もある）{showPins ? " ・ ①ピン=介入の期日（橙=相手側ボール / 黒=当方 / 白抜き=ボール未確認 / 黄リング=月精度）" : ""}</span>
-            {(timeline.undatedCount > 0 || timeline.completedCount > 0) && (
-              <span className="font-semibold text-[#69665d]">
-                {timeline.undatedCount > 0 ? `日程未登録 ${timeline.undatedCount}件` : ""}{timeline.undatedCount > 0 && timeline.completedCount > 0 ? " ・ " : ""}{timeline.completedCount > 0 ? `完了 ${timeline.completedCount}件` : ""}（下の詳細表で確認）
-              </span>
-            )}
-          </div>
         </div>
       </div>
+      <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-[#777166]"><span>{timeline.undatedCount > 0 ? `日程未登録の工程 ${timeline.undatedCount}件` : "全工程に日程あり"} · 完了工程 {timeline.completedCount}件</span><span aria-hidden="true">← 左右にスクロール →</span></div>
     </div>
   );
 }

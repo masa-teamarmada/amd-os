@@ -65,6 +65,7 @@ const softDeleteTables = [
   "project_management_partner_interactions",
   "project_management_partner_roles",
   "project_management_partner_work_items",
+  "project_management_tasks",
 ];
 
 const policyRows = await query(`
@@ -99,7 +100,11 @@ const triggers = await query(`
       'project_management_partner_work_items_block_delete',
       'project_management_partner_work_items_parent_project_guard',
       'project_management_partner_work_items_field_audit',
-      'project_management_partner_work_items_touch_updated_at'
+      'project_management_partner_work_items_touch_updated_at',
+      'project_management_tasks_guard',
+      'project_management_tasks_block_delete',
+      'project_management_tasks_field_audit',
+      'project_management_tasks_touch_updated_at'
     )
 `);
 const triggerNames = new Set(triggers.map((row) => row.tgname));
@@ -115,6 +120,10 @@ for (const table of ["project_management_partner_roles", "project_management_par
   assert(triggerNames.has(`${table}_field_audit`), `${table}のfield auditトリガーがないよ`);
   assert(triggerNames.has(`${table}_touch_updated_at`), `${table}のtouch updated_atトリガーがないよ`);
 }
+assert(triggerNames.has("project_management_tasks_guard"), "タスク表の同一PJ・親子循環guardトリガーがないよ");
+assert(triggerNames.has("project_management_tasks_block_delete"), "タスク表の認証済みDELETE防止トリガーがないよ");
+assert(triggerNames.has("project_management_tasks_field_audit"), "タスク表のfield auditトリガーがないよ");
+assert(triggerNames.has("project_management_tasks_touch_updated_at"), "タスク表のtouch updated_atトリガーがないよ");
 
 const contractRows = await query(`
   SELECT conname, pg_get_constraintdef(oid)::text AS definition
@@ -750,4 +759,4 @@ assert(workItemForeignVisible === 0, `未所属ユーザーにp21の保有事項
   assert(relatedMilestoneGuardRows?.error && /management parent must stay inside one project/.test(relatedMilestoneGuardRows.error), `保有事項のrelated_milestone_id parent guardが別PJのゲートを拒否していないよ: ${relatedMilestoneGuardRows?.error || "(no error raised)"}`);
 }
 
-console.log(`RLS tests passed: ${softDeleteTables.length} soft-delete policies, authenticated member boundary, deleted-row hiding, foreign-project denial, partner interaction/role/work-item table contract, parent-project guard (fixture-backed related_milestone_id probe), seed id existence, provenance edit-stamps-manual invariant, role+work-item soft-delete/reapply safety (completion/related-milestone preserved), completion CHECK btrim`);
+console.log(`RLS tests passed: ${softDeleteTables.length} soft-delete policies, authenticated member boundary, deleted-row hiding, foreign-project denial, partner interaction/role/work-item/task table contract, parent-project guard (fixture-backed related_milestone_id probe), seed id existence, provenance edit-stamps-manual invariant, role+work-item soft-delete/reapply safety (completion/related-milestone preserved), completion CHECK btrim`);

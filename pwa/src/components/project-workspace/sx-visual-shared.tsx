@@ -122,7 +122,9 @@ export function sxFormatSlip(deltaDays: number | null, slipKind: "overdue" | "co
   if (slipKind === "overdue") return "期限超過";
   if (deltaDays == null) return "差分未算定";
   if (slipKind === "confirmed_slip") return `予定より${deltaDays}日遅れ見込み`;
-  if (slipKind === "provisional_slip") return `予定より${deltaDays}日遅れ（仮置き）`;
+  // 仮置きの日付差は遅延の事実ではない。予測日そのものを主語にして、
+  // 「遅れている」と誤読させない。
+  if (slipKind === "provisional_slip") return `完了見込み +${deltaDays}日（仮）`;
   return deltaDays === 0 ? "予定どおり" : deltaDays < 0 ? `予定より${Math.abs(deltaDays)}日前倒し` : `予定より${deltaDays}日遅れ`;
 }
 

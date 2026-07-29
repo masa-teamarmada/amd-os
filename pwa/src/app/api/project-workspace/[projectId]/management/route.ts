@@ -24,7 +24,8 @@ type Resource =
   | "funding_snapshot"
   | "organization_role"
   | "raci"
-  | "capacity";
+  | "capacity"
+  | "task";
 
 const RESOURCE_TABLES: Record<Resource, string> = {
   objective: "project_management_objectives",
@@ -48,6 +49,7 @@ const RESOURCE_TABLES: Record<Resource, string> = {
   organization_role: "project_management_organization_roles",
   raci: "project_management_raci",
   capacity: "project_management_capacity",
+  task: "project_management_tasks",
 };
 
 const RESOURCE_META: Record<Resource, { entityType: string; statusColumn: "status" | "decision_state" | null; hasLastVerified: boolean; hasSourceRef: boolean; hasUpdatedBy: boolean; softDelete: boolean }> = {
@@ -72,6 +74,7 @@ const RESOURCE_META: Record<Resource, { entityType: string; statusColumn: "statu
   organization_role: { entityType: "organization_role", statusColumn: "status", hasLastVerified: true, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
   raci: { entityType: "raci", statusColumn: null, hasLastVerified: true, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
   capacity: { entityType: "capacity", statusColumn: null, hasLastVerified: false, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
+  task: { entityType: "task", statusColumn: "status", hasLastVerified: true, hasSourceRef: true, hasUpdatedBy: true, softDelete: true },
 };
 
 const DELETED_SELECTS: Record<Resource, string> = {
@@ -96,6 +99,7 @@ const DELETED_SELECTS: Record<Resource, string> = {
   organization_role: "id,role_slug,role_name,deleted_at,deleted_by",
   raci: "id,stakeholder_label,deleted_at,deleted_by",
   capacity: "id,role_label,deleted_at,deleted_by",
+  task: "id,title,deleted_at,deleted_by",
 };
 
 function deletedRecordLabel(resource: Resource, row: Record<string, unknown>) {
@@ -111,11 +115,13 @@ function deletedRecordLabel(resource: Resource, row: Record<string, unknown>) {
               : resource === "capacity" ? row.role_label
                 : resource === "funding_snapshot" ? row.snapshot_date
                   : resource === "dependency" ? "ゲート間の依存"
+                    : resource === "task" ? row.title
                     : row.title || row.slug;
   return typeof value === "string" && value.trim() ? value : "名称未確認";
 }
 
 const MILESTONE_STATUSES = ["unassessed", "on_track", "attention", "at_risk", "blocked", "completed"];
+const TASK_STATUSES = ["unassessed", "on_track", "attention", "at_risk", "blocked", "completed"];
 const ISSUE_KINDS = ["fact", "hypothesis", "decision_needed"];
 const ISSUE_STATUSES = ["open", "validating", "closed", "on_hold"];
 const PARTNER_STAGES = ["candidate", "information_exchange", "condition_alignment", "meeting_coordination", "validation_preparation", "agreement_confirmation", "executing", "on_hold"];
@@ -298,6 +304,11 @@ function patchFor(resource: Resource, raw: unknown): Record<string, unknown> {
   if (resource === "capacity") {
     takeText("role_label", "role_label", 180); takeNumber("required_people", { min: 0 }); takeNumber("confirmed_people", { min: 0 }); takeNumber("available_hours_week", { min: 0 }); takeNumber("planned_hours_week", { min: 0 }); takeDate("measurement_date"); takeText("source_label", "source_label", 240); takeEnum("confidence", CONFIDENCES);
   }
+  if (resource === "task") {
+    takeText("title", "title", 180); takeOptionalText("description", "description", 1600); takeEnum("track", TRACKS); takeEnum("status", TASK_STATUSES); takeDate("planned_start"); takeDate("planned_end"); takeDate("forecast_end"); takeDate("actual_end"); takeNumber("progress_pct", { min: 0, max: 100 }); takeEnum("date_certainty", ["confirmed", "provisional"]); takeText("owner_label", "owner_label", 120); takeOptionalText("owner_member_id", "owner_member_id", 80); takeOptionalText("completion_criteria", "completion_criteria", 1200); takeOptionalText("forecast_change_reason", "forecast_change_reason", 500); takeNumber("sort_order", { min: 0 }); takeEnum("confidence", CONFIDENCES);
+    if ("milestone_id" in raw) patch.milestone_id = text(raw.milestone_id, "milestone_id", 80);
+    if ("parent_task_id" in raw) patch.parent_task_id = raw.parent_task_id == null || raw.parent_task_id === "" ? null : text(raw.parent_task_id, "parent_task_id", 80);
+  }
   if (Object.keys(patch).length === 0) throw new Error("更新できる項目がないよ");
   return patch;
 }
@@ -405,6 +416,7 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
   if (resource === "organization_role") return { ...common(), project_id: projectId, role_slug: requiredText("role_slug", 120), role_name: requiredText("role_name", 180), required: raw.required == null ? true : booleanValue(raw.required, "required"), candidate: optionalTextValue("candidate", 240), commitment: optionalTextValue("commitment", 500), authority: requiredText("authority", 1000), vacancy: raw.vacancy == null ? true : booleanValue(raw.vacancy, "vacancy"), join_condition: requiredText("join_condition", 1000), due_date: optionalDate("due_date"), status: "unassessed", owner_label: requiredText("owner_label", 120), last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
   if (resource === "raci") return { ...common(), project_id: projectId, milestone_id: requiredId("milestone_id"), stakeholder_label: requiredText("stakeholder_label", 180), responsibility_role: requiredEnum("responsibility_role", RACI_ROLES), owner_label: requiredText("owner_label", 120), confirmed: raw.confirmed == null ? false : booleanValue(raw.confirmed, "confirmed"), last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
   if (resource === "capacity") return { ...common(), project_id: projectId, track: requiredEnum("track", TRACKS), milestone_id: optionalId("milestone_id"), role_label: requiredText("role_label", 180), required_people: requiredNumber("required_people", { min: 0 }), confirmed_people: requiredNumber("confirmed_people", { min: 0 }), available_hours_week: optionalNumber("available_hours_week", { min: 0 }), planned_hours_week: optionalNumber("planned_hours_week", { min: 0 }), measurement_date: requiredDate("measurement_date"), source_label: requiredText("source_label", 240), confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
+  if (resource === "task") return { ...common(), project_id: projectId, milestone_id: requiredId("milestone_id"), parent_task_id: optionalId("parent_task_id"), track: raw.track == null ? null : requiredEnum("track", TRACKS), title: requiredText("title", 180), description: optionalTextValue("description", 1600), status: requiredEnum("status", TASK_STATUSES, "unassessed"), planned_start: optionalDate("planned_start"), planned_end: optionalDate("planned_end"), forecast_end: optionalDate("forecast_end"), actual_end: optionalDate("actual_end"), progress_pct: optionalNumber("progress_pct", { min: 0, max: 100 }) || 0, date_certainty: requiredEnum("date_certainty", ["confirmed", "provisional"], "provisional"), owner_member_id: optionalId("owner_member_id"), owner_label: requiredText("owner_label", 120), completion_criteria: optionalTextValue("completion_criteria", 1200), forecast_change_reason: optionalTextValue("forecast_change_reason", 500), sort_order: optionalNumber("sort_order", { min: 0 }) || 0, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
   throw new Error("追加できる種類が不正だよ");
 }
 
@@ -440,7 +452,40 @@ const PARENT_FIELDS: Partial<Record<Resource, Array<[string, string]>>> = {
   raci: [["milestone_id", "project_management_milestones"]],
   capacity: [["milestone_id", "project_management_milestones"]],
   technical_test: [["milestone_id", "project_management_milestones"], ["outcome_id", "project_management_outcomes"]],
+  task: [["milestone_id", "project_management_milestones"], ["parent_task_id", "project_management_tasks"]],
 };
+
+// A task can be re-parented onto another task via `parent_task_id`; a cycle (task A's
+// ancestor chain eventually includes A itself) would make the gantt's tree walk recurse
+// forever. Walk the existing parent_task_id chain of the proposed new parent and reject if
+// it ever reaches the task being edited.
+async function assertNoTaskCycle(db: ReturnType<typeof createAdminClient>, projectId: string, taskId: string, newParentTaskId: string | null) {
+  if (!newParentTaskId) return;
+  if (newParentTaskId === taskId) throw new Error("自分自身を親タスクにはできないよ");
+  let cursor: string | null = newParentTaskId;
+  const visited = new Set<string>();
+  while (cursor) {
+    if (cursor === taskId) throw new Error("親タスクの循環参照になるよ");
+    if (visited.has(cursor)) break;
+    visited.add(cursor);
+    const result: { data: { parent_task_id: string | null } | null; error: { message: string } | null } = await db.from("project_management_tasks").select("parent_task_id").eq("id", cursor).eq("project_id", projectId).maybeSingle();
+    if (result.error) throw new Error(`親タスクの確認に失敗したよ: ${result.error.message}`);
+    cursor = result.data?.parent_task_id ?? null;
+  }
+}
+
+async function assertTaskPlacement(db: ReturnType<typeof createAdminClient>, projectId: string, milestoneId: string, parentTaskId: string | null) {
+  if (!parentTaskId) return;
+  const { data, error } = await db
+    .from("project_management_tasks")
+    .select("milestone_id")
+    .eq("id", parentTaskId)
+    .eq("project_id", projectId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error) throw new Error(`親タスクの配置確認に失敗したよ: ${error.message}`);
+  if (!data || String((data as { milestone_id: string }).milestone_id) !== milestoneId) throw new Error("親タスクは同じ工程の中から選んでね");
+}
 
 async function assertParentsInProject(db: ReturnType<typeof createAdminClient>, projectId: string, resource: Resource, payload: Record<string, unknown>) {
   for (const [field, table] of PARENT_FIELDS[resource] || []) {
@@ -498,6 +543,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const payload = createFor(resource, body.fields ?? body.payload, projectId, context.access.memberId, todayJst());
     const db = createAdminClient();
     await assertParentsInProject(db, projectId, resource, payload);
+    if (resource === "task") await assertTaskPlacement(db, projectId, String(payload.milestone_id), payload.parent_task_id ? String(payload.parent_task_id) : null);
     const { data, error } = await db.from(RESOURCE_TABLES[resource]).insert(payload).select("id").single();
     if (error) throw new Error(`共有情報の追加に失敗したよ: ${error.message}`);
     const id = String((data as { id: string }).id);
@@ -622,6 +668,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         acceptedBy: patch.accepted_by !== undefined ? patch.accepted_by : beforeRecord.accepted_by,
         acceptedOn: patch.accepted_on !== undefined ? patch.accepted_on : beforeRecord.accepted_on,
       });
+    }
+    if (!deleting && !restoring) {
+      await assertParentsInProject(db, projectId, resource, patch);
+    }
+    if (resource === "task" && !deleting && !restoring) {
+      const mergedMilestoneId = patch.milestone_id !== undefined ? String(patch.milestone_id) : String(beforeRecord.milestone_id);
+      const mergedParentTaskId = patch.parent_task_id !== undefined ? patch.parent_task_id ? String(patch.parent_task_id) : null : beforeRecord.parent_task_id ? String(beforeRecord.parent_task_id) : null;
+      await assertTaskPlacement(db, projectId, mergedMilestoneId, mergedParentTaskId);
+      await assertNoTaskCycle(db, projectId, id, mergedParentTaskId);
     }
     const { data, error } = await db.from(RESOURCE_TABLES[resource]).update(patch).eq("id", id).eq("project_id", projectId).select("id").maybeSingle();
     if (error) throw new Error(`共有情報の更新に失敗したよ: ${error.message}`);

@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   CalendarClock,
   Check,
   ChevronDown,
+  ChevronRight,
   CircleDot,
   ExternalLink,
   FileSearch,
@@ -29,6 +30,8 @@ import type {
   SxHypothesis,
   SxManagementBundle,
   SxManagementIssue,
+  SxManagementMilestone,
+  SxTask,
   SxTrackKey,
 } from "@/lib/sx-management";
 import { deriveSxUnifiedTimeline } from "@/lib/sx-executive-control-deck";
@@ -52,6 +55,7 @@ type StageKey = SxWeeklyIssueStage;
 type ViewFilter = "all" | "attention" | "stale" | "overdue";
 type EditorState =
   | { kind: "create_issue" }
+  | { kind: "create_hypothesis_any" }
   | { kind: "edit_issue"; issue: SxManagementIssue }
   | { kind: "create_hypothesis"; issue: SxManagementIssue }
   | { kind: "edit_hypothesis"; issue: SxManagementIssue; hypothesis: SxHypothesis }
@@ -60,12 +64,16 @@ type EditorState =
   | { kind: "create_decision"; issue: SxManagementIssue; hypothesis?: SxHypothesis }
   | { kind: "edit_decision"; issue: SxManagementIssue; decision: SxDecisionRecord }
   | { kind: "create_action"; issue: SxManagementIssue; decision: SxDecisionRecord }
-  | { kind: "edit_action"; issue: SxManagementIssue; decision: SxDecisionRecord; action: SxActionItem };
+  | { kind: "edit_action"; issue: SxManagementIssue; decision: SxDecisionRecord; action: SxActionItem }
+  | { kind: "create_milestone"; track: SxTrackKey | null }
+  | { kind: "edit_milestone"; milestone: SxManagementMilestone }
+  | { kind: "create_task"; milestone: SxManagementMilestone; parentTask: SxTask | null }
+  | { kind: "edit_task"; task: SxTask };
 
 type FormField = {
   key: string;
   label: string;
-  type?: "text" | "textarea" | "date" | "select" | "checkbox";
+  type?: "text" | "textarea" | "date" | "number" | "select" | "checkbox";
   required?: boolean;
   span?: boolean;
   options?: Array<{ value: string; label: string }>;
@@ -133,11 +141,89 @@ function fieldValue(record: Record<string, unknown>, key: string) {
 }
 
 function editorInitialValues(editor: EditorState, access: CurrentMemberAccess, asOf: string): Record<string, string> {
+  if (editor.kind === "create_milestone") return {
+    track: editor.track || "business_development",
+    outcome_id: "",
+    title: "",
+    gate: "",
+    planned_start: asOf,
+    planned_end: "",
+    forecast_end: "",
+    date_certainty: "provisional",
+    owner_label: access.displayName,
+    next_deliverable: "",
+    max_issue: "未確認",
+    completion_criteria: "",
+    criticality: "high",
+    confidence: "unknown",
+  };
+  if (editor.kind === "edit_milestone") return {
+    title: editor.milestone.title,
+    gate: editor.milestone.gate,
+    status: editor.milestone.manualStatus,
+    planned_start: editor.milestone.plannedStart || "",
+    planned_end: editor.milestone.plannedEnd || "",
+    forecast_end: editor.milestone.forecastEnd || "",
+    actual_end: editor.milestone.actualEnd || "",
+    progress_pct: String(editor.milestone.progressPct),
+    date_certainty: editor.milestone.dateCertainty,
+    owner_label: editor.milestone.ownerLabel,
+    next_deliverable: editor.milestone.nextDeliverable,
+    max_issue: editor.milestone.maxIssue,
+    completion_criteria: editor.milestone.completionCriteria,
+    completion_evidence: editor.milestone.completionEvidence || "",
+    criticality: editor.milestone.criticality,
+    forecast_change_reason: editor.milestone.forecastChangeReason || "",
+    confidence: editor.milestone.confidence,
+  };
+  if (editor.kind === "create_task") return {
+    milestone_id: editor.milestone.id,
+    parent_task_id: editor.parentTask?.id || "",
+    track: editor.milestone.track,
+    title: "",
+    description: "",
+    status: "unassessed",
+    planned_start: editor.parentTask?.plannedStart || editor.milestone.plannedStart || asOf,
+    planned_end: editor.parentTask?.plannedEnd || editor.milestone.plannedEnd || "",
+    forecast_end: editor.parentTask?.forecastEnd || editor.milestone.forecastEnd || "",
+    progress_pct: "0",
+    date_certainty: "provisional",
+    owner_label: editor.parentTask?.ownerLabel || editor.milestone.ownerLabel || access.displayName,
+    completion_criteria: "",
+    forecast_change_reason: "",
+    confidence: "unknown",
+  };
+  if (editor.kind === "edit_task") return {
+    milestone_id: editor.task.milestoneId,
+    parent_task_id: editor.task.parentTaskId || "",
+    track: editor.task.track || "",
+    title: editor.task.title,
+    description: editor.task.description || "",
+    status: editor.task.status,
+    planned_start: editor.task.plannedStart || "",
+    planned_end: editor.task.plannedEnd || "",
+    forecast_end: editor.task.forecastEnd || "",
+    actual_end: editor.task.actualEnd || "",
+    progress_pct: String(editor.task.progressPct),
+    date_certainty: editor.task.dateCertainty,
+    owner_label: editor.task.ownerLabel,
+    completion_criteria: editor.task.completionCriteria || "",
+    forecast_change_reason: editor.task.forecastChangeReason || "",
+    confidence: editor.task.confidence,
+  };
   if (editor.kind === "create_issue") return {
     track: "business_development",
     milestone_id: "",
     title: "",
-    knowledge_type: "hypothesis",
+    knowledge_type: "fact",
+    status: "open",
+    owner_label: access.displayName,
+    due_date: "",
+    confidence: "unknown",
+  };
+  if (editor.kind === "create_hypothesis_any") return {
+    issue_id: "",
+    statement: "",
     status: "open",
     owner_label: access.displayName,
     due_date: "",
@@ -229,9 +315,97 @@ function editorInitialValues(editor: EditorState, access: CurrentMemberAccess, a
 
 function editorDefinition(editor: EditorState, management: SxManagementBundle): { title: string; eyebrow: string; resource: string; method: "POST" | "PATCH"; id?: string; fields: FormField[] } {
   const confidence: FormField = { key: "confidence", label: "確度", type: "select", options: CONFIDENCE_OPTIONS };
+  const planStatus: FormField = { key: "status", label: "状態", type: "select", required: true, options: [{ value: "unassessed", label: "進捗未登録" }, { value: "on_track", label: "進行中" }, { value: "attention", label: "要確認" }, { value: "at_risk", label: "遅れ懸念" }, { value: "blocked", label: "停止" }, { value: "completed", label: "完了" }] };
+  const planFields: FormField[] = [
+    { key: "title", label: "タスク名", type: "textarea", required: true, span: true },
+    planStatus,
+    { key: "owner_label", label: "担当", required: true },
+    { key: "planned_start", label: "計画開始", type: "date" },
+    { key: "planned_end", label: "計画完了", type: "date" },
+    { key: "forecast_end", label: "完了見込み", type: "date" },
+    { key: "progress_pct", label: "進捗率（%）", type: "number", required: true },
+    { key: "date_certainty", label: "日程の確度", type: "select", required: true, options: [{ value: "provisional", label: "仮" }, { value: "confirmed", label: "確定" }] },
+    { key: "forecast_change_reason", label: "見込み変更の理由", type: "textarea", span: true },
+    { key: "completion_criteria", label: "完了条件", type: "textarea", span: true },
+    confidence,
+  ];
+  if (editor.kind === "create_milestone") return {
+    title: "工程を追加",
+    eyebrow: "工程",
+    resource: "milestone",
+    method: "POST",
+    fields: [
+      { key: "track", label: "柱", type: "select", required: true, options: TRACKS.map((track) => ({ value: track.key, label: track.label })) },
+      { key: "outcome_id", label: "接続する成果", type: "select", required: true, options: [{ value: "", label: "選択してね" }, ...management.outcomes.map((outcome) => ({ value: outcome.id, label: `${trackMeta(outcome.track).short}｜${outcome.title}` }))] },
+      { key: "title", label: "工程名", type: "textarea", required: true, span: true },
+      { key: "gate", label: "成果ゲート", required: true },
+      { key: "owner_label", label: "担当", required: true },
+      { key: "planned_start", label: "計画開始", type: "date" },
+      { key: "planned_end", label: "計画完了", type: "date" },
+      { key: "forecast_end", label: "完了見込み", type: "date" },
+      { key: "date_certainty", label: "日程の確度", type: "select", required: true, options: [{ value: "provisional", label: "仮" }, { value: "confirmed", label: "確定" }] },
+      { key: "next_deliverable", label: "次の成果物", type: "textarea", required: true, span: true },
+      { key: "completion_criteria", label: "完了条件", type: "textarea", required: true, span: true },
+      { key: "criticality", label: "重要度", type: "select", required: true, options: [{ value: "critical", label: "最重要" }, { value: "high", label: "高" }, { value: "medium", label: "中" }, { value: "low", label: "低" }] },
+      confidence,
+    ],
+  };
+  if (editor.kind === "edit_milestone") return {
+    title: "工程を編集",
+    eyebrow: "工程",
+    resource: "milestone",
+    method: "PATCH",
+    id: editor.milestone.id,
+    fields: [
+      { key: "title", label: "工程名", type: "textarea", required: true, span: true },
+      { key: "gate", label: "成果ゲート", required: true },
+      planStatus,
+      { key: "owner_label", label: "担当", required: true },
+      { key: "planned_start", label: "計画開始", type: "date" },
+      { key: "planned_end", label: "計画完了", type: "date" },
+      { key: "forecast_end", label: "完了見込み", type: "date" },
+      { key: "actual_end", label: "実績完了", type: "date" },
+      { key: "progress_pct", label: "進捗率（%）", type: "number", required: true },
+      { key: "date_certainty", label: "日程の確度", type: "select", required: true, options: [{ value: "provisional", label: "仮" }, { value: "confirmed", label: "確定" }] },
+      { key: "next_deliverable", label: "次の成果物", type: "textarea", span: true },
+      { key: "max_issue", label: "最大の詰まり", type: "textarea", span: true },
+      { key: "forecast_change_reason", label: "見込み変更の理由", type: "textarea", span: true },
+      { key: "completion_criteria", label: "完了条件", type: "textarea", span: true },
+      { key: "completion_evidence", label: "完了証跡", type: "textarea", span: true },
+      { key: "criticality", label: "重要度", type: "select", required: true, options: [{ value: "critical", label: "最重要" }, { value: "high", label: "高" }, { value: "medium", label: "中" }, { value: "low", label: "低" }] },
+      confidence,
+    ],
+  };
+  if (editor.kind === "create_task" || editor.kind === "edit_task") return {
+    title: editor.kind === "create_task" ? (editor.parentTask ? "子タスクを追加" : "タスクを追加") : "タスクを編集",
+    eyebrow: editor.kind === "create_task" && editor.parentTask ? "子タスク" : "タスク",
+    resource: "task",
+    method: editor.kind === "create_task" ? "POST" : "PATCH",
+    id: editor.kind === "edit_task" ? editor.task.id : undefined,
+    fields: [
+      ...(editor.kind === "edit_task" ? [{ key: "parent_task_id", label: "親タスク", type: "select" as const, options: [{ value: "", label: "工程の直下" }, ...management.tasks.filter((task) => task.milestoneId === editor.task.milestoneId && task.id !== editor.task.id).map((task) => ({ value: task.id, label: task.title }))] }] : []),
+      ...planFields,
+      { key: "description", label: "作業内容", type: "textarea", span: true },
+      { key: "actual_end", label: "実績完了", type: "date" },
+    ],
+  };
+  if (editor.kind === "create_hypothesis_any") return {
+    title: "仮説を追加",
+    eyebrow: "仮説",
+    resource: "hypothesis",
+    method: "POST",
+    fields: [
+      { key: "issue_id", label: "対象論点", type: "select", required: true, span: true, options: [{ value: "", label: "論点を選んでね" }, ...management.issues.filter((issue) => issue.status !== "closed").map((issue) => ({ value: issue.id, label: `${trackMeta(issue.track).short}｜${issue.title}` }))] },
+      { key: "statement", label: "仮説", type: "textarea", required: true, span: true, help: "反証できる形で書く" },
+      { key: "status", label: "状態", type: "select", required: true, options: [{ value: "open", label: "未着手" }, { value: "validating", label: "検証中" }, { value: "on_hold", label: "保留" }] },
+      { key: "owner_label", label: "担当", required: true },
+      { key: "due_date", label: "期限", type: "date" },
+      confidence,
+    ],
+  };
   if (editor.kind === "create_issue") return {
-    title: "論点を起票",
-    eyebrow: "忘れないための入口",
+    title: "論点を追加",
+    eyebrow: "論点",
     resource: "issue",
     method: "POST",
     fields: [
@@ -246,8 +420,8 @@ function editorDefinition(editor: EditorState, management: SxManagementBundle): 
     ],
   };
   if (editor.kind === "edit_issue") return {
-    title: "論点を更新",
-    eyebrow: "更新すると確認日も今日になる",
+    title: "論点を編集",
+    eyebrow: "論点",
     resource: "issue",
     method: "PATCH",
     id: editor.issue.id,
@@ -261,8 +435,8 @@ function editorDefinition(editor: EditorState, management: SxManagementBundle): 
     ],
   };
   if (editor.kind === "create_hypothesis" || editor.kind === "edit_hypothesis") return {
-    title: editor.kind === "create_hypothesis" ? "仮説を追加" : "仮説を更新",
-    eyebrow: "論点を検証可能な文へ分ける",
+    title: editor.kind === "create_hypothesis" ? "仮説を追加" : "仮説を編集",
+    eyebrow: "仮説",
     resource: "hypothesis",
     method: editor.kind === "create_hypothesis" ? "POST" : "PATCH",
     id: editor.kind === "edit_hypothesis" ? editor.hypothesis.id : undefined,
@@ -276,7 +450,7 @@ function editorDefinition(editor: EditorState, management: SxManagementBundle): 
   };
   if (editor.kind === "create_evidence") return {
     title: "根拠・反証を追加",
-    eyebrow: "判断材料を論点へ戻す",
+    eyebrow: "根拠・反証",
     resource: "evidence",
     method: "POST",
     fields: [
@@ -290,7 +464,7 @@ function editorDefinition(editor: EditorState, management: SxManagementBundle): 
   };
   if (editor.kind === "create_validation") return {
     title: "次の検証を設定",
-    eyebrow: "仮説を放置しない約束",
+    eyebrow: "検証",
     resource: "validation",
     method: "POST",
     fields: [
@@ -304,8 +478,8 @@ function editorDefinition(editor: EditorState, management: SxManagementBundle): 
     ],
   };
   if (editor.kind === "edit_decision") return {
-    title: "判断を更新",
-    eyebrow: "決定・保留まで会議の結果を閉じる",
+    title: "判断を編集",
+    eyebrow: "判断",
     resource: "decision",
     method: "PATCH",
     id: editor.decision.id,
@@ -324,8 +498,8 @@ function editorDefinition(editor: EditorState, management: SxManagementBundle): 
     ],
   };
   if (editor.kind === "create_action" || editor.kind === "edit_action") return {
-    title: editor.kind === "create_action" ? "決定後の行動を追加" : "決定後の行動を更新",
-    eyebrow: "決めただけで終わらせない",
+    title: editor.kind === "create_action" ? "決定後の行動を追加" : "決定後の行動を編集",
+    eyebrow: "決定後の行動",
     resource: "action",
     method: editor.kind === "create_action" ? "POST" : "PATCH",
     id: editor.kind === "edit_action" ? editor.action.id : undefined,
@@ -341,8 +515,8 @@ function editorDefinition(editor: EditorState, management: SxManagementBundle): 
     ],
   };
   return {
-    title: "判断を会議へ載せる",
-    eyebrow: "判断待ちを明示する",
+    title: "判断を追加",
+    eyebrow: "判断",
     resource: "decision",
     method: "POST",
     fields: [
@@ -366,9 +540,15 @@ function IssueEditor({ editor, management, access, projectId, onClose, onSaved }
   onSaved: (bundle: SxManagementBundle, message: string) => void;
 }) {
   const definition = editorDefinition(editor, management);
-  const [values, setValues] = useState<Record<string, string>>(() => editorInitialValues(editor, access, management.asOf));
+  const initialValues = useRef(editorInitialValues(editor, access, management.asOf));
+  const [values, setValues] = useState<Record<string, string>>(() => initialValues.current);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function requestClose() {
+    const dirty = JSON.stringify(values) !== JSON.stringify(initialValues.current);
+    if (!dirty || window.confirm("入力中の変更を破棄する？")) onClose();
+  }
 
   async function save() {
     setError(null);
@@ -388,10 +568,17 @@ function IssueEditor({ editor, management, access, projectId, onClose, onSaved }
     setSaving(true);
     const isPatch = definition.method === "PATCH";
     const fields: Record<string, unknown> = Object.fromEntries(Object.entries(values).map(([key, value]) => {
-      if (["due_date", "planned_on", "observed_on", "decided_on", "next_review_on", "completed_at"].includes(key)) return [key, value || null];
+      if (["due_date", "planned_on", "observed_on", "decided_on", "next_review_on", "completed_at", "planned_start", "planned_end", "forecast_end", "actual_end"].includes(key)) return [key, value || null];
       if (key === "is_this_week") return [key, value === "true"];
       return [key, value];
     }));
+    if ((editor.kind === "create_task" || editor.kind === "edit_task") && !String(fields.track || "").trim()) {
+      delete fields.track;
+    }
+    if (editor.kind === "create_milestone") {
+      fields.objective_id = management.objective?.id || "";
+      fields.slug = `weekly-ms-${Date.now().toString(36)}`;
+    }
     if (editor.kind === "create_issue") fields.slug = `weekly-${Date.now().toString(36)}`;
     if (editor.kind === "create_hypothesis") fields.issue_id = editor.issue.id;
     if (editor.kind === "create_evidence") fields.issue_id = editor.issue.id;
@@ -421,19 +608,22 @@ function IssueEditor({ editor, management, access, projectId, onClose, onSaved }
   }
 
   return (
-    <div className={styles.editorBackdrop} role="dialog" aria-modal="true" aria-label={definition.title} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className={styles.editorBackdrop} role="dialog" aria-modal="true" aria-label={definition.title} onMouseDown={(event) => { if (event.target === event.currentTarget) requestClose(); }}>
       <section className={styles.editorPanel}>
         <header className={styles.editorHeader}>
           <div>
             <p className={styles.eyebrow}>{definition.eyebrow}</p>
             <h2>{definition.title}</h2>
           </div>
-          <button type="button" className={styles.iconButton} onClick={onClose} aria-label="閉じる"><X aria-hidden="true" /></button>
+          <button type="button" className={styles.iconButton} onClick={requestClose} aria-label="閉じる"><X aria-hidden="true" /></button>
         </header>
         <div className={styles.editorContext}>
           {"issue" in editor && <><span>対象論点</span><strong>{editor.issue.title}</strong></>}
           {"hypothesis" in editor && <><span>対象仮説</span><strong>{editor.hypothesis?.statement}</strong></>}
           {"decision" in editor && <><span>対象判断</span><strong>{editor.decision.title}</strong></>}
+          {"milestone" in editor && <><span>対象工程</span><strong>{editor.milestone.title}</strong></>}
+          {"task" in editor && <><span>対象タスク</span><strong>{editor.task.title}</strong></>}
+          {"parentTask" in editor && <><span>追加先</span><strong>{editor.parentTask?.title || editor.milestone.title}</strong></>}
         </div>
         <div className={styles.formGrid}>
           {definition.fields.map((field) => (
@@ -456,7 +646,7 @@ function IssueEditor({ editor, management, access, projectId, onClose, onSaved }
         </div>
         {error && <p className={styles.formError} role="alert">{error}</p>}
         <footer className={styles.editorFooter}>
-          <button type="button" className={styles.secondaryButton} onClick={onClose}>キャンセル</button>
+          <button type="button" className={styles.secondaryButton} onClick={requestClose}>キャンセル</button>
           <button type="button" className={styles.primaryButton} disabled={saving} onClick={save}>{saving ? <RefreshCw className={styles.spin} aria-hidden="true" /> : <Check aria-hidden="true" />}保存</button>
         </footer>
       </section>
@@ -487,7 +677,10 @@ function IssueCard({ issue, asOf, canManage, onEdit }: {
           {stale && <span className={`${styles.statusBadge} ${styles.toneDanger}`}>更新切れ</span>}
           {overdue && <span className={`${styles.statusBadge} ${styles.toneDanger}`}>期限超過</span>}
         </div>
-        {canManage && <button type="button" className={styles.miniIconButton} onClick={() => onEdit({ kind: "edit_issue", issue })} aria-label={`${issue.title}を編集`}><Pencil aria-hidden="true" /></button>}
+        {canManage && <div className={styles.issueHeadActions}>
+          <button type="button" onClick={() => onEdit({ kind: "edit_issue", issue })}><Pencil aria-hidden="true" />論点を編集</button>
+          <button type="button" onClick={() => onEdit({ kind: "create_hypothesis", issue })}><Plus aria-hidden="true" />仮説を追加</button>
+        </div>}
       </div>
       <p className={styles.issueType}>{issueKindLabel(issue.knowledgeType)}</p>
       <h3>{issue.title}</h3>
@@ -534,6 +727,64 @@ function IssueCard({ issue, asOf, canManage, onEdit }: {
   );
 }
 
+function planDateDelta(plannedEnd: string | null, forecastEnd: string | null, provisional: boolean) {
+  if (!plannedEnd || !forecastEnd) return "差分未算定";
+  const days = Math.round((Date.parse(`${forecastEnd}T00:00:00Z`) - Date.parse(`${plannedEnd}T00:00:00Z`)) / 86400000);
+  if (days === 0) return "予定どおり";
+  if (days < 0) return `${Math.abs(days)}日前倒し`;
+  return provisional ? `見込み差 +${days}日（仮）` : `+${days}日`;
+}
+
+function PlanInspector({ milestone, task, canManage, onClose, onEdit, onAddChild }: {
+  milestone: SxManagementMilestone | null;
+  task: SxTask | null;
+  canManage: boolean;
+  onClose: () => void;
+  onEdit: () => void;
+  onAddChild: () => void;
+}) {
+  const item = task || milestone;
+  if (!item) return null;
+  const isTask = Boolean(task);
+  const plannedStart = item.plannedStart;
+  const plannedEnd = item.plannedEnd;
+  const forecastEnd = item.forecastEnd;
+  const progressRegistered = isTask ? task?.status !== "unassessed" : milestone?.manualStatus !== "unassessed";
+  const description = task?.description || milestone?.gate || "未設定";
+  const blocker = task?.forecastChangeReason || milestone?.maxIssue || "未設定";
+  const criteria = task?.completionCriteria || milestone?.completionCriteria || "未設定";
+  return (
+    <aside className={styles.planInspector} role="dialog" aria-modal="false" aria-label={`${item.title}の詳細`}>
+      <header>
+        <div><p>{isTask ? "タスク詳細" : "工程詳細"}</p><h3>{item.title}</h3></div>
+        <button type="button" onClick={onClose} aria-label="詳細を閉じる"><X aria-hidden="true" /></button>
+      </header>
+      <div className={styles.inspectorBreadcrumb}>{milestone && task ? <><span>{trackMeta(milestone.track).label}</span><ChevronRight aria-hidden="true" /><span>{milestone.title}</span><ChevronRight aria-hidden="true" /><strong>{task.title}</strong></> : <><span>{milestone ? trackMeta(milestone.track).label : "工程"}</span><ChevronRight aria-hidden="true" /><strong>{item.title}</strong></>}</div>
+      <dl className={styles.inspectorFacts}>
+        <div><dt>担当</dt><dd>{item.ownerLabel || "担当未設定"}</dd></div>
+        <div><dt>状態</dt><dd>{isTask ? ROW_PLAN_STATUS[task!.status] : ROW_PLAN_STATUS[milestone!.manualStatus]}</dd></div>
+        <div><dt>計画</dt><dd>{formatDate(plannedStart)} → {formatDate(plannedEnd)}</dd></div>
+        <div><dt>進捗</dt><dd data-missing={!progressRegistered || undefined}>{progressRegistered ? `${item.progressPct}%` : "未登録"}</dd></div>
+        <div><dt>完了見込み</dt><dd>{formatDate(forecastEnd)}{item.dateCertainty === "provisional" ? "（仮）" : ""}</dd></div>
+        <div><dt>予定との差</dt><dd>{planDateDelta(plannedEnd, forecastEnd, item.dateCertainty === "provisional")}</dd></div>
+      </dl>
+      <section><span>内容 / ゲート</span><p>{description}</p></section>
+      <section><span>詰まり / 見込み変更理由</span><p>{blocker}</p></section>
+      <section><span>完了条件</span><p>{criteria}</p></section>
+      {canManage && <footer><button type="button" onClick={onEdit}>編集</button><button type="button" onClick={onAddChild}><Plus aria-hidden="true" />{isTask ? "子タスクを追加" : "タスクを追加"}</button></footer>}
+    </aside>
+  );
+}
+
+const ROW_PLAN_STATUS: Record<SxManagementMilestone["manualStatus"], string> = {
+  unassessed: "進捗未登録",
+  on_track: "進行中",
+  attention: "要確認",
+  at_risk: "遅れ懸念",
+  blocked: "停止",
+  completed: "完了",
+};
+
 export function SxWeeklyControlDashboard({ bundle, access }: { bundle: ProjectWorkspaceBundle; access: CurrentMemberAccess }) {
   const [management, setManagement] = useState(bundle.sxManagement);
   const [trackFilter, setTrackFilter] = useState<SxTrackKey | "all">("all");
@@ -542,6 +793,7 @@ export function SxWeeklyControlDashboard({ bundle, access }: { bundle: ProjectWo
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const allIssues = useMemo(() => [...management.issues].sort((left, right) => sxWeeklyIssueAttentionScore(right, management.asOf) - sxWeeklyIssueAttentionScore(left, management.asOf) || (sxWeeklyIssueNextDueDate(left) || "9999").localeCompare(sxWeeklyIssueNextDueDate(right) || "9999")), [management]);
   const counts = useMemo(() => ({
@@ -574,6 +826,8 @@ export function SxWeeklyControlDashboard({ bundle, access }: { bundle: ProjectWo
     pinCount: 0,
   }), [management]);
   const selectedMilestone = management.milestones.find((milestone) => milestone.id === selectedMilestoneId) ?? null;
+  const selectedTask = management.tasks.find((task) => task.id === selectedTaskId) ?? null;
+  const selectedTaskMilestone = selectedTask ? management.milestones.find((milestone) => milestone.id === selectedTask.milestoneId) ?? null : null;
 
   function handleSaved(next: SxManagementBundle, message: string) {
     setManagement(next);
@@ -594,7 +848,6 @@ export function SxWeeklyControlDashboard({ bundle, access }: { bundle: ProjectWo
             </div>
             <div className={styles.headerActions}>
               <Link href={`/project/${encodeURIComponent(bundle.project.projectId)}/workspace`}><ExternalLink aria-hidden="true" />既存ワークスペース</Link>
-              {management.canManage && <button type="button" onClick={() => setEditor({ kind: "create_issue" })}><Plus aria-hidden="true" />論点を起票</button>}
             </div>
           </div>
           <div className={styles.titleRow}>
@@ -651,28 +904,42 @@ export function SxWeeklyControlDashboard({ bundle, access }: { bundle: ProjectWo
 
         <section id="project-gantt" className={styles.section}>
           <div className={styles.sectionHeading}>
-            <div><h2>全体ガント</h2></div>
+            <div><h2>全体ガント</h2><p>工程を開くと細かいタスクを表示。バーか名称を押すと横に詳細が開く</p></div>
             <p>基準日 {formatDate(management.asOf)}</p>
           </div>
-          <div className={styles.ganttFrame}>
-            <SxUnifiedTimeline timeline={timeline} asOf={management.asOf} selectedMilestoneId={selectedMilestoneId} onSelectMilestone={setSelectedMilestoneId} canManage={false} onEditMilestone={() => {}} onCreateMilestone={() => {}} showPins={false} />
+          <div className={styles.ganttWorkspace} data-inspector={Boolean(selectedMilestone || selectedTask) || undefined}>
+            <div className={styles.ganttFrame}>
+              <SxUnifiedTimeline
+                timeline={timeline}
+                asOf={management.asOf}
+                tasks={management.tasks}
+                selectedMilestoneId={selectedMilestoneId}
+                selectedTaskId={selectedTaskId}
+                onSelectMilestone={(id) => { setSelectedMilestoneId(id); if (id) setSelectedTaskId(null); }}
+                onSelectTask={(id) => { setSelectedTaskId(id); if (id) setSelectedMilestoneId(null); }}
+                canManage={management.canManage}
+                onEditMilestone={(id) => { const milestone = management.milestones.find((item) => item.id === id); if (milestone) setEditor({ kind: "edit_milestone", milestone }); }}
+                onCreateMilestone={(track) => setEditor({ kind: "create_milestone", track: track as SxTrackKey | null })}
+                onEditTask={(id) => { const task = management.tasks.find((item) => item.id === id); if (task) setEditor({ kind: "edit_task", task }); }}
+                onCreateTask={(milestoneId, parentTaskId) => { const milestone = management.milestones.find((item) => item.id === milestoneId); const parentTask = parentTaskId ? management.tasks.find((item) => item.id === parentTaskId) || null : null; if (milestone) setEditor({ kind: "create_task", milestone, parentTask }); }}
+                showPins={false}
+              />
+            </div>
+            <PlanInspector
+              milestone={selectedMilestone || selectedTaskMilestone}
+              task={selectedTask}
+              canManage={management.canManage}
+              onClose={() => { setSelectedMilestoneId(null); setSelectedTaskId(null); }}
+              onEdit={() => { if (selectedTask) setEditor({ kind: "edit_task", task: selectedTask }); else if (selectedMilestone) setEditor({ kind: "edit_milestone", milestone: selectedMilestone }); }}
+              onAddChild={() => { const milestone = selectedMilestone || selectedTaskMilestone; if (milestone) setEditor({ kind: "create_task", milestone, parentTask: selectedTask }); }}
+            />
           </div>
-          {selectedMilestone && <div className={styles.ganttSelection} aria-live="polite">
-            <div><span>選択中</span><strong>{selectedMilestone.title}</strong></div>
-            <dl>
-              <div><dt>ゲート</dt><dd>{selectedMilestone.gate || "未設定"}</dd></div>
-              <div><dt>担当</dt><dd>{selectedMilestone.ownerLabel || "担当未設定"}</dd></div>
-              <div><dt>予定</dt><dd>{formatDate(selectedMilestone.plannedEnd)}</dd></div>
-              <div><dt>予測</dt><dd>{formatDate(selectedMilestone.forecastEnd)}</dd></div>
-            </dl>
-            <Link href={`/project/${encodeURIComponent(bundle.project.projectId)}/workspace#management-plan`}>計画詳細<ArrowRight aria-hidden="true" /></Link>
-          </div>}
         </section>
 
         <section id="issue-hypothesis" className={styles.section}>
           <div className={styles.issueHeading}>
             <div><h2>論点・仮説リスト</h2></div>
-            {management.canManage && <button type="button" className={styles.primaryButton} onClick={() => setEditor({ kind: "create_issue" })}><Plus aria-hidden="true" />論点を起票</button>}
+            {management.canManage && <div className={styles.issueCreateActions}><button type="button" className={styles.primaryButton} onClick={() => setEditor({ kind: "create_issue" })}><Plus aria-hidden="true" />論点を追加</button><button type="button" className={styles.secondaryButton} onClick={() => setEditor({ kind: "create_hypothesis_any" })}><Plus aria-hidden="true" />仮説を追加</button></div>}
           </div>
           <div className={styles.controls}>
             <div className={styles.searchBox}><Search aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="論点・仮説・担当で検索" aria-label="論点・仮説を検索" /></div>
@@ -701,7 +968,7 @@ export function SxWeeklyControlDashboard({ bundle, access }: { bundle: ProjectWo
         <footer className={styles.pageFooter}><span>基準日 {formatDate(management.asOf)} · 表示値は現行台帳の仮表示</span><Link href={`/project/${encodeURIComponent(bundle.project.projectId)}/workspace#management-plan`}>計画詳細を既存画面で開く<ArrowRight aria-hidden="true" /></Link></footer>
       </div>
       {notice && <div className={styles.toast} role="status"><Check aria-hidden="true" />{notice}</div>}
-      {editor && <IssueEditor key={`${editor.kind}-${"issue" in editor ? editor.issue.id : "new"}-${"hypothesis" in editor ? editor.hypothesis?.id || "" : ""}-${"decision" in editor ? editor.decision.id : ""}-${"action" in editor ? editor.action.id : ""}`} editor={editor} management={management} access={access} projectId={bundle.project.projectId} onClose={() => setEditor(null)} onSaved={handleSaved} />}
+      {editor && <IssueEditor key={`${editor.kind}-${"issue" in editor ? editor.issue.id : "new"}-${"hypothesis" in editor ? editor.hypothesis?.id || "" : ""}-${"decision" in editor ? editor.decision.id : ""}-${"action" in editor ? editor.action.id : ""}-${"milestone" in editor ? editor.milestone.id : ""}-${"task" in editor ? editor.task.id : ""}`} editor={editor} management={management} access={access} projectId={bundle.project.projectId} onClose={() => setEditor(null)} onSaved={handleSaved} />}
     </main>
   );
 }

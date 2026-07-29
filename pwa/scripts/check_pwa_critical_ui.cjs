@@ -973,32 +973,34 @@ expectNotIncludes("src/components/project-workspace/SxExecutiveControlDeck.tsx",
 expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "sx-unified-timeline",
   "今日",
-  "現在地",
   "設立 {sxFormatDate(timeline.objectiveDate)}",
-  "柱 / マイルストーン",
+  "工程 / タスク",
   "RowBar",
   "rowCenterY",
   "criticalPolyline",
-  "min-w-[880px]",
-  "data-sx-pin",
-  // Round 20: 行クリックはモーダル、管理者は図から直接 追加/編集できる。
+  "min-w-[1080px]",
+  // Round 20/24: 行クリックは横インスペクタ、管理者は図から工程/タスクを直接追加・編集できる。
   "sxFormatSlip",
   "onEditMilestone",
   "onCreateMilestone",
+  "onEditTask",
+  "onCreateTask",
+  "selectedTaskId",
+  "expandedMilestones",
+  "expandedTasks",
+  "すべて展開",
   "canManage",
-  "灰バー=仮置きの日程での遅れ（根拠未確認）",
-  "前提のつながり",
-  // Round 23: 計画バーは枠だけで描き、塗りは登録済み進捗からのみ。塗りつぶすと「今日線より右まで終わっている」と誤読される。
-  "row.progressPct > 0",
-  "濃い塗り=完了した範囲",
-  "担当未確認",
+  "予定→見込みの差",
+  "進捗ではない",
+  "完了見込み日",
+  // Round 24: 計画の薄いバーと登録済み進捗の濃い塗りを分け、未登録は0%と表示しない。
+  "row.progressRegistered && row.progressPct > 0",
+  "進捗 {row.progressRegistered ? `${row.progressPct}%` : \"未登録\"}",
   "日程未登録",
   "aria-pressed",
   "focus-visible:outline",
-  // Round 22: ピンはクリックで飛ばさずhoverで中身を出す。遅れ語は「遅れ/前倒し」の二択。
-  "sx-pin-hovercard",
+  // ピンはクリックで飛ばさずhover/focusで中身を出す。
   "onMouseEnter",
-  "止まるゲート:",
 ]);
 expectIncludes("src/lib/sx-executive-control-deck.ts", [
   // Provisional dates / missing dates must never resolve to a false-green current/future state.
