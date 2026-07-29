@@ -336,6 +336,16 @@
 
 ---
 
+### [automation/w-prep] 7日窓の厳密切りで翌水曜夕方MTGのprepが週次対象外になった (2026-07-29)
+
+- **状態**: クローズ (2026-07-29 — active `w-prep-launch` automation prompt と Meeting Flow spec に拡張7日窓・重複防止を同期)。
+- **症状**: 2026-07-29 17:30 JST の `CLG 取締役会` は Calendar 確定予定かつ `project_meeting_summaries` の upcoming 行も存在したが、2026-07-22 の W-Prep weekly launch で visible prep thread が起動していなかった。
+- **原因**: W-Prep の候補窓が実行時刻 `2026-07-22 15:03 JST` から厳密に `now()+7 days` (= 2026-07-29 15:03 JST) で切られていたため、翌水曜夕方の同会議が2時間27分だけ対象外になった。PJ推定や Calendar/DB同期の失敗ではない。
+- **対応内容**: CLG行を手動復旧し、`CLG 取締役会 prep` thread を作成・pin・DB session 保存した。active `w-prep-launch` prompt を、JSTで「実行日から数えて7日後の23:59:59.999まで」を対象にする拡張7日窓へ変更した。
+- **再発防止策**: W-Prep は厳密な `now()+7 days` で切らず、水曜15:00実行なら翌水曜終日のMTGまで含める。重複防止は `calendar_event_id` exact identity を最優先し、`meeting_id='upcoming:<calendar_event_id>'` を canonical とする。同時刻・同一PJでも event id / link / attendee metadata / title intent が異なる場合は勝手に統合せず保留として報告する。
+
+---
+
 ### [automation/w-prep] Calendar未同期MTGのprep漏れ・第一声/資料形式の仕様ズレ (2026-07-09)
 
 - **状態**: クローズ (2026-07-09 — `w-prep-launch` automation prompt、automation memory、prep worker SKILL、spec/manual/L2正本に再発防止を同期)。

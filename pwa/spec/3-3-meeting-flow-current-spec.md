@@ -253,7 +253,9 @@ Worker 出力 (= `project_meeting_summaries` の対象 row に upsert):
 
 ### W-Prep Launch (= 週次 visible prep thread 起動レーン、2026-07-09 現行)
 
-H-1 の毎時処理とは別に、まさが水曜15:00 JSTに自分で確認できる前提の **visible prep thread 起動レーン**として Codex automation `w-prep-launch` を置く。W-Prep は DB にある upcoming 行だけを見て完了扱いにしない。必ず Google Calendar の同じ7日窓を直接確認し、DBに無い確定MTGがあれば active/sales PJ へ `source_kinds='upcoming'` のカードを作ってから prep thread 対象に入れる。
+H-1 の毎時処理とは別に、まさが水曜15:00 JSTに自分で確認できる前提の **visible prep thread 起動レーン**として Codex automation `w-prep-launch` を置く。W-Prep は DB にある upcoming 行だけを見て完了扱いにしない。必ず Google Calendar の同じ拡張7日窓を直接確認し、DBに無い確定MTGがあれば active/sales PJ へ `source_kinds='upcoming'` のカードを作ってから prep thread 対象に入れる。
+
+ここでの拡張7日窓は、JST の実行時刻から厳密に `now()+7 days` で切らない。`window_start=now()`、`window_end=実行日から数えて7日後の23:59:59.999 JST` (= API/DB では翌日 0:00 未満) とする。水曜15:00実行なら翌水曜終日のMTGまで含める。
 
 W-Prep の事故防止ルール:
 
@@ -262,6 +264,8 @@ W-Prep の事故防止ルール:
 - `create_thread` の target は対象PJディレクトリを優先する。例: SX = `/Users/masa/projects/AMD/SX`、KUTE = `/Users/masa/projects/AMD/kute`、ZMP = `/Users/masa/projects/AMD/ZMP`、CX = `/Users/masa/projects/AMD/CX`。PJディレクトリを確定できない場合だけ `/Users/masa/projects/AMD` を fallback にする。`/Users/masa/projects/AMD/amd-os` は OS DB / spec 参照用であり、prep thread の作業場にしない。
 - `create_thread` 前に、会議ごとに DB claim を1件ずつ取る。claim → thread作成 → thread title変更 → pin → DBへ `prep_worker_session_id` / `prep_worker_status='preparing'` 保存まで終えてから次の会議へ進む。
 - すでに `prep_worker_session_id` がある行、`prep_worker_status IN ('claiming','preparing','ready')` の行、同じ `calendar_event_id` で別canonical rowが ready/preparing の行は起動しない。
+- Calendar-backed 候補は `calendar_event_id` を exact identity とし、`meeting_id='upcoming:<calendar_event_id>'` を canonical とする。同じ `calendar_event_id` の別 row に session id 付きの `preparing` / `ready` がある場合は絶対に二重起動しない。
+- `*TBD` や `calendar_event_id` なしの弱い重複は、calendar-backed canonical row があるなら除外する。同時刻・同一PJ・同一趣旨の重複行は canonical 1件だけ起動し、skip理由を memory へ残す。ただし同時刻・同一PJでも Calendar event id / meeting link / attendee metadata / title intent が異なる場合は別会議の可能性を保留扱いにし、勝手に統合しない。
 - 立ち上げた thread は必ず `{meeting_title} prep` へ改題し、`set_thread_pinned` でピン留めする。pin できなかった場合は保留として報告し、同じ会議に追加threadを作らない。
 - `create_thread` prompt は日本語で書く。英語の見出し・英語指示文にしない。
 - root `AGENTS.md` の `@~/knowledge/...` は、この環境では `/Users/masa/projects/knowledge/` へ読み替える。
