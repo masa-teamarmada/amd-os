@@ -2013,3 +2013,59 @@ Book A執筆規範 (japanese-tech-writing + cognitive-rhythm-writing) をSESSION
 ### 別作業WIPの帰属
 
 - 同じshared checkoutには、別workerの「予定額変更理由」実装が未コミットで残った。migration、admin API、合意API、member UI、仕様・manual・schema・registry・検査の差分が含まれるが、今回のcommitとproductionには含めていない。次のownerが全差分をレビューし、採用またはrecoverableな保全・破棄を別closeoutで決める。
+
+---
+
+## 2026-07-29 — SX MS予算不足の誤判定と対象外配賦集計を修正（v3.51.16 → v3.51.17）
+
+### 症状と原因
+
+- `/admin/ms-overview` のSX 2026/04–2027/03で、`会社留保 9,069,525円`、`予算不足 5,370,277円`、`MS編集停止中` と表示された。
+- SXの正しい原資上限は `(10,480,000 - 1,800,000) × 65% = 5,642,000円`。正しい内訳は現金支払1,942,752円、対象外メンバーへの当月配賦済み3,085,723円、支払対象メンバーの期末未払0円で、支払義務は5,028,475円、残予算は613,525円だった。
+- 旧集計は月次フロー `companyReserveYen` へ月末残高スナップショット `stockYen` を各月で足し、それをシーズン期間でもう一度合計していた。SXでは同じ繰越残高を9か月分重ねた5,983,802円が加わり、3,085,723円を9,069,525円へ水増しした。
+- shared functionの問題なのでSX固有ではなく、旧監査ではZMP 2,250,000円、CX 101,776円の重複も確認した。SXは4・5月cap 0円、前半集中のMS、対象外メンバー担当ptの大きさでstockが9か月連続し最大化したうえ、予算順先頭PJだけ自動展開されるUIだったためSXだけに見えた。
+
+### まさ確定の仕様整理
+
+- 120pt中13ptは将来MS用に意図して残した未配賦バッファ。未配賦ptは誰の報酬債務にもならず、保存停止条件ではない。
+- 現金支払か対象外配賦かの分類根拠は `members.exclude_from_payout_notice` のみ。`is_officer` は使わない。あき・りりは非役員でも支払対象外。
+- AMD運営費30% + クローザー報酬5%はPJ予算65%の外枠。互換フィールド `companyReserveYen` はこの35%ではなく、65%枠内で支払対象外メンバーへ割り当たった非現金配賦。
+
+### 実装
+
+- `pwa/src/lib/reward-finance-summary.ts` を新設し、当月のfunded noncash allocationと、支払対象メンバーの月末stockを分離する純粋helperを追加した。
+- MS overview APIとPJ cockpit financeの両方を共通helperへ寄せ、対象外配賦は各月の `companyReserveYen` フローだけを合計し、期末未払は最終月の支払対象メンバー `stockYen` だけを一度読むよう修正した。
+- 報酬計算・season PL・data loaderの分類を `exclude_from_payout_notice` へ統一。支払対象外メンバーも65% cap按分へ参加し、現金支払0の非現金配賦として記録する。
+- Admin MS Overviewの表示名を「会社留保」から「対象外配賦」へ変え、35%外枠との誤読を防いだ。
+- `test:cockpit-season-finance-reserve` と `test:ms-overview-reward-reserve` を追加し、stockの期間重複、対象外区分、外部期末未払、UIラベルを固定した。`test:critical-ui`にも回帰anchorを追加した。
+- design/manual/changelogを同じcommitで同期し、build versionを`v3.51.17`へ上げた。実装commitは `700a438e fix(pwa): correct MS noncash allocation budget guard`。
+
+### 検証 / 本番
+
+- `npm run test:cockpit-season-finance-reserve`、`npm run test:ms-overview-reward-reserve`、`npm run test:critical-ui`、`npx tsc --noEmit`、`npm run build`を通した。
+- production実データでSXの `MS編集停止中` が消え、対象外配賦3,085,723円、残予算613,525円、期末未払0円を確認した。
+- desktop実画面を確認。390pxでは既存admin wide-layout由来の横クリップがあったが、今回の計算/ラベル変更起因ではないためスコープ外とした。
+- production `/api/build-info` で `v3.51.17` / `700a438e...` / `main` / `dirty=false` を確認した。DB・支払データの書き換えは行っていない。
+
+### 破棄した案 / 教訓
+
+- 13ptを埋めて辻褄を合わせる案は破棄。意図した未配賦余白は報酬債務ではない。
+- 対象外配賦をAMD運営費30% + closer 5%とみなす案は破棄。35%は65%メンバー原資の外側。
+- `is_officer` で支払区分を決める案は破棄。役職と現金支払要否は別概念。
+- stockを各月の義務へ足す案は破棄。残高スナップショットは最終月またはピークで読み、期間合計しない。
+- 先頭で開いているSXだけを見るとshared backend defectをPJ固有に誤認する。collapsed/closed PJもAPI/DBから横断監査する。
+
+### 設計変更棚卸し
+
+| # | 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|---|
+| 1 | 月次の対象外配賦フローと月末stock残高を分離し、stockを期間合計しない | `pwa/design/season_budget_actual.md` | `pwa/manual/6-8-admin-ms-overview-spec.md` / `pwa/manual/7-1-reward-calc-spec.md` | ✅ |
+| 2 | 支払分類を `exclude_from_payout_notice` だけに統一し、`is_officer` を金銭分類に使わない | `pwa/design/season_budget_actual.md` | `pwa/manual/6-6-member-billing-prompts-spec.md` / `pwa/manual/7-1-reward-calc-spec.md` | ✅ |
+| 3 | AMD運営費30% + closer 5%は65%枠外、`companyReserveYen` は65%枠内の非現金配賦 | `pwa/design/season_budget_actual.md` | `pwa/manual/7-1-reward-calc-spec.md` | ✅ |
+| 4 | 未配賦ptは意図的バッファとして残せ、正数だけで保存停止にしない | `pwa/design/season_budget_actual.md` | `pwa/manual/6-8-admin-ms-overview-spec.md` | ✅ |
+| 5 | MS overview UI表示を「会社留保」から「対象外配賦」へ変更 | `pwa/design/season_budget_actual.md` | `pwa/manual/6-8-admin-ms-overview-spec.md` | ✅ |
+| 6 | stock期間重複・分類・UI文言の回帰検査を追加 | `pwa/scripts/check_cockpit_season_finance_reserve.mts` / `pwa/scripts/check_ms_overview_reward_reserve.mts` / `pwa/scripts/check_pwa_critical_ui.cjs` | 対象外: 検査実装。挙動仕様は上記章へ同期済み | ✅ |
+| 7 | SXだけに見えたstock期間重複事故の症状・原因・対応・再発防止 | `pwa/BUGS.md` | 対象外: バグ履歴。現行挙動は上記章へ同期済み | ✅ |
+| 8 | 新規環境変数・API route・DB table/column/index/RLS/migration | 追加なし | 対象外: 変更なし | ✅ |
+
+✅ 全件記録済。恒久仕様はdesign/manual、実装・検証・deploy履歴はこのdevelopment logへ分離した。

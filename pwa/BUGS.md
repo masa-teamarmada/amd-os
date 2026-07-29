@@ -336,6 +336,16 @@
 
 ---
 
+### [finance/admin-ms] 月末stock残高を期間合計し、SXの対象外配賦と予算不足を水増しした (2026-07-29)
+
+- **状態**: クローズ (2026-07-29 — v3.51.17 / `700a438e` でMS保存前検算とPJ cockpit financeを共通helperへ統一し、production実データでSXの保存停止解消を確認)。
+- **症状**: `/admin/ms-overview` のSXで、実際にはPJ予算内へ収まるのに `会社留保 9,069,525円`、`予算不足 5,370,277円`、`MS編集停止中` と表示された。120pt中13ptの未配賦は将来MS用の意図的バッファで、停止原因ではなかった。
+- **原因**: 各月に実際にcapから配賦済みのフロー `companyReserveYen` へ、その月末時点の繰越残高スナップショット `stockYen` を足し、さらに期間合計していた。SXでは実配賦3,085,723円に、9か月連続した同じ繰越残高の重複5,983,802円が加わった。shared functionのためZMP/CXにも小さい同種影響があったが、SXはstock継続月と対象外メンバー担当ptが大きく、先頭PJだけ自動展開されるUIでもあったためSX固有に見えた。
+- **対応内容**: `fundedNonCashAllocationYen()` と `externalUnpaidStockYen()` を共通helper化し、対象外配賦は各月のfunded `companyReserveYen` だけを合計、期末未払は最終月の支払対象メンバー `stockYen` だけを一度読むようにした。支払分類は `members.exclude_from_payout_notice` へ統一し、`is_officer` を外した。AMD運営費30% + クローザー報酬5%は65%PJ予算の外枠だと仕様へ明記し、UI名を「対象外配賦」へ変更した。
+- **再発防止策**: finance集計ではflowとbalance snapshotを型・helper・テストで分離する。`stockYen` を月次ループで加算しない。先頭で開いているPJだけで結論を出さず、collapsed/closedを含む全plan cycleをshared backend pathで横断監査する。未配賦ptは正数だけで異常扱いせず、意図したバッファか確認する。
+
+---
+
 ### [automation/w-prep] 7日窓の厳密切りで翌水曜夕方MTGのprepが週次対象外になった (2026-07-29)
 
 - **状態**: クローズ (2026-07-29 — active `w-prep-launch` automation prompt と Meeting Flow spec に拡張7日窓・重複防止を同期)。

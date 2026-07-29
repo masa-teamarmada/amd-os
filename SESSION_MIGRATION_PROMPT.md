@@ -1,73 +1,72 @@
-# SESSION MIGRATION PROMPT — AMD OS admin月初合意
+# SESSION MIGRATION PROMPT — SX MS予算不足修正
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
 
 あなたは、株式会社チームアルマダの社内OS「AMD OS」を引き継ぐえいみ。
-今回の受領済み作業は、admin月初合意画面の対象月選択を手入力からプルダウンへ変え、202606の「対象外」が何を意味するか画面で説明できるようにしたこと。これは `6dd7d130` としてmain・productionへ反映済みで、次セッションは同じ実装をやり直さない。別 worker の予定額変更理由 `0330c547`、SX資金計画画面 `8d1fbada`、再読み込み型修正 `a3b278bb` は `origin/main` に入り、自動deployでproduction`b78e4fff`にも含まれたが、未レビュー。
+今回の受領済み作業は、SXのMS設定ページで「会社留保」が9,069,525円へ膨らみ、PJ予算を5,370,277円超過したとして `MS編集停止中` になっていた不具合の修正。実装commit `700a438e8393e17e791bbb05070fe88a15b17d50` はmain・productionへ反映済みで、同じ修正をやり直さない。
 
 ## 最初に読む順
 
 1. /Users/masa/projects/AGENTS.common.md
 2. /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md
-3. /Users/masa/projects/AMD/amd-os/AGENTS.md
-4. /Users/masa/projects/AMD/amd-os/CLAUDE.md
-5. /Users/masa/projects/AMD/amd-os/pwa/AGENTS.md
+3. /Users/masa/projects/AMD/amd-os/HANDOFF.md
+4. /Users/masa/projects/AMD/amd-os/AGENTS.md
+5. /Users/masa/projects/AMD/amd-os/CLAUDE.md
 6. /Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md
-7. /Users/masa/projects/AMD/amd-os/HANDOFF.md
-8. /Users/masa/projects/AMD/amd-os/pwa/spec/1-1-overview.md
-9. /Users/masa/projects/AMD/amd-os/pwa/spec/1-2-document-layer-migration-map.md
-10. /Users/masa/projects/AMD/amd-os/pwa/spec/3-14-monthly-work-agreement-current-spec.md
-11. /Users/masa/projects/AMD/amd-os/pwa/design/README.md
-12. /Users/masa/projects/AMD/amd-os/pwa/design/FEATURE_REGISTRY.md
+7. /Users/masa/projects/AMD/amd-os/pwa/spec/1-1-overview.md
+8. /Users/masa/projects/AMD/amd-os/pwa/spec/1-2-document-layer-migration-map.md
+9. /Users/masa/projects/AMD/amd-os/pwa/design/README.md
+10. /Users/masa/projects/AMD/amd-os/pwa/design/season_budget_actual.md
+11. /Users/masa/projects/AMD/amd-os/pwa/manual/6-8-admin-ms-overview-spec.md
+12. /Users/masa/projects/AMD/amd-os/pwa/manual/7-1-reward-calc-spec.md
 13. /Users/masa/projects/AMD/amd-os/pwa/manual/6-6-member-billing-prompts-spec.md
 14. /Users/masa/projects/AMD/amd-os/pwa/manual/9-3-appendix-changelog.md
-15. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
-16. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md の「2026-07-28 — admin月初合意」節
+15. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md の2026-07-29 `finance/admin-ms` 項目
+16. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md の「2026-07-29 — SX MS予算不足」節
 
 ## 状態スナップショット
 
-- cwd: `/Users/masa/projects/AMD/amd-os`
-- canonical branch: `main`
-- deployed production HEAD: `b78e4fff`。その履歴には`0330c547`、`8d1fbada`、`a3b278bb`とhandoff更新commit群が含まれ、自動deploy済み。local HEADはfinal handoff snapshot commitでoriginより先行。正確なhash/ahead数は開始時に再確認する。
-- production: `https://amd-os-pwa.vercel.app`、`v3.51.6`、`git_sha=b78e4fffc3127a1dd1f09b5a8c81f186029dd76d`、`git_branch=main`、`dirty=false`。未レビュー変更を含むため、保持・ロールバック判断までは追加deployしない。
-- local `pwa/src/lib/build-info.ts` は別workerの`a3b278bb`上で`v3.51.6`。productionにも反映済みだが、採否未判断。
-- accepted commit: `c760851c fix(pwa): select monthly agreement month`
-- 対象月は日本語表記のプルダウン。2020年1月から現在月の12か月先まで選択できる。
-- 2026年6月以前の表示には「月初合意の導入前・移行月。合意保存不要・未合意による支払い停止なし」の説明が出る。
-- 202606の `not_required` は欠損ではなく、2026年7月の本運用開始前の移行月判定。支払gateでは移行月を合意済み扱いで通すが、実際の合意行は偽造しない。
-- registered worktreeはroot 1件、local branchはmainのみ。新しいbranch/worktreeは作らない。
-
-## 現在の別作業commit / WIP（今回の受領済み成果と混ぜない）
-
-別 worker の「予定額変更理由」実装は `0330c547 feat(pwa): require amount change reasons for agreements` としてcommit済み。SX資金計画画面の変更は `8d1fbada fix(pwa): polish SX capital policy plan` としてcommit済み。いずれも今回のプルダウン依頼とは別作業だが、自動deployでproduction`b78e4fff`に含まれている。
-
-別 worker の再読み込みボタン型修正・変更履歴・build version更新は `a3b278bb fix(pwa): restore monthly agreement reload typing` としてcommit済み。これは `0330c547` の月初合意変更と、`8d1fbada` のSX資金計画画面変更とは別の未レビューcommitとして保全する。
-
-これは今回のプルダウンcommitに含まれない別作業で、すでにproduction`b78e4fff`へ反映された。`0330c547` は予定額変更理由の保存と合意停止を含み、`8d1fbada` はSX資金計画画面の表示・判定・検査・仕様同期を含み、`a3b278bb` は再読み込みボタン型修正・変更履歴・build version更新を含むため、まさの採否判断なしに保持・ロールバックしない。判断する場合は、まず現行mainとの差分全体を読み、migration適用状況、`npm run test:monthly-agreement-diff`、`npm run test:critical-ui`、`npx tsc --noEmit`、対象eslint、`npm run build`を通してから別closeoutで扱う。
+- canonical cwd / branch: `/Users/masa/projects/AMD/amd-os` / `main`
+- accepted implementation: `700a438e fix(pwa): correct MS noncash allocation budget guard`
+- accepted production: `v3.51.17` / implementation SHA `700a438e...` は反映済み。その後、別ownerのW-Prep文書commit `f936e278` もmain・productionへ反映された。closeout文書commitがさらに後続するため、開始時にlocal HEAD・origin/main・production `/api/build-info` を読み直す。
+- SX current truth: client 10,480,000円 / buffer 1,800,000円 / PJ budget 5,642,000円 / cash payout 1,942,752円 / 対象外配賦 3,085,723円 / obligation 5,028,475円 / 期末未払0円 / 残予算613,525円。
+- 画面の旧9,069,525円は、実際の当月非現金配賦合計3,085,723円に、同じ債務を翌月へ持つ月末stock残高5,983,802円を9か月分重複加算した値。`stockYen` はフローではなく残高スナップショットなので期間合計しない。
+- 13ptは120pt中107pt配賦後に意図して残した将来MS用バッファ。未配賦ptは報酬債務を発生させず、保存停止条件ではない。
+- 支払分類の唯一の根拠は `members.exclude_from_payout_notice`。`is_officer` は使わない。あき・りりは非役員だが支払対象外。
+- AMD運営費30% + クローザー報酬5%は65%PJ予算の外側。`companyReserveYen` は35%ではなく、65%枠内で支払対象外メンバーへ割り当たった非現金配賦の互換フィールド名。UIは「対象外配賦」と表示する。
+- 同じ旧バグはSX固有ではなくZMP/CXにもあった。SXはstockが9か月連続で残り重複が最大化し、予算順の先頭PJだけが自動展開されるUIだったため、SXだけに見えた。全PJのshared backend pathを監査する。
+- 今回はDB・支払・報酬データを変更していない。
+- worktreeはroot 1件のみ。旧detached `b108` はclean/main-contained確認とローカルアーカイブ後に削除済み。
+- closeout時に見つかったW-Prep拡張7日窓の別差分は、owner taskが8文書を同期して `f936e278` としてmain・productionへ反映済み。SX差分とはcommitを分離した。
 
 ## 次タスク
 
-1. 開始時に `git status -sb --untracked-files=all`、`git log --oneline origin/main..HEAD`、`git diff --stat`、`git diff --name-only --diff-filter=U`、`curl -fsS https://amd-os-pwa.vercel.app/api/build-info` をread-onlyで確認する。
-2. `0330c547`、`8d1fbada`、`a3b278bb`をそれぞれ採用するか、まず全commit差分をレビューする。前者はDB schema/migration・合意API・admin画面のblocking契約、次はSX画面の判定契約、後者はreloadイベント型とbuild version契約を確認する。変更理由は自動推測せず、現在snapshotに紐づく人間の理由だけを保存する。
-3. 保持する場合は、テスト・build・本番versionを確認する。採用しない場合は、対象commitとWIPを所有者と照合してからrecoverableな保全または安全なロールバックを別closeoutで行う。いずれもまさの明示判断なしに変更しない。
-4. 月選択だけの追加実装は不要。すでにproductionで確認済み。
+1. 開始時に `git status -sb --untracked-files=all`、`git rev-parse HEAD`、`git rev-parse origin/main`、`git worktree list --porcelain`、`curl -fsS https://amd-os-pwa.vercel.app/api/build-info` をread-onlyで確認する。
+2. SXで再発報告がなければ追加実装しない。13ptを埋めない、35%をPJ予算へ入れない、役員フラグへ戻さない。
+3. 再発時は `/api/admin/ms-overview/<planCycleId>` の `budgetImpact` と全月reward summaryを確認する。対象外配賦は各月のfunded `companyReserveYen`だけを合計し、`stockYen`は支払対象メンバーの最終月残だけを期末未払へ1回入れる。
+4. SXだけを開いて判断せず、ZMP/CX/KUTEを含む全plan cycleを同じshared functionで横断監査する。UIで閉じたPJや未展開PJを正常の証拠にしない。
+5. 今後shared checkoutに別taskのdirtyがあっても、ownerを特定して返し、SX commitへstage/revertしない。
 
 ## 確立済みの運用ルール
 
 - main一本。新branch/worktreeを作らない。dirtyを理由にbranchを切らない。
 - 既存dirtyは戻さず、今回の対象ファイルだけを明示stageする。`git add .` / `git add -A`は禁止。
-- PWAの本番反映は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`。直接 `npx vercel` や生のPWA pushは使わない。
-- コードをdeployするなら、build versionをpatch bumpし、対象eslint、critical UI、`tsc --noEmit`、build、本番 `/api/build-info` を確認する。
-- DB列名は想像せず、`pwa/design/db_schema.md`を先に読む。migrationは `pwa/scripts/migrations/` に残し、適用時は `python -X utf8 pwa/scripts/apply_ddl.py ...` の正本手順を使う。
-- 認証が必要な画面はログイン突破をしない。型・build・重要UI検査と本番build-infoで確認範囲を明記する。
-- raw議事録、URL、secret、個人情報はhandoffや報告へ持ち込まない。
+- finance修正は、共通ルール→repo/pwaルール→design/manual正本→実装→live DB/APIの順で確認する。
+- `stockYen` は月末残高。月次フローと期間合計しない。対象外配賦は `fundedNonCashAllocationYen()`、外部期末未払は `externalUnpaidStockYen()` の共通helperを使う。
+- `exclude_from_payout_notice=true` のメンバーも65% cap按分には参加し、現金支払だけ0にする。shareを消したり他メンバーへ再配分しない。
+- 仕様変更時はdesign、該当OS manual章、manual changelog、回帰検査、development design_logを同じ実装単位で同期する。
+- PWA本番反映は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`。直接 `npx vercel` や生のpushを使わない。
+- コードを変える場合はbuild versionをpatch bumpし、対象unit、`npm run test:critical-ui`、`npx tsc --noEmit`、`npm run build`、production `/api/build-info`を確認する。
+- DB/payment mutationは別の明示依頼がない限り行わない。金額を直すために本番報酬行を書き換えない。
 
 ## 今回の検証
 
+- `npm run test:cockpit-season-finance-reserve`: PASS
+- `npm run test:ms-overview-reward-reserve`: PASS
 - `npm run test:critical-ui`: PASS
-- `npx eslint 'src/app/(app)/admin/monthly-work-agreements/page.tsx'`: PASS
-- `npm run build`: PASS（既存 `next.config.ts` のNFT追跡warningのみ）
-- deploy scriptをclean cloneで実行: Vercel ReadyまでPASS
-- production `/api/build-info`: v3.51.6 / b78e4fff SHA / dirty=false。未レビュー変更を含むため判断待ち
+- `npx tsc --noEmit`: PASS
+- `npm run build`: PASS
+- production実データでSXの `MS編集停止中` 消失、対象外配賦3,085,723円、残予算613,525円、期末未払0円を確認。
+- 390px幅のadmin画面には既存wide-layout由来の横クリップがあるが、今回の計算/ラベル修正起因ではない。別UI課題として扱う。
 ```
