@@ -2502,6 +2502,16 @@ expectIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
   "自社工場の段階投資",
   "IPOの時期と調達額",
   "初期値に戻す",
+  "downloadSxBusinessPlanPhaseMatrixXlsx",
+  "Excel出力",
+  'data-testid="sx-phase-matrix-xlsx-export"',
+]);
+expectIncludes("src/lib/sx-business-plan-xlsx.ts", [
+  "createSxBusinessPlanPhaseMatrixXlsx",
+  "downloadSxBusinessPlanPhaseMatrixXlsx",
+  "xSplit=\"1\" ySplit=\"2\"",
+  "neutralizeFormulaTrigger",
+  "フェーズマトリクス",
 ]);
 expectNotIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
   'data-testid="sx-annual-parameters" open',

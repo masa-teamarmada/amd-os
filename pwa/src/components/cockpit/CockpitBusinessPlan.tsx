@@ -5,6 +5,7 @@ import {
   BriefcaseBusiness,
   ChevronDown,
   CircleAlert,
+  FileSpreadsheet,
   FlaskConical,
   Landmark,
   RotateCcw,
@@ -25,6 +26,7 @@ import {
   type SxAnnualProjectionYearParameters,
   type SxXrlTarget,
 } from "@/lib/sx-business-plan";
+import { downloadSxBusinessPlanPhaseMatrixXlsx } from "@/lib/sx-business-plan-xlsx";
 import CapitalPlanWorkspace from "./CapitalPlanWorkspace";
 
 interface CockpitBusinessPlanProps {
@@ -106,7 +108,7 @@ function XrlStrip({ target, keys }: { target: SxXrlTarget; keys?: Array<keyof Sx
   );
 }
 
-function PhaseMatrix() {
+function PhaseMatrix({ projectName }: Pick<CockpitBusinessPlanProps, "projectName">) {
   return (
     <SectionShell>
       <div className="border-b border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
@@ -185,6 +187,17 @@ function PhaseMatrix() {
             })}
           </tbody>
         </table>
+      </div>
+
+      <div className="flex justify-end border-t border-slate-200 bg-white px-5 py-3 sm:px-6">
+        <button
+          type="button"
+          className="inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          onClick={() => downloadSxBusinessPlanPhaseMatrixXlsx(projectName)}
+          data-testid="sx-phase-matrix-xlsx-export"
+        >
+          <FileSpreadsheet className="size-3.5" /> Excel出力
+        </button>
       </div>
 
       <div className="border-t border-slate-200 bg-slate-50 px-5 py-3 text-[11px] leading-5 text-slate-600 sm:px-6">
@@ -470,7 +483,7 @@ export function CockpitBusinessPlan({ projectId, projectName }: CockpitBusinessP
 
   return (
     <div className="space-y-5">
-      <PhaseMatrix />
+      <PhaseMatrix projectName={projectName} />
 
       <div>
         <div className="mb-3 px-1">
