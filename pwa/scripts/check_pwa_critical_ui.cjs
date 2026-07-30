@@ -620,29 +620,32 @@ expectIncludes("src/components/project-workspace/SxProofOutcomes.tsx", [
 expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "sx-partner-pipeline",
   "sxPartnerDisplay",
-  // 2026-07-30 1社1行: 進行状況と会社名下railは同じdynamic stepsを共有し、固定段階数を持たない。
+  // 2026-07-30 1社1行: 関係段階と会社名下railは、接点数に左右されない同じ固定7段階を共有する。
   "buildPartnerProgressSteps",
   "PartnerProgressFlow",
   "sx-partner-progress-",
   "sx-partner-stage-rail-",
   "data-step-count={steps.length}",
+  'data-stage-index={stageIndex ?? "on_hold"}',
   "data-progress-segment",
   "data-progress-step",
-  "進行状況",
+  "関係段階・要対応",
   "当方ボール",
-  // Round 26: PoCは専用進捗laneではなく横断属性。同じrole x relationship groupへ通し、
-  // PoC属性filterとrole filterを独立した2軸としてANDで組み合わせる。
+  // Round 28: PoCは同じ台帳の横断属性だが、比較中だけ共通7段階を主軸にし、role未登録を
+  // 進捗の未分類として表示しない。全体表示へ戻れば通常のrole groupを維持する。
   "sxIsPocPartner",
-  "sxIsUncontactedPocPartner",
-  "operationalPartners",
+  "sxPartnerHasContactRecord",
+  "sxPartnerHasDataGap",
+  "sxPartnerHasDueSoon",
+  "sxPartnerHasOverdue",
   "sx-partner-filter-poc",
   "PoC先",
   'heading="表示"',
   'heading="役割"',
   "filterablePartners",
   "sxGroupPartnersByPrimaryClassification(filterablePartners)",
-  // 未完了の保有事項は進行状況の「これから」へ。
-  ".filter((item) => item.status !== \"completed\" && item.status !== \"cancelled\")",
+  "pocComparisonPartners",
+  "PocComparisonControls",
   'border-l-[#b5533f]',
   // 2026-07-24: 外部PJメンバーにも見えるSX関係先台帳で内部コードネーム(まさ/かる/ちこ)を
   // そのまま出さないための表示専用正規化。この import が落ちると本文/担当/ボール等に
@@ -653,7 +656,6 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "当方保有",
   "先方保有",
   "関係先の絞り込み",
-  "分類は虹色にしない",
   "共同",
   "行為主体未確認",
   "sxFormatDueDateWithPrecision",
@@ -2708,6 +2710,51 @@ expectNotIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.ts
   "management-poc",
   "PoC候補先リスト",
   "SxPocCandidateList",
+]);
+
+// Round 28 (2026-07-30): PoCは同じ台帳の横断属性を保ったまま、比較時だけ共通7段階を主軸にする。
+// role未登録を進捗の「未分類」と見せず、進み具合と期限上の要対応を独立して並べ替える。
+expectIncludes("src/lib/sx-partner-progress.ts", [
+  "SX_PARTNER_STAGE_ORDER",
+  '"candidate"',
+  '"executing"',
+  'export type SxPocComparisonSort = "progress" | "attention"',
+  "sxPartnerStageIndex",
+  "sxPartnerAttention",
+  "sxPartnerHasContactRecord",
+  "sxPartnerIsOnHold",
+  "sxPartnerNeedsRefresh",
+  "sxComparePartnersForPoc",
+  "sxCompactPartnerRowText",
+  'partner: "先方"',
+]);
+expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
+  'data-testid="sx-poc-comparison-controls"',
+  'data-testid="sx-poc-sort-progress"',
+  'data-testid="sx-poc-sort-attention"',
+  "PocComparisonRow",
+  "PocComparisonDetailModal",
+  "activePocQuickFilter",
+  "pocMatchesQuickFilter",
+  "sx-poc-comparison-row-",
+  'aria-modal="true"',
+  'data-stage-index={stageIndex ?? "on_hold"}',
+  "判定材料不足",
+  "情報更新要",
+  "接点記録あり",
+  "関係段階・要対応",
+  "showRoleFilter={!pocOnly}",
+  "pocComparisonPartners.map",
+  "sxCompactPartnerRowText",
+  "sticky top-0",
+  "sticky top-14",
+]);
+expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
+  "...past.map",
+  "...pending.map",
+  "interaction-${interaction.id}",
+  "min-w-[124px]",
+  "全関係先を同じ母集団・同じprimary role",
 ]);
 
 // 土壌×シーズタブ (2026-07-30): 機関ECRと所属シーズSPSをas-of断面で整列する。元評価日は別表示し、合成単一スコア化は禁止。

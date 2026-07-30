@@ -21,6 +21,11 @@ import type {
   SxTrackKey,
   SxValidationRun,
 } from "./sx-management";
+import {
+  SX_PARTNER_STAGE_ORDER,
+  sxPartnerStageIndex,
+  sxPartnerStageLabel,
+} from "./sx-partner-progress.ts";
 
 /**
  * 「成立条件ナビゲーション」v2 (/project/[projectId]/navigation) の表示モデル導出。
@@ -98,19 +103,8 @@ export function navBallSideLabel(side: SxBallSide) {
   return BALL_SIDE_LABEL[side] || "未確認";
 }
 
-const RELATIONSHIP_STAGE_LABEL: Record<SxManagementPartner["relationshipStage"], string> = {
-  candidate: "候補",
-  information_exchange: "情報交換",
-  condition_alignment: "条件整理",
-  meeting_coordination: "面談調整",
-  validation_preparation: "検証準備",
-  agreement_confirmation: "合意確認",
-  executing: "実行",
-  on_hold: "保留",
-};
-
 export function navRelationshipStageLabel(stage: SxManagementPartner["relationshipStage"]) {
-  return RELATIONSHIP_STAGE_LABEL[stage] || "未確認";
+  return sxPartnerStageLabel(stage);
 }
 
 const AGREEMENT_STATE_LABEL: Record<SxManagementPartner["agreementState"], string> = {
@@ -889,15 +883,7 @@ function buildHistoryEventDetail(e: SxEvidence): NavHistoryEventDetail {
 // 関係先比較レーン: 共通7段階ステージ軸上の一行比較
 // ---------------------------------------------------------------------------
 
-export const NAV_PARTNER_STAGE_ORDER: SxManagementPartner["relationshipStage"][] = [
-  "candidate",
-  "information_exchange",
-  "condition_alignment",
-  "meeting_coordination",
-  "validation_preparation",
-  "agreement_confirmation",
-  "executing",
-];
+export const NAV_PARTNER_STAGE_ORDER: SxManagementPartner["relationshipStage"][] = [...SX_PARTNER_STAGE_ORDER];
 
 export type NavPartnerRow = {
   id: string;
@@ -941,7 +927,7 @@ function derivePartnerGroup(partner: SxManagementPartner): { label: string; kind
 function buildNavPartnerRow(partner: SxManagementPartner, asOf: string): NavPartnerRow {
   const group = derivePartnerGroup(partner);
   const isOnHold = partner.relationshipStage === "on_hold" || partner.deferredLowPriority;
-  const stageIndex = isOnHold ? null : NAV_PARTNER_STAGE_ORDER.indexOf(partner.relationshipStage) + 1 || null;
+  const stageIndex = isOnHold ? null : sxPartnerStageIndex(partner.relationshipStage);
 
   const openWorkItems = partner.workItems
     .filter((item) => item.status === "open" || item.status === "in_progress" || item.status === "waiting")
