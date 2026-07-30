@@ -34,7 +34,7 @@ import { SxExecutiveControlDeck } from "./SxExecutiveControlDeck";
 import { SxDevelopmentThemeBoard } from "./SxDevelopmentThemeBoard";
 import { SxProofOutcomes } from "./SxProofOutcomes";
 import { SxPartnerPipeline } from "./SxPartnerPipeline";
-import { SxPocCandidateBoard } from "./SxPocCandidateBoard";
+import { SxPocCandidateList } from "./SxPocCandidateList";
 import { sxPartnerDisplay, sxPartnerName } from "./sx-visual-shared";
 import { nominalizeSxActionLabel } from "@/lib/sx-action-label";
 import { sxNormalizePublicName } from "@/lib/sx-name-normalize";
@@ -1200,7 +1200,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
             action={<EditAction canManage={management.canManage} label="候補先を追加" onClick={() => setCreating({ resource: "partner", initialValues: { role_label: "PoC候補先（排液提供）", primary_track: "business_development", relationship_stage: "candidate" } })} />}
           />
           <div className="mt-4">
-            <SxPocCandidateBoard management={management} onEditPartner={(partnerId) => setEditing({ resource: "partner", id: partnerId })} />
+            <SxPocCandidateList management={management} onEditPartner={(partnerId) => setEditing({ resource: "partner", id: partnerId })} />
           </div>
         </section>
 

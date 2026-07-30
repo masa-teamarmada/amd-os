@@ -28,6 +28,7 @@ import {
   sxIsHoldingMonthPrecision,
   sxIsHoldingOverdue,
   sxIsPartnerEnded,
+  sxLatestInteraction,
   sxPartnerDisplay,
   sxPartnerHasBlockedHolding,
   sxPartnerRoleKindLabel,
@@ -691,6 +692,39 @@ function PartnerJourneyFlow({ partner, displayName }: { partner: SxManagementPar
   );
 }
 
+const INTERACTION_DIRECTION_LABEL: Record<SxActorSide, string> = {
+  sx: "送信（当方→先方）",
+  partner: "受信（先方→当方）",
+  shared: "共同",
+  unknown: "方向未確認",
+};
+
+/** Compact ruled strip surfacing the single latest interaction so the relationship row's headline
+ * contact state doesn't require opening 詳細/InteractionTimeline (spec: public-safe fields only —
+ * never raw body/email/source_ref/URL, mirroring InteractionTimeline/InteractionRow's own sanitization). */
+function SxLatestContactStrip({ partner }: { partner: SxManagementPartner }) {
+  const latest = sxLatestInteraction(partner.interactions);
+  if (!latest) return null;
+  const ballAfterText = `${sxBallSideLabel(latest.ballSideAfter)}${latest.ballOwnerAfter ? `・${sxNormalizePublicName(latest.ballOwnerAfter)}` : ""}`;
+  const currentBallText = `${sxBallSideLabel(partner.currentBallSide)}${partner.currentBallOwner ? `・${sxNormalizePublicName(partner.currentBallOwner)}` : ""}`;
+  const summaryText = sxNormalizePublicName(latest.summary);
+  const outcomeText = latest.outcomeSummary ? sxNormalizePublicName(latest.outcomeSummary) : null;
+  const nextCommitmentText = partner.nextCommitment ? nominalizeSxNextActionLabel(sxNormalizePublicName(partner.nextCommitment)) : "未設定";
+  return (
+    <div data-testid={`sx-partner-latest-contact-${partner.id}`} className="border-t border-[#eee9df] bg-[#faf8f3] px-3 py-1.5 text-[10px] leading-4 text-[#514e47]">
+      <p className="font-semibold tracking-[0.08em] text-[#69665d]">直近接点</p>
+      <p className="mt-0.5">
+        {sxFormatEventDateWithPrecision(latest.occurredOn, latest.occurredOnPrecision)} ・ {sxInteractionKindLabel(latest.interactionKind)} ・ {INTERACTION_DIRECTION_LABEL[latest.actorSide]}
+      </p>
+      <p className="mt-0.5 truncate text-[#24231f]" title={summaryText}>{summaryText}</p>
+      <p className="mt-0.5 truncate" title={`${outcomeText ? `結果: ${outcomeText}` : "結果未確認"} ・ 次の一手: ${nextCommitmentText}`}>
+        {outcomeText ? `結果: ${outcomeText}` : "結果未確認"} ・ 次の一手: {nextCommitmentText}
+      </p>
+      <p className="mt-0.5">ボール(接点後) {ballAfterText} ・ 現在ボール {currentBallText}</p>
+    </div>
+  );
+}
+
 function PartnerRow({
   partner,
   milestoneTitleBySlug,
@@ -854,6 +888,8 @@ function PartnerRow({
           </button>
         </div>
       </div>
+
+      <SxLatestContactStrip partner={partner} />
 
       <PartnerJourneyFlow partner={partner} displayName={display.name} />
 

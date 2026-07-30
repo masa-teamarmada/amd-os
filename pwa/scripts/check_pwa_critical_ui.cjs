@@ -2632,20 +2632,24 @@ expectIncludes("../ios/AMDOS/Core/Services/SupabaseService.swift", [
 
 console.log("critical PWA UI anchors ok");
 
-// Round 22 (2026-07-29): the weekly-control route must keep the partner/Poc
-// lists and the sanitized Gmail interaction lane. Raw message bodies and
-// addresses are never part of the visible ledger contract.
+// Round 23 (2026-07-30): 関係先リストは1面に統合。メール専用の別リストは廃止し、
+// 各行の直近接点ストリップに一本化。生の本文・アドレス・URLはDOMに出さない。
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
   'href="#partner-ledger"',
-  '<SxPartnerEmailLedger management={management} />',
   '<SxPartnerPipeline management={management} />',
-  '<SxPocCandidateBoard management={management} />',
+  '<SxPocCandidateList management={management} />',
 ]);
-expectIncludes("src/components/project-workspace/SxPartnerEmailLedger.tsx", [
-  'data-testid="sx-partner-email-ledger"',
-  "本文・アドレスは非保存",
-  "emailInteractions(partner)",
-  "sxBallSideLabel(partner.currentBallSide)",
+expectNotIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
+  "SxPartnerEmailLedger",
+]);
+expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
+  "sxLatestInteraction",
+  "SxLatestContactStrip",
+  "sx-partner-latest-contact-",
+  "sxNormalizePublicName",
+]);
+expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
+  "dangerouslySetInnerHTML",
 ]);
 expectIncludes("scripts/migrations/201_sx_poc_email_interactions.sql", [
   "interaction_kind",
@@ -2659,23 +2663,23 @@ expectIncludes("src/lib/sx-partner-holdings.ts", [
   "/^gmail-(?:thread|message):/i",
 ]);
 
-// Round 22 (2026-07-27): PoC候補先ボード。関係先台帳とは役割が違うので別面で持つ。
-expectIncludes("src/components/project-workspace/SxPocCandidateBoard.tsx", [
-  "sx-poc-board",
-  "deriveSxPocBoard",
-  "排液 調達済",
-  "未接触の候補",
-  "母集団の総数と必要社数は台帳未登録",
+// Round 23 (2026-07-30): PoC候補先リスト。カードグリッドを廃止し罫線区切りの一覧にする。
+expectIncludes("src/components/project-workspace/SxPocCandidateList.tsx", [
+  "sx-poc-list",
+  "deriveSxPocList",
+  "table-fixed",
+  "sm:hidden",
+  "min-h-11",
 ]);
 expectIncludes("src/lib/sx-poc-candidates.ts", [
   "sxIsPocCandidate",
   "sxIsUntouchedPocCandidate",
-  "deriveSxPocBoard",
+  "deriveSxPocList",
   "SX_POC_ROLE_PREFIX",
   "roleLabel.startsWith",
 ]);
 expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
   "management-poc",
   "PoC候補先リスト",
-  "SxPocCandidateBoard",
+  "SxPocCandidateList",
 ]);

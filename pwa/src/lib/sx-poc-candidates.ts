@@ -22,6 +22,7 @@ export type SxPocPartnerLike = {
   ownerLabel: string;
   currentBallSide: string;
   currentBallOwner: string | null;
+  lastContactDate?: string | null;
 };
 
 export type SxPocStageKey = "untouched" | "talking" | "agreed" | "secured";
@@ -62,7 +63,7 @@ const STAGE_ORDER: Array<{ key: SxPocStageKey; label: string; hint: string }> = 
  * 候補先を接触段階の降順（ゴールに近い順）で並べる。件数は実データだけを数え、
  * 母集団や目標値を推測で埋めない。
  */
-export function deriveSxPocBoard(partners: SxPocPartnerLike[]): {
+export function deriveSxPocList(partners: SxPocPartnerLike[]): {
   groups: SxPocStageGroup[];
   total: number;
   securedCount: number;
