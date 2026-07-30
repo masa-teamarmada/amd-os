@@ -102,6 +102,58 @@ test("PATCH /api/files moves the file and returns the new pathname on success", 
   assert.equal("url" in body, false);
 });
 
+test("PATCH /api/files renames the file and returns the new pathname on success", async () => {
+  let capturedArgs = null;
+  const req = makeReq({
+    method: "PATCH",
+    url: "/api/files",
+    headers: { origin: "https://kute.example.com", "content-type": "application/json" },
+    body: { pathname: "kute/files/deck.pdf", newName: "deck-final.pdf" },
+  });
+  const res = makeRes();
+  await handleFilesRoute(req, res, {
+    isAuthed: true,
+    renameFileFn: async (pathname, newName) => {
+      capturedArgs = { pathname, newName };
+      return { pathname: "kute/files/deck-final.pdf" };
+    },
+  });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(capturedArgs, { pathname: "kute/files/deck.pdf", newName: "deck-final.pdf" });
+  const body = JSON.parse(res.body);
+  assert.equal(body.ok, true);
+  assert.equal(body.pathname, "kute/files/deck-final.pdf");
+});
+
+test("PATCH /api/files rejects an invalid rename name", async () => {
+  const req = makeReq({
+    method: "PATCH",
+    url: "/api/files",
+    headers: { origin: "https://kute.example.com", "content-type": "application/json" },
+    body: { pathname: "kute/files/deck.pdf", newName: "../etc" },
+  });
+  const res = makeRes();
+  await handleFilesRoute(req, res, { isAuthed: true });
+  assert.equal(res.statusCode, 400);
+});
+
+test("PATCH /api/files returns 409 when the rename destination exists", async () => {
+  const req = makeReq({
+    method: "PATCH",
+    url: "/api/files",
+    headers: { origin: "https://kute.example.com", "content-type": "application/json" },
+    body: { pathname: "kute/files/deck.pdf", newName: "renamed.pdf" },
+  });
+  const res = makeRes();
+  await handleFilesRoute(req, res, {
+    isAuthed: true,
+    renameFileFn: async () => {
+      throw new DestinationExistsError();
+    },
+  });
+  assert.equal(res.statusCode, 409);
+});
+
 test("PATCH /api/files returns 409 when a same-named file already exists at the destination", async () => {
   const req = makeReq({
     method: "PATCH",

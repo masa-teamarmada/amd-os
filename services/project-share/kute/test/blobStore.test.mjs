@@ -8,6 +8,7 @@ import {
   deleteEmptyFolder,
   deleteFile,
   moveFile,
+  renameFile,
   createSignedAccessUrl,
   FolderNotEmptyError,
   SameLocationError,
@@ -342,6 +343,48 @@ test("moveFile propagates unexpected head() failures instead of treating them as
     throw new Error("network down");
   };
   await assert.rejects(() => moveFile("kute/files/deck.pdf", "reports", { headFn }), /network down/);
+});
+
+test("renameFile renames a nested file in place, checking the destination first", async () => {
+  const calls = [];
+  const headFn = async (pathname) => {
+    calls.push({ op: "head", pathname });
+    throw new BlobNotFoundError();
+  };
+  const renameFn = async (from, to, options) => {
+    calls.push({ op: "rename", from, to, options });
+    return { pathname: to };
+  };
+  const result = await renameFile("kute/files/reports/q1.pdf", "q2.pdf", { headFn, renameFn });
+  assert.deepEqual(result, { pathname: "kute/files/reports/q2.pdf" });
+  assert.deepEqual(calls, [
+    { op: "head", pathname: "kute/files/reports/q2.pdf" },
+    {
+      op: "rename",
+      from: "kute/files/reports/q1.pdf",
+      to: "kute/files/reports/q2.pdf",
+      options: { access: "private", allowOverwrite: false },
+    },
+  ]);
+});
+
+test("renameFile rejects unsafe names and unchanged names", async () => {
+  const renameFn = async () => {
+    throw new Error("should not be called");
+  };
+  await assert.rejects(() => renameFile("kute/files/deck.pdf", "../etc", { renameFn }));
+  await assert.rejects(() => renameFile("kute/files/deck.pdf", "deck.pdf", { renameFn }), SameLocationError);
+});
+
+test("renameFile rejects when the destination already exists", async () => {
+  const headFn = async () => ({ pathname: "kute/files/renamed.pdf" });
+  const renameFn = async () => {
+    throw new Error("should not be called");
+  };
+  await assert.rejects(
+    () => renameFile("kute/files/deck.pdf", "renamed.pdf", { headFn, renameFn }),
+    DestinationExistsError
+  );
 });
 
 test("createSignedAccessUrl issues a short-lived GET delegation and presigns the exact pathname", async () => {

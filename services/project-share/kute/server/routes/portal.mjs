@@ -151,8 +151,14 @@ export function renderPortalHtml() {
     border: 1px solid var(--line);
     background: var(--white);
     color: var(--navy);
+    width: 44px;
+    padding: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
   .create-folder-btn:hover { border-color: var(--blue); color: var(--blue); }
+  .folder-plus-icon { width: 22px; height: 22px; display: block; }
   #mobile-sort {
     display: none;
     width: 100%;
@@ -287,16 +293,20 @@ export function renderPortalHtml() {
   }
   .file-list-area.drag-over .drop-overlay { display: flex; }
 
-  dialog#folder-dialog {
+  dialog#folder-dialog,
+  dialog#rename-dialog {
     border: 1px solid var(--line);
     border-radius: 6px;
     padding: 20px;
     width: 100%;
     max-width: 360px;
   }
-  dialog#folder-dialog::backdrop { background: rgba(24, 36, 46, 0.35); }
-  dialog#folder-dialog h2 { font-size: 15px; margin: 0 0 12px; }
-  dialog#folder-dialog label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+  dialog#folder-dialog::backdrop,
+  dialog#rename-dialog::backdrop { background: rgba(24, 36, 46, 0.35); }
+  dialog#folder-dialog h2,
+  dialog#rename-dialog h2 { font-size: 15px; margin: 0 0 12px; }
+  dialog#folder-dialog label,
+  dialog#rename-dialog label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
   .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
   .dialog-actions button {
     min-height: 40px;
@@ -371,7 +381,12 @@ export function renderPortalHtml() {
         <label for="search" class="visually-hidden" style="position:absolute;left:-9999px;">検索</label>
         <input type="search" id="search" placeholder="ファイル・フォルダ名で検索" autocomplete="off" data-testid="search-input" />
       </div>
-      <button type="button" class="create-folder-btn" id="create-folder-btn" data-testid="create-folder-button">フォルダを作成</button>
+      <button type="button" class="create-folder-btn" id="create-folder-btn" data-testid="create-folder-button" aria-label="フォルダを作成" title="フォルダを作成">
+        <svg class="folder-plus-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" />
+          <path d="M15.5 11.5v6M12.5 14.5h6" />
+        </svg>
+      </button>
       <button type="button" class="upload-btn" id="upload-btn" data-testid="upload-button">ファイルをアップロード</button>
       <input type="file" id="file-input" multiple />
     </div>
@@ -419,6 +434,17 @@ export function renderPortalHtml() {
       </div>
     </form>
   </dialog>
+  <dialog id="rename-dialog">
+    <form method="dialog" id="rename-form">
+      <h2>ファイル名を変更</h2>
+      <label for="rename-name-input">新しいファイル名</label>
+      <input type="text" id="rename-name-input" name="new-name" autocomplete="off" required data-testid="rename-name-input" />
+      <div class="dialog-actions">
+        <button type="button" value="cancel" id="rename-dialog-cancel" data-testid="rename-dialog-cancel">キャンセル</button>
+        <button type="submit" id="rename-dialog-submit" data-testid="rename-dialog-submit">保存</button>
+      </div>
+    </form>
+  </dialog>
   <script type="module">
     const statusEl = document.getElementById("status");
     const rowsEl = document.getElementById("file-rows");
@@ -437,6 +463,11 @@ export function renderPortalHtml() {
     const folderForm = document.getElementById("folder-form");
     const folderNameInput = document.getElementById("folder-name-input");
     const folderDialogCancel = document.getElementById("folder-dialog-cancel");
+    const renameDialog = document.getElementById("rename-dialog");
+    const renameForm = document.getElementById("rename-form");
+    const renameNameInput = document.getElementById("rename-name-input");
+    const renameDialogCancel = document.getElementById("rename-dialog-cancel");
+    const renameDialogSubmit = document.getElementById("rename-dialog-submit");
     const fileListArea = document.getElementById("file-list-area");
 
     const MULTIPART_THRESHOLD_BYTES = 100 * 1024 * 1024;
@@ -479,9 +510,11 @@ export function renderPortalHtml() {
     let sortDir = "desc";
     let uploadInProgress = false;
     let moveInProgress = false;
+    let renameInProgress = false;
     let dragDepth = 0;
     let dropTargetRow = null;
     let pointerDrag = null;
+    let renameTarget = null;
 
     const DRAG_THRESHOLD_PX = 6;
 
@@ -736,6 +769,12 @@ export function renderPortalHtml() {
         downloadBtn.addEventListener("click", () => openFile(file.pathname, true));
         actions.appendChild(downloadBtn);
 
+        const renameBtn = document.createElement("button");
+        renameBtn.type = "button";
+        renameBtn.textContent = "名前変更";
+        renameBtn.addEventListener("click", () => openRenameDialog(file.pathname, file.name));
+        actions.appendChild(renameBtn);
+
         const deleteBtn = document.createElement("button");
         deleteBtn.type = "button";
         deleteBtn.className = "danger";
@@ -873,6 +912,70 @@ export function renderPortalHtml() {
         setStatus(err.message || "削除に失敗しました。", "error");
       }
     }
+
+    function openRenameDialog(pathname, name) {
+      renameTarget = { pathname, name };
+      renameNameInput.value = name;
+      renameDialog.showModal();
+      renameNameInput.focus();
+      renameNameInput.select();
+    }
+
+    function closeRenameDialog() {
+      renameTarget = null;
+      renameForm.reset();
+      renameDialog.close();
+    }
+
+    renameDialogCancel.addEventListener("click", closeRenameDialog);
+    renameDialog.addEventListener("cancel", () => {
+      renameTarget = null;
+      renameForm.reset();
+    });
+
+    renameForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!renameTarget || renameInProgress) return;
+
+      const { pathname, name: oldName } = renameTarget;
+      const newName = renameNameInput.value.trim();
+      if (!isValidEntryName(newName)) {
+        setStatus("ファイル名に使用できない文字が含まれています。", "error");
+        return;
+      }
+      if (newName === oldName) {
+        closeRenameDialog();
+        return;
+      }
+
+      renameInProgress = true;
+      renameDialogSubmit.disabled = true;
+      setStatus(oldName + " の名前を変更しています…");
+      try {
+        const res = await fetch("/api/files", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pathname, newName }),
+        });
+        if (res.status === 401) {
+          window.location.reload();
+          return;
+        }
+        if (res.status === 409) {
+          setStatus("同じ名前のファイルがすでにあります。", "error");
+          return;
+        }
+        if (!res.ok) throw new Error("ファイル名の変更に失敗しました。");
+        closeRenameDialog();
+        setStatus(newName + " に変更しました。", "success");
+        await loadFiles();
+      } catch (err) {
+        setStatus(err.message || "ファイル名の変更に失敗しました。", "error");
+      } finally {
+        renameInProgress = false;
+        renameDialogSubmit.disabled = false;
+      }
+    });
 
     async function moveFileTo(pathname, targetFolder) {
       if (!pathname || targetFolder === null || targetFolder === undefined) return;

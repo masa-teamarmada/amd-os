@@ -124,7 +124,9 @@ test("folder UI: breadcrumb bar, up button, toolbar controls, and create-folder 
   assert.match(html, /id="breadcrumbs"/);
   assert.match(html, /id="up-btn"[^>]*hidden/);
   assert.match(html, /id="search"/);
-  assert.match(html, /class="create-folder-btn"[^>]*>フォルダを作成/);
+  assert.match(html, /class="create-folder-btn"[^>]*aria-label="フォルダを作成"/);
+  assert.match(html, /class="folder-plus-icon"/);
+  assert.match(html, /<path d="M15\.5 11\.5v6M12\.5 14\.5h6" \/>/);
   assert.match(html, /class="upload-btn"[^>]*>ファイルをアップロード/);
   assert.match(html, /<input type="file" id="file-input" multiple \/>/);
 
@@ -136,6 +138,12 @@ test("folder UI: breadcrumb bar, up button, toolbar controls, and create-folder 
   assert.match(html, /folderNameInput\.focus\(\)/);
   assert.match(html, /folderForm\.reset\(\)/);
   assert.match(html, /folderDialog\.close\(\)/);
+  assert.match(html, /<dialog id="rename-dialog">/);
+  assert.match(html, /<label for="rename-name-input">新しいファイル名<\/label>/);
+  assert.match(html, /id="rename-dialog-cancel"/);
+  assert.match(html, /id="rename-dialog-submit"/);
+  assert.match(html, /renameDialog\.showModal\(\)/);
+  assert.match(html, /renameNameInput\.select\(\)/);
 });
 
 test("folder rows render before files with icon, type, and only a delete control (no open button)", () => {
@@ -176,6 +184,7 @@ test("file rows carry data-row-type, data-file-pathname, tabindex, and no dedica
   assert.match(body, /tr\.tabIndex = 0;/);
   assert.doesNotMatch(body, /viewBtn/);
   assert.match(body, /downloadBtn\.textContent = "ダウンロード";/);
+  assert.match(body, /renameBtn\.textContent = "名前変更";/);
   assert.match(body, /deleteBtn\.textContent = "削除";/);
 });
 
@@ -188,6 +197,8 @@ test("API integration strings: loadFiles, create folder, delete folder with 409 
   assert.match(html, /JSON\.stringify\(\{ folderPath \}\)/);
   assert.match(html, /res\.status === 409/);
   assert.match(html, /フォルダが空ではありません/);
+  assert.match(html, /body: JSON\.stringify\(\{ pathname, newName \}\)/);
+  assert.match(html, /ファイル名の変更に失敗しました/);
 });
 
 test("upload pathname includes currentFolder segment when nested", () => {
