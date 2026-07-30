@@ -2780,3 +2780,15 @@ expectNotIncludes("src/components/cockpit/CockpitSoilSeeds.tsx", [
   "RadarChart",
   "ScatterChart",
 ]);
+
+// BZM 2.0 理論マップ (2026-07-30): 論証台帳。件数・接続数は真偽・確信度を表さない。
+expectIncludes("src/components/bzm/BzmSideNav.tsx", [
+  "/bzm/map",
+  "理論マップ (論証台帳)",
+]);
+expectIncludes("src/components/bzm/BzmTheoryMapView.tsx", [
+  'id="bzm-map-search"',
+  'aria-label="マップ表示に切り替え"',
+  'aria-label="一覧表示に切り替え"',
+]);
+expectIncludes("package.json", ["test:bzm-theory-graph"]);

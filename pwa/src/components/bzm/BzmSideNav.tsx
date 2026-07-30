@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, CheckCircle2, CircleDot, Circle } from "lucide-react";
+import { ChevronDown, ChevronRight, CheckCircle2, CircleDot, Circle, Network } from "lucide-react";
 import type { BzmChapterLevel, BzmChapterStatus } from "@/app/(app)/bzm/bzm-chapters";
 
 export interface BzmSideNavGroup {
@@ -51,6 +51,13 @@ export function BzmSideNav({
       <div className="mb-3 border-b border-slate-200 pb-2">
         <Link href="/bzm" className="text-sm font-black text-slate-950 hover:underline">
           教科書 — 目次
+        </Link>
+        <Link
+          href="/bzm/map"
+          className="mt-2 flex items-center gap-1.5 rounded-md border border-cyan-200 bg-cyan-50 px-2 py-1.5 text-[11px] font-bold text-cyan-900 transition-colors hover:bg-cyan-100"
+        >
+          <Network className="size-3.5" aria-hidden="true" />
+          理論マップ (論証台帳)
         </Link>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-slate-500">
           <span className="inline-flex items-center gap-0.5">

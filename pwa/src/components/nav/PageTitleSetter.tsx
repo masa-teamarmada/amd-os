@@ -27,6 +27,8 @@ function pathToTitle(pathname: string): string | null {
   if (pathname.startsWith("/venture-map/su/")) return "SU Detail";
   if (pathname === "/venture-map") return "Venture Map";
   if (pathname.startsWith("/knowledge-map")) return "AMD Materials";
+  if (pathname === "/bzm/map") return "BZM 理論マップ";
+  if (pathname.startsWith("/bzm")) return "BZM 2.0";
   if (pathname.startsWith("/business-cards") || pathname.startsWith("/native/business-cards")) return "名刺";
   if (pathname === "/seeds") return "Seeds";
   if (pathname === "/poc") return "PoC案件化";

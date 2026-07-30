@@ -159,6 +159,17 @@ Venture Map は、探索系アセットを使って「どの波にいつ PJ を�
 
 AMD Materials は読み取り専用。DB write、LLM 呼び出し、画面内Q&A、外部 NotebookLM への自動同期はしない。質問や追加分析は Codex のえいみに依頼し、画面は探索・比較・根拠確認に集中させる。
 
+## BZM 2.0 理論マップ (`/bzm/map`)
+
+BZM 2.0 の主張・概念・測定・決定・外部ソース・未解決問いを、定義・支持・異議・反証・依存・上書き・運用化・検証の8関係で結んだ**論証台帳**。「真理マップ」ではなく、ノード数・接続数は真偽・確信度を表さない。記録の充実度・接続の疎密を示すだけの読み取り専用画面。
+
+- データは `pwa/bzm/theory-graph/*.md` 配下、1 Markdown ファイル = 1 理論ノード。frontmatter に `id` / `title` / `kind` / `layer` / `status` / `summary` / `source_ref` などの必須項目と、任意の `relations` (type + target id) を書く
+- 画面はマップ表示 (力学グラフ、形状=kind・色=status・半径=接続本数) と一覧表示を切り替えられる。全文検索と layer / status は両表示へ作用し、relation type はマップ上のエッジだけを絞る。スマホでは読みやすい一覧を初期表示する
+- ノードを選ぶと右側に選択ノード台帳パネルが開き、summary・source_ref リンク・本文・関係グループに加え、外部ソース支持なし/異議反証接続なし/tests接続なしといった**カバレッジの欠落**を警告表示する（真偽判定ではない）
+- 画面からのノード追加・編集・削除はできない。ノードを追加・変更するときは `pwa/bzm/theory-graph/*.md` を直接編集する
+- 編集後は必ず `npm run test:bzm-theory-graph` を実行し、frontmatter schema・id 重複・relation 参照先・必須シードノードなどの契約を独立実装の validator (`pwa/scripts/check_bzm_theory_graph.cjs`) で確認する。パス後、実際に `/bzm/map` を開いて新規ノードが表示されること、検索・フィルタで拾えることを画面でも確認する
+- 詳細契約は [`/spec/2-6-bzm-theory-map-current-spec`](/spec/2-6-bzm-theory-map-current-spec)
+
 ## 注意
 
 - Atlas 候補、Seeds inbox、VC news inbox は、確認前は正本ではない

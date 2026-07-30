@@ -74,6 +74,7 @@
     "health:l2:actions": "node scripts/l2_health_action_loop.cjs",
     "test:l2-health": "node scripts/check_l2_health.mjs",
     "test:media-mention-contract": "node scripts/check_media_mention_extract_contract.cjs",
+    "test:bzm-theory-graph": "node scripts/check_bzm_theory_graph.cjs",
     "diagnose:l6-calendar-colors": "node scripts/l6_calendar_color_diagnostic.mjs",
     "import:monthly-pl-budget": "node scripts/import_monthly_pl_budget.cjs",
     "sync:freee-cash-balances": "node scripts/sync_freee_cash_balances.cjs",
