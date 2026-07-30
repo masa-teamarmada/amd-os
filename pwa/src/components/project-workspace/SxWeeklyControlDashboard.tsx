@@ -940,7 +940,7 @@ export function SxWeeklyControlDashboard({ bundle, access }: { bundle: ProjectWo
 
         <section id="partner-ledger" className={styles.section}>
           <div className={styles.sectionHeading}>
-            <div><h2>関係先リスト</h2><p>PoC候補を含む全関係先の進行、最新接点、現在のボールを一つの一覧で確認</p></div>
+            <div><h2>関係先リスト</h2><p>PoC先を含む全関係先の進行、最新接点、現在のボールを一つの一覧で確認</p></div>
             <Link className="text-[11px] font-bold text-[#235f4b] underline" href={`/project/${encodeURIComponent(bundle.project.projectId)}/workspace#management-partners`}>関係先を編集</Link>
           </div>
           <div className="space-y-4">

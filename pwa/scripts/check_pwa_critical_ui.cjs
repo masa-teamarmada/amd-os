@@ -2643,12 +2643,14 @@ expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", 
   'href="#partner-ledger"',
   '<SxPartnerPipeline management={management} />',
   'workspace#management-partners',
+  "PoC先を含む全関係先",
 ]);
 expectNotIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
   "SxPartnerEmailLedger",
   "SxPocCandidateList",
   "management-poc",
   "PoC候補先リスト",
+  "PoC候補を含む全関係先",
 ]);
 expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "sxLatestInteraction",
