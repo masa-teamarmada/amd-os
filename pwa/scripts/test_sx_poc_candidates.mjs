@@ -3,6 +3,7 @@ import {
   deriveSxPocList,
   sxIsPocCandidate,
   sxIsUntouchedPocCandidate,
+  sxPocStageLabel,
 } from "../src/lib/sx-poc-candidates.ts";
 
 const base = {
@@ -26,10 +27,12 @@ assert.equal(sxIsPocCandidate(talking), true);
 assert.equal(sxIsPocCandidate(other), false);
 assert.equal(sxIsPocCandidate(ewirCandidate), false);
 
-// 台帳から外すのは「未接触の候補」だけ。接触が始まったら関係として台帳へ戻る。
+// 未接触候補の判定は、同じ台帳内での折りたたみと実行中管制件数の除外にだけ使う。
 assert.equal(sxIsUntouchedPocCandidate(untouched), true);
 assert.equal(sxIsUntouchedPocCandidate(talking), false);
 assert.equal(sxIsUntouchedPocCandidate(ewirCandidate), false);
+assert.equal(sxPocStageLabel(untouched), "未接触の候補");
+assert.equal(sxPocStageLabel(secured), "排液 調達済");
 
 const board = deriveSxPocList([untouched, talking, agreed, secured, other, ewirCandidate]);
 assert.equal(board.total, 4);

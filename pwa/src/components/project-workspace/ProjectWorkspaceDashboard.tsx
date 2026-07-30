@@ -34,7 +34,6 @@ import { SxExecutiveControlDeck } from "./SxExecutiveControlDeck";
 import { SxDevelopmentThemeBoard } from "./SxDevelopmentThemeBoard";
 import { SxProofOutcomes } from "./SxProofOutcomes";
 import { SxPartnerPipeline } from "./SxPartnerPipeline";
-import { SxPocCandidateList } from "./SxPocCandidateList";
 import { sxPartnerDisplay, sxPartnerName } from "./sx-visual-shared";
 import { nominalizeSxActionLabel } from "@/lib/sx-action-label";
 import { sxNormalizePublicName } from "@/lib/sx-name-normalize";
@@ -1047,7 +1046,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
   };
 
   useEffect(() => {
-    const sectionIds = ["management-summary", "management-plan", "management-proof", "management-issues", "management-partners", "management-poc", "management-capacity"];
+    const sectionIds = ["management-summary", "management-plan", "management-proof", "management-issues", "management-partners", "management-capacity"];
     const sections = sectionIds.map((id) => document.getElementById(id)).filter((section): section is HTMLElement => Boolean(section));
     if (sections.length === 0) return;
     const observer = new IntersectionObserver((entries) => {
@@ -1063,7 +1062,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
     if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement || activeElement instanceof HTMLSelectElement || (activeElement instanceof HTMLElement && activeElement.isContentEditable)) return;
     return () => undefined;
   }, [selectedMilestoneId]);
-  const managementNavItems: Array<[string, string]> = [["management-summary", "経営サマリー"], ["management-plan", "計画詳細"], ["management-proof", "技術証明"], ["management-issues", "論点・仮説"], ["management-partners", "関係先"], ["management-poc", "PoC候補先"], ["management-capacity", "実行・体制"]];
+  const managementNavItems: Array<[string, string]> = [["management-summary", "経営サマリー"], ["management-plan", "計画詳細"], ["management-proof", "技術証明"], ["management-issues", "論点・仮説"], ["management-partners", "関係先"], ["management-capacity", "実行・体制"]];
 
   return (
     <div className="amd-desk-page-skin sx-management-workspace w-full min-w-0 max-w-full min-h-screen overflow-x-clip px-3 py-4 sm:px-5 lg:px-8 lg:py-7">
@@ -1178,7 +1177,13 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
         </section>
 
         <section id="management-partners" className="rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6" aria-labelledby="partners-heading">
-          <SectionHeader headingId="partners-heading" kicker="関係先管理" title="関係先リスト" description="役割・分類ごとに、当方保有・先方保有の事項と次の一手・目標状態を同じ行で示す。役割と関係状態は別軸で正規化し、未整理と0件を混同しない。履歴も同じ一覧で比較できる。" />
+          <SectionHeader
+            headingId="partners-heading"
+            kicker="関係先管理"
+            title="関係先リスト"
+            description="PoC候補を含む全関係先を一つの台帳で管理する。役割別にもPoC候補だけにも絞り込み、進行状況・直近接点・現在ボールを同じ行で比較できる。"
+            action={<EditAction canManage={management.canManage} label="PoC候補を追加" onClick={() => setCreating({ resource: "partner", initialValues: { role_label: "PoC候補先（排液提供）", primary_track: "business_development", relationship_stage: "candidate" } })} />}
+          />
           <SxPartnerPipeline
             management={management}
             onEditPartner={(partnerId) => setEditing({ resource: "partner", id: partnerId })}
@@ -1189,19 +1194,6 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
             onAddRole={(partnerId) => setCreating({ resource: "partner_role", initialValues: { partner_id: partnerId } })}
             onEditRole={(roleId) => setEditing({ resource: "partner_role", id: roleId })}
           />
-        </section>
-
-        <section id="management-poc" className="rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6" aria-labelledby="poc-heading">
-          <SectionHeader
-            headingId="poc-heading"
-            kicker="PoC先確保"
-            title="PoC候補先リスト"
-            description="多量排出事業者の公表データから絞り込んだ候補先と、実際に接触が進んでいる先を、排液の調達に近い順で並べる。1社ずつのボールと約束は関係先リストで追う。"
-            action={<EditAction canManage={management.canManage} label="候補先を追加" onClick={() => setCreating({ resource: "partner", initialValues: { role_label: "PoC候補先（排液提供）", primary_track: "business_development", relationship_stage: "candidate" } })} />}
-          />
-          <div className="mt-4">
-            <SxPocCandidateList management={management} onEditPartner={(partnerId) => setEditing({ resource: "partner", id: partnerId })} />
-          </div>
         </section>
 
         <details id="management-ledger" className="scroll-mt-20 rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6" data-testid="sx-management-ledger">

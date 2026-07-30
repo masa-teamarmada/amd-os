@@ -630,11 +630,15 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "data-progress-step",
   "進行状況",
   "当方ボール",
-  // Round 22: 未接触のPoC候補先(数十社)は台帳へ流し込まず、専用ボードで数として見る。
-  // この除外が外れると、ボールと約束を5秒で読む台帳の役割が壊れる。
+  // Round 25: PoC候補も同じ関係先台帳へ統合し、候補filterと段階groupで読む。
+  // 未接触候補は母数には含めるが、実行中の緊急・ボール集計からだけ除外する。
+  "deriveSxPocList",
+  "sxIsPocCandidate",
   "sxIsUntouchedPocCandidate",
-  "ledgerPartners",
-  "sx-partner-poc-pointer",
+  "operationalPartners",
+  "sx-partner-filter-poc",
+  "sx-partner-poc-group-",
+  "sx-partner-poc-expand",
   // 未完了の保有事項は進行状況の「これから」へ。
   ".filter((item) => item.status !== \"completed\" && item.status !== \"cancelled\")",
   'border-l-[#b5533f]',
@@ -2636,10 +2640,13 @@ console.log("critical PWA UI anchors ok");
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
   'href="#partner-ledger"',
   '<SxPartnerPipeline management={management} />',
-  '<SxPocCandidateList management={management} />',
+  'workspace#management-partners',
 ]);
 expectNotIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
   "SxPartnerEmailLedger",
+  "SxPocCandidateList",
+  "management-poc",
+  "PoC候補先リスト",
 ]);
 expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "sxLatestInteraction",
@@ -2667,22 +2674,23 @@ expectIncludes("src/lib/sx-partner-holdings.ts", [
   "/^gmail-(?:thread|message):/i",
 ]);
 
-// Round 23 (2026-07-30): PoC候補先リスト。カードグリッドを廃止し罫線区切りの一覧にする。
-expectIncludes("src/components/project-workspace/SxPocCandidateList.tsx", [
-  "sx-poc-list",
-  "deriveSxPocList",
-  "table-fixed",
-  "sm:hidden",
-  "min-h-11",
-]);
+// Round 25 (2026-07-30): PoC候補先を独立一覧から関係先台帳へ統合する。
+expectFileMissing("src/components/project-workspace/SxPocCandidateList.tsx");
 expectIncludes("src/lib/sx-poc-candidates.ts", [
   "sxIsPocCandidate",
   "sxIsUntouchedPocCandidate",
+  "sxPocStageOf",
+  "sxPocStageLabel",
   "deriveSxPocList",
   "SX_POC_ROLE_PREFIX",
   "roleLabel.startsWith",
 ]);
 expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
+  'id="management-partners"',
+  'label="PoC候補を追加"',
+  "SxPartnerPipeline",
+]);
+expectNotIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
   "management-poc",
   "PoC候補先リスト",
   "SxPocCandidateList",

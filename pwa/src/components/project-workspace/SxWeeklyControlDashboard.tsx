@@ -50,7 +50,6 @@ import {
 } from "@/lib/sx-weekly-control";
 import { SxUnifiedTimeline } from "./SxUnifiedTimeline";
 import { SxPartnerPipeline } from "./SxPartnerPipeline";
-import { SxPocCandidateList } from "./SxPocCandidateList";
 import styles from "./weekly-control.module.css";
 
 type StageKey = SxWeeklyIssueStage;
@@ -941,18 +940,11 @@ export function SxWeeklyControlDashboard({ bundle, access }: { bundle: ProjectWo
 
         <section id="partner-ledger" className={styles.section}>
           <div className={styles.sectionHeading}>
-            <div><h2>関係先リスト</h2><p>最新接点、現在のボール、次の約束を関係先ごとに確認</p></div>
-            <p>接点は要点・日付・往復方向だけを表示</p>
+            <div><h2>関係先リスト</h2><p>PoC候補を含む全関係先の進行、最新接点、現在のボールを一つの一覧で確認</p></div>
+            <Link className="text-[11px] font-bold text-[#235f4b] underline" href={`/project/${encodeURIComponent(bundle.project.projectId)}/workspace#management-partners`}>関係先を編集</Link>
           </div>
           <div className="space-y-4">
             <SxPartnerPipeline management={management} />
-          </div>
-          <div className="mt-5 border-t border-[#bbb3a7] pt-5">
-            <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-              <div><h3 className="text-lg font-bold tracking-[-0.025em] text-[#24231f]">PoC候補先リスト</h3></div>
-              <Link className="text-[11px] font-bold text-[#235f4b] underline" href={`/project/${encodeURIComponent(bundle.project.projectId)}/workspace#management-poc`}>候補先を編集</Link>
-            </div>
-            <SxPocCandidateList management={management} />
           </div>
         </section>
 

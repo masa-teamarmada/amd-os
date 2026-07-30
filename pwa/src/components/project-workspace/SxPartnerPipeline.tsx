@@ -12,7 +12,12 @@ import type {
 import { SX_PROOF_DEFINITIONS, SX_PROOF_THEME_SLUGS, SX_THEME_PROOF_MAP, type SxProofThemeSlug } from "@/lib/sx-proof-mapping";
 import { nominalizeSxActionLabel, nominalizeSxNextActionLabel } from "@/lib/sx-action-label";
 import { sxNormalizePublicName } from "@/lib/sx-name-normalize";
-import { sxIsUntouchedPocCandidate } from "@/lib/sx-poc-candidates";
+import {
+  deriveSxPocList,
+  sxIsPocCandidate,
+  sxIsUntouchedPocCandidate,
+  sxPocStageLabel,
+} from "@/lib/sx-poc-candidates";
 import {
   SxBadge,
   sxAllHoldingsForPartnerAudit,
@@ -294,7 +299,15 @@ const WARN_TONE = "border-[#e3c994] bg-[#fbf1dc] text-[#765022]";
  * (unorganizedPartners) はOR条件（当方/先方いずれか一方でも0件なら該当）なので「台帳0件先」という
  * AND寄りの表現は使わない。登録率とあわせて「レーンが空＝未整理と確定」という嘘をつかない表現
  * （reviewed flagが無いデータなので、未整理か確認済み0件かは区別できない、spec P0-10）。 */
-function ControlBand({ counts }: { counts: SxControlBandCounts }) {
+function ControlBand({
+  counts,
+  totalPartners,
+  pocCounts,
+}: {
+  counts: SxControlBandCounts;
+  totalPartners: number;
+  pocCounts: { total: number; contacted: number; secured: number; untouched: number };
+}) {
   return (
     <div role="group" aria-label="関係先の一本化された管制帯">
       <ControlBandRow heading="緊急" ariaLabel="緊急度の指標">
@@ -314,8 +327,12 @@ function ControlBand({ counts }: { counts: SxControlBandCounts }) {
         <SxBadge tone={BALL_SIDE_TONE.unknown}>保有側未確認 {counts.sideUnknown}件</SxBadge>
       </ControlBandRow>
       <ControlBandRow heading="母数" ariaLabel="関係先の母数指標">
-        <SxBadge tone={NEUTRAL_TONE}>全関係先 {counts.totalPartners}件</SxBadge>
+        <SxBadge tone={NEUTRAL_TONE}>全関係先 {totalPartners}件</SxBadge>
         <SxBadge tone={NEUTRAL_TONE}>対応中 {counts.activePartners}件</SxBadge>
+        <SxBadge tone={NEUTRAL_TONE}>PoC候補 {pocCounts.total}件</SxBadge>
+        <SxBadge tone={NEUTRAL_TONE}>候補接触済 {pocCounts.contacted}件</SxBadge>
+        <SxBadge tone={NEUTRAL_TONE}>排液調達済 {pocCounts.secured}件</SxBadge>
+        <SxBadge tone={NEUTRAL_TONE}>候補未接触 {pocCounts.untouched}件</SxBadge>
         <SxBadge tone={FLAG_TONE}>保留 {counts.deferredPartners}件</SxBadge>
         <SxBadge tone={FLAG_TONE}>終了 {counts.endedPartners}件</SxBadge>
         <SxBadge tone={counts.unclassifiedPartners > 0 ? FLAG_TONE : NEUTRAL_TONE}>未分類 {counts.unclassifiedPartners}件</SxBadge>
@@ -332,16 +349,24 @@ function ControlBand({ counts }: { counts: SxControlBandCounts }) {
  * Mobile: single-row horizontal scroll (spec P1: CategoryNav mobile横一行), never wraps below sm. */
 function CategoryNav({
   counts,
+  totalCount,
+  pocCount,
   activeKind,
+  pocOnly,
   onSelect,
+  onSelectPoc,
 }: {
   counts: Partial<Record<SxPartnerRoleKind, number>>;
+  totalCount: number;
+  pocCount: number;
   activeKind: SxPartnerRoleKind | null;
+  pocOnly: boolean;
   onSelect: (kind: SxPartnerRoleKind | null) => void;
+  onSelectPoc: () => void;
 }) {
   const entries = (Object.keys(counts) as SxPartnerRoleKind[]).filter((kind) => (counts[kind] || 0) > 0).sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
-  if (entries.length === 0) return null;
-  const total = entries.reduce((sum, kind) => sum + (counts[kind] || 0), 0);
+  if (entries.length === 0 && pocCount === 0) return null;
+  const allActive = activeKind === null && !pocOnly;
   return (
     <div className="relative border-b border-[#e4ddd0] bg-[#fffdf7]">
       <div
@@ -350,9 +375,21 @@ function CategoryNav({
         role="group"
         aria-label="分類別件数ナビ"
       >
-        <button type="button" onClick={() => onSelect(null)} aria-pressed={activeKind === null} aria-label={`絞り込みを解除して全分類${total}件を表示`} className={navChipClass(activeKind === null)}>
-          {activeKind === null && <span aria-hidden="true">✓</span>}全分類 {total}件
+        <button type="button" onClick={() => onSelect(null)} aria-pressed={allActive} aria-label={`絞り込みを解除して全関係先${totalCount}件を表示`} className={navChipClass(allActive)}>
+          {allActive && <span aria-hidden="true">✓</span>}全関係先 {totalCount}件
         </button>
+        {pocCount > 0 && (
+          <button
+            type="button"
+            data-testid="sx-partner-filter-poc"
+            onClick={onSelectPoc}
+            aria-pressed={pocOnly}
+            aria-label={`PoC候補だけを表示（${pocCount}件）`}
+            className={navChipClass(pocOnly)}
+          >
+            {pocOnly && <span aria-hidden="true">✓</span>}PoC候補 {pocCount}件
+          </button>
+        )}
         {entries.map((kind) => (
           <button key={kind} type="button" onClick={() => onSelect(activeKind === kind ? null : kind)} aria-pressed={activeKind === kind} aria-label={`${sxPartnerRoleKindLabel(kind)}で絞り込み（${counts[kind]}件）`} className={navChipClass(activeKind === kind)}>
             {activeKind === kind && <span aria-hidden="true">✓</span>}{sxPartnerRoleKindLabel(kind)} {counts[kind]}件
@@ -502,26 +539,38 @@ export function SxPartnerPipeline({
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeRoleKind, setActiveRoleKind] = useState<SxPartnerRoleKind | null>(null);
+  const [pocOnly, setPocOnly] = useState(false);
+  const [showAllUntouchedPoc, setShowAllUntouchedPoc] = useState(false);
   const milestoneTitleBySlug = new Map(management.milestones.map((milestone) => [milestone.slug, nominalizeSxActionLabel(milestone.title)]));
   const milestoneTitleById = new Map(management.milestones.map((milestone) => [milestone.id, nominalizeSxActionLabel(milestone.title)]));
   const milestoneSlugById = new Map(management.milestones.map((milestone) => [milestone.id, milestone.slug]));
 
-  // 未接触のPoC候補先はこの台帳へ出さない。数十社を進行管理行+履歴で並べると、ボールと約束を
-  // 5秒で読むという台帳の役割が壊れるため、専用の「PoC候補先リスト」で数として見る
-  // （2026-07-27 まさ指示。接触が始まった先は関係として、ここへ自動で戻ってくる）。
-  const ledgerPartners = management.partners.filter((partner) => !sxIsUntouchedPocCandidate(partner));
-  const untouchedPocCount = management.partners.length - ledgerPartners.length;
-  const filterablePartners = activeRoleKind
-    ? ledgerPartners.filter((partner) => (partner.roles.find((role) => role.isPrimary)?.roleKind || "unclassified") === activeRoleKind)
-    : ledgerPartners;
+  // PoC候補も関係先の一種としてこの台帳へ統合する。通常の役割分類とは別に段階順でまとめ、
+  // 数十件ある未接触層だけを同じ台帳内で折りたたむ。別リスト・別URLへは分けない。
+  const pocList = deriveSxPocList(management.partners);
+  const regularPartners = management.partners.filter((partner) => !sxIsPocCandidate(partner));
+  const operationalPartners = management.partners.filter((partner) => !sxIsUntouchedPocCandidate(partner));
+  const filterablePartners = pocOnly
+    ? []
+    : activeRoleKind
+      ? regularPartners.filter((partner) => (partner.roles.find((role) => role.isPrimary)?.roleKind || "unclassified") === activeRoleKind)
+      : regularPartners;
   // Both trailing sections read from the role-filtered list too (spec P1: role filter中の保留欄も選択
   // roleに合うものだけ) — selecting a category must narrow 保留/終了 exactly like the main groups.
   const deferredPartners = filterablePartners.filter((partner) => partner.deferredLowPriority);
   const endedPartners = filterablePartners.filter((partner) => !partner.deferredLowPriority && sxIsPartnerEnded(partner));
   const groups = sxGroupPartnersByPrimaryClassification(filterablePartners);
+  const pocGroups = activeRoleKind === null ? pocList.groups : [];
 
-  const counts = sxComputeControlBandCounts(ledgerPartners, management.asOf);
-  const roleCounts = sxPrimaryRoleKindCounts(ledgerPartners);
+  // 未接触候補は全関係先の母数には含めるが、緊急・ボール等の実行中管制件数を水増ししない。
+  const counts = sxComputeControlBandCounts(operationalPartners, management.asOf);
+  const roleCounts = sxPrimaryRoleKindCounts(regularPartners);
+  const pocCounts = {
+    total: pocList.total,
+    contacted: pocList.contactedCount,
+    secured: pocList.securedCount,
+    untouched: pocList.total - pocList.contactedCount,
+  };
 
   const rowGridCols = "grid-cols-1 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] xl:grid-cols-[152px_minmax(0,2fr)_minmax(0,0.95fr)_118px_140px]";
   const rowGapCols = "gap-x-2 md:gap-x-3 xl:gap-x-2";
@@ -551,8 +600,22 @@ export function SxPartnerPipeline({
         <p className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">関係先ごとの進行・接点・現在ボールを一行で管制</p>
         <h3 className="mt-0.5 text-sm font-semibold text-[#24231f]">どこまで進み、直近何が起き、次に誰が動くか</h3>
       </div>
-      <ControlBand counts={counts} />
-      <CategoryNav counts={roleCounts} activeKind={activeRoleKind} onSelect={setActiveRoleKind} />
+      <ControlBand counts={counts} totalPartners={management.partners.length} pocCounts={pocCounts} />
+      <CategoryNav
+        counts={roleCounts}
+        totalCount={management.partners.length}
+        pocCount={pocList.total}
+        activeKind={activeRoleKind}
+        pocOnly={pocOnly}
+        onSelect={(kind) => {
+          setPocOnly(false);
+          setActiveRoleKind(kind);
+        }}
+        onSelectPoc={() => {
+          setActiveRoleKind(null);
+          setPocOnly((current) => !current);
+        }}
+      />
 
       <div className={`hidden xl:grid ${rowGridCols} ${rowGapCols} border-b border-[#e4ddd0] bg-[#f8f5ec] px-3 py-1.5 text-[10px] font-semibold text-[#69665d]`}>
         <span>関係先</span><span>進行状況</span><span>直近接点</span><span>現在ボール・期限</span><span>関連・操作</span>
@@ -561,15 +624,8 @@ export function SxPartnerPipeline({
       {/* spec P1: role filter中に「対応中」groupがゼロでも保留/終了に絞り込み結果が残っていることが
           あるため、3つの表示先すべて（active groups + deferred + ended）を合算してから空判定する
           （groups.length === 0 だけを見ると「該当なし」を誤表示してしまう）。 */}
-      {groups.length === 0 && deferredPartners.length === 0 && endedPartners.length === 0 && (
+      {groups.length === 0 && pocGroups.length === 0 && deferredPartners.length === 0 && endedPartners.length === 0 && (
         <p className="px-3 py-6 text-center text-xs text-[#69665d]">該当する関係先はまだないよ。</p>
-      )}
-      {untouchedPocCount > 0 && (
-        <p className="border-b border-[#e4ddd0] bg-[#f8f5ec] px-3 py-1.5 text-[10px] text-[#69665d]" data-testid="sx-partner-poc-pointer">
-          まだ接触していないPoC候補先 {untouchedPocCount}社は
-          <a href="#management-poc" className="mx-1 font-semibold text-[#38745d] underline">PoC候補先リスト</a>
-          にまとめている。接触が始まった先はこの台帳へ出る。
-        </p>
       )}
       {groups.map((group) => (
         <div key={group.key}>
@@ -586,6 +642,32 @@ export function SxPartnerPipeline({
           {group.partners.map((partner) => <PartnerRow key={partner.id} partner={partner} {...rowProps} />)}
         </div>
       ))}
+
+      {pocGroups.map((group) => {
+        const collapsed = group.key === "untouched" && !showAllUntouchedPoc;
+        const shownPartners = collapsed ? group.partners.slice(0, 6) : group.partners;
+        return (
+          <div key={`poc-${group.key}`} data-testid={`sx-partner-poc-group-${group.key}`}>
+            <div className="border-b border-l-4 border-[#e4ddd0] border-l-[#765022] bg-[#fbf1dc] px-3 py-1.5">
+              <h4 className="text-[11px] font-semibold text-[#765022]">
+                PoC候補・{group.label} <span className="text-[#69665d]">{group.partners.length}件</span>
+              </h4>
+              <p className="text-[10px] text-[#69665d]">{group.hint}</p>
+            </div>
+            {shownPartners.map((partner) => <PartnerRow key={partner.id} partner={partner} {...rowProps} />)}
+            {collapsed && group.partners.length > shownPartners.length && (
+              <button
+                type="button"
+                data-testid="sx-partner-poc-expand"
+                onClick={() => setShowAllUntouchedPoc(true)}
+                className={`flex min-h-11 w-full items-center justify-center border-b border-[#e4ddd0] px-3 py-2 text-[10px] font-semibold text-[#514e47] hover:bg-[#f8f5ec] ${FOCUS_RING}`}
+              >
+                未接触の候補をすべて表示（残り {group.partners.length - shownPartners.length}件）
+              </button>
+            )}
+          </div>
+        );
+      })}
 
       {deferredPartners.length > 0 && (
         <details className="border-t border-[#e4ddd0]">
@@ -738,6 +820,7 @@ function PartnerRow({
   const primaryRoleKind = primaryRole?.roleKind || "unclassified";
   const primaryRoleState = primaryRole?.relationshipState || "unconfirmed";
   const secondaryRoles = partner.roles.filter((role) => !role.isPrimary);
+  const pocCandidate = sxIsPocCandidate(partner);
   const hasBlockedHolding = sxPartnerHasBlockedHolding(partner);
   const milestoneTitles = milestoneTitlesForPartner(partner, milestoneTitleBySlug);
   const proofLabels = proofLabelsForPartner(partner);
@@ -756,6 +839,7 @@ function PartnerRow({
                 ので、停止保有事項を抱える関係先には行頭で分かる badge を出す (sxPartnerHasBlockedHolding
                 が並び替えキーと同じ判定を使う)。 */}
             {hasBlockedHolding && <SxBadge tone={ALERT_TONE}>停止</SxBadge>}
+            {pocCandidate && <SxBadge tone="border-[#e3c994] bg-[#fbf1dc] text-[#765022]">PoC候補・{sxPocStageLabel(partner)}</SxBadge>}
             {/* 当方（SX）ボールは待ちがそのまま遅れになるため、行頭で強く示す（2026-07-25 まさ確定）。 */}
             {partner.currentBallSide === "sx" && <SxBadge tone="border-[#b5533f] bg-[#8c3329] text-white">当方ボール</SxBadge>}
           </div>
