@@ -4,55 +4,51 @@ Last updated: 2026-07-30 JST
 
 Target: `/Users/masa/projects/AMD/amd-os`
 
-Topic: D-7通知をBZM追記と経営ノウハウ追加へ分離し、説明・iPhone導線・closeoutを同期
+Topic: H-1の「自動更新だけ」の通知を生成しない
 
 ## Latest Session Summary
 
-- D-7 (`textbook_insight`) は、候補ごとに `metadata_json.destination_kind` を明示する。候補の型 `practice_kind` から保存先を推測しない。
-- `bzm_textbook` は「BZM追記候補」。yesは候補を承認済みにし、BZM本文はlocal applierだけが後続で追記する。
-- `management_knowledge` は「経営ノウハウ追加候補」。yesは `管理 → 経営ノウハウ` に本文、分類、成熟度、タグ、再利用する場面、次に確認することを1件保存し、候補を反映済みにする。元会議メモ・AMDプロトコル・BZM本文は変更しない。
-- 通知カードは候補本文を重複表示せず、保存先・保存項目・押した結果を先に示す。保存先未定義の候補を採用操作として見せない。
-- iOS判断キューは先頭1件で止まらず、下へスクロールして次の通知を連続確認できる。D-7のラベル・追加先・結果もPWAと合わせた。
-- 実装履歴と既存候補の状態は [`pwa/design_log/sessions_2026-07.md`](pwa/design_log/sessions_2026-07.md) の「2026-07-26〜30 — D-7通知」節にある。
+- H-1の `updated` は会議記録・予定カード・Notion議事録ひも付けを自動更新しただけの結果なので、`app_notifications(kind='h1_report')` を作らない。sanitized reportとautomation memoryは従来どおり毎run保存する。
+- 通知するのは、まさの判断が必要な `review_required` と、具体的な行動・対象URL・完了条件を揃えた `blocked` だけ。いずれも行動契約が欠ければ通知にせず、次回runへ委ねる。
+- 呼び出し側が誤って `--outcome updated` を渡しても、`notify_h1_report.mjs` がDB接続より前に成功終了するため、OS通知を書かない。
+- 既に届いたH-1通知は履歴として残す。過去通知の削除はしていない。
 
 ## Repo / Production State
 
-- canonical branch: `main`。このHANDOFFを含むcloseout文書は current `HEAD` としてmainへ反映し、PWA production `v3.51.23` を確認済み。
-- D-7の実装基準commit: `919c8a8c`（経営ノウハウへのrouting）、`9b684106`（通知型の整理）、`6f3dc4b2`（経営ノウハウ保存先を許可）。いずれもmainに含まれる。
-- schema migration 193 は適用済み。経営ノウハウ候補の `target_bzm_slug` と `proposed_section` はNULLにできる。
-- 既存候補 `bfc4b8a8-5b3f-420a-b82c-0fc09663f410` は `management_knowledge` へ再分類済み。BZM追記先はNULL、通知は1件、経営ノウハウ正本はまだ0件。まさが採用を選んだ時だけ1件保存される。
-- worktree: root 1件のみ。旧detached `b108` は状態と空patchを `/Users/masa/.codex/cleanup_archives/20260730-amd-os-b108-closeout/` に保全して削除済み。
+- canonical branch: `main`。このhandoff自体の文書commit後は、開始時にHEAD / origin/mainとahead/behindをread-onlyで取り直す。
+- H-1実装commit: `17105192 fix(h1): stop OS notifications for updated H-1 outcome`。変更履歴・build version同期の機能基準commit: `789f6e43`。
+- H-1機能はproduction `v3.51.24`で確認済み。次セッション開始時に `https://amd-os-pwa.vercel.app/api/build-info` のSHA / `main` / `dirty=false` をread-onlyで再確認する。
+- worktreeはroot 1件、local branchは `main` のみ。今回生成したbranch/worktreeはない。
 
 ## Unresolved Tasks
 
 - 実装の未解決はなし。
-- 上記の既存候補は、OS上でまさが内容を見て採用/不採用を判断する対象。採用時は必ず `management_knowledge_entries` がちょうど1件増え、BZM・元資料が増えていないことをreadbackする。
+- 次の実H-1 runで `updated` が出たときは、sanitized report・automation memoryが残り、OS通知が増えていないことをread-onlyで確認できる。これは動作監視であり、追加実装は不要。
 
 ## First Next Action
 
-新しいD-7候補または採用後の不整合が報告された時だけ、最初に `destination_kind`、カードの追加先/保存項目/押すと起きること、候補status、経営ノウハウ行数をread-onlyで突合する。保存先が空・曖昧なら候補生成側を止め、通知で推測採用させない。
+H-1または他の通知で「読んでも何をすればよいか分からない」と報告されたときだけ、まず結果区分・行動主体・直接URL・完了条件をread-onlyで確認する。今回の対象はH-1のみで、別通知種別を一律停止・削除しない。
 
 ## Pointers
 
-- 通知の採否・画面仕様: [`pwa/spec/3-7-notifications-current-spec.md`](pwa/spec/3-7-notifications-current-spec.md)
-- D-7候補・保存先・outbox仕様: [`pwa/spec/3-13-l2-textbook-insights-current-spec.md`](pwa/spec/3-13-l2-textbook-insights-current-spec.md)
-- L2実行経路: [`pwa/design/L2_DATA.md`](pwa/design/L2_DATA.md)
-- 通知UI設計: [`pwa/design/notifications.md`](pwa/design/notifications.md)
-- OSマニュアル: [`pwa/manual/3-3-notifications-and-tsukuyomi.md`](pwa/manual/3-3-notifications-and-tsukuyomi.md)
-- iOS正本 / Android移植条件: [`ios/DESIGN.md`](ios/DESIGN.md) / [`ios/HANDOFF_ios_to_android.md`](ios/HANDOFF_ios_to_android.md)
+- H-1実行・通知の正本: [`pwa/design/L2_DATA.md`](pwa/design/L2_DATA.md)、[`pwa/spec/3-3-meeting-flow-current-spec.md`](pwa/spec/3-3-meeting-flow-current-spec.md)
+- OSマニュアル: [`pwa/manual/8-3-l2-extraction-routines-spec.md`](pwa/manual/8-3-l2-extraction-routines-spec.md)
+- 実行ガード: [`pwa/scripts/notify_h1_report.mjs`](pwa/scripts/notify_h1_report.mjs)、[`scripts/h1-background-runner-prompt.md`](scripts/h1-background-runner-prompt.md)
+- 回帰検査: [`pwa/scripts/check_h1_notification_policy.mjs`](pwa/scripts/check_h1_notification_policy.mjs)
 - バグ・再発防止: [`pwa/BUGS.md`](pwa/BUGS.md)
 - 開発履歴: [`pwa/design_log/sessions_2026-07.md`](pwa/design_log/sessions_2026-07.md)
 - 次セッション用prompt: [`SESSION_MIGRATION_PROMPT.md`](SESSION_MIGRATION_PROMPT.md)
 
 ## Verification Evidence
 
-- 実装時: `npm run test:textbook-destination-contract`、`npm run test:governance-candidate-gate`、`npm run test:critical-ui`、`npx tsc --noEmit`、`npm run build` 成功。iOSは実機install/launchを確認済み。
-- 今回の文書同期: `npm run test:textbook-destination-contract`、`npm run test:critical-ui`、`git diff --check` を実行。PWA productionは `v3.51.23` / `main` / `dirty=false` を確認済み。
+- `npm --prefix pwa run test:h1-notification-policy`、`npm --prefix pwa run test:notification-action-contract`、`npx tsc --noEmit`、`npm run build` が成功。
+- buildには既存の `next.config.ts` NFT追跡warningが出るが、compile・TypeScript・静的ページ生成は成功した。
+- production build-infoとVercel production deployment Readyを確認済み。
 
 ## Closeout Classification
 
 - work type: `development`
-- durable note: `pwa/spec/3-7`、`pwa/spec/3-13`、`pwa/design/notifications`、`pwa/design/L2_DATA`、`pwa/manual/3-3`、`pwa/BUGS.md`
-- design_log: 更新あり。製品の通知採否・保存境界・iOS導線・schema/API/UI実装の履歴だから。
+- durable note: `pwa/design/L2_DATA.md`、`pwa/spec/3-3-meeting-flow-current-spec.md`、`pwa/manual/8-3-l2-extraction-routines-spec.md`、`pwa/BUGS.md`
+- design_log: 更新あり。H-1通知writerの実装判断・検査・本番確認を記録するため。
 - main alignment: `main aligned`
-- archive condition: `archive ok`。rootはclean、ahead/behind 0/0、conflictなし、worktreeはrootのみ、local branchはmainのみ。
+- archive condition: このhandoff文書のcommit/push/deploy確認後に再判定する。

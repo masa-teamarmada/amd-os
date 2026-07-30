@@ -2103,3 +2103,37 @@ Book A執筆規範 (japanese-tech-writing + cognitive-rhythm-writing) をSESSION
 | 6 | DB migration 193 / feedback API / PWA/iOS UI /回帰検査 | `pwa/design/db_schema.md` / `pwa/spec/3-7-notifications-current-spec.md` / `ios/DESIGN.md` | 対象外: 実装詳細。利用者向け挙動は上記manualへ同期済み | ✅ |
 
 ✅ 全件記録済。恒久仕様はspec/design/manual、実装と検証経緯はこのdevelopment logへ分離した。
+
+---
+
+## 2026-07-30 — H-1の自動更新をOS通知にしない（v3.51.24）
+
+### 背景と判断
+
+- まさから、H-1通常通知に「対応不要」と書かれても、何をすればよいか分からない通知は意味がないと指摘があった。会議記録・予定カード・Notion議事録ひも付けの自動更新は、まさの判断・操作を必要としない。
+- よって`updated`は実行履歴であってOS通知ではない。通知を残すのは、人の判断が必要な`review_required`と、具体的な行動・直接URL・完了条件を揃えた`blocked`だけにした。既存の過去通知は履歴として残し、削除していない。
+
+### 実装と正本同期
+
+- `pwa/scripts/notify_h1_report.mjs`は`--outcome updated`を受けたら、環境変数・Supabase接続・`app_notifications` writeより前にno-write成功終了する。呼び出し側が古い経路で`updated`を渡しても、通知を作らずrunを失敗扱いにしない。
+- `scripts/h1-background-runner-prompt.md`は通知helperの呼び出しを`review_required|blocked`に限定し、`updated`でもsanitized reportとautomation memoryを必ず保存するよう明記した。
+- 正本を`pwa/design/L2_DATA.md`、`pwa/spec/3-3-meeting-flow-current-spec.md`、`pwa/manual/8-3-l2-extraction-routines-spec.md`、scheduled task SKILL、manual/spec changelogへ同期した。manual chapter登録済みの8-3章への追記であり、新章は不要だった。
+- `pwa/scripts/check_h1_notification_policy.mjs`は、`updated`がrow/dry-run payloadを返さず、行動契約もSupabase環境変数も不要で`skipped_updated_outcome`となることを固定した。`pwa/BUGS.md`へ症状・原因・再発防止を追記した。
+
+### 検証 / 本番
+
+- `npm --prefix pwa run test:h1-notification-policy`、`npm --prefix pwa run test:notification-action-contract`、`npx tsc --noEmit`、`npm run build`が成功。buildの`next.config.ts` NFT追跡warningは既存warningで、compile・TypeScript・静的ページ生成は完了した。
+- 実装commitは`17105192`、version/changelog同期は`789f6e43`。production `/api/build-info` は`v3.51.24` / `789f6e43079ed9fa4ce6408f8d5ef607ecb8c712` / `main` / `dirty=false`を返すことを確認した。
+
+### 設計変更棚卸し
+
+| # | 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|---|
+| 1 | H-1の`updated`はOS通知を作らず、report/memoryだけを保存する | `pwa/design/L2_DATA.md` / `pwa/spec/3-3-meeting-flow-current-spec.md` | `pwa/manual/8-3-l2-extraction-routines-spec.md` | ✅ |
+| 2 | `review_required` / `blocked`だけ通知し、行動・URL・完了条件を必須にする | `pwa/design/L2_DATA.md` / `pwa/spec/3-3-meeting-flow-current-spec.md` | `pwa/manual/8-3-l2-extraction-routines-spec.md` | ✅ |
+| 3 | 旧/誤った`updated`呼び出しもhelperがno-writeで成功終了する | `pwa/scripts/notify_h1_report.mjs` | 対象外: 実装ガード。利用者向け挙動は上記章へ同期済み | ✅ |
+| 4 | `updated`がDB write pathへ到達しない回帰検査 | `pwa/scripts/check_h1_notification_policy.mjs` | 対象外: 検査実装。挙動仕様は上記章へ同期済み | ✅ |
+| 5 | 通知ノイズの症状・原因・修正・再発防止 | `pwa/BUGS.md` | 対象外: バグ履歴。現行挙動は上記manualへ同期済み | ✅ |
+| 6 | 新規環境変数・API route・DB table/column/index/RLS/migration | 追加なし | 対象外: 変更なし | ✅ |
+
+✅ 全件記録済。恒久仕様はdesign/spec/manual、実装・検証・deploy履歴はこのdevelopment logへ分離した。
