@@ -241,8 +241,40 @@ export function renderPortalHtml() {
   tbody tr.dragging-row { opacity: 0.5; }
   tbody tr.folder-row.drop-target td { background: #E7F1FB; }
   tbody tr.folder-row.drop-target { outline: 2px solid var(--blue); outline-offset: -2px; }
-  .move-hint { display: none; margin-left: 6px; font-size: 11.5px; font-weight: 700; color: var(--blue); }
-  tr.drop-target .move-hint { display: inline; }
+  tbody tr.folder-row.drop-target .folder-icon { color: var(--blue); transform: scale(1.12); }
+  .drag-preview {
+    position: fixed;
+    left: 0;
+    top: 0;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    max-width: min(320px, calc(100vw - 16px));
+    padding: 8px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 6px;
+    background: rgba(24, 36, 46, 0.94);
+    box-shadow: 0 8px 22px rgba(24, 36, 46, 0.24);
+    color: var(--white);
+    font-size: 12.5px;
+    font-weight: 700;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+    z-index: 10;
+  }
+  .drag-preview.is-visible { display: inline-flex; }
+  .drag-preview-icon {
+    width: 16px;
+    height: 18px;
+    flex: 0 0 auto;
+    border: 1.5px solid currentColor;
+    border-radius: 2px;
+    opacity: 0.86;
+  }
+  .drag-preview-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
   .row-actions button {
     border: 1px solid var(--line);
@@ -680,10 +712,6 @@ export function renderPortalHtml() {
         const nameSpan = document.createElement("span");
         nameSpan.textContent = folder.name;
         nameContent.appendChild(nameSpan);
-        const moveHint = document.createElement("span");
-        moveHint.className = "move-hint";
-        moveHint.textContent = "ここへ移動";
-        nameContent.appendChild(moveHint);
         nameTd.appendChild(nameContent);
         tr.appendChild(nameTd);
 
@@ -1024,8 +1052,34 @@ export function renderPortalHtml() {
     function endPointerDrag() {
       if (!pointerDrag) return;
       pointerDrag.tr.classList.remove("dragging-row");
+      if (pointerDrag.preview) pointerDrag.preview.remove();
       pointerDrag = null;
       clearDropTarget();
+    }
+
+    function createDragPreview(name) {
+      const preview = document.createElement("div");
+      preview.className = "drag-preview";
+      preview.setAttribute("aria-hidden", "true");
+
+      const icon = document.createElement("span");
+      icon.className = "drag-preview-icon";
+      icon.setAttribute("aria-hidden", "true");
+      preview.appendChild(icon);
+
+      const label = document.createElement("span");
+      label.className = "drag-preview-label";
+      label.textContent = name;
+      preview.appendChild(label);
+      return preview;
+    }
+
+    function positionDragPreview(event) {
+      if (!pointerDrag?.preview) return;
+      const previewRect = pointerDrag.preview.getBoundingClientRect();
+      const x = Math.max(8, Math.min(event.clientX + 14, window.innerWidth - previewRect.width - 8));
+      const y = Math.max(8, Math.min(event.clientY + 14, window.innerHeight - previewRect.height - 8));
+      pointerDrag.preview.style.transform = "translate3d(" + x + "px, " + y + "px, 0)";
     }
 
     rowsEl.addEventListener("pointerdown", (event) => {
@@ -1034,9 +1088,12 @@ export function renderPortalHtml() {
       const handle = event.target.closest('[data-drag-handle="true"]');
       const tr = handle ? handle.closest('tr[data-row-type="file"]') : null;
       if (!tr) return;
+      const pathname = tr.getAttribute("data-file-pathname");
+      const file = files.find((entry) => entry.pathname === pathname);
       pointerDrag = {
         pointerId: event.pointerId,
-        pathname: tr.getAttribute("data-file-pathname"),
+        pathname,
+        name: file ? file.name : pathname.split("/").pop(),
         tr,
         startX: event.clientX,
         startY: event.clientY,
@@ -1052,8 +1109,12 @@ export function renderPortalHtml() {
         if (Math.abs(dx) < DRAG_THRESHOLD_PX && Math.abs(dy) < DRAG_THRESHOLD_PX) return;
         pointerDrag.dragging = true;
         pointerDrag.tr.classList.add("dragging-row");
+        pointerDrag.preview = createDragPreview(pointerDrag.name);
+        document.body.appendChild(pointerDrag.preview);
+        pointerDrag.preview.classList.add("is-visible");
       }
       event.preventDefault();
+      positionDragPreview(event);
       const el = document.elementFromPoint(event.clientX, event.clientY);
       const tr = el ? el.closest('tr[data-row-type="folder"]') : null;
       if (tr !== dropTargetRow) {
