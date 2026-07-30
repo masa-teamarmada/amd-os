@@ -55,7 +55,7 @@ assessment は `(institution_id, criterion_id)` ごとに最新 `evaluated_at` �
 - `/institutions/[institutionId]/cockpit` は `fetchErsBundle()`, `fetchCockpitFromSupabase(projectId)`, `fetchProjectMeetingSummaries(projectId)` を読むだけで、本番DBへ write しない。
 - 上部に ECR summary / 関連PJ / 今期MS / MTG件数を表示する。
 - ECR summary の直下に常時見る readiness snapshot を置き、ECR充足率、強い軸、確認したい軸、関連PJのMS/月次件数を表示する。
-- 基本タブは `進捗管理` / `スコア詳細`。研究機関でも運用構造はPJ cockpitに寄せるが、スコア詳細はSU向けAMD ScoreではなくECR 8軸・評価項目・Lv/根拠メモを表示する。
+- 基本タブは `進捗管理` / `スコア詳細` / `土壌×シーズ`。研究機関でも運用構造はPJ cockpitに寄せるが、スコア詳細はSU向けAMD ScoreではなくECR 8軸・評価項目・Lv/根拠メモを表示する。`土壌×シーズ`タブの契約は本章末尾「土壌×シーズタブ」を参照。
 - `進捗管理` は既存 `CockpitView` を使うため、MS進捗管理、月次カード/モーダル、MTGサマリの挙動は通常PJコックピットと同じ。
 - `project_meeting_summaries` は月別の MTG tree として `進捗管理` の下部に表示し、各 row は `/project/[projectId]/cockpit?meeting=<meeting_id>` へ遷移する。MTG tree を機関コックピット最上部には置かない。
 - まだ機関とPJの正式 scope table はない。外部機関向け tenant/access 設計は `pwa/design/institution_tenant_access.md` の draft を正本にし、現時点では内部向け導線に留める。
@@ -150,6 +150,58 @@ python3 -X utf8 scripts/apply_ddl.py scripts/migrations/120_institution_policy_a
 - `120_institution_policy_assessments_seed.sql` を dry review し、migration番号が既存 `001`〜`119` と衝突しないこと。
 - 制度比較seedは `(institution_id, policy_item_id)` unique upsert なので、再適用しても同一96件を更新するだけで重複しないこと。
 
+## 土壌×シーズタブ (2026-07-30)
+
+> **絶対制約**: ECR (機関の生態系構築度) と SPS (シーズの事業化見込み) は同じ機関に属していても合成単一スコアにしない (`pwa/bzm/terminology_glossary.md` §4、`BZM_2_0_REVISION_REQUIREMENTS.md` §3-5)。本タブは両者を同じ観測基準日 (as-of) で整列するが、ECR元評価日とSPS元評価日は別表示し、同日に測ったとは扱わない。相関係数・回帰係数・因果主張は一切計算・表示しない。小標本、同一機関内の反復観測、交絡、欠測、ECR level と SPS 構成軸に含まれる順序尺度を常に注記する。
+
+### DB
+
+新規テーブルなし。既存2テーブルに最小列追加 (migration `202_soil_seeds_institution_link.sql`、適用済み):
+
+| table | 追加列 | contract |
+|---|---|---|
+| `seeds` | `institution_id text REFERENCES institutions(institution_id)` (nullable) | KUTE分は `org_name = '工学院大学'` の全件を `inst_kute` へ migration内で一括backfill済み。他機関は未backfillでNULLのまま (捏造しない) |
+| `institution_assessments` | `evaluation_version text NOT NULL DEFAULT 'v1'` | 既存行は rubric v1 のみのため一括 `'v1'`。`ers-data.ts` は `row.evaluation_version || "v1"` でNULL/空のみ fallback |
+
+SPS 評価値そのものは本 migration で一切変更しない (既存 `seed_sps_assessments` の値をそのまま参照する)。
+
+### Data Layer (`pwa/src/lib/institution-soil-seeds.ts`)
+
+Supabase import なしの純粋関数群。ECR と SPS を独立に as-of 整列し、絶対に1つの値へ合成しない設計:
+
+| function | 契約 |
+|---|---|
+| `computeSpsDistributionStats(scores)` | null (未評価) を除外し n/min/q1/median/q3/max を返す。分位点は線形補間法 (R-7 / Excel PERCENTILE.INC 相当)。空配列は全て null (n=0) |
+| `rankSeedsBySps(seeds)` | 降順 competition ranking (同点同順位、次順位はスキップ)。SPS未評価 (null) は末尾かつ `rank: null` |
+| `selectLatestAsOf(snapshots, asOfDate)` | `evaluatedAt <= asOfDate` で最新1件を選ぶ。該当なしは `selected: null` (捏造しない)。最新観測が「missing」状態でも黙って古い「ready」行へ戻らず、その missing 行をそのまま返す |
+| `selectLatestPerKeyAsOf(snapshots, asOfDate, keyOf)` | ECR criterion 単位の carry-forward。ECR 8軸履歴断面の再構成に使う |
+| `collectObservationDates(ecrDates, spsDates)` | ECR/SPS 実観測日の union を新しい順で返す。今日日付などの疑似断面は生成しない |
+| `formatSourceDateRange(dates)` | 元評価日を単日 or `最古〜最新` 範囲文字列として表示用に整形 |
+
+`fetchSeedSpsHistoryForSeeds()` (`pwa/src/lib/seeds-data.ts`) を新規追加。既存 `fetchSeedsForInstitution` は latest snapshot のみのため、履歴断面台帳用に全履歴取得関数を追加した。
+
+### UI (`pwa/src/components/cockpit/CockpitSoilSeeds.tsx`)
+
+機関コックピット `土壌×シーズ` タブ。研究評価ラボノート調 (白紙・墨文字・既存藍アクセント・罫線中心)。KPIカード/レーダーチャート/相関散布図は使用しない (禁止事項として `test:critical-ui` で regression guard 済み)。
+
+- 冒頭に「読み方の制約」注意書き (小標本・機関内反復・順序尺度・因果主張なしを明記)
+- 観測断面台帳: ECR/SPS の実観測日 union (最大24断面) を新しい順に並べ、各断面で ECR 8軸 (`selectLatestPerKeyAsOf` で評価点ごとcarry-forward) と SPS 分布 (`selectLatestAsOf` 相当をシーズごとに独立適用) を横に並べる。ECR元日とSPS元日は別列で表示し、「同日観測」という表現は使わない (各系列固有の観測日をそのまま見せる)
+- 最新ECR 8軸表、最新SPS分布表 (n/min/Q1/median/Q3/max。SPS未評価はNへ含めず分布外に保持)、所属シーズ順位表
+- KUTE専用: 所属シーズの上位ランクから既存 p25 GTIE 申請支援検討フローへの導線リンク (`pathwayProjectId`/`pathwayProjectLabel` が渡された場合のみ表示)
+
+### Failure Mode
+
+| failure | response |
+|---|---|
+| ECR/SPS に観測基準日以前の評価がない | 該当系列は `null` のまま表示し、0で埋めない。SPS最新評価が欠損状態なら、過去の評価済み値へ黙って戻らない |
+| 所属シーズ0件 | 順位表・分布は空状態 (n=0) を表示、エラーにしない |
+| `institution_id` 未backfillの機関 | 所属シーズ0件として扱う (捏造しない) |
+
+### Validation
+
+- `npm run test:institution-soil-seeds` — 分位点/ランキング/as-of整列/観測日collect/UI・migration・seeds-data contract test
+- `npm run test:critical-ui` — タブ導線・見出し文言・recharts不使用のregression guard
+
 ## 再構築可能性チェック
 
-この章で ECR の DB、fetch、upsert API、admin gate、制度比較seedの投入手順は再構築できる。まだ不足しているのは ECR 8 軸 rubric の PWA seed と `/bzm` からの同期方法。
+この章で ECR の DB、fetch、upsert API、admin gate、制度比較seedの投入手順、および土壌×シーズタブのDB・データ層・UI契約は再構築できる。まだ不足しているのは ECR 8 軸 rubric の PWA seed と `/bzm` からの同期方法。

@@ -151,7 +151,14 @@ export default function AssessMatrixPage() {
     for (const inst of bundle.institutions) {
       const list: ErsAssessment[] = bundle.criteria.map((c) => {
         const s = edits[cellKey(inst.institutionId, c.criterionId)] ?? EMPTY_CELL;
-        return { criterionId: c.criterionId, level: s.level, na: s.na, note: s.note, evaluatedAt: "" };
+        return {
+          criterionId: c.criterionId,
+          level: s.level,
+          na: s.na,
+          note: s.note,
+          evaluatedAt: "",
+          evaluationVersion: "v1",
+        };
       });
       out[inst.institutionId] = computeErs(bundle.axes, bundle.criteria, list);
     }

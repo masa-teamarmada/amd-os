@@ -20,9 +20,10 @@ import {
   type CockpitData,
   type ProjectMeetingSummary,
 } from "@/lib/supabase-data";
+import { CockpitSoilSeeds } from "@/components/cockpit/CockpitSoilSeeds";
 
 type LoadingState = "loading" | "ready" | "error";
-type InstitutionCockpitTab = "progress" | "score-detail";
+type InstitutionCockpitTab = "progress" | "score-detail" | "soil-seeds";
 
 export default function InstitutionCockpitPage() {
   const params = useParams<{ institutionId: string }>();
@@ -143,12 +144,24 @@ export default function InstitutionCockpitPage() {
 
           <InstitutionMeetingTree projectLink={projectLink} meetings={meetings} />
         </div>
-      ) : (
+      ) : activeTab === "score-detail" ? (
         <InstitutionScoreDetail
           institutionId={institutionId}
           result={ersResult}
           criteria={bundle.criteria}
           assessments={assessments}
+        />
+      ) : (
+        <CockpitSoilSeeds
+          key={institutionId}
+          institutionId={institutionId}
+          ersResult={ersResult}
+          ersAssessments={assessments}
+          ersAssessmentHistory={bundle.assessmentHistoryByInstitution[institutionId] ?? []}
+          ersAxes={bundle.axes}
+          ersCriteria={bundle.criteria}
+          pathwayProjectId={institutionId === "inst_kute" ? "p25" : undefined}
+          pathwayProjectLabel={institutionId === "inst_kute" ? "KUTE GTIE申請支援" : undefined}
         />
       )}
     </div>
@@ -326,9 +339,10 @@ function InstitutionCockpitTabs({
   const tabs: Array<{ key: InstitutionCockpitTab; label: string }> = [
     { key: "progress", label: "進捗管理" },
     { key: "score-detail", label: "スコア詳細" },
+    { key: "soil-seeds", label: "土壌×シーズ" },
   ];
   return (
-    <div className="grid grid-cols-2 overflow-hidden rounded-xl border border-[#d6d6da] bg-[#f5f5f7]" role="tablist" aria-label="研究機関コックピット表示切り替え">
+    <div className="grid grid-cols-3 overflow-hidden rounded-xl border border-[#d6d6da] bg-[#f5f5f7]" role="tablist" aria-label="研究機関コックピット表示切り替え">
       {tabs.map((tab, index) => {
         const selected = activeTab === tab.key;
         return (

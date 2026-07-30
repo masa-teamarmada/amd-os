@@ -50,6 +50,8 @@ export interface ErsAssessment {
   na: boolean;
   note: string | null;
   evaluatedAt: string;
+  /** ECR rubric / scoring definition version stored with the observation. */
+  evaluationVersion: string;
 }
 
 export interface ErsAxisScore {

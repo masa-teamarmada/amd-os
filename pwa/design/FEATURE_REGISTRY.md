@@ -448,6 +448,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 上部にECR充足率、関連PJ、今期MS件数、MTG履歴件数を出す。
 - `project_meeting_summaries` を月ごとに束ねたMTGツリーを表示し、各行から通常PJコックピットのMTG詳細 (`?meeting=`) へ遷移する。
 - `/institutions/[institutionId]` の詳細画面からも研究機関コックピットと通常PJコックピットへ戻れる。
+- **「土壌×シーズ」タブ** (`CockpitSoilSeeds`、2026-07-30追加、build v3.52.0): `進捗管理` / `スコア詳細` に続く3本目のタブ。機関ECR8軸と所属シーズSPSを、実観測日unionの断面 (`観測断面台帳`、最大24断面) で同じ観測基準日として整列するが、ECR元評価日とSPS元評価日は別表示し、単一スコアへは絶対に合成しない (`terminology_glossary.md` §4 / `BZM_2_0_REVISION_REQUIREMENTS.md` §3-5)。相関/因果/予測モデルは出さない。所属は `seeds.institution_id` (migration `202_soil_seeds_institution_link.sql`、KUTE=`org_name`工学院大学のみbackfill、SPS値は未変更)。純粋関数は `pwa/src/lib/institution-soil-seeds.ts`、テストは `npm run test:institution-soil-seeds`。KUTEのみ所属シーズ上位ランクから既存p25 GTIE申請支援検討フローへの導線を持つ。削除禁止理由: ECRとSPSを機関単位で継続観測しつつ合成単一スコア禁止を守るための唯一の画面。
 
 ## 株主・ガバナンス + 要対応 (2026-06-15 追加、2026-07-16 会社概要タブへ統合)
 

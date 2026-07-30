@@ -2709,3 +2709,27 @@ expectNotIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.ts
   "PoC候補先リスト",
   "SxPocCandidateList",
 ]);
+
+// 土壌×シーズタブ (2026-07-30): 機関ECRと所属シーズSPSをas-of断面で整列する。元評価日は別表示し、合成単一スコア化は禁止。
+expectIncludes(
+  "src/app/(app)/institutions/[institutionId]/cockpit/page.tsx",
+  ["CockpitSoilSeeds", '"soil-seeds"', "土壌×シーズ", "ersAssessmentHistory", "ersAxes", "ersCriteria"],
+);
+expectIncludes("src/components/cockpit/CockpitSoilSeeds.tsx", [
+  "fetchSeedsForInstitution",
+  "fetchSeedSpsHistoryForSeeds",
+  "computeSpsDistributionStats",
+  "rankSeedsBySps",
+  "collectObservationDates",
+  "selectLatestPerKeyAsOf",
+  "StatisticalCautionNotice",
+  "観測断面台帳",
+  "最新ECR 8軸",
+  "最新SPS分布",
+  "所属シーズ順位",
+]);
+expectNotIncludes("src/components/cockpit/CockpitSoilSeeds.tsx", [
+  "recharts",
+  "RadarChart",
+  "ScatterChart",
+]);

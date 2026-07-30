@@ -106,14 +106,24 @@ UI は `/institutions/assess` に全部詰め込まず、`ECR評価` / `制度�
 | 研究機関一覧・比較 (ヒートマップ) | `/institutions` | **行 = 8 軸 (左ヘッダ列に番号 + 軸名 + 対応 XRL をフル表示) / 列 = 機関** の転置ヒートマップ。最上部に総合 ECR 行 (大フォント強調)、最下部に評価済サブ軸数。セルは **indigo 単色の濃淡 (濃いほど高得点)**。ヘッダ行・列は sticky 固定。右上に「📝 評価を入力 / 編集」導線 |
 | 評価入力マトリクス (admin) | `/institutions/assess` | 各サブ軸を **Lv1–5 の 5 行に展開**し各レベルの rubric をフル表示、右の各機関列は**チェックボックス**のみ。1 つにチェック = そのレベル。**どの Lv にもチェックしなければ N/A** (軸平均から除外)。各サブ軸末尾に根拠メモ行 (インライン入力)。変更は 1 セルずつ即保存 (楽観更新)、ECR リアルタイム再計算。ヘッダ行・左列 sticky |
 | 機関詳細 | `/institutions/{institutionId}` | 8 軸 SVG レーダー + 軸ごとのサブ軸 rubric (現在 Lv + 根拠ノート) + 「この機関発の PJ」枠。関連PJがある機関は機関コックピットと通常PJコックピットへの導線を持つ |
-| 機関コックピット | `/institutions/{institutionId}/cockpit` | 研究機関カードから開くコックピット。KUTE は既存KUTE PJ (`p25`)、NIMS は正式NIMS OS導入PJ (`p28`) のコックピットを同画面に載せ、MS 進捗・月次・MTG履歴を追う。CX (`p20`) は初期ユースケースとして分ける。既存PJ row / cockpit content は消さない |
+| 機関コックピット | `/institutions/{institutionId}/cockpit` | 研究機関カードから開くコックピット。KUTE は既存KUTE PJ (`p25`)、NIMS は正式NIMS OS導入PJ (`p28`) のコックピットを同画面に載せ、MS 進捗・月次・MTG履歴を追う。CX (`p20`) は初期ユースケースとして分ける。既存PJ row / cockpit content は消さない。`進捗管理` / `スコア詳細` に加え `土壌×シーズ` タブで機関ECRと所属シーズSPSを継続観測 (下記「土壌×シーズタブ」参照) |
 | ダッシュボード本文 | `/dashboard` | 左/mainカラム内で PJ一覧 (AMD Score / 個体) の直下に、**研究機関リスト (ECR / 苗床)** を続けて置く。右カラムのMyPageより下へ落とさず、その下の全幅下段に Company Content shelf を置く。`project_category='ecosystem'` または `p25` / `p28` / KUTE・NIMS名に該当するPJは通常PJリストに二重表示せず、研究機関リスト側へ寄せる |
 
 - ナビ最上部に **「研究機関」** リンク (Venture Map の隣)。
 - ダッシュボードの研究機関リストは PJ リストの続きとして読めるよう、カードの主タイトルを PJ 名寄りにする。表示は **KUTE / 工学院大学**、**KGW / 香川大学**、**NIMS / 物質・材料研究機構** の title / subtitle 型。
 - 各レイヤーで使うスコアは別ロジック (上=AMD Score SPS primary / 下=ECR 充足率) なので、研究機関リスト側に「ECR は整備度であり AMD Score とは別指標」と明示している。
-- ダッシュボード本文でPJ一覧直下に置く KUTE / NIMS カードは、機関詳細ではなく各機関コックピットへ入る。KUTE の箱は研究機関 ECR として残しつつ、進捗管理は既存 KUTE PJ (`p25`) の PJ コックピットを使う。NIMS も同じ型で、正式NIMS OS導入PJ (`p28`) の PJ コックピットを使う。CX (`p20`) はNIMS導入の初期ユースケースとして別に扱う。画面上部は ECR 概要と readiness snapshot を先に見せ、その下を `進捗管理` / `スコア詳細` の2タブにする。`進捗管理` では通常PJコックピットを先に表示し、月別 MTG ツリーは下部に置く。`スコア詳細` はSU向けAMD Scoreではなく、ECR 8軸・評価項目・Lv/根拠メモを表示する。
+- ダッシュボード本文でPJ一覧直下に置く KUTE / NIMS カードは、機関詳細ではなく各機関コックピットへ入る。KUTE の箱は研究機関 ECR として残しつつ、進捗管理は既存 KUTE PJ (`p25`) の PJ コックピットを使う。NIMS も同じ型で、正式NIMS OS導入PJ (`p28`) の PJ コックピットを使う。CX (`p20`) はNIMS導入の初期ユースケースとして別に扱う。画面上部は ECR 概要と readiness snapshot を先に見せ、その下を `進捗管理` / `スコア詳細` / `土壌×シーズ` の3タブにする。`進捗管理` では通常PJコックピットを先に表示し、月別 MTG ツリーは下部に置く。`スコア詳細` はSU向けAMD Scoreではなく、ECR 8軸・評価項目・Lv/根拠メモを表示する。
 - **評価の書き込み**は `POST /api/institutions/assess` (admin 限定 / `requireAdmin` 相当)。body = `{ institution_id, criterion_id, level (1–5/null), na, note }`。`institution_assessments` を **当日分 (`evaluated_at = today JST`) で `onConflict(institution_id,criterion_id,evaluated_at)` upsert** する。同日中の編集は 1 レコードに集約、過去日の評価は履歴として残り、`fetchErsBundle` は (機関 × サブ軸) ごとに最新 1 件を採用する。
+
+## 土壌×シーズタブ (2026-07-30)
+
+機関コックピットの3番目のタブ。機関のECR (8軸) と、その機関に所属するシーズのSPS (事業化見込みスコア) を、同じ観測基準日 (as-of) で整列して継続観測するための画面。ECR元評価日とSPS元評価日は別表示し、同日に測ったとは扱わない。**ECRとSPSは絶対に足し合わせない・単一順位に合成しない** (`pwa/bzm/terminology_glossary.md` §4)。相関係数・回帰・予測モデルの類も出さない。小標本、同一機関内の反復観測、交絡、欠測、ECR levelとSPS構成軸に含まれる順序尺度を画面冒頭の注意書きで常に明示する。
+
+- **観測断面台帳**: ECR・SPSそれぞれの実観測日をunionした断面を新しい順に一覧表示。各断面でECR 8軸の充足率とSPS分布 (n/min/Q1/中央値/Q3/max) を横に並べるが、ECRの元評価日とSPSの元評価日は別々の列に出す (「同日に測った」わけではないため)
+- **最新ECR 8軸** / **最新SPS分布** / **所属シーズ順位** (SPS降順、同点同順位、未評価は順位なしで末尾)
+- KUTE (工学院大学) は、所属シーズの上位ランクから既存 p25 (KUTE PJ) のGTIE申請支援検討フローへの導線リンクを持つ
+- シーズを機関へ紐付けるのは新規列 `seeds.institution_id` (migration `202_soil_seeds_institution_link.sql`)。KUTE分 (`org_name = '工学院大学'`) のみ `inst_kute` へbackfill済み、他機関は未backfill。SPS評価値そのものは変更していない
+- 実装詳細・関数契約は [`pwa/spec/4-3-ers-current-spec.md`](../spec/4-3-ers-current-spec.md) の「土壌×シーズタブ」章を正本とする
 
 ## データモデル (= 4 テーブル)
 

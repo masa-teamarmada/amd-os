@@ -15,6 +15,8 @@ export interface ErsBundle {
   criteria: ErsCriterion[];
   /** institution_id -> 各サブ軸の最新評価 (evaluated_at 最新を 1 つ) */
   assessmentsByInstitution: Record<string, ErsAssessment[]>;
+  /** institution_id -> 全評価履歴。土壌×シーズの観測断面を再構成する正本。 */
+  assessmentHistoryByInstitution: Record<string, ErsAssessment[]>;
 }
 
 export async function fetchErsBundle(): Promise<ErsBundle> {
@@ -25,7 +27,7 @@ export async function fetchErsBundle(): Promise<ErsBundle> {
     supabase.from("institution_capability_criteria").select("*").order("sort_order", { ascending: true }),
     supabase
       .from("institution_assessments")
-      .select("institution_id,criterion_id,level,na,note,evaluated_at")
+      .select("institution_id,criterion_id,level,na,note,evaluated_at,evaluation_version")
       .order("evaluated_at", { ascending: false }),
   ]);
 
@@ -58,21 +60,29 @@ export async function fetchErsBundle(): Promise<ErsBundle> {
     sortOrder: r.sort_order ?? 0,
   }));
 
-  // (institution, criterion) ごとに evaluated_at 最新の 1 行だけ採用
-  const assessmentsByInstitution: Record<string, ErsAssessment[]> = {};
-  const seen = new Set<string>();
+  const assessmentHistoryByInstitution: Record<string, ErsAssessment[]> = {};
   for (const row of assessRes.data ?? []) {
-    const key = `${row.institution_id}::${row.criterion_id}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    (assessmentsByInstitution[row.institution_id] ||= []).push({
+    (assessmentHistoryByInstitution[row.institution_id] ||= []).push({
       criterionId: row.criterion_id,
       level: row.level ?? null,
       na: Boolean(row.na),
       note: row.note ?? null,
       evaluatedAt: row.evaluated_at,
+      evaluationVersion: row.evaluation_version || "v1",
     });
   }
 
-  return { institutions, axes, criteria, assessmentsByInstitution };
+  // (institution, criterion) ごとに evaluated_at 最新の 1 行だけ採用
+  const assessmentsByInstitution: Record<string, ErsAssessment[]> = {};
+  const seen = new Set<string>();
+  for (const [institutionId, history] of Object.entries(assessmentHistoryByInstitution)) {
+    for (const assessment of history) {
+      const key = `${institutionId}::${assessment.criterionId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      (assessmentsByInstitution[institutionId] ||= []).push(assessment);
+    }
+  }
+
+  return { institutions, axes, criteria, assessmentsByInstitution, assessmentHistoryByInstitution };
 }

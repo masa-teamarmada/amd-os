@@ -408,6 +408,67 @@ export async function fetchResearchInstitutionSeedsForProject(projectId: string)
 }
 
 /**
+ * 「土壌×シーズ」タブ向け: 対象 institution_id に直接ひもづく研究機関シーズを
+ * ホワイトリスト select で取得する (org_name 文字列一致の projectId 経由ではなく
+ * seeds.institution_id (migration 202) を直接フィルタする)。
+ * internal_notes / source_detail 等は select 句に含めないため、レスポンスにも一切乗らない。
+ */
+export async function fetchSeedsForInstitution(institutionId: string): Promise<SeedPublicView[]> {
+  const { data, error } = await supabase
+    .from("seeds")
+    .select(SEED_PUBLIC_VIEW_COLUMNS.join(", "))
+    .eq("institution_id", institutionId)
+    .order("researcher_name", { ascending: true });
+  if (error) throw new Error(error.message);
+  const seeds = (data ?? []) as unknown as SeedPublicView[];
+  const latestSpsBySeedId = await fetchLatestSeedSpsAssessments(seeds.map((s) => s.id));
+  return seeds.map((s) => ({ ...s, latest_sps: latestSpsBySeedId.get(s.id) ?? null }));
+}
+
+/**
+ * 「土壌×シーズ」タブの時系列・クロスセクション整列向け: 対象シーズ群の
+ * SPS 評価履歴を全件 (評価日昇順) 取得し、公開安全なサマリの配列へ変換する。
+ * `institution-soil-seeds.ts` の as-of 整列関数にそのまま渡せる形。
+ */
+export async function fetchSeedSpsHistoryForSeeds(
+  seedIds: string[]
+): Promise<Map<string, SeedPublicSpsAssessment[]>> {
+  const result = new Map<string, SeedPublicSpsAssessment[]>();
+  if (seedIds.length === 0) return result;
+  const { data, error } = await getAuthClient()
+    .from("seed_sps_assessments")
+    .select(
+      "seed_id, evaluated_at, mu_a, mu_i, mu_g, potential, trl, brl, grl, srl, hrl, f_character, f_cap, r_net, shallow_tech_mode, confidence"
+    )
+    .in("seed_id", seedIds)
+    .order("evaluated_at", { ascending: true });
+  if (error) throw new Error(error.message);
+
+  const rows = (data ?? []) as (SeedSpsAssessmentAxes & {
+    seed_id: string;
+    evaluated_at: string;
+    confidence: string | null;
+  })[];
+
+  for (const row of rows) {
+    const scored = calculateSeedSpsScore(row);
+    const entry: SeedPublicSpsAssessment = {
+      evaluated_at: row.evaluated_at,
+      status: scored.status,
+      score: scored.score,
+      confidence: row.confidence as SeedPublicSpsAssessment["confidence"],
+      missing_axes: scored.missingAxes,
+      axes: { trl: row.trl, brl: row.brl, grl: row.grl, srl: row.srl, hrl: row.hrl },
+      components: scored.components,
+    };
+    const list = result.get(row.seed_id);
+    if (list) list.push(entry);
+    else result.set(row.seed_id, [entry]);
+  }
+  return result;
+}
+
+/**
  * 全国全研究機関共通: 対象シーズ群の最新 SPS 評価を1件ずつ取得し、
  * axis_evidence / evaluator を含まない公開安全なサマリへ変換する。
  * 未来の他機関コックピットもこの関数をそのまま再利用する。

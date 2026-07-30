@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-29 20:34 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-30 20:12 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -97,7 +97,7 @@ UNIQUE: `(comment_id,participant_id,reaction_type)` (constraint: `amd_deck_react
 
 ## amd_management_score_evidence
 
-行数 (概算): 214
+行数 (概算): 215
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -118,7 +118,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 1,868
+行数 (概算): 1,894
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -1042,7 +1042,7 @@ UNIQUE: `(occurrence_id,recipient_slack_id,schedule_key,stage)` (constraint: `co
 
 ## company_schedule_occurrences
 
-行数 (概算): 1,111
+行数 (概算): 1,158
 PRIMARY KEY: `occurrence_id`
 UNIQUE: `(occurrence_key,source_hash)` (constraint: `company_schedule_occurrences_source_uniq`)
 
@@ -1441,6 +1441,7 @@ UNIQUE: `(institution_id,criterion_id,evaluated_at)` (constraint: `institution_a
 | 8 | `evaluator` | `text` | NULL | `'まさ'::text` |
 | 9 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 10 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 11 | `evaluation_version` | `text` | NOT NULL | `'v1'::text` |
 
 ## institution_capability_axes
 
@@ -1663,7 +1664,7 @@ PRIMARY KEY: `feedback_id`
 
 ## l2_notifications
 
-行数 (概算): 368
+行数 (概算): 376
 PRIMARY KEY: `notification_id`
 UNIQUE: `(l2_kind,target_id,scope_key)` (constraint: `l2n_unique`)
 
@@ -2832,7 +2833,7 @@ PRIMARY KEY: `outbox_id`
 
 ## proactive_todos
 
-行数 (概算): 392
+行数 (概算): 402
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -3340,7 +3341,7 @@ PRIMARY KEY: `id`
 
 ## project_management_field_audit
 
-行数 (概算): 3,671
+行数 (概算): 4,143
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -4704,7 +4705,7 @@ UNIQUE: `(seed_id,evaluated_at)` (constraint: `seed_sps_assessments_seed_evaluat
 
 ## seeds
 
-行数 (概算): 142
+行数 (概算): 157
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -4752,6 +4753,7 @@ PRIMARY KEY: `id`
 | 41 | `biggest_bottleneck` | `text` | NULL | `` |
 | 42 | `ip_status` | `text` | NULL | `` |
 | 43 | `next_verification_step` | `text` | NULL | `` |
+| 52 | `institution_id` | `text` | NULL | `` |
 
 ## settings
 
