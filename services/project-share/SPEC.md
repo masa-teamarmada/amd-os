@@ -2,7 +2,7 @@
 
 正本。PJ別インスタンスの実装詳細は各インスタンスの `README.md`（[`vsx/README.md`](vsx/README.md)、
 [`cx/README.md`](cx/README.md)、[`se/README.md`](se/README.md)、[`sx/README.md`](sx/README.md)、
-[`zmp/README.md`](zmp/README.md)）を見る。ここには、インスタンス横断で守るべき
+[`zmp/README.md`](zmp/README.md)、[`kute/README.md`](kute/README.md)）を見る。ここには、インスタンス横断で守るべき
 恒久仕様だけを置く。
 
 ## 目的
@@ -56,3 +56,5 @@ Vercelプロジェクトとし、AMD OS PWA 本体の認証・データとは分
   prefix、認証環境変数、サブドメインを割り当て、VSX固有資料を持ち込まない構成にした。
 - 2026-07-26: SX / ZMP PROJECT SHAREを追加。各PJに専用Vercelプロジェクト、private Blob store、
   prefix、認証環境変数、サブドメインを割り当て、VSX固有資料を持ち込まない構成にした。
+- 2026-07-30: KUTE PROJECT SHAREを追加。専用Vercelプロジェクト、private Blob store、prefix、
+  認証環境変数、サブドメインを割り当て、KUTE固有資料を持ち込まない初期空箱とした。

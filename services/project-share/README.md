@@ -22,6 +22,7 @@ PJ関係者・社外協力者へ、パスワード認証だけで資料・ファ
 | `se/` | SE | `https://se.team-armada.jp` |
 | `sx/` | SX | `https://sx.team-armada.jp` |
 | `zmp/` | ZMP | `https://zmp.team-armada.jp` |
+| `kute/` | KUTE（工学院大学） | `https://kute.team-armada.jp` |
 
 ## 新しいPJへ展開する場合
 
@@ -30,7 +31,7 @@ PJ関係者・社外協力者へ、パスワード認証だけで資料・ファ
 まるごとコピーして新しいディレクトリ（例: `services/project-share/<pj>/`）を作る。
 
 理由: インスタンスごとの環境変数・Blob prefix・ドメイン・contentを明示的に分離し、
-PJ固有要件を混ぜないため。CX/SE/SX/ZMPは汎用ポータルのみを持ち、VSX固有の資料・外部rewrite・
+PJ固有要件を混ぜないため。CX/SE/SX/ZMP/KUTEは汎用ポータルのみを持ち、VSX固有の資料・外部rewrite・
 固定表示行はコピー後に削除する。
 
 コピー後にPJ別に変える必要があるもの:
@@ -44,7 +45,7 @@ PJ固有要件を混ぜないため。CX/SE/SX/ZMPは汎用ポータルのみを
 - `server/lib/` の認証・パス検証・セキュリティヘッダーのロジック
 - `api/index.mjs` のルーター構造
 
-### CX / SE / SX / ZMP インスタンス
+### CX / SE / SX / ZMP / KUTE インスタンス
 
-`cx/`、`se/`、`sx/`、`zmp/` はファイル共有ポータル専用の初期空箱。各PJのパスワード値はVercel環境変数
+`cx/`、`se/`、`sx/`、`zmp/`、`kute/` はファイル共有ポータル専用の初期空箱。各PJのパスワード値はVercel環境変数
 にだけ設定し、リポジトリやURLへ記録しない。各インスタンスのREADMEを本番運用の入口にする。
