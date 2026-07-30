@@ -165,7 +165,7 @@ RLS:
 - カードクリックで展開:
   - summary (本文)
   - `coverage_gap` は summary の前に人間向けの確認文を出す。元候補の詳細が取れている場合だけ、タイトルを `重要メモにコピーする？: ...` の質問形にし、展開部は「コピーされる文章」「判断の目安」「コピーしても起きないこと」の3項目にする。`SX）intの元ソースには...可能性がある` のような監査メモをそのまま見せず、重要メモへ実際に入る一文へ変換して最初に出す。元候補が取れない / 通知本文が薄すぎる場合は `コピー前に元情報を確認: ...` に変え、「このカードだけではコピー対象を判断できない」と出して肯定ボタンを disabled にする。UI 表示では `D-6` / `coverage_gap` / `raw transcript` / `元情報` / `取りこぼし` / `条件付き投資家関心` / `薄い` / `candidate` / `salience` / `目立たない話` を使わない。
-  - `textbook_insight` は、内部メタ (`classification`, `scope`, `sanitized`, UUID, `result null`) を判断本文に出さない。展開部は「元情報」「通知の種類」「追記先」「BZMに追記される内容」「判断の目安」「押すと起きること」「AMDプロトコルとの関係」で表示する。`source_tables` に `protocols` がある場合は、元ネタはAMDプロトコル、追記先はBZMであり、AMDプロトコル本文は書き換えないことを明示する。ボタンは「BZM追記を承認 / BZMには入れない」。
+  - `textbook_insight` は、内部メタ (`classification`, `scope`, `sanitized`, UUID, `result null`) を判断本文に出さない。候補本文は「OSの見立て」に一度だけ表示し、「追加・更新する情報」へ重複させない。`metadata_json.destination_kind` は抽出器が必ず明示し、`practice_kind` から保存先を推測しない。`bzm_textbook` は「BZM追記候補」として、BZM内の追記先・候補の型・判断の目安・押すと起きることを出し、ボタンは「BZM追記を承認 / BZMには入れない」。yes は候補を承認済みにするだけで、local applier が後続でBZMへ追記する。`management_knowledge` は「経営ノウハウ追加候補」として、追加先 `管理 → 経営ノウハウ`、分類・成熟度・タグ・再利用する場面・次に確認すること、yes時に `management_knowledge_entries` へ本文と構造化情報を1件保存することを出し、ボタンは「経営ノウハウに追加 / 追加しない」。どちらも元の会議メモ・AMDプロトコルを変更せず、経営ノウハウ候補はBZMも変更しない。
   - 元データへの deep link (l2_kind ごと: protocols → /admin/protocols, ms_progress → /project/<id>/cockpit?ym=<ym>, etc.)
   - 既存 feedback 一覧 (この通知に紐づく / 同 (l2_kind, target_id, scope_key) の)
   - 「はい・反映」「いいえ・不採用」「コメントだけ送信」textarea + 送信ボタン

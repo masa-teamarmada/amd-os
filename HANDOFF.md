@@ -1,67 +1,58 @@
 # AMD OS Handoff
 
-Last updated: 2026-07-29 JST
+Last updated: 2026-07-30 JST
 
 Target: `/Users/masa/projects/AMD/amd-os`
 
-Topic: SX MS予算不足の誤判定と「会社留保」水増しの修正closeout
+Topic: D-7通知をBZM追記と経営ノウハウ追加へ分離し、説明・iPhone導線・closeoutを同期
 
 ## Latest Session Summary
 
-- `/admin/ms-overview` のSXで `MS編集停止中` と予算不足5,370,277円が出る不具合を修正し、本番反映まで完了した。
-- 原因は、月次フローの `companyReserveYen` に、翌月へ繰り越される月末残高スナップショット `stockYen` を各月分足していたこと。SXでは実配賦3,085,723円に同じ残高の重複5,983,802円が加わり、9,069,525円へ膨らんでいた。
-- 支払区分は役員かどうかではなく `members.exclude_from_payout_notice` だけを正本にした。あき・りりは非役員でも支払対象外で、対象外メンバーへの割当は65%のPJ予算内の非現金配賦として扱う。
-- AMD運営費30%とクローザー報酬5%は65%PJ予算の外側であり、`companyReserveYen` の意味ではない。UI表示も「会社留保」から「対象外配賦」へ改めた。
-- SXの13pt未配賦は将来MS用の意図的なバッファ。予算不足や保存停止の条件にしない。
-- 実装履歴と全検証は [`pwa/design_log/sessions_2026-07.md`](pwa/design_log/sessions_2026-07.md) の「2026-07-29 — SX MS予算不足」節にある。
+- D-7 (`textbook_insight`) は、候補ごとに `metadata_json.destination_kind` を明示する。候補の型 `practice_kind` から保存先を推測しない。
+- `bzm_textbook` は「BZM追記候補」。yesは候補を承認済みにし、BZM本文はlocal applierだけが後続で追記する。
+- `management_knowledge` は「経営ノウハウ追加候補」。yesは `管理 → 経営ノウハウ` に本文、分類、成熟度、タグ、再利用する場面、次に確認することを1件保存し、候補を反映済みにする。元会議メモ・AMDプロトコル・BZM本文は変更しない。
+- 通知カードは候補本文を重複表示せず、保存先・保存項目・押した結果を先に示す。保存先未定義の候補を採用操作として見せない。
+- iOS判断キューは先頭1件で止まらず、下へスクロールして次の通知を連続確認できる。D-7のラベル・追加先・結果もPWAと合わせた。
+- 実装履歴と既存候補の状態は [`pwa/design_log/sessions_2026-07.md`](pwa/design_log/sessions_2026-07.md) の「2026-07-26〜30 — D-7通知」節にある。
 
 ## Repo / Production State
 
-- canonical branch: `main`
-- accepted implementation commit: `700a438e8393e17e791bbb05070fe88a15b17d50` (`fix(pwa): correct MS noncash allocation budget guard`)
-- implementation commitは `origin/main` とproductionへ反映済み。このHANDOFFを含むcloseout文書commitもcurrent main HEADとしてproductionへ反映済み。正確なSHAは次セッション開始時に `git rev-parse HEAD` と `/api/build-info` で読み直す。
-- accepted production build: `v3.51.17` / current main HEAD / `git_branch=main` / `dirty=false`
-- accepted SX current truth: client 10,480,000円 / buffer 1,800,000円 / PJ budget 5,642,000円 / cash payout 1,942,752円 / 対象外配賦 3,085,723円 / obligation 5,028,475円 / 期末未払0円 / 残予算613,525円。
-- no DB/payment mutation: 今回はコード・仕様・検査・表示だけを変更し、報酬行や支払データは書き換えていない。
-- worktrees: root checkout 1件のみ。clean detached worktree `b108` は状態・空patchを `/Users/masa/.codex/cleanup_archives/` に保全後、registryから削除済み。
-- shared checkoutで見つかったW-Prep拡張7日窓の別差分は、owner task `W-Prep Launch` が必要な8文書へ同期し、`f936e278 docs(pwa): extend W-Prep launch window` としてmain・productionへ反映済み。SX実装/closeout commitには混ぜていない。
+- canonical branch: `main`。このHANDOFFを含むcloseout文書は current `HEAD` としてmainへ反映し、PWA production `v3.51.23` を確認済み。
+- D-7の実装基準commit: `919c8a8c`（経営ノウハウへのrouting）、`9b684106`（通知型の整理）、`6f3dc4b2`（経営ノウハウ保存先を許可）。いずれもmainに含まれる。
+- schema migration 193 は適用済み。経営ノウハウ候補の `target_bzm_slug` と `proposed_section` はNULLにできる。
+- 既存候補 `bfc4b8a8-5b3f-420a-b82c-0fc09663f410` は `management_knowledge` へ再分類済み。BZM追記先はNULL、通知は1件、経営ノウハウ正本はまだ0件。まさが採用を選んだ時だけ1件保存される。
+- worktree: root 1件のみ。旧detached `b108` は状態と空patchを `/Users/masa/.codex/cleanup_archives/20260730-amd-os-b108-closeout/` に保全して削除済み。
 
 ## Unresolved Tasks
 
-- SX MS予算不足修正: なし。
-- 13pt: 意図的な未配賦バッファとして確定。追加配分しない。
-- 別ownerのW-Prep差分も `f936e278` でcloseout済み。SX側の未解決タスクはない。
+- 実装の未解決はなし。
+- 上記の既存候補は、OS上でまさが内容を見て採用/不採用を判断する対象。採用時は必ず `management_knowledge_entries` がちょうど1件増え、BZM・元資料が増えていないことをreadbackする。
 
 ## First Next Action
 
-SXで再び保存停止が出た場合だけ、最初にproduction `/api/build-info`、対象cycleの `budgetImpact`、全月の `companyReserveYen`、最終月の支払対象メンバー `stockYen` をread-onlyで確認する。`stockYen` を期間合計せず、全PJを同じshared backend pathで横断監査する。再発がなければ追加実装は不要。
+新しいD-7候補または採用後の不整合が報告された時だけ、最初に `destination_kind`、カードの追加先/保存項目/押すと起きること、候補status、経営ノウハウ行数をread-onlyで突合する。保存先が空・曖昧なら候補生成側を止め、通知で推測採用させない。
 
 ## Pointers
 
-- finance設計正本: [`pwa/design/season_budget_actual.md`](pwa/design/season_budget_actual.md)
-- MS overview仕様: [`pwa/manual/6-8-admin-ms-overview-spec.md`](pwa/manual/6-8-admin-ms-overview-spec.md)
-- 報酬計算正本: [`pwa/manual/7-1-reward-calc-spec.md`](pwa/manual/7-1-reward-calc-spec.md)
-- member支払区分: [`pwa/manual/6-6-member-billing-prompts-spec.md`](pwa/manual/6-6-member-billing-prompts-spec.md)
-- 変更履歴: [`pwa/manual/9-3-appendix-changelog.md`](pwa/manual/9-3-appendix-changelog.md)
-- バグ・教訓: [`pwa/BUGS.md`](pwa/BUGS.md)
+- 通知の採否・画面仕様: [`pwa/spec/3-7-notifications-current-spec.md`](pwa/spec/3-7-notifications-current-spec.md)
+- D-7候補・保存先・outbox仕様: [`pwa/spec/3-13-l2-textbook-insights-current-spec.md`](pwa/spec/3-13-l2-textbook-insights-current-spec.md)
+- L2実行経路: [`pwa/design/L2_DATA.md`](pwa/design/L2_DATA.md)
+- 通知UI設計: [`pwa/design/notifications.md`](pwa/design/notifications.md)
+- OSマニュアル: [`pwa/manual/3-3-notifications-and-tsukuyomi.md`](pwa/manual/3-3-notifications-and-tsukuyomi.md)
+- iOS正本 / Android移植条件: [`ios/DESIGN.md`](ios/DESIGN.md) / [`ios/HANDOFF_ios_to_android.md`](ios/HANDOFF_ios_to_android.md)
+- バグ・再発防止: [`pwa/BUGS.md`](pwa/BUGS.md)
 - 開発履歴: [`pwa/design_log/sessions_2026-07.md`](pwa/design_log/sessions_2026-07.md)
 - 次セッション用prompt: [`SESSION_MIGRATION_PROMPT.md`](SESSION_MIGRATION_PROMPT.md)
 
 ## Verification Evidence
 
-- `npm run test:cockpit-season-finance-reserve`: PASS
-- `npm run test:ms-overview-reward-reserve`: PASS
-- `npm run test:critical-ui`: PASS
-- `npx tsc --noEmit`: PASS
-- `npm run build`: PASS
-- productionのSX admin MS overviewを実データで確認し、`MS編集停止中` が消え、残予算613,525円・期末未払0円を確認した。
-- 390px幅では既存のadmin wide-layout由来の横クリップを確認したが、今回の変更起因ではないため別課題とした。
+- 実装時: `npm run test:textbook-destination-contract`、`npm run test:governance-candidate-gate`、`npm run test:critical-ui`、`npx tsc --noEmit`、`npm run build` 成功。iOSは実機install/launchを確認済み。
+- 今回の文書同期: `npm run test:textbook-destination-contract`、`npm run test:critical-ui`、`git diff --check` を実行。PWA productionは `v3.51.23` / `main` / `dirty=false` を確認済み。
 
 ## Closeout Classification
 
 - work type: `development`
-- durable note: design/manual正本、`pwa/BUGS.md` の2026-07-29 finance/admin-ms項目、`pwa/design_log/sessions_2026-07.md`
-- design_log: 更新あり。理由は製品コード・finance計算・UI・検査・deployの実装履歴だから。
+- durable note: `pwa/spec/3-7`、`pwa/spec/3-13`、`pwa/design/notifications`、`pwa/design/L2_DATA`、`pwa/manual/3-3`、`pwa/BUGS.md`
+- design_log: 更新あり。製品の通知採否・保存境界・iOS導線・schema/API/UI実装の履歴だから。
 - main alignment: `main aligned`
-- production alignment: accepted implementation `700a438e` と、このHANDOFFを含むcurrent main HEADはproduction反映済み。`/api/build-info` は `v3.51.17` / `main` / `dirty=false`。
-- archive condition: `archive ok`。root checkoutはclean、ahead/behind 0/0、worktreeはroot 1件、local branchはmainのみ。
+- archive condition: `archive ok`。rootはclean、ahead/behind 0/0、conflictなし、worktreeはrootのみ、local branchはmainのみ。

@@ -2069,3 +2069,37 @@ Book A執筆規範 (japanese-tech-writing + cognitive-rhythm-writing) をSESSION
 | 8 | 新規環境変数・API route・DB table/column/index/RLS/migration | 追加なし | 対象外: 変更なし | ✅ |
 
 ✅ 全件記録済。恒久仕様はdesign/manual、実装・検証・deploy履歴はこのdevelopment logへ分離した。
+
+---
+
+## 2026-07-26〜30 — D-7通知を「BZM追記」と「経営ノウハウ追加」に分離
+
+### 仕様と実装
+
+- D-7 (`l2_kind='textbook_insight'`) は、候補ごとに抽出器が `metadata_json.destination_kind` を必ず明示する。`practice_kind` は候補の型であり、保存先を画面側で推測しない。
+- `destination_kind='bzm_textbook'` は「BZM追記候補」。yesは候補を `approved` にするだけで、BZM本文の変更はlocal applierだけが行う。Vercel runtime・通知画面・iOSはgit管理BZMを直接編集しない。
+- `destination_kind='management_knowledge'` は「経営ノウハウ追加候補」。通知のyesで、本文、分類、成熟度、タグ、再利用する場面、次に確認することを `management_knowledge_entries` に重複なしで1件保存し、候補を `applied` にする。元の会議メモ、AMDプロトコル、BZM本文は変更しない。
+- PWAは `ms_progress_review_tool.mjs` のoutbox生成、`/api/notifications/feedback` の採用処理、`NotificationsClient.tsx` のカード表示、BZM local applierの保存先ガードを更新。schema migration 193で、経営ノウハウ候補の `target_bzm_slug` と `proposed_section` をNULL許可にした。iOSは同じ保存先表示・ボタン・採用結果と、判断カードの縦連続スクロールを実装した。
+
+### 既存候補の是正
+
+- 既存候補 `bfc4b8a8-5b3f-420a-b82c-0fc09663f410` を `management_knowledge` へ再分類した。BZM slug/sectionはNULL、分類はoperations、成熟度はhypothesis、タグは許認可・開業準備。通知は1件だけ残し、BZM本文は未変更、経営ノウハウ正本もまだ0件であることを確認した。
+- この候補は、まさが `経営ノウハウに追加` を選んだ時だけ正本へ1件保存される。自動反映や「確認結果だけを学習」はしない。
+
+### 説明ドリフトの修正と検証
+
+- `pwa/manual/3-3-notifications-and-tsukuyomi.md`、`pwa/design/notifications.md`、`pwa/design/L2_DATA.md` がBZM専用の旧説明を残していたため、BZM/経営ノウハウの保存先、保存項目、採用結果、iOSの連続スクロールを同期した。`pwa/BUGS.md` に症状・原因・再発防止を追加した。
+- 実装時の検証は `npm run test:textbook-destination-contract`、`npm run test:governance-candidate-gate`、`npm run test:critical-ui`、`npx tsc --noEmit`、`npm run build` が成功。iOSは実機へのinstall/launchを確認済み。今回の説明同期では `npm run test:textbook-destination-contract` と `npm run test:critical-ui` を再実行し、PWAの本番versionを `v3.51.23` へ上げてdeployする。
+
+### 設計変更棚卸し
+
+| # | 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|---|
+| 1 | D-7候補がBZMか経営ノウハウかを抽出器が明示し、`practice_kind`から保存先を推測しない | `pwa/spec/3-13-l2-textbook-insights-current-spec.md` / `pwa/design/L2_DATA.md` | `pwa/manual/3-3-notifications-and-tsukuyomi.md` | ✅ |
+| 2 | 経営ノウハウ採用は `管理 → 経営ノウハウ` へ本文と構造化情報を1件保存し、BZM/元資料は変更しない | `pwa/spec/3-7-notifications-current-spec.md` / `pwa/spec/3-13-l2-textbook-insights-current-spec.md` / `pwa/design/notifications.md` | `pwa/manual/3-3-notifications-and-tsukuyomi.md` | ✅ |
+| 3 | BZM候補はlocal applierだけが追記し、通知yesは承認状態へ進めるだけ | `pwa/spec/3-13-l2-textbook-insights-current-spec.md` / `pwa/design/L2_DATA.md` | `pwa/manual/3-3-notifications-and-tsukuyomi.md` | ✅ |
+| 4 | iOS判断キューは下スクロールで次カードを連続表示する | `ios/DESIGN.md` / `ios/HANDOFF_ios_to_android.md` | `pwa/manual/3-3-notifications-and-tsukuyomi.md` | ✅ |
+| 5 | D-7説明ドリフトの症状・原因・修正・再発防止 | `pwa/BUGS.md` | 対象外: バグ履歴。現行挙動は上記manualへ同期済み | ✅ |
+| 6 | DB migration 193 / feedback API / PWA/iOS UI /回帰検査 | `pwa/design/db_schema.md` / `pwa/spec/3-7-notifications-current-spec.md` / `ios/DESIGN.md` | 対象外: 実装詳細。利用者向け挙動は上記manualへ同期済み | ✅ |
+
+✅ 全件記録済。恒久仕様はspec/design/manual、実装と検証経緯はこのdevelopment logへ分離した。
