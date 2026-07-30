@@ -22,14 +22,32 @@ function rowFor(outcome, extraArgs = []) {
   return JSON.parse(result.stdout).row;
 }
 
-const updated = rowFor("updated");
-assert.equal(updated.title, "会議確認: 記録または予定を更新");
-assert.equal(updated.meta.outcome, "updated");
-assert.equal(updated.meta.notification_channel, "normal");
-assert.match(updated.body, /^H-1は、終わった会議の記録、議事録なしの再確認、前後24時間の予定カード、ノーション議事録のひも付けを整える定期確認だよ。/);
-assert.equal(updated.meta.action_contract.action_owner, "none");
-assert.equal(updated.meta.action_contract.why_now, "OSの記録または予定を更新したよ。内容を確認してね。");
-assert.equal(updated.link, "");
+// `updated` must never write app_notifications: no row/dry_run payload, just a skip ack.
+const updatedResult = runNotification(["--outcome", "updated"]);
+assert.equal(updatedResult.status, 0, updatedResult.stderr);
+const updatedPayload = JSON.parse(updatedResult.stdout);
+assert.equal(updatedPayload.ok, true);
+assert.equal(updatedPayload.action, "skipped_updated_outcome");
+assert.equal(updatedPayload.row, undefined);
+assert.equal(updatedPayload.dry_run, undefined);
+
+// `updated` must succeed even without the action-contract flags (never required for this outcome).
+const updatedWithoutActionContract = runNotification(["--outcome", "updated", "--run-key", "h1-notification-policy-updated-no-action"]);
+assert.equal(updatedWithoutActionContract.status, 0, updatedWithoutActionContract.stderr);
+assert.equal(JSON.parse(updatedWithoutActionContract.stdout).action, "skipped_updated_outcome");
+
+// `updated` must skip before any Supabase env is required — proves it never reaches the DB write path.
+const updatedWithoutSupabaseEnv = spawnSync(
+  process.execPath,
+  [helper, "--dry-run", "--run-key", "h1-notification-policy-no-env", "--body", "予定カードを更新した。", "--outcome", "updated"],
+  {
+    cwd: PWA_ROOT,
+    encoding: "utf8",
+    env: { PATH: process.env.PATH },
+  },
+);
+assert.equal(updatedWithoutSupabaseEnv.status, 0, updatedWithoutSupabaseEnv.stderr);
+assert.equal(JSON.parse(updatedWithoutSupabaseEnv.stdout).action, "skipped_updated_outcome");
 
 const reviewRequired = rowFor("review_required", [
   "--action-required", "確認して判断する",

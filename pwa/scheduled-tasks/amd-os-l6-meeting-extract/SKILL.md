@@ -59,10 +59,10 @@ H-1は「毎時すべての知識を読み直す」仕事ではない。開始�
 
 ## OS通知と Codex スレッド表示の扱い
 
-H-1 は毎時起動する。sanitized reportとautomation memoryは毎回残すが、まさの注意を使うOS通知 (`app_notifications`) は、会議の記録や予定に意味のある変化があった時だけ作る。日次まとめスレッドは控えの記録であり、H-1本体は作らない。
+H-1 は毎時起動する。sanitized reportとautomation memoryは毎回残すが、まさの判断や操作を必要とするOS通知 (`app_notifications`) は、まさが実際に確認・判断すべき時だけ作る。日次まとめスレッドは控えの記録であり、H-1本体は作らない。
 
-- OS通知を作るのは、会議記録・予定カード・ノーションひも付けを新規保存または更新した `updated`、人の判断が必要な `review_required`、必要な処理が止まった `blocked` のいずれかだけ。既存カードの確認だけ、候補なし、変更なしではOS通知を作らない。
-- 通知する場合は `cd /Users/masa/projects/AMD/amd-os/pwa && npm run notify:h1-report -- --outcome "<updated|review_required|blocked>" --run-key "<JST日時またはrun id>" --body-file <sanitized_report_file>` を使う。helperは結果区分なしの送信を拒否し、本文の最初へH-1の役割と今回見るべきことを加える。
+- OS通知を作るのは、人の判断が必要な `review_required`、必要な処理が止まった `blocked` のいずれかだけ。会議記録・予定カード・ノーションひも付けを新規保存または更新しただけ (`updated`) は、まさの判断や操作が不要なのでOS通知を作らない。既存カードの確認だけ、候補なし、変更なしでも同様にOS通知を作らない。`updated` を含むどの結果でも sanitized reportとautomation memoryへの保存は毎回必ず行う。
+- 通知する場合は `cd /Users/masa/projects/AMD/amd-os/pwa && npm run notify:h1-report -- --outcome "<review_required|blocked>" --run-key "<JST日時またはrun id>" --body-file <sanitized_report_file>` を使う。helperは結果区分なしの送信を拒否し、本文の最初へH-1の役割と今回見るべきことを加える。`--outcome updated` を渡しても helper はOS通知を書かず成功終了する（誤った旧呼び出し・将来の呼び出しからの実装ガード。呼び出し側の完了処理は失敗にならない）。
 - 通知の `kind` は `h1_report`、`source` は `h1_meeting_flow`、`link` は `/notifications`。raw議事録本文、Notion本文、個人情報、secret、Drive URL、Calendar URL、会議参加URLを本文に含めると helper が失敗するので、必ず報告文を作ってから渡す。
 - OS通知が必要な結果で送信に失敗した場合は成功扱いにしない。失敗理由を最終報告とautomation memoryに残す。対象なし・変更なしで通知しないことは失敗ではない。
 

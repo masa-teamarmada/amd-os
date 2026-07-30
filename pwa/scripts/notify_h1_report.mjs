@@ -44,6 +44,21 @@ async function main() {
 
   assertSanitized(report);
 
+  if (outcome === "updated") {
+    process.stdout.write(
+      `${JSON.stringify(
+        {
+          ok: true,
+          action: "skipped_updated_outcome",
+          reason: "updated outcome does not require まさ's judgement or action; app_notifications is not written. sanitized report and automation memory are still the caller's responsibility outside this script.",
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    return;
+  }
+
   const actionRequired = trimmedOrNull(args["action-required"]);
   const actionUrl = trimmedOrNull(args["action-url"]);
   const actionLabel = trimmedOrNull(args["action-label"]);
