@@ -49,34 +49,91 @@ const STAGE_LABEL: Record<string, string> = {
   executing: "実行中", on_hold: "保留",
 };
 
-const STAGE_ORDER = [
-  "candidate",
-  "information_exchange",
-  "meeting_coordination",
-  "condition_alignment",
-  "validation_preparation",
-  "agreement_confirmation",
-  "executing",
-] as const;
+type PartnerProgressStep = {
+  key: string;
+  phase: "done" | "now" | "next" | "goal";
+  title: string;
+  sub: string | null;
+};
 
-/** Stage rail — unchanged from the prior single-lane pipeline (spec 10: maintain the stage rail). */
-function PartnerStageRail({ stage }: { stage: string }) {
-  const currentIndex = STAGE_ORDER.indexOf(stage as (typeof STAGE_ORDER)[number]);
+/**
+ * 会社名下のrailと「進行状況」列が同じ件数・順序を使うための唯一のstep builder。
+ * 固定の関係段階数ではなく、その関係先に実在する接点・作業・現在地・ゴールを並べる。
+ */
+function buildPartnerProgressSteps(partner: SxManagementPartner): PartnerProgressStep[] {
+  const past = [...partner.interactions].sort((a, b) => {
+    const keyA = a.occurredOn ?? a.createdAt.slice(0, 10);
+    const keyB = b.occurredOn ?? b.createdAt.slice(0, 10);
+    return keyA.localeCompare(keyB) || a.createdAt.localeCompare(b.createdAt);
+  });
+  const pending = [...partner.workItems]
+    .filter((item) => item.status !== "completed" && item.status !== "cancelled")
+    .sort((a, b) => (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999"));
+  const workSideLabel = (side: string) => (side === "sx" ? "当方" : side === "partner" ? "先方" : side === "shared" ? "双方" : "担当未確認");
+  const ballSideLabel = sxBallSideLabel(partner.currentBallSide);
+  const ballOwner = partner.currentBallOwner ? sxNormalizePublicName(partner.currentBallOwner) : "担当未確認";
+  const isSxBall = partner.currentBallSide === "sx";
+  const nowDue = sxFormatDueDateWithPrecision(partner.dueDate, partner.dueDatePrecision);
+
+  return [
+    ...past.map((interaction) => ({
+      key: `interaction-${interaction.id}`,
+      phase: "done" as const,
+      title: sxNormalizePublicName(interaction.summary),
+      sub: `${sxInteractionKindLabel(interaction.interactionKind)}${interaction.occurredOn ? ` ・ ${sxFormatEventDateWithPrecision(interaction.occurredOn, interaction.occurredOnPrecision)}` : ""}`,
+    })),
+    {
+      key: "now",
+      phase: "now" as const,
+      title: isSxBall ? `当方ボール: ${ballOwner}` : `${ballSideLabel}ボール: ${ballOwner}`,
+      sub: `現在地 ・ ${nowDue === "期限未設定" ? nowDue : `期限 ${nowDue}`}`,
+    },
+    ...pending.map((item) => ({
+      key: `work-${item.id}`,
+      phase: "next" as const,
+      title: nominalizeSxNextActionLabel(sxNormalizePublicName(item.title)),
+      sub: `これから ・ ${workSideLabel(item.side)}${item.ownerLabel ? ` ${sxNormalizePublicName(item.ownerLabel)}` : ""}`,
+    })),
+    {
+      key: "next",
+      phase: "next" as const,
+      title: partner.nextCommitment ? nominalizeSxNextActionLabel(sxNormalizePublicName(partner.nextCommitment)) : "次の一手 未登録",
+      sub: "これから",
+    },
+    {
+      key: "goal",
+      phase: "goal" as const,
+      title: partner.targetState ? sxNormalizePublicName(partner.targetState) : "目標状態 未登録",
+      sub: "ゴール",
+    },
+  ];
+}
+
+/** 進行状況と同じstepsを、会社名下の省スペースなrailとして表示する。 */
+function PartnerStageRail({ partnerId, stage, steps }: { partnerId: string; stage: string; steps: readonly PartnerProgressStep[] }) {
   const onHold = stage === "on_hold";
   return (
-    <div role="img" aria-label={`関係段階 ${STAGE_LABEL[stage] || "未設定"}`}>
+    <div
+      role="img"
+      aria-label={`進行状況 ${steps.length}段階・関係段階 ${STAGE_LABEL[stage] || "未設定"}`}
+      data-testid={`sx-partner-stage-rail-${partnerId}`}
+      data-step-count={steps.length}
+    >
       <div className="flex items-center gap-0.5" aria-hidden="true">
-        {STAGE_ORDER.map((item, index) => (
+        {steps.map((step) => (
           <span
-            key={item}
+            key={step.key}
+            data-progress-segment={step.phase}
             className={`h-1.5 flex-1 rounded-full ${
               onHold
                 ? "bg-[#d6cebf]"
-                : index === currentIndex
+                : step.phase === "now"
                   ? "bg-[#315f7d]"
-                  : index < currentIndex
+                  : step.phase === "done"
                     ? "bg-[#b7c8d2]"
-                    : "bg-[#e8e2d6]"
+                    : step.phase === "goal"
+                      ? "bg-[#c9bfd0]"
+                      : "bg-[#e8e2d6]"
             }`}
           />
         ))}
@@ -239,7 +296,7 @@ const WARN_TONE = "border-[#e3c994] bg-[#fbf1dc] text-[#765022]";
  * （reviewed flagが無いデータなので、未整理か確認済み0件かは区別できない、spec P0-10）。 */
 function ControlBand({ counts }: { counts: SxControlBandCounts }) {
   return (
-    <div aria-label="関係先の一本化された管制帯">
+    <div role="group" aria-label="関係先の一本化された管制帯">
       <ControlBandRow heading="緊急" ariaLabel="緊急度の指標">
         <SxBadge tone={counts.blockedHoldings > 0 ? ALERT_TONE : NEUTRAL_TONE}>停止 {counts.blockedHoldings}件</SxBadge>
         <SxBadge tone={counts.overdue > 0 ? ALERT_TONE : NEUTRAL_TONE}>期限超過 {counts.overdue}件</SxBadge>
@@ -393,53 +450,6 @@ function HoldingRow({
   );
 }
 
-/** Shows the 2 highest-priority open holdings (blocked first, then day-precision overdue/due-soon,
- * then month precision, then unset — sxSortHoldingsByPriority) plus a "ほかN件" link into the partner's
- * full expanded detail, where every item — any side, any status — is readable regardless of role
- * (spec P0/P1: 先頭2件+ほかN件, blockedを先頭2件外へ隠さない, shared/unknownも同じ2件+ほかN件). */
-function HoldingsCell({
-  items,
-  emptyLabel,
-  partnerName,
-  today,
-  milestoneTitleById,
-  milestoneSlugById,
-  showSideBadge,
-  onShowMore,
-}: {
-  items: SxHoldingItem[];
-  emptyLabel: string;
-  partnerName: string;
-  today: string;
-  milestoneTitleById: ReadonlyMap<string, string>;
-  milestoneSlugById: ReadonlyMap<string, string>;
-  showSideBadge?: "shared" | "unknown";
-  onShowMore?: () => void;
-}) {
-  const sorted = sxSortHoldingsByPriority(items, today);
-  const priority = sorted.slice(0, 2);
-  const rest = sorted.length - priority.length;
-  return (
-    <div className="min-w-0">
-      {priority.length === 0 ? (
-        <p className="text-[10px] text-[#69665d]">{emptyLabel}</p>
-      ) : (
-        <ul>{priority.map((item) => <HoldingRow key={item.id} item={item} partnerName={partnerName} today={today} milestoneTitleById={milestoneTitleById} milestoneSlugById={milestoneSlugById} showSideBadge={showSideBadge} />)}</ul>
-      )}
-      {rest > 0 && onShowMore && (
-        <button
-          type="button"
-          onClick={onShowMore}
-          aria-label={`${partnerName}のほか${rest}件の保有事項を台帳の詳細で表示`}
-          className={`mt-1 inline-flex min-h-11 items-center rounded-md border border-[#cfc7b9] px-2 py-1.5 text-[10px] font-semibold text-[#514e47] hover:bg-[#f8f5ec] ${FOCUS_RING}`}
-        >
-          ほか{rest}件
-        </button>
-      )}
-    </div>
-  );
-}
-
 /** Dedicated ball-control cell — shows only who currently holds the ball, never a next-handoff
  * target (spec: 次の受け渡し先フィールドを撤去、現在ボールのみ表示). Used as the compact
  * middle-lane cell below xl, and, combined with the due date, inside BallAndDueCell at xl. */
@@ -496,7 +506,7 @@ export function SxPartnerPipeline({
   const milestoneTitleById = new Map(management.milestones.map((milestone) => [milestone.id, nominalizeSxActionLabel(milestone.title)]));
   const milestoneSlugById = new Map(management.milestones.map((milestone) => [milestone.id, milestone.slug]));
 
-  // 未接触のPoC候補先はこの台帳へ出さない。数十社を7列+履歴で並べると、ボールと約束を
+  // 未接触のPoC候補先はこの台帳へ出さない。数十社を進行管理行+履歴で並べると、ボールと約束を
   // 5秒で読むという台帳の役割が壊れるため、専用の「PoC候補先リスト」で数として見る
   // （2026-07-27 まさ指示。接触が始まった先は関係として、ここへ自動で戻ってくる）。
   const ledgerPartners = management.partners.filter((partner) => !sxIsUntouchedPocCandidate(partner));
@@ -513,7 +523,7 @@ export function SxPartnerPipeline({
   const counts = sxComputeControlBandCounts(ledgerPartners, management.asOf);
   const roleCounts = sxPrimaryRoleKindCounts(ledgerPartners);
 
-  const rowGridCols = "grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:grid-cols-[1fr_1fr] xl:grid-cols-[128px_minmax(130px,1fr)_minmax(130px,1fr)_120px_120px_108px_124px]";
+  const rowGridCols = "grid-cols-1 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] xl:grid-cols-[152px_minmax(0,2fr)_minmax(0,0.95fr)_118px_140px]";
   const rowGapCols = "gap-x-2 md:gap-x-3 xl:gap-x-2";
 
   const rowProps = {
@@ -538,17 +548,14 @@ export function SxPartnerPipeline({
   return (
     <div className="overflow-hidden rounded-lg border border-[#d6cebf] bg-[#fffdf7]" data-testid="sx-partner-pipeline">
       <div className="border-b border-[#e4ddd0] bg-[#f8f5ec] px-3 py-2">
-        <p className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">当方・先方の保有事項と現在ボールの二車線管制</p>
-        <h3 className="mt-0.5 text-sm font-semibold text-[#24231f]">誰が何を抱え、いつ何が届き、どのゲートが止まるか</h3>
+        <p className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">関係先ごとの進行・接点・現在ボールを一行で管制</p>
+        <h3 className="mt-0.5 text-sm font-semibold text-[#24231f]">どこまで進み、直近何が起き、次に誰が動くか</h3>
       </div>
       <ControlBand counts={counts} />
       <CategoryNav counts={roleCounts} activeKind={activeRoleKind} onSelect={setActiveRoleKind} />
 
       <div className={`hidden xl:grid ${rowGridCols} ${rowGapCols} border-b border-[#e4ddd0] bg-[#f8f5ec] px-3 py-1.5 text-[10px] font-semibold text-[#69665d]`}>
-        <span>関係先</span><span>当方の保有事項</span><span>先方の保有事項</span><span>次の一手</span><span>目標状態</span><span>現在ボール・期限</span><span>関連ゲート・証明</span>
-      </div>
-      <div className={`grid xl:hidden ${rowGridCols} ${rowGapCols} border-b border-[#e4ddd0] bg-[#f8f5ec] px-3 py-1.5 text-[10px] font-semibold text-[#69665d]`}>
-        <span>当方保有</span><span className="text-right">先方保有</span>
+        <span>関係先</span><span>進行状況</span><span>直近接点</span><span>現在ボール・期限</span><span>関連・操作</span>
       </div>
 
       {/* spec P1: role filter中に「対応中」groupがゼロでも保留/終了に絞り込み結果が残っていることが
@@ -609,73 +616,31 @@ export function SxPartnerPipeline({
 
 
 /**
- * 関係の流れ — これまで（確認済みのやり取り、古い順）→ 現在地（いまのボール）→ これから
- * （次の一手 → 目標状態）を一本の線で見せる。履歴の要約数十文字だけでは経緯が読めない、
- * ゴールまでの全体が見えたうえで現在地を知りたい、という2026-07-25のまさ要望に対応する。
- * データはやり取り履歴・現在ボール・次の一手・目標状態から決定的に並べ、未登録は未登録と示す。
+ * 進行状況 — これまで（確認済みの接点）→ 現在地（いまのボール）→ これから → ゴール。
+ * 会社名下のrailと同じstepsを受け取り、件数と順序がずれないようにする。
  */
-function PartnerJourneyFlow({ partner, displayName }: { partner: SxManagementPartner; displayName: string }) {
-  const past = [...partner.interactions].sort((a, b) => {
-    const keyA = a.occurredOn ?? a.createdAt.slice(0, 10);
-    const keyB = b.occurredOn ?? b.createdAt.slice(0, 10);
-    return keyA.localeCompare(keyB) || a.createdAt.localeCompare(b.createdAt);
-  });
-  const workSideLabel = (side: string) => (side === "sx" ? "当方" : side === "partner" ? "先方" : side === "shared" ? "双方" : "担当未確認");
-  const ballSideLabel = sxBallSideLabel(partner.currentBallSide);
-  const ballOwner = partner.currentBallOwner ? sxNormalizePublicName(partner.currentBallOwner) : "担当未確認";
+function PartnerProgressFlow({ partner, displayName, steps }: { partner: SxManagementPartner; displayName: string; steps: readonly PartnerProgressStep[] }) {
   const isSxBall = partner.currentBallSide === "sx";
-  const nowDue = sxFormatDueDateWithPrecision(partner.dueDate, partner.dueDatePrecision);
-  // 未完了の保有事項＝ゴールまでに通る作業。完了・中止は流れへ出さない（済んだ話を予定に見せない）。
-  const pendingSteps = [...partner.workItems]
-    .filter((item) => item.status !== "completed" && item.status !== "cancelled")
-    .sort((a, b) => (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999"));
   const nowTone = isSxBall
     ? "border-[#b5533f] bg-[#f9e4e1] text-[#8c3329]"
     : partner.currentBallSide === "partner"
       ? "border-[#d5bc82] bg-[#fbf1dc] text-[#765022]"
       : "border-[#b8b5c8] bg-[#f1f0f6] text-[#55506d]";
-  const steps: Array<{ key: string; phase: "done" | "now" | "next" | "goal"; title: string; sub: string | null }> = [
-    ...past.map((interaction) => ({
-      key: interaction.id,
-      phase: "done" as const,
-      title: sxNormalizePublicName(interaction.summary),
-      sub: `${sxInteractionKindLabel(interaction.interactionKind)}${interaction.occurredOn ? ` ・ ${sxFormatEventDateWithPrecision(interaction.occurredOn, interaction.occurredOnPrecision)}` : ""}`,
-    })),
-    {
-      key: "now",
-      phase: "now" as const,
-      title: isSxBall ? `当方ボール: ${ballOwner}` : `${ballSideLabel}ボール: ${ballOwner}`,
-      sub: `現在地 ・ ${nowDue === "期限未設定" ? nowDue : `期限 ${nowDue}`}`,
-    },
-    // 「これから」は次の一手だけでなく、未完了の保有事項（例: 出資確定の前提であるデューデリジェンス）も
-    // ゴールまでの通過点として並べる。発生した作業を台帳へ足せば、そのまま流れへ現れる
-    // （2026-07-27 まさ指示「デューデリジェンスが必要というのは分かっているので流れに入れて」）。
-    ...pendingSteps.map((item) => ({
-      key: `work-${item.id}`,
-      phase: "next" as const,
-      title: nominalizeSxNextActionLabel(sxNormalizePublicName(item.title)),
-      sub: `これから ・ ${workSideLabel(item.side)}${item.ownerLabel ? ` ${sxNormalizePublicName(item.ownerLabel)}` : ""}`,
-    })),
-    {
-      key: "next",
-      phase: "next" as const,
-      title: partner.nextCommitment ? nominalizeSxNextActionLabel(sxNormalizePublicName(partner.nextCommitment)) : "次の一手 未登録",
-      sub: "これから",
-    },
-    {
-      key: "goal",
-      phase: "goal" as const,
-      title: partner.targetState ? sxNormalizePublicName(partner.targetState) : "目標状態 未登録",
-      sub: "ゴール",
-    },
-  ];
   return (
-    <div className="border-t border-dashed border-[#e4ddd0] px-3 pb-2 pt-1.5" data-testid="sx-partner-journey">
-      <p className="text-[10px] font-semibold tracking-[0.1em] text-[#69665d]">関係の流れ（これまで → 現在地 → ゴール）</p>
-      <ol className="mt-1 flex items-stretch gap-0 overflow-x-auto pb-1" aria-label={`${displayName}の関係の流れ`}>
+    <div
+      className="min-w-0 overflow-hidden"
+      data-testid={`sx-partner-progress-${partner.id}`}
+      data-step-count={steps.length}
+    >
+      <p className="text-[10px] font-semibold tracking-[0.1em] text-[#69665d] xl:hidden">進行状況</p>
+      <ol
+        tabIndex={0}
+        className={`mt-1 flex items-stretch gap-0 overflow-x-auto pb-1 xl:mt-0 ${FOCUS_RING}`}
+        aria-label={`${displayName}の進行状況`}
+      >
         {steps.map((step, index) => (
-          <li key={step.key} className="flex min-w-0 items-stretch">
-            <div className={`flex w-[150px] min-w-[130px] flex-col gap-0.5 rounded-md border px-2 py-1 ${step.phase === "done" ? "border-[#c9d9cf] bg-[#f1f6f2] text-[#205f49]" : step.phase === "now" ? `border-2 ${nowTone}` : step.phase === "goal" ? "border-[#c9bfd0] bg-[#f6f3f8] text-[#5f4a66]" : "border-dashed border-[#cfc7b9] bg-[#fffdf7] text-[#514e47]"}`}>
+          <li key={step.key} data-progress-step={step.phase} className="flex min-w-0 items-stretch">
+            <div className={`flex w-[138px] min-w-[124px] flex-col gap-0.5 rounded-md border px-2 py-1 ${step.phase === "done" ? "border-[#c9d9cf] bg-[#f1f6f2] text-[#205f49]" : step.phase === "now" ? `border-2 ${nowTone}` : step.phase === "goal" ? "border-[#c9bfd0] bg-[#f6f3f8] text-[#5f4a66]" : "border-dashed border-[#cfc7b9] bg-[#fffdf7] text-[#514e47]"}`}>
               <span className="flex items-center gap-1 text-[10px] font-semibold tracking-wide">
                 {step.phase === "done" && <CircleCheck className="h-3 w-3 shrink-0" aria-hidden="true" />}
                 {step.phase === "now" && <CircleDot className="h-3 w-3 shrink-0" aria-hidden="true" />}
@@ -699,27 +664,29 @@ const INTERACTION_DIRECTION_LABEL: Record<SxActorSide, string> = {
   unknown: "方向未確認",
 };
 
-/** Compact ruled strip surfacing the single latest interaction so the relationship row's headline
- * contact state doesn't require opening 詳細/InteractionTimeline (spec: public-safe fields only —
- * never raw body/email/source_ref/URL, mirroring InteractionTimeline/InteractionRow's own sanitization). */
-function SxLatestContactStrip({ partner }: { partner: SxManagementPartner }) {
+/** 直近接点を同じ関係先rowの1 cellに表示する。public-safe fieldsだけを使う。 */
+function SxLatestContactCell({ partner }: { partner: SxManagementPartner }) {
   const latest = sxLatestInteraction(partner.interactions);
-  if (!latest) return null;
+  if (!latest) {
+    return (
+      <div data-testid={`sx-partner-latest-contact-${partner.id}`} className="min-w-0 text-[10px] leading-4 text-[#69665d]">
+        <p className="font-semibold tracking-[0.08em]">直近接点</p>
+        <p className="mt-1">接点未登録</p>
+      </div>
+    );
+  }
   const ballAfterText = `${sxBallSideLabel(latest.ballSideAfter)}${latest.ballOwnerAfter ? `・${sxNormalizePublicName(latest.ballOwnerAfter)}` : ""}`;
   const currentBallText = `${sxBallSideLabel(partner.currentBallSide)}${partner.currentBallOwner ? `・${sxNormalizePublicName(partner.currentBallOwner)}` : ""}`;
   const summaryText = sxNormalizePublicName(latest.summary);
   const outcomeText = latest.outcomeSummary ? sxNormalizePublicName(latest.outcomeSummary) : null;
-  const nextCommitmentText = partner.nextCommitment ? nominalizeSxNextActionLabel(sxNormalizePublicName(partner.nextCommitment)) : "未設定";
   return (
-    <div data-testid={`sx-partner-latest-contact-${partner.id}`} className="border-t border-[#eee9df] bg-[#faf8f3] px-3 py-1.5 text-[10px] leading-4 text-[#514e47]">
+    <div data-testid={`sx-partner-latest-contact-${partner.id}`} className="min-w-0 text-[10px] leading-4 text-[#514e47]">
       <p className="font-semibold tracking-[0.08em] text-[#69665d]">直近接点</p>
       <p className="mt-0.5">
         {sxFormatEventDateWithPrecision(latest.occurredOn, latest.occurredOnPrecision)} ・ {sxInteractionKindLabel(latest.interactionKind)} ・ {INTERACTION_DIRECTION_LABEL[latest.actorSide]}
       </p>
-      <p className="mt-0.5 truncate text-[#24231f]" title={summaryText}>{summaryText}</p>
-      <p className="mt-0.5 truncate" title={`${outcomeText ? `結果: ${outcomeText}` : "結果未確認"} ・ 次の一手: ${nextCommitmentText}`}>
-        {outcomeText ? `結果: ${outcomeText}` : "結果未確認"} ・ 次の一手: {nextCommitmentText}
-      </p>
+      <p className="mt-0.5 line-clamp-2 text-[#24231f]" title={summaryText}>{summaryText}</p>
+      <p className="mt-0.5 line-clamp-2" title={outcomeText ? `結果: ${outcomeText}` : "結果未確認"}>{outcomeText ? `結果: ${outcomeText}` : "結果未確認"}</p>
       <p className="mt-0.5">ボール(接点後) {ballAfterText} ・ 現在ボール {currentBallText}</p>
     </div>
   );
@@ -766,10 +733,7 @@ function PartnerRow({
 }) {
   const display = sxPartnerDisplay(partner);
   const holdings = sxHoldingsForPartner(partner);
-  const sxHoldings = holdings.filter((item) => item.side === "sx");
-  const partnerHoldings = holdings.filter((item) => item.side === "partner");
-  const sharedHoldings = holdings.filter((item) => item.side === "shared");
-  const unknownHoldings = holdings.filter((item) => item.side === "unknown");
+  const progressSteps = buildPartnerProgressSteps(partner);
   const primaryRole = partner.roles.find((role) => role.isPrimary) || null;
   const primaryRoleKind = primaryRole?.roleKind || "unclassified";
   const primaryRoleState = primaryRole?.relationshipState || "unconfirmed";
@@ -785,7 +749,7 @@ function PartnerRow({
   return (
     <article id={`sx-partner-${partner.id}`} data-sx-anchor={`sx-partner-${partner.id}`} tabIndex={-1} aria-labelledby={nameHeadingId} className={`scroll-mt-24 border-b border-[#eee9df] ${deferred ? "border-l-4 border-l-[#c9bfd0] bg-[#f8f5ec]" : partner.currentBallSide === "sx" ? "border-l-4 border-l-[#b5533f] bg-[#fdf6f4]" : ""}`}>
       <div className={`grid ${rowGridCols} ${rowGapCols} gap-y-2 px-3 py-2.5 text-[11px] leading-4`}>
-        <div className="col-span-2 col-start-1 row-start-1 min-w-0 xl:col-span-1 xl:col-start-1 xl:row-start-1">
+        <div className="col-start-1 row-start-1 min-w-0 md:col-span-2 xl:col-span-1 xl:col-start-1 xl:row-start-1">
           <div className="flex flex-wrap items-center gap-1">
             <p id={nameHeadingId} className="truncate font-semibold text-[#24231f]">{display.name}</p>
             {/* spec P1: partner/group sortもblocked partner最優先。並び替えだけでは画面から気付けない
@@ -807,65 +771,18 @@ function PartnerRow({
               {secondaryRoles.map((role) => <SxBadge key={role.id} tone="border-[#d6cebf] bg-[#f8f5ec] text-[#69665d]">{sxPartnerRoleKindLabel(role.roleKind)}</SxBadge>)}
             </div>
           )}
-          <div className="mt-1.5"><PartnerStageRail stage={partner.relationshipStage} /></div>
-          {canManage && (
-            <div className="mt-1.5 flex flex-wrap gap-1">
-              {onEditPartner && (
-                <button type="button" onClick={() => onEditPartner(partner.id)} aria-label={`${display.name}を編集`} className={`inline-flex min-h-11 items-center gap-1 rounded-md border border-[#cfc7b9] px-2 py-1.5 text-[10px] font-semibold text-[#514e47] hover:bg-[#f8f5ec] ${FOCUS_RING}`}>
-                  <Pencil className="h-3 w-3" aria-hidden="true" />編集
-                </button>
-              )}
-              {onAddRole && (
-                <button type="button" onClick={() => onAddRole(partner.id)} aria-label={`${display.name}に分類を追加`} className={`inline-flex min-h-11 items-center gap-1 rounded-md border border-[#cfc7b9] px-2 py-1.5 text-[10px] font-semibold text-[#514e47] hover:bg-[#f8f5ec] ${FOCUS_RING}`}>
-                  <Plus className="h-3 w-3" aria-hidden="true" />分類を追加
-                </button>
-              )}
-            </div>
-          )}
+          <div className="mt-1.5"><PartnerStageRail partnerId={partner.id} stage={partner.relationshipStage} steps={progressSteps} /></div>
         </div>
 
-        <div className="row-start-2 col-start-1 xl:col-start-2 xl:row-start-1">
-          <HoldingsCell items={sxHoldings} emptyLabel="当方保有 台帳0件（未整理/確認済み0件は未区別）" partnerName={display.name} today={today} milestoneTitleById={milestoneTitleById} milestoneSlugById={milestoneSlugById} onShowMore={() => onToggleExpand(partner.id)} />
-          {/* compact icon-only (spec P1: 管理者add holdingボタンは初期行高を押し上げないようcompact
-              にする) — a min-h-11 text button here used to add ~44px to every row's natural height
-              for canManage users; a small icon button keeps the initial row height driven by the
-              holdings content, not by this affordance. The 24px visual box stays compact, but the
-              hit target is still expanded to 44px via an absolutely-positioned ::before that extends
-              10px past every edge (24px + 10px*2 = 44px) — a real h-11 w-11 button here would defeat
-              the whole point of keeping row density down (spec P1: 保有事項追加のhit targetは44pxだが
-              視覚サイズは初期行密度を壊さない). */}
-          {canManage && onAddWorkItem && (
-            <button type="button" onClick={() => onAddWorkItem(partner.id, "sx")} aria-label={`${display.name}の当方保有事項を追加`} title="保有事項を追加" className={`relative mt-1 inline-flex h-6 w-6 items-center justify-center rounded-md border border-[#cfc7b9] text-[#514e47] before:absolute before:inset-[-10px] before:content-[''] hover:bg-[#f8f5ec] ${FOCUS_RING}`}>
-              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
-          )}
+        <div className="col-start-1 row-start-2 min-w-0 md:col-span-2 xl:col-span-1 xl:col-start-2 xl:row-start-1">
+          <PartnerProgressFlow partner={partner} displayName={display.name} steps={progressSteps} />
         </div>
 
-        <div className="row-start-2 col-start-2 xl:col-start-3 xl:row-start-1">
-          <HoldingsCell items={partnerHoldings} emptyLabel="先方保有 台帳0件（未整理/確認済み0件は未区別）" partnerName={display.name} today={today} milestoneTitleById={milestoneTitleById} milestoneSlugById={milestoneSlugById} onShowMore={() => onToggleExpand(partner.id)} />
-          {canManage && onAddWorkItem && (
-            <button type="button" onClick={() => onAddWorkItem(partner.id, "partner")} aria-label={`${display.name}の先方保有事項を追加`} title="保有事項を追加" className={`relative mt-1 inline-flex h-6 w-6 items-center justify-center rounded-md border border-[#cfc7b9] text-[#514e47] before:absolute before:inset-[-10px] before:content-[''] hover:bg-[#f8f5ec] ${FOCUS_RING}`}>
-              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
-          )}
+        <div className="col-start-1 row-start-3 min-w-0 md:col-span-1 md:row-start-3 xl:col-start-3 xl:row-start-1">
+          <SxLatestContactCell partner={partner} />
         </div>
 
-        {/* 次の一手 and 目標状態 are always distinct labeled blocks, never combined into one cell/
-            sentence (spec 3/5). nextCommitment is action-bearing text so it's nominalized; targetState
-            is an explanatory end-state description and is left as-is (spec 6). */}
-        <div className="col-span-2 col-start-1 row-start-3 min-w-0 xl:col-span-1 xl:col-start-4 xl:row-start-1">
-          <p className="text-[10px] font-semibold tracking-[0.08em] text-[#69665d]">次の一手</p>
-          <p className="mt-0.5 line-clamp-3 text-[10px] leading-4 text-[#24231f]">{partner.nextCommitment ? nominalizeSxNextActionLabel(sxNormalizePublicName(partner.nextCommitment)) : "未設定"}</p>
-        </div>
-
-        <div className="col-span-2 col-start-1 row-start-4 min-w-0 xl:col-span-1 xl:col-start-5 xl:row-start-1">
-          <p className="text-[10px] font-semibold tracking-[0.08em] text-[#69665d]">目標状態</p>
-          <p className="mt-0.5 line-clamp-3 text-[10px] leading-4 text-[#69665d]">{partner.targetState ? sxNormalizePublicName(partner.targetState) : "未登録"}</p>
-        </div>
-
-        {/* 現在ボール・期限 — its own labeled block/column (spec 3/5), distinct from 次の一手/目標状態.
-            xl replaces the mobile lane's compact BallCell with this combined ball+due presentation. */}
-        <div className="col-span-2 col-start-1 row-start-5 min-w-0 xl:col-span-1 xl:col-start-6 xl:row-start-1">
+        <div className="col-start-1 row-start-4 min-w-0 md:col-start-2 md:row-start-3 xl:col-start-4 xl:row-start-1">
           <p className="text-[10px] font-semibold tracking-[0.08em] text-[#69665d] xl:hidden">現在ボール・期限</p>
           <div className="mt-0.5 xl:mt-0">
             <BallAndDueCell partner={partner} earliestHoldingDue={earliestHoldingDue} />
@@ -873,42 +790,53 @@ function PartnerRow({
           <p className="mt-1 text-[10px] text-[#69665d]">最終接点 {sxFormatDate(partner.lastContactDate)}</p>
         </div>
 
-        <div className="col-span-2 col-start-1 row-start-6 min-w-0 xl:col-span-1 xl:col-start-7 xl:row-start-1">
+        <div className="col-start-1 row-start-5 min-w-0 md:col-span-2 md:row-start-4 xl:col-span-1 xl:col-start-5 xl:row-start-1">
+          <p className="text-[10px] font-semibold tracking-[0.08em] text-[#69665d] xl:hidden">関連・操作</p>
           <p className="line-clamp-2 text-[10px] text-[#69665d]">関連ゲート: {milestoneTitles.length > 0 ? milestoneTitles.join(" / ") : "未接続"}</p>
           <p className="mt-1 line-clamp-2 text-[10px] text-[#315f7d]">寄与する証明: {proofLabels.length > 0 ? proofLabels.join(" / ") : "未接続"}</p>
-          <button
-            type="button"
-            aria-expanded={expanded}
-            aria-controls={`sx-partner-history-${partner.id}`}
-            aria-label={`${display.name}の保有事項・やり取り履歴の全文を${expanded ? "閉じる" : "開く"}`}
-            onClick={() => onToggleExpand(partner.id)}
-            className={`mt-1 inline-flex min-h-11 items-center gap-1 rounded-md border border-[#cfc7b9] px-2 py-1.5 text-[10px] font-semibold text-[#315f7d] hover:bg-[#eef3f5] ${FOCUS_RING}`}
-          >
-            詳細 {expanded ? "▾" : "▸"}
-          </button>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {canManage && onEditPartner && (
+              <button type="button" onClick={() => onEditPartner(partner.id)} aria-label={`${display.name}を編集`} className={`inline-flex min-h-11 items-center gap-1 rounded-md border border-[#cfc7b9] px-2 py-1.5 text-[10px] font-semibold text-[#514e47] hover:bg-[#f8f5ec] ${FOCUS_RING}`}>
+                <Pencil className="h-3 w-3" aria-hidden="true" />編集
+              </button>
+            )}
+            {canManage && onAddRole && (
+              <button type="button" onClick={() => onAddRole(partner.id)} aria-label={`${display.name}に分類を追加`} className={`inline-flex min-h-11 items-center gap-1 rounded-md border border-[#cfc7b9] px-2 py-1.5 text-[10px] font-semibold text-[#514e47] hover:bg-[#f8f5ec] ${FOCUS_RING}`}>
+                <Plus className="h-3 w-3" aria-hidden="true" />分類
+              </button>
+            )}
+            <button
+              type="button"
+              aria-expanded={expanded}
+              aria-controls={`sx-partner-history-${partner.id}`}
+              aria-label={`${display.name}の保有事項・やり取り履歴の全文を${expanded ? "閉じる" : "開く"}`}
+              onClick={() => onToggleExpand(partner.id)}
+              className={`inline-flex min-h-11 items-center gap-1 rounded-md border border-[#cfc7b9] px-2 py-1.5 text-[10px] font-semibold text-[#315f7d] hover:bg-[#eef3f5] ${FOCUS_RING}`}
+            >
+              詳細 {expanded ? "▾" : "▸"}
+            </button>
+          </div>
         </div>
       </div>
-
-      <SxLatestContactStrip partner={partner} />
-
-      <PartnerJourneyFlow partner={partner} displayName={display.name} />
-
-      {/* shared/unknown も他レーンと同じ「2件+ほかN件」に揃える（spec P1: shared/unknown保有も2件+
-          ほかN件、残りは詳細で見える） — 残りは下の「台帳の詳細・編集」の全件監査リストで読める。 */}
-      {sharedHoldings.length > 0 && (
-        <div className="border-t border-[#eee9df] bg-[#f1edf3]/40 px-3 py-1.5">
-          <HoldingsCell items={sharedHoldings} emptyLabel="" partnerName={display.name} today={today} milestoneTitleById={milestoneTitleById} milestoneSlugById={milestoneSlugById} showSideBadge="shared" onShowMore={() => onToggleExpand(partner.id)} />
-        </div>
-      )}
-      {unknownHoldings.length > 0 && (
-        <div className="border-t border-[#eee9df] bg-[#eeedf4]/40 px-3 py-1.5">
-          <HoldingsCell items={unknownHoldings} emptyLabel="" partnerName={display.name} today={today} milestoneTitleById={milestoneTitleById} milestoneSlugById={milestoneSlugById} showSideBadge="unknown" onShowMore={() => onToggleExpand(partner.id)} />
-        </div>
-      )}
 
       {expanded && (
         <div className="px-3 pb-3">
           <InteractionTimeline partner={partner} canManage={canManage} onAddInteraction={onAddInteraction} onEditInteraction={onEditInteraction} />
+          {canManage && onAddWorkItem && (
+            <div className="mt-2 flex flex-wrap gap-1" aria-label={`${display.name}の保有事項を追加`}>
+              {(["sx", "partner", "shared", "unknown"] as const).map((side) => (
+                <button
+                  key={side}
+                  type="button"
+                  onClick={() => onAddWorkItem(partner.id, side)}
+                  className={`inline-flex min-h-11 items-center gap-1 rounded-md border border-[#cfc7b9] px-2 py-1.5 text-[10px] font-semibold text-[#514e47] hover:bg-[#f8f5ec] ${FOCUS_RING}`}
+                >
+                  <Plus className="h-3 w-3" aria-hidden="true" />
+                  {side === "sx" ? "当方" : side === "partner" ? "先方" : side === "shared" ? "双方" : "担当未確認"}の保有事項
+                </button>
+              ))}
+            </div>
+          )}
           {/* spec P0-3: 台帳のdetailsのopenを外し、履歴直後は閉じた44px summaryのみ。詳細はユーザー
               操作で開く。履歴本体にroundedカードを戻さない（このdetails内の分類/保有事項/約束カード
               のスタイルはそのまま維持）。 */}

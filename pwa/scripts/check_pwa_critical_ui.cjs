@@ -620,20 +620,23 @@ expectIncludes("src/components/project-workspace/SxProofOutcomes.tsx", [
 expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "sx-partner-pipeline",
   "sxPartnerDisplay",
-  // 2026-07-25 関係の流れ + 当方ボール強調: これまで→現在地→ゴールの一本線（sx-partner-journey）と、
-  // 当方（SX）ボール行の行頭バッジ・赤左罫・並び順tier(blocked>sxボール>他)。
-  "PartnerJourneyFlow",
-  "sx-partner-journey",
-  "関係の流れ（これまで → 現在地 → ゴール）",
+  // 2026-07-30 1社1行: 進行状況と会社名下railは同じdynamic stepsを共有し、固定段階数を持たない。
+  "buildPartnerProgressSteps",
+  "PartnerProgressFlow",
+  "sx-partner-progress-",
+  "sx-partner-stage-rail-",
+  "data-step-count={steps.length}",
+  "data-progress-segment",
+  "data-progress-step",
+  "進行状況",
   "当方ボール",
   // Round 22: 未接触のPoC候補先(数十社)は台帳へ流し込まず、専用ボードで数として見る。
   // この除外が外れると、ボールと約束を5秒で読む台帳の役割が壊れる。
   "sxIsUntouchedPocCandidate",
   "ledgerPartners",
   "sx-partner-poc-pointer",
-  // Round 23: 履歴の省略表示は流れが担うので7列目から外す。未完了の保有事項は流れの「これから」へ。
-  "関連ゲート・証明",
-  "pendingSteps",
+  // 未完了の保有事項は進行状況の「これから」へ。
+  ".filter((item) => item.status !== \"completed\" && item.status !== \"cancelled\")",
   'border-l-[#b5533f]',
   // 2026-07-24: 外部PJメンバーにも見えるSX関係先台帳で内部コードネーム(まさ/かる/ちこ)を
   // そのまま出さないための表示専用正規化。この import が落ちると本文/担当/ボール等に
@@ -678,15 +681,12 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "終了（対応中から除外",
   "aria-labelledby={nameHeadingId}",
   "aria-pressed",
-  // spec (2026-07-24 二車線化): 関係先リストの desktop 列は 関係先/当方の保有事項/先方の保有事項/
-  // 次の一手/目標状態/現在ボール・期限/やり取り履歴 の7列固定。tablet/mobile は当方/先方の二車線。
-  "grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:grid-cols-[1fr_1fr] xl:grid-cols-[128px_minmax(130px,1fr)_minmax(130px,1fr)_120px_120px_108px_124px]",
+  // spec (2026-07-30 1社1行): desktopは関係先/進行状況/直近接点/現在ボール・期限/関連・操作の5列。
+  "grid-cols-1 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] xl:grid-cols-[152px_minmax(0,2fr)_minmax(0,0.95fr)_118px_140px]",
   "関係先",
-  "当方の保有事項",
-  "先方の保有事項",
-  "次の一手",
-  "目標状態",
+  "直近接点",
   "現在ボール・期限",
+  "関連・操作",
   // spec P0-1/2 (2026-07-24, 4th audit round): InteractionRow mobile grid + timeline header grid.
   "grid-cols-[56px_minmax(0,1fr)_64px_44px]",
   "md:grid-cols-[56px_68px_minmax(130px,1fr)_64px_44px]",
@@ -698,8 +698,7 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "SCROLL_HINT_CLASS",
   "ALWAYS_SCROLL_HINT_CLASS",
   "border-l-4 border-[#e4ddd0] border-l-[#38745d]",
-  // spec P0-10: 未整理/確認済みが未区別なことを隠さない台帳0件表現、登録率(対応中N先中)。
-  "台帳0件（未整理/確認済み0件は未区別）",
+  // spec P0-10: 登録率(対応中N先中)。
   "登録率",
   // spec P1-8: blocked partner最優先の可視化。
   "停止",
@@ -711,8 +710,8 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   // spec P1: InteractionRow read-onlyでは空の編集44px列を確保しない、管理者だけ末尾44px。
   "gridColsClass",
   "grid-cols-[56px_minmax(0,1fr)_64px] md:grid-cols-[56px_68px_minmax(130px,1fr)_64px]",
-  // spec P1: 保有事項追加のhit targetは44px（視覚は初期行密度を壊さないcompactのまま、before:inset[-10px]で拡張）。
-  "before:absolute before:inset-[-10px] before:content-['']",
+  // 保有事項追加は展開詳細へ寄せ、全sideの44px操作を維持する。
+  '(["sx", "partner", "shared", "unknown"] as const)',
   // spec P1: 一次根拠(sourceEvidence)と完了の証拠(completionEvidence)を混同しない。
   "sourceEvidence",
   "一次根拠",
@@ -2633,7 +2632,7 @@ expectIncludes("../ios/AMDOS/Core/Services/SupabaseService.swift", [
 console.log("critical PWA UI anchors ok");
 
 // Round 23 (2026-07-30): 関係先リストは1面に統合。メール専用の別リストは廃止し、
-// 各行の直近接点ストリップに一本化。生の本文・アドレス・URLはDOMに出さない。
+// 直近接点は各社のmain grid内のcolumnに一本化。生の本文・アドレス・URLはDOMに出さない。
 expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
   'href="#partner-ledger"',
   '<SxPartnerPipeline management={management} />',
@@ -2644,12 +2643,17 @@ expectNotIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx
 ]);
 expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "sxLatestInteraction",
-  "SxLatestContactStrip",
+  "SxLatestContactCell",
   "sx-partner-latest-contact-",
   "sxNormalizePublicName",
 ]);
 expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "dangerouslySetInnerHTML",
+  "SxLatestContactStrip",
+  "PartnerJourneyFlow",
+  "sx-partner-journey",
+  "関係の流れ（これまで → 現在地 → ゴール）",
+  '<span>関係先</span><span>当方の保有事項</span><span>先方の保有事項</span><span>次の一手</span><span>目標状態</span>',
 ]);
 expectIncludes("scripts/migrations/201_sx_poc_email_interactions.sql", [
   "interaction_kind",
