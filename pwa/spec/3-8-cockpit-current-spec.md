@@ -392,3 +392,10 @@ Kanban の詳細 state machine、Meeting detail modal の attachment mutation、
 - **PoC候補先リストはカードグリッドを廃止し、罫線区切りの表/リストにした**（`SxPocCandidateBoard`→`SxPocCandidateList`、`deriveSxPocBoard`→`deriveSxPocList`）。desktop/tabletは列（候補先/現在地/最終接点/次の一手/ボール・担当/編集）を持つ表、mobileは同じ内容を2段に再配置。段の並び順（調達済→合意済→相談中→未接触）と、未接触段階の初期表示件数を絞る挙動・「すべて表示」導線は維持する。
 - weekly-control (`/project/[projectId]/weekly-control`) と workspace (`/project/[projectId]/workspace`) の両画面で同じ `SxPartnerPipeline` / `SxPocCandidateList` を使うため、この変更は両方に反映される。
 - 維持する不変条件: 完了の主張（濃い塗り）は登録された進捗からしか出さない。計画期間を均一な単色で塗って完了に見せることはしない。凡例に「すべて薄いのは進捗未登録のため」を明記する。
+
+#### 2026-07-30 追補7（v3.51.27）: PoCは進捗groupではなく横断属性
+
+- 追補6の独立`SxPocCandidateList`はv3.51.26で削除済み。さらにv3.51.27では、同じ台帳内に残っていたPoC専用の「調達済 / 合意済・取得前 / 相談中 / 未接触」groupと未接触展開を廃止する。
+- 候補・接触済み・調達済みを含む表示名は`PoC先`、各行badgeは`PoC`。PoCかどうかは横断属性であり、関係の現在地や進捗段階の代わりにしない。
+- PoC先も全関係先と同じ`role_kind × relationship_state`groupと、停止→当方ボール→表示期限の共通sortを使う。`表示`のPoC filterと`役割`filterは独立し、ANDで同時選択できる。
+- 母数帯のPoC固有表示は`PoC先 N件`だけ。未接触PoC先を実行中の緊急・ボール件数から除く契約は維持する。

@@ -1181,7 +1181,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
             headingId="partners-heading"
             kicker="関係先管理"
             title="関係先リスト"
-            description="PoC候補を含む全関係先を一つの台帳で管理する。役割別にもPoC候補だけにも絞り込み、進行状況・直近接点・現在ボールを同じ行で比較できる。"
+            description="PoC先を含む全関係先を一つの台帳で管理する。PoC属性と役割を組み合わせて絞り込み、進行状況・直近接点・現在ボールを同じ行で比較できる。"
             action={<EditAction canManage={management.canManage} label="PoC候補を追加" onClick={() => setCreating({ resource: "partner", initialValues: { role_label: "PoC候補先（排液提供）", primary_track: "business_development", relationship_stage: "candidate" } })} />}
           />
           <SxPartnerPipeline

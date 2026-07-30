@@ -630,15 +630,17 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "data-progress-step",
   "進行状況",
   "当方ボール",
-  // Round 25: PoC候補も同じ関係先台帳へ統合し、候補filterと段階groupで読む。
-  // 未接触候補は母数には含めるが、実行中の緊急・ボール集計からだけ除外する。
-  "deriveSxPocList",
-  "sxIsPocCandidate",
-  "sxIsUntouchedPocCandidate",
+  // Round 26: PoCは専用進捗laneではなく横断属性。同じrole x relationship groupへ通し、
+  // PoC属性filterとrole filterを独立した2軸としてANDで組み合わせる。
+  "sxIsPocPartner",
+  "sxIsUncontactedPocPartner",
   "operationalPartners",
   "sx-partner-filter-poc",
-  "sx-partner-poc-group-",
-  "sx-partner-poc-expand",
+  "PoC先",
+  'heading="表示"',
+  'heading="役割"',
+  "filterablePartners",
+  "sxGroupPartnersByPrimaryClassification(filterablePartners)",
   // 未完了の保有事項は進行状況の「これから」へ。
   ".filter((item) => item.status !== \"completed\" && item.status !== \"cancelled\")",
   'border-l-[#b5533f]',
@@ -650,7 +652,7 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "保留・低優先（重要経路外・",
   "当方保有",
   "先方保有",
-  "分類別件数ナビ",
+  "関係先の絞り込み",
   "分類は虹色にしない",
   "共同",
   "行為主体未確認",
@@ -2661,6 +2663,13 @@ expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "sx-partner-journey",
   "関係の流れ（これまで → 現在地 → ゴール）",
   '<span>関係先</span><span>当方の保有事項</span><span>先方の保有事項</span><span>次の一手</span><span>目標状態</span>',
+  "deriveSxPocList",
+  "sxPocStageLabel",
+  "sx-partner-poc-group-",
+  "sx-partner-poc-expand",
+  "PoC候補・",
+  "setPocOnly(false);\n          setActiveRoleKind(kind);",
+  "setActiveRoleKind(null);\n          setPocOnly((current) => !current);",
 ]);
 expectIncludes("scripts/migrations/201_sx_poc_email_interactions.sql", [
   "interaction_kind",
@@ -2677,13 +2686,16 @@ expectIncludes("src/lib/sx-partner-holdings.ts", [
 // Round 25 (2026-07-30): PoC候補先を独立一覧から関係先台帳へ統合する。
 expectFileMissing("src/components/project-workspace/SxPocCandidateList.tsx");
 expectIncludes("src/lib/sx-poc-candidates.ts", [
-  "sxIsPocCandidate",
-  "sxIsUntouchedPocCandidate",
-  "sxPocStageOf",
-  "sxPocStageLabel",
-  "deriveSxPocList",
+  "sxIsPocPartner",
+  "sxIsUncontactedPocPartner",
   "SX_POC_ROLE_PREFIX",
   "roleLabel.startsWith",
+]);
+expectNotIncludes("src/lib/sx-poc-candidates.ts", [
+  "deriveSxPocList",
+  "sxPocStageOf",
+  "sxPocStageLabel",
+  "SX_POC_STAGE_ORDER",
 ]);
 expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
   'id="management-partners"',

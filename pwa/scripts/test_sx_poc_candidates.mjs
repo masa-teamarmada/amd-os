@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
-  deriveSxPocList,
-  sxIsPocCandidate,
-  sxIsUntouchedPocCandidate,
-  sxPocStageLabel,
+  sxIsPocPartner,
+  sxIsUncontactedPocPartner,
 } from "../src/lib/sx-poc-candidates.ts";
 
 const base = {
@@ -15,37 +14,29 @@ const base = {
 };
 const untouched = { ...base, id: "1", name: "候補A", roleLabel: "PoC候補先（排液提供）", relationshipStage: "candidate" };
 const talking = { ...base, id: "2", name: "接触B", roleLabel: "PoC接触先（排液提供）", relationshipStage: "information_exchange" };
-const agreed = { ...base, id: "3", name: "合意C", roleLabel: "PoC接触先（排液提供）", relationshipStage: "condition_alignment" };
 const secured = { ...base, id: "4", name: "調達D", roleLabel: "PoC接触先（排液提供）", relationshipStage: "executing" };
 const other = { ...base, id: "5", name: "愛媛大学", roleLabel: "研究実証・大学側接続", relationshipStage: "validation_preparation" };
 // EWIR候補機関Aは stage=candidate だがPoC候補ではない。役割ラベルで判定すること。
 const ewirCandidate = { ...base, id: "6", name: "EWIR候補機関A", roleLabel: "地域連携・候補企業訪問", relationshipStage: "candidate" };
 
 // 判定はroleLabelの接頭辞。stageだけで判定すると他の候補まで巻き込む。
-assert.equal(sxIsPocCandidate(untouched), true);
-assert.equal(sxIsPocCandidate(talking), true);
-assert.equal(sxIsPocCandidate(other), false);
-assert.equal(sxIsPocCandidate(ewirCandidate), false);
+assert.equal(sxIsPocPartner(untouched), true);
+assert.equal(sxIsPocPartner(talking), true);
+// 調達済みも「候補」ではないが、PoCという横断属性の対象には残る。
+assert.equal(sxIsPocPartner(secured), true);
+assert.equal(sxIsPocPartner(other), false);
+assert.equal(sxIsPocPartner(ewirCandidate), false);
 
-// 未接触候補の判定は、同じ台帳内での折りたたみと実行中管制件数の除外にだけ使う。
-assert.equal(sxIsUntouchedPocCandidate(untouched), true);
-assert.equal(sxIsUntouchedPocCandidate(talking), false);
-assert.equal(sxIsUntouchedPocCandidate(ewirCandidate), false);
-assert.equal(sxPocStageLabel(untouched), "未接触の候補");
-assert.equal(sxPocStageLabel(secured), "排液 調達済");
+// 未接触判定は実行中管制件数の除外にだけ使い、表示group/orderには使わない。
+assert.equal(sxIsUncontactedPocPartner(untouched), true);
+assert.equal(sxIsUncontactedPocPartner(talking), false);
+assert.equal(sxIsUncontactedPocPartner(secured), false);
+assert.equal(sxIsUncontactedPocPartner(ewirCandidate), false);
 
-const board = deriveSxPocList([untouched, talking, agreed, secured, other, ewirCandidate]);
-assert.equal(board.total, 4);
-assert.equal(board.securedCount, 1);
-assert.equal(board.contactedCount, 3);
-// ゴール（調達済）に近い順で並ぶ
-assert.deepEqual(board.groups.map((group) => group.key), ["secured", "agreed", "talking", "untouched"]);
-assert.deepEqual(board.groups.map((group) => group.partners.length), [1, 1, 1, 1]);
-// 0件の段階は表示しない（空の見出しを並べない）
-const onlyUntouched = deriveSxPocList([untouched, other]);
-assert.deepEqual(onlyUntouched.groups.map((group) => group.key), ["untouched"]);
-assert.equal(onlyUntouched.contactedCount, 0);
-// PoC候補が1件も無ければ空
-assert.equal(deriveSxPocList([other, ewirCandidate]).total, 0);
+// このmoduleにPoC専用のstage/group/orderを再導入しない。
+const source = readFileSync(new URL("../src/lib/sx-poc-candidates.ts", import.meta.url), "utf8");
+for (const forbidden of ["deriveSxPocList", "sxPocStageOf", "SX_POC_STAGE_ORDER", "sxPocStageLabel"]) {
+  assert.equal(source.includes(forbidden), false, `${forbidden} must not return`);
+}
 
-console.log("sx-poc-candidates tests passed");
+console.log("sx-poc-partner attribute tests passed");
