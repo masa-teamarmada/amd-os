@@ -47,23 +47,25 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - global `TsukuyomiChatBridge` は従来どおり invisible event bridge のまま。`Mascot.tsx` を `(app)/layout.tsx` に戻さない。
 - マニュアル章の追加・削除・構成変更は `pwa/src/app/(app)/manual/manual-chapters.ts` と `pwa/design/os_manual.md`、必要なら `pwa/manual/9-3-appendix-changelog.md` を同じ作業単位で更新する。
 
-## /bzm/map — BZM 2.0 理論マップ (2026-07-30 追加、build v3.52.2)
+## /bzm/map — BZM 2.0 理論マップ (2026-07-30 追加、2026-07-31 編集機能追加、build v3.52.3)
 
-目的: BZM 2.0 の主張・概念・測定・決定・外部ソース・未解決問いを、定義・支持・異議・反証・依存・上書き・運用化・検証の8関係で結んだ**論証台帳**として可視化する。「真理マップ」ではなく、ノード数・接続数は真偽・確信度を表さない、記録の充実度を示すだけのカバレッジ可視化ツール。
+目的: BZM 2.0 の主張・概念・測定・決定・文献・未解決論点を9関係で結び、自分の理解からノードとエッジを育てる**論証台帳**。「真理マップ」ではなく、ノード数・接続数は真偽・確信度を表さない。
 
 必須機能:
 
-- data source: `pwa/bzm/theory-graph/*.md` (1 Markdown = 1 理論ノード)。parser は `pwa/src/lib/bzm-theory-graph.ts`、on-disk contract validator は `pwa/scripts/check_bzm_theory_graph.cjs` (`npm run test:bzm-theory-graph`) で独立実装する。
+- source of truth: `bzm_theory_nodes` / `bzm_theory_edges`。Markdown 21ノード / 34関係はmigrationの冪等seed、再構築資産、DB障害時の読み取り専用fallback。
+- write contract: member read、admin write。API `/api/bzm/theory-map` は認証後だけ管理クライアントを使い、RLSも `is_admin()` writeを強制。保存操作時だけ書き、通知・外部送信・自動保存はしない。
+- create/grow: 「理論を書く」でノードを作成。選択ノードでは「根拠を足す」「異論を足す」「論点を残す」の3操作を主導線にし、初回エッジの向きを保存前に文章で確認する。
+- connect/edit: 既存ノード検索、relation・方向選択、ノード編集、確認付き接続解除を持つ。ノード削除UIは持たず、反証済みは `refuted` で履歴保存する。
 - map 表示: `react-force-graph-2d` ( `next/dynamic({ssr:false})` ) による力学グラフ。ノード形状は kind、色は status、半径は接続本数、layer ごとの列分けと同一 layer 内の縦分散を持つ。
 - list 表示: フィルタ通過ノードを kind/layer/status バッジ + 接続本数付きで一覧する。スマホでは list を初期表示する。
 - フィルタ・検索: id/title/summary/source_ref 全文検索、layer・status・relation type のトグルフィルタ、フィルタ解除ボタン。検索と layer/status は map/list へ作用し、relation type は map のエッジだけを絞る。選択ノード台帳は反証の見落としを避けるため relation filter の影響を受けない。
-- 選択ノード台帳パネル: summary、source_ref リンク、本文、関係グループ (支持・異議・検証・依存/上書き・波及先)、**カバレッジの欠落検知** (外部ソース支持なし・異議反証接続なし・tests接続なしを警告表示、真偽判定ではない)。
-- read-only: 画面からのノード追加・編集・削除は行わない。ノードの追加・変更は `pwa/bzm/theory-graph/*.md` の直接編集のみ。
+- 選択ノード台帳パネル: summary、source_ref リンク、本文、関係グループ (支持・異議・検証・依存/上書き・残っている論点・波及先)、**カバレッジの欠落検知** (外部ソース支持なし・異議反証接続なし・tests接続なしを警告表示、真偽判定ではない)。
 - 詳細契約: `/spec/2-6-bzm-theory-map-current-spec`。
 
 回帰防止:
 
-- `/bzm/map` route、`BzmTheoryMapView`、`bzm-theory-graph.ts` parser、`check_bzm_theory_graph.cjs` validator を消す変更は、`FEATURE_REGISTRY.md`、`/spec/2-1`、`/spec/2-2`、`/spec/2-6`、`pwa/bzm/9-5-appendix-changelog.md` を同時に更新する。
+- `/bzm/map` route、editor API/components、DB store、migration、snapshot parser、2本のvalidatorを消す変更は、`FEATURE_REGISTRY.md`、`/spec/2-1`、`/spec/2-2`、`/spec/2-3`、`/spec/2-6`、`pwa/bzm/9-5-appendix-changelog.md` を同時に更新する。
 - 画面・validator に真偽判定・統合スコア・合成指標を追加しない。件数・接続数を経営判断や評価軸の代わりに使わない。
 
 ## /knowledge-map

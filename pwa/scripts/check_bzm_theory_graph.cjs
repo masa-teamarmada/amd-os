@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 "use strict";
+/* eslint-disable @typescript-eslint/no-require-imports */
 /**
  * Contract checks for pwa/bzm/theory-graph/*.md (BZM 2.0 theory graph nodes).
  * Deliberately re-implements a minimal frontmatter parser independent of
@@ -40,6 +41,7 @@ const RELATION_TYPES = [
   "supersedes",
   "operationalizes",
   "tests",
+  "raises",
 ];
 
 function stripQuotes(value) {

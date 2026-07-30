@@ -37,7 +37,8 @@ export type TheoryRelationType =
   | "depends_on"
   | "supersedes"
   | "operationalizes"
-  | "tests";
+  | "tests"
+  | "raises";
 
 export const THEORY_NODE_KINDS: readonly TheoryNodeKind[] = [
   "concept",
@@ -76,6 +77,7 @@ export const THEORY_RELATION_TYPES: readonly TheoryRelationType[] = [
   "supersedes",
   "operationalizes",
   "tests",
+  "raises",
 ];
 
 export interface TheoryRelation {

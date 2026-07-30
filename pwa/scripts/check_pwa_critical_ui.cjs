@@ -2790,5 +2790,11 @@ expectIncludes("src/components/bzm/BzmTheoryMapView.tsx", [
   'id="bzm-map-search"',
   'aria-label="マップ表示に切り替え"',
   'aria-label="一覧表示に切り替え"',
+  "理論を書く",
+  "このノードを育てる",
+  "根拠をつなぐ",
+  "異論をつなぐ",
+  "論点を残す",
+  "既存ノードとつなぐ",
 ]);
 expectIncludes("package.json", ["test:bzm-theory-graph"]);

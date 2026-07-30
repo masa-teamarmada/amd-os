@@ -27,6 +27,7 @@
 | management guardrails | `guardrail_tag_definitions`, `guardrail_cards`, `guardrail_matches`, `guardrail_feedbacks` |
 | decision | `amd_score_inputs`, `amd_score_alpha`, `amd_score_revisions`, `project_xrl_log`, `project_founding_members`, `project_graduation_signals` |
 | ECR | `institutions`, `institution_capability_axes`, `institution_capability_criteria`, `institution_assessments` |
+| BZM theory | `bzm_theory_nodes`, `bzm_theory_edges` |
 | Atlas | `atlas_signals`, `atlas_stories`, `atlas_story_merges`, `atlas_themes`, `atlas_story_themes`, `atlas_divergences` |
 | Seeds / VC / Scholar | `seeds`, `seed_funding`, `seed_news`, `seed_contact_log`, `vcs`, `vc_funds`, `vc_investments`, `vc_contacts`, `vc_news`, `papers_log` |
 | Management Score / finance | `amd_management_score_*`, `company_*`, `freee_oauth_tokens` |
@@ -41,6 +42,14 @@
 | `archived` | 表示や active 判定から外す履歴 |
 
 `l2_feedbacks` と `tsukuyomi_learnings` は、候補採否や修正依頼を次回抽出へ戻す feedback loop の正本。
+
+## BZM 理論グラフ
+
+- `bzm_theory_nodes`: 理論要素の title / kind / layer / status / summary / body / source reference と作成・更新者を保存する。
+- `bzm_theory_edges`: 有向エッジを `(from_node_id, relation_type, to_node_id)` 一意で保存する。9 relation を許可し、`raises` の到達先はAPIとDB triggerの両方でactiveな `question` に限定する。
+- authenticated member は active ノードと active ノード間エッジを読む。書き込みは `public.is_admin()` とAPIの `requireAdmin()` の両方で制限する。
+- migration `203_bzm_theory_editor.sql` が Markdown snapshot の21ノード / 34関係を冪等 seed する。日常運用の正本はDBで、Markdownは再構築資産と読み取り専用 fallback。
+- UIからノードを直接削除しない。エッジ解除はID指定、ノード作成と初回エッジの片側失敗は補償削除する。
 
 ## RLS 標準形 (全テーブル必須)
 

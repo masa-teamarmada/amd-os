@@ -15,7 +15,7 @@
 | admin | `/admin/*` | invoices / finance / projects（Slack CHの「チャンネルなし」明示を含む） / contracts（1契約1行。版・形式・作業記録は契約内へ収め、期限・立替経費・押印証跡・秘密保持をモーダルで即答） / members / payouts / prompts / settings / protocols / tsukuyomi / weekly (週次活動×月次報酬マトリクス: `/api/admin/weekly` が member_activities(member_weekly) と表示月の `billing_cycles.reward_summary_json` の `members[].totalPay` を返し、右端列=メンバー別月合計・最下行=PJ別月合計・総合計を描画) / 日本文化マップ (`/admin/japanese-culture-map`)。`AppShell` はブラウザ側の現在pathnameで `GlobalNav` を `AdminSidebar` に差し替え、dashboard からの画面内遷移でも admin menu へ切り替える。admin layout は2枚目の左メニューを描画しない | `(app)/layout.tsx`, `AppShell.tsx`, `admin/layout.tsx`, `AdminSidebar.tsx`, `admin/*/page.tsx` |
 | admin knowledge | `/admin/japanese-culture-map` | `jp_culture_items` active 行をマインドマップ / 日本地図で読む admin-only 文化知識ビュー。旧 `/japanese-culture-map` は redirect | `admin/japanese-culture-map/page.tsx`, `jp-culture.ts` |
 | docs | `/manual`, `/spec`, `/bzm` | manual / design spec / textbook を OS 画面で表示 | `manual/*`, `spec/*`, `bzm/*` |
-| docs | `/bzm/map` | 理論マップ (論証台帳)。`pwa/bzm/theory-graph/*.md` (1 Markdown = 1 ノード) を fs で読み、力学マップ + 一覧 + 選択ノード台帳 + カバレッジ欠落検知を表示。真理マップではなく件数・接続数は真偽・確信度を表さない | `bzm/map/page.tsx`, `BzmTheoryMapView.tsx`, `lib/bzm-theory-graph.ts` |
+| docs | `/bzm/map` | 理論マップ (論証台帳)。DB正本のノード / エッジを力学マップ + 一覧 + 選択台帳で閲覧し、admin はノード作成・育成・既存接続・編集・接続解除を行う。Markdown は初期スナップショット兼読み取り専用 fallback。真理マップではなく件数・接続数は真偽・確信度を表さない | `bzm/map/page.tsx`, `BzmTheoryMapView.tsx`, `BzmTheoryComposerDialog.tsx`, `lib/bzm-theory-store.ts`, `/api/bzm/theory-map` |
 | knowledge | `/knowledge-map` | AMD Materials。高校生が辞書なしで読める日本語を原則に、全118元素を淡黄→深紅の熱色、日本語主用途、軸から独立した供給`警戒` / `危機`で俯瞰する。評価済み元素は、要点の小窓で用途・供給警報・直近公表相場・5年推移・産出国円グラフを表示し、詳細操作で同じ小窓を拡張して埋蔵・需給 / 循環・代替 / AMD接点 / 出典を追加する。4評価軸の合計（20点満点）を総合値とし、周期表以外の一覧・比較は高得点順。全材料横断の需給の崩れランキングは専用の偏りの強さ（5点満点）で並べ、不足側、供給過剰側、価格乱高下を区別し、原因、供給が詰まる工程、評価時点、確からしさを示す。全体タブの3入口はカード全面で操作する。樹脂の詳細は原料と重合・重縮合・硬化等の製造方法を追加表示する。代表鉱物・鉱石、代表樹脂・高分子、2〜4件比較、従来のL2力学地図も統合する。初期評価と未評価を分け、原文全文、画面内Q&A、DB書き込み、生成AI呼び出しは持たない | `knowledge-map/page.tsx`, `MaterialsKnowledgeView.tsx`, `KnowledgeMapView.tsx`, `materials-data.ts` |
 | contacts | `/business-cards` | スマホ撮影 / 写真選択、OCR確認、複数PJ紐付け、名刺検索。確定時だけ D-3 PJナレッジへ人物情報を同期する | `business-cards/page.tsx`, `BusinessCardsClient.tsx` |
 | contacts native | `/native/business-cards` | iOSの名刺タブが認証cookieつきWKWebViewで開く、GlobalNavなしのnative shell | `native/business-cards/page.tsx`, `ios/.../BusinessCardsView.swift` |
@@ -39,6 +39,7 @@
 | Atlas | `/api/atlas/*` | atlas signals / stories / themes | TODO spec |
 | Seeds / VC | `/api/cron/seeds-ingest`, `/api/cron/vc-*`, admin seed/vc helpers | seeds / vcs / investments | TODO spec |
 | ECR | `/api/institutions/assess` | `institution_assessments` upsert | `/spec/4-3-ers-current-spec` |
+| BZM theory | `/api/bzm/theory-map` | member read、admin の `bzm_theory_nodes` / `bzm_theory_edges` 明示保存 | `/spec/2-6-bzm-theory-map-current-spec` |
 | business cards | `/api/business-cards`, `/api/business-cards/[cardId]`, `/api/business-cards/[cardId]/image` | private画像保存、Gemini OCR、確認済み名刺 / PJ紐付け / `project_knowledge` 同期 | `/spec/2-5-business-cards-current-spec` |
 | cron | `/api/cron/*` | Vercel cron or on-demand batch | `/spec/5-3-automation-responsibility-current-spec` |
 
@@ -49,6 +50,7 @@
 - `/notifications` は `members.is_admin=true` だけ表示する。
 - `/admin/*` は admin layout gate。
 - ECR assessment API、notification feedback API は auth user の email から `members` を引き、admin でない場合 403。
+- BZM theory map は AMD member が閲覧でき、追加・編集・接続解除は admin に限定する。DB fallback 中は admin でも読み取り専用。
 - 名刺APIは auth user が `members` に存在することを要求する。画像は private Storage に置き、認証済み AMD メンバー以外へ公開しない。
 
 ## Failure Mode
@@ -65,7 +67,7 @@
 ## Validation
 
 - route 追加・metadata 更新: `npx tsc --noEmit`
-- 理論マップ データ資産 (`pwa/bzm/theory-graph/*.md`) 変更: `npm run test:bzm-theory-graph`
+- 理論マップ: `npm run test:bzm-theory-graph` と `npm run test:bzm-theory-editor`
 - production build: `npm run build`
 - production deploy: `bash pwa/scripts/deploy.sh`
 - auth protected route smoke: unauthenticated access should redirect to `/auth/login?next=...`
