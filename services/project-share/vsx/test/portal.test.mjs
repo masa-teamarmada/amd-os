@@ -420,8 +420,10 @@ test("internal move drag: pointerdown anywhere on a file row arms the drag witho
   assert.match(body, /if \(event\.pointerType === "mouse" && event\.button !== 0\) return;/);
   assert.match(body, /const entry = getEntryFromRow\(tr\);/);
   assert.match(body, /if \(!entry\) return;/);
+  assert.match(body, /const rowRect = tr\.getBoundingClientRect\(\);/);
   assert.match(body, /entry,/);
-  assert.match(body, /name:\s*entry\.name,/);
+  assert.match(body, /grabOffsetX:\s*event\.clientX - rowRect\.left,/);
+  assert.match(body, /grabOffsetY:\s*event\.clientY - rowRect\.top,/);
   assert.match(body, /dragging:\s*false,/);
   // pointerdown only records state; the dimmed .dragging-row class must not appear here,
   // it only applies once pointermove crosses the movement threshold.
@@ -439,7 +441,7 @@ test("internal move drag: pointermove past a small threshold marks dragging and 
   assert.match(body, /Math\.abs\(dx\) < DRAG_THRESHOLD_PX && Math\.abs\(dy\) < DRAG_THRESHOLD_PX/);
   assert.match(body, /pointerDrag\.dragging = true;/);
   assert.match(body, /pointerDrag\.tr\.classList\.add\("dragging-row"\);/);
-  assert.match(body, /pointerDrag\.preview = createDragPreview\(pointerDrag\.name\);/);
+  assert.match(body, /pointerDrag\.preview = createDragPreview\(pointerDrag\.tr\);/);
   assert.match(body, /positionDragPreview\(event\);/);
   assert.match(body, /event\.preventDefault\(\);/);
   assert.match(body, /document\.elementFromPoint\(event\.clientX, event\.clientY\)/);
@@ -516,21 +518,30 @@ test("internal move drag: only folder rows accept the drop, shown with official-
   assert.match(styleBlock, /tbody tr\.folder-row\.drop-target \.folder-icon \{ color: var\(--blue\); transform: scale\(1\.12\); \}/);
 });
 
-test("internal move drag: the file preview follows the pointer and uses textContent for the filename", () => {
+test("internal move drag: a semi-transparent clone of the actual row follows the pointer", () => {
   const html = renderPortalHtml();
   const script = extractModuleScript(html);
-  assert.match(script, /function createDragPreview\(name\)/);
+  assert.match(script, /function createDragPreview\(sourceRow\)/);
+  assert.match(script, /const sourceRect = sourceRow\.getBoundingClientRect\(\);/);
+  assert.match(script, /document\.createElement\("table"\)/);
   assert.match(script, /preview\.className = "drag-preview";/);
-  assert.match(script, /label\.textContent = name;/);
+  assert.match(script, /const previewRow = sourceRow\.cloneNode\(true\);/);
+  assert.match(script, /previewRow\.classList\.remove\("dragging-row"\);/);
+  assert.match(script, /sourceCell\.getBoundingClientRect\(\)\.width/);
   assert.match(script, /function positionDragPreview\(event\)/);
+  assert.match(script, /event\.clientX - pointerDrag\.grabOffsetX/);
+  assert.match(script, /event\.clientY - pointerDrag\.grabOffsetY/);
   assert.match(script, /style\.transform = "translate3d\("/);
 
   const styleStart = html.indexOf("<style>");
   const styleEnd = html.indexOf("</style>");
   const styleBlock = html.slice(styleStart, styleEnd);
   assert.match(styleBlock, /\.drag-preview\s*\{[^}]*position: fixed/);
-  assert.match(styleBlock, /\.drag-preview\.is-visible \{ display: inline-flex; \}/);
+  assert.match(styleBlock, /\.drag-preview\.is-visible \{ display: table; \}/);
+  assert.match(styleBlock, /\.drag-preview\s*\{[^}]*background: var\(--white\);/);
+  assert.match(styleBlock, /\.drag-preview\s*\{[^}]*opacity: 0\.82;/);
   assert.match(styleBlock, /\.drag-preview\s*\{[^}]*pointer-events: none/);
+  assert.doesNotMatch(styleBlock, /background: rgba\(24, 36, 46, 0\.94\)/);
 });
 
 test("internal move drag (pointer events) and external OS-file drag (native HTML5 drag) stay on fully separate listener sets", () => {

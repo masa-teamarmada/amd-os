@@ -250,34 +250,20 @@ export function renderPortalHtml() {
     left: 0;
     top: 0;
     display: none;
-    align-items: center;
-    gap: 8px;
-    max-width: min(320px, calc(100vw - 16px));
-    padding: 8px 12px;
-    border: 1px solid rgba(255, 255, 255, 0.28);
+    table-layout: fixed;
+    border-collapse: collapse;
+    border: 1px solid var(--line);
     border-radius: 6px;
-    background: rgba(24, 36, 46, 0.94);
-    box-shadow: 0 8px 22px rgba(24, 36, 46, 0.24);
-    color: var(--white);
-    font-size: 12.5px;
-    font-weight: 700;
-    line-height: 1.3;
-    white-space: nowrap;
+    background: var(--white);
+    box-shadow: 0 8px 22px rgba(24, 36, 46, 0.18);
+    opacity: 0.82;
     overflow: hidden;
-    text-overflow: ellipsis;
     pointer-events: none;
     z-index: 10;
   }
-  .drag-preview.is-visible { display: inline-flex; }
-  .drag-preview-icon {
-    width: 16px;
-    height: 18px;
-    flex: 0 0 auto;
-    border: 1.5px solid currentColor;
-    border-radius: 2px;
-    opacity: 0.86;
-  }
-  .drag-preview-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .drag-preview.is-visible { display: table; }
+  .drag-preview td { background: var(--white); }
+  .drag-preview .drag-grip { opacity: 0.6; }
   .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
   .row-actions button {
     border: 1px solid var(--line);
@@ -1154,28 +1140,33 @@ export function renderPortalHtml() {
       clearDropTarget();
     }
 
-    function createDragPreview(name) {
-      const preview = document.createElement("div");
+    function createDragPreview(sourceRow) {
+      const sourceRect = sourceRow.getBoundingClientRect();
+      const preview = document.createElement("table");
       preview.className = "drag-preview";
       preview.setAttribute("aria-hidden", "true");
+      preview.style.width = Math.round(sourceRect.width) + "px";
 
-      const icon = document.createElement("span");
-      icon.className = "drag-preview-icon";
-      icon.setAttribute("aria-hidden", "true");
-      preview.appendChild(icon);
-
-      const label = document.createElement("span");
-      label.className = "drag-preview-label";
-      label.textContent = name;
-      preview.appendChild(label);
+      const previewBody = document.createElement("tbody");
+      const previewRow = sourceRow.cloneNode(true);
+      previewRow.removeAttribute("tabindex");
+      previewRow.classList.remove("dragging-row");
+      Array.from(previewRow.children).forEach((cell, index) => {
+        const sourceCell = sourceRow.children[index];
+        if (sourceCell) cell.style.width = Math.round(sourceCell.getBoundingClientRect().width) + "px";
+      });
+      previewBody.appendChild(previewRow);
+      preview.appendChild(previewBody);
       return preview;
     }
 
     function positionDragPreview(event) {
       if (!pointerDrag?.preview) return;
       const previewRect = pointerDrag.preview.getBoundingClientRect();
-      const x = Math.max(8, Math.min(event.clientX + 14, window.innerWidth - previewRect.width - 8));
-      const y = Math.max(8, Math.min(event.clientY + 14, window.innerHeight - previewRect.height - 8));
+      const maxX = Math.max(8, window.innerWidth - previewRect.width - 8);
+      const maxY = Math.max(8, window.innerHeight - previewRect.height - 8);
+      const x = Math.max(8, Math.min(event.clientX - pointerDrag.grabOffsetX, maxX));
+      const y = Math.max(8, Math.min(event.clientY - pointerDrag.grabOffsetY, maxY));
       pointerDrag.preview.style.transform = "translate3d(" + x + "px, " + y + "px, 0)";
     }
 
@@ -1187,13 +1178,15 @@ export function renderPortalHtml() {
       if (!tr) return;
       const entry = getEntryFromRow(tr);
       if (!entry) return;
+      const rowRect = tr.getBoundingClientRect();
       pointerDrag = {
         pointerId: event.pointerId,
         entry,
-        name: entry.name,
         tr,
         startX: event.clientX,
         startY: event.clientY,
+        grabOffsetX: event.clientX - rowRect.left,
+        grabOffsetY: event.clientY - rowRect.top,
         dragging: false,
       };
     });
@@ -1206,7 +1199,7 @@ export function renderPortalHtml() {
         if (Math.abs(dx) < DRAG_THRESHOLD_PX && Math.abs(dy) < DRAG_THRESHOLD_PX) return;
         pointerDrag.dragging = true;
         pointerDrag.tr.classList.add("dragging-row");
-        pointerDrag.preview = createDragPreview(pointerDrag.name);
+        pointerDrag.preview = createDragPreview(pointerDrag.tr);
         document.body.appendChild(pointerDrag.preview);
         pointerDrag.preview.classList.add("is-visible");
       }
