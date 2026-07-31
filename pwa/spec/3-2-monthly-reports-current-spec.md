@@ -163,6 +163,8 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 | Cockpit 月次モーダルヘッダの `社内版` リンク | `template=internal` で新規タブに印刷ビューを開く。総合判定・MS前月/当月/差分表・ガント・体制・次月計画を可視化した社内レビュー帳票。`提出版` と同格のリンク操作 |
 | Cockpit 月次モーダルヘッダの `提出版` リンク | `template=submission` で新規タブに印刷ビューを開く。ユーザーは Cmd+P → 「PDFとして保存」(余白=既定 / 背景のグラフィック=ON / A4縦) |
 | Cockpit 月次モーダルヘッダの `本文を編集` ボタン | `社内版` リンクとは別の第三操作。固定8見出し本文 (社内版本文、`社内版` 帳票が参照する Markdown) の直接編集・保存・確定 panel を開閉する。開くと二段階クリックを挟まず直接編集状態に入る。生成・再生成・AI修正は置かない |
+| Cockpit 月次モーダルヘッダの `提出版を編集` ボタン | `本文を編集`とは別の提出版専用操作。`monthly_reports_external.body_md` を読み込み、その場で直接編集・保存する。保存後の `提出版PDFを開く` は同じ `body_md` を印刷する。保存時は提出版の章構成・表・本文長・末尾定型を検査し、氏名を姓表記と `e-Rad` へ正規化する。AMD Score・L2メタデータ・内部ルーティン名・code_name は保存を止める。社内版 `monthly_reports.final_content` は変更しない |
+| `GET/POST /api/monthly-report/external-manual-update` | `requireAdmin`。GET は `monthly_reports_external` の提出版本文を返す。POST は `YYYYMM` を `YYYY-MM` に変換して同表へ保存し、既存の生成日時を維持して `updated_at` のみ更新する。生成前の新規作成も可能。LLMは呼ばない |
 
 画面上の編集・保存・確定は LLM を呼ばない。旧 `/api/report/generate` と `/api/monthly-report/edit-by-tsukuyomi` は従量課金事故を防ぐため 410 で停止する。自動生成は月末最終日の `amd-os-l2m1-monthly-report` に一本化する。
 

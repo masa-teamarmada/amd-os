@@ -103,6 +103,8 @@ const monthlyModal = readFileSync(new URL("../src/components/cockpit/CockpitMont
 const paidGenerateRoute = readFileSync(new URL("../src/app/api/report/generate/route.ts", import.meta.url), "utf8");
 const paidEditRoute = readFileSync(new URL("../src/app/api/monthly-report/edit-by-tsukuyomi/route.ts", import.meta.url), "utf8");
 const manualUpdateRoute = readFileSync(new URL("../src/app/api/monthly-report/manual-update/route.ts", import.meta.url), "utf8");
+const externalManualUpdateRoute = readFileSync(new URL("../src/app/api/monthly-report/external-manual-update/route.ts", import.meta.url), "utf8");
+const submissionReportEditor = readFileSync(new URL("../src/components/cockpit/SubmissionReportEditor.tsx", import.meta.url), "utf8");
 const reportFixRoute = readFileSync(new URL("../src/app/api/report/fix/route.ts", import.meta.url), "utf8");
 assert.match(printClient, /isMarkdownTableSeparator/, "提出版のMarkdown表を構造化して描画する");
 assert.match(printClient, /className="md-table"/, "提出版の表に印刷用スタイル契約がある");
@@ -119,11 +121,18 @@ assert.match(monthlyModal, /SUBMISSION_TEMPLATE = "submission"/, "月次モー�
 assert.doesNotMatch(monthlyModal, /NIMS提出版|愛媛大提出版|工学院提出版|社内版を編集|社内版プレビュー/, "月次モーダルに提出先別・操作混在ラベルを残さない");
 assert.doesNotMatch(monthlyModal, /報告書を生成|再生成|修正指示/, "月次モーダルから従量課金の生成導線を除く");
 assert.match(monthlyModal, /AIトークンを消費しない/, "非課金の直接編集であることを画面に明記する");
+assert.match(monthlyModal, /提出版を編集/, "月次モーダルから提出版本文を直接編集できる");
+assert.match(monthlyModal, /SubmissionReportEditor/, "提出版の編集UIは社内版と別コンポーネントに分ける");
 assert.doesNotMatch(paidGenerateRoute, /@anthropic-ai\/sdk|anthropic\.messages\.create/, "旧生成APIはAnthropicを呼ばない");
 assert.match(paidGenerateRoute, /PAID_REPORT_GENERATION_DISABLED/, "旧生成APIは410で停止理由を返す");
 assert.doesNotMatch(paidEditRoute, /@anthropic-ai\/sdk|anthropic\.messages\.create/, "旧AI修正APIはAnthropicを呼ばない");
 assert.match(paidEditRoute, /PAID_REPORT_EDIT_DISABLED/, "旧AI修正APIは410で停止理由を返す");
 assert.match(manualUpdateRoute, /validateInternalMonthlyReport/, "直接編集は保存前に社内版品質ゲートを通す");
 assert.match(reportFixRoute, /validateInternalMonthlyReport/, "確定時も社内版品質ゲートを通す");
+assert.match(externalManualUpdateRoute, /requireAdmin/, "提出版の手動編集は管理者だけが行う");
+assert.match(externalManualUpdateRoute, /monthly_reports_external/, "提出版の手動編集は対外版の正本へ保存する");
+assert.match(externalManualUpdateRoute, /validateSubmission/, "提出版の手動編集も提出用の構成品質を検査する");
+assert.match(externalManualUpdateRoute, /findJargon/, "提出版の手動編集は内部用語を保存前に検査する");
+assert.match(submissionReportEditor, /提出版PDFを開く/, "提出版本文を保存後に同じ本文のPDFを確認できる");
 
 console.log("monthly report quality guard: ok");

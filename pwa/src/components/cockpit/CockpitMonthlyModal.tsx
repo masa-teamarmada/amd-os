@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { SubmissionReportEditor } from "./SubmissionReportEditor";
 
 // 画面上の名称は全PJで「社内版」「提出版」に固定する。
 // 提出先ごとの事情は本文と帳票データが担い、操作ラベルへ漏らさない。
@@ -788,6 +789,7 @@ export function CockpitMonthlyModal({
 }: Props) {
   // v0.33.0: タブを廃止。initialTab='report' で開かれたら編集アコーディオンを開く。
   const [reportEditorOpen, setReportEditorOpen] = useState<boolean>(() => initialTab === "report");
+  const [submissionEditorOpen, setSubmissionEditorOpen] = useState(false);
 
   // 総合進捗（シグナル計算用）
   // まさ判断 (2026-05-22 #4): buffer タグ MS は加重平均から除外する。
@@ -842,7 +844,10 @@ export function CockpitMonthlyModal({
                 提出版
               </a>
               <button
-                onClick={() => setReportEditorOpen((v) => !v)}
+                onClick={() => {
+                  setReportEditorOpen((v) => !v);
+                  setSubmissionEditorOpen(false);
+                }}
                 aria-expanded={reportEditorOpen}
                 className={`min-h-11 text-xs px-3 py-2 rounded-md border transition-colors ${
                   reportEditorOpen
@@ -852,6 +857,21 @@ export function CockpitMonthlyModal({
                 title={reportEditorOpen ? "本文編集を閉じる" : "社内版本文を編集する"}
               >
                 本文を編集
+              </button>
+              <button
+                onClick={() => {
+                  setSubmissionEditorOpen((v) => !v);
+                  setReportEditorOpen(false);
+                }}
+                aria-expanded={submissionEditorOpen}
+                className={`min-h-11 text-xs px-3 py-2 rounded-md border transition-colors ${
+                  submissionEditorOpen
+                    ? "border-sky-700 bg-sky-700 text-white"
+                    : "border-sky-200 bg-sky-50 text-sky-950 hover:bg-sky-100"
+                }`}
+                title={submissionEditorOpen ? "提出版本文の編集を閉じる" : "提出版本文を編集する"}
+              >
+                提出版を編集
               </button>
             </div>
           </DialogTitle>
@@ -873,6 +893,24 @@ export function CockpitMonthlyModal({
             </div>
             <ReportTab report={report} projectId={projectId} ym={ym} startEditing />
           </div>
+        )}
+
+        {submissionEditorOpen && (
+          <section data-testid="submission-report-editor" className="min-w-0 border border-sky-200 rounded-lg p-4 mb-4 bg-sky-50/40">
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <h3 className="text-sm font-semibold text-sky-950">提出版本文</h3>
+                <p className="mt-0.5 text-xs leading-5 text-muted-foreground">保存した本文が、次に開く提出版PDFへそのまま反映される。社内版本文とは別に保存する。</p>
+              </div>
+              <button
+                onClick={() => setSubmissionEditorOpen(false)}
+                className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
+              >
+                閉じる ✕
+              </button>
+            </div>
+            <SubmissionReportEditor projectId={projectId} ym={ym} />
+          </section>
         )}
 
         <RewardTab
