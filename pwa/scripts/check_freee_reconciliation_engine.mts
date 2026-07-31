@@ -2,18 +2,24 @@ import assert from "node:assert/strict";
 import {
   computeRunPhase,
   weekWindowForRunDate,
+  ymFromIsoDate,
+  isRunStale,
   detectBalanceDeltas,
   detectSyncIssues,
   detectUnprocessedEntries,
   detectAnomalousJournals,
   detectOfficerCompensationFindings,
   detectInternalTransferCandidates,
+  buildOfficerRecurringMappings,
   isActionTypeSafelyExecutable,
   decideExecutorAction,
+  decideSheetReferenceSkip,
+  summarizeSheetRangeValues,
   type WalletableForAudit,
   type WalletTxnForAudit,
   type ManualJournalForAudit,
-  type OfficerExpectedCompensation,
+  type OfficerForMatching,
+  type RecurringItemForMatching,
 } from "../src/lib/finance/freee-reconciliation-engine.ts";
 
 // --- computeRunPhase (4-run review gate) ------------------------------------
@@ -24,32 +30,44 @@ assert.deepEqual(computeRunPhase(4), { runSequence: 5, phase: "auto_apply_allowl
 assert.deepEqual(computeRunPhase(10), { runSequence: 11, phase: "auto_apply_allowlist" });
 assert.deepEqual(computeRunPhase(-5), { runSequence: 1, phase: "review_only" });
 
-// --- weekWindowForRunDate ----------------------------------------------------
+// --- weekWindowForRunDate / ymFromIsoDate -----------------------------------
 
 assert.deepEqual(weekWindowForRunDate("2026-07-30"), { weekStartDate: "2026-07-24", weekEndDate: "2026-07-30" });
 assert.throws(() => weekWindowForRunDate("not-a-date"));
+assert.equal(ymFromIsoDate("2026-07-30"), "202607");
+assert.equal(ymFromIsoDate("2026-01-05"), "202601");
+assert.throws(() => ymFromIsoDate("bogus"));
 
-// --- balance delta: never auto-appliable, direct correction forbidden ------
+// --- isRunStale (P1-7 stale-running recovery) --------------------------------
+
+const NOW = "2026-07-30T10:00:00Z";
+assert.equal(isRunStale("2026-07-30T09:45:00Z", NOW, 30), false, "15 minutes old, under threshold");
+assert.equal(isRunStale("2026-07-30T09:29:00Z", NOW, 30), true, "31 minutes old, over threshold");
+assert.equal(isRunStale("2026-07-30T09:59:00Z", NOW, 30), false, "1 minute old");
+assert.equal(isRunStale("invalid-date", NOW, 30), false, "unparseable dates never falsely report stale");
+
+// --- balance delta: field semantics fixed (last_balance=synced, walletable_balance=registered)
 
 const walletables: WalletableForAudit[] = [
-  { id: 1, type: "bank_account", name: "普通預金A", lastBalance: 100_000, walletableBalance: 90_000, syncStatus: "success", lastSyncedAt: new Date().toISOString() },
-  { id: 2, type: "bank_account", name: "普通預金B", lastBalance: 50_000, walletableBalance: 50_000, syncStatus: "success", lastSyncedAt: new Date().toISOString() },
+  { id: 1, type: "bank_account", name: "普通預金A", syncedBalance: 90_000, registeredBalance: 100_000, syncStatus: "success", lastSyncedAt: new Date().toISOString() },
+  { id: 2, type: "bank_account", name: "普通預金B", syncedBalance: 50_000, registeredBalance: 50_000, syncStatus: "success", lastSyncedAt: new Date().toISOString() },
 ];
 const deltaFindings = detectBalanceDeltas(walletables);
 assert.equal(deltaFindings.length, 1);
-assert.equal(deltaFindings[0].deltaYen, 10_000);
+assert.equal(deltaFindings[0].deltaYen, 10_000, "delta = registeredBalance(walletable_balance) - syncedBalance(last_balance)");
+assert.match(deltaFindings[0].summaryJa, /登録残高\(walletable_balance\)/);
+assert.match(deltaFindings[0].summaryJa, /銀行同期残高\(last_balance\)/);
 assert.equal(deltaFindings[0].eligibleForAutoApply, false, "balance_delta must never be auto-appliable");
 assert.equal(deltaFindings[0].severity, "blocker");
 
 // --- sync issues -------------------------------------------------------------
 
-const now = new Date("2026-07-30T01:00:00Z").toISOString();
 const staleWalletables: WalletableForAudit[] = [
-  { id: 3, type: "bank_account", name: "古い同期口座", lastBalance: 1000, walletableBalance: 1000, syncStatus: "success", lastSyncedAt: "2026-07-20T00:00:00Z" },
-  { id: 4, type: "bank_account", name: "エラー口座", lastBalance: 1000, walletableBalance: 1000, syncStatus: "error", lastSyncedAt: "2026-07-29T00:00:00Z" },
-  { id: 5, type: "bank_account", name: "正常口座", lastBalance: 1000, walletableBalance: 1000, syncStatus: "success", lastSyncedAt: "2026-07-29T12:00:00Z" },
+  { id: 3, type: "bank_account", name: "古い同期口座", syncedBalance: 1000, registeredBalance: 1000, syncStatus: "success", lastSyncedAt: "2026-07-20T00:00:00Z" },
+  { id: 4, type: "bank_account", name: "エラー口座", syncedBalance: 1000, registeredBalance: 1000, syncStatus: "error", lastSyncedAt: "2026-07-29T00:00:00Z" },
+  { id: 5, type: "bank_account", name: "正常口座", syncedBalance: 1000, registeredBalance: 1000, syncStatus: "success", lastSyncedAt: "2026-07-29T12:00:00Z" },
 ];
-const syncFindings = detectSyncIssues(staleWalletables, now, 3);
+const syncFindings = detectSyncIssues(staleWalletables, NOW, 3);
 assert.equal(syncFindings.length, 2);
 assert.ok(syncFindings.every((f) => f.eligibleForAutoApply === false));
 assert.ok(syncFindings.some((f) => f.walletableId === "4" && f.severity === "blocker"));
@@ -60,82 +78,137 @@ const unprocessedTxns: WalletTxnForAudit[] = [
   { id: 10, date: "2026-07-20", walletableType: "bank_account", walletableId: 1, walletableName: "A", amountYen: 5000, direction: "expense", dealId: null, transferId: null, description: "謎の出金" },
   { id: 11, date: "2026-07-29", walletableType: "bank_account", walletableId: 1, walletableName: "A", amountYen: 5000, direction: "expense", dealId: 99, transferId: null, description: "deal紐付け済み" },
 ];
-const unprocessed = detectUnprocessedEntries(unprocessedTxns, now, 3);
+const unprocessed = detectUnprocessedEntries(unprocessedTxns, NOW, 3);
 assert.equal(unprocessed.length, 1);
 assert.equal(unprocessed[0].freeeEntityId, "10");
 
 // --- anomalous journals -------------------------------------------------------
 
 const journals: ManualJournalForAudit[] = [
-  {
-    id: 1,
-    issueDate: "2026-07-25",
-    txnNumber: "J-1",
-    details: [
-      { entrySide: "debit", accountItemId: 1, amountYen: 1000 },
-      { entrySide: "credit", accountItemId: 2, amountYen: 900 },
-    ],
-  },
-  {
-    id: 2,
-    issueDate: "2026-07-26",
-    txnNumber: "J-2",
-    details: [
-      { entrySide: "debit", accountItemId: 1, amountYen: 1000 },
-      { entrySide: "credit", accountItemId: 2, amountYen: 1000 },
-    ],
-  },
+  { id: 1, issueDate: "2026-07-25", txnNumber: "J-1", details: [{ entrySide: "debit", accountItemId: 1, amountYen: 1000 }, { entrySide: "credit", accountItemId: 2, amountYen: 900 }] },
+  { id: 2, issueDate: "2026-07-26", txnNumber: "J-2", details: [{ entrySide: "debit", accountItemId: 1, amountYen: 1000 }, { entrySide: "credit", accountItemId: 2, amountYen: 1000 }] },
 ];
 const anomalies = detectAnomalousJournals(journals);
 assert.equal(anomalies.length, 1);
 assert.equal(anomalies[0].freeeEntityId, "1");
 assert.equal(anomalies[0].severity, "blocker");
 
-// --- officer compensation: exact single match is eligible -------------------
+// --- buildOfficerRecurringMappings: explicit / ambiguous / missing for all officers
 
-const officers: OfficerExpectedCompensation[] = [
-  { memberId: "ID001", memberName: "まさ", projectId: "p01", projectName: "PJ1", sourceYm: "202607", amountYen: 300_000 },
-  { memberId: "ID002", memberName: "きよ", projectId: "p01", projectName: "PJ1", sourceYm: "202607", amountYen: 250_000 },
+const officers: OfficerForMatching[] = [
+  { memberId: "ID001", memberName: "まさ", codeName: "まさ" },
+  { memberId: "ID002", memberName: "きよ", codeName: "きよ" },
+  { memberId: "ID003", memberName: "別役員", codeName: "べつ" },
+  { memberId: "ID004", memberName: "曖昧役員", codeName: "あいまい" },
 ];
-const officerTxns: WalletTxnForAudit[] = [
-  { id: 20, date: "2026-07-25", walletableType: "bank_account", walletableId: 1, walletableName: "A", amountYen: 300_000, direction: "expense", dealId: null, transferId: null, description: "報酬振込" },
+const items: RecurringItemForMatching[] = [
+  { id: "item-explicit-masa", displayName: "役員報酬(まさ)", vendorName: null, amountYen: 300_000, frequency: "monthly", withdrawalAccount: "普通預金A", explicitMemberId: "ID001" },
+  { id: "item-namematch-kiyo", displayName: "きよ", vendorName: null, amountYen: 250_000, frequency: "monthly", withdrawalAccount: null, explicitMemberId: null },
+  { id: "item-ambiguous-1", displayName: "曖昧役員", vendorName: null, amountYen: 200_000, frequency: "monthly", withdrawalAccount: null, explicitMemberId: null },
+  { id: "item-ambiguous-2", displayName: "あいまい", vendorName: null, amountYen: 210_000, frequency: "monthly", withdrawalAccount: null, explicitMemberId: null },
+  // ID003 (別役員) has no recurring item at all → missing
 ];
-const officerFindings = detectOfficerCompensationFindings(officers, officerTxns);
-assert.equal(officerFindings.length, 2);
-const masaFinding = officerFindings.find((f) => f.memberId === "ID001")!;
-assert.equal(masaFinding.matchConfidence, "exact");
-assert.equal(masaFinding.eligibleForAutoApply, true);
-const kiyoFinding = officerFindings.find((f) => f.memberId === "ID002")!;
-assert.equal(kiyoFinding.eligibleForAutoApply, false, "no matching candidate must stay ambiguous, not eligible");
+const mappings = buildOfficerRecurringMappings(officers, items);
+const byId = new Map(mappings.map((m) => [m.memberId, m]));
 
-// --- officer compensation: duplicate exact amount candidates must halt ------
+assert.equal(byId.get("ID001")?.mappingStatus, "explicit");
+assert.equal(byId.get("ID001")?.recurringItemId, "item-explicit-masa");
+assert.equal(byId.get("ID002")?.mappingStatus, "name_match_single");
+assert.equal(byId.get("ID002")?.recurringItemId, "item-namematch-kiyo");
+assert.equal(byId.get("ID003")?.mappingStatus, "missing");
+assert.equal(byId.get("ID003")?.recurringItemId, null);
+assert.equal(byId.get("ID004")?.mappingStatus, "name_match_ambiguous", "matches both displayName and codeName tokens across 2 items");
+assert.equal(byId.get("ID004")?.candidateRecurringItemIds.length, 2);
 
-const dupOfficers: OfficerExpectedCompensation[] = [
-  { memberId: "ID001", memberName: "まさ", projectId: "p01", projectName: "PJ1", sourceYm: "202607", amountYen: 300_000 },
-  { memberId: "ID003", memberName: "別役員", projectId: "p02", projectName: "PJ2", sourceYm: "202607", amountYen: 300_000 },
+// explicit_conflict: two recurring items both explicitly claim the same officer
+const conflictItems: RecurringItemForMatching[] = [
+  { id: "conflict-1", displayName: "A", vendorName: null, amountYen: 100_000, frequency: "monthly", withdrawalAccount: null, explicitMemberId: "ID001" },
+  { id: "conflict-2", displayName: "B", vendorName: null, amountYen: 100_000, frequency: "monthly", withdrawalAccount: null, explicitMemberId: "ID001" },
 ];
-const dupFindings = detectOfficerCompensationFindings(dupOfficers, officerTxns);
-assert.ok(dupFindings.every((f) => f.eligibleForAutoApply === false), "same-amount collision across officers must never auto-apply");
-assert.ok(dupFindings.every((f) => f.matchConfidence === "ambiguous"));
+const conflictMapping = buildOfficerRecurringMappings([officers[0]], conflictItems)[0];
+assert.equal(conflictMapping.mappingStatus, "explicit_conflict");
+assert.equal(conflictMapping.candidateRecurringItemIds.length, 2);
 
-// two identical-amount txns for one officer -> ambiguous, not eligible
-const multiCandidateTxns: WalletTxnForAudit[] = [
-  { id: 21, date: "2026-07-25", walletableType: "bank_account", walletableId: 1, walletableName: "A", amountYen: 300_000, direction: "expense", dealId: null, transferId: null, description: "1" },
-  { id: 22, date: "2026-07-26", walletableType: "bank_account", walletableId: 1, walletableName: "A", amountYen: 300_000, direction: "expense", dealId: null, transferId: null, description: "2" },
-];
-const singleOfficer: OfficerExpectedCompensation[] = [{ memberId: "ID001", memberName: "まさ", projectId: "p01", projectName: "PJ1", sourceYm: "202607", amountYen: 300_000 }];
-const multiCandidateFindings = detectOfficerCompensationFindings(singleOfficer, multiCandidateTxns);
-assert.equal(multiCandidateFindings.length, 1);
-assert.equal(multiCandidateFindings[0].eligibleForAutoApply, false);
-assert.equal(multiCandidateFindings[0].matchConfidence, "ambiguous");
+// --- officer compensation findings: mapping issues are always blocker, every officer appears
 
-// split/fee-mixed amounts never equal exactly -> naturally ambiguous
-const feeMixedTxns: WalletTxnForAudit[] = [
-  { id: 23, date: "2026-07-25", walletableType: "bank_account", walletableId: 1, walletableName: "A", amountYen: 299_780, direction: "expense", dealId: null, transferId: null, description: "振込手数料差引後" },
+const targetYm = "202607";
+const missingAmbiguousMappings = mappings.filter((m) => m.memberId === "ID003" || m.memberId === "ID004");
+const missingAmbiguousFindings = detectOfficerCompensationFindings(missingAmbiguousMappings, [], targetYm);
+assert.equal(missingAmbiguousFindings.length, 2, "every officer with an unresolved mapping produces exactly one finding");
+assert.ok(missingAmbiguousFindings.every((f) => f.severity === "blocker"));
+assert.ok(missingAmbiguousFindings.every((f) => f.eligibleForAutoApply === false));
+
+// --- officer compensation: amount-only match must NOT be exact ---------------
+
+const explicitMapping = byId.get("ID001")!;
+const amountOnlyTxns: WalletTxnForAudit[] = [
+  { id: 20, date: "2026-07-25", walletableType: "bank_account", walletableId: 1, walletableName: "普通預金A", amountYen: 300_000, direction: "expense", dealId: null, transferId: null, description: "謎の振込（名前トークンなし）" },
 ];
-const feeMixedFindings = detectOfficerCompensationFindings(singleOfficer, feeMixedTxns);
-assert.equal(feeMixedFindings[0].eligibleForAutoApply, false);
-assert.equal(feeMixedFindings[0].matchConfidence, "ambiguous");
+const amountOnlyFindings = detectOfficerCompensationFindings([explicitMapping], amountOnlyTxns, targetYm);
+assert.equal(amountOnlyFindings.length, 1);
+assert.equal(amountOnlyFindings[0].matchConfidence, "ambiguous", "amount-only match (no description token) must not be exact");
+assert.equal(amountOnlyFindings[0].eligibleForAutoApply, false);
+
+// full match (amount + description token + withdrawal_account + explicit mapping) IS exact
+const fullMatchTxns: WalletTxnForAudit[] = [
+  { id: 21, date: "2026-07-25", walletableType: "bank_account", walletableId: 1, walletableName: "普通預金A", amountYen: 300_000, direction: "expense", dealId: null, transferId: null, description: "まさ 役員報酬 7月分" },
+];
+const fullMatchFindings = detectOfficerCompensationFindings([explicitMapping], fullMatchTxns, targetYm);
+assert.equal(fullMatchFindings.length, 1);
+assert.equal(fullMatchFindings[0].matchConfidence, "exact");
+assert.equal(fullMatchFindings[0].eligibleForAutoApply, true);
+
+// deal紐付け済みの単一明細は消込済みなのでfindingを出さない
+const reconciledTxns: WalletTxnForAudit[] = [
+  { ...fullMatchTxns[0], id: 24, dealId: 9001 },
+];
+assert.equal(
+  detectOfficerCompensationFindings([explicitMapping], reconciledTxns, targetYm).length,
+  0,
+  "a single deal-linked salary payment is already reconciled"
+);
+
+// 消込済みと未処理が重複する場合は二重支払いの可能性としてblocker
+const duplicatedPaymentFindings = detectOfficerCompensationFindings(
+  [explicitMapping],
+  [reconciledTxns[0], { ...fullMatchTxns[0], id: 25 }],
+  targetYm
+);
+assert.equal(duplicatedPaymentFindings.length, 1);
+assert.equal(duplicatedPaymentFindings[0].severity, "blocker");
+assert.equal(duplicatedPaymentFindings[0].eligibleForAutoApply, false);
+
+// 役員報酬らしい明細が内部振替扱いなら誤分類の可能性としてblocker
+const transferLinkedSalaryFindings = detectOfficerCompensationFindings(
+  [explicitMapping],
+  [{ ...fullMatchTxns[0], id: 26, transferId: 7001 }],
+  targetYm
+);
+assert.equal(transferLinkedSalaryFindings.length, 1);
+assert.equal(transferLinkedSalaryFindings[0].severity, "blocker");
+
+// same criteria but mappingStatus=name_match_single (kiyo) must cap at "high", never exact
+const kiyoMapping = byId.get("ID002")!;
+const kiyoFullMatchTxns: WalletTxnForAudit[] = [
+  { id: 22, date: "2026-07-25", walletableType: "bank_account", walletableId: 2, walletableName: "普通預金B", amountYen: 250_000, direction: "expense", dealId: null, transferId: null, description: "きよ 役員報酬" },
+];
+const kiyoFindings = detectOfficerCompensationFindings([kiyoMapping], kiyoFullMatchTxns, targetYm);
+assert.equal(kiyoFindings[0].matchConfidence, "high", "name_match_single mapping must never reach exact even with full criteria");
+assert.equal(kiyoFindings[0].eligibleForAutoApply, false, "name-match-only mapping is a review candidate, never auto eligible");
+
+// month filter: txn outside targetYm is not a candidate
+const wrongMonthTxns: WalletTxnForAudit[] = [
+  { id: 23, date: "2026-06-25", walletableType: "bank_account", walletableId: 1, walletableName: "普通預金A", amountYen: 300_000, direction: "expense", dealId: null, transferId: null, description: "まさ 役員報酬" },
+];
+const wrongMonthFindings = detectOfficerCompensationFindings([explicitMapping], wrongMonthTxns, targetYm);
+assert.equal(wrongMonthFindings[0].matchConfidence, "ambiguous");
+assert.equal(wrongMonthFindings[0].eligibleForAutoApply, false);
+
+// cross-officer amount collision blocks eligibility even with a perfect single match
+const collidingOtherMapping = { ...byId.get("ID002")!, mappingStatus: "explicit" as const, amountYen: 300_000 };
+const collisionFindings = detectOfficerCompensationFindings([explicitMapping, collidingOtherMapping], fullMatchTxns, targetYm);
+const masaCollisionFinding = collisionFindings.find((f) => f.memberId === "ID001")!;
+assert.equal(masaCollisionFinding.eligibleForAutoApply, false, "same-amount collision across officers must never auto-apply");
 
 // --- internal transfer candidates: exact same-day pairing is eligible -------
 
@@ -148,63 +221,108 @@ assert.equal(transferFindings.length, 1);
 assert.equal(transferFindings[0].matchConfidence, "exact");
 assert.equal(transferFindings[0].eligibleForAutoApply, true);
 
-// day-diff beyond tolerance -> not eligible
 const laggedTransferTxns: WalletTxnForAudit[] = [
   { id: 32, date: "2026-07-28", walletableType: "bank_account", walletableId: 1, walletableName: "口座A", amountYen: 500_000, direction: "expense", dealId: null, transferId: null, description: "振替出金" },
   { id: 33, date: "2026-08-02", walletableType: "bank_account", walletableId: 2, walletableName: "口座B", amountYen: 500_000, direction: "income", dealId: null, transferId: null, description: "振替入金(遅延)" },
 ];
-const laggedFindings = detectInternalTransferCandidates(laggedTransferTxns, 1);
-assert.equal(laggedFindings.length, 0, "day diff beyond tolerance produces no candidate at all");
+assert.equal(detectInternalTransferCandidates(laggedTransferTxns, 1).length, 0, "day diff beyond tolerance produces no candidate at all");
 
-// same walletable expense+income must not be treated as a transfer to itself
 const sameWalletTxns: WalletTxnForAudit[] = [
   { id: 34, date: "2026-07-28", walletableType: "bank_account", walletableId: 1, walletableName: "口座A", amountYen: 10_000, direction: "expense", dealId: null, transferId: null, description: "x" },
   { id: 35, date: "2026-07-28", walletableType: "bank_account", walletableId: 1, walletableName: "口座A", amountYen: 10_000, direction: "income", dealId: null, transferId: null, description: "y" },
 ];
 assert.equal(detectInternalTransferCandidates(sameWalletTxns).length, 0);
 
-// --- action executor safety: internal transfer always blocked, no safe endpoint
+// 1つの入金候補を複数出金が奪い合う場合はorder依存でexactにせず、両方ambiguous
+const contestedTransferTxns: WalletTxnForAudit[] = [
+  { ...transferTxns[0], id: 36 },
+  { ...transferTxns[0], id: 37 },
+  { ...transferTxns[1], id: 38 },
+];
+const contestedTransferFindings = detectInternalTransferCandidates(contestedTransferTxns);
+assert.equal(contestedTransferFindings.length, 2);
+assert.ok(contestedTransferFindings.every((finding) => finding.matchConfidence === "ambiguous"));
+assert.ok(contestedTransferFindings.every((finding) => finding.eligibleForAutoApply === false));
+
+// --- per-run finding history: finding_key stability across repeated detection
+
+const key1 = detectInternalTransferCandidates(transferTxns)[0].findingKey;
+const key2 = detectInternalTransferCandidates(transferTxns)[0].findingKey;
+assert.equal(key1, key2, "same underlying entity must always produce the same finding_key across repeated (weekly) detections");
+const officerKey1 = detectOfficerCompensationFindings([explicitMapping], fullMatchTxns, targetYm)[0].findingKey;
+const officerKey2 = detectOfficerCompensationFindings([explicitMapping], fullMatchTxns, targetYm)[0].findingKey;
+assert.equal(officerKey1, officerKey2);
+const officerKeyDifferentMonth = detectOfficerCompensationFindings([explicitMapping], fullMatchTxns, "202608")[0].findingKey;
+assert.notEqual(officerKey1, officerKeyDifferentMonth, "different target month must produce a different finding_key");
+
+// --- action executor safety: BOTH action types always blocked (P0-2) --------
 
 assert.equal(isActionTypeSafelyExecutable("internal_transfer_reconcile"), false);
-assert.equal(isActionTypeSafelyExecutable("officer_compensation_reconcile"), true);
+assert.equal(isActionTypeSafelyExecutable("officer_compensation_reconcile"), false, "no verified safe endpoint exists yet for officer compensation either");
 
 const exactEligibleFinding = { findingType: "officer_compensation_unreconciled" as const, eligibleForAutoApply: true, matchConfidence: "exact" as const };
 const ambiguousFinding = { findingType: "officer_compensation_unreconciled" as const, eligibleForAutoApply: false, matchConfidence: "ambiguous" as const };
+const eligibleTransferFinding = { findingType: "internal_transfer_candidate" as const, eligibleForAutoApply: true, matchConfidence: "exact" as const };
 
-// ambiguous findings never execute regardless of phase/flags
-assert.deepEqual(
+// ambiguous findings never execute
+assert.equal(
   decideExecutorAction({ phase: "auto_apply_allowlist", finding: ambiguousFinding, actionType: "officer_compensation_reconcile", dryRun: false, writesEnabled: true }).mode,
   "blocked"
 );
 
 // review-only phase (runs 1-4) never executes even if eligible
-assert.deepEqual(
+assert.equal(
   decideExecutorAction({ phase: "review_only", finding: exactEligibleFinding, actionType: "officer_compensation_reconcile", dryRun: false, writesEnabled: true }).mode,
   "blocked"
 );
 
-// internal transfer is always blocked even when eligible + allowlist phase + writes enabled
-const eligibleTransferFinding = { findingType: "internal_transfer_candidate" as const, eligibleForAutoApply: true, matchConfidence: "exact" as const };
-const transferDecision = decideExecutorAction({ phase: "auto_apply_allowlist", finding: eligibleTransferFinding, actionType: "internal_transfer_reconcile", dryRun: false, writesEnabled: true });
-assert.equal(transferDecision.mode, "blocked");
-assert.match(transferDecision.blockedReason ?? "", /二重計上|公開エンドポイント/);
+// allowlist phase (run 5+) + eligible + exact + writesEnabled=true + dryRun=false (= what a real
+// auto-apply attempt, or an admin's manual approval-with-write override, would look like):
+// BOTH action types still resolve to blocked, because no safe endpoint is verified yet.
+for (const [actionType, finding] of [
+  ["officer_compensation_reconcile", exactEligibleFinding],
+  ["internal_transfer_reconcile", eligibleTransferFinding],
+] as const) {
+  const decision = decideExecutorAction({ phase: "auto_apply_allowlist", finding, actionType, dryRun: false, writesEnabled: true });
+  assert.equal(decision.mode, "blocked", `${actionType} must stay blocked even at full allowlist eligibility`);
+  assert.ok(decision.blockedReason && decision.blockedReason.length > 0);
+}
 
-// allowlist phase + eligible + dryRun=true -> dry_run, never writes
-assert.deepEqual(
-  decideExecutorAction({ phase: "auto_apply_allowlist", finding: exactEligibleFinding, actionType: "officer_compensation_reconcile", dryRun: true, writesEnabled: true }).mode,
-  "dry_run"
+// writesEnabled=false / dryRun=true make no difference either — still always blocked
+assert.equal(
+  decideExecutorAction({ phase: "auto_apply_allowlist", finding: exactEligibleFinding, actionType: "officer_compensation_reconcile", dryRun: true, writesEnabled: false }).mode,
+  "blocked"
 );
-
-// allowlist phase + eligible + real run but env killswitch off -> blocked (idempotency-safe default)
-assert.deepEqual(
+assert.equal(
   decideExecutorAction({ phase: "auto_apply_allowlist", finding: exactEligibleFinding, actionType: "officer_compensation_reconcile", dryRun: false, writesEnabled: false }).mode,
   "blocked"
 );
 
-// allowlist phase + eligible + real run + env killswitch on -> would_execute
-assert.deepEqual(
-  decideExecutorAction({ phase: "auto_apply_allowlist", finding: exactEligibleFinding, actionType: "officer_compensation_reconcile", dryRun: false, writesEnabled: true }).mode,
-  "would_execute"
+// --- sheet reference: skip reasons + sanitized summary (I/O mockable, tested here as pure fns)
+
+assert.equal(
+  decideSheetReferenceSkip({ spreadsheetId: null, ranges: [], hasGoogleAuth: false }),
+  "AMD_FINANCE_REFERENCE_SHEET_ID not set"
+);
+assert.equal(
+  decideSheetReferenceSkip({ spreadsheetId: "sheet-1", ranges: [], hasGoogleAuth: true }),
+  "AMD_FINANCE_REFERENCE_SHEET_RANGES not set"
+);
+assert.equal(
+  decideSheetReferenceSkip({ spreadsheetId: "sheet-1", ranges: ["A1:B2"], hasGoogleAuth: false }),
+  "Google OAuth not configured (GOOGLE_OAUTH_* / GOOGLE_SERVICE_ACCOUNT_JSON missing)"
+);
+assert.equal(decideSheetReferenceSkip({ spreadsheetId: "sheet-1", ranges: ["A1:B2"], hasGoogleAuth: true }), null);
+
+const rangeSummary = summarizeSheetRangeValues("Sheet1!A1:C3", [
+  ["日付", "科目", "金額"],
+  ["2026-07-01", "家賃", "100000"],
+  ["", "", ""],
+]);
+assert.deepEqual(rangeSummary, { range: "Sheet1!A1:C3", rowCount: 3, nonEmptyCellCount: 6 });
+assert.ok(
+  !JSON.stringify(rangeSummary).includes("家賃") && !JSON.stringify(rangeSummary).includes("100000"),
+  "sanitized summary must never leak actual cell values"
 );
 
 console.log("check_freee_reconciliation_engine: all assertions passed");

@@ -244,12 +244,12 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 ### /admin/finance#会計照合レール
 
-- 週次freee会計照合: 毎週木曜10:00 JSTの`GET /api/cron/freee-accounting-weekly`が`freee_reconciliation_runs/findings/actions`を正本に、口座残高差・同期停止・未処理明細・変な仕訳・役員報酬未消込・内部振替候補を検出する。
-- 4回review gate: `triggered_by='cron'`の完了run数+1が5以上になるまでは完全review-only（自動でfreeeへ書き込まない）。
-- 5回目以降allowlist: 自動反映されるのは、全役員の役員報酬完全一致消込（`officer_compensation_unreconciled`）と、双方口座特定済み・同額・許容日差以内の内部振替（`internal_transfer_candidate`）のうち完全一致のものだけ。曖昧・同額複数候補・残高差の直接補正・勘定科目の推測は必ずレビュー対象にする。
-- freee書込み安全境界: `internal_transfer_reconcile`はfreee公式APIに安全な書込み手段が無いため常にblocked。`officer_compensation_reconcile`のみ`FREEE_RECONCILIATION_WRITES_ENABLED=1`かつ完全一致のときだけ実行し、idempotency_key・before/after状態・監査ログを必須にする。
-- 正本境界: AMD OSの財務テーブルがSOT、freeeは実行先兼一次証跡、きよの収支スプシはread-only参考でこの機能からは一切書き込まない。
-- 管理操作: `/admin/finance`会計照合レールでpending/blockedのfindingを承認/却下、dry-runプレビュー実行ができる。承認がfreee即時書込みを伴う場合は`confirmWrite:true`必須＋サーバー側再検証。
+- 週次freee会計照合: 毎週木曜10:00 JSTの`GET /api/cron/freee-accounting-weekly`が`freee_reconciliation_runs/findings/actions`を正本に、口座残高差・同期停止・未処理明細・変な仕訳・役員報酬未消込・内部振替候補を検出する。findingは週次runごとにoccurrence行としてinsertされ、過去runの証跡を保持する（`UNIQUE(run_id, finding_key)`）。
+- 4回review gate: `triggered_by='cron'`の完了run数+1が5以上になるまでは、判定ロジックが動いてもexecutorは呼ばれない（完全review-only）。
+- 5回目以降allowlist: `eligibleForAutoApply=true`になりうるのは、役員報酬の完全一致消込（`officer_compensation_unreconciled`、期待額は`company_finance_recurring_items`のitem_kind='salary'/category='executive'明示分類が正本、氏名一致だけの紐付けは対象外）と、双方口座特定済み・同額・許容日差以内の内部振替（`internal_transfer_candidate`）のうち完全一致のものだけ。曖昧・同額複数候補・残高差の直接補正・勘定科目の推測は必ずレビュー対象にする。
+- freee書込み安全境界: `isActionTypeSafelyExecutable`は2026-07時点で両action typeともfalse固定。内部振替はfreee公式APIに安全な書込み手段が無く、役員報酬もwallet_txnのaccount_item_id更新が「消込」を正しく表現することを公式に検証できていないため、**freeeへの実書込みは現時点で一切発生しない**（常にblocked、`freee_reconciliation_actions`に理由を記録）。
+- 正本境界: AMD OSの財務テーブルがSOT、freeeは実行先兼一次証跡。きよの収支スプシは`AMD_FINANCE_REFERENCE_SHEET_ID`設定時のみread-only参照し（セル値は保存せずrowCount/非空セル数だけをsanitize）、正本を上書きしない。
+- 管理操作: `/admin/finance`会計照合レールでpending/blockedのfindingを承認/却下、dry-runプレビュー実行ができる。承認/却下はOS内の監査記録の保存のみで、freeeへの書込みは伴わない。
 
 正本仕様: [`pwa/manual/6-10-freee-accounting-reconciliation-spec.md`](../manual/6-10-freee-accounting-reconciliation-spec.md)
 

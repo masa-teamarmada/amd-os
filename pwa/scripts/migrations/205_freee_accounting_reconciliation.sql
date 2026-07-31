@@ -2,9 +2,9 @@
 --
 -- 週次freee会計照合（会計照合レール）の正本テーブル。
 -- AMD OSがSOT、freeeは実行先兼一次証跡、きよの収支スプシはread-only参考（正本を上書きしない）。
--- 最初の4回成功run（cronトリガのみカウント）は完全review-only。5回目以降も自動反映を許すのは
--- 「全役員の役員報酬消込」と「同額・同日/許容日差・双方口座特定済みの内部振替」のうち
--- 完全一致条件を満たすものだけ。それ以外は必ずreview候補に落とす。
+-- 最初の4回成功run（cronトリガのみカウント）は完全review-only。5回目以降は
+-- 「全役員の役員報酬消込」と「同額・同日/許容日差・双方口座特定済みの内部振替」の
+-- 完全一致allowlist判定まで行うが、安全な公式endpointが未検証の間はfreee書込みを常にblockedにする。
 
 CREATE TABLE IF NOT EXISTS public.freee_reconciliation_runs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -38,7 +38,10 @@ CREATE INDEX IF NOT EXISTS freee_reconciliation_runs_sequence_idx
 CREATE TABLE IF NOT EXISTS public.freee_reconciliation_findings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   run_id UUID NOT NULL REFERENCES public.freee_reconciliation_runs(id) ON DELETE CASCADE,
-  finding_key TEXT NOT NULL UNIQUE,
+  -- finding_keyは検出対象entityの安定ハッシュ（run非依存）。週次runごとに新しいoccurrence行を
+  -- insertするため単体UNIQUEにはしない（run_id, finding_key）で一意にし、週次監査証跡を残す。
+  -- action側のidempotencyはこのfinding_key(+action_type)を安定キーとして使い続ける。
+  finding_key TEXT NOT NULL,
   finding_type TEXT NOT NULL
     CHECK (finding_type IN (
       'balance_delta',
@@ -77,12 +80,20 @@ CREATE TABLE IF NOT EXISTS public.freee_reconciliation_findings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- 初期版を先に適用していても、finding_key単体UNIQUEを確実に外して週次occurrenceを保持する。
+ALTER TABLE public.freee_reconciliation_findings
+  DROP CONSTRAINT IF EXISTS freee_reconciliation_findings_finding_key_key;
+CREATE UNIQUE INDEX IF NOT EXISTS freee_reconciliation_findings_run_key_uniq
+  ON public.freee_reconciliation_findings(run_id, finding_key);
+
 CREATE INDEX IF NOT EXISTS freee_reconciliation_findings_run_idx
   ON public.freee_reconciliation_findings(run_id);
 CREATE INDEX IF NOT EXISTS freee_reconciliation_findings_review_idx
   ON public.freee_reconciliation_findings(review_status, severity, last_seen_at DESC);
 CREATE INDEX IF NOT EXISTS freee_reconciliation_findings_type_idx
   ON public.freee_reconciliation_findings(finding_type, review_status);
+CREATE INDEX IF NOT EXISTS freee_reconciliation_findings_key_created_idx
+  ON public.freee_reconciliation_findings(finding_key, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS public.freee_reconciliation_actions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

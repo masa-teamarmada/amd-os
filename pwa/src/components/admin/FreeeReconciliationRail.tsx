@@ -53,15 +53,15 @@ function FindingTable({
   busyId,
 }: {
   rows: ReconciliationFindingRow[];
-  onReview: (row: ReconciliationFindingRow, decision: "approved" | "rejected", confirmWrite?: boolean) => void;
+  onReview: (row: ReconciliationFindingRow, decision: "approved" | "rejected") => void;
   busyId: string | null;
 }) {
   if (rows.length === 0) {
     return <div className="py-4 text-center text-[12px] text-muted-foreground">該当なし</div>;
   }
   return (
-    <div className="overflow-hidden rounded-md border border-border">
-      <table className="w-full text-[12px]">
+    <div className="overflow-x-auto rounded-md border border-border">
+      <table className="min-w-[760px] w-full text-[12px]">
         <thead>
           <tr className="border-b border-border bg-muted/40">
             <th className="px-3 py-2 text-left font-medium">状態</th>
@@ -97,9 +97,9 @@ function FindingTable({
                 {row.reviewStatus === "pending" || row.reviewStatus === "blocked" ? (
                   <div className="flex justify-end gap-1">
                     <button
-                      onClick={() => onReview(row, "approved", row.eligibleForAutoApply && row.matchConfidence === "exact")}
+                      onClick={() => onReview(row, "approved")}
                       disabled={busyId === row.id}
-                      className="inline-flex items-center gap-1 rounded border border-emerald-200 px-2 py-1 text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                      className="inline-flex min-h-11 items-center gap-1 rounded border border-emerald-200 px-2 py-1 text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
                     >
                       {busyId === row.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
                       承認
@@ -107,7 +107,7 @@ function FindingTable({
                     <button
                       onClick={() => onReview(row, "rejected")}
                       disabled={busyId === row.id}
-                      className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 hover:bg-muted/40 disabled:opacity-60"
+                      className="inline-flex min-h-11 items-center gap-1 rounded border border-border px-2 py-1 hover:bg-muted/40 disabled:opacity-60"
                     >
                       <X className="h-3.5 w-3.5" />
                       却下
@@ -128,8 +128,8 @@ function FindingTable({
 function RunHistoryTable({ runs }: { runs: ReconciliationRunSummary[] }) {
   if (runs.length === 0) return <div className="py-4 text-center text-[12px] text-muted-foreground">run履歴なし</div>;
   return (
-    <div className="overflow-hidden rounded-md border border-border">
-      <table className="w-full text-[12px]">
+    <div className="overflow-x-auto rounded-md border border-border">
+      <table className="min-w-[820px] w-full text-[12px]">
         <thead>
           <tr className="border-b border-border bg-muted/40">
             <th className="px-3 py-2 text-left font-medium">週</th>
@@ -199,30 +199,21 @@ export function FreeeReconciliationRail({ initialOverview }: Props) {
     setRunning(false);
   };
 
-  const onReview = async (row: ReconciliationFindingRow, decision: "approved" | "rejected", confirmWrite = false) => {
-    if (decision === "approved" && confirmWrite) {
-      const ok = window.confirm(
-        `この承認は freee 側の対象明細を役員報酬として分類する即時書き込みを伴います（金額${yen(row.amountYen)}）。よろしいですか？`
-      );
-      if (!ok) return;
-    }
+  // 承認/却下は監査記録の保存のみ。freeeへの即時書込みは一切発生しない
+  // （安全な公式書込みendpointが確認・実装されるまでの意図的な制約）。
+  const onReview = async (row: ReconciliationFindingRow, decision: "approved" | "rejected") => {
     setBusyId(row.id);
     setHint("");
     const res = await fetch("/api/admin/finance/reconciliation", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "review", findingId: row.id, decision, confirmWrite }),
+      body: JSON.stringify({ action: "review", findingId: row.id, decision }),
     });
     const json = await res.json();
     if (!res.ok || !json.ok) {
-      if (json.requiresConfirmation) {
-        await onReview(row, decision, true);
-        setBusyId(null);
-        return;
-      }
       setHint(`レビューエラー: ${json.error ?? res.statusText}`);
     } else {
-      setHint(json.write?.attempted ? (json.write.ok ? "freeeへの書き込みに成功した" : `freee書き込み失敗: ${json.write.error}`) : "レビューを保存した");
+      setHint("レビューを保存した（freeeへの書き込みは行われない）");
       await refresh();
     }
     setBusyId(null);
@@ -242,7 +233,7 @@ export function FreeeReconciliationRail({ initialOverview }: Props) {
         <div className="ml-auto flex gap-2">
           <button
             onClick={refresh}
-            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[12px] hover:bg-muted/40"
+            className="inline-flex min-h-11 items-center gap-1 rounded border border-border px-2 py-1 text-[12px] hover:bg-muted/40"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             再読込
@@ -250,7 +241,7 @@ export function FreeeReconciliationRail({ initialOverview }: Props) {
           <button
             onClick={triggerDryRun}
             disabled={running}
-            className="inline-flex items-center gap-1 rounded bg-foreground px-3 py-1.5 text-[12px] text-background disabled:opacity-60"
+            className="inline-flex min-h-11 items-center gap-1 rounded bg-foreground px-3 py-1.5 text-[12px] text-background disabled:opacity-60"
           >
             {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PlayCircle className="h-3.5 w-3.5" />}
             dry-runプレビュー実行
@@ -259,8 +250,8 @@ export function FreeeReconciliationRail({ initialOverview }: Props) {
       </div>
       {hint && <div className="text-[12px] text-muted-foreground">{hint}</div>}
       <p className="text-[11px] text-muted-foreground">
-        最初の4回の成功run（木曜cron）はreview-only。5回目以降も自動反映されるのは、役員報酬の完全一致消込・同額同日/許容日差の内部振替のみ。
-        内部振替はfreee APIに安全な公式書込み手段が無いため、承認しても自動書込みは行われない（blockedのまま人が判断する）。
+        最初の4回の成功run（木曜cron）はreview-only。役員報酬の完全一致消込・同額同日/許容日差の内部振替は5回目以降のrunで検出対象になるが、
+        freeeへの実書込みは現時点では常にblocked固定（安全な公式書込みendpointが未検証のため）。承認/却下はこのOS内の監査記録として保存されるだけで、freeeへは一切書き込まない。
       </p>
 
       {SECTION_ORDER.map(({ key, label }) => {

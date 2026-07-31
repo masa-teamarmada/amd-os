@@ -1,29 +1,37 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { google } from "googleapis";
 import { freeeApi } from "@/lib/freee-client";
-import { fetchWalletTxns, fetchFreeeAccountItems, type WalletTxn } from "@/lib/finance/freee-cash-balances";
-import { loadOfficerReserve } from "@/lib/finance/officer-compensation";
-import { currentYmJst } from "@/lib/payment-groups";
+import { fetchWalletTxns } from "@/lib/finance/freee-cash-balances";
+import { getGoogleAuthAsync } from "@/lib/sources/google";
 import {
   computeRunPhase,
   decideExecutorAction,
+  decideSheetReferenceSkip,
   detectAnomalousJournals,
   detectBalanceDeltas,
   detectInternalTransferCandidates,
   detectOfficerCompensationFindings,
   detectSyncIssues,
   detectUnprocessedEntries,
+  buildOfficerRecurringMappings,
+  isRunStale,
+  summarizeSheetRangeValues,
   weekWindowForRunDate,
+  ymFromIsoDate,
   type ActionType,
   type Finding,
   type ManualJournalForAudit,
-  type OfficerExpectedCompensation,
+  type OfficerForMatching,
+  type OfficerRecurringMapping,
+  type RecurringItemForMatching,
   type RunPhase,
+  type SheetReferenceSnapshot,
   type WalletableForAudit,
   type WalletTxnForAudit,
 } from "@/lib/finance/freee-reconciliation-engine";
 
 const LOOKBACK_DAYS = 60;
-const OFFICER_ACCOUNT_ITEM_PATTERN = /役員報酬/;
+const STALE_RUNNING_THRESHOLD_MINUTES = 30;
 
 function yen(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value ?? 0);
@@ -35,7 +43,7 @@ function jstNowDate(): string {
   return `${jst.getUTCFullYear()}-${String(jst.getUTCMonth() + 1).padStart(2, "0")}-${String(jst.getUTCDate()).padStart(2, "0")}`;
 }
 
-function walletTxnDirection(txn: WalletTxn): "income" | "expense" | null {
+function walletTxnDirection(txn: { entry_side?: string | null }): "income" | "expense" | null {
   const side = String(txn.entry_side ?? "").trim().toLowerCase();
   if (["income", "deposit", "credit"].includes(side)) return "income";
   if (["expense", "withdrawal", "withdraw", "debit"].includes(side)) return "expense";
@@ -50,7 +58,9 @@ export type WalletableRaw = {
   name?: string;
   walletable_name?: string;
   bank_name?: string;
+  /** freee公式: 銀行同期の実残高（同期残高） */
   last_balance?: number | string | null;
+  /** freee公式: freee帳簿上の登録残高 */
   walletable_balance?: number | string | null;
   sync_status?: string | null;
   last_synced_at?: string | null;
@@ -68,8 +78,8 @@ function toWalletableForAudit(w: WalletableRaw): WalletableForAudit {
     id: w.id ?? "",
     type: String(w.type ?? ""),
     name: w.name || w.walletable_name || w.bank_name || null,
-    lastBalance: w.last_balance == null ? null : yen(w.last_balance),
-    walletableBalance: w.walletable_balance == null ? null : yen(w.walletable_balance),
+    syncedBalance: w.last_balance == null ? null : yen(w.last_balance),
+    registeredBalance: w.walletable_balance == null ? null : yen(w.walletable_balance),
     syncStatus: w.sync_status ?? null,
     lastSyncedAt: w.last_synced_at ?? null,
   };
@@ -114,49 +124,108 @@ function toManualJournalForAudit(j: ManualJournalRaw): ManualJournalForAudit {
   };
 }
 
-// --- freee write (officer compensation reconciliation only) ----------------
+// --- officer compensation mapping (company_finance_recurring_items が正本) ---
 
-type WalletTxnDetailRaw = {
-  id?: number | string;
-  account_item_id?: number | string | null;
-  partner_id?: number | string | null;
-  description?: string | null;
+type RecurringItemRow = {
+  id: string;
+  display_name: string | null;
+  vendor_name: string | null;
+  amount_yen: number | string | null;
+  frequency: string | null;
+  withdrawal_account: string | null;
+  item_kind: string | null;
+  category: string | null;
+  start_ym: string | null;
+  end_ym: string | null;
+  payload: unknown;
 };
 
-async function fetchWalletTxnById(id: string): Promise<WalletTxnDetailRaw | null> {
-  try {
-    const data = (await freeeApi("GET", `/api/1/wallet_txns/${id}`)) as { wallet_txn?: WalletTxnDetailRaw };
-    return data.wallet_txn ?? null;
-  } catch (error) {
-    return { id, account_item_id: null, description: `fetch failed: ${error instanceof Error ? error.message : String(error)}` };
-  }
+function isOfficerCompensationItem(item: RecurringItemRow): boolean {
+  return item.item_kind === "salary" || item.category === "executive";
 }
 
-export type OfficerReconcileResult = {
-  ok: boolean;
-  before: WalletTxnDetailRaw | null;
-  after: WalletTxnDetailRaw | null;
-  error: string | null;
-};
+function isActiveForYm(item: RecurringItemRow, targetYm: string): boolean {
+  if (item.start_ym && item.start_ym > targetYm) return false;
+  if (item.end_ym && item.end_ym < targetYm) return false;
+  return true;
+}
+
+function explicitMemberIdFromPayload(item: RecurringItemRow, officerIds: Set<string>): string | null {
+  const payload = (item.payload ?? {}) as Record<string, unknown>;
+  const raw = payload.memberId ?? payload.member_id;
+  const value = typeof raw === "string" ? raw : null;
+  return value && officerIds.has(value) ? value : null;
+}
 
 /**
- * 役員報酬の消込 = 対象wallet_txn（明細）の account_item_id を役員報酬勘定へ分類する。
- * freeeにはwallet_txnの「消込/処理済み」フラグを外部APIから変更する手段が無いため
- * (freee/freee-api-schema#541, 2026-07時点未実装)、二重計上を発生させない安全な表現として
- * 既存明細のaccount_item_id更新（PUT /api/1/wallet_txns/{id}）だけを行う。新規のcash側計上は作らない。
+ * 全active役員 × company_finance_recurring_items(item_kind='salary' or category='executive',
+ * targetYm時点でactive)の紐付けを取得する。会計照合の役員報酬正本はこれで、
+ * /admin/finance の既存 loadOfficerReserve（billing_cycles.reward_summary_json 由来のPJ報酬reserve）
+ * とは別用途・別正本。
  */
-export async function executeOfficerCompensationReconcile(
-  walletTxnId: string,
-  accountItemId: string
-): Promise<OfficerReconcileResult> {
-  const before = await fetchWalletTxnById(walletTxnId);
+export async function loadOfficerRecurringMappings(db: SupabaseClient, targetYm: string): Promise<OfficerRecurringMapping[]> {
+  const [membersRes, itemsRes] = await Promise.all([
+    db.from("members").select("member_id, code_name, member_name").eq("is_officer", true).eq("status", "active"),
+    db
+      .from("company_finance_recurring_items")
+      .select("id, display_name, vendor_name, amount_yen, frequency, withdrawal_account, item_kind, category, start_ym, end_ym, payload")
+      .eq("status", "active"),
+  ]);
+  if (membersRes.error) throw new Error(`loadOfficerRecurringMappings members: ${membersRes.error.message}`);
+  if (itemsRes.error) throw new Error(`loadOfficerRecurringMappings items: ${itemsRes.error.message}`);
+
+  const officers: OfficerForMatching[] = (membersRes.data ?? []).map((m) => ({
+    memberId: m.member_id as string,
+    memberName: (m.member_name as string | null) || (m.code_name as string | null) || (m.member_id as string),
+    codeName: (m.code_name as string | null) || (m.member_id as string),
+  }));
+  const officerIds = new Set(officers.map((o) => o.memberId));
+
+  const items: RecurringItemForMatching[] = ((itemsRes.data ?? []) as RecurringItemRow[])
+    .filter((item) => isOfficerCompensationItem(item) && isActiveForYm(item, targetYm))
+    .map((item) => ({
+      id: item.id,
+      displayName: item.display_name,
+      vendorName: item.vendor_name,
+      amountYen: yen(item.amount_yen),
+      frequency: item.frequency,
+      withdrawalAccount: item.withdrawal_account,
+      explicitMemberId: explicitMemberIdFromPayload(item, officerIds),
+    }));
+
+  return buildOfficerRecurringMappings(officers, items);
+}
+
+// --- read-only reference sheet (きよの収支スプシ) -----------------------------
+// read-only参考資料。AMD OS/freeeへは一切書き込まない。セル値そのものは保存せず、
+// range毎のrowCount/非空セル数だけをsanitized summaryとしてrun summary_jsonへ残す。
+
+async function defaultFetchRangeValues(spreadsheetId: string, range: string): Promise<string[][]> {
+  const googleAuth = await getGoogleAuthAsync();
+  if (!googleAuth) throw new Error("Google auth unavailable");
+  const sheets = google.sheets({ version: "v4", auth: googleAuth });
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range });
+  return (res.data.values ?? []) as string[][];
+}
+
+export async function loadFinanceReferenceSheetSnapshot(
+  fetchRangeValues: (spreadsheetId: string, range: string) => Promise<string[][]> = defaultFetchRangeValues
+): Promise<SheetReferenceSnapshot> {
+  const spreadsheetId = process.env.AMD_FINANCE_REFERENCE_SHEET_ID || null;
+  const ranges = (process.env.AMD_FINANCE_REFERENCE_SHEET_RANGES || "").split(",").map((r) => r.trim()).filter(Boolean);
+  const googleAuth = await getGoogleAuthAsync();
+  const skipReason = decideSheetReferenceSkip({ spreadsheetId, ranges, hasGoogleAuth: Boolean(googleAuth) });
+  if (skipReason) return { status: "skipped", reason: skipReason };
   try {
-    await freeeApi("PUT", `/api/1/wallet_txns/${walletTxnId}`, { account_item_id: Number(accountItemId) });
+    const summaries = [];
+    for (const range of ranges) {
+      const values = await fetchRangeValues(spreadsheetId as string, range);
+      summaries.push(summarizeSheetRangeValues(range, values));
+    }
+    return { status: "ok", spreadsheetId: spreadsheetId as string, fetchedAt: new Date().toISOString(), ranges: summaries };
   } catch (error) {
-    return { ok: false, before, after: null, error: error instanceof Error ? error.message : String(error) };
+    return { status: "skipped", reason: `sheet read failed: ${error instanceof Error ? error.message : String(error)}` };
   }
-  const after = await fetchWalletTxnById(walletTxnId);
-  return { ok: true, before, after, error: null };
 }
 
 // --- orchestration -----------------------------------------------------------
@@ -195,70 +264,40 @@ async function countPriorCompletedCronRuns(db: SupabaseClient): Promise<number> 
   return count ?? 0;
 }
 
-async function upsertFindings(db: SupabaseClient, runId: string, findings: Finding[]): Promise<void> {
-  if (findings.length === 0) return;
-  const keys = findings.map((f) => f.findingKey);
-  const { data: existingRows, error: existingError } = await db
-    .from("freee_reconciliation_findings")
-    .select("id, finding_key, review_status")
-    .in("finding_key", keys);
-  if (existingError) throw new Error(`upsertFindings select: ${existingError.message}`);
-  const existingByKey = new Map((existingRows ?? []).map((r) => [r.finding_key as string, r]));
-
-  const toInsert: Record<string, unknown>[] = [];
-  const toUpdatePending: Array<{ id: string; row: Record<string, unknown> }> = [];
-  const toTouchOnly: string[] = [];
-
+/** このrunが検出した全findingを、run_id+finding_key単位の新規occurrenceとしてinsertする。 */
+async function insertFindingOccurrences(db: SupabaseClient, runId: string, findings: Finding[]): Promise<Map<string, string>> {
+  const findingIdByKey = new Map<string, string>();
+  if (findings.length === 0) return findingIdByKey;
   const nowIso = new Date().toISOString();
-  for (const f of findings) {
-    const existing = existingByKey.get(f.findingKey);
-    const row = {
-      run_id: runId,
-      finding_key: f.findingKey,
-      finding_type: f.findingType,
-      severity: f.severity,
-      walletable_type: f.walletableType,
-      walletable_id: f.walletableId,
-      walletable_name: f.walletableName,
-      freee_entity_type: f.freeeEntityType,
-      freee_entity_id: f.freeeEntityId,
-      member_id: f.memberId,
-      amount_yen: f.amountYen,
-      delta_yen: f.deltaYen,
-      occurred_on: f.occurredOn,
-      title: f.title,
-      summary_ja: f.summaryJa,
-      decision_reason_ja: f.decisionReasonJa,
-      match_confidence: f.matchConfidence,
-      eligible_for_auto_apply: f.eligibleForAutoApply,
-      evidence_json: f.evidence,
-      last_seen_at: nowIso,
-      updated_at: nowIso,
-    };
-    if (!existing) {
-      toInsert.push({ ...row, review_status: "pending" });
-    } else if (existing.review_status === "pending") {
-      toUpdatePending.push({ id: existing.id as string, row });
-    } else {
-      toTouchOnly.push(existing.id as string);
-    }
-  }
-
-  if (toInsert.length > 0) {
-    const { error } = await db.from("freee_reconciliation_findings").insert(toInsert);
-    if (error) throw new Error(`upsertFindings insert: ${error.message}`);
-  }
-  for (const { id, row } of toUpdatePending) {
-    const { error } = await db.from("freee_reconciliation_findings").update(row).eq("id", id);
-    if (error) throw new Error(`upsertFindings update pending ${id}: ${error.message}`);
-  }
-  if (toTouchOnly.length > 0) {
-    const { error } = await db
-      .from("freee_reconciliation_findings")
-      .update({ run_id: runId, last_seen_at: nowIso })
-      .in("id", toTouchOnly);
-    if (error) throw new Error(`upsertFindings touch: ${error.message}`);
-  }
+  const rows = findings.map((f) => ({
+    run_id: runId,
+    finding_key: f.findingKey,
+    finding_type: f.findingType,
+    severity: f.severity,
+    walletable_type: f.walletableType,
+    walletable_id: f.walletableId,
+    walletable_name: f.walletableName,
+    freee_entity_type: f.freeeEntityType,
+    freee_entity_id: f.freeeEntityId,
+    member_id: f.memberId,
+    amount_yen: f.amountYen,
+    delta_yen: f.deltaYen,
+    occurred_on: f.occurredOn,
+    title: f.title,
+    summary_ja: f.summaryJa,
+    decision_reason_ja: f.decisionReasonJa,
+    match_confidence: f.matchConfidence,
+    eligible_for_auto_apply: f.eligibleForAutoApply,
+    evidence_json: f.evidence,
+    review_status: "pending",
+    first_seen_at: nowIso,
+    last_seen_at: nowIso,
+    updated_at: nowIso,
+  }));
+  const { data, error } = await db.from("freee_reconciliation_findings").insert(rows).select("id, finding_key");
+  if (error) throw new Error(`insertFindingOccurrences: ${error.message}`);
+  for (const row of data ?? []) findingIdByKey.set(row.finding_key as string, row.id as string);
+  return findingIdByKey;
 }
 
 const ACTION_TYPE_BY_FINDING_TYPE: Partial<Record<Finding["findingType"], ActionType>> = {
@@ -266,19 +305,22 @@ const ACTION_TYPE_BY_FINDING_TYPE: Partial<Record<Finding["findingType"], Action
   internal_transfer_candidate: "internal_transfer_reconcile",
 };
 
+/**
+ * eligible findingについてexecutor判定を記録する。2026-07時点ではisActionTypeSafelyExecutableが
+ * 両action typeともfalse固定のため、decision.modeは常に"blocked"（安全な公式endpointが
+ * 確認・実装されるまでの意図的な制約）。freeeへの実書込みはこの関数からは一切発生しない。
+ */
 async function applyExecutorForEligibleFindings(
   db: SupabaseClient,
   runId: string,
   phase: RunPhase,
   dryRun: boolean,
   findings: Finding[],
-  accountItems: Map<string, string>
+  findingIdByKey: Map<string, string>
 ): Promise<{ autoAppliedCount: number; blockedCount: number }> {
-  let autoAppliedCount = 0;
+  const autoAppliedCount = 0;
   let blockedCount = 0;
   if (phase !== "auto_apply_allowlist") return { autoAppliedCount, blockedCount };
-
-  const officerAccountItemId = [...accountItems.entries()].find(([, name]) => OFFICER_ACCOUNT_ITEM_PATTERN.test(name))?.[0] ?? null;
 
   for (const finding of findings) {
     if (!finding.eligibleForAutoApply || finding.matchConfidence !== "exact") continue;
@@ -297,102 +339,28 @@ async function applyExecutorForEligibleFindings(
       continue; // 再実行防止: すでに成功済みの action は二度と実行しない
     }
 
-    const { data: findingRow } = await db
-      .from("freee_reconciliation_findings")
-      .select("id, review_status")
-      .eq("finding_key", finding.findingKey)
-      .maybeSingle();
-    const findingId = findingRow?.id as string | undefined;
+    const findingId = findingIdByKey.get(finding.findingKey);
     if (!findingId) continue;
 
-    if (decision.mode === "blocked") {
-      blockedCount += 1;
-      const actionRow = {
-        finding_id: findingId,
-        run_id: runId,
-        action_type: actionType,
-        idempotency_key: idempotencyKey,
-        mode: "blocked",
-        freee_write_status: "not_attempted",
-        blocked_reason: decision.blockedReason,
-        executed_by: "system:auto_apply",
-      };
-      await db.from("freee_reconciliation_actions").upsert(actionRow, { onConflict: "idempotency_key" });
-      if (!dryRun && findingRow?.review_status === "pending") {
-        await db
-          .from("freee_reconciliation_findings")
-          .update({ review_status: "blocked", review_note: decision.blockedReason, reviewed_at: new Date().toISOString() })
-          .eq("id", findingId);
-      }
-      continue;
-    }
-
-    if (decision.mode === "dry_run") {
-      await db.from("freee_reconciliation_actions").upsert(
-        {
-          finding_id: findingId,
-          run_id: runId,
-          action_type: actionType,
-          idempotency_key: idempotencyKey,
-          mode: "dry_run",
-          freee_write_status: "not_attempted",
-          executed_by: "system:auto_apply",
-        },
-        { onConflict: "idempotency_key" }
-      );
-      continue;
-    }
-
-    // decision.mode === "would_execute" — officer_compensation_reconcile のみここに到達しうる
-    if (actionType !== "officer_compensation_reconcile" || !officerAccountItemId || !finding.freeeEntityId) {
-      await db.from("freee_reconciliation_actions").upsert(
-        {
-          finding_id: findingId,
-          run_id: runId,
-          action_type: actionType,
-          idempotency_key: idempotencyKey,
-          mode: "blocked",
-          freee_write_status: "not_attempted",
-          blocked_reason: "役員報酬account_itemが見つからない、またはfreee entityIdが無い",
-          executed_by: "system:auto_apply",
-        },
-        { onConflict: "idempotency_key" }
-      );
-      continue;
-    }
-
-    const result = await executeOfficerCompensationReconcile(finding.freeeEntityId, officerAccountItemId);
-    autoAppliedCount += result.ok ? 1 : 0;
-    blockedCount += result.ok ? 0 : 1;
+    blockedCount += 1;
     await db.from("freee_reconciliation_actions").upsert(
       {
         finding_id: findingId,
         run_id: runId,
         action_type: actionType,
         idempotency_key: idempotencyKey,
-        mode: "executed",
-        freee_write_status: result.ok ? "succeeded" : "failed",
-        freee_wallet_txn_id: finding.freeeEntityId,
-        freee_account_item_id: officerAccountItemId,
-        before_state_json: result.before ?? {},
-        after_state_json: result.after ?? null,
-        error_message: result.error,
+        mode: decision.mode,
+        freee_write_status: "not_attempted",
+        blocked_reason: decision.blockedReason,
         executed_by: "system:auto_apply",
-        executed_at: new Date().toISOString(),
       },
       { onConflict: "idempotency_key" }
     );
-    if (findingRow?.review_status === "pending") {
-      await db
-        .from("freee_reconciliation_findings")
-        .update({
-          review_status: result.ok ? "auto_applied" : "blocked",
-          review_note: result.ok ? "system:auto_apply で役員報酬を消込済み" : `auto_apply失敗: ${result.error}`,
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: "system:auto_apply",
-        })
-        .eq("id", findingId);
-    }
+    await db
+      .from("freee_reconciliation_findings")
+      .update({ review_status: "blocked", review_note: decision.blockedReason })
+      .eq("id", findingId)
+      .eq("review_status", "pending");
   }
 
   return { autoAppliedCount, blockedCount };
@@ -409,7 +377,7 @@ export async function runWeeklyReconciliation(db: SupabaseClient, options: RunOp
   if (options.triggeredBy === "cron") {
     const { data: existing, error: existingError } = await db
       .from("freee_reconciliation_runs")
-      .select("id, status, phase, run_sequence, finding_count, auto_applied_count, blocked_count")
+      .select("id, status, phase, run_sequence, finding_count, auto_applied_count, blocked_count, started_at")
       .eq("run_key", runKey)
       .maybeSingle();
     if (existingError) {
@@ -430,14 +398,15 @@ export async function runWeeklyReconciliation(db: SupabaseClient, options: RunOp
         error: null,
       };
     }
-    if (existing?.status === "running") {
-      return { ok: true, skipped: true, reason: "a run for this JST week is already in progress (concurrent/crashed run guard)", runId: existing.id as string, runKey, phase: null, runSequence: null, findingCount: 0, autoAppliedCount: 0, blockedCount: 0, error: null };
+    const stale = existing?.status === "running" && isRunStale(existing.started_at as string, new Date().toISOString(), STALE_RUNNING_THRESHOLD_MINUTES);
+    if (existing?.status === "running" && !stale) {
+      return { ok: true, skipped: true, reason: "a run for this JST week is already in progress (concurrent run guard, <30min old)", runId: existing.id as string, runKey, phase: null, runSequence: null, findingCount: 0, autoAppliedCount: 0, blockedCount: 0, error: null };
     }
-    if (existing?.status === "failed") {
-      runId = existing.id as string;
+    if (existing?.status === "failed" || stale) {
+      runId = existing!.id as string;
       const { error } = await db
         .from("freee_reconciliation_runs")
-        .update({ status: "running", dry_run: options.dryRun, error_message: null, started_at: new Date().toISOString(), completed_at: null })
+        .update({ status: "running", dry_run: options.dryRun, error_message: stale ? "previous run exceeded 30min and was recovered as stale" : null, started_at: new Date().toISOString(), completed_at: null })
         .eq("id", runId);
       if (error) return { ok: false, skipped: false, reason: null, runId, runKey, phase: null, runSequence: null, findingCount: 0, autoAppliedCount: 0, blockedCount: 0, error: error.message };
     } else {
@@ -490,6 +459,7 @@ export async function runWeeklyReconciliation(db: SupabaseClient, options: RunOp
     if (runRowError || !runRow) throw new Error(runRowError?.message ?? "run row missing after insert");
     const phase = runRow.phase as RunPhase;
     const runSequence = runRow.run_sequence as number;
+    const targetYm = ymFromIsoDate(weekEndDate);
 
     const historyStartDate = (() => {
       const [y, m, d] = weekEndDate.split("-").map(Number);
@@ -498,12 +468,12 @@ export async function runWeeklyReconciliation(db: SupabaseClient, options: RunOp
       return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
     })();
 
-    const [walletablesRaw, rawTxns, accountItems, manualJournalsRaw, officerReserve] = await Promise.all([
+    const [walletablesRaw, rawTxns, manualJournalsRaw, officerMappings, sheetReference] = await Promise.all([
       fetchWalletablesFull(),
       fetchWalletTxns(historyStartDate, weekEndDate),
-      fetchFreeeAccountItems(),
       fetchManualJournalsForWindow(historyStartDate, weekEndDate),
-      loadOfficerReserve(db, currentYmJst()),
+      loadOfficerRecurringMappings(db, targetYm),
+      loadFinanceReferenceSheetSnapshot(),
     ]);
 
     const walletablesForAudit: WalletableForAudit[] = walletablesRaw.map(toWalletableForAudit);
@@ -523,14 +493,6 @@ export async function runWeeklyReconciliation(db: SupabaseClient, options: RunOp
         description: t.description ?? null,
       }));
     const manualJournalsForAudit: ManualJournalForAudit[] = manualJournalsRaw.map(toManualJournalForAudit);
-    const officerExpected: OfficerExpectedCompensation[] = officerReserve.entries.map((e) => ({
-      memberId: e.memberId,
-      memberName: e.memberName,
-      projectId: e.projectId,
-      projectName: e.projectName,
-      sourceYm: e.sourceYm,
-      amountYen: e.amountYen,
-    }));
 
     const nowIso = new Date().toISOString();
     const findings: Finding[] = [
@@ -538,31 +500,33 @@ export async function runWeeklyReconciliation(db: SupabaseClient, options: RunOp
       ...detectSyncIssues(walletablesForAudit, nowIso),
       ...detectUnprocessedEntries(walletTxnsForAudit, nowIso),
       ...detectAnomalousJournals(manualJournalsForAudit),
-      ...detectOfficerCompensationFindings(officerExpected, walletTxnsForAudit),
+      ...detectOfficerCompensationFindings(officerMappings, walletTxnsForAudit, targetYm),
       ...detectInternalTransferCandidates(walletTxnsForAudit),
     ];
 
-    await upsertFindings(db, runId, findings);
+    const findingIdByKey = await insertFindingOccurrences(db, runId, findings);
     const { autoAppliedCount, blockedCount } = await applyExecutorForEligibleFindings(
       db,
       runId,
       phase,
       options.dryRun,
       findings,
-      accountItems
+      findingIdByKey
     );
 
     const summary = {
       weekStartDate,
       weekEndDate,
+      targetYm,
       walletableCount: walletablesForAudit.length,
       walletTxnCount: walletTxnsForAudit.length,
       manualJournalCount: manualJournalsForAudit.length,
-      officerExpectedCount: officerExpected.length,
+      officerCount: officerMappings.length,
       findingsByType: findings.reduce<Record<string, number>>((acc, f) => {
         acc[f.findingType] = (acc[f.findingType] ?? 0) + 1;
         return acc;
       }, {}),
+      sheetReference,
     };
 
     await db
@@ -686,20 +650,33 @@ function toFindingRow(row: Record<string, unknown>): ReconciliationFindingRow {
   };
 }
 
+/**
+ * finding_keyは週次runごとにoccurrence（別行）を持つため、一覧表示は
+ * finding_keyごとの最新occurrence1件だけに絞る（過去runの証跡自体はテーブルに残り続ける）。
+ */
 export async function loadReconciliationOverview(db: SupabaseClient): Promise<ReconciliationOverview> {
   const [runsRes, findingsRes] = await Promise.all([
     db.from("freee_reconciliation_runs").select("*").order("started_at", { ascending: false }).limit(8),
-    db
-      .from("freee_reconciliation_findings")
-      .select("*")
-      .in("review_status", ["pending", "blocked"])
-      .order("severity", { ascending: false })
-      .order("last_seen_at", { ascending: false })
-      .limit(200),
+    db.from("freee_reconciliation_findings").select("*").order("created_at", { ascending: false }).limit(1000),
   ]);
 
   const runs = ((runsRes.data ?? []) as Record<string, unknown>[]).map(toRunSummary);
-  const findingRows = ((findingsRes.data ?? []) as Record<string, unknown>[]).map(toFindingRow);
+
+  const latestByKey = new Map<string, Record<string, unknown>>();
+  for (const row of (findingsRes.data ?? []) as Record<string, unknown>[]) {
+    const key = row.finding_key as string;
+    if (!latestByKey.has(key)) latestByKey.set(key, row); // created_at desc順なので最初に見えたものがlatest occurrence
+  }
+  const findingRows = [...latestByKey.values()]
+    .filter((row) => row.review_status === "pending" || row.review_status === "blocked")
+    .map(toFindingRow)
+    .sort((a, b) => {
+      const severityRank: Record<string, number> = { blocker: 2, warn: 1, info: 0 };
+      const rankDiff = (severityRank[b.severity] ?? 0) - (severityRank[a.severity] ?? 0);
+      if (rankDiff !== 0) return rankDiff;
+      return b.lastSeenAt.localeCompare(a.lastSeenAt);
+    });
+
   const findingsByType: Record<string, ReconciliationFindingRow[]> = {};
   for (const row of findingRows) {
     (findingsByType[row.findingType] ??= []).push(row);

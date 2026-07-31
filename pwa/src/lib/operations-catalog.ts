@@ -249,6 +249,15 @@ export const l2Datasets: L2Dataset[] = [
     purpose: "freee取引履歴・継続費を吟味せずそのまま月次試算表の実績へ同期するL1相当。LLMは通らない。",
   },
   {
+    id: "finance_freee_weekly_reconciliation",
+    label: "D-12週次companion 会計照合レール",
+    tier: "L1",
+    table: "freee_reconciliation_runs / freee_reconciliation_findings / freee_reconciliation_actions",
+    source: "PWA non-LLM cron (freee-accounting-weekly) + /admin/finance admin review",
+    cadence: "weekly (毎週木曜10:00 JST)",
+    purpose: "口座残高差・同期停止・未処理明細・変な仕訳・役員報酬未消込・内部振替候補を検出するL1相当。LLMは通らない。最初の4回成功run(cronのみカウント)はreview-only、5回目以降も判定はするがfreeeへの実書込みは安全な公式endpoint未検証のため2026-07時点で常にblocked。",
+  },
+  {
     id: "coverage_gaps",
     label: "L3-1 Coverage Scanner (不在検知)",
     tier: "L3",
@@ -667,6 +676,17 @@ export const cronOperations: CronOperation[] = [
     input: "freee会計 income deals + projects.freee_partner_id + billing_cycles",
     output: "billing_cycles.payment_confirmed_at / billing_log",
     run: { type: "pwa", path: "/api/cron/freee-payment-sync", defaultQuery: { dryRun: 0 } },
+  },
+  {
+    id: "pwa-freee-accounting-weekly",
+    label: "freee週次会計照合",
+    layer: "PWA",
+    cadence: "週次 木曜10:00 JST",
+    trigger: "/api/cron/freee-accounting-weekly",
+    defaultParams: "{\"query\":{\"dryRun\":1}}",
+    input: "freee walletables/wallet_txns/manual_journals + company_finance_recurring_items(item_kind=salary/category=executive) + members.is_officer",
+    output: "freee_reconciliation_runs/findings/actions（freeeへの実書込みは常にblocked、2026-07時点で安全な公式endpoint未検証のため）",
+    run: { type: "pwa", path: "/api/cron/freee-accounting-weekly", defaultQuery: { dryRun: 1 } },
   },
   {
     id: "pwa-payment-confirm-nudges",
