@@ -16,7 +16,7 @@ Topic: 全PJ BOXのHTMLファイルを、安全に日本語対応PDFとしてダ
 - Project Shareの受入済み実装は`2ac93290`までmainにある。主要な実装commitは`35014681`（PDF化）、`8049bbeb` / `db5383a5` / `681992b3`（日本語フォントのVercel同梱・埋め込み修正）。
 - 公開URLは `https://vsx.team-armada.jp`、`https://cx.team-armada.jp`、`https://se.team-armada.jp`、`https://sx.team-armada.jp`、`https://zmp.team-armada.jp`、`https://kute.team-armada.jp`。このセッションで各URLのHTTP 200を確認した。
 - PDF化を反映したVercelデプロイは、VSX `dpl_55wXoE5ENNYTiQRYRKNHYL88kmoU`、CX `dpl_DexYZhmHbQ3BYjw3e7nffcHHiLTA`、SE `dpl_7DxsfY44WzUYZdfRCvX92ZJKpc49`、SX `dpl_6SCER4MGYUnZsc7dWVUyGY9tgqas`、ZMP `dpl_4MoMDFoy3HFArrGfcsEeHEcEGD9h`、KUTE `dpl_CCqsnomttDBcGyJzSFHsjFBeHqpx`。
-- ルートのPWA配下には別作業の未コミット変更がある。Project Share配下にはこの引き継ぎ記録以外の未コミット実装を残さない。PWAの差分を読んだりstageしたり戻したりしない。
+- closeout時点でルートの作業ツリーはクリーン。次のセッションでも最初に状態を確認し、Project Share以外の差分があれば所有者を確認するまでstage・revert・整形しない。
 
 ## Unresolved Tasks
 

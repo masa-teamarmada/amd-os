@@ -23,7 +23,7 @@ cd /Users/masa/projects/AMD/amd-os
 - 対象URLは https://vsx.team-armada.jp、https://cx.team-armada.jp、https://se.team-armada.jp、https://sx.team-armada.jp、https://zmp.team-armada.jp、https://kute.team-armada.jp。PDF化のVercelデプロイIDと本番確認はProject ShareのHANDOFFに記録済み。
 - HTMLだけが「PDF化ダウンロード」を表示する。認証済みprivate BlobのHTMLをサーバー側でA4 PDFへ変換し、JavaScriptと外部ネットワーク通信は実行しない。日本語フォントをページへ埋め込み、入力HTMLは8MB、返却PDFは4MBまで。
 - KUTE本番で、日本語HTMLのアップロード、PDF化、A4 1ページの日本語描画を確認し、検証用のBlobは削除済み。フォント素材はVercel Functionに明示的に同梱する必要がある。詳細はDEBUG.md。
-- 作業を始める前に、`git fetch --all --prune`、`git status -sb --untracked-files=all`、`git rev-parse HEAD`、`git rev-parse origin/main`、`git rev-list --left-right --count HEAD...origin/main`、`git worktree list --porcelain`をread-onlyで確認する。モノレポのPWA側に別作業の未コミット変更があり得るので、Project Share以外をstage・revert・整形しない。
+- closeout時点の作業ツリーはクリーン。次の作業を始める前に、`git fetch --all --prune`、`git status -sb --untracked-files=all`、`git rev-parse HEAD`、`git rev-parse origin/main`、`git rev-list --left-right --count HEAD...origin/main`、`git worktree list --porcelain`をread-onlyで確認する。Project Share以外の差分が見つかったら、所有者を確認するまでstage・revert・整形しない。
 
 ## 次タスク
 
