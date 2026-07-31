@@ -50,7 +50,7 @@
 | M-3 Management Monthly Signal Evaluation | `company_management_signal_reviews` | Management予実表から月末評価を作る | 専用Codexチャット/heartbeat案 | Claude routine別枠、月末最終日17:00 JST候補。UI証跡必須 |
 | D-12 freee Transaction Actuals | freee `trial_pl` / `company_actual_monthly` / `amd_management_score_raw_signals` | freee取引履歴を月次試算表の実績値へ入れる | PWA cron `/api/cron/management-score-raw-data?includeFreee=1` | PWA non-LLM daily cron。Claude routine / Codex automation に混ぜない |
 
-M-1 monthly reports はこの章の対象。R313 は旧経路で、差分あり/未生成時に R303 generator 経由で Claude API を呼びうるため、定期 trigger を置かない。2026-05-29 実画面確認時点では `run_monthlyReportCron` / `run_L2CronDaily` trigger は存在しない。定期 writer は Codex automation `AMD OS M-1 月次報告抽出` で、正本 SKILL は [`pwa/scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md`](../scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md)。
+M-1 monthly reports はこの章の対象。R313 と旧Codex automationは廃止済みで、定期 writer は Claude Code Routine `amd-os-l2-monthend-evidence` の Phase A (Fable 5固定) だけである。正本 SKILL は [`pwa/scheduled-tasks/amd-os-l2m1-monthly-report/SKILL.md`](../scheduled-tasks/amd-os-l2m1-monthly-report/SKILL.md)。提出版は、同じPJの直前月実提出版を構造正本として `validate-monthly-report-external` の `formatMatch=true` を必須にする。前月版がなければ `format_seed_required`、構造差があれば `format_change_required` として止め、KUTE等の他PJ書式で補完しない。
 
 ## Claude routine registration gate
 

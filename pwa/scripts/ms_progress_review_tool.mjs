@@ -1835,34 +1835,211 @@ async function normalizeExternalMonthlyReport(content) {
   return normalized;
 }
 
-const EXTERNAL_REPORT_REQUIRED_SECTIONS = [
-  "業務概要",
-  "当月の実施内容",
-  "体制および打合せ実施記録",
-  "主要成果物",
-  "来月以降の予定",
-];
+// --- reference-aware 構造比較 (= 直前月提出版と同じフォーマットに固定する検査) ---
+// 章番号 (「1.」「2.1」等)、和暦・年月日の表記、全角/半角コロンは正規化して比較する。
+// H3見出しと通常データ行 (表の値セル) は可変とし、H1・主要H2の構成順序・表の所属章と
+// 列・冒頭項目表と業務項目表の固定行(ラベル列)・末尾定型文だけを固定として検査する。
+function stripChapterNumber(heading) {
+  return String(heading || "")
+    .replace(/^[\t ]*(?:\d+(?:[.．]\d+)*[.．]?|[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳])[\t ]*/u, "")
+    .trim();
+}
 
-// 対外提出版は 2026-06-30 KUTE 実提出版を品質基準とする。内部版の8章検証とは
-// 分離し、契約情報・実施内容・業務領域・体制・成果物・翌月予定を備えた連続文書を要求する。
-function validateExternalMonthlyReportContent(content) {
+function normalizeDateTokens(text) {
+  return String(text || "")
+    .replace(/\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}/gu, "DATE")
+    .replace(/\d{4}年\d{1,2}月\d{1,2}日/gu, "DATE")
+    .replace(/\d{4}[\/\-]\d{1,2}/gu, "MONTH")
+    .replace(/\d{4}年\d{1,2}月/gu, "MONTH")
+    .replace(/\d{1,2}月\d{1,2}日/gu, "DATE")
+    .replace(/\d{1,2}月/gu, "MONTH")
+    .replace(/令和\d+年度/gu, "年度");
+}
+
+function normalizeColon(text) {
+  return String(text || "").replace(/：/gu, ":");
+}
+
+function normalizeStructureText(text) {
+  return normalizeColon(normalizeDateTokens(text)).replace(/\s+/gu, " ").trim();
+}
+
+function normalizeH2(text) {
+  const normalized = normalizeStructureText(stripChapterNumber(text))
+    .replace(/[（(][^）)]*[）)]\s*$/u, "")
+    .trim();
+  if (/^その他活動(?::|$)/u.test(normalized)) return "その他活動";
+  return normalized;
+}
+
+function extractReportH1(content) {
+  const m = /^[\t ]*#[\t ]+([^\n]+)$/mu.exec(content || "");
+  return m ? normalizeStructureText(m[1]) : "";
+}
+
+function extractReportH2Headings(content) {
+  const matches = [...String(content || "").matchAll(/^##[\t ]+([^\n]+)$/gmu)];
+  return matches.map((m) => ({
+    raw: m[1].trim(),
+    normalized: normalizeH2(m[1]),
+    index: m.index,
+  }));
+}
+
+function splitTableRow(line) {
+  return String(line || "")
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim());
+}
+
+function isTableSeparatorLine(line) {
+  const cells = splitTableRow(line);
+  return cells.length > 0 && cells.every((cell) => /^:?-{1,}:?$/.test(cell));
+}
+
+function extractMarkdownTables(content) {
+  const lines = String(content || "").split(/\r?\n/);
+  const offsets = [];
+  let running = 0;
+  for (const line of lines) {
+    offsets.push(running);
+    running += line.length + 1;
+  }
+  const tables = [];
+  for (let i = 0; i < lines.length - 1; i++) {
+    const headerLine = lines[i];
+    const sepLine = lines[i + 1];
+    if (!headerLine.includes("|") || !isTableSeparatorLine(sepLine)) continue;
+    const columns = splitTableRow(headerLine);
+    const rows = [];
+    let j = i + 2;
+    for (; j < lines.length; j++) {
+      if (!lines[j].includes("|")) break;
+      rows.push(splitTableRow(lines[j]));
+    }
+    tables.push({ index: offsets[i], columns, rows });
+    i = j - 1;
+  }
+  return tables;
+}
+
+function assignTableSections(tables, headings) {
+  return tables.map((table) => {
+    let section = null;
+    for (const heading of headings) {
+      if (heading.index < table.index) section = heading.normalized;
+      else break;
+    }
+    return { ...table, section };
+  });
+}
+
+function fixedRowLabels(table) {
+  if (!table) return [];
+  return table.rows.map((row) => normalizeStructureText(row[0] || "")).filter(Boolean);
+}
+
+function sameSequence(left, right) {
+  return left.length === right.length && left.every((item, index) => item === right[index]);
+}
+
+// 直前月の実提出版 (reference) と当月候補の構造を比較する。H1・主要H2の順序・表の
+// 所属章/順序/列・冒頭項目表と業務項目表の固定行(ラベル列)・末尾定型文が対象。
+// H3見出しと表の通常データ行 (値セル) は可変。
+function compareExternalReportStructure(candidateContent, referenceContent) {
+  const diffs = [];
+
+  const candH1 = extractReportH1(candidateContent);
+  const refH1 = extractReportH1(referenceContent);
+  if (candH1 !== refH1) {
+    diffs.push(`表題(H1)が前月提出版と異なります: "${candH1}" != "${refH1}"`);
+  }
+
+  const candHeadings = extractReportH2Headings(candidateContent);
+  const refHeadings = extractReportH2Headings(referenceContent);
+  const candSeq = candHeadings.map((h) => h.normalized);
+  const refSeq = refHeadings.map((h) => h.normalized);
+  if (!sameSequence(candSeq, refSeq)) {
+    diffs.push(`主要見出し(H2)の構成・順序が前月提出版と異なります: [${candSeq.join(" / ")}] != [${refSeq.join(" / ")}]`);
+  }
+
+  const candTables = assignTableSections(extractMarkdownTables(candidateContent), candHeadings);
+  const refTables = assignTableSections(extractMarkdownTables(referenceContent), refHeadings);
+  if (candTables.length !== refTables.length) {
+    diffs.push(`表の数が前月提出版と異なります (${candTables.length}表 != ${refTables.length}表)`);
+  }
+  const tableCount = Math.min(candTables.length, refTables.length);
+  for (let i = 0; i < tableCount; i++) {
+    const cand = candTables[i];
+    const ref = refTables[i];
+    if ((cand.section || "冒頭") !== (ref.section || "冒頭")) {
+      diffs.push(`${i + 1}番目の表の所属章が前月提出版と異なります: "${cand.section || "冒頭"}" != "${ref.section || "冒頭"}"`);
+    }
+    const candColumns = cand.columns.map(normalizeStructureText);
+    const refColumns = ref.columns.map(normalizeStructureText);
+    if (!sameSequence(candColumns, refColumns)) {
+      diffs.push(`${i + 1}番目の表の列構成が前月提出版と異なります: [${candColumns.join(" / ")}] != [${refColumns.join(" / ")}]`);
+    }
+  }
+
+  const refOpening = refTables.find((t) => !t.section) || null;
+  if (refOpening) {
+    const refLabels = fixedRowLabels(refOpening);
+    const candOpening = candTables.find((t) => !t.section) || null;
+    const candLabels = fixedRowLabels(candOpening);
+    if (!candOpening || !sameSequence(refLabels, candLabels)) {
+      diffs.push(`冒頭項目表の固定行が前月提出版と一致しません: 期待 [${refLabels.join(" / ")}]`);
+    }
+  }
+
+  const refWorkTables = refTables.filter((table) => normalizeStructureText(table.columns[0] || "") === "業務項目");
+  const candWorkTables = candTables.filter((table) => normalizeStructureText(table.columns[0] || "") === "業務項目");
+  if (refWorkTables.length !== candWorkTables.length) {
+    diffs.push(`業務項目表の数が前月提出版と異なります (${candWorkTables.length}表 != ${refWorkTables.length}表)`);
+  }
+  for (let i = 0; i < Math.min(refWorkTables.length, candWorkTables.length); i++) {
+    const refLabels = fixedRowLabels(refWorkTables[i]);
+    const candLabels = fixedRowLabels(candWorkTables[i]);
+    if (!sameSequence(refLabels, candLabels)) {
+      diffs.push(`${i + 1}番目の業務項目表の固定行が前月提出版と一致しません: [${candLabels.join(" / ")}] != [${refLabels.join(" / ")}]`);
+    }
+  }
+
+  const tailOf = (text) => {
+    const lines = String(text || "").trim().split(/\r?\n/).filter((line) => line.trim());
+    return normalizeStructureText(lines[lines.length - 1] || "");
+  };
+  const candTail = tailOf(candidateContent);
+  const refTail = tailOf(referenceContent);
+  if (candTail !== refTail) {
+    diffs.push(`末尾定型文が前月提出版と異なります: "${candTail}" != "${refTail}"`);
+  }
+
+  return { ok: diffs.length === 0, diffs };
+}
+
+// 各PJの直前月実提出版をフォーマット正本とする。referenceがない初回だけ、
+// 人が明示承認したseedを許可する。KUTE書式を他PJへ共通適用しない。
+function validateExternalMonthlyReportContent(content, referenceBody, { formatSeedApproved = false } = {}) {
   const errors = [];
   if (typeof content !== "string" || !content.trim()) {
-    return { ok: false, errors: ["対外月次業務報告書本文が空です"] };
+    return { ok: false, errors: ["対外月次業務報告書本文が空です"], formatMatch: null };
   }
 
   if (!/^[\t ]*#[\t ]+月次業務報告書[\t ]*(?:\r?\n|$)/u.test(content)) {
     errors.push("先頭見出し「# 月次業務報告書」がありません");
   }
-  for (const section of EXTERNAL_REPORT_REQUIRED_SECTIONS) {
-    const re = new RegExp(`^##\\s+\\d+(?:\\.\\d+)?[.．]?\\s*[^\\n]*${escapeRegExp(section)}[^\\n]*$`, "m");
-    if (!re.test(content)) errors.push(`必須章「${section}」がありません`);
-  }
-
   const h2Count = (content.match(/^##\s+/gm) || []).length;
-  if (h2Count < 7) errors.push(`章数が不足しています (${h2Count}章、7章以上必要)`);
+  const hasReference = typeof referenceBody === "string" && referenceBody.trim().length > 0;
+  if (!hasReference && !formatSeedApproved) {
+    errors.push("直前月の提出版フォーマットがありません。初回は人が承認したseedを登録してください");
+  }
+  if (h2Count < 2) errors.push(`章数が不足しています (${h2Count}章、2章以上必要)`);
   const tableCount = (content.match(/^\|\s*[-:]+/gm) || []).length;
-  if (tableCount < 3) errors.push(`表が不足しています (${tableCount}表、3表以上必要)`);
+  if (tableCount < 1) errors.push(`表が不足しています (${tableCount}表、1表以上必要)`);
   if (content.trim().length < 3000) {
     errors.push(`本文が短すぎます (${content.trim().length}文字、3000文字以上必要)`);
   }
@@ -1876,12 +2053,28 @@ function validateExternalMonthlyReportContent(content) {
   if (/。\s*,/.test(content)) errors.push("句点直後に ASCII カンマが連結しています");
   if (/(?:\.\.\.|…)/.test(content)) errors.push("省略記号が含まれています");
 
-  return { ok: errors.length === 0, errors };
+  let formatMatch = null;
+  if (hasReference) {
+    const structure = compareExternalReportStructure(content, referenceBody);
+    formatMatch = structure.ok;
+    if (!structure.ok) {
+      errors.push(...structure.diffs.map((diff) => `フォーマット不一致 (前月提出版基準): ${diff}`));
+    }
+  }
+
+  return { ok: errors.length === 0, errors, formatMatch };
+}
+
+function prevExternalYm(ym) {
+  const [y, m] = String(ym || "").split("-").map(Number);
+  if (!y || !m) return null;
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
 }
 
 async function upsertMonthlyReportsExternal(items) {
   const now = new Date().toISOString();
   const rows = [];
+  const skipped = [];
   for (const item of items) {
     const projectId = item.project_id || item.projectId;
     const ym = item.ym;
@@ -1889,10 +2082,44 @@ async function upsertMonthlyReportsExternal(items) {
     if (!projectId || !/^\d{4}-\d{2}$/.test(String(ym || "")) || !String(rawBody || "").trim()) {
       throw new Error(`monthlyReportsExternal requires project_id, ym=YYYY-MM, and body_md: ${JSON.stringify({ project_id: projectId, ym })}`);
     }
+
+    const currentRows = await get(
+      "monthly_reports_external",
+      `select=id,project_id,ym&project_id=eq.${enc(projectId)}&ym=eq.${enc(ym)}&limit=1`
+    );
+    const current = currentRows?.[0] || null;
+    if (current && item.force !== true) {
+      skipped.push({ action: "skipped_existing", project_id: projectId, ym });
+      continue;
+    }
+
     const bodyMd = await normalizeExternalMonthlyReport(rawBody);
-    const validation = validateExternalMonthlyReportContent(bodyMd);
+    const referenceYm = prevExternalYm(ym);
+    let referenceBody = "";
+    if (referenceYm) {
+      const referenceRows = await get(
+        "monthly_reports_external",
+        `select=body_md&project_id=eq.${enc(projectId)}&ym=eq.${enc(referenceYm)}&limit=1`
+      );
+      referenceBody = referenceRows?.[0]?.body_md || "";
+    }
+    if (!String(referenceBody || "").trim()) {
+      const suppliedReference = item.reference_body_md ?? item.referenceBodyMd ?? "";
+      if (String(suppliedReference || "").trim()) {
+        const suppliedProjectId = item.reference_project_id ?? item.referenceProjectId;
+        const suppliedYm = item.reference_ym ?? item.referenceYm;
+        if (suppliedProjectId !== projectId || suppliedYm !== referenceYm) {
+          throw new Error(`monthlyReportsExternal reference must be the same project's previous month: expected ${projectId}/${referenceYm}`);
+        }
+        referenceBody = suppliedReference;
+      }
+    }
+    const validation = validateExternalMonthlyReportContent(bodyMd, referenceBody, {
+      formatSeedApproved: item.format_seed_approved === true || item.formatSeedApproved === true,
+    });
     if (!validation.ok) {
       if (item.strict === false) {
+        skipped.push({ action: "skipped_quality_error", project_id: projectId, ym, errors: validation.errors });
         continue;
       }
       throw new Error(`monthlyReportsExternal body_md quality check failed for ${projectId}/${ym}:\n- ${validation.errors.join("\n- ")}`);
@@ -1909,13 +2136,15 @@ async function upsertMonthlyReportsExternal(items) {
       jargon_check_findings: item.jargon_check_findings || item.jargonCheckFindings || [],
     });
   }
-  if (rows.length === 0) return { ok: true, writtenCount: 0, written: [] };
+  if (rows.length === 0) {
+    return { ok: true, writtenCount: 0, skippedCount: skipped.length, written: [], skipped };
+  }
   const written = await requestJson(rest("monthly_reports_external", "on_conflict=project_id,ym&select=*"), {
     method: "POST",
     headers: restHeaders({ prefer: "resolution=merge-duplicates,return=representation" }),
     body: rows,
   });
-  return { ok: true, writtenCount: written?.length || 0, written };
+  return { ok: true, writtenCount: written?.length || 0, skippedCount: skipped.length, written, skipped };
 }
 
 const PROJECT_PATCH_ALLOWLIST = new Set([
@@ -2045,8 +2274,17 @@ async function main() {
     const items = readJson(args.file).monthlyReportsExternal || readJson(args.file).items || [];
     const results = items.map((item) => {
       const content = item.body_md || item.bodyMd || item.content || "";
-      const v = validateExternalMonthlyReportContent(content);
-      return { project_id: item.project_id || item.projectId, ym: item.ym, ok: v.ok, errors: v.errors };
+      const referenceBody = item.reference_body_md || item.referenceBodyMd || "";
+      const v = validateExternalMonthlyReportContent(content, referenceBody, {
+        formatSeedApproved: item.format_seed_approved === true || item.formatSeedApproved === true,
+      });
+      return {
+        project_id: item.project_id || item.projectId,
+        ym: item.ym,
+        ok: v.ok,
+        formatMatch: v.formatMatch,
+        errors: v.errors,
+      };
     });
     result = {
       ok: results.length > 0 && results.every((item) => item.ok),

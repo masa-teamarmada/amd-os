@@ -10,16 +10,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 
-const REQUIRED_SECTIONS = [
-  "業務概要",
-  "当月の実施内容",
-  "体制および打合せ実施記録",
-  "主要成果物",
-  "来月以降の予定",
-] as const;
-
 type MemberIdentity = { code_name: string | null; member_name: string | null };
 type JargonFinding = { word: string; label: string };
+type ReportHeading = { normalized: string; index: number };
+type ReportTable = { index: number; columns: string[]; rows: string[][]; section?: string | null };
 
 function toExternalYm(ym: string): string {
   return `${ym.slice(0, 4)}-${ym.slice(4, 6)}`;
@@ -48,22 +42,138 @@ function normalizeSubmission(content: string, members: MemberIdentity[]): string
   return normalized.trim();
 }
 
-function validateSubmission(content: string): string[] {
+function previousExternalYm(ym: string): string {
+  const year = Number(ym.slice(0, 4));
+  const month = Number(ym.slice(4, 6));
+  return month === 1 ? `${year - 1}-12` : `${year}-${String(month - 1).padStart(2, "0")}`;
+}
+
+function normalizeStructureText(text: string): string {
+  return text
+    .replace(/\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}/gu, "DATE")
+    .replace(/\d{4}年\d{1,2}月\d{1,2}日/gu, "DATE")
+    .replace(/\d{4}[\/\-]\d{1,2}/gu, "MONTH")
+    .replace(/\d{4}年\d{1,2}月/gu, "MONTH")
+    .replace(/\d{1,2}月\d{1,2}日/gu, "DATE")
+    .replace(/\d{1,2}月/gu, "MONTH")
+    .replace(/令和\d+年度/gu, "年度")
+    .replace(/：/gu, ":")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
+function normalizeH2(text: string): string {
+  const normalized = normalizeStructureText(text)
+    .replace(/^(?:\d+(?:[.．]\d+)*[.．]?|[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳])\s*/u, "")
+    .replace(/[（(][^）)]*[）)]\s*$/u, "")
+    .trim();
+  return /^その他活動(?::|$)/u.test(normalized) ? "その他活動" : normalized;
+}
+
+function extractH1(content: string): string {
+  const match = /^[\t ]*#[\t ]+([^\n]+)$/mu.exec(content);
+  return normalizeStructureText(match?.[1] || "");
+}
+
+function extractH2s(content: string): ReportHeading[] {
+  return [...content.matchAll(/^##[\t ]+([^\n]+)$/gmu)].map((match) => ({
+    normalized: normalizeH2(match[1]),
+    index: match.index,
+  }));
+}
+
+function splitTableRow(line: string): string[] {
+  return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
+}
+
+function extractTables(content: string, headings: ReportHeading[]): ReportTable[] {
+  const lines = content.split(/\r?\n/);
+  const offsets: number[] = [];
+  let offset = 0;
+  for (const line of lines) {
+    offsets.push(offset);
+    offset += line.length + 1;
+  }
+  const tables: ReportTable[] = [];
+  for (let i = 0; i < lines.length - 1; i++) {
+    const separators = splitTableRow(lines[i + 1]);
+    if (!lines[i].includes("|") || separators.length === 0 || !separators.every((cell) => /^:?-{1,}:?$/.test(cell))) continue;
+    const rows: string[][] = [];
+    let j = i + 2;
+    for (; j < lines.length && lines[j].includes("|"); j++) rows.push(splitTableRow(lines[j]));
+    let section: string | null = null;
+    for (const heading of headings) {
+      if (heading.index < offsets[i]) section = heading.normalized;
+      else break;
+    }
+    tables.push({ index: offsets[i], columns: splitTableRow(lines[i]), rows, section });
+    i = j - 1;
+  }
+  return tables;
+}
+
+function sameSequence(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((item, index) => item === right[index]);
+}
+
+function fixedRowLabels(table: ReportTable | undefined): string[] {
+  return (table?.rows || []).map((row) => normalizeStructureText(row[0] || "")).filter(Boolean);
+}
+
+function compareSubmissionStructure(content: string, reference: string): string[] {
+  const errors: string[] = [];
+  if (extractH1(content) !== extractH1(reference)) errors.push("表題(H1)が直前月提出版と異なります");
+
+  const candidateHeadings = extractH2s(content);
+  const referenceHeadings = extractH2s(reference);
+  if (!sameSequence(candidateHeadings.map((item) => item.normalized), referenceHeadings.map((item) => item.normalized))) {
+    errors.push("主要見出し(H2)の構成・順序が直前月提出版と異なります");
+  }
+
+  const candidateTables = extractTables(content, candidateHeadings);
+  const referenceTables = extractTables(reference, referenceHeadings);
+  if (candidateTables.length !== referenceTables.length) errors.push("表の数が直前月提出版と異なります");
+  for (let i = 0; i < Math.min(candidateTables.length, referenceTables.length); i++) {
+    const candidate = candidateTables[i];
+    const previous = referenceTables[i];
+    if ((candidate.section || "冒頭") !== (previous.section || "冒頭")) errors.push(`${i + 1}番目の表の所属章が直前月提出版と異なります`);
+    if (!sameSequence(candidate.columns.map(normalizeStructureText), previous.columns.map(normalizeStructureText))) {
+      errors.push(`${i + 1}番目の表の列構成が直前月提出版と異なります`);
+    }
+  }
+
+  const candidateOpening = candidateTables.find((table) => !table.section);
+  const referenceOpening = referenceTables.find((table) => !table.section);
+  if (referenceOpening && !sameSequence(fixedRowLabels(candidateOpening), fixedRowLabels(referenceOpening))) {
+    errors.push("冒頭項目表の固定行が直前月提出版と異なります");
+  }
+
+  const workTables = (tables: ReportTable[]) => tables.filter((table) => normalizeStructureText(table.columns[0] || "") === "業務項目");
+  const candidateWorkTables = workTables(candidateTables);
+  const referenceWorkTables = workTables(referenceTables);
+  if (candidateWorkTables.length !== referenceWorkTables.length) errors.push("業務項目表の数が直前月提出版と異なります");
+  for (let i = 0; i < Math.min(candidateWorkTables.length, referenceWorkTables.length); i++) {
+    if (!sameSequence(fixedRowLabels(candidateWorkTables[i]), fixedRowLabels(referenceWorkTables[i]))) {
+      errors.push(`${i + 1}番目の業務項目表の固定行が直前月提出版と異なります`);
+    }
+  }
+
+  const tail = (value: string) => normalizeStructureText(value.trim().split(/\r?\n/).filter(Boolean).at(-1) || "");
+  if (tail(content) !== tail(reference)) errors.push("末尾定型文が直前月提出版と異なります");
+  return errors;
+}
+
+function validateSubmission(content: string, reference = "", allowFormatChange = false): string[] {
   const errors: string[] = [];
   if (!content) return ["対外月次業務報告書本文が空です"];
 
   if (!/^[\t ]*#[\t ]+月次業務報告書[\t ]*(?:\r?\n|$)/u.test(content)) {
     errors.push("先頭見出し「# 月次業務報告書」がありません");
   }
-  for (const section of REQUIRED_SECTIONS) {
-    const pattern = new RegExp(`^##\\s+\\d+(?:\\.\\d+)?[.．]?\\s*[^\\n]*${escapeRegExp(section)}[^\\n]*$`, "m");
-    if (!pattern.test(content)) errors.push(`必須章「${section}」がありません`);
-  }
-
   const h2Count = (content.match(/^##\s+/gm) || []).length;
-  if (h2Count < 7) errors.push(`章数が不足しています (${h2Count}章、7章以上必要)`);
+  if (h2Count < 2) errors.push(`章数が不足しています (${h2Count}章、2章以上必要)`);
   const tableCount = (content.match(/^\|\s*[-:]+/gm) || []).length;
-  if (tableCount < 3) errors.push(`表が不足しています (${tableCount}表、3表以上必要)`);
+  if (tableCount < 1) errors.push(`表が不足しています (${tableCount}表、1表以上必要)`);
   if (content.length < 3000) errors.push(`本文が短すぎます (${content.length}文字、3000文字以上必要)`);
   if (!/以上のとおり報告する。\s*$/.test(content)) {
     errors.push("末尾が「以上のとおり報告する。」で終わっていません");
@@ -73,6 +183,7 @@ function validateSubmission(content: string): string[] {
   }
   if (/。\s*,/.test(content)) errors.push("句点直後に ASCII カンマが連結しています");
   if (/(?:\.\.\.|…)/.test(content)) errors.push("省略記号が含まれています");
+  if (reference && !allowFormatChange) errors.push(...compareSubmissionStructure(content, reference));
   return errors;
 }
 
@@ -147,6 +258,7 @@ export async function POST(req: NextRequest) {
   const projectId = String(body.projectId || "").trim();
   const ym = String(body.ym || "").trim();
   const content = typeof body.content === "string" ? body.content : "";
+  const allowFormatChange = body.allowFormatChange === true;
   if (!projectId || !/^\d{6}$/.test(ym)) {
     return NextResponse.json({ error: "projectId and ym (YYYYMM) required" }, { status: 400 });
   }
@@ -155,7 +267,16 @@ export async function POST(req: NextRequest) {
   if (membersRes.error) return NextResponse.json({ error: membersRes.error.message }, { status: 500 });
   const members = (membersRes.data || []) as MemberIdentity[];
   const normalized = normalizeSubmission(content, members);
-  const validationErrors = validateSubmission(normalized);
+  const previousYm = previousExternalYm(ym);
+  const previousRes = await auth.supabase
+    .from("monthly_reports_external")
+    .select("body_md")
+    .eq("project_id", projectId)
+    .eq("ym", previousYm)
+    .maybeSingle();
+  if (previousRes.error) return NextResponse.json({ error: previousRes.error.message }, { status: 500 });
+  const referenceBody = previousRes.data?.body_md || "";
+  const validationErrors = validateSubmission(normalized, referenceBody, allowFormatChange);
   if (validationErrors.length > 0) {
     return NextResponse.json({ error: validationErrors.join("\n"), errors: validationErrors }, { status: 422 });
   }
@@ -196,6 +317,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
+    formatMatch: referenceBody ? compareSubmissionStructure(normalized, referenceBody).length === 0 : null,
     report: {
       bodyMd: result.data.body_md,
       generatedAt: result.data.generated_at,

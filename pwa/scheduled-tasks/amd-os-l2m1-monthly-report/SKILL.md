@@ -32,7 +32,7 @@ AND projects.status IN ('active','sales')
 1. 社内版を Fable 5 で生成し、kaku-report自己検査と `validate-monthly-report` に合格した。
 2. 承認済みhelperで `monthly_reports.final_content` に保存し、結果が `inserted` または `updated` だった。
 3. 保存後に再読込し、本文、`status='final'`、`generated_at` を確認した。
-4. `internal_and_external` は提出版もkaku-report自己検査、`validate-monthly-report-external`、禁止語検査に合格し、承認済みhelperで保存・再読込した。
+4. `internal_and_external` は、同じPJの直前月実提出版を構造正本として取得し、提出版もkaku-report自己検査、`validate-monthly-report-external` の `formatMatch=true`、禁止語検査に合格し、承認済みhelperで保存・再読込した。
 5. PDFが必要な場合は、提出版の保存後本文だけから生成し、指定Driveへ配置した。
 
 outboxを作っただけ、validatorを呼んでいない、保存後に再読込していない状態は未完了。
@@ -55,6 +55,8 @@ outboxを作っただけ、validatorを呼んでいない、保存後に再読�
 ## Phase 1: 既存稿と当月証跡を読む
 
 各PJについて、当月の既存社内版・提出版と、次の証跡を読む。
+
+`internal_and_external` は、当月本文を書く前に**同じPJの直前月の実提出版**を1件取得する。第一候補は `monthly_reports_external(project_id=<same>, ym=<previous YYYY-MM>)`、そこになければそのPJの承認済みDrive提出物を使う。他PJの提出版、とくにKUTEの章立てを共通テンプレートとして流用しない。直前月版を取得できない初回月は自動生成・自動保存せず、`format_seed_required` として人の承認へ回す。
 
 - `project_meeting_summaries`
 - `project_strategy_signals`
@@ -175,8 +177,37 @@ node pwa/scripts/ms_progress_review_tool.mjs upsert-monthly-reports --file "$INT
 
 - 社内事情、内部スコア、内部判断ログ、禁止語、source ref、取得件数、生成過程を除く。
 - 社内版を単に削るのではなく、委託元が実施内容、成果、体制、次月予定を判断できる連続文書へ書き直す。
-- `# 月次業務報告書` で始め、現行validatorが求める章と末尾定型を満たす。
+- `# 月次業務報告書` で始め、**同じPJの直前月実提出版の構造を継承**し、末尾定型を満たす。
 - 根拠がない成果や数値を足さない。提出体裁のためだけの一般論で水増ししない。
+
+### 前月フォーマットの継承契約
+
+前月版から固定して引き継ぐものは次のとおり。
+
+- H1
+- 主要H2の名称、数、順序
+- 表の数、順序、所属するH2、列名
+- 冒頭の契約情報表の行ラベル
+- 先頭列が `業務項目` の表にある固定行ラベルと順序
+- 末尾定型文
+
+当月の証跡で更新するものは、日付、対象期間、本文、表の値セル、実施記録、成果物、予定である。H3や通常の明細行は当月実績に応じて増減できる。**前月の事実を転記してはいけない。構造だけを継承する。** 契約変更などで構造変更が必要な場合はroutine内で独断変更せず、`format_change_required` として人の承認へ回す。
+
+validator用outboxには候補本文と参照本文を同じPJ・連続月の組として入れる。
+
+```json
+{
+  "monthlyReportsExternal": [{
+    "project_id": "<project_id>",
+    "ym": "<YYYY-MM>",
+    "body_md": "<当月候補>",
+    "reference_project_id": "<same project_id>",
+    "reference_ym": "<previous YYYY-MM>",
+    "reference_body_md": "<同じPJの直前月実提出版>",
+    "generated_by_model": "claude-code-routine-fable-5"
+  }]
+}
+```
 
 次の順で検査する。
 
@@ -185,13 +216,15 @@ node pwa/scripts/ms_progress_review_tool.mjs validate-monthly-report-external --
 python3 pwa/scripts/strip_internal_jargon.py --input "$EXTERNAL_MARKDOWN" --mode check
 ```
 
-両方に合格したときだけ、次のhelperで保存する。
+`ok=true` かつ `formatMatch=true` と禁止語検査の両方に合格したときだけ、次のhelperで保存する。
 
 ```bash
 node pwa/scripts/ms_progress_review_tool.mjs upsert-monthly-reports-external --file "$EXTERNAL_OUTBOX"
 ```
 
 `generated_by_model` は `claude-code-routine-fable-5`、`jargon_check_status` は実検査結果を保存する。保存後に再読込して本文長、hash、生成時刻、禁止語statusを照合する。
+
+定期routineは `format_seed_approved=true` や `force=true` を設定しない。既存当月版は `skipped_existing`、前月参照なしは `format_seed_required`、構造不一致は `format_change_required` として報告し、自動上書きしない。
 
 ## Phase 7: PDFと通知
 
@@ -205,6 +238,9 @@ node pwa/scripts/ms_progress_review_tool.mjs upsert-monthly-reports-external --f
 - `String(array)`、配列のカンマ連結、先頭数件の `slice` だけで本文を作る。
 - 既存draftへ新しい断片を継ぎ足すだけで完成扱いにする。
 - 社内版なしで提出版を作る。
+- 同じPJの直前月実提出版を読まずに提出版を作る。
+- 他PJの書式を共通テンプレートとして使う。
+- 前月の事実を当月へコピーする。
 - 提出版を社内版列へ保存する。
 - validatorや禁止語検査を迂回する。
 - outbox作成だけでDB反映済みと報告する。

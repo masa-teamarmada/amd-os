@@ -166,8 +166,8 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 | `/(app)/project/[projectId]/report/[ym]/print` | 集約 JSON を Team ARMADA ブランド (Work Sans / Noto Sans JP / JetBrains Mono / dark #0a1628) で A4 縦に表示。認証・PJアクセス判定後は通常のOSシェルを経由せず、左メニュー・月初合意・通知・チャットを画面にもPDFにも含めない。`@page A4 / margin 14mm 14mm 18mm 14mm`、各 sheet を `page-break-after: always` で章分離。`@page` の top-left に 機関名+期間、top-right に「取扱注意 / Confidential」、bottom-left に コピーライト、bottom-center に Page X/Y を CSS で自動付与 |
 | Cockpit 月次モーダルヘッダの `社内版を確認・編集` | `template=internal` で新規タブに社内レビュー帳票を開く。総合判定・MS前月/当月/差分表・ガント・体制・次月計画を可視化し、紙面上の本文ブロックをその位置で編集できる |
 | Cockpit 月次モーダルヘッダの `提出版を確認・編集` | `template=submission` で新規タブに提出版の連続文書を開く。紙面上の本文ブロックをその位置で編集し、保存後に同じ画面からPDFとして保存する |
-| 印刷ビューの `編集する` / 保存操作 | 社内版・提出版とも、見出し・段落・Markdown表を押すと該当箇所だけ編集する。社内版の進捗表・ガント等のデータ表示は直接編集しない。提出版は `monthly_reports_external.body_md` へ保存し、構成・表・本文長・末尾定型・内部用語を検査する。社内版はまず `draft_content` へ保存し、`確定版に反映` の明示操作だけが `final_content` を更新する |
-| `GET/POST /api/monthly-report/external-manual-update` | `requireAdmin`。GET は `monthly_reports_external` の提出版本文を返す。POST は `YYYYMM` を `YYYY-MM` に変換して同表へ保存し、既存の生成日時を維持して `updated_at` のみ更新する。生成前の新規作成も可能。LLMは呼ばない |
+| 印刷ビューの `編集する` / 保存操作 | 社内版・提出版とも、見出し・段落・Markdown表を押すと該当箇所だけ編集する。社内版の進捗表・ガント等のデータ表示は直接編集しない。提出版は `monthly_reports_external.body_md` へ保存し、同じPJの直前月との構造一致、本文長、末尾定型、内部用語を検査する。社内版はまず `draft_content` へ保存し、`確定版に反映` の明示操作だけが `final_content` を更新する |
+| `GET/POST /api/monthly-report/external-manual-update` | `requireAdmin`。GET は `monthly_reports_external` の提出版本文を返す。POST は `YYYYMM` を `YYYY-MM` に変換し、同じPJの直前月版を取得して構造比較してから同表へ保存する。通常は構造差を422で拒否し、人が意図して書式変更するときだけ `allowFormatChange=true` を明示する。既存の生成日時を維持して `updated_at` のみ更新し、LLMは呼ばない |
 | `POST /api/report/fix` | `final_content` がある場合は `force:true` を要求する。印刷ビューの確定操作は確認ダイアログを経てこれを送るため、下書き保存だけで確定版を上書きしない |
 
 画面上の編集・保存・確定は LLM を呼ばない。旧 `/api/report/generate` と `/api/monthly-report/edit-by-tsukuyomi` は従量課金事故を防ぐため 410 で停止する。自動生成は月末最終日の `amd-os-l2-monthend-evidence` Code RoutineのM-1 phaseに一本化する。
@@ -190,7 +190,8 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 ### 外販含む大学・研究機関提出での運用
 
 - **v1**: この印刷ビュー (`/project/[projectId]/report/[ym]/print` + Cmd+P PDF) を対外提出正本にした。
-- **v2 (2026-07-01〜)**: Claude routine `amd-os-l2m1-monthly-report` が生成する `monthly_reports_external.body_md` を対外版の正本にする。2026-06-30 の KUTE 実提出物を照合した結果、提出版の正しい書式は9章の連続文書であり、社内レビュー用の表紙 / エグゼクティブサマリ / Gantt / 添付資料ラッパーではない。社内版のリッチ帳票は `template=internal` に残し、提出版は本文を単独で高密度に組版する。
+- **v2 (2026-07-01〜)**: Claude routine `amd-os-l2m1-monthly-report` が生成する `monthly_reports_external.body_md` を対外版の正本にする。提出版は社内レビュー用の表紙 / エグゼクティブサマリ / Gantt / 添付資料ラッパーではなく、各PJの実提出書式を継承した連続文書とする。社内版のリッチ帳票は `template=internal` に残す。
+- **v2.1 (2026-07-31〜)**: KUTEの9章を全PJへ適用する設計を廃止した。**各PJの直前月実提出版が、そのPJだけのフォーマット正本**である。SXはSX前月版、CXはCX前月版、KUTEはKUTE前月版を使う。
 
 ## 対外提出版 (v2 新設、2026-07-01〜)
 
@@ -198,16 +199,19 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 
 1. **Claude Code Routineが月末候補日16:00 JSTにFable 5で発火** (cron UTC `0 7 28-31 * *`、Phase 0でJST最終日判定)
 2. **Phase 2.3**: `monthly_reports.final_content` (内部保存版 markdown) を生成
-3. **Phase 2.4**: `scope='internal_and_external'` の PJ のみ、内部版 markdown、当月 source bundle、前月の実提出版を入力に対外版 markdown を生成する。前月版は構成・文体・情報密度の参照専用で、前月事実は当月へ転記しない
+3. **Phase 2.4**: `scope='internal_and_external'` の PJ のみ、内部版 markdown、当月 source bundle、**同じPJの直前月実提出版**を入力に対外版 markdown を生成する。直前月版から構造だけを継承し、前月事実は当月へ転記しない。直前月版がない初回月は自動生成せず、人がseedを承認する
 4. **Phase 2.5**: 禁止語チェック (`scripts/strip_internal_jargon.py`)。hard_fail → PDF 生成停止、まさ DM 通知
-5. **Phase 2.6**: PDF 生成。cockpit の提出版リンクは9章の `body_md` を1本の連続文書として組版し、章ごとの強制改頁を使わず自然改頁だけで流す。自動生成 (`scripts/generate_monthly_report.py` = pandoc → HTML → Chrome headless) でも明示的なpage breakは入れない。routineの一時ディレクトリで生成し、ローカル固定パスやLaunchAgentへfallbackしない
+5. **Phase 2.6**: PDF 生成。cockpit の提出版リンクはPJ固有書式の `body_md` を1本の連続文書として組版し、章ごとの強制改頁を使わず自然改頁だけで流す。自動生成 (`scripts/generate_monthly_report.py` = pandoc → HTML → Chrome headless) でも明示的なpage breakは入れない。routineの一時ディレクトリで生成し、ローカル固定パスやLaunchAgentへfallbackしない
 6. **配置**: 共有 Drive `projects.drive_folder_id / 月次業務報告書 / YYYY-MM/`。一時PDFはroutine終了時に破棄可能で、Drive配置とDB再読込が完了証跡になる
 
-### 対外提出版のフォーマット (KUTE 実納品準拠)
+### 対外提出版のフォーマット (PJ別・前月実提出版準拠)
 
-- 正本: Google Drive の `KUTE_月次業務報告書_202605-202606.pdf` / 同 `.md` (2026-06-30)。タイトル、契約情報表、9章本文を1本の連続文書にし、表紙だけの独立ページ、エグゼクティブサマリ、RAG、XRL、Gantt、内部添付一覧は重ねない
-- 章構成: 1. 業務概要 → 2. 当月の実施内容 → 3..N. 業務内容の各領域 → N+1. 体制および打合せ実施記録 → N+2. 主要成果物 → N+3. その他活動 (任意) → N+4. 来月以降の予定 → N+5. 継続協議事項 (任意)
-- 品質下限: H2 7章以上、Markdown表3点以上、本文3000文字以上、末尾「以上のとおり報告する。」。短い要約稿、生の会議配列、カンマ連結、省略記号は helper が拒否する
+- 正本: `monthly_reports_external` にある**同じ `project_id` の直前月 `body_md`**。DBにない場合だけ、同じPJの承認済みDrive提出物を使う。他PJの提出版は参照しない
+- 固定構造: H1、主要H2の名称・数・順序、表の数・順序・所属章・列名、冒頭項目表の行ラベル、`業務項目` 表の固定行ラベル、末尾定型文
+- 当月可変: 日付、対象期間、本文、値セル、打合せ・成果物・予定の明細。H3と通常明細行は当月実績に応じて増減できる
+- 品質ゲート: `validate-monthly-report-external` が候補と直前月参照を比較し、`ok=true` かつ `formatMatch=true` のときだけ保存できる。共通の基礎下限はH2 2章以上、Markdown表1点以上、本文3000文字以上、末尾「以上のとおり報告する。」
+- 初回・変更: 直前月版がない初回は人がformat seedを承認する。契約変更等による構造変更も人の明示承認が必要。定期routineは `format_seed_approved` と `force` を使わない
+- KUTEの9章はKUTE自身の前月書式としてのみ継承する。SX/CXへ共通適用しない
 - 文体: である体、儀礼挨拶なし、締め「以上のとおり報告する。」
 - 自社メンバーは姓のみ表記 (`members.member_name` の姓部分)、フルネーム・code_name (えいみ / つくよみ 等) とも削除する。担当者名が不明な場合は「担当者」とする。客先関係者は「XX 先生」「XX 様」維持
 - eLAD 等の表記ゆれは e-Rad (府省共通研究開発管理システム) に正規化する (`scripts/strip_internal_jargon.py` --mode normalize が最終ゲート)

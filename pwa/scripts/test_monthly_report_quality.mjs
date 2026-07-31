@@ -67,10 +67,20 @@ function externalReport({ short = false } = {}) {
   ].join("\n\n");
 }
 
-function validateExternal(content) {
+function validateExternal(content, { reference = "", formatSeedApproved = false } = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), "amd-os-monthly-external-quality-"));
   const file = path.join(dir, "input.json");
-  writeFileSync(file, JSON.stringify({ monthlyReportsExternal: [{ project_id: "p25", ym: "2026-07", body_md: content }] }));
+  writeFileSync(file, JSON.stringify({
+    monthlyReportsExternal: [{
+      project_id: "p25",
+      ym: "2026-07",
+      body_md: content,
+      reference_project_id: "p25",
+      reference_ym: "2026-06",
+      reference_body_md: reference,
+      format_seed_approved: formatSeedApproved,
+    }],
+  }));
   try {
     const stdout = execFileSync(process.execPath, ["scripts/ms_progress_review_tool.mjs", "validate-monthly-report-external", "--file", file], {
       cwd: path.resolve(import.meta.dirname, ".."),
@@ -80,6 +90,25 @@ function validateExternal(content) {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+}
+
+function sxReport(month) {
+  const previous = month === 6;
+  const monthLabel = `${month}月`;
+  const closingDate = previous ? "6月30日時点" : "7月31日時点";
+  const prose = `当月は技術経営と事業開発の各業務項目について、確認済みの事実、到達点、継続課題を整理した。${monthLabel}の事実だけを記載し、判断済みの事項と協議中の事項を分けている。`.repeat(12);
+  return [
+    "# 月次業務報告書",
+    `| 項目 | 内容 |\n|---|---|\n| 件名 | SX月次業務報告書 |\n| 提出先 | 愛媛大学 御中 |\n| 提出者 | 株式会社チームアルマダ |\n| 作成日 | 2026年${month}月30日 |\n| 対象期間 | 2026年${month}月1日〜2026年${month}月30日 |\n| 契約期間 | 2026年6月1日〜2027年3月31日 |`,
+    `本報告は、業務委託契約に基づく当月実施内容を仕様書記載の業務項目順に取りまとめたものである。${prose}`,
+    `## ①技術経営\n\n| 業務項目 | 当月の対応内容 |\n|---|---|\n| PoCプロトコル設計 | ${prose} |\n| 想定顧客ヒアリング | ${prose} |\n| 関連法令調査 | ${prose} |\n| 知財戦略策定 | ${prose} |\n| スケールコスト試算 | ${prose} |\n| 開発計画策定支援 | ${prose} |`,
+    `## ②事業開発\n\n| 業務項目 | 当月の対応内容 |\n|---|---|\n| 事業計画更新 | ${prose} |\n| 資本政策策定 | ${prose} |\n| アタックリスト・ピッチデッキ作成 | ${prose} |\n| 登記事項決定 | ${prose} |\n| ファクトブック作成 | ${prose} |\n| VC面談対応 | ${prose} |\n| DD対応・条件交渉 | ${prose} |`,
+    `## 主な対外連携の方針整理\n\n${prose}`,
+    `## 主要な打合せ実施記録\n\n| 日時 | 打合せ名 | 形式 |\n|---|---|---|\n| ${monthLabel}10日 | 定例打合せ | オンライン |`,
+    `## 主要成果物\n\n| 提示・共有日 | 成果物名 |\n|---|---|\n| ${monthLabel}20日 | 当月資料 |`,
+    `## 来月以降の予定\n\n| 項目 | ${closingDate} |\n|---|---|\n| 継続業務 | ${prose} |\n\n${prose}`,
+    "以上のとおり報告する。",
+  ].join("\n\n");
 }
 
 const validInternal = validate(report());
@@ -94,8 +123,17 @@ assert.equal(validate(report({ 根拠: "- https://example.com/source?id=meeting-
 
 const duplicate = `${report()}\n\n## 概要\n重複。`;
 assert.equal(validate(duplicate, "final_content").ok, false, "見出し重複はfinal_contentでも落ちる");
-assert.equal(validateExternal(externalReport()).ok, true, "9章・表・十分な本文を持つ提出版は通る");
-assert.equal(validateExternal(externalReport({ short: true })).ok, false, "短い要約だけの提出版は落ちる");
+assert.equal(validateExternal(externalReport(), { formatSeedApproved: true }).ok, true, "人が承認した初回seedは通る");
+assert.equal(validateExternal(externalReport({ short: true }), { formatSeedApproved: true }).ok, false, "短い要約だけの提出版は落ちる");
+assert.equal(validateExternal(externalReport()).ok, false, "直前月referenceもseed承認もない提出版は落ちる");
+
+const sxJuneReference = sxReport(6);
+const sxJulySameFormat = validateExternal(sxReport(7), { reference: sxJuneReference });
+assert.equal(sxJulySameFormat.ok, true, `SXは日付と当月内容を更新しても6月の構造を継承すれば通る: ${JSON.stringify(sxJulySameFormat)}`);
+assert.equal(sxJulySameFormat.results[0].formatMatch, true, "前月と同じSX構造はformatMatch=trueになる");
+const sxJulyKuteFormat = validateExternal(externalReport(), { reference: sxJuneReference });
+assert.equal(sxJulyKuteFormat.ok, false, "SXをKUTE型の共通章立てへ変更すると落ちる");
+assert.equal(sxJulyKuteFormat.results[0].formatMatch, false, "前月と違うPJ形式はformatMatch=falseになる");
 
 const printClient = readFileSync(new URL("../src/app/(app)/project/[projectId]/report/[ym]/print/print-client.tsx", import.meta.url), "utf8");
 const printRoute = readFileSync(new URL("../src/app/api/project/monthly-report-print/route.ts", import.meta.url), "utf8");
@@ -142,12 +180,18 @@ assert.match(reportFixRoute, /force/, "既存の確定版を置き換えるに�
 assert.match(externalManualUpdateRoute, /requireAdmin/, "提出版の手動編集は管理者だけが行う");
 assert.match(externalManualUpdateRoute, /monthly_reports_external/, "提出版の手動編集は対外版の正本へ保存する");
 assert.match(externalManualUpdateRoute, /validateSubmission/, "提出版の手動編集も提出用の構成品質を検査する");
+assert.match(externalManualUpdateRoute, /previousExternalYm/, "提出版の手動編集も同じPJの直前月を取得する");
+assert.match(externalManualUpdateRoute, /compareSubmissionStructure/, "提出版の手動編集も前月構造を比較する");
+assert.match(externalManualUpdateRoute, /allowFormatChange/, "提出版の構造変更は明示承認を要求する");
 assert.match(externalManualUpdateRoute, /findJargon/, "提出版の手動編集は内部用語を保存前に検査する");
 assert.match(monthEndRoutine, /Fable 5 固定/, "月末routineはFable 5固定を正本化する");
 assert.match(monthEndRoutine, /従量課金API/, "月末routineは従量課金APIへのフォールバックを禁止する");
 assert.match(monthEndRoutine, /subagent、workflow、並列エージェントを起動しない/, "月末routineは別エージェントへ生成を逃がさない");
 assert.match(monthlyReportRoutine, /shared\/kaku-report\/SKILL\.md/, "M-1はリポジトリ内のkaku-reportを必読にする");
 assert.match(monthlyReportRoutine, /概要[\s\S]*3〜5文/, "M-1は提出前に概要の役割を固定する");
+assert.match(monthlyReportRoutine, /同じPJの直前月実提出版/, "M-1提出版はPJ別の前月実提出書式を正本にする");
+assert.match(monthlyReportRoutine, /formatMatch=true/, "M-1提出版は前月構造一致を保存条件にする");
+assert.match(monthlyReportRoutine, /format_seed_approved=true[^\n]*force=true/, "M-1 routineはseed承認や既存版強制上書きを行わない");
 assert.match(kakuReport, /監査情報は本文の材料にしない/, "routineから読めるkaku-reportにも監査情報分離を保持する");
 
 console.log("monthly report quality guard: ok");
