@@ -1,54 +1,40 @@
 # AMD OS Handoff
 
-Last updated: 2026-07-30 JST
+Last updated: 2026-07-31 JST
 
-Target: `/Users/masa/projects/AMD/amd-os`
-
-Topic: H-1の「自動更新だけ」の通知を生成しない
+Topic: 資本政策表の金額可読性と株主構成の色識別
 
 ## Latest Session Summary
 
-- H-1の `updated` は会議記録・予定カード・Notion議事録ひも付けを自動更新しただけの結果なので、`app_notifications(kind='h1_report')` を作らない。sanitized reportとautomation memoryは従来どおり毎run保存する。
-- 通知するのは、まさの判断が必要な `review_required` と、具体的な行動・対象URL・完了条件を揃えた `blocked` だけ。いずれも行動契約が欠ければ通知にせず、次回runへ委ねる。
-- 呼び出し側が誤って `--outcome updated` を渡しても、`notify_h1_report.mjs` がDB接続より前に成功終了するため、OS通知を書かない。
-- 既に届いたH-1通知は履歴として残す。過去通知の削除はしていない。
+- `CapitalPlanMatrix` の金額・株数を3桁ごとのカンマで表示し、カンマ付き入力も受け付ける。自動算出の金額は省略記号で隠さず、セル内折り返しで全額を読める。
+- FD比率の縦積み棒と凡例を、見分けやすいカテゴリ配色・凡例外周・segment境界線へ更新した。色は株主識別専用で、状態意味には使わない。
+- 実装履歴は [`pwa/design_log/sessions_2026-07.md`](pwa/design_log/sessions_2026-07.md)、現行仕様は [`pwa/spec/3-8-cockpit-current-spec.md`](pwa/spec/3-8-cockpit-current-spec.md) と [`pwa/design/FEATURE_REGISTRY.md`](pwa/design/FEATURE_REGISTRY.md)、利用者向け説明は [`pwa/manual/2-3-pj-cockpit.md`](pwa/manual/2-3-pj-cockpit.md) に同期済み。
 
 ## Repo / Production State
 
-- canonical branch: `main`。このhandoff自体の文書commit後は、開始時にHEAD / origin/mainとahead/behindをread-onlyで取り直す。
-- H-1実装commit: `17105192 fix(h1): stop OS notifications for updated H-1 outcome`。変更履歴・build version同期の機能基準commit: `789f6e43`。
-- H-1機能はproduction `v3.51.24`で確認済み。次セッション開始時に `https://amd-os-pwa.vercel.app/api/build-info` のSHA / `main` / `dirty=false` をread-onlyで再確認する。
-- worktreeはroot 1件、local branchは `main` のみ。今回生成したbranch/worktreeはない。
+- canonical branch: `main`。資本政策表の実装commitは `e58b1d89`（数値表示）と `23055bed`（色識別）。このhandoff文書commit後のHEAD / `origin/main` / production SHAは、開始時にread-onlyで取り直す。
+- production UI は `v3.52.4` / `23055bed` で確認済み。今回の文書同期は同versionのままmainへ反映する。
+- DB・API・保存形式・資本政策計算ロジックの変更はない。branch / worktreeの新規作成もない。
 
 ## Unresolved Tasks
 
 - 実装の未解決はなし。
-- 次の実H-1 runで `updated` が出たときは、sanitized report・automation memoryが残り、OS通知が増えていないことをread-onlyで確認できる。これは動作監視であり、追加実装は不要。
+- まさから資本政策表の追加フィードバックがあった場合だけ、表示対象・画面幅・意図した判別を確認してから調整する。
 
 ## First Next Action
 
-H-1または他の通知で「読んでも何をすればよいか分からない」と報告されたときだけ、まず結果区分・行動主体・直接URL・完了条件をread-onlyで確認する。今回の対象はH-1のみで、別通知種別を一律停止・削除しない。
+新しいフィードバックが来たら、まずproduction `/project/p21/cockpit?tab=business-plan` の資本政策表をdesktopと390px幅で確認する。数値を省略して読めなくしたり、色を状態意味に流用したり、表そのものをモバイルで隠したりしない。
 
 ## Pointers
 
-- H-1実行・通知の正本: [`pwa/design/L2_DATA.md`](pwa/design/L2_DATA.md)、[`pwa/spec/3-3-meeting-flow-current-spec.md`](pwa/spec/3-3-meeting-flow-current-spec.md)
-- OSマニュアル: [`pwa/manual/8-3-l2-extraction-routines-spec.md`](pwa/manual/8-3-l2-extraction-routines-spec.md)
-- 実行ガード: [`pwa/scripts/notify_h1_report.mjs`](pwa/scripts/notify_h1_report.mjs)、[`scripts/h1-background-runner-prompt.md`](scripts/h1-background-runner-prompt.md)
-- 回帰検査: [`pwa/scripts/check_h1_notification_policy.mjs`](pwa/scripts/check_h1_notification_policy.mjs)
-- バグ・再発防止: [`pwa/BUGS.md`](pwa/BUGS.md)
-- 開発履歴: [`pwa/design_log/sessions_2026-07.md`](pwa/design_log/sessions_2026-07.md)
-- 次セッション用prompt: [`SESSION_MIGRATION_PROMPT.md`](SESSION_MIGRATION_PROMPT.md)
+- 仕様: [`pwa/spec/3-8-cockpit-current-spec.md`](pwa/spec/3-8-cockpit-current-spec.md)
+- 設計規約: [`pwa/design/FEATURE_REGISTRY.md`](pwa/design/FEATURE_REGISTRY.md)
+- OSマニュアル: [`pwa/manual/2-3-pj-cockpit.md`](pwa/manual/2-3-pj-cockpit.md)
+- 再発防止: [`pwa/BUGS.md`](pwa/BUGS.md)
+- 実装履歴: [`pwa/design_log/sessions_2026-07.md`](pwa/design_log/sessions_2026-07.md)
 
-## Verification Evidence
+## Verification / Closeout
 
-- `npm --prefix pwa run test:h1-notification-policy`、`npm --prefix pwa run test:notification-action-contract`、`npx tsc --noEmit`、`npm run build` が成功。
-- buildには既存の `next.config.ts` NFT追跡warningが出るが、compile・TypeScript・静的ページ生成は成功した。
-- production build-infoとVercel production deployment Readyを確認済み。
-
-## Closeout Classification
-
-- work type: `development`
-- durable note: `pwa/design/L2_DATA.md`、`pwa/spec/3-3-meeting-flow-current-spec.md`、`pwa/manual/8-3-l2-extraction-routines-spec.md`、`pwa/BUGS.md`
-- design_log: 更新あり。H-1通知writerの実装判断・検査・本番確認を記録するため。
-- main alignment: `main aligned`
-- archive condition: このhandoff文書のcommit/push/deploy確認後に再判定する。
+- 実装時に `npm run test:company-overview-cap-table`、`npx tsc --noEmit`、`npm run build`、`npm run test:critical-ui` が成功。productionでdesktop / 390px幅、console error 0件、ページ横あふれなしを確認済み。
+- work type: `development`。design_logは実装・検証・本番確認を残すため更新。BUGSは表示上の可読性不良の症状・原因・再発防止を追記。
+- main alignment: 文書commit/deploy後に再確認する。

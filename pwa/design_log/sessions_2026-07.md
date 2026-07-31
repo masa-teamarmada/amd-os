@@ -2137,3 +2137,22 @@ Book A執筆規範 (japanese-tech-writing + cognitive-rhythm-writing) をSESSION
 | 6 | 新規環境変数・API route・DB table/column/index/RLS/migration | 追加なし | 対象外: 変更なし | ✅ |
 
 ✅ 全件記録済。恒久仕様はdesign/spec/manual、実装・検証・deploy履歴はこのdevelopment logへ分離した。
+
+---
+
+## 2026-07-23 / 31 — 資本政策表の金額可読性と株主構成の識別性（v3.47.14 → v3.52.4）
+
+### 実装と判断
+
+- `CapitalPlanMatrix` の入力・表示の数値を `ja-JP` の3桁区切りへ統一し、カンマ付きの入力も安全に数値へ戻せるようにした。金額セルは列幅を確保し、折り返して全額を表示するため、自動算出の大きな金額を `…` で隠さない。
+- 最初の穏やかな色調整後も、隣接するFD比率segmentが見分けにくいというまさのフィードバックを受け、株主識別を高コントラストなカテゴリ配色へ置換した。凡例swatchに外周、棒の隣接segmentに細い境界線を追加した。色は株主を区別するだけで、成功・警告・エラーの状態意味には使わない。
+- 仕様正本は `pwa/spec/3-8-cockpit-current-spec.md` と `pwa/design/FEATURE_REGISTRY.md`、利用者向け説明は `pwa/manual/2-3-pj-cockpit.md` と変更履歴へ同期した。DB・API・保存形式・計算ロジックは変更していない。
+
+### 検証 / 本番
+
+- `npm run test:company-overview-cap-table`、`npx tsc --noEmit`、`npm run build`、deploy時の `npm run test:critical-ui` が成功。buildには既存のNFT追跡warningが出るが、compile・TypeScript・静的ページ生成は完了した。
+- production `v3.52.4` / `23055bed` で、ログイン済み画面のdesktopと390px幅を確認。棒・凡例の識別、金額の全額表示、ページ全体の横あふれなし、表だけの意図した横スクロール、console error 0件を確認した。
+
+### 教訓
+
+- 比率棒の色は「増やす」だけでは識別性にならない。隣接色の明度・色相差、棒の区切り、凡例swatchの輪郭をセットで確認し、実画面で判別できることを完了条件にする。

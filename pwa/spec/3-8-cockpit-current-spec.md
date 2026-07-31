@@ -102,6 +102,7 @@ This route is read-only during load. It does not create a duplicate project or w
 
 - `SX_BUSINESS_PLAN_PHASES[].targetXrl.grl` は内閣府SIPの **Governance Readiness Level** を表す。社会実装に必要な制度・規制・標準・ガイドラインの成熟度であり、値域は `1..8`。SXのフェーズ到達値は Phase 0 / Seed / A / B / C-IPO で `1 / 3 / 5 / 6 / 8`。採用、役割分担、社内統制はGRLでなくHRLへ置く。
 - `CapitalPlanMatrix` は縦方向にcontainer scrollを作らず `overflow-x-auto` のみを持つ。各株主は初期状態でFD比率サマリー1行だけを表示し、実button（`aria-expanded`）で金額・株数・発行済株式数・完全希薄化後株式数を展開する。全株主の一括展開/折り畳みも提供する。
+- `CapitalPlanMatrix` の金額・株数などの数値は表示時に3桁ごとのカンマで区切る。自動算出を含む金額セルは省略記号で値を隠さず、列幅とセル内折り返しで全額を読めるようにする。FD比率の縦積み棒と凡例は、識別しやすいカテゴリ配色、凡例swatchの外周、隣接segmentの細い境界線を使う。色は株主を見分けるためだけのもので、成功・警告・エラーなどの状態意味を持たない（2026-07-31）。
 - 年次試算はすべて百万円の整数・3桁区切りで表示する。`sxAnnualProjectionWithCash()` は売上原価と役員報酬/給与・賞与/研究開発費/その他販管費から営業利益を導出し、助成金収入（特別利益）と圧縮損（特別損失）から税引前利益（簡易）を導出する。資金繰りの助成金入金は別フィールドで、期末現預金には加えるが、圧縮損とは相殺しない。税金・借入・運転資金増減は未反映。
 
 ## Meeting Summary Notion CTA
