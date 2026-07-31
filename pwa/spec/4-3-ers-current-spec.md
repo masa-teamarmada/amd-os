@@ -145,7 +145,8 @@ python3 -X utf8 scripts/apply_ddl.py scripts/migrations/120_institution_policy_a
 - `/institutions/assess` で cell を更新し、同日同 criterion が 1 row に upsert されること。
 - `fetchErsBundle()` が最新評価だけを採用すること。
 - rubric の文言は `/bzm/9-4-ers-rubric` と一致させる。
-- `/dashboard` の KUTE 研究機関カードから `/institutions/inst_kute/cockpit` へ遷移し、KUTE `p25` の既存コックピットを表示できること。同じく NIMS 研究機関カードから `/institutions/inst_nims/cockpit` へ遷移し、CX `p20` の既存コックピットを表示できること。
+- `/dashboard` の KUTE 研究機関カードから `/institutions/inst_kute/cockpit` へ遷移し、KUTE `p25` の既存コックピットを表示できること。同じく NIMS 研究機関カードから `/institutions/inst_nims/cockpit` へ遷移し、CX `p20` の既存コックピットを表示できること。愛媛大学 (`inst_ehime`) は `p30` (EHM) の研究機関コックピットへ遷移し、`pathwayProjectId`/`pathwayProjectLabel` は `institution-projects.ts` の `INSTITUTION_PROJECT_LINKS` から機関ごとに解決されること (KUTE のハードコード分岐は撤去済み、2026-07-31)。
+- 機関コックピットの `進捗管理` タブの KUTE 連携シーズ比較テーブル (`CockpitKuteSeeds`) は `researchInstitutionIdForProject(projectId)` が institution_id を返す PJ (現状 `p25`→`inst_kute`, `p30`→`inst_ehime`) でのみ表示されること。愛媛大学分は `seeds.institution_id='inst_ehime'` の1件に絞り込まれる。
 - 研究機関コックピット上のMTG treeから通常PJコックピットの `?meeting=` detail route へ遷移できること。
 - `120_institution_policy_assessments_seed.sql` を dry review し、migration番号が既存 `001`〜`119` と衝突しないこと。
 - 制度比較seedは `(institution_id, policy_item_id)` unique upsert なので、再適用しても同一96件を更新するだけで重複しないこと。

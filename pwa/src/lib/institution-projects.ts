@@ -26,9 +26,18 @@ const INSTITUTION_PROJECT_LINKS: Record<string, InstitutionProjectLink> = {
     cockpitSummary:
       "NIMSの箱は研究機関ERSとして残し、進捗・月次・MTG履歴は正式なNIMS OS導入PJコックピットを関連PJとして扱う。CXは初期ユースケースとして分けて見る。",
   },
+  inst_ehime: {
+    institutionId: "inst_ehime",
+    projectId: "p30",
+    projectLabel: "EHM",
+    relationLabel: "愛媛大学 研究機関エコシステム構築PJ",
+    cockpitTitle: "愛媛大学 研究機関コックピット",
+    cockpitSummary:
+      "愛媛大学の箱は研究機関ERSとして残し、進捗・月次・MTG履歴は正式なEHM PJコックピットを関連PJとして扱う。",
+  },
 };
 
-const INSTITUTION_DASHBOARD_PROJECT_IDS = new Set(["p25", "p28"]);
+const INSTITUTION_DASHBOARD_PROJECT_IDS = new Set(["p25", "p28", "p30"]);
 
 export function getInstitutionProjectLink(institutionId: string): InstitutionProjectLink | null {
   return INSTITUTION_PROJECT_LINKS[institutionId] ?? null;

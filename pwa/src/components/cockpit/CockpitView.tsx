@@ -10,6 +10,7 @@ import { CockpitGrants } from "./CockpitGrants";
 import { CockpitProjectDocuments } from "./CockpitProjectDocuments";
 import { CockpitKuteAnnualRoadmap } from "./CockpitKuteAnnualRoadmap";
 import { CockpitKuteSeeds } from "./CockpitKuteSeeds";
+import { researchInstitutionIdForProject } from "@/lib/kute-seeds-scoring";
 import { CockpitSeasonFinance } from "./CockpitSeasonFinance";
 import { CockpitMsChangeHistory } from "./CockpitMsChangeHistory";
 import { CockpitMonthlyList } from "./CockpitMonthlyList";
@@ -373,7 +374,9 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       <CockpitHeader project={project} members={members} />
 
       {activeTab === "progress" && project.projectId === "p25" && <CockpitKuteAnnualRoadmap currentYm={currentYm} />}
-      {activeTab === "progress" && project.projectId === "p25" && <CockpitKuteSeeds projectId={project.projectId} />}
+      {activeTab === "progress" && researchInstitutionIdForProject(project.projectId) && (
+        <CockpitKuteSeeds projectId={project.projectId} />
+      )}
 
       {/* [A2] Hero (案C: Header 直下の全幅セクション)
             - p00 (= AMD 会社全体) は AMD Management Score の時系列折れ線 + 最新値カード

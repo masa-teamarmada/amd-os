@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  researchInstitutionSeedsOrgNameForProject,
+  researchInstitutionIdForProject,
   SEED_COMMERCIALIZATION_TYPE_LABEL,
   SEED_COMMERCIALIZATION_TYPE_ORDER,
   groupSeedsByResearcher,
@@ -19,11 +19,12 @@ function readSrc(relPath: string): string {
   return readFileSync(join(scriptDir, relPath), "utf8");
 }
 
-// 1. p25 → 工学院大学、それ以外は null (境界ヘルパーが唯一の scope 定義)
+// 1. p25 → inst_kute、p30 → inst_ehime、それ以外は null (境界ヘルパーが唯一の scope 定義)
 {
-  assert.equal(researchInstitutionSeedsOrgNameForProject("p25"), "工学院大学", "p25 は工学院大学にマップされていません");
-  assert.equal(researchInstitutionSeedsOrgNameForProject("p01"), null, "未定義の project_id は null を返すべきです");
-  assert.equal(researchInstitutionSeedsOrgNameForProject(""), null, "空文字は null を返すべきです");
+  assert.equal(researchInstitutionIdForProject("p25"), "inst_kute", "p25 は inst_kute にマップされていません");
+  assert.equal(researchInstitutionIdForProject("p30"), "inst_ehime", "p30 は inst_ehime にマップされていません");
+  assert.equal(researchInstitutionIdForProject("p01"), null, "未定義の project_id は null を返すべきです");
+  assert.equal(researchInstitutionIdForProject(""), null, "空文字は null を返すべきです");
 }
 
 // 2. SeedPublicView のホワイトリストは confidential フィールドを含まない
@@ -191,6 +192,7 @@ function readSrc(relPath: string): string {
       researcher_title: null,
       lab_name: null,
       domain_lane: null,
+      status: "investigating",
       discovery_status: "reviewed",
       trl: null,
       brl: null,

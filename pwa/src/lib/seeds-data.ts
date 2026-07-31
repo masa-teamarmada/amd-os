@@ -15,10 +15,10 @@ import type {
   SeedPublicSpsAssessment,
 } from "@/types/seeds";
 import { SEED_PUBLIC_VIEW_COLUMNS } from "@/types/seeds";
-import { researchInstitutionSeedsOrgNameForProject } from "@/lib/kute-seeds-scoring";
+import { researchInstitutionIdForProject } from "@/lib/kute-seeds-scoring";
 import { calculateSeedSpsScore, type SeedSpsAssessmentAxes } from "@/lib/seed-sps";
 export {
-  researchInstitutionSeedsOrgNameForProject,
+  researchInstitutionIdForProject,
   SEED_COMMERCIALIZATION_TYPE_LABEL,
   SEED_COMMERCIALIZATION_TYPE_ORDER,
   SEED_KUTE_MARKET_CONFIDENCE_LABEL,
@@ -27,8 +27,11 @@ export {
   groupSeedsByResearcher,
   sortSeedGroups,
   countDistinctResearchers,
+  groupSeedsByInstitution,
+  countDistinctInstitutions,
   type SeedComparisonSortKey,
   type SeedResearcherGroup,
+  type SeedInstitutionGroup,
 } from "@/lib/kute-seeds-scoring";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -389,22 +392,14 @@ export async function dismissSeed(id: string): Promise<{ ok: boolean; error?: st
 // =====================================================================
 
 /**
- * PJ cockpit の KUTE 公開面向け: 対象 project_id にひもづく研究機関シーズを
- * ホワイトリスト select で取得する。internal_notes / source_detail 等は
- * select 句に含めないため、レスポンスにも一切乗らない。
+ * PJ cockpit (KUTE / EHM 等) の研究機関公開面向け: 対象 project_id にひもづく
+ * institution_id のシーズを取得する。kute-seeds-scoring の唯一のマッピングを経由するため、
+ * project_id → institution_id 対応をここに重複定義しない。
  */
 export async function fetchResearchInstitutionSeedsForProject(projectId: string): Promise<SeedPublicView[]> {
-  const orgName = researchInstitutionSeedsOrgNameForProject(projectId);
-  if (!orgName) return [];
-  const { data, error } = await supabase
-    .from("seeds")
-    .select(SEED_PUBLIC_VIEW_COLUMNS.join(", "))
-    .eq("org_name", orgName)
-    .order("researcher_name", { ascending: true });
-  if (error) throw new Error(error.message);
-  const seeds = (data ?? []) as unknown as SeedPublicView[];
-  const latestSpsBySeedId = await fetchLatestSeedSpsAssessments(seeds.map((s) => s.id));
-  return seeds.map((s) => ({ ...s, latest_sps: latestSpsBySeedId.get(s.id) ?? null }));
+  const institutionId = researchInstitutionIdForProject(projectId);
+  if (!institutionId) return [];
+  return fetchSeedsForInstitution(institutionId);
 }
 
 /**
@@ -418,6 +413,23 @@ export async function fetchSeedsForInstitution(institutionId: string): Promise<S
     .from("seeds")
     .select(SEED_PUBLIC_VIEW_COLUMNS.join(", "))
     .eq("institution_id", institutionId)
+    .order("researcher_name", { ascending: true });
+  if (error) throw new Error(error.message);
+  const seeds = (data ?? []) as unknown as SeedPublicView[];
+  const latestSpsBySeedId = await fetchLatestSeedSpsAssessments(seeds.map((s) => s.id));
+  return seeds.map((s) => ({ ...s, latest_sps: latestSpsBySeedId.get(s.id) ?? null }));
+}
+
+/**
+ * /seeds (全機関横断比較) 向け: 全シーズを公開安全なホワイトリスト select で取得する。
+ * org_name / institution_id での絞り込みは行わない。internal_notes / source_detail /
+ * evaluator / axis_evidence は select 句に含めないため、レスポンスにも一切乗らない。
+ */
+export async function fetchAllResearchInstitutionSeeds(): Promise<SeedPublicView[]> {
+  const { data, error } = await supabase
+    .from("seeds")
+    .select(SEED_PUBLIC_VIEW_COLUMNS.join(", "))
+    .order("org_name", { ascending: true })
     .order("researcher_name", { ascending: true });
   if (error) throw new Error(error.message);
   const seeds = (data ?? []) as unknown as SeedPublicView[];

@@ -211,6 +211,8 @@ export interface SeedPublicView {
   researcher_title: string | null;
   lab_name: string | null;
   domain_lane: SeedDomainLane | null;
+  /** PJ化/見送りの除外に使う。AMD内部の評価コメント等は含まない状態そのものは非機密 */
+  status: SeedStatus;
   /** 公開情報からの未確認候補か、人が台帳上で確認済みかを研究機関面でも区別する */
   discovery_status: SeedDiscoveryStatus;
   trl: number | null;
@@ -240,6 +242,7 @@ export const SEED_PUBLIC_VIEW_COLUMNS = [
   "researcher_title",
   "lab_name",
   "domain_lane",
+  "status",
   "discovery_status",
   "trl",
   "brl",

@@ -5,16 +5,17 @@
 import type { SeedPublicView } from "../types/seeds.ts";
 
 /**
- * project_id → seeds.org_name の研究機関スコープ対応。
- * KUTE 以外の研究機関コックピットも、この境界へ1行追加して同じ取得経路を再利用する。
+ * project_id → institution_id の研究機関スコープ対応。唯一の source of truth。
+ * 新しい研究機関コックピットも、この境界へ1行追加して同じ取得経路を再利用する。
  */
-const RESEARCH_INSTITUTION_SEED_ORG_SCOPE: Record<string, string> = {
-  p25: "工学院大学",
+const RESEARCH_INSTITUTION_SEED_PROJECT_SCOPE: Record<string, string> = {
+  p25: "inst_kute",
+  p30: "inst_ehime",
 };
 
-/** 対象PJで Global Seeds から読む研究機関名。未定義PJは null */
-export function researchInstitutionSeedsOrgNameForProject(projectId: string): string | null {
-  return RESEARCH_INSTITUTION_SEED_ORG_SCOPE[projectId] ?? null;
+/** 対象PJで Global Seeds から読む institution_id。未定義PJは null */
+export function researchInstitutionIdForProject(projectId: string): string | null {
+  return RESEARCH_INSTITUTION_SEED_PROJECT_SCOPE[projectId] ?? null;
 }
 
 // 旧 100点ルーブリック (kute_score_* 8列 + computeKuteSeedScore) は
@@ -144,4 +145,43 @@ export function countDistinctResearchers(seeds: SeedPublicView[]): number {
     if (name) people.add(JSON.stringify([orgName, name]));
   }
   return people.size;
+}
+
+export interface SeedInstitutionGroup {
+  /** org_name をキーにした機関単位のグループ */
+  key: string;
+  orgName: string;
+  seeds: SeedPublicView[];
+  researcherGroups: SeedResearcherGroup[];
+}
+
+/**
+ * 全機関横断の /seeds 比較表向け: org_name で機関グループを作り、各機関の中では
+ * 既存の groupSeedsByResearcher で研究者グループを作る。特定の機関名のハードコードは行わない。
+ */
+export function groupSeedsByInstitution(seeds: SeedPublicView[]): SeedInstitutionGroup[] {
+  const byOrg = new Map<string, SeedPublicView[]>();
+  const order: string[] = [];
+  for (const seed of seeds) {
+    const orgName = seed.org_name || "機関未登録";
+    if (!byOrg.has(orgName)) {
+      byOrg.set(orgName, []);
+      order.push(orgName);
+    }
+    byOrg.get(orgName)!.push(seed);
+  }
+  return order.map((orgName) => {
+    const orgSeeds = byOrg.get(orgName)!;
+    return {
+      key: orgName,
+      orgName,
+      seeds: orgSeeds,
+      researcherGroups: groupSeedsByResearcher(orgSeeds),
+    };
+  });
+}
+
+/** 登録済みの一意な機関数 (org_name ベース) */
+export function countDistinctInstitutions(seeds: SeedPublicView[]): number {
+  return new Set(seeds.map((s) => s.org_name).filter((v): v is string => !!v)).size;
 }

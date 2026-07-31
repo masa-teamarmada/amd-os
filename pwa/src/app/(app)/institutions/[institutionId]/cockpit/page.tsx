@@ -160,8 +160,8 @@ export default function InstitutionCockpitPage() {
           ersAssessmentHistory={bundle.assessmentHistoryByInstitution[institutionId] ?? []}
           ersAxes={bundle.axes}
           ersCriteria={bundle.criteria}
-          pathwayProjectId={institutionId === "inst_kute" ? "p25" : undefined}
-          pathwayProjectLabel={institutionId === "inst_kute" ? "KUTE GTIE申請支援" : undefined}
+          pathwayProjectId={projectLink.projectId}
+          pathwayProjectLabel={projectLink.projectLabel}
         />
       )}
     </div>
