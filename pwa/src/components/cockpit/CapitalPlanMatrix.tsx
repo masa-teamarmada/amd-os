@@ -29,14 +29,14 @@ export interface CapitalPlanMatrixProps {
 }
 
 const HOLDER_PALETTE = [
-  '#285d7a',
-  '#6f7e8c',
-  '#4e8677',
-  '#b08552',
-  '#886c9e',
-  '#a85e67',
-  '#647a5a',
-  '#7a6e8b',
+  '#0072B2',
+  '#D55E00',
+  '#009E73',
+  '#CC79A7',
+  '#E69F00',
+  '#56B4E9',
+  '#5E3C99',
+  '#8C564B',
 ];
 
 const CALC_BASIS_OPTIONS: { value: CalculationBasis; label: string }[] = [
@@ -456,14 +456,15 @@ function FdOwnershipBar({
     .filter((h) => h.fullyDilutedPercentage > 0)
     .sort((a, b) => (holderIndex.get(a.holderId) ?? 0) - (holderIndex.get(b.holderId) ?? 0));
   return (
-    <div className="mx-auto flex h-24 w-14 flex-col-reverse overflow-hidden" role="img" aria-label={`${snapshot.eventLabel} 完全希薄化後株式比率`}>
-      {segments.map((h) => {
+    <div className="mx-auto flex h-24 w-14 flex-col-reverse overflow-hidden border border-slate-200 dark:border-slate-800" role="img" aria-label={`${snapshot.eventLabel} 完全希薄化後株式比率`}>
+      {segments.map((h, segmentIndex) => {
         const holder = plan.holders.find((p) => p.id === h.holderId);
         const idx = holderIndex.get(h.holderId) ?? 0;
         return (
           <div
             key={h.holderId}
             style={{ height: `${h.fullyDilutedPercentage * 100}%`, backgroundColor: holderColor(idx) }}
+            className={segmentIndex < segments.length - 1 ? 'border-t border-white/90 dark:border-slate-950/90' : undefined}
             title={`${holder?.name ?? h.holderId}: ${fmtPct(h.fullyDilutedPercentage)}`}
           />
         );
@@ -585,7 +586,7 @@ export function CapitalPlanMatrix({
         {plan.holders.map((holder, idx) => (
           <span key={holder.id} className="inline-flex items-center gap-1">
             <span
-              className="inline-block h-2.5 w-2.5 shrink-0"
+              className="inline-block h-3 w-3 shrink-0 rounded-[2px] ring-1 ring-slate-900/15 dark:ring-white/20"
               style={{ backgroundColor: holderColor(idx) }}
               aria-hidden="true"
             />
