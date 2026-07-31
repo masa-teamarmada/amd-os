@@ -2366,9 +2366,16 @@ expectIncludes("design/FEATURE_REGISTRY.md", [
 ]);
 
 expectIncludes("src/app/(app)/seeds/page.tsx", [
-  "深掘り資料",
+  "CockpitKuteSeeds",
+  'scope="all"',
+]);
+expectIncludes("src/components/cockpit/CockpitKuteSeeds.tsx", [
   "deep_dive_material_url",
-  "ExternalLink",
+  "FileText",
+]);
+expectIncludes("src/components/seeds/KuteSeedDetailModal.tsx", [
+  "深掘り資料を見る",
+  "deep_dive_material_url",
 ]);
 expectIncludes("src/components/seeds/SeedDetailModal.tsx", [
   "深掘り資料リンク",
