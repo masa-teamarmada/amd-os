@@ -340,3 +340,14 @@ vercel --prod
   デスクトップ表示と390px幅で横方向overflowがないことを確認した。
 - 本番デプロイID: `dpl_EnxXaKB465bSfjz88dUbWaJANwii`。公開URLは従来どおり
   `https://vsx.team-armada.jp`。
+
+### HTMLファイルのPDF化ダウンロード（2026-07-31）
+
+- HTMLファイルだけは通常ダウンロードを表示せず、同じ操作位置に「PDF化ダウンロード」を表示する。
+  認証済みのBOX内ファイルをサーバー側でA4 PDFへ変換し、元のファイル名を`.pdf`へ替えて保存する。
+- PDF化中はHTML内のJavaScriptと外部ネットワーク通信を実行しない。日本語フォントは変換ページへ
+  埋め込み、変換前HTML 8MB・返却PDF 4MBの上限を超えた場合は明示的に失敗させる。
+- VSX / CX / SE / SX / ZMP / KUTEの`npm run build`・`npm run check`・`npm test`は成功。
+  KUTE本番でHTMLのアップロード、PDF化ダウンロード、A4 PDFの日本語表示を確認した。
+- 本番デプロイID: `dpl_55wXoE5ENNYTiQRYRKNHYL88kmoU`。公開URLは従来どおり
+  `https://vsx.team-armada.jp`。
