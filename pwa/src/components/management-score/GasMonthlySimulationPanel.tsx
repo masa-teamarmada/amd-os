@@ -83,6 +83,7 @@ export type GasMonthlyRow = {
   loanPayment: number;
   actualLoanPayment: number;
   loanInterest: number;
+  actualLoanInterest: number;
   ctaxPayment: number;
   actualCtaxPayment: number;
   corpTaxPayment: number;
@@ -99,10 +100,14 @@ export type GasMonthlyRow = {
   actualCashBalance: number | null;
   runway: number;
   loanDisbursement: number;
+  actualLoanDisbursement: number;
   spotIncome: number;
   spotExpense: number;
   cashInflow: number;
   cashOutflow: number;
+  actualCashInflow: number;
+  actualCashOutflow: number;
+  hasTransactionCashActual: boolean;
   pjDetails: GasProjectDetail[];
   fixedCostDetails: GasFixedCostDetail[];
   obligationDetails: GasObligationDetail[];
@@ -164,10 +169,15 @@ function mergeActualRows(result: GasSimulationResult, baselineRows: GasMonthlyRo
         actualSocialIns: actual?.actualSocialIns ?? 0,
         actualSpotIncome: actual?.actualSpotIncome ?? 0,
         actualSpotExpense: actual?.actualSpotExpense ?? 0,
+        actualLoanDisbursement: actual?.actualLoanDisbursement ?? 0,
         actualLoanPayment: actual?.actualLoanPayment ?? 0,
+        actualLoanInterest: actual?.actualLoanInterest ?? 0,
         actualCtaxPayment: actual?.actualCtaxPayment ?? 0,
         actualCorpTaxPayment: actual?.actualCorpTaxPayment ?? 0,
         actualNetCashFlow: actual?.actualNetCashFlow ?? 0,
+        actualCashInflow: actual?.actualCashInflow ?? 0,
+        actualCashOutflow: actual?.actualCashOutflow ?? 0,
+        hasTransactionCashActual: actual?.hasTransactionCashActual ?? false,
         payoutNoticeNetTotal: actual?.payoutNoticeNetTotal ?? 0,
         payoutNoticeSentNetTotal: actual?.payoutNoticeSentNetTotal ?? 0,
         actualCashBalance: actual?.actualCashBalance ?? null,
@@ -444,17 +454,19 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
   );
 
   const actualCashOutflow = (row: GasMonthlyRow) =>
-    Math.max(
-      0,
-      Math.round(row.payoutNoticeSentNetTotal * 1.1) +
-        row.actualFixedCost +
-        row.actualSocialIns +
-        row.actualSpotExpense -
-        row.actualSpotIncome +
-        row.actualLoanPayment +
-        row.actualCtaxPayment +
-        row.actualCorpTaxPayment
-    );
+    row.hasTransactionCashActual
+      ? row.actualCashOutflow
+      : Math.max(
+          0,
+          Math.round(row.payoutNoticeSentNetTotal * 1.1) +
+            row.actualFixedCost +
+            row.actualSocialIns +
+            row.actualSpotExpense -
+            row.actualSpotIncome +
+            row.actualLoanPayment +
+            row.actualCtaxPayment +
+            row.actualCorpTaxPayment
+        );
 
   const actualGrossProfit = (row: GasMonthlyRow) => row.actualRevenue - row.payoutNoticeSentNetTotal;
   const actualOperatingProfit = (row: GasMonthlyRow) =>
@@ -1163,9 +1175,9 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
               { label: "臨時収入", key: "spotIncome" as const, actualKey: "actualSpotIncome" as const },
               { label: "臨時支出", key: "spotExpense" as const, actualKey: "actualSpotExpense" as const },
               { label: "営業利益", key: "operatingProfit" as const, actual: actualOperatingProfit, bold: true, highlight: true },
-              { label: "融資実行", key: "loanDisbursement" as const },
+              { label: "融資実行", key: "loanDisbursement" as const, actualKey: "actualLoanDisbursement" as const },
               { label: "借入返済", key: "loanPayment" as const, actualKey: "actualLoanPayment" as const },
-              { label: "（うち利息）", key: "loanInterest" as const },
+              { label: "（うち利息）", key: "loanInterest" as const, actualKey: "actualLoanInterest" as const },
               { label: "消費税", key: "ctaxPayment" as const, actualKey: "actualCtaxPayment" as const, refund: true },
               { label: "法人税", key: "corpTaxPayment" as const, actualKey: "actualCorpTaxPayment" as const },
               { label: "月次CF", key: "netCashFlow" as const, bold: true, highlight: true, actualKey: "actualNetCashFlow" as const },
@@ -1188,11 +1200,11 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
                   def.key === "netCashFlow"
                     ? "入金確認 - 支払/費用"
                     : def.key === "cashOutflow"
-                      ? "支払通知/費用(税込)"
+                      ? "freee取引履歴（未分類を含む）"
                       : def.key === "cashBalance"
                         ? "freee口座残高"
                       : "actualKey" in def
-                        ? "freee PL / OS実績"
+                        ? "freee仕訳・取引履歴"
                         : "未連携",
                 bold: def.bold,
                 highlight: def.highlight,

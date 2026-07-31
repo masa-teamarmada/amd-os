@@ -153,7 +153,7 @@ npm --prefix pwa run collect:management-score-raw -- --ym=YYYYMM --include-freee
 |---|---|
 | `amd_management_score_source_runs` | raw data intake の実行ログ。`success` / `partial` / `failed`、source 別件数、error を保存 |
 | `amd_management_score_raw_signals` | score 算出前の月次 signal。axis / source_table / source_id / signal_key / value / payload / source_hash を保持 |
-| `company_actual_monthly` | freee trial_pl 由来の会社月次実績。`includeFreee=1` のとき同期対象 |
+| `company_actual_monthly` | freee trial_pl のPL実績、wallet_txns の月末残高、取引履歴をfreee取引の勘定科目で分類した財務キャッシュ実績。`includeFreee=1` のとき同期対象 |
 
 source 別の大枠 (v4):
 
@@ -546,7 +546,7 @@ admin-only。body は `inputs.params`, `inputs.projects`, `inputs.fixedCosts` �
 ## 更新運用
 
 バイタルサインと月次試算表を更新する時は、通常は refresh route を1回だけ実行する。
-この route は freee PL → freee 口座残高 → OS内部 raw signals → score 計算を同じリクエスト内で順番に行う。
+この route は freee PL → freee 口座残高・費目別取引実績 → OS内部 raw signals → score 計算を同じリクエスト内で順番に行う。
 
 ```text
 1. 対象月を決める (= 完結月のみ、 未来月は計算しない)
@@ -567,8 +567,8 @@ raw が partial / failed のまま score を作ると、最新実績と古い sn
 "0 20 1 * *"  → /api/cron/graduation-detection                        (= 月初 1 日 05:00 JST)
 ```
 
-毎朝まさが /management-score を開く時には、前日までの freee PL 実績、freee 口座残高、内部 signal、score snapshot が同じ run の順序で反映済みになる。
-画面上部の「月次試算表の鮮度」は、予算入力、freee PL、現金残高、raw 収集、score snapshot の最終時刻を並べて表示する。raw収集時には `os-live-current` の月次試算表も再materializeされ、`stats.liveBudgetRows` / `stats.liveBudgetProjectRows` に件数が残る。
+毎朝まさが /management-score を開く時には、前日までの freee PL 実績、freee 口座残高、freee取引履歴の費目別実績、内部 signal、score snapshot が同じ run の順序で反映済みになる。
+画面上部の「月次試算表の鮮度」は、予算入力、freee PL、現金残高、費目別取引、raw 収集、score snapshot の最終時刻を並べて表示する。raw収集時には `os-live-current` の月次試算表も再materializeされ、`stats.liveBudgetRows` / `stats.liveBudgetProjectRows` に件数が残る。
 現金残高が前月まで届いていない場合は警告を出す。
 
 ### evidence drilldown UI (= EvidencePanel)
@@ -650,6 +650,7 @@ DB分類として、`project_strategy_signals` に `signal_scope` / `applies_to_
 |---|---|---|
 | freee PL実績 | `company_actual_monthly` / `company_budget_actual_monthly.actual_amount_yen` | `売上実績 freee PL`、`固定費実績 freee`、`実績差引` |
 | freee口座残高実績 | `company_actual_monthly` の `category='cash_balance'` (生成元: `src/lib/finance/freee-cash-balances.ts`、日次 refresh route、freee `wallet_txns.balance` 月末合算。手動script `pwa/scripts/sync_freee_cash_balances.cjs` は診断用に残す) | `キャッシュ残高(実績)` line と月次表 `キャッシュ` 実績欄に使う。未来月の主残高線は最新実績残高に月次CF見込みを足した `実績接続見込み` として表示し、予算残高 (`company_budget_monthly.cash_amount_yen`) は上書きしない |
+| freee費目別取引実績 | `company_actual_monthly` の `source_ref='freee:wallet_txns_cash_actual:YYYYMM'`。`wallet_txns` と、紐づくfreee取引 (`deals.payments` + `details.account_item_id`) を同日・同額・入出金方向・口座で一意に突合し、勘定科目から `loan_disbursement` / `loan_payment` / `loan_interest` / 税金 / 社保 / 臨時収支へ分類 | `融資実行`、`借入返済`、`（うち利息）`、税金・社保・臨時収支、`月次CF`、`支払い`の実績欄に使う。返済額は元本+利息を1回だけ置き、利息は内訳表示専用。PL実績をwallet取引で重ねない。口座間振替は除外し、取引・勘定科目を一意に突合できない明細は月次CF/支払いの実額には含めるが、費目には混ぜず未分類件数として監査する。未借入の融資予定は実績を作らない |
 | 入金確認済み | `billing_cycles.payment_confirmed_at` + `budget_reported_amount` / `invoice_base_lines_json` | 税込入金として `入金確認済` に集計。CTB 202604 のように `invoice_ym=202605` なら入金月側に寄せる |
 | 支払通知書 | `payout_notices.sent_at` / `total_yen` | `支払通知書送付済(税抜)` として表示。実績差引では税込相当を cash outflow として扱う |
 | 法人支払義務 | `company_payment_obligations` | 月次表の `支払義務` 行に内容・期日・金額状態を表示。`additive` だけ cash outflow へ加算し、`included_in_budget` は既存費用との二重計上をしない |

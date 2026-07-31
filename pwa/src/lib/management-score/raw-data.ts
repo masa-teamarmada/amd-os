@@ -1324,6 +1324,12 @@ export async function collectManagementScoreRawData(
           });
           counts.cashBalance = cashResult.rowCount;
           counts.cashBalanceWalletTxns = cashResult.walletTxnCount;
+          counts.cashActual = cashResult.cashActuals?.rowCount ?? 0;
+          counts.cashActualClassified = cashResult.cashActuals?.classifiedTxnCount ?? 0;
+          counts.cashActualUnclassified = cashResult.cashActuals?.unclassifiedTxnCount ?? 0;
+          if (cashResult.cashActualError) {
+            errors.push(`freee cash actuals: ${cashResult.cashActualError}`);
+          }
         } catch (error) {
           errors.push(error instanceof Error ? error.message : String(error));
           counts.cashBalance = 0;

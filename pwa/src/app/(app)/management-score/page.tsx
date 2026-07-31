@@ -330,9 +330,14 @@ type MonthlyActualSummary = {
   actualSocialIns: number;
   actualSpotIncome: number;
   actualSpotExpense: number;
+  actualLoanDisbursement: number;
   actualLoanPayment: number;
+  actualLoanInterest: number;
   actualCtaxPayment: number;
   actualCorpTaxPayment: number;
+  actualCashInflow: number;
+  actualCashOutflow: number;
+  hasTransactionCashActual: boolean;
   actualNetCashFlow: number;
   actualCashBalance: number | null;
 };
@@ -472,6 +477,7 @@ function categoryLabel(category: string): string {
     fixed_cost: "固定費",
     social_insurance: "社保",
     operating_profit: "営業利益",
+    loan_disbursement: "融資実行",
     loan_payment: "借入返済",
     loan_interest: "支払利息",
     tax_payment_consumption: "消費税",
@@ -1285,9 +1291,14 @@ function emptyActualSummary(ym: string): MonthlyActualSummary {
     actualSocialIns: 0,
     actualSpotIncome: 0,
     actualSpotExpense: 0,
+    actualLoanDisbursement: 0,
     actualLoanPayment: 0,
+    actualLoanInterest: 0,
     actualCtaxPayment: 0,
     actualCorpTaxPayment: 0,
+    actualCashInflow: 0,
+    actualCashOutflow: 0,
+    hasTransactionCashActual: false,
     actualNetCashFlow: 0,
     actualCashBalance: null,
   };
@@ -1314,9 +1325,16 @@ function buildMonthlyActualSummaries(
     summary.actualSocialIns = actualCompanyValue(categoryRows, ym, "social_insurance");
     summary.actualSpotIncome = actualCompanyValue(categoryRows, ym, "spot_income");
     summary.actualSpotExpense = actualCompanyValue(categoryRows, ym, "spot_expense");
+    summary.actualLoanDisbursement = actualCompanyValue(categoryRows, ym, "loan_disbursement");
     summary.actualLoanPayment = actualCompanyValue(categoryRows, ym, "loan_payment");
+    summary.actualLoanInterest = actualCompanyValue(categoryRows, ym, "loan_interest");
     summary.actualCtaxPayment = actualCompanyValue(categoryRows, ym, "tax_payment_consumption");
     summary.actualCorpTaxPayment = actualCompanyValue(categoryRows, ym, "tax_payment_corporate");
+    summary.actualCashInflow = actualCompanyValue(categoryRows, ym, "cash_inflow");
+    summary.actualCashOutflow = actualCompanyValue(categoryRows, ym, "cash_outflow");
+    summary.hasTransactionCashActual = ["cash_inflow", "cash_outflow"].some((category) =>
+      (categoryRows.get(ym)?.get(category) ?? []).some((row) => row.actual_payload?.source === "freee.wallet_txns+deals")
+    );
     summary.actualCashBalance = actualCompanyValueOrNull(categoryRows, ym, "cash_balance");
     summary.hasActualData = (categoryRows.get(ym) ? Array.from(categoryRows.get(ym)!.values()).flat() : []).some(
       (row) => row.actual_amount_yen != null
@@ -1343,6 +1361,10 @@ function buildMonthlyActualSummaries(
     summary.hasActualData = true;
   }
   for (const summary of summaries.values()) {
+    if (summary.hasTransactionCashActual) {
+      summary.actualNetCashFlow = summary.actualCashInflow - summary.actualCashOutflow;
+      continue;
+    }
     const paidOutflowGross = Math.round(summary.payoutNoticeSentNetTotal * 1.1);
     const actualOutflow =
       paidOutflowGross +
@@ -1758,6 +1780,7 @@ function buildGasSimulationResult(
       loanPayment: companyBudgetValue(categoryRows, ym, "loan_payment"),
       actualLoanPayment: actualSummary?.actualLoanPayment ?? 0,
       loanInterest: companyBudgetValue(categoryRows, ym, "loan_interest"),
+      actualLoanInterest: actualSummary?.actualLoanInterest ?? 0,
       ctaxPayment: companyBudgetValue(categoryRows, ym, "tax_payment_consumption"),
       actualCtaxPayment: actualSummary?.actualCtaxPayment ?? 0,
       corpTaxPayment: companyBudgetValue(categoryRows, ym, "tax_payment_corporate"),
@@ -1774,10 +1797,14 @@ function buildGasSimulationResult(
       actualCashBalance: actualSummary?.actualCashBalance ?? null,
       runway: Number(revenueRow?.runway_months ?? 0),
       loanDisbursement: payloadNumberValue(netCash?.budget_payload, "loanDisbursement"),
+      actualLoanDisbursement: actualSummary?.actualLoanDisbursement ?? 0,
       spotIncome: payloadNumberValue(netCash?.budget_payload, "spotIncome"),
       spotExpense: payloadNumberValue(netCash?.budget_payload, "spotExpense"),
       cashInflow: payloadNumberValue(netCash?.budget_payload, "cashInflow"),
       cashOutflow: payloadNumberValue(netCash?.budget_payload, "cashOutflow"),
+      actualCashInflow: actualSummary?.actualCashInflow ?? 0,
+      actualCashOutflow: actualSummary?.actualCashOutflow ?? 0,
+      hasTransactionCashActual: actualSummary?.hasTransactionCashActual ?? false,
       pjDetails: projectList.map((project) => {
         const projectRow = projectRows.find((row) => row.budget_payload?.gasProjectId === project.projectId || row.account_name === project.projectName);
         return {
@@ -1860,6 +1887,7 @@ function buildLiveGasSimulationResult(
       loanPayment: row.loanPayment,
       actualLoanPayment: actual?.actualLoanPayment ?? 0,
       loanInterest: row.loanInterest,
+      actualLoanInterest: actual?.actualLoanInterest ?? 0,
       ctaxPayment: row.ctaxPayment,
       actualCtaxPayment: actual?.actualCtaxPayment ?? 0,
       corpTaxPayment: row.corpTaxPayment,
@@ -1876,10 +1904,14 @@ function buildLiveGasSimulationResult(
       actualCashBalance: actual?.actualCashBalance ?? null,
       runway: row.runway,
       loanDisbursement: row.loanDisbursement,
+      actualLoanDisbursement: actual?.actualLoanDisbursement ?? 0,
       spotIncome: row.spotIncome,
       spotExpense: row.spotExpense,
       cashInflow: row.cashInflow,
       cashOutflow: row.cashOutflow,
+      actualCashInflow: actual?.actualCashInflow ?? 0,
+      actualCashOutflow: actual?.actualCashOutflow ?? 0,
+      hasTransactionCashActual: actual?.hasTransactionCashActual ?? false,
       pjDetails: row.pjDetails
         .filter((pj) => visibleProjectIds.has(pj.projectId))
         .map((pj) => ({
@@ -2365,6 +2397,10 @@ export default async function ManagementScorePage() {
   const latestCashActual = cashActualRows
     .slice()
     .sort((a, b) => b.ym.localeCompare(a.ym) || (timeValue(b.imported_at) ?? 0) - (timeValue(a.imported_at) ?? 0))[0] ?? null;
+  const latestCashTransactionActual = actualFreshnessRows
+    .filter((row) => row.source_ref?.startsWith("freee:wallet_txns_cash_actual:"))
+    .slice()
+    .sort((a, b) => b.ym.localeCompare(a.ym) || (timeValue(b.imported_at) ?? 0) - (timeValue(a.imported_at) ?? 0))[0] ?? null;
   const requiredCashYm = addMonths(ymCap, -1);
   const cashBalanceMissing = !latestCashActual?.ym || latestCashActual.ym < requiredCashYm;
   const budgetInputLatestAt = latestTimestamp(budgetInputRows.map((row) => row.updated_at));
@@ -2374,6 +2410,8 @@ export default async function ManagementScorePage() {
     typeof rawStats.internal === "number" ? `内部 ${rawStats.internal}` : null,
     typeof rawStats.freee === "number" ? `freee ${rawStats.freee}` : null,
     typeof rawStats.cashBalance === "number" ? `現金 ${rawStats.cashBalance}` : null,
+    typeof rawStats.cashActualClassified === "number" ? `費目分類 ${rawStats.cashActualClassified}` : null,
+    typeof rawStats.cashActualUnclassified === "number" ? `未分類 ${rawStats.cashActualUnclassified}` : null,
   ].filter(Boolean).join(" / ");
   const runway = latestRows.find((row) => row.runway_months != null)?.runway_months ?? null;
   const cash = latestRows.find((row) => row.cash_amount_yen != null)?.cash_amount_yen ?? null;
@@ -2459,7 +2497,7 @@ export default async function ManagementScorePage() {
               <div>
                 <h2 className="text-sm font-semibold">月次試算表の鮮度</h2>
                 <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                  予算はOSライブ値、実績はfreee PL・入金確認・支払通知・freee口座残高を分けて読む。
+                  予算はOSライブ値、実績はfreee PL・入金確認・支払通知・freee取引履歴を分けて読む。費目分類は仕訳の勘定科目が根拠。
                 </p>
               </div>
             </div>
@@ -2469,7 +2507,7 @@ export default async function ManagementScorePage() {
               </div>
             )}
           </div>
-          <div className="mt-3 grid gap-2 md:grid-cols-5">
+          <div className="mt-3 grid gap-2 md:grid-cols-3 xl:grid-cols-6">
             <FreshnessFact
               label="予算入力"
               value={formatDateTime(budgetInputLatestAt)}
@@ -2485,6 +2523,12 @@ export default async function ManagementScorePage() {
               value={latestCashActual?.ym ? `${latestCashActual.ym} まで` : "-"}
               detail={`同期 ${formatDateTime(latestCashActual?.imported_at)}`}
               tone={cashBalanceMissing ? "warning" : "ok"}
+            />
+            <FreshnessFact
+              label="費目別取引"
+              value={latestCashTransactionActual?.ym ? `${latestCashTransactionActual.ym} まで` : "-"}
+              detail={`同期 ${formatDateTime(latestCashTransactionActual?.imported_at)} / 未分類は費目に混ぜない`}
+              tone={latestCashTransactionActual ? "ok" : "warning"}
             />
             <FreshnessFact
               label="raw収集"
