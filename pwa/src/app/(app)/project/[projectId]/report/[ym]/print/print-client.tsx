@@ -464,14 +464,20 @@ function SubmissionReport({
   reportBody,
   editMode,
   onBodyChange,
+  headerLabel,
 }: {
   reportBody: string;
   editMode: boolean;
   onBodyChange: (next: string) => void;
+  headerLabel: string;
 }) {
 
   return (
     <main className="submission-sheet">
+      <div className="submission-screen-header" aria-hidden="true">
+        <span>{headerLabel}</span>
+        <span>取扱注意 / Confidential</span>
+      </div>
       <h1 className="submission-title">月次業務報告書</h1>
       {reportBody ? (
         <InlineMarkdownReview key={editMode ? "editing" : "review"} text={reportBody} editMode={editMode} onChange={onBodyChange} />
@@ -1320,11 +1326,20 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
           @bottom-center { content: counter(page) " / " counter(pages); font-family: 'JetBrains Mono', monospace; font-size: 8pt; color: #64748b; }
         }
         @page submission {
-          size: A4 portrait; margin: 0;
-          @top-left { content: none; }
-          @top-right { content: none; }
+          size: A4 portrait; margin: 13mm 0 0 0;
+          @top-left {
+            content: "${headerLabel}"; padding-left: 14mm; text-align: left;
+            font-family: 'Noto Sans JP', sans-serif; font-size: 8pt; color: #475569;
+            vertical-align: middle;
+          }
+          @top-right {
+            content: "取扱注意 / Confidential"; padding-right: 14mm; text-align: right;
+            font-family: 'Work Sans', sans-serif; font-size: 8pt; color: #b91c1c; letter-spacing: 0.1em;
+            vertical-align: middle;
+          }
           @bottom-left { content: none; }
-          @bottom-center { content: counter(page); font-family: 'Noto Sans JP', sans-serif; font-size: 8pt; color: #64748b; }
+          @bottom-center { content: none; }
+          @bottom-right { content: none; }
         }
         @media print {
           .no-print { display: none !important; }
@@ -1336,6 +1351,7 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
           font-family: 'Noto Sans JP', system-ui, sans-serif;
           color: #0f172a; background: #f1f5f9; min-height: 100vh;
         }
+        .submission-flow { page: submission; min-height: auto; }
         .toolbar {
           position: sticky; top: 0; z-index: 10;
           background: #0a1628; color: #f1f5f9;
@@ -1390,6 +1406,14 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
           box-sizing: border-box;
           font-size: 9.5pt; line-height: 1.62;
         }
+        .submission-screen-header {
+          display: flex; align-items: center; justify-content: space-between; gap: 8mm;
+          margin: -7mm 0 7mm; padding-bottom: 2.5mm; border-bottom: 1px solid #cbd5e1;
+          color: #475569; font-size: 8pt;
+        }
+        .submission-screen-header span:last-child {
+          color: #b91c1c; font-family: 'Work Sans', sans-serif; letter-spacing: 0.1em; white-space: nowrap;
+        }
         .submission-title {
           margin: 0 0 8mm; padding-bottom: 5mm;
           border-bottom: 1.5px solid #334155;
@@ -1400,10 +1424,12 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
           .sheet { margin: 0; box-shadow: none; padding: 0; width: auto; min-height: auto; page-break-after: always; }
           .sheet:last-child { page-break-after: auto; }
           .submission-sheet {
-            margin: 0; padding: 14mm; width: auto; min-height: auto;
+            margin: 0; padding: 4mm 14mm 14mm; width: auto; min-height: auto;
             box-shadow: none; page-break-after: auto; break-after: auto;
             -webkit-box-decoration-break: clone; box-decoration-break: clone;
           }
+          .print-root.submission-flow { min-height: 0 !important; page: submission; }
+          .submission-screen-header { display: none !important; }
         }
         @media screen and (max-width: 760px) {
           .toolbar { align-items: flex-start; flex-wrap: wrap; gap: 8px; padding: 8px 10px; }
@@ -1729,7 +1755,7 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
         )}
 
         {previewData.isSubmission ? (
-          <SubmissionReport reportBody={reportBody} editMode={editMode} onBodyChange={setReportBody} />
+          <SubmissionReport reportBody={reportBody} editMode={editMode} onBodyChange={setReportBody} headerLabel={headerLabel} />
         ) : (
           <>
             <CoverPage data={previewData} />

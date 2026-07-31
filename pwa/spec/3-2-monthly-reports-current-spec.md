@@ -15,7 +15,7 @@
 | 対象判定 | 全 active/sales PJ (対外提出義務の概念なし) | `projects.monthly_report_scope IN ('internal_only','internal_and_external')` の 3 状態 enum |
 | プロンプト | SKILL.md / prompt に直書き | `llm_prompts` table 正本 (`prompt_key='l2m1.monthly_report.internal.v2'` / `'l2m1.monthly_report.external.v2'`)、admin UI で編集可能 |
 | PDF 生成 | なし | Claude Code Routine が一時ディレクトリでpandoc + Chrome headlessを実行し、提出版検証後にDriveへ配置する。固定ローカルパスへフォールバックしない |
-| 品質検証 | なし | `kaku-report` の12項目自己検査に加え、`scripts/ms_progress_review_tool.mjs validate-monthly-report` と PWA の `monthly-report-quality.ts` が固定8章、概要3〜5文、業務領域別の統合、生成ログ・生ログ・途中省略の不在を draft/final 書き込み前に検証し、`eLAD` を `e-Rad` へ正規化する。対外版は個人名＋敬称・役職、候補者ラベル、外部関係者を動かす表現を保存前に拒否し、`strip_internal_jargon.py` が code_name / 内部用語を検査する |
+| 品質検証 | なし | `kaku-report` の13項目自己検査に加え、`scripts/ms_progress_review_tool.mjs validate-monthly-report` と PWA の `monthly-report-quality.ts` が固定8章、概要3〜5文、業務領域別の統合、生成ログ・生ログ・途中省略の不在を draft/final 書き込み前に検証し、`eLAD` を `e-Rad` へ正規化する。対外版は外部関係者のフルネーム、個人名＋敬称・役職、候補者ラベル、外部関係者を動かす表現を保存前に拒否し、`strip_internal_jargon.py` が code_name / 内部用語を検査する |
 | Slack 通知 | なし (Codex automation は run summary のみ) | まさ DM に集約 (`scripts/send-eimi-slack.mjs` = GAS webapp えいみ persona bot 経由)、PJ チャンネルには投げない |
 | 通知タイミング | なし | Phase 2.1 (開始) + Phase 2.7 (PJ 完了、scope 別 4 パターン) + Phase 3 (全体サマリ) |
 
@@ -163,7 +163,7 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 | ルート | 役割 |
 |---|---|
 | `GET /api/project/monthly-report-print?projectId=&ym=` | 章 §01-§07 全ブロックを 1 fetch で返す集約 route。requireAdmin、列名は `pwa/design/db_schema.md` 準拠。**メンバー名は `members.member_name` (本名) を優先、空なら `members.code_name`** |
-| `/(app)/project/[projectId]/report/[ym]/print` | 集約 JSON を A4 縦に表示。認証・PJアクセス判定後は通常のOSシェルを経由せず、左メニュー・月初合意・通知・チャットを画面にもPDFにも含めない。社内版は `@page A4 / margin 14mm 14mm 18mm 14mm` と各sheetの章分離を維持する。提出版は `@page submission / margin 0` と本文側14mm余白を組み合わせ、ブラウザ既定の日時・ページタイトル・URLを印刷領域へ出さない。印刷開始時だけ `document.title` を空にし、終了後に戻す二重ガードを持つ |
+| `/(app)/project/[projectId]/report/[ym]/print` | 集約 JSON を A4 縦に表示。認証・PJアクセス判定後は通常のOSシェルを経由せず、左メニュー・月初合意・通知・チャットを画面にもPDFにも含めない。社内版は `@page A4 / margin 14mm 14mm 18mm 14mm` と各sheetの章分離を維持する。提出版は全案件共通の `@page submission` を使い、上部へ「提出先 / 月次報告 対象月」と「取扱注意 / Confidential」を左右に配置する。下部フッター・ページ番号は出さず、本文終了後に既定pageだけの空白最終ページを作らない。ブラウザ既定の日時・ページタイトル・URLは印刷領域へ出さず、印刷開始時だけ `document.title` を空にし、終了後に戻す二重ガードを持つ |
 | Cockpit 月次モーダルヘッダの `社内版を確認・編集` | `template=internal` で新規タブに社内レビュー帳票を開く。総合判定・MS前月/当月/差分表・ガント・体制・次月計画を可視化し、紙面上の本文ブロックをその位置で編集できる |
 | Cockpit 月次モーダルヘッダの `提出版を確認・編集` | `template=submission` で新規タブに提出版の連続文書を開く。紙面上の本文ブロックをその位置で編集し、保存後に同じ画面からPDFとして保存する |
 | 印刷ビューの `編集する` / 保存操作 | 社内版・提出版とも、見出し・段落・Markdown表を押すと該当箇所だけ編集する。社内版の進捗表・ガント等のデータ表示は直接編集しない。提出版は `monthly_reports_external.body_md` へ保存し、同じPJの直前月との構造一致、本文長、末尾定型、内部用語を検査する。社内版はまず `draft_content` へ保存し、`確定版に反映` の明示操作だけが `final_content` を更新する |
@@ -215,7 +215,7 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 - 章間へMarkdown水平線 (`---` / `***` / `___`) を入れない。Fableの生成規範、保存helper、手動保存route、印刷rendererの4境界で除去または非表示にする
 - 提出版のH2は `Hiragino Sans` / `Hiragino Kaku Gothic ProN` / `Yu Gothic` / `Meiryo` の順で描画し、丸数字を含む章見出しを直前月実提出版と同じ日本語フォントへ合わせる
 - 文体: である体、儀礼挨拶なし、締め「以上のとおり報告する。」
-- 対外提出版は、共同研究者、大学教員、協力先の個人名を既定で記載しない。正式な決裁者・契約当事者の特定が不可欠な場合だけ例外とし、通常は「大学研究チーム」「関係機関」「弊社」または協議事項を主語にする。自社メンバーもフルネーム・code_nameを出さず、氏名が必要な欄だけ姓または「担当者」とする
+- 対外提出版は、共同研究者、大学教員、協力先のフルネームを記載しない。通常は「大学研究チーム」「関係機関」「弊社」または協議事項を主語にし、氏名が様式上必要な場合も本人・提出先と合意した表記または姓＋敬称・役職に留める。自社メンバーもフルネーム・code_nameを出さず、氏名が必要な欄だけ姓または「担当者」とする
 - 外部関係者の働きを提出者が査定する文、人を候補者ラベルだけで呼ぶ文、相手を「巻き込む」「動かす」対象として扱う文を禁止する。PJの進展、参画の意義、共同で確認する条件へ書き換える
 - eLAD 等の表記ゆれは e-Rad (府省共通研究開発管理システム) に正規化する (`scripts/strip_internal_jargon.py` --mode normalize が最終ゲート)
 - 業務期間・契約金額は `contracts.contract_terms_json` + `contracts.tax_basis` の verbatim

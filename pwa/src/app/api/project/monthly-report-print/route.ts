@@ -49,6 +49,13 @@ function escapeRegExp(value: string): string {
 function normalizeJargonForSubmission(body: string, members: MemberIdentity[] = []): string {
   let out = body.replace(/eLAD/gi, "e-Rad");
 
+  // 保存前gate導入以前の提出版に残る4字の日本人フルネーム＋役職も、
+  // 表示時は姓＋役職へ縮退する。現行writerはそもそも外部関係者の氏名を既定で出さない。
+  out = out.replace(
+    /(^|[^一-龥々])([一-龥々]{2})[ 　]?([一-龥々]{2})[ 　]+((?:特定)?(?:教授|准教授|講師|助教|先生|様))(?=$|[^一-龥々])/gmu,
+    "$1$2 $4",
+  );
+
   const identities = members
     .map((member) => ({
       codeName: (member.code_name || "").trim(),

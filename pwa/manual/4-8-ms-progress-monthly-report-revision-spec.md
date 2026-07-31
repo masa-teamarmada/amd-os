@@ -124,7 +124,9 @@ GAS `rv2_calcRewardSummary` が報酬計算時に `share` を掛けて per-membe
 
 `monthly_reports` の primary writer は Claude Code Scheduled Task `amd-os-l2m1-monthly-report`。月末最終日に、5 生データと OS 内 L2 を材料として LLM がナラティブ本文を生成し、`amd-os-ms/outbox.monthlyReports` 経由で非 LLM applier が Supabase に反映する。旧 Codex automation `AMD OS M-1 月次報告抽出` (`amd-os-l2`) は **PAUSED** で、定期 writer として復活させない。
 
-対外提出版は、外部関係者の個人別活動報告にしない。正式な責任者特定が必要な場合を除き、共同研究者・大学教員・協力先の個人名を本文や打合せ名に置かず、PJの進展、研究チーム・関係機関との協議、共同で確認する条件として記述する。個人名＋敬称・役職、候補者ラベル、外部関係者を「巻き込む」「動かす」表現は、Fableの自己検査と保存前validatorの両方で拒否する。
+対外提出版は、外部関係者の個人別活動報告にしない。共同研究者・大学教員・協力先のフルネームを本文・表・打合せ名に置かず、PJの進展、研究チーム・関係機関との協議、共同で確認する条件として記述する。氏名が様式上必要な場合も本人・提出先と合意した表記または姓＋敬称・役職に留める。個人名＋敬称・役職、候補者ラベル、外部関係者を「巻き込む」「動かす」表現は、Fableの自己検査と保存前validatorの両方で拒否する。
+
+提出版PDFは全案件共通で、各ページ上部へ「提出先 / 月次報告 対象月」と「取扱注意 / Confidential」を配置する。下部フッター・ページ番号は表示せず、本文終了後にヘッダーやフッターだけの空白最終ページを生成しない。
 
 **🚨 課金注意 (2026-05-29 訂正)**: R313 は単なる deterministic 集約ではない。AMD-Report GAS 現物では、未生成レポートや差分ありレポートのときに R303 generator 経由で Anthropic Claude API を呼ぶ。`run_monthlyReportCron` trigger が有効なら token 課金が発生しうるため、「R313 = LLM 不使用」と書かない。2026-05-29 実画面確認時点では `run_monthlyReportCron` / `run_L2CronDaily` trigger は存在しない。
 
