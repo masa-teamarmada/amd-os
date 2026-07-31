@@ -1806,6 +1806,15 @@ function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function stripStandaloneHorizontalRules(content) {
+  return String(content || "")
+    .split(/\r?\n/u)
+    .filter((line) => !/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/u.test(line))
+    .join("\n")
+    .replace(/\n{3,}/gu, "\n\n")
+    .trim();
+}
+
 async function normalizeExternalMonthlyReport(content) {
   let normalized = String(content || "").replace(/eLAD/gi, "e-Rad");
   const members = await get("members", "select=code_name,member_name");
@@ -1832,7 +1841,7 @@ async function normalizeExternalMonthlyReport(content) {
     const pattern = new RegExp(`(^|[\\s、。,，。・（(「『【:：]|[はがをものと])${escapeRegExp(member.codeName)}(?=(?:(?:は|が|を|も|へ|の|から|より)(?:[\\s、。,，。]|$|[一-龥ぁ-んァ-ンA-Za-z0-9])|[A-Z]{2,}|[:：]))`, "g");
     normalized = normalized.replace(pattern, `$1${member.surname}`);
   }
-  return normalized;
+  return stripStandaloneHorizontalRules(normalized);
 }
 
 // --- reference-aware 構造比較 (= 直前月提出版と同じフォーマットに固定する検査) ---

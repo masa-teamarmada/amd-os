@@ -163,7 +163,7 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 | ルート | 役割 |
 |---|---|
 | `GET /api/project/monthly-report-print?projectId=&ym=` | 章 §01-§07 全ブロックを 1 fetch で返す集約 route。requireAdmin、列名は `pwa/design/db_schema.md` 準拠。**メンバー名は `members.member_name` (本名) を優先、空なら `members.code_name`** |
-| `/(app)/project/[projectId]/report/[ym]/print` | 集約 JSON を Team ARMADA ブランド (Work Sans / Noto Sans JP / JetBrains Mono / dark #0a1628) で A4 縦に表示。認証・PJアクセス判定後は通常のOSシェルを経由せず、左メニュー・月初合意・通知・チャットを画面にもPDFにも含めない。`@page A4 / margin 14mm 14mm 18mm 14mm`、各 sheet を `page-break-after: always` で章分離。`@page` の top-left に 機関名+期間、top-right に「取扱注意 / Confidential」、bottom-left に コピーライト、bottom-center に Page X/Y を CSS で自動付与 |
+| `/(app)/project/[projectId]/report/[ym]/print` | 集約 JSON を A4 縦に表示。認証・PJアクセス判定後は通常のOSシェルを経由せず、左メニュー・月初合意・通知・チャットを画面にもPDFにも含めない。社内版は `@page A4 / margin 14mm 14mm 18mm 14mm` と各sheetの章分離を維持する。提出版は `@page submission / margin 0` と本文側14mm余白を組み合わせ、ブラウザ既定の日時・ページタイトル・URLを印刷領域へ出さない。印刷開始時だけ `document.title` を空にし、終了後に戻す二重ガードを持つ |
 | Cockpit 月次モーダルヘッダの `社内版を確認・編集` | `template=internal` で新規タブに社内レビュー帳票を開く。総合判定・MS前月/当月/差分表・ガント・体制・次月計画を可視化し、紙面上の本文ブロックをその位置で編集できる |
 | Cockpit 月次モーダルヘッダの `提出版を確認・編集` | `template=submission` で新規タブに提出版の連続文書を開く。紙面上の本文ブロックをその位置で編集し、保存後に同じ画面からPDFとして保存する |
 | 印刷ビューの `編集する` / 保存操作 | 社内版・提出版とも、見出し・段落・Markdown表を押すと該当箇所だけ編集する。社内版の進捗表・ガント等のデータ表示は直接編集しない。提出版は `monthly_reports_external.body_md` へ保存し、同じPJの直前月との構造一致、本文長、末尾定型、内部用語を検査する。社内版はまず `draft_content` へ保存し、`確定版に反映` の明示操作だけが `final_content` を更新する |
@@ -212,6 +212,8 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 - 品質ゲート: `validate-monthly-report-external` が候補と直前月参照を比較し、`ok=true` かつ `formatMatch=true` のときだけ保存できる。共通の基礎下限はH2 2章以上、Markdown表1点以上、本文3000文字以上、末尾「以上のとおり報告する。」
 - 初回・変更: 直前月版がない初回は人がformat seedを承認する。契約変更等による構造変更も人の明示承認が必要。定期routineは `format_seed_approved` と `force` を使わない
 - KUTEの9章はKUTE自身の前月書式としてのみ継承する。SX/CXへ共通適用しない
+- 章間へMarkdown水平線 (`---` / `***` / `___`) を入れない。Fableの生成規範、保存helper、手動保存route、印刷rendererの4境界で除去または非表示にする
+- 提出版のH2は `Hiragino Sans` / `Hiragino Kaku Gothic ProN` / `Yu Gothic` / `Meiryo` の順で描画し、丸数字を含む章見出しを直前月実提出版と同じ日本語フォントへ合わせる
 - 文体: である体、儀礼挨拶なし、締め「以上のとおり報告する。」
 - 自社メンバーは姓のみ表記 (`members.member_name` の姓部分)、フルネーム・code_name (えいみ / つくよみ 等) とも削除する。担当者名が不明な場合は「担当者」とする。客先関係者は「XX 先生」「XX 様」維持
 - eLAD 等の表記ゆれは e-Rad (府省共通研究開発管理システム) に正規化する (`scripts/strip_internal_jargon.py` --mode normalize が最終ゲート)

@@ -28,6 +28,15 @@ function surnameOnly(memberName: string | null): string {
   return parts.length >= 2 ? parts[0] : "担当者";
 }
 
+function stripStandaloneHorizontalRules(content: string): string {
+  return content
+    .split(/\r?\n/u)
+    .filter((line) => !/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/u.test(line))
+    .join("\n")
+    .replace(/\n{3,}/gu, "\n\n")
+    .trim();
+}
+
 // 印刷表示と同じ原則で、氏名表記と e-Rad の表記ゆれを保存時に整える。
 function normalizeSubmission(content: string, members: MemberIdentity[]): string {
   let normalized = content.replace(/eLAD/gi, "e-Rad");
@@ -39,7 +48,7 @@ function normalizeSubmission(content: string, members: MemberIdentity[]): string
       normalized = normalized.replace(new RegExp(`\\[${escapeRegExp(codeName)}\\](?=\\()`, "g"), surnameOnly(member.member_name));
     }
   }
-  return normalized.trim();
+  return stripStandaloneHorizontalRules(normalized);
 }
 
 function previousExternalYm(ym: string): string {

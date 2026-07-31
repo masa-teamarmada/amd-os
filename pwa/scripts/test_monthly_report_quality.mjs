@@ -157,6 +157,10 @@ assert.match(printClient, /<SubmissionReport reportBody=\{reportBody\}/, "提出
 assert.match(printClient, /<CoverPage data=\{previewData\} \/>[\s\S]*<AppendixSection data=\{previewData\} \/>/, "社内版の既存リッチ帳票構成は維持する");
 assert.match(printClient, /\.submission-sheet \{[\s\S]*page-break-after: auto; break-after: auto;/, "提出版は章ごとの強制改頁を入れない");
 assert.match(printClient, /\.submission-sheet \.md-body h2/, "提出版の章見出しに専用の視覚階層がある");
+assert.match(printClient, /function isStandaloneHorizontalRule/, "提出版表示は既存本文のMarkdown水平線を描画しない");
+assert.match(printClient, /@page submission \{[\s\S]*?margin: 0;/, "提出版はブラウザ既定の日時・ページタイトル用余白を持たない");
+assert.match(printClient, /document\.title = ""[\s\S]*beforeprint/, "印刷開始時はAMD OSのページタイトルをブラウザヘッダーへ渡さない");
+assert.match(printClient, /font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo"/, "提出版の丸数字を6月実提出版と同じ日本語フォントで描画する");
 assert.match(printRoute, /は\|が\|を\|も\|へ\|の\|から\|より/, "提出版氏名置換は所有の助詞「の」も扱う");
 assert.match(printRoute, /A-Za-z0-9/, "提出版氏名置換は助詞直後が英数字でも扱う");
 assert.match(printRoute, /"submission"/, "提出版は全PJ共通のtemplateキーを受け付ける");
@@ -184,6 +188,7 @@ assert.match(externalManualUpdateRoute, /previousExternalYm/, "提出版の手�
 assert.match(externalManualUpdateRoute, /compareSubmissionStructure/, "提出版の手動編集も前月構造を比較する");
 assert.match(externalManualUpdateRoute, /allowFormatChange/, "提出版の構造変更は明示承認を要求する");
 assert.match(externalManualUpdateRoute, /findJargon/, "提出版の手動編集は内部用語を保存前に検査する");
+assert.match(externalManualUpdateRoute, /stripStandaloneHorizontalRules/, "提出版の手動保存はMarkdown水平線を除去する");
 assert.match(monthEndRoutine, /Fable 5 固定/, "月末routineはFable 5固定を正本化する");
 assert.match(monthEndRoutine, /従量課金API/, "月末routineは従量課金APIへのフォールバックを禁止する");
 assert.match(monthEndRoutine, /subagent、workflow、並列エージェントを起動しない/, "月末routineは別エージェントへ生成を逃がさない");

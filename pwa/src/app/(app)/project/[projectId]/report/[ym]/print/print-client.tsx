@@ -17,16 +17,16 @@
  * クライアントから見えない AMD OS 内部固有名 (つくよみ/月次進捗モーダル/MTGページ/
  * 経営シグナル/コックピット/nudge等) は stripInternalJargon で印刷時にも除去する。
  *
- * 提出版は 2026-06-30 に実提出した KUTE 月次業務報告書を正本とし、
- * 9章の markdown 本文を1本の連続文書として組版する。社内版の表紙・要約・
- * 工程表・添付資料を提出版へ重ねない。
+ * 提出版は各PJの直前月実提出版を構造正本とし、markdown 本文を1本の
+ * 連続文書として組版する。社内版の表紙・要約・工程表・添付資料は重ねない。
  *
  * Team ARMADA ブランド (Work Sans / Noto Sans JP / JetBrains Mono / dark #0a1628)。
- * @page A4 / margin 14mm。 共通ヘッダ・フッタ・改訂履歴。
+ * 社内版は @page A4 / margin 14mm。提出版はブラウザ既定ヘッダーを防ぐため
+ * @page margin 0 とし、本文側へ14mmの紙面余白を持たせる。
  * PDF 化はブラウザの Cmd+P → 「PDFとして保存」。
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 // ─── 型定義 ───────────────────────────────────────────────────────────────
 interface MsRow {
@@ -227,9 +227,22 @@ function isMarkdownTableSeparator(line: string): boolean {
   return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
 }
 
+function isStandaloneHorizontalRule(line: string): boolean {
+  return /^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/u.test(line);
+}
+
+function stripStandaloneHorizontalRules(content: string): string {
+  return content
+    .split(/\r?\n/u)
+    .filter((line) => !isStandaloneHorizontalRule(line))
+    .join("\n")
+    .replace(/\n{3,}/gu, "\n\n")
+    .trim();
+}
+
 function MarkdownBlock({ text }: { text: string }) {
   if (!text) return null;
-  const sanitized = stripInternalJargon(text);
+  const sanitized = stripStandaloneHorizontalRules(stripInternalJargon(text));
   const lines = sanitized.split("\n");
   const blocks: React.ReactNode[] = [];
 
@@ -303,7 +316,7 @@ function markdownPieces(text: string): MarkdownPiece[] {
   let index = 0;
   while (index < lines.length) {
     const line = lines[index];
-    if (!line.trim()) {
+    if (!line.trim() || isStandaloneHorizontalRule(line)) {
       index += 1;
       continue;
     }
@@ -326,6 +339,7 @@ function markdownPieces(text: string): MarkdownPiece[] {
       while (
         index < lines.length
         && lines[index].trim()
+        && !isStandaloneHorizontalRule(lines[index])
         && !/^#{1,4} /.test(lines[index])
         && !/^[-*] /.test(lines[index])
         && !(lines[index].includes("|") && isMarkdownTableSeparator(lines[index + 1] || ""))
@@ -436,13 +450,14 @@ function reportBodyForPrint(data: PrintData): string {
   const body = data.isSubmission
     ? data.submissionBody || ""
     : data.report?.finalContent || data.report?.draftContent || data.monthlyNote || "";
-  return body.replace(/^#\s+月次業務報告書\s*\n+/u, "");
+  return stripStandaloneHorizontalRules(body.replace(/^#\s+月次業務報告書\s*\n+/u, ""));
 }
 
 function sourceWithReportHeading(source: string, body: string, isSubmission: boolean): string {
   const heading = source.match(/^#\s+月次業務報告書\s*(?:\n|$)/u)?.[0].trim();
-  if (heading) return `${heading}\n\n${body.trim()}`;
-  return isSubmission ? `# 月次業務報告書\n\n${body.trim()}` : body.trim();
+  const normalizedBody = stripStandaloneHorizontalRules(body);
+  if (heading) return `${heading}\n\n${normalizedBody}`;
+  return isSubmission ? `# 月次業務報告書\n\n${normalizedBody}` : normalizedBody;
 }
 
 function SubmissionReport({
@@ -1221,6 +1236,24 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
   }), [data, fullSource]);
   const hasUnsavedChanges = reportBody !== savedBody;
 
+  useEffect(() => {
+    let titleBeforePrint = "";
+    const clearBrowserPrintTitle = () => {
+      titleBeforePrint = document.title;
+      document.title = "";
+    };
+    const restoreBrowserPrintTitle = () => {
+      if (titleBeforePrint) document.title = titleBeforePrint;
+    };
+    window.addEventListener("beforeprint", clearBrowserPrintTitle);
+    window.addEventListener("afterprint", restoreBrowserPrintTitle);
+    return () => {
+      window.removeEventListener("beforeprint", clearBrowserPrintTitle);
+      window.removeEventListener("afterprint", restoreBrowserPrintTitle);
+      restoreBrowserPrintTitle();
+    };
+  }, []);
+
   const saveReport = useCallback(async () => {
     setSaving(true);
     setError("");
@@ -1239,7 +1272,7 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
       const normalizedSource = data.isSubmission
         ? String(result.report?.bodyMd || fullSource)
         : String(result.content || fullSource);
-      const normalizedBody = normalizedSource.replace(/^#\s+月次業務報告書\s*\n+/u, "");
+      const normalizedBody = stripStandaloneHorizontalRules(normalizedSource.replace(/^#\s+月次業務報告書\s*\n+/u, ""));
       setReportBody(normalizedBody);
       setSavedBody(normalizedBody);
       setNotice(data.isSubmission
@@ -1287,7 +1320,7 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
           @bottom-center { content: counter(page) " / " counter(pages); font-family: 'JetBrains Mono', monospace; font-size: 8pt; color: #64748b; }
         }
         @page submission {
-          size: A4 portrait; margin: 14mm;
+          size: A4 portrait; margin: 0;
           @top-left { content: none; }
           @top-right { content: none; }
           @bottom-left { content: none; }
@@ -1296,6 +1329,7 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
         @media print {
           .no-print { display: none !important; }
           .print-root { background: white !important; }
+          html, body { margin: 0 !important; padding: 0 !important; }
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
         .print-root {
@@ -1366,8 +1400,9 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
           .sheet { margin: 0; box-shadow: none; padding: 0; width: auto; min-height: auto; page-break-after: always; }
           .sheet:last-child { page-break-after: auto; }
           .submission-sheet {
-            margin: 0; padding: 0; width: auto; min-height: auto;
+            margin: 0; padding: 14mm; width: auto; min-height: auto;
             box-shadow: none; page-break-after: auto; break-after: auto;
+            -webkit-box-decoration-break: clone; box-decoration-break: clone;
           }
         }
         @media screen and (max-width: 760px) {
@@ -1492,7 +1527,8 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
         .submission-sheet .md-body h2 {
           margin: 6mm 0 3mm; padding: 2.2mm 3mm;
           border-left: 4px solid #334155; background: #eef0f2;
-          color: #111827; font-size: 13.5pt; font-weight: 700;
+          color: #111827; font-size: 13pt; font-weight: 600;
+          font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
           break-after: avoid; page-break-after: avoid;
         }
         .submission-sheet .md-body h3 {
