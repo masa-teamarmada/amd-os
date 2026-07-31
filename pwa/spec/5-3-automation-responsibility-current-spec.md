@@ -4,6 +4,8 @@
 >
 > **2026-06-16 注記**: Claude routines 停止前提での L1-L3 抽出移植 inventory / approval bundle / first execution unit は [`5-8-l1-l3-codex-migration-current-spec`](5-8-l1-l3-codex-migration-current-spec) を優先する。この章は helper / applier / non-LLM cron / control layer の責務境界を主に扱う。
 
+> **2026-07-31 M系 current**: M-1〜M-3はClaude Code Routine `amd-os-l2-monthend-evidence` に統合し、Fable 5固定で実行する。旧ローカルScheduled Task、別モデル、CLI、従量課金API、subagent/workflowへのfallbackは禁止する。M-1本文はリポジトリ内のkaku-report規範を必須とする。
+
 ## 基本方針
 
 2026-05-22 以降、PWA / GAS / Vercel から Anthropic・Gemini・OpenAI の従量課金 LLM API を定期実行しない。LLM が必要な L2 抽出は、**Codex automation / MMOマシン Codex Desktop automation** へ寄せる。
@@ -46,7 +48,7 @@ L2 を cadence で分類し、**新ナンバリング (D = daily / M = month-end
 |---|---|---|---|
 | **D-1〜D-11 / D-13** | Claude routine `amd-os-l2-consolidated-evidence` (表示名「AMD OS L2 日次抽出 (D-1〜D-11+D-13 統合)」) | daily 08:00 JST (`0 8 * * *`) | 平常日 +1/日 |
 | **D-12** | PWA non-LLM cron `/api/cron/management-score-raw-data?includeFreee=1` + admin review | daily | Claude routine 外 |
-| **M-1〜M-3** | Claude routine `amd-os-l2-monthend-evidence` (表示名「AMD OS L2 月末抽出 (M-1月次レポート/M-2 XRL/M-3経営シグナル)」) | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、Phase 0 で最終日判定、最終日のみ本処理、17:00 完了目標 | 月末候補日のみ +1 (空振り含む) |
+| **M-1〜M-3** | Claude Code Routine `amd-os-l2-monthend-evidence` (表示名「AMD OS L2 月末抽出 (M-1月次レポート/M-2 XRL/M-3経営シグナル)」、Fable 5固定) | 月末候補日16:00 JST発火 (cron UTC `0 7 28-31 * *`)、Phase 0で最終日判定、最終日のみ本処理、17:00完了目標 | 月末候補日のみ +1 (空振り含む) |
 | **W-1** | Claude routine `amd-os-l2-weekly-vc-funding-signals` (表示名「AMD OS L2 週次抽出 (W-1 VCニュース/資金調達)」) | weekly Saturday 09:00 JST (`0 9 * * 6`) | 週 +1 |
 | **H-1** | MMOマシン Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher | 毎時 09:00-21:00 JST | Claude routine 外。2026-06-08 16:00 JST manual Live run 成功、次回 17:00 JST |
 
@@ -69,9 +71,9 @@ L2 を cadence で分類し、**新ナンバリング (D = daily / M = month-end
 | **D-11** | Media Mentions | `project_media_mentions` / `news_mention` notifications | Codex automation `amd-os-d-11` → `POST /api/media-mentions/extract`。公開URLを根拠にcandidate化 | daily 08:25 JST | candidate + notification。通知の「はい」で `verified=true`、 「いいえ」で `dismissed=true` |
 | **D-12** | Finance Ops Evidence / freee Transaction Actuals | freee `trial_pl` / `company_actual_monthly` / `amd_management_score_raw_signals` / finance ops tables | PWA non-LLM cron `/api/cron/management-score-raw-data?includeFreee=1` + admin review | daily | freee取引履歴 → 月次試算表の実績値 |
 | **D-13** | Contract Signals | `contract_signals` / `contracts` / `contract_documents` | Codex automation `amd-os-d-13` → PWA route `POST /api/contracts/extract-l2` | daily 03:35 JST | 契約管理 `/admin/contracts`、l2_notifications(l2_kind='contract_signals') |
-| **M-1** | Monthly Reports | `monthly_reports` | Codex automation `AMD OS M-1 月次報告抽出` (`amd-os-l2`) | month-end / current rrule 05:30 JST | monthly reports outbox → applier。R313 trigger 置かない |
-| **M-2** | XRL Evidence | `project_xrl_evidence` / `project_founding_members` | `amd-os-ms` 系 second wave 予定 | 月末最終日 (M-1 後) | candidate → confirmed。M-1が抽出できない月は正規完了扱いにしない |
-| **M-3** | Management Monthly Signal | `company_management_signal_reviews` | month-end runner planned | 月末最終日 17:00 完了 | M-1/M-2後に抽出。18:00 月次振り返り MTG 前に出揃わせる |
+| **M-1** | Monthly Reports | `monthly_reports` / `monthly_reports_external` | Claude Code Routine `amd-os-l2-monthend-evidence` Phase A (Fable 5 + kaku-report) | 月末候補日16:00 JST、最終日だけ実行 | validated outbox → helper → readback。提出版は社内版へfallbackしない |
+| **M-2** | XRL Evidence | `project_xrl_evidence` / `project_founding_members` | Claude Code Routine `amd-os-l2-monthend-evidence` Phase B | 月末最終日、M-1後 | candidate → confirmed。M-1が抽出できない月は正規完了扱いにしない |
+| **M-3** | Management Monthly Signal | `company_management_signal_reviews` | Claude Code Routine `amd-os-l2-monthend-evidence` Phase C | 月末最終日17:00完了目標 | M-1/M-2後にcandidate化。18:00月次振り返りMTG前に出揃わせる |
 | **W-1** | VC News / Funding Signals | `vc_news` / `vcs` / `vc_funds` / `vc_investments` / `project_vc_relations` | Codex automation `amd-os-l2-vc-news-funding-signals` | weekly Saturday 09:00 JST | VC / funding signal candidates。review first、safe write path 不明なら blocked summary |
 | **H-1** | Meeting Flow | `project_meeting_summaries` / `meeting_assets` | MMOマシン Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher / SKILL `amd-os-l6-meeting-extract` | 毎時 09:00-21:00 JST | Supabase / Calendar / Drive / Gmail draft。Claude routine 化しない。2026-06-08 16:00 JST manual Live run 成功、次回 17:00 JST |
 

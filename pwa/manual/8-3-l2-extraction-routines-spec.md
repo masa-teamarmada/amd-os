@@ -6,6 +6,8 @@
 >
 > **2026-06-16 注記**: Claude routines 停止前提での Codex 移植 inventory / approval bundle / first execution unit は [/spec/5-8-l1-l3-codex-migration-current-spec](/spec/5-8-l1-l3-codex-migration-current-spec) を優先する。この章の `Claude routine target` 記述は、移植前の target writer と既存 contract を残している。
 
+> **2026-07-31 M系 current**: `AMD OS L2 月末抽出 (M-1月次レポート/M-2 XRL/M-3経営シグナル)` はClaude Code RoutinesでFable 5固定。M-1はkaku-report必須、旧ローカルScheduled Task・CLI・従量課金API・別モデル・subagent/workflowへのfallbackは禁止。cronはUTC `0 7 28-31 * *` (= 16:00 JST) で、JST月末最終日だけ本処理を行う。
+
 **2026-06-04 事故訂正**: 2026-05-25〜26 の Claude routine / Cloud routine 「登録完了」系の記述は、Claude Routines UI上の `ACTIVE / next run / last run` 証跡が無い限り current truth として扱わない。`~/.claude/scheduled-tasks/.../SKILL.md` はローカル手順・素材であり、Claude routine登録済みの証拠ではない。
 
 現在の是正ターゲットは、**cadence ベースで 3 本の Claude routine に束ねる** (= 2026-06-08 まさ確定、新ナンバリング D / M / W / H):
@@ -13,7 +15,7 @@
 > **2026-07-24 現行**: H-1とH-1 reviewerは、Codex Desktopの可視taskを作る定期automationを停止した。MacのLaunchAgentが `codex exec --ephemeral` を起動し、H-1は平日毎時15分、reviewerは同45分に動く。候補gateは先に固定スクリプトでDBを確認し、Calendarは接続済みconnectorを1回だけ読む。候補なしでは本文抽出・横断探索へ進まず、ローカルreportとmemoryだけを確定する。人の判断が必要な時、処理が止まった時だけOS通知を作る。会議記録・予定・ノーションひも付けを更新しただけ（まさの判断や操作が不要）、既存カード確認だけ・対象なし・変更なしは通知しない。可視prep threadはW-Prep専任であり、H-1/reviewerは作らない。古い「MMO / Codex Desktop automation / archive watchdog」の記述は履歴で、この段落が優先する。
 
 - **Claude routine `amd-os-l2-consolidated-evidence`** = 表示名「**AMD OS L2 日次抽出 (D-1〜D-11+D-13 統合)**」(daily 08:00 JST、`0 8 * * *`): D-1〜D-11 + D-13。MS Progress、Member Activity Evidence、Media Mentions も daily 化してここに同居。
-- **Claude routine `amd-os-l2-monthend-evidence`** = 表示名「**AMD OS L2 月末抽出 (M-1月次レポート/M-2 XRL/M-3経営シグナル)**」(月末候補日 16:00 発火 `0 16 28-31 * *`、Phase 0 で最終日判定、17:00 完了): M-1〜M-3 = 旧 M-1M-2M-3。3 つとも「月末」なので 1 本に統合。M-3 (Management Signal) を 18:00 月次振り返り MTG 前に出揃わせる。
+- **Claude Code Routine `amd-os-l2-monthend-evidence`** = 表示名「**AMD OS L2 月末抽出 (M-1月次レポート/M-2 XRL/M-3経営シグナル)**」(Fable 5固定、月末候補日16:00 JST発火、cron UTC `0 7 28-31 * *`、Phase 0で最終日判定、17:00完了): M-1〜M-3を依存順に1本で実行する。M-3 (Management Signal) を18:00月次振り返りMTG前に出揃わせる。
 - **Claude routine `amd-os-l2-weekly-vc-funding-signals`** = 表示名「**AMD OS L2 週次抽出 (W-1 VCニュース/資金調達)**」(weekly Saturday 09:00 JST、`0 9 * * 6`): W-1 = 旧 W-1 VC News / Funding Signals。weekly cadence なので D/M へ混ぜない。
 - **2026-06-12**: 上記 3 routine の claude.ai 表示名と起動 prompt を日本語化 (まさ指示「writer の名前は何をするやつか分かる日本語に。指示が英語なのもダメ」)。slug (= SKILL.md パス・識別子) は変更なし。起動 prompt は「最後に必ず日本語で報告」を明記。
 - **MMOマシン Codex Desktop automation 維持**: H-1 = 旧 H-1 MTGフロー (毎時 9-21 時)。Claude routine 化しない。

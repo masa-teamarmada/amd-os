@@ -105,6 +105,9 @@ const paidEditRoute = readFileSync(new URL("../src/app/api/monthly-report/edit-b
 const manualUpdateRoute = readFileSync(new URL("../src/app/api/monthly-report/manual-update/route.ts", import.meta.url), "utf8");
 const externalManualUpdateRoute = readFileSync(new URL("../src/app/api/monthly-report/external-manual-update/route.ts", import.meta.url), "utf8");
 const reportFixRoute = readFileSync(new URL("../src/app/api/report/fix/route.ts", import.meta.url), "utf8");
+const monthEndRoutine = readFileSync(new URL("../scheduled-tasks/amd-os-l2-monthend-evidence/SKILL.md", import.meta.url), "utf8");
+const monthlyReportRoutine = readFileSync(new URL("../scheduled-tasks/amd-os-l2m1-monthly-report/SKILL.md", import.meta.url), "utf8");
+const kakuReport = readFileSync(new URL("../scheduled-tasks/shared/kaku-report/SKILL.md", import.meta.url), "utf8");
 assert.match(printClient, /isMarkdownTableSeparator/, "提出版のMarkdown表を構造化して描画する");
 assert.match(printClient, /className="md-table"/, "提出版の表に印刷用スタイル契約がある");
 assert.match(printClient, /replace\(\/\^#\\s\+月次業務報告書/, "帳票タイトルと本文H1を二重表示しない");
@@ -119,6 +122,9 @@ assert.match(printClient, /\.submission-sheet \.md-body h2/, "提出版の章見
 assert.match(printRoute, /は\|が\|を\|も\|へ\|の\|から\|より/, "提出版氏名置換は所有の助詞「の」も扱う");
 assert.match(printRoute, /A-Za-z0-9/, "提出版氏名置換は助詞直後が英数字でも扱う");
 assert.match(printRoute, /"submission"/, "提出版は全PJ共通のtemplateキーを受け付ける");
+assert.match(printRoute, /monthly_reports_external/, "提出版は対外版テーブルを正本にする");
+assert.doesNotMatch(printRoute, /fallbackBody\s*=\s*repRes\.data\?\.(?:final_content|draft_content)/, "提出版が未生成でも社内版へフォールバックしない");
+assert.match(printRoute, /usingSubmissionFallback:\s*false/, "提出版フォールバックは互換フィールド上も無効にする");
 assert.match(monthlyModal, /SUBMISSION_TEMPLATE = "submission"/, "月次モーダルは提出先名を操作ラベルへ持ち込まない");
 assert.doesNotMatch(monthlyModal, /NIMS提出版|愛媛大提出版|工学院提出版|社内版を編集|社内版プレビュー/, "月次モーダルに提出先別・操作混在ラベルを残さない");
 assert.doesNotMatch(monthlyModal, /報告書を生成|再生成|修正指示/, "月次モーダルから従量課金の生成導線を除く");
@@ -137,5 +143,11 @@ assert.match(externalManualUpdateRoute, /requireAdmin/, "提出版の手動編�
 assert.match(externalManualUpdateRoute, /monthly_reports_external/, "提出版の手動編集は対外版の正本へ保存する");
 assert.match(externalManualUpdateRoute, /validateSubmission/, "提出版の手動編集も提出用の構成品質を検査する");
 assert.match(externalManualUpdateRoute, /findJargon/, "提出版の手動編集は内部用語を保存前に検査する");
+assert.match(monthEndRoutine, /Fable 5 固定/, "月末routineはFable 5固定を正本化する");
+assert.match(monthEndRoutine, /従量課金API/, "月末routineは従量課金APIへのフォールバックを禁止する");
+assert.match(monthEndRoutine, /subagent、workflow、並列エージェントを起動しない/, "月末routineは別エージェントへ生成を逃がさない");
+assert.match(monthlyReportRoutine, /shared\/kaku-report\/SKILL\.md/, "M-1はリポジトリ内のkaku-reportを必読にする");
+assert.match(monthlyReportRoutine, /概要[\s\S]*3〜5文/, "M-1は提出前に概要の役割を固定する");
+assert.match(kakuReport, /監査情報は本文の材料にしない/, "routineから読めるkaku-reportにも監査情報分離を保持する");
 
 console.log("monthly report quality guard: ok");

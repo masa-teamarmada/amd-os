@@ -345,7 +345,8 @@ export async function GET(req: NextRequest) {
     contractValueYen: Number(primaryContract?.contract_value_yen || primaryTerm?.amount_tax_incl || 0) || null,
   };
 
-  // 提出版本文: monthly_reports_external.body_md を優先、無ければ monthly_reports.final_content にフォールバック
+  // 提出版本文の正本は monthly_reports_external.body_md だけ。
+  // 対外版が未生成のときに内部版 draft/final を提出画面へ流用しない。
   let submissionBody: string | null = null;
   let submissionGeneratedAt: string | null = null;
   let submissionMemberIdentities: MemberIdentity[] = [];
@@ -360,9 +361,6 @@ export async function GET(req: NextRequest) {
     if (externalRes.data?.body_md) {
       submissionBody = normalizeJargonForSubmission(externalRes.data.body_md, submissionMemberIdentities);
       submissionGeneratedAt = externalRes.data.generated_at || null;
-    } else {
-      const fallbackBody = repRes.data?.final_content || repRes.data?.draft_content || "";
-      submissionBody = fallbackBody ? normalizeJargonForSubmission(fallbackBody, submissionMemberIdentities) : null;
     }
   }
 
@@ -607,7 +605,7 @@ export async function GET(req: NextRequest) {
     isSubmission,
     submissionBody,
     submissionGeneratedAt,
-    usingSubmissionFallback: isSubmission && Boolean(submissionBody) && !submissionGeneratedAt,
+    usingSubmissionFallback: false,
     report: repRes.data
       ? {
           status: repRes.data.status || "pending",

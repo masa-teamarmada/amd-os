@@ -1,19 +1,21 @@
-# L2M-1 Monthly Reports 仕様 (v2 — 2026-07-01 まさ確定)
+# L2M-1 Monthly Reports 仕様 (v3 — 2026-07-31 まさ確定)
 
-> **この章は何か**: `monthly_reports` / `monthly_reports_external` の writer、内部保存版 + 対外提出版の 2 段生成、月末最終日発火の Claude routine、`llm_prompts` DB 管理化、旧 Codex `amd-os-l2` (M-1 月次報告抽出) の廃止を固定する章。運用者向けの説明は `/manual/3-2-data-and-extraction` と `/manual/8-3-l2-extraction-routines-spec` にも残す。
+> **この章は何か**: `monthly_reports` / `monthly_reports_external` の writer、内部保存版 + 対外提出版の 2 段生成、月末最終日発火の Claude Code Routine、`llm_prompts` DB 管理化、旧 Codex `amd-os-l2` と旧ローカル Scheduled Task の廃止を固定する章。運用者向けの説明は `/manual/3-2-data-and-extraction` と `/manual/8-3-l2-extraction-routines-spec` にも残す。
 
-## v1 → v2 の要点差分 (2026-07-01)
+> **2026-07-31 current**: M-1単独のローカルScheduled Taskは廃止し、Claude Code Routinesの `amd-os-l2-monthend-evidence` にM-1〜M-3を統合する。モデルはFable 5固定で、`claude` CLI、従量課金API、別モデル、subagent/workflowへフォールバックしない。M-1はリポジトリ内の `pwa/scheduled-tasks/shared/kaku-report/SKILL.md` を必読とする。
+
+## v1 → v3 の要点差分 (2026-07-31)
 
 | 観点 | v1 (〜2026-06-30) | v2 (2026-07-01〜) |
 |---|---|---|
-| primary writer | Codex automation `amd-os-l2` (name="AMD OS M-1 月次報告抽出") | Claude routine `amd-os-l2m1-monthly-report` |
-| 実行環境 | Codex Desktop MMOマシン (gpt-5.5 + reasoning_effort=high) | まさの mac local Claude Code アプリ Scheduled Tasks (opus-4-8 + ultracode/xhigh、アプリ open 時に発火。cloud sandbox 常駐ではない、2026-07-01 テスト実走で判明) |
-| schedule | daily 05:30 JST (毎日) | **月末最終日 03:00 JST** (cron `0 3 28-31 * *` + Phase 0 で JST 最終日判定) |
+| primary writer | Codex automation `amd-os-l2` (name="AMD OS M-1 月次報告抽出") | Claude Code Routine `amd-os-l2-monthend-evidence` のM-1 phase |
+| 実行環境 | Codex Desktop MMOマシン (gpt-5.5 + reasoning_effort=high) | `claude.ai/code/routines`、Fable 5固定、サブスク定額枠 |
+| schedule | daily 05:30 JST (毎日) | **月末候補日 16:00 JST** (cron UTC `0 7 28-31 * *` + Phase 0 で JST 最終日判定) |
 | 出力 | 内部保存版のみ (`monthly_reports.final_content`) | **内部保存版 + 対外提出版**の 2 段生成 (`monthly_reports.final_content` + `monthly_reports_external.body_md` + PDF) |
 | 対象判定 | 全 active/sales PJ (対外提出義務の概念なし) | `projects.monthly_report_scope IN ('internal_only','internal_and_external')` の 3 状態 enum |
 | プロンプト | SKILL.md / prompt に直書き | `llm_prompts` table 正本 (`prompt_key='l2m1.monthly_report.internal.v2'` / `'l2m1.monthly_report.external.v2'`)、admin UI で編集可能 |
-| PDF 生成 | なし | Claude routine が pandoc + Chrome headless (まさの mac local 実行) → 失敗時 outbox → ローカル LaunchAgent fallback |
-| 品質検証 | なし | `scripts/ms_progress_review_tool.mjs validate-monthly-report` と PWA の `monthly-report-quality.ts` が固定8章、概要3〜5文、業務領域別の統合、生成ログ・生ログ・途中省略の不在を draft/final 書き込み前に検証し、`eLAD` を `e-Rad` へ正規化する。対外版は `upsert-monthly-reports-external` が氏名を姓だけへ正規化し、`strip_internal_jargon.py` が code_name / 内部用語を検査する |
+| PDF 生成 | なし | Claude Code Routine が一時ディレクトリでpandoc + Chrome headlessを実行し、提出版検証後にDriveへ配置する。固定ローカルパスへフォールバックしない |
+| 品質検証 | なし | `kaku-report` の8項目自己検査に加え、`scripts/ms_progress_review_tool.mjs validate-monthly-report` と PWA の `monthly-report-quality.ts` が固定8章、概要3〜5文、業務領域別の統合、生成ログ・生ログ・途中省略の不在を draft/final 書き込み前に検証し、`eLAD` を `e-Rad` へ正規化する。対外版は `upsert-monthly-reports-external` が氏名を姓だけへ正規化し、`strip_internal_jargon.py` が code_name / 内部用語を検査する |
 | Slack 通知 | なし (Codex automation は run summary のみ) | まさ DM に集約 (`scripts/send-eimi-slack.mjs` = GAS webapp えいみ persona bot 経由)、PJ チャンネルには投げない |
 | 通知タイミング | なし | Phase 2.1 (開始) + Phase 2.7 (PJ 完了、scope 別 4 パターン) + Phase 3 (全体サマリ) |
 
@@ -42,15 +44,15 @@
 
 | 項目 | 値 |
 |---|---|
-| primary writer | Claude routine `amd-os-l2m1-monthly-report` |
-| taskId | `amd-os-l2m1-monthly-report` (list_scheduled_tasks で取得可能) |
-| schedule | `0 3 28-31 * *` (LOCAL time = JST) + Phase 0 で「今日 == 当月最終日 JST」判定、非最終日は即 exit |
-| repo 正本 SKILL | `pwa/scheduled-tasks/amd-os-l2m1-monthly-report/SKILL.md` |
-| model / effort | claude-opus-4-8 + ultracode (xhigh) 想定 (SKILL.md description の散文で指定) |
+| primary writer | Claude Code Routine `amd-os-l2-monthend-evidence` のM-1 phase |
+| routine表示名 | `AMD OS L2 月末抽出 (M-1月次レポート/M-2 XRL/M-3経営シグナル)` |
+| schedule | cron UTC `0 7 28-31 * *` (= 16:00 JST) + Phase 0 で「今日 == 当月最終日 JST」判定、非最終日は即 exit |
+| repo 正本 SKILL | `pwa/scheduled-tasks/amd-os-l2-monthend-evidence/SKILL.md` + `pwa/scheduled-tasks/amd-os-l2m1-monthly-report/SKILL.md` + `pwa/scheduled-tasks/shared/kaku-report/SKILL.md` |
+| model / effort | Fable 5固定。別モデル、CLI、従量課金API、subagent/workflowへのfallback禁止 |
 | input | Gmail / Drive / Calendar / Slack / Notion 5 生データ + L2 スナップショット + contracts + members + AMD Score + XRL + MS 進捗 + action_items + grants + media + documents |
 | プロンプト | `llm_prompts` table から fetch (SKILL.md / コードにハードコード禁止) |
 | 内部保存版 output | `monthly_reports.final_content` (force なし上書き禁止) |
-| 対外提出版 output | `monthly_reports_external.body_md` + PDF (共有 Drive `projects.drive_folder_id / 月次業務報告書 / YYYY-MM/` + ローカル outbox) |
+| 対外提出版 output | `monthly_reports_external.body_md` + PDF (共有 Drive `projects.drive_folder_id / 月次業務報告書 / YYYY-MM/`、生成中だけroutineの一時outbox) |
 | Slack 通知 | まさ DM (= `scripts/send-eimi-slack.mjs` 経由、`members` where `code_name='まさ' AND is_admin=true` の `slack_id` を解決) |
 
 ## v1 廃止済 writer (参考、復活禁止)
@@ -106,10 +108,12 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 | PWA `/api/report/generate` | **410停止**。従量課金APIをUIから誤実行できないよう復旧経路としても使わない |
 | PWA `/api/cron/monthly-reports-backfill` | 重い手動 backfill route。定期 writer にしない。ただし上記「生成対象ガード」の実装はこの route が持つ (進捗ベース判定の正本実装) |
 | Codex automation `amd-os-l2` (M-1 月次報告抽出) | **v2 で PAUSED 済 (2026-07-01)**。復活禁止。gpt-5.5 + daily 05:30 の旧 writer |
+| Local Scheduled Task `~/.claude/scheduled-tasks/amd-os-l2m1-monthly-report` | **v3 で廃止済 (2026-07-31)**。`claude.ai/code/routines` のFable 5版へ一本化し、遅延発火するローカルtaskへ戻さない |
 | MCP `slack_send_message` を bot として直叩き | えいみ persona 通知に使わない。必ず `scripts/send-eimi-slack.mjs` (GAS webapp 経由) |
 | Anthropic / OpenAI / Gemini 従量課金 API 直叩き | Claude routine 自身の定額サブスク model 以外の LLM 呼び出しは禁止 |
+| Claude Code subagent / workflow | M-1本文の生成を分散しない。Fable 5の単一routine内で1 PJずつ処理する |
 
-> ⚠️ **writer 間のガード整合**: 上記「生成対象ガード」は backfill route だけでなく、primary writer (Claude routine `amd-os-l2m1-monthly-report`) も通す必要がある。ガードのコード実装は backfill route にあり、Claude routine 側は SKILL.md の Phase 2 プロンプト指示で同等の判定をかける。両 writer が「進捗なし & ended/frozen は生成しない」を守ることが正本。
+> ⚠️ **writer 間のガード整合**: 上記「生成対象ガード」は backfill route だけでなく、primary writer (`amd-os-l2-monthend-evidence` Code RoutineのM-1 phase) も通す必要がある。ガードのコード実装は backfill route にあり、routine側はM-1 SKILLのPhase 1で同等の判定をかける。両 writer が「進捗なし & ended/frozen は生成しない」を守ることが正本。
 
 ## 5 生データ確認
 
@@ -166,7 +170,7 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 | `GET/POST /api/monthly-report/external-manual-update` | `requireAdmin`。GET は `monthly_reports_external` の提出版本文を返す。POST は `YYYYMM` を `YYYY-MM` に変換して同表へ保存し、既存の生成日時を維持して `updated_at` のみ更新する。生成前の新規作成も可能。LLMは呼ばない |
 | `POST /api/report/fix` | `final_content` がある場合は `force:true` を要求する。印刷ビューの確定操作は確認ダイアログを経てこれを送るため、下書き保存だけで確定版を上書きしない |
 
-画面上の編集・保存・確定は LLM を呼ばない。旧 `/api/report/generate` と `/api/monthly-report/edit-by-tsukuyomi` は従量課金事故を防ぐため 410 で停止する。自動生成は月末最終日の `amd-os-l2m1-monthly-report` に一本化する。
+画面上の編集・保存・確定は LLM を呼ばない。旧 `/api/report/generate` と `/api/monthly-report/edit-by-tsukuyomi` は従量課金事故を防ぐため 410 で停止する。自動生成は月末最終日の `amd-os-l2-monthend-evidence` Code RoutineのM-1 phaseに一本化する。
 
 ### 設計判断
 
@@ -181,7 +185,7 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 
 ### `monthly_reports` との関係
 
-`monthly_reports.final_content` (markdown) が **§C 当月の進捗** 本文の主出力。`draft_content` フォールバック、両方空なら `project_monthly_notes.body`、それも空なら「未生成」表示。`generated_at` / `fixed_at` / `confirmed_by` は **§J 改訂履歴** に反映される。
+`monthly_reports.final_content` (markdown) が社内版 **§C 当月の進捗** 本文の主出力。社内版だけは `draft_content`、`project_monthly_notes.body` の順で画面表示を補助し、それも空なら「未生成」とする。提出版は `monthly_reports_external.body_md` だけを正本にし、未生成時に社内版final/draftへフォールバックしない。`generated_at` / `fixed_at` / `confirmed_by` は **§J 改訂履歴** に反映される。
 
 ### 外販含む大学・研究機関提出での運用
 
@@ -192,12 +196,12 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 
 ### 生成経路
 
-1. **Claude routine が月末最終日 03:00 JST に発火** (Phase 0 で最終日判定)
+1. **Claude Code Routineが月末候補日16:00 JSTにFable 5で発火** (cron UTC `0 7 28-31 * *`、Phase 0でJST最終日判定)
 2. **Phase 2.3**: `monthly_reports.final_content` (内部保存版 markdown) を生成
 3. **Phase 2.4**: `scope='internal_and_external'` の PJ のみ、内部版 markdown、当月 source bundle、前月の実提出版を入力に対外版 markdown を生成する。前月版は構成・文体・情報密度の参照専用で、前月事実は当月へ転記しない
 4. **Phase 2.5**: 禁止語チェック (`scripts/strip_internal_jargon.py`)。hard_fail → PDF 生成停止、まさ DM 通知
-5. **Phase 2.6**: PDF 生成。cockpit の提出版リンクは9章の `body_md` を1本の連続文書として組版し、章ごとの強制改頁を使わず自然改頁だけで流す。自動生成 (`scripts/generate_monthly_report.py` = pandoc → HTML → Chrome headless) でも明示的な page break は入れない。routine 自体がまさの mac local Claude Code アプリ内で発火するため (= cloud sandbox ではない、SKILL.md 冒頭「登録・実行環境の current truth」参照)、pandoc / Chrome headless ともローカル実行。失敗時は outbox 経由でローカル LaunchAgent (`com.amd-os.l2m1-pdf-renderer`) fallback
-6. **配置**: ローカル `/Users/masa/projects/AMD/{report_local_alias}/output/monthly_reports/` + 共有 Drive `projects.drive_folder_id / 月次業務報告書 / YYYY-MM/`
+5. **Phase 2.6**: PDF 生成。cockpit の提出版リンクは9章の `body_md` を1本の連続文書として組版し、章ごとの強制改頁を使わず自然改頁だけで流す。自動生成 (`scripts/generate_monthly_report.py` = pandoc → HTML → Chrome headless) でも明示的なpage breakは入れない。routineの一時ディレクトリで生成し、ローカル固定パスやLaunchAgentへfallbackしない
+6. **配置**: 共有 Drive `projects.drive_folder_id / 月次業務報告書 / YYYY-MM/`。一時PDFはroutine終了時に破棄可能で、Drive配置とDB再読込が完了証跡になる
 
 ### 対外提出版のフォーマット (KUTE 実納品準拠)
 
@@ -213,7 +217,7 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 
 ### 対外版の allow_list (jargon check)
 
-`projects.report_extra_allow_terms[]` + `projects.project_name` + `contracts.title` の和集合を allow_list として渡す。禁止語リストは opus-4-8 プロンプト内に埋め込み、`scripts/strip_internal_jargon.py` が最終ゲート。
+`projects.report_extra_allow_terms[]` + `projects.project_name` + `contracts.title` の和集合を allow_list として渡す。禁止語リストは有効な外部版プロンプトの制約として読み、`scripts/strip_internal_jargon.py` を決定論的な最終ゲートにする。
 
 ### 対象 PJ (2026-07-01 まさ確定)
 

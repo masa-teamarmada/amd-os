@@ -1,130 +1,107 @@
 ---
 name: amd-os-l2-monthend-evidence
-description: AMD OS month-end L2 evidence 抽出を 1 本の claude routine に束ねたもの (= M-1〜M-3)。月末候補日 16:00 JST 発火 (cron `0 16 28-31 * *`)、Phase 0 で「今日 == 当月最終日」判定し、最終日でなければ即 exit。最終日のみ M-1 monthly_reports → M-2 XRL根拠 → M-3 Management Monthly Signal の順に inline 実行し、17:00 JST までに完了させる (= 月末最終日 18:00 の月次振り返り MTG に間に合わせる)。claude.ai/code/routines (cloud / Anthropic-managed、サブスク定額枠、Sonnet 4.6)。daily 分 (D-1〜D-11) は別 routine `amd-os-l2-consolidated-evidence`、weekly 分 (W-1) は別 routine `amd-os-l2-weekly-vc-funding-signals`、毎時 (H-1) は MMOマシン Codex Desktop automation。
+description: Claude Code Routines の Fable 5 で動かす AMD OS 月末処理。JST 月末最終日のみ、M-1 月次報告書、M-2 XRL 根拠、M-3 経営月次シグナルを依存順に生成する。従量課金 API、claude CLI、別モデルへのフォールバック、ローカル Scheduled Tasks は使わない。
 ---
 
-# AMD OS Month-end L2 Evidence routine (M-1〜M-3)
+# AMD OS Month-end L2 Evidence routine（M-1〜M-3）
 
-> **これは何か**: 月末にだけ抽出すべき L2 evidence を **1 本の claude routine** に束ねたもの。
-> M-1 monthly_reports → M-2 XRL根拠 → M-3 Management Monthly Signal を **依存順** で実行。
-> 2026-06-08 まさ確定の cadence ベース新ナンバリング (D / M / W / H)。
+## 正本と実行経路
 
-## 🚨 登録事故の current truth (2026-06-04)
+- 登録先は `claude.ai/code/routines` の `AMD OS L2 月末抽出 (M-1月次レポート/M-2 XRL/M-3経営シグナル)`。
+- 実行モデルは **Fable 5 固定**。この Code Routine の定額枠だけで文章を生成する。
+- cron は `0 7 28-31 * *`（UTC。16:00 JST）。Phase 0 で JST 月末最終日を判定する。
+- 旧 `/Users/masa/.claude/scheduled-tasks/amd-os-l2m1-monthly-report` は廃止済み。ローカル Scheduled Tasks に戻さない。
+- M-1〜M-3をこの1本に束ねる。M-1単独の別 routine を登録しない。
 
-- このリポの SKILL は素材であって、claude routine 登録済みの証拠ではない。
-- **claude routine** = `claude.ai/code/routines` に存在し `ACTIVE` / `next run` / `last run` を確認できるものだけ。
-- claude routine (cloud) はマシン非依存。Mac を閉じても・どのマシンが OFF でも Anthropic クラウドで発火する。
-- 旧 Mac Local scheduled task (`~/.claude/scheduled-tasks/`) はマシン依存で全 disabled・未実行だった。これに戻さない。
+## モデル・課金ゲート
 
-## 設計の要点 (2026-06-04 まさ確定)
+本処理の最初に、現在の routine が Fable 5 で実行されていることを確認する。
 
-- **背景**: M-1 M-1 monthly / M-2 M-2 XRL / M-3 M-3 Management Signal は **全部「月末」cadence**。当初 B (month-end) と D (17:00) に分けていたが、3 つとも月末で、依存関係 (M-1 → M-2 → M-3) もあるため **1 routine に統合** (= run 消費も月末日 +1 だけ)。
-- **発火**: 月末候補日 16:00 JST。cron `0 16 28-31 * *`。
-- **最終日判定**: cron に「月の最終日」概念は無いため `28-31` で月末候補日に発火し、**Phase 0 で JST 判定**。今日が当月最終日でなければ本処理を一切実行せず 1 行 summary で即 exit (= 空振り run。月 3-4 回、daily run cap には全く触れない)。
-- **完了目標**: 16:00 開始 → **17:00 JST までに M-3 まで完了**。理由 = 月末最終日 18:00 に月次振り返り MTG があり、その前に M-3 Management Signal まで出揃わせる。1 時間バッファ。差分検知で skip 多い月は 15-20 分で終わる。
-- **実行環境**: claude.ai/code/routines (cloud sandbox VM、Pro/Max/Team サブスク内、Sonnet 4.6)。
-- **入力**: AMD OS repo auto-clone + Connector (Supabase / Gmail / Drive / Calendar / Notion / Slack)。
+- Fable 5 と確認できない場合は `model_gate: blocked_non_fable` を返し、connector read、文章生成、ファイル生成、DB write、通知を始めない。
+- fallback model を使わない。
+- `claude` CLI、Anthropic API、OpenAI API、Gemini APIなどの従量課金経路を使わない。
+- subagent、workflow、並列エージェントを起動しない。1つの Fable routine 内で、1 PJずつ順番に処理する。
 
-## 新ナンバリング ↔ 旧番号 番号 対応
+## 動く前に全文を読む
 
-| 新 | 旧番号 | 名称 | table | 既存 SKILL / 実装 |
-|---|---|---|---|---|
-| M-1 | M-1 | Monthly Reports | `monthly_reports` | `amd-os-l1-monthly-report-extract/SKILL.md` |
-| M-2 | M-2 | XRL根拠 | `project_xrl_evidence` / `project_founding_members` | `amd-os-l8-xrl-evidence-extract/SKILL.md` |
-| M-3 | M-3 | Management Monthly Signal | `company_management_signal_reviews` | 新規 (本 SKILL Phase C に inline)。table = migration 122 |
+1. `pwa/scheduled-tasks/shared/kaku-report/SKILL.md`
+2. `pwa/scheduled-tasks/amd-os-l2m1-monthly-report/SKILL.md`
+3. `pwa/scheduled-tasks/amd-os-l8-xrl-evidence-extract/SKILL.md`
+4. `pwa/spec/3-0-l2-data-list-current-spec.md`
+5. `pwa/spec/3-1-l2-data-extraction-current-spec.md`
+6. `pwa/spec/5-3-automation-responsibility-current-spec.md`
+7. `pwa/design/L2_DATA.md`
+8. `pwa/design/db_schema.md`
+9. `pwa/design/amd_score.md`
 
-## 【絶対】 動く前に必ず Read
+列名、status、保存経路は実装と current spec を正本にする。想像で補わない。
 
-1. `pwa/spec/5-3-automation-responsibility-current-spec.md` (= 責務分担 current truth)
-2. `pwa/manual/8-3-l2-extraction-routines-spec.md`
-3. `pwa/design/L2_DATA.md`
-4. `pwa/design/db_schema.md` (= 列名は想像で書かない)
-5. M-1: `amd-os-l1-monthly-report-extract/SKILL.md` / M-2: `amd-os-l8-xrl-evidence-extract/SKILL.md` / M-3: `pwa/design/amd_score.md` + migration 122
+## Phase 0: 月末・環境・書き込み経路の確認
 
-═══════════════════════════════════════════════════
-Phase 0: 最終日判定 + env + active PJ
-═══════════════════════════════════════════════════
+1. JST の今日が当月最終日か確認する。最終日でなければ、M-1〜M-3を一切実行せず短いスキップ要約だけで終了する。
+2. 対象月を当月 `YYYYMM` とする。提出版の `ym` は `YYYY-MM` に変換する。
+3. コネクターと環境変数を確認する。欠落を「データなし」と扱わない。
+4. DB write は承認済み非LLM helperと一時 outboxだけを使う。Supabase connector、SQL、RESTの直接 writeは禁止する。
+5. 一時 outbox は `mktemp -d` で作る。`/Users/masa/...` のローカル固定パスを前提にしない。
 
-1. **最終日判定 (= 最初に必ず行う)**:
-   - JST の今日が当月の最終日か判定する (= 翌日が翌月 1 日か)。
-   - **最終日でなければ即 exit**。本処理 (Phase A-C) を一切実行せず、`🗓️ month-end routine: 今日 (<YYYY-MM-DD JST>) は月末最終日ではないため skip` の 1 行だけ返す。
-2. Supabase connector でスキーマ確認。列名は `db_schema.md` を grep。
-3. `projects?status=eq.active&select=project_id,project_name,project_category` で active PJ。
-4. ymList = [当月 (= YYYYMM JST)]。月末評価なので当月を primary、必要時のみ前月補完。
+## Phase A: M-1 月次報告書
 
-═══════════════════════════════════════════════════
-Phase A: M-1 M-1 Monthly Reports (= 当月、最優先)
-═══════════════════════════════════════════════════
+`pwa/scheduled-tasks/amd-os-l2m1-monthly-report/SKILL.md` をそのまま実行する。
 
-`amd-os-l1-monthly-report-extract/SKILL.md` の手順を実行。
-- 入力: active / sales PJ × 当月の **Supabase L2 snapshot primary** (= `project_meeting_summaries` / `project_strategy_signals` / `project_xrl_evidence` / `project_registry_diffs` / `protocols` / `project_knowledge` / `member_knowledge` / `milestone_monthly_progress` / `progress_estimate_state` / 既存 `monthly_reports`)。
-- fallback: L2 coverage が薄い・古い・source refs 不足・no-data 候補のときだけ Gmail / Drive / Calendar / Slack / Notion 5 生データを gap check。`source_cache` だけで no-data 判定しない。
-- 進捗ベース生成ガード (2026-06-03 正本): 「PJ状態」ではなく「その月に実進捗があるか」で生成可否を決める。進捗あり → 状態問わず生成。進捗なし & active → 「進捗なし」テンプレ。進捗なし & ended/frozen → 生成しない。未来月・開始前は backfill しない。
-- 出力: `monthly_reports` (status='draft')。既存 `final_content` は force 明示なしで上書きしない。
-- 反映: cloud 直書きできない環境では `/Users/masa/.codex/automations/amd-os-ms/outbox/` の `monthlyReports` 経由で非LLM applier。
-- 禁止: R313 trigger / PWA report route / Anthropic 従量課金 API。
-- **M-2 の入力になるので必ず M-2 より先に完了させる**。
+- 対象は `monthly_report_scope IN ('internal_only','internal_and_external')` かつ `status IN ('active','sales')`。
+- `internal_only` は社内版 final まで、`internal_and_external` は社内版 final、提出版、禁止語検査、PDFまでを対象にする。
+- 既存 final が空なら新規生成する。既存 final がある場合は品質監査を行い、kaku-reportと決定論的 validatorの両方に合格したものは上書きしない。
+- 既存 final または提出版が不合格でも、この定期 routine から force 上書きしない。`repair_required` としてプロジェクト別に報告する。
+- M-1が保存・再読込検証まで完了しなければ、そのプロジェクトのM-2を完了扱いにしない。
 
-═══════════════════════════════════════════════════
-Phase B: M-2 M-2 XRL根拠 (= M-1 の monthly_reports を入力に含む)
-═══════════════════════════════════════════════════
+## Phase B: M-2 XRL根拠
 
-`amd-os-l8-xrl-evidence-extract/SKILL.md` の手順を実行。
-- 入力: 5 生データ + 既存 L2 (= **Phase A で更新した monthly_reports** / meeting_summaries / member_knowledge 等)。
-- 出力: `project_xrl_evidence` (axis = trl/brl/grl/srl/hrl、status='candidate')。
-- 関連メンバー (HRL ベース): `project_founding_members.category in ('amd','startup','university')` のみ算入、VC/顧客/行政/産業パートナーは invalid。
-- `project_category='ecosystem'` の PJ は AMD Score 対象外として skip。
-- 反映: `outbox.xrlEvidence` → 非LLM applier (`ms_progress_review_tool.mjs apply-outbox-dir`)。score は直接確定せず candidate で、通知 yes で `confirmed`。
-- XRL checklist audit (= 各 axis の evidence 充足チェック) もここで実施。
+M-1が確認できたプロジェクトだけ、`pwa/scheduled-tasks/amd-os-l8-xrl-evidence-extract/SKILL.md` を実行する。
 
-═══════════════════════════════════════════════════
-Phase C: M-3 M-3 Management Monthly Signal (= 17:00 までに完了)
-═══════════════════════════════════════════════════
+- M-1で確定した当月月次報告を入力に含める。
+- `project_xrl_evidence` は candidate として出力する。
+- HRLは `project_founding_members.category in ('amd','startup','university')` のみを対象にする。
+- `project_category='ecosystem'` は AMD Score 対象外としてスキップする。
+- scoreを直接 confirmed にしない。
 
-新規 inline 抽出 (= 個別 SKILL なし。table = migration 122 `company_management_signal_reviews`)。
-- 入力: 月次試算表の予実 = `company_budget_monthly` (予算) / `company_actual_monthly` (実績、`actual_amount_yen`) / `company_budget_variance_notes` (差分メモ) を当月 ym で読む。加えて M-1/M-2 の結果 (= 当月 monthly_reports 断面、XRL signal) を経営文脈として参照。
-- 抽出: 予実差分から経営シグナル評価を作る。Sonnet 4.6 で以下の構造化フィールドに落とす:
-  - `summary` (= 当月経営サマリ本文、必須)
-  - `forecast_summary` (= 見通し)
-  - `cost_actions` (JSONB 配列 = コスト面の打ち手)
-  - `pipeline_actions` (JSONB 配列 = 売上/パイプライン面の打ち手)
-  - `variance_findings` (JSONB 配列 = 予実差分の発見)
-  - `risk_alerts` (JSONB 配列 = リスク警告)
-  - `decision_signals` (JSONB 配列 = 経営判断シグナル)
-  - `source_refs_json` (JSONB 配列 = 根拠 source refs、全文保存しない)
-- 出力: `company_management_signal_reviews` (`ym` = 当月、`status='candidate'`、`created_by='claude_month_end_routine'`)。UNIQUE (ym, status) なので同 ym/candidate は upsert。
-- 反映: `/management-score` 画面に表示される。まさが確認して `confirmed` 昇格 (= UI 採否)。
-- **これが月次振り返り MTG (18:00) で一番見たいもの**。Phase A/B が長引いても 17:00 までに必ず Phase C を出す。
+## Phase C: M-3 経営月次シグナル
 
-═══════════════════════════════════════════════════
-Phase D: run summary
-═══════════════════════════════════════════════════
+M-1・M-2と当月の予実を使い、`company_management_signal_reviews` の candidate を作る。
 
-```
-🗓️ L2 month-end evidence (M-1〜M-3) 最終日 16:00 完了 (<HH:MM JST>):
-  - M-1 M-1 monthly_reports: <N> draft saved, <M> skipped final
-  - M-2 M-2 XRL根拠: <N> evidence candidate (trl/brl/grl/srl/hrl)
-  - M-3 M-3 Management Signal: ym=<YYYYMM> candidate saved
-  経過時間: <minutes> 分 (= 17:00 MTG 準備 締切まで余裕 <X> 分)
+- 入力は `company_budget_monthly`、`company_actual_monthly`、`company_budget_variance_notes`、当月M-1、当月M-2。
+- `summary`、`forecast_summary`、`cost_actions`、`pipeline_actions`、`variance_findings`、`risk_alerts`、`decision_signals`、短い `source_refs_json` を作る。
+- 根拠が不足する欄は未確認として残し、推測で埋めない。
+- 保存は current spec に記載された承認済み経路だけを使う。経路が不明なら `review_required` で止める。
+
+## 完了条件
+
+Mごとに次を確認する。
+
+- 生成物が品質ゲートに合格した。
+- 承認済み helper の結果が `inserted` または `updated` だった。
+- 保存後に再読込し、対象月、status、本文長、生成時刻が一致した。
+- outboxを置いただけ、PDFを作っただけ、候補を作っただけでは完了にしない。
+
+## 最終報告
+
+監査情報は報告書本文に混ぜず、routineの最終実行報告だけに分離する。
+
+```text
+L2 month-end routine: <YYYY-MM-DD HH:mm JST>
+model_gate: Fable 5 / pass
+M-1: 対象 <N> / internal final <N> / external <N> / repair_required <N> / failed <N>
+M-2: candidate <N> / skipped_dependency <N> / failed <N>
+M-3: candidate <N> / review_required <N> / failed <N>
+quality_gate: pass <N> / fail <N>
+errors: <短い理由。raw本文や秘密情報は含めない>
 ```
 
-═══════════════════════════════════════════════════
-【禁止】
-═══════════════════════════════════════════════════
+## 禁止
 
-- 最終日判定を飛ばして月末候補日 (28-30 日) に本処理を走らせる。
-- M-1 より M-2 を先に走らせる (= M-2 は M-1 の monthly_reports を入力にする)。
-- R313 / PWA report route / Anthropic 従量課金 API を M-1 定期抽出に使う。
-- 列名想像 (= `db_schema.md` を grep)。`company_management_signal_reviews` の status は `auto_preview / candidate / confirmed / archived` のみ。
-- `monthly_reports.final_content` を force なしで上書き。
-- XRL score を candidate を経ず直接 confirmed にする。
-- 17:00 を超えて M-3 が出ない (= 重い月は Phase A/B の差分 skip を最大化し、Phase C を死守)。
-- daily 分 (D-1〜D-11) / weekly 分 (W-1) / 毎時 (H-1) を本 routine に混ぜる。
-
-═══════════════════════════════════════════════════
-【execution time 配慮】
-═══════════════════════════════════════════════════
-
-- 16:00 開始・17:00 完了目標 = 60 分バジェット。Phase A (monthly 全 PJ) が最も重い。差分検知で skip を効かせる。
-- timeout しても `l2_extract_state.last_processed_at` / outbox で idempotent。ただし月末は再 run 機会が翌月までないため、Phase C (M-3) を最優先で確定させる設計。
-- 空振り run (= 最終日でない日) は Phase 0 で即 exit するので数秒で終わる。
+- 報告書本文に取得件数、コネクタ名、draft、collection summary、source refs、L2、snapshot、生成過程を書く。
+- 会議順、取得元順、配列のカンマ連結で本文を作る。
+- M-2をM-1より先に実行する。
+- forceなしで既存 final を上書きする。
+- 非Fableモデル、CLI、従量課金API、subagent、workflowへ処理を逃がす。
+- Supabase connector、SQL、RESTで直接 writeする。
+- D系、W-1、H-1、deploy、git push、DDL、migration、ローカルautomation変更をこのroutineで行う。
