@@ -406,9 +406,9 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - freee連携: dashboard 上段に admin 限定の `FreeeConnectionStatusCard` を出す。接続記録と `company_actual_monthly` の freee P/L・口座残高実績を別々に確認し、両方が24時間以内なら `正常`、接続記録なしは `未連携`、それ以外は `要確認` とする。認可情報や秘密値をブラウザへ返さず、画面から同期を実行しない。`/management-score` の月次試算表へだけ遷移できる。
 - PJ台帳の Slack CH 列: `projects.slack_channel_not_required=true` を「チャンネルなし」チェックで編集できる。これは未設定ではなく意図的にSlackチャンネルを使わないPJを示し、抽出状況の設定不足から外す。チェック時は古い `slack_channel_id` を空にする。PJ台帳の見出し行は縦横スクロール中も固定する。
 - AMD全体 累計実績カード: dashboard 上段の `FundingStatsCard` は、資金調達ラウンドと助成金・補助金を会社別/行別に表示する。累計値は `amd_contribution_status in ('full','partial')` の AMD貢献額だけで計算し、`none` / `unreviewed` はリストには残すが累計には入れない。投資家別内訳・持株比率・cap table snapshot は dashboard API に返さない。
-- PJ一覧: Active / Sales-Draft / Ended-Frozen の横長 stripe 一覧を維持する。KUTE (`p25`) など研究機関エコシステム構築PJは通常PJ一覧に二重表示せず、研究機関ECRリスト側へ寄せる。
+- PJ一覧: Active / Sales-Draft / Ended-Frozen の横長 stripe 一覧を維持する。`institution_projects` に入る研究機関PJは通常PJ一覧に二重表示せず、研究機関リストの同じ機関行へPJ運用レイヤーとして重ねる。
 - 左メニューのボード: マウスオーバーまたはキーボードフォーカスで、右側に全アクティブPJの一覧を出す。各行は対応するPJコックピットへ遷移し、一覧は固定せず `projects.status='active'` を読む。ボード本体の `/dashboard` 導線は維持する。フライアウトはナビのスクロール領域にクリップされない上位レイヤーで表示し、画面下端では一覧部分だけをスクロールさせる。
-- 研究機関ECRリスト: PJ一覧と同じ左/mainカラム内で、PJ一覧の直下に `InstitutionReadinessList` を表示し、PJリストの続きとして苗床レイヤーを確認できるようにする。MyPage右カラムの下や全幅下段に落とさない。表示名はPJ名を主タイトルに寄せ、KUTE / KGW / NIMS を title、工学院大学 / 香川大学 / 物質・材料研究機構を subtitle にする。KUTEカードは `/institutions/inst_kute/cockpit`、NIMSカードは `/institutions/inst_nims/cockpit` へ遷移する。
+- 研究機関リスト: PJ一覧と同じ左/mainカラム内で、PJ一覧の直下に `InstitutionReadinessList` を表示する。契約有無に依存しない `institutions` カタログが正本で、`institution_projects` の稼働中PJを持つ機関を先頭に出す。表示名はPJ名を主タイトル、機関名をsubtitleにし、対応は固定ID表ではなくDB関係から解決する。ECRは研究機関環境の別系列で、SPSと合算しない。
 - Company Content shelf: 研究機関ECRリストの下に、`CompanyContentShelf` を4カラムで表示する。列はメンバー / 沿革 / メディア掲載 / photo。`member_profiles` / `company_history_events` / `media_assets` の approved rows を優先し、未適用環境では既存 `members` + `project_members`、`project_events` / `project_ventures`、photo permission placeholder に fallback する。Notion photo URL や個人情報本文は表示しない。
 - MyPage embed: `/dashboard` 右カラムでは `<MyPageContent embedded showMonthlyProjects={false} />` を使い、「今週やったこと」より下の月別PJカードを出さない。`/mypage` 単体では従来どおり月別PJカードを維持する。
 - Dashboard上部: Management Score と明示 action queue を維持する。月次ルーティン由来の自動タスクは生成しない。
@@ -461,12 +461,12 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 開催済みMTG本文の表現契約: `## 🎯背景` / `## 📊経緯` は段落、`## ✅決まったこと` / `## ▶️次の一手` / `## ⚠️残課題` は1項目1論点の `- ` 箇条書きにする。番号付きリストとチェックボックスは使わない。
 - MTG PDFの添付契約: `PDF保存` は共有用本文の後ろに `meeting_assets` の PDF / PNG / JPEG を `sort_order` 順で連結する。投影資料を先、参加者共有資料を後に並べ、資料へのリンク一覧だけで済ませない。
 - MTG詳細Markdownのメンバーリンク: `CockpitMeetingDetailModal` で表示する `narrative_md` / `summary_short` / raw 配列 / 予定MTGブリーフは `MarkdownView memberLinks` を通し、active AMDメンバーの `members.code_name` が standalone mention として出る場合だけ `/mypage?memberId=<members.member_id>` へリンクする。既存 Markdown link / code / pre は対象外で、`しかるべき` の `かる`、`こうして` の `こう` のような部分一致はリンクしない。
-- KUTE連携シーズ一覧 (2026-07-20 導入 / 2026-07-20 SPS 対応): `projectId === 'p25'` の進捗タブでは、`CockpitKuteAnnualRoadmap` の直後に `CockpitKuteSeeds` を比較優先のテーブルとして表示する。データは Seeds テーブル (`org_name='工学院大学'`) を単一正本とし、KUTE専用テーブルは作らない。1行は「技術 × 応用先」の1案件で、`researcher_name` は一意キーではなく、DB上は案件ごとに別行のまま統合・重複除外しない (2026-07-21 更新: 表示のみ研究者単位でグループ化。同一機関かつ正規化後の `researcher_name` が同じシーズは、比較テーブル上で研究者名を1回だけ表示するグループヘッダー行の下に束ねて表示する。正規化は NFKC・連続空白の単一化・前後空白除去。`researcher_name` が null の行は互いに別グループとして扱い、決して1グループへ誤統合しない。列ソートはグループ内の行を並べ替えた上でグループ自体もグループ内代表値で並べ替えるため、どの列でソートしてもグループが分断されることはない。グルーピングは `groupSeedsByResearcher()` / ソートは `sortSeedGroups()` (いずれも `pwa/src/lib/kute-seeds-scoring.ts`、特定の研究者名のハードコード無し) が担い、研究者数の集計も併記する)。p25→institution_idのスコープ対応は `researchInstitutionIdForProject()` (`pwa/src/lib/kute-seeds-scoring.ts`) 一箇所のみに定義し、将来の研究機関PJも同じ境界を使う (2026-07-31: `p30`→`inst_ehime` (愛媛大学 EHM PJ) を同じ境界へ追加、対象は同機関の1件に絞られる)。`/seeds` は2026-07-31より全機関横断の比較画面 (`CockpitKuteSeeds` を `scope="all"` で使用、`fetchAllResearchInstitutionSeeds()`) に置き換わり、機関グループ (`groupSeedsByInstitution()`) → 研究者グループの2段ネストで表示する。旧・単一テーブルの管理画面 (新規作成/受信箱/編集) は撤去した。SPS (Seed Prospect Score、全国全シーズ共通・KUTE専用スコアではない) を筆頭列に `M`/`P`/`R`/`S` と `TRL`/`BRL`/`GRL`/`SRL`/`HRL` を個別列で表示し、事業化フィールドと合わせて比較できる。シーズ名、研究者名、事業化タイプ、長文セルは省略せずセル内で全文を折り返す。`discovery_status='discovered'` は大学・研究者確認前の「公開情報候補」と表示する。長文と計算済みの SPS / M / P / R / S / XRL 内訳は `KuteSeedDetailModal` で確認できるが、`axis_evidence` / `evaluator` は内部専用のため公開面・モーダルどちらにも出さない。同モーダルは `internal_notes` / `source_detail` 等の非公開フィールドを select すらしない `SeedPublicView` ホワイトリスト経由の読み取り専用で、既存の編集用 `SeedDetailModal` は再利用しない。SPS 計算に必要な軸が欠けているシーズは部分点を総合点にしない。深掘り資料は既存 `SeedMarkdownPreviewModal` を再利用し、無ければ「資料なし」。DDL: migration `186_kute_seeds_commercialization_score.sql` (historical、未使用列は187で撤去) → `187_seed_sps_assessments.sql` (全国共通 `seed_sps_assessments` 新設 + 事業化フィールド一般化) → `188_seed_sps_kute_backfill.sql` (KUTE6シーズの provisional 評価投入) → `189_kute_public_seed_candidates.sql` (公開情報上位3件をreview-first候補として追加、SPSは未評価)。詳細は [`seeds.md`](seeds.md) 参照。
+- 研究機関連携シーズ一覧: `CockpitKuteSeeds` はKUTE専用の別台帳を持たず、`seeds` と全国共通 `seed_sps_assessments` を読む。研究機関PJの対象スコープは `institution_projects.institution_id` から動的に解決する。`/seeds` は全158件を、`seed_projects` の稼働中PJ → PJ履歴 → PJなし・カタログ蓄積の順で同じ比較表に表示し、PJ化済みを最上位の色帯で目立たせる。`seeds.status='spun_off'` はスピンアウト状態でありAMD PJ判定に使わず、`spun_off` / `declined` もカタログから除外しない。機関→研究者の2段グループ、全文折返し、SPS/M/P/R/SとXRL内訳、公開候補表示、`SeedPublicView`の非公開フィールド除外、資料モーダルを維持する。ECRとSPSは単一スコアへ合算しない。詳細は [`seeds.md`](seeds.md) と [`institution_seed_project_model.md`](institution_seed_project_model.md) 参照。
 
 回帰防止:
 
 - `pwa/scripts/check_pwa_critical_ui.cjs` が `経営ハイライト`、`CockpitStrategySignals`、`project_strategy_signals`、`project_strategy_signal`、`CockpitMsChangeHistory`、`MS変更履歴`、`milestone_change_events`、`CockpitSeasonFinance`、`今シーズン収支`、`クライアント支払`、`期末未払` の anchor を検査する。
-- KUTE連携シーズ一覧のスコープ境界・非公開フィールド除外は `npm run test:kute-seeds-scope` (`pwa/scripts/check_kute_seeds_scope.mts`) で検査する。SPS計算の0/NULL区別・欠損軸のmissing扱い・捏造禁止は `npm run test:seed-sps-score` (`pwa/scripts/check_seed_sps_score.mts`) で検査する。
+- 研究機関連携シーズ一覧の動的スコープ・PJ優先表示・非公開フィールド除外は `npm run test:kute-seeds-scope`、2種のPJ物理分離・二重分類防止・ECR/SPS非更新は `npm run test:institution-seed-project-domains` で検査する。SPS計算の0/NULL区別・欠損軸のmissing扱い・捏造禁止は `npm run test:seed-sps-score` で検査する。
 - MTGサマリの予定MTG block / `POST /api/meeting-prep` / `POST /api/meeting-prep/calendar-sync` / `MeetingPrepInlineEditor` / `POST /api/meeting-summary/manual-update` / `MeetingSummaryInlineEditor` / `MeetingAssetsPanel` / `POST /api/meeting-assets` / `PDF保存` / `議事録コピー` / `準備メモコピー` / `共有URLコピー` も `check_pwa_critical_ui.cjs` で検査する。
 - 案C レイアウト anchor (`max-w-[1600px]`、`lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px]`、`xl:flex-row` Hero) も `check_pwa_critical_ui.cjs` で検査する。`max-w-[1060px]` や旧 left/right 2 カラム構造に巻き戻ったら `npm run test:critical-ui` で落ちる。
 
@@ -476,9 +476,9 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 必須機能:
 
-- KUTEカードは `/dashboard` の研究機関ECRリストから `/institutions/inst_kute/cockpit` へ遷移する。KUTEは通常PJリストには二重表示せず、既存KUTE PJ (`p25`) は関連PJコックピットのデータソースとして残す。
-- NIMSカードは `/dashboard` の研究機関ECRリストから `/institutions/inst_nims/cockpit` へ遷移する。NIMS OS導入は正式PJ `p28` として扱い、CX `p20` は初期ユースケースとして分ける。
-- 研究機関コックピットは `inst_kute -> p25` / `inst_nims -> p28` の静的関連付けを使い、既存PJコックピットの `CockpitView` を同画面にマウントする。これによりMS進捗、月次カード/モーダル、MTGサマリを既存データのまま使う。
+- KUTE / NIMS / 愛媛大学カードは `institution_projects` の関係を使って機関コックピットへ遷移する。KUTE=`p25`、NIMS=`p28`、愛媛大学全体=`p30`。研究機関PJは通常PJリストへ二重表示せず、機関行のPJ運用レイヤーとして表示する。
+- CX `p20` と `p26` は種別未確認のため、名称や過去の固定対応から研究機関PJ・シーズPJへ自動分類しない。
+- 研究機関コックピットは `institution_projects` から対象PJを動的に解決し、既存PJコックピットの `CockpitView` を同画面にマウントする。これによりMS進捗、月次カード/モーダル、MTGサマリを既存データのまま使う。
 - 上部にECR充足率、関連PJ、今期MS件数、MTG履歴件数を出す。
 - `project_meeting_summaries` を月ごとに束ねたMTGツリーを表示し、各行から通常PJコックピットのMTG詳細 (`?meeting=`) へ遷移する。
 - `/institutions/[institutionId]` の詳細画面からも研究機関コックピットと通常PJコックピットへ戻れる。

@@ -10,20 +10,21 @@
 
 | route / file | 役割 |
 |---|---|
-| `/institutions` | ECR 一覧 |
+| `/institutions` | 契約有無に依存しない研究機関カタログ。初期表示は一覧、ECR比較は別タブ |
 | `/institutions/[institutionId]` | 機関詳細 |
-| `/institutions/[institutionId]/cockpit` | 機関カード起点の関連PJコックピット。NIMSは `inst_nims -> p20` |
+| `/institutions/[institutionId]/cockpit` | `institution_projects` から解決する研究機関PJコックピット |
 | `/institutions/assess` | ECR 評価 matrix |
 | `pwa/src/lib/ers-data.ts` | client fetch bundle |
 | `pwa/src/lib/ers.ts` | ECR 型 / score calculation |
-| `pwa/src/lib/institution-projects.ts` | 機関と既存PJの静的関連付け |
+| `pwa/src/lib/institution-projects.ts` | `institution_projects` 行を画面用の関連PJへ変換する純粋関数 |
 | `pwa/src/app/api/institutions/assess/route.ts` | 評価 cell upsert |
 
 ## DB
 
 | table | contract |
 |---|---|
-| `institutions` | 機関 master。`institution_id` PK、name、short_name、type、region、contract_status、sort_order |
+| `institutions` | 契約前から増やす機関カタログ。`institution_id` PK、name、short_name、type、region、contract_status、identity_status、sort_order |
+| `institution_projects` | 研究機関全体を対象にするAMD契約PJ。`project_id` PK/FK、institution_id、engagement_scope、target_unit、ecosystem_goal、seed_discovery_in_scope |
 | `institution_capability_axes` | ECR 8 軸。`axis_id` PK、axis_no、name、corresponds_xrl、weight、sort_order |
 | `institution_capability_criteria` | 各軸の sub criteria。`criterion_id` PK、axis_id、code、name、rubric JSON |
 | `institution_assessments` | 評価履歴。`assessment_id` PK、unique `(institution_id, criterion_id, evaluated_at)` |
@@ -42,23 +43,25 @@
 - `institution_capability_axes` order by `sort_order`
 - `institution_capability_criteria` order by `sort_order`
 - `institution_assessments` order by `evaluated_at desc`
+- `institution_projects` + `projects(project_name,status)`
+- `seeds.institution_id`（機関別シーズ件数）
 
 assessment は `(institution_id, criterion_id)` ごとに最新 `evaluated_at` の 1 行だけを採用する。
 
 ## Institution Cockpit Contract
 
-`/dashboard` の研究機関ECRリストから、NIMS (`inst_nims`) は `/institutions/inst_nims/cockpit` へ遷移する。これは新規PJ作成ではなく、既存関連PJ CX (`p20`) のコックピットを機関文脈で表示する route。
+`/dashboard` と `/institutions` の研究機関行から、`institution_projects` に紐づく関連PJコックピットへ遷移する。コード内の機関ID→PJ ID固定表、名称部分一致、PJカテゴリ推定は使わない。
 
 実装 contract:
 
-- `pwa/src/lib/institution-projects.ts` が `inst_nims -> p20` を定義する。
+- `fetchErsBundle()` が `institution_projects` を読み、現行PJを優先して機関ごとの関連PJを組み立てる。
 - `/institutions/[institutionId]/cockpit` は `fetchErsBundle()`, `fetchCockpitFromSupabase(projectId)`, `fetchProjectMeetingSummaries(projectId)` を読むだけで、本番DBへ write しない。
 - 上部に ECR summary / 関連PJ / 今期MS / MTG件数を表示する。
 - ECR summary の直下に常時見る readiness snapshot を置き、ECR充足率、強い軸、確認したい軸、関連PJのMS/月次件数を表示する。
 - 基本タブは `進捗管理` / `スコア詳細` / `土壌×シーズ`。研究機関でも運用構造はPJ cockpitに寄せるが、スコア詳細はSU向けAMD ScoreではなくECR 8軸・評価項目・Lv/根拠メモを表示する。`土壌×シーズ`タブの契約は本章末尾「土壌×シーズタブ」を参照。
 - `進捗管理` は既存 `CockpitView` を使うため、MS進捗管理、月次カード/モーダル、MTGサマリの挙動は通常PJコックピットと同じ。
 - `project_meeting_summaries` は月別の MTG tree として `進捗管理` の下部に表示し、各 row は `/project/[projectId]/cockpit?meeting=<meeting_id>` へ遷移する。MTG tree を機関コックピット最上部には置かない。
-- まだ機関とPJの正式 scope table はない。外部機関向け tenant/access 設計は `pwa/design/institution_tenant_access.md` の draft を正本にし、現時点では内部向け導線に留める。
+- 機関とPJの正式scopeは `institution_projects`。外部機関向けtenant/accessは別論点で、`pwa/design/institution_tenant_access.md` のdraftを正本にする。
 
 ## API
 
@@ -145,8 +148,8 @@ python3 -X utf8 scripts/apply_ddl.py scripts/migrations/120_institution_policy_a
 - `/institutions/assess` で cell を更新し、同日同 criterion が 1 row に upsert されること。
 - `fetchErsBundle()` が最新評価だけを採用すること。
 - rubric の文言は `/bzm/9-4-ers-rubric` と一致させる。
-- `/dashboard` の KUTE 研究機関カードから `/institutions/inst_kute/cockpit` へ遷移し、KUTE `p25` の既存コックピットを表示できること。同じく NIMS 研究機関カードから `/institutions/inst_nims/cockpit` へ遷移し、CX `p20` の既存コックピットを表示できること。愛媛大学 (`inst_ehime`) は `p30` (EHM) の研究機関コックピットへ遷移し、`pathwayProjectId`/`pathwayProjectLabel` は `institution-projects.ts` の `INSTITUTION_PROJECT_LINKS` から機関ごとに解決されること (KUTE のハードコード分岐は撤去済み、2026-07-31)。
-- 機関コックピットの `進捗管理` タブの KUTE 連携シーズ比較テーブル (`CockpitKuteSeeds`) は `researchInstitutionIdForProject(projectId)` が institution_id を返す PJ (現状 `p25`→`inst_kute`, `p30`→`inst_ehime`) でのみ表示されること。愛媛大学分は `seeds.institution_id='inst_ehime'` の1件に絞り込まれる。
+- KUTE (`p25`→`inst_kute`)、NIMS (`p28`→`inst_nims`)、愛媛大学 (`p30`→`inst_ehime`) が `institution_projects` から解決されること。p30は `engagement_scope='university_wide'`、`ecosystem_goal='愛媛大学全体のエコシステム構築'` であり個別シーズPJとして扱わない。
+- 機関コックピットの連携シーズ比較テーブル (`CockpitKuteSeeds`) は `institution_projects.institution_id` が解決できるPJでのみ表示する。PJ IDの固定表をコードに持たない。
 - 研究機関コックピット上のMTG treeから通常PJコックピットの `?meeting=` detail route へ遷移できること。
 - `120_institution_policy_assessments_seed.sql` を dry review し、migration番号が既存 `001`〜`119` と衝突しないこと。
 - 制度比較seedは `(institution_id, policy_item_id)` unique upsert なので、再適用しても同一96件を更新するだけで重複しないこと。
@@ -161,7 +164,7 @@ python3 -X utf8 scripts/apply_ddl.py scripts/migrations/120_institution_policy_a
 
 | table | 追加列 | contract |
 |---|---|---|
-| `seeds` | `institution_id text REFERENCES institutions(institution_id)` (nullable) | KUTE分は `org_name = '工学院大学'` の全件を `inst_kute` へ migration内で一括backfill済み。他機関は未backfillでNULLのまま (捏造しない) |
+| `seeds` | `institution_id text REFERENCES institutions(institution_id)` (nullable) | migration 207で大学・国研シーズ141件を46研究機関へbackfill。推定名称は `institutions.identity_status='candidate'` のまま保持する |
 | `institution_assessments` | `evaluation_version text NOT NULL DEFAULT 'v1'` | 既存行は rubric v1 のみのため一括 `'v1'`。`ers-data.ts` は `row.evaluation_version || "v1"` でNULL/空のみ fallback |
 
 SPS 評価値そのものは本 migration で一切変更しない (既存 `seed_sps_assessments` の値をそのまま参照する)。

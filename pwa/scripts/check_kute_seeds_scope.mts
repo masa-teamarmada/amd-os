@@ -3,13 +3,13 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  researchInstitutionIdForProject,
   SEED_COMMERCIALIZATION_TYPE_LABEL,
   SEED_COMMERCIALIZATION_TYPE_ORDER,
   groupSeedsByResearcher,
   sortSeedGroups,
   seedComparisonSortValue,
   countDistinctResearchers,
+  seedProjectPriority,
 } from "../src/lib/kute-seeds-scoring.ts";
 import { SEED_PUBLIC_VIEW_COLUMNS } from "../src/types/seeds.ts";
 import type { SeedPublicView } from "../src/types/seeds.ts";
@@ -19,12 +19,16 @@ function readSrc(relPath: string): string {
   return readFileSync(join(scriptDir, relPath), "utf8");
 }
 
-// 1. p25 → inst_kute、p30 → inst_ehime、それ以外は null (境界ヘルパーが唯一の scope 定義)
+// 1. project_id → institution_id はコードの固定表ではなく institution_projects が正本
 {
-  assert.equal(researchInstitutionIdForProject("p25"), "inst_kute", "p25 は inst_kute にマップされていません");
-  assert.equal(researchInstitutionIdForProject("p30"), "inst_ehime", "p30 は inst_ehime にマップされていません");
-  assert.equal(researchInstitutionIdForProject("p01"), null, "未定義の project_id は null を返すべきです");
-  assert.equal(researchInstitutionIdForProject(""), null, "空文字は null を返すべきです");
+  const scoring = readSrc("../src/lib/kute-seeds-scoring.ts");
+  const data = readSrc("../src/lib/seeds-data.ts");
+  const ddl207 = readSrc("migrations/207_institution_seed_project_domains.sql");
+  assert.ok(!/RESEARCH_INSTITUTION_SEED_PROJECT_SCOPE/.test(scoring), "PJ→機関の固定マップが残っています");
+  assert.match(data, /from\("institution_projects"\)/, "institution_projects から研究機関スコープを読んでいません");
+  assert.match(ddl207, /'p25', 'inst_kute'/, "p25→inst_kute の確定移行がありません");
+  assert.match(ddl207, /'p28', 'inst_nims'/, "p28→inst_nims の確定移行がありません");
+  assert.match(ddl207, /'p30', 'inst_ehime', 'university_wide'/, "p30が愛媛大全体PJとして移行されていません");
 }
 
 // 2. SeedPublicView のホワイトリストは confidential フィールドを含まない
@@ -89,7 +93,7 @@ function readSrc(relPath: string): string {
   assert.ok(/onKeyDown/.test(ui), "行の onKeyDown ハンドラが見つかりません");
   assert.ok(/e\.key === "Enter"/.test(ui) && /e\.key === " "/.test(ui), "Enter/Space での行オープンが見つかりません");
   // sticky 左セルは行 hover と一緒に視認できるよう group を使う
-  assert.ok(/className="group /.test(ui), "行に group クラスが見つかりません");
+  assert.ok(/className=(?:"group |\{`group )/.test(ui), "行に group クラスが見つかりません");
   assert.ok(/group-hover:bg-/.test(ui), "sticky セルの group-hover 連動が見つかりません");
   // 資料アイコンは title/aria-label を持つ
   assert.ok(/aria-label="資料あり"/.test(ui), "資料アイコンの aria-label が見つかりません");
@@ -188,6 +192,7 @@ function readSrc(relPath: string): string {
       title: "title",
       summary: null,
       org_name: "工学院大学",
+      institution_id: null,
       researcher_name: null,
       researcher_title: null,
       lab_name: null,
@@ -208,9 +213,21 @@ function readSrc(relPath: string): string {
       ip_status: null,
       next_verification_step: null,
       latest_sps: null,
+      project_links: [],
       ...overrides,
     };
   }
+
+  // 9-0. シーズ自体のstatusではなく seed_projects の契約レイヤーで並び順を決める
+  assert.equal(
+    seedProjectPriority(makeSeed({ status: "candidate", project_links: [{ project_id: "p1", project_name: "PJ", project_status: "active", commercialization_stage: null, commercialization_route: null, venture_name: null, target_market: null }] })),
+    0,
+  );
+  assert.equal(
+    seedProjectPriority(makeSeed({ status: "spun_off", project_links: [] })),
+    2,
+    "spun_off を AMD PJ と誤認しています",
+  );
   function withSps(score: number): SeedPublicView["latest_sps"] {
     return {
       evaluated_at: "2026-01-01",

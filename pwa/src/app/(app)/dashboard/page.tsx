@@ -40,7 +40,6 @@ import { FundingStatsCard } from "@/components/dashboard/FundingStatsCard";
 import { ProactiveTodoBadge } from "@/components/proactive-todo/ProactiveTodoBadge";
 import { ExtractionStatusCard } from "@/components/dashboard/ExtractionStatusCard";
 import { FreeeConnectionStatusCard } from "@/components/dashboard/FreeeConnectionStatusCard";
-import { isInstitutionDashboardProject } from "@/lib/institution-projects";
 
 const MyPageContent = dynamic(
   () => import("@/app/(app)/mypage/page").then((mod) => mod.MyPageContent),
@@ -65,11 +64,6 @@ const CompanyContentShelf = dynamic(
 function getCurrentYm() {
   const now = new Date();
   return String(now.getFullYear()) + String(now.getMonth() + 1).padStart(2, "0");
-}
-
-function isDashboardProjectListItem(project: DashProject) {
-  if (project.projectId === "p00") return false;
-  return !isInstitutionDashboardProject(project);
 }
 
 export default function DashboardPage() {
@@ -186,7 +180,10 @@ export default function DashboardPage() {
       ])
     );
   }, [projects]);
-  const dashboardProjects = useMemo(() => projects.filter(isDashboardProjectListItem), [projects]);
+  const dashboardProjects = useMemo(() => {
+    const institutionProjectIds = new Set(ersBundle?.institutionProjectIds ?? []);
+    return projects.filter((project) => project.projectId !== "p00" && !institutionProjectIds.has(project.projectId));
+  }, [projects, ersBundle]);
 
   if (loading) {
     return (

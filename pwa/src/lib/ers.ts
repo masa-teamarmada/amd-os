@@ -22,7 +22,8 @@ export interface ErsInstitution {
   type: string; // 'university' | 'research_institute' | 'other'
   description: string | null;
   region: string | null;
-  contractStatus: string; // 'active' | 'prospect' | 'past'
+  contractStatus: string; // 'unengaged' | 'draft' | 'prospect' | 'active' | 'past'
+  identityStatus: "verified" | "candidate";
   sortOrder: number;
 }
 
@@ -144,5 +145,6 @@ export function ersScoreColor(score: number | null): string {
 export const INSTITUTION_TYPE_LABEL: Record<string, string> = {
   university: "大学",
   research_institute: "研究所",
+  national_lab: "国研",
   other: "その他",
 };

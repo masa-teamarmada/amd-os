@@ -7,7 +7,7 @@ export type SeedStatus =
   | "investigating"  // 調査中
   | "contacted"      // 接触済
   | "discussing"     // 協議中
-  | "spun_off"       // PJ化
+  | "spun_off"       // スピンアウト/法人化済み。AMD PJとの関係とは別
   | "declined";      // 見送り
 
 export type SeedDiscoveryStatus =
@@ -151,6 +151,8 @@ export interface Seed {
   org_type: SeedOrgType | null;
   org_region: string | null;
   org_url: string | null;
+  /** 研究機関カタログの正本FK。org_name は表示・旧互換用。 */
+  institution_id: string | null;
   // 研究者
   researcher_name: string | null;
   researcher_title: string | null;
@@ -174,6 +176,7 @@ export interface Seed {
   public_summary: string | null;
   is_public: boolean;
   // 関連
+  /** @deprecated AMD PJ関係の正本は seed_projects。既存データ互換のためだけに保持。 */
   spun_off_project_id: string | null;
   source: SeedSource | null;
   source_detail: string | null;
@@ -198,6 +201,16 @@ export interface Seed {
   updated_by: string | null;
 }
 
+export interface SeedProjectLink {
+  project_id: string;
+  project_name: string;
+  project_status: string;
+  commercialization_stage: string | null;
+  commercialization_route: string | null;
+  venture_name: string | null;
+  target_market: string | null;
+}
+
 /**
  * KUTE 等の外部研究機関向け公開面で安全に見せてよいフィールドのみのビュー。
  * internal_notes / source_detail / amd_rating_note / amd_owner_member_id 等は含めない。
@@ -207,11 +220,12 @@ export interface SeedPublicView {
   title: string;
   summary: string | null;
   org_name: string;
+  institution_id: string | null;
   researcher_name: string | null;
   researcher_title: string | null;
   lab_name: string | null;
   domain_lane: SeedDomainLane | null;
-  /** PJ化/見送りの除外に使う。AMD内部の評価コメント等は含まない状態そのものは非機密 */
+  /** シーズ自体の状態。AMD PJの有無とは独立。 */
   status: SeedStatus;
   /** 公開情報からの未確認候補か、人が台帳上で確認済みかを研究機関面でも区別する */
   discovery_status: SeedDiscoveryStatus;
@@ -230,6 +244,8 @@ export interface SeedPublicView {
   next_verification_step: string | null;
   /** 最新の SPS 評価サマリ。評価が一件も無い場合は null */
   latest_sps: SeedPublicSpsAssessment | null;
+  /** AMDとのシーズ事業化PJ。seed_projects から合成し、カタログ行に重ねて表示する。 */
+  project_links: SeedProjectLink[];
 }
 
 /** SeedPublicView の select 用ホワイトリスト列 (internal_notes / source_detail 等を含めない) */
@@ -238,6 +254,7 @@ export const SEED_PUBLIC_VIEW_COLUMNS = [
   "title",
   "summary",
   "org_name",
+  "institution_id",
   "researcher_name",
   "researcher_title",
   "lab_name",
@@ -310,7 +327,8 @@ export interface SeedListItem extends Seed {
   contact_log_count: number;   // 接触履歴件数
   last_contacted_on: string | null;  // 最終接触日
   amd_owner_code_name: string | null;  // AMD 担当者の code_name
-  spun_off_project_name: string | null;  // PJ 化されてる場合の PJ 名
+  spun_off_project_name: string | null;  // 旧互換: spun_off_project_id の PJ 名
+  project_links: SeedProjectLink[];
 }
 
 export interface SeedDetail {
@@ -319,5 +337,6 @@ export interface SeedDetail {
   news: SeedNews[];
   contact_log: (SeedContactLog & { amd_member_code_name?: string | null })[];
   amd_owner_code_name: string | null;
-  spun_off_project_name: string | null;
+  spun_off_project_name: string | null; // 旧互換
+  project_links: SeedProjectLink[];
 }

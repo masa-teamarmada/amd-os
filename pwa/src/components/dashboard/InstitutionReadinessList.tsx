@@ -10,7 +10,7 @@
 import Link from "next/link";
 import { computeErs, ersScoreColor, INSTITUTION_TYPE_LABEL, type ErsResult, type ErsInstitution } from "@/lib/ers";
 import type { ErsBundle } from "@/lib/ers-data";
-import { getInstitutionProjectLink } from "@/lib/institution-projects";
+import { selectPrimaryInstitutionProject, type InstitutionProjectLink } from "@/lib/institution-projects";
 
 export function InstitutionReadinessList({ bundle }: { bundle: ErsBundle | null }) {
   if (!bundle || bundle.institutions.length === 0) return null;
@@ -34,22 +34,33 @@ export function InstitutionReadinessList({ bundle }: { bundle: ErsBundle | null 
       </div>
 
       <div className="space-y-2">
-        {institutions.map((inst) => (
-          <InstitutionStripe
-            key={inst.institutionId}
-            inst={inst}
-            result={computeErs(axes, criteria, assessmentsByInstitution[inst.institutionId] ?? [])}
-          />
-        ))}
+        {institutions.map((inst) => {
+          const projectLink = selectPrimaryInstitutionProject(bundle.institutionProjectsByInstitution[inst.institutionId]);
+          return (
+            <InstitutionStripe
+              key={inst.institutionId}
+              inst={inst}
+              projectLink={projectLink}
+              result={computeErs(axes, criteria, assessmentsByInstitution[inst.institutionId] ?? [])}
+            />
+          );
+        })}
       </div>
     </section>
   );
 }
 
-function InstitutionStripe({ inst, result }: { inst: ErsInstitution; result: ErsResult }) {
+function InstitutionStripe({
+  inst,
+  result,
+  projectLink,
+}: {
+  inst: ErsInstitution;
+  result: ErsResult;
+  projectLink: InstitutionProjectLink | null;
+}) {
   const ers = result.ers;
-  const projectLink = getInstitutionProjectLink(inst.institutionId);
-  const display = getInstitutionDisplay(inst, projectLink?.projectLabel ?? null);
+  const display = getInstitutionDisplay(inst);
   const meta = [display.subtitle, inst.region, inst.description].filter(Boolean).join(" · ");
 
   return (
@@ -119,15 +130,9 @@ function InstitutionStripe({ inst, result }: { inst: ErsInstitution; result: Ers
   );
 }
 
-function getInstitutionDisplay(inst: ErsInstitution, projectLabel: string | null) {
-  switch (inst.institutionId) {
-    case "inst_kute":
-      return { title: projectLabel || "KUTE", subtitle: "工学院大学" };
-    case "inst_kagawa":
-      return { title: "KGW", subtitle: "香川大学" };
-    case "inst_nims":
-      return { title: "NIMS", subtitle: "物質・材料研究機構" };
-    default:
-      return { title: projectLabel || inst.name, subtitle: inst.name };
-  }
+function getInstitutionDisplay(inst: ErsInstitution) {
+  return {
+    title: inst.name,
+    subtitle: inst.shortName && inst.shortName !== inst.name ? inst.shortName : null,
+  };
 }

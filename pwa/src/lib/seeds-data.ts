@@ -13,12 +13,11 @@ import type {
   SeedDetail,
   SeedPublicView,
   SeedPublicSpsAssessment,
+  SeedProjectLink,
 } from "@/types/seeds";
 import { SEED_PUBLIC_VIEW_COLUMNS } from "@/types/seeds";
-import { researchInstitutionIdForProject } from "@/lib/kute-seeds-scoring";
 import { calculateSeedSpsScore, type SeedSpsAssessmentAxes } from "@/lib/seed-sps";
 export {
-  researchInstitutionIdForProject,
   SEED_COMMERCIALIZATION_TYPE_LABEL,
   SEED_COMMERCIALIZATION_TYPE_ORDER,
   SEED_KUTE_MARKET_CONFIDENCE_LABEL,
@@ -29,6 +28,7 @@ export {
   countDistinctResearchers,
   groupSeedsByInstitution,
   countDistinctInstitutions,
+  seedProjectPriority,
   type SeedComparisonSortKey,
   type SeedResearcherGroup,
   type SeedInstitutionGroup,
@@ -60,6 +60,7 @@ export async function fetchSeedList(): Promise<SeedListItem[]> {
   ]);
 
   const seeds = (seedsRes.data ?? []) as Seed[];
+  const projectLinksBySeed = await fetchSeedProjectLinks(seeds.map((seed) => seed.id));
   const fundings = (fundingRes.data ?? []) as { seed_id: string; amount_jpy: number | null; status: string | null; program_short: string | null; fiscal_year: number | null }[];
   const news = (newsRes.data ?? []) as { seed_id: string; dismissed: boolean }[];
   const contacts = (contactRes.data ?? []) as { seed_id: string; contacted_on: string }[];
@@ -145,6 +146,7 @@ export async function fetchSeedList(): Promise<SeedListItem[]> {
     last_contacted_on: lastContactBySeed.get(s.id) ?? null,
     amd_owner_code_name: s.amd_owner_member_id ? (ownerNameMap.get(s.amd_owner_member_id) ?? null) : null,
     spun_off_project_name: s.spun_off_project_id ? (pjNameMap.get(s.spun_off_project_id) ?? null) : null,
+    project_links: projectLinksBySeed.get(s.id) ?? [],
   }));
 }
 
@@ -159,6 +161,7 @@ export async function fetchSeedDetail(seedId: string): Promise<SeedDetail | null
 
   const seed = seedRes.data as Seed | null;
   if (!seed) return null;
+  const projectLinksBySeed = await fetchSeedProjectLinks([seed.id]);
 
   const contactLog = (contactRes.data ?? []) as SeedContactLog[];
 
@@ -207,6 +210,7 @@ export async function fetchSeedDetail(seedId: string): Promise<SeedDetail | null
     })),
     amd_owner_code_name: seed.amd_owner_member_id ? (memberNameMap.get(seed.amd_owner_member_id) ?? null) : null,
     spun_off_project_name: spunOffProjectName,
+    project_links: projectLinksBySeed.get(seed.id) ?? [],
   };
 }
 
@@ -397,9 +401,19 @@ export async function dismissSeed(id: string): Promise<{ ok: boolean; error?: st
  * project_id → institution_id 対応をここに重複定義しない。
  */
 export async function fetchResearchInstitutionSeedsForProject(projectId: string): Promise<SeedPublicView[]> {
-  const institutionId = researchInstitutionIdForProject(projectId);
-  if (!institutionId) return [];
-  return fetchSeedsForInstitution(institutionId);
+  const institutionId = await fetchInstitutionIdForProject(projectId);
+  return institutionId ? fetchSeedsForInstitution(institutionId) : [];
+}
+
+/** institution_projects を正本に project_id の研究機関スコープを解決する。 */
+export async function fetchInstitutionIdForProject(projectId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("institution_projects")
+    .select("institution_id")
+    .eq("project_id", projectId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data?.institution_id ? String(data.institution_id) : null;
 }
 
 /**
@@ -416,8 +430,16 @@ export async function fetchSeedsForInstitution(institutionId: string): Promise<S
     .order("researcher_name", { ascending: true });
   if (error) throw new Error(error.message);
   const seeds = (data ?? []) as unknown as SeedPublicView[];
-  const latestSpsBySeedId = await fetchLatestSeedSpsAssessments(seeds.map((s) => s.id));
-  return seeds.map((s) => ({ ...s, latest_sps: latestSpsBySeedId.get(s.id) ?? null }));
+  const seedIds = seeds.map((seed) => seed.id);
+  const [latestSpsBySeedId, projectLinksBySeed] = await Promise.all([
+    fetchLatestSeedSpsAssessments(seedIds),
+    fetchSeedProjectLinks(seedIds),
+  ]);
+  return seeds.map((s) => ({
+    ...s,
+    latest_sps: latestSpsBySeedId.get(s.id) ?? null,
+    project_links: projectLinksBySeed.get(s.id) ?? [],
+  }));
 }
 
 /**
@@ -433,8 +455,45 @@ export async function fetchAllResearchInstitutionSeeds(): Promise<SeedPublicView
     .order("researcher_name", { ascending: true });
   if (error) throw new Error(error.message);
   const seeds = (data ?? []) as unknown as SeedPublicView[];
-  const latestSpsBySeedId = await fetchLatestSeedSpsAssessments(seeds.map((s) => s.id));
-  return seeds.map((s) => ({ ...s, latest_sps: latestSpsBySeedId.get(s.id) ?? null }));
+  const seedIds = seeds.map((seed) => seed.id);
+  const [latestSpsBySeedId, projectLinksBySeed] = await Promise.all([
+    fetchLatestSeedSpsAssessments(seedIds),
+    fetchSeedProjectLinks(seedIds),
+  ]);
+  return seeds.map((s) => ({
+    ...s,
+    latest_sps: latestSpsBySeedId.get(s.id) ?? null,
+    project_links: projectLinksBySeed.get(s.id) ?? [],
+  }));
+}
+
+/** seed_projects をAMD契約レイヤーとして取得する。seeds.status/spun_off_project_id は関係判定に使わない。 */
+async function fetchSeedProjectLinks(seedIds: string[]): Promise<Map<string, SeedProjectLink[]>> {
+  const result = new Map<string, SeedProjectLink[]>();
+  if (seedIds.length === 0) return result;
+  const { data, error } = await supabase
+    .from("seed_projects")
+    .select("seed_id,project_id,commercialization_stage,commercialization_route,venture_name,target_market,projects(project_name,status)")
+    .in("seed_id", seedIds);
+  if (error) throw new Error(error.message);
+
+  for (const row of data ?? []) {
+    const project = Array.isArray(row.projects) ? row.projects[0] : row.projects;
+    const link: SeedProjectLink = {
+      project_id: String(row.project_id),
+      project_name: project?.project_name || String(row.project_id),
+      project_status: project?.status || "unknown",
+      commercialization_stage: row.commercialization_stage ?? null,
+      commercialization_route: row.commercialization_route ?? null,
+      venture_name: row.venture_name ?? null,
+      target_market: row.target_market ?? null,
+    };
+    const seedId = String(row.seed_id);
+    const links = result.get(seedId);
+    if (links) links.push(link);
+    else result.set(seedId, [link]);
+  }
+  return result;
 }
 
 /**
@@ -538,7 +597,7 @@ export const SEED_STATUS_LABEL: Record<string, string> = {
   investigating: "調査中",
   contacted: "接触済",
   discussing: "協議中",
-  spun_off: "PJ化",
+  spun_off: "スピンアウト済み",
   declined: "見送り",
 };
 

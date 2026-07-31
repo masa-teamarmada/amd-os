@@ -11,7 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { fetchErsBundle, type ErsBundle } from "@/lib/ers-data";
-import { getInstitutionProjectLink } from "@/lib/institution-projects";
+import { selectPrimaryInstitutionProject } from "@/lib/institution-projects";
 import {
   computeErs,
   ersScoreColor,
@@ -78,7 +78,7 @@ export default function InstitutionDetailPage() {
   }
 
   const meta = [inst.region, inst.description].filter(Boolean).join(" · ");
-  const projectLink = getInstitutionProjectLink(institutionId);
+  const projectLink = selectPrimaryInstitutionProject(bundle.institutionProjectsByInstitution[institutionId]);
 
   return (
     <div className="p-4 max-w-[1100px] mx-auto space-y-6">
@@ -204,9 +204,9 @@ export default function InstitutionDetailPage() {
         })}
       </div>
 
-      {/* === この機関発の PJ === */}
+      {/* === この機関を対象にする AMD PJ === */}
       <section className="rounded-lg border border-dashed border-border p-4 text-center">
-        <h2 className="text-sm font-semibold text-muted-foreground">この機関発のベンチャー / PJ</h2>
+        <h2 className="text-sm font-semibold text-muted-foreground">この研究機関を対象にする AMD PJ</h2>
         {projectLink ? (
           <div className="mt-2 flex items-center justify-center gap-2 flex-wrap">
             <Link
@@ -224,7 +224,7 @@ export default function InstitutionDetailPage() {
           </div>
         ) : (
           <p className="text-[11px] text-muted-foreground/70 mt-1">
-            機関 ↔ PJ の紐付けデータは未整備。σ_SU の μ_A 経由で各 PJ の AMD Score に効く設計。
+            AMDとの契約PJはまだない。研究機関カタログとECRは、契約の有無に関係なく蓄積する。
           </p>
         )}
       </section>

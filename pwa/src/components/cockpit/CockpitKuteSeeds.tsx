@@ -5,17 +5,19 @@ import { ArrowDown, ArrowUp, ArrowUpDown, FileText, Loader2, RotateCcw } from "l
 import { KuteSeedDetailModal } from "@/components/seeds/KuteSeedDetailModal";
 import {
   fetchResearchInstitutionSeedsForProject,
+  fetchInstitutionIdForProject,
   fetchAllResearchInstitutionSeeds,
   SEED_COMMERCIALIZATION_TYPE_LABEL,
   SEED_KUTE_MARKET_CONFIDENCE_LABEL,
+  SEED_STATUS_LABEL,
   seedComparisonSortValue,
   groupSeedsByResearcher,
   groupSeedsByInstitution,
   sortSeedGroups,
   countDistinctResearchers,
   countDistinctInstitutions,
+  seedProjectPriority,
   type SeedComparisonSortKey,
-  type SeedInstitutionGroup,
   type SeedResearcherGroup,
 } from "@/lib/seeds-data";
 import type { SeedPublicView } from "@/types/seeds";
@@ -33,6 +35,28 @@ const SORT_LABEL: Record<SortKey, string> = {
 };
 
 const TABLE_COLUMN_COUNT = 20;
+
+/** 通常PJコックピットで、institution_projects に属するPJだけ比較表を出す。 */
+export function ProjectInstitutionSeeds({ projectId }: { projectId: string }) {
+  const [isInstitutionProject, setIsInstitutionProject] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchInstitutionIdForProject(projectId)
+      .then((institutionId) => {
+        if (!cancelled) setIsInstitutionProject(Boolean(institutionId));
+      })
+      .catch(() => {
+        if (!cancelled) setIsInstitutionProject(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  if (!isInstitutionProject) return null;
+  return <CockpitKuteSeeds projectId={projectId} />;
+}
 
 /**
  * 研究機関 PJ cockpit (KUTE / p25, EHM / p30 等) の進捗タブ向け: 対象研究機関シーズを、案件単位で横比較する
@@ -75,14 +99,14 @@ export function CockpitKuteSeeds({
 
   const scopedSeeds = useMemo(() => {
     if (!seeds) return [];
-    if (scope !== "all") return seeds;
-    return seeds.filter((seed) => seed.status !== "spun_off" && seed.status !== "declined");
-  }, [seeds, scope]);
+    return seeds;
+  }, [seeds]);
 
   const materialCount = scopedSeeds.filter((seed) => seed.deep_dive_material_url).length;
   const scoredCount = scopedSeeds.filter((seed) => seed.latest_sps?.status === "ready").length;
   const researcherCount = countDistinctResearchers(scopedSeeds);
   const institutionCount = countDistinctInstitutions(scopedSeeds);
+  const activeProjectSeedCount = scopedSeeds.filter((seed) => seedProjectPriority(seed) === 0).length;
 
   const filteredSeeds = useMemo(() => {
     return scopedSeeds.filter((seed) => {
@@ -102,16 +126,30 @@ export function CockpitKuteSeeds({
     return sortSeedGroups(grouped, (seed) => seedComparisonSortValue(seed, sortKey), dir);
   }, [filteredSeeds, scope, sortKey, dir]);
 
-  const institutionGroups = useMemo(() => {
+  const engagementSections = useMemo(() => {
     if (scope !== "all") return [];
-    const grouped = groupSeedsByInstitution(filteredSeeds);
-    return grouped.map((ig) => ({
-      ...ig,
-      researcherGroups: sortSeedGroups(ig.researcherGroups, (seed) => seedComparisonSortValue(seed, sortKey), dir),
-    }));
+    return [
+      { key: "active", label: "AMD PJ 稼働中", priority: 0 as const },
+      { key: "history", label: "AMD PJ 履歴", priority: 1 as const },
+      { key: "catalog", label: "PJなし・カタログ蓄積", priority: 2 as const },
+    ].flatMap((section) => {
+      const sectionSeeds = filteredSeeds.filter((seed) => seedProjectPriority(seed) === section.priority);
+      if (sectionSeeds.length === 0) return [];
+      const institutionGroups = groupSeedsByInstitution(sectionSeeds)
+        .map((institutionGroup) => ({
+          ...institutionGroup,
+          researcherGroups: sortSeedGroups(
+            institutionGroup.researcherGroups,
+            (seed) => seedComparisonSortValue(seed, sortKey),
+            dir,
+          ),
+        }))
+        .sort((a, b) => a.orgName.localeCompare(b.orgName, "ja"));
+      return [{ ...section, seeds: sectionSeeds, institutionGroups }];
+    });
   }, [filteredSeeds, scope, sortKey, dir]);
 
-  const isEmptyResult = scope === "all" ? institutionGroups.length === 0 : researcherGroups.length === 0;
+  const isEmptyResult = scope === "all" ? engagementSections.length === 0 : researcherGroups.length === 0;
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -126,9 +164,11 @@ export function CockpitKuteSeeds({
     <section className="px-1 py-2">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
-          <h2 className="text-lg font-bold text-slate-950">連携シーズ比較</h2>
+          <h2 className="text-lg font-bold text-slate-950">{scope === "all" ? "シーズリスト" : "連携シーズ比較"}</h2>
           <p className="mt-1 max-w-4xl text-sm leading-relaxed text-slate-600">
-            優先順位と次の検証を決める候補一覧。1行＝技術 × 用途の1案件で、同じ研究者の複数シーズは研究者ごとにグループ化して表示する。
+            {scope === "all"
+              ? "AMDとの契約有無に関係なく蓄積する全シーズ一覧。PJ化したシーズは同じ一覧の先頭へ上がり、契約・進捗レイヤーを重ねて表示する。"
+              : "優先順位と次の検証を決める候補一覧。1行＝技術 × 用途の1案件で、同じ研究者の複数シーズは研究者ごとにグループ化して表示する。"}
           </p>
           <p className="mt-1 text-[11px] leading-relaxed text-amber-700">
             「公開情報候補」は大学・研究者による確認前。SPSとXRLは評価が揃うまで未評価のまま表示する。
@@ -137,6 +177,7 @@ export function CockpitKuteSeeds({
             <p className="mt-1.5 text-[11px] text-slate-500" aria-label="シーズ集計">
               対象{scopedSeeds.length}件
               {scope === "all" && `・機関${institutionCount}機関`}
+              {scope === "all" && `・AMD PJ稼働${activeProjectSeedCount}件`}
               ・研究者{researcherCount}名・資料{materialCount}件・SPS{scoredCount}件
             </p>
           )}
@@ -245,24 +286,36 @@ export function CockpitKuteSeeds({
               </thead>
               <tbody>
                 {scope === "all"
-                  ? institutionGroups.map((institution) => (
-                      <Fragment key={institution.key}>
-                        <tr className="bg-slate-200/70" data-institution-group={institution.key}>
+                  ? engagementSections.map((section) => (
+                      <Fragment key={section.key}>
+                        <tr className={section.priority === 0 ? "bg-indigo-700 text-white" : "bg-slate-700 text-white"}>
                           <th
                             scope="rowgroup"
-                            className="sticky left-0 z-10 w-[160px] min-w-[160px] max-w-[160px] border-b border-r border-slate-300 bg-slate-200/70 px-3 py-2 text-left text-[11px] font-bold text-slate-950 sm:w-[220px] sm:min-w-[220px] sm:max-w-[220px]"
+                            className={`sticky left-0 z-10 w-[160px] min-w-[160px] max-w-[160px] border-b border-r px-3 py-2 text-left text-[11px] font-bold sm:w-[220px] sm:min-w-[220px] sm:max-w-[220px] ${section.priority === 0 ? "border-indigo-500 bg-indigo-700" : "border-slate-500 bg-slate-700"}`}
                           >
-                            <span className="block whitespace-normal break-words">{institution.orgName}</span>
+                            {section.label}
                           </th>
-                          <td
-                            colSpan={TABLE_COLUMN_COUNT - 1}
-                            className="border-b border-slate-300 bg-slate-200/70 px-3 py-2 text-[11px] font-semibold text-slate-700"
-                          >
-                            シーズ {institution.seeds.length}件
+                          <td colSpan={TABLE_COLUMN_COUNT - 1} className="border-b border-white/20 px-3 py-2 text-[11px] font-semibold">
+                            {section.seeds.length}件
                           </td>
                         </tr>
-                        {institution.researcherGroups.map((group) => (
-                          <ResearcherGroupRows key={group.key} group={group} onOpen={setSelected} />
+                        {section.institutionGroups.map((institution) => (
+                          <Fragment key={`${section.key}:${institution.key}`}>
+                            <tr className="bg-slate-200/70" data-institution-group={institution.key}>
+                              <th
+                                scope="rowgroup"
+                                className="sticky left-0 z-10 w-[160px] min-w-[160px] max-w-[160px] border-b border-r border-slate-300 bg-slate-200/70 px-3 py-2 text-left text-[11px] font-bold text-slate-950 sm:w-[220px] sm:min-w-[220px] sm:max-w-[220px]"
+                              >
+                                <span className="block whitespace-normal break-words">{institution.orgName}</span>
+                              </th>
+                              <td colSpan={TABLE_COLUMN_COUNT - 1} className="border-b border-slate-300 bg-slate-200/70 px-3 py-2 text-[11px] font-semibold text-slate-700">
+                                シーズ {institution.seeds.length}件
+                              </td>
+                            </tr>
+                            {institution.researcherGroups.map((group) => (
+                              <ResearcherGroupRows key={`${section.key}:${group.key}`} group={group} onOpen={setSelected} />
+                            ))}
+                          </Fragment>
                         ))}
                       </Fragment>
                     ))
@@ -403,6 +456,10 @@ function SeedRow({ seed, onOpen }: { seed: SeedPublicView; onOpen: () => void })
   const marketText = seed.market_size_range
     ? `${seed.market_size_range}${seed.market_size_confidence ? ` / ${SEED_KUTE_MARKET_CONFIDENCE_LABEL[seed.market_size_confidence] ?? seed.market_size_confidence}` : ""}`
     : null;
+  const projectLinks = seed.project_links ?? [];
+  const activeProject = projectLinks.find((link) => ["active", "sales", "draft"].includes(link.project_status));
+  const projectLink = activeProject ?? projectLinks[0] ?? null;
+  const isActiveProject = Boolean(activeProject);
 
   return (
     <tr
@@ -413,14 +470,25 @@ function SeedRow({ seed, onOpen }: { seed: SeedPublicView; onOpen: () => void })
           onOpen();
         }
       }}
-      className="group cursor-pointer hover:bg-sky-50/60 focus-visible:bg-sky-50/60"
+      className={`group cursor-pointer hover:bg-sky-50/60 focus-visible:bg-sky-50/60 ${isActiveProject ? "bg-indigo-50/45" : ""}`}
       role="button"
       tabIndex={0}
     >
-      <td className="sticky left-0 z-10 w-[160px] min-w-[160px] max-w-[160px] border-b border-r border-slate-200 bg-white px-3 py-2 align-top group-hover:bg-sky-50/60 group-focus-visible:bg-sky-50/60 sm:w-[220px] sm:min-w-[220px] sm:max-w-[220px]">
+      <td className={`sticky left-0 z-10 w-[160px] min-w-[160px] max-w-[160px] border-b border-r px-3 py-2 align-top group-hover:bg-sky-50/60 group-focus-visible:bg-sky-50/60 sm:w-[220px] sm:min-w-[220px] sm:max-w-[220px] ${isActiveProject ? "border-indigo-200 bg-indigo-50" : "border-slate-200 bg-white"}`}>
+        {projectLink && (
+          <div className={`-mx-3 -mt-2 mb-2 border-b px-3 py-1.5 text-[10px] font-bold ${isActiveProject ? "border-indigo-200 bg-indigo-100 text-indigo-900" : "border-slate-200 bg-slate-100 text-slate-700"}`}>
+            AMD PJ {isActiveProject ? "稼働中" : "履歴"} · {projectLink.project_name}
+            <span className="ml-1 font-normal">({projectLink.project_status})</span>
+          </div>
+        )}
         <div className="whitespace-normal break-words font-semibold leading-snug text-slate-950">
           {seed.title}
         </div>
+        {seed.status !== "candidate" && (
+          <span className="mt-1.5 inline-flex border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+            シーズ状態: {SEED_STATUS_LABEL[seed.status] ?? seed.status}
+          </span>
+        )}
         {seed.discovery_status === "discovered" && (
           <span className="mt-1.5 inline-flex whitespace-normal rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-amber-800">
             公開情報候補

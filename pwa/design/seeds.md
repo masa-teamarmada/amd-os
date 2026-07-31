@@ -1,6 +1,6 @@
 # Seeds — 研究シーズリスト
 
-> **AMD の Before 0 起点となる外部技術シーズマスタ**。VC List の研究機関版。
+> **AMD の Before 0 起点となる個別技術シーズの正本カタログ**。研究機関カタログとは別に持つ。
 > AMD のコア能力 3 本柱の一つ「大学連携ネットワーク」を OS 上に可視化する。
 
 ---
@@ -12,13 +12,13 @@
 - これまでは個人の頭の中・Slack の断片・スプシで分散していた
 - AMD OS ビジョン ([amd_os_vision.md](/Users/masa/projects/knowledge/amd_os_vision.md)) では将来 URA/EIR が当事者として参画する基盤になる予定。Phase 1 は AMD 内部、Phase 2/3 で URA に開放
 
-## 流れ (status 遷移)
+## シーズ自体の流れ (`seeds.status`)
 
 ```
-candidate(候補) → investigating(調査中) → contacted(接触済) → discussing(協議中) → spun_off(PJ化) / declined(見送り)
+candidate(候補) → investigating(調査中) → contacted(接触済) → discussing(協議中) → spun_off(スピンアウト済み) / declined(見送り)
 ```
 
-シーズリストから具体的な協議が始まり、一部が AMD の PJ になっていく。`spun_off_project_id` で `projects` に紐付け。
+AMDとの契約はこの状態遷移と別軸。契約した個別シーズは `projects` + `seed_projects` に1行追加し、同じシーズ行へ契約・月次・タスク等のPJ運用情報を重ねる。`spun_off_project_id` は旧互換であり、新しいAMD PJ関係の判定には使わない。
 
 ## 設計判断 (確定)
 
@@ -26,14 +26,15 @@ candidate(候補) → investigating(調査中) → contacted(接触済) → disc
 |---|---|---|
 | 主な使い手 | **Phase 1 = AMD 内部**、Phase 2 で URA 公開、Phase 3 で対外ショーケース | 段階拡張。`is_public` 列で将来の公開切替が可能 |
 | シーズの単位 | **案件単位 (技術 × 応用先)** | "シアノバクテリア排水処理" のように、PI が複数案件を持てる。`researcher_name` は一意キーではなく、同じPI名の複数行を統合・重複除外しない |
-| データ構造 | **単一テーブル `seeds`** に機関・PI・シーズを 1 行で保持 | UI 上ひとつのリストで「機関で検索」「PI で検索」「シーズで検索」が完結。表記ゆれ正規化は将来課題 |
+| データ構造 | **`institutions` と `seeds` を別カタログ**として持ち、`seeds.institution_id` で機関へ紐付ける | 研究機関と個別シーズを同じPJ概念へ潰さず、どちらもAMDとの契約前から増やせる |
+| AMD契約レイヤー | **共通親 `projects` + 種別子 `seed_projects`** | 契約・月次・タスクの共通情報と、事業化段階・経路・想定市場等のシーズ固有情報を分離する |
 | サブデータ | **別テーブルに分割** (`seed_funding` / `seed_news` / `seed_contact_log`) | 検索性・cron ingest しやすさ。UI は 1 リストで完結する原則は満たす |
 | 旧 `seeds` テーブル (006_venture_map.sql で作られた予兆 4 件用) | **drop して再構築** | 既存 4 行の中身は実態と合っていなかった (工学院大エコシステム = エコシステム業務、CX/SX = 既に PJ 化済)。Venture Map の予兆プロット (黄色点滅) も意味不明だったので削除 |
 | 収集方法 | **Phase 1: 手動 + つくよみ chat 経由** → Phase 2: 公的採択 DB ingest (NEDO/AMED/JST GAP/A-STEP) → Phase 3: researchmap / OpenAlex 発掘 cron | 段階拡張。最初から全部やると母集団がぼけて使われない |
 
 ## スキーマ
 
-migration: [024_seeds_overhaul.sql](../scripts/migrations/024_seeds_overhaul.sql)
+migration: [024_seeds_overhaul.sql](../scripts/migrations/024_seeds_overhaul.sql) / [207_institution_seed_project_domains.sql](../scripts/migrations/207_institution_seed_project_domains.sql)
 
 | テーブル | 役割 |
 |---|---|
@@ -41,20 +42,23 @@ migration: [024_seeds_overhaul.sql](../scripts/migrations/024_seeds_overhaul.sql
 | `seed_funding` | 補助金履歴 (NEDO/AMED/JST GAP 等) |
 | `seed_news` | 関連ニュース・論文・プレス (Atlas とは別系統) |
 | `seed_contact_log` | AMD メンバー × シーズ の接触履歴 |
+| `institutions` | 研究機関カタログ。シーズとは別の一覧を持つ |
+| `seed_projects` | 個別シーズを対象にするAMD契約PJ。`projects` と1対1、`seeds` と多対1 |
 
 ### `seeds` の主要列
 
 ```
 識別:           title, summary
-機関:           org_name, org_type, org_region, org_url
+機関:           institution_id (FK institutions), org_name, org_type, org_region, org_url
 研究者:         researcher_name, researcher_title, lab_name, researcher_url
 分類:           domain_lane (gx_energy/gx_circular/life/materials/robo/ict/other),
                 industry_target[], keywords[]
 成熟度:         trl, brl, hrl (0-9)
 AMD 視点:       status, amd_rating (1-5), amd_owner_member_id, next_action,
                 internal_notes (非公開), public_summary, is_public
-関連:           spun_off_project_id (FK projects), source, source_detail,
+関連:           source, source_detail,
                 deep_dive_material_url (AMD内の深掘り資料)
+旧互換:         spun_off_project_id (新規AMD PJ関係の判定には使わない)
 ```
 
 ### `discovery_status` 列 (033 migration)
@@ -85,8 +89,9 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 ### `/seeds` リスト
 
 - **テーブル列**: シーズ / 機関 / PI / 領域 / 成熟度 (TRL/BRL/HRL) / 状態 / ★ / 担当 / 助成計 / 深掘り資料 / 次の一手 / 最終接触
-- **フィルタ**: status (デフォルト: アクティブ = PJ化/見送り を除外) / 領域 / 担当 / フリーテキスト (シーズ・機関・PI・キーワード)
-- **ソート**: 列クリックで切替 (デフォルト: 更新日 desc)
+- **全件表示**: PJ化・スピンアウト・見送りを理由にリストから除外しない。契約前後を通じて同じカタログ行を使う
+- **PJ優先ソート**: `seed_projects` の稼働中PJ → PJ履歴 → PJなしの順に固定し、その中を列ソートする。PJ化済みシーズは最上段の色帯で目立たせる
+- **フィルタ**: シーズ自体のstatus / 領域 / 担当 / フリーテキスト。AMD PJ状態とは混ぜない
 - **新規作成**: 右上「+ 新規シーズ」ボタン → `SeedDetailModal` を createMode で開く
 - **深掘り資料**: `deep_dive_material_url` には、AMDが確認済みの共有資料リンクだけを置く。資料本文、一次ソース本文、一次ソースの生URLは置かない。md はOS内Markdownモーダル (左メニューなし) で表示し、ヘッダーの補助リンクからDriveを開ける。
 
@@ -117,7 +122,7 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 - ✅ **`/seeds/inbox`**: 自動収集された未確認シーズの受信箱 (vcs/inbox 同型)
 - ✅ **`cron/seeds-ingest` route**: web_search 自動発見の実装はあるが、2026-05-22 以降は自動 schedule 停止 (下記参照)
 - ✅ **GlobalNav バッジ**: Seeds に sky 色の未確認件数バッジ
-- ⬜ **既存 PJ から逆引き seed 化**: `project_ventures.origin_org` / `origin_pi` を参照して、既存 9 PJ の起源を seeds に登録 (status='spun_off')
+- ✅ **確認済みシーズPJの移行**: migration 207でSX (`p21`) を該当シーズの `seed_projects` へ移行。未確認PJを名称から推測して自動分類しない
 - ⬜ **HSFC 残り 23 件 / さきがけ 175件** の収集
 
 ### Phase 3 (TODO)
@@ -129,7 +134,7 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 
 ## SPS (Seed Prospect Score) — 全国全シーズ共通の評価 (2026-07-20)
 
-SPS はシーズ有望度スコア。KUTE / p25 に限らず **全国のすべての `seeds` 行に適用される**。`spun_off_project_id` の有無や PJ status とは独立で、まだどの PJ にも紐づいていない `candidate` 段階のシーズにも同じ式・同じテーブルで評価をつけられる。
+SPS はシーズ有望度スコア。KUTE / p25 に限らず **全国のすべての `seeds` 行に適用される**。`seed_projects` の有無やPJ状態とは独立で、まだどのPJにも紐づいていない `candidate` 段階のシーズにも同じ式・同じテーブルで評価をつけられる。
 
 - migration: [186_kute_seeds_commercialization_score.sql](../scripts/migrations/186_kute_seeds_commercialization_score.sql) (historical — 下記参照) → [187_seed_sps_assessments.sql](../scripts/migrations/187_seed_sps_assessments.sql) → [188_seed_sps_kute_backfill.sql](../scripts/migrations/188_seed_sps_kute_backfill.sql)
 - **migration 186 (historical)**: KUTE 専用の 0-100点ルーブリック (`kute_score_future_need/market/technical_advantage/ip_barrier` 各15 + `kute_score_current_trl/brl/hrl` 各10 + `kute_score_support` 10) を導入したが、全レコード null のまま一度も使われなかった。187 でこの 8 列は安全確認 (非 null が 1 件でもあれば `RAISE EXCEPTION` して停止) の上で `DROP COLUMN` 済み。**現行の current truth ではこの 100 点ルーブリックは存在しない**。
@@ -142,19 +147,19 @@ SPS はシーズ有望度スコア。KUTE / p25 に限らず **全国のすべ�
   - `shallow_tech_mode=true` のときだけ `trl` の `NULL` を許容 (それ以外の `NULL` は欠損=未評価として扱う)
   - `axis_evidence` (軸ごとの評価根拠 JSON) と `evaluator` (評価者) は **内部専用列**。公開面・KUTE 比較テーブルには一切返さない (RLS も `authenticated` / `service_role` のみ、anon 直接 select 不可)
 - **計算式は完全共有**: [`pwa/src/lib/seed-sps.ts`](../src/lib/seed-sps.ts) の `calculateSeedSpsScore()` が [`amd-score.ts`](../src/lib/amd-score.ts) の `calculatePrsScore` / `PRS_ALPHA_DEFAULT` をそのまま呼ぶ。**別式・別重みは作らない** — SPS は AMD Score 側の PRS (M × P × R × S) と同じ計算コアの表示名違いであり、KUTE 専用スコアは存在しない。必要な軸が1つでも欠けていれば計算せず `missingAxes` を返す (部分合計・部分点を総合点として出さない)
-- **KUTE (p25) は「フィルタして表示するだけ」**: project_id (`p25`) → `seeds.institution_id` (`inst_kute`) のスコープ対応は `researchInstitutionIdForProject()` (実体: [`kute-seeds-scoring.ts`](../src/lib/kute-seeds-scoring.ts)、`seeds-data.ts` が re-export) の一箇所だけに定義する。KUTE 側は独自スコアを持たず、`seed_sps_assessments` から対象シーズの **最新 (evaluated_at DESC 1件)** SPS を読むだけ。同じ境界に `p30` → `inst_ehime` (愛媛大学 EHM) も追加済み (2026-07-31)。今後の研究機関コックピットも同じ境界とスコアを再利用する
+- **研究機関PJは「対象機関でフィルタして表示するだけ」**: project_id → institution_id の対応はDBの `institution_projects` を正本に解決する。KUTE (`p25`)、NIMS (`p28`)、愛媛大全体PJ (`p30`) を同じ取得経路で扱い、コードの固定対応表は持たない。SPSは対象シーズの最新評価を読むだけで、ECRとは合算しない
 - **事業化フィールド** (`seeds` テーブル、187 でリネーム、すべて nullable / CHECK 制約つき、根拠のない値は null のまま = 捏造禁止):
   - 事業化タイプ: `primary_commercialization_type` (単一) + `secondary_commercialization_types[]` (複数可)。enum は `large_startup` / `small_business_1b_yen` / `license` / `jv_ma` / `joint_research_poc`
   - 公開向けテキスト (旧 `kute_*` から全国共通名へ改名、値は保持): `envisioned_use_case` / `first_customer_candidate` / `market_size_range` / `market_size_confidence` (low/medium/high) / `biggest_bottleneck` / `ip_status` / `next_verification_step`
 - **プライバシー境界**: `internal_notes` / `source_detail` 等の社内限定フィールド、および `seed_sps_assessments.axis_evidence` / `evaluator` は公開面の select に含めない。ホワイトリスト型 `SeedPublicView` + 定数 `SEED_PUBLIC_VIEW_COLUMNS` ([`types/seeds.ts`](../src/types/seeds.ts)) を select の唯一の呼び出し元にする。既存の `SeedDetailModal` (編集用、confidential 項目を含む) は再利用せず、新規の読み取り専用 `KuteSeedDetailModal` ([`components/seeds/KuteSeedDetailModal.tsx`](../src/components/seeds/KuteSeedDetailModal.tsx)) を使う
 - **UI**: PJ cockpit (`/project/p25/cockpit`) と同じ `CockpitView` を使う研究機関 cockpit (`/institutions/inst_kute/cockpit`) の進捗タブで、年度内ロードマップ (`CockpitKuteAnnualRoadmap`) の直後に **比較優先のテーブル** (`CockpitKuteSeeds.tsx`) を表示する。カード形式ではなく横スクロール可能な `<table>` で、`SPS` / `M` / `P` / `R` / `S` を個別列、`TRL` / `BRL` / `GRL` / `SRL` / `HRL` を個別列として並べ、事業化フィールド (想定用途・最初の顧客候補・市場規模レンジと確度・最大のボトルネック・知財状況・事業化タイプ・次の検証ステップ) と資料有無を同じ行で横並び比較できる。列ソート可。**シーズ名・研究者名・事業化タイプ・全長文セルは省略記号にせず、セル内で全文を折り返す**。DB上のシーズ行は案件 (技術 × 用途) 単位のままだが、比較テーブルの表示は同一機関かつ同じ研究者の複数シーズを、研究者名1回のグループヘッダー行の下にまとめる (2026-07-21 追加、`groupSeedsByResearcher()` / `sortSeedGroups()` / `countDistinctResearchers()`、いずれも `pwa/src/lib/kute-seeds-scoring.ts`)。研究者名と機関名は NFKC 正規化・連続空白の単一化・前後空白除去を行う。`researcher_name` が null の行は他の未登録行と混ぜず、シーズ単位でそれぞれ独立したグループにする。列ソートはグループ内の各行をソートした上でグループ自体も代表値でソートするため、どの列でソートしてもグループの連続性は保たれる。特定の研究者名 (例: 高橋義典) をロジックにハードコードすることはなく、任意の研究者に同じ挙動が適用される。集計行にはシーズ件数に加え、重複除外した研究者数も表示する。`discovery_status='discovered'` は「公開情報候補」と表示し、大学・研究者確認前であることを明示する。SPS が計算できないシーズ (`missingAxes` あり、評価行なしを含む) は「未評価」表示とし、部分点を出さない。長文と計算済みの SPS / M / P / R / S / XRL 内訳は `KuteSeedDetailModal` で確認できるが、`axis_evidence` / `evaluator` は内部専用なのでモーダルにも出さない。深掘り資料は既存の `SeedMarkdownPreviewModal` を再利用し、無ければ「資料なし」
 - **KUTE公開情報の上位3件**: migration [`189_kute_public_seed_candidates.sql`](../scripts/migrations/189_kute_public_seed_candidates.sql) で「165〜220nm次世代クリーンUV面光源」「金属フリー透明フレキシブル導電膜」「塩水・交流電気分解による都市鉱山金回収」を `discovery_status='discovered'` で追加する。公開情報調査の旧100点スクリーニング値はSPS/XRLへ移植せず、`seed_sps_assessments` は未登録のままにする
-- **`/seeds` (全機関横断比較, 2026-07-31)**: `/seeds` は旧・単一テーブルの管理画面 (検索/フィルタ/新規作成/受信箱) から、`CockpitKuteSeeds` を `scope="all"` で全機関横断表示する読み取り専用の比較画面に置き換えた。機関コックピット (`scope="project"` 相当、`projectId` 指定) と同じ研究者グループ化テーブルを、機関グループヘッダー行の下にネストして並べる (`groupSeedsByInstitution()` / `countDistinctInstitutions()`)。データ取得は `fetchAllResearchInstitutionSeeds()` (org_name/institution_id で絞らず全件、ホワイトリスト select は共通) を使い、PJ化/見送りを除外する既存のアクティブフィルタは表示側で適用する。旧管理画面 (新規作成・受信箱・編集) は撤去した
-- **テスト**: `npm run test:kute-seeds-scope` ([`check_kute_seeds_scope.mts`](../scripts/check_kute_seeds_scope.mts)) — スコープ境界 (p25→inst_kute、p30→inst_ehime、他は null)、ホワイトリストに confidential フィールドが混入していないこと。`npm run test:seed-sps-score` ([`check_seed_sps_score.mts`](../scripts/check_seed_sps_score.mts)) — SPS 計算 (`calculateSeedSpsScore`) が 0 と NULL を区別すること、欠損軸があれば `missing` になり部分点を返さないこと、shallow_tech_mode の TRL 除外を検証
+- **`/seeds` (全機関横断比較)**: `CockpitKuteSeeds` を `scope="all"` で全158件表示する。機関→研究者の2段見出しは維持しつつ、`seed_projects` の稼働中PJ、PJ履歴、PJなし・カタログ蓄積の3群を同じテーブル内で上から並べる。PJ化済みは最も目立つ稼働帯を出す。`seeds.status='spun_off'` はスピンアウト状態であり、AMD PJ判定には使わない
+- **テスト**: `npm run test:kute-seeds-scope` は動的スコープとPJ優先度、公開ホワイトリストを検査する。`npm run test:institution-seed-project-domains` は物理テーブル分離、p30/p21移行、二重分類防止、全件表示、ECR/SPS非更新を検査する。`npm run test:seed-sps-score` はSPSの0/NULLと欠損軸を検査する
 
 ## トレードオフ・残課題
 
-- **機関名・PI 名の表記ゆれ**: 単一テーブル方針なので「愛媛大学」「愛媛大」が混在し得る。Phase 2 で正規化マスタ追加を検討
+- **機関名の確認状態**: 大学・国研シーズ141件は46機関へ `institution_id` で紐付け済み。推定名称は `institutions.identity_status='candidate'` のまま表示し、人の確認前に確定名称へ昇格させない。PI名の表記ゆれは引き続き表示正規化だけで、DB行は統合しない
 - **Venture Map との連動**: 旧 seeds は Venture Map のグラフ予兆 / レーン別 seedScore に使われていた。新 seeds は意味が違う (AMD 視点の事業化候補) ので Venture Map からは切り離した。将来「AMD が手がけそうなレーン」を Venture Map に再投入したくなったら、新 seeds から `domain_lane` × `amd_rating>=4` を集計して再接続できる
 - **`milestone_responsibility` のような複数担当**: 現状 1 シーズ = 1 AMD owner。Phase 2 で `seed_owners` 表を切るか検討
-- **PJ 化済みシーズ**: status='spun_off' になった seeds はリストの「アクティブ」フィルタで除外される。それでも検索可能ではあるので情報資産として残る
+- **PJ化済みシーズ**: `seed_projects` がある行はリスト最上段へ上げ、稼働中PJの色帯で目立たせる。カタログから別リストへ移動・複製・非表示にしない

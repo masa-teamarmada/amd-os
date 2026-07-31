@@ -2,58 +2,64 @@ export type InstitutionProjectLink = {
   institutionId: string;
   projectId: string;
   projectLabel: string;
+  projectStatus: string;
   relationLabel: string;
   cockpitTitle: string;
   cockpitSummary: string;
+  engagementScope: string | null;
+  targetUnit: string | null;
+  ecosystemGoal: string | null;
 };
 
-const INSTITUTION_PROJECT_LINKS: Record<string, InstitutionProjectLink> = {
-  inst_kute: {
-    institutionId: "inst_kute",
-    projectId: "p25",
-    projectLabel: "KUTE",
-    relationLabel: "研究機関エコシステム構築PJ",
-    cockpitTitle: "KUTE 研究機関コックピット",
-    cockpitSummary:
-      "KUTEの箱は研究機関ERSとして残し、進捗・月次・MTG履歴は既存のKUTE PJコックピットを関連PJとして扱う。",
-  },
-  inst_nims: {
-    institutionId: "inst_nims",
-    projectId: "p28",
-    projectLabel: "NIMS",
-    relationLabel: "NIMS OS導入PJ",
-    cockpitTitle: "NIMS 研究機関コックピット",
-    cockpitSummary:
-      "NIMSの箱は研究機関ERSとして残し、進捗・月次・MTG履歴は正式なNIMS OS導入PJコックピットを関連PJとして扱う。CXは初期ユースケースとして分けて見る。",
-  },
-  inst_ehime: {
-    institutionId: "inst_ehime",
-    projectId: "p30",
-    projectLabel: "EHM",
-    relationLabel: "愛媛大学 研究機関エコシステム構築PJ",
-    cockpitTitle: "愛媛大学 研究機関コックピット",
-    cockpitSummary:
-      "愛媛大学の箱は研究機関ERSとして残し、進捗・月次・MTG履歴は正式なEHM PJコックピットを関連PJとして扱う。",
-  },
+export type InstitutionProjectRow = {
+  institution_id: string;
+  project_id: string;
+  engagement_scope: string | null;
+  target_unit: string | null;
+  ecosystem_goal: string | null;
+  projects:
+    | { project_name: string | null; status: string | null }
+    | { project_name: string | null; status: string | null }[]
+    | null;
 };
 
-const INSTITUTION_DASHBOARD_PROJECT_IDS = new Set(["p25", "p28", "p30"]);
+const CURRENT_PROJECT_STATUSES = new Set(["active", "sales", "draft"]);
 
-export function getInstitutionProjectLink(institutionId: string): InstitutionProjectLink | null {
-  return INSTITUTION_PROJECT_LINKS[institutionId] ?? null;
+export function isCurrentProjectStatus(status: string | null | undefined): boolean {
+  return CURRENT_PROJECT_STATUSES.has(String(status || "").toLowerCase());
 }
 
-export function isInstitutionDashboardProject(project: {
-  projectId?: string | null;
-  projectName?: string | null;
-  displayName?: string | null;
-  shortLabel?: string | null;
-  projectCategory?: string | null;
-}) {
-  const category = (project.projectCategory || "dtsu").toLowerCase();
-  if (category === "ecosystem") return true;
-  const id = String(project.projectId || "");
-  if (INSTITUTION_DASHBOARD_PROJECT_IDS.has(id)) return true;
-  const label = `${project.projectName || ""} ${project.displayName || ""} ${project.shortLabel || ""}`.toLowerCase();
-  return label.includes("kute") || label.includes("nims");
+export function buildInstitutionProjectLink(
+  row: InstitutionProjectRow,
+  institutionName: string,
+): InstitutionProjectLink {
+  const project = Array.isArray(row.projects) ? row.projects[0] : row.projects;
+  const projectLabel = project?.project_name || row.project_id;
+  const projectStatus = project?.status || "unknown";
+  const scopeLabel = row.engagement_scope === "university_wide" ? "全学" : "機関";
+
+  return {
+    institutionId: row.institution_id,
+    projectId: row.project_id,
+    projectLabel,
+    projectStatus,
+    relationLabel: `${scopeLabel}エコシステム構築PJ`,
+    cockpitTitle: `${institutionName} 研究機関コックピット`,
+    cockpitSummary:
+      "研究機関カタログとECRはこの画面に残し、契約・進捗・月次・MTG・タスクは関連PJの運用情報として重ねて表示する。",
+    engagementScope: row.engagement_scope,
+    targetUnit: row.target_unit,
+    ecosystemGoal: row.ecosystem_goal,
+  };
+}
+
+/** 現行契約を優先し、終了済みしかなければ最新の履歴を返す。 */
+export function selectPrimaryInstitutionProject(
+  links: InstitutionProjectLink[] | null | undefined,
+): InstitutionProjectLink | null {
+  if (!links?.length) return null;
+  return [...links].sort((a, b) => {
+    const currentDiff = Number(isCurrentProjectStatus(b.projectStatus)) - Number(isCurrentProjectStatus(a.projectStatus));
+    return currentDiff || b.projectId.localeCompare(a.projectId, "ja");
+  })[0];
 }

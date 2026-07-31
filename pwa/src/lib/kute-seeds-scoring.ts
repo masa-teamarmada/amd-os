@@ -3,19 +3,14 @@
 // data-access 層 (seeds-data.ts) はこのファイルを re-export する。
 
 import type { SeedPublicView } from "../types/seeds.ts";
+import { isCurrentProjectStatus } from "./institution-projects.ts";
 
-/**
- * project_id → institution_id の研究機関スコープ対応。唯一の source of truth。
- * 新しい研究機関コックピットも、この境界へ1行追加して同じ取得経路を再利用する。
- */
-const RESEARCH_INSTITUTION_SEED_PROJECT_SCOPE: Record<string, string> = {
-  p25: "inst_kute",
-  p30: "inst_ehime",
-};
-
-/** 対象PJで Global Seeds から読む institution_id。未定義PJは null */
-export function researchInstitutionIdForProject(projectId: string): string | null {
-  return RESEARCH_INSTITUTION_SEED_PROJECT_SCOPE[projectId] ?? null;
+/** AMDシーズPJの表示優先度: 稼働中=0、履歴=1、PJなし=2。シーズ自体のstatusとは独立。 */
+export function seedProjectPriority(seed: SeedPublicView): 0 | 1 | 2 {
+  const links = seed.project_links ?? [];
+  if (links.some((link) => isCurrentProjectStatus(link.project_status))) return 0;
+  if (links.length > 0) return 1;
+  return 2;
 }
 
 // 旧 100点ルーブリック (kute_score_* 8列 + computeKuteSeedScore) は

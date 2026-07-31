@@ -114,6 +114,23 @@ private struct AMDOSParityProjectVentureRef: Codable, Identifiable, Sendable {
     enum CodingKeys: String, CodingKey { case id = "project_id", shortLabel = "short_label" }
 }
 
+private struct AMDOSParitySeedProject: Codable, Identifiable, Sendable {
+    let projectID: String
+    let seedID: String
+    let commercializationStage: String?
+    let commercializationRoute: String?
+    let ventureName: String?
+    let targetMarket: String?
+
+    var id: String { projectID }
+
+    enum CodingKeys: String, CodingKey {
+        case projectID = "project_id", seedID = "seed_id"
+        case commercializationStage = "commercialization_stage", commercializationRoute = "commercialization_route"
+        case ventureName = "venture_name", targetMarket = "target_market"
+    }
+}
+
 private struct AMDOSParitySeedPayload: Encodable, Sendable {
     let title: String
     let summary: String?
@@ -179,6 +196,7 @@ private final class AMDOSSeedParityStore: ObservableObject {
     @Published var members: [AMDOSParityMember] = []
     @Published var projects: [AMDOSParityProjectRef] = []
     @Published var projectVentures: [AMDOSParityProjectVentureRef] = []
+    @Published var seedProjects: [AMDOSParitySeedProject] = []
     @Published var state: AMDOSFeatureLoadState = .idle
     @Published var message: String?
     @Published var deepDive: AMDOSParityDeepDive?
@@ -194,6 +212,7 @@ private final class AMDOSSeedParityStore: ObservableObject {
             async let nextMembers = AMDOSRESTClient.shared.fetchTable(AMDOSParityMember.self, table: "members", select: "member_id,code_name", order: "code_name", limit: 500)
             async let nextProjects = AMDOSRESTClient.shared.fetchTable(AMDOSParityProjectRef.self, table: "projects", select: "project_id,project_name,status", order: "project_name", limit: 500)
             async let nextProjectVentures = AMDOSRESTClient.shared.fetchTable(AMDOSParityProjectVentureRef.self, table: "project_ventures", select: "project_id,short_label", limit: 500)
+            async let nextSeedProjects = AMDOSRESTClient.shared.fetchTable(AMDOSParitySeedProject.self, table: "seed_projects", select: "project_id,seed_id,commercialization_stage,commercialization_route,venture_name,target_market", limit: 500)
             seeds = try await nextSeeds
             funding = try await nextFunding
             news = try await nextNews
@@ -201,6 +220,7 @@ private final class AMDOSSeedParityStore: ObservableObject {
             members = try await nextMembers
             projects = try await nextProjects
             projectVentures = try await nextProjectVentures
+            seedProjects = try await nextSeedProjects
             state = seeds.isEmpty ? .empty : .loaded
         } catch {
             message = error.localizedDescription
@@ -219,6 +239,7 @@ private final class AMDOSSeedParityStore: ObservableObject {
             async let nextMembers = AMDOSRESTClient.shared.fetchTable(AMDOSParityMember.self, table: "members", select: "member_id,code_name", order: "code_name", limit: 500)
             async let nextProjects = AMDOSRESTClient.shared.fetchTable(AMDOSParityProjectRef.self, table: "projects", select: "project_id,project_name,status", order: "project_name", limit: 500)
             async let nextProjectVentures = AMDOSRESTClient.shared.fetchTable(AMDOSParityProjectVentureRef.self, table: "project_ventures", select: "project_id,short_label", limit: 500)
+            async let nextSeedProjects = AMDOSRESTClient.shared.fetchTable(AMDOSParitySeedProject.self, table: "seed_projects", select: "project_id,seed_id,commercialization_stage,commercialization_route,venture_name,target_market", filters: ["seed_id": "eq.\(seedID)"], limit: 100)
             seeds = try await nextSeeds
             funding = try await nextFunding
             news = try await nextNews
@@ -226,6 +247,7 @@ private final class AMDOSSeedParityStore: ObservableObject {
             members = try await nextMembers
             projects = try await nextProjects
             projectVentures = try await nextProjectVentures
+            seedProjects = try await nextSeedProjects
             state = seeds.isEmpty ? .empty : .loaded
         } catch {
             message = error.localizedDescription
@@ -317,7 +339,7 @@ struct AMDOSParitySeedsView: View {
     let onOpenMacrotrends: () -> Void
     @StateObject private var store = AMDOSSeedParityStore()
     @State private var search = ""
-    @State private var status = "active"
+    @State private var status = "all"
     @State private var domain = "all"
     @State private var owner = "all"
     @State private var sortKey: AMDOSParitySeedSortKey = .updatedAt
@@ -341,18 +363,36 @@ struct AMDOSParitySeedsView: View {
     private var filtered: [AMDOSParitySeed] {
         let query = search.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let list = store.seeds.filter { seed in
-            let statusOK = status == "all" || (status == "active" ? seed.status != "spun_off" && seed.status != "declined" : seed.status == status)
+            let statusOK = status == "all" || seed.status == status
             let domainOK = domain == "all" || seed.domainLane == domain
             let ownerOK = owner == "all" || seed.amdOwnerMemberID == owner
             let text = [seed.title, seed.summary, seed.orgName, seed.researcherName, seed.labName, (seed.keywords ?? []).joined(separator: " ")].compactMap { $0 }.joined(separator: " ").lowercased()
             return statusOK && domainOK && ownerOK && (query.isEmpty || text.contains(query))
         }
-        // PWAの `compareBy` と同じキー・初期方向。比較が同値なら取得順を維持する。
+        // AMDとのPJ契約を最優先にし、その中を選択列で並べる。シーズ自体のstatusとは混ぜない。
         return list.enumerated().sorted { lhs, rhs in
+            let projectOrder = projectPriority(lhs.element) - projectPriority(rhs.element)
+            if projectOrder != 0 { return projectOrder < 0 }
             let comparison = compare(lhs.element, rhs.element)
             if comparison == .orderedSame { return lhs.offset < rhs.offset }
             return sortAscending ? comparison == .orderedAscending : comparison == .orderedDescending
         }.map(\.element)
+    }
+
+    private func projectLinks(for seed: AMDOSParitySeed) -> [(row: AMDOSParitySeedProject, project: AMDOSParityProjectRef?)] {
+        store.seedProjects
+            .filter { $0.seedID == seed.id }
+            .map { row in (row: row, project: store.projects.first(where: { $0.id == row.projectID })) }
+    }
+
+    private func isCurrentProject(_ status: String?) -> Bool {
+        ["active", "sales", "draft"].contains((status ?? "").lowercased())
+    }
+
+    private func projectPriority(_ seed: AMDOSParitySeed) -> Int {
+        let links = projectLinks(for: seed)
+        if links.contains(where: { isCurrentProject($0.project?.status) }) { return 0 }
+        return links.isEmpty ? 2 : 1
     }
 
     private func ownerName(for seed: AMDOSParitySeed) -> String? {
@@ -425,10 +465,10 @@ struct AMDOSParitySeedsView: View {
     }
 
     var body: some View {
-        AMDOSPageScaffold(eyebrow: "SEEDS", title: "研究シーズ", subtitle: "PWAのSeedListと同じ研究機関・PI・成熟度・AMD評価・資金実績を検索し、登録・編集する") {
+        AMDOSPageScaffold(eyebrow: "SEEDS", title: "研究シーズ", subtitle: "AMDとの契約有無に関係なく全件を蓄積し、契約したシーズには同じ行へPJ運用情報を重ねる") {
             HStack(alignment: .top) {
                 TextField("シーズ / 機関 / PI / キーワード", text: $search).textFieldStyle(.roundedBorder)
-                Picker("状態", selection: $status) { Text("アクティブ（PJ化/見送りを除外）").tag("active"); Text("全 status").tag("all"); ForEach(["candidate", "investigating", "contacted", "discussing", "spun_off", "declined"], id: \.self) { Text(amdOSParitySeedStatusLabel($0)).tag($0) } }
+                Picker("シーズ状態", selection: $status) { Text("全シーズ").tag("all"); ForEach(["candidate", "investigating", "contacted", "discussing", "spun_off", "declined"], id: \.self) { Text(amdOSParitySeedStatusLabel($0)).tag($0) } }
                 Picker("領域", selection: $domain) { Text("全領域").tag("all"); ForEach(["gx_energy", "gx_circular", "life", "materials", "robo", "ict", "other"], id: \.self) { Text(amdOSParitySeedDomainLabel($0)).tag($0) } }
                 Picker("担当", selection: $owner) { Text("全担当").tag("all"); ForEach(owners, id: \.id) { Text($0.name).tag($0.id) } }
             }
@@ -449,8 +489,29 @@ struct AMDOSParitySeedsView: View {
             AMDOSStateNotice(state: store.state) { Task { await store.load() } }
             Text("\(filtered.count) / \(store.seeds.count) 件").font(.caption).foregroundStyle(AMDOSDesign.muted)
             ForEach(filtered) { seed in
+                let projectLinks = projectLinks(for: seed)
+                let currentProject = projectLinks.first(where: { isCurrentProject($0.project?.status) })
                 AMDOSCard {
                     VStack(alignment: .leading, spacing: 9) {
+                        if let currentProject {
+                            HStack(spacing: 6) {
+                                Image(systemName: "briefcase.fill")
+                                Text("AMD PJ 稼働中 · \(currentProject.project?.name ?? currentProject.row.projectID)")
+                            }
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(AMDOSDesign.blue, in: RoundedRectangle(cornerRadius: 8))
+                        } else if let history = projectLinks.first {
+                            HStack(spacing: 6) {
+                                Image(systemName: "clock.arrow.circlepath")
+                                Text("AMD PJ 履歴 · \(history.project?.name ?? history.row.projectID)")
+                            }
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AMDOSDesign.muted)
+                        }
                         HStack(alignment: .top) {
                             Button { onSelectSeed(seed.id) } label: {
                                 HStack(spacing: 6) {
@@ -460,7 +521,7 @@ struct AMDOSParitySeedsView: View {
                             }
                             .buttonStyle(.plain)
                             Spacer()
-                            AMDOSStatusBadge(text: amdOSParitySeedStatusLabel(seed.status), tint: amdOSParitySeedStatusTint(seed.status))
+                            AMDOSStatusBadge(text: "シーズ: \(amdOSParitySeedStatusLabel(seed.status))", tint: amdOSParitySeedStatusTint(seed.status))
                         }
                         Text("\(seed.orgName)\(seed.orgType.map { " · \(amdOSParitySeedOrgTypeLabel($0))" } ?? "") · \(seed.researcherName ?? "—")\(seed.labName.map { " / \($0)" } ?? "")")
                             .font(.caption).foregroundStyle(AMDOSDesign.muted)
@@ -548,7 +609,7 @@ private func amdOSParitySeedByteCount(_ bytes: Int) -> String {
 }
 
 private func amdOSParitySeedStatusLabel(_ value: String) -> String {
-    ["candidate": "候補", "investigating": "調査中", "contacted": "接触済", "discussing": "協議中", "spun_off": "PJ化", "declined": "見送り"][value] ?? value
+    ["candidate": "候補", "investigating": "調査中", "contacted": "接触済", "discussing": "協議中", "spun_off": "スピンアウト済み", "declined": "見送り"][value] ?? value
 }
 
 private func amdOSParitySeedStatusTint(_ value: String) -> Color {
@@ -607,12 +668,13 @@ struct AMDOSParitySeedDetailView: View {
         AMDOSPageScaffold(eyebrow: "SEED DETAIL", title: store.seeds.first(where: { $0.id == seedID })?.title ?? "シーズ詳細", subtitle: "研究シーズの概要・AMD評価・資金・接触・ニュースを管理する") {
             AMDOSStateNotice(state: store.state) { if let seedID { Task { await store.load(seedID: seedID) } } }
             if let seedID, let seed = store.seeds.first(where: { $0.id == seedID }) {
+                let seedProjectRows = store.seedProjects.filter { $0.seedID == seed.id }
                 HStack(spacing: 10) {
                     Button("← Seedsリスト", action: onClose).buttonStyle(.bordered)
                     AMDOSStatusBadge(text: amdOSParitySeedStatusLabel(seed.status), tint: amdOSParitySeedStatusTint(seed.status))
                     Text(seed.amdRating.map { String(repeating: "★", count: $0) + String(repeating: "☆", count: max(0, 5 - $0)) } ?? "☆☆☆☆☆").foregroundStyle(.orange)
-                    if let projectID = seed.spunOffProjectID {
-                        Text("→ \(projectName(projectID))").font(.caption).foregroundStyle(.purple)
+                    if let projectRow = seedProjectRows.first {
+                        Text("AMD PJ: \(projectName(projectRow.projectID))").font(.caption.weight(.semibold)).foregroundStyle(AMDOSDesign.blue)
                     }
                     if let owner = store.members.first(where: { $0.id == seed.amdOwnerMemberID })?.codeName {
                         Text("担当: \(owner)").font(.caption).foregroundStyle(AMDOSDesign.muted)
@@ -644,11 +706,35 @@ struct AMDOSParitySeedDetailView: View {
                     LabeledContent("社内メモ", value: seed.internalNotes ?? "—")
                     LabeledContent("担当", value: store.members.first(where: { $0.id == seed.amdOwnerMemberID })?.codeName ?? "—")
                 }
+                AMDOSSectionCard("AMD シーズ事業化PJ", systemImage: "briefcase.fill") {
+                    if seedProjectRows.isEmpty {
+                        Text("AMDとの契約PJはまだない。シーズ情報とSPSは、このままカタログへ蓄積する。")
+                            .font(.caption).foregroundStyle(AMDOSDesign.muted)
+                    } else {
+                        ForEach(seedProjectRows) { row in
+                            let project = store.projects.first(where: { $0.id == row.projectID })
+                            VStack(alignment: .leading, spacing: 5) {
+                                HStack {
+                                    Text(project?.name ?? row.projectID).font(.headline)
+                                    Spacer()
+                                    AMDOSStatusBadge(text: project?.status ?? "状態不明", tint: AMDOSDesign.blue)
+                                }
+                                Text([row.commercializationStage, row.commercializationRoute, row.ventureName, row.targetMarket]
+                                    .compactMap { $0?.trimmedNonEmpty }
+                                    .joined(separator: " · ")
+                                    .nilIfEmpty ?? "事業化固有情報は未入力")
+                                    .font(.caption).foregroundStyle(AMDOSDesign.muted)
+                            }
+                        }
+                    }
+                    Text("SPSは個別シーズ評価。研究機関ECRとは合算しない。")
+                        .font(.caption2).foregroundStyle(AMDOSDesign.muted)
+                }
                 AMDOSSectionCard("ソース / 関連", systemImage: "link") {
                     LabeledContent("発見経路", value: [seed.source.map(amdOSParitySeedSourceLabel), seed.sourceDetail].compactMap { $0 }.joined(separator: " · ").nilIfEmpty ?? "—")
                     LabeledContent("公開可", value: seed.isPublic ? "Yes" : "No")
                     if let summary = seed.publicSummary { LabeledContent("公開要約", value: summary) }
-                    LabeledContent("PJ化", value: seed.spunOffProjectID.map(projectName) ?? "—")
+                    LabeledContent("スピンアウト先（旧互換）", value: seed.spunOffProjectID.map(projectName) ?? "—")
                     LabeledContent("登録日", value: String(seed.createdAt?.prefix(10) ?? "—"))
                     LabeledContent("更新日", value: String(seed.updatedAt?.prefix(10) ?? "—"))
                     if seed.deepDiveMaterialURL != nil {
@@ -1161,7 +1247,7 @@ private struct AMDOSParitySeedEditor: View {
                     GridRow { AMDOSTextField(title: "機関URL", text: $orgURL); AMDOSTextField(title: "研究者URL", text: $researcherURL) }
                     GridRow {
                         VStack(alignment: .leading) { Text("発見経路").font(.caption).foregroundStyle(AMDOSDesign.muted); Picker("発見経路", selection: $source) { Text("—").tag(""); ForEach(["introduction", "web_search", "conference", "referral", "cold", "grant_db", "researchmap", "other"], id: \.self) { Text(amdOSParitySeedSourceLabel($0)).tag($0) } }.labelsHidden() }
-                        VStack(alignment: .leading) { Text("PJ化 (spun off)").font(.caption).foregroundStyle(AMDOSDesign.muted); Picker("PJ化", selection: $spunOffProjectID) { Text("—").tag(""); ForEach(lookupStore.projectVentures) { venture in Text(venture.shortLabel ?? lookupStore.projects.first(where: { $0.id == venture.id })?.name ?? venture.id).tag(venture.id) } }.labelsHidden() }
+                        VStack(alignment: .leading) { Text("スピンアウト先（旧互換）").font(.caption).foregroundStyle(AMDOSDesign.muted); Picker("スピンアウト先", selection: $spunOffProjectID) { Text("—").tag(""); ForEach(lookupStore.projectVentures) { venture in Text(venture.shortLabel ?? lookupStore.projects.first(where: { $0.id == venture.id })?.name ?? venture.id).tag(venture.id) } }.labelsHidden() }
                     }
                     GridRow { AMDOSTextField(title: "経路詳細", text: $sourceDetail); AMDOSTextField(title: "深掘り資料URL", text: $deepDiveMaterialURL) }
                     Toggle("公開可（URA / EIR に開放可）", isOn: $isPublic)
@@ -1330,7 +1416,21 @@ struct AMDOSParityPoCView: View {
     }
 }
 
-private struct AMDOSParityInstitution: Codable, Identifiable, Sendable { let id: String; let name: String; let shortName: String?; let type: String; let description: String?; let region: String?; let contractStatus: String?; enum CodingKeys: String, CodingKey { case id = "institution_id", name, shortName = "short_name", type, description, region, contractStatus = "contract_status" } }
+private struct AMDOSParityInstitution: Codable, Identifiable, Sendable { let id: String; let name: String; let shortName: String?; let type: String; let description: String?; let region: String?; let contractStatus: String?; let identityStatus: String?; enum CodingKeys: String, CodingKey { case id = "institution_id", name, shortName = "short_name", type, description, region, contractStatus = "contract_status", identityStatus = "identity_status" } }
+private struct AMDOSParityInstitutionProject: Codable, Identifiable, Sendable {
+    let projectID: String
+    let institutionID: String
+    let engagementScope: String?
+    let targetUnit: String?
+    let ecosystemGoal: String?
+    let seedDiscoveryInScope: Bool
+    var id: String { projectID }
+    enum CodingKeys: String, CodingKey {
+        case projectID = "project_id", institutionID = "institution_id"
+        case engagementScope = "engagement_scope", targetUnit = "target_unit", ecosystemGoal = "ecosystem_goal"
+        case seedDiscoveryInScope = "seed_discovery_in_scope"
+    }
+}
 private struct AMDOSParityAxis: Codable, Identifiable, Sendable { let id: String; let axisNo: Int; let name: String; let correspondsXRL: String?; let weight: Double; let sortOrder: Int; enum CodingKeys: String, CodingKey { case id = "axis_id", axisNo = "axis_no", name, correspondsXRL = "corresponds_xrl", weight, sortOrder = "sort_order" } }
 private struct AMDOSParityCriterion: Codable, Identifiable, Sendable { let id: String; let axisID: String; let code: String; let name: String; let rubric: [String: String]; let sortOrder: Int; enum CodingKeys: String, CodingKey { case id = "criterion_id", axisID = "axis_id", code, name, rubric, sortOrder = "sort_order" } }
 private struct AMDOSParityAssessment: Codable, Identifiable, Sendable { let id: String; let institutionID: String; let criterionID: String; let level: Int?; let na: Bool; let note: String?; let evaluatedAt: String?; enum CodingKeys: String, CodingKey { case id = "assessment_id", institutionID = "institution_id", criterionID = "criterion_id", level, na, note, evaluatedAt = "evaluated_at" } }
@@ -1350,6 +1450,8 @@ private final class AMDOSInstitutionParityStore: ObservableObject {
     @Published var assessments: [AMDOSParityAssessment] = []
     @Published var policyItems: [AMDOSParityPolicyItem] = []
     @Published var policyAssessments: [AMDOSParityPolicyAssessment] = []
+    @Published var institutionProjects: [AMDOSParityInstitutionProject] = []
+    @Published var projects: [AMDOSParityProjectRef] = []
     @Published var cells: [String: AMDOSParityInstitutionCell] = [:]
     @Published var policyCells: [String: AMDOSParityPolicyCell] = [:]
     @Published var state: AMDOSFeatureLoadState = .idle
@@ -1363,7 +1465,9 @@ private final class AMDOSInstitutionParityStore: ObservableObject {
             async let e = AMDOSRESTClient.shared.fetchTable(AMDOSParityAssessment.self, table: "institution_assessments", select: "*", order: "evaluated_at.desc", limit: 3000)
             async let pi = AMDOSRESTClient.shared.fetchTable(AMDOSParityPolicyItem.self, table: "institution_policy_items", select: "*", order: "sort_order", limit: 500)
             async let pa = AMDOSRESTClient.shared.fetchTable(AMDOSParityPolicyAssessment.self, table: "institution_policy_assessments", select: "*", order: "updated_at.desc", limit: 3000)
-            institutions = try await i; axes = try await a; criteria = try await c; assessments = try await e; policyItems = try await pi; policyAssessments = try await pa
+            async let ip = AMDOSRESTClient.shared.fetchTable(AMDOSParityInstitutionProject.self, table: "institution_projects", select: "project_id,institution_id,engagement_scope,target_unit,ecosystem_goal,seed_discovery_in_scope", limit: 500)
+            async let p = AMDOSRESTClient.shared.fetchTable(AMDOSParityProjectRef.self, table: "projects", select: "project_id,project_name,status", order: "project_name", limit: 500)
+            institutions = try await i; axes = try await a; criteria = try await c; assessments = try await e; policyItems = try await pi; policyAssessments = try await pa; institutionProjects = try await ip; projects = try await p
             rebuildCells(); state = institutions.isEmpty ? .empty : .loaded
         } catch { message = error.localizedDescription; state = .failed(message ?? "研究機関評価を取得できなかった") }
     }
@@ -1398,19 +1502,92 @@ private func amdOSParityECR(axes: [AMDOSParityAxis], criteria: [AMDOSParityCrite
 struct AMDOSParityInstitutionsView: View {
     let onSelectInstitution: (String) -> Void
     @StateObject private var store = AMDOSInstitutionParityStore()
+    @State private var query = ""
+    @State private var viewMode = "catalog"
+
+    private var rows: [AMDOSParityInstitution] {
+        let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return store.institutions
+            .filter { institution in
+                normalized.isEmpty || [institution.name, institution.shortName, institution.region]
+                    .compactMap { $0?.lowercased() }
+                    .contains(where: { $0.contains(normalized) })
+            }
+            .sorted { lhs, rhs in
+                let lhsLink = projectLink(for: lhs.id)
+                let rhsLink = projectLink(for: rhs.id)
+                let lhsPriority = lhsLink.map { amdOSParityProjectIsCurrent($0.projectStatus) ? 0 : 1 } ?? 2
+                let rhsPriority = rhsLink.map { amdOSParityProjectIsCurrent($0.projectStatus) ? 0 : 1 } ?? 2
+                if lhsPriority != rhsPriority { return lhsPriority < rhsPriority }
+                return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+            }
+    }
+
+    private func projectLink(for institutionID: String) -> AMDOSParityInstitutionProjectLink? {
+        amdOSParityInstitutionProjectLink(
+            for: institutionID,
+            institutionProjects: store.institutionProjects,
+            projects: store.projects,
+            institutions: store.institutions
+        )
+    }
+
     var body: some View {
-        AMDOSPageScaffold(eyebrow: "INSTITUTIONS", title: "研究機関 — ECR", subtitle: "PWAの8軸ヒートマップと同じ institution_capability_axes / criteria / assessments からECRを再計算") {
+        AMDOSPageScaffold(eyebrow: "INSTITUTIONS", title: "研究機関", subtitle: "AMDとの契約有無に関係なく全件を蓄積し、契約した機関には同じ行へPJ運用情報を重ねる") {
             AMDOSStateNotice(state: store.state) { Task { await store.load() } }
             if !store.institutions.isEmpty {
-                HStack { Text("総合ECR").font(.headline); Spacer(); Text("各機関を選ぶと8軸・サブ軸の詳細へ").font(.caption).foregroundStyle(AMDOSDesign.muted) }
-                ForEach(store.institutions) { institution in
+                HStack(spacing: 12) {
+                    AMDOSMetricTile(label: "研究機関", value: "\(store.institutions.count)件", detail: "契約有無に依存しないカタログ", tint: AMDOSDesign.blue)
+                    AMDOSMetricTile(label: "AMD PJ 稼働中", value: "\(store.institutionProjects.filter { row in amdOSParityProjectIsCurrent(store.projects.first(where: { $0.id == row.projectID })?.status) }.count)件", detail: "研究機関PJ", tint: AMDOSDesign.success)
+                }
+                HStack {
+                    TextField("機関名・略称・地域", text: $query).textFieldStyle(.roundedBorder)
+                    Picker("表示", selection: $viewMode) {
+                        Text("研究機関リスト").tag("catalog")
+                        Text("ECR比較").tag("ecr")
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 320)
+                }
+                Text("\(rows.count) / \(store.institutions.count)件 · PJ稼働中を上位表示")
+                    .font(.caption).foregroundStyle(AMDOSDesign.muted)
+                ForEach(rows) { institution in
                     let ecr = amdOSParityECR(axes: store.axes, criteria: store.criteria, cells: store.cells, institutionID: institution.id)
+                    let projectLink = projectLink(for: institution.id)
                     Button { onSelectInstitution(institution.id) } label: {
                         AMDOSCard {
                             VStack(alignment: .leading, spacing: 10) {
-                                HStack { Text(institution.name).font(.headline); Spacer(); Text(ecr.value.map { "\(Int($0.rounded()))%" } ?? "未評価").font(.title2.bold()).foregroundStyle(ecr.value == nil ? AMDOSDesign.muted : AMDOSDesign.blue) }
+                                if let projectLink {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: amdOSParityProjectIsCurrent(projectLink.projectStatus) ? "briefcase.fill" : "clock.arrow.circlepath")
+                                        Text("AMD PJ \(amdOSParityProjectIsCurrent(projectLink.projectStatus) ? "稼働中" : "履歴") · \(projectLink.projectLabel)")
+                                    }
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(amdOSParityProjectIsCurrent(projectLink.projectStatus) ? Color.white : AMDOSDesign.muted)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(amdOSParityProjectIsCurrent(projectLink.projectStatus) ? AMDOSDesign.blue : AMDOSDesign.muted.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                                } else if ["active", "draft", "prospect"].contains(institution.contractStatus ?? "") {
+                                    AMDOSStatusBadge(text: "PJ紐付け要確認", tint: AMDOSDesign.warning)
+                                }
+                                HStack {
+                                    Text(institution.name).font(.headline)
+                                    if institution.identityStatus == "candidate" { AMDOSStatusBadge(text: "名称未確認", tint: AMDOSDesign.warning) }
+                                    Spacer()
+                                    Text(ecr.value.map { "ECR \(Int($0.rounded()))%" } ?? "ECR 未評価")
+                                        .font(.title3.bold()).foregroundStyle(ecr.value == nil ? AMDOSDesign.muted : AMDOSDesign.blue)
+                                }
                                 Text([institution.shortName, institution.type, institution.region].compactMap { $0 }.joined(separator: " · ")).font(.caption).foregroundStyle(AMDOSDesign.muted)
-                                HStack { ForEach(ecr.axes, id: \.0.id) { axis, score, assessed, total in VStack(alignment: .leading, spacing: 3) { Text("\(axis.axisNo) \(axis.name)").font(.caption2).lineLimit(1); ProgressView(value: score ?? 0).tint(score == nil ? AMDOSDesign.muted : AMDOSDesign.success); Text("\(score.map { Int(($0 * 100).rounded()) } ?? 0)% · \(assessed)/\(total)").font(.caption2).foregroundStyle(AMDOSDesign.muted) }.frame(maxWidth: .infinity, alignment: .leading) } }
+                                if let projectLink, let summary = projectLink.cockpitSummary.trimmedNonEmpty {
+                                    Text(summary).font(.caption).foregroundStyle(AMDOSDesign.muted)
+                                }
+                                if viewMode == "ecr" {
+                                    HStack { ForEach(ecr.axes, id: \.0.id) { axis, score, assessed, total in VStack(alignment: .leading, spacing: 3) { Text("\(axis.axisNo) \(axis.name)").font(.caption2).lineLimit(1); ProgressView(value: score ?? 0).tint(score == nil ? AMDOSDesign.muted : AMDOSDesign.success); Text("\(score.map { Int(($0 * 100).rounded()) } ?? 0)% · \(assessed)/\(total)").font(.caption2).foregroundStyle(AMDOSDesign.muted) }.frame(maxWidth: .infinity, alignment: .leading) } }
+                                } else {
+                                    Text(projectLink?.relationLabel ?? "AMD PJなし · カタログ蓄積中")
+                                        .font(.caption2).foregroundStyle(AMDOSDesign.muted)
+                                }
                             }
                         }
                     }.buttonStyle(.plain)
@@ -1428,7 +1605,14 @@ struct AMDOSParityInstitutionDetailView: View {
             AMDOSStateNotice(state: store.state) { Task { await store.load() } }
             if let institutionID, let institution = store.institutions.first(where: { $0.id == institutionID }) {
                 let ecr = amdOSParityECR(axes: store.axes, criteria: store.criteria, cells: store.cells, institutionID: institutionID)
-                HStack { AMDOSMetricTile(label: "ECR充足率", value: ecr.value.map { "\(Int($0.rounded()))%" } ?? "未評価", detail: "評価済みサブ軸", tint: AMDOSDesign.blue); AMDOSMetricTile(label: "機関", value: institution.name, detail: [institution.type, institution.region].compactMap { $0 }.joined(separator: " · ")) }
+                let projectLink = amdOSParityInstitutionProjectLink(for: institutionID, institutionProjects: store.institutionProjects, projects: store.projects, institutions: store.institutions)
+                HStack {
+                    AMDOSMetricTile(label: "ECR充足率", value: ecr.value.map { "\(Int($0.rounded()))%" } ?? "未評価", detail: "研究機関環境だけの評価", tint: AMDOSDesign.blue)
+                    AMDOSMetricTile(label: "機関", value: institution.name, detail: [institution.type, institution.region].compactMap { $0 }.joined(separator: " · "))
+                    AMDOSMetricTile(label: "AMD PJ", value: projectLink?.projectLabel ?? "なし", detail: projectLink?.relationLabel ?? "カタログ蓄積中", tint: projectLink == nil ? AMDOSDesign.muted : AMDOSDesign.success)
+                }
+                Text("ECRは研究機関環境、SPSは個別シーズ。単一スコアへ合算しない。")
+                    .font(.caption).foregroundStyle(AMDOSDesign.muted)
                 AMDOSSectionCard("軸別サマリ", systemImage: "chart.radar") { ForEach(ecr.axes, id: \.0.id) { axis, score, assessed, total in HStack { Text("\(axis.axisNo)").font(.headline).foregroundStyle(AMDOSDesign.blue); Text(axis.name); Spacer(); Text(score.map { "\(Int(($0 * 100).rounded()))%" } ?? "未評価"); Text("\(assessed)/\(total)").font(.caption).foregroundStyle(AMDOSDesign.muted) } } }
                 ForEach(store.axes.sorted { $0.sortOrder < $1.sortOrder }) { axis in
                     AMDOSSectionCard("\(axis.axisNo) · \(axis.name)", systemImage: "scope") {
@@ -1490,40 +1674,48 @@ struct AMDOSParityInstitutionAssessView: View {
     }
 }
 
-/// PWA `institution-projects.ts` の固定関連PJ。名称の部分一致ではなく、
-/// 研究機関ERSと実PJの対応をこの正本どおりに固定する。
+/// 研究機関カタログへ重ねるAMD契約PJ。対応の正本は `institution_projects`。
 private struct AMDOSParityInstitutionProjectLink: Sendable {
     let institutionID: String
     let projectID: String
     let projectLabel: String
+    let projectStatus: String
     let relationLabel: String
     let cockpitTitle: String
     let cockpitSummary: String
 }
 
-private func amdOSParityInstitutionProjectLink(for institutionID: String?) -> AMDOSParityInstitutionProjectLink? {
-    switch institutionID {
-    case "inst_kute":
-        return AMDOSParityInstitutionProjectLink(
-            institutionID: "inst_kute",
-            projectID: "p25",
-            projectLabel: "KUTE",
-            relationLabel: "研究機関エコシステム構築PJ",
-            cockpitTitle: "KUTE 研究機関コックピット",
-            cockpitSummary: "KUTEの箱は研究機関ERSとして残し、進捗・月次・MTG履歴は既存のKUTE PJコックピットを関連PJとして扱う。"
-        )
-    case "inst_nims":
-        return AMDOSParityInstitutionProjectLink(
-            institutionID: "inst_nims",
-            projectID: "p28",
-            projectLabel: "NIMS",
-            relationLabel: "NIMS OS導入PJ",
-            cockpitTitle: "NIMS 研究機関コックピット",
-            cockpitSummary: "NIMSの箱は研究機関ERSとして残し、進捗・月次・MTG履歴は正式なNIMS OS導入PJコックピットを関連PJとして扱う。CXは初期ユースケースとして分けて見る。"
-        )
-    default:
-        return nil
-    }
+private func amdOSParityProjectIsCurrent(_ status: String?) -> Bool {
+    ["active", "sales", "draft"].contains((status ?? "").lowercased())
+}
+
+private func amdOSParityInstitutionProjectLink(
+    for institutionID: String?,
+    institutionProjects: [AMDOSParityInstitutionProject],
+    projects: [AMDOSParityProjectRef],
+    institutions: [AMDOSParityInstitution]
+) -> AMDOSParityInstitutionProjectLink? {
+    guard let institutionID else { return nil }
+    let rows = institutionProjects.filter { $0.institutionID == institutionID }
+    guard let row = rows.sorted(by: { lhs, rhs in
+        let lhsCurrent = amdOSParityProjectIsCurrent(projects.first(where: { $0.id == lhs.projectID })?.status)
+        let rhsCurrent = amdOSParityProjectIsCurrent(projects.first(where: { $0.id == rhs.projectID })?.status)
+        if lhsCurrent != rhsCurrent { return lhsCurrent && !rhsCurrent }
+        return lhs.projectID > rhs.projectID
+    }).first else { return nil }
+    let project = projects.first(where: { $0.id == row.projectID })
+    let institutionName = institutions.first(where: { $0.id == institutionID })?.name ?? institutionID
+    let scopeLabel = row.engagementScope == "university_wide" ? "全学エコシステム構築PJ" : "研究機関PJ"
+    return AMDOSParityInstitutionProjectLink(
+        institutionID: institutionID,
+        projectID: row.projectID,
+        projectLabel: project?.name ?? row.projectID,
+        projectStatus: project?.status ?? "状態不明",
+        relationLabel: scopeLabel,
+        cockpitTitle: "\(institutionName) 研究機関コックピット",
+        cockpitSummary: row.ecosystemGoal?.trimmedNonEmpty
+            ?? "研究機関カタログとECRはこの画面に残し、契約・進捗・月次・MTG・タスクは関連PJの運用情報として重ねて表示する。"
+    )
 }
 
 private struct AMDOSParityInstitutionCockpitMeeting: Codable, Identifiable, Sendable {
@@ -1579,7 +1771,12 @@ struct AMDOSParityInstitutionCockpitView: View {
     @State private var activeTab = "progress"
 
     private var projectLink: AMDOSParityInstitutionProjectLink? {
-        amdOSParityInstitutionProjectLink(for: institutionID)
+        amdOSParityInstitutionProjectLink(
+            for: institutionID,
+            institutionProjects: store.institutionProjects,
+            projects: store.projects,
+            institutions: store.institutions
+        )
     }
 
     private var meetingMonths: [AMDOSParityInstitutionMeetingMonth] {
@@ -1595,10 +1792,10 @@ struct AMDOSParityInstitutionCockpitView: View {
         AMDOSPageScaffold(
             eyebrow: "INSTITUTION COCKPIT",
             title: projectLink?.cockpitTitle ?? "研究機関コックピット",
-            subtitle: "研究機関ERSと、PWAで固定された関連PJの進捗・月次・MTG履歴を同じ画面で確認"
+            subtitle: "研究機関カタログとECRへ、institution_projects正本の契約・進捗・月次・MTG履歴を重ねて確認"
         ) {
+            AMDOSStateNotice(state: store.state) { Task { await reload() } }
             if let projectLink {
-                AMDOSStateNotice(state: store.state) { Task { await reload() } }
                 if let institution = store.institutions.first(where: { $0.id == projectLink.institutionID }) {
                     cockpitHeader(institution: institution, link: projectLink)
                     readinessSummary(institutionID: institution.id)
@@ -1618,9 +1815,9 @@ struct AMDOSParityInstitutionCockpitView: View {
                         Text("研究機関ERSのデータを取得できなかったよ。").foregroundStyle(AMDOSDesign.muted)
                     }
                 }
-            } else {
+            } else if store.state == .loaded || store.state == .empty {
                 AMDOSSectionCard("関連PJ", systemImage: "exclamationmark.triangle") {
-                    Text("この研究機関には、まだ関連PJコックピットが設定されていません。")
+                    Text("この研究機関には、まだAMDとの研究機関PJがありません。研究機関カタログとECRは契約なしでも蓄積するよ。")
                         .foregroundStyle(AMDOSDesign.muted)
                 }
             }
@@ -1658,7 +1855,7 @@ struct AMDOSParityInstitutionCockpitView: View {
                         detail: "評価済 \(ecr.axes.reduce(0) { $0 + $1.2 })/\(store.criteria.count)",
                         tint: AMDOSDesign.blue
                     )
-                    AMDOSMetricTile(label: "関連PJ", value: link.projectLabel, detail: link.relationLabel, tint: AMDOSDesign.success)
+                    AMDOSMetricTile(label: "関連PJ", value: link.projectLabel, detail: "\(link.relationLabel) · \(link.projectStatus)", tint: AMDOSDesign.success)
                     AMDOSMetricTile(label: "MTG履歴", value: "\(meetings.count)件", detail: meetings.first?.title ?? "履歴なし")
                 }
             }
@@ -1803,7 +2000,7 @@ struct AMDOSParityInstitutionCockpitView: View {
 
     private func reload() async {
         await store.load()
-        await loadMeetings()
+        if projectLink != nil { await loadMeetings() }
     }
 
     private func loadMeetings() async {

@@ -82,6 +82,19 @@ export function KuteSeedDetailModal({
           </header>
 
           <div className="min-h-0 overflow-y-auto bg-white px-5 py-5">
+            {(seed.project_links ?? []).length > 0 && (
+              <section className="mb-4 border-l-4 border-indigo-600 bg-indigo-50 px-3 py-2.5">
+                <h3 className="text-[10px] font-bold text-indigo-800">AMD シーズ事業化PJ</h3>
+                <div className="mt-1 space-y-1">
+                  {seed.project_links.map((project) => (
+                    <p key={project.project_id} className="text-sm font-semibold text-slate-950">
+                      {project.project_name}
+                      <span className="ml-2 text-[10px] font-normal text-slate-500">{project.project_status}</span>
+                    </p>
+                  ))}
+                </div>
+              </section>
+            )}
             {seed.summary && (
               <p className="mb-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-relaxed text-slate-700">
                 {seed.summary}

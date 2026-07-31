@@ -104,7 +104,7 @@ pwa/
 
 | パス | 機能 |
 |---|---|
-| `/dashboard` | トップ。PJ 一覧 + 先手TODOバッジ + Atlas/Venture Map/MyPage/Admin への入口。上部のバイタルサイン枠はクリックで AMD 全体 cockpit (`/project/p00/cockpit`) へ遷移し、右上の詳細リンクだけ `/management-score` へ遷移する。基本表示順は左/mainカラム内で PJ 一覧 → 研究機関ECRリスト、下段全幅で Company Content shelf。PJ一覧は通常PJだけを表示し、AMD 全体PJ (`p00`) はバイタルサイン枠を入口にして通常PJ一覧には表示しない。`projects.project_category='ecosystem'` または `p25` / `p28` / KUTE・NIMS名に該当する研究機関エコシステム構築PJは研究機関ECRリスト側へ寄せる。研究機関ECRリストはPJリストの続きとして、PJ名を主タイトルに寄せて KUTE / KGW / NIMS を title、工学院大学 / 香川大学 / 物質・材料研究機構を subtitle にする。KUTEカードは `/institutions/inst_kute/cockpit`、NIMSカードは `/institutions/inst_nims/cockpit` へ遷移する。Company Content shelf はメンバー / 沿革 / メディア掲載 / photo を preview する。右カラムの MyPage embed は「今週やったこと」までに留め、月別PJカードは `/mypage` 単体にだけ残す |
+| `/dashboard` | トップ。PJ 一覧 + 先手TODOバッジ + Atlas/Venture Map/MyPage/Admin への入口。上部のバイタルサイン枠はクリックで AMD 全体 cockpit (`/project/p00/cockpit`) へ遷移し、右上の詳細リンクだけ `/management-score` へ遷移する。基本表示順は左/mainカラム内で通常PJ一覧 → 研究機関リスト、下段全幅で Company Content shelf。AMD全体PJ (`p00`) と `institution_projects` に登録された研究機関PJは通常PJ一覧へ二重表示せず、研究機関カタログの同じ機関行へPJ運用レイヤーとして重ねる。対応は名称や固定IDでなくDB関係から解決する。Company Content shelf はメンバー / 沿革 / メディア掲載 / photo を preview する。右カラムの MyPage embed は「今週やったこと」までに留め、月別PJカードは `/mypage` 単体にだけ残す |
 | `/my-projects` | `os_access_scope='project'` で複数PJへ参加するユーザーの入口。activeな `project_members` のPJだけを表示する |
 | `/project/[projectId]/workspace` | PJ共有ダッシュボード。研究→応用→開発→SU→調整の週次エフォート、メンバー配分、MS、抽出済み活動件数を表示する。raw本文・email・報酬・契約・内部戦略は返さない。PJ限定ユーザーは本人分だけ、portfolio/adminはactive member分を入力できる |
 | `/project/[projectId]/weekly-control` | `/workspace`を置換しない別URLの週次管制。先週差分→今週の判断→介入の3段レール、4本柱の例外行、論点/仮説の要整理→検証中→判断待ち→決定/棄却を表示する。担当・次期限・子要素を含む最終更新から放置警報を導出。抽出未接続は0件と断定せず`抽出接続待ち` |
@@ -114,7 +114,8 @@ pwa/
 | `/dashboard-cyber-hud-wall` | Cyber Dashboard 第2案の作り直し。固定視点の `three.js` 空間に、参考HUD画像のようなKPI/PJ/Proof/Alert HUDモジュールを固定配置し、PJ選択時は同一空間内にPJ Cockpit Spatial Viewを展開する。公開モックは `/mock/dashboard-cyber-hud-wall` |
 | `/mypage` | 自分の参加 PJ × 今月の活動 + 今週やったこと + 月次報酬予定。PM向け月次TODO/nudgeは出さない。りり (`ID006`) は NIMS からの無償出向のため、報酬額は金額ではなく `ー` 表示 |
 | `/project/[projectId]/cockpit` | PJ コックピット (上 Header + Hero (AMD Score + XRL 横並び) + `進捗管理` / `スコア詳細` + MS / 資料 + 経営ハイライト + ガバナンス + 助成金 + 下段 月次 + MTGサマリ)。`?tab=score-detail` で SPS / R_net / FRL / XRL evidence と XRL チェックリストを直接開く。Header はPJリスト正本からPJメンバー、契約条件、業務委託料、支払い条件、提出物、立替精算の発生額/不可を表示する。資料は Drive の当該PJ folder配下 `AMD OS 資料` folder に保存し、OSには `project_documents` のmetadata/linkだけを残す。旧 `proactive_outbox` 由来のTODO欄は表示しない。`max-w-[1600px]` で画面幅を広く使う。詳細は [`cockpit.md`](cockpit.md) / [`project_strategy_signals.md`](project_strategy_signals.md) |
-| `/institutions/[institutionId]/cockpit` | 研究機関カードから開く機関コックピット。KUTE (`inst_kute`) は既存KUTE PJ (`p25`)、NIMS (`inst_nims`) は正式NIMS OS導入PJ (`p28`) の `CockpitView` を同画面へマウントし、MS進捗・月次・MTG履歴を操作/確認する。CX (`p20`) はNIMS導入の初期ユースケースであり、NIMS PJそのものとは分けて扱う。既存PJコックピットの内容も研究機関ECR側の評価内容も削除しない。上部にECR概要と readiness snapshot を置き、進捗管理とスコア詳細をタブで分ける |
+| `/institutions` | AMDとの契約有無に依存しない研究機関カタログ。稼働中の研究機関PJ→PJ履歴→PJなしの順で表示し、PJなしも削らない。ECR比較は別表示として維持。契約中なのに`institution_projects`関係が無い機関は「PJ紐付け要確認」、推定名称は「名称未確認」と表示する |
+| `/institutions/[institutionId]/cockpit` | 研究機関カードから開く機関コックピット。`institution_projects` から関連PJを解決し、KUTE `p25`、NIMS `p28`、愛媛大学全体 `p30` を同じ経路で `CockpitView` へマウントする。CX `p20` とp26は未確認のため自動分類しない。既存PJコックピットと研究機関ECRを削除せず、上部にECR概要とreadiness、進捗管理・スコア詳細・土壌×シーズを分ける。ECRとSPSは合算しない |
 | `/project/[projectId]/config` | 旧PJ設定。コックピットからは導線を外し、PJごとの契約・請求・支払条件は `/admin/projects` を正本にする |
 | `/manual` `/manual/[slug]` | AMD OS マニュアル。`pwa/manual/*.md` を正本として表示し、左カラムで章タイトル / summary / 見出し / 本文 / 画面パス / テーブル名を全文検索できる。`/manual` と各章だけに Gemini 実験版の `ManualTsukuyomiFloat` を出し、`POST /api/manual/tsukuyomi/ask` が該当章のマニュアル本文を根拠に回答する。DB 書き込みや既存つくよみ修正 tool は持たない |
 | `/bzm/map` | BZM 2.0 理論マップ (論証台帳)。DB正本のノードと9 relationを力学マップ + 一覧 + 選択台帳で表示し、admin は「理論を書く」「根拠を足す / 異論を足す / 論点を残す」からノード追加・接続・編集・接続解除を行う。member は閲覧のみ。Markdown 21ノード / 34関係は初期スナップショット兼DB障害時の読み取り専用 fallback。「真理マップ」ではなく、ノード数・接続数は真偽・確信度を表さない。詳細は [`/spec/2-6-bzm-theory-map-current-spec`](/spec/2-6-bzm-theory-map-current-spec) |
@@ -319,7 +320,7 @@ pwa/
 
 | テーブル | 役割 |
 |---|---|
-| `seeds` | 研究シーズマスタ。機関 + PI + シーズ情報を 1 行に統合。`status` 候補→調査中→接触済→協議中→PJ化/見送り、`amd_rating` (★1-5)、`spun_off_project_id` で PJ 紐付け |
+| `seeds` / `seed_projects` | 個別シーズの正本カタログとAMD契約レイヤー。`seeds.status` は候補→調査中→接触済→協議中→スピンアウト済み/見送りで、AMD PJとは別軸。AMDとの個別シーズPJは共通親`projects` + 子`seed_projects`を正本にし、旧`spun_off_project_id`は互換列だけに残す |
 | `seed_funding` | 補助金履歴 (NEDO/AMED/JST GAP 等の採択) |
 | `seed_news` | 関連ニュース・論文・プレス (Atlas とは独立系統) |
 | `seed_contact_log` | AMD メンバー × シーズ の接触履歴 |

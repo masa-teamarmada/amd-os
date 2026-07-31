@@ -13,7 +13,7 @@ import {
   type ErsResult,
 } from "@/lib/ers";
 import { fetchErsBundle, type ErsBundle } from "@/lib/ers-data";
-import { getInstitutionProjectLink, type InstitutionProjectLink } from "@/lib/institution-projects";
+import { selectPrimaryInstitutionProject, type InstitutionProjectLink } from "@/lib/institution-projects";
 import {
   fetchCockpitFromSupabase,
   fetchProjectMeetingSummaries,
@@ -28,7 +28,7 @@ type InstitutionCockpitTab = "progress" | "score-detail" | "soil-seeds";
 export default function InstitutionCockpitPage() {
   const params = useParams<{ institutionId: string }>();
   const institutionId = params.institutionId;
-  const projectLink = getInstitutionProjectLink(institutionId);
+  const [projectLink, setProjectLink] = useState<InstitutionProjectLink | null>(null);
   const [bundle, setBundle] = useState<ErsBundle | null>(null);
   const [cockpit, setCockpit] = useState<CockpitData | null>(null);
   const [meetings, setMeetings] = useState<ProjectMeetingSummary[]>([]);
@@ -39,21 +39,28 @@ export default function InstitutionCockpitPage() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      if (!projectLink) {
-        setState("error");
-        setError("この研究機関には、まだ関連PJコックピットが設定されていません。");
-        return;
-      }
       setState("loading");
       setError(null);
       try {
-        const [nextBundle, nextCockpit, nextMeetings] = await Promise.all([
-          fetchErsBundle(),
-          fetchCockpitFromSupabase(projectLink.projectId),
-          fetchProjectMeetingSummaries(projectLink.projectId, { limit: 80 }),
+        const nextBundle = await fetchErsBundle();
+        const nextProjectLink = selectPrimaryInstitutionProject(
+          nextBundle.institutionProjectsByInstitution[institutionId],
+        );
+        if (!nextProjectLink) {
+          if (cancelled) return;
+          setBundle(nextBundle);
+          setProjectLink(null);
+          setError("この研究機関には、まだ関連PJコックピットが設定されていません。");
+          setState("error");
+          return;
+        }
+        const [nextCockpit, nextMeetings] = await Promise.all([
+          fetchCockpitFromSupabase(nextProjectLink.projectId),
+          fetchProjectMeetingSummaries(nextProjectLink.projectId, { limit: 80 }),
         ]);
         if (cancelled) return;
         setBundle(nextBundle);
+        setProjectLink(nextProjectLink);
         setCockpit(nextCockpit);
         setMeetings(nextMeetings);
         setState("ready");
@@ -67,7 +74,7 @@ export default function InstitutionCockpitPage() {
     return () => {
       cancelled = true;
     };
-  }, [projectLink]);
+  }, [institutionId]);
 
   const institution = useMemo(
     () => bundle?.institutions.find((item) => item.institutionId === institutionId) ?? null,
@@ -82,19 +89,19 @@ export default function InstitutionCockpitPage() {
     [bundle, institution, assessments],
   );
 
-  if (!projectLink) {
-    return <InstitutionCockpitError message="この研究機関には、まだ関連PJコックピットが設定されていません。" />;
-  }
-
   if (state === "loading") {
     return (
       <div className="flex items-center justify-center h-[60vh]">
         <div className="space-y-2 text-center">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm text-muted-foreground">{projectLink.cockpitTitle}を読み込み中...</p>
+          <p className="text-sm text-muted-foreground">研究機関コックピットを読み込み中...</p>
         </div>
       </div>
     );
+  }
+
+  if (!projectLink) {
+    return <InstitutionCockpitError message={error || "この研究機関には、まだ関連PJコックピットが設定されていません。"} />;
   }
 
   if (state === "error" || !cockpit || !bundle || !institution || !ersResult) {

@@ -26,10 +26,10 @@
 | L2 / knowledge | `source_cache`, `protocols`, `project_knowledge`, `member_knowledge`, `project_meeting_summaries`, `project_registry_diffs`, `project_xrl_evidence`, `project_strategy_signals`, `l2_notifications`, `l2_feedbacks` |
 | management guardrails | `guardrail_tag_definitions`, `guardrail_cards`, `guardrail_matches`, `guardrail_feedbacks` |
 | decision | `amd_score_inputs`, `amd_score_alpha`, `amd_score_revisions`, `project_xrl_log`, `project_founding_members`, `project_graduation_signals` |
-| ECR | `institutions`, `institution_capability_axes`, `institution_capability_criteria`, `institution_assessments` |
+| research institutions | `institutions`, `institution_projects`, `institution_capability_axes`, `institution_capability_criteria`, `institution_assessments` |
 | BZM theory | `bzm_theory_nodes`, `bzm_theory_edges` |
 | Atlas | `atlas_signals`, `atlas_stories`, `atlas_story_merges`, `atlas_themes`, `atlas_story_themes`, `atlas_divergences` |
-| Seeds / VC / Scholar | `seeds`, `seed_funding`, `seed_news`, `seed_contact_log`, `vcs`, `vc_funds`, `vc_investments`, `vc_contacts`, `vc_news`, `papers_log` |
+| Seeds / VC / Scholar | `seeds`, `seed_projects`, `seed_sps_assessments`, `seed_funding`, `seed_news`, `seed_contact_log`, `vcs`, `vc_funds`, `vc_investments`, `vc_contacts`, `vc_news`, `papers_log` |
 | Management Score / finance | `amd_management_score_*`, `company_*`, `freee_oauth_tokens` |
 
 ## Status Conventions
@@ -42,6 +42,15 @@
 | `archived` | 表示や active 判定から外す履歴 |
 
 `l2_feedbacks` と `tsukuyomi_learnings` は、候補採否や修正依頼を次回抽出へ戻す feedback loop の正本。
+
+## 研究機関・シーズ・AMD PJ
+
+- `institutions` と `seeds` は、AMDとの契約有無に依存せず増やす別々のカタログ。
+- 契約後の共通運用情報は `projects`、研究機関固有情報は `institution_projects`、個別シーズ事業化固有情報は `seed_projects` に置く。
+- 同じ `project_id` を両子テーブルへ入れることは `guard_project_domain_exclusivity()` が拒否する。
+- ECRは `institution_assessments`、SPSは `seed_sps_assessments` の別系列で、合算・相互上書き・PJ化に伴う再計算を行わない。
+- migration `207_institution_seed_project_domains.sql` が46研究機関、大学・国研シーズ141件のFK、p25/p28/p30の研究機関PJ、p21のシーズPJを移行する。p30は愛媛大学全体のエコシステム構築PJ。p20/p26は未確認なので分類しない。
+- `seeds.spun_off_project_id` は旧互換。現行のAMD PJ関係は `seed_projects` を読む。
 
 ## BZM 理論グラフ
 

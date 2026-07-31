@@ -8,7 +8,6 @@ import {
   updateSeed,
   deleteSeed,
   insertSeedFunding,
-  updateSeedFunding,
   deleteSeedFunding,
   insertSeedNews,
   deleteSeedNews,
@@ -249,11 +248,11 @@ export function SeedDetailModal({
                     <span className={`px-1.5 py-0.5 rounded text-[10px] ${SEED_STATUS_COLOR[data.seed.status] ?? ""}`}>
                       {SEED_STATUS_LABEL[data.seed.status] ?? data.seed.status}
                     </span>
-                    {data.seed.spun_off_project_id && (
-                      <span className="text-[10px] text-violet-600 dark:text-violet-300">
-                        → {data.spun_off_project_name ?? data.seed.spun_off_project_id}
+                    {data.project_links.map((project) => (
+                      <span key={project.project_id} className="text-[10px] text-violet-600 dark:text-violet-300">
+                        AMD PJ: {project.project_name} ({project.project_status})
                       </span>
-                    )}
+                    ))}
                     <RatingDots r={data.seed.amd_rating} />
                     {data.amd_owner_code_name && (
                       <span className="text-muted-foreground">担当: {data.amd_owner_code_name}</span>
@@ -423,7 +422,12 @@ function SeedReadView({
       </Section>
 
       <Section title="関連 / ソース">
-        <KV label="PJ化 (spun off)">
+        <KV label="AMD シーズ事業化PJ">
+          {data.project_links.length > 0
+            ? data.project_links.map((project) => `${project.project_name} (${project.project_status})`).join(" / ")
+            : "—"}
+        </KV>
+        <KV label="旧スピンアウト参照">
           {s.spun_off_project_id ? (data.spun_off_project_name ?? s.spun_off_project_id) : "—"}
         </KV>
         <KV label="発見経路">
@@ -674,11 +678,11 @@ function SeedEditForm({
       {/* 関連 / ソース */}
       <div className="space-y-2">
         <h3 className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">関連 / ソース</h3>
-        <Field label="PJ化 (spun off)">
+        <Field label="旧スピンアウト参照 (移行互換・編集不可)">
           <select
-            className="w-full px-2 py-1.5 rounded border border-border bg-background text-xs"
+            className="w-full px-2 py-1.5 rounded border border-border bg-muted text-xs text-muted-foreground"
             value={draft.spun_off_project_id ?? ""}
-            onChange={(e) => update("spun_off_project_id", e.target.value || null)}
+            disabled
           >
             <option value="">—</option>
             {projects.map((p) => (
