@@ -2156,3 +2156,38 @@ Book A執筆規範 (japanese-tech-writing + cognitive-rhythm-writing) をSESSION
 ### 教訓
 
 - 比率棒の色は「増やす」だけでは識別性にならない。隣接色の明度・色相差、棒の区切り、凡例swatchの輪郭をセットで確認し、実画面で判別できることを完了条件にする。
+
+---
+
+## 2026-07-31 — 月次報告書を紙面上で確認・編集し、そのままPDF保存（v3.52.8）
+
+### 判断と導線
+
+- 月次報告書をPDFで確認したあと、月次モーダルへ戻って別の編集面を開き、該当箇所を探し直す導線は採用しない。社内版・提出版とも、印刷プレビューを確認と編集の共通作業面にした。
+- 月次モーダルの入口は `社内版を確認・編集` と `提出版を確認・編集`。提出版も月次報告書の本文なので、`本文を編集` と `提出版を編集` のような概念の粒度が違う命名は使わない。
+- print pageの `編集する` で、表示中の見出し・段落・表をblock単位で編集する。保存後も同じ紙面からPDF保存するため、視認した位置と修正する位置がずれない。
+
+### 保存境界
+
+- 社内版は通常保存でdraftだけを更新する。確定版を変更するのは、`確定版に反映` の明示操作と確認後だけ。`/api/report/fix` も既存の`final_content`がある場合、forceなしの上書きを拒否する。
+- 提出版は `monthly_reports_external.body_md` を保存する。提出版固有の保存先・既存validatorは保ちつつ、編集入口は社内版と同じ紙面に統一した。
+- PDF用の紙面スタイルでは左メニューを印刷対象から外した。編集画面の操作UIは紙面には混ぜない。
+
+### 仕様同期 / 検証
+
+- 仕様正本を `pwa/spec/3-2-monthly-reports-current-spec.md`、利用者向け運用を `pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md`、横断機能一覧を `pwa/design/FEATURE_REGISTRY.md`、変更履歴をspec/manual appendixへ同期した。旧full Markdown modalの `SubmissionReportEditor.tsx` は削除した。
+- `npm run test:monthly-report-quality`、`npm run test:critical-ui`、`npm exec -- tsc --noEmit`、`npm run build`、`npm run test:deploy-version-guard` が成功。対象lintは成功し、`CockpitMonthlyModal.tsx` のunused warning 2件は既存・今回非blocking。
+- production `/api/build-info` で `v3.52.8` / `bfc12a1efc764e102cc1589678507ab437c43ac9` / `main` / `dirty=false` を確認。ログイン済み実データでの操作・PDF目視は認証条件のため次回確認とする。
+
+### 設計変更棚卸し
+
+| # | 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|---|
+| 1 | 社内版・提出版とも印刷プレビューから確認・編集する | `pwa/spec/3-2-monthly-reports-current-spec.md` / `pwa/design/FEATURE_REGISTRY.md` | `pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md` | ✅ |
+| 2 | 紙面の表示位置からblock単位で編集し、同じ面からPDF保存する | `pwa/spec/3-2-monthly-reports-current-spec.md` | `pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md` | ✅ |
+| 3 | 社内版はdraft保存と確定版反映を分離し、forceなしの確定版上書きを拒否する | `pwa/spec/3-2-monthly-reports-current-spec.md` | `pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md` | ✅ |
+| 4 | 提出版本文は外部保存先を保ちながら、社内版と同じ確認・編集導線にする | `pwa/spec/3-2-monthly-reports-current-spec.md` / `pwa/design/FEATURE_REGISTRY.md` | `pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md` | ✅ |
+| 5 | 印刷PDFに左メニューや編集操作を含めない | `pwa/spec/3-2-monthly-reports-current-spec.md` | `pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md` | ✅ |
+| 6 | 紙面レビューと編集を分離した事故の再発防止 | `pwa/BUGS.md` | 対象外: バグ履歴。現行挙動は上記manualへ同期済み | ✅ |
+
+✅ 恒久仕様はspec/design/manual、実装・検証・本番履歴はこのdevelopment logへ分離した。
