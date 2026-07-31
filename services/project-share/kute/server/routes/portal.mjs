@@ -378,6 +378,10 @@ export function renderPortalHtml() {
     .brand-title { font-size: 11px; }
     button.logout { padding: 8px 10px; font-size: 11.5px; }
     main { padding: 14px; }
+    .toolbar { gap: 8px; }
+    .search-wrap { flex: 0 1 calc(100% - 104px); min-width: 0; }
+    .create-folder-btn, .add-link-btn { flex: 0 0 44px; }
+    .upload-btn { flex: 1 0 100%; }
     #mobile-sort { display: block; }
     table thead { display: none; }
     table, tbody, tr, td { display: block; width: 100%; }
