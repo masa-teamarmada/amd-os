@@ -21,8 +21,13 @@
  * 連続文書として組版する。社内版の表紙・要約・工程表・添付資料は重ねない。
  *
  * Team ARMADA ブランド (Work Sans / Noto Sans JP / JetBrains Mono / dark #0a1628)。
- * 社内版は @page A4 / margin 14mm。提出版はブラウザ既定ヘッダーを防ぐため
- * @page margin 0 とし、本文側へ14mmの紙面余白を持たせる。
+ * @page は名前付き規則を使わず、既定の @page 1本を isSubmission で丸ごと
+ * 差し替える (社内版 = A4 / margin 14mm・フッター・ページ番号あり。
+ * 提出版 = 上部margin 13mmのみ・フッターとページ番号なし。本文側へ14mmの
+ * 紙面余白を持たせる)。CSS の named-page 機能 (@page 識別子 + page プロパティ)
+ * を本文要素にだけ適用すると、本文の外側 (print-root 等) は社内版の既定
+ * @page のままになり、末尾に社内版ヘッダー・フッターだけの余分なページが
+ * 出る事故があったため、この機能は使わない。
  * PDF 化はブラウザの Cmd+P → 「PDFとして保存」。
  */
 
@@ -1315,17 +1320,9 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
     }
   }, [data.project.projectId, data.ym]);
 
-  return (
-    <>
-      <style jsx global>{`
+  const pageRule = data.isSubmission
+    ? `
         @page {
-          size: A4 portrait; margin: 14mm 14mm 18mm 14mm;
-          @top-left { content: "${headerLabel}"; font-family: 'Noto Sans JP', sans-serif; font-size: 8pt; color: #475569; }
-          @top-right { content: "取扱注意 / Confidential"; font-family: 'Work Sans', sans-serif; font-size: 8pt; color: #b91c1c; letter-spacing: 0.1em; }
-          @bottom-left { content: "© 2026 Team ARMADA Inc."; font-family: 'Work Sans', sans-serif; font-size: 8pt; color: #64748b; }
-          @bottom-center { content: counter(page) " / " counter(pages); font-family: 'JetBrains Mono', monospace; font-size: 8pt; color: #64748b; }
-        }
-        @page submission {
           size: A4 portrait; margin: 13mm 0 0 0;
           @top-left {
             content: "${headerLabel}"; padding-left: 14mm; text-align: left;
@@ -1341,6 +1338,21 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
           @bottom-center { content: none; }
           @bottom-right { content: none; }
         }
+      `
+    : `
+        @page {
+          size: A4 portrait; margin: 14mm 14mm 18mm 14mm;
+          @top-left { content: "${headerLabel}"; font-family: 'Noto Sans JP', sans-serif; font-size: 8pt; color: #475569; }
+          @top-right { content: "取扱注意 / Confidential"; font-family: 'Work Sans', sans-serif; font-size: 8pt; color: #b91c1c; letter-spacing: 0.1em; }
+          @bottom-left { content: "© 2026 Team ARMADA Inc."; font-family: 'Work Sans', sans-serif; font-size: 8pt; color: #64748b; }
+          @bottom-center { content: counter(page) " / " counter(pages); font-family: 'JetBrains Mono', monospace; font-size: 8pt; color: #64748b; }
+        }
+      `;
+
+  return (
+    <>
+      <style jsx global>{`
+        ${pageRule}
         @media print {
           .no-print { display: none !important; }
           .print-root { background: white !important; }
@@ -1351,7 +1363,7 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
           font-family: 'Noto Sans JP', system-ui, sans-serif;
           color: #0f172a; background: #f1f5f9; min-height: 100vh;
         }
-        .submission-flow { page: submission; min-height: auto; }
+        .submission-flow { min-height: auto; }
         .toolbar {
           position: sticky; top: 0; z-index: 10;
           background: #0a1628; color: #f1f5f9;
@@ -1399,7 +1411,6 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
           font-size: 10.5pt; line-height: 1.7;
         }
         .submission-sheet {
-          page: submission;
           width: 210mm; min-height: 297mm; margin: 16px auto;
           padding: 14mm; background: white;
           box-shadow: 0 4px 24px rgba(0,0,0,0.08);
@@ -1428,7 +1439,7 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
             box-shadow: none; page-break-after: auto; break-after: auto;
             -webkit-box-decoration-break: clone; box-decoration-break: clone;
           }
-          .print-root.submission-flow { min-height: 0 !important; page: submission; }
+          .print-root.submission-flow { min-height: 0 !important; }
           .submission-screen-header { display: none !important; }
         }
         @media screen and (max-width: 760px) {
