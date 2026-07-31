@@ -71,7 +71,7 @@ test(
 );
 
 test(
-  "POST / with the correct password sets a session cookie and returns the portal",
+  "POST / with the correct password sets a session cookie and redirects to the portal",
   withEnv(async () => {
     const req = makeReq({
       method: "POST",
@@ -85,14 +85,14 @@ test(
     });
     const res = makeRes();
     await handler(req, res);
-    assert.equal(res.statusCode, 200);
+    assert.equal(res.statusCode, 303);
+    assert.equal(res.headers.Location, "/");
     assert.match(res.headers["Set-Cookie"], /cx_auth=/);
-    assert.match(res.body, /file-rows/);
   })
 );
 
 test(
-  "POST / from a cross-origin request with the correct password sets a session cookie",
+  "POST / from a cross-origin request with the correct password sets a session cookie and redirects",
   withEnv(async () => {
     const req = makeReq({
       method: "POST",
@@ -105,9 +105,9 @@ test(
     });
     const res = makeRes();
     await handler(req, res);
-    assert.equal(res.statusCode, 200);
+    assert.equal(res.statusCode, 303);
+    assert.equal(res.headers.Location, "/");
     assert.match(res.headers["Set-Cookie"], /cx_auth=/);
-    assert.match(res.body, /file-rows/);
   })
 );
 

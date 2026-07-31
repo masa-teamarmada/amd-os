@@ -144,7 +144,8 @@ export async function handleLoginRoute(req, res, { password, secret, isAuthed })
       return;
     }
     res.setHeader("Set-Cookie", buildSessionCookie(secret));
-    sendHtml(res, 200, renderPortalHtml());
+    res.setHeader("Location", "/");
+    res.status(303).send("");
     return;
   }
 

@@ -368,7 +368,7 @@ test("drag-and-drop: dropped files are routed through the existing uploadFiles p
   assert.doesNotMatch(body, /fetch\(/);
 });
 
-test("internal move drag: the drag source is an explicit handle inside the name cell, not the <tr> itself", () => {
+test("internal move drag: the whole file row is a pointer-event drag source", () => {
   const html = renderPortalHtml();
   const script = extractModuleScript(html);
   // Native HTML5 draggable dragging was replaced by pointer-event handling, since the
@@ -386,13 +386,11 @@ test("internal move drag: the drag source is an explicit handle inside the name 
   const styleStart = html.indexOf("<style>");
   const styleEnd = html.indexOf("</style>");
   const styleBlock = html.slice(styleStart, styleEnd);
-  // Text selection and scroll gestures must not hijack the drag surface.
-  assert.match(styleBlock, /\.name-content\.drag-handle\s*\{[^}]*user-select:\s*none/);
-  assert.match(styleBlock, /-webkit-user-select:\s*none/);
-  assert.match(styleBlock, /\.name-content\.drag-handle\s*\{[^}]*touch-action:\s*none/);
+  assert.match(styleBlock, /tbody tr\[data-row-type="file"\]\s*\{[^}]*cursor:\s*grab/);
+  assert.match(styleBlock, /tbody tr\.dragging-row\s*\{[^}]*cursor:\s*grabbing/);
 });
 
-test("internal move drag: drag handle carries a visible (hover/focus-revealed) grip hint, not a dedicated button", () => {
+test("internal move drag: rows carry a visible (hover/focus-revealed) grip hint, not a dedicated button", () => {
   const html = renderPortalHtml();
   const script = extractModuleScript(html);
   assert.match(script, /function dragGripSvg\(\)/);
@@ -408,16 +406,16 @@ test("internal move drag: drag handle carries a visible (hover/focus-revealed) g
   assert.match(styleBlock, /tbody tr\[data-row-type="file"\]:hover \.drag-grip,/);
 });
 
-test("internal move drag: pointerdown on the handle (or a nested child, e.g. the grip icon) arms the drag without starting it yet", () => {
+test("internal move drag: pointerdown anywhere on a file row arms the drag without starting it yet", () => {
   const html = renderPortalHtml();
   const script = extractModuleScript(html);
   const pointerdownMatch = /rowsEl\.addEventListener\("pointerdown", \(event\) => \{[\s\S]*?\n    \}\);/.exec(script);
   assert.ok(pointerdownMatch, "pointerdown delegation on rowsEl should exist");
   const body = pointerdownMatch[0];
-  // Resolves via the handle attribute first (works for the svg/circle children too via closest),
-  // then up to the owning file row - not via a plain tr[data-row-type="file"] lookup on event.target.
-  assert.match(body, /event\.target\.closest\('\[data-drag-handle="true"\]'\)/);
-  assert.match(body, /handle\.closest\('tr\[data-row-type="file"\]'\)/);
+  // Action buttons remain clickable; every other part of a file row can start a drag.
+  assert.match(body, /event\.target\.closest\("\.col-actions"\)/);
+  assert.match(body, /const tr = event\.target\.closest\('tr\[data-row-type="file"\]'\);/);
+  assert.doesNotMatch(body, /data-drag-handle/);
   assert.match(body, /if \(!event\.isPrimary\) return;/);
   assert.match(body, /if \(event\.pointerType === "mouse" && event\.button !== 0\) return;/);
   assert.match(body, /const entry = getEntryFromRow\(tr\);/);
@@ -475,7 +473,7 @@ test("internal move drag: pointerup invokes moveFileTo exactly once when release
   const styleStart = html.indexOf("<style>");
   const styleEnd = html.indexOf("</style>");
   const styleBlock = html.slice(styleStart, styleEnd);
-  assert.match(styleBlock, /tbody tr\.dragging-row \{ opacity: 0\.5; \}/);
+  assert.match(styleBlock, /tbody tr\.dragging-row\s*\{[^}]*opacity:\s*0\.5;[^}]*cursor:\s*grabbing/);
 });
 
 test("internal move drag: a click that never crosses the threshold does not trigger a move (no accidental drops on plain clicks)", () => {

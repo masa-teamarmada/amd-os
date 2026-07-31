@@ -217,6 +217,7 @@ export function renderPortalHtml() {
   tbody tr.folder-row td { font-weight: 600; }
   tbody tr:hover td { background: #FAFCFE; }
   tbody tr[data-row-type] { cursor: pointer; }
+  tbody tr[data-row-type="file"] { cursor: grab; }
   tbody tr[data-row-type] .col-actions { cursor: default; }
   .name-content { display: flex; align-items: center; gap: 8px; }
   .folder-icon { width: 18px; height: 18px; flex-shrink: 0; color: var(--muted); }
@@ -240,7 +241,7 @@ export function renderPortalHtml() {
   tbody tr[data-row-type="file"].dragging-row .drag-grip {
     opacity: 0.6;
   }
-  tbody tr.dragging-row { opacity: 0.5; }
+  tbody tr.dragging-row { opacity: 0.5; cursor: grabbing; }
   tbody tr.folder-row.drop-target td { background: #E7F1FB; }
   tbody tr.folder-row.drop-target { outline: 2px solid var(--blue); outline-offset: -2px; }
   tbody tr.folder-row.drop-target .folder-icon { color: var(--blue); transform: scale(1.12); }
@@ -1181,8 +1182,8 @@ export function renderPortalHtml() {
     rowsEl.addEventListener("pointerdown", (event) => {
       if (!event.isPrimary) return;
       if (event.pointerType === "mouse" && event.button !== 0) return;
-      const handle = event.target.closest('[data-drag-handle="true"]');
-      const tr = handle ? handle.closest('tr[data-row-type="file"]') : null;
+      if (event.target.closest(".col-actions")) return;
+      const tr = event.target.closest('tr[data-row-type="file"]');
       if (!tr) return;
       const entry = getEntryFromRow(tr);
       if (!entry) return;
