@@ -1351,8 +1351,8 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
 
   return (
     <>
+      <style dangerouslySetInnerHTML={{ __html: pageRule }} />
       <style jsx global>{`
-        ${pageRule}
         @media print {
           .no-print { display: none !important; }
           .print-root { background: white !important; }

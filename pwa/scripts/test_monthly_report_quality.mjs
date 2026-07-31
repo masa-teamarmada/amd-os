@@ -170,6 +170,7 @@ assert.match(printClient, /function isStandaloneHorizontalRule/, "提出版表�
 assert.doesNotMatch(printClient, /@page submission/, "named @page規則を作らず、既定@page 1本をisSubmissionで切り替える");
 assert.doesNotMatch(printClient, /page:\s*submission/, "page:submissionのCSSプロパティを本文外要素にも残さない (社内版の既定@pageに取り残され、末尾に空白ページが出る事故があった)");
 assert.match(printClient, /data\.isSubmission\s*\n\s*\?\s*`\s*\n\s*@page \{\s*\n\s*size: A4 portrait; margin: 13mm 0 0 0;/, "提出版は既定@pageの余白を上部の共通ヘッダー分だけへ切り替える");
+assert.match(printClient, /<style dangerouslySetInnerHTML=\{\{ __html: pageRule \}\} \/>/, "条件分岐した@page規則をstyled-jsxの補間で失わず、通常のstyle要素として出力する");
 assert.match(printClient, /@top-left \{[\s\S]*?content: "\$\{headerLabel\}"/, "提出版の左ヘッダーに提出先と対象月を出す");
 assert.match(printClient, /@top-right \{[\s\S]*?content: "取扱注意 \/ Confidential"/, "提出版の右ヘッダーに取扱区分を出す");
 assert.match(printClient, /@bottom-left \{ content: none; \}\s*\n\s*@bottom-center \{ content: none; \}\s*\n\s*@bottom-right \{ content: none; \}/, "提出版の既定@pageはフッターとページ番号を出さない");
