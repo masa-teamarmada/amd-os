@@ -41,3 +41,7 @@ test("portal API routes remain owned by the portal function", () => {
   }
   assert.equal(config.rewrites.at(-1).destination, "/api/index");
 });
+
+test("the function includes the Japanese PDF font files", () => {
+  assert.equal(config.functions["api/index.mjs"].includeFiles, "node_modules/@fontsource-variable/noto-sans-jp/**");
+});
