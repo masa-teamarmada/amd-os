@@ -4,6 +4,31 @@ import { handleFilesRoute } from "../server/routes/files.mjs";
 import { SameLocationError, DestinationExistsError } from "../server/lib/blobStore.mjs";
 import { makeReq, makeRes } from "./helpers/fakeHttp.mjs";
 
+test("GET /api/files returns ordinary files and online links in one authenticated listing", async () => {
+  const req = makeReq({ method: "GET", url: "/api/files?folder=meeting" });
+  const res = makeRes();
+  await handleFilesRoute(req, res, {
+    isAuthed: true,
+    listDirectoryFn: async (folder) => {
+      assert.equal(folder, "meeting");
+      return {
+        folders: [{ name: "archive", path: "meeting/archive" }],
+        files: [{ pathname: "sx/files/meeting/deck.pdf", name: "deck.pdf", size: 12, uploadedAt: "2026-07-31T00:00:00.000Z" }],
+      };
+    },
+    listOnlineLinksFn: async (folder) => {
+      assert.equal(folder, "meeting");
+      return [{ kind: "link", id: "123e4567-e89b-42d3-a456-426614174000", name: "外部資料", url: "https://example.com", size: null, uploadedAt: "2026-07-31T01:00:00.000Z" }];
+    },
+  });
+  assert.equal(res.statusCode, 200);
+  const body = JSON.parse(res.body);
+  assert.equal(body.folders.length, 1);
+  assert.equal(body.files.length, 2);
+  assert.equal(body.files[1].kind, "link");
+  assert.equal("pathname" in body.files[1], false);
+});
+
 test("PATCH /api/files requires authentication", async () => {
   const req = makeReq({
     method: "PATCH",
@@ -100,6 +125,58 @@ test("PATCH /api/files moves the file and returns the new pathname on success", 
   assert.equal(body.ok, true);
   assert.equal(body.pathname, "sx/files/reports/deck.pdf");
   assert.equal("url" in body, false);
+});
+
+test("PATCH /api/files renames the file and returns the new pathname on success", async () => {
+  let capturedArgs = null;
+  const req = makeReq({
+    method: "PATCH",
+    url: "/api/files",
+    headers: { origin: "https://sx.example.com", "content-type": "application/json" },
+    body: { pathname: "sx/files/deck.pdf", newName: "deck-final.pdf" },
+  });
+  const res = makeRes();
+  await handleFilesRoute(req, res, {
+    isAuthed: true,
+    renameFileFn: async (pathname, newName) => {
+      capturedArgs = { pathname, newName };
+      return { pathname: "sx/files/deck-final.pdf" };
+    },
+  });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(capturedArgs, { pathname: "sx/files/deck.pdf", newName: "deck-final.pdf" });
+  const body = JSON.parse(res.body);
+  assert.equal(body.ok, true);
+  assert.equal(body.pathname, "sx/files/deck-final.pdf");
+});
+
+test("PATCH /api/files rejects an invalid rename name", async () => {
+  const req = makeReq({
+    method: "PATCH",
+    url: "/api/files",
+    headers: { origin: "https://sx.example.com", "content-type": "application/json" },
+    body: { pathname: "sx/files/deck.pdf", newName: "../etc" },
+  });
+  const res = makeRes();
+  await handleFilesRoute(req, res, { isAuthed: true });
+  assert.equal(res.statusCode, 400);
+});
+
+test("PATCH /api/files returns 409 when the rename destination exists", async () => {
+  const req = makeReq({
+    method: "PATCH",
+    url: "/api/files",
+    headers: { origin: "https://sx.example.com", "content-type": "application/json" },
+    body: { pathname: "sx/files/deck.pdf", newName: "renamed.pdf" },
+  });
+  const res = makeRes();
+  await handleFilesRoute(req, res, {
+    isAuthed: true,
+    renameFileFn: async () => {
+      throw new DestinationExistsError();
+    },
+  });
+  assert.equal(res.statusCode, 409);
 });
 
 test("PATCH /api/files returns 409 when a same-named file already exists at the destination", async () => {

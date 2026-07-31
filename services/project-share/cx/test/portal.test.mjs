@@ -38,15 +38,17 @@ test("no per-row open/view action labels remain; rows open via double-click inst
   assert.doesNotMatch(html, /<a href="\/documents\/agventure-lab"/);
 });
 
-test("activateRow opens files in new tabs and navigates into folders", () => {
+test("activateRow opens ordinary files internally, external links safely, and navigates into folders", () => {
   const html = renderPortalHtml();
   const script = extractModuleScript(html);
   const activateMatch = /function activateRow\(tr\) \{[\s\S]*?\n    \}/.exec(script);
   assert.ok(activateMatch, "activateRow function should exist");
   const body = activateMatch[0];
   assert.match(body, /navigateTo\(tr\.getAttribute\("data-folder-path"\)\)/);
-  assert.match(body, /const pathname = tr\.getAttribute\("data-file-pathname"\)/);
-  assert.match(body, /window\.open\("\/api\/view\?pathname=" \+ encodeURIComponent\(pathname\), "_blank", "noopener"\)/);
+  assert.match(body, /const entry = getEntryFromRow\(tr\);/);
+  assert.match(body, /if \(entry\.kind === "link"\)/);
+  assert.match(body, /window\.open\(entry\.url, "_blank", "noopener,noreferrer"\)/);
+  assert.match(body, /window\.open\("\/api\/view\?pathname=" \+ encodeURIComponent\(entry\.pathname\), "_blank", "noopener"\)/);
   assert.doesNotMatch(body, /about:blank/);
 });
 
@@ -124,9 +126,17 @@ test("folder UI: breadcrumb bar, up button, toolbar controls, and create-folder 
   assert.match(html, /id="breadcrumbs"/);
   assert.match(html, /id="up-btn"[^>]*hidden/);
   assert.match(html, /id="search"/);
-  assert.match(html, /class="create-folder-btn"[^>]*>フォルダを作成/);
+  assert.match(html, /class="create-folder-btn"[^>]*aria-label="フォルダを作成"/);
+  assert.match(html, /class="folder-plus-icon"/);
+  assert.match(html, /<path d="M15\.5 11\.5v6M12\.5 14\.5h6" \/>/);
   assert.match(html, /class="upload-btn"[^>]*>ファイルをアップロード/);
   assert.match(html, /<input type="file" id="file-input" multiple \/>/);
+  assert.match(html, /class="add-link-btn"[^>]*aria-label="オンライン資料を追加"/);
+  assert.match(html, /id="online-link-dialog"/);
+  assert.match(html, /id="online-link-url-input"[^>]*type="url"|type="url" id="online-link-url-input"/);
+  assert.match(html, /id="online-link-name-input"/);
+  assert.match(html, /addLinkBtn\.addEventListener\("click", openOnlineLinkDialog\)/);
+  assert.match(html, /fetch\("\/api\/links", \{\s*\n\s*method: "POST"/);
 
   assert.match(html, /<dialog id="folder-dialog">/);
   assert.match(html, /<label for="folder-name-input">フォルダ名<\/label>/);
@@ -136,6 +146,12 @@ test("folder UI: breadcrumb bar, up button, toolbar controls, and create-folder 
   assert.match(html, /folderNameInput\.focus\(\)/);
   assert.match(html, /folderForm\.reset\(\)/);
   assert.match(html, /folderDialog\.close\(\)/);
+  assert.match(html, /<dialog id="rename-dialog">/);
+  assert.match(html, /<label for="rename-name-input">新しいファイル名<\/label>/);
+  assert.match(html, /id="rename-dialog-cancel"/);
+  assert.match(html, /id="rename-dialog-submit"/);
+  assert.match(html, /renameDialog\.showModal\(\)/);
+  assert.match(html, /renameNameInput\.select\(\)/);
 });
 
 test("folder rows render before files with icon, type, and only a delete control (no open button)", () => {
@@ -165,21 +181,26 @@ test("folder rows carry data-row-type, data-folder-path, and tabindex for keyboa
   assert.match(folderLoopMatch[0], /tr\.tabIndex = 0;/);
 });
 
-test("file rows carry data-row-type, data-file-pathname, tabindex, and no dedicated view button", () => {
+test("file rows carry type-specific identifiers, use a link icon for online entries, and have no dedicated view button", () => {
   const html = renderPortalHtml();
   const script = extractModuleScript(html);
   const fileLoopMatch = /for \(const file of fileList\) \{[\s\S]*?\n      \}/.exec(script);
   assert.ok(fileLoopMatch, "file row loop should exist");
   const body = fileLoopMatch[0];
   assert.match(body, /tr\.setAttribute\("data-row-type", "file"\);/);
+  assert.match(body, /tr\.setAttribute\("data-entry-kind", isOnlineLink \? "link" : "file"\);/);
+  assert.match(body, /tr\.setAttribute\("data-link-id", file\.id\);/);
   assert.match(body, /tr\.setAttribute\("data-file-pathname", file\.pathname\);/);
+  assert.match(body, /onlineLinkIconSvg\(\)/);
+  assert.match(body, /typeTd\.textContent = entryFormat\(file\);/);
   assert.match(body, /tr\.tabIndex = 0;/);
   assert.doesNotMatch(body, /viewBtn/);
   assert.match(body, /downloadBtn\.textContent = "ダウンロード";/);
+  assert.match(body, /renameBtn\.textContent = "名前変更";/);
   assert.match(body, /deleteBtn\.textContent = "削除";/);
 });
 
-test("API integration strings: loadFiles, create folder, delete folder with 409 message", () => {
+test("API integration strings: folders and online links use their respective authenticated endpoints", () => {
   const html = renderPortalHtml();
   assert.match(html, /"\/api\/files\?folder=" \+ encodeURIComponent\(currentFolder\)/);
   assert.match(html, /fetch\("\/api\/folders", \{\s*method: "POST"/);
@@ -188,6 +209,10 @@ test("API integration strings: loadFiles, create folder, delete folder with 409 
   assert.match(html, /JSON\.stringify\(\{ folderPath \}\)/);
   assert.match(html, /res\.status === 409/);
   assert.match(html, /フォルダが空ではありません/);
+  assert.match(html, /fetch\(isOnlineLink \? "\/api\/links" : "\/api\/files"/);
+  assert.match(html, /JSON\.stringify\(isOnlineLink \? \{ id: renameTarget\.id, newName \} : \{ pathname: renameTarget\.pathname, newName \}\)/);
+  assert.match(html, /JSON\.stringify\(\{ url, name, folder: currentFolder \}\)/);
+  assert.match(html, /http または https のURLを入力してください。/);
 });
 
 test("upload pathname includes currentFolder segment when nested", () => {
@@ -203,7 +228,7 @@ test("no innerHTML use with interpolated user data (only static SVG strings)", (
   for (const usage of innerHtmlUses) {
     assert.doesNotMatch(usage, /\$\{/);
     assert.ok(
-      usage.trim() === '""' || /folderIconSvg\(\)/.test(usage) || /dragGripSvg\(\)/.test(usage),
+      usage.trim() === '""' || /folderIconSvg\(\)/.test(usage) || /dragGripSvg\(\)/.test(usage) || /onlineLinkIconSvg\(\)/.test(usage),
       "innerHTML should only be set to empty string or a static icon svg, got: " + usage
     );
   }
@@ -372,7 +397,7 @@ test("internal move drag: drag handle carries a visible (hover/focus-revealed) g
   assert.match(script, /function dragGripSvg\(\)/);
   const fileLoopMatch = /for \(const file of fileList\) \{[\s\S]*?\n      \}/.exec(script);
   assert.ok(fileLoopMatch, "file row loop should exist");
-  assert.match(fileLoopMatch[0], /nameContent\.innerHTML = dragGripSvg\(\);/);
+  assert.match(fileLoopMatch[0], /nameContent\.innerHTML = dragGripSvg\(\) \+ \(isOnlineLink \? onlineLinkIconSvg\(\) : ""\);/);
   assert.doesNotMatch(fileLoopMatch[0], /createElement\("button"\)[\s\S]*?[Dd]rag/);
 
   const styleStart = html.indexOf("<style>");
@@ -394,7 +419,10 @@ test("internal move drag: pointerdown on the handle (or a nested child, e.g. the
   assert.match(body, /handle\.closest\('tr\[data-row-type="file"\]'\)/);
   assert.match(body, /if \(!event\.isPrimary\) return;/);
   assert.match(body, /if \(event\.pointerType === "mouse" && event\.button !== 0\) return;/);
-  assert.match(body, /pathname:\s*tr\.getAttribute\("data-file-pathname"\)/);
+  assert.match(body, /const entry = getEntryFromRow\(tr\);/);
+  assert.match(body, /if \(!entry\) return;/);
+  assert.match(body, /entry,/);
+  assert.match(body, /name:\s*entry\.name,/);
   assert.match(body, /dragging:\s*false,/);
   // pointerdown only records state; the dimmed .dragging-row class must not appear here,
   // it only applies once pointermove crosses the movement threshold.
@@ -412,6 +440,8 @@ test("internal move drag: pointermove past a small threshold marks dragging and 
   assert.match(body, /Math\.abs\(dx\) < DRAG_THRESHOLD_PX && Math\.abs\(dy\) < DRAG_THRESHOLD_PX/);
   assert.match(body, /pointerDrag\.dragging = true;/);
   assert.match(body, /pointerDrag\.tr\.classList\.add\("dragging-row"\);/);
+  assert.match(body, /pointerDrag\.preview = createDragPreview\(pointerDrag\.name\);/);
+  assert.match(body, /positionDragPreview\(event\);/);
   assert.match(body, /event\.preventDefault\(\);/);
   assert.match(body, /document\.elementFromPoint\(event\.clientX, event\.clientY\)/);
   assert.match(body, /el\.closest\('tr\[data-row-type="folder"\]'\)/);
@@ -427,7 +457,7 @@ test("internal move drag: pointerup invokes moveFileTo exactly once when release
   assert.match(body, /if \(!pointerDrag \|\| event\.pointerId !== pointerDrag\.pointerId\) return;/);
   const wasDraggingIndex = body.indexOf("wasDragging");
   const endDragIndex = body.indexOf("endPointerDrag();");
-  const moveFileToIndex = body.indexOf("moveFileTo(pathname, targetTr.getAttribute(\"data-folder-path\"));");
+  const moveFileToIndex = body.indexOf("moveFileTo(entry, targetTr.getAttribute(\"data-folder-path\"));");
   assert.ok(wasDraggingIndex > -1 && endDragIndex > -1 && moveFileToIndex > -1);
   // State must be captured and cleared before moveFileTo runs, so a slow request never
   // leaves the row dimmed or the drop target highlighted.
@@ -437,6 +467,7 @@ test("internal move drag: pointerup invokes moveFileTo exactly once when release
   const endPointerDragMatch = /function endPointerDrag\(\) \{[\s\S]*?\n    \}/.exec(script);
   assert.ok(endPointerDragMatch, "endPointerDrag helper should exist");
   assert.match(endPointerDragMatch[0], /pointerDrag\.tr\.classList\.remove\("dragging-row"\);/);
+  assert.match(endPointerDragMatch[0], /pointerDrag\.preview\.remove\(\);/);
   assert.match(endPointerDragMatch[0], /pointerDrag = null;/);
   assert.match(endPointerDragMatch[0], /clearDropTarget\(\);/);
 
@@ -471,19 +502,36 @@ test("internal move drag: pointercancel and window blur clear drag state without
   assert.doesNotMatch(blurMatch[0], /moveFileTo/);
 });
 
-test("internal move drag: only folder rows accept the drop, shown with the official-blue tint and a short move hint", () => {
+test("internal move drag: only folder rows accept the drop, shown with official-blue tint and icon emphasis", () => {
   const html = renderPortalHtml();
   const script = extractModuleScript(html);
 
   const folderLoopMatch = /for \(const folder of folderList\) \{[\s\S]*?\n      \}/.exec(script);
   assert.ok(folderLoopMatch, "folder row loop should exist");
-  assert.match(folderLoopMatch[0], /moveHint\.textContent = "ここへ移動";/);
+  assert.doesNotMatch(folderLoopMatch[0], /moveHint|ここへ移動/);
 
   const styleStart = html.indexOf("<style>");
   const styleEnd = html.indexOf("</style>");
   const styleBlock = html.slice(styleStart, styleEnd);
   assert.match(styleBlock, /tbody tr\.folder-row\.drop-target td \{ background: #E7F1FB; \}/);
-  assert.match(styleBlock, /tr\.drop-target \.move-hint \{ display: inline; \}/);
+  assert.match(styleBlock, /tbody tr\.folder-row\.drop-target \.folder-icon \{ color: var\(--blue\); transform: scale\(1\.12\); \}/);
+});
+
+test("internal move drag: the file preview follows the pointer and uses textContent for the filename", () => {
+  const html = renderPortalHtml();
+  const script = extractModuleScript(html);
+  assert.match(script, /function createDragPreview\(name\)/);
+  assert.match(script, /preview\.className = "drag-preview";/);
+  assert.match(script, /label\.textContent = name;/);
+  assert.match(script, /function positionDragPreview\(event\)/);
+  assert.match(script, /style\.transform = "translate3d\("/);
+
+  const styleStart = html.indexOf("<style>");
+  const styleEnd = html.indexOf("</style>");
+  const styleBlock = html.slice(styleStart, styleEnd);
+  assert.match(styleBlock, /\.drag-preview\s*\{[^}]*position: fixed/);
+  assert.match(styleBlock, /\.drag-preview\.is-visible \{ display: inline-flex; \}/);
+  assert.match(styleBlock, /\.drag-preview\s*\{[^}]*pointer-events: none/);
 });
 
 test("internal move drag (pointer events) and external OS-file drag (native HTML5 drag) stay on fully separate listener sets", () => {
@@ -503,7 +551,7 @@ test("internal move drag (pointer events) and external OS-file drag (native HTML
   assert.match(script, /document\.addEventListener\("drop", \(event\) => \{\s*\n\s*if \(!isFileDrag\(event\.dataTransfer\)\) return;/);
 });
 
-test("moveFileTo: PATCHes /api/files with pathname/targetFolder, guards re-entrancy, and reports a 409 conflict in Japanese", () => {
+test("moveFileTo: sends the right endpoint for physical files or online links, guards re-entrancy, and reports a 409 conflict in Japanese", () => {
   const html = renderPortalHtml();
   const script = extractModuleScript(html);
   assert.match(script, /let moveInProgress = false;/);
@@ -514,14 +562,15 @@ test("moveFileTo: PATCHes /api/files with pathname/targetFolder, guards re-entra
 
   const guardIndex = body.indexOf("if (moveInProgress) {");
   const setTrueIndex = body.indexOf("moveInProgress = true;");
-  const fetchIndex = body.indexOf('fetch("/api/files"');
+  const fetchIndex = body.indexOf('fetch(isOnlineLink ? "/api/links" : "/api/files"');
   assert.ok(guardIndex > -1 && setTrueIndex > -1 && fetchIndex > -1);
   assert.ok(guardIndex < setTrueIndex && setTrueIndex < fetchIndex, "the re-entrancy guard must run before the flag is armed and before the request is sent");
   assert.match(body, /moveInProgress = false;/);
-  assert.match(body, /fetch\("\/api\/files", \{\s*\n\s*method: "PATCH",/);
-  assert.match(body, /JSON\.stringify\(\{ pathname, targetFolder \}\)/);
+  assert.match(body, /const isOnlineLink = entry\.kind === "link";/);
+  assert.match(body, /fetch\(isOnlineLink \? "\/api\/links" : "\/api\/files", \{\s*\n\s*method: "PATCH",/);
+  assert.match(body, /JSON\.stringify\(isOnlineLink \? \{ id: entry\.id, targetFolder \} : \{ pathname: entry\.pathname, targetFolder \}\)/);
   assert.match(body, /res\.status === 409/);
-  assert.match(body, /には同じ名前のファイルがすでにあります。/);
+  assert.match(body, /には同じ名前の項目がすでにあります。/);
   assert.match(body, /移動しました。/);
 });
 

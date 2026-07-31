@@ -1,10 +1,15 @@
 import { createFolder, deleteEmptyFolder, FolderNotEmptyError } from "../lib/blobStore.mjs";
+import { hasOnlineLinksInFolder } from "../lib/linkStore.mjs";
 import { sanitizeFolderPath, sanitizeBasename } from "../lib/pathGuard.mjs";
 import { isSameOrigin } from "../lib/origin.mjs";
 import { readJsonBody } from "../lib/body.mjs";
 import { sendJson, sendText } from "../lib/respond.mjs";
 
-export async function handleFoldersRoute(req, res, { isAuthed }) {
+export async function handleFoldersRoute(
+  req,
+  res,
+  { isAuthed, deleteEmptyFolderFn = deleteEmptyFolder, hasOnlineLinksInFolderFn = hasOnlineLinksInFolder }
+) {
   if (!isAuthed) {
     sendJson(res, 401, { error: "unauthorized" });
     return;
@@ -62,7 +67,11 @@ export async function handleFoldersRoute(req, res, { isAuthed }) {
     }
 
     try {
-      await deleteEmptyFolder(folderPath);
+      if (await hasOnlineLinksInFolderFn(folderPath)) {
+        sendJson(res, 409, { error: "folder is not empty" });
+        return;
+      }
+      await deleteEmptyFolderFn(folderPath);
     } catch (err) {
       if (err instanceof FolderNotEmptyError) {
         sendJson(res, 409, { error: "folder is not empty" });

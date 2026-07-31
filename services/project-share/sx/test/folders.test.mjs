@@ -128,6 +128,34 @@ test(
 );
 
 test(
+  "DELETE /api/folders keeps a folder when it contains an online link",
+  withEnv(async () => {
+    let deleted = false;
+    const req = makeReq({
+      method: "DELETE",
+      url: "/api/folders",
+      headers: {
+        cookie: authCookieHeader(),
+        origin: "https://sx.example.com",
+        "content-type": "application/json",
+      },
+      body: { folderPath: "reports" },
+    });
+    const res = makeRes();
+    const { handleFoldersRoute } = await import("../server/routes/folders.mjs");
+    await handleFoldersRoute(req, res, {
+      isAuthed: true,
+      hasOnlineLinksInFolderFn: async () => true,
+      deleteEmptyFolderFn: async () => {
+        deleted = true;
+      },
+    });
+    assert.equal(res.statusCode, 409);
+    assert.equal(deleted, false);
+  })
+);
+
+test(
   "GET /api/files with an invalid folder query returns 400",
   withEnv(async () => {
     const req = makeReq({

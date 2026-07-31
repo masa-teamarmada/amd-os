@@ -158,6 +158,38 @@ export async function moveFile(pathname, targetFolder, { renameFn = rename, head
   return { pathname: destination };
 }
 
+// Renames a file in place while keeping its current folder.
+// The destination is checked before rename so a collision never overwrites an existing file.
+export async function renameFile(pathname, newName, { renameFn = rename, headFn = head } = {}) {
+  if (!isWithinFilesPrefix(pathname)) throw new Error("invalid source pathname");
+
+  const cleanName = sanitizeBasename(newName);
+  if (!cleanName) throw new Error("invalid new file name");
+
+  const rest = pathname.slice(FILES_PREFIX.length);
+  const slashIndex = rest.lastIndexOf("/");
+  const basename = sanitizeBasename(slashIndex === -1 ? rest : rest.slice(slashIndex + 1));
+  const sourceFolder = slashIndex === -1 ? "" : rest.slice(0, slashIndex);
+  if (!basename) throw new Error("invalid source basename");
+  if (basename === cleanName) throw new SameLocationError("the file name is unchanged");
+
+  const destination = sourceFolder
+    ? `${FILES_PREFIX}${sourceFolder}/${cleanName}`
+    : `${FILES_PREFIX}${cleanName}`;
+
+  const destinationExists = await headFn(destination).then(
+    () => true,
+    (err) => {
+      if (err instanceof VercelBlobNotFoundError) return false;
+      throw err;
+    }
+  );
+  if (destinationExists) throw new DestinationExistsError();
+
+  await renameFn(pathname, destination, { access: "private", allowOverwrite: false });
+  return { pathname: destination };
+}
+
 export async function createSignedAccessUrl(
   pathname,
   { download = false, issueSignedTokenFn = issueSignedToken, presignUrlFn = presignUrl, getDownloadUrlFn = getDownloadUrl } = {}

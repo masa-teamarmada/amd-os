@@ -3,6 +3,7 @@ import { isAuthenticated } from "../server/lib/auth.mjs";
 import { sendText } from "../server/lib/respond.mjs";
 import { handleLoginRoute } from "../server/routes/login.mjs";
 import { handleFilesRoute } from "../server/routes/files.mjs";
+import { handleLinksRoute } from "../server/routes/links.mjs";
 import { handleFoldersRoute } from "../server/routes/folders.mjs";
 import { handleUploadRoute } from "../server/routes/upload.mjs";
 import { handleAccessRoute } from "../server/routes/access.mjs";
@@ -37,6 +38,11 @@ export default async function handler(req, res) {
 
   if (pathname === "/api/files") {
     await handleFilesRoute(req, res, { isAuthed });
+    return;
+  }
+
+  if (pathname === "/api/links") {
+    await handleLinksRoute(req, res, { isAuthed });
     return;
   }
 

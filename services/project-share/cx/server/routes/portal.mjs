@@ -63,6 +63,7 @@ export function renderPortalHtml() {
   button.logout:focus-visible,
   .upload-btn:focus-visible,
   .create-folder-btn:focus-visible,
+  .add-link-btn:focus-visible,
   .crumb:focus-visible,
   .up-btn:focus-visible,
   thead th:focus-visible,
@@ -120,7 +121,7 @@ export function renderPortalHtml() {
     flex-wrap: wrap;
   }
   .search-wrap { position: relative; flex: 1 1 260px; min-width: 220px; }
-  input[type="search"], input[type="text"] {
+  input[type="search"], input[type="text"], input[type="url"] {
     width: 100%;
     padding: 9px 12px;
     min-height: 44px;
@@ -130,8 +131,8 @@ export function renderPortalHtml() {
     color: var(--navy);
     background: var(--white);
   }
-  input[type="search"]:focus, input[type="text"]:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
-  .upload-btn, .create-folder-btn {
+  input[type="search"]:focus, input[type="text"]:focus, input[type="url"]:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+  .upload-btn, .create-folder-btn, .add-link-btn {
     font-size: 13px;
     font-weight: 700;
     padding: 9px 16px;
@@ -147,12 +148,18 @@ export function renderPortalHtml() {
   }
   .upload-btn:hover { background: #147ac9; }
   .upload-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-  .create-folder-btn {
+  .create-folder-btn, .add-link-btn {
     border: 1px solid var(--line);
     background: var(--white);
     color: var(--navy);
+    width: 44px;
+    padding: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
-  .create-folder-btn:hover { border-color: var(--blue); color: var(--blue); }
+  .create-folder-btn:hover, .add-link-btn:hover { border-color: var(--blue); color: var(--blue); }
+  .folder-plus-icon, .online-link-icon { width: 22px; height: 22px; display: block; }
   #mobile-sort {
     display: none;
     width: 100%;
@@ -213,6 +220,7 @@ export function renderPortalHtml() {
   tbody tr[data-row-type] .col-actions { cursor: default; }
   .name-content { display: flex; align-items: center; gap: 8px; }
   .folder-icon { width: 18px; height: 18px; flex-shrink: 0; color: var(--muted); }
+  .online-link-icon { width: 18px; height: 18px; flex-shrink: 0; color: var(--blue); }
   .name-content.drag-handle {
     cursor: grab;
     touch-action: none;
@@ -235,8 +243,40 @@ export function renderPortalHtml() {
   tbody tr.dragging-row { opacity: 0.5; }
   tbody tr.folder-row.drop-target td { background: #E7F1FB; }
   tbody tr.folder-row.drop-target { outline: 2px solid var(--blue); outline-offset: -2px; }
-  .move-hint { display: none; margin-left: 6px; font-size: 11.5px; font-weight: 700; color: var(--blue); }
-  tr.drop-target .move-hint { display: inline; }
+  tbody tr.folder-row.drop-target .folder-icon { color: var(--blue); transform: scale(1.12); }
+  .drag-preview {
+    position: fixed;
+    left: 0;
+    top: 0;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    max-width: min(320px, calc(100vw - 16px));
+    padding: 8px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 6px;
+    background: rgba(24, 36, 46, 0.94);
+    box-shadow: 0 8px 22px rgba(24, 36, 46, 0.24);
+    color: var(--white);
+    font-size: 12.5px;
+    font-weight: 700;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+    z-index: 10;
+  }
+  .drag-preview.is-visible { display: inline-flex; }
+  .drag-preview-icon {
+    width: 16px;
+    height: 18px;
+    flex: 0 0 auto;
+    border: 1.5px solid currentColor;
+    border-radius: 2px;
+    opacity: 0.86;
+  }
+  .drag-preview-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
   .row-actions button {
     border: 1px solid var(--line);
@@ -287,16 +327,25 @@ export function renderPortalHtml() {
   }
   .file-list-area.drag-over .drop-overlay { display: flex; }
 
-  dialog#folder-dialog {
+  dialog#folder-dialog,
+  dialog#rename-dialog,
+  dialog#online-link-dialog {
     border: 1px solid var(--line);
     border-radius: 6px;
     padding: 20px;
     width: 100%;
     max-width: 360px;
   }
-  dialog#folder-dialog::backdrop { background: rgba(24, 36, 46, 0.35); }
-  dialog#folder-dialog h2 { font-size: 15px; margin: 0 0 12px; }
-  dialog#folder-dialog label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+  dialog#folder-dialog::backdrop,
+  dialog#rename-dialog::backdrop,
+  dialog#online-link-dialog::backdrop { background: rgba(24, 36, 46, 0.35); }
+  dialog#folder-dialog h2,
+  dialog#rename-dialog h2,
+  dialog#online-link-dialog h2 { font-size: 15px; margin: 0 0 12px; }
+  dialog#folder-dialog label,
+  dialog#rename-dialog label,
+  dialog#online-link-dialog label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+  .dialog-field + .dialog-field { margin-top: 12px; }
   .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
   .dialog-actions button {
     min-height: 40px;
@@ -329,6 +378,10 @@ export function renderPortalHtml() {
     .brand-title { font-size: 11px; }
     button.logout { padding: 8px 10px; font-size: 11.5px; }
     main { padding: 14px; }
+    .toolbar { gap: 8px; }
+    .search-wrap { flex: 0 1 calc(100% - 104px); min-width: 0; }
+    .create-folder-btn, .add-link-btn { flex: 0 0 44px; }
+    .upload-btn { flex: 1 0 100%; }
     #mobile-sort { display: block; }
     table thead { display: none; }
     table, tbody, tr, td { display: block; width: 100%; }
@@ -371,7 +424,20 @@ export function renderPortalHtml() {
         <label for="search" class="visually-hidden" style="position:absolute;left:-9999px;">検索</label>
         <input type="search" id="search" placeholder="ファイル・フォルダ名で検索" autocomplete="off" data-testid="search-input" />
       </div>
-      <button type="button" class="create-folder-btn" id="create-folder-btn" data-testid="create-folder-button">フォルダを作成</button>
+      <button type="button" class="create-folder-btn" id="create-folder-btn" data-testid="create-folder-button" aria-label="フォルダを作成" title="フォルダを作成">
+        <svg class="folder-plus-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" />
+          <path d="M15.5 11.5v6M12.5 14.5h6" />
+        </svg>
+      </button>
+      <button type="button" class="add-link-btn" id="add-link-btn" data-testid="add-link-button" aria-label="オンライン資料を追加" title="オンライン資料を追加">
+        <svg class="online-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="m10.5 13.5 3-3" />
+          <path d="m7.25 16.75-1.5 1.5a3.25 3.25 0 0 1-4.6-4.6l3-3a3.25 3.25 0 0 1 4.6 0" />
+          <path d="m16.75 7.25 1.5-1.5a3.25 3.25 0 0 1 4.6 4.6l-3 3a3.25 3.25 0 0 1-4.6 0" />
+          <path d="M18.5 13.5v4M16.5 15.5h4" />
+        </svg>
+      </button>
       <button type="button" class="upload-btn" id="upload-btn" data-testid="upload-button">ファイルをアップロード</button>
       <input type="file" id="file-input" multiple />
     </div>
@@ -419,6 +485,34 @@ export function renderPortalHtml() {
       </div>
     </form>
   </dialog>
+  <dialog id="rename-dialog">
+    <form method="dialog" id="rename-form">
+      <h2>ファイル名を変更</h2>
+      <label for="rename-name-input">新しいファイル名</label>
+      <input type="text" id="rename-name-input" name="new-name" autocomplete="off" required data-testid="rename-name-input" />
+      <div class="dialog-actions">
+        <button type="button" value="cancel" id="rename-dialog-cancel" data-testid="rename-dialog-cancel">キャンセル</button>
+        <button type="submit" id="rename-dialog-submit" data-testid="rename-dialog-submit">保存</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="online-link-dialog">
+    <form method="dialog" id="online-link-form">
+      <h2>オンライン資料を追加</h2>
+      <div class="dialog-field">
+        <label for="online-link-url-input">URL</label>
+        <input type="url" id="online-link-url-input" name="url" autocomplete="url" inputmode="url" placeholder="https://…" required data-testid="online-link-url-input" />
+      </div>
+      <div class="dialog-field">
+        <label for="online-link-name-input">表示名（省略可）</label>
+        <input type="text" id="online-link-name-input" name="name" autocomplete="off" placeholder="未入力ならURLから設定" data-testid="online-link-name-input" />
+      </div>
+      <div class="dialog-actions">
+        <button type="button" value="cancel" id="online-link-dialog-cancel" data-testid="online-link-dialog-cancel">キャンセル</button>
+        <button type="submit" id="online-link-dialog-submit" data-testid="online-link-dialog-submit">追加</button>
+      </div>
+    </form>
+  </dialog>
   <script type="module">
     const statusEl = document.getElementById("status");
     const rowsEl = document.getElementById("file-rows");
@@ -433,10 +527,22 @@ export function renderPortalHtml() {
     const breadcrumbsEl = document.getElementById("breadcrumbs");
     const upBtn = document.getElementById("up-btn");
     const createFolderBtn = document.getElementById("create-folder-btn");
+    const addLinkBtn = document.getElementById("add-link-btn");
     const folderDialog = document.getElementById("folder-dialog");
     const folderForm = document.getElementById("folder-form");
     const folderNameInput = document.getElementById("folder-name-input");
     const folderDialogCancel = document.getElementById("folder-dialog-cancel");
+    const renameDialog = document.getElementById("rename-dialog");
+    const renameForm = document.getElementById("rename-form");
+    const renameNameInput = document.getElementById("rename-name-input");
+    const renameDialogCancel = document.getElementById("rename-dialog-cancel");
+    const renameDialogSubmit = document.getElementById("rename-dialog-submit");
+    const onlineLinkDialog = document.getElementById("online-link-dialog");
+    const onlineLinkForm = document.getElementById("online-link-form");
+    const onlineLinkUrlInput = document.getElementById("online-link-url-input");
+    const onlineLinkNameInput = document.getElementById("online-link-name-input");
+    const onlineLinkDialogCancel = document.getElementById("online-link-dialog-cancel");
+    const onlineLinkDialogSubmit = document.getElementById("online-link-dialog-submit");
     const fileListArea = document.getElementById("file-list-area");
 
     const MULTIPART_THRESHOLD_BYTES = 100 * 1024 * 1024;
@@ -456,6 +562,10 @@ export function renderPortalHtml() {
       const idx = (name || "").lastIndexOf(".");
       const ext = idx >= 0 ? name.slice(idx + 1).toLowerCase() : "";
       return FORMAT_EXT_MAP[ext] || "その他";
+    }
+
+    function entryFormat(entry) {
+      return entry.kind === "link" ? "オンライン資料" : inferFormat(entry.name);
     }
 
     function isValidEntryName(name) {
@@ -479,9 +589,12 @@ export function renderPortalHtml() {
     let sortDir = "desc";
     let uploadInProgress = false;
     let moveInProgress = false;
+    let renameInProgress = false;
+    let onlineLinkInProgress = false;
     let dragDepth = 0;
     let dropTargetRow = null;
     let pointerDrag = null;
+    let renameTarget = null;
 
     const DRAG_THRESHOLD_PX = 6;
 
@@ -576,8 +689,8 @@ export function renderPortalHtml() {
         let av;
         let bv;
         if (sortKey === "type") {
-          av = inferFormat(a.name);
-          bv = inferFormat(b.name);
+          av = entryFormat(a);
+          bv = entryFormat(b);
         } else {
           av = a[sortKey];
           bv = b[sortKey];
@@ -606,6 +719,10 @@ export function renderPortalHtml() {
 
     function folderIconSvg() {
       return '<svg class="folder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 6.5a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>';
+    }
+
+    function onlineLinkIconSvg() {
+      return '<svg class="online-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10.5 13.5 3-3"/><path d="m7.25 16.75-1.5 1.5a3.25 3.25 0 0 1-4.6-4.6l3-3a3.25 3.25 0 0 1 4.6 0"/><path d="m16.75 7.25 1.5-1.5a3.25 3.25 0 0 1 4.6 4.6l-3 3a3.25 3.25 0 0 1-4.6 0"/></svg>';
     }
 
     function dragGripSvg() {
@@ -647,10 +764,6 @@ export function renderPortalHtml() {
         const nameSpan = document.createElement("span");
         nameSpan.textContent = folder.name;
         nameContent.appendChild(nameSpan);
-        const moveHint = document.createElement("span");
-        moveHint.className = "move-hint";
-        moveHint.textContent = "ここへ移動";
-        nameContent.appendChild(moveHint);
         nameTd.appendChild(nameContent);
         tr.appendChild(nameTd);
 
@@ -690,9 +803,12 @@ export function renderPortalHtml() {
       }
 
       for (const file of fileList) {
+        const isOnlineLink = file.kind === "link";
         const tr = document.createElement("tr");
         tr.setAttribute("data-row-type", "file");
-        tr.setAttribute("data-file-pathname", file.pathname);
+        tr.setAttribute("data-entry-kind", isOnlineLink ? "link" : "file");
+        if (isOnlineLink) tr.setAttribute("data-link-id", file.id);
+        else tr.setAttribute("data-file-pathname", file.pathname);
         tr.tabIndex = 0;
 
         const nameTd = document.createElement("td");
@@ -700,7 +816,7 @@ export function renderPortalHtml() {
         const nameContent = document.createElement("span");
         nameContent.className = "name-content drag-handle";
         nameContent.setAttribute("data-drag-handle", "true");
-        nameContent.innerHTML = dragGripSvg();
+        nameContent.innerHTML = dragGripSvg() + (isOnlineLink ? onlineLinkIconSvg() : "");
         const nameSpan = document.createElement("span");
         nameSpan.textContent = file.name;
         nameContent.appendChild(nameSpan);
@@ -710,13 +826,13 @@ export function renderPortalHtml() {
         const typeTd = document.createElement("td");
         typeTd.className = "col-type";
         typeTd.setAttribute("data-label", "形式");
-        typeTd.textContent = inferFormat(file.name);
+        typeTd.textContent = entryFormat(file);
         tr.appendChild(typeTd);
 
         const sizeTd = document.createElement("td");
         sizeTd.className = "col-size";
         sizeTd.setAttribute("data-label", "サイズ");
-        sizeTd.textContent = formatSize(file.size);
+        sizeTd.textContent = isOnlineLink ? "—" : formatSize(file.size);
         tr.appendChild(sizeTd);
 
         const dateTd = document.createElement("td");
@@ -730,17 +846,28 @@ export function renderPortalHtml() {
         const actions = document.createElement("div");
         actions.className = "row-actions";
 
-        const downloadBtn = document.createElement("button");
-        downloadBtn.type = "button";
-        downloadBtn.textContent = "ダウンロード";
-        downloadBtn.addEventListener("click", () => openFile(file.pathname, true));
-        actions.appendChild(downloadBtn);
+        if (!isOnlineLink) {
+          const downloadBtn = document.createElement("button");
+          downloadBtn.type = "button";
+          downloadBtn.textContent = "ダウンロード";
+          downloadBtn.addEventListener("click", () => openFile(file.pathname, true));
+          actions.appendChild(downloadBtn);
+        }
+
+        const renameBtn = document.createElement("button");
+        renameBtn.type = "button";
+        renameBtn.textContent = "名前変更";
+        renameBtn.addEventListener("click", () => openRenameDialog(file));
+        actions.appendChild(renameBtn);
 
         const deleteBtn = document.createElement("button");
         deleteBtn.type = "button";
         deleteBtn.className = "danger";
         deleteBtn.textContent = "削除";
-        deleteBtn.addEventListener("click", () => deleteFile(file.pathname, file.name));
+        deleteBtn.addEventListener("click", () => {
+          if (isOnlineLink) deleteOnlineLink(file);
+          else deleteFile(file.pathname, file.name);
+        });
         actions.appendChild(deleteBtn);
 
         actionsTd.appendChild(actions);
@@ -754,9 +881,23 @@ export function renderPortalHtml() {
       if (type === "folder") {
         navigateTo(tr.getAttribute("data-folder-path"));
       } else if (type === "file") {
-        const pathname = tr.getAttribute("data-file-pathname");
-        window.open("/api/view?pathname=" + encodeURIComponent(pathname), "_blank", "noopener");
+        const entry = getEntryFromRow(tr);
+        if (!entry) return;
+        if (entry.kind === "link") {
+          window.open(entry.url, "_blank", "noopener,noreferrer");
+          return;
+        }
+        window.open("/api/view?pathname=" + encodeURIComponent(entry.pathname), "_blank", "noopener");
       }
+    }
+
+    function getEntryFromRow(tr) {
+      if (tr.getAttribute("data-entry-kind") === "link") {
+        const id = tr.getAttribute("data-link-id");
+        return files.find((entry) => entry.kind === "link" && entry.id === id);
+      }
+      const pathname = tr.getAttribute("data-file-pathname");
+      return files.find((entry) => entry.kind !== "link" && entry.pathname === pathname);
     }
 
     rowsEl.addEventListener("dblclick", (event) => {
@@ -849,6 +990,27 @@ export function renderPortalHtml() {
       }
     }
 
+    async function deleteOnlineLink(link) {
+      if (!window.confirm(link.name + " を削除しますか？この操作は取り消せません。")) return;
+      setStatus("削除しています…");
+      try {
+        const res = await fetch("/api/links", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: link.id }),
+        });
+        if (res.status === 401) {
+          window.location.reload();
+          return;
+        }
+        if (!res.ok) throw new Error("削除に失敗しました。");
+        setStatus(link.name + " を削除しました。", "success");
+        await loadFiles();
+      } catch (err) {
+        setStatus(err.message || "削除に失敗しました。", "error");
+      }
+    }
+
     async function deleteFolder(folderPath, name) {
       if (!window.confirm(name + " を削除しますか？この操作は取り消せません。")) return;
       setStatus("削除しています…");
@@ -874,31 +1036,96 @@ export function renderPortalHtml() {
       }
     }
 
-    async function moveFileTo(pathname, targetFolder) {
-      if (!pathname || targetFolder === null || targetFolder === undefined) return;
-      if (moveInProgress) {
-        setStatus("移動中です。完了までお待ちください。", "error");
+    function openRenameDialog(entry) {
+      renameTarget = entry;
+      renameNameInput.value = entry.name;
+      renameDialog.showModal();
+      renameNameInput.focus();
+      renameNameInput.select();
+    }
+
+    function closeRenameDialog() {
+      renameTarget = null;
+      renameForm.reset();
+      renameDialog.close();
+    }
+
+    renameDialogCancel.addEventListener("click", closeRenameDialog);
+    renameDialog.addEventListener("cancel", () => {
+      renameTarget = null;
+      renameForm.reset();
+    });
+
+    renameForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!renameTarget || renameInProgress) return;
+
+      const { name: oldName } = renameTarget;
+      const newName = renameNameInput.value.trim();
+      if (!isValidEntryName(newName)) {
+        setStatus("ファイル名に使用できない文字が含まれています。", "error");
         return;
       }
-      const file = files.find((f) => f.pathname === pathname);
-      const fileName = file ? file.name : pathname.split("/").pop();
-      const folderEntry = folders.find((f) => f.path === targetFolder);
-      const folderName = folderEntry ? folderEntry.name : targetFolder;
+      if (newName === oldName) {
+        closeRenameDialog();
+        return;
+      }
 
-      moveInProgress = true;
-      setStatus(fileName + " を " + folderName + " へ移動しています…");
+      renameInProgress = true;
+      renameDialogSubmit.disabled = true;
+      setStatus(oldName + " の名前を変更しています…");
       try {
-        const res = await fetch("/api/files", {
+        const isOnlineLink = renameTarget.kind === "link";
+        const res = await fetch(isOnlineLink ? "/api/links" : "/api/files", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pathname, targetFolder }),
+          body: JSON.stringify(isOnlineLink ? { id: renameTarget.id, newName } : { pathname: renameTarget.pathname, newName }),
         });
         if (res.status === 401) {
           window.location.reload();
           return;
         }
         if (res.status === 409) {
-          setStatus(folderName + " には同じ名前のファイルがすでにあります。", "error");
+          setStatus("同じ名前の項目がすでにあります。", "error");
+          return;
+        }
+        if (!res.ok) throw new Error("名前の変更に失敗しました。");
+        closeRenameDialog();
+        setStatus(newName + " に変更しました。", "success");
+        await loadFiles();
+      } catch (err) {
+        setStatus(err.message || "名前の変更に失敗しました。", "error");
+      } finally {
+        renameInProgress = false;
+        renameDialogSubmit.disabled = false;
+      }
+    });
+
+    async function moveFileTo(entry, targetFolder) {
+      if (!entry || targetFolder === null || targetFolder === undefined) return;
+      if (moveInProgress) {
+        setStatus("移動中です。完了までお待ちください。", "error");
+        return;
+      }
+      const isOnlineLink = entry.kind === "link";
+      const fileName = entry.name;
+      const folderEntry = folders.find((f) => f.path === targetFolder);
+      const folderName = folderEntry ? folderEntry.name : targetFolder;
+
+      moveInProgress = true;
+      setStatus(fileName + " を " + folderName + " へ移動しています…");
+      try {
+        const res = await fetch(isOnlineLink ? "/api/links" : "/api/files", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(isOnlineLink ? { id: entry.id, targetFolder } : { pathname: entry.pathname, targetFolder }),
+        });
+        if (res.status === 401) {
+          window.location.reload();
+          return;
+        }
+        if (res.status === 409) {
+          setStatus(folderName + " には同じ名前の項目がすでにあります。", "error");
           return;
         }
         if (!res.ok) throw new Error(fileName + " の移動に失敗しました。");
@@ -921,8 +1148,34 @@ export function renderPortalHtml() {
     function endPointerDrag() {
       if (!pointerDrag) return;
       pointerDrag.tr.classList.remove("dragging-row");
+      if (pointerDrag.preview) pointerDrag.preview.remove();
       pointerDrag = null;
       clearDropTarget();
+    }
+
+    function createDragPreview(name) {
+      const preview = document.createElement("div");
+      preview.className = "drag-preview";
+      preview.setAttribute("aria-hidden", "true");
+
+      const icon = document.createElement("span");
+      icon.className = "drag-preview-icon";
+      icon.setAttribute("aria-hidden", "true");
+      preview.appendChild(icon);
+
+      const label = document.createElement("span");
+      label.className = "drag-preview-label";
+      label.textContent = name;
+      preview.appendChild(label);
+      return preview;
+    }
+
+    function positionDragPreview(event) {
+      if (!pointerDrag?.preview) return;
+      const previewRect = pointerDrag.preview.getBoundingClientRect();
+      const x = Math.max(8, Math.min(event.clientX + 14, window.innerWidth - previewRect.width - 8));
+      const y = Math.max(8, Math.min(event.clientY + 14, window.innerHeight - previewRect.height - 8));
+      pointerDrag.preview.style.transform = "translate3d(" + x + "px, " + y + "px, 0)";
     }
 
     rowsEl.addEventListener("pointerdown", (event) => {
@@ -931,9 +1184,12 @@ export function renderPortalHtml() {
       const handle = event.target.closest('[data-drag-handle="true"]');
       const tr = handle ? handle.closest('tr[data-row-type="file"]') : null;
       if (!tr) return;
+      const entry = getEntryFromRow(tr);
+      if (!entry) return;
       pointerDrag = {
         pointerId: event.pointerId,
-        pathname: tr.getAttribute("data-file-pathname"),
+        entry,
+        name: entry.name,
         tr,
         startX: event.clientX,
         startY: event.clientY,
@@ -949,8 +1205,12 @@ export function renderPortalHtml() {
         if (Math.abs(dx) < DRAG_THRESHOLD_PX && Math.abs(dy) < DRAG_THRESHOLD_PX) return;
         pointerDrag.dragging = true;
         pointerDrag.tr.classList.add("dragging-row");
+        pointerDrag.preview = createDragPreview(pointerDrag.name);
+        document.body.appendChild(pointerDrag.preview);
+        pointerDrag.preview.classList.add("is-visible");
       }
       event.preventDefault();
+      positionDragPreview(event);
       const el = document.elementFromPoint(event.clientX, event.clientY);
       const tr = el ? el.closest('tr[data-row-type="folder"]') : null;
       if (tr !== dropTargetRow) {
@@ -965,11 +1225,11 @@ export function renderPortalHtml() {
     window.addEventListener("pointerup", (event) => {
       if (!pointerDrag || event.pointerId !== pointerDrag.pointerId) return;
       const wasDragging = pointerDrag.dragging;
-      const pathname = pointerDrag.pathname;
+      const entry = pointerDrag.entry;
       const targetTr = dropTargetRow;
       endPointerDrag();
       if (wasDragging && targetTr) {
-        moveFileTo(pathname, targetTr.getAttribute("data-folder-path"));
+        moveFileTo(entry, targetTr.getAttribute("data-folder-path"));
       }
     });
 
@@ -1033,6 +1293,74 @@ export function renderPortalHtml() {
       fileInput.value = "";
       await loadFiles();
     }
+
+    function isValidOnlineUrl(value) {
+      try {
+        const parsed = new URL(value);
+        return (parsed.protocol === "https:" || parsed.protocol === "http:") && !!parsed.hostname && !parsed.username && !parsed.password;
+      } catch {
+        return false;
+      }
+    }
+
+    function openOnlineLinkDialog() {
+      onlineLinkForm.reset();
+      onlineLinkDialog.showModal();
+      onlineLinkUrlInput.focus();
+    }
+
+    function closeOnlineLinkDialog() {
+      onlineLinkForm.reset();
+      onlineLinkDialog.close();
+    }
+
+    addLinkBtn.addEventListener("click", openOnlineLinkDialog);
+    onlineLinkDialogCancel.addEventListener("click", closeOnlineLinkDialog);
+    onlineLinkDialog.addEventListener("cancel", () => {
+      onlineLinkForm.reset();
+    });
+
+    onlineLinkForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (onlineLinkInProgress) return;
+
+      const url = onlineLinkUrlInput.value.trim();
+      const name = onlineLinkNameInput.value.trim();
+      if (!isValidOnlineUrl(url)) {
+        setStatus("http または https のURLを入力してください。", "error");
+        onlineLinkUrlInput.focus();
+        return;
+      }
+      if (name && !isValidEntryName(name)) {
+        setStatus("表示名に使用できない文字が含まれています。", "error");
+        onlineLinkNameInput.focus();
+        return;
+      }
+
+      onlineLinkInProgress = true;
+      onlineLinkDialogSubmit.disabled = true;
+      setStatus("オンライン資料を追加しています…");
+      try {
+        const res = await fetch("/api/links", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url, name, folder: currentFolder }),
+        });
+        if (res.status === 401) {
+          window.location.reload();
+          return;
+        }
+        if (!res.ok) throw new Error("オンライン資料の追加に失敗しました。");
+        closeOnlineLinkDialog();
+        setStatus((name || "オンライン資料") + " を追加しました。", "success");
+        await loadFiles();
+      } catch (err) {
+        setStatus(err.message || "オンライン資料の追加に失敗しました。", "error");
+      } finally {
+        onlineLinkInProgress = false;
+        onlineLinkDialogSubmit.disabled = false;
+      }
+    });
 
     function openFolderDialog() {
       folderNameInput.value = "";

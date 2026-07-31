@@ -18,6 +18,8 @@ content snapshot として同梱している。汎用機能とPJ別インスタ�
 - PJ別の秘密値（`VSX_ACCESS_PASSWORD` / `VSX_AUTH_SECRET`）は、このリポジトリのどのファイルにも
   書かず、Vercelの当該プロジェクトの Environment Variables にのみ設定する
 
+ツールバーのリンク＋アイコンから、Google DriveやBoxなどの `http` / `https` URLをオンライン資料として追加できる。URLの中身はコピーせず、VSX専用private Blobの `vsx/links/` にURL・表示名・保存先フォルダだけを記録する。オンライン資料も検索・名前変更・削除・フォルダ移動に対応し、行のダブルクリックで新しいタブに開く。元サービス側の閲覧権限はそのまま適用される。
+
 PSI Step 2共同レビュー資料は `https://vsx.team-armada.jp/psi-step2` で配信する。
 `vercel.json` の限定的な外部rewriteにより、資料本体、Next.jsアセット、資料専用API、画像だけを
 `vsx-psi-step2-review` プロジェクトへ転送する。ブラウザ上のURLとセッションCookieは
