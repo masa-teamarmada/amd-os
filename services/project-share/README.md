@@ -3,6 +3,13 @@
 PJ関係者・社外協力者へ、パスワード認証だけで資料・ファイルを共有するための機能群。
 恒久仕様は [`SPEC.md`](SPEC.md) を正本にする。
 
+## 正本と引き継ぎ
+
+- いま動いている機能・認証・ストレージ・PDF化の仕様: [`SPEC.md`](SPEC.md)
+- Vercel上のPDF化で判明した実装上の注意: [`DEBUG.md`](DEBUG.md)
+- 次回の作業開始位置: [`HANDOFF.md`](HANDOFF.md)
+- 新しいセッションへ渡すそのまま使える依頼文: [`SESSION_MIGRATION_PROMPT.md`](SESSION_MIGRATION_PROMPT.md)
+
 ## 汎用機能とPJ別インスタンスの境界
 
 - **汎用機能**: パスワード認証 + HMAC署名Cookie、Vercel Blob（private store）を使った
