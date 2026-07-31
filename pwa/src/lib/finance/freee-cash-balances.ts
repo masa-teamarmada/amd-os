@@ -218,7 +218,7 @@ async function fetchWalletables(): Promise<Map<string, Walletable>> {
   return map;
 }
 
-async function fetchWalletTxns(startDate: string, endDate: string): Promise<WalletTxn[]> {
+export async function fetchWalletTxns(startDate: string, endDate: string): Promise<WalletTxn[]> {
   const txns: WalletTxn[] = [];
   const limit = 100;
   for (let offset = 0; offset < 5000; offset += limit) {
@@ -469,7 +469,7 @@ async function fetchFreeeDeals(startDate: string, endDate: string): Promise<Free
   return deals;
 }
 
-async function fetchFreeeAccountItems(): Promise<Map<string, string>> {
+export async function fetchFreeeAccountItems(): Promise<Map<string, string>> {
   const data = await freeeApi("GET", "/api/1/account_items") as { account_items?: FreeeAccountItem[] };
   const accountItems = new Map<string, string>();
   for (const item of data.account_items ?? []) {

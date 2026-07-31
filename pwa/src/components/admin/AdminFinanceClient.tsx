@@ -2,6 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { Check, Loader2, RefreshCw, Save } from "lucide-react";
+import type { FinanceOfficerReserve } from "@/lib/finance/officer-compensation";
+
+export type { FinanceOfficerReserve };
 
 export interface FinanceRecurringItem {
   id: string;
@@ -42,19 +45,6 @@ export interface FinanceReceiptEvent {
   status: string;
   actual_synced_at?: string | null;
   created_at: string;
-}
-
-export interface FinanceOfficerReserve {
-  ym: string;
-  totalYen: number;
-  entries: Array<{
-    projectId: string;
-    projectName: string;
-    sourceYm: string;
-    memberId: string;
-    memberName: string;
-    amountYen: number;
-  }>;
 }
 
 interface Props {

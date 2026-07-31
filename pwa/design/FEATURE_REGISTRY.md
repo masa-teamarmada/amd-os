@@ -242,6 +242,17 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 正本仕様: [`pwa/manual/6-9-company-payment-obligations-spec.md`](../manual/6-9-company-payment-obligations-spec.md)
 
+### /admin/finance#会計照合レール
+
+- 週次freee会計照合: 毎週木曜10:00 JSTの`GET /api/cron/freee-accounting-weekly`が`freee_reconciliation_runs/findings/actions`を正本に、口座残高差・同期停止・未処理明細・変な仕訳・役員報酬未消込・内部振替候補を検出する。
+- 4回review gate: `triggered_by='cron'`の完了run数+1が5以上になるまでは完全review-only（自動でfreeeへ書き込まない）。
+- 5回目以降allowlist: 自動反映されるのは、全役員の役員報酬完全一致消込（`officer_compensation_unreconciled`）と、双方口座特定済み・同額・許容日差以内の内部振替（`internal_transfer_candidate`）のうち完全一致のものだけ。曖昧・同額複数候補・残高差の直接補正・勘定科目の推測は必ずレビュー対象にする。
+- freee書込み安全境界: `internal_transfer_reconcile`はfreee公式APIに安全な書込み手段が無いため常にblocked。`officer_compensation_reconcile`のみ`FREEE_RECONCILIATION_WRITES_ENABLED=1`かつ完全一致のときだけ実行し、idempotency_key・before/after状態・監査ログを必須にする。
+- 正本境界: AMD OSの財務テーブルがSOT、freeeは実行先兼一次証跡、きよの収支スプシはread-only参考でこの機能からは一切書き込まない。
+- 管理操作: `/admin/finance`会計照合レールでpending/blockedのfindingを承認/却下、dry-runプレビュー実行ができる。承認がfreee即時書込みを伴う場合は`confirmWrite:true`必須＋サーバー側再検証。
+
+正本仕様: [`pwa/manual/6-10-freee-accounting-reconciliation-spec.md`](../manual/6-10-freee-accounting-reconciliation-spec.md)
+
 ## /admin/payouts
 
 目的: 支払月単位で、対象cycleの報酬確認、PJ別収支確認、支払データ同期状態、支払通知書発行、入金確認nudgeを一画面で運用する。
