@@ -47,16 +47,16 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - global `TsukuyomiChatBridge` は従来どおり invisible event bridge のまま。`Mascot.tsx` を `(app)/layout.tsx` に戻さない。
 - マニュアル章の追加・削除・構成変更は `pwa/src/app/(app)/manual/manual-chapters.ts` と `pwa/design/os_manual.md`、必要なら `pwa/manual/9-3-appendix-changelog.md` を同じ作業単位で更新する。
 
-## /bzm/map — BZM 2.0 理論マップ (2026-07-30 追加、2026-07-31 編集機能追加、build v3.52.3)
+## /bzm/map — BZM 2.0 理論マップ (2026-07-30 追加、2026-08-01 本人作成へリセット、build v3.53.7)
 
 目的: BZM 2.0 の主張・概念・測定・決定・文献・未解決論点を9関係で結び、自分の理解からノードとエッジを育てる**論証台帳**。「真理マップ」ではなく、ノード数・接続数は真偽・確信度を表さない。
 
 必須機能:
 
-- source of truth: `bzm_theory_nodes` / `bzm_theory_edges`。Markdown 21ノード / 34関係はmigrationの冪等seed、再構築資産、DB障害時の読み取り専用fallback。
+- source of truth: `bzm_theory_nodes` / `bzm_theory_edges` だけ。migration 208で旧seedを全削除し、0件からまさ本人が育てる。Markdown 21ノード / 34関係とmigration 203のseedは検証・復元用履歴で、ランタイムへ自動表示しない。
 - write contract: member read、admin write。API `/api/bzm/theory-map` は認証後だけ管理クライアントを使い、RLSも `is_admin()` writeを強制。保存操作時だけ書き、通知・外部送信・自動保存はしない。
-- create/grow: 「理論を書く」でノードを作成。選択ノードでは「根拠を足す」「異論を足す」「論点を残す」の3操作を主導線にし、初回エッジの向きを保存前に文章で確認する。
-- connect/edit: 既存ノード検索、relation・方向選択、ノード編集、確認付き接続解除を持つ。ノード削除UIは持たず、反証済みは `refuted` で履歴保存する。
+- create/grow: マップ空白クリックでマップ内作成panelを開く。選択ノードではマップ下端の「根拠 / 異論 / 論点」を主導線にし、初回エッジの向きを保存前に文章で確認する。マップ外に作成・育成ボタンを置かない。
+- connect/edit: ノードを別ノードへドラッグして重ねると、相手を選択済みのマップ内接続panelを開く。線クリックはマップ内の接続解除確認、選択操作帯はノード編集を持つ。ノード削除UIは持たず、反証済みは `refuted` で履歴保存する。
 - map 表示: `react-force-graph-2d` ( `next/dynamic({ssr:false})` ) による力学グラフ。ノード形状は kind、色は status、半径は接続本数、layer ごとの列分けと同一 layer 内の縦分散を持つ。
 - list 表示: フィルタ通過ノードを kind/layer/status バッジ + 接続本数付きで一覧する。スマホでは list を初期表示する。
 - フィルタ・検索: id/title/summary/source_ref 全文検索、layer・status・relation type のトグルフィルタ、フィルタ解除ボタン。検索と layer/status は map/list へ作用し、relation type は map のエッジだけを絞る。選択ノード台帳は反証の見落としを避けるため relation filter の影響を受けない。

@@ -10,6 +10,7 @@ const root = path.join(__dirname, "..");
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8");
 
 const migration = read("scripts/migrations/203_bzm_theory_editor.sql");
+const resetMigration = read("scripts/migrations/208_bzm_theory_map_user_authored_reset.sql");
 const store = read("src/lib/bzm-theory-store.ts");
 const api = read("src/app/api/bzm/theory-map/route.ts");
 const view = read("src/components/bzm/BzmTheoryMapView.tsx");
@@ -38,6 +39,11 @@ assert.match(migration, /from_node_id <> to_node_id/);
 assert.match(migration, /validate_bzm_theory_edge/);
 assert.match(migration, /raises edge target must be an active question node/);
 assert.match(migration, /validate_bzm_theory_node_kind/);
+assert.match(
+  resetMigration,
+  /DELETE FROM public\.bzm_theory_edges;[\s\S]*DELETE FROM public\.bzm_theory_nodes;/,
+  "user-authored reset must delete edges before nodes"
+);
 
 assert.match(api, /requireMember\(\)/, "GET must authenticate an AMD member");
 assert.equal((api.match(/requireAdmin\(\)/g) ?? []).length, 3, "all three mutation methods must require admin");
@@ -48,15 +54,25 @@ for (const contract of [
 ]) {
   assert.ok(store.includes(contract), `store contract missing ${contract}`);
 }
+assert.doesNotMatch(store, /loadMarkdownTheoryMap|falling back to markdown/);
+assert.match(store, /storageMode: "unavailable"/);
 
 for (const label of [
-  "理論を書く", "このノードを育てる", "根拠をつなぐ", "異論をつなぐ",
-  "論点を残す", "既存ノードとつなぐ", "残っている論点",
+  "ここから、まさの理論マップが始まる", "根拠", "異論", "論点",
+  "既存ノードへ重ねると接続", "残っている論点",
 ]) {
   assert.ok(view.includes(label) || composer.includes(label), `editor UI missing ${label}`);
 }
+for (const contract of [
+  "onBackgroundClick", "onNodeDragEnd", "onLinkClick", "handleNodeDragEnd",
+  "suppressNextBackgroundClick", 'setComposerState({ type: "create" })', 'data-bzm-map-overlay="true"',
+]) {
+  assert.ok(view.includes(contract) || composer.includes(contract), `direct-manipulation contract missing ${contract}`);
+}
+assert.doesNotMatch(view, /理論を書く|このノードを育てる|既存ノードとつなぐ/);
 assert.match(composer, /接続のプレビュー/);
-assert.match(composer, /showCloseButton=\{false\}/);
+assert.match(composer, /role="dialog"/);
+assert.match(composer, /data-bzm-map-overlay="true"/);
 assert.match(composer, /sourceRef: form\.sourceRef,/);
 assert.match(composer, /requiredTextMissing/);
 

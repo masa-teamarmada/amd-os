@@ -1,14 +1,7 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
-import { BookOpenText, CheckCircle2, HelpCircle, Lightbulb, Quote, Ruler, Search } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
+import { BookOpenText, CheckCircle2, HelpCircle, Lightbulb, Quote, Ruler, Search, X } from "lucide-react";
 import {
   THEORY_NODE_KINDS,
   THEORY_NODE_LAYERS,
@@ -35,7 +28,7 @@ import {
 export type ComposerState =
   | { type: "create" }
   | { type: "grow"; preset: "support" | "challenge" | "question" }
-  | { type: "connect" }
+  | { type: "connect"; targetId?: string; direction?: "outgoing" | "incoming" }
   | { type: "edit"; node: TheoryMapNode };
 
 const KIND_OPTIONS: { kind: TheoryNodeKind; icon: typeof Lightbulb }[] = [
@@ -199,6 +192,7 @@ export function BzmTheoryComposerDialog({
   const [note, setNote] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const open = state !== null;
   const mode = state?.type ?? "create";
@@ -212,8 +206,14 @@ export function BzmTheoryComposerDialog({
     setPending(false);
     setSearch("");
     setNote("");
-    setTargetId(null);
-    setDirection(state.type === "grow" && state.preset === "question" ? "incoming" : "outgoing");
+    setTargetId(state.type === "connect" ? state.targetId ?? null : null);
+    setDirection(
+      state.type === "connect"
+        ? state.direction ?? "outgoing"
+        : state.type === "grow" && state.preset === "question"
+          ? "incoming"
+          : "outgoing"
+    );
     setRelationType(state.type === "grow" ? presetRelationType(state.preset) : "supports");
     setAdvancedOpen(state.type === "edit");
     if (state.type === "create") setForm(defaultFormState());
@@ -222,6 +222,25 @@ export function BzmTheoryComposerDialog({
     else setForm(defaultFormState());
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [state]);
+
+  useEffect(() => {
+    if (!open) return;
+    const timer = window.setTimeout(() => {
+      const panel = panelRef.current;
+      const preferred = panel?.querySelector<HTMLElement>("[data-bzm-autofocus='true']");
+      (preferred ?? panel?.querySelector<HTMLElement>("input, textarea, select, button"))?.focus();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [mode, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !pending) onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose, pending]);
 
   const searchResults = useMemo(() => {
     if (mode !== "connect" || !selected) return [];
@@ -233,10 +252,6 @@ export function BzmTheoryComposerDialog({
   }, [mode, nodes, search, selected]);
 
   const target = targetId ? (nodes.find((n) => n.id === targetId) ?? null) : null;
-
-  function handleOpenChange(next: boolean) {
-    if (!next && !pending) onClose();
-  }
 
   async function submitCreateOrGrow(preset: "support" | "challenge" | "question" | null) {
     if (!form.title.trim() || !form.summary.trim()) {
@@ -385,25 +400,48 @@ export function BzmTheoryComposerDialog({
     return null;
   }, [mode, state, selected, form.title, relationType, direction, target]);
 
+  if (!open) return null;
+
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent
+    <div
+      className="absolute inset-0 z-30 flex items-end justify-center bg-[rgba(47,43,35,0.24)] p-0 sm:items-center sm:p-4"
+      data-bzm-map-overlay="true"
+      onMouseDown={(event) => {
+        if (event.currentTarget === event.target && !pending) onClose();
+      }}
+    >
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
         aria-labelledby={titleId}
-        showCloseButton={false}
-        className="inset-x-0 bottom-0 top-auto left-0 right-0 max-h-[92vh] w-full max-w-full translate-x-0 translate-y-0 overflow-y-auto rounded-t-2xl rounded-b-none p-0 sm:top-1/2 sm:left-1/2 sm:right-auto sm:bottom-auto sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
+        className="flex max-h-[94%] w-full max-w-2xl flex-col overflow-hidden rounded-t-xl border shadow-xl sm:rounded-xl"
         style={{ backgroundColor: "#faf6ec", borderColor: PAPER_BORDER, color: GRAPHITE }}
+        onMouseDown={(event) => event.stopPropagation()}
       >
-        <form onSubmit={handleSubmit} className="flex max-h-[92vh] flex-col sm:max-h-[85vh]">
-          <DialogHeader className="border-b px-4 py-4" style={{ borderColor: PAPER_BORDER }}>
-            <DialogTitle id={titleId} style={{ color: GRAPHITE }}>
-              {dialogTitle}
-            </DialogTitle>
-            {selected && (mode === "grow" || mode === "connect") && (
-              <DialogDescription style={{ color: GRAPHITE_MUTED }}>
-                選択中のノード: <span className="font-semibold">{selected.title}</span>
-              </DialogDescription>
-            )}
-          </DialogHeader>
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="flex items-start gap-3 border-b px-4 py-4" style={{ borderColor: PAPER_BORDER }}>
+            <div className="min-w-0 flex-1">
+              <h2 id={titleId} className="text-lg font-semibold leading-tight" style={{ color: GRAPHITE }}>
+                {dialogTitle}
+              </h2>
+              {selected && (mode === "grow" || mode === "connect") && (
+                <p className="mt-1 truncate text-xs" style={{ color: GRAPHITE_MUTED }}>
+                  選択中: <span className="font-semibold">{selected.title}</span>
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={pending}
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-md border disabled:opacity-50"
+              style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
+              aria-label="閉じる"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
             {mode === "connect" ? (
@@ -453,14 +491,14 @@ export function BzmTheoryComposerDialog({
           </div>
 
           <div
-            className="flex flex-col-reverse gap-2 border-t px-4 py-4 sm:flex-row sm:justify-end"
+            className="flex gap-2 border-t px-4 py-3 sm:justify-end sm:py-4"
             style={{ borderColor: PAPER_BORDER, backgroundColor: "rgba(204, 194, 168, 0.16)" }}
           >
             <button
               type="button"
               onClick={onClose}
               disabled={pending}
-              className="flex min-h-11 items-center justify-center rounded-md border px-4 text-sm font-semibold disabled:opacity-50"
+              className="flex min-h-11 flex-1 items-center justify-center rounded-md border px-4 text-sm font-semibold disabled:opacity-50 sm:flex-none"
               style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
             >
               キャンセル
@@ -468,15 +506,15 @@ export function BzmTheoryComposerDialog({
             <button
               type="submit"
               disabled={pending || requiredTextMissing || (mode === "connect" && !target)}
-              className="flex min-h-11 items-center justify-center rounded-md px-4 text-sm font-semibold text-white disabled:opacity-50"
+              className="flex min-h-11 flex-1 items-center justify-center rounded-md px-4 text-sm font-semibold text-white disabled:opacity-50 sm:flex-none"
               style={{ backgroundColor: BLUEPRINT }}
             >
-              {pending ? "送信中…" : mode === "edit" ? "更新する" : mode === "connect" ? "接続する" : "作成する"}
+              {pending ? "保存中…" : mode === "edit" ? "更新する" : mode === "connect" ? "つなぐ" : "作成する"}
             </button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }
 
@@ -539,6 +577,7 @@ function NodeFields({
         </label>
         <input
           id={titleFieldId}
+          data-bzm-autofocus="true"
           value={form.title}
           onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
           required
@@ -689,6 +728,7 @@ function ConnectFields({
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: GRAPHITE_MUTED }} />
           <input
             id={searchFieldId}
+            data-bzm-autofocus="true"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="id / タイトル / 要約で検索"

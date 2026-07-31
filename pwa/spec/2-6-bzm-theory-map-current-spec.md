@@ -5,20 +5,21 @@
 ## 目的と非目的
 
 - 自分が理解した理論要素をノードとして記録し、根拠・異論・反証・検証・未解決論点を別ノードとエッジで結ぶ。
-- ノードを選び、その場で「根拠を足す」「異論を足す」「論点を残す」の3操作から地図を広げる。
+- マップの空白とノードそのものを操作対象にし、外側の作成ボタンへ視線を往復せず地図を広げる。
 - **真理マップではない。** ノード数、接続数、位置は真偽や確信度を表さず、台帳の充実度を示すだけ。
 - SPS・ECR・AMD Score 等と合成したスコアを出さない。理論マップ自体が診断、予測、意思決定を代替しない。
 - `status` は人が記録する分類であり、画面が自動で真偽判定しない。`source + established` も資料の存在確認であって、BZM 固有主張の確立を意味しない。
 
-## 正本とフォールバック
+## 正本と履歴資産
 
 | source | 役割 |
 |---|---|
-| `bzm_theory_nodes` / `bzm_theory_edges` | 共有ランタイムの正本。OS UI からの追加・編集・接続解除を保存する |
-| `pwa/bzm/theory-graph/*.md` | 21ノード / 34関係の初期スナップショット、再構築資産、DB障害時の読み取り専用フォールバック |
-| migration `203_bzm_theory_editor.sql` | テーブル・制約・RLS・初期データの再構築正本 |
+| `bzm_theory_nodes` / `bzm_theory_edges` | 唯一の共有ランタイム正本。利用者本人がOS UIから追加・編集・接続解除する |
+| migration `208_bzm_theory_map_user_authored_reset.sql` | 既存シードを削除し、0ノード / 0関係の利用者作成台帳へ戻す現在化migration |
+| migration `203_bzm_theory_editor.sql` | テーブル・制約・RLSと、廃止済み初期データを含む再構築履歴 |
+| `pwa/bzm/theory-graph/*.md` | 旧21ノード / 34関係の検証・復元用履歴資産。ランタイムへ自動読込しない |
 
-DB取得に失敗した場合だけ Markdown を読み、画面上部に読み取り専用であることを明示する。フォールバック中の編集は許可しない。Markdown は日常運用の正本ではなく、DB更新を自動で書き戻さない。
+DB取得に失敗した場合は空の `unavailable` 結果を返し、画面上部で編集停止を明示する。Markdownや廃止済みシードを自動表示して、利用者本人が書いた地図と混ぜてはならない。
 
 ## ノードモデル
 
@@ -84,28 +85,28 @@ DB取得に失敗した場合だけ Markdown を読み、画面上部に読み�
 
 ### 全体構造
 
-ヘッダ → 検索・フィルタ → マップ/一覧 → 選択ノード台帳の順。desktop は地図と台帳を並べ、mobile は可読性の高い一覧を初期表示する。件数は真偽・確信度ではないという注記を常時表示する。
+ヘッダ → 検索・フィルタ → マップ/一覧 → 選択ノード台帳の順。desktop は地図と台帳を並べ、ノードが存在するmobileは可読性の高い一覧を初期表示する。空の台帳はmobileでもマップを表示し、最初のノードを作れる。件数は真偽・確信度ではない。
 
-### 理論を書く
+### 空白からノードを書く
 
-管理者はヘッダの「理論を書く」から以下を行う。
+管理者がマップの空いている場所をクリックすると、**マップの内側**に新規ノード作成パネルを重ねる。ヘッダや右台帳に作成ボタンは置かない。
 
 1. 種別を、概念・主張・測定・決定・文献・論点のカードから選ぶ。
 2. 見出しと要約を書く。この2項目だけで素早く記録できる。
 3. 必要なときだけ詳細を開き、層・状態・本文・文献情報を足す。
-4. 選択中ノードがあれば、作成ノードとの最初の接続方向を保存前プレビューで確認する。
 
 文献を選んだ時は文献情報を基本欄に出し、論点を選んだ時は `question / cross-layer / unknown` を初期値にする。
 
-### このノードを育てる
+### ノードを育てる
 
-選択ノードの台帳に3つの主要操作を置く。
+ノード選択時だけマップ下端に小さな操作帯を出す。右側台帳は読み取りへ専念し、編集操作を置かない。
 
-- **根拠を足す**: 新しい文献・証拠ノードから選択ノードへ `supports`。
-- **異論を足す**: 新しい文献・証拠ノードから選択ノードへ `challenges`。
-- **論点を残す**: 選択ノードから新しい問いノードへ `raises`。
+- **根拠**: 新しい文献・証拠ノードから選択ノードへ `supports`。
+- **異論**: 新しい文献・証拠ノードから選択ノードへ `challenges`。
+- **論点**: 選択ノードから新しい問いノードへ `raises`。
+- **編集**: 選択ノードの内容を更新する。
 
-既存ノード同士は「既存ノードとつなぐ」で検索し、relation と方向を選ぶ。保存前に「A —関係→ B」の文章プレビューを必ず出す。ノードは「編集」、各エッジは確認付きの「接続を外す」で保守する。
+既存ノードを別ノードへドラッグして重ねると、接続先を選択済みのマップ内パネルを開く。relation と方向を選び、保存前に「A —関係→ B」の文章プレビューを必ず出す。エッジをクリックすると、マップ内に確認パネルを出して接続解除できる。作成・接続・削除確認のパネルはbody portalへ出さず、マップ領域の `absolute overlay` とする。背景クリックまたはEscapeで閉じられるが、保存・削除処理中は閉じない。
 
 ### 閲覧
 
@@ -120,13 +121,14 @@ DB取得に失敗した場合だけ Markdown を読み、画面上部に読み�
 
 | path | 役割 |
 |---|---|
-| `src/lib/bzm-theory-store.ts` | DB load、Markdown fallback、入力検証、mutation |
+| `src/lib/bzm-theory-store.ts` | DB-only load、入力検証、mutation。障害時は `unavailable` |
 | `src/app/api/bzm/theory-map/route.ts` | 認証付き read/write API |
 | `src/app/(app)/bzm/map/page.tsx` | map data と admin 権限を並列取得する Server Component |
-| `src/components/bzm/BzmTheoryMapView.tsx` | map/list、選択台帳、編集入口 |
-| `src/components/bzm/BzmTheoryComposerDialog.tsx` | 新規・育成・接続・編集 dialog |
-| `src/lib/bzm-theory-graph.ts` | Markdown snapshot parser / graph builder |
-| `scripts/migrations/203_bzm_theory_editor.sql` | DB schema、RLS、21/34 seed |
+| `src/components/bzm/BzmTheoryMapView.tsx` | map/list、空白クリック、ノード重ね合わせ、線クリック、選択台帳 |
+| `src/components/bzm/BzmTheoryComposerDialog.tsx` | マップ内の新規・育成・接続・編集panel |
+| `src/lib/bzm-theory-graph.ts` | 履歴Markdown snapshotのparser / graph builder。ランタイム非使用 |
+| `scripts/migrations/203_bzm_theory_editor.sql` | DB schema、RLS、廃止済み21/34 seedの履歴 |
+| `scripts/migrations/208_bzm_theory_map_user_authored_reset.sql` | 全edge→全nodeの順で削除し、空台帳へ現在化 |
 | `scripts/check_bzm_theory_graph.cjs` | Markdown snapshot の独立 validator |
 | `scripts/check_bzm_theory_editor.cjs` | migration、権限、mutation、UI anchor の contract test |
 
@@ -135,6 +137,7 @@ DB取得に失敗した場合だけ Markdown を読み、画面上部に読み�
 ```bash
 cd pwa
 python3 -X utf8 scripts/apply_ddl.py scripts/migrations/203_bzm_theory_editor.sql
+python3 -X utf8 scripts/apply_ddl.py scripts/migrations/208_bzm_theory_map_user_authored_reset.sql
 python3 -X utf8 scripts/dump_schema.py
 npm run test:bzm-theory-graph
 npm run test:bzm-theory-editor
@@ -143,11 +146,11 @@ npx tsc --noEmit
 npm run build
 ```
 
-DB反映後は21ノード / 34関係の初期値を確認し、desktop / mobile で新規作成、3つの育成操作、既存接続、編集、接続解除、読み取り専用表示を目視する。
+DB反映後は0ノード / 0関係を確認する。desktop / mobile で空白クリック→マップ内作成、選択ノードの操作帯、ノード重ね合わせ→マップ内接続、線クリック→マップ内削除確認、編集、非admin閲覧を目視する。
 
 ## 既知の制約
 
 - 現行 UI はノード削除を持たない。誤記は編集し、反証済み理論は `refuted` で履歴を残す。
-- Markdown fallback の parser は狭い frontmatter subset だけを扱う。
+- 履歴Markdownのvalidatorは残るが、ランタイムDBとは同期せず自動表示もしない。
 - ノード数が大きく増えると力学レイアウトの安定に時間がかかる。探索の正本は検索・一覧も併用する。
 - layer の列は視覚的な整理であり、厳密な因果順序を表さない。

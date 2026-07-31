@@ -57,7 +57,7 @@
 - `bzm_theory_nodes`: 理論要素の title / kind / layer / status / summary / body / source reference と作成・更新者を保存する。
 - `bzm_theory_edges`: 有向エッジを `(from_node_id, relation_type, to_node_id)` 一意で保存する。9 relation を許可し、`raises` の到達先はAPIとDB triggerの両方でactiveな `question` に限定する。
 - authenticated member は active ノードと active ノード間エッジを読む。書き込みは `public.is_admin()` とAPIの `requireAdmin()` の両方で制限する。
-- migration `203_bzm_theory_editor.sql` が Markdown snapshot の21ノード / 34関係を冪等 seed する。日常運用の正本はDBで、Markdownは再構築資産と読み取り専用 fallback。
+- migration `203_bzm_theory_editor.sql` はschema/RLSと旧21ノード / 34関係seedの履歴。migration `208_bzm_theory_map_user_authored_reset.sql` がedge→nodeの順で全seed行を削除し、0件から本人が育てる現在値にする。日常運用の正本はDBだけで、Markdownは自動読込しない検証・復元用履歴資産。
 - UIからノードを直接削除しない。エッジ解除はID指定、ノード作成と初回エッジの片側失敗は補償削除する。
 
 ## RLS 標準形 (全テーブル必須)

@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { LayoutGrid, List as ListIcon, Maximize2, PenLine, Search, X } from "lucide-react";
+import { LayoutGrid, List as ListIcon, Maximize2, PenLine, Search } from "lucide-react";
 import type { TheoryNodeLayer, TheoryNodeStatus, TheoryRelationType } from "@/lib/bzm-theory-graph";
 import {
   BLUEPRINT,
@@ -35,14 +35,6 @@ import {
   type TheoryMapEdge,
   type TheoryMapNode,
 } from "@/lib/bzm-theory-map-ui";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import type { ComposerState } from "@/components/bzm/BzmTheoryComposerDialog";
 
 export type { TheoryMapNode, TheoryMapEdge } from "@/lib/bzm-theory-map-ui";
@@ -59,6 +51,9 @@ interface GraphLink {
   source: string | GraphNode;
   target: string | GraphNode;
   type: TheoryRelationType;
+  id: string | null;
+  note: string | null;
+  editable: boolean;
 }
 
 interface ForceGraphProps {
@@ -71,11 +66,15 @@ interface ForceGraphProps {
   linkWidth?: (link: GraphLink) => number;
   linkLineDash?: (link: GraphLink) => number[] | null;
   linkLabel?: (link: GraphLink) => string;
+  linkHoverPrecision?: number;
   linkDirectionalArrowLength?: number;
   linkDirectionalArrowRelPos?: number;
   nodeCanvasObject?: (node: GraphNode, ctx: CanvasRenderingContext2D, globalScale: number) => void;
   nodePointerAreaPaint?: (node: GraphNode, color: string, ctx: CanvasRenderingContext2D) => void;
   onNodeClick?: (node: GraphNode) => void;
+  onNodeDragEnd?: (node: GraphNode) => void;
+  onBackgroundClick?: () => void;
+  onLinkClick?: (link: GraphLink) => void;
   onEngineStop?: () => void;
 }
 
@@ -179,6 +178,10 @@ function createLayerForce(getNodes: () => GraphNode[], columnWidth: number, rowH
   return force;
 }
 
+function nodeRadius(node: Pick<GraphNode, "val">) {
+  return Math.max(6, 4 + Math.sqrt(node.val) * 2.2);
+}
+
 export function BzmTheoryMapView({
   nodes: initialNodes,
   edges: initialEdges,
@@ -189,7 +192,7 @@ export function BzmTheoryMapView({
   nodes: TheoryMapNode[];
   edges: TheoryMapEdge[];
   errors: string[];
-  storageMode: "db" | "markdown";
+  storageMode: "db" | "unavailable";
   canEdit: boolean;
 }) {
   const [nodes, setNodes] = useState(initialNodes);
@@ -222,7 +225,15 @@ export function BzmTheoryMapView({
   const [size, setSize] = useState({ w: 900, h: 600 });
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<ForceGraphHandle | null>(null);
+  const suppressBackgroundClickRef = useRef(false);
   const [graphReadyVersion, setGraphReadyVersion] = useState(0);
+
+  const suppressNextBackgroundClick = useCallback(() => {
+    suppressBackgroundClickRef.current = true;
+    window.setTimeout(() => {
+      suppressBackgroundClickRef.current = false;
+    }, 0);
+  }, []);
 
   const handleGraphRef = useCallback((handle: ForceGraphHandle | null) => {
     graphRef.current = handle;
@@ -232,12 +243,12 @@ export function BzmTheoryMapView({
   const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
 
   useEffect(() => {
-    if (!window.matchMedia("(max-width: 767px)").matches) return;
+    if (nodes.length === 0 || !window.matchMedia("(max-width: 767px)").matches) return;
     // Canvas map is intentionally optional on narrow screens; the list keeps
     // every node readable and keyboard-operable as the default mobile view.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setView("list");
-  }, []);
+  }, [nodes.length]);
 
   const incomingByTarget = useMemo(() => {
     const map = new Map<string, TheoryMapEdge[]>();
@@ -288,11 +299,50 @@ export function BzmTheoryMapView({
       ...n,
       val: Math.max(1, degreeById.get(n.id) ?? 1),
     }));
-    const gLinks: GraphLink[] = filteredEdges.map((e) => ({ source: e.from, target: e.to, type: e.type }));
+    const gLinks: GraphLink[] = filteredEdges.map((edge) => ({
+      source: edge.from,
+      target: edge.to,
+      type: edge.type,
+      id: edge.id,
+      note: edge.note,
+      editable: edge.editable,
+    }));
     return { nodes: gNodes, links: gLinks };
   }, [filteredNodes, filteredEdges, degreeById]);
 
   const selected = nodeById.get(selectedId) ?? null;
+
+  const handleNodeDragEnd = useCallback(
+    (dragged: GraphNode) => {
+      if (!canEdit || !Number.isFinite(dragged.x) || !Number.isFinite(dragged.y)) return;
+
+      let nearest: GraphNode | null = null;
+      let nearestDistance = Number.POSITIVE_INFINITY;
+      for (const candidate of graphData.nodes) {
+        if (
+          candidate.id === dragged.id ||
+          !Number.isFinite(candidate.x) ||
+          !Number.isFinite(candidate.y)
+        ) {
+          continue;
+        }
+        const distance = Math.hypot(
+          (dragged.x ?? 0) - (candidate.x ?? 0),
+          (dragged.y ?? 0) - (candidate.y ?? 0)
+        );
+        const overlapDistance = nodeRadius(dragged) + nodeRadius(candidate) + 12;
+        if (distance <= overlapDistance && distance < nearestDistance) {
+          nearest = candidate;
+          nearestDistance = distance;
+        }
+      }
+
+      if (!nearest) return;
+      setSelectedId(dragged.id);
+      setComposerState({ type: "connect", targetId: nearest.id, direction: "outgoing" });
+    },
+    [canEdit, graphData.nodes]
+  );
 
   useEffect(() => {
     const update = () => {
@@ -386,30 +436,19 @@ export function BzmTheoryMapView({
             <Link href="/bzm" className="inline-flex min-h-11 items-center font-semibold hover:underline" style={{ color: BLUEPRINT }}>
               ← 教科書へ戻る
             </Link>
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() => setComposerState({ type: "create" })}
-                className="ml-auto flex min-h-11 items-center gap-1.5 rounded-md px-3 text-sm font-semibold text-white"
-                style={{ backgroundColor: BLUEPRINT }}
-              >
-                <PenLine className="h-4 w-4" aria-hidden="true" />
-                理論を書く
-              </button>
-            )}
           </div>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">理論マップ — 論証台帳</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6" style={{ color: GRAPHITE_MUTED }}>
-            BZM 2.0 の主張・概念・測定・決定・外部ソース・未解決問いを、定義・支持・異議・反証・依存・上書き・運用化・検証・論点の関係で結んだ台帳。
-            件数は接続の本数を示すだけで、真偽や確信度を表さない。
+            自分で理解した理論・文献・反証・未解決の論点を書き、関係を結びながら育てる台帳。
+            空白をクリックすると新しいノード、ノード同士を重ねると新しい接続を作れる。
           </p>
-          {storageMode === "markdown" && (
+          {storageMode === "unavailable" && (
             <div
               className="mt-3 rounded-md border px-3 py-2 text-xs"
-              style={{ borderColor: OCHRE, backgroundColor: rgba(OCHRE, 0.08), color: OCHRE }}
-              role="status"
+              style={{ borderColor: VERMILION, backgroundColor: rgba(VERMILION, 0.08), color: VERMILION }}
+              role="alert"
             >
-              Markdownの参照版を表示中 — 読み取り専用。編集するにはデータベース移行が必要。
+              理論マップを読み込めないため、編集を停止している。
             </div>
           )}
           {errors.length > 0 && (
@@ -567,6 +606,7 @@ export function BzmTheoryMapView({
             {view === "map" ? (
               <div
                 ref={containerRef}
+                data-bzm-map-canvas="true"
                 className="relative h-[520px] w-full lg:h-[720px]"
                 style={{ backgroundColor: PAPER_BG }}
               >
@@ -595,10 +635,11 @@ export function BzmTheoryMapView({
                   linkWidth={(link) => (CHALLENGE_TYPES.includes(link.type) ? 1.6 : 1.1)}
                   linkLineDash={(link) => (STRUCTURAL_TYPES.includes(link.type) ? [4, 3] : null)}
                   linkLabel={(link) => RELATION_LABEL[link.type]}
+                  linkHoverPrecision={10}
                   linkDirectionalArrowLength={4}
                   linkDirectionalArrowRelPos={1}
                   nodeCanvasObject={(node, ctx, globalScale) => {
-                    const r = Math.max(6, 4 + Math.sqrt(node.val) * 2.2);
+                    const r = nodeRadius(node);
                     const x = node.x ?? 0;
                     const y = node.y ?? 0;
                     const isSelected = selected?.id === node.id;
@@ -649,8 +690,210 @@ export function BzmTheoryMapView({
                     ctx.arc(node.x ?? 0, node.y ?? 0, r, 0, Math.PI * 2);
                     ctx.fill();
                   }}
-                  onNodeClick={(node) => setSelectedId(node.id)}
+                  onNodeClick={(node) => {
+                    suppressNextBackgroundClick();
+                    setSelectedId(node.id);
+                  }}
+                  onNodeDragEnd={(node) => {
+                    suppressNextBackgroundClick();
+                    handleNodeDragEnd(node);
+                  }}
+                  onBackgroundClick={() => {
+                    if (suppressBackgroundClickRef.current) {
+                      suppressBackgroundClickRef.current = false;
+                      return;
+                    }
+                    if (canEdit && !composerState && !edgeToRemove) {
+                      setComposerState({ type: "create" });
+                    }
+                  }}
+                  onLinkClick={(link) => {
+                    suppressNextBackgroundClick();
+                    if (!canEdit || !link.id || !link.editable) return;
+                    const edge = edges.find((candidate) => candidate.id === link.id);
+                    if (edge) setEdgeToRemove(edge);
+                  }}
                   onEngineStop={() => graphRef.current?.zoomToFit(400, 40)}
+                />
+
+                {graphData.nodes.length === 0 && !composerState && (
+                  <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center px-6 text-center">
+                    <div
+                      className="max-w-sm rounded-lg border border-dashed px-5 py-4 shadow-sm"
+                      style={{ borderColor: PAPER_BORDER, backgroundColor: rgba(PAPER_PANEL, 0.92) }}
+                    >
+                      <div className="text-sm font-semibold" style={{ color: GRAPHITE }}>
+                        {nodes.length === 0 ? "ここから、まさの理論マップが始まる" : "条件に合うノードがない"}
+                      </div>
+                      <p className="mt-1 text-xs leading-5" style={{ color: GRAPHITE_MUTED }}>
+                        {canEdit && nodes.length === 0
+                          ? "マップの空いている場所をクリックして、最初のノードを書いてみて。"
+                          : nodes.length === 0
+                            ? "まだノードはありません。"
+                            : "フィルタを解除すると、すべてのノードを表示できます。"}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {canEdit && selected && visibleIds.has(selected.id) && !composerState && !edgeToRemove && (
+                  <div className="absolute inset-x-3 bottom-3 z-20 flex justify-center">
+                    <div
+                      className="flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-lg border p-2 shadow-lg"
+                      style={{ borderColor: PAPER_BORDER, backgroundColor: rgba(PAPER_PANEL, 0.96) }}
+                      onMouseDown={(event) => event.stopPropagation()}
+                    >
+                      <span className="max-w-48 truncate px-2 text-xs font-semibold" style={{ color: GRAPHITE }}>
+                        {selected.title}
+                      </span>
+                      {selected.editable && (
+                        <button
+                          type="button"
+                          onClick={() => setComposerState({ type: "edit", node: selected })}
+                          className="flex min-h-11 items-center gap-1 rounded-md border px-3 text-xs font-semibold sm:min-h-9"
+                          style={{ borderColor: PAPER_BORDER, color: BLUEPRINT }}
+                        >
+                          <PenLine className="h-3.5 w-3.5" aria-hidden="true" />
+                          編集
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setComposerState({ type: "grow", preset: "support" })}
+                        className="min-h-11 rounded-md border px-3 text-xs font-semibold sm:min-h-9"
+                        style={{ borderColor: MOSS, color: MOSS, backgroundColor: rgba(MOSS, 0.06) }}
+                      >
+                        根拠
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setComposerState({ type: "grow", preset: "challenge" })}
+                        className="min-h-11 rounded-md border px-3 text-xs font-semibold sm:min-h-9"
+                        style={{ borderColor: VERMILION, color: VERMILION, backgroundColor: rgba(VERMILION, 0.06) }}
+                      >
+                        異論
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setComposerState({ type: "grow", preset: "question" })}
+                        className="min-h-11 rounded-md border px-3 text-xs font-semibold sm:min-h-9"
+                        style={{ borderColor: OCHRE, color: OCHRE, backgroundColor: rgba(OCHRE, 0.06) }}
+                      >
+                        論点
+                      </button>
+                      <span className="hidden px-2 text-[11px] sm:inline" style={{ color: GRAPHITE_MUTED }}>
+                        既存ノードへ重ねると接続
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {edgeToRemove && (
+                  <div
+                    className="absolute inset-0 z-30 flex items-end justify-center bg-[rgba(47,43,35,0.24)] sm:items-center sm:p-4"
+                    data-bzm-map-overlay="true"
+                    onMouseDown={(event) => {
+                      if (event.currentTarget === event.target && !removePending) {
+                        setEdgeToRemove(null);
+                        setRemoveError(null);
+                      }
+                    }}
+                  >
+                    <div
+                      role="dialog"
+                      aria-modal="true"
+                      aria-labelledby="bzm-edge-delete-title"
+                      className="w-full max-w-md rounded-t-xl border p-4 shadow-xl sm:rounded-xl"
+                      style={{ backgroundColor: "#faf6ec", borderColor: PAPER_BORDER, color: GRAPHITE }}
+                      onMouseDown={(event) => event.stopPropagation()}
+                    >
+                      <h2 id="bzm-edge-delete-title" className="text-lg font-semibold">
+                        この接続を削除する？
+                      </h2>
+                      <p className="mt-2 text-sm leading-6" style={{ color: GRAPHITE_MUTED }}>
+                        {RELATION_LABEL[edgeToRemove.type]}: {nodeById.get(edgeToRemove.from)?.title ?? edgeToRemove.from} →{" "}
+                        {nodeById.get(edgeToRemove.to)?.title ?? edgeToRemove.to}
+                      </p>
+                      <p className="mt-1 text-xs" style={{ color: VERMILION }}>
+                        この操作は取り消せません。
+                      </p>
+                      {removeError && (
+                        <div
+                          className="mt-3 rounded-md border px-3 py-2 text-xs"
+                          style={{ borderColor: VERMILION, backgroundColor: rgba(VERMILION, 0.08), color: VERMILION }}
+                          role="alert"
+                        >
+                          {removeError}
+                        </div>
+                      )}
+                      <div className="mt-4 flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEdgeToRemove(null);
+                            setRemoveError(null);
+                          }}
+                          disabled={removePending}
+                          className="min-h-11 rounded-md border px-4 text-sm font-semibold disabled:opacity-50"
+                          style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
+                        >
+                          キャンセル
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!edgeToRemove.id) return;
+                            setRemovePending(true);
+                            setRemoveError(null);
+                            const result = await callTheoryMapApi({
+                              method: "DELETE",
+                              query: `?edgeId=${encodeURIComponent(edgeToRemove.id)}`,
+                            });
+                            setRemovePending(false);
+                            if (!result.ok) {
+                              setRemoveError(result.error);
+                              announce("error", result.error);
+                              return;
+                            }
+                            const removedId = edgeToRemove.id;
+                            setEdges((current) => current.filter((edge) => edge.id !== removedId));
+                            setEdgeToRemove(null);
+                            announce("success", "接続を削除しました。");
+                          }}
+                          disabled={removePending}
+                          className="min-h-11 rounded-md px-4 text-sm font-semibold text-white disabled:opacity-50"
+                          style={{ backgroundColor: VERMILION }}
+                        >
+                          {removePending ? "削除中…" : "削除する"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <BzmTheoryComposerDialog
+                  state={composerState}
+                  selected={selected}
+                  nodes={nodes}
+                  onClose={() => setComposerState(null)}
+                  onNodeCreated={(node, edge) => {
+                    setNodes((current) => [...current, node]);
+                    if (edge) setEdges((current) => [...current, edge]);
+                    setSelectedId(node.id);
+                    setComposerState(null);
+                    announce("success", `「${node.title}」を作成しました。`);
+                  }}
+                  onEdgeCreated={(edge) => {
+                    setEdges((current) => [...current, edge]);
+                    setComposerState(null);
+                    announce("success", "接続を作成しました。");
+                  }}
+                  onNodeUpdated={(node) => {
+                    setNodes((current) => current.map((candidate) => (candidate.id === node.id ? node : candidate)));
+                    setComposerState(null);
+                    announce("success", `「${node.title}」を更新しました。`);
+                  }}
+                  onError={(message) => announce("error", message)}
                 />
               </div>
             ) : (
@@ -764,61 +1007,6 @@ export function BzmTheoryMapView({
                   </details>
                 </div>
 
-                {canEdit && (
-                  <div className="mx-4 mt-4 rounded-md border px-3 py-3" style={{ borderColor: PAPER_BORDER }}>
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold" style={{ color: GRAPHITE }}>
-                        このノードを育てる
-                      </span>
-                      {selected.editable && (
-                        <button
-                          type="button"
-                          onClick={() => setComposerState({ type: "edit", node: selected })}
-                          className="flex min-h-11 items-center gap-1 rounded-md border px-2.5 text-xs font-semibold"
-                          style={{ borderColor: PAPER_BORDER, color: BLUEPRINT }}
-                        >
-                          <PenLine className="h-3.5 w-3.5" aria-hidden="true" />
-                          編集
-                        </button>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                      <button
-                        type="button"
-                        onClick={() => setComposerState({ type: "grow", preset: "support" })}
-                        className="flex min-h-11 items-center justify-center rounded-md border px-2 text-center text-xs font-semibold"
-                        style={{ borderColor: MOSS, color: MOSS, backgroundColor: rgba(MOSS, 0.06) }}
-                      >
-                        根拠をつなぐ
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setComposerState({ type: "grow", preset: "challenge" })}
-                        className="flex min-h-11 items-center justify-center rounded-md border px-2 text-center text-xs font-semibold"
-                        style={{ borderColor: VERMILION, color: VERMILION, backgroundColor: rgba(VERMILION, 0.06) }}
-                      >
-                        異論をつなぐ
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setComposerState({ type: "grow", preset: "question" })}
-                        className="flex min-h-11 items-center justify-center rounded-md border px-2 text-center text-xs font-semibold"
-                        style={{ borderColor: OCHRE, color: OCHRE, backgroundColor: rgba(OCHRE, 0.06) }}
-                      >
-                        論点を残す
-                      </button>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setComposerState({ type: "connect" })}
-                      className="mt-2 flex min-h-11 w-full items-center justify-center rounded-md border px-2 text-xs font-semibold"
-                      style={{ borderColor: PAPER_BORDER, color: GRAPHITE }}
-                    >
-                      既存ノードとつなぐ
-                    </button>
-                  </div>
-                )}
-
                 {gaps.length > 0 && (
                   <div
                     className="mx-4 mt-4 rounded-md border px-3 py-2 text-xs"
@@ -841,8 +1029,6 @@ export function BzmTheoryMapView({
                     direction="from"
                     nodeById={nodeById}
                     onSelect={setSelectedId}
-                    canEdit={canEdit}
-                    onRemove={setEdgeToRemove}
                   />
                   <RelationGroup
                     title="異議・反証 (入力)"
@@ -851,8 +1037,6 @@ export function BzmTheoryMapView({
                     direction="from"
                     nodeById={nodeById}
                     onSelect={setSelectedId}
-                    canEdit={canEdit}
-                    onRemove={setEdgeToRemove}
                   />
                   <RelationGroup
                     title="残っている論点"
@@ -862,8 +1046,6 @@ export function BzmTheoryMapView({
                     selfId={selected.id}
                     nodeById={nodeById}
                     onSelect={setSelectedId}
-                    canEdit={canEdit}
-                    onRemove={setEdgeToRemove}
                   />
                   <RelationGroup
                     title="検証 (tests)"
@@ -873,8 +1055,6 @@ export function BzmTheoryMapView({
                     selfId={selected.id}
                     nodeById={nodeById}
                     onSelect={setSelectedId}
-                    canEdit={canEdit}
-                    onRemove={setEdgeToRemove}
                   />
                   <RelationGroup
                     title="依存・上書き"
@@ -884,8 +1064,6 @@ export function BzmTheoryMapView({
                     selfId={selected.id}
                     nodeById={nodeById}
                     onSelect={setSelectedId}
-                    canEdit={canEdit}
-                    onRemove={setEdgeToRemove}
                   />
                   <RelationGroup
                     title="波及先 (このノードが支持/異議を及ぼす先)"
@@ -894,8 +1072,6 @@ export function BzmTheoryMapView({
                     direction="to"
                     nodeById={nodeById}
                     onSelect={setSelectedId}
-                    canEdit={canEdit}
-                    onRemove={setEdgeToRemove}
                   />
                 </div>
               </div>
@@ -941,106 +1117,6 @@ export function BzmTheoryMapView({
         </div>
       )}
 
-      <Dialog
-        open={edgeToRemove !== null}
-        onOpenChange={(next) => {
-          if (!next && !removePending) {
-            setEdgeToRemove(null);
-            setRemoveError(null);
-          }
-        }}
-      >
-        <DialogContent showCloseButton={false} style={{ backgroundColor: "#faf6ec", borderColor: PAPER_BORDER, color: GRAPHITE }}>
-          <DialogHeader>
-            <DialogTitle style={{ color: GRAPHITE }}>接続を削除しますか?</DialogTitle>
-            <DialogDescription style={{ color: GRAPHITE_MUTED }}>
-              {edgeToRemove && (
-                <>
-                  {RELATION_LABEL[edgeToRemove.type]}: {nodeById.get(edgeToRemove.from)?.title ?? edgeToRemove.from} →{" "}
-                  {nodeById.get(edgeToRemove.to)?.title ?? edgeToRemove.to}
-                  <br />
-                  この操作は取り消せません。
-                </>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          {removeError && (
-            <div
-              className="rounded-md border px-3 py-2 text-xs"
-              style={{ borderColor: VERMILION, backgroundColor: rgba(VERMILION, 0.08), color: VERMILION }}
-              role="alert"
-            >
-              {removeError}
-            </div>
-          )}
-          <DialogFooter>
-            <button
-              type="button"
-              onClick={() => {
-                setEdgeToRemove(null);
-                setRemoveError(null);
-              }}
-              disabled={removePending}
-              className="flex min-h-11 items-center justify-center rounded-md border px-4 text-sm font-semibold disabled:opacity-50"
-              style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
-            >
-              キャンセル
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                if (!edgeToRemove?.id) return;
-                setRemovePending(true);
-                setRemoveError(null);
-                const result = await callTheoryMapApi({
-                  method: "DELETE",
-                  query: `?edgeId=${encodeURIComponent(edgeToRemove.id)}`,
-                });
-                setRemovePending(false);
-                if (!result.ok) {
-                  setRemoveError(result.error);
-                  announce("error", result.error);
-                  return;
-                }
-                const removedId = edgeToRemove.id;
-                setEdges((prev) => prev.filter((e) => e.id !== removedId));
-                setEdgeToRemove(null);
-                announce("success", "接続を削除しました。");
-              }}
-              disabled={removePending}
-              className="flex min-h-11 items-center justify-center rounded-md px-4 text-sm font-semibold text-white disabled:opacity-50"
-              style={{ backgroundColor: VERMILION }}
-            >
-              {removePending ? "削除中…" : "削除する"}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <BzmTheoryComposerDialog
-        state={composerState}
-        selected={selected}
-        nodes={nodes}
-        onClose={() => setComposerState(null)}
-        onNodeCreated={(node, edge) => {
-          setNodes((prev) => [...prev, node]);
-          if (edge) setEdges((prev) => [...prev, edge]);
-          setSelectedId(node.id);
-          setComposerState(null);
-          announce("success", `「${node.title}」を作成しました。`);
-        }}
-        onEdgeCreated={(edge) => {
-          setEdges((prev) => [...prev, edge]);
-          setComposerState(null);
-          announce("success", "接続を作成しました。");
-        }}
-        onNodeUpdated={(node) => {
-          setNodes((prev) => prev.map((n) => (n.id === node.id ? node : n)));
-          setComposerState(null);
-          announce("success", `「${node.title}」を更新しました。`);
-        }}
-        onError={(message) => announce("error", message)}
-      />
     </div>
   );
 }
@@ -1053,8 +1129,6 @@ function RelationGroup({
   selfId,
   nodeById,
   onSelect,
-  canEdit,
-  onRemove,
 }: {
   title: string;
   color: string;
@@ -1063,8 +1137,6 @@ function RelationGroup({
   selfId?: string;
   nodeById: Map<string, TheoryMapNode>;
   onSelect: (id: string) => void;
-  canEdit?: boolean;
-  onRemove?: (edge: TheoryMapEdge) => void;
 }) {
   return (
     <div className="mb-4 last:mb-0">
@@ -1087,9 +1159,8 @@ function RelationGroup({
             const otherId = direction === "to" ? edge.to : direction === "from" ? edge.from : edge.from === selfId ? edge.to : edge.from;
             const other = nodeById.get(otherId);
             if (!other) return null;
-            const removable = Boolean(canEdit && edge.editable && edge.id && onRemove);
             return (
-              <li key={`${edge.from}-${edge.type}-${edge.to}`} className="flex items-stretch gap-1">
+              <li key={`${edge.from}-${edge.type}-${edge.to}`}>
                 <button
                   type="button"
                   onClick={() => onSelect(other.id)}
@@ -1103,17 +1174,6 @@ function RelationGroup({
                     {other.title}
                   </span>
                 </button>
-                {removable && (
-                  <button
-                    type="button"
-                    onClick={() => onRemove?.(edge)}
-                    className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md border"
-                    style={{ borderColor: PAPER_BORDER, color: VERMILION }}
-                    aria-label={`${RELATION_LABEL[edge.type]} ${other.title} の接続を削除`}
-                  >
-                    <X className="h-3.5 w-3.5" aria-hidden="true" />
-                  </button>
-                )}
               </li>
             );
           })}

@@ -5,8 +5,8 @@ import { BzmTheoryMapView, type TheoryMapNode } from "@/components/bzm/BzmTheory
 /**
  * /bzm/map — 理論マップ (BZM 2.0 の論証台帳)。
  *
- * DB (bzm_theory_nodes / bzm_theory_edges) を正として bzm-theory-store 経由で読み、
- * DB未適用時やクエリ失敗時のみ pwa/bzm/theory-graph/*.md への読み取り専用フォールバックになる。
+ * 利用者本人が育てる DB (bzm_theory_nodes / bzm_theory_edges) だけを正として
+ * bzm-theory-store 経由で読む。障害時も過去のMarkdownやシードを混ぜない。
  */
 
 export default async function BzmTheoryMapPage() {

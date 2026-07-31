@@ -1,10 +1,10 @@
 /**
  * BZM 理論マップのデータ層。
  *
- * DB (bzm_theory_nodes / bzm_theory_edges, migration 203) を正とし、
- * テーブル未適用やクエリ失敗時に限り pwa/bzm/theory-graph/*.md への
- * 読み取り専用フォールバックへ切り替える。API route (src/app/api/bzm/theory-map)
- * と /bzm/map ページの両方がこのモジュールを通して読み書きする。
+ * DB (bzm_theory_nodes / bzm_theory_edges) だけを正とする。
+ * このマップは利用者が自分で育てるため、DB障害時も過去のMarkdownや
+ * 初期データを自動表示しない。API route と /bzm/map ページの両方が
+ * このモジュールを通して読み書きする。
  */
 
 import fs from "node:fs";
@@ -12,20 +12,17 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  buildTheoryGraph,
-  parseTheoryNode,
   THEORY_NODE_KINDS,
   THEORY_NODE_LAYERS,
   THEORY_NODE_STATUSES,
   THEORY_RELATION_TYPES,
-  type TheoryNode,
   type TheoryNodeKind,
   type TheoryNodeLayer,
   type TheoryNodeStatus,
   type TheoryRelationType,
 } from "@/lib/bzm-theory-graph";
 
-export type TheoryMapStorageMode = "db" | "markdown";
+export type TheoryMapStorageMode = "db" | "unavailable";
 
 export interface TheoryMapNodeDTO {
   id: string;
@@ -68,14 +65,6 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 const NODES_TABLE = "bzm_theory_nodes";
 const EDGES_TABLE = "bzm_theory_edges";
 
-// -------------------------------------------------------------------------
-// Markdown fallback (read-only)
-// -------------------------------------------------------------------------
-
-function theoryGraphDir() {
-  return path.join(process.cwd(), "bzm", "theory-graph");
-}
-
 function bzmDir() {
   return path.join(process.cwd(), "bzm");
 }
@@ -94,62 +83,6 @@ export function resolveSourceHref(sourceRef: string): string | null {
   // BzmMarkdown does not currently emit stable heading ids, so source links
   // intentionally open the document rather than a misleading fragment URL.
   return `/bzm/${encodeURIComponent(slug)}`;
-}
-
-function loadMarkdownNodes(): { nodes: TheoryNode[]; errors: string[] } {
-  const dir = theoryGraphDir();
-  if (!fs.existsSync(dir)) return { nodes: [], errors: [`理論マップのディレクトリが見つからない: ${dir}`] };
-
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith(".md"));
-  const nodes: TheoryNode[] = [];
-  const errors: string[] = [];
-
-  for (const file of files) {
-    const filePath = path.join(dir, file);
-    try {
-      const raw = fs.readFileSync(filePath, "utf8");
-      nodes.push(parseTheoryNode(raw, filePath));
-    } catch (error) {
-      errors.push(error instanceof Error ? error.message : String(error));
-    }
-  }
-
-  return { nodes, errors };
-}
-
-function loadMarkdownTheoryMap(): TheoryMapResult {
-  const { nodes, errors } = loadMarkdownNodes();
-  const buildErrors: string[] = [...errors];
-  let mapNodes: TheoryMapNodeDTO[] = [];
-  let mapEdges: TheoryMapEdgeDTO[] = [];
-
-  try {
-    const graph = buildTheoryGraph(nodes);
-    mapNodes = graph.nodes.map((node) => ({
-      id: node.id,
-      title: node.title,
-      kind: node.kind,
-      layer: node.layer,
-      status: node.status,
-      summary: node.summary,
-      sourceRef: node.sourceRef,
-      sourceHref: resolveSourceHref(node.sourceRef),
-      body: node.body,
-      editable: false,
-    }));
-    mapEdges = graph.edges.map((edge) => ({
-      from: edge.from,
-      to: edge.to,
-      type: edge.type,
-      id: null,
-      note: null,
-      editable: false,
-    }));
-  } catch (error) {
-    buildErrors.push(error instanceof Error ? error.message : String(error));
-  }
-
-  return { storageMode: "markdown", nodes: mapNodes, edges: mapEdges, errors: buildErrors };
 }
 
 // -------------------------------------------------------------------------
@@ -176,8 +109,8 @@ interface EdgeRow {
 }
 
 /**
- * DB を正として理論マップを読み込む。テーブル未適用やクエリ失敗時のみ
- * Markdown フォールバックへ切り替える (空データは正常系として扱う)。
+ * DB を正として理論マップを読み込む。空データは正常系として扱う。
+ * 取得失敗時は過去データを混ぜず、空の unavailable 結果を返す。
  */
 export async function loadTheoryMap(
   supabase: SupabaseClient
@@ -191,13 +124,13 @@ export async function loadTheoryMap(
   ]);
 
   if (nodesRes.error || edgesRes.error) {
-    console.error(
-      "[bzm-theory-store] DB load failed, falling back to markdown",
-      nodesRes.error ?? edgesRes.error
-    );
-    const fallback = loadMarkdownTheoryMap();
-    fallback.errors.unshift("DBからの読み込みに失敗したため、Markdown版を表示しています(読み取り専用)。");
-    return fallback;
+    console.error("[bzm-theory-store] DB load failed", nodesRes.error ?? edgesRes.error);
+    return {
+      storageMode: "unavailable",
+      nodes: [],
+      edges: [],
+      errors: ["理論マップを読み込めませんでした。時間をおいて再読み込みしてください。"],
+    };
   }
 
   const nodeRows = (nodesRes.data ?? []) as NodeRow[];
