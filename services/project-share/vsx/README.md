@@ -313,3 +313,16 @@ vercel --prod
 - `test/portal.test.mjs`のドラッグ関連テストを、旧`dragstart`/`dragend`/`dataTransfer`前提の文字列一致から、`pointerdown`での状態記録・`pointermove`の閾値判定とelementFromPoint解決・`pointerup`でのmoveFileTo一発呼び出しと状態クリア順序・`pointercancel`/`blur`でのキャンセル・外部Filesドロップとの分離を検証する契約ベースのテストへ全面的に書き換えた。
 - `npm run build` / `npm run check` / `npm test` は成功（node:test 177件、失敗0件）。
 - 本番で実ファイルをルートから`PSI Step 2`へドラッグし、`PATCH /api/files`の200応答、移動先表示、再読み込み後の永続化を確認した。検証用ファイルは確認後に削除済み。本番デプロイID: `dpl_89eykBk7sVstEWGL6cKUARYogL1N`。
+
+### リロード時のフォーム再送信確認を解消・行全体からのドラッグ開始（2026-07-31）
+
+- ログイン成功時は認証Cookieを発行した後、`303 See Other`で`/`へ転送するPOST/Redirect/GETに変更した。
+  認証済みBOXはGETで表示されるため、ブラウザをリロードしてもフォーム再送信の確認は出ない。
+- ファイル行は、ダウンロード・名前変更・削除の操作欄を除いて、名前・形式・サイズ・更新日の
+  どの列からでもPointer Eventsによるドラッグ移動を開始できるようにした。ダブルクリックで開く操作と
+  フォルダの受け皿表示は維持する。
+- `npm run build` / `npm run check` / `npm test` は成功。VSX / CX / SE / SX / ZMP / KUTEの
+  本番ログインPOSTで`303`と`/`への転送を確認し、VSX実画面のリロードで確認モーダルが出ないこと、
+  デスクトップと390px幅で横方向overflowがないことを確認した。
+- 本番デプロイID: `dpl_FTxrzRPqHJtK6Hk8BXx4cApNSGZP`。公開URLは従来どおり
+  `https://vsx.team-armada.jp`。
