@@ -238,8 +238,15 @@ expectIncludes("src/components/cockpit/CockpitMonthlyModal.tsx", [
   "scheduleLabel",
   "INTERNAL_TEMPLATE",
   "SUBMISSION_TEMPLATE",
-  "社内版本文",
-  "startEditing",
+  "社内版を確認・編集",
+  "提出版を確認・編集",
+]);
+
+expectIncludes("src/app/(app)/project/[projectId]/report/[ym]/print/print-client.tsx", [
+  "InlineMarkdownReview",
+  "report-editable-block",
+  "社内版の確定版に反映した",
+  "PDFとして保存",
 ]);
 
 expectIncludes("src/app/api/progress/events/route.ts", [

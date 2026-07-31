@@ -128,7 +128,7 @@ GAS `rv2_calcRewardSummary` が報酬計算時に `share` を掛けて per-membe
 
 これは月次報告書の生成停止ではない。`monthly_reports` は OS の必須データで、定期生成は月末の Claude task が担う。月次モーダルは非 LLM の直接編集・保存・確定だけを提供する。旧 `/api/report/generate` と `/api/monthly-report/edit-by-tsukuyomi` は 410 で停止し、旧 daily Codex automation や、対象範囲・費用意図が曖昧な有料 API trigger を復活させない。backfill route は通常 UI へ出さず、対象と費用を確認した手動復旧に限定する。
 
-内部保存版と提出版は同じ帳票ではない。内部版は従来の固定8見出しで `monthly_reports` に保存し、PWAの社内レビュー帳票で確認する。提出版は `monthly_reports_external.body_md` に保存し、KUTEでは2026-06-30実提出版を基準とする9章の連続文書として印刷する。生成時は内部版だけでなく当月source bundleと前月実提出版も渡し、前月版は構成・文体・情報密度だけを参照する。外部版helperは主要章、表、本文長、末尾定型、生データ残骸、姓表記、e-Rad表記を検査してから反映する。提出前の文面修正は、月次モーダルの `提出版を編集` から行う。保存内容は提出版の正本へ直接反映され、社内版本文は変わらない。
+内部保存版と提出版は同じ帳票ではない。内部版は従来の固定8見出しで `monthly_reports` に保存し、PWAの社内レビュー帳票で確認する。提出版は `monthly_reports_external.body_md` に保存し、KUTEでは2026-06-30実提出版を基準とする9章の連続文書として印刷する。月次モーダル右上の `社内版を確認・編集` / `提出版を確認・編集` は同格の入口で、それぞれを開いた紙面上で見出し・段落・表だけをその位置で編集する。提出版の保存内容は提出版の正本へ直接反映され、社内版本文は変わらない。社内版はまず draft に保存し、確定版を置き換えるのは明示的な `確定版に反映` だけとする。生成時は内部版だけでなく当月source bundleと前月実提出版も渡し、前月版は構成・文体・情報密度だけを参照する。外部版helperは主要章、表、本文長、末尾定型、生データ残骸、姓表記、e-Rad表記を検査してから反映する。
 
 内部版 LLM の入力は `evidence_bundle` / `previous_internal_md` / `members` / `audit_metadata` に分ける。本文に使えるのは確認済み事実をまとめた `evidence_bundle` と前月版の構成参照だけ。`audit_metadata` の件数、source refs、既存 draft の処理経緯は検証・readback 用であり、本文へ書かない。出力は会議順や source 順ではなく業務領域ごとに統合し、概要は当月の主進展、並行進展、判断・リスク、来月の焦点を3〜5文でまとめる。
 
@@ -265,7 +265,7 @@ confirm されたら `monthly_reports.draft_content` を `revised_content` で�
 
 | ブロック | 内容 |
 |---|---|
-| 月次報告書 | `monthly_reports.draft_content` / `final_content` と `monthly_reports_external.body_md`。`社内版`/`提出版`は同格の印刷表示リンク (`template=internal`/`submission`)。`本文を編集`は社内版、`提出版を編集`は提出版本文を別々に直接編集・保存するパネルを開く。提出版の保存後は同パネルの `提出版PDFを開く` で最新内容を確認する |
+| 月次報告書 | `monthly_reports.draft_content` / `final_content` と `monthly_reports_external.body_md`。`社内版を確認・編集` / `提出版を確認・編集` は同格の印刷表示リンク (`template=internal`/`submission`) で、開いた紙面上の見出し・段落・表をその場で編集する。提出版は提出版の正本へ保存し、社内版は下書き保存後に明示操作でのみ確定版へ反映する |
 | MS 進捗 (per-MS) | `milestone_monthly_progress.progress_pct`、 cumulative bar、 修正依頼ボタン |
 | MTG サマリ (当月) | `project_meeting_summaries` で当月 ym のもの |
 | 経営ハイライト (当月) | `project_strategy_signals` で当月 ym のもの |

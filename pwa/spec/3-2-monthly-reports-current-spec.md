@@ -160,11 +160,11 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 |---|---|
 | `GET /api/project/monthly-report-print?projectId=&ym=` | 章 §01-§07 全ブロックを 1 fetch で返す集約 route。requireAdmin、列名は `pwa/design/db_schema.md` 準拠。**メンバー名は `members.member_name` (本名) を優先、空なら `members.code_name`** |
 | `/(app)/project/[projectId]/report/[ym]/print` | 集約 JSON を Team ARMADA ブランド (Work Sans / Noto Sans JP / JetBrains Mono / dark #0a1628) で A4 縦に表示。認証・PJアクセス判定後は通常のOSシェルを経由せず、左メニュー・月初合意・通知・チャットを画面にもPDFにも含めない。`@page A4 / margin 14mm 14mm 18mm 14mm`、各 sheet を `page-break-after: always` で章分離。`@page` の top-left に 機関名+期間、top-right に「取扱注意 / Confidential」、bottom-left に コピーライト、bottom-center に Page X/Y を CSS で自動付与 |
-| Cockpit 月次モーダルヘッダの `社内版` リンク | `template=internal` で新規タブに印刷ビューを開く。総合判定・MS前月/当月/差分表・ガント・体制・次月計画を可視化した社内レビュー帳票。`提出版` と同格のリンク操作 |
-| Cockpit 月次モーダルヘッダの `提出版` リンク | `template=submission` で新規タブに印刷ビューを開く。ユーザーは Cmd+P → 「PDFとして保存」(余白=既定 / 背景のグラフィック=ON / A4縦) |
-| Cockpit 月次モーダルヘッダの `本文を編集` ボタン | `社内版` リンクとは別の第三操作。固定8見出し本文 (社内版本文、`社内版` 帳票が参照する Markdown) の直接編集・保存・確定 panel を開閉する。開くと二段階クリックを挟まず直接編集状態に入る。生成・再生成・AI修正は置かない |
-| Cockpit 月次モーダルヘッダの `提出版を編集` ボタン | `本文を編集`とは別の提出版専用操作。`monthly_reports_external.body_md` を読み込み、その場で直接編集・保存する。保存後の `提出版PDFを開く` は同じ `body_md` を印刷する。保存時は提出版の章構成・表・本文長・末尾定型を検査し、氏名を姓表記と `e-Rad` へ正規化する。AMD Score・L2メタデータ・内部ルーティン名・code_name は保存を止める。社内版 `monthly_reports.final_content` は変更しない |
+| Cockpit 月次モーダルヘッダの `社内版を確認・編集` | `template=internal` で新規タブに社内レビュー帳票を開く。総合判定・MS前月/当月/差分表・ガント・体制・次月計画を可視化し、紙面上の本文ブロックをその位置で編集できる |
+| Cockpit 月次モーダルヘッダの `提出版を確認・編集` | `template=submission` で新規タブに提出版の連続文書を開く。紙面上の本文ブロックをその位置で編集し、保存後に同じ画面からPDFとして保存する |
+| 印刷ビューの `編集する` / 保存操作 | 社内版・提出版とも、見出し・段落・Markdown表を押すと該当箇所だけ編集する。社内版の進捗表・ガント等のデータ表示は直接編集しない。提出版は `monthly_reports_external.body_md` へ保存し、構成・表・本文長・末尾定型・内部用語を検査する。社内版はまず `draft_content` へ保存し、`確定版に反映` の明示操作だけが `final_content` を更新する |
 | `GET/POST /api/monthly-report/external-manual-update` | `requireAdmin`。GET は `monthly_reports_external` の提出版本文を返す。POST は `YYYYMM` を `YYYY-MM` に変換して同表へ保存し、既存の生成日時を維持して `updated_at` のみ更新する。生成前の新規作成も可能。LLMは呼ばない |
+| `POST /api/report/fix` | `final_content` がある場合は `force:true` を要求する。印刷ビューの確定操作は確認ダイアログを経てこれを送るため、下書き保存だけで確定版を上書きしない |
 
 画面上の編集・保存・確定は LLM を呼ばない。旧 `/api/report/generate` と `/api/monthly-report/edit-by-tsukuyomi` は従量課金事故を防ぐため 410 で停止する。自動生成は月末最終日の `amd-os-l2m1-monthly-report` に一本化する。
 

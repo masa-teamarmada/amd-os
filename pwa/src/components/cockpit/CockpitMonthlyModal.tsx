@@ -12,7 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { SubmissionReportEditor } from "./SubmissionReportEditor";
 
 // 画面上の名称は全PJで「社内版」「提出版」に固定する。
 // 提出先ごとの事情は本文と帳票データが担い、操作ラベルへ漏らさない。
@@ -228,10 +227,7 @@ interface MsRevision {
   messages: MsRevisionMessage[];
 }
 
-// レポートタブは v0.33.0 で廃止。印刷ビューと二重に存在するため、編集が必要なときは
-// モーダル内の「社内版」panelを開く運用に統一。
-// 互換のため型エイリアスは残す (= 外部呼び出し: CockpitView.openMonthlyModal の initialTab) が、
-// 値は受け取っても無視する (= 開いた瞬間に編集アコーディオンを展開する用)。
+// レポート編集は印刷ビューに統一する。互換のため、CockpitView から渡る initialTab の型だけ残す。
 type MonthlyModalTab = "reward" | "report";
 
 interface Props {
@@ -713,63 +709,11 @@ function milestoneKeywords(title: string) {
 // の 3 ソースが正本で、monthly_reports.final_content からのキーワード抽出はしない。
 // (2026-07-01 まさ確定、KUTE 準拠新プロンプト導入後の table 大量出力で MS カードが破綻したため削除)
 
-// シンプルなMarkdownレンダラー（react-markdown不要）
-function parseBold(text: string): React.ReactNode {
-  const parts = text.split(/\*\*([^*]+)\*\*/g);
-  return (
-    <>
-      {parts.map((part, i) =>
-        i % 2 === 1 ? <strong key={i}>{part}</strong> : part
-      )}
-    </>
-  );
-}
-
-function SimpleMarkdown({ text }: { text: string }) {
-  if (!text) return null;
-  const lines = text.split("\n");
-  return (
-    <div className="text-sm leading-relaxed">
-      {lines.map((line, i) => {
-        if (line.startsWith("### ")) {
-          return <h4 key={i} className="text-sm font-semibold mt-3 mb-0.5">{line.slice(4)}</h4>;
-        }
-        if (line.startsWith("## ")) {
-          return <h3 key={i} className="text-base font-semibold mt-4 mb-1 text-foreground">{line.slice(3)}</h3>;
-        }
-        if (line.startsWith("# ")) {
-          return <h2 key={i} className="text-lg font-bold mt-4 mb-1">{line.slice(2)}</h2>;
-        }
-        if (line.match(/^[-*] /)) {
-          return (
-            <div key={i} className="flex gap-1.5 ml-2 my-0.5">
-              <span className="text-muted-foreground shrink-0 mt-px">•</span>
-              <span>{parseBold(line.slice(2))}</span>
-            </div>
-          );
-        }
-        if (line.startsWith("> ")) {
-          return (
-            <blockquote key={i} className="text-sm border-l-2 border-muted-foreground/30 pl-3 text-muted-foreground my-1">
-              {line.slice(2)}
-            </blockquote>
-          );
-        }
-        if (line.trim() === "") {
-          return <div key={i} className="h-2" />;
-        }
-        return <p key={i} className="my-0.5">{parseBold(line)}</p>;
-      })}
-    </div>
-  );
-}
-
 // ─── メインコンポーネント ────────────────────────────────────────────────────
 
 export function CockpitMonthlyModal({
   ym,
   projectId,
-  report,
   billing,
   milestones,
   progress,
@@ -780,17 +724,12 @@ export function CockpitMonthlyModal({
   msActivities = [],
   memberActivities = [],
   currentYm,
-  initialTab,
   projectFeeType,
   projectFeeAmount,
   usesMsProgress = true,
   onProgressSaved,
   onClose,
 }: Props) {
-  // v0.33.0: タブを廃止。initialTab='report' で開かれたら編集アコーディオンを開く。
-  const [reportEditorOpen, setReportEditorOpen] = useState<boolean>(() => initialTab === "report");
-  const [submissionEditorOpen, setSubmissionEditorOpen] = useState(false);
-
   // 総合進捗（シグナル計算用）
   // まさ判断 (2026-05-22 #4): buffer タグ MS は加重平均から除外する。
   const ymProgressMap = buildEffectiveProgressMap(progress, milestones, ym);
@@ -830,88 +769,22 @@ export function CockpitMonthlyModal({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex min-h-11 items-center text-xs px-3 py-2 rounded-md border border-border text-foreground hover:bg-accent transition-colors"
-                title="社内版を新しいタブで開く"
+                title="社内版を確認・編集する画面を新しいタブで開く"
               >
-                社内版
+                社内版を確認・編集
               </a>
               <a
                 href={`/project/${projectId}/report/${ym}/print?template=${SUBMISSION_TEMPLATE}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex min-h-11 items-center text-xs px-3 py-2 rounded-md border border-border text-foreground hover:bg-accent transition-colors"
-                title="提出版を新しいタブで開く"
+                className="inline-flex min-h-11 items-center text-xs px-3 py-2 rounded-md border border-sky-200 bg-sky-50 text-sky-950 hover:bg-sky-100 transition-colors"
+                title="提出版を確認・編集する画面を新しいタブで開く"
               >
-                提出版
+                提出版を確認・編集
               </a>
-              <button
-                onClick={() => {
-                  setReportEditorOpen((v) => !v);
-                  setSubmissionEditorOpen(false);
-                }}
-                aria-expanded={reportEditorOpen}
-                className={`min-h-11 text-xs px-3 py-2 rounded-md border transition-colors ${
-                  reportEditorOpen
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-border text-foreground hover:bg-accent"
-                }`}
-                title={reportEditorOpen ? "本文編集を閉じる" : "社内版本文を編集する"}
-              >
-                本文を編集
-              </button>
-              <button
-                onClick={() => {
-                  setSubmissionEditorOpen((v) => !v);
-                  setReportEditorOpen(false);
-                }}
-                aria-expanded={submissionEditorOpen}
-                className={`min-h-11 text-xs px-3 py-2 rounded-md border transition-colors ${
-                  submissionEditorOpen
-                    ? "border-sky-700 bg-sky-700 text-white"
-                    : "border-sky-200 bg-sky-50 text-sky-950 hover:bg-sky-100"
-                }`}
-                title={submissionEditorOpen ? "提出版本文の編集を閉じる" : "提出版本文を編集する"}
-              >
-                提出版を編集
-              </button>
             </div>
           </DialogTitle>
         </DialogHeader>
-
-        {reportEditorOpen && (
-          <div className="min-w-0 border border-border rounded-lg p-4 mb-4 bg-muted/20">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className="text-sm font-semibold">社内版本文</h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">社内版の可視化帳票（総合判定・MS進捗表・ガント・体制・次月計画）はこの本文を参照して生成される</p>
-              </div>
-              <button
-                onClick={() => setReportEditorOpen(false)}
-                className="text-xs text-muted-foreground hover:text-foreground"
-              >
-                閉じる ✕
-              </button>
-            </div>
-            <ReportTab report={report} projectId={projectId} ym={ym} startEditing />
-          </div>
-        )}
-
-        {submissionEditorOpen && (
-          <section data-testid="submission-report-editor" className="min-w-0 border border-sky-200 rounded-lg p-4 mb-4 bg-sky-50/40">
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <div>
-                <h3 className="text-sm font-semibold text-sky-950">提出版本文</h3>
-                <p className="mt-0.5 text-xs leading-5 text-muted-foreground">保存した本文が、次に開く提出版PDFへそのまま反映される。社内版本文とは別に保存する。</p>
-              </div>
-              <button
-                onClick={() => setSubmissionEditorOpen(false)}
-                className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
-              >
-                閉じる ✕
-              </button>
-            </div>
-            <SubmissionReportEditor projectId={projectId} ym={ym} />
-          </section>
-        )}
 
         <RewardTab
           billing={billing}
@@ -919,7 +792,6 @@ export function CockpitMonthlyModal({
           progress={progress}
           ym={ym}
           projectId={projectId}
-          report={report}
           responsibilities={responsibilities}
           memberMap={memberMap}
           planCycle={planCycle}
@@ -946,7 +818,6 @@ function RewardTab({
   progress,
   ym,
   projectId,
-  report,
   responsibilities,
   memberMap,
   planCycle,
@@ -965,7 +836,6 @@ function RewardTab({
   progress: ProgressInfo[];
   ym: string;
   projectId: string;
-  report: Report | null;
   responsibilities: Responsibility[];
   memberMap: Record<string, string>;
   planCycle: PlanCycleShape | null;
@@ -2961,178 +2831,6 @@ function MemberPayoutSection({
           </tbody>
         </table>
       </div>
-    </div>
-  );
-}
-
-// ─── ReportTab ───────────────────────────────────────────────────────────────
-
-function ReportTab({
-  report,
-  projectId,
-  ym,
-  startEditing = false,
-}: {
-  report: Report | null;
-  projectId: string;
-  ym: string;
-  startEditing?: boolean;
-}) {
-  const [fixing, setFixing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [editing, setEditing] = useState(startEditing);
-  const [content, setContent] = useState(report?.finalExcerpt || report?.draftExcerpt || "");
-  const [editedContent, setEditedContent] = useState(content);
-  const [status, setStatus] = useState(
-    report?.status === "fixed" || (report?.hasFinal && report?.fixedAt)
-      ? "fixed"
-      : report?.status || ""
-  );
-  const [error, setError] = useState("");
-  const [showMarkdown, setShowMarkdown] = useState(true);
-
-  const isFixed = status === "fixed";
-
-  const handleSave = async () => {
-    setSaving(true);
-    setError("");
-    try {
-      const res = await fetch("/api/monthly-report/manual-update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, ym, content: editedContent }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "保存に失敗しました");
-      const savedContent = typeof data.content === "string" ? data.content : editedContent;
-      setContent(savedContent);
-      setEditedContent(savedContent);
-      setStatus("draft");
-      setEditing(false);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "エラーが発生しました");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleFix = async () => {
-    setFixing(true);
-    setError("");
-    try {
-      const res = await fetch("/api/report/fix", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, ym }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "確定に失敗しました");
-      setStatus("fixed");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "エラーが発生しました");
-    } finally {
-      setFixing(false);
-    }
-  };
-
-  return (
-    <div className="min-w-0 space-y-3">
-      {/* ステータス + アクション */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {content && (
-          <span className={`text-xs px-2 py-0.5 rounded ${
-            isFixed ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
-          }`}>
-            {isFixed ? "確定済" : "ドラフト"}
-          </span>
-        )}
-
-        {!editing && (
-          <button
-            onClick={() => {
-              setEditedContent(content);
-              setEditing(true);
-            }}
-            className="min-h-11 text-xs px-3 py-2 rounded-md border border-border text-foreground hover:bg-accent transition-colors"
-          >
-            {content ? "本文を編集" : "本文を入力"}
-          </button>
-        )}
-
-        {content && !isFixed && !editing && (
-          <button
-            onClick={handleFix}
-            disabled={fixing}
-            className="min-h-11 text-xs px-3 py-2 rounded-md bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-50 transition-colors"
-          >
-            {fixing ? "確定中..." : "確定"}
-          </button>
-        )}
-
-        {/* 表示切り替え */}
-        {content && (
-          <button
-            onClick={() => setShowMarkdown(!showMarkdown)}
-            className="min-h-11 text-xs px-3 py-2 rounded border border-border text-muted-foreground hover:text-foreground transition-colors ml-auto"
-          >
-            {showMarkdown ? "プレーンテキスト" : "Markdown"}
-          </button>
-        )}
-      </div>
-
-      <p className="text-xs leading-5 text-muted-foreground">
-        自動生成は月末の定額内処理が担当する。この画面の編集・保存・確定ではAIトークンを消費しない。
-      </p>
-
-      {editing && (
-        <div className="space-y-2 rounded-lg border border-border bg-background p-3">
-          <textarea
-            value={editedContent}
-            onChange={(e) => setEditedContent(e.target.value)}
-            aria-label="社内版のMarkdown本文"
-            className="min-h-[360px] w-full resize-y rounded-md border border-border bg-muted/20 p-3 font-mono text-sm leading-6 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={() => {
-                setEditedContent(content);
-                setEditing(false);
-                setError("");
-              }}
-              disabled={saving}
-              className="min-h-11 text-xs px-3 py-2 rounded-md border border-border text-muted-foreground hover:text-foreground disabled:opacity-50"
-            >
-              キャンセル
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={!editedContent.trim() || saving}
-              className="min-h-11 text-xs px-3 py-2 rounded-md bg-foreground text-background hover:opacity-90 disabled:opacity-50"
-            >
-              {saving ? "保存中..." : "保存"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {error && (
-        <div className="text-xs text-red-600 bg-red-50 rounded-lg p-2">{error}</div>
-      )}
-
-      {/* コンテンツ表示 */}
-      {content && !editing ? (
-        <div className="min-w-0 bg-muted/30 rounded-lg p-4 max-h-[480px] overflow-y-auto">
-          {showMarkdown ? (
-            <SimpleMarkdown text={content} />
-          ) : (
-            <div className="text-sm whitespace-pre-wrap leading-relaxed">{content}</div>
-          )}
-        </div>
-      ) : !editing ? (
-        <p className="text-sm text-muted-foreground py-4">
-          社内版はまだ作成されていない。月末の自動生成を待つか、「本文を入力」から直接作成できる。
-        </p>
-      ) : null}
     </div>
   );
 }

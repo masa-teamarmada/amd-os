@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-31 JST | 3-2 Monthly Reports / 3-8 Cockpit | 再設計 | 月次モーダルの `社内版` / `提出版` と別置きだった `本文を編集` / `提出版を編集` を廃止し、同格の `社内版を確認・編集` / `提出版を確認・編集` の2入口へ統一した。開いたA4紙面で見出し・段落・Markdown表をその位置だけ編集し、保存後に同じ画面からPDFとして保存する。提出版は対外版正本へ保存、社内版はdraft保存と確認付きの確定版置換を分け、既存 `final_content` の置換には `force:true` を要求する。build v3.52.8 | PDFを見てからモーダルへ戻り、別の本文欄で該当箇所を探す往復をなくし、二つの版で同じ確認・編集体験にするため | えいみ |
 | 2026-07-31 JST | 3-2 Monthly Reports / 3-8 Cockpit | 追加 | 月次モーダルに `提出版を編集` を追加。`monthly_reports_external.body_md` を社内版と分けて直接保存し、保存後に同じ本文の提出版PDFを開けるようにした。保存時は提出版の構成・表・本文長・末尾定型と対外用語を検査する。build v3.52.7 | 提出用の本文をOS上で確認・修正してからPDF化できるようにするため | えいみ |
 | 2026-07-31 JST | 3-2 Monthly Reports | 修正 | `/project/[projectId]/report/[ym]/print` は認証・PJアクセス判定後に通常のOSシェルを外し、左メニュー・月初合意・通知・チャットを画面とPDFの両方から除外する。build v3.52.5 | ブラウザのPDF保存に左メニューが混入していたため | えいみ |
 | 2026-07-30 JST | 4-3 ECR | 追加 | 機関コックピットに「土壌×シーズ」タブを追加。ECR8軸とSPS分布を同じas-of日付で並べて観測するが合成単一スコアにはしない契約、`institution-soil-seeds.ts`の分位点/ランキング/as-of整列関数、`seeds.institution_id`/`institution_assessments.evaluation_version`列追加 (migration 202、KUTE分`org_name='工学院大学'`のみbackfill)、`test:institution-soil-seeds`/`test:critical-ui`のcontract testを記録。SPS評価値そのものは未変更 | ECRとSPSを機関単位で継続観測しつつ、terminology_glossary §4/BZM_2_0_REVISION_REQUIREMENTS §3-5の合成単一スコア禁止を守るため | えいみ |

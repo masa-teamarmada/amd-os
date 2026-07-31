@@ -26,7 +26,7 @@
  * PDF 化はブラウザの Cmd+P → 「PDFとして保存」。
  */
 
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 // ─── 型定義 ───────────────────────────────────────────────────────────────
 interface MsRow {
@@ -174,10 +174,6 @@ function formatDate(iso: string | null): string {
     return d.toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
   } catch { return iso; }
 }
-function formatYen(n: number | null | undefined): string {
-  if (!n || !Number.isFinite(n)) return "—";
-  return `¥${Math.round(n).toLocaleString("ja-JP")}`;
-}
 function ymToDate(ym: string | null): Date | null {
   if (!ym || ym.length < 6) return null;
   const y = parseInt(ym.slice(0, 4), 10);
@@ -285,6 +281,141 @@ function MarkdownBlock({ text }: { text: string }) {
     </div>
   );
 }
+
+type MarkdownPiece = {
+  id: string;
+  start: number;
+  end: number;
+  text: string;
+  label: string;
+};
+
+function markdownPieces(text: string): MarkdownPiece[] {
+  const lines = text.split("\n");
+  const offsets: number[] = [];
+  let cursor = 0;
+  for (const line of lines) {
+    offsets.push(cursor);
+    cursor += line.length + 1;
+  }
+
+  const pieces: MarkdownPiece[] = [];
+  let index = 0;
+  while (index < lines.length) {
+    const line = lines[index];
+    if (!line.trim()) {
+      index += 1;
+      continue;
+    }
+
+    const start = index;
+    let label = "本文";
+    if (line.includes("|") && isMarkdownTableSeparator(lines[index + 1] || "")) {
+      label = "表";
+      index += 2;
+      while (index < lines.length && /^\s*\|.*\|\s*$/.test(lines[index]) && !isMarkdownTableSeparator(lines[index])) index += 1;
+    } else if (/^[-*] /.test(line)) {
+      label = "箇条書き";
+      index += 1;
+      while (index < lines.length && /^[-*] /.test(lines[index])) index += 1;
+    } else if (/^#{1,4} /.test(line)) {
+      label = "見出し";
+      index += 1;
+    } else {
+      index += 1;
+      while (
+        index < lines.length
+        && lines[index].trim()
+        && !/^#{1,4} /.test(lines[index])
+        && !/^[-*] /.test(lines[index])
+        && !(lines[index].includes("|") && isMarkdownTableSeparator(lines[index + 1] || ""))
+      ) index += 1;
+    }
+
+    const end = index < lines.length ? offsets[index] - 1 : text.length;
+    pieces.push({
+      id: `${start}-${offsets[start]}`,
+      start: offsets[start],
+      end,
+      text: text.slice(offsets[start], end),
+      label,
+    });
+  }
+  return pieces;
+}
+
+function InlineMarkdownReview({
+  text,
+  editMode,
+  onChange,
+}: {
+  text: string;
+  editMode: boolean;
+  onChange: (next: string) => void;
+}) {
+  const [editingPiece, setEditingPiece] = useState<MarkdownPiece | null>(null);
+  const [draft, setDraft] = useState("");
+  const pieces = useMemo(() => markdownPieces(text), [text]);
+
+  const beginEditing = (piece: MarkdownPiece) => {
+    if (!editMode) return;
+    setEditingPiece(piece);
+    setDraft(piece.text);
+  };
+
+  const apply = () => {
+    if (!editingPiece) return;
+    onChange(`${text.slice(0, editingPiece.start)}${draft}${text.slice(editingPiece.end)}`);
+    setEditingPiece(null);
+    setDraft("");
+  };
+
+  if (!text) return null;
+  return (
+    <div className={`md-body ${editMode ? "md-body-editing" : ""}`}>
+      {pieces.map((piece) => {
+        const isEditing = editingPiece?.id === piece.id;
+        return (
+          <section
+            key={piece.id}
+            data-testid="report-editable-block"
+            className={`report-editable-block ${editMode ? "is-editable" : ""} ${isEditing ? "is-editing" : ""}`}
+            onClick={() => beginEditing(piece)}
+            onKeyDown={(event) => {
+              if (!editMode || isEditing || (event.key !== "Enter" && event.key !== " ")) return;
+              event.preventDefault();
+              beginEditing(piece);
+            }}
+            role={editMode && !isEditing ? "button" : undefined}
+            tabIndex={editMode && !isEditing ? 0 : undefined}
+            aria-label={editMode && !isEditing ? `${piece.label}をその場で編集` : undefined}
+          >
+            {isEditing ? (
+              <div className="report-inline-editor" onClick={(event) => event.stopPropagation()}>
+                <p>{piece.label}を編集</p>
+                <textarea
+                  autoFocus
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  aria-label={`${piece.label}の編集`}
+                />
+                <div className="report-inline-editor-actions">
+                  <button type="button" onClick={() => { setEditingPiece(null); setDraft(""); }}>元に戻す</button>
+                  <button type="button" onClick={apply}>この箇所に反映</button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {editMode && <span className="report-edit-affordance">この箇所を編集</span>}
+                <MarkdownBlock text={piece.text} />
+              </>
+            )}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
 function renderInline(text: string): React.ReactNode {
   const parts = text.split(/\*\*([^*]+)\*\*/g);
   return parts.map((p, i) => (i % 2 === 1 ? <strong key={i}>{p}</strong> : p));
@@ -308,14 +439,27 @@ function reportBodyForPrint(data: PrintData): string {
   return body.replace(/^#\s+月次業務報告書\s*\n+/u, "");
 }
 
-function SubmissionReport({ data }: { data: PrintData }) {
-  const reportBody = reportBodyForPrint(data);
+function sourceWithReportHeading(source: string, body: string, isSubmission: boolean): string {
+  const heading = source.match(/^#\s+月次業務報告書\s*(?:\n|$)/u)?.[0].trim();
+  if (heading) return `${heading}\n\n${body.trim()}`;
+  return isSubmission ? `# 月次業務報告書\n\n${body.trim()}` : body.trim();
+}
+
+function SubmissionReport({
+  reportBody,
+  editMode,
+  onBodyChange,
+}: {
+  reportBody: string;
+  editMode: boolean;
+  onBodyChange: (next: string) => void;
+}) {
 
   return (
     <main className="submission-sheet">
       <h1 className="submission-title">月次業務報告書</h1>
       {reportBody ? (
-        <MarkdownBlock text={reportBody} />
+        <InlineMarkdownReview key={editMode ? "editing" : "review"} text={reportBody} editMode={editMode} onChange={onBodyChange} />
       ) : (
         <div className="empty">提出用の月次業務報告書本文は未生成です。</div>
       )}
@@ -411,7 +555,7 @@ function SectionHead({ num, title, en }: { num: string; title: string; en: strin
 }
 
 function ExecSummary({ data }: { data: PrintData }) {
-  const { overallPct, expectedPct, rag, milestones, meetings, currentXrl, previousXrl } = data;
+  const { overallPct, expectedPct, rag, milestones, meetings, currentXrl } = data;
   const lead = leadParagraph(data);
   const highlights = (() => {
     const lines: string[] = [];
@@ -559,9 +703,18 @@ function stripInternalJargon(text: string): string {
   return out;
 }
 
-function ProgressSection({ data }: { data: PrintData }) {
+function ProgressSection({
+  data,
+  reportBody,
+  editMode,
+  onBodyChange,
+}: {
+  data: PrintData;
+  reportBody: string;
+  editMode: boolean;
+  onBodyChange: (next: string) => void;
+}) {
   const { milestones, achievementSignals, grants, media, meetings, ym } = data;
-  const reportBody = reportBodyForPrint(data);
   const activeMs = selectActiveMilestonesForReport(milestones, ym).sort((a, b) => b.points - a.points);
 
   // 会議由来の Decided (旧§03 から統合)
@@ -587,7 +740,7 @@ function ProgressSection({ data }: { data: PrintData }) {
         </div>
         {reportBody ? (
           <div className="report-body">
-            <MarkdownBlock text={reportBody} />
+            <InlineMarkdownReview key={editMode ? "editing" : "review"} text={reportBody} editMode={editMode} onChange={onBodyChange} />
           </div>
         ) : (
           <div className="empty">月次報告書本文は未生成です。</div>
@@ -1041,6 +1194,87 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
     const client = data.project.clientName || "—";
     return `${client} / 月次報告 ${formatYm(data.ym)}`;
   }, [data]);
+  const originalSource = useMemo(() => (
+    data.isSubmission
+      ? data.submissionBody || ""
+      : data.report?.finalContent || data.report?.draftContent || data.monthlyNote || ""
+  ), [data]);
+  const [reportBody, setReportBody] = useState(() => reportBodyForPrint(data));
+  const [savedBody, setSavedBody] = useState(() => reportBodyForPrint(data));
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const [hasFinal, setHasFinal] = useState(Boolean(data.report?.finalContent));
+  const fullSource = useMemo(
+    () => sourceWithReportHeading(originalSource, reportBody, data.isSubmission),
+    [data.isSubmission, originalSource, reportBody],
+  );
+  const previewData = useMemo<PrintData>(() => ({
+    ...data,
+    submissionBody: data.isSubmission ? fullSource : data.submissionBody,
+    report: !data.isSubmission && data.report
+      ? { ...data.report, draftContent: fullSource, finalContent: fullSource }
+      : data.report,
+    monthlyNote: !data.isSubmission ? fullSource : data.monthlyNote,
+  }), [data, fullSource]);
+  const hasUnsavedChanges = reportBody !== savedBody;
+
+  const saveReport = useCallback(async () => {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const endpoint = data.isSubmission
+        ? "/api/monthly-report/external-manual-update"
+        : "/api/monthly-report/manual-update";
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: data.project.projectId, ym: data.ym, content: fullSource }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || result.message || "保存に失敗しました");
+      const normalizedSource = data.isSubmission
+        ? String(result.report?.bodyMd || fullSource)
+        : String(result.content || fullSource);
+      const normalizedBody = normalizedSource.replace(/^#\s+月次業務報告書\s*\n+/u, "");
+      setReportBody(normalizedBody);
+      setSavedBody(normalizedBody);
+      setNotice(data.isSubmission
+        ? "提出版を保存した。この表示のままPDFとして保存できる。"
+        : hasFinal
+          ? "下書きに保存した。確定版を更新するなら「確定版に反映」を押してね。"
+          : "下書きに保存した。内容を確定するなら「確定版に反映」を押してね。");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "保存に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  }, [data.isSubmission, data.project.projectId, data.ym, fullSource, hasFinal]);
+
+  const finalizeInternalReport = useCallback(async () => {
+    if (!window.confirm("現在の下書きを社内版の確定版として置き換える？ この操作は提出用PDFには影響しない。")) return;
+    setFinalizing(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/report/fix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: data.project.projectId, ym: data.ym, force: true }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "確定版への反映に失敗しました");
+      setHasFinal(true);
+      setNotice("社内版の確定版に反映した。この表示のままPDFとして保存できる。");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "確定版への反映に失敗しました");
+    } finally {
+      setFinalizing(false);
+    }
+  }, [data.project.projectId, data.ym]);
 
   return (
     <>
@@ -1074,12 +1308,39 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
           padding: 10px 16px; display: flex; gap: 12px; align-items: center;
           font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
+        .toolbar-title { font-weight: 700; letter-spacing: 0.12em; font-family: 'Work Sans', sans-serif; white-space: nowrap; }
+        .toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-left: auto; }
         .toolbar button {
           background: #f1f5f9; color: #0a1628; padding: 6px 14px;
           border-radius: 4px; border: 0; font-weight: 600; cursor: pointer;
           font-family: 'Work Sans', sans-serif; letter-spacing: 0.04em;
+          min-height: 36px;
         }
+        .toolbar button:hover:not(:disabled) { background: #e0f2fe; }
+        .toolbar button:disabled { cursor: not-allowed; opacity: 0.52; }
+        .toolbar .toolbar-primary { background: #38bdf8; color: #082f49; }
+        .toolbar .toolbar-editing { background: #fef3c7; color: #713f12; }
         .toolbar .hint { color: #94a3b8; }
+        .toolbar-notice { color: #bae6fd; font-size: 12px; }
+        .toolbar-error { color: #fecaca; font-size: 12px; }
+        .report-review-note {
+          width: min(210mm, calc(100% - 32px)); margin: 16px auto -8px; box-sizing: border-box;
+          padding: 10px 14px; border-left: 3px solid #0369a1; background: #e0f2fe; color: #0c4a6e;
+          font-size: 13px; line-height: 1.6;
+        }
+        .report-editable-block { position: relative; min-width: 0; }
+        .report-editable-block.is-editable { cursor: pointer; outline: 1px dashed transparent; outline-offset: 4px; transition: outline-color 120ms ease, background-color 120ms ease; }
+        .report-editable-block.is-editable:hover, .report-editable-block.is-editable:focus-visible { outline-color: #0369a1; background: #f0f9ff; }
+        .report-editable-block.is-editable:focus-visible { outline-width: 2px; }
+        .report-edit-affordance { display: inline-block; position: absolute; right: 0; top: -8px; z-index: 1; padding: 2px 6px; border-radius: 999px; background: #0369a1; color: white; font-size: 10px; line-height: 1.3; opacity: 0; transition: opacity 120ms ease; }
+        .report-editable-block.is-editable:hover .report-edit-affordance, .report-editable-block.is-editable:focus-visible .report-edit-affordance { opacity: 1; }
+        .report-inline-editor { margin: 2mm 0; padding: 4mm; border: 1px solid #7dd3fc; background: #f0f9ff; }
+        .report-inline-editor > p { margin: 0 0 2mm; color: #0c4a6e; font-size: 9pt; font-weight: 700; }
+        .report-inline-editor textarea { display: block; box-sizing: border-box; width: 100%; min-height: 10em; resize: vertical; border: 1px solid #7dd3fc; background: white; color: #0f172a; padding: 8px; font: inherit; line-height: 1.6; }
+        .report-inline-editor textarea:focus { outline: 2px solid #0369a1; outline-offset: 1px; }
+        .report-inline-editor-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+        .report-inline-editor-actions button { border: 1px solid #0369a1; background: white; color: #0c4a6e; padding: 5px 9px; cursor: pointer; font-size: 12px; }
+        .report-inline-editor-actions button:last-child { background: #0369a1; color: white; }
         .sheet {
           width: 210mm; min-height: 297mm; margin: 16px auto;
           padding: 18mm 16mm 22mm 16mm; background: white;
@@ -1108,6 +1369,24 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
             margin: 0; padding: 0; width: auto; min-height: auto;
             box-shadow: none; page-break-after: auto; break-after: auto;
           }
+        }
+        @media screen and (max-width: 760px) {
+          .toolbar { align-items: flex-start; flex-wrap: wrap; gap: 8px; padding: 8px 10px; }
+          .toolbar-title, .toolbar .hint { width: 100%; }
+          .toolbar-actions { width: 100%; margin-left: 0; }
+          .toolbar button { min-height: 44px; padding: 8px 10px; font-size: 12px; }
+          .toolbar-notice, .toolbar-error { width: 100%; }
+          .report-review-note { width: calc(100% - 16px); margin: 8px auto 0; padding: 8px 10px; }
+          .sheet, .submission-sheet { width: calc(100% - 16px); min-height: 0; margin: 8px auto; padding: 10mm 8mm; font-size: 9.5pt; }
+          .cover-sheet { padding: 10mm 8mm; }
+          .cover { height: auto; min-height: 250mm; }
+          .cover-ym { font-size: 42pt; }
+          .rag-grid, .kpi-grid { grid-template-columns: 1fr; }
+          .xrl-grid { grid-template-columns: repeat(2, 1fr); }
+          .section-head { gap: 6px; }
+          .section-head h2 { font-size: 15pt; }
+          .section-head .en { display: none; }
+          .ms-table, .md-table { font-size: 8pt; }
         }
         /* ===== 表紙 ===== */
         .cover-sheet { padding: 18mm; }
@@ -1367,30 +1646,63 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
         .rev-table th, .rev-table td { border: 1px solid #e2e8f0; padding: 2mm 3mm; }
         .rev-table th { background: #f1f5f9; color: #475569; font-family: 'Work Sans', sans-serif; font-size: 8.5pt; letter-spacing: 0.06em; text-align: left; }
         .end-mark { margin-top: 12mm; padding-top: 4mm; border-top: 1px solid #cbd5e1; font-size: 9pt; color: #64748b; text-align: center; font-family: 'JetBrains Mono', monospace; }
+        @media screen and (max-width: 760px) {
+          .cover-sheet { padding: 10mm 8mm; }
+          .cover { height: auto; min-height: 250mm; }
+        }
       `}</style>
 
       <div className={`print-root ${data.isSubmission ? "submission-flow" : ""}`}>
         <div className="toolbar no-print">
-          <span style={{ fontWeight: 700, letterSpacing: "0.12em", fontFamily: "Work Sans, sans-serif" }}>
-            MONTHLY REPORT — PRINT VIEW
-          </span>
-          <span className="hint">Cmd+P → 「PDFとして保存」 / 余白なし・背景画像オン推奨</span>
-          <button onClick={() => window.print()} style={{ marginLeft: "auto" }}>
-            印刷 / PDF保存
-          </button>
+          <span className="toolbar-title">MONTHLY REPORT — {data.isSubmission ? "SUBMISSION" : "INTERNAL"}</span>
+          <span className="hint">この紙面を見ながら直せる。保存後にそのままPDFとして保存。</span>
+          <div className="toolbar-actions">
+            <button
+              type="button"
+              className={editMode ? "toolbar-editing" : undefined}
+              onClick={() => setEditMode((current) => !current)}
+            >
+              {editMode ? "編集を終える" : "編集する"}
+            </button>
+            <button type="button" onClick={saveReport} disabled={!hasUnsavedChanges || saving || finalizing}>
+              {saving ? "保存中…" : data.isSubmission ? "提出版を保存" : "下書きに保存"}
+            </button>
+            {!data.isSubmission && (
+              <button
+                type="button"
+                onClick={finalizeInternalReport}
+                disabled={hasUnsavedChanges || saving || finalizing || !reportBody.trim()}
+              >
+                {finalizing ? "反映中…" : "確定版に反映"}
+              </button>
+            )}
+            <button type="button" className="toolbar-primary" onClick={() => window.print()}>
+              PDFとして保存
+            </button>
+          </div>
+          {notice && <span className="toolbar-notice" role="status">{notice}</span>}
+          {error && <span className="toolbar-error" role="alert">{error}</span>}
         </div>
 
-        {data.isSubmission ? (
-          <SubmissionReport data={data} />
+        {editMode && (
+          <div className="report-review-note no-print">
+            {data.isSubmission
+              ? "直したい見出し・段落・表を押すと、その場所だけ編集できる。全体の本文を探し直す必要はないよ。"
+              : "直したい見出し・段落・表を押すと、その場所だけ編集できる。進捗表やガントは本文から作る自動表示なので、ここでは直接編集しない。"}
+          </div>
+        )}
+
+        {previewData.isSubmission ? (
+          <SubmissionReport reportBody={reportBody} editMode={editMode} onBodyChange={setReportBody} />
         ) : (
           <>
-            <CoverPage data={data} />
-            <ExecSummary data={data} />
-            <ProgressSection data={data} />
-            <GanttSection data={data} />
-            <TeamSection data={data} />
-            <NextMonthSection data={data} />
-            <AppendixSection data={data} />
+            <CoverPage data={previewData} />
+            <ExecSummary data={previewData} />
+            <ProgressSection data={previewData} reportBody={reportBody} editMode={editMode} onBodyChange={setReportBody} />
+            <GanttSection data={previewData} />
+            <TeamSection data={previewData} />
+            <NextMonthSection data={previewData} />
+            <AppendixSection data={previewData} />
           </>
         )}
       </div>

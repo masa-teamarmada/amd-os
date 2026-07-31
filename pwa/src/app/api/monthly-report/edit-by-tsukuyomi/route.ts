@@ -12,7 +12,7 @@ export async function POST() {
   return NextResponse.json(
     {
       ok: false,
-      message: "従量課金APIを使うAI修正は停止中です。月次モーダルの「本文を編集」から直接修正してください。",
+      message: "従量課金APIを使うAI修正は停止中です。月次モーダルから社内版または提出版を開き、紙面上で直接修正してください。",
       code: "PAID_REPORT_EDIT_DISABLED",
     },
     { status: 410 }

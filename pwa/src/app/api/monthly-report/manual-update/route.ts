@@ -46,6 +46,18 @@ export async function POST(req: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder"
   );
 
+  // 下書き保存は確定版を変えない。確定済みなら status も維持し、
+  // final_content の更新は /api/report/fix の明示操作だけに限定する。
+  const { data: existing, error: existingError } = await supabase
+    .from("monthly_reports")
+    .select("status, final_content")
+    .eq("project_id", projectId)
+    .eq("ym", ym)
+    .maybeSingle();
+  if (existingError) {
+    return NextResponse.json({ ok: false, message: existingError.message }, { status: 500 });
+  }
+
   const { error } = await supabase
     .from("monthly_reports")
     .upsert({
@@ -53,7 +65,7 @@ export async function POST(req: Request) {
       project_id: projectId,
       ym,
       draft_content: validation.normalized,
-      status: "draft",
+      status: existing?.final_content ? existing.status : "draft",
     }, { onConflict: "project_id,ym" });
   if (error) {
     return NextResponse.json({ ok: false, message: error.message }, { status: 500 });
