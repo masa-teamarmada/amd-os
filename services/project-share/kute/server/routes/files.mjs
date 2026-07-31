@@ -1,10 +1,15 @@
 import { listDirectory, deleteFile, moveFile, renameFile, SameLocationError, DestinationExistsError } from "../lib/blobStore.mjs";
+import { listOnlineLinks } from "../lib/linkStore.mjs";
 import { isWithinFilesPrefix, sanitizeBasename, sanitizeFolderPath } from "../lib/pathGuard.mjs";
 import { isSameOrigin } from "../lib/origin.mjs";
 import { readJsonBody } from "../lib/body.mjs";
 import { sendJson, sendText } from "../lib/respond.mjs";
 
-export async function handleFilesRoute(req, res, { isAuthed, moveFileFn = moveFile, renameFileFn = renameFile }) {
+export async function handleFilesRoute(
+  req,
+  res,
+  { isAuthed, listDirectoryFn = listDirectory, listOnlineLinksFn = listOnlineLinks, moveFileFn = moveFile, renameFileFn = renameFile }
+) {
   if (!isAuthed) {
     sendJson(res, 401, { error: "unauthorized" });
     return;
@@ -20,8 +25,11 @@ export async function handleFilesRoute(req, res, { isAuthed, moveFileFn = moveFi
     }
 
     try {
-      const { folders, files } = await listDirectory(folder);
-      sendJson(res, 200, { folder, folders, files });
+      const [{ folders, files }, links] = await Promise.all([
+        listDirectoryFn(folder),
+        listOnlineLinksFn(folder),
+      ]);
+      sendJson(res, 200, { folder, folders, files: [...files, ...links] });
     } catch {
       sendJson(res, 502, { error: "failed to list files" });
     }

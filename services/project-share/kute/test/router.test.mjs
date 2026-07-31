@@ -162,6 +162,16 @@ test(
 );
 
 test(
+  "POST /api/links without auth returns 401",
+  withEnv(async () => {
+    const req = makeReq({ method: "POST", url: "/api/links", body: { url: "https://example.com", name: "", folder: "" } });
+    const res = makeRes();
+    await handler(req, res);
+    assert.equal(res.statusCode, 401);
+  })
+);
+
+test(
   "DELETE /api/files with a valid session but cross-origin request returns 403",
   withEnv(async () => {
     const req = makeReq({

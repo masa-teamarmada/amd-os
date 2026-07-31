@@ -62,3 +62,5 @@ Vercelプロジェクトとし、AMD OS PWA 本体の認証・データとは分
   prefix、認証環境変数、サブドメインを割り当て、VSX固有資料を持ち込まない構成にした。
 - 2026-07-30: KUTE PROJECT SHAREを追加。専用Vercelプロジェクト、private Blob store、prefix、
   認証環境変数、サブドメインを割り当て、KUTE固有資料を持ち込まない初期空箱とした。
+- 2026-07-31: KUTEに限り、外部URLをオンライン資料としてprivate Blobの専用prefixへ記録する機能を追加。
+  URLの内容は取得・複製せず、URL・表示名・保存先フォルダだけを記録する。他のPJ別インスタンスには未展開。

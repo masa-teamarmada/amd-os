@@ -4,6 +4,31 @@ import { handleFilesRoute } from "../server/routes/files.mjs";
 import { SameLocationError, DestinationExistsError } from "../server/lib/blobStore.mjs";
 import { makeReq, makeRes } from "./helpers/fakeHttp.mjs";
 
+test("GET /api/files returns ordinary files and online links in one authenticated listing", async () => {
+  const req = makeReq({ method: "GET", url: "/api/files?folder=meeting" });
+  const res = makeRes();
+  await handleFilesRoute(req, res, {
+    isAuthed: true,
+    listDirectoryFn: async (folder) => {
+      assert.equal(folder, "meeting");
+      return {
+        folders: [{ name: "archive", path: "meeting/archive" }],
+        files: [{ pathname: "kute/files/meeting/deck.pdf", name: "deck.pdf", size: 12, uploadedAt: "2026-07-31T00:00:00.000Z" }],
+      };
+    },
+    listOnlineLinksFn: async (folder) => {
+      assert.equal(folder, "meeting");
+      return [{ kind: "link", id: "123e4567-e89b-42d3-a456-426614174000", name: "外部資料", url: "https://example.com", size: null, uploadedAt: "2026-07-31T01:00:00.000Z" }];
+    },
+  });
+  assert.equal(res.statusCode, 200);
+  const body = JSON.parse(res.body);
+  assert.equal(body.folders.length, 1);
+  assert.equal(body.files.length, 2);
+  assert.equal(body.files[1].kind, "link");
+  assert.equal("pathname" in body.files[1], false);
+});
+
 test("PATCH /api/files requires authentication", async () => {
   const req = makeReq({
     method: "PATCH",
