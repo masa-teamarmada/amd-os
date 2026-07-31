@@ -8,6 +8,7 @@ import { handleLinksRoute } from "../server/routes/links.mjs";
 import { handleFoldersRoute } from "../server/routes/folders.mjs";
 import { handleUploadRoute } from "../server/routes/upload.mjs";
 import { handleAccessRoute } from "../server/routes/access.mjs";
+import { handlePdfRoute } from "../server/routes/pdf.mjs";
 import { handleViewRoute } from "../server/routes/view.mjs";
 import { handleLogoutRoute } from "../server/routes/logout.mjs";
 
@@ -64,6 +65,11 @@ export default async function handler(req, res) {
 
   if (pathname === "/api/access") {
     await handleAccessRoute(req, res, { isAuthed });
+    return;
+  }
+
+  if (pathname === "/api/pdf") {
+    await handlePdfRoute(req, res, { isAuthed });
     return;
   }
 

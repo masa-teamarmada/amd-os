@@ -195,7 +195,7 @@ test("file rows carry type-specific identifiers, use a link icon for online entr
   assert.match(body, /typeTd\.textContent = entryFormat\(file\);/);
   assert.match(body, /tr\.tabIndex = 0;/);
   assert.doesNotMatch(body, /viewBtn/);
-  assert.match(body, /downloadBtn\.textContent = "ダウンロード";/);
+  assert.match(body, /downloadBtn\.textContent = isHtmlFileName\(file\.name\) \? "PDF化ダウンロード" : "ダウンロード";/);
   assert.match(body, /renameBtn\.textContent = "名前変更";/);
   assert.match(body, /deleteBtn\.textContent = "削除";/);
 });

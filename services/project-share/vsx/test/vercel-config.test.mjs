@@ -36,7 +36,7 @@ test("PSI review routes are proxied before the portal catch-all", () => {
 
 test("portal API routes remain owned by the portal function", () => {
   const proxiedSources = new Set(config.rewrites.map((rule) => rule.source));
-  for (const source of ["/api/files", "/api/folders", "/api/upload", "/api/access", "/api/view", "/api/logout"]) {
+  for (const source of ["/api/files", "/api/folders", "/api/upload", "/api/access", "/api/pdf", "/api/view", "/api/logout"]) {
     assert.equal(proxiedSources.has(source), false);
   }
   assert.equal(config.rewrites.at(-1).destination, "/api/index");

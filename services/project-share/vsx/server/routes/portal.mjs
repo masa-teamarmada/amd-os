@@ -561,6 +561,14 @@ export function renderPortalHtml() {
       return FORMAT_EXT_MAP[ext] || "その他";
     }
 
+    function isHtmlFileName(name) {
+      return /\.html?$/i.test(name || "");
+    }
+
+    function pdfFileName(name) {
+      return (name || "document.html").replace(/\.html?$/i, ".pdf");
+    }
+
     function entryFormat(entry) {
       return entry.kind === "link" ? "オンライン資料" : inferFormat(entry.name);
     }
@@ -850,8 +858,14 @@ export function renderPortalHtml() {
         if (!isOnlineLink) {
           const downloadBtn = document.createElement("button");
           downloadBtn.type = "button";
-          downloadBtn.textContent = "ダウンロード";
-          downloadBtn.addEventListener("click", () => openFile(file.pathname, true));
+          downloadBtn.textContent = isHtmlFileName(file.name) ? "PDF化ダウンロード" : "ダウンロード";
+          downloadBtn.addEventListener("click", () => {
+            if (isHtmlFileName(file.name)) {
+              downloadPdf(file.pathname, file.name);
+              return;
+            }
+            openFile(file.pathname, true);
+          });
           actions.appendChild(downloadBtn);
         }
 
@@ -970,6 +984,39 @@ export function renderPortalHtml() {
         return;
       }
 
+    }
+
+    async function downloadPdf(pathname, name) {
+      setStatus(name + " をPDF化しています…");
+      try {
+        const res = await fetch("/api/pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pathname }),
+        });
+        if (res.status === 401) {
+          window.location.reload();
+          return;
+        }
+        if (!res.ok) {
+          if (res.status === 413) {
+            throw new Error("PDFが大きすぎるためダウンロードできません。");
+          }
+          throw new Error("PDF化に失敗しました。");
+        }
+        const pdf = await res.blob();
+        const url = URL.createObjectURL(pdf);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = pdfFileName(name);
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 0);
+        setStatus(name + " をPDF化してダウンロードしました。", "success");
+      } catch (err) {
+        setStatus(err.message || "PDF化に失敗しました。", "error");
+      }
     }
 
     async function deleteFile(pathname, name) {

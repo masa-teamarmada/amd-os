@@ -9,7 +9,9 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@vercel/blob": "^2.6.1"
+    "@sparticuz/chromium": "143.0.0",
+    "@vercel/blob": "^2.6.1",
+    "puppeteer-core": "25.4.0"
   },
   "devDependencies": {
     "esbuild": "^0.28.1"
