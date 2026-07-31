@@ -131,6 +131,14 @@ const sxJuneReference = sxReport(6);
 const sxJulySameFormat = validateExternal(sxReport(7), { reference: sxJuneReference });
 assert.equal(sxJulySameFormat.ok, true, `SXは日付と当月内容を更新しても6月の構造を継承すれば通る: ${JSON.stringify(sxJulySameFormat)}`);
 assert.equal(sxJulySameFormat.results[0].formatMatch, true, "前月と同じSX構造はformatMatch=trueになる");
+const sxJulyNamedAcademic = sxReport(7).replace("| 7月10日 | 定例打合せ |", "| 7月10日 | 経営会議（杉浦美羽 教授・石原裕香 特定准教授・弊社） |");
+const sxJulyNamedAcademicResult = validateExternal(sxJulyNamedAcademic, { reference: sxJuneReference });
+assert.equal(sxJulyNamedAcademicResult.ok, false, "提出版に大学教員の個人名＋役職を活動記録として残すと落ちる");
+assert.match(sxJulyNamedAcademicResult.results[0].errors.join("\n"), /個人名＋敬称・役職/, "個人名を組織・研究チーム主語へ直す理由を返す");
+const sxJulyCandidateLabel = sxReport(7).replace("当月資料", "経営体制候補者との協議資料");
+assert.equal(validateExternal(sxJulyCandidateLabel, { reference: sxJuneReference }).ok, false, "人を候補者ラベルだけで扱う提出文は落ちる");
+const sxJulyControlLanguage = sxReport(7).replace("当月資料", "参加企業を巻き込むための資料");
+assert.equal(validateExternal(sxJulyControlLanguage, { reference: sxJuneReference }).ok, false, "外部関係者を動かす対象として扱う提出文は落ちる");
 const sxJulyKuteFormat = validateExternal(externalReport(), { reference: sxJuneReference });
 assert.equal(sxJulyKuteFormat.ok, false, "SXをKUTE型の共通章立てへ変更すると落ちる");
 assert.equal(sxJulyKuteFormat.results[0].formatMatch, false, "前月と違うPJ形式はformatMatch=falseになる");
@@ -142,6 +150,7 @@ const paidGenerateRoute = readFileSync(new URL("../src/app/api/report/generate/r
 const paidEditRoute = readFileSync(new URL("../src/app/api/monthly-report/edit-by-tsukuyomi/route.ts", import.meta.url), "utf8");
 const manualUpdateRoute = readFileSync(new URL("../src/app/api/monthly-report/manual-update/route.ts", import.meta.url), "utf8");
 const externalManualUpdateRoute = readFileSync(new URL("../src/app/api/monthly-report/external-manual-update/route.ts", import.meta.url), "utf8");
+const reviewTool = readFileSync(new URL("./ms_progress_review_tool.mjs", import.meta.url), "utf8");
 const reportFixRoute = readFileSync(new URL("../src/app/api/report/fix/route.ts", import.meta.url), "utf8");
 const monthEndRoutine = readFileSync(new URL("../scheduled-tasks/amd-os-l2-monthend-evidence/SKILL.md", import.meta.url), "utf8");
 const monthlyReportRoutine = readFileSync(new URL("../scheduled-tasks/amd-os-l2m1-monthly-report/SKILL.md", import.meta.url), "utf8");
@@ -189,6 +198,9 @@ assert.match(externalManualUpdateRoute, /compareSubmissionStructure/, "提出版
 assert.match(externalManualUpdateRoute, /allowFormatChange/, "提出版の構造変更は明示承認を要求する");
 assert.match(externalManualUpdateRoute, /findJargon/, "提出版の手動編集は内部用語を保存前に検査する");
 assert.match(externalManualUpdateRoute, /stripStandaloneHorizontalRules/, "提出版の手動保存はMarkdown水平線を除去する");
+assert.match(externalManualUpdateRoute, /個人名＋敬称・役職/, "提出版の手動保存は外部関係者を個人別に査定する表現を拒否する");
+assert.match(reviewTool, /人を候補者ラベルで表す文/, "提出版helperは候補者ラベルを拒否する");
+assert.match(reviewTool, /外部関係者を動かす対象/, "提出版helperは相手を操作する表現を拒否する");
 assert.match(monthEndRoutine, /Fable 5 固定/, "月末routineはFable 5固定を正本化する");
 assert.match(monthEndRoutine, /従量課金API/, "月末routineは従量課金APIへのフォールバックを禁止する");
 assert.match(monthEndRoutine, /subagent、workflow、並列エージェントを起動しない/, "月末routineは別エージェントへ生成を逃がさない");
@@ -198,5 +210,8 @@ assert.match(monthlyReportRoutine, /同じPJの直前月実提出版/, "M-1提�
 assert.match(monthlyReportRoutine, /formatMatch=true/, "M-1提出版は前月構造一致を保存条件にする");
 assert.match(monthlyReportRoutine, /format_seed_approved=true[^\n]*force=true/, "M-1 routineはseed承認や既存版強制上書きを行わない");
 assert.match(kakuReport, /監査情報は本文の材料にしない/, "routineから読めるkaku-reportにも監査情報分離を保持する");
+assert.match(kakuReport, /関係者への敬意/, "routineから読めるkaku-reportに共同研究者への敬意ゲートを持つ");
+assert.match(kakuReport, /活動評価の主語にしない/, "kaku-reportは外部関係者を人物別活動ログの主語にしない");
+assert.match(monthlyReportRoutine, /相手を査定、分類、操作する表現を使わない/, "Fable月次routineにも敬意ゲートを固定する");
 
 console.log("monthly report quality guard: ok");

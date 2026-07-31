@@ -192,6 +192,15 @@ function validateSubmission(content: string, reference = "", allowFormatChange =
   }
   if (/。\s*,/.test(content)) errors.push("句点直後に ASCII カンマが連結しています");
   if (/(?:\.\.\.|…)/.test(content)) errors.push("省略記号が含まれています");
+  if (/(?:^|[（(・|\s])([一-龥々]{4,8})[ 　]+(?:特定)?(?:教授|准教授|講師|助教|先生|様)(?=$|[\s、。・|）)])/gmu.test(content)) {
+    errors.push("外部関係者の個人名＋敬称・役職が残っています。氏名が正式な責任特定に不可欠でない限り、組織・研究チーム・協議事項を主語にしてください");
+  }
+  if (/経営(?:体制|チーム)?候補者|経営チーム候補/gu.test(content)) {
+    errors.push("人を候補者ラベルで表す文が残っています。『経営体制に関する協議』のように論点を主語にしてください");
+  }
+  if (/巻き込む|参加(?:企業|機関).{0,12}動くため/gu.test(content)) {
+    errors.push("外部関係者を動かす対象として扱う表現が残っています。参画の意義・条件・共同作業として書き直してください");
+  }
   if (reference && !allowFormatChange) errors.push(...compareSubmissionStructure(content, reference));
   return errors;
 }

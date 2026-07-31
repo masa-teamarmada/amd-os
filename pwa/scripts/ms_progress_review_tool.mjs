@@ -2056,6 +2056,15 @@ function validateExternalMonthlyReportContent(content, referenceBody, { formatSe
     errors.push("末尾が「以上のとおり報告する。」で終わっていません");
   }
   if (/eLAD/i.test(content)) errors.push("誤表記 eLAD が残っています (e-Rad に統一してください)");
+  if (/(?:^|[（(・|\s])([一-龥々]{4,8})[ 　]+(?:特定)?(?:教授|准教授|講師|助教|先生|様)(?=$|[\s、。・|）)])/gmu.test(content)) {
+    errors.push("外部関係者の個人名＋敬称・役職が残っています。氏名が正式な責任特定に不可欠でない限り、組織・研究チーム・協議事項を主語にしてください");
+  }
+  if (/経営(?:体制|チーム)?候補者|経営チーム候補/gu.test(content)) {
+    errors.push("人を候補者ラベルで表す文が残っています。『経営体制に関する協議』のように論点を主語にしてください");
+  }
+  if (/巻き込む|参加(?:企業|機関).{0,12}動くため/gu.test(content)) {
+    errors.push("外部関係者を動かす対象として扱う表現が残っています。参画の意義・条件・共同作業として書き直してください");
+  }
   if (/^\s*(?:決定(?:\/確認)?|確認|次アクション)\s*[:：]/m.test(content)) {
     errors.push("生データのラベル行が残っています (報告文へ再構成してください)");
   }

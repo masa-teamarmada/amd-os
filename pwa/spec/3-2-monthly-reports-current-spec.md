@@ -15,7 +15,7 @@
 | 対象判定 | 全 active/sales PJ (対外提出義務の概念なし) | `projects.monthly_report_scope IN ('internal_only','internal_and_external')` の 3 状態 enum |
 | プロンプト | SKILL.md / prompt に直書き | `llm_prompts` table 正本 (`prompt_key='l2m1.monthly_report.internal.v2'` / `'l2m1.monthly_report.external.v2'`)、admin UI で編集可能 |
 | PDF 生成 | なし | Claude Code Routine が一時ディレクトリでpandoc + Chrome headlessを実行し、提出版検証後にDriveへ配置する。固定ローカルパスへフォールバックしない |
-| 品質検証 | なし | `kaku-report` の8項目自己検査に加え、`scripts/ms_progress_review_tool.mjs validate-monthly-report` と PWA の `monthly-report-quality.ts` が固定8章、概要3〜5文、業務領域別の統合、生成ログ・生ログ・途中省略の不在を draft/final 書き込み前に検証し、`eLAD` を `e-Rad` へ正規化する。対外版は `upsert-monthly-reports-external` が氏名を姓だけへ正規化し、`strip_internal_jargon.py` が code_name / 内部用語を検査する |
+| 品質検証 | なし | `kaku-report` の12項目自己検査に加え、`scripts/ms_progress_review_tool.mjs validate-monthly-report` と PWA の `monthly-report-quality.ts` が固定8章、概要3〜5文、業務領域別の統合、生成ログ・生ログ・途中省略の不在を draft/final 書き込み前に検証し、`eLAD` を `e-Rad` へ正規化する。対外版は個人名＋敬称・役職、候補者ラベル、外部関係者を動かす表現を保存前に拒否し、`strip_internal_jargon.py` が code_name / 内部用語を検査する |
 | Slack 通知 | なし (Codex automation は run summary のみ) | まさ DM に集約 (`scripts/send-eimi-slack.mjs` = GAS webapp えいみ persona bot 経由)、PJ チャンネルには投げない |
 | 通知タイミング | なし | Phase 2.1 (開始) + Phase 2.7 (PJ 完了、scope 別 4 パターン) + Phase 3 (全体サマリ) |
 
@@ -215,7 +215,8 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 - 章間へMarkdown水平線 (`---` / `***` / `___`) を入れない。Fableの生成規範、保存helper、手動保存route、印刷rendererの4境界で除去または非表示にする
 - 提出版のH2は `Hiragino Sans` / `Hiragino Kaku Gothic ProN` / `Yu Gothic` / `Meiryo` の順で描画し、丸数字を含む章見出しを直前月実提出版と同じ日本語フォントへ合わせる
 - 文体: である体、儀礼挨拶なし、締め「以上のとおり報告する。」
-- 自社メンバーは姓のみ表記 (`members.member_name` の姓部分)、フルネーム・code_name (えいみ / つくよみ 等) とも削除する。担当者名が不明な場合は「担当者」とする。客先関係者は「XX 先生」「XX 様」維持
+- 対外提出版は、共同研究者、大学教員、協力先の個人名を既定で記載しない。正式な決裁者・契約当事者の特定が不可欠な場合だけ例外とし、通常は「大学研究チーム」「関係機関」「弊社」または協議事項を主語にする。自社メンバーもフルネーム・code_nameを出さず、氏名が必要な欄だけ姓または「担当者」とする
+- 外部関係者の働きを提出者が査定する文、人を候補者ラベルだけで呼ぶ文、相手を「巻き込む」「動かす」対象として扱う文を禁止する。PJの進展、参画の意義、共同で確認する条件へ書き換える
 - eLAD 等の表記ゆれは e-Rad (府省共通研究開発管理システム) に正規化する (`scripts/strip_internal_jargon.py` --mode normalize が最終ゲート)
 - 業務期間・契約金額は `contracts.contract_terms_json` + `contracts.tax_basis` の verbatim
 - RAG / XRL / KPI / Gantt は社内版の確認材料であり、提出版の共通ラッパーには出さない。`body_md` に必要な進捗表だけを対外語彙で含め、内部処理語や生成ログを記載しない
