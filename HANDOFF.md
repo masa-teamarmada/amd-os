@@ -12,8 +12,8 @@ Topic: 資本政策表の金額可読性と株主構成の色識別
 
 ## Repo / Production State
 
-- canonical branch: `main`。資本政策表の実装commitは `e58b1d89`（数値表示）と `23055bed`（色識別）。このhandoff文書commit後のHEAD / `origin/main` / production SHAは、開始時にread-onlyで取り直す。
-- production UI は `v3.52.4` / `23055bed` で確認済み。今回の文書同期は同versionのままmainへ反映する。
+- canonical branch: `main`。資本政策表の実装commitは `e58b1d89`（数値表示）と `23055bed`（色識別）。次セッション開始時はHEAD / `origin/main` / production SHAをread-onlyで取り直す。
+- production UI は `v3.52.4`。今回の文書同期は同versionのまま反映済みで、ユーザー表示の実装は上記2 commitにある。
 - DB・API・保存形式・資本政策計算ロジックの変更はない。branch / worktreeの新規作成もない。
 
 ## Unresolved Tasks
@@ -37,4 +37,4 @@ Topic: 資本政策表の金額可読性と株主構成の色識別
 
 - 実装時に `npm run test:company-overview-cap-table`、`npx tsc --noEmit`、`npm run build`、`npm run test:critical-ui` が成功。productionでdesktop / 390px幅、console error 0件、ページ横あふれなしを確認済み。
 - work type: `development`。design_logは実装・検証・本番確認を残すため更新。BUGSは表示上の可読性不良の症状・原因・再発防止を追記。
-- main alignment: 文書commit/deploy後に再確認する。
+- main alignment: `main aligned`（closeout時に `origin/main` との差分 0）。
