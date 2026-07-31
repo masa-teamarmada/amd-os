@@ -90,6 +90,7 @@ export default async function AppLayout({
 }) {
   const h = await headers();
   const pathname = h.get("x-pathname") ?? "";
+  const isMonthlyReportPrintRoute = /^\/project\/[^/]+\/report\/[^/]+\/print\/?$/.test(pathname);
 
   // 公開原稿は `(app)` 配下に置いていても、会員シェルやログインを通さない。
   // `/bzm` 本体は引き続きメンバー限定で、公開境界はこの subtree だけに固定する。
@@ -109,6 +110,13 @@ export default async function AppLayout({
   if (!projectScopedPathAllowed(access, pathname)) {
     redirect(memberHome(access));
   }
+
+  // 印刷専用画面は認証・PJアクセス判定を通した上で、OSのナビや常駐UIを載せない。
+  // PDFへ左メニュー・通知・チャットが混ざらないよう、CSSで隠すのではなくシェル自体を外す。
+  if (isMonthlyReportPrintRoute) {
+    return <>{children}</>;
+  }
+
   return (
     <AppShell
       userCodeName={access.displayName}
