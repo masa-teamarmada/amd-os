@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-31 20:47 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-31 21:00 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -1382,7 +1382,7 @@ UNIQUE: `(idempotency_key)` (constraint: `freee_reconciliation_actions_idempoten
 
 ## freee_reconciliation_findings
 
-行数 (概算): -1
+行数 (概算): 159
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |

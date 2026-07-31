@@ -244,7 +244,9 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 ### /admin/finance#会計照合レール
 
-- 週次freee会計照合: 毎週木曜10:00 JSTの`GET /api/cron/freee-accounting-weekly`が`freee_reconciliation_runs/findings/actions`を正本に、口座残高差・同期停止・未処理明細・変な仕訳・役員報酬未消込・内部振替候補を検出する。findingは週次runごとにoccurrence行としてinsertされ、過去runの証跡を保持する（`UNIQUE(run_id, finding_key)`）。
+- 週次freee会計照合: 毎週木曜10:00 JSTの`GET /api/cron/freee-accounting-weekly`が`freee_reconciliation_runs/findings/actions`を正本に、口座残高差・同期停止・未処理明細・変な仕訳・役員報酬未消込・内部振替候補を検出する。監査ソースがfreeeアプリ権限不足で読めない場合は0件扱いにせず`audit_source_unavailable` blockerを残し、他の照合を継続する。findingは週次runごとにoccurrence行としてinsertされ、過去runの証跡を保持する（`UNIQUE(run_id, finding_key)`）。
+- finding解消: 今回正常に評価できたtypeで再現しなかった過去`pending`/`blocked` occurrenceは削除せず`resolved`にする。読取ソースがunavailableなtypeは未検査なので勝手に解消しない。
+- freee読取フィールド: 口座一覧は`with_balance=true`で`last_balance`（同期残高）/`walletable_balance`（登録残高）を取得し、口座明細の処理状態は公式`status`（1=消込待ち、2=消込済み、3=無視、4=消込中、6=対象外）を正にする。`deal_id`/`transfer_id`の有無だけで全明細を未処理扱いしない。
 - 4回review gate: `triggered_by='cron'`の完了run数+1が5以上になるまでは、判定ロジックが動いてもexecutorは呼ばれない（完全review-only）。
 - 5回目以降allowlist: `eligibleForAutoApply=true`になりうるのは、役員報酬の完全一致消込（`officer_compensation_unreconciled`、期待額は`company_finance_recurring_items`のitem_kind='salary'/category='executive'明示分類が正本、氏名一致だけの紐付けは対象外）と、双方口座特定済み・同額・許容日差以内の内部振替（`internal_transfer_candidate`）のうち完全一致のものだけ。曖昧・同額複数候補・残高差の直接補正・勘定科目の推測は必ずレビュー対象にする。
 - freee書込み安全境界: `isActionTypeSafelyExecutable`は2026-07時点で両action typeともfalse固定。内部振替はfreee公式APIに安全な書込み手段が無く、役員報酬もwallet_txnのaccount_item_id更新が「消込」を正しく表現することを公式に検証できていないため、**freeeへの実書込みは現時点で一切発生しない**（常にblocked、`freee_reconciliation_actions`に理由を記録）。

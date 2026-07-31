@@ -26,7 +26,7 @@ function severityTone(severity: string) {
 }
 
 function reviewStatusTone(status: string) {
-  if (status === "auto_applied" || status === "approved") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (status === "auto_applied" || status === "approved" || status === "resolved") return "border-emerald-200 bg-emerald-50 text-emerald-700";
   if (status === "blocked") return "border-red-200 bg-red-50 text-red-700";
   if (status === "rejected") return "border-slate-200 bg-slate-50 text-slate-500";
   return "border-amber-200 bg-amber-50 text-amber-800";
@@ -43,6 +43,7 @@ const SECTION_ORDER: Array<{ key: string; label: string }> = [
   { key: "sync_stale", label: "口座同期状態" },
   { key: "officer_compensation_unreconciled", label: "役員報酬の未消込" },
   { key: "internal_transfer_candidate", label: "内部振替候補" },
+  { key: "audit_source_unavailable", label: "照合ソースの不足" },
   { key: "anomalous_journal", label: "変な仕訳" },
   { key: "unprocessed_entry", label: "未処理明細" },
 ];

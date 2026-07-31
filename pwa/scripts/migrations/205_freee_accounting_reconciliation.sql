@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS public.freee_reconciliation_findings (
       'balance_delta',
       'sync_stale',
       'unprocessed_entry',
+      'audit_source_unavailable',
       'anomalous_journal',
       'officer_compensation_unreconciled',
       'internal_transfer_candidate'
@@ -70,7 +71,7 @@ CREATE TABLE IF NOT EXISTS public.freee_reconciliation_findings (
   eligible_for_auto_apply BOOLEAN NOT NULL DEFAULT false,
   evidence_json JSONB NOT NULL DEFAULT '{}'::jsonb,
   review_status TEXT NOT NULL DEFAULT 'pending'
-    CHECK (review_status IN ('pending', 'approved', 'rejected', 'auto_applied', 'blocked')),
+    CHECK (review_status IN ('pending', 'approved', 'rejected', 'auto_applied', 'blocked', 'resolved')),
   reviewed_by TEXT,
   reviewed_at TIMESTAMPTZ,
   review_note TEXT,
@@ -85,6 +86,27 @@ ALTER TABLE public.freee_reconciliation_findings
   DROP CONSTRAINT IF EXISTS freee_reconciliation_findings_finding_key_key;
 CREATE UNIQUE INDEX IF NOT EXISTS freee_reconciliation_findings_run_key_uniq
   ON public.freee_reconciliation_findings(run_id, finding_key);
+
+-- 初期適用後に監査ソース不足の明示typeを追加しても再適用できるよう、CHECKを正本へ揃える。
+ALTER TABLE public.freee_reconciliation_findings
+  DROP CONSTRAINT IF EXISTS freee_reconciliation_findings_finding_type_check;
+ALTER TABLE public.freee_reconciliation_findings
+  ADD CONSTRAINT freee_reconciliation_findings_finding_type_check
+  CHECK (finding_type IN (
+    'balance_delta',
+    'sync_stale',
+    'unprocessed_entry',
+    'audit_source_unavailable',
+    'anomalous_journal',
+    'officer_compensation_unreconciled',
+    'internal_transfer_candidate'
+  ));
+
+ALTER TABLE public.freee_reconciliation_findings
+  DROP CONSTRAINT IF EXISTS freee_reconciliation_findings_review_status_check;
+ALTER TABLE public.freee_reconciliation_findings
+  ADD CONSTRAINT freee_reconciliation_findings_review_status_check
+  CHECK (review_status IN ('pending', 'approved', 'rejected', 'auto_applied', 'blocked', 'resolved'));
 
 CREATE INDEX IF NOT EXISTS freee_reconciliation_findings_run_idx
   ON public.freee_reconciliation_findings(run_id);

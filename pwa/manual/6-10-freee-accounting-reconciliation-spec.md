@@ -76,12 +76,17 @@ freee公式APIの制約を2026-07時点で確認済み:
 |---|---|---|
 | `balance_delta` | freee `walletable_balance`（freee登録残高）と`last_balance`（銀行同期残高）の差 | 不可（残高差の直接補正は絶対に自動化しない） |
 | `sync_stale` | `sync_status`が失敗系、または`last_synced_at`が3日以上前 | 不可 |
-| `unprocessed_entry` | deal/transferどちらにも未紐付けの明細が3日以上経過 | 不可 |
+| `unprocessed_entry` | freee公式`wallet_txn.status=1`（消込待ち）の明細が3日以上経過 | 不可 |
+| `audit_source_unavailable` | freeeアプリ権限不足などで監査ソースを取得できない。対象範囲は検査済みとみなさずblocker | 不可 |
 | `anomalous_journal` | manual_journalsの貸借不一致・勘定科目未設定・金額0円 | 不可 |
 | `officer_compensation_unreconciled` | `company_finance_recurring_items`由来の役員報酬期待額とfreee明細の突合。単一deal紐付け済みは解消済み、重複/内部振替扱いはblocker | 判定上はeligibleになりうるが、実書込みは常にblocked |
 | `internal_transfer_candidate` | 別口座間の同額・同日/許容日差の未紐付けexpense/incomeペア | 判定上はeligibleになりうるが、実書込みは常にblocked |
 
 **freee公式フィールドの意味**（取り違え注意）:`last_balance`＝銀行同期の実残高（同期残高）、`walletable_balance`＝freee帳簿上の登録残高。`balance_delta`は`walletable_balance - last_balance`で計算する。
+
+口座一覧は`with_balance=true`を明示しないと`last_balance`/`walletable_balance`が返らない。口座明細の処理状態は非標準の`deal_id`/`transfer_id`ではなく、freee公式`status`（1=消込待ち、2=消込済み、3=無視、4=消込中、6=対象外）を正にする。同期状態は`unsupported`を検査対象外、`disabled`を同期未設定のinfo、`token_refresh_error`/`other_error`をblockerとして扱う。
+
+freeeアプリに`manual_journals`の参照権限が無い場合、その403だけはrun全体を失敗させず、`audit_source_unavailable`のblockerを残して他の照合を継続する。この間、振替伝票の異常検査は**未実施**であり、0件と解釈しない。403以外の取得エラーは従来どおりrunをfailedにする。
 
 ## cron / 週窓
 
@@ -89,6 +94,7 @@ freee公式APIの制約を2026-07時点で確認済み:
 - 週窓は run日を末日とするtrailing 7日間（`weekWindowForRunDate`）。役員報酬照合の対象月（`targetYm`）は`weekEndDate`（≒run日、`jstRunDate`パラメータ指定時はそれを使う。実運用の`now()`には依存しない）が属する月。
 - 同一週内の`triggered_by='cron'`完了runは`run_key=freee-weekly:{weekStartDate}`の一意制約で二重実行しない。`status='running'`のまま30分（`STALE_RUNNING_THRESHOLD_MINUTES`）を超えたrunはクラッシュとみなし、同じrunを安全に再開する（`isRunStale`）。30分以内の`running`は本当に並行実行中の可能性があるためskipする。
 - freee読み取りウィンドウは週窓ではなく直近60日（`LOOKBACK_DAYS`）: 役員報酬・内部振替の照合は支払タイミングが週窓とずれるため、広めに見る。findingは週次runごとに新規occurrenceとしてinsertされる（`finding_key`は安定なので過去との対応は追える）。
+- 今回正常に評価できたfinding typeで再現しなかった過去の`pending`/`blocked` occurrenceは、削除せず`resolved`へ閉じる。監査ソースがunavailableなtype（現在はmanual_journalsの`anomalous_journal`）は未検査なので自動解消しない。
 
 ## 収支スプシ参照（read-only、正本ではない）
 
@@ -105,6 +111,7 @@ freee公式APIの制約を2026-07時点で確認済み:
 |---|---|
 | 今週runが無い/failed | `/admin/finance`「run履歴」、`freee_reconciliation_runs.error_message` |
 | 想定よりfindingがeligibleにならない | `officer_compensation_unreconciled`のfinding `evidence_json.mappingStatus`（`missing`/`explicit_conflict`/`name_match_ambiguous`ならrecurring itemの紐付けを直す） |
+| `audit_source_unavailable`が出る | freeeアプリの振替伝票一覧参照権限を確認する。解消まで「変な仕訳」のmanual_journals検査は未実施 |
 | 「auto-apply対象のはずなのにfreeeに反映されない」 | 仕様どおり。2026-07時点でfreee書込みは常にblocked（上記「freee mutationの安全境界」参照）。`freee_reconciliation_actions.blocked_reason`に理由が入る |
 | 収支スプシ参照が毎回skipped | run summary_jsonの`sheetReference.reason`（env未設定 or Google OAuth未設定） |
 

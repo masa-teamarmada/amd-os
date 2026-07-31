@@ -10,6 +10,7 @@ export type FindingType =
   | "balance_delta"
   | "sync_stale"
   | "unprocessed_entry"
+  | "audit_source_unavailable"
   | "anomalous_journal"
   | "officer_compensation_unreconciled"
   | "internal_transfer_candidate";
@@ -90,6 +91,12 @@ export function buildFindingKey(parts: Array<string | number | null | undefined>
   return createHash("sha256").update(normalized).digest("hex").slice(0, 32);
 }
 
+/** 今回の同種監査で再現しなかった過去finding keyだけを、解消済みにするための純関数。 */
+export function findingKeysToResolve(previousKeys: string[], currentKeys: string[]): string[] {
+  const current = new Set(currentKeys);
+  return [...new Set(previousKeys)].filter((key) => !current.has(key));
+}
+
 function yen(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value ?? 0);
   return Number.isFinite(n) ? Math.round(n) : 0;
@@ -123,7 +130,7 @@ export type WalletableForAudit = {
   lastSyncedAt: string | null; // ISO
 };
 
-const SYNC_FAILURE_STATUSES = new Set(["error", "expired", "disconnected", "failed"]);
+const SYNC_FAILURE_STATUSES = new Set(["token_refresh_error", "other_error", "error", "expired", "disconnected", "failed"]);
 
 /**
  * 口座ごとの freee登録残高(walletable_balance) と 銀行同期残高(last_balance) の差を検出する。
@@ -168,17 +175,20 @@ export function detectSyncIssues(
   const now = new Date(nowIso).getTime();
   const findings: Finding[] = [];
   for (const w of walletables) {
-    const statusFailed = w.syncStatus != null && SYNC_FAILURE_STATUSES.has(String(w.syncStatus).toLowerCase());
+    const normalizedStatus = String(w.syncStatus ?? "").toLowerCase();
+    if (!normalizedStatus || normalizedStatus === "unsupported") continue;
+    const statusFailed = SYNC_FAILURE_STATUSES.has(normalizedStatus);
+    const statusDisabled = normalizedStatus === "disabled";
     const lastSyncedMs = w.lastSyncedAt ? new Date(w.lastSyncedAt).getTime() : null;
     const staleDays = lastSyncedMs != null && Number.isFinite(lastSyncedMs)
       ? Math.floor((now - lastSyncedMs) / 86_400_000)
       : null;
     const isStale = staleDays != null && staleDays >= staleDaysThreshold;
-    if (!statusFailed && !isStale && lastSyncedMs != null) continue;
+    if (!statusFailed && !statusDisabled && !isStale) continue;
     findings.push({
       findingKey: buildFindingKey(["sync_stale", w.type, w.id]),
       findingType: "sync_stale",
-      severity: statusFailed ? "blocker" : "warn",
+      severity: statusFailed ? "blocker" : statusDisabled ? "info" : "warn",
       walletableType: w.type,
       walletableId: String(w.id),
       walletableName: w.name,
@@ -188,10 +198,12 @@ export function detectSyncIssues(
       amountYen: null,
       deltaYen: null,
       occurredOn: null,
-      title: `${w.name ?? w.type}: 口座同期が${statusFailed ? "停止" : "古い"}`,
+      title: `${w.name ?? w.type}: 口座同期が${statusFailed ? "停止" : statusDisabled ? "未設定" : "古い"}`,
       summaryJa: statusFailed
         ? `sync_status=${w.syncStatus}。freee側の口座同期が失敗/停止している。`
-        : `最終同期 ${w.lastSyncedAt ?? "不明"}（${staleDays ?? "?"}日前）。同期が滞っている可能性。`,
+        : statusDisabled
+          ? "sync_status=disabled。freee側で同期設定が無いため、同期残高との突合はできない。"
+          : `最終同期 ${w.lastSyncedAt ?? "不明"}（${staleDays ?? "?"}日前）。同期が滞っている可能性。`,
       decisionReasonJa: "口座同期の停止・古さは、この後の残高差・未処理明細検出の前提が崩れるため必ずレビュー対象にする。",
       matchConfidence: "ambiguous",
       eligibleForAutoApply: false,
@@ -211,10 +223,22 @@ export type WalletTxnForAudit = {
   walletableName: string | null;
   amountYen: number;
   direction: "income" | "expense" | null;
+  /** freee公式: 1=消込待ち, 2=消込済み, 3=無視, 4=消込中, 6=対象外。古いmockではnull可。 */
+  processingStatus?: number | null;
   dealId: string | number | null;
   transferId: string | number | null;
   description: string | null;
 };
+
+function isTxnUnprocessed(txn: WalletTxnForAudit): boolean {
+  if (txn.processingStatus != null && Number.isFinite(txn.processingStatus)) return txn.processingStatus === 1;
+  return txn.dealId == null && txn.transferId == null;
+}
+
+function isTxnReconciled(txn: WalletTxnForAudit): boolean {
+  if (txn.processingStatus != null && Number.isFinite(txn.processingStatus)) return txn.processingStatus === 2;
+  return txn.dealId != null && txn.transferId == null;
+}
 
 /** deal/transferにも紐付いていない明細（未処理）を検出する。 */
 export function detectUnprocessedEntries(
@@ -225,7 +249,7 @@ export function detectUnprocessedEntries(
   const now = new Date(nowIso).getTime();
   const findings: Finding[] = [];
   for (const txn of txns) {
-    if (txn.dealId != null || txn.transferId != null) continue;
+    if (!isTxnUnprocessed(txn)) continue;
     if (!txn.date) continue;
     const ageDays = Math.floor((now - new Date(`${txn.date}T00:00:00+09:00`).getTime()) / 86_400_000);
     if (ageDays < minAgeDays) continue;
@@ -265,6 +289,30 @@ export type ManualJournalForAudit = {
   txnNumber: string | null;
   details: ManualJournalDetailForAudit[];
 };
+
+/** freee側の権限不足で監査ソース自体を読めない場合、見逃しを隠さずblockerにする。 */
+export function buildAuditSourceUnavailableFinding(source: string, reason: string): Finding {
+  return {
+    findingKey: buildFindingKey(["audit_source_unavailable", source]),
+    findingType: "audit_source_unavailable",
+    severity: "blocker",
+    walletableType: null,
+    walletableId: null,
+    walletableName: null,
+    freeeEntityType: null,
+    freeeEntityId: null,
+    memberId: null,
+    amountYen: null,
+    deltaYen: null,
+    occurredOn: null,
+    title: `${source}: 照合ソースを取得できない`,
+    summaryJa: reason,
+    decisionReasonJa: "監査ソースを読めない範囲は検査済みとみなさず、権限または連携設定が直るまでblockerとして残す。",
+    matchConfidence: "ambiguous",
+    eligibleForAutoApply: false,
+    evidence: { source, unavailable: true },
+  };
+}
 
 /** 借方貸方が合わない・勘定科目未設定・金額0など、明らかにおかしい仕訳を検出する。 */
 export function detectAnomalousJournals(journals: ManualJournalForAudit[]): Finding[] {
@@ -527,23 +575,27 @@ export function detectOfficerCompensationFindings(
         withdrawalAccountMatches(mapping.withdrawalAccount, t.walletableName) &&
         hasMatchingDescriptionToken(t.description, [mapping.memberName, mapping.codeName, mapping.vendorName, mapping.displayName])
     );
-    const reconciledDealTxns = matchingTxns.filter((t) => t.dealId != null && t.transferId == null);
+    const reconciledDealTxns = matchingTxns.filter((t) => isTxnReconciled(t));
     const transferLinkedTxns = matchingTxns.filter((t) => t.transferId != null);
-    const candidates = matchingTxns.filter((t) => t.dealId == null && t.transferId == null);
+    const candidates = matchingTxns.filter((t) => isTxnUnprocessed(t));
+    const otherStatusTxns = matchingTxns.filter(
+      (t) => !isTxnReconciled(t) && !isTxnUnprocessed(t) && t.transferId == null
+    );
     const crossOfficerCollision = resolvedMappings.some((other) => other !== mapping && other.amountYen === mapping.amountYen);
     const isSingleCandidate = candidates.length === 1;
     const isExplicit = mapping.mappingStatus === "explicit";
     const eligible = isSingleCandidate && !crossOfficerCollision && isExplicit;
 
-    if (reconciledDealTxns.length === 1 && transferLinkedTxns.length === 0 && candidates.length === 0) {
+    if (reconciledDealTxns.length === 1 && transferLinkedTxns.length === 0 && candidates.length === 0 && otherStatusTxns.length === 0) {
       continue;
     }
 
-    if (reconciledDealTxns.length > 0 || transferLinkedTxns.length > 0) {
+    if (reconciledDealTxns.length > 0 || transferLinkedTxns.length > 0 || otherStatusTxns.length > 0) {
       const reasons = [
         reconciledDealTxns.length > 1 ? `deal紐付け済み明細が${reconciledDealTxns.length}件` : null,
         reconciledDealTxns.length === 1 && candidates.length > 0 ? `deal紐付け済み1件と未処理${candidates.length}件が重複` : null,
         transferLinkedTxns.length > 0 ? `内部振替扱いの明細が${transferLinkedTxns.length}件` : null,
+        otherStatusTxns.length > 0 ? `無視/消込中/対象外の明細が${otherStatusTxns.length}件` : null,
       ].filter((reason): reason is string => Boolean(reason));
       findings.push({
         findingKey: buildFindingKey(["officer_compensation_unreconciled", mapping.memberId, targetYm]),
@@ -567,6 +619,7 @@ export function detectOfficerCompensationFindings(
           mappingStatus: mapping.mappingStatus,
           reconciledDealTxnIds: reconciledDealTxns.map((t) => t.id),
           transferLinkedTxnIds: transferLinkedTxns.map((t) => t.id),
+          otherStatusTxnIds: otherStatusTxns.map((t) => t.id),
           unresolvedTxnIds: candidates.map((t) => t.id),
         },
       });
@@ -639,8 +692,8 @@ export function detectInternalTransferCandidates(
   txns: WalletTxnForAudit[],
   allowedDayDiffDays = 1
 ): Finding[] {
-  const orphanExpense = txns.filter((t) => t.direction === "expense" && t.dealId == null && t.transferId == null);
-  const orphanIncome = txns.filter((t) => t.direction === "income" && t.dealId == null && t.transferId == null);
+  const orphanExpense = txns.filter((t) => t.direction === "expense" && isTxnUnprocessed(t));
+  const orphanIncome = txns.filter((t) => t.direction === "income" && isTxnUnprocessed(t));
   const findings: Finding[] = [];
   for (const expense of orphanExpense) {
     const candidates = orphanIncome.filter((income) => {

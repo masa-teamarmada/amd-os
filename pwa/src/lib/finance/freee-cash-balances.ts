@@ -22,7 +22,11 @@ export type WalletTxn = {
   walletable_id?: number | string;
   balance?: number | string;
   amount?: number | string;
+  due_amount?: number | string;
   entry_side?: string;
+  /** freee公式: 1=消込待ち, 2=消込済み, 3=無視, 4=消込中, 6=対象外 */
+  status?: number | string;
+  rule_matched?: boolean;
   deal_id?: number | string;
   transfer_id?: number | string;
   transaction_id?: number | string;

@@ -8,6 +8,7 @@ import {
   detectSyncIssues,
   detectUnprocessedEntries,
   detectAnomalousJournals,
+  buildAuditSourceUnavailableFinding,
   detectOfficerCompensationFindings,
   detectInternalTransferCandidates,
   buildOfficerRecurringMappings,
@@ -15,6 +16,7 @@ import {
   decideExecutorAction,
   decideSheetReferenceSkip,
   summarizeSheetRangeValues,
+  findingKeysToResolve,
   type WalletableForAudit,
   type WalletTxnForAudit,
   type ManualJournalForAudit,
@@ -37,6 +39,12 @@ assert.throws(() => weekWindowForRunDate("not-a-date"));
 assert.equal(ymFromIsoDate("2026-07-30"), "202607");
 assert.equal(ymFromIsoDate("2026-01-05"), "202601");
 assert.throws(() => ymFromIsoDate("bogus"));
+
+assert.deepEqual(
+  findingKeysToResolve(["still-open", "gone", "gone"], ["still-open", "new"]),
+  ["gone"],
+  "only prior keys absent from the current evaluated run are resolved"
+);
 
 // --- isRunStale (P1-7 stale-running recovery) --------------------------------
 
@@ -64,13 +72,17 @@ assert.equal(deltaFindings[0].severity, "blocker");
 
 const staleWalletables: WalletableForAudit[] = [
   { id: 3, type: "bank_account", name: "古い同期口座", syncedBalance: 1000, registeredBalance: 1000, syncStatus: "success", lastSyncedAt: "2026-07-20T00:00:00Z" },
-  { id: 4, type: "bank_account", name: "エラー口座", syncedBalance: 1000, registeredBalance: 1000, syncStatus: "error", lastSyncedAt: "2026-07-29T00:00:00Z" },
+  { id: 4, type: "bank_account", name: "エラー口座", syncedBalance: 1000, registeredBalance: 1000, syncStatus: "token_refresh_error", lastSyncedAt: "2026-07-29T00:00:00Z" },
   { id: 5, type: "bank_account", name: "正常口座", syncedBalance: 1000, registeredBalance: 1000, syncStatus: "success", lastSyncedAt: "2026-07-29T12:00:00Z" },
+  { id: 6, type: "credit_card", name: "同期未設定", syncedBalance: null, registeredBalance: 1000, syncStatus: "disabled", lastSyncedAt: null },
+  { id: 7, type: "wallet", name: "同期非対応", syncedBalance: null, registeredBalance: 1000, syncStatus: "unsupported", lastSyncedAt: null },
 ];
 const syncFindings = detectSyncIssues(staleWalletables, NOW, 3);
-assert.equal(syncFindings.length, 2);
+assert.equal(syncFindings.length, 3);
 assert.ok(syncFindings.every((f) => f.eligibleForAutoApply === false));
 assert.ok(syncFindings.some((f) => f.walletableId === "4" && f.severity === "blocker"));
+assert.ok(syncFindings.some((f) => f.walletableId === "6" && f.severity === "info"));
+assert.ok(!syncFindings.some((f) => f.walletableId === "7"), "sync unsupported wallet is outside sync-staleness checks");
 
 // --- unprocessed entries -----------------------------------------------------
 
@@ -82,6 +94,14 @@ const unprocessed = detectUnprocessedEntries(unprocessedTxns, NOW, 3);
 assert.equal(unprocessed.length, 1);
 assert.equal(unprocessed[0].freeeEntityId, "10");
 
+const statusAwareTxns: WalletTxnForAudit[] = [
+  { ...unprocessedTxns[0], id: 13, processingStatus: 1, dealId: 999 },
+  { ...unprocessedTxns[0], id: 14, processingStatus: 2, dealId: null },
+];
+const statusAwareUnprocessed = detectUnprocessedEntries(statusAwareTxns, NOW, 3);
+assert.equal(statusAwareUnprocessed.length, 1, "freee status is authoritative over absent/non-standard deal_id fields");
+assert.equal(statusAwareUnprocessed[0].freeeEntityId, "13");
+
 // --- anomalous journals -------------------------------------------------------
 
 const journals: ManualJournalForAudit[] = [
@@ -92,6 +112,14 @@ const anomalies = detectAnomalousJournals(journals);
 assert.equal(anomalies.length, 1);
 assert.equal(anomalies[0].freeeEntityId, "1");
 assert.equal(anomalies[0].severity, "blocker");
+
+const unavailableSource = buildAuditSourceUnavailableFinding(
+  "freee manual_journals",
+  "freeeアプリに振替伝票一覧の参照権限がない"
+);
+assert.equal(unavailableSource.findingType, "audit_source_unavailable");
+assert.equal(unavailableSource.severity, "blocker");
+assert.equal(unavailableSource.eligibleForAutoApply, false);
 
 // --- buildOfficerRecurringMappings: explicit / ambiguous / missing for all officers
 
@@ -160,7 +188,7 @@ assert.equal(fullMatchFindings[0].eligibleForAutoApply, true);
 
 // deal紐付け済みの単一明細は消込済みなのでfindingを出さない
 const reconciledTxns: WalletTxnForAudit[] = [
-  { ...fullMatchTxns[0], id: 24, dealId: 9001 },
+  { ...fullMatchTxns[0], id: 24, processingStatus: 2 },
 ];
 assert.equal(
   detectOfficerCompensationFindings([explicitMapping], reconciledTxns, targetYm).length,
@@ -213,8 +241,8 @@ assert.equal(masaCollisionFinding.eligibleForAutoApply, false, "same-amount coll
 // --- internal transfer candidates: exact same-day pairing is eligible -------
 
 const transferTxns: WalletTxnForAudit[] = [
-  { id: 30, date: "2026-07-28", walletableType: "bank_account", walletableId: 1, walletableName: "口座A", amountYen: 500_000, direction: "expense", dealId: null, transferId: null, description: "振替出金" },
-  { id: 31, date: "2026-07-28", walletableType: "bank_account", walletableId: 2, walletableName: "口座B", amountYen: 500_000, direction: "income", dealId: null, transferId: null, description: "振替入金" },
+  { id: 30, date: "2026-07-28", walletableType: "bank_account", walletableId: 1, walletableName: "口座A", amountYen: 500_000, direction: "expense", processingStatus: 1, dealId: null, transferId: null, description: "振替出金" },
+  { id: 31, date: "2026-07-28", walletableType: "bank_account", walletableId: 2, walletableName: "口座B", amountYen: 500_000, direction: "income", processingStatus: 1, dealId: null, transferId: null, description: "振替入金" },
 ];
 const transferFindings = detectInternalTransferCandidates(transferTxns);
 assert.equal(transferFindings.length, 1);

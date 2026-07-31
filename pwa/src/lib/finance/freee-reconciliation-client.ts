@@ -14,6 +14,8 @@ import {
   detectSyncIssues,
   detectUnprocessedEntries,
   buildOfficerRecurringMappings,
+  buildAuditSourceUnavailableFinding,
+  findingKeysToResolve,
   isRunStale,
   summarizeSheetRangeValues,
   weekWindowForRunDate,
@@ -68,7 +70,7 @@ export type WalletableRaw = {
 
 /** freee walletables を last_balance/walletable_balance/sync_status/last_synced_at 込みで取得する。 */
 export async function fetchWalletablesFull(): Promise<WalletableRaw[]> {
-  const params = new URLSearchParams({ with_sync_status: "true", with_last_synced_at: "true" });
+  const params = new URLSearchParams({ with_balance: "true", with_sync_status: "true", with_last_synced_at: "true" });
   const data = (await freeeApi("GET", `/api/1/walletables?${params.toString()}`)) as { walletables?: WalletableRaw[] };
   return data.walletables ?? [];
 }
@@ -92,6 +94,10 @@ type ManualJournalRaw = {
   details?: Array<{ entry_side?: string; account_item_id?: number | string | null; amount?: number | string }>;
 };
 
+type ManualJournalSourceResult =
+  | { status: "ok"; journals: ManualJournalRaw[]; reason: null }
+  | { status: "unavailable"; journals: []; reason: string };
+
 /** freee manual_journals（振替伝票）を期間指定で取得する（read-only、書込みには使わない）。 */
 export async function fetchManualJournalsForWindow(startDate: string, endDate: string): Promise<ManualJournalRaw[]> {
   const journals: ManualJournalRaw[] = [];
@@ -109,6 +115,22 @@ export async function fetchManualJournalsForWindow(startDate: string, endDate: s
     if (page.length < limit) break;
   }
   return journals;
+}
+
+async function loadManualJournalSource(startDate: string, endDate: string): Promise<ManualJournalSourceResult> {
+  try {
+    return { status: "ok", journals: await fetchManualJournalsForWindow(startDate, endDate), reason: null };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("/api/1/manual_journals") && message.includes("403") && message.includes("access_denied")) {
+      return {
+        status: "unavailable",
+        journals: [],
+        reason: "freeeアプリに振替伝票一覧（manual_journals）の参照権限がないため、貸借不一致・勘定科目未設定・0円行の検査を実施できない。",
+      };
+    }
+    throw error;
+  }
 }
 
 function toManualJournalForAudit(j: ManualJournalRaw): ManualJournalForAudit {
@@ -300,6 +322,48 @@ async function insertFindingOccurrences(db: SupabaseClient, runId: string, findi
   return findingIdByKey;
 }
 
+/**
+ * 今回きちんと評価できたfinding typeについて、再現しなかった過去pending/blocked occurrenceを
+ * resolvedへ閉じる。行は削除せず週次証跡を保持する。読取ソースがunavailableなtypeは呼出側で
+ * evaluatedTypesから外し、未検査を解消扱いにしない。
+ */
+async function resolveMissingFindingOccurrences(
+  db: SupabaseClient,
+  runId: string,
+  findings: Finding[],
+  evaluatedTypes: Finding["findingType"][]
+): Promise<number> {
+  const { data, error } = await db
+    .from("freee_reconciliation_findings")
+    .select("id, finding_key")
+    .in("finding_type", evaluatedTypes)
+    .in("review_status", ["pending", "blocked"])
+    .neq("run_id", runId);
+  if (error) throw new Error(`resolveMissingFindingOccurrences select: ${error.message}`);
+
+  const previousRows = (data ?? []) as Array<{ id: string; finding_key: string }>;
+  const keysToResolve = new Set(
+    findingKeysToResolve(previousRows.map((row) => row.finding_key), findings.map((finding) => finding.findingKey))
+  );
+  const ids = previousRows.filter((row) => keysToResolve.has(row.finding_key)).map((row) => row.id);
+  const nowIso = new Date().toISOString();
+  for (let index = 0; index < ids.length; index += 200) {
+    const chunk = ids.slice(index, index + 200);
+    const { error: updateError } = await db
+      .from("freee_reconciliation_findings")
+      .update({
+        review_status: "resolved",
+        reviewed_by: "system:weekly_reconciliation",
+        reviewed_at: nowIso,
+        review_note: "次回の同種照合で再現しなかったため解消済み",
+        updated_at: nowIso,
+      })
+      .in("id", chunk);
+    if (updateError) throw new Error(`resolveMissingFindingOccurrences update: ${updateError.message}`);
+  }
+  return ids.length;
+}
+
 const ACTION_TYPE_BY_FINDING_TYPE: Partial<Record<Finding["findingType"], ActionType>> = {
   officer_compensation_unreconciled: "officer_compensation_reconcile",
   internal_transfer_candidate: "internal_transfer_reconcile",
@@ -468,10 +532,10 @@ export async function runWeeklyReconciliation(db: SupabaseClient, options: RunOp
       return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
     })();
 
-    const [walletablesRaw, rawTxns, manualJournalsRaw, officerMappings, sheetReference] = await Promise.all([
+    const [walletablesRaw, rawTxns, manualJournalSource, officerMappings, sheetReference] = await Promise.all([
       fetchWalletablesFull(),
       fetchWalletTxns(historyStartDate, weekEndDate),
-      fetchManualJournalsForWindow(historyStartDate, weekEndDate),
+      loadManualJournalSource(historyStartDate, weekEndDate),
       loadOfficerRecurringMappings(db, targetYm),
       loadFinanceReferenceSheetSnapshot(),
     ]);
@@ -488,23 +552,37 @@ export async function runWeeklyReconciliation(db: SupabaseClient, options: RunOp
         walletableName: walletableNameById.get(`${t.walletable_type}:${t.walletable_id}`) ?? null,
         amountYen: yen(t.amount),
         direction: walletTxnDirection(t),
+        processingStatus: t.status == null ? null : Number(t.status),
         dealId: t.deal_id ?? null,
         transferId: t.transfer_id ?? null,
         description: t.description ?? null,
       }));
-    const manualJournalsForAudit: ManualJournalForAudit[] = manualJournalsRaw.map(toManualJournalForAudit);
+    const manualJournalsForAudit: ManualJournalForAudit[] = manualJournalSource.journals.map(toManualJournalForAudit);
 
     const nowIso = new Date().toISOString();
     const findings: Finding[] = [
       ...detectBalanceDeltas(walletablesForAudit),
       ...detectSyncIssues(walletablesForAudit, nowIso),
       ...detectUnprocessedEntries(walletTxnsForAudit, nowIso),
+      ...(manualJournalSource.status === "unavailable"
+        ? [buildAuditSourceUnavailableFinding("freee manual_journals", manualJournalSource.reason)]
+        : []),
       ...detectAnomalousJournals(manualJournalsForAudit),
       ...detectOfficerCompensationFindings(officerMappings, walletTxnsForAudit, targetYm),
       ...detectInternalTransferCandidates(walletTxnsForAudit),
     ];
 
     const findingIdByKey = await insertFindingOccurrences(db, runId, findings);
+    const evaluatedTypes: Finding["findingType"][] = [
+      "balance_delta",
+      "sync_stale",
+      "unprocessed_entry",
+      "audit_source_unavailable",
+      "officer_compensation_unreconciled",
+      "internal_transfer_candidate",
+    ];
+    if (manualJournalSource.status === "ok") evaluatedTypes.push("anomalous_journal");
+    const resolvedCount = await resolveMissingFindingOccurrences(db, runId, findings, evaluatedTypes);
     const { autoAppliedCount, blockedCount } = await applyExecutorForEligibleFindings(
       db,
       runId,
@@ -521,11 +599,16 @@ export async function runWeeklyReconciliation(db: SupabaseClient, options: RunOp
       walletableCount: walletablesForAudit.length,
       walletTxnCount: walletTxnsForAudit.length,
       manualJournalCount: manualJournalsForAudit.length,
+      manualJournalCheck: {
+        status: manualJournalSource.status,
+        reason: manualJournalSource.reason,
+      },
       officerCount: officerMappings.length,
       findingsByType: findings.reduce<Record<string, number>>((acc, f) => {
         acc[f.findingType] = (acc[f.findingType] ?? 0) + 1;
         return acc;
       }, {}),
+      resolvedCount,
       sheetReference,
     };
 
