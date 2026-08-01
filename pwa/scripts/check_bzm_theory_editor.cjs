@@ -67,22 +67,29 @@ for (const label of [
 for (const contract of [
   "onBackgroundClick", "onNodeDragEnd", "onLinkClick", "handleNodeDragEnd", "handleNodeClick",
   "suppressNextBackgroundClick", "draggedNodeClickRef", "event.metaKey || event.ctrlKey",
-  "setConnectingFromId", 'setComposerState({ type: "create" })', 'data-bzm-map-panel=',
+  "setConnectingFromId", "openDraftComposer", 'data-bzm-map-panel=',
   "KIND_COLOR", "createDirectEdge", "parseTheoryMapEdgeDto", "connectingPending", "d3ReheatSimulation",
-  "size.h, size.w", "initialPositionById",
+  "size.h, size.w", "initialPositionById", "screen2GraphCoords", "draftNode", "draftId",
+  "pendingEdge", "setPendingEdge(optimisticEdge)", "clippedLinkPoints", "nodeBoundaryDistance",
+  'linkCanvasObject={drawClippedLink}', 'data-bzm-map-overlay-host="composer"',
 ]) {
   assert.ok(view.includes(contract) || composer.includes(contract), `direct-manipulation contract missing ${contract}`);
 }
 assert.doesNotMatch(view, /理論を書く|このノードを育てる|既存ノードとつなぐ/);
 assert.doesNotMatch(view, /nearestDistance|overlapDistance/, "dragging must not create an edge");
 assert.doesNotMatch(view, /fillText\(KIND_/, "node centers must not contain kind glyphs");
-assert.doesNotMatch(view, /ctx\.setLineDash/, "node canvas must not draw dotted or dashed halos");
-assert.doesNotMatch(view, /data-bzm-map-overlay/, "map forms must not cover the graph with an overlay");
+assert.match(
+  view,
+  /setPendingEdge\(optimisticEdge\);[\s\S]*?await callTheoryMapApi/,
+  "the edge must become visible before persistence completes"
+);
 assert.match(composer, /接続のプレビュー/);
 assert.match(composer, /role="dialog"/);
 assert.match(composer, /aria-modal="false"/);
 assert.match(composer, /data-bzm-map-panel="composer"/);
-assert.doesNotMatch(composer, /data-bzm-map-overlay/, "composer must use reserved map workspace");
+assert.match(composer, /data-bzm-map-overlay="composer"/, "composer must float inside the map");
+assert.match(composer, /下書きノードをマップに作成済み/);
+assert.match(composer, /onDraftChange\(state\.draftId, form\)/);
 assert.doesNotMatch(composer, /type: "connect"|mode === "connect"|接続先ノードを検索|既存ノードとつなぐ/);
 assert.doesNotMatch(composer, />\s*つなぐ\s*</, "direct node connection must not require a confirmation button");
 assert.match(composer, /sourceRef: form\.sourceRef,/);
