@@ -85,6 +85,7 @@ interface ForceGraphHandle {
   zoom: (k?: number, ms?: number) => void;
   zoomToFit: (ms?: number, padding?: number) => void;
   d3Force: (name: string, force?: unknown) => unknown;
+  d3ReheatSimulation: () => void;
 }
 
 // react-force-graph は Canvas 依存で SSR 不可
@@ -405,12 +406,13 @@ export function BzmTheoryMapView({
 
   useEffect(() => {
     if (view !== "map") return;
-    const fg = graphRef.current as unknown as { d3Force: (n: string, f?: unknown) => void } | null;
+    const fg = graphRef.current;
     if (!fg) return;
     fg.d3Force("layerGrid", createLayerForce(() => graphData.nodes, 190, 92));
+    fg.d3ReheatSimulation();
     const timer = window.setTimeout(() => graphRef.current?.zoomToFit(400, 40), 260);
     return () => window.clearTimeout(timer);
-  }, [graphData, graphReadyVersion, panelOpen, view]);
+  }, [graphData, graphReadyVersion, panelOpen, size.h, size.w, view]);
 
   useEffect(() => {
     if (!connectingFromId || visibleIds.has(connectingFromId)) return;
