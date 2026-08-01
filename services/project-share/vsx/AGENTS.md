@@ -19,8 +19,9 @@ AgVenture Lab）向け PJ別パイロットインスタンス。AMD OS PWA（`pw
 
 - **このディレクトリの実装を `pwa/` へ混ぜない**。共有する依存やコンポーネントはない。
   Next.js の型・lint・testパイプラインの対象にも含めない。
-- **秘密値をコミットしない**。`VSX_ACCESS_PASSWORD` / `VSX_AUTH_SECRET` はVercelの
-  当該プロジェクトの環境変数にのみ置く。`.vercel/` はgit管理しない（`.gitignore`済み）。
+- **認証値をコミットしない**。`VSX_ACCESS_PASSWORD` / `VSX_AUTH_SECRET` / `VSX_ALLOWED_EMAILS` の
+  実値はVercelの当該プロジェクトの環境変数にのみ置き、HANDOFFやチャットにも書かない。
+  `.vercel/` はgit管理しない（`.gitignore`済み）。
 - **`content/` 配下はこのインスタンス固有のcontent snapshot**。ここのPJ固有ハードコード
   （事業資料本体・ロゴ・写真・パスワードで守る対象データ）を、汎用Project Share機能へ
   無理に一般化しない。他PJへ同様の機能を展開する場合は、この `vsx/` をコピーして

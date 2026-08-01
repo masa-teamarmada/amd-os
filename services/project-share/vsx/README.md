@@ -1,7 +1,7 @@
 # services/project-share/vsx — VSX PROJECT SHARE
 
 汎用「Project Share」機能の、PJ別パイロットインスタンス。AMD OS の PWA とは別の独立
-Vercel サービスとして、パスワード認証付きの Vercel Node Function で動く。認証済み
+Vercel サービスとして、許可メールアドレス＋パスワード認証付きの Vercel Node Function で動く。認証済み
 ユーザーに、AgVenture Lab 事業資料（`GET /documents/agventure-lab`）に加えて、Vercel
 Blob（private store）上のプロジェクト共有ファイルを一覧・アップロード・閲覧・削除できる
 ポータルを提供する。
@@ -15,8 +15,9 @@ content snapshot として同梱している。汎用機能とPJ別インスタ�
 - 公開URL: `https://vsx.team-armada.jp`（Vercel alias設定済み）
 - Vercelプロジェクト: `vsx-agventure-lab`（`.vercel/project.json` はローカルのみ、gitに含めない）
 - Vercel Blob: 専用のprivate store `vsx-project-share`、保管先プレフィックスは `vsx/files/` 固定
-- PJ別の秘密値（`VSX_ACCESS_PASSWORD` / `VSX_AUTH_SECRET`）は、このリポジトリのどのファイルにも
-  書かず、Vercelの当該プロジェクトの Environment Variables にのみ設定する
+- PJ別の認証値（`VSX_ACCESS_PASSWORD` / `VSX_AUTH_SECRET` / `VSX_ALLOWED_EMAILS`）は、
+  このリポジトリ、HANDOFF、チャットへ書かず、Vercelの当該プロジェクトの Environment Variables
+  にのみ設定する
 
 ツールバーのリンク＋アイコンから、Google DriveやBoxなどの `http` / `https` URLをオンライン資料として追加できる。URLの中身はコピーせず、VSX専用private Blobの `vsx/links/` にURL・表示名・保存先フォルダだけを記録する。オンライン資料も検索・名前変更・削除・フォルダ移動に対応し、行のダブルクリックで新しいタブに開く。元サービス側の閲覧権限はそのまま適用される。
 
@@ -76,13 +77,20 @@ PSI Step 2共同レビュー資料は `https://vsx.team-armada.jp/psi-step2` で
 
 ## 認証方式
 
-- 環境変数 `VSX_ACCESS_PASSWORD`（閲覧パスワード）と `VSX_AUTH_SECRET`（HMAC署名鍵）を
-  Vercel の Environment Variables に設定する。値はこのリポジトリのどのファイルにも書かない。
-- 未認証の GET リクエストにはログイン画面のみを返す。
-- POST でパスワードを送信すると `timingSafeEqual` で照合し、成功時に 12 時間有効な
-  HMAC 署名付き Cookie（`HttpOnly; Secure; SameSite=Lax`）を発行してポータルを返す。
+- 環境変数 `VSX_ACCESS_PASSWORD`（閲覧パスワード）、`VSX_AUTH_SECRET`（HMAC署名鍵）、
+  `VSX_ALLOWED_EMAILS`（ログイン許可メールアドレス一覧、カンマ・セミコロン・改行・空白
+  区切りの完全一致）を Vercel の Environment Variables に設定する。値はこのリポジトリの
+  どのファイルにも書かない。
+- 未認証の GET リクエストにはログイン画面のみを返す。ログインフォームはメールアドレスと
+  パスワードの2フィールド。
+- POST でメールアドレスとパスワードを送信すると、許可リスト照合とパスワード照合
+  （`timingSafeEqual`）を両方評価してから可否を決める。失敗時はメールアドレスの存在有無を
+  漏らさない共通メッセージのみ返す。成功時は30日間有効なHMAC署名付きCookie
+  （`HttpOnly; Secure; SameSite=Lax`）を発行してポータルを返す。Cookieはログイン時の
+  メールアドレスとアクセスパスワードのダイジェストに結び付き、許可リストからの除外・
+  パスワード変更・署名鍵変更のいずれかで次回リクエストから自動的に無効化される。
 - 認証済みの `GET /` はポータル、`GET /documents/agventure-lab` は事業資料 HTML を返す。
-- 環境変数が未設定の場合は `503`。
+- 環境変数が未設定、許可メール一覧が空、または不正なメール値を含む場合は `503`。
 - `/api/*` の変更系エンドポイント（upload / access / files PATCH・DELETE / logout）は、
   認証済み Cookie に加えて同一オリジン（Origin もしくは Referer が Host と一致）を要求する。
   ログインPOST（`POST /`）のみ同一オリジン必須判定の対象外（通常ブラウザからのフォームPOSTで

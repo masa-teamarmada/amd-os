@@ -1,12 +1,15 @@
 # ZMP PROJECT SHARE
 
-ZMP関係者向けの、パスワード付きファイル共有ポータル。
+ZMP関係者向けの、許可メールアドレス＋パスワード付きファイル共有ポータル。
 
 - URL: `https://zmp.team-armada.jp`
 - Vercel project: `zmp-project-share`
 - Blob store: private `zmp-project-share`
 - 保存prefix: `zmp/files/`
-- 環境変数名: `ZMP_ACCESS_PASSWORD` / `ZMP_AUTH_SECRET`
+- 環境変数名: `ZMP_ACCESS_PASSWORD` / `ZMP_AUTH_SECRET` / `ZMP_ALLOWED_EMAILS`
+- ログインはメールアドレス許可リスト＋既存パスワード方式。`ZMP_ALLOWED_EMAILS` に登録した
+  メールアドレスのみログイン可能で、セッションCookieは30日間有効。詳細は
+  [`../SPEC.md`](../SPEC.md) の「認証モデル（恒久）」を見る。
 
 ログイン後はファイル一覧を検索でき、外部からファイルをドロップしてアップロードできる。フォルダはフォルダ＋アイコンで作成し、行のダブルクリックでフォルダへ移動またはファイルを閲覧する。ファイル行の名前部分をドラッグしてフォルダ行へドロップすると移動する。
 

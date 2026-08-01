@@ -6,24 +6,36 @@ import { makeReq, makeRes } from "./helpers/fakeHttp.mjs";
 
 const PASSWORD = "s3cret-password";
 const SECRET = "router-test-secret";
+const EMAIL = "user@example.com";
 
-function withEnv(fn) {
+function withEnv(fn, { allowedEmails = EMAIL } = {}) {
   return async () => {
     const prevPassword = process.env.SE_ACCESS_PASSWORD;
     const prevSecret = process.env.SE_AUTH_SECRET;
+    const prevAllowedEmails = process.env.SE_ALLOWED_EMAILS;
     process.env.SE_ACCESS_PASSWORD = PASSWORD;
     process.env.SE_AUTH_SECRET = SECRET;
+    if (allowedEmails === null) {
+      delete process.env.SE_ALLOWED_EMAILS;
+    } else {
+      process.env.SE_ALLOWED_EMAILS = allowedEmails;
+    }
     try {
       await fn();
     } finally {
       process.env.SE_ACCESS_PASSWORD = prevPassword;
       process.env.SE_AUTH_SECRET = prevSecret;
+      if (prevAllowedEmails === undefined) {
+        delete process.env.SE_ALLOWED_EMAILS;
+      } else {
+        process.env.SE_ALLOWED_EMAILS = prevAllowedEmails;
+      }
     }
   };
 }
 
-function authCookieHeader() {
-  return buildSessionCookie(SECRET).split(";")[0];
+function authCookieHeader(password = PASSWORD) {
+  return buildSessionCookie(SECRET, { email: EMAIL, password }).split(";")[0];
 }
 
 test(
@@ -31,11 +43,51 @@ test(
   async () => {
     delete process.env.SE_ACCESS_PASSWORD;
     delete process.env.SE_AUTH_SECRET;
+    delete process.env.SE_ALLOWED_EMAILS;
     const req = makeReq({ method: "GET", url: "/" });
     const res = makeRes();
     await handler(req, res);
     assert.equal(res.statusCode, 503);
   }
+);
+
+test(
+  "returns 503 when the allowed email list is unset",
+  withEnv(
+    async () => {
+      const req = makeReq({ method: "GET", url: "/" });
+      const res = makeRes();
+      await handler(req, res);
+      assert.equal(res.statusCode, 503);
+    },
+    { allowedEmails: null }
+  )
+);
+
+test(
+  "returns 503 when the allowed email list is empty",
+  withEnv(
+    async () => {
+      const req = makeReq({ method: "GET", url: "/" });
+      const res = makeRes();
+      await handler(req, res);
+      assert.equal(res.statusCode, 503);
+    },
+    { allowedEmails: "   " }
+  )
+);
+
+test(
+  "returns 503 when the allowed email list contains an invalid entry",
+  withEnv(
+    async () => {
+      const req = makeReq({ method: "GET", url: "/" });
+      const res = makeRes();
+      await handler(req, res);
+      assert.equal(res.statusCode, 503);
+    },
+    { allowedEmails: "user@example.com,not-an-email" }
+  )
 );
 
 test(
@@ -45,13 +97,15 @@ test(
     const res = makeRes();
     await handler(req, res);
     assert.equal(res.statusCode, 200);
+    assert.match(res.body, /type="email"/);
+    assert.match(res.body, /登録済みのメールアドレスとパスワード/);
     assert.match(res.body, /パスワード/);
     assert.doesNotMatch(res.body, /file-rows/);
   })
 );
 
 test(
-  "POST / with the wrong password returns 401 and no cookie",
+  "POST / with the wrong password returns 401 and no cookie, generic message",
   withEnv(async () => {
     const req = makeReq({
       method: "POST",
@@ -61,17 +115,18 @@ test(
         origin: "https://se.example.com",
         host: "se.example.com",
       },
-      body: "password=nope",
+      body: `email=${EMAIL}&password=nope`,
     });
     const res = makeRes();
     await handler(req, res);
     assert.equal(res.statusCode, 401);
     assert.equal(res.headers["Set-Cookie"], undefined);
+    assert.match(res.body, /メールアドレスまたはパスワードが違います。/);
   })
 );
 
 test(
-  "POST / with the correct password sets a session cookie and redirects to the portal",
+  "POST / with a disallowed email returns 401 and no cookie, generic message",
   withEnv(async () => {
     const req = makeReq({
       method: "POST",
@@ -81,18 +136,40 @@ test(
         origin: "https://se.example.com",
         host: "se.example.com",
       },
-      body: `password=${PASSWORD}`,
+      body: `email=other@example.com&password=${PASSWORD}`,
+    });
+    const res = makeRes();
+    await handler(req, res);
+    assert.equal(res.statusCode, 401);
+    assert.equal(res.headers["Set-Cookie"], undefined);
+    assert.match(res.body, /メールアドレスまたはパスワードが違います。/);
+  })
+);
+
+test(
+  "POST / with the correct email (different case) and password sets a 30-day session cookie and redirects",
+  withEnv(async () => {
+    const req = makeReq({
+      method: "POST",
+      url: "/",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        origin: "https://se.example.com",
+        host: "se.example.com",
+      },
+      body: `email=${encodeURIComponent("  USER@Example.com ")}&password=${PASSWORD}`,
     });
     const res = makeRes();
     await handler(req, res);
     assert.equal(res.statusCode, 303);
     assert.equal(res.headers.Location, "/");
     assert.match(res.headers["Set-Cookie"], /se_auth=/);
+    assert.match(res.headers["Set-Cookie"], /Max-Age=2592000/);
   })
 );
 
 test(
-  "POST / from a cross-origin request with the correct password sets a session cookie and redirects",
+  "POST / from a cross-origin request with the correct credentials sets a session cookie and redirects",
   withEnv(async () => {
     const req = makeReq({
       method: "POST",
@@ -101,7 +178,7 @@ test(
         "content-type": "application/x-www-form-urlencoded",
         origin: "https://evil.example.com",
       },
-      body: `password=${PASSWORD}`,
+      body: `email=${EMAIL}&password=${PASSWORD}`,
     });
     const res = makeRes();
     await handler(req, res);
@@ -121,7 +198,7 @@ test(
         "content-type": "application/x-www-form-urlencoded",
         origin: "https://evil.example.com",
       },
-      body: "password=nope",
+      body: `email=${EMAIL}&password=nope`,
     });
     const res = makeRes();
     await handler(req, res);
@@ -138,6 +215,50 @@ test(
     await handler(req, res);
     assert.equal(res.statusCode, 200);
     assert.match(res.body, /file-rows/);
+  })
+);
+
+test(
+  "GET / with a session cookie whose email was removed from the allow list returns the login page",
+  withEnv(
+    async () => {
+      const cookie = authCookieHeader();
+      process.env.SE_ALLOWED_EMAILS = "someone-else@example.com";
+      const req = makeReq({ method: "GET", url: "/", headers: { cookie } });
+      const res = makeRes();
+      await handler(req, res);
+      assert.equal(res.statusCode, 200);
+      assert.doesNotMatch(res.body, /file-rows/);
+    },
+    { allowedEmails: EMAIL }
+  )
+);
+
+test(
+  "GET / with a session cookie minted under an old password returns the login page after the password changes",
+  withEnv(async () => {
+    const cookie = authCookieHeader();
+    process.env.SE_ACCESS_PASSWORD = "a brand new password";
+    const req = makeReq({ method: "GET", url: "/", headers: { cookie } });
+    const res = makeRes();
+    await handler(req, res);
+    assert.equal(res.statusCode, 200);
+    assert.doesNotMatch(res.body, /file-rows/);
+  })
+);
+
+test(
+  "GET / with a tampered session cookie returns the login page",
+  withEnv(async () => {
+    const req = makeReq({
+      method: "GET",
+      url: "/",
+      headers: { cookie: "se_auth=not-a-valid-token" },
+    });
+    const res = makeRes();
+    await handler(req, res);
+    assert.equal(res.statusCode, 200);
+    assert.doesNotMatch(res.body, /file-rows/);
   })
 );
 

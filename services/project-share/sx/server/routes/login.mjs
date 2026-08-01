@@ -1,12 +1,12 @@
 import { LOGO_SYMBOL_DATA_URL, LOGO_TYPE_DATA_URL } from "../brand-data.mjs";
-import { readFormPassword } from "../lib/body.mjs";
-import { passwordsMatch, buildSessionCookie } from "../lib/auth.mjs";
+import { readFormCredentials } from "../lib/body.mjs";
+import { passwordsMatch, buildSessionCookie, isEmailAllowed } from "../lib/auth.mjs";
 import { sendHtml, sendText } from "../lib/respond.mjs";
 import { renderPortalHtml } from "./portal.mjs";
 
 export function loginPageHtml(errored) {
   const errorBlock = errored
-    ? '<p class="error" role="alert">パスワードが違います。もう一度お試しください。</p>'
+    ? '<p class="error" role="alert">メールアドレスまたはパスワードが違います。</p>'
     : "";
   return `<!doctype html>
 <html lang="ja">
@@ -65,6 +65,8 @@ export function loginPageHtml(errored) {
     color: var(--text);
     margin-bottom: 7px;
   }
+  input + label { margin-top: 16px; }
+  input[type="email"],
   input[type="password"] {
     width: 100%;
     padding: 11px 12px;
@@ -74,6 +76,7 @@ export function loginPageHtml(errored) {
     color: var(--text);
     background: var(--white);
   }
+  input[type="email"]:focus,
   input[type="password"]:focus {
     outline: 2px solid var(--amd-blue);
     outline-offset: 1px;
@@ -113,11 +116,13 @@ export function loginPageHtml(errored) {
       <img src="${LOGO_TYPE_DATA_URL}" alt="team ARMADA" />
     </div>
     <h1>SX PROJECT SHARE</h1>
-    <p class="lead">閲覧にはパスワードが必要です。</p>
+    <p class="lead">閲覧には登録済みのメールアドレスとパスワードが必要です。</p>
     ${errorBlock}
     <form method="post" action="/">
+      <label for="email">メールアドレス</label>
+      <input type="email" id="email" name="email" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="254" autofocus required />
       <label for="password">パスワード</label>
-      <input type="password" id="password" name="password" autocomplete="current-password" autofocus required />
+      <input type="password" id="password" name="password" autocomplete="current-password" required />
       <button type="submit">閲覧する</button>
     </form>
   </main>
@@ -125,25 +130,27 @@ export function loginPageHtml(errored) {
 </html>`;
 }
 
-export async function handleLoginRoute(req, res, { password, secret, isAuthed }) {
+export async function handleLoginRoute(req, res, { password, secret, allowedEmails, isAuthed }) {
   if (req.method === "GET") {
     sendHtml(res, 200, isAuthed ? renderPortalHtml() : loginPageHtml(false));
     return;
   }
 
   if (req.method === "POST") {
-    let submitted;
+    let email, submittedPassword;
     try {
-      submitted = await readFormPassword(req);
+      ({ email, password: submittedPassword } = await readFormCredentials(req));
     } catch {
       sendText(res, 400, "Bad Request");
       return;
     }
-    if (!passwordsMatch(secret, submitted, password)) {
+    const emailOk = isEmailAllowed(allowedEmails, email);
+    const passwordOk = passwordsMatch(secret, submittedPassword, password);
+    if (!emailOk || !passwordOk) {
       sendHtml(res, 401, loginPageHtml(true));
       return;
     }
-    res.setHeader("Set-Cookie", buildSessionCookie(secret));
+    res.setHeader("Set-Cookie", buildSessionCookie(secret, { email, password }));
     res.setHeader("Location", "/");
     res.status(303).send("");
     return;

@@ -1,12 +1,15 @@
 # CX PROJECT SHARE
 
-CX関係者向けの、パスワード付きファイル共有ポータル。
+CX関係者向けの、許可メールアドレス＋パスワード付きファイル共有ポータル。
 
 - URL: `https://cx.team-armada.jp`
 - Vercel project: `cx-project-share`
 - Blob store: private `cx-project-share`
 - 保存prefix: `cx/files/`
-- 環境変数名: `CX_ACCESS_PASSWORD` / `CX_AUTH_SECRET`
+- 環境変数名: `CX_ACCESS_PASSWORD` / `CX_AUTH_SECRET` / `CX_ALLOWED_EMAILS`
+- ログインはメールアドレス許可リスト＋既存パスワード方式。`CX_ALLOWED_EMAILS` に登録した
+  メールアドレスのみログイン可能で、セッションCookieは30日間有効。詳細は
+  [`../SPEC.md`](../SPEC.md) の「認証モデル（恒久）」を見る。
 
 ログイン後はファイル一覧を検索でき、外部からファイルをドロップしてアップロードできる。フォルダはフォルダ＋アイコンで作成し、行のダブルクリックでフォルダへ移動またはファイルを閲覧する。ファイル行の名前部分をドラッグしてフォルダ行へドロップすると移動する。
 

@@ -1,5 +1,5 @@
 import { applySecurityHeaders } from "../server/lib/security.mjs";
-import { isAuthenticated } from "../server/lib/auth.mjs";
+import { isAuthenticated, parseAllowedEmails } from "../server/lib/auth.mjs";
 import { sendText } from "../server/lib/respond.mjs";
 import { handleLoginRoute } from "../server/routes/login.mjs";
 import { handleDeckDocumentRoute } from "../server/routes/deckDocument.mjs";
@@ -15,10 +15,11 @@ import { handleLogoutRoute } from "../server/routes/logout.mjs";
 export default async function handler(req, res) {
   const password = process.env.VSX_ACCESS_PASSWORD;
   const secret = process.env.VSX_AUTH_SECRET;
+  const allowedEmails = parseAllowedEmails(process.env.VSX_ALLOWED_EMAILS);
 
   applySecurityHeaders(res);
 
-  if (!password || !secret) {
+  if (!password || !secret || allowedEmails.length === 0) {
     sendText(res, 503, "Service unavailable: authentication is not configured.");
     return;
   }
@@ -31,10 +32,10 @@ export default async function handler(req, res) {
     }
   })();
 
-  const isAuthed = isAuthenticated(req, secret);
+  const isAuthed = isAuthenticated(req, secret, { password, allowedEmails });
 
   if (pathname === "/") {
-    await handleLoginRoute(req, res, { password, secret, isAuthed });
+    await handleLoginRoute(req, res, { password, secret, allowedEmails, isAuthed });
     return;
   }
 

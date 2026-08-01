@@ -6,24 +6,32 @@ import { makeReq, makeRes } from "./helpers/fakeHttp.mjs";
 
 const PASSWORD = "s3cret-password";
 const SECRET = "folders-test-secret";
+const EMAIL = "user@example.com";
 
 function withEnv(fn) {
   return async () => {
     const prevPassword = process.env.KUTE_ACCESS_PASSWORD;
     const prevSecret = process.env.KUTE_AUTH_SECRET;
+    const prevAllowedEmails = process.env.KUTE_ALLOWED_EMAILS;
     process.env.KUTE_ACCESS_PASSWORD = PASSWORD;
     process.env.KUTE_AUTH_SECRET = SECRET;
+    process.env.KUTE_ALLOWED_EMAILS = EMAIL;
     try {
       await fn();
     } finally {
       process.env.KUTE_ACCESS_PASSWORD = prevPassword;
       process.env.KUTE_AUTH_SECRET = prevSecret;
+      if (prevAllowedEmails === undefined) {
+        delete process.env.KUTE_ALLOWED_EMAILS;
+      } else {
+        process.env.KUTE_ALLOWED_EMAILS = prevAllowedEmails;
+      }
     }
   };
 }
 
 function authCookieHeader() {
-  return buildSessionCookie(SECRET).split(";")[0];
+  return buildSessionCookie(SECRET, { email: EMAIL, password: PASSWORD }).split(";")[0];
 }
 
 test(

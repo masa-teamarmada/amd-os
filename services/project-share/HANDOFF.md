@@ -1,31 +1,59 @@
 # Project Share Handoff
 
-Last updated: 2026-07-31 JST
+Last updated: 2026-08-01 JST
 
-Topic: 全PJ BOXのHTMLファイルを、安全に日本語対応PDFとしてダウンロード
+Topic: 全PJ BOXのログインを、メールアドレス許可リスト＋既存パスワード方式へ変更
 
 ## Latest Session Summary
 
-- VSX / CX / SE / SX / ZMP / KUTEのHTMLファイルは、通常のダウンロードではなく「PDF化ダウンロード」を表示する。
-- 認証済みのprivate Blobだけをサーバー側でA4 PDFへ変換する。HTML内のJavaScriptと外部通信は実行しない。日本語フォントをページへ埋め込み、入力HTMLは8MB、返却PDFは4MBまでに制限する。恒久仕様は[`SPEC.md`](SPEC.md)。
-- 全6インスタンスでビルド・構文確認・テストが成功した。KUTE本番で日本語HTMLのアップロード、PDF化、A4 1ページの日本語描画を確認し、検証用Blobは削除済み。
-- Vercel Functionの日本語フォント同梱で起きた失敗と再発防止は[`DEBUG.md`](DEBUG.md)に記録した。Project Shareには既存の`design_log/`がないため、新設していない。
+- VSX / CX / SE / SX / ZMP / KUTEの全6インスタンスで、ログインをパスワード単独方式から
+  「メールアドレス許可リスト＋既存の共有パスワード」方式へ変更した。メール受信・所有確認を
+  行う多要素認証ではない。
+- 各PJに `<PJ>_ALLOWED_EMAILS` 環境変数を追加。カンマ・セミコロン・改行・空白区切りの
+  完全一致メール一覧として解析し、trim+小文字化・重複除去・簡易妥当性検証を行う。
+  未設定・空・不正値を1件でも含む場合は`503`（fail closed、既存の
+  `ACCESS_PASSWORD`/`AUTH_SECRET`未設定時と同じ扱い）。
+- セッションCookieの有効期限を12時間から30日へ延長し、署名対象にログイン時のメールアドレスと
+  アクセスパスワードのダイジェスト（パスワード本体は含まない）を含めた。これにより、
+  許可リストからの除外・パスワード変更・署名鍵変更のいずれかで既存セッションが次回
+  リクエストから自動的に無効化される。
+- ログイン失敗時のメッセージは「メールアドレスまたはパスワードが違います。」の共通表示に統一し、
+  メールアドレスの許可可否とパスワード可否を両方評価してから判定する（メール存在有無を漏らさない）。
+- 恒久仕様は[`SPEC.md`](SPEC.md)の「認証モデル（恒久）」に反映済み。各インスタンスの
+  `README.md`と、ルート`README.md`の汎用機能説明も更新した。
+- 全6インスタンスで`npm run build` / `npm run check` / `npm test`が成功（VSX 222件、他5インスタンス
+  各216件、fail 0）。ルートで`git diff --check`も確認済み。
 
 ## Repo / Production State
 
-- Project Shareの受入済み実装は`2ac93290`までmainにある。主要な実装commitは`35014681`（PDF化）、`8049bbeb` / `db5383a5` / `681992b3`（日本語フォントのVercel同梱・埋め込み修正）。
-- 公開URLは `https://vsx.team-armada.jp`、`https://cx.team-armada.jp`、`https://se.team-armada.jp`、`https://sx.team-armada.jp`、`https://zmp.team-armada.jp`、`https://kute.team-armada.jp`。このセッションで各URLのHTTP 200を確認した。
-- PDF化を反映したVercelデプロイは、VSX `dpl_55wXoE5ENNYTiQRYRKNHYL88kmoU`、CX `dpl_DexYZhmHbQ3BYjw3e7nffcHHiLTA`、SE `dpl_7DxsfY44WzUYZdfRCvX92ZJKpc49`、SX `dpl_6SCER4MGYUnZsc7dWVUyGY9tgqas`、ZMP `dpl_4MoMDFoy3HFArrGfcsEeHEcEGD9h`、KUTE `dpl_CCqsnomttDBcGyJzSFHsjFBeHqpx`。
-- closeout時点でルートの作業ツリーはクリーン。次のセッションでも最初に状態を確認し、Project Share以外の差分があれば所有者を確認するまでstage・revert・整形しない。
+- このセッションの変更はまだVercel本番へデプロイしていない。理由: `<PJ>_ALLOWED_EMAILS`に
+  設定する実際の許可メールアドレス値がまだ提供されていない。実値が揃うまで、6インスタンスの
+  いずれのVercelプロジェクトにも`<PJ>_ALLOWED_EMAILS`環境変数を追加しないこと（追加しない限り、
+  新しいコードをデプロイしても`503`でBOX全体がログイン不能になる）。
+- mainへのpushは完了。commit SHAとpush結果はセッション終了時の報告を参照（このファイルの
+  更新と同じcommitに含む）。
+- 公開URLは変更なし: `https://vsx.team-armada.jp`、`https://cx.team-armada.jp`、
+  `https://se.team-armada.jp`、`https://sx.team-armada.jp`、`https://zmp.team-armada.jp`、
+  `https://kute.team-armada.jp`。本番はまだ旧パスワード単独方式のまま稼働中。
 
 ## Unresolved Tasks
 
-- Project ShareのPDF化に未解決の実装はない。
-- 次の利用者フィードバックでは、対象BOXでHTMLをPDF化して文字・レイアウト・ダウンロード名を確認する。フォントやChromium依存を変える場合は[`DEBUG.md`](DEBUG.md)の本番確認手順を守る。
+- **本番反映待ち**: 6インスタンスそれぞれについて、Vercelダッシュボードで
+  `<PJ>_ALLOWED_EMAILS`環境変数（実際の許可メールアドレス一覧）を設定し、そのあと
+  このセッションのcommitをデプロイする。環境変数設定とデプロイの順序を守らないと、
+  設定漏れのまま新コードがデプロイされ`503`で全利用者がログインできなくなる。
+- 許可メールアドレスの実値一覧は、各PJの現行共有パスワード利用者から個別に確認が必要
+  （まさに確認）。確認済みメールアドレスをVercel環境変数へ設定する作業はえいみが実行できる。
+- デプロイ後は、各BOXで新しいログインフォーム（メール＋パスワード）から実際にログインできること、
+  30日Cookieが発行されること、既存の旧12時間Cookieを持つブラウザが再ログインを要求されることを
+  本番で確認する。
 
 ## First Next Action
 
-新しいBOX機能またはPDF化へのフィードバックが来たら、まず[`SPEC.md`](SPEC.md)と対象インスタンスの`README.md`を読み、6インスタンス共通仕様かPJ固有仕様かを分ける。共通変更なら全6インスタンスで`npm run build`、`npm run check`、`npm test`を通し、対象Vercelプロジェクトへ個別に反映して本番URLで確認する。
+まさから許可メールアドレスの実値一覧を確認したら、各PJのVercelプロジェクトへ
+`<PJ>_ALLOWED_EMAILS`環境変数を設定し、このセッションのcommitを対象Vercelプロジェクトへ
+デプロイして、本番のログインフォームで許可済みメールアドレス＋パスワードでのログイン成功を
+確認する。
 
 ## Pointers
 

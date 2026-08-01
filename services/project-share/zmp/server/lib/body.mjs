@@ -29,21 +29,30 @@ async function readRawBody(req, maxBytes) {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-export async function readFormPassword(req) {
+function credentialsFromParams(params) {
+  return {
+    email: params.get("email") ?? "",
+    password: params.get("password") ?? "",
+  };
+}
+
+export async function readFormCredentials(req) {
   const body = req.body;
 
   if (body instanceof URLSearchParams) {
     assertObjectBodyWithinLimit(Object.fromEntries(body), MAX_FORM_BODY_BYTES);
-    return body.get("password") ?? "";
+    return credentialsFromParams(body);
   }
   if (body && typeof body === "object" && !Buffer.isBuffer(body)) {
     assertObjectBodyWithinLimit(body, MAX_FORM_BODY_BYTES);
-    const value = body.password;
-    return typeof value === "string" ? value : "";
+    return {
+      email: typeof body.email === "string" ? body.email : "",
+      password: typeof body.password === "string" ? body.password : "",
+    };
   }
 
   const raw = await readRawBody(req, MAX_FORM_BODY_BYTES);
-  return new URLSearchParams(raw).get("password") ?? "";
+  return credentialsFromParams(new URLSearchParams(raw));
 }
 
 export async function readJsonBody(req) {
