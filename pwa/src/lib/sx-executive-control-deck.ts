@@ -6,7 +6,10 @@
  * that the source data doesn't have. Never displays "unassessed"/"unknown" as if it were "on
  * schedule" — those states always render as an explicit gray/amber/red state, never green.
  */
-import { nominalizeSxActionLabel, nominalizeSxNextActionLabel } from "./sx-action-label.ts";
+import {
+  nominalizeSxActionLabel,
+  nominalizeSxNextActionLabel,
+} from "./sx-action-label.ts";
 import { sxNormalizePublicName } from "./sx-name-normalize.ts";
 
 export type SxEcdDatePrecision = "day" | "month" | "unknown";
@@ -29,7 +32,11 @@ function displayNextAction(value: string): string {
  * overdue only once the calendar month has fully passed — a day-1 placeholder within the current
  * month is NOT overdue, since the actual commitment could land any day that month. Unknown
  * precision and null dates are never overdue (nothing to be late against). */
-export function sxEcdIsDueDateOverdue(dueDate: string | null, precision: SxEcdDatePrecision | undefined, today: string): boolean {
+export function sxEcdIsDueDateOverdue(
+  dueDate: string | null,
+  precision: SxEcdDatePrecision | undefined,
+  today: string,
+): boolean {
   if (!dueDate) return false;
   if (precision === "unknown") return false;
   if (precision === "month") {
@@ -72,7 +79,8 @@ export interface SxEcdTechnicalTest {
   id: string;
   milestoneId: string | null;
   testName: string;
-  status: "unassessed" | "planned" | "running" | "passed" | "failed" | "blocked";
+  status:
+    "unassessed" | "planned" | "running" | "passed" | "failed" | "blocked";
   ownerLabel: string;
 }
 
@@ -136,11 +144,18 @@ export interface SxEcdPartner {
 
 function isMissingOwnerText(value: string | null | undefined): boolean {
   const v = value ?? "";
-  return !v.trim() || v.includes("未確認") || v.includes("未設定") || v.includes("未登録");
+  return (
+    !v.trim() ||
+    v.includes("未確認") ||
+    v.includes("未設定") ||
+    v.includes("未登録")
+  );
 }
 
 function ownerOrUnconfirmed(value: string | null | undefined): string {
-  return isMissingOwnerText(value) ? "未確認" : sxNormalizePublicName((value ?? "").trim());
+  return isMissingOwnerText(value)
+    ? "未確認"
+    : sxNormalizePublicName((value ?? "").trim());
 }
 
 // --- Critical path rail -----------------------------------------------------
@@ -151,7 +166,14 @@ function ownerOrUnconfirmed(value: string | null | undefined): string {
  * = amber "要注意". overdue = red/amber "期限超過". blocked = red "停止". Precedence (highest wins):
  * blocked > overdue > unassessed > attention > complete > current/future.
  */
-export type SxEcdPathNodeState = "complete" | "current" | "future" | "blocked" | "overdue" | "unassessed" | "attention";
+export type SxEcdPathNodeState =
+  | "complete"
+  | "current"
+  | "future"
+  | "blocked"
+  | "overdue"
+  | "unassessed"
+  | "attention";
 
 export interface SxEcdPathNode {
   slug: string;
@@ -185,13 +207,23 @@ export interface SxEcdCriticalPathRail {
   currentIndex: number;
 }
 
-function resolveNodeState(milestone: SxEcdMilestone, isCurrent: boolean): SxEcdPathNodeState {
+function resolveNodeState(
+  milestone: SxEcdMilestone,
+  isCurrent: boolean,
+): SxEcdPathNodeState {
   if (milestone.status === "completed") return "complete";
   if (milestone.isBlocked || milestone.status === "blocked") return "blocked";
   if (milestone.isOverdue) return "overdue";
-  const unknownConfidence = milestone.confidence === "unknown" || !milestone.confidence;
-  if (milestone.status === "unassessed" || unknownConfidence || milestone.isStale) return "unassessed";
-  if (milestone.status === "attention" || milestone.status === "at_risk") return "attention";
+  const unknownConfidence =
+    milestone.confidence === "unknown" || !milestone.confidence;
+  if (
+    milestone.status === "unassessed" ||
+    unknownConfidence ||
+    milestone.isStale
+  )
+    return "unassessed";
+  if (milestone.status === "attention" || milestone.status === "at_risk")
+    return "attention";
   // Never let a non-completed node with no known planned/forecast date render as if it were on
   // schedule (green current/future) — that would be a false claim of a confirmed timeline.
   if (!milestone.plannedEnd && !milestone.forecastEnd) return "unassessed";
@@ -206,13 +238,33 @@ export function deriveSxCriticalPathRail(
   milestones: SxEcdMilestone[],
 ): SxEcdCriticalPathRail {
   if (!judgment.dagValid) {
-    return { valid: false, reason: "依存関係不正", nodes: [], visibleNodes: [], leadingMarker: null, trailingMarker: null, hiddenCount: 0, currentIndex: -1 };
+    return {
+      valid: false,
+      reason: "依存関係不正",
+      nodes: [],
+      visibleNodes: [],
+      leadingMarker: null,
+      trailingMarker: null,
+      hiddenCount: 0,
+      currentIndex: -1,
+    };
   }
   if (judgment.criticalPathSlugs.length === 0) {
-    return { valid: false, reason: "重要経路未登録", nodes: [], visibleNodes: [], leadingMarker: null, trailingMarker: null, hiddenCount: 0, currentIndex: -1 };
+    return {
+      valid: false,
+      reason: "重要経路未登録",
+      nodes: [],
+      visibleNodes: [],
+      leadingMarker: null,
+      trailingMarker: null,
+      hiddenCount: 0,
+      currentIndex: -1,
+    };
   }
 
-  const bySlug = new Map(milestones.map((milestone) => [milestone.slug, milestone]));
+  const bySlug = new Map(
+    milestones.map((milestone) => [milestone.slug, milestone]),
+  );
   const slugs = judgment.criticalPathSlugs;
 
   let currentIndex = slugs.findIndex((slug) => {
@@ -250,7 +302,9 @@ export function deriveSxCriticalPathRail(
       forecastEnd: milestone.forecastEnd,
       deltaDays: milestone.deltaDays,
       dateCertainty: milestone.dateCertainty,
-      ownerLabel: isMissingOwnerText(milestone.ownerLabel) ? "担当未確認" : sxNormalizePublicName(milestone.ownerLabel),
+      ownerLabel: isMissingOwnerText(milestone.ownerLabel)
+        ? "担当未確認"
+        : sxNormalizePublicName(milestone.ownerLabel),
       milestoneId: milestone.id,
       track: milestone.track ?? null,
     };
@@ -270,13 +324,21 @@ export function deriveSxCriticalPathRail(
 
   const leadingHiddenCount = windowStart; // all nodes before the window are completed (by construction)
   const finalIncluded = finalIndex >= windowStart && finalIndex < windowEnd;
-  const trailingHiddenCount = finalIncluded ? 0 : Math.max(0, finalIndex - windowEnd);
+  const trailingHiddenCount = finalIncluded
+    ? 0
+    : Math.max(0, finalIndex - windowEnd);
 
   const visibleNodes = nodes.slice(windowStart, windowEnd);
   if (!finalIncluded && finalIndex >= 0) visibleNodes.push(nodes[finalIndex]);
 
-  const leadingMarker = leadingHiddenCount > 0 ? { label: `+${leadingHiddenCount}完了`, count: leadingHiddenCount } : null;
-  const trailingMarker = trailingHiddenCount > 0 ? { label: `…${trailingHiddenCount}`, count: trailingHiddenCount } : null;
+  const leadingMarker =
+    leadingHiddenCount > 0
+      ? { label: `+${leadingHiddenCount}完了`, count: leadingHiddenCount }
+      : null;
+  const trailingMarker =
+    trailingHiddenCount > 0
+      ? { label: `…${trailingHiddenCount}`, count: trailingHiddenCount }
+      : null;
 
   return {
     valid: true,
@@ -344,7 +406,12 @@ const ACTIVE_VALIDATION_STATUSES = new Set(["planned", "running"]);
 // completed/cancelled rows never surface here just because dueDate happens to be in the past —
 // on_hold is deliberately excluded (no explicit spec/data justification found for treating a held
 // item as a current intervention).
-const ACTIVE_PARTNER_WORK_STATUSES = new Set(["open", "in_progress", "waiting", "blocked"]);
+const ACTIVE_PARTNER_WORK_STATUSES = new Set([
+  "open",
+  "in_progress",
+  "waiting",
+  "blocked",
+]);
 
 export function deriveSxInterventionQueue(params: {
   today: string;
@@ -357,19 +424,44 @@ export function deriveSxInterventionQueue(params: {
   /** 重要経路外の柱の現在ゲート。停止・期限超過・担当未確認・鮮度切れ・評価未完だけを、柱名を
    * 付けた介入候補として同じキューへ足す（最大遅延の柱がキューから消えないようにするため）。
    * 行の発明はしない — 該当条件が無い柱からは1行も出ない。 */
-  pillarGates?: Array<{ trackKey: string; trackLabel: string; milestoneId: string | null }>;
+  pillarGates?: Array<{
+    trackKey: string;
+    trackLabel: string;
+    milestoneId: string | null;
+  }>;
   maxRows?: number;
 }): { rows: SxEcdInterventionRow[]; totalCount: number; hiddenCount: number } {
-  const { today, criticalPathSlugs, milestones, technicalTests = [], partnerWorkItems, partners, issues, pillarGates = [], maxRows = 4 } = params;
+  const {
+    today,
+    criticalPathSlugs,
+    milestones,
+    technicalTests = [],
+    partnerWorkItems,
+    partners,
+    issues,
+    pillarGates = [],
+    maxRows = 4,
+  } = params;
   const criticalSlugSet = new Set(criticalPathSlugs);
-  const criticalMilestones = milestones.filter((milestone) => criticalSlugSet.has(milestone.slug));
-  const criticalMilestoneIds = new Set(criticalMilestones.map((milestone) => milestone.id));
-  const milestoneById = new Map(milestones.map((milestone) => [milestone.id, milestone]));
+  const criticalMilestones = milestones.filter((milestone) =>
+    criticalSlugSet.has(milestone.slug),
+  );
+  const criticalMilestoneIds = new Set(
+    criticalMilestones.map((milestone) => milestone.id),
+  );
+  const milestoneById = new Map(
+    milestones.map((milestone) => [milestone.id, milestone]),
+  );
   const included = new Set<string>();
   const rows: SxEcdInterventionRow[] = [];
 
   const gateDueContext = (milestone: SxEcdMilestone | undefined) =>
-    milestone ? { due: milestone.forecastEnd || milestone.plannedEnd, gate: milestone.gate } : { due: null, gate: "" };
+    milestone
+      ? {
+          due: milestone.forecastEnd || milestone.plannedEnd,
+          gate: milestone.gate,
+        }
+      : { due: null, gate: "" };
 
   // 1) Critical milestones directly blocked. dueDate = forecastEnd || plannedEnd (best-known date),
   //    with an explicit "予測期限" context label when the forecast is what's actually being shown,
@@ -426,7 +518,8 @@ export function deriveSxInterventionQueue(params: {
   //    unassessed/unknown lower priority ("評価不能"). Tests have no own due date, so the row
   //    carries the parent gate's forecast/planned date with a visible "親ゲート期限" context label.
   for (const test of technicalTests) {
-    if (!test.milestoneId || !criticalMilestoneIds.has(test.milestoneId)) continue;
+    if (!test.milestoneId || !criticalMilestoneIds.has(test.milestoneId))
+      continue;
     const milestone = milestoneById.get(test.milestoneId);
     const { due, gate } = gateDueContext(milestone);
     if (test.status === "blocked" || test.status === "failed") {
@@ -468,9 +561,14 @@ export function deriveSxInterventionQueue(params: {
 
   // 4) Validation runs + 5) action items derived individually from critical-linked issues.
   for (const issue of issues) {
-    if (!issue.relatedMilestoneSlugs.some((slug) => criticalSlugSet.has(slug))) continue;
-    const relatedSlug = issue.relatedMilestoneSlugs.find((slug) => criticalSlugSet.has(slug)) ?? null;
-    const relatedMilestone = relatedSlug ? milestones.find((entry) => entry.slug === relatedSlug) : undefined;
+    if (!issue.relatedMilestoneSlugs.some((slug) => criticalSlugSet.has(slug)))
+      continue;
+    const relatedSlug =
+      issue.relatedMilestoneSlugs.find((slug) => criticalSlugSet.has(slug)) ??
+      null;
+    const relatedMilestone = relatedSlug
+      ? milestones.find((entry) => entry.slug === relatedSlug)
+      : undefined;
 
     for (const run of issue.validationRuns) {
       const isOverdue = Boolean(run.dueDate && run.dueDate < today);
@@ -524,16 +622,30 @@ export function deriveSxInterventionQueue(params: {
   const partnerById = new Map(partners.map((partner) => [partner.id, partner]));
   const isQualifyingActiveWorkItem = (item: SxEcdPartnerWorkItem): boolean => {
     if (!ACTIVE_PARTNER_WORK_STATUSES.has(item.status)) return false;
-    const isBlockedOrWaiting = item.status === "blocked" || item.status === "waiting";
-    const isOverdue = sxEcdIsDueDateOverdue(item.dueDate, item.dueDatePrecision, today);
+    const isBlockedOrWaiting =
+      item.status === "blocked" || item.status === "waiting";
+    const isOverdue = sxEcdIsDueDateOverdue(
+      item.dueDate,
+      item.dueDatePrecision,
+      today,
+    );
     return isBlockedOrWaiting || isOverdue;
   };
   for (const item of partnerWorkItems) {
-    if (!item.relatedMilestoneId || !criticalMilestoneIds.has(item.relatedMilestoneId)) continue;
+    if (
+      !item.relatedMilestoneId ||
+      !criticalMilestoneIds.has(item.relatedMilestoneId)
+    )
+      continue;
     if (!isQualifyingActiveWorkItem(item)) continue;
     const partner = partnerById.get(item.partnerId);
     const milestone = milestoneById.get(item.relatedMilestoneId);
-    const sideLabel: Record<SxEcdActorSide, string> = { sx: "SX側", partner: "相手側", shared: "双方", unknown: "未確認" };
+    const sideLabel: Record<SxEcdActorSide, string> = {
+      sx: "SX側",
+      partner: "相手側",
+      shared: "双方",
+      unknown: "未確認",
+    };
     rows.push({
       key: `work-item-${item.id}`,
       priority: 3,
@@ -560,21 +672,38 @@ export function deriveSxInterventionQueue(params: {
   //     never suppress this fallback — only an active, currently-qualifying one may.
   const directlyLinkedPartnerIds = new Set(
     partnerWorkItems
-      .filter((item) => item.relatedMilestoneId && criticalMilestoneIds.has(item.relatedMilestoneId))
+      .filter(
+        (item) =>
+          item.relatedMilestoneId &&
+          criticalMilestoneIds.has(item.relatedMilestoneId),
+      )
       .filter((item) => isQualifyingActiveWorkItem(item))
       .map((item) => item.partnerId),
   );
   for (const partner of partners) {
     if (directlyLinkedPartnerIds.has(partner.id)) continue;
-    if (!partner.relatedMilestoneSlugs.some((slug) => criticalSlugSet.has(slug))) continue;
+    if (
+      !partner.relatedMilestoneSlugs.some((slug) => criticalSlugSet.has(slug))
+    )
+      continue;
     if (partner.currentBallSide === "none") continue;
     const hasActiveDue = Boolean(partner.dueDate);
-    const hasCommitment = Boolean(partner.nextCommitment && partner.nextCommitment.trim());
+    const hasCommitment = Boolean(
+      partner.nextCommitment && partner.nextCommitment.trim(),
+    );
     if (!hasActiveDue && !hasCommitment) continue;
-    const isOverdue = sxEcdIsDueDateOverdue(partner.dueDate, partner.dueDatePrecision, today);
+    const isOverdue = sxEcdIsDueDateOverdue(
+      partner.dueDate,
+      partner.dueDatePrecision,
+      today,
+    );
     if (!isOverdue && !hasCommitment) continue;
-    const relatedSlug = partner.relatedMilestoneSlugs.find((slug) => criticalSlugSet.has(slug));
-    const relatedMilestone = relatedSlug ? milestones.find((entry) => entry.slug === relatedSlug) : undefined;
+    const relatedSlug = partner.relatedMilestoneSlugs.find((slug) =>
+      criticalSlugSet.has(slug),
+    );
+    const relatedMilestone = relatedSlug
+      ? milestones.find((entry) => entry.slug === relatedSlug)
+      : undefined;
     rows.push({
       key: `partner-fallback-${partner.id}`,
       priority: 4,
@@ -595,13 +724,25 @@ export function deriveSxInterventionQueue(params: {
 
   // 7) Issue-level stall fallback (issue overdue without an individually-derivable validation/action).
   for (const issue of issues) {
-    if (!issue.relatedMilestoneSlugs.some((slug) => criticalSlugSet.has(slug))) continue;
-    const alreadyCovered = rows.some((row) => row.entityType === "issue" && row.entityId === issue.id);
+    if (!issue.relatedMilestoneSlugs.some((slug) => criticalSlugSet.has(slug)))
+      continue;
+    const alreadyCovered = rows.some(
+      (row) => row.entityType === "issue" && row.entityId === issue.id,
+    );
     if (alreadyCovered) continue;
-    const isOverdue = Boolean(issue.dueDate && issue.dueDate < today && issue.status !== "closed" && issue.status !== "decided");
+    const isOverdue = Boolean(
+      issue.dueDate &&
+      issue.dueDate < today &&
+      issue.status !== "closed" &&
+      issue.status !== "decided",
+    );
     if (!isOverdue) continue;
-    const relatedSlug = issue.relatedMilestoneSlugs.find((slug) => criticalSlugSet.has(slug)) ?? null;
-    const relatedMilestone = relatedSlug ? milestones.find((entry) => entry.slug === relatedSlug) : undefined;
+    const relatedSlug =
+      issue.relatedMilestoneSlugs.find((slug) => criticalSlugSet.has(slug)) ??
+      null;
+    const relatedMilestone = relatedSlug
+      ? milestones.find((entry) => entry.slug === relatedSlug)
+      : undefined;
     rows.push({
       key: `issue-${issue.id}`,
       priority: 5,
@@ -628,9 +769,14 @@ export function deriveSxInterventionQueue(params: {
   for (const milestone of criticalMilestones) {
     if (included.has(milestone.id)) continue;
     const ownerMissing = isMissingOwnerText(milestone.ownerLabel);
-    const unassessed = milestone.confidence === "unknown" || milestone.status === "unassessed";
+    const unassessed =
+      milestone.confidence === "unknown" || milestone.status === "unassessed";
     if (!ownerMissing && !milestone.isStale && !unassessed) continue;
-    const kind: SxEcdInterventionKind = ownerMissing ? "owner_unconfirmed" : milestone.isStale ? "gate_stale" : "gate_unassessed";
+    const kind: SxEcdInterventionKind = ownerMissing
+      ? "owner_unconfirmed"
+      : milestone.isStale
+        ? "gate_stale"
+        : "gate_unassessed";
     const due = milestone.forecastEnd || milestone.plannedEnd;
     rows.push({
       key: `milestone-owner-${milestone.id}`,
@@ -655,7 +801,12 @@ export function deriveSxInterventionQueue(params: {
   for (const gate of pillarGates) {
     if (!gate.milestoneId) continue;
     const milestone = milestoneById.get(gate.milestoneId);
-    if (!milestone || criticalSlugSet.has(milestone.slug) || included.has(milestone.id)) continue;
+    if (
+      !milestone ||
+      criticalSlugSet.has(milestone.slug) ||
+      included.has(milestone.id)
+    )
+      continue;
     const due = milestone.forecastEnd || milestone.plannedEnd;
     const base = {
       target: `【${gate.trackLabel}】${displayTarget(milestone.title)}`,
@@ -672,27 +823,52 @@ export function deriveSxInterventionQueue(params: {
       dateCertainty: milestone.dateCertainty,
     };
     if (milestone.isBlocked || milestone.status === "blocked") {
-      rows.push({ key: `pillar-blocked-${milestone.id}`, priority: 1, kind: "critical_blocked", ...base });
+      rows.push({
+        key: `pillar-blocked-${milestone.id}`,
+        priority: 1,
+        kind: "critical_blocked",
+        ...base,
+      });
       continue;
     }
     if (milestone.isOverdue) {
-      rows.push({ key: `pillar-overdue-${milestone.id}`, priority: 2, kind: "critical_overdue", ...base });
+      rows.push({
+        key: `pillar-overdue-${milestone.id}`,
+        priority: 2,
+        kind: "critical_overdue",
+        ...base,
+      });
       continue;
     }
     const ownerMissing = isMissingOwnerText(milestone.ownerLabel);
-    const unassessed = milestone.confidence === "unknown" || milestone.status === "unassessed";
+    const unassessed =
+      milestone.confidence === "unknown" || milestone.status === "unassessed";
     if (!ownerMissing && !milestone.isStale && !unassessed) continue;
-    const kind: SxEcdInterventionKind = ownerMissing ? "owner_unconfirmed" : milestone.isStale ? "gate_stale" : "gate_unassessed";
-    rows.push({ key: `pillar-gap-${milestone.id}`, priority: 6, kind, ...base });
+    const kind: SxEcdInterventionKind = ownerMissing
+      ? "owner_unconfirmed"
+      : milestone.isStale
+        ? "gate_stale"
+        : "gate_unassessed";
+    rows.push({
+      key: `pillar-gap-${milestone.id}`,
+      priority: 6,
+      kind,
+      ...base,
+    });
   }
 
   const sorted = [...rows].sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
-  return { rows: sorted.slice(0, maxRows), totalCount: sorted.length, hiddenCount: Math.max(0, sorted.length - maxRows) };
+  return {
+    rows: sorted.slice(0, maxRows),
+    totalCount: sorted.length,
+    hiddenCount: Math.max(0, sorted.length - maxRows),
+  };
 }
 
 // --- Upcoming-action queue ---------------------------------------------------
 
-export type SxEcdUpcomingWindow = "overdue" | "within_7" | "within_14" | "within_30" | "later" | "unset";
+export type SxEcdUpcomingWindow =
+  "overdue" | "within_7" | "within_14" | "within_30" | "later" | "unset";
 
 export interface SxEcdUpcomingRow {
   key: string;
@@ -716,12 +892,26 @@ const WINDOW_LABEL: Record<SxEcdUpcomingWindow, string> = {
   unset: "期限未設定",
 };
 
-const WINDOW_ORDER: SxEcdUpcomingWindow[] = ["overdue", "within_7", "within_14", "within_30", "later", "unset"];
+const WINDOW_ORDER: SxEcdUpcomingWindow[] = [
+  "overdue",
+  "within_7",
+  "within_14",
+  "within_30",
+  "later",
+  "unset",
+];
 
-function classifyWindow(dueDate: string | null, today: string): SxEcdUpcomingWindow {
+function classifyWindow(
+  dueDate: string | null,
+  today: string,
+): SxEcdUpcomingWindow {
   if (!dueDate) return "unset";
   if (dueDate < today) return "overdue";
-  const days = Math.round((Date.parse(`${dueDate}T00:00:00.000Z`) - Date.parse(`${today}T00:00:00.000Z`)) / 86400000);
+  const days = Math.round(
+    (Date.parse(`${dueDate}T00:00:00.000Z`) -
+      Date.parse(`${today}T00:00:00.000Z`)) /
+      86400000,
+  );
   if (days <= 7) return "within_7";
   if (days <= 14) return "within_14";
   if (days <= 30) return "within_30";
@@ -736,23 +926,61 @@ export function deriveSxUpcomingQueue(params: {
   today: string;
   criticalPathSlugs: string[];
   milestones: SxEcdMilestone[];
-  actions: Array<{ id: string; title: string; ownerLabel: string; dueDate: string | null; status: string; issueId?: string | null }>;
-  decisions: Array<{ id: string; title: string; ownerLabel: string; dueDate: string | null; status: string; issueId: string | null }>;
-  validationRuns: Array<{ id: string; method: string; ownerLabel: string; dueDate: string | null; status: string; hypothesisId?: string | null; issueId?: string | null }>;
+  actions: Array<{
+    id: string;
+    title: string;
+    ownerLabel: string;
+    dueDate: string | null;
+    status: string;
+    issueId?: string | null;
+  }>;
+  decisions: Array<{
+    id: string;
+    title: string;
+    ownerLabel: string;
+    dueDate: string | null;
+    status: string;
+    issueId: string | null;
+  }>;
+  validationRuns: Array<{
+    id: string;
+    method: string;
+    ownerLabel: string;
+    dueDate: string | null;
+    status: string;
+    hypothesisId?: string | null;
+    issueId?: string | null;
+  }>;
   issues: SxEcdIssue[];
   excludeKeys?: Set<string>;
   maxRows?: number;
 }): { rows: SxEcdUpcomingRow[]; totalCount: number } {
-  const { today, criticalPathSlugs, milestones, actions, decisions, validationRuns, issues, excludeKeys, maxRows = 3 } = params;
+  const {
+    today,
+    criticalPathSlugs,
+    milestones,
+    actions,
+    decisions,
+    validationRuns,
+    issues,
+    excludeKeys,
+    maxRows = 3,
+  } = params;
   const criticalSlugSet = new Set(criticalPathSlugs);
-  const milestoneBySlug = new Map(milestones.map((milestone) => [milestone.slug, milestone]));
+  const milestoneBySlug = new Map(
+    milestones.map((milestone) => [milestone.slug, milestone]),
+  );
   const issueById = new Map(issues.map((issue) => [issue.id, issue]));
 
-  const criticalGateFor = (issueId: string | null | undefined): string | null => {
+  const criticalGateFor = (
+    issueId: string | null | undefined,
+  ): string | null => {
     if (!issueId) return null;
     const issue = issueById.get(issueId);
     if (!issue) return null;
-    const slug = issue.relatedMilestoneSlugs.find((s) => criticalSlugSet.has(s));
+    const slug = issue.relatedMilestoneSlugs.find((s) =>
+      criticalSlugSet.has(s),
+    );
     if (!slug) return null;
     return milestoneBySlug.get(slug)?.gate ?? null;
   };
@@ -774,7 +1002,9 @@ export function deriveSxUpcomingQueue(params: {
       gate,
       criticalLinked: Boolean(gate),
       isBlocked: action.status === "blocked",
-      anchor: action.issueId ? `#sx-issue-${action.issueId}` : "management-plan",
+      anchor: action.issueId
+        ? `#sx-issue-${action.issueId}`
+        : "management-plan",
     });
   }
 
@@ -793,7 +1023,9 @@ export function deriveSxUpcomingQueue(params: {
       gate,
       criticalLinked: Boolean(gate),
       isBlocked: false,
-      anchor: decision.issueId ? `#sx-issue-${decision.issueId}` : "management-plan",
+      anchor: decision.issueId
+        ? `#sx-issue-${decision.issueId}`
+        : "management-plan",
     });
   }
 
@@ -817,13 +1049,16 @@ export function deriveSxUpcomingQueue(params: {
   }
 
   const sorted = [...rows].sort((a, b) => {
-    const windowDiff = WINDOW_ORDER.indexOf(a.window) - WINDOW_ORDER.indexOf(b.window);
+    const windowDiff =
+      WINDOW_ORDER.indexOf(a.window) - WINDOW_ORDER.indexOf(b.window);
     if (windowDiff !== 0) return windowDiff;
     const criticalDiff = Number(b.criticalLinked) - Number(a.criticalLinked);
     if (criticalDiff !== 0) return criticalDiff;
     const blockedDiff = Number(b.isBlocked) - Number(a.isBlocked);
     if (blockedDiff !== 0) return blockedDiff;
-    const due = (a.dueDate ?? "9999-99-99").localeCompare(b.dueDate ?? "9999-99-99");
+    const due = (a.dueDate ?? "9999-99-99").localeCompare(
+      b.dueDate ?? "9999-99-99",
+    );
     if (due !== 0) return due;
     return a.label.localeCompare(b.label);
   });
@@ -898,7 +1133,10 @@ export interface SxEcdStateMap {
   totalCount: number;
 }
 
-function toMapBlocker(row: SxEcdInterventionRow, rank: number | null): SxEcdMapBlocker {
+function toMapBlocker(
+  row: SxEcdInterventionRow,
+  rank: number | null,
+): SxEcdMapBlocker {
   return {
     key: row.key,
     rank,
@@ -920,7 +1158,10 @@ function toMapBlocker(row: SxEcdInterventionRow, rank: number | null): SxEcdMapB
 }
 
 function diffDaysBetween(from: string, to: string): number {
-  return Math.round((Date.parse(`${to}T00:00:00.000Z`) - Date.parse(`${from}T00:00:00.000Z`)) / 86400000);
+  return Math.round(
+    (Date.parse(`${to}T00:00:00.000Z`) - Date.parse(`${from}T00:00:00.000Z`)) /
+      86400000,
+  );
 }
 
 /**
@@ -938,7 +1179,9 @@ export function deriveSxStateMap(params: {
 }): SxEcdStateMap {
   const { rail, interventionRows, totalCount, topCount = 3 } = params;
   if (!rail.valid) {
-    const top = interventionRows.slice(0, topCount).map((row, index) => toMapBlocker(row, index + 1));
+    const top = interventionRows
+      .slice(0, topCount)
+      .map((row, index) => toMapBlocker(row, index + 1));
     return {
       valid: false,
       reason: rail.reason,
@@ -946,24 +1189,36 @@ export function deriveSxStateMap(params: {
       leadingMarker: null,
       trailingMarker: null,
       todayIndex: -1,
-      unattached: interventionRows.map((row, index) => toMapBlocker(row, index < topCount ? index + 1 : null)),
+      unattached: interventionRows.map((row, index) =>
+        toMapBlocker(row, index < topCount ? index + 1 : null),
+      ),
       top,
       totalCount,
     };
   }
 
-  const blockers = interventionRows.map((row, index) => toMapBlocker(row, index < topCount ? index + 1 : null));
-  const visibleIds = new Set(rail.visibleNodes.map((node) => node.milestoneId).filter(Boolean));
-  const unattached = blockers.filter((blocker) => !blocker.milestoneId || !visibleIds.has(blocker.milestoneId));
+  const blockers = interventionRows.map((row, index) =>
+    toMapBlocker(row, index < topCount ? index + 1 : null),
+  );
+  const visibleIds = new Set(
+    rail.visibleNodes.map((node) => node.milestoneId).filter(Boolean),
+  );
+  const unattached = blockers.filter(
+    (blocker) => !blocker.milestoneId || !visibleIds.has(blocker.milestoneId),
+  );
 
   const nodes: SxEcdMapNode[] = rail.visibleNodes.map((node, index) => {
-    const own = blockers.filter((blocker) => blocker.milestoneId && blocker.milestoneId === node.milestoneId);
+    const own = blockers.filter(
+      (blocker) =>
+        blocker.milestoneId && blocker.milestoneId === node.milestoneId,
+    );
     let gapDaysFromPrev: number | null = null;
     if (index > 0) {
       const prev = rail.visibleNodes[index - 1];
       const prevDate = prev.forecastEnd || prev.plannedEnd;
       const ownDate = node.forecastEnd || node.plannedEnd;
-      if (prevDate && ownDate) gapDaysFromPrev = Math.max(0, diffDaysBetween(prevDate, ownDate));
+      if (prevDate && ownDate)
+        gapDaysFromPrev = Math.max(0, diffDaysBetween(prevDate, ownDate));
     }
     return {
       node,
@@ -995,25 +1250,46 @@ export function deriveSxStateMap(params: {
  * - provisional_slip: 予測が予定より後ろだが、仮日程で見直し理由も未確認（＝まだ遅延と呼べない予測差）
  * - none: 差がない、または予測が予定以内
  */
-export type SxEcdSlipKind = "overdue" | "confirmed_slip" | "provisional_slip" | "none";
+export type SxEcdSlipKind =
+  "overdue" | "confirmed_slip" | "provisional_slip" | "none";
 
 /** 見直し理由として実質的な中身がない（初期投入の定型文・未確認）と判定する。 */
-function isPlaceholderForecastReason(reason: string | null | undefined): boolean {
+function isPlaceholderForecastReason(
+  reason: string | null | undefined,
+): boolean {
   const value = (reason ?? "").trim();
   if (!value) return true;
-  return value.includes("未確認") || value.includes("仮置き") || value.includes("初期Seed") || value.includes("初期seed");
+  return (
+    value.includes("未確認") ||
+    value.includes("仮置き") ||
+    value.includes("初期Seed") ||
+    value.includes("初期seed")
+  );
 }
 
 export function sxEcdClassifySlip(
-  milestone: Pick<SxEcdMilestone, "status" | "plannedEnd" | "forecastEnd" | "deltaDays" | "dateCertainty" | "isOverdue" | "forecastChangeReason">,
+  milestone: Pick<
+    SxEcdMilestone,
+    | "status"
+    | "plannedEnd"
+    | "forecastEnd"
+    | "deltaDays"
+    | "dateCertainty"
+    | "isOverdue"
+    | "forecastChangeReason"
+  >,
   today: string,
 ): SxEcdSlipKind {
   if (milestone.status === "completed") return "none";
-  const plannedOverdue = Boolean(milestone.plannedEnd && milestone.plannedEnd < today);
+  const plannedOverdue = Boolean(
+    milestone.plannedEnd && milestone.plannedEnd < today,
+  );
   if (milestone.isOverdue || plannedOverdue) return "overdue";
   if (milestone.deltaDays == null || milestone.deltaDays <= 0) return "none";
   const confirmedDate = milestone.dateCertainty === "confirmed";
-  const hasRealReason = !isPlaceholderForecastReason(milestone.forecastChangeReason);
+  const hasRealReason = !isPlaceholderForecastReason(
+    milestone.forecastChangeReason,
+  );
   return confirmedDate || hasRealReason ? "confirmed_slip" : "provisional_slip";
 }
 
@@ -1030,7 +1306,12 @@ export interface SxEcdVerdictBusinessCell {
 
 export interface SxEcdVerdictSummary {
   business: SxEcdVerdictBusinessCell;
-  operations: { verdictLabel: string; completenessPct: number; criticalUnknownCount: number; blockedCount: number };
+  operations: {
+    verdictLabel: string;
+    completenessPct: number;
+    criticalUnknownCount: number;
+    blockedCount: number;
+  };
   step2: { label: string; known: boolean };
   countdown: { days: number | null; targetDate: string | null };
 }
@@ -1042,45 +1323,117 @@ export interface SxEcdVerdictSummary {
  */
 export function deriveSxVerdictSummary(params: {
   today: string;
-  judgment: { key: string; dagValid: boolean; completenessPct: number; criticalUnknownCount: number; blockedCount: number };
+  judgment: {
+    key: string;
+    dagValid: boolean;
+    completenessPct: number;
+    criticalUnknownCount: number;
+    blockedCount: number;
+  };
   criticalPathSlugs: string[];
   milestones: SxEcdMilestone[];
-  tracks: Array<{ key: string; shortLabel: string; deltaDays: number | null; dateCertainty: "confirmed" | "provisional" | null }>;
+  tracks: Array<{
+    key: string;
+    shortLabel: string;
+    deltaDays: number | null;
+    dateCertainty: "confirmed" | "provisional" | null;
+  }>;
   objectiveTargetDate: string | null;
-  funding: { requiredAmount: number | null; securedAmount: number | null } | null;
+  funding: {
+    requiredAmount: number | null;
+    securedAmount: number | null;
+  } | null;
 }): SxEcdVerdictSummary {
-  const { today, judgment, criticalPathSlugs, milestones, tracks, objectiveTargetDate, funding } = params;
+  const {
+    today,
+    judgment,
+    criticalPathSlugs,
+    milestones,
+    tracks,
+    objectiveTargetDate,
+    funding,
+  } = params;
   const criticalSet = new Set(criticalPathSlugs);
-  const critical = milestones.filter((milestone) => criticalSet.has(milestone.slug));
+  const critical = milestones.filter((milestone) =>
+    criticalSet.has(milestone.slug),
+  );
 
-  const maxPillar = tracks.reduce<{ shortLabel: string; deltaDays: number; provisional: boolean } | null>((best, track) => {
+  const maxPillar = tracks.reduce<{
+    shortLabel: string;
+    deltaDays: number;
+    provisional: boolean;
+  } | null>((best, track) => {
     if (track.deltaDays == null || track.deltaDays <= 0) return best;
     if (best && best.deltaDays >= track.deltaDays) return best;
-    return { shortLabel: track.shortLabel, deltaDays: track.deltaDays, provisional: track.dateCertainty === "provisional" };
+    return {
+      shortLabel: track.shortLabel,
+      deltaDays: track.deltaDays,
+      provisional: track.dateCertainty === "provisional",
+    };
   }, null);
 
   let business: SxEcdVerdictBusinessCell;
-  if (!judgment.dagValid || criticalPathSlugs.length === 0 || critical.length === 0) {
-    business = { label: "判定不能", tone: "unknown", detail: null, provisional: false };
+  if (
+    !judgment.dagValid ||
+    criticalPathSlugs.length === 0 ||
+    critical.length === 0
+  ) {
+    business = {
+      label: "判定不能",
+      tone: "unknown",
+      detail: null,
+      provisional: false,
+    };
   } else {
-    const blocked = critical.filter((milestone) => milestone.isBlocked || milestone.status === "blocked");
+    const blocked = critical.filter(
+      (milestone) => milestone.isBlocked || milestone.status === "blocked",
+    );
     const slips = critical
       .filter((milestone) => !blocked.includes(milestone))
-      .map((milestone) => ({ milestone, kind: sxEcdClassifySlip(milestone, today) }));
+      .map((milestone) => ({
+        milestone,
+        kind: sxEcdClassifySlip(milestone, today),
+      }));
     const overdue = slips.filter((entry) => entry.kind === "overdue");
-    const confirmedSlips = slips.filter((entry) => entry.kind === "confirmed_slip");
-    const provisionalSlips = slips.filter((entry) => entry.kind === "provisional_slip");
-    const maxOf = (entries: typeof slips) => entries.reduce((max, entry) => Math.max(max, entry.milestone.deltaDays ?? 0), 0);
-    const allDatesKnown = critical.every((milestone) => milestone.plannedEnd || milestone.forecastEnd || milestone.status === "completed");
+    const confirmedSlips = slips.filter(
+      (entry) => entry.kind === "confirmed_slip",
+    );
+    const provisionalSlips = slips.filter(
+      (entry) => entry.kind === "provisional_slip",
+    );
+    const maxOf = (entries: typeof slips) =>
+      entries.reduce(
+        (max, entry) => Math.max(max, entry.milestone.deltaDays ?? 0),
+        0,
+      );
+    const allDatesKnown = critical.every(
+      (milestone) =>
+        milestone.plannedEnd ||
+        milestone.forecastEnd ||
+        milestone.status === "completed",
+    );
     if (blocked.length > 0) {
-      business = { label: `停止 ${blocked.length}件`, tone: "bad", detail: null, provisional: false };
+      business = {
+        label: `停止 ${blocked.length}件`,
+        tone: "bad",
+        detail: null,
+        provisional: false,
+      };
     } else if (overdue.length > 0) {
-      business = { label: `期限超過 ${overdue.length}件`, tone: "bad", detail: null, provisional: false };
+      business = {
+        label: `期限超過 ${overdue.length}件`,
+        tone: "bad",
+        detail: null,
+        provisional: false,
+      };
     } else if (confirmedSlips.length > 0) {
       business = {
         label: `予定より最大${maxOf(confirmedSlips)}日遅れ見込み`,
         tone: "warn",
-        detail: maxPillar && maxPillar.deltaDays > maxOf(confirmedSlips) ? `最大 ${maxPillar.shortLabel}+${maxPillar.deltaDays}日` : null,
+        detail:
+          maxPillar && maxPillar.deltaDays > maxOf(confirmedSlips)
+            ? `最大 ${maxPillar.shortLabel}+${maxPillar.deltaDays}日`
+            : null,
         provisional: false,
       };
     } else if (provisionalSlips.length > 0) {
@@ -1092,24 +1445,48 @@ export function deriveSxVerdictSummary(params: {
         provisional: true,
       };
     } else if (!allDatesKnown) {
-      business = { label: "判定不能", tone: "unknown", detail: null, provisional: false };
+      business = {
+        label: "判定不能",
+        tone: "unknown",
+        detail: null,
+        provisional: false,
+      };
     } else {
-      const confirmedOnTrack = critical.every((milestone) => milestone.status === "completed" || (milestone.dateCertainty === "confirmed" && milestone.status !== "unassessed" && milestone.confidence !== "unknown"));
+      const confirmedOnTrack = critical.every(
+        (milestone) =>
+          milestone.status === "completed" ||
+          (milestone.dateCertainty === "confirmed" &&
+            milestone.status !== "unassessed" &&
+            milestone.confidence !== "unknown"),
+      );
       business = confirmedOnTrack
         ? { label: "オンスケ", tone: "ok", detail: null, provisional: false }
-        : { label: "判定不能", tone: "unknown", detail: maxPillar ? `最大 ${maxPillar.shortLabel}+${maxPillar.deltaDays}日` : null, provisional: false };
+        : {
+            label: "判定不能",
+            tone: "unknown",
+            detail: maxPillar
+              ? `最大 ${maxPillar.shortLabel}+${maxPillar.deltaDays}日`
+              : null,
+            provisional: false,
+          };
     }
   }
 
-  const hasFundingAmounts = Boolean(funding && (funding.requiredAmount != null || funding.securedAmount != null));
-  const step2 = hasFundingAmounts && funding
-    ? {
-        label: `確保 ${funding.securedAmount != null ? `${Math.round(funding.securedAmount / 10000)}万円` : "未確認"} / 必要 ${funding.requiredAmount != null ? `${Math.round(funding.requiredAmount / 10000)}万円` : "未確認"}`,
-        known: true,
-      }
-    : { label: "未確認", known: false };
+  const hasFundingAmounts = Boolean(
+    funding &&
+    (funding.requiredAmount != null || funding.securedAmount != null),
+  );
+  const step2 =
+    hasFundingAmounts && funding
+      ? {
+          label: `確保 ${funding.securedAmount != null ? `${Math.round(funding.securedAmount / 10000)}万円` : "未確認"} / 必要 ${funding.requiredAmount != null ? `${Math.round(funding.requiredAmount / 10000)}万円` : "未確認"}`,
+          known: true,
+        }
+      : { label: "未確認", known: false };
 
-  const countdownDays = objectiveTargetDate ? diffDaysBetween(today, objectiveTargetDate) : null;
+  const countdownDays = objectiveTargetDate
+    ? diffDaysBetween(today, objectiveTargetDate)
+    : null;
 
   return {
     business,
@@ -1196,18 +1573,28 @@ export interface SxEcdUnifiedTimeline {
   months: SxEcdTimelineMonth[];
   lanes: SxEcdTimelineLane[];
   /** criticalPathSlugs 順の接続点（レーンindex・レーン内rowindex・x位置%）。連結線の描画用。 */
-  criticalPoints: Array<{ slug: string; laneIndex: number; rowIndex: number; pct: number }>;
+  criticalPoints: Array<{
+    slug: string;
+    laneIndex: number;
+    rowIndex: number;
+    pct: number;
+  }>;
   pins: SxEcdTimelinePin[];
   /** 期日を持たない実施中マイルストーン数（タイムラインに描けない分を隠さない）。 */
   undatedCount: number;
   completedCount: number;
 }
 
-function dateToPct(date: string, domainStart: string, domainEnd: string): number {
+function dateToPct(
+  date: string,
+  domainStart: string,
+  domainEnd: string,
+): number {
   const start = Date.parse(`${domainStart}T00:00:00.000Z`);
   const end = Date.parse(`${domainEnd}T00:00:00.000Z`);
   const value = Date.parse(`${date}T00:00:00.000Z`);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start)
+    return 0;
   return Math.min(100, Math.max(0, ((value - start) / (end - start)) * 100));
 }
 
@@ -1233,46 +1620,128 @@ export function deriveSxUnifiedTimeline(params: {
   milestones: SxEcdMilestone[];
   criticalPathSlugs: string[];
   dagValid: boolean;
-  tracks: Array<{ key: string; label: string; shortLabel: string; accent: string; deltaDays: number | null; dateCertainty: "confirmed" | "provisional" | null; maxIssue: string }>;
+  tracks: Array<{
+    key: string;
+    label: string;
+    shortLabel: string;
+    accent: string;
+    deltaDays: number | null;
+    dateCertainty: "confirmed" | "provisional" | null;
+    maxIssue: string;
+  }>;
   laneOrder?: string[];
   objectiveTargetDate: string | null;
   interventionRows: SxEcdInterventionRow[];
   pinCount?: number;
+  /** weekly-control can deliberately use only planned dates; forecast data stays stored but does not affect its range or order. */
+  dateMode?: "planned_only" | "planned_and_forecast";
 }): SxEcdUnifiedTimeline {
-  const { today, milestones, criticalPathSlugs, dagValid, tracks, objectiveTargetDate, interventionRows, pinCount = 5 } = params;
-  const laneOrder = params.laneOrder ?? ["business_development", "technology_development", "organizational_building", "funding"];
+  const {
+    today,
+    milestones,
+    criticalPathSlugs,
+    dagValid,
+    tracks,
+    objectiveTargetDate,
+    interventionRows,
+    pinCount = 5,
+  } = params;
+  const plannedOnly = params.dateMode === "planned_only";
+  const laneOrder = params.laneOrder ?? [
+    "business_development",
+    "technology_development",
+    "organizational_building",
+    "funding",
+  ];
 
   if (!dagValid) {
-    return { valid: false, reason: "依存関係不正", domainStart: today, domainEnd: today, todayPct: 0, objectivePct: null, objectiveDate: objectiveTargetDate, months: [], lanes: [], criticalPoints: [], pins: [], undatedCount: 0, completedCount: 0 };
+    return {
+      valid: false,
+      reason: "依存関係不正",
+      domainStart: today,
+      domainEnd: today,
+      todayPct: 0,
+      objectivePct: null,
+      objectiveDate: objectiveTargetDate,
+      months: [],
+      lanes: [],
+      criticalPoints: [],
+      pins: [],
+      undatedCount: 0,
+      completedCount: 0,
+    };
   }
 
-  const active = milestones.filter((milestone) => milestone.status !== "completed");
-  const dated = active.filter((milestone) => milestone.plannedEnd || milestone.forecastEnd);
+  const active = milestones.filter(
+    (milestone) => milestone.status !== "completed",
+  );
+  const dated = active.filter(
+    (milestone) =>
+      milestone.plannedEnd || (!plannedOnly && milestone.forecastEnd),
+  );
   const undatedCount = active.length - dated.length;
   const completedCount = milestones.length - active.length;
 
   if (dated.length === 0) {
-    return { valid: false, reason: "日程付きマイルストーン未登録", domainStart: today, domainEnd: today, todayPct: 0, objectivePct: null, objectiveDate: objectiveTargetDate, months: [], lanes: [], criticalPoints: [], pins: [], undatedCount, completedCount };
+    return {
+      valid: false,
+      reason: "日程付きマイルストーン未登録",
+      domainStart: today,
+      domainEnd: today,
+      todayPct: 0,
+      objectivePct: null,
+      objectiveDate: objectiveTargetDate,
+      months: [],
+      lanes: [],
+      criticalPoints: [],
+      pins: [],
+      undatedCount,
+      completedCount,
+    };
   }
 
-  const allDates = dated.flatMap((milestone) => [milestone.plannedEnd, milestone.forecastEnd].filter((value): value is string => Boolean(value)));
-  const startCandidates = dated.map((milestone) => milestone.plannedStart ?? null).filter((value): value is string => Boolean(value));
-  const minDate = [today, ...allDates, ...startCandidates].reduce((min, value) => (value < min ? value : min));
-  const maxDate = [today, ...allDates, ...(objectiveTargetDate ? [objectiveTargetDate] : [])].reduce((max, value) => (value > max ? value : max));
+  const allDates = dated.flatMap((milestone) =>
+    [milestone.plannedEnd, plannedOnly ? null : milestone.forecastEnd].filter(
+      (value): value is string => Boolean(value),
+    ),
+  );
+  const startCandidates = dated
+    .map((milestone) => milestone.plannedStart ?? null)
+    .filter((value): value is string => Boolean(value));
+  const minDate = [today, ...allDates, ...startCandidates].reduce(
+    (min, value) => (value < min ? value : min),
+  );
+  const maxDate = [
+    today,
+    ...allDates,
+    ...(objectiveTargetDate ? [objectiveTargetDate] : []),
+  ].reduce((max, value) => (value > max ? value : max));
   const domainStart = monthStartOf(minDate);
   const domainEnd = addMonths(monthStartOf(maxDate), 1); // 最終月の月末側へ半月〜1か月の余白
 
   const months: SxEcdTimelineMonth[] = [];
-  for (let cursor = domainStart; cursor < domainEnd; cursor = addMonths(cursor, 1)) {
+  for (
+    let cursor = domainStart;
+    cursor < domainEnd;
+    cursor = addMonths(cursor, 1)
+  ) {
     const [year, month] = cursor.slice(0, 7).split("-").map(Number);
-    months.push({ label: month === 1 || cursor === domainStart ? `${year}年${month}月` : `${month}月`, pct: dateToPct(cursor, domainStart, domainEnd), isYearStart: month === 1 });
+    months.push({
+      label:
+        month === 1 || cursor === domainStart
+          ? `${year}年${month}月`
+          : `${month}月`,
+      pct: dateToPct(cursor, domainStart, domainEnd),
+      isYearStart: month === 1,
+    });
   }
 
   const criticalSet = new Set(criticalPathSlugs);
-  const currentSlug = criticalPathSlugs.find((slug) => {
-    const milestone = milestones.find((item) => item.slug === slug);
-    return !milestone || milestone.status !== "completed";
-  }) ?? null;
+  const currentSlug =
+    criticalPathSlugs.find((slug) => {
+      const milestone = milestones.find((item) => item.slug === slug);
+      return !milestone || milestone.status !== "completed";
+    }) ?? null;
 
   const toRow = (milestone: SxEcdMilestone): SxEcdTimelineRow => {
     const plannedStart = milestone.plannedStart ?? null;
@@ -1283,18 +1752,32 @@ export function deriveSxUnifiedTimeline(params: {
       title: nominalizeSxActionLabel(sxNormalizePublicName(milestone.title)),
       track: milestone.track ?? null,
       state: resolveNodeState(milestone, isCurrent),
-      slipKind: sxEcdClassifySlip(milestone, today),
+      slipKind:
+        plannedOnly && milestone.plannedEnd && milestone.plannedEnd < today
+          ? "overdue"
+          : plannedOnly
+            ? "none"
+            : sxEcdClassifySlip(milestone, today),
       isCritical: criticalSet.has(milestone.slug),
       isCurrent,
       plannedStart,
       plannedEnd: milestone.plannedEnd,
-      forecastEnd: milestone.forecastEnd,
-      plannedStartPct: plannedStart ? dateToPct(plannedStart, domainStart, domainEnd) : null,
-      plannedEndPct: milestone.plannedEnd ? dateToPct(milestone.plannedEnd, domainStart, domainEnd) : null,
-      forecastPct: milestone.forecastEnd ? dateToPct(milestone.forecastEnd, domainStart, domainEnd) : null,
-      deltaDays: milestone.deltaDays,
+      forecastEnd: plannedOnly ? null : milestone.forecastEnd,
+      plannedStartPct: plannedStart
+        ? dateToPct(plannedStart, domainStart, domainEnd)
+        : null,
+      plannedEndPct: milestone.plannedEnd
+        ? dateToPct(milestone.plannedEnd, domainStart, domainEnd)
+        : null,
+      forecastPct:
+        !plannedOnly && milestone.forecastEnd
+          ? dateToPct(milestone.forecastEnd, domainStart, domainEnd)
+          : null,
+      deltaDays: plannedOnly ? null : milestone.deltaDays,
       dateCertainty: milestone.dateCertainty ?? null,
-      ownerLabel: isMissingOwnerText(milestone.ownerLabel) ? "担当未確認" : sxNormalizePublicName(milestone.ownerLabel),
+      ownerLabel: isMissingOwnerText(milestone.ownerLabel)
+        ? "担当未確認"
+        : sxNormalizePublicName(milestone.ownerLabel),
       gate: milestone.gate,
       progressPct: Math.max(0, Math.min(100, milestone.progressPct ?? 0)),
     };
@@ -1305,9 +1788,29 @@ export function deriveSxUnifiedTimeline(params: {
     const rows = dated
       .filter((milestone) => (milestone.track ?? null) === key)
       .map(toRow)
-      .sort((a, b) => (a.forecastEnd ?? a.plannedEnd ?? "9999").localeCompare(b.forecastEnd ?? b.plannedEnd ?? "9999"));
-    const order: SxEcdSlipKind[] = ["overdue", "confirmed_slip", "provisional_slip", "none"];
-    const slipKind = rows.reduce<SxEcdSlipKind>((worst, row) => (order.indexOf(row.slipKind) < order.indexOf(worst) ? row.slipKind : worst), "none");
+      .sort((a, b) =>
+        (plannedOnly
+          ? (a.plannedEnd ?? "9999")
+          : (a.forecastEnd ?? a.plannedEnd ?? "9999")
+        ).localeCompare(
+          plannedOnly
+            ? (b.plannedEnd ?? "9999")
+            : (b.forecastEnd ?? b.plannedEnd ?? "9999"),
+        ),
+      );
+    const order: SxEcdSlipKind[] = [
+      "overdue",
+      "confirmed_slip",
+      "provisional_slip",
+      "none",
+    ];
+    const slipKind = rows.reduce<SxEcdSlipKind>(
+      (worst, row) =>
+        order.indexOf(row.slipKind) < order.indexOf(worst)
+          ? row.slipKind
+          : worst,
+      "none",
+    );
     return {
       key,
       label: track?.label ?? key,
@@ -1322,14 +1825,28 @@ export function deriveSxUnifiedTimeline(params: {
   });
   // laneOrderに無いtrackの行も落とさない（未知トラックは末尾レーンへ）。
   const knownLaneKeys = new Set(laneOrder);
-  const orphanRows = dated.filter((milestone) => !knownLaneKeys.has(milestone.track ?? "")).map(toRow);
+  const orphanRows = dated
+    .filter((milestone) => !knownLaneKeys.has(milestone.track ?? ""))
+    .map(toRow);
   if (orphanRows.length > 0) {
-    lanes.push({ key: "unknown", label: "柱未確認", shortLabel: "未確認", accent: "#8f8aa6", deltaDays: null, dateCertainty: null, maxIssue: "", rows: orphanRows, slipKind: "none" });
+    lanes.push({
+      key: "unknown",
+      label: "柱未確認",
+      shortLabel: "未確認",
+      accent: "#8f8aa6",
+      deltaDays: null,
+      dateCertainty: null,
+      maxIssue: "",
+      rows: orphanRows,
+      slipKind: "none",
+    });
   }
 
   const criticalPoints = criticalPathSlugs.flatMap((slug) => {
     for (let laneIndex = 0; laneIndex < lanes.length; laneIndex += 1) {
-      const rowIndex = lanes[laneIndex].rows.findIndex((row) => row.slug === slug);
+      const rowIndex = lanes[laneIndex].rows.findIndex(
+        (row) => row.slug === slug,
+      );
       if (rowIndex >= 0) {
         const row = lanes[laneIndex].rows[rowIndex];
         const pct = row.forecastPct ?? row.plannedEndPct;
@@ -1343,7 +1860,9 @@ export function deriveSxUnifiedTimeline(params: {
   const rawPins: SxEcdTimelinePin[] = interventionRows
     .slice(0, pinCount)
     .map((row, index) => ({ row, rank: index + 1 }))
-    .filter((entry): entry is { row: SxEcdInterventionRow; rank: number } => Boolean(entry.row.dueDate))
+    .filter((entry): entry is { row: SxEcdInterventionRow; rank: number } =>
+      Boolean(entry.row.dueDate),
+    )
     .map(({ row, rank }) => ({
       key: row.key,
       rank,
@@ -1355,7 +1874,13 @@ export function deriveSxUnifiedTimeline(params: {
       dueDatePrecision: row.dueDatePrecision,
       anchor: row.anchor,
       gate: row.gate,
-      side: row.ballSide === "相手側" || row.ballSide === "双方" ? "partner" : row.ballSide === "未確認" || (row.ballSide === "担当" && row.ballOwner === "未確認") ? "unknown" : "sx",
+      side:
+        row.ballSide === "相手側" || row.ballSide === "双方"
+          ? "partner"
+          : row.ballSide === "未確認" ||
+              (row.ballSide === "担当" && row.ballOwner === "未確認")
+            ? "unknown"
+            : "sx",
     }));
   // 期日が近接するピンは横に最小間隔だけずらして重なりを消す（日付自体は変えない。位置補正のみ）。
   const MIN_PIN_GAP_PCT = 3;
@@ -1374,7 +1899,9 @@ export function deriveSxUnifiedTimeline(params: {
     domainStart,
     domainEnd,
     todayPct: dateToPct(today, domainStart, domainEnd),
-    objectivePct: objectiveTargetDate ? dateToPct(objectiveTargetDate, domainStart, domainEnd) : null,
+    objectivePct: objectiveTargetDate
+      ? dateToPct(objectiveTargetDate, domainStart, domainEnd)
+      : null,
     objectiveDate: objectiveTargetDate,
     months,
     lanes,
@@ -1396,23 +1923,41 @@ export function applySxInterventionPillarQuota(params: {
   topCount: number;
   requiredTrack: string | null;
   requiredTrackLabel: string | null;
-}): { top: SxEcdInterventionRow[]; quotaApplied: boolean; quotaNote: string | null } {
+}): {
+  top: SxEcdInterventionRow[];
+  quotaApplied: boolean;
+  quotaNote: string | null;
+} {
   const { rows, topCount, requiredTrack, requiredTrackLabel } = params;
   const top = rows.slice(0, topCount);
   if (!requiredTrack) return { top, quotaApplied: false, quotaNote: null };
-  if (top.some((row) => row.track === requiredTrack)) return { top, quotaApplied: false, quotaNote: null };
-  const candidate = rows.slice(topCount).find((row) => row.track === requiredTrack);
+  if (top.some((row) => row.track === requiredTrack))
+    return { top, quotaApplied: false, quotaNote: null };
+  const candidate = rows
+    .slice(topCount)
+    .find((row) => row.track === requiredTrack);
   if (!candidate) {
-    return { top, quotaApplied: false, quotaNote: `${requiredTrackLabel ?? requiredTrack}の介入候補は台帳未登録` };
+    return {
+      top,
+      quotaApplied: false,
+      quotaNote: `${requiredTrackLabel ?? requiredTrack}の介入候補は台帳未登録`,
+    };
   }
-  return { top: [...top.slice(0, Math.max(0, topCount - 1)), candidate], quotaApplied: true, quotaNote: null };
+  return {
+    top: [...top.slice(0, Math.max(0, topCount - 1)), candidate],
+    quotaApplied: true,
+    quotaNote: null,
+  };
 }
 
 /** Formats a row's due date honoring its precision: month precision never fabricates a day
  * ("YYYY年M月"), day precision uses the exact date, and unknown precision never fabricates a date
  * at all ("未確認"). When no precision is supplied (older callers/tests), falls back to the plain
  * day-format so month-only seed data is never rendered as if it were day-certain. */
-export function sxEcdFormatDueDate(dueDate: string | null, precision?: SxEcdDatePrecision): string {
+export function sxEcdFormatDueDate(
+  dueDate: string | null,
+  precision?: SxEcdDatePrecision,
+): string {
   if (precision === "unknown") return "未確認";
   if (!dueDate) return "未確認";
   if (precision === "month") {
@@ -1427,7 +1972,9 @@ export function sxEcdFormatDueDate(dueDate: string | null, precision?: SxEcdDate
 
 /** Maps the underlying judgment key to the exact display text the audit requires. Never touches
  * the underlying judgment/DB value — display boundary only. Unassessed never maps to green/オンスケ. */
-export function sxVerdictDisplayLabel(key: "on_track" | "attention" | "crisis" | "unassessed" | string): string {
+export function sxVerdictDisplayLabel(
+  key: "on_track" | "attention" | "crisis" | "unassessed" | string,
+): string {
   if (key === "on_track") return "オンスケ";
   if (key === "attention") return "要注意";
   if (key === "crisis") return "危険";

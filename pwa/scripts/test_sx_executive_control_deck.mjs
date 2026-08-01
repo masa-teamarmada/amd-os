@@ -15,25 +15,46 @@ import {
 
 function milestone(overrides = {}) {
   return {
-    id: "m-1", slug: "m-1", title: "テストゲート", gate: "ゲートA", status: "on_track",
-    isBlocked: false, isOverdue: false, isStale: false,
-    plannedEnd: "2026-08-01", forecastEnd: "2026-08-01", deltaDays: 0,
-    dateCertainty: "confirmed", ownerLabel: "担当A", confidence: "high", criticality: "critical",
+    id: "m-1",
+    slug: "m-1",
+    title: "テストゲート",
+    gate: "ゲートA",
+    status: "on_track",
+    isBlocked: false,
+    isOverdue: false,
+    isStale: false,
+    plannedEnd: "2026-08-01",
+    forecastEnd: "2026-08-01",
+    deltaDays: 0,
+    dateCertainty: "confirmed",
+    ownerLabel: "担当A",
+    confidence: "high",
+    criticality: "critical",
     ...overrides,
   };
 }
 
 function issue(overrides = {}) {
   return {
-    id: "i-1", slug: "i-1", title: "論点A", status: "open", ownerLabel: "担当A", dueDate: null,
-    relatedMilestoneSlugs: [], validationRuns: [], decisions: [],
+    id: "i-1",
+    slug: "i-1",
+    title: "論点A",
+    status: "open",
+    ownerLabel: "担当A",
+    dueDate: null,
+    relatedMilestoneSlugs: [],
+    validationRuns: [],
+    decisions: [],
     ...overrides,
   };
 }
 
 // 1. DAG invalid -> explicit 依存関係不正, never invents a path.
 {
-  const rail = deriveSxCriticalPathRail({ dagValid: false, criticalPathSlugs: ["a", "b"] }, [milestone({ slug: "a" }), milestone({ slug: "b" })]);
+  const rail = deriveSxCriticalPathRail(
+    { dagValid: false, criticalPathSlugs: ["a", "b"] },
+    [milestone({ slug: "a" }), milestone({ slug: "b" })],
+  );
   assert.equal(rail.valid, false);
   assert.equal(rail.reason, "依存関係不正");
   assert.deepEqual(rail.nodes, []);
@@ -41,7 +62,10 @@ function issue(overrides = {}) {
 
 // 1b. DAG valid but no critical path registered -> explicit 重要経路未登録.
 {
-  const rail = deriveSxCriticalPathRail({ dagValid: true, criticalPathSlugs: [] }, [milestone()]);
+  const rail = deriveSxCriticalPathRail(
+    { dagValid: true, criticalPathSlugs: [] },
+    [milestone()],
+  );
   assert.equal(rail.valid, false);
   assert.equal(rail.reason, "重要経路未登録");
 }
@@ -54,9 +78,15 @@ function issue(overrides = {}) {
     milestone({ id: "3", slug: "c", status: "on_track" }),
     milestone({ id: "4", slug: "d", status: "on_track" }),
   ];
-  const rail = deriveSxCriticalPathRail({ dagValid: true, criticalPathSlugs: ["a", "b", "c", "d"] }, milestones);
+  const rail = deriveSxCriticalPathRail(
+    { dagValid: true, criticalPathSlugs: ["a", "b", "c", "d"] },
+    milestones,
+  );
   assert.equal(rail.valid, true);
-  assert.deepEqual(rail.nodes.map((node) => node.state), ["complete", "complete", "current", "future"]);
+  assert.deepEqual(
+    rail.nodes.map((node) => node.state),
+    ["complete", "complete", "current", "future"],
+  );
   assert.equal(rail.currentIndex, 2);
   assert.equal(rail.nodes[2].isCurrent, true);
   assert.equal(rail.nodes[0].isCurrent, false);
@@ -64,16 +94,28 @@ function issue(overrides = {}) {
 
 // 2b. All milestones complete -> no current node, all complete.
 {
-  const milestones = [milestone({ id: "1", slug: "a", status: "completed" }), milestone({ id: "2", slug: "b", status: "completed" })];
-  const rail = deriveSxCriticalPathRail({ dagValid: true, criticalPathSlugs: ["a", "b"] }, milestones);
-  assert.deepEqual(rail.nodes.map((node) => node.state), ["complete", "complete"]);
+  const milestones = [
+    milestone({ id: "1", slug: "a", status: "completed" }),
+    milestone({ id: "2", slug: "b", status: "completed" }),
+  ];
+  const rail = deriveSxCriticalPathRail(
+    { dagValid: true, criticalPathSlugs: ["a", "b"] },
+    milestones,
+  );
+  assert.deepEqual(
+    rail.nodes.map((node) => node.state),
+    ["complete", "complete"],
+  );
   assert.equal(rail.currentIndex, 2);
 }
 
 // 2c. Missing milestone for a critical-path slug -> unassessed node, not invented.
 {
   const milestones = [milestone({ id: "1", slug: "a", status: "completed" })];
-  const rail = deriveSxCriticalPathRail({ dagValid: true, criticalPathSlugs: ["a", "missing-slug"] }, milestones);
+  const rail = deriveSxCriticalPathRail(
+    { dagValid: true, criticalPathSlugs: ["a", "missing-slug"] },
+    milestones,
+  );
   assert.equal(rail.nodes[1].state, "unassessed");
   assert.equal(rail.nodes[1].milestoneId, null);
   assert.equal(rail.nodes[1].title, "missing-slug");
@@ -84,19 +126,45 @@ function issue(overrides = {}) {
   const milestones = [
     milestone({ id: "1", slug: "a", status: "on_track", isOverdue: true }),
     milestone({ id: "2", slug: "b", status: "blocked", isBlocked: true }),
-    milestone({ id: "3", slug: "c", status: "unassessed", confidence: "unknown" }),
+    milestone({
+      id: "3",
+      slug: "c",
+      status: "unassessed",
+      confidence: "unknown",
+    }),
     milestone({ id: "4", slug: "d", status: "attention" }),
     milestone({ id: "5", slug: "e", status: "on_track", isStale: true }),
   ];
-  const rail = deriveSxCriticalPathRail({ dagValid: true, criticalPathSlugs: ["a", "b", "c", "d", "e"] }, milestones);
-  assert.deepEqual(rail.nodes.map((node) => node.state), ["overdue", "blocked", "unassessed", "attention", "unassessed"]);
-  assert.ok(!rail.nodes.some((node) => node.state === "current" || node.state === "future"));
+  const rail = deriveSxCriticalPathRail(
+    { dagValid: true, criticalPathSlugs: ["a", "b", "c", "d", "e"] },
+    milestones,
+  );
+  assert.deepEqual(
+    rail.nodes.map((node) => node.state),
+    ["overdue", "blocked", "unassessed", "attention", "unassessed"],
+  );
+  assert.ok(
+    !rail.nodes.some(
+      (node) => node.state === "current" || node.state === "future",
+    ),
+  );
 }
 
 // 2e. Node dates keep 予定(plannedEnd) and 予測(forecastEnd) distinct, plus delta.
 {
-  const milestones = [milestone({ id: "1", slug: "a", plannedEnd: "2026-08-01", forecastEnd: "2026-08-10", deltaDays: 9 })];
-  const rail = deriveSxCriticalPathRail({ dagValid: true, criticalPathSlugs: ["a"] }, milestones);
+  const milestones = [
+    milestone({
+      id: "1",
+      slug: "a",
+      plannedEnd: "2026-08-01",
+      forecastEnd: "2026-08-10",
+      deltaDays: 9,
+    }),
+  ];
+  const rail = deriveSxCriticalPathRail(
+    { dagValid: true, criticalPathSlugs: ["a"] },
+    milestones,
+  );
   assert.equal(rail.nodes[0].plannedEnd, "2026-08-01");
   assert.equal(rail.nodes[0].forecastEnd, "2026-08-10");
   assert.equal(rail.nodes[0].deltaDays, 9);
@@ -105,10 +173,21 @@ function issue(overrides = {}) {
 // 2f. Visible window: at most previous completed + current + next up to 3, plus final endpoint,
 // with a leading "+N完了" marker and trailing "…N" marker when the final isn't already inside the window.
 {
-  const milestones = ["a", "b", "c", "d", "e", "f", "g", "h"].map((slug, index) =>
-    milestone({ id: slug, slug, status: index <= 2 ? "completed" : "on_track" }),
+  const milestones = ["a", "b", "c", "d", "e", "f", "g", "h"].map(
+    (slug, index) =>
+      milestone({
+        id: slug,
+        slug,
+        status: index <= 2 ? "completed" : "on_track",
+      }),
   );
-  const rail = deriveSxCriticalPathRail({ dagValid: true, criticalPathSlugs: ["a", "b", "c", "d", "e", "f", "g", "h"] }, milestones);
+  const rail = deriveSxCriticalPathRail(
+    {
+      dagValid: true,
+      criticalPathSlugs: ["a", "b", "c", "d", "e", "f", "g", "h"],
+    },
+    milestones,
+  );
   // currentIndex = 3 (d). window = prev-completed(c) + current(d) + next 3 (e,f,g) = [2..6], and the
   // final endpoint (h) immediately follows the window here, so no trailing gap remains.
   assert.equal(rail.currentIndex, 3);
@@ -121,8 +200,18 @@ function issue(overrides = {}) {
 // 2g. Visible window with a real trailing gap: final endpoint sits well beyond current+next3, so a
 // "…N" marker must appear and the final node must still be appended (never scrolled out of view).
 {
-  const milestones = Array.from({ length: 10 }, (_, index) => milestone({ id: `s${index}`, slug: `s${index}`, status: "on_track", title: `G${index}` }));
-  const rail = deriveSxCriticalPathRail({ dagValid: true, criticalPathSlugs: milestones.map((m) => m.slug) }, milestones);
+  const milestones = Array.from({ length: 10 }, (_, index) =>
+    milestone({
+      id: `s${index}`,
+      slug: `s${index}`,
+      status: "on_track",
+      title: `G${index}`,
+    }),
+  );
+  const rail = deriveSxCriticalPathRail(
+    { dagValid: true, criticalPathSlugs: milestones.map((m) => m.slug) },
+    milestones,
+  );
   const visibleSlugs = rail.visibleNodes.map((node) => node.slug);
   assert.equal(visibleSlugs[visibleSlugs.length - 1], "s9"); // final always appended
   assert.ok(rail.trailingMarker && rail.trailingMarker.count > 0);
@@ -132,9 +221,30 @@ function issue(overrides = {}) {
 // which outranks owner-unconfirmed. Ties broken by due date then label.
 {
   const criticalMilestones = [
-    milestone({ id: "blocked-1", slug: "blocked-1", isBlocked: true, plannedEnd: "2026-08-10", title: "Bゲート停止", gate: "B" }),
-    milestone({ id: "overdue-1", slug: "overdue-1", isOverdue: true, plannedEnd: "2026-07-01", title: "Aゲート遅延", gate: "A" }),
-    milestone({ id: "owner-missing", slug: "owner-missing", ownerLabel: "未確認", plannedEnd: "2026-09-01", title: "担当未確認ゲート", gate: "C" }),
+    milestone({
+      id: "blocked-1",
+      slug: "blocked-1",
+      isBlocked: true,
+      plannedEnd: "2026-08-10",
+      title: "Bゲート停止",
+      gate: "B",
+    }),
+    milestone({
+      id: "overdue-1",
+      slug: "overdue-1",
+      isOverdue: true,
+      plannedEnd: "2026-07-01",
+      title: "Aゲート遅延",
+      gate: "A",
+    }),
+    milestone({
+      id: "owner-missing",
+      slug: "owner-missing",
+      ownerLabel: "未確認",
+      plannedEnd: "2026-09-01",
+      title: "担当未確認ゲート",
+      gate: "C",
+    }),
   ];
   const queue = deriveSxInterventionQueue({
     today: "2026-07-24",
@@ -144,15 +254,30 @@ function issue(overrides = {}) {
     partners: [],
     issues: [],
   });
-  assert.deepEqual(queue.rows.map((row) => row.kind), ["critical_blocked", "critical_overdue", "owner_unconfirmed"]);
+  assert.deepEqual(
+    queue.rows.map((row) => row.kind),
+    ["critical_blocked", "critical_overdue", "owner_unconfirmed"],
+  );
   assert.equal(queue.rows[0].target, "Bゲート停止");
 }
 
 // 3b. Stable tie-break: same priority, sorted by due date then label.
 {
   const criticalMilestones = [
-    milestone({ id: "z", slug: "z", isBlocked: true, plannedEnd: "2026-08-01", title: "Zゲート" }),
-    milestone({ id: "a", slug: "a", isBlocked: true, plannedEnd: "2026-08-01", title: "Aゲート" }),
+    milestone({
+      id: "z",
+      slug: "z",
+      isBlocked: true,
+      plannedEnd: "2026-08-01",
+      title: "Zゲート",
+    }),
+    milestone({
+      id: "a",
+      slug: "a",
+      isBlocked: true,
+      plannedEnd: "2026-08-01",
+      title: "Aゲート",
+    }),
   ];
   const queue = deriveSxInterventionQueue({
     today: "2026-07-24",
@@ -162,14 +287,29 @@ function issue(overrides = {}) {
     partners: [],
     issues: [],
   });
-  assert.deepEqual(queue.rows.map((row) => row.target), ["Aゲート", "Zゲート"]);
+  assert.deepEqual(
+    queue.rows.map((row) => row.target),
+    ["Aゲート", "Zゲート"],
+  );
 }
 
 // 4. No unknown => on-schedule claim: an unassessed critical milestone with a KNOWN owner never
 // silently disappears, and never collapses into owner_unconfirmed just because it's unassessed —
 // the owner is preserved and the kind is the distinct "gate_unassessed".
 {
-  const criticalMilestones = [milestone({ id: "u", slug: "u", status: "unassessed", confidence: "unknown", plannedEnd: null, forecastEnd: "2026-09-10", ownerLabel: "担当B", dateCertainty: "provisional", title: "未評価ゲート" })];
+  const criticalMilestones = [
+    milestone({
+      id: "u",
+      slug: "u",
+      status: "unassessed",
+      confidence: "unknown",
+      plannedEnd: null,
+      forecastEnd: "2026-09-10",
+      ownerLabel: "担当B",
+      dateCertainty: "provisional",
+      title: "未評価ゲート",
+    }),
+  ];
   const queue = deriveSxInterventionQueue({
     today: "2026-07-24",
     criticalPathSlugs: ["u"],
@@ -189,7 +329,17 @@ function issue(overrides = {}) {
 // 4b. A stale (not unassessed, owner known) critical milestone gets the distinct "gate_stale" kind,
 // keeping its known owner rather than falling back to "未確認".
 {
-  const criticalMilestones = [milestone({ id: "s", slug: "s", status: "on_track", confidence: "high", isStale: true, ownerLabel: "担当C", title: "鮮度切れゲート" })];
+  const criticalMilestones = [
+    milestone({
+      id: "s",
+      slug: "s",
+      status: "on_track",
+      confidence: "high",
+      isStale: true,
+      ownerLabel: "担当C",
+      title: "鮮度切れゲート",
+    }),
+  ];
   const queue = deriveSxInterventionQueue({
     today: "2026-07-24",
     criticalPathSlugs: ["s"],
@@ -206,7 +356,16 @@ function issue(overrides = {}) {
 // 4c. Owner-missing still takes precedence over stale/unassessed and always resolves to
 // owner_unconfirmed with the "未確認" ball owner.
 {
-  const criticalMilestones = [milestone({ id: "o", slug: "o", status: "unassessed", isStale: true, ownerLabel: "未確認", title: "担当不明ゲート" })];
+  const criticalMilestones = [
+    milestone({
+      id: "o",
+      slug: "o",
+      status: "unassessed",
+      isStale: true,
+      ownerLabel: "未確認",
+      title: "担当不明ゲート",
+    }),
+  ];
   const queue = deriveSxInterventionQueue({
     today: "2026-07-24",
     criticalPathSlugs: ["o"],
@@ -223,7 +382,15 @@ function issue(overrides = {}) {
 // 5. Internal (milestone/issue) ball rows never hardcode "SX側" — column semantics = 担当, owner
 // unavailable => "未確認".
 {
-  const criticalMilestones = [milestone({ id: "internal", slug: "internal", isBlocked: true, ownerLabel: "", title: "内部停止ゲート" })];
+  const criticalMilestones = [
+    milestone({
+      id: "internal",
+      slug: "internal",
+      isBlocked: true,
+      ownerLabel: "",
+      title: "内部停止ゲート",
+    }),
+  ];
   const queue = deriveSxInterventionQueue({
     today: "2026-07-24",
     criticalPathSlugs: ["internal"],
@@ -240,20 +407,43 @@ function issue(overrides = {}) {
 // 5b. Technical test rows: blocked/failed top priority, exact testName/ownerLabel, due = parent gate
 // forecast/planned with "親ゲート期限" context label, milestoneId carried.
 {
-  const criticalMilestones = [milestone({ id: "gate-1", slug: "gate-1", plannedEnd: "2026-08-01", forecastEnd: "2026-08-05", gate: "TRL4", dateCertainty: "provisional" })];
+  const criticalMilestones = [
+    milestone({
+      id: "gate-1",
+      slug: "gate-1",
+      plannedEnd: "2026-08-01",
+      forecastEnd: "2026-08-05",
+      gate: "TRL4",
+      dateCertainty: "provisional",
+    }),
+  ];
   const queue = deriveSxInterventionQueue({
     today: "2026-07-24",
     criticalPathSlugs: ["gate-1"],
     milestones: criticalMilestones,
     technicalTests: [
-      { id: "t-1", milestoneId: "gate-1", testName: "耐久試験", status: "failed", ownerLabel: "研究者A" },
-      { id: "t-2", milestoneId: "gate-1", testName: "評価未着手試験", status: "unassessed", ownerLabel: "研究者B" },
+      {
+        id: "t-1",
+        milestoneId: "gate-1",
+        testName: "耐久試験",
+        status: "failed",
+        ownerLabel: "研究者A",
+      },
+      {
+        id: "t-2",
+        milestoneId: "gate-1",
+        testName: "評価未着手試験",
+        status: "unassessed",
+        ownerLabel: "研究者B",
+      },
     ],
     partnerWorkItems: [],
     partners: [],
     issues: [],
   });
-  const blockedTest = queue.rows.find((row) => row.kind === "technical_test_blocked");
+  const blockedTest = queue.rows.find(
+    (row) => row.kind === "technical_test_blocked",
+  );
   assert.ok(blockedTest);
   assert.equal(blockedTest.target, "耐久試験");
   assert.equal(blockedTest.ballOwner, "研究者A");
@@ -263,7 +453,9 @@ function issue(overrides = {}) {
   assert.equal(blockedTest.priority, 1);
   // Parent gate's dateCertainty must be carried through to the test row (previously dropped).
   assert.equal(blockedTest.dateCertainty, "provisional");
-  const unassessedTest = queue.rows.find((row) => row.kind === "technical_test_unassessed");
+  const unassessedTest = queue.rows.find(
+    (row) => row.kind === "technical_test_unassessed",
+  );
   assert.ok(unassessedTest);
   assert.ok(unassessedTest.priority > blockedTest.priority);
   assert.equal(unassessedTest.dateCertainty, "provisional");
@@ -271,10 +463,21 @@ function issue(overrides = {}) {
 
 // 5c. Validation runs derived individually from critical-linked issues: exact method/owner/due/gate/issueId.
 {
-  const criticalMilestones = [milestone({ id: "gate-2", slug: "gate-2", gate: "TRL5" })];
+  const criticalMilestones = [
+    milestone({ id: "gate-2", slug: "gate-2", gate: "TRL5" }),
+  ];
   const linkedIssue = issue({
-    id: "issue-1", relatedMilestoneSlugs: ["gate-2"],
-    validationRuns: [{ id: "v-1", method: "耐熱サイクル試験", status: "blocked", dueDate: "2026-07-10", ownerLabel: "研究者C" }],
+    id: "issue-1",
+    relatedMilestoneSlugs: ["gate-2"],
+    validationRuns: [
+      {
+        id: "v-1",
+        method: "耐熱サイクル試験",
+        status: "blocked",
+        dueDate: "2026-07-10",
+        ownerLabel: "研究者C",
+      },
+    ],
   });
   const queue = deriveSxInterventionQueue({
     today: "2026-07-24",
@@ -298,10 +501,30 @@ function issue(overrides = {}) {
 // 5d. Action items derived individually via decision.issueId -> issue -> critical milestone: exact
 // title/owner/due/gate/issueId, not collapsed to the issue's own title/owner/due.
 {
-  const criticalMilestones = [milestone({ id: "gate-3", slug: "gate-3", gate: "TRL6" })];
+  const criticalMilestones = [
+    milestone({ id: "gate-3", slug: "gate-3", gate: "TRL6" }),
+  ];
   const linkedIssue = issue({
-    id: "issue-2", title: "論点B", ownerLabel: "論点担当", dueDate: "2026-12-01", relatedMilestoneSlugs: ["gate-3"],
-    decisions: [{ id: "d-1", issueId: "issue-2", actionItems: [{ id: "a-1", title: "追加サンプル調達", status: "blocked", dueDate: "2026-07-05", ownerLabel: "調達担当" }] }],
+    id: "issue-2",
+    title: "論点B",
+    ownerLabel: "論点担当",
+    dueDate: "2026-12-01",
+    relatedMilestoneSlugs: ["gate-3"],
+    decisions: [
+      {
+        id: "d-1",
+        issueId: "issue-2",
+        actionItems: [
+          {
+            id: "a-1",
+            title: "追加サンプル調達",
+            status: "blocked",
+            dueDate: "2026-07-05",
+            ownerLabel: "調達担当",
+          },
+        ],
+      },
+    ],
   });
   const queue = deriveSxInterventionQueue({
     today: "2026-07-24",
@@ -323,9 +546,29 @@ function issue(overrides = {}) {
 // 6. Partner work item: `item.side` + `item.ownerLabel` are the primary ball source regardless of
 // sx/partner/shared/unknown — SX-side work items ARE surfaced, not hidden.
 {
-  const criticalMilestones = [milestone({ id: "m-sx-side", slug: "m-sx-side" })];
-  const partner = { id: "p2", slug: "p2", name: "パートナーP2", currentBallSide: "sx", currentBallOwner: "担当B", relatedMilestoneSlugs: ["m-sx-side"], nextCommitment: null, dueDate: null };
-  const workItem = { id: "wi-2", partnerId: "p2", side: "sx", title: "社内確認待ち", ownerLabel: "社内担当D", status: "blocked", dueDate: "2026-07-20", relatedMilestoneId: "m-sx-side" };
+  const criticalMilestones = [
+    milestone({ id: "m-sx-side", slug: "m-sx-side" }),
+  ];
+  const partner = {
+    id: "p2",
+    slug: "p2",
+    name: "パートナーP2",
+    currentBallSide: "sx",
+    currentBallOwner: "担当B",
+    relatedMilestoneSlugs: ["m-sx-side"],
+    nextCommitment: null,
+    dueDate: null,
+  };
+  const workItem = {
+    id: "wi-2",
+    partnerId: "p2",
+    side: "sx",
+    title: "社内確認待ち",
+    ownerLabel: "社内担当D",
+    status: "blocked",
+    dueDate: "2026-07-20",
+    relatedMilestoneId: "m-sx-side",
+  };
   const queue = deriveSxInterventionQueue({
     today: "2026-07-24",
     criticalPathSlugs: ["m-sx-side"],
@@ -346,9 +589,29 @@ function issue(overrides = {}) {
 
 // 6b. Partner work item held on the partner side: exact partner.name + item title, real partnerId.
 {
-  const criticalMilestones = [milestone({ id: "m-partner", slug: "m-partner", title: "相手先ゲート" })];
-  const partner = { id: "partner-1", slug: "partner-1", name: "パートナーX", currentBallSide: "partner", currentBallOwner: "まさ", relatedMilestoneSlugs: ["m-partner"], nextCommitment: null, dueDate: null };
-  const workItem = { id: "wi-1", partnerId: "partner-1", side: "partner", title: "先方レビューを待つ", ownerLabel: "まさ", status: "waiting", dueDate: "2026-07-20", relatedMilestoneId: "m-partner" };
+  const criticalMilestones = [
+    milestone({ id: "m-partner", slug: "m-partner", title: "相手先ゲート" }),
+  ];
+  const partner = {
+    id: "partner-1",
+    slug: "partner-1",
+    name: "パートナーX",
+    currentBallSide: "partner",
+    currentBallOwner: "まさ",
+    relatedMilestoneSlugs: ["m-partner"],
+    nextCommitment: null,
+    dueDate: null,
+  };
+  const workItem = {
+    id: "wi-1",
+    partnerId: "partner-1",
+    side: "partner",
+    title: "先方レビューを待つ",
+    ownerLabel: "まさ",
+    status: "waiting",
+    dueDate: "2026-07-20",
+    relatedMilestoneId: "m-partner",
+  };
   const queue = deriveSxInterventionQueue({
     today: "2026-07-24",
     criticalPathSlugs: ["m-partner"],
@@ -368,10 +631,18 @@ function issue(overrides = {}) {
 // 6c. Critical-linked partner fallback: no relatedMilestoneId on any work item, but partner's
 // relatedMilestoneSlugs intersect the critical path, ball is partner-side, active nextCommitment.
 {
-  const criticalMilestones = [milestone({ id: "m-fallback", slug: "m-fallback", gate: "TRL7" })];
+  const criticalMilestones = [
+    milestone({ id: "m-fallback", slug: "m-fallback", gate: "TRL7" }),
+  ];
   const partner = {
-    id: "partner-2", slug: "partner-2", name: "フォールバック先", currentBallSide: "partner", currentBallOwner: "先方担当",
-    relatedMilestoneSlugs: ["m-fallback"], nextCommitment: "サンプル納品", dueDate: "2026-07-10",
+    id: "partner-2",
+    slug: "partner-2",
+    name: "フォールバック先",
+    currentBallSide: "partner",
+    currentBallOwner: "先方担当",
+    relatedMilestoneSlugs: ["m-fallback"],
+    nextCommitment: "サンプル納品",
+    dueDate: "2026-07-10",
   };
   const queue = deriveSxInterventionQueue({
     today: "2026-07-24",
@@ -390,23 +661,52 @@ function issue(overrides = {}) {
 
 // 7. Upcoming-action queue: windows + sort (overdue first, then critical-linked, then blocked, due, label).
 {
-  const criticalMilestones = [milestone({ id: "gate-u", slug: "gate-u", gate: "TRL8" })];
-  const linkedIssue = issue({ id: "issue-u", relatedMilestoneSlugs: ["gate-u"] });
+  const criticalMilestones = [
+    milestone({ id: "gate-u", slug: "gate-u", gate: "TRL8" }),
+  ];
+  const linkedIssue = issue({
+    id: "issue-u",
+    relatedMilestoneSlugs: ["gate-u"],
+  });
   const upcoming = deriveSxUpcomingQueue({
     today: "2026-07-24",
     criticalPathSlugs: ["gate-u"],
     milestones: criticalMilestones,
     actions: [
-      { id: "a-overdue", title: "遅延アクション", ownerLabel: "担当X", dueDate: "2026-07-01", status: "open", issueId: "issue-u" },
-      { id: "a-soon", title: "近日アクション", ownerLabel: "担当Y", dueDate: "2026-07-28", status: "open", issueId: null },
-      { id: "a-unset", title: "期限未設定アクション", ownerLabel: "担当Z", dueDate: null, status: "open", issueId: null },
+      {
+        id: "a-overdue",
+        title: "遅延アクション",
+        ownerLabel: "担当X",
+        dueDate: "2026-07-01",
+        status: "open",
+        issueId: "issue-u",
+      },
+      {
+        id: "a-soon",
+        title: "近日アクション",
+        ownerLabel: "担当Y",
+        dueDate: "2026-07-28",
+        status: "open",
+        issueId: null,
+      },
+      {
+        id: "a-unset",
+        title: "期限未設定アクション",
+        ownerLabel: "担当Z",
+        dueDate: null,
+        status: "open",
+        issueId: null,
+      },
     ],
     decisions: [],
     validationRuns: [],
     issues: [linkedIssue],
     maxRows: 3,
   });
-  assert.deepEqual(upcoming.rows.map((row) => row.window), ["overdue", "within_7", "unset"]);
+  assert.deepEqual(
+    upcoming.rows.map((row) => row.window),
+    ["overdue", "within_7", "unset"],
+  );
   assert.equal(upcoming.rows[0].label, "遅延アクション");
   assert.equal(upcoming.rows[0].criticalLinked, true);
   assert.equal(upcoming.rows[0].gate, "TRL8");
@@ -416,21 +716,61 @@ function issue(overrides = {}) {
 {
   const criticalMilestones = [milestone({ id: "gate-d", slug: "gate-d" })];
   const linkedIssue = issue({
-    id: "issue-d", relatedMilestoneSlugs: ["gate-d"],
-    decisions: [{ id: "d-2", issueId: "issue-d", actionItems: [{ id: "a-dup", title: "重複アクション", status: "blocked", dueDate: "2026-07-01", ownerLabel: "担当W" }] }],
+    id: "issue-d",
+    relatedMilestoneSlugs: ["gate-d"],
+    decisions: [
+      {
+        id: "d-2",
+        issueId: "issue-d",
+        actionItems: [
+          {
+            id: "a-dup",
+            title: "重複アクション",
+            status: "blocked",
+            dueDate: "2026-07-01",
+            ownerLabel: "担当W",
+          },
+        ],
+      },
+    ],
   });
   const interventionQueue = deriveSxInterventionQueue({
-    today: "2026-07-24", criticalPathSlugs: ["gate-d"], milestones: criticalMilestones,
-    partnerWorkItems: [], partners: [], issues: [linkedIssue],
+    today: "2026-07-24",
+    criticalPathSlugs: ["gate-d"],
+    milestones: criticalMilestones,
+    partnerWorkItems: [],
+    partners: [],
+    issues: [linkedIssue],
   });
-  const excludeKeys = new Set(interventionQueue.rows.filter((r) => r.kind === "action_item").map((r) => r.key));
+  const excludeKeys = new Set(
+    interventionQueue.rows
+      .filter((r) => r.kind === "action_item")
+      .map((r) => r.key),
+  );
   assert.ok(excludeKeys.has("action-a-dup"));
   const upcoming = deriveSxUpcomingQueue({
-    today: "2026-07-24", criticalPathSlugs: ["gate-d"], milestones: criticalMilestones,
-    actions: [{ id: "a-dup", title: "重複アクション", ownerLabel: "担当W", dueDate: "2026-07-01", status: "open", issueId: "issue-d" }],
-    decisions: [], validationRuns: [], issues: [linkedIssue], excludeKeys,
+    today: "2026-07-24",
+    criticalPathSlugs: ["gate-d"],
+    milestones: criticalMilestones,
+    actions: [
+      {
+        id: "a-dup",
+        title: "重複アクション",
+        ownerLabel: "担当W",
+        dueDate: "2026-07-01",
+        status: "open",
+        issueId: "issue-d",
+      },
+    ],
+    decisions: [],
+    validationRuns: [],
+    issues: [linkedIssue],
+    excludeKeys,
   });
-  assert.equal(upcoming.rows.some((row) => row.dedupeKey === "action-a-dup"), false);
+  assert.equal(
+    upcoming.rows.some((row) => row.dedupeKey === "action-a-dup"),
+    false,
+  );
 }
 
 // 8. Verdict display mapping: exact オンスケ/要注意/危険/判定不能 text, unassessed never maps to green.
@@ -445,8 +785,20 @@ function issue(overrides = {}) {
 // 9. Provisional false-green (case A): non-completed node with dateCertainty=provisional never
 // resolves to current/future(green) — it must render amber "attention".
 {
-  const milestones = [milestone({ id: "p1", slug: "p1", status: "on_track", dateCertainty: "provisional", plannedEnd: "2026-09-01", forecastEnd: "2026-09-01" })];
-  const rail = deriveSxCriticalPathRail({ dagValid: true, criticalPathSlugs: ["p1"] }, milestones);
+  const milestones = [
+    milestone({
+      id: "p1",
+      slug: "p1",
+      status: "on_track",
+      dateCertainty: "provisional",
+      plannedEnd: "2026-09-01",
+      forecastEnd: "2026-09-01",
+    }),
+  ];
+  const rail = deriveSxCriticalPathRail(
+    { dagValid: true, criticalPathSlugs: ["p1"] },
+    milestones,
+  );
   assert.equal(rail.nodes[0].state, "attention");
   assert.notEqual(rail.nodes[0].state, "current");
   assert.notEqual(rail.nodes[0].state, "future");
@@ -455,8 +807,20 @@ function issue(overrides = {}) {
 // 9b. Provisional false-green (case B): non-completed node missing both planned and forecast dates
 // never resolves to current/future(green) — it must render gray "unassessed".
 {
-  const milestones = [milestone({ id: "p2", slug: "p2", status: "on_track", dateCertainty: "confirmed", plannedEnd: null, forecastEnd: null })];
-  const rail = deriveSxCriticalPathRail({ dagValid: true, criticalPathSlugs: ["p2"] }, milestones);
+  const milestones = [
+    milestone({
+      id: "p2",
+      slug: "p2",
+      status: "on_track",
+      dateCertainty: "confirmed",
+      plannedEnd: null,
+      forecastEnd: null,
+    }),
+  ];
+  const rail = deriveSxCriticalPathRail(
+    { dagValid: true, criticalPathSlugs: ["p2"] },
+    milestones,
+  );
   assert.equal(rail.nodes[0].state, "unassessed");
   assert.notEqual(rail.nodes[0].state, "current");
   assert.notEqual(rail.nodes[0].state, "future");
@@ -465,14 +829,28 @@ function issue(overrides = {}) {
 // 10. Completed partner work item is excluded from the queue and never suppresses the fallback via
 // directlyLinkedPartnerIds — only an active, qualifying work item may suppress it.
 {
-  const criticalMilestones = [milestone({ id: "m-completed", slug: "m-completed", gate: "TRL9" })];
+  const criticalMilestones = [
+    milestone({ id: "m-completed", slug: "m-completed", gate: "TRL9" }),
+  ];
   const partner = {
-    id: "partner-3", slug: "partner-3", name: "完了済み相手先", currentBallSide: "partner", currentBallOwner: "先方担当2",
-    relatedMilestoneSlugs: ["m-completed"], nextCommitment: "追加検体の送付", dueDate: "2026-07-01",
+    id: "partner-3",
+    slug: "partner-3",
+    name: "完了済み相手先",
+    currentBallSide: "partner",
+    currentBallOwner: "先方担当2",
+    relatedMilestoneSlugs: ["m-completed"],
+    nextCommitment: "追加検体の送付",
+    dueDate: "2026-07-01",
   };
   const completedWorkItem = {
-    id: "wi-completed", partnerId: "partner-3", side: "partner", title: "旧レビュー", ownerLabel: "先方担当2",
-    status: "completed", dueDate: "2026-06-01", relatedMilestoneId: "m-completed",
+    id: "wi-completed",
+    partnerId: "partner-3",
+    side: "partner",
+    title: "旧レビュー",
+    ownerLabel: "先方担当2",
+    status: "completed",
+    dueDate: "2026-06-01",
+    relatedMilestoneId: "m-completed",
   };
   const queue = deriveSxInterventionQueue({
     today: "2026-07-24",
@@ -482,9 +860,16 @@ function issue(overrides = {}) {
     partners: [partner],
     issues: [],
   });
-  assert.equal(queue.rows.some((row) => row.kind === "partner_work_item"), false, "completed work item must never surface as an intervention");
+  assert.equal(
+    queue.rows.some((row) => row.kind === "partner_work_item"),
+    false,
+    "completed work item must never surface as an intervention",
+  );
   const fallback = queue.rows.find((row) => row.kind === "partner_fallback");
-  assert.ok(fallback, "a completed work item must not suppress the partner fallback");
+  assert.ok(
+    fallback,
+    "a completed work item must not suppress the partner fallback",
+  );
   assert.ok(fallback.target.includes("完了済み相手先"));
 }
 
@@ -493,10 +878,18 @@ function issue(overrides = {}) {
 // handoff phrase ("まさへ引き継ぎ"). The sx-side fallback must surface with owner 石原先生, and the
 // displayed target must be real-name-normalized (owner) / nominalized (next-action clause).
 {
-  const criticalMilestones = [milestone({ id: "m-smbc", slug: "m-smbc", gate: "資金調達" })];
+  const criticalMilestones = [
+    milestone({ id: "m-smbc", slug: "m-smbc", gate: "資金調達" }),
+  ];
   const partner = {
-    id: "partner-smbc", slug: "smbc", name: "SMBC", currentBallSide: "sx", currentBallOwner: "石原先生",
-    relatedMilestoneSlugs: ["m-smbc"], nextCommitment: "口座開設資料を整理し、まさへ引き継ぎ", dueDate: "2026-08-01",
+    id: "partner-smbc",
+    slug: "smbc",
+    name: "SMBC",
+    currentBallSide: "sx",
+    currentBallOwner: "石原先生",
+    relatedMilestoneSlugs: ["m-smbc"],
+    nextCommitment: "口座開設資料を整理し、まさへ引き継ぎ",
+    dueDate: "2026-08-01",
   };
   const queue = deriveSxInterventionQueue({
     today: "2026-07-24",
@@ -511,8 +904,14 @@ function issue(overrides = {}) {
   assert.equal(row.ballSide, "SX側");
   assert.equal(row.ballOwner, "石原先生");
   assert.ok(row.target.includes("SMBC"));
-  assert.ok(row.target.includes("山地"), "まさ must be normalized to the real name on this external-visible surface");
-  assert.ok(!row.target.includes("まさへ"), "the raw code-name phrase must not leak through unnormalized");
+  assert.ok(
+    row.target.includes("山地"),
+    "まさ must be normalized to the real name on this external-visible surface",
+  );
+  assert.ok(
+    !row.target.includes("まさへ"),
+    "the raw code-name phrase must not leak through unnormalized",
+  );
 }
 
 // 12. Month-precision date formatting never fabricates a day; day-precision keeps the exact date;
@@ -529,10 +928,19 @@ function issue(overrides = {}) {
 // 13. dueDatePrecision is carried through onto partner_work_item / partner_fallback rows so the
 // component never renders a month-only seed value as if it were day-certain.
 {
-  const criticalMilestones = [milestone({ id: "m-precision", slug: "m-precision" })];
+  const criticalMilestones = [
+    milestone({ id: "m-precision", slug: "m-precision" }),
+  ];
   const partner = {
-    id: "partner-precision", slug: "partner-precision", name: "精度先", currentBallSide: "partner", currentBallOwner: "先方担当3",
-    relatedMilestoneSlugs: ["m-precision"], nextCommitment: "見積を確認する", dueDate: "2026-08-01", dueDatePrecision: "month",
+    id: "partner-precision",
+    slug: "partner-precision",
+    name: "精度先",
+    currentBallSide: "partner",
+    currentBallOwner: "先方担当3",
+    relatedMilestoneSlugs: ["m-precision"],
+    nextCommitment: "見積を確認する",
+    dueDate: "2026-08-01",
+    dueDatePrecision: "month",
   };
   const queue = deriveSxInterventionQueue({
     today: "2026-07-24",
@@ -555,19 +963,34 @@ function issue(overrides = {}) {
   assert.equal(sxEcdIsDueDateOverdue("2026-07-25", "day", "2026-07-24"), false);
 
   // "month" precision: a day-1 placeholder within the current due month is NOT overdue.
-  assert.equal(sxEcdIsDueDateOverdue("2026-07-01", "month", "2026-07-24"), false);
+  assert.equal(
+    sxEcdIsDueDateOverdue("2026-07-01", "month", "2026-07-24"),
+    false,
+  );
   // A month-precision due date whose month has already fully passed IS overdue.
-  assert.equal(sxEcdIsDueDateOverdue("2026-06-01", "month", "2026-07-24"), true);
+  assert.equal(
+    sxEcdIsDueDateOverdue("2026-06-01", "month", "2026-07-24"),
+    true,
+  );
   // Future month is not overdue.
-  assert.equal(sxEcdIsDueDateOverdue("2026-08-01", "month", "2026-07-24"), false);
+  assert.equal(
+    sxEcdIsDueDateOverdue("2026-08-01", "month", "2026-07-24"),
+    false,
+  );
 
   // "unknown" precision and null dates are never overdue.
-  assert.equal(sxEcdIsDueDateOverdue("2026-01-01", "unknown", "2026-07-24"), false);
+  assert.equal(
+    sxEcdIsDueDateOverdue("2026-01-01", "unknown", "2026-07-24"),
+    false,
+  );
   assert.equal(sxEcdIsDueDateOverdue(null, "day", "2026-07-24"), false);
   assert.equal(sxEcdIsDueDateOverdue(null, undefined, "2026-07-24"), false);
 
   // No precision supplied at all falls back to plain day-comparison (older caller shape).
-  assert.equal(sxEcdIsDueDateOverdue("2026-07-23", undefined, "2026-07-24"), true);
+  assert.equal(
+    sxEcdIsDueDateOverdue("2026-07-23", undefined, "2026-07-24"),
+    true,
+  );
 }
 
 // 15. Partner work item / partner fallback qualification uses precision-aware overdue, not raw
@@ -576,8 +999,14 @@ function issue(overrides = {}) {
 {
   const criticalMilestones = [milestone({ id: "m-month", slug: "m-month" })];
   const sameMonthItem = {
-    id: "wi-same-month", partnerId: "partner-month", side: "partner", title: "見積提示",
-    ownerLabel: "先方担当", status: "open", dueDate: "2026-07-01", dueDatePrecision: "month",
+    id: "wi-same-month",
+    partnerId: "partner-month",
+    side: "partner",
+    title: "見積提示",
+    ownerLabel: "先方担当",
+    status: "open",
+    dueDate: "2026-07-01",
+    dueDatePrecision: "month",
     relatedMilestoneId: "m-month",
   };
   const queueSameMonth = deriveSxInterventionQueue({
@@ -588,9 +1017,16 @@ function issue(overrides = {}) {
     partners: [],
     issues: [],
   });
-  assert.equal(queueSameMonth.rows.some((r) => r.kind === "partner_work_item"), false);
+  assert.equal(
+    queueSameMonth.rows.some((r) => r.kind === "partner_work_item"),
+    false,
+  );
 
-  const priorMonthItem = { ...sameMonthItem, id: "wi-prior-month", dueDate: "2026-06-01" };
+  const priorMonthItem = {
+    ...sameMonthItem,
+    id: "wi-prior-month",
+    dueDate: "2026-06-01",
+  };
   const queuePriorMonth = deriveSxInterventionQueue({
     today: "2026-07-24",
     criticalPathSlugs: ["m-month"],
@@ -599,7 +1035,9 @@ function issue(overrides = {}) {
     partners: [],
     issues: [],
   });
-  const priorRow = queuePriorMonth.rows.find((r) => r.kind === "partner_work_item");
+  const priorRow = queuePriorMonth.rows.find(
+    (r) => r.kind === "partner_work_item",
+  );
   assert.ok(priorRow);
 }
 
@@ -608,31 +1046,81 @@ function issue(overrides = {}) {
 // marks on the node (never third-party flags); rank numbers are shared with the top list.
 {
   const milestones = [
-    milestone({ id: "m1", slug: "a", status: "on_track", isBlocked: true, track: "technology_development", plannedEnd: "2026-09-30", forecastEnd: "2026-10-16", deltaDays: 16 }),
-    milestone({ id: "m2", slug: "b", status: "on_track", ownerLabel: "未確認", plannedEnd: "2026-12-18", forecastEnd: "2027-01-15", deltaDays: 28, track: "business_development" }),
-    milestone({ id: "m3", slug: "c", status: "on_track", plannedEnd: "2027-03-31", forecastEnd: "2027-03-31", deltaDays: 0, track: "organizational_building" }),
+    milestone({
+      id: "m1",
+      slug: "a",
+      status: "on_track",
+      isBlocked: true,
+      track: "technology_development",
+      plannedEnd: "2026-09-30",
+      forecastEnd: "2026-10-16",
+      deltaDays: 16,
+    }),
+    milestone({
+      id: "m2",
+      slug: "b",
+      status: "on_track",
+      ownerLabel: "未確認",
+      plannedEnd: "2026-12-18",
+      forecastEnd: "2027-01-15",
+      deltaDays: 28,
+      track: "business_development",
+    }),
+    milestone({
+      id: "m3",
+      slug: "c",
+      status: "on_track",
+      plannedEnd: "2027-03-31",
+      forecastEnd: "2027-03-31",
+      deltaDays: 0,
+      track: "organizational_building",
+    }),
   ];
-  const rail = deriveSxCriticalPathRail({ dagValid: true, criticalPathSlugs: ["a", "b", "c"] }, milestones);
+  const rail = deriveSxCriticalPathRail(
+    { dagValid: true, criticalPathSlugs: ["a", "b", "c"] },
+    milestones,
+  );
   assert.equal(rail.nodes[0].track, "technology_development");
 
   const queue = deriveSxInterventionQueue({
     today: "2026-07-25",
     criticalPathSlugs: ["a", "b", "c"],
     milestones,
-    partnerWorkItems: [{
-      id: "wi1", partnerId: "p1", side: "partner", title: "試作納品",
-      ownerLabel: "先方担当", status: "waiting", dueDate: "2026-08-01", dueDatePrecision: "month",
-      relatedMilestoneId: "m1",
-    }],
-    partners: [{
-      id: "p9", slug: "p9", name: "機関X", currentBallSide: "partner", currentBallOwner: "相手担当",
-      relatedMilestoneSlugs: ["zz-not-critical-but-unmatched"], nextCommitment: null, dueDate: null,
-    }],
+    partnerWorkItems: [
+      {
+        id: "wi1",
+        partnerId: "p1",
+        side: "partner",
+        title: "試作納品",
+        ownerLabel: "先方担当",
+        status: "waiting",
+        dueDate: "2026-08-01",
+        dueDatePrecision: "month",
+        relatedMilestoneId: "m1",
+      },
+    ],
+    partners: [
+      {
+        id: "p9",
+        slug: "p9",
+        name: "機関X",
+        currentBallSide: "partner",
+        currentBallOwner: "相手担当",
+        relatedMilestoneSlugs: ["zz-not-critical-but-unmatched"],
+        nextCommitment: null,
+        dueDate: null,
+      },
+    ],
     issues: [],
     maxRows: 200,
   });
 
-  const map = deriveSxStateMap({ rail, interventionRows: queue.rows, totalCount: queue.totalCount, topCount: 3 });
+  const map = deriveSxStateMap({
+    rail,
+    interventionRows: queue.rows,
+    totalCount: queue.totalCount,
+    topCount: 3,
+  });
   assert.equal(map.valid, true);
   assert.equal(map.nodes.length, 3);
 
@@ -661,27 +1149,56 @@ function issue(overrides = {}) {
     ...map.unattached,
   ].filter((row) => row.rank != null);
   for (const top of map.top) {
-    assert.ok(rankedOnMap.some((row) => row.key === top.key && row.rank === top.rank));
+    assert.ok(
+      rankedOnMap.some((row) => row.key === top.key && row.rank === top.rank),
+    );
   }
 }
 
 // 20b. Rows whose milestoneId doesn't resolve to a visible node land in unattached — never
 // guessed onto a node. Invalid rail keeps every row in unattached with top ranks intact.
 {
-  const milestones = [milestone({ id: "m1", slug: "a", status: "on_track", isBlocked: true })];
-  const rail = deriveSxCriticalPathRail({ dagValid: true, criticalPathSlugs: ["a"] }, milestones);
+  const milestones = [
+    milestone({ id: "m1", slug: "a", status: "on_track", isBlocked: true }),
+  ];
+  const rail = deriveSxCriticalPathRail(
+    { dagValid: true, criticalPathSlugs: ["a"] },
+    milestones,
+  );
   const orphanRow = {
-    key: "issue-orphan", priority: 5, kind: "issue_stalled", target: "孤立論点", ballSide: "担当",
-    ballOwner: "担当A", dueDate: "2026-07-01", dueContextLabel: null, gate: "", anchor: "#sx-issue-orphan",
-    entityType: "issue", entityId: "orphan", milestoneId: null,
+    key: "issue-orphan",
+    priority: 5,
+    kind: "issue_stalled",
+    target: "孤立論点",
+    ballSide: "担当",
+    ballOwner: "担当A",
+    dueDate: "2026-07-01",
+    dueContextLabel: null,
+    gate: "",
+    anchor: "#sx-issue-orphan",
+    entityType: "issue",
+    entityId: "orphan",
+    milestoneId: null,
   };
-  const map = deriveSxStateMap({ rail, interventionRows: [orphanRow], totalCount: 1, topCount: 3 });
+  const map = deriveSxStateMap({
+    rail,
+    interventionRows: [orphanRow],
+    totalCount: 1,
+    topCount: 3,
+  });
   assert.equal(map.nodes[0].flags.length, 0);
   assert.equal(map.unattached.length, 1);
   assert.equal(map.unattached[0].rank, 1);
 
-  const invalidRail = deriveSxCriticalPathRail({ dagValid: false, criticalPathSlugs: ["a"] }, milestones);
-  const invalidMap = deriveSxStateMap({ rail: invalidRail, interventionRows: [orphanRow], totalCount: 1 });
+  const invalidRail = deriveSxCriticalPathRail(
+    { dagValid: false, criticalPathSlugs: ["a"] },
+    milestones,
+  );
+  const invalidMap = deriveSxStateMap({
+    rail: invalidRail,
+    interventionRows: [orphanRow],
+    totalCount: 1,
+  });
   assert.equal(invalidMap.valid, false);
   assert.equal(invalidMap.reason, "依存関係不正");
   assert.equal(invalidMap.unattached.length, 1);
@@ -691,34 +1208,89 @@ function issue(overrides = {}) {
 // 20c. State-class rows never appear as flags anywhere (flag/state classification is by kind).
 {
   const milestones = [
-    milestone({ id: "m1", slug: "a", status: "unassessed", confidence: "unknown", ownerLabel: "未確認", plannedEnd: null, forecastEnd: null, deltaDays: null }),
+    milestone({
+      id: "m1",
+      slug: "a",
+      status: "unassessed",
+      confidence: "unknown",
+      ownerLabel: "未確認",
+      plannedEnd: null,
+      forecastEnd: null,
+      deltaDays: null,
+    }),
   ];
-  const rail = deriveSxCriticalPathRail({ dagValid: true, criticalPathSlugs: ["a"] }, milestones);
+  const rail = deriveSxCriticalPathRail(
+    { dagValid: true, criticalPathSlugs: ["a"] },
+    milestones,
+  );
   const queue = deriveSxInterventionQueue({
-    today: "2026-07-25", criticalPathSlugs: ["a"], milestones,
-    partnerWorkItems: [], partners: [], issues: [], maxRows: 200,
+    today: "2026-07-25",
+    criticalPathSlugs: ["a"],
+    milestones,
+    partnerWorkItems: [],
+    partners: [],
+    issues: [],
+    maxRows: 200,
   });
-  const map = deriveSxStateMap({ rail, interventionRows: queue.rows, totalCount: queue.totalCount });
+  const map = deriveSxStateMap({
+    rail,
+    interventionRows: queue.rows,
+    totalCount: queue.totalCount,
+  });
   assert.equal(map.nodes[0].flags.length, 0);
   assert.ok(map.nodes[0].stateMarks.length > 0);
-  for (const mark of map.nodes[0].stateMarks) assert.equal(mark.blockerClass, "state");
+  for (const mark of map.nodes[0].stateMarks)
+    assert.equal(mark.blockerClass, "state");
 }
-
 
 // 21. 判定バー: 業務判定は重要経路から（停止>期限超過>遅延見込み>オンスケ/判定不能）、運用は
 // 判定キーの表示語。STEP2は金額が無ければ「未確認」。未評価だけの経路をオンスケにしない。
 {
   const tracks = [
-    { key: "business_development", shortLabel: "事業", deltaDays: 7, dateCertainty: "provisional" },
-    { key: "funding", shortLabel: "資金", deltaDays: 35, dateCertainty: "provisional" },
+    {
+      key: "business_development",
+      shortLabel: "事業",
+      deltaDays: 7,
+      dateCertainty: "provisional",
+    },
+    {
+      key: "funding",
+      shortLabel: "資金",
+      deltaDays: 35,
+      dateCertainty: "provisional",
+    },
   ];
   const milestones = [
-    milestone({ id: "m1", slug: "a", status: "unassessed", confidence: "unknown", deltaDays: 16, dateCertainty: "provisional", plannedEnd: "2026-09-30", forecastEnd: "2026-10-16" }),
-    milestone({ id: "m2", slug: "b", status: "unassessed", confidence: "unknown", deltaDays: 28, dateCertainty: "provisional", plannedEnd: "2026-12-18", forecastEnd: "2027-01-15" }),
+    milestone({
+      id: "m1",
+      slug: "a",
+      status: "unassessed",
+      confidence: "unknown",
+      deltaDays: 16,
+      dateCertainty: "provisional",
+      plannedEnd: "2026-09-30",
+      forecastEnd: "2026-10-16",
+    }),
+    milestone({
+      id: "m2",
+      slug: "b",
+      status: "unassessed",
+      confidence: "unknown",
+      deltaDays: 28,
+      dateCertainty: "provisional",
+      plannedEnd: "2026-12-18",
+      forecastEnd: "2027-01-15",
+    }),
   ];
   const summary = deriveSxVerdictSummary({
     today: "2026-07-25",
-    judgment: { key: "unassessed", dagValid: true, completenessPct: 51, criticalUnknownCount: 21, blockedCount: 0 },
+    judgment: {
+      key: "unassessed",
+      dagValid: true,
+      completenessPct: 51,
+      criticalUnknownCount: 21,
+      blockedCount: 0,
+    },
     criticalPathSlugs: ["a", "b"],
     milestones,
     tracks,
@@ -738,9 +1310,17 @@ function issue(overrides = {}) {
   // 停止が最優先
   const blockedSummary = deriveSxVerdictSummary({
     today: "2026-07-25",
-    judgment: { key: "crisis", dagValid: true, completenessPct: 51, criticalUnknownCount: 21, blockedCount: 1 },
+    judgment: {
+      key: "crisis",
+      dagValid: true,
+      completenessPct: 51,
+      criticalUnknownCount: 21,
+      blockedCount: 1,
+    },
     criticalPathSlugs: ["a"],
-    milestones: [milestone({ id: "m1", slug: "a", isBlocked: true, deltaDays: 16 })],
+    milestones: [
+      milestone({ id: "m1", slug: "a", isBlocked: true, deltaDays: 16 }),
+    ],
     tracks,
     objectiveTargetDate: null,
     funding: null,
@@ -751,9 +1331,24 @@ function issue(overrides = {}) {
   // 全て未評価・差分なし → オンスケにしない
   const unassessedSummary = deriveSxVerdictSummary({
     today: "2026-07-25",
-    judgment: { key: "unassessed", dagValid: true, completenessPct: 10, criticalUnknownCount: 5, blockedCount: 0 },
+    judgment: {
+      key: "unassessed",
+      dagValid: true,
+      completenessPct: 10,
+      criticalUnknownCount: 5,
+      blockedCount: 0,
+    },
     criticalPathSlugs: ["a"],
-    milestones: [milestone({ id: "m1", slug: "a", status: "unassessed", confidence: "unknown", deltaDays: 0, dateCertainty: "provisional" })],
+    milestones: [
+      milestone({
+        id: "m1",
+        slug: "a",
+        status: "unassessed",
+        confidence: "unknown",
+        deltaDays: 0,
+        dateCertainty: "provisional",
+      }),
+    ],
     tracks: [],
     objectiveTargetDate: null,
     funding: null,
@@ -765,20 +1360,112 @@ function issue(overrides = {}) {
 // 日付なし・完了はレーンへ描かず件数へ。laneOrderに無いtrackも落とさない。
 {
   const milestones = [
-    milestone({ id: "m1", slug: "biz-1", track: "business_development", plannedStart: "2026-07-20", plannedEnd: "2026-08-07", forecastEnd: "2026-08-14", deltaDays: 7 }),
-    milestone({ id: "m2", slug: "tech-1", track: "technology_development", plannedStart: "2026-07-20", plannedEnd: "2026-09-30", forecastEnd: "2026-10-16", deltaDays: 16 }),
-    milestone({ id: "m3", slug: "tech-2", track: "technology_development", plannedStart: "2026-09-01", plannedEnd: "2026-12-18", forecastEnd: "2027-01-15", deltaDays: 28 }),
-    milestone({ id: "m4", slug: "org-1", track: "organizational_building", plannedStart: "2027-02-01", plannedEnd: "2027-03-31", forecastEnd: "2027-03-31", deltaDays: 0 }),
-    milestone({ id: "m5", slug: "fund-1", track: "funding", plannedStart: "2026-08-03", plannedEnd: "2026-11-27", forecastEnd: "2026-12-18", deltaDays: 21 }),
-    milestone({ id: "m6", slug: "undated", track: "funding", plannedEnd: null, forecastEnd: null }),
-    milestone({ id: "m7", slug: "done", track: "funding", status: "completed", plannedEnd: "2026-07-01", forecastEnd: "2026-07-01" }),
-    milestone({ id: "m8", slug: "orphan-track", track: "mystery", plannedEnd: "2026-10-01", forecastEnd: "2026-10-01", deltaDays: 0 }),
+    milestone({
+      id: "m1",
+      slug: "biz-1",
+      track: "business_development",
+      plannedStart: "2026-07-20",
+      plannedEnd: "2026-08-07",
+      forecastEnd: "2026-08-14",
+      deltaDays: 7,
+    }),
+    milestone({
+      id: "m2",
+      slug: "tech-1",
+      track: "technology_development",
+      plannedStart: "2026-07-20",
+      plannedEnd: "2026-09-30",
+      forecastEnd: "2026-10-16",
+      deltaDays: 16,
+    }),
+    milestone({
+      id: "m3",
+      slug: "tech-2",
+      track: "technology_development",
+      plannedStart: "2026-09-01",
+      plannedEnd: "2026-12-18",
+      forecastEnd: "2027-01-15",
+      deltaDays: 28,
+    }),
+    milestone({
+      id: "m4",
+      slug: "org-1",
+      track: "organizational_building",
+      plannedStart: "2027-02-01",
+      plannedEnd: "2027-03-31",
+      forecastEnd: "2027-03-31",
+      deltaDays: 0,
+    }),
+    milestone({
+      id: "m5",
+      slug: "fund-1",
+      track: "funding",
+      plannedStart: "2026-08-03",
+      plannedEnd: "2026-11-27",
+      forecastEnd: "2026-12-18",
+      deltaDays: 21,
+    }),
+    milestone({
+      id: "m6",
+      slug: "undated",
+      track: "funding",
+      plannedEnd: null,
+      forecastEnd: null,
+    }),
+    milestone({
+      id: "m7",
+      slug: "done",
+      track: "funding",
+      status: "completed",
+      plannedEnd: "2026-07-01",
+      forecastEnd: "2026-07-01",
+    }),
+    milestone({
+      id: "m8",
+      slug: "orphan-track",
+      track: "mystery",
+      plannedEnd: "2026-10-01",
+      forecastEnd: "2026-10-01",
+      deltaDays: 0,
+    }),
   ];
   const tracks = [
-    { key: "business_development", label: "事業開発", shortLabel: "事業", accent: "#315f7d", deltaDays: 7, dateCertainty: "provisional", maxIssue: "" },
-    { key: "technology_development", label: "技術開発", shortLabel: "技術", accent: "#38745d", deltaDays: 16, dateCertainty: "provisional", maxIssue: "" },
-    { key: "organizational_building", label: "体制構築", shortLabel: "体制", accent: "#76637b", deltaDays: 28, dateCertainty: "provisional", maxIssue: "" },
-    { key: "funding", label: "資金調達", shortLabel: "資金", accent: "#bf7b2c", deltaDays: 35, dateCertainty: "provisional", maxIssue: "" },
+    {
+      key: "business_development",
+      label: "事業開発",
+      shortLabel: "事業",
+      accent: "#315f7d",
+      deltaDays: 7,
+      dateCertainty: "provisional",
+      maxIssue: "",
+    },
+    {
+      key: "technology_development",
+      label: "技術開発",
+      shortLabel: "技術",
+      accent: "#38745d",
+      deltaDays: 16,
+      dateCertainty: "provisional",
+      maxIssue: "",
+    },
+    {
+      key: "organizational_building",
+      label: "体制構築",
+      shortLabel: "体制",
+      accent: "#76637b",
+      deltaDays: 28,
+      dateCertainty: "provisional",
+      maxIssue: "",
+    },
+    {
+      key: "funding",
+      label: "資金調達",
+      shortLabel: "資金",
+      accent: "#bf7b2c",
+      deltaDays: 35,
+      dateCertainty: "provisional",
+      maxIssue: "",
+    },
   ];
   const timeline = deriveSxUnifiedTimeline({
     today: "2026-07-25",
@@ -788,8 +1475,37 @@ function issue(overrides = {}) {
     tracks,
     objectiveTargetDate: "2027-03-31",
     interventionRows: [
-      { key: "r1", priority: 3, kind: "partner_work_item", target: "納品受入", ballSide: "相手側", ballOwner: "先方担当", dueDate: "2026-08-31", dueDatePrecision: "month", dueContextLabel: null, gate: "", anchor: "#sx-partner-x", entityType: "partner", entityId: "x", milestoneId: "m2" },
-      { key: "r2", priority: 6, kind: "owner_unconfirmed", target: "担当確定", ballSide: "担当", ballOwner: "未確認", dueDate: null, dueContextLabel: null, gate: "", anchor: "management-plan", entityType: "milestone", entityId: "m3", milestoneId: "m3" },
+      {
+        key: "r1",
+        priority: 3,
+        kind: "partner_work_item",
+        target: "納品受入",
+        ballSide: "相手側",
+        ballOwner: "先方担当",
+        dueDate: "2026-08-31",
+        dueDatePrecision: "month",
+        dueContextLabel: null,
+        gate: "",
+        anchor: "#sx-partner-x",
+        entityType: "partner",
+        entityId: "x",
+        milestoneId: "m2",
+      },
+      {
+        key: "r2",
+        priority: 6,
+        kind: "owner_unconfirmed",
+        target: "担当確定",
+        ballSide: "担当",
+        ballOwner: "未確認",
+        dueDate: null,
+        dueContextLabel: null,
+        gate: "",
+        anchor: "management-plan",
+        entityType: "milestone",
+        entityId: "m3",
+        milestoneId: "m3",
+      },
     ],
     pinCount: 5,
   });
@@ -798,10 +1514,22 @@ function issue(overrides = {}) {
   assert.equal(timeline.undatedCount, 1);
   assert.equal(timeline.completedCount, 1);
   // レーン順は 事業→技術→体制→資金 + 未知トラックの末尾レーン
-  assert.deepEqual(timeline.lanes.map((lane) => lane.key), ["business_development", "technology_development", "organizational_building", "funding", "unknown"]);
+  assert.deepEqual(
+    timeline.lanes.map((lane) => lane.key),
+    [
+      "business_development",
+      "technology_development",
+      "organizational_building",
+      "funding",
+      "unknown",
+    ],
+  );
   assert.equal(timeline.lanes[4].rows.length, 1);
   // 重要経路の接続点は経路順で3点、pctは単調増加
-  assert.deepEqual(timeline.criticalPoints.map((point) => point.slug), ["tech-1", "tech-2", "org-1"]);
+  assert.deepEqual(
+    timeline.criticalPoints.map((point) => point.slug),
+    ["tech-1", "tech-2", "org-1"],
+  );
   const pcts = timeline.criticalPoints.map((point) => point.pct);
   assert.ok(pcts[0] < pcts[1] && pcts[1] < pcts[2]);
   // 今日は設立判断より左
@@ -817,25 +1545,113 @@ function issue(overrides = {}) {
   assert.ok(timeline.pins[0].duePct > 0 && timeline.pins[0].duePct < 100);
   // 月目盛は域内で単調
   assert.ok(timeline.months.length >= 9);
-  for (let i = 1; i < timeline.months.length; i += 1) assert.ok(timeline.months[i].pct > timeline.months[i - 1].pct);
+  for (let i = 1; i < timeline.months.length; i += 1)
+    assert.ok(timeline.months[i].pct > timeline.months[i - 1].pct);
 }
 
 // 22b. dagValid=false / 日付付きゼロは描かず理由へ閉じる
 {
-  const invalid = deriveSxUnifiedTimeline({ today: "2026-07-25", milestones: [], criticalPathSlugs: [], dagValid: false, tracks: [], objectiveTargetDate: null, interventionRows: [] });
+  const invalid = deriveSxUnifiedTimeline({
+    today: "2026-07-25",
+    milestones: [],
+    criticalPathSlugs: [],
+    dagValid: false,
+    tracks: [],
+    objectiveTargetDate: null,
+    interventionRows: [],
+  });
   assert.equal(invalid.valid, false);
   assert.equal(invalid.reason, "依存関係不正");
-  const empty = deriveSxUnifiedTimeline({ today: "2026-07-25", milestones: [milestone({ plannedEnd: null, forecastEnd: null })], criticalPathSlugs: [], dagValid: true, tracks: [], objectiveTargetDate: null, interventionRows: [] });
+  const empty = deriveSxUnifiedTimeline({
+    today: "2026-07-25",
+    milestones: [milestone({ plannedEnd: null, forecastEnd: null })],
+    criticalPathSlugs: [],
+    dagValid: true,
+    tracks: [],
+    objectiveTargetDate: null,
+    interventionRows: [],
+  });
   assert.equal(empty.valid, false);
   assert.equal(empty.reason, "日程付きマイルストーン未登録");
+}
+
+// 22c. 週次管制のplanned_onlyは予測日を範囲・並び・表示値に使わない。
+{
+  const timeline = deriveSxUnifiedTimeline({
+    today: "2026-07-25",
+    milestones: [
+      milestone({
+        id: "planned",
+        slug: "planned",
+        track: "funding",
+        plannedEnd: "2026-08-10",
+        forecastEnd: "2027-02-10",
+        deltaDays: 184,
+      }),
+      milestone({
+        id: "forecast-only",
+        slug: "forecast-only",
+        track: "funding",
+        plannedEnd: null,
+        forecastEnd: "2026-08-01",
+        deltaDays: null,
+      }),
+    ],
+    criticalPathSlugs: ["planned"],
+    dagValid: true,
+    tracks: [
+      {
+        key: "funding",
+        label: "資金調達",
+        shortLabel: "資金",
+        accent: "#bf7b2c",
+        deltaDays: null,
+        dateCertainty: null,
+        maxIssue: "",
+      },
+    ],
+    objectiveTargetDate: null,
+    interventionRows: [],
+    dateMode: "planned_only",
+  });
+  assert.equal(timeline.valid, true);
+  assert.equal(
+    timeline.undatedCount,
+    1,
+    "forecast-only milestones should stay undated in planned-only mode",
+  );
+  const row = timeline.lanes.find((lane) => lane.key === "funding")?.rows[0];
+  assert.equal(row?.forecastEnd, null);
+  assert.equal(row?.forecastPct, null);
+  assert.equal(row?.deltaDays, null);
+  assert.equal(
+    timeline.domainEnd < "2027-01-01",
+    true,
+    "a late forecast must not stretch the weekly-control range",
+  );
 }
 
 // 23. 柱ゲート行: 重要経路外の現在ゲートの担当未確認/評価未完がキューへ入り、trackを持つ。
 // 重要経路上のゲートはpillarGatesから重複しない。
 {
   const milestones = [
-    milestone({ id: "m1", slug: "crit", status: "unassessed", confidence: "unknown", ownerLabel: "未確認" }),
-    milestone({ id: "m2", slug: "fund-gate", status: "unassessed", confidence: "unknown", ownerLabel: "未確認", plannedEnd: "2026-12-25", forecastEnd: "2027-01-29", deltaDays: 35 }),
+    milestone({
+      id: "m1",
+      slug: "crit",
+      status: "unassessed",
+      confidence: "unknown",
+      ownerLabel: "未確認",
+    }),
+    milestone({
+      id: "m2",
+      slug: "fund-gate",
+      status: "unassessed",
+      confidence: "unknown",
+      ownerLabel: "未確認",
+      plannedEnd: "2026-12-25",
+      forecastEnd: "2027-01-29",
+      deltaDays: 35,
+    }),
   ];
   const queue = deriveSxInterventionQueue({
     today: "2026-07-25",
@@ -846,7 +1662,11 @@ function issue(overrides = {}) {
     issues: [],
     pillarGates: [
       { trackKey: "funding", trackLabel: "資金", milestoneId: "m2" },
-      { trackKey: "technology_development", trackLabel: "技術", milestoneId: "m1" },
+      {
+        trackKey: "technology_development",
+        trackLabel: "技術",
+        milestoneId: "m1",
+      },
     ],
     maxRows: 200,
   });
@@ -859,65 +1679,169 @@ function issue(overrides = {}) {
 
 // 24. クォータ: top内に必須trackが無ければ後方から繰り上げ、候補ゼロなら行を発明せず注記。
 {
-  const mk = (key, track, priority) => ({ key, priority, kind: "owner_unconfirmed", target: key, ballSide: "担当", ballOwner: "未確認", dueDate: null, dueContextLabel: null, gate: "", anchor: "management-plan", entityType: "milestone", entityId: key, milestoneId: key, track });
-  const rows = [mk("a", "technology_development", 1), mk("b", "technology_development", 2), mk("c", "funding", 6)];
-  const applied = applySxInterventionPillarQuota({ rows, topCount: 2, requiredTrack: "funding", requiredTrackLabel: "資金" });
+  const mk = (key, track, priority) => ({
+    key,
+    priority,
+    kind: "owner_unconfirmed",
+    target: key,
+    ballSide: "担当",
+    ballOwner: "未確認",
+    dueDate: null,
+    dueContextLabel: null,
+    gate: "",
+    anchor: "management-plan",
+    entityType: "milestone",
+    entityId: key,
+    milestoneId: key,
+    track,
+  });
+  const rows = [
+    mk("a", "technology_development", 1),
+    mk("b", "technology_development", 2),
+    mk("c", "funding", 6),
+  ];
+  const applied = applySxInterventionPillarQuota({
+    rows,
+    topCount: 2,
+    requiredTrack: "funding",
+    requiredTrackLabel: "資金",
+  });
   assert.equal(applied.quotaApplied, true);
-  assert.deepEqual(applied.top.map((row) => row.key), ["a", "c"]);
+  assert.deepEqual(
+    applied.top.map((row) => row.key),
+    ["a", "c"],
+  );
 
-  const noCandidate = applySxInterventionPillarQuota({ rows: [mk("a", "technology_development", 1)], topCount: 2, requiredTrack: "funding", requiredTrackLabel: "資金" });
+  const noCandidate = applySxInterventionPillarQuota({
+    rows: [mk("a", "technology_development", 1)],
+    topCount: 2,
+    requiredTrack: "funding",
+    requiredTrackLabel: "資金",
+  });
   assert.equal(noCandidate.quotaApplied, false);
   assert.equal(noCandidate.quotaNote, "資金の介入候補は台帳未登録");
 
-  const alreadyIn = applySxInterventionPillarQuota({ rows, topCount: 3, requiredTrack: "funding", requiredTrackLabel: "資金" });
+  const alreadyIn = applySxInterventionPillarQuota({
+    rows,
+    topCount: 3,
+    requiredTrack: "funding",
+    requiredTrackLabel: "資金",
+  });
   assert.equal(alreadyIn.quotaApplied, false);
   assert.equal(alreadyIn.quotaNote, null);
 }
 
-
 // 25. slip分類: 仮置きの予測差を「遅延」と呼ばない。期限超過 > 確認済み遅延 > 仮置き予測差。
 {
-  const base = { status: "unassessed", plannedEnd: "2026-08-07", forecastEnd: "2026-08-14", deltaDays: 7, dateCertainty: "provisional", isOverdue: false, forecastChangeReason: "初期Seed。予測日は仮置きで、変更理由は未確認" };
+  const base = {
+    status: "unassessed",
+    plannedEnd: "2026-08-07",
+    forecastEnd: "2026-08-14",
+    deltaDays: 7,
+    dateCertainty: "provisional",
+    isOverdue: false,
+    forecastChangeReason: "初期Seed。予測日は仮置きで、変更理由は未確認",
+  };
   // 初期Seedの仮置き差 = provisional_slip（今日より未来、実測の遅れではない）
   assert.equal(sxEcdClassifySlip(base, "2026-07-25"), "provisional_slip");
   // 見直し理由が実質的に入っていれば confirmed_slip
-  assert.equal(sxEcdClassifySlip({ ...base, forecastChangeReason: "候補先の回答遅れで2週間後ろ倒し" }, "2026-07-25"), "confirmed_slip");
+  assert.equal(
+    sxEcdClassifySlip(
+      { ...base, forecastChangeReason: "候補先の回答遅れで2週間後ろ倒し" },
+      "2026-07-25",
+    ),
+    "confirmed_slip",
+  );
   // 日付が確定扱いなら理由が定型でも confirmed_slip
-  assert.equal(sxEcdClassifySlip({ ...base, dateCertainty: "confirmed" }, "2026-07-25"), "confirmed_slip");
+  assert.equal(
+    sxEcdClassifySlip({ ...base, dateCertainty: "confirmed" }, "2026-07-25"),
+    "confirmed_slip",
+  );
   // 予定日を過ぎていれば overdue（差分の種類より優先）
   assert.equal(sxEcdClassifySlip(base, "2026-08-20"), "overdue");
-  assert.equal(sxEcdClassifySlip({ ...base, isOverdue: true }, "2026-07-25"), "overdue");
+  assert.equal(
+    sxEcdClassifySlip({ ...base, isOverdue: true }, "2026-07-25"),
+    "overdue",
+  );
   // 差がない/完了は none
-  assert.equal(sxEcdClassifySlip({ ...base, deltaDays: 0 }, "2026-07-25"), "none");
-  assert.equal(sxEcdClassifySlip({ ...base, status: "completed" }, "2026-08-20"), "none");
+  assert.equal(
+    sxEcdClassifySlip({ ...base, deltaDays: 0 }, "2026-07-25"),
+    "none",
+  );
+  assert.equal(
+    sxEcdClassifySlip({ ...base, status: "completed" }, "2026-08-20"),
+    "none",
+  );
   // 理由が空でも仮置き扱い（勝手に「根拠あり」へ格上げしない）
-  assert.equal(sxEcdClassifySlip({ ...base, forecastChangeReason: null }, "2026-07-25"), "provisional_slip");
+  assert.equal(
+    sxEcdClassifySlip({ ...base, forecastChangeReason: null }, "2026-07-25"),
+    "provisional_slip",
+  );
 }
 
 // 25b. 判定バー: 仮置き差だけなら「遅延見込み」と言わず、期限超過0件を明示して中立トーン。
 {
   const seeded = milestone({
-    id: "m1", slug: "a", status: "unassessed", confidence: "unknown",
-    plannedEnd: "2026-08-07", forecastEnd: "2026-08-14", deltaDays: 7,
-    dateCertainty: "provisional", forecastChangeReason: "初期Seed。予測日は仮置きで、変更理由は未確認",
+    id: "m1",
+    slug: "a",
+    status: "unassessed",
+    confidence: "unknown",
+    plannedEnd: "2026-08-07",
+    forecastEnd: "2026-08-14",
+    deltaDays: 7,
+    dateCertainty: "provisional",
+    forecastChangeReason: "初期Seed。予測日は仮置きで、変更理由は未確認",
   });
   const provisionalOnly = deriveSxVerdictSummary({
     today: "2026-07-25",
-    judgment: { key: "unassessed", dagValid: true, completenessPct: 51, criticalUnknownCount: 21, blockedCount: 0 },
-    criticalPathSlugs: ["a"], milestones: [seeded], tracks: [], objectiveTargetDate: null, funding: null,
+    judgment: {
+      key: "unassessed",
+      dagValid: true,
+      completenessPct: 51,
+      criticalUnknownCount: 21,
+      blockedCount: 0,
+    },
+    criticalPathSlugs: ["a"],
+    milestones: [seeded],
+    tracks: [],
+    objectiveTargetDate: null,
+    funding: null,
   });
   assert.equal(provisionalOnly.business.label, "実際の遅れなし");
   assert.equal(provisionalOnly.business.tone, "unknown");
-  assert.equal(provisionalOnly.business.detail, "仮置きの見込みは予定より最大7日遅れ");
+  assert.equal(
+    provisionalOnly.business.detail,
+    "仮置きの見込みは予定より最大7日遅れ",
+  );
   assert.equal(provisionalOnly.business.provisional, true);
 
   // 根拠のある見直しは従来どおり「遅延見込み」でamber
   const confirmed = deriveSxVerdictSummary({
     today: "2026-07-25",
-    judgment: { key: "attention", dagValid: true, completenessPct: 80, criticalUnknownCount: 1, blockedCount: 0 },
+    judgment: {
+      key: "attention",
+      dagValid: true,
+      completenessPct: 80,
+      criticalUnknownCount: 1,
+      blockedCount: 0,
+    },
     criticalPathSlugs: ["a"],
-    milestones: [milestone({ id: "m1", slug: "a", status: "attention", confidence: "high", plannedEnd: "2026-08-07", forecastEnd: "2026-08-21", deltaDays: 14, dateCertainty: "confirmed", forecastChangeReason: "候補先の回答遅れ" })],
-    tracks: [], objectiveTargetDate: null, funding: null,
+    milestones: [
+      milestone({
+        id: "m1",
+        slug: "a",
+        status: "attention",
+        confidence: "high",
+        plannedEnd: "2026-08-07",
+        forecastEnd: "2026-08-21",
+        deltaDays: 14,
+        dateCertainty: "confirmed",
+        forecastChangeReason: "候補先の回答遅れ",
+      }),
+    ],
+    tracks: [],
+    objectiveTargetDate: null,
+    funding: null,
   });
   assert.equal(confirmed.business.label, "予定より最大14日遅れ見込み");
   assert.equal(confirmed.business.tone, "warn");
@@ -927,17 +1851,54 @@ function issue(overrides = {}) {
 // 25c. タイムライン行/レーンへslipKindが載り、レーンは最も重い状態を採る。
 {
   const rows = [
-    milestone({ id: "m1", slug: "a", track: "funding", plannedStart: "2026-07-01", plannedEnd: "2026-08-07", forecastEnd: "2026-08-14", deltaDays: 7, dateCertainty: "provisional", forecastChangeReason: "初期Seed。予測日は仮置きで、変更理由は未確認" }),
-    milestone({ id: "m2", slug: "b", track: "funding", plannedStart: "2026-07-01", plannedEnd: "2026-07-10", forecastEnd: "2026-07-20", deltaDays: 10, dateCertainty: "confirmed", forecastChangeReason: "実測遅れ" }),
+    milestone({
+      id: "m1",
+      slug: "a",
+      track: "funding",
+      plannedStart: "2026-07-01",
+      plannedEnd: "2026-08-07",
+      forecastEnd: "2026-08-14",
+      deltaDays: 7,
+      dateCertainty: "provisional",
+      forecastChangeReason: "初期Seed。予測日は仮置きで、変更理由は未確認",
+    }),
+    milestone({
+      id: "m2",
+      slug: "b",
+      track: "funding",
+      plannedStart: "2026-07-01",
+      plannedEnd: "2026-07-10",
+      forecastEnd: "2026-07-20",
+      deltaDays: 10,
+      dateCertainty: "confirmed",
+      forecastChangeReason: "実測遅れ",
+    }),
   ];
   const timeline = deriveSxUnifiedTimeline({
-    today: "2026-07-25", milestones: rows, criticalPathSlugs: [], dagValid: true,
-    tracks: [{ key: "funding", label: "資金調達", shortLabel: "資金", accent: "#bf7b2c", deltaDays: 10, dateCertainty: "confirmed", maxIssue: "" }],
-    objectiveTargetDate: null, interventionRows: [],
+    today: "2026-07-25",
+    milestones: rows,
+    criticalPathSlugs: [],
+    dagValid: true,
+    tracks: [
+      {
+        key: "funding",
+        label: "資金調達",
+        shortLabel: "資金",
+        accent: "#bf7b2c",
+        deltaDays: 10,
+        dateCertainty: "confirmed",
+        maxIssue: "",
+      },
+    ],
+    objectiveTargetDate: null,
+    interventionRows: [],
   });
   const lane = timeline.lanes.find((entry) => entry.key === "funding");
   assert.ok(lane);
-  assert.deepEqual(lane.rows.map((row) => row.slipKind).sort(), ["overdue", "provisional_slip"]);
+  assert.deepEqual(lane.rows.map((row) => row.slipKind).sort(), [
+    "overdue",
+    "provisional_slip",
+  ]);
   // 予定日を過ぎたm2がoverdueなので、レーンはoverdue
   assert.equal(lane.slipKind, "overdue");
 }

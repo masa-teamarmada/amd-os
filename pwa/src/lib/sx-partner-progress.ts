@@ -1,10 +1,17 @@
-import type { SxBallSide, SxManagementPartner, SxPartnerStage } from "./sx-management";
+import type {
+  SxBallSide,
+  SxManagementPartner,
+  SxPartnerStage,
+} from "./sx-management";
 import {
   sxHoldingsForPartner,
   sxIsHoldingDueSoon,
   sxIsHoldingOverdue,
   sxPartnerDisplaySortKey,
   sxPartnerHasBlockedHolding,
+  sxSortHoldingsByPriority,
+  type SxHoldingItem,
+  type SxHoldingSide,
 } from "./sx-partner-holdings.ts";
 
 /**
@@ -39,21 +46,38 @@ export function sxPartnerStageLabel(stage: SxPartnerStage): string {
 /** 1-7の関係段階。保留は到達度ではないためnull。 */
 export function sxPartnerStageIndex(stage: SxPartnerStage): number | null {
   if (stage === "on_hold") return null;
-  const index = SX_PARTNER_STAGE_ORDER.findIndex((candidate) => candidate === stage);
+  const index = SX_PARTNER_STAGE_ORDER.findIndex(
+    (candidate) => candidate === stage,
+  );
   return index >= 0 ? index + 1 : null;
 }
 
 /** relationship_stageと低優先フラグに分裂した既存データを、比較表示では一つの保留状態へ正規化する。 */
-export function sxPartnerIsOnHold(partner: Pick<SxManagementPartner, "relationshipStage" | "deferredLowPriority">): boolean {
+export function sxPartnerIsOnHold(
+  partner: Pick<
+    SxManagementPartner,
+    "relationshipStage" | "deferredLowPriority"
+  >,
+): boolean {
   return partner.relationshipStage === "on_hold" || partner.deferredLowPriority;
 }
 
 /** 「接触済み」という解釈をroleLabelへ預けず、一覧で確認できる接点記録の有無だけを返す。 */
-export function sxPartnerHasContactRecord(partner: Pick<SxManagementPartner, "interactions" | "lastContactDate">): boolean {
+export function sxPartnerHasContactRecord(
+  partner: Pick<SxManagementPartner, "interactions" | "lastContactDate">,
+): boolean {
   return partner.interactions.length > 0 || partner.lastContactDate != null;
 }
 
-export type SxPartnerAttentionKey = "blocked" | "overdue" | "due_soon" | "on_hold" | "stale" | "unknown" | "due_unset" | "clear";
+export type SxPartnerAttentionKey =
+  | "blocked"
+  | "overdue"
+  | "due_soon"
+  | "on_hold"
+  | "stale"
+  | "unknown"
+  | "due_unset"
+  | "clear";
 
 export type SxPartnerAttention = {
   key: SxPartnerAttentionKey;
@@ -73,30 +97,61 @@ export function sxPartnerNeedsRefresh(
   partner: Pick<SxManagementPartner, "lastVerifiedAt" | "confidence">,
   today: string,
 ): boolean {
-  return partner.confidence === "unknown" || !partner.lastVerifiedAt || daysBetween(partner.lastVerifiedAt, today) > 14;
+  return (
+    partner.confidence === "unknown" ||
+    !partner.lastVerifiedAt ||
+    daysBetween(partner.lastVerifiedAt, today) > 14
+  );
 }
 
-export function sxPartnerHasOverdue(partner: SxManagementPartner, today: string): boolean {
-  return sxHoldingsForPartner(partner).some((item) => sxIsHoldingOverdue(item, today))
-    || Boolean(partner.dueDate && partner.dueDatePrecision === "day" && partner.dueDate < today);
+export function sxPartnerHasOverdue(
+  partner: SxManagementPartner,
+  today: string,
+): boolean {
+  return (
+    sxHoldingsForPartner(partner).some((item) =>
+      sxIsHoldingOverdue(item, today),
+    ) ||
+    Boolean(
+      partner.dueDate &&
+      partner.dueDatePrecision === "day" &&
+      partner.dueDate < today,
+    )
+  );
 }
 
-export function sxPartnerHasDueSoon(partner: SxManagementPartner, today: string): boolean {
-  return sxIsHoldingDueSoon({ dueDate: partner.dueDate, dueDatePrecision: partner.dueDatePrecision }, today)
-    || sxHoldingsForPartner(partner).some((item) => sxIsHoldingDueSoon(item, today));
+export function sxPartnerHasDueSoon(
+  partner: SxManagementPartner,
+  today: string,
+): boolean {
+  return (
+    sxIsHoldingDueSoon(
+      { dueDate: partner.dueDate, dueDatePrecision: partner.dueDatePrecision },
+      today,
+    ) ||
+    sxHoldingsForPartner(partner).some((item) =>
+      sxIsHoldingDueSoon(item, today),
+    )
+  );
 }
 
 export function sxPartnerHasDataGap(partner: SxManagementPartner): boolean {
-  return partner.currentBallSide === "unknown"
-    || (partner.currentBallSide !== "none" && !(partner.currentBallOwner || "").trim())
-    || sxPartnerDisplaySortKey(partner) === "9999-12-31";
+  return (
+    partner.currentBallSide === "unknown" ||
+    (partner.currentBallSide !== "none" &&
+      !(partner.currentBallOwner || "").trim()) ||
+    sxPartnerDisplaySortKey(partner) === "9999-12-31"
+  );
 }
 
 /**
  * 「進み具合」と混ぜない独立した要対応判定。
  * 低い関係段階や接点の少なさだけを遅れと断定せず、明示された停止・期限・判定材料不足だけで判定する。
  */
-export function sxPartnerAttention(partner: SxManagementPartner, today: string): SxPartnerAttention {
+export function sxPartnerAttention(
+  partner: SxManagementPartner,
+  today: string,
+): SxPartnerAttention {
   if (sxPartnerHasBlockedHolding(partner)) {
     return { key: "blocked", label: "停止", rank: 0 };
   }
@@ -106,11 +161,20 @@ export function sxPartnerAttention(partner: SxManagementPartner, today: string):
     .filter((item) => sxIsHoldingOverdue(item, today))
     .map((item) => item.dueDate)
     .filter((value): value is string => Boolean(value));
-  if (partner.dueDate && partner.dueDatePrecision === "day" && partner.dueDate < today) overdueDates.push(partner.dueDate);
+  if (
+    partner.dueDate &&
+    partner.dueDatePrecision === "day" &&
+    partner.dueDate < today
+  )
+    overdueDates.push(partner.dueDate);
   if (sxPartnerHasOverdue(partner, today)) {
     const oldest = overdueDates.sort()[0];
     const days = daysBetween(oldest, today);
-    return { key: "overdue", label: days > 0 ? `期限超過 ${days}日` : "期限超過", rank: 1 };
+    return {
+      key: "overdue",
+      label: days > 0 ? `期限超過 ${days}日` : "期限超過",
+      rank: 1,
+    };
   }
 
   if (sxPartnerHasDueSoon(partner, today)) {
@@ -128,8 +192,9 @@ export function sxPartnerAttention(partner: SxManagementPartner, today: string):
   }
 
   if (
-    partner.currentBallSide === "unknown"
-    || (partner.currentBallSide !== "none" && !(partner.currentBallOwner || "").trim())
+    partner.currentBallSide === "unknown" ||
+    (partner.currentBallSide !== "none" &&
+      !(partner.currentBallOwner || "").trim())
   ) {
     return { key: "unknown", label: "担当未確認", rank: 5 };
   }
@@ -150,21 +215,31 @@ export function sxComparePartnersForPoc(
   today: string,
   sort: SxPocComparisonSort,
 ): number {
-  const leftStage = sxPartnerIsOnHold(left) ? -1 : (sxPartnerStageIndex(left.relationshipStage) ?? -1);
-  const rightStage = sxPartnerIsOnHold(right) ? -1 : (sxPartnerStageIndex(right.relationshipStage) ?? -1);
+  const leftStage = sxPartnerIsOnHold(left)
+    ? -1
+    : (sxPartnerStageIndex(left.relationshipStage) ?? -1);
+  const rightStage = sxPartnerIsOnHold(right)
+    ? -1
+    : (sxPartnerStageIndex(right.relationshipStage) ?? -1);
   const leftAttention = sxPartnerAttention(left, today).rank;
   const rightAttention = sxPartnerAttention(right, today).rank;
   const leftBall = left.currentBallSide === "sx" ? 0 : 1;
   const rightBall = right.currentBallSide === "sx" ? 0 : 1;
 
-  if (sort === "progress" && leftStage !== rightStage) return rightStage - leftStage;
+  if (sort === "progress" && leftStage !== rightStage)
+    return rightStage - leftStage;
   if (leftAttention !== rightAttention) return leftAttention - rightAttention;
   if (leftBall !== rightBall) return leftBall - rightBall;
-  if (sort === "attention" && leftStage !== rightStage) return rightStage - leftStage;
+  if (sort === "attention" && leftStage !== rightStage)
+    return rightStage - leftStage;
 
-  const dueCompare = sxPartnerDisplaySortKey(left).localeCompare(sxPartnerDisplaySortKey(right));
+  const dueCompare = sxPartnerDisplaySortKey(left).localeCompare(
+    sxPartnerDisplaySortKey(right),
+  );
   if (dueCompare !== 0) return dueCompare;
-  const contactCompare = (right.lastContactDate || "").localeCompare(left.lastContactDate || "");
+  const contactCompare = (right.lastContactDate || "").localeCompare(
+    left.lastContactDate || "",
+  );
   return contactCompare || left.name.localeCompare(right.name, "ja");
 }
 
@@ -172,7 +247,10 @@ export function sxComparePartnersForPoc(
  * 一覧はすでに左端で関係先を特定できるため、同じ会社名だけを文脈相対の「先方」へ短縮する。
  * 保存値と詳細履歴は変更せず、第三者名や人名も触らない。
  */
-export function sxCompactPartnerRowText(value: string, partnerName: string): string {
+export function sxCompactPartnerRowText(
+  value: string,
+  partnerName: string,
+): string {
   let result = value.trim() === partnerName.trim() ? "先方" : value;
   const name = partnerName.trim();
   if (name) {
@@ -180,7 +258,10 @@ export function sxCompactPartnerRowText(value: string, partnerName: string): str
     result = result
       .replace(new RegExp(`${escaped}[（(]担当者[）)]`, "g"), "先方担当")
       .replace(new RegExp(`${escaped}担当者?`, "g"), "先方担当")
-      .replace(new RegExp(`${escaped}(から|へ|に|と|が|の|は|を|より)`, "g"), "先方$1");
+      .replace(
+        new RegExp(`${escaped}(から|へ|に|と|が|の|は|を|より)`, "g"),
+        "先方$1",
+      );
   }
   return result.replaceAll("相手側", "先方").replaceAll("SX側", "当方");
 }
@@ -194,4 +275,196 @@ export function sxCompactBallSideLabel(side: SxBallSide): string {
     unknown: "未確認",
   };
   return labels[side] || "未確認";
+}
+
+export type SxPrimaryInterventionRisk =
+  "blocked" | "overdue" | "due_soon" | "waiting" | "clear";
+
+/**
+ * 関係先一覧で action / side / owner / due / gate を同じ管理単位から読むための表示モデル。
+ * holding が無い場合だけ partner 本体を fallback にし、構造化データが無い事実を隠さない。
+ */
+export type SxPartnerPrimaryIntervention = {
+  recordId: string;
+  source: "holding" | "partner_fallback";
+  title: string;
+  side: SxHoldingSide;
+  ownerLabel: string | null;
+  status: string;
+  dueDate: string | null;
+  dueDatePrecision: SxManagementPartner["dueDatePrecision"];
+  relatedMilestoneId: string | null;
+  relatedMilestoneSlug: string | null;
+  lastVerifiedAt: string;
+  risk: SxPrimaryInterventionRisk;
+  hasStructuredHolding: boolean;
+  hasConcreteAction: boolean;
+};
+
+function holdingPriorityTier(item: SxHoldingItem, today: string): number {
+  if (item.status === "blocked") return 0;
+  if (sxIsHoldingOverdue(item, today)) return 1;
+  if (item.dueDatePrecision === "day" && item.dueDate) return 2;
+  if (item.dueDatePrecision === "month" && item.dueDate) return 3;
+  return 4;
+}
+
+function holdingRisk(
+  item: SxHoldingItem,
+  today: string,
+): SxPrimaryInterventionRisk {
+  if (item.status === "blocked") return "blocked";
+  if (sxIsHoldingOverdue(item, today)) return "overdue";
+  if (sxIsHoldingDueSoon(item, today)) return "due_soon";
+  if (item.status === "waiting" || item.status === "on_hold") return "waiting";
+  return "clear";
+}
+
+/**
+ * 主要対応事項を1件だけ選ぶ。
+ * 停止 > 期限超過 > 日付確定 > 月精度 > 期限なしを守り、同じtier内だけ現在ボール側を優先する。
+ * これにより、表示中の行動・担当・期限が別レコードから寄せ集められる事故を防ぐ。
+ */
+export function sxPartnerPrimaryIntervention(
+  partner: SxManagementPartner,
+  today: string,
+): SxPartnerPrimaryIntervention {
+  const sorted = sxSortHoldingsByPriority(sxHoldingsForPartner(partner), today);
+  if (sorted.length > 0) {
+    const topTier = holdingPriorityTier(sorted[0], today);
+    const sameTier = sorted.filter(
+      (item) => holdingPriorityTier(item, today) === topTier,
+    );
+    const ballSide =
+      partner.currentBallSide === "none" ? null : partner.currentBallSide;
+    const selected =
+      (ballSide ? sameTier.find((item) => item.side === ballSide) : null) ||
+      sameTier[0];
+    return {
+      recordId: selected.id,
+      source: "holding",
+      title: selected.title,
+      side: selected.side,
+      ownerLabel: selected.ownerLabel,
+      status: selected.status,
+      dueDate: selected.dueDate,
+      dueDatePrecision: selected.dueDatePrecision,
+      relatedMilestoneId: selected.relatedMilestoneId,
+      relatedMilestoneSlug: null,
+      lastVerifiedAt: selected.lastVerifiedAt,
+      risk: holdingRisk(selected, today),
+      hasStructuredHolding: true,
+      hasConcreteAction: Boolean(selected.title.trim()),
+    };
+  }
+
+  const fallbackTitle = partner.nextCommitment.trim();
+  const fallbackSide: SxHoldingSide =
+    partner.currentBallSide === "none" ? "unknown" : partner.currentBallSide;
+  const fallbackOwner =
+    (partner.currentBallOwner || partner.ownerLabel || "").trim() || null;
+  const fallbackDue = {
+    dueDate: partner.dueDate,
+    dueDatePrecision: partner.dueDatePrecision,
+  };
+  const risk: SxPrimaryInterventionRisk = sxIsHoldingOverdue(fallbackDue, today)
+    ? "overdue"
+    : sxIsHoldingDueSoon(fallbackDue, today)
+      ? "due_soon"
+      : "clear";
+  return {
+    recordId: partner.id,
+    source: "partner_fallback",
+    title: fallbackTitle || "次の具体行動 未登録",
+    side: fallbackSide,
+    ownerLabel: fallbackOwner,
+    status: "unstructured",
+    dueDate: partner.dueDate,
+    dueDatePrecision: partner.dueDatePrecision,
+    relatedMilestoneId: null,
+    // The partner-level fallback fields are independent facts. Do not attach an
+    // arbitrary related gate and make it look like one structured holding.
+    relatedMilestoneSlug: null,
+    lastVerifiedAt: partner.lastVerifiedAt,
+    risk,
+    hasStructuredHolding: false,
+    hasConcreteAction: Boolean(fallbackTitle),
+  };
+}
+
+export type SxPartnerOwnerLoad = {
+  ownerKey: string;
+  ownerLabel: string;
+  openCount: number;
+  dangerCount: number;
+  dueSoonCount: number;
+  dataGapCount: number;
+  partnerIds: string[];
+};
+
+function ownerDisplayLabel(value: string | null): string {
+  const label = (value || "").trim();
+  return !label || /未確認|未設定|未登録/.test(label) ? "担当未確認" : label;
+}
+
+/** 担当者別に未完了事項を集計する。holdingが無い先も管制情報不足として1件残す。 */
+export function sxPartnerOwnerLoads(
+  partners: SxManagementPartner[],
+  today: string,
+): SxPartnerOwnerLoad[] {
+  const loads = new Map<
+    string,
+    Omit<SxPartnerOwnerLoad, "partnerIds"> & { partnerIds: Set<string> }
+  >();
+  for (const partner of partners) {
+    const holdings = sxHoldingsForPartner(partner);
+    const fallback =
+      holdings.length === 0
+        ? sxPartnerPrimaryIntervention(partner, today)
+        : null;
+    const items =
+      holdings.length > 0
+        ? holdings.map((item) => ({
+            ownerLabel: item.ownerLabel,
+            risk: holdingRisk(item, today),
+            dataGap: false,
+          }))
+        : [
+            {
+              ownerLabel: fallback?.ownerLabel || null,
+              risk: fallback?.risk || "clear",
+              dataGap: true,
+            },
+          ];
+    for (const item of items) {
+      const ownerLabel = ownerDisplayLabel(item.ownerLabel);
+      const ownerKey = ownerLabel;
+      const current = loads.get(ownerKey) || {
+        ownerKey,
+        ownerLabel,
+        openCount: 0,
+        dangerCount: 0,
+        dueSoonCount: 0,
+        dataGapCount: 0,
+        partnerIds: new Set<string>(),
+      };
+      current.openCount += 1;
+      if (item.risk === "blocked" || item.risk === "overdue")
+        current.dangerCount += 1;
+      if (item.risk === "due_soon") current.dueSoonCount += 1;
+      if (item.dataGap || ownerLabel === "担当未確認")
+        current.dataGapCount += 1;
+      current.partnerIds.add(partner.id);
+      loads.set(ownerKey, current);
+    }
+  }
+  return [...loads.values()]
+    .map((load) => ({ ...load, partnerIds: [...load.partnerIds] }))
+    .sort(
+      (left, right) =>
+        right.dangerCount - left.dangerCount ||
+        right.dueSoonCount - left.dueSoonCount ||
+        right.openCount - left.openCount ||
+        left.ownerLabel.localeCompare(right.ownerLabel, "ja"),
+    );
 }
