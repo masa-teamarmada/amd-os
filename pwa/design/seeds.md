@@ -91,7 +91,7 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 - **テーブル列**: シーズ / 研究機関 / 研究者・PI / PJ状態 / SPS・M・P・R・S / TRL・BRL・GRL・SRL・HRL / 事業化情報 / 資料
 - **全件表示**: PJ化・スピンアウト・見送りを理由にリストから除外しない。契約前後を通じて同じカタログ行を使う
 - **フラット台帳**: 1シーズ=1行。研究機関・研究者・PJ有無を行グループやセクションにせず、通常カラムとして表示する
-- **PJ優先ソート**: `seed_projects` のPJ化済み (`active/ended/frozen`) → PJ化検討中 (`sales/draft`、または未紐付けの `contacted/discussing`) → その他の順に固定し、その中を列ソートする
+- **PJ優先ソート**: `/seeds` (全機関横断、`scope="all"`) は `seed_projects` のPJ化済み (`active/ended/frozen`) → PJ化検討中 (`sales/draft`、または未紐付けの `contacted/discussing`) → PJなし・SPS評価済み (`latest_sps.status==="ready"`) → その他の4段階に固定し、各区分の中を列ソートする (`seedListPriority()`)。ECRはこの優先度に関与させない。PJ cockpit / 研究機関 cockpit 内の比較表 (`scope!=="all"`) はPJ優先ソートをかけず列ソートのみ
 - **フィルタ**: シーズ自体のstatus / 領域 / 担当 / フリーテキスト。AMD PJ状態とは混ぜない
 - **新規作成**: 右上「+ 新規シーズ」ボタン → `SeedDetailModal` を createMode で開く
 - **深掘り資料**: `deep_dive_material_url` には、AMDが確認済みの共有資料リンクだけを置く。資料本文、一次ソース本文、一次ソースの生URLは置かない。md はOS内Markdownモーダル (左メニューなし) で表示し、ヘッダーの補助リンクからDriveを開ける。
@@ -155,7 +155,7 @@ SPS はシーズ有望度スコア。KUTE / p25 に限らず **全国のすべ�
 - **プライバシー境界**: `internal_notes` / `source_detail` 等の社内限定フィールド、および `seed_sps_assessments.axis_evidence` / `evaluator` は公開面の select に含めない。ホワイトリスト型 `SeedPublicView` + 定数 `SEED_PUBLIC_VIEW_COLUMNS` ([`types/seeds.ts`](../src/types/seeds.ts)) を select の唯一の呼び出し元にする。既存の `SeedDetailModal` (編集用、confidential 項目を含む) は再利用せず、新規の読み取り専用 `KuteSeedDetailModal` ([`components/seeds/KuteSeedDetailModal.tsx`](../src/components/seeds/KuteSeedDetailModal.tsx)) を使う
 - **UI**: PJ cockpit (`/project/p25/cockpit`) と研究機関 cockpit (`/institutions/inst_kute/cockpit`) の進捗タブ、および `/seeds` で、横スクロール可能な比較テーブル (`CockpitKuteSeeds.tsx`) を共有する。1シーズ=1行で、研究機関・研究者/PI・PJ状態を通常列に置き、機関/研究者/PJ有無のgroup rowは作らない。`SPS` / `M` / `P` / `R` / `S`、`TRL` / `BRL` / `GRL` / `SRL` / `HRL`、事業化フィールドと資料有無を横並び比較する。長文は省略せずセル内で折り返す。`discovery_status='discovered'` は「公開情報候補」、SPS欠損は0へ変換せず「未評価」と表示する。`axis_evidence` / `evaluator` は内部専用なので画面へ返さない
 - **KUTE公開情報の上位3件**: migration [`189_kute_public_seed_candidates.sql`](../scripts/migrations/189_kute_public_seed_candidates.sql) で「165〜220nm次世代クリーンUV面光源」「金属フリー透明フレキシブル導電膜」「塩水・交流電気分解による都市鉱山金回収」を `discovery_status='discovered'` で追加する。公開情報調査の旧100点スクリーニング値はSPS/XRLへ移植せず、`seed_sps_assessments` は未登録のままにする
-- **`/seeds` (全機関横断比較)**: `CockpitKuteSeeds` を `scope="all"` で全175件表示する。フラットな1行台帳を `PJ化済み → PJ化検討中 → その他` の順に固定し、同じ区分内を列ソートする。`seeds.status='spun_off'` は会社設立状態であり、AMD PJ判定には使わない。SXは会社未設立のため `discussing` / `pre_incorporation`
+- **`/seeds` (全機関横断比較)**: `CockpitKuteSeeds` を `scope="all"` で全175件表示する。フラットな1行台帳を `PJ化済み → PJ化検討中 → PJなし・SPS評価済み → その他` の順に固定し (`seedListPriority()`)、同じ区分内を列ソートする。`seeds.status='spun_off'` は会社設立状態であり、AMD PJ判定には使わない。SXは会社未設立のため `discussing` / `pre_incorporation`
 - **テスト**: `npm run test:kute-seeds-scope` は動的スコープとPJ優先度、公開ホワイトリストを検査する。`npm run test:institution-seed-project-domains` は物理テーブル分離、p30/p21移行、二重分類防止、全件表示、ECR/SPS非更新を検査する。`npm run test:seed-sps-score` はSPSの0/NULLと欠損軸を検査する
 
 ## トレードオフ・残課題

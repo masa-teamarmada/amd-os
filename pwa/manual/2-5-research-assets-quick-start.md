@@ -59,7 +59,7 @@ candidate -> investigating -> contacted -> discussing
 | 操作 | 何を見る / 何をする |
 |---|---|
 | 検索 | シーズ名、機関、PI、ラボ、キーワードで探す |
-| 一覧の順番 | PJ化済み → PJ化検討中 → その他。区切り見出しではなくPJ状態カラムと行色で確認する |
+| 一覧の順番 | 研究機関はPJ化済み → PJ化検討中 → その他。シーズはPJ化済み → PJ化検討中 → PJなし・SPS評価済み → その他。区切り見出しではなくPJ状態カラムと行色で確認する |
 | カラム | 研究機関、研究者/PI、PJ状態、SPSと各軸を1シーズ1行で比較する |
 | status filter | シーズ自体の候補・調査・接触・協議・スピンアウト・見送りを絞る。AMD PJ状態とは別 |
 | domain filter | `gx_energy`, `life`, `materials`, `robo` など lane で絞る |

@@ -30,6 +30,7 @@ export {
   countDistinctInstitutions,
   seedProjectLifecycle,
   seedProjectPriority,
+  seedListPriority,
   type SeedComparisonSortKey,
   type SeedResearcherGroup,
   type SeedInstitutionGroup,

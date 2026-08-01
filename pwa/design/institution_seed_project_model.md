@@ -48,7 +48,7 @@ institutions ──< institution_projects >── projects
 
 1. `projects` に共通PJ行を作る。
 2. 契約対象が機関全体なら `institution_projects`、個別シーズなら `seed_projects` に1行作る。
-3. 一覧の固定優先度は `PJ化済み → PJ化検討中 → その他`。PJ化済みは `active/ended/frozen`、検討中は `sales/draft`（未紐付け時は機関 `draft/prospect`・シーズ `contacted/discussing`）で判定する。
+3. 研究機関一覧の固定優先度は `PJ化済み → PJ化検討中 → その他`。シーズ一覧は `PJ化済み → PJ化検討中 → PJなし・SPS評価済み → その他` とする。PJ化済みは `active/ended/frozen`、検討中は `sales/draft`（未紐付け時は機関 `draft/prospect`・シーズ `contacted/discussing`）、SPS評価済みは最新評価の `status='ready'` で判定する。
 4. 終了後もカタログ行とPJ履歴を残す。別リストへの移動や複製はしない。
 
 `seeds.status='spun_off'` はスピンアウト・法人化の状態であり、AMDとの契約PJ化を意味しない。旧 `spun_off_project_id` は互換列として残すが、新しい関係判定には使わない。
@@ -92,7 +92,7 @@ institutions ──< institution_projects >── projects
 
 - 175件を全件表示し、`spun_off` / `declined` を除外しない。
 - 1シーズ=1行のフラット表にし、研究機関・研究者/PI・PJ状態は通常カラムとして持つ。機関/研究者/PJ有無のgroup rowは作らない。
-- PJ化済み → PJ化検討中 → その他の順で表示し、状態を行色とバッジで目立たせる。
+- PJ化済み → PJ化検討中 → PJなし・SPS評価済み → その他の順で表示し、状態を行色とバッジで目立たせる。
 - シーズ状態とAMD PJ状態を別ラベルで表示する。
 
 ### コックピット

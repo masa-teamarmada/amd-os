@@ -19,6 +19,17 @@ export function seedProjectPriority(seed: SeedPublicView): 0 | 1 | 2 {
   return projectLifecyclePriority(seedProjectLifecycle(seed));
 }
 
+/**
+ * `/seeds` 全機関横断リスト向けの表示優先度: PJ化済み=0、PJ化検討中=1、
+ * PJなし・SPS評価済み(latest_sps.status==="ready")=2、その他=3。
+ * ECRはここに関与させない (ECRとSPSは合算しない)。
+ */
+export function seedListPriority(seed: SeedPublicView): 0 | 1 | 2 | 3 {
+  const base = seedProjectPriority(seed);
+  if (base !== 2) return base;
+  return seed.latest_sps?.status === "ready" ? 2 : 3;
+}
+
 // 旧 100点ルーブリック (kute_score_* 8列 + computeKuteSeedScore) は
 // migration 187 で全国共通の seed_sps_assessments (SPS = M・P・R・S) に置き換えた。
 // スコア計算は pwa/src/lib/seed-sps.ts の calculateSeedSpsScore に一本化。

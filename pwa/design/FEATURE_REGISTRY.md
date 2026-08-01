@@ -461,7 +461,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 開催済みMTG本文の表現契約: `## 🎯背景` / `## 📊経緯` は段落、`## ✅決まったこと` / `## ▶️次の一手` / `## ⚠️残課題` は1項目1論点の `- ` 箇条書きにする。番号付きリストとチェックボックスは使わない。
 - MTG PDFの添付契約: `PDF保存` は共有用本文の後ろに `meeting_assets` の PDF / PNG / JPEG を `sort_order` 順で連結する。投影資料を先、参加者共有資料を後に並べ、資料へのリンク一覧だけで済ませない。
 - MTG詳細Markdownのメンバーリンク: `CockpitMeetingDetailModal` で表示する `narrative_md` / `summary_short` / raw 配列 / 予定MTGブリーフは `MarkdownView memberLinks` を通し、active AMDメンバーの `members.code_name` が standalone mention として出る場合だけ `/mypage?memberId=<members.member_id>` へリンクする。既存 Markdown link / code / pre は対象外で、`しかるべき` の `かる`、`こうして` の `こう` のような部分一致はリンクしない。
-- 研究機関連携シーズ一覧: `CockpitKuteSeeds` はKUTE専用の別台帳を持たず、`seeds` と全国共通 `seed_sps_assessments` を読む。研究機関PJの対象スコープは `institution_projects.institution_id` から解決する。`/seeds` は全175件を1シーズ1行のフラット表で表示し、研究機関・研究者/PI・PJ状態を通常カラムにする。固定優先順はPJ化済み → PJ化検討中 → その他で、機関/研究者/PJ有無のgroup rowは作らない。`spun_off` / `declined` も除外せず、SPS未評価を0にしない。SXは会社未設立の `discussing` / `pre_incorporation`。ECRとSPSは単一スコアへ合算しない。詳細は [`seeds.md`](seeds.md) と [`institution_seed_project_model.md`](institution_seed_project_model.md) 参照。
+- 研究機関連携シーズ一覧: `CockpitKuteSeeds` はKUTE専用の別台帳を持たず、`seeds` と全国共通 `seed_sps_assessments` を読む。研究機関PJの対象スコープは `institution_projects.institution_id` から解決する。`/seeds` は全175件を1シーズ1行のフラット表で表示し、研究機関・研究者/PI・PJ状態を通常カラムにする。固定優先順はPJ化済み → PJ化検討中 → PJなし・SPS評価済み(`latest_sps.status==="ready"`) → その他で、機関/研究者/PJ有無のgroup rowは作らない。`spun_off` / `declined` も除外せず、SPS未評価を0にしない。SXは会社未設立の `discussing` / `pre_incorporation`。ECRとSPSは単一スコアへ合算しない。詳細は [`seeds.md`](seeds.md) と [`institution_seed_project_model.md`](institution_seed_project_model.md) 参照。
 
 回帰防止:
 

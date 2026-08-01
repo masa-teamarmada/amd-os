@@ -11,6 +11,7 @@ import {
   countDistinctResearchers,
   seedProjectLifecycle,
   seedProjectPriority,
+  seedListPriority,
 } from "../src/lib/kute-seeds-scoring.ts";
 import { SEED_PUBLIC_VIEW_COLUMNS } from "../src/types/seeds.ts";
 import type { SeedPublicView } from "../src/types/seeds.ts";
@@ -257,6 +258,34 @@ function readSrc(relPath: string): string {
     };
   }
 
+  // 9-7. /seeds 全機関横断リストの4段階優先度 (seedListPriority):
+  //      PJ化済み=0、PJ化検討中=1、PJなし・SPS評価済み=2、その他=3。ECRは関与しない
+  assert.equal(
+    seedListPriority(makeSeed({ status: "candidate", project_links: [{ project_id: "p1", project_name: "PJ", project_status: "active", commercialization_stage: null, commercialization_route: null, venture_name: null, target_market: null }] })),
+    0,
+    "PJ化済みは優先度0であるべきです",
+  );
+  assert.equal(
+    seedListPriority(makeSeed({ status: "contacted", project_links: [] })),
+    1,
+    "PJ化検討中は優先度1であるべきです",
+  );
+  assert.equal(
+    seedListPriority(makeSeed({ status: "investigating", project_links: [], latest_sps: withSps(0.5) })),
+    2,
+    "PJなし・SPS評価済み(status=ready)は優先度2であるべきです",
+  );
+  assert.equal(
+    seedListPriority(makeSeed({ status: "investigating", project_links: [], latest_sps: { ...withSps(0.5)!, status: "missing" } })),
+    3,
+    "PJ未化かつSPS未評価(status=missing)は優先度3(その他)であるべきです",
+  );
+  assert.equal(
+    seedListPriority(makeSeed({ status: "spun_off", project_links: [], latest_sps: null })),
+    3,
+    "PJ未化かつSPS未計測のspun_offは優先度3(その他)であるべきです",
+  );
+
   // 9-1. 任意の研究者名が複数シーズを持てば1グループにまとまる。Unicode/空白差も正規化する
   const seedsA = [
     makeSeed({ id: "a1", title: "技術A1", researcher_name: " 山田　太郎 ", latest_sps: withSps(0.5) }),
@@ -331,7 +360,22 @@ function readSrc(relPath: string): string {
   assert.ok(!/data-institution-group/.test(ui), "研究機関group rowが残っています");
   assert.ok(!/engagementSections/.test(ui), "PJあり/なしsectionが残っています");
   assert.ok(/研究者\{researcherCount\}名/.test(ui), "研究者数の集計表示が見つかりません");
-  assert.ok(/PJ化済み/.test(ui) && /PJ化検討中/.test(ui), "3段階PJ表示が見つかりません");
+  assert.ok(/PJ化済み/.test(ui) && /PJ化検討中/.test(ui), "PJ表示が見つかりません");
+}
+
+// 11. 全機関横断リスト (/seeds, scope="all") はPJ化済み→PJ化検討中→PJなし・SPS評価済み→
+//     その他の4段階固定ソート (seedListPriority) を使う
+{
+  const ui = readSrc("../src/components/cockpit/CockpitKuteSeeds.tsx");
+  assert.ok(/seedListPriority/.test(ui), "全件リストの4段階優先度 seedListPriority が使われていません");
+  assert.ok(
+    /PJなし・SPS評価済み/.test(ui),
+    "3段階目(PJなし・SPS評価済み)の説明文が見つかりません",
+  );
+  assert.ok(
+    /PJなし・SPS評価済み\$\{unrealizedScoredSeedCount\}件/.test(ui),
+    "PJなし・SPS評価済み件数の集計表示が見つかりません",
+  );
 }
 
 console.log("check_kute_seeds_scope.mts: all checks passed");

@@ -16,6 +16,7 @@ import {
   countDistinctInstitutions,
   seedProjectLifecycle,
   seedProjectPriority,
+  seedListPriority,
   type SeedComparisonSortKey,
 } from "@/lib/seeds-data";
 import { projectStatusLifecycle } from "@/lib/institution-projects";
@@ -105,6 +106,7 @@ export function CockpitKuteSeeds({
   const institutionCount = countDistinctInstitutions(scopedSeeds);
   const realizedProjectSeedCount = scopedSeeds.filter((seed) => seedProjectPriority(seed) === 0).length;
   const consideringProjectSeedCount = scopedSeeds.filter((seed) => seedProjectPriority(seed) === 1).length;
+  const unrealizedScoredSeedCount = scopedSeeds.filter((seed) => seedListPriority(seed) === 2).length;
 
   const filteredSeeds = useMemo(() => {
     return scopedSeeds.filter((seed) => {
@@ -120,7 +122,7 @@ export function CockpitKuteSeeds({
 
   const flatSeeds = useMemo(() => {
     return [...filteredSeeds].sort((a, b) => {
-      const lifecycle = scope === "all" ? seedProjectPriority(a) - seedProjectPriority(b) : 0;
+      const lifecycle = scope === "all" ? seedListPriority(a) - seedListPriority(b) : 0;
       if (lifecycle !== 0) return lifecycle;
       const byScore = compareSeedSortValues(
         seedComparisonSortValue(a, sortKey),
@@ -149,7 +151,7 @@ export function CockpitKuteSeeds({
           <h2 className="text-lg font-bold text-slate-950">{scope === "all" ? "シーズリスト" : "連携シーズ比較"}</h2>
           <p className="mt-1 max-w-4xl text-sm leading-relaxed text-slate-600">
             {scope === "all"
-              ? "AMDとの契約有無に関係なく蓄積する全シーズ一覧。1行＝1シーズで、PJ化済み、PJ化検討中、その他の順に並べる。"
+              ? "AMDとの契約有無に関係なく蓄積する全シーズ一覧。1行＝1シーズで、PJ化済み、PJ化検討中、PJなし・SPS評価済み、その他の順に並べる。"
               : "優先順位と次の検証を決める候補一覧。1行＝技術 × 用途の1案件として比較する。"}
           </p>
           <p className="mt-1 text-[11px] leading-relaxed text-amber-700">
@@ -161,6 +163,7 @@ export function CockpitKuteSeeds({
               {scope === "all" && `・機関${institutionCount}機関`}
               {scope === "all" && `・PJ化済み${realizedProjectSeedCount}件`}
               {scope === "all" && `・PJ化検討中${consideringProjectSeedCount}件`}
+              {scope === "all" && `・PJなし・SPS評価済み${unrealizedScoredSeedCount}件`}
               ・研究者{researcherCount}名・資料{materialCount}件・SPS{scoredCount}件
             </p>
           )}
