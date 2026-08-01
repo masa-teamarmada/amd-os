@@ -14,6 +14,7 @@ import {
   LayoutGrid,
   List as ListIcon,
   Maximize2,
+  NotebookPen,
   PenLine,
   Search,
 } from "lucide-react";
@@ -29,7 +30,6 @@ import {
   GRAPHITE,
   GRAPHITE_MUTED,
   KIND_COLOR,
-  ISSUE_TYPES,
   KIND_LABEL,
   KIND_SHAPE,
   LAYER_LABEL,
@@ -48,6 +48,7 @@ import {
   VERMILION,
   callTheoryMapApi,
   parseTheoryMapEdgeDto,
+  relationRoleDefaults,
   rgba,
   type NodeShape,
   type TheoryMapEdge,
@@ -412,17 +413,30 @@ function paintClippedLinkPointerArea(
 
 function draftNode(
   id: string,
-  preset: "support" | "challenge" | "question" | null,
+  noteRelationType: TheoryRelationType | null,
 ): TheoryMapNode {
-  const question = preset === "question";
-  const source = preset === "support" || preset === "challenge";
+  if (!noteRelationType) {
+    return {
+      id,
+      title: "新しいノード",
+      summary: "",
+      kind: "concept",
+      layer: "cross-layer",
+      status: "hypothesis",
+      sourceRef: "",
+      sourceHref: null,
+      body: "",
+      editable: true,
+    };
+  }
+  const defaults = relationRoleDefaults(noteRelationType);
   return {
     id,
-    title: "新しいノード",
+    title: "新しいメモ",
     summary: "",
-    kind: question ? "question" : source ? "source" : "concept",
-    layer: source ? "evidence" : "cross-layer",
-    status: question ? "unknown" : source ? "established" : "hypothesis",
+    kind: defaults.kind,
+    layer: defaults.layer,
+    status: defaults.status,
     sourceRef: "",
     sourceHref: null,
     body: "",
@@ -631,7 +645,6 @@ export function BzmTheoryMapView({
   }, [filteredNodes, filteredEdges, degreeById, nodePositions, composerState]);
 
   const selected = nodeById.get(selectedId) ?? null;
-  const draftVisual = activeDraftId ? nodeById.get(activeDraftId) ?? null : null;
   const sidePanelOpen = edgeToRemove !== null;
   const interactionOpen = composerState !== null || edgeToRemove !== null;
   const connectionSourceId = connectingFromId;
@@ -765,12 +778,12 @@ export function BzmTheoryMapView({
   }
 
   function openDraftComposer(
-    preset: "support" | "challenge" | "question" | null,
+    noteRelationType: TheoryRelationType | null,
     graphPoint: { x: number; y: number },
     anchor: { x: number; y: number },
   ) {
     const draftId = `draft-${crypto.randomUUID()}`;
-    const nextDraft = draftNode(draftId, preset);
+    const nextDraft = draftNode(draftId, noteRelationType);
     setNodes((current) => [...current, nextDraft]);
     setNodePositions((current) => ({
       ...current,
@@ -785,18 +798,15 @@ export function BzmTheoryMapView({
     setEdgeToRemove(null);
     setComposerAnchor(anchor);
     setComposerState(
-      preset ? { type: "grow", preset, draftId } : { type: "create", draftId },
+      noteRelationType ? { type: "grow", draftId } : { type: "create", draftId },
     );
   }
 
-  function openGrowComposer(preset: "support" | "challenge" | "question") {
+  function openGrowComposer() {
     if (!selected) return;
     const graphNode = graphData.nodes.find((node) => node.id === selected.id);
     const sourcePoint = { x: graphNode?.x ?? 0, y: graphNode?.y ?? 0 };
-    const graphPoint = {
-      x: sourcePoint.x + (preset === "question" ? 110 : -110),
-      y: sourcePoint.y + 76,
-    };
+    const graphPoint = { x: sourcePoint.x - 110, y: sourcePoint.y + 76 };
     const screenPoint = graphRef.current?.graph2ScreenCoords(
       graphPoint.x,
       graphPoint.y,
@@ -804,7 +814,7 @@ export function BzmTheoryMapView({
       x: size.w / 2,
       y: size.h / 2,
     };
-    openDraftComposer(preset, graphPoint, screenPoint);
+    openDraftComposer("supports", graphPoint, screenPoint);
   }
 
   function openEditComposer(
@@ -911,25 +921,16 @@ export function BzmTheoryMapView({
     ? (outgoingBySource.get(selected.id) ?? [])
     : [];
 
-  const supportIn = incomingForSelected.filter((e) =>
-    SUPPORT_TYPES.includes(e.type),
-  );
   const challengeIn = incomingForSelected.filter((e) =>
     CHALLENGE_TYPES.includes(e.type),
   );
   const testEdges = [...incomingForSelected, ...outgoingForSelected].filter(
     (e) => TEST_TYPES.includes(e.type),
   );
-  const structuralEdges = [
-    ...incomingForSelected,
-    ...outgoingForSelected,
-  ].filter((e) => STRUCTURAL_TYPES.includes(e.type));
-  const issueEdges = [...incomingForSelected, ...outgoingForSelected].filter(
-    (e) => ISSUE_TYPES.includes(e.type),
-  );
-  const effectsOut = outgoingForSelected.filter(
-    (e) => SUPPORT_TYPES.includes(e.type) || CHALLENGE_TYPES.includes(e.type),
-  );
+  const relatedEdges: { edge: TheoryMapEdge; direction: "in" | "out" }[] = [
+    ...incomingForSelected.map((edge) => ({ edge, direction: "in" as const })),
+    ...outgoingForSelected.map((edge) => ({ edge, direction: "out" as const })),
+  ];
 
   useEffect(() => {
     if (!notice) return;
@@ -1506,39 +1507,19 @@ export function BzmTheoryMapView({
                             )}
                             <button
                               type="button"
-                              onClick={() => openGrowComposer("support")}
-                              className="min-h-11 rounded-md border px-3 text-xs font-semibold sm:min-h-9"
+                              onClick={() => openGrowComposer()}
+                              className="flex min-h-11 items-center gap-1 rounded-md border px-3 text-xs font-semibold sm:min-h-9"
                               style={{
-                                borderColor: MOSS,
-                                color: MOSS,
-                                backgroundColor: rgba(MOSS, 0.06),
+                                borderColor: BLUEPRINT,
+                                color: BLUEPRINT,
+                                backgroundColor: rgba(BLUEPRINT, 0.06),
                               }}
                             >
-                              根拠
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openGrowComposer("challenge")}
-                              className="min-h-11 rounded-md border px-3 text-xs font-semibold sm:min-h-9"
-                              style={{
-                                borderColor: VERMILION,
-                                color: VERMILION,
-                                backgroundColor: rgba(VERMILION, 0.06),
-                              }}
-                            >
-                              異論
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openGrowComposer("question")}
-                              className="min-h-11 rounded-md border px-3 text-xs font-semibold sm:min-h-9"
-                              style={{
-                                borderColor: OCHRE,
-                                color: OCHRE,
-                                backgroundColor: rgba(OCHRE, 0.06),
-                              }}
-                            >
-                              論点
+                              <NotebookPen
+                                className="h-3.5 w-3.5"
+                                aria-hidden="true"
+                              />
+                              メモを追加
                             </button>
                             <span
                               className="hidden px-2 text-[11px] sm:inline"
@@ -1549,34 +1530,6 @@ export function BzmTheoryMapView({
                           </div>
                         </div>
                       )}
-
-                    {draftVisual && composerAnchor && (
-                      <div
-                        className="pointer-events-none absolute z-[25] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
-                        data-bzm-draft-node="true"
-                        style={{ left: composerAnchor.x, top: composerAnchor.y }}
-                        aria-hidden="true"
-                      >
-                        <span
-                          className="h-5 w-5"
-                          style={{
-                            backgroundColor: KIND_COLOR[draftVisual.kind],
-                            clipPath: kindLegendClipPath(draftVisual.kind),
-                            filter:
-                              "drop-shadow(0 0 1px #fff) drop-shadow(0 2px 4px rgba(52, 48, 39, 0.28))",
-                          }}
-                        />
-                        <span
-                          className="mt-1 max-w-36 truncate rounded px-1.5 py-0.5 text-[10px] font-semibold"
-                          style={{
-                            backgroundColor: rgba(PAPER_PANEL, 0.94),
-                            color: GRAPHITE,
-                          }}
-                        >
-                          <BzmMathText source={draftVisual.title} />
-                        </span>
-                      </div>
-                    )}
 
                     {composerState && (
                       <div
@@ -1975,54 +1928,8 @@ export function BzmTheoryMapView({
                   )}
 
                   <div className="min-h-0 flex-1 overflow-auto p-4">
-                    <RelationGroup
-                      title="支持・定義・具体化 (入力)"
-                      color={MOSS}
-                      edges={supportIn}
-                      direction="from"
-                      nodeById={nodeById}
-                      onSelect={setSelectedId}
-                    />
-                    <RelationGroup
-                      title="異議・反証 (入力)"
-                      color={VERMILION}
-                      edges={challengeIn}
-                      direction="from"
-                      nodeById={nodeById}
-                      onSelect={setSelectedId}
-                    />
-                    <RelationGroup
-                      title="残っている論点"
-                      color={OCHRE}
-                      edges={issueEdges}
-                      direction="either"
-                      selfId={selected.id}
-                      nodeById={nodeById}
-                      onSelect={setSelectedId}
-                    />
-                    <RelationGroup
-                      title="検証 (tests)"
-                      color={BLUEPRINT}
-                      edges={testEdges}
-                      direction="either"
-                      selfId={selected.id}
-                      nodeById={nodeById}
-                      onSelect={setSelectedId}
-                    />
-                    <RelationGroup
-                      title="依存・上書き"
-                      color={GRAPHITE_MUTED}
-                      edges={structuralEdges}
-                      direction="either"
-                      selfId={selected.id}
-                      nodeById={nodeById}
-                      onSelect={setSelectedId}
-                    />
-                    <RelationGroup
-                      title="波及先 (このノードが支持/異議を及ぼす先)"
-                      color={GRAPHITE_MUTED}
-                      edges={effectsOut}
-                      direction="to"
+                    <RelatedNotesList
+                      edges={relatedEdges}
                       nodeById={nodeById}
                       onSelect={setSelectedId}
                     />
@@ -2087,33 +1994,25 @@ export function BzmTheoryMapView({
   );
 }
 
-function RelationGroup({
-  title,
-  color,
+function RelatedNotesList({
   edges,
-  direction,
-  selfId,
   nodeById,
   onSelect,
 }: {
-  title: string;
-  color: string;
-  edges: TheoryMapEdge[];
-  direction: "from" | "to" | "either";
-  selfId?: string;
+  edges: { edge: TheoryMapEdge; direction: "in" | "out" }[];
   nodeById: Map<string, TheoryMapNode>;
   onSelect: (id: string) => void;
 }) {
   return (
-    <div className="mb-4 last:mb-0">
+    <div>
       <div
         className="mb-1.5 flex items-center gap-2 text-xs font-semibold"
-        style={{ color }}
+        style={{ color: GRAPHITE }}
       >
-        {title}
+        関連メモ
         <span
           className="rounded-full border px-1.5 py-0.5 font-mono text-[10px]"
-          style={{ borderColor: color }}
+          style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
         >
           {edges.length} 件
         </span>
@@ -2123,19 +2022,12 @@ function RelationGroup({
           className="rounded-md border border-dashed px-3 py-2 text-xs"
           style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
         >
-          接続なし
+          関連メモなし
         </div>
       ) : (
         <ul className="space-y-1">
-          {edges.map((edge) => {
-            const otherId =
-              direction === "to"
-                ? edge.to
-                : direction === "from"
-                  ? edge.from
-                  : edge.from === selfId
-                    ? edge.to
-                    : edge.from;
+          {edges.map(({ edge, direction }) => {
+            const otherId = direction === "out" ? edge.to : edge.from;
             const other = nodeById.get(otherId);
             if (!other) return null;
             return (
@@ -2146,6 +2038,9 @@ function RelationGroup({
                   className="flex min-h-11 w-full min-w-0 flex-1 items-center gap-2 rounded-md border px-2.5 py-1.5 text-left text-xs transition"
                   style={{ borderColor: PAPER_BORDER }}
                 >
+                  <span aria-hidden="true" style={{ color: GRAPHITE_MUTED }}>
+                    {direction === "out" ? "→" : "←"}
+                  </span>
                   <span
                     className="shrink-0 font-mono"
                     style={{ color: RELATION_COLOR[edge.type] }}

@@ -59,8 +59,8 @@ assert.doesNotMatch(store, /loadMarkdownTheoryMap|falling back to markdown/);
 assert.match(store, /storageMode: "unavailable"/);
 
 for (const label of [
-  "ここから、まさの理論マップが始まる", "根拠", "異論", "論点",
-  "⌘＋次のノードで即接続", "⌘＋クリックで2つ選ぶと接続", "残っている論点",
+  "ここから、まさの理論マップが始まる", "メモを追加",
+  "⌘＋次のノードで即接続", "⌘＋クリックで2つ選ぶと接続", "関連メモ",
 ]) {
   assert.ok(view.includes(label) || composer.includes(label), `editor UI missing ${label}`);
 }
@@ -72,13 +72,23 @@ for (const contract of [
   "size.h, size.w", "initialPositionById", "screen2GraphCoords", "draftNode", "draftId",
   "pendingEdge", "setPendingEdge(optimisticEdge)", "clippedLinkPoints", "nodeBoundaryDistance",
   'linkCanvasObject={drawClippedLink}', 'data-bzm-map-overlay-host="composer"',
-  'data-bzm-draft-node="true"', "draftVisual", "composerAnchor.x", "composerAnchor.y",
+  "composerAnchor.y", "composerOverlayStyle", "relationRoleDefaults", "openGrowComposer()",
 ]) {
   assert.ok(view.includes(contract) || composer.includes(contract), `direct-manipulation contract missing ${contract}`);
 }
 assert.doesNotMatch(view, /理論を書く|このノードを育てる|既存ノードとつなぐ/);
 assert.doesNotMatch(view, /nearestDistance|overlapDistance/, "dragging must not create an edge");
 assert.doesNotMatch(view, /fillText\(KIND_/, "node centers must not contain kind glyphs");
+assert.doesNotMatch(
+  view,
+  /data-bzm-draft-node/,
+  "the draft node must render only through the canvas, not a duplicate HTML marker"
+);
+assert.doesNotMatch(
+  view,
+  /\bdraftVisual\b/,
+  "the HTML draft marker's derived variable must be removed with the marker itself"
+);
 assert.match(
   view,
   /setPendingEdge\(optimisticEdge\);[\s\S]*?await callTheoryMapApi/,
@@ -93,6 +103,13 @@ assert.match(composer, /下書きノードをマップに作成済み/);
 assert.match(composer, /onDraftChange\(state\.draftId, form\)/);
 assert.doesNotMatch(composer, /type: "connect"|mode === "connect"|接続先ノードを検索|既存ノードとつなぐ/);
 assert.doesNotMatch(composer, />\s*つなぐ\s*</, "direct node connection must not require a confirmation button");
+assert.doesNotMatch(
+  composer,
+  /"support" \| "challenge" \| "question"/,
+  "grow mode must let the user choose a relation role, not a fixed 3-button preset"
+);
+assert.match(composer, /RELATION_ROLE_OPTIONS/, "grow mode must offer the shared relation role picker");
+assert.match(composer, /deriveNoteTitle/, "grow mode must derive the node title from the memo body");
 assert.match(composer, /sourceRef: form\.sourceRef,/);
 assert.match(composer, /requiredTextMissing/);
 assert.ok(markdown.includes(String.raw`\[ ... \]`), "display math must support \\[...\\]");

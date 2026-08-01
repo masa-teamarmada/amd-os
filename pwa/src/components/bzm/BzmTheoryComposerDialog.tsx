@@ -38,10 +38,14 @@ import {
   PAPER_BG,
   PAPER_BORDER,
   RELATION_LABEL,
+  RELATION_ROLE_OPTIONS,
   STATUS_LABEL,
   VERMILION,
   callTheoryMapApi,
+  deriveNoteTitle,
   parseTheoryMapEdgeDto,
+  relationDirection,
+  relationRoleDefaults,
   rgba,
   type TheoryMapEdge,
   type TheoryMapNode,
@@ -49,11 +53,7 @@ import {
 
 export type ComposerState =
   | { type: "create"; draftId: string }
-  | {
-      type: "grow";
-      preset: "support" | "challenge" | "question";
-      draftId: string;
-    }
+  | { type: "grow"; draftId: string }
   | { type: "edit"; node: TheoryMapNode };
 
 export interface DraftNodeFields {
@@ -89,6 +89,8 @@ interface FormState {
   status: TheoryNodeStatus;
   body: string;
   sourceRef: string;
+  /** メモ (grow) の役割。create / edit では未使用。 */
+  relationType: TheoryRelationType;
 }
 
 function defaultFormState(): FormState {
@@ -100,31 +102,22 @@ function defaultFormState(): FormState {
     status: "hypothesis",
     body: "",
     sourceRef: "",
+    relationType: "supports",
   };
 }
 
-function presetFormState(
-  preset: "support" | "challenge" | "question",
-): FormState {
-  if (preset === "question") {
-    return {
-      kind: "question",
-      title: "",
-      summary: "",
-      layer: "cross-layer",
-      status: "unknown",
-      body: "",
-      sourceRef: "",
-    };
-  }
+function growFormState(): FormState {
+  const relationType: TheoryRelationType = "supports";
+  const defaults = relationRoleDefaults(relationType);
   return {
-    kind: "source",
+    kind: defaults.kind,
     title: "",
     summary: "",
-    layer: "evidence",
-    status: "established",
+    layer: defaults.layer,
+    status: defaults.status,
     body: "",
     sourceRef: "",
+    relationType,
   };
 }
 
@@ -137,21 +130,8 @@ function nodeToFormState(node: TheoryMapNode): FormState {
     status: node.status,
     body: node.body,
     sourceRef: node.sourceRef,
+    relationType: "supports",
   };
-}
-
-function presetLabel(preset: "support" | "challenge" | "question") {
-  if (preset === "support") return "根拠をつなぐ";
-  if (preset === "challenge") return "異論をつなぐ";
-  return "論点を残す";
-}
-
-function presetRelationType(
-  preset: "support" | "challenge" | "question",
-): TheoryRelationType {
-  if (preset === "support") return "supports";
-  if (preset === "challenge") return "challenges";
-  return "raises";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -232,7 +212,7 @@ export function BzmTheoryComposerDialog({
       setForm(defaultFormState());
     } else if (state.type === "grow") {
       skipDraftSyncRef.current = true;
-      setForm(presetFormState(state.preset));
+      setForm(growFormState());
     } else if (state.type === "edit") setForm(nodeToFormState(state.node));
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [state]);
@@ -270,21 +250,23 @@ export function BzmTheoryComposerDialog({
     onDraftChange(state.draftId, form);
   }, [form, onDraftChange, state]);
 
-  async function submitCreateOrGrow(
-    preset: "support" | "challenge" | "question" | null,
-  ) {
+  async function submitCreateOrGrow(submitMode: "create" | "grow") {
     if (!form.title.trim() || !form.summary.trim()) {
-      setError("タイトルと要約は必須です。");
+      setError(
+        submitMode === "grow"
+          ? "メモの本文は必須です。"
+          : "タイトルと要約は必須です。",
+      );
       return;
     }
     setPending(true);
     setError(null);
     const relation =
-      preset && selected
+      submitMode === "grow" && selected
         ? {
-            type: presetRelationType(preset),
+            type: form.relationType,
             targetId: selected.id,
-            direction: preset === "question" ? "incoming" : "outgoing",
+            direction: relationDirection(form.relationType),
           }
         : undefined;
     const result = await callTheoryMapApi({
@@ -356,38 +338,27 @@ export function BzmTheoryComposerDialog({
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (mode === "create") void submitCreateOrGrow(null);
-    else if (state?.type === "grow") void submitCreateOrGrow(state.preset);
+    if (mode === "create") void submitCreateOrGrow("create");
+    else if (mode === "grow") void submitCreateOrGrow("grow");
     else if (state?.type === "edit") void submitEdit(state.node);
   }
 
   const dialogTitle =
-    mode === "create"
-      ? "理論を書く"
-      : mode === "grow"
-        ? presetLabel(
-            (
-              state as {
-                type: "grow";
-                preset: "support" | "challenge" | "question";
-              }
-            ).preset,
-          )
-        : "ノードを編集";
+    mode === "create" ? "理論を書く" : mode === "grow" ? "メモを追加" : "ノードを編集";
 
   const requiredTextMissing = !form.title.trim() || !form.summary.trim();
 
   const previewText = useMemo(() => {
-    if (mode === "grow" && state?.type === "grow" && selected) {
-      const newTitle = form.title.trim() || "(新しいノード)";
-      const rel = RELATION_LABEL[presetRelationType(state.preset)];
-      if (state.preset === "question") {
+    if (mode === "grow" && selected) {
+      const newTitle = form.title.trim() || "(新しいメモ)";
+      const rel = RELATION_LABEL[form.relationType];
+      if (relationDirection(form.relationType) === "incoming") {
         return `${selected.title} → ${rel} → ${newTitle}`;
       }
       return `${newTitle} → ${rel} → ${selected.title}`;
     }
     return null;
-  }, [mode, state, selected, form.title]);
+  }, [mode, selected, form.title, form.relationType]);
 
   if (!open) return null;
 
@@ -446,14 +417,23 @@ export function BzmTheoryComposerDialog({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          <NodeFields
-            form={form}
-            setForm={setForm}
-            showKindPicker={mode === "create" || mode === "edit"}
-            advancedOpen={advancedOpen}
-            setAdvancedOpen={setAdvancedOpen}
-            showSourceRef={form.kind === "source"}
-          />
+          {mode === "grow" ? (
+            <NoteFields
+              form={form}
+              setForm={setForm}
+              advancedOpen={advancedOpen}
+              setAdvancedOpen={setAdvancedOpen}
+            />
+          ) : (
+            <NodeFields
+              form={form}
+              setForm={setForm}
+              showKindPicker={mode === "create" || mode === "edit"}
+              advancedOpen={advancedOpen}
+              setAdvancedOpen={setAdvancedOpen}
+              showSourceRef={form.kind === "source"}
+            />
+          )}
 
           {previewText && (
             <div
@@ -513,6 +493,152 @@ export function BzmTheoryComposerDialog({
         </div>
       </form>
     </aside>
+  );
+}
+
+function NoteFields({
+  form,
+  setForm,
+  advancedOpen,
+  setAdvancedOpen,
+}: {
+  form: FormState;
+  setForm: (updater: (prev: FormState) => FormState) => void;
+  advancedOpen: boolean;
+  setAdvancedOpen: (v: boolean) => void;
+}) {
+  const memoFieldId = useId();
+  const roleFieldId = useId();
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <label
+          htmlFor={memoFieldId}
+          className="mb-1.5 block text-xs font-semibold"
+          style={{ color: GRAPHITE_MUTED }}
+        >
+          メモ <span style={{ color: VERMILION }}>必須</span>
+        </label>
+        <textarea
+          id={memoFieldId}
+          data-bzm-autofocus="true"
+          value={form.summary}
+          onChange={(e) => {
+            const summary = e.target.value;
+            setForm((prev) => ({
+              ...prev,
+              summary,
+              title: deriveNoteTitle(summary),
+            }));
+          }}
+          required
+          maxLength={2000}
+          rows={5}
+          placeholder="根拠・異論・反証・論点・検証結果などを書く"
+          className="w-full rounded-md border px-3 py-2 text-sm outline-none"
+          style={inputStyle}
+        />
+      </div>
+
+      <div>
+        <label
+          htmlFor={roleFieldId}
+          className="mb-1.5 block text-xs font-semibold"
+          style={{ color: GRAPHITE_MUTED }}
+        >
+          このメモの役割
+        </label>
+        <select
+          id={roleFieldId}
+          value={form.relationType}
+          onChange={(e) => {
+            const relationType = e.target.value as TheoryRelationType;
+            const defaults = relationRoleDefaults(relationType);
+            setForm((prev) => ({
+              ...prev,
+              relationType,
+              kind: defaults.kind,
+              layer: defaults.layer,
+              status: defaults.status,
+            }));
+          }}
+          className="h-11 w-full rounded-md border px-2.5 text-sm outline-none"
+          style={inputStyle}
+        >
+          {RELATION_ROLE_OPTIONS.map((relationType) => (
+            <option key={relationType} value={relationType}>
+              {RELATION_LABEL[relationType]}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setAdvancedOpen(!advancedOpen)}
+        aria-expanded={advancedOpen}
+        className="flex min-h-11 items-center gap-1.5 self-start text-xs font-semibold"
+        style={{ color: BLUEPRINT }}
+      >
+        {advancedOpen ? "詳細を隠す" : "詳細設定 (層・状態・本文・出典)"}
+      </button>
+
+      {advancedOpen && (
+        <div
+          className="flex flex-col gap-4 rounded-md border px-3 py-3"
+          style={{ borderColor: PAPER_BORDER }}
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <LabeledSelect
+              label="層"
+              value={form.layer}
+              onChange={(v) =>
+                setForm((prev) => ({ ...prev, layer: v as TheoryNodeLayer }))
+              }
+              options={THEORY_NODE_LAYERS.map((l) => ({
+                value: l,
+                label: LAYER_LABEL[l],
+              }))}
+            />
+            <LabeledSelect
+              label="状態"
+              value={form.status}
+              onChange={(v) =>
+                setForm((prev) => ({ ...prev, status: v as TheoryNodeStatus }))
+              }
+              options={THEORY_NODE_STATUSES.map((s) => ({
+                value: s,
+                label: STATUS_LABEL[s],
+              }))}
+            />
+          </div>
+          <SourceRefField
+            value={form.sourceRef}
+            onChange={(sourceRef) => setForm((prev) => ({ ...prev, sourceRef }))}
+            hint="根拠をたどれるURL、DOI、書誌情報を残す"
+          />
+          <div>
+            <label
+              className="mb-1.5 block text-xs font-semibold"
+              style={{ color: GRAPHITE_MUTED }}
+            >
+              本文 (Markdown)
+            </label>
+            <textarea
+              value={form.body}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, body: e.target.value }))
+              }
+              maxLength={30000}
+              rows={6}
+              className="w-full rounded-md border px-3 py-2 text-sm outline-none"
+              style={inputStyle}
+            />
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -144,6 +144,52 @@ export const STRUCTURAL_TYPES: TheoryRelationType[] = ["depends_on", "supersedes
 export const TEST_TYPES: TheoryRelationType[] = ["tests"];
 export const ISSUE_TYPES: TheoryRelationType[] = ["raises"];
 
+// メモ追加 (grow) 用: 役割として選べる5種。支持・異議・反証・未解決論点・検証に絞る。
+// defines/depends_on/supersedes/operationalizes は方向が用途依存で一律の既定値を
+// 決められないため、メモ役割には出さず、既存の Cmd/Ctrl+click 直接接続から選ぶ。
+export const RELATION_ROLE_OPTIONS: TheoryRelationType[] = [
+  "supports",
+  "challenges",
+  "refutes",
+  "raises",
+  "tests",
+];
+
+/** メモの役割 (relation type) から、新規ノードの既定 kind/layer/status を決める。 */
+export function relationRoleDefaults(relationType: TheoryRelationType): {
+  kind: TheoryNodeKind;
+  layer: TheoryNodeLayer;
+  status: TheoryNodeStatus;
+} {
+  if (relationType === "raises") {
+    return { kind: "question", layer: "cross-layer", status: "unknown" };
+  }
+  return { kind: "source", layer: "evidence", status: "established" };
+}
+
+/**
+ * メモの役割から接続の向きの既定値を決める。raises だけ「選択ノードが新規の問いを生む」
+ * (selected -> new) で、それ以外は「新規メモが選択ノードへ向く」(new -> selected)。
+ * メモ役割の選択肢は supports/challenges/refutes/raises/tests の5種に限るため、
+ * 向きが用途依存で決めがたい defines/depends_on/supersedes/operationalizes は
+ * この関数の対象外 (Cmd/Ctrl+click 直接接続でユーザーが都度向きを選ぶ)。
+ */
+export function relationDirection(
+  relationType: TheoryRelationType,
+): "outgoing" | "incoming" {
+  return relationType === "raises" ? "incoming" : "outgoing";
+}
+
+/** メモ本文の先頭行、または安全な短縮からノード内部タイトルを派生する。 */
+export function deriveNoteTitle(memo: string): string {
+  const firstLine = memo
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+  if (!firstLine) return "新しいメモ";
+  return firstLine.length > 80 ? `${firstLine.slice(0, 79)}…` : firstLine;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
