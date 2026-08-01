@@ -631,6 +631,7 @@ export function BzmTheoryMapView({
   }, [filteredNodes, filteredEdges, degreeById, nodePositions, composerState]);
 
   const selected = nodeById.get(selectedId) ?? null;
+  const draftVisual = activeDraftId ? nodeById.get(activeDraftId) ?? null : null;
   const sidePanelOpen = edgeToRemove !== null;
   const interactionOpen = composerState !== null || edgeToRemove !== null;
   const connectionSourceId = connectingFromId;
@@ -1548,6 +1549,34 @@ export function BzmTheoryMapView({
                           </div>
                         </div>
                       )}
+
+                    {draftVisual && composerAnchor && (
+                      <div
+                        className="pointer-events-none absolute z-[25] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+                        data-bzm-draft-node="true"
+                        style={{ left: composerAnchor.x, top: composerAnchor.y }}
+                        aria-hidden="true"
+                      >
+                        <span
+                          className="h-5 w-5"
+                          style={{
+                            backgroundColor: KIND_COLOR[draftVisual.kind],
+                            clipPath: kindLegendClipPath(draftVisual.kind),
+                            filter:
+                              "drop-shadow(0 0 1px #fff) drop-shadow(0 2px 4px rgba(52, 48, 39, 0.28))",
+                          }}
+                        />
+                        <span
+                          className="mt-1 max-w-36 truncate rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                          style={{
+                            backgroundColor: rgba(PAPER_PANEL, 0.94),
+                            color: GRAPHITE,
+                          }}
+                        >
+                          <BzmMathText source={draftVisual.title} />
+                        </span>
+                      </div>
+                    )}
 
                     {composerState && (
                       <div

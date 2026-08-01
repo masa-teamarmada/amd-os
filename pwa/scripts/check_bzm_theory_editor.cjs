@@ -72,6 +72,7 @@ for (const contract of [
   "size.h, size.w", "initialPositionById", "screen2GraphCoords", "draftNode", "draftId",
   "pendingEdge", "setPendingEdge(optimisticEdge)", "clippedLinkPoints", "nodeBoundaryDistance",
   'linkCanvasObject={drawClippedLink}', 'data-bzm-map-overlay-host="composer"',
+  'data-bzm-draft-node="true"', "draftVisual", "composerAnchor.x", "composerAnchor.y",
 ]) {
   assert.ok(view.includes(contract) || composer.includes(contract), `direct-manipulation contract missing ${contract}`);
 }

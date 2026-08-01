@@ -2930,6 +2930,8 @@ expectIncludes("src/components/bzm/BzmTheoryMapView.tsx", [
   "clippedLinkPoints",
   'linkCanvasObject={drawClippedLink}',
   'data-bzm-map-overlay-host="composer"',
+  'data-bzm-draft-node="true"',
+  "draftVisual",
   "<BzmMarkdown source={selected.body}",
   "ここから、まさの理論マップが始まる",
 ]);
