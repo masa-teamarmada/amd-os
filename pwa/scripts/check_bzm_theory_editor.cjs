@@ -68,7 +68,7 @@ for (const contract of [
   "suppressNextBackgroundClick", "draggedNodeClickRef", "event.metaKey || event.ctrlKey",
   "setConnectingFromId", 'setComposerState({ type: "create" })', 'data-bzm-map-panel=',
   "KIND_COLOR", "drawStatusRing", "STATUS_RING_LABEL", "d3ReheatSimulation",
-  "size.h, size.w",
+  "size.h, size.w", "initialPositionById",
 ]) {
   assert.ok(view.includes(contract) || composer.includes(contract), `direct-manipulation contract missing ${contract}`);
 }

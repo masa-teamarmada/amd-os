@@ -344,10 +344,24 @@ export function BzmTheoryMapView({
   );
 
   const graphData = useMemo(() => {
+    const initialPositionById = new Map<string, Pick<GraphNode, "x" | "y">>();
+    for (const [columnIndex, layer] of LAYER_ORDER.entries()) {
+      const layerNodes = filteredNodes
+        .filter((node) => node.layer === layer)
+        .sort((a, b) => a.id.localeCompare(b.id));
+      const rowMiddle = (layerNodes.length - 1) / 2;
+      layerNodes.forEach((node, rowIndex) => {
+        initialPositionById.set(node.id, {
+          x: (columnIndex - (LAYER_ORDER.length - 1) / 2) * 190,
+          y: (rowIndex - rowMiddle) * 92,
+        });
+      });
+    }
     const gNodes: GraphNode[] = filteredNodes.map((n) => {
       const savedPosition = nodePositions[n.id];
       return {
         ...n,
+        ...initialPositionById.get(n.id),
         ...savedPosition,
         val: Math.max(1, degreeById.get(n.id) ?? 1),
       };
