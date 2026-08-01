@@ -1882,19 +1882,138 @@ function IssueEditor({
     }
   }
 
-  const editorPanel = (
-    <section
-      ref={editorPanelRef}
-      className={`${styles.editorPanel} ${embedded ? styles.editorInline : ""}`}
-      data-testid={embedded ? "sx-inline-editor" : undefined}
-      aria-label={embedded ? definition.title : undefined}
+  const editorForm = (
+    <>
+      <div className={styles.formGrid}>
+        {definition.fields.map((field) => (
+          <label
+            key={field.key}
+            className={field.span ? styles.fieldSpan : styles.field}
+          >
+            <span>
+              {field.label}
+              {field.required && <b>必須</b>}
+            </span>
+            {field.type === "textarea" ? (
+              <textarea
+                rows={field.key === "title" ? 2 : 4}
+                required={field.required}
+                value={fieldValue(values, field.key)}
+                onChange={(event) =>
+                  setValues((current) => ({
+                    ...current,
+                    [field.key]: event.target.value,
+                  }))
+                }
+              />
+            ) : field.type === "select" ? (
+              <select
+                required={field.required}
+                value={fieldValue(values, field.key)}
+                onChange={(event) =>
+                  setValues((current) => ({
+                    ...current,
+                    [field.key]: event.target.value,
+                  }))
+                }
+              >
+                {field.options?.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            ) : field.type === "checkbox" ? (
+              <span className={styles.checkboxRow}>
+                <input
+                  type="checkbox"
+                  checked={values[field.key] === "true"}
+                  onChange={(event) =>
+                    setValues((current) => ({
+                      ...current,
+                      [field.key]: event.target.checked ? "true" : "false",
+                    }))
+                  }
+                />
+                今回の週次会議で扱う
+              </span>
+            ) : (
+              <input
+                type={field.type || "text"}
+                required={field.required}
+                value={fieldValue(values, field.key)}
+                onChange={(event) =>
+                  setValues((current) => ({
+                    ...current,
+                    [field.key]: event.target.value,
+                  }))
+                }
+              />
+            )}
+            {field.help && <small>{field.help}</small>}
+          </label>
+        ))}
+      </div>
+      {error && (
+        <p className={styles.formError} role="alert">
+          {error}
+        </p>
+      )}
+      <footer className={styles.editorFooter}>
+        <button
+          type="button"
+          className={styles.secondaryButton}
+          onClick={requestClose}
+        >
+          キャンセル
+        </button>
+        <button
+          type="button"
+          className={styles.primaryButton}
+          disabled={saving}
+          onClick={save}
+        >
+          {saving ? (
+            <RefreshCw className={styles.spin} aria-hidden="true" />
+          ) : (
+            <Check aria-hidden="true" />
+          )}
+          保存
+        </button>
+      </footer>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <section
+        ref={editorPanelRef}
+        className={styles.editorEmbedded}
+        data-testid="sx-inline-editor"
+        data-inline-editor-form="true"
+        aria-label={definition.title}
+      >
+        {editorForm}
+      </section>
+    );
+  }
+
+  return (
+    <div
+      className={styles.editorBackdrop}
+      role="dialog"
+      aria-modal="true"
+      aria-label={definition.title}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) requestClose();
+      }}
     >
-      <header className={styles.editorHeader}>
-        <div>
-          <p className={styles.eyebrow}>{definition.eyebrow}</p>
-          <h2>{definition.title}</h2>
-        </div>
-        {!embedded && (
+      <section ref={editorPanelRef} className={styles.editorPanel}>
+        <header className={styles.editorHeader}>
+          <div>
+            <p className={styles.eyebrow}>{definition.eyebrow}</p>
+            <h2>{definition.title}</h2>
+          </div>
           <button
             type="button"
             className={styles.iconButton}
@@ -1903,10 +2022,9 @@ function IssueEditor({
           >
             <X aria-hidden="true" />
           </button>
-        )}
-      </header>
-      <div className={styles.editorContext}>
-        {"issue" in editor && (
+        </header>
+        <div className={styles.editorContext}>
+          {"issue" in editor && (
             <>
               <span>対象論点</span>
               <strong>{editor.issue.title}</strong>
@@ -1957,119 +2075,8 @@ function IssueEditor({
             </>
           )}
         </div>
-        <div className={styles.formGrid}>
-          {definition.fields.map((field) => (
-            <label
-              key={field.key}
-              className={field.span ? styles.fieldSpan : styles.field}
-            >
-              <span>
-                {field.label}
-                {field.required && <b>必須</b>}
-              </span>
-              {field.type === "textarea" ? (
-                <textarea
-                  rows={field.key === "title" ? 2 : 4}
-                  required={field.required}
-                  value={fieldValue(values, field.key)}
-                  onChange={(event) =>
-                    setValues((current) => ({
-                      ...current,
-                      [field.key]: event.target.value,
-                    }))
-                  }
-                />
-              ) : field.type === "select" ? (
-                <select
-                  required={field.required}
-                  value={fieldValue(values, field.key)}
-                  onChange={(event) =>
-                    setValues((current) => ({
-                      ...current,
-                      [field.key]: event.target.value,
-                    }))
-                  }
-                >
-                  {field.options?.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              ) : field.type === "checkbox" ? (
-                <span className={styles.checkboxRow}>
-                  <input
-                    type="checkbox"
-                    checked={values[field.key] === "true"}
-                    onChange={(event) =>
-                      setValues((current) => ({
-                        ...current,
-                        [field.key]: event.target.checked ? "true" : "false",
-                      }))
-                    }
-                  />
-                  今回の週次会議で扱う
-                </span>
-              ) : (
-                <input
-                  type={field.type || "text"}
-                  required={field.required}
-                  value={fieldValue(values, field.key)}
-                  onChange={(event) =>
-                    setValues((current) => ({
-                      ...current,
-                      [field.key]: event.target.value,
-                    }))
-                  }
-                />
-              )}
-              {field.help && <small>{field.help}</small>}
-            </label>
-          ))}
-        </div>
-        {error && (
-          <p className={styles.formError} role="alert">
-            {error}
-          </p>
-        )}
-        <footer className={styles.editorFooter}>
-          <button
-            type="button"
-            className={styles.secondaryButton}
-            onClick={requestClose}
-          >
-            キャンセル
-          </button>
-          <button
-            type="button"
-            className={styles.primaryButton}
-            disabled={saving}
-            onClick={save}
-          >
-            {saving ? (
-              <RefreshCw className={styles.spin} aria-hidden="true" />
-            ) : (
-              <Check aria-hidden="true" />
-            )}
-            保存
-        </button>
-      </footer>
-    </section>
-  );
-
-  if (embedded) return editorPanel;
-
-  return (
-    <div
-      className={styles.editorBackdrop}
-      role="dialog"
-      aria-modal="true"
-      aria-label={definition.title}
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) requestClose();
-      }}
-    >
-      {editorPanel}
+        {editorForm}
+      </section>
     </div>
   );
 }
@@ -2468,6 +2475,7 @@ function PlanInspector({
         role="dialog"
         aria-modal="true"
         aria-label={`${item.title}の詳細`}
+        data-detail-mode={detailEditor ? "edit" : "view"}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header>
@@ -2513,9 +2521,11 @@ function PlanInspector({
           </div>
         )}
         {detailEditor ? (
-          <div className={styles.planInspectorInlineEditor}>{detailEditor}</div>
+          <div className={styles.planInspectorInlineEditor} data-detail-body>
+            {detailEditor}
+          </div>
         ) : (
-          <div className={styles.planInspectorBody}>
+          <div className={styles.planInspectorBody} data-detail-body>
             <dl className={styles.inspectorFacts}>
               <div>
               <dt>担当</dt>

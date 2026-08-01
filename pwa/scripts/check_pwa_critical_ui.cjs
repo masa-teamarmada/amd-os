@@ -39,6 +39,22 @@ function expectNotIncludes(rel, needles) {
   }
 }
 
+function expectSegmentNotIncludes(rel, start, end, needles) {
+  const text = read(rel);
+  const startIndex = text.indexOf(start);
+  const endIndex = startIndex < 0 ? -1 : text.indexOf(end, startIndex + start.length);
+  if (startIndex < 0 || endIndex < 0) {
+    throw new Error(`${rel} missing segment anchors: ${start} -> ${end}`);
+  }
+  const segment = text.slice(startIndex, endIndex);
+  const present = needles.filter((needle) => segment.includes(needle));
+  if (present.length > 0) {
+    throw new Error(
+      `${rel} segment contains retired critical UI anchors: ${present.join(", ")}`,
+    );
+  }
+}
+
 function expectFileMissing(rel) {
   const target = path.join(root, rel);
   if (fs.existsSync(target)) {
@@ -106,6 +122,20 @@ expectNotIncludes(
     "論点と仮説を、忘れられない流れに乗せる",
     "4本柱は、例外だけを見る",
     "情報を入れる前の接続口",
+  ],
+);
+expectSegmentNotIncludes(
+  "src/components/project-workspace/SxWeeklyControlDashboard.tsx",
+  "if (embedded) {\n    return (",
+  "\n  return (\n    <div\n      className={styles.editorBackdrop}",
+  [
+    "styles.editorPanel",
+    "styles.editorHeader",
+    "styles.editorContext",
+    "<header",
+    "<h2",
+    'role="dialog"',
+    "createPortal",
   ],
 );
 
@@ -2858,7 +2888,11 @@ expectIncludes(
     "ガント上に詳細が開く",
     "createPortal",
     "useModalContainment",
-    'data-testid={embedded ? "sx-inline-editor" : undefined}',
+    'data-testid="sx-inline-editor"',
+    'data-inline-editor-form="true"',
+    'data-detail-mode={detailEditor ? "edit" : "view"}',
+    "data-detail-body",
+    "className={styles.editorEmbedded}",
     "embedded = false",
     "detailEditor={",
     "onDirtyChange={setDetailEditorDirty}",
@@ -2868,14 +2902,20 @@ expectIncludes(
 );
 expectNotIncludes(
   "src/components/project-workspace/SxWeeklyControlDashboard.tsx",
-  ["data-inspector=", 'aria-modal="false"', "横に詳細が開く"],
+  [
+    "data-inspector=",
+    'aria-modal="false"',
+    "横に詳細が開く",
+    "styles.editorInline",
+    'data-testid={embedded ? "sx-inline-editor" : undefined}',
+  ],
 );
 expectIncludes("src/components/project-workspace/weekly-control.module.css", [
   ".planInspectorLayer",
   "place-items: center",
   "backdrop-filter: blur(2px)",
   "width: min(860px, calc(100vw - 48px))",
-  ".editorPanel.editorInline",
+  ".editorEmbedded",
   ".planInspectorInlineEditor",
 ]);
 expectIncludes("src/components/project-workspace/useModalContainment.ts", [
@@ -2889,7 +2929,18 @@ expectIncludes("src/components/project-workspace/useModalContainment.ts", [
 ]);
 expectNotIncludes(
   "src/components/project-workspace/weekly-control.module.css",
-  [".ganttWorkspace[data-inspector]"],
+  [
+    ".ganttWorkspace[data-inspector]",
+    ".editorPanel.editorInline",
+    ".editorInline .editorHeader",
+    ".editorInline .editorFooter",
+  ],
+);
+expectSegmentNotIncludes(
+  "src/components/project-workspace/weekly-control.module.css",
+  ".editorEmbedded {",
+  "}",
+  ["border:", "box-shadow:", "background: white", "background: #"],
 );
 expectIncludes("scripts/migrations/211_sx_vc_partner_ledger.sql", [
   "ダイキアクシスベンチャーパートナーズ（DAVP）",

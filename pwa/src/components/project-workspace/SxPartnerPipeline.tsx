@@ -1046,6 +1046,7 @@ function PocComparisonDetailModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        data-detail-mode={detailEditor ? "edit" : "view"}
         className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-xl border border-[#d6cebf] bg-[#fffdf7] shadow-2xl sm:max-w-4xl sm:rounded-xl"
       >
         <header className="flex items-center justify-between gap-3 border-b border-[#e4ddd0] px-4 py-3">
@@ -1070,7 +1071,10 @@ function PocComparisonDetailModal({
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </header>
-        <div className="min-h-0 flex-1 overscroll-contain overflow-y-auto px-4 py-3">
+        <div
+          className={`min-h-0 flex-1 overscroll-contain overflow-y-auto ${detailEditor ? "" : "px-4 py-3"}`}
+          data-detail-body
+        >
           {detailEditor ? (
             <div data-testid="sx-partner-inline-editor">{detailEditor}</div>
           ) : (
