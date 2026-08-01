@@ -221,6 +221,23 @@ test("upload pathname includes currentFolder segment when nested", () => {
   assert.match(html, /await upload\(prefix \+ file\.name, file,/);
 });
 
+test("folder URLs restore a validated folder, track navigation, and support browser back/forward", () => {
+  const html = renderPortalHtml();
+  const script = extractModuleScript(html);
+  assert.match(script, /function folderFromLocation\(\) \{/);
+  assert.match(script, /new URLSearchParams\(window\.location\.search\)\.get\("folder"\)/);
+  assert.match(script, /rawFolder\.split\("\/"\)/);
+  assert.match(script, /segments\.every\(isValidEntryName\) \? rawFolder : ""/);
+  assert.match(script, /let currentFolder = folderFromLocation\(\);/);
+  assert.match(script, /function syncFolderUrl\(\) \{/);
+  assert.match(script, /url\.searchParams\.set\("folder", currentFolder\)/);
+  assert.match(script, /url\.searchParams\.delete\("folder"\)/);
+  assert.match(script, /window\.history\.pushState\(\{ folder: currentFolder \}, "", url\.pathname \+ url\.search \+ url\.hash\);/);
+  assert.match(script, /function navigateTo\(folderPath, \{ updateHistory = true \} = \{\}\) \{/);
+  assert.match(script, /if \(updateHistory\) syncFolderUrl\(\);/);
+  assert.match(script, /window\.addEventListener\("popstate", \(\) => \{\s*\n\s*navigateTo\(folderFromLocation\(\), \{ updateHistory: false \}\);/);
+});
+
 test("no innerHTML use with interpolated user data (only static SVG strings)", () => {
   const html = renderPortalHtml();
   const script = extractModuleScript(html);

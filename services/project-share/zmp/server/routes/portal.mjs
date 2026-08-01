@@ -577,9 +577,16 @@ export function renderPortalHtml() {
       return true;
     }
 
+    function folderFromLocation() {
+      const rawFolder = new URLSearchParams(window.location.search).get("folder");
+      if (!rawFolder) return "";
+      const segments = rawFolder.split("/");
+      return segments.every(isValidEntryName) ? rawFolder : "";
+    }
+
     let files = [];
     let folders = [];
-    let currentFolder = "";
+    let currentFolder = folderFromLocation();
     let sortKey = "uploadedAt";
     let sortDir = "desc";
     let uploadInProgress = false;
@@ -670,8 +677,16 @@ export function renderPortalHtml() {
       upBtn.hidden = !currentFolder;
     }
 
-    function navigateTo(folderPath) {
+    function syncFolderUrl() {
+      const url = new URL(window.location.href);
+      if (currentFolder) url.searchParams.set("folder", currentFolder);
+      else url.searchParams.delete("folder");
+      window.history.pushState({ folder: currentFolder }, "", url.pathname + url.search + url.hash);
+    }
+
+    function navigateTo(folderPath, { updateHistory = true } = {}) {
       currentFolder = folderPath;
+      if (updateHistory) syncFolderUrl();
       searchEl.value = "";
       renderBreadcrumbs();
       loadFiles();
@@ -1483,6 +1498,10 @@ export function renderPortalHtml() {
       const segments = currentFolder.split("/");
       segments.pop();
       navigateTo(segments.join("/"));
+    });
+
+    window.addEventListener("popstate", () => {
+      navigateTo(folderFromLocation(), { updateHistory: false });
     });
 
     uploadBtn.addEventListener("click", () => fileInput.click());
