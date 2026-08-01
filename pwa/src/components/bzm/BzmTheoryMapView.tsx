@@ -961,7 +961,7 @@ export function BzmTheoryMapView({
       : (() => {
           const panelWidth = Math.min(400, size.w - 24);
           const anchor = composerAnchor ?? { x: size.w / 2, y: 80 };
-          const nodeGap = 40;
+          const nodeGap = 72;
           const fitsRight =
             anchor.x + nodeGap + panelWidth <= size.w - 12;
           const left = fitsRight
