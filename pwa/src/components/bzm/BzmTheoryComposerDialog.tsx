@@ -1,13 +1,33 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
-import { BookOpenText, CheckCircle2, HelpCircle, Lightbulb, Quote, Ruler, X } from "lucide-react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
+import {
+  BookOpenText,
+  CheckCircle2,
+  HelpCircle,
+  Lightbulb,
+  Quote,
+  Ruler,
+  X,
+} from "lucide-react";
 import {
   THEORY_NODE_KINDS,
   THEORY_NODE_LAYERS,
   THEORY_NODE_STATUSES,
 } from "@/lib/bzm-theory-graph";
-import type { TheoryNodeKind, TheoryNodeLayer, TheoryNodeStatus, TheoryRelationType } from "@/lib/bzm-theory-graph";
+import type {
+  TheoryNodeKind,
+  TheoryNodeLayer,
+  TheoryNodeStatus,
+  TheoryRelationType,
+} from "@/lib/bzm-theory-graph";
 import {
   BLUEPRINT,
   GRAPHITE,
@@ -28,9 +48,23 @@ import {
 } from "@/lib/bzm-theory-map-ui";
 
 export type ComposerState =
-  | { type: "create" }
-  | { type: "grow"; preset: "support" | "challenge" | "question" }
+  | { type: "create"; draftId: string }
+  | {
+      type: "grow";
+      preset: "support" | "challenge" | "question";
+      draftId: string;
+    }
   | { type: "edit"; node: TheoryMapNode };
+
+export interface DraftNodeFields {
+  kind: TheoryNodeKind;
+  title: string;
+  summary: string;
+  layer: TheoryNodeLayer;
+  status: TheoryNodeStatus;
+  body: string;
+  sourceRef: string;
+}
 
 const KIND_OPTIONS: { kind: TheoryNodeKind; icon: typeof Lightbulb }[] = [
   { kind: "concept", icon: Lightbulb },
@@ -69,7 +103,9 @@ function defaultFormState(): FormState {
   };
 }
 
-function presetFormState(preset: "support" | "challenge" | "question"): FormState {
+function presetFormState(
+  preset: "support" | "challenge" | "question",
+): FormState {
   if (preset === "question") {
     return {
       kind: "question",
@@ -110,7 +146,9 @@ function presetLabel(preset: "support" | "challenge" | "question") {
   return "論点を残す";
 }
 
-function presetRelationType(preset: "support" | "challenge" | "question"): TheoryRelationType {
+function presetRelationType(
+  preset: "support" | "challenge" | "question",
+): TheoryRelationType {
   if (preset === "support") return "supports";
   if (preset === "challenge") return "challenges";
   return "raises";
@@ -120,8 +158,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function isAllowed<T extends string>(values: readonly T[], value: unknown): value is T {
-  return typeof value === "string" && (values as readonly string[]).includes(value);
+function isAllowed<T extends string>(
+  values: readonly T[],
+  value: unknown,
+): value is T {
+  return (
+    typeof value === "string" && (values as readonly string[]).includes(value)
+  );
 }
 
 function parseNodeDto(value: unknown): TheoryMapNode | null {
@@ -132,7 +175,8 @@ function parseNodeDto(value: unknown): TheoryMapNode | null {
     !isAllowed(THEORY_NODE_KINDS, value.kind) ||
     !isAllowed(THEORY_NODE_LAYERS, value.layer) ||
     !isAllowed(THEORY_NODE_STATUSES, value.status)
-  ) return null;
+  )
+    return null;
   return {
     id: value.id,
     title: value.title,
@@ -153,6 +197,7 @@ export function BzmTheoryComposerDialog({
   onClose,
   onNodeCreated,
   onNodeUpdated,
+  onDraftChange,
   onError,
 }: {
   state: ComposerState | null;
@@ -160,6 +205,7 @@ export function BzmTheoryComposerDialog({
   onClose: () => void;
   onNodeCreated: (node: TheoryMapNode, edge: TheoryMapEdge | null) => void;
   onNodeUpdated: (node: TheoryMapNode) => void;
+  onDraftChange: (draftId: string, fields: DraftNodeFields) => void;
   onError: (message: string) => void;
 }) {
   const titleId = useId();
@@ -168,6 +214,7 @@ export function BzmTheoryComposerDialog({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const skipDraftSyncRef = useRef(false);
 
   const open = state !== null;
   const mode = state?.type ?? "create";
@@ -180,9 +227,13 @@ export function BzmTheoryComposerDialog({
     setError(null);
     setPending(false);
     setAdvancedOpen(state.type === "edit");
-    if (state.type === "create") setForm(defaultFormState());
-    else if (state.type === "grow") setForm(presetFormState(state.preset));
-    else if (state.type === "edit") setForm(nodeToFormState(state.node));
+    if (state.type === "create") {
+      skipDraftSyncRef.current = true;
+      setForm(defaultFormState());
+    } else if (state.type === "grow") {
+      skipDraftSyncRef.current = true;
+      setForm(presetFormState(state.preset));
+    } else if (state.type === "edit") setForm(nodeToFormState(state.node));
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [state]);
 
@@ -190,8 +241,13 @@ export function BzmTheoryComposerDialog({
     if (!open) return;
     const timer = window.setTimeout(() => {
       const panel = panelRef.current;
-      const preferred = panel?.querySelector<HTMLElement>("[data-bzm-autofocus='true']");
-      (preferred ?? panel?.querySelector<HTMLElement>("input, textarea, select, button"))?.focus();
+      const preferred = panel?.querySelector<HTMLElement>(
+        "[data-bzm-autofocus='true']",
+      );
+      (
+        preferred ??
+        panel?.querySelector<HTMLElement>("input, textarea, select, button")
+      )?.focus();
     }, 0);
     return () => window.clearTimeout(timer);
   }, [mode, open]);
@@ -205,7 +261,18 @@ export function BzmTheoryComposerDialog({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open, onClose, pending]);
 
-  async function submitCreateOrGrow(preset: "support" | "challenge" | "question" | null) {
+  useEffect(() => {
+    if (!state || state.type === "edit") return;
+    if (skipDraftSyncRef.current) {
+      skipDraftSyncRef.current = false;
+      return;
+    }
+    onDraftChange(state.draftId, form);
+  }, [form, onDraftChange, state]);
+
+  async function submitCreateOrGrow(
+    preset: "support" | "challenge" | "question" | null,
+  ) {
     if (!form.title.trim() || !form.summary.trim()) {
       setError("タイトルと要約は必須です。");
       return;
@@ -298,7 +365,14 @@ export function BzmTheoryComposerDialog({
     mode === "create"
       ? "理論を書く"
       : mode === "grow"
-        ? presetLabel((state as { type: "grow"; preset: "support" | "challenge" | "question" }).preset)
+        ? presetLabel(
+            (
+              state as {
+                type: "grow";
+                preset: "support" | "challenge" | "question";
+              }
+            ).preset,
+          )
         : "ノードを編集";
 
   const requiredTextMissing = !form.title.trim() || !form.summary.trim();
@@ -324,87 +398,120 @@ export function BzmTheoryComposerDialog({
       aria-modal="false"
       aria-labelledby={titleId}
       data-bzm-map-panel="composer"
-      className="flex min-h-[420px] w-full flex-col overflow-hidden border-t md:min-h-0 md:border-l md:border-t-0"
-      style={{ backgroundColor: "#faf6ec", borderColor: PAPER_BORDER, color: GRAPHITE }}
+      data-bzm-map-overlay="composer"
+      className="flex max-h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border shadow-xl"
+      style={{
+        backgroundColor: "#faf6ec",
+        borderColor: PAPER_BORDER,
+        color: GRAPHITE,
+      }}
     >
-        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          <div className="flex items-start gap-3 border-b px-4 py-4" style={{ borderColor: PAPER_BORDER }}>
-            <div className="min-w-0 flex-1">
-              <h2 id={titleId} className="text-lg font-semibold leading-tight" style={{ color: GRAPHITE }}>
-                {dialogTitle}
-              </h2>
-              {selected && mode === "grow" && (
-                <p className="mt-1 truncate text-xs" style={{ color: GRAPHITE_MUTED }}>
-                  選択中: <span className="font-semibold">{selected.title}</span>
-                </p>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={pending}
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-md border disabled:opacity-50"
-              style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
-              aria-label="閉じる"
+      <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        <div
+          className="flex items-start gap-3 border-b px-4 py-4"
+          style={{ borderColor: PAPER_BORDER }}
+        >
+          <div className="min-w-0 flex-1">
+            <h2
+              id={titleId}
+              className="text-lg font-semibold leading-tight"
+              style={{ color: GRAPHITE }}
             >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-            <NodeFields
-              form={form}
-              setForm={setForm}
-              showKindPicker={mode === "create" || mode === "edit"}
-              advancedOpen={advancedOpen}
-              setAdvancedOpen={setAdvancedOpen}
-              showSourceRef={form.kind === "source"}
-            />
-
-            {previewText && (
-              <div
-                className="mt-4 rounded-md border px-3 py-2 text-xs leading-5"
-                style={{ borderColor: BLUEPRINT, backgroundColor: "rgba(41, 82, 163, 0.08)", color: BLUEPRINT }}
-              >
-                <div className="mb-0.5 font-semibold">接続のプレビュー</div>
-                <div className="break-words [overflow-wrap:anywhere]">{previewText}</div>
-              </div>
+              {dialogTitle}
+            </h2>
+            {mode !== "edit" && (
+              <p className="mt-1 text-xs" style={{ color: BLUEPRINT }}>
+                下書きノードをマップに作成済み
+              </p>
             )}
-
-            {error && (
-              <div
-                className="mt-4 rounded-md border px-3 py-2 text-xs"
-                style={{ borderColor: VERMILION, backgroundColor: "rgba(180, 64, 42, 0.08)", color: VERMILION }}
-                role="alert"
+            {selected && mode === "grow" && (
+              <p
+                className="mt-1 truncate text-xs"
+                style={{ color: GRAPHITE_MUTED }}
               >
-                {error}
-              </div>
+                選択中: <span className="font-semibold">{selected.title}</span>
+              </p>
             )}
           </div>
-
-          <div
-            className="flex gap-2 border-t px-4 py-3 sm:justify-end sm:py-4"
-            style={{ borderColor: PAPER_BORDER, backgroundColor: "rgba(204, 194, 168, 0.16)" }}
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={pending}
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-md border disabled:opacity-50"
+            style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
+            aria-label="閉じる"
           >
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={pending}
-              className="flex min-h-11 flex-1 items-center justify-center rounded-md border px-4 text-sm font-semibold disabled:opacity-50 sm:flex-none"
-              style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          <NodeFields
+            form={form}
+            setForm={setForm}
+            showKindPicker={mode === "create" || mode === "edit"}
+            advancedOpen={advancedOpen}
+            setAdvancedOpen={setAdvancedOpen}
+            showSourceRef={form.kind === "source"}
+          />
+
+          {previewText && (
+            <div
+              className="mt-4 rounded-md border px-3 py-2 text-xs leading-5"
+              style={{
+                borderColor: BLUEPRINT,
+                backgroundColor: "rgba(41, 82, 163, 0.08)",
+                color: BLUEPRINT,
+              }}
             >
-              キャンセル
-            </button>
-            <button
-              type="submit"
-              disabled={pending || requiredTextMissing}
-              className="flex min-h-11 flex-1 items-center justify-center rounded-md px-4 text-sm font-semibold text-white disabled:opacity-50 sm:flex-none"
-              style={{ backgroundColor: BLUEPRINT }}
+              <div className="mb-0.5 font-semibold">接続のプレビュー</div>
+              <div className="break-words [overflow-wrap:anywhere]">
+                {previewText}
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div
+              className="mt-4 rounded-md border px-3 py-2 text-xs"
+              style={{
+                borderColor: VERMILION,
+                backgroundColor: "rgba(180, 64, 42, 0.08)",
+                color: VERMILION,
+              }}
+              role="alert"
             >
-              {pending ? "保存中…" : mode === "edit" ? "更新する" : "作成する"}
-            </button>
-          </div>
-        </form>
+              {error}
+            </div>
+          )}
+        </div>
+
+        <div
+          className="flex gap-2 border-t px-4 py-3 sm:justify-end sm:py-4"
+          style={{
+            borderColor: PAPER_BORDER,
+            backgroundColor: "rgba(204, 194, 168, 0.16)",
+          }}
+        >
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={pending}
+            className="flex min-h-11 flex-1 items-center justify-center rounded-md border px-4 text-sm font-semibold disabled:opacity-50 sm:flex-none"
+            style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
+          >
+            キャンセル
+          </button>
+          <button
+            type="submit"
+            disabled={pending || requiredTextMissing}
+            className="flex min-h-11 flex-1 items-center justify-center rounded-md px-4 text-sm font-semibold text-white disabled:opacity-50 sm:flex-none"
+            style={{ backgroundColor: BLUEPRINT }}
+          >
+            {pending ? "保存中…" : mode === "edit" ? "更新する" : "保存する"}
+          </button>
+        </div>
+      </form>
     </aside>
   );
 }
@@ -431,30 +538,57 @@ function NodeFields({
     <div className="flex flex-col gap-4">
       {showKindPicker && (
         <div>
-          <span className="mb-1.5 block text-xs font-semibold" style={{ color: GRAPHITE_MUTED }}>
+          <span
+            className="mb-1.5 block text-xs font-semibold"
+            style={{ color: GRAPHITE_MUTED }}
+          >
             種別
           </span>
-          <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="ノードの種別">
+          <div
+            className="grid grid-cols-3 gap-2"
+            role="radiogroup"
+            aria-label="ノードの種別"
+          >
             {KIND_OPTIONS.map(({ kind, icon: Icon }) => (
               <button
                 key={kind}
                 type="button"
                 role="radio"
                 aria-checked={form.kind === kind}
-                onClick={() => setForm((prev) => ({
-                  ...prev,
-                  kind,
-                  layer: kind === "source" ? "evidence" : kind === "question" ? "cross-layer" : prev.layer,
-                  status: kind === "source" ? "established" : kind === "question" ? "unknown" : prev.status,
-                }))}
+                onClick={() =>
+                  setForm((prev) => ({
+                    ...prev,
+                    kind,
+                    layer:
+                      kind === "source"
+                        ? "evidence"
+                        : kind === "question"
+                          ? "cross-layer"
+                          : prev.layer,
+                    status:
+                      kind === "source"
+                        ? "established"
+                        : kind === "question"
+                          ? "unknown"
+                          : prev.status,
+                  }))
+                }
                 className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-md border px-2 py-2 text-xs font-medium"
                 style={{
-                  borderColor: form.kind === kind ? KIND_COLOR[kind] : PAPER_BORDER,
-                  backgroundColor: form.kind === kind ? rgba(KIND_COLOR[kind], 0.12) : PAPER_BG,
+                  borderColor:
+                    form.kind === kind ? KIND_COLOR[kind] : PAPER_BORDER,
+                  backgroundColor:
+                    form.kind === kind
+                      ? rgba(KIND_COLOR[kind], 0.12)
+                      : PAPER_BG,
                   color: GRAPHITE,
                 }}
               >
-                <Icon className="h-4 w-4" style={{ color: KIND_COLOR[kind] }} aria-hidden="true" />
+                <Icon
+                  className="h-4 w-4"
+                  style={{ color: KIND_COLOR[kind] }}
+                  aria-hidden="true"
+                />
                 {KIND_LABEL[kind]}
               </button>
             ))}
@@ -463,14 +597,20 @@ function NodeFields({
       )}
 
       <div>
-        <label htmlFor={titleFieldId} className="mb-1.5 block text-xs font-semibold" style={{ color: GRAPHITE_MUTED }}>
+        <label
+          htmlFor={titleFieldId}
+          className="mb-1.5 block text-xs font-semibold"
+          style={{ color: GRAPHITE_MUTED }}
+        >
           タイトル <span style={{ color: VERMILION }}>必須</span>
         </label>
         <input
           id={titleFieldId}
           data-bzm-autofocus="true"
           value={form.title}
-          onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
+          onChange={(e) =>
+            setForm((prev) => ({ ...prev, title: e.target.value }))
+          }
           required
           maxLength={220}
           className="h-11 w-full rounded-md border px-3 text-sm outline-none"
@@ -487,13 +627,19 @@ function NodeFields({
       )}
 
       <div>
-        <label htmlFor={summaryFieldId} className="mb-1.5 block text-xs font-semibold" style={{ color: GRAPHITE_MUTED }}>
+        <label
+          htmlFor={summaryFieldId}
+          className="mb-1.5 block text-xs font-semibold"
+          style={{ color: GRAPHITE_MUTED }}
+        >
           要約 <span style={{ color: VERMILION }}>必須</span>
         </label>
         <textarea
           id={summaryFieldId}
           value={form.summary}
-          onChange={(e) => setForm((prev) => ({ ...prev, summary: e.target.value }))}
+          onChange={(e) =>
+            setForm((prev) => ({ ...prev, summary: e.target.value }))
+          }
           required
           maxLength={2000}
           rows={3}
@@ -513,34 +659,54 @@ function NodeFields({
       </button>
 
       {advancedOpen && (
-        <div className="flex flex-col gap-4 rounded-md border px-3 py-3" style={{ borderColor: PAPER_BORDER }}>
+        <div
+          className="flex flex-col gap-4 rounded-md border px-3 py-3"
+          style={{ borderColor: PAPER_BORDER }}
+        >
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <LabeledSelect
               label="層"
               value={form.layer}
-              onChange={(v) => setForm((prev) => ({ ...prev, layer: v as TheoryNodeLayer }))}
-              options={THEORY_NODE_LAYERS.map((l) => ({ value: l, label: LAYER_LABEL[l] }))}
+              onChange={(v) =>
+                setForm((prev) => ({ ...prev, layer: v as TheoryNodeLayer }))
+              }
+              options={THEORY_NODE_LAYERS.map((l) => ({
+                value: l,
+                label: LAYER_LABEL[l],
+              }))}
             />
             <LabeledSelect
               label="状態"
               value={form.status}
-              onChange={(v) => setForm((prev) => ({ ...prev, status: v as TheoryNodeStatus }))}
-              options={THEORY_NODE_STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] }))}
+              onChange={(v) =>
+                setForm((prev) => ({ ...prev, status: v as TheoryNodeStatus }))
+              }
+              options={THEORY_NODE_STATUSES.map((s) => ({
+                value: s,
+                label: STATUS_LABEL[s],
+              }))}
             />
           </div>
           {!showSourceRef && (
             <SourceRefField
               value={form.sourceRef}
-              onChange={(sourceRef) => setForm((prev) => ({ ...prev, sourceRef }))}
+              onChange={(sourceRef) =>
+                setForm((prev) => ({ ...prev, sourceRef }))
+              }
             />
           )}
           <div>
-            <label className="mb-1.5 block text-xs font-semibold" style={{ color: GRAPHITE_MUTED }}>
+            <label
+              className="mb-1.5 block text-xs font-semibold"
+              style={{ color: GRAPHITE_MUTED }}
+            >
               本文 (Markdown)
             </label>
             <textarea
               value={form.body}
-              onChange={(e) => setForm((prev) => ({ ...prev, body: e.target.value }))}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, body: e.target.value }))
+              }
               maxLength={30000}
               rows={6}
               className="w-full rounded-md border px-3 py-2 text-sm outline-none"
@@ -565,7 +731,11 @@ function SourceRefField({
   const fieldId = useId();
   return (
     <div>
-      <label htmlFor={fieldId} className="mb-1.5 block text-xs font-semibold" style={{ color: GRAPHITE_MUTED }}>
+      <label
+        htmlFor={fieldId}
+        className="mb-1.5 block text-xs font-semibold"
+        style={{ color: GRAPHITE_MUTED }}
+      >
         出典 (URL・DOI・bzm/*.md)
       </label>
       <input
@@ -577,7 +747,11 @@ function SourceRefField({
         className="h-11 w-full rounded-md border px-3 text-sm outline-none"
         style={inputStyle}
       />
-      {hint && <p className="mt-1 text-[11px]" style={{ color: GRAPHITE_MUTED }}>{hint}</p>}
+      {hint && (
+        <p className="mt-1 text-[11px]" style={{ color: GRAPHITE_MUTED }}>
+          {hint}
+        </p>
+      )}
     </div>
   );
 }
@@ -596,7 +770,11 @@ function LabeledSelect({
   const fieldId = useId();
   return (
     <div>
-      <label htmlFor={fieldId} className="mb-1.5 block text-xs font-semibold" style={{ color: GRAPHITE_MUTED }}>
+      <label
+        htmlFor={fieldId}
+        className="mb-1.5 block text-xs font-semibold"
+        style={{ color: GRAPHITE_MUTED }}
+      >
         {label}
       </label>
       <select

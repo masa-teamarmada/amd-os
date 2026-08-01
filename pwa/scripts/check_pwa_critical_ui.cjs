@@ -2916,7 +2916,7 @@ expectNotIncludes("src/components/cockpit/CockpitSoilSeeds.tsx", [
   "ScatterChart",
 ]);
 
-// BZM 2.0 理論マップ (2026-08-01): 配置と接続を分離し、地図を覆わず本人が育てる論証台帳。
+// BZM 2.0 理論マップ (2026-08-01): 即時下書き・即時接続とマップ内編集で育てる論証台帳。
 expectIncludes("src/components/bzm/BzmSideNav.tsx", [
   "/bzm/map",
   "理論マップ (論証台帳)",
@@ -2934,23 +2934,31 @@ expectIncludes("src/components/bzm/BzmTheoryMapView.tsx", [
   "KIND_COLOR",
   "createDirectEdge",
   "parseTheoryMapEdgeDto",
+  "openDraftComposer",
+  "screen2GraphCoords",
+  "setPendingEdge(optimisticEdge)",
+  "clippedLinkPoints",
+  'linkCanvasObject={drawClippedLink}',
+  'data-bzm-map-overlay-host="composer"',
+  'data-bzm-draft-node="true"',
+  "draftVisual",
   "<BzmMarkdown source={selected.body}",
   "ここから、まさの理論マップが始まる",
 ]);
 expectNotIncludes("src/components/bzm/BzmTheoryMapView.tsx", [
-  "data-bzm-map-overlay",
   "nearestDistance",
   "fillText(KIND_",
-  "ctx.setLineDash",
   "drawStatusRing",
   "色 = ステータス",
 ]);
 expectIncludes("src/components/bzm/BzmTheoryComposerDialog.tsx", [
   'data-bzm-map-panel="composer"',
+  'data-bzm-map-overlay="composer"',
   'aria-modal="false"',
+  "下書きノードをマップに作成済み",
+  "onDraftChange(state.draftId, form)",
 ]);
 expectNotIncludes("src/components/bzm/BzmTheoryComposerDialog.tsx", [
-  "data-bzm-map-overlay",
   'type: "connect"',
   'mode === "connect"',
   "既存ノードとつなぐ",

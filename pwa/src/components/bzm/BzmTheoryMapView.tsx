@@ -2,9 +2,27 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { LayoutGrid, List as ListIcon, Maximize2, PenLine, Search } from "lucide-react";
-import type { TheoryNodeKind, TheoryNodeLayer, TheoryNodeStatus, TheoryRelationType } from "@/lib/bzm-theory-graph";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  LayoutGrid,
+  List as ListIcon,
+  Maximize2,
+  PenLine,
+  Search,
+} from "lucide-react";
+import type {
+  TheoryNodeKind,
+  TheoryNodeLayer,
+  TheoryNodeStatus,
+  TheoryRelationType,
+} from "@/lib/bzm-theory-graph";
 import {
   BLUEPRINT,
   CHALLENGE_TYPES,
@@ -35,13 +53,17 @@ import {
   type TheoryMapEdge,
   type TheoryMapNode,
 } from "@/lib/bzm-theory-map-ui";
-import type { ComposerState } from "@/components/bzm/BzmTheoryComposerDialog";
+import type {
+  ComposerState,
+  DraftNodeFields,
+} from "@/components/bzm/BzmTheoryComposerDialog";
 import { BzmMarkdown, BzmMathText } from "@/components/bzm/BzmMarkdown";
 
 export type { TheoryMapNode, TheoryMapEdge } from "@/lib/bzm-theory-map-ui";
 
 interface GraphNode extends TheoryMapNode {
   val: number;
+  draft?: boolean;
   x?: number;
   y?: number;
   vx?: number;
@@ -57,6 +79,7 @@ interface GraphLink {
   id: string | null;
   note: string | null;
   editable: boolean;
+  pending?: boolean;
 }
 
 interface ForceGraphProps {
@@ -70,13 +93,36 @@ interface ForceGraphProps {
   linkLineDash?: (link: GraphLink) => number[] | null;
   linkLabel?: (link: GraphLink) => string;
   linkHoverPrecision?: number;
+  linkCanvasObject?: (
+    link: GraphLink,
+    ctx: CanvasRenderingContext2D,
+    globalScale: number,
+  ) => void;
+  linkCanvasObjectMode?:
+    | "before"
+    | "replace"
+    | "after"
+    | ((link: GraphLink) => "before" | "replace" | "after");
+  linkPointerAreaPaint?: (
+    link: GraphLink,
+    color: string,
+    ctx: CanvasRenderingContext2D,
+  ) => void;
   linkDirectionalArrowLength?: number;
   linkDirectionalArrowRelPos?: number;
-  nodeCanvasObject?: (node: GraphNode, ctx: CanvasRenderingContext2D, globalScale: number) => void;
-  nodePointerAreaPaint?: (node: GraphNode, color: string, ctx: CanvasRenderingContext2D) => void;
+  nodeCanvasObject?: (
+    node: GraphNode,
+    ctx: CanvasRenderingContext2D,
+    globalScale: number,
+  ) => void;
+  nodePointerAreaPaint?: (
+    node: GraphNode,
+    color: string,
+    ctx: CanvasRenderingContext2D,
+  ) => void;
   onNodeClick?: (node: GraphNode, event: MouseEvent) => void;
   onNodeDragEnd?: (node: GraphNode) => void;
-  onBackgroundClick?: () => void;
+  onBackgroundClick?: (event: MouseEvent) => void;
   onLinkClick?: (link: GraphLink) => void;
   onEngineStop?: () => void;
 }
@@ -87,21 +133,30 @@ interface ForceGraphHandle {
   zoomToFit: (ms?: number, padding?: number) => void;
   d3Force: (name: string, force?: unknown) => unknown;
   d3ReheatSimulation: () => void;
+  graph2ScreenCoords: (x: number, y: number) => { x: number; y: number };
+  screen2GraphCoords: (x: number, y: number) => { x: number; y: number };
 }
 
 // react-force-graph は Canvas 依存で SSR 不可
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
   ssr: false,
-}) as React.ComponentType<ForceGraphProps & { ref?: React.Ref<ForceGraphHandle> }>;
+}) as React.ComponentType<
+  ForceGraphProps & { ref?: React.Ref<ForceGraphHandle> }
+>;
 
 const BzmTheoryComposerDialog = dynamic(
-  () => import("@/components/bzm/BzmTheoryComposerDialog").then((module) => module.BzmTheoryComposerDialog),
-  { ssr: false }
+  () =>
+    import("@/components/bzm/BzmTheoryComposerDialog").then(
+      (module) => module.BzmTheoryComposerDialog,
+    ),
+  { ssr: false },
 );
 
 function textMatches(node: TheoryMapNode, query: string) {
   if (!query) return true;
-  const haystack = [node.id, node.title, node.summary, node.sourceRef].join(" ").toLowerCase();
+  const haystack = [node.id, node.title, node.summary, node.sourceRef]
+    .join(" ")
+    .toLowerCase();
   return haystack.includes(query.toLowerCase());
 }
 
@@ -112,7 +167,7 @@ function drawShape(
   y: number,
   r: number,
   fill: string,
-  stroke: string
+  stroke: string,
 ) {
   ctx.beginPath();
   switch (shape) {
@@ -157,11 +212,12 @@ function kindLegendClipPath(kind: TheoryNodeKind) {
   if (kind === "claim") return "polygon(50% 0, 100% 50%, 50% 100%, 0 50%)";
   if (kind === "measure") return "inset(5%)";
   if (kind === "decision") return "polygon(50% 0, 100% 100%, 0 100%)";
-  if (kind === "source") return "polygon(25% 7%, 75% 7%, 100% 50%, 75% 93%, 25% 93%, 0 50%)";
+  if (kind === "source")
+    return "polygon(25% 7%, 75% 7%, 100% 50%, 75% 93%, 25% 93%, 0 50%)";
   return "circle(50%)";
 }
 
-function createLayerForce(getNodes: () => GraphNode[], columnWidth: number, rowHeight: number) {
+function createLayerForce(columnWidth: number, rowHeight: number) {
   let nodes: GraphNode[] = [];
   let rowById = new Map<string, number>();
   const middle = (LAYER_ORDER.length - 1) / 2;
@@ -175,12 +231,16 @@ function createLayerForce(getNodes: () => GraphNode[], columnWidth: number, rowH
     }
   };
   force.initialize = (initNodes: GraphNode[]) => {
-    nodes = initNodes ?? getNodes();
+    nodes = initNodes;
     rowById = new Map();
     for (const layer of LAYER_ORDER) {
-      const layerNodes = nodes.filter((node) => node.layer === layer).sort((a, b) => a.id.localeCompare(b.id));
+      const layerNodes = nodes
+        .filter((node) => node.layer === layer)
+        .sort((a, b) => a.id.localeCompare(b.id));
       const rowMiddle = (layerNodes.length - 1) / 2;
-      layerNodes.forEach((node, index) => rowById.set(node.id, (index - rowMiddle) * rowHeight));
+      layerNodes.forEach((node, index) =>
+        rowById.set(node.id, (index - rowMiddle) * rowHeight),
+      );
     }
   };
   return force;
@@ -188,6 +248,186 @@ function createLayerForce(getNodes: () => GraphNode[], columnWidth: number, rowH
 
 function nodeRadius(node: Pick<GraphNode, "val">) {
   return Math.max(6, 4 + Math.sqrt(node.val) * 2.2);
+}
+
+function polygonVertices(shape: NodeShape, radius: number) {
+  if (shape === "diamond") {
+    return [
+      { x: 0, y: -radius },
+      { x: radius, y: 0 },
+      { x: 0, y: radius },
+      { x: -radius, y: 0 },
+    ];
+  }
+  if (shape === "square") {
+    const side = radius * 0.85;
+    return [
+      { x: -side, y: -side },
+      { x: side, y: -side },
+      { x: side, y: side },
+      { x: -side, y: side },
+    ];
+  }
+  if (shape === "triangle") {
+    return [
+      { x: 0, y: -radius },
+      { x: radius * 0.95, y: radius * 0.75 },
+      { x: -radius * 0.95, y: radius * 0.75 },
+    ];
+  }
+  if (shape === "hexagon") {
+    return Array.from({ length: 6 }, (_, index) => {
+      const angle = (Math.PI / 3) * index - Math.PI / 2;
+      return { x: radius * Math.cos(angle), y: radius * Math.sin(angle) };
+    });
+  }
+  return [];
+}
+
+function cross(a: { x: number; y: number }, b: { x: number; y: number }) {
+  return a.x * b.y - a.y * b.x;
+}
+
+function nodeBoundaryDistance(
+  node: GraphNode,
+  direction: { x: number; y: number },
+) {
+  const radius = nodeRadius(node);
+  const shape = KIND_SHAPE[node.kind];
+  if (shape === "circle") return radius;
+  const vertices = polygonVertices(shape, radius);
+  let nearest = Number.POSITIVE_INFINITY;
+  for (let index = 0; index < vertices.length; index += 1) {
+    const start = vertices[index];
+    const end = vertices[(index + 1) % vertices.length];
+    const segment = { x: end.x - start.x, y: end.y - start.y };
+    const denominator = cross(direction, segment);
+    if (Math.abs(denominator) < 1e-8) continue;
+    const distance = cross(start, segment) / denominator;
+    const segmentPosition = cross(start, direction) / denominator;
+    if (distance >= 0 && segmentPosition >= 0 && segmentPosition <= 1) {
+      nearest = Math.min(nearest, distance);
+    }
+  }
+  return Number.isFinite(nearest) ? nearest : radius;
+}
+
+function clippedLinkPoints(link: GraphLink) {
+  if (typeof link.source === "string" || typeof link.target === "string")
+    return null;
+  const source = link.source;
+  const target = link.target;
+  const sourceX = source.x ?? 0;
+  const sourceY = source.y ?? 0;
+  const targetX = target.x ?? 0;
+  const targetY = target.y ?? 0;
+  const dx = targetX - sourceX;
+  const dy = targetY - sourceY;
+  const distance = Math.hypot(dx, dy);
+  if (distance < 1e-6) return null;
+  const direction = { x: dx / distance, y: dy / distance };
+  const sourceOffset = nodeBoundaryDistance(source, direction);
+  const targetOffset = nodeBoundaryDistance(target, {
+    x: -direction.x,
+    y: -direction.y,
+  });
+  if (distance <= sourceOffset + targetOffset) return null;
+  return {
+    start: {
+      x: sourceX + direction.x * sourceOffset,
+      y: sourceY + direction.y * sourceOffset,
+    },
+    end: {
+      x: targetX - direction.x * targetOffset,
+      y: targetY - direction.y * targetOffset,
+    },
+    direction,
+  };
+}
+
+function drawClippedLink(
+  link: GraphLink,
+  ctx: CanvasRenderingContext2D,
+  globalScale: number,
+) {
+  const points = clippedLinkPoints(link);
+  if (!points) return;
+  const scale = Math.max(0.6, globalScale);
+  const color = RELATION_COLOR[link.type];
+  ctx.save();
+  ctx.strokeStyle = rgba(color, link.pending ? 0.92 : 0.58);
+  ctx.fillStyle = rgba(color, link.pending ? 0.92 : 0.72);
+  ctx.lineWidth =
+    (link.pending ? 2.2 : CHALLENGE_TYPES.includes(link.type) ? 1.6 : 1.1) /
+    scale;
+  ctx.setLineDash(
+    !link.pending && STRUCTURAL_TYPES.includes(link.type)
+      ? [4 / scale, 3 / scale]
+      : [],
+  );
+  ctx.beginPath();
+  ctx.moveTo(points.start.x, points.start.y);
+  ctx.lineTo(points.end.x, points.end.y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const arrowLength = 6 / scale;
+  const arrowHalfWidth = 3.2 / scale;
+  const base = {
+    x: points.end.x - points.direction.x * arrowLength,
+    y: points.end.y - points.direction.y * arrowLength,
+  };
+  const normal = { x: -points.direction.y, y: points.direction.x };
+  ctx.beginPath();
+  ctx.moveTo(points.end.x, points.end.y);
+  ctx.lineTo(
+    base.x + normal.x * arrowHalfWidth,
+    base.y + normal.y * arrowHalfWidth,
+  );
+  ctx.lineTo(
+    base.x - normal.x * arrowHalfWidth,
+    base.y - normal.y * arrowHalfWidth,
+  );
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function paintClippedLinkPointerArea(
+  link: GraphLink,
+  color: string,
+  ctx: CanvasRenderingContext2D,
+) {
+  const points = clippedLinkPoints(link);
+  if (!points) return;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 12;
+  ctx.beginPath();
+  ctx.moveTo(points.start.x, points.start.y);
+  ctx.lineTo(points.end.x, points.end.y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function draftNode(
+  id: string,
+  preset: "support" | "challenge" | "question" | null,
+): TheoryMapNode {
+  const question = preset === "question";
+  const source = preset === "support" || preset === "challenge";
+  return {
+    id,
+    title: "新しいノード",
+    summary: "",
+    kind: question ? "question" : source ? "source" : "concept",
+    layer: source ? "evidence" : "cross-layer",
+    status: question ? "unknown" : source ? "established" : "hypothesis",
+    sourceRef: "",
+    sourceHref: null,
+    body: "",
+    editable: true,
+  };
 }
 
 export function BzmTheoryMapView({
@@ -205,14 +445,26 @@ export function BzmTheoryMapView({
 }) {
   const [nodes, setNodes] = useState(initialNodes);
   const [edges, setEdges] = useState(initialEdges);
-  const [composerState, setComposerState] = useState<ComposerState | null>(null);
+  const [composerState, setComposerState] = useState<ComposerState | null>(
+    null,
+  );
+  const [composerAnchor, setComposerAnchor] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [connectingFromId, setConnectingFromId] = useState<string | null>(null);
-  const [connectingRelationType, setConnectingRelationType] = useState<TheoryRelationType>("supports");
+  const [connectingRelationType, setConnectingRelationType] =
+    useState<TheoryRelationType>("supports");
   const [connectingPending, setConnectingPending] = useState(false);
+  const [pendingEdge, setPendingEdge] = useState<TheoryMapEdge | null>(null);
   const [edgeToRemove, setEdgeToRemove] = useState<TheoryMapEdge | null>(null);
   const [removePending, setRemovePending] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<{ type: "success" | "error"; message: string; key: number } | null>(null);
+  const [notice, setNotice] = useState<{
+    type: "success" | "error";
+    message: string;
+    key: number;
+  } | null>(null);
   const noticeCounter = useRef(0);
 
   const announce = useCallback((type: "success" | "error", message: string) => {
@@ -223,15 +475,19 @@ export function BzmTheoryMapView({
   const [view, setView] = useState<"map" | "list">("map");
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
-  const [layerFilter, setLayerFilter] = useState<Set<TheoryNodeLayer>>(new Set(LAYER_ORDER));
+  const [layerFilter, setLayerFilter] = useState<Set<TheoryNodeLayer>>(
+    new Set(LAYER_ORDER),
+  );
   const [statusFilter, setStatusFilter] = useState<Set<TheoryNodeStatus>>(
-    new Set(Object.keys(STATUS_LABEL) as TheoryNodeStatus[])
+    new Set(Object.keys(STATUS_LABEL) as TheoryNodeStatus[]),
   );
   const [relationFilter, setRelationFilter] = useState<Set<TheoryRelationType>>(
-    new Set(Object.keys(RELATION_LABEL) as TheoryRelationType[])
+    new Set(Object.keys(RELATION_LABEL) as TheoryRelationType[]),
   );
   const [selectedId, setSelectedId] = useState(
-    nodes.find((node) => node.id === "concept-six-layer-structure")?.id ?? nodes[0]?.id ?? ""
+    nodes.find((node) => node.id === "concept-six-layer-structure")?.id ??
+      nodes[0]?.id ??
+      "",
   );
   const [nodePositions, setNodePositions] = useState<
     Record<string, Pick<GraphNode, "x" | "y" | "fx" | "fy">>
@@ -258,7 +514,8 @@ export function BzmTheoryMapView({
   const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
 
   useEffect(() => {
-    if (nodes.length === 0 || !window.matchMedia("(max-width: 767px)").matches) return;
+    if (nodes.length === 0 || !window.matchMedia("(max-width: 767px)").matches)
+      return;
     // Canvas map is intentionally optional on narrow screens; the list keeps
     // every node readable and keyboard-operable as the default mobile view.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -292,25 +549,48 @@ export function BzmTheoryMapView({
     return map;
   }, [edges]);
 
+  const activeDraftId =
+    composerState && composerState.type !== "edit"
+      ? composerState.draftId
+      : null;
+
   const filteredNodes = useMemo(() => {
     const q = deferredQuery.trim();
     return nodes.filter(
-      (n) => layerFilter.has(n.layer) && statusFilter.has(n.status) && textMatches(n, q)
+      (n) =>
+        n.id === activeDraftId ||
+        (layerFilter.has(n.layer) &&
+          statusFilter.has(n.status) &&
+          textMatches(n, q)),
     );
-  }, [nodes, layerFilter, statusFilter, deferredQuery]);
+  }, [nodes, layerFilter, statusFilter, deferredQuery, activeDraftId]);
 
-  const visibleIds = useMemo(() => new Set(filteredNodes.map((n) => n.id)), [filteredNodes]);
+  const visibleIds = useMemo(
+    () => new Set(filteredNodes.map((n) => n.id)),
+    [filteredNodes],
+  );
+
+  const displayEdges = useMemo(
+    () => (pendingEdge ? [...edges, pendingEdge] : edges),
+    [edges, pendingEdge],
+  );
 
   const filteredEdges = useMemo(
     () =>
-      edges.filter(
-        (e) => relationFilter.has(e.type) && visibleIds.has(e.from) && visibleIds.has(e.to)
+      displayEdges.filter(
+        (e) =>
+          (e.id?.startsWith("pending-") || relationFilter.has(e.type)) &&
+          visibleIds.has(e.from) &&
+          visibleIds.has(e.to),
       ),
-    [edges, relationFilter, visibleIds]
+    [displayEdges, relationFilter, visibleIds],
   );
 
   const graphData = useMemo(() => {
-    const initialPositionById = new Map<string, Pick<GraphNode, "x" | "y" | "fx" | "fy">>();
+    const initialPositionById = new Map<
+      string,
+      Pick<GraphNode, "x" | "y" | "fx" | "fy">
+    >();
     for (const [columnIndex, layer] of LAYER_ORDER.entries()) {
       const layerNodes = filteredNodes
         .filter((node) => node.layer === layer)
@@ -334,6 +614,8 @@ export function BzmTheoryMapView({
         ...initialPositionById.get(n.id),
         ...savedPosition,
         val: Math.max(1, degreeById.get(n.id) ?? 1),
+        draft:
+          composerState?.type !== "edit" && composerState?.draftId === n.id,
       };
     });
     const gLinks: GraphLink[] = filteredEdges.map((edge) => ({
@@ -343,18 +625,23 @@ export function BzmTheoryMapView({
       id: edge.id,
       note: edge.note,
       editable: edge.editable,
+      pending: edge.id?.startsWith("pending-") === true,
     }));
     return { nodes: gNodes, links: gLinks };
-  }, [filteredNodes, filteredEdges, degreeById, nodePositions]);
+  }, [filteredNodes, filteredEdges, degreeById, nodePositions, composerState]);
 
   const selected = nodeById.get(selectedId) ?? null;
-  const panelOpen = composerState !== null || edgeToRemove !== null;
+  const draftVisual = activeDraftId ? nodeById.get(activeDraftId) ?? null : null;
+  const sidePanelOpen = edgeToRemove !== null;
+  const interactionOpen = composerState !== null || edgeToRemove !== null;
   const connectionSourceId = connectingFromId;
+  const connectionTargetId = pendingEdge?.to ?? null;
 
   const handleNodeDragEnd = useCallback((dragged: GraphNode) => {
     draggedNodeClickRef.current = dragged.id;
     window.setTimeout(() => {
-      if (draggedNodeClickRef.current === dragged.id) draggedNodeClickRef.current = null;
+      if (draggedNodeClickRef.current === dragged.id)
+        draggedNodeClickRef.current = null;
     }, 240);
     if (!Number.isFinite(dragged.x) || !Number.isFinite(dragged.y)) return;
     dragged.fx = dragged.x;
@@ -390,11 +677,14 @@ export function BzmTheoryMapView({
     if (view !== "map") return;
     const fg = graphRef.current;
     if (!fg) return;
-    fg.d3Force("layerGrid", createLayerForce(() => graphData.nodes, 190, 92));
+    fg.d3Force("layerGrid", createLayerForce(190, 92));
     fg.d3ReheatSimulation();
-    const timer = window.setTimeout(() => graphRef.current?.zoomToFit(400, 40), 260);
+    const timer = window.setTimeout(
+      () => graphRef.current?.zoomToFit(400, 40),
+      260,
+    );
     return () => window.clearTimeout(timer);
-  }, [graphData, graphReadyVersion, panelOpen, size.h, size.w, view]);
+  }, [graphReadyVersion, sidePanelOpen, size.h, size.w, view]);
 
   useEffect(() => {
     if (!connectingFromId || visibleIds.has(connectingFromId)) return;
@@ -405,7 +695,8 @@ export function BzmTheoryMapView({
   useEffect(() => {
     if (!connectingFromId) return;
     const cancelConnection = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !connectingPending) setConnectingFromId(null);
+      if (event.key === "Escape" && !connectingPending)
+        setConnectingFromId(null);
     };
     window.addEventListener("keydown", cancelConnection);
     return () => window.removeEventListener("keydown", cancelConnection);
@@ -422,26 +713,155 @@ export function BzmTheoryMapView({
     setQuery("");
     setLayerFilter(new Set(LAYER_ORDER));
     setStatusFilter(new Set(Object.keys(STATUS_LABEL) as TheoryNodeStatus[]));
-    setRelationFilter(new Set(Object.keys(RELATION_LABEL) as TheoryRelationType[]));
+    setRelationFilter(
+      new Set(Object.keys(RELATION_LABEL) as TheoryRelationType[]),
+    );
+  }
+
+  const updateDraftNode = useCallback(
+    (draftId: string, fields: DraftNodeFields) => {
+      setNodes((current) => {
+        const title = fields.title.trim() || "新しいノード";
+        const draft = current.find((node) => node.id === draftId);
+        if (
+          !draft ||
+          (draft.title === title &&
+            draft.kind === fields.kind &&
+            draft.layer === fields.layer &&
+            draft.status === fields.status)
+        ) {
+          return current;
+        }
+        return current.map((node) =>
+          node.id === draftId
+            ? {
+                ...node,
+                title,
+                kind: fields.kind,
+                layer: fields.layer,
+                status: fields.status,
+              }
+            : node,
+        );
+      });
+    },
+    [],
+  );
+
+  function discardDraft(draftId: string) {
+    setNodes((current) => current.filter((node) => node.id !== draftId));
+    setNodePositions((current) => {
+      const next = { ...current };
+      delete next[draftId];
+      return next;
+    });
+  }
+
+  function closeComposer() {
+    if (composerState && composerState.type !== "edit")
+      discardDraft(composerState.draftId);
+    setComposerState(null);
+    setComposerAnchor(null);
+  }
+
+  function openDraftComposer(
+    preset: "support" | "challenge" | "question" | null,
+    graphPoint: { x: number; y: number },
+    anchor: { x: number; y: number },
+  ) {
+    const draftId = `draft-${crypto.randomUUID()}`;
+    const nextDraft = draftNode(draftId, preset);
+    setNodes((current) => [...current, nextDraft]);
+    setNodePositions((current) => ({
+      ...current,
+      [draftId]: {
+        x: graphPoint.x,
+        y: graphPoint.y,
+        fx: graphPoint.x,
+        fy: graphPoint.y,
+      },
+    }));
+    setConnectingFromId(null);
+    setEdgeToRemove(null);
+    setComposerAnchor(anchor);
+    setComposerState(
+      preset ? { type: "grow", preset, draftId } : { type: "create", draftId },
+    );
+  }
+
+  function openGrowComposer(preset: "support" | "challenge" | "question") {
+    if (!selected) return;
+    const graphNode = graphData.nodes.find((node) => node.id === selected.id);
+    const sourcePoint = { x: graphNode?.x ?? 0, y: graphNode?.y ?? 0 };
+    const graphPoint = {
+      x: sourcePoint.x + (preset === "question" ? 110 : -110),
+      y: sourcePoint.y + 76,
+    };
+    const screenPoint = graphRef.current?.graph2ScreenCoords(
+      graphPoint.x,
+      graphPoint.y,
+    ) ?? {
+      x: size.w / 2,
+      y: size.h / 2,
+    };
+    openDraftComposer(preset, graphPoint, screenPoint);
+  }
+
+  function openEditComposer(
+    node: TheoryMapNode,
+    anchor?: { x: number; y: number },
+  ) {
+    const graphNode = graphData.nodes.find(
+      (candidate) => candidate.id === node.id,
+    );
+    const screenPoint = anchor ??
+      (graphNode && Number.isFinite(graphNode.x) && Number.isFinite(graphNode.y)
+        ? graphRef.current?.graph2ScreenCoords(
+            graphNode.x ?? 0,
+            graphNode.y ?? 0,
+          )
+        : null) ?? { x: size.w / 2, y: 80 };
+    setConnectingFromId(null);
+    setEdgeToRemove(null);
+    setComposerAnchor(screenPoint);
+    setComposerState({ type: "edit", node });
   }
 
   async function createDirectEdge(from: string, to: string) {
+    const relationType = connectingRelationType;
+    const optimisticEdge: TheoryMapEdge = {
+      id: `pending-${crypto.randomUUID()}`,
+      from,
+      to,
+      type: relationType,
+      note: null,
+      editable: false,
+    };
     setConnectingPending(true);
+    setPendingEdge(optimisticEdge);
+    setSelectedId(to);
     const result = await callTheoryMapApi({
       method: "POST",
-      body: { action: "create_edge", from, to, type: connectingRelationType },
+      body: { action: "create_edge", from, to, type: relationType },
     });
     setConnectingPending(false);
     if (!result.ok) {
+      setPendingEdge(null);
       announce("error", result.error);
       return;
     }
     const edge = parseTheoryMapEdgeDto(result.payload.edge);
     if (!edge) {
+      setPendingEdge(null);
       announce("error", "サーバーの応答を解釈できませんでした。");
       return;
     }
-    setEdges((current) => current.some((candidate) => candidate.id === edge.id) ? current : [...current, edge]);
+    setEdges((current) =>
+      current.some((candidate) => candidate.id === edge.id)
+        ? current
+        : [...current, edge],
+    );
+    setPendingEdge(null);
     setSelectedId(to);
     setConnectingFromId(null);
     announce("success", `${RELATION_LABEL[edge.type]} で接続しました。`);
@@ -449,6 +869,8 @@ export function BzmTheoryMapView({
 
   function handleNodeClick(node: GraphNode, event: MouseEvent) {
     suppressNextBackgroundClick();
+    if (node.draft) return;
+    if (composerState) return;
     if (draggedNodeClickRef.current === node.id) {
       draggedNodeClickRef.current = null;
       return;
@@ -465,7 +887,10 @@ export function BzmTheoryMapView({
         return;
       }
       if (connectingFromId === node.id) {
-        announce("error", "同じノード同士は接続できないよ。別のノードを選んでね。");
+        announce(
+          "error",
+          "同じノード同士は接続できないよ。別のノードを選んでね。",
+        );
         return;
       }
       void createDirectEdge(connectingFromId, node.id);
@@ -475,27 +900,35 @@ export function BzmTheoryMapView({
     setConnectingFromId(null);
     setSelectedId(node.id);
     if (canEdit && node.editable) {
-      setEdgeToRemove(null);
-      setComposerState({ type: "edit", node });
+      openEditComposer(node, { x: event.offsetX, y: event.offsetY });
     }
   }
 
-  const incomingForSelected = selected ? incomingByTarget.get(selected.id) ?? [] : [];
-  const outgoingForSelected = selected ? outgoingBySource.get(selected.id) ?? [] : [];
+  const incomingForSelected = selected
+    ? (incomingByTarget.get(selected.id) ?? [])
+    : [];
+  const outgoingForSelected = selected
+    ? (outgoingBySource.get(selected.id) ?? [])
+    : [];
 
-  const supportIn = incomingForSelected.filter((e) => SUPPORT_TYPES.includes(e.type));
-  const challengeIn = incomingForSelected.filter((e) => CHALLENGE_TYPES.includes(e.type));
-  const testEdges = [...incomingForSelected, ...outgoingForSelected].filter((e) =>
-    TEST_TYPES.includes(e.type)
+  const supportIn = incomingForSelected.filter((e) =>
+    SUPPORT_TYPES.includes(e.type),
   );
-  const structuralEdges = [...incomingForSelected, ...outgoingForSelected].filter((e) =>
-    STRUCTURAL_TYPES.includes(e.type)
+  const challengeIn = incomingForSelected.filter((e) =>
+    CHALLENGE_TYPES.includes(e.type),
   );
-  const issueEdges = [...incomingForSelected, ...outgoingForSelected].filter((e) =>
-    ISSUE_TYPES.includes(e.type)
+  const testEdges = [...incomingForSelected, ...outgoingForSelected].filter(
+    (e) => TEST_TYPES.includes(e.type),
+  );
+  const structuralEdges = [
+    ...incomingForSelected,
+    ...outgoingForSelected,
+  ].filter((e) => STRUCTURAL_TYPES.includes(e.type));
+  const issueEdges = [...incomingForSelected, ...outgoingForSelected].filter(
+    (e) => ISSUE_TYPES.includes(e.type),
   );
   const effectsOut = outgoingForSelected.filter(
-    (e) => SUPPORT_TYPES.includes(e.type) || CHALLENGE_TYPES.includes(e.type)
+    (e) => SUPPORT_TYPES.includes(e.type) || CHALLENGE_TYPES.includes(e.type),
   );
 
   useEffect(() => {
@@ -515,6 +948,29 @@ export function BzmTheoryMapView({
     if (testEdges.length === 0) gaps.push("検証 (tests) の接続がない");
   }
 
+  const composerOverlayStyle: React.CSSProperties =
+    size.w < 640
+      ? {
+          left: 12,
+          right: 12,
+          ...(composerAnchor && composerAnchor.y > size.h / 2
+            ? { top: 12 }
+            : { bottom: 12 }),
+          maxHeight: Math.max(180, size.h / 2 - 28),
+        }
+      : (() => {
+          const panelWidth = Math.min(400, size.w - 24);
+          const anchor = composerAnchor ?? { x: size.w / 2, y: 80 };
+          const nodeGap = 72;
+          const fitsRight =
+            anchor.x + nodeGap + panelWidth <= size.w - 12;
+          const left = fitsRight
+            ? anchor.x + nodeGap
+            : Math.max(12, anchor.x - panelWidth - nodeGap);
+          const top = Math.max(12, Math.min(anchor.y - 64, size.h - 360));
+          return { left, top, width: panelWidth, maxHeight: size.h - 24 };
+        })();
+
   return (
     <div style={{ color: GRAPHITE }}>
       <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-4">
@@ -522,27 +978,45 @@ export function BzmTheoryMapView({
           className="rounded-lg border px-4 py-4"
           style={{ backgroundColor: PAPER_PANEL, borderColor: PAPER_BORDER }}
         >
-          <div className="mb-1 flex flex-wrap items-center gap-2 text-[11px] font-medium" style={{ color: GRAPHITE_MUTED }}>
+          <div
+            className="mb-1 flex flex-wrap items-center gap-2 text-[11px] font-medium"
+            style={{ color: GRAPHITE_MUTED }}
+          >
             <span
               className="rounded-full border px-2 py-0.5 font-mono"
               style={{ borderColor: PAPER_BORDER, backgroundColor: PAPER_BG }}
             >
               BZM 2.0 / 知識構造
             </span>
-            <span>{nodes.length} ノード / {edges.length} 関係</span>
-            <Link href="/bzm" className="inline-flex min-h-11 items-center font-semibold hover:underline" style={{ color: BLUEPRINT }}>
+            <span>
+              {nodes.length} ノード / {edges.length} 関係
+            </span>
+            <Link
+              href="/bzm"
+              className="inline-flex min-h-11 items-center font-semibold hover:underline"
+              style={{ color: BLUEPRINT }}
+            >
               ← 教科書へ戻る
             </Link>
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">理論マップ — 論証台帳</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6" style={{ color: GRAPHITE_MUTED }}>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            理論マップ — 論証台帳
+          </h1>
+          <p
+            className="mt-2 max-w-3xl text-sm leading-6"
+            style={{ color: GRAPHITE_MUTED }}
+          >
             自分で理解した理論・文献・反証・未解決の論点を書き、関係を結びながら育てる台帳。
             空白クリックで新しいノード、ノードをクリックして編集。⌘を押しながら2つのノードを順に選ぶと接続できる。
           </p>
           {storageMode === "unavailable" && (
             <div
               className="mt-3 rounded-md border px-3 py-2 text-xs"
-              style={{ borderColor: VERMILION, backgroundColor: rgba(VERMILION, 0.08), color: VERMILION }}
+              style={{
+                borderColor: VERMILION,
+                backgroundColor: rgba(VERMILION, 0.08),
+                color: VERMILION,
+              }}
               role="alert"
             >
               理論マップを読み込めないため、編集を停止している。
@@ -551,7 +1025,11 @@ export function BzmTheoryMapView({
           {errors.length > 0 && (
             <div
               className="mt-3 rounded-md border px-3 py-2 text-xs"
-              style={{ borderColor: VERMILION, backgroundColor: rgba(VERMILION, 0.08), color: VERMILION }}
+              style={{
+                borderColor: VERMILION,
+                backgroundColor: rgba(VERMILION, 0.08),
+                color: VERMILION,
+              }}
             >
               <div className="font-semibold">読み込みエラー</div>
               <ul className="mt-1 list-disc pl-4">
@@ -581,11 +1059,19 @@ export function BzmTheoryMapView({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="ノード検索 (id / タイトル / 要約)"
               className="h-11 w-full rounded-md border pl-9 pr-3 text-sm outline-none sm:h-9"
-              style={{ borderColor: PAPER_BORDER, backgroundColor: PAPER_BG, color: GRAPHITE }}
+              style={{
+                borderColor: PAPER_BORDER,
+                backgroundColor: PAPER_BG,
+                color: GRAPHITE,
+              }}
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-1" role="group" aria-label="層で絞り込み">
+          <div
+            className="flex flex-wrap items-center gap-1"
+            role="group"
+            aria-label="層で絞り込み"
+          >
             {LAYER_ORDER.map((layer) => (
               <button
                 key={layer}
@@ -594,7 +1080,9 @@ export function BzmTheoryMapView({
                 className="min-h-11 rounded-md border px-2 text-[11px] font-medium transition sm:min-h-8"
                 style={{
                   borderColor: PAPER_BORDER,
-                  backgroundColor: layerFilter.has(layer) ? BLUEPRINT : PAPER_BG,
+                  backgroundColor: layerFilter.has(layer)
+                    ? BLUEPRINT
+                    : PAPER_BG,
                   color: layerFilter.has(layer) ? "#fff" : GRAPHITE_MUTED,
                 }}
                 aria-pressed={layerFilter.has(layer)}
@@ -604,16 +1092,26 @@ export function BzmTheoryMapView({
             ))}
           </div>
 
-          <div className="flex flex-wrap items-center gap-1" role="group" aria-label="状態で絞り込み">
+          <div
+            className="flex flex-wrap items-center gap-1"
+            role="group"
+            aria-label="状態で絞り込み"
+          >
             {(Object.keys(STATUS_LABEL) as TheoryNodeStatus[]).map((status) => (
               <button
                 key={status}
                 type="button"
-                onClick={() => toggleInSet(statusFilter, status, setStatusFilter)}
+                onClick={() =>
+                  toggleInSet(statusFilter, status, setStatusFilter)
+                }
                 className="min-h-11 rounded-md border px-2 text-[11px] font-medium transition sm:min-h-8"
                 style={{
-                  borderColor: statusFilter.has(status) ? GRAPHITE : PAPER_BORDER,
-                  backgroundColor: statusFilter.has(status) ? rgba(GRAPHITE, 0.08) : PAPER_BG,
+                  borderColor: statusFilter.has(status)
+                    ? GRAPHITE
+                    : PAPER_BORDER,
+                  backgroundColor: statusFilter.has(status)
+                    ? rgba(GRAPHITE, 0.08)
+                    : PAPER_BG,
                   color: statusFilter.has(status) ? GRAPHITE : GRAPHITE_MUTED,
                 }}
                 aria-pressed={statusFilter.has(status)}
@@ -623,23 +1121,35 @@ export function BzmTheoryMapView({
             ))}
           </div>
 
-          <div className="flex flex-wrap items-center gap-1" role="group" aria-label="関係で絞り込み">
-            {(Object.keys(RELATION_LABEL) as TheoryRelationType[]).map((rel) => (
-              <button
-                key={rel}
-                type="button"
-                onClick={() => toggleInSet(relationFilter, rel, setRelationFilter)}
-                className="min-h-11 rounded-md border px-2 text-[11px] font-medium transition sm:min-h-8"
-                style={{
-                  borderColor: RELATION_COLOR[rel],
-                  backgroundColor: relationFilter.has(rel) ? rgba(RELATION_COLOR[rel], 0.16) : PAPER_BG,
-                  color: relationFilter.has(rel) ? RELATION_COLOR[rel] : GRAPHITE_MUTED,
-                }}
-                aria-pressed={relationFilter.has(rel)}
-              >
-                {RELATION_LABEL[rel]}
-              </button>
-            ))}
+          <div
+            className="flex flex-wrap items-center gap-1"
+            role="group"
+            aria-label="関係で絞り込み"
+          >
+            {(Object.keys(RELATION_LABEL) as TheoryRelationType[]).map(
+              (rel) => (
+                <button
+                  key={rel}
+                  type="button"
+                  onClick={() =>
+                    toggleInSet(relationFilter, rel, setRelationFilter)
+                  }
+                  className="min-h-11 rounded-md border px-2 text-[11px] font-medium transition sm:min-h-8"
+                  style={{
+                    borderColor: RELATION_COLOR[rel],
+                    backgroundColor: relationFilter.has(rel)
+                      ? rgba(RELATION_COLOR[rel], 0.16)
+                      : PAPER_BG,
+                    color: relationFilter.has(rel)
+                      ? RELATION_COLOR[rel]
+                      : GRAPHITE_MUTED,
+                  }}
+                  aria-pressed={relationFilter.has(rel)}
+                >
+                  {RELATION_LABEL[rel]}
+                </button>
+              ),
+            )}
           </div>
 
           <div className="ml-auto flex items-center gap-1">
@@ -680,7 +1190,7 @@ export function BzmTheoryMapView({
             <button
               type="button"
               onClick={() => setView("list")}
-              disabled={panelOpen}
+              disabled={interactionOpen}
               className="grid h-11 w-11 place-items-center rounded-md border disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:w-8"
               style={{
                 borderColor: PAPER_BORDER,
@@ -696,7 +1206,13 @@ export function BzmTheoryMapView({
           </div>
         </section>
 
-        <section className={panelOpen ? "grid gap-4" : "grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]"}>
+        <section
+          className={
+            sidePanelOpen
+              ? "grid gap-4"
+              : "grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]"
+          }
+        >
           <div
             className="min-w-0 overflow-hidden rounded-lg border"
             style={{ borderColor: PAPER_BORDER, backgroundColor: PAPER_PANEL }}
@@ -704,7 +1220,11 @@ export function BzmTheoryMapView({
             {view === "map" ? (
               <div
                 data-bzm-map-workspace="true"
-                className={panelOpen ? "grid min-w-0 md:grid-cols-[minmax(0,1fr)_400px]" : "grid min-w-0"}
+                className={
+                  sidePanelOpen
+                    ? "grid min-w-0 md:grid-cols-[minmax(0,1fr)_400px]"
+                    : "grid min-w-0"
+                }
               >
                 <div className="min-w-0" style={{ backgroundColor: PAPER_BG }}>
                   <div
@@ -713,237 +1233,451 @@ export function BzmTheoryMapView({
                     className="relative h-[440px] w-full sm:h-[520px] lg:h-[680px]"
                     style={{ backgroundColor: PAPER_BG }}
                   >
-                {connectingFromId && nodeById.has(connectingFromId) && (
-                  <div
-                    className="absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-2 rounded-full border px-3 py-2 shadow-md"
-                    style={{ borderColor: rgba(BLUEPRINT, 0.5), backgroundColor: rgba(PAPER_PANEL, 0.97), color: GRAPHITE }}
-                    role="status"
-                    onMouseDown={(event) => event.stopPropagation()}
-                  >
-                    <span className="max-w-52 truncate text-xs font-semibold">
-                      <BzmMathText source={nodeById.get(connectingFromId)?.title ?? ""} />
-                    </span>
-                    <span aria-hidden="true" style={{ color: BLUEPRINT }}>→</span>
-                    <select
-                      aria-label="作成する関係"
-                      value={connectingRelationType}
-                      onChange={(event) => setConnectingRelationType(event.target.value as TheoryRelationType)}
-                      disabled={connectingPending}
-                      className="h-8 rounded-full border px-2 text-xs font-semibold outline-none disabled:opacity-60"
-                      style={{ borderColor: PAPER_BORDER, backgroundColor: PAPER_BG, color: BLUEPRINT }}
-                    >
-                      {(Object.keys(RELATION_LABEL) as TheoryRelationType[]).map((relation) => (
-                        <option key={relation} value={relation}>{RELATION_LABEL[relation]}</option>
-                      ))}
-                    </select>
-                    <span className="text-xs" style={{ color: GRAPHITE_MUTED }}>
-                      {connectingPending ? "接続中…" : "⌘＋次のノードで即接続・Escで解除"}
-                    </span>
-                  </div>
-                )}
-                <div
-                  className="pointer-events-none absolute inset-x-3 top-3 z-10 hidden grid-cols-7 gap-1 sm:grid"
-                  aria-hidden="true"
-                >
-                  {LAYER_ORDER.map((layer) => (
-                    <span
-                      key={layer}
-                      className="rounded border px-1 py-0.5 text-center text-[9px] font-semibold"
-                      style={{ borderColor: PAPER_BORDER, backgroundColor: rgba(PAPER_PANEL, 0.88), color: GRAPHITE_MUTED }}
-                    >
-                      {LAYER_LABEL[layer]}
-                    </span>
-                  ))}
-                </div>
-                <ForceGraph2D
-                  ref={handleGraphRef}
-                  graphData={graphData}
-                  width={size.w}
-                  height={size.h}
-                  backgroundColor={PAPER_BG}
-                  cooldownTicks={90}
-                  linkColor={(link) => rgba(RELATION_COLOR[link.type], 0.55)}
-                  linkWidth={(link) => (CHALLENGE_TYPES.includes(link.type) ? 1.6 : 1.1)}
-                  linkLineDash={(link) => (STRUCTURAL_TYPES.includes(link.type) ? [4, 3] : null)}
-                  linkLabel={(link) => RELATION_LABEL[link.type]}
-                  linkHoverPrecision={10}
-                  linkDirectionalArrowLength={4}
-                  linkDirectionalArrowRelPos={1}
-                  nodeCanvasObject={(node, ctx, globalScale) => {
-                    const r = nodeRadius(node);
-                    const x = node.x ?? 0;
-                    const y = node.y ?? 0;
-                    const isSelected = selected?.id === node.id;
-                    const isConnectionSource = connectionSourceId === node.id;
-                    const color = KIND_COLOR[node.kind];
-                    ctx.save();
-                    if (isConnectionSource) {
-                      ctx.beginPath();
-                      ctx.arc(x, y, r + 5, 0, Math.PI * 2);
-                      ctx.lineWidth = 2;
-                      ctx.strokeStyle = BLUEPRINT;
-                      ctx.shadowColor = rgba(BLUEPRINT, 0.55);
-                      ctx.shadowBlur = 10;
-                      ctx.stroke();
-                      ctx.shadowBlur = 0;
-                    } else if (isSelected) {
-                      ctx.beginPath();
-                      ctx.arc(x, y, r + 4, 0, Math.PI * 2);
-                      ctx.fillStyle = rgba(BLUEPRINT, 0.12);
-                      ctx.fill();
-                    }
-                    drawShape(
-                      ctx,
-                      KIND_SHAPE[node.kind],
-                      x,
-                      y,
-                      r,
-                      rgba(color, 0.85),
-                      isSelected ? GRAPHITE : "rgba(255,255,255,0.9)"
-                    );
-
-                    const label = node.title.length > 15 ? `${node.title.slice(0, 14)}…` : node.title;
-                    const textScale = Math.max(1, globalScale);
-                    ctx.font = `600 ${10 / textScale}px ui-sans-serif, system-ui`;
-                    ctx.textAlign = "center";
-                    ctx.textBaseline = "middle";
-                    const labelY = y + r + 8 / textScale;
-                    const labelWidth = ctx.measureText(label).width;
-                    ctx.fillStyle = rgba(PAPER_PANEL, 0.9);
-                    ctx.fillRect(
-                      x - labelWidth / 2 - 2 / textScale,
-                      labelY - 6 / textScale,
-                      labelWidth + 4 / textScale,
-                      12 / textScale
-                    );
-                    ctx.fillStyle = GRAPHITE;
-                    ctx.fillText(label, x, labelY);
-                    ctx.restore();
-                  }}
-                  nodePointerAreaPaint={(node, color, ctx) => {
-                    const r = Math.max(10, 6 + Math.sqrt(node.val) * 2.6);
-                    ctx.fillStyle = color;
-                    ctx.beginPath();
-                    ctx.arc(node.x ?? 0, node.y ?? 0, r, 0, Math.PI * 2);
-                    ctx.fill();
-                  }}
-                  onNodeClick={handleNodeClick}
-                  onNodeDragEnd={(node) => {
-                    suppressNextBackgroundClick();
-                    handleNodeDragEnd(node);
-                  }}
-                  onBackgroundClick={() => {
-                    if (suppressBackgroundClickRef.current) {
-                      suppressBackgroundClickRef.current = false;
-                      return;
-                    }
-                    if (connectingFromId) {
-                      if (!connectingPending) setConnectingFromId(null);
-                      return;
-                    }
-                    if (canEdit && !composerState && !edgeToRemove) {
-                      setComposerState({ type: "create" });
-                    }
-                  }}
-                  onLinkClick={(link) => {
-                    suppressNextBackgroundClick();
-                    if (!canEdit || !link.id || !link.editable) return;
-                    const edge = edges.find((candidate) => candidate.id === link.id);
-                    if (edge) setEdgeToRemove(edge);
-                  }}
-                  onEngineStop={() => graphRef.current?.zoomToFit(400, 40)}
-                />
-
-                {graphData.nodes.length === 0 && !composerState && (
-                  <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center px-6 text-center">
-                    <div
-                      className="max-w-sm rounded-lg border border-dashed px-5 py-4 shadow-sm"
-                      style={{ borderColor: PAPER_BORDER, backgroundColor: rgba(PAPER_PANEL, 0.92) }}
-                    >
-                      <div className="text-sm font-semibold" style={{ color: GRAPHITE }}>
-                        {nodes.length === 0 ? "ここから、まさの理論マップが始まる" : "条件に合うノードがない"}
-                      </div>
-                      <p className="mt-1 text-xs leading-5" style={{ color: GRAPHITE_MUTED }}>
-                        {canEdit && nodes.length === 0
-                          ? "マップの空いている場所をクリックして、最初のノードを書いてみて。"
-                          : nodes.length === 0
-                            ? "まだノードはありません。"
-                            : "フィルタを解除すると、すべてのノードを表示できます。"}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {canEdit && selected && visibleIds.has(selected.id) && !composerState && !edgeToRemove && !connectingFromId && (
-                  <div className="absolute inset-x-3 bottom-3 z-20 flex justify-center">
-                    <div
-                      className="flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-lg border p-2 shadow-lg"
-                      style={{ borderColor: PAPER_BORDER, backgroundColor: rgba(PAPER_PANEL, 0.96) }}
-                      onMouseDown={(event) => event.stopPropagation()}
-                    >
-                      <span className="max-w-48 truncate px-2 text-xs font-semibold" style={{ color: GRAPHITE }}>
-                        <BzmMathText source={selected.title} />
-                      </span>
-                      {selected.editable && (
-                        <button
-                          type="button"
-                          onClick={() => setComposerState({ type: "edit", node: selected })}
-                          className="flex min-h-11 items-center gap-1 rounded-md border px-3 text-xs font-semibold sm:min-h-9"
-                          style={{ borderColor: PAPER_BORDER, color: BLUEPRINT }}
+                    {connectingFromId && nodeById.has(connectingFromId) && (
+                      <div
+                        className="absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-2 rounded-full border px-3 py-2 shadow-md"
+                        style={{
+                          borderColor: rgba(BLUEPRINT, 0.5),
+                          backgroundColor: rgba(PAPER_PANEL, 0.97),
+                          color: GRAPHITE,
+                        }}
+                        role="status"
+                        onMouseDown={(event) => event.stopPropagation()}
+                      >
+                        <span className="max-w-52 truncate text-xs font-semibold">
+                          <BzmMathText
+                            source={nodeById.get(connectingFromId)?.title ?? ""}
+                          />
+                        </span>
+                        <span aria-hidden="true" style={{ color: BLUEPRINT }}>
+                          →
+                        </span>
+                        <select
+                          aria-label="作成する関係"
+                          value={connectingRelationType}
+                          onChange={(event) =>
+                            setConnectingRelationType(
+                              event.target.value as TheoryRelationType,
+                            )
+                          }
+                          disabled={connectingPending}
+                          className="h-8 rounded-full border px-2 text-xs font-semibold outline-none disabled:opacity-60"
+                          style={{
+                            borderColor: PAPER_BORDER,
+                            backgroundColor: PAPER_BG,
+                            color: BLUEPRINT,
+                          }}
                         >
-                          <PenLine className="h-3.5 w-3.5" aria-hidden="true" />
-                          編集
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setComposerState({ type: "grow", preset: "support" })}
-                        className="min-h-11 rounded-md border px-3 text-xs font-semibold sm:min-h-9"
-                        style={{ borderColor: MOSS, color: MOSS, backgroundColor: rgba(MOSS, 0.06) }}
-                      >
-                        根拠
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setComposerState({ type: "grow", preset: "challenge" })}
-                        className="min-h-11 rounded-md border px-3 text-xs font-semibold sm:min-h-9"
-                        style={{ borderColor: VERMILION, color: VERMILION, backgroundColor: rgba(VERMILION, 0.06) }}
-                      >
-                        異論
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setComposerState({ type: "grow", preset: "question" })}
-                        className="min-h-11 rounded-md border px-3 text-xs font-semibold sm:min-h-9"
-                        style={{ borderColor: OCHRE, color: OCHRE, backgroundColor: rgba(OCHRE, 0.06) }}
-                      >
-                        論点
-                      </button>
-                      <span className="hidden px-2 text-[11px] sm:inline" style={{ color: GRAPHITE_MUTED }}>
-                        ⌘＋クリックで2つ選ぶと接続
-                      </span>
+                          {(
+                            Object.keys(RELATION_LABEL) as TheoryRelationType[]
+                          ).map((relation) => (
+                            <option key={relation} value={relation}>
+                              {RELATION_LABEL[relation]}
+                            </option>
+                          ))}
+                        </select>
+                        <span
+                          className="text-xs"
+                          style={{ color: GRAPHITE_MUTED }}
+                        >
+                          {connectingPending
+                            ? "線を表示済み・保存中…"
+                            : "⌘＋次のノードで即接続・Escで解除"}
+                        </span>
+                      </div>
+                    )}
+                    <div
+                      className="pointer-events-none absolute inset-x-3 top-3 z-10 hidden grid-cols-7 gap-1 sm:grid"
+                      aria-hidden="true"
+                    >
+                      {LAYER_ORDER.map((layer) => (
+                        <span
+                          key={layer}
+                          className="rounded border px-1 py-0.5 text-center text-[9px] font-semibold"
+                          style={{
+                            borderColor: PAPER_BORDER,
+                            backgroundColor: rgba(PAPER_PANEL, 0.88),
+                            color: GRAPHITE_MUTED,
+                          }}
+                        >
+                          {LAYER_LABEL[layer]}
+                        </span>
+                      ))}
                     </div>
-                  </div>
-                )}
+                    <ForceGraph2D
+                      ref={handleGraphRef}
+                      graphData={graphData}
+                      width={size.w}
+                      height={size.h}
+                      backgroundColor={PAPER_BG}
+                      cooldownTicks={90}
+                      linkColor={(link) =>
+                        rgba(RELATION_COLOR[link.type], 0.55)
+                      }
+                      linkWidth={(link) =>
+                        CHALLENGE_TYPES.includes(link.type) ? 1.6 : 1.1
+                      }
+                      linkLineDash={(link) =>
+                        STRUCTURAL_TYPES.includes(link.type) ? [4, 3] : null
+                      }
+                      linkLabel={(link) => RELATION_LABEL[link.type]}
+                      linkHoverPrecision={10}
+                      linkCanvasObject={drawClippedLink}
+                      linkCanvasObjectMode="replace"
+                      linkPointerAreaPaint={paintClippedLinkPointerArea}
+                      nodeCanvasObject={(node, ctx, globalScale) => {
+                        const r = nodeRadius(node);
+                        const x = node.x ?? 0;
+                        const y = node.y ?? 0;
+                        const isSelected = selected?.id === node.id;
+                        const isConnectionSource =
+                          connectionSourceId === node.id;
+                        const isConnectionTarget =
+                          connectionTargetId === node.id;
+                        const color = KIND_COLOR[node.kind];
+                        ctx.save();
+                        if (isConnectionSource) {
+                          ctx.beginPath();
+                          ctx.arc(x, y, r + 5, 0, Math.PI * 2);
+                          ctx.lineWidth = 2;
+                          ctx.strokeStyle = BLUEPRINT;
+                          ctx.shadowColor = rgba(BLUEPRINT, 0.55);
+                          ctx.shadowBlur = 10;
+                          ctx.stroke();
+                          ctx.shadowBlur = 0;
+                        } else if (isConnectionTarget || isSelected) {
+                          ctx.beginPath();
+                          ctx.arc(x, y, r + 4, 0, Math.PI * 2);
+                          ctx.fillStyle = rgba(
+                            BLUEPRINT,
+                            isConnectionTarget ? 0.2 : 0.12,
+                          );
+                          ctx.fill();
+                        }
+                        drawShape(
+                          ctx,
+                          KIND_SHAPE[node.kind],
+                          x,
+                          y,
+                          r,
+                          rgba(color, node.draft ? 0.42 : 0.85),
+                          isSelected ? GRAPHITE : "rgba(255,255,255,0.9)",
+                        );
+
+                        const label =
+                          node.title.length > 15
+                            ? `${node.title.slice(0, 14)}…`
+                            : node.title;
+                        const textScale = Math.max(1, globalScale);
+                        ctx.font = `600 ${10 / textScale}px ui-sans-serif, system-ui`;
+                        ctx.textAlign = "center";
+                        ctx.textBaseline = "middle";
+                        const labelY = y + r + 8 / textScale;
+                        const labelWidth = ctx.measureText(label).width;
+                        ctx.fillStyle = rgba(PAPER_PANEL, 0.9);
+                        ctx.fillRect(
+                          x - labelWidth / 2 - 2 / textScale,
+                          labelY - 6 / textScale,
+                          labelWidth + 4 / textScale,
+                          12 / textScale,
+                        );
+                        ctx.fillStyle = GRAPHITE;
+                        ctx.fillText(label, x, labelY);
+                        ctx.restore();
+                      }}
+                      nodePointerAreaPaint={(node, color, ctx) => {
+                        const r = Math.max(10, 6 + Math.sqrt(node.val) * 2.6);
+                        ctx.fillStyle = color;
+                        ctx.beginPath();
+                        ctx.arc(node.x ?? 0, node.y ?? 0, r, 0, Math.PI * 2);
+                        ctx.fill();
+                      }}
+                      onNodeClick={handleNodeClick}
+                      onNodeDragEnd={(node) => {
+                        suppressNextBackgroundClick();
+                        handleNodeDragEnd(node);
+                      }}
+                      onBackgroundClick={(event) => {
+                        if (suppressBackgroundClickRef.current) {
+                          suppressBackgroundClickRef.current = false;
+                          return;
+                        }
+                        if (connectingFromId) {
+                          if (!connectingPending) setConnectingFromId(null);
+                          return;
+                        }
+                        if (canEdit && !composerState && !edgeToRemove) {
+                          const screenPoint = {
+                            x: event.offsetX,
+                            y: event.offsetY,
+                          };
+                          const graphPoint =
+                            graphRef.current?.screen2GraphCoords(
+                              screenPoint.x,
+                              screenPoint.y,
+                            ) ?? { x: 0, y: 0 };
+                          openDraftComposer(null, graphPoint, screenPoint);
+                        }
+                      }}
+                      onLinkClick={(link) => {
+                        suppressNextBackgroundClick();
+                        if (
+                          !canEdit ||
+                          composerState ||
+                          !link.id ||
+                          !link.editable
+                        )
+                          return;
+                        const edge = edges.find(
+                          (candidate) => candidate.id === link.id,
+                        );
+                        if (edge) setEdgeToRemove(edge);
+                      }}
+                    />
+
+                    {graphData.nodes.length === 0 && !composerState && (
+                      <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center px-6 text-center">
+                        <div
+                          className="max-w-sm rounded-lg border border-dashed px-5 py-4 shadow-sm"
+                          style={{
+                            borderColor: PAPER_BORDER,
+                            backgroundColor: rgba(PAPER_PANEL, 0.92),
+                          }}
+                        >
+                          <div
+                            className="text-sm font-semibold"
+                            style={{ color: GRAPHITE }}
+                          >
+                            {nodes.length === 0
+                              ? "ここから、まさの理論マップが始まる"
+                              : "条件に合うノードがない"}
+                          </div>
+                          <p
+                            className="mt-1 text-xs leading-5"
+                            style={{ color: GRAPHITE_MUTED }}
+                          >
+                            {canEdit && nodes.length === 0
+                              ? "マップの空いている場所をクリックして、最初のノードを書いてみて。"
+                              : nodes.length === 0
+                                ? "まだノードはありません。"
+                                : "フィルタを解除すると、すべてのノードを表示できます。"}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {canEdit &&
+                      selected &&
+                      visibleIds.has(selected.id) &&
+                      !composerState &&
+                      !edgeToRemove &&
+                      !connectingFromId && (
+                        <div className="absolute inset-x-3 bottom-3 z-20 flex justify-center">
+                          <div
+                            className="flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-lg border p-2 shadow-lg"
+                            style={{
+                              borderColor: PAPER_BORDER,
+                              backgroundColor: rgba(PAPER_PANEL, 0.96),
+                            }}
+                            onMouseDown={(event) => event.stopPropagation()}
+                          >
+                            <span
+                              className="max-w-48 truncate px-2 text-xs font-semibold"
+                              style={{ color: GRAPHITE }}
+                            >
+                              <BzmMathText source={selected.title} />
+                            </span>
+                            {selected.editable && (
+                              <button
+                                type="button"
+                                onClick={() => openEditComposer(selected)}
+                                className="flex min-h-11 items-center gap-1 rounded-md border px-3 text-xs font-semibold sm:min-h-9"
+                                style={{
+                                  borderColor: PAPER_BORDER,
+                                  color: BLUEPRINT,
+                                }}
+                              >
+                                <PenLine
+                                  className="h-3.5 w-3.5"
+                                  aria-hidden="true"
+                                />
+                                編集
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => openGrowComposer("support")}
+                              className="min-h-11 rounded-md border px-3 text-xs font-semibold sm:min-h-9"
+                              style={{
+                                borderColor: MOSS,
+                                color: MOSS,
+                                backgroundColor: rgba(MOSS, 0.06),
+                              }}
+                            >
+                              根拠
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openGrowComposer("challenge")}
+                              className="min-h-11 rounded-md border px-3 text-xs font-semibold sm:min-h-9"
+                              style={{
+                                borderColor: VERMILION,
+                                color: VERMILION,
+                                backgroundColor: rgba(VERMILION, 0.06),
+                              }}
+                            >
+                              異論
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openGrowComposer("question")}
+                              className="min-h-11 rounded-md border px-3 text-xs font-semibold sm:min-h-9"
+                              style={{
+                                borderColor: OCHRE,
+                                color: OCHRE,
+                                backgroundColor: rgba(OCHRE, 0.06),
+                              }}
+                            >
+                              論点
+                            </button>
+                            <span
+                              className="hidden px-2 text-[11px] sm:inline"
+                              style={{ color: GRAPHITE_MUTED }}
+                            >
+                              ⌘＋クリックで2つ選ぶと接続
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                    {draftVisual && composerAnchor && (
+                      <div
+                        className="pointer-events-none absolute z-[25] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+                        data-bzm-draft-node="true"
+                        style={{ left: composerAnchor.x, top: composerAnchor.y }}
+                        aria-hidden="true"
+                      >
+                        <span
+                          className="h-5 w-5"
+                          style={{
+                            backgroundColor: KIND_COLOR[draftVisual.kind],
+                            clipPath: kindLegendClipPath(draftVisual.kind),
+                            filter:
+                              "drop-shadow(0 0 1px #fff) drop-shadow(0 2px 4px rgba(52, 48, 39, 0.28))",
+                          }}
+                        />
+                        <span
+                          className="mt-1 max-w-36 truncate rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                          style={{
+                            backgroundColor: rgba(PAPER_PANEL, 0.94),
+                            color: GRAPHITE,
+                          }}
+                        >
+                          <BzmMathText source={draftVisual.title} />
+                        </span>
+                      </div>
+                    )}
+
+                    {composerState && (
+                      <div
+                        className="pointer-events-auto absolute z-30"
+                        data-bzm-map-overlay-host="composer"
+                        style={composerOverlayStyle}
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <BzmTheoryComposerDialog
+                          state={composerState}
+                          selected={selected}
+                          onClose={closeComposer}
+                          onDraftChange={updateDraftNode}
+                          onNodeCreated={(node, edge) => {
+                            const draftId =
+                              composerState.type === "edit"
+                                ? null
+                                : composerState.draftId;
+                            setNodes((current) =>
+                              draftId
+                                ? current.map((candidate) =>
+                                    candidate.id === draftId ? node : candidate,
+                                  )
+                                : [...current, node],
+                            );
+                            if (draftId) {
+                              setNodePositions((current) => {
+                                const next = { ...current };
+                                const draftPosition = next[draftId];
+                                delete next[draftId];
+                                if (draftPosition)
+                                  next[node.id] = draftPosition;
+                                return next;
+                              });
+                            }
+                            if (edge) setEdges((current) => [...current, edge]);
+                            setSelectedId(node.id);
+                            setComposerState(null);
+                            setComposerAnchor(null);
+                            announce(
+                              "success",
+                              `「${node.title}」を作成しました。`,
+                            );
+                          }}
+                          onNodeUpdated={(node) => {
+                            setNodes((current) =>
+                              current.map((candidate) =>
+                                candidate.id === node.id ? node : candidate,
+                              ),
+                            );
+                            setComposerState(null);
+                            setComposerAnchor(null);
+                            announce(
+                              "success",
+                              `「${node.title}」を更新しました。`,
+                            );
+                          }}
+                          onError={(message) => announce("error", message)}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <div
                     className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t px-3 py-2"
-                    style={{ borderColor: PAPER_BORDER, backgroundColor: PAPER_PANEL }}
+                    style={{
+                      borderColor: PAPER_BORDER,
+                      backgroundColor: PAPER_PANEL,
+                    }}
                     aria-label="ノード表示の凡例"
                   >
-                    <span className="text-[11px] font-semibold" style={{ color: GRAPHITE_MUTED }}>種類</span>
-                    {(Object.keys(KIND_LABEL) as TheoryNodeKind[]).map((kind) => (
-                      <span key={kind} className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: GRAPHITE_MUTED }}>
+                    <span
+                      className="text-[11px] font-semibold"
+                      style={{ color: GRAPHITE_MUTED }}
+                    >
+                      種類
+                    </span>
+                    {(Object.keys(KIND_LABEL) as TheoryNodeKind[]).map(
+                      (kind) => (
                         <span
-                          className="h-3 w-3 shrink-0"
-                          style={{ backgroundColor: KIND_COLOR[kind], clipPath: kindLegendClipPath(kind) }}
-                          aria-hidden="true"
-                        />
-                        {KIND_LABEL[kind]}
-                      </span>
-                    ))}
-                    <span className="ml-auto text-[11px]" style={{ color: GRAPHITE_MUTED }}>
+                          key={kind}
+                          className="inline-flex items-center gap-1.5 text-[11px]"
+                          style={{ color: GRAPHITE_MUTED }}
+                        >
+                          <span
+                            className="h-3 w-3 shrink-0"
+                            style={{
+                              backgroundColor: KIND_COLOR[kind],
+                              clipPath: kindLegendClipPath(kind),
+                            }}
+                            aria-hidden="true"
+                          />
+                          {KIND_LABEL[kind]}
+                        </span>
+                      ),
+                    )}
+                    <span
+                      className="ml-auto text-[11px]"
+                      style={{ color: GRAPHITE_MUTED }}
+                    >
                       状態は一覧・台帳のラベルで確認
                     </span>
                   </div>
@@ -953,7 +1687,10 @@ export function BzmTheoryMapView({
                   <div
                     className="min-h-[360px] border-t p-4 md:min-h-0 md:border-l md:border-t-0"
                     data-bzm-map-panel="edge-delete"
-                    style={{ borderColor: PAPER_BORDER, backgroundColor: PAPER_PANEL }}
+                    style={{
+                      borderColor: PAPER_BORDER,
+                      backgroundColor: PAPER_PANEL,
+                    }}
                   >
                     <div
                       role="dialog"
@@ -962,12 +1699,22 @@ export function BzmTheoryMapView({
                       className="w-full p-1"
                       style={{ color: GRAPHITE }}
                     >
-                      <h2 id="bzm-edge-delete-title" className="text-lg font-semibold">
+                      <h2
+                        id="bzm-edge-delete-title"
+                        className="text-lg font-semibold"
+                      >
                         この接続を削除する？
                       </h2>
-                      <p className="mt-2 text-sm leading-6" style={{ color: GRAPHITE_MUTED }}>
-                        {RELATION_LABEL[edgeToRemove.type]}: {nodeById.get(edgeToRemove.from)?.title ?? edgeToRemove.from} →{" "}
-                        {nodeById.get(edgeToRemove.to)?.title ?? edgeToRemove.to}
+                      <p
+                        className="mt-2 text-sm leading-6"
+                        style={{ color: GRAPHITE_MUTED }}
+                      >
+                        {RELATION_LABEL[edgeToRemove.type]}:{" "}
+                        {nodeById.get(edgeToRemove.from)?.title ??
+                          edgeToRemove.from}{" "}
+                        →{" "}
+                        {nodeById.get(edgeToRemove.to)?.title ??
+                          edgeToRemove.to}
                       </p>
                       <p className="mt-1 text-xs" style={{ color: VERMILION }}>
                         この操作は取り消せません。
@@ -975,7 +1722,11 @@ export function BzmTheoryMapView({
                       {removeError && (
                         <div
                           className="mt-3 rounded-md border px-3 py-2 text-xs"
-                          style={{ borderColor: VERMILION, backgroundColor: rgba(VERMILION, 0.08), color: VERMILION }}
+                          style={{
+                            borderColor: VERMILION,
+                            backgroundColor: rgba(VERMILION, 0.08),
+                            color: VERMILION,
+                          }}
                           role="alert"
                         >
                           {removeError}
@@ -990,7 +1741,10 @@ export function BzmTheoryMapView({
                           }}
                           disabled={removePending}
                           className="min-h-11 rounded-md border px-4 text-sm font-semibold disabled:opacity-50"
-                          style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
+                          style={{
+                            borderColor: PAPER_BORDER,
+                            color: GRAPHITE_MUTED,
+                          }}
                         >
                           キャンセル
                         </button>
@@ -1011,7 +1765,9 @@ export function BzmTheoryMapView({
                               return;
                             }
                             const removedId = edgeToRemove.id;
-                            setEdges((current) => current.filter((edge) => edge.id !== removedId));
+                            setEdges((current) =>
+                              current.filter((edge) => edge.id !== removedId),
+                            );
                             setEdgeToRemove(null);
                             announce("success", "接続を削除しました。");
                           }}
@@ -1025,25 +1781,6 @@ export function BzmTheoryMapView({
                     </div>
                   </div>
                 )}
-
-                <BzmTheoryComposerDialog
-                  state={composerState}
-                  selected={selected}
-                  onClose={() => setComposerState(null)}
-                  onNodeCreated={(node, edge) => {
-                    setNodes((current) => [...current, node]);
-                    if (edge) setEdges((current) => [...current, edge]);
-                    setSelectedId(node.id);
-                    setComposerState(null);
-                    announce("success", `「${node.title}」を作成しました。`);
-                  }}
-                  onNodeUpdated={(node) => {
-                    setNodes((current) => current.map((candidate) => (candidate.id === node.id ? node : candidate)));
-                    setComposerState(null);
-                    announce("success", `「${node.title}」を更新しました。`);
-                  }}
-                  onError={(message) => announce("error", message)}
-                />
               </div>
             ) : (
               <ul
@@ -1063,38 +1800,59 @@ export function BzmTheoryMapView({
                         setConnectingFromId(null);
                         if (canEdit && node.editable) {
                           setView("map");
-                          setComposerState({ type: "edit", node });
+                          openEditComposer(node);
                         }
                       }}
                       className="flex w-full flex-col gap-1 px-4 py-3 text-left transition focus-visible:outline focus-visible:outline-2"
                       style={{
-                        backgroundColor: selected?.id === node.id ? rgba(BLUEPRINT, 0.1) : "transparent",
+                        backgroundColor:
+                          selected?.id === node.id
+                            ? rgba(BLUEPRINT, 0.1)
+                            : "transparent",
                         outlineColor: BLUEPRINT,
                       }}
                     >
-                      <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: GRAPHITE_MUTED }}>
+                      <div
+                        className="flex flex-wrap items-center gap-2 text-xs"
+                        style={{ color: GRAPHITE_MUTED }}
+                      >
                         <span
                           className="inline-flex items-center gap-1.5 rounded-full border px-1.5 py-0.5 font-semibold"
                           style={{ borderColor: PAPER_BORDER }}
                         >
-                          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: KIND_COLOR[node.kind] }} aria-hidden="true" />
+                          <span
+                            className="h-2.5 w-2.5 rounded-full"
+                            style={{ backgroundColor: KIND_COLOR[node.kind] }}
+                            aria-hidden="true"
+                          />
                           {KIND_LABEL[node.kind]}
                         </span>
                         <span>{LAYER_LABEL[node.layer]}</span>
                         <span>{STATUS_LABEL[node.status]}</span>
-                        <span className="ml-auto font-mono">接続 {degreeById.get(node.id) ?? 0}</span>
+                        <span className="ml-auto font-mono">
+                          接続 {degreeById.get(node.id) ?? 0}
+                        </span>
                       </div>
-                      <div className="font-semibold" style={{ color: GRAPHITE }}>
+                      <div
+                        className="font-semibold"
+                        style={{ color: GRAPHITE }}
+                      >
                         <BzmMathText source={node.title} />
                       </div>
-                      <div className="line-clamp-2 text-xs leading-5" style={{ color: GRAPHITE_MUTED }}>
+                      <div
+                        className="line-clamp-2 text-xs leading-5"
+                        style={{ color: GRAPHITE_MUTED }}
+                      >
                         <BzmMathText source={node.summary} />
                       </div>
                     </button>
                   </li>
                 ))}
                 {filteredNodes.length === 0 && (
-                  <li className="px-4 py-6 text-sm" style={{ color: GRAPHITE_MUTED }}>
+                  <li
+                    className="px-4 py-6 text-sm"
+                    style={{ color: GRAPHITE_MUTED }}
+                  >
                     条件に一致するノードがない。
                   </li>
                 )}
@@ -1102,154 +1860,203 @@ export function BzmTheoryMapView({
             )}
           </div>
 
-          {!panelOpen && <aside
-            className="min-w-0 rounded-lg border"
-            style={{ borderColor: PAPER_BORDER, backgroundColor: PAPER_PANEL }}
-          >
-            {selected ? (
-              <div className="flex h-full flex-col">
-                <div className="border-b px-4 py-4" style={{ borderColor: PAPER_BORDER }}>
-                  <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold">
-                    <span
-                      className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5"
-                      style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
+          {!sidePanelOpen && (
+            <aside
+              className="min-w-0 rounded-lg border"
+              style={{
+                borderColor: PAPER_BORDER,
+                backgroundColor: PAPER_PANEL,
+              }}
+            >
+              {selected ? (
+                <div className="flex h-full flex-col">
+                  <div
+                    className="border-b px-4 py-4"
+                    style={{ borderColor: PAPER_BORDER }}
+                  >
+                    <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+                      <span
+                        className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5"
+                        style={{
+                          borderColor: PAPER_BORDER,
+                          color: GRAPHITE_MUTED,
+                        }}
+                      >
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: KIND_COLOR[selected.kind] }}
+                          aria-hidden="true"
+                        />
+                        {KIND_LABEL[selected.kind]}
+                      </span>
+                      <span
+                        className="rounded-full border px-2 py-0.5"
+                        style={{
+                          borderColor: GRAPHITE_MUTED,
+                          color: GRAPHITE_MUTED,
+                        }}
+                      >
+                        {STATUS_LABEL[selected.status]}
+                      </span>
+                      <span style={{ color: GRAPHITE_MUTED }}>
+                        {LAYER_LABEL[selected.layer]}
+                      </span>
+                    </div>
+                    <h2 className="text-lg font-semibold leading-tight">
+                      <BzmMathText source={selected.title} />
+                    </h2>
+                    <p
+                      className="mt-2 break-words text-sm leading-6 [overflow-wrap:anywhere]"
+                      style={{ color: GRAPHITE_MUTED }}
                     >
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: KIND_COLOR[selected.kind] }} aria-hidden="true" />
-                      {KIND_LABEL[selected.kind]}
-                    </span>
-                    <span
-                      className="rounded-full border px-2 py-0.5"
-                      style={{ borderColor: GRAPHITE_MUTED, color: GRAPHITE_MUTED }}
+                      <BzmMathText source={selected.summary} />
+                    </p>
+                    {selected.sourceHref ? (
+                      <Link
+                        href={selected.sourceHref}
+                        className="mt-3 inline-flex min-h-11 max-w-full items-center gap-1.5 break-words rounded-md border px-2.5 py-1 text-xs font-semibold [overflow-wrap:anywhere]"
+                        style={{ borderColor: PAPER_BORDER, color: BLUEPRINT }}
+                      >
+                        出典を開く: {selected.sourceRef}
+                      </Link>
+                    ) : /^https?:\/\//i.test(selected.sourceRef) ? (
+                      <a
+                        href={selected.sourceRef}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 inline-flex min-h-11 max-w-full items-center gap-1.5 break-words rounded-md border px-2.5 py-1 text-xs font-semibold [overflow-wrap:anywhere]"
+                        style={{ borderColor: PAPER_BORDER, color: BLUEPRINT }}
+                      >
+                        出典を開く (外部サイト): {selected.sourceRef}
+                      </a>
+                    ) : (
+                      <div
+                        className="mt-3 break-words text-xs [overflow-wrap:anywhere]"
+                        style={{ color: GRAPHITE_MUTED }}
+                      >
+                        出典: {selected.sourceRef}
+                      </div>
+                    )}
+                    <details
+                      className="mt-3 border-t pt-3"
+                      style={{ borderColor: PAPER_BORDER }}
                     >
-                      {STATUS_LABEL[selected.status]}
-                    </span>
-                    <span style={{ color: GRAPHITE_MUTED }}>{LAYER_LABEL[selected.layer]}</span>
+                      <summary
+                        className="flex min-h-11 cursor-pointer items-center text-xs font-semibold"
+                        style={{ color: BLUEPRINT }}
+                      >
+                        ノード本文を読む
+                      </summary>
+                      <div
+                        className="mt-2 max-h-72 overflow-auto text-xs leading-5"
+                        style={{ color: GRAPHITE_MUTED }}
+                      >
+                        <BzmMarkdown source={selected.body} />
+                      </div>
+                    </details>
                   </div>
-                  <h2 className="text-lg font-semibold leading-tight">
-                    <BzmMathText source={selected.title} />
-                  </h2>
-                  <p className="mt-2 break-words text-sm leading-6 [overflow-wrap:anywhere]" style={{ color: GRAPHITE_MUTED }}>
-                    <BzmMathText source={selected.summary} />
-                  </p>
-                  {selected.sourceHref ? (
-                    <Link
-                      href={selected.sourceHref}
-                      className="mt-3 inline-flex min-h-11 max-w-full items-center gap-1.5 break-words rounded-md border px-2.5 py-1 text-xs font-semibold [overflow-wrap:anywhere]"
-                      style={{ borderColor: PAPER_BORDER, color: BLUEPRINT }}
+
+                  {gaps.length > 0 && (
+                    <div
+                      className="mx-4 mt-4 rounded-md border px-3 py-2 text-xs"
+                      style={{
+                        borderColor: OCHRE,
+                        backgroundColor: rgba(OCHRE, 0.08),
+                        color: OCHRE,
+                      }}
                     >
-                      出典を開く: {selected.sourceRef}
-                    </Link>
-                  ) : /^https?:\/\//i.test(selected.sourceRef) ? (
-                    <a
-                      href={selected.sourceRef}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-3 inline-flex min-h-11 max-w-full items-center gap-1.5 break-words rounded-md border px-2.5 py-1 text-xs font-semibold [overflow-wrap:anywhere]"
-                      style={{ borderColor: PAPER_BORDER, color: BLUEPRINT }}
-                    >
-                      出典を開く (外部サイト): {selected.sourceRef}
-                    </a>
-                  ) : (
-                    <div className="mt-3 break-words text-xs [overflow-wrap:anywhere]" style={{ color: GRAPHITE_MUTED }}>
-                      出典: {selected.sourceRef}
+                      <div className="font-semibold">カバレッジの欠落</div>
+                      <ul className="mt-1 list-disc pl-4">
+                        {gaps.map((g) => (
+                          <li key={g}>{g}</li>
+                        ))}
+                      </ul>
                     </div>
                   )}
-                  <details className="mt-3 border-t pt-3" style={{ borderColor: PAPER_BORDER }}>
-                    <summary className="flex min-h-11 cursor-pointer items-center text-xs font-semibold" style={{ color: BLUEPRINT }}>
-                      ノード本文を読む
-                    </summary>
-                    <div className="mt-2 max-h-72 overflow-auto text-xs leading-5" style={{ color: GRAPHITE_MUTED }}>
-                      <BzmMarkdown source={selected.body} />
-                    </div>
-                  </details>
-                </div>
 
-                {gaps.length > 0 && (
-                  <div
-                    className="mx-4 mt-4 rounded-md border px-3 py-2 text-xs"
-                    style={{ borderColor: OCHRE, backgroundColor: rgba(OCHRE, 0.08), color: OCHRE }}
-                  >
-                    <div className="font-semibold">カバレッジの欠落</div>
-                    <ul className="mt-1 list-disc pl-4">
-                      {gaps.map((g) => (
-                        <li key={g}>{g}</li>
-                      ))}
-                    </ul>
+                  <div className="min-h-0 flex-1 overflow-auto p-4">
+                    <RelationGroup
+                      title="支持・定義・具体化 (入力)"
+                      color={MOSS}
+                      edges={supportIn}
+                      direction="from"
+                      nodeById={nodeById}
+                      onSelect={setSelectedId}
+                    />
+                    <RelationGroup
+                      title="異議・反証 (入力)"
+                      color={VERMILION}
+                      edges={challengeIn}
+                      direction="from"
+                      nodeById={nodeById}
+                      onSelect={setSelectedId}
+                    />
+                    <RelationGroup
+                      title="残っている論点"
+                      color={OCHRE}
+                      edges={issueEdges}
+                      direction="either"
+                      selfId={selected.id}
+                      nodeById={nodeById}
+                      onSelect={setSelectedId}
+                    />
+                    <RelationGroup
+                      title="検証 (tests)"
+                      color={BLUEPRINT}
+                      edges={testEdges}
+                      direction="either"
+                      selfId={selected.id}
+                      nodeById={nodeById}
+                      onSelect={setSelectedId}
+                    />
+                    <RelationGroup
+                      title="依存・上書き"
+                      color={GRAPHITE_MUTED}
+                      edges={structuralEdges}
+                      direction="either"
+                      selfId={selected.id}
+                      nodeById={nodeById}
+                      onSelect={setSelectedId}
+                    />
+                    <RelationGroup
+                      title="波及先 (このノードが支持/異議を及ぼす先)"
+                      color={GRAPHITE_MUTED}
+                      edges={effectsOut}
+                      direction="to"
+                      nodeById={nodeById}
+                      onSelect={setSelectedId}
+                    />
                   </div>
-                )}
-
-                <div className="min-h-0 flex-1 overflow-auto p-4">
-                  <RelationGroup
-                    title="支持・定義・具体化 (入力)"
-                    color={MOSS}
-                    edges={supportIn}
-                    direction="from"
-                    nodeById={nodeById}
-                    onSelect={setSelectedId}
-                  />
-                  <RelationGroup
-                    title="異議・反証 (入力)"
-                    color={VERMILION}
-                    edges={challengeIn}
-                    direction="from"
-                    nodeById={nodeById}
-                    onSelect={setSelectedId}
-                  />
-                  <RelationGroup
-                    title="残っている論点"
-                    color={OCHRE}
-                    edges={issueEdges}
-                    direction="either"
-                    selfId={selected.id}
-                    nodeById={nodeById}
-                    onSelect={setSelectedId}
-                  />
-                  <RelationGroup
-                    title="検証 (tests)"
-                    color={BLUEPRINT}
-                    edges={testEdges}
-                    direction="either"
-                    selfId={selected.id}
-                    nodeById={nodeById}
-                    onSelect={setSelectedId}
-                  />
-                  <RelationGroup
-                    title="依存・上書き"
-                    color={GRAPHITE_MUTED}
-                    edges={structuralEdges}
-                    direction="either"
-                    selfId={selected.id}
-                    nodeById={nodeById}
-                    onSelect={setSelectedId}
-                  />
-                  <RelationGroup
-                    title="波及先 (このノードが支持/異議を及ぼす先)"
-                    color={GRAPHITE_MUTED}
-                    edges={effectsOut}
-                    direction="to"
-                    nodeById={nodeById}
-                    onSelect={setSelectedId}
-                  />
                 </div>
-              </div>
-            ) : (
-              <div className="p-4 text-sm" style={{ color: GRAPHITE_MUTED }}>
-                ノードを選ぶと論証台帳が表示される。
-              </div>
-            )}
-          </aside>}
+              ) : (
+                <div className="p-4 text-sm" style={{ color: GRAPHITE_MUTED }}>
+                  ノードを選ぶと論証台帳が表示される。
+                </div>
+              )}
+            </aside>
+          )}
         </section>
 
         <section
           className="flex flex-wrap items-center gap-4 rounded-lg border px-4 py-3 text-xs"
-          style={{ borderColor: PAPER_BORDER, backgroundColor: PAPER_PANEL, color: GRAPHITE_MUTED }}
+          style={{
+            borderColor: PAPER_BORDER,
+            backgroundColor: PAPER_PANEL,
+            color: GRAPHITE_MUTED,
+          }}
         >
           <span className="font-semibold" style={{ color: GRAPHITE }}>
             凡例
           </span>
-          <span>塗り色 + 形 = 種別 (青○概念 赤紫◇主張 緑□測定 黄△決定 紫⬡ソース 茶○問い)</span>
+          <span>
+            塗り色 + 形 = 種別 (青○概念 赤紫◇主張 緑□測定 黄△決定 紫⬡ソース
+            茶○問い)
+          </span>
           <span>状態 = 一覧・台帳のラベル</span>
-          <span>線 = 関係 (緑=支持系 オーカー=異議/論点 朱=反証 青=検証/依存 破線=依存・上書き)</span>
+          <span>
+            線 = 関係 (緑=支持系 オーカー=異議/論点 朱=反証 青=検証/依存
+            破線=依存・上書き)
+          </span>
         </section>
       </div>
 
@@ -1265,7 +2072,10 @@ export function BzmTheoryMapView({
             className="pointer-events-auto rounded-md border px-4 py-2 text-sm font-medium shadow-lg"
             style={{
               borderColor: notice.type === "success" ? MOSS : VERMILION,
-              backgroundColor: notice.type === "success" ? rgba(MOSS, 0.12) : rgba(VERMILION, 0.12),
+              backgroundColor:
+                notice.type === "success"
+                  ? rgba(MOSS, 0.12)
+                  : rgba(VERMILION, 0.12),
               color: notice.type === "success" ? MOSS : VERMILION,
             }}
           >
@@ -1273,7 +2083,6 @@ export function BzmTheoryMapView({
           </div>
         </div>
       )}
-
     </div>
   );
 }
@@ -1297,9 +2106,15 @@ function RelationGroup({
 }) {
   return (
     <div className="mb-4 last:mb-0">
-      <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold" style={{ color }}>
+      <div
+        className="mb-1.5 flex items-center gap-2 text-xs font-semibold"
+        style={{ color }}
+      >
         {title}
-        <span className="rounded-full border px-1.5 py-0.5 font-mono text-[10px]" style={{ borderColor: color }}>
+        <span
+          className="rounded-full border px-1.5 py-0.5 font-mono text-[10px]"
+          style={{ borderColor: color }}
+        >
           {edges.length} 件
         </span>
       </div>
@@ -1313,7 +2128,14 @@ function RelationGroup({
       ) : (
         <ul className="space-y-1">
           {edges.map((edge) => {
-            const otherId = direction === "to" ? edge.to : direction === "from" ? edge.from : edge.from === selfId ? edge.to : edge.from;
+            const otherId =
+              direction === "to"
+                ? edge.to
+                : direction === "from"
+                  ? edge.from
+                  : edge.from === selfId
+                    ? edge.to
+                    : edge.from;
             const other = nodeById.get(otherId);
             if (!other) return null;
             return (
@@ -1324,10 +2146,16 @@ function RelationGroup({
                   className="flex min-h-11 w-full min-w-0 flex-1 items-center gap-2 rounded-md border px-2.5 py-1.5 text-left text-xs transition"
                   style={{ borderColor: PAPER_BORDER }}
                 >
-                  <span className="shrink-0 font-mono" style={{ color: RELATION_COLOR[edge.type] }}>
+                  <span
+                    className="shrink-0 font-mono"
+                    style={{ color: RELATION_COLOR[edge.type] }}
+                  >
                     {RELATION_LABEL[edge.type]}
                   </span>
-                  <span className="min-w-0 flex-1 truncate" style={{ color: GRAPHITE }}>
+                  <span
+                    className="min-w-0 flex-1 truncate"
+                    style={{ color: GRAPHITE }}
+                  >
                     <BzmMathText source={other.title} />
                   </span>
                 </button>
