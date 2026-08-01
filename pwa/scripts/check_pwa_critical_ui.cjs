@@ -115,9 +115,13 @@ expectIncludes("src/lib/project-workspace.ts", [
   "(?:workspace|weekly-control|navigation)",
 ]);
 
-expectIncludes("src/app/(app)/project/[projectId]/workspace/page.tsx", [
+expectIncludes("src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx", [
+  "resolveSharedWorkspaceAccess",
   "ProjectWorkspaceDashboard",
-  "/workspace",
+  "ExternalProjectWorkspaceDashboard",
+  "getProjectWorkspaceBundle",
+  "getExternalProjectWorkspaceBundle",
+  "SharedWorkspaceScopeRibbon",
 ]);
 
 expectIncludes("src/app/(app)/project/[projectId]/navigation/page.tsx", [
@@ -390,7 +394,10 @@ expectIncludes("src/app/(app)/layout.tsx", [
 // Supabase authenticated sessionを残さず、参加PJだけを表示する。
 expectIncludes("src/app/page.tsx", [
   "getCurrentMemberAccess",
-  "memberHome(access)",
+  "memberHome(memberAccess)",
+  "resolveWorkspaceAccess",
+  "getPublicInstitutionWorkspaces",
+  'redirect("/workspaces")',
 ]);
 expectIncludes("src/app/auth/callback/route.ts", [
   'member.os_access_scope === "project"',
