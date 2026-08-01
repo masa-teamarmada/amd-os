@@ -686,25 +686,26 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "sx-partner-pipeline",
   "sxPartnerDisplay",
   "buildPartnerProgressSteps",
-  "sx-partner-stage-scale-",
+  "sx-partner-stage-rail-",
+  "sx-partner-progress-",
+  "data-progress-segment",
+  "data-progress-step",
   "data-step-count={steps.length}",
-  'data-stage-index={stageIndex ?? "on_hold"}',
-  "PARTNER_STAGE_SHORT_LABELS",
-  "sx-partner-stage-reference",
-  "grid-cols-7",
   "sxIsPocPartner",
   "sxPartnerHasContactRecord",
   "sxPartnerHasDataGap",
   "sxPartnerHasDueSoon",
   "sxPartnerHasOverdue",
   "sx-partner-filter-poc",
+  "sx-partner-filter-vc",
   "PoC候補先",
+  "sxIsVcPartner",
   'heading="表示"',
   'heading="役割"',
   "filterablePartners",
   "sxGroupPartnersByPrimaryClassification(filterablePartners)",
-  "pocComparisonPartners",
-  "PocComparisonControls",
+  "comparisonPartners",
+  "PartnerComparisonControls",
   "sxNormalizePublicName",
   "deferredLowPriority",
   "保留・低優先（重要経路外・",
@@ -742,12 +743,12 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "終了（対応中から除外",
   "aria-labelledby={nameHeadingId}",
   "aria-pressed",
-  // Round 31: one-row progress comparison and intervention columns replace the pill rail.
+  // Round 32: one-row comparison keeps the dynamic progress rail/flow and intervention columns.
   "OwnerLoadBand",
   "sxPartnerPrimaryIntervention",
   "関係先の進捗比較",
-  "全社共通の7段階で、現在地・停滞・次の行動を比較",
-  "進捗",
+  "接点・現在地・次の行動・ゴールを、1社1行で確認",
+  "進行状況",
   "詰まり・PJ影響",
   "次にやること",
   "担当・期限",
@@ -787,9 +788,6 @@ expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "inline-flex h-6 w-6 items-center justify-center rounded-md border border-[#cfc7b9] text-[#514e47] hover:bg-[#f8f5ec]",
   // spec (2026-07-24): mask-imageのcontent-fadeは末尾指標そのものを薄くするため撤去済み。
   "mask-image",
-  // Round 31: partner progress must remain a ruled comparison scale, never the old pill rail.
-  "sx-partner-stage-rail-",
-  "data-progress-segment",
   // spec (2026-07-24 COO差し戻し4点目): ScrollHintArrowの薄い#a49d8cは#69665dへ統一済み、復活させない。
   "text-[#a49d8c]",
   // spec (2026-07-24 二車線化): 中央受け渡し欄・協力機関の進捗名称は撤去済み
@@ -2775,8 +2773,8 @@ expectNotIncludes(
   ["management-poc", "PoC候補先リスト", "SxPocCandidateList"],
 );
 
-// Round 28/31 (2026-08-01): PoCは同じ台帳に含めつつ、初期表示では全PoC候補を
-// 共通7段階の目盛りで比較する。role未登録を進捗の「未分類」と見せない。
+// Round 28/32 (2026-08-01): PoC候補先とVCは同じ台帳の表示タブ。
+// 関係先の進行表示は固定段階でなく、保存済み接点・現在地・未完了作業・次の一手・ゴールから可変生成する。
 expectIncludes("src/lib/sx-partner-progress.ts", [
   "SX_PARTNER_STAGE_ORDER",
   '"candidate"',
@@ -2792,35 +2790,39 @@ expectIncludes("src/lib/sx-partner-progress.ts", [
   'partner: "先方"',
 ]);
 expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
-  'data-testid="sx-poc-comparison-controls"',
-  'data-testid="sx-poc-sort-progress"',
-  'data-testid="sx-poc-sort-attention"',
-  "PocComparisonRow",
+  "PartnerComparisonControls",
+  "PartnerComparisonRow",
   "PocComparisonDetailModal",
   "activePocQuickFilter",
   "pocMatchesQuickFilter",
-  "sx-poc-comparison-row-",
+  "sx-partner-comparison-row-",
+  "sx-partner-stage-rail-",
+  "sx-partner-progress-",
+  "interaction-${interaction.id}",
+  "work-${item.id}",
   'aria-modal="true"',
-  'data-stage-index={stageIndex ?? "on_hold"}',
   "判定材料不足",
   "情報更新要",
   "接点記録あり",
   "関係先の進捗比較",
   "const [pocOnly, setPocOnly] = useState(true)",
-  "showRoleFilter={!pocOnly}",
-  "pocComparisonPartners.map",
+  "const [vcOnly, setVcOnly] = useState(false)",
+  "showRoleFilter={!comparisonOnly}",
+  "comparisonPartners.map",
+  'data-testid="sx-partner-filter-vc"',
+  "sxIsVcPartner",
   "sxCompactPartnerRowText",
   "sticky top-0",
   "sticky top-14",
 ]);
 expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
-  "...past.map",
-  "...pending.map",
-  "interaction-${interaction.id}",
-  "min-w-[124px]",
-  "全関係先を同じ母集団・同じprimary role",
+  "PartnerProgressScale",
+  "PARTNER_STAGE_SHORT_LABELS",
+  "sx-partner-stage-reference",
+  "data-stage-index",
+  "SX_PARTNER_STAGE_ORDER.map",
+  "全社共通の7段階で、現在地・停滞・次の行動を比較",
 ]);
-
 // 土壌×シーズタブ (2026-07-30): 機関ECRと所属シーズSPSをas-of断面で整列する。元評価日は別表示し、合成単一スコア化は禁止。
 expectIncludes("src/app/(app)/institutions/[institutionId]/cockpit/page.tsx", [
   "CockpitSoilSeeds",

@@ -69,6 +69,15 @@ export function sxPartnerHasContactRecord(
   return partner.interactions.length > 0 || partner.lastContactDate != null;
 }
 
+/** VC表示は保存済みroleだけで判定し、名称や自由記述から推測しない。 */
+export function sxIsVcPartner(
+  partner: Pick<SxManagementPartner, "roles">,
+): boolean {
+  return partner.roles.some(
+    (role) => role.roleKind === "shareholder_investor",
+  );
+}
+
 export type SxPartnerAttentionKey =
   | "blocked"
   | "overdue"
@@ -208,7 +217,7 @@ export function sxPartnerAttention(
 
 export type SxPocComparisonSort = "progress" | "attention";
 
-/** PoC比較レンズ専用の表示順。母データや役割分類は変えない。 */
+/** PoC/VC比較タブの表示順。attentionでは旧固定段階をtie-breakにも使わない。 */
 export function sxComparePartnersForPoc(
   left: SxManagementPartner,
   right: SxManagementPartner,
@@ -230,8 +239,6 @@ export function sxComparePartnersForPoc(
     return rightStage - leftStage;
   if (leftAttention !== rightAttention) return leftAttention - rightAttention;
   if (leftBall !== rightBall) return leftBall - rightBall;
-  if (sort === "attention" && leftStage !== rightStage)
-    return rightStage - leftStage;
 
   const dueCompare = sxPartnerDisplaySortKey(left).localeCompare(
     sxPartnerDisplaySortKey(right),

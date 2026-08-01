@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Plus, X } from "lucide-react";
+import { ArrowRight, CircleCheck, CircleDot, Flag, Plus, X } from "lucide-react";
 import type {
   SxActorSide,
   SxManagementBundle,
   SxManagementPartner,
   SxPartnerInteraction,
   SxPartnerRoleKind,
-  SxPartnerStage,
 } from "@/lib/sx-management";
 import {
   SX_PROOF_DEFINITIONS,
@@ -23,20 +22,17 @@ import {
 import { sxNormalizePublicName } from "@/lib/sx-name-normalize";
 import { sxIsPocPartner } from "@/lib/sx-poc-candidates";
 import {
-  SX_PARTNER_STAGE_ORDER,
   sxCompactPartnerRowText,
   sxComparePartnersForPoc,
   sxPartnerHasDataGap,
   sxPartnerHasContactRecord,
   sxPartnerHasDueSoon,
   sxPartnerHasOverdue,
+  sxIsVcPartner,
   sxPartnerIsOnHold,
   sxPartnerNeedsRefresh,
   sxPartnerOwnerLoads,
   sxPartnerPrimaryIntervention,
-  sxPartnerStageIndex,
-  sxPartnerStageLabel,
-  type SxPocComparisonSort,
   type SxPartnerPrimaryIntervention,
 } from "@/lib/sx-partner-progress";
 import {
@@ -69,124 +65,150 @@ import {
 } from "./sx-visual-shared";
 
 type PartnerProgressStep = {
-  stage: (typeof SX_PARTNER_STAGE_ORDER)[number];
-  phase: "done" | "now" | "next";
-  label: string;
+  key: string;
+  phase: "done" | "now" | "next" | "goal";
+  title: string;
+  sub: string | null;
 };
 
-const PARTNER_STAGE_SHORT_LABELS = [
-  "候補",
-  "情報",
-  "条件",
-  "面談",
-  "準備",
-  "合意",
-  "実行",
-] as const;
-
 /**
- * 会社名下のrailと「関係段階」列が同じ7件・同じ順序を使うための唯一のstep builder。
- * 接点数や作業数を進捗へ混ぜず、全関係先を同じ分母で比較する。
+ * 会社名下のrailと進行状況列が、同じ件数・同じ順序を使うための唯一のstep builder。
+ * 固定段階へ正規化せず、その関係先に実在する接点・作業・現在地・ゴールを並べる。
  */
 function buildPartnerProgressSteps(
   partner: SxManagementPartner,
 ): PartnerProgressStep[] {
-  const currentIndex = sxPartnerIsOnHold(partner)
-    ? null
-    : sxPartnerStageIndex(partner.relationshipStage);
-  return SX_PARTNER_STAGE_ORDER.map((stage, index) => ({
-    stage,
-    phase:
-      currentIndex != null && index + 1 < currentIndex
-        ? "done"
-        : currentIndex === index + 1
-          ? "now"
-          : "next",
-    label: sxPartnerStageLabel(stage),
-  }));
+  const past = [...partner.interactions].sort((left, right) => {
+    const leftKey = left.occurredOn ?? left.createdAt.slice(0, 10);
+    const rightKey = right.occurredOn ?? right.createdAt.slice(0, 10);
+    return (
+      leftKey.localeCompare(rightKey) ||
+      left.createdAt.localeCompare(right.createdAt)
+    );
+  });
+  const pending = [...partner.workItems]
+    .filter((item) => item.status !== "completed" && item.status !== "cancelled")
+    .sort((left, right) =>
+      (left.dueDate ?? "9999").localeCompare(right.dueDate ?? "9999"),
+    );
+  const workSideLabel = (side: string) =>
+    side === "sx"
+      ? "当方"
+      : side === "partner"
+        ? "先方"
+        : side === "shared"
+          ? "双方"
+          : "担当未確認";
+  const ballOwner = partner.currentBallOwner
+    ? sxNormalizePublicName(partner.currentBallOwner)
+    : "担当未確認";
+  const nowDue = sxFormatDueDateWithPrecision(
+    partner.dueDate,
+    partner.dueDatePrecision,
+  );
+
+  return [
+    ...past.map((interaction) => ({
+      key: `interaction-${interaction.id}`,
+      phase: "done" as const,
+      title: sxNormalizePublicName(interaction.summary),
+      sub: `${sxInteractionKindLabel(interaction.interactionKind)}${interaction.occurredOn ? ` ・ ${sxFormatEventDateWithPrecision(interaction.occurredOn, interaction.occurredOnPrecision)}` : ""}`,
+    })),
+    {
+      key: "now",
+      phase: "now" as const,
+      title: `${sxBallSideLabel(partner.currentBallSide)}ボール: ${ballOwner}`,
+      sub: `現在地 ・ ${nowDue === "期限未設定" ? nowDue : `期限 ${nowDue}`}`,
+    },
+    ...pending.map((item) => ({
+      key: `work-${item.id}`,
+      phase: "next" as const,
+      title: nominalizeSxNextActionLabel(sxNormalizePublicName(item.title)),
+      sub: `これから ・ ${workSideLabel(item.side)}${item.ownerLabel ? ` ${sxNormalizePublicName(item.ownerLabel)}` : ""}`,
+    })),
+    {
+      key: "next",
+      phase: "next" as const,
+      title: partner.nextCommitment
+        ? nominalizeSxNextActionLabel(sxNormalizePublicName(partner.nextCommitment))
+        : "次の一手 未登録",
+      sub: "これから",
+    },
+    {
+      key: "goal",
+      phase: "goal" as const,
+      title: partner.targetState
+        ? sxNormalizePublicName(partner.targetState)
+        : "目標状態 未登録",
+      sub: "ゴール",
+    },
+  ];
 }
 
-/** 全社を同じ座標で比較する直線目盛り。個別のpillやカードへ分割しない。 */
-function PartnerProgressScale({
+/** 進行状況列と同じ可変stepsを、会社名下へ縮約して表示する。 */
+function PartnerStageRail({
   partnerId,
-  stage,
+  onHold,
+  currentBallSide,
   steps,
-  deferred = false,
   onOpen,
 }: {
   partnerId: string;
-  stage: string;
+  onHold: boolean;
+  currentBallSide: SxManagementPartner["currentBallSide"];
   steps: readonly PartnerProgressStep[];
-  deferred?: boolean;
   onOpen?: () => void;
 }) {
-  const onHold = stage === "on_hold" || deferred;
-  const stageIndex = onHold
-    ? null
-    : sxPartnerStageIndex(stage as SxPartnerStage);
-  const trackInsetPct = 100 / 14;
-  const completedWidthPct =
-    stageIndex == null ? 0 : ((stageIndex - 1) / 7) * 100;
   const content = (
     <>
-      <span className="relative block h-5" aria-hidden="true">
-        <span
-          className="absolute top-[9px] h-px bg-[#d6cebf]"
-          style={{ left: `${trackInsetPct}%`, right: `${trackInsetPct}%` }}
-        />
-        {!onHold && (
+      <span className="flex items-center gap-0.5" aria-hidden="true">
+        {steps.map((step) => (
           <span
-            className="absolute top-[8px] h-[3px] bg-[#38745d]"
-            style={{
-              left: `${trackInsetPct}%`,
-              width: `${completedWidthPct}%`,
-            }}
+            key={step.key}
+            data-progress-segment={step.phase}
+            className={`h-1.5 flex-1 rounded-full ${
+              onHold
+                ? "bg-[#d6cebf]"
+                : step.phase === "now"
+                  ? currentBallSide === "sx"
+                    ? "bg-[#b5533f]"
+                    : currentBallSide === "partner"
+                      ? "bg-[#d5bc82]"
+                      : "bg-[#b8b5c8]"
+                  : step.phase === "done"
+                    ? "bg-[#8fb5a2]"
+                    : step.phase === "goal"
+                      ? "bg-[#c9bfd0]"
+                      : "bg-[#e8e2d6]"
+            }`}
           />
-        )}
-        <span className="absolute inset-x-0 top-1 grid grid-cols-7">
-          {steps.map((step) => (
-            <span key={step.stage} className="relative h-3">
-              <i
-                className={`absolute left-1/2 top-0 h-3 w-px -translate-x-1/2 ${onHold ? "bg-[#aaa294]" : step.phase === "now" ? "w-[3px] bg-[#24231f]" : step.phase === "done" ? "bg-[#38745d]" : "bg-[#cfc7b9]"}`}
-              />
-            </span>
-          ))}
-        </span>
+        ))}
       </span>
       <span
         className={`mt-0.5 block text-[10px] font-semibold ${onHold ? "text-[#69665d]" : "text-[#315f7d]"}`}
       >
-        {onHold
-          ? "保留"
-          : `${stageIndex}/7 ${sxPartnerStageLabel(stage as SxPartnerStage)}`}
+        {onHold ? "保留" : `進行項目 ${steps.length}件`}
       </span>
     </>
   );
-  const className =
-    "block w-full min-w-0 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]";
+  const className = `block w-full min-w-0 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${onOpen ? "cursor-pointer rounded-sm hover:bg-[#eef3f5]" : ""}`;
   return onOpen ? (
     <button
       type="button"
       onClick={onOpen}
       className={className}
-      aria-label={`${stageIndex ?? "保留"}/7 ${onHold ? "保留" : sxPartnerStageLabel(stage as SxPartnerStage)}を直接修正`}
-      data-testid={`sx-partner-stage-scale-${partnerId}`}
+      aria-label={`${steps.length}件の進行状況を直接修正`}
+      data-testid={`sx-partner-stage-rail-${partnerId}`}
       data-step-count={steps.length}
-      data-stage-index={stageIndex ?? "on_hold"}
     >
       {content}
     </button>
   ) : (
     <div
       role="img"
-      aria-label={
-        onHold
-          ? "関係段階 保留"
-          : `関係段階 ${stageIndex}/7・${sxPartnerStageLabel(stage as SxPartnerStage)}`
-      }
-      data-testid={`sx-partner-stage-scale-${partnerId}`}
+      aria-label={`進行状況 ${steps.length}件${onHold ? "・保留" : ""}`}
+      data-testid={`sx-partner-stage-rail-${partnerId}`}
       data-step-count={steps.length}
-      data-stage-index={stageIndex ?? "on_hold"}
       className={className}
     >
       {content}
@@ -427,34 +449,38 @@ function ControlBand({
   );
 }
 
-/** PoCは同じ台帳を絞る表示属性。通常表示では役割分類を使い、PoC比較中は役割を隠して
- * 共通7段階へ主軸を切り替える。role未登録を進捗未分類と誤読させない。 */
+/** PoC候補先とVCは、同じ関係先台帳を絞る排他的な表示タブ。 */
 function CategoryNav({
   counts,
   totalCount,
   pocCount,
+  vcCount,
   activeKind,
   pocOnly,
+  vcOnly,
   onClear,
   onSelect,
   onSelectPoc,
+  onSelectVc,
   showRoleFilter,
 }: {
   counts: Partial<Record<SxPartnerRoleKind, number>>;
   totalCount: number;
   pocCount: number;
+  vcCount: number;
   activeKind: SxPartnerRoleKind | null;
   pocOnly: boolean;
+  vcOnly: boolean;
   onClear: () => void;
   onSelect: (kind: SxPartnerRoleKind | null) => void;
   onSelectPoc: () => void;
+  onSelectVc: () => void;
   showRoleFilter: boolean;
 }) {
   const entries = (Object.keys(counts) as SxPartnerRoleKind[])
     .filter((kind) => (counts[kind] || 0) > 0)
     .sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
-  if (entries.length === 0 && pocCount === 0) return null;
-  const allActive = activeKind === null && !pocOnly;
+  const allActive = activeKind === null && !pocOnly && !vcOnly;
   return (
     <div
       className="border-b border-[#e4ddd0] bg-[#fffdf7]"
@@ -472,18 +498,26 @@ function CategoryNav({
           {allActive && <span aria-hidden="true">✓</span>}全関係先 {totalCount}
           件
         </button>
-        {pocCount > 0 && (
-          <button
-            type="button"
-            data-testid="sx-partner-filter-poc"
-            onClick={onSelectPoc}
-            aria-pressed={pocOnly}
-            aria-label={`PoC候補先だけを表示（${pocCount}件）`}
-            className={navChipClass(pocOnly)}
-          >
-            {pocOnly && <span aria-hidden="true">✓</span>}PoC候補先 {pocCount}件
-          </button>
-        )}
+        <button
+          type="button"
+          data-testid="sx-partner-filter-poc"
+          onClick={onSelectPoc}
+          aria-pressed={pocOnly}
+          aria-label={`PoC候補先だけを表示（${pocCount}件）`}
+          className={navChipClass(pocOnly)}
+        >
+          {pocOnly && <span aria-hidden="true">✓</span>}PoC候補先 {pocCount}件
+        </button>
+        <button
+          type="button"
+          data-testid="sx-partner-filter-vc"
+          onClick={onSelectVc}
+          aria-pressed={vcOnly}
+          aria-label={`VCだけを表示（${vcCount}件）`}
+          className={navChipClass(vcOnly)}
+        >
+          {vcOnly && <span aria-hidden="true">✓</span>}VC {vcCount}件
+        </button>
       </ControlBandRow>
       {showRoleFilter && entries.length > 0 && (
         <ControlBandRow heading="役割" ariaLabel="役割による絞り込み">
@@ -524,38 +558,23 @@ function pocMatchesQuickFilter(
   return sxPartnerHasDataGap(partner);
 }
 
-function PocComparisonControls({
+function PartnerComparisonControls({
   partners,
-  attentionScopePartners,
   visiblePartners,
   today,
-  activeStage,
-  sort,
+  scopeLabel,
   activeQuickFilter,
-  onSelectStage,
-  onSelectSort,
   onSelectQuickFilter,
 }: {
   partners: SxManagementPartner[];
-  attentionScopePartners: SxManagementPartner[];
   visiblePartners: SxManagementPartner[];
   today: string;
-  activeStage: SxPartnerStage | "all";
-  sort: SxPocComparisonSort;
+  scopeLabel: string;
   activeQuickFilter: SxPocQuickFilter;
-  onSelectStage: (stage: SxPartnerStage | "all") => void;
-  onSelectSort: (sort: SxPocComparisonSort) => void;
   onSelectQuickFilter: (filter: SxPocQuickFilter) => void;
 }) {
-  const stageCounts = new Map<SxPartnerStage, number>();
-  for (const partner of partners) {
-    const stage = sxPartnerIsOnHold(partner)
-      ? "on_hold"
-      : partner.relationshipStage;
-    stageCounts.set(stage, (stageCounts.get(stage) || 0) + 1);
-  }
   const quickCount = (filter: SxPocQuickFilter) =>
-    attentionScopePartners.filter((partner) =>
+    partners.filter((partner) =>
       pocMatchesQuickFilter(partner, today, filter),
     ).length;
   const blockedCount = quickCount("blocked");
@@ -581,7 +600,7 @@ function PocComparisonControls({
       disabled={count === 0}
       aria-pressed={activeQuickFilter === filter}
       aria-label={`${label}${count}件で絞り込み`}
-      className={`shrink-0 border disabled:cursor-not-allowed disabled:opacity-40 ${tone} ${FOCUS_RING}`}
+      className={`min-h-11 shrink-0 border disabled:cursor-not-allowed disabled:opacity-40 ${tone} ${FOCUS_RING}`}
     >
       <span className="block px-2 py-1 text-[10px] font-semibold">
         {activeQuickFilter === filter && <span aria-hidden="true">✓ </span>}
@@ -590,83 +609,16 @@ function PocComparisonControls({
     </button>
   );
   return (
-    <>
-      <div
-        data-testid="sx-poc-comparison-controls"
-        className="border-b border-[#e4ddd0] bg-[#f5f1e8]"
-      >
-        <ControlBandRow heading="段階" ariaLabel="PoC先の関係段階で絞り込み">
-          <button
-            type="button"
-            onClick={() => onSelectStage("all")}
-            aria-pressed={activeStage === "all"}
-            className={navChipClass(activeStage === "all")}
-          >
-            {activeStage === "all" && <span aria-hidden="true">✓</span>}全段階{" "}
-            {partners.length}件
-          </button>
-          {SX_PARTNER_STAGE_ORDER.map((stage, index) => {
-            const count = stageCounts.get(stage) || 0;
-            return (
-              <button
-                key={stage}
-                type="button"
-                data-testid={`sx-poc-stage-filter-${stage}`}
-                onClick={() =>
-                  onSelectStage(activeStage === stage ? "all" : stage)
-                }
-                disabled={count === 0}
-                aria-pressed={activeStage === stage}
-                className={`${navChipClass(activeStage === stage)} disabled:cursor-not-allowed disabled:opacity-40`}
-              >
-                {activeStage === stage && <span aria-hidden="true">✓</span>}
-                {index + 1}. {sxPartnerStageLabel(stage)} {count}件
-              </button>
-            );
-          })}
-          {(stageCounts.get("on_hold") || 0) > 0 && (
-            <button
-              type="button"
-              onClick={() =>
-                onSelectStage(activeStage === "on_hold" ? "all" : "on_hold")
-              }
-              aria-pressed={activeStage === "on_hold"}
-              className={navChipClass(activeStage === "on_hold")}
-            >
-              {activeStage === "on_hold" && <span aria-hidden="true">✓</span>}
-              保留 {stageCounts.get("on_hold")}件
-            </button>
-          )}
-        </ControlBandRow>
-      </div>
       <ControlBandRow
-        heading="並び"
-        ariaLabel="PoC先の並び順と要対応先の絞り込み"
+        heading="管制"
+        ariaLabel={`${scopeLabel}の件数と要対応先の絞り込み`}
         nowrap
         className="sticky top-0 z-30 h-14 bg-[#f5f1e8] py-0 shadow-[0_1px_0_#d6cebf]"
       >
-        <button
-          type="button"
-          data-testid="sx-poc-sort-progress"
-          onClick={() => onSelectSort("progress")}
-          aria-pressed={sort === "progress"}
-          className={navChipClass(sort === "progress")}
-        >
-          {sort === "progress" && <span aria-hidden="true">✓</span>}関係段階順
-        </button>
-        <button
-          type="button"
-          data-testid="sx-poc-sort-attention"
-          onClick={() => onSelectSort("attention")}
-          aria-pressed={sort === "attention"}
-          className={navChipClass(sort === "attention")}
-        >
-          {sort === "attention" && <span aria-hidden="true">✓</span>}要対応順
-        </button>
         <span
           className={`shrink-0 border px-2 py-1 text-[10px] font-semibold ${NEUTRAL_TONE}`}
         >
-          表示 {visiblePartners.length} / PoC候補先 {partners.length}
+          表示 {visiblePartners.length} / {scopeLabel} {partners.length}
         </span>
         <span
           className={`shrink-0 border px-2 py-1 text-[10px] font-semibold ${NEUTRAL_TONE}`}
@@ -710,7 +662,6 @@ function PocComparisonControls({
           dataGapCount > 0 ? FLAG_TONE : NEUTRAL_TONE,
         )}
       </ControlBandRow>
-    </>
   );
 }
 
@@ -916,9 +867,9 @@ function HoldingRow({
 }
 
 const PARTNER_CONTROL_INNER_GRID =
-  "xl:grid-cols-[160px_minmax(270px,1.4fr)_minmax(150px,0.9fr)_minmax(190px,1.2fr)_126px_minmax(150px,1fr)]";
+  "@min-[1280px]:grid-cols-[160px_minmax(270px,1.4fr)_minmax(150px,0.9fr)_minmax(190px,1.2fr)_126px_minmax(150px,1fr)]";
 const PARTNER_CONTROL_HEADER_GRID =
-  "xl:grid-cols-[160px_minmax(270px,1.4fr)_minmax(150px,0.9fr)_minmax(190px,1.2fr)_126px_minmax(150px,1fr)_104px]";
+  "@min-[1280px]:grid-cols-[160px_minmax(270px,1.4fr)_minmax(150px,0.9fr)_minmax(190px,1.2fr)_126px_minmax(150px,1fr)_104px]";
 
 type PartnerGateImpact = {
   title: string;
@@ -1192,7 +1143,7 @@ function PocComparisonDetailModal({
                 <p className="mt-1 text-[12px] font-semibold text-[#24231f]">
                   {sxPartnerIsOnHold(partner)
                     ? "保留"
-                    : `${sxPartnerStageIndex(partner.relationshipStage)}/7 ${sxPartnerStageLabel(partner.relationshipStage)}`}
+                    : `進行項目 ${buildPartnerProgressSteps(partner).length}件`}
                 </p>
               </div>
               <div className="bg-white p-3">
@@ -1481,7 +1432,102 @@ function PocComparisonDetailModal({
   );
 }
 
-function PocComparisonRow({
+/**
+ * これまでの接点 → 現在地 → これから → ゴール。
+ * 会社名下のrailと同じstepsを受け取り、件数と順序のずれを起こさない。
+ */
+function PartnerProgressFlow({
+  partner,
+  displayName,
+  steps,
+}: {
+  partner: SxManagementPartner;
+  displayName: string;
+  steps: readonly PartnerProgressStep[];
+}) {
+  const flowRef = useRef<HTMLOListElement>(null);
+  const stepSignature = steps.map((step) => step.key).join("|");
+  useEffect(() => {
+    const flow = flowRef.current;
+    const current = flow?.querySelector<HTMLElement>(
+      '[data-progress-step="now"]',
+    );
+    if (!flow || !current || flow.scrollWidth <= flow.clientWidth) return;
+    flow.scrollLeft = Math.max(0, current.offsetLeft - flow.offsetLeft - 8);
+  }, [stepSignature]);
+  const nowTone =
+    partner.currentBallSide === "sx"
+      ? "border-[#b5533f] bg-[#f9e4e1] text-[#8c3329]"
+      : partner.currentBallSide === "partner"
+        ? "border-[#d5bc82] bg-[#fbf1dc] text-[#765022]"
+        : "border-[#b8b5c8] bg-[#f1f0f6] text-[#55506d]";
+  return (
+    <div
+      className="min-w-0 overflow-hidden"
+      data-testid={`sx-partner-progress-${partner.id}`}
+      data-step-count={steps.length}
+    >
+      <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
+        進行状況
+      </p>
+      <ol
+        ref={flowRef}
+        tabIndex={0}
+        className={`mt-1 flex items-stretch gap-0 overflow-x-auto pb-1 @min-[1280px]:mt-0 ${FOCUS_RING}`}
+        aria-label={`${displayName}の進行状況`}
+      >
+        {steps.map((step, index) => (
+          <li
+            key={step.key}
+            data-progress-step={step.phase}
+            className="flex min-w-0 items-stretch"
+          >
+            <div
+              className={`flex w-[138px] min-w-[124px] flex-col gap-0.5 rounded-md border px-2 py-1 ${
+                step.phase === "done"
+                  ? "border-[#c9d9cf] bg-[#f1f6f2] text-[#205f49]"
+                  : step.phase === "now"
+                    ? `border-2 ${nowTone}`
+                    : step.phase === "goal"
+                      ? "border-[#c9bfd0] bg-[#f6f3f8] text-[#5f4a66]"
+                      : "border-dashed border-[#cfc7b9] bg-[#fffdf7] text-[#514e47]"
+              }`}
+            >
+              <span className="flex items-center gap-1 text-[10px] font-semibold tracking-wide">
+                {step.phase === "done" && (
+                  <CircleCheck className="h-3 w-3 shrink-0" aria-hidden="true" />
+                )}
+                {step.phase === "now" && (
+                  <CircleDot className="h-3 w-3 shrink-0" aria-hidden="true" />
+                )}
+                {step.phase === "goal" && (
+                  <Flag className="h-3 w-3 shrink-0" aria-hidden="true" />
+                )}
+                {step.sub}
+              </span>
+              <span
+                className="line-clamp-2 text-[11px] font-semibold leading-[1.3]"
+                title={step.title}
+              >
+                {step.title}
+              </span>
+            </div>
+            {index < steps.length - 1 && (
+              <span
+                className="flex shrink-0 items-center px-0.5 text-[#9b9487]"
+                aria-hidden="true"
+              >
+                <ArrowRight className="h-3 w-3" />
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function PartnerComparisonRow({
   partner,
   milestoneTitleBySlug,
   milestoneTitleById,
@@ -1554,7 +1600,7 @@ function PocComparisonRow({
     <article
       id={`sx-partner-${partner.id}`}
       data-sx-anchor={`sx-partner-${partner.id}`}
-      data-testid={`sx-poc-comparison-row-${partner.id}`}
+      data-testid={`sx-partner-comparison-row-${partner.id}`}
       tabIndex={-1}
       aria-labelledby={nameHeadingId}
       className="scroll-mt-24 border-b border-[#eee9df] bg-[#fffdf7]"
@@ -1563,13 +1609,13 @@ function PocComparisonRow({
         <div
           className={`grid min-w-0 grid-cols-1 gap-x-3 gap-y-2 md:grid-cols-2 ${PARTNER_CONTROL_INNER_GRID}`}
         >
-          <div className="min-w-0 md:col-span-2 xl:col-span-1">
+          <div className="min-w-0 md:col-span-2 @min-[1280px]:col-span-1">
             <button
               type="button"
               id={nameHeadingId}
               disabled={!canManage || !onEditPartner}
               onClick={() => onEditPartner?.(partner.id)}
-              className="block min-h-11 w-full truncate text-left text-[12px] font-semibold text-[#24231f] disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+              className="block min-h-11 w-full truncate rounded-sm text-left text-[12px] font-semibold text-[#24231f] enabled:cursor-pointer enabled:hover:bg-[#eef3f5] enabled:hover:underline disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
               aria-label={`${display.name}の基本情報を直接修正`}
             >
               {display.name}
@@ -1577,27 +1623,31 @@ function PocComparisonRow({
             <p className="text-[10px] text-[#69665d]">
               最終確認 {sxFormatDate(partner.lastVerifiedAt)}
             </p>
+            <div className="mt-1.5">
+              <PartnerStageRail
+                partnerId={partner.id}
+                onHold={sxPartnerIsOnHold(partner)}
+                currentBallSide={partner.currentBallSide}
+                steps={steps}
+                onOpen={
+                  canManage && onEditPartner
+                    ? () => onEditPartner(partner.id)
+                    : undefined
+                }
+              />
+            </div>
           </div>
 
-          <div className="min-w-0 md:col-span-2 xl:col-span-1">
-            <p className="text-[10px] font-semibold text-[#69665d] xl:hidden">
-              進捗
-            </p>
-            <PartnerProgressScale
-              partnerId={partner.id}
-              stage={partner.relationshipStage}
+          <div className="min-w-0 md:col-span-2 @min-[1280px]:col-span-1">
+            <PartnerProgressFlow
+              partner={partner}
+              displayName={display.name}
               steps={steps}
-              deferred={partner.deferredLowPriority}
-              onOpen={
-                canManage && onEditPartner
-                  ? () => onEditPartner(partner.id)
-                  : undefined
-              }
             />
           </div>
 
           <div className="min-w-0 border-l-2 border-[#d6cebf] pl-2">
-            <p className="text-[10px] font-semibold text-[#69665d] xl:hidden">
+            <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
               詰まり・PJ影響
             </p>
             <span
@@ -1624,7 +1674,7 @@ function PocComparisonRow({
           </div>
 
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold text-[#69665d] xl:hidden">
+            <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
               次にやること
             </p>
             <p
@@ -1640,7 +1690,7 @@ function PocComparisonRow({
           </div>
 
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold text-[#69665d] xl:hidden">
+            <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
               担当・期限
             </p>
             <p
@@ -1666,8 +1716,8 @@ function PocComparisonRow({
             </div>
           </div>
 
-          <div className="min-w-0 md:col-span-2 xl:col-span-1">
-            <p className="text-[10px] font-semibold text-[#69665d] xl:hidden">
+          <div className="min-w-0 md:col-span-2 @min-[1280px]:col-span-1">
+            <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
               現在地の根拠
             </p>
             {latest ? (
@@ -1759,10 +1809,7 @@ export function SxPartnerPipeline({
   const [activeRoleKind, setActiveRoleKind] =
     useState<SxPartnerRoleKind | null>(null);
   const [pocOnly, setPocOnly] = useState(true);
-  const [activePocStage, setActivePocStage] = useState<SxPartnerStage | "all">(
-    "all",
-  );
-  const [pocSort, setPocSort] = useState<SxPocComparisonSort>("progress");
+  const [vcOnly, setVcOnly] = useState(false);
   const [activePocQuickFilter, setActivePocQuickFilter] =
     useState<SxPocQuickFilter>("all");
   const [activeOwnerKey, setActiveOwnerKey] = useState<string | null>(null);
@@ -1783,23 +1830,21 @@ export function SxPartnerPipeline({
   );
   const criticalPathSlugs = new Set(management.judgment.criticalPathSlugs);
 
-  // PoCは横断属性のまま。同じ台帳から絞り込むが、PoC比較時の主軸は役割ではなく
-  // 全関係先共通の7段階。role未登録を「進捗未分類」と誤読させない。
+  // PoC候補先とVCは、同じ関係先台帳を絞る表示属性。別台帳は作らない。
   const pocPartners = management.partners.filter(sxIsPocPartner);
+  const vcPartners = management.partners.filter(sxIsVcPartner);
+  const comparisonOnly = pocOnly || vcOnly;
   const matchesRole = (partner: SxManagementPartner) =>
     activeRoleKind === null ||
     (partner.roles.find((role) => role.isPrimary)?.roleKind ||
       "unclassified") === activeRoleKind;
-  const stageFilteredPocPartners = pocPartners.filter((partner) => {
-    if (activePocStage === "all") return true;
-    if (activePocStage === "on_hold") return sxPartnerIsOnHold(partner);
-    return (
-      !sxPartnerIsOnHold(partner) &&
-      partner.relationshipStage === activePocStage
-    );
-  });
-  const ownerScopePartners = pocOnly
-    ? stageFilteredPocPartners.filter((partner) =>
+  const comparisonScopePartners = pocOnly
+    ? pocPartners
+    : vcOnly
+      ? vcPartners
+      : [];
+  const ownerScopePartners = comparisonOnly
+    ? comparisonScopePartners.filter((partner) =>
         pocMatchesQuickFilter(partner, management.asOf, activePocQuickFilter),
       )
     : management.partners.filter(matchesRole);
@@ -1815,25 +1860,25 @@ export function SxPartnerPipeline({
         activeOwnerPartnerIds.has(partner.id),
       )
     : ownerScopePartners;
-  const pocComparisonPartners = [...filterablePartners].sort((left, right) =>
-    sxComparePartnersForPoc(left, right, management.asOf, pocSort),
+  const comparisonPartners = [...filterablePartners].sort((left, right) =>
+    sxComparePartnersForPoc(left, right, management.asOf, "attention"),
   );
   // Both trailing sections read from the role-filtered list too (spec P1: role filter中の保留欄も選択
   // roleに合うものだけ) — selecting a category must narrow 保留/終了 exactly like the main groups.
-  const deferredPartners = pocOnly
+  const deferredPartners = comparisonOnly
     ? []
     : filterablePartners.filter((partner) => partner.deferredLowPriority);
-  const endedPartners = pocOnly
+  const endedPartners = comparisonOnly
     ? []
     : filterablePartners.filter(
         (partner) => !partner.deferredLowPriority && sxIsPartnerEnded(partner),
       );
-  const groups = pocOnly
+  const groups = comparisonOnly
     ? []
     : sxGroupPartnersByPrimaryClassification(filterablePartners);
 
   // 通常台帳の管制帯は全関係先、PoC比較の要対応集計は表示中PoC先を分母にする。
-  const countScopePartners = pocOnly ? ownerScopePartners : management.partners;
+  const countScopePartners = comparisonOnly ? ownerScopePartners : management.partners;
   const counts = sxComputeControlBandCounts(
     countScopePartners,
     management.asOf,
@@ -1861,7 +1906,7 @@ export function SxPartnerPipeline({
 
   return (
     <div
-      className="relative isolate rounded-lg border border-[#d6cebf] bg-[#fffdf7]"
+      className="relative isolate @container rounded-lg border border-[#d6cebf] bg-[#fffdf7]"
       data-testid="sx-partner-pipeline"
     >
       <div className="hidden rounded-t-[7px] border-b border-[#e4ddd0] bg-[#f8f5ec] px-3 py-2 md:block">
@@ -1869,10 +1914,10 @@ export function SxPartnerPipeline({
           関係先の進捗比較
         </p>
         <h3 className="mt-0.5 text-sm font-semibold text-[#24231f]">
-          全社共通の7段階で、現在地・停滞・次の行動を比較
+          接点・現在地・次の行動・ゴールを、1社1行で確認
         </h3>
       </div>
-      {!pocOnly && (
+      {!comparisonOnly && (
         <>
           <div className="flex flex-wrap gap-1.5 border-b border-[#e4ddd0] bg-[#fffdf7] px-3 py-2 md:hidden">
             <SxBadge tone={NEUTRAL_TONE}>
@@ -1902,12 +1947,14 @@ export function SxPartnerPipeline({
         counts={roleCounts}
         totalCount={management.partners.length}
         pocCount={pocPartners.length}
+        vcCount={vcPartners.length}
         activeKind={activeRoleKind}
         pocOnly={pocOnly}
+        vcOnly={vcOnly}
         onClear={() => {
           setPocOnly(false);
+          setVcOnly(false);
           setActiveRoleKind(null);
-          setActivePocStage("all");
           setActivePocQuickFilter("all");
           setActiveOwnerKey(null);
         }}
@@ -1916,16 +1963,20 @@ export function SxPartnerPipeline({
           setActiveOwnerKey(null);
         }}
         onSelectPoc={() => {
-          const next = !pocOnly;
-          setPocOnly(next);
-          if (next) setActiveRoleKind(null);
-          if (!next) {
-            setActivePocStage("all");
-            setActivePocQuickFilter("all");
-          }
+          setPocOnly(true);
+          setVcOnly(false);
+          setActiveRoleKind(null);
+          setActivePocQuickFilter("all");
           setActiveOwnerKey(null);
         }}
-        showRoleFilter={!pocOnly}
+        onSelectVc={() => {
+          setPocOnly(false);
+          setVcOnly(true);
+          setActiveRoleKind(null);
+          setActivePocQuickFilter("all");
+          setActiveOwnerKey(null);
+        }}
+        showRoleFilter={!comparisonOnly}
       />
       <div className="hidden md:block">
         <OwnerLoadBand
@@ -1935,21 +1986,13 @@ export function SxPartnerPipeline({
           onSelectOwner={setActiveOwnerKey}
         />
       </div>
-      {pocOnly && (
-        <PocComparisonControls
-          partners={pocPartners}
-          attentionScopePartners={stageFilteredPocPartners}
-          visiblePartners={pocComparisonPartners}
+      {comparisonOnly && (
+        <PartnerComparisonControls
+          partners={comparisonScopePartners}
+          visiblePartners={comparisonPartners}
           today={management.asOf}
-          activeStage={activePocStage}
-          sort={pocSort}
+          scopeLabel={pocOnly ? "PoC候補先" : "VC"}
           activeQuickFilter={activePocQuickFilter}
-          onSelectStage={(stage) => {
-            setActivePocStage(stage);
-            setActivePocQuickFilter("all");
-            setActiveOwnerKey(null);
-          }}
-          onSelectSort={setPocSort}
           onSelectQuickFilter={(filter) => {
             setActivePocQuickFilter(filter);
             setActiveOwnerKey(null);
@@ -1958,35 +2001,10 @@ export function SxPartnerPipeline({
       )}
 
       <div
-        data-testid="sx-partner-stage-reference"
-        className={`${pocOnly ? "sticky top-14 z-20" : ""} border-b border-[#d6cebf] bg-[#f8f5ec] px-3 py-1.5 xl:hidden`}
-      >
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_104px]">
-          <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-[#69665d]">
-            {SX_PARTNER_STAGE_ORDER.map((stage, index) => (
-              <span key={stage} title={sxPartnerStageLabel(stage)}>
-                {index + 1} {PARTNER_STAGE_SHORT_LABELS[index]}
-              </span>
-            ))}
-          </div>
-          <span className="hidden sm:block" aria-hidden="true" />
-        </div>
-      </div>
-
-      <div
-        className={`${pocOnly ? "sticky top-14 z-20 shadow-[0_1px_0_#d6cebf]" : ""} hidden ${PARTNER_CONTROL_HEADER_GRID} gap-2 border-b border-[#e4ddd0] bg-[#f8f5ec] px-3 py-1.5 text-[10px] font-semibold text-[#69665d] xl:grid`}
+        className={`${comparisonOnly ? "sticky top-14 z-20 shadow-[0_1px_0_#d6cebf]" : ""} hidden ${PARTNER_CONTROL_HEADER_GRID} gap-2 border-b border-[#e4ddd0] bg-[#f8f5ec] px-3 py-1.5 text-[10px] font-semibold text-[#69665d] @min-[1280px]:grid`}
       >
         <span>関係先</span>
-        <span>
-          <b className="block text-[#514e47]">進捗</b>
-          <i className="mt-0.5 grid grid-cols-7 gap-1 text-center text-[10px] font-normal not-italic text-[#69665d]">
-            {SX_PARTNER_STAGE_ORDER.map((stage, index) => (
-              <span key={stage} title={sxPartnerStageLabel(stage)}>
-                {index + 1} {PARTNER_STAGE_SHORT_LABELS[index]}
-              </span>
-            ))}
-          </i>
-        </span>
+        <span>進行状況</span>
         <span>詰まり・PJ影響</span>
         <span>次にやること</span>
         <span>担当・期限</span>
@@ -1997,8 +2015,8 @@ export function SxPartnerPipeline({
       {/* spec P1: role filter中に「対応中」groupがゼロでも保留/終了に絞り込み結果が残っていることが
           あるため、3つの表示先すべて（active groups + deferred + ended）を合算してから空判定する
           （groups.length === 0 だけを見ると「該当なし」を誤表示してしまう）。 */}
-      {(pocOnly
-        ? pocComparisonPartners.length === 0
+      {(comparisonOnly
+        ? comparisonPartners.length === 0
         : groups.length === 0 &&
           deferredPartners.length === 0 &&
           endedPartners.length === 0) && (
@@ -2006,11 +2024,11 @@ export function SxPartnerPipeline({
           該当する関係先はまだないよ。
         </p>
       )}
-      {pocOnly &&
-        pocComparisonPartners.map((partner) => (
+      {comparisonOnly &&
+        comparisonPartners.map((partner) => (
           <PartnerRow key={partner.id} partner={partner} {...rowProps} />
         ))}
-      {!pocOnly &&
+      {!comparisonOnly &&
         groups.map((group) => (
           <div key={group.key}>
             <div className="border-b border-l-4 border-[#e4ddd0] border-l-[#38745d] bg-[#fffdf7] px-3 py-1.5">
@@ -2035,7 +2053,7 @@ export function SxPartnerPipeline({
           </div>
         ))}
 
-      {!pocOnly && deferredPartners.length > 0 && (
+      {!comparisonOnly && deferredPartners.length > 0 && (
         <details className="border-t border-[#e4ddd0]">
           <summary
             className={`flex min-h-11 cursor-pointer select-none items-center px-3 py-2 text-[10px] font-semibold text-[#69665d] ${FOCUS_RING}`}
@@ -2052,7 +2070,7 @@ export function SxPartnerPipeline({
 
       {/* 終了は保留とは別単位（spec P1: 保留/終了を別単位）。同じ折りたたみ行UIを流用しつつ、
           対応中カウントには入らないことがこのsectionの独立性からも分かるようにする。 */}
-      {!pocOnly && endedPartners.length > 0 && (
+      {!comparisonOnly && endedPartners.length > 0 && (
         <details className="border-t border-[#e4ddd0]">
           <summary
             className={`flex min-h-11 cursor-pointer select-none items-center px-3 py-2 text-[10px] font-semibold text-[#69665d] ${FOCUS_RING}`}
@@ -2107,7 +2125,7 @@ function PartnerRow({
 }) {
   const expanded = expandedId === partner.id;
   return (
-    <PocComparisonRow
+    <PartnerComparisonRow
       partner={partner}
       milestoneTitleBySlug={milestoneTitleBySlug}
       milestoneTitleById={milestoneTitleById}

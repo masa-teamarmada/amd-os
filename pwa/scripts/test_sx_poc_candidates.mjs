@@ -5,7 +5,6 @@ import {
   sxIsUncontactedPocPartner,
 } from "../src/lib/sx-poc-candidates.ts";
 import {
-  SX_PARTNER_STAGE_ORDER,
   sxCompactBallSideLabel,
   sxCompactPartnerRowText,
   sxComparePartnersForPoc,
@@ -14,11 +13,11 @@ import {
   sxPartnerHasContactRecord,
   sxPartnerHasDueSoon,
   sxPartnerHasOverdue,
+  sxIsVcPartner,
   sxPartnerIsOnHold,
   sxPartnerNeedsRefresh,
   sxPartnerOwnerLoads,
   sxPartnerPrimaryIntervention,
-  sxPartnerStageIndex,
 } from "../src/lib/sx-partner-progress.ts";
 
 const base = {
@@ -84,6 +83,20 @@ assert.equal(sxIsPocPartner(secured), true);
 assert.equal(sxIsPocPartner(other), false);
 assert.equal(sxIsPocPartner(ewirCandidate), false);
 
+// VCは保存済みroleだけを使い、会社名やroleLabelから推測しない。
+assert.equal(
+  sxIsVcPartner({ roles: [{ roleKind: "shareholder_investor" }] }),
+  true,
+);
+assert.equal(
+  sxIsVcPartner({
+    roles: [],
+    name: "VCらしい会社名",
+    roleLabel: "VC候補らしい自由記述",
+  }),
+  false,
+);
+
 // 未接触はPoC比較レンズの接触状況集計にだけ使い、進捗段階やgroupを捏造しない。
 assert.equal(sxIsUncontactedPocPartner(untouched), true);
 assert.equal(sxIsUncontactedPocPartner(talking), false);
@@ -108,22 +121,38 @@ for (const forbidden of [
   );
 }
 
-// PoC比較はrole分類の有無に左右されず、全社共通の固定7段階で比較する。
-assert.deepEqual(SX_PARTNER_STAGE_ORDER, [
-  "candidate",
-  "information_exchange",
-  "condition_alignment",
-  "meeting_coordination",
-  "validation_preparation",
-  "agreement_confirmation",
-  "executing",
-]);
-assert.equal(sxPartnerStageIndex("candidate"), 1);
-assert.equal(sxPartnerStageIndex("executing"), 7);
-assert.equal(sxPartnerStageIndex("on_hold"), null);
-assert.ok(
-  sxComparePartnersForPoc(secured, talking, "2026-07-30", "progress") < 0,
+// 関係先UIは固定段階へ正規化せず、実在する接点・作業・現在地・ゴールから可変stepsを作る。
+const pipelineSource = readFileSync(
+  new URL("../src/components/project-workspace/SxPartnerPipeline.tsx", import.meta.url),
+  "utf8",
 );
+for (const required of [
+  "interaction-${interaction.id}",
+  "work-${item.id}",
+  'key: "now"',
+  'key: "next"',
+  'key: "goal"',
+  "sx-partner-stage-rail-",
+  "sx-partner-progress-",
+  "data-step-count={steps.length}",
+  'data-testid="sx-partner-filter-vc"',
+  "sxIsVcPartner",
+]) {
+  assert.ok(pipelineSource.includes(required), `${required} must remain in the partner ledger`);
+}
+for (const forbidden of [
+  "PartnerProgressScale",
+  "PARTNER_STAGE_SHORT_LABELS",
+  "sx-partner-stage-reference",
+  "data-stage-index",
+  "SX_PARTNER_STAGE_ORDER.map",
+]) {
+  assert.equal(
+    pipelineSource.includes(forbidden),
+    false,
+    `${forbidden} must not return to the partner ledger`,
+  );
+}
 
 // 進捗と要対応は別軸。期限超過は深い段階より先に並ぶが、浅い段階だけでは「遅れ」にしない。
 const overdue = {
@@ -167,6 +196,28 @@ assert.ok(
 );
 assert.ok(
   sxComparePartnersForPoc(dueUnset, sxBall, "2026-07-30", "attention") < 0,
+);
+const sameAttentionShallow = {
+  ...talking,
+  id: "same-attention-shallow",
+  name: "同順位先",
+  relationshipStage: "candidate",
+};
+const sameAttentionDeep = {
+  ...talking,
+  id: "same-attention-deep",
+  name: "同順位先",
+  relationshipStage: "executing",
+};
+assert.equal(
+  sxComparePartnersForPoc(
+    sameAttentionShallow,
+    sameAttentionDeep,
+    "2026-07-30",
+    "attention",
+  ),
+  0,
+  "attention sort must not use the retired fixed stage as a tie-break",
 );
 const heldOverdue = { ...overdue, id: "11", deferredLowPriority: true };
 assert.equal(sxPartnerIsOnHold(heldOverdue), true);
