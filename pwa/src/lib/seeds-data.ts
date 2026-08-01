@@ -28,6 +28,7 @@ export {
   countDistinctResearchers,
   groupSeedsByInstitution,
   countDistinctInstitutions,
+  seedProjectLifecycle,
   seedProjectPriority,
   type SeedComparisonSortKey,
   type SeedResearcherGroup,

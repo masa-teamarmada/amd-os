@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-01 02:29 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-01 11:10 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -97,7 +97,7 @@ UNIQUE: `(comment_id,participant_id,reaction_type)` (constraint: `amd_deck_react
 
 ## amd_management_score_evidence
 
-行数 (概算): 215
+行数 (概算): 236
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -643,7 +643,7 @@ UNIQUE: `(from_node_id,relation_type,to_node_id)` (constraint: `bzm_theory_edges
 
 ## bzm_theory_nodes
 
-行数 (概算): -1
+行数 (概算): 2
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -665,7 +665,7 @@ PRIMARY KEY: `id`
 
 ## company_actual_monthly
 
-行数 (概算): 108
+行数 (概算): 118
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -761,7 +761,7 @@ PRIMARY KEY: `id`
 
 ## company_budget_simulation_runs
 
-行数 (概算): -1
+行数 (概算): 27
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -978,7 +978,7 @@ UNIQUE: `(obligation_id,recipient_slack_id,schedule_key,stage)` (constraint: `co
 
 ## company_payment_obligations
 
-行数 (概算): 287
+行数 (概算): 300
 PRIMARY KEY: `id`
 UNIQUE: `(source_key)` (constraint: `company_payment_obligations_source_key_key`)
 
@@ -1080,7 +1080,7 @@ UNIQUE: `(occurrence_id,recipient_slack_id,schedule_key,stage)` (constraint: `co
 
 ## company_schedule_occurrences
 
-行数 (概算): 1,158
+行数 (概算): 1,190
 PRIMARY KEY: `occurrence_id`
 UNIQUE: `(occurrence_key,source_hash)` (constraint: `company_schedule_occurrences_source_uniq`)
 
@@ -1655,7 +1655,7 @@ PRIMARY KEY: `project_id`
 
 ## institutions
 
-行数 (概算): 46
+行数 (概算): 48
 PRIMARY KEY: `institution_id`
 
 | # | column | type | nullable | default |

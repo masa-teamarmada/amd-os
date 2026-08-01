@@ -9,6 +9,7 @@ import {
   sortSeedGroups,
   seedComparisonSortValue,
   countDistinctResearchers,
+  seedProjectLifecycle,
   seedProjectPriority,
 } from "../src/lib/kute-seeds-scoring.ts";
 import { SEED_PUBLIC_VIEW_COLUMNS } from "../src/types/seeds.ts";
@@ -223,6 +224,22 @@ function readSrc(relPath: string): string {
     seedProjectPriority(makeSeed({ status: "candidate", project_links: [{ project_id: "p1", project_name: "PJ", project_status: "active", commercialization_stage: null, commercialization_route: null, venture_name: null, target_market: null }] })),
     0,
   );
+  for (const projectStatus of ["ended", "frozen"]) {
+    assert.equal(
+      seedProjectPriority(makeSeed({ project_links: [{ project_id: "p1", project_name: "PJ", project_status: projectStatus, commercialization_stage: null, commercialization_route: null, venture_name: null, target_market: null }] })),
+      0,
+      `${projectStatus} はPJ化済みとして先頭グループであるべきです`,
+    );
+  }
+  for (const projectStatus of ["sales", "draft"]) {
+    assert.equal(
+      seedProjectPriority(makeSeed({ project_links: [{ project_id: "p1", project_name: "PJ", project_status: projectStatus, commercialization_stage: null, commercialization_route: null, venture_name: null, target_market: null }] })),
+      1,
+      `${projectStatus} はPJ化検討中であるべきです`,
+    );
+  }
+  assert.equal(seedProjectLifecycle(makeSeed({ status: "discussing", project_links: [] })), "considering");
+  assert.equal(seedProjectPriority(makeSeed({ status: "contacted", project_links: [] })), 1);
   assert.equal(
     seedProjectPriority(makeSeed({ status: "spun_off", project_links: [] })),
     2,
@@ -302,15 +319,19 @@ function readSrc(relPath: string): string {
   assert.deepEqual(sortSeedGroups([], (seed) => seedComparisonSortValue(seed, "sps"), -1), [], "空グループのソートは空配列を返すべきです");
 }
 
-// 10. CockpitKuteSeeds は全研究者に共通のグループヘッダー行と件数表示を持つ
+// 10. 全件シーズリストは1シーズ1行。機関・研究者・PJ状態は通常列で、group rowを持たない。
 {
   const ui = readSrc("../src/components/cockpit/CockpitKuteSeeds.tsx");
-  assert.ok(/groupSeedsByResearcher/.test(ui), "研究者グルーピング関数の利用が見つかりません");
-  assert.ok(/sortSeedGroups/.test(ui), "グループ維持ソート関数の利用が見つかりません");
-  assert.ok(/scope="rowgroup"/.test(ui), "研究者グループの行見出しが見つかりません");
-  assert.ok(/data-researcher-group/.test(ui), "研究者グループの識別属性が見つかりません");
+  assert.ok(/flatSeeds\.map/.test(ui), "1シーズ1行のflat mapが見つかりません");
+  assert.ok(/研究機関<\/th>/.test(ui), "研究機関の通常列が見つかりません");
+  assert.ok(/研究者 \/ PI<\/th>/.test(ui), "研究者/PIの通常列が見つかりません");
+  assert.ok(/PJ状態<\/th>/.test(ui), "PJ状態の通常列が見つかりません");
+  assert.ok(!/scope="rowgroup"/.test(ui), "rowgroup見出しが残っています");
+  assert.ok(!/data-researcher-group/.test(ui), "研究者group rowが残っています");
+  assert.ok(!/data-institution-group/.test(ui), "研究機関group rowが残っています");
+  assert.ok(!/engagementSections/.test(ui), "PJあり/なしsectionが残っています");
   assert.ok(/研究者\{researcherCount\}名/.test(ui), "研究者数の集計表示が見つかりません");
-  assert.ok(!/高橋/.test(ui), "研究者グルーピングUIに特定研究者名(高橋)のハードコードが残っています");
+  assert.ok(/PJ化済み/.test(ui) && /PJ化検討中/.test(ui), "3段階PJ表示が見つかりません");
 }
 
 console.log("check_kute_seeds_scope.mts: all checks passed");

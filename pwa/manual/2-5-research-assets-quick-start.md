@@ -59,7 +59,9 @@ candidate -> investigating -> contacted -> discussing
 | 操作 | 何を見る / 何をする |
 |---|---|
 | 検索 | シーズ名、機関、PI、ラボ、キーワードで探す |
-| status filter | PJ 化済み・見送りを除いたアクティブ候補だけを見る |
+| 一覧の順番 | PJ化済み → PJ化検討中 → その他。区切り見出しではなくPJ状態カラムと行色で確認する |
+| カラム | 研究機関、研究者/PI、PJ状態、SPSと各軸を1シーズ1行で比較する |
+| status filter | シーズ自体の候補・調査・接触・協議・スピンアウト・見送りを絞る。AMD PJ状態とは別 |
 | domain filter | `gx_energy`, `life`, `materials`, `robo` など lane で絞る |
 | 担当 filter | AMD 側 owner ごとに見る |
 | 行クリック | 詳細 modal で概要、機関・研究者、AMD 評価、補助金、接触履歴、ニュースを見る |
@@ -67,7 +69,7 @@ candidate -> investigating -> contacted -> discussing
 | `+ 新規シーズ` | 手入力で候補を追加する |
 | `/seeds/inbox` | cron / automation で見つかった未確認 seed を verify / dismiss する |
 
-`spun_off_project_id` が入った seed は PJ 化済みとして `projects` に紐づく。PJ 化済みでも情報資産として残す。
+AMDとのPJ関係は `seed_projects` が正本。`spun_off_project_id` は旧互換で、PJ化判定には使わない。PJ化済みでもシーズ台帳から移動・複製・非表示にせず最上部へ、検討中はその次へ並べる。SXはPJ化済みだが会社未設立なので、シーズ状態は `discussing` のまま扱う。
 
 深掘り資料には、AMD内で確認済みの要約・判断資料だけを紐づける。メール本文、議事録本文、一次ソース本文やその生URLを置く場所ではない。
 

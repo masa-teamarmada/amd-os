@@ -49,7 +49,8 @@
 - 契約後の共通運用情報は `projects`、研究機関固有情報は `institution_projects`、個別シーズ事業化固有情報は `seed_projects` に置く。
 - 同じ `project_id` を両子テーブルへ入れることは `guard_project_domain_exclusivity()` が拒否する。
 - ECRは `institution_assessments`、SPSは `seed_sps_assessments` の別系列で、合算・相互上書き・PJ化に伴う再計算を行わない。
-- migration `207_institution_seed_project_domains.sql` が46研究機関、大学・国研シーズ141件のFK、p25/p28/p30の研究機関PJ、p21のシーズPJを移行する。p30は愛媛大学全体のエコシステム構築PJ。p20/p26は未確認なので分類しない。
+- migration `207_institution_seed_project_domains.sql` が基礎分離を導入し、`209_research_portfolio_flat_ledger.sql` が研究機関48件・シーズ175件へ補完する。個別シーズ型19PJを `seed_projects` へ、機関型p25/p28/p30を `institution_projects` に維持する。p30は愛媛大学全体のエコシステム構築PJ。p19は複数シーズ型なので単一seedへ潰さない。
+- SX(p21)は会社未設立で `seeds.status='discussing'` / `seed_projects.commercialization_stage='pre_incorporation'`。2026-04-30の既存入力からSPS評価を移したが、ECRは更新せず両系列を合算しない。
 - `seeds.spun_off_project_id` は旧互換。現行のAMD PJ関係は `seed_projects` を読む。
 
 ## BZM 理論グラフ

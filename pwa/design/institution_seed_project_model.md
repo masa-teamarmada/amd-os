@@ -48,12 +48,12 @@ institutions ──< institution_projects >── projects
 
 1. `projects` に共通PJ行を作る。
 2. 契約対象が機関全体なら `institution_projects`、個別シーズなら `seed_projects` に1行作る。
-3. 契約中は元のカタログ一覧で最上位に表示し、PJ帯を重ねる。
+3. 一覧の固定優先度は `PJ化済み → PJ化検討中 → その他`。PJ化済みは `active/ended/frozen`、検討中は `sales/draft`（未紐付け時は機関 `draft/prospect`・シーズ `contacted/discussing`）で判定する。
 4. 終了後もカタログ行とPJ履歴を残す。別リストへの移動や複製はしない。
 
 `seeds.status='spun_off'` はスピンアウト・法人化の状態であり、AMDとの契約PJ化を意味しない。旧 `spun_off_project_id` は互換列として残すが、新しい関係判定には使わない。
 
-## 4. migration 207の移行範囲
+## 4. migration 207 / 209の移行範囲
 
 ### 確認済みで移行した関係
 
@@ -70,25 +70,29 @@ institutions ──< institution_projects >── projects
 - 既存4機関のIDを維持し、追加機関は名称から安定IDを生成した。
 - `広島大学 (推定)` は `identity_status='candidate'` とし、正式名称未確認のまま保持した。
 
-### 自動分類しなかったもの
+### migration 209で追加監査したもの
 
-- p20 / p26は対象概念を確定できなかったため、どちらの子テーブルにも入れていない。
-- `contract_status` が契約中なのに子テーブル関係がない機関は、画面で「PJ紐付け要確認」と表示する。
+- 個別シーズ型PJ 19件（p01〜p11の対象、p16/p18/p20/p21/p22/p24/p26/p29）を `seed_projects` へ補完した。p21/p26は既存シーズを再利用し、17件だけ新規シーズ行を追加した。
+- 機関型の p12/p23/p25/p28/p30、社内研究の p14、複数シーズ型の p19、社内PJの p00 は単一シーズへ潰していない。
+- QSTと山口大学を研究機関カタログへ追加し、研究機関48件・シーズ175件・対象 `seed_projects` 19件になった。
+- SXは会社未設立なので `seeds.status='discussing'`、`commercialization_stage='pre_incorporation'`。旧 `spun_off_project_id` はNULLにし、PJ関係は `seed_projects` に維持する。
+- SXのSPSは、2026-04-30の既存 `amd_score_inputs` から同じ軸を保った評価行を `seed_sps_assessments` へ移した。ECRは更新・再計算していない。
+- 研究機関の根拠のない一言はDBでNULLへ正規化した。香川大学は機関PJ契約済みではなくp26の個別シーズ検討なので、機関状態を `prospect` にした。
 
 ## 5. 画面情報設計
 
 ### `/institutions`
 
 - 初期表示はECR順位表ではなく研究機関カタログ。
-- 稼働中の研究機関PJ → PJ履歴 → PJなしの順で表示する。
+- PJ化済み → PJ化検討中 → その他の順で表示する。
 - PJなしも全件表示し、契約前の情報蓄積を主目的として扱う。
-- ECR比較は同じ画面の別表示として残す。
+- 一言descriptionは表示しない。ECR比較は1研究機関=1行、総合ECRと8軸を列にした同じ画面の別表示として残す。
 
 ### `/seeds`
 
-- 158件を全件表示し、`spun_off` / `declined` を除外しない。
-- 稼働中のシーズPJ → PJ履歴 → PJなし・カタログ蓄積の順で表示する。
-- 稼働中PJは色帯で最も目立たせる。
+- 175件を全件表示し、`spun_off` / `declined` を除外しない。
+- 1シーズ=1行のフラット表にし、研究機関・研究者/PI・PJ状態は通常カラムとして持つ。機関/研究者/PJ有無のgroup rowは作らない。
+- PJ化済み → PJ化検討中 → その他の順で表示し、状態を行色とバッジで目立たせる。
 - シーズ状態とAMD PJ状態を別ラベルで表示する。
 
 ### コックピット
@@ -99,19 +103,19 @@ institutions ──< institution_projects >── projects
 
 ## 6. 検証
 
-- migration内で機関46件、大学・国研シーズ141件、確定4PJ、二重分類0件をassertする。
-- `npm run test:institution-seed-project-domains` でテーブル分離、確認済み移行、固定対応の不在、全件表示、ECR/SPS非更新を検査する。
+- migration 207は機関46件・大学/国研シーズ141件・確定4PJ、migration 209は対象seed PJ 19件・二重分類0件・SX未設立/SPS ready・description全NULLをassertする。
+- `npm run test:institution-seed-project-domains` でテーブル分離、19PJ移行、固定対応の不在、フラット全件表示、ECR/SPS非合算を検査する。
 - `npm run test:kute-seeds-scope` と `npm run test:institution-soil-seeds` で表示スコープと評価系列を検査する。
 - PWAは型検査・本番build・desktop/mobile実画面、macOSはXcode buildで確認する。
 
 ## 7. ロールバック
 
-本変更は既存 `projects`、`seeds`、ECR、SPSを削除しない追加型移行。問題が出た場合は次の順で戻す。
+本変更は既存 `projects`、ECRを削除しない。migration 209は17シーズ追加、2機関追加、状態補正、SXのSPS行追加を含む。問題が出た場合は次の順で戻す。
 
 1. 画面を直前版へ戻し、旧列を読むコードへ戻す。新しい2子テーブルは残してよい。
 2. `institution_projects` / `seed_projects` をCSVまたはSQLで退避する。
 3. 新しい書込みを停止し、参照元がないことを確認してから子テーブルと専用triggerを撤去する。
 4. `seeds.institution_id` の141紐付けは機関カタログの資産なので原則維持する。戻す必要がある場合だけ、migration 207で追加された機関IDと参照件数を監査して個別に戻す。
-5. ECR/SPSはmigration 207で更新していないため、再計算や復元は行わない。
+5. ECRはmigration 207/209とも更新していない。SXのSPS 1行を戻す場合も、他シーズやECRを再計算せず、対象 `(seed_id, evaluated_at)` だけを退避確認後に別migrationで扱う。
 
 本番DBの `DROP` や一括NULL化は自動ロールバックに含めず、退避内容と参照元を確認した上で別migrationとして実行する。

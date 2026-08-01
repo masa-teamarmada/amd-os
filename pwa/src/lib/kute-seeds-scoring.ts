@@ -3,14 +3,20 @@
 // data-access 層 (seeds-data.ts) はこのファイルを re-export する。
 
 import type { SeedPublicView } from "../types/seeds.ts";
-import { isCurrentProjectStatus } from "./institution-projects.ts";
+import { projectLifecyclePriority, projectStatusLifecycle, type ProjectLifecycle } from "./institution-projects.ts";
 
-/** AMDシーズPJの表示優先度: 稼働中=0、履歴=1、PJなし=2。シーズ自体のstatusとは独立。 */
+/** AMDシーズPJのライフサイクル。PJ関係を優先し、未紐付けの商談状態だけを検討中へ補う。 */
+export function seedProjectLifecycle(seed: SeedPublicView): ProjectLifecycle {
+  const linkedLifecycles = (seed.project_links ?? []).map((link) => projectStatusLifecycle(link.project_status));
+  if (linkedLifecycles.includes("realized")) return "realized";
+  if (linkedLifecycles.includes("considering")) return "considering";
+  if (["contacted", "discussing"].includes(seed.status)) return "considering";
+  return "none";
+}
+
+/** 表示優先度: PJ化済み=0、PJ化検討中=1、その他=2。 */
 export function seedProjectPriority(seed: SeedPublicView): 0 | 1 | 2 {
-  const links = seed.project_links ?? [];
-  if (links.some((link) => isCurrentProjectStatus(link.project_status))) return 0;
-  if (links.length > 0) return 1;
-  return 2;
+  return projectLifecyclePriority(seedProjectLifecycle(seed));
 }
 
 // 旧 100点ルーブリック (kute_score_* 8列 + computeKuteSeedScore) は

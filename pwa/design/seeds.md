@@ -34,7 +34,7 @@ AMDとの契約はこの状態遷移と別軸。契約した個別シーズは `
 
 ## スキーマ
 
-migration: [024_seeds_overhaul.sql](../scripts/migrations/024_seeds_overhaul.sql) / [207_institution_seed_project_domains.sql](../scripts/migrations/207_institution_seed_project_domains.sql)
+migration: [024_seeds_overhaul.sql](../scripts/migrations/024_seeds_overhaul.sql) / [207_institution_seed_project_domains.sql](../scripts/migrations/207_institution_seed_project_domains.sql) / [209_research_portfolio_flat_ledger.sql](../scripts/migrations/209_research_portfolio_flat_ledger.sql)
 
 | テーブル | 役割 |
 |---|---|
@@ -88,9 +88,10 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 
 ### `/seeds` リスト
 
-- **テーブル列**: シーズ / 機関 / PI / 領域 / 成熟度 (TRL/BRL/HRL) / 状態 / ★ / 担当 / 助成計 / 深掘り資料 / 次の一手 / 最終接触
+- **テーブル列**: シーズ / 研究機関 / 研究者・PI / PJ状態 / SPS・M・P・R・S / TRL・BRL・GRL・SRL・HRL / 事業化情報 / 資料
 - **全件表示**: PJ化・スピンアウト・見送りを理由にリストから除外しない。契約前後を通じて同じカタログ行を使う
-- **PJ優先ソート**: `seed_projects` の稼働中PJ → PJ履歴 → PJなしの順に固定し、その中を列ソートする。PJ化済みシーズは最上段の色帯で目立たせる
+- **フラット台帳**: 1シーズ=1行。研究機関・研究者・PJ有無を行グループやセクションにせず、通常カラムとして表示する
+- **PJ優先ソート**: `seed_projects` のPJ化済み (`active/ended/frozen`) → PJ化検討中 (`sales/draft`、または未紐付けの `contacted/discussing`) → その他の順に固定し、その中を列ソートする
 - **フィルタ**: シーズ自体のstatus / 領域 / 担当 / フリーテキスト。AMD PJ状態とは混ぜない
 - **新規作成**: 右上「+ 新規シーズ」ボタン → `SeedDetailModal` を createMode で開く
 - **深掘り資料**: `deep_dive_material_url` には、AMDが確認済みの共有資料リンクだけを置く。資料本文、一次ソース本文、一次ソースの生URLは置かない。md はOS内Markdownモーダル (左メニューなし) で表示し、ヘッダーの補助リンクからDriveを開ける。
@@ -122,7 +123,7 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 - ✅ **`/seeds/inbox`**: 自動収集された未確認シーズの受信箱 (vcs/inbox 同型)
 - ✅ **`cron/seeds-ingest` route**: web_search 自動発見の実装はあるが、2026-05-22 以降は自動 schedule 停止 (下記参照)
 - ✅ **GlobalNav バッジ**: Seeds に sky 色の未確認件数バッジ
-- ✅ **確認済みシーズPJの移行**: migration 207でSX (`p21`) を該当シーズの `seed_projects` へ移行。未確認PJを名称から推測して自動分類しない
+- ✅ **AMD関与シーズPJの移行**: migration 209で個別シーズ型19PJを `seed_projects` へ補完。p21/p26は既存seedを再利用し、p00/p12/p14/p19/p23/p25/p28/p30は個別シーズへ潰していない
 - ⬜ **HSFC 残り 23 件 / さきがけ 175件** の収集
 
 ### Phase 3 (TODO)
@@ -152,9 +153,9 @@ SPS はシーズ有望度スコア。KUTE / p25 に限らず **全国のすべ�
   - 事業化タイプ: `primary_commercialization_type` (単一) + `secondary_commercialization_types[]` (複数可)。enum は `large_startup` / `small_business_1b_yen` / `license` / `jv_ma` / `joint_research_poc`
   - 公開向けテキスト (旧 `kute_*` から全国共通名へ改名、値は保持): `envisioned_use_case` / `first_customer_candidate` / `market_size_range` / `market_size_confidence` (low/medium/high) / `biggest_bottleneck` / `ip_status` / `next_verification_step`
 - **プライバシー境界**: `internal_notes` / `source_detail` 等の社内限定フィールド、および `seed_sps_assessments.axis_evidence` / `evaluator` は公開面の select に含めない。ホワイトリスト型 `SeedPublicView` + 定数 `SEED_PUBLIC_VIEW_COLUMNS` ([`types/seeds.ts`](../src/types/seeds.ts)) を select の唯一の呼び出し元にする。既存の `SeedDetailModal` (編集用、confidential 項目を含む) は再利用せず、新規の読み取り専用 `KuteSeedDetailModal` ([`components/seeds/KuteSeedDetailModal.tsx`](../src/components/seeds/KuteSeedDetailModal.tsx)) を使う
-- **UI**: PJ cockpit (`/project/p25/cockpit`) と同じ `CockpitView` を使う研究機関 cockpit (`/institutions/inst_kute/cockpit`) の進捗タブで、年度内ロードマップ (`CockpitKuteAnnualRoadmap`) の直後に **比較優先のテーブル** (`CockpitKuteSeeds.tsx`) を表示する。カード形式ではなく横スクロール可能な `<table>` で、`SPS` / `M` / `P` / `R` / `S` を個別列、`TRL` / `BRL` / `GRL` / `SRL` / `HRL` を個別列として並べ、事業化フィールド (想定用途・最初の顧客候補・市場規模レンジと確度・最大のボトルネック・知財状況・事業化タイプ・次の検証ステップ) と資料有無を同じ行で横並び比較できる。列ソート可。**シーズ名・研究者名・事業化タイプ・全長文セルは省略記号にせず、セル内で全文を折り返す**。DB上のシーズ行は案件 (技術 × 用途) 単位のままだが、比較テーブルの表示は同一機関かつ同じ研究者の複数シーズを、研究者名1回のグループヘッダー行の下にまとめる (2026-07-21 追加、`groupSeedsByResearcher()` / `sortSeedGroups()` / `countDistinctResearchers()`、いずれも `pwa/src/lib/kute-seeds-scoring.ts`)。研究者名と機関名は NFKC 正規化・連続空白の単一化・前後空白除去を行う。`researcher_name` が null の行は他の未登録行と混ぜず、シーズ単位でそれぞれ独立したグループにする。列ソートはグループ内の各行をソートした上でグループ自体も代表値でソートするため、どの列でソートしてもグループの連続性は保たれる。特定の研究者名 (例: 高橋義典) をロジックにハードコードすることはなく、任意の研究者に同じ挙動が適用される。集計行にはシーズ件数に加え、重複除外した研究者数も表示する。`discovery_status='discovered'` は「公開情報候補」と表示し、大学・研究者確認前であることを明示する。SPS が計算できないシーズ (`missingAxes` あり、評価行なしを含む) は「未評価」表示とし、部分点を出さない。長文と計算済みの SPS / M / P / R / S / XRL 内訳は `KuteSeedDetailModal` で確認できるが、`axis_evidence` / `evaluator` は内部専用なのでモーダルにも出さない。深掘り資料は既存の `SeedMarkdownPreviewModal` を再利用し、無ければ「資料なし」
+- **UI**: PJ cockpit (`/project/p25/cockpit`) と研究機関 cockpit (`/institutions/inst_kute/cockpit`) の進捗タブ、および `/seeds` で、横スクロール可能な比較テーブル (`CockpitKuteSeeds.tsx`) を共有する。1シーズ=1行で、研究機関・研究者/PI・PJ状態を通常列に置き、機関/研究者/PJ有無のgroup rowは作らない。`SPS` / `M` / `P` / `R` / `S`、`TRL` / `BRL` / `GRL` / `SRL` / `HRL`、事業化フィールドと資料有無を横並び比較する。長文は省略せずセル内で折り返す。`discovery_status='discovered'` は「公開情報候補」、SPS欠損は0へ変換せず「未評価」と表示する。`axis_evidence` / `evaluator` は内部専用なので画面へ返さない
 - **KUTE公開情報の上位3件**: migration [`189_kute_public_seed_candidates.sql`](../scripts/migrations/189_kute_public_seed_candidates.sql) で「165〜220nm次世代クリーンUV面光源」「金属フリー透明フレキシブル導電膜」「塩水・交流電気分解による都市鉱山金回収」を `discovery_status='discovered'` で追加する。公開情報調査の旧100点スクリーニング値はSPS/XRLへ移植せず、`seed_sps_assessments` は未登録のままにする
-- **`/seeds` (全機関横断比較)**: `CockpitKuteSeeds` を `scope="all"` で全158件表示する。機関→研究者の2段見出しは維持しつつ、`seed_projects` の稼働中PJ、PJ履歴、PJなし・カタログ蓄積の3群を同じテーブル内で上から並べる。PJ化済みは最も目立つ稼働帯を出す。`seeds.status='spun_off'` はスピンアウト状態であり、AMD PJ判定には使わない
+- **`/seeds` (全機関横断比較)**: `CockpitKuteSeeds` を `scope="all"` で全175件表示する。フラットな1行台帳を `PJ化済み → PJ化検討中 → その他` の順に固定し、同じ区分内を列ソートする。`seeds.status='spun_off'` は会社設立状態であり、AMD PJ判定には使わない。SXは会社未設立のため `discussing` / `pre_incorporation`
 - **テスト**: `npm run test:kute-seeds-scope` は動的スコープとPJ優先度、公開ホワイトリストを検査する。`npm run test:institution-seed-project-domains` は物理テーブル分離、p30/p21移行、二重分類防止、全件表示、ECR/SPS非更新を検査する。`npm run test:seed-sps-score` はSPSの0/NULLと欠損軸を検査する
 
 ## トレードオフ・残課題
@@ -162,4 +163,4 @@ SPS はシーズ有望度スコア。KUTE / p25 に限らず **全国のすべ�
 - **機関名の確認状態**: 大学・国研シーズ141件は46機関へ `institution_id` で紐付け済み。推定名称は `institutions.identity_status='candidate'` のまま表示し、人の確認前に確定名称へ昇格させない。PI名の表記ゆれは引き続き表示正規化だけで、DB行は統合しない
 - **Venture Map との連動**: 旧 seeds は Venture Map のグラフ予兆 / レーン別 seedScore に使われていた。新 seeds は意味が違う (AMD 視点の事業化候補) ので Venture Map からは切り離した。将来「AMD が手がけそうなレーン」を Venture Map に再投入したくなったら、新 seeds から `domain_lane` × `amd_rating>=4` を集計して再接続できる
 - **`milestone_responsibility` のような複数担当**: 現状 1 シーズ = 1 AMD owner。Phase 2 で `seed_owners` 表を切るか検討
-- **PJ化済みシーズ**: `seed_projects` がある行はリスト最上段へ上げ、稼働中PJの色帯で目立たせる。カタログから別リストへ移動・複製・非表示にしない
+- **PJ化済み/検討中シーズ**: `seed_projects` の実行・履歴がある行は最上段、商談・契約検討はその次へ上げる。カタログから別リストへ移動・複製・非表示にしない

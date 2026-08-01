@@ -48,6 +48,13 @@
 
 assessment は `(institution_id, criterion_id)` ごとに最新 `evaluated_at` の 1 行だけを採用する。
 
+## `/institutions` List / Comparison Contract
+
+- 研究機関一覧はdescriptionを表示せず、機関名・種別/地域・所属シーズ・ECR・PJ状態を1機関1行で表示する。
+- 固定優先順は `PJ化済み → PJ化検討中 → その他`。`active/ended/frozen` はPJ化済み、`sales/draft` または機関 `contract_status=draft/prospect` はPJ化検討中。
+- ECR比較は1研究機関=1行へ転置し、列は研究機関 / 総合ECR / 8軸 / 評価数・最新評価日。機関数に応じて列を増やさない。
+- ECRは研究機関環境、SPSは個別シーズ/PJの別系列。比較表でも合算しない。
+
 ## Institution Cockpit Contract
 
 `/dashboard` と `/institutions` の研究機関行から、`institution_projects` に紐づく関連PJコックピットへ遷移する。コード内の機関ID→PJ ID固定表、名称部分一致、PJカテゴリ推定は使わない。

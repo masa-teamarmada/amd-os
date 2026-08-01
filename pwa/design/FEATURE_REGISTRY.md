@@ -408,7 +408,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - AMD全体 累計実績カード: dashboard 上段の `FundingStatsCard` は、資金調達ラウンドと助成金・補助金を会社別/行別に表示する。累計値は `amd_contribution_status in ('full','partial')` の AMD貢献額だけで計算し、`none` / `unreviewed` はリストには残すが累計には入れない。投資家別内訳・持株比率・cap table snapshot は dashboard API に返さない。
 - PJ一覧: Active / Sales-Draft / Ended-Frozen の横長 stripe 一覧を維持する。`institution_projects` に入る研究機関PJは通常PJ一覧に二重表示せず、研究機関リストの同じ機関行へPJ運用レイヤーとして重ねる。
 - 左メニューのボード: マウスオーバーまたはキーボードフォーカスで、右側に全アクティブPJの一覧を出す。各行は対応するPJコックピットへ遷移し、一覧は固定せず `projects.status='active'` を読む。ボード本体の `/dashboard` 導線は維持する。フライアウトはナビのスクロール領域にクリップされない上位レイヤーで表示し、画面下端では一覧部分だけをスクロールさせる。
-- 研究機関リスト: PJ一覧と同じ左/mainカラム内で、PJ一覧の直下に `InstitutionReadinessList` を表示する。契約有無に依存しない `institutions` カタログが正本で、`institution_projects` の稼働中PJを持つ機関を先頭に出す。表示名はPJ名を主タイトル、機関名をsubtitleにし、対応は固定ID表ではなくDB関係から解決する。ECRは研究機関環境の別系列で、SPSと合算しない。
+- 研究機関リスト: 契約有無に依存しない `institutions` カタログが正本。PJ化済み → PJ化検討中 → その他の順で、1機関1行にPJ状態を重ねる。機関descriptionは表示しない。ECR比較も1機関1行、総合ECR+8軸を列にする。対応は固定ID表でなく `institution_projects` から解決し、ECRはSPSと合算しない。
 - Company Content shelf: 研究機関ECRリストの下に、`CompanyContentShelf` を4カラムで表示する。列はメンバー / 沿革 / メディア掲載 / photo。`member_profiles` / `company_history_events` / `media_assets` の approved rows を優先し、未適用環境では既存 `members` + `project_members`、`project_events` / `project_ventures`、photo permission placeholder に fallback する。Notion photo URL や個人情報本文は表示しない。
 - MyPage embed: `/dashboard` 右カラムでは `<MyPageContent embedded showMonthlyProjects={false} />` を使い、「今週やったこと」より下の月別PJカードを出さない。`/mypage` 単体では従来どおり月別PJカードを維持する。
 - Dashboard上部: Management Score と明示 action queue を維持する。月次ルーティン由来の自動タスクは生成しない。
@@ -461,7 +461,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 開催済みMTG本文の表現契約: `## 🎯背景` / `## 📊経緯` は段落、`## ✅決まったこと` / `## ▶️次の一手` / `## ⚠️残課題` は1項目1論点の `- ` 箇条書きにする。番号付きリストとチェックボックスは使わない。
 - MTG PDFの添付契約: `PDF保存` は共有用本文の後ろに `meeting_assets` の PDF / PNG / JPEG を `sort_order` 順で連結する。投影資料を先、参加者共有資料を後に並べ、資料へのリンク一覧だけで済ませない。
 - MTG詳細Markdownのメンバーリンク: `CockpitMeetingDetailModal` で表示する `narrative_md` / `summary_short` / raw 配列 / 予定MTGブリーフは `MarkdownView memberLinks` を通し、active AMDメンバーの `members.code_name` が standalone mention として出る場合だけ `/mypage?memberId=<members.member_id>` へリンクする。既存 Markdown link / code / pre は対象外で、`しかるべき` の `かる`、`こうして` の `こう` のような部分一致はリンクしない。
-- 研究機関連携シーズ一覧: `CockpitKuteSeeds` はKUTE専用の別台帳を持たず、`seeds` と全国共通 `seed_sps_assessments` を読む。研究機関PJの対象スコープは `institution_projects.institution_id` から動的に解決する。`/seeds` は全158件を、`seed_projects` の稼働中PJ → PJ履歴 → PJなし・カタログ蓄積の順で同じ比較表に表示し、PJ化済みを最上位の色帯で目立たせる。`seeds.status='spun_off'` はスピンアウト状態でありAMD PJ判定に使わず、`spun_off` / `declined` もカタログから除外しない。機関→研究者の2段グループ、全文折返し、SPS/M/P/R/SとXRL内訳、公開候補表示、`SeedPublicView`の非公開フィールド除外、資料モーダルを維持する。ECRとSPSは単一スコアへ合算しない。詳細は [`seeds.md`](seeds.md) と [`institution_seed_project_model.md`](institution_seed_project_model.md) 参照。
+- 研究機関連携シーズ一覧: `CockpitKuteSeeds` はKUTE専用の別台帳を持たず、`seeds` と全国共通 `seed_sps_assessments` を読む。研究機関PJの対象スコープは `institution_projects.institution_id` から解決する。`/seeds` は全175件を1シーズ1行のフラット表で表示し、研究機関・研究者/PI・PJ状態を通常カラムにする。固定優先順はPJ化済み → PJ化検討中 → その他で、機関/研究者/PJ有無のgroup rowは作らない。`spun_off` / `declined` も除外せず、SPS未評価を0にしない。SXは会社未設立の `discussing` / `pre_incorporation`。ECRとSPSは単一スコアへ合算しない。詳細は [`seeds.md`](seeds.md) と [`institution_seed_project_model.md`](institution_seed_project_model.md) 参照。
 
 回帰防止:
 

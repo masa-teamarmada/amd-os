@@ -23,10 +23,38 @@ export type InstitutionProjectRow = {
     | null;
 };
 
-const CURRENT_PROJECT_STATUSES = new Set(["active", "sales", "draft"]);
+export type ProjectLifecycle = "realized" | "considering" | "none";
+
+const REALIZED_PROJECT_STATUSES = new Set(["active", "ended", "frozen"]);
+const CONSIDERING_PROJECT_STATUSES = new Set(["sales", "draft"]);
 
 export function isCurrentProjectStatus(status: string | null | undefined): boolean {
-  return CURRENT_PROJECT_STATUSES.has(String(status || "").toLowerCase());
+  return REALIZED_PROJECT_STATUSES.has(String(status || "").toLowerCase());
+}
+
+export function projectStatusLifecycle(status: string | null | undefined): ProjectLifecycle {
+  const normalized = String(status || "").toLowerCase();
+  if (REALIZED_PROJECT_STATUSES.has(normalized)) return "realized";
+  if (CONSIDERING_PROJECT_STATUSES.has(normalized)) return "considering";
+  return "none";
+}
+
+export function institutionProjectLifecycle(
+  link: InstitutionProjectLink | null | undefined,
+  contractStatus?: string | null,
+): ProjectLifecycle {
+  const linked = projectStatusLifecycle(link?.projectStatus);
+  if (linked !== "none") return linked;
+  const contract = String(contractStatus || "").toLowerCase();
+  if (contract === "active" || contract === "past") return "realized";
+  if (contract === "draft" || contract === "prospect") return "considering";
+  return "none";
+}
+
+export function projectLifecyclePriority(lifecycle: ProjectLifecycle): 0 | 1 | 2 {
+  if (lifecycle === "realized") return 0;
+  if (lifecycle === "considering") return 1;
+  return 2;
 }
 
 export function buildInstitutionProjectLink(
@@ -53,13 +81,14 @@ export function buildInstitutionProjectLink(
   };
 }
 
-/** 現行契約を優先し、終了済みしかなければ最新の履歴を返す。 */
+/** PJ化済み、PJ化検討中、その他の順で代表関係を返す。 */
 export function selectPrimaryInstitutionProject(
   links: InstitutionProjectLink[] | null | undefined,
 ): InstitutionProjectLink | null {
   if (!links?.length) return null;
   return [...links].sort((a, b) => {
-    const currentDiff = Number(isCurrentProjectStatus(b.projectStatus)) - Number(isCurrentProjectStatus(a.projectStatus));
-    return currentDiff || b.projectId.localeCompare(a.projectId, "ja");
+    const lifecycleDiff = projectLifecyclePriority(projectStatusLifecycle(a.projectStatus))
+      - projectLifecyclePriority(projectStatusLifecycle(b.projectStatus));
+    return lifecycleDiff || b.projectId.localeCompare(a.projectId, "ja");
   })[0];
 }

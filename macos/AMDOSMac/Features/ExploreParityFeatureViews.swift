@@ -385,14 +385,19 @@ struct AMDOSParitySeedsView: View {
             .map { row in (row: row, project: store.projects.first(where: { $0.id == row.projectID })) }
     }
 
-    private func isCurrentProject(_ status: String?) -> Bool {
-        ["active", "sales", "draft"].contains((status ?? "").lowercased())
+    private func projectLifecycle(_ status: String?) -> Int {
+        let normalized = (status ?? "").lowercased()
+        if ["active", "ended", "frozen"].contains(normalized) { return 0 }
+        if ["sales", "draft"].contains(normalized) { return 1 }
+        return 2
     }
 
     private func projectPriority(_ seed: AMDOSParitySeed) -> Int {
         let links = projectLinks(for: seed)
-        if links.contains(where: { isCurrentProject($0.project?.status) }) { return 0 }
-        return links.isEmpty ? 2 : 1
+        if links.contains(where: { projectLifecycle($0.project?.status) == 0 }) { return 0 }
+        if links.contains(where: { projectLifecycle($0.project?.status) == 1 }) { return 1 }
+        if ["contacted", "discussing"].contains(seed.status) { return 1 }
+        return 2
     }
 
     private func ownerName(for seed: AMDOSParitySeed) -> String? {
@@ -490,27 +495,23 @@ struct AMDOSParitySeedsView: View {
             Text("\(filtered.count) / \(store.seeds.count) 件").font(.caption).foregroundStyle(AMDOSDesign.muted)
             ForEach(filtered) { seed in
                 let projectLinks = projectLinks(for: seed)
-                let currentProject = projectLinks.first(where: { isCurrentProject($0.project?.status) })
+                let lifecycle = projectPriority(seed)
+                let primaryProject = projectLinks.first(where: { projectLifecycle($0.project?.status) == 0 })
+                    ?? projectLinks.first(where: { projectLifecycle($0.project?.status) == 1 })
+                    ?? projectLinks.first
                 AMDOSCard {
                     VStack(alignment: .leading, spacing: 9) {
-                        if let currentProject {
+                        if lifecycle < 2 {
                             HStack(spacing: 6) {
-                                Image(systemName: "briefcase.fill")
-                                Text("AMD PJ 稼働中 · \(currentProject.project?.name ?? currentProject.row.projectID)")
+                                Image(systemName: lifecycle == 0 ? "briefcase.fill" : "clock.arrow.circlepath")
+                                Text("\(lifecycle == 0 ? "PJ化済み" : "PJ化検討中")\(primaryProject.map { " · \($0.project?.name ?? $0.row.projectID)" } ?? "")")
                             }
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(lifecycle == 0 ? Color.white : AMDOSDesign.warning)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(AMDOSDesign.blue, in: RoundedRectangle(cornerRadius: 8))
-                        } else if let history = projectLinks.first {
-                            HStack(spacing: 6) {
-                                Image(systemName: "clock.arrow.circlepath")
-                                Text("AMD PJ 履歴 · \(history.project?.name ?? history.row.projectID)")
-                            }
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(AMDOSDesign.muted)
+                            .background(lifecycle == 0 ? AMDOSDesign.blue : AMDOSDesign.warning.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
                         }
                         HStack(alignment: .top) {
                             Button { onSelectSeed(seed.id) } label: {
@@ -1516,8 +1517,8 @@ struct AMDOSParityInstitutionsView: View {
             .sorted { lhs, rhs in
                 let lhsLink = projectLink(for: lhs.id)
                 let rhsLink = projectLink(for: rhs.id)
-                let lhsPriority = lhsLink.map { amdOSParityProjectIsCurrent($0.projectStatus) ? 0 : 1 } ?? 2
-                let rhsPriority = rhsLink.map { amdOSParityProjectIsCurrent($0.projectStatus) ? 0 : 1 } ?? 2
+                let lhsPriority = amdOSParityInstitutionLifecycle(lhs, link: lhsLink)
+                let rhsPriority = amdOSParityInstitutionLifecycle(rhs, link: rhsLink)
                 if lhsPriority != rhsPriority { return lhsPriority < rhsPriority }
                 return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
             }
@@ -1538,7 +1539,8 @@ struct AMDOSParityInstitutionsView: View {
             if !store.institutions.isEmpty {
                 HStack(spacing: 12) {
                     AMDOSMetricTile(label: "研究機関", value: "\(store.institutions.count)件", detail: "契約有無に依存しないカタログ", tint: AMDOSDesign.blue)
-                    AMDOSMetricTile(label: "AMD PJ 稼働中", value: "\(store.institutionProjects.filter { row in amdOSParityProjectIsCurrent(store.projects.first(where: { $0.id == row.projectID })?.status) }.count)件", detail: "研究機関PJ", tint: AMDOSDesign.success)
+                    AMDOSMetricTile(label: "PJ化済み", value: "\(store.institutions.filter { amdOSParityInstitutionLifecycle($0, link: projectLink(for: $0.id)) == 0 }.count)件", detail: "研究機関PJ", tint: AMDOSDesign.success)
+                    AMDOSMetricTile(label: "PJ化検討中", value: "\(store.institutions.filter { amdOSParityInstitutionLifecycle($0, link: projectLink(for: $0.id)) == 1 }.count)件", detail: "商談・契約検討", tint: AMDOSDesign.warning)
                 }
                 HStack {
                     TextField("機関名・略称・地域", text: $query).textFieldStyle(.roundedBorder)
@@ -1549,27 +1551,26 @@ struct AMDOSParityInstitutionsView: View {
                     .pickerStyle(.segmented)
                     .frame(maxWidth: 320)
                 }
-                Text("\(rows.count) / \(store.institutions.count)件 · PJ稼働中を上位表示")
+                Text("\(rows.count) / \(store.institutions.count)件 · PJ化済み → PJ化検討中 → その他")
                     .font(.caption).foregroundStyle(AMDOSDesign.muted)
                 ForEach(rows) { institution in
                     let ecr = amdOSParityECR(axes: store.axes, criteria: store.criteria, cells: store.cells, institutionID: institution.id)
                     let projectLink = projectLink(for: institution.id)
+                    let lifecycle = amdOSParityInstitutionLifecycle(institution, link: projectLink)
                     Button { onSelectInstitution(institution.id) } label: {
                         AMDOSCard {
                             VStack(alignment: .leading, spacing: 10) {
-                                if let projectLink {
+                                if lifecycle < 2 {
                                     HStack(spacing: 6) {
-                                        Image(systemName: amdOSParityProjectIsCurrent(projectLink.projectStatus) ? "briefcase.fill" : "clock.arrow.circlepath")
-                                        Text("AMD PJ \(amdOSParityProjectIsCurrent(projectLink.projectStatus) ? "稼働中" : "履歴") · \(projectLink.projectLabel)")
+                                        Image(systemName: lifecycle == 0 ? "briefcase.fill" : "clock.arrow.circlepath")
+                                        Text("\(lifecycle == 0 ? "PJ化済み" : "PJ化検討中")\(projectLink.map { " · \($0.projectLabel)" } ?? "")")
                                     }
                                     .font(.caption.weight(.bold))
-                                    .foregroundStyle(amdOSParityProjectIsCurrent(projectLink.projectStatus) ? Color.white : AMDOSDesign.muted)
+                                    .foregroundStyle(lifecycle == 0 ? Color.white : AMDOSDesign.warning)
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 6)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(amdOSParityProjectIsCurrent(projectLink.projectStatus) ? AMDOSDesign.blue : AMDOSDesign.muted.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-                                } else if ["active", "draft", "prospect"].contains(institution.contractStatus ?? "") {
-                                    AMDOSStatusBadge(text: "PJ紐付け要確認", tint: AMDOSDesign.warning)
+                                    .background(lifecycle == 0 ? AMDOSDesign.blue : AMDOSDesign.warning.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
                                 }
                                 HStack {
                                     Text(institution.name).font(.headline)
@@ -1579,13 +1580,10 @@ struct AMDOSParityInstitutionsView: View {
                                         .font(.title3.bold()).foregroundStyle(ecr.value == nil ? AMDOSDesign.muted : AMDOSDesign.blue)
                                 }
                                 Text([institution.shortName, institution.type, institution.region].compactMap { $0 }.joined(separator: " · ")).font(.caption).foregroundStyle(AMDOSDesign.muted)
-                                if let projectLink, let summary = projectLink.cockpitSummary.trimmedNonEmpty {
-                                    Text(summary).font(.caption).foregroundStyle(AMDOSDesign.muted)
-                                }
                                 if viewMode == "ecr" {
                                     HStack { ForEach(ecr.axes, id: \.0.id) { axis, score, assessed, total in VStack(alignment: .leading, spacing: 3) { Text("\(axis.axisNo) \(axis.name)").font(.caption2).lineLimit(1); ProgressView(value: score ?? 0).tint(score == nil ? AMDOSDesign.muted : AMDOSDesign.success); Text("\(score.map { Int(($0 * 100).rounded()) } ?? 0)% · \(assessed)/\(total)").font(.caption2).foregroundStyle(AMDOSDesign.muted) }.frame(maxWidth: .infinity, alignment: .leading) } }
                                 } else {
-                                    Text(projectLink?.relationLabel ?? "AMD PJなし · カタログ蓄積中")
+                                    Text(projectLink?.relationLabel ?? (lifecycle == 1 ? "研究機関PJを検討中" : "未PJ化 · カタログ蓄積中"))
                                         .font(.caption2).foregroundStyle(AMDOSDesign.muted)
                                 }
                             }
@@ -1685,8 +1683,23 @@ private struct AMDOSParityInstitutionProjectLink: Sendable {
     let cockpitSummary: String
 }
 
-private func amdOSParityProjectIsCurrent(_ status: String?) -> Bool {
-    ["active", "sales", "draft"].contains((status ?? "").lowercased())
+private func amdOSParityProjectLifecycle(_ status: String?) -> Int {
+    let normalized = (status ?? "").lowercased()
+    if ["active", "ended", "frozen"].contains(normalized) { return 0 }
+    if ["sales", "draft"].contains(normalized) { return 1 }
+    return 2
+}
+
+private func amdOSParityInstitutionLifecycle(
+    _ institution: AMDOSParityInstitution,
+    link: AMDOSParityInstitutionProjectLink?
+) -> Int {
+    let linked = amdOSParityProjectLifecycle(link?.projectStatus)
+    if linked < 2 { return linked }
+    let contract = (institution.contractStatus ?? "").lowercased()
+    if ["active", "past"].contains(contract) { return 0 }
+    if ["draft", "prospect"].contains(contract) { return 1 }
+    return 2
 }
 
 private func amdOSParityInstitutionProjectLink(
@@ -1698,9 +1711,9 @@ private func amdOSParityInstitutionProjectLink(
     guard let institutionID else { return nil }
     let rows = institutionProjects.filter { $0.institutionID == institutionID }
     guard let row = rows.sorted(by: { lhs, rhs in
-        let lhsCurrent = amdOSParityProjectIsCurrent(projects.first(where: { $0.id == lhs.projectID })?.status)
-        let rhsCurrent = amdOSParityProjectIsCurrent(projects.first(where: { $0.id == rhs.projectID })?.status)
-        if lhsCurrent != rhsCurrent { return lhsCurrent && !rhsCurrent }
+        let lhsPriority = amdOSParityProjectLifecycle(projects.first(where: { $0.id == lhs.projectID })?.status)
+        let rhsPriority = amdOSParityProjectLifecycle(projects.first(where: { $0.id == rhs.projectID })?.status)
+        if lhsPriority != rhsPriority { return lhsPriority < rhsPriority }
         return lhs.projectID > rhs.projectID
     }).first else { return nil }
     let project = projects.first(where: { $0.id == row.projectID })
@@ -1838,7 +1851,7 @@ struct AMDOSParityInstitutionCockpitView: View {
                             AMDOSStatusBadge(text: link.relationLabel, tint: AMDOSDesign.success)
                         }
                         Text(institution.name).font(.subheadline.weight(.medium))
-                        Text([institution.region, institution.description].compactMap { $0?.trimmedNonEmpty }.joined(separator: " · "))
+                        Text(institution.region?.trimmedNonEmpty ?? "地域未登録")
                             .font(.caption).foregroundStyle(AMDOSDesign.muted)
                         Text(link.cockpitSummary).font(.caption).foregroundStyle(AMDOSDesign.muted)
                     }

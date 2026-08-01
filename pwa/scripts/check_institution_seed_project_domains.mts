@@ -7,6 +7,7 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const read = (path: string) => readFileSync(join(scriptDir, path), "utf8");
 
 const ddl = read("migrations/207_institution_seed_project_domains.sql");
+const ddl209 = read("migrations/209_research_portfolio_flat_ledger.sql");
 const ddlWithoutComments = ddl.replace(/--.*$/gm, "");
 const institutionsPage = read("../src/app/(app)/institutions/page.tsx");
 const seedsTable = read("../src/components/cockpit/CockpitKuteSeeds.tsx");
@@ -36,19 +37,53 @@ assert.match(ddl, /ECR と SPS は別系列のまま保持し、ここでは合�
 assert.match(institutionData, /from\("institution_projects"\)/);
 assert.match(seedData, /from\("seed_projects"\)/);
 assert.match(institutionsPage, /useState<ViewMode>\("catalog"\)/);
-assert.match(seedsTable, /AMD PJ 稼働中/);
+assert.match(seedsTable, /PJ化済み/);
+assert.match(seedsTable, /PJ化検討中/);
+assert.doesNotMatch(seedsTable, /engagementSections/);
+assert.doesNotMatch(seedsTable, /data-institution-group/);
+assert.doesNotMatch(seedsTable, /data-researcher-group/);
 assert.doesNotMatch(seedsTable, /status !== "spun_off"/);
 assert.doesNotMatch(seedsTable, /status !== "declined"/);
 
 // 5. macOSも固定KUTE/NIMS対応やPJ化除外に戻さない。
 assert.match(macParity, /table: "institution_projects"/);
 assert.match(macParity, /table: "seed_projects"/);
-assert.match(macParity, /AMD PJ 稼働中/);
+assert.match(macParity, /PJ化済み/);
+assert.match(macParity, /PJ化検討中/);
 assert.doesNotMatch(macParity, /case "inst_kute"/);
 assert.doesNotMatch(macParity, /アクティブ（PJ化\/見送りを除外）/);
 
 // 6. 再構築用schemaにも両テーブルを残す。
 assert.match(schema, /^## institution_projects$/m);
 assert.match(schema, /^## seed_projects$/m);
+
+// 7. 209は過去の個別シーズ型PJ 19件だけをseed_projectsへ補完する。
+for (const projectID of [
+  "p01", "p02", "p03", "p04", "p05", "p06", "p07", "p08", "p09", "p10", "p11",
+  "p16", "p18", "p20", "p21", "p22", "p24", "p26", "p29",
+]) {
+  assert.match(ddl209, new RegExp(`'${projectID}'`), `209に${projectID}がありません`);
+}
+for (const excluded of ["p00", "p12", "p14", "p19", "p23", "p25", "p28", "p30"]) {
+  assert.doesNotMatch(
+    ddl209.replace(/target_ids[\s\S]*?END \$\$/m, ""),
+    new RegExp(`\\('${excluded}',\\s*md5`),
+    `除外対象${excluded}を個別シーズとして追加しています`,
+  );
+}
+assert.match(ddl209, /institutions[\s\S]*description = NULL/);
+assert.match(ddl209, /'inst_qst'/);
+assert.match(ddl209, /'inst_yamaguchi'/);
+assert.match(ddl209, /'p21'[\s\S]*'pre_incorporation'[\s\S]*'SolvioraX（仮称）'/);
+assert.match(ddl209, /'migration_209_from_amd_score_inputs'/);
+assert.match(ddl209, /status = 'ready'/);
+assert.doesNotMatch(ddl209.replace(/--.*$/gm, ""), /(?:INSERT INTO|UPDATE|DELETE FROM)\s+public\.institution_assessments/i);
+
+// 8. ECR比較は1機関=1行で、8軸を列にする。descriptionは一覧に表示しない。
+assert.match(institutionsPage, /evaluated\.map\(\(\{ institution, result, lifecycle, latestEvaluatedAt \}\) =>/);
+assert.match(institutionsPage, /sortedAxes\.map\(\(axis\) =>/);
+assert.doesNotMatch(institutionsPage, /institution\.description/);
+assert.match(institutionsPage, /PJ化済み/);
+assert.match(institutionsPage, /PJ化検討中/);
 
 console.log("institution/seed project domain contract: ok");

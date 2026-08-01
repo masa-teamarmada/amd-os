@@ -10,9 +10,11 @@ import { BriefcaseBusiness, Building2, Search } from "lucide-react";
 import { fetchErsBundle, type ErsBundle } from "@/lib/ers-data";
 import { computeErs, INSTITUTION_TYPE_LABEL, type ErsInstitution } from "@/lib/ers";
 import {
-  isCurrentProjectStatus,
+  institutionProjectLifecycle,
+  projectLifecyclePriority,
   selectPrimaryInstitutionProject,
   type InstitutionProjectLink,
+  type ProjectLifecycle,
 } from "@/lib/institution-projects";
 
 type ViewMode = "catalog" | "ecr";
@@ -44,16 +46,18 @@ export default function InstitutionsPage() {
 
   const results = useMemo(() => {
     if (!bundle) return [];
-    return bundle.institutions.map((institution) => ({
-      institution,
-      projectLink: selectPrimaryInstitutionProject(bundle.institutionProjectsByInstitution[institution.institutionId]),
-      result: computeErs(
-        bundle.axes,
-        bundle.criteria,
-        bundle.assessmentsByInstitution[institution.institutionId] ?? [],
-      ),
-      seedCount: bundle.seedCountByInstitution[institution.institutionId] ?? 0,
-    }));
+    return bundle.institutions.map((institution) => {
+      const assessments = bundle.assessmentsByInstitution[institution.institutionId] ?? [];
+      const projectLink = selectPrimaryInstitutionProject(bundle.institutionProjectsByInstitution[institution.institutionId]);
+      return {
+        institution,
+        projectLink,
+        lifecycle: institutionProjectLifecycle(projectLink, institution.contractStatus),
+        result: computeErs(bundle.axes, bundle.criteria, assessments),
+        latestEvaluatedAt: assessments.map((assessment) => assessment.evaluatedAt).sort().at(-1) ?? null,
+        seedCount: bundle.seedCountByInstitution[institution.institutionId] ?? 0,
+      };
+    });
   }, [bundle]);
 
   const catalogRows = useMemo(() => {
@@ -66,7 +70,7 @@ export default function InstitutionsPage() {
           .some((value) => String(value).normalize("NFKC").toLocaleLowerCase("ja").includes(normalizedQuery));
       })
       .sort((a, b) => {
-        const relationPriority = projectPriority(a.projectLink) - projectPriority(b.projectLink);
+        const relationPriority = projectLifecyclePriority(a.lifecycle) - projectLifecyclePriority(b.lifecycle);
         return relationPriority || a.institution.name.localeCompare(b.institution.name, "ja");
       });
   }, [results, query]);
@@ -82,7 +86,8 @@ export default function InstitutionsPage() {
     return <div className="p-6 text-sm text-amber-800">{error || "研究機関を読み込めなかった"}</div>;
   }
 
-  const currentProjectCount = results.filter(({ projectLink }) => projectLink && isCurrentProjectStatus(projectLink.projectStatus)).length;
+  const realizedProjectCount = results.filter(({ lifecycle }) => lifecycle === "realized").length;
+  const consideringProjectCount = results.filter(({ lifecycle }) => lifecycle === "considering").length;
   const linkedSeedCount = Object.values(bundle.seedCountByInstitution).reduce((sum, count) => sum + count, 0);
 
   return (
@@ -104,9 +109,10 @@ export default function InstitutionsPage() {
           </Link>
         </div>
 
-        <dl className="grid grid-cols-3 divide-x divide-slate-200 border-y border-slate-200 py-3 sm:max-w-xl">
+        <dl className="grid grid-cols-2 divide-x divide-y divide-slate-200 border-y border-slate-200 py-3 sm:max-w-3xl sm:grid-cols-4 sm:divide-y-0">
           <SummaryMetric label="研究機関" value={`${bundle.institutions.length}機関`} />
-          <SummaryMetric label="AMD PJ稼働" value={`${currentProjectCount}機関`} />
+          <SummaryMetric label="PJ化済み" value={`${realizedProjectCount}機関`} />
+          <SummaryMetric label="PJ化検討中" value={`${consideringProjectCount}機関`} />
           <SummaryMetric label="所属シーズ" value={`${linkedSeedCount}件`} />
         </dl>
 
@@ -139,11 +145,6 @@ export default function InstitutionsPage() {
   );
 }
 
-function projectPriority(link: InstitutionProjectLink | null): number {
-  if (!link) return 2;
-  return isCurrentProjectStatus(link.projectStatus) ? 0 : 1;
-}
-
 function SummaryMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="px-3 first:pl-0">
@@ -170,6 +171,7 @@ function ViewButton({ active, onClick, children }: { active: boolean; onClick: (
 function InstitutionCatalog({ rows }: { rows: Array<{
   institution: ErsInstitution;
   projectLink: InstitutionProjectLink | null;
+  lifecycle: ProjectLifecycle;
   result: ReturnType<typeof computeErs>;
   seedCount: number;
 }> }) {
@@ -182,16 +184,17 @@ function InstitutionCatalog({ rows }: { rows: Array<{
         <span>研究機関</span><span>種別・地域</span><span>所属シーズ</span><span>ECR</span><span>AMD PJ</span>
       </div>
       <div className="divide-y divide-slate-200">
-        {rows.map(({ institution, projectLink, result, seedCount }) => {
-          const current = projectLink && isCurrentProjectStatus(projectLink.projectStatus);
+        {rows.map(({ institution, projectLink, lifecycle, result, seedCount }) => {
+          const realized = lifecycle === "realized";
+          const considering = lifecycle === "considering";
           return (
             <Link
               key={institution.institutionId}
               href={projectLink ? `/institutions/${institution.institutionId}/cockpit` : `/institutions/${institution.institutionId}`}
-              className={`group relative block px-4 py-4 transition-colors hover:bg-slate-50 ${current ? "bg-indigo-50/35" : "bg-white"}`}
+              className={`group relative block px-4 py-4 transition-colors hover:bg-slate-50 ${realized ? "bg-indigo-50/35" : considering ? "bg-amber-50/35" : "bg-white"}`}
             >
-              {projectLink && (
-                <span className={`absolute inset-y-0 left-0 w-1 ${current ? "bg-indigo-600" : "bg-slate-400"}`} aria-hidden="true" />
+              {lifecycle !== "none" && (
+                <span className={`absolute inset-y-0 left-0 w-1 ${realized ? "bg-indigo-600" : "bg-amber-500"}`} aria-hidden="true" />
               )}
               <div className="grid gap-3 lg:grid-cols-[minmax(240px,1.5fr)_140px_120px_120px_minmax(220px,1fr)] lg:items-center">
                 <div className="min-w-0">
@@ -201,11 +204,10 @@ function InstitutionCatalog({ rows }: { rows: Array<{
                     {institution.identityStatus === "candidate" && (
                       <span className="border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">名称未確認</span>
                     )}
-                    {institution.contractStatus === "active" && !projectLink && (
+                    {(institution.contractStatus === "active" || institution.contractStatus === "past") && !projectLink && (
                       <span className="border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">PJ紐付け要確認</span>
                     )}
                   </div>
-                  {institution.description && <p className="mt-1 text-xs leading-relaxed text-slate-500">{institution.description}</p>}
                 </div>
                 <p className="text-xs text-slate-600">
                   {INSTITUTION_TYPE_LABEL[institution.type] ?? institution.type}
@@ -216,17 +218,23 @@ function InstitutionCatalog({ rows }: { rows: Array<{
                   {result.ers != null ? `${Math.round(result.ers)}%` : "未評価"}
                   <span className="block text-[10px] font-normal text-slate-400">{result.assessedCriteria}/{result.totalCriteria}項目</span>
                 </p>
-                {projectLink ? (
-                  <div className="border-l-2 border-indigo-400 pl-3">
-                    <p className="flex items-center gap-1.5 text-[10px] font-semibold text-indigo-700">
+                {lifecycle !== "none" ? (
+                  <div className={`border-l-2 pl-3 ${realized ? "border-indigo-400" : "border-amber-400"}`}>
+                    <p className={`flex items-center gap-1.5 text-[10px] font-semibold ${realized ? "text-indigo-700" : "text-amber-800"}`}>
                       <BriefcaseBusiness className="h-3.5 w-3.5" aria-hidden="true" />
-                      AMD PJ {current ? "稼働中" : "履歴"}
+                      {realized ? "PJ化済み" : "PJ化検討中"}
                     </p>
-                    <p className="mt-0.5 text-sm font-semibold text-slate-950">{projectLink.projectLabel}</p>
-                    <p className="text-[10px] text-slate-500">{projectLink.relationLabel} · {projectLink.projectStatus}</p>
+                    {projectLink ? (
+                      <>
+                        <p className="mt-0.5 text-sm font-semibold text-slate-950">{projectLink.projectLabel}</p>
+                        <p className="text-[10px] text-slate-500">{projectLink.relationLabel} · {projectLink.projectStatus}</p>
+                      </>
+                    ) : (
+                      <p className="mt-0.5 text-xs font-medium text-amber-800">関連PJの紐付け要確認</p>
+                    )}
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-400">AMD PJなし</p>
+                  <p className="text-xs text-slate-400">未PJ化</p>
                 )}
               </div>
             </Link>
@@ -239,9 +247,17 @@ function InstitutionCatalog({ rows }: { rows: Array<{
 
 function EcrComparison({ bundle, results }: { bundle: ErsBundle; results: Array<{
   institution: ErsInstitution;
+  projectLink: InstitutionProjectLink | null;
+  lifecycle: ProjectLifecycle;
   result: ReturnType<typeof computeErs>;
+  latestEvaluatedAt: string | null;
 }> }) {
-  const evaluated = results.filter(({ result }) => result.ers != null);
+  const evaluated = results
+    .filter(({ result }) => result.ers != null)
+    .sort((a, b) => {
+      const lifecycle = projectLifecyclePriority(a.lifecycle) - projectLifecyclePriority(b.lifecycle);
+      return lifecycle || a.institution.name.localeCompare(b.institution.name, "ja");
+    });
   const sortedAxes = [...bundle.axes].sort((a, b) => a.sortOrder - b.sortOrder);
   if (!evaluated.length) {
     return <div className="border border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">ECR評価済みの研究機関がない</div>;
@@ -252,31 +268,38 @@ function EcrComparison({ bundle, results }: { bundle: ErsBundle; results: Array<
         ECRは研究機関の環境だけを比較する。シーズのSPSやPJのスコアとは合算しない。未評価機関は比較表から外し、一覧には残す。
       </p>
       <div className="max-h-[80vh] overflow-auto border border-slate-200">
-        <table className="border-collapse text-xs">
+        <table className="w-full min-w-[1260px] border-collapse text-xs">
           <thead>
             <tr>
-              <th className="sticky left-0 top-0 z-30 min-w-[260px] border-b border-r border-slate-200 bg-slate-100 px-3 py-2 text-left font-medium">軸 / 機関</th>
-              {evaluated.map(({ institution }) => (
-                <th key={institution.institutionId} className="sticky top-0 z-20 min-w-[120px] border-b border-r border-slate-200 bg-slate-100 px-3 py-2 text-center font-medium">
-                  <Link href={`/institutions/${institution.institutionId}`} className="font-semibold hover:underline">{institution.name}</Link>
+              <th className="sticky left-0 top-0 z-30 min-w-[220px] border-b border-r border-slate-200 bg-slate-100 px-3 py-2 text-left font-medium">研究機関</th>
+              <th className="sticky top-0 z-20 min-w-[90px] border-b border-r border-slate-200 bg-slate-100 px-2 py-2 text-center font-medium">総合 ECR</th>
+              {sortedAxes.map((axis) => (
+                <th key={axis.axisId} title={axis.name} className="sticky top-0 z-20 min-w-[76px] border-b border-r border-slate-200 bg-slate-100 px-2 py-2 text-center font-medium">
+                  <span className="block font-mono text-[10px]">A{axis.axisNo}</span>
+                  <span className="block truncate">{axis.name}</span>
                 </th>
               ))}
+              <th className="sticky top-0 z-20 min-w-[116px] border-b border-slate-200 bg-slate-100 px-2 py-2 text-left font-medium">評価</th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <th className="sticky left-0 z-10 border-b-2 border-r border-slate-200 bg-white px-3 py-5 text-left text-base font-bold">総合 ECR<span className="block text-[10px] font-normal text-slate-500">エコシステム構築率</span></th>
-              {evaluated.map(({ institution, result }) => (
-                <td key={institution.institutionId} className="border-b-2 border-r border-slate-200 px-2 py-5 text-center font-mono text-3xl font-extrabold" style={heatCell((result.ers ?? 0) / 100)}>{Math.round(result.ers ?? 0)}%</td>
-              ))}
-            </tr>
-            {sortedAxes.map((axis) => (
-              <tr key={axis.axisId}>
-                <th className="sticky left-0 z-10 border-b border-r border-slate-200 bg-white px-3 py-2 text-left font-normal"><span className="mr-1.5 font-mono font-semibold">{axis.axisNo}</span>{axis.name}</th>
-                {evaluated.map(({ institution, result }) => {
+            {evaluated.map(({ institution, result, lifecycle, latestEvaluatedAt }) => (
+              <tr key={institution.institutionId} className={lifecycle === "realized" ? "bg-indigo-50/30" : lifecycle === "considering" ? "bg-amber-50/30" : "bg-white"}>
+                <th className="sticky left-0 z-10 border-b border-r border-slate-200 bg-inherit px-3 py-3 text-left font-normal">
+                  <Link href={`/institutions/${institution.institutionId}`} className="font-semibold text-slate-950 hover:text-indigo-800 hover:underline">{institution.name}</Link>
+                  <span className={`mt-1 block text-[10px] font-semibold ${lifecycle === "realized" ? "text-indigo-700" : lifecycle === "considering" ? "text-amber-800" : "text-slate-400"}`}>
+                    {lifecycle === "realized" ? "PJ化済み" : lifecycle === "considering" ? "PJ化検討中" : "未PJ化"}
+                  </span>
+                </th>
+                <td className="border-b border-r border-slate-200 px-2 py-3 text-center font-mono text-xl font-extrabold" style={heatCell((result.ers ?? 0) / 100)}>{Math.round(result.ers ?? 0)}%</td>
+                {sortedAxes.map((axis) => {
                   const axisResult = result.axisScores.find((score) => score.axisId === axis.axisId);
-                  return <td key={institution.institutionId} className="border-b border-r border-slate-200 px-2 py-2.5 text-center font-mono text-sm" style={heatCell(axisResult?.score ?? null)}>{axisResult?.score != null ? Math.round(axisResult.score * 100) : "–"}</td>;
+                  return <td key={axis.axisId} className="border-b border-r border-slate-200 px-2 py-3 text-center font-mono text-sm" style={heatCell(axisResult?.score ?? null)}>{axisResult?.score != null ? Math.round(axisResult.score * 100) : "–"}</td>;
                 })}
+                <td className="border-b border-slate-200 px-2 py-3 text-slate-600">
+                  <span className="font-mono font-semibold">{result.assessedCriteria}/{result.totalCriteria}</span>
+                  <span className="block text-[10px] text-slate-400">{latestEvaluatedAt ?? "日付未登録"}</span>
+                </td>
               </tr>
             ))}
           </tbody>
