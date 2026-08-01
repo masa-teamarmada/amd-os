@@ -13,6 +13,7 @@ import {
   BLUEPRINT,
   GRAPHITE,
   GRAPHITE_MUTED,
+  KIND_COLOR,
   KIND_LABEL,
   LAYER_LABEL,
   PAPER_BG,
@@ -21,6 +22,7 @@ import {
   STATUS_LABEL,
   VERMILION,
   callTheoryMapApi,
+  rgba,
   type TheoryMapEdge,
   type TheoryMapNode,
 } from "@/lib/bzm-theory-map-ui";
@@ -403,22 +405,15 @@ export function BzmTheoryComposerDialog({
   if (!open) return null;
 
   return (
-    <div
-      className="absolute inset-0 z-30 flex items-end justify-center bg-[rgba(47,43,35,0.24)] p-0 sm:items-center sm:p-4"
-      data-bzm-map-overlay="true"
-      onMouseDown={(event) => {
-        if (event.currentTarget === event.target && !pending) onClose();
-      }}
+    <aside
+      ref={panelRef}
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby={titleId}
+      data-bzm-map-panel="composer"
+      className="flex min-h-[420px] w-full flex-col overflow-hidden border-t md:min-h-0 md:border-l md:border-t-0"
+      style={{ backgroundColor: "#faf6ec", borderColor: PAPER_BORDER, color: GRAPHITE }}
     >
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="flex max-h-[94%] w-full max-w-2xl flex-col overflow-hidden rounded-t-xl border shadow-xl sm:rounded-xl"
-        style={{ backgroundColor: "#faf6ec", borderColor: PAPER_BORDER, color: GRAPHITE }}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <div className="flex items-start gap-3 border-b px-4 py-4" style={{ borderColor: PAPER_BORDER }}>
             <div className="min-w-0 flex-1">
@@ -513,8 +508,7 @@ export function BzmTheoryComposerDialog({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </aside>
   );
 }
 
@@ -558,12 +552,12 @@ function NodeFields({
                 }))}
                 className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-md border px-2 py-2 text-xs font-medium"
                 style={{
-                  borderColor: form.kind === kind ? BLUEPRINT : PAPER_BORDER,
-                  backgroundColor: form.kind === kind ? "rgba(41, 82, 163, 0.1)" : PAPER_BG,
-                  color: form.kind === kind ? BLUEPRINT : GRAPHITE,
+                  borderColor: form.kind === kind ? KIND_COLOR[kind] : PAPER_BORDER,
+                  backgroundColor: form.kind === kind ? rgba(KIND_COLOR[kind], 0.12) : PAPER_BG,
+                  color: GRAPHITE,
                 }}
               >
-                <Icon className="h-4 w-4" aria-hidden="true" />
+                <Icon className="h-4 w-4" style={{ color: KIND_COLOR[kind] }} aria-hidden="true" />
                 {KIND_LABEL[kind]}
               </button>
             ))}

@@ -4,15 +4,15 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { LayoutGrid, List as ListIcon, Maximize2, PenLine, Search } from "lucide-react";
-import type { TheoryNodeLayer, TheoryNodeStatus, TheoryRelationType } from "@/lib/bzm-theory-graph";
+import type { TheoryNodeKind, TheoryNodeLayer, TheoryNodeStatus, TheoryRelationType } from "@/lib/bzm-theory-graph";
 import {
   BLUEPRINT,
   CHALLENGE_TYPES,
   GRAPHITE,
   GRAPHITE_MUTED,
+  KIND_COLOR,
   ISSUE_TYPES,
   KIND_LABEL,
-  KIND_MARK,
   KIND_SHAPE,
   LAYER_LABEL,
   LAYER_ORDER,
@@ -23,8 +23,8 @@ import {
   PAPER_PANEL,
   RELATION_COLOR,
   RELATION_LABEL,
-  STATUS_COLOR,
   STATUS_LABEL,
+  STATUS_RING_LABEL,
   STRUCTURAL_TYPES,
   SUPPORT_TYPES,
   TEST_TYPES,
@@ -45,6 +45,8 @@ interface GraphNode extends TheoryMapNode {
   y?: number;
   vx?: number;
   vy?: number;
+  fx?: number;
+  fy?: number;
 }
 
 interface GraphLink {
@@ -71,7 +73,7 @@ interface ForceGraphProps {
   linkDirectionalArrowRelPos?: number;
   nodeCanvasObject?: (node: GraphNode, ctx: CanvasRenderingContext2D, globalScale: number) => void;
   nodePointerAreaPaint?: (node: GraphNode, color: string, ctx: CanvasRenderingContext2D) => void;
-  onNodeClick?: (node: GraphNode) => void;
+  onNodeClick?: (node: GraphNode, event: MouseEvent) => void;
   onNodeDragEnd?: (node: GraphNode) => void;
   onBackgroundClick?: () => void;
   onLinkClick?: (link: GraphLink) => void;
@@ -153,6 +155,47 @@ function drawShape(
   ctx.setLineDash([]);
 }
 
+function drawStatusRing(
+  ctx: CanvasRenderingContext2D,
+  status: TheoryNodeStatus,
+  x: number,
+  y: number,
+  radius: number
+) {
+  const ringRadius = radius + 3.5;
+  ctx.save();
+  ctx.strokeStyle = rgba(GRAPHITE, 0.78);
+  ctx.lineWidth = 1.15;
+  if (status === "conditional") ctx.setLineDash([4, 3]);
+  if (status === "hypothesis") ctx.setLineDash([1, 3]);
+  if (status === "unknown") ctx.setLineDash([6, 2, 1, 2]);
+  ctx.beginPath();
+  ctx.arc(x, y, ringRadius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  if (status === "design-choice") {
+    ctx.beginPath();
+    ctx.arc(x, y, ringRadius + 2.5, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (status === "refuted") {
+    const offset = radius * 0.72;
+    ctx.beginPath();
+    ctx.moveTo(x - offset, y + offset);
+    ctx.lineTo(x + offset, y - offset);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function kindLegendClipPath(kind: TheoryNodeKind) {
+  if (kind === "claim") return "polygon(50% 0, 100% 50%, 50% 100%, 0 50%)";
+  if (kind === "measure") return "inset(5%)";
+  if (kind === "decision") return "polygon(50% 0, 100% 100%, 0 100%)";
+  if (kind === "source") return "polygon(25% 7%, 75% 7%, 100% 50%, 75% 93%, 25% 93%, 0 50%)";
+  return "circle(50%)";
+}
+
 function createLayerForce(getNodes: () => GraphNode[], columnWidth: number, rowHeight: number) {
   let nodes: GraphNode[] = [];
   let rowById = new Map<string, number>();
@@ -198,6 +241,7 @@ export function BzmTheoryMapView({
   const [nodes, setNodes] = useState(initialNodes);
   const [edges, setEdges] = useState(initialEdges);
   const [composerState, setComposerState] = useState<ComposerState | null>(null);
+  const [connectingFromId, setConnectingFromId] = useState<string | null>(null);
   const [edgeToRemove, setEdgeToRemove] = useState<TheoryMapEdge | null>(null);
   const [removePending, setRemovePending] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
@@ -222,9 +266,13 @@ export function BzmTheoryMapView({
   const [selectedId, setSelectedId] = useState(
     nodes.find((node) => node.id === "concept-six-layer-structure")?.id ?? nodes[0]?.id ?? ""
   );
+  const [nodePositions, setNodePositions] = useState<
+    Record<string, Pick<GraphNode, "x" | "y" | "fx" | "fy">>
+  >({});
   const [size, setSize] = useState({ w: 900, h: 600 });
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<ForceGraphHandle | null>(null);
+  const draggedNodeClickRef = useRef<string | null>(null);
   const suppressBackgroundClickRef = useRef(false);
   const [graphReadyVersion, setGraphReadyVersion] = useState(0);
 
@@ -295,10 +343,14 @@ export function BzmTheoryMapView({
   );
 
   const graphData = useMemo(() => {
-    const gNodes: GraphNode[] = filteredNodes.map((n) => ({
-      ...n,
-      val: Math.max(1, degreeById.get(n.id) ?? 1),
-    }));
+    const gNodes: GraphNode[] = filteredNodes.map((n) => {
+      const savedPosition = nodePositions[n.id];
+      return {
+        ...n,
+        ...savedPosition,
+        val: Math.max(1, degreeById.get(n.id) ?? 1),
+      };
+    });
     const gLinks: GraphLink[] = filteredEdges.map((edge) => ({
       source: edge.from,
       target: edge.to,
@@ -308,41 +360,32 @@ export function BzmTheoryMapView({
       editable: edge.editable,
     }));
     return { nodes: gNodes, links: gLinks };
-  }, [filteredNodes, filteredEdges, degreeById]);
+  }, [filteredNodes, filteredEdges, degreeById, nodePositions]);
 
   const selected = nodeById.get(selectedId) ?? null;
+  const panelOpen = composerState !== null || edgeToRemove !== null;
+  const connectionSourceId =
+    connectingFromId ?? (composerState?.type === "connect" ? selected?.id ?? null : null);
+  const connectionTargetId = composerState?.type === "connect" ? composerState.targetId ?? null : null;
 
-  const handleNodeDragEnd = useCallback(
-    (dragged: GraphNode) => {
-      if (!canEdit || !Number.isFinite(dragged.x) || !Number.isFinite(dragged.y)) return;
-
-      let nearest: GraphNode | null = null;
-      let nearestDistance = Number.POSITIVE_INFINITY;
-      for (const candidate of graphData.nodes) {
-        if (
-          candidate.id === dragged.id ||
-          !Number.isFinite(candidate.x) ||
-          !Number.isFinite(candidate.y)
-        ) {
-          continue;
-        }
-        const distance = Math.hypot(
-          (dragged.x ?? 0) - (candidate.x ?? 0),
-          (dragged.y ?? 0) - (candidate.y ?? 0)
-        );
-        const overlapDistance = nodeRadius(dragged) + nodeRadius(candidate) + 12;
-        if (distance <= overlapDistance && distance < nearestDistance) {
-          nearest = candidate;
-          nearestDistance = distance;
-        }
-      }
-
-      if (!nearest) return;
-      setSelectedId(dragged.id);
-      setComposerState({ type: "connect", targetId: nearest.id, direction: "outgoing" });
-    },
-    [canEdit, graphData.nodes]
-  );
+  const handleNodeDragEnd = useCallback((dragged: GraphNode) => {
+    draggedNodeClickRef.current = dragged.id;
+    window.setTimeout(() => {
+      if (draggedNodeClickRef.current === dragged.id) draggedNodeClickRef.current = null;
+    }, 240);
+    if (!Number.isFinite(dragged.x) || !Number.isFinite(dragged.y)) return;
+    dragged.fx = dragged.x;
+    dragged.fy = dragged.y;
+    setNodePositions((current) => ({
+      ...current,
+      [dragged.id]: {
+        x: dragged.x,
+        y: dragged.y,
+        fx: dragged.x,
+        fy: dragged.y,
+      },
+    }));
+  }, []);
 
   useEffect(() => {
     const update = () => {
@@ -367,7 +410,22 @@ export function BzmTheoryMapView({
     fg.d3Force("layerGrid", createLayerForce(() => graphData.nodes, 190, 92));
     const timer = window.setTimeout(() => graphRef.current?.zoomToFit(400, 40), 260);
     return () => window.clearTimeout(timer);
-  }, [graphData, graphReadyVersion, view]);
+  }, [graphData, graphReadyVersion, panelOpen, view]);
+
+  useEffect(() => {
+    if (!connectingFromId || visibleIds.has(connectingFromId)) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setConnectingFromId(null);
+  }, [connectingFromId, visibleIds]);
+
+  useEffect(() => {
+    if (!connectingFromId) return;
+    const cancelConnection = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setConnectingFromId(null);
+    };
+    window.addEventListener("keydown", cancelConnection);
+    return () => window.removeEventListener("keydown", cancelConnection);
+  }, [connectingFromId]);
 
   function toggleInSet<T>(set: Set<T>, value: T, setter: (s: Set<T>) => void) {
     const next = new Set(set);
@@ -381,6 +439,40 @@ export function BzmTheoryMapView({
     setLayerFilter(new Set(LAYER_ORDER));
     setStatusFilter(new Set(Object.keys(STATUS_LABEL) as TheoryNodeStatus[]));
     setRelationFilter(new Set(Object.keys(RELATION_LABEL) as TheoryRelationType[]));
+  }
+
+  function handleNodeClick(node: GraphNode, event: MouseEvent) {
+    suppressNextBackgroundClick();
+    if (draggedNodeClickRef.current === node.id) {
+      draggedNodeClickRef.current = null;
+      return;
+    }
+
+    const modifierPressed = event.metaKey || event.ctrlKey;
+    if (canEdit && modifierPressed) {
+      setComposerState(null);
+      setEdgeToRemove(null);
+      if (!connectingFromId) {
+        setSelectedId(node.id);
+        setConnectingFromId(node.id);
+        return;
+      }
+      if (connectingFromId === node.id) {
+        announce("error", "同じノード同士は接続できないよ。別のノードを選んでね。");
+        return;
+      }
+      setSelectedId(connectingFromId);
+      setComposerState({ type: "connect", targetId: node.id, direction: "outgoing" });
+      setConnectingFromId(null);
+      return;
+    }
+
+    setConnectingFromId(null);
+    setSelectedId(node.id);
+    if (canEdit && node.editable) {
+      setEdgeToRemove(null);
+      setComposerState({ type: "edit", node });
+    }
   }
 
   const incomingForSelected = selected ? incomingByTarget.get(selected.id) ?? [] : [];
@@ -440,7 +532,7 @@ export function BzmTheoryMapView({
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">理論マップ — 論証台帳</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6" style={{ color: GRAPHITE_MUTED }}>
             自分で理解した理論・文献・反証・未解決の論点を書き、関係を結びながら育てる台帳。
-            空白をクリックすると新しいノード、ノード同士を重ねると新しい接続を作れる。
+            空白クリックで新しいノード、ノードをクリックして編集。⌘を押しながら2つのノードを順に選ぶと接続できる。
           </p>
           {storageMode === "unavailable" && (
             <div
@@ -515,9 +607,10 @@ export function BzmTheoryMapView({
                 onClick={() => toggleInSet(statusFilter, status, setStatusFilter)}
                 className="min-h-11 rounded-md border px-2 text-[11px] font-medium transition sm:min-h-8"
                 style={{
-                  borderColor: STATUS_COLOR[status],
-                  backgroundColor: statusFilter.has(status) ? rgba(STATUS_COLOR[status], 0.16) : PAPER_BG,
-                  color: statusFilter.has(status) ? STATUS_COLOR[status] : GRAPHITE_MUTED,
+                  borderColor: statusFilter.has(status) ? GRAPHITE : PAPER_BORDER,
+                  borderStyle: status === "conditional" || status === "hypothesis" || status === "unknown" ? "dashed" : "solid",
+                  backgroundColor: statusFilter.has(status) ? rgba(GRAPHITE, 0.08) : PAPER_BG,
+                  color: statusFilter.has(status) ? GRAPHITE : GRAPHITE_MUTED,
                 }}
                 aria-pressed={statusFilter.has(status)}
               >
@@ -583,7 +676,8 @@ export function BzmTheoryMapView({
             <button
               type="button"
               onClick={() => setView("list")}
-              className="grid h-11 w-11 place-items-center rounded-md border sm:h-8 sm:w-8"
+              disabled={panelOpen}
+              className="grid h-11 w-11 place-items-center rounded-md border disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:w-8"
               style={{
                 borderColor: PAPER_BORDER,
                 backgroundColor: view === "list" ? BLUEPRINT : PAPER_BG,
@@ -598,20 +692,45 @@ export function BzmTheoryMapView({
           </div>
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <section className={panelOpen ? "grid gap-4" : "grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]"}>
           <div
             className="min-w-0 overflow-hidden rounded-lg border"
             style={{ borderColor: PAPER_BORDER, backgroundColor: PAPER_PANEL }}
           >
             {view === "map" ? (
               <div
-                ref={containerRef}
-                data-bzm-map-canvas="true"
-                className="relative h-[520px] w-full lg:h-[720px]"
-                style={{ backgroundColor: PAPER_BG }}
+                data-bzm-map-workspace="true"
+                className={panelOpen ? "grid min-w-0 md:grid-cols-[minmax(0,1fr)_400px]" : "grid min-w-0"}
               >
+                <div className="min-w-0" style={{ backgroundColor: PAPER_BG }}>
+                  <div
+                    ref={containerRef}
+                    data-bzm-map-canvas="true"
+                    className="relative h-[440px] w-full sm:h-[520px] lg:h-[680px]"
+                    style={{ backgroundColor: PAPER_BG }}
+                  >
+                {connectingFromId && nodeById.has(connectingFromId) && (
+                  <div
+                    className="absolute inset-x-3 top-3 z-20 flex items-center justify-between gap-3 rounded-lg border px-3 py-2 shadow-md"
+                    style={{ borderColor: BLUEPRINT, backgroundColor: rgba(PAPER_PANEL, 0.97), color: GRAPHITE }}
+                    role="status"
+                  >
+                    <p className="min-w-0 truncate text-xs">
+                      <span className="font-semibold">接続元:</span> {nodeById.get(connectingFromId)?.title}
+                      <span className="ml-2" style={{ color: GRAPHITE_MUTED }}>⌘を押したまま接続先をクリック</span>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setConnectingFromId(null)}
+                      className="min-h-9 shrink-0 rounded-md border px-3 text-xs font-semibold"
+                      style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
+                    >
+                      解除
+                    </button>
+                  </div>
+                )}
                 <div
-                  className="pointer-events-none absolute inset-x-3 top-3 z-10 hidden grid-cols-7 gap-1 sm:grid"
+                  className={`pointer-events-none absolute inset-x-3 z-10 hidden grid-cols-7 gap-1 sm:grid ${connectingFromId ? "top-16" : "top-3"}`}
                   aria-hidden="true"
                 >
                   {LAYER_ORDER.map((layer) => (
@@ -643,13 +762,24 @@ export function BzmTheoryMapView({
                     const x = node.x ?? 0;
                     const y = node.y ?? 0;
                     const isSelected = selected?.id === node.id;
-                    const color = STATUS_COLOR[node.status];
+                    const isConnectionSource = connectionSourceId === node.id;
+                    const isConnectionTarget = connectionTargetId === node.id;
+                    const color = KIND_COLOR[node.kind];
                     ctx.save();
                     if (isSelected) {
                       ctx.beginPath();
                       ctx.arc(x, y, r + 6, 0, Math.PI * 2);
-                      ctx.fillStyle = rgba(color, 0.2);
+                      ctx.fillStyle = rgba(BLUEPRINT, 0.14);
                       ctx.fill();
+                    }
+                    if (isConnectionSource || isConnectionTarget) {
+                      ctx.beginPath();
+                      ctx.arc(x, y, r + 9, 0, Math.PI * 2);
+                      ctx.lineWidth = 3;
+                      ctx.strokeStyle = isConnectionSource ? BLUEPRINT : MOSS;
+                      ctx.setLineDash(isConnectionSource ? [4, 3] : []);
+                      ctx.stroke();
+                      ctx.setLineDash([]);
                     }
                     drawShape(
                       ctx,
@@ -661,15 +791,13 @@ export function BzmTheoryMapView({
                       isSelected ? GRAPHITE : "rgba(255,255,255,0.9)",
                       node.kind === "question"
                     );
-                    ctx.font = `700 ${9 / Math.max(1, globalScale)}px ui-sans-serif, system-ui`;
-                    ctx.textAlign = "center";
-                    ctx.textBaseline = "middle";
-                    ctx.fillStyle = "#fff";
-                    ctx.fillText(KIND_MARK[node.kind], x, y + 0.5);
+                    drawStatusRing(ctx, node.status, x, y, r);
 
                     const label = node.title.length > 15 ? `${node.title.slice(0, 14)}…` : node.title;
                     const textScale = Math.max(1, globalScale);
                     ctx.font = `600 ${10 / textScale}px ui-sans-serif, system-ui`;
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
                     const labelY = y + r + 8 / textScale;
                     const labelWidth = ctx.measureText(label).width;
                     ctx.fillStyle = rgba(PAPER_PANEL, 0.9);
@@ -690,10 +818,7 @@ export function BzmTheoryMapView({
                     ctx.arc(node.x ?? 0, node.y ?? 0, r, 0, Math.PI * 2);
                     ctx.fill();
                   }}
-                  onNodeClick={(node) => {
-                    suppressNextBackgroundClick();
-                    setSelectedId(node.id);
-                  }}
+                  onNodeClick={handleNodeClick}
                   onNodeDragEnd={(node) => {
                     suppressNextBackgroundClick();
                     handleNodeDragEnd(node);
@@ -701,6 +826,10 @@ export function BzmTheoryMapView({
                   onBackgroundClick={() => {
                     if (suppressBackgroundClickRef.current) {
                       suppressBackgroundClickRef.current = false;
+                      return;
+                    }
+                    if (connectingFromId) {
+                      setConnectingFromId(null);
                       return;
                     }
                     if (canEdit && !composerState && !edgeToRemove) {
@@ -736,7 +865,7 @@ export function BzmTheoryMapView({
                   </div>
                 )}
 
-                {canEdit && selected && visibleIds.has(selected.id) && !composerState && !edgeToRemove && (
+                {canEdit && selected && visibleIds.has(selected.id) && !composerState && !edgeToRemove && !connectingFromId && (
                   <div className="absolute inset-x-3 bottom-3 z-20 flex justify-center">
                     <div
                       className="flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-lg border p-2 shadow-lg"
@@ -782,30 +911,47 @@ export function BzmTheoryMapView({
                         論点
                       </button>
                       <span className="hidden px-2 text-[11px] sm:inline" style={{ color: GRAPHITE_MUTED }}>
-                        既存ノードへ重ねると接続
+                        ⌘＋クリックで2つ選ぶと接続
                       </span>
                     </div>
                   </div>
                 )}
+                  </div>
+
+                  <div
+                    className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t px-3 py-2"
+                    style={{ borderColor: PAPER_BORDER, backgroundColor: PAPER_PANEL }}
+                    aria-label="ノード表示の凡例"
+                  >
+                    <span className="text-[11px] font-semibold" style={{ color: GRAPHITE_MUTED }}>種類</span>
+                    {(Object.keys(KIND_LABEL) as TheoryNodeKind[]).map((kind) => (
+                      <span key={kind} className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: GRAPHITE_MUTED }}>
+                        <span
+                          className="h-3 w-3 shrink-0"
+                          style={{ backgroundColor: KIND_COLOR[kind], clipPath: kindLegendClipPath(kind) }}
+                          aria-hidden="true"
+                        />
+                        {KIND_LABEL[kind]}
+                      </span>
+                    ))}
+                    <span className="ml-auto text-[11px]" style={{ color: GRAPHITE_MUTED }}>
+                      外周線＝状態（{(Object.keys(STATUS_LABEL) as TheoryNodeStatus[]).map((status) => `${STATUS_LABEL[status].split("・")[0]}:${STATUS_RING_LABEL[status]}`).join(" / ")}）
+                    </span>
+                  </div>
+                </div>
 
                 {edgeToRemove && (
                   <div
-                    className="absolute inset-0 z-30 flex items-end justify-center bg-[rgba(47,43,35,0.24)] sm:items-center sm:p-4"
-                    data-bzm-map-overlay="true"
-                    onMouseDown={(event) => {
-                      if (event.currentTarget === event.target && !removePending) {
-                        setEdgeToRemove(null);
-                        setRemoveError(null);
-                      }
-                    }}
+                    className="min-h-[360px] border-t p-4 md:min-h-0 md:border-l md:border-t-0"
+                    data-bzm-map-panel="edge-delete"
+                    style={{ borderColor: PAPER_BORDER, backgroundColor: PAPER_PANEL }}
                   >
                     <div
                       role="dialog"
-                      aria-modal="true"
+                      aria-modal="false"
                       aria-labelledby="bzm-edge-delete-title"
-                      className="w-full max-w-md rounded-t-xl border p-4 shadow-xl sm:rounded-xl"
-                      style={{ backgroundColor: "#faf6ec", borderColor: PAPER_BORDER, color: GRAPHITE }}
-                      onMouseDown={(event) => event.stopPropagation()}
+                      className="w-full p-1"
+                      style={{ color: GRAPHITE }}
                     >
                       <h2 id="bzm-edge-delete-title" className="text-lg font-semibold">
                         この接続を削除する？
@@ -909,7 +1055,14 @@ export function BzmTheoryMapView({
                       type="button"
                       role="option"
                       aria-selected={selected?.id === node.id}
-                      onClick={() => setSelectedId(node.id)}
+                      onClick={() => {
+                        setSelectedId(node.id);
+                        setConnectingFromId(null);
+                        if (canEdit && node.editable) {
+                          setView("map");
+                          setComposerState({ type: "edit", node });
+                        }
+                      }}
                       className="flex w-full flex-col gap-1 px-4 py-3 text-left transition focus-visible:outline focus-visible:outline-2"
                       style={{
                         backgroundColor: selected?.id === node.id ? rgba(BLUEPRINT, 0.1) : "transparent",
@@ -918,13 +1071,14 @@ export function BzmTheoryMapView({
                     >
                       <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: GRAPHITE_MUTED }}>
                         <span
-                          className="rounded-full border px-1.5 py-0.5 font-semibold"
+                          className="inline-flex items-center gap-1.5 rounded-full border px-1.5 py-0.5 font-semibold"
                           style={{ borderColor: PAPER_BORDER }}
                         >
-                          {KIND_MARK[node.kind]} {KIND_LABEL[node.kind]}
+                          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: KIND_COLOR[node.kind] }} aria-hidden="true" />
+                          {KIND_LABEL[node.kind]}
                         </span>
                         <span>{LAYER_LABEL[node.layer]}</span>
-                        <span style={{ color: STATUS_COLOR[node.status] }}>{STATUS_LABEL[node.status]}</span>
+                        <span>{STATUS_LABEL[node.status]}（{STATUS_RING_LABEL[node.status]}）</span>
                         <span className="ml-auto font-mono">接続 {degreeById.get(node.id) ?? 0}</span>
                       </div>
                       <div className="font-semibold" style={{ color: GRAPHITE }}>
@@ -945,7 +1099,7 @@ export function BzmTheoryMapView({
             )}
           </div>
 
-          <aside
+          {!panelOpen && <aside
             className="min-w-0 rounded-lg border"
             style={{ borderColor: PAPER_BORDER, backgroundColor: PAPER_PANEL }}
           >
@@ -954,16 +1108,17 @@ export function BzmTheoryMapView({
                 <div className="border-b px-4 py-4" style={{ borderColor: PAPER_BORDER }}>
                   <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold">
                     <span
-                      className="rounded-full border px-2 py-0.5"
+                      className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5"
                       style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
                     >
-                      {KIND_MARK[selected.kind]} {KIND_LABEL[selected.kind]}
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: KIND_COLOR[selected.kind] }} aria-hidden="true" />
+                      {KIND_LABEL[selected.kind]}
                     </span>
                     <span
                       className="rounded-full border px-2 py-0.5"
-                      style={{ borderColor: STATUS_COLOR[selected.status], color: STATUS_COLOR[selected.status] }}
+                      style={{ borderColor: GRAPHITE_MUTED, color: GRAPHITE_MUTED }}
                     >
-                      {STATUS_LABEL[selected.status]}
+                      {STATUS_LABEL[selected.status]}・{STATUS_RING_LABEL[selected.status]}
                     </span>
                     <span style={{ color: GRAPHITE_MUTED }}>{LAYER_LABEL[selected.layer]}</span>
                   </div>
@@ -1080,7 +1235,7 @@ export function BzmTheoryMapView({
                 ノードを選ぶと論証台帳が表示される。
               </div>
             )}
-          </aside>
+          </aside>}
         </section>
 
         <section

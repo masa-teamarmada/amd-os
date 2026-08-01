@@ -2795,7 +2795,7 @@ expectNotIncludes("src/components/cockpit/CockpitSoilSeeds.tsx", [
   "ScatterChart",
 ]);
 
-// BZM 2.0 理論マップ (2026-08-01): 利用者本人が直接操作で育てる空の論証台帳。
+// BZM 2.0 理論マップ (2026-08-01): 配置と接続を分離し、地図を覆わず本人が育てる論証台帳。
 expectIncludes("src/components/bzm/BzmSideNav.tsx", [
   "/bzm/map",
   "理論マップ (論証台帳)",
@@ -2807,7 +2807,21 @@ expectIncludes("src/components/bzm/BzmTheoryMapView.tsx", [
   "onBackgroundClick",
   "onNodeDragEnd",
   "onLinkClick",
-  "既存ノードへ重ねると接続",
+  "event.metaKey || event.ctrlKey",
+  "⌘を押したまま接続先をクリック",
+  'data-bzm-map-workspace="true"',
+  "KIND_COLOR",
+  "drawStatusRing",
   "ここから、まさの理論マップが始まる",
 ]);
+expectNotIncludes("src/components/bzm/BzmTheoryMapView.tsx", [
+  "data-bzm-map-overlay",
+  "nearestDistance",
+  "fillText(KIND_",
+]);
+expectIncludes("src/components/bzm/BzmTheoryComposerDialog.tsx", [
+  'data-bzm-map-panel="composer"',
+  'aria-modal="false"',
+]);
+expectNotIncludes("src/components/bzm/BzmTheoryComposerDialog.tsx", ["data-bzm-map-overlay"]);
 expectIncludes("package.json", ["test:bzm-theory-graph"]);

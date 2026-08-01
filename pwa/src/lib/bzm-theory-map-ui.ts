@@ -63,15 +63,6 @@ export const KIND_LABEL: Record<TheoryNodeKind, string> = {
   question: "未解決問い",
 };
 
-export const KIND_MARK: Record<TheoryNodeKind, string> = {
-  concept: "概",
-  claim: "主",
-  measure: "測",
-  decision: "決",
-  source: "源",
-  question: "問",
-};
-
 export type NodeShape = "circle" | "diamond" | "square" | "triangle" | "hexagon" | "circle-dashed";
 
 export const KIND_SHAPE: Record<TheoryNodeKind, NodeShape> = {
@@ -81,6 +72,16 @@ export const KIND_SHAPE: Record<TheoryNodeKind, NodeShape> = {
   decision: "triangle",
   source: "hexagon",
   question: "circle-dashed",
+};
+
+// 種類は塗り色で瞬時に見分け、形でも同じ意味を担保する。
+export const KIND_COLOR: Record<TheoryNodeKind, string> = {
+  concept: "#315ca8",
+  claim: "#a34555",
+  measure: "#2f756a",
+  decision: "#a2661e",
+  source: "#6c5794",
+  question: "#6f665a",
 };
 
 export const LAYER_LABEL: Record<TheoryNodeLayer, string> = {
@@ -112,13 +113,14 @@ export const STATUS_LABEL: Record<TheoryNodeStatus, string> = {
   unknown: "未解明",
 };
 
-export const STATUS_COLOR: Record<TheoryNodeStatus, string> = {
-  established: MOSS,
-  conditional: BLUEPRINT,
-  "design-choice": GRAPHITE,
-  hypothesis: OCHRE,
-  refuted: VERMILION,
-  unknown: OCHRE,
+// 状態は種類の塗り色と競合させず、外周線のパターンで表す。
+export const STATUS_RING_LABEL: Record<TheoryNodeStatus, string> = {
+  established: "実線",
+  conditional: "破線",
+  "design-choice": "二重線",
+  hypothesis: "点線",
+  refuted: "斜線",
+  unknown: "一点鎖線",
 };
 
 export const RELATION_LABEL: Record<TheoryRelationType, string> = {

@@ -59,20 +59,27 @@ assert.match(store, /storageMode: "unavailable"/);
 
 for (const label of [
   "ここから、まさの理論マップが始まる", "根拠", "異論", "論点",
-  "既存ノードへ重ねると接続", "残っている論点",
+  "⌘を押したまま接続先をクリック", "⌘＋クリックで2つ選ぶと接続", "残っている論点",
 ]) {
   assert.ok(view.includes(label) || composer.includes(label), `editor UI missing ${label}`);
 }
 for (const contract of [
-  "onBackgroundClick", "onNodeDragEnd", "onLinkClick", "handleNodeDragEnd",
-  "suppressNextBackgroundClick", 'setComposerState({ type: "create" })', 'data-bzm-map-overlay="true"',
+  "onBackgroundClick", "onNodeDragEnd", "onLinkClick", "handleNodeDragEnd", "handleNodeClick",
+  "suppressNextBackgroundClick", "draggedNodeClickRef", "event.metaKey || event.ctrlKey",
+  "setConnectingFromId", 'setComposerState({ type: "create" })', 'data-bzm-map-panel=',
+  "KIND_COLOR", "drawStatusRing", "STATUS_RING_LABEL",
 ]) {
   assert.ok(view.includes(contract) || composer.includes(contract), `direct-manipulation contract missing ${contract}`);
 }
 assert.doesNotMatch(view, /理論を書く|このノードを育てる|既存ノードとつなぐ/);
+assert.doesNotMatch(view, /nearestDistance|overlapDistance/, "dragging must not create an edge");
+assert.doesNotMatch(view, /fillText\(KIND_/, "node centers must not contain kind glyphs");
+assert.doesNotMatch(view, /data-bzm-map-overlay/, "map forms must not cover the graph with an overlay");
 assert.match(composer, /接続のプレビュー/);
 assert.match(composer, /role="dialog"/);
-assert.match(composer, /data-bzm-map-overlay="true"/);
+assert.match(composer, /aria-modal="false"/);
+assert.match(composer, /data-bzm-map-panel="composer"/);
+assert.doesNotMatch(composer, /data-bzm-map-overlay/, "composer must use reserved map workspace");
 assert.match(composer, /sourceRef: form\.sourceRef,/);
 assert.match(composer, /requiredTextMissing/);
 

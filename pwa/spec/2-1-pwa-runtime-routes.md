@@ -46,7 +46,7 @@
 | `/manual` | AMD OS マニュアル。使い方・運用者向け |
 | `/spec` | 設計書。確定実装仕様。admin 限定 |
 | `/bzm` | BZM テキストブック。理論・数式・rubric 導出 |
-| `/bzm/map` | 理論マップ (論証台帳)。共有正本 `bzm_theory_nodes` / `bzm_theory_edges` を0件から本人が育てる。admin は空白クリックでノードを作り、ノード同士を重ねて接続し、線クリックで接続解除する。各panelはマップ内に表示し、memberは閲覧できる。旧Markdown 21ノード / 34関係は履歴資産で自動表示しない。件数・接続数は真偽・確信度を表さない。詳細契約は `/spec/2-6-bzm-theory-map-current-spec` |
+| `/bzm/map` | 理論マップ (論証台帳)。共有正本 `bzm_theory_nodes` / `bzm_theory_edges` を0件から本人が育てる。admin は空白クリックで作成、通常クリックで編集、通常ドラッグで配置変更、Cmd/Ctrl二点クリックで接続、線クリックで接続解除する。各panelはノードを覆わないマップ作業区画に表示し、memberは閲覧できる。旧Markdown 21ノード / 34関係は履歴資産で自動表示しない。件数・接続数は真偽・確信度を表さない。詳細契約は `/spec/2-6-bzm-theory-map-current-spec` |
 | `/knowledge-map` | AMD Materials。高校生でも読める日本語で118元素を熱色・日本語主用途・供給警報から俯瞰し、元素の小窓で直近公表相場・5年推移・産出国円グラフを確認する。総合値は4指標合計（20点満点）で、周期表以外は合計の高い順。全材料横断の需給の崩れランキングは専用の偏りの強さ（5点満点）で並べ、不足側、供給過剰側、価格乱高下を区別し、原因、供給が詰まる工程、評価時点、確からしさを示す。全体の入口はカード全面で操作できる。元素・鉱物・樹脂は選択直後に要点の小窓を開き、詳細操作で同じ小窓を拡張する。樹脂の詳細では原料と製造方法も確認できる。比較、従来のノウハウ地図まで横断する読み取り専用の材料データベース |
 | `/business-cards` | 名刺管理。スマホ撮影 / 写真選択 → Gemini OCR → 人の確認 → 1件以上のPJ紐付け → `business_cards` と D-3 `project_knowledge(category='people')` へ保存する。OCR結果は自動確定しない |
 | `/native/business-cards` | iOS名刺タブ用のナビ無しnative shell。通常の月初合意overlayを重ねず、認証cookieつきWKWebViewから `/business-cards` と同じUI/APIを使う |

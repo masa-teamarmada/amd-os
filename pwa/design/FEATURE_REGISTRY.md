@@ -47,7 +47,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - global `TsukuyomiChatBridge` は従来どおり invisible event bridge のまま。`Mascot.tsx` を `(app)/layout.tsx` に戻さない。
 - マニュアル章の追加・削除・構成変更は `pwa/src/app/(app)/manual/manual-chapters.ts` と `pwa/design/os_manual.md`、必要なら `pwa/manual/9-3-appendix-changelog.md` を同じ作業単位で更新する。
 
-## /bzm/map — BZM 2.0 理論マップ (2026-07-30 追加、2026-08-01 本人作成へリセット、build v3.53.7)
+## /bzm/map — BZM 2.0 理論マップ (2026-07-30 追加、2026-08-01 本人作成へリセット、build v3.53.8)
 
 目的: BZM 2.0 の主張・概念・測定・決定・文献・未解決論点を9関係で結び、自分の理解からノードとエッジを育てる**論証台帳**。「真理マップ」ではなく、ノード数・接続数は真偽・確信度を表さない。
 
@@ -55,9 +55,9 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - source of truth: `bzm_theory_nodes` / `bzm_theory_edges` だけ。migration 208で旧seedを全削除し、0件からまさ本人が育てる。Markdown 21ノード / 34関係とmigration 203のseedは検証・復元用履歴で、ランタイムへ自動表示しない。
 - write contract: member read、admin write。API `/api/bzm/theory-map` は認証後だけ管理クライアントを使い、RLSも `is_admin()` writeを強制。保存操作時だけ書き、通知・外部送信・自動保存はしない。
-- create/grow: マップ空白クリックでマップ内作成panelを開く。選択ノードではマップ下端の「根拠 / 異論 / 論点」を主導線にし、初回エッジの向きを保存前に文章で確認する。マップ外に作成・育成ボタンを置かない。
-- connect/edit: ノードを別ノードへドラッグして重ねると、相手を選択済みのマップ内接続panelを開く。線クリックはマップ内の接続解除確認、選択操作帯はノード編集を持つ。ノード削除UIは持たず、反証済みは `refuted` で履歴保存する。
-- map 表示: `react-force-graph-2d` ( `next/dynamic({ssr:false})` ) による力学グラフ。ノード形状は kind、色は status、半径は接続本数、layer ごとの列分けと同一 layer 内の縦分散を持つ。
+- create/grow: マップ空白クリックで、地図を覆わない予約区画の作成panelを開く。desktopは地図右、mobileは地図下。選択ノードではマップ下端の「根拠 / 異論 / 論点」を派生導線にし、初回エッジの向きを保存前に文章で確認する。マップ外に作成・育成ボタンを置かない。
+- connect/edit: 通常クリックはノード編集、通常ドラッグは配置変更だけ。`Cmd+click`（他OSは`Ctrl+click`）で2ノードを順に選ぶと相手を入力済みの接続panelを開く。1点目はハローと接続待ち帯で示し、ドラッグ後clickは抑止する。線クリックは同じ予約区画の接続解除確認。ノード削除UIは持たず、反証済みは `refuted` で履歴保存する。
+- map 表示: `react-force-graph-2d` ( `next/dynamic({ssr:false})` ) による力学グラフ。ノード塗り色は kind、形もkindの非色情報、外周線パターンはstatus、半径は接続本数、layer ごとの列分けと同一 layer 内の縦分散を持つ。中心略字は表示しない。
 - list 表示: フィルタ通過ノードを kind/layer/status バッジ + 接続本数付きで一覧する。スマホでは list を初期表示する。
 - フィルタ・検索: id/title/summary/source_ref 全文検索、layer・status・relation type のトグルフィルタ、フィルタ解除ボタン。検索と layer/status は map/list へ作用し、relation type は map のエッジだけを絞る。選択ノード台帳は反証の見落としを避けるため relation filter の影響を受けない。
 - 選択ノード台帳パネル: summary、source_ref リンク、本文、関係グループ (支持・異議・検証・依存/上書き・残っている論点・波及先)、**カバレッジの欠落検知** (外部ソース支持なし・異議反証接続なし・tests接続なしを警告表示、真偽判定ではない)。
