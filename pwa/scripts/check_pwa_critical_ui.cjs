@@ -2818,6 +2818,7 @@ expectNotIncludes("src/components/bzm/BzmTheoryMapView.tsx", [
   "data-bzm-map-overlay",
   "nearestDistance",
   "fillText(KIND_",
+  "色 = ステータス",
 ]);
 expectIncludes("src/components/bzm/BzmTheoryComposerDialog.tsx", [
   'data-bzm-map-panel="composer"',

@@ -1245,8 +1245,8 @@ export function BzmTheoryMapView({
           <span className="font-semibold" style={{ color: GRAPHITE }}>
             凡例
           </span>
-          <span>形 = 種別 (○概念 ◇主張 □測定 △決定 ⬡ソース ○点線=問い)</span>
-          <span>色 = ステータス (緑=現行採用・資料存在 青=条件付き 黒鉛=設計選択 オーカー=仮説/未解明 朱=反証済み)</span>
+          <span>塗り色 + 形 = 種別 (青○概念 赤紫◇主張 緑□測定 黄△決定 紫⬡ソース 茶○点線=問い)</span>
+          <span>外周線 = ステータス (実線=現行採用 破線=条件付き 二重線=設計選択 点線=仮説 斜線=反証済み 一点鎖線=未解明)</span>
           <span>線 = 関係 (緑=支持系 オーカー=異議/論点 朱=反証 青=検証/依存 破線=依存・上書き)</span>
         </section>
       </div>
