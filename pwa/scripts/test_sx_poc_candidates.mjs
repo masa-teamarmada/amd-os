@@ -142,9 +142,12 @@ for (const required of [
   "sxIsVcPartner",
   "現在の状況",
   "ゴール",
-  "progressSteps",
-  "aria-controls={`sx-partner-detail-${partner.id}`}",
-  "aria-label={`${display.name}の詳細を開く`}",
+  "PartnerInlineRow",
+  "PartnerProgressHistoryModal",
+  "primaryInterventionTarget",
+  "data-inline-edit-trigger",
+  "aria-controls={`sx-partner-history-${partnerId}`}",
+  "aria-label={`${steps.length}件の進捗と履歴を開く`}",
 ]) {
   assert.ok(
     pipelineSource.includes(required),
@@ -153,7 +156,7 @@ for (const required of [
 }
 
 const comparisonRowSource = pipelineSource.slice(
-  pipelineSource.indexOf("function PartnerComparisonRow"),
+  pipelineSource.indexOf("function PartnerInlineRow"),
   pipelineSource.indexOf("export function SxPartnerPipeline"),
 );
 assert.equal(
@@ -163,8 +166,8 @@ assert.equal(
 );
 assert.ok(
   pipelineSource.indexOf("<PartnerProgressFlow") <
-    pipelineSource.indexOf("function PartnerComparisonRow"),
-  "the detail modal must render the full progress flow",
+    pipelineSource.indexOf("function PartnerInlineRow"),
+  "the history surface must render the full progress flow",
 );
 
 const vcMigration = readFileSync(

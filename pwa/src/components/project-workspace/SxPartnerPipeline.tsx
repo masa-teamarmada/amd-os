@@ -3,20 +3,22 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowRight,
+  Check,
   CircleCheck,
   CircleDot,
   Flag,
-  Plus,
+  LoaderCircle,
   X,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useModalContainment } from "@/components/project-workspace/useModalContainment";
 import type {
-  SxActorSide,
   SxManagementBundle,
   SxManagementPartner,
+  SxPartnerCommitment,
   SxPartnerInteraction,
   SxPartnerRoleKind,
+  SxPartnerWorkItem,
 } from "@/lib/sx-management";
 import {
   SX_PROOF_DEFINITIONS,
@@ -165,12 +167,14 @@ function PartnerStageRail({
   currentBallSide,
   steps,
   onOpen,
+  expanded,
 }: {
   partnerId: string;
   onHold: boolean;
   currentBallSide: SxManagementPartner["currentBallSide"];
   steps: readonly PartnerProgressStep[];
   onOpen?: () => void;
+  expanded?: boolean;
 }) {
   const content = (
     <>
@@ -210,7 +214,9 @@ function PartnerStageRail({
       type="button"
       onClick={onOpen}
       className={className}
-      aria-label={`${steps.length}件の進行状況を直接修正`}
+      aria-label={`${steps.length}件の進捗と履歴を開く`}
+      aria-expanded={expanded}
+      aria-controls={`sx-partner-history-${partnerId}`}
       data-testid={`sx-partner-stage-rail-${partnerId}`}
       data-step-count={steps.length}
     >
@@ -282,6 +288,282 @@ const INTERACTION_KIND_TONE: Record<string, string> = {
 
 const FOCUS_RING =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]";
+
+type PartnerInlineResource =
+  "partner" | "partner_work_item" | "commitment" | "interaction";
+
+type PartnerInlinePatch = {
+  resource: PartnerInlineResource;
+  id: string;
+  patch: Record<string, unknown>;
+};
+
+type PrimaryInterventionTarget =
+  | {
+      resource: "partner_work_item";
+      id: string;
+      record: SxPartnerWorkItem;
+    }
+  | {
+      resource: "commitment";
+      id: string;
+      record: SxPartnerCommitment;
+    }
+  | { resource: "partner"; id: string; record: SxManagementPartner };
+
+function primaryInterventionTarget(
+  partner: SxManagementPartner,
+  intervention: SxPartnerPrimaryIntervention,
+): PrimaryInterventionTarget | null {
+  if (intervention.source === "partner_fallback") {
+    return { resource: "partner", id: partner.id, record: partner };
+  }
+  const workItem = partner.workItems.find(
+    (item) => item.id === intervention.recordId,
+  );
+  if (workItem) {
+    return {
+      resource: "partner_work_item",
+      id: workItem.id,
+      record: workItem,
+    };
+  }
+  const commitment = partner.commitments.find(
+    (item) => item.id === intervention.recordId,
+  );
+  if (commitment) {
+    return {
+      resource: "commitment",
+      id: commitment.id,
+      record: commitment,
+    };
+  }
+  // A normalized holding without its backing row is unsafe to edit. Never fall
+  // through to partner-level fields: that would save derived control data into
+  // the wrong source of truth.
+  return null;
+}
+
+const INLINE_CONTROL_CLASS = `min-h-9 w-full min-w-0 border border-[#aaa294] bg-[#f3f0e8] px-2 text-[11px] text-[#24231f] ${FOCUS_RING}`;
+const INLINE_ACTION_CLASS = `grid h-9 min-w-9 place-items-center border text-[10px] font-semibold ${FOCUS_RING}`;
+const INLINE_BALL_SIDE_OPTIONS = [
+  { value: "sx", label: "当方" },
+  { value: "partner", label: "先方" },
+  { value: "shared", label: "双方" },
+  { value: "none", label: "該当なし" },
+  { value: "unknown", label: "未確認" },
+] as const;
+const INLINE_HOLDING_SIDE_OPTIONS = INLINE_BALL_SIDE_OPTIONS.filter(
+  (option) => option.value !== "none",
+);
+const INLINE_DATE_PRECISION_OPTIONS = [
+  { value: "day", label: "日付確定" },
+  { value: "month", label: "月のみ確定" },
+  { value: "unknown", label: "期限未確認" },
+] as const;
+const INLINE_WORK_STATUS_OPTIONS = [
+  { value: "open", label: "未着手" },
+  { value: "in_progress", label: "進行中" },
+  { value: "waiting", label: "待ち" },
+  { value: "blocked", label: "停止" },
+  { value: "on_hold", label: "保留" },
+  { value: "completed", label: "完了" },
+  { value: "cancelled", label: "取消" },
+] as const;
+const INLINE_COMMITMENT_STATUS_OPTIONS = INLINE_WORK_STATUS_OPTIONS.filter(
+  (option) => option.value !== "waiting" && option.value !== "on_hold",
+);
+
+function changedPatch(
+  previous: Record<string, unknown>,
+  next: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(next).filter(([key, value]) => previous[key] !== value),
+  );
+}
+
+function InlineCellEditor({
+  editorKey,
+  activeEditorKey,
+  label,
+  initialValues,
+  view,
+  viewClassName = "",
+  onRequestEdit,
+  onFinish,
+  onSave,
+  renderFields,
+}: {
+  editorKey: string;
+  activeEditorKey: string | null;
+  label: string;
+  initialValues: Record<string, string>;
+  view: ReactNode;
+  viewClassName?: string;
+  onRequestEdit: (editorKey: string) => boolean;
+  onFinish: () => void;
+  onSave: (values: Record<string, string>) => Promise<void>;
+  renderFields: (
+    values: Record<string, string>,
+    setValue: (key: string, value: string) => void,
+  ) => ReactNode;
+}) {
+  const [values, setValues] = useState<Record<string, string>>(initialValues);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const active = activeEditorKey === editorKey;
+
+  const begin = () => {
+    if (!onRequestEdit(editorKey)) return;
+    setValues(initialValues);
+    setError(null);
+  };
+  const cancel = () => {
+    if (saving) return;
+    setValues(initialValues);
+    setError(null);
+    onFinish();
+  };
+  const save = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave(values);
+      onFinish();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "保存できなかったよ");
+    } finally {
+      setSaving(false);
+    }
+  };
+  const setValue = (key: string, value: string) =>
+    setValues((current) => ({ ...current, [key]: value }));
+
+  if (!active) {
+    return (
+      <button
+        type="button"
+        className={`w-full min-w-0 border-b border-dashed border-[#aaa294] text-left hover:border-[#38745d] hover:bg-[#eef3f5] ${FOCUS_RING} ${viewClassName}`}
+        onClick={begin}
+        aria-label={`${label}を直接修正`}
+        data-inline-edit-trigger={editorKey}
+      >
+        {view}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className="min-w-0 border-l-2 border-[#38745d] bg-[#f8f5ec] p-1.5"
+      data-inline-editor={editorKey}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          cancel();
+        }
+      }}
+    >
+      <div className="grid min-w-0 gap-1.5">
+        {renderFields(values, setValue)}
+      </div>
+      {error && (
+        <p className="mt-1 text-[10px] leading-4 text-[#8c3329]" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="mt-1.5 flex justify-end gap-1">
+        <button
+          type="button"
+          className={`${INLINE_ACTION_CLASS} border-[#cfc7b9] bg-white text-[#69665d]`}
+          onClick={cancel}
+          disabled={saving}
+          aria-label={`${label}の編集を取り消す`}
+        >
+          <X className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className={`${INLINE_ACTION_CLASS} border-[#38745d] bg-[#38745d] text-white disabled:opacity-60`}
+          onClick={save}
+          disabled={saving}
+          aria-label={`${label}を保存`}
+        >
+          {saving ? (
+            <LoaderCircle
+              className="h-3.5 w-3.5 animate-spin"
+              aria-hidden="true"
+            />
+          ) : (
+            <Check className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function InlineDueFields({
+  values,
+  setValue,
+  precision = true,
+}: {
+  values: Record<string, string>;
+  setValue: (key: string, value: string) => void;
+  precision?: boolean;
+}) {
+  const duePrecision = precision
+    ? values.due_date_precision || "unknown"
+    : "day";
+  return (
+    <>
+      {precision && (
+        <label className="grid gap-0.5">
+          <span className="text-[10px] font-semibold text-[#69665d]">
+            期限の精度
+          </span>
+          <select
+            className={INLINE_CONTROL_CLASS}
+            value={duePrecision}
+            onChange={(event) => {
+              setValue("due_date_precision", event.target.value);
+              if (event.target.value === "unknown") setValue("due_date", "");
+            }}
+          >
+            {INLINE_DATE_PRECISION_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {duePrecision !== "unknown" && (
+        <label className="grid gap-0.5">
+          <span className="text-[10px] font-semibold text-[#69665d]">期限</span>
+          <input
+            className={INLINE_CONTROL_CLASS}
+            type={duePrecision === "month" ? "month" : "date"}
+            value={
+              duePrecision === "month"
+                ? (values.due_date || "").slice(0, 7)
+                : values.due_date || ""
+            }
+            onChange={(event) =>
+              setValue(
+                "due_date",
+                duePrecision === "month" && event.target.value
+                  ? `${event.target.value}-01`
+                  : event.target.value,
+              )
+            }
+          />
+        </label>
+      )}
+    </>
+  );
+}
 
 /** Per-item plan connection via relatedMilestoneId. A holding item without an explicit connection is
  * reported as unconnected; the UI never infers a gate from the partner's aggregate links. */
@@ -956,545 +1238,6 @@ function interventionSideText(
         : "保有側未確認";
 }
 
-function PocComparisonDetailModal({
-  partner,
-  canManage,
-  detailEditor,
-  today,
-  milestoneTitleBySlug,
-  milestoneTitleById,
-  milestoneSlugById,
-  criticalPathSlugs,
-  onClose,
-  onEditPartner,
-  onAddInteraction,
-  onEditInteraction,
-  onAddWorkItem,
-  onEditWorkItem,
-  onAddRole,
-  onEditRole,
-}: {
-  partner: SxManagementPartner;
-  canManage: boolean;
-  detailEditor?: ReactNode;
-  today: string;
-  milestoneTitleBySlug: ReadonlyMap<string, string>;
-  milestoneTitleById: ReadonlyMap<string, string>;
-  milestoneSlugById: ReadonlyMap<string, string>;
-  criticalPathSlugs: ReadonlySet<string>;
-  onClose: () => void;
-  onEditPartner?: (partnerId: string) => void;
-  onAddInteraction?: (partnerId: string) => void;
-  onEditInteraction?: (interactionId: string) => void;
-  onAddWorkItem?: (partnerId: string, side: SxActorSide) => void;
-  onEditWorkItem?: (workItemId: string) => void;
-  onAddRole?: (partnerId: string) => void;
-  onEditRole?: (roleId: string) => void;
-}) {
-  const display = sxPartnerDisplay(partner);
-  const progressSteps = buildPartnerProgressSteps(partner);
-  const titleId = `sx-poc-detail-title-${partner.id}`;
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const dialogRef = useRef<HTMLElement>(null);
-  const intervention = sxPartnerPrimaryIntervention(partner, today);
-  const impact = partnerGateImpact(
-    intervention,
-    milestoneTitleById,
-    milestoneSlugById,
-    milestoneTitleBySlug,
-    criticalPathSlugs,
-  );
-  const openHoldings = sxSortHoldingsByPriority(
-    sxHoldingsForPartner(partner),
-    today,
-  );
-  const workItemIds = new Set(partner.workItems.map((item) => item.id));
-  const allInteractions = sxSortInteractionsByRecency(partner.interactions);
-  const closedWorkItems = sxSortHoldingsByPriority(
-    sxAllHoldingsForPartnerAudit(partner).filter(
-      (item) =>
-        workItemIds.has(item.id) &&
-        (item.status === "completed" || item.status === "cancelled"),
-    ),
-    today,
-  );
-  const closedCommitments = partner.commitments.filter(
-    (item) => item.status === "completed" || item.status === "cancelled",
-  );
-
-  useModalContainment({
-    dialogRef,
-    initialFocusRef: closeButtonRef,
-    onClose,
-  });
-
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <div
-      data-modal-layer="sx-partner-detail"
-      className="fixed inset-0 z-50 grid place-items-end bg-[#24231f]/35 p-0 sm:place-items-center sm:p-5"
-      role="presentation"
-      onClick={(event) => event.stopPropagation()}
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <section
-        ref={dialogRef}
-        id={`sx-partner-detail-${partner.id}`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        data-detail-mode={detailEditor ? "edit" : "view"}
-        className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-xl border border-[#d6cebf] bg-[#fffdf7] shadow-2xl sm:max-w-4xl sm:rounded-xl"
-      >
-        <header className="flex items-center justify-between gap-3 border-b border-[#e4ddd0] px-4 py-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">
-              関係先詳細
-            </p>
-            <h4
-              id={titleId}
-              className="truncate text-base font-semibold text-[#24231f]"
-            >
-              {display.name}
-            </h4>
-          </div>
-          <button
-            ref={closeButtonRef}
-            type="button"
-            onClick={onClose}
-            aria-label={`${display.name}の詳細を閉じる`}
-            className={`grid h-11 w-11 shrink-0 place-items-center rounded-md border border-[#cfc7b9] text-[#514e47] hover:bg-[#f8f5ec] ${FOCUS_RING}`}
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </header>
-        <div
-          className={`min-h-0 flex-1 overscroll-contain overflow-y-auto ${detailEditor ? "" : "px-4 py-3"}`}
-          data-detail-body
-        >
-          {detailEditor ? (
-            <div data-testid="sx-partner-inline-editor">{detailEditor}</div>
-          ) : (
-            <>
-              <section aria-labelledby={`${titleId}-control`}>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p
-                    id={`${titleId}-control`}
-                    className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]"
-                  >
-                    現在の管制サマリー
-                  </p>
-                  <SxBadge tone={interventionTone(intervention)}>
-                    {interventionStatusLabel(intervention)}
-                  </SxBadge>
-                </div>
-            <div
-              className={`mt-2 grid gap-px overflow-hidden border border-[#e4ddd0] bg-[#e4ddd0] sm:grid-cols-2 lg:grid-cols-3 ${canManage && onEditPartner ? "cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]" : ""}`}
-              role={canManage && onEditPartner ? "button" : undefined}
-              tabIndex={canManage && onEditPartner ? 0 : undefined}
-              aria-label={
-                canManage && onEditPartner
-                  ? `${display.name}の現在値を直接修正`
-                  : undefined
-              }
-              onClick={
-                canManage && onEditPartner
-                  ? () => onEditPartner(partner.id)
-                  : undefined
-              }
-              onKeyDown={
-                canManage && onEditPartner
-                  ? (event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        onEditPartner(partner.id);
-                      }
-                    }
-                  : undefined
-              }
-            >
-              <div className="bg-white p-3">
-                <p className="text-[10px] font-semibold text-[#69665d]">
-                  次にやること
-                </p>
-                <p className="mt-1 text-[12px] font-semibold leading-5 text-[#24231f]">
-                  {nominalizeSxNextActionLabel(
-                    sxNormalizePublicName(intervention.title),
-                  )}
-                </p>
-                {!intervention.hasStructuredHolding && (
-                  <p className="mt-1 text-[10px] leading-4 text-[#5f4a66]">
-                    保有事項台帳との紐づけが必要
-                  </p>
-                )}
-              </div>
-              <div className="bg-white p-3">
-                <p className="text-[10px] font-semibold text-[#69665d]">
-                  担当・保有側
-                </p>
-                <p className="mt-1 text-[12px] font-semibold text-[#24231f]">
-                  {interventionOwnerText(intervention, display.name)}
-                </p>
-                <p className="mt-1 text-[10px] text-[#69665d]">
-                  {interventionSideText(intervention)} ・{" "}
-                  {sxFormatDueDateWithPrecision(
-                    intervention.dueDate,
-                    intervention.dueDatePrecision,
-                  )}
-                </p>
-              </div>
-              <div className="bg-white p-3">
-                <p className="text-[10px] font-semibold text-[#69665d]">
-                  PJへの影響
-                </p>
-                <p
-                  className={`mt-1 text-[12px] font-semibold leading-5 ${impact.critical ? "text-[#8c3329]" : "text-[#24231f]"}`}
-                >
-                  {impact.title}
-                </p>
-                <p className="mt-1 text-[10px] text-[#69665d]">
-                  {impact.critical
-                    ? "重要経路上"
-                    : impact.connected
-                      ? "関連工程"
-                      : "影響先の接続が必要"}
-                </p>
-              </div>
-              <div className="bg-white p-3">
-                <p className="text-[10px] font-semibold text-[#69665d]">
-                  関係の現在地
-                </p>
-                <p className="mt-1 text-[12px] font-semibold text-[#24231f]">
-                  {sxPartnerIsOnHold(partner)
-                    ? "保留"
-                    : `進行項目 ${buildPartnerProgressSteps(partner).length}件`}
-                </p>
-              </div>
-              <div className="bg-white p-3">
-                <p className="text-[10px] font-semibold text-[#69665d]">
-                  最終確認
-                </p>
-                <p className="mt-1 text-[12px] font-semibold text-[#24231f]">
-                  {sxFormatDate(intervention.lastVerifiedAt)}
-                </p>
-                <p className="mt-1 text-[10px] text-[#69665d]">
-                  確度 {sxConfidenceLabel(partner.confidence)}
-                </p>
-              </div>
-              <div className="bg-white p-3">
-                <p className="text-[10px] font-semibold text-[#69665d]">
-                  保存済みの記録
-                </p>
-                <p className="mt-1 text-[12px] font-semibold text-[#24231f]">
-                  履歴 {allInteractions.length}件 ・ 未完了保有{" "}
-                  {openHoldings.length}件
-                </p>
-                <p className="mt-1 text-[10px] text-[#69665d]">
-                  この下で全文を確認
-                </p>
-              </div>
-            </div>
-          </section>
-
-          <section
-            className="mt-5 border-t border-[#e4ddd0] pt-4"
-            aria-labelledby={`${titleId}-progress`}
-          >
-            <div className="flex flex-wrap items-end justify-between gap-2">
-              <div>
-                <p
-                  id={`${titleId}-progress`}
-                  className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]"
-                >
-                  進行状況
-                </p>
-                <p className="mt-1 text-[11px] leading-5 text-[#69665d]">
-                  接点から現在地、未完了作業、次の一手、ゴールまでの全記録
-                </p>
-              </div>
-              <span className="text-[10px] font-semibold text-[#69665d]">
-                全{progressSteps.length}項目
-              </span>
-            </div>
-            <div className="mt-2">
-              <PartnerProgressFlow
-                partner={partner}
-                displayName={display.name}
-                steps={progressSteps}
-              />
-            </div>
-          </section>
-
-          {canManage && onAddRole && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => onAddRole(partner.id)}
-                className={`inline-flex min-h-11 items-center gap-1 border border-[#cfc7b9] px-3 text-[11px] font-semibold ${FOCUS_RING}`}
-              >
-                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                分類を追加
-              </button>
-            </div>
-          )}
-
-          <section
-            className="mt-5 border-t border-[#e4ddd0] pt-4"
-            aria-labelledby={`${titleId}-holdings`}
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p
-                id={`${titleId}-holdings`}
-                className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]"
-              >
-                未完了の保有事項・約束 {openHoldings.length}件
-              </p>
-              {canManage && onAddWorkItem && (
-                <div
-                  className="flex flex-wrap gap-1"
-                  aria-label={`${display.name}の保有事項を追加`}
-                >
-                  {(["sx", "partner", "shared", "unknown"] as const).map(
-                    (side) => (
-                      <button
-                        key={side}
-                        type="button"
-                        onClick={() => onAddWorkItem(partner.id, side)}
-                        className={`inline-flex min-h-11 items-center gap-1 rounded-md border border-[#cfc7b9] px-2 text-[10px] font-semibold ${FOCUS_RING}`}
-                      >
-                        <Plus className="h-3 w-3" aria-hidden="true" />
-                        {side === "sx"
-                          ? "当方"
-                          : side === "partner"
-                            ? "先方"
-                            : side === "shared"
-                              ? "双方"
-                              : "未確認"}
-                      </button>
-                    ),
-                  )}
-                </div>
-              )}
-            </div>
-            {openHoldings.length > 0 ? (
-              <ul className="mt-2 divide-y divide-[#eee9df] border-y border-[#e4ddd0] bg-white">
-                {openHoldings.map((item) => (
-                  <HoldingRow
-                    key={item.id}
-                    item={item}
-                    partnerName={display.name}
-                    today={today}
-                    milestoneTitleById={milestoneTitleById}
-                    milestoneSlugById={milestoneSlugById}
-                    showSideBadge={item.side}
-                    canManage={canManage}
-                    onEdit={
-                      workItemIds.has(item.id) ? onEditWorkItem : undefined
-                    }
-                  />
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-2 border-l-4 border-[#8f7aa0] bg-[#f1edf3] px-3 py-2 text-[11px] leading-5 text-[#5f4a66]">
-                構造化された保有事項はまだない。上の次アクションは関係先本体の記録から表示してる。
-              </p>
-            )}
-          </section>
-
-          <section
-            className="mt-5 border-t border-[#e4ddd0] pt-4"
-            aria-labelledby={`${titleId}-history`}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <p
-                id={`${titleId}-history`}
-                className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]"
-              >
-                やり取り履歴（全文・全{allInteractions.length}件）
-              </p>
-              {canManage && onAddInteraction && (
-                <button
-                  type="button"
-                  onClick={() => onAddInteraction(partner.id)}
-                  className={`inline-flex min-h-11 items-center gap-1 rounded-md border border-[#cfc7b9] px-3 text-[10px] font-semibold ${FOCUS_RING}`}
-                >
-                  <Plus className="h-3 w-3" aria-hidden="true" />
-                  履歴を追加
-                </button>
-              )}
-            </div>
-            {allInteractions.length > 0 ? (
-              <ul className="mt-2 divide-y divide-[#eee9df] border-y border-[#e4ddd0] bg-white">
-                {allInteractions.map((interaction) => (
-                  <InteractionFullRow
-                    key={interaction.id}
-                    interaction={interaction}
-                    partnerName={display.name}
-                    canManage={canManage}
-                    onEdit={onEditInteraction}
-                  />
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-2 border border-dashed border-[#d6cebf] p-3 text-[11px] text-[#69665d]">
-                保存済みのやり取り履歴はまだない。
-              </p>
-            )}
-          </section>
-
-          <section
-            className="mt-5 border-t border-[#e4ddd0] pt-4"
-            aria-labelledby={`${titleId}-context`}
-          >
-            <p
-              id={`${titleId}-context`}
-              className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]"
-            >
-              関係の目標・合意範囲・出典
-            </p>
-            <dl className="mt-2 grid gap-px overflow-hidden rounded-md border border-[#e4ddd0] bg-[#e4ddd0] sm:grid-cols-2">
-              <div className="bg-white p-3">
-                <dt className="text-[10px] font-semibold text-[#69665d]">
-                  目標状態
-                </dt>
-                <dd className="mt-1 text-[11px] leading-5 text-[#24231f]">
-                  {partner.targetState
-                    ? sxNormalizePublicName(partner.targetState)
-                    : "未登録"}
-                </dd>
-              </div>
-              <div className="bg-white p-3">
-                <dt className="text-[10px] font-semibold text-[#69665d]">
-                  合意済み
-                </dt>
-                <dd className="mt-1 text-[11px] leading-5 text-[#24231f]">
-                  {partner.agreedScope
-                    ? sxNormalizePublicName(partner.agreedScope)
-                    : "未登録"}
-                </dd>
-              </div>
-              <div className="bg-white p-3">
-                <dt className="text-[10px] font-semibold text-[#69665d]">
-                  未合意
-                </dt>
-                <dd className="mt-1 text-[11px] leading-5 text-[#24231f]">
-                  {partner.unagreedScope
-                    ? sxNormalizePublicName(partner.unagreedScope)
-                    : "未登録"}
-                </dd>
-              </div>
-              <div className="bg-white p-3">
-                <dt className="text-[10px] font-semibold text-[#69665d]">
-                  出典・確度
-                </dt>
-                <dd className="mt-1 text-[11px] leading-5 text-[#24231f]">
-                  {sxSourceKindLabel(partner.sourceKind)}
-                  {sxSourceRefDisplayLabel(partner.sourceRef)
-                    ? ` ・ ${sxSourceRefDisplayLabel(partner.sourceRef)}`
-                    : ""}{" "}
-                  ・ {sxConfidenceLabel(partner.confidence)}
-                </dd>
-              </div>
-            </dl>
-            {partner.roles.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {partner.roles.map((role) => (
-                  <div
-                    key={role.id}
-                    className={`flex min-h-11 items-center gap-1.5 border border-[#e4ddd0] bg-white px-2 text-[10px] ${canManage && onEditRole ? "cursor-pointer hover:bg-[#f1f6f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]" : ""}`}
-                    role={canManage && onEditRole ? "button" : undefined}
-                    tabIndex={canManage && onEditRole ? 0 : undefined}
-                    aria-label={
-                      canManage && onEditRole
-                        ? `${display.name}の分類を直接修正`
-                        : undefined
-                    }
-                    onClick={
-                      canManage && onEditRole
-                        ? () => onEditRole(role.id)
-                        : undefined
-                    }
-                    onKeyDown={
-                      canManage && onEditRole
-                        ? (event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              onEditRole(role.id);
-                            }
-                          }
-                        : undefined
-                    }
-                  >
-                    <span className="font-semibold text-[#24231f]">
-                      {role.isPrimary ? "主分類" : "副分類"}・
-                      {sxPartnerRoleKindLabel(role.roleKind)}
-                    </span>
-                    <span className="text-[#69665d]">
-                      {sxRelationshipStateLabel(role.relationshipState)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {(closedWorkItems.length > 0 || closedCommitments.length > 0) && (
-            <details className="mt-5 border-t border-[#e4ddd0] pt-3">
-              <summary
-                className={`flex min-h-11 cursor-pointer items-center text-[10px] font-semibold text-[#69665d] ${FOCUS_RING}`}
-              >
-                完了・取消の保有事項{" "}
-                {closedWorkItems.length + closedCommitments.length}件
-              </summary>
-              {closedWorkItems.length > 0 && (
-                <ul className="divide-y divide-[#eee9df] border-y border-[#e4ddd0] bg-white">
-                  {closedWorkItems.map((item) => (
-                    <HoldingRow
-                      key={item.id}
-                      item={item}
-                      partnerName={display.name}
-                      today={today}
-                      milestoneTitleById={milestoneTitleById}
-                      milestoneSlugById={milestoneSlugById}
-                      showSideBadge={item.side}
-                      canManage={canManage}
-                      onEdit={onEditWorkItem}
-                    />
-                  ))}
-                </ul>
-              )}
-              {closedCommitments.map((item) => (
-                <div
-                  key={item.id}
-                  className="border-b border-[#eee9df] bg-white p-3 text-[11px]"
-                >
-                  <p className="font-semibold text-[#24231f]">
-                    {nominalizeSxActionLabel(sxNormalizePublicName(item.title))}
-                  </p>
-                  <p className="mt-1 text-[#69665d]">
-                    {item.status === "completed" ? "完了" : "取消"} ・{" "}
-                    {sxFormatDate(item.completedOn)}
-                  </p>
-                </div>
-              ))}
-            </details>
-          )}
-            </>
-          )}
-        </div>
-      </section>
-    </div>,
-    document.body,
-  );
-}
-
-/**
- * これまでの接点 → 現在地 → これから → ゴール。
- * 会社名下のrailと同じstepsを受け取り、件数と順序のずれを起こさない。
- */
 function PartnerProgressFlow({
   partner,
   displayName,
@@ -1589,7 +1332,219 @@ function PartnerProgressFlow({
   );
 }
 
-/** 行全体が1つの詳細ボタンなので、各セルは比較用の表示区画に徹する。 */
+function PartnerProgressHistoryModal({
+  partner,
+  today,
+  milestoneTitleById,
+  milestoneSlugById,
+  onClose,
+}: {
+  partner: SxManagementPartner;
+  today: string;
+  milestoneTitleById: ReadonlyMap<string, string>;
+  milestoneSlugById: ReadonlyMap<string, string>;
+  onClose: () => void;
+}) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
+  const display = sxPartnerDisplay(partner);
+  const steps = buildPartnerProgressSteps(partner);
+  const interactions = sxSortInteractionsByRecency(partner.interactions);
+  const openHoldings = sxSortHoldingsByPriority(
+    sxHoldingsForPartner(partner),
+    today,
+  );
+  const closedWorkItems = sxSortHoldingsByPriority(
+    sxAllHoldingsForPartnerAudit(partner).filter(
+      (item) => item.status === "completed" || item.status === "cancelled",
+    ),
+    today,
+  );
+  const closedCommitments = partner.commitments.filter(
+    (item) => item.status === "completed" || item.status === "cancelled",
+  );
+  const titleId = `sx-partner-history-title-${partner.id}`;
+
+  useModalContainment({
+    dialogRef,
+    initialFocusRef: closeButtonRef,
+    onClose,
+  });
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 grid place-items-end bg-[#24231f]/35 p-0 sm:place-items-center sm:p-5"
+      role="presentation"
+      data-modal-layer="sx-partner-history"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section
+        ref={dialogRef}
+        id={`sx-partner-history-${partner.id}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-xl border border-[#d6cebf] bg-[#fffdf7] shadow-2xl sm:max-w-4xl sm:rounded-xl"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <header className="flex items-center justify-between gap-3 border-b border-[#e4ddd0] px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">
+              進捗・履歴
+            </p>
+            <h4
+              id={titleId}
+              className="truncate text-base font-semibold text-[#24231f]"
+            >
+              {display.name}
+            </h4>
+          </div>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            onClick={onClose}
+            aria-label={`${display.name}の進捗と履歴を閉じる`}
+            className={`grid h-11 w-11 shrink-0 place-items-center rounded-md border border-[#cfc7b9] text-[#514e47] hover:bg-[#f8f5ec] ${FOCUS_RING}`}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
+          <section aria-labelledby={`${titleId}-flow`}>
+            <div className="flex items-end justify-between gap-2">
+              <div>
+                <p
+                  id={`${titleId}-flow`}
+                  className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]"
+                >
+                  進行状況
+                </p>
+                <p className="mt-1 text-[11px] leading-5 text-[#69665d]">
+                  接点、現在地、未完了事項、次の一手、ゴールを時系列で確認
+                </p>
+              </div>
+              <span className="text-[10px] font-semibold text-[#69665d]">
+                全{steps.length}項目
+              </span>
+            </div>
+            <div className="mt-2">
+              <PartnerProgressFlow
+                partner={partner}
+                displayName={display.name}
+                steps={steps}
+              />
+            </div>
+          </section>
+
+          <section
+            className="mt-5 border-t border-[#e4ddd0] pt-4"
+            aria-labelledby={`${titleId}-holdings`}
+          >
+            <p
+              id={`${titleId}-holdings`}
+              className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]"
+            >
+              未完了の保有事項・約束 {openHoldings.length}件
+            </p>
+            {openHoldings.length > 0 ? (
+              <ul className="mt-2 divide-y divide-[#eee9df] border-y border-[#e4ddd0] bg-white">
+                {openHoldings.map((item) => (
+                  <HoldingRow
+                    key={item.id}
+                    item={item}
+                    partnerName={display.name}
+                    today={today}
+                    milestoneTitleById={milestoneTitleById}
+                    milestoneSlugById={milestoneSlugById}
+                    showSideBadge={item.side}
+                  />
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 border border-dashed border-[#d6cebf] p-3 text-[11px] text-[#69665d]">
+                未完了の保有事項・約束はない。
+              </p>
+            )}
+          </section>
+
+          <section
+            className="mt-5 border-t border-[#e4ddd0] pt-4"
+            aria-labelledby={`${titleId}-interactions`}
+          >
+            <p
+              id={`${titleId}-interactions`}
+              className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]"
+            >
+              やり取り履歴（全{interactions.length}件）
+            </p>
+            {interactions.length > 0 ? (
+              <ul className="mt-2 divide-y divide-[#eee9df] border-y border-[#e4ddd0] bg-white">
+                {interactions.map((interaction) => (
+                  <InteractionFullRow
+                    key={interaction.id}
+                    interaction={interaction}
+                    partnerName={display.name}
+                    canManage={false}
+                  />
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 border border-dashed border-[#d6cebf] p-3 text-[11px] text-[#69665d]">
+                保存済みのやり取り履歴はまだない。
+              </p>
+            )}
+          </section>
+
+          {(closedWorkItems.length > 0 || closedCommitments.length > 0) && (
+            <details className="mt-5 border-t border-[#e4ddd0] pt-3">
+              <summary
+                className={`flex min-h-11 cursor-pointer items-center text-[10px] font-semibold text-[#69665d] ${FOCUS_RING}`}
+              >
+                完了・取消の保有事項{" "}
+                {closedWorkItems.length + closedCommitments.length}件
+              </summary>
+              {closedWorkItems.length > 0 && (
+                <ul className="divide-y divide-[#eee9df] border-y border-[#e4ddd0] bg-white">
+                  {closedWorkItems.map((item) => (
+                    <HoldingRow
+                      key={item.id}
+                      item={item}
+                      partnerName={display.name}
+                      today={today}
+                      milestoneTitleById={milestoneTitleById}
+                      milestoneSlugById={milestoneSlugById}
+                      showSideBadge={item.side}
+                    />
+                  ))}
+                </ul>
+              )}
+              {closedCommitments.map((item) => (
+                <div
+                  key={item.id}
+                  className="border-b border-[#eee9df] bg-white p-3 text-[11px]"
+                >
+                  <p className="font-semibold text-[#24231f]">
+                    {nominalizeSxActionLabel(sxNormalizePublicName(item.title))}
+                  </p>
+                  <p className="mt-1 text-[#69665d]">
+                    {item.status === "completed" ? "完了" : "取消"} ・{" "}
+                    {sxFormatDate(item.completedOn)}
+                  </p>
+                </div>
+              ))}
+            </details>
+          )}
+        </div>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
+/** 一覧の列幅を共有する表示区画。編集可否はセル内の値単位で決める。 */
 function PartnerRowCell({
   className = "",
   children,
@@ -1600,53 +1555,45 @@ function PartnerRowCell({
   return <div className={`min-w-0 text-left ${className}`}>{children}</div>;
 }
 
-function PartnerComparisonRow({
+function PartnerInlineRow({
   partner,
+  milestones,
   milestoneTitleBySlug,
   milestoneTitleById,
   milestoneSlugById,
   criticalPathSlugs,
   canManage,
-  detailEditor,
   today,
   expanded,
+  activeEditorKey,
   onToggleExpand,
-  onEditPartner,
-  onAddInteraction,
-  onEditInteraction,
-  onAddWorkItem,
-  onEditWorkItem,
-  onAddRole,
-  onEditRole,
-  onDetailClose,
+  onRequestInlineEdit,
+  onFinishInlineEdit,
+  onPatch,
 }: {
   partner: SxManagementPartner;
+  milestones: Array<{ id: string; title: string }>;
   milestoneTitleBySlug: ReadonlyMap<string, string>;
   milestoneTitleById: ReadonlyMap<string, string>;
   milestoneSlugById: ReadonlyMap<string, string>;
   criticalPathSlugs: ReadonlySet<string>;
   canManage: boolean;
-  detailEditor?: ReactNode;
   today: string;
   expanded: boolean;
+  activeEditorKey: string | null;
   onToggleExpand: (partnerId: string) => void;
-  onEditPartner?: (partnerId: string) => void;
-  onAddInteraction?: (partnerId: string) => void;
-  onEditInteraction?: (interactionId: string) => void;
-  onAddWorkItem?: (partnerId: string, side: SxActorSide) => void;
-  onEditWorkItem?: (workItemId: string) => void;
-  onAddRole?: (partnerId: string) => void;
-  onEditRole?: (roleId: string) => void;
-  onDetailClose?: () => boolean | void;
+  onRequestInlineEdit: (editorKey: string) => boolean;
+  onFinishInlineEdit: () => void;
+  onPatch: (request: PartnerInlinePatch) => Promise<void>;
 }) {
   const display = sxPartnerDisplay(partner);
   const steps = buildPartnerProgressSteps(partner);
   const nowStep = steps.find((step) => step.phase === "now");
   const goalStep = steps.find((step) => step.phase === "goal");
-  const openDetail = () => onToggleExpand(partner.id);
   const latest = sxLatestInteraction(partner.interactions);
   const holdings = sxHoldingsForPartner(partner);
   const intervention = sxPartnerPrimaryIntervention(partner, today);
+  const target = primaryInterventionTarget(partner, intervention);
   const impact = partnerGateImpact(
     intervention,
     milestoneTitleById,
@@ -1676,6 +1623,80 @@ function PartnerComparisonRow({
           : intervention.risk === "waiting"
             ? "待ち状態"
             : "進行中";
+  const keyFor = (field: string) => `${partner.id}:${field}`;
+  const targetOwner =
+    target?.resource === "partner_work_item"
+      ? target.record.ownerLabel || ""
+      : target?.resource === "commitment"
+        ? target.record.commitmentKind === "counterparty_promise"
+          ? target.record.counterpartyOwner || ""
+          : target.record.sxOwner || ""
+        : target?.resource === "partner"
+          ? target.record.currentBallOwner || ""
+          : "";
+  const targetSide =
+    target?.resource === "partner_work_item"
+      ? target.record.side
+      : target?.resource === "partner"
+        ? target.record.currentBallSide
+        : intervention.side;
+  const targetDueDate =
+    target?.resource === "partner_work_item"
+      ? target.record.dueDate
+      : target?.resource === "commitment"
+        ? target.record.dueDate
+        : target?.resource === "partner"
+          ? target.record.dueDate
+          : null;
+  const targetDuePrecision =
+    target?.resource === "partner_work_item"
+      ? target.record.dueDatePrecision
+      : target?.resource === "partner"
+        ? target.record.dueDatePrecision
+        : targetDueDate
+          ? "day"
+          : "unknown";
+  const patchIfChanged = async (
+    resource: PartnerInlineResource,
+    id: string,
+    previous: Record<string, unknown>,
+    next: Record<string, unknown>,
+  ) => {
+    const patch = changedPatch(previous, next);
+    if (Object.keys(patch).length === 0) return;
+    await onPatch({ resource, id, patch });
+  };
+
+  const relationNameView = (
+    <p
+      id={nameHeadingId}
+      className="flex min-h-9 items-center truncate text-[12px] font-semibold text-[#24231f]"
+    >
+      {display.name}
+    </p>
+  );
+  const currentView = nowStep ? (
+    <>
+      <p
+        className="line-clamp-2 text-[11px] font-semibold leading-4 text-[#24231f]"
+        title={nowStep.title}
+      >
+        {nowStep.title}
+      </p>
+      <p className="mt-0.5 text-[10px] text-[#69665d]">{nowStep.sub}</p>
+    </>
+  ) : (
+    <p className="text-[10px] leading-4 text-[#5f4a66]">現在地未登録</p>
+  );
+  const goalView = (
+    <p
+      className="line-clamp-2 text-[11px] font-semibold leading-4 text-[#24231f]"
+      title={goalStep?.title}
+    >
+      {goalStep?.title ?? "目標状態 未登録"}
+    </p>
+  );
+
   return (
     <article
       id={`sx-partner-${partner.id}`}
@@ -1684,25 +1705,48 @@ function PartnerComparisonRow({
       aria-labelledby={nameHeadingId}
       className="scroll-mt-24 border-b border-[#eee9df] bg-[#fffdf7]"
     >
-      <button
-        type="button"
-        aria-expanded={expanded}
-        aria-controls={`sx-partner-detail-${partner.id}`}
-        onClick={openDetail}
-        className={`grid w-full grid-cols-1 items-stretch gap-2 px-3 py-2.5 text-left hover:bg-[#f8f5ec] sm:grid-cols-[minmax(0,1fr)_104px] ${FOCUS_RING}`}
-        aria-label={`${display.name}の詳細を開く`}
-      >
+      <div className="grid w-full grid-cols-1 items-stretch gap-2 px-3 py-2.5 text-left sm:grid-cols-[minmax(0,1fr)_104px]">
         <div
           className={`grid min-w-0 grid-cols-1 gap-x-3 gap-y-2 md:grid-cols-2 ${PARTNER_CONTROL_INNER_GRID}`}
         >
           <div className="min-w-0 md:col-span-2 @min-[1280px]:col-span-1">
-            <p
-              id={nameHeadingId}
-              className="flex min-h-11 items-center truncate text-[12px] font-semibold text-[#24231f]"
-            >
-              {display.name}
-            </p>
-            <p className="text-[10px] text-[#69665d]">
+            {canManage ? (
+              <InlineCellEditor
+                editorKey={keyFor("name")}
+                activeEditorKey={activeEditorKey}
+                label={`${display.name}の関係先名`}
+                initialValues={{ name: partner.name }}
+                view={relationNameView}
+                onRequestEdit={onRequestInlineEdit}
+                onFinish={onFinishInlineEdit}
+                onSave={async (values) => {
+                  const name = values.name.trim();
+                  if (!name) throw new Error("関係先名を入力してね");
+                  await patchIfChanged(
+                    "partner",
+                    partner.id,
+                    { name: partner.name },
+                    { name },
+                  );
+                }}
+                renderFields={(values, setValue) => (
+                  <label className="grid gap-0.5">
+                    <span className="text-[10px] font-semibold text-[#69665d]">
+                      関係先名
+                    </span>
+                    <input
+                      autoFocus
+                      className={INLINE_CONTROL_CLASS}
+                      value={values.name}
+                      onChange={(event) => setValue("name", event.target.value)}
+                    />
+                  </label>
+                )}
+              />
+            ) : (
+              relationNameView
+            )}
+            <p className="mt-0.5 text-[10px] text-[#69665d]">
               最終確認 {sxFormatDate(partner.lastVerifiedAt)}
             </p>
             <div className="mt-1.5">
@@ -1711,6 +1755,8 @@ function PartnerComparisonRow({
                 onHold={sxPartnerIsOnHold(partner)}
                 currentBallSide={partner.currentBallSide}
                 steps={steps}
+                onOpen={() => onToggleExpand(partner.id)}
+                expanded={expanded}
               />
             </div>
           </div>
@@ -1719,22 +1765,82 @@ function PartnerComparisonRow({
             <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
               現在の状況
             </p>
-            {nowStep ? (
-              <>
-                <p
-                  className="line-clamp-2 text-[11px] font-semibold leading-4 text-[#24231f]"
-                  title={nowStep.title}
-                >
-                  {nowStep.title}
-                </p>
-                <p className="mt-0.5 text-[10px] text-[#69665d]">
-                  {nowStep.sub}
-                </p>
-              </>
+            {canManage ? (
+              <InlineCellEditor
+                editorKey={keyFor("current")}
+                activeEditorKey={activeEditorKey}
+                label={`${display.name}の現在の状況`}
+                initialValues={{
+                  current_ball_side: partner.currentBallSide,
+                  current_ball_owner: partner.currentBallOwner || "",
+                  due_date: partner.dueDate || "",
+                  due_date_precision: partner.dueDatePrecision,
+                }}
+                view={currentView}
+                onRequestEdit={onRequestInlineEdit}
+                onFinish={onFinishInlineEdit}
+                onSave={async (values) => {
+                  const dueDate =
+                    values.due_date_precision === "unknown"
+                      ? null
+                      : values.due_date || null;
+                  await patchIfChanged(
+                    "partner",
+                    partner.id,
+                    {
+                      current_ball_side: partner.currentBallSide,
+                      current_ball_owner: partner.currentBallOwner,
+                      due_date: partner.dueDate,
+                      due_date_precision: partner.dueDatePrecision,
+                    },
+                    {
+                      current_ball_side: values.current_ball_side,
+                      current_ball_owner:
+                        values.current_ball_owner.trim() || null,
+                      due_date: dueDate,
+                      due_date_precision: values.due_date_precision,
+                    },
+                  );
+                }}
+                renderFields={(values, setValue) => (
+                  <>
+                    <label className="grid gap-0.5">
+                      <span className="text-[10px] font-semibold text-[#69665d]">
+                        保有側
+                      </span>
+                      <select
+                        autoFocus
+                        className={INLINE_CONTROL_CLASS}
+                        value={values.current_ball_side}
+                        onChange={(event) =>
+                          setValue("current_ball_side", event.target.value)
+                        }
+                      >
+                        {INLINE_BALL_SIDE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="grid gap-0.5">
+                      <span className="text-[10px] font-semibold text-[#69665d]">
+                        担当
+                      </span>
+                      <input
+                        className={INLINE_CONTROL_CLASS}
+                        value={values.current_ball_owner}
+                        onChange={(event) =>
+                          setValue("current_ball_owner", event.target.value)
+                        }
+                      />
+                    </label>
+                    <InlineDueFields values={values} setValue={setValue} />
+                  </>
+                )}
+              />
             ) : (
-              <p className="text-[10px] leading-4 text-[#5f4a66]">
-                現在地未登録
-              </p>
+              currentView
             )}
           </PartnerRowCell>
 
@@ -1742,12 +1848,43 @@ function PartnerComparisonRow({
             <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
               ゴール
             </p>
-            <p
-              className="line-clamp-2 text-[11px] font-semibold leading-4 text-[#24231f]"
-              title={goalStep?.title}
-            >
-              {goalStep?.title ?? "目標状態 未登録"}
-            </p>
+            {canManage ? (
+              <InlineCellEditor
+                editorKey={keyFor("goal")}
+                activeEditorKey={activeEditorKey}
+                label={`${display.name}のゴール`}
+                initialValues={{ target_state: partner.targetState || "" }}
+                view={goalView}
+                onRequestEdit={onRequestInlineEdit}
+                onFinish={onFinishInlineEdit}
+                onSave={async (values) =>
+                  patchIfChanged(
+                    "partner",
+                    partner.id,
+                    { target_state: partner.targetState },
+                    { target_state: values.target_state.trim() || null },
+                  )
+                }
+                renderFields={(values, setValue) => (
+                  <label className="grid gap-0.5">
+                    <span className="text-[10px] font-semibold text-[#69665d]">
+                      ゴール
+                    </span>
+                    <textarea
+                      autoFocus
+                      rows={2}
+                      className={`${INLINE_CONTROL_CLASS} py-1.5 leading-4`}
+                      value={values.target_state}
+                      onChange={(event) =>
+                        setValue("target_state", event.target.value)
+                      }
+                    />
+                  </label>
+                )}
+              />
+            ) : (
+              goalView
+            )}
           </PartnerRowCell>
 
           <PartnerRowCell className="border-l-2 border-[#d6cebf] pl-2">
@@ -1759,17 +1896,78 @@ function PartnerComparisonRow({
             >
               {bottleneckLabel}
             </span>
-            <p
-              className={`mt-1 line-clamp-2 text-[10px] font-semibold leading-4 ${impact.critical ? "text-[#8c3329]" : "text-[#24231f]"}`}
-              title={impact.title}
-            >
-              {impact.critical
-                ? "重要経路："
-                : impact.connected
-                  ? "止まる先："
-                  : ""}
-              {impact.title}
-            </p>
+            {canManage && target?.resource === "partner_work_item" ? (
+              <InlineCellEditor
+                editorKey={keyFor("impact")}
+                activeEditorKey={activeEditorKey}
+                label={`${display.name}のPJ影響先`}
+                initialValues={{
+                  related_milestone_id: target.record.relatedMilestoneId || "",
+                }}
+                view={
+                  <p
+                    className={`mt-1 line-clamp-2 text-[10px] font-semibold leading-4 ${impact.critical ? "text-[#8c3329]" : "text-[#24231f]"}`}
+                    title={impact.title}
+                  >
+                    {impact.critical
+                      ? "重要経路："
+                      : impact.connected
+                        ? "止まる先："
+                        : ""}
+                    {impact.title}
+                  </p>
+                }
+                viewClassName="mt-1"
+                onRequestEdit={onRequestInlineEdit}
+                onFinish={onFinishInlineEdit}
+                onSave={async (values) =>
+                  patchIfChanged(
+                    "partner_work_item",
+                    target.id,
+                    {
+                      related_milestone_id: target.record.relatedMilestoneId,
+                    },
+                    {
+                      related_milestone_id: values.related_milestone_id || null,
+                    },
+                  )
+                }
+                renderFields={(values, setValue) => (
+                  <label className="grid gap-0.5">
+                    <span className="text-[10px] font-semibold text-[#69665d]">
+                      影響する工程
+                    </span>
+                    <select
+                      autoFocus
+                      className={INLINE_CONTROL_CLASS}
+                      value={values.related_milestone_id}
+                      onChange={(event) =>
+                        setValue("related_milestone_id", event.target.value)
+                      }
+                    >
+                      <option value="">工程未接続</option>
+                      {milestones.map((milestone) => (
+                        <option key={milestone.id} value={milestone.id}>
+                          {milestone.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              />
+            ) : (
+              <p
+                className={`mt-1 line-clamp-2 text-[10px] font-semibold leading-4 ${impact.critical ? "text-[#8c3329]" : "text-[#24231f]"}`}
+                title={impact.title}
+              >
+                {impact.critical
+                  ? "重要経路："
+                  : impact.connected
+                    ? "止まる先："
+                    : ""}
+                {impact.title}
+              </p>
+            )}
             {!intervention.hasStructuredHolding && (
               <p className="mt-0.5 text-[10px] leading-4 text-[#5f4a66]">
                 具体的な保有事項との紐づけなし
@@ -1781,50 +1979,478 @@ function PartnerComparisonRow({
             <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
               次にやること
             </p>
-            <p
-              className="line-clamp-2 text-[11px] font-semibold leading-4 text-[#24231f]"
-              title={actionText}
-            >
-              {actionText}
-            </p>
-            <p className="mt-1 text-[10px] text-[#69665d]">
-              {interventionStatusLabel(intervention)}
-              {holdings.length > 1 ? ` ・ ほか${holdings.length - 1}件` : ""}
-            </p>
+            {canManage && target ? (
+              <InlineCellEditor
+                editorKey={keyFor("action")}
+                activeEditorKey={activeEditorKey}
+                label={`${display.name}の次にやること`}
+                initialValues={{
+                  title:
+                    target.resource === "partner"
+                      ? target.record.nextCommitment
+                      : target.record.title,
+                  status:
+                    target.resource === "partner" ? "" : target.record.status,
+                }}
+                view={
+                  <>
+                    <p
+                      className="line-clamp-2 text-[11px] font-semibold leading-4 text-[#24231f]"
+                      title={actionText}
+                    >
+                      {actionText}
+                    </p>
+                    <p className="mt-1 text-[10px] text-[#69665d]">
+                      {interventionStatusLabel(intervention)}
+                      {holdings.length > 1
+                        ? ` ・ ほか${holdings.length - 1}件`
+                        : ""}
+                    </p>
+                  </>
+                }
+                onRequestEdit={onRequestInlineEdit}
+                onFinish={onFinishInlineEdit}
+                onSave={async (values) => {
+                  const title = values.title.trim();
+                  if (!title) throw new Error("次にやることを入力してね");
+                  if (target.resource === "partner_work_item") {
+                    await patchIfChanged(
+                      "partner_work_item",
+                      target.id,
+                      {
+                        title: target.record.title,
+                        status: target.record.status,
+                      },
+                      { title, status: values.status },
+                    );
+                    return;
+                  }
+                  if (target.resource === "commitment") {
+                    await patchIfChanged(
+                      "commitment",
+                      target.id,
+                      {
+                        title: target.record.title,
+                        status: target.record.status,
+                      },
+                      { title, status: values.status },
+                    );
+                    return;
+                  }
+                  await patchIfChanged(
+                    "partner",
+                    target.id,
+                    { next_commitment: target.record.nextCommitment },
+                    { next_commitment: title },
+                  );
+                }}
+                renderFields={(values, setValue) => (
+                  <>
+                    <label className="grid gap-0.5">
+                      <span className="text-[10px] font-semibold text-[#69665d]">
+                        次にやること
+                      </span>
+                      <textarea
+                        autoFocus
+                        rows={2}
+                        className={`${INLINE_CONTROL_CLASS} py-1.5 leading-4`}
+                        value={values.title}
+                        onChange={(event) =>
+                          setValue("title", event.target.value)
+                        }
+                      />
+                    </label>
+                    {target.resource !== "partner" && (
+                      <label className="grid gap-0.5">
+                        <span className="text-[10px] font-semibold text-[#69665d]">
+                          状態
+                        </span>
+                        <select
+                          className={INLINE_CONTROL_CLASS}
+                          value={values.status}
+                          onChange={(event) =>
+                            setValue("status", event.target.value)
+                          }
+                        >
+                          {(target.resource === "commitment"
+                            ? INLINE_COMMITMENT_STATUS_OPTIONS
+                            : INLINE_WORK_STATUS_OPTIONS
+                          ).map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                  </>
+                )}
+              />
+            ) : (
+              <>
+                <p
+                  className="line-clamp-2 text-[11px] font-semibold leading-4 text-[#24231f]"
+                  title={actionText}
+                >
+                  {actionText}
+                </p>
+                <p className="mt-1 text-[10px] text-[#69665d]">
+                  {interventionStatusLabel(intervention)}
+                  {holdings.length > 1
+                    ? ` ・ ほか${holdings.length - 1}件`
+                    : ""}
+                </p>
+              </>
+            )}
           </PartnerRowCell>
 
           <PartnerRowCell>
             <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
               担当・期限
             </p>
-            <p
-              className="truncate text-[11px] font-semibold text-[#24231f]"
-              title={interventionOwnerText(intervention, display.name)}
-            >
-              {interventionOwnerText(intervention, display.name)}
-            </p>
-            <div className="mt-1 flex flex-wrap items-center gap-1">
-              <span
-                className={`border px-1.5 py-0.5 text-[10px] font-semibold ${BALL_SIDE_TONE[intervention.side]}`}
-              >
-                {interventionSideText(intervention)}
-              </span>
-              <span
-                className={`text-[10px] ${intervention.risk === "overdue" ? "font-semibold text-[#8c3329]" : "text-[#69665d]"}`}
-              >
-                {sxFormatDueDateWithPrecision(
-                  intervention.dueDate,
-                  intervention.dueDatePrecision,
+            {canManage && target ? (
+              <InlineCellEditor
+                editorKey={keyFor("ownership")}
+                activeEditorKey={activeEditorKey}
+                label={`${display.name}の担当と期限`}
+                initialValues={{
+                  owner: targetOwner,
+                  side: targetSide,
+                  due_date: targetDueDate || "",
+                  due_date_precision: targetDuePrecision,
+                }}
+                view={
+                  <>
+                    <p
+                      className="truncate text-[11px] font-semibold text-[#24231f]"
+                      title={interventionOwnerText(intervention, display.name)}
+                    >
+                      {interventionOwnerText(intervention, display.name)}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      <span
+                        className={`border px-1.5 py-0.5 text-[10px] font-semibold ${BALL_SIDE_TONE[intervention.side]}`}
+                      >
+                        {interventionSideText(intervention)}
+                      </span>
+                      <span
+                        className={`text-[10px] ${intervention.risk === "overdue" ? "font-semibold text-[#8c3329]" : "text-[#69665d]"}`}
+                      >
+                        {sxFormatDueDateWithPrecision(
+                          intervention.dueDate,
+                          intervention.dueDatePrecision,
+                        )}
+                      </span>
+                    </div>
+                  </>
+                }
+                onRequestEdit={onRequestInlineEdit}
+                onFinish={onFinishInlineEdit}
+                onSave={async (values) => {
+                  if (target.resource === "partner_work_item") {
+                    const dueDate =
+                      values.due_date_precision === "unknown"
+                        ? null
+                        : values.due_date || null;
+                    await patchIfChanged(
+                      "partner_work_item",
+                      target.id,
+                      {
+                        owner_label: target.record.ownerLabel,
+                        side: target.record.side,
+                        due_date: target.record.dueDate,
+                        due_date_precision: target.record.dueDatePrecision,
+                      },
+                      {
+                        owner_label: values.owner.trim() || null,
+                        side: values.side,
+                        due_date: dueDate,
+                        due_date_precision: values.due_date_precision,
+                      },
+                    );
+                    return;
+                  }
+                  if (target.resource === "commitment") {
+                    const ownerField =
+                      target.record.commitmentKind === "counterparty_promise"
+                        ? "counterparty_owner"
+                        : "sx_owner";
+                    const previousOwner =
+                      target.record.commitmentKind === "counterparty_promise"
+                        ? target.record.counterpartyOwner
+                        : target.record.sxOwner;
+                    await patchIfChanged(
+                      "commitment",
+                      target.id,
+                      {
+                        [ownerField]: previousOwner,
+                        due_date: target.record.dueDate,
+                      },
+                      {
+                        [ownerField]: values.owner.trim() || null,
+                        due_date: values.due_date || null,
+                      },
+                    );
+                    return;
+                  }
+                  const dueDate =
+                    values.due_date_precision === "unknown"
+                      ? null
+                      : values.due_date || null;
+                  await patchIfChanged(
+                    "partner",
+                    target.id,
+                    {
+                      current_ball_owner: target.record.currentBallOwner,
+                      current_ball_side: target.record.currentBallSide,
+                      due_date: target.record.dueDate,
+                      due_date_precision: target.record.dueDatePrecision,
+                    },
+                    {
+                      current_ball_owner: values.owner.trim() || null,
+                      current_ball_side: values.side,
+                      due_date: dueDate,
+                      due_date_precision: values.due_date_precision,
+                    },
+                  );
+                }}
+                renderFields={(values, setValue) => (
+                  <>
+                    <label className="grid gap-0.5">
+                      <span className="text-[10px] font-semibold text-[#69665d]">
+                        担当
+                      </span>
+                      <input
+                        autoFocus
+                        className={INLINE_CONTROL_CLASS}
+                        value={values.owner}
+                        onChange={(event) =>
+                          setValue("owner", event.target.value)
+                        }
+                      />
+                    </label>
+                    {target.resource !== "commitment" && (
+                      <label className="grid gap-0.5">
+                        <span className="text-[10px] font-semibold text-[#69665d]">
+                          保有側
+                        </span>
+                        <select
+                          className={INLINE_CONTROL_CLASS}
+                          value={values.side}
+                          onChange={(event) =>
+                            setValue("side", event.target.value)
+                          }
+                        >
+                          {(target.resource === "partner"
+                            ? INLINE_BALL_SIDE_OPTIONS
+                            : INLINE_HOLDING_SIDE_OPTIONS
+                          ).map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    <InlineDueFields
+                      values={values}
+                      setValue={setValue}
+                      precision={target.resource !== "commitment"}
+                    />
+                  </>
                 )}
-              </span>
-            </div>
+              />
+            ) : (
+              <>
+                <p
+                  className="truncate text-[11px] font-semibold text-[#24231f]"
+                  title={interventionOwnerText(intervention, display.name)}
+                >
+                  {interventionOwnerText(intervention, display.name)}
+                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-1">
+                  <span
+                    className={`border px-1.5 py-0.5 text-[10px] font-semibold ${BALL_SIDE_TONE[intervention.side]}`}
+                  >
+                    {interventionSideText(intervention)}
+                  </span>
+                  <span
+                    className={`text-[10px] ${intervention.risk === "overdue" ? "font-semibold text-[#8c3329]" : "text-[#69665d]"}`}
+                  >
+                    {sxFormatDueDateWithPrecision(
+                      intervention.dueDate,
+                      intervention.dueDatePrecision,
+                    )}
+                  </span>
+                </div>
+              </>
+            )}
           </PartnerRowCell>
 
           <PartnerRowCell className="md:col-span-2 @min-[1280px]:col-span-1">
             <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
               現在地の根拠
             </p>
-            {latest ? (
+            {latest && canManage ? (
+              <InlineCellEditor
+                editorKey={keyFor("latest-interaction")}
+                activeEditorKey={activeEditorKey}
+                label={`${display.name}の現在地の根拠`}
+                initialValues={{
+                  occurred_on: latest.occurredOn || "",
+                  occurred_on_precision: latest.occurredOnPrecision,
+                  interaction_kind: latest.interactionKind,
+                  summary: latest.summary,
+                  outcome_summary: latest.outcomeSummary || "",
+                }}
+                view={
+                  <>
+                    <p className="text-[10px] text-[#69665d]">
+                      {sxFormatEventDateWithPrecision(
+                        latest.occurredOn,
+                        latest.occurredOnPrecision,
+                      )}{" "}
+                      ・ {sxInteractionKindLabel(latest.interactionKind)}
+                    </p>
+                    <p
+                      className="mt-0.5 line-clamp-2 text-[10px] leading-4 text-[#24231f]"
+                      title={latestSummary}
+                    >
+                      {latestSummary}
+                    </p>
+                  </>
+                }
+                onRequestEdit={onRequestInlineEdit}
+                onFinish={onFinishInlineEdit}
+                onSave={async (values) => {
+                  const occurredOn =
+                    values.occurred_on_precision === "unknown"
+                      ? null
+                      : values.occurred_on || null;
+                  const summary = values.summary.trim();
+                  if (!summary) throw new Error("接点の内容を入力してね");
+                  await patchIfChanged(
+                    "interaction",
+                    latest.id,
+                    {
+                      occurred_on: latest.occurredOn,
+                      occurred_on_precision: latest.occurredOnPrecision,
+                      interaction_kind: latest.interactionKind,
+                      summary: latest.summary,
+                      outcome_summary: latest.outcomeSummary,
+                    },
+                    {
+                      occurred_on: occurredOn,
+                      occurred_on_precision: values.occurred_on_precision,
+                      interaction_kind: values.interaction_kind,
+                      summary,
+                      outcome_summary: values.outcome_summary.trim() || null,
+                    },
+                  );
+                }}
+                renderFields={(values, setValue) => {
+                  const precision = values.occurred_on_precision;
+                  return (
+                    <>
+                      <label className="grid gap-0.5">
+                        <span className="text-[10px] font-semibold text-[#69665d]">
+                          接点種別
+                        </span>
+                        <select
+                          autoFocus
+                          className={INLINE_CONTROL_CLASS}
+                          value={values.interaction_kind}
+                          onChange={(event) =>
+                            setValue("interaction_kind", event.target.value)
+                          }
+                        >
+                          <option value="meeting">面談</option>
+                          <option value="email">メール</option>
+                          <option value="agreement">合意</option>
+                          <option value="deliverable">成果物</option>
+                          <option value="handoff">引き継ぎ</option>
+                          <option value="status_update">状況更新</option>
+                          <option value="note">メモ</option>
+                        </select>
+                      </label>
+                      <label className="grid gap-0.5">
+                        <span className="text-[10px] font-semibold text-[#69665d]">
+                          発生日の精度
+                        </span>
+                        <select
+                          className={INLINE_CONTROL_CLASS}
+                          value={precision}
+                          onChange={(event) => {
+                            setValue(
+                              "occurred_on_precision",
+                              event.target.value,
+                            );
+                            if (event.target.value === "unknown")
+                              setValue("occurred_on", "");
+                          }}
+                        >
+                          {INLINE_DATE_PRECISION_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {precision !== "unknown" && (
+                        <label className="grid gap-0.5">
+                          <span className="text-[10px] font-semibold text-[#69665d]">
+                            発生日
+                          </span>
+                          <input
+                            className={INLINE_CONTROL_CLASS}
+                            type={precision === "month" ? "month" : "date"}
+                            value={
+                              precision === "month"
+                                ? values.occurred_on.slice(0, 7)
+                                : values.occurred_on
+                            }
+                            onChange={(event) =>
+                              setValue(
+                                "occurred_on",
+                                precision === "month" && event.target.value
+                                  ? `${event.target.value}-01`
+                                  : event.target.value,
+                              )
+                            }
+                          />
+                        </label>
+                      )}
+                      <label className="grid gap-0.5">
+                        <span className="text-[10px] font-semibold text-[#69665d]">
+                          内容
+                        </span>
+                        <textarea
+                          rows={2}
+                          className={`${INLINE_CONTROL_CLASS} py-1.5 leading-4`}
+                          value={values.summary}
+                          onChange={(event) =>
+                            setValue("summary", event.target.value)
+                          }
+                        />
+                      </label>
+                      <label className="grid gap-0.5">
+                        <span className="text-[10px] font-semibold text-[#69665d]">
+                          結果・要点
+                        </span>
+                        <textarea
+                          rows={2}
+                          className={`${INLINE_CONTROL_CLASS} py-1.5 leading-4`}
+                          value={values.outcome_summary}
+                          onChange={(event) =>
+                            setValue("outcome_summary", event.target.value)
+                          }
+                        />
+                      </label>
+                    </>
+                  );
+                }}
+              />
+            ) : latest ? (
               <>
                 <p className="text-[10px] text-[#69665d]">
                   {sxFormatEventDateWithPrecision(
@@ -1852,31 +2478,17 @@ function PartnerComparisonRow({
             </p>
           </PartnerRowCell>
         </div>
-        <span className="flex min-h-11 items-center justify-center self-stretch border border-[#cfc7b9] px-2 text-center text-[10px] font-semibold leading-4 text-[#315f7d] sm:self-stretch">
+        <span className="flex min-h-11 items-center justify-center self-stretch border border-[#cfc7b9] px-2 text-center text-[10px] font-semibold leading-4 text-[#315f7d]">
           履歴 {partner.interactions.length}件 ・ 保有 {holdings.length}件
         </span>
-      </button>
+      </div>
       {expanded && (
-        <PocComparisonDetailModal
+        <PartnerProgressHistoryModal
           partner={partner}
-          canManage={canManage}
-          detailEditor={detailEditor}
           today={today}
-          milestoneTitleBySlug={milestoneTitleBySlug}
           milestoneTitleById={milestoneTitleById}
           milestoneSlugById={milestoneSlugById}
-          criticalPathSlugs={criticalPathSlugs}
-          onClose={() => {
-            if (onDetailClose?.() === false) return;
-            onToggleExpand(partner.id);
-          }}
-          onEditPartner={onEditPartner}
-          onAddInteraction={onAddInteraction}
-          onEditInteraction={onEditInteraction}
-          onAddWorkItem={onAddWorkItem}
-          onEditWorkItem={onEditWorkItem}
-          onAddRole={onAddRole}
-          onEditRole={onEditRole}
+          onClose={() => onToggleExpand(partner.id)}
         />
       )}
     </article>
@@ -1890,28 +2502,17 @@ function PartnerComparisonRow({
  * from the ledger. */
 export function SxPartnerPipeline({
   management,
-  detailEditor,
-  onEditPartner,
-  onAddInteraction,
-  onEditInteraction,
-  onAddWorkItem,
-  onEditWorkItem,
-  onAddRole,
-  onEditRole,
-  onDetailClose,
+  projectId,
+  onManagementChange,
 }: {
   management: SxManagementBundle;
-  detailEditor?: ReactNode;
-  onEditPartner?: (partnerId: string) => void;
-  onAddInteraction?: (partnerId: string) => void;
-  onEditInteraction?: (interactionId: string) => void;
-  onAddWorkItem?: (partnerId: string, side: SxActorSide) => void;
-  onEditWorkItem?: (workItemId: string) => void;
-  onAddRole?: (partnerId: string) => void;
-  onEditRole?: (roleId: string) => void;
-  onDetailClose?: () => boolean | void;
+  projectId: string;
+  onManagementChange: (management: SxManagementBundle) => void;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [activeInlineEditorKey, setActiveInlineEditorKey] = useState<
+    string | null
+  >(null);
   const [activeRoleKind, setActiveRoleKind] =
     useState<SxPartnerRoleKind | null>(null);
   const [pocOnly, setPocOnly] = useState(true);
@@ -1919,6 +2520,24 @@ export function SxPartnerPipeline({
   const [activePocQuickFilter, setActivePocQuickFilter] =
     useState<SxPocQuickFilter>("all");
   const [activeOwnerKey, setActiveOwnerKey] = useState<string | null>(null);
+  const patchInlineCell = async (request: PartnerInlinePatch) => {
+    const response = await fetch(
+      `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request),
+      },
+    );
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(
+        typeof body.error === "string" ? body.error : "保存できなかったよ",
+      );
+    }
+    if (!body.bundle) throw new Error("保存後の一覧を取得できなかったよ");
+    onManagementChange(body.bundle as SxManagementBundle);
+  };
   const milestoneTitleBySlug = new Map(
     management.milestones.map((milestone) => [
       milestone.slug,
@@ -1994,24 +2613,30 @@ export function SxPartnerPipeline({
   const roleCounts = sxPrimaryRoleKindCounts(management.partners);
 
   const rowProps = {
+    milestones: management.milestones.map((milestone) => ({
+      id: milestone.id,
+      title: nominalizeSxActionLabel(milestone.title),
+    })),
     milestoneTitleBySlug,
     milestoneTitleById,
     milestoneSlugById,
     criticalPathSlugs,
     canManage: management.canManage,
-    detailEditor,
     today: management.asOf,
     expandedId,
-    onToggleExpand: (partnerId: string) =>
-      setExpandedId((current) => (current === partnerId ? null : partnerId)),
-    onEditPartner,
-    onAddInteraction,
-    onEditInteraction,
-    onAddWorkItem,
-    onEditWorkItem,
-    onAddRole,
-    onEditRole,
-    onDetailClose,
+    activeEditorKey: activeInlineEditorKey,
+    onToggleExpand: (partnerId: string) => {
+      if (activeInlineEditorKey) return;
+      setExpandedId((current) => (current === partnerId ? null : partnerId));
+    },
+    onRequestInlineEdit: (editorKey: string) => {
+      if (activeInlineEditorKey && activeInlineEditorKey !== editorKey)
+        return false;
+      setActiveInlineEditorKey(editorKey);
+      return true;
+    },
+    onFinishInlineEdit: () => setActiveInlineEditorKey(null),
+    onPatch: patchInlineCell,
   };
 
   return (
@@ -2201,64 +2826,52 @@ export function SxPartnerPipeline({
 
 function PartnerRow({
   partner,
+  milestones,
   milestoneTitleBySlug,
   milestoneTitleById,
   milestoneSlugById,
   criticalPathSlugs,
   canManage,
-  detailEditor,
   today,
   expandedId,
+  activeEditorKey,
   onToggleExpand,
-  onEditPartner,
-  onAddInteraction,
-  onEditInteraction,
-  onAddWorkItem,
-  onEditWorkItem,
-  onAddRole,
-  onEditRole,
-  onDetailClose,
+  onRequestInlineEdit,
+  onFinishInlineEdit,
+  onPatch,
 }: {
   partner: SxManagementPartner;
+  milestones: Array<{ id: string; title: string }>;
   milestoneTitleBySlug: ReadonlyMap<string, string>;
   milestoneTitleById: ReadonlyMap<string, string>;
   milestoneSlugById: ReadonlyMap<string, string>;
   criticalPathSlugs: ReadonlySet<string>;
   canManage: boolean;
-  detailEditor?: ReactNode;
   today: string;
   expandedId: string | null;
+  activeEditorKey: string | null;
   onToggleExpand: (partnerId: string) => void;
-  onEditPartner?: (partnerId: string) => void;
-  onAddInteraction?: (partnerId: string) => void;
-  onEditInteraction?: (interactionId: string) => void;
-  onAddWorkItem?: (partnerId: string, side: SxActorSide) => void;
-  onEditWorkItem?: (workItemId: string) => void;
-  onAddRole?: (partnerId: string) => void;
-  onEditRole?: (roleId: string) => void;
-  onDetailClose?: () => boolean | void;
+  onRequestInlineEdit: (editorKey: string) => boolean;
+  onFinishInlineEdit: () => void;
+  onPatch: (request: PartnerInlinePatch) => Promise<void>;
 }) {
   const expanded = expandedId === partner.id;
   return (
-    <PartnerComparisonRow
+    <PartnerInlineRow
       partner={partner}
+      milestones={milestones}
       milestoneTitleBySlug={milestoneTitleBySlug}
       milestoneTitleById={milestoneTitleById}
       milestoneSlugById={milestoneSlugById}
       criticalPathSlugs={criticalPathSlugs}
       canManage={canManage}
-      detailEditor={detailEditor}
       today={today}
       expanded={expanded}
+      activeEditorKey={activeEditorKey}
       onToggleExpand={onToggleExpand}
-      onEditPartner={onEditPartner}
-      onAddInteraction={onAddInteraction}
-      onEditInteraction={onEditInteraction}
-      onAddWorkItem={onAddWorkItem}
-      onEditWorkItem={onEditWorkItem}
-      onAddRole={onAddRole}
-      onEditRole={onEditRole}
-      onDetailClose={onDetailClose}
+      onRequestInlineEdit={onRequestInlineEdit}
+      onFinishInlineEdit={onFinishInlineEdit}
+      onPatch={onPatch}
     />
   );
 }

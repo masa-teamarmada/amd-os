@@ -42,7 +42,8 @@ function expectNotIncludes(rel, needles) {
 function expectSegmentNotIncludes(rel, start, end, needles) {
   const text = read(rel);
   const startIndex = text.indexOf(start);
-  const endIndex = startIndex < 0 ? -1 : text.indexOf(end, startIndex + start.length);
+  const endIndex =
+    startIndex < 0 ? -1 : text.indexOf(end, startIndex + start.length);
   if (startIndex < 0 || endIndex < 0) {
     throw new Error(`${rel} missing segment anchors: ${start} -> ${end}`);
   }
@@ -153,14 +154,17 @@ expectIncludes("src/lib/project-workspace.ts", [
   "(?:workspace|weekly-control|navigation)",
 ]);
 
-expectIncludes("src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx", [
-  "resolveSharedWorkspaceAccess",
-  "ProjectWorkspaceDashboard",
-  "ExternalProjectWorkspaceDashboard",
-  "getProjectWorkspaceBundle",
-  "getExternalProjectWorkspaceBundle",
-  "SharedWorkspaceScopeRibbon",
-]);
+expectIncludes(
+  "src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx",
+  [
+    "resolveSharedWorkspaceAccess",
+    "ProjectWorkspaceDashboard",
+    "ExternalProjectWorkspaceDashboard",
+    "getProjectWorkspaceBundle",
+    "getExternalProjectWorkspaceBundle",
+    "SharedWorkspaceScopeRibbon",
+  ],
+);
 
 expectIncludes("src/app/(app)/project/[projectId]/navigation/page.tsx", [
   "SxNavigationDashboard",
@@ -785,10 +789,7 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "sxGroupPartnersByPrimaryClassification",
   "sxIsHoldingOverdue",
   "sxIsHoldingMonthPrecision",
-  "やり取り履歴（全文・全",
-  "履歴を追加",
-  "保有事項を追加",
-  "分類を追加",
+  "やり取り履歴（全",
   "工程未接続",
   "全関係先",
   "対応中",
@@ -828,17 +829,13 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "停止",
   "空レーンあり",
   "deferredPartners.length === 0 &&\n          endedPartners.length === 0",
-  '(["sx", "partner", "shared", "unknown"] as const)',
   "sourceEvidence",
   "一次根拠",
   "出典",
   "最終確認",
   "確度",
   "ScrollHintArrow",
-  "現在の管制サマリー",
   "目標状態",
-  "合意済み",
-  "未合意",
 ]);
 expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "text-[9px]",
@@ -1021,13 +1018,8 @@ expectNotIncludes("scripts/test_project_management_rls.mjs", [
 expectIncludes(
   "src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
   [
-    "onEditPartner",
-    "onAddInteraction",
-    "onEditInteraction",
-    "onAddWorkItem",
-    "onEditWorkItem",
-    "onAddRole",
-    "onEditRole",
+    "projectId={projectId}",
+    "onManagementChange={(nextManagement)",
     "interaction: [",
     "partner_role: [",
     "partner_work_item: [",
@@ -2765,7 +2757,7 @@ expectIncludes(
   "src/components/project-workspace/SxWeeklyControlDashboard.tsx",
   [
     'href="#partner-ledger"',
-    "onEditPartner={(partnerId)",
+    "onManagementChange={setManagement}",
     'kind: "create_partner"',
     'kind: "create_partner_work_item"',
     "PoC先を含む全関係先",
@@ -2784,7 +2776,7 @@ expectNotIncludes(
 expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "sxLatestInteraction",
   "現在地の根拠",
-  "やり取り履歴（全文・全",
+  "やり取り履歴（全",
   "sxNormalizePublicName",
 ]);
 expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
@@ -2855,8 +2847,12 @@ expectIncludes("src/lib/sx-partner-progress.ts", [
 ]);
 expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "PartnerComparisonControls",
-  "PartnerComparisonRow",
-  "PocComparisonDetailModal",
+  "PartnerInlineRow",
+  "PartnerProgressHistoryModal",
+  "primaryInterventionTarget",
+  "PartnerInlinePatch",
+  "data-inline-edit-trigger",
+  "data-inline-editor",
   "activePocQuickFilter",
   "pocMatchesQuickFilter",
   "sx-partner-comparison-row-",
@@ -2878,17 +2874,19 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "sxCompactPartnerRowText",
   "現在の状況",
   "ゴール",
-  "progressSteps",
   "createPortal",
   "useModalContainment",
-  "aria-controls={`sx-partner-detail-${partner.id}`}",
-  "aria-label={`${display.name}の詳細を開く`}",
+  "aria-controls={`sx-partner-history-${partnerId}`}",
+  "aria-label={`${steps.length}件の進捗と履歴を開く`}",
   "sticky top-0",
   "sticky top-14",
-  'data-testid="sx-partner-inline-editor"',
-  "detailEditor ?",
 ]);
 expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
+  "PartnerComparisonRow",
+  "PocComparisonDetailModal",
+  "sx-partner-inline-editor",
+  "detailEditor ?",
+  "aria-label={`${display.name}の詳細を開く`}",
   "PartnerProgressScale",
   "PARTNER_STAGE_SHORT_LABELS",
   "sx-partner-stage-reference",
@@ -2907,7 +2905,16 @@ expectIncludes(
     "useModalContainment",
     'data-testid="sx-inline-editor"',
     'data-inline-editor-form="true"',
-    'data-detail-mode={detailEditor ? "edit" : "view"}',
+    'data-testid="sx-plan-inline-field-editor"',
+    'data-inline-field-editor="true"',
+    "data-plan-inline-slot",
+    '"inline-edit"',
+    "PlanFieldEditorState",
+    "planFieldEditor.fieldKeys",
+    "fieldsToSubmit",
+    "fieldKeySet.has(key)",
+    "inlineField && !dirty",
+    '["planned_start", "planned_end"]',
     "data-detail-body",
     "className={styles.editorEmbedded}",
     "embedded = false",
@@ -2925,6 +2932,9 @@ expectNotIncludes(
     "横に詳細が開く",
     "styles.editorInline",
     'data-testid={embedded ? "sx-inline-editor" : undefined}',
+    'setDetailEditor({ kind: "edit_task"',
+    'setDetailEditor({ kind: "edit_milestone"',
+    'setDetailEditor({ kind: "edit_dependency"',
   ],
 );
 expectIncludes("src/components/project-workspace/weekly-control.module.css", [
@@ -2934,6 +2944,9 @@ expectIncludes("src/components/project-workspace/weekly-control.module.css", [
   "width: min(860px, calc(100vw - 48px))",
   ".editorEmbedded",
   ".planInspectorInlineEditor",
+  ".inlineFieldEditor",
+  ".inlineFieldForm",
+  ".inlineFieldActions",
 ]);
 expectIncludes("src/components/project-workspace/useModalContainment.ts", [
   "FOCUSABLE_SELECTOR",
@@ -3022,7 +3035,7 @@ expectIncludes("src/components/bzm/BzmTheoryMapView.tsx", [
   "screen2GraphCoords",
   "setPendingEdge(optimisticEdge)",
   "clippedLinkPoints",
-  'linkCanvasObject={drawClippedLink}',
+  "linkCanvasObject={drawClippedLink}",
   'data-bzm-map-overlay-host="composer"',
   'data-bzm-draft-node="true"',
   "draftVisual",

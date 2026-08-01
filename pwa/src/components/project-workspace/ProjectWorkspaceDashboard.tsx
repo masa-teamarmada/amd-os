@@ -1187,13 +1187,10 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
           />
           <SxPartnerPipeline
             management={management}
-            onEditPartner={(partnerId) => setEditing({ resource: "partner", id: partnerId })}
-            onAddInteraction={(partnerId) => setCreating({ resource: "interaction", initialValues: { partner_id: partnerId } })}
-            onEditInteraction={(interactionId) => setEditing({ resource: "interaction", id: interactionId })}
-            onAddWorkItem={(partnerId, side) => setCreating({ resource: "partner_work_item", initialValues: { partner_id: partnerId, side } })}
-            onEditWorkItem={(workItemId) => setEditing({ resource: "partner_work_item", id: workItemId })}
-            onAddRole={(partnerId) => setCreating({ resource: "partner_role", initialValues: { partner_id: partnerId } })}
-            onEditRole={(roleId) => setEditing({ resource: "partner_role", id: roleId })}
+            projectId={projectId}
+            onManagementChange={(nextManagement) =>
+              setWorkspace((current) => ({ ...current, sxManagement: nextManagement }))
+            }
           />
         </section>
 

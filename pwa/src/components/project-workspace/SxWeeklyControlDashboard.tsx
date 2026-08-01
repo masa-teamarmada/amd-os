@@ -131,6 +131,15 @@ type EditorState =
   | { kind: "create_partner_role"; partnerId: string }
   | { kind: "edit_partner_role"; role: SxPartnerRole };
 
+type PlanFieldEditorState = {
+  slot: string;
+  editor: Extract<
+    EditorState,
+    { kind: "edit_milestone" | "edit_task" | "edit_dependency" }
+  >;
+  fieldKeys: string[];
+};
+
 type FormField = {
   key: string;
   label: string;
@@ -1710,6 +1719,8 @@ function IssueEditor({
   onSaved,
   onDirtyChange,
   embedded = false,
+  inlineField = false,
+  fieldKeys,
 }: {
   editor: EditorState;
   management: SxManagementBundle;
@@ -1719,8 +1730,14 @@ function IssueEditor({
   onSaved: (bundle: SxManagementBundle, message: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
   embedded?: boolean;
+  inlineField?: boolean;
+  fieldKeys?: readonly string[];
 }) {
   const definition = editorDefinition(editor, management);
+  const fieldKeySet = fieldKeys ? new Set(fieldKeys) : null;
+  const activeFields = fieldKeySet
+    ? definition.fields.filter((field) => fieldKeySet.has(field.key))
+    : definition.fields;
   const initialValues = useRef(
     editorInitialValues(editor, access, management.asOf),
   );
@@ -1730,7 +1747,8 @@ function IssueEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const editorPanelRef = useRef<HTMLElement>(null);
-  const dirty = JSON.stringify(values) !== JSON.stringify(initialValues.current);
+  const dirty =
+    JSON.stringify(values) !== JSON.stringify(initialValues.current);
 
   useEffect(() => {
     onDirtyChange?.(dirty);
@@ -1738,7 +1756,7 @@ function IssueEditor({
   }, [dirty, onDirtyChange]);
 
   useEffect(() => {
-    if (!embedded) return;
+    if (!embedded && !inlineField) return;
     const frame = window.requestAnimationFrame(() => {
       editorPanelRef.current
         ?.querySelector<HTMLElement>(
@@ -1747,7 +1765,7 @@ function IssueEditor({
         ?.focus();
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [embedded]);
+  }, [embedded, inlineField]);
 
   function requestClose() {
     if (!dirty || window.confirm("入力中の変更を破棄する？")) onClose();
@@ -1755,7 +1773,7 @@ function IssueEditor({
 
   async function save() {
     setError(null);
-    const missingRequired = definition.fields.find(
+    const missingRequired = activeFields.find(
       (field) => field.required && !fieldValue(values, field.key).trim(),
     );
     if (missingRequired) {
@@ -1780,7 +1798,14 @@ function IssueEditor({
       setError("完了にするには、完了メモと完了日を入れてね");
       return;
     }
-    if (editor.kind === "edit_milestone" && values.status === "completed") {
+    if (
+      editor.kind === "edit_milestone" &&
+      values.status === "completed" &&
+      (!fieldKeySet ||
+        ["status", "actual_end", "completion_evidence"].some((key) =>
+          fieldKeySet.has(key),
+        ))
+    ) {
       if (!values.actual_end || !values.completion_evidence?.trim()) {
         setError("完了にするには、実績完了日と完了証跡を入れてね");
         return;
@@ -1799,8 +1824,11 @@ function IssueEditor({
     }
     setSaving(true);
     const isPatch = definition.method === "PATCH";
+    const fieldsToSubmit = fieldKeySet
+      ? Object.entries(values).filter(([key]) => fieldKeySet.has(key))
+      : Object.entries(values);
     const fields: Record<string, unknown> = Object.fromEntries(
-      Object.entries(values).map(([key, value]) => {
+      fieldsToSubmit.map(([key, value]) => {
         if (
           [
             "due_date",
@@ -1884,8 +1912,8 @@ function IssueEditor({
 
   const editorForm = (
     <>
-      <div className={styles.formGrid}>
-        {definition.fields.map((field) => (
+      <div className={inlineField ? styles.inlineFieldForm : styles.formGrid}>
+        {activeFields.map((field) => (
           <label
             key={field.key}
             className={field.span ? styles.fieldSpan : styles.field}
@@ -1959,7 +1987,11 @@ function IssueEditor({
           {error}
         </p>
       )}
-      <footer className={styles.editorFooter}>
+      <footer
+        className={
+          inlineField ? styles.inlineFieldActions : styles.editorFooter
+        }
+      >
         <button
           type="button"
           className={styles.secondaryButton}
@@ -1970,7 +2002,7 @@ function IssueEditor({
         <button
           type="button"
           className={styles.primaryButton}
-          disabled={saving}
+          disabled={saving || (inlineField && !dirty)}
           onClick={save}
         >
           {saving ? (
@@ -1983,6 +2015,27 @@ function IssueEditor({
       </footer>
     </>
   );
+
+  if (inlineField) {
+    return (
+      <section
+        ref={editorPanelRef}
+        className={styles.inlineFieldEditor}
+        data-testid="sx-plan-inline-field-editor"
+        data-inline-field-editor="true"
+        data-inline-field-keys={fieldKeys?.join(",")}
+        aria-label={definition.title}
+        onKeyDown={(event) => {
+          if (event.key !== "Escape") return;
+          event.preventDefault();
+          event.stopPropagation();
+          requestClose();
+        }}
+      >
+        {editorForm}
+      </section>
+    );
+  }
 
   if (embedded) {
     return (
@@ -2400,22 +2453,26 @@ function PlanInspector({
   requirements,
   canManage,
   detailEditor,
+  inlineEditorSlot,
+  inlineEditor,
   onClose,
-  onEdit,
+  onEditField,
   onAddChild,
-  onEditRequirementMilestone,
-  onEditRequirement,
 }: {
   milestone: SxManagementMilestone | null;
   task: SxTask | null;
   requirements: SxGateRequirement[];
   canManage: boolean;
   detailEditor?: ReactNode;
+  inlineEditorSlot?: string | null;
+  inlineEditor?: ReactNode;
   onClose: () => void;
-  onEdit: () => void;
+  onEditField: (
+    slot: string,
+    editor: PlanFieldEditorState["editor"],
+    fieldKeys: string[],
+  ) => void;
   onAddChild: () => void;
-  onEditRequirementMilestone: (milestone: SxManagementMilestone) => void;
-  onEditRequirement: (dependency: SxDependency) => void;
 }) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
@@ -2443,12 +2500,25 @@ function PlanInspector({
 
   if (!item) return null;
 
-  const directValue = (label: string, value: ReactNode) =>
-    canManage ? (
+  const itemEditor: PlanFieldEditorState["editor"] = task
+    ? { kind: "edit_task", task }
+    : { kind: "edit_milestone", milestone: milestone! };
+  const editableValue = (
+    slot: string,
+    label: string,
+    value: ReactNode,
+    editor: PlanFieldEditorState["editor"],
+    fieldKeys: string[],
+  ) =>
+    inlineEditorSlot === slot ? (
+      <div className={styles.inlineFieldSlot} data-plan-inline-slot={slot}>
+        {inlineEditor}
+      </div>
+    ) : canManage ? (
       <button
         type="button"
         className={styles.inspectorEditable}
-        onClick={onEdit}
+        onClick={() => onEditField(slot, editor, fieldKeys)}
         aria-label={`${label}を直接修正`}
       >
         {value}
@@ -2475,14 +2545,28 @@ function PlanInspector({
         role="dialog"
         aria-modal="true"
         aria-label={`${item.title}の詳細`}
-        data-detail-mode={detailEditor ? "edit" : "view"}
+        data-detail-mode={
+          detailEditor ? "create" : inlineEditorSlot ? "inline-edit" : "view"
+        }
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header>
           <div>
-            <h3>
-              {detailEditor ? item.title : directValue("名称", item.title)}
-            </h3>
+            {detailEditor ? (
+              <h3>{item.title}</h3>
+            ) : inlineEditorSlot === "item-title" ? (
+              <div className={styles.planInspectorTitleEditor}>
+                {editableValue("item-title", "名称", item.title, itemEditor, [
+                  "title",
+                ])}
+              </div>
+            ) : (
+              <h3>
+                {editableValue("item-title", "名称", item.title, itemEditor, [
+                  "title",
+                ])}
+              </h3>
+            )}
             <span className={styles.planInspectorStatus}>
               {isTask
                 ? ROW_PLAN_STATUS[task!.status]
@@ -2503,19 +2587,19 @@ function PlanInspector({
           <div className={styles.inspectorBreadcrumb}>
             {milestone && task ? (
               <>
-              <span>{trackMeta(milestone.track).label}</span>
-              <ChevronRight aria-hidden="true" />
-              <span>{milestone.title}</span>
-              <ChevronRight aria-hidden="true" />
-              <strong>{task.title}</strong>
-            </>
-          ) : (
-            <>
-              <span>
-                {milestone ? trackMeta(milestone.track).label : "工程"}
-              </span>
-              <ChevronRight aria-hidden="true" />
-              <strong>{item.title}</strong>
+                <span>{trackMeta(milestone.track).label}</span>
+                <ChevronRight aria-hidden="true" />
+                <span>{milestone.title}</span>
+                <ChevronRight aria-hidden="true" />
+                <strong>{task.title}</strong>
+              </>
+            ) : (
+              <>
+                <span>
+                  {milestone ? trackMeta(milestone.track).label : "工程"}
+                </span>
+                <ChevronRight aria-hidden="true" />
+                <strong>{item.title}</strong>
               </>
             )}
           </div>
@@ -2528,145 +2612,286 @@ function PlanInspector({
           <div className={styles.planInspectorBody} data-detail-body>
             <dl className={styles.inspectorFacts}>
               <div>
-              <dt>担当</dt>
-              <dd>{directValue("担当", item.ownerLabel || "担当未設定")}</dd>
-            </div>
-            <div>
-              <dt>状態</dt>
-              <dd>
-                {directValue(
-                  "状態",
-                  isTask
-                    ? ROW_PLAN_STATUS[task!.status]
-                    : ROW_PLAN_STATUS[milestone!.manualStatus],
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt>計画</dt>
-              <dd>
-                {directValue(
-                  "計画期間",
-                  <>
-                    {formatDate(plannedStart)} → {formatDate(plannedEnd)}
-                  </>,
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt>進捗</dt>
-              <dd data-missing={!progressRegistered || undefined}>
-                {directValue(
-                  "進捗",
-                  progressRegistered ? `${item.progressPct}%` : "未登録",
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt>実績完了</dt>
-              <dd>{directValue("実績完了", formatDate(item.actualEnd))}</dd>
-            </div>
-            {showRequirements && (
-              <div>
-                <dt>設立前提</dt>
+                <dt>担当</dt>
                 <dd>
-                  {requirements.length > 0
-                    ? `${metRequirements}/${requirements.length}件を充足`
-                    : "未登録"}
+                  {editableValue(
+                    "item-owner",
+                    "担当",
+                    item.ownerLabel || "担当未設定",
+                    itemEditor,
+                    ["owner_label"],
+                  )}
                 </dd>
               </div>
-            )}
-          </dl>
-
-          <div className={styles.inspectorContentGrid}>
-            <section className={styles.inspectorSection}>
-              <span>内容 / 到達点</span>
-              <p>{directValue("内容と到達点", description)}</p>
-            </section>
-            <section className={styles.inspectorSection}>
-              <span>詰まり</span>
-              <p>{directValue("詰まり", blocker)}</p>
-            </section>
-            <section
-              className={`${styles.inspectorSection} ${styles.inspectorWideSection}`}
-            >
-              <span>完了条件</span>
-              <p>{directValue("完了条件", criteria)}</p>
-            </section>
-
-            {showRequirements && (
-              <section
-                className={`${styles.inspectorSection} ${styles.inspectorRequirements}`}
-              >
-                <div className={styles.inspectorSectionHeading}>
-                  <span>NewCo設立前にクリアする条件</span>
-                  <strong>
-                    {metRequirements}/{requirements.length}件
-                  </strong>
+              <div>
+                <dt>状態</dt>
+                <dd>
+                  {editableValue(
+                    "item-status",
+                    "状態",
+                    isTask
+                      ? ROW_PLAN_STATUS[task!.status]
+                      : ROW_PLAN_STATUS[milestone!.manualStatus],
+                    itemEditor,
+                    ["status"],
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>計画</dt>
+                <dd>
+                  {editableValue(
+                    "item-period",
+                    "計画期間",
+                    <>
+                      {formatDate(plannedStart)} → {formatDate(plannedEnd)}
+                    </>,
+                    itemEditor,
+                    ["planned_start", "planned_end"],
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>進捗</dt>
+                <dd data-missing={!progressRegistered || undefined}>
+                  {editableValue(
+                    "item-progress",
+                    "進捗",
+                    progressRegistered ? `${item.progressPct}%` : "未登録",
+                    itemEditor,
+                    ["progress_pct"],
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>実績完了</dt>
+                <dd>
+                  {editableValue(
+                    "item-actual-end",
+                    "実績完了",
+                    formatDate(item.actualEnd),
+                    itemEditor,
+                    ["actual_end"],
+                  )}
+                </dd>
+              </div>
+              {showRequirements && (
+                <div>
+                  <dt>設立前提</dt>
+                  <dd>
+                    {requirements.length > 0
+                      ? `${metRequirements}/${requirements.length}件を充足`
+                      : "未登録"}
+                  </dd>
                 </div>
-                <ul className="mt-2 divide-y divide-[#e4ddd0] border-y border-[#e4ddd0]">
-                  {requirements.map((requirement) => (
-                    <li
-                      key={requirement.dependency.id}
-                      className="flex items-start gap-2 py-2 text-[11px]"
-                    >
-                      <span
-                        className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center border ${requirement.state === "met" ? "border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]" : requirement.state === "unconfirmed" ? "border-[#e3c994] bg-[#fbf1dc] text-[#765022]" : "border-[#d6cebf] bg-white text-[#69665d]"}`}
-                      >
-                        {requirement.state === "met" ? (
-                          <Check className="h-3 w-3" aria-hidden="true" />
-                        ) : (
-                          "!"
-                        )}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={!canManage}
-                        onClick={() =>
-                          onEditRequirementMilestone(requirement.milestone)
-                        }
-                        className="min-h-11 min-w-0 flex-1 text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
-                        aria-label={`${requirement.milestone.gate || requirement.milestone.title}の状態・担当・証跡を直接修正`}
-                      >
-                        <b className="block text-[#24231f]">
-                          {requirement.milestone.gate ||
-                            requirement.milestone.title}
-                        </b>
-                        <small className="mt-0.5 block text-[#69665d]">
-                          {requirement.state === "met"
-                            ? "証跡あり・確認済み"
-                            : requirement.state === "unconfirmed"
-                              ? requirement.milestone.manualStatus ===
-                                "completed"
-                                  ? "完了申告・証跡未確認"
-                                  : "達成事実 未確認"
-                                : "未達"}{" "}
-                            ・{" "}
-                            {requirement.milestone.ownerLabel || "担当未確認"}{" "}
-                            ・ {formatDate(requirement.milestone.plannedEnd)}
-                          </small>
-                        </button>
-                      <button
-                        type="button"
-                        disabled={!canManage}
-                        onClick={() =>
-                          onEditRequirement(requirement.dependency)
-                        }
-                        className="min-h-11 shrink-0 border-l border-dashed border-[#aaa294] px-2 text-[10px] font-semibold text-[#5f4a66] disabled:cursor-default hover:border-[#38745d] hover:bg-[#e8f2eb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
-                        aria-label="接続先と必須条件を直接修正"
-                      >
-                        {requirement.dependency.required ? "必須" : "任意"}
-                        <small className="block font-normal text-[#69665d]">
-                          完了後に接続
-                          {requirement.dependency.lagDays > 0
-                            ? `・${requirement.dependency.lagDays}日後`
-                            : ""}
-                        </small>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+              )}
+            </dl>
+
+            <div className={styles.inspectorContentGrid}>
+              <section className={styles.inspectorSection}>
+                <span>内容 / 到達点</span>
+                <div className={styles.inspectorSectionValue}>
+                  {editableValue(
+                    "item-description",
+                    "内容と到達点",
+                    description,
+                    itemEditor,
+                    [isTask ? "description" : "gate"],
+                  )}
+                </div>
               </section>
+              {!isTask && (
+                <section className={styles.inspectorSection}>
+                  <span>詰まり</span>
+                  <div className={styles.inspectorSectionValue}>
+                    {editableValue(
+                      "item-blocker",
+                      "詰まり",
+                      blocker,
+                      itemEditor,
+                      ["max_issue"],
+                    )}
+                  </div>
+                </section>
+              )}
+              <section
+                className={`${styles.inspectorSection} ${styles.inspectorWideSection}`}
+              >
+                <span>完了条件</span>
+                <div className={styles.inspectorSectionValue}>
+                  {editableValue(
+                    "item-completion-criteria",
+                    "完了条件",
+                    criteria,
+                    itemEditor,
+                    ["completion_criteria"],
+                  )}
+                </div>
+              </section>
+
+              {!isTask && (
+                <section
+                  className={`${styles.inspectorSection} ${styles.inspectorWideSection}`}
+                >
+                  <span>完了証跡</span>
+                  <div className={styles.inspectorSectionValue}>
+                    {editableValue(
+                      "item-completion-evidence",
+                      "完了証跡",
+                      milestone!.completionEvidence || "未登録",
+                      itemEditor,
+                      ["completion_evidence"],
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {showRequirements && (
+                <section
+                  className={`${styles.inspectorSection} ${styles.inspectorRequirements}`}
+                >
+                  <div className={styles.inspectorSectionHeading}>
+                    <span>NewCo設立前にクリアする条件</span>
+                    <strong>
+                      {metRequirements}/{requirements.length}件
+                    </strong>
+                  </div>
+                  <ul className="mt-2 divide-y divide-[#e4ddd0] border-y border-[#e4ddd0]">
+                    {requirements.map((requirement) => (
+                      <li
+                        key={requirement.dependency.id}
+                        className="flex items-start gap-2 py-2 text-[11px]"
+                      >
+                        <span
+                          className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center border ${requirement.state === "met" ? "border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]" : requirement.state === "unconfirmed" ? "border-[#e3c994] bg-[#fbf1dc] text-[#765022]" : "border-[#d6cebf] bg-white text-[#69665d]"}`}
+                        >
+                          {requirement.state === "met" ? (
+                            <Check className="h-3 w-3" aria-hidden="true" />
+                          ) : (
+                            "!"
+                          )}
+                        </span>
+                        <div className={styles.requirementContent}>
+                          <div className={styles.requirementTitle}>
+                            {editableValue(
+                              `requirement-${requirement.milestone.id}-gate`,
+                              "前提の到達点",
+                              requirement.milestone.gate ||
+                                requirement.milestone.title,
+                              {
+                                kind: "edit_milestone",
+                                milestone: requirement.milestone,
+                              },
+                              ["gate"],
+                            )}
+                          </div>
+                          <div className={styles.requirementFields}>
+                            <div>
+                              <span>状態</span>
+                              {editableValue(
+                                `requirement-${requirement.milestone.id}-status`,
+                                "前提の状態",
+                                ROW_PLAN_STATUS[
+                                  requirement.milestone.manualStatus
+                                ],
+                                {
+                                  kind: "edit_milestone",
+                                  milestone: requirement.milestone,
+                                },
+                                ["status"],
+                              )}
+                            </div>
+                            <div>
+                              <span>担当</span>
+                              {editableValue(
+                                `requirement-${requirement.milestone.id}-owner`,
+                                "前提の担当",
+                                requirement.milestone.ownerLabel ||
+                                  "担当未確認",
+                                {
+                                  kind: "edit_milestone",
+                                  milestone: requirement.milestone,
+                                },
+                                ["owner_label"],
+                              )}
+                            </div>
+                            <div>
+                              <span>期限</span>
+                              {editableValue(
+                                `requirement-${requirement.milestone.id}-end`,
+                                "前提の期限",
+                                formatDate(requirement.milestone.plannedEnd),
+                                {
+                                  kind: "edit_milestone",
+                                  milestone: requirement.milestone,
+                                },
+                                ["planned_end"],
+                              )}
+                            </div>
+                            <div>
+                              <span>実績</span>
+                              {editableValue(
+                                `requirement-${requirement.milestone.id}-actual`,
+                                "前提の実績完了",
+                                formatDate(requirement.milestone.actualEnd),
+                                {
+                                  kind: "edit_milestone",
+                                  milestone: requirement.milestone,
+                                },
+                                ["actual_end"],
+                              )}
+                            </div>
+                            <div>
+                              <span>証跡</span>
+                              {editableValue(
+                                `requirement-${requirement.milestone.id}-evidence`,
+                                "前提の完了証跡",
+                                requirement.milestone.completionEvidence
+                                  ? "登録済み"
+                                  : "未登録",
+                                {
+                                  kind: "edit_milestone",
+                                  milestone: requirement.milestone,
+                                },
+                                ["completion_evidence"],
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className={styles.requirementDependency}>
+                          <div>
+                            <span>必須性</span>
+                            {editableValue(
+                              `dependency-${requirement.dependency.id}-required`,
+                              "必須性",
+                              requirement.dependency.required ? "必須" : "任意",
+                              {
+                                kind: "edit_dependency",
+                                dependency: requirement.dependency,
+                              },
+                              ["required"],
+                            )}
+                          </div>
+                          <div>
+                            <span>待ち</span>
+                            {editableValue(
+                              `dependency-${requirement.dependency.id}-lag`,
+                              "待ち日数",
+                              requirement.dependency.lagDays > 0
+                                ? `${requirement.dependency.lagDays}日`
+                                : "なし",
+                              {
+                                kind: "edit_dependency",
+                                dependency: requirement.dependency,
+                              },
+                              ["lag_days"],
+                            )}
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
               )}
             </div>
           </div>
@@ -2707,6 +2932,8 @@ export function SxWeeklyControlDashboard({
   const [query, setQuery] = useState("");
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [detailEditor, setDetailEditor] = useState<EditorState | null>(null);
+  const [planFieldEditor, setPlanFieldEditor] =
+    useState<PlanFieldEditorState | null>(null);
   const [detailEditorDirty, setDetailEditorDirty] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(
@@ -2858,6 +3085,7 @@ export function SxWeeklyControlDashboard({
     setManagement(next);
     setDetailEditorDirty(false);
     setDetailEditor(null);
+    setPlanFieldEditor(null);
     setNotice(message);
     window.setTimeout(() => setNotice(null), 3500);
   }
@@ -2870,6 +3098,7 @@ export function SxWeeklyControlDashboard({
       return false;
     setDetailEditorDirty(false);
     setDetailEditor(null);
+    setPlanFieldEditor(null);
     return true;
   }
 
@@ -3121,21 +3350,41 @@ export function SxWeeklyControlDashboard({
                   />
                 ) : null
               }
+              inlineEditorSlot={planFieldEditor?.slot}
+              inlineEditor={
+                planFieldEditor ? (
+                  <IssueEditor
+                    key={`${planFieldEditor.slot}-${planFieldEditor.editor.kind}-${planFieldEditor.fieldKeys.join("-")}`}
+                    editor={planFieldEditor.editor}
+                    management={management}
+                    access={access}
+                    projectId={bundle.project.projectId}
+                    inlineField
+                    fieldKeys={planFieldEditor.fieldKeys}
+                    onDirtyChange={setDetailEditorDirty}
+                    onClose={() => {
+                      setDetailEditorDirty(false);
+                      setPlanFieldEditor(null);
+                    }}
+                    onSaved={handleDetailSaved}
+                  />
+                ) : null
+              }
               onClose={() => {
                 if (!requestDetailClose()) return;
                 setSelectedMilestoneId(null);
                 setSelectedTaskId(null);
               }}
-              onEdit={() => {
-                if (selectedTask)
-                  setDetailEditor({ kind: "edit_task", task: selectedTask });
-                else if (selectedMilestone)
-                  setDetailEditor({
-                    kind: "edit_milestone",
-                    milestone: selectedMilestone,
-                  });
+              onEditField={(slot, nextEditor, fieldKeys) => {
+                if (!requestDetailClose()) return;
+                setPlanFieldEditor({
+                  slot,
+                  editor: nextEditor,
+                  fieldKeys,
+                });
               }}
               onAddChild={() => {
+                if (!requestDetailClose()) return;
                 const milestone = selectedMilestone || selectedTaskMilestone;
                 if (milestone)
                   setDetailEditor({
@@ -3143,12 +3392,6 @@ export function SxWeeklyControlDashboard({
                     milestone,
                     parentTask: selectedTask,
                   });
-              }}
-              onEditRequirementMilestone={(milestone) => {
-                setDetailEditor({ kind: "edit_milestone", milestone });
-              }}
-              onEditRequirement={(dependency) => {
-                setDetailEditor({ kind: "edit_dependency", dependency });
               }}
             />
           </div>
@@ -3176,67 +3419,8 @@ export function SxWeeklyControlDashboard({
           <div className="space-y-4">
             <SxPartnerPipeline
               management={management}
-              detailEditor={
-                detailEditor && !selectedPlanMilestone ? (
-                  <IssueEditor
-                    key={`${detailEditor.kind}-${"partner" in detailEditor ? detailEditor.partner.id : ""}-${"interaction" in detailEditor ? detailEditor.interaction.id : ""}-${"workItem" in detailEditor ? detailEditor.workItem.id : ""}-${"role" in detailEditor ? detailEditor.role.id : ""}-${"partnerId" in detailEditor ? detailEditor.partnerId : ""}`}
-                    editor={detailEditor}
-                    management={management}
-                    access={access}
-                    projectId={bundle.project.projectId}
-                    embedded
-                    onDirtyChange={setDetailEditorDirty}
-                    onClose={() => {
-                      setDetailEditorDirty(false);
-                      setDetailEditor(null);
-                    }}
-                    onSaved={handleDetailSaved}
-                  />
-                ) : null
-              }
-              onDetailClose={requestDetailClose}
-              onEditPartner={(partnerId) => {
-                const partner = management.partners.find(
-                  (item) => item.id === partnerId,
-                );
-                if (partner) setDetailEditor({ kind: "edit_partner", partner });
-              }}
-              onAddInteraction={(partnerId) =>
-                setDetailEditor({ kind: "create_interaction", partnerId })
-              }
-              onEditInteraction={(interactionId) => {
-                const interaction = management.partnerInteractions.find(
-                  (item) => item.id === interactionId,
-                );
-                if (interaction)
-                  setDetailEditor({ kind: "edit_interaction", interaction });
-              }}
-              onAddWorkItem={(partnerId, side) =>
-                setDetailEditor({
-                  kind: "create_partner_work_item",
-                  partnerId,
-                  side,
-                })
-              }
-              onEditWorkItem={(workItemId) => {
-                const workItem = management.partnerWorkItems.find(
-                  (item) => item.id === workItemId,
-                );
-                if (workItem)
-                  setDetailEditor({
-                    kind: "edit_partner_work_item",
-                    workItem,
-                  });
-              }}
-              onAddRole={(partnerId) =>
-                setDetailEditor({ kind: "create_partner_role", partnerId })
-              }
-              onEditRole={(roleId) => {
-                const role = management.partnerRoles.find(
-                  (item) => item.id === roleId,
-                );
-                if (role) setDetailEditor({ kind: "edit_partner_role", role });
-              }}
+              projectId={bundle.project.projectId}
+              onManagementChange={setManagement}
             />
           </div>
         </section>

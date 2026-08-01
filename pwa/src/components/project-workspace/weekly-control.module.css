@@ -87,6 +87,7 @@
 .planInspector > header > div { flex: 1 1 auto; min-width: 0; }
 .planInspector > header p { margin: 0; color: var(--green); font-size: 9px; font-weight: 850; letter-spacing: 0.18em; }
 .planInspector > header h3 { margin: 5px 0 0; max-width: 700px; font-size: 20px; line-height: 1.35; overflow-wrap: anywhere; }
+.planInspectorTitleEditor { max-width: 700px; margin-top: 5px; }
 .planInspectorStatus { display: inline-flex; min-height: 24px; align-items: center; margin-top: 9px; padding: 0 9px; border-left: 3px solid var(--green); background: #e8f2eb; color: #205f49; font-size: 10px; font-weight: 800; }
 .planInspectorClose { display: grid; width: 44px; height: 44px; flex: 0 0 auto; place-items: center; border: 1px solid #bdb5a8; background: rgba(255, 253, 247, 0.82); color: var(--muted); }
 .planInspectorClose:hover, .planInspectorClose:focus-visible { border-color: var(--green); background: #e8f2eb; color: var(--green); outline: 2px solid var(--green); outline-offset: 2px; }
@@ -103,17 +104,24 @@
 .inspectorFacts dt { color: var(--quiet); font-size: 10px; }
 .inspectorFacts dd { margin: 4px 0 0; font-size: 11px; font-weight: 780; line-height: 1.5; overflow-wrap: anywhere; }
 .inspectorFacts dd[data-missing] { color: var(--amber); }
-.inspectorEditable { min-height: 34px; width: 100%; border-bottom: 1px dashed #aaa294; color: inherit; text-align: left; transition: border-color 0.16s ease, background 0.16s ease; }
+.inspectorEditable { min-height: 40px; width: 100%; border-bottom: 1px dashed #aaa294; color: inherit; text-align: left; transition: border-color 0.16s ease, background 0.16s ease; }
 .inspectorEditable:hover, .inspectorEditable:focus-visible { border-color: var(--green); background: rgba(232, 242, 235, 0.72); outline: 2px solid var(--green); outline-offset: 1px; }
+.inlineFieldSlot { min-width: 0; width: 100%; color: var(--ink); font-weight: 400; }
 .inspectorContentGrid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr); }
 .inspectorSection { min-width: 0; padding: 16px 20px; border-right: 1px solid #e8e2d7; border-bottom: 1px solid #e8e2d7; }
 .inspectorSection:nth-child(even) { border-right: 0; }
 .inspectorSection > span, .inspectorSectionHeading span { color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: 0.06em; }
-.inspectorSection > p { margin: 6px 0 0; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
+.inspectorSectionValue { margin-top: 6px; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
 .inspectorRequirements { grid-column: 1 / -1; border-right: 0; }
 .inspectorWideSection { grid-column: 1 / -1; border-right: 0; }
 .inspectorSectionHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .inspectorSectionHeading strong { color: var(--ink); font-size: 11px; }
+.requirementContent { min-width: 0; flex: 1 1 auto; }
+.requirementTitle { min-width: 0; font-weight: 780; color: var(--ink); }
+.requirementFields { display: grid; grid-template-columns: repeat(5, minmax(96px, 1fr)); gap: 8px; margin-top: 8px; }
+.requirementFields > div, .requirementDependency > div { min-width: 0; }
+.requirementFields span, .requirementDependency span { display: block; color: var(--quiet); font-size: 10px; font-weight: 700; }
+.requirementDependency { display: grid; width: 144px; flex: 0 0 auto; gap: 8px; padding-left: 8px; border-left: 1px solid #d7d0c3; }
 .planInspector > footer { display: grid; grid-template-columns: minmax(0, 240px); justify-content: end; gap: 7px; padding: 12px 20px; border-top: 1px solid var(--line); background: #f6f3eb; }
 .planInspector > footer button { min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--green); color: var(--green); font-size: 10px; font-weight: 800; }
 .planInspector > footer button:hover, .planInspector > footer button:focus-visible { background: var(--green); color: white; outline: 2px solid var(--green); outline-offset: 2px; }
@@ -233,6 +241,14 @@
 .editorEmbedded { --sheet: #fffdf7; --ink: #24231f; --muted: #716d63; --line: #d7d0c3; --green: #235f4b; --red: #913b30; --red-soft: #f6e2de; min-height: 0; padding: 18px; background: transparent; }
 .editorEmbedded .formGrid { margin-top: 0; }
 .editorEmbedded .editorFooter { bottom: -18px; margin: 18px -18px -18px; padding: 12px 18px; box-shadow: none; }
+.inlineFieldEditor { --sheet: #fffdf7; --ink: #24231f; --muted: #716d63; --line: #d7d0c3; --green: #235f4b; --red: #913b30; --red-soft: #f6e2de; min-width: 0; width: 100%; padding: 0; background: transparent; }
+.inlineFieldForm { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 8px; }
+.inlineFieldForm .fieldSpan { grid-column: 1 / -1; }
+.inlineFieldForm .field > span:first-child, .inlineFieldForm .fieldSpan > span:first-child { margin-bottom: 3px; font-size: 10px; }
+.inlineFieldForm .field input, .inlineFieldForm .field select, .inlineFieldForm .field textarea, .inlineFieldForm .fieldSpan input, .inlineFieldForm .fieldSpan select, .inlineFieldForm .fieldSpan textarea { min-height: 44px; padding: 7px 8px; font-size: 11px; }
+.inlineFieldForm .field textarea, .inlineFieldForm .fieldSpan textarea { min-height: 68px; }
+.inlineFieldActions { display: flex; align-items: center; justify-content: flex-end; gap: 5px; margin-top: 8px; }
+.inlineFieldActions button { min-height: 44px; flex-shrink: 0; padding: 0 8px; border-radius: 4px; font-size: 10px; white-space: nowrap; }
 .editorHeader { align-items: flex-start; padding-bottom: 15px; border-bottom: 1px solid var(--line); }
 .editorHeader h2 { margin: 5px 0 0; font-size: 22px; }
 .editorContext { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 7px 12px; margin-top: 14px; padding: 10px 12px; border-left: 3px solid var(--green); background: #f3f2e9; font-size: 10px; }
@@ -297,6 +313,7 @@
   .inspectorFacts > div:nth-child(3n) { border-right: 0; }
   .inspectorContentGrid { grid-template-columns: 1fr; }
   .inspectorSection { border-right: 0; }
+  .requirementFields { grid-template-columns: repeat(3, minmax(84px, 1fr)); }
 }
 
 @media (max-width: 600px) {
@@ -309,6 +326,11 @@
   .inspectorFacts > div, .inspectorFacts > div:nth-child(3n) { border-right: 1px solid #e8e2d7; }
   .inspectorFacts > div:nth-child(even) { border-right: 0; }
   .inspectorSection { padding: 14px; }
+  .requirementFields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .requirementDependency { width: 96px; }
+  .inlineFieldForm { grid-template-columns: 1fr; }
+  .inspectorEditable { min-height: 44px; }
+  .inlineFieldActions button { min-height: 44px; }
   .planInspector > footer { grid-template-columns: 1fr; padding: 10px 14px; }
   .page { padding: 14px 12px 32px; }
   .headerActions { width: 100%; }
