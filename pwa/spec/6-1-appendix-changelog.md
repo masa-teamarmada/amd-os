@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-08-01 JST | 2-1 PWA runtime / design institution_seed_project_model・seeds・FEATURE_REGISTRY | 追加 | build v3.53.19 / migration 212・213（**実装準備済み、DDLは本番未適用**）。外部ワークスペースアクセスを正本化。route `/`（公開トップ）・`/workspaces`・`/workspace/[slug]`・`/auth/login` の外部向け入口・`/auth/logout`・`/admin/access` を確定し、`/project/[projectId]/workspace` はアクセス解決後に内部メンバー向けの詳細バンドルと外部向けの読み取り専用の絞り込みDTOへ分岐する同一URLの二面構成として明記。212の新設7テーブル、アカウント・機関所属・PJ個別の明示付与3要素、機関所属からPJへの暗黙付与の禁止、email OTP→署名cookie＋毎回のDB再検証、fail closed（存在を漏らさない）、p30は大学全体サマリ・p21はPJ個別付与のみ、一覧のライフサイクル順、ECRは縦並びでSPSと合算しない、BOX資料移行は未実装（リンク・iframe・署名トークンなし）を記載。`seeds.md` の旧 anon 全開RLS記述とPhase 3のURA公開TODOを、213の閉鎖範囲と実装済み機関ワークスペースへ差し替え。契約テスト7本を回帰防止として登録 | 外部関係者へ出す範囲を明示付与だけで決める境界を、実装と同じ作業単位で正本へ反映するため | えいみ |
 | 2026-08-01 JST | 3-16 PJ週次管制 / design FEATURE_REGISTRY | 修正 | build v3.53.18。ガントと関係先の詳細値を選ぶと、開いている詳細モーダルの本文が編集フォームへ切り替わる。別dialog/backdropを重ねず、保存・キャンセル後は同じ詳細へ戻る。最初の入力へfocusを移し、未保存中の外側×・Esc・背景は破棄確認を通す。ガント詳細portalの色変数を明示し、装飾的な英語見出しを削除 | Round 33で契約化したdialog非重畳が実装上は共通editorの二重モーダルになり、色も画面本体と不一致だったため | えいみ |
 | 2026-08-01 JST | 2-6 BZM 2.0 理論マップ | 修正 | build v3.53.17。desktopの対象ノードとcomposer overlayの最小水平間隔を72pxへ拡張 | 下書きマーカーのtitleを含めて編集欄と重ならない視認余白を確保するため | えいみ |
 | 2026-08-01 JST | 2-6 BZM 2.0 理論マップ | 修正 | build v3.53.16。local draftのCanvas描画に加え、クリック座標へ同じkind色・形・titleのHTMLマーカーを同期表示する契約を追加。cancel/Escape時はdraft stateと同時に消す | Canvas engineの更新タイミングに依存せず、クリックを受理してノードが生まれたことを同一フレームから明示するため | えいみ |

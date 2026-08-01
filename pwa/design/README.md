@@ -37,7 +37,7 @@
 | MTG サマリ (各回 decided/progress/nextActions/risks) ⭐ | [meeting_summaries.md](meeting_summaries.md) |
 | 経営・事業シグナル (重要方針/事業進捗/リスク) ⭐ | [project_strategy_signals.md](project_strategy_signals.md) |
 | 先手 TODO / 旧先手力維持ループ ⭐ | [../spec/2-4-proactive-todo-current-spec.md](../spec/2-4-proactive-todo-current-spec.md) / [proactive_operating_loop.md](proactive_operating_loop.md) — 現行は `proactive_todos` + `/proactive` + PWA non-LLM cron。旧 commander outbox / heartbeat は廃止済み |
-| 外部機関 tenant / 権限設計 (NIMS Pilot gate) ⭐ | [institution_tenant_access.md](institution_tenant_access.md) |
+| 研究機関・シーズ・PJ / 外部ワークスペース認可 ⭐ | [institution_seed_project_model.md](institution_seed_project_model.md) — 現行正本。旧NIMS固有案は [institution_tenant_access.md](institution_tenant_access.md) |
 | OS台帳差分 (PJメンバー/関係先/契約/期間/担当の差分候補) ⭐ | [project_registry_diffs.md](project_registry_diffs.md) |
 | 🛰 Coverage Scanner (不在検知 = OS化されてない重要情報の自動検知) ⭐ | [coverage_gap_scanner.md](coverage_gap_scanner.md) |
 | 要対応 + 株主・ガバナンス・保有株式 ⭐ | [governance_action_items.md](governance_action_items.md) |

@@ -101,14 +101,82 @@ institutions ──< institution_projects >── projects
 - 研究機関PJから所属シーズを読む場合も、PJ IDの固定表をコードに持たず `institution_projects.institution_id` を使う。
 - シーズ詳細は `seed_projects` の契約固有情報を追加表示する。
 
-## 6. 検証
+## 6. 外部ワークスペースとアクセス境界
+
+研究機関側の人がAMD OSへ入る経路を、このカタログ・PJモデルの上に重ねる。本節はmigration 212/213と対応する実装済みの設計であり、**DDLは本番未適用**。適用前は「実装準備済み」として扱い、本番反映済みと書かない。
+
+### 6.1 面の構成
+
+| 面 | 認証 | 中身 |
+|---|---|---|
+| `/` | 不要 | 公開トップ。`institution_workspaces` のうち `status='active'` かつ `is_publicly_listed=true` の行だけを、slug・ワークスペース名・機関の名称/種別/地域で一覧する。説明文、件数、ECR、AMD Scoreは公開しない。内部メンバーのセッションがあれば従来のホームへ、外部アカウントのセッションがあれば `/workspaces` へ送る |
+| `/workspaces` | 外部アカウント | 外部の人の入口。所属する研究機関ワークスペースと、個別に許可されたPJだけを並べる。機関に所属していることをPJ一覧の根拠にしない |
+| `/workspace/[slug]` | 外部アカウント | 研究機関ワークスペース本体。対象機関のPJ、シーズ一覧、ECRを読み取り専用で表示する |
+| `/project/[projectId]/workspace` | 内部メンバー または 外部アカウント | 同じURLの二面構成。アクセス解決の結果で内部向けの詳細バンドルか、外部向けの絞り込みDTOかを選ぶ |
+| `/admin/access` | 内部admin | 外部アクセス権限の台帳。誰がどの機関ワークスペース・どのPJに入れるかをここだけで決める |
+
+### 6.2 認可の3要素
+
+migration 212で新設する7テーブルが認可の正本になる。
+
+| テーブル | 役割 |
+|---|---|
+| `workspace_user_accounts` | 外部の人のアカウント。識別子はメールアドレスのみ。`invited` / `active` / `suspended` |
+| `institution_workspaces` | 研究機関ワークスペース。slug、`status`（active/paused）、公開一覧掲載の可否 `is_publicly_listed` を独立に持つ |
+| `institution_workspace_memberships` | アカウント × 機関ワークスペースの所属。役割は owner / member / readonly |
+| `institution_workspace_project_scopes` | 機関ワークスペースが表示するPJの範囲。`shared_surface` で共有の深さを持つ |
+| `institution_workspace_seed_scopes` | 機関ワークスペースが表示するシーズの範囲 |
+| `project_access_memberships` | アカウント × PJの個別アクセス。役割は manager / contributor / readonly |
+| `workspace_access_audit_logs` | ログイン要求・成功・拒否・ログアウト・admin操作の監査記録。メール本文、URL、トークンは残さない |
+
+7テーブルとも RLS 有効で anon と一般 authenticated のポリシーを持たず、admin と service_role だけが触れる。
+
+**明示的な付与しか認可の根拠にしない**。アカウントの登録、機関ワークスペースへの所属、PJへのアクセスは3つの独立した付与であり、メールのドメインが一致していることは認可の根拠にならない。**機関ワークスペースに所属していても、そのPJの詳細ワークスペースへは入れない**。PJ側は `project_access_memberships` の `status='active'` の行が対象PJを名指ししている場合だけ開く。admin APIでも、機関所属を与える操作がPJアクセスを自動作成することはない。停止済み（suspended / revoked）の行は、新規作成では復活せず明示的な更新だけで戻る。
+
+### 6.3 愛媛のスコープ
+
+- **p30（愛媛大学エコシステム構築PJ）**: `ehime` ワークスペースのPJ範囲へ `shared_surface='summary'` で登録する。機関ワークスペース上ではPJのサマリだけを見せ、詳細ワークスペースは共有しない。
+- **p21**: 機関ワークスペースのPJ範囲に含めない。p21の詳細ワークスペースへは、`project_access_memberships` で個別に許可された人だけが入る。
+- シーズ範囲は機関段階かPJ化済みかで絞り込まない。`inst_ehime` に紐づくシーズを現時点の全件登録する。機関ワークスペースからの可視性と、PJ個別ワークスペースの共有可否は別軸だから。
+- 公開一覧に載るのは現時点で `ehime` の1件だけ。
+
+### 6.4 認証の流れ
+
+1. 公開トップまたはログイン画面で、外部向けの入口としてメールアドレスを受け取る。
+2. 登録済みで、かつ失効していない所属がある場合だけログインリンクを送る。登録の有無で応答の形も状態コードも変えない（登録済みかどうかを外から判別させない）。
+3. メールリンクのコールバックでSupabaseのセッションが成立した直後に、`signOut({ scope: 'local' })` でそのブラウザのセッションだけを捨て、**署名付きHTTP-only cookieへ交換する**。以後、外部ユーザーはSupabaseのauthenticatedセッションを持たない。
+4. cookieは毎リクエスト検証し、**さらにDBを引き直す**。アカウント停止、所属の失効、ワークスペースのpauseは次のリクエストで即座に効く。cookieの中身だけを信用しない。
+5. 認可できない場合は常に閉じる側へ倒す。存在しないslug・権限のないPJは、リダイレクトではなく見つからない扱いにして、機関やPJの存在自体を漏らさない。
+6. `/auth/logout` は署名cookieと旧PJセッションcookieの両方を消し、Supabase側も `scope:'local'` でログアウトする。
+
+### 6.5 外部へ出すデータ
+
+外部の面は、内部の取得経路を再利用せず専用の許可列DTOで組む。
+
+- **PJの外部DTO**: PJ名・状態、計画サイクル、マイルストーンの表題・目標年月・進捗率だけ。メンバー名、工数、根拠、出典、社内管理項目（目的・成果・論点・仮説・意思決定・資金・関係先）、連絡先は含めない。内部の詳細バンドルを外部側から呼ばない。
+- **機関ワークスペースDTO**: 要約・説明・URL・出典・連絡先・根拠の形をした列を含めない。ECRは軸の点数だけ、SPSは軸と算出結果だけを返し、評価者や軸ごとの根拠は返さない。
+- **公開トップDTO**: slugと名称、機関の名称・種別・地域だけ。
+- 外部の面はサーバー側で service_role として読む。migration 213で既存テーブルのanon読み取りを閉じても、外部画面の表示は壊れない。
+
+### 6.6 一覧の並びとECRの見せ方
+
+- 機関ワークスペースのシーズ一覧は、§5の共通ライフサイクルと同じ優先度で並べる。PJ化済み → PJ化検討中 → PJなし・SPS算出済み → その他とし、同じ区分の中は表題の日本語順にする。
+- **ECRは1機関の縦並び**で総合値と8軸を上から読む。機関横断の比較表（1機関=1行×軸を列）とは別の見せ方であり、外部の面では自機関だけを表示する。
+- **ECRとSPSは別系列のまま**。同じ画面に並べても合成スコア、相関、因果指標を作らない。DTO上も別プロパティに分ける。
+
+### 6.7 資料共有（未実装）
+
+研究機関との資料共有は現在BOXにある。ワークスペースへの移行は**未実装**で、`/workspace/[slug]` の資料欄は移行準備中の表示だけを置く。**リンク、iframe埋め込み、署名トークンのいずれも実装していない**。移行するときは、外部へ出す資料の範囲と権限をこの節へ書いてから実装する。
+
+## 7. 検証
 
 - migration 207は機関46件・大学/国研シーズ141件・確定4PJ、migration 209は対象seed PJ 19件・二重分類0件・SX未設立/SPS ready・description全NULLをassertする。
 - `npm run test:institution-seed-project-domains` でテーブル分離、19PJ移行、固定対応の不在、フラット全件表示、ECR/SPS非合算を検査する。
 - `npm run test:kute-seeds-scope` と `npm run test:institution-soil-seeds` で表示スコープと評価系列を検査する。
+- §6の外部アクセスは契約テストで検査する。`test:workspace-access-scope`（所属・失効・機関からPJへの暗黙付与なし）、`test:workspace-access-session`（署名cookieの検証）、`test:workspace-email-start-contract`（登録有無を漏らさない応答）、`test:workspace-next-path`（遷移先の絞り込み）、`test:external-project-workspace`（外部DTOが内部バンドルへ広がらないこと）、`test:workspace-access-admin`（admin API の権限と自動復活禁止）、`test:workspace-rls-closure`（migration 213の閉鎖範囲）。
 - PWAは型検査・本番build・desktop/mobile実画面、macOSはXcode buildで確認する。
 
-## 7. ロールバック
+## 8. ロールバック
 
 本変更は既存 `projects`、ECRを削除しない。migration 209は17シーズ追加、2機関追加、状態補正、SXのSPS行追加を含む。問題が出た場合は次の順で戻す。
 

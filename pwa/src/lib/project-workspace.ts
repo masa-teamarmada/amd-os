@@ -26,6 +26,16 @@ export type CurrentMemberAccess = {
   projects: ProjectNavItem[];
 };
 
+// Minimal structural shape needed by canAccessWorkspaceProject/getProjectWorkspaceBundle.
+// CurrentMemberAccess and the external SharedWorkspaceAccess union (defined in
+// project-shared-workspace-access.ts, which imports FROM this file) are both structurally
+// compatible with this — kept here, not imported, to avoid a circular import.
+export type WorkspaceProjectAccess = {
+  scope: OsAccessScope;
+  isAdmin: boolean;
+  projects: ProjectNavItem[];
+};
+
 export type ProjectWorkspaceBundle = {
   project: {
     projectId: string;
@@ -154,7 +164,7 @@ export function memberHome(access: CurrentMemberAccess) {
   return "/my-projects";
 }
 
-export function canAccessWorkspaceProject(access: CurrentMemberAccess, projectId: string) {
+export function canAccessWorkspaceProject(access: WorkspaceProjectAccess, projectId: string) {
   return access.scope === "portfolio" || access.isAdmin || access.projects.some((project) => project.projectId === projectId);
 }
 
@@ -224,7 +234,7 @@ function recentWeekStarts(count: number, now = new Date()) {
 
 export async function getProjectWorkspaceBundle(
   projectId: string,
-  access: CurrentMemberAccess,
+  access: WorkspaceProjectAccess,
 ): Promise<ProjectWorkspaceBundle | null> {
   if (!canAccessWorkspaceProject(access, projectId)) return null;
 

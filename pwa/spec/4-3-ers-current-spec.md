@@ -68,7 +68,7 @@ assessment は `(institution_id, criterion_id)` ごとに最新 `evaluated_at` �
 - 基本タブは `進捗管理` / `スコア詳細` / `土壌×シーズ`。研究機関でも運用構造はPJ cockpitに寄せるが、スコア詳細はSU向けAMD ScoreではなくECR 8軸・評価項目・Lv/根拠メモを表示する。`土壌×シーズ`タブの契約は本章末尾「土壌×シーズタブ」を参照。
 - `進捗管理` は既存 `CockpitView` を使うため、MS進捗管理、月次カード/モーダル、MTGサマリの挙動は通常PJコックピットと同じ。
 - `project_meeting_summaries` は月別の MTG tree として `進捗管理` の下部に表示し、各 row は `/project/[projectId]/cockpit?meeting=<meeting_id>` へ遷移する。MTG tree を機関コックピット最上部には置かない。
-- 機関とPJの正式scopeは `institution_projects`。外部機関向けtenant/accessは別論点で、`pwa/design/institution_tenant_access.md` のdraftを正本にする。
+- 機関とPJの正式scopeは `institution_projects`。外部機関向けワークスペースと認可は `pwa/design/institution_seed_project_model.md` §6、route境界は `pwa/spec/2-1-pwa-runtime-routes.md` を正本にする。旧 `institution_tenant_access.md` はNIMS固有の将来候補を残す履歴資料。
 
 ## API
 

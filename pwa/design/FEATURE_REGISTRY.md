@@ -31,6 +31,35 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - `pwa/scripts/check_pwa_critical_ui.cjs` がrole top、SX card、PJ session交換、route isolation、workspace route、effort API、admin onboarding、migration 182を検査する。あわせて `/auth/callback` の引数なし `supabase.auth.signOut()` を禁止し、`{ scope: "local" }` 付きの呼び出しが7箇所そろっていることを検査する。
 - 共有面へ社内cockpit DTOや既存のauthenticated sessionを流用しない。
 
+## 外部ワークスペースアクセス (研究機関 / PJ外部共有、build v3.53.19、migration 212/213)
+
+目的: 研究機関やPJの外部関係者が、AMD OSの社内情報へ触れずに、許可された機関ワークスペースと許可されたPJだけを同じ基盤で読めるようにする。DDLは本番未適用のため、状態は **実装準備済み** (適用済み・本番反映済みと書かない)。詳細設計は [institution_seed_project_model.md](institution_seed_project_model.md) §6、route契約は `pwa/spec/2-1-pwa-runtime-routes.md`。
+
+必須機能:
+
+- public top: `/` は認証不要で、`institution_workspaces` の `status='active'` かつ `is_publicly_listed=true` の行だけを slug / ワークスペース名 / 機関の名称・種別・地域で一覧する。説明文、件数、ECR、AMD Score を公開面へ出さない。内部メンバーは従来のホーム、外部アカウントは `/workspaces` へ redirect する。
+- external hub: `/workspaces` は所属する機関ワークスペースと、個別に許可されたPJだけを並べる。機関所属をPJ一覧の根拠にしない。
+- institution workspace: `/workspace/[slug]` は内部アプリのchromeを共有しない独立シェルで、対象機関のPJ・シーズ・ECRを読み取り専用で出す。
+- dual surface: `/project/[projectId]/workspace` は**同じURLのまま**、アクセス解決の後に内部メンバー向け詳細バンドルか外部向け読み取り専用DTOかを選ぶ。外部面のURLを別に切らない。
+- explicit grant only: 認可はアカウント登録 (`workspace_user_accounts`) + 機関ワークスペース所属 (`institution_workspace_memberships`) + PJ個別アクセス (`project_access_memberships`) の3つの明示的な付与だけ。**機関所属はPJアクセスを含意しない**。メールのドメイン一致を認可の根拠にしない。
+- narrow auth: メールリンクでログインし、Supabaseセッション成立直後に `signOut({ scope: "local" })` してHTTP-only署名cookie `amd_os_workspace_session` へ交換する。cookieは毎リクエスト検証したうえで必ずDBを引き直し、アカウント停止・所属失効・ワークスペースpauseを次のリクエストで反映する。cookieの中身だけを信用しない。
+- route isolation: `amd_os_workspace_session` が通常セッションの代わりになるのは `/workspaces`、`/workspace/**`、`/project/[projectId]/workspace` だけ。内部メンバーrouteや `/admin/**` へは効かない。
+- fail closed: 未認可・不明slug・未許可PJは redirect せず not found。機関やPJの存在自体を漏らさない。`/api/auth/email-start` は登録の有無で応答の形も状態コードも変えない。
+- safe DTO: 外部PJ面はPJ名・状態、計画サイクル、マイルストーンの表題・目標年月・進捗率だけ。内部バンドルの取得経路を外部面から呼ばず、メンバー名、工数、根拠、出典、社内管理項目 (目的 / 成果 / 論点 / 仮説 / 意思決定 / 資金 / 関係先)、連絡先を含めない。機関ワークスペースDTOも要約・説明・URL・出典・連絡先・根拠の形をした列と、SPSの `axis_evidence` / `evaluator`、ECRの note / evaluator / rubric を返さない。
+- list sorting: 機関ワークスペースのシーズ一覧は `/seeds` と同じライフサイクル優先度 (PJ化済み → PJ化検討中 → PJなし・SPS算出済み → その他) で並べ、同区分内は表題の日本語順。
+- ECR transpose: ECR は1機関の縦並びで総合値と8軸を上から読む。機関横断の比較表 (1機関=1行×軸を列) とは別の見せ方として維持し、**SPSとは別系列のまま合算しない** (合成スコア・相関・因果指標を作らない)。
+- 愛媛スコープ: p30 は `ehime` ワークスペースへ `shared_surface='summary'` (サマリのみ共有、詳細ワークスペースは非共有)。**p21 の詳細ワークスペースはPJ個別付与でのみ到達可能**で、機関ワークスペースのPJ範囲には含めない。シーズ範囲は `inst_ehime` 紐付け全件をPJ化有無で絞らない。
+- 資料共有: BOX からワークスペースへの移行は**未実装**。`/workspace/[slug]` の資料欄は移行準備中の表示だけを置き、リンク / iframe埋め込み / 署名トークンのいずれも実装していない。この欄を実装済みの共有導線として扱わない。
+- admin management: `/admin/access` (内部admin限定) + `GET/POST/PATCH /api/admin/workspace-access` が唯一の付与・停止導線。`kind` を必須にし汎用upsert経路を作らない。停止済み (suspended / revoked) は作成では復活せず明示的な PATCH のみ。機関所属の付与がPJアクセスを自動作成しない。`auth.users` の id は select も返却もしない。
+- audit: `workspace_access_audit_logs` にログイン要求・送信・成功・拒否・ログアウト・admin操作を記録する。メール本文、URL、トークン、未登録アドレスは残さない。
+- RLS: migration 212 の新設7テーブルは anon / 一般 authenticated のポリシーを持たない (admin + service_role のみ)。migration 213 は既存15テーブルの anon read を撤去し、authenticated を `amd_os_is_member()` ゲートへ寄せる。ECR / SPS の軸値と評価行そのものへは INSERT / UPDATE / DELETE を行わない。
+
+回帰防止:
+
+- `npm run test:workspace-access-scope` (所属・失効・機関→PJの暗黙付与なし)、`test:workspace-access-session` (署名cookieの検証)、`test:workspace-email-start-contract` (登録有無を漏らさない応答)、`test:workspace-next-path` (遷移先の絞り込み)、`test:external-project-workspace` (外部DTOが内部バンドルへ広がらないこと)、`test:workspace-access-admin` (admin APIの権限・自動復活禁止・`auth.users` 非返却)、`test:workspace-rls-closure` (213の閉鎖範囲) が構造的に検査する。
+- 外部面へ内部cockpit DTOや `getProjectWorkspaceBundle` を流用しない。外部が見る情報を増やす場合は外部専用の許可列を広げ、内部バンドルの再利用で代替しない。
+- `/project/[projectId]/workspace` を外部用の別URLへ分割しない (二面構成が契約)。
+
 ## /manual
 
 目的: AMD OS の使い方・仕様・運用履歴の正本を、読み手が自力で検索し、必要ならページ限定つくよみに質問できる状態にする。

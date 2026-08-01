@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 const ADMIN_TABS = [
   { label: "Projects", href: "/admin/projects" },
   { label: "Members", href: "/admin/members" },
+  { label: "外部アクセス", href: "/admin/access" },
   { label: "Company", href: "/admin/company" },
   { label: "Management", href: "/management-score" },
   { label: "日本文化", href: "/admin/japanese-culture-map" },

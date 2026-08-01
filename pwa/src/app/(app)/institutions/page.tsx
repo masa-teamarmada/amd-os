@@ -245,6 +245,22 @@ function InstitutionCatalog({ rows }: { rows: Array<{
   );
 }
 
+type EvaluatedRow = {
+  institution: ErsInstitution;
+  projectLink: InstitutionProjectLink | null;
+  lifecycle: ProjectLifecycle;
+  result: ReturnType<typeof computeErs>;
+  latestEvaluatedAt: string | null;
+};
+
+function lifecycleLabel(lifecycle: ProjectLifecycle): string {
+  return lifecycle === "realized" ? "PJ化済み" : lifecycle === "considering" ? "PJ化検討中" : "未PJ化";
+}
+
+function lifecycleTextClass(lifecycle: ProjectLifecycle): string {
+  return lifecycle === "realized" ? "text-indigo-700" : lifecycle === "considering" ? "text-amber-800" : "text-slate-400";
+}
+
 function EcrComparison({ bundle, results }: { bundle: ErsBundle; results: Array<{
   institution: ErsInstitution;
   projectLink: InstitutionProjectLink | null;
@@ -259,51 +275,170 @@ function EcrComparison({ bundle, results }: { bundle: ErsBundle; results: Array<
       return lifecycle || a.institution.name.localeCompare(b.institution.name, "ja");
     });
   const sortedAxes = [...bundle.axes].sort((a, b) => a.sortOrder - b.sortOrder);
+  const [target1, setTarget1] = useState<string>("");
+  const [target2, setTarget2] = useState<string>("");
+
+  useEffect(() => {
+    if (!evaluated.some((row) => row.institution.institutionId === target1)) {
+      setTarget1(evaluated[0]?.institution.institutionId ?? "");
+    }
+    if (target2 && !evaluated.some((row) => row.institution.institutionId === target2)) {
+      setTarget2("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [evaluated.map((row) => row.institution.institutionId).join(",")]);
+
   if (!evaluated.length) {
     return <div className="border border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">ECR評価済みの研究機関がない</div>;
   }
+
+  const mobileColumns = [target1, target2]
+    .filter(Boolean)
+    .map((id) => evaluated.find((row) => row.institution.institutionId === id))
+    .filter((row): row is EvaluatedRow => Boolean(row));
+
   return (
     <section className="space-y-3">
       <p className="text-xs leading-relaxed text-slate-600">
         ECRは研究機関の環境だけを比較する。シーズのSPSやPJのスコアとは合算しない。未評価機関は比較表から外し、一覧には残す。
       </p>
-      <div className="max-h-[80vh] overflow-auto border border-slate-200">
-        <table className="w-full min-w-[1260px] border-collapse text-xs">
-          <thead>
-            <tr>
-              <th className="sticky left-0 top-0 z-30 min-w-[220px] border-b border-r border-slate-200 bg-slate-100 px-3 py-2 text-left font-medium">研究機関</th>
-              <th className="sticky top-0 z-20 min-w-[90px] border-b border-r border-slate-200 bg-slate-100 px-2 py-2 text-center font-medium">総合 ECR</th>
-              {sortedAxes.map((axis) => (
-                <th key={axis.axisId} title={axis.name} className="sticky top-0 z-20 min-w-[76px] border-b border-r border-slate-200 bg-slate-100 px-2 py-2 text-center font-medium">
-                  <span className="block font-mono text-[10px]">A{axis.axisNo}</span>
-                  <span className="block truncate">{axis.name}</span>
-                </th>
-              ))}
-              <th className="sticky top-0 z-20 min-w-[116px] border-b border-slate-200 bg-slate-100 px-2 py-2 text-left font-medium">評価</th>
-            </tr>
-          </thead>
-          <tbody>
-            {evaluated.map(({ institution, result, lifecycle, latestEvaluatedAt }) => (
-              <tr key={institution.institutionId} className={lifecycle === "realized" ? "bg-indigo-50/30" : lifecycle === "considering" ? "bg-amber-50/30" : "bg-white"}>
-                <th className="sticky left-0 z-10 border-b border-r border-slate-200 bg-inherit px-3 py-3 text-left font-normal">
-                  <Link href={`/institutions/${institution.institutionId}`} className="font-semibold text-slate-950 hover:text-indigo-800 hover:underline">{institution.name}</Link>
-                  <span className={`mt-1 block text-[10px] font-semibold ${lifecycle === "realized" ? "text-indigo-700" : lifecycle === "considering" ? "text-amber-800" : "text-slate-400"}`}>
-                    {lifecycle === "realized" ? "PJ化済み" : lifecycle === "considering" ? "PJ化検討中" : "未PJ化"}
-                  </span>
-                </th>
-                <td className="border-b border-r border-slate-200 px-2 py-3 text-center font-mono text-xl font-extrabold" style={heatCell((result.ers ?? 0) / 100)}>{Math.round(result.ers ?? 0)}%</td>
-                {sortedAxes.map((axis) => {
-                  const axisResult = result.axisScores.find((score) => score.axisId === axis.axisId);
-                  return <td key={axis.axisId} className="border-b border-r border-slate-200 px-2 py-3 text-center font-mono text-sm" style={heatCell(axisResult?.score ?? null)}>{axisResult?.score != null ? Math.round(axisResult.score * 100) : "–"}</td>;
-                })}
-                <td className="border-b border-slate-200 px-2 py-3 text-slate-600">
-                  <span className="font-mono font-semibold">{result.assessedCriteria}/{result.totalCriteria}</span>
-                  <span className="block text-[10px] text-slate-400">{latestEvaluatedAt ?? "日付未登録"}</span>
-                </td>
+
+      {/* desktop/tablet: 全機関を横スクロールで比較 */}
+      <div className="hidden overflow-hidden border border-slate-200 sm:block">
+        <div className="max-h-[80vh] overflow-auto">
+          <table className="border-collapse text-xs">
+            <thead>
+              <tr>
+                <th className="sticky left-0 top-0 z-30 min-w-[168px] border-b border-r border-slate-200 bg-slate-100 px-3 py-2 text-left font-medium">評価軸</th>
+                {evaluated.map(({ institution, lifecycle, result, latestEvaluatedAt }) => (
+                  <th key={institution.institutionId} className="sticky top-0 z-20 min-w-[150px] border-b border-r border-slate-200 bg-slate-100 px-3 py-2 text-left font-medium">
+                    <Link href={`/institutions/${institution.institutionId}`} className="block truncate font-semibold text-slate-950 hover:text-indigo-800 hover:underline">
+                      {institution.name}
+                    </Link>
+                    <span className={`mt-0.5 block text-[10px] font-semibold ${lifecycleTextClass(lifecycle)}`}>{lifecycleLabel(lifecycle)}</span>
+                    <span className="mt-0.5 block text-[10px] font-normal text-slate-400">
+                      {latestEvaluatedAt ?? "日付未登録"} · {result.assessedCriteria}/{result.totalCriteria}項目
+                    </span>
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              <tr>
+                <th className="sticky left-0 z-10 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 text-left font-semibold text-slate-800">総合 ECR</th>
+                {evaluated.map(({ institution, result }) => (
+                  <td key={institution.institutionId} className="border-b border-r border-slate-200 px-3 py-3 text-center font-mono text-xl font-extrabold" style={heatCell((result.ers ?? 0) / 100)}>
+                    {Math.round(result.ers ?? 0)}%
+                  </td>
+                ))}
+              </tr>
+              {sortedAxes.map((axis) => (
+                <tr key={axis.axisId}>
+                  <th title={axis.name} className="sticky left-0 z-10 border-b border-r border-slate-200 bg-white px-3 py-3 text-left font-normal">
+                    <span className="block font-mono text-[10px] text-slate-400">A{axis.axisNo}</span>
+                    <span className="block truncate font-medium text-slate-700">{axis.name}</span>
+                  </th>
+                  {evaluated.map(({ institution, result }) => {
+                    const axisResult = result.axisScores.find((score) => score.axisId === axis.axisId);
+                    return (
+                      <td key={institution.institutionId} className="border-b border-r border-slate-200 px-3 py-3 text-center font-mono text-sm" style={heatCell(axisResult?.score ?? null)}>
+                        {axisResult?.score != null ? `${Math.round(axisResult.score * 100)}%` : "–"}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* mobile: 評価済み機関から最大2件を選んで比較 */}
+      <div className="space-y-3 sm:hidden">
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-semibold text-slate-500">比較対象1</span>
+            <select
+              value={target1}
+              onChange={(event) => {
+                const value = event.target.value;
+                setTarget1(value);
+                if (value && value === target2) setTarget2("");
+              }}
+              className="h-10 w-full rounded-md border border-slate-300 bg-white px-2 text-xs text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            >
+              {evaluated.map(({ institution }) => (
+                <option key={institution.institutionId} value={institution.institutionId}>{institution.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-semibold text-slate-500">比較対象2（任意）</span>
+            <select
+              value={target2}
+              onChange={(event) => setTarget2(event.target.value)}
+              className="h-10 w-full rounded-md border border-slate-300 bg-white px-2 text-xs text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            >
+              <option value="">未選択</option>
+              {evaluated
+                .filter(({ institution }) => institution.institutionId !== target1)
+                .map(({ institution }) => (
+                  <option key={institution.institutionId} value={institution.institutionId}>{institution.name}</option>
+                ))}
+            </select>
+          </label>
+        </div>
+
+        {mobileColumns.length === 0 ? (
+          <div className="border border-slate-200 bg-slate-50 px-4 py-8 text-center text-xs text-slate-500">比較対象を選ぶとECRを表示する</div>
+        ) : (
+          <div className="overflow-hidden border border-slate-200">
+            <table className="w-full table-fixed border-collapse text-xs">
+              <thead>
+                <tr>
+                  <th className="w-[30%] border-b border-r border-slate-200 bg-slate-100 px-2 py-2 text-left font-medium">評価軸</th>
+                  {mobileColumns.map(({ institution, lifecycle, result, latestEvaluatedAt }) => (
+                    <th key={institution.institutionId} className="border-b border-r border-slate-200 bg-slate-100 px-2 py-2 text-left font-medium last:border-r-0">
+                      <Link href={`/institutions/${institution.institutionId}`} className="block truncate font-semibold text-slate-950 hover:text-indigo-800 hover:underline">
+                        {institution.name}
+                      </Link>
+                      <span className={`mt-0.5 block text-[10px] font-semibold ${lifecycleTextClass(lifecycle)}`}>{lifecycleLabel(lifecycle)}</span>
+                      <span className="mt-0.5 block truncate text-[10px] font-normal text-slate-400">
+                        {latestEvaluatedAt ?? "日付未登録"} · {result.assessedCriteria}/{result.totalCriteria}項目
+                      </span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th className="border-b border-r border-slate-200 bg-slate-50 px-2 py-3 text-left font-semibold text-slate-800">総合 ECR</th>
+                  {mobileColumns.map(({ institution, result }) => (
+                    <td key={institution.institutionId} className="border-b border-r border-slate-200 px-2 py-3 text-center font-mono text-lg font-extrabold last:border-r-0" style={heatCell((result.ers ?? 0) / 100)}>
+                      {Math.round(result.ers ?? 0)}%
+                    </td>
+                  ))}
+                </tr>
+                {sortedAxes.map((axis) => (
+                  <tr key={axis.axisId}>
+                    <th title={axis.name} className="border-b border-r border-slate-200 bg-white px-2 py-3 text-left font-normal">
+                      <span className="block font-mono text-[10px] text-slate-400">A{axis.axisNo}</span>
+                      <span className="block truncate font-medium text-slate-700">{axis.name}</span>
+                    </th>
+                    {mobileColumns.map(({ institution, result }) => {
+                      const axisResult = result.axisScores.find((score) => score.axisId === axis.axisId);
+                      return (
+                        <td key={institution.institutionId} className="border-b border-r border-slate-200 px-2 py-3 text-center font-mono text-xs last:border-r-0" style={heatCell(axisResult?.score ?? null)}>
+                          {axisResult?.score != null ? `${Math.round(axisResult.score * 100)}%` : "–"}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </section>
   );

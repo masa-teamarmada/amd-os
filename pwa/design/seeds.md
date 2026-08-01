@@ -68,10 +68,16 @@ AMD 視点:       status, amd_rating (1-5), amd_owner_member_id, next_action,
 
 ### RLS
 
-`016_vc_list.sql` / `017_vc_rls_writes.sql` と同じパターン (4 テーブル全部):
-- `anon_read` (SELECT 全開)
-- `authenticated_all` (auth.uid() IS NOT NULL なら ALL)
-- `service_role_bypass` (cron route 用)
+旧仕様 (`016_vc_list.sql` / `017_vc_rls_writes.sql` と同じ `anon_read` 全開 + `authenticated_all` = `auth.uid() IS NOT NULL`) は **[213_workspace_access_security_closure.sql](../scripts/migrations/213_workspace_access_security_closure.sql) で撤去する**。適用前は「実装準備済み」であり、本番へ適用済みと書かない。
+
+213 適用後の `seeds` / `seed_funding` / `seed_news` / `seed_contact_log` / `seed_sps_assessments`:
+
+- **anon read は無い**。anon key だけでシーズ台帳やSPSの生の軸値を読める経路を残さない。
+- authenticated の read / insert / update / delete はすべて `amd_os_is_member()` ゲート。`auth.uid() IS NOT NULL` の汎用チェックは使わない。外部ワークスペースのアカウントは `members` に載らないので、Supabase セッションを持っていた瞬間があってもここへ直接触れない。
+- `service_role_bypass` は cron / API route 用に維持する。
+- 既存ポリシー名を過去の migration 文面から推測せず、`pg_policies` を動的に走査して全削除してから正本ポリシーを作り直す。
+- 213 が触るのはポリシーだけで、SPS の軸値 (`mu_a` / `mu_i` / `mu_g` / `potential` / `trl` / `brl` / `grl` / `srl` / `hrl`) と評価行そのものへは INSERT / UPDATE / DELETE を一切行わない。ECR (`institution_assessments`) も同じ。
+- 外部の研究機関ワークスペースは service_role のサーバー側 DTO で読むため、anon / authenticated を閉じても外部画面の表示は壊れない。
 
 ## ルーティング
 
@@ -126,12 +132,24 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 - ✅ **AMD関与シーズPJの移行**: migration 209で個別シーズ型19PJを `seed_projects` へ補完。p21/p26は既存seedを再利用し、p00/p12/p14/p19/p23/p25/p28/p30は個別シーズへ潰していない
 - ⬜ **HSFC 残り 23 件 / さきがけ 175件** の収集
 
-### Phase 3 (TODO)
+### Phase 3
+
+### 機関外部への公開 (実装済 — DDL適用待ち)
+
+旧TODOにあった「`is_public=true` のシーズを別認証で公開閲覧可能にする」「`/research-orgs/[org_name]` で機関単位の seeds 一覧」は、**研究機関ワークスペースとして実装済み**。設計正本は [institution_seed_project_model.md](institution_seed_project_model.md) §6。migration 212/213 の DDL は本番未適用なので、状態としては「実装準備済み」。
+
+- 面は `/workspace/[slug]`。公開トップ `/` は掲載可のワークスペースをslug・名称・機関の種別/地域だけで一覧し、外部の人は `/workspaces` を入口にする。
+- 可視範囲は `seeds.is_public` ではなく `institution_workspace_seed_scopes` で決める。機関に紐づくシーズを機関段階かPJ化済みかで絞り込まず、現時点の全件を範囲へ入れる。
+- 認可はメールアドレス単位のアカウント + 機関ワークスペース所属 + PJ個別アクセスの3つの明示的な付与だけ。**機関ワークスペースの所属はPJ詳細ワークスペースへのアクセスを意味しない**。メールのドメイン一致も根拠にしない。
+- 外部へ返すのは許可列DTOだけ。`internal_notes` / `source_detail` / `deep_dive_material_url` 等の社内列と、`seed_sps_assessments.axis_evidence` / `evaluator` は外部の面に出さない。
+- 一覧の並びは `/seeds` と同じライフサイクル優先度 (PJ化済み → PJ化検討中 → PJなし・SPS算出済み → その他)。同じ区分の中は表題の日本語順。
+- **SPSとECRは合算しない**。機関ワークスペースでもSPSはシーズごとの評価、ECRは機関の縦並び (総合値 + 8軸) として別々に表示し、合成スコア・相関・因果指標を作らない。
+- 資料共有は現在BOXにあり、ワークスペースへの移行は未実装。資料欄は移行準備中の表示だけで、リンク・iframe・署名トークンのいずれも実装していない。
+
+### 残TODO
 
 - **researchmap / OpenAlex 発掘 cron**: 機関 × 領域別に Claude + web_search で「注目シーズ候補」を生成 → inbox
 - **つくよみ chat tool 群**: `upsert_seed` `update_seed_status` `add_seed_funding` `add_seed_contact` 等
-- **URA/EIR 公開**: `is_public=true` のシーズだけを別認証で公開閲覧可能にする
-- **機関別ダッシュボード**: `/research-orgs/[org_name]` で機関単位の seeds 一覧 (現状は `/seeds?org=...` フィルタで代替)
 
 ## SPS (Seed Prospect Score) — 全国全シーズ共通の評価 (2026-07-20)
 

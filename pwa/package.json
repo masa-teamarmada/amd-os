@@ -86,7 +86,14 @@
     "test:freee-cash-actuals": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_freee_cash_actuals.mts",
     "collect:management-score-raw": "node scripts/collect_management_score_raw_data.cjs",
     "calculate:management-score": "node scripts/calculate_management_score.cjs",
-    "freee:refresh-token": "node scripts/get_freee_refresh_token.cjs --write-env"
+    "freee:refresh-token": "node scripts/get_freee_refresh_token.cjs --write-env",
+    "test:workspace-access-scope": "node --experimental-strip-types scripts/check_workspace_access_scope.mts",
+    "test:workspace-access-session": "node --experimental-strip-types scripts/check_workspace_access_session.mts",
+    "test:workspace-email-start-contract": "node scripts/check_workspace_email_start_contract.mjs",
+    "test:workspace-next-path": "node --experimental-strip-types scripts/check_workspace_next_path.mts",
+    "test:external-project-workspace": "node scripts/check_external_project_workspace_contract.mjs",
+    "test:workspace-access-admin": "node scripts/check_workspace_access_admin_contract.mjs",
+    "test:workspace-rls-closure": "node scripts/check_workspace_rls_closure_contract.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.87.0",

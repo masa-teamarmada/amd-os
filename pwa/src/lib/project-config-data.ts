@@ -8,11 +8,17 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder"
 );
+
+/** 認証付きブラウザクライアント（RLS書き込み用） */
+function getAuthClient() {
+  return createBrowserSupabase();
+}
 
 // ============================================================
 // 型定義
@@ -186,7 +192,8 @@ export async function saveProjectConfig(
   if (patch.invoiceCcEmails !== undefined) dbPatch.invoice_cc_emails = patch.invoiceCcEmails;
   if (patch.invoiceBccEmails !== undefined) dbPatch.invoice_bcc_emails = patch.invoiceBccEmails;
 
-  const { error } = await supabase.from("projects").update(dbPatch).eq("id", projectUuid);
+  const authClient = getAuthClient();
+  const { error } = await authClient.from("projects").update(dbPatch).eq("id", projectUuid);
   if (error) return { ok: false, message: error.message };
   return { ok: true };
 }

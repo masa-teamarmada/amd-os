@@ -8,6 +8,15 @@ import {
   PROJECT_WORKSPACE_SESSION_MAX_AGE,
 } from "@/lib/project-workspace-session";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeWorkspaceEmail } from "@/lib/workspace-email";
+import { sanitizeNextPath } from "@/lib/workspace-next-path";
+import {
+  createWorkspaceSessionCookieValue,
+  WORKSPACE_SESSION_COOKIE,
+  WORKSPACE_SESSION_MAX_AGE,
+} from "@/lib/workspace-access-session";
+import { resolveWorkspaceAccessForAccount } from "@/lib/workspace-access-resolver";
+import { recordWorkspaceAuditEvent } from "@/lib/workspace-access-audit";
 
 const ALLOWED_DOMAIN = "team-armada.jp";
 const REQUIRED_SCOPES = [
@@ -16,12 +25,10 @@ const REQUIRED_SCOPES = [
 ];
 
 function getServiceClient() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-      "placeholder"
-  );
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) throw new Error("Supabase service role env vars are required");
+  return createServiceClient(url, serviceKey);
 }
 
 function tokenExpiresAt(session: unknown) {
@@ -94,14 +101,161 @@ async function markCalendarStatus(input: {
   }
 }
 
+// workspace_account (社外の共有ワークスペース利用者) 用の OTP ログイン。member テーブルとは
+// 完全に別の principal — Supabase 側の認証セッションはこの関数の中で必ず signOut し、
+// 発行するのは署名付き WORKSPACE_SESSION_COOKIE だけ（内部 member 用 RLS には一切触れさせない）。
+async function handleWorkspaceLoginCallback(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  user: { id: string; email: string },
+  next: string,
+  origin: string,
+) {
+  const service = getServiceClient();
+  const normalizedEmail = normalizeWorkspaceEmail(user.email);
+
+  if (!normalizedEmail) {
+    await supabase.auth.signOut({ scope: "local" });
+    return NextResponse.redirect(`${origin}/auth/login?error=workspace_auth_failed`);
+  }
+
+  const { data: account } = await service
+    .from("workspace_user_accounts")
+    .select("id,email_normalized,auth_user_id,status")
+    .eq("email_normalized", normalizedEmail)
+    .in("status", ["invited", "active"])
+    .maybeSingle();
+
+  if (!account) {
+    await supabase.auth.signOut({ scope: "local" });
+    await recordWorkspaceAuditEvent(service, {
+      eventType: "callback_login_denied",
+      detail: { reason: "account_not_found" },
+    });
+    return NextResponse.redirect(`${origin}/auth/login?error=workspace_account_not_found`);
+  }
+
+  if (account.auth_user_id && account.auth_user_id !== user.id) {
+    await supabase.auth.signOut({ scope: "local" });
+    await recordWorkspaceAuditEvent(service, {
+      eventType: "callback_login_denied",
+      userAccountId: account.id,
+      email: account.email_normalized,
+      detail: { reason: "auth_user_id_mismatch" },
+    });
+    return NextResponse.redirect(`${origin}/auth/login?error=workspace_account_conflict`);
+  }
+
+  // 初回ログインでの紐付けと、招待済み(invited)アカウントの有効化(active)は同時に行う。
+  if (!account.auth_user_id || account.status === "invited") {
+    const { error: activateError } = await service
+      .from("workspace_user_accounts")
+      .update({ auth_user_id: user.id, status: "active" })
+      .eq("id", account.id);
+    if (activateError) {
+      await supabase.auth.signOut({ scope: "local" });
+      await recordWorkspaceAuditEvent(service, {
+        eventType: "callback_login_denied",
+        userAccountId: account.id,
+        email: account.email_normalized,
+        detail: { reason: "account_activation_failed" },
+      });
+      return NextResponse.redirect(`${origin}/auth/login?error=workspace_activation_failed`);
+    }
+  }
+
+  // 招待済み(invited)のメンバーシップも、このログインで初回参加として active 化する。
+  // アカウント自体は既に active でも、新規招待メンバーシップだけが invited のケースがあるため
+  // account の activation 有無に関わらず毎回試みる。どちらかの update が失敗したら fail closed。
+  const { error: institutionActivateError } = await service
+    .from("institution_workspace_memberships")
+    .update({ status: "active" })
+    .eq("user_account_id", account.id)
+    .eq("status", "invited");
+  if (institutionActivateError) {
+    await supabase.auth.signOut({ scope: "local" });
+    await recordWorkspaceAuditEvent(service, {
+      eventType: "callback_login_denied",
+      userAccountId: account.id,
+      email: account.email_normalized,
+      detail: { reason: "institution_membership_activation_failed" },
+    });
+    return NextResponse.redirect(`${origin}/auth/login?error=workspace_activation_failed`);
+  }
+
+  const { error: projectActivateError } = await service
+    .from("project_access_memberships")
+    .update({ status: "active" })
+    .eq("user_account_id", account.id)
+    .eq("status", "invited");
+  if (projectActivateError) {
+    await supabase.auth.signOut({ scope: "local" });
+    await recordWorkspaceAuditEvent(service, {
+      eventType: "callback_login_denied",
+      userAccountId: account.id,
+      email: account.email_normalized,
+      detail: { reason: "project_membership_activation_failed" },
+    });
+    return NextResponse.redirect(`${origin}/auth/login?error=workspace_activation_failed`);
+  }
+
+  const scopeSummary = await resolveWorkspaceAccessForAccount(account.id, account.email_normalized);
+  const hasActiveScope = !!scopeSummary
+    && (scopeSummary.projects.length > 0 || scopeSummary.institutionWorkspaces.length > 0);
+
+  if (!hasActiveScope) {
+    await supabase.auth.signOut({ scope: "local" });
+    await recordWorkspaceAuditEvent(service, {
+      eventType: "callback_login_denied",
+      userAccountId: account.id,
+      email: account.email_normalized,
+      detail: { reason: "no_active_scope" },
+    });
+    return NextResponse.redirect(`${origin}/auth/login?error=workspace_no_access`);
+  }
+
+  const cookieStore = await cookies();
+  const supabaseCookieNames = cookieStore
+    .getAll()
+    .map((cookie) => cookie.name)
+    .filter((name) => name.startsWith("sb-"));
+  const { error: signOutError } = await supabase.auth.signOut({ scope: "local" });
+  if (signOutError) {
+    return NextResponse.redirect(`${origin}/auth/login?error=workspace_auth_failed`);
+  }
+
+  await recordWorkspaceAuditEvent(service, {
+    eventType: "callback_login_success",
+    userAccountId: account.id,
+    email: account.email_normalized,
+    detail: {},
+  });
+
+  const response = NextResponse.redirect(`${origin}${sanitizeNextPath(next)}`);
+  for (const name of supabaseCookieNames) {
+    response.cookies.set(name, "", { path: "/", maxAge: 0 });
+  }
+  response.cookies.set(
+    WORKSPACE_SESSION_COOKIE,
+    createWorkspaceSessionCookieValue(account.id, account.email_normalized),
+    {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: WORKSPACE_SESSION_MAX_AGE,
+    },
+  );
+  return response;
+}
+
 // この route の signOut はすべて「いま確立しかけた、このブラウザのセッションだけを捨てる」意図。
 // GoTrueClient.signOut() の既定 scope は "global" で、省略すると当人の全デバイスの
 // セッションまで失効する。scope: "local" の明示は必須（2026-07-27 の全端末ログアウト事故）。
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const rawNext = searchParams.get("next") ?? "/";
-  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
+  const loginScope = searchParams.get("login_scope");
+  const next = sanitizeNextPath(searchParams.get("next"));
 
   if (code) {
     const supabase = await createClient();
@@ -111,6 +265,10 @@ export async function GET(request: Request) {
       if (!user?.email) {
         await supabase.auth.signOut({ scope: "local" });
         return NextResponse.redirect(`${origin}/auth/login?error=auth_failed`);
+      }
+
+      if (loginScope === "workspace") {
+        return handleWorkspaceLoginCallback(supabase, { id: user.id, email: user.email }, next, origin);
       }
 
       const email = user.email.toLowerCase();

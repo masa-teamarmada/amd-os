@@ -4,12 +4,25 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const LAST_LOGIN_TOUCH_COOKIE = "amd_os_last_login_touch";
 const PROJECT_WORKSPACE_SESSION_COOKIE = "amd_os_project_session";
+const WORKSPACE_SESSION_COOKIE = "amd_os_workspace_session";
 const LAST_LOGIN_TOUCH_INTERVAL_MS = 60 * 60 * 1000;
 
 function getServiceClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey) return null;
   return createServiceClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
+}
+
+// amd_os_workspace_session (workspace_account principal) may only stand in for a normal
+// authenticated session on the shared-workspace surface — never on internal member routes.
+// Legacy amd_os_project_session gating is untouched below.
+const PROJECT_WORKSPACE_PATH_PATTERN = /^\/project\/[^/]+\/workspace\/?$/;
+
+function isWorkspaceSessionAllowedPath(pathname: string) {
+  if (pathname === "/workspaces") return true;
+  if (pathname === "/workspace" || pathname.startsWith("/workspace/")) return true;
+  if (PROJECT_WORKSPACE_PATH_PATTERN.test(pathname)) return true;
+  return false;
 }
 
 function shouldTouchLastLogin(request: NextRequest) {
@@ -37,6 +50,8 @@ export async function updateSession(request: NextRequest) {
   // `/bzm/public/**` は公開原稿。通常の `/bzm/**` は引き続き会員限定にする。
   const isPublicBzmManuscript = pathname === "/bzm/public" || pathname.startsWith("/bzm/public/");
   const hasProjectWorkspaceSession = request.cookies.has(PROJECT_WORKSPACE_SESSION_COOKIE);
+  const hasWorkspaceAccountSession = request.cookies.has(WORKSPACE_SESSION_COOKIE)
+    && isWorkspaceSessionAllowedPath(pathname);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -68,6 +83,7 @@ export async function updateSession(request: NextRequest) {
   if (
     !user &&
     !hasProjectWorkspaceSession &&
+    !hasWorkspaceAccountSession &&
     !pathname.startsWith("/auth") &&
     !pathname.startsWith("/api/") &&
     !isPublicMeetingArtifact &&

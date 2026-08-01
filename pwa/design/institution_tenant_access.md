@@ -1,7 +1,13 @@
-# Institution Tenant / Access Design
+# Institution Tenant / Access Design（旧NIMSパイロット案）
+
+> **現行の正本ではない。** 研究機関・シーズ・PJの関係と外部ワークスペース認可は
+> [institution_seed_project_model.md](institution_seed_project_model.md) §6、routeは
+> [../spec/2-1-pwa-runtime-routes.md](../spec/2-1-pwa-runtime-routes.md) を正本にする。
+> 本文はNIMS固有の将来候補（外部コメント、候補提出、export/offboarding等）を残す履歴資料で、
+> `institution_user_roles` / `project_institution_scopes` などの提案テーブルを現行実装と読み替えない。
 
 作成日: 2026-05-31
-ステータス: Project-scoped workspace pilot implemented for SX (`p21`) on 2026-07-18. Institution tenant / candidate / audit model remains design.
+ステータス: 2026-08-01に外部ワークスペースの現行設計へ移行。NIMS固有の候補編集・export/offboardingは未実装の将来案。
 対象: NIMS / 外部研究機関へ AMD OS を見せる前に必要な tenant, institution scope, role, RLS/API guard, audit log 設計。
 
 ## Executive summary
