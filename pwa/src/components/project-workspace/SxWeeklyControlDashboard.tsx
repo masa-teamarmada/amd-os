@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowRight,
@@ -1708,6 +1708,8 @@ function IssueEditor({
   projectId,
   onClose,
   onSaved,
+  onDirtyChange,
+  embedded = false,
 }: {
   editor: EditorState;
   management: SxManagementBundle;
@@ -1715,6 +1717,8 @@ function IssueEditor({
   projectId: string;
   onClose: () => void;
   onSaved: (bundle: SxManagementBundle, message: string) => void;
+  onDirtyChange?: (dirty: boolean) => void;
+  embedded?: boolean;
 }) {
   const definition = editorDefinition(editor, management);
   const initialValues = useRef(
@@ -1725,10 +1729,27 @@ function IssueEditor({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const editorPanelRef = useRef<HTMLElement>(null);
+  const dirty = JSON.stringify(values) !== JSON.stringify(initialValues.current);
+
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+    return () => onDirtyChange?.(false);
+  }, [dirty, onDirtyChange]);
+
+  useEffect(() => {
+    if (!embedded) return;
+    const frame = window.requestAnimationFrame(() => {
+      editorPanelRef.current
+        ?.querySelector<HTMLElement>(
+          "textarea:not([disabled]), input:not([disabled]):not([type='hidden']), select:not([disabled])",
+        )
+        ?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [embedded]);
 
   function requestClose() {
-    const dirty =
-      JSON.stringify(values) !== JSON.stringify(initialValues.current);
     if (!dirty || window.confirm("入力中の変更を破棄する？")) onClose();
   }
 
@@ -1861,22 +1882,19 @@ function IssueEditor({
     }
   }
 
-  return (
-    <div
-      className={styles.editorBackdrop}
-      role="dialog"
-      aria-modal="true"
-      aria-label={definition.title}
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) requestClose();
-      }}
+  const editorPanel = (
+    <section
+      ref={editorPanelRef}
+      className={`${styles.editorPanel} ${embedded ? styles.editorInline : ""}`}
+      data-testid={embedded ? "sx-inline-editor" : undefined}
+      aria-label={embedded ? definition.title : undefined}
     >
-      <section className={styles.editorPanel}>
-        <header className={styles.editorHeader}>
-          <div>
-            <p className={styles.eyebrow}>{definition.eyebrow}</p>
-            <h2>{definition.title}</h2>
-          </div>
+      <header className={styles.editorHeader}>
+        <div>
+          <p className={styles.eyebrow}>{definition.eyebrow}</p>
+          <h2>{definition.title}</h2>
+        </div>
+        {!embedded && (
           <button
             type="button"
             className={styles.iconButton}
@@ -1885,9 +1903,10 @@ function IssueEditor({
           >
             <X aria-hidden="true" />
           </button>
-        </header>
-        <div className={styles.editorContext}>
-          {"issue" in editor && (
+        )}
+      </header>
+      <div className={styles.editorContext}>
+        {"issue" in editor && (
             <>
               <span>対象論点</span>
               <strong>{editor.issue.title}</strong>
@@ -2033,9 +2052,24 @@ function IssueEditor({
               <Check aria-hidden="true" />
             )}
             保存
-          </button>
-        </footer>
-      </section>
+        </button>
+      </footer>
+    </section>
+  );
+
+  if (embedded) return editorPanel;
+
+  return (
+    <div
+      className={styles.editorBackdrop}
+      role="dialog"
+      aria-modal="true"
+      aria-label={definition.title}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) requestClose();
+      }}
+    >
+      {editorPanel}
     </div>
   );
 }
@@ -2358,6 +2392,7 @@ function PlanInspector({
   task,
   requirements,
   canManage,
+  detailEditor,
   onClose,
   onEdit,
   onAddChild,
@@ -2368,6 +2403,7 @@ function PlanInspector({
   task: SxTask | null;
   requirements: SxGateRequirement[];
   canManage: boolean;
+  detailEditor?: ReactNode;
   onClose: () => void;
   onEdit: () => void;
   onAddChild: () => void;
@@ -2436,8 +2472,9 @@ function PlanInspector({
       >
         <header>
           <div>
-            <p>{isTask ? "TASK RECORD" : "MILESTONE RECORD"}</p>
-            <h3>{directValue("名称", item.title)}</h3>
+            <h3>
+              {detailEditor ? item.title : directValue("名称", item.title)}
+            </h3>
             <span className={styles.planInspectorStatus}>
               {isTask
                 ? ROW_PLAN_STATUS[task!.status]
@@ -2454,9 +2491,10 @@ function PlanInspector({
             <X aria-hidden="true" />
           </button>
         </header>
-        <div className={styles.inspectorBreadcrumb}>
-          {milestone && task ? (
-            <>
+        {!detailEditor && (
+          <div className={styles.inspectorBreadcrumb}>
+            {milestone && task ? (
+              <>
               <span>{trackMeta(milestone.track).label}</span>
               <ChevronRight aria-hidden="true" />
               <span>{milestone.title}</span>
@@ -2470,12 +2508,16 @@ function PlanInspector({
               </span>
               <ChevronRight aria-hidden="true" />
               <strong>{item.title}</strong>
-            </>
-          )}
-        </div>
-        <div className={styles.planInspectorBody}>
-          <dl className={styles.inspectorFacts}>
-            <div>
+              </>
+            )}
+          </div>
+        )}
+        {detailEditor ? (
+          <div className={styles.planInspectorInlineEditor}>{detailEditor}</div>
+        ) : (
+          <div className={styles.planInspectorBody}>
+            <dl className={styles.inspectorFacts}>
+              <div>
               <dt>担当</dt>
               <dd>{directValue("担当", item.ownerLabel || "担当未設定")}</dd>
             </div>
@@ -2586,13 +2628,14 @@ function PlanInspector({
                             : requirement.state === "unconfirmed"
                               ? requirement.milestone.manualStatus ===
                                 "completed"
-                                ? "完了申告・証跡未確認"
-                                : "達成事実 未確認"
-                              : "未達"}{" "}
-                          ・ {requirement.milestone.ownerLabel || "担当未確認"}{" "}
-                          ・ {formatDate(requirement.milestone.plannedEnd)}
-                        </small>
-                      </button>
+                                  ? "完了申告・証跡未確認"
+                                  : "達成事実 未確認"
+                                : "未達"}{" "}
+                            ・{" "}
+                            {requirement.milestone.ownerLabel || "担当未確認"}{" "}
+                            ・ {formatDate(requirement.milestone.plannedEnd)}
+                          </small>
+                        </button>
                       <button
                         type="button"
                         disabled={!canManage}
@@ -2614,10 +2657,11 @@ function PlanInspector({
                   ))}
                 </ul>
               </section>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-        {canManage && (
+        )}
+        {canManage && !detailEditor && (
           <footer>
             <button type="button" onClick={onAddChild}>
               <Plus aria-hidden="true" />
@@ -2652,6 +2696,8 @@ export function SxWeeklyControlDashboard({
   const [viewFilter, setViewFilter] = useState<ViewFilter>("all");
   const [query, setQuery] = useState("");
   const [editor, setEditor] = useState<EditorState | null>(null);
+  const [detailEditor, setDetailEditor] = useState<EditorState | null>(null);
+  const [detailEditorDirty, setDetailEditorDirty] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(
     null,
@@ -2796,6 +2842,25 @@ export function SxWeeklyControlDashboard({
     setEditor(null);
     setNotice(message);
     window.setTimeout(() => setNotice(null), 3500);
+  }
+
+  function handleDetailSaved(next: SxManagementBundle, message: string) {
+    setManagement(next);
+    setDetailEditorDirty(false);
+    setDetailEditor(null);
+    setNotice(message);
+    window.setTimeout(() => setNotice(null), 3500);
+  }
+
+  function requestDetailClose() {
+    if (
+      detailEditorDirty &&
+      !window.confirm("入力中の変更を破棄して詳細を閉じる？")
+    )
+      return false;
+    setDetailEditorDirty(false);
+    setDetailEditor(null);
+    return true;
   }
 
   return (
@@ -3028,41 +3093,52 @@ export function SxWeeklyControlDashboard({
               task={selectedTask}
               requirements={selectedRequirements}
               canManage={management.canManage}
+              detailEditor={
+                detailEditor && selectedPlanMilestone ? (
+                  <IssueEditor
+                    key={`${detailEditor.kind}-${"milestone" in detailEditor ? detailEditor.milestone.id : ""}-${"task" in detailEditor ? detailEditor.task.id : ""}-${"parentTask" in detailEditor ? detailEditor.parentTask?.id || "root" : ""}`}
+                    editor={detailEditor}
+                    management={management}
+                    access={access}
+                    projectId={bundle.project.projectId}
+                    embedded
+                    onDirtyChange={setDetailEditorDirty}
+                    onClose={() => {
+                      setDetailEditorDirty(false);
+                      setDetailEditor(null);
+                    }}
+                    onSaved={handleDetailSaved}
+                  />
+                ) : null
+              }
               onClose={() => {
+                if (!requestDetailClose()) return;
                 setSelectedMilestoneId(null);
                 setSelectedTaskId(null);
               }}
               onEdit={() => {
-                setSelectedMilestoneId(null);
-                setSelectedTaskId(null);
                 if (selectedTask)
-                  setEditor({ kind: "edit_task", task: selectedTask });
+                  setDetailEditor({ kind: "edit_task", task: selectedTask });
                 else if (selectedMilestone)
-                  setEditor({
+                  setDetailEditor({
                     kind: "edit_milestone",
                     milestone: selectedMilestone,
                   });
               }}
               onAddChild={() => {
                 const milestone = selectedMilestone || selectedTaskMilestone;
-                setSelectedMilestoneId(null);
-                setSelectedTaskId(null);
                 if (milestone)
-                  setEditor({
+                  setDetailEditor({
                     kind: "create_task",
                     milestone,
                     parentTask: selectedTask,
                   });
               }}
               onEditRequirementMilestone={(milestone) => {
-                setSelectedMilestoneId(null);
-                setSelectedTaskId(null);
-                setEditor({ kind: "edit_milestone", milestone });
+                setDetailEditor({ kind: "edit_milestone", milestone });
               }}
               onEditRequirement={(dependency) => {
-                setSelectedMilestoneId(null);
-                setSelectedTaskId(null);
-                setEditor({ kind: "edit_dependency", dependency });
+                setDetailEditor({ kind: "edit_dependency", dependency });
               }}
             />
           </div>
@@ -3090,40 +3166,66 @@ export function SxWeeklyControlDashboard({
           <div className="space-y-4">
             <SxPartnerPipeline
               management={management}
+              detailEditor={
+                detailEditor && !selectedPlanMilestone ? (
+                  <IssueEditor
+                    key={`${detailEditor.kind}-${"partner" in detailEditor ? detailEditor.partner.id : ""}-${"interaction" in detailEditor ? detailEditor.interaction.id : ""}-${"workItem" in detailEditor ? detailEditor.workItem.id : ""}-${"role" in detailEditor ? detailEditor.role.id : ""}-${"partnerId" in detailEditor ? detailEditor.partnerId : ""}`}
+                    editor={detailEditor}
+                    management={management}
+                    access={access}
+                    projectId={bundle.project.projectId}
+                    embedded
+                    onDirtyChange={setDetailEditorDirty}
+                    onClose={() => {
+                      setDetailEditorDirty(false);
+                      setDetailEditor(null);
+                    }}
+                    onSaved={handleDetailSaved}
+                  />
+                ) : null
+              }
+              onDetailClose={requestDetailClose}
               onEditPartner={(partnerId) => {
                 const partner = management.partners.find(
                   (item) => item.id === partnerId,
                 );
-                if (partner) setEditor({ kind: "edit_partner", partner });
+                if (partner) setDetailEditor({ kind: "edit_partner", partner });
               }}
               onAddInteraction={(partnerId) =>
-                setEditor({ kind: "create_interaction", partnerId })
+                setDetailEditor({ kind: "create_interaction", partnerId })
               }
               onEditInteraction={(interactionId) => {
                 const interaction = management.partnerInteractions.find(
                   (item) => item.id === interactionId,
                 );
                 if (interaction)
-                  setEditor({ kind: "edit_interaction", interaction });
+                  setDetailEditor({ kind: "edit_interaction", interaction });
               }}
               onAddWorkItem={(partnerId, side) =>
-                setEditor({ kind: "create_partner_work_item", partnerId, side })
+                setDetailEditor({
+                  kind: "create_partner_work_item",
+                  partnerId,
+                  side,
+                })
               }
               onEditWorkItem={(workItemId) => {
                 const workItem = management.partnerWorkItems.find(
                   (item) => item.id === workItemId,
                 );
                 if (workItem)
-                  setEditor({ kind: "edit_partner_work_item", workItem });
+                  setDetailEditor({
+                    kind: "edit_partner_work_item",
+                    workItem,
+                  });
               }}
               onAddRole={(partnerId) =>
-                setEditor({ kind: "create_partner_role", partnerId })
+                setDetailEditor({ kind: "create_partner_role", partnerId })
               }
               onEditRole={(roleId) => {
                 const role = management.partnerRoles.find(
                   (item) => item.id === roleId,
                 );
-                if (role) setEditor({ kind: "edit_partner_role", role });
+                if (role) setDetailEditor({ kind: "edit_partner_role", role });
               }}
             />
           </div>

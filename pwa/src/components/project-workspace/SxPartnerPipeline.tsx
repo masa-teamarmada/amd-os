@@ -959,6 +959,7 @@ function interventionSideText(
 function PocComparisonDetailModal({
   partner,
   canManage,
+  detailEditor,
   today,
   milestoneTitleBySlug,
   milestoneTitleById,
@@ -975,6 +976,7 @@ function PocComparisonDetailModal({
 }: {
   partner: SxManagementPartner;
   canManage: boolean;
+  detailEditor?: ReactNode;
   today: string;
   milestoneTitleBySlug: ReadonlyMap<string, string>;
   milestoneTitleById: ReadonlyMap<string, string>;
@@ -1069,18 +1071,22 @@ function PocComparisonDetailModal({
           </button>
         </header>
         <div className="min-h-0 flex-1 overscroll-contain overflow-y-auto px-4 py-3">
-          <section aria-labelledby={`${titleId}-control`}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p
-                id={`${titleId}-control`}
-                className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]"
-              >
-                現在の管制サマリー
-              </p>
-              <SxBadge tone={interventionTone(intervention)}>
-                {interventionStatusLabel(intervention)}
-              </SxBadge>
-            </div>
+          {detailEditor ? (
+            <div data-testid="sx-partner-inline-editor">{detailEditor}</div>
+          ) : (
+            <>
+              <section aria-labelledby={`${titleId}-control`}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p
+                    id={`${titleId}-control`}
+                    className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]"
+                  >
+                    現在の管制サマリー
+                  </p>
+                  <SxBadge tone={interventionTone(intervention)}>
+                    {interventionStatusLabel(intervention)}
+                  </SxBadge>
+                </div>
             <div
               className={`mt-2 grid gap-px overflow-hidden border border-[#e4ddd0] bg-[#e4ddd0] sm:grid-cols-2 lg:grid-cols-3 ${canManage && onEditPartner ? "cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]" : ""}`}
               role={canManage && onEditPartner ? "button" : undefined}
@@ -1472,6 +1478,8 @@ function PocComparisonDetailModal({
               ))}
             </details>
           )}
+            </>
+          )}
         </div>
       </section>
     </div>,
@@ -1595,6 +1603,7 @@ function PartnerComparisonRow({
   milestoneSlugById,
   criticalPathSlugs,
   canManage,
+  detailEditor,
   today,
   expanded,
   onToggleExpand,
@@ -1605,6 +1614,7 @@ function PartnerComparisonRow({
   onEditWorkItem,
   onAddRole,
   onEditRole,
+  onDetailClose,
 }: {
   partner: SxManagementPartner;
   milestoneTitleBySlug: ReadonlyMap<string, string>;
@@ -1612,6 +1622,7 @@ function PartnerComparisonRow({
   milestoneSlugById: ReadonlyMap<string, string>;
   criticalPathSlugs: ReadonlySet<string>;
   canManage: boolean;
+  detailEditor?: ReactNode;
   today: string;
   expanded: boolean;
   onToggleExpand: (partnerId: string) => void;
@@ -1622,6 +1633,7 @@ function PartnerComparisonRow({
   onEditWorkItem?: (workItemId: string) => void;
   onAddRole?: (partnerId: string) => void;
   onEditRole?: (roleId: string) => void;
+  onDetailClose?: () => boolean | void;
 }) {
   const display = sxPartnerDisplay(partner);
   const steps = buildPartnerProgressSteps(partner);
@@ -1844,12 +1856,16 @@ function PartnerComparisonRow({
         <PocComparisonDetailModal
           partner={partner}
           canManage={canManage}
+          detailEditor={detailEditor}
           today={today}
           milestoneTitleBySlug={milestoneTitleBySlug}
           milestoneTitleById={milestoneTitleById}
           milestoneSlugById={milestoneSlugById}
           criticalPathSlugs={criticalPathSlugs}
-          onClose={() => onToggleExpand(partner.id)}
+          onClose={() => {
+            if (onDetailClose?.() === false) return;
+            onToggleExpand(partner.id);
+          }}
           onEditPartner={onEditPartner}
           onAddInteraction={onAddInteraction}
           onEditInteraction={onEditInteraction}
@@ -1870,6 +1886,7 @@ function PartnerComparisonRow({
  * from the ledger. */
 export function SxPartnerPipeline({
   management,
+  detailEditor,
   onEditPartner,
   onAddInteraction,
   onEditInteraction,
@@ -1877,8 +1894,10 @@ export function SxPartnerPipeline({
   onEditWorkItem,
   onAddRole,
   onEditRole,
+  onDetailClose,
 }: {
   management: SxManagementBundle;
+  detailEditor?: ReactNode;
   onEditPartner?: (partnerId: string) => void;
   onAddInteraction?: (partnerId: string) => void;
   onEditInteraction?: (interactionId: string) => void;
@@ -1886,6 +1905,7 @@ export function SxPartnerPipeline({
   onEditWorkItem?: (workItemId: string) => void;
   onAddRole?: (partnerId: string) => void;
   onEditRole?: (roleId: string) => void;
+  onDetailClose?: () => boolean | void;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeRoleKind, setActiveRoleKind] =
@@ -1975,6 +1995,7 @@ export function SxPartnerPipeline({
     milestoneSlugById,
     criticalPathSlugs,
     canManage: management.canManage,
+    detailEditor,
     today: management.asOf,
     expandedId,
     onToggleExpand: (partnerId: string) =>
@@ -1986,6 +2007,7 @@ export function SxPartnerPipeline({
     onEditWorkItem,
     onAddRole,
     onEditRole,
+    onDetailClose,
   };
 
   return (
@@ -2180,6 +2202,7 @@ function PartnerRow({
   milestoneSlugById,
   criticalPathSlugs,
   canManage,
+  detailEditor,
   today,
   expandedId,
   onToggleExpand,
@@ -2190,6 +2213,7 @@ function PartnerRow({
   onEditWorkItem,
   onAddRole,
   onEditRole,
+  onDetailClose,
 }: {
   partner: SxManagementPartner;
   milestoneTitleBySlug: ReadonlyMap<string, string>;
@@ -2197,6 +2221,7 @@ function PartnerRow({
   milestoneSlugById: ReadonlyMap<string, string>;
   criticalPathSlugs: ReadonlySet<string>;
   canManage: boolean;
+  detailEditor?: ReactNode;
   today: string;
   expandedId: string | null;
   onToggleExpand: (partnerId: string) => void;
@@ -2207,6 +2232,7 @@ function PartnerRow({
   onEditWorkItem?: (workItemId: string) => void;
   onAddRole?: (partnerId: string) => void;
   onEditRole?: (roleId: string) => void;
+  onDetailClose?: () => boolean | void;
 }) {
   const expanded = expandedId === partner.id;
   return (
@@ -2217,6 +2243,7 @@ function PartnerRow({
       milestoneSlugById={milestoneSlugById}
       criticalPathSlugs={criticalPathSlugs}
       canManage={canManage}
+      detailEditor={detailEditor}
       today={today}
       expanded={expanded}
       onToggleExpand={onToggleExpand}
@@ -2227,6 +2254,7 @@ function PartnerRow({
       onEditWorkItem={onEditWorkItem}
       onAddRole={onAddRole}
       onEditRole={onEditRole}
+      onDetailClose={onDetailClose}
     />
   );
 }

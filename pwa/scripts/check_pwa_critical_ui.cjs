@@ -2822,6 +2822,8 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "aria-label={`${display.name}の詳細を開く`}",
   "sticky top-0",
   "sticky top-14",
+  'data-testid="sx-partner-inline-editor"',
+  "detailEditor ?",
 ]);
 expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "PartnerProgressScale",
@@ -2840,6 +2842,12 @@ expectIncludes(
     "ガント上に詳細が開く",
     "createPortal",
     "useModalContainment",
+    'data-testid={embedded ? "sx-inline-editor" : undefined}',
+    "embedded = false",
+    "detailEditor={",
+    "onDirtyChange={setDetailEditorDirty}",
+    "requestDetailClose",
+    "requestAnimationFrame",
   ],
 );
 expectNotIncludes(
@@ -2851,6 +2859,8 @@ expectIncludes("src/components/project-workspace/weekly-control.module.css", [
   "place-items: center",
   "backdrop-filter: blur(2px)",
   "width: min(860px, calc(100vw - 48px))",
+  ".editorPanel.editorInline",
+  ".planInspectorInlineEditor",
 ]);
 expectIncludes("src/components/project-workspace/useModalContainment.ts", [
   "FOCUSABLE_SELECTOR",
