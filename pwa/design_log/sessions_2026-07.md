@@ -2191,3 +2191,42 @@ Book A執筆規範 (japanese-tech-writing + cognitive-rhythm-writing) をSESSION
 | 6 | 紙面レビューと編集を分離した事故の再発防止 | `pwa/BUGS.md` | 対象外: バグ履歴。現行挙動は上記manualへ同期済み | ✅ |
 
 ✅ 恒久仕様はspec/design/manual、実装・検証・本番履歴はこのdevelopment logへ分離した。
+
+---
+
+## 2026-07-31 — SX 7月提出版の再生成と全PJ共通の印刷組版修正（v3.53.1〜v3.53.5）
+
+### 報告書生成と対外表現
+
+- SXの提出版は他PJの共通章立てへ寄せず、SX自身の2026年6月実提出版をフォーマット正本として7月版を再生成した。月次生成は`kaku-report`を適用し、Fable 5をCode Routine内で動かす。API従量課金の別経路へ逃がさない。
+- 概要へsource件数・draft更新履歴などの生成作業ログを混ぜず、当月の主進展、判断、残る論点、次月の焦点を統合して書く。EWIRは `Ehime Water Innovation Roundtable（愛媛水イノベーション・ラウンドテーブル）` と初出で展開する。
+- 外部関係者のフルネームや人物別活動評価を提出版へ出さない。PJ、研究チーム、関係機関、協議事項を主語にし、相手を「動かす」「巻き込む」対象として書かない。保存前validator、Fable生成規範、表示時縮退の複数境界へ同じ規則を入れた。
+- SX 7月本文では、BNV定例を投資検討に向けたDDの一環、PFとの経営体制協議を出資検討可能性の確認として整理した。知財戦略は「当月未実施」だけでなく、知財マッピングが以前に完了済みである到達点を記載した。詳細事実の長期索引は`/Users/masa/projects/knowledge/sx.md`へ同期した。
+
+### 印刷組版の修正経緯
+
+- v3.53.1で章間のMarkdown水平線、ブラウザ既定の日付・`AMD OS`タイトル・URLを抑止し、丸数字を含むH2を前月版と同じHiragino系日本語フォントへ固定した。
+- v3.53.3で提出版の各ページ上部へ提出先・対象月と`取扱注意 / Confidential`を置き、下部フッター・ページ番号を消す共通組版を導入した。ただし名前付き`@page submission`と社内版の既定`@page`を同じ文書へ残したため、本文後に既定pageへ戻り、ヘッダー・フッターだけの4ページ目が生成された。
+- v3.53.4で名前付き`@page`と`page: submission`を全廃し、社内版／提出版ごとに文書内で唯一の既定`@page`を差し替える方式へ変更した。しかし、条件分岐した`pageRule`をstyled-jsxのテンプレートへ変数補間したため、本番変換後のDOMから`@page`自体が欠落した。
+- v3.53.5で`pageRule`を通常の`style`要素へ直接出力し、静的帳票CSSだけをstyled-jsxへ残した。最初のmain pushでVercel buildが発火しなかったため、空の再トリガcommit `208151dd` を追加して正規deploy scriptから本番反映した。
+
+### 検証 / 本番
+
+- `node pwa/scripts/test_monthly_report_quality.mjs` と `npx tsc --noEmit` が成功。品質検査は`@page submission`、`page: submission`、styled-jsx内だけの動的page規則を禁止する。
+- production `v3.53.5` / `208151ddf43af31bbe9fdbb0a93b71b124022167`で、ログイン済みSX `p21` / `202607` の実DOMを取得した。本番CSSに既定`@page`が1つ、提出版ヘッダーと`@bottom-* { content: none; }`が存在し、名前付きpage、`page: submission`、社内版`Team ARMADA`フッターが存在しないことを確認した。
+- 同じ本番DOMをA4 PDFへ出力し、全3ページをPNGで目視した。1〜3ページすべてに共通ヘッダーがあり、下部フッター・ページ番号・4ページ目の空白紙はなく、3ページ目に本文末尾「以上のとおり報告する。」が残ることを確認した。簡略fixtureだけの成功を完了根拠にしない。
+
+### 設計変更棚卸し
+
+| # | 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|---|
+| 1 | 各PJは同じPJの直前月実提出版をフォーマット正本にする | `pwa/spec/3-2-monthly-reports-current-spec.md` | `pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md` | ✅ |
+| 2 | `kaku-report`＋Fable 5をRoutine内で使い、生成作業ログを概要へ出さない | `pwa/spec/3-2-monthly-reports-current-spec.md` / 月次Routine | `pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md` / `pwa/manual/8-3-l2-extraction-routines-spec.md` | ✅ |
+| 3 | 外部関係者のフルネーム・人物別査定・操作対象表現を禁止する | `pwa/spec/3-2-monthly-reports-current-spec.md` / `kaku-report` / 保存validator | `pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md` | ✅ |
+| 4 | 提出版は共通ヘッダーを各ページへ置き、下部フッター・ページ番号・末尾空白紙を出さない | `pwa/spec/3-2-monthly-reports-current-spec.md` | `pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md` | ✅ |
+| 5 | 名前付き`@page`を禁止し、条件分岐した既定`@page`を通常style要素へ直接出力する | `pwa/spec/3-2-monthly-reports-current-spec.md` / `print-client.tsx` | `pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md` | ✅ |
+| 6 | 誤診断、named-page fallback、styled-jsx補間欠落の症状・原因・対応・再発防止 | `pwa/BUGS.md` `[monthly-reports/submission-trailing-page]` | 対象外: バグ履歴。現行挙動は上記章へ同期済み | ✅ |
+| 7 | BNV/PF/DD・知財マッピングのSX長期事実 | `/Users/masa/projects/knowledge/sx.md` / AMD OS `monthly_reports_external` | 対象外: PJ事実であり製品仕様ではない | ✅ |
+| 8 | 新規環境変数・API route・DB table/column/index/RLS/migration | 追加なし | 対象外: 変更なし | ✅ |
+
+✅ 全件記録済。製品仕様はspec/manual、事故履歴はBUGS、実装・検証経緯はdevelopment log、SXの事業事実はPJ正本と長期索引へ分離した。
