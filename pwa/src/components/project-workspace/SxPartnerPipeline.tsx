@@ -504,6 +504,169 @@ function InlineCellEditor({
   );
 }
 
+/**
+ * 「現在の状況」は関係先本体の現在ボールだけを扱う。
+ * 表示時から保有側/担当の2slotを明示し、編集時も同じ位置と高さを保つ。
+ */
+function InlineCurrentBallEditor({
+  editorKey,
+  activeEditorKey,
+  label,
+  side,
+  owner,
+  options,
+  view,
+  onRequestEdit,
+  onFinish,
+  onSave,
+}: {
+  editorKey: string;
+  activeEditorKey: string | null;
+  label: string;
+  side: string;
+  owner: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  view: ReactNode;
+  onRequestEdit: (editorKey: string) => boolean;
+  onFinish: () => void;
+  onSave: (values: { side: string; owner: string }) => Promise<void>;
+}) {
+  const [draftSide, setDraftSide] = useState(side);
+  const [draftOwner, setDraftOwner] = useState(owner);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const active = activeEditorKey === editorKey;
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const sideLabel = options.find((option) => option.value === side)?.label || side;
+
+  const finishAndReturnFocus = () => {
+    onFinish();
+    requestAnimationFrame(() => triggerRef.current?.focus());
+  };
+
+  const cancel = () => {
+    if (saving) return;
+    setDraftSide(side);
+    setDraftOwner(owner);
+    setError(null);
+    finishAndReturnFocus();
+  };
+  const save = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave({ side: draftSide, owner: draftOwner });
+      finishAndReturnFocus();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "保存できなかったよ");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!active) {
+    return (
+      <button
+        ref={triggerRef}
+        type="button"
+        className={`flex min-h-11 w-full min-w-0 items-center border-b border-dashed border-[#aaa294] text-left hover:border-[#38745d] hover:bg-[#eef3f5] ${FOCUS_RING}`}
+        onClick={() => {
+          if (!onRequestEdit(editorKey)) return;
+          setDraftSide(side);
+          setDraftOwner(owner);
+          setError(null);
+        }}
+        aria-label={`${label}を直接修正。保有側 ${sideLabel}、担当 ${owner || "担当未確認"}`}
+        data-inline-edit-trigger={editorKey}
+        data-inline-cell-mode="view"
+      >
+        {view}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className="relative grid min-h-11 w-full min-w-0 grid-cols-[60px_minmax(0,1fr)_44px_44px] items-stretch border-b border-dashed border-[#38745d] bg-[#f8f5ec]"
+      data-inline-editor={editorKey}
+      data-inline-cell-mode="edit"
+      aria-busy={saving}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          cancel();
+        }
+      }}
+    >
+      <label className="grid min-w-0 grid-rows-[14px_30px] border-r border-[#d6cebf]">
+        <span className="px-1 pt-0.5 text-[10px] font-semibold leading-3 text-[#69665d]">
+          保有側
+        </span>
+        <select
+          autoFocus
+          className={`h-[30px] min-w-0 border-0 bg-transparent px-1 text-[11px] font-semibold text-[#24231f] ${FOCUS_RING}`}
+          value={draftSide}
+          onChange={(event) => setDraftSide(event.target.value)}
+          disabled={saving}
+          aria-label={`${label}の保有側`}
+        >
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="grid min-w-0 grid-rows-[14px_30px]">
+        <span className="px-1 pt-0.5 text-[10px] font-semibold leading-3 text-[#69665d]">
+          担当
+        </span>
+        <input
+          className={`h-[30px] min-w-0 border-0 bg-transparent px-1 text-[11px] font-semibold text-[#24231f] ${FOCUS_RING}`}
+          value={draftOwner}
+          onChange={(event) => setDraftOwner(event.target.value)}
+          disabled={saving}
+          placeholder="担当未確認"
+          aria-label={`${label}の担当`}
+        />
+      </label>
+      <button
+        type="button"
+        className={`grid h-11 w-11 shrink-0 place-items-center border-l border-[#cfc7b9] bg-white text-[#69665d] disabled:opacity-60 ${FOCUS_RING}`}
+        onClick={cancel}
+        disabled={saving}
+        aria-label={`${label}の編集を取り消す`}
+      >
+        <X className="h-3.5 w-3.5" aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        className={`grid h-11 w-11 shrink-0 place-items-center border-l border-[#38745d] bg-[#38745d] text-white disabled:opacity-60 ${FOCUS_RING}`}
+        onClick={() => void save()}
+        disabled={saving}
+        aria-label={`${label}の保有側と担当を保存`}
+      >
+        {saving ? (
+          <LoaderCircle
+            className="h-3.5 w-3.5 animate-spin"
+            aria-hidden="true"
+          />
+        ) : (
+          <Check className="h-3.5 w-3.5" aria-hidden="true" />
+        )}
+      </button>
+      {error && (
+        <p
+          className="absolute left-0 top-full z-30 mt-1 border border-[#d7a49e] bg-[#fff7f5] px-2 py-1 text-[10px] leading-4 text-[#8c3329] shadow-sm"
+          role="alert"
+        >
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function InlineDueFields({
   values,
   setValue,
@@ -1161,9 +1324,9 @@ function HoldingRow({
 }
 
 const PARTNER_CONTROL_INNER_GRID =
-  "@min-[1280px]:grid-cols-[160px_minmax(180px,1fr)_minmax(160px,0.9fr)_minmax(150px,0.9fr)_minmax(190px,1.2fr)_126px_minmax(150px,1fr)]";
+  "@min-[1280px]:grid-cols-[160px_minmax(224px,1.15fr)_minmax(160px,0.9fr)_minmax(150px,0.9fr)_minmax(190px,1.2fr)_126px_minmax(150px,1fr)]";
 const PARTNER_CONTROL_HEADER_GRID =
-  "@min-[1280px]:grid-cols-[160px_minmax(180px,1fr)_minmax(160px,0.9fr)_minmax(150px,0.9fr)_minmax(190px,1.2fr)_126px_minmax(150px,1fr)_104px]";
+  "@min-[1280px]:grid-cols-[160px_minmax(224px,1.15fr)_minmax(160px,0.9fr)_minmax(150px,0.9fr)_minmax(190px,1.2fr)_126px_minmax(150px,1fr)_104px]";
 
 type PartnerGateImpact = {
   title: string;
@@ -1588,7 +1751,6 @@ function PartnerInlineRow({
 }) {
   const display = sxPartnerDisplay(partner);
   const steps = buildPartnerProgressSteps(partner);
-  const nowStep = steps.find((step) => step.phase === "now");
   const goalStep = steps.find((step) => step.phase === "goal");
   const latest = sxLatestInteraction(partner.interactions);
   const holdings = sxHoldingsForPartner(partner);
@@ -1632,7 +1794,7 @@ function PartnerInlineRow({
           ? target.record.counterpartyOwner || ""
           : target.record.sxOwner || ""
         : target?.resource === "partner"
-          ? target.record.currentBallOwner || ""
+          ? target.record.ownerLabel || ""
           : "";
   const targetSide =
     target?.resource === "partner_work_item"
@@ -1656,6 +1818,12 @@ function PartnerInlineRow({
         : targetDueDate
           ? "day"
           : "unknown";
+  const ownershipOwnerText =
+    target?.resource === "partner"
+      ? targetOwner.trim()
+        ? sxNormalizePublicName(targetOwner)
+        : "担当未確認"
+      : interventionOwnerText(intervention, display.name);
   const patchIfChanged = async (
     resource: PartnerInlineResource,
     id: string,
@@ -1675,18 +1843,36 @@ function PartnerInlineRow({
       {display.name}
     </p>
   );
-  const currentView = nowStep ? (
-    <>
-      <p
-        className="line-clamp-2 text-[11px] font-semibold leading-4 text-[#24231f]"
-        title={nowStep.title}
-      >
-        {nowStep.title}
-      </p>
-      <p className="mt-0.5 text-[10px] text-[#69665d]">{nowStep.sub}</p>
-    </>
-  ) : (
-    <p className="text-[10px] leading-4 text-[#5f4a66]">現在地未登録</p>
+  const currentView = (
+    <span className="grid min-h-11 w-full min-w-0 grid-cols-[60px_minmax(0,1fr)_44px_44px] items-stretch">
+      <span className="grid min-w-0 grid-rows-[14px_30px] border-r border-[#eee9df]">
+        <span className="px-1 pt-0.5 text-[10px] font-semibold leading-3 text-[#69665d]">
+          保有側
+        </span>
+        <span className="truncate px-1 text-[11px] font-semibold leading-[30px] text-[#24231f]">
+          {sxBallSideLabel(partner.currentBallSide)}
+        </span>
+      </span>
+      <span className="grid min-w-0 grid-rows-[14px_30px]">
+        <span className="px-1 pt-0.5 text-[10px] font-semibold leading-3 text-[#69665d]">
+          担当
+        </span>
+        <span
+          className="truncate px-1 text-[11px] font-semibold leading-[30px] text-[#24231f]"
+          title={
+            partner.currentBallOwner
+              ? sxNormalizePublicName(partner.currentBallOwner)
+              : "担当未確認"
+          }
+        >
+          {partner.currentBallOwner
+            ? sxNormalizePublicName(partner.currentBallOwner)
+            : "担当未確認"}
+        </span>
+      </span>
+      <span aria-hidden="true" />
+      <span aria-hidden="true" />
+    </span>
   );
   const goalView = (
     <p
@@ -1765,83 +1951,40 @@ function PartnerInlineRow({
             <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
               現在の状況
             </p>
-            {canManage ? (
-              <InlineCellEditor
-                editorKey={keyFor("current")}
-                activeEditorKey={activeEditorKey}
-                label={`${display.name}の現在の状況`}
-                initialValues={{
-                  current_ball_side: partner.currentBallSide,
-                  current_ball_owner: partner.currentBallOwner || "",
-                  due_date: partner.dueDate || "",
-                  due_date_precision: partner.dueDatePrecision,
-                }}
-                view={currentView}
-                onRequestEdit={onRequestInlineEdit}
-                onFinish={onFinishInlineEdit}
-                onSave={async (values) => {
-                  const dueDate =
-                    values.due_date_precision === "unknown"
-                      ? null
-                      : values.due_date || null;
-                  await patchIfChanged(
-                    "partner",
-                    partner.id,
-                    {
-                      current_ball_side: partner.currentBallSide,
-                      current_ball_owner: partner.currentBallOwner,
-                      due_date: partner.dueDate,
-                      due_date_precision: partner.dueDatePrecision,
-                    },
-                    {
-                      current_ball_side: values.current_ball_side,
-                      current_ball_owner:
-                        values.current_ball_owner.trim() || null,
-                      due_date: dueDate,
-                      due_date_precision: values.due_date_precision,
-                    },
-                  );
-                }}
-                renderFields={(values, setValue) => (
-                  <>
-                    <label className="grid gap-0.5">
-                      <span className="text-[10px] font-semibold text-[#69665d]">
-                        保有側
-                      </span>
-                      <select
-                        autoFocus
-                        className={INLINE_CONTROL_CLASS}
-                        value={values.current_ball_side}
-                        onChange={(event) =>
-                          setValue("current_ball_side", event.target.value)
-                        }
-                      >
-                        {INLINE_BALL_SIDE_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="grid gap-0.5">
-                      <span className="text-[10px] font-semibold text-[#69665d]">
-                        担当
-                      </span>
-                      <input
-                        className={INLINE_CONTROL_CLASS}
-                        value={values.current_ball_owner}
-                        onChange={(event) =>
-                          setValue("current_ball_owner", event.target.value)
-                        }
-                      />
-                    </label>
-                    <InlineDueFields values={values} setValue={setValue} />
-                  </>
-                )}
-              />
-            ) : (
-              currentView
-            )}
+            <div
+              className="min-h-11"
+              data-current-situation-cell={partner.id}
+            >
+              {canManage ? (
+                <InlineCurrentBallEditor
+                  editorKey={keyFor("current")}
+                  activeEditorKey={activeEditorKey}
+                  label={`${display.name}の現在の状況`}
+                  side={partner.currentBallSide}
+                  owner={partner.currentBallOwner || ""}
+                  options={INLINE_BALL_SIDE_OPTIONS}
+                  view={currentView}
+                  onRequestEdit={onRequestInlineEdit}
+                  onFinish={onFinishInlineEdit}
+                  onSave={async (values) =>
+                    patchIfChanged(
+                      "partner",
+                      partner.id,
+                      {
+                        current_ball_side: partner.currentBallSide,
+                        current_ball_owner: partner.currentBallOwner,
+                      },
+                      {
+                        current_ball_side: values.side,
+                        current_ball_owner: values.owner.trim() || null,
+                      },
+                    )
+                  }
+                />
+              ) : (
+                <div className="flex min-h-11 items-center">{currentView}</div>
+              )}
+            </div>
           </PartnerRowCell>
 
           <PartnerRowCell className="md:col-span-2 @min-[1280px]:col-span-1">
@@ -2123,16 +2266,18 @@ function PartnerInlineRow({
                   <>
                     <p
                       className="truncate text-[11px] font-semibold text-[#24231f]"
-                      title={interventionOwnerText(intervention, display.name)}
+                      title={ownershipOwnerText}
                     >
-                      {interventionOwnerText(intervention, display.name)}
+                      {ownershipOwnerText}
                     </p>
                     <div className="mt-1 flex flex-wrap items-center gap-1">
-                      <span
-                        className={`border px-1.5 py-0.5 text-[10px] font-semibold ${BALL_SIDE_TONE[intervention.side]}`}
-                      >
-                        {interventionSideText(intervention)}
-                      </span>
+                      {target.resource === "partner_work_item" && (
+                        <span
+                          className={`border px-1.5 py-0.5 text-[10px] font-semibold ${BALL_SIDE_TONE[intervention.side]}`}
+                        >
+                          {interventionSideText(intervention)}
+                        </span>
+                      )}
                       <span
                         className={`text-[10px] ${intervention.risk === "overdue" ? "font-semibold text-[#8c3329]" : "text-[#69665d]"}`}
                       >
@@ -2201,14 +2346,12 @@ function PartnerInlineRow({
                     "partner",
                     target.id,
                     {
-                      current_ball_owner: target.record.currentBallOwner,
-                      current_ball_side: target.record.currentBallSide,
+                      owner_label: target.record.ownerLabel,
                       due_date: target.record.dueDate,
                       due_date_precision: target.record.dueDatePrecision,
                     },
                     {
-                      current_ball_owner: values.owner.trim() || null,
-                      current_ball_side: values.side,
+                      owner_label: values.owner.trim() || "担当未確認",
                       due_date: dueDate,
                       due_date_precision: values.due_date_precision,
                     },
@@ -2229,7 +2372,7 @@ function PartnerInlineRow({
                         }
                       />
                     </label>
-                    {target.resource !== "commitment" && (
+                    {target.resource === "partner_work_item" && (
                       <label className="grid gap-0.5">
                         <span className="text-[10px] font-semibold text-[#69665d]">
                           保有側
@@ -2241,10 +2384,7 @@ function PartnerInlineRow({
                             setValue("side", event.target.value)
                           }
                         >
-                          {(target.resource === "partner"
-                            ? INLINE_BALL_SIDE_OPTIONS
-                            : INLINE_HOLDING_SIDE_OPTIONS
-                          ).map((option) => (
+                          {INLINE_HOLDING_SIDE_OPTIONS.map((option) => (
                             <option key={option.value} value={option.value}>
                               {option.label}
                             </option>
@@ -2264,16 +2404,18 @@ function PartnerInlineRow({
               <>
                 <p
                   className="truncate text-[11px] font-semibold text-[#24231f]"
-                  title={interventionOwnerText(intervention, display.name)}
+                  title={ownershipOwnerText}
                 >
-                  {interventionOwnerText(intervention, display.name)}
+                  {ownershipOwnerText}
                 </p>
                 <div className="mt-1 flex flex-wrap items-center gap-1">
-                  <span
-                    className={`border px-1.5 py-0.5 text-[10px] font-semibold ${BALL_SIDE_TONE[intervention.side]}`}
-                  >
-                    {interventionSideText(intervention)}
-                  </span>
+                  {target?.resource === "partner_work_item" && (
+                    <span
+                      className={`border px-1.5 py-0.5 text-[10px] font-semibold ${BALL_SIDE_TONE[intervention.side]}`}
+                    >
+                      {interventionSideText(intervention)}
+                    </span>
+                  )}
                   <span
                     className={`text-[10px] ${intervention.risk === "overdue" ? "font-semibold text-[#8c3329]" : "text-[#69665d]"}`}
                   >

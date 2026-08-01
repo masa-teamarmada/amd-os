@@ -170,6 +170,85 @@ assert.ok(
   "the history surface must render the full progress flow",
 );
 
+// 現在の状況は、表示時から見える「保有側 / 担当」の2slotだけを同じ寸法で編集する。
+// 期限は担当・期限cellの責務で、ここへ縦積みformを戻さない。
+const currentCellSource = comparisonRowSource.slice(
+  comparisonRowSource.indexOf("data-current-situation-cell"),
+  comparisonRowSource.indexOf('editorKey={keyFor("goal")}'),
+);
+for (const required of [
+  "InlineCurrentBallEditor",
+  "data-current-situation-cell",
+  "current_ball_side",
+  "current_ball_owner",
+]) {
+  assert.ok(
+    currentCellSource.includes(required),
+    `${required} must remain in the current situation cell`,
+  );
+}
+for (const forbidden of ["due_date", "due_date_precision", "InlineDueFields"]) {
+  assert.equal(
+    currentCellSource.includes(forbidden),
+    false,
+    `${forbidden} must stay out of the current situation cell`,
+  );
+}
+const stableCurrentEditorSource = pipelineSource.slice(
+  pipelineSource.indexOf("function InlineCurrentBallEditor"),
+  pipelineSource.indexOf("function InlineDueFields"),
+);
+for (const required of [
+  'data-inline-cell-mode="view"',
+  'data-inline-cell-mode="edit"',
+  "min-h-11",
+  "grid-cols-[60px_minmax(0,1fr)_44px_44px]",
+  "保有側",
+  "担当",
+  "finishAndReturnFocus",
+  "disabled={saving}",
+]) {
+  assert.ok(
+    stableCurrentEditorSource.includes(required),
+    `${required} must keep the current editor geometry stable`,
+  );
+}
+assert.equal(
+  stableCurrentEditorSource.includes("onBlur="),
+  false,
+  "the current editor must not steal focus by cancelling on blur",
+);
+
+// partner fallback時も「担当・期限」はowner_label/dueだけを更新し、
+// 現在ボールの保存先と重複させない。
+const ownershipCellSource = comparisonRowSource.slice(
+  comparisonRowSource.indexOf('editorKey={keyFor("ownership")}'),
+  comparisonRowSource.indexOf('editorKey={keyFor("latest-interaction")}'),
+);
+const partnerOwnershipPatch = ownershipCellSource.slice(
+  ownershipCellSource.lastIndexOf('patchIfChanged(\n                    "partner"'),
+  ownershipCellSource.indexOf("renderFields="),
+);
+for (const required of ["owner_label", "due_date", "due_date_precision"]) {
+  assert.ok(
+    partnerOwnershipPatch.includes(required),
+    `${required} must remain in the partner ownership fallback patch`,
+  );
+}
+assert.ok(
+  partnerOwnershipPatch.includes(
+    'owner_label: values.owner.trim() || "担当未確認"',
+  ),
+  "blank partner owner must normalize to 担当未確認",
+);
+for (const forbidden of ["current_ball_side", "current_ball_owner"]) {
+  assert.equal(
+    partnerOwnershipPatch.includes(forbidden),
+    false,
+    `${forbidden} must not overlap the ownership fallback patch`,
+  );
+}
+
 const vcMigration = readFileSync(
   new URL("./migrations/211_sx_vc_partner_ledger.sql", import.meta.url),
   "utf8",
