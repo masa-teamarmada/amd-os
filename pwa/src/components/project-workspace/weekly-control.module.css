@@ -79,34 +79,43 @@
 .flowItems small { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; }
 .emptyState { padding: 22px 12px; border: 1px dashed var(--line); color: var(--quiet); font-size: 12px; text-align: center; }
 
-.ganttWorkspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-items: start; }
-.ganttWorkspace[data-inspector] { grid-template-columns: minmax(0, 2.15fr) minmax(300px, .85fr); }
+.ganttWorkspace { position: relative; min-width: 0; }
 .ganttFrame { min-width: 0; overflow: hidden; border: 1px solid #bbb3a7; background: var(--sheet); padding: 12px 14px 10px; }
-.planInspector { position: sticky; top: 12px; min-width: 0; max-height: calc(100vh - 32px); overflow-y: auto; border: 1px solid #aaa294; border-top: 4px solid var(--green); background: var(--sheet); box-shadow: 0 12px 34px rgba(36, 35, 31, .11); }
-.planInspector > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 14px; border-bottom: 1px solid var(--line); }
-.planInspector > header p { margin: 0; color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: .12em; }
-.planInspector > header h3 { margin: 4px 0 0; font-size: 16px; line-height: 1.45; overflow-wrap: anywhere; }
-.planInspector > header button { display: grid; width: 44px; height: 44px; flex: 0 0 auto; place-items: center; border: 1px solid var(--line); color: var(--muted); }
-.planInspector > header svg { width: 16px; height: 16px; }
-.inspectorBreadcrumb { display: flex; align-items: center; gap: 4px; overflow: hidden; padding: 10px 14px; border-bottom: 1px solid #e8e2d7; color: var(--quiet); font-size: 10px; white-space: nowrap; }
+.planInspectorLayer { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 24px; background: rgba(36, 35, 31, 0.46); backdrop-filter: blur(2px); }
+.planInspector { display: flex; width: min(860px, calc(100vw - 48px)); max-height: min(84vh, 760px); min-width: 0; flex-direction: column; overflow: hidden; border: 1px solid #948d81; border-top: 4px solid var(--green); background: var(--sheet); box-shadow: 0 28px 80px rgba(36, 35, 31, 0.3); }
+.planInspector > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 18px 20px 16px; border-bottom: 1px solid var(--line); background: linear-gradient(90deg, #fffdf7 0%, #f6f3eb 100%); }
+.planInspector > header > div { flex: 1 1 auto; min-width: 0; }
+.planInspector > header p { margin: 0; color: var(--green); font-size: 9px; font-weight: 850; letter-spacing: 0.18em; }
+.planInspector > header h3 { margin: 5px 0 0; max-width: 700px; font-size: 20px; line-height: 1.35; overflow-wrap: anywhere; }
+.planInspectorStatus { display: inline-flex; min-height: 24px; align-items: center; margin-top: 9px; padding: 0 9px; border-left: 3px solid var(--green); background: #e8f2eb; color: #205f49; font-size: 10px; font-weight: 800; }
+.planInspectorClose { display: grid; width: 44px; height: 44px; flex: 0 0 auto; place-items: center; border: 1px solid #bdb5a8; background: rgba(255, 253, 247, 0.82); color: var(--muted); }
+.planInspectorClose:hover, .planInspectorClose:focus-visible { border-color: var(--green); background: #e8f2eb; color: var(--green); outline: 2px solid var(--green); outline-offset: 2px; }
+.planInspectorClose svg { width: 16px; height: 16px; }
+.inspectorBreadcrumb { display: flex; align-items: center; gap: 5px; overflow: hidden; padding: 9px 20px; border-bottom: 1px solid #e8e2d7; color: var(--quiet); font-size: 10px; white-space: nowrap; }
 .inspectorBreadcrumb span, .inspectorBreadcrumb strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .inspectorBreadcrumb svg { width: 11px; height: 11px; flex: 0 0 auto; }
 .inspectorBreadcrumb strong { color: var(--ink); }
-.inspectorFacts { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin: 0; border-bottom: 1px solid var(--line); }
-.inspectorFacts > div { min-width: 0; padding: 10px 14px; border-right: 1px solid #e8e2d7; border-bottom: 1px solid #e8e2d7; }
-.inspectorFacts > div:nth-child(even) { border-right: 0; }
-.inspectorFacts > div:nth-last-child(-n+2) { border-bottom: 0; }
+.planInspectorBody { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.inspectorFacts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; margin: 0; border-bottom: 1px solid var(--line); }
+.inspectorFacts > div { min-width: 0; padding: 12px 14px; border-right: 1px solid #e8e2d7; }
+.inspectorFacts > div:last-child { border-right: 0; }
 .inspectorFacts dt { color: var(--quiet); font-size: 10px; }
-.inspectorFacts dd { margin: 3px 0 0; font-size: 11px; font-weight: 750; line-height: 1.45; overflow-wrap: anywhere; }
+.inspectorFacts dd { margin: 4px 0 0; font-size: 11px; font-weight: 780; line-height: 1.5; overflow-wrap: anywhere; }
 .inspectorFacts dd[data-missing] { color: var(--amber); }
-.inspectorEditable { min-height: 32px; width: 100%; border-bottom: 1px dashed #aaa294; color: inherit; text-align: left; transition: border-color .16s ease, background .16s ease; }
-.inspectorEditable:hover, .inspectorEditable:focus-visible { border-color: var(--green); background: rgba(232, 242, 235, .62); outline: 0; }
-.planInspector > section { padding: 12px 14px; border-bottom: 1px solid #e8e2d7; }
-.planInspector > section span { color: var(--quiet); font-size: 10px; font-weight: 750; }
-.planInspector > section p { margin: 5px 0 0; font-size: 11px; line-height: 1.55; overflow-wrap: anywhere; }
-.planInspector > footer { position: sticky; bottom: 0; display: grid; grid-template-columns: 1fr; gap: 7px; padding: 12px 14px; border-top: 1px solid var(--line); background: var(--sheet); }
+.inspectorEditable { min-height: 34px; width: 100%; border-bottom: 1px dashed #aaa294; color: inherit; text-align: left; transition: border-color 0.16s ease, background 0.16s ease; }
+.inspectorEditable:hover, .inspectorEditable:focus-visible { border-color: var(--green); background: rgba(232, 242, 235, 0.72); outline: 2px solid var(--green); outline-offset: 1px; }
+.inspectorContentGrid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr); }
+.inspectorSection { min-width: 0; padding: 16px 20px; border-right: 1px solid #e8e2d7; border-bottom: 1px solid #e8e2d7; }
+.inspectorSection:nth-child(even) { border-right: 0; }
+.inspectorSection > span, .inspectorSectionHeading span { color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: 0.06em; }
+.inspectorSection > p { margin: 6px 0 0; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
+.inspectorRequirements { grid-column: 1 / -1; border-right: 0; }
+.inspectorWideSection { grid-column: 1 / -1; border-right: 0; }
+.inspectorSectionHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.inspectorSectionHeading strong { color: var(--ink); font-size: 11px; }
+.planInspector > footer { display: grid; grid-template-columns: minmax(0, 240px); justify-content: end; gap: 7px; padding: 12px 20px; border-top: 1px solid var(--line); background: #f6f3eb; }
 .planInspector > footer button { min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--green); color: var(--green); font-size: 10px; font-weight: 800; }
-.planInspector > footer button:last-child { background: var(--green); color: white; }
+.planInspector > footer button:hover, .planInspector > footer button:focus-visible { background: var(--green); color: white; outline: 2px solid var(--green); outline-offset: 2px; }
 .planInspector > footer svg { width: 13px; height: 13px; }
 .ganttSelection { display: grid; grid-template-columns: minmax(220px, .8fr) minmax(440px, 1.4fr) auto; align-items: center; gap: 18px; padding: 12px 14px; border: 1px solid #bbb3a7; border-top: 0; background: #f6f3eb; }
 .ganttSelection > div span, .ganttSelection > div strong { display: block; }
@@ -256,7 +265,6 @@
   .issueBoard { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ganttSelection { grid-template-columns: 1fr; gap: 10px; }
   .inputSection { grid-template-columns: 1fr; gap: 18px; }
-  .ganttWorkspace[data-inspector] { grid-template-columns: minmax(0, 1.6fr) minmax(280px, .9fr); }
 }
 
 @media (max-width: 900px) {
@@ -278,11 +286,24 @@
   .inputCards { grid-template-columns: repeat(2, 1fr); }
   .inputCards article:nth-child(2) { border-right: 0; }
   .inputCards article:nth-child(n+3) { border-top: 1px solid var(--line); }
-  .ganttWorkspace[data-inspector] { grid-template-columns: minmax(0, 1fr); }
-  .planInspector { position: fixed; z-index: 80; top: auto; right: 0; bottom: 0; left: 0; width: 100%; max-height: 70vh; border-right: 0; border-bottom: 0; border-left: 0; box-shadow: 0 -18px 54px rgba(36, 35, 31, .28); }
+  .inspectorFacts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .inspectorFacts > div { border-bottom: 1px solid #e8e2d7; }
+  .inspectorFacts > div:nth-child(3n) { border-right: 0; }
+  .inspectorContentGrid { grid-template-columns: 1fr; }
+  .inspectorSection { border-right: 0; }
 }
 
 @media (max-width: 600px) {
+  .planInspectorLayer { place-items: end center; padding: 0; }
+  .planInspector { width: 100%; max-height: 88vh; border-right: 0; border-bottom: 0; border-left: 0; }
+  .planInspector > header { padding: 15px 14px 13px; }
+  .planInspector > header h3 { font-size: 17px; }
+  .inspectorBreadcrumb { padding: 8px 14px; }
+  .inspectorFacts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .inspectorFacts > div, .inspectorFacts > div:nth-child(3n) { border-right: 1px solid #e8e2d7; }
+  .inspectorFacts > div:nth-child(even) { border-right: 0; }
+  .inspectorSection { padding: 14px; }
+  .planInspector > footer { grid-template-columns: 1fr; padding: 10px 14px; }
   .page { padding: 14px 12px 32px; }
   .headerActions { width: 100%; }
   .headerActions a, .headerActions button { flex: 1; justify-content: center; }

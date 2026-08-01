@@ -1053,6 +1053,7 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
 expectNotIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "criticalPolyline",
   "strokeDasharray",
+  "top-[19px] h-[18px] w-[2px] bg-[#514e47]",
   "予定→見込みの差",
   "完了見込み日",
   "次へ進むための必須ゲート",
@@ -2812,6 +2813,13 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   'data-testid="sx-partner-filter-vc"',
   "sxIsVcPartner",
   "sxCompactPartnerRowText",
+  "現在の状況",
+  "ゴール",
+  "progressSteps",
+  "createPortal",
+  "useModalContainment",
+  "aria-controls={`sx-partner-detail-${partner.id}`}",
+  "aria-label={`${display.name}の詳細を開く`}",
   "sticky top-0",
   "sticky top-14",
 ]);
@@ -2822,6 +2830,53 @@ expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "data-stage-index",
   "SX_PARTNER_STAGE_ORDER.map",
   "全社共通の7段階で、現在地・停滞・次の行動を比較",
+]);
+expectIncludes(
+  "src/components/project-workspace/SxWeeklyControlDashboard.tsx",
+  [
+    "sx-plan-inspector-overlay",
+    'aria-modal="true"',
+    "planInspectorLayer",
+    "ガント上に詳細が開く",
+    "createPortal",
+    "useModalContainment",
+  ],
+);
+expectNotIncludes(
+  "src/components/project-workspace/SxWeeklyControlDashboard.tsx",
+  ["data-inspector=", 'aria-modal="false"', "横に詳細が開く"],
+);
+expectIncludes("src/components/project-workspace/weekly-control.module.css", [
+  ".planInspectorLayer",
+  "place-items: center",
+  "backdrop-filter: blur(2px)",
+  "width: min(860px, calc(100vw - 48px))",
+]);
+expectIncludes("src/components/project-workspace/useModalContainment.ts", [
+  "FOCUSABLE_SELECTOR",
+  'event.key !== "Tab"',
+  'event.key === "Escape"',
+  'document.body.style.overflow = "hidden"',
+  'document.documentElement.style.overflow = "hidden"',
+  "element.inert = true",
+  "previousFocus.focus()",
+]);
+expectNotIncludes(
+  "src/components/project-workspace/weekly-control.module.css",
+  [".ganttWorkspace[data-inspector]"],
+);
+expectIncludes("scripts/migrations/211_sx_vc_partner_ledger.sql", [
+  "ダイキアクシスベンチャーパートナーズ（DAVP）",
+  "Beyond Next Ventures（BNV）",
+  "いよぎんキャピタル",
+  "'partners-fund'",
+  "'shareholder_investor'",
+  "'unconfirmed'",
+  "user:2026-08-01#vc-list",
+  "partner_count <> 4",
+  "vc_role_count <> 4",
+  "partner.deleted_at IS NULL",
+  "role.deleted_at IS NULL",
 ]);
 // 土壌×シーズタブ (2026-07-30): 機関ECRと所属シーズSPSをas-of断面で整列する。元評価日は別表示し、合成単一スコア化は禁止。
 expectIncludes("src/app/(app)/institutions/[institutionId]/cockpit/page.tsx", [
@@ -2869,7 +2924,7 @@ expectIncludes("src/components/bzm/BzmTheoryMapView.tsx", [
   "KIND_COLOR",
   "createDirectEdge",
   "parseTheoryMapEdgeDto",
-  '<BzmMarkdown source={selected.body}',
+  "<BzmMarkdown source={selected.body}",
   "ここから、まさの理論マップが始まる",
 ]);
 expectNotIncludes("src/components/bzm/BzmTheoryMapView.tsx", [

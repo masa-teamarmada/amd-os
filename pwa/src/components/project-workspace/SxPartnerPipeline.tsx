@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowRight, CircleCheck, CircleDot, Flag, Plus, X } from "lucide-react";
+import {
+  ArrowRight,
+  CircleCheck,
+  CircleDot,
+  Flag,
+  Plus,
+  X,
+} from "lucide-react";
+import { createPortal } from "react-dom";
+import { useModalContainment } from "@/components/project-workspace/useModalContainment";
 import type {
   SxActorSide,
   SxManagementBundle,
@@ -87,7 +96,9 @@ function buildPartnerProgressSteps(
     );
   });
   const pending = [...partner.workItems]
-    .filter((item) => item.status !== "completed" && item.status !== "cancelled")
+    .filter(
+      (item) => item.status !== "completed" && item.status !== "cancelled",
+    )
     .sort((left, right) =>
       (left.dueDate ?? "9999").localeCompare(right.dueDate ?? "9999"),
     );
@@ -130,7 +141,9 @@ function buildPartnerProgressSteps(
       key: "next",
       phase: "next" as const,
       title: partner.nextCommitment
-        ? nominalizeSxNextActionLabel(sxNormalizePublicName(partner.nextCommitment))
+        ? nominalizeSxNextActionLabel(
+            sxNormalizePublicName(partner.nextCommitment),
+          )
         : "次の一手 未登録",
       sub: "これから",
     },
@@ -574,9 +587,8 @@ function PartnerComparisonControls({
   onSelectQuickFilter: (filter: SxPocQuickFilter) => void;
 }) {
   const quickCount = (filter: SxPocQuickFilter) =>
-    partners.filter((partner) =>
-      pocMatchesQuickFilter(partner, today, filter),
-    ).length;
+    partners.filter((partner) => pocMatchesQuickFilter(partner, today, filter))
+      .length;
   const blockedCount = quickCount("blocked");
   const overdueCount = quickCount("overdue");
   const dueSoonCount = quickCount("due_soon");
@@ -609,59 +621,59 @@ function PartnerComparisonControls({
     </button>
   );
   return (
-      <ControlBandRow
-        heading="管制"
-        ariaLabel={`${scopeLabel}の件数と要対応先の絞り込み`}
-        nowrap
-        className="sticky top-0 z-30 h-14 bg-[#f5f1e8] py-0 shadow-[0_1px_0_#d6cebf]"
+    <ControlBandRow
+      heading="管制"
+      ariaLabel={`${scopeLabel}の件数と要対応先の絞り込み`}
+      nowrap
+      className="sticky top-0 z-30 h-14 bg-[#f5f1e8] py-0 shadow-[0_1px_0_#d6cebf]"
+    >
+      <span
+        className={`shrink-0 border px-2 py-1 text-[10px] font-semibold ${NEUTRAL_TONE}`}
       >
-        <span
-          className={`shrink-0 border px-2 py-1 text-[10px] font-semibold ${NEUTRAL_TONE}`}
-        >
-          表示 {visiblePartners.length} / {scopeLabel} {partners.length}
-        </span>
-        <span
-          className={`shrink-0 border px-2 py-1 text-[10px] font-semibold ${NEUTRAL_TONE}`}
-        >
-          接点記録あり {contactRecordCount}
-        </span>
-        {quickFilterButton(
-          "blocked",
-          "停止",
-          blockedCount,
-          blockedCount > 0 ? ALERT_TONE : NEUTRAL_TONE,
-        )}
-        {quickFilterButton(
-          "overdue",
-          "期限超過",
-          overdueCount,
-          overdueCount > 0 ? ALERT_TONE : NEUTRAL_TONE,
-        )}
-        {quickFilterButton(
-          "due_soon",
-          "7日以内",
-          dueSoonCount,
-          dueSoonCount > 0 ? WARN_TONE : NEUTRAL_TONE,
-        )}
-        {quickFilterButton(
-          "stale",
-          "情報更新要",
-          staleCount,
-          staleCount > 0 ? WARN_TONE : NEUTRAL_TONE,
-        )}
-        {quickFilterButton(
-          "sx_ball",
-          "当方が動く",
-          sxBallCount,
-          sxBallCount > 0 ? WARN_TONE : NEUTRAL_TONE,
-        )}
-        {quickFilterButton(
-          "data_gap",
-          "判定材料不足",
-          dataGapCount,
-          dataGapCount > 0 ? FLAG_TONE : NEUTRAL_TONE,
-        )}
-      </ControlBandRow>
+        表示 {visiblePartners.length} / {scopeLabel} {partners.length}
+      </span>
+      <span
+        className={`shrink-0 border px-2 py-1 text-[10px] font-semibold ${NEUTRAL_TONE}`}
+      >
+        接点記録あり {contactRecordCount}
+      </span>
+      {quickFilterButton(
+        "blocked",
+        "停止",
+        blockedCount,
+        blockedCount > 0 ? ALERT_TONE : NEUTRAL_TONE,
+      )}
+      {quickFilterButton(
+        "overdue",
+        "期限超過",
+        overdueCount,
+        overdueCount > 0 ? ALERT_TONE : NEUTRAL_TONE,
+      )}
+      {quickFilterButton(
+        "due_soon",
+        "7日以内",
+        dueSoonCount,
+        dueSoonCount > 0 ? WARN_TONE : NEUTRAL_TONE,
+      )}
+      {quickFilterButton(
+        "stale",
+        "情報更新要",
+        staleCount,
+        staleCount > 0 ? WARN_TONE : NEUTRAL_TONE,
+      )}
+      {quickFilterButton(
+        "sx_ball",
+        "当方が動く",
+        sxBallCount,
+        sxBallCount > 0 ? WARN_TONE : NEUTRAL_TONE,
+      )}
+      {quickFilterButton(
+        "data_gap",
+        "判定材料不足",
+        dataGapCount,
+        dataGapCount > 0 ? FLAG_TONE : NEUTRAL_TONE,
+      )}
+    </ControlBandRow>
   );
 }
 
@@ -867,9 +879,9 @@ function HoldingRow({
 }
 
 const PARTNER_CONTROL_INNER_GRID =
-  "@min-[1280px]:grid-cols-[160px_minmax(270px,1.4fr)_minmax(150px,0.9fr)_minmax(190px,1.2fr)_126px_minmax(150px,1fr)]";
+  "@min-[1280px]:grid-cols-[160px_minmax(180px,1fr)_minmax(160px,0.9fr)_minmax(150px,0.9fr)_minmax(190px,1.2fr)_126px_minmax(150px,1fr)]";
 const PARTNER_CONTROL_HEADER_GRID =
-  "@min-[1280px]:grid-cols-[160px_minmax(270px,1.4fr)_minmax(150px,0.9fr)_minmax(190px,1.2fr)_126px_minmax(150px,1fr)_104px]";
+  "@min-[1280px]:grid-cols-[160px_minmax(180px,1fr)_minmax(160px,0.9fr)_minmax(150px,0.9fr)_minmax(190px,1.2fr)_126px_minmax(150px,1fr)_104px]";
 
 type PartnerGateImpact = {
   title: string;
@@ -978,8 +990,10 @@ function PocComparisonDetailModal({
   onEditRole?: (roleId: string) => void;
 }) {
   const display = sxPartnerDisplay(partner);
+  const progressSteps = buildPartnerProgressSteps(partner);
   const titleId = `sx-poc-detail-title-${partner.id}`;
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
   const intervention = sxPartnerPrimaryIntervention(partner, today);
   const impact = partnerGateImpact(
     intervention,
@@ -1006,31 +1020,34 @@ function PocComparisonDetailModal({
     (item) => item.status === "completed" || item.status === "cancelled",
   );
 
-  useEffect(() => {
-    closeButtonRef.current?.focus();
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  useModalContainment({
+    dialogRef,
+    initialFocusRef: closeButtonRef,
+    onClose,
+  });
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
+      data-modal-layer="sx-partner-detail"
       className="fixed inset-0 z-50 grid place-items-end bg-[#24231f]/35 p-0 sm:place-items-center sm:p-5"
       role="presentation"
+      onClick={(event) => event.stopPropagation()}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
       <section
+        ref={dialogRef}
+        id={`sx-partner-detail-${partner.id}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-xl border border-[#d6cebf] bg-[#fffdf7] shadow-2xl sm:max-w-4xl sm:rounded-xl"
       >
         <header className="flex items-center justify-between gap-3 border-b border-[#e4ddd0] px-4 py-3">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">
               関係先詳細
             </p>
@@ -1051,7 +1068,7 @@ function PocComparisonDetailModal({
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+        <div className="min-h-0 flex-1 overscroll-contain overflow-y-auto px-4 py-3">
           <section aria-labelledby={`${titleId}-control`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p
@@ -1169,6 +1186,35 @@ function PocComparisonDetailModal({
                   この下で全文を確認
                 </p>
               </div>
+            </div>
+          </section>
+
+          <section
+            className="mt-5 border-t border-[#e4ddd0] pt-4"
+            aria-labelledby={`${titleId}-progress`}
+          >
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <p
+                  id={`${titleId}-progress`}
+                  className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]"
+                >
+                  進行状況
+                </p>
+                <p className="mt-1 text-[11px] leading-5 text-[#69665d]">
+                  接点から現在地、未完了作業、次の一手、ゴールまでの全記録
+                </p>
+              </div>
+              <span className="text-[10px] font-semibold text-[#69665d]">
+                全{progressSteps.length}項目
+              </span>
+            </div>
+            <div className="mt-2">
+              <PartnerProgressFlow
+                partner={partner}
+                displayName={display.name}
+                steps={progressSteps}
+              />
             </div>
           </section>
 
@@ -1428,7 +1474,8 @@ function PocComparisonDetailModal({
           )}
         </div>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -1495,7 +1542,10 @@ function PartnerProgressFlow({
             >
               <span className="flex items-center gap-1 text-[10px] font-semibold tracking-wide">
                 {step.phase === "done" && (
-                  <CircleCheck className="h-3 w-3 shrink-0" aria-hidden="true" />
+                  <CircleCheck
+                    className="h-3 w-3 shrink-0"
+                    aria-hidden="true"
+                  />
                 )}
                 {step.phase === "now" && (
                   <CircleDot className="h-3 w-3 shrink-0" aria-hidden="true" />
@@ -1525,6 +1575,17 @@ function PartnerProgressFlow({
       </ol>
     </div>
   );
+}
+
+/** 行全体が1つの詳細ボタンなので、各セルは比較用の表示区画に徹する。 */
+function PartnerRowCell({
+  className = "",
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  return <div className={`min-w-0 text-left ${className}`}>{children}</div>;
 }
 
 function PartnerComparisonRow({
@@ -1564,6 +1625,9 @@ function PartnerComparisonRow({
 }) {
   const display = sxPartnerDisplay(partner);
   const steps = buildPartnerProgressSteps(partner);
+  const nowStep = steps.find((step) => step.phase === "now");
+  const goalStep = steps.find((step) => step.phase === "goal");
+  const openDetail = () => onToggleExpand(partner.id);
   const latest = sxLatestInteraction(partner.interactions);
   const holdings = sxHoldingsForPartner(partner);
   const intervention = sxPartnerPrimaryIntervention(partner, today);
@@ -1601,25 +1665,27 @@ function PartnerComparisonRow({
       id={`sx-partner-${partner.id}`}
       data-sx-anchor={`sx-partner-${partner.id}`}
       data-testid={`sx-partner-comparison-row-${partner.id}`}
-      tabIndex={-1}
       aria-labelledby={nameHeadingId}
       className="scroll-mt-24 border-b border-[#eee9df] bg-[#fffdf7]"
     >
-      <div className="grid grid-cols-1 items-stretch gap-2 px-3 py-2.5 sm:grid-cols-[minmax(0,1fr)_104px]">
+      <button
+        type="button"
+        aria-expanded={expanded}
+        aria-controls={`sx-partner-detail-${partner.id}`}
+        onClick={openDetail}
+        className={`grid w-full grid-cols-1 items-stretch gap-2 px-3 py-2.5 text-left hover:bg-[#f8f5ec] sm:grid-cols-[minmax(0,1fr)_104px] ${FOCUS_RING}`}
+        aria-label={`${display.name}の詳細を開く`}
+      >
         <div
           className={`grid min-w-0 grid-cols-1 gap-x-3 gap-y-2 md:grid-cols-2 ${PARTNER_CONTROL_INNER_GRID}`}
         >
           <div className="min-w-0 md:col-span-2 @min-[1280px]:col-span-1">
-            <button
-              type="button"
+            <p
               id={nameHeadingId}
-              disabled={!canManage || !onEditPartner}
-              onClick={() => onEditPartner?.(partner.id)}
-              className="block min-h-11 w-full truncate rounded-sm text-left text-[12px] font-semibold text-[#24231f] enabled:cursor-pointer enabled:hover:bg-[#eef3f5] enabled:hover:underline disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
-              aria-label={`${display.name}の基本情報を直接修正`}
+              className="flex min-h-11 items-center truncate text-[12px] font-semibold text-[#24231f]"
             >
               {display.name}
-            </button>
+            </p>
             <p className="text-[10px] text-[#69665d]">
               最終確認 {sxFormatDate(partner.lastVerifiedAt)}
             </p>
@@ -1629,24 +1695,46 @@ function PartnerComparisonRow({
                 onHold={sxPartnerIsOnHold(partner)}
                 currentBallSide={partner.currentBallSide}
                 steps={steps}
-                onOpen={
-                  canManage && onEditPartner
-                    ? () => onEditPartner(partner.id)
-                    : undefined
-                }
               />
             </div>
           </div>
 
-          <div className="min-w-0 md:col-span-2 @min-[1280px]:col-span-1">
-            <PartnerProgressFlow
-              partner={partner}
-              displayName={display.name}
-              steps={steps}
-            />
-          </div>
+          <PartnerRowCell className="md:col-span-2 @min-[1280px]:col-span-1">
+            <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
+              現在の状況
+            </p>
+            {nowStep ? (
+              <>
+                <p
+                  className="line-clamp-2 text-[11px] font-semibold leading-4 text-[#24231f]"
+                  title={nowStep.title}
+                >
+                  {nowStep.title}
+                </p>
+                <p className="mt-0.5 text-[10px] text-[#69665d]">
+                  {nowStep.sub}
+                </p>
+              </>
+            ) : (
+              <p className="text-[10px] leading-4 text-[#5f4a66]">
+                現在地未登録
+              </p>
+            )}
+          </PartnerRowCell>
 
-          <div className="min-w-0 border-l-2 border-[#d6cebf] pl-2">
+          <PartnerRowCell className="md:col-span-2 @min-[1280px]:col-span-1">
+            <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
+              ゴール
+            </p>
+            <p
+              className="line-clamp-2 text-[11px] font-semibold leading-4 text-[#24231f]"
+              title={goalStep?.title}
+            >
+              {goalStep?.title ?? "目標状態 未登録"}
+            </p>
+          </PartnerRowCell>
+
+          <PartnerRowCell className="border-l-2 border-[#d6cebf] pl-2">
             <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
               詰まり・PJ影響
             </p>
@@ -1671,9 +1759,9 @@ function PartnerComparisonRow({
                 具体的な保有事項との紐づけなし
               </p>
             )}
-          </div>
+          </PartnerRowCell>
 
-          <div className="min-w-0">
+          <PartnerRowCell>
             <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
               次にやること
             </p>
@@ -1687,9 +1775,9 @@ function PartnerComparisonRow({
               {interventionStatusLabel(intervention)}
               {holdings.length > 1 ? ` ・ ほか${holdings.length - 1}件` : ""}
             </p>
-          </div>
+          </PartnerRowCell>
 
-          <div className="min-w-0">
+          <PartnerRowCell>
             <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
               担当・期限
             </p>
@@ -1714,9 +1802,9 @@ function PartnerComparisonRow({
                 )}
               </span>
             </div>
-          </div>
+          </PartnerRowCell>
 
-          <div className="min-w-0 md:col-span-2 @min-[1280px]:col-span-1">
+          <PartnerRowCell className="md:col-span-2 @min-[1280px]:col-span-1">
             <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
               現在地の根拠
             </p>
@@ -1746,18 +1834,12 @@ function PartnerComparisonRow({
             >
               最終確認 {sxFormatDate(partner.lastVerifiedAt)}
             </p>
-          </div>
+          </PartnerRowCell>
         </div>
-        <button
-          type="button"
-          aria-expanded={expanded}
-          onClick={() => onToggleExpand(partner.id)}
-          aria-label={`${display.name}の履歴${partner.interactions.length}件・保有${holdings.length}件を開く`}
-          className={`min-h-11 self-stretch rounded-md border border-[#cfc7b9] px-2 text-[10px] font-semibold leading-4 text-[#315f7d] hover:bg-[#eef3f5] sm:self-stretch ${FOCUS_RING}`}
-        >
+        <span className="flex min-h-11 items-center justify-center self-stretch border border-[#cfc7b9] px-2 text-center text-[10px] font-semibold leading-4 text-[#315f7d] sm:self-stretch">
           履歴 {partner.interactions.length}件 ・ 保有 {holdings.length}件
-        </button>
-      </div>
+        </span>
+      </button>
       {expanded && (
         <PocComparisonDetailModal
           partner={partner}
@@ -1878,7 +1960,9 @@ export function SxPartnerPipeline({
     : sxGroupPartnersByPrimaryClassification(filterablePartners);
 
   // 通常台帳の管制帯は全関係先、PoC比較の要対応集計は表示中PoC先を分母にする。
-  const countScopePartners = comparisonOnly ? ownerScopePartners : management.partners;
+  const countScopePartners = comparisonOnly
+    ? ownerScopePartners
+    : management.partners;
   const counts = sxComputeControlBandCounts(
     countScopePartners,
     management.asOf,
@@ -2004,7 +2088,8 @@ export function SxPartnerPipeline({
         className={`${comparisonOnly ? "sticky top-14 z-20 shadow-[0_1px_0_#d6cebf]" : ""} hidden ${PARTNER_CONTROL_HEADER_GRID} gap-2 border-b border-[#e4ddd0] bg-[#f8f5ec] px-3 py-1.5 text-[10px] font-semibold text-[#69665d] @min-[1280px]:grid`}
       >
         <span>関係先</span>
-        <span>進行状況</span>
+        <span>現在の状況</span>
+        <span>ゴール</span>
         <span>詰まり・PJ影響</span>
         <span>次にやること</span>
         <span>担当・期限</span>

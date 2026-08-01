@@ -217,12 +217,6 @@ function RowBar({
           )}
         </span>
       )}
-      {plannedEnd != null && !row.isBlockingMilestone && (
-        <span
-          className="absolute top-[19px] h-[18px] w-[2px] bg-[#514e47]"
-          style={{ left: `${plannedEnd}%` }}
-        />
-      )}
       {plannedEnd != null && row.isBlockingMilestone && (
         <span
           className="absolute top-[13px] -translate-x-1/2 text-center"

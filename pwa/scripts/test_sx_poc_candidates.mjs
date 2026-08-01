@@ -123,7 +123,10 @@ for (const forbidden of [
 
 // 関係先UIは固定段階へ正規化せず、実在する接点・作業・現在地・ゴールから可変stepsを作る。
 const pipelineSource = readFileSync(
-  new URL("../src/components/project-workspace/SxPartnerPipeline.tsx", import.meta.url),
+  new URL(
+    "../src/components/project-workspace/SxPartnerPipeline.tsx",
+    import.meta.url,
+  ),
   "utf8",
 );
 for (const required of [
@@ -137,8 +140,57 @@ for (const required of [
   "data-step-count={steps.length}",
   'data-testid="sx-partner-filter-vc"',
   "sxIsVcPartner",
+  "現在の状況",
+  "ゴール",
+  "progressSteps",
+  "aria-controls={`sx-partner-detail-${partner.id}`}",
+  "aria-label={`${display.name}の詳細を開く`}",
 ]) {
-  assert.ok(pipelineSource.includes(required), `${required} must remain in the partner ledger`);
+  assert.ok(
+    pipelineSource.includes(required),
+    `${required} must remain in the partner ledger`,
+  );
+}
+
+const comparisonRowSource = pipelineSource.slice(
+  pipelineSource.indexOf("function PartnerComparisonRow"),
+  pipelineSource.indexOf("export function SxPartnerPipeline"),
+);
+assert.equal(
+  comparisonRowSource.includes("<PartnerProgressFlow"),
+  false,
+  "full progress flow must live in the detail modal, not the comparison row",
+);
+assert.ok(
+  pipelineSource.indexOf("<PartnerProgressFlow") <
+    pipelineSource.indexOf("function PartnerComparisonRow"),
+  "the detail modal must render the full progress flow",
+);
+
+const vcMigration = readFileSync(
+  new URL("./migrations/211_sx_vc_partner_ledger.sql", import.meta.url),
+  "utf8",
+);
+for (const required of [
+  "'davp'",
+  "'bnv'",
+  "'iyogin-capital'",
+  "ダイキアクシスベンチャーパートナーズ（DAVP）",
+  "Beyond Next Ventures（BNV）",
+  "いよぎんキャピタル",
+  "'partners-fund'",
+  "'shareholder_investor'",
+  "'unconfirmed'",
+  "user:2026-08-01#vc-list",
+  "partner_count <> 4",
+  "vc_role_count <> 4",
+  "partner.deleted_at IS NULL",
+  "role.deleted_at IS NULL",
+]) {
+  assert.ok(
+    vcMigration.includes(required),
+    `${required} must remain in migration 211`,
+  );
 }
 for (const forbidden of [
   "PartnerProgressScale",

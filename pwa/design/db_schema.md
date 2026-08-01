@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-01 11:10 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-01 20:12 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -3483,7 +3483,7 @@ PRIMARY KEY: `id`
 
 ## project_management_field_audit
 
-行数 (概算): 4,143
+行数 (概算): 4,296
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -4513,7 +4513,7 @@ PRIMARY KEY: `project_id`
 
 ## project_weekly_effort_entries
 
-行数 (概算): 43
+行数 (概算): 48
 PRIMARY KEY: `id`
 UNIQUE: `(project_id,member_id,week_start,work_category)` (constraint: `project_weekly_effort_entries_project_id_member_id_week_sta_key`)
 
