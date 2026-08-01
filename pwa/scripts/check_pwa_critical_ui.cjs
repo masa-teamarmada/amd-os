@@ -2862,16 +2862,20 @@ expectIncludes("src/components/bzm/BzmTheoryMapView.tsx", [
   "onNodeDragEnd",
   "onLinkClick",
   "event.metaKey || event.ctrlKey",
-  "⌘を押したまま接続先をクリック",
+  "⌘＋次のノードで即接続",
   'data-bzm-map-workspace="true"',
   "KIND_COLOR",
-  "drawStatusRing",
+  "createDirectEdge",
+  "parseTheoryMapEdgeDto",
+  '<BzmMarkdown source={selected.body}',
   "ここから、まさの理論マップが始まる",
 ]);
 expectNotIncludes("src/components/bzm/BzmTheoryMapView.tsx", [
   "data-bzm-map-overlay",
   "nearestDistance",
   "fillText(KIND_",
+  "ctx.setLineDash",
+  "drawStatusRing",
   "色 = ステータス",
 ]);
 expectIncludes("src/components/bzm/BzmTheoryComposerDialog.tsx", [
@@ -2880,5 +2884,8 @@ expectIncludes("src/components/bzm/BzmTheoryComposerDialog.tsx", [
 ]);
 expectNotIncludes("src/components/bzm/BzmTheoryComposerDialog.tsx", [
   "data-bzm-map-overlay",
+  'type: "connect"',
+  'mode === "connect"',
+  "既存ノードとつなぐ",
 ]);
 expectIncludes("package.json", ["test:bzm-theory-graph"]);

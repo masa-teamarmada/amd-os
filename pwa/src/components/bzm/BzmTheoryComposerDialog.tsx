@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
-import { BookOpenText, CheckCircle2, HelpCircle, Lightbulb, Quote, Ruler, Search, X } from "lucide-react";
+import { BookOpenText, CheckCircle2, HelpCircle, Lightbulb, Quote, Ruler, X } from "lucide-react";
 import {
   THEORY_NODE_KINDS,
   THEORY_NODE_LAYERS,
   THEORY_NODE_STATUSES,
-  THEORY_RELATION_TYPES,
 } from "@/lib/bzm-theory-graph";
 import type { TheoryNodeKind, TheoryNodeLayer, TheoryNodeStatus, TheoryRelationType } from "@/lib/bzm-theory-graph";
 import {
@@ -22,6 +21,7 @@ import {
   STATUS_LABEL,
   VERMILION,
   callTheoryMapApi,
+  parseTheoryMapEdgeDto,
   rgba,
   type TheoryMapEdge,
   type TheoryMapNode,
@@ -30,7 +30,6 @@ import {
 export type ComposerState =
   | { type: "create" }
   | { type: "grow"; preset: "support" | "challenge" | "question" }
-  | { type: "connect"; targetId?: string; direction?: "outgoing" | "incoming" }
   | { type: "edit"; node: TheoryMapNode };
 
 const KIND_OPTIONS: { kind: TheoryNodeKind; icon: typeof Lightbulb }[] = [
@@ -148,50 +147,24 @@ function parseNodeDto(value: unknown): TheoryMapNode | null {
   };
 }
 
-function parseEdgeDto(value: unknown): TheoryMapEdge | null {
-  if (!isRecord(value)) return null;
-  if (
-    typeof value.from !== "string" ||
-    typeof value.to !== "string" ||
-    !isAllowed(THEORY_RELATION_TYPES, value.type)
-  ) return null;
-  return {
-    from: value.from,
-    to: value.to,
-    type: value.type,
-    id: typeof value.id === "string" ? value.id : null,
-    note: typeof value.note === "string" ? value.note : null,
-    editable: value.editable === true,
-  };
-}
-
 export function BzmTheoryComposerDialog({
   state,
   selected,
-  nodes,
   onClose,
   onNodeCreated,
-  onEdgeCreated,
   onNodeUpdated,
   onError,
 }: {
   state: ComposerState | null;
   selected: TheoryMapNode | null;
-  nodes: TheoryMapNode[];
   onClose: () => void;
   onNodeCreated: (node: TheoryMapNode, edge: TheoryMapEdge | null) => void;
-  onEdgeCreated: (edge: TheoryMapEdge) => void;
   onNodeUpdated: (node: TheoryMapNode) => void;
   onError: (message: string) => void;
 }) {
   const titleId = useId();
   const [form, setForm] = useState<FormState>(defaultFormState());
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const [targetId, setTargetId] = useState<string | null>(null);
-  const [relationType, setRelationType] = useState<TheoryRelationType>("supports");
-  const [direction, setDirection] = useState<"outgoing" | "incoming">("outgoing");
-  const [note, setNote] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -206,22 +179,10 @@ export function BzmTheoryComposerDialog({
     /* eslint-disable react-hooks/set-state-in-effect */
     setError(null);
     setPending(false);
-    setSearch("");
-    setNote("");
-    setTargetId(state.type === "connect" ? state.targetId ?? null : null);
-    setDirection(
-      state.type === "connect"
-        ? state.direction ?? "outgoing"
-        : state.type === "grow" && state.preset === "question"
-          ? "incoming"
-          : "outgoing"
-    );
-    setRelationType(state.type === "grow" ? presetRelationType(state.preset) : "supports");
     setAdvancedOpen(state.type === "edit");
     if (state.type === "create") setForm(defaultFormState());
     else if (state.type === "grow") setForm(presetFormState(state.preset));
     else if (state.type === "edit") setForm(nodeToFormState(state.node));
-    else setForm(defaultFormState());
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [state]);
 
@@ -243,17 +204,6 @@ export function BzmTheoryComposerDialog({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open, onClose, pending]);
-
-  const searchResults = useMemo(() => {
-    if (mode !== "connect" || !selected) return [];
-    const q = search.trim().toLowerCase();
-    return nodes
-      .filter((n) => n.id !== selected.id)
-      .filter((n) => !q || `${n.id} ${n.title} ${n.summary}`.toLowerCase().includes(q))
-      .slice(0, 30);
-  }, [mode, nodes, search, selected]);
-
-  const target = targetId ? (nodes.find((n) => n.id === targetId) ?? null) : null;
 
   async function submitCreateOrGrow(preset: "support" | "challenge" | "question" | null) {
     if (!form.title.trim() || !form.summary.trim()) {
@@ -297,37 +247,8 @@ export function BzmTheoryComposerDialog({
       onError(message);
       return;
     }
-    const edge = parseEdgeDto(result.payload.edge);
+    const edge = parseTheoryMapEdgeDto(result.payload.edge);
     onNodeCreated(node, edge);
-  }
-
-  async function submitConnect() {
-    if (!selected || !target) {
-      setError("接続先のノードを選んでください。");
-      return;
-    }
-    setPending(true);
-    setError(null);
-    const from = direction === "outgoing" ? selected.id : target.id;
-    const to = direction === "outgoing" ? target.id : selected.id;
-    const result = await callTheoryMapApi({
-      method: "POST",
-      body: { action: "create_edge", from, to, type: relationType, note: note || undefined },
-    });
-    setPending(false);
-    if (!result.ok) {
-      setError(result.error);
-      onError(result.error);
-      return;
-    }
-    const edge = parseEdgeDto(result.payload.edge);
-    if (!edge) {
-      const message = "サーバーの応答を解釈できませんでした。";
-      setError(message);
-      onError(message);
-      return;
-    }
-    onEdgeCreated(edge);
   }
 
   async function submitEdit(node: TheoryMapNode) {
@@ -370,7 +291,6 @@ export function BzmTheoryComposerDialog({
     e.preventDefault();
     if (mode === "create") void submitCreateOrGrow(null);
     else if (state?.type === "grow") void submitCreateOrGrow(state.preset);
-    else if (mode === "connect") void submitConnect();
     else if (state?.type === "edit") void submitEdit(state.node);
   }
 
@@ -379,11 +299,9 @@ export function BzmTheoryComposerDialog({
       ? "理論を書く"
       : mode === "grow"
         ? presetLabel((state as { type: "grow"; preset: "support" | "challenge" | "question" }).preset)
-        : mode === "connect"
-          ? "既存ノードとつなぐ"
-          : "ノードを編集";
+        : "ノードを編集";
 
-  const requiredTextMissing = mode !== "connect" && (!form.title.trim() || !form.summary.trim());
+  const requiredTextMissing = !form.title.trim() || !form.summary.trim();
 
   const previewText = useMemo(() => {
     if (mode === "grow" && state?.type === "grow" && selected) {
@@ -394,13 +312,8 @@ export function BzmTheoryComposerDialog({
       }
       return `${newTitle} → ${rel} → ${selected.title}`;
     }
-    if (mode === "connect" && selected) {
-      const other = target?.title ?? "(接続先未選択)";
-      const rel = RELATION_LABEL[relationType];
-      return direction === "outgoing" ? `${selected.title} → ${rel} → ${other}` : `${other} → ${rel} → ${selected.title}`;
-    }
     return null;
-  }, [mode, state, selected, form.title, relationType, direction, target]);
+  }, [mode, state, selected, form.title]);
 
   if (!open) return null;
 
@@ -420,7 +333,7 @@ export function BzmTheoryComposerDialog({
               <h2 id={titleId} className="text-lg font-semibold leading-tight" style={{ color: GRAPHITE }}>
                 {dialogTitle}
               </h2>
-              {selected && (mode === "grow" || mode === "connect") && (
+              {selected && mode === "grow" && (
                 <p className="mt-1 truncate text-xs" style={{ color: GRAPHITE_MUTED }}>
                   選択中: <span className="font-semibold">{selected.title}</span>
                 </p>
@@ -439,30 +352,14 @@ export function BzmTheoryComposerDialog({
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-            {mode === "connect" ? (
-              <ConnectFields
-                search={search}
-                setSearch={setSearch}
-                searchResults={searchResults}
-                targetId={targetId}
-                setTargetId={setTargetId}
-                relationType={relationType}
-                setRelationType={setRelationType}
-                direction={direction}
-                setDirection={setDirection}
-                note={note}
-                setNote={setNote}
-              />
-            ) : (
-              <NodeFields
-                form={form}
-                setForm={setForm}
-                showKindPicker={mode === "create" || mode === "edit"}
-                advancedOpen={advancedOpen}
-                setAdvancedOpen={setAdvancedOpen}
-                showSourceRef={form.kind === "source"}
-              />
-            )}
+            <NodeFields
+              form={form}
+              setForm={setForm}
+              showKindPicker={mode === "create" || mode === "edit"}
+              advancedOpen={advancedOpen}
+              setAdvancedOpen={setAdvancedOpen}
+              showSourceRef={form.kind === "source"}
+            />
 
             {previewText && (
               <div
@@ -500,11 +397,11 @@ export function BzmTheoryComposerDialog({
             </button>
             <button
               type="submit"
-              disabled={pending || requiredTextMissing || (mode === "connect" && !target)}
+              disabled={pending || requiredTextMissing}
               className="flex min-h-11 flex-1 items-center justify-center rounded-md px-4 text-sm font-semibold text-white disabled:opacity-50 sm:flex-none"
               style={{ backgroundColor: BLUEPRINT }}
             >
-              {pending ? "保存中…" : mode === "edit" ? "更新する" : mode === "connect" ? "つなぐ" : "作成する"}
+              {pending ? "保存中…" : mode === "edit" ? "更新する" : "作成する"}
             </button>
           </div>
         </form>
@@ -681,145 +578,6 @@ function SourceRefField({
         style={inputStyle}
       />
       {hint && <p className="mt-1 text-[11px]" style={{ color: GRAPHITE_MUTED }}>{hint}</p>}
-    </div>
-  );
-}
-
-function ConnectFields({
-  search,
-  setSearch,
-  searchResults,
-  targetId,
-  setTargetId,
-  relationType,
-  setRelationType,
-  direction,
-  setDirection,
-  note,
-  setNote,
-}: {
-  search: string;
-  setSearch: (v: string) => void;
-  searchResults: TheoryMapNode[];
-  targetId: string | null;
-  setTargetId: (id: string) => void;
-  relationType: TheoryRelationType;
-  setRelationType: (t: TheoryRelationType) => void;
-  direction: "outgoing" | "incoming";
-  setDirection: (d: "outgoing" | "incoming") => void;
-  note: string;
-  setNote: (v: string) => void;
-}) {
-  const searchFieldId = useId();
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <label htmlFor={searchFieldId} className="mb-1.5 block text-xs font-semibold" style={{ color: GRAPHITE_MUTED }}>
-          接続先ノードを検索
-        </label>
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: GRAPHITE_MUTED }} />
-          <input
-            id={searchFieldId}
-            data-bzm-autofocus="true"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="id / タイトル / 要約で検索"
-            className="h-11 w-full rounded-md border pl-9 pr-3 text-sm outline-none"
-            style={inputStyle}
-          />
-        </div>
-        <ul
-          className="mt-2 max-h-48 divide-y overflow-y-auto rounded-md border"
-          style={{ borderColor: PAPER_BORDER }}
-          role="listbox"
-          aria-label="接続先の候補"
-        >
-          {searchResults.map((n) => (
-            <li key={n.id}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={targetId === n.id}
-                onClick={() => setTargetId(n.id)}
-                className="flex min-h-11 w-full flex-col justify-center gap-0.5 px-3 py-2 text-left text-xs"
-                style={{
-                  backgroundColor: targetId === n.id ? "rgba(41, 82, 163, 0.1)" : "transparent",
-                  color: GRAPHITE,
-                }}
-              >
-                <span className="font-semibold">{n.title}</span>
-                <span style={{ color: GRAPHITE_MUTED }}>
-                  {KIND_LABEL[n.kind]} ・ {LAYER_LABEL[n.layer]}
-                </span>
-              </button>
-            </li>
-          ))}
-          {searchResults.length === 0 && (
-            <li className="px-3 py-2 text-xs" style={{ color: GRAPHITE_MUTED }}>
-              一致するノードがない。
-            </li>
-          )}
-        </ul>
-      </div>
-
-      <LabeledSelect
-        label="関係の種類"
-        value={relationType}
-        onChange={(v) => setRelationType(v as TheoryRelationType)}
-        options={THEORY_RELATION_TYPES.map((t) => ({ value: t, label: RELATION_LABEL[t] }))}
-      />
-
-      <div>
-        <span className="mb-1.5 block text-xs font-semibold" style={{ color: GRAPHITE_MUTED }}>
-          向き
-        </span>
-        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="関係の向き">
-          <button
-            type="button"
-            role="radio"
-            aria-checked={direction === "outgoing"}
-            onClick={() => setDirection("outgoing")}
-            className="flex min-h-11 items-center justify-center rounded-md border px-2 text-xs font-medium"
-            style={{
-              borderColor: direction === "outgoing" ? BLUEPRINT : PAPER_BORDER,
-              backgroundColor: direction === "outgoing" ? "rgba(41, 82, 163, 0.1)" : PAPER_BG,
-              color: direction === "outgoing" ? BLUEPRINT : GRAPHITE,
-            }}
-          >
-            選択中 → 接続先
-          </button>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={direction === "incoming"}
-            onClick={() => setDirection("incoming")}
-            className="flex min-h-11 items-center justify-center rounded-md border px-2 text-xs font-medium"
-            style={{
-              borderColor: direction === "incoming" ? BLUEPRINT : PAPER_BORDER,
-              backgroundColor: direction === "incoming" ? "rgba(41, 82, 163, 0.1)" : PAPER_BG,
-              color: direction === "incoming" ? BLUEPRINT : GRAPHITE,
-            }}
-          >
-            接続先 → 選択中
-          </button>
-        </div>
-      </div>
-
-      <div>
-        <label className="mb-1.5 block text-xs font-semibold" style={{ color: GRAPHITE_MUTED }}>
-          ノート (任意)
-        </label>
-        <textarea
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          maxLength={2000}
-          rows={2}
-          className="w-full rounded-md border px-3 py-2 text-sm outline-none"
-          style={inputStyle}
-        />
-      </div>
     </div>
   );
 }

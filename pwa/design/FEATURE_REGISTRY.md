@@ -54,13 +54,13 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 必須機能:
 
 - source of truth: `bzm_theory_nodes` / `bzm_theory_edges` だけ。migration 208で旧seedを全削除し、0件からまさ本人が育てる。Markdown 21ノード / 34関係とmigration 203のseedは検証・復元用履歴で、ランタイムへ自動表示しない。
-- write contract: member read、admin write。API `/api/bzm/theory-map` は認証後だけ管理クライアントを使い、RLSも `is_admin()` writeを強制。保存操作時だけ書き、通知・外部送信・自動保存はしない。
+- write contract: member read、admin write。API `/api/bzm/theory-map` は認証後だけ管理クライアントを使い、RLSも `is_admin()` writeを強制。ノード保存、Cmd/Ctrl二点目の即時接続、確認済み接続解除だけを書き、通知・外部送信・自動保存はしない。
 - create/grow: マップ空白クリックで、地図を覆わない予約区画の作成panelを開く。desktopは地図右、mobileは地図下。選択ノードではマップ下端の「根拠 / 異論 / 論点」を派生導線にし、初回エッジの向きを保存前に文章で確認する。マップ外に作成・育成ボタンを置かない。
-- connect/edit: 通常クリックはノード編集、通常ドラッグは配置変更だけ。`Cmd+click`（他OSは`Ctrl+click`）で2ノードを順に選ぶと相手を入力済みの接続panelを開く。1点目はハローと接続待ち帯で示し、ドラッグ後clickは抑止する。線クリックは同じ予約区画の接続解除確認。ノード削除UIは持たず、反証済みは `refuted` で履歴保存する。
-- map 表示: `react-force-graph-2d` ( `next/dynamic({ssr:false})` ) による力学グラフ。ノード塗り色は kind、形もkindの非色情報、外周線パターンはstatus、半径は接続本数、layer ごとの列分けと同一 layer 内の縦分散を持つ。中心略字は表示しない。
+- connect/edit: 通常クリックはノード編集、通常ドラッグは配置変更だけ。`Cmd+click`（他OSは`Ctrl+click`）で2ノードを順に選び、2点目で `1点目 → 2点目` を即時保存する。relationは1点目選択後の小さな待ち帯で選べ、初期値は `supports`。「つなぐ」ボタンや接続panelは出さない。1点目は細い実線ハローで示し、ドラッグ後clickは抑止する。線クリックは同じ予約区画の接続解除確認。ノード削除UIは持たず、反証済みは `refuted` で履歴保存する。
+- map 表示: `react-force-graph-2d` ( `next/dynamic({ssr:false})` ) による力学グラフ。ノード塗り色は kind、形もkindの非色情報、半径は接続本数、layer ごとの列分けと同一 layer 内の縦分散を持つ。statusは一覧・台帳の文字ラベルへ退避し、ノード外周に点線・破線を重ねない。中心略字は表示しない。
 - list 表示: フィルタ通過ノードを kind/layer/status バッジ + 接続本数付きで一覧する。スマホでは list を初期表示する。
 - フィルタ・検索: id/title/summary/source_ref 全文検索、layer・status・relation type のトグルフィルタ、フィルタ解除ボタン。検索と layer/status は map/list へ作用し、relation type は map のエッジだけを絞る。選択ノード台帳は反証の見落としを避けるため relation filter の影響を受けない。
-- 選択ノード台帳パネル: summary、source_ref リンク、本文、関係グループ (支持・異議・検証・依存/上書き・残っている論点・波及先)、**カバレッジの欠落検知** (外部ソース支持なし・異議反証接続なし・tests接続なしを警告表示、真偽判定ではない)。
+- 選択ノード台帳パネル: summary、source_ref リンク、本文、関係グループ (支持・異議・検証・依存/上書き・残っている論点・波及先)、**カバレッジの欠落検知** (外部ソース支持なし・異議反証接続なし・tests接続なしを警告表示、真偽判定ではない)。タイトル・要約・本文の `$...$` / `$$...$$` / `\(...\)` / `\[...\]` はKaTeXで数式表示する。
 - 詳細契約: `/spec/2-6-bzm-theory-map-current-spec`。
 
 回帰防止:

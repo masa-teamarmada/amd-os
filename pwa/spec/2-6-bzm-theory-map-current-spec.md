@@ -65,7 +65,7 @@ DB取得に失敗した場合は空の `unavailable` 結果を返し、画面上
 - 追加・編集・接続解除は `members.is_admin=true` の管理者だけ。
 - API は毎回 `requireMember()` / `requireAdmin()` で認証し、管理クライアントは認可後にだけ生成する。
 - RLS でも authenticated read、`is_admin()` write、service role all を二重に強制する。
-- 書き込みはユーザーが保存ボタンを押した時だけ。自動保存、通知、外部送信は行わない。
+- ノード作成・編集は保存ボタン、既存ノード間の接続は2点目の `Cmd/Ctrl+click`、接続解除は削除確認をユーザーが実行した時だけ書く。自動保存、通知、外部送信は行わない。
 
 ## API
 
@@ -106,17 +106,17 @@ DB取得に失敗した場合は空の `unavailable` 結果を返し、画面上
 - **論点**: 選択ノードから新しい問いノードへ `raises`。
 - **編集**: 選択ノードの内容を更新する。
 
-通常ドラッグはノードの配置変更だけに使い、接続を作らない。接続は `Cmd+click`（他OSでは `Ctrl+click`）で2ノードを順に選ぶ。1点目は外周ハローとマップ内の接続待ち帯で明示し、2点目を選ぶと接続先を入力済みのパネルを開く。同一ノードの2回選択は拒否して1点目を保持する。空白クリック、Escape、またはfilterで1点目が非表示になると接続待ちを解除する。
+通常ドラッグはノードの配置変更だけに使い、接続を作らない。接続は `Cmd+click`（他OSでは `Ctrl+click`）で2ノードを順に選ぶ。1点目はノードに近い細い実線ハローとマップ内の小さな接続待ち帯で示し、必要なら待ち帯のrelationを変更する。2点目を選んだ瞬間、**1点目 → 2点目**を選択中のrelation（初期値 `supports`）で保存する。「つなぐ」確認ボタンや接続パネルは出さない。同一ノードの2回選択は拒否して1点目を保持する。空白クリック、Escape、またはfilterで1点目が非表示になると接続待ちを解除する。保存中は多重操作を受けず、失敗時は1点目を保持して安全なエラーを表示する。
 
-接続パネルでは relation と方向を選び、保存前に「A —関係→ B」の文章プレビューを必ず出す。エッジをクリックすると同じ予約区画に確認パネルを出して接続解除できる。作成・接続・編集・削除確認はbody portalや `absolute overlay` を使わず、desktop は `graph + right panel`、mobile は `graph + lower panel` とする。Escapeで閉じられるが、保存・削除処理中は閉じない。
+エッジをクリックすると同じ予約区画に確認パネルを出して接続解除できる。作成・編集・削除確認はbody portalや `absolute overlay` を使わず、desktop は `graph + right panel`、mobile は `graph + lower panel` とする。Escapeで閉じられるが、保存・削除処理中は閉じない。
 
 ### 閲覧
 
 - 全文検索: id / title / summary / source_ref。
 - filter: layer、status、relation type。relation filter は地図のエッジだけに作用し、台帳から反証等を消さない。
-- map: kind を固有の塗り色（色覚に依存しない形も併用）、status を外周線パターン、接続本数を半径、layer を横方向の帯で表す。ノード中心に略字は置かない。
+- map: kind を固有の塗り色（色覚に依存しない形も併用）、接続本数を半径、layer を横方向の帯で表す。status は一覧・台帳の文字ラベルに退避し、ノード外周に点線・破線を重ねない。ノード中心に略字は置かない。
 - list: kind / layer / status / 接続本数を1行で比較する。
-- 台帳: summary、source_ref、本文、支持・異議反証・検証・依存上書き・残っている論点・波及先を表示する。
+- 台帳: summary、source_ref、本文、支持・異議反証・検証・依存上書き・残っている論点・波及先を表示する。タイトル・要約・本文のLaTeXは `$...$` / `$$...$$` / `\(...\)` / `\[...\]` をKaTeXで数式表示し、不正な式でも画面全体を壊さない。
 - source 以外で外部支持、異議反証、tests が無い時は「記録が手薄」と警告する。誤り判定ではない。
 
 ## 実装ファイル
@@ -127,7 +127,8 @@ DB取得に失敗した場合は空の `unavailable` 結果を返し、画面上
 | `src/app/api/bzm/theory-map/route.ts` | 認証付き read/write API |
 | `src/app/(app)/bzm/map/page.tsx` | map data と admin 権限を並列取得する Server Component |
 | `src/components/bzm/BzmTheoryMapView.tsx` | map/list、空白クリック、通常クリック編集、Cmd二点接続、配置ドラッグ、線クリック、選択台帳 |
-| `src/components/bzm/BzmTheoryComposerDialog.tsx` | マップ内の新規・育成・接続・編集panel |
+| `src/components/bzm/BzmTheoryComposerDialog.tsx` | マップ内の新規・育成・編集panel |
+| `src/components/bzm/BzmMarkdown.tsx` | MarkdownとLaTeXの安全な表示 |
 | `src/lib/bzm-theory-graph.ts` | 履歴Markdown snapshotのparser / graph builder。ランタイム非使用 |
 | `scripts/migrations/203_bzm_theory_editor.sql` | DB schema、RLS、廃止済み21/34 seedの履歴 |
 | `scripts/migrations/208_bzm_theory_map_user_authored_reset.sql` | 全edge→全nodeの順で削除し、空台帳へ現在化 |
@@ -148,7 +149,7 @@ npx tsc --noEmit
 npm run build
 ```
 
-DB反映後は0ノード / 0関係を確認する。desktop / mobile で空白クリック→非重複作成パネル、通常クリック→編集パネル、ドラッグ→配置変更のみ、Cmd二点クリック→接続パネル、線クリック→非重複削除確認、種類色・状態リング・中心略字なし、非admin閲覧を目視する。
+DB反映後は0ノード / 0関係を確認する。desktop / mobile で空白クリック→非重複作成パネル、通常クリック→編集パネル、ドラッグ→配置変更のみ、Cmd二点クリック→確認ボタンなしの即時接続、線クリック→非重複削除確認、種類色・外周点線なし・中心略字なし・LaTeX表示・非admin閲覧を目視する。
 
 ## 既知の制約
 

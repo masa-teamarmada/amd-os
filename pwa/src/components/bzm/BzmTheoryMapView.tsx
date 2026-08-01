@@ -24,18 +24,19 @@ import {
   RELATION_COLOR,
   RELATION_LABEL,
   STATUS_LABEL,
-  STATUS_RING_LABEL,
   STRUCTURAL_TYPES,
   SUPPORT_TYPES,
   TEST_TYPES,
   VERMILION,
   callTheoryMapApi,
+  parseTheoryMapEdgeDto,
   rgba,
   type NodeShape,
   type TheoryMapEdge,
   type TheoryMapNode,
 } from "@/lib/bzm-theory-map-ui";
 import type { ComposerState } from "@/components/bzm/BzmTheoryComposerDialog";
+import { BzmMarkdown, BzmMathText } from "@/components/bzm/BzmMarkdown";
 
 export type { TheoryMapNode, TheoryMapEdge } from "@/lib/bzm-theory-map-ui";
 
@@ -111,14 +112,11 @@ function drawShape(
   y: number,
   r: number,
   fill: string,
-  stroke: string,
-  dashed: boolean
+  stroke: string
 ) {
   ctx.beginPath();
-  if (dashed) ctx.setLineDash([r * 0.35, r * 0.35]);
   switch (shape) {
     case "circle":
-    case "circle-dashed":
       ctx.arc(x, y, r, 0, Math.PI * 2);
       break;
     case "diamond":
@@ -153,40 +151,6 @@ function drawShape(
   ctx.lineWidth = 1.4;
   ctx.strokeStyle = stroke;
   ctx.stroke();
-  ctx.setLineDash([]);
-}
-
-function drawStatusRing(
-  ctx: CanvasRenderingContext2D,
-  status: TheoryNodeStatus,
-  x: number,
-  y: number,
-  radius: number
-) {
-  const ringRadius = radius + 3.5;
-  ctx.save();
-  ctx.strokeStyle = rgba(GRAPHITE, 0.78);
-  ctx.lineWidth = 1.15;
-  if (status === "conditional") ctx.setLineDash([4, 3]);
-  if (status === "hypothesis") ctx.setLineDash([1, 3]);
-  if (status === "unknown") ctx.setLineDash([6, 2, 1, 2]);
-  ctx.beginPath();
-  ctx.arc(x, y, ringRadius, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  if (status === "design-choice") {
-    ctx.beginPath();
-    ctx.arc(x, y, ringRadius + 2.5, 0, Math.PI * 2);
-    ctx.stroke();
-  } else if (status === "refuted") {
-    const offset = radius * 0.72;
-    ctx.beginPath();
-    ctx.moveTo(x - offset, y + offset);
-    ctx.lineTo(x + offset, y - offset);
-    ctx.stroke();
-  }
-  ctx.restore();
 }
 
 function kindLegendClipPath(kind: TheoryNodeKind) {
@@ -243,6 +207,8 @@ export function BzmTheoryMapView({
   const [edges, setEdges] = useState(initialEdges);
   const [composerState, setComposerState] = useState<ComposerState | null>(null);
   const [connectingFromId, setConnectingFromId] = useState<string | null>(null);
+  const [connectingRelationType, setConnectingRelationType] = useState<TheoryRelationType>("supports");
+  const [connectingPending, setConnectingPending] = useState(false);
   const [edgeToRemove, setEdgeToRemove] = useState<TheoryMapEdge | null>(null);
   const [removePending, setRemovePending] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
@@ -383,9 +349,7 @@ export function BzmTheoryMapView({
 
   const selected = nodeById.get(selectedId) ?? null;
   const panelOpen = composerState !== null || edgeToRemove !== null;
-  const connectionSourceId =
-    connectingFromId ?? (composerState?.type === "connect" ? selected?.id ?? null : null);
-  const connectionTargetId = composerState?.type === "connect" ? composerState.targetId ?? null : null;
+  const connectionSourceId = connectingFromId;
 
   const handleNodeDragEnd = useCallback((dragged: GraphNode) => {
     draggedNodeClickRef.current = dragged.id;
@@ -441,11 +405,11 @@ export function BzmTheoryMapView({
   useEffect(() => {
     if (!connectingFromId) return;
     const cancelConnection = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setConnectingFromId(null);
+      if (event.key === "Escape" && !connectingPending) setConnectingFromId(null);
     };
     window.addEventListener("keydown", cancelConnection);
     return () => window.removeEventListener("keydown", cancelConnection);
-  }, [connectingFromId]);
+  }, [connectingFromId, connectingPending]);
 
   function toggleInSet<T>(set: Set<T>, value: T, setter: (s: Set<T>) => void) {
     const next = new Set(set);
@@ -461,6 +425,28 @@ export function BzmTheoryMapView({
     setRelationFilter(new Set(Object.keys(RELATION_LABEL) as TheoryRelationType[]));
   }
 
+  async function createDirectEdge(from: string, to: string) {
+    setConnectingPending(true);
+    const result = await callTheoryMapApi({
+      method: "POST",
+      body: { action: "create_edge", from, to, type: connectingRelationType },
+    });
+    setConnectingPending(false);
+    if (!result.ok) {
+      announce("error", result.error);
+      return;
+    }
+    const edge = parseTheoryMapEdgeDto(result.payload.edge);
+    if (!edge) {
+      announce("error", "サーバーの応答を解釈できませんでした。");
+      return;
+    }
+    setEdges((current) => current.some((candidate) => candidate.id === edge.id) ? current : [...current, edge]);
+    setSelectedId(to);
+    setConnectingFromId(null);
+    announce("success", `${RELATION_LABEL[edge.type]} で接続しました。`);
+  }
+
   function handleNodeClick(node: GraphNode, event: MouseEvent) {
     suppressNextBackgroundClick();
     if (draggedNodeClickRef.current === node.id) {
@@ -470,6 +456,7 @@ export function BzmTheoryMapView({
 
     const modifierPressed = event.metaKey || event.ctrlKey;
     if (canEdit && modifierPressed) {
+      if (connectingPending) return;
       setComposerState(null);
       setEdgeToRemove(null);
       if (!connectingFromId) {
@@ -481,9 +468,7 @@ export function BzmTheoryMapView({
         announce("error", "同じノード同士は接続できないよ。別のノードを選んでね。");
         return;
       }
-      setSelectedId(connectingFromId);
-      setComposerState({ type: "connect", targetId: node.id, direction: "outgoing" });
-      setConnectingFromId(null);
+      void createDirectEdge(connectingFromId, node.id);
       return;
     }
 
@@ -628,7 +613,6 @@ export function BzmTheoryMapView({
                 className="min-h-11 rounded-md border px-2 text-[11px] font-medium transition sm:min-h-8"
                 style={{
                   borderColor: statusFilter.has(status) ? GRAPHITE : PAPER_BORDER,
-                  borderStyle: status === "conditional" || status === "hypothesis" || status === "unknown" ? "dashed" : "solid",
                   backgroundColor: statusFilter.has(status) ? rgba(GRAPHITE, 0.08) : PAPER_BG,
                   color: statusFilter.has(status) ? GRAPHITE : GRAPHITE_MUTED,
                 }}
@@ -731,26 +715,34 @@ export function BzmTheoryMapView({
                   >
                 {connectingFromId && nodeById.has(connectingFromId) && (
                   <div
-                    className="absolute inset-x-3 top-3 z-20 flex items-center justify-between gap-3 rounded-lg border px-3 py-2 shadow-md"
-                    style={{ borderColor: BLUEPRINT, backgroundColor: rgba(PAPER_PANEL, 0.97), color: GRAPHITE }}
+                    className="absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-2 rounded-full border px-3 py-2 shadow-md"
+                    style={{ borderColor: rgba(BLUEPRINT, 0.5), backgroundColor: rgba(PAPER_PANEL, 0.97), color: GRAPHITE }}
                     role="status"
+                    onMouseDown={(event) => event.stopPropagation()}
                   >
-                    <p className="min-w-0 truncate text-xs">
-                      <span className="font-semibold">接続元:</span> {nodeById.get(connectingFromId)?.title}
-                      <span className="ml-2" style={{ color: GRAPHITE_MUTED }}>⌘を押したまま接続先をクリック</span>
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setConnectingFromId(null)}
-                      className="min-h-9 shrink-0 rounded-md border px-3 text-xs font-semibold"
-                      style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
+                    <span className="max-w-52 truncate text-xs font-semibold">
+                      <BzmMathText source={nodeById.get(connectingFromId)?.title ?? ""} />
+                    </span>
+                    <span aria-hidden="true" style={{ color: BLUEPRINT }}>→</span>
+                    <select
+                      aria-label="作成する関係"
+                      value={connectingRelationType}
+                      onChange={(event) => setConnectingRelationType(event.target.value as TheoryRelationType)}
+                      disabled={connectingPending}
+                      className="h-8 rounded-full border px-2 text-xs font-semibold outline-none disabled:opacity-60"
+                      style={{ borderColor: PAPER_BORDER, backgroundColor: PAPER_BG, color: BLUEPRINT }}
                     >
-                      解除
-                    </button>
+                      {(Object.keys(RELATION_LABEL) as TheoryRelationType[]).map((relation) => (
+                        <option key={relation} value={relation}>{RELATION_LABEL[relation]}</option>
+                      ))}
+                    </select>
+                    <span className="text-xs" style={{ color: GRAPHITE_MUTED }}>
+                      {connectingPending ? "接続中…" : "⌘＋次のノードで即接続・Escで解除"}
+                    </span>
                   </div>
                 )}
                 <div
-                  className={`pointer-events-none absolute inset-x-3 z-10 hidden grid-cols-7 gap-1 sm:grid ${connectingFromId ? "top-16" : "top-3"}`}
+                  className="pointer-events-none absolute inset-x-3 top-3 z-10 hidden grid-cols-7 gap-1 sm:grid"
                   aria-hidden="true"
                 >
                   {LAYER_ORDER.map((layer) => (
@@ -783,23 +775,22 @@ export function BzmTheoryMapView({
                     const y = node.y ?? 0;
                     const isSelected = selected?.id === node.id;
                     const isConnectionSource = connectionSourceId === node.id;
-                    const isConnectionTarget = connectionTargetId === node.id;
                     const color = KIND_COLOR[node.kind];
                     ctx.save();
-                    if (isSelected) {
+                    if (isConnectionSource) {
                       ctx.beginPath();
-                      ctx.arc(x, y, r + 6, 0, Math.PI * 2);
-                      ctx.fillStyle = rgba(BLUEPRINT, 0.14);
-                      ctx.fill();
-                    }
-                    if (isConnectionSource || isConnectionTarget) {
-                      ctx.beginPath();
-                      ctx.arc(x, y, r + 9, 0, Math.PI * 2);
-                      ctx.lineWidth = 3;
-                      ctx.strokeStyle = isConnectionSource ? BLUEPRINT : MOSS;
-                      ctx.setLineDash(isConnectionSource ? [4, 3] : []);
+                      ctx.arc(x, y, r + 5, 0, Math.PI * 2);
+                      ctx.lineWidth = 2;
+                      ctx.strokeStyle = BLUEPRINT;
+                      ctx.shadowColor = rgba(BLUEPRINT, 0.55);
+                      ctx.shadowBlur = 10;
                       ctx.stroke();
-                      ctx.setLineDash([]);
+                      ctx.shadowBlur = 0;
+                    } else if (isSelected) {
+                      ctx.beginPath();
+                      ctx.arc(x, y, r + 4, 0, Math.PI * 2);
+                      ctx.fillStyle = rgba(BLUEPRINT, 0.12);
+                      ctx.fill();
                     }
                     drawShape(
                       ctx,
@@ -808,10 +799,8 @@ export function BzmTheoryMapView({
                       y,
                       r,
                       rgba(color, 0.85),
-                      isSelected ? GRAPHITE : "rgba(255,255,255,0.9)",
-                      node.kind === "question"
+                      isSelected ? GRAPHITE : "rgba(255,255,255,0.9)"
                     );
-                    drawStatusRing(ctx, node.status, x, y, r);
 
                     const label = node.title.length > 15 ? `${node.title.slice(0, 14)}…` : node.title;
                     const textScale = Math.max(1, globalScale);
@@ -849,7 +838,7 @@ export function BzmTheoryMapView({
                       return;
                     }
                     if (connectingFromId) {
-                      setConnectingFromId(null);
+                      if (!connectingPending) setConnectingFromId(null);
                       return;
                     }
                     if (canEdit && !composerState && !edgeToRemove) {
@@ -893,7 +882,7 @@ export function BzmTheoryMapView({
                       onMouseDown={(event) => event.stopPropagation()}
                     >
                       <span className="max-w-48 truncate px-2 text-xs font-semibold" style={{ color: GRAPHITE }}>
-                        {selected.title}
+                        <BzmMathText source={selected.title} />
                       </span>
                       {selected.editable && (
                         <button
@@ -955,7 +944,7 @@ export function BzmTheoryMapView({
                       </span>
                     ))}
                     <span className="ml-auto text-[11px]" style={{ color: GRAPHITE_MUTED }}>
-                      外周線＝状態（{(Object.keys(STATUS_LABEL) as TheoryNodeStatus[]).map((status) => `${STATUS_LABEL[status].split("・")[0]}:${STATUS_RING_LABEL[status]}`).join(" / ")}）
+                      状態は一覧・台帳のラベルで確認
                     </span>
                   </div>
                 </div>
@@ -1040,7 +1029,6 @@ export function BzmTheoryMapView({
                 <BzmTheoryComposerDialog
                   state={composerState}
                   selected={selected}
-                  nodes={nodes}
                   onClose={() => setComposerState(null)}
                   onNodeCreated={(node, edge) => {
                     setNodes((current) => [...current, node]);
@@ -1048,11 +1036,6 @@ export function BzmTheoryMapView({
                     setSelectedId(node.id);
                     setComposerState(null);
                     announce("success", `「${node.title}」を作成しました。`);
-                  }}
-                  onEdgeCreated={(edge) => {
-                    setEdges((current) => [...current, edge]);
-                    setComposerState(null);
-                    announce("success", "接続を作成しました。");
                   }}
                   onNodeUpdated={(node) => {
                     setNodes((current) => current.map((candidate) => (candidate.id === node.id ? node : candidate)));
@@ -1098,14 +1081,14 @@ export function BzmTheoryMapView({
                           {KIND_LABEL[node.kind]}
                         </span>
                         <span>{LAYER_LABEL[node.layer]}</span>
-                        <span>{STATUS_LABEL[node.status]}（{STATUS_RING_LABEL[node.status]}）</span>
+                        <span>{STATUS_LABEL[node.status]}</span>
                         <span className="ml-auto font-mono">接続 {degreeById.get(node.id) ?? 0}</span>
                       </div>
                       <div className="font-semibold" style={{ color: GRAPHITE }}>
-                        {node.title}
+                        <BzmMathText source={node.title} />
                       </div>
                       <div className="line-clamp-2 text-xs leading-5" style={{ color: GRAPHITE_MUTED }}>
-                        {node.summary}
+                        <BzmMathText source={node.summary} />
                       </div>
                     </button>
                   </li>
@@ -1138,13 +1121,15 @@ export function BzmTheoryMapView({
                       className="rounded-full border px-2 py-0.5"
                       style={{ borderColor: GRAPHITE_MUTED, color: GRAPHITE_MUTED }}
                     >
-                      {STATUS_LABEL[selected.status]}・{STATUS_RING_LABEL[selected.status]}
+                      {STATUS_LABEL[selected.status]}
                     </span>
                     <span style={{ color: GRAPHITE_MUTED }}>{LAYER_LABEL[selected.layer]}</span>
                   </div>
-                  <h2 className="text-lg font-semibold leading-tight">{selected.title}</h2>
+                  <h2 className="text-lg font-semibold leading-tight">
+                    <BzmMathText source={selected.title} />
+                  </h2>
                   <p className="mt-2 break-words text-sm leading-6 [overflow-wrap:anywhere]" style={{ color: GRAPHITE_MUTED }}>
-                    {selected.summary}
+                    <BzmMathText source={selected.summary} />
                   </p>
                   {selected.sourceHref ? (
                     <Link
@@ -1173,11 +1158,8 @@ export function BzmTheoryMapView({
                     <summary className="flex min-h-11 cursor-pointer items-center text-xs font-semibold" style={{ color: BLUEPRINT }}>
                       ノード本文を読む
                     </summary>
-                    <div
-                      className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap text-xs leading-5"
-                      style={{ color: GRAPHITE_MUTED }}
-                    >
-                      {selected.body}
+                    <div className="mt-2 max-h-72 overflow-auto text-xs leading-5" style={{ color: GRAPHITE_MUTED }}>
+                      <BzmMarkdown source={selected.body} />
                     </div>
                   </details>
                 </div>
@@ -1265,8 +1247,8 @@ export function BzmTheoryMapView({
           <span className="font-semibold" style={{ color: GRAPHITE }}>
             凡例
           </span>
-          <span>塗り色 + 形 = 種別 (青○概念 赤紫◇主張 緑□測定 黄△決定 紫⬡ソース 茶○点線=問い)</span>
-          <span>外周線 = ステータス (実線=現行採用 破線=条件付き 二重線=設計選択 点線=仮説 斜線=反証済み 一点鎖線=未解明)</span>
+          <span>塗り色 + 形 = 種別 (青○概念 赤紫◇主張 緑□測定 黄△決定 紫⬡ソース 茶○問い)</span>
+          <span>状態 = 一覧・台帳のラベル</span>
           <span>線 = 関係 (緑=支持系 オーカー=異議/論点 朱=反証 青=検証/依存 破線=依存・上書き)</span>
         </section>
       </div>
@@ -1346,7 +1328,7 @@ function RelationGroup({
                     {RELATION_LABEL[edge.type]}
                   </span>
                   <span className="min-w-0 flex-1 truncate" style={{ color: GRAPHITE }}>
-                    {other.title}
+                    <BzmMathText source={other.title} />
                   </span>
                 </button>
               </li>

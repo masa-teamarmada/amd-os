@@ -11,6 +11,7 @@ import type {
   TheoryNodeStatus,
   TheoryRelationType,
 } from "@/lib/bzm-theory-graph";
+import { THEORY_RELATION_TYPES } from "@/lib/bzm-theory-graph";
 
 export interface TheoryMapNode {
   id: string;
@@ -63,7 +64,7 @@ export const KIND_LABEL: Record<TheoryNodeKind, string> = {
   question: "未解決問い",
 };
 
-export type NodeShape = "circle" | "diamond" | "square" | "triangle" | "hexagon" | "circle-dashed";
+export type NodeShape = "circle" | "diamond" | "square" | "triangle" | "hexagon";
 
 export const KIND_SHAPE: Record<TheoryNodeKind, NodeShape> = {
   concept: "circle",
@@ -71,7 +72,7 @@ export const KIND_SHAPE: Record<TheoryNodeKind, NodeShape> = {
   measure: "square",
   decision: "triangle",
   source: "hexagon",
-  question: "circle-dashed",
+  question: "circle",
 };
 
 // 種類は塗り色で瞬時に見分け、形でも同じ意味を担保する。
@@ -113,16 +114,6 @@ export const STATUS_LABEL: Record<TheoryNodeStatus, string> = {
   unknown: "未解明",
 };
 
-// 状態は種類の塗り色と競合させず、外周線のパターンで表す。
-export const STATUS_RING_LABEL: Record<TheoryNodeStatus, string> = {
-  established: "実線",
-  conditional: "破線",
-  "design-choice": "二重線",
-  hypothesis: "点線",
-  refuted: "斜線",
-  unknown: "一点鎖線",
-};
-
 export const RELATION_LABEL: Record<TheoryRelationType, string> = {
   defines: "定義する",
   supports: "支持する",
@@ -153,6 +144,28 @@ export const STRUCTURAL_TYPES: TheoryRelationType[] = ["depends_on", "supersedes
 export const TEST_TYPES: TheoryRelationType[] = ["tests"];
 export const ISSUE_TYPES: TheoryRelationType[] = ["raises"];
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+export function parseTheoryMapEdgeDto(value: unknown): TheoryMapEdge | null {
+  if (!isRecord(value)) return null;
+  if (
+    typeof value.from !== "string" ||
+    typeof value.to !== "string" ||
+    typeof value.type !== "string" ||
+    !(THEORY_RELATION_TYPES as readonly string[]).includes(value.type)
+  ) return null;
+  return {
+    from: value.from,
+    to: value.to,
+    type: value.type as TheoryRelationType,
+    id: typeof value.id === "string" ? value.id : null,
+    note: typeof value.note === "string" ? value.note : null,
+    editable: value.editable === true,
+  };
+}
+
 /** safe fetch wrapper for /api/bzm/theory-map mutations: never throws on bad JSON, always returns a typed result. */
 export async function callTheoryMapApi(input: {
   method: "POST" | "PATCH" | "DELETE";
@@ -176,8 +189,6 @@ export async function callTheoryMapApi(input: {
   } catch {
     payload = null;
   }
-
-  const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 
   if (!res.ok || !isRecord(payload) || payload.ok !== true) {
     const message = isRecord(payload) && typeof payload.error === "string" ? payload.error : "サーバーとの通信に失敗しました。";

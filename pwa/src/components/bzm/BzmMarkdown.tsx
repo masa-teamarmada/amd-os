@@ -13,8 +13,8 @@ import remarkGfm from "remark-gfm";
  * 数式が本質なので、`remark-math` / `rehype-katex` を入れずに (= 依存追加なし)、
  * 自前で数式ブロックを切り出して katex でレンダリングする。
  *
- *  - `$$ ... $$` (= 行頭〜行末で独立) → ディスプレイ数式ブロック
- *  - 段落内の `$ ... $` → インライン数式
+ *  - `$$ ... $$` / `\[ ... \]` → ディスプレイ数式ブロック
+ *  - 段落内の `$ ... $` / `\( ... \)` → インライン数式
  *  - それ以外は react-markdown + remark-gfm (= MarkdownView と同じ見た目方針)
  *
  * KaTeX は `before-zero/theory/*.md` の TeX 記法 (\prod, \alpha, \sigma, \mu,
@@ -34,11 +34,11 @@ function renderKatex(tex: string, display: boolean) {
   });
 }
 
-// 段落テキスト中の $...$ をインライン数式として切り出す。
+// 段落テキスト中の $...$ / \(...\) をインライン数式として切り出す。
 function renderInlineMath(text: string): ReactNode {
-  if (!text.includes("$")) return text;
+  if (!text.includes("$") && !text.includes("\\(")) return text;
   const parts: ReactNode[] = [];
-  const regex = /\$([^$]+)\$/g;
+  const regex = /\$([^$]+)\$|\\\(([\s\S]+?)\\\)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
@@ -50,7 +50,7 @@ function renderInlineMath(text: string): ReactNode {
       <span
         key={`m-${key}`}
         // KaTeX HTML は信頼できる (= ローカル md の TeX をビルド時に変換)
-        dangerouslySetInnerHTML={{ __html: renderKatex(match[1], false) }}
+        dangerouslySetInnerHTML={{ __html: renderKatex(match[1] ?? match[2], false) }}
       />,
     );
     lastIndex = regex.lastIndex;
@@ -73,25 +73,49 @@ function withInlineMath(children: ReactNode): ReactNode {
   return children;
 }
 
-// source を「$$ ディスプレイ数式 $$」とそれ以外のテキストブロックに分割する。
+// source をディスプレイ数式とそれ以外のテキストブロックに分割する。
 type Segment = { type: "md"; content: string } | { type: "math"; content: string };
+
+function normalizeInlineMathDelimiters(source: string) {
+  return source.replace(/\\\(([\s\S]+?)\\\)/g, (_match, tex: string) => `$${tex}$`);
+}
 
 function splitDisplayMath(source: string): Segment[] {
   const segments: Segment[] = [];
-  const regex = /\$\$([\s\S]+?)\$\$/g;
+  const regex = /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = regex.exec(source)) !== null) {
     if (match.index > lastIndex) {
-      segments.push({ type: "md", content: source.slice(lastIndex, match.index) });
+      segments.push({ type: "md", content: normalizeInlineMathDelimiters(source.slice(lastIndex, match.index)) });
     }
-    segments.push({ type: "math", content: match[1].trim() });
+    segments.push({ type: "math", content: (match[1] ?? match[2]).trim() });
     lastIndex = regex.lastIndex;
   }
   if (lastIndex < source.length) {
-    segments.push({ type: "md", content: source.slice(lastIndex) });
+    segments.push({ type: "md", content: normalizeInlineMathDelimiters(source.slice(lastIndex)) });
   }
   return segments;
+}
+
+/** Markdownを解釈しない短文用。タイトル・要約でもLaTeXだけは数式表示する。 */
+export function BzmMathText({ source }: Props) {
+  const segments = splitDisplayMath(source);
+  return (
+    <>
+      {segments.map((segment, index) =>
+        segment.type === "math" ? (
+          <span
+            key={index}
+            className="my-1 block max-w-full overflow-x-auto text-center"
+            dangerouslySetInnerHTML={{ __html: renderKatex(segment.content, true) }}
+          />
+        ) : (
+          <Fragment key={index}>{renderInlineMath(segment.content)}</Fragment>
+        ),
+      )}
+    </>
+  );
 }
 
 const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
