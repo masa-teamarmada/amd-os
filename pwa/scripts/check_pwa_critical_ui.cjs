@@ -61,6 +61,12 @@ function expectCountAtLeast(rel, needle, minimum) {
 expectIncludes("src/app/(app)/dashboard/page.tsx", [
   "ExtractionStatusCard",
   "FreeeConnectionStatusCard",
+  'project.projectId !== "p00"',
+]);
+expectNotIncludes("src/app/(app)/dashboard/page.tsx", [
+  "InstitutionReadinessList",
+  "fetchErsBundle",
+  "institutionProjectIds",
 ]);
 
 expectIncludes("src/app/(app)/project/[projectId]/weekly-control/page.tsx", [
@@ -432,8 +438,11 @@ expectIncludes("src/lib/project-workspace.ts", [
   "member_activities",
 ]);
 expectIncludes("src/components/dashboard/DashboardGrid.tsx", [
+  "${hrefPrefix}/${project.projectId}/cockpit",
+]);
+expectNotIncludes("src/components/dashboard/DashboardGrid.tsx", [
   'project.projectId === "p21"',
-  "/workspace",
+  "isSharedWorkspace",
   "共有ダッシュボード",
 ]);
 expectIncludes(

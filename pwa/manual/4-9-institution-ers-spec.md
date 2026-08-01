@@ -108,12 +108,11 @@ UI は `/institutions/assess` に全部詰め込まず、`ECR評価` / `制度�
 | 機関詳細 | `/institutions/{institutionId}` | 8 軸 SVG レーダー + 軸ごとのサブ軸 rubric (現在 Lv + 根拠ノート) + 「この機関発の PJ」枠。関連PJがある機関は機関コックピットと通常PJコックピットへの導線を持つ |
 | 機関コックピット | `/institutions/{institutionId}/cockpit` | 研究機関カードから開くコックピット。KUTE は既存KUTE PJ (`p25`)、NIMS は正式NIMS OS導入PJ (`p28`)、愛媛大学は EHM PJ (`p30`) のコックピットを同画面に載せ、MS 進捗・月次・MTG履歴を追う。CX (`p20`) は初期ユースケースとして分ける。既存PJ row / cockpit content は消さない。`進捗管理` / `スコア詳細` に加え `土壌×シーズ` タブで機関ECRと所属シーズSPSを継続観測 (下記「土壌×シーズタブ」参照) |
 | 全機関横断シーズ比較 | `/seeds` | 機関を跨いだ研究機関シーズの比較専用画面 (2026-07-31、旧・単一テーブル管理画面から置き換え)。機関コックピットと同じ比較テーブル (`CockpitKuteSeeds`) を `scope="all"` で使い、機関グループ→研究者グループの2段見出しで全機関のシーズを横比較する。新規作成・受信箱・編集操作は持たない読み取り専用画面 |
-| ダッシュボード本文 | `/dashboard` | 左/mainカラム内で PJ一覧 (AMD Score / 個体) の直下に、**研究機関リスト (ECR / 苗床)** を続けて置く。右カラムのMyPageより下へ落とさず、その下の全幅下段に Company Content shelf を置く。`project_category='ecosystem'` または `p25` / `p28` / KUTE・NIMS名に該当するPJは通常PJリストに二重表示せず、研究機関リスト側へ寄せる |
+| ARMADA内部ダッシュボード | `/dashboard` | 研究機関の全件カタログは表示しない。AMD全体 (`p00`) を除くPJ台帳の全行を通常PJ一覧へ出し、`p25` / `p28` / `p30` などの研究機関型PJも同じ一覧から内部PJコックピットへ入る。研究機関の探索・ECR比較は `/institutions` を使う |
 
 - ナビ最上部に **「研究機関」** リンク (Venture Map の隣)。
-- ダッシュボードの研究機関リストは PJ リストの続きとして読めるよう、カードの主タイトルを PJ 名寄りにする。表示は **KUTE / 工学院大学**、**KGW / 香川大学**、**NIMS / 物質・材料研究機構** の title / subtitle 型。
-- 各レイヤーで使うスコアは別ロジック (上=AMD Score SPS primary / 下=ECR 充足率) なので、研究機関リスト側に「ECR は整備度であり AMD Score とは別指標」と明示している。
-- ダッシュボード本文でPJ一覧直下に置く KUTE / NIMS カードは、機関詳細ではなく各機関コックピットへ入る。KUTE の箱は研究機関 ECR として残しつつ、進捗管理は既存 KUTE PJ (`p25`) の PJ コックピットを使う。NIMS も同じ型で、正式NIMS OS導入PJ (`p28`) の PJ コックピットを使う。CX (`p20`) はNIMS導入の初期ユースケースとして別に扱う。画面上部は ECR 概要と readiness snapshot を先に見せ、その下を `進捗管理` / `スコア詳細` / `土壌×シーズ` の3タブにする。`進捗管理` では通常PJコックピットを先に表示し、月別 MTG ツリーは下部に置く。`スコア詳細` はSU向けAMD Scoreではなく、ECR 8軸・評価項目・Lv/根拠メモを表示する。
+- `/institutions` の研究機関リストでは、各レイヤーのスコアを分けて扱う。ECR は研究機関環境、SPS は個別シーズ/PJであり、単一スコアに合算しない。
+- KUTE / NIMS / 愛媛大学の機関行は各機関コックピットへ入り、そこから機関ECRと関連PJを確認できる。一方、ARMADA内部の `/dashboard` では `p25` / `p28` / `p30` を通常PJ一覧に残し、日常のPJ管理は各PJコックピットで行う。CX (`p20`) はNIMS導入の初期ユースケースとして別PJのまま扱う。
 - **評価の書き込み**は `POST /api/institutions/assess` (admin 限定 / `requireAdmin` 相当)。body = `{ institution_id, criterion_id, level (1–5/null), na, note }`。`institution_assessments` を **当日分 (`evaluated_at = today JST`) で `onConflict(institution_id,criterion_id,evaluated_at)` upsert** する。同日中の編集は 1 レコードに集約、過去日の評価は履歴として残り、`fetchErsBundle` は (機関 × サブ軸) ごとに最新 1 件を採用する。
 
 ## 土壌×シーズタブ (2026-07-30)

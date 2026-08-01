@@ -18,7 +18,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 必須機能:
 
 - role-based top: `members.os_access_scope='portfolio'` は `/dashboard`、`project` は参加1件なら `/project/[projectId]/workspace`、複数なら `/my-projects`。
-- SX entry: `/dashboard` のSX (`p21`) カードは `/project/p21/workspace` を開き、PJ共有ダッシュボードであることを表示する。
+- SX entry: AMD内部の `/dashboard` にあるSX (`p21`) の行は、他PJと同じく `/project/p21/cockpit` を開く。外部のPJ限定メンバーは `/workspaces` から個別許可された `/project/p21/workspace` へ入る。
 - narrow auth: PJ限定OAuthはGoogle本人確認後に通常のSupabase sessionを破棄し、HTTP-only署名付きPJセッションへ交換する。各requestでactive member / scope / PJ membershipを再確認する。破棄は `signOut({ scope: "local" })` に限る (scope省略の既定 `global` はそのユーザーの全デバイスを巻き添えにする)。
 - route isolation: PJ限定ユーザーの通常画面は `/my-projects` と許可された `/project/[projectId]/workspace` だけ。他PJ、`/dashboard`、社内cockpit、admin、financeへ遷移できない。
 - safe DTO: 共有面はPJ名、表示名、役割、週次時間、5区分、MS、抽出済み活動の件数・種別・最終日だけ。raw本文、URL、email、報酬、契約、内部戦略を含めない。
@@ -435,12 +435,12 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - freee連携: dashboard 上段に admin 限定の `FreeeConnectionStatusCard` を出す。接続記録と `company_actual_monthly` の freee P/L・口座残高実績を別々に確認し、両方が24時間以内なら `正常`、接続記録なしは `未連携`、それ以外は `要確認` とする。認可情報や秘密値をブラウザへ返さず、画面から同期を実行しない。`/management-score` の月次試算表へだけ遷移できる。
 - PJ台帳の Slack CH 列: `projects.slack_channel_not_required=true` を「チャンネルなし」チェックで編集できる。これは未設定ではなく意図的にSlackチャンネルを使わないPJを示し、抽出状況の設定不足から外す。チェック時は古い `slack_channel_id` を空にする。PJ台帳の見出し行は縦横スクロール中も固定する。
 - AMD全体 累計実績カード: dashboard 上段の `FundingStatsCard` は、資金調達ラウンドと助成金・補助金を会社別/行別に表示する。累計値は `amd_contribution_status in ('full','partial')` の AMD貢献額だけで計算し、`none` / `unreviewed` はリストには残すが累計には入れない。投資家別内訳・持株比率・cap table snapshot は dashboard API に返さない。
-- PJ一覧: Active / Sales-Draft / Ended-Frozen の横長 stripe 一覧を維持する。`institution_projects` に入る研究機関PJは通常PJ一覧に二重表示せず、研究機関リストの同じ機関行へPJ運用レイヤーとして重ねる。
+- PJ一覧: `ProactiveTodoBadge` の直下を主面とし、Active / Sales-Draft / Ended-Frozen の横長 stripe 一覧を維持する。AMD全体 (`p00`) だけを除き、`institution_projects` に入る研究機関型PJも含むPJ台帳の全行を表示する。すべての行は内部用 `/project/[projectId]/cockpit` を開き、共有workspaceへ直接送らない。
 - 左メニューのボード: マウスオーバーまたはキーボードフォーカスで、右側に全アクティブPJの一覧を出す。各行は対応するPJコックピットへ遷移し、一覧は固定せず `projects.status='active'` を読む。ボード本体の `/dashboard` 導線は維持する。フライアウトはナビのスクロール領域にクリップされない上位レイヤーで表示し、画面下端では一覧部分だけをスクロールさせる。
-- 研究機関リスト: 契約有無に依存しない `institutions` カタログが正本。PJ化済み → PJ化検討中 → その他の順で、1機関1行にPJ状態を重ねる。機関descriptionは表示しない。ECR比較も1機関1行、総合ECR+8軸を列にする。対応は固定ID表でなく `institution_projects` から解決し、ECRはSPSと合算しない。
-- Company Content shelf: 研究機関ECRリストの下に、`CompanyContentShelf` を4カラムで表示する。列はメンバー / 沿革 / メディア掲載 / photo。`member_profiles` / `company_history_events` / `media_assets` の approved rows を優先し、未適用環境では既存 `members` + `project_members`、`project_events` / `project_ventures`、photo permission placeholder に fallback する。Notion photo URL や個人情報本文は表示しない。
+- 研究機関リスト: 契約有無に依存しない `institutions` カタログが正本だが、`/dashboard` には全件表示しない。閲覧・ECR比較・機関コックピットへの入口は独立した `/institutions` に置く。対応は固定ID表でなく `institution_projects` から解決し、ECRはSPSと合算しない。
+- Company Content shelf: PJ台帳・要対応・経営指標・運用状態の後に、`CompanyContentShelf` を4カラムで表示する。列はメンバー / 沿革 / メディア掲載 / photo。`member_profiles` / `company_history_events` / `media_assets` の approved rows を優先し、未適用環境では既存 `members` + `project_members`、`project_events` / `project_ventures`、photo permission placeholder に fallback する。Notion photo URL や個人情報本文は表示しない。
 - MyPage embed: `/dashboard` 右カラムでは `<MyPageContent embedded showMonthlyProjects={false} />` を使い、「今週やったこと」より下の月別PJカードを出さない。`/mypage` 単体では従来どおり月別PJカードを維持する。
-- Dashboard上部: Management Score と明示 action queue を維持する。月次ルーティン由来の自動タスクは生成しない。
+- Dashboard運用面: PJ一覧の後に明示 action queue と Management Score を維持する。月次ルーティン由来の自動タスクは生成しない。
 
 ## /tasks (deprecated)
 

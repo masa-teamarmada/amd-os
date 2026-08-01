@@ -33,8 +33,6 @@ import {
   latestVisibleScorableScoreInput,
 } from "@/lib/amd-score-derived";
 import { AAA_PROJECT_ID } from "@/lib/demo-aaa-data";
-import { InstitutionReadinessList } from "@/components/dashboard/InstitutionReadinessList";
-import { fetchErsBundle, type ErsBundle } from "@/lib/ers-data";
 import { ActionItemsPanel } from "@/components/governance/ActionItemsPanel";
 import { FundingStatsCard } from "@/components/dashboard/FundingStatsCard";
 import { ProactiveTodoBadge } from "@/components/proactive-todo/ProactiveTodoBadge";
@@ -74,7 +72,6 @@ export default function DashboardPage() {
   const [managementScore, setManagementScore] = useState<DashboardManagementScoreSnapshot | null>(null);
   const [managementHistory, setManagementHistory] = useState<DashboardManagementScoreSnapshot[]>([]);
   const [myProjectIds, setMyProjectIds] = useState<Set<string>>(new Set());
-  const [ersBundle, setErsBundle] = useState<ErsBundle | null>(null);
   const [companyContent, setCompanyContent] = useState<CompanyContentPreview | null>(null);
   const [companyLoading, setCompanyLoading] = useState(false);
   const companyAnchorRef = useRef<HTMLDivElement | null>(null);
@@ -124,8 +121,7 @@ export default function DashboardPage() {
       }),
       fetchManagementScoreHistory(supabase),
       fetchMyProjectIds(supabase),
-      fetchErsBundle(),
-    ]).then(([projRes, billRes, scoreRes, mgmtRes, myProjRes, ersRes]) => {
+    ]).then(([projRes, billRes, scoreRes, mgmtRes, myProjRes]) => {
       const projectsValue = projRes.status === "fulfilled" ? projRes.value : [];
       const billingValue = billRes.status === "fulfilled" ? billRes.value : {};
       setProjects(projectsValue);
@@ -143,10 +139,6 @@ export default function DashboardPage() {
 
       if (myProjRes.status === "fulfilled") {
         setMyProjectIds(myProjRes.value);
-      }
-
-      if (ersRes.status === "fulfilled") {
-        setErsBundle(ersRes.value);
       }
 
       setLoading(false);
@@ -180,10 +172,10 @@ export default function DashboardPage() {
       ])
     );
   }, [projects]);
-  const dashboardProjects = useMemo(() => {
-    const institutionProjectIds = new Set(ersBundle?.institutionProjectIds ?? []);
-    return projects.filter((project) => project.projectId !== "p00" && !institutionProjectIds.has(project.projectId));
-  }, [projects, ersBundle]);
+  const dashboardProjects = useMemo(
+    () => projects.filter((project) => project.projectId !== "p00"),
+    [projects],
+  );
 
   if (loading) {
     return (
@@ -201,16 +193,7 @@ export default function DashboardPage() {
       <div className="max-w-[1700px] mx-auto">
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(520px,640px)] gap-4">
           <main className="space-y-4 min-w-0">
-            <FundingStatsCard />
             <ProactiveTodoBadge />
-            <ExtractionStatusCard />
-            <FreeeConnectionStatusCard />
-            <ActionItemsPanel projectLabels={projectLabels} variant="dashboard" limit={5} />
-            <DashboardScoreOverview
-              managementScore={managementScore}
-              managementHistory={managementHistory}
-              actionItems={[]}
-            />
             <DashboardGrid
               projects={dashboardProjects}
               billingStatus={billingStatus}
@@ -218,7 +201,15 @@ export default function DashboardPage() {
               primarySnapshots={primarySnapshots}
               myProjectIds={myProjectIds}
             />
-            <InstitutionReadinessList bundle={ersBundle} />
+            <ActionItemsPanel projectLabels={projectLabels} variant="dashboard" limit={5} />
+            <DashboardScoreOverview
+              managementScore={managementScore}
+              managementHistory={managementHistory}
+              actionItems={[]}
+            />
+            <FundingStatsCard />
+            <ExtractionStatusCard />
+            <FreeeConnectionStatusCard />
           </main>
           {/* /mypage の中身そっくり embed (= まさ #71 v3 確定、MyPageContent を再利用) */}
           <aside className="hidden xl:block min-w-0 border-l border-border/50 pl-4">
