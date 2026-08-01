@@ -192,7 +192,7 @@ END $$;
 --    成立している間は SPS の生の軸値と評価者・根拠まで read/write できる状態だった。
 --    pg_policies 動的走査で既存ポリシーを全削除し、セクション3の seeds 系と同じ
 --    amd_os_is_member() ゲート (read/insert/update/delete) + service_role へ張り替える。
---    ゲート関数はセクション1〜3の bare 形と違い schema 修飾して書く (search_path 非依存)。
+--    ゲート関数は全セクションで schema 修飾して書く (search_path 非依存)。
 --    本節はポリシーだけを張り替える。SPS の軸値・評価行に対する DML は一切行わない
 --    (合算・再計算・補完もしない — 計算式は pwa/src/lib/seed-sps.ts に一本化のまま)。
 -- =====================================================================

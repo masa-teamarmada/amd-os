@@ -33,7 +33,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 ## 外部ワークスペースアクセス (研究機関 / PJ外部共有、build v3.53.19、migration 212/213)
 
-目的: 研究機関やPJの外部関係者が、AMD OSの社内情報へ触れずに、許可された機関ワークスペースと許可されたPJだけを同じ基盤で読めるようにする。DDLは本番未適用のため、状態は **実装準備済み** (適用済み・本番反映済みと書かない)。詳細設計は [institution_seed_project_model.md](institution_seed_project_model.md) §6、route契約は `pwa/spec/2-1-pwa-runtime-routes.md`。
+目的: 研究機関やPJの外部関係者が、AMD OSの社内情報へ触れずに、許可された機関ワークスペースと許可されたPJだけを同じ基盤で読めるようにする。migration 212/213 は2026-08-01に本番適用済み。詳細設計は [institution_seed_project_model.md](institution_seed_project_model.md) §6、route契約は `pwa/spec/2-1-pwa-runtime-routes.md`。
 
 必須機能:
 

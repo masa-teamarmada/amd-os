@@ -277,7 +277,7 @@ BEGIN
 
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_admin_all', t);
     EXECUTE format(
-      'CREATE POLICY %I ON public.%I FOR ALL TO public USING (is_admin()) WITH CHECK (is_admin())',
+      'CREATE POLICY %I ON public.%I FOR ALL TO public USING (public.is_admin()) WITH CHECK (public.is_admin())',
       t || '_admin_all', t
     );
 

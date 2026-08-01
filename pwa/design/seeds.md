@@ -68,7 +68,7 @@ AMD 視点:       status, amd_rating (1-5), amd_owner_member_id, next_action,
 
 ### RLS
 
-旧仕様 (`016_vc_list.sql` / `017_vc_rls_writes.sql` と同じ `anon_read` 全開 + `authenticated_all` = `auth.uid() IS NOT NULL`) は **[213_workspace_access_security_closure.sql](../scripts/migrations/213_workspace_access_security_closure.sql) で撤去する**。適用前は「実装準備済み」であり、本番へ適用済みと書かない。
+旧仕様 (`016_vc_list.sql` / `017_vc_rls_writes.sql` と同じ `anon_read` 全開 + `authenticated_all` = `auth.uid() IS NOT NULL`) は **[213_workspace_access_security_closure.sql](../scripts/migrations/213_workspace_access_security_closure.sql) で撤去済み**（2026-08-01本番適用）。
 
 213 適用後の `seeds` / `seed_funding` / `seed_news` / `seed_contact_log` / `seed_sps_assessments`:
 
@@ -134,9 +134,9 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 
 ### Phase 3
 
-### 機関外部への公開 (実装済 — DDL適用待ち)
+### 機関外部への公開 (実装済)
 
-旧TODOにあった「`is_public=true` のシーズを別認証で公開閲覧可能にする」「`/research-orgs/[org_name]` で機関単位の seeds 一覧」は、**研究機関ワークスペースとして実装済み**。設計正本は [institution_seed_project_model.md](institution_seed_project_model.md) §6。migration 212/213 の DDL は本番未適用なので、状態としては「実装準備済み」。
+旧TODOにあった「`is_public=true` のシーズを別認証で公開閲覧可能にする」「`/research-orgs/[org_name]` で機関単位の seeds 一覧」は、**研究機関ワークスペースとして実装済み**。設計正本は [institution_seed_project_model.md](institution_seed_project_model.md) §6。migration 212/213 は2026-08-01に本番適用済み。
 
 - 面は `/workspace/[slug]`。公開トップ `/` は掲載可のワークスペースをslug・名称・機関の種別/地域だけで一覧し、外部の人は `/workspaces` を入口にする。
 - 可視範囲は `seeds.is_public` ではなく `institution_workspace_seed_scopes` で決める。機関に紐づくシーズを機関段階かPJ化済みかで絞り込まず、現時点の全件を範囲へ入れる。

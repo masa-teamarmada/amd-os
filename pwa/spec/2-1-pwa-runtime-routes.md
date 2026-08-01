@@ -96,7 +96,7 @@
 
 ## 外部ワークスペースアクセス
 
-migration 212 / 213 と対になる contract。**DDL は本番未適用のため、状態は「実装準備済み」**。適用済み・本番反映済みとは書かない。詳細設計は `pwa/design/institution_seed_project_model.md` §6。
+migration 212 / 213 と対になる contract。両migrationは2026-08-01に本番適用済み。詳細設計は `pwa/design/institution_seed_project_model.md` §6。
 
 | 項目 | contract |
 |---|---|
