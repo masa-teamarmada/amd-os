@@ -78,8 +78,8 @@ export async function GET(req: NextRequest) {
   try {
     const ym = getCurrentYm();
     const [projects, billingStatus, scoreBundle, managementHistory] = await Promise.all([
-      fetchProjectsFromSupabase(),
-      fetchBillingStatusFromSupabase(ym),
+      fetchProjectsFromSupabase(admin),
+      fetchBillingStatusFromSupabase(ym, admin),
       buildScoreData(),
       fetchManagementHistory(admin),
     ]);

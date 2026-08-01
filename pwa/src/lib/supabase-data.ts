@@ -1,11 +1,11 @@
 /**
  * Supabase Data Access Layer
  * GAS API (gas-api.ts) の代替。Supabaseから直接データを取得する。
- * RLSはservice_role経由（GAS書き込み）なので、PWAからはanon keyでread-only。
- * DEV_MODEではanon keyでRLSバイパス不要のためpublicアクセス。
+ * migration 213 以降、内部PWAのreadは認証済みmember sessionを使う。
+ * server routeは必要に応じてservice clientを明示注入する。
  */
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
 import { contractBackedClientAmount, yenNumber } from "@/lib/contract-money";
 import type { ProjectContractTerms } from "@/lib/project-contract-terms";
@@ -19,20 +19,23 @@ import { externalUnpaidStockYen, fundedNonCashAllocationYen } from "@/lib/reward
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
-// PWAからの読み取り用クライアント（anon key）
-// ビルド時（SSG）にはURL空でcreateClientが失敗するのでダミー値で初期化
-const supabase = createClient(
-  supabaseUrl || "https://placeholder.supabase.co",
-  supabaseAnonKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder",
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-      storageKey: "amd-os-pwa-readonly-supabase-data",
+// migration 213 以降、内部テーブルのreadは amd_os_is_member() を通る
+// authenticated session が必須。ブラウザではSSR cookieを使う認証client、
+// serverでは明示注入されるservice clientを優先し、未注入の互換経路だけanonへ倒す。
+const supabase = typeof window === "undefined"
+  ? createClient(
+    supabaseUrl || "https://placeholder.supabase.co",
+    supabaseAnonKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder",
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        storageKey: "amd-os-pwa-readonly-supabase-data",
+      },
     },
-  }
-);
+  )
+  : createBrowserSupabase();
 
 /** 認証付きブラウザクライアント（RLS書き込み用） */
 function getAuthClient() {
@@ -1974,8 +1977,8 @@ function normalizeDashboardProjectName(projectId: string, displayName: string) {
 /**
  * Dashboard: プロジェクト一覧
  */
-export async function fetchProjectsFromSupabase(): Promise<DashProject[]> {
-  const { data, error } = await supabase
+export async function fetchProjectsFromSupabase(readClient: SupabaseClient = supabase): Promise<DashProject[]> {
+  const { data, error } = await readClient
     .from("projects")
 	    .select("project_id, project_name, client_name, status, project_category, start_ym, end_ym")
     .order("project_name");
@@ -1984,7 +1987,7 @@ export async function fetchProjectsFromSupabase(): Promise<DashProject[]> {
 
   const projectIds = (data || []).map((r) => r.project_id);
   const { data: ventureRows } = projectIds.length
-    ? await supabase
+    ? await readClient
       .from("project_ventures")
       .select("project_id, short_label")
       .in("project_id", projectIds)
@@ -1996,7 +1999,7 @@ export async function fetchProjectsFromSupabase(): Promise<DashProject[]> {
     ])
   );
   const { data: projectMemberRows } = projectIds.length
-    ? await supabase
+    ? await readClient
       .from("project_members")
       .select("project_id, member_id, is_pl, is_pm, is_closer")
       .in("project_id", projectIds)
@@ -2004,7 +2007,7 @@ export async function fetchProjectsFromSupabase(): Promise<DashProject[]> {
     : { data: [] };
   const memberIds = Array.from(new Set((projectMemberRows || []).map((r) => r.member_id).filter(Boolean)));
   const { data: memberRows } = memberIds.length
-    ? await supabase
+    ? await readClient
       .from("members")
       .select("member_id, code_name")
       .in("member_id", memberIds)
@@ -2068,16 +2071,17 @@ export async function fetchActiveProjectsForNav(): Promise<ActiveProjectNavItem[
  * Dashboard: 請求ステータス（指定月のBillingCycle）
  */
 export async function fetchBillingStatusFromSupabase(
-  ym: string
+  ym: string,
+  readClient: SupabaseClient = supabase,
 ): Promise<Record<string, DashBillingStatus>> {
-  const { data, error } = await supabase
+  const { data, error } = await readClient
     .from("billing_cycles")
     .select("*")
     .eq("ym", ym);
 
   if (error) throw new Error(`billing_cycles: ${error.message}`);
 
-  const reportRes = await supabase
+  const reportRes = await readClient
     .from("monthly_reports")
     .select("project_id, status, fixed_at, final_content")
     .eq("ym", ym);

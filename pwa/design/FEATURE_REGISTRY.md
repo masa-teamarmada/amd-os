@@ -37,7 +37,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 必須機能:
 
-- public top: `/` は認証不要で、`institution_workspaces` の `status='active'` かつ `is_publicly_listed=true` の行だけを slug / ワークスペース名 / 機関の名称・種別・地域で一覧する。説明文、件数、ECR、AMD Score を公開面へ出さない。内部メンバーは従来のホーム、外部アカウントは `/workspaces` へ redirect する。
+- public top: `/` は認証不要で、認証状態にかかわらず自動転送せず必ずポータルを表示する。`institution_workspaces` の `status='active'` かつ `is_publicly_listed=true` の行だけを slug / ワークスペース名 / 機関の名称・種別・地域で一覧し、説明文、件数、ECR、AMD Score を公開面へ出さない。ログイン済み内部メンバーにはARMADA OSへの明示ボタン、外部アカウントには `/workspaces` への明示リンクを出す。
 - external hub: `/workspaces` は所属する機関ワークスペースと、個別に許可されたPJだけを並べる。機関所属をPJ一覧の根拠にしない。
 - institution workspace: `/workspace/[slug]` は内部アプリのchromeを共有しない独立シェルで、対象機関のPJ・シーズ・ECRを読み取り専用で出す。
 - dual surface: `/project/[projectId]/workspace` は**同じURLのまま**、アクセス解決の後に内部メンバー向け詳細バンドルか外部向け読み取り専用DTOかを選ぶ。外部面のURLを別に切らない。
@@ -53,6 +53,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - admin management: `/admin/access` (内部admin限定) + `GET/POST/PATCH /api/admin/workspace-access` が唯一の付与・停止導線。`kind` を必須にし汎用upsert経路を作らない。停止済み (suspended / revoked) は作成では復活せず明示的な PATCH のみ。機関所属の付与がPJアクセスを自動作成しない。`auth.users` の id は select も返却もしない。
 - audit: `workspace_access_audit_logs` にログイン要求・送信・成功・拒否・ログアウト・admin操作を記録する。メール本文、URL、トークン、未登録アドレスは残さない。
 - RLS: migration 212 の新設7テーブルは anon / 一般 authenticated のポリシーを持たない (admin + service_role のみ)。migration 213 は既存15テーブルの anon read を撤去し、authenticated を `amd_os_is_member()` ゲートへ寄せる。ECR / SPS の軸値と評価行そのものへは INSERT / UPDATE / DELETE を行わない。
+- internal read client: migration 213で閉じた内部テーブルをブラウザから読む場合は、匿名固定clientでなくSupabaseのログイン済みsessionを持つbrowser clientを使う。server routeはservice clientを明示注入する。PJ取得失敗を0件表示へ潰さず、dashboardに再読み込み可能なエラーを出す。
 
 回帰防止:
 

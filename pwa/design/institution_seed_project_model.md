@@ -109,7 +109,7 @@ institutions ──< institution_projects >── projects
 
 | 面 | 認証 | 中身 |
 |---|---|---|
-| `/` | 不要 | 公開トップ。`institution_workspaces` のうち `status='active'` かつ `is_publicly_listed=true` の行だけを、slug・ワークスペース名・機関の名称/種別/地域で一覧する。説明文、件数、ECR、AMD Scoreは公開しない。内部メンバーのセッションがあれば従来のホームへ、外部アカウントのセッションがあれば `/workspaces` へ送る |
+| `/` | 不要 | 公開トップ。認証状態にかかわらず自動転送せず必ず表示する。`institution_workspaces` のうち `status='active'` かつ `is_publicly_listed=true` の行だけを、slug・ワークスペース名・機関の名称/種別/地域で一覧し、説明文、件数、ECR、AMD Scoreは公開しない。ログイン済み内部メンバーにはARMADA OSへの明示ボタン、外部アカウントには `/workspaces` への明示リンクを出す |
 | `/workspaces` | 外部アカウント | 外部の人の入口。所属する研究機関ワークスペースと、個別に許可されたPJだけを並べる。機関に所属していることをPJ一覧の根拠にしない |
 | `/workspace/[slug]` | 外部アカウント | 研究機関ワークスペース本体。対象機関のPJ、シーズ一覧、ECRを読み取り専用で表示する |
 | `/project/[projectId]/workspace` | 内部メンバー または 外部アカウント | 同じURLの二面構成。アクセス解決の結果で内部向けの詳細バンドルか、外部向けの絞り込みDTOかを選ぶ |

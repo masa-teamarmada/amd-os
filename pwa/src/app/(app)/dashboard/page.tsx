@@ -72,6 +72,7 @@ export default function DashboardPage() {
   const [managementScore, setManagementScore] = useState<DashboardManagementScoreSnapshot | null>(null);
   const [managementHistory, setManagementHistory] = useState<DashboardManagementScoreSnapshot[]>([]);
   const [myProjectIds, setMyProjectIds] = useState<Set<string>>(new Set());
+  const [projectLoadFailed, setProjectLoadFailed] = useState(false);
   const [companyContent, setCompanyContent] = useState<CompanyContentPreview | null>(null);
   const [companyLoading, setCompanyLoading] = useState(false);
   const companyAnchorRef = useRef<HTMLDivElement | null>(null);
@@ -125,6 +126,7 @@ export default function DashboardPage() {
       const projectsValue = projRes.status === "fulfilled" ? projRes.value : [];
       const billingValue = billRes.status === "fulfilled" ? billRes.value : {};
       setProjects(projectsValue);
+      setProjectLoadFailed(projRes.status === "rejected");
       setBillingStatus(billingValue);
 
       if (scoreRes.status === "fulfilled") {
@@ -194,13 +196,27 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(520px,640px)] gap-4">
           <main className="space-y-4 min-w-0">
             <ProactiveTodoBadge />
-            <DashboardGrid
-              projects={dashboardProjects}
-              billingStatus={billingStatus}
-              scoreHistory={scoreHistory}
-              primarySnapshots={primarySnapshots}
-              myProjectIds={myProjectIds}
-            />
+            {projectLoadFailed ? (
+              <section className="dashboard-desk-section border-amber-300 bg-amber-50/80 px-4 py-5 text-sm text-amber-950">
+                <p className="font-semibold">PJ台帳を読み込めなかった</p>
+                <p className="mt-1 text-amber-900">認証状態を更新するため、ページを再読み込みしてね。</p>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="mt-3 min-h-11 rounded-[7px] border border-amber-400 bg-white px-4 font-semibold hover:bg-amber-100"
+                >
+                  再読み込み
+                </button>
+              </section>
+            ) : (
+              <DashboardGrid
+                projects={dashboardProjects}
+                billingStatus={billingStatus}
+                scoreHistory={scoreHistory}
+                primarySnapshots={primarySnapshots}
+                myProjectIds={myProjectIds}
+              />
+            )}
             <ActionItemsPanel projectLabels={projectLabels} variant="dashboard" limit={5} />
             <DashboardScoreOverview
               managementScore={managementScore}

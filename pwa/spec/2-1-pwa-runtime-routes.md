@@ -43,7 +43,7 @@
 
 | route | 役割 |
 |---|---|
-| `/` | 公開トップ (認証不要)。`institution_workspaces` の `status='active'` かつ `is_publicly_listed=true` の行だけを、slug / ワークスペース名 / 機関の名称・種別・地域で一覧する。説明文、シーズ・PJ件数、ECR、AMD Score は公開しない。内部メンバーのセッションがあれば従来のホームへ、外部アカウントのセッションがあれば `/workspaces` へ redirect する |
+| `/` | 公開トップ (認証不要)。認証状態にかかわらずredirectせず、全員にポータルを表示する。`institution_workspaces` の `status='active'` かつ `is_publicly_listed=true` の行だけを、slug / ワークスペース名 / 機関の名称・種別・地域で一覧し、説明文、シーズ・PJ件数、ECR、AMD Score は公開しない。ログイン済み内部メンバーは明示ボタンから自分のARMADAホームへ、外部アカウントは明示リンクから `/workspaces` へ進む |
 | `/workspaces` | 外部アカウント (`workspace_user_accounts`) の入口。所属する機関ワークスペースと、`project_access_memberships` で個別に許可されたPJだけを並べる。機関所属をPJ一覧の根拠にしない |
 | `/workspace/[slug]` | 研究機関ワークスペース本体。内部アプリの chrome を共有しない独立シェル。対象機関のPJ、シーズ一覧、ECR を読み取り専用で表示する。シーズはPJ化済み → PJ化検討中 → PJなし・SPS算出済み → その他の順で、同区分内は表題の日本語順。ECR は1機関の縦並び (総合値 + 8軸) で、SPS とは別系列のまま合算しない。資料欄は BOX からの移行準備中の表示のみ (リンク / iframe / 署名トークンなし) |
 | `/auth/login` | ログイン。`audience` で内部 (`armada` = Google Workspace OAuth) と外部 (`institution` = メールリンク) を出し分ける。`?audience=institution` または `?workspace=` があれば外部入口として開く |
@@ -108,7 +108,7 @@ migration 212 / 213 と対になる contract。両migrationは2026-08-01に本�
 | 暗黙付与の禁止 | 機関ワークスペース所属はPJアクセスを含意しない。ドメイン一致も認可の根拠にしない |
 | session | email OTP → `signOut({scope:'local'})` → `amd_os_workspace_session` 署名cookie。毎リクエストで cookie 検証 + DB 再検証。失効は次のリクエストで即時反映 |
 | failure mode | 未認可・不明slugは redirect せず not found。失敗時は常に閉じる側へ倒し、機関・PJの存在を漏らさない |
-| 213 の閉鎖範囲 | `institutions` / `institution_assessments` / `projects` / `members` / `project_members` / `institution_projects` / `seed_projects` / `seeds` / `seed_funding` / `seed_news` / `seed_contact_log` / `seed_sps_assessments` / `value_plan_cycles` / `value_milestones` / `milestone_monthly_progress` の計15テーブルで anon read を撤去し、authenticated を `amd_os_is_member()` ゲートへ寄せる。write は `is_admin()` + service_role |
+| 213 の閉鎖範囲 | `institutions` / `institution_assessments` / `projects` / `members` / `project_members` / `institution_projects` / `seed_projects` / `seeds` / `seed_funding` / `seed_news` / `seed_contact_log` / `seed_sps_assessments` / `value_plan_cycles` / `value_milestones` / `milestone_monthly_progress` の計15テーブルで anon read を撤去し、authenticated を `amd_os_is_member()` ゲートへ寄せる。内部ブラウザreadはログイン済みSupabase browser client、server routeは明示注入したservice clientを使う。write は `is_admin()` + service_role |
 | scope (愛媛) | p30 は `ehime` ワークスペースへ `shared_surface='summary'` で登録 (サマリのみ、詳細ワークスペースは非共有)。p21 はPJ範囲に含めず個別付与のみ。シーズ範囲は `inst_ehime` 紐付け全件。公開一覧は現時点 `ehime` 1件 |
 | 評価系列 | ECR は機関の縦並び (総合 + 8軸)、SPS はシーズごと。DTO 上も別プロパティで、合成スコア・相関・因果指標を作らない |
 | 資料共有 | BOX からの移行は未実装。資料欄は移行準備中の表示のみで、リンク / iframe / 署名トークンのいずれも実装していない |

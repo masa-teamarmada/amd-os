@@ -78,6 +78,8 @@ expectIncludes("src/app/(app)/dashboard/page.tsx", [
   "ExtractionStatusCard",
   "FreeeConnectionStatusCard",
   'project.projectId !== "p00"',
+  "projectLoadFailed",
+  "PJ台帳を読み込めなかった",
 ]);
 expectNotIncludes("src/app/(app)/dashboard/page.tsx", [
   "InstitutionReadinessList",
@@ -433,7 +435,22 @@ expectIncludes("src/app/page.tsx", [
   "memberHome(memberAccess)",
   "resolveWorkspaceAccess",
   "getPublicInstitutionWorkspaces",
+  "ARMADA OSへ入る",
+  "利用中のワークスペースへ",
+]);
+expectNotIncludes("src/app/page.tsx", [
+  'from "next/navigation"',
+  'redirect(memberHome(memberAccess))',
   'redirect("/workspaces")',
+]);
+expectIncludes("src/lib/supabase-data.ts", [
+  'typeof window === "undefined"',
+  ": createBrowserSupabase();",
+  "fetchProjectsFromSupabase(readClient",
+]);
+expectIncludes("src/app/api/hud/dashboard/route.ts", [
+  "fetchProjectsFromSupabase(admin)",
+  "fetchBillingStatusFromSupabase(ym, admin)",
 ]);
 expectIncludes("src/app/auth/callback/route.ts", [
   'member.os_access_scope === "project"',

@@ -72,6 +72,14 @@ export function DashboardGrid({
   const sales = projects.filter((p) => p.status === "sales" || p.status === "draft").sort(sorter);
   const other = projects.filter((p) => !["active", "sales", "draft"].includes(p.status)).sort(sorter);
 
+  if (projects.length === 0) {
+    return (
+      <section className="dashboard-desk-section px-4 py-6 text-sm text-[var(--desk-muted)]">
+        PJ台帳に表示できるPJはまだないよ。
+      </section>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-end">

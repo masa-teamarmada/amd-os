@@ -1,21 +1,17 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { getCurrentMemberAccess, memberHome } from "@/lib/project-workspace";
 import { resolveWorkspaceAccess } from "@/lib/workspace-access-resolver";
 import { getPublicInstitutionWorkspaces } from "@/lib/public-workspace-data";
 import { INSTITUTION_TYPE_LABEL } from "@/lib/ers";
 
 export default async function Home() {
-  // Already-authenticated principals skip the public landing entirely — this page only
-  // needs to greet anonymous visitors. Order matters: internal member session first
-  // (unchanged pre-existing behavior), then external workspace_account session.
-  const memberAccess = await getCurrentMemberAccess();
-  if (memberAccess) redirect(memberHome(memberAccess));
-
-  const workspaceAccess = await resolveWorkspaceAccess();
-  if (workspaceAccess) redirect("/workspaces");
-
-  const workspaces = await getPublicInstitutionWorkspaces();
+  // `/` は認証状態にかかわらず全員が通るポータル。ログイン済みでも
+  // 自動転送せず、本人がここから社内OS / 所属workspaceを選ぶ。
+  const [memberAccess, workspaceAccess, workspaces] = await Promise.all([
+    getCurrentMemberAccess(),
+    resolveWorkspaceAccess(),
+    getPublicInstitutionWorkspaces(),
+  ]);
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-[#faf8f2] text-[#26251f]">
@@ -28,9 +24,16 @@ export default async function Home() {
         </header>
 
         <section aria-labelledby="institution-workspaces-heading" className="space-y-4">
-          <h2 id="institution-workspaces-heading" className="text-sm font-semibold text-[#4338ca]">
-            研究機関ワークスペース
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="institution-workspaces-heading" className="text-sm font-semibold text-[#4338ca]">
+              研究機関ワークスペース
+            </h2>
+            {workspaceAccess && (
+              <Link href="/workspaces" className="text-sm font-medium text-[#4338ca] underline-offset-4 hover:underline">
+                利用中のワークスペースへ
+              </Link>
+            )}
+          </div>
           {workspaces.length === 0 ? (
             <p className="text-sm text-[#5c584d]">現在公開中のワークスペースはありません。</p>
           ) : (
@@ -60,12 +63,14 @@ export default async function Home() {
           <h2 id="armada-heading" className="text-sm font-semibold text-[#4338ca]">
             ARMADAメンバー
           </h2>
-          <p className="text-sm text-[#5c584d]">社内メンバーはこちらからログインしてください。</p>
+          <p className="text-sm text-[#5c584d]">
+            {memberAccess ? `${memberAccess.displayName}でログイン中` : "社内メンバーはこちらからログインしてください。"}
+          </p>
           <Link
-            href="/auth/login?audience=armada"
+            href={memberAccess ? memberHome(memberAccess) : "/auth/login?audience=armada"}
             className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[#4338ca] px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#3730a3] sm:w-auto"
           >
-            ARMADAメンバーとしてログイン
+            {memberAccess ? "ARMADA OSへ入る" : "ARMADAメンバーとしてログイン"}
           </Link>
         </section>
       </div>
