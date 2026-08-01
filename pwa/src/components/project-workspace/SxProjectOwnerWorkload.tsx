@@ -71,7 +71,7 @@ export function SxProjectOwnerWorkload({
                   {load.ownerLabel}
                 </b>
                 <small className="block truncate text-[9px] text-[#69665d]">
-                  影響ゲート {load.impactedGates.length || 0}件
+                  影響工程 {load.impactedGates.length || 0}件
                 </small>
               </span>
               <span className="whitespace-nowrap font-semibold text-[#514e47]">
@@ -127,7 +127,7 @@ export function SxProjectOwnerWorkload({
                     <span className="text-[#69665d]">
                       {item.impactedGates.length > 0
                         ? `影響：${item.impactedGates.join(" / ")}`
-                        : "影響ゲート 未接続"}
+                        : "影響工程 未接続"}
                     </span>
                   </li>
                 ))}

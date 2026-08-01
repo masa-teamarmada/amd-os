@@ -99,10 +99,12 @@
 .inspectorFacts dt { color: var(--quiet); font-size: 10px; }
 .inspectorFacts dd { margin: 3px 0 0; font-size: 11px; font-weight: 750; line-height: 1.45; overflow-wrap: anywhere; }
 .inspectorFacts dd[data-missing] { color: var(--amber); }
+.inspectorEditable { min-height: 32px; width: 100%; border-bottom: 1px dashed #aaa294; color: inherit; text-align: left; transition: border-color .16s ease, background .16s ease; }
+.inspectorEditable:hover, .inspectorEditable:focus-visible { border-color: var(--green); background: rgba(232, 242, 235, .62); outline: 0; }
 .planInspector > section { padding: 12px 14px; border-bottom: 1px solid #e8e2d7; }
 .planInspector > section span { color: var(--quiet); font-size: 10px; font-weight: 750; }
 .planInspector > section p { margin: 5px 0 0; font-size: 11px; line-height: 1.55; overflow-wrap: anywhere; }
-.planInspector > footer { position: sticky; bottom: 0; display: grid; grid-template-columns: 1fr 1.4fr; gap: 7px; padding: 12px 14px; border-top: 1px solid var(--line); background: var(--sheet); }
+.planInspector > footer { position: sticky; bottom: 0; display: grid; grid-template-columns: 1fr; gap: 7px; padding: 12px 14px; border-top: 1px solid var(--line); background: var(--sheet); }
 .planInspector > footer button { min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--green); color: var(--green); font-size: 10px; font-weight: 800; }
 .planInspector > footer button:last-child { background: var(--green); color: white; }
 .planInspector > footer svg { width: 13px; height: 13px; }

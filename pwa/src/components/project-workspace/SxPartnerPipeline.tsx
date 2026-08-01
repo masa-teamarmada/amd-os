@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Pencil, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import type {
   SxActorSide,
   SxManagementBundle,
@@ -74,6 +74,16 @@ type PartnerProgressStep = {
   label: string;
 };
 
+const PARTNER_STAGE_SHORT_LABELS = [
+  "候補",
+  "情報",
+  "条件",
+  "面談",
+  "準備",
+  "合意",
+  "実行",
+] as const;
+
 /**
  * 会社名下のrailと「関係段階」列が同じ7件・同じ順序を使うための唯一のstep builder。
  * 接点数や作業数を進捗へ混ぜず、全関係先を同じ分母で比較する。
@@ -96,23 +106,77 @@ function buildPartnerProgressSteps(
   }));
 }
 
-/** 進行状況と同じstepsを、会社名下の省スペースなrailとして表示する。 */
-function PartnerStageRail({
+/** 全社を同じ座標で比較する直線目盛り。個別のpillやカードへ分割しない。 */
+function PartnerProgressScale({
   partnerId,
   stage,
   steps,
   deferred = false,
+  onOpen,
 }: {
   partnerId: string;
   stage: string;
   steps: readonly PartnerProgressStep[];
   deferred?: boolean;
+  onOpen?: () => void;
 }) {
   const onHold = stage === "on_hold" || deferred;
   const stageIndex = onHold
     ? null
     : sxPartnerStageIndex(stage as SxPartnerStage);
-  return (
+  const trackInsetPct = 100 / 14;
+  const completedWidthPct =
+    stageIndex == null ? 0 : ((stageIndex - 1) / 7) * 100;
+  const content = (
+    <>
+      <span className="relative block h-5" aria-hidden="true">
+        <span
+          className="absolute top-[9px] h-px bg-[#d6cebf]"
+          style={{ left: `${trackInsetPct}%`, right: `${trackInsetPct}%` }}
+        />
+        {!onHold && (
+          <span
+            className="absolute top-[8px] h-[3px] bg-[#38745d]"
+            style={{
+              left: `${trackInsetPct}%`,
+              width: `${completedWidthPct}%`,
+            }}
+          />
+        )}
+        <span className="absolute inset-x-0 top-1 grid grid-cols-7">
+          {steps.map((step) => (
+            <span key={step.stage} className="relative h-3">
+              <i
+                className={`absolute left-1/2 top-0 h-3 w-px -translate-x-1/2 ${onHold ? "bg-[#aaa294]" : step.phase === "now" ? "w-[3px] bg-[#24231f]" : step.phase === "done" ? "bg-[#38745d]" : "bg-[#cfc7b9]"}`}
+              />
+            </span>
+          ))}
+        </span>
+      </span>
+      <span
+        className={`mt-0.5 block text-[10px] font-semibold ${onHold ? "text-[#69665d]" : "text-[#315f7d]"}`}
+      >
+        {onHold
+          ? "保留"
+          : `${stageIndex}/7 ${sxPartnerStageLabel(stage as SxPartnerStage)}`}
+      </span>
+    </>
+  );
+  const className =
+    "block w-full min-w-0 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]";
+  return onOpen ? (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={className}
+      aria-label={`${stageIndex ?? "保留"}/7 ${onHold ? "保留" : sxPartnerStageLabel(stage as SxPartnerStage)}を直接修正`}
+      data-testid={`sx-partner-stage-scale-${partnerId}`}
+      data-step-count={steps.length}
+      data-stage-index={stageIndex ?? "on_hold"}
+    >
+      {content}
+    </button>
+  ) : (
     <div
       role="img"
       aria-label={
@@ -120,34 +184,12 @@ function PartnerStageRail({
           ? "関係段階 保留"
           : `関係段階 ${stageIndex}/7・${sxPartnerStageLabel(stage as SxPartnerStage)}`
       }
-      data-testid={`sx-partner-stage-rail-${partnerId}`}
+      data-testid={`sx-partner-stage-scale-${partnerId}`}
       data-step-count={steps.length}
       data-stage-index={stageIndex ?? "on_hold"}
+      className={className}
     >
-      <div className="flex items-center gap-0.5" aria-hidden="true">
-        {steps.map((step) => (
-          <span
-            key={step.stage}
-            data-progress-segment={step.phase}
-            className={`h-1.5 flex-1 rounded-full ${
-              onHold
-                ? "bg-[#d6cebf]"
-                : step.phase === "now"
-                  ? "bg-[#38745d]"
-                  : step.phase === "done"
-                    ? "bg-[#9fc6b4]"
-                    : "bg-[#e8e2d6]"
-            }`}
-          />
-        ))}
-      </div>
-      <p
-        className={`mt-0.5 text-[10px] font-semibold ${onHold ? "text-[#69665d]" : "text-[#315f7d]"}`}
-      >
-        {onHold
-          ? "保留"
-          : `${stageIndex}/7 ${sxPartnerStageLabel(stage as SxPartnerStage)}`}
-      </p>
+      {content}
     </div>
   );
 }
@@ -206,8 +248,8 @@ const INTERACTION_KIND_TONE: Record<string, string> = {
 const FOCUS_RING =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]";
 
-/** Per-item gate name + (when resolvable) proof names, via relatedMilestoneId. A holding item with no
- * connected gate always reports "ゲート未接続" — never guessed from the partner's aggregate gates. */
+/** Per-item plan connection via relatedMilestoneId. A holding item without an explicit connection is
+ * reported as unconnected; the UI never infers a gate from the partner's aggregate links. */
 function gateAndProofForItem(
   item: SxHoldingItem,
   milestoneTitleById: ReadonlyMap<string, string>,
@@ -226,10 +268,10 @@ function gateAndProofForItem(
 }
 
 function navChipClass(active: boolean) {
-  return `inline-flex min-h-11 shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-[10px] font-semibold ${FOCUS_RING} ${
+  return `inline-flex min-h-11 shrink-0 items-center gap-1 whitespace-nowrap border-b-2 border-x-0 border-t-0 px-2.5 py-1.5 text-[10px] font-semibold ${FOCUS_RING} ${
     active
-      ? "border-[#315f7d] bg-[#eef3f5] text-[#315f7d]"
-      : "border-[#d6cebf] bg-white text-[#514e47] hover:bg-[#f8f5ec]"
+      ? "border-b-[#315f7d] bg-[#eef3f5] text-[#315f7d]"
+      : "border-b-transparent bg-transparent text-[#514e47] hover:border-b-[#aaa294] hover:bg-[#f8f5ec]"
   }`;
 }
 
@@ -436,10 +478,10 @@ function CategoryNav({
             data-testid="sx-partner-filter-poc"
             onClick={onSelectPoc}
             aria-pressed={pocOnly}
-            aria-label={`PoC対象だけを表示（${pocCount}件）`}
+            aria-label={`PoC候補先だけを表示（${pocCount}件）`}
             className={navChipClass(pocOnly)}
           >
-            {pocOnly && <span aria-hidden="true">✓</span>}PoC対象 {pocCount}件
+            {pocOnly && <span aria-hidden="true">✓</span>}PoC候補先 {pocCount}件
           </button>
         )}
       </ControlBandRow>
@@ -539,12 +581,12 @@ function PocComparisonControls({
       disabled={count === 0}
       aria-pressed={activeQuickFilter === filter}
       aria-label={`${label}${count}件で絞り込み`}
-      className={`shrink-0 rounded-full disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
+      className={`shrink-0 border disabled:cursor-not-allowed disabled:opacity-40 ${tone} ${FOCUS_RING}`}
     >
-      <SxBadge tone={tone}>
+      <span className="block px-2 py-1 text-[10px] font-semibold">
         {activeQuickFilter === filter && <span aria-hidden="true">✓ </span>}
         {label} {count}
-      </SxBadge>
+      </span>
     </button>
   );
   return (
@@ -621,10 +663,16 @@ function PocComparisonControls({
         >
           {sort === "attention" && <span aria-hidden="true">✓</span>}要対応順
         </button>
-        <SxBadge tone={NEUTRAL_TONE}>
-          表示 {visiblePartners.length} / PoC対象 {partners.length}
-        </SxBadge>
-        <SxBadge tone={NEUTRAL_TONE}>接点記録あり {contactRecordCount}</SxBadge>
+        <span
+          className={`shrink-0 border px-2 py-1 text-[10px] font-semibold ${NEUTRAL_TONE}`}
+        >
+          表示 {visiblePartners.length} / PoC候補先 {partners.length}
+        </span>
+        <span
+          className={`shrink-0 border px-2 py-1 text-[10px] font-semibold ${NEUTRAL_TONE}`}
+        >
+          接点記録あり {contactRecordCount}
+        </span>
         {quickFilterButton(
           "blocked",
           "停止",
@@ -750,7 +798,25 @@ function HoldingRow({
   );
   return (
     <li
-      className="border-b border-[#eee9df] py-1.5 pl-2 last:border-0"
+      className={`border-b border-[#eee9df] py-1.5 pl-2 last:border-0 ${canManage && onEdit ? "cursor-pointer hover:bg-[#f1f6f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]" : ""}`}
+      role={canManage && onEdit ? "button" : undefined}
+      tabIndex={canManage && onEdit ? 0 : undefined}
+      aria-label={
+        canManage && onEdit
+          ? `${partnerName} - ${sxNormalizePublicName(item.title)}を直接修正`
+          : undefined
+      }
+      onClick={canManage && onEdit ? () => onEdit(item.id) : undefined}
+      onKeyDown={
+        canManage && onEdit
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onEdit(item.id);
+              }
+            }
+          : undefined
+      }
       style={{
         borderLeft: `3px solid ${HOLDING_STATUS_LINE[item.status] || HOLDING_STATUS_LINE.open}`,
       }}
@@ -776,16 +842,6 @@ function HoldingRow({
             </SxBadge>
           )}
         </div>
-        {canManage && onEdit && (
-          <button
-            type="button"
-            onClick={() => onEdit(item.id)}
-            aria-label={`${partnerName} - ${sxNormalizePublicName(item.title)}を編集`}
-            className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-[#cfc7b9] text-[#514e47] hover:bg-[#fffdf7] ${FOCUS_RING}`}
-          >
-            <Pencil className="h-3 w-3" aria-hidden="true" />
-          </button>
-        )}
       </div>
       <p className="mt-1 text-[11px] font-semibold leading-4 text-[#24231f]">
         {nominalizeSxActionLabel(sxNormalizePublicName(item.title))}
@@ -835,7 +891,7 @@ function HoldingRow({
         </p>
       )}
       <p className="mt-0.5 text-[10px] leading-4 text-[#69665d]">
-        関連ゲート: {gateTitle || "ゲート未接続"}
+        関連工程: {gateTitle || "工程未接続"}
         {proofLabels.length > 0 && (
           <span className="text-[#315f7d]">
             {" "}
@@ -860,9 +916,9 @@ function HoldingRow({
 }
 
 const PARTNER_CONTROL_INNER_GRID =
-  "xl:grid-cols-[148px_minmax(150px,1fr)_minmax(190px,1.35fr)_126px_minmax(150px,1fr)]";
+  "xl:grid-cols-[160px_minmax(270px,1.4fr)_minmax(150px,0.9fr)_minmax(190px,1.2fr)_126px_minmax(150px,1fr)]";
 const PARTNER_CONTROL_HEADER_GRID =
-  "xl:grid-cols-[148px_minmax(150px,1fr)_minmax(190px,1.35fr)_126px_minmax(150px,1fr)_104px]";
+  "xl:grid-cols-[160px_minmax(270px,1.4fr)_minmax(150px,0.9fr)_minmax(190px,1.2fr)_126px_minmax(150px,1fr)_104px]";
 
 type PartnerGateImpact = {
   title: string;
@@ -882,9 +938,9 @@ function partnerGateImpact(
     : intervention.relatedMilestoneSlug;
   const title = intervention.relatedMilestoneId
     ? milestoneTitleById.get(intervention.relatedMilestoneId) ||
-      "関連ゲート未確認"
+      "関連工程未確認"
     : slug
-      ? milestoneTitleBySlug.get(slug) || "関連ゲート未確認"
+      ? milestoneTitleBySlug.get(slug) || "関連工程未確認"
       : "PJ影響 未接続";
   return {
     title,
@@ -1057,7 +1113,31 @@ function PocComparisonDetailModal({
                 {interventionStatusLabel(intervention)}
               </SxBadge>
             </div>
-            <div className="mt-2 grid gap-px overflow-hidden rounded-md border border-[#e4ddd0] bg-[#e4ddd0] sm:grid-cols-2 lg:grid-cols-3">
+            <div
+              className={`mt-2 grid gap-px overflow-hidden border border-[#e4ddd0] bg-[#e4ddd0] sm:grid-cols-2 lg:grid-cols-3 ${canManage && onEditPartner ? "cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]" : ""}`}
+              role={canManage && onEditPartner ? "button" : undefined}
+              tabIndex={canManage && onEditPartner ? 0 : undefined}
+              aria-label={
+                canManage && onEditPartner
+                  ? `${display.name}の現在値を直接修正`
+                  : undefined
+              }
+              onClick={
+                canManage && onEditPartner
+                  ? () => onEditPartner(partner.id)
+                  : undefined
+              }
+              onKeyDown={
+                canManage && onEditPartner
+                  ? (event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onEditPartner(partner.id);
+                      }
+                    }
+                  : undefined
+              }
+            >
               <div className="bg-white p-3">
                 <p className="text-[10px] font-semibold text-[#69665d]">
                   次にやること
@@ -1101,7 +1181,7 @@ function PocComparisonDetailModal({
                   {impact.critical
                     ? "重要経路上"
                     : impact.connected
-                      ? "関連ゲート"
+                      ? "関連工程"
                       : "影響先の接続が必要"}
                 </p>
               </div>
@@ -1141,28 +1221,16 @@ function PocComparisonDetailModal({
             </div>
           </section>
 
-          {canManage && (
+          {canManage && onAddRole && (
             <div className="mt-3 flex flex-wrap gap-2">
-              {onEditPartner && (
-                <button
-                  type="button"
-                  onClick={() => onEditPartner(partner.id)}
-                  className={`inline-flex min-h-11 items-center gap-1 rounded-md border border-[#cfc7b9] px-3 text-[11px] font-semibold ${FOCUS_RING}`}
-                >
-                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                  関係先を編集
-                </button>
-              )}
-              {onAddRole && (
-                <button
-                  type="button"
-                  onClick={() => onAddRole(partner.id)}
-                  className={`inline-flex min-h-11 items-center gap-1 rounded-md border border-[#cfc7b9] px-3 text-[11px] font-semibold ${FOCUS_RING}`}
-                >
-                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                  分類を追加
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => onAddRole(partner.id)}
+                className={`inline-flex min-h-11 items-center gap-1 border border-[#cfc7b9] px-3 text-[11px] font-semibold ${FOCUS_RING}`}
+              >
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                分類を追加
+              </button>
             </div>
           )}
 
@@ -1329,7 +1397,29 @@ function PocComparisonDetailModal({
                 {partner.roles.map((role) => (
                   <div
                     key={role.id}
-                    className="flex min-h-11 items-center gap-1.5 border border-[#e4ddd0] bg-white px-2 text-[10px]"
+                    className={`flex min-h-11 items-center gap-1.5 border border-[#e4ddd0] bg-white px-2 text-[10px] ${canManage && onEditRole ? "cursor-pointer hover:bg-[#f1f6f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]" : ""}`}
+                    role={canManage && onEditRole ? "button" : undefined}
+                    tabIndex={canManage && onEditRole ? 0 : undefined}
+                    aria-label={
+                      canManage && onEditRole
+                        ? `${display.name}の分類を直接修正`
+                        : undefined
+                    }
+                    onClick={
+                      canManage && onEditRole
+                        ? () => onEditRole(role.id)
+                        : undefined
+                    }
+                    onKeyDown={
+                      canManage && onEditRole
+                        ? (event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              onEditRole(role.id);
+                            }
+                          }
+                        : undefined
+                    }
                   >
                     <span className="font-semibold text-[#24231f]">
                       {role.isPrimary ? "主分類" : "副分類"}・
@@ -1338,16 +1428,6 @@ function PocComparisonDetailModal({
                     <span className="text-[#69665d]">
                       {sxRelationshipStateLabel(role.relationshipState)}
                     </span>
-                    {canManage && onEditRole && (
-                      <button
-                        type="button"
-                        onClick={() => onEditRole(role.id)}
-                        aria-label={`${display.name}の分類を編集`}
-                        className={`grid h-11 w-11 place-items-center ${FOCUS_RING}`}
-                      >
-                        <Pencil className="h-3 w-3" aria-hidden="true" />
-                      </button>
-                    )}
                   </div>
                 ))}
               </div>
@@ -1484,29 +1564,47 @@ function PocComparisonRow({
           className={`grid min-w-0 grid-cols-1 gap-x-3 gap-y-2 md:grid-cols-2 ${PARTNER_CONTROL_INNER_GRID}`}
         >
           <div className="min-w-0 md:col-span-2 xl:col-span-1">
-            <p
+            <button
+              type="button"
               id={nameHeadingId}
-              className="truncate text-[12px] font-semibold text-[#24231f]"
+              disabled={!canManage || !onEditPartner}
+              onClick={() => onEditPartner?.(partner.id)}
+              className="block min-h-11 w-full truncate text-left text-[12px] font-semibold text-[#24231f] disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+              aria-label={`${display.name}の基本情報を直接修正`}
             >
               {display.name}
+            </button>
+            <p className="text-[10px] text-[#69665d]">
+              最終確認 {sxFormatDate(partner.lastVerifiedAt)}
             </p>
-            <div className="mt-1">
-              <PartnerStageRail
-                partnerId={partner.id}
-                stage={partner.relationshipStage}
-                steps={steps}
-                deferred={partner.deferredLowPriority}
-              />
-            </div>
+          </div>
+
+          <div className="min-w-0 md:col-span-2 xl:col-span-1">
+            <p className="text-[10px] font-semibold text-[#69665d] xl:hidden">
+              進捗
+            </p>
+            <PartnerProgressScale
+              partnerId={partner.id}
+              stage={partner.relationshipStage}
+              steps={steps}
+              deferred={partner.deferredLowPriority}
+              onOpen={
+                canManage && onEditPartner
+                  ? () => onEditPartner(partner.id)
+                  : undefined
+              }
+            />
           </div>
 
           <div className="min-w-0 border-l-2 border-[#d6cebf] pl-2">
             <p className="text-[10px] font-semibold text-[#69665d] xl:hidden">
               詰まり・PJ影響
             </p>
-            <SxBadge tone={interventionTone(intervention)}>
+            <span
+              className={`inline-block border px-1.5 py-0.5 text-[10px] font-semibold ${interventionTone(intervention)}`}
+            >
               {bottleneckLabel}
-            </SxBadge>
+            </span>
             <p
               className={`mt-1 line-clamp-2 text-[10px] font-semibold leading-4 ${impact.critical ? "text-[#8c3329]" : "text-[#24231f]"}`}
               title={impact.title}
@@ -1552,9 +1650,11 @@ function PocComparisonRow({
               {interventionOwnerText(intervention, display.name)}
             </p>
             <div className="mt-1 flex flex-wrap items-center gap-1">
-              <SxBadge tone={BALL_SIDE_TONE[intervention.side]}>
+              <span
+                className={`border px-1.5 py-0.5 text-[10px] font-semibold ${BALL_SIDE_TONE[intervention.side]}`}
+              >
                 {interventionSideText(intervention)}
-              </SxBadge>
+              </span>
               <span
                 className={`text-[10px] ${intervention.risk === "overdue" ? "font-semibold text-[#8c3329]" : "text-[#69665d]"}`}
               >
@@ -1658,7 +1758,7 @@ export function SxPartnerPipeline({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeRoleKind, setActiveRoleKind] =
     useState<SxPartnerRoleKind | null>(null);
-  const [pocOnly, setPocOnly] = useState(false);
+  const [pocOnly, setPocOnly] = useState(true);
   const [activePocStage, setActivePocStage] = useState<SxPartnerStage | "all">(
     "all",
   );
@@ -1766,10 +1866,10 @@ export function SxPartnerPipeline({
     >
       <div className="hidden rounded-t-[7px] border-b border-[#e4ddd0] bg-[#f8f5ec] px-3 py-2 md:block">
         <p className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">
-          関係先ごとの介入チェーン
+          関係先の進捗比較
         </p>
         <h3 className="mt-0.5 text-sm font-semibold text-[#24231f]">
-          詰まり → 次にやること → 担当 → 期限 → 止まるゲート → 根拠
+          全社共通の7段階で、現在地・停滞・次の行動を比較
         </h3>
       </div>
       {!pocOnly && (
@@ -1858,9 +1958,35 @@ export function SxPartnerPipeline({
       )}
 
       <div
+        data-testid="sx-partner-stage-reference"
+        className={`${pocOnly ? "sticky top-14 z-20" : ""} border-b border-[#d6cebf] bg-[#f8f5ec] px-3 py-1.5 xl:hidden`}
+      >
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_104px]">
+          <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-[#69665d]">
+            {SX_PARTNER_STAGE_ORDER.map((stage, index) => (
+              <span key={stage} title={sxPartnerStageLabel(stage)}>
+                {index + 1} {PARTNER_STAGE_SHORT_LABELS[index]}
+              </span>
+            ))}
+          </div>
+          <span className="hidden sm:block" aria-hidden="true" />
+        </div>
+      </div>
+
+      <div
         className={`${pocOnly ? "sticky top-14 z-20 shadow-[0_1px_0_#d6cebf]" : ""} hidden ${PARTNER_CONTROL_HEADER_GRID} gap-2 border-b border-[#e4ddd0] bg-[#f8f5ec] px-3 py-1.5 text-[10px] font-semibold text-[#69665d] xl:grid`}
       >
-        <span>関係先・現在地</span>
+        <span>関係先</span>
+        <span>
+          <b className="block text-[#514e47]">進捗</b>
+          <i className="mt-0.5 grid grid-cols-7 gap-1 text-center text-[10px] font-normal not-italic text-[#69665d]">
+            {SX_PARTNER_STAGE_ORDER.map((stage, index) => (
+              <span key={stage} title={sxPartnerStageLabel(stage)}>
+                {index + 1} {PARTNER_STAGE_SHORT_LABELS[index]}
+              </span>
+            ))}
+          </i>
+        </span>
         <span>詰まり・PJ影響</span>
         <span>次にやること</span>
         <span>担当・期限</span>
@@ -2032,7 +2158,27 @@ function InteractionFullRow({
   );
   const ballText = `${sxBallSideLabel(interaction.ballSideAfter)}${interaction.ballOwnerAfter ? ` ・ ${sxNormalizePublicName(interaction.ballOwnerAfter)}` : ""}`;
   return (
-    <li className="p-2.5 text-[11px] leading-5">
+    <li
+      className={`p-2.5 text-[11px] leading-5 ${canManage && onEdit ? "cursor-pointer hover:bg-[#f1f6f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]" : ""}`}
+      role={canManage && onEdit ? "button" : undefined}
+      tabIndex={canManage && onEdit ? 0 : undefined}
+      aria-label={
+        canManage && onEdit
+          ? `${partnerName} - ${sxNormalizePublicName(interaction.summary)}を直接修正`
+          : undefined
+      }
+      onClick={canManage && onEdit ? () => onEdit(interaction.id) : undefined}
+      onKeyDown={
+        canManage && onEdit
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onEdit(interaction.id);
+              }
+            }
+          : undefined
+      }
+    >
       <div className="flex flex-wrap items-center justify-between gap-1">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-[10px] text-[#69665d]">{dateText}</span>
@@ -2045,16 +2191,6 @@ function InteractionFullRow({
             {sxInteractionKindLabel(interaction.interactionKind)}
           </SxBadge>
         </div>
-        {canManage && onEdit && (
-          <button
-            type="button"
-            onClick={() => onEdit(interaction.id)}
-            aria-label={`${partnerName} - ${sxNormalizePublicName(interaction.summary)}を編集`}
-            className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-[#cfc7b9] text-[#514e47] hover:bg-[#f8f5ec] ${FOCUS_RING}`}
-          >
-            <Pencil className="h-3 w-3" aria-hidden="true" />
-          </button>
-        )}
       </div>
       <p className="mt-1 text-[10px] font-semibold text-[#514e47]">
         主体: {actorText}

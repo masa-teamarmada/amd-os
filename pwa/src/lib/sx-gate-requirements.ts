@@ -6,17 +6,26 @@ export type SxGateRequirement = {
   state: "met" | "unmet" | "unconfirmed";
 };
 
-const STRUCTURED_ORAL_AGREEMENT_GATE_SLUGS = new Set([
+export const SX_BLOCKING_MILESTONE_SLUGS = [
   "business-paid-poc-oral-agreement",
   "funding-investment-oral-agreement",
-]);
+] as const;
+
+const BLOCKING_MILESTONE_SLUG_SET = new Set<string>(
+  SX_BLOCKING_MILESTONE_SLUGS,
+);
+
+export function sxIsBlockingMilestone(
+  milestone: Pick<SxManagementMilestone, "slug">,
+) {
+  return BLOCKING_MILESTONE_SLUG_SET.has(milestone.slug);
+}
 
 export function sxOralAgreementEvidenceReady(
   slug: string,
   evidence: string | null | undefined,
 ) {
-  if (!STRUCTURED_ORAL_AGREEMENT_GATE_SLUGS.has(slug))
-    return Boolean(evidence?.trim());
+  if (!BLOCKING_MILESTONE_SLUG_SET.has(slug)) return Boolean(evidence?.trim());
   const lines = (evidence || "")
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -55,7 +64,7 @@ export function sxGateRequirementsBySuccessor(
   for (const dependency of dependencies) {
     if (!dependency.required) continue;
     const milestone = milestoneById.get(dependency.predecessorMilestoneId);
-    if (!milestone) continue;
+    if (!milestone || !sxIsBlockingMilestone(milestone)) continue;
     const requirement = {
       dependency,
       milestone,

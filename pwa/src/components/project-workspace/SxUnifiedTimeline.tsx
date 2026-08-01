@@ -6,7 +6,6 @@ import {
   ChevronsUpDown,
   ChevronRight,
   Flag,
-  Pencil,
   Plus,
 } from "lucide-react";
 import type {
@@ -20,7 +19,9 @@ import type {
 } from "@/lib/sx-management";
 import {
   sxGateRequirementCounts,
+  sxGateRequirementState,
   sxGateRequirementsBySuccessor,
+  sxIsBlockingMilestone,
   type SxGateRequirement,
 } from "@/lib/sx-gate-requirements";
 import { sxFormatDate } from "./sx-visual-shared";
@@ -41,6 +42,7 @@ type DisplayRow = {
   state: SxEcdTimelineRow["state"];
   isCritical: boolean;
   isCurrent: boolean;
+  isBlockingMilestone: boolean;
   gate: string;
   plannedStart: string | null;
   plannedEnd: string | null;
@@ -110,6 +112,7 @@ function milestoneDisplayRow(
     state: row.state,
     isCritical: row.isCritical,
     isCurrent: row.isCurrent,
+    isBlockingMilestone: Boolean(milestone && sxIsBlockingMilestone(milestone)),
     gate: milestone?.gate || row.gate,
     plannedStart: row.plannedStart,
     plannedEnd: row.plannedEnd,
@@ -143,6 +146,7 @@ function taskDisplayRow(
     state,
     isCritical: false,
     isCurrent: state === "current",
+    isBlockingMilestone: false,
     gate: "",
     plannedStart: task.plannedStart,
     plannedEnd: task.plannedEnd,
@@ -213,13 +217,13 @@ function RowBar({
           )}
         </span>
       )}
-      {plannedEnd != null && row.entity === "task" && (
+      {plannedEnd != null && !row.isBlockingMilestone && (
         <span
           className="absolute top-[19px] h-[18px] w-[2px] bg-[#514e47]"
           style={{ left: `${plannedEnd}%` }}
         />
       )}
-      {plannedEnd != null && row.entity === "milestone" && (
+      {plannedEnd != null && row.isBlockingMilestone && (
         <span
           className="absolute top-[13px] -translate-x-1/2 text-center"
           style={{ left: `${plannedEnd}%` }}
@@ -229,7 +233,7 @@ function RowBar({
             aria-hidden="true"
           />
           <em className="mt-0.5 block whitespace-nowrap text-[8px] font-bold not-italic text-[#5f4a66]">
-            ゲート
+            マイルストーン
           </em>
         </span>
       )}
@@ -253,7 +257,7 @@ function RowBar({
               counts.met === counts.total ? "text-[#205f49]" : "text-[#765022]"
             }
           >
-            必須条件 {counts.met}/{counts.total}
+            前提 {counts.met}/{counts.total}
           </span>
         )}
       </span>
@@ -288,7 +292,7 @@ function Legend() {
         <span>
           <b>マイルストーン</b>
           <br />
-          先へ進むゲート
+          先へ進む条件
         </span>
       </div>
     </div>
@@ -306,9 +310,7 @@ export function SxUnifiedTimeline({
   onSelectMilestone,
   onSelectTask = () => {},
   canManage,
-  onEditMilestone,
   onCreateMilestone,
-  onEditTask = () => {},
   onCreateTask = () => {},
   showPins = true,
 }: {
@@ -322,7 +324,7 @@ export function SxUnifiedTimeline({
   onSelectMilestone: (milestoneId: string | null) => void;
   onSelectTask?: (taskId: string | null) => void;
   canManage: boolean;
-  onEditMilestone: (milestoneId: string) => void;
+  onEditMilestone?: (milestoneId: string) => void;
   onCreateMilestone: (track: string | null) => void;
   onEditTask?: (taskId: string) => void;
   onCreateTask?: (milestoneId: string, parentTaskId: string | null) => void;
@@ -346,22 +348,26 @@ export function SxUnifiedTimeline({
     [dependencies, milestones],
   );
 
-  const gateAgenda = useMemo(
+  const milestoneAgenda = useMemo(
     () =>
       milestones
-        .filter(
-          (milestone) =>
-            (requirementsBySuccessor.get(milestone.id) || []).length > 0 &&
-            milestone.manualStatus !== "completed",
-        )
-        .sort((left, right) =>
-          (left.plannedEnd || "9999").localeCompare(right.plannedEnd || "9999"),
-        )
-        .map((milestone) => ({
-          milestone,
-          requirements: requirementsBySuccessor.get(milestone.id) || [],
-        })),
-    [milestones, requirementsBySuccessor],
+        .filter(sxIsBlockingMilestone)
+        .sort((left, right) => left.slug.localeCompare(right.slug))
+        .map((milestone) => {
+          const dependency = dependencies.find(
+            (item) =>
+              item.required && item.predecessorMilestoneId === milestone.id,
+          );
+          const successor = dependency
+            ? milestoneById.get(dependency.successorMilestoneId)
+            : null;
+          return {
+            milestone,
+            successor,
+            state: sxGateRequirementState(milestone),
+          } as const;
+        }),
+    [dependencies, milestoneById, milestones],
   );
 
   const taskChildren = useMemo(() => {
@@ -455,13 +461,9 @@ export function SxUnifiedTimeline({
   const lanesHeight = lanesTotalHeight(visibleLanes);
   const pinRowHeight = showPins ? PIN_ROW_H : 0;
   const gridHeight = pinRowHeight + lanesHeight;
-  const outstandingGateConditionCount = gateAgenda.reduce(
-    (total, item) =>
-      total +
-      item.requirements.filter((requirement) => requirement.state !== "met")
-        .length,
-    0,
-  );
+  const outstandingMilestoneCount = milestoneAgenda.filter(
+    (item) => item.state !== "met",
+  ).length;
 
   function toggleAll() {
     if (allExpanded) {
@@ -504,111 +506,63 @@ export function SxUnifiedTimeline({
 
   return (
     <div data-testid="sx-unified-timeline">
-      {gateAgenda.length > 0 && (
+      {milestoneAgenda.length > 0 && (
         <section
           className="mb-2 border border-[#c9bfd0] bg-[#f7f3f7]"
-          aria-labelledby="sx-gate-agenda-title"
+          aria-labelledby="sx-milestone-agenda-title"
         >
           <div className="flex items-center justify-between border-b border-[#d9cfde] px-3 py-2">
             <div>
               <p className="text-[9px] font-semibold tracking-[0.14em] text-[#76637b]">
-                PROGRESS GATES
+                BLOCKING MILESTONES
               </p>
               <h3
-                id="sx-gate-agenda-title"
+                id="sx-milestone-agenda-title"
                 className="text-[12px] font-bold text-[#24231f]"
               >
-                次へ進むための必須ゲート
+                マイルストーン
               </h3>
             </div>
             <span className="text-[10px] font-semibold text-[#5f4a66]">
-              対象ゲート {gateAgenda.length}件 ・ 未確認/未達条件{" "}
-              {outstandingGateConditionCount}件
+              全{milestoneAgenda.length}件 ・ 未確認/未達{" "}
+              {outstandingMilestoneCount}件
             </span>
           </div>
-          <div className="grid gap-px bg-[#d9cfde] sm:grid-cols-2 xl:grid-cols-4">
-            {gateAgenda.slice(0, 4).map(({ milestone, requirements }) => {
-              const counts = sxGateRequirementCounts(requirements);
-              return (
-                <article
-                  key={milestone.id}
-                  className="min-h-[116px] bg-[#fffdf7] p-3 text-left"
+          <div className="grid gap-px bg-[#d9cfde] sm:grid-cols-2">
+            {milestoneAgenda.map(({ milestone, successor, state }, index) => (
+              <button
+                key={milestone.id}
+                type="button"
+                onClick={() => {
+                  onSelectTask(null);
+                  onSelectMilestone(milestone.id);
+                }}
+                className="grid min-h-[88px] grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3 bg-[#fffdf7] p-3 text-left hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5f4a66]"
+              >
+                <span className="grid h-9 w-9 place-items-center border border-[#76637b] text-[11px] font-bold text-[#5f4a66]">
+                  {index + 1}
+                </span>
+                <span className="min-w-0">
+                  <b className="block text-[12px] text-[#24231f]">
+                    {milestone.gate || milestone.title}
+                  </b>
+                  <small className="mt-1 block text-[10px] text-[#69665d]">
+                    クリア後：{successor?.title || "接続先未登録"} ・{" "}
+                    {milestone.ownerLabel || "担当未確認"}
+                  </small>
+                </span>
+                <em
+                  className={`border px-2 py-1 text-[9px] font-bold not-italic ${state === "met" ? "border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]" : state === "unconfirmed" ? "border-[#e3c994] bg-[#fbf1dc] text-[#765022]" : "border-[#d8b0a8] bg-[#f9e4e1] text-[#8c3329]"}`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onSelectTask(null);
-                        onSelectMilestone(milestone.id);
-                      }}
-                      className="min-w-0 text-left hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5f4a66]"
-                    >
-                      <span className="block text-[9px] font-semibold text-[#76637b]">
-                        この条件を越えると
-                      </span>
-                      <b className="mt-0.5 block line-clamp-2 text-[11px] text-[#24231f]">
-                        {milestone.title}
-                      </b>
-                    </button>
-                    <em
-                      className={`shrink-0 border px-1.5 py-0.5 text-[9px] font-bold not-italic ${counts.met === counts.total ? "border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]" : "border-[#e3c994] bg-[#fbf1dc] text-[#765022]"}`}
-                    >
-                      {counts.met}/{counts.total}
-                    </em>
-                  </div>
-                  <div className="mt-2 divide-y divide-[#e4ddd0] border-t border-[#e4ddd0]">
-                    {requirements.map((requirement) => (
-                      <button
-                        key={requirement.dependency.id}
-                        type="button"
-                        onClick={() => {
-                          if (canManage)
-                            onEditMilestone(requirement.milestone.id);
-                          else {
-                            onSelectTask(null);
-                            onSelectMilestone(requirement.milestone.id);
-                          }
-                        }}
-                        className="flex min-h-11 w-full items-center gap-2 py-1.5 text-left hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5f4a66]"
-                      >
-                        <span
-                          className={`shrink-0 border px-1 py-0.5 text-[8px] font-bold ${requirement.state === "met" ? "border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]" : requirement.state === "unconfirmed" ? "border-[#e3c994] bg-[#fbf1dc] text-[#765022]" : "border-[#d8b0a8] bg-[#f9e4e1] text-[#8c3329]"}`}
-                        >
-                          {requirement.state === "met"
-                            ? "充足"
-                            : requirement.state === "unconfirmed"
-                              ? "未確認"
-                              : "未達"}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <b className="block truncate text-[10px] text-[#5f4a66]">
-                            {requirement.milestone.gate ||
-                              requirement.milestone.title}
-                          </b>
-                          <small className="block truncate text-[9px] text-[#69665d]">
-                            {requirement.milestone.ownerLabel || "担当未確認"}{" "}
-                            ・ {sxFormatDate(requirement.milestone.plannedEnd)}
-                          </small>
-                        </span>
-                        {canManage && (
-                          <Pencil
-                            className="h-3 w-3 shrink-0 text-[#315f7d]"
-                            aria-hidden="true"
-                          />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </article>
-              );
-            })}
+                  {state === "met"
+                    ? "充足"
+                    : state === "unconfirmed"
+                      ? "未確認"
+                      : "未達"}
+                </em>
+              </button>
+            ))}
           </div>
-          {gateAgenda.length > 4 && (
-            <p className="border-t border-[#d9cfde] px-3 py-1.5 text-[9px] text-[#69665d]">
-              ほか {gateAgenda.length - 4}
-              件。下の工程一覧から確認・編集できるよ。
-            </p>
-          )}
         </section>
       )}
       <div className="hidden lg:block">
@@ -748,7 +702,11 @@ export function SxUnifiedTimeline({
                             {row.title}
                           </b>
                           <i className="border border-[#c9bfd0] bg-[#f1edf3] px-1 text-[8px] not-italic text-[#5f4a66]">
-                            {row.entity === "milestone" ? "ゲート" : "タスク"}
+                            {row.isBlockingMilestone
+                              ? "マイルストーン"
+                              : row.entity === "milestone"
+                                ? "工程"
+                                : "タスク"}
                           </i>
                           <i className="border border-[#d6cebf] px-1 text-[8px] not-italic text-[#514e47]">
                             {ROW_STATE_TEXT[row.state]}
@@ -761,7 +719,7 @@ export function SxUnifiedTimeline({
                         {row.entity === "milestone" && (
                           <span className="mt-1 block text-[10px] font-semibold text-[#5f4a66]">
                             {row.requirements.length > 0
-                              ? `必須条件 ${counts.met}/${counts.total}｜${
+                              ? `前提 ${counts.met}/${counts.total}｜${
                                   row.requirements
                                     .filter((item) => item.state !== "met")
                                     .map(
@@ -771,24 +729,10 @@ export function SxUnifiedTimeline({
                                     )
                                     .join(" / ") || "すべて充足"
                                 }`
-                              : row.gate}
+                              : `到達点｜${row.gate}`}
                           </span>
                         )}
                       </button>
-                      {canManage && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            row.entity === "milestone"
-                              ? onEditMilestone(row.id)
-                              : onEditTask(row.id)
-                          }
-                          className="min-h-11 shrink-0 px-2 text-[10px] font-semibold text-[#315f7d] underline"
-                          aria-label={`${row.title}を編集`}
-                        >
-                          編集
-                        </button>
-                      )}
                     </div>
                   </article>
                 );
@@ -931,7 +875,11 @@ export function SxUnifiedTimeline({
                             <i
                               className={`shrink-0 border px-1 text-[8px] not-italic ${row.entity === "milestone" ? "border-[#c9bfd0] bg-[#f1edf3] text-[#5f4a66]" : "border-[#d6cebf] text-[#69665d]"}`}
                             >
-                              {row.entity === "milestone" ? "ゲート" : "タスク"}
+                              {row.isBlockingMilestone
+                                ? "マイルストーン"
+                                : row.entity === "milestone"
+                                  ? "工程"
+                                  : "タスク"}
                             </i>
                             {row.isCurrent && (
                               <i className="shrink-0 bg-[#38745d] px-1 text-[8px] not-italic text-white">
@@ -953,7 +901,7 @@ export function SxUnifiedTimeline({
                                     : "font-semibold text-[#765022]"
                                 }
                               >
-                                必須{" "}
+                                前提{" "}
                                 {sxGateRequirementCounts(row.requirements).met}/
                                 {row.requirements.length}
                               </span>
@@ -963,25 +911,10 @@ export function SxUnifiedTimeline({
                             <span className="mt-0.5 block truncate text-[9px] text-[#5f4a66]">
                               {nextRequirement
                                 ? `${nextRequirement.state === "unconfirmed" ? "未確認" : "未達"}｜${nextRequirement.milestone.gate || nextRequirement.milestone.title}`
-                                : row.gate}
+                                : `到達点｜${row.gate}`}
                             </span>
                           )}
                         </button>
-                        {canManage && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              row.entity === "milestone"
-                                ? onEditMilestone(row.id)
-                                : onEditTask(row.id)
-                            }
-                            className="mr-1 flex min-w-11 items-center justify-center gap-1 text-[10px] font-semibold text-[#315f7d] underline underline-offset-2"
-                            aria-label={`${row.title}を編集`}
-                          >
-                            <Pencil className="h-3 w-3" aria-hidden="true" />
-                            編集
-                          </button>
-                        )}
                       </div>
                     );
                   })}

@@ -686,17 +686,19 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "sx-partner-pipeline",
   "sxPartnerDisplay",
   "buildPartnerProgressSteps",
-  "sx-partner-stage-rail-",
+  "sx-partner-stage-scale-",
   "data-step-count={steps.length}",
   'data-stage-index={stageIndex ?? "on_hold"}',
-  "data-progress-segment",
+  "PARTNER_STAGE_SHORT_LABELS",
+  "sx-partner-stage-reference",
+  "grid-cols-7",
   "sxIsPocPartner",
   "sxPartnerHasContactRecord",
   "sxPartnerHasDataGap",
   "sxPartnerHasDueSoon",
   "sxPartnerHasOverdue",
   "sx-partner-filter-poc",
-  "PoC先",
+  "PoC候補先",
   'heading="表示"',
   'heading="役割"',
   "filterablePartners",
@@ -723,7 +725,7 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "履歴を追加",
   "保有事項を追加",
   "分類を追加",
-  "ゲート未接続",
+  "工程未接続",
   "全関係先",
   "対応中",
   "双方保有先",
@@ -740,12 +742,12 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "終了（対応中から除外",
   "aria-labelledby={nameHeadingId}",
   "aria-pressed",
-  // Round 29: one-row intervention chain and owner workload replace classification-only status rows.
+  // Round 31: one-row progress comparison and intervention columns replace the pill rail.
   "OwnerLoadBand",
   "sxPartnerPrimaryIntervention",
-  "関係先ごとの介入チェーン",
-  "詰まり → 次にやること → 担当 → 期限 → 止まるゲート → 根拠",
-  "関係先・現在地",
+  "関係先の進捗比較",
+  "全社共通の7段階で、現在地・停滞・次の行動を比較",
+  "進捗",
   "詰まり・PJ影響",
   "次にやること",
   "担当・期限",
@@ -785,6 +787,9 @@ expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "inline-flex h-6 w-6 items-center justify-center rounded-md border border-[#cfc7b9] text-[#514e47] hover:bg-[#f8f5ec]",
   // spec (2026-07-24): mask-imageのcontent-fadeは末尾指標そのものを薄くするため撤去済み。
   "mask-image",
+  // Round 31: partner progress must remain a ruled comparison scale, never the old pill rail.
+  "sx-partner-stage-rail-",
+  "data-progress-segment",
   // spec (2026-07-24 COO差し戻し4点目): ScrollHintArrowの薄い#a49d8cは#69665dへ統一済み、復活させない。
   "text-[#a49d8c]",
   // spec (2026-07-24 二車線化): 中央受け渡し欄・協力機関の進捗名称は撤去済み
@@ -1020,19 +1025,22 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "工程 / タスク",
   "RowBar",
   "min-w-[1080px]",
-  // Round 20/24/29: 行クリックは横インスペクタ、管理者は図から工程/タスクを直接追加・編集できる。
-  "onEditMilestone",
+  // Round 20/24/31: 行クリックは横インスペクタ、値クリックは直接編集。ブロッキング
+  // マイルストーンは有償PoC口頭合意と出資口頭合意の2件だけに限定する。
   "onCreateMilestone",
-  "onEditTask",
   "onCreateTask",
   "selectedTaskId",
   "expandedMilestones",
   "expandedTasks",
   "すべて展開",
   "canManage",
-  "次へ進むための必須ゲート",
+  "milestoneAgenda",
+  "sxIsBlockingMilestone",
+  "sxGateRequirementState",
+  "マイルストーン",
+  "クリア後：",
   "sxGateRequirementsBySuccessor",
-  "必須条件",
+  "前提",
   // Round 24/29: 計画の薄いバーと登録済み実績の濃い塗りを分け、未登録は0%と表示しない。
   "row.progressRegistered && row.progressPct > 0",
   '実績{" "}',
@@ -1049,6 +1057,8 @@ expectNotIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "strokeDasharray",
   "予定→見込みの差",
   "完了見込み日",
+  "次へ進むための必須ゲート",
+  "必須条件",
 ]);
 expectIncludes("src/lib/sx-executive-control-deck.ts", [
   // Provisional dates / missing dates must never resolve to a false-green current/future state.
@@ -2765,8 +2775,8 @@ expectNotIncludes(
   ["management-poc", "PoC候補先リスト", "SxPocCandidateList"],
 );
 
-// Round 28 (2026-07-30): PoCは同じ台帳の横断属性を保ったまま、比較時だけ共通7段階を主軸にする。
-// role未登録を進捗の「未分類」と見せず、進み具合と期限上の要対応を独立して並べ替える。
+// Round 28/31 (2026-08-01): PoCは同じ台帳に含めつつ、初期表示では全PoC候補を
+// 共通7段階の目盛りで比較する。role未登録を進捗の「未分類」と見せない。
 expectIncludes("src/lib/sx-partner-progress.ts", [
   "SX_PARTNER_STAGE_ORDER",
   '"candidate"',
@@ -2795,7 +2805,8 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "判定材料不足",
   "情報更新要",
   "接点記録あり",
-  "関係先ごとの介入チェーン",
+  "関係先の進捗比較",
+  "const [pocOnly, setPocOnly] = useState(true)",
   "showRoleFilter={!pocOnly}",
   "pocComparisonPartners.map",
   "sxCompactPartnerRowText",

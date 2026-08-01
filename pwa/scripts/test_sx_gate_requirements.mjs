@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   sxGateRequirementCounts,
+  sxGateRequirementState,
   sxGateRequirementsBySuccessor,
 } from "../src/lib/sx-gate-requirements.ts";
 
@@ -49,7 +50,7 @@ const dependencies = [
     id: "d3",
     predecessorMilestoneId: "optional",
     successorMilestoneId: "newco",
-    required: false,
+    required: true,
   },
   {
     id: "d4",
@@ -64,7 +65,7 @@ const requirements =
 assert.equal(
   requirements.length,
   2,
-  "only resolvable required dependencies should become gate requirements",
+  "only the two explicit blocking milestones should become requirements",
 );
 assert.equal(
   requirements.find((item) => item.milestone.id === "paid-poc")?.state,
@@ -77,14 +78,9 @@ assert.equal(
   "oral agreement without the four required evidence fields must not be treated as met",
 );
 assert.equal(
-  sxGateRequirementsBySuccessor(milestones, [
-    {
-      id: "d5",
-      predecessorMilestoneId: "newco",
-      successorMilestoneId: "paid-poc",
-      required: true,
-    },
-  ]).get("paid-poc")?.[0]?.state,
+  sxGateRequirementState(
+    milestones.find((milestone) => milestone.id === "newco"),
+  ),
   "unconfirmed",
   "unassessed prerequisite must be shown as unconfirmed, not unmet",
 );

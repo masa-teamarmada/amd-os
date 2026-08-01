@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowRight,
   CalendarClock,
@@ -14,7 +14,6 @@ import {
   FlaskConical,
   GitBranch,
   Mail,
-  Pencil,
   Plus,
   RefreshCw,
   Search,
@@ -738,7 +737,7 @@ function editorDefinition(
           required: true,
           span: true,
         },
-        { key: "gate", label: "成果ゲート", required: true },
+        { key: "gate", label: "到達点", required: true },
         { key: "owner_label", label: "担当", required: true },
         { key: "planned_start", label: "計画開始", type: "date" },
         { key: "planned_end", label: "計画完了", type: "date" },
@@ -796,7 +795,7 @@ function editorDefinition(
           required: true,
           span: true,
         },
-        { key: "gate", label: "成果ゲート", required: true },
+        { key: "gate", label: "到達点", required: true },
         planStatus,
         { key: "owner_label", label: "担当", required: true },
         { key: "planned_start", label: "計画開始", type: "date" },
@@ -909,7 +908,7 @@ function editorDefinition(
         editor.kind === "create_dependency"
           ? "必須条件を追加"
           : "必須条件を編集",
-      eyebrow: "進行ゲート",
+      eyebrow: "設立前提",
       resource: "dependency",
       method: editor.kind === "create_dependency" ? "POST" : "PATCH",
       id: editor.kind === "edit_dependency" ? editor.dependency.id : undefined,
@@ -952,7 +951,7 @@ function editorDefinition(
           options: [
             { value: "finish_to_start", label: "前工程の完了後に進む" },
           ],
-          help: "週次管制の必須ゲートは「前工程の完了＋証跡」を充足条件にするよ。",
+          help: "設立前提は「口頭合意の確認＋証跡」を充足条件にするよ。",
         },
         {
           key: "required",
@@ -1196,7 +1195,7 @@ function editorDefinition(
         },
         {
           key: "related_milestone_id",
-          label: "止める先のゲート",
+          label: "影響する工程",
           type: "select",
           span: true,
           options: [
@@ -1340,7 +1339,7 @@ function editorDefinition(
         },
         {
           key: "milestone_id",
-          label: "関連ゲート",
+          label: "関連工程",
           type: "select",
           options: [
             { value: "", label: "未接続" },
@@ -2089,13 +2088,6 @@ function IssueCard({
           <div className={styles.issueHeadActions}>
             <button
               type="button"
-              onClick={() => onEdit({ kind: "edit_issue", issue })}
-            >
-              <Pencil aria-hidden="true" />
-              論点を編集
-            </button>
-            <button
-              type="button"
               onClick={() => onEdit({ kind: "create_hypothesis", issue })}
             >
               <Plus aria-hidden="true" />
@@ -2105,7 +2097,20 @@ function IssueCard({
         )}
       </div>
       <p className={styles.issueType}>{issueKindLabel(issue.knowledgeType)}</p>
-      <h3>{issue.title}</h3>
+      <h3>
+        {canManage ? (
+          <button
+            type="button"
+            className="w-full border-b border-dashed border-[#aaa294] text-left hover:border-[#38745d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+            onClick={() => onEdit({ kind: "edit_issue", issue })}
+            aria-label={`${issue.title}を直接修正`}
+          >
+            {issue.title}
+          </button>
+        ) : (
+          issue.title
+        )}
+      </h3>
       <dl className={styles.cardMeta}>
         <div>
           <dt>担当</dt>
@@ -2171,7 +2176,15 @@ function IssueCard({
             ) : (
               issue.hypotheses.map((hypothesis) => (
                 <div className={styles.hypothesisRow} key={hypothesis.id}>
-                  <div>
+                  <button
+                    type="button"
+                    disabled={!canManage}
+                    onClick={() =>
+                      onEdit({ kind: "edit_hypothesis", issue, hypothesis })
+                    }
+                    className="min-w-0 flex-1 text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                    aria-label={`${hypothesis.statement}を直接修正`}
+                  >
                     <span
                       className={`${styles.statusBadge} ${statusTone(hypothesis.status)}`}
                     >
@@ -2183,7 +2196,7 @@ function IssueCard({
                       {formatDate(hypothesis.dueDate)} · 確度{" "}
                       {confidenceLabel(hypothesis.confidence)}
                     </small>
-                  </div>
+                  </button>
                   {canManage && (
                     <div className={styles.rowActions}>
                       <button
@@ -2197,14 +2210,6 @@ function IssueCard({
                         }
                       >
                         検証
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onEdit({ kind: "edit_hypothesis", issue, hypothesis })
-                        }
-                      >
-                        編集
                       </button>
                     </div>
                   )}
@@ -2264,33 +2269,33 @@ function IssueCard({
                           ? "保留"
                           : "判断待ち"}
                     </span>
-                    {canManage && (
+                    {canManage && decision.status === "decided" && (
                       <span className={styles.inlineActions}>
                         <button
                           type="button"
                           onClick={() =>
-                            onEdit({ kind: "edit_decision", issue, decision })
+                            onEdit({ kind: "create_action", issue, decision })
                           }
                         >
-                          編集
+                          次の行動
                         </button>
-                        {decision.status === "decided" && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              onEdit({ kind: "create_action", issue, decision })
-                            }
-                          >
-                            次の行動
-                          </button>
-                        )}
                       </span>
                     )}
                   </div>
-                  <b>{decision.title}</b>
-                  {decision.decisionText && (
-                    <small>{decision.decisionText}</small>
-                  )}
+                  <button
+                    type="button"
+                    disabled={!canManage}
+                    onClick={() =>
+                      onEdit({ kind: "edit_decision", issue, decision })
+                    }
+                    className="block w-full border-b border-dashed border-[#aaa294] text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                    aria-label={`${decision.title}を直接修正`}
+                  >
+                    <b>{decision.title}</b>
+                    {decision.decisionText && (
+                      <small>{decision.decisionText}</small>
+                    )}
+                  </button>
                 </div>
               ))}
               {issue.actionItems.map((action) => {
@@ -2300,7 +2305,21 @@ function IssueCard({
                 return (
                   <div className={styles.actionLine} key={action.id}>
                     <ArrowRight aria-hidden="true" />
-                    <span>
+                    <button
+                      type="button"
+                      disabled={!canManage || !decision}
+                      onClick={() =>
+                        decision &&
+                        onEdit({
+                          kind: "edit_action",
+                          issue,
+                          decision,
+                          action,
+                        })
+                      }
+                      className="min-w-0 flex-1 border-b border-dashed border-[#aaa294] text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                      aria-label={`${action.title}を直接修正`}
+                    >
                       <b>{action.title}</b>
                       <small>
                         {action.status === "completed"
@@ -2309,22 +2328,7 @@ function IssueCard({
                         · {formatDate(action.dueDate)} · 次回{" "}
                         {formatDate(action.nextReviewOn)}
                       </small>
-                    </span>
-                    {canManage && decision && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onEdit({
-                            kind: "edit_action",
-                            issue,
-                            decision,
-                            action,
-                          })
-                        }
-                      >
-                        編集
-                      </button>
-                    )}
+                    </button>
                   </div>
                 );
               })}
@@ -2355,7 +2359,6 @@ function PlanInspector({
   onClose,
   onEdit,
   onAddChild,
-  onAddRequirement,
   onEditRequirementMilestone,
   onEditRequirement,
 }: {
@@ -2366,7 +2369,6 @@ function PlanInspector({
   onClose: () => void;
   onEdit: () => void;
   onAddChild: () => void;
-  onAddRequirement: () => void;
   onEditRequirementMilestone: (milestone: SxManagementMilestone) => void;
   onEditRequirement: (dependency: SxDependency) => void;
 }) {
@@ -2385,6 +2387,20 @@ function PlanInspector({
   const metRequirements = requirements.filter(
     (requirement) => requirement.state === "met",
   ).length;
+  const showRequirements = !isTask && requirements.length > 0;
+  const directValue = (label: string, value: ReactNode) =>
+    canManage ? (
+      <button
+        type="button"
+        className={styles.inspectorEditable}
+        onClick={onEdit}
+        aria-label={`${label}を直接修正`}
+      >
+        {value}
+      </button>
+    ) : (
+      value
+    );
   return (
     <aside
       className={styles.planInspector}
@@ -2395,7 +2411,7 @@ function PlanInspector({
       <header>
         <div>
           <p>{isTask ? "タスク詳細" : "工程詳細"}</p>
-          <h3>{item.title}</h3>
+          <h3>{directValue("名称", item.title)}</h3>
         </div>
         <button type="button" onClick={onClose} aria-label="詳細を閉じる">
           <X aria-hidden="true" />
@@ -2421,35 +2437,46 @@ function PlanInspector({
       <dl className={styles.inspectorFacts}>
         <div>
           <dt>担当</dt>
-          <dd>{item.ownerLabel || "担当未設定"}</dd>
+          <dd>{directValue("担当", item.ownerLabel || "担当未設定")}</dd>
         </div>
         <div>
           <dt>状態</dt>
           <dd>
-            {isTask
-              ? ROW_PLAN_STATUS[task!.status]
-              : ROW_PLAN_STATUS[milestone!.manualStatus]}
+            {directValue(
+              "状態",
+              isTask
+                ? ROW_PLAN_STATUS[task!.status]
+                : ROW_PLAN_STATUS[milestone!.manualStatus],
+            )}
           </dd>
         </div>
         <div>
           <dt>計画</dt>
           <dd>
-            {formatDate(plannedStart)} → {formatDate(plannedEnd)}
+            {directValue(
+              "計画期間",
+              <>
+                {formatDate(plannedStart)} → {formatDate(plannedEnd)}
+              </>,
+            )}
           </dd>
         </div>
         <div>
           <dt>進捗</dt>
           <dd data-missing={!progressRegistered || undefined}>
-            {progressRegistered ? `${item.progressPct}%` : "未登録"}
+            {directValue(
+              "進捗",
+              progressRegistered ? `${item.progressPct}%` : "未登録",
+            )}
           </dd>
         </div>
         <div>
           <dt>実績完了</dt>
-          <dd>{formatDate(item.actualEnd)}</dd>
+          <dd>{directValue("実績完了", formatDate(item.actualEnd))}</dd>
         </div>
-        {!isTask && (
+        {showRequirements && (
           <div>
-            <dt>必須条件</dt>
+            <dt>設立前提</dt>
             <dd>
               {requirements.length > 0
                 ? `${metRequirements}/${requirements.length}件を充足`
@@ -2458,99 +2485,82 @@ function PlanInspector({
           </div>
         )}
       </dl>
-      {!isTask && (
+      {showRequirements && (
         <section>
-          <span>先へ進むための必須条件</span>
-          {requirements.length > 0 ? (
-            <ul className="mt-2 divide-y divide-[#e4ddd0] border-y border-[#e4ddd0]">
-              {requirements.map((requirement) => (
-                <li
-                  key={requirement.dependency.id}
-                  className="flex items-start gap-2 py-2 text-[11px]"
+          <span>NewCo設立前にクリアする条件</span>
+          <ul className="mt-2 divide-y divide-[#e4ddd0] border-y border-[#e4ddd0]">
+            {requirements.map((requirement) => (
+              <li
+                key={requirement.dependency.id}
+                className="flex items-start gap-2 py-2 text-[11px]"
+              >
+                <span
+                  className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center border ${requirement.state === "met" ? "border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]" : requirement.state === "unconfirmed" ? "border-[#e3c994] bg-[#fbf1dc] text-[#765022]" : "border-[#d6cebf] bg-white text-[#69665d]"}`}
                 >
-                  <span
-                    className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center border ${requirement.state === "met" ? "border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]" : requirement.state === "unconfirmed" ? "border-[#e3c994] bg-[#fbf1dc] text-[#765022]" : "border-[#d6cebf] bg-white text-[#69665d]"}`}
-                  >
-                    {requirement.state === "met" ? (
-                      <Check className="h-3 w-3" aria-hidden="true" />
-                    ) : (
-                      "!"
-                    )}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <b className="block text-[#24231f]">
-                      {requirement.milestone.gate ||
-                        requirement.milestone.title}
-                    </b>
-                    <small className="mt-0.5 block text-[#69665d]">
-                      {requirement.state === "met"
-                        ? "証跡あり・確認済み"
-                        : requirement.state === "unconfirmed"
-                          ? requirement.milestone.manualStatus === "completed"
-                            ? "完了申告・証跡未確認"
-                            : "達成事実 未確認"
-                          : "未達"}{" "}
-                      ・ {requirement.milestone.ownerLabel || "担当未確認"} ・{" "}
-                      {formatDate(requirement.milestone.plannedEnd)}
-                    </small>
-                  </span>
-                  {canManage && (
-                    <span className="flex shrink-0 flex-col gap-1">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onEditRequirementMilestone(requirement.milestone)
-                        }
-                        className="min-h-11 px-2 text-[10px] font-semibold text-[#315f7d] underline"
-                      >
-                        状態・担当・証跡
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onEditRequirement(requirement.dependency)
-                        }
-                        className="min-h-11 px-2 text-[10px] font-semibold text-[#5f4a66] underline"
-                      >
-                        接続条件
-                      </button>
-                    </span>
+                  {requirement.state === "met" ? (
+                    <Check className="h-3 w-3" aria-hidden="true" />
+                  ) : (
+                    "!"
                   )}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>必須条件はまだ登録されていない</p>
-          )}
-          {canManage && (
-            <button
-              type="button"
-              onClick={onAddRequirement}
-              className="mt-2 inline-flex min-h-11 items-center gap-1 border border-[#c9bfd0] px-3 text-[10px] font-semibold text-[#5f4a66]"
-            >
-              <Plus className="h-3 w-3" aria-hidden="true" />
-              必須条件を追加
-            </button>
-          )}
+                </span>
+                <button
+                  type="button"
+                  disabled={!canManage}
+                  onClick={() =>
+                    onEditRequirementMilestone(requirement.milestone)
+                  }
+                  className="min-h-11 min-w-0 flex-1 text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                  aria-label={`${requirement.milestone.gate || requirement.milestone.title}の状態・担当・証跡を直接修正`}
+                >
+                  <b className="block text-[#24231f]">
+                    {requirement.milestone.gate || requirement.milestone.title}
+                  </b>
+                  <small className="mt-0.5 block text-[#69665d]">
+                    {requirement.state === "met"
+                      ? "証跡あり・確認済み"
+                      : requirement.state === "unconfirmed"
+                        ? requirement.milestone.manualStatus === "completed"
+                          ? "完了申告・証跡未確認"
+                          : "達成事実 未確認"
+                        : "未達"}{" "}
+                    ・ {requirement.milestone.ownerLabel || "担当未確認"} ・{" "}
+                    {formatDate(requirement.milestone.plannedEnd)}
+                  </small>
+                </button>
+                <button
+                  type="button"
+                  disabled={!canManage}
+                  onClick={() => onEditRequirement(requirement.dependency)}
+                  className="min-h-11 shrink-0 border-l border-dashed border-[#aaa294] px-2 text-[10px] font-semibold text-[#5f4a66] disabled:cursor-default hover:border-[#38745d] hover:bg-[#e8f2eb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                  aria-label="接続先と必須条件を直接修正"
+                >
+                  {requirement.dependency.required ? "必須" : "任意"}
+                  <small className="block font-normal text-[#69665d]">
+                    完了後に接続
+                    {requirement.dependency.lagDays > 0
+                      ? `・${requirement.dependency.lagDays}日後`
+                      : ""}
+                  </small>
+                </button>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
       <section>
-        <span>内容 / ゲート</span>
-        <p>{description}</p>
+        <span>内容 / 到達点</span>
+        <p>{directValue("内容と到達点", description)}</p>
       </section>
       <section>
         <span>詰まり</span>
-        <p>{blocker}</p>
+        <p>{directValue("詰まり", blocker)}</p>
       </section>
       <section>
         <span>完了条件</span>
-        <p>{criteria}</p>
+        <p>{directValue("完了条件", criteria)}</p>
       </section>
       {canManage && (
         <footer>
-          <button type="button" onClick={onEdit}>
-            編集
-          </button>
           <button type="button" onClick={onAddChild}>
             <Plus aria-hidden="true" />
             {isTask ? "子タスクを追加" : "タスクを追加"}
@@ -2937,23 +2947,12 @@ export function SxWeeklyControlDashboard({
                   if (id) setSelectedMilestoneId(null);
                 }}
                 canManage={management.canManage}
-                onEditMilestone={(id) => {
-                  const milestone = management.milestones.find(
-                    (item) => item.id === id,
-                  );
-                  if (milestone)
-                    setEditor({ kind: "edit_milestone", milestone });
-                }}
                 onCreateMilestone={(track) =>
                   setEditor({
                     kind: "create_milestone",
                     track: track as SxTrackKey | null,
                   })
                 }
-                onEditTask={(id) => {
-                  const task = management.tasks.find((item) => item.id === id);
-                  if (task) setEditor({ kind: "edit_task", task });
-                }}
                 onCreateTask={(milestoneId, parentTaskId) => {
                   const milestone = management.milestones.find(
                     (item) => item.id === milestoneId,
@@ -2994,13 +2993,6 @@ export function SxWeeklyControlDashboard({
                     kind: "create_task",
                     milestone,
                     parentTask: selectedTask,
-                  });
-              }}
-              onAddRequirement={() => {
-                if (selectedPlanMilestone)
-                  setEditor({
-                    kind: "create_dependency",
-                    successor: selectedPlanMilestone,
                   });
               }}
               onEditRequirementMilestone={(milestone) =>
