@@ -24,6 +24,20 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - safe DTO: 共有面はPJ名、表示名、役割、週次時間、5区分、MS、抽出済み活動の件数・種別・最終日だけ。raw本文、URL、email、報酬、契約、内部戦略を含めない。
 - effort write: `project_weekly_effort_entries` はPJ / member / week / categoryで一意。PJ限定ユーザーは自分だけ、portfolio/adminはactive PJ memberを更新できる。
 - admin onboarding: `/admin/members` でPJ限定Googleアカウントを事前登録し、既存のPJメンバー編集で対象PJへ紐付ける。作成時は支払通知対象外。
+
+## /portfolio-preview — 研究ポートフォリオ構造プレビュー
+
+目的: 研究機関リストとシーズリストをOSの主たる母集団に置き、PJを両者から契約成立後に生まれる実行レイヤーとして見せる新IAを、現行OSを置き換えずに実データで検証する。
+
+必須機能:
+
+- 別URL隔離: `/portfolio-preview` は現行 `/dashboard`、GlobalNav、`/institutions`、`/seeds`、各コックピットへ組み込まない。プレビュー内の仮設ナビだけでホーム / 研究機関 / シーズ / PJ運用を切り替え、「現行OSへ戻る」で `/dashboard` へ戻す。
+- 読み取り専用: `fetchErsBundle()`、`fetchAllResearchInstitutionSeeds()`、`fetchProjectsFromSupabase()` の実データだけを読み、DB write、評価再計算、migrationを行わない。
+- 母集団優先: 研究機関とシーズはPJ化後も元リストに残し、PJ化済み → PJ化検討中 → 評価済み → その他の既存優先順位を維持する。PJ運用一覧は `institution_projects` / `seed_projects` の関係から由来を表示する。
+- 未確認保護: 関係表に無いPJを名称から推定せず「由来要確認」と表示する。AMD全体 `p00` は研究ポートフォリオPJ件数から外す。
+- スコア分離: ECRは研究機関環境、SPSは個別シーズとして別集計・別表示し、単一スコアへ合算しない。
+- 内部限定: `getCurrentMemberAccess()` が `portfolio` scopeかつCalendar接続済みの場合だけ表示する。PJ限定ユーザーは各自のホームへ戻す。
+- 回帰テスト: `npm run test:portfolio-preview-contract` でroute隔離、内部認証、読み取り専用、3ドメイン、ECR/SPS分離を検査する。
 - responsive nav: desktopはPJ専用sidebar、mobile/tabletは本文幅を奪わないbottom nav。入力controlは44px以上。
 
 回帰防止:

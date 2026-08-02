@@ -79,8 +79,8 @@ assert.match(ddl209, /'migration_209_from_amd_score_inputs'/);
 assert.match(ddl209, /status = 'ready'/);
 assert.doesNotMatch(ddl209.replace(/--.*$/gm, ""), /(?:INSERT INTO|UPDATE|DELETE FROM)\s+public\.institution_assessments/i);
 
-// 8. ECR比較は1機関=1行で、8軸を列にする。descriptionは一覧に表示しない。
-assert.match(institutionsPage, /evaluated\.map\(\(\{ institution, result, lifecycle, latestEvaluatedAt \}\) =>/);
+// 8. ECR比較は評価軸を行、研究機関を列にする。descriptionは一覧に表示しない。
+assert.match(institutionsPage, /evaluated\.map\(\(\{ institution, lifecycle, result, latestEvaluatedAt \}\) =>/);
 assert.match(institutionsPage, /sortedAxes\.map\(\(axis\) =>/);
 assert.doesNotMatch(institutionsPage, /institution\.description/);
 assert.match(institutionsPage, /PJ化済み/);

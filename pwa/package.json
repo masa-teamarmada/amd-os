@@ -33,6 +33,7 @@
     "test:proactive-meeting-due": "node --experimental-strip-types scripts/check_proactive_meeting_action_due.mts",
     "test:kute-seeds-scope": "node --experimental-strip-types scripts/check_kute_seeds_scope.mts",
     "test:institution-seed-project-domains": "node --experimental-strip-types scripts/check_institution_seed_project_domains.mts",
+    "test:portfolio-preview-contract": "node scripts/check_portfolio_preview_contract.mjs",
     "test:seed-sps-score": "node --experimental-strip-types scripts/check_seed_sps_score.mts",
     "test:institution-soil-seeds": "node --experimental-strip-types scripts/check_institution_soil_seeds.mts",
     "test:monthly-agreement-diff": "node --experimental-strip-types scripts/check_monthly_agreement_diff.mts",

@@ -100,6 +100,12 @@ pwa/
 | `/auth/callback` | OAuth callback |
 | `/hud/dashboard/embed` | STAPA投影資料など外部プレゼン用の公開HUD埋め込みroute。通常の `/hud/dashboard` は認証必須のまま、embed routeのみ `frame-ancestors 'self' http://127.0.0.1:8766 http://localhost:8766` を許可する。 |
 
+### 独立プレビューroute (AMD内部認証必須)
+
+| パス | 機能 |
+|---|---|
+| `/portfolio-preview` | 研究機関・シーズを契約前後を通じて育てる母集団、PJを両者から契約後に生まれる運用レイヤーとして再構成した仮設IA。実データを読み取り専用で表示し、研究機関はECR、シーズはSPSを別系列のまま扱う。`institution_projects` / `seed_projects` からPJの由来を表示し、関係未登録PJは推測せず「由来要確認」にする。AMD内部の `portfolio` scopeとCalendar接続を必須とし、PJ限定ユーザーは入れない。現行 `/dashboard`、GlobalNav、各一覧・コックピットは変更せず、プレビュー内だけで4画面を切り替える |
+
 ### `(app)/` 配下 (auth 必須、middleware が gate)
 
 | パス | 機能 |
