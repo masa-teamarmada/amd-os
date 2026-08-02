@@ -1,7 +1,10 @@
 "use client";
 
 import { AlertTriangle, ChevronDown } from "lucide-react";
-import type { SxProjectOwnerLoad } from "@/lib/sx-project-owner-load";
+import type {
+  SxProjectOwnerLoad,
+  SxProjectWorkUnit,
+} from "@/lib/sx-project-owner-load";
 import { sxFormatDate } from "./sx-visual-shared";
 
 function metricTone(value: number, danger = false) {
@@ -13,8 +16,10 @@ function metricTone(value: number, danger = false) {
 
 export function SxProjectOwnerWorkload({
   loads,
+  onSelectItem,
 }: {
   loads: SxProjectOwnerLoad[];
+  onSelectItem?: (item: SxProjectWorkUnit) => void;
 }) {
   if (loads.length === 0) return null;
   const totals = loads.reduce(
@@ -106,29 +111,36 @@ export function SxProjectOwnerWorkload({
               )}
               <ul className="max-h-72 divide-y divide-[#eee9df] overflow-y-auto border-y border-[#eee9df]">
                 {load.items.map((item) => (
-                  <li
-                    key={`${item.kind}:${item.id}`}
-                    className="grid grid-cols-[110px_minmax(160px,1fr)_120px_minmax(140px,0.8fr)] gap-2 py-2 text-[10px] max-md:grid-cols-1 max-md:gap-0.5"
-                  >
-                    <span className="font-semibold text-[#5f4a66]">
-                      {item.kindLabel}
-                    </span>
-                    <b className="text-[#24231f]">{item.title}</b>
-                    <span
-                      className={
-                        item.blocked
-                          ? "font-semibold text-[#8c3329]"
-                          : "text-[#69665d]"
-                      }
+                  <li key={`${item.kind}:${item.id}`}>
+                    <button
+                      type="button"
+                      disabled={!onSelectItem}
+                      onClick={() => onSelectItem?.(item)}
+                      className="grid min-h-11 w-full grid-cols-[110px_minmax(160px,1fr)_120px_minmax(140px,0.8fr)] items-start gap-2 py-2 text-left text-[10px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] enabled:hover:bg-[#f8f5ec] max-md:grid-cols-1 max-md:gap-0.5"
+                      aria-label={`${item.title}の元項目へ移動`}
                     >
-                      {item.blocked ? "停止・" : ""}
-                      {item.dueDate ? sxFormatDate(item.dueDate) : "期限未設定"}
-                    </span>
-                    <span className="text-[#69665d]">
-                      {item.impactedGates.length > 0
-                        ? `影響：${item.impactedGates.join(" / ")}`
-                        : "影響工程 未接続"}
-                    </span>
+                      <span className="font-semibold text-[#5f4a66]">
+                        {item.kindLabel}
+                      </span>
+                      <b className="text-[#24231f]">{item.title}</b>
+                      <span
+                        className={
+                          item.blocked
+                            ? "font-semibold text-[#8c3329]"
+                            : "text-[#69665d]"
+                        }
+                      >
+                        {item.blocked ? "停止・" : ""}
+                        {item.dueDate
+                          ? sxFormatDate(item.dueDate)
+                          : "期限未設定"}
+                      </span>
+                      <span className="text-[#69665d]">
+                        {item.impactedGates.length > 0
+                          ? `影響：${item.impactedGates.join(" / ")}`
+                          : "影響工程 未接続"}
+                      </span>
+                    </button>
                   </li>
                 ))}
               </ul>

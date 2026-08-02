@@ -1,10 +1,48 @@
-import type { SxDependency, SxManagementMilestone } from "./sx-management";
+import type {
+  SxDependency,
+  SxManagementMilestone,
+  SxTask,
+} from "./sx-management";
 
 export type SxGateRequirement = {
   dependency: SxDependency;
   milestone: SxManagementMilestone;
   state: "met" | "unmet" | "unconfirmed";
 };
+
+export type SxMilestoneRequiredTaskSummary = {
+  total: number;
+  completed: number;
+  nextIncomplete: SxTask | null;
+  allComplete: boolean;
+};
+
+/** All tasks directly under a milestone, in display order. Used to judge whether the
+ * founding-prerequisite milestones' required task chain is fully done — a milestone with
+ * zero tasks registered is never "all complete" by omission. */
+export function sxMilestoneRequiredTaskSummary(
+  milestoneId: string,
+  tasks: SxTask[],
+): SxMilestoneRequiredTaskSummary {
+  const children = tasks
+    .filter((task) => task.milestoneId === milestoneId)
+    .sort(
+      (left, right) =>
+        left.sortOrder - right.sortOrder ||
+        left.title.localeCompare(right.title, "ja"),
+    );
+  const completed = children.filter(
+    (task) => task.status === "completed",
+  ).length;
+  const nextIncomplete =
+    children.find((task) => task.status !== "completed") || null;
+  return {
+    total: children.length,
+    completed,
+    nextIncomplete,
+    allComplete: children.length > 0 && completed === children.length,
+  };
+}
 
 export const SX_BLOCKING_MILESTONE_SLUGS = [
   "business-paid-poc-oral-agreement",
@@ -42,20 +80,30 @@ export function sxOralAgreementEvidenceReady(
 
 export function sxGateRequirementState(
   milestone: SxManagementMilestone,
+  tasks: SxTask[] = [],
 ): SxGateRequirement["state"] {
   if (milestone.manualStatus === "unassessed") return "unconfirmed";
   if (milestone.manualStatus !== "completed") return "unmet";
-  return sxOralAgreementEvidenceReady(
+  const evidenceReady = sxOralAgreementEvidenceReady(
     milestone.slug,
     milestone.completionEvidence,
-  )
-    ? "met"
-    : "unconfirmed";
+  );
+  if (!evidenceReady) return "unconfirmed";
+  // The four-item oral-agreement evidence alone is not sufficient for the two
+  // founding-prerequisite milestones — every required task under them must also
+  // be completed, so the milestone can't be marked achieved by evidence text alone.
+  if (sxIsBlockingMilestone(milestone)) {
+    return sxMilestoneRequiredTaskSummary(milestone.id, tasks).allComplete
+      ? "met"
+      : "unmet";
+  }
+  return "met";
 }
 
 export function sxGateRequirementsBySuccessor(
   milestones: SxManagementMilestone[],
   dependencies: SxDependency[],
+  tasks: SxTask[] = [],
 ): Map<string, SxGateRequirement[]> {
   const milestoneById = new Map(
     milestones.map((milestone) => [milestone.id, milestone]),
@@ -68,7 +116,7 @@ export function sxGateRequirementsBySuccessor(
     const requirement = {
       dependency,
       milestone,
-      state: sxGateRequirementState(milestone),
+      state: sxGateRequirementState(milestone, tasks),
     };
     result.set(dependency.successorMilestoneId, [
       ...(result.get(dependency.successorMilestoneId) || []),

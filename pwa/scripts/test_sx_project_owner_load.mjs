@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import { sxProjectOwnerLoads } from "../src/lib/sx-project-owner-load.ts";
+import {
+  sxProjectOwnerLoads,
+  sxProjectWorkUnitIsDueSoon,
+  sxProjectWorkUnitIsOverdue,
+} from "../src/lib/sx-project-owner-load.ts";
 
 const management = {
   asOf: "2026-08-01",
@@ -56,5 +60,21 @@ assert.equal(ishihara.blockedCount, 1);
 assert.equal(ishihara.overdueCount, 1);
 assert.equal(ishihara.dueUnsetCount, 1);
 assert.deepEqual(ishihara.impactedGates, ["NewCo設立", "有償PoCの口頭合意"]);
+
+// Round 32 (2026-08-02): every unit must carry a single navigation target so the PJ全体管制入口
+// can jump back to the source edit context (gantt row for milestone/task, issue card otherwise).
+const allUnits = loads.flatMap((load) => load.items);
+const milestoneUnit = allUnits.find((item) => item.kind === "milestone");
+assert.equal(milestoneUnit.navMilestoneId, "paid-poc");
+assert.equal(milestoneUnit.navTaskId, null);
+const taskUnit = allUnits.find((item) => item.kind === "task");
+assert.equal(taskUnit.navTaskId, "task-1");
+assert.equal(taskUnit.navMilestoneId, "paid-poc");
+assert.equal(
+  sxProjectWorkUnitIsOverdue(taskUnit, "2026-08-01"),
+  true,
+  "task due 2026-07-31 is overdue as of 2026-08-01",
+);
+assert.equal(sxProjectWorkUnitIsDueSoon(taskUnit, "2026-08-01"), false);
 
 console.log("sx project owner load tests passed");

@@ -116,8 +116,38 @@ expectIncludes(
     "edit_action",
     "sxWeeklyIssueNextMove",
     "sxWeeklyWeekRangeLabel",
+    // Round 32 (2026-08-02): 冒頭をPJ全体の管制入口へ再構成。工程・タスク・論点・仮説・検証・
+    // 判断・action・関係先保有事項を同じ未完了作業単位（sxProjectOwnerLoadsの共通母集団）にした
+    // 6バケット（停止/期限超過/7日以内/担当不明/期限なし/判断待ち）。クリックで元項目一覧へ絞り込み、
+    // 項目クリックで必ず元の編集文脈（ガント該当行・詳細／論点カード・詳細／関係先該当行）へ移動する。
+    "WORKLOAD_BUCKETS",
+    "workloadBuckets",
+    "workloadFilter",
+    "navigateToWorkUnit",
+    "styles.workloadBand",
+    "styles.workloadDrawer",
+    "onSelectItem={navigateToWorkUnit}",
+    "sxProjectWorkUnitIsOverdue",
+    "sxProjectWorkUnitIsDueSoon",
   ],
 );
+expectNotIncludes(
+  "src/components/project-workspace/SxWeeklyControlDashboard.tsx",
+  ["styles.statusBand", "今週入力"],
+);
+expectIncludes("src/lib/sx-project-owner-load.ts", [
+  "navMilestoneId",
+  "navTaskId",
+  "navIssueId",
+  "navPartnerId",
+  "sxProjectWorkUnitIsOverdue",
+  "sxProjectWorkUnitIsDueSoon",
+]);
+expectIncludes("src/components/project-workspace/SxProjectOwnerWorkload.tsx", [
+  "onSelectItem",
+  "disabled={!onSelectItem}",
+  "onClick={() => onSelectItem?.(item)}",
+]);
 
 expectNotIncludes(
   "src/components/project-workspace/SxWeeklyControlDashboard.tsx",
@@ -1087,13 +1117,27 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "expandedTasks",
   "すべて展開",
   "canManage",
-  "milestoneAgenda",
   "sxIsBlockingMilestone",
   "sxGateRequirementState",
   "マイルストーン",
-  "クリア後：",
   "sxGateRequirementsBySuccessor",
   "前提",
+  // Round 32 (2026-08-02): 2件の設立前提はガント外の独立sectionを持たず、通常の柱レーンと
+  // 同じ左右2列パイプライン（visibleLanes）へ「設立前提」レーンとして最上段に統合する。
+  // 日程未設定でも隠さず、配下の必須タスクは初期展開し、完了数と次の未完了タスクを同じ行
+  // （RowBarの右列）で示す。通常の柱レーンからはこの2件を除外し二重表示しない。達成判定は
+  // 4項目証跡＋配下タスク全完了の両方が揃って初めて「充足」になる。timeline.valid=falseでも
+  // このレーンとその説明文は残る。
+  "FOUNDING_LANE_META",
+  "blockingMilestones",
+  "blockingMilestoneRow",
+  "sxMilestoneRequiredTaskSummary",
+  "設立前提",
+  "必須タスク",
+  "requiredTaskSummary",
+  "row.achievement",
+  "GATE_STATE_TEXT",
+  "!timeline.valid &&",
   // Round 24/29: 計画の薄いバーと登録済み実績の濃い塗りを分け、未登録は0%と表示しない。
   "row.progressRegistered && row.progressPct > 0",
   '実績{" "}',
@@ -1113,6 +1157,11 @@ expectNotIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "完了見込み日",
   "次へ進むための必須ゲート",
   "必須条件",
+  // Round 32: ガント外のカード帯・独立sectionは廃止済み。通常レーンと同じ左右2列へ統合する。
+  "BLOCKING MILESTONES",
+  "milestoneAgenda",
+  "foundingPrerequisiteLane",
+  "sx-founding-prereq-title",
 ]);
 expectIncludes("src/lib/sx-executive-control-deck.ts", [
   // Provisional dates / missing dates must never resolve to a false-green current/future state.

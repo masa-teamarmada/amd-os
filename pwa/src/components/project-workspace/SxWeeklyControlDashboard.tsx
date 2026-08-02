@@ -45,7 +45,12 @@ import type {
   SxTrackKey,
 } from "@/lib/sx-management";
 import { deriveSxUnifiedTimeline } from "@/lib/sx-executive-control-deck";
-import { sxProjectOwnerLoads } from "@/lib/sx-project-owner-load";
+import {
+  sxProjectOwnerLoads,
+  sxProjectWorkUnitIsDueSoon,
+  sxProjectWorkUnitIsOverdue,
+  type SxProjectWorkUnit,
+} from "@/lib/sx-project-owner-load";
 import {
   sxGateRequirementsBySuccessor,
   sxOralAgreementEvidenceReady,
@@ -71,6 +76,13 @@ import styles from "./weekly-control.module.css";
 
 type StageKey = SxWeeklyIssueStage;
 type ViewFilter = "all" | "attention" | "stale" | "overdue";
+type WorkloadBucketKey =
+  | "blocked"
+  | "overdue"
+  | "due_soon"
+  | "owner_unknown"
+  | "due_unset"
+  | "decision";
 type EditorState =
   | { kind: "create_issue" }
   | { kind: "create_hypothesis_any" }
@@ -182,6 +194,19 @@ const STAGES: Array<{ key: StageKey; index: string; label: string }> = [
   { key: "validating", index: "02", label: "検証中" },
   { key: "decision", index: "03", label: "判断待ち" },
   { key: "resolved", index: "04", label: "決定・棄却" },
+];
+
+const WORKLOAD_BUCKETS: Array<{
+  key: WorkloadBucketKey;
+  label: string;
+  hint: string;
+}> = [
+  { key: "decision", label: "判断待ち", hint: "今週決めること" },
+  { key: "blocked", label: "停止", hint: "工程・タスク・保有事項" },
+  { key: "overdue", label: "期限超過", hint: "未完了のみ" },
+  { key: "due_soon", label: "7日以内", hint: "今週〜来週が期限" },
+  { key: "owner_unknown", label: "担当不明", hint: "担当未確認" },
+  { key: "due_unset", label: "期限なし", hint: "期限が未設定" },
 ];
 
 const CONFIDENCE_OPTIONS = [
@@ -2940,6 +2965,8 @@ export function SxWeeklyControlDashboard({
     null,
   );
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [workloadFilter, setWorkloadFilter] =
+    useState<WorkloadBucketKey | null>(null);
 
   const allIssues = useMemo(
     () =>
@@ -3052,6 +3079,31 @@ export function SxWeeklyControlDashboard({
     () => sxProjectOwnerLoads(management),
     [management],
   );
+  // 工程・タスク・論点・仮説・検証・判断・action・関係先保有事項を同じ未完了作業単位にした共通母集団。
+  // PJ全体担当負荷（担当者別グループ）が既に同じ正規化をしているので、フラット化して使い回す。
+  const allWorkUnits = useMemo(
+    () => projectOwnerLoads.flatMap((load) => load.items),
+    [projectOwnerLoads],
+  );
+  const workloadBuckets = useMemo(() => {
+    const asOf = management.asOf;
+    return {
+      blocked: allWorkUnits.filter((item) => item.blocked),
+      overdue: allWorkUnits.filter((item) =>
+        sxProjectWorkUnitIsOverdue(item, asOf),
+      ),
+      due_soon: allWorkUnits.filter((item) =>
+        sxProjectWorkUnitIsDueSoon(item, asOf),
+      ),
+      owner_unknown: allWorkUnits.filter(
+        (item) => item.ownerLabel === "担当未確認",
+      ),
+      due_unset: allWorkUnits.filter(
+        (item) => item.dueDate == null || item.dueDatePrecision === "unknown",
+      ),
+      decision: allWorkUnits.filter((item) => item.kind === "decision"),
+    } satisfies Record<WorkloadBucketKey, SxProjectWorkUnit[]>;
+  }, [allWorkUnits, management.asOf]);
   const selectedMilestone =
     management.milestones.find(
       (milestone) => milestone.id === selectedMilestoneId,
@@ -3070,9 +3122,15 @@ export function SxWeeklyControlDashboard({
       sxGateRequirementsBySuccessor(
         management.milestones,
         management.dependencies,
+        management.tasks,
       ).get(selectedPlanMilestone.id) || []
     );
-  }, [management.dependencies, management.milestones, selectedPlanMilestone]);
+  }, [
+    management.dependencies,
+    management.milestones,
+    management.tasks,
+    selectedPlanMilestone,
+  ]);
 
   function handleSaved(next: SxManagementBundle, message: string) {
     setManagement(next);
@@ -3100,6 +3158,75 @@ export function SxWeeklyControlDashboard({
     setDetailEditor(null);
     setPlanFieldEditor(null);
     return true;
+  }
+
+  // 共通母集団の1件から、必ず元の編集文脈へ移動する。工程/タスクはガント該当行・詳細、
+  // 論点系（論点・仮説・検証・判断・action）は該当カード/詳細、関係先は該当行。
+  function navigateToWorkUnit(unit: SxProjectWorkUnit) {
+    setWorkloadFilter(null);
+    if (unit.navTaskId) {
+      setSelectedMilestoneId(null);
+      setSelectedTaskId(unit.navTaskId);
+      document
+        .getElementById("project-gantt")
+        ?.scrollIntoView({ block: "start", behavior: "smooth" });
+      return;
+    }
+    if (unit.navMilestoneId) {
+      setSelectedTaskId(null);
+      setSelectedMilestoneId(unit.navMilestoneId);
+      document
+        .getElementById("project-gantt")
+        ?.scrollIntoView({ block: "start", behavior: "smooth" });
+      return;
+    }
+    if (unit.navIssueId) {
+      const issue = management.issues.find(
+        (item) => item.id === unit.navIssueId,
+      );
+      if (issue) {
+        if (unit.kind === "hypothesis") {
+          const hypothesis = issue.hypotheses.find(
+            (item) => item.id === unit.id,
+          );
+          setEditor(
+            hypothesis
+              ? { kind: "edit_hypothesis", issue, hypothesis }
+              : { kind: "edit_issue", issue },
+          );
+        } else if (unit.kind === "decision") {
+          const decision = issue.decisions.find((item) => item.id === unit.id);
+          setEditor(
+            decision
+              ? { kind: "edit_decision", issue, decision }
+              : { kind: "edit_issue", issue },
+          );
+        } else if (unit.kind === "action") {
+          const decision = issue.decisions.find((item) =>
+            item.actionItems.some((action) => action.id === unit.id),
+          );
+          const action = decision?.actionItems.find(
+            (item) => item.id === unit.id,
+          );
+          setEditor(
+            decision && action
+              ? { kind: "edit_action", issue, decision, action }
+              : { kind: "edit_issue", issue },
+          );
+        } else {
+          setEditor({ kind: "edit_issue", issue });
+        }
+        document
+          .getElementById("issue-hypothesis")
+          ?.scrollIntoView({ block: "start", behavior: "smooth" });
+      }
+      return;
+    }
+    if (unit.navPartnerId) {
+      document
+        .querySelector(`[data-sx-anchor="sx-partner-${unit.navPartnerId}"]`)
+        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
   }
 
   return (
@@ -3153,38 +3280,85 @@ export function SxWeeklyControlDashboard({
           </nav>
         </header>
 
-        <section className={styles.statusBand} aria-label="週次の注意状況">
-          <div>
-            <span>判断待ち</span>
-            <strong>{counts.decisions}</strong>
-            <small>現行台帳</small>
-          </div>
-          <div data-alert={counts.attention > 0 || undefined}>
-            <span>要フォロー</span>
-            <strong>{counts.attention}</strong>
-            <small>担当・期限・検証を確認</small>
-          </div>
-          <div data-alert={counts.stale > 0 || undefined}>
-            <span>更新切れ</span>
-            <strong>{counts.stale}</strong>
-            <small>7日以上未確認</small>
-          </div>
-          <div data-alert={counts.overdue > 0 || undefined}>
-            <span>期限超過</span>
-            <strong>{counts.overdue}</strong>
-            <small>未完了のみ</small>
-          </div>
-          <div>
-            <span>今週入力</span>
-            <strong>
-              {enteredMembers}
-              <em>/{bundle.members.length}</em>
-            </strong>
-            <small>現行工数台帳</small>
-          </div>
+        <section
+          className={styles.workloadBand}
+          aria-label="PJ全体の管制状態（工程・タスク・論点・仮説・検証・判断・action・関係先保有事項の共通母集団）"
+        >
+          {WORKLOAD_BUCKETS.map((bucket) => {
+            const items = workloadBuckets[bucket.key];
+            const active = workloadFilter === bucket.key;
+            return (
+              <button
+                type="button"
+                key={bucket.key}
+                data-alert={items.length > 0 || undefined}
+                data-active={active || undefined}
+                aria-pressed={active}
+                onClick={() =>
+                  setWorkloadFilter((current) =>
+                    current === bucket.key ? null : bucket.key,
+                  )
+                }
+              >
+                <span>{bucket.label}</span>
+                <strong>{items.length}</strong>
+                <small>{bucket.hint}</small>
+              </button>
+            );
+          })}
         </section>
+        {workloadFilter && (
+          <section
+            className={styles.workloadDrawer}
+            aria-label={`${WORKLOAD_BUCKETS.find((bucket) => bucket.key === workloadFilter)?.label}の一覧`}
+          >
+            <header>
+              <h3>
+                {
+                  WORKLOAD_BUCKETS.find(
+                    (bucket) => bucket.key === workloadFilter,
+                  )?.label
+                }{" "}
+                {workloadBuckets[workloadFilter].length}件
+              </h3>
+              <button type="button" onClick={() => setWorkloadFilter(null)}>
+                閉じる
+              </button>
+            </header>
+            {workloadBuckets[workloadFilter].length === 0 ? (
+              <p className={styles.workloadEmpty}>該当する項目はないよ</p>
+            ) : (
+              <ul className={styles.workloadList}>
+                {workloadBuckets[workloadFilter].map((item) => (
+                  <li key={`${item.kind}:${item.id}`}>
+                    <button
+                      type="button"
+                      onClick={() => navigateToWorkUnit(item)}
+                      aria-label={`${item.title}の元項目へ移動`}
+                    >
+                      <span>{item.kindLabel}</span>
+                      <b>{item.title}</b>
+                      <span>{item.ownerLabel}</span>
+                      <span>
+                        {item.dueDate ? formatDate(item.dueDate) : "期限未設定"}
+                      </span>
+                      <span>
+                        {item.impactedGates.length > 0
+                          ? `影響：${item.impactedGates.join(" / ")}`
+                          : "影響工程 未接続"}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
 
-        <SxProjectOwnerWorkload loads={projectOwnerLoads} />
+        <SxProjectOwnerWorkload
+          loads={projectOwnerLoads}
+          onSelectItem={navigateToWorkUnit}
+        />
 
         <section id="weekly-change" className={styles.section}>
           <div className={styles.sectionHeading}>

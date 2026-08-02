@@ -27,6 +27,13 @@ export type SxProjectWorkUnit = {
   blocked: boolean;
   dataGap: boolean;
   impactedGates: string[];
+  /** Where this unit's own editable record lives, for "click through to the source" navigation.
+   * Milestone/task point at the gantt row; issue/hypothesis/validation/decision/action all point
+   * at their owning issue card; partner points at its ledger row. Never more than one is set. */
+  navMilestoneId: string | null;
+  navTaskId: string | null;
+  navIssueId: string | null;
+  navPartnerId: string | null;
 };
 
 export type SxProjectOwnerLoad = {
@@ -52,6 +59,20 @@ function addDays(date: string, days: number) {
   const value = new Date(`${date}T00:00:00.000Z`);
   value.setUTCDate(value.getUTCDate() + days);
   return value.toISOString().slice(0, 10);
+}
+
+export function sxProjectWorkUnitIsOverdue(
+  item: SxProjectWorkUnit,
+  today: string,
+) {
+  return isOverdue(item, today);
+}
+
+export function sxProjectWorkUnitIsDueSoon(
+  item: SxProjectWorkUnit,
+  today: string,
+) {
+  return isDueSoon(item, today);
 }
 
 function isOverdue(item: SxProjectWorkUnit, today: string) {
@@ -135,11 +156,26 @@ export function sxProjectOwnerLoads(
     ]);
   }
 
-  const push = (unit: SxProjectWorkUnit) =>
+  const push = (
+    unit: Omit<
+      SxProjectWorkUnit,
+      "navMilestoneId" | "navTaskId" | "navIssueId" | "navPartnerId"
+    > &
+      Partial<
+        Pick<
+          SxProjectWorkUnit,
+          "navMilestoneId" | "navTaskId" | "navIssueId" | "navPartnerId"
+        >
+      >,
+  ) =>
     units.push({
       ...unit,
       ownerLabel: owner(unit.ownerLabel),
       impactedGates: Array.from(new Set(unit.impactedGates.filter(Boolean))),
+      navMilestoneId: unit.navMilestoneId ?? null,
+      navTaskId: unit.navTaskId ?? null,
+      navIssueId: unit.navIssueId ?? null,
+      navPartnerId: unit.navPartnerId ?? null,
     });
 
   for (const milestone of management.milestones) {
@@ -162,6 +198,7 @@ export function sxProjectOwnerLoads(
         [gateLabel(milestone)].filter((label): label is string =>
           Boolean(label),
         ),
+      navMilestoneId: milestone.id,
     });
   }
 
@@ -182,6 +219,8 @@ export function sxProjectOwnerLoads(
       impactedGates: [gateLabel(milestone)].filter((label): label is string =>
         Boolean(label),
       ),
+      navTaskId: task.id,
+      navMilestoneId: task.milestoneId,
     });
   }
 
@@ -198,6 +237,7 @@ export function sxProjectOwnerLoads(
       blocked: issue.status === "on_hold",
       dataGap: !issue.ownerLabel || !issue.dueDate,
       impactedGates: issueGateLabels(issue, milestoneBySlug),
+      navIssueId: issue.id,
     });
   }
 
@@ -216,6 +256,7 @@ export function sxProjectOwnerLoads(
       blocked: hypothesis.status === "on_hold",
       dataGap: !hypothesis.ownerLabel || !hypothesis.dueDate,
       impactedGates: issueGateLabels(issue, milestoneBySlug),
+      navIssueId: hypothesis.issueId,
     });
   }
 
@@ -235,6 +276,7 @@ export function sxProjectOwnerLoads(
       blocked: validation.status === "blocked",
       dataGap: !validation.ownerLabel || !validation.dueDate,
       impactedGates: issueGateLabels(issue, milestoneBySlug),
+      navIssueId: issue?.id ?? null,
     });
   }
 
@@ -254,6 +296,7 @@ export function sxProjectOwnerLoads(
       blocked: decision.status === "deferred",
       dataGap: !decision.ownerLabel || !decision.dueDate,
       impactedGates: issueGateLabels(issue, milestoneBySlug),
+      navIssueId: decision.issueId,
     });
   }
 
@@ -274,6 +317,7 @@ export function sxProjectOwnerLoads(
       blocked: action.status === "blocked",
       dataGap: !action.ownerLabel || !action.dueDate,
       impactedGates: issueGateLabels(issue, milestoneBySlug),
+      navIssueId: issue?.id ?? null,
     });
   }
 
@@ -298,6 +342,7 @@ export function sxProjectOwnerLoads(
           impactedGates: [gateLabel(milestone)].filter(
             (label): label is string => Boolean(label),
           ),
+          navPartnerId: partner.id,
         });
       }
       continue;
@@ -316,6 +361,7 @@ export function sxProjectOwnerLoads(
       blocked: false,
       dataGap: true,
       impactedGates: [],
+      navPartnerId: partner.id,
     });
   }
 
