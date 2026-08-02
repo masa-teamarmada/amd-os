@@ -308,6 +308,16 @@ function trackMeta(track: SxTrackKey) {
   return TRACKS.find((item) => item.key === track) || TRACKS[0];
 }
 
+/** The management model keeps funding and organization as distinct source tracks, but the
+ * weekly-control Gantt has exactly three user-facing lanes. Anything that creates or describes a
+ * Gantt row must speak this three-lane language; exposing the raw four-track taxonomy in the MS
+ * form makes it look as though a forbidden fourth lane will be created. */
+function ganttLaneLabelForTrack(track: SxTrackKey) {
+  if (track === "business_development") return "事業開発";
+  if (track === "technology_development") return "技術開発";
+  return "組織開発";
+}
+
 function issueStatusLabel(status: SxManagementIssue["status"]) {
   return (
     (
@@ -390,7 +400,6 @@ function editorInitialValues(
   if (editor.kind === "create_milestone") {
     const isGenericMs = editor.timelineKind === "milestone";
     return {
-      track: editor.track || "business_development",
       outcome_id: editor.outcomeId || "",
       title: "",
       gate: "",
@@ -831,25 +840,15 @@ function editorDefinition(
       method: "POST",
       fields: [
         {
-          key: "track",
-          label: "柱",
-          type: "select",
-          required: true,
-          options: TRACKS.map((track) => ({
-            value: track.key,
-            label: track.label,
-          })),
-        },
-        {
           key: "outcome_id",
-          label: "接続する成果",
+          label: "接続する成果（配置レーン）",
           type: "select",
           required: true,
           options: [
             { value: "", label: "選択してね" },
             ...management.outcomes.map((outcome) => ({
               value: outcome.id,
-              label: `${trackMeta(outcome.track).short}｜${outcome.title}`,
+              label: `${ganttLaneLabelForTrack(outcome.track)}｜${outcome.title}`,
             })),
           ],
         },
@@ -2284,6 +2283,17 @@ function IssueEditor({
         return;
       }
     }
+    const selectedMilestoneOutcome =
+      editor.kind === "create_milestone"
+        ? management.outcomes.find(
+            (outcome) => outcome.id === values.outcome_id,
+          ) || null
+        : null;
+    if (editor.kind === "create_milestone" && !selectedMilestoneOutcome) {
+      setError("接続する成果を選んでね");
+      focusField("outcome_id");
+      return;
+    }
     setSaving(true);
     const isPatch = definition.method === "PATCH";
     const fieldsToSubmit = fieldKeySet
@@ -2323,6 +2333,11 @@ function IssueEditor({
     }
     if (editor.kind === "create_milestone") {
       fields.objective_id = management.objective?.id || "";
+      // The selected outcome is the authoritative parent. Deriving the exact DB track from it
+      // keeps the form's visible taxonomy at the approved three Gantt lanes while satisfying the
+      // DB invariant milestone.track === outcome.track (funding and organizational_building both
+      // render in the single 組織開発 lane).
+      fields.track = selectedMilestoneOutcome?.track || "";
       const isGenericMs = editor.timelineKind === "milestone";
       fields.timeline_kind = isGenericMs ? "milestone" : "phase";
       fields.slug = isGenericMs
@@ -3257,12 +3272,14 @@ function PlanInspector({
           <div className={styles.inspectorBreadcrumb}>
             {milestone && task ? (
               <>
-                <span>{trackMeta(milestone.track).label}</span>
+                <span>{ganttLaneLabelForTrack(milestone.track)}</span>
                 <ChevronRight aria-hidden="true" />
                 <strong>{milestone.title}</strong>
               </>
             ) : (
-              <span>{milestone ? trackMeta(milestone.track).label : "工程"}</span>
+              <span>
+                {milestone ? ganttLaneLabelForTrack(milestone.track) : "工程"}
+              </span>
             )}
           </div>
         )}

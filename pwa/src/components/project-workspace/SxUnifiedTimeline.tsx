@@ -1206,12 +1206,6 @@ export function SxUnifiedTimeline({
     select(row);
   }
 
-  function realTrackForLane(laneKey: DisplayLaneKey): SxTrackKey {
-    if (laneKey === "business_development") return "business_development";
-    if (laneKey === "technology_development") return "technology_development";
-    return "organizational_building";
-  }
-
   function laneAtOffsetY(offsetY: number): DisplayLaneKey | null {
     let cursor = 0;
     for (const { lane, rows } of visibleLanes) {
@@ -1244,8 +1238,16 @@ export function SxUnifiedTimeline({
       showGanttNotice("設立目標が未確認のためMSを置けないよ");
       return;
     }
-    const track = realTrackForLane(laneKey);
-    const outcomeId = outcomes.find((item) => item.track === track)?.id ?? null;
+    const laneOutcomes = outcomes.filter(
+      (item) => displayLaneKeyForTrack(item.track) === laneKey,
+    );
+    // Only preselect a parent when this visible lane maps to exactly one outcome. 組織開発 may
+    // contain both funding and organizational_building outcomes; silently choosing one would
+    // create a plausible-looking but semantically wrong MS. In that ambiguous case the form opens
+    // with no outcome selected and makes the user choose the exact parent before Save is enabled.
+    const singleOutcome = laneOutcomes.length === 1 ? laneOutcomes[0] : null;
+    const track = singleOutcome?.track ?? null;
+    const outcomeId = singleOutcome?.id ?? null;
     onCreateMilestone({ track, timelineKind: "milestone", plannedDate: date, outcomeId });
   }
 

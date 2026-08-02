@@ -41,6 +41,9 @@ assertNotIncludes(timelineFile, timeline, [
 ]);
 assertIncludes(timelineFile, timeline, [
   "function placeMilestone(laneKey: DisplayLaneKey, date: string) {",
+  "const laneOutcomes = outcomes.filter(",
+  "displayLaneKeyForTrack(item.track) === laneKey",
+  "const singleOutcome = laneOutcomes.length === 1 ? laneOutcomes[0] : null;",
   "onCreateMilestone({ track, timelineKind: \"milestone\", plannedDate: date, outcomeId });",
 ]);
 
@@ -140,6 +143,44 @@ assertIncludes(dashboardFile, dashboard, [
   "if (pendingIntent) pendingIntent();",
   'aria-label={`${targetLabel}の${label}を直接修正`}',
   'ariaDescribedBy="sx-plan-editor-context"',
+]);
+
+// -- 11. Gantt creation speaks exactly 3 display lanes; raw 4-track DB taxonomy stays hidden ---
+// The selected outcome is the parent of record and supplies the exact raw track at save time.
+// This lets funding + organizational_building share one visible 組織開発 lane without weakening
+// the DB invariant milestone.track === outcome.track.
+const createMilestoneDefinitionStart = dashboard.indexOf(
+  'if (editor.kind === "create_milestone") {',
+  dashboard.indexOf("function editorDefinition"),
+);
+const createMilestoneDefinitionEnd = dashboard.indexOf(
+  'if (editor.kind === "edit_milestone")',
+  createMilestoneDefinitionStart,
+);
+if (createMilestoneDefinitionStart < 0 || createMilestoneDefinitionEnd < 0) {
+  throw new Error(`${dashboardFile}: create_milestone definition block not found`);
+}
+const createMilestoneDefinition = dashboard.slice(
+  createMilestoneDefinitionStart,
+  createMilestoneDefinitionEnd,
+);
+assertNotIncludes(dashboardFile, createMilestoneDefinition, [
+  'key: "track"',
+  "TRACKS.map((track)",
+]);
+assertIncludes(dashboardFile, dashboard, [
+  "function ganttLaneLabelForTrack(track: SxTrackKey)",
+  'return "組織開発";',
+  'label: "接続する成果（配置レーン）"',
+  'label: `${ganttLaneLabelForTrack(outcome.track)}｜${outcome.title}`',
+  "const selectedMilestoneOutcome =",
+  'fields.track = selectedMilestoneOutcome?.track || "";',
+]);
+const weeklyCssFile = "src/components/project-workspace/weekly-control.module.css";
+const weeklyCss = read(weeklyCssFile);
+assertIncludes(weeklyCssFile, weeklyCss, [
+  '.editorPanel[data-editor-width="wide"] { width: min(920px, calc(100vw - 48px)); }',
+  '.editorPanel,\n  .editorPanel[data-editor-width="wide"] { width: 100%;',
 ]);
 
 // -- expected_version required (400 missing/invalid, 409 stale); CAS rollback by updated version --
