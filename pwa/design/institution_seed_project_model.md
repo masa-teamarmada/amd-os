@@ -164,16 +164,24 @@ migration 212で新設する7テーブルが認可の正本になる。
 - **ECRは1機関の縦並び**で総合値と8軸を上から読む。機関横断の比較表（1機関=1行×軸を列）とは別の見せ方であり、外部の面では自機関だけを表示する。
 - **ECRとSPSは別系列のまま**。同じ画面に並べても合成スコア、相関、因果指標を作らない。DTO上も別プロパティに分ける。
 
-### 6.7 資料共有（未実装）
+### 6.7 資料室
 
-研究機関との資料共有は現在BOXにある。ワークスペースへの移行は**未実装**で、`/workspace/[slug]` の資料欄は移行準備中の表示だけを置く。**リンク、iframe埋め込み、署名トークンのいずれも実装していない**。移行するときは、外部へ出す資料の範囲と権限をこの節へ書いてから実装する。
+研究機関とPJの資料共有はAMD OS内の共通資料室へ置く。画面は機関 `/workspace/[slug]/files` とPJ `/project/[projectId]/workspace/files` に分けるが、メタデータ正本は `workspace_documents`、file実体はprivate Storage `workspace-files` で共通化する。
+
+- 1資料は `scope_kind='institution'` または `scope_kind='project'` のどちらか一方だけを所有先にする。機関、シーズ、PJの区別をfolder名で代用しない。
+- 機関資料は明示された `institution_workspace_memberships`、PJ資料は明示された `project_access_memberships` を毎request再検証する。**機関所属はPJ資料へのアクセスを含意しない**。
+- `visibility='workspace_shared'` は対象scopeの外部メンバーにも共有、`amd_internal` はAMD内部だけ。外部の一覧・open APIは内部資料をnot foundとして扱う。
+- manager / contributor と機関owner / memberはfile・folder・linkを追加でき、整理・archiveはmanager / ownerまたはAMDの対象PJメンバー/adminに限る。archiveはStorage実体を削除しない。
+- fileのStorage path、外部link URL、署名tokenを一覧DTOへ含めない。open APIが権限を再確認し、fileだけ60秒の署名URLを発行する。
+- migration 216〜219は2026-08-02に本番適用済み。VSX/CX/SE/SX/ZMP/KUTEの旧Project Shareはproject scopeへ非破壊コピーし、既存 `project_documents` は `AMD内部/Drive資料` の内部限定linkとして併記した。内容ハッシュを保存し、file全件を移行先から再取得して一致検証する。
+- 旧Project Shareと旧Drive行は削除・上書きしない。外部メールアカウントとPJ個別grantを登録し、対象者の到達を確認するまで旧入口を閉じない。切替失敗時は新規導線を止めて旧入口を継続できる。
 
 ## 7. 検証
 
 - migration 207は機関46件・大学/国研シーズ141件・確定4PJ、migration 209は対象seed PJ 19件・二重分類0件・SX未設立/SPS ready・description全NULLをassertする。
 - `npm run test:institution-seed-project-domains` でテーブル分離、19PJ移行、固定対応の不在、フラット全件表示、ECR/SPS非合算を検査する。
 - `npm run test:kute-seeds-scope` と `npm run test:institution-soil-seeds` で表示スコープと評価系列を検査する。
-- §6の外部アクセスは契約テストで検査する。`test:workspace-access-scope`（所属・失効・機関からPJへの暗黙付与なし）、`test:workspace-access-session`（署名cookieの検証）、`test:workspace-email-start-contract`（登録有無を漏らさない応答）、`test:workspace-next-path`（遷移先の絞り込み）、`test:external-project-workspace`（外部DTOが内部バンドルへ広がらないこと）、`test:workspace-access-admin`（admin API の権限と自動復活禁止）、`test:workspace-rls-closure`（migration 213の閉鎖範囲）。
+- §6の外部アクセスは契約テストで検査する。`test:workspace-access-scope`（所属・失効・機関からPJへの暗黙付与なし）、`test:workspace-access-session`（署名cookieの検証）、`test:workspace-email-start-contract`（登録有無を漏らさない応答）、`test:workspace-next-path`（遷移先の絞り込み）、`test:external-project-workspace`（外部DTOが内部バンドルへ広がらないこと）、`test:workspace-access-admin`（admin API の権限と自動復活禁止）、`test:workspace-rls-closure`（migration 213の閉鎖範囲）、`test:workspace-documents-core`（path/URL/storage key）、`test:workspace-documents-contract`（資料権限、private URL非返却、非破壊archive）。
 - PWAは型検査・本番build・desktop/mobile実画面、macOSはXcode buildで確認する。
 
 ## 8. ロールバック

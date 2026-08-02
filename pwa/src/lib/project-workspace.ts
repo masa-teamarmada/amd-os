@@ -171,7 +171,7 @@ export function canAccessWorkspaceProject(access: WorkspaceProjectAccess, projec
 export function projectScopedPathAllowed(access: CurrentMemberAccess, pathname: string) {
   if (access.scope !== "project") return true;
   if (pathname === "/my-projects") return true;
-  const match = pathname.match(/^\/project\/([^/]+)\/(?:workspace|weekly-control|navigation)\/?$/);
+  const match = pathname.match(/^\/project\/([^/]+)\/(?:workspace(?:\/files)?|weekly-control|navigation)\/?$/);
   if (!match) return false;
   return access.projects.some((project) => project.projectId === decodeURIComponent(match[1]));
 }

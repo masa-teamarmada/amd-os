@@ -16,7 +16,7 @@ function getServiceClient() {
 // amd_os_workspace_session (workspace_account principal) may only stand in for a normal
 // authenticated session on the shared-workspace surface — never on internal member routes.
 // Legacy amd_os_project_session gating is untouched below.
-const PROJECT_WORKSPACE_PATH_PATTERN = /^\/project\/[^/]+\/workspace\/?$/;
+const PROJECT_WORKSPACE_PATH_PATTERN = /^\/project\/[^/]+\/workspace(?:\/files)?\/?$/;
 
 function isWorkspaceSessionAllowedPath(pathname: string) {
   if (pathname === "/workspaces") return true;

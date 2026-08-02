@@ -1,0 +1,111 @@
+.room {
+  --archive-canvas: #f4f1e8;
+  --archive-paper: #fffdf7;
+  --archive-inset: #eee9de;
+  --archive-ink: #24231f;
+  --archive-secondary: #5f5b52;
+  --archive-muted: #68635b;
+  --archive-line: rgba(82, 74, 61, 0.2);
+  --archive-line-strong: rgba(63, 57, 48, 0.34);
+  --archive-institution: #433879;
+  --archive-project: #205f49;
+  --archive-shared: #8a5a18;
+  --archive-danger: #9b3b35;
+
+  color: var(--archive-ink);
+}
+
+.scopeBand {
+  border: 1px solid var(--archive-line);
+  background: var(--archive-paper);
+}
+
+.scopeBandInstitution {
+  box-shadow: inset 4px 0 0 var(--archive-institution);
+}
+
+.scopeBandProject {
+  box-shadow: inset 4px 0 0 var(--archive-project);
+}
+
+.panel {
+  border: 1px solid var(--archive-line);
+  background: var(--archive-paper);
+}
+
+.inset {
+  border: 1px solid var(--archive-line);
+  background: var(--archive-inset);
+}
+
+.control {
+  min-height: 44px;
+  border: 1px solid var(--archive-line-strong);
+  background: var(--archive-paper);
+  color: var(--archive-ink);
+}
+
+.control:focus-visible {
+  outline: 2px solid var(--archive-project);
+  outline-offset: 2px;
+}
+
+.primaryAction {
+  min-height: 44px;
+  background: var(--archive-project);
+  color: white;
+}
+
+.primaryAction:hover {
+  background: #174a39;
+}
+
+.secondaryAction {
+  min-height: 44px;
+  border: 1px solid var(--archive-line-strong);
+  background: var(--archive-paper);
+  color: var(--archive-secondary);
+}
+
+.secondaryAction:hover {
+  border-color: var(--archive-project);
+  color: var(--archive-project);
+}
+
+.fileRow {
+  border-top: 1px solid var(--archive-line);
+  background: var(--archive-paper);
+  transition: background-color 160ms ease;
+}
+
+.fileRow:hover {
+  background: #faf7ef;
+}
+
+.sharedBadge {
+  border: 1px solid rgba(138, 90, 24, 0.28);
+  background: #fbf0dc;
+  color: #704710;
+}
+
+.internalBadge {
+  border: 1px solid rgba(52, 54, 57, 0.25);
+  background: #e8e7e3;
+  color: #3e3f41;
+}
+
+.dropActive {
+  border-color: var(--archive-project);
+  background: #e8f0eb;
+}
+
+.dangerAction {
+  color: var(--archive-danger);
+}
+
+@media (max-width: 639px) {
+  .fileRow {
+    border: 1px solid var(--archive-line);
+    border-radius: 8px;
+  }
+}

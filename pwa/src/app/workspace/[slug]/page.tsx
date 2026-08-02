@@ -242,9 +242,16 @@ export default async function InstitutionWorkspacePage({ params }: { params: Pro
           <h2 id="materials-heading" className="text-sm font-semibold text-[#4338ca]">
             資料
           </h2>
-          <div className="rounded-lg border border-[#e4ddcd] bg-white p-4 text-sm text-[#5c584d]">
-            資料ワークスペース・移行準備中
-          </div>
+          <Link
+            href={`/workspace/${encodeURIComponent(slug)}/files`}
+            className="flex min-h-20 items-center justify-between gap-4 rounded-lg border border-[#e4ddcd] bg-white p-4 text-sm text-[#5c584d] transition-colors hover:bg-[#f4f1e7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#4338ca]"
+          >
+            <span>
+              <span className="block font-semibold text-[#26251f]">{data.institution.name} 資料室</span>
+              <span className="mt-1 block text-xs text-[#8a8574]">研究機関全体で共有する資料を確認する</span>
+            </span>
+            <span className="shrink-0 font-semibold text-[#4338ca]">開く →</span>
+          </Link>
         </section>
       </main>
 
@@ -257,7 +264,7 @@ export default async function InstitutionWorkspacePage({ params }: { params: Pro
             { href: "#projects", label: "PJ" },
             { href: "#seeds", label: "シーズ" },
             { href: "#ecr", label: "ECR" },
-            { href: "#materials", label: "資料" },
+            { href: `/workspace/${encodeURIComponent(slug)}/files`, label: "資料" },
           ].map((item) => (
             <a
               key={item.href}

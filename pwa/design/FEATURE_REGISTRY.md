@@ -49,7 +49,8 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - list sorting: 機関ワークスペースのシーズ一覧は `/seeds` と同じライフサイクル優先度 (PJ化済み → PJ化検討中 → PJなし・SPS算出済み → その他) で並べ、同区分内は表題の日本語順。
 - ECR transpose: ECR は1機関の縦並びで総合値と8軸を上から読む。機関横断の比較表 (1機関=1行×軸を列) とは別の見せ方として維持し、**SPSとは別系列のまま合算しない** (合成スコア・相関・因果指標を作らない)。
 - 愛媛スコープ: p30 は `ehime` ワークスペースへ `shared_surface='summary'` (サマリのみ共有、詳細ワークスペースは非共有)。**p21 の詳細ワークスペースはPJ個別付与でのみ到達可能**で、機関ワークスペースのPJ範囲には含めない。シーズ範囲は `inst_ehime` 紐付け全件をPJ化有無で絞らない。
-- 資料共有: BOX からワークスペースへの移行は**未実装**。`/workspace/[slug]` の資料欄は移行準備中の表示だけを置き、リンク / iframe埋め込み / 署名トークンのいずれも実装していない。この欄を実装済みの共有導線として扱わない。
+- 資料室: `/workspace/[slug]/files` と `/project/[projectId]/workspace/files` は `workspace_documents` + private Storage `workspace-files` を共通正本にする。資料は機関またはPJのどちらか一方へ属し、機関所属からPJ資料権限を派生させない。外部は `workspace_shared` だけ、AMD内部は `amd_internal` も読める。fileの実URLを一覧DTOへ返さず、open APIが毎回権限を再検証して60秒の署名URLを発行する。folderは整理、file/linkは追加・移動・名称変更・共有範囲変更、archiveは実体を消さない。migration 216〜219は2026-08-02に本番適用済み。
+- BOX移行: VSX/CX/SE/SX/ZMP/KUTEの旧Project ShareをPJ資料室へ非破壊コピー済み。既存 `project_documents` のDrive資料は `AMD内部/Drive資料` へ内部限定linkとして併記し、旧テーブルは既存機能のため残す。旧Project Shareは、外部メールアカウントとPJ個別grantを登録して到達確認するまで入口を閉じず並行稼働する。旧BOXを資料の正本として新規運用し続けない。
 - admin management: `/admin/access` (内部admin限定) + `GET/POST/PATCH /api/admin/workspace-access` が唯一の付与・停止導線。`kind` を必須にし汎用upsert経路を作らない。停止済み (suspended / revoked) は作成では復活せず明示的な PATCH のみ。機関所属の付与がPJアクセスを自動作成しない。`auth.users` の id は select も返却もしない。
 - audit: `workspace_access_audit_logs` にログイン要求・送信・成功・拒否・ログアウト・admin操作を記録する。メール本文、URL、トークン、未登録アドレスは残さない。
 - RLS: migration 212 の新設7テーブルは anon / 一般 authenticated のポリシーを持たない (admin + service_role のみ)。migration 213 は既存15テーブルの anon read を撤去し、authenticated を `amd_os_is_member()` ゲートへ寄せる。ECR / SPS の軸値と評価行そのものへは INSERT / UPDATE / DELETE を行わない。
@@ -57,7 +58,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 回帰防止:
 
-- `npm run test:workspace-access-scope` (所属・失効・機関→PJの暗黙付与なし)、`test:workspace-access-session` (署名cookieの検証)、`test:workspace-email-start-contract` (登録有無を漏らさない応答)、`test:workspace-next-path` (遷移先の絞り込み)、`test:external-project-workspace` (外部DTOが内部バンドルへ広がらないこと)、`test:workspace-access-admin` (admin APIの権限・自動復活禁止・`auth.users` 非返却)、`test:workspace-rls-closure` (213の閉鎖範囲) が構造的に検査する。
+- `npm run test:workspace-access-scope` (所属・失効・機関→PJの暗黙付与なし)、`test:workspace-access-session` (署名cookieの検証)、`test:workspace-email-start-contract` (登録有無を漏らさない応答)、`test:workspace-next-path` (遷移先の絞り込み)、`test:external-project-workspace` (外部DTOが内部バンドルへ広がらないこと)、`test:workspace-access-admin` (admin APIの権限・自動復活禁止・`auth.users` 非返却)、`test:workspace-rls-closure` (213の閉鎖範囲)、`test:workspace-documents-core` (path/URL/storage key)、`test:workspace-documents-contract` (権限再検証・private URL非返却・非破壊archive) が構造的に検査する。
 - 外部面へ内部cockpit DTOや `getProjectWorkspaceBundle` を流用しない。外部が見る情報を増やす場合は外部専用の許可列を広げ、内部バンドルの再利用で代替しない。
 - `/project/[projectId]/workspace` を外部用の別URLへ分割しない (二面構成が契約)。
 

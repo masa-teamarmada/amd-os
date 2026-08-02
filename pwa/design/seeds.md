@@ -144,7 +144,7 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 - 外部へ返すのは許可列DTOだけ。`internal_notes` / `source_detail` / `deep_dive_material_url` 等の社内列と、`seed_sps_assessments.axis_evidence` / `evaluator` は外部の面に出さない。
 - 一覧の並びは `/seeds` と同じライフサイクル優先度 (PJ化済み → PJ化検討中 → PJなし・SPS算出済み → その他)。同じ区分の中は表題の日本語順。
 - **SPSとECRは合算しない**。機関ワークスペースでもSPSはシーズごとの評価、ECRは機関の縦並び (総合値 + 8軸) として別々に表示し、合成スコア・相関・因果指標を作らない。
-- 資料共有は現在BOXにあり、ワークスペースへの移行は未実装。資料欄は移行準備中の表示だけで、リンク・iframe・署名トークンのいずれも実装していない。
+- 資料共有はAMD OSの共通資料室へ実装済み。機関資料は `/workspace/[slug]/files`、PJ資料は `/project/[projectId]/workspace/files` に分け、どちらも同じ `workspace_documents` を使うが1資料の所有先は必ず片方だけ。機関所属からPJ資料権限は派生しない。旧Project Share 6環境はPJ資料室へ非破壊コピー済みで、外部アカウント/grantの到達確認までは旧入口を並行稼働する。
 
 ### 残TODO
 

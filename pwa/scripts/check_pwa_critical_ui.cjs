@@ -302,7 +302,7 @@ expectIncludes("src/lib/sx-weekly-control.ts", [
 ]);
 
 expectIncludes("src/lib/project-workspace.ts", [
-  "(?:workspace|weekly-control|navigation)",
+  "(?:workspace(?:\\/files)?|weekly-control|navigation)",
 ]);
 
 expectIncludes(

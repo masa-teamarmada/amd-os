@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { FolderOpen } from "lucide-react";
 import type { ExternalProjectWorkspaceBundle } from "@/lib/external-project-workspace";
 
 // Read-only surface for workspace_account viewers. Renders only the fields present on
@@ -52,6 +54,17 @@ export function ExternalProjectWorkspaceDashboard({ bundle }: { bundle: External
           </ul>
         )}
       </section>
+
+      <Link
+        href={`/project/${encodeURIComponent(bundle.project.projectId)}/workspace/files`}
+        className="mt-4 flex min-h-20 items-center justify-between gap-4 rounded-lg border border-[#d6cebf] bg-white p-5 transition-colors hover:bg-[#fffdf7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+      >
+        <span className="flex min-w-0 items-center gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-[#e8f0eb] text-[#205f49]"><FolderOpen className="h-5 w-5" aria-hidden /></span>
+          <span className="min-w-0"><span className="block text-[13px] font-semibold text-[#24231f]">PJ資料室</span><span className="mt-1 block text-[11px] text-[#777166]">このPJで共有されている資料を確認する</span></span>
+        </span>
+        <span className="shrink-0 text-[12px] font-semibold text-[#205f49]">開く →</span>
+      </Link>
     </main>
   );
 }

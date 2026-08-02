@@ -93,7 +93,10 @@
     "test:workspace-next-path": "node --experimental-strip-types scripts/check_workspace_next_path.mts",
     "test:external-project-workspace": "node scripts/check_external_project_workspace_contract.mjs",
     "test:workspace-access-admin": "node scripts/check_workspace_access_admin_contract.mjs",
-    "test:workspace-rls-closure": "node scripts/check_workspace_rls_closure_contract.mjs"
+    "test:workspace-rls-closure": "node scripts/check_workspace_rls_closure_contract.mjs",
+    "test:workspace-documents-core": "node --experimental-strip-types scripts/check_workspace_documents_core.mts",
+    "test:workspace-documents-contract": "node scripts/check_workspace_documents_contract.mjs",
+    "migrate:project-share-documents": "node scripts/migrate_project_share_to_workspace_documents.mjs --dry-run"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.87.0",
@@ -138,6 +141,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vercel/blob": "^2.6.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
     "playwright": "^1.60.0",

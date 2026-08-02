@@ -17,7 +17,13 @@ export type WorkspaceAuditEvent = {
     // decision metadata (action / role / status), never the request body or a URL.
     | "admin_account_upsert"
     | "admin_institution_membership_mutation"
-    | "admin_project_membership_mutation";
+    | "admin_project_membership_mutation"
+    // 資料室。detailにはdocument id / entry kind / visibility / actionだけを入れ、
+    // file name・folder path・外部URL・署名tokenは記録しない。
+    | "workspace_document_created"
+    | "workspace_document_upload_completed"
+    | "workspace_document_opened"
+    | "workspace_document_mutated";
   userAccountId?: string | null;
   /** Only set this when the account is already a known, registered account. */
   email?: string | null;

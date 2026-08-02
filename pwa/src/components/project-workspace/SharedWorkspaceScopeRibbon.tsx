@@ -19,10 +19,16 @@ export function SharedWorkspaceScopeRibbon({
           <span className="text-[#24231f]">{projectName}</span>
           <span className="text-[#777166]">/ {roleLabel}</span>
           {principal === "workspace_account" && (
-            <span className="rounded-full border border-[#e3c994] bg-[#fbf1dc] px-2.5 py-1 text-[#765022]">現在は閲覧専用</span>
+            <span className="rounded-full border border-[#e3c994] bg-[#fbf1dc] px-2.5 py-1 text-[#765022]">PJ管理情報は閲覧のみ</span>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/project/${encodeURIComponent(projectId)}/workspace/files`}
+            className="min-h-11 rounded-md border border-[#d6cebf] px-3 py-2 text-[11px] font-semibold text-[#205f49] hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+          >
+            資料室
+          </Link>
           {principal === "member" && (
             <Link
               href={`/project/${encodeURIComponent(projectId)}/cockpit`}
