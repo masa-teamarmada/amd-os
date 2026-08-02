@@ -294,6 +294,31 @@ assert.match(view, /memos=\{memos\}/, "read mode must receive current node memos
 assert.match(view, /if \(composerState && composerState\.type === "create"\)\s*\n\s*discardDraft\(composerState\.draftId\);\s*\n\s*openEditComposer/, "clicking another node while a create draft is open must discard the draft before switching");
 assert.doesNotMatch(view, /if \(composerState\) return;\s*\n\s*if \(draggedNodeClickRef/, "a normal node click must not be blocked just because the composer is open");
 assert.match(view, /if \(composerState\) \{\s*\n\s*closeComposer\(\);\s*\n\s*return;\s*\n\s*\}/, "a background click while the composer is open must close it and return without creating a draft");
+assert.match(
+  view,
+  /const composerOverlayHostRef = useRef<HTMLDivElement \| null>\(null\)/,
+  "the map must retain a concrete composer host for outside-click containment",
+);
+assert.match(
+  view,
+  /ref=\{composerOverlayHostRef\}[\s\S]{0,180}data-bzm-map-overlay-host="composer"/,
+  "the rendered composer host must be the element used for outside-click containment",
+);
+assert.match(
+  view,
+  /const dismissComposerOutside = \(event: PointerEvent\) => \{[\s\S]{0,420}host\.contains\(event\.target\)[\s\S]{0,160}closeComposer\(\)/,
+  "a capture-phase pointer handler must close the composer only when the event target is outside its host",
+);
+assert.match(
+  view,
+  /window\.addEventListener\("pointerdown", dismissComposerOutside, true\)/,
+  "outside dismissal must cover pointer/tap input before Canvas propagation",
+);
+assert.match(
+  view,
+  /window\.removeEventListener\("pointerdown", dismissComposerOutside, true\)/,
+  "outside dismissal must remove its listener whenever the composer closes",
+);
 
 // Regression: Cmd/Ctrl+click on another node while a *create* draft composer
 // is open used to call setComposerState(null) directly, which cleared the

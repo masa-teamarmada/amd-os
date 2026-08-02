@@ -498,6 +498,7 @@ export function BzmTheoryMapView({
   const [viewportBand, setViewportBand] = useState({ top: 0, bottom: 600 });
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<ForceGraphHandle | null>(null);
+  const composerOverlayHostRef = useRef<HTMLDivElement | null>(null);
   const draggedNodeClickRef = useRef<string | null>(null);
   const suppressBackgroundClickRef = useRef(false);
   const [graphReadyVersion, setGraphReadyVersion] = useState(0);
@@ -758,6 +759,29 @@ export function BzmTheoryMapView({
     setComposerAnchor(null);
     setComposerOffset({ x: 0, y: 0 });
   }
+
+  // react-force-graph の onBackgroundClick は Canvas の背景だけを拾う。
+  // 閲覧・編集小窓の外側なら、フィルタやページ余白を含めて同じように閉じる。
+  // capture で先に閉じても click 自体は止めないので、外側のノードを押した時は
+  // 続く Canvas の onNodeClick がそのノードへ切り替える。小窓内は host で除外する。
+  useEffect(() => {
+    if (!composerState) return;
+
+    const dismissComposerOutside = (event: PointerEvent) => {
+      const host = composerOverlayHostRef.current;
+      if (
+        !host ||
+        !(event.target instanceof Node) ||
+        host.contains(event.target)
+      )
+        return;
+      closeComposer();
+    };
+
+    window.addEventListener("pointerdown", dismissComposerOutside, true);
+    return () =>
+      window.removeEventListener("pointerdown", dismissComposerOutside, true);
+  }, [composerState]);
 
   function openDraftComposer(
     graphPoint: { x: number; y: number },
@@ -1512,6 +1536,7 @@ export function BzmTheoryMapView({
 
                     {composerState && (
                       <div
+                        ref={composerOverlayHostRef}
                         className="pointer-events-auto absolute z-30"
                         data-bzm-map-overlay-host="composer"
                         style={composerOverlayStyle}
