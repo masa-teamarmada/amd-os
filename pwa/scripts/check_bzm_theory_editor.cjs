@@ -240,6 +240,21 @@ assert.match(composer, /"create_memo"/, "composer must call the create_memo acti
 assert.match(composer, /type: "memo"; node: TheoryMapNode/, "ComposerState must carry the target node, not a draft node id, for memo mode");
 assert.match(composer, /sourceRef: form\.sourceRef,/);
 assert.match(composer, /requiredTextMissing/);
+assert.match(
+  composer,
+  /showSourceRef=\{mode === "create" \|\| form\.kind === "source"\}/,
+  "new-node creation must always expose its optional reference-link field, regardless of kind"
+);
+assert.match(
+  composer,
+  /参考リンク（任意）/,
+  "the create-mode sourceRef field must use the concise optional-link label"
+);
+assert.match(
+  composer,
+  /URL・DOI・書誌情報/,
+  "the reference-link input must keep a short, useful placeholder"
+);
 
 // ---------------------------------------------------------------------------
 // small node inspector (2026-08-02): no giant "ノードを編集" heading, kind

@@ -467,7 +467,15 @@ export function BzmTheoryComposerDialog({
               showKindPicker={mode === "create" || mode === "edit"}
               advancedOpen={advancedOpen}
               setAdvancedOpen={setAdvancedOpen}
-              showSourceRef={form.kind === "source"}
+              showSourceRef={mode === "create" || form.kind === "source"}
+              sourceRefLabel={
+                mode === "create" ? "参考リンク（任意）" : undefined
+              }
+              sourceRefHint={
+                mode === "create"
+                  ? "URL・DOI・書誌情報・OS内参照を残せる"
+                  : "根拠をたどれるURL、DOI、書誌情報を残す"
+              }
             />
           )}
 
@@ -659,6 +667,8 @@ function NodeFields({
   advancedOpen,
   setAdvancedOpen,
   showSourceRef,
+  sourceRefLabel,
+  sourceRefHint,
 }: {
   form: FormState;
   setForm: (updater: (prev: FormState) => FormState) => void;
@@ -666,6 +676,8 @@ function NodeFields({
   advancedOpen: boolean;
   setAdvancedOpen: (v: boolean) => void;
   showSourceRef: boolean;
+  sourceRefLabel?: string;
+  sourceRefHint?: string;
 }) {
   const titleFieldId = useId();
   const summaryFieldId = useId();
@@ -744,7 +756,8 @@ function NodeFields({
         <SourceRefField
           value={form.sourceRef}
           onChange={(sourceRef) => setForm((prev) => ({ ...prev, sourceRef }))}
-          hint="根拠をたどれるURL、DOI、書誌情報を残す"
+          label={sourceRefLabel}
+          hint={sourceRefHint}
         />
       )}
 
@@ -844,10 +857,12 @@ function NodeFields({
 function SourceRefField({
   value,
   onChange,
+  label = "出典 (URL・DOI・bzm/*.md)",
   hint,
 }: {
   value: string;
   onChange: (value: string) => void;
+  label?: string;
   hint?: string;
 }) {
   const fieldId = useId();
@@ -858,14 +873,14 @@ function SourceRefField({
         className="mb-1.5 block text-xs font-semibold"
         style={{ color: GRAPHITE_MUTED }}
       >
-        出典 (URL・DOI・bzm/*.md)
+        {label}
       </label>
       <input
         id={fieldId}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         maxLength={1000}
-        placeholder="https://… / DOI:… / BZM_2_0_REVISION_REQUIREMENTS.md#…"
+        placeholder="URL・DOI・書誌情報"
         className="h-11 w-full rounded-md border px-3 text-sm outline-none"
         style={inputStyle}
       />

@@ -78,7 +78,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - global `TsukuyomiChatBridge` は従来どおり invisible event bridge のまま。`Mascot.tsx` を `(app)/layout.tsx` に戻さない。
 - マニュアル章の追加・削除・構成変更は `pwa/src/app/(app)/manual/manual-chapters.ts` と `pwa/design/os_manual.md`、必要なら `pwa/manual/9-3-appendix-changelog.md` を同じ作業単位で更新する。
 
-## /bzm/map — BZM 2.0 理論マップ (2026-07-30 追加、2026-08-01 本人作成へリセット、2026-08-02 ノード内メモ概念修正・小型インスペクタ化・ノード削除導線追加・選択ノード台帳撤去/全幅化、build v3.54.15)
+## /bzm/map — BZM 2.0 理論マップ (2026-07-30 追加、2026-08-01 本人作成へリセット、2026-08-02 ノード内メモ概念修正・小型インスペクタ化・ノード削除導線追加・選択ノード台帳撤去/全幅化・新規作成リンク入力追加、build v3.54.16)
 
 目的: BZM 2.0 の主張・概念・測定・決定・文献・未解決論点を9関係で結び、自分の理解からノードとエッジを育てる**論証台帳**。「真理マップ」ではなく、ノード数・接続数は真偽・確信度を表さない。ノード=理論要素、エッジ=理論要素同士の関係、メモ=選択ノードの内側へ積む記録で、この3者は別概念であり、メモを追加してもノード・エッジは増えない。
 
@@ -86,7 +86,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - source of truth: `bzm_theory_nodes` / `bzm_theory_edges` / `bzm_theory_node_memos` の3テーブルだけ。migration 208で旧seedを全削除し、0件からまさ本人が育てる。migration 214が`bzm_theory_node_memos`を空で追加。Markdown 21ノード / 34関係とmigration 203のseedは検証・復元用履歴で、ランタイムへ自動表示しない。
 - write contract: member read、admin write (3テーブル共通)。API `/api/bzm/theory-map` は認証後だけ管理クライアントを使い、RLSも `is_admin()` writeを強制。ノード保存、Cmd/Ctrl二点目の即時接続、確認済み接続解除、選択ノードへのメモ追加だけを書き、通知・外部送信・自動保存はしない。
-- create: マップ空白クリックで、地図を覆わない予約区画の作成panelを開く。desktopは地図右、mobileは地図下。マップ外に作成ボタンを置かない。別文献や別理論要素をグラフへ加える場合だけこの経路を使う。
+- create: マップ空白クリックで、地図を覆わない予約区画の作成panelを開く。desktopは地図右、mobileは地図下。マップ外に作成ボタンを置かない。別文献や別理論要素をグラフへ加える場合だけこの経路を使う。新規作成ではkindを問わず、基本項目の「参考リンク（任意）」からURL・DOI・書誌情報・OS内参照を`source_ref`へ保存できる。リンク値はマップ上や常設UIへ表示しない。
 - memo: 選択ノードの操作帯にある「メモを追加」1ボタンから、draft nodeを作らずマップ内オーバーレイでメモ本文→役割 (`supports`/`challenges`/`refutes`/`raises`/`tests`) の2項目だけを書き、`POST { action: "create_memo" }` で `bzm_theory_node_memos` へ1行追加する。ノードもエッジも作らず、nodes/edges件数表示は不変。保存後もボタンは残り同じノードへ何件でも追加できる。
 - connect/edit: 通常クリックはノード編集、通常ドラッグは配置変更だけ。`Cmd+click`（他OSは`Ctrl+click`）で2ノードを順に選び、2点目で `1点目 → 2点目` を即時保存する。relationは1点目選択後の小さな待ち帯で選べ、初期値は `supports`。「つなぐ」ボタンや接続panelは出さない。1点目は細い実線ハローで示し、ドラッグ後clickは抑止する。線クリックは同じ予約区画の接続解除確認。反証済みは `refuted` で履歴保存し、削除しなくても記録できる。
 - ノード削除 (2026-08-02 追加、build v3.54.8): 管理者はノードを削除できるが、物理DELETEではなく `bzm_theory_nodes.archived_at` を設定するrecoverable soft-deleteで、store関数 `archiveNode` が担う。API は認証済み管理者の `DELETE /api/bzm/theory-map?nodeId=<id>` から呼び、`edgeId`/`nodeId` は片方だけを受け両方/両方なしは400。active ノードだけを対象にし `updated_by` を記録する。UIは`BzmTheoryComposerDialog`のeditモードfooter左に44px hit targetの控えめなvermilion削除ボタン (desktop=`Trash2`+「削除」、狭幅=icon主体+`aria-label`) を置き、押すと同じオーバーレイ内でノード名・接続件数・メモ件数・影響説明を示す削除確認へ切り替える (中央モーダル・三点メニューは作らない)。「編集へ戻る」でフォーム未保存値を保持し、即時削除はしない。削除成功後はnode・incident edges・node memos・positionをUI stateから除き、選択とcomposerを閉じて成功通知する。エッジ削除の入口は線クリックだけで、`DELETE /api/bzm/theory-map?edgeId=<id>` を呼ぶ (2026-08-02 の右台帳撤去で、旧「接続しているノード」一覧の行内44px削除ボタンは廃止)。
