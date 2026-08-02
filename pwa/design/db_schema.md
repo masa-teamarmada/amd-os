@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-02 13:42 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-02 18:29 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -676,6 +676,8 @@ PRIMARY KEY: `id`
 | 12 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 13 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 | 14 | `archived_at` | `timestamptz` | NULL | `` |
+| 15 | `position_x` | `float8` | NULL | `` |
+| 16 | `position_y` | `float8` | NULL | `` |
 
 ## company_actual_monthly
 
@@ -5475,7 +5477,7 @@ PRIMARY KEY: `id`
 
 ## workspace_documents
 
-行数 (概算): -1
+行数 (概算): 54
 PRIMARY KEY: `document_id`
 
 | # | column | type | nullable | default |

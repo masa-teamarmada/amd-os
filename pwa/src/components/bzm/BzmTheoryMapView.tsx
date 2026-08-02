@@ -15,7 +15,6 @@ import {
   List as ListIcon,
   Maximize2,
   NotebookPen,
-  PenLine,
   Search,
 } from "lucide-react";
 import type {
@@ -45,6 +44,7 @@ import {
   VERMILION,
   callTheoryMapApi,
   parseTheoryMapEdgeDto,
+  parseTheoryMapNodeDto,
   rgba,
   type NodeShape,
   type TheoryMapEdge,
@@ -215,33 +215,27 @@ function kindLegendClipPath(kind: TheoryNodeKind) {
   return "circle(50%)";
 }
 
-function createLayerForce(columnWidth: number, rowHeight: number) {
-  let nodes: GraphNode[] = [];
-  let rowById = new Map<string, number>();
-  const middle = (LAYER_ORDER.length - 1) / 2;
-  const force = (alpha: number) => {
-    for (const node of nodes) {
-      const col = LAYER_ORDER.indexOf(node.layer);
-      const targetX = (col < 0 ? 0 : col - middle) * columnWidth;
-      const targetY = rowById.get(node.id) ?? 0;
-      node.vx = (node.vx ?? 0) + (targetX - (node.x ?? 0)) * 0.18 * alpha;
-      node.vy = (node.vy ?? 0) + (targetY - (node.y ?? 0)) * 0.2 * alpha;
-    }
+function stableHash(value: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+// 過去データ (position が null) を読む時だけ使う。DBへ書き戻さず、id ごとに
+// 固定した散らばりを与えるので、同一層が同じ X の縦一列にはならない。
+function fallbackMapPosition(node: TheoryMapNode) {
+  const hash = stableHash(node.id);
+  const layerIndex = Math.max(0, LAYER_ORDER.indexOf(node.layer));
+  const baseX = (layerIndex - (LAYER_ORDER.length - 1) / 2) * 190;
+  const angle = ((hash % 360) * Math.PI) / 180;
+  const radius = 54 + ((hash >>> 9) % 115);
+  return {
+    x: baseX + Math.cos(angle) * radius,
+    y: Math.sin(angle) * radius + (((hash >>> 17) % 5) - 2) * 54,
   };
-  force.initialize = (initNodes: GraphNode[]) => {
-    nodes = initNodes;
-    rowById = new Map();
-    for (const layer of LAYER_ORDER) {
-      const layerNodes = nodes
-        .filter((node) => node.layer === layer)
-        .sort((a, b) => a.id.localeCompare(b.id));
-      const rowMiddle = (layerNodes.length - 1) / 2;
-      layerNodes.forEach((node, index) =>
-        rowById.set(node.id, (index - rowMiddle) * rowHeight),
-      );
-    }
-  };
-  return force;
 }
 
 function nodeRadius(node: Pick<GraphNode, "val">) {
@@ -419,6 +413,8 @@ function draftNode(id: string): TheoryMapNode {
     sourceRef: "",
     sourceHref: null,
     body: "",
+    positionX: null,
+    positionY: null,
     editable: true,
   };
 }
@@ -448,6 +444,7 @@ export function BzmTheoryMapView({
     x: number;
     y: number;
   } | null>(null);
+  const [composerOffset, setComposerOffset] = useState({ x: 0, y: 0 });
   const [connectingFromId, setConnectingFromId] = useState<string | null>(null);
   const [connectingRelationType, setConnectingRelationType] =
     useState<TheoryRelationType>("supports");
@@ -487,7 +484,15 @@ export function BzmTheoryMapView({
   );
   const [nodePositions, setNodePositions] = useState<
     Record<string, Pick<GraphNode, "x" | "y" | "fx" | "fy">>
-  >({});
+  >(() =>
+    Object.fromEntries(
+      initialNodes.flatMap((node) =>
+        Number.isFinite(node.positionX) && Number.isFinite(node.positionY)
+          ? [[node.id, { x: node.positionX!, y: node.positionY!, fx: node.positionX!, fy: node.positionY! }]]
+          : [],
+      ),
+    ),
+  );
   const [size, setSize] = useState({ w: 900, h: 600 });
   // マップ要素ローカル座標での「実際に見えている縦帯」。既定はマップ全体。
   const [viewportBand, setViewportBand] = useState({ top: 0, bottom: 600 });
@@ -567,31 +572,16 @@ export function BzmTheoryMapView({
   );
 
   const graphData = useMemo(() => {
-    const initialPositionById = new Map<
-      string,
-      Pick<GraphNode, "x" | "y" | "fx" | "fy">
-    >();
-    for (const [columnIndex, layer] of LAYER_ORDER.entries()) {
-      const layerNodes = filteredNodes
-        .filter((node) => node.layer === layer)
-        .sort((a, b) => a.id.localeCompare(b.id));
-      const rowMiddle = (layerNodes.length - 1) / 2;
-      layerNodes.forEach((node, rowIndex) => {
-        const x = (columnIndex - (LAYER_ORDER.length - 1) / 2) * 190;
-        const y = (rowIndex - rowMiddle) * 92;
-        initialPositionById.set(node.id, {
-          x,
-          y,
-          fx: x,
-          fy: y,
-        });
-      });
-    }
     const gNodes: GraphNode[] = filteredNodes.map((n) => {
-      const savedPosition = nodePositions[n.id];
+      const fallback = fallbackMapPosition(n);
+      const savedPosition = nodePositions[n.id] ?? {
+        x: fallback.x,
+        y: fallback.y,
+        fx: fallback.x,
+        fy: fallback.y,
+      };
       return {
         ...n,
-        ...initialPositionById.get(n.id),
         ...savedPosition,
         val: Math.max(1, degreeById.get(n.id) ?? 1),
         draft:
@@ -622,7 +612,7 @@ export function BzmTheoryMapView({
       if (draggedNodeClickRef.current === dragged.id)
         draggedNodeClickRef.current = null;
     }, 240);
-    if (!Number.isFinite(dragged.x) || !Number.isFinite(dragged.y)) return;
+    if (dragged.draft || !Number.isFinite(dragged.x) || !Number.isFinite(dragged.y)) return;
     dragged.fx = dragged.x;
     dragged.fy = dragged.y;
     setNodePositions((current) => ({
@@ -634,7 +624,21 @@ export function BzmTheoryMapView({
         fy: dragged.y,
       },
     }));
-  }, []);
+    void (async () => {
+      const result = await callTheoryMapApi({
+        method: "PATCH",
+        body: { nodeId: dragged.id, positionX: dragged.x, positionY: dragged.y },
+      });
+      if (!result.ok) {
+        announce("error", "ノードの位置を保存できなかった。もう一度動かしてね。");
+        return;
+      }
+      const updated = parseTheoryMapNodeDto(result.payload.node);
+      if (updated) {
+        setNodes((current) => current.map((node) => node.id === updated.id ? updated : node));
+      }
+    })();
+  }, [announce]);
 
   useEffect(() => {
     const update = () => {
@@ -668,8 +672,7 @@ export function BzmTheoryMapView({
     if (view !== "map") return;
     const fg = graphRef.current;
     if (!fg) return;
-    fg.d3Force("layerGrid", createLayerForce(190, 92));
-    fg.d3ReheatSimulation();
+    // 座標はノードが正本。force に再整列させるとドラッグ後の位置が壊れる。
     const timer = window.setTimeout(
       () => graphRef.current?.zoomToFit(400, 40),
       260,
@@ -753,6 +756,7 @@ export function BzmTheoryMapView({
       discardDraft(composerState.draftId);
     setComposerState(null);
     setComposerAnchor(null);
+    setComposerOffset({ x: 0, y: 0 });
   }
 
   function openDraftComposer(
@@ -774,6 +778,7 @@ export function BzmTheoryMapView({
     setConnectingFromId(null);
     setEdgeToRemove(null);
     setComposerAnchor(anchor);
+    setComposerOffset({ x: 0, y: 0 });
     setComposerState({ type: "create", draftId });
   }
 
@@ -793,6 +798,7 @@ export function BzmTheoryMapView({
     setConnectingFromId(null);
     setEdgeToRemove(null);
     setComposerAnchor(screenPoint);
+    setComposerOffset({ x: 0, y: 0 });
     setComposerState({ type: "memo", node: selected });
   }
 
@@ -813,6 +819,7 @@ export function BzmTheoryMapView({
     setConnectingFromId(null);
     setEdgeToRemove(null);
     setComposerAnchor(screenPoint);
+    setComposerOffset({ x: 0, y: 0 });
     setComposerState({ type: "edit", node });
   }
 
@@ -923,8 +930,8 @@ export function BzmTheoryMapView({
           left: 12,
           right: 12,
           ...(composerAnchor && composerAnchor.y > (visibleTop + bandBottom) / 2
-            ? { top: visibleTop + 12 }
-            : { bottom: Math.max(12, size.h - bandBottom + 12) }),
+            ? { top: Math.max(visibleTop + 12, Math.min(bandBottom - 180, visibleTop + 12 + composerOffset.y)) }
+            : { bottom: Math.max(12, size.h - bandBottom + 12 - composerOffset.y) }),
           maxHeight: Math.max(180, visibleHeight / 2 - 28),
         }
       : (() => {
@@ -933,13 +940,15 @@ export function BzmTheoryMapView({
           const nodeGap = 72;
           const fitsRight =
             anchor.x + nodeGap + panelWidth <= size.w - 12;
-          const left = fitsRight
+          const baseLeft = fitsRight
             ? anchor.x + nodeGap
             : Math.max(12, anchor.x - panelWidth - nodeGap);
-          const top = Math.max(
+          const baseTop = Math.max(
             visibleTop + 12,
             Math.min(anchor.y - 64, bandBottom - 360),
           );
+          const left = Math.max(12, Math.min(size.w - panelWidth - 12, baseLeft + composerOffset.x));
+          const top = Math.max(visibleTop + 12, Math.min(bandBottom - 180, baseTop + composerOffset.y));
           // top を確定させた後の「可視帯の残り」だけを maxHeight にする。
           // マップ要素高さ基準だと top > 12 のとき bottom (= top + maxHeight) が実際の
           // viewport を超え、panel 下部が clip され内部 scroll も実可視高を
@@ -984,7 +993,7 @@ export function BzmTheoryMapView({
             style={{ color: GRAPHITE_MUTED }}
           >
             自分で理解した理論・文献・反証・未解決の論点を書き、関係を結びながら育てる台帳。
-            空白クリックで新しいノード、ノードをクリックして編集。⌘を押しながら2つのノードを順に選ぶと接続できる。
+            空白クリックで新しいノード、ノードをクリックして読む。⌘を押しながら2つのノードを順に選ぶと接続できる。
           </p>
           {storageMode === "unavailable" && (
             <div
@@ -1472,11 +1481,7 @@ export function BzmTheoryMapView({
                                   color: BLUEPRINT,
                                 }}
                               >
-                                <PenLine
-                                  className="h-3.5 w-3.5"
-                                  aria-hidden="true"
-                                />
-                                編集
+                                開く
                               </button>
                             )}
                             <button
@@ -1516,6 +1521,23 @@ export function BzmTheoryMapView({
                         <BzmTheoryComposerDialog
                           state={composerState}
                           onClose={closeComposer}
+                          draftPosition={
+                            composerState.type === "create"
+                              ? nodePositions[composerState.draftId]
+                                ? {
+                                    x: nodePositions[composerState.draftId].x ?? 0,
+                                    y: nodePositions[composerState.draftId].y ?? 0,
+                                  }
+                                : null
+                              : null
+                          }
+                          memos={memos}
+                          onDragDelta={(delta) =>
+                            setComposerOffset((current) => ({
+                              x: current.x + delta.x,
+                              y: current.y + delta.y,
+                            }))
+                          }
                           onDraftChange={updateDraftNode}
                           onNodeCreated={(node, edge) => {
                             const draftId =
@@ -1543,6 +1565,7 @@ export function BzmTheoryMapView({
                             setSelectedId(node.id);
                             setComposerState(null);
                             setComposerAnchor(null);
+                            setComposerOffset({ x: 0, y: 0 });
                             announce(
                               "success",
                               `「${node.title}」を作成しました。`,
@@ -1554,8 +1577,8 @@ export function BzmTheoryMapView({
                                 candidate.id === node.id ? node : candidate,
                               ),
                             );
-                            setComposerState(null);
-                            setComposerAnchor(null);
+                            // 保存後は閉じず、同じ小窓を再び閲覧モードへ戻す。
+                            setComposerState({ type: "edit", node });
                             announce(
                               "success",
                               `「${node.title}」を更新しました。`,
@@ -1565,6 +1588,7 @@ export function BzmTheoryMapView({
                             setMemos((current) => [...current, memo]);
                             setComposerState(null);
                             setComposerAnchor(null);
+                            setComposerOffset({ x: 0, y: 0 });
                             announce("success", "メモを追加しました。");
                           }}
                           onNodeDeleted={(nodeId) => {
@@ -1588,6 +1612,7 @@ export function BzmTheoryMapView({
                             setSelectedId("");
                             setComposerState(null);
                             setComposerAnchor(null);
+                            setComposerOffset({ x: 0, y: 0 });
                             announce("success", "ノードを削除しました。");
                           }}
                           getConnectionCount={(nodeId) =>

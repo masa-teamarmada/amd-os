@@ -38,6 +38,8 @@ export default async function BzmTheoryMapPage() {
     sourceRef: node.sourceRef,
     sourceHref: node.sourceHref,
     body: node.body,
+    positionX: node.positionX,
+    positionY: node.positionY,
     editable: node.editable,
   }));
 

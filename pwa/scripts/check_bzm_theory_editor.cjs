@@ -12,6 +12,7 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "u
 const migration = read("scripts/migrations/203_bzm_theory_editor.sql");
 const resetMigration = read("scripts/migrations/208_bzm_theory_map_user_authored_reset.sql");
 const memoMigration = read("scripts/migrations/214_bzm_theory_node_memos.sql");
+const positionMigration = read("scripts/migrations/220_bzm_theory_node_positions.sql");
 const graph = read("src/lib/bzm-theory-graph.ts");
 const store = read("src/lib/bzm-theory-store.ts");
 const api = read("src/app/api/bzm/theory-map/route.ts");
@@ -75,6 +76,12 @@ assert.doesNotMatch(
   /DELETE FROM|UPDATE public\.bzm_theory_nodes|UPDATE public\.bzm_theory_edges|INSERT INTO public\.bzm_theory_nodes|INSERT INTO public\.bzm_theory_edges/,
   "migration 214 must only create the memo table, not touch existing node/edge data"
 );
+
+// Position migration is strictly structural: existing user-authored nodes are
+// never backfilled or rearranged by DDL.
+assert.match(positionMigration, /ADD COLUMN IF NOT EXISTS position_x double precision/);
+assert.match(positionMigration, /ADD COLUMN IF NOT EXISTS position_y double precision/);
+assert.doesNotMatch(positionMigration, /\bUPDATE\b|\bINSERT\b|\bDELETE\b/);
 
 // bzm-theory-graph.ts must define the memo type vocabulary independently of
 // the 9 edge relation types (memo is not an edge).
@@ -152,8 +159,8 @@ for (const contract of [
   "onBackgroundClick", "onNodeDragEnd", "onLinkClick", "handleNodeDragEnd", "handleNodeClick",
   "suppressNextBackgroundClick", "draggedNodeClickRef", "event.metaKey || event.ctrlKey",
   "setConnectingFromId", "openDraftComposer", 'data-bzm-map-panel=',
-  "KIND_COLOR", "createDirectEdge", "parseTheoryMapEdgeDto", "connectingPending", "d3ReheatSimulation",
-  "size.h, size.w", "initialPositionById", "screen2GraphCoords", "draftNode", "draftId",
+  "KIND_COLOR", "createDirectEdge", "parseTheoryMapEdgeDto", "connectingPending", "stableHash",
+  "size.h, size.w", "fallbackMapPosition", "screen2GraphCoords", "draftNode", "draftId",
   "pendingEdge", "setPendingEdge(optimisticEdge)", "clippedLinkPoints", "nodeBoundaryDistance",
   'linkCanvasObject={drawClippedLink}', 'data-bzm-map-overlay-host="composer"',
   "composerAnchor.y", "composerOverlayStyle", "openMemoComposer",
@@ -161,6 +168,13 @@ for (const contract of [
 ]) {
   assert.ok(view.includes(contract) || composer.includes(contract), `direct-manipulation contract missing ${contract}`);
 }
+assert.match(view, /positionX: dragged\.x, positionY: dragged\.y/, "node drag must persist the exact dropped coordinates");
+assert.match(view, /if \(dragged\.draft \|\| !Number\.isFinite\(dragged\.x\)/, "draft nodes must never be persisted through the position PATCH");
+assert.match(view, /fallbackMapPosition\(n\)/, "legacy null positions need a deterministic client-only fallback");
+assert.doesNotMatch(view, /initialPositionById|createLayerForce/, "reload placement must not return to the layer-based vertical column force");
+assert.match(store, /position_x,position_y/, "store must load persistent map coordinates");
+assert.match(store, /optionalMapPosition/, "server must validate map coordinates");
+assert.match(composer, /positionX: draftPosition\?\.x/, "new node creation must save its clicked draft coordinate");
 // 2026-08-02 right-ledger removal: the permanent selected-node read/ledger
 // panel (title/summary/source/body preview, coverage-gap warning, memo list,
 // per-row edge delete list) is gone. Node detail reading/editing lives only
@@ -269,6 +283,14 @@ assert.doesNotMatch(composer, /role="radiogroup"/, "the 6-card kind picker must 
 assert.doesNotMatch(composer, /KIND_OPTIONS/, "the kind card option list must be gone");
 assert.match(composer, /data-bzm-kind-select/, "kind must be selectable via a single <select>");
 assert.match(composer, /data-bzm-composer-scroll/, "the composer body must be an explicit internal scroll region");
+assert.match(composer, /data-bzm-composer-drag-handle="true"/, "composer must expose a dedicated drag handle");
+assert.match(composer, /function startHeaderDrag/, "composer drag must be pointer-driven from the header only");
+assert.doesNotMatch(composer, /aria-label="閉じる"|<X\b/, "the close X must be removed; outside-map click closes the panel");
+assert.match(composer, /function NodeReadMode/, "existing nodes must first render a display mode");
+assert.match(composer, /onEdit=\{\(\) => setEditing\(true\)\}/, "only an explicit edit action may enter the editor");
+assert.match(composer, /<BzmMarkdown source=\{node\.body\} compact/, "read mode must render Markdown and KaTeX body content");
+assert.match(composer, /whitespace-pre-wrap[^>]*><BzmMathText source=\{memo\.body\}/, "memo line breaks must remain visible while math renders");
+assert.match(view, /memos=\{memos\}/, "read mode must receive current node memos");
 assert.match(view, /if \(composerState && composerState\.type === "create"\)\s*\n\s*discardDraft\(composerState\.draftId\);\s*\n\s*openEditComposer/, "clicking another node while a create draft is open must discard the draft before switching");
 assert.doesNotMatch(view, /if \(composerState\) return;\s*\n\s*if \(draggedNodeClickRef/, "a normal node click must not be blocked just because the composer is open");
 assert.match(view, /if \(composerState\) \{\s*\n\s*closeComposer\(\);\s*\n\s*return;\s*\n\s*\}/, "a background click while the composer is open must close it and return without creating a draft");
@@ -381,8 +403,8 @@ assert.match(
 );
 assert.match(
   desktopComposerGeometry,
-  /const top = Math\.max\(\s*visibleTop \+ 12,\s*Math\.min\(anchor\.y - 64, bandBottom - 360\),\s*\);/,
-  "the desktop composer top must be clamped between the band's top margin and its bottom"
+  /const top = Math\.max\(visibleTop \+ 12, Math\.min\(bandBottom - 180, baseTop \+ composerOffset\.y\)\);/,
+  "dragging must still clamp the desktop composer into the visible band"
 );
 assert.doesNotMatch(
   desktopComposerGeometry,
@@ -395,12 +417,12 @@ const mobileComposerGeometry =
 assert.ok(mobileComposerGeometry.length > 0, "mobile composer geometry branch must be present");
 assert.match(
   mobileComposerGeometry,
-  /\{ top: visibleTop \+ 12 \}/,
+  /top: Math\.max\(visibleTop \+ 12, Math\.min\(bandBottom - 180, visibleTop \+ 12 \+ composerOffset\.y\)\)/,
   "the mobile top-anchored composer must sit at the band top plus the 12px margin"
 );
 assert.match(
   mobileComposerGeometry,
-  /\{ bottom: Math\.max\(12, size\.h - bandBottom \+ 12\) \}/,
+  /bottom: Math\.max\(12, size\.h - bandBottom \+ 12 - composerOffset\.y\)/,
   "the mobile bottom-anchored composer must offset by however much of the map lies below the visible band"
 );
 assert.match(

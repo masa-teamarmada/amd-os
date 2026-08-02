@@ -23,6 +23,7 @@ import remarkGfm from "remark-gfm";
 
 interface Props {
   source: string;
+  compact?: boolean;
 }
 
 function renderKatex(tex: string, display: boolean) {
@@ -184,10 +185,10 @@ const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
   ),
 };
 
-export function BzmMarkdown({ source }: Props) {
+export function BzmMarkdown({ source, compact = false }: Props) {
   const segments = splitDisplayMath(source);
   return (
-    <div className="text-[13.5px] text-[#1d1d1f] leading-relaxed">
+    <div className={compact ? "text-[12px] leading-[1.55] text-[#1d1d1f] [&_p]:!my-1 [&_ul]:!my-1 [&_ol]:!my-1 [&_li]:!leading-[1.5] [&_h1]:!my-2 [&_h2]:!my-2 [&_h3]:!my-1.5" : "text-[13.5px] text-[#1d1d1f] leading-relaxed"}>
       {segments.map((seg, i) =>
         seg.type === "math" ? (
           <div

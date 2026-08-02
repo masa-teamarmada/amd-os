@@ -36,6 +36,8 @@ export interface TheoryMapNodeDTO {
   sourceRef: string;
   sourceHref: string | null;
   body: string;
+  positionX: number | null;
+  positionY: number | null;
   editable: boolean;
 }
 
@@ -111,6 +113,8 @@ interface NodeRow {
   summary: string;
   body_md: string;
   source_ref: string | null;
+  position_x: number | null;
+  position_y: number | null;
 }
 
 interface EdgeRow {
@@ -139,7 +143,7 @@ export async function loadTheoryMap(
   const [nodesRes, edgesRes, memosRes] = await Promise.all([
     supabase
       .from(NODES_TABLE)
-      .select("id,title,kind,layer,status,summary,body_md,source_ref")
+      .select("id,title,kind,layer,status,summary,body_md,source_ref,position_x,position_y")
       .is("archived_at", null),
     supabase.from(EDGES_TABLE).select("id,from_node_id,to_node_id,relation_type,note"),
     supabase
@@ -177,6 +181,14 @@ export async function loadTheoryMap(
     sourceRef: row.source_ref ?? "",
     sourceHref: row.source_ref ? resolveSourceHref(row.source_ref) : null,
     body: row.body_md ?? "",
+    positionX:
+      typeof row.position_x === "number" && Number.isFinite(row.position_x)
+        ? row.position_x
+        : null,
+    positionY:
+      typeof row.position_y === "number" && Number.isFinite(row.position_y)
+        ? row.position_y
+        : null,
     editable: true,
   }));
 
@@ -243,6 +255,22 @@ function optionalText(value: unknown, max: number, label: string): { ok: true; v
   return { ok: true, value: text };
 }
 
+const MAP_POSITION_LIMIT = 100_000;
+
+function optionalMapPosition(
+  value: unknown,
+  label: string,
+): { ok: true; value: number | null } | FieldError {
+  if (value === undefined || value === null) return { ok: true, value: null };
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return { error: `${label}は有限の数値で指定してください。` };
+  }
+  if (Math.abs(value) > MAP_POSITION_LIMIT) {
+    return { error: `${label}の範囲が不正です。` };
+  }
+  return { ok: true, value };
+}
+
 function isOneOf<T extends string>(values: readonly T[], value: unknown): value is T {
   return typeof value === "string" && (values as readonly string[]).includes(value);
 }
@@ -260,6 +288,8 @@ export interface CreateNodeInput {
   summary: unknown;
   bodyMd?: unknown;
   sourceRef?: unknown;
+  positionX?: unknown;
+  positionY?: unknown;
   relation?: {
     type: unknown;
     targetId: unknown;
@@ -290,6 +320,8 @@ export interface UpdateNodeInput {
   summary?: unknown;
   bodyMd?: unknown;
   sourceRef?: unknown;
+  positionX?: unknown;
+  positionY?: unknown;
   archived?: unknown;
 }
 
@@ -386,6 +418,13 @@ export async function createNodeWithOptionalEdge(
 ): Promise<StoreResult<{ node: TheoryMapNodeDTO; edge: TheoryMapEdgeDTO | null }>> {
   const fields = validateNodeFields(input);
   if (!fields.ok) return fields;
+  const positionX = optionalMapPosition(input.positionX, "positionX");
+  const positionY = optionalMapPosition(input.positionY, "positionY");
+  if ("error" in positionX) return { ok: false, status: 400, error: positionX.error };
+  if ("error" in positionY) return { ok: false, status: 400, error: positionY.error };
+  if ((positionX.value === null) !== (positionY.value === null)) {
+    return { ok: false, status: 400, error: "positionX と positionY は同時に指定してください。" };
+  }
 
   let relation: { type: TheoryRelationType; targetId: string; direction: "outgoing" | "incoming"; note: string | null } | null = null;
   if (input.relation) {
@@ -427,6 +466,8 @@ export async function createNodeWithOptionalEdge(
     summary: fields.data.summary,
     body_md: fields.data.bodyMd,
     source_ref: fields.data.sourceRef,
+    position_x: positionX.value,
+    position_y: positionY.value,
     origin: "editor",
     created_by: actorEmail,
     updated_by: actorEmail,
@@ -435,7 +476,7 @@ export async function createNodeWithOptionalEdge(
   const { data: insertedNode, error: insertNodeError } = await db
     .from(NODES_TABLE)
     .insert(nodeRow)
-    .select("id,title,kind,layer,status,summary,body_md,source_ref")
+    .select("id,title,kind,layer,status,summary,body_md,source_ref,position_x,position_y")
     .single();
 
   if (insertNodeError) {
@@ -621,6 +662,17 @@ export async function updateNode(
     if ("error" in sourceRef) return { ok: false, status: 400, error: sourceRef.error };
     patch.source_ref = sourceRef.value;
   }
+  if (input.positionX !== undefined || input.positionY !== undefined) {
+    const positionX = optionalMapPosition(input.positionX, "positionX");
+    const positionY = optionalMapPosition(input.positionY, "positionY");
+    if ("error" in positionX) return { ok: false, status: 400, error: positionX.error };
+    if ("error" in positionY) return { ok: false, status: 400, error: positionY.error };
+    if (positionX.value === null || positionY.value === null) {
+      return { ok: false, status: 400, error: "positionX と positionY は同時に指定してください。" };
+    }
+    patch.position_x = positionX.value;
+    patch.position_y = positionY.value;
+  }
   if (input.kind !== undefined) {
     if (!isOneOf(THEORY_NODE_KINDS, input.kind)) return { ok: false, status: 400, error: "kind の値が不正です。" };
     if (input.kind !== "question") {
@@ -660,7 +712,7 @@ export async function updateNode(
     .from(NODES_TABLE)
     .update(patch)
     .eq("id", nodeId)
-    .select("id,title,kind,layer,status,summary,body_md,source_ref")
+    .select("id,title,kind,layer,status,summary,body_md,source_ref,position_x,position_y")
     .maybeSingle();
 
   if (error) {
@@ -741,6 +793,14 @@ function rowToNodeDto(row: NodeRow): TheoryMapNodeDTO {
     sourceRef: row.source_ref ?? "",
     sourceHref: row.source_ref ? resolveSourceHref(row.source_ref) : null,
     body: row.body_md ?? "",
+    positionX:
+      typeof row.position_x === "number" && Number.isFinite(row.position_x)
+        ? row.position_x
+        : null,
+    positionY:
+      typeof row.position_y === "number" && Number.isFinite(row.position_y)
+        ? row.position_y
+        : null,
     editable: true,
   };
 }

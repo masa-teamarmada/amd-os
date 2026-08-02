@@ -12,7 +12,13 @@ import type {
   TheoryNodeStatus,
   TheoryRelationType,
 } from "@/lib/bzm-theory-graph";
-import { THEORY_MEMO_TYPES, THEORY_RELATION_TYPES } from "@/lib/bzm-theory-graph";
+import {
+  THEORY_MEMO_TYPES,
+  THEORY_NODE_KINDS,
+  THEORY_NODE_LAYERS,
+  THEORY_NODE_STATUSES,
+  THEORY_RELATION_TYPES,
+} from "@/lib/bzm-theory-graph";
 
 export interface TheoryMapNode {
   id: string;
@@ -24,7 +30,44 @@ export interface TheoryMapNode {
   sourceRef: string;
   sourceHref: string | null;
   body: string;
+  positionX: number | null;
+  positionY: number | null;
   editable: boolean;
+}
+
+export function parseTheoryMapNodeDto(value: unknown): TheoryMapNode | null {
+  if (!isRecord(value)) return null;
+  if (
+    typeof value.id !== "string" ||
+    typeof value.title !== "string" ||
+    typeof value.kind !== "string" ||
+    typeof value.layer !== "string" ||
+    typeof value.status !== "string" ||
+    !(THEORY_NODE_KINDS as readonly string[]).includes(value.kind) ||
+    !(THEORY_NODE_LAYERS as readonly string[]).includes(value.layer) ||
+    !(THEORY_NODE_STATUSES as readonly string[]).includes(value.status)
+  )
+    return null;
+  const positionX = typeof value.positionX === "number" && Number.isFinite(value.positionX)
+    ? value.positionX
+    : null;
+  const positionY = typeof value.positionY === "number" && Number.isFinite(value.positionY)
+    ? value.positionY
+    : null;
+  return {
+    id: value.id,
+    title: value.title,
+    kind: value.kind as TheoryNodeKind,
+    layer: value.layer as TheoryNodeLayer,
+    status: value.status as TheoryNodeStatus,
+    summary: typeof value.summary === "string" ? value.summary : "",
+    sourceRef: typeof value.sourceRef === "string" ? value.sourceRef : "",
+    sourceHref: typeof value.sourceHref === "string" ? value.sourceHref : null,
+    body: typeof value.body === "string" ? value.body : "",
+    positionX,
+    positionY,
+    editable: value.editable === true,
+  };
 }
 
 export interface TheoryMapEdge {

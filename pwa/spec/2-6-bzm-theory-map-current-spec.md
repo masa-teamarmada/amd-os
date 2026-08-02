@@ -47,6 +47,7 @@ DB取得に失敗した場合は空の `unavailable` 結果を返し、画面上
 | `origin` | `seed` または `editor` |
 | `created_by`, `updated_by` | 操作者の認証メール |
 | `archived_at` | recoverable soft-delete用。管理者のノード削除操作で現在時刻が入り、通常表示は null のみを対象にする |
+| `position_x`, `position_y` | 利用者がドラッグして決めたマップ座標。両方nullableで、既存レコードをmigrationで埋めない |
 
 `refuted` は削除ではなく反証済みの履歴を残すために使う。管理者はノードを削除できるが、物理DELETEではなく `archived_at` を設定するrecoverable soft-deleteで、対象は active ノードだけ。詳細は「ノードを削除する」節を参照。
 
@@ -119,7 +120,7 @@ DB取得に失敗した場合は空の `unavailable` 結果を返し、画面上
 
 ### 空白からノードを書く
 
-管理者がマップの空いている場所をクリックすると、その座標に**保存前の下書きノードを即時生成**する。下書きの見た目は `graphData` → Canvas 描画の1系統だけで表示し、Canvasと別座標に同じ下書きを重ねて描くHTMLマーカーは持たない (= 2026-08-02 以前は `data-bzm-draft-node` マーカーがCanvas描画と同じ座標に重なって描かれ、空白1クリックで下書きが二重に見える不具合があった)。同じマップ上でノードの横に新規ノード編集オーバーレイを開く。API応答まで空の画面で待たせず、地図を縮めたりしない。オーバーレイはクリックしたノードを覆わない側へ配置し、mobileでは画面内に収まる下部オーバーレイにする。ヘッダやマップ外に作成ボタンは置かない。
+管理者がマップの空いている場所をクリックすると、その座標に**保存前の下書きノードを即時生成**する。下書きの見た目は `graphData` → Canvas 描画の1系統だけで表示し、Canvasと別座標に同じ下書きを重ねて描くHTMLマーカーは持たない。同じマップ上で新規ノード入力オーバーレイを開き、保存時にはそのクリック座標も `position_x` / `position_y` として記録する。API応答まで空の画面で待たせず、地図を縮めたりしない。ヘッダやマップ外に作成ボタンは置かない。
 
 1. 種別を、概念・主張・測定・決定・文献・論点のカードから選ぶ。
 2. 見出しと要約を書く。必要なら、種別を問わず基本項目の**「参考リンク（任意）」**へURL・DOI・書誌情報・OS内参照を残す。この値は `source_ref` として保存するが、マップ上や常設の読取りUIへURL全文を掲載しない。
@@ -130,9 +131,13 @@ DB取得に失敗した場合は空の `unavailable` 結果を返し、画面上
 
 ### ノードを育てる
 
-ノードの通常クリックは、そのノードを覆わない側へマップ内編集オーバーレイを開く。ドラッグ後に発火するクリックは抑止し、配置変更と編集を混同させない。編集オーバーレイを閉じた後は、選択ノードの小さな操作帯から同じノードへメモも積める。ノードの summary / source_ref / body / status / layer の読み取りと編集は、常設の別パネルではなくこのマップ内編集オーバーレイに一本化している。
+ノードの通常クリックは、そのノードを覆わない側へマップ内**閲覧**オーバーレイを開く。ドラッグ後に発火するクリックは抑止し、配置変更と閲覧を混同させない。閲覧オーバーレイには種別・層・状態、要約、本文、メモを高密度に表示し、数式はKaTeXとして組版する。`編集する` を押した時だけ同じ小窓の編集フォームへ切り替える。メモ本文の改行は保持する。ノードの summary / source_ref / body / status / layer の読み取りと編集は、常設の別パネルではなくこのマップ内オーバーレイに一本化している。
 
-編集オーバーレイは小型のインスペクタとして動く (2026-08-02 改修、build v3.54.4)。desktopは幅約360px、内側の余白は4/8/12/16pxのいずれかに揃え、header/footerは固定したまま本文だけを `data-bzm-composer-scroll` の内部スクロール領域にする。編集モードには「ノードを編集」のような専用見出しを置かない (削除のみで、大きな代替見出しも足さない)。閉じるボタンは44×44pxを維持する。新規作成・編集の種別選択は6枚のkindカード (radiogroup) をやめ、単一の `<select data-bzm-kind-select>` に統一した。`source`/`question` を選んだ時のlayer/status既定値ロジック (source→evidence/established、question→cross-layer/unknown) は変更しない。
+オーバーレイは小型のインスペクタとして動く (build v3.54.18)。desktopは幅約360px、内側の余白は4/8/12px、本文は `data-bzm-composer-scroll` の内部スクロール領域にする。ヘッダーのグリップだけを掴んで小窓を移動でき、可視帯の外へは出さない。閉じる×は置かず、マップ空白クリックで閉じる。そのクリックで下書きは作らず、別ノードの通常クリックは小窓をそのノードへ切り替える。新規作成・編集の種別選択は単一の `<select data-bzm-kind-select>` に統一した。`source`/`question` を選んだ時のlayer/status既定値ロジック (source→evidence/established、question→cross-layer/unknown) は変更しない。
+
+### 配置の正本 (build v3.54.18)
+
+ドラッグ終了時にだけ座標をAPIへPATCHし、画面は先にその位置へ追随する。保存済みの座標はリロード後も再整列しない。旧ノードの座標がnullなら、クライアントがidから決まる散在配置を一時表示するだけで、閲覧・リロード時にDBを書き換えない。force layoutは利用者の座標を上書きしない。
 
 オーバーレイの縦位置・高さは、マップ要素の高さ (`size.h`) ではなく**実ブラウザの可視帯**へ clamp する (2026-08-02 改修、build v3.54.17)。`BzmTheoryMapView` は `ResizeObserver` に加えて `resize` / capture 付き `scroll` でマップ要素の `getBoundingClientRect()` を測り直し、`window.innerHeight` をマップ要素ローカル座標へ写した `viewportBand = { top: max(0, -rect.top), bottom: min(rect.height, innerHeight - rect.top) }` を保持する。`composerOverlayStyle` は `viewportBand` をマップ範囲へ丸めた `visibleTop` / `bandBottom` (可視高は最小 204px = パネル最小高180px + 上下12pxマージン) だけを基準に、desktopでは `top = clamp(visibleTop + 12, anchor.y - 64, bandBottom - 360)`、`maxHeight = max(180, bandBottom - top - 12)`、mobileでは `top = visibleTop + 12` または `bottom = max(12, size.h - bandBottom + 12)`、`maxHeight = max(180, 可視高/2 - 28)` を返す。ページがスクロール位置を持つ実ブラウザでは、マップ要素高さと実際に見えている範囲がズレるため、`size.h` を基準にするとオーバーレイ下端が viewport の外へ落ちる (1547×831 の実測で、マップ下部の空白クリックが top 586 / bottom 1008 のパネル矩形を生み、177px が画面外だった)。この clamp 後もオーバーレイはマップ内 overlay host (`data-bzm-map-overlay-host="composer"`) のままで body 直下 portal へは出さず、`BzmTheoryComposerDialog` 側の `maxHeight: "inherit"` と `data-bzm-composer-scroll` による内部スクロールもそのまま効く。
 

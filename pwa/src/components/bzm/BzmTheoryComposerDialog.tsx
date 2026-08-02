@@ -6,8 +6,9 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
-import { Trash2, X } from "lucide-react";
+import { GripVertical, Trash2 } from "lucide-react";
 import {
   THEORY_NODE_KINDS,
   THEORY_NODE_LAYERS,
@@ -34,10 +35,12 @@ import {
   callTheoryMapApi,
   parseTheoryMapEdgeDto,
   parseTheoryMapMemoDto,
+  parseTheoryMapNodeDto,
   type TheoryMapEdge,
   type TheoryMapMemo,
   type TheoryMapNode,
 } from "@/lib/bzm-theory-map-ui";
+import { BzmMarkdown, BzmMathText } from "@/components/bzm/BzmMarkdown";
 
 // メモ (state.type === "memo") はノード内へ積む記録であり、選択ノードと
 // エッジを共有しない。draft node もノードもエッジも作らず、既存ノードへの
@@ -106,41 +109,14 @@ function nodeToFormState(node: TheoryMapNode): FormState {
   };
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function isAllowed<T extends string>(
-  values: readonly T[],
-  value: unknown,
-): value is T {
-  return (
-    typeof value === "string" && (values as readonly string[]).includes(value)
-  );
-}
-
-function parseNodeDto(value: unknown): TheoryMapNode | null {
-  if (!isRecord(value)) return null;
-  if (
-    typeof value.id !== "string" ||
-    typeof value.title !== "string" ||
-    !isAllowed(THEORY_NODE_KINDS, value.kind) ||
-    !isAllowed(THEORY_NODE_LAYERS, value.layer) ||
-    !isAllowed(THEORY_NODE_STATUSES, value.status)
-  )
-    return null;
-  return {
-    id: value.id,
-    title: value.title,
-    kind: value.kind,
-    layer: value.layer,
-    status: value.status,
-    summary: typeof value.summary === "string" ? value.summary : "",
-    sourceRef: typeof value.sourceRef === "string" ? value.sourceRef : "",
-    sourceHref: typeof value.sourceHref === "string" ? value.sourceHref : null,
-    body: typeof value.body === "string" ? value.body : "",
-    editable: value.editable === true,
-  };
+function sourceReferenceLabel(sourceRef: string) {
+  if (!sourceRef) return "";
+  try {
+    const url = new URL(sourceRef);
+    return `外部リンク: ${url.hostname}`;
+  } catch {
+    return sourceRef;
+  }
 }
 
 export function BzmTheoryComposerDialog({
@@ -154,6 +130,9 @@ export function BzmTheoryComposerDialog({
   onError,
   getConnectionCount,
   getMemoCount,
+  memos,
+  draftPosition,
+  onDragDelta,
 }: {
   state: ComposerState | null;
   onClose: () => void;
@@ -165,6 +144,9 @@ export function BzmTheoryComposerDialog({
   onError: (message: string) => void;
   getConnectionCount: (nodeId: string) => number;
   getMemoCount: (nodeId: string) => number;
+  memos: TheoryMapMemo[];
+  draftPosition?: { x: number; y: number } | null;
+  onDragDelta?: (delta: { x: number; y: number }) => void;
 }) {
   const titleId = useId();
   const [form, setForm] = useState<FormState>(defaultFormState());
@@ -173,6 +155,7 @@ export function BzmTheoryComposerDialog({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const skipDraftSyncRef = useRef(false);
 
@@ -188,6 +171,7 @@ export function BzmTheoryComposerDialog({
     setPending(false);
     setDeleteConfirmOpen(false);
     setAdvancedOpen(state.type === "edit");
+    setEditing(state.type !== "edit");
     if (state.type === "create") {
       skipDraftSyncRef.current = true;
       setForm(defaultFormState());
@@ -206,11 +190,13 @@ export function BzmTheoryComposerDialog({
       );
       (
         preferred ??
-        panel?.querySelector<HTMLElement>("input, textarea, select, button")
+        (editing
+          ? panel?.querySelector<HTMLElement>("input, textarea, select")
+          : null)
       )?.focus();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [mode, open]);
+  }, [mode, open, editing]);
 
   useEffect(() => {
     if (!open) return;
@@ -248,6 +234,8 @@ export function BzmTheoryComposerDialog({
         summary: form.summary,
         bodyMd: form.body,
         sourceRef: form.sourceRef,
+        positionX: draftPosition?.x,
+        positionY: draftPosition?.y,
       },
     });
     setPending(false);
@@ -256,7 +244,7 @@ export function BzmTheoryComposerDialog({
       onError(result.error);
       return;
     }
-    const node = parseNodeDto(result.payload.node);
+    const node = parseTheoryMapNodeDto(result.payload.node);
     if (!node) {
       const message = "サーバーの応答を解釈できませんでした。";
       setError(message);
@@ -325,7 +313,7 @@ export function BzmTheoryComposerDialog({
       onError(result.error);
       return;
     }
-    const updated = parseNodeDto(result.payload.node);
+    const updated = parseTheoryMapNodeDto(result.payload.node);
     if (!updated) {
       const message = "サーバーの応答を解釈できませんでした。";
       setError(message);
@@ -367,6 +355,29 @@ export function BzmTheoryComposerDialog({
       ? !memoForm.body.trim()
       : !form.title.trim() || !form.summary.trim();
 
+  function startHeaderDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!onDragDelta || event.button !== 0) return;
+    const target = event.currentTarget;
+    const pointerId = event.pointerId;
+    let previous = { x: event.clientX, y: event.clientY };
+    target.setPointerCapture(pointerId);
+    const move = (moveEvent: PointerEvent) => {
+      onDragDelta({
+        x: moveEvent.clientX - previous.x,
+        y: moveEvent.clientY - previous.y,
+      });
+      previous = { x: moveEvent.clientX, y: moveEvent.clientY };
+    };
+    const end = () => {
+      target.removeEventListener("pointermove", move);
+      target.removeEventListener("pointerup", end);
+      target.removeEventListener("pointercancel", end);
+    };
+    target.addEventListener("pointermove", move);
+    target.addEventListener("pointerup", end, { once: true });
+    target.addEventListener("pointercancel", end, { once: true });
+  }
+
   if (!open) return null;
 
   return (
@@ -384,7 +395,7 @@ export function BzmTheoryComposerDialog({
       }
       data-bzm-map-panel="composer"
       data-bzm-map-overlay="composer"
-      className="flex min-h-0 w-full flex-col overflow-hidden rounded-xl border shadow-xl"
+      className="flex min-h-0 w-full flex-col overflow-hidden rounded-lg border shadow-xl"
       style={{
         // 親 host (data-bzm-map-overlay-host) は px の maxHeight を inline
         // style で持つ。子を100%指定のクラスで抑えようとしても、パーセント
@@ -400,27 +411,30 @@ export function BzmTheoryComposerDialog({
     >
       <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
         <div
-          className="flex items-start gap-2 border-b px-3 py-2"
+          className="flex cursor-grab items-center gap-1.5 border-b px-2.5 py-1.5 active:cursor-grabbing"
           style={{ borderColor: PAPER_BORDER }}
+          data-bzm-composer-drag-handle="true"
+          onPointerDown={startHeaderDrag}
         >
+          <GripVertical className="h-3.5 w-3.5 shrink-0" style={{ color: GRAPHITE_MUTED }} aria-hidden="true" />
           <div className="min-w-0 flex-1">
             {dialogTitle && (
               <h2
                 id={titleId}
-                className="text-lg font-semibold leading-tight"
+                className="text-sm font-semibold leading-tight"
                 style={{ color: GRAPHITE }}
               >
                 {dialogTitle}
               </h2>
             )}
             {mode === "create" && (
-              <p className="mt-1 text-xs" style={{ color: BLUEPRINT }}>
+              <p className="mt-0.5 text-[11px]" style={{ color: BLUEPRINT }}>
                 下書きノードをマップに作成済み
               </p>
             )}
             {state?.type === "memo" && (
               <p
-                className="mt-1 truncate text-xs"
+                className="mt-0.5 truncate text-[11px]"
                 style={{ color: GRAPHITE_MUTED }}
               >
                 対象ノード:{" "}
@@ -429,28 +443,18 @@ export function BzmTheoryComposerDialog({
             )}
             {state?.type === "edit" && (
               <p
-                className="truncate text-xs font-semibold"
+                className="truncate text-[11px] font-semibold"
                 style={{ color: GRAPHITE_MUTED }}
               >
                 {state.node.title}
               </p>
             )}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={pending}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-md border disabled:opacity-50"
-            style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
-            aria-label="閉じる"
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
         </div>
 
         <div
           data-bzm-composer-scroll="true"
-          className="min-h-0 flex-1 overflow-y-auto px-3 py-3"
+          className="min-h-0 flex-1 overflow-y-auto px-2.5 py-2"
         >
           {mode === "memo" ? (
             <MemoFields form={memoForm} setForm={setMemoForm} />
@@ -459,6 +463,12 @@ export function BzmTheoryComposerDialog({
               node={state.node}
               connectionCount={getConnectionCount(state.node.id)}
               memoCount={getMemoCount(state.node.id)}
+            />
+          ) : mode === "edit" && state?.type === "edit" && !editing ? (
+            <NodeReadMode
+              node={state.node}
+              memos={memos.filter((memo) => memo.nodeId === state.node.id)}
+              onEdit={() => setEditing(true)}
             />
           ) : (
             <NodeFields
@@ -494,8 +504,9 @@ export function BzmTheoryComposerDialog({
           )}
         </div>
 
+        {(mode !== "edit" || editing || deleteConfirmOpen) && (
         <div
-          className="flex items-center gap-2 border-t px-3 py-2"
+          className="flex items-center gap-1.5 border-t px-2.5 py-1.5"
           style={{
             borderColor: PAPER_BORDER,
             backgroundColor: "rgba(204, 194, 168, 0.16)",
@@ -507,7 +518,7 @@ export function BzmTheoryComposerDialog({
                 type="button"
                 onClick={() => setDeleteConfirmOpen(false)}
                 disabled={pending}
-                className="flex min-h-11 flex-1 items-center justify-center rounded-md border px-4 text-sm font-semibold disabled:opacity-50 sm:flex-none"
+                className="flex min-h-9 flex-1 items-center justify-center rounded-md border px-3 text-xs font-semibold disabled:opacity-50 sm:flex-none"
                 style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
               >
                 編集へ戻る
@@ -517,7 +528,7 @@ export function BzmTheoryComposerDialog({
                 data-bzm-node-delete-confirm="true"
                 onClick={() => void submitDelete(state.node)}
                 disabled={pending}
-                className="flex min-h-11 flex-1 items-center justify-center rounded-md px-4 text-sm font-semibold text-white disabled:opacity-50 sm:flex-none"
+                className="flex min-h-9 flex-1 items-center justify-center rounded-md px-3 text-xs font-semibold text-white disabled:opacity-50 sm:flex-none"
                 style={{ backgroundColor: VERMILION }}
               >
                 {pending ? "削除中…" : "ノードを削除する"}
@@ -532,7 +543,7 @@ export function BzmTheoryComposerDialog({
                   onClick={() => setDeleteConfirmOpen(true)}
                   disabled={pending}
                   aria-label="ノードを削除"
-                  className="flex h-11 w-11 shrink-0 items-center justify-center gap-1.5 rounded-md border text-xs font-semibold disabled:opacity-50 sm:w-auto sm:px-3"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center gap-1.5 rounded-md border text-xs font-semibold disabled:opacity-50 sm:w-auto sm:px-3"
                   style={{ borderColor: VERMILION, color: VERMILION }}
                 >
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -544,15 +555,15 @@ export function BzmTheoryComposerDialog({
                   type="button"
                   onClick={onClose}
                   disabled={pending}
-                  className="flex min-h-11 flex-1 items-center justify-center rounded-md border px-4 text-sm font-semibold disabled:opacity-50 sm:flex-none"
+                  className="flex min-h-9 flex-1 items-center justify-center rounded-md border px-3 text-xs font-semibold disabled:opacity-50 sm:flex-none"
                   style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
                 >
-                  キャンセル
+                  破棄
                 </button>
                 <button
                   type="submit"
                   disabled={pending || requiredTextMissing}
-                  className="flex min-h-11 flex-1 items-center justify-center rounded-md px-4 text-sm font-semibold text-white disabled:opacity-50 sm:flex-none"
+                  className="flex min-h-9 flex-1 items-center justify-center rounded-md px-3 text-xs font-semibold text-white disabled:opacity-50 sm:flex-none"
                   style={{ backgroundColor: BLUEPRINT }}
                 >
                   {pending ? "保存中…" : mode === "edit" ? "更新する" : "保存する"}
@@ -561,8 +572,66 @@ export function BzmTheoryComposerDialog({
             </>
           )}
         </div>
+        )}
       </form>
     </aside>
+  );
+}
+
+function NodeReadMode({
+  node,
+  memos,
+  onEdit,
+}: {
+  node: TheoryMapNode;
+  memos: TheoryMapMemo[];
+  onEdit: () => void;
+}) {
+  const sourceLabel = sourceReferenceLabel(node.sourceRef);
+  return (
+    <div className="space-y-2 text-[12px] leading-[1.55]">
+      <div className="flex flex-wrap gap-1 text-[10px] font-semibold" style={{ color: GRAPHITE_MUTED }}>
+        <span className="rounded-full border px-1.5 py-0.5" style={{ borderColor: PAPER_BORDER, color: BLUEPRINT }}>{KIND_LABEL[node.kind]}</span>
+        <span className="rounded-full border px-1.5 py-0.5" style={{ borderColor: PAPER_BORDER }}>{LAYER_LABEL[node.layer]}</span>
+        <span className="rounded-full border px-1.5 py-0.5" style={{ borderColor: PAPER_BORDER }}>{STATUS_LABEL[node.status]}</span>
+      </div>
+      <h2 className="break-words text-base font-semibold leading-snug" style={{ color: GRAPHITE }}>
+        <BzmMathText source={node.title} />
+      </h2>
+      <p className="whitespace-pre-wrap break-words" style={{ color: GRAPHITE_MUTED }}>
+        <BzmMathText source={node.summary} />
+      </p>
+      {node.body && (
+        <div className="border-t pt-2" style={{ borderColor: PAPER_BORDER }}>
+          <BzmMarkdown source={node.body} compact />
+        </div>
+      )}
+      {sourceLabel && (
+        <div className="truncate rounded border px-2 py-1 text-[11px]" style={{ borderColor: PAPER_BORDER, color: BLUEPRINT }} title={sourceLabel}>
+          出典: {sourceLabel}
+        </div>
+      )}
+      <div className="flex items-center justify-between border-t pt-2" style={{ borderColor: PAPER_BORDER }}>
+        <span className="text-[11px] font-semibold">メモ {memos.length}件</span>
+        {node.editable && (
+          <button type="button" onClick={onEdit} className="rounded border px-2 py-1 text-[11px] font-semibold" style={{ borderColor: PAPER_BORDER, color: BLUEPRINT }}>
+            編集する
+          </button>
+        )}
+      </div>
+      {memos.length === 0 ? (
+        <p className="text-[11px]" style={{ color: GRAPHITE_MUTED }}>メモはまだない</p>
+      ) : (
+        <div className="space-y-1.5">
+          {memos.map((memo) => (
+            <article key={memo.id} className="rounded border px-2 py-1.5" style={{ borderColor: PAPER_BORDER }}>
+              <div className="mb-0.5 text-[10px] font-semibold" style={{ color: GRAPHITE_MUTED }}>{MEMO_TYPE_LABEL[memo.memoType]}</div>
+              <div className="whitespace-pre-wrap break-words text-[12px] leading-[1.5]"><BzmMathText source={memo.body} /></div>
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -577,11 +646,11 @@ function MemoFields({
   const roleFieldId = useId();
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2.5">
       <div>
         <label
           htmlFor={memoFieldId}
-          className="mb-1.5 block text-xs font-semibold"
+          className="mb-1 block text-[11px] font-semibold"
           style={{ color: GRAPHITE_MUTED }}
         >
           メモ <span style={{ color: VERMILION }}>必須</span>
@@ -596,9 +665,9 @@ function MemoFields({
           }}
           required
           maxLength={2000}
-          rows={6}
+          rows={5}
           placeholder="根拠・異論・反証・論点・検証結果などを書く"
-          className="w-full rounded-md border px-3 py-2 text-sm outline-none"
+          className="w-full rounded-md border px-2 py-1.5 text-xs outline-none"
           style={inputStyle}
         />
       </div>
@@ -606,7 +675,7 @@ function MemoFields({
       <div>
         <label
           htmlFor={roleFieldId}
-          className="mb-1.5 block text-xs font-semibold"
+          className="mb-1 block text-[11px] font-semibold"
           style={{ color: GRAPHITE_MUTED }}
         >
           このメモの役割
@@ -618,7 +687,7 @@ function MemoFields({
             const memoType = e.target.value as TheoryMemoType;
             setForm((prev) => ({ ...prev, memoType }));
           }}
-          className="h-11 w-full rounded-md border px-2.5 text-sm outline-none"
+          className="h-9 w-full rounded-md border px-2 text-xs outline-none"
           style={inputStyle}
         >
           {MEMO_TYPE_OPTIONS.map((memoType) => (
@@ -685,7 +754,7 @@ function NodeFields({
   const kindFieldId = useId();
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2.5">
       {showKindPicker && (
         <div>
           <label
