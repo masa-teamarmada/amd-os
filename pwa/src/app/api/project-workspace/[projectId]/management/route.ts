@@ -43,6 +43,7 @@ type Resource =
   | "partner_role"
   | "partner_work_item"
   | "dependency"
+  | "schedule_dependency"
   | "technical_test"
   | "funding_snapshot"
   | "organization_role"
@@ -67,6 +68,7 @@ const RESOURCE_TABLES: Record<Resource, string> = {
   partner_role: "project_management_partner_roles",
   partner_work_item: "project_management_partner_work_items",
   dependency: "project_management_milestone_dependencies",
+  schedule_dependency: "project_management_schedule_dependencies",
   technical_test: "project_management_technical_tests",
   funding_snapshot: "project_management_funding_snapshots",
   organization_role: "project_management_organization_roles",
@@ -92,6 +94,7 @@ const RESOURCE_META: Record<Resource, { entityType: string; statusColumn: "statu
   partner_role: { entityType: "partner_role", statusColumn: null, hasLastVerified: false, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
   partner_work_item: { entityType: "partner_work_item", statusColumn: "status", hasLastVerified: true, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
   dependency: { entityType: "dependency", statusColumn: null, hasLastVerified: false, hasSourceRef: false, hasUpdatedBy: false, softDelete: true },
+  schedule_dependency: { entityType: "schedule_dependency", statusColumn: null, hasLastVerified: false, hasSourceRef: false, hasUpdatedBy: true, softDelete: true },
   technical_test: { entityType: "technical_test", statusColumn: "status", hasLastVerified: false, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
   funding_snapshot: { entityType: "funding_snapshot", statusColumn: null, hasLastVerified: false, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
   organization_role: { entityType: "organization_role", statusColumn: "status", hasLastVerified: true, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
@@ -117,6 +120,7 @@ const DELETED_SELECTS: Record<Resource, string> = {
   partner_role: "id,role_kind,role_label,deleted_at,deleted_by",
   partner_work_item: "id,title,deleted_at,deleted_by",
   dependency: "id,note,deleted_at,deleted_by",
+  schedule_dependency: "id,predecessor_type,deleted_at,deleted_by",
   technical_test: "id,test_slug,test_name,deleted_at,deleted_by",
   funding_snapshot: "id,snapshot_date,deleted_at,deleted_by",
   organization_role: "id,role_slug,role_name,deleted_at,deleted_by",
@@ -138,6 +142,7 @@ function deletedRecordLabel(resource: Resource, row: Record<string, unknown>) {
               : resource === "capacity" ? row.role_label
                 : resource === "funding_snapshot" ? row.snapshot_date
                   : resource === "dependency" ? "ゲート間の依存"
+                    : resource === "schedule_dependency" ? "ガントの依存線"
                     : resource === "task" ? row.title
                     : row.title || row.slug;
   return typeof value === "string" && value.trim() ? value : "名称未確認";
@@ -329,6 +334,8 @@ function patchFor(resource: Resource, raw: unknown): Record<string, unknown> {
   if (resource === "dependency") {
     takeEnum("dependency_type", ["finish_to_start", "start_to_start", "finish_to_finish"]); takeBoolean("required"); takeNumber("lag_days", { min: 0 }); takeOptionalText("note", "note", 1000);
   }
+  // Schedule dependencies are created/removed directly on the gantt. Their endpoints are
+  // immutable: changing a line means remove it and draw another one, so PATCH exposes no fields.
   if (resource === "technical_test") {
     takeText("test_condition", "test_condition", 1000); takeOptionalText("target", "target", 240); takeOptionalText("actual", "actual", 240); takeText("unit", "unit", 60); takeNumber("repetition", { min: 0 }); takeOptionalText("sample", "sample", 240); takeText("trl_criterion", "trl_criterion", 1000); takeOptionalText("evidence", "evidence", 1200); takeEnum("status", TEST_STATUSES); takeDate("measured_on"); takeText("owner_label", "owner_label", 120); takeEnum("confidence", CONFIDENCES);
   }
@@ -404,7 +411,49 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     ) {
       throw new Error("このMSは単一の予定日として扱うため、開始日と完了日は同じにしてね");
     }
-    return { ...common(), project_id: projectId, objective_id: requiredId("objective_id"), outcome_id: requiredId("outcome_id"), slug, track: requiredEnum("track", TRACKS), title: requiredText("title", 180), gate: requiredText("gate", 240), timeline_kind: timelineKind, status: "unassessed", planned_start: plannedStart, planned_end: plannedEnd, forecast_end: optionalDate("forecast_end"), actual_end: null, progress_pct: 0, date_certainty: requiredEnum("date_certainty", ["confirmed", "provisional"], "provisional"), owner_label: requiredText("owner_label", 120), next_deliverable: requiredText("next_deliverable", 500), max_issue: requiredText("max_issue", 500), completion_criteria: requiredText("completion_criteria", 1200), completion_evidence: null, criticality: requiredEnum("criticality", ["critical", "high", "medium", "low"], "high"), baseline_plan_version: optionalTextValue("baseline_plan_version", 120) || "184-manual", forecast_change_reason: null, status_source: "derived", status_reason: "新規追加直後は未評価", last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
+    const title = requiredText("title", 180);
+    const pointMs = timelineKind === "milestone";
+    return {
+      ...common(),
+      project_id: projectId,
+      objective_id: requiredId("objective_id"),
+      outcome_id: requiredId("outcome_id"),
+      slug,
+      track: requiredEnum("track", TRACKS),
+      title,
+      // gate/next_deliverable are legacy NOT NULL phase columns. A point-MS must not require the
+      // user to design a future phase while placing a marker, so keep unknown explicit and allow
+      // later refinement without weakening the existing phase creation contract.
+      gate: pointMs ? optionalTextValue("gate", 240) || "未設定" : requiredText("gate", 240),
+      timeline_kind: timelineKind,
+      status: "unassessed",
+      planned_start: plannedStart,
+      planned_end: plannedEnd,
+      forecast_end: optionalDate("forecast_end"),
+      actual_end: null,
+      progress_pct: 0,
+      date_certainty: requiredEnum("date_certainty", ["confirmed", "provisional"], "provisional"),
+      owner_label: pointMs ? optionalTextValue("owner_label", 120) || "担当未確認" : requiredText("owner_label", 120),
+      next_deliverable: pointMs ? optionalTextValue("next_deliverable", 500) || "次の成果未確認" : requiredText("next_deliverable", 500),
+      max_issue: pointMs ? optionalTextValue("max_issue", 500) || "未確認" : requiredText("max_issue", 500),
+      completion_criteria: pointMs ? optionalTextValue("completion_criteria", 1200) || "未設定" : requiredText("completion_criteria", 1200),
+      completion_evidence: null,
+      // A newly placed point marker is not an implicit high-priority gate. Keep it neutral until
+      // the user explicitly changes its importance from the detail view.
+      criticality: requiredEnum(
+        "criticality",
+        ["critical", "high", "medium", "low"],
+        pointMs ? "medium" : "high",
+      ),
+      baseline_plan_version: optionalTextValue("baseline_plan_version", 120) || "184-manual",
+      forecast_change_reason: null,
+      status_source: "derived",
+      status_reason: "新規追加直後は未評価",
+      last_verified_at: today,
+      confidence: requiredEnum("confidence", CONFIDENCES, "unknown"),
+      created_by: memberId,
+      updated_by: memberId,
+    };
   }
   if (resource === "kpi") {
     const thresholdRule = requiredEnum("threshold_rule", ["gte", "lte", "between"], "gte");
@@ -471,6 +520,20 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     return { ...common(), project_id: projectId, partner_id: requiredId("partner_id"), title: requiredText("title", 180), commitment_text: requiredText("commitment_text", 1000), commitment_kind: kind, status: requiredEnum("status", COMMITMENT_STATUSES, "open"), promised_on: promisedOn, due_date: dueDate, completed_on: optionalDate("completed_on"), owner_label: requiredText("owner_label", 120), counterparty_owner: counterpartyOwner, sx_owner: sxOwner, evidence, next_review_on: nextReviewOn, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
   }
   if (resource === "dependency") return { project_id: projectId, predecessor_milestone_id: requiredId("predecessor_milestone_id"), successor_milestone_id: requiredId("successor_milestone_id"), dependency_type: requiredEnum("dependency_type", ["finish_to_start", "start_to_start", "finish_to_finish"], "finish_to_start"), required: raw.required == null ? true : booleanValue(raw.required, "required"), lag_days: optionalNumber("lag_days", { min: 0 }) || 0, note: optionalTextValue("note", 1000), created_by: memberId };
+  if (resource === "schedule_dependency") {
+    const predecessorType = requiredEnum("predecessor_type", ["task", "milestone"]);
+    const predecessorId = requiredId("predecessor_id");
+    return {
+      project_id: projectId,
+      predecessor_type: predecessorType,
+      predecessor_task_id: predecessorType === "task" ? predecessorId : null,
+      predecessor_milestone_id: predecessorType === "milestone" ? predecessorId : null,
+      successor_task_id: requiredId("successor_task_id"),
+      dependency_type: "finish_to_start",
+      created_by: memberId,
+      updated_by: memberId,
+    };
+  }
   if (resource === "technical_test") return { ...common(), project_id: projectId, milestone_id: optionalId("milestone_id"), outcome_id: optionalId("outcome_id"), test_slug: requiredText("test_slug", 120), test_name: requiredText("test_name", 180), test_condition: requiredText("test_condition", 1000), target: optionalTextValue("target", 240), actual: optionalTextValue("actual", 240), unit: requiredText("unit", 60), repetition: optionalNumber("repetition", { min: 0 }), sample: optionalTextValue("sample", 240), trl_criterion: requiredText("trl_criterion", 1000), evidence: optionalTextValue("evidence", 1200), status: "unassessed", measured_on: optionalDate("measured_on"), owner_label: requiredText("owner_label", 120), confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
   if (resource === "funding_snapshot") return { ...common(), project_id: projectId, snapshot_date: requiredDate("snapshot_date"), required_amount: optionalNumber("required_amount", { min: 0 }), secured_amount: optionalNumber("secured_amount", { min: 0 }), unconfirmed_amount: optionalNumber("unconfirmed_amount", { min: 0 }), use_summary: requiredText("use_summary", 1000), burn_per_month: optionalNumber("burn_per_month", { min: 0 }), runway_months: optionalNumber("runway_months", { min: 0 }), probability: optionalNumber("probability", { min: 0, max: 1 }), cash_condition: requiredText("cash_condition", 1200), source_label: requiredText("source_label", 240), confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
   if (resource === "organization_role") return { ...common(), project_id: projectId, role_slug: requiredText("role_slug", 120), role_name: requiredText("role_name", 180), required: raw.required == null ? true : booleanValue(raw.required, "required"), candidate: optionalTextValue("candidate", 240), commitment: optionalTextValue("commitment", 500), authority: requiredText("authority", 1000), vacancy: raw.vacancy == null ? true : booleanValue(raw.vacancy, "vacancy"), join_condition: requiredText("join_condition", 1000), due_date: optionalDate("due_date"), status: "unassessed", owner_label: requiredText("owner_label", 120), last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
@@ -514,6 +577,7 @@ const PARENT_FIELDS: Partial<Record<Resource, Array<[string, string]>>> = {
   partner_role: [["partner_id", "project_management_partners"]],
   partner_work_item: [["partner_id", "project_management_partners"], ["related_milestone_id", "project_management_milestones"]],
   dependency: [["predecessor_milestone_id", "project_management_milestones"], ["successor_milestone_id", "project_management_milestones"]],
+  schedule_dependency: [["predecessor_task_id", "project_management_tasks"], ["predecessor_milestone_id", "project_management_milestones"], ["successor_task_id", "project_management_tasks"]],
   raci: [["milestone_id", "project_management_milestones"]],
   capacity: [["milestone_id", "project_management_milestones"]],
   technical_test: [["milestone_id", "project_management_milestones"], ["outcome_id", "project_management_outcomes"]],
@@ -708,6 +772,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       patch.source_ref = "PWA共有管理画面";
     }
     if (meta.hasUpdatedBy && !deleting && !restoring) patch.updated_by = context.access.memberId;
+    if (resource === "schedule_dependency" && (deleting || restoring))
+      patch.updated_by = context.access.memberId;
 
     const db = createAdminClient();
     const { data: before, error: beforeError } = await db.from(RESOURCE_TABLES[resource]).select("*").eq("id", id).eq("project_id", projectId).maybeSingle();

@@ -1330,6 +1330,16 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "focus-visible:outline",
   // ピンはクリックで飛ばさずhover/focusで中身を出す。
   "onMouseEnter",
+  // Round 35: dependency editing is an explicit mode and the month/task header remains visible
+  // while the dense gantt scrolls vertically or horizontally inside its own frame.
+  "scheduleDependencies?: SxScheduleDependency[];",
+  'resource: "schedule_dependency"',
+  "data-gantt-schedule-dependency-lines",
+  "data-gantt-sticky-header",
+  'className="sticky top-0 z-50 grid',
+  'className="sticky left-0 z-[51]',
+  "max-h-[min(72vh,720px)] overflow-auto overscroll-contain",
+  'aria-label="ガントチャート。上下左右にスクロールできる"',
 ]);
 expectNotIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "criticalPolyline",
@@ -3181,7 +3191,7 @@ expectIncludes("src/components/project-workspace/weekly-control.module.css", [
   ".planInspectorLayer",
   "place-items: center",
   "backdrop-filter: blur(4px)",
-  "width: min(920px, calc(100vw - 48px))",
+  "width: min(820px, calc(100vw - 48px))",
   ".editorEmbedded",
   ".planInspectorInlineEditor",
   ".inlineFieldEditor",
@@ -3207,10 +3217,15 @@ expectIncludes("src/components/project-workspace/weekly-control.module.css", [
   ".iconButton:hover, .iconButton:focus-visible { border-color: var(--green); background: #e8f2eb; color: var(--green); outline: 2px solid var(--green); outline-offset: 2px; }",
   ".primaryButton, .secondaryButton { min-height: 44px;",
   ".primaryButton:focus-visible, .secondaryButton:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }",
-  "min-height: 44px; border: 1px solid #c9c0b2; border-radius: 6px; background: #fffefa; padding: 9px 10px; color: var(--ink); font-size: 13px;",
+  "min-height: 36px; border: 1px solid #c9c0b2; border-radius: 5px; background: #fffefa; padding: 6px 8px; color: var(--ink); font-size: 12px;",
   ".field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible, .fieldSpan input:focus-visible, .fieldSpan select:focus-visible, .fieldSpan textarea:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }",
-  ".checkboxRow { min-height: 44px;",
+  ".checkboxRow { min-height: 36px;",
   ".checkboxRow input:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }",
+]);
+expectPattern("src/components/project-workspace/weekly-control.module.css", [
+  // Compact desktop controls re-inflate to safe touch targets and 16px text on narrow screens.
+  /@media \(max-width: 640px\)[\s\S]*\.field input,[\s\S]*\.fieldSpan textarea \{ min-height: 44px; \}/,
+  /@media \(max-width: 640px\)[\s\S]*\.field input,[\s\S]*\.inlineFieldForm \.fieldSpan textarea \{ font-size: 16px; \}/,
 ]);
 expectIncludes("src/components/project-workspace/useModalContainment.ts", [
   "FOCUSABLE_SELECTOR",

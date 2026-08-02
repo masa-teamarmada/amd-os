@@ -437,13 +437,23 @@ function editorInitialValues(
   const asOf = management.asOf;
   if (editor.kind === "create_milestone") {
     const isGenericMs = editor.timelineKind === "milestone";
+    if (isGenericMs) {
+      // A point-MS only needs a name, a parent outcome and its point on the timeline. Legacy
+      // phase-oriented fields are filled with explicit unknown defaults by the API and can be
+      // refined later; placing a marker must not force the user to design the next phase.
+      return {
+        outcome_id: editor.outcomeId || "",
+        title: "",
+        planned_date: editor.plannedDate || "",
+        completion_criteria: "",
+      };
+    }
     return {
       outcome_id: editor.outcomeId || "",
       title: "",
       gate: "",
-      ...(isGenericMs
-        ? { planned_date: editor.plannedDate || "" }
-        : { planned_start: asOf, planned_end: "" }),
+      planned_start: asOf,
+      planned_end: "",
       date_certainty: "provisional",
       owner_label: access.displayName,
       next_deliverable: "",
@@ -905,51 +915,65 @@ function editorDefinition(
           required: true,
           span: true,
         },
-        { key: "gate", label: "到達点", required: true },
-        { key: "owner_label", label: "担当", required: true },
         ...(isGenericMs
-          ? [{ key: "planned_date", label: "予定日", type: "date" as const }]
+          ? [
+              {
+                key: "planned_date",
+                label: "予定日",
+                type: "date" as const,
+                required: true,
+              },
+              {
+                key: "completion_criteria",
+                label: "完了条件（任意）",
+                type: "textarea" as const,
+                span: true,
+                help: "何を確認できたらこのMSを達成とするか。まだ決められなければ空欄で追加できるよ。",
+              },
+            ]
           : [
+              { key: "gate", label: "到達点", required: true },
+              { key: "owner_label", label: "担当", required: true },
               { key: "planned_start", label: "計画開始", type: "date" as const },
               { key: "planned_end", label: "計画完了", type: "date" as const },
+              {
+                key: "date_certainty",
+                label: "日程の確度",
+                type: "select" as const,
+                required: true,
+                options: [
+                  { value: "provisional", label: "仮" },
+                  { value: "confirmed", label: "確定" },
+                ],
+              },
+              {
+                key: "next_deliverable",
+                label: "次の成果物",
+                type: "textarea" as const,
+                required: true,
+                span: true,
+              },
+              {
+                key: "completion_criteria",
+                label: "完了条件",
+                type: "textarea" as const,
+                required: true,
+                span: true,
+              },
+              {
+                key: "criticality",
+                label: "重要度",
+                type: "select" as const,
+                required: true,
+                options: [
+                  { value: "critical", label: "最重要" },
+                  { value: "high", label: "高" },
+                  { value: "medium", label: "中" },
+                  { value: "low", label: "低" },
+                ],
+              },
+              confidence,
             ]),
-        {
-          key: "date_certainty",
-          label: "日程の確度",
-          type: "select",
-          required: true,
-          options: [
-            { value: "provisional", label: "仮" },
-            { value: "confirmed", label: "確定" },
-          ],
-        },
-        {
-          key: "next_deliverable",
-          label: "次の成果物",
-          type: "textarea",
-          required: true,
-          span: true,
-        },
-        {
-          key: "completion_criteria",
-          label: "完了条件",
-          type: "textarea",
-          required: true,
-          span: true,
-        },
-        {
-          key: "criticality",
-          label: "重要度",
-          type: "select",
-          required: true,
-          options: [
-            { value: "critical", label: "最重要" },
-            { value: "high", label: "高" },
-            { value: "medium", label: "中" },
-            { value: "low", label: "低" },
-          ],
-        },
-        confidence,
       ],
     };
   }
@@ -4456,6 +4480,7 @@ export function SxWeeklyControlDashboard({
                 projectId={bundle.project.projectId}
                 milestones={management.milestones}
                 dependencies={management.dependencies}
+                scheduleDependencies={management.scheduleDependencies}
                 tasks={management.tasks}
                 outcomes={management.outcomes}
                 objectiveId={management.objective?.id ?? null}

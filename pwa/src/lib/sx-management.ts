@@ -104,6 +104,18 @@ export type SxDependency = {
   note: string | null;
 };
 
+/** A manually drawn gantt dependency.  This is intentionally separate from SxDependency:
+ * SxDependency changes milestone gate/readiness logic, while this type only connects a task or
+ * point-MS finish to a task start on the schedule. */
+export type SxScheduleDependency = {
+  id: string;
+  predecessorType: "task" | "milestone";
+  predecessorTaskId: string | null;
+  predecessorMilestoneId: string | null;
+  successorTaskId: string;
+  dependencyType: "finish_to_start";
+};
+
 export type SxTimelineKind = "phase" | "milestone";
 
 export type SxManagementMilestone = {
@@ -595,6 +607,7 @@ export type SxManagementBundle = {
   outcomes: SxOutcome[];
   kpis: SxKpi[];
   dependencies: SxDependency[];
+  scheduleDependencies: SxScheduleDependency[];
   dag: DagHealth;
   judgment: SxJudgment;
   tracks: SxTrackSummary[];
@@ -1077,6 +1090,7 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
     plain("project_management_milestone_kpis", "project_id,milestone_id,kpi_id"),
     live("project_management_tasks", "id,project_id,milestone_id,parent_task_id,track,title,description,status,planned_start,planned_end,forecast_end,actual_end,progress_pct,date_certainty,owner_member_id,owner_label,completion_criteria,forecast_change_reason,sort_order,last_verified_at,confidence,source_kind,source_ref,created_by,updated_by,version").order("sort_order"),
     live("project_management_milestone_dependencies", "id,project_id,predecessor_milestone_id,successor_milestone_id,dependency_type,required,lag_days,note").order("created_at"),
+    live("project_management_schedule_dependencies", "id,project_id,predecessor_type,predecessor_task_id,predecessor_milestone_id,successor_task_id,dependency_type").order("created_at"),
     live("project_management_issues", "id,project_id,milestone_id,outcome_id,slug,track,title,knowledge_type,status,owner_label,due_date,last_verified_at,confidence,source_kind,source_ref,sort_order").order("sort_order"),
     live("project_management_hypotheses", "id,project_id,issue_id,statement,status,owner_label,due_date,confidence,last_verified_at,source_kind,source_ref").order("due_date"),
     live("project_management_evidence", "id,project_id,issue_id,hypothesis_id,evidence_kind,summary,observed_on,source_label,confidence,last_verified_at").order("observed_on"),
@@ -1102,7 +1116,7 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
   const error = results.find((result) => result.error)?.error;
   if (error) throw new Error(`SX management bundle: ${error.message}`);
   const rows = results.map((result) => (result.data || []) as unknown as RawRow[]);
-  const [objectiveRows, outcomeRows, milestoneRows, kpiRows, milestoneKpiRows, taskRows, dependencyRows, issueRows, hypothesisRows, evidenceRows, validationRows, decisionRows, actionRows, historyRows, partnerRows, partnerTrackRows, commitmentRows, interactionRows, partnerRoleRows, partnerWorkItemRows, milestoneIssueRows, milestonePartnerRows, raciRows, capacityRows, technicalRows, fundingRows, roleRows, auditRows] = rows;
+  const [objectiveRows, outcomeRows, milestoneRows, kpiRows, milestoneKpiRows, taskRows, dependencyRows, scheduleDependencyRows, issueRows, hypothesisRows, evidenceRows, validationRows, decisionRows, actionRows, historyRows, partnerRows, partnerTrackRows, commitmentRows, interactionRows, partnerRoleRows, partnerWorkItemRows, milestoneIssueRows, milestonePartnerRows, raciRows, capacityRows, technicalRows, fundingRows, roleRows, auditRows] = rows;
 
   const objectiveRow = objectiveRows[0];
   const objective: SxObjective | null = objectiveRow ? { id: stringValue(objectiveRow, "id"), slug: stringValue(objectiveRow, "slug"), title: stringValue(objectiveRow, "title"), definitionOfDone: stringValue(objectiveRow, "definition_of_done"), targetDate: nullableString(objectiveRow, "target_date"), dateCertainty: objectiveRow.date_certainty === "confirmed" ? "confirmed" : "provisional", status: (objectiveRow.status as SxObjective["status"]) || "unassessed", lastVerifiedAt: stringValue(objectiveRow, "last_verified_at"), confidence: asConfidence(objectiveRow.confidence), sourceKind: asSourceKind(objectiveRow.source_kind), sourceRef: nullableString(objectiveRow, "source_ref") } : null;
@@ -1123,6 +1137,14 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
     kpisByMilestone.set(stringValue(link, "milestone_id"), [...(kpisByMilestone.get(stringValue(link, "milestone_id")) || []), kpi]);
   }
   const dependencyDtos: SxDependency[] = dependencyRows.map((row) => ({ id: stringValue(row, "id"), predecessorMilestoneId: stringValue(row, "predecessor_milestone_id"), successorMilestoneId: stringValue(row, "successor_milestone_id"), predecessorSlug: stringValue(milestoneById.get(stringValue(row, "predecessor_milestone_id")) || {}, "slug", "不明な前提"), successorSlug: stringValue(milestoneById.get(stringValue(row, "successor_milestone_id")) || {}, "slug", "不明な成果"), dependencyType: (row.dependency_type as SxDependency["dependencyType"]) || "finish_to_start", required: row.required !== false, lagDays: numberValue(row, "lag_days"), note: nullableString(row, "note") }));
+  const scheduleDependencies: SxScheduleDependency[] = scheduleDependencyRows.map((row) => ({
+    id: stringValue(row, "id"),
+    predecessorType: row.predecessor_type === "milestone" ? "milestone" : "task",
+    predecessorTaskId: nullableString(row, "predecessor_task_id"),
+    predecessorMilestoneId: nullableString(row, "predecessor_milestone_id"),
+    successorTaskId: stringValue(row, "successor_task_id"),
+    dependencyType: "finish_to_start",
+  }));
   const preliminaryDerived = new Map<string, MilestoneDerivedResult>();
   const technicalEvidenceByMilestone = new Set(technicalRows.filter((row) => nullableString(row, "actual") || nullableString(row, "evidence")).map((row) => nullableString(row, "milestone_id")).filter((value): value is string => Boolean(value)));
   for (const milestone of baseLogicMilestones) {
@@ -1224,5 +1246,5 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
   const judgment = computeSxJudgment(tracks, milestones, decisions, today, { kpis, actions, commitments: judgmentCommitments, roles: organizationRoles, dag, objectivePresent: Boolean(objective), outcomesCount: outcomes.length });
   const partnerRoles = partners.flatMap((partner) => partner.roles);
   const partnerWorkItems = partners.flatMap((partner) => partner.workItems);
-  return { asOf: today, horizonMonths: horizonMonths(objective, milestones, today), objective, outcomes, kpis, dependencies: dependencyDtos, dag, judgment, tracks, milestones, tasks, issues, hypotheses, evidence, validationRuns, decisions, actions, partners, partnerCommitments: commitments, partnerInteractions: interactions, partnerRoles, partnerWorkItems, technicalTests, fundingSnapshots, organizationRoles, raci, capacity, history, fieldAudit, canManage, hasData: Boolean(objective || outcomes.length || milestones.length || issues.length || partners.length || decisions.length) };
+  return { asOf: today, horizonMonths: horizonMonths(objective, milestones, today), objective, outcomes, kpis, dependencies: dependencyDtos, scheduleDependencies, dag, judgment, tracks, milestones, tasks, issues, hypotheses, evidence, validationRuns, decisions, actions, partners, partnerCommitments: commitments, partnerInteractions: interactions, partnerRoles, partnerWorkItems, technicalTests, fundingSnapshots, organizationRoles, raci, capacity, history, fieldAudit, canManage, hasData: Boolean(objective || outcomes.length || milestones.length || issues.length || partners.length || decisions.length) };
 }

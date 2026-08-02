@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ChevronsDownUp,
   ChevronsUpDown,
   ChevronRight,
   Flag,
+  Link2,
   Plus,
+  Unlink2,
 } from "lucide-react";
 import type {
   SxEcdTimelineRow,
@@ -18,6 +20,7 @@ import type {
   SxManagementBundle,
   SxManagementMilestone,
   SxOutcome,
+  SxScheduleDependency,
   SxTask,
   SxTimelineKind,
   SxTrackKey,
@@ -399,6 +402,11 @@ function RowBar({
   onPointerUp,
   onPointerCancel,
   onLostPointerCapture,
+  connectionMode,
+  connectionSourceId,
+  onPointerDownDependency,
+  onKeyboardStartDependency,
+  onCompleteDependency,
 }: {
   row: DisplayRow;
   accent: string;
@@ -415,6 +423,14 @@ function RowBar({
   onPointerUp: (event: React.PointerEvent) => void;
   onPointerCancel: (event: React.PointerEvent) => void;
   onLostPointerCapture: (event: React.PointerEvent) => void;
+  connectionMode: boolean;
+  connectionSourceId: string | null;
+  onPointerDownDependency: (
+    row: DisplayRow,
+    event: React.PointerEvent<HTMLButtonElement>,
+  ) => void;
+  onKeyboardStartDependency: (row: DisplayRow) => void;
+  onCompleteDependency: (taskId: string) => void;
 }) {
   const barStart = row.plannedStartPct ?? row.plannedEndPct ?? 0;
   const plannedEnd = row.plannedEndPct;
@@ -429,9 +445,10 @@ function RowBar({
   // intentionally read-only on the gantt: there is no honest duration to move or resize yet.
   // The sole end-only draggable exception is the NewCo diamond below.
   const draggableBar =
-    canManage && row.plannedStart != null && row.plannedEnd != null && !isMilestoneMarker;
+    canManage && !connectionMode && row.plannedStart != null && row.plannedEnd != null && !isMilestoneMarker;
   const draggableMilestone =
     canManage &&
+    !connectionMode &&
     hasBar &&
     isMilestoneMarker &&
     // Only the two NewCo gates may drag from an end-only date. A generic point-MS must have its
@@ -472,7 +489,7 @@ function RowBar({
       <button
         type="button"
         onClick={onTimelinePoint}
-        disabled={!canManage || saving}
+        disabled={!canManage || saving || connectionMode}
         className="absolute inset-0 z-0 w-full cursor-crosshair text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] disabled:cursor-default"
         aria-label={`${row.title}行の日付を選んでMSを追加`}
       />
@@ -609,6 +626,54 @@ function RowBar({
           />
         </span>
       )}
+      {connectionMode &&
+        hasBar &&
+        (row.entity === "task" || isMilestoneMarker) &&
+        (!connectionSourceId ||
+          connectionSourceId === `${row.entity}:${row.id}`) && (
+          <button
+            type="button"
+            data-gantt-dependency-source={`${row.entity}:${row.id}`}
+            data-active={connectionSourceId === `${row.entity}:${row.id}` || undefined}
+            aria-pressed={connectionSourceId === `${row.entity}:${row.id}`}
+            onPointerDown={(event) => onPointerDownDependency(row, event)}
+            onClick={(event) => {
+              // Pointer users drag from this port. Enter/Space has detail===0 and provides the
+              // non-dragging alternative required for keyboard operation.
+              if (event.detail !== 0) return;
+              onKeyboardStartDependency(row);
+            }}
+            className="absolute z-40 grid h-11 w-7 -translate-x-1/2 place-items-center rounded-full text-[#5f4a66] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#5f4a66] data-[active=true]:text-[#205f49]"
+            style={{
+              top: 2,
+              left: isMilestoneMarker
+                ? timelinePctCss(plannedEnd)
+                : barGeometry!.right,
+              touchAction: "none",
+            }}
+            aria-label={`${row.title}の右端から依存線を開始`}
+          >
+            <span className="h-3 w-3 rounded-full border-2 border-current bg-[#fffdf7]" />
+          </button>
+        )}
+      {connectionMode &&
+        connectionSourceId &&
+        row.entity === "task" &&
+        row.plannedStartPct != null && (
+        <button
+          type="button"
+          data-gantt-dependency-target-task={row.id}
+          onClick={(event) => {
+            event.stopPropagation();
+            onCompleteDependency(row.id);
+          }}
+          className="absolute z-40 grid h-11 w-7 -translate-x-1/2 place-items-center rounded-full text-[#315f7d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#315f7d]"
+          style={{ top: 2, left: timelinePctCss(row.plannedStartPct) }}
+          aria-label={`${row.title}の左端を接続先にする`}
+        >
+          <span className="h-3 w-3 rounded-full border-2 border-current bg-[#fffdf7]" />
+        </button>
+      )}
       {/* blocking milestone（設立前提の2件）は「どのタスクをクリアすればMS達成か」を、日程の
           有無に関わらず常時1行目に文字で示す（日程未設定の行は帯の代わりにも使う）。日付は
           捏造しない。 */}
@@ -734,6 +799,22 @@ type DragState = {
   saving: boolean;
 };
 
+type ScheduleDependencySource = {
+  entity: "task" | "milestone";
+  id: string;
+  title: string;
+  pointerId: number | null;
+  startX: number;
+  startY: number;
+};
+
+type ScheduleDependencyEdge = {
+  dependency: SxScheduleDependency;
+  path: string;
+  labelX: number;
+  labelY: number;
+};
+
 export function SxUnifiedTimeline({
   timeline,
   asOf,
@@ -742,6 +823,7 @@ export function SxUnifiedTimeline({
   selectedTaskId = null,
   milestones = [],
   dependencies = [],
+  scheduleDependencies = [],
   tasks = [],
   outcomes = [],
   objectiveId = null,
@@ -766,6 +848,7 @@ export function SxUnifiedTimeline({
   selectedTaskId?: string | null;
   milestones?: SxManagementMilestone[];
   dependencies?: SxDependency[];
+  scheduleDependencies?: SxScheduleDependency[];
   tasks?: SxTask[];
   outcomes?: SxOutcome[];
   objectiveId?: string | null;
@@ -823,6 +906,19 @@ export function SxUnifiedTimeline({
   const milestonePromptOriginRef = useRef<HTMLButtonElement | null>(null);
   const milestonePromptSubmittingRef = useRef(false);
   const [ganttNotice, setGanttNotice] = useState<string | null>(null);
+  const [dependencyMode, setDependencyMode] = useState(false);
+  const [dependencySource, setDependencySource] =
+    useState<ScheduleDependencySource | null>(null);
+  const [dependencyPreview, setDependencyPreview] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [gridPaneWidth, setGridPaneWidth] = useState(0);
+  const [removingDependencyId, setRemovingDependencyId] = useState<
+    string | null
+  >(null);
+  const dependencyArrowMarkerId = `sx-gantt-arrow-${useId().replaceAll(":", "")}`;
+  const connectScheduleDependencyRef = useRef<(taskId: string) => void>(() => {});
 
   // dragRef.current is the single source of truth, not the setState updater's `current` argument
   // (which reflects React's queued state — batched pointer events firing in the same tick could
@@ -844,6 +940,245 @@ export function SxUnifiedTimeline({
     setGanttNotice(message);
     window.setTimeout(() => setGanttNotice(null), 4000);
   }
+
+  function sourceKey(source: Pick<ScheduleDependencySource, "entity" | "id">) {
+    return `${source.entity}:${source.id}`;
+  }
+
+  function beginScheduleDependency(
+    row: DisplayRow,
+    event: React.PointerEvent<HTMLButtonElement>,
+  ) {
+    if (!dependencyMode || !canManage || !projectId || event.button !== 0)
+      return;
+    const pane = gridPaneRef.current;
+    if (!pane || row.plannedEndPct == null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const paneRect = pane.getBoundingClientRect();
+    const portRect = event.currentTarget.getBoundingClientRect();
+    const startX = portRect.left + portRect.width / 2 - paneRect.left;
+    const startY = portRect.top + portRect.height / 2 - paneRect.top;
+    setDependencySource({
+      entity: row.entity,
+      id: row.id,
+      title: row.title,
+      pointerId: event.pointerId,
+      startX,
+      startY,
+    });
+    setDependencyPreview({ x: startX, y: startY });
+  }
+
+  function beginKeyboardScheduleDependency(row: DisplayRow) {
+    if (!dependencyMode || !canManage || !projectId || row.plannedEndPct == null)
+      return;
+    const layout = visibleRowLayout.get(`${row.entity}:${row.id}`);
+    const startX =
+      layout && gridPaneWidth > 0
+        ? TIMELINE_SIDE_GUTTER_PX +
+          ((gridPaneWidth - TIMELINE_SIDE_GUTTER_PX * 2) * row.plannedEndPct) /
+            100
+        : 0;
+    setDependencySource({
+      entity: row.entity,
+      id: row.id,
+      title: row.title,
+      pointerId: null,
+      startX,
+      startY: layout?.centerY ?? 0,
+    });
+    setDependencyPreview(null);
+    showGanttNotice("接続先タスクの左端を選んでね。Escで中止できるよ");
+  }
+
+  async function connectScheduleDependency(successorTaskId: string) {
+    const source = dependencySource;
+    if (!source || !projectId) {
+      showGanttNotice("先にタスクかMSの右端を選んでね");
+      return;
+    }
+    // A pointer gesture is over once it reaches a target. If validation rejects that target,
+    // retain the source as a keyboard/click selection without leaving global pointer listeners
+    // attached to an already-ended pointer id.
+    if (source.pointerId != null)
+      setDependencySource({ ...source, pointerId: null });
+    const successor = tasks.find((task) => task.id === successorTaskId);
+    if (!successor) {
+      showGanttNotice("接続先タスクを確認できなかったよ");
+      return;
+    }
+    if (source.entity === "task" && source.id === successorTaskId) {
+      showGanttNotice("同じタスク同士は接続できないよ");
+      return;
+    }
+    if (
+      source.entity === "milestone" &&
+      successor.milestoneId === source.id
+    ) {
+      showGanttNotice("MS自身の配下タスクを、そのMS完了後には接続できないよ");
+      return;
+    }
+    const duplicate = scheduleDependencies.some(
+      (item) =>
+        item.predecessorType === source.entity &&
+        (source.entity === "task"
+          ? item.predecessorTaskId === source.id
+          : item.predecessorMilestoneId === source.id) &&
+        item.successorTaskId === successorTaskId,
+    );
+    if (duplicate) {
+      showGanttNotice("この依存線はすでにあるよ");
+      return;
+    }
+    setDependencyPreview(null);
+    setDependencySource(null);
+    try {
+      const response = await fetch(
+        `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            resource: "schedule_dependency",
+            fields: {
+              predecessor_type: source.entity,
+              predecessor_id: source.id,
+              successor_task_id: successorTaskId,
+            },
+          }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(
+          typeof body.error === "string" ? body.error : "依存線を保存できなかったよ",
+        );
+      onManagementChange(
+        body.bundle as SxManagementBundle,
+        `${source.title} → ${successor.title} を接続したよ`,
+      );
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : "依存線を保存できなかったよ";
+      await bestEffortRefetchManagement(
+        `${message}。最新の状態に更新したよ`,
+        `${message}。画面を再読み込みしてね`,
+      );
+    }
+  }
+
+  async function removeScheduleDependency(dependencyId: string) {
+    if (!projectId || removingDependencyId) return;
+    setRemovingDependencyId(dependencyId);
+    try {
+      const response = await fetch(
+        `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            resource: "schedule_dependency",
+            id: dependencyId,
+            delete: true,
+          }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(
+          typeof body.error === "string" ? body.error : "依存線を外せなかったよ",
+        );
+      onManagementChange(
+        body.bundle as SxManagementBundle,
+        "依存線を外したよ",
+      );
+    } catch (caught) {
+      showGanttNotice(
+        caught instanceof Error ? caught.message : "依存線を外せなかったよ",
+      );
+    } finally {
+      setRemovingDependencyId(null);
+    }
+  }
+
+  useEffect(() => {
+    connectScheduleDependencyRef.current = (taskId) => {
+      void connectScheduleDependency(taskId);
+    };
+  });
+
+  useEffect(() => {
+    if (!dependencySource || dependencySource.pointerId == null) return;
+    const pointerId = dependencySource.pointerId;
+    const move = (event: PointerEvent) => {
+      if (event.pointerId !== pointerId) return;
+      const pane = gridPaneRef.current;
+      if (!pane) return;
+      const rect = pane.getBoundingClientRect();
+      setDependencyPreview({
+        x: Math.min(rect.width, Math.max(0, event.clientX - rect.left)),
+        y: Math.min(rect.height, Math.max(0, event.clientY - rect.top)),
+      });
+    };
+    const finish = (event: PointerEvent) => {
+      if (event.pointerId !== pointerId) return;
+      const target = document
+        .elementFromPoint(event.clientX, event.clientY)
+        ?.closest<HTMLElement>("[data-gantt-dependency-target-task]");
+      const taskId = target?.dataset.ganttDependencyTargetTask || null;
+      setDependencyPreview(null);
+      if (taskId) connectScheduleDependencyRef.current(taskId);
+      else {
+        const pane = gridPaneRef.current;
+        const rect = pane?.getBoundingClientRect();
+        const travel = rect
+          ? Math.hypot(
+              event.clientX - (rect.left + dependencySource.startX),
+              event.clientY - (rect.top + dependencySource.startY),
+            )
+          : Number.POSITIVE_INFINITY;
+        if (travel < 4) {
+          // A click arms the source. Users can now scroll the internal gantt before clicking the
+          // destination; this is also the pointer fallback when the target starts off-screen.
+          setDependencySource({ ...dependencySource, pointerId: null });
+          showGanttNotice(
+            "起点を選んだよ。別タスクの左端をクリックしてね。Escで中止できるよ",
+          );
+        } else {
+          setDependencySource(null);
+          showGanttNotice(
+            "接続先タスクの左端で離すか、右端と左端を順にクリックしてね",
+          );
+        }
+      }
+    };
+    const cancel = (event: PointerEvent) => {
+      if (event.pointerId !== pointerId) return;
+      setDependencyPreview(null);
+      setDependencySource(null);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", cancel);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", cancel);
+    };
+  }, [dependencySource]);
+
+  useEffect(() => {
+    if (!dependencyMode) return;
+    const cancelOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setDependencySource(null);
+      setDependencyPreview(null);
+      showGanttNotice("依存線の接続を中止したよ");
+    };
+    window.addEventListener("keydown", cancelOnEscape);
+    return () => window.removeEventListener("keydown", cancelOnEscape);
+  }, [dependencyMode]);
 
   // Best-effort refetch after ANY save failure (409 conflict or otherwise) — always attempt to
   // pull the true current state so the UI never keeps showing a stale optimistic preview. If the
@@ -1031,6 +1366,98 @@ export function SxUnifiedTimeline({
   );
   const pinRowHeight = showPins ? PIN_ROW_H : 0;
   const gridHeight = pinRowHeight + lanesHeight;
+
+  const visibleRowLayout = useMemo(() => {
+    const rows = new Map<string, { row: DisplayRow; centerY: number }>();
+    let top = pinRowHeight;
+    for (const { rows: laneRows } of visibleLanes) {
+      top += LANE_HEADER_H;
+      for (const row of laneRows) {
+        rows.set(`${row.entity}:${row.id}`, {
+          row,
+          centerY: top + ROW_H / 2,
+        });
+        top += ROW_H;
+      }
+      if (canManage && projectId) top += ROW_H;
+      top += LANE_GAP;
+    }
+    return rows;
+  }, [canManage, pinRowHeight, projectId, visibleLanes]);
+
+  useEffect(() => {
+    const pane = gridPaneRef.current;
+    if (!pane) return;
+    const update = () => setGridPaneWidth(pane.getBoundingClientRect().width);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(pane);
+    return () => observer.disconnect();
+  }, [gridHeight]);
+
+  const scheduleDependencyEdges = useMemo<ScheduleDependencyEdge[]>(() => {
+    if (gridPaneWidth <= TIMELINE_SIDE_GUTTER_PX * 2) return [];
+    const pctToPx = (pct: number) =>
+      TIMELINE_SIDE_GUTTER_PX +
+      ((gridPaneWidth - TIMELINE_SIDE_GUTTER_PX * 2) * pct) / 100;
+    return scheduleDependencies.flatMap((dependency) => {
+      const sourceKey =
+        dependency.predecessorType === "task"
+          ? `task:${dependency.predecessorTaskId}`
+          : `milestone:${dependency.predecessorMilestoneId}`;
+      const source = visibleRowLayout.get(sourceKey);
+      const target = visibleRowLayout.get(`task:${dependency.successorTaskId}`);
+      const sourcePct = source?.row.plannedEndPct;
+      const targetPct = target?.row.plannedStartPct;
+      if (!source || !target || sourcePct == null || targetPct == null) return [];
+      const x1 = pctToPx(sourcePct);
+      const x2 = pctToPx(targetPct);
+      const y1 = source.centerY;
+      const y2 = target.centerY;
+      const directGap = x2 - x1;
+      const routeX =
+        directGap >= 44
+          ? x1 + directGap / 2
+          : Math.min(gridPaneWidth - 10, Math.max(x1, x2) + 28);
+      return [
+        {
+          dependency,
+          path: `M ${x1} ${y1} H ${routeX} V ${y2} H ${x2}`,
+          labelX: routeX,
+          labelY: y1 + (y2 - y1) / 2,
+        },
+      ];
+    });
+  }, [gridPaneWidth, scheduleDependencies, visibleRowLayout]);
+
+  const scheduleDependencyItems = useMemo(
+    () =>
+      scheduleDependencies.map((dependency) => {
+        const sourceTitle =
+          dependency.predecessorType === "task"
+            ? tasks.find((task) => task.id === dependency.predecessorTaskId)
+                ?.title || "非表示の先行タスク"
+            : milestones.find(
+                (milestone) =>
+                  milestone.id === dependency.predecessorMilestoneId,
+              )?.title || "非表示の先行MS";
+        const targetTitle =
+          tasks.find((task) => task.id === dependency.successorTaskId)?.title ||
+          "非表示の後続タスク";
+        return { dependency, sourceTitle, targetTitle };
+      }),
+    [milestones, scheduleDependencies, tasks],
+  );
+  const scheduleDependencyLabelById = useMemo(
+    () =>
+      new Map(
+        scheduleDependencyItems.map((item) => [
+          item.dependency.id,
+          `${item.sourceTitle} → ${item.targetTitle}`,
+        ]),
+      ),
+    [scheduleDependencyItems],
+  );
 
   function toggleAll() {
     if (allExpanded) {
@@ -1426,10 +1853,76 @@ export function SxUnifiedTimeline({
         >
           今日へ
         </button>
+        {canManage && projectId && (
+          <button
+            type="button"
+            aria-pressed={dependencyMode}
+            onClick={() => {
+              setDependencyMode((current) => {
+                const next = !current;
+                if (!next) {
+                  setDependencySource(null);
+                  setDependencyPreview(null);
+                }
+                return next;
+              });
+            }}
+            className={`inline-flex min-h-11 items-center gap-1 border px-3 text-[11px] font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5f4a66] ${dependencyMode ? "border-[#5f4a66] bg-[#5f4a66] text-white" : "border-[#c9bfd0] bg-[#fffdf7] text-[#5f4a66]"}`}
+          >
+            <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
+            {dependencyMode ? "依存接続中" : "依存を接続"}
+          </button>
+        )}
         <span className="ml-auto hidden text-[10px] text-[#777166] lg:inline">
-          横に動かせるよ <span aria-hidden="true">↔</span>
+          {dependencyMode
+            ? dependencySource
+              ? `${dependencySource.title} → 接続先タスクの左端へ`
+              : "右端から左端へドラッグ、または順にクリック"
+            : "横に動かせるよ ↔"}
         </span>
       </div>
+
+      {scheduleDependencyItems.length > 0 && (
+        <details
+          data-gantt-schedule-dependency-register
+          className="mb-1.5 border border-[#ddd5c8] bg-[#fbf9f2] text-[#514e47]"
+        >
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-[10px] font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5f4a66]">
+            <Link2 className="h-3.5 w-3.5 text-[#5f4a66]" aria-hidden="true" />
+            依存関係 {scheduleDependencyItems.length}件
+            <span className="ml-auto hidden font-normal text-[#777166] sm:inline">
+              折りたたみ・日程変更後もここから解除できる
+            </span>
+          </summary>
+          <div className="divide-y divide-[#e8e2d6] border-t border-[#ddd5c8]">
+            {scheduleDependencyItems.map((item) => (
+              <div
+                key={`dependency-register-${item.dependency.id}`}
+                className="flex min-h-11 items-center gap-2 px-3 py-1.5"
+              >
+                <span className="min-w-0 flex-1 truncate text-[10px]">
+                  {item.sourceTitle} <b aria-hidden="true">→</b>{" "}
+                  {item.targetTitle}
+                </span>
+                {canManage && projectId && (
+                  <button
+                    type="button"
+                    disabled={removingDependencyId != null}
+                    onClick={() =>
+                      void removeScheduleDependency(item.dependency.id)
+                    }
+                    className="inline-flex min-h-9 shrink-0 items-center gap-1 border border-[#c9bfd0] bg-[#fffdf7] px-2 text-[10px] font-bold text-[#5f4a66] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#5f4a66] disabled:opacity-45 max-sm:min-h-11"
+                    aria-label={`${item.sourceTitle}から${item.targetTitle}への依存線を外す`}
+                  >
+                    <Unlink2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    外す
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
 
       <div className="space-y-2 lg:hidden" aria-label="工程とタスクの縦一覧">
         {visibleLanes.map(({ lane, rows }) => (
@@ -1458,6 +1951,19 @@ export function SxUnifiedTimeline({
                     ? expandedMilestones.has(row.id)
                     : expandedTasks.has(row.id);
                 const counts = sxGateRequirementCounts(row.requirements);
+                const incomingScheduleCount =
+                  row.entity === "task"
+                    ? scheduleDependencies.filter(
+                        (item) => item.successorTaskId === row.id,
+                      ).length
+                    : 0;
+                const outgoingScheduleCount = scheduleDependencies.filter(
+                  (item) =>
+                    item.predecessorType === row.entity &&
+                    (row.entity === "task"
+                      ? item.predecessorTaskId === row.id
+                      : item.predecessorMilestoneId === row.id),
+                ).length;
                 return (
                   <article
                     key={`mobile-${row.entity}-${row.id}`}
@@ -1521,6 +2027,13 @@ export function SxUnifiedTimeline({
                             : "日程未設定"}{" "}
                           ・ {row.ownerLabel}
                         </span>
+                        {(incomingScheduleCount > 0 ||
+                          outgoingScheduleCount > 0) && (
+                          <span className="mt-1 block text-[9px] font-semibold text-[#5f4a66]">
+                            依存：先行 {incomingScheduleCount} / 後続{" "}
+                            {outgoingScheduleCount}
+                          </span>
+                        )}
                         {row.entity === "milestone" &&
                           row.requiredTaskSummary && (
                             <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold text-[#5f4a66]">
@@ -1561,6 +2074,48 @@ export function SxUnifiedTimeline({
                           )}
                       </button>
                     </div>
+                    {dependencyMode && (
+                      <div className="mt-2 grid grid-cols-2 gap-2 border-t border-[#eee9df] pt-2">
+                        {row.plannedEndPct != null &&
+                        (row.entity === "task" ||
+                          row.timelineKind === "milestone" ||
+                          row.isBlockingMilestone) ? (
+                          <button
+                            type="button"
+                            aria-pressed={
+                              dependencySource
+                                ? sourceKey(dependencySource) ===
+                                  `${row.entity}:${row.id}`
+                                : false
+                            }
+                            onClick={() => beginKeyboardScheduleDependency(row)}
+                            className="flex min-h-11 items-center justify-center gap-1 border border-[#c9bfd0] px-2 text-[10px] font-bold text-[#5f4a66] aria-pressed:bg-[#f1edf3]"
+                          >
+                            <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
+                            右端を起点
+                          </button>
+                        ) : (
+                          <span className="flex min-h-11 items-center justify-center border border-dashed border-[#d6cebf] px-2 text-[9px] text-[#928c80]">
+                            起点は日程が必要
+                          </span>
+                        )}
+                        {row.entity === "task" && row.plannedStartPct != null ? (
+                          <button
+                            type="button"
+                            disabled={!dependencySource}
+                            onClick={() => void connectScheduleDependency(row.id)}
+                            className="flex min-h-11 items-center justify-center gap-1 border border-[#b9c9d3] px-2 text-[10px] font-bold text-[#315f7d] disabled:opacity-40"
+                          >
+                            <span aria-hidden="true">←</span>
+                            左端へ接続
+                          </button>
+                        ) : (
+                          <span className="flex min-h-11 items-center justify-center border border-dashed border-[#d6cebf] px-2 text-[9px] text-[#928c80]">
+                            接続先は開始日が必要
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </article>
                 );
               })}
@@ -1599,16 +2154,17 @@ export function SxUnifiedTimeline({
 
       <div
         ref={scrollerRef}
-        className="relative hidden overflow-x-auto overscroll-x-contain border border-[#d6cebf] bg-[#fffdf7] shadow-[inset_-14px_0_12px_-14px_rgba(36,35,31,0.42)] lg:block"
+        className="relative hidden max-h-[min(72vh,720px)] overflow-auto overscroll-contain border border-[#d6cebf] bg-[#fffdf7] shadow-[inset_-14px_0_12px_-14px_rgba(36,35,31,0.42)] lg:block"
         tabIndex={0}
-        aria-label="ガントチャート。左右にスクロールできる"
+        aria-label="ガントチャート。上下左右にスクロールできる"
       >
         <div className="min-w-[1080px]">
           <div
-            className="grid grid-cols-[minmax(275px,320px)_minmax(0,1fr)] items-end"
+            className="sticky top-0 z-50 grid grid-cols-[minmax(275px,320px)_minmax(0,1fr)] items-end border-b border-[#d6cebf] bg-[#fffdf7] shadow-[0_3px_8px_rgba(36,35,31,0.08)]"
+            data-gantt-sticky-header
             style={{ height: MONTH_ROW_H }}
           >
-            <p className="sticky left-0 z-30 bg-[#fffdf7] px-2 text-[9px] font-semibold tracking-[0.1em] text-[#777166]">
+            <p className="sticky left-0 z-[51] bg-[#fffdf7] px-2 text-[9px] font-semibold tracking-[0.1em] text-[#777166]">
               工程 / タスク
             </p>
             <div className="relative h-full">
@@ -1811,6 +2367,69 @@ export function SxUnifiedTimeline({
                 今日 {sxFormatDate(asOf).slice(5)}
               </span>
 
+              {(scheduleDependencyEdges.length > 0 ||
+                (dependencySource && dependencyPreview)) && (
+                <svg
+                  className="pointer-events-none absolute inset-0 z-[12] overflow-visible"
+                  width={gridPaneWidth}
+                  height={gridHeight}
+                  viewBox={`0 0 ${gridPaneWidth} ${gridHeight}`}
+                  aria-hidden="true"
+                  data-gantt-schedule-dependency-lines
+                >
+                  <defs>
+                    <marker
+                      id={dependencyArrowMarkerId}
+                      viewBox="0 0 8 8"
+                      refX="7"
+                      refY="4"
+                      markerWidth="7"
+                      markerHeight="7"
+                      orient="auto-start-reverse"
+                    >
+                      <path d="M 0 0 L 8 4 L 0 8 z" fill="#5f4a66" />
+                    </marker>
+                  </defs>
+                  {scheduleDependencyEdges.map((edge) => (
+                    <path
+                      key={edge.dependency.id}
+                      d={edge.path}
+                      fill="none"
+                      stroke="#5f4a66"
+                      strokeWidth="1.5"
+                      strokeOpacity="0.68"
+                      markerEnd={`url(#${dependencyArrowMarkerId})`}
+                    />
+                  ))}
+                  {dependencySource && dependencyPreview && (
+                    <path
+                      d={`M ${dependencySource.startX} ${dependencySource.startY} L ${dependencyPreview.x} ${dependencyPreview.y}`}
+                      fill="none"
+                      stroke="#205f49"
+                      strokeWidth="2"
+                      markerEnd={`url(#${dependencyArrowMarkerId})`}
+                    />
+                  )}
+                </svg>
+              )}
+              {dependencyMode &&
+                scheduleDependencyEdges.map((edge) => (
+                  <button
+                    key={`remove-${edge.dependency.id}`}
+                    type="button"
+                    disabled={removingDependencyId != null}
+                    onClick={() =>
+                      void removeScheduleDependency(edge.dependency.id)
+                    }
+                    className="absolute z-[45] grid h-8 w-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-[#c9bfd0] bg-[#fffdf7] text-[#5f4a66] shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#5f4a66] disabled:opacity-45"
+                    style={{ left: edge.labelX, top: edge.labelY }}
+                    aria-label={`${scheduleDependencyLabelById.get(edge.dependency.id) || "この依存関係"}を外す`}
+                    title="依存線を外す"
+                  >
+                    <Unlink2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                ))}
+
               {showPins && (
                 <div
                   className="absolute inset-x-0 top-0 border-b border-[#e8e2d6]"
@@ -1915,6 +2534,19 @@ export function SxUnifiedTimeline({
                             onPointerUp={(event) => finishDrag(row, event)}
                             onPointerCancel={() => setDragBoth(null)}
                             onLostPointerCapture={handleLostPointerCapture}
+                            connectionMode={dependencyMode}
+                            connectionSourceId={
+                              dependencySource
+                                ? sourceKey(dependencySource)
+                                : null
+                            }
+                            onPointerDownDependency={beginScheduleDependency}
+                            onKeyboardStartDependency={
+                              beginKeyboardScheduleDependency
+                            }
+                            onCompleteDependency={(taskId) =>
+                              void connectScheduleDependency(taskId)
+                            }
                           />
                         </div>
                       );
@@ -1940,7 +2572,7 @@ export function SxUnifiedTimeline({
             : "全工程に日程あり"}{" "}
           · 完了工程 {timeline.completedCount}件
         </span>
-        <span aria-hidden="true">← 左右にスクロール →</span>
+        <span aria-hidden="true">↕ 上下・← 左右にスクロール →</span>
       </div>
       {pendingMilestonePoint &&
         createPortal(
