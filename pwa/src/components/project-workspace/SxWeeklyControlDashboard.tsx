@@ -38,6 +38,7 @@ import type {
   SxManagementIssue,
   SxManagementMilestone,
   SxManagementPartner,
+  SxPartnerCommitment,
   SxPartnerInteraction,
   SxPartnerRole,
   SxPartnerWorkItem,
@@ -141,7 +142,24 @@ type EditorState =
   | { kind: "create_partner_work_item"; partnerId: string; side: SxActorSide }
   | { kind: "edit_partner_work_item"; workItem: SxPartnerWorkItem }
   | { kind: "create_partner_role"; partnerId: string }
-  | { kind: "edit_partner_role"; role: SxPartnerRole };
+  | { kind: "edit_partner_role"; role: SxPartnerRole }
+  | {
+      kind: "edit_commitment";
+      partnerId: string;
+      commitment: SxPartnerCommitment;
+    };
+
+/** partner_next_action provenance opens edit_partner but must never expose the full 関係先編集
+ * form — only the fields that fallback (sxPartnerPrimaryIntervention の partner_fallback 分岐)
+ * actually reads: 次にやること・当方担当・期限・期限精度・保有側・現在の担当。 */
+const PARTNER_NEXT_ACTION_FIELD_KEYS = [
+  "next_commitment",
+  "owner_label",
+  "due_date",
+  "due_date_precision",
+  "current_ball_side",
+  "current_ball_owner",
+] as const;
 
 type PlanFieldEditorState = {
   slot: string;
@@ -544,6 +562,22 @@ function editorInitialValues(
       role_label: editor.role.roleLabel || "",
       is_primary: editor.role.isPrimary ? "true" : "false",
       sort_order: String(editor.role.sortOrder),
+    };
+  if (editor.kind === "edit_commitment")
+    return {
+      title: editor.commitment.title,
+      commitment_text: editor.commitment.commitmentText,
+      commitment_kind: editor.commitment.commitmentKind,
+      status: editor.commitment.status,
+      promised_on: editor.commitment.promisedOn || "",
+      due_date: editor.commitment.dueDate || "",
+      completed_on: editor.commitment.completedOn || "",
+      owner_label: editor.commitment.ownerLabel,
+      counterparty_owner: editor.commitment.counterpartyOwner || "",
+      sx_owner: editor.commitment.sxOwner || "",
+      evidence: editor.commitment.evidence || "",
+      next_review_on: editor.commitment.nextReviewOn || "",
+      confidence: editor.commitment.confidence,
     };
   if (editor.kind === "create_issue")
     return {
@@ -1309,6 +1343,69 @@ function editorDefinition(
         { key: "sort_order", label: "表示順", type: "number", required: true },
       ],
     };
+  if (editor.kind === "edit_commitment")
+    return {
+      title: "約束・次アクションを編集",
+      eyebrow: "約束・次アクション",
+      resource: "commitment",
+      method: "PATCH",
+      id: editor.commitment.id,
+      fields: [
+        {
+          key: "commitment_kind",
+          label: "種別",
+          type: "select",
+          required: true,
+          options: [
+            { value: "counterparty_promise", label: "相手の約束" },
+            { value: "sx_followup", label: "SX側の次アクション" },
+          ],
+        },
+        {
+          key: "title",
+          label: "タイトル",
+          required: true,
+        },
+        {
+          key: "commitment_text",
+          label: "内容",
+          type: "textarea",
+          required: true,
+          span: true,
+        },
+        {
+          key: "status",
+          label: "状態",
+          type: "select",
+          required: true,
+          options: [
+            { value: "open", label: "未着手" },
+            { value: "in_progress", label: "進行中" },
+            { value: "completed", label: "完了" },
+            { value: "blocked", label: "停止" },
+            { value: "cancelled", label: "取消" },
+          ],
+        },
+        { key: "owner_label", label: "担当", required: true },
+        {
+          key: "counterparty_owner",
+          label: "相手担当",
+          help: "相手の約束には相手担当・約束日・一次根拠が必要だよ。",
+        },
+        { key: "sx_owner", label: "SX担当" },
+        { key: "promised_on", label: "約束日", type: "date" },
+        { key: "due_date", label: "期限", type: "date" },
+        { key: "next_review_on", label: "次回確認", type: "date" },
+        { key: "completed_on", label: "完了日", type: "date" },
+        {
+          key: "evidence",
+          label: "一次根拠",
+          type: "textarea",
+          span: true,
+        },
+        confidence,
+      ],
+    };
   if (editor.kind === "create_hypothesis_any")
     return {
       title: "仮説を追加",
@@ -1772,6 +1869,7 @@ function IssueEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const editorPanelRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dirty =
     JSON.stringify(values) !== JSON.stringify(initialValues.current);
 
@@ -1795,6 +1893,22 @@ function IssueEditor({
   function requestClose() {
     if (!dirty || window.confirm("入力中の変更を破棄する？")) onClose();
   }
+
+  // ルート編集モーダル（embedded/inlineFieldでない = 全画面backdropのdialog）だけ、
+  // PlanInspectorと同じ流儀でfocus封じ込め・背面inert化・Tabトラップ・dirty確認込みの
+  // Escape closeを適用する。embedded/inlineFieldは既存のPlanInspector側containmentの
+  // 内側に描画されるため、ここで二重にcontainmentしない。
+  // useModalContainmentはdialog.parentElementをdocument.bodyの直接の子（portal layer）と
+  // 仮定してそれ以外のbody直下要素をinert化するため、dialogRef（=editorPanelRef、root時は
+  // dialog roleを持つsection）はcreatePortalでdocument.body直下へ描画したlayer divの直接の
+  // 子でなければならない（inlineのdivのままだとdashboard内mainがinert化対象になり、AppShell
+  // 祖先ごとinertになってモーダル自身も操作不能になる、2026-08 監査追補）。
+  useModalContainment({
+    dialogRef: editorPanelRef,
+    initialFocusRef: closeButtonRef,
+    onClose: requestClose,
+    active: !embedded && !inlineField,
+  });
 
   async function save() {
     setError(null);
@@ -2076,23 +2190,39 @@ function IssueEditor({
     );
   }
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  // PlanInspectorと同じ二層構造でdocument.body直下へportalする。外層(presentation role)が
+  // useModalContainmentの「dialog.parentElement = body直下のportal layer」という前提を満たす
+  // 唯一の要素になり、内層(dialog role, ref=editorPanelRef)がフォーカス封じ込め対象になる。
+  // inlineのdivのまま(portalしない)だと、dialog.parentElementがdashboard内のmainになり、
+  // bodyの直接の子(AppShellのルート)がまるごとinert化されてモーダル自身も操作不能になる
+  // （2026-08 監査追補）。
+  return createPortal(
     <div
       className={styles.editorBackdrop}
-      role="dialog"
-      aria-modal="true"
-      aria-label={definition.title}
+      role="presentation"
+      data-testid="sx-issue-editor-overlay"
+      data-modal-layer="sx-issue-editor"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) requestClose();
       }}
     >
-      <section ref={editorPanelRef} className={styles.editorPanel}>
+      <section
+        ref={editorPanelRef}
+        tabIndex={-1}
+        className={styles.editorPanel}
+        role="dialog"
+        aria-modal="true"
+        aria-label={definition.title}
+      >
         <header className={styles.editorHeader}>
           <div>
             <p className={styles.eyebrow}>{definition.eyebrow}</p>
             <h2>{definition.title}</h2>
           </div>
           <button
+            ref={closeButtonRef}
             type="button"
             className={styles.iconButton}
             onClick={requestClose}
@@ -2144,6 +2274,29 @@ function IssueEditor({
               <strong>{editor.partner.name}</strong>
             </>
           )}
+          {/* 保有事項/約束はタイトルだけでは同名項目と区別できないため、対象関係先名を
+              静的表示する（2026-08 監査追補）。management.partnersから解決した現在値であって、
+              保有事項/約束レコード自体には関係先名を持たせない。 */}
+          {"workItem" in editor && (
+            <>
+              <span>対象関係先</span>
+              <strong>
+                {management.partners.find(
+                  (partner) => partner.id === editor.workItem.partnerId,
+                )?.name || "不明"}
+              </strong>
+            </>
+          )}
+          {"commitment" in editor && (
+            <>
+              <span>対象関係先</span>
+              <strong>
+                {management.partners.find(
+                  (partner) => partner.id === editor.partnerId,
+                )?.name || "不明"}
+              </strong>
+            </>
+          )}
           {"parentTask" in editor && (
             <>
               <span>追加先</span>
@@ -2155,7 +2308,8 @@ function IssueEditor({
         </div>
         {editorForm}
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -2956,6 +3110,12 @@ export function SxWeeklyControlDashboard({
   const [viewFilter, setViewFilter] = useState<ViewFilter>("all");
   const [query, setQuery] = useState("");
   const [editor, setEditor] = useState<EditorState | null>(null);
+  // Only meaningful alongside editor.kind === "edit_partner" — restricts the generic 関係先編集
+  // form down to the partner_next_action provenance's own fields (PARTNER_NEXT_ACTION_FIELD_KEYS).
+  // null means "show every field" (the normal full-editor open path).
+  const [editorFieldKeys, setEditorFieldKeys] = useState<
+    readonly string[] | null
+  >(null);
   const [detailEditor, setDetailEditor] = useState<EditorState | null>(null);
   const [planFieldEditor, setPlanFieldEditor] =
     useState<PlanFieldEditorState | null>(null);
@@ -3135,6 +3295,7 @@ export function SxWeeklyControlDashboard({
   function handleSaved(next: SxManagementBundle, message: string) {
     setManagement(next);
     setEditor(null);
+    setEditorFieldKeys(null);
     setNotice(message);
     window.setTimeout(() => setNotice(null), 3500);
   }
@@ -3160,10 +3321,79 @@ export function SxWeeklyControlDashboard({
     return true;
   }
 
+  function notifyWorkUnitNotFound() {
+    setNotice("元の項目を見つけられなかったよ");
+    window.setTimeout(() => setNotice(null), 3500);
+  }
+
   // 共通母集団の1件から、必ず元の編集文脈へ移動する。工程/タスクはガント該当行・詳細、
-  // 論点系（論点・仮説・検証・判断・action）は該当カード/詳細、関係先は該当行。
+  // 論点系（論点・仮説・検証・判断・action）は該当カード/詳細、関係先はprovenance別の編集
+  // モーダルを直接開く（スクロールしない）。開く前に他のplan/detail editorを閉じ、モーダルは
+  // 常に1つだけにする。
   function navigateToWorkUnit(unit: SxProjectWorkUnit) {
+    if (unit.kind === "partner") {
+      // partner/record/originを先に検証し、有効な移動先が確定したときだけ既存のdrawer/plan/
+      // editorを閉じる（2026-08 監査追補）。partner不在・work item/commitment不在・未知
+      // origin・partner_next_actionのrecordId不一致は、他UIへ一切触れずnoticeだけ出す。
+      const partner = unit.partnerId
+        ? management.partners.find((item) => item.id === unit.partnerId)
+        : undefined;
+      if (!partner) {
+        notifyWorkUnitNotFound();
+        return;
+      }
+      let nextEditor: EditorState | null = null;
+      let nextFieldKeys: readonly string[] | null = null;
+      if (unit.originResource === "partner_work_item") {
+        const workItem = partner.workItems.find(
+          (item) => item.id === unit.recordId,
+        );
+        if (!workItem) {
+          notifyWorkUnitNotFound();
+          return;
+        }
+        nextEditor = { kind: "edit_partner_work_item", workItem };
+      } else if (unit.originResource === "commitment") {
+        const commitment = partner.commitments.find(
+          (item) => item.id === unit.recordId,
+        );
+        if (!commitment) {
+          notifyWorkUnitNotFound();
+          return;
+        }
+        nextEditor = {
+          kind: "edit_commitment",
+          partnerId: partner.id,
+          commitment,
+        };
+      } else if (unit.originResource === "partner_next_action") {
+        if (unit.recordId !== partner.id) {
+          notifyWorkUnitNotFound();
+          return;
+        }
+        nextEditor = { kind: "edit_partner", partner };
+        nextFieldKeys = PARTNER_NEXT_ACTION_FIELD_KEYS;
+      } else {
+        // provenance不一致・未確認originResourceは他のresourceへfall throughしない。
+        notifyWorkUnitNotFound();
+        return;
+      }
+      // ここまで来たら移動先は確定済み。関係先の編集モーダルはガント選択と独立しているが、
+      // 選択が残ったままだとPlanInspectorとrootのeditorモーダルが同時に開く二重dialogになる
+      // ため、開く前に必ずガント側の選択も含めて他UIを一括で解除する。
+      setWorkloadFilter(null);
+      setDetailEditor(null);
+      setPlanFieldEditor(null);
+      setSelectedMilestoneId(null);
+      setSelectedTaskId(null);
+      setEditorFieldKeys(nextFieldKeys);
+      setEditor(nextEditor);
+      return;
+    }
     setWorkloadFilter(null);
+    setDetailEditor(null);
+    setPlanFieldEditor(null);
+    setEditorFieldKeys(null);
     if (unit.navTaskId) {
       setSelectedMilestoneId(null);
       setSelectedTaskId(unit.navTaskId);
@@ -3222,11 +3452,6 @@ export function SxWeeklyControlDashboard({
       }
       return;
     }
-    if (unit.navPartnerId) {
-      document
-        .querySelector(`[data-sx-anchor="sx-partner-${unit.navPartnerId}"]`)
-        ?.scrollIntoView({ block: "center", behavior: "smooth" });
-    }
   }
 
   return (
@@ -3261,9 +3486,7 @@ export function SxWeeklyControlDashboard({
                 {sxWeeklyWeekRangeLabel(bundle.currentWeekStart)} / WEEKLY
                 CONTROL
               </p>
-              <h1>
-                週次管制 <span>/ {bundle.project.projectName}</span>
-              </h1>
+              <h1>SolvioraX PJワークスペース</h1>
             </div>
             <div className={styles.readinessStamp}>
               <span>画面</span>
@@ -3774,13 +3997,17 @@ export function SxWeeklyControlDashboard({
       )}
       {editor && (
         <IssueEditor
-          key={`${editor.kind}-${"issue" in editor ? editor.issue.id : "new"}-${"hypothesis" in editor ? editor.hypothesis?.id || "" : ""}-${"decision" in editor ? editor.decision.id : ""}-${"action" in editor ? editor.action.id : ""}-${"milestone" in editor ? editor.milestone.id : ""}-${"task" in editor ? editor.task.id : ""}`}
+          key={`${editor.kind}-${"issue" in editor ? editor.issue.id : "new"}-${"hypothesis" in editor ? editor.hypothesis?.id || "" : ""}-${"decision" in editor ? editor.decision.id : ""}-${"action" in editor ? editor.action.id : ""}-${"milestone" in editor ? editor.milestone.id : ""}-${"task" in editor ? editor.task.id : ""}-${"workItem" in editor ? editor.workItem.id : ""}-${"commitment" in editor ? editor.commitment.id : ""}-${"partner" in editor ? editor.partner.id : ""}-${editorFieldKeys?.join(",") || ""}`}
           editor={editor}
           management={management}
           access={access}
           projectId={bundle.project.projectId}
-          onClose={() => setEditor(null)}
+          onClose={() => {
+            setEditor(null);
+            setEditorFieldKeys(null);
+          }}
           onSaved={handleSaved}
+          fieldKeys={editorFieldKeys ?? undefined}
         />
       )}
     </main>

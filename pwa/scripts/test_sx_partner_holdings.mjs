@@ -80,6 +80,20 @@ function partner(overrides = {}) {
   assert.equal(byId.get("followup-open").side, "sx", "sx_followup must land on the sx side");
 }
 
+// originResource discriminates which table a holding actually came from — a caller must be able
+// to pick the correct editor/API resource without trying id lookups across both tables in
+// sequence (2026-08 provenance audit).
+{
+  const p = partner({
+    workItems: [workItem({ id: "wi-open", status: "open" })],
+    commitments: [commitment({ id: "commit-open", commitmentKind: "sx_followup", status: "open" })],
+  });
+  const holdings = sxHoldingsForPartner(p);
+  const byId = new Map(holdings.map((h) => [h.id, h]));
+  assert.equal(byId.get("wi-open").originResource, "partner_work_item");
+  assert.equal(byId.get("commit-open").originResource, "commitment");
+}
+
 // sxHoldingsForPartner: a commitment's evidence (一次根拠, present regardless of status) must surface
 // as sourceEvidence, never as completionEvidence — a still-open commitment has no completion evidence
 // at all (2026-07-24 P1 fix: this used to be mis-mapped onto completionEvidence, mislabeling an

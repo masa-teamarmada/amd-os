@@ -20,7 +20,7 @@
   color: var(--ink);
   font-variant-numeric: tabular-nums;
   overflow-x: clip;
-  padding: 20px 16px 40px;
+  padding: 14px 16px 28px;
 }
 
 .shell { max-width: 1560px; margin: 0 auto; }
@@ -36,28 +36,27 @@
 .headerActions button { border-color: var(--green); background: var(--green); color: white; }
 .headerActions a:hover { border-color: #999184; background: var(--sheet); }
 .headerActions svg { width: 15px; height: 15px; }
-.titleRow { align-items: flex-end; padding: 28px 0 22px; }
+.titleRow { align-items: flex-end; padding: 14px 0 10px; }
 .eyebrow { margin: 0; color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
-.titleRow h1 { margin: 6px 0 0; font-size: clamp(30px, 4vw, 52px); font-weight: 680; line-height: 1; letter-spacing: -.045em; }
-.titleRow h1 span { color: #817b70; font-size: .48em; letter-spacing: -.02em; }
+.titleRow h1 { margin: 4px 0 0; font-size: clamp(22px, 2.6vw, 34px); font-weight: 680; line-height: 1.05; letter-spacing: -.04em; }
 .readinessStamp { min-width: 170px; padding-left: 16px; border-left: 3px solid var(--amber); }
 .readinessStamp span, .readinessStamp small { display: block; color: var(--muted); font-size: 10px; }
 .readinessStamp strong { display: block; margin: 4px 0; font-size: 18px; }
 .sectionNav { display: flex; align-items: center; gap: 26px; overflow-x: auto; scrollbar-width: none; }
-.sectionNav a { flex: 0 0 auto; padding: 11px 0 10px; border-bottom: 2px solid transparent; color: var(--muted); font-size: 11px; font-weight: 750; }
+.sectionNav a { flex: 0 0 auto; padding: 8px 0 7px; border-bottom: 2px solid transparent; color: var(--muted); font-size: 11px; font-weight: 750; }
 .sectionNav a:hover { color: var(--green); border-color: var(--green); }
 
-.workloadBand { display: grid; grid-template-columns: repeat(6, 1fr); margin-top: 14px; border: 1px solid var(--line); background: rgba(255, 253, 247, .86); }
-.workloadBand > button { min-width: 0; min-height: 44px; padding: 14px 16px; border: 0; border-right: 1px solid var(--line); background: transparent; text-align: left; cursor: pointer; transition: background .14s ease, box-shadow .14s ease; }
+.workloadBand { display: grid; grid-template-columns: repeat(6, 1fr); margin-top: 10px; border: 1px solid var(--line); background: rgba(255, 253, 247, .86); }
+.workloadBand > button { min-width: 0; min-height: 44px; max-height: 64px; padding: 8px 14px; border: 0; border-right: 1px solid var(--line); background: transparent; text-align: left; cursor: pointer; transition: background .14s ease, box-shadow .14s ease; }
 .workloadBand > button:last-child { border-right: 0; }
 .workloadBand > button:hover { background: rgba(35, 95, 75, .07); }
 .workloadBand > button[data-alert] { box-shadow: inset 0 3px 0 var(--amber); }
 .workloadBand > button[data-active] { background: var(--green-soft); box-shadow: inset 0 3px 0 var(--green); }
-.workloadBand span, .workloadBand small { display: block; color: var(--muted); font-size: 11px; }
-.workloadBand strong { display: block; margin: 3px 0; font-size: 26px; line-height: 1; }
+.workloadBand span, .workloadBand small { display: block; color: var(--muted); font-size: 10px; line-height: 1.2; }
+.workloadBand strong { display: block; margin: 2px 0; font-size: 18px; line-height: 1.1; }
 
-.workloadDrawer { margin-top: 8px; border: 1px solid var(--line); background: var(--sheet); }
-.workloadDrawer > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: rgba(35, 95, 75, .07); }
+.workloadDrawer { margin-top: 6px; border: 1px solid var(--line); background: var(--sheet); }
+.workloadDrawer > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: rgba(35, 95, 75, .07); }
 .workloadDrawer h3 { margin: 0; font-size: 13px; font-weight: 750; }
 .workloadDrawer > header button { min-height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--sheet); font-size: 11px; font-weight: 700; color: var(--muted); }
 .workloadList { max-height: 320px; margin: 0; padding: 0; list-style: none; overflow-y: auto; }
@@ -68,28 +67,28 @@
 .workloadList b { color: var(--ink); font-weight: 700; }
 .workloadEmpty { padding: 16px 14px; color: var(--muted); font-size: 11px; }
 
-.section { padding-top: 46px; scroll-margin-top: 16px; }
-.sectionHeading { align-items: flex-end; margin-bottom: 16px; }
+.section { padding-top: 28px; scroll-margin-top: 16px; }
+.sectionHeading { align-items: flex-end; margin-bottom: 10px; }
 .sectionHeading h2, .issueHeading h2, .inputSection h2 { margin: 5px 0 0; font-size: clamp(22px, 2.4vw, 31px); font-weight: 670; letter-spacing: -.035em; }
 .sectionHeading > div > p { margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .sectionHeading > p { max-width: 520px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; text-align: right; }
 
 .flowRail { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.flowRail::before { position: absolute; z-index: 0; top: 42px; left: 12%; right: 12%; height: 1px; background: #9ba99f; content: ""; }
-.flowStep { position: relative; z-index: 1; min-height: 326px; padding: 20px; border: 1px solid var(--line); background: var(--sheet); }
-.flowNumber { position: absolute; top: 18px; right: 18px; color: #c5beb2; font-size: 32px; font-weight: 300; letter-spacing: -.05em; }
-.flowIcon { position: relative; display: grid; width: 46px; height: 46px; place-items: center; border: 1px solid #9ba99f; border-radius: 50%; background: var(--sheet); color: var(--green); }
-.flowIcon svg { width: 19px; height: 19px; }
-.flowKicker { margin: 20px 0 0; color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .08em; }
-.flowStep h3 { margin: 4px 0 16px; font-size: 19px; }
+.flowRail::before { position: absolute; z-index: 0; top: 30px; left: 12%; right: 12%; height: 1px; background: #9ba99f; content: ""; }
+.flowStep { position: relative; z-index: 1; min-height: 200px; padding: 12px; border: 1px solid var(--line); background: var(--sheet); }
+.flowNumber { position: absolute; top: 10px; right: 12px; color: #c5beb2; font-size: 22px; font-weight: 300; letter-spacing: -.05em; }
+.flowIcon { position: relative; display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid #9ba99f; border-radius: 50%; background: var(--sheet); color: var(--green); }
+.flowIcon svg { width: 15px; height: 15px; }
+.flowKicker { margin: 10px 0 0; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+.flowStep h3 { margin: 3px 0 8px; font-size: 15px; }
 .placeholderList { margin: 0; padding: 0; list-style: none; border-top: 1px solid #e5dfd4; }
-.placeholderList li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 0; border-bottom: 1px solid #e5dfd4; font-size: 12px; }
+.placeholderList li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid #e5dfd4; font-size: 11px; }
 .placeholderList b { color: var(--amber); font-size: 10px; }
-.flowItems { display: grid; gap: 9px; }
-.flowItems > div { padding: 10px 11px; border-left: 2px solid var(--green); background: #f6f3eb; }
+.flowItems { display: grid; gap: 6px; }
+.flowItems > div { padding: 7px 9px; border-left: 2px solid var(--green); background: #f6f3eb; }
 .flowItems span { color: var(--green); font-size: 10px; font-weight: 800; }
-.flowItems p { margin: 3px 0 0; font-size: 12px; font-weight: 700; line-height: 1.45; }
-.flowItems small { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; }
+.flowItems p { margin: 2px 0 0; font-size: 11px; font-weight: 700; line-height: 1.4; }
+.flowItems small { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
 .emptyState { padding: 22px 12px; border: 1px dashed var(--line); color: var(--quiet); font-size: 12px; text-align: center; }
 
 .ganttWorkspace { position: relative; min-width: 0; }
@@ -311,10 +310,10 @@
   .workloadBand > button:nth-child(n+4) { border-top: 1px solid var(--line); }
   .workloadList button { grid-template-columns: 1fr; gap: 2px; }
   .flowRail { grid-template-columns: 1fr; }
-  .flowRail::before { top: 52px; bottom: 52px; left: 43px; right: auto; width: 1px; height: auto; }
-  .flowStep { min-height: 0; padding-left: 82px; }
-  .flowIcon { position: absolute; top: 20px; left: 20px; }
-  .flowNumber { font-size: 23px; }
+  .flowRail::before { top: 40px; bottom: 40px; left: 32px; right: auto; width: 1px; height: auto; }
+  .flowStep { min-height: 0; padding-left: 64px; }
+  .flowIcon { position: absolute; top: 12px; left: 12px; }
+  .flowNumber { font-size: 18px; }
   .flowKicker { margin-top: 0; }
   .controls { grid-template-columns: 1fr; }
   .filterGroup { justify-content: flex-start; overflow-x: auto; flex-wrap: nowrap; }
@@ -349,17 +348,16 @@
   .page { padding: 14px 12px 32px; }
   .headerActions { width: 100%; }
   .headerActions a, .headerActions button { flex: 1; justify-content: center; }
-  .titleRow { padding: 22px 0 18px; }
-  .titleRow h1 { font-size: 34px; line-height: 1.05; }
-  .titleRow h1 span { display: block; margin-top: 6px; font-size: 17px; }
+  .titleRow { padding: 14px 0 10px; }
+  .titleRow h1 { font-size: 26px; line-height: 1.1; }
   .sectionNav { gap: 20px; }
   .workloadBand { grid-template-columns: repeat(2, 1fr); }
   .workloadBand > button:nth-child(odd) { border-right: 1px solid var(--line); }
   .workloadBand > button:nth-child(3) { border-right: 1px solid var(--line); }
   .workloadBand > button:nth-child(even) { border-right: 0; }
   .workloadBand > button:nth-child(n+3) { border-top: 1px solid var(--line); }
-  .section { padding-top: 36px; }
-  .flowStep { padding: 74px 14px 16px; }
+  .section { padding-top: 22px; }
+  .flowStep { padding: 56px 12px 12px; }
   .flowRail::before { display: none; }
   .ganttFrame { padding: 10px 8px 8px; }
   .ganttSelection dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }

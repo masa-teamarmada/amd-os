@@ -114,6 +114,11 @@ export type SxHoldingItem = {
   sourceRef: string | null;
   lastVerifiedAt: string;
   confidence: SxConfidence;
+  /** Which table this row actually came from — the discriminator a caller must use to pick the
+   * correct editor/API resource for `id`. Never inferred by trying id lookups across both
+   * partner.workItems and partner.commitments in sequence: an id collision between the two
+   * tables would silently open/patch the wrong record (2026-08 provenance audit). */
+  originResource: "partner_work_item" | "commitment";
 };
 
 const SOURCE_KIND_LABEL: Record<SxSourceKind, string> = {
@@ -152,6 +157,7 @@ function workItemToHoldingItem(item: SxPartnerWorkItem): SxHoldingItem {
     acceptedBy: item.acceptedBy, acceptedOn: item.acceptedOn,
     relatedMilestoneId: item.relatedMilestoneId,
     sourceKind: item.sourceKind, sourceRef: item.sourceRef, lastVerifiedAt: item.lastVerifiedAt, confidence: item.confidence,
+    originResource: "partner_work_item",
   };
 }
 
@@ -170,6 +176,7 @@ function commitmentToHoldingItem(commitment: SxPartnerCommitment): SxHoldingItem
     sourceEvidence: commitment.evidence,
     acceptedBy: null, acceptedOn: null, relatedMilestoneId: null,
     sourceKind: commitment.sourceKind, sourceRef: commitment.sourceRef, lastVerifiedAt: commitment.lastVerifiedAt, confidence: commitment.confidence,
+    originResource: "commitment",
   };
 }
 

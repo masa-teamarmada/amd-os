@@ -27,10 +27,10 @@ import {
 } from "@/lib/sx-gate-requirements";
 import { sxFormatDate } from "./sx-visual-shared";
 
-const MONTH_ROW_H = 24;
-const PIN_ROW_H = 26;
-const LANE_HEADER_H = 28;
-const ROW_H = 68;
+const MONTH_ROW_H = 20;
+const PIN_ROW_H = 22;
+const LANE_HEADER_H = 22;
+const ROW_H = 48;
 const LANE_GAP = 2;
 
 type DisplayRow = {
@@ -75,13 +75,35 @@ type LaneMeta = {
   maxIssue: string;
 };
 
-const FOUNDING_LANE_KEY = "founding-prerequisites";
-const FOUNDING_LANE_META: LaneMeta = {
-  key: FOUNDING_LANE_KEY,
-  label: "設立前提",
-  shortLabel: "前提",
-  accent: "#5f4a66",
-  maxIssue: "",
+/** The gantt shows exactly 3 lanes, never the raw 4 tracks: 資金調達(funding) has no dedicated
+ * lane of its own — it merges into 組織開発 alongside organizational_building. There is no
+ * separate "設立前提" lane; the two blocking milestones are forced into these 3 lanes directly
+ * (see BLOCKING_MILESTONE_LANE below), not rendered as a 4th synthetic lane. */
+type DisplayLaneKey = "business_development" | "technology_development" | "organization";
+
+const DISPLAY_LANE_ORDER: DisplayLaneKey[] = [
+  "business_development",
+  "technology_development",
+  "organization",
+];
+
+const DISPLAY_LANE_LABEL: Record<DisplayLaneKey, string> = {
+  business_development: "事業開発",
+  technology_development: "技術開発",
+  organization: "組織開発",
+};
+
+function displayLaneKeyForTrack(trackKey: string): DisplayLaneKey {
+  if (trackKey === "business_development") return "business_development";
+  if (trackKey === "technology_development") return "technology_development";
+  return "organization";
+}
+
+/** The 2 blocking milestones never follow their own track column — each is forced into a fixed
+ * display lane regardless of its project_management_milestones.track value. */
+const BLOCKING_MILESTONE_LANE: Record<string, DisplayLaneKey> = {
+  "business-paid-poc-oral-agreement": "business_development",
+  "funding-investment-oral-agreement": "organization",
 };
 
 const ROW_STATE_TEXT: Record<DisplayRow["state"], string> = {
@@ -294,6 +316,10 @@ function RowBar({
   const hasBar = plannedEnd != null;
   const provisional = row.dateCertainty === "provisional";
   const counts = sxGateRequirementCounts(row.requirements);
+  // blocking milestone行は「必須タスク 完了/総数・次の未完了」を常時1行目に出すため、日付が
+  // 入ってバー/◇が付いても潰されないよう、通常行より下へ寄せる（48px行の中で summary(0-13px) →
+  // ◇(13-25px) → bar(24-32px) → 予定/実績(36-48px)の順に積む。日付は捏造しない）。
+  const barTop = row.isBlockingMilestone ? 24 : 15;
   return (
     <button
       type="button"
@@ -303,8 +329,9 @@ function RowBar({
     >
       {hasBar && (
         <span
-          className="absolute top-[23px] h-[10px] overflow-hidden rounded-sm border"
+          className="absolute h-[8px] overflow-hidden rounded-sm border"
           style={{
+            top: barTop,
             left: `${barStart}%`,
             width: `${Math.max(plannedEnd - barStart, 0.5)}%`,
             borderColor: `${accent}99`,
@@ -325,18 +352,16 @@ function RowBar({
           style={{ left: `${plannedEnd}%` }}
         >
           <i
-            className="mx-auto block h-4 w-4 rotate-45 border-2 border-[#5f4a66] bg-[#fffdf7]"
+            className="mx-auto block h-3 w-3 rotate-45 border-2 border-[#5f4a66] bg-[#fffdf7]"
             aria-hidden="true"
           />
-          <em className="mt-0.5 block whitespace-nowrap text-[8px] font-bold not-italic text-[#5f4a66]">
-            マイルストーン
-          </em>
         </span>
       )}
-      {/* 日程未設定の行（設立前提の2件）は帯の代わりに、状態・達成連鎖・必須タスクの完了数と
-          次の未完了タスクをこの同じ行の右側テキストで示す。日付を捏造しない。 */}
-      {!hasBar && row.requiredTaskSummary && (
-        <span className="absolute inset-x-1 top-1 truncate text-[10px] font-semibold text-[#5f4a66]">
+      {/* blocking milestone（設立前提の2件）は「どのタスクをクリアすればMS達成か」を、日程の
+          有無に関わらず常時1行目に文字で示す（日程未設定の行は帯の代わりにも使う）。日付は
+          捏造しない。 */}
+      {row.requiredTaskSummary && (
+        <span className="absolute inset-x-1 top-0.5 truncate text-[10px] font-semibold text-[#5f4a66]">
           必須タスク {row.requiredTaskSummary.completed}/
           {row.requiredTaskSummary.total}
           {row.requiredTaskSummary.total === 0
@@ -346,7 +371,7 @@ function RowBar({
               : " ・ 全完了"}
         </span>
       )}
-      <span className="absolute inset-x-1 bottom-1 flex flex-wrap items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] font-semibold text-[#69665d]">
+      <span className="absolute inset-x-1 bottom-0.5 flex flex-wrap items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] font-semibold text-[#69665d]">
         {hasBar ? (
           <>
             <span>予定 {sxFormatDate(row.plannedEnd).slice(5)}</span>
@@ -364,7 +389,15 @@ function RowBar({
             </span>
           </>
         ) : (
-          <span>日程未設定・{ROW_STATE_TEXT[row.state]}</span>
+          <span className="flex items-center gap-1">
+            {row.isBlockingMilestone && (
+              <i
+                className="inline-block h-3 w-3 shrink-0 rotate-45 border-2 border-[#5f4a66] bg-[#fffdf7]"
+                aria-hidden="true"
+              />
+            )}
+            日程未設定・{ROW_STATE_TEXT[row.state]}
+          </span>
         )}
         {counts.total > 0 && (
           <span
@@ -390,32 +423,20 @@ function RowBar({
 function Legend() {
   return (
     <div
-      className="mb-2 grid gap-px border border-[#d6cebf] bg-[#d6cebf] text-[10px] text-[#514e47] sm:grid-cols-3"
+      className="mb-1.5 grid gap-px border border-[#d6cebf] bg-[#d6cebf] text-[10px] text-[#514e47] sm:grid-cols-3"
       aria-label="ガントの読み方"
     >
-      <div className="flex min-h-11 items-center gap-2 bg-[#fffdf7] px-2">
-        <span className="h-2.5 w-10 rounded-sm border border-[#7da18f] bg-[#dceae2]" />
-        <span>
-          <b>計画期間</b>
-          <br />
-          薄いバー
-        </span>
+      <div className="flex items-center gap-2 bg-[#fffdf7] px-2 py-1">
+        <span className="h-2 w-8 rounded-sm border border-[#7da18f] bg-[#dceae2]" />
+        <span>計画期間｜薄いバー</span>
       </div>
-      <div className="flex min-h-11 items-center gap-2 bg-[#fffdf7] px-2">
-        <span className="h-2.5 w-10 rounded-sm bg-[#38745d]" />
-        <span>
-          <b>実績</b>
-          <br />
-          濃い塗り・進捗率
-        </span>
+      <div className="flex items-center gap-2 bg-[#fffdf7] px-2 py-1">
+        <span className="h-2 w-8 rounded-sm bg-[#38745d]" />
+        <span>実績｜濃い塗り・進捗率</span>
       </div>
-      <div className="flex min-h-11 items-center gap-2 bg-[#fffdf7] px-2">
-        <span className="h-3 w-3 rotate-45 border-2 border-[#5f4a66] bg-[#fffdf7]" />
-        <span>
-          <b>マイルストーン</b>
-          <br />
-          先へ進む条件
-        </span>
+      <div className="flex items-center gap-2 bg-[#fffdf7] px-2 py-1">
+        <span className="h-2.5 w-2.5 rotate-45 border-2 border-[#5f4a66] bg-[#fffdf7]" />
+        <span>マイルストーン｜先へ進む条件</span>
       </div>
     </div>
   );
@@ -496,8 +517,8 @@ export function SxUnifiedTimeline({
     return map;
   }, [tasks]);
 
-  // 設立前提の2件も通常レーンと同じ左右2列パイプラインへ統合する。ガント外の独立sectionは
-  // 廃止済み — timeline全体が無効（日程付きマイルストーン0件）でもこのレーンだけは描く。
+  // 事業開発／技術開発／組織開発の3レーンだけを描く。資金調達は独立レーンを持たず組織開発へ
+  // 統合し、設立前提の2件は専用の4本目レーンではなく、それぞれの対象レーンへ直接組み込む。
   const visibleLanes = useMemo(() => {
     const appendTaskChildren = (
       milestoneId: string,
@@ -516,27 +537,32 @@ export function SxUnifiedTimeline({
       }
     };
 
-    const lanes: Array<{ lane: LaneMeta; rows: DisplayRow[] }> = [];
+    const bucket: Record<DisplayLaneKey, DisplayRow[]> = {
+      business_development: [],
+      technology_development: [],
+      organization: [],
+    };
 
-    if (blockingMilestones.length > 0) {
+    for (const milestone of blockingMilestones) {
       const rows: DisplayRow[] = [];
-      for (const milestone of blockingMilestones) {
-        const children = taskChildren.get(`milestone:${milestone.id}`) || [];
-        rows.push(
-          blockingMilestoneRow(milestone, children.length > 0, tasks, timeline),
-        );
-        if (children.length > 0 && expandedMilestones.has(milestone.id))
-          appendTaskChildren(milestone.id, rows, null, 1);
-      }
-      lanes.push({ lane: FOUNDING_LANE_META, rows });
+      const children = taskChildren.get(`milestone:${milestone.id}`) || [];
+      rows.push(
+        blockingMilestoneRow(milestone, children.length > 0, tasks, timeline),
+      );
+      if (children.length > 0 && expandedMilestones.has(milestone.id))
+        appendTaskChildren(milestone.id, rows, null, 1);
+      bucket[BLOCKING_MILESTONE_LANE[milestone.slug] ?? "organization"].push(
+        ...rows,
+      );
     }
 
     for (const lane of timeline.lanes) {
-      const rows: DisplayRow[] = [];
+      const laneKey = displayLaneKeyForTrack(lane.key);
       for (const milestone of lane.rows) {
-        // 設立前提の2件は専用レーンだけに表示し、通常の柱レーンでは二重表示しない。
+        // 設立前提の2件は上ですでに強制配置済みなので、通常の柱レーンでは二重表示しない。
         const definition = milestoneById.get(milestone.milestoneId);
         if (definition && sxIsBlockingMilestone(definition)) continue;
+        const rows: DisplayRow[] = [];
         const children =
           taskChildren.get(`milestone:${milestone.milestoneId}`) || [];
         rows.push(
@@ -552,11 +578,37 @@ export function SxUnifiedTimeline({
           expandedMilestones.has(milestone.milestoneId)
         )
           appendTaskChildren(milestone.milestoneId, rows, null, 1);
+        bucket[laneKey].push(...rows);
       }
-      lanes.push({ lane, rows });
     }
 
-    return lanes;
+    const laneByKey = new Map(timeline.lanes.map((lane) => [lane.key, lane]));
+    const accentFor = (key: DisplayLaneKey) =>
+      key === "organization"
+        ? (laneByKey.get("organizational_building")?.accent ??
+          laneByKey.get("funding")?.accent ??
+          "#69665d")
+        : (laneByKey.get(key)?.accent ?? "#69665d");
+    const maxIssueFor = (key: DisplayLaneKey) =>
+      key === "organization"
+        ? [
+            laneByKey.get("organizational_building")?.maxIssue,
+            laneByKey.get("funding")?.maxIssue,
+          ]
+            .filter(Boolean)
+            .join(" / ")
+        : (laneByKey.get(key)?.maxIssue ?? "");
+
+    return DISPLAY_LANE_ORDER.map((key) => ({
+      lane: {
+        key,
+        label: DISPLAY_LANE_LABEL[key],
+        shortLabel: DISPLAY_LANE_LABEL[key],
+        accent: accentFor(key),
+        maxIssue: maxIssueFor(key),
+      } satisfies LaneMeta,
+      rows: bucket[key],
+    }));
   }, [
     asOf,
     blockingMilestones,
@@ -637,13 +689,13 @@ export function SxUnifiedTimeline({
         <p className="mb-2 border border-dashed border-[#b5533f] bg-[#f9e4e1] px-3 py-2 text-[11px] font-semibold text-[#8c3329]">
           {timeline.reason}
           {blockingMilestones.length > 0 &&
-            "。設立前提レーンは日程未設定でも下に表示するよ。"}
+            "。設立前提の2件は日程未設定でも該当レーンに表示するよ。"}
         </p>
       )}
       <div className="hidden lg:block">
         <Legend />
       </div>
-      <div className="mb-2 flex flex-wrap items-center gap-2">
+      <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         {canManage && (
           <button
             type="button"
@@ -773,6 +825,12 @@ export function SxUnifiedTimeline({
                         aria-pressed={selected}
                       >
                         <span className="flex flex-wrap items-center gap-1">
+                          {row.isBlockingMilestone && (
+                            <i
+                              className="inline-block h-3 w-3 shrink-0 rotate-45 border-2 border-[#5f4a66] bg-[#fffdf7]"
+                              aria-hidden="true"
+                            />
+                          )}
                           <b className="text-[11px] text-[#24231f]">
                             {row.title}
                           </b>
@@ -941,7 +999,7 @@ export function SxUnifiedTimeline({
                               setExpandedMilestones(update);
                             else setExpandedTasks(update);
                           }}
-                          className={`flex w-8 shrink-0 items-center justify-center text-[#69665d] ${row.hasChildren ? "" : "opacity-0"}`}
+                          className={`flex w-11 shrink-0 items-center justify-center text-[#69665d] ${row.hasChildren ? "" : "opacity-0"}`}
                           aria-label={
                             expanded
                               ? `${row.title}を折りたたむ`
@@ -979,7 +1037,7 @@ export function SxUnifiedTimeline({
                               </i>
                             )}
                           </span>
-                          <span className="mt-1 flex items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] text-[#777166]">
+                          <span className="mt-0.5 flex items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] text-[#777166]">
                             <em className="not-italic">
                               {ROW_STATE_TEXT[row.state]}
                             </em>

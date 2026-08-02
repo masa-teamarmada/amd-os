@@ -129,11 +129,60 @@ expectIncludes(
     "onSelectItem={navigateToWorkUnit}",
     "sxProjectWorkUnitIsOverdue",
     "sxProjectWorkUnitIsDueSoon",
+    // 2026-08 provenance audit: 関係先由来の共通母集団クリックはスクロールせず、provenance
+    // （originResource）別に単一の編集モーダルを直接開く。work itemはedit_partner_work_item、
+    // commitmentは専用edit_commitment（resource=commitment）、構造化保有が無いpartner_fallback
+    // は関係先編集の全項目ではなく次にやること・当方担当・期限・期限精度・保有側・現在の担当
+    // だけのtargeted editor（fieldKeys）を開く。開く前にplan/detail editorを閉じ、モーダルは
+    // 常に1つだけにする。
+    "SolvioraX PJワークスペース",
+    "PARTNER_NEXT_ACTION_FIELD_KEYS",
+    "edit_commitment",
+    'resource: "commitment"',
+    "editorFieldKeys",
+    "unit.originResource",
+    "unit.recordId",
+    'unit.originResource === "partner_work_item"',
+    'unit.originResource === "commitment"',
+    'unit.originResource === "partner_next_action"',
+    // 監査追補 (2026-08-02、最終モーダル監査): partner/record/originを先に検証し、有効な
+    // 移動先が確定したときだけ既存のdrawer/plan/editorを閉じる。無効な場合は他UIへ触れず
+    // notifyWorkUnitNotFound()（noticeのみ）で終える。
+    "function notifyWorkUnitNotFound() {",
+    "元の項目を見つけられなかったよ",
+    "let nextEditor: EditorState | null = null;",
+    "if (unit.recordId !== partner.id) {",
+    "setEditorFieldKeys(nextFieldKeys);\n      setEditor(nextEditor);",
+    // 同名項目でも対象を確認できるよう、edit_partner_work_item/edit_commitmentのroot editor
+    // モーダルへmanagement.partnersから解決した対象関係先名を静的表示する。
+    '{"workItem" in editor && (',
+    '{"commitment" in editor && (',
+    "partner.id === editor.workItem.partnerId",
+    "partner.id === editor.partnerId",
+    // root editorモーダル（embedded/inlineFieldでない）だけ、PlanInspectorと同じ流儀で
+    // useModalContainmentを適用する（focus封じ込め・背面inert化・Tabトラップ・dirty確認込み
+    // のEscape close）。embedded/inlineFieldは二重containmentしない。
+    "const closeButtonRef = useRef<HTMLButtonElement>(null);",
+    "active: !embedded && !inlineField,",
+    // 監査追補 (2026-08-02、再監査): useModalContainmentはdialog.parentElementをdocument.body
+    // 直下のportal layerと仮定する。root editorをinlineのdivのまま描くとdashboard内mainが
+    // dialog.parentElementになり、bodyの直接の子(AppShellのルート)がまるごとinert化されて
+    // モーダル自身も操作不能になるため、PlanInspectorと同じ二層構造でdocument.body直下へ
+    // createPortalする（外層role="presentation"のlayer、内層role="dialog"のsection）。
+    "dialogRef: editorPanelRef,",
+    'role="presentation"',
+    'data-modal-layer="sx-issue-editor"',
+    "return createPortal(",
   ],
 );
 expectNotIncludes(
   "src/components/project-workspace/SxWeeklyControlDashboard.tsx",
-  ["styles.statusBand", "今週入力"],
+  [
+    "styles.statusBand",
+    "今週入力",
+    "週次管制 <span>",
+    'data-sx-anchor="sx-partner-${unit.navPartnerId}"',
+  ],
 );
 expectIncludes("src/lib/sx-project-owner-load.ts", [
   "navMilestoneId",
@@ -142,12 +191,34 @@ expectIncludes("src/lib/sx-project-owner-load.ts", [
   "navPartnerId",
   "sxProjectWorkUnitIsOverdue",
   "sxProjectWorkUnitIsDueSoon",
+  // 2026-08 provenance audit: every partner-kind unit carries its own originResource/recordId/
+  // partnerId triad — never inferred by trying id lookups across partner.workItems and
+  // partner.commitments in sequence.
+  "originResource",
+  "recordId",
+  '"partner_work_item"',
+  '"commitment"',
+  '"partner_next_action"',
 ]);
+expectIncludes("src/lib/sx-partner-holdings.ts", ["originResource"]);
 expectIncludes("src/components/project-workspace/SxProjectOwnerWorkload.tsx", [
   "onSelectItem",
   "disabled={!onSelectItem}",
   "onClick={() => onSelectItem?.(item)}",
+  "lg:grid-cols-2",
+  // 監査追補 (2026-08-02): 外側lg:grid-cols-2と組み合わさるlg/xl未満の幅では、展開行の固定4列
+  // (合計554px)が1カードに収まらず横あふれする。xl未満は2行1列、xl以上だけ元の4列1行へ戻す。
+  "xl:grid-cols-[110px_minmax(160px,1fr)_120px_minmax(140px,0.8fr)]",
+  "xl:contents",
 ]);
+expectNotIncludes(
+  "src/components/project-workspace/SxProjectOwnerWorkload.tsx",
+  [
+    // 旧・展開行のグリッドはxl条件なしで常時4列を強制しており、lg 2カラムと組み合わせると
+    // 1024px前後で横あふれしていた。
+    "grid-cols-[110px_minmax(160px,1fr)_120px_minmax(140px,0.8fr)] items-start",
+  ],
+);
 
 expectNotIncludes(
   "src/components/project-workspace/SxWeeklyControlDashboard.tsx",
@@ -160,7 +231,7 @@ expectNotIncludes(
 expectSegmentNotIncludes(
   "src/components/project-workspace/SxWeeklyControlDashboard.tsx",
   "if (embedded) {\n    return (",
-  "\n  return (\n    <div\n      className={styles.editorBackdrop}",
+  "\n  return createPortal(\n    <div\n      className={styles.editorBackdrop}",
   [
     "styles.editorPanel",
     "styles.editorHeader",
@@ -1122,13 +1193,20 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "マイルストーン",
   "sxGateRequirementsBySuccessor",
   "前提",
-  // Round 32 (2026-08-02): 2件の設立前提はガント外の独立sectionを持たず、通常の柱レーンと
-  // 同じ左右2列パイプライン（visibleLanes）へ「設立前提」レーンとして最上段に統合する。
-  // 日程未設定でも隠さず、配下の必須タスクは初期展開し、完了数と次の未完了タスクを同じ行
-  // （RowBarの右列）で示す。通常の柱レーンからはこの2件を除外し二重表示しない。達成判定は
-  // 4項目証跡＋配下タスク全完了の両方が揃って初めて「充足」になる。timeline.valid=falseでも
-  // このレーンとその説明文は残る。
-  "FOUNDING_LANE_META",
+  // Round 33 (2026-08-02): ガントは常に事業開発／技術開発／組織開発の3レーンだけを描く。
+  // 資金調達(funding)は独立レーンを持たず組織開発へ統合。設立前提の2件（有償PoC口頭合意・
+  // 出資口頭合意）はガント外の独立sectionでも4本目の合成レーン（旧FOUNDING_LANE）でもなく、
+  // それぞれ事業開発／組織開発レーンへ直接強制配置する（BLOCKING_MILESTONE_LANE）。日程未設定
+  // でも隠さず、配下の必須タスクは初期展開し、完了数と次の未完了タスクを同じ行（RowBarの右列）
+  // で示す。通常の柱レーンからはこの2件を除外し二重表示しない。達成判定は4項目証跡＋配下タスク
+  // 全完了の両方が揃って初めて「充足」になる。timeline.valid=falseでもこの説明文は残る。
+  "DISPLAY_LANE_ORDER",
+  "DISPLAY_LANE_LABEL",
+  "BLOCKING_MILESTONE_LANE",
+  "displayLaneKeyForTrack",
+  "事業開発",
+  "技術開発",
+  "組織開発",
   "blockingMilestones",
   "blockingMilestoneRow",
   "sxMilestoneRequiredTaskSummary",
@@ -1138,6 +1216,22 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "row.achievement",
   "GATE_STATE_TEXT",
   "!timeline.valid &&",
+  // undated blocking milestones still get a diamond marker — placed next to the existing
+  // 日程未設定 text (a non-temporal label position), never a fabricated date/X position.
+  // Same rule applies to the mobile card list: the diamond renders before the title so an
+  // undated blocking milestone is still recognizable as a milestone (監査追補 2026-08-02).
+  "row.isBlockingMilestone && (",
+  "日程未設定・{ROW_STATE_TEXT[row.state]}",
+  "{row.isBlockingMilestone && (\n                            <i",
+  // desktop expand/collapse toggle must be a full 44px hit target, not a 32px (w-8) one
+  // (監査追補 2026-08-02).
+  "flex w-11 shrink-0 items-center justify-center text-[#69665d]",
+  // 監査追補 (2026-08-02): blocking milestoneの「必須タスク 完了/総数・次の未完了」は日程の
+  // 有無に関わらず常時RowBar 1行目に出す(!hasBar && の条件を外し、日付が入っても消えない)。
+  // undatedの◇(12px)はdatedの◇(12px)と同じ大きさへ統一する。
+  "{row.requiredTaskSummary && (",
+  "const barTop = row.isBlockingMilestone ? 24 : 15;",
+  'top: barTop,',
   // Round 24/29: 計画の薄いバーと登録済み実績の濃い塗りを分け、未登録は0%と表示しない。
   "row.progressRegistered && row.progressPct > 0",
   '実績{" "}',
@@ -1162,6 +1256,15 @@ expectNotIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "milestoneAgenda",
   "foundingPrerequisiteLane",
   "sx-founding-prereq-title",
+  // Round 33: 設立前提の2件は4本目の合成レーンを持たない。事業開発／技術開発／組織開発の
+  // 3レーンだけを描く（資金調達は独立レーンを持たず組織開発へ統合）。
+  "FOUNDING_LANE_META",
+  "FOUNDING_LANE_KEY",
+  "founding-prerequisites",
+  // 監査追補 (2026-08-02): 必須タスクsummaryは日程が入っても消してはいけない(!hasBar限定禁止)。
+  // undatedの◇は8px(h-2 w-2)ではなくdatedと同じ12px(h-3 w-3)に統一する。
+  "!hasBar && row.requiredTaskSummary",
+  "h-2 w-2 shrink-0 rotate-45",
 ]);
 expectIncludes("src/lib/sx-executive-control-deck.ts", [
   // Provisional dates / missing dates must never resolve to a false-green current/future state.

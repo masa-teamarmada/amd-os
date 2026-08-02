@@ -34,6 +34,19 @@ export type SxProjectWorkUnit = {
   navTaskId: string | null;
   navIssueId: string | null;
   navPartnerId: string | null;
+  /** Provenance for partner-derived units only (kind === "partner") — which table/record to open
+   * an editor against. Never inferred from `id` by trying lookups across tables in sequence: an
+   * unrecognized/missing originResource must never fall through to a different resource type
+   * (2026-08 provenance audit). null for every non-partner unit. */
+  originResource:
+    | "partner_work_item"
+    | "commitment"
+    | "partner_next_action"
+    | null;
+  /** The underlying record id to look up within `recordId`'s originResource table. For the
+   * partner_next_action fallback this is the partner id itself (there is no separate record). */
+  recordId: string | null;
+  partnerId: string | null;
 };
 
 export type SxProjectOwnerLoad = {
@@ -159,12 +172,24 @@ export function sxProjectOwnerLoads(
   const push = (
     unit: Omit<
       SxProjectWorkUnit,
-      "navMilestoneId" | "navTaskId" | "navIssueId" | "navPartnerId"
+      | "navMilestoneId"
+      | "navTaskId"
+      | "navIssueId"
+      | "navPartnerId"
+      | "originResource"
+      | "recordId"
+      | "partnerId"
     > &
       Partial<
         Pick<
           SxProjectWorkUnit,
-          "navMilestoneId" | "navTaskId" | "navIssueId" | "navPartnerId"
+          | "navMilestoneId"
+          | "navTaskId"
+          | "navIssueId"
+          | "navPartnerId"
+          | "originResource"
+          | "recordId"
+          | "partnerId"
         >
       >,
   ) =>
@@ -176,6 +201,9 @@ export function sxProjectOwnerLoads(
       navTaskId: unit.navTaskId ?? null,
       navIssueId: unit.navIssueId ?? null,
       navPartnerId: unit.navPartnerId ?? null,
+      originResource: unit.originResource ?? null,
+      recordId: unit.recordId ?? null,
+      partnerId: unit.partnerId ?? null,
     });
 
   for (const milestone of management.milestones) {
@@ -343,6 +371,9 @@ export function sxProjectOwnerLoads(
             (label): label is string => Boolean(label),
           ),
           navPartnerId: partner.id,
+          originResource: holding.originResource,
+          recordId: holding.id,
+          partnerId: partner.id,
         });
       }
       continue;
@@ -362,6 +393,9 @@ export function sxProjectOwnerLoads(
       dataGap: true,
       impactedGates: [],
       navPartnerId: partner.id,
+      originResource: "partner_next_action",
+      recordId: partner.id,
+      partnerId: partner.id,
     });
   }
 

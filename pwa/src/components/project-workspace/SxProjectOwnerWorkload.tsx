@@ -36,7 +36,7 @@ export function SxProjectOwnerWorkload({
       className="border border-[#c9bfd0] bg-[#f7f3f7]"
       aria-labelledby="sx-project-owner-workload-title"
     >
-      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#d9cfde] px-3 py-2">
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#d9cfde] px-2.5 py-1.5">
         <div>
           <p className="text-[9px] font-semibold tracking-[0.14em] text-[#76637b]">
             WHO HOLDS WHAT
@@ -67,10 +67,10 @@ export function SxProjectOwnerWorkload({
           </span>
         </div>
       </header>
-      <div className="divide-y divide-[#d9cfde]">
+      <div className="grid gap-px bg-[#d9cfde] lg:grid-cols-2">
         {loads.map((load) => (
           <details key={load.ownerLabel} className="group bg-[#fffdf7]">
-            <summary className="grid min-h-12 cursor-pointer list-none grid-cols-[minmax(100px,1fr)_repeat(5,auto)_20px] items-center gap-2 px-3 py-2 text-[10px] marker:content-none max-md:grid-cols-[minmax(0,1fr)_auto_auto_20px]">
+            <summary className="grid min-h-11 cursor-pointer list-none grid-cols-[minmax(100px,1fr)_repeat(5,auto)_18px] items-center gap-2 px-2.5 py-1.5 text-[10px] marker:content-none max-md:grid-cols-[minmax(0,1fr)_auto_auto_18px]">
               <span className="min-w-0">
                 <b className="block truncate text-[11px] text-[#24231f]">
                   {load.ownerLabel}
@@ -116,29 +116,38 @@ export function SxProjectOwnerWorkload({
                       type="button"
                       disabled={!onSelectItem}
                       onClick={() => onSelectItem?.(item)}
-                      className="grid min-h-11 w-full grid-cols-[110px_minmax(160px,1fr)_120px_minmax(140px,0.8fr)] items-start gap-2 py-2 text-left text-[10px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] enabled:hover:bg-[#f8f5ec] max-md:grid-cols-1 max-md:gap-0.5"
+                      className="grid min-h-11 w-full grid-cols-1 items-start gap-x-2 gap-y-0.5 py-2 text-left text-[10px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] enabled:hover:bg-[#f8f5ec] xl:grid-cols-[110px_minmax(160px,1fr)_120px_minmax(140px,0.8fr)] xl:gap-y-2"
                       aria-label={`${item.title}の元項目へ移動`}
                     >
-                      <span className="font-semibold text-[#5f4a66]">
-                        {item.kindLabel}
+                      {/* 外側lg:grid-cols-2と組み合わさるlg/xl未満の幅では固定4列(合計554px)が入り
+                          きらないため、xl未満は「種別+タイトル」「期限+影響工程」の2行1列へ折り、
+                          xl以上だけ元の4列1行へ戻す(display:contentsで子要素を直接gridアイテム化)。 */}
+                      <span className="flex min-w-0 items-baseline gap-1.5 xl:contents">
+                        <span className="shrink-0 font-semibold text-[#5f4a66]">
+                          {item.kindLabel}
+                        </span>
+                        <b className="min-w-0 truncate text-[#24231f]">
+                          {item.title}
+                        </b>
                       </span>
-                      <b className="text-[#24231f]">{item.title}</b>
-                      <span
-                        className={
-                          item.blocked
-                            ? "font-semibold text-[#8c3329]"
-                            : "text-[#69665d]"
-                        }
-                      >
-                        {item.blocked ? "停止・" : ""}
-                        {item.dueDate
-                          ? sxFormatDate(item.dueDate)
-                          : "期限未設定"}
-                      </span>
-                      <span className="text-[#69665d]">
-                        {item.impactedGates.length > 0
-                          ? `影響：${item.impactedGates.join(" / ")}`
-                          : "影響工程 未接続"}
+                      <span className="flex min-w-0 items-baseline gap-1.5 xl:contents">
+                        <span
+                          className={
+                            item.blocked
+                              ? "shrink-0 font-semibold text-[#8c3329]"
+                              : "shrink-0 text-[#69665d]"
+                          }
+                        >
+                          {item.blocked ? "停止・" : ""}
+                          {item.dueDate
+                            ? sxFormatDate(item.dueDate)
+                            : "期限未設定"}
+                        </span>
+                        <span className="min-w-0 truncate text-[#69665d]">
+                          {item.impactedGates.length > 0
+                            ? `影響：${item.impactedGates.join(" / ")}`
+                            : "影響工程 未接続"}
+                        </span>
                       </span>
                     </button>
                   </li>
