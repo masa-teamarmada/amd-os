@@ -7,7 +7,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { X } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import {
   THEORY_NODE_KINDS,
   THEORY_NODE_LAYERS,
@@ -148,17 +148,23 @@ export function BzmTheoryComposerDialog({
   onClose,
   onNodeCreated,
   onNodeUpdated,
+  onNodeDeleted,
   onMemoCreated,
   onDraftChange,
   onError,
+  getConnectionCount,
+  getMemoCount,
 }: {
   state: ComposerState | null;
   onClose: () => void;
   onNodeCreated: (node: TheoryMapNode, edge: TheoryMapEdge | null) => void;
   onNodeUpdated: (node: TheoryMapNode) => void;
+  onNodeDeleted: (nodeId: string) => void;
   onMemoCreated: (memo: TheoryMapMemo) => void;
   onDraftChange: (draftId: string, fields: DraftNodeFields) => void;
   onError: (message: string) => void;
+  getConnectionCount: (nodeId: string) => number;
+  getMemoCount: (nodeId: string) => number;
 }) {
   const titleId = useId();
   const [form, setForm] = useState<FormState>(defaultFormState());
@@ -166,6 +172,7 @@ export function BzmTheoryComposerDialog({
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const skipDraftSyncRef = useRef(false);
 
@@ -179,6 +186,7 @@ export function BzmTheoryComposerDialog({
     /* eslint-disable react-hooks/set-state-in-effect */
     setError(null);
     setPending(false);
+    setDeleteConfirmOpen(false);
     setAdvancedOpen(state.type === "edit");
     if (state.type === "create") {
       skipDraftSyncRef.current = true;
@@ -327,11 +335,28 @@ export function BzmTheoryComposerDialog({
     onNodeUpdated(updated);
   }
 
+  /** DELETE ?nodeId=。物理削除ではなく archived_at を立てる recoverable soft-delete。 */
+  async function submitDelete(node: TheoryMapNode) {
+    setPending(true);
+    setError(null);
+    const result = await callTheoryMapApi({
+      method: "DELETE",
+      query: `?nodeId=${encodeURIComponent(node.id)}`,
+    });
+    setPending(false);
+    if (!result.ok) {
+      setError(result.error);
+      onError(result.error);
+      return;
+    }
+    onNodeDeleted(node.id);
+  }
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (mode === "create") void submitCreate();
     else if (state?.type === "memo") void submitMemo(state.node);
-    else if (state?.type === "edit") void submitEdit(state.node);
+    else if (state?.type === "edit" && !deleteConfirmOpen) void submitEdit(state.node);
   }
 
   const dialogTitle =
@@ -352,7 +377,9 @@ export function BzmTheoryComposerDialog({
       aria-labelledby={dialogTitle ? titleId : undefined}
       aria-label={
         !dialogTitle && state?.type === "edit"
-          ? `${state.node.title} を編集`
+          ? deleteConfirmOpen
+            ? `${state.node.title} を削除`
+            : `${state.node.title} を編集`
           : undefined
       }
       data-bzm-map-panel="composer"
@@ -427,6 +454,12 @@ export function BzmTheoryComposerDialog({
         >
           {mode === "memo" ? (
             <MemoFields form={memoForm} setForm={setMemoForm} />
+          ) : mode === "edit" && deleteConfirmOpen && state?.type === "edit" ? (
+            <DeleteConfirmFields
+              node={state.node}
+              connectionCount={getConnectionCount(state.node.id)}
+              memoCount={getMemoCount(state.node.id)}
+            />
           ) : (
             <NodeFields
               form={form}
@@ -454,29 +487,71 @@ export function BzmTheoryComposerDialog({
         </div>
 
         <div
-          className="flex gap-2 border-t px-3 py-2 sm:justify-end"
+          className="flex items-center gap-2 border-t px-3 py-2"
           style={{
             borderColor: PAPER_BORDER,
             backgroundColor: "rgba(204, 194, 168, 0.16)",
           }}
         >
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={pending}
-            className="flex min-h-11 flex-1 items-center justify-center rounded-md border px-4 text-sm font-semibold disabled:opacity-50 sm:flex-none"
-            style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
-          >
-            キャンセル
-          </button>
-          <button
-            type="submit"
-            disabled={pending || requiredTextMissing}
-            className="flex min-h-11 flex-1 items-center justify-center rounded-md px-4 text-sm font-semibold text-white disabled:opacity-50 sm:flex-none"
-            style={{ backgroundColor: BLUEPRINT }}
-          >
-            {pending ? "保存中…" : mode === "edit" ? "更新する" : "保存する"}
-          </button>
+          {mode === "edit" && deleteConfirmOpen && state?.type === "edit" ? (
+            <div className="flex flex-1 gap-2 sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmOpen(false)}
+                disabled={pending}
+                className="flex min-h-11 flex-1 items-center justify-center rounded-md border px-4 text-sm font-semibold disabled:opacity-50 sm:flex-none"
+                style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
+              >
+                編集へ戻る
+              </button>
+              <button
+                type="button"
+                data-bzm-node-delete-confirm="true"
+                onClick={() => void submitDelete(state.node)}
+                disabled={pending}
+                className="flex min-h-11 flex-1 items-center justify-center rounded-md px-4 text-sm font-semibold text-white disabled:opacity-50 sm:flex-none"
+                style={{ backgroundColor: VERMILION }}
+              >
+                {pending ? "削除中…" : "ノードを削除する"}
+              </button>
+            </div>
+          ) : (
+            <>
+              {mode === "edit" && (
+                <button
+                  type="button"
+                  data-bzm-node-delete-trigger="true"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  disabled={pending}
+                  aria-label="ノードを削除"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center gap-1.5 rounded-md border text-xs font-semibold disabled:opacity-50 sm:w-auto sm:px-3"
+                  style={{ borderColor: VERMILION, color: VERMILION }}
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">削除</span>
+                </button>
+              )}
+              <div className="flex flex-1 gap-2 sm:justify-end">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={pending}
+                  className="flex min-h-11 flex-1 items-center justify-center rounded-md border px-4 text-sm font-semibold disabled:opacity-50 sm:flex-none"
+                  style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="submit"
+                  disabled={pending || requiredTextMissing}
+                  className="flex min-h-11 flex-1 items-center justify-center rounded-md px-4 text-sm font-semibold text-white disabled:opacity-50 sm:flex-none"
+                  style={{ backgroundColor: BLUEPRINT }}
+                >
+                  {pending ? "保存中…" : mode === "edit" ? "更新する" : "保存する"}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </form>
     </aside>
@@ -545,6 +620,34 @@ function MemoFields({
           ))}
         </select>
       </div>
+    </div>
+  );
+}
+
+function DeleteConfirmFields({
+  node,
+  connectionCount,
+  memoCount,
+}: {
+  node: TheoryMapNode;
+  connectionCount: number;
+  memoCount: number;
+}) {
+  return (
+    <div className="flex flex-col gap-3 text-sm" style={{ color: GRAPHITE }}>
+      <p>
+        「<span className="font-semibold">{node.title}</span>」を削除する？
+      </p>
+      <ul
+        className="flex flex-col gap-1 rounded-md border px-3 py-2 text-xs"
+        style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
+      >
+        <li>接続しているノード: {connectionCount} 件</li>
+        <li>メモ: {memoCount} 件</li>
+      </ul>
+      <p className="text-xs" style={{ color: VERMILION }}>
+        削除すると、このノードと上記の接続・メモがマップと台帳から見えなくなる。この操作は取り消せない。
+      </p>
     </div>
   );
 }

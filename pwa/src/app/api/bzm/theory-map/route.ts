@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, requireMember } from "@/lib/supabase/api-auth";
 import {
+  archiveNode,
   createEdge,
   createMemo,
   createNodeWithOptionalEdge,
@@ -95,9 +96,26 @@ export async function DELETE(req: NextRequest) {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.errorResponse;
 
-  const edgeId = req.nextUrl.searchParams.get("edgeId") ?? "";
+  const edgeId = req.nextUrl.searchParams.get("edgeId");
+  const nodeId = req.nextUrl.searchParams.get("nodeId");
+  const hasEdgeId = typeof edgeId === "string" && edgeId.trim() !== "";
+  const hasNodeId = typeof nodeId === "string" && nodeId.trim() !== "";
+  if (hasEdgeId === hasNodeId) {
+    return NextResponse.json(
+      { ok: false, error: "edgeId か nodeId のどちらか一方を指定してください。" },
+      { status: 400 }
+    );
+  }
+
   const db = createAdminClient();
-  const result = await deleteEdge(db, edgeId);
+
+  if (hasEdgeId) {
+    const result = await deleteEdge(db, edgeId ?? "");
+    if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
+    return NextResponse.json({ ok: true, edgeId: result.data.id });
+  }
+
+  const result = await archiveNode(db, nodeId ?? "", auth.user.email);
   if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
-  return NextResponse.json({ ok: true, edgeId: result.data.id });
+  return NextResponse.json({ ok: true, nodeId: result.data.id });
 }

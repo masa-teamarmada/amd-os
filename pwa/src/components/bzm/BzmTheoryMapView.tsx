@@ -17,6 +17,7 @@ import {
   NotebookPen,
   PenLine,
   Search,
+  Trash2,
 } from "lucide-react";
 import type {
   TheoryNodeKind,
@@ -1599,6 +1600,36 @@ export function BzmTheoryMapView({
                             setComposerAnchor(null);
                             announce("success", "メモを追加しました。");
                           }}
+                          onNodeDeleted={(nodeId) => {
+                            setNodes((current) =>
+                              current.filter((node) => node.id !== nodeId),
+                            );
+                            setEdges((current) =>
+                              current.filter(
+                                (edge) =>
+                                  edge.from !== nodeId && edge.to !== nodeId,
+                              ),
+                            );
+                            setMemos((current) =>
+                              current.filter((memo) => memo.nodeId !== nodeId),
+                            );
+                            setNodePositions((current) => {
+                              const next = { ...current };
+                              delete next[nodeId];
+                              return next;
+                            });
+                            setSelectedId("");
+                            setComposerState(null);
+                            setComposerAnchor(null);
+                            announce("success", "ノードを削除しました。");
+                          }}
+                          getConnectionCount={(nodeId) =>
+                            degreeById.get(nodeId) ?? 0
+                          }
+                          getMemoCount={(nodeId) =>
+                            memos.filter((memo) => memo.nodeId === nodeId)
+                              .length
+                          }
                           onError={(message) => announce("error", message)}
                         />
                       </div>
@@ -1945,6 +1976,8 @@ export function BzmTheoryMapView({
                         edges={relatedEdges}
                         nodeById={nodeById}
                         onSelect={setSelectedId}
+                        canEdit={canEdit}
+                        onRemoveEdge={setEdgeToRemove}
                       />
                     </div>
                   </div>
@@ -2065,10 +2098,14 @@ function ConnectedNodesList({
   edges,
   nodeById,
   onSelect,
+  canEdit,
+  onRemoveEdge,
 }: {
   edges: { edge: TheoryMapEdge; direction: "in" | "out" }[];
   nodeById: Map<string, TheoryMapNode>;
   onSelect: (id: string) => void;
+  canEdit: boolean;
+  onRemoveEdge: (edge: TheoryMapEdge) => void;
 }) {
   return (
     <div>
@@ -2097,8 +2134,12 @@ function ConnectedNodesList({
             const otherId = direction === "out" ? edge.to : edge.from;
             const other = nodeById.get(otherId);
             if (!other) return null;
+            const canRemove = canEdit && edge.editable && Boolean(edge.id);
             return (
-              <li key={`${edge.from}-${edge.type}-${edge.to}`}>
+              <li
+                key={`${edge.from}-${edge.type}-${edge.to}`}
+                className="flex items-center gap-1.5"
+              >
                 <button
                   type="button"
                   onClick={() => onSelect(other.id)}
@@ -2121,6 +2162,21 @@ function ConnectedNodesList({
                     <BzmMathText source={other.title} />
                   </span>
                 </button>
+                {canRemove && (
+                  <button
+                    type="button"
+                    data-bzm-edge-row-delete="true"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onRemoveEdge(edge);
+                    }}
+                    aria-label={`${RELATION_LABEL[edge.type]}: ${other.title} への接続を削除`}
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-md border"
+                    style={{ borderColor: VERMILION, color: VERMILION }}
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                )}
               </li>
             );
           })}

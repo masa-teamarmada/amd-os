@@ -317,4 +317,173 @@ assert.ok(markdown.includes(String.raw`\( ... \)`), "inline math must support \\
 assert.match(view, /<BzmMarkdown source=\{selected\.body\}/);
 assert.match(view, /<BzmMathText source=\{selected\.title\}/);
 
+// ---------------------------------------------------------------------------
+// Node soft-delete (2026-08-02): admin-only recoverable delete via
+// bzm_theory_nodes.archived_at (never a physical DELETE), exposed through
+// DELETE ?nodeId= alongside the existing DELETE ?edgeId=, with an in-overlay
+// confirm step (not an immediate delete) and a per-row edge delete
+// affordance in the "接続しているノード" ledger.
+// ---------------------------------------------------------------------------
+assert.match(store, /export async function archiveNode/, "store must export an explicit archiveNode function");
+const archiveNodeBody = store.split("export async function archiveNode")[1]?.split("\nfunction rowToNodeDto")[0] ?? "";
+assert.ok(archiveNodeBody.length > 0, "archiveNode function body must be present");
+assert.match(
+  archiveNodeBody,
+  /archived_at: new Date\(\)\.toISOString\(\)/,
+  "archiveNode must set archived_at, not physically delete the row"
+);
+assert.match(archiveNodeBody, /updated_by: actorEmail/, "archiveNode must record the acting admin as updated_by");
+assert.match(
+  archiveNodeBody,
+  /\.is\("archived_at", null\)/,
+  "archiveNode must only ever target an active (non-archived) node"
+);
+assert.doesNotMatch(
+  archiveNodeBody,
+  /\.delete\(\)/,
+  "archiveNode must never physically DELETE the row — it is a recoverable soft-delete"
+);
+
+assert.match(api, /archiveNode/, "route must import/call the store's archiveNode");
+const deleteHandlerBody = api.split("export async function DELETE")[1] ?? "";
+assert.ok(deleteHandlerBody.length > 0, "DELETE handler body must be present");
+assert.match(
+  deleteHandlerBody,
+  /hasEdgeId === hasNodeId/,
+  "DELETE must reject when edgeId and nodeId are both present or both absent"
+);
+assert.match(deleteHandlerBody, /status: 400 \}/, "DELETE must 400 on the edgeId/nodeId exclusivity violation");
+assert.match(
+  deleteHandlerBody,
+  /archiveNode\(db, nodeId \?\? "", auth\.user\.email\)/,
+  "DELETE must call archiveNode with the authenticated admin's email"
+);
+
+// ---------------------------------------------------------------------------
+// Composer: 44px vermilion delete trigger in edit-mode footer, switching to
+// an in-overlay confirm (not an immediate delete, not a modal/menu).
+// ---------------------------------------------------------------------------
+assert.match(composer, /data-bzm-node-delete-trigger="true"/, "edit mode must expose a delete trigger button");
+assert.match(
+  composer,
+  /data-bzm-node-delete-confirm="true"/,
+  "the confirm screen must expose a distinct confirm-delete button"
+);
+assert.match(
+  composer,
+  /onNodeDeleted: \(nodeId: string\) => void/,
+  "ComposerState props must carry an onNodeDeleted callback"
+);
+assert.match(
+  composer,
+  /getConnectionCount: \(nodeId: string\) => number/,
+  "composer must accept a connection-count getter for the delete confirmation"
+);
+assert.match(
+  composer,
+  /getMemoCount: \(nodeId: string\) => number/,
+  "composer must accept a memo-count getter for the delete confirmation"
+);
+assert.match(composer, /deleteConfirmOpen/, "composer must track a delete-confirmation UI state");
+assert.match(
+  composer,
+  /setDeleteConfirmOpen\(false\)/,
+  "the (re)open effect must reset delete confirmation state per the codebase's reset-on-prop-change pattern"
+);
+
+const deleteTriggerButtonBody =
+  composer.split('data-bzm-node-delete-trigger="true"')[1]?.split("</button>")[0] ?? "";
+assert.ok(deleteTriggerButtonBody.length > 0, "delete trigger button markup must be present");
+assert.match(
+  deleteTriggerButtonBody,
+  /onClick=\{\(\) => setDeleteConfirmOpen\(true\)\}/,
+  "the trigger button must only open the confirmation, never delete immediately"
+);
+assert.doesNotMatch(
+  deleteTriggerButtonBody,
+  /submitDelete/,
+  "the trigger button must not call submitDelete directly — immediate delete is forbidden"
+);
+
+const submitDeleteBody = composer.split("async function submitDelete")[1]?.split("\n  function handleSubmit")[0] ?? "";
+assert.ok(submitDeleteBody.length > 0, "submitDelete function body must be present");
+assert.match(submitDeleteBody, /method: "DELETE"/);
+assert.match(
+  submitDeleteBody,
+  /query: `\?nodeId=\$\{encodeURIComponent\(node\.id\)\}`/,
+  "submitDelete must call DELETE ?nodeId="
+);
+assert.match(
+  submitDeleteBody,
+  /onNodeDeleted\(node\.id\)/,
+  "submitDelete must report success back to the parent via onNodeDeleted"
+);
+
+assert.match(
+  composer,
+  /function DeleteConfirmFields/,
+  "the delete confirmation must render node name, connection count, and memo count"
+);
+assert.match(composer, /connectionCount: number/);
+assert.match(composer, /memoCount: number/);
+assert.match(composer, /編集へ戻る/, "the confirm screen must offer a way back to editing without deleting");
+assert.doesNotMatch(
+  composer,
+  /role="dialog"[\s\S]*?role="dialog"/,
+  "the delete confirmation must reuse the composer's single overlay, not open a second dialog"
+);
+
+// ---------------------------------------------------------------------------
+// Map view: wiring the node delete callback, and a per-row edge delete
+// button in the "接続しているノード" ledger (in addition to the existing
+// line-click confirm), reusing the same edge delete confirm/API.
+// ---------------------------------------------------------------------------
+const nodeDeleteHandlerMatch = view.match(/onNodeDeleted=\{\(nodeId\) => \{([\s\S]*?)\n\s*\}\}/);
+assert.ok(nodeDeleteHandlerMatch, "view must wire an onNodeDeleted handler on the composer");
+const nodeDeleteHandlerBody = nodeDeleteHandlerMatch[1];
+assert.match(nodeDeleteHandlerBody, /setNodes\(/, "deleting a node must remove it from nodes state");
+assert.match(nodeDeleteHandlerBody, /setEdges\(/, "deleting a node must remove its incident edges from state");
+assert.match(
+  nodeDeleteHandlerBody,
+  /edge\.from !== nodeId && edge\.to !== nodeId/,
+  "deleting a node must drop edges on either endpoint, not just one direction"
+);
+assert.match(nodeDeleteHandlerBody, /setMemos\(/, "deleting a node must remove its memos from state");
+assert.match(nodeDeleteHandlerBody, /memo\.nodeId !== nodeId/);
+assert.match(
+  nodeDeleteHandlerBody,
+  /setNodePositions\(/,
+  "deleting a node must remove its saved canvas position"
+);
+assert.match(nodeDeleteHandlerBody, /setSelectedId\(""\)/, "deleting a node must clear the current selection");
+assert.match(nodeDeleteHandlerBody, /setComposerState\(null\)/, "deleting a node must close the composer overlay");
+
+assert.match(
+  view,
+  /data-bzm-edge-row-delete="true"/,
+  "the connected-nodes ledger must expose a per-row edge delete button"
+);
+const connectedNodesListBody = view.split("function ConnectedNodesList(")[1] ?? "";
+assert.ok(connectedNodesListBody.length > 0, "ConnectedNodesList function body must be present");
+assert.match(
+  connectedNodesListBody,
+  /canRemove = canEdit && edge\.editable && Boolean\(edge\.id\)/,
+  "the per-row delete button must only show for editable edges the admin can act on"
+);
+assert.match(
+  connectedNodesListBody,
+  /event\.stopPropagation\(\)/,
+  "the per-row delete button must not also trigger the row's select-node navigation"
+);
+assert.match(
+  connectedNodesListBody,
+  /onRemoveEdge\(edge\)/,
+  "the per-row delete button must hand off to the existing edge removal flow"
+);
+assert.match(
+  view,
+  /onRemoveEdge=\{setEdgeToRemove\}/,
+  "the connected-nodes list must reuse the existing edge delete confirmation state, not a second confirm flow"
+);
+
 console.log("ok - BZM theory editor migration, auth, mutation and UI contracts passed");

@@ -704,6 +704,38 @@ export async function deleteEdge(db: SupabaseClient, edgeId: string): Promise<St
   return { ok: true, data: { id: (data as { id: string }).id } };
 }
 
+/**
+ * ノードの recoverable soft-delete (DELETE ?nodeId=)。archived_at を設定するだけで
+ * 物理削除しない。active なノードだけを対象にし、updated_by も記録する。
+ */
+export async function archiveNode(
+  db: SupabaseClient,
+  nodeId: string,
+  actorEmail: string
+): Promise<StoreResult<{ id: string }>> {
+  const id = trimmed(nodeId);
+  if (!id) return { ok: false, status: 400, error: "nodeId は必須です。" };
+  if (id.length > NODE_ID_MAX) return { ok: false, status: 400, error: "nodeId が長すぎます。" };
+
+  const { data, error } = await db
+    .from(NODES_TABLE)
+    .update({ archived_at: new Date().toISOString(), updated_by: actorEmail })
+    .eq("id", id)
+    .is("archived_at", null)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("[bzm-theory-store] archiveNode failed", error);
+    return { ok: false, status: 500, error: "ノードの削除に失敗しました。" };
+  }
+  if (!data) {
+    return { ok: false, status: 404, error: "ノードが見つかりません。" };
+  }
+
+  return { ok: true, data: { id: (data as { id: string }).id } };
+}
+
 function rowToNodeDto(row: NodeRow): TheoryMapNodeDTO {
   return {
     id: row.id,
