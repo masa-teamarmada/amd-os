@@ -99,6 +99,12 @@ assert.doesNotMatch(store, /loadMarkdownTheoryMap|falling back to markdown/);
 assert.match(store, /storageMode: "unavailable"/);
 assert.match(store, /MEMOS_TABLE = "bzm_theory_node_memos"/);
 assert.match(store, /memos: TheoryMapMemoDTO\[\]/, "loadTheoryMap result must carry memos alongside nodes/edges");
+assert.doesNotMatch(
+  store,
+  /select\("id,node_id,memo_type,body,created_by,created_at"\)/,
+  "created_by is audit metadata and must not be exposed in the memo API payload"
+);
+assert.doesNotMatch(uiLib, /createdBy/, "memo UI DTO must not carry unused author identity");
 
 // createMemo must only ever insert into the memo table — never create a node
 // or an edge as a side effect (this is exactly the bug being fixed: memo

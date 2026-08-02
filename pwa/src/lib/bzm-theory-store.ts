@@ -53,7 +53,6 @@ export interface TheoryMapMemoDTO {
   nodeId: string;
   memoType: TheoryMemoType;
   body: string;
-  createdBy: string | null;
   createdAt: string;
 }
 
@@ -127,7 +126,6 @@ interface MemoRow {
   node_id: string;
   memo_type: string;
   body: string;
-  created_by: string | null;
   created_at: string;
 }
 
@@ -146,7 +144,7 @@ export async function loadTheoryMap(
     supabase.from(EDGES_TABLE).select("id,from_node_id,to_node_id,relation_type,note"),
     supabase
       .from(MEMOS_TABLE)
-      .select("id,node_id,memo_type,body,created_by,created_at")
+      .select("id,node_id,memo_type,body,created_at")
       .order("created_at", { ascending: true }),
   ]);
 
@@ -217,7 +215,6 @@ export async function loadTheoryMap(
       nodeId: row.node_id,
       memoType: row.memo_type as TheoryMemoType,
       body: row.body,
-      createdBy: row.created_by ?? null,
       createdAt: row.created_at,
     });
   }
@@ -585,7 +582,7 @@ export async function createMemo(
       body: body.value,
       created_by: actorEmail,
     })
-    .select("id,node_id,memo_type,body,created_by,created_at")
+    .select("id,node_id,memo_type,body,created_at")
     .single();
 
   if (error) {
@@ -739,7 +736,6 @@ function rowToMemoDto(row: MemoRow): TheoryMapMemoDTO {
     nodeId: row.node_id,
     memoType: row.memo_type as TheoryMemoType,
     body: row.body,
-    createdBy: row.created_by ?? null,
     createdAt: row.created_at,
   };
 }

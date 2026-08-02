@@ -41,7 +41,6 @@ export interface TheoryMapMemo {
   nodeId: string;
   memoType: TheoryMemoType;
   body: string;
-  createdBy: string | null;
   createdAt: string;
 }
 
@@ -213,7 +212,6 @@ export function parseTheoryMapMemoDto(value: unknown): TheoryMapMemo | null {
     nodeId: value.nodeId,
     memoType: value.memoType as TheoryMemoType,
     body: value.body,
-    createdBy: typeof value.createdBy === "string" ? value.createdBy : null,
     createdAt: value.createdAt,
   };
 }

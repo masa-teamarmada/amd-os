@@ -55,7 +55,6 @@ export default async function BzmTheoryMapPage() {
     nodeId: memo.nodeId,
     memoType: memo.memoType,
     body: memo.body,
-    createdBy: memo.createdBy,
     createdAt: memo.createdAt,
   }));
 
