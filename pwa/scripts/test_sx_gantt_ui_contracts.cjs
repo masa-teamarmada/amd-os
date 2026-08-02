@@ -1,0 +1,232 @@
+#!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-require-imports */
+// Structural contract guards for the 2026-08 SX gantt/modal audit fixes. These check source
+// invariants that a full DOM-mounted test would also verify, but this repo's SX test suite is
+// pure-logic node scripts (no jsdom/testing-library harness) — matching that existing convention
+// (see scripts/check_pwa_critical_ui.cjs) rather than introducing a new test runner for this one
+// audit. Pure date/version-decision logic itself is unit-tested directly in
+// scripts/test_sx_gantt_drag.mjs; this script guards the wiring around it.
+const fs = require("fs");
+const path = require("path");
+
+const root = path.resolve(__dirname, "..");
+function read(rel) {
+  return fs.readFileSync(path.join(root, rel), "utf8");
+}
+function countOccurrences(text, needle) {
+  return text.split(needle).length - 1;
+}
+function assertIncludes(rel, text, needles) {
+  const missing = needles.filter((needle) => !text.includes(needle));
+  if (missing.length > 0) throw new Error(`${rel} missing: ${missing.join(", ")}`);
+}
+function assertNotIncludes(rel, text, needles) {
+  const present = needles.filter((needle) => text.includes(needle));
+  if (present.length > 0) throw new Error(`${rel} must not contain: ${present.join(", ")}`);
+}
+function assertCount(rel, text, needle, expected) {
+  const actual = countOccurrences(text, needle);
+  if (actual !== expected) {
+    throw new Error(`${rel}: expected ${expected} occurrence(s) of "${needle}", found ${actual}`);
+  }
+}
+
+const timelineFile = "src/components/project-workspace/SxUnifiedTimeline.tsx";
+const timeline = read(timelineFile);
+
+// -- 1. Placement mode never POSTs by itself; it hands the parent a prefill ---------------------
+assertNotIncludes(timelineFile, timeline, [
+  // The old placeMilestone POSTed directly with a fetch call — that whole code path is retired.
+  'method: "POST"',
+]);
+assertIncludes(timelineFile, timeline, [
+  "function placeMilestone(laneKey: DisplayLaneKey, date: string) {",
+  "onCreateMilestone({ track, timelineKind: \"milestone\", plannedDate: date, outcomeId });",
+]);
+
+// -- 2. Resize handles register pointerdown only; pointermove/up/cancel handled once on RowBar --
+// The parent <button> is the only element wired to the shared onPointerMove/onPointerUp/
+// onPointerCancel props — if a resize handle span were ever wired to them again (the double-PATCH
+// regression: the same event fires on the span, then bubbles and fires again on the button), this
+// count would go to 2.
+assertCount(timelineFile, timeline, "onPointerMove={onPointerMove}", 1);
+assertCount(timelineFile, timeline, "onPointerUp={onPointerUp}", 1);
+assertCount(timelineFile, timeline, "onPointerCancel={onPointerCancel}", 1);
+// Resize handles keep pointerdown + lostpointercapture only.
+assertCount(timelineFile, timeline, "onPointerDownResizeStart(event);", 1);
+assertCount(timelineFile, timeline, "onPointerDownResizeEnd(event);", 1);
+assertNotIncludes(timelineFile, timeline, ["isShortBarSpan", "shortBar"]);
+assertIncludes(timelineFile, timeline, [
+  "const TIMELINE_SIDE_GUTTER_PX = 22;",
+  "const MIN_BAR_HIT_WIDTH_PX = 16;",
+  "function barHitGeometryCss(startPct: number, endPct: number) {",
+  "left: `calc(${barGeometry!.left} - 16px)`",
+  "left: barGeometry!.right",
+  "pointerOffsetToTimelinePct(offsetX, rect.width)",
+  "canManage && row.plannedStart != null && row.plannedEnd != null && !isMilestoneMarker",
+  "(row.isBlockingMilestone || row.plannedStart != null)",
+  "if (dragRef.current?.saving) return;",
+]);
+
+// -- 3. Move-drag starts only from the actual bar/diamond hit target, never empty row space ------
+assertNotIncludes(timelineFile, timeline, [
+  // The retired bug: the whole row <button> started a move-drag from anywhere in the row.
+  "if (draggableBar) onPointerDownMove(event);\n      else if (draggableMilestone) onPointerDownMove(event);",
+]);
+assertIncludes(timelineFile, timeline, [
+  "const DRAG_HIT_HEIGHT = 44;",
+  // Dedicated move hit-zone spans a bar's actual width, not the row.
+  "{draggableBar && (\n        <span",
+  // Dedicated diamond hit target, separate from the row button.
+  "{draggableMilestone && (\n        <span",
+]);
+
+// -- 4. Generic point-MS vs NewCo end-only move are different drag modes ------------------------
+assertIncludes(timelineFile, timeline, [
+  '"move" | "resize-start" | "resize-end" | "milestone-move" | "milestone-end-move"',
+  "computeMilestoneMove({ plannedDate: current.original.plannedEnd }, deltaX, current.pxPerDay)",
+  "computeGateEndMove(current.original, deltaX, current.pxPerDay)",
+]);
+
+// -- 5. Non-409 failure best-effort refetches, and reports if that refetch itself fails ----------
+assertIncludes(timelineFile, timeline, [
+  "async function bestEffortRefetchManagement(",
+  "保存できたか確認できなかったよ。画面を再読み込みしてね",
+]);
+
+// -- 6. Generic MS labels say MS/マイルストーン, not 工程; NewCo may say 設立ゲート ----------------
+assertIncludes(timelineFile, timeline, [
+  "function rowKindLabel(row: DisplayRow): string {",
+  'if (row.isBlockingMilestone) return "設立ゲート";',
+  'if (row.timelineKind === "milestone") return "マイルストーン";',
+]);
+
+// -- 9. Mobile/keyboard create-form fallback: MSを追加 is not gated behind the desktop-only ------
+// placement toggle ("hidden lg:inline-flex") the way "日付上に置く" is.
+const msAddButtonMatch = timeline.match(
+  /<button[^>]*onClick=\{\(\) => onCreateMilestone\(\{ track: null, timelineKind: "milestone" \}\)\}[^>]*className="([^"]*)"/,
+);
+if (!msAddButtonMatch) throw new Error(`${timelineFile}: could not find the MSを追加 fallback button`);
+if (/\bhidden\b/.test(msAddButtonMatch[1])) {
+  throw new Error(`${timelineFile}: MSを追加 must stay usable on mobile/keyboard, not hidden behind a desktop breakpoint`);
+}
+assertIncludes(timelineFile, timeline, ["MSを追加"]);
+
+// -- MSを追加/日付上に置く must both require projectId — the projectId-less compact embed --------
+// (SxExecutiveControlDeck's 経営状況図) must stay click-select-only per its own contract comment.
+assertIncludes(timelineFile, timeline, [
+  '{canManage && projectId && (\n          <button\n            type="button"\n            onClick={() => onCreateMilestone({ track: null, timelineKind: "milestone" })}',
+  '{canManage && projectId && (\n          <button\n            type="button"\n            aria-pressed={msPlacementMode}',
+]);
+
+// -- 10. No role=alertdialog; exactly one shared inline-edit tray for PlanInspector ---------------
+const dashboardFile = "src/components/project-workspace/SxWeeklyControlDashboard.tsx";
+const dashboard = read(dashboardFile);
+assertNotIncludes(dashboardFile, dashboard, [
+  'role="alertdialog"',
+  // Retired split: FACT_SLOTS restricted the shared tray to only 5 of the editable values.
+  "FACT_SLOTS",
+  "factEditableValue",
+]);
+assertCount(dashboardFile, dashboard, "className={styles.inspectorEditTray}", 1);
+assertIncludes(dashboardFile, dashboard, [
+  'role="status" aria-live="assertive"',
+  "className={styles.unsavedIndicator}",
+  "const pendingPlanIntentRef = useRef<(() => void) | null>(null);",
+  "pendingPlanIntentRef.current = intent;",
+  "const lastFocusedFieldNameRef = useRef<string | null>(null);",
+  "function focusLastEditableField() {",
+  "onFocusCapture={rememberFocusedField}",
+  "if (pendingIntent) pendingIntent();",
+  'aria-label={`${targetLabel}の${label}を直接修正`}',
+  'ariaDescribedBy="sx-plan-editor-context"',
+]);
+
+// -- expected_version required (400 missing/invalid, 409 stale); CAS rollback by updated version --
+const routeFile = "src/app/api/project-workspace/[projectId]/management/route.ts";
+const route = read(routeFile);
+assertNotIncludes(routeFile, route, [
+  // Retired: expected_version used to be optional for milestone/task PATCH.
+  "function optionalExpectedVersion(",
+]);
+assertIncludes(routeFile, route, [
+  "function requiredExpectedVersion(value: unknown): number {",
+  "expectedVersion = requiredExpectedVersion(body.expected_version);",
+  'if (Number(beforeRecord.version) !== expectedVersion) {',
+  // History-insert compensation rollback CASes on the version our own update just produced.
+  "if (hasVersionColumn && updatedVersion != null) rollbackQuery = rollbackQuery.eq(\"version\", updatedVersion);",
+  "補償復元は安全に実行できなかったよ",
+  // Milestone parent integrity (outcome belongs to objective; outcome.track === milestone.track).
+  "async function assertMilestoneParentIntegrity(",
+]);
+
+// -- The 2 NewCo blocking-gate exception is scoped to project_id='p21' AND the 2 slugs, not slug --
+// alone — a same-named slug in a different project must not inherit the point-MS invariant
+// exemption or the delete/restore expected_version bypass.
+assertIncludes(routeFile, route, [
+  'const SX_BLOCKING_MILESTONE_PROJECT_ID = "p21";',
+  "function isBlockingMilestoneSlug(projectId: string, slug: string): boolean {",
+  "projectId === SX_BLOCKING_MILESTONE_PROJECT_ID &&",
+  "isBlockingMilestoneSlug(projectId, slug)",
+  "isBlockingMilestoneSlug(projectId, String(beforeRecord.slug))",
+]);
+assertNotIncludes(routeFile, route, [
+  // Retired: the old single-arg signature checked slug alone, with no project scoping.
+  "function isBlockingMilestoneSlug(slug: string): boolean {",
+]);
+// delete/restore are intentionally exempt from expected_version (documented, not a bug) — the
+// guard that actually implements the exemption must still be in place.
+assertIncludes(routeFile, route, [
+  "EXEMPT: soft-delete (`delete: true`) and restore (`restore: true`) calls for these same two",
+  'if ((resource === "milestone" || resource === "task") && !deleting && !restoring) {',
+]);
+
+// -- migration 220: p21+slug-scoped point-MS exception, and a general (all-project) DB-level ----
+// milestone parent-integrity trigger with its own precheck.
+const migrationFile = "scripts/migrations/220_sx_gantt_direct_editing.sql";
+const migration = read(migrationFile);
+assertIncludes(migrationFile, migration, [
+  // Backfill scoped to p21, not a blanket slug match.
+  "WHERE project_id = 'p21'\n  AND slug IN ('business-paid-poc-oral-agreement', 'funding-investment-oral-agreement')",
+  // Point-MS CHECK exemption scoped to p21+slug, not slug alone.
+  "OR (project_id = 'p21' AND slug IN ('business-paid-poc-oral-agreement', 'funding-investment-oral-agreement'))",
+  "NOT (\n      project_id = 'p21'\n      AND slug IN ('business-paid-poc-oral-agreement', 'funding-investment-oral-agreement')\n    )",
+  // Parent-integrity precheck + trigger (general invariant, no project_id restriction).
+  "project_management_milestone_parent_integrity()",
+  "CREATE TRIGGER project_management_milestones_parent_integrity_trigger",
+  "BEFORE INSERT OR UPDATE OF project_id, outcome_id, objective_id, track, deleted_at ON public.project_management_milestones",
+  "LEFT JOIN public.project_management_objectives obj ON obj.id = m.objective_id",
+  "o.deleted_at IS NOT NULL",
+  "obj.deleted_at IS NOT NULL",
+  "o.project_id IS DISTINCT FROM m.project_id",
+  "obj.project_id IS DISTINCT FROM m.project_id",
+  "outcome_objective_id IS DISTINCT FROM NEW.objective_id",
+  "project_management_outcome_preserve_milestones()",
+  "BEFORE UPDATE OF project_id, objective_id, track, deleted_at ON public.project_management_outcomes",
+  "project_management_objective_preserve_milestones()",
+  "BEFORE UPDATE OF project_id, deleted_at ON public.project_management_objectives",
+]);
+
+// -- Legacy workspace/nav edit paths must refresh and close stale editors on 409 ---------------
+const workspaceFile = "src/components/project-workspace/ProjectWorkspaceDashboard.tsx";
+const workspace = read(workspaceFile);
+assertIncludes(workspaceFile, workspace, [
+  "if (response.status === 409) {",
+  'headers: { "Cache-Control": "no-store" }',
+  "onConflict(latestBody as SxManagementBundle);",
+  "timeline_kind: prefill.timelineKind",
+  "planned_start: prefill.plannedDate, planned_end: prefill.plannedDate",
+  "outcome_id: prefill.outcomeId",
+  "track: prefill.track || outcome!.track",
+]);
+const managementEditorFile = "src/components/project-navigation/ManagementEditor.tsx";
+const managementEditor = read(managementEditorFile);
+assertIncludes(managementEditorFile, managementEditor, [
+  "if (response.status === 409) {",
+  'headers: { "Cache-Control": "no-store" }',
+  'new CustomEvent("amd-management-conflict"',
+  "router.refresh();",
+  "return true;",
+]);
+
+console.log("sx gantt ui contract tests passed");

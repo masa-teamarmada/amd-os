@@ -1,7 +1,7 @@
 "use client";
 
 import { Flag } from "lucide-react";
-import type { SxJudgment, SxManagementBundle } from "@/lib/sx-management";
+import type { SxJudgment, SxManagementBundle, SxTimelineKind, SxTrackKey } from "@/lib/sx-management";
 import {
   applySxInterventionPillarQuota,
   deriveSxInterventionQueue,
@@ -237,7 +237,12 @@ export function SxExecutiveControlDeck({
   selectedMilestoneId: string | null;
   onSelectMilestone: (milestoneId: string | null) => void;
   onEditMilestone: (milestoneId: string) => void;
-  onCreateMilestone: (track: string | null) => void;
+  onCreateMilestone: (prefill: {
+    track: SxTrackKey | null;
+    timelineKind?: SxTimelineKind;
+    plannedDate?: string | null;
+    outcomeId?: string | null;
+  }) => void;
 }) {
   const objective = management.objective;
   const criticalSlugSet = new Set(judgment.criticalPathSlugs);

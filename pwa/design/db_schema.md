@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-02 18:29 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-02 18:37 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -3827,6 +3827,7 @@ UNIQUE: `(project_id,slug)` (constraint: `project_management_milestones_project_
 | 39 | `deleted_at` | `timestamptz` | NULL | `` |
 | 40 | `deleted_by` | `text` | NULL | `` |
 | 41 | `version` | `int4` | NOT NULL | `1` |
+| 42 | `timeline_kind` | `text` | NOT NULL | `'phase'::text` |
 
 ## project_management_objectives
 

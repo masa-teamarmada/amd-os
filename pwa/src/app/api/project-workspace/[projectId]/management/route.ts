@@ -2,6 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { canAccessWorkspaceProject, getCurrentMemberAccess } from "@/lib/project-workspace";
 import { getSxManagementBundle } from "@/lib/sx-management";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  isStrictCalendarDate,
+  isValidPlannedRange,
+  isValidPointMilestoneRange,
+  normalizePointMilestonePatch,
+} from "@/lib/sx-gantt-drag";
+import { SX_BLOCKING_MILESTONE_SLUGS } from "@/lib/sx-gate-requirements";
+
+// The 2 NewCo founding-prerequisite gates (and their exemption from the generic point-MS
+// invariant) only exist in the SX project. SX_BLOCKING_MILESTONE_SLUGS is a readonly
+// literal-union tuple (`as const`); .includes() on it only accepts that literal union, not an
+// arbitrary string read from a DB row/request body — this wrapper widens the check for those call
+// sites without loosening the exported constant's type. Scoping to project_id='p21' too (not just
+// the slug) means a same-named slug accidentally created in a different project never gets this
+// exemption — mirrors migration 220's point-MS CHECK constraint, which scopes the same way.
+const SX_BLOCKING_MILESTONE_PROJECT_ID = "p21";
+
+function isBlockingMilestoneSlug(projectId: string, slug: string): boolean {
+  return (
+    projectId === SX_BLOCKING_MILESTONE_PROJECT_ID &&
+    (SX_BLOCKING_MILESTONE_SLUGS as readonly string[]).includes(slug)
+  );
+}
 
 type Resource =
   | "objective"
@@ -178,7 +201,24 @@ function enumValue(value: unknown, field: string, allowed: string[]) {
 
 function dateValue(value: unknown, field: string) {
   if (value === null || value === "") return null;
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error(`${field}はYYYY-MM-DDで入力してね`);
+  if (typeof value !== "string" || !isStrictCalendarDate(value)) throw new Error(`${field}はYYYY-MM-DDの実在する日付で入力してね`);
+  return value;
+}
+
+// A normal (data-editing) milestone/task PATCH must always carry expected_version — the version
+// the client read the row at (optimistic concurrency for gantt drag/resize, record-sheet edits,
+// and every other PATCH caller). Missing/invalid is a 400 (a caller that doesn't track version is
+// a bug, not a legitimate "skip the check" case); a version that no longer matches the current row
+// is a 409 — someone else's write landed first, and this PATCH must not silently overwrite it.
+// EXEMPT: soft-delete (`delete: true`) and restore (`restore: true`) calls for these same two
+// resources never reach requiredExpectedVersion — see the `!deleting && !restoring` guard at this
+// function's only call site below. Those two are visibility toggles, not data edits (same
+// reasoning as safeDeletePatch's provenance handling above), and can race harmlessly against a
+// concurrent data PATCH: whichever lands second still applies cleanly (delete/restore touch only
+// deleted_at/deleted_by, never planned_start/planned_end/version-guarded fields). Every other
+// resource's PATCH neither requires nor reads this field at all, deleting/restoring or not.
+function requiredExpectedVersion(value: unknown): number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) throw new Error("expected_versionが必要だよ");
   return value;
 }
 
@@ -345,7 +385,27 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
 
   if (resource === "objective") return { ...common(), project_id: projectId, slug: requiredText("slug", 120), title: requiredText("title", 180), definition_of_done: requiredText("definition_of_done", 1200), target_date: optionalDate("target_date"), date_certainty: requiredEnum("date_certainty", ["confirmed", "provisional"], "provisional"), status: "unassessed", last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
   if (resource === "outcome") return { ...common(), project_id: projectId, objective_id: requiredId("objective_id"), slug: requiredText("slug", 120), track: requiredEnum("track", TRACKS), title: requiredText("title", 180), definition_of_done: requiredText("definition_of_done", 1200), owner_label: requiredText("owner_label", 120), status: "unassessed", last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
-  if (resource === "milestone") return { ...common(), project_id: projectId, objective_id: requiredId("objective_id"), outcome_id: requiredId("outcome_id"), slug: requiredText("slug", 120), track: requiredEnum("track", TRACKS), title: requiredText("title", 180), gate: requiredText("gate", 240), status: "unassessed", planned_start: optionalDate("planned_start"), planned_end: optionalDate("planned_end"), forecast_end: optionalDate("forecast_end"), actual_end: null, progress_pct: 0, date_certainty: requiredEnum("date_certainty", ["confirmed", "provisional"], "provisional"), owner_label: requiredText("owner_label", 120), next_deliverable: requiredText("next_deliverable", 500), max_issue: requiredText("max_issue", 500), completion_criteria: requiredText("completion_criteria", 1200), completion_evidence: null, criticality: requiredEnum("criticality", ["critical", "high", "medium", "low"], "high"), baseline_plan_version: optionalTextValue("baseline_plan_version", 120) || "184-manual", forecast_change_reason: null, status_source: "derived", status_reason: "新規追加直後は未評価", last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
+  if (resource === "milestone") {
+    const plannedStart = optionalDate("planned_start");
+    const plannedEnd = optionalDate("planned_end");
+    if (!isValidPlannedRange({ plannedStart, plannedEnd })) throw new Error("計画開始は計画完了より後にできないよ");
+    // 工程追加(工程追加ボタン) writes 'phase'; MSを置く(ガント直接配置)/MSを追加は
+    // 'milestone'を明示的に書く。Rendering must read this column, never infer
+    // milestone-vs-phase from slug.
+    const timelineKind = requiredEnum("timeline_kind", ["phase", "milestone"], "phase");
+    const slug = requiredText("slug", 120);
+    // Generic point-MS invariant: any timeline_kind='milestone' row other than the 2 NewCo
+    // founding-prerequisite gates must have planned_start/planned_end null together or equal —
+    // mirrors the DB CHECK (migration 220).
+    if (
+      timelineKind === "milestone" &&
+      !isBlockingMilestoneSlug(projectId, slug) &&
+      !isValidPointMilestoneRange({ plannedStart, plannedEnd })
+    ) {
+      throw new Error("このMSは単一の予定日として扱うため、開始日と完了日は同じにしてね");
+    }
+    return { ...common(), project_id: projectId, objective_id: requiredId("objective_id"), outcome_id: requiredId("outcome_id"), slug, track: requiredEnum("track", TRACKS), title: requiredText("title", 180), gate: requiredText("gate", 240), timeline_kind: timelineKind, status: "unassessed", planned_start: plannedStart, planned_end: plannedEnd, forecast_end: optionalDate("forecast_end"), actual_end: null, progress_pct: 0, date_certainty: requiredEnum("date_certainty", ["confirmed", "provisional"], "provisional"), owner_label: requiredText("owner_label", 120), next_deliverable: requiredText("next_deliverable", 500), max_issue: requiredText("max_issue", 500), completion_criteria: requiredText("completion_criteria", 1200), completion_evidence: null, criticality: requiredEnum("criticality", ["critical", "high", "medium", "low"], "high"), baseline_plan_version: optionalTextValue("baseline_plan_version", 120) || "184-manual", forecast_change_reason: null, status_source: "derived", status_reason: "新規追加直後は未評価", last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
+  }
   if (resource === "kpi") {
     const thresholdRule = requiredEnum("threshold_rule", ["gte", "lte", "between"], "gte");
     const threshold = optionalNumber("threshold");
@@ -416,7 +476,12 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
   if (resource === "organization_role") return { ...common(), project_id: projectId, role_slug: requiredText("role_slug", 120), role_name: requiredText("role_name", 180), required: raw.required == null ? true : booleanValue(raw.required, "required"), candidate: optionalTextValue("candidate", 240), commitment: optionalTextValue("commitment", 500), authority: requiredText("authority", 1000), vacancy: raw.vacancy == null ? true : booleanValue(raw.vacancy, "vacancy"), join_condition: requiredText("join_condition", 1000), due_date: optionalDate("due_date"), status: "unassessed", owner_label: requiredText("owner_label", 120), last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
   if (resource === "raci") return { ...common(), project_id: projectId, milestone_id: requiredId("milestone_id"), stakeholder_label: requiredText("stakeholder_label", 180), responsibility_role: requiredEnum("responsibility_role", RACI_ROLES), owner_label: requiredText("owner_label", 120), confirmed: raw.confirmed == null ? false : booleanValue(raw.confirmed, "confirmed"), last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
   if (resource === "capacity") return { ...common(), project_id: projectId, track: requiredEnum("track", TRACKS), milestone_id: optionalId("milestone_id"), role_label: requiredText("role_label", 180), required_people: requiredNumber("required_people", { min: 0 }), confirmed_people: requiredNumber("confirmed_people", { min: 0 }), available_hours_week: optionalNumber("available_hours_week", { min: 0 }), planned_hours_week: optionalNumber("planned_hours_week", { min: 0 }), measurement_date: requiredDate("measurement_date"), source_label: requiredText("source_label", 240), confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
-  if (resource === "task") return { ...common(), project_id: projectId, milestone_id: requiredId("milestone_id"), parent_task_id: optionalId("parent_task_id"), track: raw.track == null ? null : requiredEnum("track", TRACKS), title: requiredText("title", 180), description: optionalTextValue("description", 1600), status: requiredEnum("status", TASK_STATUSES, "unassessed"), planned_start: optionalDate("planned_start"), planned_end: optionalDate("planned_end"), forecast_end: optionalDate("forecast_end"), actual_end: optionalDate("actual_end"), progress_pct: optionalNumber("progress_pct", { min: 0, max: 100 }) || 0, date_certainty: requiredEnum("date_certainty", ["confirmed", "provisional"], "provisional"), owner_member_id: optionalId("owner_member_id"), owner_label: requiredText("owner_label", 120), completion_criteria: optionalTextValue("completion_criteria", 1200), forecast_change_reason: optionalTextValue("forecast_change_reason", 500), sort_order: optionalNumber("sort_order", { min: 0 }) || 0, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
+  if (resource === "task") {
+    const plannedStart = optionalDate("planned_start");
+    const plannedEnd = optionalDate("planned_end");
+    if (!isValidPlannedRange({ plannedStart, plannedEnd })) throw new Error("計画開始は計画完了より後にできないよ");
+    return { ...common(), project_id: projectId, milestone_id: requiredId("milestone_id"), parent_task_id: optionalId("parent_task_id"), track: raw.track == null ? null : requiredEnum("track", TRACKS), title: requiredText("title", 180), description: optionalTextValue("description", 1600), status: requiredEnum("status", TASK_STATUSES, "unassessed"), planned_start: plannedStart, planned_end: plannedEnd, forecast_end: optionalDate("forecast_end"), actual_end: optionalDate("actual_end"), progress_pct: optionalNumber("progress_pct", { min: 0, max: 100 }) || 0, date_certainty: requiredEnum("date_certainty", ["confirmed", "provisional"], "provisional"), owner_member_id: optionalId("owner_member_id"), owner_label: requiredText("owner_label", 120), completion_criteria: optionalTextValue("completion_criteria", 1200), forecast_change_reason: optionalTextValue("forecast_change_reason", 500), sort_order: optionalNumber("sort_order", { min: 0 }) || 0, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
+  }
   throw new Error("追加できる種類が不正だよ");
 }
 
@@ -487,6 +552,33 @@ async function assertTaskPlacement(db: ReturnType<typeof createAdminClient>, pro
   if (!data || String((data as { milestone_id: string }).milestone_id) !== milestoneId) throw new Error("親タスクは同じ工程の中から選んでね");
 }
 
+// A milestone's outcome_id must actually belong to its objective_id, and the outcome's track must
+// match the milestone's own track — assertParentsInProject only checks that each id individually
+// exists in the project, not that they cohere with each other. Checked on create and on merged
+// PATCH values (patchFor's milestone branch does not currently expose objective_id/outcome_id/
+// track as editable, so the merged-PATCH call site is a defensive no-op today, but stays wired
+// for if that ever changes).
+async function assertMilestoneParentIntegrity(
+  db: ReturnType<typeof createAdminClient>,
+  projectId: string,
+  objectiveId: string,
+  outcomeId: string,
+  track: string,
+) {
+  const { data, error } = await db
+    .from("project_management_outcomes")
+    .select("objective_id,track")
+    .eq("id", outcomeId)
+    .eq("project_id", projectId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error) throw new Error(`成果の確認に失敗したよ: ${error.message}`);
+  if (!data) throw new Error("outcome_idはこのPJの有効な成果につないでね");
+  const row = data as { objective_id: string; track: string };
+  if (String(row.objective_id) !== objectiveId) throw new Error("接続する成果は選択した設立目標に属していないよ");
+  if (String(row.track) !== track) throw new Error("接続する成果の柱と工程/MSの柱が一致していないよ");
+}
+
 async function assertParentsInProject(db: ReturnType<typeof createAdminClient>, projectId: string, resource: Resource, payload: Record<string, unknown>) {
   for (const [field, table] of PARENT_FIELDS[resource] || []) {
     const id = payload[field];
@@ -543,6 +635,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const payload = createFor(resource, body.fields ?? body.payload, projectId, context.access.memberId, todayJst());
     const db = createAdminClient();
     await assertParentsInProject(db, projectId, resource, payload);
+    if (resource === "milestone") await assertMilestoneParentIntegrity(db, projectId, String(payload.objective_id), String(payload.outcome_id), String(payload.track));
     if (resource === "task") await assertTaskPlacement(db, projectId, String(payload.milestone_id), payload.parent_task_id ? String(payload.parent_task_id) : null);
     const { data, error } = await db.from(RESOURCE_TABLES[resource]).insert(payload).select("id").single();
     if (error) throw new Error(`共有情報の追加に失敗したよ: ${error.message}`);
@@ -669,6 +762,42 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         acceptedOn: patch.accepted_on !== undefined ? patch.accepted_on : beforeRecord.accepted_on,
       });
     }
+    if (resource === "milestone" && !deleting && !restoring) {
+      const mergedObjectiveId = String(patch.objective_id !== undefined ? patch.objective_id : beforeRecord.objective_id);
+      const mergedOutcomeId = String(patch.outcome_id !== undefined ? patch.outcome_id : beforeRecord.outcome_id);
+      const mergedTrack = String(patch.track !== undefined ? patch.track : beforeRecord.track);
+      await assertMilestoneParentIntegrity(db, projectId, mergedObjectiveId, mergedOutcomeId, mergedTrack);
+      // Generic point-MS invariant (the 2 NewCo founding-prerequisite gates are exempt): PATCHing
+      // only one of planned_start/planned_end moves both together; supplying both with different
+      // values is a rejection, not a pick-one.
+      const mergedTimelineKind = String(patch.timeline_kind !== undefined ? patch.timeline_kind : beforeRecord.timeline_kind || "phase");
+      if (
+        mergedTimelineKind === "milestone" &&
+        !isBlockingMilestoneSlug(projectId, String(beforeRecord.slug)) &&
+        ("planned_start" in patch || "planned_end" in patch)
+      ) {
+        const normalized = normalizePointMilestonePatch(
+          patch.planned_start as string | null | undefined,
+          patch.planned_end as string | null | undefined,
+        );
+        if (!normalized) throw new Error("このMSは単一の予定日として扱うため、開始日と完了日は同じにしてね");
+        patch.planned_start = normalized.plannedStart;
+        patch.planned_end = normalized.plannedEnd;
+      }
+    }
+    let expectedVersion: number | null = null;
+    if ((resource === "milestone" || resource === "task") && !deleting && !restoring) {
+      const mergedStart = (patch.planned_start !== undefined ? patch.planned_start : beforeRecord.planned_start) as string | null;
+      const mergedEnd = (patch.planned_end !== undefined ? patch.planned_end : beforeRecord.planned_end) as string | null;
+      if (!isValidPlannedRange({ plannedStart: mergedStart, plannedEnd: mergedEnd })) throw new Error("計画開始は計画完了より後にできないよ");
+      expectedVersion = requiredExpectedVersion(body.expected_version);
+      if (Number(beforeRecord.version) !== expectedVersion) {
+        return NextResponse.json(
+          { error: "他の人がこの内容を先に更新したよ。最新の内容を読み込み直すね", code: "version_conflict", currentVersion: Number(beforeRecord.version) },
+          { status: 409 },
+        );
+      }
+    }
     if (!deleting && !restoring) {
       await assertParentsInProject(db, projectId, resource, patch);
     }
@@ -678,18 +807,50 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       await assertTaskPlacement(db, projectId, mergedMilestoneId, mergedParentTaskId);
       await assertNoTaskCycle(db, projectId, id, mergedParentTaskId);
     }
-    const { data, error } = await db.from(RESOURCE_TABLES[resource]).update(patch).eq("id", id).eq("project_id", projectId).select("id").maybeSingle();
+    // When expectedVersion is set, the update itself is the atomic compare-and-swap (not just the
+    // `before` check above, which only rules out the common case cheaply) — the .eq("version", ...)
+    // filter guarantees a write racing in between the `before` select and this statement still
+    // yields 0 affected rows rather than silently landing on top of it.
+    const hasVersionColumn = resource === "milestone" || resource === "task";
+    let updateQuery = db.from(RESOURCE_TABLES[resource]).update(patch).eq("id", id).eq("project_id", projectId);
+    if (expectedVersion != null) updateQuery = updateQuery.eq("version", expectedVersion);
+    const { data, error } = await updateQuery.select(hasVersionColumn ? "id,version" : "id").maybeSingle();
     if (error) throw new Error(`共有情報の更新に失敗したよ: ${error.message}`);
-    if (!data) return NextResponse.json({ error: "更新対象が見つからないよ" }, { status: 404 });
+    if (!data) {
+      if (expectedVersion != null) {
+        const { data: current } = await db.from(RESOURCE_TABLES[resource]).select("version").eq("id", id).eq("project_id", projectId).maybeSingle();
+        return NextResponse.json(
+          {
+            error: "他の人がこの内容を先に更新したよ。最新の内容を読み込み直すね",
+            code: "version_conflict",
+            currentVersion: current ? Number((current as { version: unknown }).version) : null,
+          },
+          { status: 409 },
+        );
+      }
+      return NextResponse.json({ error: "更新対象が見つからないよ" }, { status: 404 });
+    }
+    const updatedVersion = hasVersionColumn ? Number((data as unknown as { id: string; version: unknown }).version) : null;
     const beforeStatus = meta.statusColumn && typeof beforeRecord[meta.statusColumn] === "string" ? String(beforeRecord[meta.statusColumn]) : null;
     const nextStatus = meta.statusColumn && typeof patch[meta.statusColumn] === "string" ? String(patch[meta.statusColumn]) : beforeStatus;
     const updateKind = deleting ? "soft_delete" : restoring ? "restore" : "manual_edit";
     const summary = deleting ? "共有情報を非表示化" : restoring ? "共有情報を復元" : "共有情報を更新";
     const { error: historyError } = await db.from("project_management_update_history").insert({ project_id: projectId, entity_type: meta.entityType, entity_id: id, update_kind: updateKind, summary, changed_by: context.access.memberId, changed_on: todayJst(), from_status: beforeStatus, to_status: nextStatus });
     if (historyError) {
+      // The rollback must not clobber a later edit that landed after our own update but before
+      // this compensation runs. For milestone/task (which carry `version`), CAS the rollback on
+      // updatedVersion — the version our own update just produced — and select back what changed.
+      // If that CAS misses, someone else's write is already on top of ours: leave it alone and
+      // report that compensation could not safely run, instead of silently overwriting it.
       const rollbackPatch = Object.fromEntries(Object.keys(patch).filter((key) => Object.prototype.hasOwnProperty.call(beforeRecord, key)).map((key) => [key, beforeRecord[key]]));
-      const { error: rollbackError } = await db.from(RESOURCE_TABLES[resource]).update(rollbackPatch).eq("id", id).eq("project_id", projectId);
-      const rollbackNote = rollbackError ? `（更新の補償復元にも失敗: ${rollbackError.message}）` : "（更新内容は補償復元したよ）";
+      let rollbackQuery = db.from(RESOURCE_TABLES[resource]).update(rollbackPatch).eq("id", id).eq("project_id", projectId);
+      if (hasVersionColumn && updatedVersion != null) rollbackQuery = rollbackQuery.eq("version", updatedVersion);
+      const { data: rollbackData, error: rollbackError } = await rollbackQuery.select("id");
+      const rollbackNote = rollbackError
+        ? `（更新の補償復元にも失敗: ${rollbackError.message}）`
+        : hasVersionColumn && (!rollbackData || rollbackData.length === 0)
+          ? "（この内容は既に別の変更で上書きされていたため、補償復元は安全に実行できなかったよ。最新の状態を確認してね）"
+          : "（更新内容は補償復元したよ）";
       throw new Error(`更新履歴の記録に失敗したよ: ${historyError.message}${rollbackNote}`);
     }
     const bundle = await getSxManagementBundle(projectId, true);

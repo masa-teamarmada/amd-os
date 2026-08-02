@@ -1302,13 +1302,15 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "row.achievement",
   "GATE_STATE_TEXT",
   "!timeline.valid &&",
-  // undated blocking milestones still get a diamond marker — placed next to the existing
-  // 日程未設定 text (a non-temporal label position), never a fabricated date/X position.
-  // Same rule applies to the mobile card list: the diamond renders before the title so an
-  // undated blocking milestone is still recognizable as a milestone (監査追補 2026-08-02).
-  "row.isBlockingMilestone && (",
+  // undated milestone-marker rows (both the 2 NewCo blocking gates AND generic timeline_kind=
+  // milestone rows) still get a diamond marker — placed next to the existing 日程未設定 text (a
+  // non-temporal label position), never a fabricated date/X position (filled purple for the
+  // NewCo gates, hollow for generic MS — 2026-08 再監査是正). Same rule applies to the mobile
+  // card list: the diamond renders before the title so an undated milestone marker row is still
+  // recognizable as a milestone (監査追補 2026-08-02).
+  "isMilestoneMarker && (",
   "日程未設定・{ROW_STATE_TEXT[row.state]}",
-  "{row.isBlockingMilestone && (\n                            <i",
+  '{(row.isBlockingMilestone || row.timelineKind === "milestone") && (\n                            <i',
   // desktop expand/collapse toggle must be a full 44px hit target, not a 32px (w-8) one
   // (監査追補 2026-08-02).
   "flex w-11 shrink-0 items-center justify-center text-[#69665d]",
@@ -3179,7 +3181,7 @@ expectIncludes("src/components/project-workspace/weekly-control.module.css", [
   ".planInspectorLayer",
   "place-items: center",
   "backdrop-filter: blur(2px)",
-  "width: min(860px, calc(100vw - 48px))",
+  "width: min(920px, calc(100vw - 48px))",
   ".editorEmbedded",
   ".planInspectorInlineEditor",
   ".inlineFieldEditor",
@@ -3201,11 +3203,11 @@ expectPattern("src/components/project-workspace/weekly-control.module.css", [
   /\.editorPanel\s*\{[^}]*color:\s*var\(--ink\);/,
 ]);
 expectIncludes("src/components/project-workspace/weekly-control.module.css", [
-  ".iconButton { width: 44px; height: 44px; border-radius: 50%; }",
+  ".iconButton { width: 44px; height: 44px; border-radius: 6px; }",
   ".iconButton:hover, .iconButton:focus-visible { border-color: var(--green); background: #e8f2eb; color: var(--green); outline: 2px solid var(--green); outline-offset: 2px; }",
   ".primaryButton, .secondaryButton { min-height: 44px;",
   ".primaryButton:focus-visible, .secondaryButton:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }",
-  "min-height: 44px; border: 1px solid #c9c0b2; border-radius: 4px; background: white; padding: 9px 10px; color: var(--ink);",
+  "min-height: 44px; border: 1px solid #c9c0b2; border-radius: 4px; background: #fbf8f0; box-shadow: inset 0 1px 3px rgba(36, 35, 31, .07); padding: 9px 10px; color: var(--ink); font-size: 13px;",
   ".field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible, .fieldSpan input:focus-visible, .fieldSpan select:focus-visible, .fieldSpan textarea:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }",
   ".checkboxRow { min-height: 44px;",
   ".checkboxRow input:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }",

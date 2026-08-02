@@ -32,7 +32,7 @@ export function useManagementMutation(projectId: string) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function submit(input: { method: "POST" | "PATCH"; resource: string; id?: string; fields?: Record<string, unknown>; patch?: Record<string, unknown> }) {
+  async function submit(input: { method: "POST" | "PATCH"; resource: string; id?: string; fields?: Record<string, unknown>; patch?: Record<string, unknown>; expectedVersion?: number }) {
     setPending(true);
     setError(null);
     try {
@@ -42,10 +42,25 @@ export function useManagementMutation(projectId: string) {
         body: JSON.stringify(
           input.method === "POST"
             ? { resource: input.resource, fields: input.fields }
-            : { resource: input.resource, id: input.id, patch: input.patch },
+            : { resource: input.resource, id: input.id, patch: input.patch, expected_version: input.expectedVersion },
         ),
       });
       const body = await response.json().catch(() => ({}));
+      if (response.status === 409) {
+        // The editor's expected_version is now stale. Pull the current bundle before asking the
+        // server component to refresh, then return success so every caller closes the stale form
+        // instead of leaving a retry loop open against the same version.
+        const latest = await fetch(`/api/project-workspace/${encodeURIComponent(projectId)}/management`, {
+          headers: { "Cache-Control": "no-store" },
+        });
+        if (!latest.ok) throw new Error("他の人が先に更新したよ。最新内容を取得できなかったから、画面を再読み込みしてね");
+        await latest.json();
+        window.dispatchEvent(new CustomEvent("amd-management-conflict", {
+          detail: "他の人が先に更新したため、最新内容に更新して編集を閉じたよ",
+        }));
+        router.refresh();
+        return true;
+      }
       if (!response.ok) throw new Error(body?.error || "保存できなかったよ");
       router.refresh();
       return true;

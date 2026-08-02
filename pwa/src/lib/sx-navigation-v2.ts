@@ -659,6 +659,8 @@ export type NavMilestoneDetail = {
   forecastChangeReason: string | null;
   confidence: SxConfidence;
   lastVerifiedAt: string;
+  /** Optimistic-concurrency token — sent back as expected_version on PATCH. */
+  version: number;
 };
 
 export type NavHypothesisDetail = {
@@ -802,6 +804,7 @@ function buildMilestoneDetail(m: SxManagementMilestone): NavMilestoneDetail {
     forecastChangeReason: m.forecastChangeReason,
     confidence: m.confidence,
     lastVerifiedAt: m.lastVerifiedAt,
+    version: m.version,
   };
 }
 

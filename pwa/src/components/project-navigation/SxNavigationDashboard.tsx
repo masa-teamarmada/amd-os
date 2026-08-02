@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, CircleAlert, CircleCheck, CircleHelp, ExternalLink, Plus, Search, ShieldAlert, X } from "lucide-react";
 import {
   navAgreementStateLabel,
@@ -88,6 +88,19 @@ type Selection = { kind: "detail"; id: string } | { kind: "partner"; slug: strin
 export function SxNavigationDashboard({ model }: { model: SxNavigationViewModelV2 }) {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(model.rows.filter((row) => row.hasChildren && row.defaultExpanded).map((row) => row.id)));
   const [selection, setSelection] = useState<Selection>(null);
+  const [conflictNotice, setConflictNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    function onConflict(event: Event) {
+      const message = event instanceof CustomEvent && typeof event.detail === "string"
+        ? event.detail
+        : "最新内容に更新して編集を閉じたよ";
+      setConflictNotice(message);
+      window.setTimeout(() => setConflictNotice(null), 5000);
+    }
+    window.addEventListener("amd-management-conflict", onConflict);
+    return () => window.removeEventListener("amd-management-conflict", onConflict);
+  }, []);
 
   const visibleRows = useMemo(() => {
     const hidden = new Set<string>();
@@ -119,6 +132,7 @@ export function SxNavigationDashboard({ model }: { model: SxNavigationViewModelV
   return (
     <div className={styles.page}>
       <div className={styles.shell}>
+        {conflictNotice && <p role="status" aria-live="polite" className={styles.formError}>{conflictNotice}</p>}
         <NavHeader projectId={model.projectId} projectName={model.projectName} asOf={model.asOf} dataIssues={model.dataIssues} />
         <JudgmentBand headline={model.headline} />
         <div className={styles.layout}>
@@ -735,7 +749,7 @@ function MilestoneDetailPane({ detail, projectId, canManage, onClose }: { detail
           error={error}
           onCancel={() => { setEditing(false); setError(null); }}
           onSubmit={async (values) => {
-            const ok = await submit({ method: "PATCH", resource: "milestone", id: detail.id, patch: values });
+            const ok = await submit({ method: "PATCH", resource: "milestone", id: detail.id, patch: values, expectedVersion: detail.version });
             if (ok) setEditing(false);
           }}
         />

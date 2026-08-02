@@ -43,6 +43,7 @@ import type {
   SxPartnerRole,
   SxPartnerWorkItem,
   SxTask,
+  SxTimelineKind,
   SxTrackKey,
   SxValidationRun,
 } from "@/lib/sx-management";
@@ -55,6 +56,7 @@ import {
 } from "@/lib/sx-project-owner-load";
 import {
   sxGateRequirementsBySuccessor,
+  sxIsBlockingMilestone,
   sxOralAgreementEvidenceReady,
   type SxGateRequirement,
 } from "@/lib/sx-gate-requirements";
@@ -132,7 +134,16 @@ type EditorState =
       decision: SxDecisionRecord;
       action: SxActionItem;
     }
-  | { kind: "create_milestone"; track: SxTrackKey | null }
+  | {
+      kind: "create_milestone";
+      track: SxTrackKey | null;
+      /** Set by "MSを置く"/"MSを追加" — the created row is a generic point-MS (single "予定日"
+       * field saved into both planned_start/planned_end). Omit/"phase" keeps the ordinary
+       * 工程 create form (start+end fields). */
+      timelineKind?: SxTimelineKind;
+      plannedDate?: string | null;
+      outcomeId?: string | null;
+    }
   | { kind: "edit_milestone"; milestone: SxManagementMilestone }
   | {
       kind: "create_task";
@@ -175,6 +186,13 @@ type PlanFieldEditorState = {
     { kind: "edit_milestone" | "edit_task" | "edit_dependency" }
   >;
   fieldKeys: string[];
+  /** What record this edit applies to (usually the open item's title, but a prerequisite/
+   * dependency row names its own milestone/gate instead) — shown at the top of the shared edit
+   * tray ("編集中｜対象 / 項目") so the origin stays clear even if the triggering cell has
+   * scrolled off-screen. */
+  targetLabel: string;
+  /** Which field/value is being edited (担当, 状態, 予定日, 完了条件, ...). */
+  fieldLabel: string;
 };
 
 type FormField = {
@@ -339,13 +357,14 @@ function issueKindLabel(kind: SxManagementIssue["knowledgeType"]) {
 }
 
 function statusTone(status: string) {
-  if (
-    ["closed", "decided", "validated", "rejected", "completed"].includes(status)
-  )
+  if (["closed", "decided", "validated", "completed"].includes(status))
     return styles.toneResolved;
   if (["validating", "running"].includes(status)) return styles.toneValidating;
   if (["blocked"].includes(status)) return styles.toneDanger;
-  if (["on_hold"].includes(status)) return styles.toneMuted;
+  // "rejected"(棄却) is a closed-but-not-a-success outcome — it must not read the same as
+  // decided/validated/completed (toneResolved implies the positive resolutions), so it shares
+  // the same muted tone as on_hold instead (2026-08 再監査是正).
+  if (["on_hold", "rejected"].includes(status)) return styles.toneMuted;
   return styles.toneOpen;
 }
 
@@ -354,19 +373,30 @@ function fieldValue(record: Record<string, unknown>, key: string) {
   return value == null ? "" : String(value);
 }
 
+/** A generic point-MS (timelineKind='milestone', not one of the 2 NewCo founding-prerequisite
+ * gates) is a single day, not a range — every editing surface (root editor, PlanInspector's fixed
+ * facts cell, mobile, keyboard) shows one "予定日" field for it instead of 計画開始/計画完了, and
+ * saves that single value into both planned_start/planned_end. The 2 NewCo gates keep the normal
+ * 2-field 計画期間, matching the DB point-MS CHECK exception. */
+function isGenericPointMilestone(milestone: SxManagementMilestone): boolean {
+  return milestone.timelineKind === "milestone" && !sxIsBlockingMilestone(milestone);
+}
+
 function editorInitialValues(
   editor: EditorState,
   access: CurrentMemberAccess,
   asOf: string,
 ): Record<string, string> {
-  if (editor.kind === "create_milestone")
+  if (editor.kind === "create_milestone") {
+    const isGenericMs = editor.timelineKind === "milestone";
     return {
       track: editor.track || "business_development",
-      outcome_id: "",
+      outcome_id: editor.outcomeId || "",
       title: "",
       gate: "",
-      planned_start: asOf,
-      planned_end: "",
+      ...(isGenericMs
+        ? { planned_date: editor.plannedDate || "" }
+        : { planned_start: asOf, planned_end: "" }),
       date_certainty: "provisional",
       owner_label: access.displayName,
       next_deliverable: "",
@@ -375,13 +405,18 @@ function editorInitialValues(
       criticality: "high",
       confidence: "unknown",
     };
+  }
   if (editor.kind === "edit_milestone")
     return {
       title: editor.milestone.title,
       gate: editor.milestone.gate,
       status: editor.milestone.manualStatus,
-      planned_start: editor.milestone.plannedStart || "",
-      planned_end: editor.milestone.plannedEnd || "",
+      ...(isGenericPointMilestone(editor.milestone)
+        ? { planned_date: editor.milestone.plannedStart || "" }
+        : {
+            planned_start: editor.milestone.plannedStart || "",
+            planned_end: editor.milestone.plannedEnd || "",
+          }),
       actual_end: editor.milestone.actualEnd || "",
       progress_pct: String(editor.milestone.progressPct),
       date_certainty: editor.milestone.dateCertainty,
@@ -787,10 +822,11 @@ function editorDefinition(
     },
     confidence,
   ];
-  if (editor.kind === "create_milestone")
+  if (editor.kind === "create_milestone") {
+    const isGenericMs = editor.timelineKind === "milestone";
     return {
-      title: "工程を追加",
-      eyebrow: "工程",
+      title: isGenericMs ? "MSを追加" : "工程を追加",
+      eyebrow: isGenericMs ? "MS" : "工程",
       resource: "milestone",
       method: "POST",
       fields: [
@@ -819,15 +855,19 @@ function editorDefinition(
         },
         {
           key: "title",
-          label: "工程名",
+          label: isGenericMs ? "MS名" : "工程名",
           type: "textarea",
           required: true,
           span: true,
         },
         { key: "gate", label: "到達点", required: true },
         { key: "owner_label", label: "担当", required: true },
-        { key: "planned_start", label: "計画開始", type: "date" },
-        { key: "planned_end", label: "計画完了", type: "date" },
+        ...(isGenericMs
+          ? [{ key: "planned_date", label: "予定日", type: "date" as const }]
+          : [
+              { key: "planned_start", label: "計画開始", type: "date" as const },
+              { key: "planned_end", label: "計画完了", type: "date" as const },
+            ]),
         {
           key: "date_certainty",
           label: "日程の確度",
@@ -867,17 +907,19 @@ function editorDefinition(
         confidence,
       ],
     };
-  if (editor.kind === "edit_milestone")
+  }
+  if (editor.kind === "edit_milestone") {
+    const isGenericMs = isGenericPointMilestone(editor.milestone);
     return {
-      title: "工程を編集",
-      eyebrow: "工程",
+      title: isGenericMs ? "MSを編集" : "工程を編集",
+      eyebrow: isGenericMs ? "MS" : "工程",
       resource: "milestone",
       method: "PATCH",
       id: editor.milestone.id,
       fields: [
         {
           key: "title",
-          label: "工程名",
+          label: isGenericMs ? "MS名" : "工程名",
           type: "textarea",
           required: true,
           span: true,
@@ -885,8 +927,12 @@ function editorDefinition(
         { key: "gate", label: "到達点", required: true },
         planStatus,
         { key: "owner_label", label: "担当", required: true },
-        { key: "planned_start", label: "計画開始", type: "date" },
-        { key: "planned_end", label: "計画完了", type: "date" },
+        ...(isGenericMs
+          ? [{ key: "planned_date", label: "予定日", type: "date" as const }]
+          : [
+              { key: "planned_start", label: "計画開始", type: "date" as const },
+              { key: "planned_end", label: "計画完了", type: "date" as const },
+            ]),
         { key: "actual_end", label: "実績完了", type: "date" },
         {
           key: "progress_pct",
@@ -949,6 +995,7 @@ function editorDefinition(
         confidence,
       ],
     };
+  }
   if (editor.kind === "create_task" || editor.kind === "edit_task")
     return {
       title:
@@ -1889,6 +1936,110 @@ function editorDefinition(
   };
 }
 
+// task/milestone editors carry more fields (plan period, progress, criticality, required-task
+// context) than the generic issue/hypothesis/decision/partner forms, so the record-sheet dialog
+// runs wider for them (~920px vs ~760px for everything else) — see .editorPanel[data-editor-width]
+// in weekly-control.module.css.
+const WIDE_EDITOR_KINDS = new Set<EditorState["kind"]>([
+  "create_milestone",
+  "edit_milestone",
+  "create_task",
+  "edit_task",
+]);
+
+const PRIMARY_FIELD_KEYS = new Set([
+  "title",
+  "statement",
+  "name",
+  "commitment_text",
+]);
+
+const FIELD_GROUP_BASIC_KEYS = new Set([
+  "track",
+  "outcome_id",
+  "milestone_id",
+  "parent_task_id",
+  "related_milestone_id",
+  "predecessor_milestone_id",
+  "successor_milestone_id",
+  "issue_id",
+  "hypothesis_id",
+  "primary_track",
+  "item_kind",
+  "side",
+  "interaction_kind",
+  "commitment_kind",
+  "dependency_type",
+  "evidence_kind",
+  "knowledge_type",
+  "role_kind",
+]);
+
+const FIELD_GROUP_STATUS_KEYS = new Set([
+  "status",
+  "confidence",
+  "criticality",
+  "agreement_state",
+  "relationship_stage",
+  "current_ball_side",
+  "ball_side_after",
+  "actor_side",
+  "is_primary",
+  "is_this_week",
+  "sort_order",
+  "required",
+  "owner_label",
+  "current_ball_owner",
+  "ball_owner_after",
+  "actor_label",
+  "counterparty_owner",
+  "sx_owner",
+  "accepted_by",
+]);
+
+type FieldGroupKey = "basic" | "date" | "status" | "content";
+
+const FIELD_GROUP_LABEL: Record<FieldGroupKey, string> = {
+  basic: "分類・接続先",
+  date: "日程・進捗",
+  status: "状態・担当",
+  content: "内容",
+};
+
+const FIELD_GROUP_ORDER: FieldGroupKey[] = ["basic", "date", "status", "content"];
+
+function classifyField(field: FormField): FieldGroupKey {
+  if (
+    field.type === "date" ||
+    field.key === "date_certainty" ||
+    field.key === "due_date_precision" ||
+    field.key === "occurred_on_precision" ||
+    field.key === "progress_pct"
+  )
+    return "date";
+  if (FIELD_GROUP_BASIC_KEYS.has(field.key)) return "basic";
+  if (FIELD_GROUP_STATUS_KEYS.has(field.key)) return "status";
+  return "content";
+}
+
+/** Groups a flat field list into semantic sections (分類・接続先 / 日程・進捗 / 状態・担当 /
+ * 内容) instead of one undifferentiated grid — a form field belongs to exactly one section by
+ * key/type, so this never needs per-editor-kind maintenance as fields are added. */
+function groupFormFields(
+  fields: FormField[],
+): Array<{ key: FieldGroupKey; label: string; fields: FormField[] }> {
+  const buckets = new Map<FieldGroupKey, FormField[]>();
+  for (const field of fields) {
+    const kind = classifyField(field);
+    buckets.set(kind, [...(buckets.get(kind) || []), field]);
+  }
+  return FIELD_GROUP_ORDER.filter((kind) => buckets.has(kind)).map((kind) => ({
+    key: kind,
+    label: FIELD_GROUP_LABEL[kind],
+    fields: buckets.get(kind) as FormField[],
+  }));
+}
+
 function IssueEditor({
   editor,
   management,
@@ -1900,6 +2051,9 @@ function IssueEditor({
   embedded = false,
   inlineField = false,
   fieldKeys,
+  requestCloseRef,
+  onKeepEditing,
+  ariaDescribedBy,
 }: {
   editor: EditorState;
   management: SxManagementBundle;
@@ -1911,12 +2065,23 @@ function IssueEditor({
   embedded?: boolean;
   inlineField?: boolean;
   fieldKeys?: readonly string[];
+  /** Explicit contract for a parent that needs to trigger this editor's own dirty-close
+   * confirmation flow from outside (e.g. PlanInspector's "close detail" button) without a
+   * DOM query/click hack. Only one child editor is ever mounted under a given ref at a time
+   * (embedded detailEditor and inlineField editor are mutually exclusive), so it always reflects
+   * whichever one is currently active; unmounting clears it back to null. */
+  requestCloseRef?: React.MutableRefObject<(() => void) | null>;
+  /** Clears a parent-owned pending intent when the user chooses to keep editing. */
+  onKeepEditing?: () => void;
+  ariaDescribedBy?: string;
 }) {
   const definition = editorDefinition(editor, management);
   const fieldKeySet = fieldKeys ? new Set(fieldKeys) : null;
   const activeFields = fieldKeySet
     ? definition.fields.filter((field) => fieldKeySet.has(field.key))
     : definition.fields;
+  const hasVisibleField = (key: string) =>
+    activeFields.some((field) => field.key === key);
   const initialValues = useRef(
     editorInitialValues(editor, access, management.asOf),
   );
@@ -1925,8 +2090,11 @@ function IssueEditor({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const editorPanelRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const discardBackButtonRef = useRef<HTMLButtonElement>(null);
+  const lastFocusedFieldNameRef = useRef<string | null>(null);
   const dirty =
     JSON.stringify(values) !== JSON.stringify(initialValues.current);
 
@@ -1936,7 +2104,10 @@ function IssueEditor({
   }, [dirty, onDirtyChange]);
 
   useEffect(() => {
-    if (!embedded && !inlineField) return;
+    if (!dirty) setConfirmingDiscard(false);
+  }, [dirty]);
+
+  function focusFirstEditableField() {
     const frame = window.requestAnimationFrame(() => {
       editorPanelRef.current
         ?.querySelector<HTMLElement>(
@@ -1945,11 +2116,99 @@ function IssueEditor({
         ?.focus();
     });
     return () => window.cancelAnimationFrame(frame);
+  }
+
+  function focusLastEditableField() {
+    const frame = window.requestAnimationFrame(() => {
+      const fieldName = lastFocusedFieldNameRef.current;
+      const lastField = fieldName
+        ? editorPanelRef.current?.querySelector<HTMLElement>(`[name="${fieldName}"]:not([disabled])`)
+        : null;
+      if (lastField) {
+        lastField.focus();
+        return;
+      }
+      editorPanelRef.current
+        ?.querySelector<HTMLElement>(
+          "textarea:not([disabled]), input:not([disabled]):not([type='hidden']), select:not([disabled])",
+        )
+        ?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }
+
+  function rememberFocusedField(event: React.FocusEvent<HTMLElement>) {
+    const target = event.target;
+    if (
+      (target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement) &&
+      target.name
+    ) {
+      lastFocusedFieldNameRef.current = target.name;
+    }
+  }
+
+  // Focus + scroll the "戻る" button into view the moment the discard confirmation appears —
+  // it's a role=status/aria-live region, not a modal alertdialog, so nothing forces attention to
+  // it automatically.
+  useEffect(() => {
+    if (!confirmingDiscard) return;
+    const frame = window.requestAnimationFrame(() => {
+      discardBackButtonRef.current?.focus();
+      discardBackButtonRef.current?.scrollIntoView({ block: "nearest" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [confirmingDiscard]);
+
+  // Pressing 戻る (decline the discard, keep editing) must send focus back to the field the user
+  // was editing, not leave it stranded on the 戻る button that just disappeared. Only fires on the
+  // true->false transition (not on initial mount, which the effect below already owns).
+  const wasConfirmingDiscardRef = useRef(false);
+  useEffect(() => {
+    if (wasConfirmingDiscardRef.current && !confirmingDiscard) {
+      focusLastEditableField();
+    }
+    wasConfirmingDiscardRef.current = confirmingDiscard;
+  }, [confirmingDiscard]);
+
+  // Initial focus goes to the first editable field, not the close button — matches the record-
+  // sheet modal contract (embedded/inlineField already focused the first field; the root dialog
+  // now does too, instead of parking focus on close).
+  useEffect(() => {
+    return focusFirstEditableField();
   }, [embedded, inlineField]);
 
-  function requestClose() {
-    if (!dirty || window.confirm("入力中の変更を破棄する？")) onClose();
+  function focusField(key: string) {
+    window.requestAnimationFrame(() => {
+      editorPanelRef.current
+        ?.querySelector<HTMLElement>(`[name="${key}"]`)
+        ?.focus();
+    });
   }
+
+  function requestClose() {
+    if (!dirty) {
+      onClose();
+      return;
+    }
+    setConfirmingDiscard(true);
+  }
+
+  // Publish the latest requestClose to the parent-owned ref from an effect (never during render —
+  // mutating a ref passed in from outside as a render-time side effect races against React's own
+  // commit/cleanup ordering when one editor instance is being swapped for another). Runs after
+  // every render so the ref always holds the closure matching the current `dirty`/`values`. The
+  // cleanup only clears the ref if it still points at THIS instance's own requestClose — if a
+  // newer editor already re-registered itself before this one's cleanup runs, that registration
+  // must survive untouched.
+  useEffect(() => {
+    if (!requestCloseRef) return;
+    requestCloseRef.current = requestClose;
+    return () => {
+      if (requestCloseRef.current === requestClose) requestCloseRef.current = null;
+    };
+  });
 
   // ルート編集モーダル（embedded/inlineFieldでない = 全画面backdropのdialog）だけ、
   // PlanInspectorと同じ流儀でfocus封じ込め・背面inert化・Tabトラップ・dirty確認込みの
@@ -1960,9 +2219,11 @@ function IssueEditor({
   // dialog roleを持つsection）はcreatePortalでdocument.body直下へ描画したlayer divの直接の
   // 子でなければならない（inlineのdivのままだとdashboard内mainがinert化対象になり、AppShell
   // 祖先ごとinertになってモーダル自身も操作不能になる、2026-08 監査追補）。
+  // initialFocusRefはeditorPanelRef自身（tabIndex=-1で常にfocus可能）にし、上のrAF effectが
+  // 実フィールドへ確実に移すまでの中立な着地点にする（閉じるボタンへ先に飛ばさない）。
   useModalContainment({
     dialogRef: editorPanelRef,
-    initialFocusRef: closeButtonRef,
+    initialFocusRef: editorPanelRef,
     onClose: requestClose,
     active: !embedded && !inlineField,
   });
@@ -1974,6 +2235,7 @@ function IssueEditor({
     );
     if (missingRequired) {
       setError(`${missingRequired.label}を入力してね`);
+      focusField(missingRequired.key);
       return;
     }
     if (
@@ -1984,6 +2246,7 @@ function IssueEditor({
         !values.decided_on)
     ) {
       setError("決定済みにするには、決定内容・決定者・決定日を入れてね");
+      focusField("decision_text");
       return;
     }
     if (
@@ -1992,6 +2255,7 @@ function IssueEditor({
       (!values.completion_note?.trim() || !values.completed_at)
     ) {
       setError("完了にするには、完了メモと完了日を入れてね");
+      focusField("completion_note");
       return;
     }
     if (
@@ -2004,6 +2268,7 @@ function IssueEditor({
     ) {
       if (!values.actual_end || !values.completion_evidence?.trim()) {
         setError("完了にするには、実績完了日と完了証跡を入れてね");
+        focusField("actual_end");
         return;
       }
       if (
@@ -2015,6 +2280,7 @@ function IssueEditor({
         setError(
           "口頭合意の確認には、先方（または投資家）・合意内容・確認日・根拠を「項目：内容」で1行ずつ入れてね",
         );
+        focusField("completion_evidence");
         return;
       }
     }
@@ -2035,6 +2301,7 @@ function IssueEditor({
             "completed_at",
             "planned_start",
             "planned_end",
+            "planned_date",
             "actual_end",
             "last_contact_date",
             "occurred_on",
@@ -2056,7 +2323,27 @@ function IssueEditor({
     }
     if (editor.kind === "create_milestone") {
       fields.objective_id = management.objective?.id || "";
-      fields.slug = `weekly-ms-${Date.now().toString(36)}`;
+      const isGenericMs = editor.timelineKind === "milestone";
+      fields.timeline_kind = isGenericMs ? "milestone" : "phase";
+      fields.slug = isGenericMs
+        ? `ms-${Date.now().toString(36)}`
+        : `weekly-ms-${Date.now().toString(36)}`;
+      if (isGenericMs) {
+        // 一般MSは単一の予定日。フォームでは1項目(予定日)だけ見せ、保存時にplanned_start/
+        // planned_endの両方へ同じ値を書く（gantt直接編集のcomputeMilestoneMoveと同じ不変条件）。
+        const plannedDate = (fields.planned_date as string | null) ?? null;
+        delete fields.planned_date;
+        fields.planned_start = plannedDate;
+        fields.planned_end = plannedDate;
+      }
+    }
+    if (editor.kind === "edit_milestone" && "planned_date" in fields) {
+      // 既存の一般MSを編集するときも同じ不変条件: 予定日1項目をplanned_start/planned_endの
+      // 両方へ書く（`fieldKeys=["planned_date"]`のPlanInspectorインライン編集を含む）。
+      const plannedDate = (fields.planned_date as string | null) ?? null;
+      delete fields.planned_date;
+      fields.planned_start = plannedDate;
+      fields.planned_end = plannedDate;
     }
     if (editor.kind === "create_partner")
       fields.slug = `weekly-partner-${Date.now().toString(36)}`;
@@ -2073,6 +2360,15 @@ function IssueEditor({
     }
     if (editor.kind === "create_action")
       fields.decision_id = editor.decision.id;
+    // 工程/タスクの計画日程は本番データで、ガントの直接編集(ドラッグ)と同じ楽観的並行制御を
+    // 使う。読み込んだ時点のversionを一緒に送り、他の変更と競合していたら409で検知する
+    // （最後に保存した側が黙って上書きしない）。
+    const expectedVersion =
+      isPatch && editor.kind === "edit_milestone"
+        ? editor.milestone.version
+        : isPatch && editor.kind === "edit_task"
+          ? editor.task.version
+          : undefined;
     try {
       const response = await fetch(
         `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
@@ -2085,12 +2381,32 @@ function IssueEditor({
                   resource: definition.resource,
                   id: definition.id,
                   patch: fields,
+                  ...(expectedVersion != null
+                    ? { expected_version: expectedVersion }
+                    : {}),
                 }
               : { resource: definition.resource, fields },
           ),
         },
       );
       const body = await response.json().catch(() => ({}));
+      if (response.status === 409) {
+        const latest = await fetch(
+          `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+          { headers: { "Cache-Control": "no-store" } },
+        );
+        const latestBody = await latest.json().catch(() => null);
+        if (latest.ok && latestBody) {
+          onSaved(
+            latestBody as SxManagementBundle,
+            "他の人がこの内容を先に更新したよ。最新の内容に更新したから、もう一度確認してね",
+          );
+          return;
+        }
+        throw new Error(
+          "他の人がこの内容を先に更新したよ。画面を再読み込みしてね",
+        );
+      }
       if (!response.ok)
         throw new Error(
           typeof body.error === "string" ? body.error : "保存できなかったよ",
@@ -2106,110 +2422,184 @@ function IssueEditor({
     }
   }
 
-  const editorForm = (
-    <>
-      <div className={inlineField ? styles.inlineFieldForm : styles.formGrid}>
-        {activeFields.map((field) => (
-          <label
-            key={field.key}
-            className={field.span ? styles.fieldSpan : styles.field}
+  function renderField(field: FormField, forceSpan = false) {
+    return (
+      <label
+        key={field.key}
+        className={field.span || forceSpan ? styles.fieldSpan : styles.field}
+      >
+        <span>
+          {field.label}
+          {field.required && <b>必須</b>}
+        </span>
+        {field.type === "textarea" ? (
+          <textarea
+            name={field.key}
+            rows={field.key === "title" ? 2 : 4}
+            required={field.required}
+            value={fieldValue(values, field.key)}
+            onChange={(event) =>
+              setValues((current) => ({
+                ...current,
+                [field.key]: event.target.value,
+              }))
+            }
+          />
+        ) : field.type === "select" ? (
+          <select
+            name={field.key}
+            required={field.required}
+            value={fieldValue(values, field.key)}
+            onChange={(event) =>
+              setValues((current) => ({
+                ...current,
+                [field.key]: event.target.value,
+              }))
+            }
           >
-            <span>
-              {field.label}
-              {field.required && <b>必須</b>}
-            </span>
-            {field.type === "textarea" ? (
-              <textarea
-                rows={field.key === "title" ? 2 : 4}
-                required={field.required}
-                value={fieldValue(values, field.key)}
-                onChange={(event) =>
-                  setValues((current) => ({
-                    ...current,
-                    [field.key]: event.target.value,
-                  }))
-                }
-              />
-            ) : field.type === "select" ? (
-              <select
-                required={field.required}
-                value={fieldValue(values, field.key)}
-                onChange={(event) =>
-                  setValues((current) => ({
-                    ...current,
-                    [field.key]: event.target.value,
-                  }))
-                }
-              >
-                {field.options?.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            ) : field.type === "checkbox" ? (
-              <span className={styles.checkboxRow}>
-                <input
-                  type="checkbox"
-                  checked={values[field.key] === "true"}
-                  onChange={(event) =>
-                    setValues((current) => ({
-                      ...current,
-                      [field.key]: event.target.checked ? "true" : "false",
-                    }))
-                  }
-                />
-                今回の週次会議で扱う
-              </span>
-            ) : (
-              <input
-                type={field.type || "text"}
-                required={field.required}
-                value={fieldValue(values, field.key)}
-                onChange={(event) =>
-                  setValues((current) => ({
-                    ...current,
-                    [field.key]: event.target.value,
-                  }))
-                }
-              />
-            )}
-            {field.help && <small>{field.help}</small>}
-          </label>
-        ))}
-      </div>
+            {field.options?.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        ) : field.type === "checkbox" ? (
+          <span className={styles.checkboxRow}>
+            <input
+              name={field.key}
+              type="checkbox"
+              checked={values[field.key] === "true"}
+              onChange={(event) =>
+                setValues((current) => ({
+                  ...current,
+                  [field.key]: event.target.checked ? "true" : "false",
+                }))
+              }
+            />
+            今回の週次会議で扱う
+          </span>
+        ) : (
+          <input
+            name={field.key}
+            type={field.type || "text"}
+            required={field.required}
+            value={fieldValue(values, field.key)}
+            onChange={(event) =>
+              setValues((current) => ({
+                ...current,
+                [field.key]: event.target.value,
+              }))
+            }
+          />
+        )}
+        {field.help && <small>{field.help}</small>}
+      </label>
+    );
+  }
+
+  // 一つのタイトル/名称フィールドは、ヘッダー・対象コンテキスト・入力欄のどれか1箇所だけに置く
+  // （同じ値を重複表示しない）。ルート/embeddedフォームでは本文最上段に単独で大きく置き、
+  // 残りは意味別グループへ分ける。inlineFieldは1〜数項目の直接編集スロットのためグルーピング
+  // しない（1項目をグループ見出し付きで囲む方が読みにくい）。
+  const primaryField = !inlineField
+    ? activeFields.find((field) => PRIMARY_FIELD_KEYS.has(field.key))
+    : undefined;
+  const remainingFields = primaryField
+    ? activeFields.filter((field) => field !== primaryField)
+    : activeFields;
+  const fieldGroups = inlineField ? null : groupFormFields(remainingFields);
+
+  const fieldsBlock = (
+    <>
+      {primaryField && (
+        <div className={styles.formGrid}>{renderField(primaryField, true)}</div>
+      )}
+      {fieldGroups ? (
+        <div className={styles.formGrid}>
+          {fieldGroups.map((group) => (
+            <div key={group.key} className={styles.fieldGroup}>
+              <p className={styles.fieldGroupLabel}>{group.label}</p>
+              <div className={styles.formGrid}>
+                {group.fields.map((field) => renderField(field))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className={inlineField ? styles.inlineFieldForm : styles.formGrid}>
+          {remainingFields.map((field) => renderField(field))}
+        </div>
+      )}
       {error && (
         <p className={styles.formError} role="alert">
           {error}
         </p>
       )}
-      <footer
-        className={
-          inlineField ? styles.inlineFieldActions : styles.editorFooter
-        }
-      >
-        <button
-          type="button"
-          className={styles.secondaryButton}
-          onClick={requestClose}
-        >
-          キャンセル
-        </button>
-        <button
-          type="button"
-          className={styles.primaryButton}
-          disabled={saving || (inlineField && !dirty)}
-          onClick={save}
-        >
-          {saving ? (
-            <RefreshCw className={styles.spin} aria-hidden="true" />
-          ) : (
-            <Check aria-hidden="true" />
-          )}
-          保存
-        </button>
-      </footer>
     </>
+  );
+
+  const footerBlock = (
+    <footer
+      className={
+        inlineField ? styles.inlineFieldActions : styles.editorFooter
+      }
+    >
+      {confirmingDiscard ? (
+        // role=status/aria-live(not alertdialog — this is not a nested modal, just this footer's
+        // content changing in place) announces the confirmation; the effect above moves focus to
+        // 戻る and scrolls it into view since nothing here forces attention automatically.
+        <div className={styles.discardConfirm} role="status" aria-live="assertive">
+          <span>変更を破棄する？</span>
+          <div className={styles.discardConfirmActions}>
+            <button
+              ref={discardBackButtonRef}
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => {
+                onKeepEditing?.();
+                setConfirmingDiscard(false);
+              }}
+            >
+              戻る
+            </button>
+            <button
+              type="button"
+              className={styles.dangerButton}
+              onClick={() => {
+                setConfirmingDiscard(false);
+                onClose();
+              }}
+            >
+              破棄
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {dirty && <span className={styles.unsavedIndicator}>未保存</span>}
+          <button
+            type="button"
+            className={styles.secondaryButton}
+            onClick={requestClose}
+          >
+            キャンセル
+          </button>
+          <button
+            type="button"
+            className={styles.primaryButton}
+            disabled={saving || (inlineField && !dirty)}
+            onClick={save}
+          >
+            {saving ? (
+              <RefreshCw className={styles.spin} aria-hidden="true" />
+            ) : (
+              <Check aria-hidden="true" />
+            )}
+            保存
+          </button>
+        </>
+      )}
+    </footer>
   );
 
   if (inlineField) {
@@ -2221,6 +2611,8 @@ function IssueEditor({
         data-inline-field-editor="true"
         data-inline-field-keys={fieldKeys?.join(",")}
         aria-label={definition.title}
+        aria-describedby={ariaDescribedBy}
+        onFocusCapture={rememberFocusedField}
         onKeyDown={(event) => {
           if (event.key !== "Escape") return;
           event.preventDefault();
@@ -2228,7 +2620,8 @@ function IssueEditor({
           requestClose();
         }}
       >
-        {editorForm}
+        {fieldsBlock}
+        {footerBlock}
       </section>
     );
   }
@@ -2241,8 +2634,11 @@ function IssueEditor({
         data-testid="sx-inline-editor"
         data-inline-editor-form="true"
         aria-label={definition.title}
+        aria-describedby={ariaDescribedBy}
+        onFocusCapture={rememberFocusedField}
       >
-        {editorForm}
+        <div className={styles.editorEmbeddedBody}>{fieldsBlock}</div>
+        {footerBlock}
       </section>
     );
   }
@@ -2269,15 +2665,18 @@ function IssueEditor({
         ref={editorPanelRef}
         tabIndex={-1}
         className={styles.editorPanel}
+        data-editor-width={WIDE_EDITOR_KINDS.has(editor.kind) ? "wide" : undefined}
         role="dialog"
+        onFocusCapture={rememberFocusedField}
         aria-modal="true"
         aria-label={definition.title}
+        aria-describedby={ariaDescribedBy}
         data-editor-kind={editor.kind}
         data-editor-resource={definition.resource}
         data-editor-record-id={definition.id || ""}
       >
         <header className={styles.editorHeader}>
-          <div>
+          <div className={styles.editorHeaderMeta}>
             <p className={styles.eyebrow}>{definition.eyebrow}</p>
             <h2>{definition.title}</h2>
           </div>
@@ -2291,90 +2690,100 @@ function IssueEditor({
             <X aria-hidden="true" />
           </button>
         </header>
-        <div className={styles.editorContext}>
-          {"issue" in editor && (
-            <>
-              <span>対象論点</span>
-              <strong>{editor.issue.title}</strong>
-            </>
-          )}
-          {"hypothesis" in editor && (
-            <>
-              <span>対象仮説</span>
-              <strong>{editor.hypothesis?.statement}</strong>
-            </>
-          )}
-          {"validation" in editor && (
-            <>
-              <span>対象検証</span>
-              <strong>
-                {editor.validation.method || editor.validation.validationKind}
-              </strong>
-            </>
-          )}
-          {"decision" in editor && (
-            <>
-              <span>対象判断</span>
-              <strong>{editor.decision.title}</strong>
-            </>
-          )}
-          {"milestone" in editor && (
-            <>
-              <span>対象工程</span>
-              <strong>{editor.milestone.title}</strong>
-            </>
-          )}
-          {"successor" in editor && (
-            <>
-              <span>先へ進む工程</span>
-              <strong>{editor.successor.title}</strong>
-            </>
-          )}
-          {"task" in editor && (
-            <>
-              <span>対象タスク</span>
-              <strong>{editor.task.title}</strong>
-            </>
-          )}
-          {"partner" in editor && (
-            <>
-              <span>対象関係先</span>
-              <strong>{editor.partner.name}</strong>
-            </>
-          )}
-          {/* 保有事項/約束はタイトルだけでは同名項目と区別できないため、対象関係先名を
-              静的表示する（2026-08 監査追補）。management.partnersから解決した現在値であって、
-              保有事項/約束レコード自体には関係先名を持たせない。 */}
-          {"workItem" in editor && (
-            <>
-              <span>対象関係先</span>
-              <strong>
-                {management.partners.find(
-                  (partner) => partner.id === editor.workItem.partnerId,
-                )?.name || "不明"}
-              </strong>
-            </>
-          )}
-          {"commitment" in editor && (
-            <>
-              <span>対象関係先</span>
-              <strong>
-                {management.partners.find(
-                  (partner) => partner.id === editor.partnerId,
-                )?.name || "不明"}
-              </strong>
-            </>
-          )}
-          {"parentTask" in editor && (
-            <>
-              <span>追加先</span>
-              <strong>
-                {editor.parentTask?.title || editor.milestone.title}
-              </strong>
-            </>
-          )}
+        <div className={styles.editorBody}>
+          <div className={styles.editorContext}>
+            {/* 対象の見出し行は、その値を表す本文fieldが実際にこのフォームへ見えている
+                ときだけ出さない（editor.kindではなくactiveFieldsで判定 — 例えば
+                edit_partnerはこの画面では常にfieldKeys制限つきで開き、"name" fieldを
+                一度も表示しないため、editor.kind判定だけだと関係先名がどこにも出なく
+                なる）。h2のtitle・本文のtitle fieldと同じ値を三重に出さないため
+                （2026-08 モーダル統一監査）。 */}
+            {"issue" in editor && !hasVisibleField("title") && (
+              <>
+                <span>対象論点</span>
+                <strong>{editor.issue.title}</strong>
+              </>
+            )}
+            {"hypothesis" in editor && !hasVisibleField("statement") && (
+              <>
+                <span>対象仮説</span>
+                <strong>{editor.hypothesis?.statement}</strong>
+              </>
+            )}
+            {"validation" in editor && !hasVisibleField("method") && (
+              <>
+                <span>対象検証</span>
+                <strong>
+                  {editor.validation.method ||
+                    editor.validation.validationKind}
+                </strong>
+              </>
+            )}
+            {"decision" in editor && !hasVisibleField("title") && (
+              <>
+                <span>対象判断</span>
+                <strong>{editor.decision.title}</strong>
+              </>
+            )}
+            {"milestone" in editor && !hasVisibleField("title") && (
+              <>
+                <span>対象工程</span>
+                <strong>{editor.milestone.title}</strong>
+              </>
+            )}
+            {"successor" in editor && (
+              <>
+                <span>先へ進む工程</span>
+                <strong>{editor.successor.title}</strong>
+              </>
+            )}
+            {"task" in editor && !hasVisibleField("title") && (
+              <>
+                <span>対象タスク</span>
+                <strong>{editor.task.title}</strong>
+              </>
+            )}
+            {"partner" in editor && !hasVisibleField("name") && (
+              <>
+                <span>対象関係先</span>
+                <strong>{editor.partner.name}</strong>
+              </>
+            )}
+            {/* 保有事項/約束はタイトルだけでは同名項目と区別できないため、対象関係先名を
+                静的表示する（2026-08 監査追補）。management.partnersから解決した現在値であって、
+                保有事項/約束レコード自体には関係先名を持たせない。 */}
+            {"workItem" in editor && (
+              <>
+                <span>対象関係先</span>
+                <strong>
+                  {management.partners.find(
+                    (partner) => partner.id === editor.workItem.partnerId,
+                  )?.name || "不明"}
+                </strong>
+              </>
+            )}
+            {"commitment" in editor && (
+              <>
+                <span>対象関係先</span>
+                <strong>
+                  {management.partners.find(
+                    (partner) => partner.id === editor.partnerId,
+                  )?.name || "不明"}
+                </strong>
+              </>
+            )}
+            {"parentTask" in editor && (
+              <>
+                <span>追加先</span>
+                <strong>
+                  {editor.parentTask?.title || editor.milestone.title}
+                </strong>
+              </>
+            )}
+          </div>
+          {fieldsBlock}
         </div>
-        {editorForm}
+        {footerBlock}
       </section>
     </div>,
     document.body,
@@ -2718,6 +3127,8 @@ function PlanInspector({
     slot: string,
     editor: PlanFieldEditorState["editor"],
     fieldKeys: string[],
+    targetLabel: string,
+    fieldLabel: string,
   ) => void;
   onAddChild: () => void;
 }) {
@@ -2738,35 +3149,55 @@ function PlanInspector({
     (requirement) => requirement.state === "met",
   ).length;
   const showRequirements = !isTask && requirements.length > 0;
+  // Generic point-MS (not one of the 2 NewCo gates) edits as a single 予定日, not a 2-field range.
+  const isGenericMs = !isTask && Boolean(milestone) && isGenericPointMilestone(milestone!);
+  // Neutral landing spot (dialog itself, already tabIndex=-1) — the effect below moves focus to
+  // the first editable value when the viewer can edit, instead of parking it on the close button.
   useModalContainment({
     dialogRef,
-    initialFocusRef: closeButtonRef,
+    initialFocusRef: dialogRef,
     onClose,
     active: Boolean(item),
   });
+
+  useEffect(() => {
+    if (!item || !canManage) return;
+    const frame = window.requestAnimationFrame(() => {
+      dialogRef.current
+        ?.querySelector<HTMLElement>(`.${styles.inspectorEditable}`)
+        ?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [item, canManage]);
 
   if (!item) return null;
 
   const itemEditor: PlanFieldEditorState["editor"] = task
     ? { kind: "edit_task", task }
     : { kind: "edit_milestone", milestone: milestone! };
+  // Every editable value (title, description/gate, blocker, completion criteria/evidence,
+  // prerequisite fields, and the 5 facts-row cells alike) stays a fixed-size display button —
+  // never swapped in place for the edit form. Exactly one shared edit tray renders below the
+  // fixed facts row for whichever slot is active (see inlineEditorSlot below); this function only
+  // ever returns the stable button (highlighted via data-editing while its tray is open).
   const editableValue = (
     slot: string,
     label: string,
     value: ReactNode,
     editor: PlanFieldEditorState["editor"],
     fieldKeys: string[],
+    // Defaults to the open item's own title — only the prerequisite/dependency rows (a
+    // different record than the item itself) pass an explicit override.
+    targetLabel: string = item!.title,
   ) =>
-    inlineEditorSlot === slot ? (
-      <div className={styles.inlineFieldSlot} data-plan-inline-slot={slot}>
-        {inlineEditor}
-      </div>
-    ) : canManage ? (
+    canManage ? (
       <button
         type="button"
         className={styles.inspectorEditable}
-        onClick={() => onEditField(slot, editor, fieldKeys)}
-        aria-label={`${label}を直接修正`}
+        data-editing={inlineEditorSlot === slot || undefined}
+        data-plan-edit-slot={slot}
+        onClick={() => onEditField(slot, editor, fieldKeys, targetLabel, label)}
+        aria-label={`${targetLabel}の${label}を直接修正`}
       >
         {value}
       </button>
@@ -2801,12 +3232,6 @@ function PlanInspector({
           <div>
             {detailEditor ? (
               <h3>{item.title}</h3>
-            ) : inlineEditorSlot === "item-title" ? (
-              <div className={styles.planInspectorTitleEditor}>
-                {editableValue("item-title", "名称", item.title, itemEditor, [
-                  "title",
-                ])}
-              </div>
             ) : (
               <h3>
                 {editableValue("item-title", "名称", item.title, itemEditor, [
@@ -2814,11 +3239,6 @@ function PlanInspector({
                 ])}
               </h3>
             )}
-            <span className={styles.planInspectorStatus}>
-              {isTask
-                ? ROW_PLAN_STATUS[task!.status]
-                : ROW_PLAN_STATUS[milestone!.manualStatus]}
-            </span>
           </div>
           <button
             ref={closeButtonRef}
@@ -2830,24 +3250,19 @@ function PlanInspector({
             <X aria-hidden="true" />
           </button>
         </header>
+        {/* 現在の項目名はh3に既に出ているので、パンくずには重複させない — タスクは track >
+            親工程、工程/MSはtrackのみ。状態も下のfactsの「状態」セルで既に見えるため、ここに
+            ステータスチップは置かない（2026-08 監査追補）。 */}
         {!detailEditor && (
           <div className={styles.inspectorBreadcrumb}>
             {milestone && task ? (
               <>
                 <span>{trackMeta(milestone.track).label}</span>
                 <ChevronRight aria-hidden="true" />
-                <span>{milestone.title}</span>
-                <ChevronRight aria-hidden="true" />
-                <strong>{task.title}</strong>
+                <strong>{milestone.title}</strong>
               </>
             ) : (
-              <>
-                <span>
-                  {milestone ? trackMeta(milestone.track).label : "工程"}
-                </span>
-                <ChevronRight aria-hidden="true" />
-                <strong>{item.title}</strong>
-              </>
+              <span>{milestone ? trackMeta(milestone.track).label : "工程"}</span>
             )}
           </div>
         )}
@@ -2885,17 +3300,25 @@ function PlanInspector({
                 </dd>
               </div>
               <div>
-                <dt>計画</dt>
+                <dt>{isGenericMs ? "予定日" : "計画"}</dt>
                 <dd>
-                  {editableValue(
-                    "item-period",
-                    "計画期間",
-                    <>
-                      {formatDate(plannedStart)} → {formatDate(plannedEnd)}
-                    </>,
-                    itemEditor,
-                    ["planned_start", "planned_end"],
-                  )}
+                  {isGenericMs
+                    ? editableValue(
+                        "item-period",
+                        "予定日",
+                        formatDate(plannedStart),
+                        itemEditor,
+                        ["planned_date"],
+                      )
+                    : editableValue(
+                        "item-period",
+                        "計画期間",
+                        <>
+                          {formatDate(plannedStart)} → {formatDate(plannedEnd)}
+                        </>,
+                        itemEditor,
+                        ["planned_start", "planned_end"],
+                      )}
                 </dd>
               </div>
               <div>
@@ -2933,6 +3356,14 @@ function PlanInspector({
                 </div>
               )}
             </dl>
+            {inlineEditorSlot && (
+              <div
+                className={styles.inspectorEditTray}
+                data-plan-inline-slot={inlineEditorSlot}
+              >
+                {inlineEditor}
+              </div>
+            )}
 
             <div className={styles.inspectorContentGrid}>
               <section className={styles.inspectorSection}>
@@ -3030,6 +3461,7 @@ function PlanInspector({
                                 milestone: requirement.milestone,
                               },
                               ["gate"],
+                              requirement.milestone.title,
                             )}
                           </div>
                           <div className={styles.requirementFields}>
@@ -3046,6 +3478,7 @@ function PlanInspector({
                                   milestone: requirement.milestone,
                                 },
                                 ["status"],
+                                requirement.milestone.title,
                               )}
                             </div>
                             <div>
@@ -3060,6 +3493,7 @@ function PlanInspector({
                                   milestone: requirement.milestone,
                                 },
                                 ["owner_label"],
+                                requirement.milestone.title,
                               )}
                             </div>
                             <div>
@@ -3073,6 +3507,7 @@ function PlanInspector({
                                   milestone: requirement.milestone,
                                 },
                                 ["planned_end"],
+                                requirement.milestone.title,
                               )}
                             </div>
                             <div>
@@ -3086,6 +3521,7 @@ function PlanInspector({
                                   milestone: requirement.milestone,
                                 },
                                 ["actual_end"],
+                                requirement.milestone.title,
                               )}
                             </div>
                             <div>
@@ -3101,6 +3537,7 @@ function PlanInspector({
                                   milestone: requirement.milestone,
                                 },
                                 ["completion_evidence"],
+                                requirement.milestone.title,
                               )}
                             </div>
                           </div>
@@ -3117,6 +3554,7 @@ function PlanInspector({
                                 dependency: requirement.dependency,
                               },
                               ["required"],
+                              requirement.milestone.title,
                             )}
                           </div>
                           <div>
@@ -3132,6 +3570,7 @@ function PlanInspector({
                                 dependency: requirement.dependency,
                               },
                               ["lag_days"],
+                              requirement.milestone.title,
                             )}
                           </div>
                         </div>
@@ -3145,7 +3584,7 @@ function PlanInspector({
         )}
         {canManage && !detailEditor && (
           <footer>
-            <button type="button" onClick={onAddChild}>
+            <button type="button" data-plan-add-child onClick={onAddChild}>
               <Plus aria-hidden="true" />
               {isTask ? "子タスクを追加" : "タスクを追加"}
             </button>
@@ -3188,6 +3627,15 @@ export function SxWeeklyControlDashboard({
   const [planFieldEditor, setPlanFieldEditor] =
     useState<PlanFieldEditorState | null>(null);
   const [detailEditorDirty, setDetailEditorDirty] = useState(false);
+  // Explicit contract from whichever IssueEditor is currently mounted inside PlanInspector
+  // (detailEditor or the inline field editor — mutually exclusive) back to this parent, so
+  // requestDetailClose can trigger that editor's own dirty-close confirmation directly instead
+  // of a DOM query/click hack.
+  const planEditorRequestCloseRef = useRef<(() => void) | null>(null);
+  // An external action attempted while the shared tray is dirty. The existing tray changes its
+  // own footer to the inline discard confirmation; after discard, this intent continues exactly
+  // once (close detail / open another cell / add child). A normal tray Cancel never populates it.
+  const pendingPlanIntentRef = useRef<(() => void) | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(
     null,
@@ -3369,6 +3817,7 @@ export function SxWeeklyControlDashboard({
   }
 
   function handleDetailSaved(next: SxManagementBundle, message: string) {
+    pendingPlanIntentRef.current = null;
     setManagement(next);
     setDetailEditorDirty(false);
     setDetailEditor(null);
@@ -3377,16 +3826,49 @@ export function SxWeeklyControlDashboard({
     window.setTimeout(() => setNotice(null), 3500);
   }
 
-  function requestDetailClose() {
-    if (
-      detailEditorDirty &&
-      !window.confirm("入力中の変更を破棄して詳細を閉じる？")
-    )
-      return false;
+  // 保存/キャンセル/破棄完了のいずれでインライン編集trayが閉じても、次にfocusを失わない
+  // 最寄りの固定要素（そのfieldを開いた元のcell、またはタスク追加ボタン）へ戻す
+  // （2026-08 再監査是正: 閉じた後にfocusがdocument.bodyへ落ちない）。
+  function focusPlanEditSlotAfterClose(slot: string) {
+    window.requestAnimationFrame(() => {
+      document
+        .querySelector<HTMLElement>(`[data-plan-edit-slot="${slot}"]`)
+        ?.focus();
+    });
+  }
+
+  function focusPlanAddChildAfterClose() {
+    window.requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>("[data-plan-add-child]")?.focus();
+    });
+  }
+
+  function requestPlanIntent(intent: () => void) {
+    if (detailEditorDirty) {
+      // 破棄確認はwindow.confirmや第二のdialogを開かず、既に画面内に見えているinline/embedded
+      // editorの「キャンセル」を押したのと同じ扱いにする — そのeditor自身のfooterが
+      // 「変更を破棄する？ / 戻る / 破棄」へその場で差し替わる（IssueEditor.requestClose）。
+      // DOM query/clickではなく、そのeditor自身がplanEditorRequestCloseRefへ登録した
+      // requestCloseを直接呼ぶ（2026-08 監査追補: 明示的なref契約に置き換え）。
+      pendingPlanIntentRef.current = intent;
+      planEditorRequestCloseRef.current?.();
+      return;
+    }
+    pendingPlanIntentRef.current = null;
     setDetailEditorDirty(false);
     setDetailEditor(null);
     setPlanFieldEditor(null);
-    return true;
+    intent();
+  }
+
+  function finishPlanEditorClose(fallbackFocus: () => void) {
+    const pendingIntent = pendingPlanIntentRef.current;
+    pendingPlanIntentRef.current = null;
+    setDetailEditorDirty(false);
+    setDetailEditor(null);
+    setPlanFieldEditor(null);
+    if (pendingIntent) pendingIntent();
+    else fallbackFocus();
   }
 
   function notifyWorkUnitNotFound() {
@@ -3812,9 +4294,17 @@ export function SxWeeklyControlDashboard({
               <SxUnifiedTimeline
                 timeline={timeline}
                 asOf={management.asOf}
+                projectId={bundle.project.projectId}
                 milestones={management.milestones}
                 dependencies={management.dependencies}
                 tasks={management.tasks}
+                outcomes={management.outcomes}
+                objectiveId={management.objective?.id ?? null}
+                onManagementChange={(next, message) => {
+                  setManagement(next);
+                  setNotice(message);
+                  window.setTimeout(() => setNotice(null), 3500);
+                }}
                 selectedMilestoneId={selectedMilestoneId}
                 selectedTaskId={selectedTaskId}
                 onSelectMilestone={(id) => {
@@ -3826,10 +4316,13 @@ export function SxWeeklyControlDashboard({
                   if (id) setSelectedMilestoneId(null);
                 }}
                 canManage={management.canManage}
-                onCreateMilestone={(track) =>
+                onCreateMilestone={(prefill) =>
                   setEditor({
                     kind: "create_milestone",
-                    track: track as SxTrackKey | null,
+                    track: prefill.track,
+                    timelineKind: prefill.timelineKind,
+                    plannedDate: prefill.plannedDate ?? null,
+                    outcomeId: prefill.outcomeId ?? null,
                   })
                 }
                 onCreateTask={(milestoneId, parentTaskId) => {
@@ -3861,57 +4354,83 @@ export function SxWeeklyControlDashboard({
                     access={access}
                     projectId={bundle.project.projectId}
                     embedded
+                    requestCloseRef={planEditorRequestCloseRef}
+                    onKeepEditing={() => { pendingPlanIntentRef.current = null; }}
                     onDirtyChange={setDetailEditorDirty}
                     onClose={() => {
-                      setDetailEditorDirty(false);
-                      setDetailEditor(null);
+                      finishPlanEditorClose(focusPlanAddChildAfterClose);
                     }}
-                    onSaved={handleDetailSaved}
+                    onSaved={(next, message) => {
+                      handleDetailSaved(next, message);
+                      focusPlanAddChildAfterClose();
+                    }}
                   />
                 ) : null
               }
               inlineEditorSlot={planFieldEditor?.slot}
               inlineEditor={
                 planFieldEditor ? (
-                  <IssueEditor
-                    key={`${planFieldEditor.slot}-${planFieldEditor.editor.kind}-${planFieldEditor.fieldKeys.join("-")}`}
-                    editor={planFieldEditor.editor}
-                    management={management}
-                    access={access}
-                    projectId={bundle.project.projectId}
-                    inlineField
-                    fieldKeys={planFieldEditor.fieldKeys}
-                    onDirtyChange={setDetailEditorDirty}
-                    onClose={() => {
-                      setDetailEditorDirty(false);
-                      setPlanFieldEditor(null);
-                    }}
-                    onSaved={handleDetailSaved}
-                  />
+                  <>
+                    {/* 共通edit trayの文脈: 元セルが画面外へスクロールしていても、何をどのレコード
+                        について編集しているかが常に分かるようにする（2026-08 再監査是正）。 */}
+                    <p id="sx-plan-editor-context" className={styles.inspectorEditTrayContext}>
+                      編集中｜{planFieldEditor.targetLabel} / {planFieldEditor.fieldLabel}
+                    </p>
+                    <IssueEditor
+                      key={`${planFieldEditor.slot}-${planFieldEditor.editor.kind}-${planFieldEditor.fieldKeys.join("-")}`}
+                      editor={planFieldEditor.editor}
+                      management={management}
+                      access={access}
+                      projectId={bundle.project.projectId}
+                      inlineField
+                      fieldKeys={planFieldEditor.fieldKeys}
+                      requestCloseRef={planEditorRequestCloseRef}
+                      onKeepEditing={() => { pendingPlanIntentRef.current = null; }}
+                      ariaDescribedBy="sx-plan-editor-context"
+                      onDirtyChange={setDetailEditorDirty}
+                      onClose={() => {
+                        finishPlanEditorClose(() => focusPlanEditSlotAfterClose(planFieldEditor.slot));
+                      }}
+                      onSaved={(next, message) => {
+                        focusPlanEditSlotAfterClose(planFieldEditor.slot);
+                        handleDetailSaved(next, message);
+                      }}
+                    />
+                  </>
                 ) : null
               }
               onClose={() => {
-                if (!requestDetailClose()) return;
-                setSelectedMilestoneId(null);
-                setSelectedTaskId(null);
+                requestPlanIntent(() => {
+                  setSelectedMilestoneId(null);
+                  setSelectedTaskId(null);
+                });
               }}
-              onEditField={(slot, nextEditor, fieldKeys) => {
-                if (!requestDetailClose()) return;
-                setPlanFieldEditor({
-                  slot,
-                  editor: nextEditor,
-                  fieldKeys,
+              onEditField={(slot, nextEditor, fieldKeys, targetLabel, fieldLabel) => {
+                requestPlanIntent(() => {
+                  // detailEditor/planFieldEditorは常に排他 — 片方を開く前にもう片方を確実に閉じる
+                  // （どちらも同じplanEditorRequestCloseRefを1つだけ登録する前提を保つ）。
+                  setDetailEditor(null);
+                  setPlanFieldEditor({
+                    slot,
+                    editor: nextEditor,
+                    fieldKeys,
+                    targetLabel,
+                    fieldLabel,
+                  });
                 });
               }}
               onAddChild={() => {
-                if (!requestDetailClose()) return;
-                const milestone = selectedMilestone || selectedTaskMilestone;
-                if (milestone)
-                  setDetailEditor({
-                    kind: "create_task",
-                    milestone,
-                    parentTask: selectedTask,
-                  });
+                requestPlanIntent(() => {
+                  const milestone = selectedMilestone || selectedTaskMilestone;
+                  if (milestone) {
+                    setPlanFieldEditor(null);
+                    setDetailEditor({
+                      kind: "create_task",
+                      milestone,
+                      parentTask: selectedTask,
+                    });
+                  }
+                });
               }}
             />
           </div>

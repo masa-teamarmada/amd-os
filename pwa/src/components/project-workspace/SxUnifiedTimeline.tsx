@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronsDownUp,
   ChevronsUpDown,
   ChevronRight,
   Flag,
+  MapPin,
   Plus,
 } from "lucide-react";
 import type {
@@ -14,8 +15,12 @@ import type {
 } from "@/lib/sx-executive-control-deck";
 import type {
   SxDependency,
+  SxManagementBundle,
   SxManagementMilestone,
+  SxOutcome,
   SxTask,
+  SxTimelineKind,
+  SxTrackKey,
 } from "@/lib/sx-management";
 import {
   sxGateRequirementCounts,
@@ -25,6 +30,17 @@ import {
   sxMilestoneRequiredTaskSummary,
   type SxGateRequirement,
 } from "@/lib/sx-gate-requirements";
+import {
+  computeBarMove,
+  computeBarResizeEnd,
+  computeBarResizeStart,
+  computeGateEndMove,
+  computeMilestoneMove,
+  dateFromPct,
+  diffDays,
+  isWithinClickThreshold,
+  shouldCancelOnLostPointerCapture,
+} from "@/lib/sx-gantt-drag";
 import { sxFormatDate } from "./sx-visual-shared";
 
 const MONTH_ROW_H = 20;
@@ -32,6 +48,43 @@ const PIN_ROW_H = 22;
 const LANE_HEADER_H = 22;
 const ROW_H = 48;
 const LANE_GAP = 2;
+// Reserve a real pointer gutter at both ends of the date domain. A 44px diamond centred on the
+// first/last day then stays wholly inside the grid, and a 16px resize handle can sit outside a
+// boundary bar without disappearing under the sticky label column or the scroll edge.
+const TIMELINE_SIDE_GUTTER_PX = 22;
+const MIN_BAR_HIT_WIDTH_PX = 16;
+
+function timelinePctCss(pct: number, extraPx = 0) {
+  const clamped = Math.min(100, Math.max(0, pct));
+  // Linear map: 0% -> 22px, 100% -> calc(100% - 22px).
+  const offsetPx = TIMELINE_SIDE_GUTTER_PX * (1 - clamped / 50) + extraPx;
+  return `calc(${clamped}% + ${offsetPx.toFixed(3)}px)`;
+}
+
+function timelineSpanCss(startPct: number, endPct: number) {
+  const delta = Math.max(0, endPct - startPct);
+  return `calc(${delta}% - ${((TIMELINE_SIDE_GUTTER_PX * 2 * delta) / 100).toFixed(3)}px)`;
+}
+
+function barHitGeometryCss(startPct: number, endPct: number) {
+  const actualWidth = timelineSpanCss(startPct, endPct);
+  const width = `max(${MIN_BAR_HIT_WIDTH_PX}px, ${actualWidth})`;
+  // At the right edge, grow a minimum-width bar leftwards so the end handle remains inside the
+  // domain gutter. Everywhere else keep the true start position fixed and grow rightwards.
+  const left = endPct >= 100
+    ? `calc(${timelinePctCss(endPct)} - ${width})`
+    : timelinePctCss(startPct);
+  return { left, width, right: `calc(${left} + ${width})` };
+}
+
+function pointerOffsetToTimelinePct(offsetX: number, paneWidth: number) {
+  const innerWidth = paneWidth - TIMELINE_SIDE_GUTTER_PX * 2;
+  if (innerWidth <= 0) return 0;
+  return Math.min(
+    100,
+    Math.max(0, ((offsetX - TIMELINE_SIDE_GUTTER_PX) / innerWidth) * 100),
+  );
+}
 
 type DisplayRow = {
   id: string;
@@ -44,6 +97,14 @@ type DisplayRow = {
   isCritical: boolean;
   isCurrent: boolean;
   isBlockingMilestone: boolean;
+  /** phase = rendered as a bar (工程); milestone = rendered as a diamond (MS). null for task
+   * rows — tasks are never diamonds. Blocking-gate rows (isBlockingMilestone) always render as
+   * a diamond regardless of this value — that special-case stays slug-driven, everything else
+   * must read this column instead of guessing from slug. */
+  timelineKind: SxTimelineKind | null;
+  /** project_management_milestones.version / project_management_tasks.version at the time this
+   * row was built. Sent back as expected_version on a gantt-drag PATCH. */
+  version: number;
   gate: string;
   plannedStart: string | null;
   plannedEnd: string | null;
@@ -174,6 +235,8 @@ function milestoneDisplayRow(
     isCritical: row.isCritical,
     isCurrent: row.isCurrent,
     isBlockingMilestone: Boolean(milestone && sxIsBlockingMilestone(milestone)),
+    timelineKind: milestone?.timelineKind ?? "phase",
+    version: milestone?.version ?? 1,
     gate: milestone?.gate || row.gate,
     plannedStart: row.plannedStart,
     plannedEnd: row.plannedEnd,
@@ -222,6 +285,8 @@ function blockingMilestoneRow(
     isCritical: false,
     isCurrent: false,
     isBlockingMilestone: true,
+    timelineKind: milestone.timelineKind,
+    version: milestone.version,
     gate: milestone.gate,
     plannedStart: milestone.plannedStart,
     plannedEnd: milestone.plannedEnd,
@@ -270,6 +335,8 @@ function taskDisplayRow(
     isCritical: false,
     isCurrent: state === "current",
     isBlockingMilestone: false,
+    timelineKind: null,
+    version: task.version,
     gate: "",
     plannedStart: task.plannedStart,
     plannedEnd: task.plannedEnd,
@@ -300,22 +367,66 @@ function lanesTotalHeight(lanes: Array<{ rows: DisplayRow[] }>) {
   );
 }
 
+/** Row height is 48px; every pointer-drag hit target (move zone, resize handles, diamond) is
+ * centered vertically in the row at this height, well above the 44px minimum touch target. */
+const DRAG_HIT_HEIGHT = 44;
+const DRAG_HIT_TOP = (ROW_H - DRAG_HIT_HEIGHT) / 2;
+
 function RowBar({
   row,
   accent,
   selected,
-  onSelect,
+  canManage,
+  dragging,
+  saving,
+  onClick,
+  onPointerDownMove,
+  onPointerDownResizeStart,
+  onPointerDownResizeEnd,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
+  onLostPointerCapture,
 }: {
   row: DisplayRow;
   accent: string;
   selected: boolean;
-  onSelect: () => void;
+  canManage: boolean;
+  dragging: boolean;
+  saving: boolean;
+  onClick: () => void;
+  onPointerDownMove: (event: React.PointerEvent) => void;
+  onPointerDownResizeStart: (event: React.PointerEvent) => void;
+  onPointerDownResizeEnd: (event: React.PointerEvent) => void;
+  onPointerMove: (event: React.PointerEvent) => void;
+  onPointerUp: (event: React.PointerEvent) => void;
+  onPointerCancel: (event: React.PointerEvent) => void;
+  onLostPointerCapture: (event: React.PointerEvent) => void;
 }) {
   const barStart = row.plannedStartPct ?? row.plannedEndPct ?? 0;
   const plannedEnd = row.plannedEndPct;
   const hasBar = plannedEnd != null;
   const provisional = row.dateCertainty === "provisional";
   const counts = sxGateRequirementCounts(row.requirements);
+  // Any timelineKind==="milestone" row renders as a diamond, not a bar — rendering must read
+  // this column, never infer from slug. The 2 founding-prerequisite gates keep their
+  // isBlockingMilestone special-case (slug-driven) on top of this.
+  const isMilestoneMarker = row.isBlockingMilestone || row.timelineKind === "milestone";
+  // A normal range is draggable only when BOTH endpoints exist. End-only normal rows are
+  // intentionally read-only on the gantt: there is no honest duration to move or resize yet.
+  // The sole end-only draggable exception is the NewCo diamond below.
+  const draggableBar =
+    canManage && row.plannedStart != null && row.plannedEnd != null && !isMilestoneMarker;
+  const draggableMilestone =
+    canManage &&
+    hasBar &&
+    isMilestoneMarker &&
+    // Only the two NewCo gates may drag from an end-only date. A generic point-MS must have its
+    // start/end pair established (normally equal) before it exposes a drag affordance.
+    (row.isBlockingMilestone || row.plannedStart != null);
+  const barGeometry = hasBar && !isMilestoneMarker
+    ? barHitGeometryCss(barStart, plannedEnd)
+    : null;
   // blocking milestone行は「必須タスク 完了/総数・次の未完了」を常時1行目に出すため、日付が
   // 入ってバー/◇が付いても潰されないよう、通常行より下へ寄せる（48px行の中で summary(0-13px) →
   // ◇(13-25px) → bar(24-32px) → 予定/実績(36-48px)の順に積む。日付は捏造しない）。
@@ -323,17 +434,43 @@ function RowBar({
   return (
     <button
       type="button"
-      onClick={onSelect}
-      className={`relative block h-full w-full text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${selected ? "bg-[#e8f2eb]/70" : "hover:bg-[#f8f5ec]/70"}`}
-      aria-label={`${row.title}の詳細を開く`}
+      onClick={onClick}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
+      className={`group relative block h-full w-full text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${selected ? "bg-[#e8f2eb]/70" : "hover:bg-[#f8f5ec]/70"} ${dragging ? "cursor-grabbing" : ""} ${saving ? "opacity-60" : ""}`}
+      title={draggableBar ? "中央をドラッグして移動、両端の外側をドラッグして開始・終了を変更" : undefined}
+      aria-label={`${row.title}の詳細を開く${draggableBar ? "（中央で期間移動、左端で開始日、右端で終了日を変更できる）" : draggableMilestone ? "（ドラッグで予定日を変更できる）" : ""}`}
     >
-      {hasBar && (
+      {/* Move-drag hit target: the actual bar's full width, never empty row space. Sits below
+          (DOM-order-first, so lower stacking) the resize handles, which claim their own hit area
+          at each edge. Visual bar stays 8px; this hit box is >=44px tall so touch/pointer users
+          don't need pixel precision to grab it. */}
+      {draggableBar && (
         <span
-          className="absolute h-[8px] overflow-hidden rounded-sm border"
+          role="presentation"
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            onPointerDownMove(event);
+          }}
+          onLostPointerCapture={onLostPointerCapture}
+          className="absolute cursor-grab"
+          style={{
+            top: DRAG_HIT_TOP,
+            left: barGeometry!.left,
+            width: barGeometry!.width,
+            height: DRAG_HIT_HEIGHT,
+          }}
+          aria-hidden="true"
+        />
+      )}
+      {hasBar && !isMilestoneMarker && (
+        <span
+          className="pointer-events-none absolute h-[8px] overflow-hidden rounded-sm border"
           style={{
             top: barTop,
-            left: `${barStart}%`,
-            width: `${Math.max(plannedEnd - barStart, 0.5)}%`,
+            left: barGeometry!.left,
+            width: barGeometry!.width,
             borderColor: `${accent}99`,
             background: `${accent}${provisional ? "24" : "3d"}`,
           }}
@@ -346,13 +483,65 @@ function RowBar({
           )}
         </span>
       )}
-      {hasBar && row.isBlockingMilestone && (
+      {draggableBar && (
+        <>
+          {/* Resize handles: pointerdown only (this is where setPointerCapture happens).
+              pointermove/up/cancel are deliberately NOT attached here — once captured, those
+              events still bubble from this span up through the DOM to the parent <button>, which
+              handles them exactly once. Attaching them here too was the double-PATCH bug (the
+              same pointerup fired here, then bubbled and fired again on the button). Hit area is
+              >=44px tall and only reveals its visual tick on row hover/focus so it stays
+              discoverable without cluttering the row at rest. Each 16px hit target sits wholly
+              OUTSIDE the bar edge, so even a same-day/very narrow bar keeps its center move zone. */}
+          <span
+            role="presentation"
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              onPointerDownResizeStart(event);
+            }}
+            onLostPointerCapture={onLostPointerCapture}
+            className="absolute z-10 flex w-4 cursor-ew-resize items-center justify-end opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+            style={{ top: DRAG_HIT_TOP, left: `calc(${barGeometry!.left} - 16px)`, height: DRAG_HIT_HEIGHT }}
+            aria-hidden="true"
+          >
+            <span className="block h-3 w-[3px] bg-[#24231f]" />
+          </span>
+          <span
+            role="presentation"
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              onPointerDownResizeEnd(event);
+            }}
+            onLostPointerCapture={onLostPointerCapture}
+            className="absolute z-10 flex w-4 cursor-ew-resize items-center justify-start opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+            style={{ top: DRAG_HIT_TOP, left: barGeometry!.right, height: DRAG_HIT_HEIGHT }}
+            aria-hidden="true"
+          >
+            <span className="block h-3 w-[3px] bg-[#24231f]" />
+          </span>
+        </>
+      )}
+      {draggableMilestone && (
         <span
-          className="absolute top-[13px] -translate-x-1/2 text-center"
-          style={{ left: `${plannedEnd}%` }}
+          role="presentation"
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            onPointerDownMove(event);
+          }}
+          onLostPointerCapture={onLostPointerCapture}
+          className="absolute z-10 -translate-x-1/2 cursor-grab"
+          style={{ top: DRAG_HIT_TOP, left: timelinePctCss(plannedEnd), width: DRAG_HIT_HEIGHT, height: DRAG_HIT_HEIGHT }}
+          aria-hidden="true"
+        />
+      )}
+      {hasBar && isMilestoneMarker && (
+        <span
+          className="pointer-events-none absolute top-[13px] -translate-x-1/2 text-center"
+          style={{ left: timelinePctCss(plannedEnd) }}
         >
+          {/* NewCo blocking gate = filled purple diamond; generic MS = hollow — matches Legend. */}
           <i
-            className="mx-auto block h-3 w-3 rotate-45 border-2 border-[#5f4a66] bg-[#fffdf7]"
+            className={`mx-auto block h-3 w-3 rotate-45 border-2 border-[#5f4a66] ${row.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
             aria-hidden="true"
           />
         </span>
@@ -375,24 +564,26 @@ function RowBar({
         {hasBar ? (
           <>
             <span>予定 {sxFormatDate(row.plannedEnd).slice(5)}</span>
-            <span
-              className={
-                row.progressRegistered ? "text-[#315f7d]" : "text-[#765022]"
-              }
-            >
-              実績{" "}
-              {row.actualEnd
-                ? `完了 ${sxFormatDate(row.actualEnd).slice(5)}`
-                : row.progressRegistered
-                  ? `${row.progressPct}%`
-                  : "未登録"}
-            </span>
+            {!isMilestoneMarker && (
+              <span
+                className={
+                  row.progressRegistered ? "text-[#315f7d]" : "text-[#765022]"
+                }
+              >
+                実績{" "}
+                {row.actualEnd
+                  ? `完了 ${sxFormatDate(row.actualEnd).slice(5)}`
+                  : row.progressRegistered
+                    ? `${row.progressPct}%`
+                    : "未登録"}
+              </span>
+            )}
           </>
         ) : (
           <span className="flex items-center gap-1">
-            {row.isBlockingMilestone && (
+            {isMilestoneMarker && (
               <i
-                className="inline-block h-3 w-3 shrink-0 rotate-45 border-2 border-[#5f4a66] bg-[#fffdf7]"
+                className={`inline-block h-3 w-3 shrink-0 rotate-45 border-2 border-[#5f4a66] ${row.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
                 aria-hidden="true"
               />
             )}
@@ -423,7 +614,7 @@ function RowBar({
 function Legend() {
   return (
     <div
-      className="mb-1.5 grid gap-px border border-[#d6cebf] bg-[#d6cebf] text-[10px] text-[#514e47] sm:grid-cols-3"
+      className="mb-1.5 grid gap-px border border-[#d6cebf] bg-[#d6cebf] text-[10px] text-[#514e47] sm:grid-cols-4"
       aria-label="ガントの読み方"
     >
       <div className="flex items-center gap-2 bg-[#fffdf7] px-2 py-1">
@@ -436,41 +627,102 @@ function Legend() {
       </div>
       <div className="flex items-center gap-2 bg-[#fffdf7] px-2 py-1">
         <span className="h-2.5 w-2.5 rotate-45 border-2 border-[#5f4a66] bg-[#fffdf7]" />
-        <span>マイルストーン｜先へ進む条件</span>
+        <span>MS（マイルストーン）｜計画上の到達目印</span>
+      </div>
+      <div className="flex items-center gap-2 bg-[#fffdf7] px-2 py-1">
+        <span className="h-2.5 w-2.5 rotate-45 border-2 border-[#5f4a66] bg-[#5f4a66]" />
+        <span>設立ゲート｜先へ進む前提（2件のみ）</span>
       </div>
     </div>
   );
 }
 
+/** MS表示の3分類: タスクは常にタスク。工程/MSの行はtimelineKind(工程 or 一般MS)と
+ * isBlockingMilestone(設立前提の2件だけ)を見て判定する — スラグから推測しない。 */
+function rowKindLabel(row: DisplayRow): string {
+  if (row.entity === "task") return "タスク";
+  if (row.isBlockingMilestone) return "設立ゲート";
+  if (row.timelineKind === "milestone") return "マイルストーン";
+  return "工程";
+}
+
+/** Pointer-drag state for gantt direct editing (move/resize a phase bar, move a milestone
+ * diamond). `dragging` only flips true once the pointer has moved past CLICK_DRAG_THRESHOLD_PX —
+ * below that, releasing the pointer is a plain row click, not a drag commit. */
+// "milestone-move" = generic point-MS: the diamond drags both planned_start/planned_end together
+// (computeMilestoneMove collapses them to one date, regardless of the row's original values).
+// "milestone-end-move" = a NewCo blocking gate's end diamond: only planned_end moves,
+// planned_start (if any) is preserved untouched (computeGateEndMove, and the PATCH below omits
+// planned_start entirely so the server never overwrites it).
+type DragMode = "move" | "resize-start" | "resize-end" | "milestone-move" | "milestone-end-move";
+type DragState = {
+  rowId: string;
+  entity: "milestone" | "task";
+  mode: DragMode;
+  pointerId: number;
+  startClientX: number;
+  startClientY: number;
+  pxPerDay: number;
+  original: { plannedStart: string | null; plannedEnd: string };
+  version: number;
+  previewStart: string | null;
+  previewEnd: string;
+  dragging: boolean;
+  saving: boolean;
+};
+
 export function SxUnifiedTimeline({
   timeline,
   asOf,
+  projectId = null,
   selectedMilestoneId,
   selectedTaskId = null,
   milestones = [],
   dependencies = [],
   tasks = [],
+  outcomes = [],
+  objectiveId = null,
   onSelectMilestone,
   onSelectTask = () => {},
   canManage,
   onCreateMilestone,
   onCreateTask = () => {},
+  onManagementChange = () => {},
   showPins = true,
 }: {
   timeline: SxEcdUnifiedTimeline;
   asOf: string;
+  /** Enables gantt-direct-edit writes (drag move/resize) — this component owns its own PATCH
+   * fetch calls, matching SxPartnerPipeline's pattern rather than round-tripping every
+   * pixel-drag through the parent. MSを置く placement never POSTs here either way — it only
+   * calls onCreateMilestone with a prefill. Omit (e.g. the compact 経営状況図 embed in
+   * SxExecutiveControlDeck, which has no write surface) to render click-select-only, with no
+   * drag handles and no placement toggle. */
+  projectId?: string | null;
   selectedMilestoneId: string | null;
   selectedTaskId?: string | null;
   milestones?: SxManagementMilestone[];
   dependencies?: SxDependency[];
   tasks?: SxTask[];
+  outcomes?: SxOutcome[];
+  objectiveId?: string | null;
   onSelectMilestone: (milestoneId: string | null) => void;
   onSelectTask?: (taskId: string | null) => void;
   canManage: boolean;
   onEditMilestone?: (milestoneId: string) => void;
-  onCreateMilestone: (track: string | null) => void;
+  /** Never POSTs by itself — always opens the parent's create-milestone form (the single shared
+   * IssueEditor create_milestone flow), prefilled with whatever this component already knows
+   * (lane track, clicked planned date, matching outcome, timeline_kind). Only that form's own
+   * Save button performs the POST; canceling/closing it leaves no DB row. */
+  onCreateMilestone: (prefill: {
+    track: SxTrackKey | null;
+    timelineKind?: SxTimelineKind;
+    plannedDate?: string | null;
+    outcomeId?: string | null;
+  }) => void;
   onEditTask?: (taskId: string) => void;
   onCreateTask?: (milestoneId: string, parentTaskId: string | null) => void;
+  onManagementChange?: (bundle: SxManagementBundle, message: string) => void;
   showPins?: boolean;
 }) {
   const [expandedMilestones, setExpandedMilestones] = useState<Set<string>>(
@@ -483,6 +735,71 @@ export function SxUnifiedTimeline({
   );
   const [hoveredPin, setHoveredPin] = useState<string | null>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const gridPaneRef = useRef<HTMLDivElement>(null);
+  const justDraggedRef = useRef(false);
+  const [drag, setDrag] = useState<DragState | null>(null);
+  // Mirrors `drag` synchronously (React state updates are not visible to the very next event
+  // handler in the same tick) — onLostPointerCapture needs to read the true current drag state,
+  // not a stale closure, to decide whether a capture loss is abnormal (cancel) or just the
+  // implicit release that follows a normal pointerup (do nothing, finishDrag already owns it).
+  const dragRef = useRef<DragState | null>(null);
+  // Set the instant finishDrag decides to actually PATCH (before any `await`), cleared once that
+  // PATCH settles. lostpointercapture for this pointerId while it's set means "that was the
+  // normal release after our own pointerup save, not an abnormal loss" — must not wipe the drag.
+  const commitStartedPointerIdRef = useRef<number | null>(null);
+  const [msPlacementMode, setMsPlacementMode] = useState(false);
+  const [placementHover, setPlacementHover] = useState<{
+    laneKey: DisplayLaneKey;
+    pct: number;
+    date: string;
+  } | null>(null);
+  const [ganttNotice, setGanttNotice] = useState<string | null>(null);
+
+  // dragRef.current is the single source of truth, not the setState updater's `current` argument
+  // (which reflects React's queued state — batched pointer events firing in the same tick could
+  // still see it stale). Resolve against dragRef.current synchronously, assign the ref
+  // immediately (before setDrag even runs), then hand setDrag a plain resolved value — never a
+  // function with a ref-mutation side effect inside it.
+  function setDragBoth(
+    next: DragState | null | ((current: DragState | null) => DragState | null),
+  ) {
+    const resolved =
+      typeof next === "function"
+        ? (next as (c: DragState | null) => DragState | null)(dragRef.current)
+        : next;
+    dragRef.current = resolved;
+    setDrag(resolved);
+  }
+
+  function showGanttNotice(message: string) {
+    setGanttNotice(message);
+    window.setTimeout(() => setGanttNotice(null), 4000);
+  }
+
+  // Best-effort refetch after ANY save failure (409 conflict or otherwise) — always attempt to
+  // pull the true current state so the UI never keeps showing a stale optimistic preview. If the
+  // refetch itself fails, say so explicitly instead of silently leaving the user unsure whether
+  // their edit landed.
+  async function bestEffortRefetchManagement(
+    successMessage: string,
+    failureFallbackMessage: string,
+  ) {
+    if (!projectId) {
+      showGanttNotice(failureFallbackMessage);
+      return;
+    }
+    try {
+      const response = await fetch(
+        `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+        { headers: { "Cache-Control": "no-store" } },
+      );
+      const body = await response.json().catch(() => null);
+      if (!response.ok || !body) throw new Error("refetch failed");
+      onManagementChange(body as SxManagementBundle, successMessage);
+    } catch {
+      showGanttNotice(failureFallbackMessage);
+    }
+  }
 
   const milestoneById = useMemo(
     () => new Map(milestones.map((milestone) => [milestone.id, milestone])),
@@ -679,6 +996,259 @@ export function SxUnifiedTimeline({
     }
   }
 
+  // Esc cancels an in-flight drag without persisting anything — matches pointercancel, which is
+  // handled directly on the drag handle elements below.
+  const isDragging = drag !== null;
+  useEffect(() => {
+    if (!isDragging) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      // Once pointerup has started the PATCH, there is no client-side cancellation contract.
+      // Keep the saving preview visible until the server settles; pretending Esc cancelled here
+      // would hide an update that may already have committed.
+      if (dragRef.current?.saving) return;
+      event.preventDefault();
+      setDragBoth(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isDragging]);
+
+  // Esc also backs out of MSを置く placement mode before any click has committed a new milestone.
+  useEffect(() => {
+    if (!msPlacementMode) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setMsPlacementMode(false);
+      setPlacementHover(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [msPlacementMode]);
+
+  function beginDrag(row: DisplayRow, mode: DragMode, event: React.PointerEvent) {
+    if (!canManage || !projectId || drag) return;
+    if (!row.plannedEnd) return;
+    // Every mode except a gate's end-only move requires a real plannedStart to drag from —
+    // "milestone-end-move" is the one case where an end-only NewCo gate must still be draggable.
+    if (mode !== "milestone-end-move" && !row.plannedStart) return;
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    commitStartedPointerIdRef.current = null;
+    const paneWidth = gridPaneRef.current?.getBoundingClientRect().width || 0;
+    const totalDays = Math.max(1, diffDays(timeline.domainStart, timeline.domainEnd));
+    setDragBoth({
+      rowId: row.id,
+      entity: row.entity,
+      mode,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      pxPerDay: Math.max(1, paneWidth - TIMELINE_SIDE_GUTTER_PX * 2) / totalDays,
+      original: { plannedStart: row.plannedStart, plannedEnd: row.plannedEnd },
+      version: row.version,
+      previewStart: row.plannedStart,
+      previewEnd: row.plannedEnd,
+      dragging: false,
+      saving: false,
+    });
+  }
+
+  function updateDrag(event: React.PointerEvent) {
+    setDragBoth((current) => {
+      if (!current || current.pointerId !== event.pointerId || current.saving) return current;
+      const deltaX = event.clientX - current.startClientX;
+      const deltaY = event.clientY - current.startClientY;
+      const dragging = current.dragging || !isWithinClickThreshold(deltaX, deltaY);
+      if (!dragging) return current.dragging === dragging ? current : { ...current, dragging };
+      let previewStart = current.original.plannedStart;
+      let previewEnd = current.original.plannedEnd;
+      if (current.mode === "move") {
+        // Guarded by beginDrag: "move" never starts without a non-null plannedStart.
+        const moved = computeBarMove(
+          { plannedStart: current.original.plannedStart as string, plannedEnd: current.original.plannedEnd },
+          deltaX,
+          current.pxPerDay,
+        );
+        previewStart = moved.plannedStart;
+        previewEnd = moved.plannedEnd;
+      } else if (current.mode === "milestone-move") {
+        // Generic point-MS: collapse to a single date regardless of the row's original values,
+        // so both columns always land equal (the point-MS invariant), never "preserve duration".
+        const moved = computeMilestoneMove({ plannedDate: current.original.plannedEnd }, deltaX, current.pxPerDay);
+        previewStart = moved.plannedDate;
+        previewEnd = moved.plannedDate;
+      } else if (current.mode === "resize-start") {
+        previewStart = computeBarResizeStart(
+          { plannedStart: current.original.plannedStart as string, plannedEnd: current.original.plannedEnd },
+          deltaX,
+          current.pxPerDay,
+        ).plannedStart;
+      } else if (current.mode === "resize-end") {
+        previewEnd = computeBarResizeEnd(
+          { plannedStart: current.original.plannedStart as string, plannedEnd: current.original.plannedEnd },
+          deltaX,
+          current.pxPerDay,
+        ).plannedEnd;
+      } else if (current.mode === "milestone-end-move") {
+        // NewCo blocking gate: only the end diamond moves; plannedStart is preserved (and never
+        // sent in the PATCH below), so the server-side value is untouched either way.
+        previewEnd = computeGateEndMove(current.original, deltaX, current.pxPerDay).plannedEnd;
+      }
+      return { ...current, dragging, previewStart, previewEnd };
+    });
+  }
+
+  function handleLostPointerCapture(event: React.PointerEvent) {
+    if (
+      shouldCancelOnLostPointerCapture(
+        dragRef.current?.pointerId ?? null,
+        commitStartedPointerIdRef.current,
+        event.pointerId,
+      )
+    ) {
+      setDragBoth(null);
+    }
+  }
+
+  async function finishDrag(row: DisplayRow, event: React.PointerEvent) {
+    // Read dragRef.current, not the `drag` state closed over by this render — if a pointermove
+    // (updateDrag) and this pointerup land in the same batch/tick before React re-renders, the
+    // `drag` variable in this closure could still be one step behind dragRef.current, and the
+    // last preview computed by that pointermove would be silently dropped from the PATCH.
+    const current = dragRef.current;
+    if (!current || current.pointerId !== event.pointerId || !projectId) return;
+    if (!current.dragging) {
+      // Below the click/drag threshold the whole gesture is a plain click — let the button's
+      // native onClick (which fires right after this pointerup) perform the selection, so
+      // keyboard activation (Enter/Space, which never sees pointer events) goes through the
+      // exact same path.
+      setDragBoth(null);
+      return;
+    }
+    if (
+      current.previewStart === current.original.plannedStart &&
+      current.previewEnd === current.original.plannedEnd
+    ) {
+      // Moved past the threshold but rounded back to the same day (e.g. a diagonal flick) —
+      // nothing actually changed, so there is nothing to persist.
+      justDraggedRef.current = true;
+      window.setTimeout(() => {
+        justDraggedRef.current = false;
+      }, 0);
+      setDragBoth(null);
+      return;
+    }
+    justDraggedRef.current = true;
+    window.setTimeout(() => {
+      justDraggedRef.current = false;
+    }, 0);
+    // Mark the commit as begun BEFORE the first await, synchronously within this same pointerup
+    // dispatch — the lostpointercapture that follows normal release checks this to know not to
+    // cancel what we're about to save.
+    commitStartedPointerIdRef.current = current.pointerId;
+    setDragBoth({ ...current, saving: true });
+    try {
+      const patch: Record<string, string | null> =
+        current.mode === "resize-start"
+          ? { planned_start: current.previewStart }
+          : current.mode === "resize-end" || current.mode === "milestone-end-move"
+            ? { planned_end: current.previewEnd }
+            : { planned_start: current.previewStart, planned_end: current.previewEnd };
+      const response = await fetch(
+        `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            resource: current.entity,
+            id: current.rowId,
+            patch,
+            expected_version: current.version,
+          }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (response.status === 409) {
+        setDragBoth(null);
+        await bestEffortRefetchManagement(
+          "他の人がこの内容を先に更新したよ。最新の内容に更新したよ",
+          "他の人がこの内容を先に更新したみたい。最新の状態を確認できなかったから、画面を再読み込みしてね",
+        );
+        return;
+      }
+      if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "保存できなかったよ");
+      setDragBoth(null);
+      onManagementChange(
+        body.bundle as SxManagementBundle,
+        current.mode === "milestone-move" || current.mode === "milestone-end-move"
+          ? "マイルストーンの日付を更新したよ"
+          : "計画日程を更新したよ",
+      );
+    } catch (caught) {
+      setDragBoth(null);
+      const message = caught instanceof Error ? caught.message : "保存できなかったよ";
+      await bestEffortRefetchManagement(
+        `${message}。最新の状態に更新したよ`,
+        `${message}。保存できたか確認できなかったよ。画面を再読み込みしてね`,
+      );
+    } finally {
+      commitStartedPointerIdRef.current = null;
+    }
+  }
+
+  function handleRowClick(row: DisplayRow) {
+    if (justDraggedRef.current) {
+      justDraggedRef.current = false;
+      return;
+    }
+    select(row);
+  }
+
+  function realTrackForLane(laneKey: DisplayLaneKey): SxTrackKey {
+    if (laneKey === "business_development") return "business_development";
+    if (laneKey === "technology_development") return "technology_development";
+    return "organizational_building";
+  }
+
+  function laneAtOffsetY(offsetY: number): DisplayLaneKey | null {
+    let cursor = 0;
+    for (const { lane, rows } of visibleLanes) {
+      const laneHeight = LANE_HEADER_H + rows.length * ROW_H;
+      if (offsetY >= cursor && offsetY < cursor + laneHeight) return lane.key;
+      cursor += laneHeight + LANE_GAP;
+    }
+    return null;
+  }
+
+  // Top offset (in px, relative to the grid pane below the pin row) of a lane's row area — used
+  // to place the placement-mode hover ghost at the right vertical band.
+  function laneTopOffset(laneKey: DisplayLaneKey): number {
+    let cursor = 0;
+    for (const { lane, rows } of visibleLanes) {
+      const laneHeight = LANE_HEADER_H + rows.length * ROW_H;
+      if (lane.key === laneKey) return cursor + LANE_HEADER_H;
+      cursor += laneHeight + LANE_GAP;
+    }
+    return 0;
+  }
+
+  // Clicking in placement mode never POSTs by itself — it only hands the parent a prefill and
+  // opens the existing create_milestone form. Only that form's own Save button performs the
+  // write; canceling/closing it leaves no DB row.
+  function placeMilestone(laneKey: DisplayLaneKey, date: string) {
+    setMsPlacementMode(false);
+    setPlacementHover(null);
+    if (!objectiveId) {
+      showGanttNotice("設立目標が未確認のためMSを置けないよ");
+      return;
+    }
+    const track = realTrackForLane(laneKey);
+    const outcomeId = outcomes.find((item) => item.track === track)?.id ?? null;
+    onCreateMilestone({ track, timelineKind: "milestone", plannedDate: date, outcomeId });
+  }
+
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) || null;
   const createUnderMilestoneId =
     selectedTask?.milestoneId || selectedMilestoneId;
@@ -692,6 +1262,16 @@ export function SxUnifiedTimeline({
             "。設立前提の2件は日程未設定でも該当レーンに表示するよ。"}
         </p>
       )}
+      {ganttNotice && (
+        <p role="alert" className="mb-2 border border-[#e3c994] bg-[#fbf1dc] px-3 py-2 text-[11px] font-semibold text-[#765022]">
+          {ganttNotice}
+        </p>
+      )}
+      {msPlacementMode && (
+        <p className="mb-2 border border-[#c9bfd0] bg-[#f1edf3] px-3 py-2 text-[11px] font-semibold text-[#5f4a66]">
+          事業開発／技術開発／組織開発のいずれかのレーン内で、置きたい日付をクリックしてね（Escで取り消し）
+        </p>
+      )}
       <div className="hidden lg:block">
         <Legend />
       </div>
@@ -699,7 +1279,7 @@ export function SxUnifiedTimeline({
         {canManage && (
           <button
             type="button"
-            onClick={() => onCreateMilestone(null)}
+            onClick={() => onCreateMilestone({ track: null })}
             className="inline-flex min-h-11 items-center gap-1 border border-[#315f7d] bg-[#315f7d] px-3 text-[11px] font-bold text-white"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -718,6 +1298,35 @@ export function SxUnifiedTimeline({
           >
             <Plus className="h-3.5 w-3.5" />
             {selectedTask ? "子タスク" : "タスク"}
+          </button>
+        )}
+        {/* キーボード/モバイルからも使える通常の追加ボタン。日程は未入力のまま開き、フォーム側で
+            入力する（プレースメントと違い、クリック位置に依存しない）。projectIdなしの埋め込み
+            （SxExecutiveControlDeckの経営状況図）ではclick-select-only契約を保つため出さない —
+            工程追加(onCreateMilestone経由でも実POSTは親のAddPanelが持つ)とは異なりMSを置く系の
+            導線はこのコンポーネント自身がガント直接編集の一部として持つ機能のため。 */}
+        {canManage && projectId && (
+          <button
+            type="button"
+            onClick={() => onCreateMilestone({ track: null, timelineKind: "milestone" })}
+            className="inline-flex min-h-11 items-center gap-1 border border-[#5f4a66] bg-[#5f4a66] px-3 text-[11px] font-bold text-white"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            MSを追加
+          </button>
+        )}
+        {/* 日付上に置く: ポインターでガント上の位置をクリックして日付を決めるプレースメントモード。
+            デスクトップの座標クリックに依存するため、その入口はlg以上のみに絞る（モバイル/
+            キーボードは上のMSを追加を使う）。 */}
+        {canManage && projectId && (
+          <button
+            type="button"
+            aria-pressed={msPlacementMode}
+            onClick={() => setMsPlacementMode((current) => !current)}
+            className={`hidden min-h-11 items-center gap-1 border px-3 text-[11px] font-bold lg:inline-flex ${msPlacementMode ? "border-[#5f4a66] bg-[#5f4a66] text-white" : "border-[#c9bfd0] bg-[#fffdf7] text-[#5f4a66]"}`}
+          >
+            <MapPin className="h-3.5 w-3.5" />
+            {msPlacementMode ? "置く場所をクリック" : "日付上に置く"}
           </button>
         )}
         <button
@@ -825,9 +1434,9 @@ export function SxUnifiedTimeline({
                         aria-pressed={selected}
                       >
                         <span className="flex flex-wrap items-center gap-1">
-                          {row.isBlockingMilestone && (
+                          {(row.isBlockingMilestone || row.timelineKind === "milestone") && (
                             <i
-                              className="inline-block h-3 w-3 shrink-0 rotate-45 border-2 border-[#5f4a66] bg-[#fffdf7]"
+                              className={`inline-block h-3 w-3 shrink-0 rotate-45 border-2 border-[#5f4a66] ${row.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
                               aria-hidden="true"
                             />
                           )}
@@ -835,11 +1444,7 @@ export function SxUnifiedTimeline({
                             {row.title}
                           </b>
                           <i className="border border-[#c9bfd0] bg-[#f1edf3] px-1 text-[8px] not-italic text-[#5f4a66]">
-                            {row.isBlockingMilestone
-                              ? "マイルストーン"
-                              : row.entity === "milestone"
-                                ? "工程"
-                                : "タスク"}
+                            {rowKindLabel(row)}
                           </i>
                           <i className="border border-[#d6cebf] px-1 text-[8px] not-italic text-[#514e47]">
                             {ROW_STATE_TEXT[row.state]}
@@ -918,7 +1523,7 @@ export function SxUnifiedTimeline({
                 <span
                   key={month.pct}
                   className={`absolute bottom-1 pl-1 text-[9px] ${month.isYearStart ? "font-bold text-[#24231f]" : "text-[#777166]"}`}
-                  style={{ left: `${month.pct}%` }}
+                  style={{ left: timelinePctCss(month.pct) }}
                 >
                   {month.label}
                 </span>
@@ -926,7 +1531,7 @@ export function SxUnifiedTimeline({
               {timeline.objectivePct != null && (
                 <span
                   className="absolute bottom-0 z-10 flex -translate-x-full items-center gap-0.5 whitespace-nowrap pr-1 text-[9px] font-bold text-[#5f4a66]"
-                  style={{ left: `${timeline.objectivePct}%` }}
+                  style={{ left: timelinePctCss(timeline.objectivePct) }}
                 >
                   <Flag className="h-3 w-3" />
                   設立 {sxFormatDate(timeline.objectiveDate)}
@@ -1025,11 +1630,7 @@ export function SxUnifiedTimeline({
                             <i
                               className={`shrink-0 border px-1 text-[8px] not-italic ${row.entity === "milestone" ? "border-[#c9bfd0] bg-[#f1edf3] text-[#5f4a66]" : "border-[#d6cebf] text-[#69665d]"}`}
                             >
-                              {row.isBlockingMilestone
-                                ? "マイルストーン"
-                                : row.entity === "milestone"
-                                  ? "工程"
-                                  : "タスク"}
+                              {rowKindLabel(row)}
                             </i>
                             {row.isCurrent && (
                               <i className="shrink-0 bg-[#38745d] px-1 text-[8px] not-italic text-white">
@@ -1072,30 +1673,30 @@ export function SxUnifiedTimeline({
               ))}
             </div>
 
-            <div className="relative" style={{ height: gridHeight }}>
+            <div ref={gridPaneRef} className="relative" style={{ height: gridHeight }}>
               {timeline.months.map((month) => (
                 <span
                   key={`grid-${month.pct}`}
                   className={`absolute top-0 w-px ${month.isYearStart ? "bg-[#cfc7b9]" : "bg-[#eee9df]"}`}
-                  style={{ left: `${month.pct}%`, height: gridHeight }}
+                  style={{ left: timelinePctCss(month.pct), height: gridHeight }}
                 />
               ))}
               {timeline.objectivePct != null && (
                 <span
                   className="absolute top-0 w-[2px] bg-[#76637b]/45"
                   style={{
-                    left: `${timeline.objectivePct}%`,
+                    left: timelinePctCss(timeline.objectivePct),
                     height: gridHeight,
                   }}
                 />
               )}
               <span
                 className="absolute top-0 z-10 w-[2px] bg-[#24231f]"
-                style={{ left: `${timeline.todayPct}%`, height: gridHeight }}
+                style={{ left: timelinePctCss(timeline.todayPct), height: gridHeight }}
               />
               <span
                 className="absolute z-20 -translate-x-1/2 bg-[#24231f] px-1 py-px text-[8px] font-bold text-white"
-                style={{ left: `${timeline.todayPct}%`, top: -1 }}
+                style={{ left: timelinePctCss(timeline.todayPct), top: -1 }}
               >
                 今日 {sxFormatDate(asOf).slice(5)}
               </span>
@@ -1115,7 +1716,7 @@ export function SxUnifiedTimeline({
                       onFocus={() => setHoveredPin(pin.key)}
                       onBlur={() => setHoveredPin(null)}
                       className={`absolute top-1/2 z-20 flex h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-[10px] font-bold ${pin.side === "partner" ? "bg-[#bf7b2c] text-white" : pin.side === "unknown" ? "border-2 border-[#24231f] bg-[#fffdf7]" : "bg-[#24231f] text-white"}`}
-                      style={{ left: `${pin.duePct}%` }}
+                      style={{ left: timelinePctCss(pin.duePct) }}
                     >
                       {pin.rank}
                       {hoveredPin === pin.key && (
@@ -1140,27 +1741,120 @@ export function SxUnifiedTimeline({
                     >
                       {lane.maxIssue ? `詰まり: ${lane.maxIssue}` : ""}
                     </div>
-                    {rows.map((row) => (
-                      <div
-                        key={`${row.entity}-${row.id}`}
-                        className="border-b border-[#f1eee5]"
-                        style={{ height: ROW_H }}
-                      >
-                        <RowBar
-                          row={row}
-                          accent={lane.accent}
-                          selected={
-                            row.entity === "milestone"
-                              ? selectedMilestoneId === row.id
-                              : selectedTaskId === row.id
-                          }
-                          onSelect={() => select(row)}
-                        />
-                      </div>
-                    ))}
+                    {rows.map((row) => {
+                      const isDraggingThisRow = drag?.rowId === row.id;
+                      const displayRow =
+                        isDraggingThisRow && drag
+                          ? {
+                              ...row,
+                              plannedStart: drag.previewStart,
+                              plannedEnd: drag.previewEnd,
+                              plannedStartPct: dateToPct(
+                                drag.previewStart,
+                                timeline.domainStart,
+                                timeline.domainEnd,
+                              ),
+                              plannedEndPct: dateToPct(
+                                drag.previewEnd,
+                                timeline.domainStart,
+                                timeline.domainEnd,
+                              ),
+                            }
+                          : row;
+                      const isMilestoneMarkerRow =
+                        row.isBlockingMilestone || row.timelineKind === "milestone";
+                      return (
+                        <div
+                          key={`${row.entity}-${row.id}`}
+                          className="border-b border-[#f1eee5]"
+                          style={{ height: ROW_H }}
+                        >
+                          <RowBar
+                            row={displayRow}
+                            accent={lane.accent}
+                            selected={
+                              row.entity === "milestone"
+                                ? selectedMilestoneId === row.id
+                                : selectedTaskId === row.id
+                            }
+                            canManage={canManage && !msPlacementMode && Boolean(projectId)}
+                            dragging={Boolean(isDraggingThisRow && drag?.dragging)}
+                            saving={Boolean(isDraggingThisRow && drag?.saving)}
+                            onClick={() => handleRowClick(row)}
+                            onPointerDownMove={(event) =>
+                              beginDrag(
+                                row,
+                                !isMilestoneMarkerRow
+                                  ? "move"
+                                  : row.isBlockingMilestone
+                                    ? "milestone-end-move"
+                                    : "milestone-move",
+                                event,
+                              )
+                            }
+                            onPointerDownResizeStart={(event) =>
+                              beginDrag(row, "resize-start", event)
+                            }
+                            onPointerDownResizeEnd={(event) =>
+                              beginDrag(row, "resize-end", event)
+                            }
+                            onPointerMove={updateDrag}
+                            onPointerUp={(event) => finishDrag(row, event)}
+                            onPointerCancel={() => setDragBoth(null)}
+                            onLostPointerCapture={handleLostPointerCapture}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                 ))}
               </div>
+              {msPlacementMode && canManage && (
+                <div
+                  role="presentation"
+                  className="absolute inset-x-0 z-30 cursor-crosshair bg-[#5f4a66]/[0.06]"
+                  style={{ top: pinRowHeight, height: lanesHeight }}
+                  onMouseMove={(event) => {
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    const offsetX = event.clientX - rect.left;
+                    const offsetY = event.clientY - rect.top;
+                    const pct = pointerOffsetToTimelinePct(offsetX, rect.width);
+                    const laneKey = laneAtOffsetY(offsetY);
+                    const date = dateFromPct(pct, timeline.domainStart, timeline.domainEnd);
+                    setPlacementHover(laneKey && date ? { laneKey, pct, date } : null);
+                  }}
+                  onMouseLeave={() => setPlacementHover(null)}
+                  onClick={(event) => {
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    const offsetX = event.clientX - rect.left;
+                    const offsetY = event.clientY - rect.top;
+                    const pct = pointerOffsetToTimelinePct(offsetX, rect.width);
+                    const laneKey = laneAtOffsetY(offsetY);
+                    const date = dateFromPct(pct, timeline.domainStart, timeline.domainEnd);
+                    if (laneKey && date) placeMilestone(laneKey, date);
+                    else showGanttNotice("この位置には置けないよ。レーン内の日付範囲をクリックしてね");
+                  }}
+                />
+              )}
+              {/* ホバー中のゴースト◇/日付プレビュー — クリックする前に置ける位置を示す軽量な予告。 */}
+              {msPlacementMode && canManage && placementHover && (
+                <div
+                  role="presentation"
+                  className="pointer-events-none absolute z-40 -translate-x-1/2 text-center"
+                  style={{
+                    left: timelinePctCss(placementHover.pct),
+                    top: pinRowHeight + laneTopOffset(placementHover.laneKey) + 12,
+                  }}
+                >
+                  <i
+                    className="mx-auto block h-3 w-3 rotate-45 border-2 border-[#5f4a66] bg-[#5f4a66]/30"
+                    aria-hidden="true"
+                  />
+                  <span className="mt-0.5 block whitespace-nowrap border border-[#c9bfd0] bg-[#fffdf7] px-1 text-[9px] font-semibold text-[#5f4a66]">
+                    {sxFormatDate(placementHover.date)}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>

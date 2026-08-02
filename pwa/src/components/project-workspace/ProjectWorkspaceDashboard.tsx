@@ -548,12 +548,14 @@ function EditPanel({
   projectId,
   onClose,
   onSaved,
+  onConflict,
 }: {
   resource: ManagementResource;
   record: EditRecord;
   projectId: string;
   onClose: () => void;
   onSaved: (bundle: SxManagementBundle) => void;
+  onConflict: (bundle: SxManagementBundle) => void;
 }) {
   const [values, setValues] = useState(() => initialEditValues(resource, record));
   const [saving, setSaving] = useState(false);
@@ -570,12 +572,25 @@ function EditPanel({
       return [key, value];
     }));
     try {
+      // milestone (the only resource this dashboard PATCHes that carries `version`) requires
+      // expected_version for optimistic concurrency — same contract as the gantt drag and the
+      // weekly-control IssueEditor.
+      const expectedVersion = resource === "milestone" ? (record as SxManagementMilestone).version : undefined;
       const response = await fetch(`/api/project-workspace/${encodeURIComponent(projectId)}/management`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resource, id: record.id, patch }),
+        body: JSON.stringify({ resource, id: record.id, patch, ...(expectedVersion != null ? { expected_version: expectedVersion } : {}) }),
       });
       const body = await response.json().catch(() => ({}));
+      if (response.status === 409) {
+        const latest = await fetch(`/api/project-workspace/${encodeURIComponent(projectId)}/management`, {
+          headers: { "Cache-Control": "no-store" },
+        });
+        const latestBody = await latest.json().catch(() => null);
+        if (!latest.ok || !latestBody) throw new Error("他の人が先に更新したよ。最新内容を取得できなかったから、画面を再読み込みしてね");
+        onConflict(latestBody as SxManagementBundle);
+        return;
+      }
       if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "保存できなかったよ");
       onSaved(body.bundle as SxManagementBundle);
     } catch (caught) {
@@ -995,6 +1010,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
   const [creating, setCreating] = useState<{ resource: ManagementResource; initialValues?: Record<string, string> } | null>(null);
   const [activeSection, setActiveSection] = useState("management-summary");
   const [milestoneDetailId, setMilestoneDetailId] = useState<string | null>(null);
+  const [workspaceNotice, setWorkspaceNotice] = useState<string | null>(null);
   const management = workspace.sxManagement;
   const memberNames = useMemo(() => new Map(workspace.members.map((member) => [member.memberId, member.displayName])), [workspace.members]);
   const milestoneLabelMap = useMemo(() => buildMilestoneLabelMap(management.milestones), [management.milestones]);
@@ -1080,6 +1096,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
             <p className="mt-1 text-xs leading-5 text-[#69665d] lg:mt-0">{horizonPeriodLabel(management.horizonMonths)}の設立まで、4本柱・開発テーマ・論点・関係先を同じ時間軸で管制する。</p>
           </div>
         </header>
+        {workspaceNotice && <p role="status" aria-live="polite" className="border border-[#9fc6b4] bg-[#e8f2eb] px-3 py-2 text-xs text-[#205f49]">{workspaceNotice}</p>}
 
         <div className="lg:grid lg:grid-cols-[152px_minmax(0,1fr)] lg:items-start lg:gap-5">
         <nav className="sticky top-0 z-20 mb-4 flex max-w-full flex-nowrap gap-1 overflow-x-auto border-y border-[#d6cebf] bg-[#fffdf7]/95 p-1 backdrop-blur lg:sticky lg:top-4 lg:mb-0 lg:flex-col lg:border-y-0 lg:border-r lg:overflow-x-visible lg:bg-transparent lg:p-0 lg:pr-3" aria-label="経営診断ナビ">
@@ -1091,7 +1108,21 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
         <section id="management-summary" className="scroll-mt-20" aria-label="経営状況図: 判定・統合タイムライン・次の経営介入">
           <h2 className="sr-only">判定・統合タイムライン・意思決定待ち・次の経営介入を一続きで表示する経営状況図</h2>
           <div className="min-w-0">
-            <SxExecutiveControlDeck management={management} judgment={effectiveJudgment} selectedMilestoneId={selectedMilestoneId} onSelectMilestone={openMilestoneDetail} onEditMilestone={(id) => setEditing({ resource: "milestone", id })} onCreateMilestone={(track) => setCreating({ resource: "milestone", initialValues: track ? { track } : undefined })} />
+            <SxExecutiveControlDeck management={management} judgment={effectiveJudgment} selectedMilestoneId={selectedMilestoneId} onSelectMilestone={openMilestoneDetail} onEditMilestone={(id) => setEditing({ resource: "milestone", id })} onCreateMilestone={(prefill) => {
+              const outcome = prefill.outcomeId
+                ? management.outcomes.find((item) => item.id === prefill.outcomeId)
+                : undefined;
+              setCreating({
+                resource: "milestone",
+                initialValues: {
+                  ...(prefill.timelineKind ? { timeline_kind: prefill.timelineKind } : {}),
+                  ...(prefill.plannedDate ? { planned_start: prefill.plannedDate, planned_end: prefill.plannedDate } : {}),
+                  ...(prefill.outcomeId ? { outcome_id: prefill.outcomeId } : {}),
+                  ...(outcome?.objectiveId ? { objective_id: outcome.objectiveId } : {}),
+                  ...(prefill.track || outcome?.track ? { track: prefill.track || outcome!.track } : {}),
+                },
+              });
+            }} />
           </div>
         </section>
 
@@ -1295,7 +1326,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
         />
       )}
       {creating && <AddPanel projectId={projectId} management={management} resource={creating.resource} initialValues={creating.initialValues} onClose={() => setCreating(null)} onSaved={(nextManagement) => { setWorkspace((current) => ({ ...current, sxManagement: nextManagement })); setCreating(null); }} />}
-      {editing && editRecord && <EditPanel projectId={projectId} resource={editing.resource} record={editRecord} onClose={() => setEditing(null)} onSaved={(nextManagement) => { setWorkspace((current) => ({ ...current, sxManagement: nextManagement })); setEditing(null); }} />}
+      {editing && editRecord && <EditPanel projectId={projectId} resource={editing.resource} record={editRecord} onClose={() => setEditing(null)} onSaved={(nextManagement) => { setWorkspace((current) => ({ ...current, sxManagement: nextManagement })); setEditing(null); }} onConflict={(nextManagement) => { setWorkspace((current) => ({ ...current, sxManagement: nextManagement })); setEditing(null); setWorkspaceNotice("他の人が先に更新したため、最新内容に更新して編集を閉じたよ"); window.setTimeout(() => setWorkspaceNotice(null), 5000); }} />}
     </div>
   );
 }
