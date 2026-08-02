@@ -262,6 +262,33 @@ assert.doesNotMatch(
   /setComposerState\(null\)/,
   "the Cmd/Ctrl connect branch must not clear composer state directly — that orphans a create-mode draft node in nodes/nodePositions",
 );
+
+// ---------------------------------------------------------------------------
+// desktop composer geometry (2026-08-02 follow-up): maxHeight must be derived
+// from the confirmed `top`, not a fixed `size.h - 24`. A fixed maxHeight lets
+// top + maxHeight exceed the viewport whenever top > 12, clipping the panel's
+// bottom under the parent's overflow and defeating the internal scroll
+// contract (the scroll region never sees its real visible height).
+// ---------------------------------------------------------------------------
+const desktopComposerGeometry =
+  view.split("const panelWidth = Math.min(360, size.w - 24);")[1]?.split("})();")[0] ?? "";
+assert.ok(desktopComposerGeometry.length > 0, "desktop composer geometry IIFE body must be present");
+assert.doesNotMatch(
+  desktopComposerGeometry,
+  /maxHeight:\s*size\.h\s*-\s*24/,
+  "maxHeight must not be a viewport-fixed constant independent of the computed top",
+);
+assert.match(
+  desktopComposerGeometry,
+  /const maxHeight = Math\.max\(180, size\.h - top - 12\);/,
+  "maxHeight must be derived from the confirmed top, guaranteeing top + maxHeight <= size.h - 12",
+);
+assert.match(
+  desktopComposerGeometry,
+  /return \{ left, top, width: panelWidth, maxHeight \};/,
+  "the returned style must use the top-derived maxHeight, not a separate viewport-fixed value",
+);
+
 assert.ok(markdown.includes(String.raw`\[ ... \]`), "display math must support \\[...\\]");
 assert.ok(markdown.includes(String.raw`\( ... \)`), "inline math must support \\(...\\)");
 assert.match(view, /<BzmMarkdown source=\{selected\.body\}/);

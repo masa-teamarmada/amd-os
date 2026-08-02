@@ -966,7 +966,12 @@ export function BzmTheoryMapView({
             ? anchor.x + nodeGap
             : Math.max(12, anchor.x - panelWidth - nodeGap);
           const top = Math.max(12, Math.min(anchor.y - 64, size.h - 360));
-          return { left, top, width: panelWidth, maxHeight: size.h - 24 };
+          // top を確定させた後の残り可視高だけを maxHeight にする。size.h - 24
+          // 固定だと top > 12 のとき bottom (= top + maxHeight) が viewport を
+          // 超え、親 overflow で panel 下部が clip され内部 scroll も実際の
+          // 可視高を認識できない。
+          const maxHeight = Math.max(180, size.h - top - 12);
+          return { left, top, width: panelWidth, maxHeight };
         })();
 
   return (
