@@ -3277,8 +3277,11 @@ expectNotIncludes("src/components/cockpit/CockpitSoilSeeds.tsx", [
 
 // BZM 2.0 理論マップ (2026-08-02): 即時下書き (Canvas単一描画)・即時接続とマップ内編集で
 // 育てる論証台帳。ノード=理論要素・エッジ=関係・メモ=選択ノード内側の記録という概念分離
-// (直前の「1メモ=1ノード+1エッジ」誤仕様は撤回)。選択ノード台帳は「メモ」/「接続しているノード」
-// の二層、成長操作は「メモを追加」1本化 (draft nodeを作らず bzm_theory_node_memos だけへ書く)。
+// (直前の「1メモ=1ノード+1エッジ」誤仕様は撤回)。成長操作は「メモを追加」1本化 (draft node
+// を作らず bzm_theory_node_memos だけへ書く)。同日の右台帳撤去で、常設の選択ノード読取り
+// ウィンドウ (summary/source/body プレビュー、カバレッジ警告、メモ一覧、接続ノード一覧、行内
+// 削除ボタン) は廃止し、マップを右の予約列なしに全幅化した。ノード詳細の読み書きは既存の
+// マップ内編集オーバーレイに一本化し、選択ノードの操作帯 (編集・メモを追加・Cmd/Ctrl接続) だけ残す。
 expectIncludes("src/components/bzm/BzmSideNav.tsx", [
   "/bzm/map",
   "理論マップ (論証台帳)",
@@ -3304,10 +3307,6 @@ expectIncludes("src/components/bzm/BzmTheoryMapView.tsx", [
   "linkCanvasObject={drawClippedLink}",
   'data-bzm-map-overlay-host="composer"',
   "メモを追加",
-  "接続しているノード",
-  "MemoList",
-  "ConnectedNodesList",
-  "<BzmMarkdown source={selected.body}",
   "ここから、まさの理論マップが始まる",
 ]);
 expectNotIncludes("src/components/bzm/BzmTheoryMapView.tsx", [
@@ -3320,6 +3319,12 @@ expectNotIncludes("src/components/bzm/BzmTheoryMapView.tsx", [
   "関連メモ",
   "openGrowComposer",
   "relationRoleDefaults",
+  "MemoList",
+  "ConnectedNodesList",
+  "data-bzm-edge-row-delete",
+  "<BzmMarkdown",
+  "_380px]",
+  "カバレッジの欠落",
 ]);
 expectIncludes("src/components/bzm/BzmTheoryComposerDialog.tsx", [
   'data-bzm-map-panel="composer"',

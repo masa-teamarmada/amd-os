@@ -78,7 +78,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - global `TsukuyomiChatBridge` は従来どおり invisible event bridge のまま。`Mascot.tsx` を `(app)/layout.tsx` に戻さない。
 - マニュアル章の追加・削除・構成変更は `pwa/src/app/(app)/manual/manual-chapters.ts` と `pwa/design/os_manual.md`、必要なら `pwa/manual/9-3-appendix-changelog.md` を同じ作業単位で更新する。
 
-## /bzm/map — BZM 2.0 理論マップ (2026-07-30 追加、2026-08-01 本人作成へリセット、2026-08-02 ノード内メモ概念修正・小型インスペクタ化・ノード削除導線追加、build v3.54.8)
+## /bzm/map — BZM 2.0 理論マップ (2026-07-30 追加、2026-08-01 本人作成へリセット、2026-08-02 ノード内メモ概念修正・小型インスペクタ化・ノード削除導線追加・選択ノード台帳撤去/全幅化、build v3.54.15)
 
 目的: BZM 2.0 の主張・概念・測定・決定・文献・未解決論点を9関係で結び、自分の理解からノードとエッジを育てる**論証台帳**。「真理マップ」ではなく、ノード数・接続数は真偽・確信度を表さない。ノード=理論要素、エッジ=理論要素同士の関係、メモ=選択ノードの内側へ積む記録で、この3者は別概念であり、メモを追加してもノード・エッジは増えない。
 
@@ -89,12 +89,12 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - create: マップ空白クリックで、地図を覆わない予約区画の作成panelを開く。desktopは地図右、mobileは地図下。マップ外に作成ボタンを置かない。別文献や別理論要素をグラフへ加える場合だけこの経路を使う。
 - memo: 選択ノードの操作帯にある「メモを追加」1ボタンから、draft nodeを作らずマップ内オーバーレイでメモ本文→役割 (`supports`/`challenges`/`refutes`/`raises`/`tests`) の2項目だけを書き、`POST { action: "create_memo" }` で `bzm_theory_node_memos` へ1行追加する。ノードもエッジも作らず、nodes/edges件数表示は不変。保存後もボタンは残り同じノードへ何件でも追加できる。
 - connect/edit: 通常クリックはノード編集、通常ドラッグは配置変更だけ。`Cmd+click`（他OSは`Ctrl+click`）で2ノードを順に選び、2点目で `1点目 → 2点目` を即時保存する。relationは1点目選択後の小さな待ち帯で選べ、初期値は `supports`。「つなぐ」ボタンや接続panelは出さない。1点目は細い実線ハローで示し、ドラッグ後clickは抑止する。線クリックは同じ予約区画の接続解除確認。反証済みは `refuted` で履歴保存し、削除しなくても記録できる。
-- ノード削除 (2026-08-02 追加、build v3.54.8): 管理者はノードを削除できるが、物理DELETEではなく `bzm_theory_nodes.archived_at` を設定するrecoverable soft-deleteで、store関数 `archiveNode` が担う。API は認証済み管理者の `DELETE /api/bzm/theory-map?nodeId=<id>` から呼び、`edgeId`/`nodeId` は片方だけを受け両方/両方なしは400。active ノードだけを対象にし `updated_by` を記録する。UIは`BzmTheoryComposerDialog`のeditモードfooter左に44px hit targetの控えめなvermilion削除ボタン (desktop=`Trash2`+「削除」、狭幅=icon主体+`aria-label`) を置き、押すと同じオーバーレイ内でノード名・接続件数・メモ件数・影響説明を示す削除確認へ切り替える (中央モーダル・三点メニューは作らない)。「編集へ戻る」でフォーム未保存値を保持し、即時削除はしない。削除成功後はnode・incident edges・node memos・positionをUI stateから除き、選択とcomposerを閉じて成功通知する。エッジ削除は既存の線クリック導線に加え、右台帳「接続しているノード」の各行にも44pxの`Trash2`削除ボタンを置き (navigation行とは別要素、`stopPropagation`、`canEdit && edge.editable && edge.id`の時だけ表示)、既存のedge削除確認とAPIをそのまま再利用する。
+- ノード削除 (2026-08-02 追加、build v3.54.8): 管理者はノードを削除できるが、物理DELETEではなく `bzm_theory_nodes.archived_at` を設定するrecoverable soft-deleteで、store関数 `archiveNode` が担う。API は認証済み管理者の `DELETE /api/bzm/theory-map?nodeId=<id>` から呼び、`edgeId`/`nodeId` は片方だけを受け両方/両方なしは400。active ノードだけを対象にし `updated_by` を記録する。UIは`BzmTheoryComposerDialog`のeditモードfooter左に44px hit targetの控えめなvermilion削除ボタン (desktop=`Trash2`+「削除」、狭幅=icon主体+`aria-label`) を置き、押すと同じオーバーレイ内でノード名・接続件数・メモ件数・影響説明を示す削除確認へ切り替える (中央モーダル・三点メニューは作らない)。「編集へ戻る」でフォーム未保存値を保持し、即時削除はしない。削除成功後はnode・incident edges・node memos・positionをUI stateから除き、選択とcomposerを閉じて成功通知する。エッジ削除の入口は線クリックだけで、`DELETE /api/bzm/theory-map?edgeId=<id>` を呼ぶ (2026-08-02 の右台帳撤去で、旧「接続しているノード」一覧の行内44px削除ボタンは廃止)。
+- 選択ノード台帳の撤去・全幅化 (2026-08-02 追加、build v3.54.15): 右側に常設していた選択ノードの読取りウィンドウ (summary/source_ref/body表示、カバレッジの欠落警告、メモ一覧、接続しているノード一覧、行内エッジ削除ボタン) を全廃した。desktopのマップは固定幅の予約列 (旧 `lg:grid-cols-[minmax(0,1fr)_380px]`) を持たず、利用可能な横幅いっぱいに広がる。ノードの読み書きは、通常クリックで開くマップ内編集オーバーレイ (title/summary/kind/layer/status/source_ref/body_md をフォーム編集) と、選択ノード下の操作帯 (「編集」「メモを追加」ボタン、`Cmd`/`Ctrl` 接続) の2つに一本化した。エッジの読み取り一覧・カバレッジ欠落警告・メモの常設一覧は他画面へ移設せず、機能として廃止した。
 - 小型インスペクタ (2026-08-02 改修、build v3.54.4〜v3.54.6): 作成・編集オーバーレイはdesktop幅約360pxのコンパクトなインスペクタで、内側余白は4/8/12/16pxのいずれかに統一し、header/footerを固定したまま本文だけを内部スクロールする (`data-bzm-composer-scroll`)。editモードは「ノードを編集」の見出しを持たず、大きな代替見出しも足さない。種別選択は6枚のkindカード (radiogroup) をやめ単一の `<select data-bzm-kind-select>` へ統一し、`source`/`question` 選択時のlayer/status既定値ロジックは維持する。オーバーレイが開いた状態で別ノードを通常クリックすると確認なしで即座にそのノードの編集へ切り替わり、切替元が新規作成の下書きだった場合はその下書きを破棄してから切り替える。この切替判定は `Cmd`/`Ctrl` 接続クリックより後に評価する。オーバーレイが開いた状態でマップの空白をクリックすると、同じクリックではオーバーレイを閉じるだけで新しい下書きは作らない (次のクリックで初めて作る)。オーバーレイ内部の `mousedown`/`click` は `stopPropagation` して背景クリック判定へ伝播させない。desktopの`composerOverlayStyle`は`maxHeight`をviewport固定値ではなく、確定した`top`を差し引いた残り可視高 (`Math.max(180, size.h - top - 12)`) から求め、`top + maxHeight <= size.h - 12` を常に成立させる (v3.54.5)。子の `<aside>` は Tailwind の百分率 `max-h-full` ではなく `style={{ maxHeight: "inherit" }}` を使い、絶対配置で `height` を持たないhost divの実際のpx制約をそのまま継承する。これにより、本番browser実測 (host height/maxHeight=348pxに対しchild panel height=849pxが外へoverflowしていた不具合) で見つかった通り、パーセントmax-heightが definite height 祖先の不在で解決されずパネル全体がhostの外へ溢れる問題を解消し、内部scrollが実際の可視高を認識する (v3.54.6)。
-- map 表示: `react-force-graph-2d` ( `next/dynamic({ssr:false})` ) による力学グラフ。ノード塗り色は kind、形もkindの非色情報、半径は接続本数、layer ごとの列分けと同一 layer 内の縦分散を持つ。statusは一覧・台帳の文字ラベルへ退避し、ノード外周に点線・破線を重ねない。中心略字は表示しない。
-- list 表示: フィルタ通過ノードを kind/layer/status バッジ + 接続本数付きで一覧する。スマホでは list を初期表示する。
-- フィルタ・検索: id/title/summary/source_ref 全文検索、layer・status・relation type のトグルフィルタ、フィルタ解除ボタン。検索と layer/status は map/list へ作用し、relation type は map のエッジだけを絞る。選択ノード台帳は反証の見落としを避けるため relation filter の影響を受けない。
-- 選択ノード台帳パネル: summary、source_ref リンク、本文、**「メモ」**(ノード内メモの役割ラベル+本文一覧)、**「接続しているノード」**(edge一覧、旧「関連メモ」を改称)、**カバレッジの欠落検知** (外部ソース支持なし・異議反証接続なし・tests接続なしを警告表示、edgeだけを根拠に判定しmemo分類は数えない、真偽判定ではない)。タイトル・要約・本文・メモ本文の `$...$` / `$$...$$` / `\(...\)` / `\[...\]` はKaTeXで数式表示する。
+- map 表示: `react-force-graph-2d` ( `next/dynamic({ssr:false})` ) による力学グラフ。ノード塗り色は kind、形もkindの非色情報、半径は接続本数、layer ごとの列分けと同一 layer 内の縦分散を持つ。statusは一覧表示・編集オーバーレイの文字ラベルへ退避し、ノード外周に点線・破線を重ねない。中心略字は表示しない。
+- list 表示: フィルタ通過ノードを kind/layer/status バッジ + 接続本数付きで一覧する。スマホでは list を初期表示する。行クリックはそのノードの編集オーバーレイを開く。
+- フィルタ・検索: id/title/summary/source_ref 全文検索、layer・status・relation type のトグルフィルタ、フィルタ解除ボタン。検索と layer/status は map/list へ作用し、relation type は map のエッジだけを絞る。
 - 詳細契約: `/spec/2-6-bzm-theory-map-current-spec`。
 
 回帰防止:
@@ -103,6 +103,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 画面・validator に真偽判定・統合スコア・合成指標を追加しない。件数・接続数を経営判断や評価軸の代わりに使わない。
 - メモ追加を「1メモ=1ノード+1エッジ」を作る経路へ戻さない (2026-08-02 に撤回した誤仕様)。メモは `bzm_theory_node_memos` だけへ書く。
 - ノード削除を物理DELETEへ戻さない。`archived_at` によるrecoverable soft-deleteを維持し、確認画面 (ノード名・接続件数・メモ件数・影響説明) を経ずに即時削除するUIを作らない。
+- 常設の選択ノード台帳 (右側読み取りウィンドウ、固定幅予約列、カバレッジ欠落警告、常設メモ一覧、常設接続ノード一覧、行内エッジ削除ボタン) を復活させない (2026-08-02 撤去)。ノードの読み書きはマップ内編集オーバーレイと選択ノード操作帯 (編集・メモを追加・Cmd/Ctrl接続) に一本化し、地図はマップ/一覧いずれの表示でも右の固定幅予約列を持たない。
 
 ## /knowledge-map
 

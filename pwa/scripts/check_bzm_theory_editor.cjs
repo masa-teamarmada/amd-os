@@ -156,11 +156,30 @@ for (const contract of [
   "size.h, size.w", "initialPositionById", "screen2GraphCoords", "draftNode", "draftId",
   "pendingEdge", "setPendingEdge(optimisticEdge)", "clippedLinkPoints", "nodeBoundaryDistance",
   'linkCanvasObject={drawClippedLink}', 'data-bzm-map-overlay-host="composer"',
-  "composerAnchor.y", "composerOverlayStyle", "openMemoComposer", "MemoList", "ConnectedNodesList",
-  "memosForSelected", "onMemoCreated", "parseTheoryMapMemoDto",
+  "composerAnchor.y", "composerOverlayStyle", "openMemoComposer",
+  "onMemoCreated", "parseTheoryMapMemoDto",
 ]) {
   assert.ok(view.includes(contract) || composer.includes(contract), `direct-manipulation contract missing ${contract}`);
 }
+// 2026-08-02 right-ledger removal: the permanent selected-node read/ledger
+// panel (title/summary/source/body preview, coverage-gap warning, memo list,
+// per-row edge delete list) is gone. Node detail reading/editing lives only
+// in the map-internal edit overlay; the map now owns the full width.
+assert.doesNotMatch(
+  view,
+  /function MemoList|function ConnectedNodesList|memosForSelected|relatedEdges|incomingForSelected|outgoingForSelected/,
+  "the removed right-side node ledger components/state must not remain"
+);
+assert.doesNotMatch(
+  view,
+  /data-bzm-edge-row-delete/,
+  "the retired per-row edge delete button in the removed right ledger must not remain"
+);
+assert.doesNotMatch(
+  view,
+  /_380px\]|カバレッジの欠落/,
+  "the map must not reserve a fixed-width column for a permanent ledger, nor show the retired coverage-gap panel"
+);
 assert.doesNotMatch(view, /理論を書く|このノードを育てる|既存ノードとつなぐ/);
 assert.doesNotMatch(view, /openGrowComposer|relationRoleDefaults|type: "grow"/, "the retracted grow (1 memo = 1 node + 1 edge) flow must not remain");
 assert.doesNotMatch(view, /nearestDistance|overlapDistance/, "dragging must not create an edge");
@@ -247,7 +266,7 @@ assert.match(view, /if \(composerState\) \{\s*\n\s*closeComposer\(\);\s*\n\s*ret
 // mode; a bare setComposerState(null) must not remain in that branch.
 const handleNodeClickBody =
   view.split("function handleNodeClick(node: GraphNode, event: MouseEvent) {")[1]
-    ?.split(/\n  const incomingForSelected/)[0] ?? "";
+    ?.split(/\n  useEffect\(\(\) => {\n    if \(!notice\)/)[0] ?? "";
 assert.ok(handleNodeClickBody.length > 0, "handleNodeClick function body must be present");
 const modifierBranch =
   handleNodeClickBody.split(/if \(canEdit && modifierPressed\) \{/)[1]?.split(/\n    \}\n\n    setConnectingFromId\(null\);/)[0] ?? "";
@@ -314,8 +333,12 @@ assert.match(
 
 assert.ok(markdown.includes(String.raw`\[ ... \]`), "display math must support \\[...\\]");
 assert.ok(markdown.includes(String.raw`\( ... \)`), "inline math must support \\(...\\)");
-assert.match(view, /<BzmMarkdown source=\{selected\.body\}/);
 assert.match(view, /<BzmMathText source=\{selected\.title\}/);
+assert.doesNotMatch(
+  view,
+  /<BzmMarkdown/,
+  "the removed right ledger's read-only body renderer must not remain in the map view — body is read/edited via the composer overlay only"
+);
 
 // ---------------------------------------------------------------------------
 // Node soft-delete (2026-08-02): admin-only recoverable delete via
@@ -439,9 +462,11 @@ assert.doesNotMatch(
 );
 
 // ---------------------------------------------------------------------------
-// Map view: wiring the node delete callback, and a per-row edge delete
-// button in the "接続しているノード" ledger (in addition to the existing
-// line-click confirm), reusing the same edge delete confirm/API.
+// Map view: wiring the node delete callback (onNodeDeleted removes the node,
+// its incident edges on either endpoint, its memos, and its saved position,
+// then closes the composer). The 2026-08-02 right-ledger removal retired the
+// "接続しているノード" list's per-row edge delete button — edge deletion is
+// line-click only now — so that contract is intentionally not tested here.
 // ---------------------------------------------------------------------------
 const nodeDeleteHandlerMatch = view.match(/onNodeDeleted=\{\(nodeId\) => \{([\s\S]*?)\n\s*\}\}/);
 assert.ok(nodeDeleteHandlerMatch, "view must wire an onNodeDeleted handler on the composer");
@@ -462,33 +487,5 @@ assert.match(
 );
 assert.match(nodeDeleteHandlerBody, /setSelectedId\(""\)/, "deleting a node must clear the current selection");
 assert.match(nodeDeleteHandlerBody, /setComposerState\(null\)/, "deleting a node must close the composer overlay");
-
-assert.match(
-  view,
-  /data-bzm-edge-row-delete="true"/,
-  "the connected-nodes ledger must expose a per-row edge delete button"
-);
-const connectedNodesListBody = view.split("function ConnectedNodesList(")[1] ?? "";
-assert.ok(connectedNodesListBody.length > 0, "ConnectedNodesList function body must be present");
-assert.match(
-  connectedNodesListBody,
-  /canRemove = canEdit && edge\.editable && Boolean\(edge\.id\)/,
-  "the per-row delete button must only show for editable edges the admin can act on"
-);
-assert.match(
-  connectedNodesListBody,
-  /event\.stopPropagation\(\)/,
-  "the per-row delete button must not also trigger the row's select-node navigation"
-);
-assert.match(
-  connectedNodesListBody,
-  /onRemoveEdge\(edge\)/,
-  "the per-row delete button must hand off to the existing edge removal flow"
-);
-assert.match(
-  view,
-  /onRemoveEdge=\{setEdgeToRemove\}/,
-  "the connected-nodes list must reuse the existing edge delete confirmation state, not a second confirm flow"
-);
 
 console.log("ok - BZM theory editor migration, auth, mutation and UI contracts passed");

@@ -17,7 +17,6 @@ import {
   NotebookPen,
   PenLine,
   Search,
-  Trash2,
 } from "lucide-react";
 import type {
   TheoryNodeKind,
@@ -35,10 +34,7 @@ import {
   KIND_SHAPE,
   LAYER_LABEL,
   LAYER_ORDER,
-  MEMO_TYPE_COLOR,
-  MEMO_TYPE_LABEL,
   MOSS,
-  OCHRE,
   PAPER_BG,
   PAPER_BORDER,
   PAPER_PANEL,
@@ -46,8 +42,6 @@ import {
   RELATION_LABEL,
   STATUS_LABEL,
   STRUCTURAL_TYPES,
-  SUPPORT_TYPES,
-  TEST_TYPES,
   VERMILION,
   callTheoryMapApi,
   parseTheoryMapEdgeDto,
@@ -61,7 +55,7 @@ import type {
   ComposerState,
   DraftNodeFields,
 } from "@/components/bzm/BzmTheoryComposerDialog";
-import { BzmMarkdown, BzmMathText } from "@/components/bzm/BzmMarkdown";
+import { BzmMathText } from "@/components/bzm/BzmMarkdown";
 
 export type { TheoryMapNode, TheoryMapEdge, TheoryMapMemo } from "@/lib/bzm-theory-map-ui";
 
@@ -524,24 +518,6 @@ export function BzmTheoryMapView({
     setView("list");
   }, [nodes.length]);
 
-  const incomingByTarget = useMemo(() => {
-    const map = new Map<string, TheoryMapEdge[]>();
-    for (const edge of edges) {
-      if (!map.has(edge.to)) map.set(edge.to, []);
-      map.get(edge.to)!.push(edge);
-    }
-    return map;
-  }, [edges]);
-
-  const outgoingBySource = useMemo(() => {
-    const map = new Map<string, TheoryMapEdge[]>();
-    for (const edge of edges) {
-      if (!map.has(edge.from)) map.set(edge.from, []);
-      map.get(edge.from)!.push(edge);
-    }
-    return map;
-  }, [edges]);
-
   const degreeById = useMemo(() => {
     const map = new Map<string, number>();
     for (const edge of edges) {
@@ -907,45 +883,11 @@ export function BzmTheoryMapView({
     }
   }
 
-  const incomingForSelected = selected
-    ? (incomingByTarget.get(selected.id) ?? [])
-    : [];
-  const outgoingForSelected = selected
-    ? (outgoingBySource.get(selected.id) ?? [])
-    : [];
-
-  const challengeIn = incomingForSelected.filter((e) =>
-    CHALLENGE_TYPES.includes(e.type),
-  );
-  const testEdges = [...incomingForSelected, ...outgoingForSelected].filter(
-    (e) => TEST_TYPES.includes(e.type),
-  );
-  const relatedEdges: { edge: TheoryMapEdge; direction: "in" | "out" }[] = [
-    ...incomingForSelected.map((edge) => ({ edge, direction: "in" as const })),
-    ...outgoingForSelected.map((edge) => ({ edge, direction: "out" as const })),
-  ];
-
-  // メモは選択ノードの内側へ積む記録であり、edge から独立した別台帳。新しい順。
-  const memosForSelected = selected
-    ? memos.filter((memo) => memo.nodeId === selected.id).slice().reverse()
-    : [];
-
   useEffect(() => {
     if (!notice) return;
     const timer = window.setTimeout(() => setNotice(null), 5000);
     return () => window.clearTimeout(timer);
   }, [notice]);
-
-  const gaps: string[] = [];
-  if (selected && selected.kind !== "source") {
-    const hasExternalSupport = incomingForSelected.some((e) => {
-      const from = nodeById.get(e.from);
-      return from?.kind === "source" && SUPPORT_TYPES.includes(e.type);
-    });
-    if (!hasExternalSupport) gaps.push("外部ソースによる支持がない");
-    if (challengeIn.length === 0) gaps.push("異議・反証の接続がない");
-    if (testEdges.length === 0) gaps.push("検証 (tests) の接続がない");
-  }
 
   const composerOverlayStyle: React.CSSProperties =
     size.w < 640
@@ -1210,13 +1152,7 @@ export function BzmTheoryMapView({
           </div>
         </section>
 
-        <section
-          className={
-            sidePanelOpen
-              ? "grid gap-4"
-              : "grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]"
-          }
-        >
+        <section className="grid gap-4">
           <div
             className="min-w-0 overflow-hidden rounded-lg border"
             style={{ borderColor: PAPER_BORDER, backgroundColor: PAPER_PANEL }}
@@ -1673,7 +1609,7 @@ export function BzmTheoryMapView({
                       className="ml-auto text-[11px]"
                       style={{ color: GRAPHITE_MUTED }}
                     >
-                      状態は一覧・台帳のラベルで確認
+                      状態は一覧表示・編集オーバーレイのラベルで確認
                     </span>
                   </div>
                 </div>
@@ -1854,141 +1790,6 @@ export function BzmTheoryMapView({
               </ul>
             )}
           </div>
-
-          {!sidePanelOpen && (
-            <aside
-              className="min-w-0 rounded-lg border"
-              style={{
-                borderColor: PAPER_BORDER,
-                backgroundColor: PAPER_PANEL,
-              }}
-            >
-              {selected ? (
-                <div className="flex h-full flex-col">
-                  <div
-                    className="border-b px-4 py-4"
-                    style={{ borderColor: PAPER_BORDER }}
-                  >
-                    <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold">
-                      <span
-                        className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5"
-                        style={{
-                          borderColor: PAPER_BORDER,
-                          color: GRAPHITE_MUTED,
-                        }}
-                      >
-                        <span
-                          className="h-2.5 w-2.5 rounded-full"
-                          style={{ backgroundColor: KIND_COLOR[selected.kind] }}
-                          aria-hidden="true"
-                        />
-                        {KIND_LABEL[selected.kind]}
-                      </span>
-                      <span
-                        className="rounded-full border px-2 py-0.5"
-                        style={{
-                          borderColor: GRAPHITE_MUTED,
-                          color: GRAPHITE_MUTED,
-                        }}
-                      >
-                        {STATUS_LABEL[selected.status]}
-                      </span>
-                      <span style={{ color: GRAPHITE_MUTED }}>
-                        {LAYER_LABEL[selected.layer]}
-                      </span>
-                    </div>
-                    <h2 className="text-lg font-semibold leading-tight">
-                      <BzmMathText source={selected.title} />
-                    </h2>
-                    <p
-                      className="mt-2 break-words text-sm leading-6 [overflow-wrap:anywhere]"
-                      style={{ color: GRAPHITE_MUTED }}
-                    >
-                      <BzmMathText source={selected.summary} />
-                    </p>
-                    {selected.sourceHref ? (
-                      <Link
-                        href={selected.sourceHref}
-                        className="mt-3 inline-flex min-h-11 max-w-full items-center gap-1.5 break-words rounded-md border px-2.5 py-1 text-xs font-semibold [overflow-wrap:anywhere]"
-                        style={{ borderColor: PAPER_BORDER, color: BLUEPRINT }}
-                      >
-                        出典を開く: {selected.sourceRef}
-                      </Link>
-                    ) : /^https?:\/\//i.test(selected.sourceRef) ? (
-                      <a
-                        href={selected.sourceRef}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-3 inline-flex min-h-11 max-w-full items-center gap-1.5 break-words rounded-md border px-2.5 py-1 text-xs font-semibold [overflow-wrap:anywhere]"
-                        style={{ borderColor: PAPER_BORDER, color: BLUEPRINT }}
-                      >
-                        出典を開く (外部サイト): {selected.sourceRef}
-                      </a>
-                    ) : (
-                      <div
-                        className="mt-3 break-words text-xs [overflow-wrap:anywhere]"
-                        style={{ color: GRAPHITE_MUTED }}
-                      >
-                        出典: {selected.sourceRef}
-                      </div>
-                    )}
-                    <details
-                      className="mt-3 border-t pt-3"
-                      style={{ borderColor: PAPER_BORDER }}
-                    >
-                      <summary
-                        className="flex min-h-11 cursor-pointer items-center text-xs font-semibold"
-                        style={{ color: BLUEPRINT }}
-                      >
-                        ノード本文を読む
-                      </summary>
-                      <div
-                        className="mt-2 max-h-72 overflow-auto text-xs leading-5"
-                        style={{ color: GRAPHITE_MUTED }}
-                      >
-                        <BzmMarkdown source={selected.body} />
-                      </div>
-                    </details>
-                  </div>
-
-                  {gaps.length > 0 && (
-                    <div
-                      className="mx-4 mt-4 rounded-md border px-3 py-2 text-xs"
-                      style={{
-                        borderColor: OCHRE,
-                        backgroundColor: rgba(OCHRE, 0.08),
-                        color: OCHRE,
-                      }}
-                    >
-                      <div className="font-semibold">カバレッジの欠落</div>
-                      <ul className="mt-1 list-disc pl-4">
-                        {gaps.map((g) => (
-                          <li key={g}>{g}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  <div className="min-h-0 flex-1 overflow-auto p-4">
-                    <MemoList memos={memosForSelected} />
-                    <div className="mt-4">
-                      <ConnectedNodesList
-                        edges={relatedEdges}
-                        nodeById={nodeById}
-                        onSelect={setSelectedId}
-                        canEdit={canEdit}
-                        onRemoveEdge={setEdgeToRemove}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-4 text-sm" style={{ color: GRAPHITE_MUTED }}>
-                  ノードを選ぶと論証台帳が表示される。
-                </div>
-              )}
-            </aside>
-          )}
         </section>
 
         <section
@@ -2006,7 +1807,7 @@ export function BzmTheoryMapView({
             塗り色 + 形 = 種別 (青○概念 赤紫◇主張 緑□測定 黄△決定 紫⬡ソース
             茶○問い)
           </span>
-          <span>状態 = 一覧・台帳のラベル</span>
+          <span>状態 = 一覧表示・編集オーバーレイのラベル</span>
           <span>
             線 = 関係 (緑=支持系 オーカー=異議/論点 朱=反証 青=検証/依存
             破線=依存・上書き)
@@ -2036,151 +1837,6 @@ export function BzmTheoryMapView({
             {notice.message}
           </div>
         </div>
-      )}
-    </div>
-  );
-}
-
-function MemoList({ memos }: { memos: TheoryMapMemo[] }) {
-  return (
-    <div>
-      <div
-        className="mb-1.5 flex items-center gap-2 text-xs font-semibold"
-        style={{ color: GRAPHITE }}
-      >
-        メモ
-        <span
-          className="rounded-full border px-1.5 py-0.5 font-mono text-[10px]"
-          style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
-        >
-          {memos.length} 件
-        </span>
-      </div>
-      {memos.length === 0 ? (
-        <div
-          className="rounded-md border border-dashed px-3 py-2 text-xs"
-          style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
-        >
-          メモなし
-        </div>
-      ) : (
-        <ul className="space-y-2">
-          {memos.map((memo) => (
-            <li
-              key={memo.id}
-              className="rounded-md border px-2.5 py-2 text-xs"
-              style={{ borderColor: PAPER_BORDER }}
-            >
-              <span
-                className="mb-1 inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 font-semibold"
-                style={{
-                  borderColor: MEMO_TYPE_COLOR[memo.memoType],
-                  color: MEMO_TYPE_COLOR[memo.memoType],
-                }}
-              >
-                {MEMO_TYPE_LABEL[memo.memoType]}
-              </span>
-              <div
-                className="whitespace-pre-wrap break-words leading-5 [overflow-wrap:anywhere]"
-                style={{ color: GRAPHITE }}
-              >
-                <BzmMathText source={memo.body} />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function ConnectedNodesList({
-  edges,
-  nodeById,
-  onSelect,
-  canEdit,
-  onRemoveEdge,
-}: {
-  edges: { edge: TheoryMapEdge; direction: "in" | "out" }[];
-  nodeById: Map<string, TheoryMapNode>;
-  onSelect: (id: string) => void;
-  canEdit: boolean;
-  onRemoveEdge: (edge: TheoryMapEdge) => void;
-}) {
-  return (
-    <div>
-      <div
-        className="mb-1.5 flex items-center gap-2 text-xs font-semibold"
-        style={{ color: GRAPHITE }}
-      >
-        接続しているノード
-        <span
-          className="rounded-full border px-1.5 py-0.5 font-mono text-[10px]"
-          style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
-        >
-          {edges.length} 件
-        </span>
-      </div>
-      {edges.length === 0 ? (
-        <div
-          className="rounded-md border border-dashed px-3 py-2 text-xs"
-          style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
-        >
-          接続しているノードなし
-        </div>
-      ) : (
-        <ul className="space-y-1">
-          {edges.map(({ edge, direction }) => {
-            const otherId = direction === "out" ? edge.to : edge.from;
-            const other = nodeById.get(otherId);
-            if (!other) return null;
-            const canRemove = canEdit && edge.editable && Boolean(edge.id);
-            return (
-              <li
-                key={`${edge.from}-${edge.type}-${edge.to}`}
-                className="flex items-center gap-1.5"
-              >
-                <button
-                  type="button"
-                  onClick={() => onSelect(other.id)}
-                  className="flex min-h-11 w-full min-w-0 flex-1 items-center gap-2 rounded-md border px-2.5 py-1.5 text-left text-xs transition"
-                  style={{ borderColor: PAPER_BORDER }}
-                >
-                  <span aria-hidden="true" style={{ color: GRAPHITE_MUTED }}>
-                    {direction === "out" ? "→" : "←"}
-                  </span>
-                  <span
-                    className="shrink-0 font-mono"
-                    style={{ color: RELATION_COLOR[edge.type] }}
-                  >
-                    {RELATION_LABEL[edge.type]}
-                  </span>
-                  <span
-                    className="min-w-0 flex-1 truncate"
-                    style={{ color: GRAPHITE }}
-                  >
-                    <BzmMathText source={other.title} />
-                  </span>
-                </button>
-                {canRemove && (
-                  <button
-                    type="button"
-                    data-bzm-edge-row-delete="true"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onRemoveEdge(edge);
-                    }}
-                    aria-label={`${RELATION_LABEL[edge.type]}: ${other.title} への接続を削除`}
-                    className="grid h-11 w-11 shrink-0 place-items-center rounded-md border"
-                    style={{ borderColor: VERMILION, color: VERMILION }}
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                  </button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
       )}
     </div>
   );
