@@ -184,11 +184,8 @@ export async function loadTheoryMap(
   const edges: TheoryMapEdgeDTO[] = [];
   for (const row of edgeRows) {
     if (!nodeIds.has(row.from_node_id) || !nodeIds.has(row.to_node_id)) {
-      // orphan edge (endpoint archived or missing) — drop silently from display,
-      // logged so it can be cleaned up.
-      console.error(
-        `[bzm-theory-store] dropping orphan edge ${row.id} (${row.from_node_id} -> ${row.to_node_id})`
-      );
+      // Soft-deleted nodes keep their edges so a future restore can recover the
+      // original graph. Hidden archived endpoints are therefore a normal case.
       continue;
     }
     edges.push({
@@ -204,10 +201,7 @@ export async function loadTheoryMap(
   const memos: TheoryMapMemoDTO[] = [];
   for (const row of memoRows) {
     if (!nodeIds.has(row.node_id)) {
-      // orphan memo (node archived or missing) — drop silently from display.
-      console.error(
-        `[bzm-theory-store] dropping orphan memo ${row.id} (node ${row.node_id})`
-      );
+      // Memos attached to a soft-deleted node stay stored for the same reason.
       continue;
     }
     memos.push({

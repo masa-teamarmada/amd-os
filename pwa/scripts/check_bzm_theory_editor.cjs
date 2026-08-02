@@ -325,6 +325,11 @@ assert.match(view, /<BzmMathText source=\{selected\.title\}/);
 // affordance in the "接続しているノード" ledger.
 // ---------------------------------------------------------------------------
 assert.match(store, /export async function archiveNode/, "store must export an explicit archiveNode function");
+assert.doesNotMatch(
+  store,
+  /dropping orphan (edge|memo)/,
+  "retained rows for archived nodes are expected and must not emit load errors",
+);
 const archiveNodeBody = store.split("export async function archiveNode")[1]?.split("\nfunction rowToNodeDto")[0] ?? "";
 assert.ok(archiveNodeBody.length > 0, "archiveNode function body must be present");
 assert.match(
