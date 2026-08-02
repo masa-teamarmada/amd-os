@@ -274,11 +274,17 @@ expectIncludes("src/components/project-workspace/SxProjectOwnerWorkload.tsx", [
   // だけをa11y treeへ出し、重複ノードを作らない。
   'import { partitionOwnerLoadColumns } from "@/lib/sx-project-owner-load";',
   "const { left: leftLoads, right: rightLoads } =\n    partitionOwnerLoadColumns(loads);",
-  '"hidden gap-px bg-[#d9cfde] lg:grid lg:grid-cols-2"',
+  // Round 39 (2026-08-02): 外側gridの`gap-px bg-[#d9cfde]`(align-items:stretchで各列を伸ばし、
+  // 伸びた分がOwnerLoadColumnの紫背景として実ブラウザで巨大な空白に見えていた)を廃止。
+  // `lg:items-start`で列を内容高さに止め、大面積背景は生成り(#fffdf7)へ、左右境界の1px線は
+  // 独立したabsolute dividerへ切り出す。
+  '<div className="relative hidden lg:grid lg:grid-cols-2 lg:items-start">',
+  '<div\n          aria-hidden="true"\n          className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[#d9cfde]"\n        />',
   "<OwnerLoadColumn loads={leftLoads} onSelectItem={onSelectItem} />",
   "<OwnerLoadColumn loads={rightLoads} onSelectItem={onSelectItem} />",
   '<div className="lg:hidden">\n        <OwnerLoadColumn loads={loads} onSelectItem={onSelectItem} />',
   'className="flex flex-col gap-px bg-[#d9cfde]"',
+  'className="border border-[#c9bfd0] bg-[#fffdf7]"',
   // 実動作は元の編集文脈を開くことなので、aria-labelは「移動」ではなく「編集」で実態を表す。
   "aria-label={`${item.title}を編集`}",
   // 実ブラウザ監査でクリック対象と後続の編集モーダル対象の一致を検査できるようにする。
@@ -293,6 +299,10 @@ expectNotIncludes(
     "grid-cols-[110px_minmax(160px,1fr)_120px_minmax(140px,0.8fr)] items-start",
     // 旧文言。実動作(編集モーダルを開く)と不一致だった。
     "の元項目へ移動",
+    // Round 39 (2026-08-02): 旧・外側gridの大面積紫背景(gap-px+bg-[#d9cfde]によるalign-items:
+    // stretch下の紫空白バグ)を禁止。境界線はabsolute dividerへ切り出し、大面積背景は生成りへ。
+    '"hidden gap-px bg-[#d9cfde] lg:grid lg:grid-cols-2"',
+    'bg-[#f7f3f7]',
   ],
 );
 

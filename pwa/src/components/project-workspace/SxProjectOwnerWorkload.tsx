@@ -137,7 +137,7 @@ export function SxProjectOwnerWorkload({
   );
   return (
     <section
-      className="border border-[#c9bfd0] bg-[#f7f3f7]"
+      className="border border-[#c9bfd0] bg-[#fffdf7]"
       aria-labelledby="sx-project-owner-workload-title"
     >
       <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#d9cfde] px-2.5 py-1.5">
@@ -175,8 +175,23 @@ export function SxProjectOwnerWorkload({
           の後続カードのY座標まで動く事故(暗黙行ペアリングの旧実装)を避けるため、列ごとに
           高さが自己完結する2要素構成にする。desktop用とmobile用でDOM自体を分け、
           hidden/lg:hiddenで常に片方だけをa11y treeへ出す(CSSでの見た目切替だけだと非表示側
-          も読み上げ対象に残ってしまう)。 */}
-      <div className="hidden gap-px bg-[#d9cfde] lg:grid lg:grid-cols-2">
+          も読み上げ対象に残ってしまう)。
+          Round 39 (2026-08-02): 旧実装は外側gridに`gap-px bg-[#d9cfde]`を敷き、暗黙のalign-items:
+          stretchで各OwnerLoadColumnをgrid行の高さ(=展開した側の高さ)までstretchさせていた。
+          OwnerLoadColumn自身もflex-colの背景が#d9cfde(紫)のため、伸びた分の余白がそのまま
+          巨大な紫空白として実ブラウザで見えていた。`lg:items-start`で各列を内容高さだけに
+          止め、gridコンテナ自体の大面積背景も生成り(#fffdf7、section地と同色)にして紫が
+          面で残らないようにする。左右境界の1px線は、gap+背景色トリックの代わりに
+          `relative`コンテナ内へ`aria-hidden`のabsolute 1px dividerとして独立させる
+          (gridの行トラック高さはitems-startでも最大子要素高さのままなので、inset-y-0で
+          常に両列の高さいっぱいに伸びる)。各details間の1px区切りはOwnerLoadColumn内部の
+          `gap-px bg-[#d9cfde]`のまま維持する(この背景は各列が自列高さで自己完結するため
+          伸びない)。 */}
+      <div className="relative hidden lg:grid lg:grid-cols-2 lg:items-start">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[#d9cfde]"
+        />
         <OwnerLoadColumn loads={leftLoads} onSelectItem={onSelectItem} />
         <OwnerLoadColumn loads={rightLoads} onSelectItem={onSelectItem} />
       </div>
