@@ -25,25 +25,16 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - effort write: `project_weekly_effort_entries` はPJ / member / week / categoryで一意。PJ限定ユーザーは自分だけ、portfolio/adminはactive PJ memberを更新できる。
 - admin onboarding: `/admin/members` でPJ限定Googleアカウントを事前登録し、既存のPJメンバー編集で対象PJへ紐付ける。作成時は支払通知対象外。
 
-## /portfolio-preview — 研究ポートフォリオ構造プレビュー
+## /portfolio-preview — 研究ポートフォリオ構造プレビュー (2026-08-02 /dashboard へ統合済み・退役)
 
-目的: 研究機関リストとシーズリストをOSの主たる母集団に置き、PJを両者から契約成立後に生まれる実行レイヤーとして見せる新IAを、現行OSを置き換えずに実データで検証する。
+目的だった「研究機関リストとシーズリストをOSの主たる母集団に置き、PJを両者から契約成立後に生まれる実行レイヤーとして見せる新IA」の実データ検証は完了し、2026-08-02 まさ確定で `/dashboard` へ正式採用した。`/portfolio-preview` は独立シェルを撤去し、`redirect("/dashboard")` だけを持つ旧URL維持用ページになった (旧URLをリンクしていた場所を壊さないため)。仮設ナビ・「構造プレビュー」バッジ・「現行OSへ戻る」導線は撤去済み。統合後の正本仕様は下の `## /dashboard` を見る。
 
-必須機能:
+## 旧 /portfolio-preview 由来の恒久仕様 → /dashboard へ移設
 
-- 別URL隔離: `/portfolio-preview` は現行 `/dashboard`、GlobalNav、`/institutions`、`/seeds`、各コックピットへ組み込まない。プレビュー内の仮設ナビだけでホーム / 研究機関 / シーズ / PJ運用を切り替え、「現行OSへ戻る」で `/dashboard` へ戻す。
-- 読み取り専用: `fetchErsBundle()`、`fetchAllResearchInstitutionSeeds()`、`fetchProjectsFromSupabase()` の実データだけを読み、DB write、評価再計算、migrationを行わない。
-- 母集団優先: 研究機関とシーズはPJ化後も元リストに残し、PJ化済み → PJ化検討中 → 評価済み → その他の既存優先順位を維持する。PJ運用一覧は `institution_projects` / `seed_projects` の関係から由来を表示する。
-- 未確認保護: 関係表に無いPJを名称から推定せず「由来要確認」と表示する。AMD全体 `p00` は研究ポートフォリオPJ件数から外す。
-- スコア分離: ECRは研究機関環境、SPSは個別シーズとして別集計・別表示し、単一スコアへ合算しない。
-- 内部限定: `getCurrentMemberAccess()` が `portfolio` scopeかつCalendar接続済みの場合だけ表示する。PJ限定ユーザーは各自のホームへ戻す。
-- 回帰テスト: `npm run test:portfolio-preview-contract` でroute隔離、内部認証、読み取り専用、3ドメイン、ECR/SPS分離を検査する。
-- responsive nav: desktopはPJ専用sidebar、mobile/tabletは本文幅を奪わないbottom nav。入力controlは44px以上。
-
-回帰防止:
-
-- `pwa/scripts/check_pwa_critical_ui.cjs` がrole top、SX card、PJ session交換、route isolation、workspace route、effort API、admin onboarding、migration 182を検査する。あわせて `/auth/callback` の引数なし `supabase.auth.signOut()` を禁止し、`{ scope: "local" }` 付きの呼び出しが7箇所そろっていることを検査する。
-- 共有面へ社内cockpit DTOや既存のauthenticated sessionを流用しない。
+- 母集団優先の並び順ロジック (PJ化済み → PJ化検討中 → 評価済み → その他) は [`src/lib/portfolio-pulse.ts`](../src/lib/portfolio-pulse.ts) の `buildPortfolioPulseModel` へ移設した。機関・シーズのライフサイクル判定は `/institutions` `/seeds` と同じ正本helperを再利用する。
+- 未確認保護: 関係表に無いPJを名称から推定せず「由来要確認」と表示するロジックは維持 (`needsClassification`)。AMD全体 `p00` は研究ポートフォリオPJ件数から外す。
+- スコア分離: ECRは研究機関環境、SPSは個別シーズとして別集計・別表示し、単一スコアへ合算しない (継続)。
+- 回帰テスト: `npm run test:portfolio-preview-contract` は `npm run test:portfolio-home-contract` (`scripts/check_portfolio_home_contract.mjs`) に置き換え。redirect化、GlobalNav統合、ECR/SPS分離、実route接続、amd-home-page-skinのborders-onlyを検査する。
 
 ## 外部ワークスペースアクセス (研究機関 / PJ外部共有、build v3.53.19、migration 212/213)
 
@@ -448,21 +439,27 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 ## /dashboard
 
-目的: まさと司令塔が全PJの現状と、今日先に打つべき一手を最初に見る入口。
+目的: 研究機関・シーズという母集団を横断し、まさと司令塔が今日判断・着手できる対象を最初に見る入口。PJは両者から契約成立後に生まれる運用レイヤーとして下段に置く (2026-08-02 研究ポートフォリオ中心IAをホームへ正式採用、旧 `/portfolio-preview` を統合)。
 
 必須機能:
 
 - 先手 TODO バッジ: dashboard 上段に `ProactiveTodoBadge` を出し、`proactive_todos.status='open'` の件数 / 期限超過件数 / red件数を 1 行で見せて `/proactive` フルページへ送る。バッジは admin (= `members.is_admin=true`) のみ表示で、非 admin は枠ごと消す。詳細仕様: [`pwa/spec/2-4-proactive-todo-current-spec.md`](../spec/2-4-proactive-todo-current-spec.md)。**旧 `ProactiveQueuePanel` 経由の `proactive_outbox` 表示 (= 5段ループ盤面の実行段) は 2026-06-27 廃止**。司令塔セッション運用の消滅と完了UI不在が理由 (詳細: spec 2-4 末尾)。dashboard 上段 (= 旧 `LoopKernelBoard` / 旧 `ProactiveQueuePanel`) からは両方とも除去済み。
-- 抽出状況: dashboard 上段に admin 限定の `ExtractionStatusCard` を出す。Gmail / Drive / Calendar / Slack / Notion ごとの「OSへ最後に保存された証跡」と「MTG抽出で実際に使えた時刻」を分けて並べ、月次対象PJのメール・Slack・Drive設定不足は「設定が必要」に集約して `/admin/projects` へ送る。保存証跡の古さを接続異常と扱わず、未読の再認証通知、PJ設定不足、Calendar接続エラーだけを対応事項として出す。`project_config_gap` は採否通知に出さない。
-- freee連携: dashboard 上段に admin 限定の `FreeeConnectionStatusCard` を出す。接続記録と `company_actual_monthly` の freee P/L・口座残高実績を別々に確認し、両方が24時間以内なら `正常`、接続記録なしは `未連携`、それ以外は `要確認` とする。認可情報や秘密値をブラウザへ返さず、画面から同期を実行しない。`/management-score` の月次試算表へだけ遷移できる。
+- 研究ポートフォリオ優先キュー (`PortfolioPulse`、`ProactiveTodoBadge` 直下): 研究機関・シーズ・PJ運用の統計strip + 3パネルキューを表示する。パネル順は研究機関 (PJ化検討中) → シーズ (検討中・SPS評価済み) → PJ運用 (稼働中) の順で、PJを初期画面の主役に戻さない。研究機関・シーズの全件は出さず、上位候補だけを表示する (全件正本は `/institutions` `/seeds`)。データは client component から [`/api/dashboard/portfolio-pulse`](../src/app/api/dashboard/portfolio-pulse/route.ts) を叩いて取得し、`fetchErsBundle` / `fetchAllResearchInstitutionSeeds` の default browser client 直叩きは禁止 (**migration 213 の RLS closure で anon/default client がシーズ0件を返す既知障害があるため**、server-side の `createAdminClient()` 経由に一本化)。API route は `requireMember()` の認証に加えて `getCurrentMemberAccess()` が `portfolio` scope の場合だけ通し、project scope の外部PJメンバーへ横断母集団を返さない。service client はこのscope gateの後にだけ生成する。ECR系 (`fetchErsBundle`) とシーズ系 (`fetchAllResearchInstitutionSeeds`) は `Promise.allSettled` で障害分離する — 片方が失敗してももう片方は返し、失敗した側だけ `PortfolioPulse` 側のパネルに「読み込めなかった」inline通知を出す (0件と偽らない)。ECRとSPSは合算しない。並び順ロジックは [`src/lib/portfolio-pulse.ts`](../src/lib/portfolio-pulse.ts) の `buildPortfolioPulseModel` (旧 `/portfolio-preview` の `buildPreviewModel` を移設)。
+- PJ運用アンカー (`#pj-operations`): `PortfolioPulse` の「PJ運用を開く」、GlobalNav の「PJ運用」navはどちらも `/dashboard#pj-operations` へ実接続する (表示だけの偽ボタン禁止)。アンカー先は既存のPJ一覧 (下記) そのもの。
+- PJ一覧: `#pj-operations` アンカー配下に Active / Sales-Draft / Ended-Frozen の横長 stripe 一覧を維持する。AMD全体 (`p00`) だけを除き、`institution_projects` に入る研究機関型PJも含むPJ台帳の全行を表示する。すべての行は内部用 `/project/[projectId]/cockpit` を開き、共有workspaceへ直接送らない。
+- 経営指標・接続状況 (折り畳み `<details open>`): `DashboardScoreOverview` / `FundingStatsCard` / `ExtractionStatusCard` (admin限定) / `FreeeConnectionStatusCard` (admin限定) をまとめる。既定で開いた状態のため情報は失われないが、優先キュー・PJ一覧より視覚的に軽い扱いにする。`ExtractionStatusCard` は Gmail / Drive / Calendar / Slack / Notion ごとの「OSへ最後に保存された証跡」と「MTG抽出で実際に使えた時刻」を分け、月次対象PJのメール・Slack・Drive設定不足は「設定が必要」に集約して `/admin/projects` へ送る。保存証跡の古さを接続異常と扱わず、未読の再認証通知・PJ設定不足・Calendar接続エラーだけを対応事項として出す。`project_config_gap` は採否通知に出さない。`FreeeConnectionStatusCard` は接続記録と `company_actual_monthly` の freee P/L・口座残高実績を別々に確認し、両方が24時間以内なら `正常`、接続記録なしは `未連携`、それ以外は `要確認` とする。認可情報や秘密値をブラウザへ返さず、画面から同期を実行しない。`FundingStatsCard` は資金調達ラウンドと助成金・補助金を会社別/行別に表示し、累計値は `amd_contribution_status in ('full','partial')` の AMD貢献額だけで計算する (`none` / `unreviewed` はリストには残すが累計に入れない)。投資家別内訳・持株比率・cap table snapshot は dashboard API に返さない。
 - PJ台帳の Slack CH 列: `projects.slack_channel_not_required=true` を「チャンネルなし」チェックで編集できる。これは未設定ではなく意図的にSlackチャンネルを使わないPJを示し、抽出状況の設定不足から外す。チェック時は古い `slack_channel_id` を空にする。PJ台帳の見出し行は縦横スクロール中も固定する。
-- AMD全体 累計実績カード: dashboard 上段の `FundingStatsCard` は、資金調達ラウンドと助成金・補助金を会社別/行別に表示する。累計値は `amd_contribution_status in ('full','partial')` の AMD貢献額だけで計算し、`none` / `unreviewed` はリストには残すが累計には入れない。投資家別内訳・持株比率・cap table snapshot は dashboard API に返さない。
-- PJ一覧: `ProactiveTodoBadge` の直下を主面とし、Active / Sales-Draft / Ended-Frozen の横長 stripe 一覧を維持する。AMD全体 (`p00`) だけを除き、`institution_projects` に入る研究機関型PJも含むPJ台帳の全行を表示する。すべての行は内部用 `/project/[projectId]/cockpit` を開き、共有workspaceへ直接送らない。
-- 左メニューのボード: マウスオーバーまたはキーボードフォーカスで、右側に全アクティブPJの一覧を出す。各行は対応するPJコックピットへ遷移し、一覧は固定せず `projects.status='active'` を読む。ボード本体の `/dashboard` 導線は維持する。フライアウトはナビのスクロール領域にクリップされない上位レイヤーで表示し、画面下端では一覧部分だけをスクロールさせる。
-- 研究機関リスト: 契約有無に依存しない `institutions` カタログが正本だが、`/dashboard` には全件表示しない。閲覧・ECR比較・機関コックピットへの入口は独立した `/institutions` に置く。対応は固定ID表でなく `institution_projects` から解決し、ECRはSPSと合算しない。
+- 左メニューのボード: GlobalNav は研究ポートフォリオ (ホーム / 研究機関 / シーズ / PJ運用) を最上位グループに持つ。「ホーム」(`/dashboard`) はマウスオーバーまたはキーボードフォーカスで、右側に全アクティブPJの一覧を出す既存フライアウトを維持する。各行は対応するPJコックピットへ遷移し、一覧は固定せず `projects.status='active'` を読む。フライアウトはナビのスクロール領域にクリップされない上位レイヤーで表示し、画面下端では一覧部分だけをスクロールさせる。既存の探索・自分・Admin・資料グループの全導線は維持する。
+- 研究機関リスト: 契約有無に依存しない `institutions` カタログが正本だが、`/dashboard` には全件表示しない (`PortfolioPulse` は上位候補だけ)。閲覧・ECR比較・機関コックピットへの入口は独立した `/institutions` に置く。対応は固定ID表でなく `institution_projects` から解決し、ECRはSPSと合算しない。
 - Company Content shelf: PJ台帳・要対応・経営指標・運用状態の後に、`CompanyContentShelf` を4カラムで表示する。列はメンバー / 沿革 / メディア掲載 / photo。`member_profiles` / `company_history_events` / `media_assets` の approved rows を優先し、未適用環境では既存 `members` + `project_members`、`project_events` / `project_ventures`、photo permission placeholder に fallback する。Notion photo URL や個人情報本文は表示しない。
-- MyPage embed: `/dashboard` 右カラムでは `<MyPageContent embedded showMonthlyProjects={false} />` を使い、「今週やったこと」より下の月別PJカードを出さない。`/mypage` 単体では従来どおり月別PJカードを維持する。
+- MyPage embed: `/dashboard` 右カラムでは `<MyPageContent embedded showMonthlyProjects={false} />` を使い、「今週やったこと」より下の月別PJカードを出さない。`/mypage` 単体では従来どおり月別PJカードを維持する。desktop (xl+) は右カラムを360–400pxに留め、`sticky` + 独立 `overflow-y-auto` にして左カラムのスクロールと分離する。mobile/tablet では埋め込み自体を隠す代わりに「マイページを開く」実リンクカードを出し、導線を落とさない。埋め込み時の loading/error 表示は `min-h-screen` を使わず短い `min-height` に留める (2026-08-02 まさ追加監査反映、埋込枠が画面いっぱいに伸びる不具合の修正)。
 - Dashboard運用面: PJ一覧の後に明示 action queue と Management Score を維持する。月次ルーティン由来の自動タスクは生成しない。
+- 配色: `/dashboard` は `amd-home-page-skin` (白 / graphite / 濃紺 / AMD blue / cyan、borders-only、4pxベース) を使う。旧 `amd-desk-page-skin` の淡いベージュパレットは使わない (他ページの `amd-desk-page-skin` は変更していない)。
+
+回帰防止:
+
+- `npm run test:portfolio-home-contract` (旧 `test:portfolio-preview-contract`) が redirect化・GlobalNav統合・API route の認証/portfolio scope gate/障害分離・ECR/SPS分離・パネル順・右MyPage幅・borders-onlyを検査する。
+- `npm run test:critical-ui` の既存 `expectNotIncludes("src/app/(app)/dashboard/page.tsx", ["fetchErsBundle", ...])` guard は維持 (= `/dashboard/page.tsx` 自体は institutions/seeds fetch を直接持たず、`PortfolioPulse` 経由に閉じる)。
 
 ## /tasks (deprecated)
 

@@ -675,13 +675,20 @@ export function MyPageContent({
     [currentMonth]
   );
   const payoutNoticeNote = data?.member.payoutNoticeNote ?? null;
+  // embedded (= /dashboard 右カラム) では min-h-screen だと埋込枠が画面いっぱいに伸びるため、
+  // 読み込み中・エラー時は短い min-height に留める (2026-08-02 まさ追加監査反映)。
   if (loading) {
+    if (embedded) {
+      return (
+        <div className="grid min-h-[160px] place-items-center text-sm text-muted-foreground">読み込み中...</div>
+      );
+    }
     return <MyPageLoading />;
   }
 
   if (error || !data) {
     return (
-      <div className="min-h-screen grid place-items-center bg-[#f5f5f7] px-4">
+      <div className={`grid place-items-center bg-[#f5f5f7] px-4 ${embedded ? "min-h-[160px]" : "min-h-screen"}`}>
         <div className="bg-white border border-[#e5e5e7] rounded-xl p-5 max-w-sm text-center space-y-3">
           <p className="text-sm text-[#1d1d1f]">{error || "データ取得に失敗しました"}</p>
           <button onClick={load} className="text-sm text-[#007aff] font-medium">再読み込み</button>

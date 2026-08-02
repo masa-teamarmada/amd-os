@@ -15,6 +15,7 @@ import {
   ContactRound,
   Database,
   FileText,
+  FlaskConical,
   GraduationCap,
   Handshake,
   LayoutDashboard,
@@ -180,15 +181,39 @@ export function GlobalNav({
   const groups = useMemo<NavGroup[]>(
     () => [
       {
-        label: "動かす",
+        label: "研究ポートフォリオ",
         items: [
           {
-            label: "ボード",
+            label: "ホーム",
             href: "/dashboard",
             icon: LayoutDashboard,
-            title: "ダッシュボード",
+            title: "研究機関・シーズ・PJを横断する優先キュー",
             exact: true,
           },
+          {
+            label: "研究機関",
+            href: "/institutions",
+            icon: Building2,
+            title: "契約有無に依存しない研究機関カタログ",
+          },
+          {
+            label: "シーズ",
+            href: "/seeds",
+            icon: Sprout,
+            title: "事業化候補の母集団",
+            badge: seedInboxCount,
+          },
+          {
+            label: "PJ運用",
+            href: "/dashboard#pj-operations",
+            icon: FlaskConical,
+            title: "研究機関・シーズが契約成立後に生まれる運用レイヤー",
+          },
+        ],
+      },
+      {
+        label: "動かす",
+        items: [
           {
             label: "AMD Protocol",
             href: "/admin/protocols",
@@ -220,13 +245,6 @@ export function GlobalNav({
         items: [
           { label: "Scholar", href: "/scholar", icon: GraduationCap },
           { label: "Venture Map", href: "/venture-map", icon: Map },
-          { label: "研究機関", href: "/institutions", icon: Building2 },
-          {
-            label: "Seeds",
-            href: "/seeds",
-            icon: Sprout,
-            badge: seedInboxCount,
-          },
           {
             label: "PoC",
             href: "/poc",

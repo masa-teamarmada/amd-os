@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { DashboardGrid } from "@/components/dashboard/DashboardGrid";
+import { PortfolioPulse } from "@/components/dashboard/PortfolioPulse";
 import type {
   CompanyHistoryPreview,
   CompanyImageCrop,
@@ -191,45 +194,68 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="amd-desk-page-skin p-3 sm:p-4">
+    <div className="amd-home-page-skin p-3 sm:p-4">
       <div className="max-w-[1700px] mx-auto">
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(520px,640px)] gap-4">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(620px,1fr)_minmax(360px,400px)]">
           <main className="space-y-4 min-w-0">
             <ProactiveTodoBadge />
-            {projectLoadFailed ? (
-              <section className="dashboard-desk-section border-amber-300 bg-amber-50/80 px-4 py-5 text-sm text-amber-950">
-                <p className="font-semibold">PJ台帳を読み込めなかった</p>
-                <p className="mt-1 text-amber-900">認証状態を更新するため、ページを再読み込みしてね。</p>
-                <button
-                  type="button"
-                  onClick={() => window.location.reload()}
-                  className="mt-3 min-h-11 rounded-[7px] border border-amber-400 bg-white px-4 font-semibold hover:bg-amber-100"
-                >
-                  再読み込み
-                </button>
-              </section>
-            ) : (
-              <DashboardGrid
-                projects={dashboardProjects}
-                billingStatus={billingStatus}
-                scoreHistory={scoreHistory}
-                primarySnapshots={primarySnapshots}
-                myProjectIds={myProjectIds}
-              />
-            )}
+            {/* 研究ポートフォリオ優先キュー (= 研究機関・シーズが母集団、PJは契約成立後の運用レイヤー)。
+                旧 /portfolio-preview を2026-08-02にホームへ正式採用 (まさ確定)。 */}
+            <PortfolioPulse projects={dashboardProjects} />
+            <div id="pj-operations" className="scroll-mt-4 space-y-4">
+              {projectLoadFailed ? (
+                <section className="dashboard-desk-section border-amber-300 bg-amber-50/80 px-4 py-5 text-sm text-amber-950">
+                  <p className="font-semibold">PJ台帳を読み込めなかった</p>
+                  <p className="mt-1 text-amber-900">認証状態を更新するため、ページを再読み込みしてね。</p>
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="mt-3 min-h-11 rounded-[7px] border border-amber-400 bg-white px-4 font-semibold hover:bg-amber-100"
+                  >
+                    再読み込み
+                  </button>
+                </section>
+              ) : (
+                <DashboardGrid
+                  projects={dashboardProjects}
+                  billingStatus={billingStatus}
+                  scoreHistory={scoreHistory}
+                  primarySnapshots={primarySnapshots}
+                  myProjectIds={myProjectIds}
+                />
+              )}
+            </div>
             <ActionItemsPanel projectLabels={projectLabels} variant="dashboard" limit={5} />
-            <DashboardScoreOverview
-              managementScore={managementScore}
-              managementHistory={managementHistory}
-              actionItems={[]}
-            />
-            <FundingStatsCard />
-            <ExtractionStatusCard />
-            <FreeeConnectionStatusCard />
+            <details className="dashboard-desk-section group" open>
+              <summary className="dashboard-desk-section-title cursor-pointer">
+                経営指標・接続状況
+              </summary>
+              <div className="mt-2 space-y-4">
+                <DashboardScoreOverview
+                  managementScore={managementScore}
+                  managementHistory={managementHistory}
+                  actionItems={[]}
+                />
+                <FundingStatsCard />
+                <ExtractionStatusCard />
+                <FreeeConnectionStatusCard />
+              </div>
+            </details>
           </main>
-          {/* /mypage の中身そっくり embed (= まさ #71 v3 確定、MyPageContent を再利用) */}
-          <aside className="hidden xl:block min-w-0 border-l border-border/50 pl-4">
-            <MyPageContent embedded showMonthlyProjects={false} />
+          {/* /mypage の中身そっくり embed (= まさ #71 v3 確定、MyPageContent を再利用)。
+              desktopはsticky + 独立scroll、mobile/tabletは明示カードで /mypage へ導線を出す
+              (2026-08-02 まさ追加監査反映: mobileで消さない)。 */}
+          <aside className="min-w-0 xl:sticky xl:top-3 xl:max-h-[calc(100vh-1.5rem)] xl:self-start xl:overflow-y-auto xl:border-l xl:border-border/50 xl:pl-4">
+            <Link
+              href="/mypage"
+              className="dashboard-desk-section mb-3 flex items-center justify-between gap-2 px-3 py-3 text-[13px] font-medium text-[var(--desk-ink)] xl:hidden"
+            >
+              <span>マイページを開く — 今週の活動・報酬・PJ</span>
+              <ArrowRight className="h-4 w-4 shrink-0 text-[var(--desk-blue)]" aria-hidden="true" />
+            </Link>
+            <div className="hidden xl:block">
+              <MyPageContent embedded showMonthlyProjects={false} />
+            </div>
           </aside>
           <div id="company-content" ref={companyAnchorRef} className="xl:col-span-2">
             {companyContent ? (

@@ -273,6 +273,128 @@ body:has(.amd-desk-page-skin) {
   letter-spacing: 0;
 }
 
+/* AMD OS home (/dashboard) skin: white / graphite / deep navy / AMD blue / cyan.
+   Reuses the same --desk-* custom property names as .amd-desk-page-skin so existing
+   dashboard components (dashboard-desk-section, bg-muted/text-muted-foreground resets,
+   emerald/sky/amber/violet accents) render correctly without per-component changes —
+   only the palette values differ. Avoids the beige desk-skin tone for the home route
+   (2026-08-02 research portfolio home redesign, まさ確定「淡いベージュは避ける」). */
+.amd-home-page-skin {
+  --desk-paper: #f8fafc;
+  --desk-sheet: #ffffff;
+  --desk-panel-raised: #ffffff;
+  --desk-ink: #0f172a;
+  --desk-muted: #334155;
+  --desk-quiet: #64748b;
+  --desk-line: rgba(15, 23, 42, 0.14);
+  --desk-green: #15803d;
+  --desk-green-soft: #dcfce7;
+  --desk-amber: #b45309;
+  --desk-amber-soft: #fef3c7;
+  --desk-blue: #0066cc;
+  --desk-blue-soft: #dbeafe;
+  --desk-violet: #6d28d9;
+  --desk-violet-soft: #ede9fe;
+  --desk-navy: #081b2b;
+  --desk-cyan: #00a6e6;
+  min-height: calc(100vh - 2.75rem);
+  color: var(--desk-ink);
+  background:
+    linear-gradient(90deg, rgba(0, 102, 204, 0.05) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(rgba(0, 166, 230, 0.05) 1px, transparent 1px) 0 0 / 32px 32px,
+    var(--desk-paper);
+  font-variant-numeric: tabular-nums;
+}
+
+body:has(.amd-home-page-skin) {
+  background: #f8fafc;
+}
+
+.amd-home-page-skin .bg-card,
+.amd-home-page-skin .bg-white,
+.amd-home-page-skin [class*="bg-background"] {
+  background-color: #ffffff !important;
+}
+
+.amd-home-page-skin .bg-muted,
+.amd-home-page-skin [class*="bg-muted/"] {
+  background-color: #f1f5f9 !important;
+}
+
+.amd-home-page-skin .text-muted-foreground {
+  color: var(--desk-muted) !important;
+}
+
+.amd-home-page-skin .border-border,
+.amd-home-page-skin [class*="border-border/"] {
+  border-color: var(--desk-line) !important;
+}
+
+.amd-home-page-skin :is(section, article, aside) {
+  border-color: var(--desk-line);
+  box-shadow: none;
+}
+
+.amd-home-page-skin :is(section, article, aside):not(.dashboard-desk-section) {
+  border-radius: 4px;
+}
+
+.amd-home-page-skin :is(section, article, aside) > :first-child:is(div, header) {
+  border-color: var(--desk-line);
+}
+
+.amd-home-page-skin button,
+.amd-home-page-skin a[role="button"] {
+  border-radius: 4px;
+}
+
+.amd-home-page-skin :is(button, a):focus-visible {
+  outline: 2px solid rgba(0, 102, 204, 0.4);
+  outline-offset: 2px;
+}
+
+.amd-home-page-skin .divide-border > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--desk-line) !important;
+}
+
+.amd-home-page-skin :is(.text-emerald-600, .text-emerald-700, .text-emerald-800, .text-emerald-900) {
+  color: var(--desk-green) !important;
+}
+
+.amd-home-page-skin :is(.text-sky-600, .text-sky-700, .text-sky-800, .text-sky-900) {
+  color: var(--desk-blue) !important;
+}
+
+.amd-home-page-skin :is(.text-amber-600, .text-amber-700, .text-amber-800, .text-amber-900) {
+  color: var(--desk-amber) !important;
+}
+
+.amd-home-page-skin :is(.text-violet-600, .text-violet-700, .text-violet-800, .text-violet-900, .text-purple-800) {
+  color: var(--desk-violet) !important;
+}
+
+.amd-home-page-skin :is(.bg-emerald-50, .bg-emerald-100) {
+  background-color: var(--desk-green-soft) !important;
+}
+
+.amd-home-page-skin :is(.bg-sky-50, .bg-sky-100) {
+  background-color: var(--desk-blue-soft) !important;
+}
+
+.amd-home-page-skin :is(.bg-amber-50, .bg-amber-100) {
+  background-color: var(--desk-amber-soft) !important;
+}
+
+.amd-home-page-skin :is(.bg-violet-50, .bg-violet-100, .bg-purple-50, .bg-purple-100) {
+  background-color: var(--desk-violet-soft) !important;
+}
+
+.amd-home-page-skin .dashboard-desk-section {
+  background: #ffffff;
+  border-color: var(--desk-line);
+  box-shadow: none;
+}
+
 /* Business-card capture: paper, ink, verification, and PJ-thread tokens. */
 .business-card-page {
   --contact-canvas: #f7f5ee;

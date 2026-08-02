@@ -100,17 +100,17 @@ pwa/
 | `/auth/callback` | OAuth callback |
 | `/hud/dashboard/embed` | STAPA投影資料など外部プレゼン用の公開HUD埋め込みroute。通常の `/hud/dashboard` は認証必須のまま、embed routeのみ `frame-ancestors 'self' http://127.0.0.1:8766 http://localhost:8766` を許可する。 |
 
-### 独立プレビューroute (AMD内部認証必須)
+### 旧・独立プレビューroute (2026-08-02 /dashboard へ統合済み)
 
 | パス | 機能 |
 |---|---|
-| `/portfolio-preview` | 研究機関・シーズを契約前後を通じて育てる母集団、PJを両者から契約後に生まれる運用レイヤーとして再構成した仮設IA。実データを読み取り専用で表示し、研究機関はECR、シーズはSPSを別系列のまま扱う。`institution_projects` / `seed_projects` からPJの由来を表示し、関係未登録PJは推測せず「由来要確認」にする。AMD内部の `portfolio` scopeとCalendar接続を必須とし、PJ限定ユーザーは入れない。現行 `/dashboard`、GlobalNav、各一覧・コックピットは変更せず、プレビュー内だけで4画面を切り替える |
+| `/portfolio-preview` | 旧仮設IA (研究機関・シーズを母集団、PJを契約後の運用レイヤーとする構造)。実データ検証を経て 2026-08-02 まさ確定で `/dashboard` へ正式採用したため、独立シェルは撤去し `redirect("/dashboard")` だけを残す。旧URLを踏んでも `/dashboard` の認証・role-based top がそのまま効く |
 
 ### `(app)/` 配下 (auth 必須、middleware が gate)
 
 | パス | 機能 |
 |---|---|
-| `/dashboard` | トップ。PJ 一覧 + 先手TODOバッジ + Atlas/Venture Map/MyPage/Admin への入口。上部のバイタルサイン枠はクリックで AMD 全体 cockpit (`/project/p00/cockpit`) へ遷移し、右上の詳細リンクだけ `/management-score` へ遷移する。基本表示順は左/mainカラム内で通常PJ一覧 → 研究機関リスト、下段全幅で Company Content shelf。AMD全体PJ (`p00`) と `institution_projects` に登録された研究機関PJは通常PJ一覧へ二重表示せず、研究機関カタログの同じ機関行へPJ運用レイヤーとして重ねる。対応は名称や固定IDでなくDB関係から解決する。Company Content shelf はメンバー / 沿革 / メディア掲載 / photo を preview する。右カラムの MyPage embed は「今週やったこと」までに留め、月別PJカードは `/mypage` 単体にだけ残す |
+| `/dashboard` | トップ = 研究ポートフォリオ中心IA (2026-08-02 まさ確定、旧 `/portfolio-preview` を統合)。上段は `ProactiveTodoBadge` (admin限定) → `PortfolioPulse` (研究機関・シーズ・PJ運用の統計strip + 3パネル優先キュー、パネル順は研究機関→シーズ→PJ運用でPJを主役に戻さない) → `#pj-operations` アンカー配下の既存PJ一覧 (Active/Sales-Draft/Ended-Frozen stripe) → 要対応 action queue → 折り畳み「経営指標・接続状況」(Management Score/資金調達/抽出状況/freee連携、既定open)。右カラムは `<MyPageContent embedded showMonthlyProjects={false} />` を desktop で `sticky` + 独立scroll、mobile/tabletでは「マイページを開く」実リンクカードに落とす。下段全幅で Company Content shelf。`PortfolioPulse` は `/api/dashboard/portfolio-pulse` (server-side `createAdminClient()` + `requireMember()` + `Promise.allSettled` でECR/シーズを障害分離) からだけデータを取り、default browser clientの直接呼び出しは禁止 (migration 213 RLS下でシーズ0件になる既知障害の再発防止)。研究機関・シーズの全件は出さず上位候補だけを表示し、全件正本は `/institutions` `/seeds`。AMD全体PJ (`p00`) と `institution_projects` に登録された研究機関PJは通常PJ一覧へ二重表示せず、研究機関カタログの同じ機関行へPJ運用レイヤーとして重ねる。対応は名称や固定IDでなくDB関係から解決する。配色は `amd-home-page-skin` (白/graphite/濃紺/AMD blue/cyan、borders-only) で、旧 `amd-desk-page-skin` の淡いベージュは使わない |
 | `/my-projects` | `os_access_scope='project'` で複数PJへ参加するユーザーの入口。activeな `project_members` のPJだけを表示する |
 | `/project/[projectId]/workspace` | PJ共有ダッシュボード。研究→応用→開発→SU→調整の週次エフォート、メンバー配分、MS、抽出済み活動件数を表示する。raw本文・email・報酬・契約・内部戦略は返さない。PJ限定ユーザーは本人分だけ、portfolio/adminはactive member分を入力できる |
 | `/project/[projectId]/weekly-control` | `/workspace`を置換しない別URLの週次管制。先週差分→今週の判断→介入の3段レール、4本柱の例外行、論点/仮説の要整理→検証中→判断待ち→決定/棄却を表示する。担当・次期限・子要素を含む最終更新から放置警報を導出。抽出未接続は0件と断定せず`抽出接続待ち` |
