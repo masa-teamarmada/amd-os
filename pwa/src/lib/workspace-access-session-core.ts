@@ -5,7 +5,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 export const WORKSPACE_SESSION_COOKIE = "amd_os_workspace_session";
-export const WORKSPACE_SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7d
+export const WORKSPACE_SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30d
 
 export type WorkspaceSessionPayload = {
   version: 1;

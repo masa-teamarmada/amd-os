@@ -33,7 +33,7 @@
 - `/api/*` の mutation は route ごとに `requireAuth` / admin check / `CRON_SECRET` を使い分ける。
 - Google OAuth は Calendar / Gmail の readonly access を前提にし、server-side ingestion 用 token は `member_google_oauth_tokens` に保存する。
 - 認証主体は3種類。(1) 内部メンバー = Google OAuth の Supabase authenticated session、(2) PJ限定メンバー = 旧 `amd_os_project_session` 署名cookie、(3) **外部の研究機関ユーザー (`workspace_user_accounts`) = `amd_os_workspace_session` 署名cookie**。
-- 外部ユーザーはメールリンク (email OTP) でログインし、コールバックでSupabaseセッションが成立した直後に `signOut({ scope: "local" })` してHTTP-only署名cookieへ交換する。以後Supabaseのauthenticatedセッションを持たない。cookieは毎リクエスト検証したうえで**必ずDBを引き直す**。アカウント停止、所属失効、ワークスペースのpauseは次のリクエストで効く。cookieの中身だけを信用しない。
+- 外部ユーザーはメールリンク (email OTP) でログインし、コールバックでSupabaseセッションが成立した直後に `signOut({ scope: "local" })` して30日固定のHTTP-only署名cookieへ交換する。以後Supabaseのauthenticatedセッションを持たない。cookieは毎リクエスト検証したうえで**必ずDBを引き直す**。アカウント停止、所属失効、ワークスペースのpauseは次のリクエストで効く。cookieの中身だけを信用しない。
 - `amd_os_workspace_session` が通常セッションの代わりになるのは `/workspaces`、`/workspace/**`、`/project/[projectId]/workspace` だけ。内部メンバー route では middleware がこのcookieを認証として扱わない。
 - 認可の根拠は明示的な付与だけ。メールのドメイン一致は根拠にしない。**機関ワークスペースの所属はPJアクセスを意味せず**、`/project/[projectId]/workspace` は `project_access_memberships` の `status='active'` 行が対象PJを名指しした場合だけ開く。
 - 認可できない場合は閉じる側へ倒す。存在しないslug・権限のないPJはリダイレクトせず not found にして、機関やPJの存在自体を漏らさない。
@@ -106,7 +106,7 @@ migration 212 / 213 と対になる contract。両migrationは2026-08-01に本�
 | authority | 7テーブルとも RLS 有効・anon / 一般 authenticated のポリシーなし。admin (`is_admin()`) と service_role のみ |
 | principal | 外部ユーザーの識別子はメールアドレスのみ。認可はアカウント登録・機関ワークスペース所属・PJ個別アクセスの3つの明示的な付与だけ |
 | 暗黙付与の禁止 | 機関ワークスペース所属はPJアクセスを含意しない。ドメイン一致も認可の根拠にしない |
-| session | email OTP → `signOut({scope:'local'})` → `amd_os_workspace_session` 署名cookie。毎リクエストで cookie 検証 + DB 再検証。失効は次のリクエストで即時反映 |
+| session | email OTP → `signOut({scope:'local'})` → 30日固定の `amd_os_workspace_session` 署名cookie。同じブラウザでは期間内のメール再認証を不要にし、毎リクエストで cookie 検証 + DB 再検証する。権限失効は30日を待たず次のリクエストで即時反映 |
 | failure mode | 未認可・不明slugは redirect せず not found。失敗時は常に閉じる側へ倒し、機関・PJの存在を漏らさない |
 | 213 の閉鎖範囲 | `institutions` / `institution_assessments` / `projects` / `members` / `project_members` / `institution_projects` / `seed_projects` / `seeds` / `seed_funding` / `seed_news` / `seed_contact_log` / `seed_sps_assessments` / `value_plan_cycles` / `value_milestones` / `milestone_monthly_progress` の計15テーブルで anon read を撤去し、authenticated を `amd_os_is_member()` ゲートへ寄せる。内部ブラウザreadはログイン済みSupabase browser client、server routeは明示注入したservice clientを使う。write は `is_admin()` + service_role |
 | scope (愛媛) | p30 は `ehime` ワークスペースへ `shared_surface='summary'` で登録 (サマリのみ、詳細ワークスペースは非共有)。p21 はPJ範囲に含めず個別付与のみ。シーズ範囲は `inst_ehime` 紐付け全件。公開一覧は現時点 `ehime` 1件 |

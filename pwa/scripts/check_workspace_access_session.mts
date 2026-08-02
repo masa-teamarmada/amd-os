@@ -5,10 +5,14 @@ import assert from "node:assert/strict";
 import {
   signWorkspaceSessionValue,
   verifyWorkspaceSessionValue,
+  WORKSPACE_SESSION_MAX_AGE,
 } from "../src/lib/workspace-access-session-core.ts";
 
 const SECRET = "test-secret-value-not-real";
 const NOW = 1_700_000_000;
+const THIRTY_DAYS = 60 * 60 * 24 * 30;
+
+assert.equal(WORKSPACE_SESSION_MAX_AGE, THIRTY_DAYS, "workspace session must remain valid for 30 days");
 
 // Valid round-trip.
 {
@@ -47,11 +51,14 @@ const NOW = 1_700_000_000;
 {
   const value = signWorkspaceSessionValue({ accountId: "acct-1", email: "a@b.com" }, SECRET, NOW);
   assert.ok(verifyWorkspaceSessionValue(value, SECRET, NOW), "should verify immediately after signing");
-  assert.ok(verifyWorkspaceSessionValue(value, SECRET, NOW + 60 * 60 * 24 * 7 - 1), "should still verify just before 7d");
+  assert.ok(
+    verifyWorkspaceSessionValue(value, SECRET, NOW + WORKSPACE_SESSION_MAX_AGE - 1),
+    "should still verify just before 30d",
+  );
   assert.equal(
-    verifyWorkspaceSessionValue(value, SECRET, NOW + 60 * 60 * 24 * 7 + 1),
+    verifyWorkspaceSessionValue(value, SECRET, NOW + WORKSPACE_SESSION_MAX_AGE),
     null,
-    "should be rejected once past 7d expiry",
+    "should be rejected at 30d expiry",
   );
 }
 
