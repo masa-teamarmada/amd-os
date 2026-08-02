@@ -314,13 +314,113 @@ assert.doesNotMatch(
 );
 assert.match(
   desktopComposerGeometry,
-  /const maxHeight = Math\.max\(180, size\.h - top - 12\);/,
-  "maxHeight must be derived from the confirmed top, guaranteeing top + maxHeight <= size.h - 12",
+  /const maxHeight = Math\.max\(180, bandBottom - top - 12\);/,
+  "maxHeight must be derived from the confirmed top inside the live viewport band, guaranteeing top + maxHeight <= bandBottom - 12",
 );
 assert.match(
   desktopComposerGeometry,
   /return \{ left, top, width: panelWidth, maxHeight \};/,
   "the returned style must use the top-derived maxHeight, not a separate viewport-fixed value",
+);
+
+// ---------------------------------------------------------------------------
+// Live-viewport clamp (2026-08-02, v3.54.17): the map element's own height
+// (size.h) is NOT the visible height. With the page scrolled / a tall header
+// above the map, a composer laid out against size.h runs off the bottom of the
+// browser viewport — measured in production at 1547x831, a blank lower-area
+// click produced a composer rect of top 586 / bottom 1008 (177px below the
+// window). The overlay must instead be clamped to window.innerHeight mapped
+// into the map element's local coordinates (viewportBand), with a 12px margin,
+// while keeping the composer inside the map overlay and preserving the
+// dialog's internal scroll region.
+// ---------------------------------------------------------------------------
+assert.match(
+  view,
+  /const \[viewportBand, setViewportBand\] = useState\(\{ top: 0, bottom: 600 \}\)/,
+  "the map view must track a live viewport band in map-local coordinates"
+);
+assert.match(
+  view,
+  /const innerHeight = window\.innerHeight \|\| rect\.height;/,
+  "the band must be measured from the real browser viewport height, not the map element height"
+);
+assert.match(
+  view,
+  /setViewportBand\(\{\s*top: Math\.max\(0, -rect\.top\),\s*bottom: Math\.min\(rect\.height, innerHeight - rect\.top\),\s*\}\);/,
+  "the band must be window.innerHeight projected through the map element's viewport rect"
+);
+assert.match(
+  view,
+  /window\.addEventListener\("scroll", update, true\);/,
+  "page/ancestor scrolling moves the map rect, so the band must be re-measured on scroll"
+);
+assert.match(
+  view,
+  /window\.removeEventListener\("scroll", update, true\);/,
+  "the scroll listener must be removed on cleanup"
+);
+assert.match(
+  view,
+  /const visibleTop = Math\.max\(0, Math\.min\(viewportBand\.top, size\.h\)\);/,
+  "the band top must be clamped into the map element"
+);
+assert.match(
+  view,
+  /const visibleBottom = Math\.max\(\s*visibleTop,\s*Math\.min\(size\.h, viewportBand\.bottom\),\s*\);/,
+  "the band bottom must be clamped into the map element and never invert"
+);
+assert.match(
+  view,
+  /const visibleHeight = Math\.max\(204, visibleBottom - visibleTop\);/,
+  "the band must always reserve the 180px minimum panel height plus the 12px top/bottom margins"
+);
+assert.match(
+  view,
+  /const bandBottom = visibleTop \+ visibleHeight;/,
+  "the usable bottom edge must come from the band, not size.h"
+);
+assert.match(
+  desktopComposerGeometry,
+  /const top = Math\.max\(\s*visibleTop \+ 12,\s*Math\.min\(anchor\.y - 64, bandBottom - 360\),\s*\);/,
+  "the desktop composer top must be clamped between the band's top margin and its bottom"
+);
+assert.doesNotMatch(
+  desktopComposerGeometry,
+  /size\.h/,
+  "the desktop composer geometry must no longer reference the map element height for vertical placement"
+);
+
+const mobileComposerGeometry =
+  view.split("const composerOverlayStyle: React.CSSProperties =")[1]?.split("      : (() => {")[0] ?? "";
+assert.ok(mobileComposerGeometry.length > 0, "mobile composer geometry branch must be present");
+assert.match(
+  mobileComposerGeometry,
+  /\{ top: visibleTop \+ 12 \}/,
+  "the mobile top-anchored composer must sit at the band top plus the 12px margin"
+);
+assert.match(
+  mobileComposerGeometry,
+  /\{ bottom: Math\.max\(12, size\.h - bandBottom \+ 12\) \}/,
+  "the mobile bottom-anchored composer must offset by however much of the map lies below the visible band"
+);
+assert.match(
+  mobileComposerGeometry,
+  /maxHeight: Math\.max\(180, visibleHeight \/ 2 - 28\)/,
+  "the mobile composer height must derive from the visible band height, not size.h"
+);
+
+// The clamp must not regress the two contracts shipped just before it: the
+// composer still lives inside the map overlay (no portal to document.body) and
+// the dialog keeps its own internal scroll region.
+assert.match(
+  view,
+  /data-bzm-map-overlay-host="composer"[\s\S]{0,200}style=\{composerOverlayStyle\}/,
+  "the clamped composer must remain an in-map overlay host driven by composerOverlayStyle"
+);
+assert.doesNotMatch(
+  view,
+  /createPortal/,
+  "the composer must stay inside the map overlay, not escape to a body-level portal"
 );
 
 // ---------------------------------------------------------------------------

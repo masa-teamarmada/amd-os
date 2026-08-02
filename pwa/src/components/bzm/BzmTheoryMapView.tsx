@@ -489,6 +489,8 @@ export function BzmTheoryMapView({
     Record<string, Pick<GraphNode, "x" | "y" | "fx" | "fy">>
   >({});
   const [size, setSize] = useState({ w: 900, h: 600 });
+  // マップ要素ローカル座標での「実際に見えている縦帯」。既定はマップ全体。
+  const [viewportBand, setViewportBand] = useState({ top: 0, bottom: 600 });
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<ForceGraphHandle | null>(null);
   const draggedNodeClickRef = useRef<string | null>(null);
@@ -639,14 +641,26 @@ export function BzmTheoryMapView({
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       setSize({ w: Math.max(320, rect.width), h: Math.max(420, rect.height) });
+      // 実ブラウザの可視高 (window.innerHeight) を、マップ要素ローカル座標の
+      // 帯へ写す。ページがスクロール位置を持つ / ヘッダーが上に積まれると、
+      // マップ要素の高さ (size.h) と実際に画面に見えている範囲はズレる。
+      // overlay を size.h に対して配置すると viewport 外へはみ出すため、
+      // composer はこの帯 (viewportBand) に clamp する。
+      const innerHeight = window.innerHeight || rect.height;
+      setViewportBand({
+        top: Math.max(0, -rect.top),
+        bottom: Math.min(rect.height, innerHeight - rect.top),
+      });
     };
     update();
     const ro = new ResizeObserver(update);
     if (containerRef.current) ro.observe(containerRef.current);
     window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
     return () => {
       ro.disconnect();
       window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
     };
   }, []);
 
@@ -889,31 +903,48 @@ export function BzmTheoryMapView({
     return () => window.clearTimeout(timer);
   }, [notice]);
 
+  // 可視帯 (= window.innerHeight をマップ要素ローカル座標へ写したもの) を
+  // マップ範囲へ丸めた値。composer overlay の上端・下端はすべてこの帯を基準に
+  // 決める。size.h を基準にすると、ページがスクロールしている実ブラウザでは
+  // overlay の下端が viewport の外へ落ちる (1547x831 の実測で composer が
+  // top 586 / bottom 1008 まで伸びた事象)。
+  const visibleTop = Math.max(0, Math.min(viewportBand.top, size.h));
+  const visibleBottom = Math.max(
+    visibleTop,
+    Math.min(size.h, viewportBand.bottom),
+  );
+  // 180 (panel 最小高) + 12*2 (上下マージン) は必ず確保する。
+  const visibleHeight = Math.max(204, visibleBottom - visibleTop);
+  const bandBottom = visibleTop + visibleHeight;
+
   const composerOverlayStyle: React.CSSProperties =
     size.w < 640
       ? {
           left: 12,
           right: 12,
-          ...(composerAnchor && composerAnchor.y > size.h / 2
-            ? { top: 12 }
-            : { bottom: 12 }),
-          maxHeight: Math.max(180, size.h / 2 - 28),
+          ...(composerAnchor && composerAnchor.y > (visibleTop + bandBottom) / 2
+            ? { top: visibleTop + 12 }
+            : { bottom: Math.max(12, size.h - bandBottom + 12) }),
+          maxHeight: Math.max(180, visibleHeight / 2 - 28),
         }
       : (() => {
           const panelWidth = Math.min(360, size.w - 24);
-          const anchor = composerAnchor ?? { x: size.w / 2, y: 80 };
+          const anchor = composerAnchor ?? { x: size.w / 2, y: visibleTop + 80 };
           const nodeGap = 72;
           const fitsRight =
             anchor.x + nodeGap + panelWidth <= size.w - 12;
           const left = fitsRight
             ? anchor.x + nodeGap
             : Math.max(12, anchor.x - panelWidth - nodeGap);
-          const top = Math.max(12, Math.min(anchor.y - 64, size.h - 360));
-          // top を確定させた後の残り可視高だけを maxHeight にする。size.h - 24
-          // 固定だと top > 12 のとき bottom (= top + maxHeight) が viewport を
-          // 超え、親 overflow で panel 下部が clip され内部 scroll も実際の
-          // 可視高を認識できない。
-          const maxHeight = Math.max(180, size.h - top - 12);
+          const top = Math.max(
+            visibleTop + 12,
+            Math.min(anchor.y - 64, bandBottom - 360),
+          );
+          // top を確定させた後の「可視帯の残り」だけを maxHeight にする。
+          // マップ要素高さ基準だと top > 12 のとき bottom (= top + maxHeight) が実際の
+          // viewport を超え、panel 下部が clip され内部 scroll も実可視高を
+          // 認識できない。
+          const maxHeight = Math.max(180, bandBottom - top - 12);
           return { left, top, width: panelWidth, maxHeight };
         })();
 
