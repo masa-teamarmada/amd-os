@@ -44,6 +44,7 @@ import type {
   SxPartnerWorkItem,
   SxTask,
   SxTrackKey,
+  SxValidationRun,
 } from "@/lib/sx-management";
 import { deriveSxUnifiedTimeline } from "@/lib/sx-executive-control-deck";
 import {
@@ -103,6 +104,12 @@ type EditorState =
       kind: "create_validation";
       issue: SxManagementIssue;
       hypothesis: SxHypothesis;
+    }
+  | {
+      kind: "edit_validation";
+      issue: SxManagementIssue;
+      hypothesis: SxHypothesis;
+      validation: SxValidationRun;
     }
   | {
       kind: "create_decision";
@@ -650,6 +657,16 @@ function editorInitialValues(
         : editor.hypothesis.ownerLabel,
       method: "",
       confidence: "unknown",
+    };
+  if (editor.kind === "edit_validation")
+    return {
+      validation_kind: editor.validation.validationKind,
+      planned_on: editor.validation.plannedOn || "",
+      due_date: editor.validation.dueDate || "",
+      status: editor.validation.status,
+      owner_label: editor.validation.ownerLabel,
+      method: editor.validation.method,
+      confidence: editor.validation.confidence,
     };
   if (editor.kind === "edit_decision")
     return {
@@ -1678,6 +1695,46 @@ function editorDefinition(
         },
       ],
     };
+  if (editor.kind === "edit_validation")
+    return {
+      title: "検証を編集",
+      eyebrow: "検証",
+      resource: "validation",
+      method: "PATCH",
+      id: editor.validation.id,
+      fields: [
+        {
+          key: "validation_kind",
+          label: "検証の種類",
+          required: true,
+          help: "例: 顧客ヒアリング、再現試験",
+        },
+        {
+          key: "status",
+          label: "状態",
+          type: "select",
+          required: true,
+          options: [
+            { value: "planned", label: "計画" },
+            { value: "running", label: "実施中" },
+            { value: "completed", label: "完了" },
+            { value: "blocked", label: "停止" },
+            { value: "cancelled", label: "取消" },
+          ],
+        },
+        { key: "planned_on", label: "予定日", type: "date" },
+        { key: "due_date", label: "期限", type: "date" },
+        { key: "owner_label", label: "担当", required: true },
+        confidence,
+        {
+          key: "method",
+          label: "方法・合格条件",
+          type: "textarea",
+          required: true,
+          span: true,
+        },
+      ],
+    };
   if (editor.kind === "edit_decision")
     return {
       title: "判断を編集",
@@ -2215,6 +2272,9 @@ function IssueEditor({
         role="dialog"
         aria-modal="true"
         aria-label={definition.title}
+        data-editor-kind={editor.kind}
+        data-editor-resource={definition.resource}
+        data-editor-record-id={definition.id || ""}
       >
         <header className={styles.editorHeader}>
           <div>
@@ -2242,6 +2302,14 @@ function IssueEditor({
             <>
               <span>対象仮説</span>
               <strong>{editor.hypothesis?.statement}</strong>
+            </>
+          )}
+          {"validation" in editor && (
+            <>
+              <span>対象検証</span>
+              <strong>
+                {editor.validation.method || editor.validation.validationKind}
+              </strong>
             </>
           )}
           {"decision" in editor && (
@@ -3411,44 +3479,65 @@ export function SxWeeklyControlDashboard({
       return;
     }
     if (unit.navIssueId) {
+      // 論点系（論点・仮説・検証・判断・action）はroot editorモーダルという1段上の重畳面を
+      // 開くだけで、背景のページ自体は動かさない。以前はここで#issue-hypothesisへ
+      // scrollIntoViewしていたが、モーダルが全画面backdropで覆う以上スクロールする理由が
+      // なく、担当負荷から開いたときだけ画面が意図せず流れるバグになっていた（2026-08
+      // 監査追補）。ガント側の選択（工程/タスク）が残っていると、このeditorモーダルと
+      // PlanInspectorが同時に開く二重dialogになるため、開く前に必ず解除する。IDが一致する
+      // 子レコードを見つけられない場合は、他kindのprovenance監査と同じくnoticeだけを出し、
+      // 親論点編集へ黙ってフォールバックしない（要求と異なる編集画面を誤って開かない）。
       const issue = management.issues.find(
         (item) => item.id === unit.navIssueId,
       );
-      if (issue) {
-        if (unit.kind === "hypothesis") {
-          const hypothesis = issue.hypotheses.find(
-            (item) => item.id === unit.id,
-          );
-          setEditor(
-            hypothesis
-              ? { kind: "edit_hypothesis", issue, hypothesis }
-              : { kind: "edit_issue", issue },
-          );
-        } else if (unit.kind === "decision") {
-          const decision = issue.decisions.find((item) => item.id === unit.id);
-          setEditor(
-            decision
-              ? { kind: "edit_decision", issue, decision }
-              : { kind: "edit_issue", issue },
-          );
-        } else if (unit.kind === "action") {
-          const decision = issue.decisions.find((item) =>
-            item.actionItems.some((action) => action.id === unit.id),
-          );
-          const action = decision?.actionItems.find(
-            (item) => item.id === unit.id,
-          );
-          setEditor(
-            decision && action
-              ? { kind: "edit_action", issue, decision, action }
-              : { kind: "edit_issue", issue },
-          );
-        } else {
-          setEditor({ kind: "edit_issue", issue });
+      if (!issue) {
+        notifyWorkUnitNotFound();
+        return;
+      }
+      setSelectedMilestoneId(null);
+      setSelectedTaskId(null);
+      if (unit.kind === "hypothesis") {
+        const hypothesis = issue.hypotheses.find(
+          (item) => item.id === unit.id,
+        );
+        if (!hypothesis) {
+          notifyWorkUnitNotFound();
+          return;
         }
-        document
-          .getElementById("issue-hypothesis")
-          ?.scrollIntoView({ block: "start", behavior: "smooth" });
+        setEditor({ kind: "edit_hypothesis", issue, hypothesis });
+      } else if (unit.kind === "validation") {
+        const validation = issue.validationRuns.find(
+          (item) => item.id === unit.id,
+        );
+        const hypothesis = validation
+          ? issue.hypotheses.find((item) => item.id === validation.hypothesisId)
+          : undefined;
+        if (!validation || !hypothesis) {
+          notifyWorkUnitNotFound();
+          return;
+        }
+        setEditor({ kind: "edit_validation", issue, hypothesis, validation });
+      } else if (unit.kind === "decision") {
+        const decision = issue.decisions.find((item) => item.id === unit.id);
+        if (!decision) {
+          notifyWorkUnitNotFound();
+          return;
+        }
+        setEditor({ kind: "edit_decision", issue, decision });
+      } else if (unit.kind === "action") {
+        const decision = issue.decisions.find((item) =>
+          item.actionItems.some((action) => action.id === unit.id),
+        );
+        const action = decision?.actionItems.find(
+          (item) => item.id === unit.id,
+        );
+        if (!decision || !action) {
+          notifyWorkUnitNotFound();
+          return;
+        }
+        setEditor({ kind: "edit_action", issue, decision, action });
+      } else {
+        setEditor({ kind: "edit_issue", issue });
       }
       return;
     }

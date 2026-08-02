@@ -173,6 +173,31 @@ expectIncludes(
     'role="presentation"',
     'data-modal-layer="sx-issue-editor"',
     "return createPortal(",
+    // Round 34 (2026-08-02): validation work unitがedit_validationを持たず親issue編集へ
+    // 黙ってフォールバックしていた穴を塞ぐ。SxValidationRunを直接resource=validationで
+    // PATCHするedit_validation editorを追加し、押した検証レコードそのものを開く。
+    "edit_validation",
+    'resource: "validation"',
+    "const validation = issue.validationRuns.find(",
+    "issue.hypotheses.find((item) => item.id === validation.hypothesisId)",
+    'setEditor({ kind: "edit_validation", issue, hypothesis, validation });',
+    // 論点系（hypothesis/validation/decision/action）のID不一致は、partnerのprovenance監査
+    // と同じくnotifyWorkUnitNotFound()のnoticeで終え、親issue編集へ黙ってフォールバック
+    // しない。issue自体が見つからない場合も同様にnoticeで終える。
+    "if (!issue) {\n        notifyWorkUnitNotFound();\n        return;\n      }",
+    'if (!validation || !hypothesis) {\n          notifyWorkUnitNotFound();\n          return;\n        }',
+    'if (!decision) {\n          notifyWorkUnitNotFound();\n          return;\n        }',
+    'if (!decision || !action) {\n          notifyWorkUnitNotFound();\n          return;\n        }',
+    // 論点系root editorはページ全体を覆うbackdropモーダルであり、背景スクロールは不要かつ
+    // 担当負荷から開いたときにscrollYが動くバグの原因だった。#issue-hypothesisへの
+    // scrollIntoViewを廃止し、開く前にガント側の選択(工程/タスク)を必ず解除して
+    // PlanInspectorとの二重dialogを防ぐ。
+    "setSelectedMilestoneId(null);\n      setSelectedTaskId(null);\n      if (unit.kind === \"hypothesis\") {",
+    // root editorモーダルへ、開いているeditorのkind/resource/record-idを静的に出し、実
+    // ブラウザ監査で「押した項目」と「開いたeditor」の対象一致を検査できるようにする。
+    "data-editor-kind={editor.kind}",
+    "data-editor-resource={definition.resource}",
+    'data-editor-record-id={definition.id || ""}',
   ],
 );
 expectNotIncludes(
@@ -182,6 +207,13 @@ expectNotIncludes(
     "今週入力",
     "週次管制 <span>",
     'data-sx-anchor="sx-partner-${unit.navPartnerId}"',
+    // Round 34 (2026-08-02): 論点系root editorはモーダルであり、背景ページをスクロールする
+    // 理由がない。担当負荷から開いたときにscrollYが動くバグの原因だったscrollIntoViewを
+    // 再導入しない。
+    '.getElementById("issue-hypothesis")',
+    // 論点系のID不一致を親issue編集へ黙ってフォールバックする旧実装（partnerと違う扱い）を
+    // 再導入しない。
+    "hypothesis\n              ? { kind: \"edit_hypothesis\", issue, hypothesis }\n              : { kind: \"edit_issue\", issue },",
   ],
 );
 expectIncludes("src/lib/sx-project-owner-load.ts", [
@@ -210,6 +242,22 @@ expectIncludes("src/components/project-workspace/SxProjectOwnerWorkload.tsx", [
   // (合計554px)が1カードに収まらず横あふれする。xl未満は2行1列、xl以上だけ元の4列1行へ戻す。
   "xl:grid-cols-[110px_minmax(160px,1fr)_120px_minmax(140px,0.8fr)]",
   "xl:contents",
+  // Round 34 (2026-08-02): 外側lg:grid-cols-2だけでは、暗黙行で左右のdetailsがペアリングされ
+  // (item0=row1col1, item1=row1col2, ...)、片側の展開でその共有行が伸び、反対列の後続カード
+  // までY座標が動いていた(items-startは行の共有そのものを解消しない)。左右をOwnerLoadColumn
+  // という完全に独立したflex-col要素へ分離し、各列が自列の高さだけで自己完結するようにする。
+  "function OwnerLoadColumn({",
+  "const splitAt = Math.ceil(loads.length / 2);",
+  "const leftLoads = loads.slice(0, splitAt);",
+  "const rightLoads = loads.slice(splitAt);",
+  "<OwnerLoadColumn loads={leftLoads} onSelectItem={onSelectItem} />",
+  "<OwnerLoadColumn loads={rightLoads} onSelectItem={onSelectItem} />",
+  'className="flex flex-col gap-px bg-[#d9cfde]"',
+  // 実動作は元の編集文脈を開くことなので、aria-labelは「移動」ではなく「編集」で実態を表す。
+  "aria-label={`${item.title}を編集`}",
+  // 実ブラウザ監査でクリック対象と後続の編集モーダル対象の一致を検査できるようにする。
+  "data-work-unit-kind={item.kind}",
+  "data-work-unit-id={item.id}",
 ]);
 expectNotIncludes(
   "src/components/project-workspace/SxProjectOwnerWorkload.tsx",
@@ -217,6 +265,8 @@ expectNotIncludes(
     // 旧・展開行のグリッドはxl条件なしで常時4列を強制しており、lg 2カラムと組み合わせると
     // 1024px前後で横あふれしていた。
     "grid-cols-[110px_minmax(160px,1fr)_120px_minmax(140px,0.8fr)] items-start",
+    // 旧文言。実動作(編集モーダルを開く)と不一致だった。
+    "の元項目へ移動",
   ],
 );
 
@@ -3099,6 +3149,26 @@ expectIncludes("src/components/project-workspace/weekly-control.module.css", [
   ".inlineFieldEditor",
   ".inlineFieldForm",
   ".inlineFieldActions",
+]);
+// Round 34 (2026-08-02): root IssueEditorはcreatePortalでdocument.body直下へ描画され、.page
+// が定義するCSS変数の継承チェーンから外れる。.editorEmbedded/.inlineFieldEditorは既に
+// ローカルにトークンを再定義していたが、実際にportalされる.editorBackdropだけそれを欠いて
+// おり、透明な生成りsheet・崩れたink/border/focusの原因だった。PlanInspectorLayerと同じ
+// トークン一式をここで再定義し、44pxヒットターゲットとfocus-visibleの可視outlineも揃える。
+expectPattern("src/components/project-workspace/weekly-control.module.css", [
+  /\.editorBackdrop\s*\{[^}]*--sheet:\s*#fffdf7;/,
+  /\.editorBackdrop\s*\{[^}]*--ink:\s*#24231f;/,
+  /\.editorBackdrop\s*\{[^}]*--green:\s*#235f4b;/,
+]);
+expectIncludes("src/components/project-workspace/weekly-control.module.css", [
+  ".iconButton { width: 44px; height: 44px; border-radius: 50%; }",
+  ".iconButton:hover, .iconButton:focus-visible { border-color: var(--green); background: #e8f2eb; color: var(--green); outline: 2px solid var(--green); outline-offset: 2px; }",
+  ".primaryButton, .secondaryButton { min-height: 44px;",
+  ".primaryButton:focus-visible, .secondaryButton:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }",
+  "min-height: 44px; border: 1px solid #c9c0b2; border-radius: 4px; background: white; padding: 9px 10px; color: var(--ink);",
+  ".field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible, .fieldSpan input:focus-visible, .fieldSpan select:focus-visible, .fieldSpan textarea:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }",
+  ".checkboxRow { min-height: 44px;",
+  ".checkboxRow input:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }",
 ]);
 expectIncludes("src/components/project-workspace/useModalContainment.ts", [
   "FOCUSABLE_SELECTOR",
