@@ -2,7 +2,7 @@
 // - 読み取りは anon key (RLS anon_read OK)
 // - 書き込みは authClient (authenticated browser client)
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
 import type {
   Seed,
@@ -16,7 +16,10 @@ import type {
   SeedProjectLink,
 } from "@/types/seeds";
 import { SEED_PUBLIC_VIEW_COLUMNS } from "@/types/seeds";
-import { calculateSeedSpsScore, type SeedSpsAssessmentAxes } from "@/lib/seed-sps";
+import {
+  calculateSeedSpsScore,
+  type SeedSpsAssessmentAxes,
+} from "@/lib/seed-sps";
 export {
   SEED_COMMERCIALIZATION_TYPE_LABEL,
   SEED_COMMERCIALIZATION_TYPE_ORDER,
@@ -41,7 +44,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
 const supabase = createClient(
   supabaseUrl || "https://placeholder.supabase.co",
-  supabaseAnonKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder"
+  supabaseAnonKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder",
 );
 
 function getAuthClient() {
@@ -56,32 +59,59 @@ function getAuthClient() {
 export async function fetchSeedList(): Promise<SeedListItem[]> {
   const [seedsRes, fundingRes, newsRes, contactRes] = await Promise.all([
     supabase.from("seeds").select("*"),
-    supabase.from("seed_funding").select("seed_id, amount_jpy, status, program_short, fiscal_year"),
+    supabase
+      .from("seed_funding")
+      .select("seed_id, amount_jpy, status, program_short, fiscal_year"),
     supabase.from("seed_news").select("seed_id, dismissed"),
     supabase.from("seed_contact_log").select("seed_id, contacted_on"),
   ]);
 
   const seeds = (seedsRes.data ?? []) as Seed[];
-  const projectLinksBySeed = await fetchSeedProjectLinks(seeds.map((seed) => seed.id));
-  const fundings = (fundingRes.data ?? []) as { seed_id: string; amount_jpy: number | null; status: string | null; program_short: string | null; fiscal_year: number | null }[];
-  const news = (newsRes.data ?? []) as { seed_id: string; dismissed: boolean }[];
-  const contacts = (contactRes.data ?? []) as { seed_id: string; contacted_on: string }[];
+  const projectLinksBySeed = await fetchSeedProjectLinks(
+    seeds.map((seed) => seed.id),
+  );
+  const fundings = (fundingRes.data ?? []) as {
+    seed_id: string;
+    amount_jpy: number | null;
+    status: string | null;
+    program_short: string | null;
+    fiscal_year: number | null;
+  }[];
+  const news = (newsRes.data ?? []) as {
+    seed_id: string;
+    dismissed: boolean;
+  }[];
+  const contacts = (contactRes.data ?? []) as {
+    seed_id: string;
+    contacted_on: string;
+  }[];
 
   // AMD owner code_name
-  const ownerIds = Array.from(new Set(seeds.map((s) => s.amd_owner_member_id).filter((v): v is string => !!v)));
+  const ownerIds = Array.from(
+    new Set(
+      seeds.map((s) => s.amd_owner_member_id).filter((v): v is string => !!v),
+    ),
+  );
   const ownerNameMap = new Map<string, string>();
   if (ownerIds.length > 0) {
     const { data: members } = await supabase
       .from("members")
       .select("member_id, code_name")
       .in("member_id", ownerIds);
-    for (const m of (members ?? []) as { member_id: string; code_name: string }[]) {
+    for (const m of (members ?? []) as {
+      member_id: string;
+      code_name: string;
+    }[]) {
       ownerNameMap.set(m.member_id, m.code_name);
     }
   }
 
   // PJ 名 (spun_off)
-  const pjIds = Array.from(new Set(seeds.map((s) => s.spun_off_project_id).filter((v): v is string => !!v)));
+  const pjIds = Array.from(
+    new Set(
+      seeds.map((s) => s.spun_off_project_id).filter((v): v is string => !!v),
+    ),
+  );
   const pjNameMap = new Map<string, string>();
   if (pjIds.length > 0) {
     const { data: pjs } = await supabase
@@ -91,17 +121,26 @@ export async function fetchSeedList(): Promise<SeedListItem[]> {
     for (const p of (pjs ?? []) as {
       project_id: string;
       short_label: string | null;
-      projects: { project_name: string | null } | { project_name: string | null }[] | null;
+      projects:
+        | { project_name: string | null }
+        | { project_name: string | null }[]
+        | null;
     }[]) {
       const project = Array.isArray(p.projects) ? p.projects[0] : p.projects;
-      pjNameMap.set(p.project_id, p.short_label ?? project?.project_name ?? p.project_id);
+      pjNameMap.set(
+        p.project_id,
+        p.short_label ?? project?.project_name ?? p.project_id,
+      );
     }
   }
 
   // 集計
   const fundingCountBySeed = new Map<string, number>();
   const fundingTotalBySeed = new Map<string, number>();
-  const fundingProgramsBySeed = new Map<string, { program: string; year: number | null }[]>();
+  const fundingProgramsBySeed = new Map<
+    string,
+    { program: string; year: number | null }[]
+  >();
   // 採択年度の新しい順 → プログラム名昇順 で並べる準備
   const sortedFundings = [...fundings].sort((a, b) => {
     const ay = a.fiscal_year ?? -1;
@@ -110,9 +149,15 @@ export async function fetchSeedList(): Promise<SeedListItem[]> {
     return (a.program_short ?? "").localeCompare(b.program_short ?? "");
   });
   for (const f of sortedFundings) {
-    fundingCountBySeed.set(f.seed_id, (fundingCountBySeed.get(f.seed_id) ?? 0) + 1);
+    fundingCountBySeed.set(
+      f.seed_id,
+      (fundingCountBySeed.get(f.seed_id) ?? 0) + 1,
+    );
     if (f.amount_jpy != null) {
-      fundingTotalBySeed.set(f.seed_id, (fundingTotalBySeed.get(f.seed_id) ?? 0) + f.amount_jpy);
+      fundingTotalBySeed.set(
+        f.seed_id,
+        (fundingTotalBySeed.get(f.seed_id) ?? 0) + f.amount_jpy,
+      );
     }
     if (f.program_short) {
       const list = fundingProgramsBySeed.get(f.seed_id) ?? [];
@@ -133,9 +178,13 @@ export async function fetchSeedList(): Promise<SeedListItem[]> {
   const contactCountBySeed = new Map<string, number>();
   const lastContactBySeed = new Map<string, string>();
   for (const c of contacts) {
-    contactCountBySeed.set(c.seed_id, (contactCountBySeed.get(c.seed_id) ?? 0) + 1);
+    contactCountBySeed.set(
+      c.seed_id,
+      (contactCountBySeed.get(c.seed_id) ?? 0) + 1,
+    );
     const cur = lastContactBySeed.get(c.seed_id);
-    if (!cur || c.contacted_on > cur) lastContactBySeed.set(c.seed_id, c.contacted_on);
+    if (!cur || c.contacted_on > cur)
+      lastContactBySeed.set(c.seed_id, c.contacted_on);
   }
 
   return seeds.map((s) => ({
@@ -146,19 +195,38 @@ export async function fetchSeedList(): Promise<SeedListItem[]> {
     news_count: newsCountBySeed.get(s.id) ?? 0,
     contact_log_count: contactCountBySeed.get(s.id) ?? 0,
     last_contacted_on: lastContactBySeed.get(s.id) ?? null,
-    amd_owner_code_name: s.amd_owner_member_id ? (ownerNameMap.get(s.amd_owner_member_id) ?? null) : null,
-    spun_off_project_name: s.spun_off_project_id ? (pjNameMap.get(s.spun_off_project_id) ?? null) : null,
+    amd_owner_code_name: s.amd_owner_member_id
+      ? (ownerNameMap.get(s.amd_owner_member_id) ?? null)
+      : null,
+    spun_off_project_name: s.spun_off_project_id
+      ? (pjNameMap.get(s.spun_off_project_id) ?? null)
+      : null,
     project_links: projectLinksBySeed.get(s.id) ?? [],
   }));
 }
 
 /** 詳細画面: シーズ + 全関連レコード */
-export async function fetchSeedDetail(seedId: string): Promise<SeedDetail | null> {
+export async function fetchSeedDetail(
+  seedId: string,
+): Promise<SeedDetail | null> {
   const [seedRes, fundingRes, newsRes, contactRes] = await Promise.all([
     supabase.from("seeds").select("*").eq("id", seedId).maybeSingle(),
-    supabase.from("seed_funding").select("*").eq("seed_id", seedId).order("fiscal_year", { ascending: false, nullsFirst: false }),
-    supabase.from("seed_news").select("*").eq("seed_id", seedId).order("occurred_on", { ascending: false, nullsFirst: false }).limit(100),
-    supabase.from("seed_contact_log").select("*").eq("seed_id", seedId).order("contacted_on", { ascending: false }),
+    supabase
+      .from("seed_funding")
+      .select("*")
+      .eq("seed_id", seedId)
+      .order("fiscal_year", { ascending: false, nullsFirst: false }),
+    supabase
+      .from("seed_news")
+      .select("*")
+      .eq("seed_id", seedId)
+      .order("occurred_on", { ascending: false, nullsFirst: false })
+      .limit(100),
+    supabase
+      .from("seed_contact_log")
+      .select("*")
+      .eq("seed_id", seedId)
+      .order("contacted_on", { ascending: false }),
   ]);
 
   const seed = seedRes.data as Seed | null;
@@ -179,7 +247,10 @@ export async function fetchSeedDetail(seedId: string): Promise<SeedDetail | null
       .from("members")
       .select("member_id, code_name")
       .in("member_id", Array.from(memberIds));
-    for (const m of (members ?? []) as { member_id: string; code_name: string }[]) {
+    for (const m of (members ?? []) as {
+      member_id: string;
+      code_name: string;
+    }[]) {
       memberNameMap.set(m.member_id, m.code_name);
     }
   }
@@ -195,10 +266,14 @@ export async function fetchSeedDetail(seedId: string): Promise<SeedDetail | null
     if (pj) {
       const p = pj as {
         short_label: string | null;
-        projects: { project_name: string | null } | { project_name: string | null }[] | null;
+        projects:
+          | { project_name: string | null }
+          | { project_name: string | null }[]
+          | null;
       };
       const project = Array.isArray(p.projects) ? p.projects[0] : p.projects;
-      spunOffProjectName = p.short_label ?? project?.project_name ?? seed.spun_off_project_id;
+      spunOffProjectName =
+        p.short_label ?? project?.project_name ?? seed.spun_off_project_id;
     }
   }
 
@@ -208,9 +283,13 @@ export async function fetchSeedDetail(seedId: string): Promise<SeedDetail | null
     news: (newsRes.data ?? []) as SeedNews[],
     contact_log: contactLog.map((c) => ({
       ...c,
-      amd_member_code_name: c.amd_member_id ? (memberNameMap.get(c.amd_member_id) ?? null) : null,
+      amd_member_code_name: c.amd_member_id
+        ? (memberNameMap.get(c.amd_member_id) ?? null)
+        : null,
     })),
-    amd_owner_code_name: seed.amd_owner_member_id ? (memberNameMap.get(seed.amd_owner_member_id) ?? null) : null,
+    amd_owner_code_name: seed.amd_owner_member_id
+      ? (memberNameMap.get(seed.amd_owner_member_id) ?? null)
+      : null,
     spun_off_project_name: spunOffProjectName,
     project_links: projectLinksBySeed.get(seed.id) ?? [],
   };
@@ -220,7 +299,9 @@ export async function fetchSeedDetail(seedId: string): Promise<SeedDetail | null
 // 書き込み (authClient)
 // =====================================================================
 
-export async function insertSeed(payload: Partial<Seed> & { title: string; org_name: string }): Promise<{ ok: boolean; id?: string; error?: string }> {
+export async function insertSeed(
+  payload: Partial<Seed> & { title: string; org_name: string },
+): Promise<{ ok: boolean; id?: string; error?: string }> {
   const client = getAuthClient();
   const now = new Date().toISOString();
   const { data, error } = await client
@@ -232,7 +313,10 @@ export async function insertSeed(payload: Partial<Seed> & { title: string; org_n
   return { ok: true, id: (data as { id: string }).id };
 }
 
-export async function updateSeed(id: string, patch: Partial<Seed>): Promise<{ ok: boolean; error?: string }> {
+export async function updateSeed(
+  id: string,
+  patch: Partial<Seed>,
+): Promise<{ ok: boolean; error?: string }> {
   const client = getAuthClient();
   const { error } = await client
     .from("seeds")
@@ -242,21 +326,28 @@ export async function updateSeed(id: string, patch: Partial<Seed>): Promise<{ ok
   return { ok: true };
 }
 
-export async function deleteSeed(id: string): Promise<{ ok: boolean; error?: string }> {
+export async function deleteSeed(
+  id: string,
+): Promise<{ ok: boolean; error?: string }> {
   const client = getAuthClient();
   const { error } = await client.from("seeds").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
 
-export async function insertSeedFunding(payload: Partial<SeedFunding> & { seed_id: string; program: string }): Promise<{ ok: boolean; error?: string }> {
+export async function insertSeedFunding(
+  payload: Partial<SeedFunding> & { seed_id: string; program: string },
+): Promise<{ ok: boolean; error?: string }> {
   const client = getAuthClient();
   const { error } = await client.from("seed_funding").insert(payload);
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
 
-export async function updateSeedFunding(id: string, patch: Partial<SeedFunding>): Promise<{ ok: boolean; error?: string }> {
+export async function updateSeedFunding(
+  id: string,
+  patch: Partial<SeedFunding>,
+): Promise<{ ok: boolean; error?: string }> {
   const client = getAuthClient();
   const { error } = await client
     .from("seed_funding")
@@ -266,21 +357,32 @@ export async function updateSeedFunding(id: string, patch: Partial<SeedFunding>)
   return { ok: true };
 }
 
-export async function deleteSeedFunding(id: string): Promise<{ ok: boolean; error?: string }> {
+export async function deleteSeedFunding(
+  id: string,
+): Promise<{ ok: boolean; error?: string }> {
   const client = getAuthClient();
   const { error } = await client.from("seed_funding").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
 
-export async function insertSeedNews(payload: Partial<SeedNews> & { seed_id: string; title: string; kind: SeedNews["kind"] }): Promise<{ ok: boolean; error?: string }> {
+export async function insertSeedNews(
+  payload: Partial<SeedNews> & {
+    seed_id: string;
+    title: string;
+    kind: SeedNews["kind"];
+  },
+): Promise<{ ok: boolean; error?: string }> {
   const client = getAuthClient();
   const { error } = await client.from("seed_news").insert(payload);
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
 
-export async function updateSeedNews(id: string, patch: Partial<SeedNews>): Promise<{ ok: boolean; error?: string }> {
+export async function updateSeedNews(
+  id: string,
+  patch: Partial<SeedNews>,
+): Promise<{ ok: boolean; error?: string }> {
   const client = getAuthClient();
   const { error } = await client
     .from("seed_news")
@@ -290,21 +392,32 @@ export async function updateSeedNews(id: string, patch: Partial<SeedNews>): Prom
   return { ok: true };
 }
 
-export async function deleteSeedNews(id: string): Promise<{ ok: boolean; error?: string }> {
+export async function deleteSeedNews(
+  id: string,
+): Promise<{ ok: boolean; error?: string }> {
   const client = getAuthClient();
   const { error } = await client.from("seed_news").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
 
-export async function insertSeedContactLog(payload: Partial<SeedContactLog> & { seed_id: string; contacted_on: string; note: string }): Promise<{ ok: boolean; error?: string }> {
+export async function insertSeedContactLog(
+  payload: Partial<SeedContactLog> & {
+    seed_id: string;
+    contacted_on: string;
+    note: string;
+  },
+): Promise<{ ok: boolean; error?: string }> {
   const client = getAuthClient();
   const { error } = await client.from("seed_contact_log").insert(payload);
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
 
-export async function updateSeedContactLog(id: string, patch: Partial<SeedContactLog>): Promise<{ ok: boolean; error?: string }> {
+export async function updateSeedContactLog(
+  id: string,
+  patch: Partial<SeedContactLog>,
+): Promise<{ ok: boolean; error?: string }> {
   const client = getAuthClient();
   const { error } = await client
     .from("seed_contact_log")
@@ -314,7 +427,9 @@ export async function updateSeedContactLog(id: string, patch: Partial<SeedContac
   return { ok: true };
 }
 
-export async function deleteSeedContactLog(id: string): Promise<{ ok: boolean; error?: string }> {
+export async function deleteSeedContactLog(
+  id: string,
+): Promise<{ ok: boolean; error?: string }> {
   const client = getAuthClient();
   const { error } = await client.from("seed_contact_log").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
@@ -341,10 +456,19 @@ export async function fetchSeedInbox(): Promise<SeedInboxItem[]> {
     supabase.from("seed_funding").select("seed_id, program_short, fiscal_year"),
   ]);
   const seeds = (seedsRes.data ?? []) as Seed[];
-  const fundings = (fundingRes.data ?? []) as { seed_id: string; program_short: string | null; fiscal_year: number | null }[];
+  const fundings = (fundingRes.data ?? []) as {
+    seed_id: string;
+    program_short: string | null;
+    fiscal_year: number | null;
+  }[];
 
-  const fundingProgramsBySeed = new Map<string, { program: string; year: number | null }[]>();
-  const sortedFundings = [...fundings].sort((a, b) => (b.fiscal_year ?? -1) - (a.fiscal_year ?? -1));
+  const fundingProgramsBySeed = new Map<
+    string,
+    { program: string; year: number | null }[]
+  >();
+  const sortedFundings = [...fundings].sort(
+    (a, b) => (b.fiscal_year ?? -1) - (a.fiscal_year ?? -1),
+  );
   for (const f of sortedFundings) {
     if (!f.program_short) continue;
     const list = fundingProgramsBySeed.get(f.seed_id) ?? [];
@@ -369,21 +493,31 @@ export async function fetchSeedInboxCount(): Promise<number> {
   return count ?? 0;
 }
 
-export async function verifySeed(id: string): Promise<{ ok: boolean; error?: string }> {
+export async function verifySeed(
+  id: string,
+): Promise<{ ok: boolean; error?: string }> {
   const client = getAuthClient();
   const { error } = await client
     .from("seeds")
-    .update({ discovery_status: "reviewed", updated_at: new Date().toISOString() })
+    .update({
+      discovery_status: "reviewed",
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
 
-export async function dismissSeed(id: string): Promise<{ ok: boolean; error?: string }> {
+export async function dismissSeed(
+  id: string,
+): Promise<{ ok: boolean; error?: string }> {
   const client = getAuthClient();
   const { error } = await client
     .from("seeds")
-    .update({ discovery_status: "dismissed", updated_at: new Date().toISOString() })
+    .update({
+      discovery_status: "dismissed",
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
   return { ok: true };
@@ -402,13 +536,17 @@ export async function dismissSeed(id: string): Promise<{ ok: boolean; error?: st
  * institution_id のシーズを取得する。kute-seeds-scoring の唯一のマッピングを経由するため、
  * project_id → institution_id 対応をここに重複定義しない。
  */
-export async function fetchResearchInstitutionSeedsForProject(projectId: string): Promise<SeedPublicView[]> {
+export async function fetchResearchInstitutionSeedsForProject(
+  projectId: string,
+): Promise<SeedPublicView[]> {
   const institutionId = await fetchInstitutionIdForProject(projectId);
   return institutionId ? fetchSeedsForInstitution(institutionId) : [];
 }
 
 /** institution_projects を正本に project_id の研究機関スコープを解決する。 */
-export async function fetchInstitutionIdForProject(projectId: string): Promise<string | null> {
+export async function fetchInstitutionIdForProject(
+  projectId: string,
+): Promise<string | null> {
   const { data, error } = await supabase
     .from("institution_projects")
     .select("institution_id")
@@ -424,7 +562,9 @@ export async function fetchInstitutionIdForProject(projectId: string): Promise<s
  * seeds.institution_id (migration 202) を直接フィルタする)。
  * internal_notes / source_detail 等は select 句に含めないため、レスポンスにも一切乗らない。
  */
-export async function fetchSeedsForInstitution(institutionId: string): Promise<SeedPublicView[]> {
+export async function fetchSeedsForInstitution(
+  institutionId: string,
+): Promise<SeedPublicView[]> {
   const { data, error } = await supabase
     .from("seeds")
     .select(SEED_PUBLIC_VIEW_COLUMNS.join(", "))
@@ -449,8 +589,10 @@ export async function fetchSeedsForInstitution(institutionId: string): Promise<S
  * org_name / institution_id での絞り込みは行わない。internal_notes / source_detail /
  * evaluator / axis_evidence は select 句に含めないため、レスポンスにも一切乗らない。
  */
-export async function fetchAllResearchInstitutionSeeds(): Promise<SeedPublicView[]> {
-  const { data, error } = await supabase
+export async function fetchAllResearchInstitutionSeeds(
+  readClient: SupabaseClient = supabase,
+): Promise<SeedPublicView[]> {
+  const { data, error } = await readClient
     .from("seeds")
     .select(SEED_PUBLIC_VIEW_COLUMNS.join(", "))
     .order("org_name", { ascending: true })
@@ -459,8 +601,8 @@ export async function fetchAllResearchInstitutionSeeds(): Promise<SeedPublicView
   const seeds = (data ?? []) as unknown as SeedPublicView[];
   const seedIds = seeds.map((seed) => seed.id);
   const [latestSpsBySeedId, projectLinksBySeed] = await Promise.all([
-    fetchLatestSeedSpsAssessments(seedIds),
-    fetchSeedProjectLinks(seedIds),
+    fetchLatestSeedSpsAssessments(seedIds, readClient),
+    fetchSeedProjectLinks(seedIds, readClient),
   ]);
   return seeds.map((s) => ({
     ...s,
@@ -470,17 +612,24 @@ export async function fetchAllResearchInstitutionSeeds(): Promise<SeedPublicView
 }
 
 /** seed_projects をAMD契約レイヤーとして取得する。seeds.status/spun_off_project_id は関係判定に使わない。 */
-async function fetchSeedProjectLinks(seedIds: string[]): Promise<Map<string, SeedProjectLink[]>> {
+async function fetchSeedProjectLinks(
+  seedIds: string[],
+  readClient: SupabaseClient = supabase,
+): Promise<Map<string, SeedProjectLink[]>> {
   const result = new Map<string, SeedProjectLink[]>();
   if (seedIds.length === 0) return result;
-  const { data, error } = await supabase
+  const { data, error } = await readClient
     .from("seed_projects")
-    .select("seed_id,project_id,commercialization_stage,commercialization_route,venture_name,target_market,projects(project_name,status)")
+    .select(
+      "seed_id,project_id,commercialization_stage,commercialization_route,venture_name,target_market,projects(project_name,status)",
+    )
     .in("seed_id", seedIds);
   if (error) throw new Error(error.message);
 
   for (const row of data ?? []) {
-    const project = Array.isArray(row.projects) ? row.projects[0] : row.projects;
+    const project = Array.isArray(row.projects)
+      ? row.projects[0]
+      : row.projects;
     const link: SeedProjectLink = {
       project_id: String(row.project_id),
       project_name: project?.project_name || String(row.project_id),
@@ -504,14 +653,14 @@ async function fetchSeedProjectLinks(seedIds: string[]): Promise<Map<string, See
  * `institution-soil-seeds.ts` の as-of 整列関数にそのまま渡せる形。
  */
 export async function fetchSeedSpsHistoryForSeeds(
-  seedIds: string[]
+  seedIds: string[],
 ): Promise<Map<string, SeedPublicSpsAssessment[]>> {
   const result = new Map<string, SeedPublicSpsAssessment[]>();
   if (seedIds.length === 0) return result;
   const { data, error } = await getAuthClient()
     .from("seed_sps_assessments")
     .select(
-      "seed_id, evaluated_at, mu_a, mu_i, mu_g, potential, trl, brl, grl, srl, hrl, f_character, f_cap, r_net, shallow_tech_mode, confidence"
+      "seed_id, evaluated_at, mu_a, mu_i, mu_g, potential, trl, brl, grl, srl, hrl, f_character, f_cap, r_net, shallow_tech_mode, confidence",
     )
     .in("seed_id", seedIds)
     .order("evaluated_at", { ascending: true });
@@ -531,7 +680,13 @@ export async function fetchSeedSpsHistoryForSeeds(
       score: scored.score,
       confidence: row.confidence as SeedPublicSpsAssessment["confidence"],
       missing_axes: scored.missingAxes,
-      axes: { trl: row.trl, brl: row.brl, grl: row.grl, srl: row.srl, hrl: row.hrl },
+      axes: {
+        trl: row.trl,
+        brl: row.brl,
+        grl: row.grl,
+        srl: row.srl,
+        hrl: row.hrl,
+      },
       components: scored.components,
     };
     const list = result.get(row.seed_id);
@@ -546,15 +701,18 @@ export async function fetchSeedSpsHistoryForSeeds(
  * axis_evidence / evaluator を含まない公開安全なサマリへ変換する。
  * 未来の他機関コックピットもこの関数をそのまま再利用する。
  */
-async function fetchLatestSeedSpsAssessments(seedIds: string[]): Promise<Map<string, SeedPublicSpsAssessment>> {
+async function fetchLatestSeedSpsAssessments(
+  seedIds: string[],
+  readClient: SupabaseClient = getAuthClient(),
+): Promise<Map<string, SeedPublicSpsAssessment>> {
   const result = new Map<string, SeedPublicSpsAssessment>();
   if (seedIds.length === 0) return result;
   // seed_sps_assessments は axis_evidence/evaluator (内部根拠) を持つため anon_read policy が無い
   // (187 で削除)。authenticated client (ログイン中セッション) 経由でのみ読む。
-  const { data, error } = await getAuthClient()
+  const { data, error } = await readClient
     .from("seed_sps_assessments")
     .select(
-      "seed_id, evaluated_at, mu_a, mu_i, mu_g, potential, trl, brl, grl, srl, hrl, f_character, f_cap, r_net, shallow_tech_mode, confidence"
+      "seed_id, evaluated_at, mu_a, mu_i, mu_g, potential, trl, brl, grl, srl, hrl, f_character, f_cap, r_net, shallow_tech_mode, confidence",
     )
     .in("seed_id", seedIds)
     .order("evaluated_at", { ascending: false });
@@ -575,7 +733,13 @@ async function fetchLatestSeedSpsAssessments(seedIds: string[]): Promise<Map<str
       score: scored.score,
       confidence: row.confidence as SeedPublicSpsAssessment["confidence"],
       missing_axes: scored.missingAxes,
-      axes: { trl: row.trl, brl: row.brl, grl: row.grl, srl: row.srl, hrl: row.hrl },
+      axes: {
+        trl: row.trl,
+        brl: row.brl,
+        grl: row.grl,
+        srl: row.srl,
+        hrl: row.hrl,
+      },
       components: scored.components,
     });
   }

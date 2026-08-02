@@ -12,6 +12,7 @@ const preview = read(
 );
 const globalNav = read("../src/components/nav/GlobalNav.tsx");
 const dashboard = read("../src/app/(app)/dashboard/page.tsx");
+const previewSurface = `${page}\n${preview}`;
 
 // 1. 仮設URLはAMD内部だけに閉じ、現行OSのrouteへ混ぜない。
 assert.match(page, /getCurrentMemberAccess/);
@@ -22,12 +23,14 @@ assert.doesNotMatch(globalNav, /\/portfolio-preview/);
 assert.doesNotMatch(dashboard, /PortfolioPreview/);
 
 // 2. 実データを読むだけで、書き込み・再計算APIを持たない。
-assert.match(preview, /fetchErsBundle\(\)/);
-assert.match(preview, /fetchAllResearchInstitutionSeeds\(\)/);
-assert.match(preview, /fetchProjectsFromSupabase\(\)/);
+assert.match(page, /createAdminClient\(\)/);
+assert.match(page, /fetchErsBundle\(readClient\)/);
+assert.match(page, /fetchAllResearchInstitutionSeeds\(readClient\)/);
+assert.match(page, /fetchProjectsFromSupabase\(readClient\)/);
+assert.match(preview, /initialData: PortfolioPreviewData/);
 assert.match(preview, /data-preview-mode="read-only"/);
 assert.doesNotMatch(
-  preview,
+  previewSurface,
   /\.(?:insert|upsert|update|delete)\s*\(|method:\s*["'](?:POST|PUT|PATCH|DELETE)["']/i,
 );
 

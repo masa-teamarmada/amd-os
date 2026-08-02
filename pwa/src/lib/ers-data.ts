@@ -2,6 +2,7 @@
  * ECR データ取得 (Supabase client 経由)。設計正本: pwa/design/institution_readiness.md
  */
 import { createClient } from "@/lib/supabase/client";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   ErsInstitution,
   ErsAxis,
@@ -30,24 +31,54 @@ export interface ErsBundle {
   institutionProjectIds: string[];
 }
 
-export async function fetchErsBundle(): Promise<ErsBundle> {
-  const supabase = createClient();
-  const [instRes, axesRes, critRes, assessRes, institutionProjectRes, seedInstitutionRes] = await Promise.all([
-    supabase.from("institutions").select("*").order("sort_order", { ascending: true }),
-    supabase.from("institution_capability_axes").select("*").order("sort_order", { ascending: true }),
-    supabase.from("institution_capability_criteria").select("*").order("sort_order", { ascending: true }),
-    supabase
+export async function fetchErsBundle(
+  readClient: SupabaseClient = createClient(),
+): Promise<ErsBundle> {
+  const [
+    instRes,
+    axesRes,
+    critRes,
+    assessRes,
+    institutionProjectRes,
+    seedInstitutionRes,
+  ] = await Promise.all([
+    readClient
+      .from("institutions")
+      .select("*")
+      .order("sort_order", { ascending: true }),
+    readClient
+      .from("institution_capability_axes")
+      .select("*")
+      .order("sort_order", { ascending: true }),
+    readClient
+      .from("institution_capability_criteria")
+      .select("*")
+      .order("sort_order", { ascending: true }),
+    readClient
       .from("institution_assessments")
-      .select("institution_id,criterion_id,level,na,note,evaluated_at,evaluation_version")
+      .select(
+        "institution_id,criterion_id,level,na,note,evaluated_at,evaluation_version",
+      )
       .order("evaluated_at", { ascending: false }),
-    supabase
+    readClient
       .from("institution_projects")
-      .select("institution_id,project_id,engagement_scope,target_unit,ecosystem_goal,projects(project_name,status)"),
-    supabase.from("seeds").select("institution_id").not("institution_id", "is", null),
+      .select(
+        "institution_id,project_id,engagement_scope,target_unit,ecosystem_goal,projects(project_name,status)",
+      ),
+    readClient
+      .from("seeds")
+      .select("institution_id")
+      .not("institution_id", "is", null),
   ]);
 
-  const firstError = [instRes, axesRes, critRes, assessRes, institutionProjectRes, seedInstitutionRes]
-    .find((result) => result.error)?.error;
+  const firstError = [
+    instRes,
+    axesRes,
+    critRes,
+    assessRes,
+    institutionProjectRes,
+    seedInstitutionRes,
+  ].find((result) => result.error)?.error;
   if (firstError) throw new Error(firstError.message);
 
   const institutions: ErsInstitution[] = (instRes.data ?? []).map((r) => ({
@@ -58,13 +89,23 @@ export async function fetchErsBundle(): Promise<ErsBundle> {
     description: r.description ?? null,
     region: r.region ?? null,
     contractStatus: r.contract_status ?? "unengaged",
-    identityStatus: r.identity_status === "candidate" ? "candidate" : "verified",
+    identityStatus:
+      r.identity_status === "candidate" ? "candidate" : "verified",
     sortOrder: r.sort_order ?? 100,
   }));
 
-  const institutionNameById = new Map(institutions.map((institution) => [institution.institutionId, institution.name]));
-  const institutionProjectsByInstitution: Record<string, InstitutionProjectLink[]> = {};
-  for (const row of (institutionProjectRes.data ?? []) as unknown as InstitutionProjectRow[]) {
+  const institutionNameById = new Map(
+    institutions.map((institution) => [
+      institution.institutionId,
+      institution.name,
+    ]),
+  );
+  const institutionProjectsByInstitution: Record<
+    string,
+    InstitutionProjectLink[]
+  > = {};
+  for (const row of (institutionProjectRes.data ??
+    []) as unknown as InstitutionProjectRow[]) {
     const link = buildInstitutionProjectLink(
       row,
       institutionNameById.get(row.institution_id) || row.institution_id,
@@ -76,7 +117,8 @@ export async function fetchErsBundle(): Promise<ErsBundle> {
   for (const row of seedInstitutionRes.data ?? []) {
     const institutionId = row.institution_id as string | null;
     if (!institutionId) continue;
-    seedCountByInstitution[institutionId] = (seedCountByInstitution[institutionId] ?? 0) + 1;
+    seedCountByInstitution[institutionId] =
+      (seedCountByInstitution[institutionId] ?? 0) + 1;
   }
 
   const axes: ErsAxis[] = (axesRes.data ?? []).map((r) => ({
@@ -112,7 +154,9 @@ export async function fetchErsBundle(): Promise<ErsBundle> {
   // (institution, criterion) ごとに evaluated_at 最新の 1 行だけ採用
   const assessmentsByInstitution: Record<string, ErsAssessment[]> = {};
   const seen = new Set<string>();
-  for (const [institutionId, history] of Object.entries(assessmentHistoryByInstitution)) {
+  for (const [institutionId, history] of Object.entries(
+    assessmentHistoryByInstitution,
+  )) {
     for (const assessment of history) {
       const key = `${institutionId}::${assessment.criterionId}`;
       if (seen.has(key)) continue;
@@ -129,6 +173,8 @@ export async function fetchErsBundle(): Promise<ErsBundle> {
     assessmentHistoryByInstitution,
     institutionProjectsByInstitution,
     seedCountByInstitution,
-    institutionProjectIds: (institutionProjectRes.data ?? []).map((row) => String(row.project_id)),
+    institutionProjectIds: (institutionProjectRes.data ?? []).map((row) =>
+      String(row.project_id),
+    ),
   };
 }

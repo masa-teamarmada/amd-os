@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   useDeferredValue,
-  useEffect,
   useMemo,
   useState,
+  useTransition,
   type ReactNode,
 } from "react";
 import {
@@ -19,7 +20,6 @@ import {
   ExternalLink,
   FlaskConical,
   LayoutDashboard,
-  Loader2,
   Map as MapIcon,
   Network,
   RefreshCcw,
@@ -29,7 +29,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { computeErs, INSTITUTION_TYPE_LABEL } from "@/lib/ers";
-import { fetchErsBundle, type ErsBundle } from "@/lib/ers-data";
+import type { ErsBundle } from "@/lib/ers-data";
 import {
   institutionProjectLifecycle,
   projectLifecyclePriority,
@@ -38,22 +38,15 @@ import {
   type InstitutionProjectLink,
   type ProjectLifecycle,
 } from "@/lib/institution-projects";
-import {
-  fetchAllResearchInstitutionSeeds,
-  seedListPriority,
-  seedProjectLifecycle,
-} from "@/lib/seeds-data";
-import {
-  fetchProjectsFromSupabase,
-  type DashProject,
-} from "@/lib/supabase-data";
+import { seedListPriority, seedProjectLifecycle } from "@/lib/seeds-data";
+import type { DashProject } from "@/lib/supabase-data";
 import type { SeedPublicView } from "@/types/seeds";
 import { BUILD_VERSION } from "@/lib/build-info";
 import styles from "./portfolio-preview.module.css";
 
 type PreviewView = "overview" | "institutions" | "seeds" | "projects";
 
-type PreviewData = {
+export type PortfolioPreviewData = {
   institutionBundle: ErsBundle;
   seeds: SeedPublicView[];
   projects: DashProject[];
@@ -180,7 +173,7 @@ function projectStatusPriority(status: string) {
   return 4;
 }
 
-function buildPreviewModel(data: PreviewData): PreviewModel {
+function buildPreviewModel(data: PortfolioPreviewData): PreviewModel {
   const { institutionBundle, seeds, projects } = data;
   const institutionRows = institutionBundle.institutions
     .map((institution): InstitutionRow => {
@@ -331,41 +324,19 @@ function buildPreviewModel(data: PreviewData): PreviewModel {
   };
 }
 
-export function PortfolioPreview({ displayName }: { displayName: string }) {
+export function PortfolioPreview({
+  displayName,
+  initialData,
+}: {
+  displayName: string;
+  initialData: PortfolioPreviewData;
+}) {
+  const router = useRouter();
   const [view, setView] = useState<PreviewView>("overview");
   const [query, setQuery] = useState("");
-  const [requestKey, setRequestKey] = useState(0);
-  const [data, setData] = useState<PreviewData | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, startRefresh] = useTransition();
   const deferredQuery = useDeferredValue(query);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    Promise.all([
-      fetchErsBundle(),
-      fetchAllResearchInstitutionSeeds(),
-      fetchProjectsFromSupabase(),
-    ])
-      .then(([institutionBundle, seeds, projects]) => {
-        if (cancelled) return;
-        setData({ institutionBundle, seeds, projects });
-      })
-      .catch((cause: unknown) => {
-        if (cancelled) return;
-        setError(
-          cause instanceof Error
-            ? cause.message
-            : "ポートフォリオを読み込めなかった",
-        );
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [requestKey]);
-
-  const model = useMemo(() => (data ? buildPreviewModel(data) : null), [data]);
+  const model = useMemo(() => buildPreviewModel(initialData), [initialData]);
   const normalizedQuery = normalizeQuery(deferredQuery);
 
   const changeView = (nextView: PreviewView) => {
@@ -375,9 +346,7 @@ export function PortfolioPreview({ displayName }: { displayName: string }) {
   };
 
   const reload = () => {
-    setData(null);
-    setError(null);
-    setRequestKey((value) => value + 1);
+    startRefresh(() => router.refresh());
   };
 
   return (
@@ -493,18 +462,18 @@ export function PortfolioPreview({ displayName }: { displayName: string }) {
               onClick={reload}
               className={styles.refreshButton}
               aria-label="実データを再読み込み"
+              aria-busy={isRefreshing}
               title="実データを再読み込み"
             >
-              <RefreshCcw className="h-4 w-4" aria-hidden="true" />
+              <RefreshCcw
+                className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+                aria-hidden="true"
+              />
             </button>
           </div>
         </header>
 
-        {error ? (
-          <ErrorState message={error} onRetry={reload} />
-        ) : !model ? (
-          <LoadingState />
-        ) : view === "overview" ? (
+        {view === "overview" ? (
           <OverviewView model={model} onViewChange={changeView} />
         ) : view === "institutions" ? (
           <InstitutionsView model={model} query={normalizedQuery} />
@@ -557,35 +526,6 @@ function SecondaryNavItem({
     <div className={styles.secondaryNavItem} aria-disabled="true">
       <Icon className="h-4 w-4" aria-hidden="true" />
       <span>{label}</span>
-    </div>
-  );
-}
-
-function LoadingState() {
-  return (
-    <div className={styles.loadingState}>
-      <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-      研究機関・シーズ・PJを読み込み中
-    </div>
-  );
-}
-
-function ErrorState({
-  message,
-  onRetry,
-}: {
-  message: string;
-  onRetry: () => void;
-}) {
-  return (
-    <div className={styles.errorState} role="alert">
-      <div>
-        <strong>ポートフォリオを読み込めなかった</strong>
-        <p>{message}</p>
-      </div>
-      <button type="button" onClick={onRetry}>
-        再読み込み
-      </button>
     </div>
   );
 }
