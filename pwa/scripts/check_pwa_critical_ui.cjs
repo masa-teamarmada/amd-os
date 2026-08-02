@@ -180,7 +180,7 @@ expectIncludes(
     'resource: "validation"',
     "const validation = issue.validationRuns.find(",
     "issue.hypotheses.find((item) => item.id === validation.hypothesisId)",
-    'setEditor({ kind: "edit_validation", issue, hypothesis, validation });',
+    'nextEditor = { kind: "edit_validation", issue, hypothesis, validation };',
     // 論点系（hypothesis/validation/decision/action）のID不一致は、partnerのprovenance監査
     // と同じくnotifyWorkUnitNotFound()のnoticeで終え、親issue編集へ黙ってフォールバック
     // しない。issue自体が見つからない場合も同様にnoticeで終える。
@@ -190,9 +190,18 @@ expectIncludes(
     'if (!decision || !action) {\n          notifyWorkUnitNotFound();\n          return;\n        }',
     // 論点系root editorはページ全体を覆うbackdropモーダルであり、背景スクロールは不要かつ
     // 担当負荷から開いたときにscrollYが動くバグの原因だった。#issue-hypothesisへの
-    // scrollIntoViewを廃止し、開く前にガント側の選択(工程/タスク)を必ず解除して
-    // PlanInspectorとの二重dialogを防ぐ。
-    "setSelectedMilestoneId(null);\n      setSelectedTaskId(null);\n      if (unit.kind === \"hypothesis\") {",
+    // scrollIntoViewを廃止した。
+    "let nextEditor: EditorState;",
+    // 監査追補 (2026-08-02、状態保全監査): 工程/タスク/論点系は対象レコードのID/存在を
+    // すべて検証しnextEditor/対象IDを組み立ててからだけ、既存のworkloadFilter/detailEditor/
+    // planFieldEditor/editorFieldKeys/selectedMilestoneId/selectedTaskIdを一括解除する
+    // （partner分岐と同じ「解決してから閉じる」パターン）。無効IDのクリックはnotifyだけで
+    // 既存UIを閉じない。
+    "const task = management.tasks.find((item) => item.id === unit.navTaskId);",
+    "const milestone = management.milestones.find(\n        (item) => item.id === unit.navMilestoneId,\n      );",
+    // issue kindもnavIssueId一致だけで別issueへ取り違えないよう、unit.id===issue.idを必須にする。
+    '} else if (unit.kind === "issue") {\n        if (unit.id !== issue.id) {',
+    "setWorkloadFilter(null);\n      setDetailEditor(null);\n      setPlanFieldEditor(null);\n      setEditorFieldKeys(null);\n      setSelectedMilestoneId(null);\n      setSelectedTaskId(null);\n      setEditor(nextEditor);",
     // root editorモーダルへ、開いているeditorのkind/resource/record-idを静的に出し、実
     // ブラウザ監査で「押した項目」と「開いたeditor」の対象一致を検査できるようにする。
     "data-editor-kind={editor.kind}",
@@ -214,6 +223,11 @@ expectNotIncludes(
     // 論点系のID不一致を親issue編集へ黙ってフォールバックする旧実装（partnerと違う扱い）を
     // 再導入しない。
     "hypothesis\n              ? { kind: \"edit_hypothesis\", issue, hypothesis }\n              : { kind: \"edit_issue\", issue },",
+    // 監査追補 (2026-08-02、状態保全監査): 無効IDのクリックで既存のworkload/detail/plan
+    // editorを巻き添えで閉じていた旧実装（対象を検証する前にoverlay stateを一括clearしていた）
+    // を再導入しない。clearは必ずnextEditor/対象IDの確定後だけに限定する。
+    "setWorkloadFilter(null);\n    setDetailEditor(null);\n    setPlanFieldEditor(null);\n    setEditorFieldKeys(null);\n    if (unit.navTaskId) {",
+    "setSelectedMilestoneId(null);\n      setSelectedTaskId(null);\n      if (unit.kind === \"hypothesis\") {",
   ],
 );
 expectIncludes("src/lib/sx-project-owner-load.ts", [
@@ -231,6 +245,11 @@ expectIncludes("src/lib/sx-project-owner-load.ts", [
   '"partner_work_item"',
   '"commitment"',
   '"partner_next_action"',
+  // 監査追補 (2026-08-02、再監査): desktop 2カラムの左右分割(偶数index=左、奇数index=右の
+  // row-major)は前半/後半split(splitAt)の代わりにここへ切り出し、node --experimental-strip-types
+  // でunit test可能にする(.tsxコンポーネント側はJSXを含みnode単体では実行できないため)。
+  "export function partitionOwnerLoadColumns(loads: SxProjectOwnerLoad[]) {",
+  "(index % 2 === 0 ? left : right).push(load);",
 ]);
 expectIncludes("src/lib/sx-partner-holdings.ts", ["originResource"]);
 expectIncludes("src/components/project-workspace/SxProjectOwnerWorkload.tsx", [
@@ -247,11 +266,18 @@ expectIncludes("src/components/project-workspace/SxProjectOwnerWorkload.tsx", [
   // までY座標が動いていた(items-startは行の共有そのものを解消しない)。左右をOwnerLoadColumn
   // という完全に独立したflex-col要素へ分離し、各列が自列の高さだけで自己完結するようにする。
   "function OwnerLoadColumn({",
-  "const splitAt = Math.ceil(loads.length / 2);",
-  "const leftLoads = loads.slice(0, splitAt);",
-  "const rightLoads = loads.slice(splitAt);",
+  // 監査追補 (2026-08-02、再監査): 前半/後半split(splitAt)は従来のCSS grid(暗黙行ペアリング=
+  // item0/item1が同じ行の左右)が作っていた見た目のペア順を崩すため廃止。偶数index=左列、
+  // 奇数index=右列のrow-major分割へ修正し、専用partitionOwnerLoadColumns()helperへ切り出した。
+  // mobileはこの分割結果を連結せず、常に元loadsを単独DOMで描画する(連結だと[0,2,4,1,3,5]に
+  // なってしまう)。desktop用グリッドは`hidden lg:grid`、mobile用単列は`lg:hidden`で常に片方
+  // だけをa11y treeへ出し、重複ノードを作らない。
+  'import { partitionOwnerLoadColumns } from "@/lib/sx-project-owner-load";',
+  "const { left: leftLoads, right: rightLoads } =\n    partitionOwnerLoadColumns(loads);",
+  '"hidden gap-px bg-[#d9cfde] lg:grid lg:grid-cols-2"',
   "<OwnerLoadColumn loads={leftLoads} onSelectItem={onSelectItem} />",
   "<OwnerLoadColumn loads={rightLoads} onSelectItem={onSelectItem} />",
+  '<div className="lg:hidden">\n        <OwnerLoadColumn loads={loads} onSelectItem={onSelectItem} />',
   'className="flex flex-col gap-px bg-[#d9cfde]"',
   // 実動作は元の編集文脈を開くことなので、aria-labelは「移動」ではなく「編集」で実態を表す。
   "aria-label={`${item.title}を編集`}",
@@ -3159,6 +3185,10 @@ expectPattern("src/components/project-workspace/weekly-control.module.css", [
   /\.editorBackdrop\s*\{[^}]*--sheet:\s*#fffdf7;/,
   /\.editorBackdrop\s*\{[^}]*--ink:\s*#24231f;/,
   /\.editorBackdrop\s*\{[^}]*--green:\s*#235f4b;/,
+  // 監査追補 (2026-08-02、色再監査): CSS変数の再定義だけでは、.editorPanel配下のh2/strong/
+  // label/本文がcolorを明示していない限りbody側のdark themeを継承してしまい、不透明な生成り
+  // #fffdf7背景の上で文字が薄く読めなくなる。.editorPanel自体にcolor: var(--ink)を明示する。
+  /\.editorPanel\s*\{[^}]*color:\s*var\(--ink\);/,
 ]);
 expectIncludes("src/components/project-workspace/weekly-control.module.css", [
   ".iconButton { width: 44px; height: 44px; border-radius: 50%; }",

@@ -432,3 +432,16 @@ export function sxProjectOwnerLoads(
         left.ownerLabel.localeCompare(right.ownerLabel, "ja"),
     );
 }
+
+/** Splits owner loads into desktop's two independent columns while preserving the same
+ * row-major pair order a single 2-col grid would produce (even index → left, odd index →
+ * right). Mobile never concatenates left+right (that would reorder to [0,2,4,1,3,5]) — it
+ * renders the original `loads` order in its own single-column DOM instead. */
+export function partitionOwnerLoadColumns(loads: SxProjectOwnerLoad[]) {
+  const left: SxProjectOwnerLoad[] = [];
+  const right: SxProjectOwnerLoad[] = [];
+  loads.forEach((load, index) => {
+    (index % 2 === 0 ? left : right).push(load);
+  });
+  return { left, right };
+}

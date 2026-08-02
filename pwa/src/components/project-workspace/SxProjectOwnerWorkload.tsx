@@ -5,6 +5,7 @@ import type {
   SxProjectOwnerLoad,
   SxProjectWorkUnit,
 } from "@/lib/sx-project-owner-load";
+import { partitionOwnerLoadColumns } from "@/lib/sx-project-owner-load";
 import { sxFormatDate } from "./sx-visual-shared";
 
 function metricTone(value: number, danger = false) {
@@ -123,12 +124,8 @@ export function SxProjectOwnerWorkload({
   onSelectItem?: (item: SxProjectWorkUnit) => void;
 }) {
   if (loads.length === 0) return null;
-  // desktop(lg+)は左右独立の縦スタックへ分割する。round-robin(交互配置)ではなく前半/後半で
-  // 分けるのは、mobile(1カラム)でこの2つの配列を単純に連結表示したとき、元の配列順序と
-  // 完全一致させるため(round-robinだと連結時に順序が入れ替わってしまう)。
-  const splitAt = Math.ceil(loads.length / 2);
-  const leftLoads = loads.slice(0, splitAt);
-  const rightLoads = loads.slice(splitAt);
+  const { left: leftLoads, right: rightLoads } =
+    partitionOwnerLoadColumns(loads);
   const totals = loads.reduce(
     (sum, load) => ({
       open: sum.open + load.openCount,
@@ -174,15 +171,17 @@ export function SxProjectOwnerWorkload({
           </span>
         </div>
       </header>
-      {/* 左右は完全に独立したcolumn(flex-col)スタック。CSS gridの暗黙行で左右を同じ行に
-          ペアリングすると、片側detailsの展開で共有行が伸び、反対列の後続カードのY座標まで
-          動いてしまう(items-startは行の共有そのものを解消しない)。列ごとに高さが自己完結する
-          よう、外側は2つのcolumn要素だけを持つgridにし、各column内の実itemsはflex-colで
-          独立に積む。lg未満はgrid-cols-1になり、column要素2つがそのまま縦に並ぶため、
-          leftLoads→rightLoadsの連結 = 元のloads順序と一致した1カラム表示になる。 */}
-      <div className="grid gap-px bg-[#d9cfde] lg:grid-cols-2">
+      {/* 左右は完全に独立したcolumn(flex-col)スタック。片側detailsの展開で共有行が伸び、反対列
+          の後続カードのY座標まで動く事故(暗黙行ペアリングの旧実装)を避けるため、列ごとに
+          高さが自己完結する2要素構成にする。desktop用とmobile用でDOM自体を分け、
+          hidden/lg:hiddenで常に片方だけをa11y treeへ出す(CSSでの見た目切替だけだと非表示側
+          も読み上げ対象に残ってしまう)。 */}
+      <div className="hidden gap-px bg-[#d9cfde] lg:grid lg:grid-cols-2">
         <OwnerLoadColumn loads={leftLoads} onSelectItem={onSelectItem} />
         <OwnerLoadColumn loads={rightLoads} onSelectItem={onSelectItem} />
+      </div>
+      <div className="lg:hidden">
+        <OwnerLoadColumn loads={loads} onSelectItem={onSelectItem} />
       </div>
     </section>
   );

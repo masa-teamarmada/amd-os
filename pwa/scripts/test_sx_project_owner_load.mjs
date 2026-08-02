@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  partitionOwnerLoadColumns,
   sxProjectOwnerLoads,
   sxProjectWorkUnitIsDueSoon,
   sxProjectWorkUnitIsOverdue,
@@ -198,5 +199,52 @@ assert.ok(
 );
 assert.equal(fallbackUnit.recordId, "partner-fallback");
 assert.equal(fallbackUnit.partnerId, "partner-fallback");
+
+// 監査追補 (2026-08-02、再監査): desktop 2カラムは前半/後半split(splitAt)ではなく、従来の
+// CSS gridが作っていたrow-majorペア順(item0/item1が同じ行の左右)を独立column構造でも保つ
+// 偶数/奇数分割。mobileはこの分割結果を連結せず、常に元loads順を単独DOMで描画する。
+const ownerLoadFixture = Array.from({ length: 6 }, (_, index) => ({
+  ownerLabel: `owner-${index}`,
+  openCount: 0,
+  blockedCount: 0,
+  overdueCount: 0,
+  dueSoonCount: 0,
+  dueUnsetCount: 0,
+  dataGapCount: 0,
+  impactedGates: [],
+  items: [],
+}));
+const { left, right } = partitionOwnerLoadColumns(ownerLoadFixture);
+assert.deepEqual(
+  left.map((load) => load.ownerLabel),
+  ["owner-0", "owner-2", "owner-4"],
+  "even indexes (0,2,4) go to the left column",
+);
+assert.deepEqual(
+  right.map((load) => load.ownerLabel),
+  ["owner-1", "owner-3", "owner-5"],
+  "odd indexes (1,3,5) go to the right column",
+);
+// mobile never concatenates left+right (that would reorder to [0,2,4,1,3,5]) — it renders the
+// original loads order in its own single-column DOM, so the source array itself must stay
+// untouched by the split.
+assert.deepEqual(
+  ownerLoadFixture.map((load) => load.ownerLabel),
+  ["owner-0", "owner-1", "owner-2", "owner-3", "owner-4", "owner-5"],
+  "partitioning must not mutate the original loads order used for mobile",
+);
+// odd-length input: left gets the extra item (0,2,4 vs 1,3), matching row-major pairing where
+// an unmatched last item on an odd row sits in the left/first column.
+const { left: oddLeft, right: oddRight } = partitionOwnerLoadColumns(
+  ownerLoadFixture.slice(0, 5),
+);
+assert.deepEqual(
+  oddLeft.map((load) => load.ownerLabel),
+  ["owner-0", "owner-2", "owner-4"],
+);
+assert.deepEqual(
+  oddRight.map((load) => load.ownerLabel),
+  ["owner-1", "owner-3"],
+);
 
 console.log("sx project owner load tests passed");

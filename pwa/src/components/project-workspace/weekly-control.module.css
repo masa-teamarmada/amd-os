@@ -254,7 +254,7 @@
    継承チェーンから外れる。PlanInspectorLayerと同じトークン一式をここで再定義し、
    portal先でも不透明な生成りsheet・濃墨文字・深緑CTAを保証する（2026-08 監査追補）。 */
 .editorBackdrop { --sheet: #fffdf7; --ink: #24231f; --muted: #716d63; --quiet: #928c80; --line: #d7d0c3; --green: #235f4b; --amber: #a55f17; --red: #913b30; --red-soft: #f6e2de; position: fixed; z-index: 100; inset: 0; display: grid; place-items: end center; padding: 0; background: rgba(26, 25, 22, .5); backdrop-filter: blur(3px); }
-.editorPanel { width: 100%; max-height: 92vh; overflow-y: auto; padding: 20px; border: 1px solid #c9c0b2; border-bottom: 0; background: var(--sheet); box-shadow: 0 -20px 70px rgba(36, 35, 31, .18); }
+.editorPanel { width: 100%; max-height: 92vh; overflow-y: auto; padding: 20px; border: 1px solid #c9c0b2; border-bottom: 0; background: var(--sheet); color: var(--ink); box-shadow: 0 -20px 70px rgba(36, 35, 31, .18); }
 .editorEmbedded { --sheet: #fffdf7; --ink: #24231f; --muted: #716d63; --line: #d7d0c3; --green: #235f4b; --red: #913b30; --red-soft: #f6e2de; min-height: 0; padding: 18px; background: transparent; }
 .editorEmbedded .formGrid { margin-top: 0; }
 .editorEmbedded .editorFooter { bottom: -18px; margin: 18px -18px -18px; padding: 12px 18px; box-shadow: none; }

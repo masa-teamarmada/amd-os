@@ -3458,21 +3458,42 @@ export function SxWeeklyControlDashboard({
       setEditor(nextEditor);
       return;
     }
-    setWorkloadFilter(null);
-    setDetailEditor(null);
-    setPlanFieldEditor(null);
-    setEditorFieldKeys(null);
+    // 工程/タスク/論点系のいずれも、対象レコードのID/存在をすべて検証し切ってからだけ
+    // workloadFilter/detailEditor/planFieldEditor/editorFieldKeys/selectedMilestoneId/
+    // selectedTaskIdの既存overlay stateを一括で解除する（partner分岐と同じ「解決してから
+    // 閉じる」パターン）。無効IDのクリックでnotifyWorkUnitNotFound()だけを出すつもりが、
+    // 既に開いていた詳細/editorを巻き添えで閉じてしまう事故を防ぐ（2026-08 監査追補）。
     if (unit.navTaskId) {
+      const task = management.tasks.find((item) => item.id === unit.navTaskId);
+      if (!task) {
+        notifyWorkUnitNotFound();
+        return;
+      }
+      setWorkloadFilter(null);
+      setDetailEditor(null);
+      setPlanFieldEditor(null);
+      setEditorFieldKeys(null);
       setSelectedMilestoneId(null);
-      setSelectedTaskId(unit.navTaskId);
+      setSelectedTaskId(task.id);
       document
         .getElementById("project-gantt")
         ?.scrollIntoView({ block: "start", behavior: "smooth" });
       return;
     }
     if (unit.navMilestoneId) {
+      const milestone = management.milestones.find(
+        (item) => item.id === unit.navMilestoneId,
+      );
+      if (!milestone) {
+        notifyWorkUnitNotFound();
+        return;
+      }
+      setWorkloadFilter(null);
+      setDetailEditor(null);
+      setPlanFieldEditor(null);
+      setEditorFieldKeys(null);
       setSelectedTaskId(null);
-      setSelectedMilestoneId(unit.navMilestoneId);
+      setSelectedMilestoneId(milestone.id);
       document
         .getElementById("project-gantt")
         ?.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -3483,10 +3504,10 @@ export function SxWeeklyControlDashboard({
       // 開くだけで、背景のページ自体は動かさない。以前はここで#issue-hypothesisへ
       // scrollIntoViewしていたが、モーダルが全画面backdropで覆う以上スクロールする理由が
       // なく、担当負荷から開いたときだけ画面が意図せず流れるバグになっていた（2026-08
-      // 監査追補）。ガント側の選択（工程/タスク）が残っていると、このeditorモーダルと
-      // PlanInspectorが同時に開く二重dialogになるため、開く前に必ず解除する。IDが一致する
-      // 子レコードを見つけられない場合は、他kindのprovenance監査と同じくnoticeだけを出し、
-      // 親論点編集へ黙ってフォールバックしない（要求と異なる編集画面を誤って開かない）。
+      // 監査追補）。IDが一致する子レコードを見つけられない場合は、他kindのprovenance監査と
+      // 同じくnoticeだけを出し、親論点編集へ黙ってフォールバックしない（要求と異なる編集
+      // 画面を誤って開かない）。kind==="issue"自体もunit.id===issue.idを必須にし、
+      // navIssueId一致だけで別issueへ取り違えない。
       const issue = management.issues.find(
         (item) => item.id === unit.navIssueId,
       );
@@ -3494,8 +3515,7 @@ export function SxWeeklyControlDashboard({
         notifyWorkUnitNotFound();
         return;
       }
-      setSelectedMilestoneId(null);
-      setSelectedTaskId(null);
+      let nextEditor: EditorState;
       if (unit.kind === "hypothesis") {
         const hypothesis = issue.hypotheses.find(
           (item) => item.id === unit.id,
@@ -3504,7 +3524,7 @@ export function SxWeeklyControlDashboard({
           notifyWorkUnitNotFound();
           return;
         }
-        setEditor({ kind: "edit_hypothesis", issue, hypothesis });
+        nextEditor = { kind: "edit_hypothesis", issue, hypothesis };
       } else if (unit.kind === "validation") {
         const validation = issue.validationRuns.find(
           (item) => item.id === unit.id,
@@ -3516,14 +3536,14 @@ export function SxWeeklyControlDashboard({
           notifyWorkUnitNotFound();
           return;
         }
-        setEditor({ kind: "edit_validation", issue, hypothesis, validation });
+        nextEditor = { kind: "edit_validation", issue, hypothesis, validation };
       } else if (unit.kind === "decision") {
         const decision = issue.decisions.find((item) => item.id === unit.id);
         if (!decision) {
           notifyWorkUnitNotFound();
           return;
         }
-        setEditor({ kind: "edit_decision", issue, decision });
+        nextEditor = { kind: "edit_decision", issue, decision };
       } else if (unit.kind === "action") {
         const decision = issue.decisions.find((item) =>
           item.actionItems.some((action) => action.id === unit.id),
@@ -3535,10 +3555,24 @@ export function SxWeeklyControlDashboard({
           notifyWorkUnitNotFound();
           return;
         }
-        setEditor({ kind: "edit_action", issue, decision, action });
+        nextEditor = { kind: "edit_action", issue, decision, action };
+      } else if (unit.kind === "issue") {
+        if (unit.id !== issue.id) {
+          notifyWorkUnitNotFound();
+          return;
+        }
+        nextEditor = { kind: "edit_issue", issue };
       } else {
-        setEditor({ kind: "edit_issue", issue });
+        notifyWorkUnitNotFound();
+        return;
       }
+      setWorkloadFilter(null);
+      setDetailEditor(null);
+      setPlanFieldEditor(null);
+      setEditorFieldKeys(null);
+      setSelectedMilestoneId(null);
+      setSelectedTaskId(null);
+      setEditor(nextEditor);
       return;
     }
   }
