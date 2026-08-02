@@ -38,7 +38,10 @@ import {
   type InstitutionProjectLink,
   type ProjectLifecycle,
 } from "@/lib/institution-projects";
-import { seedListPriority, seedProjectLifecycle } from "@/lib/seeds-data";
+import {
+  seedListPriority,
+  seedProjectLifecycle,
+} from "@/lib/kute-seeds-scoring";
 import type { DashProject } from "@/lib/supabase-data";
 import type { SeedPublicView } from "@/types/seeds";
 import { BUILD_VERSION } from "@/lib/build-info";
