@@ -613,7 +613,7 @@ function RowBar({
           有無に関わらず常時1行目に文字で示す（日程未設定の行は帯の代わりにも使う）。日付は
           捏造しない。 */}
       {row.requiredTaskSummary && (
-        <span className="absolute inset-x-1 top-0.5 truncate text-[10px] font-semibold text-[#5f4a66]">
+        <span className="pointer-events-none absolute inset-x-1 top-0.5 truncate text-[10px] font-semibold text-[#5f4a66]">
           必須タスク {row.requiredTaskSummary.completed}/
           {row.requiredTaskSummary.total}
           {row.requiredTaskSummary.total === 0
@@ -670,17 +670,6 @@ function RowBar({
           </em>
         )}
       </span>
-      {!hasBar && (
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onOpen();
-          }}
-          className="absolute inset-x-0 bottom-0 z-20 h-7 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
-          aria-label={`${row.title}の詳細を開く`}
-        />
-      )}
     </div>
   );
 }

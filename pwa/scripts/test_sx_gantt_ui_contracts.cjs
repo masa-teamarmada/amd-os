@@ -112,6 +112,7 @@ assertNotIncludes(timelineFile, timeline, [
   "msPlacementMode",
   "placementHover",
   "日付上に置く",
+  "{!hasBar && (",
   'onCreateMilestone({ track: null, timelineKind: "milestone" })',
   'aria-label={`${lane.label}のこの日付にMSを追加`}',
 ]);
@@ -125,6 +126,7 @@ assertIncludes(timelineFile, timeline, [
   "const MILESTONE_PROMPT_FLIP_Y = 138;",
   'side: clientY < MILESTONE_PROMPT_FLIP_Y ? "below" : "above"',
   'event.detail === 0 ? rect.left + rect.width / 2 : event.clientX',
+  'className="pointer-events-none absolute inset-x-1 top-0.5',
   'role="dialog"',
   'aria-modal="false"',
 ]);
