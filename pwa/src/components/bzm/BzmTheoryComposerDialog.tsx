@@ -357,8 +357,15 @@ export function BzmTheoryComposerDialog({
       }
       data-bzm-map-panel="composer"
       data-bzm-map-overlay="composer"
-      className="flex max-h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border shadow-xl"
+      className="flex min-h-0 w-full flex-col overflow-hidden rounded-xl border shadow-xl"
       style={{
+        // 親 host (data-bzm-map-overlay-host) は px の maxHeight を inline
+        // style で持つ。子を100%指定のクラスで抑えようとしても、パーセント
+        // maxHeight は definite height を持つ祖先に対してしか効かず (親の
+        // maxHeight 自体は height ではないため)、本文が長い時に panel 全体が
+        // host の外へ overflow していた。maxHeight: "inherit" で親の実際の
+        // px 値をそのまま継承する。
+        maxHeight: "inherit",
         backgroundColor: "#faf6ec",
         borderColor: PAPER_BORDER,
         color: GRAPHITE,

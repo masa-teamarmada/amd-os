@@ -289,6 +289,29 @@ assert.match(
   "the returned style must use the top-derived maxHeight, not a separate viewport-fixed value",
 );
 
+// ---------------------------------------------------------------------------
+// Production browser measurement (2026-08-02, same-day follow-up): even with
+// the top-derived host maxHeight above, the composer's child <aside> capped
+// itself with the Tailwind class max-h-full (= max-height: 100%). A
+// percentage max-height only resolves against an ancestor with an explicit
+// (non-auto) height; the host div is position:absolute with only an inline
+// maxHeight (not height) set, so the child's 100% resolved to none and the
+// panel grew to its full content height (849px measured vs. the host's
+// 348px), overflowing the host and defeating the internal scroll region.
+// The child must instead set maxHeight: "inherit" so it takes on the host's
+// own computed (pixel) max-height value.
+// ---------------------------------------------------------------------------
+assert.doesNotMatch(
+  composer,
+  /max-h-full/,
+  "the composer <aside> must not rely on Tailwind's max-h-full (percentage max-height) to bound itself against the absolutely-positioned host",
+);
+assert.match(
+  composer,
+  /maxHeight:\s*"inherit"/,
+  "the composer <aside> must set maxHeight: \"inherit\" so it takes on the host overlay's own computed (pixel) max-height, not a percentage that fails to resolve",
+);
+
 assert.ok(markdown.includes(String.raw`\[ ... \]`), "display math must support \\[...\\]");
 assert.ok(markdown.includes(String.raw`\( ... \)`), "inline math must support \\(...\\)");
 assert.match(view, /<BzmMarkdown source=\{selected\.body\}/);
