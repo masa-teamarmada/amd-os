@@ -80,6 +80,21 @@ export const THEORY_RELATION_TYPES: readonly TheoryRelationType[] = [
   "raises",
 ];
 
+/**
+ * ノード内メモの役割。エッジではない — メモを追加してもノード・エッジは増えない
+ * (bzm_theory_node_memos だけへ書く)。既存 9 relation のうち、向きが一律に決めがたい
+ * defines/depends_on/supersedes/operationalizes は役割に出さない。
+ */
+export type TheoryMemoType = "supports" | "challenges" | "refutes" | "raises" | "tests";
+
+export const THEORY_MEMO_TYPES: readonly TheoryMemoType[] = [
+  "supports",
+  "challenges",
+  "refutes",
+  "raises",
+  "tests",
+];
+
 export interface TheoryRelation {
   type: TheoryRelationType;
   target: string;

@@ -6,12 +6,13 @@
  */
 
 import type {
+  TheoryMemoType,
   TheoryNodeKind,
   TheoryNodeLayer,
   TheoryNodeStatus,
   TheoryRelationType,
 } from "@/lib/bzm-theory-graph";
-import { THEORY_RELATION_TYPES } from "@/lib/bzm-theory-graph";
+import { THEORY_MEMO_TYPES, THEORY_RELATION_TYPES } from "@/lib/bzm-theory-graph";
 
 export interface TheoryMapNode {
   id: string;
@@ -33,6 +34,15 @@ export interface TheoryMapEdge {
   id: string | null;
   note: string | null;
   editable: boolean;
+}
+
+export interface TheoryMapMemo {
+  id: string;
+  nodeId: string;
+  memoType: TheoryMemoType;
+  body: string;
+  createdBy: string | null;
+  createdAt: string;
 }
 
 // パレット: 紙のベージュ地 / 黒鉛の文字 / 青写真の青 (構造) / 苔緑 (支持) / オーカー (未確定) / 朱 (反証)
@@ -144,51 +154,27 @@ export const STRUCTURAL_TYPES: TheoryRelationType[] = ["depends_on", "supersedes
 export const TEST_TYPES: TheoryRelationType[] = ["tests"];
 export const ISSUE_TYPES: TheoryRelationType[] = ["raises"];
 
-// メモ追加 (grow) 用: 役割として選べる5種。支持・異議・反証・未解決論点・検証に絞る。
-// defines/depends_on/supersedes/operationalizes は方向が用途依存で一律の既定値を
-// 決められないため、メモ役割には出さず、既存の Cmd/Ctrl+click 直接接続から選ぶ。
-export const RELATION_ROLE_OPTIONS: TheoryRelationType[] = [
-  "supports",
-  "challenges",
-  "refutes",
-  "raises",
-  "tests",
-];
+// メモの役割: 選択ノードの内側へ積むメモがどう働くかのラベル。エッジではないので
+// 向きや接続先ノードの既定値を持たない。9 relation のうち、向きが用途依存で
+// 一律の既定値を決められない defines/depends_on/supersedes/operationalizes は
+// メモの役割に出さず、既存の Cmd/Ctrl+click 直接接続 (9 relationすべて) から選ぶ。
+export const MEMO_TYPE_OPTIONS: TheoryMemoType[] = [...THEORY_MEMO_TYPES];
 
-/** メモの役割 (relation type) から、新規ノードの既定 kind/layer/status を決める。 */
-export function relationRoleDefaults(relationType: TheoryRelationType): {
-  kind: TheoryNodeKind;
-  layer: TheoryNodeLayer;
-  status: TheoryNodeStatus;
-} {
-  if (relationType === "raises") {
-    return { kind: "question", layer: "cross-layer", status: "unknown" };
-  }
-  return { kind: "source", layer: "evidence", status: "established" };
-}
+export const MEMO_TYPE_LABEL: Record<TheoryMemoType, string> = {
+  supports: "支持",
+  challenges: "異議",
+  refutes: "反証",
+  raises: "論点",
+  tests: "検証",
+};
 
-/**
- * メモの役割から接続の向きの既定値を決める。raises だけ「選択ノードが新規の問いを生む」
- * (selected -> new) で、それ以外は「新規メモが選択ノードへ向く」(new -> selected)。
- * メモ役割の選択肢は supports/challenges/refutes/raises/tests の5種に限るため、
- * 向きが用途依存で決めがたい defines/depends_on/supersedes/operationalizes は
- * この関数の対象外 (Cmd/Ctrl+click 直接接続でユーザーが都度向きを選ぶ)。
- */
-export function relationDirection(
-  relationType: TheoryRelationType,
-): "outgoing" | "incoming" {
-  return relationType === "raises" ? "incoming" : "outgoing";
-}
-
-/** メモ本文の先頭行、または安全な短縮からノード内部タイトルを派生する。 */
-export function deriveNoteTitle(memo: string): string {
-  const firstLine = memo
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .find((line) => line.length > 0);
-  if (!firstLine) return "新しいメモ";
-  return firstLine.length > 80 ? `${firstLine.slice(0, 79)}…` : firstLine;
-}
+export const MEMO_TYPE_COLOR: Record<TheoryMemoType, string> = {
+  supports: MOSS,
+  challenges: OCHRE,
+  refutes: VERMILION,
+  raises: OCHRE,
+  tests: BLUEPRINT,
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -209,6 +195,26 @@ export function parseTheoryMapEdgeDto(value: unknown): TheoryMapEdge | null {
     id: typeof value.id === "string" ? value.id : null,
     note: typeof value.note === "string" ? value.note : null,
     editable: value.editable === true,
+  };
+}
+
+export function parseTheoryMapMemoDto(value: unknown): TheoryMapMemo | null {
+  if (!isRecord(value)) return null;
+  if (
+    typeof value.id !== "string" ||
+    typeof value.nodeId !== "string" ||
+    typeof value.memoType !== "string" ||
+    !(THEORY_MEMO_TYPES as readonly string[]).includes(value.memoType) ||
+    typeof value.body !== "string" ||
+    typeof value.createdAt !== "string"
+  ) return null;
+  return {
+    id: value.id,
+    nodeId: value.nodeId,
+    memoType: value.memoType as TheoryMemoType,
+    body: value.body,
+    createdBy: typeof value.createdBy === "string" ? value.createdBy : null,
+    createdAt: value.createdAt,
   };
 }
 

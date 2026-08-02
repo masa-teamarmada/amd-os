@@ -3,11 +3,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, requireMember } from "@/lib/supabase/api-auth";
 import {
   createEdge,
+  createMemo,
   createNodeWithOptionalEdge,
   deleteEdge,
   loadTheoryMap,
   updateNode,
   type CreateEdgeInput,
+  type CreateMemoInput,
   type CreateNodeInput,
   type UpdateNodeInput,
 } from "@/lib/bzm-theory-store";
@@ -16,7 +18,8 @@ export const runtime = "nodejs";
 
 type PostBody =
   | ({ action: "create_node" } & CreateNodeInput)
-  | ({ action: "create_edge" } & CreateEdgeInput);
+  | ({ action: "create_edge" } & CreateEdgeInput)
+  | ({ action: "create_memo" } & CreateMemoInput);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -57,6 +60,12 @@ export async function POST(req: NextRequest) {
     const result = await createEdge(db, body, auth.user.email);
     if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
     return NextResponse.json({ ok: true, edge: result.data });
+  }
+
+  if (body.action === "create_memo") {
+    const result = await createMemo(db, body, auth.user.email);
+    if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
+    return NextResponse.json({ ok: true, memo: result.data });
   }
 
   return NextResponse.json({ ok: false, error: "action の値が不正です。" }, { status: 400 });

@@ -34,6 +34,8 @@ import {
   KIND_SHAPE,
   LAYER_LABEL,
   LAYER_ORDER,
+  MEMO_TYPE_COLOR,
+  MEMO_TYPE_LABEL,
   MOSS,
   OCHRE,
   PAPER_BG,
@@ -48,10 +50,10 @@ import {
   VERMILION,
   callTheoryMapApi,
   parseTheoryMapEdgeDto,
-  relationRoleDefaults,
   rgba,
   type NodeShape,
   type TheoryMapEdge,
+  type TheoryMapMemo,
   type TheoryMapNode,
 } from "@/lib/bzm-theory-map-ui";
 import type {
@@ -60,7 +62,7 @@ import type {
 } from "@/components/bzm/BzmTheoryComposerDialog";
 import { BzmMarkdown, BzmMathText } from "@/components/bzm/BzmMarkdown";
 
-export type { TheoryMapNode, TheoryMapEdge } from "@/lib/bzm-theory-map-ui";
+export type { TheoryMapNode, TheoryMapEdge, TheoryMapMemo } from "@/lib/bzm-theory-map-ui";
 
 interface GraphNode extends TheoryMapNode {
   val: number;
@@ -411,32 +413,14 @@ function paintClippedLinkPointerArea(
   ctx.restore();
 }
 
-function draftNode(
-  id: string,
-  noteRelationType: TheoryRelationType | null,
-): TheoryMapNode {
-  if (!noteRelationType) {
-    return {
-      id,
-      title: "新しいノード",
-      summary: "",
-      kind: "concept",
-      layer: "cross-layer",
-      status: "hypothesis",
-      sourceRef: "",
-      sourceHref: null,
-      body: "",
-      editable: true,
-    };
-  }
-  const defaults = relationRoleDefaults(noteRelationType);
+function draftNode(id: string): TheoryMapNode {
   return {
     id,
-    title: "新しいメモ",
+    title: "新しいノード",
     summary: "",
-    kind: defaults.kind,
-    layer: defaults.layer,
-    status: defaults.status,
+    kind: "concept",
+    layer: "cross-layer",
+    status: "hypothesis",
     sourceRef: "",
     sourceHref: null,
     body: "",
@@ -447,18 +431,21 @@ function draftNode(
 export function BzmTheoryMapView({
   nodes: initialNodes,
   edges: initialEdges,
+  memos: initialMemos,
   errors,
   storageMode,
   canEdit,
 }: {
   nodes: TheoryMapNode[];
   edges: TheoryMapEdge[];
+  memos: TheoryMapMemo[];
   errors: string[];
   storageMode: "db" | "unavailable";
   canEdit: boolean;
 }) {
   const [nodes, setNodes] = useState(initialNodes);
   const [edges, setEdges] = useState(initialEdges);
+  const [memos, setMemos] = useState(initialMemos);
   const [composerState, setComposerState] = useState<ComposerState | null>(
     null,
   );
@@ -564,7 +551,7 @@ export function BzmTheoryMapView({
   }, [edges]);
 
   const activeDraftId =
-    composerState && composerState.type !== "edit"
+    composerState && composerState.type === "create"
       ? composerState.draftId
       : null;
 
@@ -629,7 +616,7 @@ export function BzmTheoryMapView({
         ...savedPosition,
         val: Math.max(1, degreeById.get(n.id) ?? 1),
         draft:
-          composerState?.type !== "edit" && composerState?.draftId === n.id,
+          composerState?.type === "create" && composerState.draftId === n.id,
       };
     });
     const gLinks: GraphLink[] = filteredEdges.map((edge) => ({
@@ -771,19 +758,18 @@ export function BzmTheoryMapView({
   }
 
   function closeComposer() {
-    if (composerState && composerState.type !== "edit")
+    if (composerState && composerState.type === "create")
       discardDraft(composerState.draftId);
     setComposerState(null);
     setComposerAnchor(null);
   }
 
   function openDraftComposer(
-    noteRelationType: TheoryRelationType | null,
     graphPoint: { x: number; y: number },
     anchor: { x: number; y: number },
   ) {
     const draftId = `draft-${crypto.randomUUID()}`;
-    const nextDraft = draftNode(draftId, noteRelationType);
+    const nextDraft = draftNode(draftId);
     setNodes((current) => [...current, nextDraft]);
     setNodePositions((current) => ({
       ...current,
@@ -797,24 +783,27 @@ export function BzmTheoryMapView({
     setConnectingFromId(null);
     setEdgeToRemove(null);
     setComposerAnchor(anchor);
-    setComposerState(
-      noteRelationType ? { type: "grow", draftId } : { type: "create", draftId },
-    );
+    setComposerState({ type: "create", draftId });
   }
 
-  function openGrowComposer() {
+  // メモ追加はノードもエッジも作らない。draft node は生成せず、選択ノードの
+  // 内側へ積む記録用フォームだけをマップ内オーバーレイで開く。
+  function openMemoComposer() {
     if (!selected) return;
     const graphNode = graphData.nodes.find((node) => node.id === selected.id);
     const sourcePoint = { x: graphNode?.x ?? 0, y: graphNode?.y ?? 0 };
-    const graphPoint = { x: sourcePoint.x - 110, y: sourcePoint.y + 76 };
+    const anchorGraphPoint = { x: sourcePoint.x - 110, y: sourcePoint.y + 76 };
     const screenPoint = graphRef.current?.graph2ScreenCoords(
-      graphPoint.x,
-      graphPoint.y,
+      anchorGraphPoint.x,
+      anchorGraphPoint.y,
     ) ?? {
       x: size.w / 2,
       y: size.h / 2,
     };
-    openDraftComposer("supports", graphPoint, screenPoint);
+    setConnectingFromId(null);
+    setEdgeToRemove(null);
+    setComposerAnchor(screenPoint);
+    setComposerState({ type: "memo", node: selected });
   }
 
   function openEditComposer(
@@ -931,6 +920,11 @@ export function BzmTheoryMapView({
     ...incomingForSelected.map((edge) => ({ edge, direction: "in" as const })),
     ...outgoingForSelected.map((edge) => ({ edge, direction: "out" as const })),
   ];
+
+  // メモは選択ノードの内側へ積む記録であり、edge から独立した別台帳。新しい順。
+  const memosForSelected = selected
+    ? memos.filter((memo) => memo.nodeId === selected.id).slice().reverse()
+    : [];
 
   useEffect(() => {
     if (!notice) return;
@@ -1417,7 +1411,7 @@ export function BzmTheoryMapView({
                               screenPoint.x,
                               screenPoint.y,
                             ) ?? { x: 0, y: 0 };
-                          openDraftComposer(null, graphPoint, screenPoint);
+                          openDraftComposer(graphPoint, screenPoint);
                         }
                       }}
                       onLinkClick={(link) => {
@@ -1507,7 +1501,7 @@ export function BzmTheoryMapView({
                             )}
                             <button
                               type="button"
-                              onClick={() => openGrowComposer()}
+                              onClick={() => openMemoComposer()}
                               className="flex min-h-11 items-center gap-1 rounded-md border px-3 text-xs font-semibold sm:min-h-9"
                               style={{
                                 borderColor: BLUEPRINT,
@@ -1541,14 +1535,13 @@ export function BzmTheoryMapView({
                       >
                         <BzmTheoryComposerDialog
                           state={composerState}
-                          selected={selected}
                           onClose={closeComposer}
                           onDraftChange={updateDraftNode}
                           onNodeCreated={(node, edge) => {
                             const draftId =
-                              composerState.type === "edit"
-                                ? null
-                                : composerState.draftId;
+                              composerState.type === "create"
+                                ? composerState.draftId
+                                : null;
                             setNodes((current) =>
                               draftId
                                 ? current.map((candidate) =>
@@ -1587,6 +1580,12 @@ export function BzmTheoryMapView({
                               "success",
                               `「${node.title}」を更新しました。`,
                             );
+                          }}
+                          onMemoCreated={(memo) => {
+                            setMemos((current) => [...current, memo]);
+                            setComposerState(null);
+                            setComposerAnchor(null);
+                            announce("success", "メモを追加しました。");
                           }}
                           onError={(message) => announce("error", message)}
                         />
@@ -1928,11 +1927,14 @@ export function BzmTheoryMapView({
                   )}
 
                   <div className="min-h-0 flex-1 overflow-auto p-4">
-                    <RelatedNotesList
-                      edges={relatedEdges}
-                      nodeById={nodeById}
-                      onSelect={setSelectedId}
-                    />
+                    <MemoList memos={memosForSelected} />
+                    <div className="mt-4">
+                      <ConnectedNodesList
+                        edges={relatedEdges}
+                        nodeById={nodeById}
+                        onSelect={setSelectedId}
+                      />
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -1994,7 +1996,60 @@ export function BzmTheoryMapView({
   );
 }
 
-function RelatedNotesList({
+function MemoList({ memos }: { memos: TheoryMapMemo[] }) {
+  return (
+    <div>
+      <div
+        className="mb-1.5 flex items-center gap-2 text-xs font-semibold"
+        style={{ color: GRAPHITE }}
+      >
+        メモ
+        <span
+          className="rounded-full border px-1.5 py-0.5 font-mono text-[10px]"
+          style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
+        >
+          {memos.length} 件
+        </span>
+      </div>
+      {memos.length === 0 ? (
+        <div
+          className="rounded-md border border-dashed px-3 py-2 text-xs"
+          style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
+        >
+          メモなし
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {memos.map((memo) => (
+            <li
+              key={memo.id}
+              className="rounded-md border px-2.5 py-2 text-xs"
+              style={{ borderColor: PAPER_BORDER }}
+            >
+              <span
+                className="mb-1 inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 font-semibold"
+                style={{
+                  borderColor: MEMO_TYPE_COLOR[memo.memoType],
+                  color: MEMO_TYPE_COLOR[memo.memoType],
+                }}
+              >
+                {MEMO_TYPE_LABEL[memo.memoType]}
+              </span>
+              <div
+                className="whitespace-pre-wrap break-words leading-5 [overflow-wrap:anywhere]"
+                style={{ color: GRAPHITE }}
+              >
+                <BzmMathText source={memo.body} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function ConnectedNodesList({
   edges,
   nodeById,
   onSelect,
@@ -2009,7 +2064,7 @@ function RelatedNotesList({
         className="mb-1.5 flex items-center gap-2 text-xs font-semibold"
         style={{ color: GRAPHITE }}
       >
-        関連メモ
+        接続しているノード
         <span
           className="rounded-full border px-1.5 py-0.5 font-mono text-[10px]"
           style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
@@ -2022,7 +2077,7 @@ function RelatedNotesList({
           className="rounded-md border border-dashed px-3 py-2 text-xs"
           style={{ borderColor: PAPER_BORDER, color: GRAPHITE_MUTED }}
         >
-          関連メモなし
+          接続しているノードなし
         </div>
       ) : (
         <ul className="space-y-1">

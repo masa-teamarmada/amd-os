@@ -3,7 +3,6 @@
 import {
   useEffect,
   useId,
-  useMemo,
   useRef,
   useState,
   type FormEvent,
@@ -23,10 +22,10 @@ import {
   THEORY_NODE_STATUSES,
 } from "@/lib/bzm-theory-graph";
 import type {
+  TheoryMemoType,
   TheoryNodeKind,
   TheoryNodeLayer,
   TheoryNodeStatus,
-  TheoryRelationType,
 } from "@/lib/bzm-theory-graph";
 import {
   BLUEPRINT,
@@ -35,25 +34,27 @@ import {
   KIND_COLOR,
   KIND_LABEL,
   LAYER_LABEL,
+  MEMO_TYPE_LABEL,
+  MEMO_TYPE_OPTIONS,
   PAPER_BG,
   PAPER_BORDER,
-  RELATION_LABEL,
-  RELATION_ROLE_OPTIONS,
   STATUS_LABEL,
   VERMILION,
   callTheoryMapApi,
-  deriveNoteTitle,
   parseTheoryMapEdgeDto,
-  relationDirection,
-  relationRoleDefaults,
+  parseTheoryMapMemoDto,
   rgba,
   type TheoryMapEdge,
+  type TheoryMapMemo,
   type TheoryMapNode,
 } from "@/lib/bzm-theory-map-ui";
 
+// メモ (state.type === "memo") はノード内へ積む記録であり、選択ノードと
+// エッジを共有しない。draft node もノードもエッジも作らず、既存ノードへの
+// POST /api/bzm/theory-map { action: "create_memo" } だけを呼ぶ。
 export type ComposerState =
   | { type: "create"; draftId: string }
-  | { type: "grow"; draftId: string }
+  | { type: "memo"; node: TheoryMapNode }
   | { type: "edit"; node: TheoryMapNode };
 
 export interface DraftNodeFields {
@@ -89,8 +90,11 @@ interface FormState {
   status: TheoryNodeStatus;
   body: string;
   sourceRef: string;
-  /** メモ (grow) の役割。create / edit では未使用。 */
-  relationType: TheoryRelationType;
+}
+
+interface MemoFormState {
+  memoType: TheoryMemoType;
+  body: string;
 }
 
 function defaultFormState(): FormState {
@@ -102,23 +106,11 @@ function defaultFormState(): FormState {
     status: "hypothesis",
     body: "",
     sourceRef: "",
-    relationType: "supports",
   };
 }
 
-function growFormState(): FormState {
-  const relationType: TheoryRelationType = "supports";
-  const defaults = relationRoleDefaults(relationType);
-  return {
-    kind: defaults.kind,
-    title: "",
-    summary: "",
-    layer: defaults.layer,
-    status: defaults.status,
-    body: "",
-    sourceRef: "",
-    relationType,
-  };
+function defaultMemoFormState(): MemoFormState {
+  return { memoType: "supports", body: "" };
 }
 
 function nodeToFormState(node: TheoryMapNode): FormState {
@@ -130,7 +122,6 @@ function nodeToFormState(node: TheoryMapNode): FormState {
     status: node.status,
     body: node.body,
     sourceRef: node.sourceRef,
-    relationType: "supports",
   };
 }
 
@@ -173,23 +164,24 @@ function parseNodeDto(value: unknown): TheoryMapNode | null {
 
 export function BzmTheoryComposerDialog({
   state,
-  selected,
   onClose,
   onNodeCreated,
   onNodeUpdated,
+  onMemoCreated,
   onDraftChange,
   onError,
 }: {
   state: ComposerState | null;
-  selected: TheoryMapNode | null;
   onClose: () => void;
   onNodeCreated: (node: TheoryMapNode, edge: TheoryMapEdge | null) => void;
   onNodeUpdated: (node: TheoryMapNode) => void;
+  onMemoCreated: (memo: TheoryMapMemo) => void;
   onDraftChange: (draftId: string, fields: DraftNodeFields) => void;
   onError: (message: string) => void;
 }) {
   const titleId = useId();
   const [form, setForm] = useState<FormState>(defaultFormState());
+  const [memoForm, setMemoForm] = useState<MemoFormState>(defaultMemoFormState());
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -210,9 +202,8 @@ export function BzmTheoryComposerDialog({
     if (state.type === "create") {
       skipDraftSyncRef.current = true;
       setForm(defaultFormState());
-    } else if (state.type === "grow") {
-      skipDraftSyncRef.current = true;
-      setForm(growFormState());
+    } else if (state.type === "memo") {
+      setMemoForm(defaultMemoFormState());
     } else if (state.type === "edit") setForm(nodeToFormState(state.node));
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [state]);
@@ -242,7 +233,7 @@ export function BzmTheoryComposerDialog({
   }, [open, onClose, pending]);
 
   useEffect(() => {
-    if (!state || state.type === "edit") return;
+    if (!state || state.type !== "create") return;
     if (skipDraftSyncRef.current) {
       skipDraftSyncRef.current = false;
       return;
@@ -250,25 +241,13 @@ export function BzmTheoryComposerDialog({
     onDraftChange(state.draftId, form);
   }, [form, onDraftChange, state]);
 
-  async function submitCreateOrGrow(submitMode: "create" | "grow") {
+  async function submitCreate() {
     if (!form.title.trim() || !form.summary.trim()) {
-      setError(
-        submitMode === "grow"
-          ? "メモの本文は必須です。"
-          : "タイトルと要約は必須です。",
-      );
+      setError("タイトルと要約は必須です。");
       return;
     }
     setPending(true);
     setError(null);
-    const relation =
-      submitMode === "grow" && selected
-        ? {
-            type: form.relationType,
-            targetId: selected.id,
-            direction: relationDirection(form.relationType),
-          }
-        : undefined;
     const result = await callTheoryMapApi({
       method: "POST",
       body: {
@@ -280,7 +259,6 @@ export function BzmTheoryComposerDialog({
         summary: form.summary,
         bodyMd: form.body,
         sourceRef: form.sourceRef,
-        relation,
       },
     });
     setPending(false);
@@ -298,6 +276,38 @@ export function BzmTheoryComposerDialog({
     }
     const edge = parseTheoryMapEdgeDto(result.payload.edge);
     onNodeCreated(node, edge);
+  }
+
+  async function submitMemo(node: TheoryMapNode) {
+    if (!memoForm.body.trim()) {
+      setError("メモの本文は必須です。");
+      return;
+    }
+    setPending(true);
+    setError(null);
+    const result = await callTheoryMapApi({
+      method: "POST",
+      body: {
+        action: "create_memo",
+        nodeId: node.id,
+        memoType: memoForm.memoType,
+        body: memoForm.body,
+      },
+    });
+    setPending(false);
+    if (!result.ok) {
+      setError(result.error);
+      onError(result.error);
+      return;
+    }
+    const memo = parseTheoryMapMemoDto(result.payload.memo);
+    if (!memo) {
+      const message = "サーバーの応答を解釈できませんでした。";
+      setError(message);
+      onError(message);
+      return;
+    }
+    onMemoCreated(memo);
   }
 
   async function submitEdit(node: TheoryMapNode) {
@@ -338,27 +348,18 @@ export function BzmTheoryComposerDialog({
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (mode === "create") void submitCreateOrGrow("create");
-    else if (mode === "grow") void submitCreateOrGrow("grow");
+    if (mode === "create") void submitCreate();
+    else if (state?.type === "memo") void submitMemo(state.node);
     else if (state?.type === "edit") void submitEdit(state.node);
   }
 
   const dialogTitle =
-    mode === "create" ? "理論を書く" : mode === "grow" ? "メモを追加" : "ノードを編集";
+    mode === "create" ? "理論を書く" : mode === "memo" ? "メモを追加" : "ノードを編集";
 
-  const requiredTextMissing = !form.title.trim() || !form.summary.trim();
-
-  const previewText = useMemo(() => {
-    if (mode === "grow" && selected) {
-      const newTitle = form.title.trim() || "(新しいメモ)";
-      const rel = RELATION_LABEL[form.relationType];
-      if (relationDirection(form.relationType) === "incoming") {
-        return `${selected.title} → ${rel} → ${newTitle}`;
-      }
-      return `${newTitle} → ${rel} → ${selected.title}`;
-    }
-    return null;
-  }, [mode, selected, form.title, form.relationType]);
+  const requiredTextMissing =
+    mode === "memo"
+      ? !memoForm.body.trim()
+      : !form.title.trim() || !form.summary.trim();
 
   if (!open) return null;
 
@@ -390,17 +391,18 @@ export function BzmTheoryComposerDialog({
             >
               {dialogTitle}
             </h2>
-            {mode !== "edit" && (
+            {mode === "create" && (
               <p className="mt-1 text-xs" style={{ color: BLUEPRINT }}>
                 下書きノードをマップに作成済み
               </p>
             )}
-            {selected && mode === "grow" && (
+            {state?.type === "memo" && (
               <p
                 className="mt-1 truncate text-xs"
                 style={{ color: GRAPHITE_MUTED }}
               >
-                選択中: <span className="font-semibold">{selected.title}</span>
+                対象ノード:{" "}
+                <span className="font-semibold">{state.node.title}</span>
               </p>
             )}
           </div>
@@ -417,13 +419,8 @@ export function BzmTheoryComposerDialog({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          {mode === "grow" ? (
-            <NoteFields
-              form={form}
-              setForm={setForm}
-              advancedOpen={advancedOpen}
-              setAdvancedOpen={setAdvancedOpen}
-            />
+          {mode === "memo" ? (
+            <MemoFields form={memoForm} setForm={setMemoForm} />
           ) : (
             <NodeFields
               form={form}
@@ -433,22 +430,6 @@ export function BzmTheoryComposerDialog({
               setAdvancedOpen={setAdvancedOpen}
               showSourceRef={form.kind === "source"}
             />
-          )}
-
-          {previewText && (
-            <div
-              className="mt-4 rounded-md border px-3 py-2 text-xs leading-5"
-              style={{
-                borderColor: BLUEPRINT,
-                backgroundColor: "rgba(41, 82, 163, 0.08)",
-                color: BLUEPRINT,
-              }}
-            >
-              <div className="mb-0.5 font-semibold">接続のプレビュー</div>
-              <div className="break-words [overflow-wrap:anywhere]">
-                {previewText}
-              </div>
-            </div>
           )}
 
           {error && (
@@ -496,16 +477,12 @@ export function BzmTheoryComposerDialog({
   );
 }
 
-function NoteFields({
+function MemoFields({
   form,
   setForm,
-  advancedOpen,
-  setAdvancedOpen,
 }: {
-  form: FormState;
-  setForm: (updater: (prev: FormState) => FormState) => void;
-  advancedOpen: boolean;
-  setAdvancedOpen: (v: boolean) => void;
+  form: MemoFormState;
+  setForm: (updater: (prev: MemoFormState) => MemoFormState) => void;
 }) {
   const memoFieldId = useId();
   const roleFieldId = useId();
@@ -523,18 +500,14 @@ function NoteFields({
         <textarea
           id={memoFieldId}
           data-bzm-autofocus="true"
-          value={form.summary}
+          value={form.body}
           onChange={(e) => {
-            const summary = e.target.value;
-            setForm((prev) => ({
-              ...prev,
-              summary,
-              title: deriveNoteTitle(summary),
-            }));
+            const body = e.target.value;
+            setForm((prev) => ({ ...prev, body }));
           }}
           required
           maxLength={2000}
-          rows={5}
+          rows={6}
           placeholder="根拠・異論・反証・論点・検証結果などを書く"
           className="w-full rounded-md border px-3 py-2 text-sm outline-none"
           style={inputStyle}
@@ -551,93 +524,21 @@ function NoteFields({
         </label>
         <select
           id={roleFieldId}
-          value={form.relationType}
+          value={form.memoType}
           onChange={(e) => {
-            const relationType = e.target.value as TheoryRelationType;
-            const defaults = relationRoleDefaults(relationType);
-            setForm((prev) => ({
-              ...prev,
-              relationType,
-              kind: defaults.kind,
-              layer: defaults.layer,
-              status: defaults.status,
-            }));
+            const memoType = e.target.value as TheoryMemoType;
+            setForm((prev) => ({ ...prev, memoType }));
           }}
           className="h-11 w-full rounded-md border px-2.5 text-sm outline-none"
           style={inputStyle}
         >
-          {RELATION_ROLE_OPTIONS.map((relationType) => (
-            <option key={relationType} value={relationType}>
-              {RELATION_LABEL[relationType]}
+          {MEMO_TYPE_OPTIONS.map((memoType) => (
+            <option key={memoType} value={memoType}>
+              {MEMO_TYPE_LABEL[memoType]}
             </option>
           ))}
         </select>
       </div>
-
-      <button
-        type="button"
-        onClick={() => setAdvancedOpen(!advancedOpen)}
-        aria-expanded={advancedOpen}
-        className="flex min-h-11 items-center gap-1.5 self-start text-xs font-semibold"
-        style={{ color: BLUEPRINT }}
-      >
-        {advancedOpen ? "詳細を隠す" : "詳細設定 (層・状態・本文・出典)"}
-      </button>
-
-      {advancedOpen && (
-        <div
-          className="flex flex-col gap-4 rounded-md border px-3 py-3"
-          style={{ borderColor: PAPER_BORDER }}
-        >
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <LabeledSelect
-              label="層"
-              value={form.layer}
-              onChange={(v) =>
-                setForm((prev) => ({ ...prev, layer: v as TheoryNodeLayer }))
-              }
-              options={THEORY_NODE_LAYERS.map((l) => ({
-                value: l,
-                label: LAYER_LABEL[l],
-              }))}
-            />
-            <LabeledSelect
-              label="状態"
-              value={form.status}
-              onChange={(v) =>
-                setForm((prev) => ({ ...prev, status: v as TheoryNodeStatus }))
-              }
-              options={THEORY_NODE_STATUSES.map((s) => ({
-                value: s,
-                label: STATUS_LABEL[s],
-              }))}
-            />
-          </div>
-          <SourceRefField
-            value={form.sourceRef}
-            onChange={(sourceRef) => setForm((prev) => ({ ...prev, sourceRef }))}
-            hint="根拠をたどれるURL、DOI、書誌情報を残す"
-          />
-          <div>
-            <label
-              className="mb-1.5 block text-xs font-semibold"
-              style={{ color: GRAPHITE_MUTED }}
-            >
-              本文 (Markdown)
-            </label>
-            <textarea
-              value={form.body}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, body: e.target.value }))
-              }
-              maxLength={30000}
-              rows={6}
-              className="w-full rounded-md border px-3 py-2 text-sm outline-none"
-              style={inputStyle}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

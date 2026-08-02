@@ -27,7 +27,7 @@
 | management guardrails | `guardrail_tag_definitions`, `guardrail_cards`, `guardrail_matches`, `guardrail_feedbacks` |
 | decision | `amd_score_inputs`, `amd_score_alpha`, `amd_score_revisions`, `project_xrl_log`, `project_founding_members`, `project_graduation_signals` |
 | research institutions | `institutions`, `institution_projects`, `institution_capability_axes`, `institution_capability_criteria`, `institution_assessments` |
-| BZM theory | `bzm_theory_nodes`, `bzm_theory_edges` |
+| BZM theory | `bzm_theory_nodes`, `bzm_theory_edges`, `bzm_theory_node_memos` |
 | Atlas | `atlas_signals`, `atlas_stories`, `atlas_story_merges`, `atlas_themes`, `atlas_story_themes`, `atlas_divergences` |
 | Seeds / VC / Scholar | `seeds`, `seed_projects`, `seed_sps_assessments`, `seed_funding`, `seed_news`, `seed_contact_log`, `vcs`, `vc_funds`, `vc_investments`, `vc_contacts`, `vc_news`, `papers_log` |
 | Management Score / finance | `amd_management_score_*`, `company_*`, `freee_oauth_tokens` |
@@ -57,9 +57,10 @@
 
 - `bzm_theory_nodes`: 理論要素の title / kind / layer / status / summary / body / source reference と作成・更新者を保存する。
 - `bzm_theory_edges`: 有向エッジを `(from_node_id, relation_type, to_node_id)` 一意で保存する。9 relation を許可し、`raises` の到達先はAPIとDB triggerの両方でactiveな `question` に限定する。
-- authenticated member は active ノードと active ノード間エッジを読む。書き込みは `public.is_admin()` とAPIの `requireAdmin()` の両方で制限する。
+- `bzm_theory_node_memos`: ノードの内側へ積む記録。`node_id` (FK, `ON DELETE CASCADE`)、`memo_type` (`supports`/`challenges`/`refutes`/`raises`/`tests`)、`body` (trim後1〜2000文字、DB CHECK) を持つ。ノードでもエッジでもなく、追加してもノード数・エッジ数は変わらない。migration `214_bzm_theory_node_memos.sql` が空テーブルとして追加。
+- authenticated member は active ノード、active ノード間エッジ、active ノードに属するメモを読む。書き込みは `public.is_admin()` とAPIの `requireAdmin()` の両方で制限する (ノード・エッジ・メモの3テーブル共通)。
 - migration `203_bzm_theory_editor.sql` はschema/RLSと旧21ノード / 34関係seedの履歴。migration `208_bzm_theory_map_user_authored_reset.sql` がedge→nodeの順で全seed行を削除し、0件から本人が育てる現在値にする。日常運用の正本はDBだけで、Markdownは自動読込しない検証・復元用履歴資産。
-- UIからノードを直接削除しない。エッジ解除はID指定、ノード作成と初回エッジの片側失敗は補償削除する。
+- UIからノードを直接削除しない。エッジ解除はID指定、ノード作成と初回エッジの片側失敗は補償削除する。メモ追加 (`create_memo`) はノード作成・エッジ作成とは独立した経路で、ノードもエッジも作らない。
 
 ## RLS 標準形 (全テーブル必須)
 

@@ -14,12 +14,21 @@
 
 | source | 役割 |
 |---|---|
-| `bzm_theory_nodes` / `bzm_theory_edges` | 唯一の共有ランタイム正本。利用者本人がOS UIから追加・編集・接続解除する |
+| `bzm_theory_nodes` / `bzm_theory_edges` | 唯一の共有ランタイム正本。ノード=理論要素、エッジ=理論要素同士の関係。利用者本人がOS UIから追加・編集・接続解除する |
+| `bzm_theory_node_memos` | ノードの内側へ積む記録。選択ノードへ複数積めるが、ノードともエッジとも独立した別テーブルで、追加してもノード数・エッジ数を変えない |
+| migration `214_bzm_theory_node_memos.sql` | `bzm_theory_node_memos` を空で作成する現在化migration。既存ノード・エッジ・利用者データは更新・移行・削除しない |
 | migration `208_bzm_theory_map_user_authored_reset.sql` | 既存シードを削除し、0ノード / 0関係の利用者作成台帳へ戻す現在化migration |
 | migration `203_bzm_theory_editor.sql` | テーブル・制約・RLSと、廃止済み初期データを含む再構築履歴 |
 | `pwa/bzm/theory-graph/*.md` | 旧21ノード / 34関係の検証・復元用履歴資産。ランタイムへ自動読込しない |
 
 DB取得に失敗した場合は空の `unavailable` 結果を返し、画面上部で編集停止を明示する。Markdownや廃止済みシードを自動表示して、利用者本人が書いた地図と混ぜてはならない。
+
+## 概念境界: ノード・エッジ・メモは別物
+
+- **ノード** = 理論要素そのもの。**エッジ** = 理論要素同士の関係。**メモ** = 選択ノードの内側へ積む記録で、ノードでもエッジでもない。
+- メモを追加しても `bzm_theory_nodes` / `bzm_theory_edges` へは書かない。ノード数・エッジ数・画面上の件数表示は変わらない。
+- 別の文献や別の理論要素をグラフへ加える場合だけ、空白クリックで新ノードを作り、必要なら `Cmd`/`Ctrl` 二点クリックでエッジ接続する。メモ追加はこの経路を経由しない。
+- 2026-08-02 以前は「メモを追加」が1メモにつき1ノード+1エッジを作る誤仕様だった (`relationDirection` / `relationRoleDefaults` / `deriveNoteTitle` によるノード自動生成)。この誤仕様は撤回し、メモは `bzm_theory_node_memos` だけへ書く現行仕様に置き換えた。
 
 ## ノードモデル
 
@@ -59,13 +68,28 @@ DB取得に失敗した場合は空の `unavailable` 結果を返し、画面上
 
 `raises` の到達先は必ず `question`。`raises` の入力がある問いを別 kind に変更する操作も拒否する。文献ノードは原則 `supports` / `challenges` / `refutes` / `tests` を使い、外部資料が BZM の概念を直接「定義した」と誤記しない。
 
+## メモモデル
+
+`bzm_theory_node_memos` は選択ノードの内側へ積む記録で、ノードでもエッジでもない。ノード削除時は `ON DELETE CASCADE` で追従する。
+
+| column | contract |
+|---|---|
+| `id` | uuid primary key、`gen_random_uuid()` |
+| `node_id` | 必須、`bzm_theory_nodes(id)` への外部キー |
+| `memo_type` | 必須。`supports` / `challenges` / `refutes` / `raises` / `tests` の5種 (メモの役割ラベル) |
+| `body` | 必須、trim後1〜2000文字。DB CHECKでも強制 |
+| `created_by` | 操作者の認証メール |
+| `created_at` | 既定 `now()` |
+
+`memo_type` はエッジの `relation_type` と同じ語彙のうち5種を再利用したラベルだが、エッジは作らない。向きも接続先ノードも持たない。`defines` / `depends_on` / `supersedes` / `operationalizes` は方向が用途で変わるためメモの役割には出さず、既存の `Cmd`/`Ctrl` 二点クリック直接接続 (9 relationすべて選択可) に残す。
+
 ## 権限と書き込み境界
 
-- 認証済み AMD メンバーは active ノードと、その active ノード間のエッジを閲覧できる。
-- 追加・編集・接続解除は `members.is_admin=true` の管理者だけ。
+- 認証済み AMD メンバーは active ノードと、その active ノード間のエッジ、および active ノードに属するメモを閲覧できる。
+- 追加・編集・接続解除・メモ追加は `members.is_admin=true` の管理者だけ。
 - API は毎回 `requireMember()` / `requireAdmin()` で認証し、管理クライアントは認可後にだけ生成する。
-- RLS でも authenticated read、`is_admin()` write、service role all を二重に強制する。
-- 空白クリック時は画面内だけに下書きノードを即時生成する。DBへのノード作成・編集は保存ボタン、既存ノード間の接続は2点目の `Cmd/Ctrl+click`、接続解除は削除確認をユーザーが実行した時だけ書く。自動保存、通知、外部送信は行わない。
+- RLS でも authenticated read、`is_admin()` write、service role all を二重に強制する (ノード・エッジ・メモの3テーブル共通)。
+- 空白クリック時は画面内だけに下書きノードを即時生成する。DBへのノード作成・編集は保存ボタン、既存ノード間の接続は2点目の `Cmd/Ctrl+click`、接続解除は削除確認、メモ追加は選択ノードの操作帯からユーザーが実行した時だけ書く。自動保存、通知、外部送信は行わない。
 
 ## API
 
@@ -73,11 +97,14 @@ DB取得に失敗した場合は空の `unavailable` 結果を返し、画面上
 
 | method | action | body / target |
 |---|---|---|
-| `GET` | 現在のノードとエッジを読む | member 必須 |
+| `GET` | 現在のノード・エッジ・メモを読む | member 必須。一部のみを正本扱いせず、失敗時は全体を `unavailable` にする |
 | `POST` | ノード作成 | `{ action: "create_node", node, edge? }`。必要なら1本目の接続も同時要求 |
 | `POST` | 既存ノード同士を接続 | `{ action: "create_edge", edge }` |
+| `POST` | 選択ノードへメモを追加 | `{ action: "create_memo", nodeId, memoType, body }`。ノード・エッジは作らない |
 | `PATCH` | ノード編集 | `{ nodeId, changes }` |
 | `DELETE` | エッジ解除 | query `edgeId=<uuid>` |
+
+`create_memo` は対象ノードが存在しactiveであること、`memoType` が5種のいずれか、`body` がtrim後1〜2000文字であることをAPIで検証する。
 
 ノード作成後に1本目のエッジ作成が失敗した場合は、そのリクエストで作ったノードだけを補償削除し、片方だけ残さない。DBの生エラーはサーバーログに限定し、画面には安全な日本語エラーを返す。
 
@@ -100,9 +127,9 @@ DB取得に失敗した場合は空の `unavailable` 結果を返し、画面上
 
 ### ノードを育てる
 
-ノードの通常クリックは、そのノードを覆わない側へマップ内編集オーバーレイを開く。ドラッグ後に発火するクリックは抑止し、配置変更と編集を混同させない。編集オーバーレイを閉じた後は、選択ノードの小さな操作帯から派生ノードも作れる。右側台帳は読み取りへ専念し、編集操作を置かない。
+ノードの通常クリックは、そのノードを覆わない側へマップ内編集オーバーレイを開く。ドラッグ後に発火するクリックは抑止し、配置変更と編集を混同させない。編集オーバーレイを閉じた後は、選択ノードの小さな操作帯から同じノードへメモも積める。右側台帳は読み取りへ専念し、編集操作を置かない。
 
-- **メモを追加** (2026-08-02 以前は「根拠」「異論」「論点」の3ボタンに分かれていたが、1つに統合): 選択ノードの操作帯にあるこのボタン1つで、マップ内にメモ用の作成オーバーレイを開く。オーバーレイでは、まずメモ本文 (= 新規ノードの `summary` になる) を書き、次にそのメモの役割を `supports` / `challenges` / `refutes` / `raises` / `tests` の5 relationから選ぶ (`RELATION_ROLE_OPTIONS`)。`defines` / `depends_on` / `supersedes` / `operationalizes` は接続の向きが用途によって変わり一律の既定値を決めがたいため、メモの役割には出さず、既存の `Cmd`/`Ctrl` を押した2ノード直接接続 (9 relationすべて選択可) に残す。役割を変えると新規ノードの既定 `kind`/`layer`/`status` もコードが決める値へ追従する (`raises` は問い、それ以外は外部ソース扱いが既定)。内部の node `title` はメモ本文の先頭行、または安全な長さへ短縮した値から自動的に作る。保存前に「A → 関係 → B」の接続プレビューで向きを確認できる。向きの既定値もコードが決める: `raises` だけ「選択ノードが新規の問いを生む」(選択 → 新規)、それ以外は「新規メモが選択ノードへ向く」(新規 → 選択)。層・状態・出典・本文Markdownは折りたたみの詳細設定に残る。保存後もオーバーレイは閉じるだけで操作帯は残るため、同じノードへ何件でもメモを追加できる。1メモ = 1ノード + 1エッジで、新しいDBテーブルや非構造memoは作らない。
+- **メモを追加** (2026-08-02 以前は「根拠」「異論」「論点」の3ボタンに分かれ、さらに1メモ=1ノード+1エッジを作る誤仕様だったが、いずれも撤回して1ボタン・ノード内メモへ統合): 選択ノードの操作帯にあるこのボタン1つで、マップ内にメモ用の作成オーバーレイを開く。**draft nodeは作らない** — 空白クリック時のノード下書きとは別経路。オーバーレイでは、まずメモ本文を書き、次にそのメモの役割を `supports` / `challenges` / `refutes` / `raises` / `tests` の5種から選ぶ (`MEMO_TYPE_OPTIONS`)。`defines` / `depends_on` / `supersedes` / `operationalizes` は接続の向きが用途によって変わり一律の既定値を決めがたいため、メモの役割には出さず、既存の `Cmd`/`Ctrl` を押した2ノード直接接続 (9 relationすべて選択可) に残す。層・状態・タイトル・出典・本文Markdown・接続プレビューは一切出さない — メモはノードでもエッジでもないため、これらの項目自体を持たない。保存は `POST { action: "create_memo", nodeId, memoType, body }` を呼び、選択ノードの `bzm_theory_node_memos` へ1行追加するだけで、ノード数・エッジ数・画面上の件数表示は変わらない。保存成功後はオーバーレイを閉じ、選択は同じノードのまま、成功文言は「メモを追加しました」。操作帯自体は残るため、同じノードへ何件でもメモを追加できる。
 - **編集**: 選択ノードの内容を更新する。
 
 通常ドラッグはノードの配置変更だけに使い、接続を作らない。接続は `Cmd+click`（他OSでは `Ctrl+click`）で2ノードを順に選ぶ。1点目はノードに近い細い実線ハローとマップ内の小さな接続待ち帯で示し、必要なら待ち帯のrelationを変更する。2点目を選んだ瞬間、API完了を待たずに**1点目 → 2点目**の線を描き、選択中のrelation（初期値 `supports`）で保存する。待ち帯も「線を表示済み・保存中」と即時に変える。「つなぐ」確認ボタンや接続パネルは出さない。同一ノードの2回選択は拒否して1点目を保持する。空白クリック、Escape、またはfilterで1点目が非表示になると接続待ちを解除する。保存中は多重操作を受けず、失敗時は仮の線だけを戻し、1点目を保持して安全なエラーを表示する。
@@ -115,8 +142,11 @@ DB取得に失敗した場合は空の `unavailable` 結果を返し、画面上
 - filter: layer、status、relation type。relation filter は地図のエッジだけに作用し、台帳から反証等を消さない。
 - map: kind を固有の塗り色（色覚に依存しない形も併用）、接続本数を半径、layer を横方向の帯で表す。status は一覧・台帳の文字ラベルに退避し、ノード外周に点線・破線を重ねない。ノード中心に略字は置かない。
 - list: kind / layer / status / 接続本数を1行で比較する。
-- 台帳: summary、source_ref、本文を表示したうえで、支持・異議反証・検証・依存上書き・残っている論点・波及先を6区画に分けず、**「関連メモ」1つのコンパクトな一覧**に統合する (2026-08-02 まさ確定)。各行は relation 種別 (向き付き矢印 + `RELATION_LABEL`) と接続先ノードのタイトルを1行で表示し、クリックでその接続先ノードへ選択を移す。既存 edge は種別を問わず1本も破棄せず、単に表示をまとめるだけ。関連するエッジが0件の時の空状態は「関連メモなし」の1つだけで、6個の個別空状態は出さない。タイトル・要約・本文のLaTeXは `$...$` / `$$...$$` / `\(...\)` / `\[...\]` をKaTeXで数式表示し、不正な式でも画面全体を壊さない。
-- source 以外で外部支持、異議反証、tests が無い時は「記録が手薄」と警告する。誤り判定ではない。
+- 台帳: summary、source_ref、本文を表示したうえで、**「メモ」と「接続しているノード」の二層**に分ける (2026-08-02 まさ確定、ノード内メモとグラフ接続の概念分離)。
+  - **メモ**: 選択ノードの `bzm_theory_node_memos` 一覧。役割ラベル (`MEMO_TYPE_LABEL` + `MEMO_TYPE_COLOR`) + 本文を並べ、0件の空状態は「メモなし」1つ。複数件を新しい順に表示し、LaTeXは `$...$` / `$$...$$` をKaTeXで数式表示する。
+  - **接続しているノード**: 既存edge一覧 (旧「関連メモ」を改称、`関連メモ`という語は使わない)。各行は relation 種別 (向き付き矢印 + `RELATION_LABEL`) と接続先ノードのタイトルを1行で表示し、クリックでその接続先ノードへ選択を移す。既存 edge は種別を問わず1本も破棄せず、単に表示をまとめるだけ。関連するエッジが0件の時の空状態は「接続しているノードなし」の1つだけ。
+  - タイトル・要約・本文のLaTeXは `$...$` / `$$...$$` / `\(...\)` / `\[...\]` をKaTeXで数式表示し、不正な式でも画面全体を壊さない。
+- source 以外で外部支持、異議反証、tests が無い時は「記録が手薄」と警告する。誤り判定ではない。**カバレッジ警告はedge (接続しているノード) だけを根拠に判定し、メモの分類 (`memo_type`) を外部根拠・反証・検証の接続がある証拠として数えない。**
 
 ## 実装ファイル
 
@@ -126,11 +156,12 @@ DB取得に失敗した場合は空の `unavailable` 結果を返し、画面上
 | `src/app/api/bzm/theory-map/route.ts` | 認証付き read/write API |
 | `src/app/(app)/bzm/map/page.tsx` | map data と admin 権限を並列取得する Server Component |
 | `src/components/bzm/BzmTheoryMapView.tsx` | map/list、空白クリック、通常クリック編集、Cmd二点接続、配置ドラッグ、線クリック、選択台帳 |
-| `src/components/bzm/BzmTheoryComposerDialog.tsx` | マップ内に浮かぶ新規・育成・編集オーバーレイ |
+| `src/components/bzm/BzmTheoryComposerDialog.tsx` | マップ内に浮かぶ新規ノード・メモ追加・編集オーバーレイ |
 | `src/components/bzm/BzmMarkdown.tsx` | MarkdownとLaTeXの安全な表示 |
-| `src/lib/bzm-theory-graph.ts` | 履歴Markdown snapshotのparser / graph builder。ランタイム非使用 |
+| `src/lib/bzm-theory-graph.ts` | ノード/エッジ/メモの型・許可値 (`THEORY_MEMO_TYPES` 等)、履歴Markdown snapshotのparser / graph builder。parser部分はランタイム非使用 |
 | `scripts/migrations/203_bzm_theory_editor.sql` | DB schema、RLS、廃止済み21/34 seedの履歴 |
 | `scripts/migrations/208_bzm_theory_map_user_authored_reset.sql` | 全edge→全nodeの順で削除し、空台帳へ現在化 |
+| `scripts/migrations/214_bzm_theory_node_memos.sql` | `bzm_theory_node_memos` を空で作成。既存ノード・エッジ・利用者データは不変 |
 | `scripts/check_bzm_theory_graph.cjs` | Markdown snapshot の独立 validator |
 | `scripts/check_bzm_theory_editor.cjs` | migration、権限、mutation、UI anchor の contract test |
 
@@ -140,6 +171,7 @@ DB取得に失敗した場合は空の `unavailable` 結果を返し、画面上
 cd pwa
 python3 -X utf8 scripts/apply_ddl.py scripts/migrations/203_bzm_theory_editor.sql
 python3 -X utf8 scripts/apply_ddl.py scripts/migrations/208_bzm_theory_map_user_authored_reset.sql
+python3 -X utf8 scripts/apply_ddl.py scripts/migrations/214_bzm_theory_node_memos.sql
 python3 -X utf8 scripts/dump_schema.py
 npm run test:bzm-theory-graph
 npm run test:bzm-theory-editor
@@ -148,7 +180,7 @@ npx tsc --noEmit
 npm run build
 ```
 
-本番確認では保存・接続・削除を実行せず、確認前後で既存ノード数 / 関係数が変わっていないことを確認する。desktop / mobile で空白クリック→クリック座標への保存前下書き即時生成 (Canvas描画1件だけ、`data-bzm-draft-node` などの重複HTMLマーカーが無いこと) ＋マップ内オーバーレイ1件を確認し、Escapeで破棄する。通常クリック→ノードを覆わない編集オーバーレイ、ドラッグ→配置変更のみ、Cmd二点クリック→確認ボタンなしで仮線を即時表示、エッジ→両端がノード外周で停止、線クリック→非重複削除確認、種類色・外周点線なし・中心略字なし・LaTeX表示・非admin閲覧は、保存を伴わない検証環境または自動テストで確認する。選択ノード台帳は「関連メモ」1本の一覧になっていること、成長操作は「メモを追加」1ボタンで、役割選択と接続プレビューが機能することも確認する。
+本番確認では保存・接続・削除・メモ追加を実行せず、確認前後で既存ノード数 / 関係数 / メモ件数が変わっていないことを確認する。desktop / mobile で空白クリック→クリック座標への保存前下書き即時生成 (Canvas描画1件だけ、`data-bzm-draft-node` などの重複HTMLマーカーが無いこと) ＋マップ内オーバーレイ1件を確認し、Escapeで破棄する。通常クリック→ノードを覆わない編集オーバーレイ、ドラッグ→配置変更のみ、Cmd二点クリック→確認ボタンなしで仮線を即時表示、エッジ→両端がノード外周で停止、線クリック→非重複削除確認、種類色・外周点線なし・中心略字なし・LaTeX表示・非admin閲覧は、保存を伴わない検証環境または自動テストで確認する。選択ノード台帳は「メモ」と「接続しているノード」の二層に分かれていること (`関連メモ`という語が残っていないこと)、成長操作は「メモを追加」1ボタンで draft node を作らず `create_memo` だけを呼ぶこと、メモ追加後も nodes/edges の件数表示が不変であることをローカル/自動テストで確認する。
 
 ## 既知の制約
 

@@ -12,10 +12,12 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  THEORY_MEMO_TYPES,
   THEORY_NODE_KINDS,
   THEORY_NODE_LAYERS,
   THEORY_NODE_STATUSES,
   THEORY_RELATION_TYPES,
+  type TheoryMemoType,
   type TheoryNodeKind,
   type TheoryNodeLayer,
   type TheoryNodeStatus,
@@ -46,10 +48,20 @@ export interface TheoryMapEdgeDTO {
   editable: boolean;
 }
 
+export interface TheoryMapMemoDTO {
+  id: string;
+  nodeId: string;
+  memoType: TheoryMemoType;
+  body: string;
+  createdBy: string | null;
+  createdAt: string;
+}
+
 export interface TheoryMapResult {
   storageMode: TheoryMapStorageMode;
   nodes: TheoryMapNodeDTO[];
   edges: TheoryMapEdgeDTO[];
+  memos: TheoryMapMemoDTO[];
   errors: string[];
 }
 
@@ -59,11 +71,13 @@ export const BODY_MD_MAX = 30000;
 export const SOURCE_REF_MAX = 1000;
 export const NOTE_MAX = 2000;
 export const NODE_ID_MAX = 160;
+export const MEMO_BODY_MAX = 2000;
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const NODES_TABLE = "bzm_theory_nodes";
 const EDGES_TABLE = "bzm_theory_edges";
+const MEMOS_TABLE = "bzm_theory_node_memos";
 
 function bzmDir() {
   return path.join(process.cwd(), "bzm");
@@ -108,6 +122,15 @@ interface EdgeRow {
   note: string | null;
 }
 
+interface MemoRow {
+  id: string;
+  node_id: string;
+  memo_type: string;
+  body: string;
+  created_by: string | null;
+  created_at: string;
+}
+
 /**
  * DB を正として理論マップを読み込む。空データは正常系として扱う。
  * 取得失敗時は過去データを混ぜず、空の unavailable 結果を返す。
@@ -115,26 +138,35 @@ interface EdgeRow {
 export async function loadTheoryMap(
   supabase: SupabaseClient
 ): Promise<TheoryMapResult> {
-  const [nodesRes, edgesRes] = await Promise.all([
+  const [nodesRes, edgesRes, memosRes] = await Promise.all([
     supabase
       .from(NODES_TABLE)
       .select("id,title,kind,layer,status,summary,body_md,source_ref")
       .is("archived_at", null),
     supabase.from(EDGES_TABLE).select("id,from_node_id,to_node_id,relation_type,note"),
+    supabase
+      .from(MEMOS_TABLE)
+      .select("id,node_id,memo_type,body,created_by,created_at")
+      .order("created_at", { ascending: true }),
   ]);
 
-  if (nodesRes.error || edgesRes.error) {
-    console.error("[bzm-theory-store] DB load failed", nodesRes.error ?? edgesRes.error);
+  if (nodesRes.error || edgesRes.error || memosRes.error) {
+    console.error(
+      "[bzm-theory-store] DB load failed",
+      nodesRes.error ?? edgesRes.error ?? memosRes.error
+    );
     return {
       storageMode: "unavailable",
       nodes: [],
       edges: [],
+      memos: [],
       errors: ["理論マップを読み込めませんでした。時間をおいて再読み込みしてください。"],
     };
   }
 
   const nodeRows = (nodesRes.data ?? []) as NodeRow[];
   const edgeRows = (edgesRes.data ?? []) as EdgeRow[];
+  const memoRows = (memosRes.data ?? []) as MemoRow[];
   const nodeIds = new Set(nodeRows.map((row) => row.id));
 
   const nodes: TheoryMapNodeDTO[] = nodeRows.map((row) => ({
@@ -171,7 +203,26 @@ export async function loadTheoryMap(
     });
   }
 
-  return { storageMode: "db", nodes, edges, errors };
+  const memos: TheoryMapMemoDTO[] = [];
+  for (const row of memoRows) {
+    if (!nodeIds.has(row.node_id)) {
+      // orphan memo (node archived or missing) — drop silently from display.
+      console.error(
+        `[bzm-theory-store] dropping orphan memo ${row.id} (node ${row.node_id})`
+      );
+      continue;
+    }
+    memos.push({
+      id: row.id,
+      nodeId: row.node_id,
+      memoType: row.memo_type as TheoryMemoType,
+      body: row.body,
+      createdBy: row.created_by ?? null,
+      createdAt: row.created_at,
+    });
+  }
+
+  return { storageMode: "db", nodes, edges, memos, errors };
 }
 
 // -------------------------------------------------------------------------
@@ -231,6 +282,12 @@ export interface CreateEdgeInput {
   to: unknown;
   type: unknown;
   note?: unknown;
+}
+
+export interface CreateMemoInput {
+  nodeId: unknown;
+  memoType: unknown;
+  body: unknown;
 }
 
 export interface UpdateNodeInput {
@@ -492,6 +549,53 @@ export async function createEdge(
   return { ok: true, data: rowToEdgeDto(data as EdgeRow) };
 }
 
+/**
+ * create_memo アクション。選択ノードの内側へメモを1件積むだけで、
+ * ノードもエッジも作らない (bzm_theory_node_memos だけへ書く)。
+ */
+export async function createMemo(
+  db: SupabaseClient,
+  input: CreateMemoInput,
+  actorEmail: string
+): Promise<StoreResult<TheoryMapMemoDTO>> {
+  const nodeId = trimmed(input.nodeId);
+  if (!nodeId) return { ok: false, status: 400, error: "nodeId は必須です。" };
+  if (nodeId.length > NODE_ID_MAX) return { ok: false, status: 400, error: "nodeId が長すぎます。" };
+  if (!isOneOf(THEORY_MEMO_TYPES, input.memoType)) {
+    return { ok: false, status: 400, error: "memoType の値が不正です。" };
+  }
+  const body = requireText(input.body, MEMO_BODY_MAX, "メモ本文");
+  if ("error" in body) return { ok: false, status: 400, error: body.error };
+
+  let activeNodes: Map<string, TheoryNodeKind>;
+  try {
+    activeNodes = await fetchActiveNodeKinds(db, [nodeId]);
+  } catch {
+    return { ok: false, status: 500, error: "サーバーエラーが発生しました。時間をおいて再度お試しください。" };
+  }
+  if (!activeNodes.has(nodeId)) {
+    return { ok: false, status: 400, error: "対象のノードが見つかりません。" };
+  }
+
+  const { data, error } = await db
+    .from(MEMOS_TABLE)
+    .insert({
+      node_id: nodeId,
+      memo_type: input.memoType,
+      body: body.value,
+      created_by: actorEmail,
+    })
+    .select("id,node_id,memo_type,body,created_by,created_at")
+    .single();
+
+  if (error) {
+    console.error("[bzm-theory-store] createMemo failed", error);
+    return { ok: false, status: 500, error: "メモの作成に失敗しました。" };
+  }
+
+  return { ok: true, data: rowToMemoDto(data as MemoRow) };
+}
+
 /** ノード更新 (PATCH)。指定されたフィールドのみ更新する。 */
 export async function updateNode(
   db: SupabaseClient,
@@ -626,5 +730,16 @@ function rowToEdgeDto(row: EdgeRow): TheoryMapEdgeDTO {
     id: row.id,
     note: row.note ?? null,
     editable: true,
+  };
+}
+
+function rowToMemoDto(row: MemoRow): TheoryMapMemoDTO {
+  return {
+    id: row.id,
+    nodeId: row.node_id,
+    memoType: row.memo_type as TheoryMemoType,
+    body: row.body,
+    createdBy: row.created_by ?? null,
+    createdAt: row.created_at,
   };
 }

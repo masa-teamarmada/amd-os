@@ -15,7 +15,7 @@ export default async function BzmTheoryMapPage() {
     loadTheoryMap(supabase),
     supabase.auth.getUser(),
   ]);
-  const { storageMode, nodes, edges, errors } = mapResult;
+  const { storageMode, nodes, edges, memos, errors } = mapResult;
   const { user } = authResult.data;
 
   let canEdit = false;
@@ -50,11 +50,21 @@ export default async function BzmTheoryMapPage() {
     editable: edge.editable,
   }));
 
+  const mapMemos = memos.map((memo) => ({
+    id: memo.id,
+    nodeId: memo.nodeId,
+    memoType: memo.memoType,
+    body: memo.body,
+    createdBy: memo.createdBy,
+    createdAt: memo.createdAt,
+  }));
+
   return (
     <section className="px-4 py-6 sm:px-6 sm:py-8">
       <BzmTheoryMapView
         nodes={mapNodes}
         edges={mapEdges}
+        memos={mapMemos}
         errors={errors}
         storageMode={storageMode}
         canEdit={canEdit}

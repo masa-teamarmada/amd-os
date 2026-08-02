@@ -39,7 +39,7 @@
 | Atlas | `/api/atlas/*` | atlas signals / stories / themes | TODO spec |
 | Seeds / VC | `/api/cron/seeds-ingest`, `/api/cron/vc-*`, admin seed/vc helpers | seeds / vcs / investments | TODO spec |
 | ECR | `/api/institutions/assess` | `institution_assessments` upsert | `/spec/4-3-ers-current-spec` |
-| BZM theory | `/api/bzm/theory-map` | member read、admin の `bzm_theory_nodes` / `bzm_theory_edges` 明示保存 | `/spec/2-6-bzm-theory-map-current-spec` |
+| BZM theory | `/api/bzm/theory-map` | member read、admin の `bzm_theory_nodes` / `bzm_theory_edges` / `bzm_theory_node_memos` 明示保存 | `/spec/2-6-bzm-theory-map-current-spec` |
 | business cards | `/api/business-cards`, `/api/business-cards/[cardId]`, `/api/business-cards/[cardId]/image` | private画像保存、Gemini OCR、確認済み名刺 / PJ紐付け / `project_knowledge` 同期 | `/spec/2-5-business-cards-current-spec` |
 | cron | `/api/cron/*` | Vercel cron or on-demand batch | `/spec/5-3-automation-responsibility-current-spec` |
 
