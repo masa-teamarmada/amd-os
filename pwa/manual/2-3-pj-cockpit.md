@@ -35,7 +35,7 @@ AMDメンバーは従来どおり `/dashboard` がトップで、SX (`p21`) カ�
 ├──────────────────┬──────────────────┬──────────────┤
 │  タブ: 進捗管理 / スコア詳細 / 事業計画(SX) / 会社概要  │
 ├──────────────────┬──────────────────┬──────────────┤
-│  年間 MS リスト   │  資料              │  月次確認       │
+│  年間 MS リスト   │  資料室ボタン       │  月次確認       │
 │  月次サマリ       │  経営ハイライト    │  ステータス     │
 │                   │  助成金            │               │
 │                   │  MTG サマリ        │               │
@@ -75,13 +75,15 @@ PJ コックピットには、旧 `proactive_outbox` 由来の TODO 欄を表示
 
 PJ全体の資料置き場を表示する。提案書、試算表、契約案、参考PDFなど、特定MTGだけに閉じない資料をここへ置く。
 
-- ファイルを追加すると、Google Drive の当該PJ folder (`projects.drive_folder_id`) 配下に `AMD OS 資料` folder を作り、その中へ新規ファイルとして保存する
-- OS 側には `project_documents` に Drive file ID / folder ID / link / file name / MIME / size / uploaded_by / created_at だけを残す。ファイル本体は DB に保存しない
-- 同名ファイルは上書きしない。Drive 側で同名の新規ファイルとして残す
-- 資料一覧の閲覧と追加は、そのPJの active member または admin が使える。PJ cockpit を開けるメンバーが、資料一覧だけ `Forbidden` で見えない状態にしない
-- PJ folder id 未設定、Google Drive credential 未設定、Drive 書き込み権限不足の場合は、資料パネル内で warning / retry を表示し、他の cockpit 表示は止めない
+- コックピットには資料名・件数・最新ファイル一覧を並べず、**「資料室を開く」ボタンだけ**を置く。ボタンを押すと現在のコックピットURLを変えずに大きなモーダルが開き、閉じると同じ位置へ戻る
+- モーダル内ではファイル、フォルダ、オンライン資料を同じ一覧で確認する。検索、フォルダ移動、追加、名称変更、保存先変更、共有範囲変更、保管済み化を扱う
+- メタデータ正本は `workspace_documents`、ファイル実体はprivate Storage `workspace-files`。1資料は機関またはPJのどちらか一方だけに属する
+- `workspace_shared` はそのPJへ明示付与された外部メンバーにも共有し、`amd_internal` はAMD内部だけに表示する。機関ワークスペース所属からPJ資料への権限を自動付与しない
+- 一覧にはStorage path、外部URL、署名tokenを返さない。ファイルを開く時だけ権限を再確認し、60秒の署名URLを発行する。保管済み化はファイル本体を削除しない
+- `/project/{project_id}/workspace/files` は直接URLを開く場合の独立ページとして残す。コックピット内の日常導線はモーダルを使い、ブラウザの戻る操作を要求しない
+- 旧 `project_documents` のDrive資料は `AMD内部/Drive資料` の内部限定リンクとして併記する。旧Project ShareとDriveの行は、移行確認のため削除・上書きしない
 
-MTG詳細モーダル内の「添付資料」は会議単位の `meeting_assets`。新規添付はその会議の Drive folder (`PJフォルダ / YYMMDD_会議名`) に保存する。この「資料」はPJ単位の Drive link 台帳なので用途を分ける。
+MTG詳細モーダル内の「添付資料」は会議単位の `meeting_assets`。新規添付はその会議の Drive folder (`PJフォルダ / YYMMDD_会議名`) に保存する。PJ資料室はPJ全体、MTG添付は会議単位なので用途を分ける。
 
 ---
 

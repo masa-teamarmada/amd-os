@@ -7,7 +7,7 @@ import { CockpitManagementScoreHero } from "./CockpitManagementScoreHero";
 import { CockpitGoalsCompact } from "./CockpitGoalsCompact";
 import { CockpitStrategySignals } from "./CockpitStrategySignals";
 import { CockpitGrants } from "./CockpitGrants";
-import { WorkspaceDocumentSummary } from "@/components/workspace-documents/WorkspaceDocumentRoom";
+import { WorkspaceDocumentLauncher } from "@/components/workspace-documents/WorkspaceDocumentRoom";
 import { CockpitKuteAnnualRoadmap } from "./CockpitKuteAnnualRoadmap";
 import { ProjectInstitutionSeeds } from "./CockpitKuteSeeds";
 import { CockpitSeasonFinance } from "./CockpitSeasonFinance";
@@ -502,10 +502,10 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           />
         </div>
 
-        {/* col2: 資料 + 経営ハイライト (D-6) + MTGサマリ。
+        {/* col2: 資料室ボタン + 経営ハイライト (D-6) + MTGサマリ。
             旧 proactive_outbox TODO は 2026-06-27 に廃止済みのため表示しない。 */}
         <div className="flex flex-col gap-3 min-w-0">
-          <WorkspaceDocumentSummary projectId={project.projectId} projectName={project.projectName} />
+          <WorkspaceDocumentLauncher projectId={project.projectId} projectName={project.projectName} />
           <CockpitStrategySignals signals={strategySignals || []} projectId={project.projectId} />
           <CockpitGrants projectId={project.projectId} />
           <CockpitMeetingSummary projectId={project.projectId} />

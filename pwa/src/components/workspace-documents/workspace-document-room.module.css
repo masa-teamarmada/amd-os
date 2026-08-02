@@ -1,111 +1,158 @@
 .room {
-  --archive-canvas: #f4f1e8;
-  --archive-paper: #fffdf7;
-  --archive-inset: #eee9de;
-  --archive-ink: #24231f;
-  --archive-secondary: #5f5b52;
-  --archive-muted: #68635b;
-  --archive-line: rgba(82, 74, 61, 0.2);
-  --archive-line-strong: rgba(63, 57, 48, 0.34);
-  --archive-institution: #433879;
-  --archive-project: #205f49;
-  --archive-shared: #8a5a18;
-  --archive-danger: #9b3b35;
+  --room-canvas: #f8fafc;
+  --room-panel: #ffffff;
+  --room-inset: #f1f5f9;
+  --room-ink: #0f172a;
+  --room-secondary: #334155;
+  --room-muted: #64748b;
+  --room-line: rgba(15, 23, 42, 0.14);
+  --room-line-strong: rgba(15, 23, 42, 0.28);
+  --room-navy: #081b2b;
+  --room-blue: #0066cc;
+  --room-blue-strong: #004f9e;
+  --room-cyan: #00a6e6;
+  --room-danger: #b42318;
 
-  color: var(--archive-ink);
+  color: var(--room-ink);
+}
+
+.pageShell {
+  min-height: 100vh;
+  background: var(--room-canvas);
+}
+
+.pageHeader {
+  border-bottom: 3px solid var(--room-blue);
+  background: var(--room-navy);
+  color: white;
+}
+
+.modalRoom {
+  min-height: 0;
+  background: var(--room-canvas);
 }
 
 .scopeBand {
-  border: 1px solid var(--archive-line);
-  background: var(--archive-paper);
+  border: 1px solid var(--room-line);
+  background: var(--room-panel);
 }
 
 .scopeBandInstitution {
-  box-shadow: inset 4px 0 0 var(--archive-institution);
+  box-shadow: inset 4px 0 0 var(--room-cyan);
 }
 
 .scopeBandProject {
-  box-shadow: inset 4px 0 0 var(--archive-project);
+  box-shadow: inset 4px 0 0 var(--room-blue);
 }
 
 .panel {
-  border: 1px solid var(--archive-line);
-  background: var(--archive-paper);
+  border: 1px solid var(--room-line);
+  background: var(--room-panel);
 }
 
 .inset {
-  border: 1px solid var(--archive-line);
-  background: var(--archive-inset);
+  border: 1px solid var(--room-line);
+  background: var(--room-inset);
 }
 
 .control {
   min-height: 44px;
-  border: 1px solid var(--archive-line-strong);
-  background: var(--archive-paper);
-  color: var(--archive-ink);
+  border: 1px solid var(--room-line-strong);
+  background: var(--room-panel);
+  color: var(--room-ink);
 }
 
 .control:focus-visible {
-  outline: 2px solid var(--archive-project);
+  outline: 2px solid var(--room-blue);
   outline-offset: 2px;
 }
 
 .primaryAction {
   min-height: 44px;
-  background: var(--archive-project);
+  background: var(--room-blue);
   color: white;
 }
 
 .primaryAction:hover {
-  background: #174a39;
+  background: var(--room-blue-strong);
 }
 
 .secondaryAction {
   min-height: 44px;
-  border: 1px solid var(--archive-line-strong);
-  background: var(--archive-paper);
-  color: var(--archive-secondary);
+  border: 1px solid var(--room-line-strong);
+  background: var(--room-panel);
+  color: var(--room-secondary);
 }
 
 .secondaryAction:hover {
-  border-color: var(--archive-project);
-  color: var(--archive-project);
+  border-color: var(--room-blue);
+  color: var(--room-blue);
+}
+
+.pageHeader .secondaryAction {
+  border-color: rgba(255, 255, 255, 0.55);
+  background: transparent;
+  color: white;
+}
+
+.pageHeader .secondaryAction:hover {
+  border-color: white;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
 }
 
 .fileRow {
-  border-top: 1px solid var(--archive-line);
-  background: var(--archive-paper);
+  border-top: 1px solid var(--room-line);
+  background: var(--room-panel);
   transition: background-color 160ms ease;
 }
 
 .fileRow:hover {
-  background: #faf7ef;
+  background: #f5f9ff;
 }
 
 .sharedBadge {
-  border: 1px solid rgba(138, 90, 24, 0.28);
-  background: #fbf0dc;
-  color: #704710;
+  border: 1px solid rgba(0, 102, 204, 0.42);
+  background: white;
+  color: #0058ad;
 }
 
 .internalBadge {
-  border: 1px solid rgba(52, 54, 57, 0.25);
-  background: #e8e7e3;
-  color: #3e3f41;
+  border: 1px solid var(--room-navy);
+  background: var(--room-navy);
+  color: white;
 }
 
 .dropActive {
-  border-color: var(--archive-project);
-  background: #e8f0eb;
+  border-color: var(--room-blue);
+  background: #eef6ff;
 }
 
 .dangerAction {
-  color: var(--archive-danger);
+  color: var(--room-danger);
+}
+
+.launcher {
+  min-height: 48px;
+  border: 1px solid #005ab7;
+  background: var(--room-blue);
+  color: white;
+  box-shadow: 0 8px 22px rgba(0, 102, 204, 0.16);
+}
+
+.launcher:hover {
+  border-color: var(--room-blue-strong);
+  background: var(--room-blue-strong);
+}
+
+.launcher:focus-visible {
+  outline: 3px solid rgba(0, 166, 230, 0.34);
+  outline-offset: 2px;
 }
 
 @media (max-width: 639px) {
   .fileRow {
-    border: 1px solid var(--archive-line);
+    border: 1px solid var(--room-line);
     border-radius: 8px;
   }
 }

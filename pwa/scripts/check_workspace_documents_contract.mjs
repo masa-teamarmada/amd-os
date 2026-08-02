@@ -10,6 +10,8 @@ const files = {
   middleware: new URL("../src/lib/supabase/middleware.ts", import.meta.url),
   institutionPage: new URL("../src/app/workspace/[slug]/files/page.tsx", import.meta.url),
   projectPage: new URL("../src/app/(shared-workspace)/project/[projectId]/workspace/files/page.tsx", import.meta.url),
+  room: new URL("../src/components/workspace-documents/WorkspaceDocumentRoom.tsx", import.meta.url),
+  cockpit: new URL("../src/components/cockpit/CockpitView.tsx", import.meta.url),
 };
 
 const source = Object.fromEntries(await Promise.all(Object.entries(files).map(async ([key, url]) => [key, await readFile(url, "utf8")])));
@@ -30,5 +32,11 @@ assert.match(source.projectPage, /resolveProjectDocumentAccess\(projectId\)/, "P
 assert.match(source.projectPage, /access\.principal === "internal_member"[\s\S]*\/cockpit/, "内部メンバーは資料室からcockpitへ戻る");
 assert.match(source.projectPage, /PJ概要へ戻る/, "外部メンバーは資料室から共有PJ概要へ戻る");
 assert.match(source.middleware, /workspace\(\?:\\\/files\)\?/, "外部workspace sessionでPJ資料室routeへ到達できる");
+assert.match(source.cockpit, /<WorkspaceDocumentLauncher/, "cockpitは資料一覧でなく資料室launcherを置く");
+assert.doesNotMatch(source.cockpit, /WorkspaceDocumentSummary/, "cockpitの資料サマリ一覧を復活させない");
+assert.match(source.room, /data-testid="workspace-document-launcher"/, "資料室launcherを操作契約として固定する");
+assert.match(source.room, /data-testid="workspace-document-modal"/, "資料室はcockpit内modalで開く");
+assert.match(source.room, /presentation="modal"/, "modal内の資料室は専用presentationを使う");
+assert.doesNotMatch(source.room, /const latest =|slice\(0, 3\)/, "cockpit launcherで最新資料一覧を先読みしない");
 
 console.log("workspace documents contract: ok");
