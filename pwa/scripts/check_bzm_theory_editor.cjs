@@ -138,6 +138,16 @@ for (const label of [
   assert.ok(view.includes(label) || composer.includes(label), `editor UI missing ${label}`);
 }
 assert.doesNotMatch(view, /関連メモ/, "the edge list must not be labeled 関連メモ — that conflates edges with memos");
+assert.doesNotMatch(
+  view,
+  /anchorGraphPoint/,
+  "memo composer must anchor from the selected node itself; pre-offsetting the anchor can cover the target node"
+);
+assert.match(
+  view,
+  /graph2ScreenCoords\(\s*sourcePoint\.x,\s*sourcePoint\.y,/,
+  "memo composer must preserve the selected node coordinate before applying the shared node gap"
+);
 for (const contract of [
   "onBackgroundClick", "onNodeDragEnd", "onLinkClick", "handleNodeDragEnd", "handleNodeClick",
   "suppressNextBackgroundClick", "draggedNodeClickRef", "event.metaKey || event.ctrlKey",

@@ -792,10 +792,9 @@ export function BzmTheoryMapView({
     if (!selected) return;
     const graphNode = graphData.nodes.find((node) => node.id === selected.id);
     const sourcePoint = { x: graphNode?.x ?? 0, y: graphNode?.y ?? 0 };
-    const anchorGraphPoint = { x: sourcePoint.x - 110, y: sourcePoint.y + 76 };
     const screenPoint = graphRef.current?.graph2ScreenCoords(
-      anchorGraphPoint.x,
-      anchorGraphPoint.y,
+      sourcePoint.x,
+      sourcePoint.y,
     ) ?? {
       x: size.w / 2,
       y: size.h / 2,
