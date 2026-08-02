@@ -868,7 +868,6 @@ export function BzmTheoryMapView({
   function handleNodeClick(node: GraphNode, event: MouseEvent) {
     suppressNextBackgroundClick();
     if (node.draft) return;
-    if (composerState) return;
     if (draggedNodeClickRef.current === node.id) {
       draggedNodeClickRef.current = null;
       return;
@@ -877,7 +876,9 @@ export function BzmTheoryMapView({
     const modifierPressed = event.metaKey || event.ctrlKey;
     if (canEdit && modifierPressed) {
       if (connectingPending) return;
-      setComposerState(null);
+      // composer が下書き作成中だった場合は、接続モードへ入る前に下書きを
+      // 破棄する（そうしないと nodes/positions に孤児 draft node が残る）。
+      closeComposer();
       setEdgeToRemove(null);
       if (!connectingFromId) {
         setSelectedId(node.id);
@@ -898,6 +899,9 @@ export function BzmTheoryMapView({
     setConnectingFromId(null);
     setSelectedId(node.id);
     if (canEdit && node.editable) {
+      // composer が別ノードの下書き作成中だった場合は、切替前に下書きを破棄する。
+      if (composerState && composerState.type === "create")
+        discardDraft(composerState.draftId);
       openEditComposer(node, { x: event.offsetX, y: event.offsetY });
     }
   }
@@ -953,7 +957,7 @@ export function BzmTheoryMapView({
           maxHeight: Math.max(180, size.h / 2 - 28),
         }
       : (() => {
-          const panelWidth = Math.min(400, size.w - 24);
+          const panelWidth = Math.min(360, size.w - 24);
           const anchor = composerAnchor ?? { x: size.w / 2, y: 80 };
           const nodeGap = 72;
           const fitsRight =
@@ -1400,7 +1404,11 @@ export function BzmTheoryMapView({
                           if (!connectingPending) setConnectingFromId(null);
                           return;
                         }
-                        if (canEdit && !composerState && !edgeToRemove) {
+                        if (composerState) {
+                          closeComposer();
+                          return;
+                        }
+                        if (canEdit && !edgeToRemove) {
                           const screenPoint = {
                             x: event.offsetX,
                             y: event.offsetY,

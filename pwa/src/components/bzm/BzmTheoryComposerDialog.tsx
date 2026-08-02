@@ -7,15 +7,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import {
-  BookOpenText,
-  CheckCircle2,
-  HelpCircle,
-  Lightbulb,
-  Quote,
-  Ruler,
-  X,
-} from "lucide-react";
+import { X } from "lucide-react";
 import {
   THEORY_NODE_KINDS,
   THEORY_NODE_LAYERS,
@@ -31,7 +23,6 @@ import {
   BLUEPRINT,
   GRAPHITE,
   GRAPHITE_MUTED,
-  KIND_COLOR,
   KIND_LABEL,
   LAYER_LABEL,
   MEMO_TYPE_LABEL,
@@ -43,7 +34,6 @@ import {
   callTheoryMapApi,
   parseTheoryMapEdgeDto,
   parseTheoryMapMemoDto,
-  rgba,
   type TheoryMapEdge,
   type TheoryMapMemo,
   type TheoryMapNode,
@@ -66,15 +56,6 @@ export interface DraftNodeFields {
   body: string;
   sourceRef: string;
 }
-
-const KIND_OPTIONS: { kind: TheoryNodeKind; icon: typeof Lightbulb }[] = [
-  { kind: "concept", icon: Lightbulb },
-  { kind: "claim", icon: Quote },
-  { kind: "measure", icon: Ruler },
-  { kind: "decision", icon: CheckCircle2 },
-  { kind: "source", icon: BookOpenText },
-  { kind: "question", icon: HelpCircle },
-];
 
 const inputStyle = {
   borderColor: PAPER_BORDER,
@@ -354,7 +335,7 @@ export function BzmTheoryComposerDialog({
   }
 
   const dialogTitle =
-    mode === "create" ? "理論を書く" : mode === "memo" ? "メモを追加" : "ノードを編集";
+    mode === "create" ? "理論を書く" : mode === "memo" ? "メモを追加" : null;
 
   const requiredTextMissing =
     mode === "memo"
@@ -368,7 +349,12 @@ export function BzmTheoryComposerDialog({
       ref={panelRef}
       role="dialog"
       aria-modal="false"
-      aria-labelledby={titleId}
+      aria-labelledby={dialogTitle ? titleId : undefined}
+      aria-label={
+        !dialogTitle && state?.type === "edit"
+          ? `${state.node.title} を編集`
+          : undefined
+      }
       data-bzm-map-panel="composer"
       data-bzm-map-overlay="composer"
       className="flex max-h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border shadow-xl"
@@ -380,17 +366,19 @@ export function BzmTheoryComposerDialog({
     >
       <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
         <div
-          className="flex items-start gap-3 border-b px-4 py-4"
+          className="flex items-start gap-2 border-b px-3 py-2"
           style={{ borderColor: PAPER_BORDER }}
         >
           <div className="min-w-0 flex-1">
-            <h2
-              id={titleId}
-              className="text-lg font-semibold leading-tight"
-              style={{ color: GRAPHITE }}
-            >
-              {dialogTitle}
-            </h2>
+            {dialogTitle && (
+              <h2
+                id={titleId}
+                className="text-lg font-semibold leading-tight"
+                style={{ color: GRAPHITE }}
+              >
+                {dialogTitle}
+              </h2>
+            )}
             {mode === "create" && (
               <p className="mt-1 text-xs" style={{ color: BLUEPRINT }}>
                 下書きノードをマップに作成済み
@@ -403,6 +391,14 @@ export function BzmTheoryComposerDialog({
               >
                 対象ノード:{" "}
                 <span className="font-semibold">{state.node.title}</span>
+              </p>
+            )}
+            {state?.type === "edit" && (
+              <p
+                className="truncate text-xs font-semibold"
+                style={{ color: GRAPHITE_MUTED }}
+              >
+                {state.node.title}
               </p>
             )}
           </div>
@@ -418,7 +414,10 @@ export function BzmTheoryComposerDialog({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <div
+          data-bzm-composer-scroll="true"
+          className="min-h-0 flex-1 overflow-y-auto px-3 py-3"
+        >
           {mode === "memo" ? (
             <MemoFields form={memoForm} setForm={setMemoForm} />
           ) : (
@@ -448,7 +447,7 @@ export function BzmTheoryComposerDialog({
         </div>
 
         <div
-          className="flex gap-2 border-t px-4 py-3 sm:justify-end sm:py-4"
+          className="flex gap-2 border-t px-3 py-2 sm:justify-end"
           style={{
             borderColor: PAPER_BORDER,
             backgroundColor: "rgba(204, 194, 168, 0.16)",
@@ -561,65 +560,51 @@ function NodeFields({
   const titleFieldId = useId();
   const summaryFieldId = useId();
 
+  const kindFieldId = useId();
+
   return (
     <div className="flex flex-col gap-4">
       {showKindPicker && (
         <div>
-          <span
+          <label
+            htmlFor={kindFieldId}
             className="mb-1.5 block text-xs font-semibold"
             style={{ color: GRAPHITE_MUTED }}
           >
             種別
-          </span>
-          <div
-            className="grid grid-cols-3 gap-2"
-            role="radiogroup"
-            aria-label="ノードの種別"
+          </label>
+          <select
+            id={kindFieldId}
+            data-bzm-kind-select="true"
+            value={form.kind}
+            onChange={(e) => {
+              const kind = e.target.value as TheoryNodeKind;
+              setForm((prev) => ({
+                ...prev,
+                kind,
+                layer:
+                  kind === "source"
+                    ? "evidence"
+                    : kind === "question"
+                      ? "cross-layer"
+                      : prev.layer,
+                status:
+                  kind === "source"
+                    ? "established"
+                    : kind === "question"
+                      ? "unknown"
+                      : prev.status,
+              }));
+            }}
+            className="h-11 w-full rounded-md border px-2.5 text-sm outline-none"
+            style={inputStyle}
           >
-            {KIND_OPTIONS.map(({ kind, icon: Icon }) => (
-              <button
-                key={kind}
-                type="button"
-                role="radio"
-                aria-checked={form.kind === kind}
-                onClick={() =>
-                  setForm((prev) => ({
-                    ...prev,
-                    kind,
-                    layer:
-                      kind === "source"
-                        ? "evidence"
-                        : kind === "question"
-                          ? "cross-layer"
-                          : prev.layer,
-                    status:
-                      kind === "source"
-                        ? "established"
-                        : kind === "question"
-                          ? "unknown"
-                          : prev.status,
-                  }))
-                }
-                className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-md border px-2 py-2 text-xs font-medium"
-                style={{
-                  borderColor:
-                    form.kind === kind ? KIND_COLOR[kind] : PAPER_BORDER,
-                  backgroundColor:
-                    form.kind === kind
-                      ? rgba(KIND_COLOR[kind], 0.12)
-                      : PAPER_BG,
-                  color: GRAPHITE,
-                }}
-              >
-                <Icon
-                  className="h-4 w-4"
-                  style={{ color: KIND_COLOR[kind] }}
-                  aria-hidden="true"
-                />
+            {THEORY_NODE_KINDS.map((kind) => (
+              <option key={kind} value={kind}>
                 {KIND_LABEL[kind]}
-              </button>
+              </option>
             ))}
-          </div>
+          </select>
         </div>
       )}
 

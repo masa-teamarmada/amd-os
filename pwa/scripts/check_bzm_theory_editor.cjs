@@ -221,6 +221,47 @@ assert.match(composer, /"create_memo"/, "composer must call the create_memo acti
 assert.match(composer, /type: "memo"; node: TheoryMapNode/, "ComposerState must carry the target node, not a draft node id, for memo mode");
 assert.match(composer, /sourceRef: form\.sourceRef,/);
 assert.match(composer, /requiredTextMissing/);
+
+// ---------------------------------------------------------------------------
+// small node inspector (2026-08-02): no giant "ノードを編集" heading, kind
+// picker collapses from a 6-card radiogroup to a single select, the panel
+// scrolls internally inside the map viewport, clicking another node while the
+// composer is open switches straight to that node's editor (discarding any
+// in-flight create draft), and a background click while the composer is open
+// only closes it — it must never fabricate a draft node on that same click.
+// ---------------------------------------------------------------------------
+assert.doesNotMatch(composer, /ノードを編集/, "the edit-mode heading must be fully removed, not replaced by another heading");
+assert.doesNotMatch(composer, /role="radiogroup"/, "the 6-card kind picker must be gone");
+assert.doesNotMatch(composer, /KIND_OPTIONS/, "the kind card option list must be gone");
+assert.match(composer, /data-bzm-kind-select/, "kind must be selectable via a single <select>");
+assert.match(composer, /data-bzm-composer-scroll/, "the composer body must be an explicit internal scroll region");
+assert.match(view, /if \(composerState && composerState\.type === "create"\)\s*\n\s*discardDraft\(composerState\.draftId\);\s*\n\s*openEditComposer/, "clicking another node while a create draft is open must discard the draft before switching");
+assert.doesNotMatch(view, /if \(composerState\) return;\s*\n\s*if \(draggedNodeClickRef/, "a normal node click must not be blocked just because the composer is open");
+assert.match(view, /if \(composerState\) \{\s*\n\s*closeComposer\(\);\s*\n\s*return;\s*\n\s*\}/, "a background click while the composer is open must close it and return without creating a draft");
+
+// Regression: Cmd/Ctrl+click on another node while a *create* draft composer
+// is open used to call setComposerState(null) directly, which cleared the
+// composer state but left the draft node orphaned in nodes/nodePositions
+// (never removed via discardDraft). The modifier (connect) branch must reuse
+// closeComposer(), which discards a create draft before entering connect
+// mode; a bare setComposerState(null) must not remain in that branch.
+const handleNodeClickBody =
+  view.split("function handleNodeClick(node: GraphNode, event: MouseEvent) {")[1]
+    ?.split(/\n  const incomingForSelected/)[0] ?? "";
+assert.ok(handleNodeClickBody.length > 0, "handleNodeClick function body must be present");
+const modifierBranch =
+  handleNodeClickBody.split(/if \(canEdit && modifierPressed\) \{/)[1]?.split(/\n    \}\n\n    setConnectingFromId\(null\);/)[0] ?? "";
+assert.ok(modifierBranch.length > 0, "handleNodeClick must have a canEdit && modifierPressed branch");
+assert.match(
+  modifierBranch,
+  /closeComposer\(\);/,
+  "the Cmd/Ctrl connect branch must call closeComposer() so an in-flight create draft is discarded, not just setComposerState(null)",
+);
+assert.doesNotMatch(
+  modifierBranch,
+  /setComposerState\(null\)/,
+  "the Cmd/Ctrl connect branch must not clear composer state directly — that orphans a create-mode draft node in nodes/nodePositions",
+);
 assert.ok(markdown.includes(String.raw`\[ ... \]`), "display math must support \\[...\\]");
 assert.ok(markdown.includes(String.raw`\( ... \)`), "inline math must support \\(...\\)");
 assert.match(view, /<BzmMarkdown source=\{selected\.body\}/);
