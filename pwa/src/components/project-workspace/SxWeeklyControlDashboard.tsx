@@ -73,7 +73,10 @@ import {
   sxWeeklyWeekRangeLabel,
   type SxWeeklyIssueStage,
 } from "@/lib/sx-weekly-control";
-import { SxUnifiedTimeline } from "./SxUnifiedTimeline";
+import {
+  SxUnifiedTimeline,
+  type SxDisplayLaneKey,
+} from "./SxUnifiedTimeline";
 import { SxPartnerPipeline } from "./SxPartnerPipeline";
 import { SxProjectOwnerWorkload } from "./SxProjectOwnerWorkload";
 import styles from "./weekly-control.module.css";
@@ -137,6 +140,7 @@ type EditorState =
   | {
       kind: "create_milestone";
       track: SxTrackKey | null;
+      laneKey?: SxDisplayLaneKey | null;
       /** Set by "MSを置く"/"MSを追加" — the created row is a generic point-MS (single "予定日"
        * field saved into both planned_start/planned_end). Omit/"phase" keeps the ordinary
        * 工程 create form (start+end fields). */
@@ -147,8 +151,7 @@ type EditorState =
   | { kind: "edit_milestone"; milestone: SxManagementMilestone }
   | {
       kind: "create_task";
-      milestone: SxManagementMilestone;
-      parentTask: SxTask | null;
+      laneKey: SxDisplayLaneKey;
     }
   | { kind: "edit_task"; task: SxTask }
   | { kind: "create_dependency"; successor: SxManagementMilestone }
@@ -318,6 +321,40 @@ function ganttLaneLabelForTrack(track: SxTrackKey) {
   return "組織開発";
 }
 
+function ganttLaneKeyForMilestone(
+  milestone: SxManagementMilestone,
+): SxDisplayLaneKey {
+  if (milestone.slug === "business-paid-poc-oral-agreement")
+    return "business_development";
+  if (milestone.slug === "funding-investment-oral-agreement")
+    return "organization";
+  if (milestone.track === "business_development")
+    return "business_development";
+  if (milestone.track === "technology_development")
+    return "technology_development";
+  return "organization";
+}
+
+/** A lane is only a visual grouping; a task still needs an exact parent engineering phase.
+ * Point-MS rows cannot own work, and an ordinary undated phase is not currently visible on the
+ * Gantt, so attaching a task to it would make the new record disappear immediately after Save.
+ * If the ordinary timeline is invalid, the two blocking milestones remain visible and usable. */
+function taskParentMilestones(
+  management: SxManagementBundle,
+  laneKey: SxDisplayLaneKey,
+) {
+  const candidates = management.milestones.filter(
+    (milestone) =>
+      ganttLaneKeyForMilestone(milestone) === laneKey &&
+      milestone.status !== "completed" &&
+      (sxIsBlockingMilestone(milestone) ||
+        (milestone.timelineKind === "phase" && Boolean(milestone.plannedEnd))),
+  );
+  return management.judgment.dagValid
+    ? candidates
+    : candidates.filter(sxIsBlockingMilestone);
+}
+
 function issueStatusLabel(status: SxManagementIssue["status"]) {
   return (
     (
@@ -395,8 +432,9 @@ function isGenericPointMilestone(milestone: SxManagementMilestone): boolean {
 function editorInitialValues(
   editor: EditorState,
   access: CurrentMemberAccess,
-  asOf: string,
+  management: SxManagementBundle,
 ): Record<string, string> {
+  const asOf = management.asOf;
   if (editor.kind === "create_milestone") {
     const isGenericMs = editor.timelineKind === "milestone";
     return {
@@ -437,29 +475,25 @@ function editorInitialValues(
       criticality: editor.milestone.criticality,
       confidence: editor.milestone.confidence,
     };
-  if (editor.kind === "create_task")
+  if (editor.kind === "create_task") {
+    const candidates = taskParentMilestones(management, editor.laneKey);
+    const selected = candidates.length === 1 ? candidates[0] : null;
     return {
-      milestone_id: editor.milestone.id,
-      parent_task_id: editor.parentTask?.id || "",
-      track: editor.milestone.track,
+      milestone_id: selected?.id || "",
+      parent_task_id: "",
+      track: selected?.track || "",
       title: "",
       description: "",
       status: "unassessed",
-      planned_start:
-        editor.parentTask?.plannedStart ||
-        editor.milestone.plannedStart ||
-        asOf,
-      planned_end:
-        editor.parentTask?.plannedEnd || editor.milestone.plannedEnd || "",
+      planned_start: selected?.plannedStart || asOf,
+      planned_end: selected?.plannedEnd || "",
       progress_pct: "0",
       date_certainty: "provisional",
-      owner_label:
-        editor.parentTask?.ownerLabel ||
-        editor.milestone.ownerLabel ||
-        access.displayName,
+      owner_label: selected?.ownerLabel || access.displayName,
       completion_criteria: "",
       confidence: "unknown",
     };
+  }
   if (editor.kind === "edit_task")
     return {
       milestone_id: editor.task.milestoneId,
@@ -846,10 +880,22 @@ function editorDefinition(
           required: true,
           options: [
             { value: "", label: "選択してね" },
-            ...management.outcomes.map((outcome) => ({
-              value: outcome.id,
-              label: `${ganttLaneLabelForTrack(outcome.track)}｜${outcome.title}`,
-            })),
+            ...management.outcomes
+              .filter(
+                (outcome) =>
+                  !editor.laneKey ||
+                  (editor.laneKey === "business_development"
+                    ? outcome.track === "business_development"
+                    : editor.laneKey === "technology_development"
+                      ? outcome.track === "technology_development"
+                      : ["funding", "organizational_building"].includes(
+                          outcome.track,
+                        )),
+              )
+              .map((outcome) => ({
+                value: outcome.id,
+                label: `${ganttLaneLabelForTrack(outcome.track)}｜${outcome.title}`,
+              })),
           ],
         },
         {
@@ -999,20 +1045,54 @@ function editorDefinition(
     return {
       title:
         editor.kind === "create_task"
-          ? editor.parentTask
-            ? "子タスクを追加"
-            : "タスクを追加"
+          ? `${editor.laneKey === "business_development" ? "事業開発" : editor.laneKey === "technology_development" ? "技術開発" : "組織開発"}にタスクを追加`
           : "タスクを編集",
-      eyebrow:
-        editor.kind === "create_task" && editor.parentTask
-          ? "子タスク"
-          : "タスク",
+      eyebrow: "タスク",
       resource: "task",
       method: editor.kind === "create_task" ? "POST" : "PATCH",
       id: editor.kind === "edit_task" ? editor.task.id : undefined,
       fields: [
-        ...(editor.kind === "edit_task"
+        ...(editor.kind === "create_task"
           ? [
+              {
+                key: "milestone_id",
+                label: "接続する工程",
+                type: "select" as const,
+                required: true,
+                help:
+                  taskParentMilestones(management, editor.laneKey).length === 0
+                    ? "このレーンに接続できる工程がないよ。先に工程と日程を追加してね。"
+                    : "レーンは表示上の分類。実際にこのタスクを進める工程を選んでね。",
+                options: [
+                  { value: "", label: "工程を選択" },
+                  ...taskParentMilestones(management, editor.laneKey).map(
+                    (milestone) => ({
+                      value: milestone.id,
+                      label: milestone.title,
+                    }),
+                  ),
+                ],
+              },
+              {
+                key: "parent_task_id",
+                label: "親タスク（任意）",
+                type: "select" as const,
+                options: [
+                  { value: "", label: "工程の直下" },
+                  ...management.tasks
+                    .filter((task) =>
+                      taskParentMilestones(management, editor.laneKey).some(
+                        (milestone) => milestone.id === task.milestoneId,
+                      ),
+                    )
+                    .map((task) => ({
+                      value: task.id,
+                      label: `${management.milestones.find((item) => item.id === task.milestoneId)?.title || "工程"}｜${task.title}`,
+                    })),
+                ],
+              },
+            ]
+          : [
               {
                 key: "parent_task_id",
                 label: "親タスク",
@@ -1028,8 +1108,7 @@ function editorDefinition(
                     .map((task) => ({ value: task.id, label: task.title })),
                 ],
               },
-            ]
-          : []),
+            ]),
         ...planFields,
         { key: "description", label: "作業内容", type: "textarea", span: true },
         { key: "actual_end", label: "実績完了", type: "date" },
@@ -2005,7 +2084,7 @@ const FIELD_GROUP_LABEL: Record<FieldGroupKey, string> = {
   content: "内容",
 };
 
-const FIELD_GROUP_ORDER: FieldGroupKey[] = ["basic", "date", "status", "content"];
+const FIELD_GROUP_ORDER: FieldGroupKey[] = ["basic", "content", "status", "date"];
 
 function classifyField(field: FormField): FieldGroupKey {
   if (
@@ -2074,19 +2153,32 @@ function IssueEditor({
   onKeepEditing?: () => void;
   ariaDescribedBy?: string;
 }) {
-  const definition = editorDefinition(editor, management);
-  const fieldKeySet = fieldKeys ? new Set(fieldKeys) : null;
-  const activeFields = fieldKeySet
-    ? definition.fields.filter((field) => fieldKeySet.has(field.key))
-    : definition.fields;
-  const hasVisibleField = (key: string) =>
-    activeFields.some((field) => field.key === key);
   const initialValues = useRef(
-    editorInitialValues(editor, access, management.asOf),
+    editorInitialValues(editor, access, management),
   );
   const [values, setValues] = useState<Record<string, string>>(
     () => initialValues.current,
   );
+  const definition = editorDefinition(editor, management);
+  const fieldsForCurrentSelection = definition.fields.map((field) => {
+    if (editor.kind !== "create_task" || field.key !== "parent_task_id")
+      return field;
+    return {
+      ...field,
+      options: [
+        { value: "", label: "工程の直下" },
+        ...management.tasks
+          .filter((task) => task.milestoneId === values.milestone_id)
+          .map((task) => ({ value: task.id, label: task.title })),
+      ],
+    };
+  });
+  const fieldKeySet = fieldKeys ? new Set(fieldKeys) : null;
+  const activeFields = fieldKeySet
+    ? fieldsForCurrentSelection.filter((field) => fieldKeySet.has(field.key))
+    : fieldsForCurrentSelection;
+  const hasVisibleField = (key: string) =>
+    activeFields.some((field) => field.key === key);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
@@ -2294,6 +2386,34 @@ function IssueEditor({
       focusField("outcome_id");
       return;
     }
+    const selectedTaskMilestone =
+      editor.kind === "create_task"
+        ? taskParentMilestones(management, editor.laneKey).find(
+            (milestone) => milestone.id === values.milestone_id,
+          ) || null
+        : null;
+    if (editor.kind === "create_task" && !selectedTaskMilestone) {
+      setError(
+        taskParentMilestones(management, editor.laneKey).length === 0
+          ? "先にこのレーンへ工程と日程を追加してね"
+          : "接続する工程を選んでね",
+      );
+      focusField("milestone_id");
+      return;
+    }
+    if (editor.kind === "create_task" && values.parent_task_id) {
+      const selectedParentTask = management.tasks.find(
+        (task) => task.id === values.parent_task_id,
+      );
+      if (
+        !selectedParentTask ||
+        selectedParentTask.milestoneId !== selectedTaskMilestone?.id
+      ) {
+        setError("親タスクは、接続する工程の配下から選んでね");
+        focusField("parent_task_id");
+        return;
+      }
+    }
     setSaving(true);
     const isPatch = definition.method === "PATCH";
     const fieldsToSubmit = fieldKeySet
@@ -2330,6 +2450,13 @@ function IssueEditor({
       !String(fields.track || "").trim()
     ) {
       delete fields.track;
+    }
+    if (editor.kind === "create_task") {
+      // The visible lane is not a persistence parent. Derive the authoritative raw track from
+      // the exact phase selected in this same form, so changing the phase never leaves a stale
+      // track behind (organization visually merges two DB tracks).
+      fields.track = selectedTaskMilestone?.track || "";
+      fields.milestone_id = selectedTaskMilestone?.id || "";
     }
     if (editor.kind === "create_milestone") {
       fields.objective_id = management.objective?.id || "";
@@ -2450,7 +2577,7 @@ function IssueEditor({
         {field.type === "textarea" ? (
           <textarea
             name={field.key}
-            rows={field.key === "title" ? 2 : 4}
+            rows={field.key === "completion_evidence" ? 3 : 2}
             required={field.required}
             value={fieldValue(values, field.key)}
             onChange={(event) =>
@@ -2465,12 +2592,18 @@ function IssueEditor({
             name={field.key}
             required={field.required}
             value={fieldValue(values, field.key)}
-            onChange={(event) =>
+            onChange={(event) => {
+              const nextValue = event.target.value;
               setValues((current) => ({
                 ...current,
-                [field.key]: event.target.value,
-              }))
-            }
+                [field.key]: nextValue,
+                ...(editor.kind === "create_task" &&
+                field.key === "milestone_id" &&
+                current.milestone_id !== nextValue
+                  ? { parent_task_id: "" }
+                  : {}),
+              }));
+            }}
           >
             {field.options?.map((option) => (
               <option key={option.value} value={option.value}>
@@ -2787,11 +2920,15 @@ function IssueEditor({
                 </strong>
               </>
             )}
-            {"parentTask" in editor && (
+            {editor.kind === "create_task" && (
               <>
-                <span>追加先</span>
+                <span>追加するレーン</span>
                 <strong>
-                  {editor.parentTask?.title || editor.milestone.title}
+                  {editor.laneKey === "business_development"
+                    ? "事業開発"
+                    : editor.laneKey === "technology_development"
+                      ? "技術開発"
+                      : "組織開発"}
                 </strong>
               </>
             )}
@@ -3128,7 +3265,6 @@ function PlanInspector({
   inlineEditor,
   onClose,
   onEditField,
-  onAddChild,
 }: {
   milestone: SxManagementMilestone | null;
   task: SxTask | null;
@@ -3145,7 +3281,6 @@ function PlanInspector({
     targetLabel: string,
     fieldLabel: string,
   ) => void;
-  onAddChild: () => void;
 }) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
@@ -3245,6 +3380,13 @@ function PlanInspector({
       >
         <header>
           <div>
+            <p>
+              {isTask
+                ? "タスク詳細"
+                : isGenericMs
+                  ? "マイルストーン詳細"
+                  : "工程詳細"}
+            </p>
             {detailEditor ? (
               <h3>{item.title}</h3>
             ) : (
@@ -3599,14 +3741,6 @@ function PlanInspector({
             </div>
           </div>
         )}
-        {canManage && !detailEditor && (
-          <footer>
-            <button type="button" data-plan-add-child onClick={onAddChild}>
-              <Plus aria-hidden="true" />
-              {isTask ? "子タスクを追加" : "タスクを追加"}
-            </button>
-          </footer>
-        )}
       </aside>
     </div>,
     document.body,
@@ -3854,9 +3988,17 @@ export function SxWeeklyControlDashboard({
     });
   }
 
-  function focusPlanAddChildAfterClose() {
+  function focusSelectedPlanRowAfterClose() {
     window.requestAnimationFrame(() => {
-      document.querySelector<HTMLElement>("[data-plan-add-child]")?.focus();
+      const key = selectedTaskId
+        ? `task:${selectedTaskId}`
+        : selectedMilestoneId
+          ? `milestone:${selectedMilestoneId}`
+          : null;
+      if (key)
+        document
+          .querySelector<HTMLElement>(`[data-plan-row="${key}"] button`)
+          ?.focus();
     });
   }
 
@@ -4337,23 +4479,15 @@ export function SxWeeklyControlDashboard({
                   setEditor({
                     kind: "create_milestone",
                     track: prefill.track,
+                    laneKey: prefill.laneKey ?? null,
                     timelineKind: prefill.timelineKind,
                     plannedDate: prefill.plannedDate ?? null,
                     outcomeId: prefill.outcomeId ?? null,
                   })
                 }
-                onCreateTask={(milestoneId, parentTaskId) => {
-                  const milestone = management.milestones.find(
-                    (item) => item.id === milestoneId,
-                  );
-                  const parentTask = parentTaskId
-                    ? management.tasks.find(
-                        (item) => item.id === parentTaskId,
-                      ) || null
-                    : null;
-                  if (milestone)
-                    setEditor({ kind: "create_task", milestone, parentTask });
-                }}
+                onCreateTask={(laneKey) =>
+                  setEditor({ kind: "create_task", laneKey })
+                }
                 showPins={false}
               />
             </div>
@@ -4365,7 +4499,7 @@ export function SxWeeklyControlDashboard({
               detailEditor={
                 detailEditor && selectedPlanMilestone ? (
                   <IssueEditor
-                    key={`${detailEditor.kind}-${"milestone" in detailEditor ? detailEditor.milestone.id : ""}-${"task" in detailEditor ? detailEditor.task.id : ""}-${"parentTask" in detailEditor ? detailEditor.parentTask?.id || "root" : ""}`}
+                    key={`${detailEditor.kind}-${"milestone" in detailEditor ? detailEditor.milestone.id : ""}-${"task" in detailEditor ? detailEditor.task.id : ""}-${"laneKey" in detailEditor ? detailEditor.laneKey : ""}`}
                     editor={detailEditor}
                     management={management}
                     access={access}
@@ -4375,11 +4509,11 @@ export function SxWeeklyControlDashboard({
                     onKeepEditing={() => { pendingPlanIntentRef.current = null; }}
                     onDirtyChange={setDetailEditorDirty}
                     onClose={() => {
-                      finishPlanEditorClose(focusPlanAddChildAfterClose);
+                      finishPlanEditorClose(focusSelectedPlanRowAfterClose);
                     }}
                     onSaved={(next, message) => {
                       handleDetailSaved(next, message);
-                      focusPlanAddChildAfterClose();
+                      focusSelectedPlanRowAfterClose();
                     }}
                   />
                 ) : null
@@ -4434,19 +4568,6 @@ export function SxWeeklyControlDashboard({
                     targetLabel,
                     fieldLabel,
                   });
-                });
-              }}
-              onAddChild={() => {
-                requestPlanIntent(() => {
-                  const milestone = selectedMilestone || selectedTaskMilestone;
-                  if (milestone) {
-                    setPlanFieldEditor(null);
-                    setDetailEditor({
-                      kind: "create_task",
-                      milestone,
-                      parentTask: selectedTask,
-                    });
-                  }
                 });
               }}
             />
@@ -4656,7 +4777,7 @@ export function SxWeeklyControlDashboard({
       )}
       {editor && (
         <IssueEditor
-          key={`${editor.kind}-${"issue" in editor ? editor.issue.id : "new"}-${"hypothesis" in editor ? editor.hypothesis?.id || "" : ""}-${"decision" in editor ? editor.decision.id : ""}-${"action" in editor ? editor.action.id : ""}-${"milestone" in editor ? editor.milestone.id : ""}-${"task" in editor ? editor.task.id : ""}-${"workItem" in editor ? editor.workItem.id : ""}-${"commitment" in editor ? editor.commitment.id : ""}-${"partner" in editor ? editor.partner.id : ""}-${editorFieldKeys?.join(",") || ""}`}
+          key={`${editor.kind}-${"issue" in editor ? editor.issue.id : "new"}-${"hypothesis" in editor ? editor.hypothesis?.id || "" : ""}-${"decision" in editor ? editor.decision.id : ""}-${"action" in editor ? editor.action.id : ""}-${"milestone" in editor ? editor.milestone.id : ""}-${"task" in editor ? editor.task.id : ""}-${"laneKey" in editor ? editor.laneKey : ""}-${"workItem" in editor ? editor.workItem.id : ""}-${"commitment" in editor ? editor.commitment.id : ""}-${"partner" in editor ? editor.partner.id : ""}-${editorFieldKeys?.join(",") || ""}`}
           editor={editor}
           management={management}
           access={access}

@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ChevronsDownUp,
   ChevronsUpDown,
   ChevronRight,
   Flag,
-  MapPin,
   Plus,
 } from "lucide-react";
 import type {
@@ -47,6 +47,7 @@ const MONTH_ROW_H = 20;
 const PIN_ROW_H = 22;
 const LANE_HEADER_H = 22;
 const ROW_H = 48;
+const MILESTONE_PROMPT_FLIP_Y = 138;
 const LANE_GAP = 2;
 // Reserve a real pointer gutter at both ends of the date domain. A 44px diamond centred on the
 // first/last day then stays wholly inside the grid, and a 16px resize handle can sit outside a
@@ -140,21 +141,24 @@ type LaneMeta = {
  * lane of its own — it merges into 組織開発 alongside organizational_building. There is no
  * separate "設立前提" lane; the two blocking milestones are forced into these 3 lanes directly
  * (see BLOCKING_MILESTONE_LANE below), not rendered as a 4th synthetic lane. */
-type DisplayLaneKey = "business_development" | "technology_development" | "organization";
+export type SxDisplayLaneKey =
+  | "business_development"
+  | "technology_development"
+  | "organization";
 
-const DISPLAY_LANE_ORDER: DisplayLaneKey[] = [
+const DISPLAY_LANE_ORDER: SxDisplayLaneKey[] = [
   "business_development",
   "technology_development",
   "organization",
 ];
 
-const DISPLAY_LANE_LABEL: Record<DisplayLaneKey, string> = {
+const DISPLAY_LANE_LABEL: Record<SxDisplayLaneKey, string> = {
   business_development: "事業開発",
   technology_development: "技術開発",
   organization: "組織開発",
 };
 
-function displayLaneKeyForTrack(trackKey: string): DisplayLaneKey {
+function displayLaneKeyForTrack(trackKey: string): SxDisplayLaneKey {
   if (trackKey === "business_development") return "business_development";
   if (trackKey === "technology_development") return "technology_development";
   return "organization";
@@ -162,7 +166,7 @@ function displayLaneKeyForTrack(trackKey: string): DisplayLaneKey {
 
 /** The 2 blocking milestones never follow their own track column — each is forced into a fixed
  * display lane regardless of its project_management_milestones.track value. */
-const BLOCKING_MILESTONE_LANE: Record<string, DisplayLaneKey> = {
+const BLOCKING_MILESTONE_LANE: Record<string, SxDisplayLaneKey> = {
   "business-paid-poc-oral-agreement": "business_development",
   "funding-investment-oral-agreement": "organization",
 };
@@ -360,9 +364,16 @@ function taskDisplayRow(
   };
 }
 
-function lanesTotalHeight(lanes: Array<{ rows: DisplayRow[] }>) {
+function lanesTotalHeight(
+  lanes: Array<{ rows: DisplayRow[] }>,
+  includeTaskWriterRow: boolean,
+) {
   return lanes.reduce(
-    (sum, lane) => sum + LANE_HEADER_H + lane.rows.length * ROW_H + LANE_GAP,
+    (sum, lane) =>
+      sum +
+      LANE_HEADER_H +
+      (lane.rows.length + (includeTaskWriterRow ? 1 : 0)) * ROW_H +
+      LANE_GAP,
     0,
   );
 }
@@ -379,7 +390,8 @@ function RowBar({
   canManage,
   dragging,
   saving,
-  onClick,
+  onOpen,
+  onTimelinePoint,
   onPointerDownMove,
   onPointerDownResizeStart,
   onPointerDownResizeEnd,
@@ -394,7 +406,8 @@ function RowBar({
   canManage: boolean;
   dragging: boolean;
   saving: boolean;
-  onClick: () => void;
+  onOpen: () => void;
+  onTimelinePoint: (event: React.MouseEvent<HTMLButtonElement>) => void;
   onPointerDownMove: (event: React.PointerEvent) => void;
   onPointerDownResizeStart: (event: React.PointerEvent) => void;
   onPointerDownResizeEnd: (event: React.PointerEvent) => void;
@@ -431,37 +444,75 @@ function RowBar({
   // 入ってバー/◇が付いても潰されないよう、通常行より下へ寄せる（48px行の中で summary(0-13px) →
   // ◇(13-25px) → bar(24-32px) → 予定/実績(36-48px)の順に積む。日付は捏造しない）。
   const barTop = row.isBlockingMilestone ? 24 : 15;
+  const detailHitStyle = isMilestoneMarker
+    ? {
+        top: DRAG_HIT_TOP,
+        left: timelinePctCss(plannedEnd ?? 0),
+        width: DRAG_HIT_HEIGHT,
+        height: DRAG_HIT_HEIGHT,
+        transform: "translateX(-50%)",
+      }
+    : {
+        top: DRAG_HIT_TOP,
+        left: barGeometry?.left,
+        width: barGeometry?.width,
+        height: DRAG_HIT_HEIGHT,
+      };
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
-      className={`group relative block h-full w-full text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${selected ? "bg-[#e8f2eb]/70" : "hover:bg-[#f8f5ec]/70"} ${dragging ? "cursor-grabbing" : ""} ${saving ? "opacity-60" : ""}`}
-      title={draggableBar ? "中央をドラッグして移動、両端の外側をドラッグして開始・終了を変更" : undefined}
-      aria-label={`${row.title}の詳細を開く${draggableBar ? "（中央で期間移動、左端で開始日、右端で終了日を変更できる）" : draggableMilestone ? "（ドラッグで予定日を変更できる）" : ""}`}
+      className={`group relative h-full w-full ${selected ? "bg-[#e8f2eb]/70" : "hover:bg-[#f8f5ec]/70"} ${dragging ? "cursor-grabbing" : ""} ${saving ? "opacity-60" : ""}`}
     >
+      {/* The row is split into two real interactions: its true blank timeline surface proposes
+          a new MS, while the rendered bar/diamond alone owns record selection and drag. Keeping
+          them as sibling buttons prevents blank-click, select and post-drag click from firing as
+          one ambiguous action. */}
+      <button
+        type="button"
+        onClick={onTimelinePoint}
+        disabled={!canManage || saving}
+        className="absolute inset-0 z-0 w-full cursor-crosshair text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] disabled:cursor-default"
+        aria-label={`${row.title}行の日付を選んでMSを追加`}
+      />
       {/* Move-drag hit target: the actual bar's full width, never empty row space. Sits below
           (DOM-order-first, so lower stacking) the resize handles, which claim their own hit area
           at each edge. Visual bar stays 8px; this hit box is >=44px tall so touch/pointer users
           don't need pixel precision to grab it. */}
       {draggableBar && (
-        <span
-          role="presentation"
+        <button
+          type="button"
           onPointerDown={(event) => {
             event.stopPropagation();
             onPointerDownMove(event);
           }}
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpen();
+          }}
           onLostPointerCapture={onLostPointerCapture}
-          className="absolute cursor-grab"
+          className="absolute z-20 cursor-grab focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
           style={{
             top: DRAG_HIT_TOP,
             left: barGeometry!.left,
             width: barGeometry!.width,
             height: DRAG_HIT_HEIGHT,
           }}
-          aria-hidden="true"
+          title="ドラッグで期間を移動。クリックで詳細"
+          aria-label={`${row.title}。ドラッグで期間を移動、クリックで詳細を開く`}
+        />
+      )}
+      {hasBar && !draggableBar && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpen();
+          }}
+          className="absolute z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+          style={detailHitStyle}
+          aria-label={`${row.title}の詳細を開く`}
         />
       )}
       {hasBar && !isMilestoneMarker && (
@@ -493,45 +544,57 @@ function RowBar({
               >=44px tall and only reveals its visual tick on row hover/focus so it stays
               discoverable without cluttering the row at rest. Each 16px hit target sits wholly
               OUTSIDE the bar edge, so even a same-day/very narrow bar keeps its center move zone. */}
-          <span
-            role="presentation"
+          <button
+            type="button"
             onPointerDown={(event) => {
               event.stopPropagation();
               onPointerDownResizeStart(event);
             }}
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpen();
+            }}
             onLostPointerCapture={onLostPointerCapture}
-            className="absolute z-10 flex w-4 cursor-ew-resize items-center justify-end opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+            className="absolute z-30 flex w-4 cursor-ew-resize items-center justify-end opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
             style={{ top: DRAG_HIT_TOP, left: `calc(${barGeometry!.left} - 16px)`, height: DRAG_HIT_HEIGHT }}
-            aria-hidden="true"
+            aria-label={`${row.title}の開始日を変更`}
           >
             <span className="block h-3 w-[3px] bg-[#24231f]" />
-          </span>
-          <span
-            role="presentation"
+          </button>
+          <button
+            type="button"
             onPointerDown={(event) => {
               event.stopPropagation();
               onPointerDownResizeEnd(event);
             }}
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpen();
+            }}
             onLostPointerCapture={onLostPointerCapture}
-            className="absolute z-10 flex w-4 cursor-ew-resize items-center justify-start opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+            className="absolute z-30 flex w-4 cursor-ew-resize items-center justify-start opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
             style={{ top: DRAG_HIT_TOP, left: barGeometry!.right, height: DRAG_HIT_HEIGHT }}
-            aria-hidden="true"
+            aria-label={`${row.title}の終了日を変更`}
           >
             <span className="block h-3 w-[3px] bg-[#24231f]" />
-          </span>
+          </button>
         </>
       )}
       {draggableMilestone && (
-        <span
-          role="presentation"
+        <button
+          type="button"
           onPointerDown={(event) => {
             event.stopPropagation();
             onPointerDownMove(event);
           }}
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpen();
+          }}
           onLostPointerCapture={onLostPointerCapture}
-          className="absolute z-10 -translate-x-1/2 cursor-grab"
+          className="absolute z-30 -translate-x-1/2 cursor-grab focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
           style={{ top: DRAG_HIT_TOP, left: timelinePctCss(plannedEnd), width: DRAG_HIT_HEIGHT, height: DRAG_HIT_HEIGHT }}
-          aria-hidden="true"
+          aria-label={`${row.title}。ドラッグで予定日を変更、クリックで詳細を開く`}
         />
       )}
       {hasBar && isMilestoneMarker && (
@@ -560,7 +623,7 @@ function RowBar({
               : " ・ 全完了"}
         </span>
       )}
-      <span className="absolute inset-x-1 bottom-0.5 flex flex-wrap items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] font-semibold text-[#69665d]">
+      <span className="pointer-events-none absolute inset-x-1 bottom-0.5 z-10 flex flex-wrap items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] font-semibold text-[#69665d]">
         {hasBar ? (
           <>
             <span>予定 {sxFormatDate(row.plannedEnd).slice(5)}</span>
@@ -607,7 +670,18 @@ function RowBar({
           </em>
         )}
       </span>
-    </button>
+      {!hasBar && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpen();
+          }}
+          className="absolute inset-x-0 bottom-0 z-20 h-7 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+          aria-label={`${row.title}の詳細を開く`}
+        />
+      )}
+    </div>
   );
 }
 
@@ -716,12 +790,13 @@ export function SxUnifiedTimeline({
    * Save button performs the POST; canceling/closing it leaves no DB row. */
   onCreateMilestone: (prefill: {
     track: SxTrackKey | null;
+    laneKey?: SxDisplayLaneKey | null;
     timelineKind?: SxTimelineKind;
     plannedDate?: string | null;
     outcomeId?: string | null;
   }) => void;
   onEditTask?: (taskId: string) => void;
-  onCreateTask?: (milestoneId: string, parentTaskId: string | null) => void;
+  onCreateTask?: (laneKey: SxDisplayLaneKey) => void;
   onManagementChange?: (bundle: SxManagementBundle, message: string) => void;
   showPins?: boolean;
 }) {
@@ -747,12 +822,17 @@ export function SxUnifiedTimeline({
   // PATCH settles. lostpointercapture for this pointerId while it's set means "that was the
   // normal release after our own pointerup save, not an abnormal loss" — must not wipe the drag.
   const commitStartedPointerIdRef = useRef<number | null>(null);
-  const [msPlacementMode, setMsPlacementMode] = useState(false);
-  const [placementHover, setPlacementHover] = useState<{
-    laneKey: DisplayLaneKey;
-    pct: number;
+  const [pendingMilestonePoint, setPendingMilestonePoint] = useState<{
+    laneKey: SxDisplayLaneKey;
     date: string;
+    viewportX: number;
+    viewportY: number;
+    side: "above" | "below";
   } | null>(null);
+  const milestonePromptRef = useRef<HTMLDivElement>(null);
+  const milestonePromptYesRef = useRef<HTMLButtonElement>(null);
+  const milestonePromptOriginRef = useRef<HTMLButtonElement | null>(null);
+  const milestonePromptSubmittingRef = useRef(false);
   const [ganttNotice, setGanttNotice] = useState<string | null>(null);
 
   // dragRef.current is the single source of truth, not the setState updater's `current` argument
@@ -854,7 +934,7 @@ export function SxUnifiedTimeline({
       }
     };
 
-    const bucket: Record<DisplayLaneKey, DisplayRow[]> = {
+    const bucket: Record<SxDisplayLaneKey, DisplayRow[]> = {
       business_development: [],
       technology_development: [],
       organization: [],
@@ -900,13 +980,13 @@ export function SxUnifiedTimeline({
     }
 
     const laneByKey = new Map(timeline.lanes.map((lane) => [lane.key, lane]));
-    const accentFor = (key: DisplayLaneKey) =>
+    const accentFor = (key: SxDisplayLaneKey) =>
       key === "organization"
         ? (laneByKey.get("organizational_building")?.accent ??
           laneByKey.get("funding")?.accent ??
           "#69665d")
         : (laneByKey.get(key)?.accent ?? "#69665d");
-    const maxIssueFor = (key: DisplayLaneKey) =>
+    const maxIssueFor = (key: SxDisplayLaneKey) =>
       key === "organization"
         ? [
             laneByKey.get("organizational_building")?.maxIssue,
@@ -956,7 +1036,10 @@ export function SxUnifiedTimeline({
     tasks.every(
       (task) => !taskChildren.has(task.id) || expandedTasks.has(task.id),
     );
-  const lanesHeight = lanesTotalHeight(visibleLanes);
+  const lanesHeight = lanesTotalHeight(
+    visibleLanes,
+    canManage && Boolean(projectId),
+  );
   const pinRowHeight = showPins ? PIN_ROW_H : 0;
   const gridHeight = pinRowHeight + lanesHeight;
 
@@ -1014,18 +1097,42 @@ export function SxUnifiedTimeline({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isDragging]);
 
-  // Esc also backs out of MSを置く placement mode before any click has committed a new milestone.
+  // The Y/N question is deliberately a lightweight non-modal popover. It disappears before the
+  // real MS editor opens, so the dashboard never stacks two dialogs. Escape/N restore focus to
+  // the exact timeline point that opened it; scrolling or resizing closes the stale-positioned
+  // popover instead of leaving it detached from the clicked date.
   useEffect(() => {
-    if (!msPlacementMode) return;
+    if (!pendingMilestonePoint) return;
+    milestonePromptYesRef.current?.focus();
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       event.preventDefault();
-      setMsPlacementMode(false);
-      setPlacementHover(null);
+      setPendingMilestonePoint(null);
+      requestAnimationFrame(() => milestonePromptOriginRef.current?.focus());
+    }
+    function closeOnViewportMove() {
+      setPendingMilestonePoint(null);
+    }
+    function closeOnOutsidePointer(event: PointerEvent) {
+      const target = event.target as Node | null;
+      if (
+        target &&
+        !milestonePromptRef.current?.contains(target) &&
+        !milestonePromptOriginRef.current?.contains(target)
+      )
+        setPendingMilestonePoint(null);
     }
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [msPlacementMode]);
+    window.addEventListener("resize", closeOnViewportMove);
+    window.addEventListener("scroll", closeOnViewportMove, true);
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", closeOnViewportMove);
+      window.removeEventListener("scroll", closeOnViewportMove, true);
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+    };
+  }, [pendingMilestonePoint]);
 
   function beginDrag(row: DisplayRow, mode: DragMode, event: React.PointerEvent) {
     if (!canManage || !projectId || drag) return;
@@ -1203,41 +1310,54 @@ export function SxUnifiedTimeline({
       justDraggedRef.current = false;
       return;
     }
+    setPendingMilestonePoint(null);
     select(row);
   }
 
-  function laneAtOffsetY(offsetY: number): DisplayLaneKey | null {
-    let cursor = 0;
-    for (const { lane, rows } of visibleLanes) {
-      const laneHeight = LANE_HEADER_H + rows.length * ROW_H;
-      if (offsetY >= cursor && offsetY < cursor + laneHeight) return lane.key;
-      cursor += laneHeight + LANE_GAP;
+  function proposeMilestone(
+    laneKey: SxDisplayLaneKey,
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) {
+    if (!canManage || !projectId) return;
+    if (!timeline.valid) {
+      showGanttNotice("日付軸を確定できないため、この位置にはMSを追加できないよ");
+      return;
     }
-    return null;
-  }
-
-  // Top offset (in px, relative to the grid pane below the pin row) of a lane's row area — used
-  // to place the placement-mode hover ghost at the right vertical band.
-  function laneTopOffset(laneKey: DisplayLaneKey): number {
-    let cursor = 0;
-    for (const { lane, rows } of visibleLanes) {
-      const laneHeight = LANE_HEADER_H + rows.length * ROW_H;
-      if (lane.key === laneKey) return cursor + LANE_HEADER_H;
-      cursor += laneHeight + LANE_GAP;
-    }
-    return 0;
-  }
-
-  // Clicking in placement mode never POSTs by itself — it only hands the parent a prefill and
-  // opens the existing create_milestone form. Only that form's own Save button performs the
-  // write; canceling/closing it leaves no DB row.
-  function placeMilestone(laneKey: DisplayLaneKey, date: string) {
-    setMsPlacementMode(false);
-    setPlacementHover(null);
     if (!objectiveId) {
       showGanttNotice("設立目標が未確認のためMSを置けないよ");
       return;
     }
+    const rect = event.currentTarget.getBoundingClientRect();
+    // Keyboard activation has no pointer coordinate. Use the focused date surface's center and let
+    // the user fine-tune the prefilled date in the editor; pointer/touch keeps the exact x position.
+    const clientX = event.detail === 0 ? rect.left + rect.width / 2 : event.clientX;
+    const clientY = event.detail === 0 ? rect.top + rect.height / 2 : event.clientY;
+    const pct = pointerOffsetToTimelinePct(clientX - rect.left, rect.width);
+    const date = dateFromPct(pct, timeline.domainStart, timeline.domainEnd);
+    if (!date) {
+      showGanttNotice("この位置の日付を判定できなかったよ");
+      return;
+    }
+    milestonePromptOriginRef.current = event.currentTarget;
+    milestonePromptSubmittingRef.current = false;
+    setPendingMilestonePoint({
+      laneKey,
+      date,
+      viewportX: Math.min(
+        window.innerWidth - Math.min(130, window.innerWidth / 2),
+        Math.max(Math.min(130, window.innerWidth / 2), clientX),
+      ),
+      viewportY: Math.min(window.innerHeight - 18, Math.max(18, clientY)),
+      side: clientY < MILESTONE_PROMPT_FLIP_Y ? "below" : "above",
+    });
+  }
+
+  // Y only hands the parent a prefill and opens the existing create_milestone form. No write
+  // happens until that form's Save button is pressed; N/Escape leave no DB row behind.
+  function placeMilestone(laneKey: SxDisplayLaneKey, date: string) {
+    if (milestonePromptSubmittingRef.current) return;
+    milestonePromptSubmittingRef.current = true;
+    setPendingMilestonePoint(null);
     const laneOutcomes = outcomes.filter(
       (item) => displayLaneKeyForTrack(item.track) === laneKey,
     );
@@ -1248,12 +1368,14 @@ export function SxUnifiedTimeline({
     const singleOutcome = laneOutcomes.length === 1 ? laneOutcomes[0] : null;
     const track = singleOutcome?.track ?? null;
     const outcomeId = singleOutcome?.id ?? null;
-    onCreateMilestone({ track, timelineKind: "milestone", plannedDate: date, outcomeId });
+    onCreateMilestone({
+      track,
+      laneKey,
+      timelineKind: "milestone",
+      plannedDate: date,
+      outcomeId,
+    });
   }
-
-  const selectedTask = tasks.find((task) => task.id === selectedTaskId) || null;
-  const createUnderMilestoneId =
-    selectedTask?.milestoneId || selectedMilestoneId;
 
   return (
     <div data-testid="sx-unified-timeline">
@@ -1269,11 +1391,6 @@ export function SxUnifiedTimeline({
           {ganttNotice}
         </p>
       )}
-      {msPlacementMode && (
-        <p className="mb-2 border border-[#c9bfd0] bg-[#f1edf3] px-3 py-2 text-[11px] font-semibold text-[#5f4a66]">
-          事業開発／技術開発／組織開発のいずれかのレーン内で、置きたい日付をクリックしてね（Escで取り消し）
-        </p>
-      )}
       <div className="hidden lg:block">
         <Legend />
       </div>
@@ -1286,49 +1403,6 @@ export function SxUnifiedTimeline({
           >
             <Plus className="h-3.5 w-3.5" />
             工程
-          </button>
-        )}
-        {canManage && (
-          <button
-            type="button"
-            disabled={!createUnderMilestoneId}
-            onClick={() =>
-              createUnderMilestoneId &&
-              onCreateTask(createUnderMilestoneId, selectedTask?.id || null)
-            }
-            className="inline-flex min-h-11 items-center gap-1 border border-[#bfc8c2] bg-[#fffdf7] px-3 text-[11px] font-bold text-[#205f49] disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {selectedTask ? "子タスク" : "タスク"}
-          </button>
-        )}
-        {/* キーボード/モバイルからも使える通常の追加ボタン。日程は未入力のまま開き、フォーム側で
-            入力する（プレースメントと違い、クリック位置に依存しない）。projectIdなしの埋め込み
-            （SxExecutiveControlDeckの経営状況図）ではclick-select-only契約を保つため出さない —
-            工程追加(onCreateMilestone経由でも実POSTは親のAddPanelが持つ)とは異なりMSを置く系の
-            導線はこのコンポーネント自身がガント直接編集の一部として持つ機能のため。 */}
-        {canManage && projectId && (
-          <button
-            type="button"
-            onClick={() => onCreateMilestone({ track: null, timelineKind: "milestone" })}
-            className="inline-flex min-h-11 items-center gap-1 border border-[#5f4a66] bg-[#5f4a66] px-3 text-[11px] font-bold text-white"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            MSを追加
-          </button>
-        )}
-        {/* 日付上に置く: ポインターでガント上の位置をクリックして日付を決めるプレースメントモード。
-            デスクトップの座標クリックに依存するため、その入口はlg以上のみに絞る（モバイル/
-            キーボードは上のMSを追加を使う）。 */}
-        {canManage && projectId && (
-          <button
-            type="button"
-            aria-pressed={msPlacementMode}
-            onClick={() => setMsPlacementMode((current) => !current)}
-            className={`hidden min-h-11 items-center gap-1 border px-3 text-[11px] font-bold lg:inline-flex ${msPlacementMode ? "border-[#5f4a66] bg-[#5f4a66] text-white" : "border-[#c9bfd0] bg-[#fffdf7] text-[#5f4a66]"}`}
-          >
-            <MapPin className="h-3.5 w-3.5" />
-            {msPlacementMode ? "置く場所をクリック" : "日付上に置く"}
           </button>
         )}
         <button
@@ -1501,6 +1575,34 @@ export function SxUnifiedTimeline({
                   </article>
                 );
               })}
+              {canManage && projectId && timeline.valid && (
+                <button
+                  type="button"
+                  onClick={(event) => proposeMilestone(lane.key, event)}
+                  className="relative min-h-11 w-full overflow-hidden border-t border-[#d6cebf] bg-[#fffdf7] px-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                  aria-label={`${lane.label}のモバイル日付軸でMSを追加`}
+                >
+                  <span className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent_0,transparent_calc(12.5%-1px),rgba(113,109,99,0.16)_12.5%)]" />
+                  <span className="relative flex items-center justify-between gap-3 text-[9px] text-[#716d63]">
+                    <span>{sxFormatDate(timeline.domainStart)}</span>
+                    <b className="text-[10px] text-[#235f4b]">MS｜日付位置をタップ</b>
+                    <span>{sxFormatDate(timeline.domainEnd)}</span>
+                  </span>
+                </button>
+              )}
+              {canManage && projectId && (
+                <button
+                  type="button"
+                  data-gantt-add-task-lane={lane.key}
+                  onClick={() => onCreateTask(lane.key)}
+                  className="flex min-h-12 w-full items-center gap-2 bg-[#fbf9f2] px-3 text-left text-[11px] font-bold text-[#205f49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                  aria-label={`${lane.label}に新規タスクを追加`}
+                  aria-haspopup="dialog"
+                >
+                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                  新規タスク
+                </button>
+              )}
             </div>
           </section>
         ))}
@@ -1671,6 +1773,23 @@ export function SxUnifiedTimeline({
                       </div>
                     );
                   })}
+                  {canManage && projectId && (
+                    <button
+                      type="button"
+                      data-gantt-add-task-lane={lane.key}
+                      onClick={() => onCreateTask(lane.key)}
+                      className="flex w-full items-center gap-2 border-b border-[#e8e2d6] bg-[#fbf9f2] px-3 text-left text-[10px] font-bold text-[#205f49] hover:bg-[#f3efe5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                      style={{ height: ROW_H }}
+                      aria-label={`${lane.label}に新規タスクを追加`}
+                      aria-haspopup="dialog"
+                    >
+                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                      新規タスク
+                      <span className="font-normal text-[#777166]">
+                        このレーンへ追加
+                      </span>
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -1779,10 +1898,13 @@ export function SxUnifiedTimeline({
                                 ? selectedMilestoneId === row.id
                                 : selectedTaskId === row.id
                             }
-                            canManage={canManage && !msPlacementMode && Boolean(projectId)}
+                            canManage={canManage && Boolean(projectId)}
                             dragging={Boolean(isDraggingThisRow && drag?.dragging)}
                             saving={Boolean(isDraggingThisRow && drag?.saving)}
-                            onClick={() => handleRowClick(row)}
+                            onOpen={() => handleRowClick(row)}
+                            onTimelinePoint={(event) =>
+                              proposeMilestone(lane.key, event)
+                            }
                             onPointerDownMove={(event) =>
                               beginDrag(
                                 row,
@@ -1808,55 +1930,16 @@ export function SxUnifiedTimeline({
                         </div>
                       );
                     })}
+                    {canManage && projectId && (
+                      <div
+                        aria-hidden="true"
+                        className="relative border-b border-[#e8e2d6] bg-[#fbf9f2]/60"
+                        style={{ height: ROW_H }}
+                      />
+                    )}
                   </div>
                 ))}
               </div>
-              {msPlacementMode && canManage && (
-                <div
-                  role="presentation"
-                  className="absolute inset-x-0 z-30 cursor-crosshair bg-[#5f4a66]/[0.06]"
-                  style={{ top: pinRowHeight, height: lanesHeight }}
-                  onMouseMove={(event) => {
-                    const rect = event.currentTarget.getBoundingClientRect();
-                    const offsetX = event.clientX - rect.left;
-                    const offsetY = event.clientY - rect.top;
-                    const pct = pointerOffsetToTimelinePct(offsetX, rect.width);
-                    const laneKey = laneAtOffsetY(offsetY);
-                    const date = dateFromPct(pct, timeline.domainStart, timeline.domainEnd);
-                    setPlacementHover(laneKey && date ? { laneKey, pct, date } : null);
-                  }}
-                  onMouseLeave={() => setPlacementHover(null)}
-                  onClick={(event) => {
-                    const rect = event.currentTarget.getBoundingClientRect();
-                    const offsetX = event.clientX - rect.left;
-                    const offsetY = event.clientY - rect.top;
-                    const pct = pointerOffsetToTimelinePct(offsetX, rect.width);
-                    const laneKey = laneAtOffsetY(offsetY);
-                    const date = dateFromPct(pct, timeline.domainStart, timeline.domainEnd);
-                    if (laneKey && date) placeMilestone(laneKey, date);
-                    else showGanttNotice("この位置には置けないよ。レーン内の日付範囲をクリックしてね");
-                  }}
-                />
-              )}
-              {/* ホバー中のゴースト◇/日付プレビュー — クリックする前に置ける位置を示す軽量な予告。 */}
-              {msPlacementMode && canManage && placementHover && (
-                <div
-                  role="presentation"
-                  className="pointer-events-none absolute z-40 -translate-x-1/2 text-center"
-                  style={{
-                    left: timelinePctCss(placementHover.pct),
-                    top: pinRowHeight + laneTopOffset(placementHover.laneKey) + 12,
-                  }}
-                >
-                  <i
-                    className="mx-auto block h-3 w-3 rotate-45 border-2 border-[#5f4a66] bg-[#5f4a66]/30"
-                    aria-hidden="true"
-                  />
-                  <span className="mt-0.5 block whitespace-nowrap border border-[#c9bfd0] bg-[#fffdf7] px-1 text-[9px] font-semibold text-[#5f4a66]">
-                    {sxFormatDate(placementHover.date)}
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -1870,6 +1953,53 @@ export function SxUnifiedTimeline({
         </span>
         <span aria-hidden="true">← 左右にスクロール →</span>
       </div>
+      {pendingMilestonePoint &&
+        createPortal(
+          <div
+            ref={milestonePromptRef}
+            role="dialog"
+            aria-modal="false"
+            aria-label="MS追加の確認"
+            className={`fixed z-[120] w-[260px] -translate-x-1/2 border border-[#bcb3a4] bg-[#fffdf7] p-3 text-[#24231f] shadow-[0_18px_44px_rgba(36,35,31,0.24)] ${pendingMilestonePoint.side === "above" ? "-translate-y-[calc(100%+12px)]" : "translate-y-3"}`}
+            style={{
+              left: pendingMilestonePoint.viewportX,
+              top: pendingMilestonePoint.viewportY,
+            }}
+          >
+            <p className="text-[11px] font-bold">MSを追加する？</p>
+            <p className="mt-1 text-[10px] text-[#716d63]">
+              {DISPLAY_LANE_LABEL[pendingMilestonePoint.laneKey]} ・ {sxFormatDate(pendingMilestonePoint.date)}
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                ref={milestonePromptYesRef}
+                type="button"
+                onClick={() =>
+                  placeMilestone(
+                    pendingMilestonePoint.laneKey,
+                    pendingMilestonePoint.date,
+                  )
+                }
+                className="min-h-11 border border-[#205f49] bg-[#205f49] px-3 text-[11px] font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#205f49]"
+              >
+                Y　追加する
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingMilestonePoint(null);
+                  requestAnimationFrame(() =>
+                    milestonePromptOriginRef.current?.focus(),
+                  );
+                }}
+                className="min-h-11 border border-[#c9c0b2] bg-[#fffdf7] px-3 text-[11px] font-bold text-[#514e47] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#38745d]"
+              >
+                N　閉じる
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

@@ -34,17 +34,20 @@ function assertCount(rel, text, needle, expected) {
 const timelineFile = "src/components/project-workspace/SxUnifiedTimeline.tsx";
 const timeline = read(timelineFile);
 
-// -- 1. Placement mode never POSTs by itself; it hands the parent a prefill ---------------------
+// -- 1. Direct point confirmation never POSTs by itself; Y hands the parent a prefill -----------
 assertNotIncludes(timelineFile, timeline, [
   // The old placeMilestone POSTed directly with a fetch call — that whole code path is retired.
   'method: "POST"',
 ]);
 assertIncludes(timelineFile, timeline, [
-  "function placeMilestone(laneKey: DisplayLaneKey, date: string) {",
+  "function placeMilestone(laneKey: SxDisplayLaneKey, date: string) {",
   "const laneOutcomes = outcomes.filter(",
   "displayLaneKeyForTrack(item.track) === laneKey",
   "const singleOutcome = laneOutcomes.length === 1 ? laneOutcomes[0] : null;",
-  "onCreateMilestone({ track, timelineKind: \"milestone\", plannedDate: date, outcomeId });",
+  "milestonePromptSubmittingRef.current = true;",
+  "Y　追加する",
+  "N　閉じる",
+  "timelineKind: \"milestone\"",
 ]);
 
 // -- 2. Resize handles register pointerdown only; pointermove/up/cancel handled once on RowBar --
@@ -65,7 +68,7 @@ assertIncludes(timelineFile, timeline, [
   "function barHitGeometryCss(startPct: number, endPct: number) {",
   "left: `calc(${barGeometry!.left} - 16px)`",
   "left: barGeometry!.right",
-  "pointerOffsetToTimelinePct(offsetX, rect.width)",
+  "pointerOffsetToTimelinePct(clientX - rect.left, rect.width)",
   "canManage && row.plannedStart != null && row.plannedEnd != null && !isMilestoneMarker",
   "(row.isBlockingMilestone || row.plannedStart != null)",
   "if (dragRef.current?.saving) return;",
@@ -78,10 +81,10 @@ assertNotIncludes(timelineFile, timeline, [
 ]);
 assertIncludes(timelineFile, timeline, [
   "const DRAG_HIT_HEIGHT = 44;",
-  // Dedicated move hit-zone spans a bar's actual width, not the row.
-  "{draggableBar && (\n        <span",
-  // Dedicated diamond hit target, separate from the row button.
-  "{draggableMilestone && (\n        <span",
+  // Dedicated move/detail button spans the actual bar, not the row.
+  "{draggableBar && (\n        <button",
+  // Dedicated diamond move/detail button, separate from the blank timeline button.
+  "{draggableMilestone && (\n        <button",
 ]);
 
 // -- 4. Generic point-MS vs NewCo end-only move are different drag modes ------------------------
@@ -104,23 +107,29 @@ assertIncludes(timelineFile, timeline, [
   'if (row.timelineKind === "milestone") return "マイルストーン";',
 ]);
 
-// -- 9. Mobile/keyboard create-form fallback: MSを追加 is not gated behind the desktop-only ------
-// placement toggle ("hidden lg:inline-flex") the way "日付上に置く" is.
-const msAddButtonMatch = timeline.match(
-  /<button[^>]*onClick=\{\(\) => onCreateMilestone\(\{ track: null, timelineKind: "milestone" \}\)\}[^>]*className="([^"]*)"/,
-);
-if (!msAddButtonMatch) throw new Error(`${timelineFile}: could not find the MSを追加 fallback button`);
-if (/\bhidden\b/.test(msAddButtonMatch[1])) {
-  throw new Error(`${timelineFile}: MSを追加 must stay usable on mobile/keyboard, not hidden behind a desktop breakpoint`);
-}
-assertIncludes(timelineFile, timeline, ["MSを追加"]);
-
-// -- MSを追加/日付上に置く must both require projectId — the projectId-less compact embed --------
-// (SxExecutiveControlDeck's 経営状況図) must stay click-select-only per its own contract comment.
-assertIncludes(timelineFile, timeline, [
-  '{canManage && projectId && (\n          <button\n            type="button"\n            onClick={() => onCreateMilestone({ track: null, timelineKind: "milestone" })}',
-  '{canManage && projectId && (\n          <button\n            type="button"\n            aria-pressed={msPlacementMode}',
+// -- 9. Three permanent task-writer rows; MS creation starts from a true blank date point -------
+assertNotIncludes(timelineFile, timeline, [
+  "msPlacementMode",
+  "placementHover",
+  "日付上に置く",
+  'onCreateMilestone({ track: null, timelineKind: "milestone" })',
+  'aria-label={`${lane.label}のこの日付にMSを追加`}',
 ]);
+assertIncludes(timelineFile, timeline, [
+  "data-gantt-add-task-lane={lane.key}",
+  "onClick={() => onCreateTask(lane.key)}",
+  "新規タスク",
+  "onTimelinePoint={(event) =>",
+  "proposeMilestone(lane.key, event)",
+  'aria-label={`${lane.label}のモバイル日付軸でMSを追加`}',
+  "const MILESTONE_PROMPT_FLIP_Y = 138;",
+  'side: clientY < MILESTONE_PROMPT_FLIP_Y ? "below" : "above"',
+  'event.detail === 0 ? rect.left + rect.width / 2 : event.clientX',
+  'role="dialog"',
+  'aria-modal="false"',
+]);
+assertCount(timelineFile, timeline, "data-gantt-add-task-lane={lane.key}", 2);
+assertCount(timelineFile, timeline, "onClick={() => onCreateTask(lane.key)}", 2);
 
 // -- 10. No role=alertdialog; exactly one shared inline-edit tray for PlanInspector ---------------
 const dashboardFile = "src/components/project-workspace/SxWeeklyControlDashboard.tsx";
@@ -143,6 +152,43 @@ assertIncludes(dashboardFile, dashboard, [
   "if (pendingIntent) pendingIntent();",
   'aria-label={`${targetLabel}の${label}を直接修正`}',
   'ariaDescribedBy="sx-plan-editor-context"',
+  'label: "接続する工程"',
+  "taskParentMilestones(management, editor.laneKey)",
+  "const candidates = management.milestones.filter(",
+  "management.judgment.dagValid",
+  "candidates.filter(sxIsBlockingMilestone)",
+  'milestone.status !== "completed"',
+  '.filter((task) => task.milestoneId === values.milestone_id)',
+  'current.milestone_id !== nextValue',
+  '? { parent_task_id: "" }',
+  'fields.track = selectedTaskMilestone?.track || "";',
+]);
+
+const selectRendererStart = dashboard.indexOf(') : field.type === "select" ? (');
+const selectRendererEnd = dashboard.indexOf(
+  ') : field.type === "checkbox" ? (',
+  selectRendererStart,
+);
+if (selectRendererStart < 0 || selectRendererEnd < 0) {
+  throw new Error(`${dashboardFile}: select field renderer not found`);
+}
+const selectRenderer = dashboard.slice(selectRendererStart, selectRendererEnd);
+assertIncludes(dashboardFile, selectRenderer, [
+  'field.key === "milestone_id"',
+  'current.milestone_id !== nextValue',
+  '? { parent_task_id: "" }',
+]);
+const textareaRenderer = dashboard.slice(
+  dashboard.indexOf('field.type === "textarea" ? ('),
+  selectRendererStart,
+);
+assertNotIncludes(dashboardFile, textareaRenderer, [
+  'field.key === "milestone_id"',
+  'parent_task_id',
+]);
+assertNotIncludes(dashboardFile, dashboard, [
+  "data-plan-add-child",
+  "onAddChild",
 ]);
 
 // -- 11. Gantt creation speaks exactly 3 display lanes; raw 4-track DB taxonomy stays hidden ---
@@ -179,8 +225,10 @@ assertIncludes(dashboardFile, dashboard, [
 const weeklyCssFile = "src/components/project-workspace/weekly-control.module.css";
 const weeklyCss = read(weeklyCssFile);
 assertIncludes(weeklyCssFile, weeklyCss, [
-  '.editorPanel[data-editor-width="wide"] { width: min(920px, calc(100vw - 48px)); }',
+  '.editorPanel[data-editor-width="wide"] { width: min(840px, calc(100vw - 48px)); }',
   '.editorPanel,\n  .editorPanel[data-editor-width="wide"] { width: 100%;',
+  "background: rgba(36, 35, 31, .46); backdrop-filter: blur(4px);",
+  "font-size: 16px;",
 ]);
 
 // -- expected_version required (400 missing/invalid, 409 stale); CAS rollback by updated version --

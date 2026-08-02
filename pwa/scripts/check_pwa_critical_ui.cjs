@@ -3180,7 +3180,7 @@ expectNotIncludes(
 expectIncludes("src/components/project-workspace/weekly-control.module.css", [
   ".planInspectorLayer",
   "place-items: center",
-  "backdrop-filter: blur(2px)",
+  "backdrop-filter: blur(4px)",
   "width: min(920px, calc(100vw - 48px))",
   ".editorEmbedded",
   ".planInspectorInlineEditor",
@@ -3203,11 +3203,11 @@ expectPattern("src/components/project-workspace/weekly-control.module.css", [
   /\.editorPanel\s*\{[^}]*color:\s*var\(--ink\);/,
 ]);
 expectIncludes("src/components/project-workspace/weekly-control.module.css", [
-  ".iconButton { width: 44px; height: 44px; border-radius: 6px; }",
+  ".iconButton { width: 44px; height: 44px; border-radius: 8px; }",
   ".iconButton:hover, .iconButton:focus-visible { border-color: var(--green); background: #e8f2eb; color: var(--green); outline: 2px solid var(--green); outline-offset: 2px; }",
   ".primaryButton, .secondaryButton { min-height: 44px;",
   ".primaryButton:focus-visible, .secondaryButton:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }",
-  "min-height: 44px; border: 1px solid #c9c0b2; border-radius: 4px; background: #fbf8f0; box-shadow: inset 0 1px 3px rgba(36, 35, 31, .07); padding: 9px 10px; color: var(--ink); font-size: 13px;",
+  "min-height: 44px; border: 1px solid #c9c0b2; border-radius: 6px; background: #fffefa; padding: 9px 10px; color: var(--ink); font-size: 13px;",
   ".field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible, .fieldSpan input:focus-visible, .fieldSpan select:focus-visible, .fieldSpan textarea:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }",
   ".checkboxRow { min-height: 44px;",
   ".checkboxRow input:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }",

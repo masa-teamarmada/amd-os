@@ -1537,7 +1537,7 @@ function PartnerProgressHistoryModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 grid place-items-end bg-[#24231f]/35 p-0 sm:place-items-center sm:p-5"
+      className="fixed inset-0 z-[100] grid place-items-end bg-[#24231f]/45 p-0 backdrop-blur-[4px] sm:place-items-center sm:p-6"
       role="presentation"
       data-modal-layer="sx-partner-history"
       onMouseDown={(event) => {
@@ -1550,17 +1550,17 @@ function PartnerProgressHistoryModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-xl border border-[#d6cebf] bg-[#fffdf7] shadow-2xl sm:max-w-4xl sm:rounded-xl"
+        className="flex max-h-[calc(100dvh-8px)] w-full flex-col overflow-hidden rounded-t-xl border border-[#c9c0b2] bg-[#fffdf7] shadow-[0_24px_72px_rgba(36,35,31,0.24)] sm:max-h-[min(780px,calc(100dvh-48px))] sm:max-w-[840px] sm:rounded-xl"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <header className="flex items-center justify-between gap-3 border-b border-[#e4ddd0] px-4 py-3">
+        <header className="flex min-h-[68px] items-start justify-between gap-4 border-b border-[#d7d0c3]/70 px-4 py-3.5 sm:px-[22px] sm:pb-3.5 sm:pt-4">
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">
+            <p className="text-[11px] font-extrabold text-[#235f4b]">
               進捗・履歴
             </p>
             <h4
               id={titleId}
-              className="truncate text-base font-semibold text-[#24231f]"
+              className="mt-0.5 break-words text-xl font-semibold leading-[1.35] text-[#24231f]"
             >
               {display.name}
             </h4>
@@ -1570,12 +1570,12 @@ function PartnerProgressHistoryModal({
             type="button"
             onClick={onClose}
             aria-label={`${display.name}の進捗と履歴を閉じる`}
-            className={`grid h-11 w-11 shrink-0 place-items-center rounded-md border border-[#cfc7b9] text-[#514e47] hover:bg-[#f8f5ec] ${FOCUS_RING}`}
+            className={`grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[#c9c0b2] bg-[#fffdf7] text-[#514e47] hover:border-[#235f4b] hover:bg-[#e8f2eb] hover:text-[#235f4b] ${FOCUS_RING}`}
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-4 sm:px-[22px]">
           <section aria-labelledby={`${titleId}-flow`}>
             <div className="flex items-end justify-between gap-2">
               <div>
