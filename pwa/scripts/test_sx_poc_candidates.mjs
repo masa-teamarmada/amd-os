@@ -194,6 +194,28 @@ for (const forbidden of ["due_date", "due_date_precision", "InlineDueFields"]) {
     `${forbidden} must stay out of the current situation cell`,
   );
 }
+
+// desktopの1社1行は8列の実必要幅に合わせたcontainer breakpointで成立させる。
+// 旧1280pxは1440px画面の実一覧幅1261pxでも発火せず、1行約500pxまで膨張した。
+// 1248px未満では無理に8列化せず、右端clipを避ける。
+for (const required of [
+  'data-partner-row-density="compact"',
+  "@container",
+  "@min-[1248px]:grid-cols-[176px_minmax(224px,1.15fr)",
+  "grid-cols-[minmax(0,1fr)_68px]",
+  "@min-[1248px]:col-span-1",
+  "@min-[1248px]:grid",
+]) {
+  assert.ok(
+    pipelineSource.includes(required),
+    `${required} must keep the partner ledger dense at desktop width`,
+  );
+}
+assert.equal(
+  pipelineSource.includes("@min-[1280px]"),
+  false,
+  "the partner ledger must not restore the too-wide 1280px inner-container breakpoint",
+);
 const stableCurrentEditorSource = pipelineSource.slice(
   pipelineSource.indexOf("function InlineCurrentBallEditor"),
   pipelineSource.indexOf("function InlineDueFields"),
@@ -226,7 +248,9 @@ const ownershipCellSource = comparisonRowSource.slice(
   comparisonRowSource.indexOf('editorKey={keyFor("latest-interaction")}'),
 );
 const partnerOwnershipPatch = ownershipCellSource.slice(
-  ownershipCellSource.lastIndexOf('patchIfChanged(\n                    "partner"'),
+  ownershipCellSource.lastIndexOf(
+    'patchIfChanged(\n                    "partner"',
+  ),
   ownershipCellSource.indexOf("renderFields="),
 );
 for (const required of ["owner_label", "due_date", "due_date_precision"]) {

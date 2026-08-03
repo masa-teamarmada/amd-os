@@ -537,7 +537,8 @@ function InlineCurrentBallEditor({
   const [error, setError] = useState<string | null>(null);
   const active = activeEditorKey === editorKey;
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const sideLabel = options.find((option) => option.value === side)?.label || side;
+  const sideLabel =
+    options.find((option) => option.value === side)?.label || side;
 
   const finishAndReturnFocus = () => {
     onFinish();
@@ -1324,9 +1325,9 @@ function HoldingRow({
 }
 
 const PARTNER_CONTROL_INNER_GRID =
-  "@min-[1280px]:grid-cols-[160px_minmax(224px,1.15fr)_minmax(160px,0.9fr)_minmax(150px,0.9fr)_minmax(190px,1.2fr)_126px_minmax(150px,1fr)]";
+  "@min-[1248px]:grid-cols-[176px_minmax(224px,1.15fr)_minmax(136px,0.82fr)_minmax(126px,0.78fr)_minmax(176px,1fr)_108px_minmax(138px,0.85fr)]";
 const PARTNER_CONTROL_HEADER_GRID =
-  "@min-[1280px]:grid-cols-[160px_minmax(224px,1.15fr)_minmax(160px,0.9fr)_minmax(150px,0.9fr)_minmax(190px,1.2fr)_126px_minmax(150px,1fr)_104px]";
+  "@min-[1248px]:grid-cols-[176px_minmax(224px,1.15fr)_minmax(136px,0.82fr)_minmax(126px,0.78fr)_minmax(176px,1fr)_108px_minmax(138px,0.85fr)_88px]";
 
 type PartnerGateImpact = {
   title: string;
@@ -1432,13 +1433,13 @@ function PartnerProgressFlow({
       data-testid={`sx-partner-progress-${partner.id}`}
       data-step-count={steps.length}
     >
-      <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
+      <p className="text-[10px] font-semibold text-[#69665d] xl:hidden">
         進行状況
       </p>
       <ol
         ref={flowRef}
         tabIndex={0}
-        className={`mt-1 flex items-stretch gap-0 overflow-x-auto pb-1 @min-[1280px]:mt-0 ${FOCUS_RING}`}
+        className={`mt-1 flex items-stretch gap-0 overflow-x-auto pb-1 xl:mt-0 ${FOCUS_RING}`}
         aria-label={`${displayName}の進行状況`}
       >
         {steps.map((step, index) => (
@@ -1836,12 +1837,17 @@ function PartnerInlineRow({
   };
 
   const relationNameView = (
-    <p
+    <span
       id={nameHeadingId}
-      className="flex min-h-9 items-center truncate text-[12px] font-semibold text-[#24231f]"
+      className="flex min-h-11 min-w-0 flex-col justify-center"
     >
-      {display.name}
-    </p>
+      <span className="truncate text-[12px] font-semibold leading-4 text-[#24231f]">
+        {display.name}
+      </span>
+      <span className="truncate text-[10px] font-normal leading-3 text-[#69665d]">
+        最終確認 {sxFormatDate(partner.lastVerifiedAt)}
+      </span>
+    </span>
   );
   const currentView = (
     <span className="grid min-h-11 w-full min-w-0 grid-cols-[60px_minmax(0,1fr)_44px_44px] items-stretch">
@@ -1891,51 +1897,55 @@ function PartnerInlineRow({
       aria-labelledby={nameHeadingId}
       className="scroll-mt-24 border-b border-[#eee9df] bg-[#fffdf7]"
     >
-      <div className="grid w-full grid-cols-1 items-stretch gap-2 px-3 py-2.5 text-left sm:grid-cols-[minmax(0,1fr)_104px]">
+      <div
+        className="grid w-full grid-cols-1 items-stretch gap-2 px-2 py-1.5 text-left sm:grid-cols-[minmax(0,1fr)_88px]"
+        data-partner-row-density="compact"
+      >
         <div
-          className={`grid min-w-0 grid-cols-1 gap-x-3 gap-y-2 md:grid-cols-2 ${PARTNER_CONTROL_INNER_GRID}`}
+          className={`grid min-w-0 grid-cols-1 gap-x-2 gap-y-1.5 md:grid-cols-2 ${PARTNER_CONTROL_INNER_GRID}`}
         >
-          <div className="min-w-0 md:col-span-2 @min-[1280px]:col-span-1">
-            {canManage ? (
-              <InlineCellEditor
-                editorKey={keyFor("name")}
-                activeEditorKey={activeEditorKey}
-                label={`${display.name}の関係先名`}
-                initialValues={{ name: partner.name }}
-                view={relationNameView}
-                onRequestEdit={onRequestInlineEdit}
-                onFinish={onFinishInlineEdit}
-                onSave={async (values) => {
-                  const name = values.name.trim();
-                  if (!name) throw new Error("関係先名を入力してね");
-                  await patchIfChanged(
-                    "partner",
-                    partner.id,
-                    { name: partner.name },
-                    { name },
-                  );
-                }}
-                renderFields={(values, setValue) => (
-                  <label className="grid gap-0.5">
-                    <span className="text-[10px] font-semibold text-[#69665d]">
-                      関係先名
-                    </span>
-                    <input
-                      autoFocus
-                      className={INLINE_CONTROL_CLASS}
-                      value={values.name}
-                      onChange={(event) => setValue("name", event.target.value)}
-                    />
-                  </label>
-                )}
-              />
-            ) : (
-              relationNameView
-            )}
-            <p className="mt-0.5 text-[10px] text-[#69665d]">
-              最終確認 {sxFormatDate(partner.lastVerifiedAt)}
-            </p>
-            <div className="mt-1.5">
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_68px] items-center gap-2 md:col-span-2 @min-[1248px]:col-span-1">
+            <div className="min-w-0">
+              {canManage ? (
+                <InlineCellEditor
+                  editorKey={keyFor("name")}
+                  activeEditorKey={activeEditorKey}
+                  label={`${display.name}の関係先名`}
+                  initialValues={{ name: partner.name }}
+                  view={relationNameView}
+                  onRequestEdit={onRequestInlineEdit}
+                  onFinish={onFinishInlineEdit}
+                  onSave={async (values) => {
+                    const name = values.name.trim();
+                    if (!name) throw new Error("関係先名を入力してね");
+                    await patchIfChanged(
+                      "partner",
+                      partner.id,
+                      { name: partner.name },
+                      { name },
+                    );
+                  }}
+                  renderFields={(values, setValue) => (
+                    <label className="grid gap-0.5">
+                      <span className="text-[10px] font-semibold text-[#69665d]">
+                        関係先名
+                      </span>
+                      <input
+                        autoFocus
+                        className={INLINE_CONTROL_CLASS}
+                        value={values.name}
+                        onChange={(event) =>
+                          setValue("name", event.target.value)
+                        }
+                      />
+                    </label>
+                  )}
+                />
+              ) : (
+                relationNameView
+              )}
+            </div>
+            <div className="min-w-0">
               <PartnerStageRail
                 partnerId={partner.id}
                 onHold={sxPartnerIsOnHold(partner)}
@@ -1947,14 +1957,11 @@ function PartnerInlineRow({
             </div>
           </div>
 
-          <PartnerRowCell className="md:col-span-2 @min-[1280px]:col-span-1">
-            <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
+          <PartnerRowCell className="md:col-span-2 @min-[1248px]:col-span-1">
+            <p className="text-[10px] font-semibold text-[#69665d] @min-[1248px]:hidden">
               現在の状況
             </p>
-            <div
-              className="min-h-11"
-              data-current-situation-cell={partner.id}
-            >
+            <div className="min-h-11" data-current-situation-cell={partner.id}>
               {canManage ? (
                 <InlineCurrentBallEditor
                   editorKey={keyFor("current")}
@@ -1987,8 +1994,8 @@ function PartnerInlineRow({
             </div>
           </PartnerRowCell>
 
-          <PartnerRowCell className="md:col-span-2 @min-[1280px]:col-span-1">
-            <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
+          <PartnerRowCell className="md:col-span-2 @min-[1248px]:col-span-1">
+            <p className="text-[10px] font-semibold text-[#69665d] @min-[1248px]:hidden">
               ゴール
             </p>
             {canManage ? (
@@ -2031,7 +2038,7 @@ function PartnerInlineRow({
           </PartnerRowCell>
 
           <PartnerRowCell className="border-l-2 border-[#d6cebf] pl-2">
-            <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
+            <p className="text-[10px] font-semibold text-[#69665d] @min-[1248px]:hidden">
               詰まり・PJ影響
             </p>
             <span
@@ -2119,7 +2126,7 @@ function PartnerInlineRow({
           </PartnerRowCell>
 
           <PartnerRowCell>
-            <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
+            <p className="text-[10px] font-semibold text-[#69665d] @min-[1248px]:hidden">
               次にやること
             </p>
             {canManage && target ? (
@@ -2248,7 +2255,7 @@ function PartnerInlineRow({
           </PartnerRowCell>
 
           <PartnerRowCell>
-            <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
+            <p className="text-[10px] font-semibold text-[#69665d] @min-[1248px]:hidden">
               担当・期限
             </p>
             {canManage && target ? (
@@ -2429,8 +2436,8 @@ function PartnerInlineRow({
             )}
           </PartnerRowCell>
 
-          <PartnerRowCell className="md:col-span-2 @min-[1280px]:col-span-1">
-            <p className="text-[10px] font-semibold text-[#69665d] @min-[1280px]:hidden">
+          <PartnerRowCell className="md:col-span-2 @min-[1248px]:col-span-1">
+            <p className="text-[10px] font-semibold text-[#69665d] @min-[1248px]:hidden">
               現在地の根拠
             </p>
             {latest && canManage ? (
@@ -2878,7 +2885,7 @@ export function SxPartnerPipeline({
       )}
 
       <div
-        className={`${comparisonOnly ? "sticky top-14 z-20 shadow-[0_1px_0_#d6cebf]" : ""} hidden ${PARTNER_CONTROL_HEADER_GRID} gap-2 border-b border-[#e4ddd0] bg-[#f8f5ec] px-3 py-1.5 text-[10px] font-semibold text-[#69665d] @min-[1280px]:grid`}
+        className={`${comparisonOnly ? "sticky top-14 z-20 shadow-[0_1px_0_#d6cebf]" : ""} hidden ${PARTNER_CONTROL_HEADER_GRID} gap-2 border-b border-[#e4ddd0] bg-[#f8f5ec] px-2 py-1 text-[10px] font-semibold text-[#69665d] @min-[1248px]:grid`}
       >
         <span>関係先</span>
         <span>現在の状況</span>
