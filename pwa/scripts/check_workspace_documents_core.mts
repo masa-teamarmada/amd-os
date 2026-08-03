@@ -7,6 +7,7 @@ import {
   normalizeDocumentFolderPath,
   normalizeDocumentName,
   normalizeDocumentVisibility,
+  workspaceDocumentPdfDownloadName,
   normalizeHttpUrl,
   workspaceDocumentStoragePath,
 } from "../src/lib/workspace-documents-core.ts";
@@ -38,7 +39,11 @@ assert.equal(normalizeHttpUrl("file:///tmp/a"), null);
 
 assert.equal(isWorkspaceDocumentHtml("text/html"), true);
 assert.equal(isWorkspaceDocumentHtml("TEXT/HTML; charset=utf-8"), true);
+assert.equal(isWorkspaceDocumentHtml("application/octet-stream", "提案資料.HTML"), true);
+assert.equal(isWorkspaceDocumentHtml("application/octet-stream", "提案資料.htm"), true);
 assert.equal(isWorkspaceDocumentHtml("text/plain"), false);
+assert.equal(workspaceDocumentPdfDownloadName("提案資料.html"), "提案資料.pdf");
+assert.equal(workspaceDocumentPdfDownloadName("提案資料.HTM"), "提案資料.pdf");
 
 const documentId = "7ec59a7f-211a-4670-b3c5-f1a35b5ee7aa";
 assert.equal(

@@ -797,8 +797,8 @@ export function WorkspaceDocumentRoom({
                         </button>
                       ) : (
                         <a
-                          href={isWorkspaceDocumentHtml(item.mimeType)
-                            ? `/api/workspace-documents/${encodeURIComponent(item.documentId)}/render`
+                          href={isWorkspaceDocumentHtml(item.mimeType, item.displayName)
+                            ? `/api/workspace-documents/${encodeURIComponent(item.documentId)}/pdf`
                             : `/api/workspace-documents/${encodeURIComponent(item.documentId)}/open?download=0`}
                           target="_blank"
                           rel="noreferrer"
@@ -831,15 +831,16 @@ export function WorkspaceDocumentRoom({
                   <div className="flex min-h-11 items-center justify-end gap-1">
                     {item.entryKind !== "folder" && (
                       <a
-                        href={isWorkspaceDocumentHtml(item.mimeType)
-                          ? `/api/workspace-documents/${encodeURIComponent(item.documentId)}/render`
+                        href={isWorkspaceDocumentHtml(item.mimeType, item.displayName)
+                          ? `/api/workspace-documents/${encodeURIComponent(item.documentId)}/pdf`
                           : `/api/workspace-documents/${encodeURIComponent(item.documentId)}/open?download=1`}
                         target="_blank"
                         rel="noreferrer"
                         className="grid h-11 w-11 place-items-center rounded-md text-slate-600 hover:bg-slate-100 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
-                        aria-label={`${item.displayName}を${item.entryKind === "link" || isWorkspaceDocumentHtml(item.mimeType) ? "開く" : "ダウンロード"}`}
+                        title={isWorkspaceDocumentHtml(item.mimeType, item.displayName) ? "PDF化ダウンロード" : undefined}
+                        aria-label={`${item.displayName}を${item.entryKind === "link" ? "開く" : isWorkspaceDocumentHtml(item.mimeType, item.displayName) ? "PDF化ダウンロード" : "ダウンロード"}`}
                       >
-                        {item.entryKind === "link" || isWorkspaceDocumentHtml(item.mimeType) ? (
+                        {item.entryKind === "link" ? (
                           <ExternalLink className="h-4 w-4" aria-hidden />
                         ) : (
                           <Download className="h-4 w-4" aria-hidden />

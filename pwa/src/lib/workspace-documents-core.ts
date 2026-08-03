@@ -1,6 +1,7 @@
 export const WORKSPACE_DOCUMENTS_BUCKET = "workspace-files";
 export const WORKSPACE_DOCUMENT_MAX_BYTES = 100 * 1024 * 1024;
-export const WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES = 5 * 1024 * 1024;
+export const WORKSPACE_DOCUMENT_HTML_PDF_MAX_INPUT_BYTES = 8 * 1024 * 1024;
+export const WORKSPACE_DOCUMENT_HTML_PDF_MAX_OUTPUT_BYTES = 4 * 1024 * 1024;
 
 export type WorkspaceDocumentScopeKind = "institution" | "project";
 export type WorkspaceDocumentVisibility = "amd_internal" | "workspace_shared";
@@ -8,8 +9,16 @@ export type WorkspaceDocumentEntryKind = "file" | "link" | "folder";
 
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
 
-export function isWorkspaceDocumentHtml(mimeType: unknown): boolean {
-  return typeof mimeType === "string" && mimeType.split(";", 1)[0]?.trim().toLowerCase() === "text/html";
+export function isWorkspaceDocumentHtml(mimeType: unknown, displayName?: unknown): boolean {
+  const normalizedMimeType = typeof mimeType === "string"
+    ? mimeType.split(";", 1)[0]?.trim().toLowerCase()
+    : null;
+  if (normalizedMimeType === "text/html") return true;
+  return typeof displayName === "string" && /\.html?$/i.test(displayName.trim());
+}
+
+export function workspaceDocumentPdfDownloadName(displayName: string): string {
+  return displayName.replace(/\.html?$/i, ".pdf");
 }
 
 export function normalizeDocumentName(value: unknown): string | null {

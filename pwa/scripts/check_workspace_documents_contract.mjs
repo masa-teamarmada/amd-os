@@ -6,7 +6,8 @@ const files = {
   list: new URL("../src/app/api/workspace-documents/route.ts", import.meta.url),
   mutate: new URL("../src/app/api/workspace-documents/[documentId]/route.ts", import.meta.url),
   open: new URL("../src/app/api/workspace-documents/[documentId]/open/route.ts", import.meta.url),
-  render: new URL("../src/app/api/workspace-documents/[documentId]/render/route.ts", import.meta.url),
+  pdf: new URL("../src/app/api/workspace-documents/[documentId]/pdf/route.ts", import.meta.url),
+  htmlPdf: new URL("../src/lib/workspace-document-html-pdf.ts", import.meta.url),
   serializer: new URL("../src/lib/workspace-documents-server.ts", import.meta.url),
   middleware: new URL("../src/lib/supabase/middleware.ts", import.meta.url),
   institutionPage: new URL("../src/app/workspace/[slug]/files/page.tsx", import.meta.url),
@@ -23,15 +24,21 @@ assert.doesNotMatch(source.access, /institutionWorkspaces.*project_access/s, "�
 assert.match(source.list, /!access\.canReadInternal.*visibility.*workspace_shared/s, "外部一覧は共有資料だけに絞る");
 assert.match(source.open, /row\.visibility === "amd_internal" && !access\.canReadInternal/, "open routeも内部資料を404にする");
 assert.match(source.open, /createSignedUrl\(row\.storage_path, 60/, "private fileは60秒の署名URLで開く");
-assert.match(source.render, /resolveDocumentRowAccess\(db, row\)/, "HTML previewも資料ごとの権限を再確認する");
-assert.match(source.render, /row\.visibility === "amd_internal" && !access\.canReadInternal/, "HTML previewも内部資料を404にする");
-assert.match(source.render, /isWorkspaceDocumentHtml\(row\.mime_type\)/, "HTMLだけを専用previewで返す");
-assert.match(source.render, /WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES/, "HTML previewの読込量を制限する");
-assert.match(source.render, /default-src 'none';[\s\S]*sandbox/, "HTML previewはscriptを許可しないsandbox CSPを返す");
-assert.match(source.render, /Content-Type": "text\/html; charset=utf-8"/, "HTML previewは正しいMIMEで返す");
-assert.match(source.room, /\/render`/, "HTMLの資料名クリックは安全previewを開く");
-assert.match(source.room, /isWorkspaceDocumentHtml\(item\.mimeType\)[\s\S]*\/render`[\s\S]*open\?download=1/, "HTMLの右端操作も安全previewを開く");
-assert.match(source.room, /item\.entryKind === "link" \|\| isWorkspaceDocumentHtml\(item\.mimeType\)/, "HTMLの右端操作はダウンロードでなく開くと明示する");
+assert.match(source.pdf, /resolveDocumentRowAccess\(db, row\)/, "HTML PDF化も資料ごとの権限を再確認する");
+assert.match(source.pdf, /row\.visibility === "amd_internal" && !access\.canReadInternal/, "HTML PDF化も内部資料を404にする");
+assert.match(source.pdf, /isWorkspaceDocumentHtml\(row\.mime_type, row\.display_name\)/, "HTMLだけをPDF化する");
+assert.match(source.pdf, /WORKSPACE_DOCUMENT_HTML_PDF_MAX_INPUT_BYTES/, "HTML PDF化の入力量を制限する");
+assert.match(source.pdf, /WORKSPACE_DOCUMENT_HTML_PDF_MAX_OUTPUT_BYTES/, "HTML PDF化の出力量を制限する");
+assert.match(source.pdf, /renderWorkspaceDocumentHtmlToPdf/, "HTMLは専用の安全PDF変換を通す");
+assert.match(source.pdf, /Content-Type": "application\/pdf"/, "HTML PDF化はPDFとして返す");
+assert.match(source.pdf, /Content-Disposition.*attachment/, "HTML PDF化はブラウザ表示でなく保存する");
+assert.match(source.htmlPdf, /page\.setJavaScriptEnabled\(false\)/, "HTML PDF化ではscriptを実行しない");
+assert.match(source.htmlPdf, /page\.setRequestInterception\(true\)/, "HTML PDF化では外部通信を遮断する");
+assert.match(source.htmlPdf, /request\.url\(\)\.startsWith\("data:"\)/, "HTML PDF化は埋込dataだけを許可する");
+assert.match(source.htmlPdf, /format: "A4"/, "HTML PDF化はA4で組版する");
+assert.match(source.room, /\/pdf`/, "HTMLの資料名クリックはPDF化ダウンロードを始める");
+assert.match(source.room, /isWorkspaceDocumentHtml\(item\.mimeType, item\.displayName\)[\s\S]*\/pdf`[\s\S]*open\?download=1/, "HTMLの右端操作もPDF化ダウンロードを行う");
+assert.match(source.room, /"PDF化ダウンロード"/, "HTMLの右端操作はPDF化ダウンロードと明示する");
 assert.doesNotMatch(source.serializer.split("export function publicWorkspaceDocument")[1], /storage_path|external_url/, "一覧DTOに保存先や外部URLを含めない");
 assert.doesNotMatch(source.mutate, /\.remove\(/, "archiveで実ファイルを削除しない");
 assert.match(source.list, /workspaceDocumentDestinationStatus/, "作成時に保存先folderと共有境界を検証する");

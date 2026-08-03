@@ -144,6 +144,12 @@ const nextConfig: NextConfig = {
       "./spec/**/*.md",
       "./bzm/**/*.md",
     ],
+    // 資料室のHTML→PDF変換は、日本語を含む既存の共有HTMLをA4 PDFとして渡すため、
+    // Fontsourceのfont本体をVercel Functionへ明示同梱する。動的なrequire.resolveだけでは
+    // output file tracingに乗らず、本番だけ日本語が欠ける。
+    "/api/workspace-documents/[documentId]/pdf/route": [
+      "./node_modules/@fontsource-variable/noto-sans-jp/**",
+    ],
   },
   async headers() {
     return [
