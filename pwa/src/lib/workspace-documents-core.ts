@@ -1,11 +1,16 @@
 export const WORKSPACE_DOCUMENTS_BUCKET = "workspace-files";
 export const WORKSPACE_DOCUMENT_MAX_BYTES = 100 * 1024 * 1024;
+export const WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES = 5 * 1024 * 1024;
 
 export type WorkspaceDocumentScopeKind = "institution" | "project";
 export type WorkspaceDocumentVisibility = "amd_internal" | "workspace_shared";
 export type WorkspaceDocumentEntryKind = "file" | "link" | "folder";
 
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
+
+export function isWorkspaceDocumentHtml(mimeType: unknown): boolean {
+  return typeof mimeType === "string" && mimeType.split(";", 1)[0]?.trim().toLowerCase() === "text/html";
+}
 
 export function normalizeDocumentName(value: unknown): string | null {
   if (typeof value !== "string") return null;

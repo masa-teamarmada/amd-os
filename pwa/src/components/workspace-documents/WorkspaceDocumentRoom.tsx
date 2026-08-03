@@ -42,6 +42,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { isWorkspaceDocumentHtml } from "@/lib/workspace-documents-core";
 import type {
   WorkspaceDocumentEntryKind,
   WorkspaceDocumentScopeKind,
@@ -796,7 +797,9 @@ export function WorkspaceDocumentRoom({
                         </button>
                       ) : (
                         <a
-                          href={`/api/workspace-documents/${encodeURIComponent(item.documentId)}/open?download=0`}
+                          href={isWorkspaceDocumentHtml(item.mimeType)
+                            ? `/api/workspace-documents/${encodeURIComponent(item.documentId)}/render`
+                            : `/api/workspace-documents/${encodeURIComponent(item.documentId)}/open?download=0`}
                           target="_blank"
                           rel="noreferrer"
                           className="block min-h-11 max-w-full truncate py-2 text-sm font-semibold hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"

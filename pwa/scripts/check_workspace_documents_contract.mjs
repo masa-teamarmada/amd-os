@@ -6,6 +6,7 @@ const files = {
   list: new URL("../src/app/api/workspace-documents/route.ts", import.meta.url),
   mutate: new URL("../src/app/api/workspace-documents/[documentId]/route.ts", import.meta.url),
   open: new URL("../src/app/api/workspace-documents/[documentId]/open/route.ts", import.meta.url),
+  render: new URL("../src/app/api/workspace-documents/[documentId]/render/route.ts", import.meta.url),
   serializer: new URL("../src/lib/workspace-documents-server.ts", import.meta.url),
   middleware: new URL("../src/lib/supabase/middleware.ts", import.meta.url),
   institutionPage: new URL("../src/app/workspace/[slug]/files/page.tsx", import.meta.url),
@@ -22,6 +23,13 @@ assert.doesNotMatch(source.access, /institutionWorkspaces.*project_access/s, "�
 assert.match(source.list, /!access\.canReadInternal.*visibility.*workspace_shared/s, "外部一覧は共有資料だけに絞る");
 assert.match(source.open, /row\.visibility === "amd_internal" && !access\.canReadInternal/, "open routeも内部資料を404にする");
 assert.match(source.open, /createSignedUrl\(row\.storage_path, 60/, "private fileは60秒の署名URLで開く");
+assert.match(source.render, /resolveDocumentRowAccess\(db, row\)/, "HTML previewも資料ごとの権限を再確認する");
+assert.match(source.render, /row\.visibility === "amd_internal" && !access\.canReadInternal/, "HTML previewも内部資料を404にする");
+assert.match(source.render, /isWorkspaceDocumentHtml\(row\.mime_type\)/, "HTMLだけを専用previewで返す");
+assert.match(source.render, /WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES/, "HTML previewの読込量を制限する");
+assert.match(source.render, /default-src 'none';[\s\S]*sandbox/, "HTML previewはscriptを許可しないsandbox CSPを返す");
+assert.match(source.render, /Content-Type": "text\/html; charset=utf-8"/, "HTML previewは正しいMIMEで返す");
+assert.match(source.room, /\/render`/, "HTMLの資料名クリックは安全previewを開く");
 assert.doesNotMatch(source.serializer.split("export function publicWorkspaceDocument")[1], /storage_path|external_url/, "一覧DTOに保存先や外部URLを含めない");
 assert.doesNotMatch(source.mutate, /\.remove\(/, "archiveで実ファイルを削除しない");
 assert.match(source.list, /workspaceDocumentDestinationStatus/, "作成時に保存先folderと共有境界を検証する");

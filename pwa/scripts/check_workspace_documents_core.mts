@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   documentBaseName,
   documentParentPath,
+  isWorkspaceDocumentHtml,
   joinDocumentFolderPath,
   normalizeDocumentFolderPath,
   normalizeDocumentName,
@@ -34,6 +35,10 @@ assert.equal(normalizeDocumentVisibility("public"), null);
 assert.equal(normalizeHttpUrl("https://example.com/a")?.startsWith("https://example.com/a"), true);
 assert.equal(normalizeHttpUrl("javascript:alert(1)"), null);
 assert.equal(normalizeHttpUrl("file:///tmp/a"), null);
+
+assert.equal(isWorkspaceDocumentHtml("text/html"), true);
+assert.equal(isWorkspaceDocumentHtml("TEXT/HTML; charset=utf-8"), true);
+assert.equal(isWorkspaceDocumentHtml("text/plain"), false);
 
 const documentId = "7ec59a7f-211a-4670-b3c5-f1a35b5ee7aa";
 assert.equal(
