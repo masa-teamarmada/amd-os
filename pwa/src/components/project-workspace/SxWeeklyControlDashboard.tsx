@@ -1099,10 +1099,12 @@ function editorDefinition(
               },
               {
                 key: "parent_task_id",
-                label: "親タスク（任意）",
+                label: "ネスト先（親タスク）",
                 type: "select" as const,
+                help:
+                  "工程の直下 = 親なし。既存タスクを選ぶ = その子タスクとしてネストする。",
                 options: [
-                  { value: "", label: "工程の直下" },
+                  { value: "", label: "工程の直下（親なし）" },
                   ...management.tasks
                     .filter((task) =>
                       taskParentMilestones(management, editor.laneKey).some(
@@ -1111,7 +1113,7 @@ function editorDefinition(
                     )
                     .map((task) => ({
                       value: task.id,
-                      label: `${management.milestones.find((item) => item.id === task.milestoneId)?.title || "工程"}｜${task.title}`,
+                      label: `${management.milestones.find((item) => item.id === task.milestoneId)?.title || "工程"}｜「${task.title}」の子にする`,
                     })),
                 ],
               },
@@ -1119,17 +1121,22 @@ function editorDefinition(
           : [
               {
                 key: "parent_task_id",
-                label: "親タスク",
+                label: "ネスト先（親タスク）",
                 type: "select" as const,
+                help:
+                  "工程の直下に戻すとネストを外せる。既存タスクを選ぶと、その子タスクへ付け替える。",
                 options: [
-                  { value: "", label: "工程の直下" },
+                  { value: "", label: "工程の直下（親なし）" },
                   ...management.tasks
                     .filter(
                       (task) =>
                         task.milestoneId === editor.task.milestoneId &&
                         task.id !== editor.task.id,
                     )
-                    .map((task) => ({ value: task.id, label: task.title })),
+                    .map((task) => ({
+                      value: task.id,
+                      label: `「${task.title}」の子にする`,
+                    })),
                 ],
               },
             ]),
@@ -2190,10 +2197,13 @@ function IssueEditor({
     return {
       ...field,
       options: [
-        { value: "", label: "工程の直下" },
+        { value: "", label: "工程の直下（親なし）" },
         ...management.tasks
           .filter((task) => task.milestoneId === values.milestone_id)
-          .map((task) => ({ value: task.id, label: task.title })),
+          .map((task) => ({
+            value: task.id,
+            label: `「${task.title}」の子にする`,
+          })),
       ],
     };
   });
@@ -3282,6 +3292,7 @@ function IssueCard({
 function PlanInspector({
   milestone,
   task,
+  taskParentTitle,
   requirements,
   canManage,
   detailEditor,
@@ -3292,6 +3303,7 @@ function PlanInspector({
 }: {
   milestone: SxManagementMilestone | null;
   task: SxTask | null;
+  taskParentTitle: string | null;
   requirements: SxGateRequirement[];
   canManage: boolean;
   detailEditor?: ReactNode;
@@ -3549,6 +3561,22 @@ function PlanInspector({
             )}
 
             <div className={styles.inspectorContentGrid}>
+              {isTask && (
+                <section className={styles.inspectorSection}>
+                  <span>ネスト先（親タスク）</span>
+                  <div className={styles.inspectorSectionValue}>
+                    {editableValue(
+                      "item-parent-task",
+                      "ネスト先（親タスク）",
+                      taskParentTitle
+                        ? `「${taskParentTitle}」の子タスク`
+                        : "工程の直下（親なし）",
+                      itemEditor,
+                      ["parent_task_id"],
+                    )}
+                  </div>
+                </section>
+              )}
               <section className={styles.inspectorSection}>
                 <span>内容 / 到達点</span>
                 <div className={styles.inspectorSectionValue}>
@@ -4519,6 +4547,13 @@ export function SxWeeklyControlDashboard({
             <PlanInspector
               milestone={selectedPlanMilestone}
               task={selectedTask}
+              taskParentTitle={
+                selectedTask?.parentTaskId
+                  ? management.tasks.find(
+                      (candidate) => candidate.id === selectedTask.parentTaskId,
+                    )?.title || null
+                  : null
+              }
               requirements={selectedRequirements}
               canManage={management.canManage}
               detailEditor={
