@@ -30,6 +30,8 @@ assert.match(source.render, /WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES/, "HTML p
 assert.match(source.render, /default-src 'none';[\s\S]*sandbox/, "HTML previewはscriptを許可しないsandbox CSPを返す");
 assert.match(source.render, /Content-Type": "text\/html; charset=utf-8"/, "HTML previewは正しいMIMEで返す");
 assert.match(source.room, /\/render`/, "HTMLの資料名クリックは安全previewを開く");
+assert.match(source.room, /isWorkspaceDocumentHtml\(item\.mimeType\)[\s\S]*\/render`[\s\S]*open\?download=1/, "HTMLの右端操作も安全previewを開く");
+assert.match(source.room, /item\.entryKind === "link" \|\| isWorkspaceDocumentHtml\(item\.mimeType\)/, "HTMLの右端操作はダウンロードでなく開くと明示する");
 assert.doesNotMatch(source.serializer.split("export function publicWorkspaceDocument")[1], /storage_path|external_url/, "一覧DTOに保存先や外部URLを含めない");
 assert.doesNotMatch(source.mutate, /\.remove\(/, "archiveで実ファイルを削除しない");
 assert.match(source.list, /workspaceDocumentDestinationStatus/, "作成時に保存先folderと共有境界を検証する");

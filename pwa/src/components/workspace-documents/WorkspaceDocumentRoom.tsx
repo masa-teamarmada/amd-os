@@ -831,13 +831,15 @@ export function WorkspaceDocumentRoom({
                   <div className="flex min-h-11 items-center justify-end gap-1">
                     {item.entryKind !== "folder" && (
                       <a
-                        href={`/api/workspace-documents/${encodeURIComponent(item.documentId)}/open?download=1`}
+                        href={isWorkspaceDocumentHtml(item.mimeType)
+                          ? `/api/workspace-documents/${encodeURIComponent(item.documentId)}/render`
+                          : `/api/workspace-documents/${encodeURIComponent(item.documentId)}/open?download=1`}
                         target="_blank"
                         rel="noreferrer"
                         className="grid h-11 w-11 place-items-center rounded-md text-slate-600 hover:bg-slate-100 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
-                        aria-label={`${item.displayName}を${item.entryKind === "link" ? "開く" : "ダウンロード"}`}
+                        aria-label={`${item.displayName}を${item.entryKind === "link" || isWorkspaceDocumentHtml(item.mimeType) ? "開く" : "ダウンロード"}`}
                       >
-                        {item.entryKind === "link" ? (
+                        {item.entryKind === "link" || isWorkspaceDocumentHtml(item.mimeType) ? (
                           <ExternalLink className="h-4 w-4" aria-hidden />
                         ) : (
                           <Download className="h-4 w-4" aria-hidden />
