@@ -147,8 +147,12 @@ const nextConfig: NextConfig = {
     // 資料室のHTML→PDF変換は、日本語を含む既存の共有HTMLをA4 PDFとして渡すため、
     // Fontsourceのfont本体をVercel Functionへ明示同梱する。動的なrequire.resolveだけでは
     // output file tracingに乗らず、本番だけ日本語が欠ける。
+    // @sparticuz/chromiumの実行バイナリ(bin/*.br)はfs.existsSync(path.join(__dirname,...))で
+    // 動的解決されるため自動tracingに乗らず、明示しないと /var/task に無くPDF生成が
+    // 全滅する (2026-08-03 本番ログで確認)。
     "/api/workspace-documents/[documentId]/pdf/route": [
       "./node_modules/@fontsource-variable/noto-sans-jp/**",
+      "./node_modules/@sparticuz/chromium/bin/**",
     ],
   },
   async headers() {

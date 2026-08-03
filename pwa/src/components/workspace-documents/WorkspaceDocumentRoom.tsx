@@ -42,7 +42,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { isWorkspaceDocumentHtml } from "@/lib/workspace-documents-core";
+import {
+  isWorkspaceDocumentHtml,
+  workspaceDocumentPdfDownloadName,
+} from "@/lib/workspace-documents-core";
 import type {
   WorkspaceDocumentEntryKind,
   WorkspaceDocumentScopeKind,
@@ -305,6 +308,42 @@ export function WorkspaceDocumentRoom({
       await loadDocuments();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "追加できなかったよ。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function downloadHtmlAsPdf(item: DocumentItem) {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/workspace-documents/${encodeURIComponent(item.documentId)}/pdf`,
+        { cache: "no-store" },
+      );
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(payload.error || "PDFを生成できなかったよ。");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      try {
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = workspaceDocumentPdfDownloadName(item.displayName);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "PDFを生成できなかったよ。",
+      );
     } finally {
       setBusy(false);
     }
@@ -795,11 +834,19 @@ export function WorkspaceDocumentRoom({
                         >
                           {item.displayName}
                         </button>
+                      ) : item.entryKind === "file" && isWorkspaceDocumentHtml(item.mimeType, item.displayName) ? (
+                        <button
+                          type="button"
+                          onClick={() => void downloadHtmlAsPdf(item)}
+                          disabled={busy}
+                          className="block min-h-11 max-w-full truncate py-2 text-left text-sm font-semibold hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-60"
+                          title={item.displayName}
+                        >
+                          {item.displayName}
+                        </button>
                       ) : (
                         <a
-                          href={isWorkspaceDocumentHtml(item.mimeType, item.displayName)
-                            ? `/api/workspace-documents/${encodeURIComponent(item.documentId)}/pdf`
-                            : `/api/workspace-documents/${encodeURIComponent(item.documentId)}/open?download=0`}
+                          href={`/api/workspace-documents/${encodeURIComponent(item.documentId)}/open?download=0`}
                           target="_blank"
                           rel="noreferrer"
                           className="block min-h-11 max-w-full truncate py-2 text-sm font-semibold hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
@@ -829,16 +876,24 @@ export function WorkspaceDocumentRoom({
                     </p>
                   </div>
                   <div className="flex min-h-11 items-center justify-end gap-1">
-                    {item.entryKind !== "folder" && (
+                    {item.entryKind === "file" && isWorkspaceDocumentHtml(item.mimeType, item.displayName) ? (
+                      <button
+                        type="button"
+                        onClick={() => void downloadHtmlAsPdf(item)}
+                        disabled={busy}
+                        className="grid h-11 w-11 place-items-center rounded-md text-slate-600 hover:bg-slate-100 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-60"
+                        title="PDF化ダウンロード"
+                        aria-label={`${item.displayName}をPDF化ダウンロード`}
+                      >
+                        <Download className="h-4 w-4" aria-hidden />
+                      </button>
+                    ) : item.entryKind !== "folder" ? (
                       <a
-                        href={isWorkspaceDocumentHtml(item.mimeType, item.displayName)
-                          ? `/api/workspace-documents/${encodeURIComponent(item.documentId)}/pdf`
-                          : `/api/workspace-documents/${encodeURIComponent(item.documentId)}/open?download=1`}
+                        href={`/api/workspace-documents/${encodeURIComponent(item.documentId)}/open?download=1`}
                         target="_blank"
                         rel="noreferrer"
                         className="grid h-11 w-11 place-items-center rounded-md text-slate-600 hover:bg-slate-100 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
-                        title={isWorkspaceDocumentHtml(item.mimeType, item.displayName) ? "PDF化ダウンロード" : undefined}
-                        aria-label={`${item.displayName}を${item.entryKind === "link" ? "開く" : isWorkspaceDocumentHtml(item.mimeType, item.displayName) ? "PDF化ダウンロード" : "ダウンロード"}`}
+                        aria-label={`${item.displayName}を${item.entryKind === "link" ? "開く" : "ダウンロード"}`}
                       >
                         {item.entryKind === "link" ? (
                           <ExternalLink className="h-4 w-4" aria-hidden />
@@ -846,7 +901,7 @@ export function WorkspaceDocumentRoom({
                           <Download className="h-4 w-4" aria-hidden />
                         )}
                       </a>
-                    )}
+                    ) : null}
                     {permissions?.canManage && (
                       <button
                         type="button"

@@ -14,6 +14,7 @@ const files = {
   projectPage: new URL("../src/app/(shared-workspace)/project/[projectId]/workspace/files/page.tsx", import.meta.url),
   room: new URL("../src/components/workspace-documents/WorkspaceDocumentRoom.tsx", import.meta.url),
   cockpit: new URL("../src/components/cockpit/CockpitView.tsx", import.meta.url),
+  nextConfig: new URL("../next.config.ts", import.meta.url),
 };
 
 const source = Object.fromEntries(await Promise.all(Object.entries(files).map(async ([key, url]) => [key, await readFile(url, "utf8")])));
@@ -37,8 +38,12 @@ assert.match(source.htmlPdf, /page\.setRequestInterception\(true\)/, "HTML PDF�
 assert.match(source.htmlPdf, /request\.url\(\)\.startsWith\("data:"\)/, "HTML PDF化は埋込dataだけを許可する");
 assert.match(source.htmlPdf, /format: "A4"/, "HTML PDF化はA4で組版する");
 assert.match(source.room, /\/pdf`/, "HTMLの資料名クリックはPDF化ダウンロードを始める");
-assert.match(source.room, /isWorkspaceDocumentHtml\(item\.mimeType, item\.displayName\)[\s\S]*\/pdf`[\s\S]*open\?download=1/, "HTMLの右端操作もPDF化ダウンロードを行う");
+assert.match(source.room, /async function downloadHtmlAsPdf/, "PDF化ダウンロードはfetchで失敗を検知するhandlerを持つ");
+assert.match(source.room, /item\.entryKind === "file" && isWorkspaceDocumentHtml\(item\.mimeType, item\.displayName\)\s*\?\s*\(\s*<button[\s\S]*?downloadHtmlAsPdf/, "保存済みHTMLの資料名クリックはPDF化ダウンロードhandlerを呼ぶ(新規タブの直リンクにしない)");
 assert.match(source.room, /"PDF化ダウンロード"/, "HTMLの右端操作はPDF化ダウンロードと明示する");
+assert.match(source.room, /open\?download=1/, "非HTMLの右端操作はダウンロードlinkのまま");
+assert.doesNotMatch(source.room, /href=\{isWorkspaceDocumentHtml/, "HTML資料をtarget=_blankの直リンクへ戻さない(PDF生成失敗時にJSON丸見え画面が開く事故を防ぐ)");
+assert.match(source.room, /setError\(\s*\n?\s*cause instanceof Error \? cause\.message : "PDFを生成できなかったよ。"/, "PDF化失敗はrole=alertへ日本語エラーを出し、JSON画面へは遷移しない");
 assert.doesNotMatch(source.serializer.split("export function publicWorkspaceDocument")[1], /storage_path|external_url/, "一覧DTOに保存先や外部URLを含めない");
 assert.doesNotMatch(source.mutate, /\.remove\(/, "archiveで実ファイルを削除しない");
 assert.match(source.list, /workspaceDocumentDestinationStatus/, "作成時に保存先folderと共有境界を検証する");
@@ -55,5 +60,16 @@ assert.match(source.room, /data-testid="workspace-document-launcher"/, "資料�
 assert.match(source.room, /data-testid="workspace-document-modal"/, "資料室はcockpit内modalで開く");
 assert.match(source.room, /presentation="modal"/, "modal内の資料室は専用presentationを使う");
 assert.doesNotMatch(source.room, /const latest =|slice\(0, 3\)/, "cockpit launcherで最新資料一覧を先読みしない");
+
+assert.match(
+  source.nextConfig,
+  /"\/api\/workspace-documents\/\[documentId\]\/pdf\/route":\s*\[[^\]]*@fontsource-variable\/noto-sans-jp[^\]]*\]/s,
+  "HTML PDF化routeはNotoフォント本体をbuildへ明示同梱する",
+);
+assert.match(
+  source.nextConfig,
+  /"\/api\/workspace-documents\/\[documentId\]\/pdf\/route":\s*\[[^\]]*@sparticuz\/chromium\/bin[^\]]*\]/s,
+  "HTML PDF化routeは@sparticuz/chromiumの実行バイナリ(bin/*.br)をbuildへ明示同梱する(無いと本番でbrotli展開できずPDF生成が全滅する)",
+);
 
 console.log("workspace documents contract: ok");
