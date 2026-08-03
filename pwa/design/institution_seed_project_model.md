@@ -172,7 +172,7 @@ migration 212で新設する7テーブルが認可の正本になる。
 - 機関資料は明示された `institution_workspace_memberships`、PJ資料は明示された `project_access_memberships` を毎request再検証する。**機関所属はPJ資料へのアクセスを含意しない**。
 - `visibility='workspace_shared'` は対象scopeの外部メンバーにも共有、`amd_internal` はAMD内部だけ。外部の一覧・open APIは内部資料をnot foundとして扱う。
 - manager / contributor と機関owner / memberはfile・folder・linkを追加でき、整理・archiveはmanager / ownerまたはAMDの対象PJメンバー/adminに限る。archiveはStorage実体を削除しない。
-- fileのStorage path、外部link URL、署名tokenを一覧DTOへ含めない。open APIが権限を再確認し、通常fileだけ60秒の署名URLを発行する。`mime_type='text/html'` と `.html` / `.htm` の保存fileは専用PDF APIで再認可後にA4 PDFとしてダウンロードする。HTML内のscriptと外部通信を止め、日本語フォントを埋め込む。入力は8MB、返却PDFは4MBまでとする。
+- fileのStorage path、外部link URL、署名tokenを一覧DTOへ含めない。open APIが権限を再確認し、通常fileだけ60秒の署名URLを発行する。`mime_type='text/html'` と `.html` / `.htm` の保存fileは、資料名からは再認可済みのsandbox HTMLプレビューを別タブに表示する（5MBまで、script・外部通信・form送信を止める）。右端の明示的なPDF化ダウンロードだけが専用PDF APIで再認可後にA4 PDFとして保存する。PDF化ではHTML内のscriptと外部通信を止め、日本語フォントを埋め込む。入力は8MB、返却PDFは4MBまでとする。
 - AMD内部のPJコックピットは資料名・件数・最新資料を本文へ展開せず、`WorkspaceDocumentLauncher` の1ボタンだけを置く。押下時はURLを変更せず `WorkspaceDocumentRoom(presentation='modal')` を大きなモーダルで開き、閉じた時にコックピットの作業位置と文脈を保つ。独立routeは直接URL・外部共有面・復旧用に残す。
 - 資料室の視覚トークンは白、graphite、deep navy、AMD blue、cyanを基調にし、旧Project Share由来のivory / green / amberの全面配色を使わない。赤はarchiveなど破壊性を伴う意味だけに限定する。
 - migration 216〜219は2026-08-02に本番適用済み。VSX/CX/SE/SX/ZMP/KUTEの旧Project Shareはproject scopeへ非破壊コピーし、既存 `project_documents` は `AMD内部/Drive資料` の内部限定linkとして併記した。内容ハッシュを保存し、file全件を移行先から再取得して一致検証する。

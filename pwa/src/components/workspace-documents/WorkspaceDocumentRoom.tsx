@@ -835,15 +835,15 @@ export function WorkspaceDocumentRoom({
                           {item.displayName}
                         </button>
                       ) : item.entryKind === "file" && isWorkspaceDocumentHtml(item.mimeType, item.displayName) ? (
-                        <button
-                          type="button"
-                          onClick={() => void downloadHtmlAsPdf(item)}
-                          disabled={busy}
-                          className="block min-h-11 max-w-full truncate py-2 text-left text-sm font-semibold hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-60"
+                        <a
+                          href={`/api/workspace-documents/${encodeURIComponent(item.documentId)}/render`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block min-h-11 max-w-full truncate py-2 text-sm font-semibold hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
                           title={item.displayName}
                         >
                           {item.displayName}
-                        </button>
+                        </a>
                       ) : (
                         <a
                           href={`/api/workspace-documents/${encodeURIComponent(item.documentId)}/open?download=0`}

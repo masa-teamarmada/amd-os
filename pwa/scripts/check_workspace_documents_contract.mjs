@@ -6,6 +6,7 @@ const files = {
   list: new URL("../src/app/api/workspace-documents/route.ts", import.meta.url),
   mutate: new URL("../src/app/api/workspace-documents/[documentId]/route.ts", import.meta.url),
   open: new URL("../src/app/api/workspace-documents/[documentId]/open/route.ts", import.meta.url),
+  render: new URL("../src/app/api/workspace-documents/[documentId]/render/route.ts", import.meta.url),
   pdf: new URL("../src/app/api/workspace-documents/[documentId]/pdf/route.ts", import.meta.url),
   htmlPdf: new URL("../src/lib/workspace-document-html-pdf.ts", import.meta.url),
   serializer: new URL("../src/lib/workspace-documents-server.ts", import.meta.url),
@@ -25,6 +26,12 @@ assert.doesNotMatch(source.access, /institutionWorkspaces.*project_access/s, "�
 assert.match(source.list, /!access\.canReadInternal.*visibility.*workspace_shared/s, "外部一覧は共有資料だけに絞る");
 assert.match(source.open, /row\.visibility === "amd_internal" && !access\.canReadInternal/, "open routeも内部資料を404にする");
 assert.match(source.open, /createSignedUrl\(row\.storage_path, 60/, "private fileは60秒の署名URLで開く");
+assert.match(source.render, /resolveDocumentRowAccess\(db, row\)/, "HTML表示も資料ごとの権限を再確認する");
+assert.match(source.render, /row\.visibility === "amd_internal" && !access\.canReadInternal/, "HTML表示も内部資料を404にする");
+assert.match(source.render, /isWorkspaceDocumentHtml\(row\.mime_type, row\.display_name\)/, "HTMLだけを専用表示で返す");
+assert.match(source.render, /WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES/, "HTML表示の読込量を制限する");
+assert.match(source.render, /default-src 'none';[\s\S]*sandbox/, "HTML表示はscriptを許可しないsandbox CSPを返す");
+assert.match(source.render, /Content-Type": "text\/html; charset=utf-8"/, "HTML表示は正しいMIMEで返す");
 assert.match(source.pdf, /resolveDocumentRowAccess\(db, row\)/, "HTML PDF化も資料ごとの権限を再確認する");
 assert.match(source.pdf, /row\.visibility === "amd_internal" && !access\.canReadInternal/, "HTML PDF化も内部資料を404にする");
 assert.match(source.pdf, /isWorkspaceDocumentHtml\(row\.mime_type, row\.display_name\)/, "HTMLだけをPDF化する");
@@ -37,12 +44,12 @@ assert.match(source.htmlPdf, /page\.setJavaScriptEnabled\(false\)/, "HTML PDF化
 assert.match(source.htmlPdf, /page\.setRequestInterception\(true\)/, "HTML PDF化では外部通信を遮断する");
 assert.match(source.htmlPdf, /request\.url\(\)\.startsWith\("data:"\)/, "HTML PDF化は埋込dataだけを許可する");
 assert.match(source.htmlPdf, /format: "A4"/, "HTML PDF化はA4で組版する");
-assert.match(source.room, /\/pdf`/, "HTMLの資料名クリックはPDF化ダウンロードを始める");
+assert.match(source.room, /\/render`/, "HTMLの資料名クリックは安全表示を開く");
 assert.match(source.room, /async function downloadHtmlAsPdf/, "PDF化ダウンロードはfetchで失敗を検知するhandlerを持つ");
-assert.match(source.room, /item\.entryKind === "file" && isWorkspaceDocumentHtml\(item\.mimeType, item\.displayName\)\s*\?\s*\(\s*<button[\s\S]*?downloadHtmlAsPdf/, "保存済みHTMLの資料名クリックはPDF化ダウンロードhandlerを呼ぶ(新規タブの直リンクにしない)");
+assert.match(source.room, /item\.entryKind === "file" && isWorkspaceDocumentHtml\(item\.mimeType, item\.displayName\)\s*\?\s*\(\s*<a[\s\S]*?\/render`/, "保存済みHTMLの資料名クリックは安全表示を開く");
 assert.match(source.room, /"PDF化ダウンロード"/, "HTMLの右端操作はPDF化ダウンロードと明示する");
 assert.match(source.room, /open\?download=1/, "非HTMLの右端操作はダウンロードlinkのまま");
-assert.doesNotMatch(source.room, /href=\{isWorkspaceDocumentHtml/, "HTML資料をtarget=_blankの直リンクへ戻さない(PDF生成失敗時にJSON丸見え画面が開く事故を防ぐ)");
+assert.match(source.room, /<button[\s\S]*?downloadHtmlAsPdf/, "右端のPDF化ダウンロードだけが変換handlerを呼ぶ");
 assert.match(source.room, /setError\(\s*\n?\s*cause instanceof Error \? cause\.message : "PDFを生成できなかったよ。"/, "PDF化失敗はrole=alertへ日本語エラーを出し、JSON画面へは遷移しない");
 assert.doesNotMatch(source.serializer.split("export function publicWorkspaceDocument")[1], /storage_path|external_url/, "一覧DTOに保存先や外部URLを含めない");
 assert.doesNotMatch(source.mutate, /\.remove\(/, "archiveで実ファイルを削除しない");
@@ -63,13 +70,14 @@ assert.doesNotMatch(source.room, /const latest =|slice\(0, 3\)/, "cockpit launch
 
 assert.match(
   source.nextConfig,
-  /"\/api\/workspace-documents\/\[documentId\]\/pdf\/route":\s*\[[^\]]*@fontsource-variable\/noto-sans-jp[^\]]*\]/s,
+  /"\/api\/workspace-documents\/\*\/pdf":\s*\[[^\]]*@fontsource-variable\/noto-sans-jp[^\]]*\]/s,
   "HTML PDF化routeはNotoフォント本体をbuildへ明示同梱する",
 );
 assert.match(
   source.nextConfig,
-  /"\/api\/workspace-documents\/\[documentId\]\/pdf\/route":\s*\[[^\]]*@sparticuz\/chromium\/bin[^\]]*\]/s,
+  /"\/api\/workspace-documents\/\*\/pdf":\s*\[[^\]]*@sparticuz\/chromium\/bin[^\]]*\]/s,
   "HTML PDF化routeは@sparticuz/chromiumの実行バイナリ(bin/*.br)をbuildへ明示同梱する(無いと本番でbrotli展開できずPDF生成が全滅する)",
 );
+assert.doesNotMatch(source.nextConfig, /workspace-documents\/\[documentId\]\/pdf\/route/, "output tracingはroute source pathでなく実行route globを使う");
 
 console.log("workspace documents contract: ok");
