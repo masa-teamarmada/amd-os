@@ -1,57 +1,52 @@
 # AMD OS Handoff
 
-Last updated: 2026-08-01 JST
+Last updated: 2026-08-03 JST
 
-Topic: SX 2026年7月提出版の再生成、PJ別前月フォーマット継承、提出版PDFの共通組版修正
+Topic: 研究ポートフォリオを主役にしたホーム採用後の詳細設計
 
-Work type: `mixed`（月次生成・印刷の製品開発 + SX提出本文と長期事実の整理）
+Work type: `development`
 
-## Latest Session Summary
+## 今回、確定したこと
 
-- SX 2026年7月提出版を、SX自身の6月実提出版と同じ構造で再生成した。他PJ、とくにKUTEの章立てをSXへ共通適用しない。
-- 月次生成は`kaku-report`を適用し、Fable 5をCode Routine内で動かす。概要へsource件数やdraft更新履歴を出さず、当月の進展・判断・残る論点・次月の焦点へ統合する。
-- SX本文には、BNV定例を投資検討に向けたDDの一環、PFとの経営体制協議をその体制でも出資検討可能との確認として反映した。知財マッピングは以前に完了済み、7月の追加対応なしと記載した。
-- 外部関係者のフルネーム、人物別活動評価、相手を動かす・巻き込む表現を提出版で禁止した。EWIRは初出で`Ehime Water Innovation Roundtable（愛媛水イノベーション・ラウンドテーブル）`と展開する。
-- 提出版PDFは各ページ上部に提出先・対象月と`取扱注意 / Confidential`を置き、下部フッター・ページ番号・本文後の空白最終ページを出さない共通組版へ修正した。
-- 最終実装は、名前付き`@page`と`page: submission`を使わず、提出版／社内版で唯一の既定`@page`を切り替え、そのCSSを通常の`style`要素へ直接出力する。
+- AMD OSの母集団は **研究機関リスト** と **シーズリスト** の2つ。どちらもAMDとの契約・稼働の有無にかかわらず増やし、取れるデータを蓄積する。
+- AMDが契約して仕事をする状態になった研究機関またはシーズを「PJ」と呼ぶ。PJは第3の独立した母集団を増やす意味ではなく、契約・月次報告・タスク・資料室などの**運用レイヤー**を元の研究機関／シーズへ重ねる考え方。
+- ただし研究機関から受託するPJと、個別シーズから受託するPJは性質が違う。物理テーブルを分けるかは、カラム・ライフサイクル・既存データを照合して次セッションで決める。3テーブル前提にはしない。
+- `p30` は愛媛大学全体のエコシステム構築PJ。個別シーズPJとして扱わない。
+- ECRは研究機関環境、SPSは個別シーズ／PJの評価。合算して単一スコアにしない。
+- リストの表示優先は、PJ化済み → PJ化検討中 →（シーズでは）スコア入力済み → その他。研究機関／PJありなしで行グループを分けず、研究機関はシーズリストのカラムで表す。研究機関一覧の根拠の弱い一言コメントは置かない。
+- SXは会社未設立。スピンアウト済みと表示しない。SPS表示状態は実データで再確認する。
 
-## Repo / Production State
+## 実装済みの画面状態
 
-- canonical cwd / branch: `/Users/masa/projects/AMD/amd-os` / `main`。月次提出版の確定実装は`a9f398ec`、Vercel再トリガを含む本番確認SHAは`208151dd`（build `v3.53.5`）。以後のmainにもこの修正は含まれる。
-- handoff着手時のmainは`ea2bd330`まで進んでおり、後続のBZM変更を含む。次セッション開始時はmain / origin / productionをread-onlyで取り直す。
-- DB schema、新規migration、環境変数、API route、権限変更はない。
-- 月次仕様正本は`pwa/spec/3-2-monthly-reports-current-spec.md`、利用者向け運用は`pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md`、事故履歴は`pwa/BUGS.md`、実装履歴は`pwa/design_log/sessions_2026-07.md`へ同期済み。
-- SXのBNV・PF・知財マッピングの長期事実は`/Users/masa/projects/knowledge/sx.md`へ同期済み。提出本文の正本はAMD OSの`monthly_reports_external`（`p21` / `202607`）。
+- `/dashboard` は旧仮設 `/portfolio-preview` を正式採用した研究ポートフォリオ中心ホーム。上段は研究機関 → シーズ → PJ運用の順で優先キューを出し、その下に既存のPJ運用一覧を残す。
+- desktop右カラムはマイページを`sticky`かつ独立スクロールで埋め込み、mobile/tabletでは明示的なマイページリンクに落とす。`/portfolio-preview` は `/dashboard` へredirectする。
+- `/institutions` と `/seeds` は母集団の一覧、PJ一覧は契約後の運用を取り出すビューとして位置付け直した。現行実装と仕様には、研究機関PJを通常PJ一覧に二重表示しない契約と、実装側の`p00`だけを除外する挙動との差が残る（下記）。
+- PJコックピットの資料室は、ファイル全件を常時列挙せず「資料室を開く」ボタンから同一画面のモーダルで開く。資料室の淡い配色はやめ、AMDの白／graphite／濃紺／AMD blue／cyanの罫線中心デザインへ寄せた。
+- 認証client重複警告は`v3.56.2`で修正済み。共有browser clientへ統一し、`/dashboard`の本番コンソールは空で確認済み。現行productionは後続の`v3.56.3`。
 
-## Verification
+## 現在のproduction
 
-- `node pwa/scripts/test_monthly_report_quality.mjs` 成功。
-- `npx tsc --noEmit` 成功。
-- production `v3.53.5` / `208151dd`で、ログイン済みSX印刷画面の実DOMに既定`@page`、提出版ヘッダー、下部`content: none`が存在し、名前付きpage、`page: submission`、社内版フッターが存在しないことを確認した。
-- 同じ本番DOMからA4 PDFを生成し、全3ページをPNGで目視した。全ページに共通ヘッダーあり、フッター・ページ番号・4ページ目なし、3ページ目に「以上のとおり報告する。」あり。
-- 簡略fixtureやコード差分だけで完了判定せず、本番DOMと最終PDF全ページを確認する再発防止を`pwa/BUGS.md`へ固定した。
+- `origin/main`: `b8e76070` (`feat(pwa): add editable SX gantt dependencies`)
+- production `/api/build-info`: `v3.56.3` / `b8e7607062f331180302f02be5a62457981da519`
+- ポートフォリオホーム本採用は`a5ec937e`、認証client修正は`7b366f2c`・`4830bcae`として、上記mainに含まれる。
+- 今回はデータ修正、migration、再計算をしていない。初回の全件関係監査は未完了なので、関係の実在をコード上の互換マップや名称推定だけで確定しない。
 
-## Unresolved Tasks
+## 次セッションで最初にやること
 
-- この月次提出版修正に未解決はない。
-- 新しい月次フィードバックが来た場合だけ、対象PJ・対象月のログイン済み提出版画面から再現し、実PDFの先頭・中間・最終ページまで確認する。
+1. 研究機関・シーズ・既存PJをlive DBで読み取り専用に全件照合し、研究機関 ↔ 個別シーズ ↔ 契約PJの対応表を作る。事実／推論／設計案／未確認を分ける。
+2. 2つの母集団とPJ運用レイヤーを、既存`institutions`、`seeds.institution_id`、`projects`、`institution_projects`、`project_ventures`、各評価・契約・月次・タスク表へどう安全に対応させるかを決める。物理テーブルを分ける判断は、この監査後にする。
+3. `/dashboard`の「より高い情報密度」と右側マイページの中身を、実画面でまさと詰める。研究機関／シーズの全件一覧とPJ運用一覧の役割・入口・見せ方を、二重表示を含めて仕様と実装で一致させる。
+4. 資料室の研究機関ワークスペース化、PJ共有ダッシュボード、外部参加者のメールアドレス単位の閲覧範囲は、上の情報設計が固まってから接続する。資料をサブドメインから移す作業は別のProject Share差分で進行中のため、今回のホーム作業へ混ぜない。
 
-## First Next Action
+## 未解決の設計論点
 
-追加指摘がなければ作業なし。指摘が来たら、まず`/project/[projectId]/report/[ym]/print?template=submission`を再読み込みし、保存済み本文・本番CSS・ブラウザ印刷PDFの3点を同じ版で確認する。直ったと報告するのは、実PDFの全ページで指摘箇所が消えた後だけ。
+- PJを「元の行への運用属性」で表せる範囲と、研究機関PJ／シーズPJの契約・請求・参加者・資料室が異なるため別のPJ実体が必要になる範囲。
+- 一つのシーズが複数機関・複数PJにまたがる場合、`seeds.institution_id`だけで足りるか。
+- `p30`（愛媛大学全体）のような機関PJ、SXのような未設立事業化シーズ、CX `p20`／`p26`など未確認対象を、名称推定なしでどう関係付けるか。
+- `SPEC_pwa.md` / runtime route仕様は`institution_projects`登録PJを通常PJ一覧に二重表示しないとしている一方、`dashboard/page.tsx`は現時点で`p00`のみ除外している。この矛盾は、DB確認と画面確認をしてから解消する。
 
-## Pointers
+## 守る運用
 
-- 現行仕様: [`pwa/spec/3-2-monthly-reports-current-spec.md`](pwa/spec/3-2-monthly-reports-current-spec.md)
-- OSマニュアル: [`pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md`](pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md)
-- バグ・再発防止: [`pwa/BUGS.md`](pwa/BUGS.md) の`[monthly-reports/submission-trailing-page]`ほか月次項目
-- 実装・検証履歴: [`pwa/design_log/sessions_2026-07.md`](pwa/design_log/sessions_2026-07.md) の「SX 7月提出版の再生成と全PJ共通の印刷組版修正」
-- SX長期事実: `/Users/masa/projects/knowledge/sx.md`
-
-## Established Rules
-
-- main一本。新規branch / worktreeを作らず、対象ファイルだけを明示stageする。
-- PWA本番反映は`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`を使い、Readyとproduction `/api/build-info`のSHAまで確認する。
-- 提出版はPJごとに同じPJの直前月実提出版をフォーマット正本とする。初回や構造変更は人の明示承認が必要。
-- FableはRoutine内で動かし、従量課金の別API経路へ逃がさない。
-- PDF修正はブラウザ上の見た目だけで閉じず、実際にPDFを生成してページ数・ヘッダー・フッター・最終本文を確認する。
+- main一本。新規branch / worktreeを作らず、対象ファイルだけ明示stageする。
+- PWAコード・表示を変えるときは、仕様・マニュアル・changelog・BUGS・実装履歴を同じ変更単位で更新し、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`でproductionまで確認する。
+- ECRとSPS、研究機関とシーズ、事実と推論を安易に混ぜない。全件監査が終わるまで、欠損を推定値で埋めない。

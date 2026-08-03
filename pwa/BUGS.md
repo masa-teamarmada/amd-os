@@ -4241,3 +4241,10 @@
 - **対応内容**: 名前付き`@page submission`をやめ、社内版・提出版で共有する**既定`@page`を1本だけ**にした上で、`data.isSubmission`に応じてその既定`@page`の中身 (margin・`@top-left`/`@top-right`・`@bottom-*`) を丸ごと差し替える。`page: submission`プロパティは`.submission-flow`/`.submission-sheet`/本文外の親要素のいずれからも削除した。これにより、フォールバック時に「戻る先」自体が提出版仕様になり、社内版のヘッダー・フッター定義がその文書内に一切存在しない。実際の本番DOM完全fixtureで、default @pageを提出版設定に切替え・`page:submission`を全廃した状態で3ページ・footer0件・末尾に本文ありを確認した。
 - **原因・対応 (3回目)**: `@page`を含む条件分岐文字列を`style jsx global`のテンプレートへ変数補間したため、styled-jsxの変換後CSSからその補間部分が欠落し、本番DOMには`@page`自体が出力されていなかった。条件分岐済みの`pageRule`は通常の`style`要素へ直接出力し、静的な帳票CSSだけをstyled-jsxへ残した。品質テストには通常style要素への出力契約を追加した。
 - **再発防止策**: 提出版PDFは本文量の多寡が異なる複数PJで、最終ページに本文があること、ヘッダーが各ページへ出ること、フッターが0件であることを確認する。ページ数だけでなく最終ページの抽出文字とPNGを検査する。CSS `@page`は名前付き規則を追加する形の修正を避け、文書内の既定`@page`を条件で丸ごと差し替える方式に統一する — 名前付き`@page`と既定`@page`を同一文書内に共存させると、フォールバック先の既定`@page`が常に事故の温床になる。
+
+## [auth/browser-client] dashboardでGoTrue browser clientが重複生成された (2026-08-02)
+
+- **症状**: `/dashboard`初期表示でSupabaseの`Multiple GoTrueClient instances detected`警告がbrowser consoleへ出た。ログイン状態を同じbrowser storageで複数clientが扱うため、挙動はたまたま動いていても認証同期の事故を起こし得る状態だった。
+- **原因**: 画面本体だけでなく、共通ナビの件数表示が使う`vc-data.ts`と`seeds-data.ts`がmodule levelで個別のbrowser clientを作っていた。最初のsingleton化が画面側に限られ、コード分割された導線を横断できていなかった。
+- **対応内容**: `createBrowserSupabase()`をbrowser全体で共有するsingletonにし、上記2データmoduleも同じclientを使うように統一した。server側のclientは`persistSession: false`と個別storage keyを使い、browser sessionと競合させない。production `v3.56.2` / `4830bcae`のログイン済み`/dashboard`でconsoleが空になることを確認した。
+- **再発防止策**: GoTrue警告を直すときは、画面componentだけで完了にせず、`createClient()`・`createBrowserSupabase()`・module levelのデータ取得moduleを全検索する。認証に触る変更の完了条件には、ログイン済み本番のconsole確認を入れる。
