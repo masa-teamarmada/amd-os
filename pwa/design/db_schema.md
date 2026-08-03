@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-03 17:06 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-03 22:40 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -4111,6 +4111,8 @@ UNIQUE: `(project_id,slug)` (constraint: `project_management_partners_project_id
 | 27 | `next_ball_owner` | `text` | NULL | `` |
 | 28 | `target_state` | `text` | NULL | `` |
 | 29 | `due_date_precision` | `text` | NOT NULL | `'unknown'::text` |
+| 30 | `introducer_label` | `text` | NULL | `` |
+| 31 | `connection_context` | `text` | NULL | `` |
 
 ## project_management_raci
 
@@ -4302,7 +4304,7 @@ PRIMARY KEY: `id`
 
 ## project_meeting_summaries
 
-行数 (概算): 364
+行数 (概算): 423
 PRIMARY KEY: `meeting_id`
 
 | # | column | type | nullable | default |
@@ -4655,7 +4657,7 @@ PRIMARY KEY: `project_id`
 
 ## project_weekly_effort_entries
 
-行数 (概算): 48
+行数 (概算): 54
 PRIMARY KEY: `id`
 UNIQUE: `(project_id,member_id,week_start,work_category)` (constraint: `project_weekly_effort_entries_project_id_member_id_week_sta_key`)
 

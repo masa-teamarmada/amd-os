@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MutableRefObject,
+  type ReactNode,
+} from "react";
 import {
   ArrowRight,
   Check,
@@ -374,6 +380,41 @@ const INLINE_COMMITMENT_STATUS_OPTIONS = INLINE_WORK_STATUS_OPTIONS.filter(
   (option) => option.value !== "waiting" && option.value !== "on_hold",
 );
 
+const INLINE_REPLAY_TARGET_SELECTOR =
+  '[data-testid^="sx-partner-stage-rail-"], [data-inline-edit-trigger], [data-partner-filter-trigger]';
+
+/**
+ * blur自動保存中にpointer起点の次操作が旧editor lockで捨てられた場合だけ、
+ * 保存成功後に1回再実行する。Tab移動はpointerdownを伴わないため対象外。
+ */
+function useInlinePointerReplayTarget(active: boolean) {
+  const targetRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    targetRef.current = null;
+    if (!active) return;
+    const capture = (event: PointerEvent) => {
+      targetRef.current =
+        event.target instanceof Element
+          ? event.target.closest<HTMLElement>(INLINE_REPLAY_TARGET_SELECTOR)
+          : null;
+    };
+    document.addEventListener("pointerdown", capture, true);
+    return () => document.removeEventListener("pointerdown", capture, true);
+  }, [active]);
+  return targetRef;
+}
+
+function replayInlinePointerTarget(
+  targetRef: MutableRefObject<HTMLElement | null>,
+) {
+  const target = targetRef.current;
+  targetRef.current = null;
+  if (!target) return;
+  requestAnimationFrame(() => {
+    if (document.contains(target)) target.click();
+  });
+}
+
 function changedPatch(
   previous: Record<string, unknown>,
   next: Record<string, unknown>,
@@ -456,8 +497,9 @@ function InlineCellEditor({
 
   return (
     <div
-      className="min-w-0 border-l-2 border-[#38745d] bg-[#f8f5ec] p-1.5"
+      className="relative min-w-0"
       data-inline-editor={editorKey}
+      data-inline-cell-mode="edit-popover"
       onKeyDown={(event) => {
         if (event.key === "Escape") {
           event.preventDefault();
@@ -465,41 +507,388 @@ function InlineCellEditor({
         }
       }}
     >
-      <div className="grid min-w-0 gap-1.5">
-        {renderFields(values, setValue)}
+      <div className="pointer-events-none min-w-0" aria-hidden="true">
+        {view}
       </div>
+      <div className="absolute left-1/2 top-full z-40 mt-1 w-[min(320px,calc(100vw-32px))] -translate-x-1/2 border border-[#c9c0b2] bg-[#fffdf7] p-2 shadow-[0_12px_32px_rgba(36,35,31,0.18)]">
+        <div className="grid min-w-0 gap-1.5">
+          {renderFields(values, setValue)}
+        </div>
+        {error && (
+          <p className="mt-1 text-[10px] leading-4 text-[#8c3329]" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="mt-1.5 flex justify-end gap-1">
+          <button
+            type="button"
+            className={`${INLINE_ACTION_CLASS} border-[#cfc7b9] bg-white text-[#69665d]`}
+            onClick={cancel}
+            disabled={saving}
+            aria-label={`${label}の編集を取り消す`}
+          >
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className={`${INLINE_ACTION_CLASS} border-[#38745d] bg-[#38745d] text-white disabled:opacity-60`}
+            onClick={save}
+            disabled={saving}
+            aria-label={`${label}を保存`}
+          >
+            {saving ? (
+              <LoaderCircle
+                className="h-3.5 w-3.5 animate-spin"
+                aria-hidden="true"
+              />
+            ) : (
+              <Check className="h-3.5 w-3.5" aria-hidden="true" />
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 関係先名は一覧の識別主キーなので、編集開始で別フォームへ変形させない。
+ * 表示中の文字だけを同じ文字面のinputへ置き換え、Enter/blurで保存、Escで取消する。
+ */
+function InlinePartnerNameEditor({
+  editorKey,
+  activeEditorKey,
+  inputId,
+  label,
+  value,
+  view,
+  onRequestEdit,
+  onFinish,
+  onSave,
+}: {
+  editorKey: string;
+  activeEditorKey: string | null;
+  inputId: string;
+  label: string;
+  value: string;
+  view: ReactNode;
+  onRequestEdit: (editorKey: string) => boolean;
+  onFinish: () => void;
+  onSave: (value: string) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const active = activeEditorKey === editorKey;
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const finishingRef = useRef(false);
+  const cancelingRef = useRef(false);
+  const pointerReplayTargetRef = useInlinePointerReplayTarget(active);
+
+  useEffect(() => {
+    if (!active) return;
+    setDraft(value);
+    setError(null);
+    finishingRef.current = false;
+    cancelingRef.current = false;
+  }, [active, value]);
+
+  const begin = () => {
+    if (!onRequestEdit(editorKey)) return;
+    setDraft(value);
+    setError(null);
+    finishingRef.current = false;
+    cancelingRef.current = false;
+  };
+  const finish = (returnFocus: boolean) => {
+    onFinish();
+    if (returnFocus) {
+      requestAnimationFrame(() => triggerRef.current?.focus());
+    }
+  };
+  const cancel = () => {
+    if (saving) return;
+    cancelingRef.current = true;
+    setDraft(value);
+    setError(null);
+    finish(true);
+  };
+  const commit = async (returnFocus: boolean): Promise<boolean> => {
+    if (saving || finishingRef.current) return false;
+    const next = draft.trim();
+    if (!next) {
+      setError("関係先名を入力してね");
+      requestAnimationFrame(() => inputRef.current?.focus());
+      return false;
+    }
+    finishingRef.current = true;
+    setSaving(true);
+    setError(null);
+    try {
+      if (next !== value) await onSave(next);
+      finish(returnFocus);
+      return true;
+    } catch (caught) {
+      finishingRef.current = false;
+      setError(caught instanceof Error ? caught.message : "保存できなかったよ");
+      requestAnimationFrame(() => inputRef.current?.focus());
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!active) {
+    return (
+      <button
+        ref={triggerRef}
+        type="button"
+        className={`w-full min-w-0 text-left hover:bg-[#eef3f5] ${FOCUS_RING}`}
+        onClick={begin}
+        aria-label={`${label}を直接修正`}
+        data-inline-edit-trigger={editorKey}
+        data-inline-cell-mode="view"
+      >
+        {view}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className="relative min-w-0"
+      data-inline-editor={editorKey}
+      data-inline-cell-mode="edit-seamless"
+      aria-busy={saving}
+    >
+      <textarea
+        ref={inputRef}
+        id={inputId}
+        autoFocus
+        rows={1}
+        className="block min-h-4 w-full min-w-0 resize-none overflow-hidden border-0 bg-transparent p-0 text-[12px] font-semibold leading-4 text-[#24231f] outline-none [field-sizing:content]"
+        aria-label={label}
+        aria-invalid={Boolean(error)}
+        title="Enterまたはフォーカス移動で保存、Escで取り消し"
+        value={draft}
+        readOnly={saving}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => {
+          if (cancelingRef.current) {
+            cancelingRef.current = false;
+            return;
+          }
+          const changed = draft.trim() !== value;
+          void commit(false).then((saved) => {
+            if (!saved) {
+              pointerReplayTargetRef.current = null;
+              return;
+            }
+            if (!changed) return;
+            replayInlinePointerTarget(pointerReplayTargetRef);
+          });
+        }}
+        onKeyDown={(event) => {
+          if (event.nativeEvent.isComposing) return;
+          if (event.key === "Enter") {
+            event.preventDefault();
+            void commit(true);
+          }
+          if (event.key === "Escape") {
+            event.preventDefault();
+            cancel();
+          }
+        }}
+      />
       {error && (
-        <p className="mt-1 text-[10px] leading-4 text-[#8c3329]" role="alert">
+        <span
+          className="absolute left-0 top-full z-30 mt-1 whitespace-nowrap border border-[#c9c0b2] bg-[#fffdf7] px-2 py-1 text-[10px] font-semibold text-[#8c3329] shadow-[0_6px_18px_rgba(36,35,31,0.12)]"
+          role="alert"
+        >
           {error}
-        </p>
+        </span>
       )}
-      <div className="mt-1.5 flex justify-end gap-1">
-        <button
-          type="button"
-          className={`${INLINE_ACTION_CLASS} border-[#cfc7b9] bg-white text-[#69665d]`}
-          onClick={cancel}
-          disabled={saving}
-          aria-label={`${label}の編集を取り消す`}
+    </div>
+  );
+}
+
+/**
+ * 接点の経緯は「経緯 / 紹介者」の固定2段。編集時も同じ2段だけを置換する。
+ */
+function InlineConnectionOriginEditor({
+  editorKey,
+  activeEditorKey,
+  label,
+  context,
+  introducer,
+  view,
+  onRequestEdit,
+  onFinish,
+  onSave,
+}: {
+  editorKey: string;
+  activeEditorKey: string | null;
+  label: string;
+  context: string;
+  introducer: string;
+  view: ReactNode;
+  onRequestEdit: (editorKey: string) => boolean;
+  onFinish: () => void;
+  onSave: (values: { context: string; introducer: string }) => Promise<void>;
+}) {
+  const [draftContext, setDraftContext] = useState(context);
+  const [draftIntroducer, setDraftIntroducer] = useState(introducer);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const active = activeEditorKey === editorKey;
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const finishingRef = useRef(false);
+  const cancelingRef = useRef(false);
+  const pointerReplayTargetRef = useInlinePointerReplayTarget(active);
+
+  useEffect(() => {
+    if (!active) return;
+    setDraftContext(context);
+    setDraftIntroducer(introducer);
+    setError(null);
+    finishingRef.current = false;
+    cancelingRef.current = false;
+  }, [active, context, introducer]);
+
+  const finish = (returnFocus: boolean) => {
+    onFinish();
+    if (returnFocus) {
+      requestAnimationFrame(() => triggerRef.current?.focus());
+    }
+  };
+  const cancel = () => {
+    if (saving) return;
+    cancelingRef.current = true;
+    setDraftContext(context);
+    setDraftIntroducer(introducer);
+    setError(null);
+    finish(true);
+  };
+  const save = async (returnFocus: boolean): Promise<boolean> => {
+    if (saving || finishingRef.current) return false;
+    finishingRef.current = true;
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave({
+        context: draftContext.trim(),
+        introducer: draftIntroducer.trim(),
+      });
+      finish(returnFocus);
+      return true;
+    } catch (caught) {
+      finishingRef.current = false;
+      setError(caught instanceof Error ? caught.message : "保存できなかったよ");
+      requestAnimationFrame(() =>
+        editorRef.current?.querySelector("input")?.focus(),
+      );
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!active) {
+    return (
+      <button
+        ref={triggerRef}
+        type="button"
+        className={`min-h-11 w-full min-w-0 border-b border-dashed border-[#aaa294] text-left hover:bg-[#eef3f5] ${FOCUS_RING}`}
+        onClick={() => {
+          if (!onRequestEdit(editorKey)) return;
+          setDraftContext(context);
+          setDraftIntroducer(introducer);
+          setError(null);
+          finishingRef.current = false;
+          cancelingRef.current = false;
+        }}
+        aria-label={`${label}を直接修正`}
+        data-inline-edit-trigger={editorKey}
+        data-inline-cell-mode="view"
+      >
+        {view}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      ref={editorRef}
+      className="relative grid min-h-11 min-w-0 content-center gap-0.5 border-b border-dashed border-[#aaa294]"
+      data-inline-editor={editorKey}
+      data-inline-cell-mode="edit-seamless"
+      aria-busy={saving}
+      onBlur={(event) => {
+        if (
+          event.relatedTarget instanceof Node &&
+          event.currentTarget.contains(event.relatedTarget)
+        ) {
+          return;
+        }
+        if (cancelingRef.current) {
+          cancelingRef.current = false;
+          return;
+        }
+        const changed =
+          draftContext.trim() !== context ||
+          draftIntroducer.trim() !== introducer;
+        void save(false).then((saved) => {
+          if (!saved) {
+            pointerReplayTargetRef.current = null;
+            return;
+          }
+          if (!changed) return;
+          replayInlinePointerTarget(pointerReplayTargetRef);
+        });
+      }}
+      onKeyDown={(event) => {
+        if (event.nativeEvent.isComposing) return;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          cancel();
+        }
+        if (event.key === "Enter") {
+          event.preventDefault();
+          void save(true);
+        }
+      }}
+    >
+      <textarea
+        autoFocus
+        rows={1}
+        className="block max-h-8 min-h-4 w-full min-w-0 resize-none overflow-y-auto border-0 bg-transparent p-0 text-[10px] font-semibold leading-4 text-[#24231f] outline-none [field-sizing:content]"
+        aria-label={`${label}の経緯`}
+        placeholder="経緯 未登録"
+        value={draftContext}
+        readOnly={saving}
+        onChange={(event) => setDraftContext(event.target.value)}
+      />
+      <label className="grid min-w-0 grid-cols-[32px_minmax(0,1fr)] items-center">
+        <span className="text-[10px] leading-4 text-[#69665d]">紹介者</span>
+        <input
+          className="h-4 min-w-0 border-0 bg-transparent p-0 text-[10px] leading-4 text-[#69665d] outline-none"
+          aria-label={`${label}の紹介者`}
+          placeholder="未確認"
+          value={draftIntroducer}
+          readOnly={saving}
+          onChange={(event) => setDraftIntroducer(event.target.value)}
+        />
+      </label>
+      {error && (
+        <span
+          className="absolute left-0 top-full z-30 mt-1 whitespace-nowrap border border-[#c9c0b2] bg-[#fffdf7] px-2 py-1 text-[10px] font-semibold text-[#8c3329] shadow-[0_6px_18px_rgba(36,35,31,0.12)]"
+          role="alert"
         >
-          <X className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className={`${INLINE_ACTION_CLASS} border-[#38745d] bg-[#38745d] text-white disabled:opacity-60`}
-          onClick={save}
-          disabled={saving}
-          aria-label={`${label}を保存`}
-        >
-          {saving ? (
-            <LoaderCircle
-              className="h-3.5 w-3.5 animate-spin"
-              aria-hidden="true"
-            />
-          ) : (
-            <Check className="h-3.5 w-3.5" aria-hidden="true" />
-          )}
-        </button>
-      </div>
+          {error}
+        </span>
+      )}
     </div>
   );
 }
@@ -537,12 +926,27 @@ function InlineCurrentBallEditor({
   const [error, setError] = useState<string | null>(null);
   const active = activeEditorKey === editorKey;
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const finishingRef = useRef(false);
+  const cancelingRef = useRef(false);
+  const pointerReplayTargetRef = useInlinePointerReplayTarget(active);
   const sideLabel =
     options.find((option) => option.value === side)?.label || side;
 
-  const finishAndReturnFocus = () => {
+  useEffect(() => {
+    if (!active) return;
+    setDraftSide(side);
+    setDraftOwner(owner);
+    setError(null);
+    finishingRef.current = false;
+    cancelingRef.current = false;
+  }, [active, owner, side]);
+
+  const finish = (returnFocus: boolean) => {
     onFinish();
-    requestAnimationFrame(() => triggerRef.current?.focus());
+    if (returnFocus) {
+      requestAnimationFrame(() => triggerRef.current?.focus());
+    }
   };
 
   const cancel = () => {
@@ -550,16 +954,25 @@ function InlineCurrentBallEditor({
     setDraftSide(side);
     setDraftOwner(owner);
     setError(null);
-    finishAndReturnFocus();
+    cancelingRef.current = true;
+    finish(true);
   };
-  const save = async () => {
+  const save = async (returnFocus: boolean): Promise<boolean> => {
+    if (saving || finishingRef.current) return false;
+    finishingRef.current = true;
     setSaving(true);
     setError(null);
     try {
       await onSave({ side: draftSide, owner: draftOwner });
-      finishAndReturnFocus();
+      finish(returnFocus);
+      return true;
     } catch (caught) {
+      finishingRef.current = false;
       setError(caught instanceof Error ? caught.message : "保存できなかったよ");
+      requestAnimationFrame(() =>
+        editorRef.current?.querySelector("input")?.focus(),
+      );
+      return false;
     } finally {
       setSaving(false);
     }
@@ -576,6 +989,8 @@ function InlineCurrentBallEditor({
           setDraftSide(side);
           setDraftOwner(owner);
           setError(null);
+          finishingRef.current = false;
+          cancelingRef.current = false;
         }}
         aria-label={`${label}を直接修正。保有側 ${sideLabel}、担当 ${owner || "担当未確認"}`}
         data-inline-edit-trigger={editorKey}
@@ -588,14 +1003,41 @@ function InlineCurrentBallEditor({
 
   return (
     <div
-      className="relative grid min-h-11 w-full min-w-0 grid-cols-[60px_minmax(0,1fr)_44px_44px] items-stretch border-b border-dashed border-[#38745d] bg-[#f8f5ec]"
+      ref={editorRef}
+      className="relative grid min-h-11 w-full min-w-0 grid-cols-[60px_minmax(0,1fr)] items-stretch border-b border-dashed border-[#aaa294]"
       data-inline-editor={editorKey}
-      data-inline-cell-mode="edit"
+      data-inline-cell-mode="edit-seamless"
       aria-busy={saving}
+      onBlur={(event) => {
+        if (
+          event.relatedTarget instanceof Node &&
+          event.currentTarget.contains(event.relatedTarget)
+        ) {
+          return;
+        }
+        if (cancelingRef.current) {
+          cancelingRef.current = false;
+          return;
+        }
+        const changed = draftSide !== side || draftOwner !== owner;
+        void save(false).then((saved) => {
+          if (!saved) {
+            pointerReplayTargetRef.current = null;
+            return;
+          }
+          if (!changed) return;
+          replayInlinePointerTarget(pointerReplayTargetRef);
+        });
+      }}
       onKeyDown={(event) => {
+        if (event.nativeEvent.isComposing) return;
         if (event.key === "Escape") {
           event.preventDefault();
           cancel();
+        }
+        if (event.key === "Enter" && event.target instanceof HTMLInputElement) {
+          event.preventDefault();
+          void save(true);
         }
       }}
     >
@@ -626,36 +1068,11 @@ function InlineCurrentBallEditor({
           className={`h-[30px] min-w-0 border-0 bg-transparent px-1 text-[11px] font-semibold text-[#24231f] ${FOCUS_RING}`}
           value={draftOwner}
           onChange={(event) => setDraftOwner(event.target.value)}
-          disabled={saving}
+          readOnly={saving}
           placeholder="担当未確認"
           aria-label={`${label}の担当`}
         />
       </label>
-      <button
-        type="button"
-        className={`grid h-11 w-11 shrink-0 place-items-center border-l border-[#cfc7b9] bg-white text-[#69665d] disabled:opacity-60 ${FOCUS_RING}`}
-        onClick={cancel}
-        disabled={saving}
-        aria-label={`${label}の編集を取り消す`}
-      >
-        <X className="h-3.5 w-3.5" aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        className={`grid h-11 w-11 shrink-0 place-items-center border-l border-[#38745d] bg-[#38745d] text-white disabled:opacity-60 ${FOCUS_RING}`}
-        onClick={() => void save()}
-        disabled={saving}
-        aria-label={`${label}の保有側と担当を保存`}
-      >
-        {saving ? (
-          <LoaderCircle
-            className="h-3.5 w-3.5 animate-spin"
-            aria-hidden="true"
-          />
-        ) : (
-          <Check className="h-3.5 w-3.5" aria-hidden="true" />
-        )}
-      </button>
       {error && (
         <p
           className="absolute left-0 top-full z-30 mt-1 border border-[#d7a49e] bg-[#fff7f5] px-2 py-1 text-[10px] leading-4 text-[#8c3329] shadow-sm"
@@ -949,6 +1366,7 @@ function CategoryNav({
       <ControlBandRow heading="表示" ariaLabel="表示対象の絞り込み">
         <button
           type="button"
+          data-partner-filter-trigger="all"
           onClick={onClear}
           aria-pressed={allActive}
           aria-label={`絞り込みを解除して全関係先${totalCount}件を表示`}
@@ -960,6 +1378,7 @@ function CategoryNav({
         <button
           type="button"
           data-testid="sx-partner-filter-poc"
+          data-partner-filter-trigger="poc"
           onClick={onSelectPoc}
           aria-pressed={pocOnly}
           aria-label={`PoC候補先だけを表示（${pocCount}件）`}
@@ -970,6 +1389,7 @@ function CategoryNav({
         <button
           type="button"
           data-testid="sx-partner-filter-vc"
+          data-partner-filter-trigger="vc"
           onClick={onSelectVc}
           aria-pressed={vcOnly}
           aria-label={`VCだけを表示（${vcCount}件）`}
@@ -984,6 +1404,7 @@ function CategoryNav({
             <button
               key={kind}
               type="button"
+              data-partner-filter-trigger={`role-${kind}`}
               onClick={() => onSelect(activeKind === kind ? null : kind)}
               aria-pressed={activeKind === kind}
               aria-label={`${sxPartnerRoleKindLabel(kind)}で絞り込み（${counts[kind]}件）`}
@@ -1052,6 +1473,7 @@ function PartnerComparisonControls({
   ) => (
     <button
       type="button"
+      data-partner-filter-trigger={`quick-${filter}`}
       onClick={() =>
         onSelectQuickFilter(activeQuickFilter === filter ? "all" : filter)
       }
@@ -1152,6 +1574,7 @@ function OwnerLoadBand({
           <button
             key={load.ownerKey}
             type="button"
+            data-partner-filter-trigger={`owner-${load.ownerKey}`}
             aria-pressed={active}
             aria-label={`${load.ownerLabel}の未完了${load.openCount}件、${riskText}で絞り込み`}
             onClick={() => onSelectOwner(active ? null : load.ownerKey)}
@@ -1325,9 +1748,9 @@ function HoldingRow({
 }
 
 const PARTNER_CONTROL_INNER_GRID =
-  "@min-[1248px]:grid-cols-[176px_minmax(224px,1.15fr)_minmax(136px,0.82fr)_minmax(126px,0.78fr)_minmax(176px,1fr)_108px_minmax(138px,0.85fr)]";
+  "@min-[1248px]:grid-cols-[236px_148px_196px_104px_96px_132px_72px_104px]";
 const PARTNER_CONTROL_HEADER_GRID =
-  "@min-[1248px]:grid-cols-[176px_minmax(224px,1.15fr)_minmax(136px,0.82fr)_minmax(126px,0.78fr)_minmax(176px,1fr)_108px_minmax(138px,0.85fr)_88px]";
+  "@min-[1248px]:grid-cols-[236px_148px_196px_104px_96px_132px_72px_104px_72px]";
 
 type PartnerGateImpact = {
   title: string;
@@ -1839,18 +2262,29 @@ function PartnerInlineRow({
   const relationNameView = (
     <span
       id={nameHeadingId}
-      className="flex min-h-11 min-w-0 flex-col justify-center"
+      className="whitespace-normal break-words text-[12px] font-semibold leading-4 text-[#24231f]"
     >
-      <span className="truncate text-[12px] font-semibold leading-4 text-[#24231f]">
-        {display.name}
+      {display.name}
+    </span>
+  );
+  const connectionOriginView = (
+    <span className="grid min-h-11 min-w-0 content-center gap-0.5">
+      <span
+        className="line-clamp-2 break-words text-[10px] font-semibold leading-4 text-[#24231f]"
+        title={partner.connectionContext || "経緯 未登録"}
+      >
+        {partner.connectionContext || "経緯 未登録"}
       </span>
-      <span className="truncate text-[10px] font-normal leading-3 text-[#69665d]">
-        最終確認 {sxFormatDate(partner.lastVerifiedAt)}
+      <span
+        className="truncate text-[10px] leading-4 text-[#69665d]"
+        title={partner.introducerLabel || "紹介者 未確認"}
+      >
+        紹介者 {partner.introducerLabel || "未確認"}
       </span>
     </span>
   );
   const currentView = (
-    <span className="grid min-h-11 w-full min-w-0 grid-cols-[60px_minmax(0,1fr)_44px_44px] items-stretch">
+    <span className="grid min-h-11 w-full min-w-0 grid-cols-[60px_minmax(0,1fr)] items-stretch">
       <span className="grid min-w-0 grid-rows-[14px_30px] border-r border-[#eee9df]">
         <span className="px-1 pt-0.5 text-[10px] font-semibold leading-3 text-[#69665d]">
           保有側
@@ -1876,8 +2310,6 @@ function PartnerInlineRow({
             : "担当未確認"}
         </span>
       </span>
-      <span aria-hidden="true" />
-      <span aria-hidden="true" />
     </span>
   );
   const goalView = (
@@ -1898,26 +2330,25 @@ function PartnerInlineRow({
       className="scroll-mt-24 border-b border-[#eee9df] bg-[#fffdf7]"
     >
       <div
-        className="grid w-full grid-cols-1 items-stretch gap-2 px-2 py-1.5 text-left sm:grid-cols-[minmax(0,1fr)_88px]"
+        className="grid w-full grid-cols-1 items-stretch gap-2 px-2 py-1.5 text-left sm:grid-cols-[minmax(0,1fr)_72px]"
         data-partner-row-density="compact"
       >
         <div
           className={`grid min-w-0 grid-cols-1 gap-x-2 gap-y-1.5 md:grid-cols-2 ${PARTNER_CONTROL_INNER_GRID}`}
         >
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_68px] items-center gap-2 md:col-span-2 @min-[1248px]:col-span-1">
-            <div className="min-w-0">
+            <div className="flex min-h-11 min-w-0 flex-col justify-center border-b border-dashed border-[#aaa294]">
               {canManage ? (
-                <InlineCellEditor
+                <InlinePartnerNameEditor
                   editorKey={keyFor("name")}
                   activeEditorKey={activeEditorKey}
+                  inputId={nameHeadingId}
                   label={`${display.name}の関係先名`}
-                  initialValues={{ name: partner.name }}
+                  value={partner.name}
                   view={relationNameView}
                   onRequestEdit={onRequestInlineEdit}
                   onFinish={onFinishInlineEdit}
-                  onSave={async (values) => {
-                    const name = values.name.trim();
-                    if (!name) throw new Error("関係先名を入力してね");
+                  onSave={async (name) => {
                     await patchIfChanged(
                       "partner",
                       partner.id,
@@ -1925,25 +2356,13 @@ function PartnerInlineRow({
                       { name },
                     );
                   }}
-                  renderFields={(values, setValue) => (
-                    <label className="grid gap-0.5">
-                      <span className="text-[10px] font-semibold text-[#69665d]">
-                        関係先名
-                      </span>
-                      <input
-                        autoFocus
-                        className={INLINE_CONTROL_CLASS}
-                        value={values.name}
-                        onChange={(event) =>
-                          setValue("name", event.target.value)
-                        }
-                      />
-                    </label>
-                  )}
                 />
               ) : (
                 relationNameView
               )}
+              <span className="text-[10px] font-normal leading-3 text-[#69665d]">
+                最終確認 {sxFormatDate(partner.lastVerifiedAt)}
+              </span>
             </div>
             <div className="min-w-0">
               <PartnerStageRail
@@ -1956,6 +2375,40 @@ function PartnerInlineRow({
               />
             </div>
           </div>
+
+          <PartnerRowCell className="md:col-span-2 @min-[1248px]:col-span-1">
+            <p className="text-[10px] font-semibold text-[#69665d] @min-[1248px]:hidden">
+              接点の経緯
+            </p>
+            {canManage ? (
+              <InlineConnectionOriginEditor
+                editorKey={keyFor("connection-origin")}
+                activeEditorKey={activeEditorKey}
+                label={`${display.name}の接点の経緯`}
+                context={partner.connectionContext || ""}
+                introducer={partner.introducerLabel || ""}
+                view={connectionOriginView}
+                onRequestEdit={onRequestInlineEdit}
+                onFinish={onFinishInlineEdit}
+                onSave={async (values) => {
+                  await patchIfChanged(
+                    "partner",
+                    partner.id,
+                    {
+                      connection_context: partner.connectionContext,
+                      introducer_label: partner.introducerLabel,
+                    },
+                    {
+                      connection_context: values.context || null,
+                      introducer_label: values.introducer || null,
+                    },
+                  );
+                }}
+              />
+            ) : (
+              connectionOriginView
+            )}
+          </PartnerRowCell>
 
           <PartnerRowCell className="md:col-span-2 @min-[1248px]:col-span-1">
             <p className="text-[10px] font-semibold text-[#69665d] @min-[1248px]:hidden">
@@ -2119,8 +2572,8 @@ function PartnerInlineRow({
               </p>
             )}
             {!intervention.hasStructuredHolding && (
-              <p className="mt-0.5 text-[10px] leading-4 text-[#5f4a66]">
-                具体的な保有事項との紐づけなし
+              <p className="mt-0.5 whitespace-nowrap text-[10px] leading-4 text-[#5f4a66]">
+                保有事項未接続
               </p>
             )}
           </PartnerRowCell>
@@ -2734,6 +3187,7 @@ export function SxPartnerPipeline({
         activeOwnerPartnerIds.has(partner.id),
       )
     : ownerScopePartners;
+
   const comparisonPartners = [...filterablePartners].sort((left, right) =>
     sxComparePartnersForPoc(left, right, management.asOf, "attention"),
   );
@@ -2836,6 +3290,7 @@ export function SxPartnerPipeline({
         pocOnly={pocOnly}
         vcOnly={vcOnly}
         onClear={() => {
+          if (activeInlineEditorKey) return;
           setPocOnly(false);
           setVcOnly(false);
           setActiveRoleKind(null);
@@ -2843,10 +3298,12 @@ export function SxPartnerPipeline({
           setActiveOwnerKey(null);
         }}
         onSelect={(kind) => {
+          if (activeInlineEditorKey) return;
           setActiveRoleKind(kind);
           setActiveOwnerKey(null);
         }}
         onSelectPoc={() => {
+          if (activeInlineEditorKey) return;
           setPocOnly(true);
           setVcOnly(false);
           setActiveRoleKind(null);
@@ -2854,6 +3311,7 @@ export function SxPartnerPipeline({
           setActiveOwnerKey(null);
         }}
         onSelectVc={() => {
+          if (activeInlineEditorKey) return;
           setPocOnly(false);
           setVcOnly(true);
           setActiveRoleKind(null);
@@ -2867,7 +3325,10 @@ export function SxPartnerPipeline({
           partners={ownerScopePartners}
           today={management.asOf}
           activeOwner={activeOwnerKey}
-          onSelectOwner={setActiveOwnerKey}
+          onSelectOwner={(ownerKey) => {
+            if (activeInlineEditorKey) return;
+            setActiveOwnerKey(ownerKey);
+          }}
         />
       </div>
       {comparisonOnly && (
@@ -2878,6 +3339,7 @@ export function SxPartnerPipeline({
           scopeLabel={pocOnly ? "PoC候補先" : "VC"}
           activeQuickFilter={activePocQuickFilter}
           onSelectQuickFilter={(filter) => {
+            if (activeInlineEditorKey) return;
             setActivePocQuickFilter(filter);
             setActiveOwnerKey(null);
           }}
@@ -2888,6 +3350,7 @@ export function SxPartnerPipeline({
         className={`${comparisonOnly ? "sticky top-14 z-20 shadow-[0_1px_0_#d6cebf]" : ""} hidden ${PARTNER_CONTROL_HEADER_GRID} gap-2 border-b border-[#e4ddd0] bg-[#f8f5ec] px-2 py-1 text-[10px] font-semibold text-[#69665d] @min-[1248px]:grid`}
       >
         <span>関係先</span>
+        <span>接点の経緯</span>
         <span>現在の状況</span>
         <span>ゴール</span>
         <span>詰まり・PJ影響</span>

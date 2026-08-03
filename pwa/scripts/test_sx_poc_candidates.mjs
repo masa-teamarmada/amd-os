@@ -19,9 +19,36 @@ import {
   sxPartnerOwnerLoads,
   sxPartnerPrimaryIntervention,
 } from "../src/lib/sx-partner-progress.ts";
+import { assertSafeRelationshipOrigin } from "../src/lib/sx-relationship-origin.ts";
+
+for (const allowed of [
+  "伊予銀行",
+  "PoC相談の初回メール",
+  "学会で石原先生から紹介",
+  "7.14経営会議で紹介",
+  "資料ver.2を見て連絡",
+]) {
+  assert.doesNotThrow(() => assertSafeRelationshipOrigin(allowed, "接点の経緯"));
+}
+for (const rejected of [
+  "contact@example.com",
+  "https://example.com/path",
+  "www.example.com",
+  "example.com/path",
+  "090-1234-5678",
+  "+81-90-1234-5678",
+  "初回メール\n本文の続き",
+]) {
+  assert.throws(
+    () => assertSafeRelationshipOrigin(rejected, "接点の経緯"),
+    /1行の短い要約|メールアドレス・電話番号・URL/,
+  );
+}
 
 const base = {
   agreedScope: "",
+  introducerLabel: null,
+  connectionContext: null,
   nextCommitment: "",
   ownerLabel: "輕部",
   currentBallSide: "unknown",
@@ -170,6 +197,22 @@ assert.ok(
   "the history surface must render the full progress flow",
 );
 
+const bottleneckCellSource = comparisonRowSource.slice(
+  comparisonRowSource.indexOf("詰まり・PJ影響"),
+  comparisonRowSource.indexOf('editorKey={keyFor("next-action")}'),
+);
+for (const required of ["保有事項未接続", "whitespace-nowrap"]) {
+  assert.ok(
+    bottleneckCellSource.includes(required),
+    `${required} must keep the unstructured bottleneck fallback inside the 96px desktop row`,
+  );
+}
+assert.equal(
+  bottleneckCellSource.includes("具体的な保有事項との紐づけなし"),
+  false,
+  "the verbose unstructured fallback must not make normal partner rows exceed 96px",
+);
+
 // 現在の状況は、表示時から見える「保有側 / 担当」の2slotだけを同じ寸法で編集する。
 // 期限は担当・期限cellの責務で、ここへ縦積みformを戻さない。
 const currentCellSource = comparisonRowSource.slice(
@@ -195,13 +238,15 @@ for (const forbidden of ["due_date", "due_date_precision", "InlineDueFields"]) {
   );
 }
 
-// desktopの1社1行は8列の実必要幅に合わせたcontainer breakpointで成立させる。
+// desktopの1社1行は9列の実必要幅に合わせたcontainer breakpointで成立させる。
 // 旧1280pxは1440px画面の実一覧幅1261pxでも発火せず、1行約500pxまで膨張した。
-// 1248px未満では無理に8列化せず、右端clipを避ける。
+// 1248px未満では無理に9列化せず、右端clipを避ける。
 for (const required of [
   'data-partner-row-density="compact"',
   "@container",
-  "@min-[1248px]:grid-cols-[176px_minmax(224px,1.15fr)",
+  "@min-[1248px]:grid-cols-[236px_148px_196px_104px_96px_132px_72px_104px]",
+  "@min-[1248px]:grid-cols-[236px_148px_196px_104px_96px_132px_72px_104px_72px]",
+  "sm:grid-cols-[minmax(0,1fr)_72px]",
   "grid-cols-[minmax(0,1fr)_68px]",
   "@min-[1248px]:col-span-1",
   "@min-[1248px]:grid",
@@ -216,30 +261,273 @@ assert.equal(
   false,
   "the partner ledger must not restore the too-wide 1280px inner-container breakpoint",
 );
+
+// 関係先名は識別主キー。全文を表示し、編集時も同じ文字面だけをinputへ置換する。
+const partnerNameViewSource = pipelineSource.slice(
+  pipelineSource.indexOf("const relationNameView"),
+  pipelineSource.indexOf("const connectionOriginView"),
+);
+for (const required of ["whitespace-normal", "break-words"]) {
+  assert.ok(
+    partnerNameViewSource.includes(required),
+    `${required} must keep the complete partner name visible`,
+  );
+}
+assert.equal(
+  partnerNameViewSource.includes("truncate"),
+  false,
+  "partner names and their verification dates must never be ellipsized",
+);
+const partnerNameEditorSource = pipelineSource.slice(
+  pipelineSource.indexOf("function InlinePartnerNameEditor"),
+  pipelineSource.indexOf("function InlineConnectionOriginEditor"),
+);
+for (const required of [
+  'data-inline-cell-mode="edit-seamless"',
+  "void commit(false)",
+  'event.key === "Enter"',
+  'event.key === "Escape"',
+  "event.nativeEvent.isComposing",
+  "[field-sizing:content]",
+  "useInlinePointerReplayTarget(active)",
+  "replayInlinePointerTarget(pointerReplayTargetRef)",
+  "pointerReplayTargetRef.current = null",
+  "finish(true)",
+]) {
+  assert.ok(
+    partnerNameEditorSource.includes(required),
+    `${required} must keep partner-name editing seamless and keyboard safe`,
+  );
+}
+assert.ok(
+  pipelineSource.includes("[data-partner-filter-trigger]"),
+  "pointer replay must include partner filters so a successful blur-save can resume the requested filter",
+);
+assert.equal(
+  partnerNameEditorSource.includes("event.relatedTarget.closest"),
+  false,
+  "Tab focus movement must not be replayed as a click after partner-name blur save",
+);
+for (const forbidden of [
+  "border-l-2",
+  "bg-[#f8f5ec]",
+  "INLINE_ACTION_CLASS",
+  "LoaderCircle",
+]) {
+  assert.equal(
+    partnerNameEditorSource.includes(forbidden),
+    false,
+    `${forbidden} must not transform the partner-name cell while editing`,
+  );
+}
+for (const required of [
+  "absolute left-0 top-full",
+  'role="alert"',
+  "text-[#8c3329]",
+]) {
+  assert.ok(
+    partnerNameEditorSource.includes(required),
+    `${required} must show save errors without changing row geometry`,
+  );
+}
+const partnerNameCellSource = comparisonRowSource.slice(
+  comparisonRowSource.indexOf("grid-cols-[minmax(0,1fr)_68px]"),
+  comparisonRowSource.indexOf("<PartnerStageRail"),
+);
+for (const required of [
+  "<InlinePartnerNameEditor",
+  "border-b border-dashed border-[#aaa294]",
+  "最終確認",
+]) {
+  assert.ok(
+    partnerNameCellSource.includes(required),
+    `${required} must remain in the same partner-name geometry before and during editing`,
+  );
+}
+for (const forbidden of ["renderFields=", ">関係先名</span>"]) {
+  assert.equal(
+    partnerNameCellSource.includes(forbidden),
+    false,
+    `${forbidden} must not appear only after partner-name editing starts`,
+  );
+}
+const genericInlineEditorSource = pipelineSource.slice(
+  pipelineSource.indexOf("function InlineCellEditor"),
+  pipelineSource.indexOf("function InlinePartnerNameEditor"),
+);
+assert.equal(
+  genericInlineEditorSource.includes(
+    'className="min-w-0 border-l-2 border-[#38745d] bg-[#f8f5ec] p-1.5"',
+  ),
+  false,
+  "generic relation-cell editing must not add the old green frame and inset card",
+);
 const stableCurrentEditorSource = pipelineSource.slice(
   pipelineSource.indexOf("function InlineCurrentBallEditor"),
   pipelineSource.indexOf("function InlineDueFields"),
 );
 for (const required of [
   'data-inline-cell-mode="view"',
-  'data-inline-cell-mode="edit"',
+  'data-inline-cell-mode="edit-seamless"',
   "min-h-11",
-  "grid-cols-[60px_minmax(0,1fr)_44px_44px]",
+  "grid-cols-[60px_minmax(0,1fr)]",
   "保有側",
   "担当",
-  "finishAndReturnFocus",
-  "disabled={saving}",
+  "void save(false)",
+  "event.nativeEvent.isComposing",
+  "replayInlinePointerTarget(pointerReplayTargetRef)",
+  "pointerReplayTargetRef.current = null",
 ]) {
   assert.ok(
     stableCurrentEditorSource.includes(required),
     `${required} must keep the current editor geometry stable`,
   );
 }
-assert.equal(
-  stableCurrentEditorSource.includes("onBlur="),
-  false,
-  "the current editor must not steal focus by cancelling on blur",
+for (const forbidden of [
+  "grid-cols-[60px_minmax(0,1fr)_44px_44px]",
+  "finishAndReturnFocus",
+  "aria-label={`${label}の保有側と担当を保存`}",
+]) {
+  assert.equal(
+    stableCurrentEditorSource.includes(forbidden),
+    false,
+    `${forbidden} must not make the current-situation cell expand while editing`,
+  );
+}
+
+// 接点の経緯は「経緯 / 紹介者」を専用2段cellで比較・直接編集し、
+// 出典source_refや個別接点actorを紹介者へ流用しない。
+const originEditorSource = pipelineSource.slice(
+  pipelineSource.indexOf("function InlineConnectionOriginEditor"),
+  pipelineSource.indexOf("function InlineCurrentBallEditor"),
 );
+for (const required of [
+  "InlineConnectionOriginEditor",
+  'data-inline-cell-mode="edit-seamless"',
+  "経緯 未登録",
+  "紹介者",
+  "event.nativeEvent.isComposing",
+  "replayInlinePointerTarget(pointerReplayTargetRef)",
+  "pointerReplayTargetRef.current = null",
+]) {
+  assert.ok(
+    originEditorSource.includes(required),
+    `${required} must keep connection origin directly editable in two stable rows`,
+  );
+}
+
+for (const required of [
+  "data-partner-filter-trigger=\"all\"",
+  "data-partner-filter-trigger=\"poc\"",
+  "data-partner-filter-trigger=\"vc\"",
+  "data-partner-filter-trigger={`role-${kind}`}",
+  "data-partner-filter-trigger={`owner-${load.ownerKey}`}",
+  "data-partner-filter-trigger={`quick-${filter}`}",
+  "onClear={() => {\n          if (activeInlineEditorKey) return",
+  "onSelect={(kind) => {\n          if (activeInlineEditorKey) return",
+  "onSelectPoc={() => {\n          if (activeInlineEditorKey) return",
+  "onSelectVc={() => {\n          if (activeInlineEditorKey) return",
+  "onSelectOwner={(ownerKey) => {\n            if (activeInlineEditorKey) return",
+  "onSelectQuickFilter={(filter) => {\n            if (activeInlineEditorKey) return",
+]) {
+  assert.ok(
+    pipelineSource.includes(required),
+    `${required} must defer filter changes until the active inline save succeeds`,
+  );
+}
+const originCellSource = comparisonRowSource.slice(
+  comparisonRowSource.indexOf("<InlineConnectionOriginEditor"),
+  comparisonRowSource.indexOf('editorKey={keyFor("current")}'),
+);
+for (const required of [
+  "connection_context",
+  "introducer_label",
+  "partner.connectionContext",
+  "partner.introducerLabel",
+]) {
+  assert.ok(
+    originCellSource.includes(required),
+    `${required} must remain in the connection-origin cell contract`,
+  );
+}
+for (const required of [
+  "<span>関係先</span>",
+  "<span>接点の経緯</span>",
+  "<span>現在の状況</span>",
+]) {
+  assert.ok(
+    pipelineSource.includes(required),
+    `${required} must remain in the nine-column partner header`,
+  );
+}
+
+const managementSource = readFileSync(
+  new URL("../src/lib/sx-management.ts", import.meta.url),
+  "utf8",
+);
+const managementRouteSource = readFileSync(
+  new URL(
+    "../src/app/api/project-workspace/[projectId]/management/route.ts",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const originMigration = readFileSync(
+  new URL("./migrations/224_sx_partner_connection_origin.sql", import.meta.url),
+  "utf8",
+);
+for (const required of [
+  "introducerLabel: string | null",
+  "connectionContext: string | null",
+  "introducer_label,connection_context",
+  'nullableString(row, "introducer_label")',
+  'nullableString(row, "connection_context")',
+]) {
+  assert.ok(
+    managementSource.includes(required),
+    `${required} must remain in the management read model`,
+  );
+}
+for (const required of [
+  'takeOptionalText("introducer_label", "introducer_label", 120)',
+  'takeOptionalText("connection_context", "connection_context", 500)',
+  'optionalTextValue("introducer_label", 120)',
+  'optionalTextValue("connection_context", 500)',
+  'from "@/lib/sx-relationship-origin"',
+  "assertSafeRelationshipOrigin(patch.introducer_label",
+  "assertSafeRelationshipOrigin(patch.connection_context",
+  "assertSafeRelationshipOrigin(introducerLabel",
+  "assertSafeRelationshipOrigin(connectionContext",
+]) {
+  assert.ok(
+    managementRouteSource.includes(required),
+    `${required} must remain in the management write contract`,
+  );
+}
+for (const required of [
+  "ADD COLUMN IF NOT EXISTS introducer_label text",
+  "ADD COLUMN IF NOT EXISTS connection_context text",
+  "pm_partners_introducer_len_224",
+  "pm_partners_connection_context_len_224",
+  "pm_partners_introducer_contact_safe_224",
+  "pm_partners_connection_context_contact_safe_224",
+  "position(E'\\n' in introducer_label) = 0",
+  "position(E'\\n' in connection_context) = 0",
+  "https?://",
+  "@[[:alnum:].-]+\\.[[:alpha:]]{2,}",
+  "'poc-contact-marutomo'",
+  "'poc-contact-okabe'",
+  "'poc-contact-yamaki'",
+  "'伊予銀行'",
+  "AND agreed_scope = '伊予銀行紹介でPoC相談の初回メール送付を確認'",
+  "AND agreed_scope = '伊予銀行紹介でPoC相談と訪問日程の調整を確認'",
+  "AND deleted_at IS NULL",
+]) {
+  assert.ok(
+    originMigration.includes(required),
+    `${required} must remain in migration 224`,
+  );
+}
 
 // partner fallback時も「担当・期限」はowner_label/dueだけを更新し、
 // 現在ボールの保存先と重複させない。
