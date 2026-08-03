@@ -12,7 +12,7 @@
  *   §02b マイルストーン Gantt
  *   §03 実施体制 (担当メンバーのみ。関連キーパーソンは削除)
  *   §04 次月計画 (重点アクション / 主要MTG予定)
- *   §05 添付資料 (PJ資料 / 契約書 / 改訂履歴。5生データ証跡は削除)
+ *   §05 添付資料 (PJ資料 / 契約書 / 版・発行履歴。5生データ証跡は削除)
  *
  * クライアントから見えない AMD OS 内部固有名 (つくよみ/月次進捗モーダル/MTGページ/
  * 経営シグナル/コックピット/nudge等) は stripInternalJargon で印刷時にも除去する。
@@ -32,6 +32,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { MonthlyReportHistoryPanel } from "./monthly-report-history-panel";
 
 // ─── 型定義 ───────────────────────────────────────────────────────────────
 interface MsRow {
@@ -1169,7 +1170,7 @@ function AppendixSection({ data }: { data: PrintData }) {
         )}
 
         <div className="rev-history">
-          <div className="block-label" style={{ marginTop: "5mm" }}>改訂履歴</div>
+          <div className="block-label" style={{ marginTop: "5mm" }}>版・発行履歴</div>
           <table className="rev-table">
             <thead><tr><th>版</th><th>日付</th><th>変更者</th><th>状態</th></tr></thead>
             <tbody>
@@ -1233,6 +1234,7 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [hasFinal, setHasFinal] = useState(Boolean(data.report?.finalContent));
+  const [historyRefreshToken, setHistoryRefreshToken] = useState(0);
   const fullSource = useMemo(
     () => sourceWithReportHeading(originalSource, reportBody, data.isSubmission),
     [data.isSubmission, originalSource, reportBody],
@@ -1286,6 +1288,7 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
       const normalizedBody = stripStandaloneHorizontalRules(normalizedSource.replace(/^#\s+月次業務報告書\s*\n+/u, ""));
       setReportBody(normalizedBody);
       setSavedBody(normalizedBody);
+      setHistoryRefreshToken((current) => current + 1);
       setNotice(data.isSubmission
         ? "提出版を保存した。この表示のままPDFとして保存できる。"
         : hasFinal
@@ -1312,6 +1315,7 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "確定版への反映に失敗しました");
       setHasFinal(true);
+      setHistoryRefreshToken((current) => current + 1);
       setNotice("社内版の確定版に反映した。この表示のままPDFとして保存できる。");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "確定版への反映に失敗しました");
@@ -1756,6 +1760,13 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
           {notice && <span className="toolbar-notice" role="status">{notice}</span>}
           {error && <span className="toolbar-error" role="alert">{error}</span>}
         </div>
+
+        <MonthlyReportHistoryPanel
+          projectId={data.project.projectId}
+          ym={data.ym}
+          currentKind={data.isSubmission ? "external" : "internal"}
+          refreshToken={historyRefreshToken}
+        />
 
         {editMode && (
           <div className="report-review-note no-print">

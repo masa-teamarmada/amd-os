@@ -25,6 +25,7 @@
 |---|---|
 | `monthly_reports` | 内部保存版の PJ × ym 月次レポート本文。`draft_content` と `final_content` を持つ |
 | `monthly_reports_external` | **v2 新設**。対外提出版の PJ × ym レポート本文 (`body_md`) + PDF リンク + jargon check 結果。1 PJ × 1 ym で UNIQUE |
+| `monthly_report_edit_history` | **migration 223 新設**。社内版・提出版の生成・保存・確定を、実行者・変更章・変更前後本文とともに append-only で記録する |
 | `source_cache` | Gmail / Slack などの source refs / short snippet / hash 証跡。no-data 判定の正本ではない |
 | `llm_prompts` | プロンプト本文の正本。`prompt_key='l2m1.monthly_report.internal.v2'` / `'l2m1.monthly_report.external.v2'` の 2 本。admin UI で編集可能 |
 | `llm_prompt_revisions` | プロンプト書き換え履歴 (admin UI 経由 save 時に 1 行追加) |
@@ -150,7 +151,7 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 | **§04 実施体制** | 担当メンバー表 (PM/PL + 役割 + MS別担当 & share)。**本名表示** (`members.member_name`、フォールバック `code_name`)。Closer タグは内輪呼称のため除外 | `project_members` + `members.member_name` + `milestone_responsibility` + `project_founding_members` |
 | **§05 課題・リスク** | Risk Register (⚠️ signal + 会議risks) + Action Items (open due_at順, 12件) + ボトルネック | `project_strategy_signals (polarity=⚠️)` + `project_meeting_summaries.risks` + `action_items` + `project_xrl_log.bottleneck` |
 | **§06 次月計画** | 翌月期日アクション + 翌月 upcoming MTG | `action_items (due_at ∈ next_ym)` + `project_meeting_summaries (source_kinds=upcoming, ym=next)` |
-| **§07 添付資料・参照** | 当月PJ資料 (`project_documents`) + 契約書 (`contract_documents.is_latest`) + 5生データソース証跡 + 改訂履歴 | 各 web_view_link |
+| **§07 添付資料・参照** | 当月PJ資料 (`project_documents`) + 契約書 (`contract_documents.is_latest`) + 5生データソース証跡 + 版・発行履歴 (確定・発行など節目のみ、個別編集履歴はPDFへ出さない) | 各 web_view_link |
 
 #### v0.33.0 で削除した章
 
@@ -169,8 +170,38 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 | 印刷ビューの `編集する` / 保存操作 | 社内版・提出版とも、見出し・段落・Markdown表を押すと該当箇所だけ編集する。社内版の進捗表・ガント等のデータ表示は直接編集しない。提出版は `monthly_reports_external.body_md` へ保存し、同じPJの直前月との構造一致、本文長、末尾定型、内部用語を検査する。社内版はまず `draft_content` へ保存し、`確定版に反映` の明示操作だけが `final_content` を更新する |
 | `GET/POST /api/monthly-report/external-manual-update` | `requireAdmin`。GET は `monthly_reports_external` の提出版本文を返す。POST は `YYYYMM` を `YYYY-MM` に変換し、同じPJの直前月版を取得して構造比較してから同表へ保存する。通常は構造差を422で拒否し、人が意図して書式変更するときだけ `allowFormatChange=true` を明示する。既存の生成日時を維持して `updated_at` のみ更新し、LLMは呼ばない |
 | `POST /api/report/fix` | `final_content` がある場合は `force:true` を要求する。印刷ビューの確定操作は確認ダイアログを経てこれを送るため、下書き保存だけで確定版を上書きしない |
+| `GET /api/monthly-report/history?projectId=&ym=` | `requireAdmin`。`monthly_report_edit_history` の軽量一覧 (本文全文を含まない) を新しい順で返す。社内版・提出版を分けず両方まとめて返し、UIがタブで分ける |
+| `GET /api/monthly-report/history?projectId=&ym=&id=` | `requireAdmin`。指定した1行の `content_before` / `content_after` 全文を返す (詳細を開いた時だけ叩く) |
 
 画面上の編集・保存・確定は LLM を呼ばない。旧 `/api/report/generate` と `/api/monthly-report/edit-by-tsukuyomi` は従量課金事故を防ぐため 410 で停止する。自動生成は月末最終日の `amd-os-l2-monthend-evidence` Code RoutineのM-1 phaseに一本化する。
+
+### 編集履歴 (v0.34.0 追加、社内版・提出版共通の校正台帳)
+
+`manual-update` / `external-manual-update` / `report/fix` の3ルートはいずれも `requireAdmin` (admin-only)。本文書き込みと編集履歴の追記は必ず1トランザクションにまとめ、一方だけ成功する状態を作らない。
+
+**書き込み経路 (2系統)**:
+
+| 経路 | 役割 |
+|---|---|
+| RPC `monthly_report_internal_save` / `monthly_report_external_save` | 本文の insert/update と `monthly_report_edit_history` への INSERT を同一トランザクションで行う正規経路。PWAの手動保存 (draft_save / confirm / external_save) はすべてこれ経由。呼び出し側 (JS) が `changedMonthlyReportSections()` で正確な変更章を計算して渡す |
+| AFTER トリガー `monthly_reports_history_capture` / `monthly_reports_external_history_capture` | RPCを経由しない直接 UPDATE/INSERT (将来の routine / GAS / script 等) を取りこぼさない安全網。RPC実行中は transaction-local 設定 `app.mrh_bypass_trigger` でトリガー側の二重挿入を止める。actor情報が `set_config` で渡っていなければ `automation` として記録し、最低限の捕捉は必ず残す |
+
+**`monthly_report_edit_history` 列**:
+
+| column | 用途 |
+|---|---|
+| `project_id` / `ym` (YYYYMM) / `report_kind` (`internal`/`external`) | 対象特定 |
+| `action` | `generate` / `draft_save` / `confirm` / `external_save` / `legacy_seed` |
+| `actor_kind` | `member` (`members`解決済み) / `automation` / `system` / `legacy` (migration seed時点で人物解決できなかった過去記録) |
+| `actor_member_id` / `actor_label` | actor_kind=member なら `members.member_id`、それ以外は表示用ラベル |
+| `content_before` / `content_after` | 変更前後の本文全文。初回生成・legacy seedはNULL |
+| `changed_sections` | 変更されたH1/H2見出しの配列 (軽量一覧表示用) |
+| `detail_available` | false = legacy seed行で本文全文が無い。UIは「詳細差分なし」を出す |
+| `source` | 書き込み元識別子 (`pwa:manual-update` 等) |
+
+過去の手動編集差分は復元不能なため、migration (`scripts/migrations/223_monthly_report_edit_history.sql`) 適用時点の既存 `monthly_reports` / `monthly_reports_external` 行は `content_before/after=NULL`, `detail_available=false` の legacy 記録として安全に1回だけseedした (`confirmed_by` が空だった過去の確定行は「不明」表示になる。これは今後の確定操作で `confirmed_by` を必ず残すことで再発しない)。
+
+**UI**: `/project/[projectId]/report/[ym]/print` の固定ツールバー直下に no-print の最終更新帯 (`MonthlyReportHistoryPanel`、`monthly-report-history-panel.tsx`) を常時表示する。更新者・日時・操作 + 「編集履歴を見る」ボタンを持ち、desktopは右側パネル、mobileは下からのシートで開く。社内版・提出版をタブで分け、一覧は軽量 (before/after本文を含まない)、行を開いた時だけ `id` 指定の detail fetch で全文取得して行単位diffを表示する。印刷本体の **§07 版・発行履歴** (旧 改訂履歴) は確定・発行など大きな節目だけを残し、個別編集履歴はPDFに出さない。
 
 ### 設計判断
 
@@ -185,7 +216,7 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 
 ### `monthly_reports` との関係
 
-`monthly_reports.final_content` (markdown) が社内版 **§C 当月の進捗** 本文の主出力。社内版だけは `draft_content`、`project_monthly_notes.body` の順で画面表示を補助し、それも空なら「未生成」とする。提出版は `monthly_reports_external.body_md` だけを正本にし、未生成時に社内版final/draftへフォールバックしない。`generated_at` / `fixed_at` / `confirmed_by` は **§J 改訂履歴** に反映される。
+`monthly_reports.final_content` (markdown) が社内版 **§C 当月の進捗** 本文の主出力。社内版だけは `draft_content`、`project_monthly_notes.body` の順で画面表示を補助し、それも空なら「未生成」とする。提出版は `monthly_reports_external.body_md` だけを正本にし、未生成時に社内版final/draftへフォールバックしない。`generated_at` / `fixed_at` / `confirmed_by` は **§07 版・発行履歴** に反映される。個別の下書き保存・確定操作の完全な履歴は `monthly_report_edit_history` (「編集履歴」節参照) が正本で、PDFには出さない。
 
 ### 外販含む大学・研究機関提出での運用
 

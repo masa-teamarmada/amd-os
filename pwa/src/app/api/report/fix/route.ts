@@ -3,21 +3,19 @@
  * 月次報告書を確定（FIX）する。
  * body: { projectId, ym, force? }
  * draft_content → final_content にコピーし、statusをfixedに。
+ * 本文更新 + 編集履歴 (monthly_report_edit_history) 追記は RPC
+ * monthly_report_internal_save 内で1トランザクションにまとめ、confirmed_by は
+ * 実行した admin の表示名を必ず残す。
  */
 
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { validateInternalMonthlyReport } from "@/lib/monthly-report-quality";
+import { changedMonthlyReportSections } from "@/lib/monthly-report-history";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 
 export async function POST(req: Request) {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.errorResponse;
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder"
-  );
 
   try {
     const { projectId, ym, force = false } = await req.json();
@@ -25,32 +23,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "projectId and ym required" }, { status: 400 });
     }
 
-    // 既存レポート取得
-    const { data: report, error: fetchErr } = await supabase
+    const reportRes = await auth.supabase
       .from("monthly_reports")
-      .select("report_id, draft_content, final_content, status")
+      .select("draft_content, final_content")
       .eq("project_id", projectId)
       .eq("ym", ym)
-      .single();
-
-    if (fetchErr || !report) {
+      .maybeSingle();
+    if (reportRes.error) {
+      return NextResponse.json({ error: reportRes.error.message }, { status: 500 });
+    }
+    if (!reportRes.data) {
       return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
-
-    if (!report.draft_content) {
+    if (!reportRes.data.draft_content) {
       return NextResponse.json({ error: "No draft content to fix" }, { status: 400 });
     }
-
-    // 確定版の置き換えは、紙面上での明示操作だけに限定する。
-    // 手動の下書き保存が final_content を暗黙に上書きしないための境界。
-    if (report.final_content && !force) {
+    if (reportRes.data.final_content && !force) {
       return NextResponse.json(
         { error: "確定済みの社内版を置き換えるには force: true が必要です" },
         { status: 409 }
       );
     }
 
-    const validation = validateInternalMonthlyReport(report.draft_content);
+    const validation = validateInternalMonthlyReport(reportRes.data.draft_content);
     if (!validation.ok) {
       return NextResponse.json(
         { error: validation.errors.join("\n"), errors: validation.errors },
@@ -58,33 +53,50 @@ export async function POST(req: Request) {
       );
     }
 
-    // FIX: draft → final
-    const now = new Date().toISOString();
-    const { error: updateErr } = await supabase
-      .from("monthly_reports")
-      .update({
-        draft_content: validation.normalized,
-        final_content: validation.normalized,
-        status: "fixed",
-        fixed_at: now,
-      })
-      .eq("project_id", projectId)
-      .eq("ym", ym);
-
-    if (updateErr) {
-      return NextResponse.json({ error: updateErr.message }, { status: 500 });
+    const memberRes = await auth.supabase
+      .from("members")
+      .select("member_id, code_name, member_name")
+      .eq("email", auth.user.email.toLowerCase())
+      .maybeSingle();
+    if (memberRes.error || !memberRes.data) {
+      return NextResponse.json({ error: memberRes.error?.message || "member not found" }, { status: 500 });
     }
+    const actorMemberId = memberRes.data.member_id;
+    const actorLabel = memberRes.data.code_name || memberRes.data.member_name?.trim() || auth.user.email;
+    const changedSections = changedMonthlyReportSections(reportRes.data.final_content, validation.normalized);
+
+    const { data, error } = await auth.supabase.rpc("monthly_report_internal_save", {
+      p_project_id: projectId,
+      p_ym: ym,
+      p_action: "confirm",
+      p_content: validation.normalized,
+      p_actor_member_id: actorMemberId,
+      p_actor_kind: actorMemberId ? "member" : "system",
+      p_actor_label: actorLabel,
+      p_changed_sections: changedSections,
+      p_source: "pwa:report-fix",
+      p_force: force === true,
+    }).single();
+
+    if (error) {
+      if (error.message?.includes("force")) {
+        return NextResponse.json({ error: error.message }, { status: 409 });
+      }
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    const savedReport = data as { fixed_at: string; confirmed_by: string | null };
 
     // billing_cycles にも report_fixed_at を更新
-    await supabase
+    await auth.supabase
       .from("billing_cycles")
-      .update({ report_fixed_at: now })
+      .update({ report_fixed_at: savedReport.fixed_at })
       .eq("project_id", projectId)
       .eq("ym", ym);
 
     return NextResponse.json({
       success: true,
-      fixedAt: now,
+      fixedAt: savedReport.fixed_at,
+      confirmedBy: savedReport.confirmed_by,
     });
   } catch (err) {
     console.error("Report fix error:", err);

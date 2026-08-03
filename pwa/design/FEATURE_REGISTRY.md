@@ -518,6 +518,24 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - MTGサマリの予定MTG block / `POST /api/meeting-prep` / `POST /api/meeting-prep/calendar-sync` / `MeetingPrepInlineEditor` / `POST /api/meeting-summary/manual-update` / `MeetingSummaryInlineEditor` / `MeetingAssetsPanel` / `POST /api/meeting-assets` / `PDF保存` / `議事録コピー` / `準備メモコピー` / `共有URLコピー` も `check_pwa_critical_ui.cjs` で検査する。
 - 案C レイアウト anchor (`max-w-[1600px]`、`lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px]`、`xl:flex-row` Hero) も `check_pwa_critical_ui.cjs` で検査する。`max-w-[1060px]` や旧 left/right 2 カラム構造に巻き戻ったら `npm run test:critical-ui` で落ちる。
 
+## /project/[projectId]/report/[ym]/print — 月次報告書 印刷 + 編集履歴 (build v3.57.0、migration 223)
+
+目的: 提出前の紙面をそのまま見ながら、社内版・提出版の本文をその場で編集・保存・確定し、誰がいつ何を変えたかを静かな校正台帳として確認できるようにする。
+
+必須機能:
+
+- 印刷ツールバー: 固定 `.toolbar` (`編集する` / `下書きに保存` or `提出版を保存` / 社内版のみ `確定版に反映` / `PDFとして保存`) は維持し、PDF保存が主役の位置づけを変えない。
+- 最終更新帯: ツールバー直下に no-print の `MonthlyReportHistoryPanel` (`monthly-report-history-panel.tsx`) を常時表示し、更新者・日時・操作と「編集履歴を見る」ボタンを出す。保存・確定が成功するたびに `historyRefreshToken` を進めて即座に最新化する。
+- 履歴パネル: desktopは右側固定パネル、mobile (`max-width: 760px`) は下からのシート。社内版・提出版をタブで分け、時系列一覧 (更新者・日時・操作・自動生成か人による編集か・変更した章) を表示する。一覧は軽量 (`GET /api/monthly-report/history?projectId=&ym=`、本文全文を含まない) で、行を開いた時だけ `id` 指定の detail fetch (`&id=`) で変更前後の全文を取得し、行単位の正確な差分 (`diffMonthlyReportLines`) を表示する。復元操作は無い。Escapeで閉じ、閉じると開いたボタンへフォーカスを戻す。
+- 書き込み経路: `manual-update` (社内版下書き保存) / `report/fix` (確定) / `external-manual-update` (提出版保存) の3ルートは全て `requireAdmin` (admin-only)。本文保存 + `monthly_report_edit_history` への追記は RPC (`monthly_report_internal_save` / `monthly_report_external_save`) 内で1トランザクションにまとめ、一方だけ成功する状態を作らない。RPCを経由しない直接書込み (将来の routine / GAS / script) も AFTER トリガーが `automation` として最低限捕捉する。`report/fix` は確定者 (`confirmed_by`) を必ず保存する。
+- 版・発行履歴 (印刷PDF内、旧 改訂履歴): §07 添付資料・参照の末尾に、初版 (自動生成) / 確定 (`confirmed_by`) / 本書発行 の3節目だけを残す。個別の下書き保存・編集履歴はPDFへ出さない。
+- legacy seed: migration 223 適用時点の既存 `monthly_reports` / `monthly_reports_external` 行は `content_before/after=NULL`, `detail_available=false` の legacy 記録として1回だけseed済み。UIは「詳細差分なし」を表示し、過去の正確な差分を捏造しない。
+
+回帰防止:
+
+- `npm run test:monthly-report-history` が、章内変更検出 (`changedMonthlyReportSections`)・行差分の可逆性 (`diffMonthlyReportLines`)・migration の RPC/トリガー/`confirmed_by`保存・3保存APIの `requireAdmin`+atomic RPC使用・履歴一覧が全文をselectしないこと・詳細取得が`id`指定時だけ全文を返すこと・履歴UIの`role="dialog"`/Escape/タブ分離・印刷物が「版・発行履歴」に改名済みであることを検査する。
+- `npm run test:monthly-report-quality` が、下書き保存はRPCの`draft_save`アクションを使うこと、RPC内で確定済みステータスを崩さないことを検査する。
+
 ## /institutions/[institutionId]/cockpit
 
 目的: 研究機関カードから、機関の箱を保ったまま関連PJの進捗・月次・MTG履歴へ入る。
@@ -659,3 +677,4 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - Round 46（2026-08-02、v3.55.7）: **ガントの追加操作を行内へ統合し、全モーダルを同じ操作面へ再設計**。各3レーンの末尾へ権限者向け48px固定行 `＋ 新規タスク` を1行ずつ常設し、ツールバーと工程/タスク詳細の追加ボタンを廃止。追加フォームは表示レーンから保存先を推測せず、そのレーン内でガントに表示中の未完了phase/設立ゲートを `接続する工程` として必須選択する（候補1件だけ事前選択、0件は保存不可）。親タスク候補は選択工程の配下だけに連動し、工程変更時は以前の親選択を解除する。新規MSは専用ボタン/配置モードを廃止し、ガント行の実バー/◇以外の空白日付ポイントを直接クリック→`MSを追加する？ Y/N`→Yで既存IssueEditorを開く。mobileはレーン内小型日付軸、keyboardはfocus面の中央日付で同じ入口へ入り、Y/Nが上端で切れる場合は下へ反転する。N/Esc/外側クリックは無書込みで閉じ、Yでもフォーム保存まではPOSTしない。バー/◇の詳細選択とdragは兄弟buttonへ分離し、空白クリックとの二重発火を防止。IssueEditor・PlanInspector・関係先履歴を生成りsheet、12px角丸、1px暖色border、rgba(36,35,31,.46)+4px blur、固定header/footerへ統一し、640px以下は同じbottom sheet・16px controlにする。フォームは接続先→内容→状態/担当→日程の順と左見出しrailへ整理。migrationなし。
 - Round 47（2026-08-02、v3.55.8）: **本番実操作で検出した未日程行のMSクリック遮蔽を解消**。日程未設定の工程・設立ゲート行で、右側タイムライン下部を覆っていた全幅の詳細ボタンを廃止し、実バー／◇がない日付面は全域をMS追加候補へ渡す。工程詳細は左側の名称行から従来どおり開ける。必須タスク要約は`pointer-events:none`として空白日付面を遮らない。構造テストで未日程の全幅詳細ボタンが復活しないことを固定。migrationなし。
+- Round 48（2026-08-03、v3.57.0 / migration 223）: **月次報告書の編集履歴を本文と同時に保存し、印刷ビューで確認可能にした**。ツールバー直下の最終更新表示から、desktopは右パネル、mobileは下シートを開く。社内版／提出版タブ、更新者・操作・時刻・変更章、展開時だけ取得する変更前後の行差分を提供する。migration前の既存記録は値を推測せず詳細差分なしとする。本文と履歴はRPCの同一transactionで保存し、RPC外writerもtriggerで捕捉する。初期版はadmin限定、復元操作なし、PDFは個別編集を載せず`版・発行履歴`として節目だけを残す。

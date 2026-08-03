@@ -152,6 +152,7 @@ const manualUpdateRoute = readFileSync(new URL("../src/app/api/monthly-report/ma
 const externalManualUpdateRoute = readFileSync(new URL("../src/app/api/monthly-report/external-manual-update/route.ts", import.meta.url), "utf8");
 const reviewTool = readFileSync(new URL("./ms_progress_review_tool.mjs", import.meta.url), "utf8");
 const reportFixRoute = readFileSync(new URL("../src/app/api/report/fix/route.ts", import.meta.url), "utf8");
+const historyMigration = readFileSync(new URL("./migrations/223_monthly_report_edit_history.sql", import.meta.url), "utf8");
 const monthEndRoutine = readFileSync(new URL("../scheduled-tasks/amd-os-l2-monthend-evidence/SKILL.md", import.meta.url), "utf8");
 const monthlyReportRoutine = readFileSync(new URL("../scheduled-tasks/amd-os-l2m1-monthly-report/SKILL.md", import.meta.url), "utf8");
 const kakuReport = readFileSync(new URL("../scheduled-tasks/shared/kaku-report/SKILL.md", import.meta.url), "utf8");
@@ -197,7 +198,12 @@ assert.match(paidGenerateRoute, /PAID_REPORT_GENERATION_DISABLED/, "旧生成API
 assert.doesNotMatch(paidEditRoute, /@anthropic-ai\/sdk|anthropic\.messages\.create/, "旧AI修正APIはAnthropicを呼ばない");
 assert.match(paidEditRoute, /PAID_REPORT_EDIT_DISABLED/, "旧AI修正APIは410で停止理由を返す");
 assert.match(manualUpdateRoute, /validateInternalMonthlyReport/, "直接編集は保存前に社内版品質ゲートを通す");
-assert.match(manualUpdateRoute, /existing\?\.final_content/, "下書き保存は確定済みの社内版ステータスを崩さない");
+assert.match(manualUpdateRoute, /p_action:\s*"draft_save"/, "下書き保存はRPCのdraft_saveアクションを使う");
+assert.match(
+  historyMigration,
+  /CASE WHEN v_before\.final_content IS NOT NULL THEN v_before\.status ELSE 'draft' END/,
+  "下書き保存は確定済みの社内版ステータスを崩さない (RPC内で保証)",
+);
 assert.match(reportFixRoute, /validateInternalMonthlyReport/, "確定時も社内版品質ゲートを通す");
 assert.match(reportFixRoute, /force/, "既存の確定版を置き換えるには明示操作を要求する");
 assert.match(externalManualUpdateRoute, /requireAdmin/, "提出版の手動編集は管理者だけが行う");

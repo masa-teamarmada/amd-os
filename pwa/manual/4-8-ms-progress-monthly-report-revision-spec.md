@@ -136,6 +136,14 @@ GAS `rv2_calcRewardSummary` が報酬計算時に `share` を掛けて per-membe
 
 内部版 LLM の入力は `evidence_bundle` / `previous_internal_md` / `members` / `audit_metadata` に分ける。本文に使えるのは確認済み事実をまとめた `evidence_bundle` と前月版の構成参照だけ。`audit_metadata` の件数、source refs、既存 draft の処理経緯は検証・readback 用であり、本文へ書かない。出力は会議順や source 順ではなく業務領域ごとに統合し、概要は当月の主進展、並行進展、判断・リスク、来月の焦点を3〜5文でまとめる。
 
+### 編集履歴 (v0.34.0 追加、校正台帳)
+
+印刷ビュー (`/project/[projectId]/report/[ym]/print`) の固定ツールバー直下に、社内版・提出版それぞれの最終更新帯 (更新者・日時・操作) と「編集履歴を見る」ボタンを常時表示する。開くとdesktopは右側パネル、mobileは下からのシートで、社内版・提出版タブ、時系列一覧 (更新者・日時・操作・自動生成か人編集か・変更した章) を表示し、行を開くと変更前後の正確な差分を確認できる (復元操作は無し)。
+
+正本テーブルは `monthly_report_edit_history`。本文保存 (draft_save / confirm / external_save) と履歴追記は RPC (`monthly_report_internal_save` / `monthly_report_external_save`) 内で1トランザクションにまとめ、一方だけ成功する状態を作らない。RPCを経由しない直接書込みも AFTER トリガーが `automation` として最低限捕捉する安全網を持つ。過去の手動編集差分は復元不能なため、migration 適用時点の既存行は「詳細差分なし」の legacy 記録として安全にseed済み。`manual-update` (社内版直接編集) は印刷ビューと同じ admin-only に統一し、`report/fix` (確定操作) は `confirmed_by` を必ず保存する。詳細は [`/spec` 3-2 章「編集履歴」節](../spec/3-2-monthly-reports-current-spec.md) が正本。
+
+印刷用PDFの旧「改訂履歴」は「版・発行履歴」に改名し、確定・発行など大きな節目だけを残す。個別の編集履歴はPDFへ出さない。
+
 ### `monthly_reports` 列
 
 | column | 用途 |

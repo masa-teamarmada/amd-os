@@ -2,18 +2,18 @@
  * POST /api/monthly-report/manual-update
  * body: { projectId, ym, content }
  *
- * 月次報告書の draft_content をまさが直接編集した本文で上書き。
- * - service_role で書き込む (anon RLS bypass)
- * - 認証は requireAuth (admin チェックは monthly_reports の運用上 PJ メンバー全員が対象)
+ * 月次報告書の draft_content を直接編集した本文で上書きする。print page (admin-only)
+ * と揃え、admin-only にしている。本文保存 + 編集履歴 (monthly_report_edit_history)
+ * 追記は RPC monthly_report_internal_save 内で1トランザクションにまとめる。
  */
 
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { validateInternalMonthlyReport } from "@/lib/monthly-report-quality";
-import { requireAuth } from "@/lib/supabase/api-auth";
+import { changedMonthlyReportSections } from "@/lib/monthly-report-history";
+import { requireAdmin } from "@/lib/supabase/api-auth";
 
 export async function POST(req: Request) {
-  const auth = await requireAuth();
+  const auth = await requireAdmin();
   if (!auth.ok) return auth.errorResponse;
 
   let body: { projectId?: string; ym?: string; content?: string };
@@ -41,35 +41,44 @@ export async function POST(req: Request) {
     );
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder"
-  );
+  const memberRes = await auth.supabase
+    .from("members")
+    .select("member_id, code_name, member_name")
+    .eq("email", auth.user.email.toLowerCase())
+    .maybeSingle();
+  if (memberRes.error || !memberRes.data) {
+    return NextResponse.json({ ok: false, message: memberRes.error?.message || "member not found" }, { status: 500 });
+  }
+  const actorMemberId = memberRes.data.member_id;
+  const actorLabel = memberRes.data.code_name || memberRes.data.member_name?.trim() || auth.user.email;
 
-  // 下書き保存は確定版を変えない。確定済みなら status も維持し、
-  // final_content の更新は /api/report/fix の明示操作だけに限定する。
-  const { data: existing, error: existingError } = await supabase
+  const existingRes = await auth.supabase
     .from("monthly_reports")
-    .select("status, final_content")
+    .select("draft_content")
     .eq("project_id", projectId)
     .eq("ym", ym)
     .maybeSingle();
-  if (existingError) {
-    return NextResponse.json({ ok: false, message: existingError.message }, { status: 500 });
+  if (existingRes.error) {
+    return NextResponse.json({ ok: false, message: existingRes.error.message }, { status: 500 });
   }
+  const changedSections = changedMonthlyReportSections(existingRes.data?.draft_content, validation.normalized);
 
-  const { error } = await supabase
-    .from("monthly_reports")
-    .upsert({
-      report_id: `${projectId}_${ym}`,
-      project_id: projectId,
-      ym,
-      draft_content: validation.normalized,
-      status: existing?.final_content ? existing.status : "draft",
-    }, { onConflict: "project_id,ym" });
+  const { data, error } = await auth.supabase.rpc("monthly_report_internal_save", {
+    p_project_id: projectId,
+    p_ym: ym,
+    p_action: "draft_save",
+    p_content: validation.normalized,
+    p_actor_member_id: actorMemberId,
+    p_actor_kind: actorMemberId ? "member" : "system",
+    p_actor_label: actorLabel,
+    p_changed_sections: changedSections,
+    p_source: "pwa:manual-update",
+    p_force: false,
+  }).single();
   if (error) {
     return NextResponse.json({ ok: false, message: error.message }, { status: 500 });
   }
+  const savedReport = data as { draft_content?: string | null } | null;
 
-  return NextResponse.json({ ok: true, content: validation.normalized });
+  return NextResponse.json({ ok: true, content: savedReport?.draft_content ?? validation.normalized, changedSections });
 }

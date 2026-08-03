@@ -9,6 +9,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/supabase/api-auth";
+import { changedMonthlyReportSections } from "@/lib/monthly-report-history";
 
 type MemberIdentity = { code_name: string | null; member_name: string | null };
 type JargonFinding = { word: string; label: string };
@@ -305,42 +306,56 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: errors.join("\n"), errors }, { status: 422 });
   }
 
-  const externalYm = toExternalYm(ym);
-  const now = new Date().toISOString();
-  const patch = {
-    body_md: normalized,
-    updated_at: now,
-    jargon_check_status: jargon.soft.length > 0 ? "warning" : "clean",
-    jargon_check_findings: jargon.soft,
-  };
-  const { data: existing, error: existingError } = await auth.supabase
+  const currentRes = await auth.supabase
     .from("monthly_reports_external")
-    .select("id")
+    .select("body_md")
     .eq("project_id", projectId)
-    .eq("ym", externalYm)
+    .eq("ym", toExternalYm(ym))
     .maybeSingle();
-  if (existingError) return NextResponse.json({ error: existingError.message }, { status: 500 });
+  if (currentRes.error) return NextResponse.json({ error: currentRes.error.message }, { status: 500 });
+  const changedSections = changedMonthlyReportSections(currentRes.data?.body_md, normalized);
 
-  const result = existing
-    ? await auth.supabase.from("monthly_reports_external").update(patch).eq("id", existing.id)
-      .select("body_md, generated_at, updated_at, jargon_check_status").single()
-    : await auth.supabase.from("monthly_reports_external").insert({
-        project_id: projectId,
-        ym: externalYm,
-        generated_at: now,
-        generated_by_model: "manual-edit",
-        ...patch,
-      }).select("body_md, generated_at, updated_at, jargon_check_status").single();
-  if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
+  const memberRes = await auth.supabase
+    .from("members")
+    .select("member_id, code_name, member_name")
+    .eq("email", auth.user.email.toLowerCase())
+    .maybeSingle();
+  if (memberRes.error || !memberRes.data) {
+    return NextResponse.json({ error: memberRes.error?.message || "member not found" }, { status: 500 });
+  }
+  const actorMemberId = memberRes.data.member_id;
+  const actorLabel = memberRes.data.code_name || memberRes.data.member_name?.trim() || auth.user.email;
+
+  const { data, error } = await auth.supabase.rpc("monthly_report_external_save", {
+    p_project_id: projectId,
+    p_ym: ym,
+    p_content: normalized,
+    p_jargon_check_status: jargon.soft.length > 0 ? "warning" : "clean",
+    p_jargon_check_findings: jargon.soft,
+    p_generated_by_model: "manual-edit",
+    p_actor_member_id: actorMemberId,
+    p_actor_kind: actorMemberId ? "member" : "system",
+    p_actor_label: actorLabel,
+    p_changed_sections: changedSections,
+    p_source: "pwa:external-manual-update",
+  }).single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const savedReport = data as {
+    body_md: string;
+    generated_at: string;
+    updated_at: string;
+    jargon_check_status: string | null;
+  };
 
   return NextResponse.json({
     ok: true,
     formatMatch: referenceBody ? compareSubmissionStructure(normalized, referenceBody).length === 0 : null,
     report: {
-      bodyMd: result.data.body_md,
-      generatedAt: result.data.generated_at,
-      updatedAt: result.data.updated_at,
-      jargonCheckStatus: result.data.jargon_check_status,
+      bodyMd: savedReport.body_md,
+      generatedAt: savedReport.generated_at,
+      updatedAt: savedReport.updated_at,
+      jargonCheckStatus: savedReport.jargon_check_status,
     },
+    changedSections,
   });
 }
