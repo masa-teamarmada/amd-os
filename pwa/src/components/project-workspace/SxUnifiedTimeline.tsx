@@ -30,7 +30,6 @@ import {
   sxGateRequirementCounts,
   sxGateRequirementState,
   sxIsBlockingMilestone,
-  sxMilestoneRequiredTaskSummary,
   type SxGateRequirement,
 } from "@/lib/sx-gate-requirements";
 import { taskNestCandidateIds } from "@/lib/sx-gantt-task-nesting";
@@ -123,14 +122,8 @@ type DisplayRow = {
   hasChildren: boolean;
   requirements: SxGateRequirement[];
   /** Only set for the two founding-prerequisite milestone rows (business-paid-poc /
-   * funding-investment). Achievement here follows sxGateRequirementState — the 4-item oral
-   * agreement evidence alone is not enough, required tasks must also be complete. */
+   * funding-investment). Achievement here follows the MS's own state and evidence. */
   achievement?: SxGateRequirement["state"] | null;
-  requiredTaskSummary?: {
-    completed: number;
-    total: number;
-    nextIncompleteTitle: string | null;
-  } | null;
 };
 
 type LaneMeta = {
@@ -241,13 +234,11 @@ function blockingRowState(
  * x-position. */
 function milestoneAnchorRow(
   milestone: SxManagementMilestone,
-  tasks: SxTask[],
   timeline: SxEcdUnifiedTimeline,
 ): DisplayRow {
-  const summary = sxMilestoneRequiredTaskSummary(milestone.id, tasks);
   const isBlockingMilestone = sxIsBlockingMilestone(milestone);
   const achievement = isBlockingMilestone
-    ? sxGateRequirementState(milestone, tasks)
+    ? sxGateRequirementState(milestone)
     : null;
   return {
     id: milestone.id,
@@ -255,7 +246,9 @@ function milestoneAnchorRow(
     milestoneId: milestone.id,
     parentTaskId: null,
     depth: 0,
-    title: milestone.gate || milestone.title,
+    // `gate` is the completion condition's short label. The user-visible MS name is always the
+    // record title: using `gate` here made the pre-existing large MS look as if it had vanished.
+    title: milestone.title,
     state: blockingRowState(milestone.manualStatus),
     isCritical: false,
     isCurrent: false,
@@ -283,13 +276,6 @@ function milestoneAnchorRow(
     hasChildren: false,
     requirements: [],
     achievement,
-    requiredTaskSummary: isBlockingMilestone
-      ? {
-          completed: summary.completed,
-          total: summary.total,
-          nextIncompleteTitle: summary.nextIncomplete?.title ?? null,
-        }
-      : null,
   };
 }
 
@@ -427,10 +413,7 @@ function RowBar({
   const barGeometry = hasBar && !isMilestoneMarker
     ? barHitGeometryCss(barStart, plannedEnd)
     : null;
-  // blocking milestone行は「必須タスク 完了/総数・次の未完了」を常時1行目に出すため、日付が
-  // 入ってバー/◇が付いても潰されないよう、通常行より下へ寄せる（48px行の中で summary(0-13px) →
-  // ◇(13-25px) → bar(24-32px) → 予定/実績(36-48px)の順に積む。日付は捏造しない）。
-  const barTop = row.isBlockingMilestone ? 24 : 15;
+  const barTop = 15;
   const detailHitStyle = isMilestoneMarker
     ? {
         top: DRAG_HIT_TOP,
@@ -658,20 +641,6 @@ function RowBar({
         >
           <span className="h-3 w-3 rounded-full border-2 border-current bg-[#fffdf7]" />
         </button>
-      )}
-      {/* blocking milestone（設立前提の2件）は「どのタスクをクリアすればMS達成か」を、日程の
-          有無に関わらず常時1行目に文字で示す（日程未設定の行は帯の代わりにも使う）。日付は
-          捏造しない。 */}
-      {row.requiredTaskSummary && (
-        <span className="pointer-events-none absolute inset-x-1 top-0.5 truncate text-[10px] font-semibold text-[#5f4a66]">
-          必須タスク {row.requiredTaskSummary.completed}/
-          {row.requiredTaskSummary.total}
-          {row.requiredTaskSummary.total === 0
-            ? "（未登録）"
-            : row.requiredTaskSummary.nextIncompleteTitle
-              ? ` ・ 次：${row.requiredTaskSummary.nextIncompleteTitle}`
-              : " ・ 全完了"}
-        </span>
       )}
       {/* A date-less MS has no honest x-position on the time axis, so its ◇ sits beside
           「日程未設定」. It is still the record's direct-edit affordance — never let the
@@ -1300,7 +1269,7 @@ export function SxUnifiedTimeline({
       const laneKey = sxIsBlockingMilestone(milestone)
         ? (BLOCKING_MILESTONE_LANE[milestone.slug] ?? "organization")
         : displayLaneKeyForTrack(milestone.track);
-      milestoneBucket[laneKey].push(milestoneAnchorRow(milestone, tasks, timeline));
+      milestoneBucket[laneKey].push(milestoneAnchorRow(milestone, timeline));
     }
 
     const laneByKey = new Map(timeline.lanes.map((lane) => [lane.key, lane]));
@@ -2665,13 +2634,7 @@ export function SxUnifiedTimeline({
                     >
                       <span className="min-w-0 truncate font-semibold text-[#5f4a66]">
                         {laneMilestones.length > 0
-                          ? `MS ${laneMilestones.length}件・${laneMilestones
-                              .map((milestone) =>
-                                milestone.requiredTaskSummary
-                                  ? `必須 ${milestone.requiredTaskSummary.completed}/${milestone.requiredTaskSummary.total}`
-                                  : "達成条件を確認",
-                              )
-                              .join(" / ")}`
+                          ? `MS ${laneMilestones.length}件`
                           : "MSなし"}
                       </span>
                       {lane.maxIssue && (

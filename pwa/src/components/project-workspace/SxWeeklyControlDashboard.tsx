@@ -1046,7 +1046,7 @@ function editorDefinition(
                     )
                     .map((milestone) => ({
                       value: milestone.id,
-                      label: `${trackMeta(milestone.track).short}｜${milestone.gate || milestone.title}`,
+                      label: `${trackMeta(milestone.track).short}｜${milestone.title}`,
                     })),
                 ],
               },
@@ -3862,13 +3862,11 @@ export function SxWeeklyControlDashboard({
       sxGateRequirementsBySuccessor(
         management.milestones,
         management.dependencies,
-        management.tasks,
       ).get(selectedPlanMilestone.id) || []
     );
   }, [
     management.dependencies,
     management.milestones,
-    management.tasks,
     selectedPlanMilestone,
   ]);
 

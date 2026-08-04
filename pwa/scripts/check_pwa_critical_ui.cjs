@@ -1265,8 +1265,8 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "MSとタスクの縦一覧",
   "RowBar",
   "min-w-[1080px]",
-  // Round 20/24/31: 行クリックは横インスペクタ、値クリックは直接編集。ブロッキング
-  // マイルストーンは有償PoC口頭合意と出資口頭合意の2件だけに限定する。
+  // 行クリックは詳細、値クリックは直接編集。ブロッキングMSは有償PoC口頭合意と
+  // 出資口頭合意の2件だけに限定する。
   "onCreateMilestone",
   "onCreateTask",
   "selectedTaskId",
@@ -1277,13 +1277,10 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "sxGateRequirementState",
   "マイルストーン",
   "前提",
-  // Round 33 (2026-08-02): ガントは常に事業開発／技術開発／組織開発の3レーンだけを描く。
-  // 資金調達(funding)は独立レーンを持たず組織開発へ統合。設立前提の2件（有償PoC口頭合意・
-  // 出資口頭合意）はガント外の独立sectionでも4本目の合成レーン（旧FOUNDING_LANE）でもなく、
-  // それぞれ事業開発／組織開発レーンへ直接強制配置する（BLOCKING_MILESTONE_LANE）。日程未設定
-  // でも隠さず、配下の必須タスクは初期展開し、完了数と次の未完了タスクを同じ行（RowBarの右列）
-  // で示す。通常の柱レーンからはこの2件を除外し二重表示しない。達成判定は4項目証跡＋配下タスク
-  // 全完了の両方が揃って初めて「充足」になる。timeline.valid=falseでもこの説明文は残る。
+  // ガントは常に事業開発／技術開発／組織開発の3レーンだけを描く。資金調達(funding)は
+  // 独立レーンを持たず組織開発へ統合。設立条件の2MSはガント外の独立sectionでも4本目の
+  // 合成レーンでもなく、それぞれ事業開発／組織開発レーンへ直接強制配置する。MS名は
+  // レコードtitleを使い、達成判定はMS自身の完了状態と4項目証跡で行う。
   "DISPLAY_LANE_ORDER",
   "DISPLAY_LANE_LABEL",
   "BLOCKING_MILESTONE_LANE",
@@ -1293,10 +1290,7 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "組織開発",
   "milestoneAnchorRow",
   "data-gantt-lane-milestone-spine={milestone.id}",
-  "sxMilestoneRequiredTaskSummary",
-  "設立前提",
-  "必須タスク",
-  "requiredTaskSummary",
+  "title: milestone.title,",
   "row.achievement",
   "GATE_STATE_TEXT",
   "!timeline.valid &&",
@@ -1311,11 +1305,7 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   // desktop expand/collapse toggle must be a full 44px hit target, not a 32px (w-8) one
   // (監査追補 2026-08-02).
   "flex w-11 shrink-0 items-center justify-center text-[#69665d]",
-  // 監査追補 (2026-08-02): blocking milestoneの「必須タスク 完了/総数・次の未完了」は日程の
-  // 有無に関わらず常時RowBar 1行目に出す(!hasBar && の条件を外し、日付が入っても消えない)。
-  // undatedの◇(12px)はdatedの◇(12px)と同じ大きさへ統一する。
-  "{row.requiredTaskSummary && (",
-  "const barTop = row.isBlockingMilestone ? 24 : 15;",
+  "const barTop = 15;",
   'top: barTop,',
   // Round 24/29: 計画の薄いバーと登録済み実績の濃い塗りを分け、未登録は0%と表示しない。
   "row.progressRegistered && row.progressPct > 0",
@@ -1357,9 +1347,9 @@ expectNotIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "FOUNDING_LANE_META",
   "FOUNDING_LANE_KEY",
   "founding-prerequisites",
-  // 監査追補 (2026-08-02): 必須タスクsummaryは日程が入っても消してはいけない(!hasBar限定禁止)。
-  // undatedの◇は8px(h-2 w-2)ではなくdatedと同じ12px(h-3 w-3)に統一する。
-  "!hasBar && row.requiredTaskSummary",
+  "requiredTaskSummary",
+  "sxMilestoneRequiredTaskSummary",
+  "必須タスク",
   "h-2 w-2 shrink-0 rotate-45",
 ]);
 expectIncludes("src/lib/sx-executive-control-deck.ts", [

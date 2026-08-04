@@ -117,10 +117,17 @@ assertIncludes(timelineFile, timeline, [
   "function milestoneAnchorRow(",
   "data-gantt-lane-milestone-spine={milestone.id}",
   "data-gantt-milestone-marker={milestone.id}",
+  "title: milestone.title,",
   "Point-MS records are kept",
   "最上位タスクに戻す",
   "MS {laneMilestones.length} / タスク {rows.length}",
   "日程未登録のMS",
+]);
+assertNotIncludes(timelineFile, timeline, [
+  "title: milestone.gate || milestone.title",
+  "sxMilestoneRequiredTaskSummary",
+  "requiredTaskSummary",
+  "必須タスク",
 ]);
 
 // -- 9. Three permanent task-writer rows; MS creation starts from a true blank date point -------
@@ -142,12 +149,26 @@ assertIncludes(timelineFile, timeline, [
   "const MILESTONE_PROMPT_FLIP_Y = 138;",
   'side: clientY < MILESTONE_PROMPT_FLIP_Y ? "below" : "above"',
   'event.detail === 0 ? rect.left + rect.width / 2 : event.clientX',
-  'className="pointer-events-none absolute inset-x-1 top-0.5',
   'role="dialog"',
   'aria-modal="false"',
 ]);
 assertCount(timelineFile, timeline, "data-gantt-add-task-lane={lane.key}", 2);
 assertCount(timelineFile, timeline, "onClick={() => onCreateTask(lane.key)}", 2);
+
+// -- 9b. The illustrative 12-task seed is a recoverable removal, not a broad task deletion ---
+const fineSeedRemovalMigrationFile = "scripts/migrations/228_sx_remove_fine_seed_tasks.sql";
+const fineSeedRemovalMigration = read(fineSeedRemovalMigrationFile);
+assertIncludes(fineSeedRemovalMigrationFile, fineSeedRemovalMigration, [
+  "UPDATE public.project_management_tasks",
+  "deleted_at = now()",
+  "deleted_by = 'migration:228_sx_remove_fine_seed_tasks'",
+  "source_ref = '2026-08-02 週次管制 設立前提レーン要件'",
+  "status = 'unassessed'",
+  "planned_start IS NULL",
+  "planned_end IS NULL",
+  "actual_end IS NULL",
+]);
+assertNotIncludes(fineSeedRemovalMigrationFile, fineSeedRemovalMigration, ["DELETE FROM"]);
 
 // -- 10. No role=alertdialog or nested editor: every PlanInspector value edits in place ---------
 const dashboardFile = "src/components/project-workspace/SxWeeklyControlDashboard.tsx";
