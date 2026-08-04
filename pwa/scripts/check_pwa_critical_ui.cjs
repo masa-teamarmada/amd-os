@@ -1262,7 +1262,7 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "sx-unified-timeline",
   "今日",
   "設立 {sxFormatDate(timeline.objectiveDate)}",
-  "工程 / タスク",
+  "MSとタスクの縦一覧",
   "RowBar",
   "min-w-[1080px]",
   // Round 20/24/31: 行クリックは横インスペクタ、値クリックは直接編集。ブロッキング
@@ -1270,14 +1270,12 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "onCreateMilestone",
   "onCreateTask",
   "selectedTaskId",
-  "expandedMilestones",
   "expandedTasks",
   "すべて展開",
   "canManage",
   "sxIsBlockingMilestone",
   "sxGateRequirementState",
   "マイルストーン",
-  "sxGateRequirementsBySuccessor",
   "前提",
   // Round 33 (2026-08-02): ガントは常に事業開発／技術開発／組織開発の3レーンだけを描く。
   // 資金調達(funding)は独立レーンを持たず組織開発へ統合。設立前提の2件（有償PoC口頭合意・
@@ -1293,8 +1291,8 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "事業開発",
   "技術開発",
   "組織開発",
-  "blockingMilestones",
-  "blockingMilestoneRow",
+  "milestoneAnchorRow",
+  "data-gantt-lane-milestone-spine={milestone.id}",
   "sxMilestoneRequiredTaskSummary",
   "設立前提",
   "必須タスク",
@@ -1310,7 +1308,6 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   // recognizable as a milestone (監査追補 2026-08-02).
   "isMilestoneMarker && (",
   "日程未設定・{ROW_STATE_TEXT[row.state]}",
-  '{(row.isBlockingMilestone || row.timelineKind === "milestone") && (\n                            <i',
   // desktop expand/collapse toggle must be a full 44px hit target, not a 32px (w-8) one
   // (監査追補 2026-08-02).
   "flex w-11 shrink-0 items-center justify-center text-[#69665d]",
@@ -1324,7 +1321,7 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "row.progressRegistered && row.progressPct > 0",
   '実績{" "}',
   "{row.actualEnd",
-  'aria-label="工程とタスクの縦一覧"',
+  "最上位タスクに戻す",
   "日程未登録",
   "aria-pressed",
   "focus-visible:outline",
@@ -1336,6 +1333,7 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   'resource: "schedule_dependency"',
   "data-gantt-schedule-dependency-lines",
   "data-gantt-sticky-header",
+  "日程未登録のMS",
   'className="sticky top-0 z-50 grid',
   'className="sticky left-0 z-[51]',
   "max-h-[min(72vh,720px)] overflow-auto overscroll-contain",
