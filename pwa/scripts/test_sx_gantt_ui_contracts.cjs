@@ -185,9 +185,13 @@ assertIncludes(timelineFile, timeline, [
   "data-gantt-task-nest-handle",
   "data-gantt-nest-target-task",
   "data-gantt-nest-root-milestone",
+  "data-gantt-milestone-marker",
   "patch: { parent_task_id: parentTaskId }",
   "ここを親タスクにする",
   "工程の直下に戻す",
+]);
+assertNotIncludes(timelineFile, timeline, [
+  'pointer-events-none absolute top-[13px] -translate-x-1/2 text-center',
 ]);
 
 const selectRendererStart = dashboard.indexOf(') : field.type === "select" ? (');

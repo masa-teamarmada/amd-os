@@ -522,7 +522,7 @@ function RowBar({
           aria-label={`${row.title}。ドラッグで期間を移動、クリックで詳細を開く`}
         />
       )}
-      {hasBar && !draggableBar && (
+      {hasBar && !draggableBar && !isMilestoneMarker && (
         <button
           type="button"
           onClick={(event) => {
@@ -602,6 +602,7 @@ function RowBar({
       {draggableMilestone && (
         <button
           type="button"
+          data-gantt-milestone-marker={row.id}
           onPointerDown={(event) => {
             event.stopPropagation();
             onPointerDownMove(event);
@@ -611,22 +612,36 @@ function RowBar({
             onOpen();
           }}
           onLostPointerCapture={onLostPointerCapture}
-          className="absolute z-30 -translate-x-1/2 cursor-grab focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+          className="absolute z-30 grid -translate-x-1/2 cursor-grab place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
           style={{ top: DRAG_HIT_TOP, left: timelinePctCss(plannedEnd), width: DRAG_HIT_HEIGHT, height: DRAG_HIT_HEIGHT }}
           aria-label={`${row.title}。ドラッグで予定日を変更、クリックで詳細を開く`}
-        />
+        >
+          {/* The visible ◇ lives inside its semantic button. A marker click therefore always
+              selects this exact MS; the 44px button remains the generous drag hit area. */}
+          <i
+            className={`block h-3 w-3 -translate-y-[5px] rotate-45 border-2 border-[#5f4a66] ${row.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
+            aria-hidden="true"
+          />
+        </button>
       )}
-      {hasBar && isMilestoneMarker && (
-        <span
-          className="pointer-events-none absolute top-[13px] -translate-x-1/2 text-center"
-          style={{ left: timelinePctCss(plannedEnd) }}
+      {hasBar && isMilestoneMarker && !draggableMilestone && (
+        <button
+          type="button"
+          data-gantt-milestone-marker={row.id}
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpen();
+          }}
+          className="absolute z-20 grid -translate-x-1/2 cursor-pointer place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+          style={detailHitStyle}
+          aria-label={`${row.title}の詳細を開く`}
         >
           {/* NewCo blocking gate = filled purple diamond; generic MS = hollow — matches Legend. */}
           <i
-            className={`mx-auto block h-3 w-3 rotate-45 border-2 border-[#5f4a66] ${row.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
+            className={`block h-3 w-3 -translate-y-[5px] rotate-45 border-2 border-[#5f4a66] ${row.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
             aria-hidden="true"
           />
-        </span>
+        </button>
       )}
       {connectionMode &&
         hasBar &&
