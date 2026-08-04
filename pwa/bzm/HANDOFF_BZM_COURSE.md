@@ -1,76 +1,72 @@
 # HANDOFF　BZM批判的基礎講座
 
-> **更新日**：2026-07-31
+> **更新日**：2026-08-04
 >
-> **仕事種別**：非開発PJ作業。BZM理論の批判的講座と研究整理。
+> **仕事種別**：非開発PJ作業。BZM理論の批判的講座と、SPS 2.0試行採点の準備。
 >
 > **正本パス**：`/Users/masa/projects/AMD/amd-os/pwa/bzm`
 
 ## 今回の到達点
 
-大学院1年生向けの全16回カリキュラムと、Session 0「BZMの二つの観測対象とSPSの役割」を作成した。
+Session 1「測定尺度とSPSの時間構造」は、まさとの対話を反映した`live-reviewed v1.0`になった。
 
-講義資料の現在地は、[講座索引](./course-bzm-foundations-index.md)と[Session 0](./course-bzm-foundations-s00.md)にある。
+SPS 2.0の理論原案は、以下まで設計上の選択として固定した。
 
-Session 0は、まさとの対話を反映した`live-reviewed v1.0`である。
+1. 正本SPSは、社会的価値とPJ自身の経済的価値を保つ$\mathbf{SPS}=q\mathbf P$とする。
+2. $q$は、計画期限内かつ戦略余力を失う前に到達境界$X^*$へ着く、校正前のモデル上の条件付き確率推定値とする。
+3. $T_C$と$T_Y$は、同じ出来事が双方を動かすため、独立ではなく共同シミュレーションで生成する。
+4. XRL段階番号、マイクロトレンド$M$、状態価値$W$を、トップ層へ再乗算しない。証拠を通じて$\mathbf P$または$q$の入力を更新する。
+5. 診断、予測、意思決定は、同じ証拠台帳から別々に出す。現行PWAのSPS、GO判定、本番データは変えていない。
 
-今回の中心的な整理は次のとおり。
-
-1. BZMはSU側のPJと研究機関側を別々に観測する。
-2. 証拠、採点、合成値を分ける。
-3. 現行の九軸式と$M\times P\times R\times S$は代数的に同一である。
-4. 九軸の0〜9が共通の量的尺度であることは未検証である。
-5. 現行$S=FRL\times R_{\mathrm{net}}$は、売上自走状態または生存確率の検証済み測定ではない。
-6. SPSは、当面、版管理された探索的なPJ軌跡指数として残す。
-7. 有償PoC、自走、技術移転、資金接続は、各軸と履歴を使う別々の予測モデルで扱う。
-8. 目標別予測、価値評価、判断、介入をSPSへ再統合しない。
-
-BZM構築時に反論可能性を必ず探索する規律は、[BZM用AGENTS.md](./AGENTS.md)へ保存した。
-
-## Repo状態
-
-- 作業場所：`/Users/masa/projects/AMD/amd-os`
-- branch：`main`
-- 講義資料コミット：`d7e0d50b docs(bzm): add critical foundations session 0`
-- `d7e0d50b`は2026-07-31時点でローカルのみ。
-- push、deploy、外部公開、本番データ書き込み：未実施。
-- 理由：この講座タスクでは、まさが明示しない限りpush、deploy、外部公開を行わない条件がある。
-- このセッションで作成したbranch、worktree：なし。
-- 開発用`design_log/`：未使用。
-- OSマニュアル：対象外。BZM理論と講座資料のみで、AMD OSの製品または運用仕様を変更していない。
-
-## 未解決
-
-1. `BZM_2_0_REVISION_REQUIREMENTS.md` 4.2節の「概念式と九軸式は同一の対象ではない」は、現行PWA仕様の代数的同一性と矛盾する。次回以降に修正案を確定する。
-2. SPS軌跡の一点を、月次、重要イベント時、判断直前のどこで記録するか未確定。
-3. 採点基準または合成方式を変更したとき、全履歴を再計算するか、版の切れ目を残すか未確定。
-4. 「イケている」という人間の定性的所見の記録形式は未確定。SPSから自動生成せず、循環検証を避ける必要がある。
-5. 目標別アウトカムの定義、期間、打切り、競合事象は未確定。
-6. 13を超えるPJと複数時点の保有データは、まさから共有された事実だが、未入力分の件数と内容は未確認。
-7. 現行PWAのSPS計算を置き換える判断はしていない。現行積は暫定診断として残る。
+統合教材は、[ワークスペース文書「BZM 2.0 理論原案」](https://amd-os-pwa.vercel.app/api/workspace-documents/5c00d293-cc97-4136-86df-4af6cdb1e304/render)を唯一の配布正本とする。ローカルHTMLを配布物または別正本として使わない。
 
 ## 次セッションの最初の一手
 
-Session 1「測定尺度」を、一問ずつ対話で進める。
+講義を続ける前に、**SPS 2.0の試行採点を開始する**。
 
-最初の問いは次である。
+最初に、現行データで$P$と$R_{\mathrm{net}}$まで揃う13行を読取り、PJ単位へ戻して、各PJの入力充足表を作る。
 
-> SPS軌跡の一点は、月次の定期観測、重要イベントの直後、意思決定の直前のうち、どの時点で発生させるべきか。
+次に、最も証拠が揃う少数PJを選び、次の入力票を埋める。
 
-まさの直感を聞いたあと、各方式が持つ観測頻度の偏り、後知恵、測定不変性、欠測の違いを示す。
+1. 計画版$v$、情報締切、事象時刻、認識時刻。
+2. $\mathbf P=(V_{\mathrm{soc}},V_{\mathrm{econ}})$の暫定尺度と根拠。
+3. その価値シナリオに対応する到達境界$X^*$。
+4. マイルストーンの依存、最短・最頻・悲観所要時間、成功確率、失敗分岐。
+5. 戦略余力を失う事象、補充事象、各事象が$T_C$と$T_Y$へ与える共同の影響。
+6. 欠測、評価者、根拠、モデル版。
 
-いきなりデータ構造または新しい数式を確定しない。
+入力票と尺度・欠測・版管理規則を同時に固定した後、PJごとに1万回の共同シミュレーションを行い、$q$、$T_C$分布、$T_Y$分布、主な失敗経路、SPSベクトルを試行表示する。
 
-## 最初に読む資料
+単一SPSへの投影、全PJ更新、現行PWA切替はこの試行の後に扱う。試行値を校正済み成功確率、投資判断、自動GO判定とは呼ばない。
+
+## 未解決
+
+1. 社会的価値と条件付きDCFの暫定尺度。
+2. PJ類型ごとの$X^*$と価値シナリオの整合規則。
+3. マイルストーン三点見積り、成功確率、失敗分岐、$T_Y$事象の入力規則と評価者差。
+4. 事象時刻、認識時刻、計画版、モデル版、欠測を保存する実データ構造。
+5. $W(X,Y)$の関数形、単一SPSの尺度写像と方針重み、外部成果による校正。
+
+## Repo状態
+
+- 作業場所：`/Users/masa/projects/AMD/amd-os`、branch：`main`。
+- BZM対象の変更：診断スコア暫定仕様、Session 1、講座索引、改訂要求書、附則、今回のhandoffと移行プロンプト。
+- push、deploy、本番データ書き込み：未実施。講座タスクでは、まさが明示しない限り行わない。
+- 現在のローカル`main`は`origin/main`より8コミット遅れている。BZM外のProject ShareおよびPWA仕様のステージ済み変更は別作業として保持し、触らない。
+- このセッションで作成したbranch、worktree：なし。開発用`design_log/`：未使用。
+- OSマニュアル：対象外。理論、講座、ワークスペース文書の配布先だけを扱い、AMD OS製品仕様を変えていない。
+
+## 読む資料
 
 1. `/Users/masa/projects/AGENTS.common.md`
 2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md`
-3. `/Users/masa/projects/AMD/amd-os/pwa/AGENTS.md`
-4. `/Users/masa/projects/AMD/amd-os/pwa/bzm/AGENTS.md`
-5. このHANDOFF
-6. `/Users/masa/projects/AMD/amd-os/pwa/bzm/course-bzm-foundations-index.md`
-7. `/Users/masa/projects/AMD/amd-os/pwa/bzm/course-bzm-foundations-s00.md`
-8. `/Users/masa/projects/AMD/amd-os/pwa/bzm/BZM_2_0_REVISION_REQUIREMENTS.md`
-9. `/Users/masa/projects/AMD/amd-os/pwa/spec/4-2-amd-score-current-spec.md`
+3. `/Users/masa/projects/AMD/amd-os/CLAUDE.md`
+4. `/Users/masa/projects/AMD/amd-os/pwa/AGENTS.md`
+5. `/Users/masa/projects/AMD/amd-os/pwa/bzm/AGENTS.md`
+6. このHANDOFF
+7. [`BZM_2_0_DIAGNOSTIC_SCORE_SPEC.md`](./BZM_2_0_DIAGNOSTIC_SCORE_SPEC.md)
+8. [`course-bzm-foundations-s01.md`](./course-bzm-foundations-s01.md)
+9. [`BZM_2_0_REVISION_REQUIREMENTS.md`](./BZM_2_0_REVISION_REQUIREMENTS.md)
+10. `/Users/masa/projects/AMD/amd-os/pwa/spec/4-2-amd-score-current-spec.md`
 
 次回用の完全な起動文は、[SESSION_MIGRATION_PROMPT_BZM_COURSE.md](./SESSION_MIGRATION_PROMPT_BZM_COURSE.md)に保存する。

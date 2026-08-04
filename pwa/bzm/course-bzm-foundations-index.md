@@ -61,4 +61,12 @@
 | 回 | 状態 | 資料 |
 |---:|---|---|
 | 0 | `live-reviewed v1.0` | [BZMの二つの観測対象とSPSの役割](./course-bzm-foundations-s00.md) |
-| 1〜15 | `draft` | 対話後に一回ずつ作成する |
+| 1 | `live-reviewed v1.0` | [測定尺度とSPSの時間構造](./course-bzm-foundations-s01.md) |
+| 2〜15 | `draft` | 対話後に一回ずつ作成する |
+
+## BZM 2.0理論原案の統合教材
+
+- [BZM 2.0 理論原案（ワークスペース文書）](https://amd-os-pwa.vercel.app/api/workspace-documents/5c00d293-cc97-4136-86df-4af6cdb1e304/render)
+- [BZM 2.0 診断スコア暫定仕様 draft v0.2](./BZM_2_0_DIAGNOSTIC_SCORE_SPEC.md)
+
+統合教材はワークスペース文書を正本とし、ローカルHTMLを配布物または別正本として使わない。価値ベクトル$\mathbf P$、到達境界$X^*$、到達時間$T_C$、戦略余力$T_Y$、共同シミュレーションによる$q$、状態価値$W(X,Y)$、SPS 2.0の主張境界を、初見の大学院生向けに一続きで説明する。
