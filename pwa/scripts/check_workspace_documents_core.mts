@@ -9,7 +9,9 @@ import {
   normalizeDocumentName,
   normalizeDocumentVisibility,
   WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES,
+  workspaceDocumentFinderCopyName,
   workspaceDocumentHtmlSourceByteLength,
+  workspaceDocumentNameKey,
   workspaceDocumentPdfDownloadName,
   normalizeHttpUrl,
   workspaceDocumentStoragePath,
@@ -20,6 +22,19 @@ assert.equal(normalizeDocumentName("../secret"), null);
 assert.equal(normalizeDocumentName("a/b"), null);
 assert.equal(normalizeDocumentName("a\\b"), null);
 assert.equal(normalizeDocumentName("\u0000file"), null);
+assert.equal(workspaceDocumentNameKey("  Report.PDF "), "report.pdf");
+assert.equal(
+  workspaceDocumentFinderCopyName("Report.pdf", new Set(["report.pdf", "report 2.pdf"])),
+  "Report 3.pdf",
+);
+assert.equal(
+  workspaceDocumentFinderCopyName("議事録", new Set(["議事録"])),
+  "議事録 2",
+);
+assert.equal(
+  workspaceDocumentFinderCopyName(".env", new Set([".env"])),
+  ".env 2",
+);
 
 assert.equal(normalizeDocumentFolderPath(""), "");
 assert.equal(normalizeDocumentFolderPath("契約/2026"), "契約/2026");

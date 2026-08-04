@@ -41,6 +41,37 @@ export function workspaceDocumentPdfDownloadName(displayName: string): string {
   return displayName.replace(/\.html?$/i, ".pdf");
 }
 
+/**
+ * 資料室の名前衝突判定は、DBのlower(display_name) unique indexと同じく
+ * 表示名の前後空白を除いた大小文字非区別の比較に固定する。
+ */
+export function workspaceDocumentNameKey(displayName: string): string {
+  return displayName.trim().toLocaleLowerCase("ja");
+}
+
+/**
+ * Finderと同じ読みやすさで、拡張子の直前へ連番を付ける。
+ * occupiedNameKeysには現在のfolderのactive entryと、同時追加で予約済みの名前を渡す。
+ */
+export function workspaceDocumentFinderCopyName(
+  displayName: string,
+  occupiedNameKeys: ReadonlySet<string>,
+): string {
+  const normalized = normalizeDocumentName(displayName);
+  if (!normalized) throw new Error("invalid workspace document name");
+
+  const extensionIndex = normalized.lastIndexOf(".");
+  const hasExtension = extensionIndex > 0 && extensionIndex < normalized.length - 1;
+  const stem = hasExtension ? normalized.slice(0, extensionIndex) : normalized;
+  const extension = hasExtension ? normalized.slice(extensionIndex) : "";
+
+  for (let sequence = 2; sequence <= 10000; sequence += 1) {
+    const candidate = `${stem} ${sequence}${extension}`;
+    if (!occupiedNameKeys.has(workspaceDocumentNameKey(candidate))) return candidate;
+  }
+  throw new Error("workspace document copy name exhausted");
+}
+
 export function normalizeDocumentName(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim();

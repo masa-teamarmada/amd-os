@@ -47,7 +47,9 @@ import { cn } from "@/lib/utils";
 import {
   isWorkspaceDocumentHtml,
   WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES,
+  workspaceDocumentFinderCopyName,
   workspaceDocumentHtmlSourceByteLength,
+  workspaceDocumentNameKey,
   workspaceDocumentPdfDownloadName,
 } from "@/lib/workspace-documents-core";
 import type {
@@ -86,7 +88,14 @@ type ListResponse = {
 };
 
 type DialogKind =
-  "create_folder" | "create_link" | "edit_html" | "organize" | "archive" | null;
+  "create_folder" | "create_link" | "edit_html" | "organize" | "archive" | "upload_conflict" | null;
+
+type UploadQueueItem = {
+  file: File;
+  displayName: string;
+  conflict: DocumentItem | "queued" | null;
+  replaceDocumentId: string | null;
+};
 
 const kindOrder: Record<WorkspaceDocumentEntryKind, number> = {
   folder: 0,
@@ -201,6 +210,8 @@ export function WorkspaceDocumentRoom({
     useState<WorkspaceDocumentVisibility>("workspace_shared");
   const [draftHtmlSource, setDraftHtmlSource] = useState("");
   const [htmlSourceLoading, setHtmlSourceLoading] = useState(false);
+  const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[] | null>(null);
+  const [uploadConflictIndex, setUploadConflictIndex] = useState<number | null>(null);
 
   const loadDocuments = useCallback(async () => {
     setLoading(true);
@@ -390,23 +401,27 @@ export function WorkspaceDocumentRoom({
     }
   }
 
-  async function uploadFiles(files: File[]) {
-    if (!permissions?.canUpload || busy || files.length === 0) return;
+  async function uploadQueuedFiles(queue: UploadQueueItem[]) {
+    if (!permissions?.canUpload || busy || queue.some((item) => item.conflict)) return;
     setBusy(true);
     setError(null);
     try {
       const supabase = createClient();
-      for (const file of files) {
+      for (const item of queue) {
+        const { file } = item;
         const prepareResponse = await fetch(apiUrl(scopeKind, scopeId), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "create_upload",
-            displayName: file.name,
+            displayName: item.displayName,
             folderPath: currentFolder,
             visibility: draftVisibility,
             fileSizeBytes: file.size,
             mimeType: file.type || "application/octet-stream",
+            ...(item.replaceDocumentId
+              ? { replaceDocumentId: item.replaceDocumentId }
+              : {}),
           }),
         });
         const prepared = (await prepareResponse.json().catch(() => ({}))) as {
@@ -416,6 +431,7 @@ export function WorkspaceDocumentRoom({
           storagePath?: string;
           uploadToken?: string;
           mimeType?: string;
+          isReplacement?: boolean;
         };
         if (
           !prepareResponse.ok ||
@@ -434,17 +450,19 @@ export function WorkspaceDocumentRoom({
           .uploadToSignedUrl(prepared.storagePath, prepared.uploadToken, file, {
             contentType:
               prepared.mimeType || file.type || "application/octet-stream",
-            upsert: false,
+            upsert: prepared.isReplacement === true,
           });
         if (uploadError) {
-          await fetch(
-            `/api/workspace-documents/${encodeURIComponent(prepared.documentId)}`,
-            {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "fail_upload" }),
-            },
-          ).catch(() => undefined);
+          if (!prepared.isReplacement) {
+            await fetch(
+              `/api/workspace-documents/${encodeURIComponent(prepared.documentId)}`,
+              {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "fail_upload" }),
+              },
+            ).catch(() => undefined);
+          }
           throw new Error(`${file.name}: ${uploadError.message}`);
         }
 
@@ -453,7 +471,10 @@ export function WorkspaceDocumentRoom({
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "complete_upload" }),
+            body: JSON.stringify({
+              action: prepared.isReplacement ? "complete_replace" : "complete_upload",
+              ...(prepared.isReplacement ? { mimeType: prepared.mimeType } : {}),
+            }),
           },
         );
         const completed = (await completeResponse.json().catch(() => ({}))) as {
@@ -473,7 +494,89 @@ export function WorkspaceDocumentRoom({
       );
     } finally {
       setBusy(false);
+      setUploadQueue(null);
+      setUploadConflictIndex(null);
     }
+  }
+
+  function uploadFiles(files: File[]) {
+    if (!permissions?.canUpload || busy || files.length === 0) return;
+    setError(null);
+    const occupied = new Map<string, DocumentItem | "queued">(
+      documents
+        .filter((item) => item.folderPath === currentFolder)
+        .map((item) => [workspaceDocumentNameKey(item.displayName), item]),
+    );
+    const queue = files.map<UploadQueueItem>((file) => {
+      const nameKey = workspaceDocumentNameKey(file.name);
+      const conflict = occupied.get(nameKey) ?? null;
+      if (!conflict) occupied.set(nameKey, "queued");
+      return {
+        file,
+        displayName: file.name,
+        conflict,
+        replaceDocumentId: null,
+      };
+    });
+    const firstConflictIndex = queue.findIndex((item) => item.conflict !== null);
+    setUploadQueue(queue);
+    if (firstConflictIndex >= 0) {
+      setUploadConflictIndex(firstConflictIndex);
+      setDialog("upload_conflict");
+      return;
+    }
+    void uploadQueuedFiles(queue);
+  }
+
+  function cancelQueuedUpload() {
+    if (busy) return;
+    setDialog(null);
+    setUploadQueue(null);
+    setUploadConflictIndex(null);
+    if (inputRef.current) inputRef.current.value = "";
+  }
+
+  function decideDuplicateUpload(choice: "keep_both" | "replace") {
+    if (!uploadQueue || uploadConflictIndex == null || busy) return;
+    const current = uploadQueue[uploadConflictIndex];
+    if (!current || !current.conflict) return;
+    const existing = current.conflict === "queued" ? null : current.conflict;
+    if (choice === "replace" && (!existing || existing.entryKind !== "file")) {
+      setError(existing
+        ? "同名のリンクやフォルダは、ファイルで置き換えられないよ。両方残すか中止してね。"
+        : "同時に追加する資料どうしは置き換えられないよ。両方残すか中止してね。");
+      return;
+    }
+
+    const next = uploadQueue.map((item, index) => {
+      if (index !== uploadConflictIndex) return item;
+      if (choice === "replace") {
+        return { ...item, conflict: null, replaceDocumentId: existing!.documentId };
+      }
+      const occupiedNameKeys = new Set([
+        ...documents
+          .filter((document) => document.folderPath === currentFolder)
+          .map((document) => workspaceDocumentNameKey(document.displayName)),
+        ...uploadQueue
+          .filter((_, queueIndex) => queueIndex !== uploadConflictIndex)
+          .map((queueItem) => workspaceDocumentNameKey(queueItem.displayName)),
+      ]);
+      return {
+        ...item,
+        displayName: workspaceDocumentFinderCopyName(item.file.name, occupiedNameKeys),
+        conflict: null,
+      };
+    });
+    const nextConflictIndex = next.findIndex((item) => item.conflict !== null);
+    setUploadQueue(next);
+    setError(null);
+    if (nextConflictIndex >= 0) {
+      setUploadConflictIndex(nextConflictIndex);
+      return;
+    }
+    setDialog(null);
+    setUploadConflictIndex(null);
+    void uploadQueuedFiles(next);
   }
 
   async function organizeEntry(event: FormEvent) {
@@ -582,6 +685,13 @@ export function WorkspaceDocumentRoom({
     void uploadFiles(Array.from(event.dataTransfer.files));
   }
 
+  const activeUploadConflict = uploadQueue && uploadConflictIndex != null
+    ? uploadQueue[uploadConflictIndex] ?? null
+    : null;
+  const conflictDocument = activeUploadConflict?.conflict && activeUploadConflict.conflict !== "queued"
+    ? activeUploadConflict.conflict
+    : null;
+  const canReplaceConflict = conflictDocument?.entryKind === "file";
   const isModal = presentation === "modal";
 
   return (
@@ -1028,6 +1138,59 @@ export function WorkspaceDocumentRoom({
           </div>
         </section>
       </main>
+
+      <Dialog
+        open={dialog === "upload_conflict"}
+        onOpenChange={(open) => !open && cancelQueuedUpload()}
+      >
+        <DialogContent className="w-[calc(100vw-32px)] max-w-lg bg-white text-slate-950">
+          <DialogHeader>
+            <DialogTitle>同名のファイルがあります</DialogTitle>
+            <DialogDescription className="break-words leading-6">
+              <span className="font-semibold text-slate-800">{activeUploadConflict?.file.name}</span>
+              {conflictDocument
+                ? ` は、この場所にある${conflictDocument.entryKind === "file" ? "ファイル" : conflictDocument.entryKind === "link" ? "リンク" : "フォルダ"}と同じ名前だよ。`
+                : " は、同時に追加する資料と同じ名前だよ。"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="my-5 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
+            {canReplaceConflict
+              ? "置き換えると、今あるファイルの内容を新しいファイルへ差し替える。中止なら今回選んだ資料は追加しない。"
+              : conflictDocument
+                ? "リンクやフォルダは、ファイルで置き換えられない。両方残すと新しい資料へ番号を付けるよ。"
+                : "同時に追加する資料どうしは置き換えられない。両方残すと新しい資料へ番号を付けるよ。"}
+          </div>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full sm:w-auto"
+              disabled={busy}
+              onClick={cancelQueuedUpload}
+            >
+              中止
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full sm:w-auto"
+              disabled={busy}
+              onClick={() => decideDuplicateUpload("keep_both")}
+            >
+              両方残す
+            </Button>
+            <Button
+              type="button"
+              className="h-11 w-full bg-red-700 hover:bg-red-800 sm:w-auto"
+              disabled={busy || !canReplaceConflict}
+              title={canReplaceConflict ? "今あるファイルを新しい内容に置き換える" : "リンク・フォルダ・同時追加中の資料は置き換えられない"}
+              onClick={() => decideDuplicateUpload("replace")}
+            >
+              置き換える
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={dialog === "create_folder" || dialog === "create_link"}
