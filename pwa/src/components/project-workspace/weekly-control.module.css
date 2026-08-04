@@ -114,12 +114,18 @@
 .inspectorFacts dt { color: var(--muted); font-size: 10px; }
 .inspectorFacts dd { margin: 2px 0 0; font-size: 11px; font-weight: 760; line-height: 1.35; overflow-wrap: anywhere; }
 .inspectorFacts dd[data-missing] { color: var(--amber); }
-.inspectorEditTray { margin: 8px 16px 0; padding: 10px; border: 1px solid #c9d6ce; background: #f7faf7; }
-.inspectorEditTray:empty { display: none; }
-.inspectorEditTrayContext { margin: 0 0 10px; color: var(--green); font-size: 11px; font-weight: 800; overflow-wrap: anywhere; }
 .inspectorEditable { min-height: 40px; width: 100%; border-bottom: 1px dashed #aaa294; color: inherit; text-align: left; transition: border-color 0.16s ease, background 0.16s ease; }
 .inspectorEditable:hover, .inspectorEditable:focus-visible { border-color: var(--green); background: rgba(232, 242, 235, 0.72); outline: 2px solid var(--green); outline-offset: 1px; }
 .inspectorEditable[data-editing] { border-color: var(--green); background: rgba(232, 242, 235, 0.72); }
+.inspectorInlineSlot { display: block; width: 100%; }
+.inspectorTitleEditor { max-width: 680px; margin-top: 3px; }
+.inspectorTitleEditor .inlineFieldEditor { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px; }
+.inspectorTitleEditor .inlineFieldForm { display: block; }
+.inspectorTitleEditor .inlineFieldForm .fieldSpan > span:first-child { display: none; }
+.inspectorTitleEditor .inlineFieldForm .fieldSpan textarea { min-height: 34px; height: 34px; resize: none; border-color: transparent; border-bottom-color: #c9c0b2; border-radius: 0; background: transparent; padding: 5px 2px; font-size: 18px; font-weight: 700; line-height: 1.3; box-shadow: none; }
+.inspectorTitleEditor .inlineFieldForm .fieldSpan textarea:focus, .inspectorTitleEditor .inlineFieldForm .fieldSpan textarea:focus-visible { border-color: transparent; border-bottom-color: #5f4a66; outline: 2px solid rgba(95, 74, 102, .24); outline-offset: 1px; box-shadow: none; }
+.inspectorTitleEditor .inlineFieldActions { align-self: stretch; margin-top: 0; }
+.inspectorTitleEditor .inlineFieldActions button { min-height: 34px; padding: 0 7px; }
 .inlineFieldSlot { min-width: 0; width: 100%; color: var(--ink); font-weight: 400; }
 .inspectorContentGrid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(240px, 0.8fr); gap: 12px 18px; padding: 14px 16px; }
 .inspectorSection { min-width: 0; padding: 0 0 10px; border: 0; border-bottom: 1px solid #e8e2d7; }
@@ -461,7 +467,8 @@
   .inspectorFacts > div:nth-child(3n) { border-right: 1px solid rgba(35, 95, 75, .16); }
   .inspectorFacts > div:nth-child(even) { border-right: 0; }
   .inspectorContentGrid { grid-template-columns: 1fr; gap: 16px; padding: 20px 16px; }
-  .inspectorEditTray { margin-right: 16px; margin-left: 16px; }
+  .inspectorTitleEditor .inlineFieldEditor { grid-template-columns: 1fr; }
+  .inspectorTitleEditor .inlineFieldActions { justify-content: flex-start; }
 }
 
 @media (prefers-reduced-motion: reduce) {

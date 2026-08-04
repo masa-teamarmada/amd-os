@@ -29,7 +29,6 @@ import type {
 import {
   sxGateRequirementCounts,
   sxGateRequirementState,
-  sxGateRequirementsBySuccessor,
   sxIsBlockingMilestone,
   sxMilestoneRequiredTaskSummary,
   type SxGateRequirement,
@@ -50,7 +49,9 @@ import { sxFormatDate } from "./sx-visual-shared";
 
 const MONTH_ROW_H = 20;
 const PIN_ROW_H = 22;
-const LANE_HEADER_H = 22;
+// The compact lane header doubles as the MS label band. It is deliberately smaller than a task
+// row, while leaving the marker's pointer target clear of the first task bar.
+const LANE_HEADER_H = 34;
 const ROW_H = 48;
 const MILESTONE_PROMPT_FLIP_Y = 138;
 const LANE_GAP = 2;
@@ -103,10 +104,8 @@ type DisplayRow = {
   isCritical: boolean;
   isCurrent: boolean;
   isBlockingMilestone: boolean;
-  /** phase = rendered as a bar (工程); milestone = rendered as a diamond (MS). null for task
-   * rows — tasks are never diamonds. Blocking-gate rows (isBlockingMilestone) always render as
-   * a diamond regardless of this value — that special-case stays slug-driven, everything else
-   * must read this column instead of guessing from slug. */
+  /** Internal type from the milestone table. The gantt renders only task rows and point-MS
+   * lane overlays; hidden compatibility containers are never displayed as rows. */
   timelineKind: SxTimelineKind | null;
   /** project_management_milestones.version / project_management_tasks.version at the time this
    * row was built. Sent back as expected_version on a gantt-drag PATCH. */
@@ -227,40 +226,6 @@ function classifyTask(task: SxTask, asOf: string): DisplayRow["state"] {
   return task.progressPct > 0 ? "current" : "future";
 }
 
-function milestoneDisplayRow(
-  row: SxEcdTimelineRow,
-  milestone: SxManagementMilestone | undefined,
-  requirements: SxGateRequirement[],
-  hasChildren: boolean,
-): DisplayRow {
-  return {
-    id: row.milestoneId,
-    entity: "milestone",
-    milestoneId: row.milestoneId,
-    parentTaskId: null,
-    depth: 0,
-    title: row.title,
-    state: row.state,
-    isCritical: row.isCritical,
-    isCurrent: row.isCurrent,
-    isBlockingMilestone: Boolean(milestone && sxIsBlockingMilestone(milestone)),
-    timelineKind: milestone?.timelineKind ?? "phase",
-    version: milestone?.version ?? 1,
-    gate: milestone?.gate || row.gate,
-    plannedStart: row.plannedStart,
-    plannedEnd: row.plannedEnd,
-    actualEnd: milestone?.actualEnd || null,
-    plannedStartPct: row.plannedStartPct,
-    plannedEndPct: row.plannedEndPct,
-    dateCertainty: row.dateCertainty,
-    ownerLabel: row.ownerLabel,
-    progressPct: row.progressPct,
-    progressRegistered: row.state !== "unassessed",
-    hasChildren,
-    requirements,
-  };
-}
-
 function blockingRowState(
   status: SxManagementMilestone["manualStatus"],
 ): DisplayRow["state"] {
@@ -271,18 +236,19 @@ function blockingRowState(
   return "current";
 }
 
-/** Founding-prerequisite milestone row. Dates come straight from the milestone (currently
- * always null — no date is invented here) and go through the same dateToPct as every other
- * row, so if a real date is ever entered this row naturally gains a normal bar instead of
- * needing a separate code path. */
-function blockingMilestoneRow(
+/** An MS is an overlay across its lane, never a fake parent task row. Dates come straight from
+ * the record: when there is no date, it is shown as a lane-band label rather than inventing an
+ * x-position. */
+function milestoneAnchorRow(
   milestone: SxManagementMilestone,
-  hasChildren: boolean,
   tasks: SxTask[],
   timeline: SxEcdUnifiedTimeline,
 ): DisplayRow {
   const summary = sxMilestoneRequiredTaskSummary(milestone.id, tasks);
-  const achievement = sxGateRequirementState(milestone, tasks);
+  const isBlockingMilestone = sxIsBlockingMilestone(milestone);
+  const achievement = isBlockingMilestone
+    ? sxGateRequirementState(milestone, tasks)
+    : null;
   return {
     id: milestone.id,
     entity: "milestone",
@@ -293,7 +259,7 @@ function blockingMilestoneRow(
     state: blockingRowState(milestone.manualStatus),
     isCritical: false,
     isCurrent: false,
-    isBlockingMilestone: true,
+    isBlockingMilestone,
     timelineKind: milestone.timelineKind,
     version: milestone.version,
     gate: milestone.gate,
@@ -314,14 +280,16 @@ function blockingMilestoneRow(
     ownerLabel: milestone.ownerLabel || "担当未確認",
     progressPct: milestone.progressPct,
     progressRegistered: milestone.manualStatus !== "unassessed",
-    hasChildren,
+    hasChildren: false,
     requirements: [],
     achievement,
-    requiredTaskSummary: {
-      completed: summary.completed,
-      total: summary.total,
-      nextIncompleteTitle: summary.nextIncomplete?.title ?? null,
-    },
+    requiredTaskSummary: isBlockingMilestone
+      ? {
+          completed: summary.completed,
+          total: summary.total,
+          nextIncompleteTitle: summary.nextIncomplete?.title ?? null,
+        }
+      : null,
   };
 }
 
@@ -796,17 +764,8 @@ function Legend() {
   );
 }
 
-/** MS表示の3分類: タスクは常にタスク。工程/MSの行はtimelineKind(工程 or 一般MS)と
- * isBlockingMilestone(設立前提の2件だけ)を見て判定する — スラグから推測しない。 */
-function rowKindLabel(row: DisplayRow): string {
-  if (row.entity === "task") return "タスク";
-  if (row.isBlockingMilestone) return "設立ゲート";
-  if (row.timelineKind === "milestone") return "マイルストーン";
-  return "工程";
-}
-
-/** Pointer-drag state for gantt direct editing (move/resize a phase bar, move a milestone
- * diamond). `dragging` only flips true once the pointer has moved past CLICK_DRAG_THRESHOLD_PX —
+/** Pointer-drag state for gantt direct editing (move/resize a task bar, move an MS marker).
+ * `dragging` only flips true once the pointer has moved past CLICK_DRAG_THRESHOLD_PX —
  * below that, releasing the pointer is a plain row click, not a drag commit. */
 // "milestone-move" = generic point-MS: the diamond drags both planned_start/planned_end together
 // (computeMilestoneMove collapses them to one date, regardless of the row's original values).
@@ -832,7 +791,7 @@ type DragState = {
 
 type TaskNestTarget =
   | { kind: "task"; taskId: string }
-  | { kind: "milestone"; milestoneId: string };
+  | { kind: "root"; laneKey: SxDisplayLaneKey };
 
 /** Separate from date-bar drag: the left-side grip moves only the task hierarchy. */
 type TaskNestDragState = {
@@ -871,7 +830,6 @@ export function SxUnifiedTimeline({
   selectedMilestoneId,
   selectedTaskId = null,
   milestones = [],
-  dependencies = [],
   scheduleDependencies = [],
   tasks = [],
   outcomes = [],
@@ -896,6 +854,8 @@ export function SxUnifiedTimeline({
   selectedMilestoneId: string | null;
   selectedTaskId?: string | null;
   milestones?: SxManagementMilestone[];
+  /** Kept in the public component contract for callers that share the management bundle. The
+   * task-only renderer no longer treats milestone dependencies as displayed parent rows. */
   dependencies?: SxDependency[];
   scheduleDependencies?: SxScheduleDependency[];
   tasks?: SxTask[];
@@ -921,13 +881,15 @@ export function SxUnifiedTimeline({
   onManagementChange?: (bundle: SxManagementBundle, message: string) => void;
   showPins?: boolean;
 }) {
-  const [expandedMilestones, setExpandedMilestones] = useState<Set<string>>(
-    // 設立前提の2件は初期展開にする（配下の必須タスクを開いた状態で見せる）。
-    () =>
-      new Set(milestones.filter(sxIsBlockingMilestone).map((item) => item.id)),
-  );
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(
-    () => new Set(),
+    // Promoted legacy roots represent the initial, readable task hierarchy. Their own child
+    // tasks are visible immediately; deeper task nesting remains independently collapsible.
+    () =>
+      new Set(
+        tasks
+          .filter((task) => task.sourceRef?.startsWith("ui-root-from-phase:"))
+          .map((task) => task.id),
+      ),
   );
   const [hoveredPin, setHoveredPin] = useState<string | null>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -1278,20 +1240,6 @@ export function SxUnifiedTimeline({
     () => new Map(milestones.map((milestone) => [milestone.id, milestone])),
     [milestones],
   );
-  const requirementsBySuccessor = useMemo(
-    () => sxGateRequirementsBySuccessor(milestones, dependencies, tasks),
-    [dependencies, milestones, tasks],
-  );
-
-  // ガント外のカード帯ではなく、専用レーンとしてガント内部に表示する2件の設立前提。
-  const blockingMilestones = useMemo(
-    () =>
-      milestones
-        .filter(sxIsBlockingMilestone)
-        .sort((left, right) => left.slug.localeCompare(right.slug)),
-    [milestones],
-  );
-
   const taskChildren = useMemo(() => {
     const map = new Map<string, SxTask[]>();
     for (const task of tasks) {
@@ -1311,23 +1259,15 @@ export function SxUnifiedTimeline({
     [taskNestDrag?.taskId, tasks],
   );
 
-  // 事業開発／技術開発／組織開発の3レーンだけを描く。資金調達は独立レーンを持たず組織開発へ
-  // 統合し、設立前提の2件は専用の4本目レーンではなく、それぞれの対象レーンへ直接組み込む。
+  // The visible tree contains only tasks. Legacy phase milestones remain in the database as
+  // FK containers, but their promoted root task is the visual root. Point-MS records are kept
+  // separately as lane-wide overlays, never as parent-like rows.
   const visibleLanes = useMemo(() => {
-    const appendTaskChildren = (
-      milestoneId: string,
-      rows: DisplayRow[],
-      parentTaskId: string | null,
-      depth: number,
-    ) => {
-      const key = parentTaskId || `milestone:${milestoneId}`;
-      for (const task of taskChildren.get(key) || []) {
-        const children = taskChildren.get(task.id) || [];
-        rows.push(
-          taskDisplayRow(task, depth, children.length > 0, timeline, asOf),
-        );
-        if (children.length > 0 && expandedTasks.has(task.id))
-          appendTaskChildren(milestoneId, rows, task.id, depth + 1);
+    const appendTaskTree = (task: SxTask, rows: DisplayRow[], depth: number) => {
+      const children = taskChildren.get(task.id) || [];
+      rows.push(taskDisplayRow(task, depth, children.length > 0, timeline, asOf));
+      if (children.length > 0 && expandedTasks.has(task.id)) {
+        for (const child of children) appendTaskTree(child, rows, depth + 1);
       }
     };
 
@@ -1337,43 +1277,30 @@ export function SxUnifiedTimeline({
       organization: [],
     };
 
-    for (const milestone of blockingMilestones) {
-      const rows: DisplayRow[] = [];
-      const children = taskChildren.get(`milestone:${milestone.id}`) || [];
-      rows.push(
-        blockingMilestoneRow(milestone, children.length > 0, tasks, timeline),
-      );
-      if (children.length > 0 && expandedMilestones.has(milestone.id))
-        appendTaskChildren(milestone.id, rows, null, 1);
-      bucket[BLOCKING_MILESTONE_LANE[milestone.slug] ?? "organization"].push(
-        ...rows,
-      );
+    const laneForTask = (task: SxTask): SxDisplayLaneKey => {
+      const backing = milestoneById.get(task.milestoneId);
+      if (backing && sxIsBlockingMilestone(backing))
+        return BLOCKING_MILESTONE_LANE[backing.slug] ?? "organization";
+      return displayLaneKeyForTrack(task.track || backing?.track || "organizational_building");
+    };
+    for (const task of tasks
+      .filter((candidate) => candidate.parentTaskId == null)
+      .sort((left, right) => left.sortOrder - right.sortOrder || left.title.localeCompare(right.title))) {
+      appendTaskTree(task, bucket[laneForTask(task)], 0);
     }
 
-    for (const lane of timeline.lanes) {
-      const laneKey = displayLaneKeyForTrack(lane.key);
-      for (const milestone of lane.rows) {
-        // 設立前提の2件は上ですでに強制配置済みなので、通常の柱レーンでは二重表示しない。
-        const definition = milestoneById.get(milestone.milestoneId);
-        if (definition && sxIsBlockingMilestone(definition)) continue;
-        const rows: DisplayRow[] = [];
-        const children =
-          taskChildren.get(`milestone:${milestone.milestoneId}`) || [];
-        rows.push(
-          milestoneDisplayRow(
-            milestone,
-            definition,
-            requirementsBySuccessor.get(milestone.milestoneId) || [],
-            children.length > 0,
-          ),
-        );
-        if (
-          children.length > 0 &&
-          expandedMilestones.has(milestone.milestoneId)
-        )
-          appendTaskChildren(milestone.milestoneId, rows, null, 1);
-        bucket[laneKey].push(...rows);
-      }
+    const milestoneBucket: Record<SxDisplayLaneKey, DisplayRow[]> = {
+      business_development: [],
+      technology_development: [],
+      organization: [],
+    };
+    for (const milestone of milestones.filter(
+      (candidate) => candidate.timelineKind === "milestone",
+    )) {
+      const laneKey = sxIsBlockingMilestone(milestone)
+        ? (BLOCKING_MILESTONE_LANE[milestone.slug] ?? "organization")
+        : displayLaneKeyForTrack(milestone.track);
+      milestoneBucket[laneKey].push(milestoneAnchorRow(milestone, tasks, timeline));
     }
 
     const laneByKey = new Map(timeline.lanes.map((lane) => [lane.key, lane]));
@@ -1402,34 +1329,23 @@ export function SxUnifiedTimeline({
         maxIssue: maxIssueFor(key),
       } satisfies LaneMeta,
       rows: bucket[key],
+      milestones: milestoneBucket[key].sort(
+        (left, right) => left.title.localeCompare(right.title),
+      ),
     }));
   }, [
     asOf,
-    blockingMilestones,
-    expandedMilestones,
     expandedTasks,
     milestoneById,
-    requirementsBySuccessor,
     taskChildren,
     tasks,
     timeline,
+    milestones,
   ]);
 
   const hasAnyChildren = taskChildren.size > 0;
   const allExpanded =
     hasAnyChildren &&
-    blockingMilestones.every(
-      (milestone) =>
-        !taskChildren.has(`milestone:${milestone.id}`) ||
-        expandedMilestones.has(milestone.id),
-    ) &&
-    timeline.lanes.every((lane) =>
-      lane.rows.every(
-        (row) =>
-          !taskChildren.has(`milestone:${row.milestoneId}`) ||
-          expandedMilestones.has(row.milestoneId),
-      ),
-    ) &&
     tasks.every(
       (task) => !taskChildren.has(task.id) || expandedTasks.has(task.id),
     );
@@ -1439,11 +1355,25 @@ export function SxUnifiedTimeline({
   );
   const pinRowHeight = showPins ? PIN_ROW_H : 0;
   const gridHeight = pinRowHeight + lanesHeight;
+  const milestoneStats = useMemo(() => {
+    const all = visibleLanes.flatMap(({ milestones: laneMilestones }) => laneMilestones);
+    return {
+      undated: all.filter((milestone) => !milestone.plannedEnd).length,
+      completed: all.filter((milestone) => milestone.state === "complete").length,
+    };
+  }, [visibleLanes]);
 
   const visibleRowLayout = useMemo(() => {
     const rows = new Map<string, { row: DisplayRow; centerY: number }>();
     let top = pinRowHeight;
-    for (const { rows: laneRows } of visibleLanes) {
+    for (const { rows: laneRows, milestones: laneMilestones } of visibleLanes) {
+      const laneTop = top;
+      for (const milestone of laneMilestones) {
+        rows.set(`milestone:${milestone.id}`, {
+          row: milestone,
+          centerY: laneTop + LANE_HEADER_H / 2,
+        });
+      }
       top += LANE_HEADER_H;
       for (const row of laneRows) {
         rows.set(`${row.entity}:${row.id}`, {
@@ -1534,17 +1464,8 @@ export function SxUnifiedTimeline({
 
   function toggleAll() {
     if (allExpanded) {
-      setExpandedMilestones(new Set());
       setExpandedTasks(new Set());
     } else {
-      setExpandedMilestones(
-        new Set([
-          ...blockingMilestones.map((milestone) => milestone.id),
-          ...timeline.lanes.flatMap((lane) =>
-            lane.rows.map((row) => row.milestoneId),
-          ),
-        ]),
-      );
       setExpandedTasks(new Set(tasks.map((task) => task.id)));
     }
   }
@@ -1728,7 +1649,7 @@ export function SxUnifiedTimeline({
     const target = document
       .elementFromPoint(clientX, clientY)
       ?.closest<HTMLElement>(
-        "[data-gantt-nest-target-task], [data-gantt-nest-root-milestone]",
+        "[data-gantt-nest-target-task], [data-gantt-nest-root-lane]",
       );
     if (!target) return null;
     const parentTaskId = target.dataset.ganttNestTargetTask;
@@ -1737,9 +1658,15 @@ export function SxUnifiedTimeline({
       taskNestCandidateIds(tasks, source.taskId).has(parentTaskId)
     )
       return { kind: "task", taskId: parentTaskId };
-    const milestoneId = target.dataset.ganttNestRootMilestone;
-    if (milestoneId === source.milestoneId)
-      return { kind: "milestone", milestoneId };
+    const rootLane = target.dataset.ganttNestRootLane as SxDisplayLaneKey | undefined;
+    const sourceTask = tasks.find((task) => task.id === source.taskId);
+    const backing = sourceTask ? milestoneById.get(sourceTask.milestoneId) : null;
+    const sourceLane = sourceTask
+      ? backing && sxIsBlockingMilestone(backing)
+        ? (BLOCKING_MILESTONE_LANE[backing.slug] ?? "organization")
+        : displayLaneKeyForTrack(sourceTask.track || backing?.track || "organizational_building")
+      : null;
+    if (rootLane && rootLane === sourceLane) return { kind: "root", laneKey: rootLane };
     return null;
   }
 
@@ -1788,9 +1715,9 @@ export function SxUnifiedTimeline({
         (target?.kind === "task" &&
           current.target?.kind === "task" &&
           target.taskId !== current.target.taskId) ||
-        (target?.kind === "milestone" &&
-          current.target?.kind === "milestone" &&
-          target.milestoneId !== current.target.milestoneId);
+        (target?.kind === "root" &&
+          current.target?.kind === "root" &&
+          target.laneKey !== current.target.laneKey);
       return current.dragging === dragging && !targetChanged
         ? current
         : { ...current, dragging, target };
@@ -1848,16 +1775,12 @@ export function SxUnifiedTimeline({
         setExpandedTasks((currentExpanded) =>
           new Set([...currentExpanded, parentTaskId]),
         );
-      else
-        setExpandedMilestones((currentExpanded) =>
-          new Set([...currentExpanded, current.milestoneId]),
-        );
       setTaskNestDragBoth(null);
       onManagementChange(
         body.bundle as SxManagementBundle,
         parentTitle
           ? `「${current.title}」を「${parentTitle}」の子タスクにしたよ`
-          : `「${current.title}」を工程の直下に戻したよ`,
+          : `「${current.title}」を最上位タスクに戻したよ`,
       );
     } catch (caught) {
       setTaskNestDragBoth(null);
@@ -2041,8 +1964,8 @@ export function SxUnifiedTimeline({
       {!timeline.valid && (
         <p className="mb-2 border border-dashed border-[#b5533f] bg-[#f9e4e1] px-3 py-2 text-[11px] font-semibold text-[#8c3329]">
           {timeline.reason}
-          {blockingMilestones.length > 0 &&
-            "。設立前提の2件は日程未設定でも該当レーンに表示するよ。"}
+          {milestones.some((milestone) => milestone.timelineKind === "milestone") &&
+            "。MSは日程未設定でも該当レーンに表示するよ。"}
         </p>
       )}
       {ganttNotice && (
@@ -2054,16 +1977,6 @@ export function SxUnifiedTimeline({
         <Legend />
       </div>
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-        {canManage && (
-          <button
-            type="button"
-            onClick={() => onCreateMilestone({ track: null })}
-            className="inline-flex min-h-11 items-center gap-1 border border-[#315f7d] bg-[#315f7d] px-3 text-[11px] font-bold text-white"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            工程
-          </button>
-        )}
         <button
           type="button"
           disabled={!hasAnyChildren}
@@ -2167,70 +2080,63 @@ export function SxUnifiedTimeline({
         </details>
       )}
 
-      <div className="space-y-2 lg:hidden" aria-label="工程とタスクの縦一覧">
-        {visibleLanes.map(({ lane, rows }) => (
+      <div className="space-y-2 lg:hidden" aria-label="MSとタスクの縦一覧">
+        {visibleLanes.map(({ lane, rows, milestones: laneMilestones }) => (
           <section
             key={`mobile-${lane.key}`}
             className="border border-[#d6cebf] bg-[#fffdf7]"
           >
-            <header className="flex items-center gap-2 border-b border-[#d6cebf] bg-[#f8f5ec] px-3 py-2">
+            <header
+              data-gantt-nest-root-lane={lane.key}
+              className="flex items-center gap-2 border-b border-[#d6cebf] bg-[#f8f5ec] px-3 py-2"
+            >
               <span
                 className="h-2.5 w-2.5"
                 style={{ background: lane.accent }}
               />
               <b className="text-[11px] text-[#24231f]">{lane.label}</b>
               <span className="text-[9px] text-[#777166]">
-                工程 {rows.filter((row) => row.entity === "milestone").length}
+                MS {laneMilestones.length} / タスク {rows.length}
               </span>
             </header>
             <div className="divide-y divide-[#eee9df]">
+              {laneMilestones.map((milestone) => (
+                <button
+                  key={`mobile-ms-${milestone.id}`}
+                  type="button"
+                  data-gantt-milestone-marker={milestone.id}
+                  onClick={() => select(milestone)}
+                  className={`flex min-h-11 w-full items-center gap-2 px-3 text-left ${selectedMilestoneId === milestone.id ? "bg-[#f1edf3]" : "bg-[#fbf9f2]"}`}
+                  aria-label={`${milestone.title}の詳細を開く`}
+                >
+                  <i className={`h-3 w-3 shrink-0 rotate-45 border-2 border-[#5f4a66] ${milestone.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`} aria-hidden="true" />
+                  <span className="min-w-0 flex-1 text-[10px] font-bold text-[#5f4a66]">{milestone.title}</span>
+                  <span className="shrink-0 text-[9px] text-[#716d63]">{milestone.plannedEnd ? sxFormatDate(milestone.plannedEnd) : "日程未設定"}</span>
+                </button>
+              ))}
               {rows.map((row) => {
-                const selected =
-                  row.entity === "milestone"
-                    ? selectedMilestoneId === row.id
-                    : selectedTaskId === row.id;
-                const expanded =
-                  row.entity === "milestone"
-                    ? expandedMilestones.has(row.id)
-                    : expandedTasks.has(row.id);
-                const counts = sxGateRequirementCounts(row.requirements);
-                const incomingScheduleCount =
-                  row.entity === "task"
-                    ? scheduleDependencies.filter(
-                        (item) => item.successorTaskId === row.id,
-                      ).length
-                    : 0;
+                const selected = selectedTaskId === row.id;
+                const expanded = expandedTasks.has(row.id);
+                const incomingScheduleCount = scheduleDependencies.filter(
+                  (item) => item.successorTaskId === row.id,
+                ).length;
                 const outgoingScheduleCount = scheduleDependencies.filter(
                   (item) =>
-                    item.predecessorType === row.entity &&
-                    (row.entity === "task"
-                      ? item.predecessorTaskId === row.id
-                      : item.predecessorMilestoneId === row.id),
+                    item.predecessorType === "task" && item.predecessorTaskId === row.id,
                 ).length;
                 const isNestSource =
                   taskNestDrag?.taskId === row.id && taskNestDrag.dragging;
                 const isNestTaskTarget =
                   taskNestDrag?.target?.kind === "task" &&
                   taskNestDrag.target.taskId === row.id;
-                const isNestRootTarget =
-                  taskNestDrag?.target?.kind === "milestone" &&
-                  taskNestDrag.target.milestoneId === row.id;
-                const isNestCandidate =
-                  row.entity === "task" && taskNestCandidateTaskIds.has(row.id);
-                const isNestRootCandidate =
-                  row.entity === "milestone" &&
-                  taskNestDrag?.milestoneId === row.id &&
-                  tasks.find((task) => task.id === taskNestDrag.taskId)
-                    ?.parentTaskId != null;
+                const isNestRootTarget = taskNestDrag?.target?.kind === "root" && taskNestDrag.target.laneKey === lane.key;
+                const isNestCandidate = taskNestCandidateTaskIds.has(row.id);
                 return (
                   <article
                     key={`mobile-${row.entity}-${row.id}`}
                     data-plan-row={`${row.entity}:${row.id}`}
                     data-gantt-nest-target-task={
                       isNestCandidate ? row.id : undefined
-                    }
-                    data-gantt-nest-root-milestone={
-                      isNestRootCandidate ? row.id : undefined
                     }
                     className={`p-2.5 transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#e8f2eb] outline outline-2 outline-[#205f49] outline-offset-[-2px]" : selected ? "bg-[#e8f2eb]" : "bg-white"}`}
                     style={{ marginLeft: row.depth * 12 }}
@@ -2246,9 +2152,7 @@ export function SxUnifiedTimeline({
                               else next.add(row.id);
                               return next;
                             };
-                            if (row.entity === "milestone")
-                              setExpandedMilestones(update);
-                            else setExpandedTasks(update);
+                            setExpandedTasks(update);
                           }}
                           className="grid min-h-11 min-w-11 place-items-center text-[#69665d]"
                           aria-label={
@@ -2262,7 +2166,7 @@ export function SxUnifiedTimeline({
                           />
                         </button>
                       )}
-                      {row.entity === "task" && canManage && projectId && (
+                      {canManage && projectId && (
                         <button
                           type="button"
                           data-gantt-task-nest-handle={row.id}
@@ -2285,18 +2189,10 @@ export function SxUnifiedTimeline({
                         aria-pressed={selected}
                       >
                         <span className="flex flex-wrap items-center gap-1">
-                          {(row.isBlockingMilestone || row.timelineKind === "milestone") && (
-                            <i
-                              className={`inline-block h-3 w-3 shrink-0 rotate-45 border-2 border-[#5f4a66] ${row.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
-                              aria-hidden="true"
-                            />
-                          )}
                           <b className="text-[11px] text-[#24231f]">
                             {row.title}
                           </b>
-                          <i className="border border-[#c9bfd0] bg-[#f1edf3] px-1 text-[8px] not-italic text-[#5f4a66]">
-                            {rowKindLabel(row)}
-                          </i>
+                          <i className="border border-[#d6cebf] px-1 text-[8px] not-italic text-[#69665d]">タスク</i>
                           <i className="border border-[#d6cebf] px-1 text-[8px] not-italic text-[#514e47]">
                             {ROW_STATE_TEXT[row.state]}
                           </i>
@@ -2318,62 +2214,18 @@ export function SxUnifiedTimeline({
                           <span className="mt-1 block text-[10px] font-bold text-[#205f49]">
                             {isNestTaskTarget
                               ? "ここを親タスクにする"
-                              : "工程の直下に戻す"}
+                              : "最上位タスクに戻す"}
                           </span>
                         )}
-                        {row.entity === "milestone" &&
-                          row.requiredTaskSummary && (
-                            <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold text-[#5f4a66]">
-                              <span>
-                                必須タスク {row.requiredTaskSummary.completed}/
-                                {row.requiredTaskSummary.total}
-                                {row.requiredTaskSummary.total === 0
-                                  ? "（未登録）"
-                                  : row.requiredTaskSummary.nextIncompleteTitle
-                                    ? ` ・ 次：${row.requiredTaskSummary.nextIncompleteTitle}`
-                                    : " ・ 全完了"}
-                              </span>
-                              {row.achievement && (
-                                <em
-                                  className={`border px-1 py-0.5 text-[8px] font-bold not-italic ${GATE_STATE_TONE[row.achievement]}`}
-                                >
-                                  {GATE_STATE_TEXT[row.achievement]}
-                                </em>
-                              )}
-                            </span>
-                          )}
-                        {row.entity === "milestone" &&
-                          !row.requiredTaskSummary && (
-                            <span className="mt-1 block text-[10px] font-semibold text-[#5f4a66]">
-                              {row.requirements.length > 0
-                                ? `前提 ${counts.met}/${counts.total}｜${
-                                    row.requirements
-                                      .filter((item) => item.state !== "met")
-                                      .map(
-                                        (item) =>
-                                          item.milestone.gate ||
-                                          item.milestone.title,
-                                      )
-                                      .join(" / ") || "すべて充足"
-                                  }`
-                                : `到達点｜${row.gate}`}
-                            </span>
-                          )}
                       </button>
                     </div>
                     {dependencyMode && (
                       <div className="mt-2 grid grid-cols-2 gap-2 border-t border-[#eee9df] pt-2">
-                        {row.plannedEndPct != null &&
-                        (row.entity === "task" ||
-                          row.timelineKind === "milestone" ||
-                          row.isBlockingMilestone) ? (
+                        {row.plannedEndPct != null ? (
                           <button
                             type="button"
                             aria-pressed={
-                              dependencySource
-                                ? sourceKey(dependencySource) ===
-                                  `${row.entity}:${row.id}`
-                                : false
+                              dependencySource ? sourceKey(dependencySource) === `task:${row.id}` : false
                             }
                             onClick={() => beginKeyboardScheduleDependency(row)}
                             className="flex min-h-11 items-center justify-center gap-1 border border-[#c9bfd0] px-2 text-[10px] font-bold text-[#5f4a66] aria-pressed:bg-[#f1edf3]"
@@ -2452,7 +2304,7 @@ export function SxUnifiedTimeline({
             style={{ height: MONTH_ROW_H }}
           >
             <p className="sticky left-0 z-[51] bg-[#fffdf7] px-2 text-[9px] font-semibold tracking-[0.1em] text-[#777166]">
-              工程 / タスク
+              タスク
             </p>
             <div className="relative h-full">
               {timeline.months.map((month) => (
@@ -2486,9 +2338,10 @@ export function SxUnifiedTimeline({
                   介入の期限
                 </div>
               )}
-              {visibleLanes.map(({ lane, rows }) => (
+              {visibleLanes.map(({ lane, rows, milestones: laneMilestones }) => (
                 <div key={lane.key} style={{ marginBottom: LANE_GAP }}>
                   <div
+                    data-gantt-nest-root-lane={lane.key}
                     className="flex items-center gap-1.5 border-b border-[#d6cebf] px-2"
                     style={{ height: LANE_HEADER_H }}
                   >
@@ -2500,50 +2353,26 @@ export function SxUnifiedTimeline({
                       {lane.label}
                     </span>
                     <span className="text-[10px] text-[#777166]">
-                      工程{" "}
-                      {rows.filter((row) => row.entity === "milestone").length}{" "}
-                      / タスク{" "}
-                      {rows.filter((row) => row.entity === "task").length}
+                      MS {laneMilestones.length} / タスク {rows.length}
                     </span>
                   </div>
                   {rows.map((row) => {
-                    const selected =
-                      row.entity === "milestone"
-                        ? selectedMilestoneId === row.id
-                        : selectedTaskId === row.id;
-                    const expanded =
-                      row.entity === "milestone"
-                        ? expandedMilestones.has(row.id)
-                        : expandedTasks.has(row.id);
-                    const nextRequirement = row.requirements.find(
-                      (item) => item.state !== "met",
-                    );
+                    const selected = selectedTaskId === row.id;
+                    const expanded = expandedTasks.has(row.id);
                     const isNestSource =
                       taskNestDrag?.taskId === row.id &&
                       taskNestDrag.dragging;
                     const isNestTaskTarget =
                       taskNestDrag?.target?.kind === "task" &&
                       taskNestDrag.target.taskId === row.id;
-                    const isNestRootTarget =
-                      taskNestDrag?.target?.kind === "milestone" &&
-                      taskNestDrag.target.milestoneId === row.id;
-                    const isNestCandidate =
-                      row.entity === "task" &&
-                      taskNestCandidateTaskIds.has(row.id);
-                    const isNestRootCandidate =
-                      row.entity === "milestone" &&
-                      taskNestDrag?.milestoneId === row.id &&
-                      tasks.find((task) => task.id === taskNestDrag.taskId)
-                        ?.parentTaskId != null;
+                    const isNestRootTarget = taskNestDrag?.target?.kind === "root" && taskNestDrag.target.laneKey === lane.key;
+                    const isNestCandidate = taskNestCandidateTaskIds.has(row.id);
                     return (
                       <div
                         key={`${row.entity}-${row.id}`}
                         data-plan-row={`${row.entity}:${row.id}`}
                         data-gantt-nest-target-task={
                           isNestCandidate ? row.id : undefined
-                        }
-                        data-gantt-nest-root-milestone={
-                          isNestRootCandidate ? row.id : undefined
                         }
                         className={`group relative flex scroll-mt-3 border-b border-[#f1eee5] transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#e8f2eb] outline outline-2 outline-[#205f49] outline-offset-[-2px]" : selected ? "bg-[#e8f2eb]" : "hover:bg-[#f8f5ec]"}`}
                         style={{ height: ROW_H, paddingLeft: row.depth * 15 }}
@@ -2559,9 +2388,7 @@ export function SxUnifiedTimeline({
                               else next.add(row.id);
                               return next;
                             };
-                            if (row.entity === "milestone")
-                              setExpandedMilestones(update);
-                            else setExpandedTasks(update);
+                            setExpandedTasks(update);
                           }}
                           className={`flex w-11 shrink-0 items-center justify-center text-[#69665d] ${row.hasChildren ? "" : "opacity-0"}`}
                           aria-label={
@@ -2574,7 +2401,7 @@ export function SxUnifiedTimeline({
                             className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-90" : ""}`}
                           />
                         </button>
-                        {row.entity === "task" && canManage && projectId && (
+                        {canManage && projectId && (
                           <button
                             type="button"
                             data-gantt-task-nest-handle={row.id}
@@ -2585,7 +2412,7 @@ export function SxUnifiedTimeline({
                             onLostPointerCapture={(event) => cancelTaskNestDrag(event)}
                             className="grid h-full w-6 shrink-0 touch-none place-items-center text-[#928c80] transition-colors hover:text-[#205f49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] disabled:opacity-40"
                             disabled={dependencyMode || taskNestDrag?.saving}
-                            title="ドラッグして親タスクへ重ねる。工程行へ重ねるとネスト解除"
+                            title="ドラッグして親タスクへ重ねる。レーン見出しへ戻すと最上位にする"
                             aria-label={`${row.title}をドラッグして親タスクを変更`}
                           >
                             <GripVertical className="h-3.5 w-3.5" aria-hidden="true" />
@@ -2599,15 +2426,11 @@ export function SxUnifiedTimeline({
                         >
                           <span className="flex items-center gap-1">
                             <b
-                              className={`truncate text-[10px] ${row.entity === "task" ? "font-medium" : "font-bold"}`}
+                              className="truncate text-[10px] font-medium"
                             >
                               {row.title}
                             </b>
-                            <i
-                              className={`shrink-0 border px-1 text-[8px] not-italic ${row.entity === "milestone" ? "border-[#c9bfd0] bg-[#f1edf3] text-[#5f4a66]" : "border-[#d6cebf] text-[#69665d]"}`}
-                            >
-                              {rowKindLabel(row)}
-                            </i>
+                            <i className="shrink-0 border border-[#d6cebf] px-1 text-[8px] not-italic text-[#69665d]">タスク</i>
                             {row.isCurrent && (
                               <i className="shrink-0 bg-[#38745d] px-1 text-[8px] not-italic text-white">
                                 進行中
@@ -2619,33 +2442,12 @@ export function SxUnifiedTimeline({
                               {ROW_STATE_TEXT[row.state]}
                             </em>
                             <span>{row.ownerLabel}</span>
-                            {row.requirements.length > 0 && (
-                              <span
-                                className={
-                                  sxGateRequirementCounts(row.requirements)
-                                    .met === row.requirements.length
-                                    ? "text-[#205f49]"
-                                    : "font-semibold text-[#765022]"
-                                }
-                              >
-                                前提{" "}
-                                {sxGateRequirementCounts(row.requirements).met}/
-                                {row.requirements.length}
-                              </span>
-                            )}
                           </span>
-                          {row.entity === "milestone" && (
-                            <span className="mt-0.5 block truncate text-[9px] text-[#5f4a66]">
-                              {nextRequirement
-                                ? `${nextRequirement.state === "unconfirmed" ? "未確認" : "未達"}｜${nextRequirement.milestone.gate || nextRequirement.milestone.title}`
-                                : `到達点｜${row.gate}`}
-                            </span>
-                          )}
                           {(isNestTaskTarget || isNestRootTarget) && (
                             <span className="mt-0.5 block text-[9px] font-bold text-[#205f49]">
                               {isNestTaskTarget
                                 ? "ここを親タスクにする"
-                                : "工程の直下に戻す"}
+                                : "最上位タスクに戻す"}
                             </span>
                           )}
                         </button>
@@ -2796,13 +2598,87 @@ export function SxUnifiedTimeline({
               )}
 
               <div className="absolute inset-x-0" style={{ top: pinRowHeight }}>
-                {visibleLanes.map(({ lane, rows }) => (
-                  <div key={lane.key} style={{ marginBottom: LANE_GAP }}>
+                {visibleLanes.map(({ lane, rows, milestones: laneMilestones }) => (
+                  <div key={lane.key} className="relative" style={{ marginBottom: LANE_GAP }}>
+                    {laneMilestones.map((milestone, index) => {
+                      const isDraggingThisMilestone = drag?.rowId === milestone.id;
+                      const displayMilestone = isDraggingThisMilestone && drag
+                        ? {
+                            ...milestone,
+                            plannedStart: drag.previewStart,
+                            plannedEnd: drag.previewEnd,
+                            plannedStartPct: dateToPct(drag.previewStart, timeline.domainStart, timeline.domainEnd),
+                            plannedEndPct: dateToPct(drag.previewEnd, timeline.domainStart, timeline.domainEnd),
+                          }
+                        : milestone;
+                      const markerPct = displayMilestone.plannedEndPct;
+                      const markerMode: DragMode = displayMilestone.isBlockingMilestone
+                        ? "milestone-end-move"
+                        : "milestone-move";
+                      return markerPct != null ? (
+                        <div
+                          key={`lane-ms-${milestone.id}`}
+                          className="pointer-events-none absolute inset-y-0 z-[18]"
+                          style={{ left: timelinePctCss(markerPct) }}
+                          data-gantt-lane-milestone-spine={milestone.id}
+                        >
+                          <span className="absolute inset-y-0 left-0 w-px bg-[#5f4a66]/65" aria-hidden="true" />
+                          <button
+                            type="button"
+                            data-gantt-milestone-marker={milestone.id}
+                            onPointerDown={(event) => {
+                              event.stopPropagation();
+                              if (dependencyMode) beginScheduleDependency(displayMilestone, event);
+                              else beginDrag(displayMilestone, markerMode, event);
+                            }}
+                            onPointerMove={updateDrag}
+                            onPointerUp={(event) => void finishDrag(displayMilestone, event)}
+                            onPointerCancel={() => setDragBoth(null)}
+                            onLostPointerCapture={handleLostPointerCapture}
+                            onClick={() => handleRowClick(displayMilestone)}
+                            className="pointer-events-auto absolute left-0 top-0 flex h-[34px] min-w-[44px] -translate-x-1/2 items-center gap-1 px-1 text-left text-[#5f4a66] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5f4a66]"
+                            aria-label={`${milestone.title}の詳細を開く。ドラッグで日付を変更`}
+                            title="クリックで詳細、ドラッグで日付を変更"
+                          >
+                            <i className={`h-3 w-3 shrink-0 rotate-45 border-2 border-[#5f4a66] ${milestone.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`} aria-hidden="true" />
+                            <span className="max-w-[144px] truncate whitespace-nowrap text-[9px] font-bold">{milestone.title}</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          key={`lane-ms-undated-${milestone.id}`}
+                          type="button"
+                          data-gantt-milestone-marker={milestone.id}
+                          onClick={() => handleRowClick(milestone)}
+                          className="absolute right-1 top-0 z-[19] flex h-[22px] max-w-[52%] items-center gap-1 px-1 text-left text-[#5f4a66] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5f4a66]"
+                          style={{ transform: `translateX(-${index * 8}px)` }}
+                          aria-label={`${milestone.title}の詳細を開く`}
+                        >
+                          <i className={`h-2.5 w-2.5 shrink-0 rotate-45 border-2 border-[#5f4a66] ${milestone.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`} aria-hidden="true" />
+                          <span className="truncate whitespace-nowrap text-[9px] font-bold">{milestone.title}｜日程未設定</span>
+                        </button>
+                      );
+                    })}
                     <div
-                      className="flex items-center border-b border-[#d6cebf] px-2 text-[10px] text-[#8c3329]"
+                      className="flex items-center justify-between gap-2 border-b border-[#d6cebf] px-2 text-[10px]"
                       style={{ height: LANE_HEADER_H }}
                     >
-                      {lane.maxIssue ? `詰まり: ${lane.maxIssue}` : ""}
+                      <span className="min-w-0 truncate font-semibold text-[#5f4a66]">
+                        {laneMilestones.length > 0
+                          ? `MS ${laneMilestones.length}件・${laneMilestones
+                              .map((milestone) =>
+                                milestone.requiredTaskSummary
+                                  ? `必須 ${milestone.requiredTaskSummary.completed}/${milestone.requiredTaskSummary.total}`
+                                  : "達成条件を確認",
+                              )
+                              .join(" / ")}`
+                          : "MSなし"}
+                      </span>
+                      {lane.maxIssue && (
+                        <span className="min-w-0 truncate text-[#8c3329]">
+                          詰まり: {lane.maxIssue}
+                        </span>
+                      )}
                     </div>
                     {rows.map((row) => {
                       const isDraggingThisRow = drag?.rowId === row.id;
@@ -2901,10 +2777,10 @@ export function SxUnifiedTimeline({
       </div>
       <div className="mt-1 hidden items-center justify-between gap-2 text-[10px] text-[#777166] lg:flex">
         <span>
-          {timeline.undatedCount > 0
-            ? `日程未登録の工程 ${timeline.undatedCount}件`
-            : "全工程に日程あり"}{" "}
-          · 完了工程 {timeline.completedCount}件
+          {milestoneStats.undated > 0
+            ? `日程未登録のMS ${milestoneStats.undated}件`
+            : "全MSに日程あり"}{" "}
+          · 完了MS {milestoneStats.completed}件
         </span>
         <span aria-hidden="true">↕ 上下・← 左右にスクロール →</span>
       </div>

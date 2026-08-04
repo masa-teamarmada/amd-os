@@ -8,7 +8,6 @@ import {
   CalendarClock,
   Check,
   ChevronDown,
-  ChevronRight,
   CircleDot,
   ExternalLink,
   FileSearch,
@@ -141,9 +140,8 @@ type EditorState =
       kind: "create_milestone";
       track: SxTrackKey | null;
       laneKey?: SxDisplayLaneKey | null;
-      /** Set by "MSを置く"/"MSを追加" — the created row is a generic point-MS (single "予定日"
-       * field saved into both planned_start/planned_end). Omit/"phase" keeps the ordinary
-       * 工程 create form (start+end fields). */
+      /** Set by "MSを置く"/"MSを追加" — the created row is a point-MS (single "予定日"
+       * field saved into both planned_start/planned_end). */
       timelineKind?: SxTimelineKind;
       plannedDate?: string | null;
       outcomeId?: string | null;
@@ -190,9 +188,8 @@ type PlanFieldEditorState = {
   >;
   fieldKeys: string[];
   /** What record this edit applies to (usually the open item's title, but a prerequisite/
-   * dependency row names its own milestone/gate instead) — shown at the top of the shared edit
-   * tray ("編集中｜対象 / 項目") so the origin stays clear even if the triggering cell has
-   * scrolled off-screen. */
+   * dependency row names its own milestone/gate instead). It is used by the direct-edit
+   * control's accessible label. */
   targetLabel: string;
   /** Which field/value is being edited (担当, 状態, 予定日, 完了条件, ...). */
   fieldLabel: string;
@@ -248,7 +245,7 @@ const WORKLOAD_BUCKETS: Array<{
   hint: string;
 }> = [
   { key: "decision", label: "判断待ち", hint: "今週決めること" },
-  { key: "blocked", label: "停止", hint: "工程・タスク・保有事項" },
+  { key: "blocked", label: "停止", hint: "MS・タスク・保有事項" },
   { key: "overdue", label: "期限超過", hint: "未完了のみ" },
   { key: "due_soon", label: "7日以内", hint: "今週〜来週が期限" },
   { key: "owner_unknown", label: "担当不明", hint: "担当未確認" },
@@ -335,11 +332,10 @@ function ganttLaneKeyForMilestone(
   return "organization";
 }
 
-/** A lane is only a visual grouping; a task still needs an exact parent engineering phase.
- * Point-MS rows cannot own work, and an ordinary undated phase is not currently visible on the
- * Gantt, so attaching a task to it would make the new record disappear immediately after Save.
- * If the ordinary timeline is invalid, the two blocking milestones remain visible and usable. */
-function taskParentMilestones(
+/** A task retains a hidden legacy milestone FK only for database compatibility. The control
+ * board never exposes that container: a new task uses the first active backing container in its
+ * visible lane automatically. */
+function taskBackingMilestone(
   management: SxManagementBundle,
   laneKey: SxDisplayLaneKey,
 ) {
@@ -347,12 +343,9 @@ function taskParentMilestones(
     (milestone) =>
       ganttLaneKeyForMilestone(milestone) === laneKey &&
       milestone.status !== "completed" &&
-      (sxIsBlockingMilestone(milestone) ||
-        (milestone.timelineKind === "phase" && Boolean(milestone.plannedEnd))),
+      milestone.timelineKind === "phase",
   );
-  return management.judgment.dagValid
-    ? candidates
-    : candidates.filter(sxIsBlockingMilestone);
+  return candidates.sort((left, right) => left.title.localeCompare(right.title))[0] || null;
 }
 
 function issueStatusLabel(status: SxManagementIssue["status"]) {
@@ -436,31 +429,13 @@ function editorInitialValues(
 ): Record<string, string> {
   const asOf = management.asOf;
   if (editor.kind === "create_milestone") {
-    const isGenericMs = editor.timelineKind === "milestone";
-    if (isGenericMs) {
-      // A point-MS only needs a name, a parent outcome and its point on the timeline. Legacy
-      // phase-oriented fields are filled with explicit unknown defaults by the API and can be
-      // refined later; placing a marker must not force the user to design the next phase.
-      return {
-        outcome_id: editor.outcomeId || "",
-        title: "",
-        planned_date: editor.plannedDate || "",
-        completion_criteria: "",
-      };
-    }
+    // A new MS is always a point. The legacy phase creation branch intentionally has no UI
+    // path: people place task and MS records only.
     return {
       outcome_id: editor.outcomeId || "",
       title: "",
-      gate: "",
-      planned_start: asOf,
-      planned_end: "",
-      date_certainty: "provisional",
-      owner_label: access.displayName,
-      next_deliverable: "",
-      max_issue: "未確認",
+      planned_date: editor.plannedDate || "",
       completion_criteria: "",
-      criticality: "high",
-      confidence: "unknown",
     };
   }
   if (editor.kind === "edit_milestone")
@@ -486,8 +461,7 @@ function editorInitialValues(
       confidence: editor.milestone.confidence,
     };
   if (editor.kind === "create_task") {
-    const candidates = taskParentMilestones(management, editor.laneKey);
-    const selected = candidates.length === 1 ? candidates[0] : null;
+    const selected = taskBackingMilestone(management, editor.laneKey);
     return {
       milestone_id: selected?.id || "",
       parent_task_id: "",
@@ -500,6 +474,9 @@ function editorInitialValues(
       progress_pct: "0",
       date_certainty: "provisional",
       owner_label: selected?.ownerLabel || access.displayName,
+      goal: "",
+      next_deliverable: "",
+      blocker: "",
       completion_criteria: "",
       confidence: "unknown",
     };
@@ -518,6 +495,9 @@ function editorInitialValues(
       progress_pct: String(editor.task.progressPct),
       date_certainty: editor.task.dateCertainty,
       owner_label: editor.task.ownerLabel,
+      goal: editor.task.goal || "",
+      next_deliverable: editor.task.nextDeliverable || "",
+      blocker: editor.task.blocker || "",
       completion_criteria: editor.task.completionCriteria || "",
       confidence: editor.task.confidence,
     };
@@ -876,10 +856,9 @@ function editorDefinition(
     confidence,
   ];
   if (editor.kind === "create_milestone") {
-    const isGenericMs = editor.timelineKind === "milestone";
     return {
-      title: isGenericMs ? "MSを追加" : "工程を追加",
-      eyebrow: isGenericMs ? "MS" : "工程",
+      title: "MSを追加",
+      eyebrow: "MS",
       resource: "milestone",
       method: "POST",
       fields: [
@@ -910,85 +889,39 @@ function editorDefinition(
         },
         {
           key: "title",
-          label: isGenericMs ? "MS名" : "工程名",
+          label: "MS名",
           type: "textarea",
           required: true,
           span: true,
         },
-        ...(isGenericMs
-          ? [
-              {
-                key: "planned_date",
-                label: "予定日",
-                type: "date" as const,
-                required: true,
-              },
-              {
-                key: "completion_criteria",
-                label: "完了条件（任意）",
-                type: "textarea" as const,
-                span: true,
-                help: "何を確認できたらこのMSを達成とするか。まだ決められなければ空欄で追加できるよ。",
-              },
-            ]
-          : [
-              { key: "gate", label: "到達点", required: true },
-              { key: "owner_label", label: "担当", required: true },
-              { key: "planned_start", label: "計画開始", type: "date" as const },
-              { key: "planned_end", label: "計画完了", type: "date" as const },
-              {
-                key: "date_certainty",
-                label: "日程の確度",
-                type: "select" as const,
-                required: true,
-                options: [
-                  { value: "provisional", label: "仮" },
-                  { value: "confirmed", label: "確定" },
-                ],
-              },
-              {
-                key: "next_deliverable",
-                label: "次の成果物",
-                type: "textarea" as const,
-                required: true,
-                span: true,
-              },
-              {
-                key: "completion_criteria",
-                label: "完了条件",
-                type: "textarea" as const,
-                required: true,
-                span: true,
-              },
-              {
-                key: "criticality",
-                label: "重要度",
-                type: "select" as const,
-                required: true,
-                options: [
-                  { value: "critical", label: "最重要" },
-                  { value: "high", label: "高" },
-                  { value: "medium", label: "中" },
-                  { value: "low", label: "低" },
-                ],
-              },
-              confidence,
-            ]),
+        {
+          key: "planned_date",
+          label: "予定日",
+          type: "date" as const,
+          required: true,
+        },
+        {
+          key: "completion_criteria",
+          label: "完了条件（任意）",
+          type: "textarea" as const,
+          span: true,
+          help: "何を確認できたらこのMSを達成とするか。まだ決められなければ空欄で追加できるよ。",
+        },
       ],
     };
   }
   if (editor.kind === "edit_milestone") {
     const isGenericMs = isGenericPointMilestone(editor.milestone);
     return {
-      title: isGenericMs ? "MSを編集" : "工程を編集",
-      eyebrow: isGenericMs ? "MS" : "工程",
+      title: "MSを編集",
+      eyebrow: "MS",
       resource: "milestone",
       method: "PATCH",
       id: editor.milestone.id,
       fields: [
         {
           key: "title",
-          label: isGenericMs ? "MS名" : "工程名",
+          label: "MS名",
           type: "textarea",
           required: true,
           span: true,
@@ -1076,31 +1009,11 @@ function editorDefinition(
       method: editor.kind === "create_task" ? "POST" : "PATCH",
       id: editor.kind === "edit_task" ? editor.task.id : undefined,
       fields: [
-        ...(editor.kind === "create_task"
-          ? [
-              {
-                key: "milestone_id",
-                label: "接続する工程",
-                type: "select" as const,
-                required: true,
-                help:
-                  taskParentMilestones(management, editor.laneKey).length === 0
-                    ? "このレーンに接続できる工程がないよ。先に工程と日程を追加してね。"
-                    : "レーンは表示上の分類。実際にこのタスクを進める工程を選んでね。",
-                options: [
-                  { value: "", label: "工程を選択" },
-                  ...taskParentMilestones(management, editor.laneKey).map(
-                    (milestone) => ({
-                      value: milestone.id,
-                      label: milestone.title,
-                    }),
-                  ),
-                ],
-              },
-            ]
-          : []),
         ...planFields,
         { key: "description", label: "作業内容", type: "textarea", span: true },
+        { key: "goal", label: "ゴール", type: "textarea", span: true },
+        { key: "next_deliverable", label: "次の成果物", type: "textarea", span: true },
+        { key: "blocker", label: "詰まり", type: "textarea", span: true },
         { key: "actual_end", label: "実績完了", type: "date" },
       ],
     };
@@ -1119,14 +1032,18 @@ function editorDefinition(
           ? [
               {
                 key: "predecessor_milestone_id",
-                label: "先へ進む前に満たす工程",
+                label: "先へ進む前に満たすMS",
                 type: "select" as const,
                 required: true,
                 span: true,
                 options: [
-                  { value: "", label: "工程を選んでね" },
+                  { value: "", label: "MSを選んでね" },
                   ...management.milestones
-                    .filter((milestone) => milestone.id !== editor.successor.id)
+                    .filter(
+                      (milestone) =>
+                        milestone.timelineKind === "milestone" &&
+                        milestone.id !== editor.successor.id,
+                    )
                     .map((milestone) => ({
                       value: milestone.id,
                       label: `${trackMeta(milestone.track).short}｜${milestone.gate || milestone.title}`,
@@ -1135,7 +1052,7 @@ function editorDefinition(
               },
               {
                 key: "successor_milestone_id",
-                label: "この工程",
+                label: "このMS",
                 type: "select" as const,
                 required: true,
                 span: true,
@@ -1151,7 +1068,7 @@ function editorDefinition(
           type: "select",
           required: true,
           options: [
-            { value: "finish_to_start", label: "前工程の完了後に進む" },
+            { value: "finish_to_start", label: "先行MSの完了後に進む" },
           ],
           help: "設立前提は「口頭合意の確認＋証跡」を充足条件にするよ。",
         },
@@ -1397,15 +1314,17 @@ function editorDefinition(
         },
         {
           key: "related_milestone_id",
-          label: "影響する工程",
+          label: "影響するMS",
           type: "select",
           span: true,
           options: [
             { value: "", label: "未接続" },
-            ...management.milestones.map((milestone) => ({
+            ...management.milestones
+              .filter((milestone) => milestone.timelineKind === "milestone")
+              .map((milestone) => ({
               value: milestone.id,
               label: `${trackMeta(milestone.track).short}｜${milestone.title}`,
-            })),
+              })),
           ],
         },
         {
@@ -1604,14 +1523,16 @@ function editorDefinition(
         },
         {
           key: "milestone_id",
-          label: "関連工程",
+          label: "関連MS",
           type: "select",
           options: [
             { value: "", label: "未接続" },
-            ...management.milestones.map((milestone) => ({
+            ...management.milestones
+              .filter((milestone) => milestone.timelineKind === "milestone")
+              .map((milestone) => ({
               value: milestone.id,
               label: `${trackMeta(milestone.track).short}｜${milestone.title}`,
-            })),
+              })),
           ],
         },
         {
@@ -2150,22 +2071,7 @@ function IssueEditor({
     () => initialValues.current,
   );
   const definition = editorDefinition(editor, management);
-  const fieldsForCurrentSelection = definition.fields.map((field) => {
-    if (editor.kind !== "create_task" || field.key !== "parent_task_id")
-      return field;
-    return {
-      ...field,
-      options: [
-        { value: "", label: "工程の直下（親なし）" },
-        ...management.tasks
-          .filter((task) => task.milestoneId === values.milestone_id)
-          .map((task) => ({
-            value: task.id,
-            label: `「${task.title}」の子にする`,
-          })),
-      ],
-    };
-  });
+  const fieldsForCurrentSelection = definition.fields;
   const fieldKeySet = fieldKeys ? new Set(fieldKeys) : null;
   const activeFields = fieldKeySet
     ? fieldsForCurrentSelection.filter((field) => fieldKeySet.has(field.key))
@@ -2381,17 +2287,10 @@ function IssueEditor({
     }
     const selectedTaskMilestone =
       editor.kind === "create_task"
-        ? taskParentMilestones(management, editor.laneKey).find(
-            (milestone) => milestone.id === values.milestone_id,
-          ) || null
+        ? taskBackingMilestone(management, editor.laneKey)
         : null;
     if (editor.kind === "create_task" && !selectedTaskMilestone) {
-      setError(
-        taskParentMilestones(management, editor.laneKey).length === 0
-          ? "先にこのレーンへ工程と日程を追加してね"
-          : "接続する工程を選んでね",
-      );
-      focusField("milestone_id");
+      setError("このレーンにタスクを置くための基準情報がまだないよ");
       return;
     }
     if (editor.kind === "create_task" && values.parent_task_id) {
@@ -2402,7 +2301,7 @@ function IssueEditor({
         !selectedParentTask ||
         selectedParentTask.milestoneId !== selectedTaskMilestone?.id
       ) {
-        setError("親タスクは、接続する工程の配下から選んでね");
+        setError("親タスクは同じタスク群から選んでね");
         focusField("parent_task_id");
         return;
       }
@@ -2446,8 +2345,7 @@ function IssueEditor({
     }
     if (editor.kind === "create_task") {
       // The visible lane is not a persistence parent. Derive the authoritative raw track from
-      // the exact phase selected in this same form, so changing the phase never leaves a stale
-      // track behind (organization visually merges two DB tracks).
+      // its internal backing record so the three visible lanes remain stable.
       fields.track = selectedTaskMilestone?.track || "";
       fields.milestone_id = selectedTaskMilestone?.id || "";
     }
@@ -2458,19 +2356,14 @@ function IssueEditor({
       // DB invariant milestone.track === outcome.track (funding and organizational_building both
       // render in the single 組織開発 lane).
       fields.track = selectedMilestoneOutcome?.track || "";
-      const isGenericMs = editor.timelineKind === "milestone";
-      fields.timeline_kind = isGenericMs ? "milestone" : "phase";
-      fields.slug = isGenericMs
-        ? `ms-${Date.now().toString(36)}`
-        : `weekly-ms-${Date.now().toString(36)}`;
-      if (isGenericMs) {
-        // 一般MSは単一の予定日。フォームでは1項目(予定日)だけ見せ、保存時にplanned_start/
-        // planned_endの両方へ同じ値を書く（gantt直接編集のcomputeMilestoneMoveと同じ不変条件）。
-        const plannedDate = (fields.planned_date as string | null) ?? null;
-        delete fields.planned_date;
-        fields.planned_start = plannedDate;
-        fields.planned_end = plannedDate;
-      }
+      fields.timeline_kind = "milestone";
+      fields.slug = `ms-${Date.now().toString(36)}`;
+      // MSは単一の予定日。フォームでは1項目だけ見せ、保存時にplanned_start/
+      // planned_endの両方へ同じ値を書く。
+      const plannedDate = (fields.planned_date as string | null) ?? null;
+      delete fields.planned_date;
+      fields.planned_start = plannedDate;
+      fields.planned_end = plannedDate;
     }
     if (editor.kind === "edit_milestone" && "planned_date" in fields) {
       // 既存の一般MSを編集するときも同じ不変条件: 予定日1項目をplanned_start/planned_endの
@@ -2495,7 +2388,7 @@ function IssueEditor({
     }
     if (editor.kind === "create_action")
       fields.decision_id = editor.decision.id;
-    // 工程/タスクの計画日程は本番データで、ガントの直接編集(ドラッグ)と同じ楽観的並行制御を
+    // MS/タスクの計画日程は本番データで、ガントの直接編集(ドラッグ)と同じ楽観的並行制御を
     // 使う。読み込んだ時点のversionを一緒に送り、他の変更と競合していたら409で検知する
     // （最後に保存した側が黙って上書きしない）。
     const expectedVersion =
@@ -2868,13 +2761,13 @@ function IssueEditor({
             )}
             {"milestone" in editor && !hasVisibleField("title") && (
               <>
-                <span>対象工程</span>
+                <span>対象MS</span>
                 <strong>{editor.milestone.title}</strong>
               </>
             )}
             {"successor" in editor && (
               <>
-                <span>先へ進む工程</span>
+                <span>先へ進むMS</span>
                 <strong>{editor.successor.title}</strong>
               </>
             )}
@@ -3287,7 +3180,9 @@ function PlanInspector({
     ? task?.status !== "unassessed"
     : milestone?.manualStatus !== "unassessed";
   const description = task?.description || milestone?.gate || "未設定";
-  const blocker = milestone?.maxIssue || task?.description || "未設定";
+  const goal = task?.goal || milestone?.gate || "未設定";
+  const blocker = task?.blocker || milestone?.maxIssue || "未設定";
+  const nextDeliverable = task?.nextDeliverable || milestone?.nextDeliverable || "未設定";
   const criteria =
     task?.completionCriteria || milestone?.completionCriteria || "未設定";
   const metRequirements = requirements.filter(
@@ -3320,11 +3215,9 @@ function PlanInspector({
   const itemEditor: PlanFieldEditorState["editor"] = task
     ? { kind: "edit_task", task }
     : { kind: "edit_milestone", milestone: milestone! };
-  // Every editable value (title, description/gate, blocker, completion criteria/evidence,
-  // prerequisite fields, and the 5 facts-row cells alike) stays a fixed-size display button —
-  // never swapped in place for the edit form. Exactly one shared edit tray renders below the
-  // fixed facts row for whichever slot is active (see inlineEditorSlot below); this function only
-  // ever returns the stable button (highlighted via data-editing while its tray is open).
+  // One field can be edited at a time, in the exact position that was clicked. The detail dialog
+  // remains the only dialog; there is no lower "edit tray" that visually reads as a second
+  // modal or loses the connection to the original value.
   const editableValue = (
     slot: string,
     label: string,
@@ -3335,7 +3228,11 @@ function PlanInspector({
     // different record than the item itself) pass an explicit override.
     targetLabel: string = item!.title,
   ) =>
-    canManage ? (
+    inlineEditorSlot === slot && inlineEditor ? (
+      <span className={styles.inspectorInlineSlot} data-plan-inline-slot={slot}>
+        {inlineEditor}
+      </span>
+    ) : canManage ? (
       <button
         type="button"
         className={styles.inspectorEditable}
@@ -3376,14 +3273,14 @@ function PlanInspector({
         <header>
           <div>
             <p>
-              {isTask
-                ? "タスク詳細"
-                : isGenericMs
-                  ? "マイルストーン詳細"
-                  : "工程詳細"}
+              {isTask ? "タスク詳細" : "MS詳細"}
             </p>
             {detailEditor ? (
               <h3>{item.title}</h3>
+            ) : inlineEditorSlot === "item-title" && inlineEditor ? (
+              <div className={styles.inspectorTitleEditor} data-plan-inline-slot="item-title">
+                {inlineEditor}
+              </div>
             ) : (
               <h3>
                 {editableValue("item-title", "名称", item.title, itemEditor, [
@@ -3402,22 +3299,11 @@ function PlanInspector({
             <X aria-hidden="true" />
           </button>
         </header>
-        {/* 現在の項目名はh3に既に出ているので、パンくずには重複させない — タスクは track >
-            親工程、工程/MSはtrackのみ。状態も下のfactsの「状態」セルで既に見えるため、ここに
-            ステータスチップは置かない（2026-08 監査追補）。 */}
+        {/* 項目名はheader、表示レーンはbreadcrumbで分担する。hidden compatibility
+            containerの名称は出さず、状態もfactsで一度だけ示す。 */}
         {!detailEditor && (
           <div className={styles.inspectorBreadcrumb}>
-            {milestone && task ? (
-              <>
-                <span>{ganttLaneLabelForTrack(milestone.track)}</span>
-                <ChevronRight aria-hidden="true" />
-                <strong>{milestone.title}</strong>
-              </>
-            ) : (
-              <span>
-                {milestone ? ganttLaneLabelForTrack(milestone.track) : "工程"}
-              </span>
-            )}
+            <span>{milestone ? ganttLaneLabelForTrack(milestone.track) : "タスク"}</span>
           </div>
         )}
         {detailEditor ? (
@@ -3510,15 +3396,6 @@ function PlanInspector({
                 </div>
               )}
             </dl>
-            {inlineEditorSlot && (
-              <div
-                className={styles.inspectorEditTray}
-                data-plan-inline-slot={inlineEditorSlot}
-              >
-                {inlineEditor}
-              </div>
-            )}
-
             <div className={styles.inspectorContentGrid}>
               {isTask && (
                 <section className={styles.inspectorSection}>
@@ -3527,38 +3404,62 @@ function PlanInspector({
                     <p>
                       {taskParentTitle
                         ? `「${taskParentTitle}」の子タスク`
-                        : "工程の直下（親なし）"}
+                        : "最上位タスク"}
                     </p>
                     {canManage && (
                       <small>
-                        ガント左のグリップを、親にしたいタスクまたは工程へドラッグ
+                        ガント左のグリップを、親にしたいタスクへドラッグ
                       </small>
                     )}
                   </div>
                 </section>
               )}
               <section className={styles.inspectorSection}>
-                <span>内容 / 到達点</span>
+                <span>{isTask ? "内容" : "到達点"}</span>
                 <div className={styles.inspectorSectionValue}>
                   {editableValue(
                     "item-description",
-                    "内容と到達点",
+                    isTask ? "内容" : "到達点",
                     description,
                     itemEditor,
                     [isTask ? "description" : "gate"],
                   )}
                 </div>
               </section>
-              {!isTask && (
+              <section className={styles.inspectorSection}>
+                <span>{isTask ? "ゴール" : "次の成果物"}</span>
+                <div className={styles.inspectorSectionValue}>
+                  {editableValue(
+                    "item-goal-or-next",
+                    isTask ? "ゴール" : "次の成果物",
+                    isTask ? goal : nextDeliverable,
+                    itemEditor,
+                    [isTask ? "goal" : "next_deliverable"],
+                  )}
+                </div>
+              </section>
+              <section className={styles.inspectorSection}>
+                <span>詰まり</span>
+                <div className={styles.inspectorSectionValue}>
+                  {editableValue(
+                    "item-blocker",
+                    "詰まり",
+                    blocker,
+                    itemEditor,
+                    [isTask ? "blocker" : "max_issue"],
+                  )}
+                </div>
+              </section>
+              {isTask && (
                 <section className={styles.inspectorSection}>
-                  <span>詰まり</span>
+                  <span>次の成果物</span>
                   <div className={styles.inspectorSectionValue}>
                     {editableValue(
-                      "item-blocker",
-                      "詰まり",
-                      blocker,
+                      "item-next-deliverable",
+                      "次の成果物",
+                      nextDeliverable,
                       itemEditor,
-                      ["max_issue"],
+                      ["next_deliverable"],
                     )}
                   </div>
                 </section>
@@ -3918,7 +3819,7 @@ export function SxWeeklyControlDashboard({
     () => sxProjectOwnerLoads(management),
     [management],
   );
-  // 工程・タスク・論点・仮説・検証・判断・action・関係先保有事項を同じ未完了作業単位にした共通母集団。
+  // MS・タスク・論点・仮説・検証・判断・action・関係先保有事項を同じ未完了作業単位にした共通母集団。
   // PJ全体担当負荷（担当者別グループ）が既に同じ正規化をしているので、フラット化して使い回す。
   const allWorkUnits = useMemo(
     () => projectOwnerLoads.flatMap((load) => load.items),
@@ -4047,7 +3948,7 @@ export function SxWeeklyControlDashboard({
     window.setTimeout(() => setNotice(null), 3500);
   }
 
-  // 共通母集団の1件から、必ず元の編集文脈へ移動する。工程/タスクはガント該当行・詳細、
+  // 共通母集団の1件から、必ず元の編集文脈へ移動する。MS/タスクはガント該当位置・詳細、
   // 論点系（論点・仮説・検証・判断・action）は該当カード/詳細、関係先はprovenance別の編集
   // モーダルを直接開く（スクロールしない）。開く前に他のplan/detail editorを閉じ、モーダルは
   // 常に1つだけにする。
@@ -4111,7 +4012,7 @@ export function SxWeeklyControlDashboard({
       setEditor(nextEditor);
       return;
     }
-    // 工程/タスク/論点系のいずれも、対象レコードのID/存在をすべて検証し切ってからだけ
+    // MS/タスク/論点系のいずれも、対象レコードのID/存在をすべて検証し切ってからだけ
     // workloadFilter/detailEditor/planFieldEditor/editorFieldKeys/selectedMilestoneId/
     // selectedTaskIdの既存overlay stateを一括で解除する（partner分岐と同じ「解決してから
     // 閉じる」パターン）。無効IDのクリックでnotifyWorkUnitNotFound()だけを出すつもりが、
@@ -4267,7 +4168,7 @@ export function SxWeeklyControlDashboard({
             <div className={styles.readinessStamp}>
               <span>画面</span>
               <strong>運用準備中</strong>
-              <small>情報抽出は次工程</small>
+              <small>情報抽出は次の作業</small>
             </div>
           </div>
           <nav className={styles.sectionNav} aria-label="週次管制ナビ">
@@ -4281,7 +4182,7 @@ export function SxWeeklyControlDashboard({
 
         <section
           className={styles.workloadBand}
-          aria-label="PJ全体の管制状態（工程・タスク・論点・仮説・検証・判断・action・関係先保有事項の共通母集団）"
+          aria-label="PJ全体の管制状態（MS・タスク・論点・仮説・検証・判断・action・関係先保有事項の共通母集団）"
         >
           {WORKLOAD_BUCKETS.map((bucket) => {
             const items = workloadBuckets[bucket.key];
@@ -4344,7 +4245,7 @@ export function SxWeeklyControlDashboard({
                       <span>
                         {item.impactedGates.length > 0
                           ? `影響：${item.impactedGates.join(" / ")}`
-                          : "影響工程 未接続"}
+                          : "影響MS 未接続"}
                       </span>
                     </button>
                   </li>
@@ -4455,7 +4356,7 @@ export function SxWeeklyControlDashboard({
             <div>
               <h2>全体ガント</h2>
               <p>
-                工程を開くと細かいタスクを表示。バーか名称を押すとガント上に詳細が開く
+                タスクは階層を開閉できる。バー・MS・名称を押すとガント上に詳細が開く
               </p>
             </div>
             <p>基準日 {formatDate(management.asOf)}</p>
@@ -4541,33 +4442,25 @@ export function SxWeeklyControlDashboard({
               inlineEditorSlot={planFieldEditor?.slot}
               inlineEditor={
                 planFieldEditor ? (
-                  <>
-                    {/* 共通edit trayの文脈: 元セルが画面外へスクロールしていても、何をどのレコード
-                        について編集しているかが常に分かるようにする（2026-08 再監査是正）。 */}
-                    <p id="sx-plan-editor-context" className={styles.inspectorEditTrayContext}>
-                      編集中｜{planFieldEditor.targetLabel} / {planFieldEditor.fieldLabel}
-                    </p>
-                    <IssueEditor
-                      key={`${planFieldEditor.slot}-${planFieldEditor.editor.kind}-${planFieldEditor.fieldKeys.join("-")}`}
-                      editor={planFieldEditor.editor}
-                      management={management}
-                      access={access}
-                      projectId={bundle.project.projectId}
-                      inlineField
-                      fieldKeys={planFieldEditor.fieldKeys}
-                      requestCloseRef={planEditorRequestCloseRef}
-                      onKeepEditing={() => { pendingPlanIntentRef.current = null; }}
-                      ariaDescribedBy="sx-plan-editor-context"
-                      onDirtyChange={setDetailEditorDirty}
-                      onClose={() => {
-                        finishPlanEditorClose(() => focusPlanEditSlotAfterClose(planFieldEditor.slot));
-                      }}
-                      onSaved={(next, message) => {
-                        focusPlanEditSlotAfterClose(planFieldEditor.slot);
-                        handleDetailSaved(next, message);
-                      }}
-                    />
-                  </>
+                  <IssueEditor
+                    key={`${planFieldEditor.slot}-${planFieldEditor.editor.kind}-${planFieldEditor.fieldKeys.join("-")}`}
+                    editor={planFieldEditor.editor}
+                    management={management}
+                    access={access}
+                    projectId={bundle.project.projectId}
+                    inlineField
+                    fieldKeys={planFieldEditor.fieldKeys}
+                    requestCloseRef={planEditorRequestCloseRef}
+                    onKeepEditing={() => { pendingPlanIntentRef.current = null; }}
+                    onDirtyChange={setDetailEditorDirty}
+                    onClose={() => {
+                      finishPlanEditorClose(() => focusPlanEditSlotAfterClose(planFieldEditor.slot));
+                    }}
+                    onSaved={(next, message) => {
+                      focusPlanEditSlotAfterClose(planFieldEditor.slot);
+                      handleDetailSaved(next, message);
+                    }}
+                  />
                 ) : null
               }
               onClose={() => {

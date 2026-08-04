@@ -190,6 +190,14 @@ export type SxTask = {
   dateCertainty: "confirmed" | "provisional";
   ownerMemberId: string | null;
   ownerLabel: string;
+  /** The operational goal this task owns. Root tasks promoted from the legacy phase
+   * container preserve the former milestone.gate here rather than flattening it into
+   * description text. */
+  goal: string | null;
+  /** The next concrete deliverable for this task. */
+  nextDeliverable: string | null;
+  /** The current blockage for this task. */
+  blocker: string | null;
   completionCriteria: string | null;
   forecastChangeReason: string | null;
   sortOrder: number;
@@ -879,6 +887,7 @@ function mapTask(row: RawRow): SxTask {
     plannedStart: nullableString(row, "planned_start"), plannedEnd: nullableString(row, "planned_end"), forecastEnd: nullableString(row, "forecast_end"), actualEnd: nullableString(row, "actual_end"),
     progressPct: numberValue(row, "progress_pct"), dateCertainty: row.date_certainty === "confirmed" ? "confirmed" : "provisional",
     ownerMemberId: nullableString(row, "owner_member_id"), ownerLabel: stringValue(row, "owner_label", "担当未確認"),
+    goal: nullableString(row, "goal"), nextDeliverable: nullableString(row, "next_deliverable"), blocker: nullableString(row, "blocker"),
     completionCriteria: nullableString(row, "completion_criteria"), forecastChangeReason: nullableString(row, "forecast_change_reason"), sortOrder: numberValue(row, "sort_order"),
     lastVerifiedAt: stringValue(row, "last_verified_at"), confidence: asConfidence(row.confidence), sourceKind: asSourceKind(row.source_kind), sourceRef: nullableString(row, "source_ref"),
     createdBy: nullableString(row, "created_by"), updatedBy: nullableString(row, "updated_by"), version: numberValue(row, "version", 1),
@@ -1090,7 +1099,7 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
     live("project_management_milestones", "id,project_id,objective_id,outcome_id,slug,track,title,gate,timeline_kind,version,status,planned_start,planned_end,forecast_end,actual_end,progress_pct,date_certainty,owner_member_id,owner_label,next_deliverable,max_issue,completion_criteria,completion_evidence,criticality,baseline_plan_version,forecast_change_reason,status_source,status_reason,status_override_reason,status_override_expires_on,status_override_approved_by,last_verified_at,confidence,source_kind,source_ref,sort_order").order("sort_order"),
     live("project_management_kpis", "id,project_id,outcome_id,track,slug,title,metric_kind,baseline,target,actual,unit,threshold,threshold_rule,threshold_upper,measurement_date,frequency,source_label,confidence,last_verified_at,source_kind,source_ref").order("track"),
     plain("project_management_milestone_kpis", "project_id,milestone_id,kpi_id"),
-    live("project_management_tasks", "id,project_id,milestone_id,parent_task_id,track,title,description,status,planned_start,planned_end,forecast_end,actual_end,progress_pct,date_certainty,owner_member_id,owner_label,completion_criteria,forecast_change_reason,sort_order,last_verified_at,confidence,source_kind,source_ref,created_by,updated_by,version").order("sort_order"),
+    live("project_management_tasks", "id,project_id,milestone_id,parent_task_id,track,title,description,status,planned_start,planned_end,forecast_end,actual_end,progress_pct,date_certainty,owner_member_id,owner_label,goal,next_deliverable,blocker,completion_criteria,forecast_change_reason,sort_order,last_verified_at,confidence,source_kind,source_ref,created_by,updated_by,version").order("sort_order"),
     live("project_management_milestone_dependencies", "id,project_id,predecessor_milestone_id,successor_milestone_id,dependency_type,required,lag_days,note").order("created_at"),
     live("project_management_schedule_dependencies", "id,project_id,predecessor_type,predecessor_task_id,predecessor_milestone_id,successor_task_id,dependency_type").order("created_at"),
     live("project_management_issues", "id,project_id,milestone_id,outcome_id,slug,track,title,knowledge_type,status,owner_label,due_date,last_verified_at,confidence,source_kind,source_ref,sort_order").order("sort_order"),

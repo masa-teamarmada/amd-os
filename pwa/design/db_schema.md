@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-03 22:40 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-04 21:57 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -118,7 +118,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 2,026
+行数 (概算): 2,062
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -1096,7 +1096,7 @@ UNIQUE: `(occurrence_id,recipient_slack_id,schedule_key,stage)` (constraint: `co
 
 ## company_schedule_occurrences
 
-行数 (概算): 1,190
+行数 (概算): 1,221
 PRIMARY KEY: `occurrence_id`
 UNIQUE: `(occurrence_key,source_hash)` (constraint: `company_schedule_occurrences_source_uniq`)
 
@@ -4197,6 +4197,9 @@ PRIMARY KEY: `id`
 | 28 | `deleted_at` | `timestamptz` | NULL | `` |
 | 29 | `deleted_by` | `text` | NULL | `` |
 | 30 | `version` | `int4` | NOT NULL | `1` |
+| 31 | `goal` | `text` | NULL | `` |
+| 32 | `next_deliverable` | `text` | NULL | `` |
+| 33 | `blocker` | `text` | NULL | `` |
 
 ## project_management_technical_tests
 

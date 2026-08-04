@@ -107,11 +107,20 @@ assertIncludes(timelineFile, timeline, [
   "保存できたか確認できなかったよ。画面を再読み込みしてね",
 ]);
 
-// -- 6. Generic MS labels say MS/マイルストーン, not 工程; NewCo may say 設立ゲート ----------------
-assertIncludes(timelineFile, timeline, [
+// -- 6. The visible gantt has task rows only; MSs span the owning lane, never fake task rows --
+assertNotIncludes(timelineFile, timeline, [
   "function rowKindLabel(row: DisplayRow): string {",
-  'if (row.isBlockingMilestone) return "設立ゲート";',
-  'if (row.timelineKind === "milestone") return "マイルストーン";',
+  "工程の直下に戻す",
+  "data-gantt-nest-root-milestone",
+]);
+assertIncludes(timelineFile, timeline, [
+  "function milestoneAnchorRow(",
+  "data-gantt-lane-milestone-spine={milestone.id}",
+  "data-gantt-milestone-marker={milestone.id}",
+  "Point-MS records are kept",
+  "最上位タスクに戻す",
+  "MS {laneMilestones.length} / タスク {rows.length}",
+  "日程未登録のMS",
 ]);
 
 // -- 9. Three permanent task-writer rows; MS creation starts from a true blank date point -------
@@ -140,7 +149,7 @@ assertIncludes(timelineFile, timeline, [
 assertCount(timelineFile, timeline, "data-gantt-add-task-lane={lane.key}", 2);
 assertCount(timelineFile, timeline, "onClick={() => onCreateTask(lane.key)}", 2);
 
-// -- 10. No role=alertdialog; exactly one shared inline-edit tray for PlanInspector ---------------
+// -- 10. No role=alertdialog or nested editor: every PlanInspector value edits in place ---------
 const dashboardFile = "src/components/project-workspace/SxWeeklyControlDashboard.tsx";
 const dashboard = read(dashboardFile);
 assertNotIncludes(dashboardFile, dashboard, [
@@ -149,7 +158,13 @@ assertNotIncludes(dashboardFile, dashboard, [
   "FACT_SLOTS",
   "factEditableValue",
 ]);
-assertCount(dashboardFile, dashboard, "className={styles.inspectorEditTray}", 1);
+assertNotIncludes(dashboardFile, dashboard, [
+  "className={styles.inspectorEditTray}",
+  "編集中｜",
+  'label: "接続する工程"',
+  "taskParentMilestones(management, editor.laneKey)",
+  "親にしたいタスクまたは工程へドラッグ",
+]);
 assertIncludes(dashboardFile, dashboard, [
   'role="status" aria-live="assertive"',
   "className={styles.unsavedIndicator}",
@@ -160,20 +175,15 @@ assertIncludes(dashboardFile, dashboard, [
   "onFocusCapture={rememberFocusedField}",
   "if (pendingIntent) pendingIntent();",
   'aria-label={`${targetLabel}の${label}を直接修正`}',
-  'ariaDescribedBy="sx-plan-editor-context"',
-  'label: "接続する工程"',
   'taskParentTitle: string | null;',
   "タスク階層",
-  'ガント左のグリップを、親にしたいタスクまたは工程へドラッグ',
-  "taskParentMilestones(management, editor.laneKey)",
+  'ガント左のグリップを、親にしたいタスクへドラッグ',
+  "taskBackingMilestone(management, editor.laneKey)",
   "const candidates = management.milestones.filter(",
-  "management.judgment.dagValid",
-  "candidates.filter(sxIsBlockingMilestone)",
   'milestone.status !== "completed"',
-  '.filter((task) => task.milestoneId === values.milestone_id)',
-  'current.milestone_id !== nextValue',
-  '? { parent_task_id: "" }',
   'fields.track = selectedTaskMilestone?.track || "";',
+  "className={styles.inspectorInlineSlot}",
+  "className={styles.inspectorTitleEditor}",
 ]);
 assertNotIncludes(dashboardFile, dashboard, [
   'label: "ネスト先（親タスク）"',
@@ -184,39 +194,28 @@ assertIncludes(timelineFile, timeline, [
   "taskNestCandidateIds(tasks, taskNestDrag?.taskId ?? null)",
   "data-gantt-task-nest-handle",
   "data-gantt-nest-target-task",
-  "data-gantt-nest-root-milestone",
+  "data-gantt-nest-root-lane",
   "data-gantt-milestone-marker",
-  "!hasBar && isMilestoneMarker",
-  "blank-timeline button underneath turn a click on this visible marker into MS creation",
   "patch: { parent_task_id: parentTaskId }",
   "ここを親タスクにする",
-  "工程の直下に戻す",
+  "最上位タスクに戻す",
 ]);
 assertNotIncludes(timelineFile, timeline, [
   'pointer-events-none absolute top-[13px] -translate-x-1/2 text-center',
 ]);
 
-const selectRendererStart = dashboard.indexOf(') : field.type === "select" ? (');
-const selectRendererEnd = dashboard.indexOf(
-  ') : field.type === "checkbox" ? (',
-  selectRendererStart,
+const createTaskDefinitionStart = dashboard.indexOf(
+  'if (editor.kind === "create_task" || editor.kind === "edit_task")',
+  dashboard.indexOf("function editorDefinition"),
 );
-if (selectRendererStart < 0 || selectRendererEnd < 0) {
-  throw new Error(`${dashboardFile}: select field renderer not found`);
-}
-const selectRenderer = dashboard.slice(selectRendererStart, selectRendererEnd);
-assertIncludes(dashboardFile, selectRenderer, [
-  'field.key === "milestone_id"',
-  'current.milestone_id !== nextValue',
-  '? { parent_task_id: "" }',
-]);
-const textareaRenderer = dashboard.slice(
-  dashboard.indexOf('field.type === "textarea" ? ('),
-  selectRendererStart,
+const createTaskDefinitionEnd = dashboard.indexOf(
+  'if (editor.kind === "create_dependency"',
+  createTaskDefinitionStart,
 );
-assertNotIncludes(dashboardFile, textareaRenderer, [
-  'field.key === "milestone_id"',
-  'parent_task_id',
+const taskDefinition = dashboard.slice(createTaskDefinitionStart, createTaskDefinitionEnd);
+assertNotIncludes(dashboardFile, taskDefinition, [
+  'key: "milestone_id"',
+  'key: "parent_task_id"',
 ]);
 assertNotIncludes(dashboardFile, dashboard, [
   "data-plan-add-child",
@@ -268,22 +267,13 @@ const createMilestoneInitial = dashboard.slice(
   createMilestoneInitialStart,
   createMilestoneInitialEnd,
 );
-const pointMsInitialStart = createMilestoneInitial.indexOf("if (isGenericMs) {");
-const pointMsInitialEnd = createMilestoneInitial.indexOf(
-  "return {",
-  createMilestoneInitial.indexOf("return {", pointMsInitialStart) + 1,
-);
-const pointMsInitial = createMilestoneInitial.slice(
-  pointMsInitialStart,
-  pointMsInitialEnd,
-);
-assertIncludes(dashboardFile, pointMsInitial, [
+assertIncludes(dashboardFile, createMilestoneInitial, [
   'outcome_id: editor.outcomeId || ""',
   'title: ""',
   'planned_date: editor.plannedDate || ""',
   'completion_criteria: ""',
 ]);
-assertNotIncludes(dashboardFile, pointMsInitial, [
+assertNotIncludes(dashboardFile, createMilestoneInitial, [
   "gate:",
   "owner_label:",
   "next_deliverable:",
@@ -291,23 +281,14 @@ assertNotIncludes(dashboardFile, pointMsInitial, [
   "criticality:",
   "confidence:",
 ]);
-const pointMsFieldsStart = createMilestoneDefinition.indexOf("...(isGenericMs");
-const pointMsFieldsEnd = createMilestoneDefinition.indexOf(
-  ": [",
-  pointMsFieldsStart,
-);
-const pointMsFields = createMilestoneDefinition.slice(
-  pointMsFieldsStart,
-  pointMsFieldsEnd,
-);
-assertIncludes(dashboardFile, pointMsFields, [
+assertIncludes(dashboardFile, createMilestoneDefinition, [
   'key: "planned_date"',
   'label: "予定日"',
   "required: true",
   'key: "completion_criteria"',
   'label: "完了条件（任意）"',
 ]);
-assertNotIncludes(dashboardFile, pointMsFields, [
+assertNotIncludes(dashboardFile, createMilestoneDefinition, [
   'key: "gate"',
   'key: "owner_label"',
   'key: "next_deliverable"',

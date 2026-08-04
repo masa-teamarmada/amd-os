@@ -354,7 +354,7 @@ function patchFor(resource: Resource, raw: unknown): Record<string, unknown> {
     takeText("role_label", "role_label", 180); takeNumber("required_people", { min: 0 }); takeNumber("confirmed_people", { min: 0 }); takeNumber("available_hours_week", { min: 0 }); takeNumber("planned_hours_week", { min: 0 }); takeDate("measurement_date"); takeText("source_label", "source_label", 240); takeEnum("confidence", CONFIDENCES);
   }
   if (resource === "task") {
-    takeText("title", "title", 180); takeOptionalText("description", "description", 1600); takeEnum("track", TRACKS); takeEnum("status", TASK_STATUSES); takeDate("planned_start"); takeDate("planned_end"); takeDate("forecast_end"); takeDate("actual_end"); takeNumber("progress_pct", { min: 0, max: 100 }); takeEnum("date_certainty", ["confirmed", "provisional"]); takeText("owner_label", "owner_label", 120); takeOptionalText("owner_member_id", "owner_member_id", 80); takeOptionalText("completion_criteria", "completion_criteria", 1200); takeOptionalText("forecast_change_reason", "forecast_change_reason", 500); takeNumber("sort_order", { min: 0 }); takeEnum("confidence", CONFIDENCES);
+    takeText("title", "title", 180); takeOptionalText("description", "description", 1600); takeEnum("track", TRACKS); takeEnum("status", TASK_STATUSES); takeDate("planned_start"); takeDate("planned_end"); takeDate("forecast_end"); takeDate("actual_end"); takeNumber("progress_pct", { min: 0, max: 100 }); takeEnum("date_certainty", ["confirmed", "provisional"]); takeText("owner_label", "owner_label", 120); takeOptionalText("owner_member_id", "owner_member_id", 80); takeOptionalText("goal", "goal", 1200); takeOptionalText("next_deliverable", "next_deliverable", 500); takeOptionalText("blocker", "blocker", 500); takeOptionalText("completion_criteria", "completion_criteria", 1200); takeOptionalText("forecast_change_reason", "forecast_change_reason", 500); takeNumber("sort_order", { min: 0 }); takeEnum("confidence", CONFIDENCES);
     if ("milestone_id" in raw) patch.milestone_id = text(raw.milestone_id, "milestone_id", 80);
     if ("parent_task_id" in raw) patch.parent_task_id = raw.parent_task_id == null || raw.parent_task_id === "" ? null : text(raw.parent_task_id, "parent_task_id", 80);
   }
@@ -398,9 +398,8 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     const plannedStart = optionalDate("planned_start");
     const plannedEnd = optionalDate("planned_end");
     if (!isValidPlannedRange({ plannedStart, plannedEnd })) throw new Error("計画開始は計画完了より後にできないよ");
-    // 工程追加(工程追加ボタン) writes 'phase'; MSを置く(ガント直接配置)/MSを追加は
-    // 'milestone'を明示的に書く。Rendering must read this column, never infer
-    // milestone-vs-phase from slug.
+    // The UI creates point MS records only. `phase` remains accepted for legacy compatibility
+    // data, but it is not a user-facing management concept any more.
     const timelineKind = requiredEnum("timeline_kind", ["phase", "milestone"], "phase");
     const slug = requiredText("slug", 120);
     // Generic point-MS invariant: any timeline_kind='milestone' row other than the 2 NewCo
@@ -423,9 +422,8 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
       slug,
       track: requiredEnum("track", TRACKS),
       title,
-      // gate/next_deliverable are legacy NOT NULL phase columns. A point-MS must not require the
-      // user to design a future phase while placing a marker, so keep unknown explicit and allow
-      // later refinement without weakening the existing phase creation contract.
+      // gate/next_deliverable are legacy NOT NULL columns. A point MS can start with these
+      // explicitly unknown and be refined later.
       gate: pointMs ? optionalTextValue("gate", 240) || "未設定" : requiredText("gate", 240),
       timeline_kind: timelineKind,
       status: "unassessed",
@@ -548,7 +546,7 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     const plannedStart = optionalDate("planned_start");
     const plannedEnd = optionalDate("planned_end");
     if (!isValidPlannedRange({ plannedStart, plannedEnd })) throw new Error("計画開始は計画完了より後にできないよ");
-    return { ...common(), project_id: projectId, milestone_id: requiredId("milestone_id"), parent_task_id: optionalId("parent_task_id"), track: raw.track == null ? null : requiredEnum("track", TRACKS), title: requiredText("title", 180), description: optionalTextValue("description", 1600), status: requiredEnum("status", TASK_STATUSES, "unassessed"), planned_start: plannedStart, planned_end: plannedEnd, forecast_end: optionalDate("forecast_end"), actual_end: optionalDate("actual_end"), progress_pct: optionalNumber("progress_pct", { min: 0, max: 100 }) || 0, date_certainty: requiredEnum("date_certainty", ["confirmed", "provisional"], "provisional"), owner_member_id: optionalId("owner_member_id"), owner_label: requiredText("owner_label", 120), completion_criteria: optionalTextValue("completion_criteria", 1200), forecast_change_reason: optionalTextValue("forecast_change_reason", 500), sort_order: optionalNumber("sort_order", { min: 0 }) || 0, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
+    return { ...common(), project_id: projectId, milestone_id: requiredId("milestone_id"), parent_task_id: optionalId("parent_task_id"), track: raw.track == null ? null : requiredEnum("track", TRACKS), title: requiredText("title", 180), description: optionalTextValue("description", 1600), status: requiredEnum("status", TASK_STATUSES, "unassessed"), planned_start: plannedStart, planned_end: plannedEnd, forecast_end: optionalDate("forecast_end"), actual_end: optionalDate("actual_end"), progress_pct: optionalNumber("progress_pct", { min: 0, max: 100 }) || 0, date_certainty: requiredEnum("date_certainty", ["confirmed", "provisional"], "provisional"), owner_member_id: optionalId("owner_member_id"), owner_label: requiredText("owner_label", 120), goal: optionalTextValue("goal", 1200), next_deliverable: optionalTextValue("next_deliverable", 500), blocker: optionalTextValue("blocker", 500), completion_criteria: optionalTextValue("completion_criteria", 1200), forecast_change_reason: optionalTextValue("forecast_change_reason", 500), sort_order: optionalNumber("sort_order", { min: 0 }) || 0, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
   }
   throw new Error("追加できる種類が不正だよ");
 }
@@ -618,7 +616,7 @@ async function assertTaskPlacement(db: ReturnType<typeof createAdminClient>, pro
     .is("deleted_at", null)
     .maybeSingle();
   if (error) throw new Error(`親タスクの配置確認に失敗したよ: ${error.message}`);
-  if (!data || String((data as { milestone_id: string }).milestone_id) !== milestoneId) throw new Error("親タスクは同じ工程の中から選んでね");
+  if (!data || String((data as { milestone_id: string }).milestone_id) !== milestoneId) throw new Error("親タスクは同じタスク群から選んでね");
 }
 
 // A milestone's outcome_id must actually belong to its objective_id, and the outcome's track must
@@ -645,7 +643,7 @@ async function assertMilestoneParentIntegrity(
   if (!data) throw new Error("outcome_idはこのPJの有効な成果につないでね");
   const row = data as { objective_id: string; track: string };
   if (String(row.objective_id) !== objectiveId) throw new Error("接続する成果は選択した設立目標に属していないよ");
-  if (String(row.track) !== track) throw new Error("接続する成果の柱と工程/MSの柱が一致していないよ");
+  if (String(row.track) !== track) throw new Error("接続する成果の柱とMSの柱が一致していないよ");
 }
 
 async function assertParentsInProject(db: ReturnType<typeof createAdminClient>, projectId: string, resource: Resource, payload: Record<string, unknown>) {
