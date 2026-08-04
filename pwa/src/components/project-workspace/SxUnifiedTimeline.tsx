@@ -705,6 +705,26 @@ function RowBar({
               : " ・ 全完了"}
         </span>
       )}
+      {/* A date-less MS has no honest x-position on the time axis, so its ◇ sits beside
+          「日程未設定」. It is still the record's direct-edit affordance — never let the
+          blank-timeline button underneath turn a click on this visible marker into MS creation. */}
+      {!hasBar && isMilestoneMarker && (
+        <button
+          type="button"
+          data-gantt-milestone-marker={row.id}
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpen();
+          }}
+          className="absolute bottom-0 left-0 z-20 grid h-11 w-11 cursor-pointer place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+          aria-label={`${row.title}の詳細を開く`}
+        >
+          <i
+            className={`block h-3 w-3 translate-y-2 rotate-45 border-2 border-[#5f4a66] ${row.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
+            aria-hidden="true"
+          />
+        </button>
+      )}
       <span className="pointer-events-none absolute inset-x-1 bottom-0.5 z-10 flex flex-wrap items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] font-semibold text-[#69665d]">
         {hasBar ? (
           <>
@@ -725,13 +745,7 @@ function RowBar({
             )}
           </>
         ) : (
-          <span className="flex items-center gap-1">
-            {isMilestoneMarker && (
-              <i
-                className={`inline-block h-3 w-3 shrink-0 rotate-45 border-2 border-[#5f4a66] ${row.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
-                aria-hidden="true"
-              />
-            )}
+          <span className={`flex items-center gap-1 ${isMilestoneMarker ? "pl-7" : ""}`}>
             日程未設定・{ROW_STATE_TEXT[row.state]}
           </span>
         )}

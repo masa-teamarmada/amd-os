@@ -186,6 +186,8 @@ assertIncludes(timelineFile, timeline, [
   "data-gantt-nest-target-task",
   "data-gantt-nest-root-milestone",
   "data-gantt-milestone-marker",
+  "!hasBar && isMilestoneMarker",
+  "blank-timeline button underneath turn a click on this visible marker into MS creation",
   "patch: { parent_task_id: parentTaskId }",
   "ここを親タスクにする",
   "工程の直下に戻す",
