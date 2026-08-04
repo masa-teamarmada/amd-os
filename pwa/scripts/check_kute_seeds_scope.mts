@@ -185,6 +185,20 @@ function readSrc(relPath: string): string {
   assert.ok(/found_count\s*<>\s*1/.test(ddl189), "189 に候補ごとの exactly-one assert がありません");
 }
 
+// 8.1 2026-08-04公開情報追加候補も review-first の discovered として追加し、
+//     研究者確認前にSPSを投入しない
+{
+  const ddl225 = readSrc("migrations/225_kute_public_seed_candidate_fujii.sql");
+  assert.ok(
+    ddl225.includes("バイオガスと飼料バイオマスを同時生産する資源循環技術"),
+    "225 に藤井先生の公開情報候補が見つかりません",
+  );
+  assert.ok(/'discovered'/.test(ddl225), "225 の追加候補が review-first の discovered になっていません");
+  assert.ok(!/INSERT INTO seed_sps_assessments/.test(ddl225), "225 が未確認候補へ SPS 評価を捏造投入しています");
+  assert.ok(!/https?:\/\//.test(ddl225), "225 に一次ソースの生URLが含まれています");
+  assert.ok(/found_count\s*<>\s*1/.test(ddl225), "225 に候補の exactly-one assert がありません");
+}
+
 // 9. 研究者グルーピング (groupSeedsByResearcher / sortSeedGroups / countDistinctResearchers) は
 //    特定の研究者名をハードコードせず、任意の researcher_name で汎用的に動作する
 {
