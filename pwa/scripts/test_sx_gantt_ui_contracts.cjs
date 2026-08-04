@@ -170,6 +170,19 @@ assertIncludes(fineSeedRemovalMigrationFile, fineSeedRemovalMigration, [
 ]);
 assertNotIncludes(fineSeedRemovalMigrationFile, fineSeedRemovalMigration, ["DELETE FROM"]);
 
+// -- 9c. The surviving MS copy cannot retain the removed detailed checklist -------------------
+const gateCopyMigrationFile = "scripts/migrations/229_sx_remove_seeded_gate_checklists.sql";
+const gateCopyMigration = read(gateCopyMigrationFile);
+assertIncludes(gateCopyMigrationFile, gateCopyMigration, [
+  "UPDATE public.project_management_milestones",
+  "slug = 'business-paid-poc-oral-agreement'",
+  "slug = 'funding-investment-oral-agreement'",
+  "1社の有償PoC口頭合意を確認する",
+  "出資の口頭合意を確認する",
+  "next_deliverable LIKE 'NewCo設立の最低条件は1社の有償PoC口頭合意。A.%'",
+  "next_deliverable LIKE '現時点は事業計画が未完成でDDは未着手。A.%'",
+]);
+
 // -- 10. No role=alertdialog or nested editor: every PlanInspector value edits in place ---------
 const dashboardFile = "src/components/project-workspace/SxWeeklyControlDashboard.tsx";
 const dashboard = read(dashboardFile);
