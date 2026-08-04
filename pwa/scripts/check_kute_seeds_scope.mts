@@ -199,6 +199,14 @@ function readSrc(relPath: string): string {
   assert.ok(/found_count\s*<>\s*1/.test(ddl225), "225 に候補の exactly-one assert がありません");
 }
 
+// 8.2 225 で後から追加した候補も KUTE機関スコープに含まれる
+{
+  const ddl226 = readSrc("migrations/226_link_kute_fujii_public_seed.sql");
+  assert.ok(ddl226.includes("institution_id = 'inst_kute'"), "226 が藤井先生候補を inst_kute に紐付けていません");
+  assert.ok(!/INSERT INTO seed_sps_assessments/.test(ddl226), "226 が未確認候補へ SPS 評価を捏造投入しています");
+  assert.ok(/found_count\s*<>\s*1/.test(ddl226), "226 に候補の exactly-one assert がありません");
+}
+
 // 9. 研究者グルーピング (groupSeedsByResearcher / sortSeedGroups / countDistinctResearchers) は
 //    特定の研究者名をハードコードせず、任意の researcher_name で汎用的に動作する
 {
