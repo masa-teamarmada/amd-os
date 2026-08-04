@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-04 21:57 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-05 01:01 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -3602,7 +3602,7 @@ PRIMARY KEY: `id`
 
 ## project_management_field_audit
 
-行数 (概算): 4,641
+行数 (概算): 5,372
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -4150,7 +4150,7 @@ PRIMARY KEY: `id`
 | 3 | `predecessor_type` | `text` | NOT NULL | `` |
 | 4 | `predecessor_task_id` | `uuid` | NULL | `` |
 | 5 | `predecessor_milestone_id` | `uuid` | NULL | `` |
-| 6 | `successor_task_id` | `uuid` | NOT NULL | `` |
+| 6 | `successor_task_id` | `uuid` | NULL | `` |
 | 7 | `dependency_type` | `text` | NOT NULL | `'finish_to_start'::text` |
 | 8 | `created_by` | `text` | NULL | `` |
 | 9 | `updated_by` | `text` | NULL | `` |
@@ -4159,10 +4159,12 @@ PRIMARY KEY: `id`
 | 12 | `deleted_at` | `timestamptz` | NULL | `` |
 | 13 | `deleted_by` | `text` | NULL | `` |
 | 14 | `version` | `int4` | NOT NULL | `1` |
+| 15 | `successor_type` | `text` | NOT NULL | `'task'::text` |
+| 16 | `successor_milestone_id` | `uuid` | NULL | `` |
 
 ## project_management_tasks
 
-行数 (概算): -1
+行数 (概算): 30
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |

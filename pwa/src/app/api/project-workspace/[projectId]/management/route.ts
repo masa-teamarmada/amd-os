@@ -526,12 +526,22 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
   if (resource === "schedule_dependency") {
     const predecessorType = requiredEnum("predecessor_type", ["task", "milestone"]);
     const predecessorId = requiredId("predecessor_id");
+    const successorType = raw.successor_type == null
+      ? "task"
+      : requiredEnum("successor_type", ["task", "milestone"]);
+    const successorId = raw.successor_id == null
+      ? successorType === "task"
+        ? requiredId("successor_task_id")
+        : requiredId("successor_milestone_id")
+      : requiredId("successor_id");
     return {
       project_id: projectId,
       predecessor_type: predecessorType,
       predecessor_task_id: predecessorType === "task" ? predecessorId : null,
       predecessor_milestone_id: predecessorType === "milestone" ? predecessorId : null,
-      successor_task_id: requiredId("successor_task_id"),
+      successor_type: successorType,
+      successor_task_id: successorType === "task" ? successorId : null,
+      successor_milestone_id: successorType === "milestone" ? successorId : null,
       dependency_type: "finish_to_start",
       created_by: memberId,
       updated_by: memberId,
@@ -580,7 +590,7 @@ const PARENT_FIELDS: Partial<Record<Resource, Array<[string, string]>>> = {
   partner_role: [["partner_id", "project_management_partners"]],
   partner_work_item: [["partner_id", "project_management_partners"], ["related_milestone_id", "project_management_milestones"]],
   dependency: [["predecessor_milestone_id", "project_management_milestones"], ["successor_milestone_id", "project_management_milestones"]],
-  schedule_dependency: [["predecessor_task_id", "project_management_tasks"], ["predecessor_milestone_id", "project_management_milestones"], ["successor_task_id", "project_management_tasks"]],
+  schedule_dependency: [["predecessor_task_id", "project_management_tasks"], ["predecessor_milestone_id", "project_management_milestones"], ["successor_task_id", "project_management_tasks"], ["successor_milestone_id", "project_management_milestones"]],
   raci: [["milestone_id", "project_management_milestones"]],
   capacity: [["milestone_id", "project_management_milestones"]],
   technical_test: [["milestone_id", "project_management_milestones"], ["outcome_id", "project_management_outcomes"]],

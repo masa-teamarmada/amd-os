@@ -104,15 +104,17 @@ export type SxDependency = {
   note: string | null;
 };
 
-/** A manually drawn gantt dependency.  This is intentionally separate from SxDependency:
- * SxDependency changes milestone gate/readiness logic, while this type only connects a task or
- * point-MS finish to a task start on the schedule. */
+/** A manually drawn gantt dependency. This is intentionally separate from SxDependency:
+ * SxDependency changes milestone gate/readiness logic, while this type connects the scheduled
+ * finish of a task/MS to the scheduled start point of another task/MS. */
 export type SxScheduleDependency = {
   id: string;
   predecessorType: "task" | "milestone";
   predecessorTaskId: string | null;
   predecessorMilestoneId: string | null;
-  successorTaskId: string;
+  successorType: "task" | "milestone";
+  successorTaskId: string | null;
+  successorMilestoneId: string | null;
   dependencyType: "finish_to_start";
 };
 
@@ -1101,7 +1103,7 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
     plain("project_management_milestone_kpis", "project_id,milestone_id,kpi_id"),
     live("project_management_tasks", "id,project_id,milestone_id,parent_task_id,track,title,description,status,planned_start,planned_end,forecast_end,actual_end,progress_pct,date_certainty,owner_member_id,owner_label,goal,next_deliverable,blocker,completion_criteria,forecast_change_reason,sort_order,last_verified_at,confidence,source_kind,source_ref,created_by,updated_by,version").order("sort_order"),
     live("project_management_milestone_dependencies", "id,project_id,predecessor_milestone_id,successor_milestone_id,dependency_type,required,lag_days,note").order("created_at"),
-    live("project_management_schedule_dependencies", "id,project_id,predecessor_type,predecessor_task_id,predecessor_milestone_id,successor_task_id,dependency_type").order("created_at"),
+    live("project_management_schedule_dependencies", "id,project_id,predecessor_type,predecessor_task_id,predecessor_milestone_id,successor_type,successor_task_id,successor_milestone_id,dependency_type").order("created_at"),
     live("project_management_issues", "id,project_id,milestone_id,outcome_id,slug,track,title,knowledge_type,status,owner_label,due_date,last_verified_at,confidence,source_kind,source_ref,sort_order").order("sort_order"),
     live("project_management_hypotheses", "id,project_id,issue_id,statement,status,owner_label,due_date,confidence,last_verified_at,source_kind,source_ref").order("due_date"),
     live("project_management_evidence", "id,project_id,issue_id,hypothesis_id,evidence_kind,summary,observed_on,source_label,confidence,last_verified_at").order("observed_on"),
@@ -1153,7 +1155,9 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
     predecessorType: row.predecessor_type === "milestone" ? "milestone" : "task",
     predecessorTaskId: nullableString(row, "predecessor_task_id"),
     predecessorMilestoneId: nullableString(row, "predecessor_milestone_id"),
-    successorTaskId: stringValue(row, "successor_task_id"),
+    successorType: row.successor_type === "milestone" ? "milestone" : "task",
+    successorTaskId: nullableString(row, "successor_task_id"),
+    successorMilestoneId: nullableString(row, "successor_milestone_id"),
     dependencyType: "finish_to_start",
   }));
   const preliminaryDerived = new Map<string, MilestoneDerivedResult>();

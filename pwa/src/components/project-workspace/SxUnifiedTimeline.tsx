@@ -386,7 +386,7 @@ function RowBar({
     event: React.PointerEvent<HTMLButtonElement>,
   ) => void;
   onKeyboardStartDependency: (row: DisplayRow) => void;
-  onCompleteDependency: (taskId: string) => void;
+  onCompleteDependency: (target: ScheduleDependencyTarget) => void;
 }) {
   const barStart = row.plannedStartPct ?? row.plannedEndPct ?? 0;
   const plannedEnd = row.plannedEndPct;
@@ -397,6 +397,11 @@ function RowBar({
   // this column, never infer from slug. The 2 founding-prerequisite gates keep their
   // isBlockingMilestone special-case (slug-driven) on top of this.
   const isMilestoneMarker = row.isBlockingMilestone || row.timelineKind === "milestone";
+  const dependencyTargetPct = row.entity === "task"
+    ? row.plannedStartPct
+    : isMilestoneMarker
+      ? row.plannedEndPct
+      : null;
   // A normal range is draggable only when BOTH endpoints exist. End-only normal rows are
   // intentionally read-only on the gantt: there is no honest duration to move or resize yet.
   // The sole end-only draggable exception is the NewCo diamond below.
@@ -626,18 +631,22 @@ function RowBar({
         )}
       {connectionMode &&
         connectionSourceId &&
-        row.entity === "task" &&
-        row.plannedStartPct != null && (
+        (row.entity === "task" || isMilestoneMarker) &&
+        dependencyTargetPct != null && (
         <button
           type="button"
-          data-gantt-dependency-target-task={row.id}
+          data-gantt-dependency-target-entity={row.entity}
+          data-gantt-dependency-target-id={row.id}
           onClick={(event) => {
             event.stopPropagation();
-            onCompleteDependency(row.id);
+            onCompleteDependency({ entity: row.entity, id: row.id });
           }}
           className="absolute z-40 grid h-11 w-7 -translate-x-1/2 place-items-center rounded-full text-[#315f7d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#315f7d]"
-          style={{ top: 2, left: timelinePctCss(row.plannedStartPct) }}
-          aria-label={`${row.title}の左端を接続先にする`}
+          style={{
+            top: 2,
+            left: timelinePctCss(dependencyTargetPct),
+          }}
+          aria-label={`${row.title}${row.entity === "task" ? "の左端" : ""}を接続先にする`}
         >
           <span className="h-3 w-3 rounded-full border-2 border-current bg-[#fffdf7]" />
         </button>
@@ -785,6 +794,11 @@ type ScheduleDependencySource = {
   startY: number;
 };
 
+type ScheduleDependencyTarget = {
+  entity: "task" | "milestone";
+  id: string;
+};
+
 type ScheduleDependencyEdge = {
   dependency: SxScheduleDependency;
   path: string;
@@ -902,7 +916,9 @@ export function SxUnifiedTimeline({
     string | null
   >(null);
   const dependencyArrowMarkerId = `sx-gantt-arrow-${useId().replaceAll(":", "")}`;
-  const connectScheduleDependencyRef = useRef<(taskId: string) => void>(() => {});
+  const connectScheduleDependencyRef = useRef<
+    (target: ScheduleDependencyTarget) => void
+  >(() => {});
 
   // dragRef.current is the single source of truth, not the setState updater's `current` argument
   // (which reflects React's queued state — batched pointer events firing in the same tick could
@@ -989,10 +1005,10 @@ export function SxUnifiedTimeline({
       startY: layout?.centerY ?? 0,
     });
     setDependencyPreview(null);
-    showGanttNotice("接続先タスクの左端を選んでね。Escで中止できるよ");
+    showGanttNotice("接続先のタスクかMSを選んでね。Escで中止できるよ");
   }
 
-  async function connectScheduleDependency(successorTaskId: string) {
+  async function connectScheduleDependency(target: ScheduleDependencyTarget) {
     const source = dependencySource;
     if (!source || !projectId) {
       showGanttNotice("先にタスクかMSの右端を選んでね");
@@ -1003,17 +1019,21 @@ export function SxUnifiedTimeline({
     // attached to an already-ended pointer id.
     if (source.pointerId != null)
       setDependencySource({ ...source, pointerId: null });
-    const successor = tasks.find((task) => task.id === successorTaskId);
+    const successor = target.entity === "task"
+      ? tasks.find((task) => task.id === target.id)
+      : milestones.find((milestone) => milestone.id === target.id);
     if (!successor) {
-      showGanttNotice("接続先タスクを確認できなかったよ");
+      showGanttNotice("接続先を確認できなかったよ");
       return;
     }
-    if (source.entity === "task" && source.id === successorTaskId) {
-      showGanttNotice("同じタスク同士は接続できないよ");
+    if (source.entity === target.entity && source.id === target.id) {
+      showGanttNotice("同じ項目同士は接続できないよ");
       return;
     }
     if (
       source.entity === "milestone" &&
+      target.entity === "task" &&
+      "milestoneId" in successor &&
       successor.milestoneId === source.id
     ) {
       showGanttNotice("MS自身の配下タスクを、そのMS完了後には接続できないよ");
@@ -1025,7 +1045,10 @@ export function SxUnifiedTimeline({
         (source.entity === "task"
           ? item.predecessorTaskId === source.id
           : item.predecessorMilestoneId === source.id) &&
-        item.successorTaskId === successorTaskId,
+        item.successorType === target.entity &&
+        (target.entity === "task"
+          ? item.successorTaskId === target.id
+          : item.successorMilestoneId === target.id),
     );
     if (duplicate) {
       showGanttNotice("この依存線はすでにあるよ");
@@ -1044,7 +1067,8 @@ export function SxUnifiedTimeline({
             fields: {
               predecessor_type: source.entity,
               predecessor_id: source.id,
-              successor_task_id: successorTaskId,
+              successor_type: target.entity,
+              successor_id: target.id,
             },
           }),
         },
@@ -1103,8 +1127,8 @@ export function SxUnifiedTimeline({
   }
 
   useEffect(() => {
-    connectScheduleDependencyRef.current = (taskId) => {
-      void connectScheduleDependency(taskId);
+    connectScheduleDependencyRef.current = (target) => {
+      void connectScheduleDependency(target);
     };
   });
 
@@ -1125,10 +1149,18 @@ export function SxUnifiedTimeline({
       if (event.pointerId !== pointerId) return;
       const target = document
         .elementFromPoint(event.clientX, event.clientY)
-        ?.closest<HTMLElement>("[data-gantt-dependency-target-task]");
-      const taskId = target?.dataset.ganttDependencyTargetTask || null;
+        ?.closest<HTMLElement>(
+          "[data-gantt-dependency-target-entity][data-gantt-dependency-target-id]",
+        );
+      const targetEntity = target?.dataset.ganttDependencyTargetEntity;
+      const targetId = target?.dataset.ganttDependencyTargetId || null;
       setDependencyPreview(null);
-      if (taskId) connectScheduleDependencyRef.current(taskId);
+      if (
+        targetId &&
+        (targetEntity === "task" || targetEntity === "milestone")
+      ) {
+        connectScheduleDependencyRef.current({ entity: targetEntity, id: targetId });
+      }
       else {
         const pane = gridPaneRef.current;
         const rect = pane?.getBoundingClientRect();
@@ -1143,12 +1175,12 @@ export function SxUnifiedTimeline({
           // destination; this is also the pointer fallback when the target starts off-screen.
           setDependencySource({ ...dependencySource, pointerId: null });
           showGanttNotice(
-            "起点を選んだよ。別タスクの左端をクリックしてね。Escで中止できるよ",
+            "起点を選んだよ。接続先のタスクかMSを選んでね。Escで中止できるよ",
           );
         } else {
           setDependencySource(null);
           showGanttNotice(
-            "接続先タスクの左端で離すか、右端と左端を順にクリックしてね",
+            "接続先のタスクかMSで離すか、起点と終点を順にクリックしてね",
           );
         }
       }
@@ -1248,9 +1280,12 @@ export function SxUnifiedTimeline({
 
     const laneForTask = (task: SxTask): SxDisplayLaneKey => {
       const backing = milestoneById.get(task.milestoneId);
+      // A task keeps its own workstream even when it contributes to a blocking MS whose diamond
+      // spans another lane. Only the MS marker is forced to BLOCKING_MILESTONE_LANE.
+      if (task.track) return displayLaneKeyForTrack(task.track);
       if (backing && sxIsBlockingMilestone(backing))
         return BLOCKING_MILESTONE_LANE[backing.slug] ?? "organization";
-      return displayLaneKeyForTrack(task.track || backing?.track || "organizational_building");
+      return displayLaneKeyForTrack(backing?.track || "organizational_building");
     };
     for (const task of tasks
       .filter((candidate) => candidate.parentTaskId == null)
@@ -1378,9 +1413,14 @@ export function SxUnifiedTimeline({
           ? `task:${dependency.predecessorTaskId}`
           : `milestone:${dependency.predecessorMilestoneId}`;
       const source = visibleRowLayout.get(sourceKey);
-      const target = visibleRowLayout.get(`task:${dependency.successorTaskId}`);
+      const targetKey = dependency.successorType === "task"
+        ? `task:${dependency.successorTaskId}`
+        : `milestone:${dependency.successorMilestoneId}`;
+      const target = visibleRowLayout.get(targetKey);
       const sourcePct = source?.row.plannedEndPct;
-      const targetPct = target?.row.plannedStartPct;
+      const targetPct = dependency.successorType === "task"
+        ? target?.row.plannedStartPct
+        : target?.row.plannedEndPct;
       if (!source || !target || sourcePct == null || targetPct == null) return [];
       const x1 = pctToPx(sourcePct);
       const x2 = pctToPx(targetPct);
@@ -1413,9 +1453,12 @@ export function SxUnifiedTimeline({
                 (milestone) =>
                   milestone.id === dependency.predecessorMilestoneId,
               )?.title || "非表示の先行MS";
-        const targetTitle =
-          tasks.find((task) => task.id === dependency.successorTaskId)?.title ||
-          "非表示の後続タスク";
+        const targetTitle = dependency.successorType === "task"
+          ? tasks.find((task) => task.id === dependency.successorTaskId)?.title ||
+            "非表示の後続タスク"
+          : milestones.find(
+              (milestone) => milestone.id === dependency.successorMilestoneId,
+            )?.title || "非表示の後続MS";
         return { dependency, sourceTitle, targetTitle };
       }),
     [milestones, scheduleDependencies, tasks],
@@ -1631,9 +1674,11 @@ export function SxUnifiedTimeline({
     const sourceTask = tasks.find((task) => task.id === source.taskId);
     const backing = sourceTask ? milestoneById.get(sourceTask.milestoneId) : null;
     const sourceLane = sourceTask
-      ? backing && sxIsBlockingMilestone(backing)
-        ? (BLOCKING_MILESTONE_LANE[backing.slug] ?? "organization")
-        : displayLaneKeyForTrack(sourceTask.track || backing?.track || "organizational_building")
+      ? sourceTask.track
+        ? displayLaneKeyForTrack(sourceTask.track)
+        : backing && sxIsBlockingMilestone(backing)
+          ? (BLOCKING_MILESTONE_LANE[backing.slug] ?? "organization")
+          : displayLaneKeyForTrack(backing?.track || "organizational_building")
       : null;
     if (rootLane && rootLane === sourceLane) return { kind: "root", laneKey: rootLane };
     return null;
@@ -2001,7 +2046,7 @@ export function SxUnifiedTimeline({
         <span className="ml-auto hidden text-[10px] text-[#777166] lg:inline">
           {dependencyMode
             ? dependencySource
-              ? `${dependencySource.title} → 接続先タスクの左端へ`
+              ? `${dependencySource.title} → 接続先のタスクかMSへ`
               : "右端から左端へドラッグ、または順にクリック"
             : "バーで日程変更・左のグリップで階層変更"}
         </span>
@@ -2069,25 +2114,75 @@ export function SxUnifiedTimeline({
               </span>
             </header>
             <div className="divide-y divide-[#eee9df]">
-              {laneMilestones.map((milestone) => (
-                <button
-                  key={`mobile-ms-${milestone.id}`}
-                  type="button"
-                  data-gantt-milestone-marker={milestone.id}
-                  onClick={() => select(milestone)}
-                  className={`flex min-h-11 w-full items-center gap-2 px-3 text-left ${selectedMilestoneId === milestone.id ? "bg-[#f1edf3]" : "bg-[#fbf9f2]"}`}
-                  aria-label={`${milestone.title}の詳細を開く`}
-                >
-                  <i className={`h-3 w-3 shrink-0 rotate-45 border-2 border-[#5f4a66] ${milestone.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`} aria-hidden="true" />
-                  <span className="min-w-0 flex-1 text-[10px] font-bold text-[#5f4a66]">{milestone.title}</span>
-                  <span className="shrink-0 text-[9px] text-[#716d63]">{milestone.plannedEnd ? sxFormatDate(milestone.plannedEnd) : "日程未設定"}</span>
-                </button>
-              ))}
+              {laneMilestones.map((milestone) => {
+                const displayMilestone = milestone;
+                const hasScheduledPoint = displayMilestone.plannedEndPct != null;
+                const incomingScheduleCount = scheduleDependencies.filter(
+                  (item) =>
+                    item.successorType === "milestone" &&
+                    item.successorMilestoneId === milestone.id,
+                ).length;
+                const outgoingScheduleCount = scheduleDependencies.filter(
+                  (item) =>
+                    item.predecessorType === "milestone" &&
+                    item.predecessorMilestoneId === milestone.id,
+                ).length;
+                return (
+                  <article
+                    key={`mobile-ms-${milestone.id}`}
+                    className={selectedMilestoneId === milestone.id ? "bg-[#f1edf3]" : "bg-[#fbf9f2]"}
+                  >
+                    <button
+                      type="button"
+                      data-gantt-milestone-marker={milestone.id}
+                      onClick={() => select(milestone)}
+                      className="flex min-h-11 w-full items-center gap-2 px-3 text-left"
+                      aria-label={`${milestone.title}の詳細を開く`}
+                    >
+                      <i className={`h-3 w-3 shrink-0 rotate-45 border-2 border-[#5f4a66] ${milestone.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`} aria-hidden="true" />
+                      <span className="min-w-0 flex-1 text-[10px] font-bold text-[#5f4a66]">{milestone.title}</span>
+                      <span className="shrink-0 text-[9px] text-[#716d63]">{milestone.plannedEnd ? sxFormatDate(milestone.plannedEnd) : "日程未設定"}</span>
+                    </button>
+                    {dependencyMode && (
+                      <div className="flex items-center gap-2 border-t border-[#e2dce5] px-3 py-1.5">
+                        <button
+                          type="button"
+                          disabled={!hasScheduledPoint}
+                          onClick={() => beginKeyboardScheduleDependency(displayMilestone)}
+                          className="flex min-h-11 flex-1 items-center justify-center gap-1 border border-[#c9bfd0] bg-[#fffdf7] px-2 text-[10px] font-bold text-[#5f4a66] disabled:opacity-40"
+                        >
+                          <span aria-hidden="true">●→</span>
+                          起点
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!dependencySource || !hasScheduledPoint}
+                          onClick={() =>
+                            void connectScheduleDependency({
+                              entity: "milestone",
+                              id: milestone.id,
+                            })
+                          }
+                          className="flex min-h-11 flex-1 items-center justify-center gap-1 border border-[#b9c9d3] bg-[#fffdf7] px-2 text-[10px] font-bold text-[#315f7d] disabled:opacity-40"
+                        >
+                          <span aria-hidden="true">←</span>
+                          接続先
+                        </button>
+                        <span className="shrink-0 text-[9px] text-[#716d63]">
+                          入{incomingScheduleCount} / 出{outgoingScheduleCount}
+                        </span>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
               {rows.map((row) => {
                 const selected = selectedTaskId === row.id;
                 const expanded = expandedTasks.has(row.id);
                 const incomingScheduleCount = scheduleDependencies.filter(
-                  (item) => item.successorTaskId === row.id,
+                  (item) =>
+                    item.successorType === "task" &&
+                    item.successorTaskId === row.id,
                 ).length;
                 const outgoingScheduleCount = scheduleDependencies.filter(
                   (item) =>
@@ -2211,7 +2306,12 @@ export function SxUnifiedTimeline({
                           <button
                             type="button"
                             disabled={!dependencySource}
-                            onClick={() => void connectScheduleDependency(row.id)}
+                            onClick={() =>
+                              void connectScheduleDependency({
+                                entity: "task",
+                                id: row.id,
+                              })
+                            }
                             className="flex min-h-11 items-center justify-center gap-1 border border-[#b9c9d3] px-2 text-[10px] font-bold text-[#315f7d] disabled:opacity-40"
                           >
                             <span aria-hidden="true">←</span>
@@ -2595,19 +2695,57 @@ export function SxUnifiedTimeline({
                           <button
                             type="button"
                             data-gantt-milestone-marker={milestone.id}
+                            data-gantt-dependency-source={
+                              dependencyMode && !dependencySource
+                                ? `milestone:${milestone.id}`
+                                : undefined
+                            }
+                            data-gantt-dependency-target-entity={
+                              dependencyMode && dependencySource
+                                ? "milestone"
+                                : undefined
+                            }
+                            data-gantt-dependency-target-id={
+                              dependencyMode && dependencySource
+                                ? milestone.id
+                                : undefined
+                            }
                             onPointerDown={(event) => {
                               event.stopPropagation();
-                              if (dependencyMode) beginScheduleDependency(displayMilestone, event);
-                              else beginDrag(displayMilestone, markerMode, event);
+                              if (dependencyMode) {
+                                if (!dependencySource)
+                                  beginScheduleDependency(displayMilestone, event);
+                                return;
+                              }
+                              beginDrag(displayMilestone, markerMode, event);
                             }}
                             onPointerMove={updateDrag}
                             onPointerUp={(event) => void finishDrag(displayMilestone, event)}
                             onPointerCancel={() => setDragBoth(null)}
                             onLostPointerCapture={handleLostPointerCapture}
-                            onClick={() => handleRowClick(displayMilestone)}
-                            className="pointer-events-auto absolute left-0 top-0 flex h-[34px] min-w-[44px] -translate-x-1/2 items-center gap-1 px-1 text-left text-[#5f4a66] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5f4a66]"
-                            aria-label={`${milestone.title}の詳細を開く。ドラッグで日付を変更`}
-                            title="クリックで詳細、ドラッグで日付を変更"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              if (dependencyMode) {
+                                if (dependencySource)
+                                  void connectScheduleDependency({
+                                    entity: "milestone",
+                                    id: milestone.id,
+                                  });
+                                else if (event.detail === 0)
+                                  beginKeyboardScheduleDependency(displayMilestone);
+                                return;
+                              }
+                              handleRowClick(displayMilestone);
+                            }}
+                            className={`pointer-events-auto absolute left-0 top-0 flex h-[34px] min-w-[44px] -translate-x-1/2 items-center gap-1 px-1 text-left focus-visible:outline focus-visible:outline-2 ${dependencyMode && dependencySource ? "text-[#315f7d] focus-visible:outline-[#315f7d]" : "text-[#5f4a66] focus-visible:outline-[#5f4a66]"}`}
+                            aria-label={
+                              dependencyMode
+                                ? dependencySource
+                                  ? `${milestone.title}を接続先にする`
+                                  : `${milestone.title}を依存線の起点にする`
+                                : `${milestone.title}の詳細を開く。ドラッグで日付を変更`
+                            }
+                            title={dependencyMode ? "依存線を接続" : "クリックで詳細、ドラッグで日付を変更"}
                           >
                             <i className={`h-3 w-3 shrink-0 rotate-45 border-2 border-[#5f4a66] ${milestone.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`} aria-hidden="true" />
                             <span className="max-w-[144px] truncate whitespace-nowrap text-[9px] font-bold">{milestone.title}</span>
@@ -2717,8 +2855,8 @@ export function SxUnifiedTimeline({
                             onKeyboardStartDependency={
                               beginKeyboardScheduleDependency
                             }
-                            onCompleteDependency={(taskId) =>
-                              void connectScheduleDependency(taskId)
+                            onCompleteDependency={(target) =>
+                              void connectScheduleDependency(target)
                             }
                           />
                         </div>

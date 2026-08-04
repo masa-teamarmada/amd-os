@@ -122,6 +122,8 @@ assertIncludes(timelineFile, timeline, [
   "最上位タスクに戻す",
   "MS {laneMilestones.length} / タスク {rows.length}",
   "日程未登録のMS",
+  "if (task.track) return displayLaneKeyForTrack(task.track);",
+  "Only the MS marker is forced to BLOCKING_MILESTONE_LANE",
 ]);
 assertNotIncludes(timelineFile, timeline, [
   "title: milestone.gate || milestone.title",
@@ -181,6 +183,44 @@ assertIncludes(gateCopyMigrationFile, gateCopyMigration, [
   "出資の口頭合意を確認する",
   "next_deliverable LIKE 'NewCo設立の最低条件は1社の有償PoC口頭合意。A.%'",
   "next_deliverable LIKE '現時点は事業計画が未完成でDDは未着手。A.%'",
+]);
+
+// -- 9d. The live p21 gantt starts from exactly the nine agreed MS-derived root tasks ---------
+const rootTaskReplacementMigrationFile =
+  "scripts/migrations/230_sx_replace_root_tasks_from_newco_gates.sql";
+const rootTaskReplacementMigration = read(rootTaskReplacementMigrationFile);
+assertIncludes(rootTaskReplacementMigrationFile, rootTaskReplacementMigration, [
+  "UPDATE public.project_management_schedule_dependencies",
+  "UPDATE public.project_management_tasks",
+  "deleted_by = 'migration:230_sx_replace_root_tasks_from_newco_gates'",
+  "'business-paid-poc-oral-agreement'",
+  "'funding-investment-oral-agreement'",
+  "'対象企業と、有償で導入検討するための判断条件を定める'",
+  "'実排液で判断条件を検証できるPoC装置を完成させる'",
+  "'実排液で、費用を払う価値がある成果を実証する'",
+  "'1社に有償PoCを提案し、条件交渉を完了する'",
+  "'ユニットエコノミクスの成立性を検証する'",
+  "'NewCoの事業実行体制と権利関係を固める'",
+  "'投資判断に耐える事業計画を完成させる'",
+  "'出資候補を絞り、DDを完了する'",
+  "'出資条件の交渉を完了する'",
+  "parent_task_id IS NULL",
+  "active_task_count <> 9",
+  "active_replacement_count <> 9",
+  "successor_type text",
+  "successor_milestone_id uuid",
+  "schedule dependency would create a cycle",
+  "active_dependency_count <> 9",
+  "active_task_target_count <> 7",
+  "paid_poc_milestone_link_count <> 1",
+  "funding_milestone_link_count <> 1",
+  "project_management_schedule_dependencies_task_to_milestone_unique",
+  "'21c2a6fc-746e-46f4-9a54-6fd2eb4533b9'::uuid,\n      'milestone',\n      NULL::uuid,\n      'business-paid-poc-oral-agreement'",
+  "'504ef913-7f24-4ca6-a580-e957d06c7809'::uuid,\n      'milestone',\n      NULL::uuid,\n      'funding-investment-oral-agreement'",
+  "LEFT JOIN public.project_management_milestones successor_milestone",
+]);
+assertNotIncludes(rootTaskReplacementMigrationFile, rootTaskReplacementMigration, [
+  "DELETE FROM",
 ]);
 
 // -- 10. No role=alertdialog or nested editor: every PlanInspector value edits in place ---------
@@ -346,15 +386,17 @@ assertIncludes(timelineFile, timeline, [
   "dependencyMode",
   'resource: "schedule_dependency"',
   'data-gantt-dependency-source={`${row.entity}:${row.id}`}',
-  'data-gantt-dependency-target-task={row.id}',
+  'data-gantt-dependency-target-entity={row.entity}',
+  'data-gantt-dependency-target-id={row.id}',
+  'data-gantt-dependency-target-entity=',
   "data-gantt-schedule-dependency-lines",
   "data-gantt-schedule-dependency-register",
   "onPointerDownDependency={beginScheduleDependency}",
   "beginKeyboardScheduleDependency(row)",
-  "接続先タスクの左端を選んでね。Escで中止できるよ",
+  "接続先のタスクかMSを選んでね。Escで中止できるよ",
   "removeScheduleDependency(edge.dependency.id)",
   "A click arms the source",
-  "右端と左端を順にクリックしてね",
+  "起点と終点を順にクリックしてね",
   'data-gantt-sticky-header',
   'className="sticky top-0 z-50 grid',
   'className="sticky left-0 z-[51]',
@@ -403,6 +445,17 @@ assertTrue(
   lockOrderMigration.indexOf("ORDER BY id") < lockOrderMigration.indexOf("pg_advisory_xact_lock"),
   `${lockOrderMigrationFile}: endpoint rows must be locked before the project advisory lock`,
 );
+const mixedTargetMigrationFile =
+  "scripts/migrations/230_sx_replace_root_tasks_from_newco_gates.sql";
+const mixedTargetMigration = read(mixedTargetMigrationFile);
+assertIncludes(mixedTargetMigrationFile, mixedTargetMigration, [
+  "ALTER COLUMN successor_task_id DROP NOT NULL",
+  "successor_type = 'milestone' AND successor_task_id IS NULL AND successor_milestone_id IS NOT NULL",
+  "source_node := 'task:' || NEW.predecessor_task_id::text",
+  "target_node := 'milestone:' || NEW.successor_milestone_id::text",
+  "schedule dependency would create a cycle",
+  "edge.successor_milestone_id = OLD.id",
+]);
 
 // -- expected_version required (400 missing/invalid, 409 stale); CAS rollback by updated version --
 const routeFile = "src/app/api/project-workspace/[projectId]/management/route.ts";
@@ -411,7 +464,10 @@ assertIncludes(routeFile, route, [
   '| "schedule_dependency"',
   'schedule_dependency: "project_management_schedule_dependencies"',
   'predecessor_type: predecessorType',
-  'successor_task_id: requiredId("successor_task_id")',
+  'requiredEnum("successor_type", ["task", "milestone"])',
+  'successor_type: successorType',
+  'successor_task_id: successorType === "task" ? successorId : null',
+  'successor_milestone_id: successorType === "milestone" ? successorId : null',
   "updated_by: memberId",
   'resource === "schedule_dependency" && (deleting || restoring)',
   'const pointMs = timelineKind === "milestone";',
