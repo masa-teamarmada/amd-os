@@ -162,13 +162,9 @@ assertIncludes(dashboardFile, dashboard, [
   'aria-label={`${targetLabel}の${label}を直接修正`}',
   'ariaDescribedBy="sx-plan-editor-context"',
   'label: "接続する工程"',
-  'label: "ネスト先（親タスク）"',
-  '工程の直下（親なし）',
-  'の子にする',
-  '工程の直下 = 親なし。既存タスクを選ぶ = その子タスクとしてネストする。',
   'taskParentTitle: string | null;',
-  '"item-parent-task"',
-  '["parent_task_id"]',
+  "タスク階層",
+  'ガント左のグリップを、親にしたいタスクまたは工程へドラッグ',
   "taskParentMilestones(management, editor.laneKey)",
   "const candidates = management.milestones.filter(",
   "management.judgment.dagValid",
@@ -178,6 +174,20 @@ assertIncludes(dashboardFile, dashboard, [
   'current.milestone_id !== nextValue',
   '? { parent_task_id: "" }',
   'fields.track = selectedTaskMilestone?.track || "";',
+]);
+assertNotIncludes(dashboardFile, dashboard, [
+  'label: "ネスト先（親タスク）"',
+  '"item-parent-task"',
+]);
+assertIncludes(timelineFile, timeline, [
+  'from "@/lib/sx-gantt-task-nesting"',
+  "taskNestCandidateIds(tasks, taskNestDrag?.taskId ?? null)",
+  "data-gantt-task-nest-handle",
+  "data-gantt-nest-target-task",
+  "data-gantt-nest-root-milestone",
+  "patch: { parent_task_id: parentTaskId }",
+  "ここを親タスクにする",
+  "工程の直下に戻す",
 ]);
 
 const selectRendererStart = dashboard.indexOf(') : field.type === "select" ? (');

@@ -50,6 +50,7 @@
     "test:sx-weekly-control": "node --experimental-strip-types scripts/test_sx_weekly_control.mjs",
     "test:sx-gate-requirements": "node --experimental-strip-types scripts/test_sx_gate_requirements.mjs",
     "test:sx-gantt-drag": "node --experimental-strip-types scripts/test_sx_gantt_drag.mjs",
+    "test:sx-gantt-task-nesting": "node --experimental-strip-types scripts/test_sx_gantt_task_nesting.mjs",
     "test:sx-gantt-ui-contracts": "node scripts/test_sx_gantt_ui_contracts.cjs",
     "test:sx-gantt-pointer-gesture": "node --experimental-strip-types scripts/test_sx_gantt_pointer_gesture.mjs",
     "test:sx-project-owner-load": "node --experimental-strip-types scripts/test_sx_project_owner_load.mjs",

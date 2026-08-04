@@ -1097,49 +1097,8 @@ function editorDefinition(
                   ),
                 ],
               },
-              {
-                key: "parent_task_id",
-                label: "ネスト先（親タスク）",
-                type: "select" as const,
-                help:
-                  "工程の直下 = 親なし。既存タスクを選ぶ = その子タスクとしてネストする。",
-                options: [
-                  { value: "", label: "工程の直下（親なし）" },
-                  ...management.tasks
-                    .filter((task) =>
-                      taskParentMilestones(management, editor.laneKey).some(
-                        (milestone) => milestone.id === task.milestoneId,
-                      ),
-                    )
-                    .map((task) => ({
-                      value: task.id,
-                      label: `${management.milestones.find((item) => item.id === task.milestoneId)?.title || "工程"}｜「${task.title}」の子にする`,
-                    })),
-                ],
-              },
             ]
-          : [
-              {
-                key: "parent_task_id",
-                label: "ネスト先（親タスク）",
-                type: "select" as const,
-                help:
-                  "工程の直下に戻すとネストを外せる。既存タスクを選ぶと、その子タスクへ付け替える。",
-                options: [
-                  { value: "", label: "工程の直下（親なし）" },
-                  ...management.tasks
-                    .filter(
-                      (task) =>
-                        task.milestoneId === editor.task.milestoneId &&
-                        task.id !== editor.task.id,
-                    )
-                    .map((task) => ({
-                      value: task.id,
-                      label: `「${task.title}」の子にする`,
-                    })),
-                ],
-              },
-            ]),
+          : []),
         ...planFields,
         { key: "description", label: "作業内容", type: "textarea", span: true },
         { key: "actual_end", label: "実績完了", type: "date" },
@@ -3563,16 +3522,17 @@ function PlanInspector({
             <div className={styles.inspectorContentGrid}>
               {isTask && (
                 <section className={styles.inspectorSection}>
-                  <span>ネスト先（親タスク）</span>
+                  <span>タスク階層</span>
                   <div className={styles.inspectorSectionValue}>
-                    {editableValue(
-                      "item-parent-task",
-                      "ネスト先（親タスク）",
-                      taskParentTitle
+                    <p>
+                      {taskParentTitle
                         ? `「${taskParentTitle}」の子タスク`
-                        : "工程の直下（親なし）",
-                      itemEditor,
-                      ["parent_task_id"],
+                        : "工程の直下（親なし）"}
+                    </p>
+                    {canManage && (
+                      <small>
+                        ガント左のグリップを、親にしたいタスクまたは工程へドラッグ
+                      </small>
                     )}
                   </div>
                 </section>

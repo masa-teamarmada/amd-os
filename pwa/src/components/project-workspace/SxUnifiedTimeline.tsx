@@ -7,6 +7,7 @@ import {
   ChevronsUpDown,
   ChevronRight,
   Flag,
+  GripVertical,
   Link2,
   Plus,
   Unlink2,
@@ -33,6 +34,7 @@ import {
   sxMilestoneRequiredTaskSummary,
   type SxGateRequirement,
 } from "@/lib/sx-gate-requirements";
+import { taskNestCandidateIds } from "@/lib/sx-gantt-task-nesting";
 import {
   computeBarMove,
   computeBarResizeEnd,
@@ -799,6 +801,24 @@ type DragState = {
   saving: boolean;
 };
 
+type TaskNestTarget =
+  | { kind: "task"; taskId: string }
+  | { kind: "milestone"; milestoneId: string };
+
+/** Separate from date-bar drag: the left-side grip moves only the task hierarchy. */
+type TaskNestDragState = {
+  taskId: string;
+  milestoneId: string;
+  title: string;
+  version: number;
+  pointerId: number;
+  startClientX: number;
+  startClientY: number;
+  dragging: boolean;
+  saving: boolean;
+  target: TaskNestTarget | null;
+};
+
 type ScheduleDependencySource = {
   entity: "task" | "milestone";
   id: string;
@@ -890,6 +910,10 @@ export function SxUnifiedTimeline({
   // not a stale closure, to decide whether a capture loss is abnormal (cancel) or just the
   // implicit release that follows a normal pointerup (do nothing, finishDrag already owns it).
   const dragRef = useRef<DragState | null>(null);
+  const [taskNestDrag, setTaskNestDrag] = useState<TaskNestDragState | null>(
+    null,
+  );
+  const taskNestDragRef = useRef<TaskNestDragState | null>(null);
   // Set the instant finishDrag decides to actually PATCH (before any `await`), cleared once that
   // PATCH settles. lostpointercapture for this pointerId while it's set means "that was the
   // normal release after our own pointerup save, not an abnormal loss" — must not wipe the drag.
@@ -934,6 +958,22 @@ export function SxUnifiedTimeline({
         : next;
     dragRef.current = resolved;
     setDrag(resolved);
+  }
+
+  function setTaskNestDragBoth(
+    next:
+      | TaskNestDragState
+      | null
+      | ((current: TaskNestDragState | null) => TaskNestDragState | null),
+  ) {
+    const resolved =
+      typeof next === "function"
+        ? (next as (
+            current: TaskNestDragState | null,
+          ) => TaskNestDragState | null)(taskNestDragRef.current)
+        : next;
+    taskNestDragRef.current = resolved;
+    setTaskNestDrag(resolved);
   }
 
   function showGanttNotice(message: string) {
@@ -1237,6 +1277,10 @@ export function SxUnifiedTimeline({
       );
     return map;
   }, [tasks]);
+  const taskNestCandidateTaskIds = useMemo(
+    () => taskNestCandidateIds(tasks, taskNestDrag?.taskId ?? null),
+    [taskNestDrag?.taskId, tasks],
+  );
 
   // 事業開発／技術開発／組織開発の3レーンだけを描く。資金調達は独立レーンを持たず組織開発へ
   // 統合し、設立前提の2件は専用の4本目レーンではなく、それぞれの対象レーンへ直接組み込む。
@@ -1513,6 +1557,17 @@ export function SxUnifiedTimeline({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isDragging]);
 
+  useEffect(() => {
+    if (!taskNestDrag) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape" || taskNestDragRef.current?.saving) return;
+      event.preventDefault();
+      setTaskNestDragBoth(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [taskNestDrag]);
+
   // The Y/N question is deliberately a lightweight non-modal popover. It disappears before the
   // real MS editor opens, so the dashboard never stacks two dialogs. Escape/N restore focus to
   // the exact timeline point that opened it; scrolling or resizing closes the stale-positioned
@@ -1551,7 +1606,8 @@ export function SxUnifiedTimeline({
   }, [pendingMilestonePoint]);
 
   function beginDrag(row: DisplayRow, mode: DragMode, event: React.PointerEvent) {
-    if (!canManage || !projectId || drag) return;
+    if (!canManage || !projectId || dragRef.current || taskNestDragRef.current)
+      return;
     if (!row.plannedEnd) return;
     // Every mode except a gate's end-only move requires a real plannedStart to drag from —
     // "milestone-end-move" is the one case where an end-only NewCo gate must still be draggable.
@@ -1633,6 +1689,164 @@ export function SxUnifiedTimeline({
     ) {
       setDragBoth(null);
     }
+  }
+
+  function resolveTaskNestTarget(
+    source: TaskNestDragState,
+    clientX: number,
+    clientY: number,
+  ): TaskNestTarget | null {
+    const target = document
+      .elementFromPoint(clientX, clientY)
+      ?.closest<HTMLElement>(
+        "[data-gantt-nest-target-task], [data-gantt-nest-root-milestone]",
+      );
+    if (!target) return null;
+    const parentTaskId = target.dataset.ganttNestTargetTask;
+    if (
+      parentTaskId &&
+      taskNestCandidateIds(tasks, source.taskId).has(parentTaskId)
+    )
+      return { kind: "task", taskId: parentTaskId };
+    const milestoneId = target.dataset.ganttNestRootMilestone;
+    if (milestoneId === source.milestoneId)
+      return { kind: "milestone", milestoneId };
+    return null;
+  }
+
+  function beginTaskNestDrag(
+    row: DisplayRow,
+    event: React.PointerEvent<HTMLButtonElement>,
+  ) {
+    if (
+      row.entity !== "task" ||
+      !canManage ||
+      !projectId ||
+      dragRef.current ||
+      taskNestDragRef.current ||
+      dependencySource
+    )
+      return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setTaskNestDragBoth({
+      taskId: row.id,
+      milestoneId: row.milestoneId,
+      title: row.title,
+      version: row.version,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      dragging: false,
+      saving: false,
+      target: null,
+    });
+  }
+
+  function updateTaskNestDrag(event: React.PointerEvent<HTMLButtonElement>) {
+    setTaskNestDragBoth((current) => {
+      if (!current || current.pointerId !== event.pointerId || current.saving)
+        return current;
+      const deltaX = event.clientX - current.startClientX;
+      const deltaY = event.clientY - current.startClientY;
+      const dragging =
+        current.dragging || !isWithinClickThreshold(deltaX, deltaY);
+      if (!dragging) return current;
+      const target = resolveTaskNestTarget(current, event.clientX, event.clientY);
+      const targetChanged =
+        target?.kind !== current.target?.kind ||
+        (target?.kind === "task" &&
+          current.target?.kind === "task" &&
+          target.taskId !== current.target.taskId) ||
+        (target?.kind === "milestone" &&
+          current.target?.kind === "milestone" &&
+          target.milestoneId !== current.target.milestoneId);
+      return current.dragging === dragging && !targetChanged
+        ? current
+        : { ...current, dragging, target };
+    });
+  }
+
+  async function finishTaskNestDrag(
+    event: React.PointerEvent<HTMLButtonElement>,
+  ) {
+    const current = taskNestDragRef.current;
+    if (!current || current.pointerId !== event.pointerId || !projectId) return;
+    const target = current.dragging
+      ? resolveTaskNestTarget(current, event.clientX, event.clientY)
+      : null;
+    if (!current.dragging || !target) {
+      setTaskNestDragBoth(null);
+      return;
+    }
+    const parentTaskId =
+      target.kind === "task" ? target.taskId : null;
+    const parentTitle = parentTaskId
+      ? tasks.find((task) => task.id === parentTaskId)?.title || "親タスク"
+      : null;
+    setTaskNestDragBoth({ ...current, saving: true });
+    try {
+      const response = await fetch(
+        `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            resource: "task",
+            id: current.taskId,
+            patch: { parent_task_id: parentTaskId },
+            expected_version: current.version,
+          }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (response.status === 409) {
+        setTaskNestDragBoth(null);
+        await bestEffortRefetchManagement(
+          "他の人がこのタスクを先に更新したよ。最新の状態に更新したよ",
+          "他の人がこのタスクを先に更新したみたい。画面を再読み込みしてね",
+        );
+        return;
+      }
+      if (!response.ok)
+        throw new Error(
+          typeof body.error === "string"
+            ? body.error
+            : "タスク階層を保存できなかったよ",
+        );
+      if (parentTaskId)
+        setExpandedTasks((currentExpanded) =>
+          new Set([...currentExpanded, parentTaskId]),
+        );
+      else
+        setExpandedMilestones((currentExpanded) =>
+          new Set([...currentExpanded, current.milestoneId]),
+        );
+      setTaskNestDragBoth(null);
+      onManagementChange(
+        body.bundle as SxManagementBundle,
+        parentTitle
+          ? `「${current.title}」を「${parentTitle}」の子タスクにしたよ`
+          : `「${current.title}」を工程の直下に戻したよ`,
+      );
+    } catch (caught) {
+      setTaskNestDragBoth(null);
+      const message =
+        caught instanceof Error ? caught.message : "タスク階層を保存できなかったよ";
+      await bestEffortRefetchManagement(
+        `${message}。最新の状態に更新したよ`,
+        `${message}。保存できたか確認できなかったよ。画面を再読み込みしてね`,
+      );
+    }
+  }
+
+  function cancelTaskNestDrag(
+    event?: React.PointerEvent<HTMLButtonElement>,
+  ) {
+    if (event && taskNestDragRef.current?.pointerId !== event.pointerId)
+      return;
+    if (!taskNestDragRef.current?.saving) setTaskNestDragBoth(null);
   }
 
   async function finishDrag(row: DisplayRow, event: React.PointerEvent) {
@@ -1878,7 +2092,7 @@ export function SxUnifiedTimeline({
             ? dependencySource
               ? `${dependencySource.title} → 接続先タスクの左端へ`
               : "右端から左端へドラッグ、または順にクリック"
-            : "横に動かせるよ ↔"}
+            : "バーで日程変更・左のグリップで階層変更"}
         </span>
       </div>
 
@@ -1964,11 +2178,32 @@ export function SxUnifiedTimeline({
                       ? item.predecessorTaskId === row.id
                       : item.predecessorMilestoneId === row.id),
                 ).length;
+                const isNestSource =
+                  taskNestDrag?.taskId === row.id && taskNestDrag.dragging;
+                const isNestTaskTarget =
+                  taskNestDrag?.target?.kind === "task" &&
+                  taskNestDrag.target.taskId === row.id;
+                const isNestRootTarget =
+                  taskNestDrag?.target?.kind === "milestone" &&
+                  taskNestDrag.target.milestoneId === row.id;
+                const isNestCandidate =
+                  row.entity === "task" && taskNestCandidateTaskIds.has(row.id);
+                const isNestRootCandidate =
+                  row.entity === "milestone" &&
+                  taskNestDrag?.milestoneId === row.id &&
+                  tasks.find((task) => task.id === taskNestDrag.taskId)
+                    ?.parentTaskId != null;
                 return (
                   <article
                     key={`mobile-${row.entity}-${row.id}`}
                     data-plan-row={`${row.entity}:${row.id}`}
-                    className={`p-2.5 ${selected ? "bg-[#e8f2eb]" : "bg-white"}`}
+                    data-gantt-nest-target-task={
+                      isNestCandidate ? row.id : undefined
+                    }
+                    data-gantt-nest-root-milestone={
+                      isNestRootCandidate ? row.id : undefined
+                    }
+                    className={`p-2.5 transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#e8f2eb] outline outline-2 outline-[#205f49] outline-offset-[-2px]" : selected ? "bg-[#e8f2eb]" : "bg-white"}`}
                     style={{ marginLeft: row.depth * 12 }}
                   >
                     <div className="flex items-start gap-2">
@@ -1996,6 +2231,22 @@ export function SxUnifiedTimeline({
                           <ChevronRight
                             className={`h-4 w-4 transition-transform ${expanded ? "rotate-90" : ""}`}
                           />
+                        </button>
+                      )}
+                      {row.entity === "task" && canManage && projectId && (
+                        <button
+                          type="button"
+                          data-gantt-task-nest-handle={row.id}
+                          onPointerDown={(event) => beginTaskNestDrag(row, event)}
+                          onPointerMove={updateTaskNestDrag}
+                          onPointerUp={(event) => void finishTaskNestDrag(event)}
+                          onPointerCancel={(event) => cancelTaskNestDrag(event)}
+                          onLostPointerCapture={(event) => cancelTaskNestDrag(event)}
+                          className="grid min-h-11 min-w-11 touch-none place-items-center text-[#928c80] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] disabled:opacity-40"
+                          disabled={dependencyMode || taskNestDrag?.saving}
+                          aria-label={`${row.title}をドラッグして親タスクを変更`}
+                        >
+                          <GripVertical className="h-4 w-4" aria-hidden="true" />
                         </button>
                       )}
                       <button
@@ -2032,6 +2283,13 @@ export function SxUnifiedTimeline({
                           <span className="mt-1 block text-[9px] font-semibold text-[#5f4a66]">
                             依存：先行 {incomingScheduleCount} / 後続{" "}
                             {outgoingScheduleCount}
+                          </span>
+                        )}
+                        {(isNestTaskTarget || isNestRootTarget) && (
+                          <span className="mt-1 block text-[10px] font-bold text-[#205f49]">
+                            {isNestTaskTarget
+                              ? "ここを親タスクにする"
+                              : "工程の直下に戻す"}
                           </span>
                         )}
                         {row.entity === "milestone" &&
@@ -2231,11 +2489,34 @@ export function SxUnifiedTimeline({
                     const nextRequirement = row.requirements.find(
                       (item) => item.state !== "met",
                     );
+                    const isNestSource =
+                      taskNestDrag?.taskId === row.id &&
+                      taskNestDrag.dragging;
+                    const isNestTaskTarget =
+                      taskNestDrag?.target?.kind === "task" &&
+                      taskNestDrag.target.taskId === row.id;
+                    const isNestRootTarget =
+                      taskNestDrag?.target?.kind === "milestone" &&
+                      taskNestDrag.target.milestoneId === row.id;
+                    const isNestCandidate =
+                      row.entity === "task" &&
+                      taskNestCandidateTaskIds.has(row.id);
+                    const isNestRootCandidate =
+                      row.entity === "milestone" &&
+                      taskNestDrag?.milestoneId === row.id &&
+                      tasks.find((task) => task.id === taskNestDrag.taskId)
+                        ?.parentTaskId != null;
                     return (
                       <div
                         key={`${row.entity}-${row.id}`}
                         data-plan-row={`${row.entity}:${row.id}`}
-                        className={`group relative flex scroll-mt-3 border-b border-[#f1eee5] ${selected ? "bg-[#e8f2eb]" : "hover:bg-[#f8f5ec]"}`}
+                        data-gantt-nest-target-task={
+                          isNestCandidate ? row.id : undefined
+                        }
+                        data-gantt-nest-root-milestone={
+                          isNestRootCandidate ? row.id : undefined
+                        }
+                        className={`group relative flex scroll-mt-3 border-b border-[#f1eee5] transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#e8f2eb] outline outline-2 outline-[#205f49] outline-offset-[-2px]" : selected ? "bg-[#e8f2eb]" : "hover:bg-[#f8f5ec]"}`}
                         style={{ height: ROW_H, paddingLeft: row.depth * 15 }}
                       >
                         <button
@@ -2264,6 +2545,23 @@ export function SxUnifiedTimeline({
                             className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-90" : ""}`}
                           />
                         </button>
+                        {row.entity === "task" && canManage && projectId && (
+                          <button
+                            type="button"
+                            data-gantt-task-nest-handle={row.id}
+                            onPointerDown={(event) => beginTaskNestDrag(row, event)}
+                            onPointerMove={updateTaskNestDrag}
+                            onPointerUp={(event) => void finishTaskNestDrag(event)}
+                            onPointerCancel={(event) => cancelTaskNestDrag(event)}
+                            onLostPointerCapture={(event) => cancelTaskNestDrag(event)}
+                            className="grid h-full w-6 shrink-0 touch-none place-items-center text-[#928c80] transition-colors hover:text-[#205f49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] disabled:opacity-40"
+                            disabled={dependencyMode || taskNestDrag?.saving}
+                            title="ドラッグして親タスクへ重ねる。工程行へ重ねるとネスト解除"
+                            aria-label={`${row.title}をドラッグして親タスクを変更`}
+                          >
+                            <GripVertical className="h-3.5 w-3.5" aria-hidden="true" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => select(row)}
@@ -2312,6 +2610,13 @@ export function SxUnifiedTimeline({
                               {nextRequirement
                                 ? `${nextRequirement.state === "unconfirmed" ? "未確認" : "未達"}｜${nextRequirement.milestone.gate || nextRequirement.milestone.title}`
                                 : `到達点｜${row.gate}`}
+                            </span>
+                          )}
+                          {(isNestTaskTarget || isNestRootTarget) && (
+                            <span className="mt-0.5 block text-[9px] font-bold text-[#205f49]">
+                              {isNestTaskTarget
+                                ? "ここを親タスクにする"
+                                : "工程の直下に戻す"}
                             </span>
                           )}
                         </button>
