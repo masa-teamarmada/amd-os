@@ -1,6 +1,7 @@
 export const WORKSPACE_DOCUMENTS_BUCKET = "workspace-files";
 export const WORKSPACE_DOCUMENT_MAX_BYTES = 100 * 1024 * 1024;
 export const WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES = 5 * 1024 * 1024;
+export const WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES = 5 * 1024 * 1024;
 export const WORKSPACE_DOCUMENT_HTML_PDF_MAX_INPUT_BYTES = 8 * 1024 * 1024;
 export const WORKSPACE_DOCUMENT_HTML_PDF_MAX_OUTPUT_BYTES = 4 * 1024 * 1024;
 
@@ -16,6 +17,24 @@ export function isWorkspaceDocumentHtml(mimeType: unknown, displayName?: unknown
     : null;
   if (normalizedMimeType === "text/html") return true;
   return typeof displayName === "string" && /\.html?$/i.test(displayName.trim());
+}
+
+/**
+ * HTML本文は入力値として扱うだけで、ここでは実行・整形・sanitizeしない。
+ * 保存前のサイズ判定と、ブラウザ側の表示用byte数に同じUTF-8基準を使う。
+ */
+export function workspaceDocumentHtmlSourceByteLength(value: string): number {
+  return new TextEncoder().encode(value).byteLength;
+}
+
+export function normalizeWorkspaceDocumentHtmlSource(value: unknown): {
+  source: string;
+  byteLength: number;
+} | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const byteLength = workspaceDocumentHtmlSourceByteLength(value);
+  if (byteLength > WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES) return null;
+  return { source: value, byteLength };
 }
 
 export function workspaceDocumentPdfDownloadName(displayName: string): string {

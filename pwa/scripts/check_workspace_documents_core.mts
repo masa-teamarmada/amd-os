@@ -4,9 +4,12 @@ import {
   documentParentPath,
   isWorkspaceDocumentHtml,
   joinDocumentFolderPath,
+  normalizeWorkspaceDocumentHtmlSource,
   normalizeDocumentFolderPath,
   normalizeDocumentName,
   normalizeDocumentVisibility,
+  WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES,
+  workspaceDocumentHtmlSourceByteLength,
   workspaceDocumentPdfDownloadName,
   normalizeHttpUrl,
   workspaceDocumentStoragePath,
@@ -44,6 +47,16 @@ assert.equal(isWorkspaceDocumentHtml("application/octet-stream", "提案資料.h
 assert.equal(isWorkspaceDocumentHtml("text/plain"), false);
 assert.equal(workspaceDocumentPdfDownloadName("提案資料.html"), "提案資料.pdf");
 assert.equal(workspaceDocumentPdfDownloadName("提案資料.HTM"), "提案資料.pdf");
+assert.equal(workspaceDocumentHtmlSourceByteLength("あ"), 3);
+assert.deepEqual(normalizeWorkspaceDocumentHtmlSource("<h1>資料</h1>"), {
+  source: "<h1>資料</h1>",
+  byteLength: workspaceDocumentHtmlSourceByteLength("<h1>資料</h1>"),
+});
+assert.equal(normalizeWorkspaceDocumentHtmlSource("   "), null);
+assert.equal(
+  normalizeWorkspaceDocumentHtmlSource("a".repeat(WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES + 1)),
+  null,
+);
 
 const documentId = "7ec59a7f-211a-4670-b3c5-f1a35b5ee7aa";
 assert.equal(

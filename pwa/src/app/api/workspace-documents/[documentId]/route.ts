@@ -116,9 +116,8 @@ export async function PATCH(
     return json({ ok: true, document: publicWorkspaceDocument(updated as unknown as WorkspaceDocumentRow) });
   }
 
-  if (!access.canManage) return json({ ok: false, error: "この資料は整理できないよ。" }, 403);
-
   if (body.action === "archive") {
+    if (!access.canUpload) return json({ ok: false, error: "この資料は削除できないよ。" }, 403);
     const { error: archiveError } = await db.rpc("workspace_archive_document", { p_document_id: documentId });
     if (archiveError) return mutationError(archiveError);
     await recordWorkspaceAuditEvent(db, {
@@ -131,6 +130,8 @@ export async function PATCH(
     });
     return json({ ok: true });
   }
+
+  if (!access.canManage) return json({ ok: false, error: "この資料は整理できないよ。" }, 403);
 
   if (body.action !== "organize") return json({ ok: false, error: "操作内容が不正だよ。" }, 400);
 

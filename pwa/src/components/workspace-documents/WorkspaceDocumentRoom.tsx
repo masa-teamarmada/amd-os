@@ -11,7 +11,6 @@ import {
 } from "react";
 import Link from "next/link";
 import {
-  Archive,
   ChevronRight,
   Download,
   ExternalLink,
@@ -24,8 +23,10 @@ import {
   Link2,
   Loader2,
   MoreHorizontal,
+  PencilLine,
   Search,
   ShieldCheck,
+  Trash2,
   Upload,
   X,
 } from "lucide-react";
@@ -41,9 +42,12 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
   isWorkspaceDocumentHtml,
+  WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES,
+  workspaceDocumentHtmlSourceByteLength,
   workspaceDocumentPdfDownloadName,
 } from "@/lib/workspace-documents-core";
 import type {
@@ -82,7 +86,7 @@ type ListResponse = {
 };
 
 type DialogKind =
-  "create_folder" | "create_link" | "organize" | "archive" | null;
+  "create_folder" | "create_link" | "edit_html" | "organize" | "archive" | null;
 
 const kindOrder: Record<WorkspaceDocumentEntryKind, number> = {
   folder: 0,
@@ -195,6 +199,8 @@ export function WorkspaceDocumentRoom({
   const [draftFolderPath, setDraftFolderPath] = useState("");
   const [draftVisibility, setDraftVisibility] =
     useState<WorkspaceDocumentVisibility>("workspace_shared");
+  const [draftHtmlSource, setDraftHtmlSource] = useState("");
+  const [htmlSourceLoading, setHtmlSourceLoading] = useState(false);
 
   const loadDocuments = useCallback(async () => {
     setLoading(true);
@@ -258,6 +264,10 @@ export function WorkspaceDocumentRoom({
     }),
     [documents],
   );
+  const draftHtmlByteLength = useMemo(
+    () => workspaceDocumentHtmlSourceByteLength(draftHtmlSource),
+    [draftHtmlSource],
+  );
 
   const breadcrumbs = currentFolder ? currentFolder.split("/") : [];
   const ownerTrail = scopeTrail?.length ? scopeTrail : [scopeName];
@@ -279,6 +289,37 @@ export function WorkspaceDocumentRoom({
     setDraftFolderPath(item?.folderPath ?? currentFolder);
     setDraftVisibility(item?.visibility ?? "workspace_shared");
     setError(null);
+  }
+
+  async function openHtmlEditor(item: DocumentItem) {
+    if (busy) return;
+    setSelected(item);
+    setDraftHtmlSource("");
+    setDialog("edit_html");
+    setError(null);
+    setHtmlSourceLoading(true);
+    try {
+      const response = await fetch(
+        `/api/workspace-documents/${encodeURIComponent(item.documentId)}/source`,
+        { cache: "no-store" },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        source?: string;
+        error?: string;
+      };
+      if (!response.ok || !payload.ok || typeof payload.source !== "string") {
+        throw new Error(payload.error || "HTML資料を読み込めなかったよ。");
+      }
+      setDraftHtmlSource(payload.source);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "HTML資料を読み込めなかったよ。",
+      );
+      setDialog(null);
+    } finally {
+      setHtmlSourceLoading(false);
+    }
   }
 
   async function createEntry(event: FormEvent) {
@@ -471,6 +512,38 @@ export function WorkspaceDocumentRoom({
     }
   }
 
+  async function saveHtmlSource(event: FormEvent) {
+    event.preventDefault();
+    if (!selected || dialog !== "edit_html") return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/workspace-documents/${encodeURIComponent(selected.documentId)}/source`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
+          body: draftHtmlSource,
+        },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+      };
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error || "HTML資料を保存できなかったよ。");
+      }
+      setDialog(null);
+      await loadDocuments();
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "HTML資料を保存できなかったよ。",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function archiveEntry() {
     if (!selected) return;
     setBusy(true);
@@ -489,14 +562,14 @@ export function WorkspaceDocumentRoom({
         error?: string;
       };
       if (!response.ok || !payload.ok)
-        throw new Error(payload.error || "資料を保管済みにできなかったよ。");
+        throw new Error(payload.error || "資料室から削除できなかったよ。");
       setDialog(null);
       await loadDocuments();
     } catch (cause) {
       setError(
-        cause instanceof Error
-          ? cause.message
-          : "資料を保管済みにできなかったよ。",
+          cause instanceof Error
+            ? cause.message
+            : "資料室から削除できなかったよ。",
       );
     } finally {
       setBusy(false);
@@ -783,7 +856,7 @@ export function WorkspaceDocumentRoom({
             </div>
           )}
 
-          <div className="hidden grid-cols-[minmax(0,1fr)_120px_120px_96px] gap-4 border-t border-slate-200 bg-slate-100 px-5 py-2 text-[10px] font-semibold tracking-[0.08em] text-slate-600 sm:grid">
+          <div className="hidden grid-cols-[minmax(0,1fr)_120px_120px_360px] gap-4 border-t border-slate-200 bg-slate-100 px-5 py-2 text-[10px] font-semibold tracking-[0.08em] text-slate-600 xl:grid">
             <span>名称</span>
             <span>共有範囲</span>
             <span>更新</span>
@@ -814,10 +887,10 @@ export function WorkspaceDocumentRoom({
                   key={item.documentId}
                   className={cn(
                     styles.fileRow,
-                    "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_120px_120px_96px] sm:gap-4 sm:px-5",
+                    "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 xl:grid-cols-[minmax(0,1fr)_120px_120px_360px] xl:gap-4 xl:px-5",
                   )}
                 >
-                  <div className="col-span-2 flex min-w-0 items-center gap-3 sm:col-span-1">
+                  <div className="col-span-2 flex min-w-0 items-center gap-3 xl:col-span-1">
                     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-slate-100">
                       <EntryIcon item={item} />
                     </span>
@@ -867,7 +940,7 @@ export function WorkspaceDocumentRoom({
                       </p>
                     </div>
                   </div>
-                  <div className="flex min-w-0 flex-wrap items-center gap-2 sm:contents">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2 xl:contents">
                     <div>
                       <VisibilityBadge visibility={item.visibility} />
                     </div>
@@ -875,17 +948,21 @@ export function WorkspaceDocumentRoom({
                       {formatDate(item.updatedAt)}
                     </p>
                   </div>
-                  <div className="flex min-h-11 items-center justify-end gap-1">
+                  <div className="col-span-2 flex min-h-11 flex-wrap items-center justify-start gap-2 xl:col-span-1 xl:justify-end">
                     {item.entryKind === "file" && isWorkspaceDocumentHtml(item.mimeType, item.displayName) ? (
                       <button
                         type="button"
                         onClick={() => void downloadHtmlAsPdf(item)}
                         disabled={busy}
-                        className="grid h-11 w-11 place-items-center rounded-md text-slate-600 hover:bg-slate-100 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-60"
+                        className={cn(
+                          styles.secondaryAction,
+                          "inline-flex h-11 items-center gap-2 rounded-md px-3 text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-60",
+                        )}
                         title="PDF化ダウンロード"
                         aria-label={`${item.displayName}をPDF化ダウンロード`}
                       >
                         <Download className="h-4 w-4" aria-hidden />
+                        PDF化
                       </button>
                     ) : item.entryKind !== "folder" ? (
                       <a
@@ -902,6 +979,22 @@ export function WorkspaceDocumentRoom({
                         )}
                       </a>
                     ) : null}
+                    {permissions?.canUpload && item.entryKind === "file" && isWorkspaceDocumentHtml(item.mimeType, item.displayName) && (
+                      <button
+                        type="button"
+                        onClick={() => void openHtmlEditor(item)}
+                        disabled={busy}
+                        className={cn(
+                          styles.secondaryAction,
+                          "inline-flex h-11 items-center gap-2 rounded-md px-3 text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-60",
+                        )}
+                        title="HTMLを編集"
+                        aria-label={`${item.displayName}をHTMLで編集`}
+                      >
+                        <PencilLine className="h-4 w-4" aria-hidden />
+                        HTMLを編集
+                      </button>
+                    )}
                     {permissions?.canManage && (
                       <button
                         type="button"
@@ -910,6 +1003,22 @@ export function WorkspaceDocumentRoom({
                         aria-label={`${item.displayName}を整理`}
                       >
                         <MoreHorizontal className="h-4 w-4" aria-hidden />
+                      </button>
+                    )}
+                    {permissions?.canUpload && (
+                      <button
+                        type="button"
+                        onClick={() => openDialog("archive", item)}
+                        disabled={busy}
+                        className={cn(
+                          "inline-flex h-11 items-center gap-2 rounded-md px-3 text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700 disabled:opacity-60",
+                          styles.dangerAction,
+                        )}
+                        title="資料室から削除"
+                        aria-label={`${item.displayName}を資料室から削除`}
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden />
+                        削除
                       </button>
                     )}
                   </div>
@@ -998,6 +1107,63 @@ export function WorkspaceDocumentRoom({
       </Dialog>
 
       <Dialog
+        open={dialog === "edit_html"}
+        onOpenChange={(open) => !open && setDialog(null)}
+      >
+        <DialogContent className="flex max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-4xl flex-col overflow-hidden bg-white p-0 text-slate-950">
+          <form className="flex min-h-0 flex-1 flex-col" onSubmit={(event) => void saveHtmlSource(event)}>
+            <DialogHeader className="shrink-0 border-b-4 border-[#0066cc] bg-[#081b2b] px-5 py-4 text-white">
+              <DialogTitle className="text-base text-white sm:text-lg">HTMLを編集</DialogTitle>
+              <DialogDescription className="mt-1 text-xs leading-5 text-cyan-100">
+                {selected?.displayName}。ここはHTMLソースだけを編集する欄で、入力中のコードは実行しないよ。
+              </DialogDescription>
+            </DialogHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+              {htmlSourceLoading ? (
+                <div className="flex min-h-56 items-center justify-center gap-2 text-sm text-slate-500">
+                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                  HTMLソースを読み込み中
+                </div>
+              ) : (
+                <label className="block text-xs font-semibold text-slate-700">
+                  HTMLソース
+                  <Textarea
+                    value={draftHtmlSource}
+                    onChange={(event) => setDraftHtmlSource(event.target.value)}
+                    className="mt-2 min-h-[min(52dvh,520px)] resize-y rounded-md border-slate-300 bg-white font-mono text-xs leading-5 text-slate-950 focus-visible:border-blue-700 focus-visible:ring-blue-700/20"
+                    spellCheck={false}
+                    autoFocus
+                    aria-describedby="workspace-document-html-editor-note"
+                  />
+                </label>
+              )}
+              <p id="workspace-document-html-editor-note" className="mt-3 text-xs leading-5 text-slate-500">
+                {formatBytes(draftHtmlByteLength)} / {formatBytes(WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES)}。保存後は資料名から安全な別タブ表示で確認できる。
+              </p>
+            </div>
+            <DialogFooter className="shrink-0 border-t border-slate-200 px-4 py-3 sm:px-5">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11"
+                onClick={() => setDialog(null)}
+              >
+                キャンセル
+              </Button>
+              <Button
+                type="submit"
+                className="h-11 bg-[#0066cc] hover:bg-[#004f9e]"
+                disabled={busy || htmlSourceLoading || !draftHtmlSource.trim() || draftHtmlByteLength > WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES}
+              >
+                {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+                HTMLを保存
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
         open={dialog === "organize"}
         onOpenChange={(open) => !open && setDialog(null)}
       >
@@ -1058,8 +1224,8 @@ export function WorkspaceDocumentRoom({
                 className={cn("h-11", styles.dangerAction)}
                 onClick={() => setDialog("archive")}
               >
-                <Archive className="h-4 w-4" />
-                保管済みにする
+                <Trash2 className="h-4 w-4" />
+                削除
               </Button>
               <div className="flex gap-2">
                 <Button
@@ -1089,10 +1255,10 @@ export function WorkspaceDocumentRoom({
       >
         <DialogContent className="w-[calc(100vw-32px)] max-w-md bg-white text-slate-950">
           <DialogHeader>
-            <DialogTitle>保管済みにする？</DialogTitle>
+            <DialogTitle>資料室から削除する？</DialogTitle>
             <DialogDescription>
               {selected?.displayName}{" "}
-              を通常一覧から外す。ファイル本体は削除せず、保管領域に残すよ。
+              を資料室の通常一覧と共有画面から外す。ファイル本体や登録情報は保護された保管領域に残り、外部へ公開されないよ。今の資料室には戻す画面はない。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -1111,7 +1277,7 @@ export function WorkspaceDocumentRoom({
               onClick={() => void archiveEntry()}
             >
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-              保管済みにする
+              資料室から削除
             </Button>
           </DialogFooter>
         </DialogContent>

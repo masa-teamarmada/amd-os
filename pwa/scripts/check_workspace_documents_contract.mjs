@@ -7,6 +7,7 @@ const files = {
   mutate: new URL("../src/app/api/workspace-documents/[documentId]/route.ts", import.meta.url),
   open: new URL("../src/app/api/workspace-documents/[documentId]/open/route.ts", import.meta.url),
   render: new URL("../src/app/api/workspace-documents/[documentId]/render/route.ts", import.meta.url),
+  htmlSource: new URL("../src/app/api/workspace-documents/[documentId]/source/route.ts", import.meta.url),
   pdf: new URL("../src/app/api/workspace-documents/[documentId]/pdf/route.ts", import.meta.url),
   htmlPdf: new URL("../src/lib/workspace-document-html-pdf.ts", import.meta.url),
   serializer: new URL("../src/lib/workspace-documents-server.ts", import.meta.url),
@@ -32,6 +33,17 @@ assert.match(source.render, /isWorkspaceDocumentHtml\(row\.mime_type, row\.displ
 assert.match(source.render, /WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES/, "HTML表示の読込量を制限する");
 assert.match(source.render, /default-src 'none';[\s\S]*sandbox/, "HTML表示はscriptを許可しないsandbox CSPを返す");
 assert.match(source.render, /Content-Type": "text\/html; charset=utf-8"/, "HTML表示は正しいMIMEで返す");
+assert.match(source.htmlSource, /resolveDocumentRowAccess\(db, row\)/, "HTML編集も資料ごとの権限を再確認する");
+assert.match(source.htmlSource, /row\.visibility === "amd_internal" && !access\.canReadInternal/, "HTML編集も内部資料を404にする");
+assert.match(source.htmlSource, /!access\.canUpload/, "HTML本文の読込・保存は追加権限を必須にする");
+assert.match(source.htmlSource, /isWorkspaceDocumentHtml\(row\.mime_type, row\.display_name\)/, "HTMLだけを本文編集できる");
+assert.match(source.htmlSource, /normalizeWorkspaceDocumentHtmlSource/, "HTML本文は空欄・byte上限をserverで検証する");
+assert.match(source.htmlSource, /const storagePath = row\.storage_path[\s\S]*?\.upload\(storagePath, sourceBytes/, "HTML本文は既存private Storage objectへ上書きする");
+assert.match(source.htmlSource, /file_size_bytes: sourceBytes\.byteLength/, "HTML保存後にサイズmetadataを更新する");
+assert.match(source.htmlSource, /mime_type: mimeType/, "HTML保存後にMIME metadataを更新する");
+assert.match(source.htmlSource, /updated_at: new Date\(\)\.toISOString\(\)/, "HTML保存後に更新日時を更新する");
+assert.match(source.htmlSource, /action: "replace_html"/, "HTML本文の差し替えは本文なしの監査eventを残す");
+assert.doesNotMatch(source.htmlSource, /createSignedUrl|signedUrl/, "HTML編集用APIは署名URLを返さない");
 assert.match(source.pdf, /resolveDocumentRowAccess\(db, row\)/, "HTML PDF化も資料ごとの権限を再確認する");
 assert.match(source.pdf, /row\.visibility === "amd_internal" && !access\.canReadInternal/, "HTML PDF化も内部資料を404にする");
 assert.match(source.pdf, /isWorkspaceDocumentHtml\(row\.mime_type, row\.display_name\)/, "HTMLだけをPDF化する");
@@ -48,11 +60,16 @@ assert.match(source.room, /\/render`/, "HTMLの資料名クリックは安全表
 assert.match(source.room, /async function downloadHtmlAsPdf/, "PDF化ダウンロードはfetchで失敗を検知するhandlerを持つ");
 assert.match(source.room, /item\.entryKind === "file" && isWorkspaceDocumentHtml\(item\.mimeType, item\.displayName\)\s*\?\s*\(\s*<a[\s\S]*?\/render`/, "保存済みHTMLの資料名クリックは安全表示を開く");
 assert.match(source.room, /"PDF化ダウンロード"/, "HTMLの右端操作はPDF化ダウンロードと明示する");
+assert.match(source.room, /HTMLを編集/, "HTMLの右端操作は本文編集を明示する");
+assert.match(source.room, /permissions\?\.canUpload && item\.entryKind === "file" && isWorkspaceDocumentHtml[\s\S]*?openHtmlEditor/, "HTML本文編集はcanUploadで表示する");
+assert.match(source.room, /permissions\?\.canUpload && \([\s\S]*?資料室から削除/, "資料室からの削除はcanUploadで表示する");
+assert.match(source.room, /資料室の通常一覧と共有画面から外す[\s\S]*?保護された保管領域に残り/, "削除確認は非破壊保管と公開停止を明示する");
 assert.match(source.room, /open\?download=1/, "非HTMLの右端操作はダウンロードlinkのまま");
 assert.match(source.room, /<button[\s\S]*?downloadHtmlAsPdf/, "右端のPDF化ダウンロードだけが変換handlerを呼ぶ");
 assert.match(source.room, /setError\(\s*\n?\s*cause instanceof Error \? cause\.message : "PDFを生成できなかったよ。"/, "PDF化失敗はrole=alertへ日本語エラーを出し、JSON画面へは遷移しない");
 assert.doesNotMatch(source.serializer.split("export function publicWorkspaceDocument")[1], /storage_path|external_url/, "一覧DTOに保存先や外部URLを含めない");
 assert.doesNotMatch(source.mutate, /\.remove\(/, "archiveで実ファイルを削除しない");
+assert.match(source.mutate, /body\.action === "archive"\) \{\s*if \(!access\.canUpload\)/, "archiveは整理権限でなくcanUploadに開放する");
 assert.match(source.list, /workspaceDocumentDestinationStatus/, "作成時に保存先folderと共有境界を検証する");
 assert.match(source.mutate, /workspaceDocumentDestinationStatus/, "整理時に保存先folderと共有境界を検証する");
 assert.match(source.mutate, /workspaceDocumentFolderHasSharedDescendants/, "共有資料を含むfolderの内部化を一括露出変更なしで止める");
