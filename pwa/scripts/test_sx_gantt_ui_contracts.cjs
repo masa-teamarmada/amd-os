@@ -402,6 +402,7 @@ assertIncludes(timelineFile, timeline, [
   'className="sticky left-0 z-[51]',
   "const MONTH_ROW_H = 28;",
   'className="absolute top-0.5 z-10 flex -translate-x-full items-center gap-0.5 whitespace-nowrap pr-1 text-[9px] font-bold leading-none text-[#5f4a66]"',
+  'markerPct >= 65 ? "-translate-x-full flex-row-reverse" : "-translate-x-1/2"',
   'max-h-[min(72vh,720px)] overflow-auto overscroll-contain',
   'aria-label="ガントチャート。上下左右にスクロールできる"',
 ]);
