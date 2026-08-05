@@ -4248,3 +4248,10 @@
 - **原因**: 画面本体だけでなく、共通ナビの件数表示が使う`vc-data.ts`と`seeds-data.ts`がmodule levelで個別のbrowser clientを作っていた。最初のsingleton化が画面側に限られ、コード分割された導線を横断できていなかった。
 - **対応内容**: `createBrowserSupabase()`をbrowser全体で共有するsingletonにし、上記2データmoduleも同じclientを使うように統一した。server側のclientは`persistSession: false`と個別storage keyを使い、browser sessionと競合させない。production `v3.56.2` / `4830bcae`のログイン済み`/dashboard`でconsoleが空になることを確認した。
 - **再発防止策**: GoTrue警告を直すときは、画面componentだけで完了にせず、`createClient()`・`createBrowserSupabase()`・module levelのデータ取得moduleを全検索する。認証に触る変更の完了条件には、ログイン済み本番のconsole確認を入れる。
+
+## [sx/gantt-dependency-density] 依存線が過剰に折れ、通常時に直接解除できなかった (2026-08-05)
+
+- **症状**: 依存線の始点・終点近くに固定した長い横逃がしで、ガント上の線が何度も折れ、どのタスクへつながるかを即座に読めなかった。解除も接続モードに入らなければできなかった。
+- **原因**: 距離に関係なく通常44px、迂回時20px/16pxを確保していた。保存済み線に通常時のhit targetと削除導線がなかった。
+- **対応内容**: `sx-gantt-dependency-route.ts`の通常端点余白を11px、迂回時を5px/4pxへ変更した。`SxUnifiedTimeline`へ透明10pxのhover hit areaと、PC通常時だけ出る`外す`を追加した。解除は既存のsoft delete APIを使い、接続モード中は非表示、mobile/keyboardは依存関係一覧を使う。
+- **再発防止策**: 線を追加・変更したら、端点がバー中心へ接していること、重なった経路で過剰に折れないこと、通常モードで解除できることをdesktop実画面で確認する。構造テストだけで終えず、production hoverと390pxの横あふれ・consoleも確認する。
