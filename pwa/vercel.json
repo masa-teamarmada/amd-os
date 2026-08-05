@@ -15,6 +15,7 @@
     { "path": "/api/cron/management-score-refresh", "schedule": "0 21 * * *" },
     { "path": "/api/cron/contract-billing-auto-confirm", "schedule": "0 22 1 * *" },
     { "path": "/api/cron/proactive-todo-extract", "schedule": "15 0 * * *" },
-    { "path": "/api/cron/freee-accounting-weekly", "schedule": "0 1 * * 4" }
+    { "path": "/api/cron/freee-accounting-weekly", "schedule": "0 1 * * 4" },
+    { "path": "/api/cron/reimbursement-reminders", "schedule": "0 1 * * *" }
   ]
 }

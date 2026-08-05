@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { Buffer } from "node:buffer";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createServerSupabase } from "@/lib/supabase/server";
-import { notifyAdminsOnReimbursementSubmitted } from "@/lib/reimbursement-notify";
+import {
+  notifyAdminsOnReimbursementSubmitted,
+  notifyApplicantOnReimbursementSubmitted,
+} from "@/lib/reimbursement-notify";
 import {
   EMPTY_RECEIPT_DRIVE_RESULT,
   uploadReceiptsToBackofficeDrive,
@@ -204,30 +207,39 @@ export async function POST(request: Request) {
       throw result.error;
     }
 
-    // 新規申請だけ admin へ Slack DM。編集のたびに鳴らすと nudge が摩耗する。
-    const notify = mode === "create"
-      ? await notifyAdminsOnReimbursementSubmitted(admin, {
-          reimbursementId,
-          projectId,
-          projectName,
-          date,
-          category,
-          amount: finalAmount,
-          description,
-          createdBy: email,
-          receiptCount: files.length + existingPaths.length,
-          driveLink: drive.links[0] ?? null,
-        })
-      : null;
+    // 新規申請だけ Slack DM。編集のたびに鳴らすと nudge が摩耗する。
+    // 宛先は admin 全員 + 申請者本人 (本人には受付控えとして飛ばす)。
+    const summary = {
+      reimbursementId,
+      projectId,
+      projectName,
+      date,
+      category,
+      amount: finalAmount,
+      description,
+      createdBy: email,
+      receiptCount: files.length + existingPaths.length,
+      driveLink: drive.links[0] ?? null,
+    };
+    const notify = mode === "create" ? await notifyAdminsOnReimbursementSubmitted(admin, summary) : null;
     if (notify?.error) console.error("[api/reimbursements] slack notify failed", notify.error);
+    const notifyApplicant = mode === "create"
+      ? await notifyApplicantOnReimbursementSubmitted(admin, summary)
+      : null;
+    if (notifyApplicant?.error) {
+      console.error("[api/reimbursements] slack applicant notify failed", notifyApplicant.error);
+    }
 
     return NextResponse.json({
       ok: true,
       reimbursement_id: result.data?.reimbursement_id ?? reimbursementId,
       mode,
       notified_admins: notify?.sent ?? 0,
+      notified_applicant: notifyApplicant?.sent ?? 0,
       drive_saved: drive.fileIds.length,
-      warnings: [drive.error, notify?.error].filter((entry): entry is string => Boolean(entry)),
+      warnings: [drive.error, notify?.error, notifyApplicant?.error].filter(
+        (entry): entry is string => Boolean(entry)
+      ),
     });
   } catch (error) {
     console.error("[api/reimbursements] save failed", error);

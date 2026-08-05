@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-05 18:21 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-05 18:59 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -2179,7 +2179,7 @@ PRIMARY KEY: `meeting_id`
 
 ## member_activities
 
-行数 (概算): 742
+行数 (概算): 879
 PRIMARY KEY: `id`
 UNIQUE: `(member_id,project_id,source,source_item_id)` (constraint: `member_activities_member_id_project_id_source_source_item_i_key`)
 
@@ -4875,6 +4875,8 @@ PRIMARY KEY: `reimbursement_id`
 | 24 | `receipt_drive_folder_id` | `text` | NULL | `` |
 | 25 | `receipt_drive_file_ids` | `jsonb` | NOT NULL | `'[]'::jsonb` |
 | 26 | `receipt_drive_links` | `jsonb` | NOT NULL | `'[]'::jsonb` |
+| 27 | `reminder_last_sent_at` | `timestamptz` | NULL | `` |
+| 28 | `reminder_sent_count` | `int4` | NOT NULL | `0` |
 
 ## reward_member_liability_offsets
 
