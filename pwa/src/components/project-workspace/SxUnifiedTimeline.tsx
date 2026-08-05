@@ -34,6 +34,11 @@ import {
 } from "@/lib/sx-gate-requirements";
 import { taskNestCandidateIds } from "@/lib/sx-gantt-task-nesting";
 import {
+  buildFinishToStartRoute,
+  timelinePctToPx,
+  visibleBarGeometryPx,
+} from "@/lib/sx-gantt-dependency-route";
+import {
   computeBarMove,
   computeBarResizeEnd,
   computeBarResizeStart,
@@ -62,6 +67,10 @@ const LANE_GAP = 2;
 // boundary bar without disappearing under the sticky label column or the scroll edge.
 const TIMELINE_SIDE_GUTTER_PX = 22;
 const MIN_BAR_HIT_WIDTH_PX = 16;
+const TASK_BAR_HEIGHT_PX = 10;
+const TASK_BAR_TOP_PX = (ROW_H - TASK_BAR_HEIGHT_PX) / 2;
+const MILESTONE_DIAMOND_SIZE_PX = 12;
+const MILESTONE_VERTEX_RADIUS_PX = MILESTONE_DIAMOND_SIZE_PX / Math.sqrt(2);
 
 function timelinePctCss(pct: number, extraPx = 0) {
   const clamped = Math.min(100, Math.max(0, pct));
@@ -421,7 +430,6 @@ function RowBar({
   const barGeometry = hasBar && !isMilestoneMarker
     ? barHitGeometryCss(barStart, plannedEnd)
     : null;
-  const barTop = 15;
   const detailHitStyle = isMilestoneMarker
     ? {
         top: DRAG_HIT_TOP,
@@ -456,7 +464,7 @@ function RowBar({
       />
       {/* Move-drag hit target: the actual bar's full width, never empty row space. Sits below
           (DOM-order-first, so lower stacking) the resize handles, which claim their own hit area
-          at each edge. Visual bar stays 8px; this hit box is >=44px tall so touch/pointer users
+          at each edge. The 10px visual bar is row-centred; this hit box is >=44px tall so users
           don't need pixel precision to grab it. */}
       {draggableBar && (
         <button
@@ -495,9 +503,11 @@ function RowBar({
       )}
       {hasBar && !isMilestoneMarker && (
         <span
-          className="pointer-events-none absolute h-[8px] overflow-hidden rounded-sm border"
+          data-gantt-task-bar={row.id}
+          className="pointer-events-none absolute overflow-hidden rounded-sm border"
           style={{
-            top: barTop,
+            top: TASK_BAR_TOP_PX,
+            height: TASK_BAR_HEIGHT_PX,
             left: barGeometry!.left,
             width: barGeometry!.width,
             borderColor: `${accent}99`,
@@ -578,7 +588,7 @@ function RowBar({
           {/* The visible ◇ lives inside its semantic button. A marker click therefore always
               selects this exact MS; the 44px button remains the generous drag hit area. */}
           <i
-            className={`block h-3 w-3 -translate-y-[5px] rotate-45 border-2 border-[#5f4a66] ${row.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
+            className={`block h-3 w-3 rotate-45 border-2 border-[#5f4a66] ${row.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
             aria-hidden="true"
           />
         </button>
@@ -597,7 +607,7 @@ function RowBar({
         >
           {/* NewCo blocking gate = filled purple diamond; generic MS = hollow — matches Legend. */}
           <i
-            className={`block h-3 w-3 -translate-y-[5px] rotate-45 border-2 border-[#5f4a66] ${row.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
+            className={`block h-3 w-3 rotate-45 border-2 border-[#5f4a66] ${row.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
             aria-hidden="true"
           />
         </button>
@@ -623,7 +633,7 @@ function RowBar({
             style={{
               top: 2,
               left: isMilestoneMarker
-                ? timelinePctCss(plannedEnd)
+                ? timelinePctCss(plannedEnd, MILESTONE_VERTEX_RADIUS_PX)
                 : barGeometry!.right,
               touchAction: "none",
             }}
@@ -647,7 +657,9 @@ function RowBar({
           className="absolute z-40 grid h-11 w-7 -translate-x-1/2 place-items-center rounded-full text-[#315f7d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#315f7d]"
           style={{
             top: 2,
-            left: timelinePctCss(dependencyTargetPct),
+            left: isMilestoneMarker
+              ? timelinePctCss(dependencyTargetPct, -MILESTONE_VERTEX_RADIUS_PX)
+              : (barGeometry?.left ?? timelinePctCss(dependencyTargetPct)),
           }}
           aria-label={`${row.title}${row.entity === "task" ? "の左端" : ""}を接続先にする`}
         >
@@ -964,6 +976,36 @@ export function SxUnifiedTimeline({
     return `${source.entity}:${source.id}`;
   }
 
+  function dependencySourcePoint(row: DisplayRow, paneWidth: number) {
+    const layout = visibleRowLayout.get(`${row.entity}:${row.id}`);
+    if (!layout || paneWidth <= TIMELINE_SIDE_GUTTER_PX * 2) return null;
+    const isPointMilestone =
+      row.entity === "milestone" ||
+      row.isBlockingMilestone ||
+      row.timelineKind === "milestone";
+    if (isPointMilestone) {
+      if (row.plannedEndPct == null) return null;
+      return {
+        x:
+          timelinePctToPx(
+            row.plannedEndPct,
+            paneWidth,
+            TIMELINE_SIDE_GUTTER_PX,
+          ) + MILESTONE_VERTEX_RADIUS_PX,
+        y: layout.centerY,
+      };
+    }
+    if (row.plannedEndPct == null) return null;
+    const geometry = visibleBarGeometryPx(
+      row.plannedStartPct ?? row.plannedEndPct,
+      row.plannedEndPct,
+      paneWidth,
+      TIMELINE_SIDE_GUTTER_PX,
+      MIN_BAR_HIT_WIDTH_PX,
+    );
+    return { x: geometry.right, y: layout.centerY };
+  }
+
   function beginScheduleDependency(
     row: DisplayRow,
     event: React.PointerEvent<HTMLButtonElement>,
@@ -975,9 +1017,10 @@ export function SxUnifiedTimeline({
     event.preventDefault();
     event.stopPropagation();
     const paneRect = pane.getBoundingClientRect();
-    const portRect = event.currentTarget.getBoundingClientRect();
-    const startX = portRect.left + portRect.width / 2 - paneRect.left;
-    const startY = portRect.top + portRect.height / 2 - paneRect.top;
+    const sourcePoint = dependencySourcePoint(row, paneRect.width);
+    if (!sourcePoint) return;
+    const startX = sourcePoint.x;
+    const startY = sourcePoint.y;
     setDependencySource({
       entity: row.entity,
       id: row.id,
@@ -992,20 +1035,15 @@ export function SxUnifiedTimeline({
   function beginKeyboardScheduleDependency(row: DisplayRow) {
     if (!dependencyMode || !canManage || !projectId || row.plannedEndPct == null)
       return;
-    const layout = visibleRowLayout.get(`${row.entity}:${row.id}`);
-    const startX =
-      layout && gridPaneWidth > 0
-        ? TIMELINE_SIDE_GUTTER_PX +
-          ((gridPaneWidth - TIMELINE_SIDE_GUTTER_PX * 2) * row.plannedEndPct) /
-            100
-        : 0;
+    const sourcePoint = dependencySourcePoint(row, gridPaneWidth);
+    if (!sourcePoint) return;
     setDependencySource({
       entity: row.entity,
       id: row.id,
       title: row.title,
       pointerId: null,
-      startX,
-      startY: layout?.centerY ?? 0,
+      startX: sourcePoint.x,
+      startY: sourcePoint.y,
     });
     setDependencyPreview(null);
     showGanttNotice("接続先のタスクかMSを選んでね。Escで中止できるよ");
@@ -1407,9 +1445,37 @@ export function SxUnifiedTimeline({
 
   const scheduleDependencyEdges = useMemo<ScheduleDependencyEdge[]>(() => {
     if (gridPaneWidth <= TIMELINE_SIDE_GUTTER_PX * 2) return [];
-    const pctToPx = (pct: number) =>
-      TIMELINE_SIDE_GUTTER_PX +
-      ((gridPaneWidth - TIMELINE_SIDE_GUTTER_PX * 2) * pct) / 100;
+    const endpointX = (row: DisplayRow, side: "source" | "target") => {
+      const isPointMilestone =
+        row.entity === "milestone" ||
+        row.isBlockingMilestone ||
+        row.timelineKind === "milestone";
+      if (isPointMilestone) {
+        if (row.plannedEndPct == null) return null;
+        const centerX = timelinePctToPx(
+          row.plannedEndPct,
+          gridPaneWidth,
+          TIMELINE_SIDE_GUTTER_PX,
+        );
+        return centerX +
+          (side === "source"
+            ? MILESTONE_VERTEX_RADIUS_PX
+            : -MILESTONE_VERTEX_RADIUS_PX);
+      }
+      if (
+        row.plannedEndPct == null ||
+        (side === "target" && row.plannedStartPct == null)
+      )
+        return null;
+      const geometry = visibleBarGeometryPx(
+        row.plannedStartPct ?? row.plannedEndPct,
+        row.plannedEndPct,
+        gridPaneWidth,
+        TIMELINE_SIDE_GUTTER_PX,
+        MIN_BAR_HIT_WIDTH_PX,
+      );
+      return side === "source" ? geometry.right : geometry.left;
+    };
     return scheduleDependencies.flatMap((dependency) => {
       const sourceKey =
         dependency.predecessorType === "task"
@@ -1420,26 +1486,22 @@ export function SxUnifiedTimeline({
         ? `task:${dependency.successorTaskId}`
         : `milestone:${dependency.successorMilestoneId}`;
       const target = visibleRowLayout.get(targetKey);
-      const sourcePct = source?.row.plannedEndPct;
-      const targetPct = dependency.successorType === "task"
-        ? target?.row.plannedStartPct
-        : target?.row.plannedEndPct;
-      if (!source || !target || sourcePct == null || targetPct == null) return [];
-      const x1 = pctToPx(sourcePct);
-      const x2 = pctToPx(targetPct);
+      if (!source || !target) return [];
+      const x1 = endpointX(source.row, "source");
+      const x2 = endpointX(target.row, "target");
+      if (x1 == null || x2 == null) return [];
       const y1 = source.centerY;
       const y2 = target.centerY;
-      const directGap = x2 - x1;
-      const routeX =
-        directGap >= 44
-          ? x1 + directGap / 2
-          : Math.min(gridPaneWidth - 10, Math.max(x1, x2) + 28);
+      const route = buildFinishToStartRoute(
+        { x: x1, y: y1 },
+        { x: x2, y: y2 },
+      );
       return [
         {
           dependency,
-          path: `M ${x1} ${y1} H ${routeX} V ${y2} H ${x2}`,
-          labelX: routeX,
-          labelY: y1 + (y2 - y1) / 2,
+          path: route.path,
+          labelX: route.label.x,
+          labelY: route.label.y,
         },
       ];
     });
@@ -2589,11 +2651,12 @@ export function SxUnifiedTimeline({
                     <marker
                       id={dependencyArrowMarkerId}
                       viewBox="0 0 8 8"
-                      refX="7"
+                      refX="8"
                       refY="4"
-                      markerWidth="7"
-                      markerHeight="7"
-                      orient="auto-start-reverse"
+                      markerWidth="8"
+                      markerHeight="8"
+                      markerUnits="userSpaceOnUse"
+                      orient="auto"
                     >
                       <path d="M 0 0 L 8 4 L 0 8 z" fill="#5f4a66" />
                     </marker>
@@ -2740,7 +2803,7 @@ export function SxUnifiedTimeline({
                               }
                               handleRowClick(displayMilestone);
                             }}
-                            className={`pointer-events-auto absolute left-0 top-0 flex h-[34px] min-w-[44px] items-center gap-1 px-1 text-left focus-visible:outline focus-visible:outline-2 ${markerPct >= 60 ? "-translate-x-full flex-row-reverse" : "-translate-x-1/2"} ${dependencyMode && dependencySource ? "text-[#315f7d] focus-visible:outline-[#315f7d]" : "text-[#5f4a66] focus-visible:outline-[#5f4a66]"}`}
+                            className={`pointer-events-auto absolute left-0 top-0 grid h-[34px] w-11 -translate-x-1/2 place-items-center focus-visible:outline focus-visible:outline-2 ${dependencyMode && dependencySource ? "text-[#315f7d] focus-visible:outline-[#315f7d]" : "text-[#5f4a66] focus-visible:outline-[#5f4a66]"}`}
                             aria-label={
                               dependencyMode
                                 ? dependencySource
@@ -2750,9 +2813,18 @@ export function SxUnifiedTimeline({
                             }
                             title={dependencyMode ? "依存線を接続" : "クリックで詳細、ドラッグで日付を変更"}
                           >
-                            <i className={`h-3 w-3 shrink-0 rotate-45 border-2 border-[#5f4a66] ${milestone.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`} aria-hidden="true" />
-                            <span className="max-w-[144px] truncate whitespace-nowrap text-[9px] font-bold">{milestone.title}</span>
+                            <i
+                              data-gantt-milestone-diamond={milestone.id}
+                              className={`h-3 w-3 rotate-45 border-2 border-[#5f4a66] ${milestone.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
+                              aria-hidden="true"
+                            />
                           </button>
+                          <span
+                            className={`pointer-events-none absolute top-0 flex h-[34px] max-w-[144px] items-center truncate whitespace-nowrap text-[9px] font-bold text-[#5f4a66] ${markerPct >= 60 ? "right-3 pr-2 text-right" : "left-3 pl-2 text-left"}`}
+                            aria-hidden="true"
+                          >
+                            {milestone.title}
+                          </span>
                         </div>
                       ) : (
                         <button

@@ -1305,8 +1305,9 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   // desktop expand/collapse toggle must be a full 44px hit target, not a 32px (w-8) one
   // (監査追補 2026-08-02).
   "flex w-11 shrink-0 items-center justify-center text-[#69665d]",
-  "const barTop = 15;",
-  'top: barTop,',
+  "const TASK_BAR_HEIGHT_PX = 10;",
+  "const TASK_BAR_TOP_PX = (ROW_H - TASK_BAR_HEIGHT_PX) / 2;",
+  "top: TASK_BAR_TOP_PX,",
   // Round 24/29: 計画の薄いバーと登録済み実績の濃い塗りを分け、未登録は0%と表示しない。
   "row.progressRegistered && row.progressPct > 0",
   '実績{" "}',

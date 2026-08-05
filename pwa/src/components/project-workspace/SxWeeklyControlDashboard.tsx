@@ -3303,7 +3303,15 @@ function PlanInspector({
             containerの名称は出さず、状態もfactsで一度だけ示す。 */}
         {!detailEditor && (
           <div className={styles.inspectorBreadcrumb}>
-            <span>{milestone ? ganttLaneLabelForTrack(milestone.track) : "タスク"}</span>
+            <span>
+              {task
+                ? ganttLaneLabelForTrack(
+                    task.track || milestone?.track || "organizational_building",
+                  )
+                : milestone
+                  ? ganttLaneLabelForTrack(milestone.track)
+                  : "タスク"}
+            </span>
           </div>
         )}
         {detailEditor ? (

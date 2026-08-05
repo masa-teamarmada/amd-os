@@ -72,6 +72,18 @@ assertNotIncludes(timelineFile, timeline, ["isShortBarSpan", "shortBar"]);
 assertIncludes(timelineFile, timeline, [
   "const TIMELINE_SIDE_GUTTER_PX = 22;",
   "const MIN_BAR_HIT_WIDTH_PX = 16;",
+  "const TASK_BAR_HEIGHT_PX = 10;",
+  "const TASK_BAR_TOP_PX = (ROW_H - TASK_BAR_HEIGHT_PX) / 2;",
+  "data-gantt-task-bar={row.id}",
+  "visibleBarGeometryPx(",
+  "buildFinishToStartRoute(",
+  "function dependencySourcePoint(row: DisplayRow, paneWidth: number) {",
+  "const sourcePoint = dependencySourcePoint(row, paneRect.width);",
+  "const sourcePoint = dependencySourcePoint(row, gridPaneWidth);",
+  'refX="8"',
+  'markerWidth="8"',
+  'markerHeight="8"',
+  'markerUnits="userSpaceOnUse"',
   "function barHitGeometryCss(startPct: number, endPct: number) {",
   "left: `calc(${barGeometry!.left} - 16px)`",
   "left: barGeometry!.right",
@@ -79,6 +91,10 @@ assertIncludes(timelineFile, timeline, [
   "canManage && !connectionMode && row.plannedStart != null && row.plannedEnd != null && !isMilestoneMarker",
   "(row.isBlockingMilestone || row.plannedStart != null)",
   "if (dragRef.current?.saving) return;",
+]);
+assertNotIncludes(timelineFile, timeline, [
+  'className="pointer-events-none absolute h-[8px]',
+  'orient="auto-start-reverse"',
 ]);
 
 // -- 3. Move-drag starts only from the actual bar/diamond hit target, never empty row space ------
@@ -223,6 +239,25 @@ assertNotIncludes(rootTaskReplacementMigrationFile, rootTaskReplacementMigration
   "DELETE FROM",
 ]);
 
+// -- 9e. Compact gantt titles preserve the original sentence in the detail description --------
+const compactTaskTitleMigrationFile =
+  "scripts/migrations/232_sx_shorten_newco_root_task_titles.sql";
+const compactTaskTitleMigration = read(compactTaskTitleMigrationFile);
+assertIncludes(compactTaskTitleMigrationFile, compactTaskTitleMigration, [
+  "matched_count <> 9",
+  "final_count <> 9",
+  "NULLIF(btrim(task.description), '') IS NULL THEN expected.old_title",
+  "task.title = expected.old_title",
+  "'導入判断条件の定義'",
+  "'実排液PoC装置の完成'",
+  "'ユニットエコノミクス検証'",
+  "'NewCo体制・権利確定'",
+  "'出資候補選定・DD'",
+]);
+assertNotIncludes(compactTaskTitleMigrationFile, compactTaskTitleMigration, [
+  "DELETE FROM",
+]);
+
 // -- 10. No role=alertdialog or nested editor: every PlanInspector value edits in place ---------
 const dashboardFile = "src/components/project-workspace/SxWeeklyControlDashboard.tsx";
 const dashboard = read(dashboardFile);
@@ -258,6 +293,7 @@ assertIncludes(dashboardFile, dashboard, [
   'fields.track = selectedTaskMilestone?.track || "";',
   "className={styles.inspectorInlineSlot}",
   "className={styles.inspectorTitleEditor}",
+  'task.track || milestone?.track || "organizational_building"',
 ]);
 assertNotIncludes(dashboardFile, dashboard, [
   'label: "ネスト先（親タスク）"',
@@ -403,7 +439,8 @@ assertIncludes(timelineFile, timeline, [
   "const MONTH_ROW_H = 32;",
   'className={`absolute bottom-0 pl-1 text-[9px] ${month.isYearStart ? "font-bold text-[#24231f]" : "text-[#777166]"}`}',
   'className="absolute top-0.5 z-10 flex -translate-x-full items-center gap-0.5 whitespace-nowrap pr-1 text-[9px] font-bold leading-none text-[#5f4a66]"',
-  'markerPct >= 60 ? "-translate-x-full flex-row-reverse" : "-translate-x-1/2"',
+  'data-gantt-milestone-diamond={milestone.id}',
+  'markerPct >= 60 ? "right-3 pr-2 text-right" : "left-3 pl-2 text-left"',
   'max-h-[min(72vh,720px)] overflow-auto overscroll-contain',
   'aria-label="ガントチャート。上下左右にスクロールできる"',
 ]);
