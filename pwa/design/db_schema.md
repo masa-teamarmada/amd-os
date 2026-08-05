@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-03 22:40 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-05 18:21 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -97,7 +97,7 @@ UNIQUE: `(comment_id,participant_id,reaction_type)` (constraint: `amd_deck_react
 
 ## amd_management_score_evidence
 
-行数 (概算): 236
+行数 (概算): 237
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -118,7 +118,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 2,026
+行数 (概算): 2,077
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -681,7 +681,7 @@ PRIMARY KEY: `id`
 
 ## company_actual_monthly
 
-行数 (概算): 118
+行数 (概算): 122
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -994,7 +994,7 @@ UNIQUE: `(obligation_id,recipient_slack_id,schedule_key,stage)` (constraint: `co
 
 ## company_payment_obligations
 
-行数 (概算): 301
+行数 (概算): 306
 PRIMARY KEY: `id`
 UNIQUE: `(source_key)` (constraint: `company_payment_obligations_source_key_key`)
 
@@ -1096,7 +1096,7 @@ UNIQUE: `(occurrence_id,recipient_slack_id,schedule_key,stage)` (constraint: `co
 
 ## company_schedule_occurrences
 
-行数 (概算): 1,190
+行数 (概算): 1,255
 PRIMARY KEY: `occurrence_id`
 UNIQUE: `(occurrence_key,source_hash)` (constraint: `company_schedule_occurrences_source_uniq`)
 
@@ -3602,7 +3602,7 @@ PRIMARY KEY: `id`
 
 ## project_management_field_audit
 
-行数 (概算): 4,641
+行数 (概算): 5,372
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -4150,7 +4150,7 @@ PRIMARY KEY: `id`
 | 3 | `predecessor_type` | `text` | NOT NULL | `` |
 | 4 | `predecessor_task_id` | `uuid` | NULL | `` |
 | 5 | `predecessor_milestone_id` | `uuid` | NULL | `` |
-| 6 | `successor_task_id` | `uuid` | NOT NULL | `` |
+| 6 | `successor_task_id` | `uuid` | NULL | `` |
 | 7 | `dependency_type` | `text` | NOT NULL | `'finish_to_start'::text` |
 | 8 | `created_by` | `text` | NULL | `` |
 | 9 | `updated_by` | `text` | NULL | `` |
@@ -4159,10 +4159,12 @@ PRIMARY KEY: `id`
 | 12 | `deleted_at` | `timestamptz` | NULL | `` |
 | 13 | `deleted_by` | `text` | NULL | `` |
 | 14 | `version` | `int4` | NOT NULL | `1` |
+| 15 | `successor_type` | `text` | NOT NULL | `'task'::text` |
+| 16 | `successor_milestone_id` | `uuid` | NULL | `` |
 
 ## project_management_tasks
 
-行数 (概算): -1
+行数 (概算): 30
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -4197,6 +4199,9 @@ PRIMARY KEY: `id`
 | 28 | `deleted_at` | `timestamptz` | NULL | `` |
 | 29 | `deleted_by` | `text` | NULL | `` |
 | 30 | `version` | `int4` | NOT NULL | `1` |
+| 31 | `goal` | `text` | NULL | `` |
+| 32 | `next_deliverable` | `text` | NULL | `` |
+| 33 | `blocker` | `text` | NULL | `` |
 
 ## project_management_technical_tests
 
@@ -4867,6 +4872,9 @@ PRIMARY KEY: `reimbursement_id`
 | 21 | `billed_ym` | `text` | NULL | `` |
 | 22 | `receipt_storage_paths` | `jsonb` | NOT NULL | `'[]'::jsonb` |
 | 23 | `receipt_file_names` | `jsonb` | NOT NULL | `'[]'::jsonb` |
+| 24 | `receipt_drive_folder_id` | `text` | NULL | `` |
+| 25 | `receipt_drive_file_ids` | `jsonb` | NOT NULL | `'[]'::jsonb` |
+| 26 | `receipt_drive_links` | `jsonb` | NOT NULL | `'[]'::jsonb` |
 
 ## reward_member_liability_offsets
 

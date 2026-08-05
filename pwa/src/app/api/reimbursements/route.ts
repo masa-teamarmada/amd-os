@@ -2,8 +2,14 @@ import { NextResponse } from "next/server";
 import { Buffer } from "node:buffer";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createServerSupabase } from "@/lib/supabase/server";
+import { notifyAdminsOnReimbursementSubmitted } from "@/lib/reimbursement-notify";
+import {
+  EMPTY_RECEIPT_DRIVE_RESULT,
+  uploadReceiptsToBackofficeDrive,
+} from "@/lib/reimbursement-receipt-drive";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 const RECEIPT_BUCKET = "reimbursement-receipts";
 const MAX_RECEIPT_BYTES = 10 * 1024 * 1024;
@@ -110,11 +116,16 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
     let existingPaths: string[] = [];
     let existingNames: string[] = [];
+    let existingDriveFileIds: string[] = [];
+    let existingDriveLinks: string[] = [];
+    let existingDriveFolderId: string | null = null;
 
     if (mode === "update") {
       const { data: existing, error: existingError } = await admin
         .from("reimbursements")
-        .select("created_by, status, receipt_storage_paths, receipt_file_names")
+        .select(
+          "created_by, status, receipt_storage_paths, receipt_file_names, receipt_drive_file_ids, receipt_drive_links, receipt_drive_folder_id"
+        )
         .eq("reimbursement_id", reimbursementId)
         .maybeSingle();
       if (existingError) throw existingError;
@@ -127,11 +138,29 @@ export async function POST(request: Request) {
       }
       existingPaths = stringArray(existing.receipt_storage_paths);
       existingNames = stringArray(existing.receipt_file_names);
+      existingDriveFileIds = stringArray(existing.receipt_drive_file_ids);
+      existingDriveLinks = stringArray(existing.receipt_drive_links);
+      existingDriveFolderId = typeof existing.receipt_drive_folder_id === "string" ? existing.receipt_drive_folder_id : null;
     }
 
     const uploaded = await uploadReceiptFiles(admin, user.id, reimbursementId, files);
     const now = new Date().toISOString();
     const finalAmount = category === "transport" && transportTrip === "round" ? amount * 2 : amount;
+
+    // 共有ドライブ a3_backoffice への複製は二次保管。失敗しても申請は通す。
+    const drive = files.length > 0
+      ? await uploadReceiptsToBackofficeDrive({
+          files,
+          reimbursementId,
+          projectId,
+          projectName,
+          date,
+          amount: finalAmount,
+          createdBy: email,
+        })
+      : EMPTY_RECEIPT_DRIVE_RESULT;
+    if (drive.error) console.error("[api/reimbursements] drive upload failed", drive.error);
+
     const row = {
       reimbursement_id: reimbursementId,
       project_id: projectId,
@@ -147,6 +176,9 @@ export async function POST(request: Request) {
       transport_trip: category === "transport" ? transportTrip : null,
       receipt_storage_paths: [...existingPaths, ...uploaded.paths],
       receipt_file_names: [...existingNames, ...uploaded.names],
+      receipt_drive_folder_id: drive.folderId ?? existingDriveFolderId,
+      receipt_drive_file_ids: [...existingDriveFileIds, ...drive.fileIds],
+      receipt_drive_links: [...existingDriveLinks, ...drive.links],
       updated_at: now,
     };
 
@@ -172,10 +204,30 @@ export async function POST(request: Request) {
       throw result.error;
     }
 
+    // 新規申請だけ admin へ Slack DM。編集のたびに鳴らすと nudge が摩耗する。
+    const notify = mode === "create"
+      ? await notifyAdminsOnReimbursementSubmitted(admin, {
+          reimbursementId,
+          projectId,
+          projectName,
+          date,
+          category,
+          amount: finalAmount,
+          description,
+          createdBy: email,
+          receiptCount: files.length + existingPaths.length,
+          driveLink: drive.links[0] ?? null,
+        })
+      : null;
+    if (notify?.error) console.error("[api/reimbursements] slack notify failed", notify.error);
+
     return NextResponse.json({
       ok: true,
       reimbursement_id: result.data?.reimbursement_id ?? reimbursementId,
       mode,
+      notified_admins: notify?.sent ?? 0,
+      drive_saved: drive.fileIds.length,
+      warnings: [drive.error, notify?.error].filter((entry): entry is string => Boolean(entry)),
     });
   } catch (error) {
     console.error("[api/reimbursements] save failed", error);
