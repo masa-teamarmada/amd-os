@@ -2803,7 +2803,7 @@ export function SxUnifiedTimeline({
                               }
                               handleRowClick(displayMilestone);
                             }}
-                            className={`pointer-events-auto absolute left-0 top-0 grid h-[34px] w-11 -translate-x-1/2 place-items-center focus-visible:outline focus-visible:outline-2 ${dependencyMode && dependencySource ? "text-[#315f7d] focus-visible:outline-[#315f7d]" : "text-[#5f4a66] focus-visible:outline-[#5f4a66]"}`}
+                            className={`pointer-events-auto absolute -top-[5px] left-0 grid h-11 w-11 -translate-x-1/2 place-items-center focus-visible:outline focus-visible:outline-2 ${dependencyMode && dependencySource ? "text-[#315f7d] focus-visible:outline-[#315f7d]" : "text-[#5f4a66] focus-visible:outline-[#5f4a66]"}`}
                             aria-label={
                               dependencyMode
                                 ? dependencySource
