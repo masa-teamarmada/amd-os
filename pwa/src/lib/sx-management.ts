@@ -33,13 +33,31 @@ export type SxConfidence = "high" | "medium" | "low" | "unknown";
 export type SxSourceKind = "current_truth" | "manual" | "imported";
 export type SxPartnerStage =
   | "candidate"
+  | "first_contact"
   | "information_exchange"
-  | "condition_alignment"
+  | "hearing"
   | "meeting_coordination"
+  | "technical_review"
+  | "condition_alignment"
+  | "sample_acquisition"
   | "validation_preparation"
   | "agreement_confirmation"
   | "executing"
-  | "on_hold";
+  | "on_hold"
+  | "declined";
+
+/** 段階と独立した運用状態。停滞・待ち先の管制に使い、到達度とは混ぜない。 */
+export type SxPartnerActivityState =
+  | "active"
+  | "waiting_partner"
+  | "waiting_internal"
+  | "stalled"
+  | "on_hold"
+  | "dropped"
+  | "unknown";
+
+/** PoC営業の候補区分。nullはPoC営業対象外の一般関係先。 */
+export type SxPocCategory = "poc_candidate" | "tech_partner" | "sample_provider" | "sample_route";
 
 export type SxObjective = {
   id: string;
@@ -405,6 +423,24 @@ export type SxPartnerWorkItem = {
   sortOrder: number;
 };
 
+export type SxSampleStatus = "intent" | "negotiating" | "agreed_pending" | "scheduled" | "received" | "analyzed" | "unknown";
+
+/** 試料台帳（軽量版）。物理現物の状態追跡で、関係先関係と寿命が違うため独立レコード。 */
+export type SxPartnerSample = {
+  id: string;
+  partnerId: string;
+  label: string;
+  status: SxSampleStatus;
+  receivedOn: string | null;
+  storageLocation: string | null;
+  ownerLabel: string | null;
+  notes: string | null;
+  confidence: SxConfidence;
+  sourceKind: SxSourceKind;
+  sourceRef: string | null;
+  sortOrder: number;
+};
+
 export type SxPartnerCommitment = {
   id: string;
   partnerId: string;
@@ -436,6 +472,8 @@ export type SxManagementPartner = {
   connectionContext: string | null;
   roleLabel: string;
   relationshipStage: SxPartnerStage;
+  activityState: SxPartnerActivityState;
+  pocCategory: SxPocCategory | null;
   agreementState: "agreed" | "partial" | "unagreed";
   agreedScope: string;
   unagreedScope: string;
@@ -458,6 +496,7 @@ export type SxManagementPartner = {
   interactions: SxPartnerInteraction[];
   roles: SxPartnerRole[];
   workItems: SxPartnerWorkItem[];
+  samples: SxPartnerSample[];
   /** True when this partner's primary role classification is on_hold. Drives the deferred/low-priority group; excluded from urgency counts, never removed from the ledger. */
   deferredLowPriority: boolean;
 };
@@ -660,17 +699,47 @@ const MILESTONE_STATUS_LABEL: Record<SxMilestoneStatus, string> = {
 
 const PARTNER_STAGE_LABEL: Record<SxPartnerStage, string> = {
   candidate: "候補",
+  first_contact: "初回接触",
   information_exchange: "情報交換",
-  condition_alignment: "条件整理",
+  hearing: "ヒアリング",
   meeting_coordination: "面談調整",
+  technical_review: "技術確認",
+  condition_alignment: "条件整理",
+  sample_acquisition: "試料調達",
   validation_preparation: "検証準備",
   agreement_confirmation: "合意確認",
   executing: "実行中",
   on_hold: "保留",
+  declined: "見送り",
 };
 
 export function sxPartnerStageLabel(stage: SxPartnerStage) {
   return PARTNER_STAGE_LABEL[stage] || "未設定";
+}
+
+const PARTNER_ACTIVITY_STATE_LABEL: Record<SxPartnerActivityState, string> = {
+  active: "対応中",
+  waiting_partner: "先方待ち",
+  waiting_internal: "社内待ち",
+  stalled: "停滞",
+  on_hold: "保留",
+  dropped: "見送り",
+  unknown: "状態未確認",
+};
+
+export function sxPartnerActivityStateLabel(state: SxPartnerActivityState) {
+  return PARTNER_ACTIVITY_STATE_LABEL[state] || "状態未確認";
+}
+
+const POC_CATEGORY_LABEL: Record<SxPocCategory, string> = {
+  poc_candidate: "PoC候補先",
+  tech_partner: "技術協力先",
+  sample_provider: "試料提供元",
+  sample_route: "試料提供ルート",
+};
+
+export function sxPocCategoryLabel(category: SxPocCategory) {
+  return POC_CATEGORY_LABEL[category] || "区分未確認";
 }
 
 const ROLE_KIND_LABEL: Record<SxPartnerRoleKind, string> = {
@@ -940,6 +1009,31 @@ function mapPartnerWorkItem(row: RawRow): SxPartnerWorkItem {
   };
 }
 
+function asActivityState(value: unknown): SxPartnerActivityState {
+  const values: SxPartnerActivityState[] = ["active", "waiting_partner", "waiting_internal", "stalled", "on_hold", "dropped", "unknown"];
+  return values.includes(value as SxPartnerActivityState) ? (value as SxPartnerActivityState) : "unknown";
+}
+
+function asPocCategory(value: unknown): SxPocCategory | null {
+  const values: SxPocCategory[] = ["poc_candidate", "tech_partner", "sample_provider", "sample_route"];
+  return values.includes(value as SxPocCategory) ? (value as SxPocCategory) : null;
+}
+
+function asSampleStatus(value: unknown): SxSampleStatus {
+  const values: SxSampleStatus[] = ["intent", "negotiating", "agreed_pending", "scheduled", "received", "analyzed", "unknown"];
+  return values.includes(value as SxSampleStatus) ? (value as SxSampleStatus) : "unknown";
+}
+
+function mapPartnerSample(row: RawRow): SxPartnerSample {
+  return {
+    id: stringValue(row, "id"), partnerId: stringValue(row, "partner_id"), label: stringValue(row, "label"),
+    status: asSampleStatus(row.status), receivedOn: nullableString(row, "received_on"), storageLocation: nullableString(row, "storage_location"),
+    ownerLabel: nullableString(row, "owner_label"), notes: nullableString(row, "notes"),
+    confidence: asConfidence(row.confidence), sourceKind: asSourceKind(row.source_kind), sourceRef: nullableString(row, "source_ref"),
+    sortOrder: numberValue(row, "sort_order"),
+  };
+}
+
 function mapKpi(row: RawRow): SxKpi {
   return {
     id: stringValue(row, "id"), outcomeId: stringValue(row, "outcome_id"), track: asTrack(row.track), slug: stringValue(row, "slug"), title: stringValue(row, "title"), metricKind: stringValue(row, "metric_kind"),
@@ -1111,12 +1205,13 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
     live("project_management_decisions", "id,project_id,issue_id,hypothesis_id,title,context,decision_state,rationale,decision_text,decided_by,decided_on,owner_label,due_date,is_this_week,sort_order,confidence,last_verified_at,source_kind,source_ref").order("sort_order"),
     live("project_management_action_items", "id,project_id,decision_id,title,owner_label,due_date,completion_criteria,next_review_on,status,completion_note,completed_at,last_verified_at,source_kind,source_ref").order("due_date"),
     live("project_management_update_history", "id,project_id,entity_type,entity_id,update_kind,summary,changed_by,changed_on,from_status,to_status").order("changed_on", { ascending: false }).limit(40),
-    live("project_management_partners", "id,project_id,slug,name,introducer_label,connection_context,role_label,primary_track,relationship_stage,agreement_state,agreed_scope,unagreed_scope,last_contact_date,next_commitment,due_date,owner_label,current_ball_side,current_ball_owner,next_ball_owner,target_state,due_date_precision,last_verified_at,confidence,source_kind,source_ref,sort_order").order("sort_order"),
+    live("project_management_partners", "id,project_id,slug,name,introducer_label,connection_context,role_label,primary_track,relationship_stage,activity_state,poc_category,agreement_state,agreed_scope,unagreed_scope,last_contact_date,next_commitment,due_date,owner_label,current_ball_side,current_ball_owner,next_ball_owner,target_state,due_date_precision,last_verified_at,confidence,source_kind,source_ref,sort_order").order("sort_order"),
     plain("project_management_partner_tracks", "project_id,partner_id,track,role_label,is_primary"),
     live("project_management_partner_commitments", "id,project_id,partner_id,title,commitment_text,commitment_kind,status,promised_on,due_date,completed_on,owner_label,counterparty_owner,sx_owner,evidence,next_review_on,last_verified_at,confidence,source_kind,source_ref").order("due_date"),
     live("project_management_partner_interactions", "id,project_id,partner_id,interaction_kind,occurred_on,occurred_on_precision,summary,outcome_summary,ball_side_after,ball_owner_after,actor_side,actor_label,confidence,source_kind,source_ref,created_at").order("created_at", { ascending: false }),
     live("project_management_partner_roles", "id,project_id,partner_id,role_kind,relationship_state,role_label,is_primary,sort_order").order("sort_order"),
     live("project_management_partner_work_items", "id,project_id,partner_id,side,item_kind,title,detail,owner_label,status,due_date,due_date_precision,completion_criteria,completed_on,completion_evidence,accepted_by,accepted_on,handoff_to,related_milestone_id,last_verified_at,confidence,source_kind,source_ref,sort_order").order("sort_order"),
+    live("project_management_partner_samples", "id,project_id,partner_id,label,status,received_on,storage_location,owner_label,notes,confidence,source_kind,source_ref,sort_order").order("sort_order"),
     plain("project_management_milestone_issue_links", "project_id,milestone_id,issue_id"),
     plain("project_management_milestone_partner_links", "project_id,milestone_id,partner_id"),
     live("project_management_raci", "id,project_id,milestone_id,stakeholder_label,responsibility_role,owner_label,confirmed,last_verified_at,confidence").order("milestone_id"),
@@ -1129,7 +1224,7 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
   const error = results.find((result) => result.error)?.error;
   if (error) throw new Error(`SX management bundle: ${error.message}`);
   const rows = results.map((result) => (result.data || []) as unknown as RawRow[]);
-  const [objectiveRows, outcomeRows, milestoneRows, kpiRows, milestoneKpiRows, taskRows, dependencyRows, scheduleDependencyRows, issueRows, hypothesisRows, evidenceRows, validationRows, decisionRows, actionRows, historyRows, partnerRows, partnerTrackRows, commitmentRows, interactionRows, partnerRoleRows, partnerWorkItemRows, milestoneIssueRows, milestonePartnerRows, raciRows, capacityRows, technicalRows, fundingRows, roleRows, auditRows] = rows;
+  const [objectiveRows, outcomeRows, milestoneRows, kpiRows, milestoneKpiRows, taskRows, dependencyRows, scheduleDependencyRows, issueRows, hypothesisRows, evidenceRows, validationRows, decisionRows, actionRows, historyRows, partnerRows, partnerTrackRows, commitmentRows, interactionRows, partnerRoleRows, partnerWorkItemRows, partnerSampleRows, milestoneIssueRows, milestonePartnerRows, raciRows, capacityRows, technicalRows, fundingRows, roleRows, auditRows] = rows;
 
   const objectiveRow = objectiveRows[0];
   const objective: SxObjective | null = objectiveRow ? { id: stringValue(objectiveRow, "id"), slug: stringValue(objectiveRow, "slug"), title: stringValue(objectiveRow, "title"), definitionOfDone: stringValue(objectiveRow, "definition_of_done"), targetDate: nullableString(objectiveRow, "target_date"), dateCertainty: objectiveRow.date_certainty === "confirmed" ? "confirmed" : "provisional", status: (objectiveRow.status as SxObjective["status"]) || "unassessed", lastVerifiedAt: stringValue(objectiveRow, "last_verified_at"), confidence: asConfidence(objectiveRow.confidence), sourceKind: asSourceKind(objectiveRow.source_kind), sourceRef: nullableString(objectiveRow, "source_ref") } : null;
@@ -1217,6 +1312,11 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
     const partnerId = stringValue(row, "partner_id");
     workItemsByPartner.set(partnerId, [...(workItemsByPartner.get(partnerId) || []), mapPartnerWorkItem(row)]);
   }
+  const samplesByPartner = new Map<string, SxPartnerSample[]>();
+  for (const row of partnerSampleRows) {
+    const partnerId = stringValue(row, "partner_id");
+    samplesByPartner.set(partnerId, [...(samplesByPartner.get(partnerId) || []), mapPartnerSample(row)]);
+  }
   const partners: SxManagementPartner[] = partnerRows.map((row) => {
     const partnerId = stringValue(row, "id");
     const partnerSlug = stringValue(row, "slug");
@@ -1228,7 +1328,7 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
     const deferredLowPriority = primaryRole?.relationshipState === "on_hold";
     return {
       id: partnerId, slug: partnerSlug, track: tracks.find((item) => item.isPrimary)?.track || tracks[0].track, tracks,
-      name: stringValue(row, "name"), introducerLabel: nullableString(row, "introducer_label"), connectionContext: nullableString(row, "connection_context"), roleLabel: stringValue(row, "role_label"), relationshipStage: asPartnerStage(row.relationship_stage),
+      name: stringValue(row, "name"), introducerLabel: nullableString(row, "introducer_label"), connectionContext: nullableString(row, "connection_context"), roleLabel: stringValue(row, "role_label"), relationshipStage: asPartnerStage(row.relationship_stage), activityState: asActivityState(row.activity_state), pocCategory: asPocCategory(row.poc_category),
       agreementState: asAgreementState(row.agreement_state), agreedScope: stringValue(row, "agreed_scope"), unagreedScope: stringValue(row, "unagreed_scope"),
       lastContactDate: nullableString(row, "last_contact_date"), nextCommitment: stringValue(row, "next_commitment"), dueDate: nullableString(row, "due_date"),
       ownerLabel: stringValue(row, "owner_label", "担当未確認"), currentBallSide: asBallSide(row.current_ball_side), currentBallOwner: nullableString(row, "current_ball_owner"),
@@ -1237,7 +1337,7 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
       relatedMilestoneSlugs: relatedMilestoneIds.map((id) => stringValue(milestoneById.get(id) || {}, "slug")).filter(Boolean),
       relatedIssueSlugs: relatedIssueIds.map((id) => stringValue(issueById.get(id) || {}, "slug")).filter(Boolean),
       commitments: commitments.filter((item) => item.partnerId === partnerId), interactions: interactions.filter((item) => item.partnerId === partnerId),
-      roles, workItems: workItemsByPartner.get(partnerId) || [], deferredLowPriority,
+      roles, workItems: workItemsByPartner.get(partnerId) || [], samples: samplesByPartner.get(partnerId) || [], deferredLowPriority,
     };
   });
   const dependencyByMilestone = (id: string) => dependencyDtos.filter((dependency) => dependency.predecessorMilestoneId === id || dependency.successorMilestoneId === id);

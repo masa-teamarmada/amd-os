@@ -9,8 +9,9 @@
 export const SX_POC_ROLE_PREFIX = "PoC候補先";
 export const SX_POC_CONTACTED_ROLE_PREFIX = "PoC接触先";
 
-/** PoC候補先・接触先・調達済みを含む、PoC対象先か。 */
-export function sxIsPocPartner(partner: { roleLabel: string }): boolean {
+/** PoC候補先・接触先・調達済みを含む、PoC対象先か。保存済みの候補区分が最優先で、無ければroleLabel prefixで後方互換判定する。 */
+export function sxIsPocPartner(partner: { roleLabel: string; pocCategory?: string | null }): boolean {
+  if (partner.pocCategory) return true;
   return partner.roleLabel.startsWith(SX_POC_ROLE_PREFIX) || partner.roleLabel.startsWith(SX_POC_CONTACTED_ROLE_PREFIX);
 }
 

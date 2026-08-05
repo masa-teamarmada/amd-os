@@ -1,7 +1,10 @@
 import type {
   SxBallSide,
   SxManagementPartner,
+  SxPartnerActivityState,
   SxPartnerStage,
+  SxPocCategory,
+  SxSampleStatus,
 } from "./sx-management";
 import {
   sxHoldingsForPartner,
@@ -20,9 +23,13 @@ import {
  */
 export const SX_PARTNER_STAGE_ORDER = [
   "candidate",
+  "first_contact",
   "information_exchange",
-  "condition_alignment",
+  "hearing",
   "meeting_coordination",
+  "technical_review",
+  "condition_alignment",
+  "sample_acquisition",
   "validation_preparation",
   "agreement_confirmation",
   "executing",
@@ -30,22 +37,96 @@ export const SX_PARTNER_STAGE_ORDER = [
 
 const PARTNER_STAGE_LABEL: Record<SxPartnerStage, string> = {
   candidate: "候補",
+  first_contact: "初回接触",
   information_exchange: "情報交換",
-  condition_alignment: "条件整理",
+  hearing: "ヒアリング",
   meeting_coordination: "面談調整",
+  technical_review: "技術確認",
+  condition_alignment: "条件整理",
+  sample_acquisition: "試料調達",
   validation_preparation: "検証準備",
   agreement_confirmation: "合意確認",
   executing: "実行中",
   on_hold: "保留",
+  declined: "見送り",
 };
 
 export function sxPartnerStageLabel(stage: SxPartnerStage): string {
   return PARTNER_STAGE_LABEL[stage] || "未確認";
 }
 
-/** 1-7の関係段階。保留は到達度ではないためnull。 */
+/** 段階と独立した運用状態。到達度と混ぜず、待ち先と停滞の管制に使う。 */
+export const SX_PARTNER_ACTIVITY_STATE_ORDER = [
+  "active",
+  "waiting_partner",
+  "waiting_internal",
+  "stalled",
+  "on_hold",
+  "dropped",
+  "unknown",
+] as const satisfies readonly SxPartnerActivityState[];
+
+const PARTNER_ACTIVITY_STATE_LABEL: Record<SxPartnerActivityState, string> = {
+  active: "対応中",
+  waiting_partner: "先方待ち",
+  waiting_internal: "社内待ち",
+  stalled: "停滞",
+  on_hold: "保留",
+  dropped: "見送り",
+  unknown: "状態未確認",
+};
+
+export function sxPartnerActivityStateLabel(
+  state: SxPartnerActivityState,
+): string {
+  return PARTNER_ACTIVITY_STATE_LABEL[state] || "状態未確認";
+}
+
+export const SX_POC_CATEGORY_ORDER = [
+  "poc_candidate",
+  "tech_partner",
+  "sample_provider",
+  "sample_route",
+] as const satisfies readonly SxPocCategory[];
+
+const POC_CATEGORY_LABEL: Record<SxPocCategory, string> = {
+  poc_candidate: "PoC候補先",
+  tech_partner: "技術協力先",
+  sample_provider: "試料提供元",
+  sample_route: "試料提供ルート",
+};
+
+export function sxPocCategoryLabel(category: SxPocCategory): string {
+  return POC_CATEGORY_LABEL[category] || "区分未確認";
+}
+
+const SAMPLE_STATUS_LABEL: Record<SxSampleStatus, string> = {
+  intent: "提供意向あり",
+  negotiating: "条件調整中",
+  agreed_pending: "合意済・未取得",
+  scheduled: "採取予定",
+  received: "受領済み",
+  analyzed: "分析済み",
+  unknown: "状態未確認",
+};
+
+export const SX_SAMPLE_STATUS_ORDER = [
+  "intent",
+  "negotiating",
+  "agreed_pending",
+  "scheduled",
+  "received",
+  "analyzed",
+  "unknown",
+] as const satisfies readonly SxSampleStatus[];
+
+export function sxSampleStatusLabel(status: SxSampleStatus): string {
+  return SAMPLE_STATUS_LABEL[status] || "状態未確認";
+}
+
+/** 1-11の関係段階。保留・見送りは到達度ではないためnull。 */
 export function sxPartnerStageIndex(stage: SxPartnerStage): number | null {
-  if (stage === "on_hold") return null;
+  if (stage === "on_hold" || stage === "declined") return null;
   const index = SX_PARTNER_STAGE_ORDER.findIndex(
     (candidate) => candidate === stage,
   );
@@ -59,7 +140,11 @@ export function sxPartnerIsOnHold(
     "relationshipStage" | "deferredLowPriority"
   >,
 ): boolean {
-  return partner.relationshipStage === "on_hold" || partner.deferredLowPriority;
+  return (
+    partner.relationshipStage === "on_hold" ||
+    partner.relationshipStage === "declined" ||
+    partner.deferredLowPriority
+  );
 }
 
 /** 「接触済み」という解釈をroleLabelへ預けず、一覧で確認できる接点記録の有無だけを返す。 */
@@ -193,7 +278,11 @@ export function sxPartnerAttention(
   // 保留は到達段階ではなく運用状態。危険な停止・期限は先に拾い、平常の保留は
   // 担当/期限不足へ誤分類しない。
   if (sxPartnerIsOnHold(partner)) {
-    return { key: "on_hold", label: "保留", rank: 3 };
+    return {
+      key: "on_hold",
+      label: partner.relationshipStage === "declined" ? "見送り" : "保留",
+      rank: 3,
+    };
   }
 
   if (sxPartnerNeedsRefresh(partner, today)) {

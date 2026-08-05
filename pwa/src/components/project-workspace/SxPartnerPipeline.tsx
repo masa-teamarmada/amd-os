@@ -21,10 +21,15 @@ import { useModalContainment } from "@/components/project-workspace/useModalCont
 import type {
   SxManagementBundle,
   SxManagementPartner,
+  SxPartnerActivityState,
   SxPartnerCommitment,
   SxPartnerInteraction,
   SxPartnerRoleKind,
+  SxPartnerSample,
+  SxPartnerStage,
   SxPartnerWorkItem,
+  SxPocCategory,
+  SxSampleStatus,
 } from "@/lib/sx-management";
 import { sxApplyOptimisticManagementPatch } from "@/lib/sx-management-optimistic";
 import {
@@ -40,8 +45,16 @@ import {
 import { sxNormalizePublicName } from "@/lib/sx-name-normalize";
 import { sxIsPocPartner } from "@/lib/sx-poc-candidates";
 import {
+  SX_PARTNER_ACTIVITY_STATE_ORDER,
+  SX_PARTNER_STAGE_ORDER,
+  SX_POC_CATEGORY_ORDER,
+  SX_SAMPLE_STATUS_ORDER,
   sxCompactPartnerRowText,
   sxComparePartnersForPoc,
+  sxPartnerActivityStateLabel,
+  sxPartnerStageLabel,
+  sxPocCategoryLabel,
+  sxSampleStatusLabel,
   sxPartnerHasDataGap,
   sxPartnerHasContactRecord,
   sxPartnerHasDueSoon,
@@ -297,7 +310,7 @@ const FOCUS_RING =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]";
 
 type PartnerInlineResource =
-  "partner" | "partner_work_item" | "commitment" | "interaction";
+  "partner" | "partner_work_item" | "commitment" | "interaction" | "partner_sample";
 
 type PartnerInlinePatch = {
   resource: PartnerInlineResource;
@@ -1086,6 +1099,255 @@ function InlineCurrentBallEditor({
   );
 }
 
+type PocFacetValues = {
+  category: string;
+  stage: string;
+  activity: string;
+  confidence: string;
+};
+
+/** PoC営業ファセット (区分/段階/活動状態/確度) のチップ表示。要確認 (low/unknown確度) と停滞は色で警告する。 */
+function pocFacetChipsView(partner: SxManagementPartner) {
+  if (!partner.pocCategory) return null;
+  const stageLabel = sxPartnerStageLabel(partner.relationshipStage);
+  const activityLabel = sxPartnerActivityStateLabel(partner.activityState);
+  const lowConfidence =
+    partner.confidence === "low" || partner.confidence === "unknown";
+  const stalled =
+    partner.activityState === "stalled" || partner.activityState === "dropped";
+  return (
+    <span
+      className="flex min-w-0 flex-wrap items-center gap-1 pb-0.5"
+      data-poc-facet-chips={partner.id}
+    >
+      <span className="inline-block max-w-full truncate border border-[#38745d]/50 bg-[#e8f2eb] px-1 py-px text-[10px] font-semibold leading-3 text-[#235f4b]">
+        {stageLabel}
+      </span>
+      <span
+        className={`inline-block max-w-full truncate border px-1 py-px text-[10px] font-semibold leading-3 ${
+          stalled
+            ? "border-[#b5533f]/50 bg-[#f9ece8] text-[#8c3329]"
+            : partner.activityState === "waiting_partner" ||
+                partner.activityState === "waiting_internal"
+              ? "border-[#bf7b2c]/45 bg-[#f9f2e4] text-[#765022]"
+              : "border-[#cfc7b9] bg-[#f5f1e8] text-[#514e47]"
+        }`}
+      >
+        {activityLabel}
+      </span>
+      <span
+        className={`inline-block max-w-full truncate border px-1 py-px text-[10px] font-semibold leading-3 ${
+          lowConfidence
+            ? "border-[#bf7b2c]/45 bg-[#f9f2e4] text-[#765022]"
+            : "border-[#cfc7b9] bg-transparent text-[#69665d]"
+        }`}
+      >
+        {lowConfidence ? "要確認" : "確認済み"}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * PoC営業ファセットは3チップの表示位置だけを2x2のselect群へ置換して編集する。
+ * 段階(relationship_stage)・状態(activity_state)・確度(confidence)・区分(poc_category)を1PATCHで送る。
+ */
+function InlinePocFacetEditor({
+  editorKey,
+  activeEditorKey,
+  label,
+  partner,
+  onRequestEdit,
+  onFinish,
+  onSave,
+}: {
+  editorKey: string;
+  activeEditorKey: string | null;
+  label: string;
+  partner: SxManagementPartner;
+  onRequestEdit: (editorKey: string) => boolean;
+  onFinish: () => void;
+  onSave: (values: PocFacetValues) => Promise<void>;
+}) {
+  const initial: PocFacetValues = {
+    category: partner.pocCategory || "",
+    stage: partner.relationshipStage,
+    activity: partner.activityState,
+    confidence:
+      partner.confidence === "low" || partner.confidence === "unknown"
+        ? "low"
+        : "high",
+  };
+  const [draft, setDraft] = useState<PocFacetValues>(initial);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const active = activeEditorKey === editorKey;
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const finishingRef = useRef(false);
+  const cancelingRef = useRef(false);
+
+  useEffect(() => {
+    if (!active) return;
+    setDraft(initial);
+    setError(null);
+    finishingRef.current = false;
+    cancelingRef.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, partner.pocCategory, partner.relationshipStage, partner.activityState, partner.confidence]);
+
+  const finish = (returnFocus: boolean) => {
+    onFinish();
+    if (returnFocus) requestAnimationFrame(() => triggerRef.current?.focus());
+  };
+  const cancel = () => {
+    if (saving) return;
+    cancelingRef.current = true;
+    setDraft(initial);
+    setError(null);
+    finish(true);
+  };
+  const save = async (returnFocus: boolean) => {
+    if (saving || finishingRef.current) return;
+    finishingRef.current = true;
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave(draft);
+      finish(returnFocus);
+    } catch (caught) {
+      finishingRef.current = false;
+      setError(caught instanceof Error ? caught.message : "保存できなかったよ");
+      requestAnimationFrame(() =>
+        editorRef.current?.querySelector("select")?.focus(),
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!active) {
+    return (
+      <button
+        ref={triggerRef}
+        type="button"
+        className={`w-full min-w-0 text-left hover:bg-[#eef3f5] ${FOCUS_RING}`}
+        onClick={() => {
+          if (!onRequestEdit(editorKey)) return;
+          setDraft(initial);
+          setError(null);
+          finishingRef.current = false;
+          cancelingRef.current = false;
+        }}
+        aria-label={`${label}を直接修正。段階 ${sxPartnerStageLabel(partner.relationshipStage)}、状態 ${sxPartnerActivityStateLabel(partner.activityState)}`}
+        data-inline-edit-trigger={editorKey}
+        data-inline-cell-mode="view"
+      >
+        {pocFacetChipsView(partner)}
+      </button>
+    );
+  }
+
+  const facetSelect = (
+    key: keyof PocFacetValues,
+    facetLabel: string,
+    options: ReadonlyArray<{ value: string; label: string }>,
+  ) => (
+    <label className="grid min-w-0 gap-px">
+      <span className="text-[10px] font-semibold leading-3 text-[#69665d]">
+        {facetLabel}
+      </span>
+      <select
+        className={`h-[22px] min-w-0 border border-[#cfc7b9] bg-[#fffdf7] px-0.5 text-[10px] font-semibold text-[#24231f] ${FOCUS_RING}`}
+        value={draft[key]}
+        disabled={saving}
+        onChange={(event) =>
+          setDraft((current) => ({ ...current, [key]: event.target.value }))
+        }
+        aria-label={`${label}の${facetLabel}`}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
+  return (
+    <div
+      ref={editorRef}
+      className="relative grid min-w-0 grid-cols-2 gap-x-1 gap-y-0.5 pb-0.5"
+      data-inline-editor={editorKey}
+      data-inline-cell-mode="edit-seamless"
+      aria-busy={saving}
+      onBlur={(event) => {
+        if (
+          event.relatedTarget instanceof Node &&
+          event.currentTarget.contains(event.relatedTarget)
+        )
+          return;
+        if (cancelingRef.current) {
+          cancelingRef.current = false;
+          return;
+        }
+        void save(false);
+      }}
+      onKeyDown={(event) => {
+        if (event.nativeEvent.isComposing) return;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          cancel();
+        }
+        if (event.key === "Enter") {
+          event.preventDefault();
+          void save(true);
+        }
+      }}
+    >
+      {facetSelect(
+        "stage",
+        "段階",
+        (
+          [...SX_PARTNER_STAGE_ORDER, "on_hold", "declined"] as SxPartnerStage[]
+        ).map((stage) => ({
+          value: stage as string,
+          label: sxPartnerStageLabel(stage),
+        })),
+      )}
+      {facetSelect(
+        "activity",
+        "状態",
+        SX_PARTNER_ACTIVITY_STATE_ORDER.map((state) => ({
+          value: state,
+          label: sxPartnerActivityStateLabel(state),
+        })),
+      )}
+      {facetSelect("confidence", "確度", [
+        { value: "high", label: "確認済み" },
+        { value: "low", label: "要確認" },
+      ])}
+      {facetSelect(
+        "category",
+        "区分",
+        SX_POC_CATEGORY_ORDER.map((category) => ({
+          value: category,
+          label: sxPocCategoryLabel(category),
+        })),
+      )}
+      {error && (
+        <p
+          className="absolute left-0 top-full z-30 mt-1 border border-[#d7a49e] bg-[#fff7f5] px-2 py-1 text-[10px] leading-4 text-[#8c3329] shadow-sm"
+          role="alert"
+        >
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function InlineDueFields({
   values,
   setValue,
@@ -1546,6 +1808,78 @@ function PartnerComparisonControls({
   );
 }
 
+/**
+ * PoC候補先タブ専用の区分・段階ファネル。同じ台帳を絞るチップで、別リストは作らない。
+ * 段階チップの件数が営業ファネルKPI (段階別件数) をそのまま示す。
+ */
+function PocFacetFilterBand({
+  partners,
+  activeCategory,
+  activeStage,
+  onSelectCategory,
+  onSelectStage,
+}: {
+  partners: SxManagementPartner[];
+  activeCategory: SxPocCategory | null;
+  activeStage: SxPartnerStage | null;
+  onSelectCategory: (category: SxPocCategory | null) => void;
+  onSelectStage: (stage: SxPartnerStage | null) => void;
+}) {
+  const categoryCount = (category: SxPocCategory) =>
+    partners.filter((partner) => partner.pocCategory === category).length;
+  const stageCount = (stage: SxPartnerStage) =>
+    partners.filter((partner) => partner.relationshipStage === stage).length;
+  const stageEntries = (
+    [...SX_PARTNER_STAGE_ORDER, "on_hold", "declined"] as SxPartnerStage[]
+  )
+    .map((stage) => ({ stage, count: stageCount(stage) }))
+    .filter((entry) => entry.count > 0);
+  return (
+    <div data-testid="sx-poc-facet-filter">
+      <ControlBandRow heading="区分" ariaLabel="候補区分の絞り込み">
+        {SX_POC_CATEGORY_ORDER.map((category) => {
+          const count = categoryCount(category);
+          const active = activeCategory === category;
+          return (
+            <button
+              key={category}
+              type="button"
+              data-partner-filter-trigger={`poc-category-${category}`}
+              onClick={() => onSelectCategory(active ? null : category)}
+              disabled={count === 0}
+              aria-pressed={active}
+              aria-label={`${sxPocCategoryLabel(category)}で絞り込み（${count}件）`}
+              className={`${navChipClass(active)} disabled:cursor-not-allowed disabled:opacity-40`}
+            >
+              {active && <span aria-hidden="true">✓</span>}
+              {sxPocCategoryLabel(category)} {count}件
+            </button>
+          );
+        })}
+      </ControlBandRow>
+      <ControlBandRow heading="段階" ariaLabel="営業段階別の件数と絞り込み">
+        {stageEntries.map(({ stage, count }) => {
+          const active = activeStage === stage;
+          return (
+            <button
+              key={stage}
+              type="button"
+              data-partner-filter-trigger={`poc-stage-${stage}`}
+              onClick={() => onSelectStage(active ? null : stage)}
+              aria-pressed={active}
+              aria-label={`${sxPartnerStageLabel(stage)}の${count}件で絞り込み`}
+              className={navChipClass(active)}
+            >
+              {active && <span aria-hidden="true">✓</span>}
+              {sxPartnerStageLabel(stage)} {count}
+            </button>
+          );
+        })}
+      </ControlBandRow>
+    </div>
+  );
+}
+
 function OwnerLoadBand({
   partners,
   today,
@@ -1920,17 +2254,332 @@ function PartnerProgressFlow({
   );
 }
 
+/**
+ * 試料台帳の1行。表示行そのものを押すと同じ行内が入力群へ変わり、保存/取消で同じ行へ戻る。
+ * 第二モーダルは開かない。
+ */
+function PartnerSampleRow({
+  sample,
+  canManage,
+  onPatch,
+}: {
+  sample: SxPartnerSample;
+  canManage: boolean;
+  onPatch: (patch: Record<string, unknown>) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [draft, setDraft] = useState({
+    label: sample.label,
+    status: sample.status as string,
+    received_on: sample.receivedOn || "",
+    storage_location: sample.storageLocation || "",
+    owner_label: sample.ownerLabel || "",
+    notes: sample.notes || "",
+  });
+  const startEdit = () => {
+    setDraft({
+      label: sample.label,
+      status: sample.status,
+      received_on: sample.receivedOn || "",
+      storage_location: sample.storageLocation || "",
+      owner_label: sample.ownerLabel || "",
+      notes: sample.notes || "",
+    });
+    setError(null);
+    setEditing(true);
+  };
+  const save = async () => {
+    if (saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await onPatch({
+        label: draft.label.trim() || sample.label,
+        status: draft.status,
+        received_on: draft.received_on || null,
+        storage_location: draft.storage_location.trim() || null,
+        owner_label: draft.owner_label.trim() || null,
+        notes: draft.notes.trim() || null,
+      });
+      setEditing(false);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "保存できなかったよ");
+    } finally {
+      setSaving(false);
+    }
+  };
+  const statusTone =
+    sample.status === "received" || sample.status === "analyzed"
+      ? "border-[#38745d]/50 bg-[#e8f2eb] text-[#235f4b]"
+      : sample.status === "unknown"
+        ? "border-[#bf7b2c]/45 bg-[#f9f2e4] text-[#765022]"
+        : "border-[#cfc7b9] bg-[#f5f1e8] text-[#514e47]";
+
+  const view = (
+    <div className="grid min-w-0 gap-0.5 px-3 py-2 text-left">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <span className="break-words text-[11px] font-semibold leading-4 text-[#24231f]">
+          {sample.label}
+        </span>
+        <span
+          className={`inline-block border px-1 py-px text-[10px] font-semibold leading-3 ${statusTone}`}
+        >
+          {sxSampleStatusLabel(sample.status)}
+        </span>
+        {(sample.confidence === "low" || sample.confidence === "unknown") && (
+          <span className="inline-block border border-[#bf7b2c]/45 bg-[#f9f2e4] px-1 py-px text-[10px] font-semibold leading-3 text-[#765022]">
+            要確認
+          </span>
+        )}
+      </div>
+      <p className="text-[10px] leading-4 text-[#69665d]">
+        受領 {sample.receivedOn ? sxFormatDate(sample.receivedOn) : "未確認"} ・
+        保管 {sample.storageLocation || "未確認"} ・ 担当{" "}
+        {sample.ownerLabel ? sxNormalizePublicName(sample.ownerLabel) : "未確認"}
+      </p>
+      {sample.notes && (
+        <p className="text-[10px] leading-4 text-[#514e47]">{sample.notes}</p>
+      )}
+    </div>
+  );
+
+  if (!canManage) return <li>{view}</li>;
+  if (!editing) {
+    return (
+      <li>
+        <button
+          type="button"
+          className={`block w-full text-left hover:bg-[#eef3f5] ${FOCUS_RING}`}
+          onClick={startEdit}
+          aria-label={`試料「${sample.label}」を直接修正`}
+          data-sample-row={sample.id}
+        >
+          {view}
+        </button>
+      </li>
+    );
+  }
+  const field = (
+    label: string,
+    node: ReactNode,
+  ) => (
+    <label className="grid min-w-0 gap-0.5">
+      <span className="text-[10px] font-semibold leading-3 text-[#69665d]">
+        {label}
+      </span>
+      {node}
+    </label>
+  );
+  const controlClass = `min-w-0 border border-[#cfc7b9] bg-[#fffdf7] px-1.5 py-1 text-[11px] text-[#24231f] ${FOCUS_RING}`;
+  return (
+    <li
+      className="grid gap-1.5 bg-[#f8f5ec] px-3 py-2"
+      data-sample-row-editing={sample.id}
+      aria-busy={saving}
+      onKeyDown={(event) => {
+        if (event.nativeEvent.isComposing) return;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          setEditing(false);
+        }
+      }}
+    >
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+        {field(
+          "試料",
+          <input
+            autoFocus
+            className={controlClass}
+            value={draft.label}
+            readOnly={saving}
+            onChange={(event) =>
+              setDraft((current) => ({ ...current, label: event.target.value }))
+            }
+          />,
+        )}
+        {field(
+          "状態",
+          <select
+            className={controlClass}
+            value={draft.status}
+            disabled={saving}
+            onChange={(event) =>
+              setDraft((current) => ({ ...current, status: event.target.value }))
+            }
+          >
+            {SX_SAMPLE_STATUS_ORDER.map((status) => (
+              <option key={status} value={status}>
+                {sxSampleStatusLabel(status)}
+              </option>
+            ))}
+          </select>,
+        )}
+        {field(
+          "受領日",
+          <input
+            type="date"
+            className={controlClass}
+            value={draft.received_on}
+            readOnly={saving}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                received_on: event.target.value,
+              }))
+            }
+          />,
+        )}
+        {field(
+          "保管場所",
+          <input
+            className={controlClass}
+            value={draft.storage_location}
+            readOnly={saving}
+            placeholder="未確認"
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                storage_location: event.target.value,
+              }))
+            }
+          />,
+        )}
+        {field(
+          "担当",
+          <input
+            className={controlClass}
+            value={draft.owner_label}
+            readOnly={saving}
+            placeholder="未確認"
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                owner_label: event.target.value,
+              }))
+            }
+          />,
+        )}
+      </div>
+      {field(
+        "要確認・条件",
+        <textarea
+          rows={2}
+          className={controlClass}
+          value={draft.notes}
+          readOnly={saving}
+          onChange={(event) =>
+            setDraft((current) => ({ ...current, notes: event.target.value }))
+          }
+        />,
+      )}
+      {error && (
+        <p className="text-[10px] font-semibold text-[#8c3329]" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => void save()}
+          disabled={saving}
+          className={`border border-[#235f4b] bg-[#235f4b] px-2.5 py-1 text-[10px] font-semibold text-[#fffdf7] disabled:opacity-50 ${FOCUS_RING}`}
+        >
+          保存
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          disabled={saving}
+          className={`border border-[#c9c0b2] bg-[#fffdf7] px-2.5 py-1 text-[10px] font-semibold text-[#514e47] disabled:opacity-50 ${FOCUS_RING}`}
+        >
+          取消
+        </button>
+      </div>
+    </li>
+  );
+}
+
+/** 試料の新規追加は試料名1項目だけ。詳細は追加直後に同じ行のその場編集で補完する。 */
+function PartnerSampleAddForm({
+  partnerId,
+  onCreate,
+}: {
+  partnerId: string;
+  onCreate: (partnerId: string, label: string) => Promise<void>;
+}) {
+  const [label, setLabel] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const submit = async () => {
+    const trimmed = label.trim();
+    if (!trimmed || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await onCreate(partnerId, trimmed);
+      setLabel("");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "追加できなかったよ");
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <div className="mt-2 grid gap-1">
+      <div className="flex items-stretch gap-1.5">
+        <input
+          className={`min-w-0 flex-1 border border-[#cfc7b9] bg-[#fffdf7] px-2 py-1.5 text-[11px] text-[#24231f] ${FOCUS_RING}`}
+          value={label}
+          readOnly={saving}
+          placeholder="試料名（例: 工場排液 / 触媒 / 井戸水）"
+          aria-label="追加する試料名"
+          onChange={(event) => setLabel(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing) return;
+            if (event.key === "Enter") {
+              event.preventDefault();
+              void submit();
+            }
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => void submit()}
+          disabled={saving || !label.trim()}
+          className={`border border-[#235f4b] bg-[#235f4b] px-3 py-1.5 text-[10px] font-semibold text-[#fffdf7] disabled:opacity-50 ${FOCUS_RING}`}
+          data-testid="sx-partner-sample-add"
+        >
+          試料を追加
+        </button>
+      </div>
+      {error && (
+        <p className="text-[10px] font-semibold text-[#8c3329]" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function PartnerProgressHistoryModal({
   partner,
   today,
   milestoneTitleById,
   milestoneSlugById,
+  canManage,
+  onPatchSample,
+  onCreateSample,
   onClose,
 }: {
   partner: SxManagementPartner;
   today: string;
   milestoneTitleById: ReadonlyMap<string, string>;
   milestoneSlugById: ReadonlyMap<string, string>;
+  canManage: boolean;
+  onPatchSample: (request: PartnerInlinePatch) => Promise<void>;
+  onCreateSample: (partnerId: string, label: string) => Promise<void>;
   onClose: () => void;
 }) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -2058,6 +2707,55 @@ function PartnerProgressHistoryModal({
             )}
           </section>
 
+          {(partner.samples.length > 0 || (canManage && partner.pocCategory)) && (
+            <section
+              className="mt-5 border-t border-[#e4ddd0] pt-4"
+              aria-labelledby={`${titleId}-samples`}
+              data-testid="sx-partner-sample-ledger"
+            >
+              <p
+                id={`${titleId}-samples`}
+                className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]"
+              >
+                試料台帳 {partner.samples.length}件
+              </p>
+              {partner.samples.length > 0 ? (
+                <ul className="mt-2 divide-y divide-[#eee9df] border-y border-[#e4ddd0] bg-white">
+                  {[...partner.samples]
+                    .sort(
+                      (left, right) =>
+                        left.sortOrder - right.sortOrder ||
+                        left.label.localeCompare(right.label, "ja"),
+                    )
+                    .map((sample) => (
+                      <PartnerSampleRow
+                        key={sample.id}
+                        sample={sample}
+                        canManage={canManage}
+                        onPatch={(patch) =>
+                          onPatchSample({
+                            resource: "partner_sample",
+                            id: sample.id,
+                            patch,
+                          })
+                        }
+                      />
+                    ))}
+                </ul>
+              ) : (
+                <p className="mt-2 border border-dashed border-[#d6cebf] p-3 text-[11px] text-[#69665d]">
+                  保存済みの試料はまだない。
+                </p>
+              )}
+              {canManage && (
+                <PartnerSampleAddForm
+                  partnerId={partner.id}
+                  onCreate={onCreateSample}
+                />
+              )}
+            </section>
+          )}
+
           <section
             className="mt-5 border-t border-[#e4ddd0] pt-4"
             aria-labelledby={`${titleId}-interactions`}
@@ -2158,6 +2856,7 @@ function PartnerInlineRow({
   onRequestInlineEdit,
   onFinishInlineEdit,
   onPatch,
+  onCreateSample,
 }: {
   partner: SxManagementPartner;
   milestones: Array<{ id: string; title: string }>;
@@ -2173,6 +2872,7 @@ function PartnerInlineRow({
   onRequestInlineEdit: (editorKey: string) => boolean;
   onFinishInlineEdit: () => void;
   onPatch: (request: PartnerInlinePatch) => Promise<void>;
+  onCreateSample: (partnerId: string, label: string) => Promise<void>;
 }) {
   const display = sxPartnerDisplay(partner);
   const steps = buildPartnerProgressSteps(partner);
@@ -2416,6 +3116,37 @@ function PartnerInlineRow({
               現在の状況
             </p>
             <div className="min-h-11" data-current-situation-cell={partner.id}>
+              {partner.pocCategory &&
+                (canManage ? (
+                  <InlinePocFacetEditor
+                    editorKey={keyFor("poc-facets")}
+                    activeEditorKey={activeEditorKey}
+                    label={`${display.name}のPoC営業状態`}
+                    partner={partner}
+                    onRequestEdit={onRequestInlineEdit}
+                    onFinish={onFinishInlineEdit}
+                    onSave={async (values) => {
+                      await patchIfChanged(
+                        "partner",
+                        partner.id,
+                        {
+                          relationship_stage: partner.relationshipStage,
+                          activity_state: partner.activityState,
+                          confidence: partner.confidence,
+                          poc_category: partner.pocCategory,
+                        },
+                        {
+                          relationship_stage: values.stage,
+                          activity_state: values.activity,
+                          confidence: values.confidence,
+                          poc_category: values.category || null,
+                        },
+                      );
+                    }}
+                  />
+                ) : (
+                  pocFacetChipsView(partner)
+                ))}
               {canManage ? (
                 <InlineCurrentBallEditor
                   editorKey={keyFor("current")}
@@ -3081,8 +3812,15 @@ function PartnerInlineRow({
             </p>
           </PartnerRowCell>
         </div>
-        <span className="flex min-h-11 items-center justify-center self-stretch border border-[#cfc7b9] px-2 text-center text-[10px] font-semibold leading-4 text-[#315f7d]">
-          履歴 {partner.interactions.length}件 ・ 保有 {holdings.length}件
+        <span className="flex min-h-11 flex-col items-center justify-center self-stretch border border-[#cfc7b9] px-2 text-center text-[10px] font-semibold leading-4 text-[#315f7d]">
+          <span>
+            履歴 {partner.interactions.length}件 ・ 保有 {holdings.length}件
+          </span>
+          {partner.samples.length > 0 && (
+            <span data-partner-sample-count={partner.id}>
+              試料 {partner.samples.length}件
+            </span>
+          )}
         </span>
       </div>
       {expanded && (
@@ -3091,6 +3829,9 @@ function PartnerInlineRow({
           today={today}
           milestoneTitleById={milestoneTitleById}
           milestoneSlugById={milestoneSlugById}
+          canManage={canManage}
+          onPatchSample={onPatch}
+          onCreateSample={onCreateSample}
           onClose={() => onToggleExpand(partner.id)}
         />
       )}
@@ -3124,6 +3865,11 @@ export function SxPartnerPipeline({
   const [vcOnly, setVcOnly] = useState(false);
   const [activePocQuickFilter, setActivePocQuickFilter] =
     useState<SxPocQuickFilter>("all");
+  const [activePocCategory, setActivePocCategory] =
+    useState<SxPocCategory | null>(null);
+  const [activePocStage, setActivePocStage] = useState<SxPartnerStage | null>(
+    null,
+  );
   const [activeOwnerKey, setActiveOwnerKey] = useState<string | null>(null);
   const patchInlineCell = (request: PartnerInlinePatch): Promise<void> => {
     // A ledger cell commits to the visible row immediately. It is especially important for
@@ -3177,6 +3923,32 @@ export function SxPartnerPipeline({
     })();
     return Promise.resolve();
   };
+  const createSample = async (partnerId: string, label: string) => {
+    const response = await fetch(
+      `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resource: "partner_sample",
+          fields: { partner_id: partnerId, label, status: "unknown" },
+        }),
+      },
+    );
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw new Error(
+        typeof body.error === "string" ? body.error : "追加できなかったよ",
+      );
+    // 新規行はサーバー採番のidを持つため、楽観挿入せず正本bundleを取り直して反映する。
+    const latest = await fetch(
+      `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+      { headers: { "Cache-Control": "no-store" } },
+    );
+    const latestBody = await latest.json().catch(() => null);
+    if (latest.ok && latestBody)
+      onManagementChange(latestBody as SxManagementBundle);
+  };
   const milestoneTitleBySlug = new Map(
     management.milestones.map((milestone) => [
       milestone.slug,
@@ -3207,8 +3979,17 @@ export function SxPartnerPipeline({
     : vcOnly
       ? vcPartners
       : [];
+  const facetScopePartners = pocOnly
+    ? comparisonScopePartners.filter(
+        (partner) =>
+          (activePocCategory === null ||
+            partner.pocCategory === activePocCategory) &&
+          (activePocStage === null ||
+            partner.relationshipStage === activePocStage),
+      )
+    : comparisonScopePartners;
   const ownerScopePartners = comparisonOnly
-    ? comparisonScopePartners.filter((partner) =>
+    ? facetScopePartners.filter((partner) =>
         pocMatchesQuickFilter(partner, management.asOf, activePocQuickFilter),
       )
     : management.partners.filter(matchesRole);
@@ -3277,6 +4058,7 @@ export function SxPartnerPipeline({
     },
     onFinishInlineEdit: () => setActiveInlineEditorKey(null),
     onPatch: patchInlineCell,
+    onCreateSample: createSample,
   };
 
   return (
@@ -3332,6 +4114,8 @@ export function SxPartnerPipeline({
           setVcOnly(false);
           setActiveRoleKind(null);
           setActivePocQuickFilter("all");
+          setActivePocCategory(null);
+          setActivePocStage(null);
           setActiveOwnerKey(null);
         }}
         onSelect={(kind) => {
@@ -3345,6 +4129,8 @@ export function SxPartnerPipeline({
           setVcOnly(false);
           setActiveRoleKind(null);
           setActivePocQuickFilter("all");
+          setActivePocCategory(null);
+          setActivePocStage(null);
           setActiveOwnerKey(null);
         }}
         onSelectVc={() => {
@@ -3353,6 +4139,8 @@ export function SxPartnerPipeline({
           setVcOnly(true);
           setActiveRoleKind(null);
           setActivePocQuickFilter("all");
+          setActivePocCategory(null);
+          setActivePocStage(null);
           setActiveOwnerKey(null);
         }}
         showRoleFilter={!comparisonOnly}
@@ -3368,9 +4156,26 @@ export function SxPartnerPipeline({
           }}
         />
       </div>
+      {pocOnly && (
+        <PocFacetFilterBand
+          partners={comparisonScopePartners}
+          activeCategory={activePocCategory}
+          activeStage={activePocStage}
+          onSelectCategory={(category) => {
+            if (activeInlineEditorKey) return;
+            setActivePocCategory(category);
+            setActiveOwnerKey(null);
+          }}
+          onSelectStage={(stage) => {
+            if (activeInlineEditorKey) return;
+            setActivePocStage(stage);
+            setActiveOwnerKey(null);
+          }}
+        />
+      )}
       {comparisonOnly && (
         <PartnerComparisonControls
-          partners={comparisonScopePartners}
+          partners={facetScopePartners}
           visiblePartners={comparisonPartners}
           today={management.asOf}
           scopeLabel={pocOnly ? "PoC候補先" : "VC"}
@@ -3488,6 +4293,7 @@ function PartnerRow({
   onRequestInlineEdit,
   onFinishInlineEdit,
   onPatch,
+  onCreateSample,
 }: {
   partner: SxManagementPartner;
   milestones: Array<{ id: string; title: string }>;
@@ -3503,6 +4309,7 @@ function PartnerRow({
   onRequestInlineEdit: (editorKey: string) => boolean;
   onFinishInlineEdit: () => void;
   onPatch: (request: PartnerInlinePatch) => Promise<void>;
+  onCreateSample: (partnerId: string, label: string) => Promise<void>;
 }) {
   const expanded = expandedId === partner.id;
   return (
@@ -3521,6 +4328,7 @@ function PartnerRow({
       onRequestInlineEdit={onRequestInlineEdit}
       onFinishInlineEdit={onFinishInlineEdit}
       onPatch={onPatch}
+      onCreateSample={onCreateSample}
     />
   );
 }

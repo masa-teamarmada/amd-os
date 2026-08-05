@@ -43,6 +43,7 @@ type Resource =
   | "interaction"
   | "partner_role"
   | "partner_work_item"
+  | "partner_sample"
   | "dependency"
   | "schedule_dependency"
   | "technical_test"
@@ -68,6 +69,7 @@ const RESOURCE_TABLES: Record<Resource, string> = {
   interaction: "project_management_partner_interactions",
   partner_role: "project_management_partner_roles",
   partner_work_item: "project_management_partner_work_items",
+  partner_sample: "project_management_partner_samples",
   dependency: "project_management_milestone_dependencies",
   schedule_dependency: "project_management_schedule_dependencies",
   technical_test: "project_management_technical_tests",
@@ -94,6 +96,7 @@ const RESOURCE_META: Record<Resource, { entityType: string; statusColumn: "statu
   interaction: { entityType: "partner_interaction", statusColumn: null, hasLastVerified: false, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
   partner_role: { entityType: "partner_role", statusColumn: null, hasLastVerified: false, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
   partner_work_item: { entityType: "partner_work_item", statusColumn: "status", hasLastVerified: true, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
+  partner_sample: { entityType: "partner_sample", statusColumn: "status", hasLastVerified: false, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
   dependency: { entityType: "dependency", statusColumn: null, hasLastVerified: false, hasSourceRef: false, hasUpdatedBy: false, softDelete: true },
   schedule_dependency: { entityType: "schedule_dependency", statusColumn: null, hasLastVerified: false, hasSourceRef: false, hasUpdatedBy: true, softDelete: true },
   technical_test: { entityType: "technical_test", statusColumn: "status", hasLastVerified: false, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
@@ -120,6 +123,7 @@ const DELETED_SELECTS: Record<Resource, string> = {
   interaction: "id,summary,deleted_at,deleted_by",
   partner_role: "id,role_kind,role_label,deleted_at,deleted_by",
   partner_work_item: "id,title,deleted_at,deleted_by",
+  partner_sample: "id,label,deleted_at,deleted_by",
   dependency: "id,note,deleted_at,deleted_by",
   schedule_dependency: "id,predecessor_type,deleted_at,deleted_by",
   technical_test: "id,test_slug,test_name,deleted_at,deleted_by",
@@ -138,6 +142,7 @@ function deletedRecordLabel(resource: Resource, row: Record<string, unknown>) {
           : resource === "interaction" ? row.summary
           : resource === "partner_role" ? row.role_label || row.role_kind
             : resource === "partner_work_item" ? row.title
+            : resource === "partner_sample" ? row.label
           : resource === "technical_test" ? row.test_name || row.test_slug
             : resource === "organization_role" ? row.role_name || row.role_slug
               : resource === "capacity" ? row.role_label
@@ -153,7 +158,10 @@ const MILESTONE_STATUSES = ["unassessed", "on_track", "attention", "at_risk", "b
 const TASK_STATUSES = ["unassessed", "on_track", "attention", "at_risk", "blocked", "completed"];
 const ISSUE_KINDS = ["fact", "hypothesis", "decision_needed"];
 const ISSUE_STATUSES = ["open", "validating", "closed", "on_hold"];
-const PARTNER_STAGES = ["candidate", "information_exchange", "condition_alignment", "meeting_coordination", "validation_preparation", "agreement_confirmation", "executing", "on_hold"];
+const PARTNER_STAGES = ["candidate", "first_contact", "information_exchange", "hearing", "meeting_coordination", "technical_review", "condition_alignment", "sample_acquisition", "validation_preparation", "agreement_confirmation", "executing", "on_hold", "declined"];
+const PARTNER_ACTIVITY_STATES = ["active", "waiting_partner", "waiting_internal", "stalled", "on_hold", "dropped", "unknown"];
+const POC_CATEGORIES = ["poc_candidate", "tech_partner", "sample_provider", "sample_route"];
+const SAMPLE_STATUSES = ["intent", "negotiating", "agreed_pending", "scheduled", "received", "analyzed", "unknown"];
 const AGREEMENT_STATES = ["agreed", "partial", "unagreed"];
 const DECISION_STATES = ["pending", "decided", "deferred"];
 const ACTION_STATUSES = ["open", "in_progress", "completed", "blocked"];
@@ -317,6 +325,8 @@ function patchFor(resource: Resource, raw: unknown): Record<string, unknown> {
   }
   if (resource === "partner") {
     takeText("name", "name", 180); takeOptionalText("introducer_label", "introducer_label", 120); takeOptionalText("connection_context", "connection_context", 500); takeText("role_label", "role_label", 240); takeEnum("primary_track", TRACKS); takeEnum("relationship_stage", PARTNER_STAGES); takeEnum("agreement_state", AGREEMENT_STATES); takeText("agreed_scope", "agreed_scope", 1000); takeText("unagreed_scope", "unagreed_scope", 1000); takeDate("last_contact_date"); takeText("next_commitment", "next_commitment", 1000); takeDate("due_date"); takeText("owner_label", "owner_label", 120); takeEnum("current_ball_side", BALL_SIDES); takeOptionalText("current_ball_owner", "current_ball_owner", 120); takeOptionalText("next_ball_owner", "next_ball_owner", 120); takeOptionalText("target_state", "target_state", 500); takeEnum("due_date_precision", DATE_PRECISIONS); takeEnum("confidence", CONFIDENCES);
+    takeEnum("activity_state", PARTNER_ACTIVITY_STATES);
+    if ("poc_category" in raw) patch.poc_category = raw.poc_category == null || raw.poc_category === "" ? null : enumValue(raw.poc_category, "poc_category", POC_CATEGORIES);
     assertSafeRelationshipOrigin(patch.introducer_label, "紹介者"); assertSafeRelationshipOrigin(patch.connection_context, "接点の経緯");
   }
   if (resource === "interaction") {
@@ -328,6 +338,9 @@ function patchFor(resource: Resource, raw: unknown): Record<string, unknown> {
   if (resource === "partner_work_item") {
     takeEnum("side", ACTOR_SIDES); takeEnum("item_kind", WORK_ITEM_KINDS); takeText("title", "title", 240); takeOptionalText("detail", "detail", 1200); takeOptionalText("owner_label", "owner_label", 120); takeEnum("status", WORK_ITEM_STATUSES); takeDate("due_date"); takeEnum("due_date_precision", DATE_PRECISIONS); takeOptionalText("completion_criteria", "completion_criteria", 1200); takeDate("completed_on"); takeOptionalText("completion_evidence", "completion_evidence", 1200); takeOptionalText("accepted_by", "accepted_by", 120); takeDate("accepted_on"); takeOptionalText("handoff_to", "handoff_to", 240); takeEnum("confidence", CONFIDENCES); takeNumber("sort_order", { min: 0 });
     if ("related_milestone_id" in raw) patch.related_milestone_id = raw.related_milestone_id == null || raw.related_milestone_id === "" ? null : text(raw.related_milestone_id, "related_milestone_id", 80);
+  }
+  if (resource === "partner_sample") {
+    takeText("label", "label", 240); takeEnum("status", SAMPLE_STATUSES); takeDate("received_on"); takeOptionalText("storage_location", "storage_location", 240); takeOptionalText("owner_label", "owner_label", 120); takeOptionalText("notes", "notes", 1200); takeEnum("confidence", CONFIDENCES); takeNumber("sort_order", { min: 0 });
   }
   if (resource === "commitment") {
     takeText("title", "title", 180); takeText("commitment_text", "commitment_text", 1000); takeEnum("commitment_kind", ["counterparty_promise", "sx_followup"]); takeEnum("status", COMMITMENT_STATUSES); takeDate("promised_on"); takeDate("due_date"); takeDate("completed_on"); takeText("owner_label", "owner_label", 120); takeOptionalText("counterparty_owner", "counterparty_owner", 120); takeOptionalText("sx_owner", "sx_owner", 120); takeOptionalText("evidence", "evidence", 1200); takeDate("next_review_on"); takeEnum("confidence", CONFIDENCES);
@@ -485,7 +498,7 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     const connectionContext = optionalTextValue("connection_context", 500);
     assertDatePrecisionConsistency(dueDate, dueDatePrecision, "期限日", "期限精度");
     assertSafeRelationshipOrigin(introducerLabel, "紹介者"); assertSafeRelationshipOrigin(connectionContext, "接点の経緯");
-    return { ...common(), project_id: projectId, slug: requiredText("slug", 120), name: requiredText("name", 180), introducer_label: introducerLabel, connection_context: connectionContext, role_label: requiredText("role_label", 240), primary_track: requiredEnum("primary_track", TRACKS), relationship_stage: requiredEnum("relationship_stage", PARTNER_STAGES, "candidate"), agreement_state: requiredEnum("agreement_state", AGREEMENT_STATES, "unagreed"), agreed_scope: requiredText("agreed_scope", 1000), unagreed_scope: requiredText("unagreed_scope", 1000), last_contact_date: optionalDate("last_contact_date"), next_commitment: requiredText("next_commitment", 1000), due_date: dueDate, owner_label: requiredText("owner_label", 120), current_ball_side: requiredEnum("current_ball_side", BALL_SIDES, "unknown"), current_ball_owner: optionalTextValue("current_ball_owner", 120), next_ball_owner: optionalTextValue("next_ball_owner", 120), target_state: optionalTextValue("target_state", 500), due_date_precision: dueDatePrecision, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
+    return { ...common(), project_id: projectId, slug: requiredText("slug", 120), name: requiredText("name", 180), introducer_label: introducerLabel, connection_context: connectionContext, role_label: requiredText("role_label", 240), primary_track: requiredEnum("primary_track", TRACKS), relationship_stage: requiredEnum("relationship_stage", PARTNER_STAGES, "candidate"), activity_state: requiredEnum("activity_state", PARTNER_ACTIVITY_STATES, "unknown"), poc_category: raw.poc_category == null || raw.poc_category === "" ? null : enumValue(raw.poc_category, "poc_category", POC_CATEGORIES), agreement_state: requiredEnum("agreement_state", AGREEMENT_STATES, "unagreed"), agreed_scope: requiredText("agreed_scope", 1000), unagreed_scope: requiredText("unagreed_scope", 1000), last_contact_date: optionalDate("last_contact_date"), next_commitment: requiredText("next_commitment", 1000), due_date: dueDate, owner_label: requiredText("owner_label", 120), current_ball_side: requiredEnum("current_ball_side", BALL_SIDES, "unknown"), current_ball_owner: optionalTextValue("current_ball_owner", 120), next_ball_owner: optionalTextValue("next_ball_owner", 120), target_state: optionalTextValue("target_state", 500), due_date_precision: dueDatePrecision, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
   }
   if (resource === "interaction") {
     const occurredOn = optionalDate("occurred_on");
@@ -509,6 +522,9 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     const acceptedOn = optionalDate("accepted_on");
     assertWorkItemCompletionRequirements(status, itemKind, { completionCriteria, completedOn, completionEvidence, acceptedBy, acceptedOn });
     return { ...common(), project_id: projectId, partner_id: requiredId("partner_id"), side: requiredEnum("side", ACTOR_SIDES, "unknown"), item_kind: itemKind, title: requiredText("title", 240), detail: optionalTextValue("detail", 1200), owner_label: optionalTextValue("owner_label", 120), status, due_date: dueDate, due_date_precision: dueDatePrecision, completion_criteria: completionCriteria, completed_on: completedOn, completion_evidence: completionEvidence, accepted_by: acceptedBy, accepted_on: acceptedOn, handoff_to: optionalTextValue("handoff_to", 240), related_milestone_id: optionalId("related_milestone_id"), last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), sort_order: optionalNumber("sort_order", { min: 0 }) || 0 };
+  }
+  if (resource === "partner_sample") {
+    return { ...common(), project_id: projectId, partner_id: requiredId("partner_id"), label: requiredText("label", 240), status: requiredEnum("status", SAMPLE_STATUSES, "unknown"), received_on: optionalDate("received_on"), storage_location: optionalTextValue("storage_location", 240), owner_label: optionalTextValue("owner_label", 120), notes: optionalTextValue("notes", 1200), confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), sort_order: optionalNumber("sort_order", { min: 0 }) || 0 };
   }
   if (resource === "commitment") {
     const kind = requiredEnum("commitment_kind", ["counterparty_promise", "sx_followup"]);
@@ -589,6 +605,7 @@ const PARENT_FIELDS: Partial<Record<Resource, Array<[string, string]>>> = {
   interaction: [["partner_id", "project_management_partners"]],
   partner_role: [["partner_id", "project_management_partners"]],
   partner_work_item: [["partner_id", "project_management_partners"], ["related_milestone_id", "project_management_milestones"]],
+  partner_sample: [["partner_id", "project_management_partners"]],
   dependency: [["predecessor_milestone_id", "project_management_milestones"], ["successor_milestone_id", "project_management_milestones"]],
   schedule_dependency: [["predecessor_task_id", "project_management_tasks"], ["predecessor_milestone_id", "project_management_milestones"], ["successor_task_id", "project_management_tasks"], ["successor_milestone_id", "project_management_milestones"]],
   raci: [["milestone_id", "project_management_milestones"]],

@@ -13,24 +13,34 @@ const FACETS = [
 
 const PARTNER_STAGE_ORDER: SxPartnerStage[] = [
   "candidate",
+  "first_contact",
   "information_exchange",
-  "condition_alignment",
+  "hearing",
   "meeting_coordination",
+  "technical_review",
+  "condition_alignment",
+  "sample_acquisition",
   "validation_preparation",
   "agreement_confirmation",
   "executing",
   "on_hold",
+  "declined",
 ];
 
 const PARTNER_STAGE_LABEL: Record<SxPartnerStage, string> = {
   candidate: "候補",
+  first_contact: "初回接触",
   information_exchange: "情報交換",
-  condition_alignment: "条件整理",
+  hearing: "ヒアリング",
   meeting_coordination: "面談調整",
+  technical_review: "技術確認",
+  condition_alignment: "条件整理",
+  sample_acquisition: "試料調達",
   validation_preparation: "検証準備",
   agreement_confirmation: "合意確認",
   executing: "実行中",
   on_hold: "保留",
+  declined: "見送り",
 };
 
 function Valve({ filled, label }: { filled: boolean; label: string }) {
