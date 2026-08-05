@@ -26,6 +26,7 @@ import type {
   SxPartnerRoleKind,
   SxPartnerWorkItem,
 } from "@/lib/sx-management";
+import { sxApplyOptimisticManagementPatch } from "@/lib/sx-management-optimistic";
 import {
   SX_PROOF_DEFINITIONS,
   SX_PROOF_THEME_SLUGS,
@@ -3106,10 +3107,12 @@ export function SxPartnerPipeline({
   management,
   projectId,
   onManagementChange,
+  onSyncNotice,
 }: {
   management: SxManagementBundle;
   projectId: string;
   onManagementChange: (management: SxManagementBundle) => void;
+  onSyncNotice?: (message: string) => void;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeInlineEditorKey, setActiveInlineEditorKey] = useState<
@@ -3122,23 +3125,57 @@ export function SxPartnerPipeline({
   const [activePocQuickFilter, setActivePocQuickFilter] =
     useState<SxPocQuickFilter>("all");
   const [activeOwnerKey, setActiveOwnerKey] = useState<string | null>(null);
-  const patchInlineCell = async (request: PartnerInlinePatch) => {
-    const response = await fetch(
-      `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
-      {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request),
-      },
+  const patchInlineCell = (request: PartnerInlinePatch): Promise<void> => {
+    // A ledger cell commits to the visible row immediately. It is especially important for
+    // blur-save: waiting for the full management bundle made the row feel stuck and blocked the
+    // next click even though the user had already finished editing.
+    onManagementChange(
+      sxApplyOptimisticManagementPatch(
+        management,
+        request.resource,
+        request.id,
+        request.patch,
+      ),
     );
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(
-        typeof body.error === "string" ? body.error : "保存できなかったよ",
-      );
-    }
-    if (!body.bundle) throw new Error("保存後の一覧を取得できなかったよ");
-    onManagementChange(body.bundle as SxManagementBundle);
+    void (async () => {
+      try {
+        const response = await fetch(
+          `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(request),
+          },
+        );
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok)
+          throw new Error(
+            typeof body.error === "string" ? body.error : "保存できなかったよ",
+          );
+        // Keep the local patch after acknowledgement. Replacing the complete bundle here could
+        // erase a second cell edit made while this request was in flight; only a failed write
+        // reconciles from the DB below.
+      } catch (caught) {
+        const message =
+          caught instanceof Error ? caught.message : "保存できなかったよ";
+        try {
+          const latest = await fetch(
+            `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+            { headers: { "Cache-Control": "no-store" } },
+          );
+          const latestBody = await latest.json().catch(() => null);
+          if (latest.ok && latestBody) {
+            onManagementChange(latestBody as SxManagementBundle);
+            onSyncNotice?.(`${message}。最新の内容に戻したよ`);
+            return;
+          }
+        } catch {
+          // The notice below leaves no ambiguity when reconciliation also failed.
+        }
+        onSyncNotice?.(`${message}。同期状況を確認できないから、画面を再読み込みしてね`);
+      }
+    })();
+    return Promise.resolve();
   };
   const milestoneTitleBySlug = new Map(
     management.milestones.map((milestone) => [

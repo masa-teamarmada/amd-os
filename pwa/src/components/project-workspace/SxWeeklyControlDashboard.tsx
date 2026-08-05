@@ -59,6 +59,7 @@ import {
   sxOralAgreementEvidenceReady,
   type SxGateRequirement,
 } from "@/lib/sx-gate-requirements";
+import { sxApplyOptimisticManagementPatch } from "@/lib/sx-management-optimistic";
 import {
   sxWeeklyIssueAttentionScore,
   sxWeeklyIssueIsOverdue,
@@ -2036,6 +2037,8 @@ function IssueEditor({
   projectId,
   onClose,
   onSaved,
+  onReconciled,
+  onSyncFailed,
   onDirtyChange,
   embedded = false,
   inlineField = false,
@@ -2050,6 +2053,10 @@ function IssueEditor({
   projectId: string;
   onClose: () => void;
   onSaved: (bundle: SxManagementBundle, message: string) => void;
+  /** Replaces the temporary local projection after the background write settles. */
+  onReconciled?: (bundle: SxManagementBundle) => void;
+  /** A save was locally accepted but did not reach the DB; never silently keep it on screen. */
+  onSyncFailed?: (message: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
   embedded?: boolean;
   inlineField?: boolean;
@@ -2397,24 +2404,77 @@ function IssueEditor({
         : isPatch && editor.kind === "edit_task"
           ? editor.task.version
           : undefined;
+    const requestBody = isPatch
+      ? {
+          resource: definition.resource,
+          id: definition.id,
+          patch: fields,
+          ...(expectedVersion != null
+            ? { expected_version: expectedVersion }
+            : {}),
+        }
+      : { resource: definition.resource, fields };
+
+    // Existing records commit to the screen first. A PM should be able to continue straight
+    // away; the server's full-bundle rebuild is deliberately no longer on the modal's critical
+    // path. A failed background write always reconciles from the DB and is called out explicitly.
+    if (isPatch && definition.id) {
+      const optimistic = sxApplyOptimisticManagementPatch(
+        management,
+        definition.resource,
+        definition.id,
+        fields,
+      );
+      onSaved(optimistic, `${definition.title}を保存したよ。DBへ同期中`);
+      void (async () => {
+        try {
+          const response = await fetch(
+            `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+            {
+              method: definition.method,
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(requestBody),
+            },
+          );
+          const body = await response.json().catch(() => ({}));
+          if (response.status === 409)
+            throw new Error("他の人がこの内容を先に更新したよ");
+          if (!response.ok)
+            throw new Error(
+              typeof body.error === "string" ? body.error : "保存できなかったよ",
+            );
+          // The optimistic projection already contains the exact submitted fields. Do not
+          // replace it with this response: another cell may have been saved while this request
+          // was in flight, and an older full bundle must never erase that newer visible edit.
+        } catch (caught) {
+          const message =
+            caught instanceof Error ? caught.message : "保存できなかったよ";
+          try {
+            const latest = await fetch(
+              `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+              { headers: { "Cache-Control": "no-store" } },
+            );
+            const latestBody = await latest.json().catch(() => null);
+            if (latest.ok && latestBody) {
+              onReconciled?.(latestBody as SxManagementBundle);
+              onSyncFailed?.(`${message}。最新の内容に戻したよ`);
+              return;
+            }
+          } catch {
+            // The notification below makes the unresolved state explicit.
+          }
+          onSyncFailed?.(`${message}。同期状況を確認できないから、画面を再読み込みしてね`);
+        }
+      })();
+      return;
+    }
     try {
       const response = await fetch(
         `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
         {
           method: definition.method,
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(
-            isPatch
-              ? {
-                  resource: definition.resource,
-                  id: definition.id,
-                  patch: fields,
-                  ...(expectedVersion != null
-                    ? { expected_version: expectedVersion }
-                    : {}),
-                }
-              : { resource: definition.resource, fields },
-          ),
+          body: JSON.stringify(requestBody),
         },
       );
       const body = await response.json().catch(() => ({}));
@@ -3709,12 +3769,31 @@ export function SxWeeklyControlDashboard({
   // once (close detail / open another cell / add child). A normal tray Cancel never populates it.
   const pendingPlanIntentRef = useRef<(() => void) | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimerRef = useRef<number | null>(null);
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(
     null,
   );
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [workloadFilter, setWorkloadFilter] =
     useState<WorkloadBucketKey | null>(null);
+
+  function showNotice(message: string) {
+    setNotice(message);
+    if (noticeTimerRef.current != null)
+      window.clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = window.setTimeout(() => {
+      setNotice(null);
+      noticeTimerRef.current = null;
+    }, 3500);
+  }
+
+  useEffect(
+    () => () => {
+      if (noticeTimerRef.current != null)
+        window.clearTimeout(noticeTimerRef.current);
+    },
+    [],
+  );
 
   const allIssues = useMemo(
     () =>
@@ -3882,8 +3961,7 @@ export function SxWeeklyControlDashboard({
     setManagement(next);
     setEditor(null);
     setEditorFieldKeys(null);
-    setNotice(message);
-    window.setTimeout(() => setNotice(null), 3500);
+    showNotice(message);
   }
 
   function handleDetailSaved(next: SxManagementBundle, message: string) {
@@ -3892,8 +3970,7 @@ export function SxWeeklyControlDashboard({
     setDetailEditorDirty(false);
     setDetailEditor(null);
     setPlanFieldEditor(null);
-    setNotice(message);
-    window.setTimeout(() => setNotice(null), 3500);
+    showNotice(message);
   }
 
   // 保存/キャンセル/破棄完了のいずれでインライン編集trayが閉じても、次にfocusを失わない
@@ -4442,6 +4519,8 @@ export function SxWeeklyControlDashboard({
                       handleDetailSaved(next, message);
                       focusSelectedPlanRowAfterClose();
                     }}
+                    onReconciled={setManagement}
+                    onSyncFailed={showNotice}
                   />
                 ) : null
               }
@@ -4466,6 +4545,8 @@ export function SxWeeklyControlDashboard({
                       focusPlanEditSlotAfterClose(planFieldEditor.slot);
                       handleDetailSaved(next, message);
                     }}
+                    onReconciled={setManagement}
+                    onSyncFailed={showNotice}
                   />
                 ) : null
               }
@@ -4517,6 +4598,7 @@ export function SxWeeklyControlDashboard({
               management={management}
               projectId={bundle.project.projectId}
               onManagementChange={setManagement}
+              onSyncNotice={showNotice}
             />
           </div>
         </section>
@@ -4706,6 +4788,8 @@ export function SxWeeklyControlDashboard({
             setEditorFieldKeys(null);
           }}
           onSaved={handleSaved}
+          onReconciled={setManagement}
+          onSyncFailed={showNotice}
           fieldKeys={editorFieldKeys ?? undefined}
         />
       )}

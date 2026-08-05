@@ -42,6 +42,8 @@
     "test:monthly-report-quality": "node scripts/test_monthly_report_quality.mjs",
     "test:monthly-report-history": "node --experimental-strip-types scripts/test_monthly_report_history.mts",
     "test:sx-management": "node --experimental-strip-types scripts/test_project_management_logic.mjs",
+    "test:sx-management-optimistic": "node --experimental-strip-types scripts/test_sx_management_optimistic.mjs",
+    "test:sx-management-save-contract": "node scripts/test_sx_management_save_contract.cjs",
     "test:sx-proof-mapping": "node --experimental-strip-types scripts/test_sx_proof_mapping.mjs",
     "test:sx-partner-holdings": "node --experimental-strip-types scripts/test_sx_partner_holdings.mjs",
     "test:sx-action-label": "node --experimental-strip-types scripts/test_sx_action_label.mjs",
