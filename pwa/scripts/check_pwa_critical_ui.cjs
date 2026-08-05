@@ -3074,7 +3074,11 @@ expectIncludes("src/lib/sx-partner-progress.ts", [
   "SX_PARTNER_STAGE_ORDER",
   '"candidate"',
   '"executing"',
-  'export type SxPocComparisonSort = "progress" | "attention"',
+  "export type SxPocComparisonSort =\n  | \"progress\"\n  | \"attention\"\n  | \"confidence\"\n  | \"priority\";",
+  // 見込み判断はconfidence(情報の確からしさ)へ相乗りさせず独立2軸で持つ (2026-08-06 まさ指摘)。
+  "sxPocPriorityTier",
+  "sxPocLikelihoodLabel",
+  "sxCustomerValueLabel",
   "sxPartnerStageIndex",
   "sxPartnerAttention",
   "sxPartnerHasContactRecord",

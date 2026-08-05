@@ -29,6 +29,7 @@ import type {
   SxPartnerStage,
   SxPartnerWorkItem,
   SxPocCategory,
+  SxPocJudgment,
   SxSampleStatus,
 } from "@/lib/sx-management";
 import { sxApplyOptimisticManagementPatch } from "@/lib/sx-management-optimistic";
@@ -49,6 +50,7 @@ import {
   SX_PARTNER_CONFIDENCE_ORDER,
   SX_PARTNER_STAGE_ORDER,
   SX_POC_CATEGORY_ORDER,
+  SX_POC_JUDGMENT_ORDER,
   SX_SAMPLE_STATUS_ORDER,
   sxCompactPartnerRowText,
   sxComparePartnersForPoc,
@@ -57,6 +59,11 @@ import {
   sxPartnerActivityStateLabel,
   sxPartnerStageLabel,
   sxPocCategoryLabel,
+  sxPocLikelihoodLabel,
+  sxCustomerValueLabel,
+  sxPocPriorityTier,
+  sxPocPriorityTierLabel,
+  sxPocPriorityTierDescription,
   sxSampleStatusLabel,
   sxPartnerHasDataGap,
   sxPartnerHasContactRecord,
@@ -1108,13 +1115,18 @@ type PocFacetValues = {
   stage: string;
   activity: string;
   confidence: string;
+  likelihood: string;
+  value: string;
+  note: string;
 };
 
 /**
- * PoC営業ファセット (段階/活動状態/確度) のチップ表示。
- * 3つとも「段階」「状態」「確度」の見出しをチップ内に置き、どの値がどの軸かを読まずに分かるようにする
+ * PoC営業ファセット (段階/活動状態/確度/実現可能性/顧客有望度) のチップ表示。
+ * 見出しをチップ内に置き、どの値がどの軸かを読まずに分かるようにする
  * (2026-08-06 まさ指摘「確度のラベリングができてない」)。確度はスプシ語彙のまま4値で出し、
- * 推定 (medium) を確認済みへ丸めない。
+ * 推定 (medium) を確認済みへ丸めない。確度は情報の確からしさであって商談の見込みではないため、
+ * 「実現」(PoCさせてもらえる可能性) と「顧客」(顧客としての有望度) を独立した軸として並べる。
+ * 未評価はNULLのまま「未評価」と出し、推測で埋めない。
  */
 function pocFacetChipsView(partner: SxManagementPartner) {
   if (!partner.pocCategory) return null;
@@ -1159,8 +1171,35 @@ function pocFacetChipsView(partner: SxManagementPartner) {
             ? "border-[#bcb2a0] bg-[#efe9dc] text-[#45423b]"
             : "border-[#bf7b2c] bg-[#f6ead2] text-[#69461c]",
       )}
+      {chip(
+        "実現",
+        sxPocLikelihoodLabel(partner.pocLikelihood),
+        judgmentTone(partner.pocLikelihood),
+      )}
+      {chip(
+        "顧客",
+        sxCustomerValueLabel(partner.customerValue),
+        judgmentTone(partner.customerValue),
+      )}
+      {partner.valueNote && (
+        <span
+          className="w-full truncate text-[10px] leading-3 text-[#5a574c]"
+          title={partner.valueNote}
+          data-poc-value-note={partner.id}
+        >
+          理由 {partner.valueNote}
+        </span>
+      )}
     </span>
   );
+}
+
+/** 実現可能性・顧客有望度の色。未評価だけは「入っていない」と分かる薄い枠にする。 */
+function judgmentTone(value: SxPocJudgment | null) {
+  if (value === "high") return "border-[#38745d] bg-[#dcebe1] text-[#1d5341]";
+  if (value === "medium") return "border-[#bcb2a0] bg-[#efe9dc] text-[#45423b]";
+  if (value === "low") return "border-[#b5533f] bg-[#f6e0da] text-[#7d2b22]";
+  return "border-dashed border-[#a69b84] bg-[#f6f1e6] text-[#6a665b]";
 }
 
 /**
@@ -1189,6 +1228,9 @@ function InlinePocFacetEditor({
     stage: partner.relationshipStage,
     activity: partner.activityState,
     confidence: sxNormalizePartnerConfidence(partner.confidence),
+    likelihood: partner.pocLikelihood || "",
+    value: partner.customerValue || "",
+    note: partner.valueNote || "",
   };
   const [draft, setDraft] = useState<PocFacetValues>(initial);
   const [saving, setSaving] = useState(false);
@@ -1206,7 +1248,16 @@ function InlinePocFacetEditor({
     finishingRef.current = false;
     cancelingRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, partner.pocCategory, partner.relationshipStage, partner.activityState, partner.confidence]);
+  }, [
+    active,
+    partner.pocCategory,
+    partner.relationshipStage,
+    partner.activityState,
+    partner.confidence,
+    partner.pocLikelihood,
+    partner.customerValue,
+    partner.valueNote,
+  ]);
 
   const finish = (returnFocus: boolean) => {
     onFinish();
@@ -1251,7 +1302,7 @@ function InlinePocFacetEditor({
           finishingRef.current = false;
           cancelingRef.current = false;
         }}
-        aria-label={`${label}を直接修正。段階 ${sxPartnerStageLabel(partner.relationshipStage)}、状態 ${sxPartnerActivityStateLabel(partner.activityState)}、確度 ${sxPartnerConfidenceLabel(partner.confidence)}`}
+        aria-label={`${label}を直接修正。段階 ${sxPartnerStageLabel(partner.relationshipStage)}、状態 ${sxPartnerActivityStateLabel(partner.activityState)}、確度 ${sxPartnerConfidenceLabel(partner.confidence)}、PoC実現可能性 ${sxPocLikelihoodLabel(partner.pocLikelihood)}、顧客有望度 ${sxCustomerValueLabel(partner.customerValue)}`}
         data-inline-edit-trigger={editorKey}
         data-inline-cell-mode="view"
       >
@@ -1352,6 +1403,37 @@ function InlinePocFacetEditor({
           label: sxPocCategoryLabel(category),
         })),
       )}
+      {facetSelect("likelihood", "実現", [
+        { value: "", label: "未評価" },
+        ...SX_POC_JUDGMENT_ORDER.map((value) => ({
+          value: value as string,
+          label: sxPocLikelihoodLabel(value),
+        })),
+      ])}
+      {facetSelect("value", "顧客", [
+        { value: "", label: "未評価" },
+        ...SX_POC_JUDGMENT_ORDER.map((value) => ({
+          value: value as string,
+          label: sxCustomerValueLabel(value),
+        })),
+      ])}
+      <label className="col-span-2 grid min-w-0 gap-px">
+        <span className="text-[10px] font-semibold leading-3 text-[#5a574c]">
+          理由
+        </span>
+        <input
+          type="text"
+          className={`h-[22px] min-w-0 border border-[#a69b84] bg-[#fffdf7] px-1 text-[10px] text-[#24231f] ${FOCUS_RING}`}
+          value={draft.note}
+          maxLength={240}
+          disabled={saving}
+          placeholder="例: 排液処理が生産量のボトルネック"
+          onChange={(event) =>
+            setDraft((current) => ({ ...current, note: event.target.value }))
+          }
+          aria-label={`${label}の判断理由`}
+        />
+      </label>
       {error && (
         <p
           className="absolute left-0 top-full z-30 mt-1 border border-[#d7a49e] bg-[#fff7f5] px-2 py-1 text-[10px] leading-4 text-[#8c3329] shadow-sm"
@@ -1807,6 +1889,7 @@ function PartnerComparisonControls({
       </span>
       {/* 並び替えはフィルタと別軸なので、同じ管制帯の中でも独立したtoggle群にする
           (2026-08-06 まさ「確度の高い順にソーティングしたい」)。 */}
+      {sortButton("priority", "優先度順")}
       {sortButton("attention", "要対応順")}
       {sortButton("confidence", "確度順")}
       {quickFilterButton(
@@ -3004,11 +3087,33 @@ function PartnerInlineRow({
     await onPatch({ resource, id, patch });
   };
 
+  // 優先度は「実現可能性 × 顧客有望度」の合成。上から潰していけるよう社名の頭に置く。
+  // 未評価は空欄にせず「未」と出し、判断がまだ入っていない行だと分かるようにする。
+  const priorityTier = sxPocPriorityTier(partner);
   const relationNameView = (
     <span
       id={nameHeadingId}
       className="whitespace-normal break-words text-[12px] font-semibold leading-4 text-[#24231f]"
     >
+      <span
+        className={`mr-1 inline-block border px-1 align-[1px] text-[10px] font-semibold leading-4 ${
+          priorityTier === "s"
+            ? "border-[#38745d] bg-[#2f6650] text-[#f5f1e8]"
+            : priorityTier === "a"
+              ? "border-[#38745d] bg-[#dcebe1] text-[#1d5341]"
+              : priorityTier === "b"
+                ? "border-[#3f6b8c] bg-[#dee8f0] text-[#2a5473]"
+                : priorityTier === "c"
+                  ? "border-[#bcb2a0] bg-[#efe9dc] text-[#45423b]"
+                  : priorityTier === "d"
+                    ? "border-[#bf7b2c] bg-[#f6ead2] text-[#69461c]"
+                    : "border-dashed border-[#a69b84] bg-[#f6f1e6] text-[#6a665b]"
+        }`}
+        data-poc-priority-tier={priorityTier}
+        title={sxPocPriorityTierDescription(priorityTier)}
+      >
+        {sxPocPriorityTierLabel(priorityTier)}
+      </span>
       {display.name}
     </span>
   );
@@ -3144,12 +3249,18 @@ function PartnerInlineRow({
                           activity_state: partner.activityState,
                           confidence: partner.confidence,
                           poc_category: partner.pocCategory,
+                          poc_likelihood: partner.pocLikelihood,
+                          customer_value: partner.customerValue,
+                          value_note: partner.valueNote,
                         },
                         {
                           relationship_stage: values.stage,
                           activity_state: values.activity,
                           confidence: values.confidence,
                           poc_category: values.category || null,
+                          poc_likelihood: values.likelihood || null,
+                          customer_value: values.value || null,
+                          value_note: values.note.trim() || null,
                         },
                       );
                     }}
@@ -3915,8 +4026,9 @@ export function SxPartnerPipeline({
     null,
   );
   const [activeOwnerKey, setActiveOwnerKey] = useState<string | null>(null);
+  // 既定は優先度順。上から順にアタックすれば良い並びを初期表示にする (2026-08-06 まさ指示)。
   const [comparisonSort, setComparisonSort] =
-    useState<SxPocComparisonSort>("attention");
+    useState<SxPocComparisonSort>("priority");
   const patchInlineCell = (request: PartnerInlinePatch): Promise<void> => {
     // A ledger cell commits to the visible row immediately. It is especially important for
     // blur-save: waiting for the full management bundle made the row feel stuck and blocked the

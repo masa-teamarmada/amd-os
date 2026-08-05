@@ -20,6 +20,11 @@ import {
   sxPartnerPrimaryIntervention,
   sxPartnerConfidenceLabel,
   sxPartnerConfidenceRank,
+  sxPocLikelihoodLabel,
+  sxCustomerValueLabel,
+  sxPocPriorityTier,
+  sxPocPriorityTierLabel,
+  sxPocPriorityRank,
 } from "../src/lib/sx-partner-progress.ts";
 import { assertSafeRelationshipOrigin } from "../src/lib/sx-relationship-origin.ts";
 
@@ -934,14 +939,52 @@ assert.equal(
   "確度順は既定の要対応順とは別の並びであること",
 );
 
-// 3チップは軸名 (段階 / 状態 / 確度) を必ずchip内に持ち、値だけを並べない。
+// 確度 (情報の確からしさ) と、PoC実現可能性・顧客有望度 (商談の見込み) は別軸。
+// 見込み判断をconfidenceへ相乗りさせない (まさ 2026-08-06)。
+assert.equal(sxPocLikelihoodLabel("high"), "高い");
+assert.equal(sxPocLikelihoodLabel("medium"), "五分");
+assert.equal(sxPocLikelihoodLabel("low"), "低い");
+assert.equal(sxPocLikelihoodLabel(null), "未評価");
+assert.equal(sxCustomerValueLabel("high"), "有望");
+assert.equal(sxCustomerValueLabel(null), "未評価");
+
+// 優先度は2軸の合成。片方でも未評価なら推測でランク付けせず「未」に落とす。
+const bothHigh = { ...sxBall, id: "p-s", pocLikelihood: "high", customerValue: "high" };
+const highMid = { ...sxBall, id: "p-a", pocLikelihood: "high", customerValue: "medium" };
+const bothLow = { ...sxBall, id: "p-d", pocLikelihood: "low", customerValue: "low" };
+const halfRated = { ...sxBall, id: "p-x", pocLikelihood: "high", customerValue: null };
+assert.equal(sxPocPriorityTier(bothHigh), "s");
+assert.equal(sxPocPriorityTier(highMid), "a");
+assert.equal(sxPocPriorityTier(bothLow), "d");
+assert.equal(sxPocPriorityTier(halfRated), "unrated");
+assert.equal(sxPocPriorityTierLabel("s"), "S");
+assert.equal(sxPocPriorityTierLabel("unrated"), "未");
+assert.ok(sxPocPriorityRank(bothHigh) < sxPocPriorityRank(highMid));
+assert.ok(sxPocPriorityRank(bothLow) < sxPocPriorityRank(halfRated));
+assert.ok(
+  sxComparePartnersForPoc(bothHigh, bothLow, "2026-07-30", "priority") < 0,
+  "優先度順ではSがDより上にくる",
+);
+assert.ok(
+  sxComparePartnersForPoc(bothLow, halfRated, "2026-07-30", "priority") < 0,
+  "評価済みは未評価より上にくる",
+);
+
+// チップは軸名 (段階 / 状態 / 確度 / 実現 / 顧客) を必ずchip内に持ち、値だけを並べない。
 for (const required of [
   '"段階",\n        sxPartnerStageLabel',
   '"状態",\n        sxPartnerActivityStateLabel',
   '"確度",\n        sxPartnerConfidenceLabel',
+  '"実現",\n        sxPocLikelihoodLabel',
+  '"顧客",\n        sxCustomerValueLabel',
   "SX_PARTNER_CONFIDENCE_ORDER",
+  "SX_POC_JUDGMENT_ORDER",
   'data-poc-confidence={confidence}',
+  'data-poc-priority-tier={priorityTier}',
   'data-partner-sort-trigger={sort}',
+  'poc_likelihood: values.likelihood || null',
+  'customer_value: values.value || null',
+  '優先度順',
   '要対応順',
   '確度順',
 ]) {

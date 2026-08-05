@@ -343,7 +343,91 @@ export function sxPartnerConfidenceRank(value: string | null | undefined) {
   );
 }
 
-export type SxPocComparisonSort = "progress" | "attention" | "confidence";
+/**
+ * 攻める順番の判断2軸。confidence (情報の確からしさ) とは別物で、
+ * likelihood = PoCをやらせてもらえそうか、value = 顧客として金になりそうか
+ * (2026-08-06 まさ「このリストの上の方を優先的にアタックしていく設計」)。
+ */
+export const SX_POC_JUDGMENT_ORDER = ["high", "medium", "low"] as const;
+export type SxPocJudgmentValue = (typeof SX_POC_JUDGMENT_ORDER)[number];
+
+export function sxNormalizePocJudgment(
+  value: string | null | undefined,
+): SxPocJudgmentValue | null {
+  return (SX_POC_JUDGMENT_ORDER as readonly string[]).includes(value || "")
+    ? (value as SxPocJudgmentValue)
+    : null;
+}
+
+export function sxPocLikelihoodLabel(value: string | null | undefined) {
+  const normalized = sxNormalizePocJudgment(value);
+  if (!normalized) return "未評価";
+  return { high: "高い", medium: "五分", low: "低い" }[normalized];
+}
+
+export function sxCustomerValueLabel(value: string | null | undefined) {
+  const normalized = sxNormalizePocJudgment(value);
+  if (!normalized) return "未評価";
+  return { high: "有望", medium: "中", low: "薄い" }[normalized];
+}
+
+export type SxPocPriorityTier = "s" | "a" | "b" | "c" | "d" | "unrated";
+
+const PRIORITY_TIER_ORDER: SxPocPriorityTier[] = [
+  "s",
+  "a",
+  "b",
+  "c",
+  "d",
+  "unrated",
+];
+
+/**
+ * 実現可能性×有望度の合成。片方でも未評価ならunratedで、勝手に中間値を推測しない。
+ * S=最優先 (両方高い) → D=後回し (両方低い)。
+ */
+export function sxPocPriorityTier(
+  partner: Pick<SxManagementPartner, "pocLikelihood" | "customerValue">,
+): SxPocPriorityTier {
+  const likelihood = sxNormalizePocJudgment(partner.pocLikelihood);
+  const value = sxNormalizePocJudgment(partner.customerValue);
+  if (!likelihood || !value) return "unrated";
+  const score = (judgment: SxPocJudgmentValue) =>
+    judgment === "high" ? 3 : judgment === "medium" ? 2 : 1;
+  const sum = score(likelihood) + score(value);
+  if (sum === 6) return "s";
+  if (sum === 5) return "a";
+  if (sum === 4) return "b";
+  if (sum === 3) return "c";
+  return "d";
+}
+
+export function sxPocPriorityTierLabel(tier: SxPocPriorityTier) {
+  return { s: "S", a: "A", b: "B", c: "C", d: "D", unrated: "未" }[tier];
+}
+
+export function sxPocPriorityTierDescription(tier: SxPocPriorityTier) {
+  return {
+    s: "最優先。実現可能性も顧客価値も高い",
+    a: "優先。片方が高くもう片方も見込みあり",
+    b: "様子見。どちらかに弱さがある",
+    c: "後回し候補",
+    d: "見送り候補",
+    unrated: "未評価。実現可能性と顧客有望度を入れると優先順位が付く",
+  }[tier];
+}
+
+export function sxPocPriorityRank(
+  partner: Pick<SxManagementPartner, "pocLikelihood" | "customerValue">,
+): number {
+  return PRIORITY_TIER_ORDER.indexOf(sxPocPriorityTier(partner));
+}
+
+export type SxPocComparisonSort =
+  | "progress"
+  | "attention"
+  | "confidence"
+  | "priority";
 
 /** PoC/VC比較タブの表示順。attentionでは旧固定段階をtie-breakにも使わない。 */
 export function sxComparePartnersForPoc(
@@ -365,6 +449,11 @@ export function sxComparePartnersForPoc(
 
   if (sort === "progress" && leftStage !== rightStage)
     return rightStage - leftStage;
+  if (sort === "priority") {
+    const priorityCompare =
+      sxPocPriorityRank(left) - sxPocPriorityRank(right);
+    if (priorityCompare !== 0) return priorityCompare;
+  }
   if (sort === "confidence") {
     const confidenceCompare =
       sxPartnerConfidenceRank(left.confidence) -

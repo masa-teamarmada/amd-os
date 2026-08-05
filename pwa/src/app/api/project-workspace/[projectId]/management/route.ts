@@ -161,6 +161,7 @@ const ISSUE_STATUSES = ["open", "validating", "closed", "on_hold"];
 const PARTNER_STAGES = ["candidate", "first_contact", "information_exchange", "hearing", "meeting_coordination", "technical_review", "condition_alignment", "sample_acquisition", "validation_preparation", "agreement_confirmation", "executing", "on_hold", "declined"];
 const PARTNER_ACTIVITY_STATES = ["active", "waiting_partner", "waiting_internal", "stalled", "on_hold", "dropped", "unknown"];
 const POC_CATEGORIES = ["poc_candidate", "tech_partner", "sample_provider", "sample_route"];
+const POC_JUDGMENTS = ["high", "medium", "low"];
 const SAMPLE_STATUSES = ["intent", "negotiating", "agreed_pending", "scheduled", "received", "analyzed", "unknown"];
 const AGREEMENT_STATES = ["agreed", "partial", "unagreed"];
 const DECISION_STATES = ["pending", "decided", "deferred"];
@@ -327,6 +328,11 @@ function patchFor(resource: Resource, raw: unknown): Record<string, unknown> {
     takeText("name", "name", 180); takeOptionalText("introducer_label", "introducer_label", 120); takeOptionalText("connection_context", "connection_context", 500); takeText("role_label", "role_label", 240); takeEnum("primary_track", TRACKS); takeEnum("relationship_stage", PARTNER_STAGES); takeEnum("agreement_state", AGREEMENT_STATES); takeText("agreed_scope", "agreed_scope", 1000); takeText("unagreed_scope", "unagreed_scope", 1000); takeDate("last_contact_date"); takeText("next_commitment", "next_commitment", 1000); takeDate("due_date"); takeText("owner_label", "owner_label", 120); takeEnum("current_ball_side", BALL_SIDES); takeOptionalText("current_ball_owner", "current_ball_owner", 120); takeOptionalText("next_ball_owner", "next_ball_owner", 120); takeOptionalText("target_state", "target_state", 500); takeEnum("due_date_precision", DATE_PRECISIONS); takeEnum("confidence", CONFIDENCES);
     takeEnum("activity_state", PARTNER_ACTIVITY_STATES);
     if ("poc_category" in raw) patch.poc_category = raw.poc_category == null || raw.poc_category === "" ? null : enumValue(raw.poc_category, "poc_category", POC_CATEGORIES);
+    // 判断2軸は未評価を空文字で送ってNULLへ戻せるようにする。推測値を既定で入れない。
+    for (const key of ["poc_likelihood", "customer_value"] as const) {
+      if (key in raw) patch[key] = raw[key] == null || raw[key] === "" ? null : enumValue(raw[key], key, POC_JUDGMENTS);
+    }
+    takeOptionalText("value_note", "value_note", 240);
     assertSafeRelationshipOrigin(patch.introducer_label, "紹介者"); assertSafeRelationshipOrigin(patch.connection_context, "接点の経緯");
   }
   if (resource === "interaction") {

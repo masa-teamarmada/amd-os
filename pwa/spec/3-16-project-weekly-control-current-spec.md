@@ -176,3 +176,13 @@ point-MS追加フォームは`接続する成果 / MS名 / 予定日`の3項目�
 - `SxPocComparisonSort` に `"confidence"` を追加。`sxComparePartnersForPoc` は確度rank差を先に見て、同順位では既存の要対応rank・ボール側・期限・最終接点・名前で決める。UIは `data-partner-sort-trigger` の「要対応順 / 確度順」トグル（既定 `attention`）で、`activeInlineEditorKey` があるあいだは切替を無視する。
 - 9列の列順は `関係先 / 現在の状況 / ゴール / 詰まり・PJ影響 / 次にやること / 担当・期限 / 現在地の根拠 / 接点の経緯 / 履歴・保有`。`PARTNER_CONTROL_INNER_GRID` / `PARTNER_CONTROL_HEADER_GRID` / ヘッダーspan順 / 行内cell位置の4箇所を必ず同時に動かす。接点の経緯を左から2番目へ戻さない（日次で読まない履歴属性のため）。
 - 配色は `Sx*.tsx` / `sx-*.tsx` の色トークンを機械的に置換してコントラストを上げた（429箇所）。補助文字 `#69665d`→`#5a574c` (5.64→7.11)、`#777166`→`#5f5a4d` (4.76→6.76)、`#8f8a7e`/`#928c80`/`#9b9487`→`#65604f` (2.96–3.38→6.18、WCAG AA未達を解消)。罫線 `#d6cebf`→`#ada18a` (1.54→2.53)、`#e4ddd0`→`#c5bba5`、`#eee9df`→`#d5cdba` ほか、状態チップの地色も1段深くした。色相と意味の割当（赤=事業リスク、琥珀=待ち・要確認、緑=段階、青=確度高）は変えない。
+
+### PoC実現可能性・顧客有望度の判断2軸と優先度 (build v3.58.2 / migration 237、2026-08-06)
+
+- `confidence` は情報の確からしさ（確認済み / 推定 / 要確認 / 未確認）であって商談の見込みではない。実装上も `sxPartnerNeedsRefresh` の鮮度判定にしか使わない。見込み判断を `confidence` へ相乗りさせない。
+- 見込みは独立した2列で持つ。`project_management_partners.poc_likelihood`（PoCを実施させてもらえる可能性）と `customer_value`（顧客としての有望度＝支払意欲・回収価値）。どちらも `high / medium / low` のcheck制約付きtextで、未評価はNULL。推測で埋めない。判断理由は `value_note`（240字、1行メモ）へ入れる。
+- 表示語彙は `sxPocLikelihoodLabel`（高い / 五分 / 低い / 未評価）と `sxCustomerValueLabel`（有望 / 中 / 薄い / 未評価）。`SX_POC_JUDGMENT_ORDER = ["high","medium","low"]` が正本。
+- 優先度は2軸の合成。`sxPocPriorityTier` が high=3 / medium=2 / low=1 で加点し、6→S、5→A、4→B、3→C、それ以外→D。片方でもNULLなら `unrated`（表示は「未」）へ落とし、未評価行を評価済み行の中へ紛れ込ませない。`sxPocPriorityTierDescription` がtooltipの説明文を持つ。
+- 一覧では会社名の直前に `data-poc-priority-tier` のS/A/B/C/D/未バッジを置き、`現在の状況` cellのチップ群へ「実現」「顧客」チップと、`value_note` がある行だけ「理由 …」の1行を足す。列は9本のまま増やさない。
+- `SxPocComparisonSort` に `"priority"` を追加し、**既定の並び順を `priority` に変更**した。上から順にアタックすれば良い並びを初期表示にするため（まさ 2026-08-06「このリストの上の方を優先的にアタックしていく設計になっていれば、見る方はすごく楽」）。tierが同じなら既存の要対応rank・ボール側・期限・最終接点・名前で決める。
+- 編集はチップ位置の同じインラインeditorを2x2から拡張し、段階 / 状態 / 確度 / 区分 / 実現 / 顧客 の6selectと理由inputを1回のPATCHで送る。第二モーダルも別編集ボタンも作らない。APIは `poc_likelihood` / `customer_value` を空文字でNULLへ戻せる。
