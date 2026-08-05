@@ -49,7 +49,7 @@ import { sxFormatDate } from "./sx-visual-shared";
 // Keep the sticky date header dense, but reserve two distinct baselines: the objective marker
 // above and month labels below. A single 20px line made a January objective overlap the year/month
 // label at the same x-position.
-const MONTH_ROW_H = 28;
+const MONTH_ROW_H = 32;
 const PIN_ROW_H = 22;
 // The compact lane header doubles as the MS label band. It is deliberately smaller than a task
 // row, while leaving the marker's pointer target clear of the first task bar.
@@ -2382,7 +2382,7 @@ export function SxUnifiedTimeline({
               {timeline.months.map((month) => (
                 <span
                   key={month.pct}
-                  className={`absolute bottom-1 pl-1 text-[9px] ${month.isYearStart ? "font-bold text-[#24231f]" : "text-[#777166]"}`}
+                  className={`absolute bottom-0 pl-1 text-[9px] ${month.isYearStart ? "font-bold text-[#24231f]" : "text-[#777166]"}`}
                   style={{ left: timelinePctCss(month.pct) }}
                 >
                   {month.label}
