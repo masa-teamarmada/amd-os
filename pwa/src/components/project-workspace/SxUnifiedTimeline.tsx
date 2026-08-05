@@ -195,9 +195,9 @@ const ROW_STATE_TEXT: Record<DisplayRow["state"], string> = {
 };
 
 const GATE_STATE_TONE: Record<SxGateRequirement["state"], string> = {
-  met: "border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]",
-  unconfirmed: "border-[#e3c994] bg-[#fbf1dc] text-[#765022]",
-  unmet: "border-[#d8b0a8] bg-[#f9e4e1] text-[#8c3329]",
+  met: "border-[#74a690] bg-[#dcecdf] text-[#205f49]",
+  unconfirmed: "border-[#bd9a52] bg-[#f7e8c8] text-[#765022]",
+  unmet: "border-[#d8b0a8] bg-[#f6dad5] text-[#8c3329]",
 };
 
 const GATE_STATE_TEXT: Record<SxGateRequirement["state"], string> = {
@@ -453,7 +453,7 @@ function RowBar({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
-      className={`group relative h-full w-full ${selected ? "bg-[#e8f2eb]/70" : "hover:bg-[#f8f5ec]/70"} ${dragging ? "cursor-grabbing" : ""} ${saving ? "opacity-60" : ""}`}
+      className={`group relative h-full w-full ${selected ? "bg-[#dcecdf]/70" : "hover:bg-[#f2eee0]/70"} ${dragging ? "cursor-grabbing" : ""} ${saving ? "opacity-60" : ""}`}
     >
       {/* The row is split into two real interactions: its true blank timeline surface proposes
           a new MS, while the rendered bar/diamond alone owns record selection and drag. Keeping
@@ -690,7 +690,7 @@ function RowBar({
           />
         </button>
       )}
-      <span className="pointer-events-none absolute inset-x-1 bottom-0.5 z-10 flex flex-wrap items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] font-semibold text-[#69665d]">
+      <span className="pointer-events-none absolute inset-x-1 bottom-0.5 z-10 flex flex-wrap items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] font-semibold text-[#5a574c]">
         {hasBar ? (
           <>
             <span>予定 {sxFormatDate(row.plannedEnd).slice(5)}</span>
@@ -738,7 +738,7 @@ function RowBar({
 function Legend() {
   return (
     <div
-      className="mb-1.5 grid gap-px border border-[#d6cebf] bg-[#d6cebf] text-[10px] text-[#514e47] sm:grid-cols-4"
+      className="mb-1.5 grid gap-px border border-[#ada18a] bg-[#d6cebf] text-[10px] text-[#514e47] sm:grid-cols-4"
       aria-label="ガントの読み方"
     >
       <div className="flex items-center gap-2 bg-[#fffdf7] px-2 py-1">
@@ -2088,14 +2088,14 @@ export function SxUnifiedTimeline({
   return (
     <div data-testid="sx-unified-timeline">
       {!timeline.valid && (
-        <p className="mb-2 border border-dashed border-[#b5533f] bg-[#f9e4e1] px-3 py-2 text-[11px] font-semibold text-[#8c3329]">
+        <p className="mb-2 border border-dashed border-[#b5533f] bg-[#f6dad5] px-3 py-2 text-[11px] font-semibold text-[#8c3329]">
           {timeline.reason}
           {milestones.some((milestone) => milestone.timelineKind === "milestone") &&
             "。MSは日程未設定でも該当レーンに表示するよ。"}
         </p>
       )}
       {ganttNotice && (
-        <p role="alert" className="mb-2 border border-[#e3c994] bg-[#fbf1dc] px-3 py-2 text-[11px] font-semibold text-[#765022]">
+        <p role="alert" className="mb-2 border border-[#bd9a52] bg-[#f7e8c8] px-3 py-2 text-[11px] font-semibold text-[#765022]">
           {ganttNotice}
         </p>
       )}
@@ -2107,7 +2107,7 @@ export function SxUnifiedTimeline({
           type="button"
           disabled={!hasAnyChildren}
           onClick={toggleAll}
-          className="inline-flex min-h-11 items-center gap-1 border border-[#d6cebf] bg-[#fffdf7] px-3 text-[11px] font-semibold text-[#514e47] disabled:cursor-not-allowed disabled:opacity-45"
+          className="inline-flex min-h-11 items-center gap-1 border border-[#ada18a] bg-[#fffdf7] px-3 text-[11px] font-semibold text-[#514e47] disabled:cursor-not-allowed disabled:opacity-45"
         >
           {allExpanded ? (
             <ChevronsDownUp className="h-3.5 w-3.5" />
@@ -2131,7 +2131,7 @@ export function SxUnifiedTimeline({
                 behavior: "smooth",
               });
           }}
-          className="hidden min-h-11 border border-[#d6cebf] bg-[#fffdf7] px-3 text-[11px] font-semibold text-[#514e47] lg:inline-flex lg:items-center"
+          className="hidden min-h-11 border border-[#ada18a] bg-[#fffdf7] px-3 text-[11px] font-semibold text-[#514e47] lg:inline-flex lg:items-center"
         >
           今日へ
         </button>
@@ -2150,13 +2150,13 @@ export function SxUnifiedTimeline({
                 return next;
               });
             }}
-            className={`inline-flex min-h-11 items-center gap-1 border px-3 text-[11px] font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5f4a66] ${dependencyMode ? "border-[#5f4a66] bg-[#5f4a66] text-white" : "border-[#c9bfd0] bg-[#fffdf7] text-[#5f4a66]"}`}
+            className={`inline-flex min-h-11 items-center gap-1 border px-3 text-[11px] font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5f4a66] ${dependencyMode ? "border-[#5f4a66] bg-[#5f4a66] text-white" : "border-[#9d8daa] bg-[#fffdf7] text-[#5f4a66]"}`}
           >
             <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
             {dependencyMode ? "依存接続中" : "依存を接続"}
           </button>
         )}
-        <span className="ml-auto hidden text-[10px] text-[#777166] lg:inline">
+        <span className="ml-auto hidden text-[10px] text-[#5f5a4d] lg:inline">
           {dependencyMode
             ? dependencySource
               ? `${dependencySource.title} → 接続先のタスクかMSへ`
@@ -2168,12 +2168,12 @@ export function SxUnifiedTimeline({
       {scheduleDependencyItems.length > 0 && (
         <details
           data-gantt-schedule-dependency-register
-          className="mb-1.5 border border-[#ddd5c8] bg-[#fbf9f2] text-[#514e47]"
+          className="mb-1.5 border border-[#ddd5c8] bg-[#f5f2e6] text-[#514e47]"
         >
           <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-[10px] font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5f4a66]">
             <Link2 className="h-3.5 w-3.5 text-[#5f4a66]" aria-hidden="true" />
             依存関係 {scheduleDependencyItems.length}件
-            <span className="ml-auto hidden font-normal text-[#777166] sm:inline">
+            <span className="ml-auto hidden font-normal text-[#5f5a4d] sm:inline">
               折りたたみ・日程変更後もここから解除できる
             </span>
           </summary>
@@ -2194,7 +2194,7 @@ export function SxUnifiedTimeline({
                     onClick={() =>
                       void removeScheduleDependency(item.dependency.id)
                     }
-                    className="inline-flex min-h-9 shrink-0 items-center gap-1 border border-[#c9bfd0] bg-[#fffdf7] px-2 text-[10px] font-bold text-[#5f4a66] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#5f4a66] disabled:opacity-45 max-sm:min-h-11"
+                    className="inline-flex min-h-9 shrink-0 items-center gap-1 border border-[#9d8daa] bg-[#fffdf7] px-2 text-[10px] font-bold text-[#5f4a66] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#5f4a66] disabled:opacity-45 max-sm:min-h-11"
                     aria-label={`${item.sourceTitle}から${item.targetTitle}への依存線を外す`}
                   >
                     <Unlink2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -2211,18 +2211,18 @@ export function SxUnifiedTimeline({
         {visibleLanes.map(({ lane, rows, milestones: laneMilestones }) => (
           <section
             key={`mobile-${lane.key}`}
-            className="border border-[#d6cebf] bg-[#fffdf7]"
+            className="border border-[#ada18a] bg-[#fffdf7]"
           >
             <header
               data-gantt-nest-root-lane={lane.key}
-              className="flex items-center gap-2 border-b border-[#d6cebf] bg-[#f8f5ec] px-3 py-2"
+              className="flex items-center gap-2 border-b border-[#ada18a] bg-[#f2eee0] px-3 py-2"
             >
               <span
                 className="h-2.5 w-2.5"
                 style={{ background: lane.accent }}
               />
               <b className="text-[11px] text-[#24231f]">{lane.label}</b>
-              <span className="text-[9px] text-[#777166]">
+              <span className="text-[9px] text-[#5f5a4d]">
                 MS {laneMilestones.length} / タスク {rows.length}
               </span>
             </header>
@@ -2243,7 +2243,7 @@ export function SxUnifiedTimeline({
                 return (
                   <article
                     key={`mobile-ms-${milestone.id}`}
-                    className={selectedMilestoneId === milestone.id ? "bg-[#f1edf3]" : "bg-[#fbf9f2]"}
+                    className={selectedMilestoneId === milestone.id ? "bg-[#e9e2ee]" : "bg-[#f5f2e6]"}
                   >
                     <button
                       type="button"
@@ -2254,7 +2254,7 @@ export function SxUnifiedTimeline({
                     >
                       <i className={`h-3 w-3 shrink-0 rotate-45 border-2 border-[#5f4a66] ${milestone.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`} aria-hidden="true" />
                       <span className="min-w-0 flex-1 text-[10px] font-bold text-[#5f4a66]">{milestone.title}</span>
-                      <span className="shrink-0 text-[9px] text-[#716d63]">{milestone.plannedEnd ? sxFormatDate(milestone.plannedEnd) : "日程未設定"}</span>
+                      <span className="shrink-0 text-[9px] text-[#5a564b]">{milestone.plannedEnd ? sxFormatDate(milestone.plannedEnd) : "日程未設定"}</span>
                     </button>
                     {dependencyMode && (
                       <div className="flex items-center gap-2 border-t border-[#e2dce5] px-3 py-1.5">
@@ -2262,7 +2262,7 @@ export function SxUnifiedTimeline({
                           type="button"
                           disabled={!hasScheduledPoint}
                           onClick={() => beginKeyboardScheduleDependency(displayMilestone)}
-                          className="flex min-h-11 flex-1 items-center justify-center gap-1 border border-[#c9bfd0] bg-[#fffdf7] px-2 text-[10px] font-bold text-[#5f4a66] disabled:opacity-40"
+                          className="flex min-h-11 flex-1 items-center justify-center gap-1 border border-[#9d8daa] bg-[#fffdf7] px-2 text-[10px] font-bold text-[#5f4a66] disabled:opacity-40"
                         >
                           <span aria-hidden="true">●→</span>
                           起点
@@ -2281,7 +2281,7 @@ export function SxUnifiedTimeline({
                           <span aria-hidden="true">←</span>
                           接続先
                         </button>
-                        <span className="shrink-0 text-[9px] text-[#716d63]">
+                        <span className="shrink-0 text-[9px] text-[#5a564b]">
                           入{incomingScheduleCount} / 出{outgoingScheduleCount}
                         </span>
                       </div>
@@ -2315,7 +2315,7 @@ export function SxUnifiedTimeline({
                     data-gantt-nest-target-task={
                       isNestCandidate ? row.id : undefined
                     }
-                    className={`p-2.5 transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#e8f2eb] outline outline-2 outline-[#205f49] outline-offset-[-2px]" : selected ? "bg-[#e8f2eb]" : "bg-white"}`}
+                    className={`p-2.5 transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#dcecdf] outline outline-2 outline-[#205f49] outline-offset-[-2px]" : selected ? "bg-[#dcecdf]" : "bg-white"}`}
                     style={{ marginLeft: row.depth * 12 }}
                   >
                     <div className="flex items-start gap-2">
@@ -2331,7 +2331,7 @@ export function SxUnifiedTimeline({
                             };
                             setExpandedTasks(update);
                           }}
-                          className="grid min-h-11 min-w-11 place-items-center text-[#69665d]"
+                          className="grid min-h-11 min-w-11 place-items-center text-[#5a574c]"
                           aria-label={
                             expanded
                               ? `${row.title}を折りたたむ`
@@ -2352,7 +2352,7 @@ export function SxUnifiedTimeline({
                           onPointerUp={(event) => void finishTaskNestDrag(event)}
                           onPointerCancel={(event) => cancelTaskNestDrag(event)}
                           onLostPointerCapture={(event) => cancelTaskNestDrag(event)}
-                          className="grid min-h-11 min-w-11 touch-none place-items-center text-[#928c80] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] disabled:opacity-40"
+                          className="grid min-h-11 min-w-11 touch-none place-items-center text-[#65604f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] disabled:opacity-40"
                           disabled={dependencyMode || taskNestDrag?.saving}
                           aria-label={`${row.title}をドラッグして親タスクを変更`}
                         >
@@ -2369,12 +2369,12 @@ export function SxUnifiedTimeline({
                           <b className="text-[11px] text-[#24231f]">
                             {row.title}
                           </b>
-                          <i className="border border-[#d6cebf] px-1 text-[8px] not-italic text-[#69665d]">タスク</i>
-                          <i className="border border-[#d6cebf] px-1 text-[8px] not-italic text-[#514e47]">
+                          <i className="border border-[#ada18a] px-1 text-[8px] not-italic text-[#5a574c]">タスク</i>
+                          <i className="border border-[#ada18a] px-1 text-[8px] not-italic text-[#514e47]">
                             {ROW_STATE_TEXT[row.state]}
                           </i>
                         </span>
-                        <span className="mt-1 block text-[10px] text-[#69665d]">
+                        <span className="mt-1 block text-[10px] text-[#5a574c]">
                           {row.plannedEnd
                             ? `${sxFormatDate(row.plannedStart)} → ${sxFormatDate(row.plannedEnd)}`
                             : "日程未設定"}{" "}
@@ -2397,7 +2397,7 @@ export function SxUnifiedTimeline({
                       </button>
                     </div>
                     {dependencyMode && (
-                      <div className="mt-2 grid grid-cols-2 gap-2 border-t border-[#eee9df] pt-2">
+                      <div className="mt-2 grid grid-cols-2 gap-2 border-t border-[#d5cdba] pt-2">
                         {row.plannedEndPct != null ? (
                           <button
                             type="button"
@@ -2405,13 +2405,13 @@ export function SxUnifiedTimeline({
                               dependencySource ? sourceKey(dependencySource) === `task:${row.id}` : false
                             }
                             onClick={() => beginKeyboardScheduleDependency(row)}
-                            className="flex min-h-11 items-center justify-center gap-1 border border-[#c9bfd0] px-2 text-[10px] font-bold text-[#5f4a66] aria-pressed:bg-[#f1edf3]"
+                            className="flex min-h-11 items-center justify-center gap-1 border border-[#9d8daa] px-2 text-[10px] font-bold text-[#5f4a66] aria-pressed:bg-[#e9e2ee]"
                           >
                             <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
                             右端を起点
                           </button>
                         ) : (
-                          <span className="flex min-h-11 items-center justify-center border border-dashed border-[#d6cebf] px-2 text-[9px] text-[#928c80]">
+                          <span className="flex min-h-11 items-center justify-center border border-dashed border-[#ada18a] px-2 text-[9px] text-[#65604f]">
                             起点は日程が必要
                           </span>
                         )}
@@ -2431,7 +2431,7 @@ export function SxUnifiedTimeline({
                             左端へ接続
                           </button>
                         ) : (
-                          <span className="flex min-h-11 items-center justify-center border border-dashed border-[#d6cebf] px-2 text-[9px] text-[#928c80]">
+                          <span className="flex min-h-11 items-center justify-center border border-dashed border-[#ada18a] px-2 text-[9px] text-[#65604f]">
                             接続先は開始日が必要
                           </span>
                         )}
@@ -2444,11 +2444,11 @@ export function SxUnifiedTimeline({
                 <button
                   type="button"
                   onClick={(event) => proposeMilestone(lane.key, event)}
-                  className="relative min-h-11 w-full overflow-hidden border-t border-[#d6cebf] bg-[#fffdf7] px-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                  className="relative min-h-11 w-full overflow-hidden border-t border-[#ada18a] bg-[#fffdf7] px-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
                   aria-label={`${lane.label}のモバイル日付軸でMSを追加`}
                 >
                   <span className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent_0,transparent_calc(12.5%-1px),rgba(113,109,99,0.16)_12.5%)]" />
-                  <span className="relative flex items-center justify-between gap-3 text-[9px] text-[#716d63]">
+                  <span className="relative flex items-center justify-between gap-3 text-[9px] text-[#5a564b]">
                     <span>{sxFormatDate(timeline.domainStart)}</span>
                     <b className="text-[10px] text-[#235f4b]">MS｜日付位置をタップ</b>
                     <span>{sxFormatDate(timeline.domainEnd)}</span>
@@ -2460,7 +2460,7 @@ export function SxUnifiedTimeline({
                   type="button"
                   data-gantt-add-task-lane={lane.key}
                   onClick={() => onCreateTask(lane.key)}
-                  className="flex min-h-12 w-full items-center gap-2 bg-[#fbf9f2] px-3 text-left text-[11px] font-bold text-[#205f49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                  className="flex min-h-12 w-full items-center gap-2 bg-[#f5f2e6] px-3 text-left text-[11px] font-bold text-[#205f49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
                   aria-label={`${lane.label}に新規タスクを追加`}
                   aria-haspopup="dialog"
                 >
@@ -2475,24 +2475,24 @@ export function SxUnifiedTimeline({
 
       <div
         ref={scrollerRef}
-        className="relative hidden max-h-[min(72vh,720px)] overflow-auto overscroll-contain border border-[#d6cebf] bg-[#fffdf7] shadow-[inset_-14px_0_12px_-14px_rgba(36,35,31,0.42)] lg:block"
+        className="relative hidden max-h-[min(72vh,720px)] overflow-auto overscroll-contain border border-[#ada18a] bg-[#fffdf7] shadow-[inset_-14px_0_12px_-14px_rgba(36,35,31,0.42)] lg:block"
         tabIndex={0}
         aria-label="ガントチャート。上下左右にスクロールできる"
       >
         <div className="min-w-[1080px]">
           <div
-            className="sticky top-0 z-50 grid grid-cols-[minmax(275px,320px)_minmax(0,1fr)] items-end border-b border-[#d6cebf] bg-[#fffdf7] shadow-[0_3px_8px_rgba(36,35,31,0.08)]"
+            className="sticky top-0 z-50 grid grid-cols-[minmax(275px,320px)_minmax(0,1fr)] items-end border-b border-[#ada18a] bg-[#fffdf7] shadow-[0_3px_8px_rgba(36,35,31,0.08)]"
             data-gantt-sticky-header
             style={{ height: MONTH_ROW_H }}
           >
-            <p className="sticky left-0 z-[51] bg-[#fffdf7] px-2 text-[9px] font-semibold tracking-[0.1em] text-[#777166]">
+            <p className="sticky left-0 z-[51] bg-[#fffdf7] px-2 text-[9px] font-semibold tracking-[0.1em] text-[#5f5a4d]">
               タスク
             </p>
             <div className="relative h-full">
               {timeline.months.map((month) => (
                 <span
                   key={month.pct}
-                  className={`absolute bottom-0 pl-1 text-[9px] ${month.isYearStart ? "font-bold text-[#24231f]" : "text-[#777166]"}`}
+                  className={`absolute bottom-0 pl-1 text-[9px] ${month.isYearStart ? "font-bold text-[#24231f]" : "text-[#5f5a4d]"}`}
                   style={{ left: timelinePctCss(month.pct) }}
                 >
                   {month.label}
@@ -2511,10 +2511,10 @@ export function SxUnifiedTimeline({
           </div>
 
           <div className="grid grid-cols-[minmax(275px,320px)_minmax(0,1fr)]">
-            <div className="sticky left-0 z-30 border-r border-[#d6cebf] bg-[#fffdf7]">
+            <div className="sticky left-0 z-30 border-r border-[#ada18a] bg-[#fffdf7]">
               {showPins && (
                 <div
-                  className="flex items-center border-b border-[#e8e2d6] px-2 text-[9px] font-semibold text-[#69665d]"
+                  className="flex items-center border-b border-[#cbc2ad] px-2 text-[9px] font-semibold text-[#5a574c]"
                   style={{ height: PIN_ROW_H }}
                 >
                   介入の期限
@@ -2524,7 +2524,7 @@ export function SxUnifiedTimeline({
                 <div key={lane.key} style={{ marginBottom: LANE_GAP }}>
                   <div
                     data-gantt-nest-root-lane={lane.key}
-                    className="flex items-center gap-1.5 border-b border-[#d6cebf] px-2"
+                    className="flex items-center gap-1.5 border-b border-[#ada18a] px-2"
                     style={{ height: LANE_HEADER_H }}
                   >
                     <span
@@ -2534,7 +2534,7 @@ export function SxUnifiedTimeline({
                     <span className="text-[10px] font-bold text-[#24231f]">
                       {lane.label}
                     </span>
-                    <span className="text-[10px] text-[#777166]">
+                    <span className="text-[10px] text-[#5f5a4d]">
                       MS {laneMilestones.length} / タスク {rows.length}
                     </span>
                   </div>
@@ -2556,7 +2556,7 @@ export function SxUnifiedTimeline({
                         data-gantt-nest-target-task={
                           isNestCandidate ? row.id : undefined
                         }
-                        className={`group relative flex scroll-mt-3 border-b border-[#f1eee5] transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#e8f2eb] outline outline-2 outline-[#205f49] outline-offset-[-2px]" : selected ? "bg-[#e8f2eb]" : "hover:bg-[#f8f5ec]"}`}
+                        className={`group relative flex scroll-mt-3 border-b border-[#dcd5c3] transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#dcecdf] outline outline-2 outline-[#205f49] outline-offset-[-2px]" : selected ? "bg-[#dcecdf]" : "hover:bg-[#f2eee0]"}`}
                         style={{ height: ROW_H, paddingLeft: row.depth * 15 }}
                       >
                         <button
@@ -2572,7 +2572,7 @@ export function SxUnifiedTimeline({
                             };
                             setExpandedTasks(update);
                           }}
-                          className={`flex w-11 shrink-0 items-center justify-center text-[#69665d] ${row.hasChildren ? "" : "opacity-0"}`}
+                          className={`flex w-11 shrink-0 items-center justify-center text-[#5a574c] ${row.hasChildren ? "" : "opacity-0"}`}
                           aria-label={
                             expanded
                               ? `${row.title}を折りたたむ`
@@ -2592,7 +2592,7 @@ export function SxUnifiedTimeline({
                             onPointerUp={(event) => void finishTaskNestDrag(event)}
                             onPointerCancel={(event) => cancelTaskNestDrag(event)}
                             onLostPointerCapture={(event) => cancelTaskNestDrag(event)}
-                            className="grid h-full w-6 shrink-0 touch-none place-items-center text-[#928c80] transition-colors hover:text-[#205f49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] disabled:opacity-40"
+                            className="grid h-full w-6 shrink-0 touch-none place-items-center text-[#65604f] transition-colors hover:text-[#205f49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] disabled:opacity-40"
                             disabled={dependencyMode || taskNestDrag?.saving}
                             title="ドラッグして親タスクへ重ねる。レーン見出しへ戻すと最上位にする"
                             aria-label={`${row.title}をドラッグして親タスクを変更`}
@@ -2612,14 +2612,14 @@ export function SxUnifiedTimeline({
                             >
                               {row.title}
                             </b>
-                            <i className="shrink-0 border border-[#d6cebf] px-1 text-[8px] not-italic text-[#69665d]">タスク</i>
+                            <i className="shrink-0 border border-[#ada18a] px-1 text-[8px] not-italic text-[#5a574c]">タスク</i>
                             {row.isCurrent && (
                               <i className="shrink-0 bg-[#38745d] px-1 text-[8px] not-italic text-white">
                                 進行中
                               </i>
                             )}
                           </span>
-                          <span className="mt-0.5 flex items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] text-[#777166]">
+                          <span className="mt-0.5 flex items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] text-[#5f5a4d]">
                             <em className="not-italic">
                               {ROW_STATE_TEXT[row.state]}
                             </em>
@@ -2641,14 +2641,14 @@ export function SxUnifiedTimeline({
                       type="button"
                       data-gantt-add-task-lane={lane.key}
                       onClick={() => onCreateTask(lane.key)}
-                      className="flex w-full items-center gap-2 border-b border-[#e8e2d6] bg-[#fbf9f2] px-3 text-left text-[10px] font-bold text-[#205f49] hover:bg-[#f3efe5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                      className="flex w-full items-center gap-2 border-b border-[#cbc2ad] bg-[#f5f2e6] px-3 text-left text-[10px] font-bold text-[#205f49] hover:bg-[#f3efe5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
                       style={{ height: ROW_H }}
                       aria-label={`${lane.label}に新規タスクを追加`}
                       aria-haspopup="dialog"
                     >
                       <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                       新規タスク
-                      <span className="font-normal text-[#777166]">
+                      <span className="font-normal text-[#5f5a4d]">
                         このレーンへ追加
                       </span>
                     </button>
@@ -2805,7 +2805,7 @@ export function SxUnifiedTimeline({
 
               {showPins && (
                 <div
-                  className="absolute inset-x-0 top-0 border-b border-[#e8e2d6]"
+                  className="absolute inset-x-0 top-0 border-b border-[#cbc2ad]"
                   style={{ height: PIN_ROW_H }}
                 >
                   {timeline.pins.map((pin) => (
@@ -2822,7 +2822,7 @@ export function SxUnifiedTimeline({
                     >
                       {pin.rank}
                       {hoveredPin === pin.key && (
-                        <span className="absolute top-6 z-30 w-[220px] border border-[#d6cebf] bg-[#fffdf7] p-2 text-left text-[10px] text-[#514e47] shadow-lg">
+                        <span className="absolute top-6 z-30 w-[220px] border border-[#ada18a] bg-[#fffdf7] p-2 text-left text-[10px] text-[#514e47] shadow-lg">
                           <b className="block text-[#24231f]">{pin.target}</b>
                           担当 {pin.ballOwner}
                           <br />
@@ -2944,7 +2944,7 @@ export function SxUnifiedTimeline({
                       );
                     })}
                     <div
-                      className="flex items-center justify-between gap-2 border-b border-[#d6cebf] px-2 text-[10px]"
+                      className="flex items-center justify-between gap-2 border-b border-[#ada18a] px-2 text-[10px]"
                       style={{ height: LANE_HEADER_H }}
                     >
                       <span className="min-w-0 truncate font-semibold text-[#5f4a66]">
@@ -2983,7 +2983,7 @@ export function SxUnifiedTimeline({
                       return (
                         <div
                           key={`${row.entity}-${row.id}`}
-                          className="border-b border-[#f1eee5]"
+                          className="border-b border-[#dcd5c3]"
                           style={{ height: ROW_H }}
                         >
                           <RowBar
@@ -3042,7 +3042,7 @@ export function SxUnifiedTimeline({
                     {canManage && projectId && (
                       <div
                         aria-hidden="true"
-                        className="relative border-b border-[#e8e2d6] bg-[#fbf9f2]/60"
+                        className="relative border-b border-[#cbc2ad] bg-[#f5f2e6]/60"
                         style={{ height: ROW_H }}
                       />
                     )}
@@ -3053,7 +3053,7 @@ export function SxUnifiedTimeline({
           </div>
         </div>
       </div>
-      <div className="mt-1 hidden items-center justify-between gap-2 text-[10px] text-[#777166] lg:flex">
+      <div className="mt-1 hidden items-center justify-between gap-2 text-[10px] text-[#5f5a4d] lg:flex">
         <span>
           {milestoneStats.undated > 0
             ? `日程未登録のMS ${milestoneStats.undated}件`
@@ -3076,7 +3076,7 @@ export function SxUnifiedTimeline({
             }}
           >
             <p className="text-[11px] font-bold">MSを追加する？</p>
-            <p className="mt-1 text-[10px] text-[#716d63]">
+            <p className="mt-1 text-[10px] text-[#5a564b]">
               {DISPLAY_LANE_LABEL[pendingMilestonePoint.laneKey]} ・ {sxFormatDate(pendingMilestonePoint.date)}
             </p>
             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -3101,7 +3101,7 @@ export function SxUnifiedTimeline({
                     milestonePromptOriginRef.current?.focus(),
                   );
                 }}
-                className="min-h-11 border border-[#c9c0b2] bg-[#fffdf7] px-3 text-[11px] font-bold text-[#514e47] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#38745d]"
+                className="min-h-11 border border-[#a1957e] bg-[#fffdf7] px-3 text-[11px] font-bold text-[#514e47] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#38745d]"
               >
                 N　閉じる
               </button>

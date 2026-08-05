@@ -18,6 +18,8 @@ import {
   sxPartnerNeedsRefresh,
   sxPartnerOwnerLoads,
   sxPartnerPrimaryIntervention,
+  sxPartnerConfidenceLabel,
+  sxPartnerConfidenceRank,
 } from "../src/lib/sx-partner-progress.ts";
 import { assertSafeRelationshipOrigin } from "../src/lib/sx-relationship-origin.ts";
 
@@ -244,8 +246,8 @@ for (const forbidden of ["due_date", "due_date_precision", "InlineDueFields"]) {
 for (const required of [
   'data-partner-row-density="compact"',
   "@container",
-  "@min-[1248px]:grid-cols-[236px_148px_196px_104px_96px_132px_72px_104px]",
-  "@min-[1248px]:grid-cols-[236px_148px_196px_104px_96px_132px_72px_104px_72px]",
+  "@min-[1248px]:grid-cols-[236px_196px_104px_96px_132px_72px_104px_148px]",
+  "@min-[1248px]:grid-cols-[236px_196px_104px_96px_132px_72px_104px_148px_72px]",
   "sm:grid-cols-[minmax(0,1fr)_72px]",
   "grid-cols-[minmax(0,1fr)_68px]",
   "@min-[1248px]:col-span-1",
@@ -336,7 +338,7 @@ const partnerNameCellSource = comparisonRowSource.slice(
 );
 for (const required of [
   "<InlinePartnerNameEditor",
-  "border-b border-dashed border-[#aaa294]",
+  "border-b border-dashed border-[#857b69]",
   "最終確認",
 ]) {
   assert.ok(
@@ -435,9 +437,15 @@ for (const required of [
     `${required} must defer filter changes until the active inline save succeeds`,
   );
 }
+// 接点の経緯cellは9列の右端 (現在地の根拠のあと) に置く。
+// 日次で読む列ではないため左から2番目には戻さない (まさ 2026-08-06)。
 const originCellSource = comparisonRowSource.slice(
   comparisonRowSource.indexOf("<InlineConnectionOriginEditor"),
-  comparisonRowSource.indexOf('editorKey={keyFor("current")}'),
+);
+assert.ok(
+  comparisonRowSource.indexOf("<InlineConnectionOriginEditor") >
+    comparisonRowSource.indexOf('editorKey={keyFor("current")}'),
+  "接点の経緯cellは現在の状況cellより後ろ (行の右端側) に置く",
 );
 for (const required of [
   "connection_context",
@@ -899,6 +907,48 @@ function interventionWorkItem(overrides = {}) {
   assert.equal(ishihara.dueSoonCount, 1);
   assert.equal(unconfirmed.dataGapCount, 1);
   assert.deepEqual(unconfirmed.partnerIds, ["owner-2"]);
+}
+
+
+// 確度はPoC候補先スプシの語彙 (確認済み / 推定 / 要確認) をそのまま出し、
+// 推定を確認済みへ丸めない。未保存・未知値だけ「未確認」へ落とす (まさ 2026-08-06)。
+assert.equal(sxPartnerConfidenceLabel("high"), "確認済み");
+assert.equal(sxPartnerConfidenceLabel("medium"), "推定");
+assert.equal(sxPartnerConfidenceLabel("low"), "要確認");
+assert.equal(sxPartnerConfidenceLabel(null), "未確認");
+assert.equal(sxPartnerConfidenceLabel("bogus"), "未確認");
+assert.ok(sxPartnerConfidenceRank("high") < sxPartnerConfidenceRank("medium"));
+assert.ok(sxPartnerConfidenceRank("medium") < sxPartnerConfidenceRank("low"));
+assert.ok(sxPartnerConfidenceRank("low") < sxPartnerConfidenceRank(null));
+
+const confidenceHigh = { ...sxBall, id: "c-high", confidence: "high" };
+const confidenceLow = { ...sxBall, id: "c-low", confidence: "low" };
+assert.ok(
+  sxComparePartnersForPoc(confidenceHigh, confidenceLow, "2026-07-30", "confidence") < 0,
+  "確度順では確認済みが要確認より上にくる",
+);
+assert.equal(
+  sxComparePartnersForPoc(confidenceHigh, confidenceLow, "2026-07-30", "confidence") ===
+    sxComparePartnersForPoc(confidenceHigh, confidenceLow, "2026-07-30", "attention"),
+  false,
+  "確度順は既定の要対応順とは別の並びであること",
+);
+
+// 3チップは軸名 (段階 / 状態 / 確度) を必ずchip内に持ち、値だけを並べない。
+for (const required of [
+  '"段階",\n        sxPartnerStageLabel',
+  '"状態",\n        sxPartnerActivityStateLabel',
+  '"確度",\n        sxPartnerConfidenceLabel',
+  "SX_PARTNER_CONFIDENCE_ORDER",
+  'data-poc-confidence={confidence}',
+  'data-partner-sort-trigger={sort}',
+  '要対応順',
+  '確度順',
+]) {
+  assert.ok(
+    pipelineSource.includes(required),
+    `${required} must keep the PoC facet chips self-labeling and sortable`,
+  );
 }
 
 console.log("sx-poc comparison lens tests passed");

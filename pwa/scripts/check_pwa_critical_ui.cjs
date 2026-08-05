@@ -284,7 +284,7 @@ expectIncludes("src/components/project-workspace/SxProjectOwnerWorkload.tsx", [
   "<OwnerLoadColumn loads={rightLoads} onSelectItem={onSelectItem} />",
   '<div className="lg:hidden">\n        <OwnerLoadColumn loads={loads} onSelectItem={onSelectItem} />',
   'className="flex flex-col gap-px bg-[#d9cfde]"',
-  'className="border border-[#c9bfd0] bg-[#fffdf7]"',
+  'className="border border-[#9d8daa] bg-[#fffdf7]"',
   // 実動作は元の編集文脈を開くことなので、aria-labelは「移動」ではなく「編集」で実態を表す。
   "aria-label={`${item.title}を編集`}",
   // 実ブラウザ監査でクリック対象と後続の編集モーダル対象の一致を検査できるようにする。
@@ -1010,7 +1010,7 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   'heading="母数"',
   "SCROLL_HINT_CLASS",
   "ALWAYS_SCROLL_HINT_CLASS",
-  "border-l-4 border-[#e4ddd0] border-l-[#38745d]",
+  "border-l-4 border-[#c5bba5] border-l-[#38745d]",
   // spec P0-10: 登録率(対応中N先中)。
   "登録率",
   "停止",
@@ -1027,12 +1027,12 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
 expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "text-[9px]",
   "opacity-80",
-  "text-[#777166]",
+  "text-[#5f5a4d]",
   "組成率",
   "未整理（当方側の確認未実施）",
   "未整理（先方側の確認未実施）",
   'pt-3" open>',
-  "inline-flex h-6 w-6 items-center justify-center rounded-md border border-[#cfc7b9] text-[#514e47] hover:bg-[#f8f5ec]",
+  "inline-flex h-6 w-6 items-center justify-center rounded-md border border-[#a69b84] text-[#514e47] hover:bg-[#f2eee0]",
   // spec (2026-07-24): mask-imageのcontent-fadeは末尾指標そのものを薄くするため撤去済み。
   "mask-image",
   // spec (2026-07-24 COO差し戻し4点目): ScrollHintArrowの薄い#a49d8cは#69665dへ統一済み、復活させない。
@@ -1304,7 +1304,7 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "日程未設定・{ROW_STATE_TEXT[row.state]}",
   // desktop expand/collapse toggle must be a full 44px hit target, not a 32px (w-8) one
   // (監査追補 2026-08-02).
-  "flex w-11 shrink-0 items-center justify-center text-[#69665d]",
+  "flex w-11 shrink-0 items-center justify-center text-[#5a574c]",
   "const TASK_BAR_HEIGHT_PX = 10;",
   "const TASK_BAR_TOP_PX = (ROW_H - TASK_BAR_HEIGHT_PX) / 2;",
   "top: TASK_BAR_TOP_PX,",

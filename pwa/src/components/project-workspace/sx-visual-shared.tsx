@@ -57,12 +57,12 @@ export const SX_STATUS_LABEL: Record<SxMilestoneStatus, string> = {
 };
 
 export const SX_STATUS_TONE: Record<string, string> = {
-  on_track: "border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]",
-  attention: "border-[#e3c994] bg-[#fbf1dc] text-[#765022]",
-  at_risk: "border-[#e3c994] bg-[#fbf1dc] text-[#765022]",
-  blocked: "border-[#b5533f] bg-[#f9e4e1] text-[#8c3329]",
-  completed: "border-[#b7c8d2] bg-[#eef3f5] text-[#315f7d]",
-  unassessed: "border-[#b8b5c8] bg-[#eeedf4] text-[#55506d]",
+  on_track: "border-[#74a690] bg-[#dcecdf] text-[#205f49]",
+  attention: "border-[#bd9a52] bg-[#f7e8c8] text-[#765022]",
+  at_risk: "border-[#bd9a52] bg-[#f7e8c8] text-[#765022]",
+  blocked: "border-[#b5533f] bg-[#f6dad5] text-[#8c3329]",
+  completed: "border-[#86a2b3] bg-[#e2ecf1] text-[#315f7d]",
+  unassessed: "border-[#8e88a5] bg-[#e4e2ef] text-[#55506d]",
 };
 
 export function sxFormatDate(value: string | null | undefined, fallback = "未設定") {
@@ -96,12 +96,12 @@ export function sxTechnicalTestStatusLabel(value: string) {
 }
 
 export const SX_TECH_TEST_STATUS_TONE: Record<string, string> = {
-  unassessed: "border-[#b8b5c8] bg-[#eeedf4] text-[#55506d]",
-  planned: "border-[#d6cebf] bg-[#f8f5ec] text-[#69665d]",
-  running: "border-[#b7c8d2] bg-[#eef3f5] text-[#315f7d]",
-  passed: "border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]",
-  failed: "border-[#b5533f] bg-[#f9e4e1] text-[#8c3329]",
-  blocked: "border-[#b5533f] bg-[#f9e4e1] text-[#8c3329]",
+  unassessed: "border-[#8e88a5] bg-[#e4e2ef] text-[#55506d]",
+  planned: "border-[#ada18a] bg-[#f2eee0] text-[#5a574c]",
+  running: "border-[#86a2b3] bg-[#e2ecf1] text-[#315f7d]",
+  passed: "border-[#74a690] bg-[#dcecdf] text-[#205f49]",
+  failed: "border-[#b5533f] bg-[#f6dad5] text-[#8c3329]",
+  blocked: "border-[#b5533f] bg-[#f6dad5] text-[#8c3329]",
 };
 
 /** milestone.progressPct is meaningless while status is unassessed; never render a bare 0%. */
@@ -166,7 +166,7 @@ export function sxMonthPosition(dateStr: string | null | undefined, horizonMonth
   return horizonMonths.length;
 }
 
-export function SxBadge({ children, tone = "border-[#d6cebf] bg-[#f8f5ec] text-[#69665d]" }: { children: ReactNode; tone?: string }) {
+export function SxBadge({ children, tone = "border-[#ada18a] bg-[#f2eee0] text-[#5a574c]" }: { children: ReactNode; tone?: string }) {
   return <span className={`inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-semibold leading-none ${tone}`}>{children}</span>;
 }
 

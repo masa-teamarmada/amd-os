@@ -304,7 +304,46 @@ export function sxPartnerAttention(
   return { key: "clear", label: "期限内", rank: 7 };
 }
 
-export type SxPocComparisonSort = "progress" | "attention";
+/**
+ * 確度はPoC候補先スプシの語彙 (確認済み / 推定 / 要確認) をそのまま正本にする。
+ * 保存値が空・未知のときだけ「未確認」へ落とし、推定を確認済みへ丸めない。
+ */
+export const SX_PARTNER_CONFIDENCE_ORDER = [
+  "high",
+  "medium",
+  "low",
+  "unknown",
+] as const;
+export type SxPartnerConfidence = (typeof SX_PARTNER_CONFIDENCE_ORDER)[number];
+
+export function sxNormalizePartnerConfidence(
+  value: string | null | undefined,
+): SxPartnerConfidence {
+  return (SX_PARTNER_CONFIDENCE_ORDER as readonly string[]).includes(
+    value || "",
+  )
+    ? (value as SxPartnerConfidence)
+    : "unknown";
+}
+
+export function sxPartnerConfidenceLabel(value: string | null | undefined) {
+  const labels: Record<SxPartnerConfidence, string> = {
+    high: "確認済み",
+    medium: "推定",
+    low: "要確認",
+    unknown: "未確認",
+  };
+  return labels[sxNormalizePartnerConfidence(value)];
+}
+
+/** 確度の高い順 (確認済み→推定→要確認→未確認)。数値が小さいほど確度が高い。 */
+export function sxPartnerConfidenceRank(value: string | null | undefined) {
+  return SX_PARTNER_CONFIDENCE_ORDER.indexOf(
+    sxNormalizePartnerConfidence(value),
+  );
+}
+
+export type SxPocComparisonSort = "progress" | "attention" | "confidence";
 
 /** PoC/VC比較タブの表示順。attentionでは旧固定段階をtie-breakにも使わない。 */
 export function sxComparePartnersForPoc(
@@ -326,6 +365,12 @@ export function sxComparePartnersForPoc(
 
   if (sort === "progress" && leftStage !== rightStage)
     return rightStage - leftStage;
+  if (sort === "confidence") {
+    const confidenceCompare =
+      sxPartnerConfidenceRank(left.confidence) -
+      sxPartnerConfidenceRank(right.confidence);
+    if (confidenceCompare !== 0) return confidenceCompare;
+  }
   if (leftAttention !== rightAttention) return leftAttention - rightAttention;
   if (leftBall !== rightBall) return leftBall - rightBall;
 

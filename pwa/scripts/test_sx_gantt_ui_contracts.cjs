@@ -443,7 +443,7 @@ assertIncludes(timelineFile, timeline, [
   'className="sticky top-0 z-50 grid',
   'className="sticky left-0 z-[51]',
   "const MONTH_ROW_H = 32;",
-  'className={`absolute bottom-0 pl-1 text-[9px] ${month.isYearStart ? "font-bold text-[#24231f]" : "text-[#777166]"}`}',
+  'className={`absolute bottom-0 pl-1 text-[9px] ${month.isYearStart ? "font-bold text-[#24231f]" : "text-[#5f5a4d]"}`}',
   'className="absolute top-0.5 z-10 flex -translate-x-full items-center gap-0.5 whitespace-nowrap pr-1 text-[9px] font-bold leading-none text-[#5f4a66]"',
   'data-gantt-milestone-diamond={milestone.id}',
   'absolute -top-[5px] left-0 grid h-11 w-11',

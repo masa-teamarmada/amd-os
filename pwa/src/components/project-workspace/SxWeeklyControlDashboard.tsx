@@ -2951,7 +2951,7 @@ function IssueCard({
         {canManage ? (
           <button
             type="button"
-            className="w-full border-b border-dashed border-[#aaa294] text-left hover:border-[#38745d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+            className="w-full border-b border-dashed border-[#857b69] text-left hover:border-[#38745d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
             onClick={() => onEdit({ kind: "edit_issue", issue })}
             aria-label={`${issue.title}を直接修正`}
           >
@@ -3138,7 +3138,7 @@ function IssueCard({
                     onClick={() =>
                       onEdit({ kind: "edit_decision", issue, decision })
                     }
-                    className="block w-full border-b border-dashed border-[#aaa294] text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                    className="block w-full border-b border-dashed border-[#857b69] text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
                     aria-label={`${decision.title}を直接修正`}
                   >
                     <b>{decision.title}</b>
@@ -3167,7 +3167,7 @@ function IssueCard({
                           action,
                         })
                       }
-                      className="min-w-0 flex-1 border-b border-dashed border-[#aaa294] text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                      className="min-w-0 flex-1 border-b border-dashed border-[#857b69] text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
                       aria-label={`${action.title}を直接修正`}
                     >
                       <b>{action.title}</b>
@@ -3574,14 +3574,14 @@ function PlanInspector({
                       {metRequirements}/{requirements.length}件
                     </strong>
                   </div>
-                  <ul className="mt-2 divide-y divide-[#e4ddd0] border-y border-[#e4ddd0]">
+                  <ul className="mt-2 divide-y divide-[#e4ddd0] border-y border-[#c5bba5]">
                     {requirements.map((requirement) => (
                       <li
                         key={requirement.dependency.id}
                         className="flex items-start gap-2 py-2 text-[11px]"
                       >
                         <span
-                          className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center border ${requirement.state === "met" ? "border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]" : requirement.state === "unconfirmed" ? "border-[#e3c994] bg-[#fbf1dc] text-[#765022]" : "border-[#d6cebf] bg-white text-[#69665d]"}`}
+                          className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center border ${requirement.state === "met" ? "border-[#74a690] bg-[#dcecdf] text-[#205f49]" : requirement.state === "unconfirmed" ? "border-[#bd9a52] bg-[#f7e8c8] text-[#765022]" : "border-[#ada18a] bg-white text-[#5a574c]"}`}
                         >
                           {requirement.state === "met" ? (
                             <Check className="h-3 w-3" aria-hidden="true" />
