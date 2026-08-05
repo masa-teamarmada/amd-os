@@ -27,7 +27,33 @@ const sameDateSource = { x: 160, y: 24 };
 const sameDateTarget = { x: 160, y: 72 };
 const sameDate = buildFinishToStartRoute(sameDateSource, sameDateTarget);
 assert.equal(sameDate.points.length, 6, "same-date dependency uses five-segment dogleg");
+assert.equal(
+  sameDate.points[1].x - sameDateSource.x,
+  5,
+  "dogleg leaves the source by only the compact 5px clearance",
+);
+assert.equal(
+  sameDateTarget.x - sameDate.points.at(-2).x,
+  4,
+  "dogleg reaches the target with only the compact 4px entry clearance",
+);
 assertExactEndpoints(sameDate, sameDateSource, sameDateTarget, "same date");
+
+const closeForward = buildFinishToStartRoute(
+  { x: 100, y: 24 },
+  { x: 112, y: 72 },
+);
+assert.equal(
+  closeForward.points.length,
+  4,
+  "a 12px forward gap stays on the simple three-segment route",
+);
+assertExactEndpoints(
+  closeForward,
+  { x: 100, y: 24 },
+  { x: 112, y: 72 },
+  "compact forward gap",
+);
 
 const backwardSource = { x: 280, y: 24 };
 const backwardTarget = { x: 120, y: 120 };

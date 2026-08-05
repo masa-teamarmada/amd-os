@@ -14,6 +14,14 @@ export type GanttDependencyRoute = {
   label: GanttPoint;
 };
 
+// The dependency line must leave/enter an object just enough to make its direction legible.
+// Larger clearances made the dense SX gantt look like a maze. These are one quarter of the
+// former 44 / 20 / 16px defaults: the path still has a reliable left-to-right final segment,
+// but no longer reserves a conspicuous horizontal runway at either endpoint.
+const DEFAULT_FORWARD_GAP_PX = 11;
+const DEFAULT_EXIT_PADDING_PX = 5;
+const DEFAULT_ENTRY_PADDING_PX = 4;
+
 export function timelinePctToPx(
   pct: number,
   paneWidth: number,
@@ -66,9 +74,9 @@ export function buildFinishToStartRoute(
     entryPaddingPx?: number;
   } = {},
 ): GanttDependencyRoute {
-  const forwardGapPx = options.forwardGapPx ?? 44;
-  const exitPaddingPx = options.exitPaddingPx ?? 20;
-  const entryPaddingPx = options.entryPaddingPx ?? 16;
+  const forwardGapPx = options.forwardGapPx ?? DEFAULT_FORWARD_GAP_PX;
+  const exitPaddingPx = options.exitPaddingPx ?? DEFAULT_EXIT_PADDING_PX;
+  const entryPaddingPx = options.entryPaddingPx ?? DEFAULT_ENTRY_PADDING_PX;
   const gap = target.x - source.x;
 
   if (gap >= forwardGapPx) {

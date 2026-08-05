@@ -71,6 +71,10 @@ const TASK_BAR_HEIGHT_PX = 10;
 const TASK_BAR_TOP_PX = (ROW_H - TASK_BAR_HEIGHT_PX) / 2;
 const MILESTONE_DIAMOND_SIZE_PX = 12;
 const MILESTONE_VERTEX_RADIUS_PX = MILESTONE_DIAMOND_SIZE_PX / Math.sqrt(2);
+// Lines are thin by default, but their invisible hover target needs to be generous enough for a
+// dense planning surface. This target never changes the visual geometry of the gantt.
+const DEPENDENCY_EDGE_HIT_WIDTH_PX = 10;
+const DEPENDENCY_HOVER_ACTION_WIDTH_PX = 56;
 
 function timelinePctCss(pct: number, extraPx = 0) {
   const clamped = Math.min(100, Math.max(0, pct));
@@ -817,8 +821,6 @@ type ScheduleDependencyTarget = {
 type ScheduleDependencyEdge = {
   dependency: SxScheduleDependency;
   path: string;
-  labelX: number;
-  labelY: number;
 };
 
 export function SxUnifiedTimeline({
@@ -930,6 +932,12 @@ export function SxUnifiedTimeline({
   const [removingDependencyId, setRemovingDependencyId] = useState<
     string | null
   >(null);
+  const [hoveredScheduleDependency, setHoveredScheduleDependency] = useState<{
+    id: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const dependencyHoverLeaveTimerRef = useRef<number | null>(null);
   const dependencyArrowMarkerId = `sx-gantt-arrow-${useId().replaceAll(":", "")}`;
   const connectScheduleDependencyRef = useRef<
     (target: ScheduleDependencyTarget) => void
@@ -971,6 +979,45 @@ export function SxUnifiedTimeline({
     setGanttNotice(message);
     window.setTimeout(() => setGanttNotice(null), 4000);
   }
+
+  function keepScheduleDependencyActions() {
+    if (dependencyHoverLeaveTimerRef.current != null) {
+      window.clearTimeout(dependencyHoverLeaveTimerRef.current);
+      dependencyHoverLeaveTimerRef.current = null;
+    }
+  }
+
+  function showScheduleDependencyActions(
+    dependencyId: string,
+    event: React.PointerEvent<SVGPathElement>,
+  ) {
+    if (!canManage || !projectId || dependencyMode) return;
+    const pane = gridPaneRef.current;
+    if (!pane) return;
+    keepScheduleDependencyActions();
+    const rect = pane.getBoundingClientRect();
+    const x = Math.min(rect.width, Math.max(0, event.clientX - rect.left));
+    const y = Math.min(rect.height, Math.max(0, event.clientY - rect.top));
+    setHoveredScheduleDependency({ id: dependencyId, x, y });
+  }
+
+  function hideScheduleDependencyActionsAfterLeave(dependencyId: string) {
+    keepScheduleDependencyActions();
+    dependencyHoverLeaveTimerRef.current = window.setTimeout(() => {
+      setHoveredScheduleDependency((current) =>
+        current?.id === dependencyId ? null : current,
+      );
+      dependencyHoverLeaveTimerRef.current = null;
+    }, 180);
+  }
+
+  useEffect(
+    () => () => {
+      if (dependencyHoverLeaveTimerRef.current != null)
+        window.clearTimeout(dependencyHoverLeaveTimerRef.current);
+    },
+    [],
+  );
 
   function sourceKey(source: Pick<ScheduleDependencySource, "entity" | "id">) {
     return `${source.entity}:${source.id}`;
@@ -1135,6 +1182,8 @@ export function SxUnifiedTimeline({
 
   async function removeScheduleDependency(dependencyId: string) {
     if (!projectId || removingDependencyId) return;
+    keepScheduleDependencyActions();
+    setHoveredScheduleDependency(null);
     setRemovingDependencyId(dependencyId);
     try {
       const response = await fetch(
@@ -1500,8 +1549,6 @@ export function SxUnifiedTimeline({
         {
           dependency,
           path: route.path,
-          labelX: route.label.x,
-          labelY: route.label.y,
         },
       ];
     });
@@ -2099,6 +2146,7 @@ export function SxUnifiedTimeline({
                   setDependencySource(null);
                   setDependencyPreview(null);
                 }
+                setHoveredScheduleDependency(null);
                 return next;
               });
             }}
@@ -2661,17 +2709,49 @@ export function SxUnifiedTimeline({
                       <path d="M 0 0 L 8 4 L 0 8 z" fill="#5f4a66" />
                     </marker>
                   </defs>
-                  {scheduleDependencyEdges.map((edge) => (
-                    <path
-                      key={edge.dependency.id}
-                      d={edge.path}
-                      fill="none"
-                      stroke="#5f4a66"
-                      strokeWidth="1.5"
-                      strokeOpacity="0.68"
-                      markerEnd={`url(#${dependencyArrowMarkerId})`}
-                    />
-                  ))}
+                  {scheduleDependencyEdges.map((edge) => {
+                    const hovered =
+                      !dependencyMode &&
+                      hoveredScheduleDependency?.id === edge.dependency.id;
+                    return (
+                      <g key={edge.dependency.id}>
+                        <path
+                          data-gantt-schedule-dependency-hit={edge.dependency.id}
+                          d={edge.path}
+                          fill="none"
+                          stroke="transparent"
+                          strokeWidth={DEPENDENCY_EDGE_HIT_WIDTH_PX}
+                          pointerEvents="stroke"
+                          onPointerEnter={(event) =>
+                            showScheduleDependencyActions(
+                              edge.dependency.id,
+                              event,
+                            )
+                          }
+                          onPointerMove={(event) =>
+                            showScheduleDependencyActions(
+                              edge.dependency.id,
+                              event,
+                            )
+                          }
+                          onPointerLeave={() =>
+                            hideScheduleDependencyActionsAfterLeave(
+                              edge.dependency.id,
+                            )
+                          }
+                        />
+                        <path
+                          d={edge.path}
+                          fill="none"
+                          stroke="#5f4a66"
+                          strokeWidth={hovered ? "2" : "1.5"}
+                          strokeOpacity={hovered ? "0.96" : "0.68"}
+                          markerEnd={`url(#${dependencyArrowMarkerId})`}
+                          pointerEvents="none"
+                        />
+                      </g>
+                    );
+                  })}
                   {dependencySource && dependencyPreview && (
                     <path
                       d={`M ${dependencySource.startX} ${dependencySource.startY} L ${dependencyPreview.x} ${dependencyPreview.y}`}
@@ -2683,23 +2763,45 @@ export function SxUnifiedTimeline({
                   )}
                 </svg>
               )}
-              {dependencyMode &&
-                scheduleDependencyEdges.map((edge) => (
+              {!dependencyMode &&
+                canManage &&
+                projectId &&
+                hoveredScheduleDependency && (
                   <button
-                    key={`remove-${edge.dependency.id}`}
                     type="button"
-                    disabled={removingDependencyId != null}
-                    onClick={() =>
-                      void removeScheduleDependency(edge.dependency.id)
+                    data-gantt-schedule-dependency-hover-remove={
+                      hoveredScheduleDependency.id
                     }
-                    className="absolute z-[45] grid h-8 w-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-[#c9bfd0] bg-[#fffdf7] text-[#5f4a66] shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#5f4a66] disabled:opacity-45"
-                    style={{ left: edge.labelX, top: edge.labelY }}
-                    aria-label={`${scheduleDependencyLabelById.get(edge.dependency.id) || "この依存関係"}を外す`}
+                    disabled={removingDependencyId != null}
+                    onPointerEnter={keepScheduleDependencyActions}
+                    onPointerLeave={() =>
+                      hideScheduleDependencyActionsAfterLeave(
+                        hoveredScheduleDependency.id,
+                      )
+                    }
+                    onClick={() =>
+                      void removeScheduleDependency(
+                        hoveredScheduleDependency.id,
+                      )
+                    }
+                    className="absolute z-[45] inline-flex h-8 min-w-14 -translate-y-1/2 items-center justify-center gap-1 border border-[#5f4a66] bg-[#fffdf7] px-2 text-[10px] font-bold text-[#5f4a66] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#5f4a66] disabled:opacity-45"
+                    style={{
+                      left: Math.min(
+                        Math.max(4, gridPaneWidth - DEPENDENCY_HOVER_ACTION_WIDTH_PX - 4),
+                        Math.max(4, hoveredScheduleDependency.x + 8),
+                      ),
+                      top: Math.min(
+                        Math.max(16, gridHeight - 16),
+                        Math.max(16, hoveredScheduleDependency.y),
+                      ),
+                    }}
+                    aria-label={`${scheduleDependencyLabelById.get(hoveredScheduleDependency.id) || "この依存関係"}を外す`}
                     title="依存線を外す"
                   >
                     <Unlink2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    外す
                   </button>
-                ))}
+                )}
 
               {showPins && (
                 <div
