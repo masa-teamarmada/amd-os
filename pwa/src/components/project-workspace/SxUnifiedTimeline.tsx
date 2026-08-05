@@ -46,7 +46,10 @@ import {
 } from "@/lib/sx-gantt-drag";
 import { sxFormatDate } from "./sx-visual-shared";
 
-const MONTH_ROW_H = 20;
+// Keep the sticky date header dense, but reserve two distinct baselines: the objective marker
+// above and month labels below. A single 20px line made a January objective overlap the year/month
+// label at the same x-position.
+const MONTH_ROW_H = 28;
 const PIN_ROW_H = 22;
 // The compact lane header doubles as the MS label band. It is deliberately smaller than a task
 // row, while leaving the marker's pointer target clear of the first task bar.
@@ -2387,7 +2390,7 @@ export function SxUnifiedTimeline({
               ))}
               {timeline.objectivePct != null && (
                 <span
-                  className="absolute bottom-0 z-10 flex -translate-x-full items-center gap-0.5 whitespace-nowrap pr-1 text-[9px] font-bold text-[#5f4a66]"
+                  className="absolute top-0.5 z-10 flex -translate-x-full items-center gap-0.5 whitespace-nowrap pr-1 text-[9px] font-bold leading-none text-[#5f4a66]"
                   style={{ left: timelinePctCss(timeline.objectivePct) }}
                 >
                   <Flag className="h-3 w-3" />
