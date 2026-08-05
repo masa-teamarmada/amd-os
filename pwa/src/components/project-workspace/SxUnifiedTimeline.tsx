@@ -2740,7 +2740,7 @@ export function SxUnifiedTimeline({
                               }
                               handleRowClick(displayMilestone);
                             }}
-                            className={`pointer-events-auto absolute left-0 top-0 flex h-[34px] min-w-[44px] items-center gap-1 px-1 text-left focus-visible:outline focus-visible:outline-2 ${markerPct >= 65 ? "-translate-x-full flex-row-reverse" : "-translate-x-1/2"} ${dependencyMode && dependencySource ? "text-[#315f7d] focus-visible:outline-[#315f7d]" : "text-[#5f4a66] focus-visible:outline-[#5f4a66]"}`}
+                            className={`pointer-events-auto absolute left-0 top-0 flex h-[34px] min-w-[44px] items-center gap-1 px-1 text-left focus-visible:outline focus-visible:outline-2 ${markerPct >= 60 ? "-translate-x-full flex-row-reverse" : "-translate-x-1/2"} ${dependencyMode && dependencySource ? "text-[#315f7d] focus-visible:outline-[#315f7d]" : "text-[#5f4a66] focus-visible:outline-[#5f4a66]"}`}
                             aria-label={
                               dependencyMode
                                 ? dependencySource
