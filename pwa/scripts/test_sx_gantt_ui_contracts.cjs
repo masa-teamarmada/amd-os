@@ -400,8 +400,13 @@ assertIncludes(timelineFile, timeline, [
   'data-gantt-sticky-header',
   'className="sticky top-0 z-50 grid',
   'className="sticky left-0 z-[51]',
+  "const MONTH_ROW_H = 28;",
+  'className="absolute top-0.5 z-10 flex -translate-x-full items-center gap-0.5 whitespace-nowrap pr-1 text-[9px] font-bold leading-none text-[#5f4a66]"',
   'max-h-[min(72vh,720px)] overflow-auto overscroll-contain',
   'aria-label="ガントチャート。上下左右にスクロールできる"',
+]);
+assertNotIncludes(timelineFile, timeline, [
+  'className="absolute bottom-0 z-10 flex -translate-x-full',
 ]);
 const scheduleMigrationFile =
   "scripts/migrations/221_sx_gantt_schedule_dependencies.sql";
