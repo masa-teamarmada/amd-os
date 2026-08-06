@@ -642,7 +642,7 @@ function RowBar({
               if (event.detail !== 0) return;
               onKeyboardStartDependency(row);
             }}
-            className="absolute z-40 grid h-11 w-6 cursor-crosshair place-items-center rounded-full text-[#5f4a66] opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#5f4a66] data-[active=true]:text-[#205f49] data-[active=true]:opacity-100"
+            className="sx-gantt-dependency-port absolute z-40 grid h-11 w-6 cursor-crosshair place-items-center rounded-full text-[#5f4a66] opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#5f4a66] data-[active=true]:text-[#205f49] data-[active=true]:opacity-100"
             style={{
               top: 2,
               left: isMilestoneMarker
@@ -2911,7 +2911,7 @@ export function SxUnifiedTimeline({
                                 if (event.detail !== 0) return;
                                 beginKeyboardScheduleDependency(displayMilestone);
                               }}
-                              className="pointer-events-auto absolute -top-[5px] grid h-11 w-6 cursor-crosshair place-items-center text-[#5f4a66] opacity-0 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5f4a66]"
+                              className="sx-gantt-dependency-port pointer-events-auto absolute -top-[5px] grid h-11 w-6 cursor-crosshair place-items-center text-[#5f4a66] opacity-0 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5f4a66]"
                               style={{ left: DRAG_HIT_HEIGHT / 2, touchAction: "none" }}
                               title="ドラッグして他のタスク・MSへ依存線を引く"
                               aria-label={`${milestone.title}から依存線を開始`}

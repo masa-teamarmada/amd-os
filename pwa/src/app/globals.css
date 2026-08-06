@@ -183,6 +183,12 @@ body:has(.amd-desk-page-skin) {
   min-width: 44px;
 }
 
+/* ガントの依存線ポート (+) は 44px 幅を取るとバーから離れて見えるため例外。
+   高さは 44px を保つのでタッチターゲットは縦方向で確保される。 */
+.sx-management-workspace button.sx-gantt-dependency-port {
+  min-width: 0;
+}
+
 .amd-desk-page-skin .bg-card,
 .amd-desk-page-skin .bg-white,
 .amd-desk-page-skin [class*="bg-background"] {
