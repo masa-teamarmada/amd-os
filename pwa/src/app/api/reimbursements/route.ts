@@ -220,6 +220,11 @@ export async function POST(request: Request) {
       createdBy: email,
       receiptCount: files.length + existingPaths.length,
       driveLink: drive.links[0] ?? null,
+      transportMode: category === "transport" ? transportMode : null,
+      transportFrom: category === "transport" ? transportFrom : null,
+      transportTo: category === "transport" ? transportTo : null,
+      transportTrip: category === "transport" ? transportTrip : null,
+      status: "submitted",
     };
     const notify = mode === "create" ? await notifyAdminsOnReimbursementSubmitted(admin, summary) : null;
     if (notify?.error) console.error("[api/reimbursements] slack notify failed", notify.error);

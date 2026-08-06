@@ -7,14 +7,17 @@ import { makeReq, makeRes } from "./helpers/fakeHttp.mjs";
 const PASSWORD = "s3cret-password";
 const SECRET = "router-test-secret";
 const EMAIL = "user@example.com";
+const ADMIN_PASSWORD = "admin-only-secret";
 
 function withEnv(fn, { allowedEmails = EMAIL } = {}) {
   return async () => {
     const prevPassword = process.env.KUTE_ACCESS_PASSWORD;
     const prevSecret = process.env.KUTE_AUTH_SECRET;
     const prevAllowedEmails = process.env.KUTE_ALLOWED_EMAILS;
+    const prevAdminPassword = process.env.KUTE_ADMIN_PASSWORD;
     process.env.KUTE_ACCESS_PASSWORD = PASSWORD;
     process.env.KUTE_AUTH_SECRET = SECRET;
+    process.env.KUTE_ADMIN_PASSWORD = ADMIN_PASSWORD;
     if (allowedEmails === null) {
       delete process.env.KUTE_ALLOWED_EMAILS;
     } else {
@@ -25,6 +28,11 @@ function withEnv(fn, { allowedEmails = EMAIL } = {}) {
     } finally {
       process.env.KUTE_ACCESS_PASSWORD = prevPassword;
       process.env.KUTE_AUTH_SECRET = prevSecret;
+      if (prevAdminPassword === undefined) {
+        delete process.env.KUTE_ADMIN_PASSWORD;
+      } else {
+        process.env.KUTE_ADMIN_PASSWORD = prevAdminPassword;
+      }
       if (prevAllowedEmails === undefined) {
         delete process.env.KUTE_ALLOWED_EMAILS;
       } else {
@@ -44,9 +52,10 @@ test(
     delete process.env.KUTE_ACCESS_PASSWORD;
     delete process.env.KUTE_AUTH_SECRET;
     delete process.env.KUTE_ALLOWED_EMAILS;
+    delete process.env.KUTE_ADMIN_PASSWORD;
     const req = makeReq({ method: "GET", url: "/" });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 503);
   }
 );
@@ -57,7 +66,7 @@ test(
     async () => {
       const req = makeReq({ method: "GET", url: "/" });
       const res = makeRes();
-      await handler(req, res);
+      await handler(req, res, { hasMemberFn: async () => false });
       assert.equal(res.statusCode, 503);
     },
     { allowedEmails: null }
@@ -70,7 +79,7 @@ test(
     async () => {
       const req = makeReq({ method: "GET", url: "/" });
       const res = makeRes();
-      await handler(req, res);
+      await handler(req, res, { hasMemberFn: async () => false });
       assert.equal(res.statusCode, 503);
     },
     { allowedEmails: "   " }
@@ -83,7 +92,7 @@ test(
     async () => {
       const req = makeReq({ method: "GET", url: "/" });
       const res = makeRes();
-      await handler(req, res);
+      await handler(req, res, { hasMemberFn: async () => false });
       assert.equal(res.statusCode, 503);
     },
     { allowedEmails: "user@example.com,not-an-email" }
@@ -95,7 +104,7 @@ test(
   withEnv(async () => {
     const req = makeReq({ method: "GET", url: "/" });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 200);
     assert.match(res.body, /type="email"/);
     assert.match(res.body, /登録済みのメールアドレスとパスワード/);
@@ -118,7 +127,7 @@ test(
       body: `email=${EMAIL}&password=nope`,
     });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 401);
     assert.equal(res.headers["Set-Cookie"], undefined);
     assert.match(res.body, /メールアドレスまたはパスワードが違います。/);
@@ -139,7 +148,7 @@ test(
       body: `email=other@example.com&password=${PASSWORD}`,
     });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 401);
     assert.equal(res.headers["Set-Cookie"], undefined);
     assert.match(res.body, /メールアドレスまたはパスワードが違います。/);
@@ -160,7 +169,7 @@ test(
       body: `email=${encodeURIComponent("  USER@Example.com ")}&password=${PASSWORD}`,
     });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 303);
     assert.equal(res.headers.Location, "/");
     assert.match(res.headers["Set-Cookie"], /kute_auth=/);
@@ -181,7 +190,7 @@ test(
       body: `email=${EMAIL}&password=${PASSWORD}`,
     });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 303);
     assert.equal(res.headers.Location, "/");
     assert.match(res.headers["Set-Cookie"], /kute_auth=/);
@@ -201,7 +210,7 @@ test(
       body: `email=${EMAIL}&password=nope`,
     });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 401);
     assert.equal(res.headers["Set-Cookie"], undefined);
   })
@@ -212,7 +221,7 @@ test(
   withEnv(async () => {
     const req = makeReq({ method: "GET", url: "/", headers: { cookie: authCookieHeader() } });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 200);
     assert.match(res.body, /file-rows/);
   })
@@ -226,7 +235,7 @@ test(
       process.env.KUTE_ALLOWED_EMAILS = "someone-else@example.com";
       const req = makeReq({ method: "GET", url: "/", headers: { cookie } });
       const res = makeRes();
-      await handler(req, res);
+      await handler(req, res, { hasMemberFn: async () => false });
       assert.equal(res.statusCode, 200);
       assert.doesNotMatch(res.body, /file-rows/);
     },
@@ -241,7 +250,7 @@ test(
     process.env.KUTE_ACCESS_PASSWORD = "a brand new password";
     const req = makeReq({ method: "GET", url: "/", headers: { cookie } });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 200);
     assert.doesNotMatch(res.body, /file-rows/);
   })
@@ -256,7 +265,7 @@ test(
       headers: { cookie: "kute_auth=not-a-valid-token" },
     });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 200);
     assert.doesNotMatch(res.body, /file-rows/);
   })
@@ -267,7 +276,7 @@ test(
   withEnv(async () => {
     const req = makeReq({ method: "GET", url: "/nope" });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 404);
   })
 );
@@ -277,7 +286,7 @@ test(
   withEnv(async () => {
     const req = makeReq({ method: "GET", url: "/api/files" });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 401);
   })
 );
@@ -287,7 +296,7 @@ test(
   withEnv(async () => {
     const req = makeReq({ method: "POST", url: "/api/links", body: { url: "https://example.com", name: "", folder: "" } });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 401);
   })
 );
@@ -306,7 +315,7 @@ test(
       body: { pathname: "kute/files/deck.pdf" },
     });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 403);
   })
 );
@@ -325,7 +334,7 @@ test(
       body: { pathname: "../etc/passwd" },
     });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 400);
   })
 );
@@ -335,7 +344,7 @@ test(
   withEnv(async () => {
     const req = makeReq({ method: "POST", url: "/api/logout", headers: {} });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 403);
   })
 );
@@ -349,7 +358,7 @@ test(
       headers: { origin: "https://kute.example.com", cookie: authCookieHeader() },
     });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 200);
     assert.match(res.headers["Set-Cookie"], /Max-Age=0/);
   })
@@ -360,7 +369,7 @@ test(
   withEnv(async () => {
     const req = makeReq({ method: "GET", url: "/api/logout" });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 405);
     assert.equal(res.headers.Allow, "POST");
   })
@@ -371,7 +380,7 @@ test(
   withEnv(async () => {
     const req = makeReq({ method: "GET", url: "/" });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.headers["Cache-Control"], "no-store");
     assert.equal(res.headers["X-Content-Type-Options"], "nosniff");
     assert.equal(res.headers["X-Frame-Options"], "DENY");

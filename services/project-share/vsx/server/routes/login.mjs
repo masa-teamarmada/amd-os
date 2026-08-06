@@ -1,6 +1,6 @@
 import { LOGO_SYMBOL_DATA_URL, LOGO_TYPE_DATA_URL } from "../deck-data.mjs";
 import { readFormCredentials } from "../lib/body.mjs";
-import { passwordsMatch, buildSessionCookie, isEmailAllowed } from "../lib/auth.mjs";
+import { passwordsMatch, buildSessionCookie, checkMembership } from "../lib/auth.mjs";
 import { sendHtml, sendText } from "../lib/respond.mjs";
 import { renderPortalHtml } from "./portal.mjs";
 
@@ -130,7 +130,7 @@ export function loginPageHtml(errored) {
 </html>`;
 }
 
-export async function handleLoginRoute(req, res, { password, secret, allowedEmails, isAuthed }) {
+export async function handleLoginRoute(req, res, { password, secret, initialEmails, hasMemberFn, isAuthed }) {
   if (req.method === "GET") {
     sendHtml(res, 200, isAuthed ? renderPortalHtml() : loginPageHtml(false));
     return;
@@ -144,8 +144,15 @@ export async function handleLoginRoute(req, res, { password, secret, allowedEmai
       sendText(res, 400, "Bad Request");
       return;
     }
-    const emailOk = isEmailAllowed(allowedEmails, email);
     const passwordOk = passwordsMatch(secret, submittedPassword, password);
+    let emailOk = false;
+    try {
+      emailOk = await checkMembership(email, { initialEmails, hasMemberFn });
+    } catch {
+      // Membership backend failure: fail closed, same generic error as a
+      // wrong email/password so this never becomes an existence oracle.
+      emailOk = false;
+    }
     if (!emailOk || !passwordOk) {
       sendHtml(res, 401, loginPageHtml(true));
       return;

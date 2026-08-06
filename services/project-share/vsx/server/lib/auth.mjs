@@ -19,6 +19,11 @@ export function normalizeEmail(value) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
+export function isValidEmailAddress(value) {
+  const email = normalizeEmail(value);
+  return email.length > 0 && email.length <= 254 && EMAIL_RE.test(email);
+}
+
 export function parseAllowedEmails(raw) {
   if (typeof raw !== "string") return [];
   const normalized = raw
@@ -109,6 +114,28 @@ export function isAuthenticated(req, secret, { password, allowedEmails }) {
   if (!session) return false;
   if (!isEmailAllowed(allowedEmails, session.email)) return false;
   return safeEqualHex(session.passwordDigest, passwordDigest(secret, password));
+}
+
+// Membership check that avoids listing the whole roster: cheap in-memory
+// match against the env-configured initial allow list first, and only falls
+// through to a single deterministic-path Blob lookup (hasMemberFn) for
+// emails registered later through the admin UI. Backend failures from
+// hasMemberFn propagate to the caller rather than being treated as false.
+export async function checkMembership(email, { initialEmails, hasMemberFn }) {
+  if (isEmailAllowed(initialEmails, email)) return true;
+  return hasMemberFn(email);
+}
+
+// Async counterpart to isAuthenticated: verifies the signed session cookie
+// and password digest synchronously (no I/O) before ever touching the
+// membership backend, then checks membership via checkMembership. Used on
+// the request hot path in place of a full roster fetch on every request.
+export async function isAuthenticatedAsync(req, secret, { password, initialEmails, hasMemberFn }) {
+  const cookies = parseCookies(req.headers.cookie);
+  const session = verifySessionToken(secret, cookies[COOKIE_NAME]);
+  if (!session) return false;
+  if (!safeEqualHex(session.passwordDigest, passwordDigest(secret, password))) return false;
+  return checkMembership(session.email, { initialEmails, hasMemberFn });
 }
 
 export function buildSessionCookie(secret, { email, password }) {

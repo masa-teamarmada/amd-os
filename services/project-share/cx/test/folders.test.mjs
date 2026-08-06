@@ -7,15 +7,18 @@ import { makeReq, makeRes } from "./helpers/fakeHttp.mjs";
 const PASSWORD = "s3cret-password";
 const SECRET = "folders-test-secret";
 const EMAIL = "user@example.com";
+const ADMIN_PASSWORD = "admin-only-secret";
 
 function withEnv(fn) {
   return async () => {
     const prevPassword = process.env.CX_ACCESS_PASSWORD;
     const prevSecret = process.env.CX_AUTH_SECRET;
     const prevAllowedEmails = process.env.CX_ALLOWED_EMAILS;
+    const prevAdminPassword = process.env.CX_ADMIN_PASSWORD;
     process.env.CX_ACCESS_PASSWORD = PASSWORD;
     process.env.CX_AUTH_SECRET = SECRET;
     process.env.CX_ALLOWED_EMAILS = EMAIL;
+    process.env.CX_ADMIN_PASSWORD = ADMIN_PASSWORD;
     try {
       await fn();
     } finally {
@@ -25,6 +28,11 @@ function withEnv(fn) {
         delete process.env.CX_ALLOWED_EMAILS;
       } else {
         process.env.CX_ALLOWED_EMAILS = prevAllowedEmails;
+      }
+      if (prevAdminPassword === undefined) {
+        delete process.env.CX_ADMIN_PASSWORD;
+      } else {
+        process.env.CX_ADMIN_PASSWORD = prevAdminPassword;
       }
     }
   };
@@ -39,7 +47,7 @@ test(
   withEnv(async () => {
     const req = makeReq({ method: "POST", url: "/api/folders", body: { parentPath: "", name: "reports" } });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 401);
   })
 );
@@ -58,7 +66,7 @@ test(
       body: { parentPath: "", name: "reports" },
     });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 403);
   })
 );
@@ -77,7 +85,7 @@ test(
       body: { parentPath: "", name: "../etc" },
     });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 400);
   })
 );
@@ -96,7 +104,7 @@ test(
       body: { parentPath: "", name: ".folder" },
     });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 400);
   })
 );
@@ -110,7 +118,7 @@ test(
       headers: { cookie: authCookieHeader() },
     });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 405);
     assert.equal(res.headers.Allow, "POST, DELETE");
   })
@@ -130,7 +138,7 @@ test(
       body: { folderPath: "" },
     });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 400);
   })
 );
@@ -172,7 +180,7 @@ test(
       headers: { cookie: authCookieHeader() },
     });
     const res = makeRes();
-    await handler(req, res);
+    await handler(req, res, { hasMemberFn: async () => false });
     assert.equal(res.statusCode, 400);
   })
 );
