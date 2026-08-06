@@ -129,6 +129,16 @@
 .inlineFieldSlot { min-width: 0; width: 100%; color: var(--ink); font-weight: 400; }
 .inspectorContentGrid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(240px, 0.8fr); gap: 12px 18px; padding: 14px 16px; }
 .inspectorSection { min-width: 0; padding: 0 0 10px; border: 0; border-bottom: 1px solid #e8e2d7; }
+/* 削除は同じ詳細トレイの中で完結させる。第2モーダルを開かず、確認も同じ行で2段階に出す。 */
+.inspectorDangerRow { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 4px; font-size: 11px; }
+.inspectorDangerRow button { min-height: 32px; padding: 0 10px; border: 1px solid #a8443a; color: #8c3329; font-weight: 700; }
+.inspectorDangerRow button:hover:not(:disabled) { background: #f6e6e3; }
+.inspectorDangerRow button:disabled { border-color: #cbc2ad; color: #8b8578; }
+.inspectorDangerRow button[data-tone="confirm"] { background: #8c3329; border-color: #8c3329; color: #fffdf7; }
+.inspectorDangerRow button[data-tone="confirm"]:hover:not(:disabled) { background: #74291f; }
+.inspectorDangerRow button[data-tone="quiet"] { border-color: #ada18a; color: var(--ink); font-weight: 600; }
+.inspectorDangerRow span { color: #8c3329; }
+.inspectorDangerRow span[data-tone="quiet"] { color: #5f5a4d; }
 .inspectorSection:nth-child(even) { border-right: 0; }
 .inspectorSection > span, .inspectorSectionHeading span { color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: 0.06em; }
 .inspectorSectionValue { margin-top: 4px; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }

@@ -71,6 +71,16 @@ const TASK_BAR_HEIGHT_PX = 10;
 const TASK_BAR_TOP_PX = (ROW_H - TASK_BAR_HEIGHT_PX) / 2;
 const MILESTONE_DIAMOND_SIZE_PX = 12;
 const MILESTONE_VERTEX_RADIUS_PX = MILESTONE_DIAMOND_SIZE_PX / Math.sqrt(2);
+// An MS is a gate the whole lane has to pass, not a point event on one row. It is therefore drawn
+// as a vertical band spanning the lane. The band is wide enough to read as a gate at a glance
+// while still leaving the task bars underneath legible where they cross it.
+const MILESTONE_GATE_WIDTH_PX = 12;
+const MILESTONE_GATE_HALF_PX = MILESTONE_GATE_WIDTH_PX / 2;
+// Dragging a dependency towards a row that is outside the viewport has to bring that row into
+// view, otherwise the link can never be completed. Auto-scroll starts this far from the scroller's
+// edge and is capped so the surface never runs away from the pointer.
+const DEPENDENCY_AUTOSCROLL_EDGE_PX = 56;
+const DEPENDENCY_AUTOSCROLL_MAX_SPEED_PX = 18;
 // Lines are thin by default, but their invisible hover target needs to be generous enough for a
 // dense planning surface. This target never changes the visual geometry of the gantt.
 const DEPENDENCY_EDGE_HIT_WIDTH_PX = 10;
@@ -346,14 +356,18 @@ function taskDisplayRow(
 }
 
 function lanesTotalHeight(
-  lanes: Array<{ rows: DisplayRow[] }>,
+  lanes: Array<{ rows: DisplayRow[]; collapsed: boolean }>,
   includeTaskWriterRow: boolean,
 ) {
   return lanes.reduce(
     (sum, lane) =>
       sum +
       LANE_HEADER_H +
-      (lane.rows.length + (includeTaskWriterRow ? 1 : 0)) * ROW_H +
+      // A collapsed lane keeps only its header band — that band is where the MS gates live, so
+      // they stay visible — and drops the task rows together with the "新規タスク" writer row.
+      (lane.rows.length +
+        (includeTaskWriterRow && !lane.collapsed ? 1 : 0)) *
+        ROW_H +
       LANE_GAP,
     0,
   );
@@ -765,11 +779,11 @@ function Legend() {
         <span>実績｜濃い塗り・進捗率</span>
       </div>
       <div className="flex items-center gap-2 bg-[#fffdf7] px-2 py-1">
-        <span className="h-2.5 w-2.5 rotate-45 border-2 border-[#5f4a66] bg-[#fffdf7]" />
-        <span>MS（マイルストーン）｜計画上の到達目印</span>
+        <span className="h-4 w-[10px] border-x border-[#5f4a66]/70 bg-[#5f4a66]/12" />
+        <span>MS（マイルストーン）｜グループ全体にかかるゲート帯</span>
       </div>
       <div className="flex items-center gap-2 bg-[#fffdf7] px-2 py-1">
-        <span className="h-2.5 w-2.5 rotate-45 border-2 border-[#5f4a66] bg-[#5f4a66]" />
+        <span className="h-4 w-[10px] border-x-2 border-[#5f4a66] bg-[#5f4a66]/28" />
         <span>設立ゲート｜先へ進む前提（2件のみ）</span>
       </div>
     </div>
@@ -906,6 +920,20 @@ export function SxUnifiedTimeline({
           .map((task) => task.id),
       ),
   );
+  // Collapsing a lane hides its task rows only. The lane header band stays, so the MS gates that
+  // span the lane remain readable — that is the whole point of collapsing: keep the gate rhythm,
+  // drop the row detail.
+  const [collapsedLanes, setCollapsedLanes] = useState<Set<SxDisplayLaneKey>>(
+    () => new Set(),
+  );
+  const toggleLaneCollapsed = (key: SxDisplayLaneKey) => {
+    setCollapsedLanes((previous) => {
+      const next = new Set(previous);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
   const [hoveredPin, setHoveredPin] = useState<string | null>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const gridPaneRef = useRef<HTMLDivElement>(null);
@@ -1241,16 +1269,60 @@ export function SxUnifiedTimeline({
   useEffect(() => {
     if (!dependencySource || dependencySource.pointerId == null) return;
     const pointerId = dependencySource.pointerId;
-    const move = (event: PointerEvent) => {
-      if (event.pointerId !== pointerId) return;
+    // Last viewport position of the dragging pointer. The auto-scroll loop keeps running between
+    // pointermove events (a stationary pointer parked at the edge must keep scrolling), so the
+    // position it steers by has to live outside the event handler.
+    let pointerClientX = 0;
+    let pointerClientY = 0;
+    let pointerSeen = false;
+    let autoScrollFrame = 0;
+    const syncPreview = () => {
       const pane = gridPaneRef.current;
       if (!pane) return;
       const rect = pane.getBoundingClientRect();
       setDependencyPreview({
-        x: Math.min(rect.width, Math.max(0, event.clientX - rect.left)),
-        y: Math.min(rect.height, Math.max(0, event.clientY - rect.top)),
+        x: Math.min(rect.width, Math.max(0, pointerClientX - rect.left)),
+        y: Math.min(rect.height, Math.max(0, pointerClientY - rect.top)),
       });
     };
+    const edgeSpeed = (overshoot: number) =>
+      Math.min(
+        DEPENDENCY_AUTOSCROLL_MAX_SPEED_PX,
+        Math.max(4, overshoot / 3),
+      );
+    const autoScrollStep = () => {
+      autoScrollFrame = requestAnimationFrame(autoScrollStep);
+      const scroller = scrollerRef.current;
+      if (!pointerSeen || !scroller) return;
+      const rect = scroller.getBoundingClientRect();
+      let dx = 0;
+      let dy = 0;
+      if (pointerClientX < rect.left + DEPENDENCY_AUTOSCROLL_EDGE_PX)
+        dx = -edgeSpeed(rect.left + DEPENDENCY_AUTOSCROLL_EDGE_PX - pointerClientX);
+      else if (pointerClientX > rect.right - DEPENDENCY_AUTOSCROLL_EDGE_PX)
+        dx = edgeSpeed(pointerClientX - (rect.right - DEPENDENCY_AUTOSCROLL_EDGE_PX));
+      if (pointerClientY < rect.top + DEPENDENCY_AUTOSCROLL_EDGE_PX)
+        dy = -edgeSpeed(rect.top + DEPENDENCY_AUTOSCROLL_EDGE_PX - pointerClientY);
+      else if (pointerClientY > rect.bottom - DEPENDENCY_AUTOSCROLL_EDGE_PX)
+        dy = edgeSpeed(pointerClientY - (rect.bottom - DEPENDENCY_AUTOSCROLL_EDGE_PX));
+      if (!dx && !dy) return;
+      const canScrollVertically =
+        scroller.scrollHeight > scroller.clientHeight + 1;
+      scroller.scrollLeft += dx;
+      if (canScrollVertically) scroller.scrollTop += dy;
+      // The gantt itself is usually taller than its scroller only horizontally; when it is not,
+      // the row the user is reaching for is off the *page*, so scroll the page instead.
+      else if (dy) window.scrollBy(0, dy);
+      syncPreview();
+    };
+    const move = (event: PointerEvent) => {
+      if (event.pointerId !== pointerId) return;
+      pointerClientX = event.clientX;
+      pointerClientY = event.clientY;
+      pointerSeen = true;
+      syncPreview();
+    };
+    autoScrollFrame = requestAnimationFrame(autoScrollStep);
     const finish = (event: PointerEvent) => {
       if (event.pointerId !== pointerId) return;
       const target = document
@@ -1300,6 +1372,7 @@ export function SxUnifiedTimeline({
     window.addEventListener("pointerup", finish);
     window.addEventListener("pointercancel", cancel);
     return () => {
+      cancelAnimationFrame(autoScrollFrame);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", finish);
       window.removeEventListener("pointercancel", cancel);
@@ -1430,21 +1503,29 @@ export function SxUnifiedTimeline({
             .join(" / ")
         : (laneByKey.get(key)?.maxIssue ?? "");
 
-    return DISPLAY_LANE_ORDER.map((key) => ({
-      lane: {
-        key,
-        label: DISPLAY_LANE_LABEL[key],
-        shortLabel: DISPLAY_LANE_LABEL[key],
-        accent: accentFor(key),
-        maxIssue: maxIssueFor(key),
-      } satisfies LaneMeta,
-      rows: bucket[key],
-      milestones: milestoneBucket[key].sort(
-        (left, right) => left.title.localeCompare(right.title),
-      ),
-    }));
+    return DISPLAY_LANE_ORDER.map((key) => {
+      const collapsed = collapsedLanes.has(key);
+      return {
+        lane: {
+          key,
+          label: DISPLAY_LANE_LABEL[key],
+          shortLabel: DISPLAY_LANE_LABEL[key],
+          accent: accentFor(key),
+          maxIssue: maxIssueFor(key),
+        } satisfies LaneMeta,
+        collapsed,
+        // Emptying `rows` is what makes the collapse ripple through every downstream consumer —
+        // lane height, row layout, dependency endpoints — without a second code path.
+        rows: collapsed ? [] : bucket[key],
+        taskCount: bucket[key].length,
+        milestones: milestoneBucket[key].sort(
+          (left, right) => left.title.localeCompare(right.title),
+        ),
+      };
+    });
   }, [
     asOf,
+    collapsedLanes,
     expandedTasks,
     milestoneById,
     taskChildren,
@@ -1476,7 +1557,11 @@ export function SxUnifiedTimeline({
   const visibleRowLayout = useMemo(() => {
     const rows = new Map<string, { row: DisplayRow; centerY: number }>();
     let top = pinRowHeight;
-    for (const { rows: laneRows, milestones: laneMilestones } of visibleLanes) {
+    for (const {
+      rows: laneRows,
+      milestones: laneMilestones,
+      collapsed,
+    } of visibleLanes) {
       const laneTop = top;
       for (const milestone of laneMilestones) {
         rows.set(`milestone:${milestone.id}`, {
@@ -1492,7 +1577,7 @@ export function SxUnifiedTimeline({
         });
         top += ROW_H;
       }
-      if (canManage && projectId) top += ROW_H;
+      if (canManage && projectId && !collapsed) top += ROW_H;
       top += LANE_GAP;
     }
     return rows;
@@ -1522,10 +1607,11 @@ export function SxUnifiedTimeline({
           gridPaneWidth,
           TIMELINE_SIDE_GUTTER_PX,
         );
+        // The MS is a gate band, so a dependency line meets its vertical edge, not a diamond vertex.
         return centerX +
           (side === "source"
-            ? MILESTONE_VERTEX_RADIUS_PX
-            : -MILESTONE_VERTEX_RADIUS_PX);
+            ? MILESTONE_GATE_HALF_PX
+            : -MILESTONE_GATE_HALF_PX);
       }
       if (
         row.plannedEndPct == null ||
@@ -2203,23 +2289,35 @@ export function SxUnifiedTimeline({
       )}
 
       <div className="space-y-2 lg:hidden" aria-label="MSとタスクの縦一覧">
-        {visibleLanes.map(({ lane, rows, milestones: laneMilestones }) => (
+        {visibleLanes.map(({ lane, rows, milestones: laneMilestones, collapsed, taskCount }) => (
           <section
             key={`mobile-${lane.key}`}
             className="border border-[#ada18a] bg-[#fffdf7]"
           >
             <header
               data-gantt-nest-root-lane={lane.key}
-              className="flex items-center gap-2 border-b border-[#ada18a] bg-[#f2eee0] px-3 py-2"
+              className="border-b border-[#ada18a] bg-[#f2eee0]"
             >
-              <span
-                className="h-2.5 w-2.5"
-                style={{ background: lane.accent }}
-              />
-              <b className="text-[11px] text-[#24231f]">{lane.label}</b>
-              <span className="text-[9px] text-[#5f5a4d]">
-                MS {laneMilestones.length} / タスク {rows.length}
-              </span>
+              <button
+                type="button"
+                onClick={() => toggleLaneCollapsed(lane.key)}
+                aria-expanded={!collapsed}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left"
+              >
+                <ChevronRight
+                  className={`h-3 w-3 shrink-0 text-[#5f5a4d] transition-transform ${collapsed ? "" : "rotate-90"}`}
+                  aria-hidden="true"
+                />
+                <span
+                  className="h-2.5 w-2.5 shrink-0"
+                  style={{ background: lane.accent }}
+                />
+                <b className="text-[11px] text-[#24231f]">{lane.label}</b>
+                <span className="text-[9px] text-[#5f5a4d]">
+                  MS {laneMilestones.length} / タスク {taskCount}
+                  {collapsed ? "（折りたたみ中）" : ""}
+                </span>
+              </button>
             </header>
             <div className="divide-y divide-[#eee9df]">
               {laneMilestones.map((milestone) => {
@@ -2517,24 +2615,35 @@ export function SxUnifiedTimeline({
                   介入の期限
                 </div>
               )}
-              {visibleLanes.map(({ lane, rows, milestones: laneMilestones }) => (
+              {visibleLanes.map(({ lane, milestones: laneMilestones, rows, collapsed, taskCount }) => (
                 <div key={lane.key} style={{ marginBottom: LANE_GAP }}>
-                  <div
+                  {/* The lane header is both the collapse control and the "move to top level"
+                      drop target of the task-nesting drag, so the data attribute has to survive. */}
+                  <button
+                    type="button"
                     data-gantt-nest-root-lane={lane.key}
-                    className="flex items-center gap-1.5 border-b border-[#ada18a] px-2"
+                    onClick={() => toggleLaneCollapsed(lane.key)}
+                    aria-expanded={!collapsed}
+                    className="flex w-full items-center gap-1.5 border-b border-[#ada18a] px-2 text-left hover:bg-[#f2eee0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
                     style={{ height: LANE_HEADER_H }}
+                    title={collapsed ? "このグループを開く" : "このグループを折りたたむ（MSは残る）"}
                   >
+                    <ChevronRight
+                      className={`h-3 w-3 shrink-0 text-[#5f5a4d] transition-transform ${collapsed ? "" : "rotate-90"}`}
+                      aria-hidden="true"
+                    />
                     <span
-                      className="h-2.5 w-2.5"
+                      className="h-2.5 w-2.5 shrink-0"
                       style={{ background: lane.accent }}
                     />
                     <span className="text-[10px] font-bold text-[#24231f]">
                       {lane.label}
                     </span>
                     <span className="text-[10px] text-[#5f5a4d]">
-                      MS {laneMilestones.length} / タスク {rows.length}
+                      MS {laneMilestones.length} / タスク {taskCount}
+                      {collapsed ? "（折りたたみ中）" : ""}
                     </span>
-                  </div>
+                  </button>
                   {rows.map((row) => {
                     const selected = selectedTaskId === row.id;
                     const expanded = expandedTasks.has(row.id);
@@ -2633,7 +2742,7 @@ export function SxUnifiedTimeline({
                       </div>
                     );
                   })}
-                  {canManage && projectId && (
+                  {canManage && projectId && !collapsed && (
                     <button
                       type="button"
                       data-gantt-add-task-lane={lane.key}
@@ -2832,7 +2941,7 @@ export function SxUnifiedTimeline({
               )}
 
               <div className="absolute inset-x-0" style={{ top: pinRowHeight }}>
-                {visibleLanes.map(({ lane, rows, milestones: laneMilestones }) => (
+                {visibleLanes.map(({ lane, rows, milestones: laneMilestones, collapsed }) => (
                   <div key={lane.key} className="relative" style={{ marginBottom: LANE_GAP }}>
                     {laneMilestones.map((milestone, index) => {
                       const isDraggingThisMilestone = drag?.rowId === milestone.id;
@@ -2856,7 +2965,19 @@ export function SxUnifiedTimeline({
                           style={{ left: timelinePctCss(markerPct) }}
                           data-gantt-lane-milestone-spine={milestone.id}
                         >
-                          <span className="absolute inset-y-0 left-0 w-px bg-[#5f4a66]/65" aria-hidden="true" />
+                          {/* An MS gates the whole lane, so it is drawn as a vertical band across
+                              every task row of that lane rather than as a point diamond. The band
+                              is decoration only — the pointer targets stay in the header strip, so
+                              a gate never swallows a click meant for a bar crossing underneath. */}
+                          <span
+                            className={`absolute inset-y-0 -translate-x-1/2 ${
+                              milestone.isBlockingMilestone
+                                ? "border-x-2 border-[#5f4a66] bg-[#5f4a66]/28"
+                                : "border-x border-[#5f4a66]/70 bg-[#5f4a66]/12"
+                            }`}
+                            style={{ left: 0, width: MILESTONE_GATE_WIDTH_PX }}
+                            aria-hidden="true"
+                          />
                           <button
                             type="button"
                             data-gantt-milestone-marker={milestone.id}
@@ -2896,9 +3017,11 @@ export function SxUnifiedTimeline({
                             }
                             title={dependencySource ? "依存線を接続" : "クリックで詳細、ドラッグで日付を変更"}
                           >
+                            {/* Cap at the head of the band: the grab handle for the gate's date. */}
                             <i
                               data-gantt-milestone-diamond={milestone.id}
-                              className={`h-3 w-3 rotate-45 border-2 border-[#5f4a66] ${milestone.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
+                              className={`h-5 border-2 border-[#5f4a66] ${milestone.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
+                              style={{ width: MILESTONE_GATE_WIDTH_PX }}
                               aria-hidden="true"
                             />
                           </button>
@@ -2942,7 +3065,7 @@ export function SxUnifiedTimeline({
                           style={{ transform: `translateX(-${index * 8}px)` }}
                           aria-label={`${milestone.title}の詳細を開く`}
                         >
-                          <i className={`h-2.5 w-2.5 shrink-0 rotate-45 border-2 border-[#5f4a66] ${milestone.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`} aria-hidden="true" />
+                          <i className={`h-3.5 w-[6px] shrink-0 border-x-2 border-[#5f4a66] ${milestone.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`} aria-hidden="true" />
                           <span className="truncate whitespace-nowrap text-[9px] font-bold">{milestone.title}｜日程未設定</span>
                         </button>
                       );
@@ -3043,7 +3166,7 @@ export function SxUnifiedTimeline({
                         </div>
                       );
                     })}
-                    {canManage && projectId && (
+                    {canManage && projectId && !collapsed && (
                       <div
                         aria-hidden="true"
                         className="relative border-b border-[#cbc2ad] bg-[#f5f2e6]/60"

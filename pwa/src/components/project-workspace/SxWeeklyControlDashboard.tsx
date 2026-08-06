@@ -3346,7 +3346,10 @@ function PlanInspector({
   detailEditor,
   inlineEditorSlot,
   inlineEditor,
+  deleteBlockedReason,
+  deleting,
   onClose,
+  onDeleteTask,
   onEditField,
 }: {
   milestone: SxManagementMilestone | null;
@@ -3357,7 +3360,10 @@ function PlanInspector({
   detailEditor?: ReactNode;
   inlineEditorSlot?: string | null;
   inlineEditor?: ReactNode;
+  deleteBlockedReason?: string | null;
+  deleting?: boolean;
   onClose: () => void;
+  onDeleteTask?: () => void;
   onEditField: (
     slot: string,
     editor: PlanFieldEditorState["editor"],
@@ -3368,6 +3374,8 @@ function PlanInspector({
 }) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
+  // 削除は取り消しづらいので同じトレイ内で2段階に踏ませる。別モーダルは開かない。
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const item = task || milestone;
   const isTask = Boolean(task);
   const plannedStart = item?.plannedStart ?? null;
@@ -3406,6 +3414,11 @@ function PlanInspector({
     });
     return () => window.cancelAnimationFrame(frame);
   }, [item, canManage]);
+
+  const itemId = item?.id ?? null;
+  useEffect(() => {
+    setConfirmingDelete(false);
+  }, [itemId]);
 
   if (!item) return null;
 
@@ -3856,6 +3869,37 @@ function PlanInspector({
                   </ul>
                 </section>
               )}
+              {isTask && canManage && onDeleteTask && (
+                <div className={styles.inspectorDangerRow}>
+                  {deleteBlockedReason ? (
+                    <span data-tone="quiet">{deleteBlockedReason}</span>
+                  ) : confirmingDelete ? (
+                    <>
+                      <span>削除すると、このタスクはガントと一覧から消えます。</span>
+                      <button
+                        type="button"
+                        data-tone="confirm"
+                        disabled={deleting}
+                        onClick={onDeleteTask}
+                      >
+                        {deleting ? "削除中…" : "削除する"}
+                      </button>
+                      <button
+                        type="button"
+                        data-tone="quiet"
+                        disabled={deleting}
+                        onClick={() => setConfirmingDelete(false)}
+                      >
+                        やめる
+                      </button>
+                    </>
+                  ) : (
+                    <button type="button" onClick={() => setConfirmingDelete(true)}>
+                      このタスクを削除
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -3914,6 +3958,7 @@ export function SxWeeklyControlDashboard({
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [workloadFilter, setWorkloadFilter] =
     useState<WorkloadBucketKey | null>(null);
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
 
   function showNotice(message: string) {
     setNotice(message);
@@ -4162,6 +4207,34 @@ export function SxWeeklyControlDashboard({
     setPlanFieldEditor(null);
     if (pendingIntent) pendingIntent();
     else fallbackFocus();
+  }
+
+  // タスク削除はAPI側のsoft delete（deleted_at）を使う。楽観更新はせず、成功したbundleで置き換えて
+  // 依存線や子タスクの見え方をサーバ側の判断に揃える。
+  async function deleteTask(taskId: string) {
+    setDeletingTaskId(taskId);
+    try {
+      const response = await fetch(
+        `/api/project-workspace/${encodeURIComponent(bundle.project.projectId)}/management`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resource: "task", id: taskId, delete: true }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(
+          typeof body.error === "string" ? body.error : "削除できなかったよ",
+        );
+      if (body.bundle) setManagement(body.bundle as SxManagementBundle);
+      setSelectedTaskId(null);
+      showNotice("タスクを削除したよ");
+    } catch (caught) {
+      showNotice(caught instanceof Error ? caught.message : "削除できなかったよ");
+    } finally {
+      setDeletingTaskId(null);
+    }
   }
 
   function notifyWorkUnitNotFound() {
@@ -4687,6 +4760,27 @@ export function SxWeeklyControlDashboard({
                     onSyncFailed={showNotice}
                   />
                 ) : null
+              }
+              deleteBlockedReason={
+                selectedTask &&
+                management.tasks.some(
+                  (candidate) => candidate.parentTaskId === selectedTask.id,
+                )
+                  ? "子タスクがあるから削除できないよ。先に子タスクを移すか削除してね"
+                  : null
+              }
+              deleting={
+                Boolean(selectedTask) && deletingTaskId === selectedTask!.id
+              }
+              onDeleteTask={
+                selectedTask
+                  ? () => {
+                      const taskId = selectedTask.id;
+                      requestPlanIntent(() => {
+                        void deleteTask(taskId);
+                      });
+                    }
+                  : undefined
               }
               onClose={() => {
                 requestPlanIntent(() => {

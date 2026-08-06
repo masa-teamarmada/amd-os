@@ -136,7 +136,8 @@ assertIncludes(timelineFile, timeline, [
   "title: milestone.title,",
   "Point-MS records are kept",
   "最上位タスクに戻す",
-  "MS {laneMilestones.length} / タスク {rows.length}",
+  // 折りたたみ中は rows が空になるため、件数は畳んでも変わらない taskCount から出す（v3.58.14）
+  "MS {laneMilestones.length} / タスク {taskCount}",
   "日程未登録のMS",
   "if (task.track) return displayLaneKeyForTrack(task.track);",
   "Only the MS marker is forced to BLOCKING_MILESTONE_LANE",
