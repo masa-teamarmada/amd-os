@@ -184,7 +184,9 @@ function slackInteractiveWorker(){
   let ok = true;
   let msg = "";
   try{
-    const r = reimburseApplyDecision(reimbursementId, job.actionId, approverEmail);
+    // 立替の正本は Supabase (PWA)。旧 reimburseApplyDecision はスプレッドシート
+    // DB_Reimbursements を書くだけで正本に反映されないので、PWA の API へ委譲する。
+    const r = reimburseApplyDecisionViaPwa_(reimbursementId, job.actionId, approverEmail);
     ok = !!(r && r.ok);
     msg = (r && r.message) ? String(r.message) : "";
   } catch(e){
@@ -331,6 +333,49 @@ function paymentConfirm_yen_(value) {
   return "¥" + Math.round(n).toLocaleString("ja-JP");
 }
 
+/**
+ * SLACK_DECISION_SECRET を ScriptProperties に入れる一度きりのセットアップ。
+ * 値はリポジトリに置かず、clasp run の引数で渡す。
+ */
+function slackDecisionSetSecret(secret){
+  secret = String(secret || "").trim();
+  if (!secret) return { ok:false, message:"secret empty" };
+  PropertiesService.getScriptProperties().setProperty("SLACK_DECISION_SECRET", secret);
+  return { ok:true, length: secret.length };
+}
+
+/**
+ * Slack の承認ボタンを PWA (Supabase 正本) へ反映する。
+ * ScriptProperties: PWA_BASE_URL (既定 https://amd-os-pwa.vercel.app) / SLACK_DECISION_SECRET
+ */
+function reimburseApplyDecisionViaPwa_(reimbursementId, actionId, approverEmail){
+  var props = PropertiesService.getScriptProperties();
+  var base = String(props.getProperty("PWA_BASE_URL") || "https://amd-os-pwa.vercel.app").replace(/\/+$/, "");
+  var secret = String(props.getProperty("SLACK_DECISION_SECRET") || "").trim();
+  if (!secret) return { ok:false, message:"SLACK_DECISION_SECRET 未設定" };
+
+  var res = UrlFetchApp.fetch(base + "/api/slack/reimbursement-decision", {
+    method: "post",
+    contentType: "application/json",
+    headers: { "x-amd-slack-secret": secret },
+    payload: JSON.stringify({
+      reimbursementId: reimbursementId,
+      action: actionId,
+      approverEmail: approverEmail
+    }),
+    muteHttpExceptions: true
+  });
+
+  var body = {};
+  try { body = JSON.parse(res.getContentText() || "{}"); } catch(_e){ body = {}; }
+  var code = res.getResponseCode();
+  if (code >= 200 && code < 300 && body && body.ok){
+    return { ok:true, message: String(body.message || "反映済み") };
+  }
+  return { ok:false, message: "HTTP " + code + " " + String((body && body.message) || res.getContentText() || "").slice(0, 200) };
+}
+
+/** @deprecated 旧スプレッドシート DB_Reimbursements 用。正本は Supabase なので通常経路からは呼ばない。 */
 function reimburseApplyDecision(reimbursementId, actionId, approverEmail){
   reimbursementId = String(reimbursementId || "").trim();
   actionId = String(actionId || "").trim();

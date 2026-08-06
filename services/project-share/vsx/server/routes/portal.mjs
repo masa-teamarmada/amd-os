@@ -318,7 +318,8 @@ export function renderPortalHtml() {
 
   dialog#folder-dialog,
   dialog#rename-dialog,
-  dialog#online-link-dialog {
+  dialog#online-link-dialog,
+  dialog#members-dialog {
     border: 1px solid var(--line);
     border-radius: 6px;
     padding: 20px;
@@ -327,13 +328,16 @@ export function renderPortalHtml() {
   }
   dialog#folder-dialog::backdrop,
   dialog#rename-dialog::backdrop,
-  dialog#online-link-dialog::backdrop { background: rgba(24, 36, 46, 0.35); }
+  dialog#online-link-dialog::backdrop,
+  dialog#members-dialog::backdrop { background: rgba(24, 36, 46, 0.35); }
   dialog#folder-dialog h2,
   dialog#rename-dialog h2,
-  dialog#online-link-dialog h2 { font-size: 15px; margin: 0 0 12px; }
+  dialog#online-link-dialog h2,
+  dialog#members-dialog h2 { font-size: 15px; margin: 0 0 12px; }
   dialog#folder-dialog label,
   dialog#rename-dialog label,
-  dialog#online-link-dialog label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+  dialog#online-link-dialog label,
+  dialog#members-dialog label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
   .dialog-field + .dialog-field { margin-top: 12px; }
   .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
   .dialog-actions button {
@@ -353,6 +357,88 @@ export function renderPortalHtml() {
     background: var(--blue);
     color: #fff;
     font-weight: 700;
+  }
+
+  button.members-btn {
+    border: 1px solid var(--line);
+    background: var(--white);
+    color: var(--muted);
+    font-size: 12.5px;
+    padding: 8px 14px;
+    min-height: 44px;
+    border-radius: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  button.members-btn:hover { color: var(--navy); border-color: var(--muted); }
+  button.members-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+  dialog#members-dialog { max-width: 460px; }
+  dialog#members-dialog .dialog-actions button { min-height: 44px; }
+  dialog#members-dialog .members-error {
+    font-size: 12.5px;
+    color: var(--danger);
+    min-height: 1em;
+    margin: -4px 0 10px;
+  }
+  dialog#members-dialog .members-hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 0 0 14px;
+  }
+  #members-roster {
+    list-style: none;
+    margin: 0 0 14px;
+    padding: 0;
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+  }
+  #members-roster li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+  #members-roster li + li { border-top: 1px solid var(--line); }
+  #members-roster .member-email { word-break: break-all; }
+  #members-roster .member-badge {
+    font-size: 11px;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 2px 6px;
+    flex-shrink: 0;
+  }
+  #members-roster .member-suspend {
+    border: 1px solid var(--line);
+    background: var(--white);
+    color: var(--danger);
+    font-size: 11.5px;
+    padding: 6px 10px;
+    min-height: 44px;
+    border-radius: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  #members-roster .member-suspend:hover { border-color: var(--danger); }
+  #members-roster .member-empty { color: var(--muted); padding: 10px; }
+  #members-add-form { display: flex; gap: 8px; align-items: flex-end; }
+  #members-add-form .dialog-field { flex: 1; margin: 0; }
+  #members-add-form button[type="submit"] {
+    min-height: 44px;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    border: 1px solid var(--blue);
+    background: var(--blue);
+    color: #fff;
+    font-weight: 700;
+    flex-shrink: 0;
   }
 
   @media (min-width: 721px) {
@@ -393,6 +479,12 @@ export function renderPortalHtml() {
     }
     .row-actions { justify-content: flex-start; flex-wrap: wrap; }
   }
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
 </style>
 </head>
 <body>
@@ -402,7 +494,10 @@ export function renderPortalHtml() {
       <img class="brand-wordmark" src="${LOGO_TYPE_DATA_URL}" alt="team ARMADA" />
       <span class="brand-title">VSX PROJECT SHARE</span>
     </div>
-    <button type="button" class="logout" id="logout-btn">ログアウト</button>
+    <div class="header-actions">
+      <button type="button" class="members-btn" id="members-btn" data-testid="members-button">アクセス管理</button>
+      <button type="button" class="logout" id="logout-btn">ログアウト</button>
+    </div>
   </header>
   <main>
     <div class="location-bar" id="location-bar">
@@ -510,6 +605,39 @@ export function renderPortalHtml() {
       </div>
     </form>
   </dialog>
+  <dialog id="members-dialog">
+    <div id="members-gate">
+      <h2>アクセス管理</h2>
+      <p class="members-hint">管理者パスワードを入力してください。</p>
+      <form id="members-gate-form">
+        <div class="dialog-field">
+          <label for="members-gate-password-input">管理者パスワード</label>
+          <input type="password" id="members-gate-password-input" name="adminPassword" autocomplete="off" required data-testid="members-gate-password-input" />
+        </div>
+        <p class="members-error" id="members-gate-error" role="alert"></p>
+        <div class="dialog-actions">
+          <button type="button" value="cancel" id="members-gate-cancel" data-testid="members-gate-cancel">キャンセル</button>
+          <button type="submit" id="members-gate-submit" data-testid="members-gate-submit">確認</button>
+        </div>
+      </form>
+    </div>
+    <div id="members-panel" hidden>
+      <h2>アクセス管理</h2>
+      <p class="members-hint">登録済みメールアドレスの一覧です。初期登録は削除できません。</p>
+      <ul id="members-roster"></ul>
+      <p class="members-error" id="members-panel-error" role="alert"></p>
+      <form id="members-add-form">
+        <div class="dialog-field">
+          <label for="members-add-email-input">メールアドレスを追加</label>
+          <input type="email" id="members-add-email-input" name="email" autocomplete="off" placeholder="name@example.com" required data-testid="members-add-email-input" />
+        </div>
+        <button type="submit" id="members-add-submit" data-testid="members-add-submit">追加</button>
+      </form>
+      <div class="dialog-actions">
+        <button type="button" value="cancel" id="members-panel-close" data-testid="members-panel-close">閉じる</button>
+      </div>
+    </div>
+  </dialog>
   <script type="module">
     const statusEl = document.getElementById("status");
     const rowsEl = document.getElementById("file-rows");
@@ -541,6 +669,21 @@ export function renderPortalHtml() {
     const onlineLinkDialogCancel = document.getElementById("online-link-dialog-cancel");
     const onlineLinkDialogSubmit = document.getElementById("online-link-dialog-submit");
     const fileListArea = document.getElementById("file-list-area");
+    const membersBtn = document.getElementById("members-btn");
+    const membersDialog = document.getElementById("members-dialog");
+    const membersGate = document.getElementById("members-gate");
+    const membersGateForm = document.getElementById("members-gate-form");
+    const membersGatePasswordInput = document.getElementById("members-gate-password-input");
+    const membersGateError = document.getElementById("members-gate-error");
+    const membersGateCancel = document.getElementById("members-gate-cancel");
+    const membersGateSubmit = document.getElementById("members-gate-submit");
+    const membersPanel = document.getElementById("members-panel");
+    const membersRoster = document.getElementById("members-roster");
+    const membersPanelError = document.getElementById("members-panel-error");
+    const membersAddForm = document.getElementById("members-add-form");
+    const membersAddEmailInput = document.getElementById("members-add-email-input");
+    const membersAddSubmit = document.getElementById("members-add-submit");
+    const membersPanelClose = document.getElementById("members-panel-close");
 
     const MULTIPART_THRESHOLD_BYTES = 100 * 1024 * 1024;
 
@@ -1546,6 +1689,203 @@ export function renderPortalHtml() {
         await fetch("/api/logout", { method: "POST" });
       } finally {
         window.location.reload();
+      }
+    });
+
+    let adminPassword = null;
+
+    function renderMembersRoster(initialEmails, members) {
+      membersRoster.innerHTML = "";
+      const initial = initialEmails || [];
+      const added = members || [];
+      if (initial.length === 0 && added.length === 0) {
+        const li = document.createElement("li");
+        li.className = "member-empty";
+        li.textContent = "登録がありません。";
+        membersRoster.appendChild(li);
+        return;
+      }
+      initial.forEach((email) => {
+        const li = document.createElement("li");
+        const span = document.createElement("span");
+        span.className = "member-email";
+        span.textContent = email;
+        const badge = document.createElement("span");
+        badge.className = "member-badge";
+        badge.textContent = "初期登録";
+        li.appendChild(span);
+        li.appendChild(badge);
+        membersRoster.appendChild(li);
+      });
+      added.forEach((member) => {
+        const li = document.createElement("li");
+        const span = document.createElement("span");
+        span.className = "member-email";
+        span.textContent = member.email;
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "member-suspend";
+        btn.textContent = "無効化";
+        btn.dataset.email = member.email;
+        li.appendChild(span);
+        li.appendChild(btn);
+        membersRoster.appendChild(li);
+      });
+    }
+
+    function closeMembersPanelToGate(message) {
+      membersPanel.hidden = true;
+      membersGate.hidden = false;
+      membersGateForm.reset();
+      membersGateError.textContent = message || "";
+      membersGatePasswordInput.focus();
+    }
+
+    async function loadMembersRoster() {
+      const res = await fetch("/api/members", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "list", adminPassword }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        if (data && data.error === "invalid admin password") {
+          closeMembersPanelToGate("管理者パスワードが正しくありません。もう一度入力してください。");
+        } else {
+          window.location.reload();
+        }
+        throw new Error("unauthorized");
+      }
+      if (!res.ok) throw new Error((data && data.error) || "一覧の取得に失敗しました。");
+      renderMembersRoster(data.initialEmails, data.members);
+    }
+
+    function openMembersDialog() {
+      membersGateForm.reset();
+      membersGateError.textContent = "";
+      membersPanelError.textContent = "";
+      membersPanel.hidden = true;
+      membersGate.hidden = false;
+      membersDialog.showModal();
+      membersGatePasswordInput.focus();
+    }
+
+    function closeMembersDialog() {
+      membersDialog.close();
+    }
+
+    membersDialog.addEventListener("close", () => {
+      adminPassword = null;
+      membersGateForm.reset();
+      membersAddForm.reset();
+      membersGateError.textContent = "";
+      membersPanelError.textContent = "";
+      membersRoster.innerHTML = "";
+      membersPanel.hidden = true;
+      membersGate.hidden = false;
+    });
+
+    membersBtn.addEventListener("click", openMembersDialog);
+    membersGateCancel.addEventListener("click", closeMembersDialog);
+    membersPanelClose.addEventListener("click", closeMembersDialog);
+
+    membersGateForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (membersGateSubmit.disabled) return;
+      const candidate = membersGatePasswordInput.value;
+      if (!candidate) return;
+      membersGateSubmit.disabled = true;
+      membersGateError.textContent = "";
+      try {
+        const res = await fetch("/api/members", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "list", adminPassword: candidate }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+          if (data && data.error === "invalid admin password") {
+            membersGateError.textContent = "管理者パスワードが正しくありません。";
+          } else {
+            window.location.reload();
+          }
+          return;
+        }
+        if (!res.ok) throw new Error((data && data.error) || "確認に失敗しました。");
+        adminPassword = candidate;
+        renderMembersRoster(data.initialEmails, data.members);
+        membersGate.hidden = true;
+        membersPanel.hidden = false;
+        membersAddEmailInput.focus();
+      } catch (err) {
+        membersGateError.textContent = err.message || "確認に失敗しました。";
+      } finally {
+        membersGateSubmit.disabled = false;
+      }
+    });
+
+    membersAddForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (membersAddSubmit.disabled) return;
+      const email = membersAddEmailInput.value.trim();
+      if (!email) return;
+      membersAddSubmit.disabled = true;
+      membersPanelError.textContent = "";
+      try {
+        const res = await fetch("/api/members", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "add", adminPassword, email }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+          if (data && data.error === "invalid admin password") {
+            closeMembersPanelToGate("管理者パスワードが正しくありません。もう一度入力してください。");
+          } else {
+            window.location.reload();
+          }
+          return;
+        }
+        if (!res.ok) throw new Error((data && data.error) || "追加に失敗しました。");
+        membersAddForm.reset();
+        await loadMembersRoster();
+        setStatus(email + " を追加しました。", "success");
+      } catch (err) {
+        membersPanelError.textContent = err.message || "追加に失敗しました。";
+      } finally {
+        membersAddSubmit.disabled = false;
+      }
+    });
+
+    membersRoster.addEventListener("click", async (event) => {
+      const btn = event.target.closest(".member-suspend");
+      if (!btn) return;
+      const email = btn.dataset.email;
+      if (!window.confirm(email + " の登録を無効化しますか？この操作は取り消せません。")) return;
+      btn.disabled = true;
+      membersPanelError.textContent = "";
+      try {
+        const res = await fetch("/api/members", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "remove", adminPassword, email }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+          if (data && data.error === "invalid admin password") {
+            closeMembersPanelToGate("管理者パスワードが正しくありません。もう一度入力してください。");
+          } else {
+            window.location.reload();
+          }
+          return;
+        }
+        if (!res.ok) throw new Error((data && data.error) || "登録の無効化に失敗しました。");
+        await loadMembersRoster();
+        setStatus(email + " の登録を無効化しました。", "success");
+      } catch (err) {
+        membersPanelError.textContent = err.message || "登録の無効化に失敗しました。";
+      } finally {
+        btn.disabled = false;
       }
     });
 

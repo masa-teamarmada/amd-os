@@ -9,10 +9,13 @@ import {
   parseCookies,
   parseAllowedEmails,
   isEmailAllowed,
+  isValidEmailAddress,
   normalizeEmail,
   buildSessionCookie,
   buildClearCookie,
   isAuthenticated,
+  checkMembership,
+  isAuthenticatedAsync,
   COOKIE_NAME,
 } from "../server/lib/auth.mjs";
 
@@ -50,6 +53,14 @@ test("parseAllowedEmails rejects the entire configuration if any entry is invali
 test("parseAllowedEmails returns empty array for non-string input", () => {
   assert.deepEqual(parseAllowedEmails(undefined), []);
   assert.deepEqual(parseAllowedEmails(""), []);
+});
+
+test("isValidEmailAddress accepts well-formed addresses and rejects malformed or oversized ones", () => {
+  assert.equal(isValidEmailAddress("  User@Example.com "), true);
+  assert.equal(isValidEmailAddress("not-an-email"), false);
+  assert.equal(isValidEmailAddress(""), false);
+  assert.equal(isValidEmailAddress(null), false);
+  assert.equal(isValidEmailAddress("a@" + "b".repeat(255) + ".com"), false);
 });
 
 test("isEmailAllowed matches case-insensitively against the allow list", () => {
@@ -167,4 +178,140 @@ test("buildClearCookie expires immediately", () => {
 test("buildSessionCookie sets a 30 day Max-Age", () => {
   const cookie = buildSessionCookie(SECRET, { email: EMAIL, password: PASSWORD });
   assert.match(cookie, /Max-Age=2592000/);
+});
+
+test("checkMembership short-circuits on the initial email list without calling hasMemberFn", async () => {
+  let called = false;
+  const ok = await checkMembership(EMAIL, {
+    initialEmails: ALLOWED_EMAILS,
+    hasMemberFn: async () => {
+      called = true;
+      return false;
+    },
+  });
+  assert.equal(ok, true);
+  assert.equal(called, false);
+});
+
+test("checkMembership falls through to hasMemberFn for a non-initial email", async () => {
+  let calledWith = null;
+  const ok = await checkMembership("added@example.com", {
+    initialEmails: ALLOWED_EMAILS,
+    hasMemberFn: async (email) => {
+      calledWith = email;
+      return true;
+    },
+  });
+  assert.equal(ok, true);
+  assert.equal(calledWith, "added@example.com");
+});
+
+test("checkMembership is false when hasMemberFn resolves false", async () => {
+  const ok = await checkMembership("nobody@example.com", {
+    initialEmails: ALLOWED_EMAILS,
+    hasMemberFn: async () => false,
+  });
+  assert.equal(ok, false);
+});
+
+test("checkMembership propagates a hasMemberFn backend failure instead of swallowing it", async () => {
+  await assert.rejects(() =>
+    checkMembership("nobody@example.com", {
+      initialEmails: ALLOWED_EMAILS,
+      hasMemberFn: async () => {
+        throw new Error("blob service unavailable");
+      },
+    })
+  );
+});
+
+test("isAuthenticatedAsync authenticates a valid session for an initial-list email without calling hasMemberFn", async () => {
+  const cookie = buildSessionCookie(SECRET, { email: EMAIL, password: PASSWORD });
+  const cookieValue = cookie.split(";")[0];
+  const req = { headers: { cookie: cookieValue } };
+  let called = false;
+  const ok = await isAuthenticatedAsync(req, SECRET, {
+    password: PASSWORD,
+    initialEmails: ALLOWED_EMAILS,
+    hasMemberFn: async () => {
+      called = true;
+      return false;
+    },
+  });
+  assert.equal(ok, true);
+  assert.equal(called, false);
+});
+
+test("isAuthenticatedAsync authenticates a UI-added member via hasMemberFn", async () => {
+  const addedEmail = "added@example.com";
+  const cookie = buildSessionCookie(SECRET, { email: addedEmail, password: PASSWORD });
+  const cookieValue = cookie.split(";")[0];
+  const req = { headers: { cookie: cookieValue } };
+  const ok = await isAuthenticatedAsync(req, SECRET, {
+    password: PASSWORD,
+    initialEmails: ALLOWED_EMAILS,
+    hasMemberFn: async (email) => email === addedEmail,
+  });
+  assert.equal(ok, true);
+});
+
+test("isAuthenticatedAsync rejects a bad password digest before ever calling hasMemberFn", async () => {
+  const cookie = buildSessionCookie(SECRET, { email: EMAIL, password: PASSWORD });
+  const cookieValue = cookie.split(";")[0];
+  const req = { headers: { cookie: cookieValue } };
+  let called = false;
+  const ok = await isAuthenticatedAsync(req, SECRET, {
+    password: "a new password",
+    initialEmails: ALLOWED_EMAILS,
+    hasMemberFn: async () => {
+      called = true;
+      return true;
+    },
+  });
+  assert.equal(ok, false);
+  assert.equal(called, false);
+});
+
+test("isAuthenticatedAsync rejects without a cookie header, never calling hasMemberFn", async () => {
+  const req = { headers: {} };
+  let called = false;
+  const ok = await isAuthenticatedAsync(req, SECRET, {
+    password: PASSWORD,
+    initialEmails: ALLOWED_EMAILS,
+    hasMemberFn: async () => {
+      called = true;
+      return true;
+    },
+  });
+  assert.equal(ok, false);
+  assert.equal(called, false);
+});
+
+test("isAuthenticatedAsync is false once a UI-added member is removed (hasMemberFn resolves false)", async () => {
+  const addedEmail = "added@example.com";
+  const cookie = buildSessionCookie(SECRET, { email: addedEmail, password: PASSWORD });
+  const cookieValue = cookie.split(";")[0];
+  const req = { headers: { cookie: cookieValue } };
+  const ok = await isAuthenticatedAsync(req, SECRET, {
+    password: PASSWORD,
+    initialEmails: ALLOWED_EMAILS,
+    hasMemberFn: async () => false,
+  });
+  assert.equal(ok, false);
+});
+
+test("isAuthenticatedAsync propagates a hasMemberFn backend failure so callers can fail closed", async () => {
+  const addedEmail = "added@example.com";
+  const cookie = buildSessionCookie(SECRET, { email: addedEmail, password: PASSWORD });
+  const cookieValue = cookie.split(";")[0];
+  const req = { headers: { cookie: cookieValue } };
+  await assert.rejects(() =>
+    isAuthenticatedAsync(req, SECRET, {
+      password: PASSWORD,
+      initialEmails: ALLOWED_EMAILS,
+      hasMemberFn: async () => {
+        throw new Error("blob service unavailable");
+      },
+    })
+  );
 });

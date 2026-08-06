@@ -57,6 +57,26 @@ export type ReimbursementSummary = {
   createdBy: string;
   receiptCount: number;
   driveLink: string | null;
+  /** 承認判断に必要な移動区間。交通費以外は null。 */
+  transportMode?: string | null;
+  transportFrom?: string | null;
+  transportTo?: string | null;
+  transportTrip?: string | null;
+  /** Slack の承認ボタンを出し分けるための現在の状態。 */
+  status?: string;
+};
+
+const TRANSPORT_MODE_LABELS: Record<string, string> = {
+  train: "電車",
+  bus: "バス",
+  taxi: "タクシー",
+  car: "自家用車",
+  other: "その他",
+};
+
+const TRANSPORT_TRIP_LABELS: Record<string, string> = {
+  oneway: "片道",
+  round: "往復",
 };
 
 const EMPTY_RESULT: ReimbursementNotifyResult = { sent: 0, targets: 0, error: null };
@@ -90,7 +110,7 @@ export async function notifyAdminsOnReimbursementSubmitted(
       `申請者: ${applicantName}`,
       ...detailLines(input),
     ];
-    return await dmMany(client, targets, text, lines);
+    return await dmMany(client, targets, text, lines, { ...input, status: input.status || "submitted" });
   } catch (e) {
     return { ...EMPTY_RESULT, error: e instanceof Error ? e.message : String(e) };
   }
@@ -145,7 +165,7 @@ export async function sendReimbursementApprovalReminders(db: Db, now = new Date(
   const { data, error } = await db
     .from("reimbursements")
     .select(
-      "reimbursement_id, project_id, project_name, date, category, amount, description, status, created_by, created_at, receipt_storage_paths, receipt_drive_links, reminder_last_sent_at, reminder_sent_count"
+      "reimbursement_id, project_id, project_name, date, category, amount, description, status, created_by, created_at, transport_mode, transport_from, transport_to, transport_trip, receipt_storage_paths, receipt_drive_links, reminder_last_sent_at, reminder_sent_count"
     )
     .not("status", "in", `(${[...CLOSED_STATUSES].join(",")})`)
     .order("created_at", { ascending: true });
@@ -181,6 +201,11 @@ export async function sendReimbursementApprovalReminders(db: Db, now = new Date(
         createdBy: applicantEmail,
         receiptCount: Array.isArray(row.receipt_storage_paths) ? row.receipt_storage_paths.length : 0,
         driveLink: firstLink(row.receipt_drive_links),
+        transportMode: row.transport_mode ? String(row.transport_mode) : null,
+        transportFrom: row.transport_from ? String(row.transport_from) : null,
+        transportTo: row.transport_to ? String(row.transport_to) : null,
+        transportTrip: row.transport_trip ? String(row.transport_trip) : null,
+        status: String(row.status ?? ""),
       };
       const waitingDays = elapsedDays(String(row.created_at ?? ""), now);
       const statusLabel = STATUS_LABELS[String(row.status ?? "")] ?? String(row.status ?? "");
@@ -195,7 +220,7 @@ export async function sendReimbursementApprovalReminders(db: Db, now = new Date(
         `状態: ${statusLabel}`,
         ...detailLines(summary),
       ];
-      const adminResult = await dmMany(client, adminTargets, adminText, adminLines);
+      const adminResult = await dmMany(client, adminTargets, adminText, adminLines, summary);
       result.adminSent += adminResult.sent;
       if (adminResult.error) result.errors.push(`${summary.reimbursementId} admin: ${adminResult.error}`);
 
@@ -239,10 +264,44 @@ function detailLines(input: ReimbursementSummary): string[] {
   const lines = [
     `発生日: ${input.date} / ${categoryLabel} / *${fmtYen(input.amount)}*`,
     `摘要: ${input.description || "-"}`,
-    `領収書: ${input.receiptCount > 0 ? `${input.receiptCount}件` : "添付なし"}`,
   ];
+
+  if (input.category === "transport" && (input.transportFrom || input.transportTo || input.transportMode)) {
+    const detail = [
+      input.transportMode ? TRANSPORT_MODE_LABELS[input.transportMode] ?? input.transportMode : null,
+      input.transportTrip ? TRANSPORT_TRIP_LABELS[input.transportTrip] ?? input.transportTrip : null,
+    ].filter(Boolean).join(" / ");
+    const route = `${input.transportFrom || "出発未記入"} → ${input.transportTo || "到着未記入"}`;
+    lines.push(`区間: ${route}${detail ? ` (${detail})` : ""}`);
+    if (input.transportTrip === "round") {
+      lines.push(`内訳: 片道 ${fmtYen(input.amount / 2)} × 2`);
+    }
+  }
+
+  lines.push(`領収書: ${input.receiptCount > 0 ? `${input.receiptCount}件` : "添付なし"}`);
   if (input.driveLink) lines.push(`共有ドライブ: ${input.driveLink}`);
   return lines;
+}
+
+/**
+ * Slack の承認ボタン。押下は Cloud Run → GAS キュー → `/api/slack/reimbursement-decision` の順で
+ * Supabase へ反映される。状態に応じて PM 承認 / admin 承認を出し分ける。
+ */
+function approvalButtons(input: ReimbursementSummary) {
+  const status = String(input.status ?? "submitted");
+  const value = JSON.stringify({ reimbursementId: input.reimbursementId });
+
+  const pair = status === "submitted"
+    ? { approve: { id: "reimb_approve", label: "PM承認" }, reject: { id: "reimb_reject", label: "差戻し" } }
+    : status === "pmApproved" || status === "pmapproved"
+      ? { approve: { id: "reimb_admin_approve", label: "admin承認" }, reject: { id: "reimb_admin_reject", label: "却下" } }
+      : null;
+  if (!pair) return [];
+
+  return [
+    { type: "button", action_id: pair.approve.id, text: { type: "plain_text", text: pair.approve.label }, style: "primary", value },
+    { type: "button", action_id: pair.reject.id, text: { type: "plain_text", text: pair.reject.label }, style: "danger", value },
+  ];
 }
 
 function elapsedDays(createdAt: string, now: Date): number {
@@ -293,23 +352,24 @@ async function dmMany(
   client: WebClient,
   targets: SlackTarget[],
   text: string,
-  lines: string[]
+  lines: string[],
+  /** 承認者向けのときだけ渡す。Slack 上で承認 / 却下まで完結させる。 */
+  approvalFor?: ReimbursementSummary
 ): Promise<ReimbursementNotifyResult> {
   if (targets.length === 0) return EMPTY_RESULT;
 
+  const elements = [
+    ...(approvalFor ? approvalButtons(approvalFor) : []),
+    {
+      type: "button",
+      text: { type: "plain_text", text: "OSで見る" },
+      url: `${APP_BASE_URL}/reimburse`,
+    },
+  ];
+
   const blocks = [
     { type: "section", text: { type: "mrkdwn", text: lines.join("\n") } },
-    {
-      type: "actions",
-      elements: [
-        {
-          type: "button",
-          text: { type: "plain_text", text: "立替を確認する" },
-          style: "primary",
-          url: `${APP_BASE_URL}/reimburse`,
-        },
-      ],
-    },
+    { type: "actions", elements },
   ];
 
   let sent = 0;

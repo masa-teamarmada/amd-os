@@ -72,6 +72,17 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: "却下",
   paid: "支払済",
 };
+const TRANSPORT_MODE_LABELS: Record<string, string> = {
+  train: "電車",
+  bus: "バス",
+  taxi: "タクシー",
+  car: "自家用車",
+  other: "その他",
+};
+const TRANSPORT_TRIP_LABELS: Record<string, string> = {
+  oneway: "片道",
+  round: "往復",
+};
 
 const initialForm = (): ReimburseFormState => ({
   projectId: "",
@@ -336,6 +347,15 @@ export default function ReimbursePage() {
     }
   };
 
+  const transportPreview = (() => {
+    if (form.category !== "transport") return "";
+    const oneWay = Number(form.amount.replace(/,/g, ""));
+    if (!Number.isFinite(oneWay) || oneWay <= 0) return "";
+    return form.transportTrip === "round"
+      ? `往復: ¥${Math.round(oneWay).toLocaleString()} × 2 = ¥${Math.round(oneWay * 2).toLocaleString()} で申請`
+      : `片道: ¥${Math.round(oneWay).toLocaleString()} で申請`;
+  })();
+
   return (
     <div className="mx-auto max-w-6xl space-y-5 p-5">
       <header className="border border-border bg-card p-4">
@@ -403,7 +423,7 @@ export default function ReimbursePage() {
 
           <div className="grid grid-cols-[1fr_120px] gap-3">
             <label className="block space-y-1 text-xs font-medium">
-              <span>金額（税込）</span>
+              <span>金額（税込）{form.category === "transport" && <span className="ml-1 font-semibold text-amber-700">片道ぶんを入れて</span>}</span>
               <input inputMode="numeric" value={form.amount} onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} placeholder="1540" className="w-full border border-input bg-background px-3 py-2 text-sm" />
             </label>
             <label className="block space-y-1 text-xs font-medium">
@@ -446,6 +466,10 @@ export default function ReimbursePage() {
                 <input value={form.transportFrom} onChange={(event) => setForm((current) => ({ ...current, transportFrom: event.target.value }))} placeholder="出発" className="border border-input bg-background px-3 py-2 text-sm" />
                 <input value={form.transportTo} onChange={(event) => setForm((current) => ({ ...current, transportTo: event.target.value }))} placeholder="到着" className="border border-input bg-background px-3 py-2 text-sm" />
               </div>
+              <p className="border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[11px] leading-relaxed text-amber-800">
+                金額欄には<span className="font-semibold">片道ぶん</span>を入れて。「往復」を選ぶと自動で2倍して申請される。
+                {transportPreview && <span className="mt-0.5 block font-mono">{transportPreview}</span>}
+              </p>
             </div>
           )}
 
@@ -575,14 +599,33 @@ function ReimburseCard({
             <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{CATEGORY_LABELS[normalizeCategory(item.category)]}</span>
             <StatusPill status={item.status} />
           </div>
-          <h3 className="mt-1 truncate text-sm font-semibold">{item.description || "摘要なし"}</h3>
+          <h3 className="mt-1 text-sm font-semibold">{item.description || "摘要なし"}</h3>
           <p className="mt-1 truncate text-xs text-muted-foreground">{projectName}</p>
         </div>
         <div className="text-right">
           <p className="font-mono text-sm font-semibold">¥{Math.round(item.amount).toLocaleString()}</p>
           <p className="text-[11px] text-muted-foreground">税率 {Math.round((item.tax_rate || 0) * 100)}%</p>
+          {item.transport_trip === "round" && (
+            <p className="text-[10px] text-muted-foreground">往復（片道 ¥{Math.round(item.amount / 2).toLocaleString()}）</p>
+          )}
         </div>
       </div>
+
+      {normalizeCategory(item.category) === "transport" && (item.transport_from || item.transport_to || item.transport_mode) && (
+        <div className="mt-2 border border-border bg-muted/20 px-2 py-1.5 text-[11px] leading-relaxed">
+          <span className="font-medium text-foreground">
+            {item.transport_from || "出発未記入"} → {item.transport_to || "到着未記入"}
+          </span>
+          <span className="ml-2 text-muted-foreground">
+            {[
+              item.transport_mode ? TRANSPORT_MODE_LABELS[item.transport_mode] || item.transport_mode : null,
+              item.transport_trip ? TRANSPORT_TRIP_LABELS[item.transport_trip] || item.transport_trip : null,
+            ].filter(Boolean).join(" / ")}
+          </span>
+        </div>
+      )}
+
+      <p className="mt-2 truncate text-[11px] text-muted-foreground">申請者: {item.created_by || "-"}</p>
 
       <div className="mt-3 grid gap-2 text-[11px] text-muted-foreground sm:grid-cols-2">
         <ApprovalMark label="PM" by={item.pm_approved_by} at={item.pm_approved_at} />
