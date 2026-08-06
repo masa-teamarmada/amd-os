@@ -1015,7 +1015,7 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "登録率",
   "停止",
   "空レーンあり",
-  "deferredPartners.length === 0 &&\n          endedPartners.length === 0",
+  "deferredPartners.length === 0 &&\n              endedPartners.length === 0",
   "sourceEvidence",
   "一次根拠",
   "出典",
