@@ -1166,7 +1166,7 @@ function pocFacetChipsView(partner: SxManagementPartner) {
       className={`inline-flex max-w-full items-baseline gap-0.5 border px-1 py-px text-[10px] font-semibold leading-3 ${tone}`}
     >
       <span className="shrink-0 font-normal opacity-70">{facet}</span>
-      <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+      <span className="min-w-0 [overflow-wrap:anywhere]">
         {value}
       </span>
     </span>
@@ -1213,7 +1213,7 @@ function pocFacetChipsView(partner: SxManagementPartner) {
       )}
       {partner.valueNote && (
         <span
-          className="w-full break-words [overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]"
+          className="w-full [overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]"
           title={partner.valueNote}
           data-poc-value-note={partner.id}
         >
@@ -2459,7 +2459,7 @@ function PartnerLedgerHeaderCell({
       className={`relative flex min-w-0 items-center pr-2 ${sticky ? `${PARTNER_LEDGER_STICKY_LEFT} bg-[#f2eee0]` : ""}`}
       title={column.title}
     >
-      <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+      <span className="min-w-0 [overflow-wrap:anywhere]">
         {column.label}
       </span>
       <span
@@ -2708,7 +2708,7 @@ function PartnerSampleRow({
   const view = (
     <div className="grid min-w-0 gap-0.5 px-3 py-2 text-left">
       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-        <span className="break-words [overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#24231f]">
+        <span className="[overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#24231f]">
           {sample.label}
         </span>
         <span
@@ -3024,7 +3024,7 @@ function PartnerProgressHistoryModal({
             </p>
             <h4
               id={titleId}
-              className="mt-0.5 break-words [overflow-wrap:anywhere] text-xl font-semibold leading-[1.35] text-[#24231f]"
+              className="mt-0.5 [overflow-wrap:anywhere] text-xl font-semibold leading-[1.35] text-[#24231f]"
             >
               {display.name}
             </h4>
@@ -3366,7 +3366,7 @@ function PartnerInlineRow({
   const relationNameView = (
     <span
       id={nameHeadingId}
-      className="whitespace-normal break-words [overflow-wrap:anywhere] text-[12px] font-semibold leading-4 text-[#24231f]"
+      className="whitespace-normal [overflow-wrap:anywhere] text-[12px] font-semibold leading-4 text-[#24231f]"
     >
       {display.name}
     </span>
@@ -3374,12 +3374,12 @@ function PartnerInlineRow({
   const effluentView = (
     <span className="grid min-h-11 min-w-0 content-center gap-0.5">
       <span
-        className="break-words [overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#24231f]"
+        className="[overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#24231f]"
         title={partner.effluentComponents || "成分 未確認"}
       >
         {partner.effluentComponents || "成分 未確認"}
       </span>
-      <span className="break-words [overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]">
+      <span className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]">
         年間 {partner.effluentVolumeAnnual || "量未確認"} ・ 処理費{" "}
         {partner.effluentCostAnnual || "未確認"}
       </span>
@@ -3402,13 +3402,13 @@ function PartnerInlineRow({
   const nextMeetingView = (
     <span className="grid min-h-11 min-w-0 content-center gap-0.5">
       <span
-        className={`break-words [overflow-wrap:anywhere] text-[10px] font-semibold leading-4 ${partner.nextMeetingOn ? "text-[#24231f]" : "text-[#5a574c]"}`}
+        className={`[overflow-wrap:anywhere] text-[10px] font-semibold leading-4 ${partner.nextMeetingOn ? "text-[#24231f]" : "text-[#5a574c]"}`}
         title={nextMeetingDateText}
       >
         {nextMeetingDateText}
       </span>
       <span
-        className="break-words [overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]"
+        className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]"
         title={nextMeetingSubText}
       >
         {nextMeetingSubText}
@@ -3418,13 +3418,13 @@ function PartnerInlineRow({
   const connectionOriginView = (
     <span className="grid min-h-11 min-w-0 content-center gap-0.5">
       <span
-        className="break-words [overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#24231f]"
+        className="[overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#24231f]"
         title={partner.connectionContext || "経緯 未登録"}
       >
         {partner.connectionContext || "経緯 未登録"}
       </span>
       <span
-        className="break-words [overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]"
+        className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]"
         title={partner.introducerLabel || "紹介者 未確認"}
       >
         紹介者 {partner.introducerLabel || "未確認"}
@@ -3437,7 +3437,7 @@ function PartnerInlineRow({
         <span className="px-1 pt-0.5 text-[10px] font-semibold leading-3 text-[#5a574c]">
           保有側
         </span>
-        <span className="break-words [overflow-wrap:anywhere] px-1 pb-1 text-[11px] font-semibold leading-4 text-[#24231f]">
+        <span className="[overflow-wrap:anywhere] px-1 pb-1 text-[11px] font-semibold leading-4 text-[#24231f]">
           {sxBallSideLabel(partner.currentBallSide)}
         </span>
       </span>
@@ -3446,7 +3446,7 @@ function PartnerInlineRow({
           担当
         </span>
         <span
-          className="break-words [overflow-wrap:anywhere] px-1 pb-1 text-[11px] font-semibold leading-4 text-[#24231f]"
+          className="[overflow-wrap:anywhere] px-1 pb-1 text-[11px] font-semibold leading-4 text-[#24231f]"
           title={
             partner.currentBallOwner
               ? sxNormalizePublicName(partner.currentBallOwner)
@@ -3462,7 +3462,7 @@ function PartnerInlineRow({
   );
   const goalView = (
     <p
-      className="break-words [overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#24231f]"
+      className="[overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#24231f]"
       title={goalStep?.title}
     >
       {goalStep?.title ?? "目標状態 未登録"}
@@ -3709,7 +3709,7 @@ function PartnerInlineRow({
                 }}
                 view={
                   <p
-                    className={`mt-1 break-words [overflow-wrap:anywhere] text-[10px] font-semibold leading-4 ${impact.critical ? "text-[#8c3329]" : "text-[#24231f]"}`}
+                    className={`mt-1 [overflow-wrap:anywhere] text-[10px] font-semibold leading-4 ${impact.critical ? "text-[#8c3329]" : "text-[#24231f]"}`}
                     title={impact.title}
                   >
                     {impact.critical
@@ -3760,7 +3760,7 @@ function PartnerInlineRow({
               />
             ) : (
               <p
-                className={`mt-1 break-words [overflow-wrap:anywhere] text-[10px] font-semibold leading-4 ${impact.critical ? "text-[#8c3329]" : "text-[#24231f]"}`}
+                className={`mt-1 [overflow-wrap:anywhere] text-[10px] font-semibold leading-4 ${impact.critical ? "text-[#8c3329]" : "text-[#24231f]"}`}
                 title={impact.title}
               >
                 {impact.critical
@@ -3798,7 +3798,7 @@ function PartnerInlineRow({
                 view={
                   <>
                     <p
-                      className="break-words [overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#24231f]"
+                      className="[overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#24231f]"
                       title={actionText}
                     >
                       {actionText}
@@ -3892,7 +3892,7 @@ function PartnerInlineRow({
             ) : (
               <>
                 <p
-                  className="break-words [overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#24231f]"
+                  className="[overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#24231f]"
                   title={actionText}
                 >
                   {actionText}
@@ -4050,7 +4050,7 @@ function PartnerInlineRow({
                 view={
                   <>
                     <p
-                      className="break-words [overflow-wrap:anywhere] text-[11px] font-semibold text-[#24231f]"
+                      className="[overflow-wrap:anywhere] text-[11px] font-semibold text-[#24231f]"
                       title={ownershipOwnerText}
                     >
                       {ownershipOwnerText}
@@ -4188,7 +4188,7 @@ function PartnerInlineRow({
             ) : (
               <>
                 <p
-                  className="break-words [overflow-wrap:anywhere] text-[11px] font-semibold text-[#24231f]"
+                  className="[overflow-wrap:anywhere] text-[11px] font-semibold text-[#24231f]"
                   title={ownershipOwnerText}
                 >
                   {ownershipOwnerText}
@@ -4240,7 +4240,7 @@ function PartnerInlineRow({
                       ・ {sxInteractionKindLabel(latest.interactionKind)}
                     </p>
                     <p
-                      className="mt-0.5 break-words [overflow-wrap:anywhere] text-[10px] leading-4 text-[#24231f]"
+                      className="mt-0.5 [overflow-wrap:anywhere] text-[10px] leading-4 text-[#24231f]"
                       title={latestSummary}
                     >
                       {latestSummary}
@@ -4387,7 +4387,7 @@ function PartnerInlineRow({
                   ・ {sxInteractionKindLabel(latest.interactionKind)}
                 </p>
                 <p
-                  className="mt-0.5 break-words [overflow-wrap:anywhere] text-[10px] leading-4 text-[#24231f]"
+                  className="mt-0.5 [overflow-wrap:anywhere] text-[10px] leading-4 text-[#24231f]"
                   title={latestSummary}
                 >
                   {latestSummary}
@@ -5201,7 +5201,7 @@ function InteractionFullRow({
           >
             議事録の全文を読む
           </summary>
-          <div className="mt-1 max-h-80 overflow-y-auto whitespace-pre-wrap break-words [overflow-wrap:anywhere] border border-[#d5cdba] bg-[#fffdf7] p-2 text-[11px] leading-5 text-[#24231f]">
+          <div className="mt-1 max-h-80 overflow-y-auto whitespace-pre-wrap [overflow-wrap:anywhere] border border-[#d5cdba] bg-[#fffdf7] p-2 text-[11px] leading-5 text-[#24231f]">
             {interaction.detailMd}
           </div>
         </details>
