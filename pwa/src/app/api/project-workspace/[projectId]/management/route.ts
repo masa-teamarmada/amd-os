@@ -162,6 +162,7 @@ const PARTNER_STAGES = ["candidate", "first_contact", "information_exchange", "h
 const PARTNER_ACTIVITY_STATES = ["active", "waiting_partner", "waiting_internal", "stalled", "on_hold", "dropped", "unknown"];
 const POC_CATEGORIES = ["poc_candidate", "tech_partner", "sample_provider", "sample_route"];
 const POC_JUDGMENTS = ["high", "medium", "low"];
+const POC_GRADES = ["s", "a", "b", "x"];
 const SAMPLE_STATUSES = ["intent", "negotiating", "agreed_pending", "scheduled", "received", "analyzed", "unknown"];
 const AGREEMENT_STATES = ["agreed", "partial", "unagreed"];
 const DECISION_STATES = ["pending", "decided", "deferred"];
@@ -332,11 +333,18 @@ function patchFor(resource: Resource, raw: unknown): Record<string, unknown> {
     for (const key of ["poc_likelihood", "customer_value"] as const) {
       if (key in raw) patch[key] = raw[key] == null || raw[key] === "" ? null : enumValue(raw[key], key, POC_JUDGMENTS);
     }
+    // 最左の評価カラム。空文字で「未」(NULL) へ戻せる。合成せず人が直接付ける。
+    if ("poc_grade" in raw) patch.poc_grade = raw.poc_grade == null || raw.poc_grade === "" ? null : enumValue(raw.poc_grade, "poc_grade", POC_GRADES);
     takeOptionalText("value_note", "value_note", 240);
+    takeOptionalText("effluent_components", "effluent_components", 500);
+    takeOptionalText("effluent_volume_annual", "effluent_volume_annual", 240);
+    takeOptionalText("effluent_cost_annual", "effluent_cost_annual", 240);
     assertSafeRelationshipOrigin(patch.introducer_label, "紹介者"); assertSafeRelationshipOrigin(patch.connection_context, "接点の経緯");
   }
   if (resource === "interaction") {
     takeEnum("interaction_kind", INTERACTION_KINDS); takeDate("occurred_on"); takeEnum("occurred_on_precision", DATE_PRECISIONS); takeText("summary", "summary", 1000); takeOptionalText("outcome_summary", "outcome_summary", 1200); takeEnum("ball_side_after", BALL_SIDES); takeOptionalText("ball_owner_after", "ball_owner_after", 120); takeEnum("actor_side", ACTOR_SIDES); takeOptionalText("actor_label", "actor_label", 120); takeEnum("confidence", CONFIDENCES);
+    // 議事録本文。外部共有リンクが失効しても内容が残るよう全文を保存する。
+    takeOptionalText("detail_md", "detail_md", 40000);
   }
   if (resource === "partner_role") {
     takeEnum("role_kind", ROLE_KINDS); takeEnum("relationship_state", RELATIONSHIP_STATES); takeOptionalText("role_label", "role_label", 240); takeBoolean("is_primary"); takeNumber("sort_order", { min: 0 });

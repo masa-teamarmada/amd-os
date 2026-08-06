@@ -64,6 +64,7 @@ import {
   sxPocPriorityTier,
   sxPocPriorityTierLabel,
   sxPocPriorityTierDescription,
+  SX_POC_GRADE_CHOICES,
   sxSampleStatusLabel,
   sxPartnerHasDataGap,
   sxPartnerHasContactRecord,
@@ -272,6 +273,15 @@ const BALL_SIDE_TONE: Record<string, string> = {
   shared: "border-[#9d8daa] bg-[#e9e2ee] text-[#5f4a66]",
   none: "border-[#ada18a] bg-[#f2eee0] text-[#5a574c]",
   unknown: "border-[#8e88a5] bg-[#e4e2ef] text-[#55506d]",
+};
+
+/** 最左の評価カラムの配色。S だけ塗りつぶして、上から潰す順番が一目で分かるようにする。 */
+const GRADE_TONE: Record<string, string> = {
+  s: "border-[#2f6650] bg-[#2f6650] text-[#f5f1e8]",
+  a: "border-[#38745d] bg-[#dcebe1] text-[#1d5341]",
+  b: "border-[#3f6b8c] bg-[#dee8f0] text-[#2a5473]",
+  x: "border-[#a4988a] bg-[#eae5da] text-[#5a574c]",
+  unrated: "border-dashed border-[#a69b84] bg-[#f6f1e6] text-[#6a665b]",
 };
 
 const HOLDING_STATUS_TONE: Record<string, string> = {
@@ -2206,13 +2216,15 @@ function HoldingRow({
   );
 }
 
-// 列順は「関係先 → 現在の状況 → ゴール → 詰まり・PJ影響 → 次にやること → 担当・期限 → 現在地の根拠
-// → 接点の経緯」。接点の経緯は日次では読まない履歴的属性なので右端へ置く
+// 列順は「評価 → 関係先 → 現在の状況 → ゴール → 詰まり・PJ影響 → 次にやること → 担当・期限
+// → 現在地の根拠 → 排液 → 接点の経緯 → 履歴・保有」。評価は行の外側の独立カラムなので
+// INNER 側には含めず、HEADER 側だけが先頭 34px を持つ (2026-08-06 まさ「一番左に評価カラムを作って」)。
+// 接点の経緯と排液は日次では読まない参照属性なので右へ寄せる
 // (2026-08-06 まさ「そこまで頻繁に見るものではないから右の方に移動してほしい」)。
 const PARTNER_CONTROL_INNER_GRID =
-  "@min-[1248px]:grid-cols-[236px_196px_104px_96px_132px_72px_104px_148px]";
+  "@min-[1248px]:grid-cols-[188px_148px_92px_88px_116px_72px_96px_128px_108px]";
 const PARTNER_CONTROL_HEADER_GRID =
-  "@min-[1248px]:grid-cols-[236px_196px_104px_96px_132px_72px_104px_148px_72px]";
+  "@min-[1248px]:grid-cols-[34px_188px_148px_92px_88px_116px_72px_96px_128px_108px_72px]";
 
 type PartnerGateImpact = {
   title: string;
@@ -3087,34 +3099,38 @@ function PartnerInlineRow({
     await onPatch({ resource, id, patch });
   };
 
-  // 優先度は「実現可能性 × 顧客有望度」の合成。上から潰していけるよう社名の頭に置く。
+  // 評価は社名と同じセルに混ぜず、行の一番左に独立カラムとして立てる (2026-08-06 まさ)。
   // 未評価は空欄にせず「未」と出し、判断がまだ入っていない行だと分かるようにする。
   const priorityTier = sxPocPriorityTier(partner);
+  const gradeView = (
+    <span
+      className={`grid min-h-11 w-full place-items-center border text-[15px] font-semibold leading-none ${GRADE_TONE[priorityTier]}`}
+      data-poc-priority-tier={priorityTier}
+      title={sxPocPriorityTierDescription(priorityTier)}
+    >
+      {sxPocPriorityTierLabel(priorityTier)}
+    </span>
+  );
   const relationNameView = (
     <span
       id={nameHeadingId}
       className="whitespace-normal break-words text-[12px] font-semibold leading-4 text-[#24231f]"
     >
-      <span
-        className={`mr-1 inline-block border px-1 align-[1px] text-[10px] font-semibold leading-4 ${
-          priorityTier === "s"
-            ? "border-[#38745d] bg-[#2f6650] text-[#f5f1e8]"
-            : priorityTier === "a"
-              ? "border-[#38745d] bg-[#dcebe1] text-[#1d5341]"
-              : priorityTier === "b"
-                ? "border-[#3f6b8c] bg-[#dee8f0] text-[#2a5473]"
-                : priorityTier === "c"
-                  ? "border-[#bcb2a0] bg-[#efe9dc] text-[#45423b]"
-                  : priorityTier === "d"
-                    ? "border-[#bf7b2c] bg-[#f6ead2] text-[#69461c]"
-                    : "border-dashed border-[#a69b84] bg-[#f6f1e6] text-[#6a665b]"
-        }`}
-        data-poc-priority-tier={priorityTier}
-        title={sxPocPriorityTierDescription(priorityTier)}
-      >
-        {sxPocPriorityTierLabel(priorityTier)}
-      </span>
       {display.name}
+    </span>
+  );
+  const effluentView = (
+    <span className="grid min-h-11 min-w-0 content-center gap-0.5">
+      <span
+        className="line-clamp-2 break-words text-[10px] font-semibold leading-4 text-[#24231f]"
+        title={partner.effluentComponents || "成分 未確認"}
+      >
+        {partner.effluentComponents || "成分 未確認"}
+      </span>
+      <span className="truncate text-[10px] leading-4 text-[#5a574c]">
+        年間 {partner.effluentVolumeAnnual || "量未確認"} ・ 処理費{" "}
+        {partner.effluentCostAnnual || "未確認"}
+      </span>
     </span>
   );
   const connectionOriginView = (
@@ -3180,9 +3196,57 @@ function PartnerInlineRow({
       className="scroll-mt-24 border-b border-[#d5cdba] bg-[#fffdf7]"
     >
       <div
-        className="grid w-full grid-cols-1 items-stretch gap-2 px-2 py-1.5 text-left sm:grid-cols-[minmax(0,1fr)_72px]"
+        className="grid w-full grid-cols-[34px_minmax(0,1fr)] items-stretch gap-2 px-2 py-1.5 text-left sm:grid-cols-[34px_minmax(0,1fr)_72px]"
         data-partner-row-density="compact"
       >
+        <div
+          className="min-w-0 self-stretch"
+          data-partner-grade-cell={partner.id}
+        >
+          {canManage ? (
+            <InlineCellEditor
+              editorKey={keyFor("poc-grade")}
+              activeEditorKey={activeEditorKey}
+              label={`${display.name}の評価`}
+              initialValues={{ poc_grade: partner.pocGrade || "" }}
+              view={gradeView}
+              onRequestEdit={onRequestInlineEdit}
+              onFinish={onFinishInlineEdit}
+              onSave={async (values) =>
+                patchIfChanged(
+                  "partner",
+                  partner.id,
+                  { poc_grade: partner.pocGrade },
+                  { poc_grade: values.poc_grade || null },
+                )
+              }
+              renderFields={(values, setValue) => (
+                <label className="grid gap-0.5">
+                  <span className="text-[10px] font-semibold text-[#5a574c]">
+                    顧客としての見込み
+                  </span>
+                  <select
+                    autoFocus
+                    className={INLINE_CONTROL_CLASS}
+                    value={values.poc_grade}
+                    onChange={(event) =>
+                      setValue("poc_grade", event.target.value)
+                    }
+                  >
+                    {SX_POC_GRADE_CHOICES.map((tier) => (
+                      <option key={tier} value={tier === "unrated" ? "" : tier}>
+                        {sxPocPriorityTierLabel(tier)} ・{" "}
+                        {sxPocPriorityTierDescription(tier)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            />
+          ) : (
+            gradeView
+          )}
+        </div>
         <div
           className={`grid min-w-0 grid-cols-1 gap-x-2 gap-y-1.5 md:grid-cols-2 ${PARTNER_CONTROL_INNER_GRID}`}
         >
@@ -3935,6 +3999,92 @@ function PartnerInlineRow({
 
           <PartnerRowCell className="md:col-span-2 @min-[1248px]:col-span-1">
             <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
+              排液
+            </p>
+            {canManage ? (
+              <InlineCellEditor
+                editorKey={keyFor("effluent")}
+                activeEditorKey={activeEditorKey}
+                label={`${display.name}の排液`}
+                initialValues={{
+                  effluent_components: partner.effluentComponents || "",
+                  effluent_volume_annual: partner.effluentVolumeAnnual || "",
+                  effluent_cost_annual: partner.effluentCostAnnual || "",
+                }}
+                view={effluentView}
+                onRequestEdit={onRequestInlineEdit}
+                onFinish={onFinishInlineEdit}
+                onSave={async (values) =>
+                  patchIfChanged(
+                    "partner",
+                    partner.id,
+                    {
+                      effluent_components: partner.effluentComponents,
+                      effluent_volume_annual: partner.effluentVolumeAnnual,
+                      effluent_cost_annual: partner.effluentCostAnnual,
+                    },
+                    {
+                      effluent_components:
+                        values.effluent_components.trim() || null,
+                      effluent_volume_annual:
+                        values.effluent_volume_annual.trim() || null,
+                      effluent_cost_annual:
+                        values.effluent_cost_annual.trim() || null,
+                    },
+                  )
+                }
+                renderFields={(values, setValue) => (
+                  <>
+                    <label className="grid gap-0.5">
+                      <span className="text-[10px] font-semibold text-[#5a574c]">
+                        排液中の成分
+                      </span>
+                      <textarea
+                        autoFocus
+                        rows={2}
+                        className={`${INLINE_CONTROL_CLASS} py-1.5 leading-4`}
+                        value={values.effluent_components}
+                        onChange={(event) =>
+                          setValue("effluent_components", event.target.value)
+                        }
+                      />
+                    </label>
+                    <label className="grid gap-0.5">
+                      <span className="text-[10px] font-semibold text-[#5a574c]">
+                        年間の排液量
+                      </span>
+                      <input
+                        className={INLINE_CONTROL_CLASS}
+                        placeholder="例: 約3,600 t/年"
+                        value={values.effluent_volume_annual}
+                        onChange={(event) =>
+                          setValue("effluent_volume_annual", event.target.value)
+                        }
+                      />
+                    </label>
+                    <label className="grid gap-0.5">
+                      <span className="text-[10px] font-semibold text-[#5a574c]">
+                        年間の排液処理コスト
+                      </span>
+                      <input
+                        className={INLINE_CONTROL_CLASS}
+                        placeholder="例: 約276万円/年"
+                        value={values.effluent_cost_annual}
+                        onChange={(event) =>
+                          setValue("effluent_cost_annual", event.target.value)
+                        }
+                      />
+                    </label>
+                  </>
+                )}
+              />
+            ) : (
+              effluentView
+            )}
+          </PartnerRowCell>
+
+          <PartnerRowCell className="md:col-span-2 @min-[1248px]:col-span-1">
+            <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
               接点の経緯
             </p>
             {canManage ? (
@@ -3967,7 +4117,7 @@ function PartnerInlineRow({
             )}
           </PartnerRowCell>
         </div>
-        <span className="flex min-h-11 flex-col items-center justify-center self-stretch border border-[#a69b84] px-2 text-center text-[10px] font-semibold leading-4 text-[#315f7d]">
+        <span className="col-span-2 flex min-h-11 flex-col items-center justify-center self-stretch border border-[#a69b84] px-2 text-center text-[10px] font-semibold leading-4 text-[#315f7d] sm:col-span-1">
           <span>
             履歴 {partner.interactions.length}件 ・ 保有 {holdings.length}件
           </span>
@@ -4354,6 +4504,9 @@ export function SxPartnerPipeline({
       <div
         className={`${comparisonOnly ? "sticky top-14 z-20 shadow-[0_1px_0_#d6cebf]" : ""} hidden ${PARTNER_CONTROL_HEADER_GRID} gap-2 border-b border-[#c5bba5] bg-[#f2eee0] px-2 py-1 text-[10px] font-semibold text-[#5a574c] @min-[1248px]:grid`}
       >
+        <span title="顧客としての見込み。ペインの高さと単価の高い重金属の有無で付ける">
+          評価
+        </span>
         <span>関係先</span>
         <span>現在の状況</span>
         <span>ゴール</span>
@@ -4361,6 +4514,7 @@ export function SxPartnerPipeline({
         <span>次にやること</span>
         <span>担当・期限</span>
         <span>現在地の根拠</span>
+        <span>排液</span>
         <span>接点の経緯</span>
         <span>履歴・保有</span>
       </div>
@@ -4574,6 +4728,25 @@ function InteractionFullRow({
       <p className="mt-0.5 text-[10px] leading-4 text-[#315f7d]">
         ボール: {ballText}
       </p>
+      {/* 議事録の本文。共有リンク（plaud等）は失効するので、全文をここに保存して読めるようにする
+          (2026-08-06 まさ「リンク自体はもう少ししたらなくなるので、文章として保存しておいてほしい」)。
+          行クリックの直接編集と衝突しないよう、開閉のクリックは親へ伝播させない。 */}
+      {interaction.detailMd && (
+        <details
+          className="mt-1.5 border-t border-dashed border-[#d5cdba] pt-1.5"
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
+          <summary
+            className={`flex min-h-11 cursor-pointer items-center text-[10px] font-semibold text-[#38745d] ${FOCUS_RING}`}
+          >
+            議事録の全文を読む
+          </summary>
+          <div className="mt-1 max-h-80 overflow-y-auto whitespace-pre-wrap break-words border border-[#d5cdba] bg-[#fffdf7] p-2 text-[11px] leading-5 text-[#24231f]">
+            {interaction.detailMd}
+          </div>
+        </details>
+      )}
     </li>
   );
 }

@@ -174,7 +174,7 @@ point-MS追加フォームは`接続する成果 / MS名 / 予定日`の3項目�
 - 確度は `sx-partner-progress.ts` の `SX_PARTNER_CONFIDENCE_ORDER = ["high","medium","low","unknown"]` を正本とし、表示語彙は `sxPartnerConfidenceLabel` で 確認済み / 推定 / 要確認 / 未確認 に対応させる。PoC候補先スプシの語彙をそのまま使い、`medium` を `high` へ丸めない。保存値が空・未知のときだけ `unknown` へ落とす。
 - `pocFacetChipsView` の3チップは「段階」「状態」「確度」の軸名をチップ内に必ず持つ。値だけを並べるチップへ戻さない。
 - `SxPocComparisonSort` に `"confidence"` を追加。`sxComparePartnersForPoc` は確度rank差を先に見て、同順位では既存の要対応rank・ボール側・期限・最終接点・名前で決める。UIは `data-partner-sort-trigger` の「要対応順 / 確度順」トグル（既定 `attention`）で、`activeInlineEditorKey` があるあいだは切替を無視する。
-- 9列の列順は `関係先 / 現在の状況 / ゴール / 詰まり・PJ影響 / 次にやること / 担当・期限 / 現在地の根拠 / 接点の経緯 / 履歴・保有`。`PARTNER_CONTROL_INNER_GRID` / `PARTNER_CONTROL_HEADER_GRID` / ヘッダーspan順 / 行内cell位置の4箇所を必ず同時に動かす。接点の経緯を左から2番目へ戻さない（日次で読まない履歴属性のため）。
+- 列順は `PARTNER_CONTROL_INNER_GRID` / `PARTNER_CONTROL_HEADER_GRID` / ヘッダーspan順 / 行内cell位置の4箇所を必ず同時に動かす。接点の経緯を左から2番目へ戻さない（日次で読まない履歴属性のため）。**現行の列構成はv3.58.3の11列**（後述「最左の評価カラムと排液プロファイル」節が正本。この節の9列はv3.58.1時点の記録）。
 - 配色は `Sx*.tsx` / `sx-*.tsx` の色トークンを機械的に置換してコントラストを上げた（429箇所）。補助文字 `#69665d`→`#5a574c` (5.64→7.11)、`#777166`→`#5f5a4d` (4.76→6.76)、`#8f8a7e`/`#928c80`/`#9b9487`→`#65604f` (2.96–3.38→6.18、WCAG AA未達を解消)。罫線 `#d6cebf`→`#ada18a` (1.54→2.53)、`#e4ddd0`→`#c5bba5`、`#eee9df`→`#d5cdba` ほか、状態チップの地色も1段深くした。色相と意味の割当（赤=事業リスク、琥珀=待ち・要確認、緑=段階、青=確度高）は変えない。
 
 ### PoC実現可能性・顧客有望度の判断2軸と優先度 (build v3.58.2 / migration 237、2026-08-06)
@@ -186,3 +186,12 @@ point-MS追加フォームは`接続する成果 / MS名 / 予定日`の3項目�
 - 一覧では会社名の直前に `data-poc-priority-tier` のS/A/B/C/D/未バッジを置き、`現在の状況` cellのチップ群へ「実現」「顧客」チップと、`value_note` がある行だけ「理由 …」の1行を足す。列は9本のまま増やさない。
 - `SxPocComparisonSort` に `"priority"` を追加し、**既定の並び順を `priority` に変更**した。上から順にアタックすれば良い並びを初期表示にするため（まさ 2026-08-06「このリストの上の方を優先的にアタックしていく設計になっていれば、見る方はすごく楽」）。tierが同じなら既存の要対応rank・ボール側・期限・最終接点・名前で決める。
 - 編集はチップ位置の同じインラインeditorを2x2から拡張し、段階 / 状態 / 確度 / 区分 / 実現 / 顧客 の6selectと理由inputを1回のPATCHで送る。第二モーダルも別編集ボタンも作らない。APIは `poc_likelihood` / `customer_value` を空文字でNULLへ戻せる。
+
+### 最左の評価カラムと排液プロファイル、議事録の全文保存 (build v3.58.3 / migration 238、2026-08-06)
+
+- 評価は2軸の合成をやめ、`project_management_partners.poc_grade`（`s` / `a` / `b` / `x`、未評価はNULL）を人が直接付ける独立列にした。合成は「排液がもらえるか」を過大評価していたため（まさ 2026-08-06「顧客として見込みがあるかを第１優先にしてほしい。ペインが高いか、単価の高い（需要の高い）重金属が排出されているかが軸。排液がもらえるかどうかは、それより大幅に劣後する要素」）。
+- 判断軸は (1) ペインの高さ (2) 単価の高い（需要の高い）重金属が排出されているか の2つ。排液提供の可否はこの2軸より大幅に劣後させる。`poc_likelihood` / `customer_value` / `value_note` は補助情報として残すが、**評価の合成には一切使わない**（`sxPocPriorityTier` は `pocGrade` だけを読む）。
+- 評価は会社名と同じcellへ混ぜず、行の**最左の独立カラム**（34px、`data-partner-grade-cell`）に置く。未評価は空欄にせず「未」と表示する。表示語彙は `sxPocPriorityTierLabel`（S / A / B / ✕ / 未）、tooltipは `sxPocPriorityTierDescription`。`SX_POC_GRADE_CHOICES` が選択肢の正本。
+- 排液プロファイルの3列 `effluent_components` / `effluent_volume_annual` / `effluent_cost_annual` を追加した。単位も表記も企業ごとに揺れるため text で持ち、議事録の表現をそのまま残す。一覧では `現在地の根拠` と `接点の経緯` のあいだの `排液` cellに、成分（2行clamp）と「年間 … ・ 処理費 …」を出す。未入力は「成分 未確認」「量未確認」「未確認」と明示し、推測で埋めない。
+- 列は11本（評価 / 関係先 / 現在の状況 / ゴール / 詰まり・PJ影響 / 次にやること / 担当・期限 / 現在地の根拠 / 排液 / 接点の経緯 / 履歴・保有）。`PARTNER_CONTROL_INNER_GRID` は評価と履歴を含まない9列、`PARTNER_CONTROL_HEADER_GRID` は前後を足した11列。1248pxのcontainer幅から padding 16 / 評価 34 / 履歴 72 / 外側gap 16 / 内側gap 64 を引いた **1046px以内**に内側9列を収める（現行合計1036px）。列を足すときはこの計算をやり直す。
+- 議事録などの接点本文は `project_management_partner_interactions.detail_md`（40000字）へ全文保存する。plaud等の共有リンクは失効し `source_ref` だけでは内容が残らないため。履歴モーダルのやり取り履歴で `議事録の全文を読む` の折りたたみとして読み取り専用で開く。

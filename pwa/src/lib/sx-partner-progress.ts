@@ -371,54 +371,52 @@ export function sxCustomerValueLabel(value: string | null | undefined) {
   return { high: "有望", medium: "中", low: "薄い" }[normalized];
 }
 
-export type SxPocPriorityTier = "s" | "a" | "b" | "c" | "d" | "unrated";
-
-const PRIORITY_TIER_ORDER: SxPocPriorityTier[] = [
-  "s",
-  "a",
-  "b",
-  "c",
-  "d",
-  "unrated",
-];
-
 /**
- * 実現可能性×有望度の合成。片方でも未評価ならunratedで、勝手に中間値を推測しない。
- * S=最優先 (両方高い) → D=後回し (両方低い)。
+ * 関係先リスト最左の評価。unratedは「未」で、推測で埋めない。
+ * 2026-08-06 まで likelihood×value の合成で出していたが、それは
+ * 「排液がもらえるか」を過大評価していた。まさの判断基準は
+ * 顧客として見込みがあるかが第一優先で、軸は (1)ペインの高さ
+ * (2)単価の高い（需要の高い）重金属が排出されているか の2つ。
+ * 排液提供の可否はそれより大幅に劣後する。よって合成をやめ、
+ * poc_grade を人が直接付ける独立カラムにした。
  */
+export type SxPocPriorityTier = "s" | "a" | "b" | "x" | "unrated";
+
+const PRIORITY_TIER_ORDER: SxPocPriorityTier[] = ["s", "a", "b", "x", "unrated"];
+
 export function sxPocPriorityTier(
-  partner: Pick<SxManagementPartner, "pocLikelihood" | "customerValue">,
+  partner: Pick<SxManagementPartner, "pocGrade">,
 ): SxPocPriorityTier {
-  const likelihood = sxNormalizePocJudgment(partner.pocLikelihood);
-  const value = sxNormalizePocJudgment(partner.customerValue);
-  if (!likelihood || !value) return "unrated";
-  const score = (judgment: SxPocJudgmentValue) =>
-    judgment === "high" ? 3 : judgment === "medium" ? 2 : 1;
-  const sum = score(likelihood) + score(value);
-  if (sum === 6) return "s";
-  if (sum === 5) return "a";
-  if (sum === 4) return "b";
-  if (sum === 3) return "c";
-  return "d";
+  const grade = partner.pocGrade;
+  return grade === "s" || grade === "a" || grade === "b" || grade === "x"
+    ? grade
+    : "unrated";
 }
 
 export function sxPocPriorityTierLabel(tier: SxPocPriorityTier) {
-  return { s: "S", a: "A", b: "B", c: "C", d: "D", unrated: "未" }[tier];
+  return { s: "S", a: "A", b: "B", x: "✕", unrated: "未" }[tier];
 }
 
 export function sxPocPriorityTierDescription(tier: SxPocPriorityTier) {
   return {
-    s: "最優先。実現可能性も顧客価値も高い",
-    a: "優先。片方が高くもう片方も見込みあり",
-    b: "様子見。どちらかに弱さがある",
-    c: "後回し候補",
-    d: "見送り候補",
-    unrated: "未評価。実現可能性と顧客有望度を入れると優先順位が付く",
+    s: "最優先。ペインが大きく、単価の高い重金属も出ている",
+    a: "優先。顧客として見込みがある",
+    b: "決め手に欠ける。様子見",
+    x: "顧客としての見込みは薄い",
+    unrated: "未評価。顧客として見込みがあるかを入れると並び順が決まる",
   }[tier];
 }
 
+export const SX_POC_GRADE_CHOICES: SxPocPriorityTier[] = [
+  "s",
+  "a",
+  "b",
+  "x",
+  "unrated",
+];
+
 export function sxPocPriorityRank(
-  partner: Pick<SxManagementPartner, "pocLikelihood" | "customerValue">,
+  partner: Pick<SxManagementPartner, "pocGrade">,
 ): number {
   return PRIORITY_TIER_ORDER.indexOf(sxPocPriorityTier(partner));
 }

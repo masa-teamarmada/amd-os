@@ -245,15 +245,17 @@ for (const forbidden of ["due_date", "due_date_precision", "InlineDueFields"]) {
   );
 }
 
-// desktopの1社1行は9列の実必要幅に合わせたcontainer breakpointで成立させる。
+// desktopの1社1行は実必要幅に合わせたcontainer breakpointで成立させる。
 // 旧1280pxは1440px画面の実一覧幅1261pxでも発火せず、1行約500pxまで膨張した。
-// 1248px未満では無理に9列化せず、右端clipを避ける。
+// 1248px未満では無理に多列化せず、右端clipを避ける。
+// 2026-08-06に最左の評価カラム(34px)と排液カラムを足したため、
+// 内側9列は 1248 - padding16 - 評価34 - 履歴72 - 外側gap16 - 内側gap64 = 1046px以内に収める。
 for (const required of [
   'data-partner-row-density="compact"',
   "@container",
-  "@min-[1248px]:grid-cols-[236px_196px_104px_96px_132px_72px_104px_148px]",
-  "@min-[1248px]:grid-cols-[236px_196px_104px_96px_132px_72px_104px_148px_72px]",
-  "sm:grid-cols-[minmax(0,1fr)_72px]",
+  "@min-[1248px]:grid-cols-[188px_148px_92px_88px_116px_72px_96px_128px_108px]",
+  "@min-[1248px]:grid-cols-[34px_188px_148px_92px_88px_116px_72px_96px_128px_108px_72px]",
+  "sm:grid-cols-[34px_minmax(0,1fr)_72px]",
   "grid-cols-[minmax(0,1fr)_68px]",
   "@min-[1248px]:col-span-1",
   "@min-[1248px]:grid",
@@ -272,7 +274,7 @@ assert.equal(
 // 関係先名は識別主キー。全文を表示し、編集時も同じ文字面だけをinputへ置換する。
 const partnerNameViewSource = pipelineSource.slice(
   pipelineSource.indexOf("const relationNameView"),
-  pipelineSource.indexOf("const connectionOriginView"),
+  pipelineSource.indexOf("const effluentView"),
 );
 for (const required of ["whitespace-normal", "break-words"]) {
   assert.ok(
@@ -948,27 +950,79 @@ assert.equal(sxPocLikelihoodLabel(null), "未評価");
 assert.equal(sxCustomerValueLabel("high"), "有望");
 assert.equal(sxCustomerValueLabel(null), "未評価");
 
-// 優先度は2軸の合成。片方でも未評価なら推測でランク付けせず「未」に落とす。
-const bothHigh = { ...sxBall, id: "p-s", pocLikelihood: "high", customerValue: "high" };
-const highMid = { ...sxBall, id: "p-a", pocLikelihood: "high", customerValue: "medium" };
-const bothLow = { ...sxBall, id: "p-d", pocLikelihood: "low", customerValue: "low" };
-const halfRated = { ...sxBall, id: "p-x", pocLikelihood: "high", customerValue: null };
-assert.equal(sxPocPriorityTier(bothHigh), "s");
-assert.equal(sxPocPriorityTier(highMid), "a");
-assert.equal(sxPocPriorityTier(bothLow), "d");
-assert.equal(sxPocPriorityTier(halfRated), "unrated");
+// 評価は2軸の合成ではなく、最左カラムで人が直接付ける poc_grade をそのまま使う。
+// 合成は「排液がもらえるか」を過大評価していた (2026-08-06 まさ)。
+// null は推測でランク付けせず「未」に落とす。
+const gradeS = { ...sxBall, id: "p-s", pocGrade: "s" };
+const gradeA = { ...sxBall, id: "p-a", pocGrade: "a" };
+const gradeX = { ...sxBall, id: "p-x", pocGrade: "x" };
+const gradeNone = { ...sxBall, id: "p-none", pocGrade: null };
+assert.equal(sxPocPriorityTier(gradeS), "s");
+assert.equal(sxPocPriorityTier(gradeA), "a");
+assert.equal(sxPocPriorityTier(gradeX), "x");
+assert.equal(sxPocPriorityTier(gradeNone), "unrated");
+// 見込み2軸が入っていても、評価カラムが空なら「未」のまま。合成へ戻さない。
+assert.equal(
+  sxPocPriorityTier({ ...sxBall, id: "p-mix", pocGrade: null, pocLikelihood: "high", customerValue: "high" }),
+  "unrated",
+);
 assert.equal(sxPocPriorityTierLabel("s"), "S");
+assert.equal(sxPocPriorityTierLabel("x"), "✕");
 assert.equal(sxPocPriorityTierLabel("unrated"), "未");
-assert.ok(sxPocPriorityRank(bothHigh) < sxPocPriorityRank(highMid));
-assert.ok(sxPocPriorityRank(bothLow) < sxPocPriorityRank(halfRated));
+assert.ok(sxPocPriorityRank(gradeS) < sxPocPriorityRank(gradeA));
+assert.ok(sxPocPriorityRank(gradeX) < sxPocPriorityRank(gradeNone));
 assert.ok(
-  sxComparePartnersForPoc(bothHigh, bothLow, "2026-07-30", "priority") < 0,
-  "優先度順ではSがDより上にくる",
+  sxComparePartnersForPoc(gradeS, gradeX, "2026-07-30", "priority") < 0,
+  "優先度順ではSが✕より上にくる",
 );
 assert.ok(
-  sxComparePartnersForPoc(bothLow, halfRated, "2026-07-30", "priority") < 0,
+  sxComparePartnersForPoc(gradeX, gradeNone, "2026-07-30", "priority") < 0,
   "評価済みは未評価より上にくる",
 );
+
+// 評価は社名セルに混ぜず、行の最左に独立カラムとして立てる (2026-08-06 まさ)。
+// 排液プロファイル(成分・年間量・年間処理コスト)は評価の根拠なので同じ行に持つ。
+for (const required of [
+  "data-partner-grade-cell",
+  'keyFor("poc-grade")',
+  "SX_POC_GRADE_CHOICES",
+  'keyFor("effluent")',
+  "effluent_components",
+  "effluent_volume_annual",
+  "effluent_cost_annual",
+]) {
+  assert.ok(
+    pipelineSource.includes(required),
+    `${required} must keep the grade column and effluent profile on the partner row`,
+  );
+}
+// 議事録は共有リンクが失効するため、本文を関係先のやり取り履歴へ全文保存して読めるようにする。
+assert.ok(
+  pipelineSource.includes("interaction.detailMd"),
+  "stored meeting minutes must render in the interaction history",
+);
+for (const required of [
+  "pocGrade: SxPocGrade | null",
+  "effluentComponents: string | null",
+  "detailMd: string | null",
+  'nullableString(row, "detail_md")',
+  "poc_grade",
+]) {
+  assert.ok(
+    managementSource.includes(required),
+    `${required} must remain in the management read model`,
+  );
+}
+for (const required of [
+  'takeOptionalText("effluent_components", "effluent_components", 500)',
+  'takeOptionalText("detail_md", "detail_md", 40000)',
+  'enumValue(raw.poc_grade, "poc_grade", POC_GRADES)',
+]) {
+  assert.ok(
+    managementRouteSource.includes(required),
+    `${required} must remain writable through the management PATCH route`,
+  );
+}
 
 // チップは軸名 (段階 / 状態 / 確度 / 実現 / 顧客) を必ずchip内に持ち、値だけを並べない。
 for (const required of [
