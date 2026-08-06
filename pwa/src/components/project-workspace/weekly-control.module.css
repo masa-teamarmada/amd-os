@@ -311,8 +311,10 @@
 .checkboxRow input { width: 16px; min-height: 16px; height: 16px; }
 .checkboxRow input:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 /* 担当の新規入力モード。入力欄と「一覧から選ぶ」を1行に並べ、select と同じ高さに収める。 */
-.ownerManualRow { display: flex !important; align-items: center; gap: 6px; margin: 0 !important; }
-.ownerManualRow input { flex: 1 1 auto; min-width: 0; }
+/* インライン編集セルは幅が狭い。1行に収まらない時はボタンを次行へ落とし、名前の入力欄が
+   数文字分に潰れないようにする。 */
+.ownerManualRow { display: flex !important; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 !important; }
+.ownerManualRow input { flex: 1 1 130px; min-width: 130px; }
 .ownerManualRow button { flex: 0 0 auto; min-height: 32px; padding: 0 8px; border: 1px solid #c9c0b2; border-radius: 4px; background: #fbf8f0; color: var(--ink-soft, #6b6759); font-size: 10px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .ownerManualRow button:hover { background: #f2ecdf; }
 

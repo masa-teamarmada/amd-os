@@ -2629,7 +2629,17 @@ function IssueEditor({
                     next.delete(field.key);
                     return next;
                   });
-                  setValues((current) => ({ ...current, [field.key]: "" }));
+                  // 一覧へ戻したら、自由入力を始める前の担当へ復帰させる。空のまま残すと
+                  // 「変更していないのに未保存」の状態が居座り、破棄確認から抜けられなくなる。
+                  const restored = initialValues.current[field.key] || "";
+                  setValues((current) => ({
+                    ...current,
+                    [field.key]: field.options?.some(
+                      (option) => option.value === restored,
+                    )
+                      ? restored
+                      : "",
+                  }));
                 }}
               >
                 一覧から選ぶ
