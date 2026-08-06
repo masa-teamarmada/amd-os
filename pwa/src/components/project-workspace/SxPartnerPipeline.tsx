@@ -335,7 +335,11 @@ const FOCUS_RING =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]";
 
 type PartnerInlineResource =
-  "partner" | "partner_work_item" | "commitment" | "interaction" | "partner_sample";
+  | "partner"
+  | "partner_work_item"
+  | "commitment"
+  | "interaction"
+  | "partner_sample";
 
 type PartnerInlinePatch = {
   resource: PartnerInlineResource;
@@ -1162,7 +1166,9 @@ function pocFacetChipsView(partner: SxManagementPartner) {
       className={`inline-flex max-w-full items-baseline gap-0.5 border px-1 py-px text-[10px] font-semibold leading-3 ${tone}`}
     >
       <span className="shrink-0 font-normal opacity-70">{facet}</span>
-      <span className="min-w-0 break-words">{value}</span>
+      <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+        {value}
+      </span>
     </span>
   );
   return (
@@ -1207,7 +1213,7 @@ function pocFacetChipsView(partner: SxManagementPartner) {
       )}
       {partner.valueNote && (
         <span
-          className="w-full break-words text-[10px] leading-4 text-[#5a574c]"
+          className="w-full break-words [overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]"
           title={partner.valueNote}
           data-poc-value-note={partner.id}
         >
@@ -1885,7 +1891,9 @@ function PartnerComparisonControls({
       aria-pressed={activeSort === sort}
       aria-label={`${label}に並び替え`}
       className={`min-h-11 shrink-0 border ${
-        activeSort === sort ? "border-[#3f6b8c] bg-[#dee8f0] text-[#2a5473]" : NEUTRAL_TONE
+        activeSort === sort
+          ? "border-[#3f6b8c] bg-[#dee8f0] text-[#2a5473]"
+          : NEUTRAL_TONE
       } ${FOCUS_RING}`}
     >
       <span className="block px-2 py-1 text-[10px] font-semibold">
@@ -2377,11 +2385,14 @@ function usePartnerLedgerColumnWidths() {
 
 /** 幅を CSS 変数へ流し込む。行・見出し・横スクロール枠が同じ値を共有する。 */
 function partnerLedgerGridStyle(widths: PartnerLedgerWidths): CSSProperties {
-  const inner = PARTNER_LEDGER_INNER_KEYS.map(
-    (key) => `${widths[key]}px`,
-  ).join(" ");
+  const inner = PARTNER_LEDGER_INNER_KEYS.map((key) => `${widths[key]}px`).join(
+    " ",
+  );
   const total =
-    PARTNER_LEDGER_COLUMNS.reduce((sum, column) => sum + widths[column.key], 0) +
+    PARTNER_LEDGER_COLUMNS.reduce(
+      (sum, column) => sum + widths[column.key],
+      0,
+    ) +
     // gap-2 × 11 本 + 行の px-2
     8 * (PARTNER_LEDGER_COLUMNS.length - 1) +
     16;
@@ -2448,7 +2459,9 @@ function PartnerLedgerHeaderCell({
       className={`relative flex min-w-0 items-center pr-2 ${sticky ? `${PARTNER_LEDGER_STICKY_LEFT} bg-[#f2eee0]` : ""}`}
       title={column.title}
     >
-      <span className="min-w-0 break-words">{column.label}</span>
+      <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+        {column.label}
+      </span>
       <span
         role="separator"
         aria-orientation="vertical"
@@ -2695,7 +2708,7 @@ function PartnerSampleRow({
   const view = (
     <div className="grid min-w-0 gap-0.5 px-3 py-2 text-left">
       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-        <span className="break-words text-[11px] font-semibold leading-4 text-[#24231f]">
+        <span className="break-words [overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#24231f]">
           {sample.label}
         </span>
         <span
@@ -2712,7 +2725,9 @@ function PartnerSampleRow({
       <p className="text-[10px] leading-4 text-[#5a574c]">
         受領 {sample.receivedOn ? sxFormatDate(sample.receivedOn) : "未確認"} ・
         保管 {sample.storageLocation || "未確認"} ・ 担当{" "}
-        {sample.ownerLabel ? sxNormalizePublicName(sample.ownerLabel) : "未確認"}
+        {sample.ownerLabel
+          ? sxNormalizePublicName(sample.ownerLabel)
+          : "未確認"}
       </p>
       {sample.notes && (
         <p className="text-[10px] leading-4 text-[#514e47]">{sample.notes}</p>
@@ -2736,10 +2751,7 @@ function PartnerSampleRow({
       </li>
     );
   }
-  const field = (
-    label: string,
-    node: ReactNode,
-  ) => (
+  const field = (label: string, node: ReactNode) => (
     <label className="grid min-w-0 gap-0.5">
       <span className="text-[10px] font-semibold leading-3 text-[#5a574c]">
         {label}
@@ -2781,7 +2793,10 @@ function PartnerSampleRow({
             value={draft.status}
             disabled={saving}
             onChange={(event) =>
-              setDraft((current) => ({ ...current, status: event.target.value }))
+              setDraft((current) => ({
+                ...current,
+                status: event.target.value,
+              }))
             }
           >
             {SX_SAMPLE_STATUS_ORDER.map((status) => (
@@ -3009,7 +3024,7 @@ function PartnerProgressHistoryModal({
             </p>
             <h4
               id={titleId}
-              className="mt-0.5 break-words text-xl font-semibold leading-[1.35] text-[#24231f]"
+              className="mt-0.5 break-words [overflow-wrap:anywhere] text-xl font-semibold leading-[1.35] text-[#24231f]"
             >
               {display.name}
             </h4>
@@ -3082,7 +3097,8 @@ function PartnerProgressHistoryModal({
             )}
           </section>
 
-          {(partner.samples.length > 0 || (canManage && partner.pocCategory)) && (
+          {(partner.samples.length > 0 ||
+            (canManage && partner.pocCategory)) && (
             <section
               className="mt-5 border-t border-[#c5bba5] pt-4"
               aria-labelledby={`${titleId}-samples`}
@@ -3350,7 +3366,7 @@ function PartnerInlineRow({
   const relationNameView = (
     <span
       id={nameHeadingId}
-      className="whitespace-normal break-words text-[12px] font-semibold leading-4 text-[#24231f]"
+      className="whitespace-normal break-words [overflow-wrap:anywhere] text-[12px] font-semibold leading-4 text-[#24231f]"
     >
       {display.name}
     </span>
@@ -3358,12 +3374,12 @@ function PartnerInlineRow({
   const effluentView = (
     <span className="grid min-h-11 min-w-0 content-center gap-0.5">
       <span
-        className="break-words text-[10px] font-semibold leading-4 text-[#24231f]"
+        className="break-words [overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#24231f]"
         title={partner.effluentComponents || "成分 未確認"}
       >
         {partner.effluentComponents || "成分 未確認"}
       </span>
-      <span className="break-words text-[10px] leading-4 text-[#5a574c]">
+      <span className="break-words [overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]">
         年間 {partner.effluentVolumeAnnual || "量未確認"} ・ 処理費{" "}
         {partner.effluentCostAnnual || "未確認"}
       </span>
@@ -3386,13 +3402,13 @@ function PartnerInlineRow({
   const nextMeetingView = (
     <span className="grid min-h-11 min-w-0 content-center gap-0.5">
       <span
-        className={`break-words text-[10px] font-semibold leading-4 ${partner.nextMeetingOn ? "text-[#24231f]" : "text-[#5a574c]"}`}
+        className={`break-words [overflow-wrap:anywhere] text-[10px] font-semibold leading-4 ${partner.nextMeetingOn ? "text-[#24231f]" : "text-[#5a574c]"}`}
         title={nextMeetingDateText}
       >
         {nextMeetingDateText}
       </span>
       <span
-        className="break-words text-[10px] leading-4 text-[#5a574c]"
+        className="break-words [overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]"
         title={nextMeetingSubText}
       >
         {nextMeetingSubText}
@@ -3402,13 +3418,13 @@ function PartnerInlineRow({
   const connectionOriginView = (
     <span className="grid min-h-11 min-w-0 content-center gap-0.5">
       <span
-        className="break-words text-[10px] font-semibold leading-4 text-[#24231f]"
+        className="break-words [overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#24231f]"
         title={partner.connectionContext || "経緯 未登録"}
       >
         {partner.connectionContext || "経緯 未登録"}
       </span>
       <span
-        className="break-words text-[10px] leading-4 text-[#5a574c]"
+        className="break-words [overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]"
         title={partner.introducerLabel || "紹介者 未確認"}
       >
         紹介者 {partner.introducerLabel || "未確認"}
@@ -3421,7 +3437,7 @@ function PartnerInlineRow({
         <span className="px-1 pt-0.5 text-[10px] font-semibold leading-3 text-[#5a574c]">
           保有側
         </span>
-        <span className="break-words px-1 pb-1 text-[11px] font-semibold leading-4 text-[#24231f]">
+        <span className="break-words [overflow-wrap:anywhere] px-1 pb-1 text-[11px] font-semibold leading-4 text-[#24231f]">
           {sxBallSideLabel(partner.currentBallSide)}
         </span>
       </span>
@@ -3430,7 +3446,7 @@ function PartnerInlineRow({
           担当
         </span>
         <span
-          className="break-words px-1 pb-1 text-[11px] font-semibold leading-4 text-[#24231f]"
+          className="break-words [overflow-wrap:anywhere] px-1 pb-1 text-[11px] font-semibold leading-4 text-[#24231f]"
           title={
             partner.currentBallOwner
               ? sxNormalizePublicName(partner.currentBallOwner)
@@ -3446,7 +3462,7 @@ function PartnerInlineRow({
   );
   const goalView = (
     <p
-      className="break-words text-[11px] font-semibold leading-4 text-[#24231f]"
+      className="break-words [overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#24231f]"
       title={goalStep?.title}
     >
       {goalStep?.title ?? "目標状態 未登録"}
@@ -3693,7 +3709,7 @@ function PartnerInlineRow({
                 }}
                 view={
                   <p
-                    className={`mt-1 break-words text-[10px] font-semibold leading-4 ${impact.critical ? "text-[#8c3329]" : "text-[#24231f]"}`}
+                    className={`mt-1 break-words [overflow-wrap:anywhere] text-[10px] font-semibold leading-4 ${impact.critical ? "text-[#8c3329]" : "text-[#24231f]"}`}
                     title={impact.title}
                   >
                     {impact.critical
@@ -3744,7 +3760,7 @@ function PartnerInlineRow({
               />
             ) : (
               <p
-                className={`mt-1 break-words text-[10px] font-semibold leading-4 ${impact.critical ? "text-[#8c3329]" : "text-[#24231f]"}`}
+                className={`mt-1 break-words [overflow-wrap:anywhere] text-[10px] font-semibold leading-4 ${impact.critical ? "text-[#8c3329]" : "text-[#24231f]"}`}
                 title={impact.title}
               >
                 {impact.critical
@@ -3782,7 +3798,7 @@ function PartnerInlineRow({
                 view={
                   <>
                     <p
-                      className="break-words text-[11px] font-semibold leading-4 text-[#24231f]"
+                      className="break-words [overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#24231f]"
                       title={actionText}
                     >
                       {actionText}
@@ -3876,7 +3892,7 @@ function PartnerInlineRow({
             ) : (
               <>
                 <p
-                  className="break-words text-[11px] font-semibold leading-4 text-[#24231f]"
+                  className="break-words [overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#24231f]"
                   title={actionText}
                 >
                   {actionText}
@@ -3928,7 +3944,8 @@ function PartnerInlineRow({
                       next_meeting_mode: values.next_meeting_mode || null,
                       next_meeting_place:
                         values.next_meeting_place.trim() || null,
-                      next_meeting_prep: values.next_meeting_prep.trim() || null,
+                      next_meeting_prep:
+                        values.next_meeting_prep.trim() || null,
                     },
                   )
                 }
@@ -4033,7 +4050,7 @@ function PartnerInlineRow({
                 view={
                   <>
                     <p
-                      className="break-words text-[11px] font-semibold text-[#24231f]"
+                      className="break-words [overflow-wrap:anywhere] text-[11px] font-semibold text-[#24231f]"
                       title={ownershipOwnerText}
                     >
                       {ownershipOwnerText}
@@ -4171,7 +4188,7 @@ function PartnerInlineRow({
             ) : (
               <>
                 <p
-                  className="break-words text-[11px] font-semibold text-[#24231f]"
+                  className="break-words [overflow-wrap:anywhere] text-[11px] font-semibold text-[#24231f]"
                   title={ownershipOwnerText}
                 >
                   {ownershipOwnerText}
@@ -4223,7 +4240,7 @@ function PartnerInlineRow({
                       ・ {sxInteractionKindLabel(latest.interactionKind)}
                     </p>
                     <p
-                      className="mt-0.5 break-words text-[10px] leading-4 text-[#24231f]"
+                      className="mt-0.5 break-words [overflow-wrap:anywhere] text-[10px] leading-4 text-[#24231f]"
                       title={latestSummary}
                     >
                       {latestSummary}
@@ -4370,7 +4387,7 @@ function PartnerInlineRow({
                   ・ {sxInteractionKindLabel(latest.interactionKind)}
                 </p>
                 <p
-                  className="mt-0.5 break-words text-[10px] leading-4 text-[#24231f]"
+                  className="mt-0.5 break-words [overflow-wrap:anywhere] text-[10px] leading-4 text-[#24231f]"
                   title={latestSummary}
                 >
                   {latestSummary}
@@ -4626,7 +4643,9 @@ export function SxPartnerPipeline({
         } catch {
           // The notice below leaves no ambiguity when reconciliation also failed.
         }
-        onSyncNotice?.(`${message}。同期状況を確認できないから、画面を再読み込みしてね`);
+        onSyncNotice?.(
+          `${message}。同期状況を確認できないから、画面を再読み込みしてね`,
+        );
       }
     })();
     return Promise.resolve();
@@ -4939,7 +4958,9 @@ export function SxPartnerPipeline({
           （groups.length === 0 だけを見ると「該当なし」を誤表示してしまう）。 */}
       <div
         className="@min-[1248px]:overflow-x-auto @min-[1248px]:pb-72"
-        onScroll={(event) => syncLedgerHeaderScroll(event.currentTarget.scrollLeft)}
+        onScroll={(event) =>
+          syncLedgerHeaderScroll(event.currentTarget.scrollLeft)
+        }
       >
         <div className={PARTNER_LEDGER_MIN_WIDTH}>
           {(comparisonOnly
@@ -4975,7 +4996,11 @@ export function SxPartnerPipeline({
                   </h4>
                 </div>
                 {group.partners.map((partner) => (
-                  <PartnerRow key={partner.id} partner={partner} {...rowProps} />
+                  <PartnerRow
+                    key={partner.id}
+                    partner={partner}
+                    {...rowProps}
+                  />
                 ))}
               </div>
             ))}
@@ -4991,7 +5016,11 @@ export function SxPartnerPipeline({
               </summary>
               <div>
                 {deferredPartners.map((partner) => (
-                  <PartnerRow key={partner.id} partner={partner} {...rowProps} />
+                  <PartnerRow
+                    key={partner.id}
+                    partner={partner}
+                    {...rowProps}
+                  />
                 ))}
               </div>
             </details>
@@ -5010,7 +5039,11 @@ export function SxPartnerPipeline({
               </summary>
               <div>
                 {endedPartners.map((partner) => (
-                  <PartnerRow key={partner.id} partner={partner} {...rowProps} />
+                  <PartnerRow
+                    key={partner.id}
+                    partner={partner}
+                    {...rowProps}
+                  />
                 ))}
               </div>
             </details>
@@ -5168,7 +5201,7 @@ function InteractionFullRow({
           >
             議事録の全文を読む
           </summary>
-          <div className="mt-1 max-h-80 overflow-y-auto whitespace-pre-wrap break-words border border-[#d5cdba] bg-[#fffdf7] p-2 text-[11px] leading-5 text-[#24231f]">
+          <div className="mt-1 max-h-80 overflow-y-auto whitespace-pre-wrap break-words [overflow-wrap:anywhere] border border-[#d5cdba] bg-[#fffdf7] p-2 text-[11px] leading-5 text-[#24231f]">
             {interaction.detailMd}
           </div>
         </details>
