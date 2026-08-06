@@ -374,7 +374,7 @@ function RowBar({
   onPointerUp,
   onPointerCancel,
   onLostPointerCapture,
-  connectionMode,
+  dependencyEnabled,
   connectionSourceId,
   onPointerDownDependency,
   onKeyboardStartDependency,
@@ -395,7 +395,7 @@ function RowBar({
   onPointerUp: (event: React.PointerEvent) => void;
   onPointerCancel: (event: React.PointerEvent) => void;
   onLostPointerCapture: (event: React.PointerEvent) => void;
-  connectionMode: boolean;
+  dependencyEnabled: boolean;
   connectionSourceId: string | null;
   onPointerDownDependency: (
     row: DisplayRow,
@@ -418,14 +418,23 @@ function RowBar({
     : isMilestoneMarker
       ? row.plannedEndPct
       : null;
+  // Drawing a dependency is not a mode you switch into: the "+" port is always on the row, and
+  // only while a link is actually being drawn (a source is armed) do the date-drag affordances
+  // stand down, so a half-finished link can never be resolved as a schedule change.
+  const connectionDrafting = connectionSourceId != null;
+  const isConnectionSource = connectionSourceId === `${row.entity}:${row.id}`;
+  const showDependencyPort =
+    dependencyEnabled &&
+    (row.entity === "task" || isMilestoneMarker) &&
+    (!connectionDrafting || isConnectionSource);
   // A normal range is draggable only when BOTH endpoints exist. End-only normal rows are
   // intentionally read-only on the gantt: there is no honest duration to move or resize yet.
   // The sole end-only draggable exception is the NewCo diamond below.
   const draggableBar =
-    canManage && !connectionMode && row.plannedStart != null && row.plannedEnd != null && !isMilestoneMarker;
+    canManage && !connectionDrafting && row.plannedStart != null && row.plannedEnd != null && !isMilestoneMarker;
   const draggableMilestone =
     canManage &&
-    !connectionMode &&
+    !connectionDrafting &&
     hasBar &&
     isMilestoneMarker &&
     // Only the two NewCo gates may drag from an end-only date. A generic point-MS must have its
@@ -462,7 +471,7 @@ function RowBar({
       <button
         type="button"
         onClick={onTimelinePoint}
-        disabled={!canManage || saving || connectionMode}
+        disabled={!canManage || saving || connectionDrafting}
         className="absolute inset-0 z-0 w-full cursor-crosshair text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] disabled:cursor-default"
         aria-label={`${row.title}行の日付を選んでMSを追加`}
       />
@@ -616,16 +625,16 @@ function RowBar({
           />
         </button>
       )}
-      {connectionMode &&
-        hasBar &&
-        (row.entity === "task" || isMilestoneMarker) &&
-        (!connectionSourceId ||
-          connectionSourceId === `${row.entity}:${row.id}`) && (
+      {/* The "+" port sits wholly to the RIGHT of everything the row already owns — past the
+          16px end-resize handle for a bar, past the 44px diamond drag box for an MS — so making
+          it permanent (hover-revealed, like the resize ticks) never steals a date-drag or a
+          detail click. Drag it onto another row to link; Enter/Space arms it for keyboard use. */}
+      {showDependencyPort && hasBar && (
           <button
             type="button"
             data-gantt-dependency-source={`${row.entity}:${row.id}`}
-            data-active={connectionSourceId === `${row.entity}:${row.id}` || undefined}
-            aria-pressed={connectionSourceId === `${row.entity}:${row.id}`}
+            data-active={isConnectionSource || undefined}
+            aria-pressed={isConnectionSource}
             onPointerDown={(event) => onPointerDownDependency(row, event)}
             onClick={(event) => {
               // Pointer users drag from this port. Enter/Space has detail===0 and provides the
@@ -633,21 +642,21 @@ function RowBar({
               if (event.detail !== 0) return;
               onKeyboardStartDependency(row);
             }}
-            className="absolute z-40 grid h-11 w-7 -translate-x-1/2 place-items-center rounded-full text-[#5f4a66] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#5f4a66] data-[active=true]:text-[#205f49]"
+            className="absolute z-40 grid h-11 w-6 cursor-crosshair place-items-center rounded-full text-[#5f4a66] opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#5f4a66] data-[active=true]:text-[#205f49] data-[active=true]:opacity-100"
             style={{
               top: 2,
               left: isMilestoneMarker
-                ? timelinePctCss(plannedEnd, MILESTONE_VERTEX_RADIUS_PX)
-                : barGeometry!.right,
+                ? timelinePctCss(plannedEnd, DRAG_HIT_HEIGHT / 2)
+                : `calc(${barGeometry!.right} + 16px)`,
               touchAction: "none",
             }}
+            title="ドラッグして他のタスク・MSへ依存線を引く"
             aria-label={`${row.title}の右端から依存線を開始`}
           >
-            <span className="h-3 w-3 rounded-full border-2 border-current bg-[#fffdf7]" />
+            <Plus className="h-4 w-4" strokeWidth={3} aria-hidden="true" />
           </button>
         )}
-      {connectionMode &&
-        connectionSourceId &&
+      {connectionSourceId &&
         (row.entity === "task" || isMilestoneMarker) &&
         dependencyTargetPct != null && (
         <button
@@ -921,7 +930,10 @@ export function SxUnifiedTimeline({
   const milestonePromptOriginRef = useRef<HTMLButtonElement | null>(null);
   const milestonePromptSubmittingRef = useRef(false);
   const [ganttNotice, setGanttNotice] = useState<string | null>(null);
-  const [dependencyMode, setDependencyMode] = useState(false);
+  // Dependency drawing is an always-available affordance, not a mode: every schedulable row
+  // carries a hover-revealed "+" port. `dependencySource != null` is the only transient state,
+  // and it is what suspends the date-drag/nest-drag affordances mid-link.
+  const dependencyDrawingEnabled = canManage && Boolean(projectId);
   const [dependencySource, setDependencySource] =
     useState<ScheduleDependencySource | null>(null);
   const [dependencyPreview, setDependencyPreview] = useState<{
@@ -991,7 +1003,7 @@ export function SxUnifiedTimeline({
     dependencyId: string,
     event: React.PointerEvent<SVGPathElement>,
   ) {
-    if (!canManage || !projectId || dependencyMode) return;
+    if (!canManage || !projectId || dependencySource) return;
     const pane = gridPaneRef.current;
     if (!pane) return;
     keepScheduleDependencyActions();
@@ -1057,8 +1069,7 @@ export function SxUnifiedTimeline({
     row: DisplayRow,
     event: React.PointerEvent<HTMLButtonElement>,
   ) {
-    if (!dependencyMode || !canManage || !projectId || event.button !== 0)
-      return;
+    if (!dependencyDrawingEnabled || event.button !== 0) return;
     const pane = gridPaneRef.current;
     if (!pane || row.plannedEndPct == null) return;
     event.preventDefault();
@@ -1080,8 +1091,7 @@ export function SxUnifiedTimeline({
   }
 
   function beginKeyboardScheduleDependency(row: DisplayRow) {
-    if (!dependencyMode || !canManage || !projectId || row.plannedEndPct == null)
-      return;
+    if (!dependencyDrawingEnabled || row.plannedEndPct == null) return;
     const sourcePoint = dependencySourcePoint(row, gridPaneWidth);
     if (!sourcePoint) return;
     setDependencySource({
@@ -1291,7 +1301,7 @@ export function SxUnifiedTimeline({
   }, [dependencySource]);
 
   useEffect(() => {
-    if (!dependencyMode) return;
+    if (!dependencySource) return;
     const cancelOnEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       setDependencySource(null);
@@ -1300,7 +1310,7 @@ export function SxUnifiedTimeline({
     };
     window.addEventListener("keydown", cancelOnEscape);
     return () => window.removeEventListener("keydown", cancelOnEscape);
-  }, [dependencyMode]);
+  }, [dependencySource]);
 
   // Best-effort refetch after ANY save failure (409 conflict or otherwise) — always attempt to
   // pull the true current state so the UI never keeps showing a stale optimistic preview. If the
@@ -2135,33 +2145,12 @@ export function SxUnifiedTimeline({
         >
           今日へ
         </button>
-        {canManage && projectId && (
-          <button
-            type="button"
-            aria-pressed={dependencyMode}
-            onClick={() => {
-              setDependencyMode((current) => {
-                const next = !current;
-                if (!next) {
-                  setDependencySource(null);
-                  setDependencyPreview(null);
-                }
-                setHoveredScheduleDependency(null);
-                return next;
-              });
-            }}
-            className={`inline-flex min-h-11 items-center gap-1 border px-3 text-[11px] font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5f4a66] ${dependencyMode ? "border-[#5f4a66] bg-[#5f4a66] text-white" : "border-[#9d8daa] bg-[#fffdf7] text-[#5f4a66]"}`}
-          >
-            <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
-            {dependencyMode ? "依存接続中" : "依存を接続"}
-          </button>
-        )}
         <span className="ml-auto hidden text-[10px] text-[#5f5a4d] lg:inline">
-          {dependencyMode
-            ? dependencySource
-              ? `${dependencySource.title} → 接続先のタスクかMSへ`
-              : "右端から左端へドラッグ、または順にクリック"
-            : "バーで日程変更・左のグリップで階層変更"}
+          {dependencySource
+            ? `${dependencySource.title} → 接続先のタスクかMSへ`
+            : dependencyDrawingEnabled
+              ? "バーで日程変更・左のグリップで階層変更・右端の＋をドラッグで依存線"
+              : "バーで日程変更・左のグリップで階層変更"}
         </span>
       </div>
 
@@ -2256,7 +2245,7 @@ export function SxUnifiedTimeline({
                       <span className="min-w-0 flex-1 text-[10px] font-bold text-[#5f4a66]">{milestone.title}</span>
                       <span className="shrink-0 text-[9px] text-[#5a564b]">{milestone.plannedEnd ? sxFormatDate(milestone.plannedEnd) : "日程未設定"}</span>
                     </button>
-                    {dependencyMode && (
+                    {dependencyDrawingEnabled && (
                       <div className="flex items-center gap-2 border-t border-[#e2dce5] px-3 py-1.5">
                         <button
                           type="button"
@@ -2264,12 +2253,13 @@ export function SxUnifiedTimeline({
                           onClick={() => beginKeyboardScheduleDependency(displayMilestone)}
                           className="flex min-h-11 flex-1 items-center justify-center gap-1 border border-[#9d8daa] bg-[#fffdf7] px-2 text-[10px] font-bold text-[#5f4a66] disabled:opacity-40"
                         >
-                          <span aria-hidden="true">●→</span>
+                          <Plus className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
                           起点
                         </button>
+                        {dependencySource && (
                         <button
                           type="button"
-                          disabled={!dependencySource || !hasScheduledPoint}
+                          disabled={!hasScheduledPoint}
                           onClick={() =>
                             void connectScheduleDependency({
                               entity: "milestone",
@@ -2281,6 +2271,7 @@ export function SxUnifiedTimeline({
                           <span aria-hidden="true">←</span>
                           接続先
                         </button>
+                        )}
                         <span className="shrink-0 text-[9px] text-[#5a564b]">
                           入{incomingScheduleCount} / 出{outgoingScheduleCount}
                         </span>
@@ -2353,7 +2344,7 @@ export function SxUnifiedTimeline({
                           onPointerCancel={(event) => cancelTaskNestDrag(event)}
                           onLostPointerCapture={(event) => cancelTaskNestDrag(event)}
                           className="grid min-h-11 min-w-11 touch-none place-items-center text-[#65604f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] disabled:opacity-40"
-                          disabled={dependencyMode || taskNestDrag?.saving}
+                          disabled={Boolean(dependencySource) || taskNestDrag?.saving}
                           aria-label={`${row.title}をドラッグして親タスクを変更`}
                         >
                           <GripVertical className="h-4 w-4" aria-hidden="true" />
@@ -2396,7 +2387,7 @@ export function SxUnifiedTimeline({
                         )}
                       </button>
                     </div>
-                    {dependencyMode && (
+                    {dependencyDrawingEnabled && (
                       <div className="mt-2 grid grid-cols-2 gap-2 border-t border-[#d5cdba] pt-2">
                         {row.plannedEndPct != null ? (
                           <button
@@ -2407,7 +2398,7 @@ export function SxUnifiedTimeline({
                             onClick={() => beginKeyboardScheduleDependency(row)}
                             className="flex min-h-11 items-center justify-center gap-1 border border-[#9d8daa] px-2 text-[10px] font-bold text-[#5f4a66] aria-pressed:bg-[#e9e2ee]"
                           >
-                            <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
+                            <Plus className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
                             右端を起点
                           </button>
                         ) : (
@@ -2593,7 +2584,7 @@ export function SxUnifiedTimeline({
                             onPointerCancel={(event) => cancelTaskNestDrag(event)}
                             onLostPointerCapture={(event) => cancelTaskNestDrag(event)}
                             className="grid h-full w-6 shrink-0 touch-none place-items-center text-[#65604f] transition-colors hover:text-[#205f49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] disabled:opacity-40"
-                            disabled={dependencyMode || taskNestDrag?.saving}
+                            disabled={Boolean(dependencySource) || taskNestDrag?.saving}
                             title="ドラッグして親タスクへ重ねる。レーン見出しへ戻すと最上位にする"
                             aria-label={`${row.title}をドラッグして親タスクを変更`}
                           >
@@ -2711,7 +2702,7 @@ export function SxUnifiedTimeline({
                   </defs>
                   {scheduleDependencyEdges.map((edge) => {
                     const hovered =
-                      !dependencyMode &&
+                      !dependencySource &&
                       hoveredScheduleDependency?.id === edge.dependency.id;
                     return (
                       <g key={edge.dependency.id}>
@@ -2763,7 +2754,7 @@ export function SxUnifiedTimeline({
                   )}
                 </svg>
               )}
-              {!dependencyMode &&
+              {!dependencySource &&
                 canManage &&
                 projectId &&
                 hoveredScheduleDependency && (
@@ -2863,28 +2854,17 @@ export function SxUnifiedTimeline({
                           <button
                             type="button"
                             data-gantt-milestone-marker={milestone.id}
-                            data-gantt-dependency-source={
-                              dependencyMode && !dependencySource
-                                ? `milestone:${milestone.id}`
-                                : undefined
-                            }
                             data-gantt-dependency-target-entity={
-                              dependencyMode && dependencySource
-                                ? "milestone"
-                                : undefined
+                              dependencySource ? "milestone" : undefined
                             }
                             data-gantt-dependency-target-id={
-                              dependencyMode && dependencySource
-                                ? milestone.id
-                                : undefined
+                              dependencySource ? milestone.id : undefined
                             }
                             onPointerDown={(event) => {
                               event.stopPropagation();
-                              if (dependencyMode) {
-                                if (!dependencySource)
-                                  beginScheduleDependency(displayMilestone, event);
-                                return;
-                              }
+                              // Mid-link the diamond is purely a landing pad; letting it also
+                              // start a date drag would resolve one gesture as two edits.
+                              if (dependencySource) return;
                               beginDrag(displayMilestone, markerMode, event);
                             }}
                             onPointerMove={updateDrag}
@@ -2893,27 +2873,22 @@ export function SxUnifiedTimeline({
                             onLostPointerCapture={handleLostPointerCapture}
                             onClick={(event) => {
                               event.stopPropagation();
-                              if (dependencyMode) {
-                                if (dependencySource)
-                                  void connectScheduleDependency({
-                                    entity: "milestone",
-                                    id: milestone.id,
-                                  });
-                                else if (event.detail === 0)
-                                  beginKeyboardScheduleDependency(displayMilestone);
+                              if (dependencySource) {
+                                void connectScheduleDependency({
+                                  entity: "milestone",
+                                  id: milestone.id,
+                                });
                                 return;
                               }
                               handleRowClick(displayMilestone);
                             }}
-                            className={`pointer-events-auto absolute -top-[5px] left-0 grid h-11 w-11 -translate-x-1/2 place-items-center focus-visible:outline focus-visible:outline-2 ${dependencyMode && dependencySource ? "text-[#315f7d] focus-visible:outline-[#315f7d]" : "text-[#5f4a66] focus-visible:outline-[#5f4a66]"}`}
+                            className={`pointer-events-auto absolute -top-[5px] left-0 grid h-11 w-11 -translate-x-1/2 place-items-center focus-visible:outline focus-visible:outline-2 ${dependencySource ? "text-[#315f7d] focus-visible:outline-[#315f7d]" : "text-[#5f4a66] focus-visible:outline-[#5f4a66]"}`}
                             aria-label={
-                              dependencyMode
-                                ? dependencySource
-                                  ? `${milestone.title}を接続先にする`
-                                  : `${milestone.title}を依存線の起点にする`
+                              dependencySource
+                                ? `${milestone.title}を接続先にする`
                                 : `${milestone.title}の詳細を開く。ドラッグで日付を変更`
                             }
-                            title={dependencyMode ? "依存線を接続" : "クリックで詳細、ドラッグで日付を変更"}
+                            title={dependencySource ? "依存線を接続" : "クリックで詳細、ドラッグで日付を変更"}
                           >
                             <i
                               data-gantt-milestone-diamond={milestone.id}
@@ -2921,6 +2896,29 @@ export function SxUnifiedTimeline({
                               aria-hidden="true"
                             />
                           </button>
+                          {/* Lane-spanning MS get the same permanent "+" port as a row, parked
+                              clear of the diamond's own 44px drag box so neither steals the other. */}
+                          {dependencyDrawingEnabled && !dependencySource && (
+                            <button
+                              type="button"
+                              data-gantt-dependency-source={`milestone:${milestone.id}`}
+                              onPointerDown={(event) => {
+                                event.stopPropagation();
+                                beginScheduleDependency(displayMilestone, event);
+                              }}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                if (event.detail !== 0) return;
+                                beginKeyboardScheduleDependency(displayMilestone);
+                              }}
+                              className="pointer-events-auto absolute -top-[5px] grid h-11 w-6 cursor-crosshair place-items-center text-[#5f4a66] opacity-0 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5f4a66]"
+                              style={{ left: DRAG_HIT_HEIGHT / 2, touchAction: "none" }}
+                              title="ドラッグして他のタスク・MSへ依存線を引く"
+                              aria-label={`${milestone.title}から依存線を開始`}
+                            >
+                              <Plus className="h-4 w-4" strokeWidth={3} aria-hidden="true" />
+                            </button>
+                          )}
                           <span
                             className={`pointer-events-none absolute top-0 flex h-[34px] max-w-[144px] items-center truncate whitespace-nowrap text-[9px] font-bold text-[#5f4a66] ${markerPct >= 60 ? "right-3 pr-2 text-right" : "left-3 pl-2 text-left"}`}
                             aria-hidden="true"
@@ -3022,7 +3020,7 @@ export function SxUnifiedTimeline({
                             onPointerUp={(event) => finishDrag(row, event)}
                             onPointerCancel={() => setDragBoth(null)}
                             onLostPointerCapture={handleLostPointerCapture}
-                            connectionMode={dependencyMode}
+                            dependencyEnabled={dependencyDrawingEnabled}
                             connectionSourceId={
                               dependencySource
                                 ? sourceKey(dependencySource)

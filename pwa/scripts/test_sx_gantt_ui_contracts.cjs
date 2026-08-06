@@ -88,7 +88,7 @@ assertIncludes(timelineFile, timeline, [
   "left: `calc(${barGeometry!.left} - 16px)`",
   "left: barGeometry!.right",
   "pointerOffsetToTimelinePct(clientX - rect.left, rect.width)",
-  "canManage && !connectionMode && row.plannedStart != null && row.plannedEnd != null && !isMilestoneMarker",
+  "canManage && !connectionDrafting && row.plannedStart != null && row.plannedEnd != null && !isMilestoneMarker",
   "(row.isBlockingMilestone || row.plannedStart != null)",
   "if (dragRef.current?.saving) return;",
 ]);
@@ -416,10 +416,15 @@ assertIncludes(weeklyCssFile, weeklyCss, [
   "font-size: 16px;",
 ]);
 
-// -- Schedule dependency drawing is an explicit mode, separate from NewCo gate dependencies ----
+// -- Schedule dependency drawing is an always-on "+" port, separate from NewCo gate dependencies ----
 assertIncludes(timelineFile, timeline, [
   "scheduleDependencies?: SxScheduleDependency[];",
-  "dependencyMode",
+  "const dependencyDrawingEnabled = canManage && Boolean(projectId);",
+  "const connectionDrafting = connectionSourceId != null;",
+  "dependencyEnabled &&",
+  "dependencyEnabled={dependencyDrawingEnabled}",
+  '<Plus className="h-4 w-4" strokeWidth={3} aria-hidden="true" />',
+  "ドラッグして他のタスク・MSへ依存線を引く",
   'resource: "schedule_dependency"',
   'data-gantt-dependency-source={`${row.entity}:${row.id}`}',
   'data-gantt-dependency-target-entity={row.entity}',
@@ -453,6 +458,8 @@ assertIncludes(timelineFile, timeline, [
 ]);
 assertNotIncludes(timelineFile, timeline, [
   'className="absolute bottom-0 z-10 flex -translate-x-full',
+  // Dependency drawing must stay a permanent affordance: no mode toggle may come back.
+  "dependencyMode",
 ]);
 const scheduleMigrationFile =
   "scripts/migrations/221_sx_gantt_schedule_dependencies.sql";
