@@ -174,7 +174,7 @@ point-MS追加フォームは`接続する成果 / MS名 / 予定日`の3項目�
 - 確度は `sx-partner-progress.ts` の `SX_PARTNER_CONFIDENCE_ORDER = ["high","medium","low","unknown"]` を正本とし、表示語彙は `sxPartnerConfidenceLabel` で 確認済み / 推定 / 要確認 / 未確認 に対応させる。PoC候補先スプシの語彙をそのまま使い、`medium` を `high` へ丸めない。保存値が空・未知のときだけ `unknown` へ落とす。
 - `pocFacetChipsView` の3チップは「段階」「状態」「確度」の軸名をチップ内に必ず持つ。値だけを並べるチップへ戻さない。
 - `SxPocComparisonSort` に `"confidence"` を追加。`sxComparePartnersForPoc` は確度rank差を先に見て、同順位では既存の要対応rank・ボール側・期限・最終接点・名前で決める。UIは `data-partner-sort-trigger` の「要対応順 / 確度順」トグル（既定 `attention`）で、`activeInlineEditorKey` があるあいだは切替を無視する。
-- 列順は `PARTNER_CONTROL_INNER_GRID` / `PARTNER_CONTROL_HEADER_GRID` / ヘッダーspan順 / 行内cell位置の4箇所を必ず同時に動かす。接点の経緯を左から2番目へ戻さない（日次で読まない履歴属性のため）。**現行の列構成はv3.58.3の11列**（後述「最左の評価カラムと排液プロファイル」節が正本。この節の9列はv3.58.1時点の記録）。
+- 列順は `PARTNER_CONTROL_INNER_GRID` / `PARTNER_CONTROL_HEADER_GRID` / ヘッダーspan順 / 行内cell位置の4箇所を必ず同時に動かす。接点の経緯を左から2番目へ戻さない（日次で読まない履歴属性のため）。**現行の列構成はv3.58.4の12列**（後述「次回面談カラムと、評価同点時の情報鮮度ソート」節が正本。この節の9列はv3.58.1、11列はv3.58.3時点の記録）。
 - 配色は `Sx*.tsx` / `sx-*.tsx` の色トークンを機械的に置換してコントラストを上げた（429箇所）。補助文字 `#69665d`→`#5a574c` (5.64→7.11)、`#777166`→`#5f5a4d` (4.76→6.76)、`#8f8a7e`/`#928c80`/`#9b9487`→`#65604f` (2.96–3.38→6.18、WCAG AA未達を解消)。罫線 `#d6cebf`→`#ada18a` (1.54→2.53)、`#e4ddd0`→`#c5bba5`、`#eee9df`→`#d5cdba` ほか、状態チップの地色も1段深くした。色相と意味の割当（赤=事業リスク、琥珀=待ち・要確認、緑=段階、青=確度高）は変えない。
 
 ### PoC実現可能性・顧客有望度の判断2軸と優先度 (build v3.58.2 / migration 237、2026-08-06)
@@ -195,3 +195,12 @@ point-MS追加フォームは`接続する成果 / MS名 / 予定日`の3項目�
 - 排液プロファイルの3列 `effluent_components` / `effluent_volume_annual` / `effluent_cost_annual` を追加した。単位も表記も企業ごとに揺れるため text で持ち、議事録の表現をそのまま残す。一覧では `現在地の根拠` と `接点の経緯` のあいだの `排液` cellに、成分（2行clamp）と「年間 … ・ 処理費 …」を出す。未入力は「成分 未確認」「量未確認」「未確認」と明示し、推測で埋めない。
 - 列は11本（評価 / 関係先 / 現在の状況 / ゴール / 詰まり・PJ影響 / 次にやること / 担当・期限 / 現在地の根拠 / 排液 / 接点の経緯 / 履歴・保有）。`PARTNER_CONTROL_INNER_GRID` は評価と履歴を含まない9列、`PARTNER_CONTROL_HEADER_GRID` は前後を足した11列。1248pxのcontainer幅から padding 16 / 評価 34 / 履歴 72 / 外側gap 16 / 内側gap 64 を引いた **1046px以内**に内側9列を収める（現行合計1036px）。列を足すときはこの計算をやり直す。
 - 議事録などの接点本文は `project_management_partner_interactions.detail_md`（40000字）へ全文保存する。plaud等の共有リンクは失効し `source_ref` だけでは内容が残らないため。履歴モーダルのやり取り履歴で `議事録の全文を読む` の折りたたみとして読み取り専用で開く。
+
+### 次回面談カラムと、評価同点時の情報鮮度ソート (build v3.58.4 / migration 239、2026-08-06)
+
+- 次回面談は `next_commitment` / `due_date`（＝こちらが何をするか）とは別のfieldとして持つ。まさ 2026-08-06「次回面談が確定したらどこに入力すればいい？ すぐに入力できる場所にこれを設置してほしい。日時だけでなく、現地訪問かオンラインか、準備すべきものがあるかも書けるようにして」。
+- 追加列は `project_management_partners.next_meeting_on`（date）/ `next_meeting_time`（text）/ `next_meeting_mode`（`onsite` / `online` / `hybrid` / `phone` のcheck制約、NULL=未定）/ `next_meeting_place` / `next_meeting_prep`。時刻を `time` 型で縛らないのは「午後」「9月上旬」のように確定度が揃わない予定が実在するため。形式は推測で埋めずNULL既定。
+- 型 `SxMeetingMode` は `sx-management.ts`（server-only）に置くが、表示ラベル `SX_MEETING_MODE_LABEL` と選択肢順 `SX_MEETING_MODES` は client component からも読むため `sx-partner-progress.ts` に置く。server-only モジュールから値を export して client で import すると build が落ちる。
+- 一覧では `次にやること` の右に104pxの `次回面談` cellを置く（`InlineCellEditor`、`keyFor("next-meeting")`）。上段が「日付 時刻」または「日程 未定」、下段が「形式・場所・準備 …」。日付未入力でも「日程 未定」と出し、書き込む場所があること自体を見せる。編集は日付(date input) / 時刻 / 形式(select) / 場所・接続先 / 準備すべきもの(textarea) の5項目を1回のPATCHで送り、空文字はNULLへ戻す。
+- 列は12本（評価 / 関係先 / 現在の状況 / ゴール / 詰まり・PJ影響 / 次にやること / **次回面談** / 担当・期限 / 現在地の根拠 / 排液 / 接点の経緯 / 履歴・保有）。`@min-[1248px]` の予算は 1248 − gap-2×11(88) − px-2(16) = **1144px** で、現行の内容合計は 32+168+136+80+78+100+104+66+100+108+100+72 = 1144px ちょうど。列を足すときはこの計算をやり直す。
+- 並び順 `優先度順`（`sxComparePartnersForPoc` の `priority`）は、第1キー `sxPocPriorityRank`（評価）、第2キー `lastVerifiedAt` 降順、第3キー `lastContactDate` 降順とする。評価だけでは同点が多く、判断材料が新しい先が下に沈んでいたため（まさ 2026-08-06「評価で一次ソーティングはしてほしいけど、情報の更新が新しいものも二次ソーティングで上に来るようにしてほしい」）。
