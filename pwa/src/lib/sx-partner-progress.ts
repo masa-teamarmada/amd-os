@@ -398,7 +398,9 @@ export function sxCustomerValueLabel(value: string | null | undefined) {
  */
 export type SxPocPriorityTier = "s" | "a" | "b" | "x" | "unrated";
 
-const PRIORITY_TIER_ORDER: SxPocPriorityTier[] = ["s", "a", "b", "x", "unrated"];
+// ✕ は「顧客候補として適さないと判明済み」なので、まだ見込みが分からない未評価より下へ置く
+// (2026-08-06 まさ指示)。評価セルの選択肢の並び (SX_POC_GRADE_CHOICES) は S/A/B/✕/未 のまま。
+const PRIORITY_TIER_ORDER: SxPocPriorityTier[] = ["s", "a", "b", "unrated", "x"];
 
 export function sxPocPriorityTier(
   partner: Pick<SxManagementPartner, "pocGrade">,

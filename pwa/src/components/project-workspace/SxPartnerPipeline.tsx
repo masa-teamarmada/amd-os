@@ -468,6 +468,7 @@ function InlineCellEditor({
   initialValues,
   view,
   viewClassName = "",
+  align = "center",
   onRequestEdit,
   onFinish,
   onSave,
@@ -479,6 +480,11 @@ function InlineCellEditor({
   initialValues: Record<string, string>;
   view: ReactNode;
   viewClassName?: string;
+  /**
+   * popoverの寄せ方。既定はcellの中央。左端の狭いcell (評価カラムなど) は中央寄せだと
+   * 画面外へはみ出すので "start" を渡してcellの左端から右へ開かせる (2026-08-06 まさ指示)。
+   */
+  align?: "center" | "start";
   onRequestEdit: (editorKey: string) => boolean;
   onFinish: () => void;
   onSave: (values: Record<string, string>) => Promise<void>;
@@ -547,7 +553,11 @@ function InlineCellEditor({
       <div className="pointer-events-none min-w-0" aria-hidden="true">
         {view}
       </div>
-      <div className="absolute left-1/2 top-full z-40 mt-1 w-[min(320px,calc(100vw-32px))] -translate-x-1/2 border border-[#a1957e] bg-[#fffdf7] p-2 shadow-[0_12px_32px_rgba(36,35,31,0.18)]">
+      <div
+        className={`absolute top-full z-40 mt-1 w-[min(320px,calc(100vw-32px))] border border-[#a1957e] bg-[#fffdf7] p-2 shadow-[0_12px_32px_rgba(36,35,31,0.18)] ${
+          align === "start" ? "left-0" : "left-1/2 -translate-x-1/2"
+        }`}
+      >
         <div className="grid min-w-0 gap-1.5">
           {renderFields(values, setValue)}
         </div>
@@ -3245,6 +3255,7 @@ function PartnerInlineRow({
               label={`${display.name}の評価`}
               initialValues={{ poc_grade: partner.pocGrade || "" }}
               view={gradeView}
+              align="start"
               onRequestEdit={onRequestInlineEdit}
               onFinish={onFinishInlineEdit}
               onSave={async (values) =>
