@@ -216,6 +216,22 @@ function enumValue(value: unknown, field: string, allowed: string[]) {
   return value;
 }
 
+/** ガントのグループ（レーン）キー。MSは複数グループにまたがって置ける（DB制約 migration 241）。 */
+const DISPLAY_LANE_KEYS = [
+  "business_development",
+  "technology_development",
+  "organization",
+];
+
+function displayLaneKeysValue(value: unknown, field: string) {
+  if (value == null) return null;
+  if (!Array.isArray(value)) throw new Error(`${field}が不正だよ`);
+  const keys = Array.from(
+    new Set(value.map((entry) => enumValue(entry, field, DISPLAY_LANE_KEYS))),
+  );
+  return keys.length ? keys : null;
+}
+
 function dateValue(value: unknown, field: string) {
   if (value === null || value === "") return null;
   if (typeof value !== "string" || !isStrictCalendarDate(value)) throw new Error(`${field}はYYYY-MM-DDの実在する日付で入力してね`);
@@ -296,6 +312,7 @@ function patchFor(resource: Resource, raw: unknown): Record<string, unknown> {
   }
   if (resource === "milestone") {
     takeText("title", "title", 180); takeText("gate", "gate", 240); takeEnum("status", MILESTONE_STATUSES); takeDate("planned_start"); takeDate("planned_end"); takeDate("forecast_end"); takeDate("actual_end"); takeNumber("progress_pct", { min: 0, max: 100 }); takeEnum("date_certainty", ["confirmed", "provisional"]); takeText("owner_label", "owner_label", 120); takeText("next_deliverable", "next_deliverable", 500); takeText("max_issue", "max_issue", 500); takeText("completion_criteria", "completion_criteria", 1200); takeOptionalText("completion_evidence", "completion_evidence", 1200); takeEnum("criticality", ["critical", "high", "medium", "low"]); takeText("baseline_plan_version", "baseline_plan_version", 120); takeOptionalText("forecast_change_reason", "forecast_change_reason", 500); takeEnum("confidence", CONFIDENCES);
+    if ("display_lane_keys" in raw) patch.display_lane_keys = displayLaneKeysValue(raw.display_lane_keys, "display_lane_keys");
     if ("status_source" in raw) patch.status_source = enumValue(raw.status_source, "status_source", ["derived", "manual", "override"]);
     takeOptionalText("status_override_reason", "status_override_reason", 500); takeDate("status_override_expires_on"); takeOptionalText("status_override_approved_by", "status_override_approved_by", 120);
   }
@@ -456,6 +473,7 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
       slug,
       track: requiredEnum("track", TRACKS),
       title,
+      display_lane_keys: displayLaneKeysValue(raw.display_lane_keys, "display_lane_keys"),
       // gate/next_deliverable are legacy NOT NULL columns. A point MS can start with these
       // explicitly unknown and be refined later.
       gate: pointMs ? optionalTextValue("gate", 240) || "未設定" : requiredText("gate", 240),

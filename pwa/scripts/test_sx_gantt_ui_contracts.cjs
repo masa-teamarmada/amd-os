@@ -355,13 +355,20 @@ const createMilestoneDefinition = dashboard.slice(
 assertNotIncludes(dashboardFile, createMilestoneDefinition, [
   'key: "track"',
   "TRACKS.map((track)",
+  // 配置先はグループの複数選択。個別の成果/タスクを1件選ばせる形へ戻さない。
+  'key: "outcome_id"',
 ]);
 assertIncludes(dashboardFile, dashboard, [
   "function ganttLaneLabelForTrack(track: SxTrackKey)",
   'return "組織開発";',
-  'label: "接続する成果（配置レーン）"',
-  'label: `${ganttLaneLabelForTrack(outcome.track)}｜${outcome.title}`',
+  // MSが立つ場所は「グループ」で選ぶ。1件で複数グループにまたがれる。DBの親成果は
+  // 選んだ先頭グループから逆算するので、人に生のtrack/outcomeを見せない。
+  'label: "配置するグループ"',
+  'type: "lanes"',
+  "const GANTT_LANE_CHOICES:",
+  "function milestoneOutcomeForLane(",
   "const selectedMilestoneOutcome =",
+  "fields.display_lane_keys = selectedMilestoneLanes;",
   'fields.track = selectedMilestoneOutcome?.track || "";',
 ]);
 
@@ -379,7 +386,7 @@ const createMilestoneInitial = dashboard.slice(
   createMilestoneInitialEnd,
 );
 assertIncludes(dashboardFile, createMilestoneInitial, [
-  'outcome_id: editor.outcomeId || ""',
+  'display_lane_keys: editor.laneKey || ""',
   'title: ""',
   'planned_date: editor.plannedDate || ""',
   'completion_criteria: ""',
@@ -462,6 +469,27 @@ assertNotIncludes(timelineFile, timeline, [
   // Dependency drawing must stay a permanent affordance: no mode toggle may come back.
   "dependencyMode",
 ]);
+// -- MS is a lane-spanning gate: dependency lines meet it at the middle of the band, and one MS
+// -- record can be drawn in several groups at once (display_lane_keys) ------------------------
+assertIncludes(timelineFile, timeline, [
+  "centerY: laneTop + laneSpanH / 2",
+  "const chosenLanes = milestone.displayLaneKeys.filter(",
+  "for (const laneKey of laneKeys)",
+]);
+
+// -- Manual task ordering: drag the grip, drop on a row edge to reorder, on the middle to nest --
+assertIncludes(timelineFile, timeline, [
+  "TASK_REORDER_EDGE_RATIO = 0.32",
+  'kind: "reorder"; taskId: string; place: "before" | "after"',
+  "function commitTaskReorder(",
+  "function orderedSiblings(",
+  "sort_order:",
+  "data-gantt-task-reorder-indicator={reorderPlace}",
+  // The dragged row must follow the pointer, not move invisibly.
+  "data-gantt-task-drag-ghost={taskNestDrag.taskId}",
+  "left: taskNestDrag.pointerClientX + 12",
+]);
+
 const scheduleMigrationFile =
   "scripts/migrations/221_sx_gantt_schedule_dependencies.sql";
 const scheduleMigration = read(scheduleMigrationFile);

@@ -817,9 +817,13 @@ type DragState = {
 
 type TaskNestTarget =
   | { kind: "task"; taskId: string }
-  | { kind: "root"; laneKey: SxDisplayLaneKey };
+  | { kind: "root"; laneKey: SxDisplayLaneKey }
+  /** Manual ordering: drop above/below a sibling row instead of onto it. */
+  | { kind: "reorder"; taskId: string; place: "before" | "after" };
 
-/** Separate from date-bar drag: the left-side grip moves only the task hierarchy. */
+/** Separate from date-bar drag: the left-side grip moves the task hierarchy (drop onto a row) and
+ * the manual order (drop between rows). The pointer position is kept so the dragged row can be
+ * mirrored under the cursor while the drag is live. */
 type TaskNestDragState = {
   taskId: string;
   milestoneId: string;
@@ -828,10 +832,15 @@ type TaskNestDragState = {
   pointerId: number;
   startClientX: number;
   startClientY: number;
+  pointerClientX: number;
+  pointerClientY: number;
   dragging: boolean;
   saving: boolean;
   target: TaskNestTarget | null;
 };
+
+/** Drop zone split of a row: the outer bands reorder, the middle band nests. */
+const TASK_REORDER_EDGE_RATIO = 0.32;
 
 type ScheduleDependencySource = {
   entity: "task" | "milestone";
@@ -1480,10 +1489,20 @@ export function SxUnifiedTimeline({
     for (const milestone of milestones.filter(
       (candidate) => candidate.timelineKind === "milestone",
     )) {
-      const laneKey = sxIsBlockingMilestone(milestone)
-        ? (BLOCKING_MILESTONE_LANE[milestone.slug] ?? "organization")
-        : displayLaneKeyForTrack(milestone.track);
-      milestoneBucket[laneKey].push(milestoneAnchorRow(milestone, timeline));
+      // An MS can be placed on several groups at once (display_lane_keys). The single record is
+      // then drawn as the same gate band in each of them; empty falls back to the track.
+      const chosenLanes = milestone.displayLaneKeys.filter(
+        (key): key is SxDisplayLaneKey => key in milestoneBucket,
+      );
+      const laneKeys: SxDisplayLaneKey[] = chosenLanes.length
+        ? chosenLanes
+        : [
+            sxIsBlockingMilestone(milestone)
+              ? (BLOCKING_MILESTONE_LANE[milestone.slug] ?? "organization")
+              : displayLaneKeyForTrack(milestone.track),
+          ];
+      for (const laneKey of laneKeys)
+        milestoneBucket[laneKey].push(milestoneAnchorRow(milestone, timeline));
     }
 
     const laneByKey = new Map(timeline.lanes.map((lane) => [lane.key, lane]));
@@ -1563,10 +1582,17 @@ export function SxUnifiedTimeline({
       collapsed,
     } of visibleLanes) {
       const laneTop = top;
+      // The MS is a gate band spanning the whole lane, so a dependency line meets it at the
+      // vertical center of that band — not at the center of the lane header strip.
+      const laneSpanH =
+        LANE_HEADER_H +
+        (laneRows.length + (canManage && projectId && !collapsed ? 1 : 0)) * ROW_H;
       for (const milestone of laneMilestones) {
+        // A multi-lane MS is drawn in every selected group; dependency lines meet the first one.
+        if (rows.has(`milestone:${milestone.id}`)) continue;
         rows.set(`milestone:${milestone.id}`, {
           row: milestone,
-          centerY: laneTop + LANE_HEADER_H / 2,
+          centerY: laneTop + laneSpanH / 2,
         });
       }
       top += LANE_HEADER_H;
@@ -1867,33 +1893,69 @@ export function SxUnifiedTimeline({
     }
   }
 
+  function laneKeyForTask(task: SxTask): SxDisplayLaneKey {
+    const backing = milestoneById.get(task.milestoneId);
+    if (task.track) return displayLaneKeyForTrack(task.track);
+    if (backing && sxIsBlockingMilestone(backing))
+      return BLOCKING_MILESTONE_LANE[backing.slug] ?? "organization";
+    return displayLaneKeyForTrack(backing?.track || "organizational_building");
+  }
+
+  /** Sibling group of a task in display order: same parent, and for top-level tasks also the same
+   * visible lane — reordering must renumber only the rows the person can actually see reordering. */
+  function orderedSiblings(task: SxTask): SxTask[] {
+    const lane = laneKeyForTask(task);
+    return tasks
+      .filter(
+        (candidate) =>
+          (candidate.parentTaskId || null) === (task.parentTaskId || null) &&
+          (task.parentTaskId != null || laneKeyForTask(candidate) === lane),
+      )
+      .sort(
+        (left, right) =>
+          left.sortOrder - right.sortOrder || left.title.localeCompare(right.title),
+      );
+  }
+
   function resolveTaskNestTarget(
     source: TaskNestDragState,
     clientX: number,
     clientY: number,
   ): TaskNestTarget | null {
-    const target = document
+    const hit = document
       .elementFromPoint(clientX, clientY)
-      ?.closest<HTMLElement>(
-        "[data-gantt-nest-target-task], [data-gantt-nest-root-lane]",
+      ?.closest<HTMLElement>("[data-plan-row], [data-gantt-nest-root-lane]");
+    if (!hit) return null;
+    const sourceTask = tasks.find((task) => task.id === source.taskId) || null;
+    const planRow = hit.dataset.planRow || "";
+    const rowTaskId = planRow.startsWith("task:") ? planRow.slice(5) : "";
+    if (rowTaskId && rowTaskId !== source.taskId) {
+      const targetTask = tasks.find((task) => task.id === rowTaskId) || null;
+      const canReorder = Boolean(
+        sourceTask &&
+          targetTask &&
+          orderedSiblings(sourceTask).some((sibling) => sibling.id === targetTask.id),
       );
-    if (!target) return null;
-    const parentTaskId = target.dataset.ganttNestTargetTask;
-    if (
-      parentTaskId &&
-      taskNestCandidateIds(tasks, source.taskId).has(parentTaskId)
-    )
-      return { kind: "task", taskId: parentTaskId };
-    const rootLane = target.dataset.ganttNestRootLane as SxDisplayLaneKey | undefined;
-    const sourceTask = tasks.find((task) => task.id === source.taskId);
-    const backing = sourceTask ? milestoneById.get(sourceTask.milestoneId) : null;
-    const sourceLane = sourceTask
-      ? sourceTask.track
-        ? displayLaneKeyForTrack(sourceTask.track)
-        : backing && sxIsBlockingMilestone(backing)
-          ? (BLOCKING_MILESTONE_LANE[backing.slug] ?? "organization")
-          : displayLaneKeyForTrack(backing?.track || "organizational_building")
-      : null;
+      const canNest = taskNestCandidateIds(tasks, source.taskId).has(rowTaskId);
+      const rect = hit.getBoundingClientRect();
+      const ratio = rect.height > 0 ? (clientY - rect.top) / rect.height : 0.5;
+      if (canReorder && (ratio <= TASK_REORDER_EDGE_RATIO || !canNest))
+        return {
+          kind: "reorder",
+          taskId: rowTaskId,
+          place: ratio < 0.5 ? "before" : "after",
+        };
+      if (canReorder && ratio >= 1 - TASK_REORDER_EDGE_RATIO)
+        return { kind: "reorder", taskId: rowTaskId, place: "after" };
+      if (canNest) return { kind: "task", taskId: rowTaskId };
+      // Neither sibling nor nest candidate: fall through to the lane, so dropping anywhere inside
+      // the person's own lane still means "back to top level".
+    }
+    const laneHost = hit.closest<HTMLElement>("[data-gantt-nest-root-lane]");
+    const rootLane = laneHost?.dataset.ganttNestRootLane as
+      | SxDisplayLaneKey
+      | undefined;
+    const sourceLane = sourceTask ? laneKeyForTask(sourceTask) : null;
     if (rootLane && rootLane === sourceLane) return { kind: "root", laneKey: rootLane };
     return null;
   }
@@ -1922,6 +1984,8 @@ export function SxUnifiedTimeline({
       pointerId: event.pointerId,
       startClientX: event.clientX,
       startClientY: event.clientY,
+      pointerClientX: event.clientX,
+      pointerClientY: event.clientY,
       dragging: false,
       saving: false,
       target: null,
@@ -1938,18 +2002,92 @@ export function SxUnifiedTimeline({
         current.dragging || !isWithinClickThreshold(deltaX, deltaY);
       if (!dragging) return current;
       const target = resolveTaskNestTarget(current, event.clientX, event.clientY);
-      const targetChanged =
-        target?.kind !== current.target?.kind ||
-        (target?.kind === "task" &&
-          current.target?.kind === "task" &&
-          target.taskId !== current.target.taskId) ||
-        (target?.kind === "root" &&
-          current.target?.kind === "root" &&
-          target.laneKey !== current.target.laneKey);
-      return current.dragging === dragging && !targetChanged
-        ? current
-        : { ...current, dragging, target };
+      // The ghost mirrors the pointer every move, so this always produces a new state object.
+      return {
+        ...current,
+        dragging,
+        target,
+        pointerClientX: event.clientX,
+        pointerClientY: event.clientY,
+      };
     });
+  }
+
+  /** Manual ordering: renumber the sibling group so the dragged row lands before/after the drop
+   * target, then PATCH only the rows whose sort_order actually moved. */
+  async function commitTaskReorder(
+    current: TaskNestDragState,
+    target: Extract<TaskNestTarget, { kind: "reorder" }>,
+  ) {
+    const sourceTask = tasks.find((task) => task.id === current.taskId);
+    if (!projectId || !sourceTask) {
+      setTaskNestDragBoth(null);
+      return;
+    }
+    const siblings = orderedSiblings(sourceTask);
+    const rest = siblings.filter((task) => task.id !== sourceTask.id);
+    const anchor = rest.findIndex((task) => task.id === target.taskId);
+    if (anchor < 0) {
+      setTaskNestDragBoth(null);
+      return;
+    }
+    const nextOrder = [...rest];
+    nextOrder.splice(target.place === "before" ? anchor : anchor + 1, 0, sourceTask);
+    const moved = nextOrder
+      .map((task, index) => ({ task, sortOrder: index * 10 }))
+      .filter(({ task, sortOrder }) => task.sortOrder !== sortOrder);
+    if (moved.length === 0) {
+      setTaskNestDragBoth(null);
+      return;
+    }
+    setTaskNestDragBoth({ ...current, saving: true });
+    try {
+      let bundle: SxManagementBundle | null = null;
+      for (const { task, sortOrder } of moved) {
+        const response = await fetch(
+          `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              resource: "task",
+              id: task.id,
+              patch: { sort_order: sortOrder },
+              expected_version: task.version,
+            }),
+          },
+        );
+        const body = await response.json().catch(() => ({}));
+        if (response.status === 409) {
+          setTaskNestDragBoth(null);
+          await bestEffortRefetchManagement(
+            "他の人がこのタスクを先に更新したよ。最新の状態に更新したよ",
+            "他の人がこのタスクを先に更新したみたい。画面を再読み込みしてね",
+          );
+          return;
+        }
+        if (!response.ok)
+          throw new Error(
+            typeof body.error === "string"
+              ? body.error
+              : "タスクの並び順を保存できなかったよ",
+          );
+        bundle = (body.bundle as SxManagementBundle) || bundle;
+      }
+      setTaskNestDragBoth(null);
+      if (bundle)
+        onManagementChange(bundle, `「${current.title}」の並び順を変えたよ`);
+    } catch (caught) {
+      setTaskNestDragBoth(null);
+      const message =
+        caught instanceof Error
+          ? caught.message
+          : "タスクの並び順を保存できなかったよ";
+      await bestEffortRefetchManagement(
+        `${message}。最新の状態に更新したよ`,
+        `${message}。保存できたか確認できなかったよ。画面を再読み込みしてね`,
+      );
+    }
   }
 
   async function finishTaskNestDrag(
@@ -1962,6 +2100,10 @@ export function SxUnifiedTimeline({
       : null;
     if (!current.dragging || !target) {
       setTaskNestDragBoth(null);
+      return;
+    }
+    if (target.kind === "reorder") {
+      await commitTaskReorder(current, target);
       return;
     }
     const parentTaskId =
@@ -2189,6 +2331,21 @@ export function SxUnifiedTimeline({
 
   return (
     <div data-testid="sx-unified-timeline">
+      {taskNestDrag?.dragging && (
+        // The dragged row is mirrored under the cursor so the move reads like a normal
+        // drag-and-drop instead of an invisible pointer gesture.
+        <div
+          aria-hidden
+          data-gantt-task-drag-ghost={taskNestDrag.taskId}
+          className="pointer-events-none fixed z-[70] max-w-[240px] truncate border border-[#205f49] bg-[#eef6ef] px-2 py-1 text-[11px] font-semibold text-[#1d3f31] shadow-[0_6px_14px_rgba(32,95,73,0.28)]"
+          style={{
+            left: taskNestDrag.pointerClientX + 12,
+            top: taskNestDrag.pointerClientY + 12,
+          }}
+        >
+          {taskNestDrag.title}
+        </div>
+      )}
       {!timeline.valid && (
         <p className="mb-2 border border-dashed border-[#b5533f] bg-[#f6dad5] px-3 py-2 text-[11px] font-semibold text-[#8c3329]">
           {timeline.reason}
@@ -2403,6 +2560,11 @@ export function SxUnifiedTimeline({
                   taskNestDrag.target.taskId === row.id;
                 const isNestRootTarget = taskNestDrag?.target?.kind === "root" && taskNestDrag.target.laneKey === lane.key;
                 const isNestCandidate = taskNestCandidateTaskIds.has(row.id);
+                const reorderPlace =
+                  taskNestDrag?.target?.kind === "reorder" &&
+                  taskNestDrag.target.taskId === row.id
+                    ? taskNestDrag.target.place
+                    : null;
                 return (
                   <article
                     key={`mobile-${row.entity}-${row.id}`}
@@ -2410,9 +2572,16 @@ export function SxUnifiedTimeline({
                     data-gantt-nest-target-task={
                       isNestCandidate ? row.id : undefined
                     }
-                    className={`p-2.5 transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#dcecdf] outline outline-2 outline-[#205f49] outline-offset-[-2px]" : selected ? "bg-[#dcecdf]" : "bg-white"}`}
+                    className={`relative p-2.5 transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#dcecdf] outline outline-2 outline-[#205f49] outline-offset-[-2px]" : selected ? "bg-[#dcecdf]" : "bg-white"}`}
                     style={{ marginLeft: row.depth * 12 }}
                   >
+                    {reorderPlace && (
+                      <span
+                        aria-hidden
+                        data-gantt-task-reorder-indicator={reorderPlace}
+                        className={`pointer-events-none absolute inset-x-0 z-30 h-[3px] bg-[#205f49] ${reorderPlace === "before" ? "top-0" : "bottom-0"}`}
+                      />
+                    )}
                     <div className="flex items-start gap-2">
                       {row.hasChildren && (
                         <button
@@ -2449,7 +2618,7 @@ export function SxUnifiedTimeline({
                           onLostPointerCapture={(event) => cancelTaskNestDrag(event)}
                           className="grid min-h-11 min-w-11 touch-none place-items-center text-[#65604f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] disabled:opacity-40"
                           disabled={Boolean(dependencySource) || taskNestDrag?.saving}
-                          aria-label={`${row.title}をドラッグして親タスクを変更`}
+                          aria-label={`${row.title}をドラッグして並び順や親タスクを変更`}
                         >
                           <GripVertical className="h-4 w-4" aria-hidden="true" />
                         </button>
@@ -2655,6 +2824,11 @@ export function SxUnifiedTimeline({
                       taskNestDrag.target.taskId === row.id;
                     const isNestRootTarget = taskNestDrag?.target?.kind === "root" && taskNestDrag.target.laneKey === lane.key;
                     const isNestCandidate = taskNestCandidateTaskIds.has(row.id);
+                    const reorderPlace =
+                      taskNestDrag?.target?.kind === "reorder" &&
+                      taskNestDrag.target.taskId === row.id
+                        ? taskNestDrag.target.place
+                        : null;
                     return (
                       <div
                         key={`${row.entity}-${row.id}`}
@@ -2665,6 +2839,13 @@ export function SxUnifiedTimeline({
                         className={`group relative flex scroll-mt-3 border-b border-[#dcd5c3] transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#dcecdf] outline outline-2 outline-[#205f49] outline-offset-[-2px]" : selected ? "bg-[#dcecdf]" : "hover:bg-[#f2eee0]"}`}
                         style={{ height: ROW_H, paddingLeft: row.depth * 15 }}
                       >
+                        {reorderPlace && (
+                          <span
+                            aria-hidden
+                            data-gantt-task-reorder-indicator={reorderPlace}
+                            className={`pointer-events-none absolute inset-x-0 z-30 h-[3px] bg-[#205f49] ${reorderPlace === "before" ? "top-0" : "bottom-0"}`}
+                          />
+                        )}
                         <button
                           type="button"
                           disabled={!row.hasChildren}
@@ -2700,8 +2881,8 @@ export function SxUnifiedTimeline({
                             onLostPointerCapture={(event) => cancelTaskNestDrag(event)}
                             className="grid h-full w-6 shrink-0 touch-none place-items-center text-[#65604f] transition-colors hover:text-[#205f49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] disabled:opacity-40"
                             disabled={Boolean(dependencySource) || taskNestDrag?.saving}
-                            title="ドラッグして親タスクへ重ねる。レーン見出しへ戻すと最上位にする"
-                            aria-label={`${row.title}をドラッグして親タスクを変更`}
+                            title="ドラッグして並び替え。行の上下端で順番、中央へ重ねると子タスク、レーン見出しへ戻すと最上位"
+                            aria-label={`${row.title}をドラッグして並び順や親タスクを変更`}
                           >
                             <GripVertical className="h-3.5 w-3.5" aria-hidden="true" />
                           </button>

@@ -200,7 +200,8 @@ type PlanFieldEditorState = {
 type FormField = {
   key: string;
   label: string;
-  /** `owner` = 既存の担当から選ぶプルダウン + 「新しい担当を追加」で自由入力へ切り替え。 */
+  /** `owner` = 既存の担当から選ぶプルダウン + 「新しい担当を追加」で自由入力へ切り替え。
+   *  `lanes` = ガントの3グループの複数選択。値はレーンキーのカンマ連結で持つ。 */
   type?:
     | "text"
     | "textarea"
@@ -208,7 +209,8 @@ type FormField = {
     | "number"
     | "select"
     | "checkbox"
-    | "owner";
+    | "owner"
+    | "lanes";
   required?: boolean;
   span?: boolean;
   options?: Array<{ value: string; label: string }>;
@@ -363,6 +365,40 @@ function ganttLaneLabelForTrack(track: SxTrackKey) {
   return "組織開発";
 }
 
+/** ガントの3グループ。MS作成フォームの複数選択と、レーン→保存用トラックの変換に使う。 */
+const GANTT_LANE_CHOICES: Array<{ key: SxDisplayLaneKey; label: string }> = [
+  { key: "business_development", label: "事業開発" },
+  { key: "technology_development", label: "技術開発" },
+  { key: "organization", label: "組織開発" },
+];
+
+function laneMatchesTrack(laneKey: SxDisplayLaneKey, track: SxTrackKey) {
+  if (laneKey === "organization")
+    return track === "funding" || track === "organizational_building";
+  return track === laneKey;
+}
+
+/** MSはDB上いまも成果(outcome)にぶら下がる。人が選ぶのは表示グループだけなので、選んだ先頭
+ * グループから保存用の親成果を自動で決める。 */
+function milestoneOutcomeForLane(
+  management: SxManagementBundle,
+  laneKey: SxDisplayLaneKey,
+) {
+  return (
+    management.outcomes.find((outcome) =>
+      laneMatchesTrack(laneKey, outcome.track),
+    ) || null
+  );
+}
+
+/** カンマ連結で持っているレーン選択を、正規の順序（事業→技術→組織）の配列へ戻す。 */
+function parseLaneKeys(value: string | undefined): SxDisplayLaneKey[] {
+  const chosen = new Set((value || "").split(",").filter(Boolean));
+  return GANTT_LANE_CHOICES.filter((lane) => chosen.has(lane.key)).map(
+    (lane) => lane.key,
+  );
+}
+
 function ganttLaneKeyForMilestone(
   milestone: SxManagementMilestone,
 ): SxDisplayLaneKey {
@@ -477,7 +513,7 @@ function editorInitialValues(
     // A new MS is always a point. The legacy phase creation branch intentionally has no UI
     // path: people place task and MS records only.
     return {
-      outcome_id: editor.outcomeId || "",
+      display_lane_keys: editor.laneKey || "",
       title: "",
       planned_date: editor.plannedDate || "",
       completion_criteria: "",
@@ -909,29 +945,12 @@ function editorDefinition(
       method: "POST",
       fields: [
         {
-          key: "outcome_id",
-          label: "接続する成果（配置レーン）",
-          type: "select",
+          key: "display_lane_keys",
+          label: "配置するグループ",
+          type: "lanes",
           required: true,
-          options: [
-            { value: "", label: "選択してね" },
-            ...management.outcomes
-              .filter(
-                (outcome) =>
-                  !editor.laneKey ||
-                  (editor.laneKey === "business_development"
-                    ? outcome.track === "business_development"
-                    : editor.laneKey === "technology_development"
-                      ? outcome.track === "technology_development"
-                      : ["funding", "organizational_building"].includes(
-                          outcome.track,
-                        )),
-              )
-              .map((outcome) => ({
-                value: outcome.id,
-                label: `${ganttLaneLabelForTrack(outcome.track)}｜${outcome.title}`,
-              })),
-          ],
+          span: true,
+          help: "このMSをゲートとして出すグループ。複数のグループにまたがるMSは、またがる分だけ選んでね。",
         },
         {
           key: "title",
@@ -2352,15 +2371,22 @@ function IssueEditor({
         return;
       }
     }
-    const selectedMilestoneOutcome =
+    // MSが立つ場所は人にとっては「グループ」。DBの親成果はそこから逆算する。
+    const selectedMilestoneLanes =
       editor.kind === "create_milestone"
-        ? management.outcomes.find(
-            (outcome) => outcome.id === values.outcome_id,
-          ) || null
+        ? parseLaneKeys(values.display_lane_keys)
+        : [];
+    const selectedMilestoneOutcome =
+      editor.kind === "create_milestone" && selectedMilestoneLanes.length
+        ? milestoneOutcomeForLane(management, selectedMilestoneLanes[0])
         : null;
+    if (editor.kind === "create_milestone" && !selectedMilestoneLanes.length) {
+      setError("配置するグループを選んでね");
+      focusField("display_lane_keys:business_development");
+      return;
+    }
     if (editor.kind === "create_milestone" && !selectedMilestoneOutcome) {
-      setError("接続する成果を選んでね");
-      focusField("outcome_id");
+      setError("このグループにMSを置くための基準情報がまだないよ");
       return;
     }
     const selectedTaskMilestone =
@@ -2429,6 +2455,9 @@ function IssueEditor({
     }
     if (editor.kind === "create_milestone") {
       fields.objective_id = management.objective?.id || "";
+      // 人が選ぶのは表示グループ。1件のMSが複数グループにゲートとして現れる。
+      fields.display_lane_keys = selectedMilestoneLanes;
+      fields.outcome_id = selectedMilestoneOutcome?.id || "";
       // The selected outcome is the authoritative parent. Deriving the exact DB track from it
       // keeps the form's visible taxonomy at the approved three Gantt lanes while satisfying the
       // DB invariant milestone.track === outcome.track (funding and organizational_building both
@@ -2693,6 +2722,35 @@ function IssueEditor({
               </option>
             ))}
           </select>
+        ) : field.type === "lanes" ? (
+          <span className={styles.laneChoiceRow}>
+            {GANTT_LANE_CHOICES.map((lane) => {
+              const chosen = parseLaneKeys(values[field.key]);
+              return (
+                <label key={lane.key}>
+                  <input
+                    type="checkbox"
+                    name={`${field.key}:${lane.key}`}
+                    checked={chosen.includes(lane.key)}
+                    onChange={(event) => {
+                      const next = new Set(chosen);
+                      if (event.target.checked) next.add(lane.key);
+                      else next.delete(lane.key);
+                      setValues((current) => ({
+                        ...current,
+                        [field.key]: GANTT_LANE_CHOICES.filter((item) =>
+                          next.has(item.key),
+                        )
+                          .map((item) => item.key)
+                          .join(","),
+                      }));
+                    }}
+                  />
+                  <span>{lane.label}</span>
+                </label>
+              );
+            })}
+          </span>
         ) : field.type === "checkbox" ? (
           <span className={styles.checkboxRow}>
             <input
