@@ -310,6 +310,12 @@
 .checkboxRow { min-height: 36px; display: flex !important; align-items: center; gap: 7px; margin: 0 !important; padding: 0 8px; border: 1px solid #c9c0b2; border-radius: 4px; background: #fbf8f0; font-size: 10px !important; }
 .checkboxRow input { width: 16px; min-height: 16px; height: 16px; }
 .checkboxRow input:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+/* 担当の新規入力モード。入力欄と「一覧から選ぶ」を1行に並べ、select と同じ高さに収める。 */
+.ownerManualRow { display: flex !important; align-items: center; gap: 6px; margin: 0 !important; }
+.ownerManualRow input { flex: 1 1 auto; min-width: 0; }
+.ownerManualRow button { flex: 0 0 auto; min-height: 32px; padding: 0 8px; border: 1px solid #c9c0b2; border-radius: 4px; background: #fbf8f0; color: var(--ink-soft, #6b6759); font-size: 10px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.ownerManualRow button:hover { background: #f2ecdf; }
+
 .formError { margin: 8px 0 0; padding: 7px 9px; border: 1px solid #dfaaa3; background: var(--red-soft); color: var(--red); font-size: 10px; line-height: 1.4; }
 .editorFooter { position: relative; flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 8px 16px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid rgba(215, 208, 195, .72); background: var(--sheet); box-shadow: 0 -8px 22px rgba(36, 35, 31, .035); }
 .editorFooter .primaryButton, .editorFooter .secondaryButton, .editorFooter .dangerButton { min-height: 38px; }

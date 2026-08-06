@@ -48,6 +48,7 @@ export const SX_TRACK_LABELS: Record<SxTrackKey, string> = {
 };
 
 export const SX_STATUS_LABEL: Record<SxMilestoneStatus, string> = {
+  not_started: "未着手",
   unassessed: "未評価",
   on_track: "順調",
   attention: "注意",
@@ -63,6 +64,7 @@ export const SX_STATUS_TONE: Record<string, string> = {
   blocked: "border-[#b5533f] bg-[#f6dad5] text-[#8c3329]",
   completed: "border-[#86a2b3] bg-[#e2ecf1] text-[#315f7d]",
   unassessed: "border-[#8e88a5] bg-[#e4e2ef] text-[#55506d]",
+  not_started: "border-[#d6cebf] bg-[#f8f5ec] text-[#69665d]",
 };
 
 export function sxFormatDate(value: string | null | undefined, fallback = "未設定") {
@@ -104,9 +106,11 @@ export const SX_TECH_TEST_STATUS_TONE: Record<string, string> = {
   blocked: "border-[#b5533f] bg-[#f6dad5] text-[#8c3329]",
 };
 
-/** milestone.progressPct is meaningless while status is unassessed; never render a bare 0%. */
+/** milestone.progressPct is meaningless while status is unassessed / not_started; never render a bare 0%. */
 export function sxProgressDisplay(status: SxMilestoneStatus, progressPct: number) {
-  return status === "unassessed" ? "未評価" : `${progressPct}%`;
+  if (status === "unassessed") return "未評価";
+  if (status === "not_started") return "未着手";
+  return `${progressPct}%`;
 }
 
 export function sxFormatDelta(deltaDays: number | null, dateCertainty: "confirmed" | "provisional" | null) {

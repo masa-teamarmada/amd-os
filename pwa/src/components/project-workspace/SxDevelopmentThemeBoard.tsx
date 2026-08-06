@@ -44,6 +44,7 @@ const STATUS_TONE: Record<string, string> = {
   failed: "border-[#b76757] bg-[#f6dad5] text-[#8c3329]",
   blocked: "border-[#b76757] bg-[#f6dad5] text-[#8c3329]",
   unassessed: "border-[#8e88a5] bg-[#e4e2ef] text-[#55506d]",
+  not_started: "border-[#d6cebf] bg-[#f8f5ec] text-[#69665d]",
 };
 
 const TEST_ORDER = ["tech-performance-test", "tech-reproducibility-test", "tech-scale-test", "tech-containment-test", "tech-recovery-test"];

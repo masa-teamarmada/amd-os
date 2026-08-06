@@ -190,6 +190,7 @@ const ROW_STATE_TEXT: Record<DisplayRow["state"], string> = {
   future: "予定",
   blocked: "停止",
   overdue: "期限超過",
+  not_started: "未着手",
   unassessed: "進捗未登録",
   attention: "要確認",
 };
@@ -229,6 +230,7 @@ function classifyTask(task: SxTask, asOf: string): DisplayRow["state"] {
   if (task.status === "completed") return "complete";
   if (task.status === "blocked") return "blocked";
   if (task.plannedEnd && task.plannedEnd < asOf) return "overdue";
+  if (task.status === "not_started") return "not_started";
   if (task.status === "unassessed") return "unassessed";
   if (task.status === "attention" || task.status === "at_risk")
     return "attention";
@@ -241,6 +243,7 @@ function blockingRowState(
   if (status === "completed") return "complete";
   if (status === "blocked") return "blocked";
   if (status === "attention" || status === "at_risk") return "attention";
+  if (status === "not_started") return "not_started";
   if (status === "unassessed") return "unassessed";
   return "current";
 }
@@ -288,7 +291,9 @@ function milestoneAnchorRow(
     dateCertainty: milestone.dateCertainty,
     ownerLabel: milestone.ownerLabel || "担当未確認",
     progressPct: milestone.progressPct,
-    progressRegistered: milestone.manualStatus !== "unassessed",
+    progressRegistered:
+      milestone.manualStatus !== "unassessed" &&
+      milestone.manualStatus !== "not_started",
     hasChildren: false,
     requirements: [],
     achievement,
@@ -333,7 +338,8 @@ function taskDisplayRow(
     dateCertainty: task.dateCertainty,
     ownerLabel: task.ownerLabel,
     progressPct: task.progressPct,
-    progressRegistered: task.status !== "unassessed",
+    progressRegistered:
+      task.status !== "unassessed" && task.status !== "not_started",
     hasChildren,
     requirements: [],
   };

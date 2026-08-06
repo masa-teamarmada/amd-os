@@ -60,6 +60,7 @@ import {
   type SxGateRequirement,
 } from "@/lib/sx-gate-requirements";
 import { sxApplyOptimisticManagementPatch } from "@/lib/sx-management-optimistic";
+import { sxIsMissingOwner } from "./sx-visual-shared";
 import {
   sxWeeklyIssueAttentionScore,
   sxWeeklyIssueIsOverdue,
@@ -199,12 +200,55 @@ type PlanFieldEditorState = {
 type FormField = {
   key: string;
   label: string;
-  type?: "text" | "textarea" | "date" | "number" | "select" | "checkbox";
+  /** `owner` = 既存の担当から選ぶプルダウン + 「新しい担当を追加」で自由入力へ切り替え。 */
+  type?:
+    | "text"
+    | "textarea"
+    | "date"
+    | "number"
+    | "select"
+    | "checkbox"
+    | "owner";
   required?: boolean;
   span?: boolean;
   options?: Array<{ value: string; label: string }>;
   help?: string;
 };
+
+/** 担当プルダウンで「新しい担当を追加」を選んだことを表す番兵値。担当名として保存されることはない。 */
+const OWNER_NEW_ENTRY = "__new_owner__";
+
+/** 担当プルダウンの候補。管制データに実在する担当名だけを集め、「担当未確認」等の欠測表現は外す。
+ * メンバー台帳ではなく実データから作るので、社外の人・チーム名もそのまま候補に載る。 */
+function collectOwnerCandidates(
+  management: SxManagementBundle,
+  currentValue: string,
+  selfName?: string,
+) {
+  const seen = new Set<string>();
+  const push = (value: string | null | undefined) => {
+    const label = (value || "").trim();
+    if (!label || sxIsMissingOwner(label)) return;
+    seen.add(label);
+  };
+  management.milestones.forEach((row) => push(row.ownerLabel));
+  management.tasks.forEach((row) => push(row.ownerLabel));
+  management.outcomes.forEach((row) => push(row.ownerLabel));
+  management.issues.forEach((row) => push(row.ownerLabel));
+  management.hypotheses.forEach((row) => push(row.ownerLabel));
+  management.validationRuns.forEach((row) => push(row.ownerLabel));
+  management.decisions.forEach((row) => push(row.ownerLabel));
+  management.actions.forEach((row) => push(row.ownerLabel));
+  management.partnerWorkItems.forEach((row) => push(row.ownerLabel));
+  management.technicalTests.forEach((row) => push(row.ownerLabel));
+  management.organizationRoles.forEach((row) => push(row.ownerLabel));
+  push(selfName);
+  const list = [...seen].sort((a, b) => a.localeCompare(b, "ja"));
+  const current = currentValue.trim();
+  // 既存値が候補から漏れていても選択状態を失わない（欠測表現・過去の自由入力もここで拾う）。
+  if (current && !list.includes(current)) list.unshift(current);
+  return list;
+}
 
 const TRACKS: Array<{
   key: SxTrackKey;
@@ -812,6 +856,7 @@ function editorDefinition(
     type: "select",
     required: true,
     options: [
+      { value: "not_started", label: "未着手" },
       { value: "unassessed", label: "進捗未登録" },
       { value: "on_track", label: "進行中" },
       { value: "attention", label: "要確認" },
@@ -2078,7 +2123,28 @@ function IssueEditor({
     () => initialValues.current,
   );
   const definition = editorDefinition(editor, management);
-  const fieldsForCurrentSelection = definition.fields;
+  // 候補は開いた時点の担当で固定する。入力途中の文字列で作り直すと候補が揺れる。
+  const ownerCandidates = useMemo(
+    () =>
+      collectOwnerCandidates(
+        management,
+        initialValues.current.owner_label || "",
+        access.displayName,
+      ),
+    [management, access.displayName],
+  );
+  const fieldsForCurrentSelection = definition.fields.map((field) => {
+    if (field.key !== "owner_label" || field.options) return field;
+    return {
+      ...field,
+      type: "owner" as const,
+      options: [
+        { value: "", label: "担当を選ぶ" },
+        ...ownerCandidates.map((name) => ({ value: name, label: name })),
+        { value: OWNER_NEW_ENTRY, label: "＋ 新しい担当を追加" },
+      ],
+    };
+  });
   const fieldKeySet = fieldKeys ? new Set(fieldKeys) : null;
   const activeFields = fieldKeySet
     ? fieldsForCurrentSelection.filter((field) => fieldKeySet.has(field.key))
@@ -2088,6 +2154,11 @@ function IssueEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
+  /** 担当欄のうち、いま自由入力モードにしているフィールド。入力中の文字が既存候補と一致した
+   * 瞬間に入力欄が消えないよう、値ではなくモードそのものを保持する。 */
+  const [manualOwnerKeys, setManualOwnerKeys] = useState<ReadonlySet<string>>(
+    () => new Set<string>(),
+  );
   const editorPanelRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const discardBackButtonRef = useRef<HTMLButtonElement>(null);
@@ -2533,6 +2604,61 @@ function IssueEditor({
               }))
             }
           />
+        ) : field.type === "owner" ? (
+          manualOwnerKeys.has(field.key) ? (
+            <span className={styles.ownerManualRow}>
+              <input
+                name={field.key}
+                type="text"
+                autoFocus
+                placeholder="担当の名前を入力"
+                required={field.required}
+                value={fieldValue(values, field.key)}
+                onChange={(event) =>
+                  setValues((current) => ({
+                    ...current,
+                    [field.key]: event.target.value,
+                  }))
+                }
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setManualOwnerKeys((current) => {
+                    const next = new Set(current);
+                    next.delete(field.key);
+                    return next;
+                  });
+                  setValues((current) => ({ ...current, [field.key]: "" }));
+                }}
+              >
+                一覧から選ぶ
+              </button>
+            </span>
+          ) : (
+            <select
+              name={field.key}
+              required={field.required}
+              value={fieldValue(values, field.key)}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                if (nextValue === OWNER_NEW_ENTRY) {
+                  setManualOwnerKeys((current) =>
+                    new Set(current).add(field.key),
+                  );
+                  setValues((current) => ({ ...current, [field.key]: "" }));
+                  return;
+                }
+                setValues((current) => ({ ...current, [field.key]: nextValue }));
+              }}
+            >
+              {field.options?.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          )
         ) : field.type === "select" ? (
           <select
             name={field.key}
@@ -3236,9 +3362,10 @@ function PlanInspector({
   const isTask = Boolean(task);
   const plannedStart = item?.plannedStart ?? null;
   const plannedEnd = item?.plannedEnd ?? null;
-  const progressRegistered = isTask
-    ? task?.status !== "unassessed"
-    : milestone?.manualStatus !== "unassessed";
+  // 未着手も進捗を登録した状態ではない。0% を実績として見せない。
+  const currentStatus = isTask ? task?.status : milestone?.manualStatus;
+  const progressRegistered =
+    currentStatus !== "unassessed" && currentStatus !== "not_started";
   const description = task?.description || milestone?.gate || "未設定";
   const goal = task?.goal || milestone?.gate || "未設定";
   const blocker = task?.blocker || milestone?.maxIssue || "未設定";
@@ -3729,6 +3856,7 @@ function PlanInspector({
 }
 
 const ROW_PLAN_STATUS: Record<SxManagementMilestone["manualStatus"], string> = {
+  not_started: "未着手",
   unassessed: "進捗未登録",
   on_track: "進行中",
   attention: "要確認",

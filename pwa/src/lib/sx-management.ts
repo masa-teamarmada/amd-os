@@ -222,7 +222,7 @@ export type SxTask = {
   track: SxTrackKey | null;
   title: string;
   description: string | null;
-  status: "unassessed" | "on_track" | "attention" | "at_risk" | "blocked" | "completed";
+  status: SxMilestoneStatus;
   plannedStart: string | null;
   plannedEnd: string | null;
   forecastEnd: string | null;
@@ -735,6 +735,7 @@ export type SxManagementBundle = {
 type RawRow = Record<string, unknown>;
 
 const MILESTONE_STATUS_LABEL: Record<SxMilestoneStatus, string> = {
+  not_started: "未着手",
   unassessed: "未評価",
   on_track: "順調",
   attention: "注意",
@@ -892,7 +893,7 @@ function asTimelineKind(value: unknown): SxTimelineKind {
 }
 
 function asStatus(value: unknown): SxMilestoneStatus {
-  const values: SxMilestoneStatus[] = ["unassessed", "on_track", "attention", "at_risk", "blocked", "completed"];
+  const values: SxMilestoneStatus[] = ["not_started", "unassessed", "on_track", "attention", "at_risk", "blocked", "completed"];
   return values.includes(value as SxMilestoneStatus) ? (value as SxMilestoneStatus) : "unassessed";
 }
 

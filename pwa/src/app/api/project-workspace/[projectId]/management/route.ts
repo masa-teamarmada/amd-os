@@ -154,8 +154,8 @@ function deletedRecordLabel(resource: Resource, row: Record<string, unknown>) {
   return typeof value === "string" && value.trim() ? value : "名称未確認";
 }
 
-const MILESTONE_STATUSES = ["unassessed", "on_track", "attention", "at_risk", "blocked", "completed"];
-const TASK_STATUSES = ["unassessed", "on_track", "attention", "at_risk", "blocked", "completed"];
+const MILESTONE_STATUSES = ["not_started", "unassessed", "on_track", "attention", "at_risk", "blocked", "completed"];
+const TASK_STATUSES = ["not_started", "unassessed", "on_track", "attention", "at_risk", "blocked", "completed"];
 const ISSUE_KINDS = ["fact", "hypothesis", "decision_needed"];
 const ISSUE_STATUSES = ["open", "validating", "closed", "on_hold"];
 const PARTNER_STAGES = ["candidate", "first_contact", "information_exchange", "hearing", "meeting_coordination", "technical_review", "condition_alignment", "sample_acquisition", "validation_preparation", "agreement_confirmation", "executing", "on_hold", "declined"];
