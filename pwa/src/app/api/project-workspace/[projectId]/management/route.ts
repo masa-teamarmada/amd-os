@@ -849,6 +849,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (beforeError) throw new Error(`共有情報の確認に失敗したよ: ${beforeError.message}`);
     if (!before) return NextResponse.json({ error: "更新対象が見つからないよ" }, { status: 404 });
     const beforeRecord = before as unknown as Record<string, unknown>;
+    // MSを非表示化すると、そのMS配下のタスクは親を失う（タスクはMSにぶら下がって描画・集計される）。
+    // 依存線は bundle 側が live な端点だけを通すので自動で落ちるが、タスクの移し先は人が決めるしかない。
+    if (resource === "milestone" && deleting) {
+      const { data: attachedTasks, error: attachedError } = await db.from(RESOURCE_TABLES.task).select("id").eq("project_id", projectId).eq("milestone_id", id).is("deleted_at", null).limit(1);
+      if (attachedError) throw new Error(`MS配下のタスク確認に失敗したよ: ${attachedError.message}`);
+      if (attachedTasks && attachedTasks.length > 0) throw new Error("このMSに紐づくタスクがあるから削除できないよ。先にタスクを別のMSへ移すか削除してね");
+    }
     if (resource === "kpi" && !deleting && !restoring) {
       const mergedRule = typeof patch.threshold_rule === "string" ? patch.threshold_rule : String(beforeRecord.threshold_rule || "gte");
       const mergedThreshold = patch.threshold !== undefined ? patch.threshold : beforeRecord.threshold;

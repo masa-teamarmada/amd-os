@@ -3407,7 +3407,7 @@ function PlanInspector({
   deleteBlockedReason,
   deleting,
   onClose,
-  onDeleteTask,
+  onDelete,
   onEditField,
 }: {
   milestone: SxManagementMilestone | null;
@@ -3421,7 +3421,7 @@ function PlanInspector({
   deleteBlockedReason?: string | null;
   deleting?: boolean;
   onClose: () => void;
-  onDeleteTask?: () => void;
+  onDelete?: () => void;
   onEditField: (
     slot: string,
     editor: PlanFieldEditorState["editor"],
@@ -3927,18 +3927,20 @@ function PlanInspector({
                   </ul>
                 </section>
               )}
-              {isTask && canManage && onDeleteTask && (
+              {canManage && onDelete && (
                 <div className={styles.inspectorDangerRow}>
                   {deleteBlockedReason ? (
                     <span data-tone="quiet">{deleteBlockedReason}</span>
                   ) : confirmingDelete ? (
                     <>
-                      <span>削除すると、このタスクはガントと一覧から消えます。</span>
+                      <span>
+                        削除すると、この{isTask ? "タスク" : "MS"}はガントと一覧から消えます。
+                      </span>
                       <button
                         type="button"
                         data-tone="confirm"
                         disabled={deleting}
-                        onClick={onDeleteTask}
+                        onClick={onDelete}
                       >
                         {deleting ? "削除中…" : "削除する"}
                       </button>
@@ -3953,7 +3955,7 @@ function PlanInspector({
                     </>
                   ) : (
                     <button type="button" onClick={() => setConfirmingDelete(true)}>
-                      このタスクを削除
+                      この{isTask ? "タスク" : "MS"}を削除
                     </button>
                   )}
                 </div>
@@ -4017,6 +4019,9 @@ export function SxWeeklyControlDashboard({
   const [workloadFilter, setWorkloadFilter] =
     useState<WorkloadBucketKey | null>(null);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+  const [deletingMilestoneId, setDeletingMilestoneId] = useState<string | null>(
+    null,
+  );
 
   function showNotice(message: string) {
     setNotice(message);
@@ -4292,6 +4297,34 @@ export function SxWeeklyControlDashboard({
       showNotice(caught instanceof Error ? caught.message : "削除できなかったよ");
     } finally {
       setDeletingTaskId(null);
+    }
+  }
+
+  // MS削除もAPI側のsoft delete。MS配下にタスクが残っていればAPIが断るので、UI側のガード文言と
+  // サーバ側の判断がずれても最後はサーバの答えを見せる。
+  async function deleteMilestone(milestoneId: string) {
+    setDeletingMilestoneId(milestoneId);
+    try {
+      const response = await fetch(
+        `/api/project-workspace/${encodeURIComponent(bundle.project.projectId)}/management`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resource: "milestone", id: milestoneId, delete: true }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(
+          typeof body.error === "string" ? body.error : "削除できなかったよ",
+        );
+      if (body.bundle) setManagement(body.bundle as SxManagementBundle);
+      setSelectedMilestoneId(null);
+      showNotice("MSを削除したよ");
+    } catch (caught) {
+      showNotice(caught instanceof Error ? caught.message : "削除できなかったよ");
+    } finally {
+      setDeletingMilestoneId(null);
     }
   }
 
@@ -4820,17 +4853,27 @@ export function SxWeeklyControlDashboard({
                 ) : null
               }
               deleteBlockedReason={
-                selectedTask &&
-                management.tasks.some(
-                  (candidate) => candidate.parentTaskId === selectedTask.id,
-                )
-                  ? "子タスクがあるから削除できないよ。先に子タスクを移すか削除してね"
-                  : null
+                selectedTask
+                  ? management.tasks.some(
+                      (candidate) => candidate.parentTaskId === selectedTask.id,
+                    )
+                    ? "子タスクがあるから削除できないよ。先に子タスクを移すか削除してね"
+                    : null
+                  : selectedMilestone &&
+                      management.tasks.some(
+                        (candidate) =>
+                          candidate.milestoneId === selectedMilestone.id,
+                      )
+                    ? "このMSに紐づくタスクがあるから削除できないよ。先にタスクを別のMSへ移すか削除してね"
+                    : null
               }
               deleting={
-                Boolean(selectedTask) && deletingTaskId === selectedTask!.id
+                selectedTask
+                  ? deletingTaskId === selectedTask.id
+                  : Boolean(selectedMilestone) &&
+                    deletingMilestoneId === selectedMilestone!.id
               }
-              onDeleteTask={
+              onDelete={
                 selectedTask
                   ? () => {
                       const taskId = selectedTask.id;
@@ -4838,7 +4881,14 @@ export function SxWeeklyControlDashboard({
                         void deleteTask(taskId);
                       });
                     }
-                  : undefined
+                  : selectedMilestone
+                    ? () => {
+                        const milestoneId = selectedMilestone.id;
+                        requestPlanIntent(() => {
+                          void deleteMilestone(milestoneId);
+                        });
+                      }
+                    : undefined
               }
               onClose={() => {
                 requestPlanIntent(() => {

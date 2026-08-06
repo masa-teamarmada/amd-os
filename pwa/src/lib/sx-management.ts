@@ -1300,7 +1300,23 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
   const milestoneById = new Map(milestoneRows.map((row) => [stringValue(row, "id"), row]));
   const baseLogicMilestones = milestoneRows.map(toLogicMilestone);
   const logicById = new Map(baseLogicMilestones.map((milestone) => [milestone.id, milestone]));
-  const logicDependencies: LogicDependency[] = dependencyRows.map((row) => ({ id: stringValue(row, "id"), predecessorMilestoneId: stringValue(row, "predecessor_milestone_id"), successorMilestoneId: stringValue(row, "successor_milestone_id"), required: row.required !== false, lagDays: numberValue(row, "lag_days") }));
+  // MSやタスクを非表示化すると、それを端点に持つ依存線が孤児として残る。DAG計算もガント描画も
+  // 「存在しない端点」を掴むと壊れるので、live な端点だけを持つ依存線に絞ってから配る。
+  const liveMilestoneIds = new Set(milestoneRows.map((row) => stringValue(row, "id")));
+  const liveTaskIds = new Set(taskRows.map((row) => stringValue(row, "id")));
+  const liveDependencyRows = dependencyRows.filter(
+    (row) =>
+      liveMilestoneIds.has(stringValue(row, "predecessor_milestone_id")) &&
+      liveMilestoneIds.has(stringValue(row, "successor_milestone_id")),
+  );
+  const scheduleEndpointLive = (endpointType: unknown, taskId: string | null, milestoneId: string | null) =>
+    endpointType === "milestone" ? Boolean(milestoneId && liveMilestoneIds.has(milestoneId)) : Boolean(taskId && liveTaskIds.has(taskId));
+  const liveScheduleDependencyRows = scheduleDependencyRows.filter(
+    (row) =>
+      scheduleEndpointLive(row.predecessor_type, nullableString(row, "predecessor_task_id"), nullableString(row, "predecessor_milestone_id")) &&
+      scheduleEndpointLive(row.successor_type, nullableString(row, "successor_task_id"), nullableString(row, "successor_milestone_id")),
+  );
+  const logicDependencies: LogicDependency[] = liveDependencyRows.map((row) => ({ id: stringValue(row, "id"), predecessorMilestoneId: stringValue(row, "predecessor_milestone_id"), successorMilestoneId: stringValue(row, "successor_milestone_id"), required: row.required !== false, lagDays: numberValue(row, "lag_days") }));
   const today = todayJst();
   const dag = buildDagHealth(baseLogicMilestones, logicDependencies, today);
   const kpisByMilestone = new Map<string, SxKpi[]>();
@@ -1310,8 +1326,8 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
     kpi.linkedMilestoneIds.push(stringValue(link, "milestone_id"));
     kpisByMilestone.set(stringValue(link, "milestone_id"), [...(kpisByMilestone.get(stringValue(link, "milestone_id")) || []), kpi]);
   }
-  const dependencyDtos: SxDependency[] = dependencyRows.map((row) => ({ id: stringValue(row, "id"), predecessorMilestoneId: stringValue(row, "predecessor_milestone_id"), successorMilestoneId: stringValue(row, "successor_milestone_id"), predecessorSlug: stringValue(milestoneById.get(stringValue(row, "predecessor_milestone_id")) || {}, "slug", "不明な前提"), successorSlug: stringValue(milestoneById.get(stringValue(row, "successor_milestone_id")) || {}, "slug", "不明な成果"), dependencyType: (row.dependency_type as SxDependency["dependencyType"]) || "finish_to_start", required: row.required !== false, lagDays: numberValue(row, "lag_days"), note: nullableString(row, "note") }));
-  const scheduleDependencies: SxScheduleDependency[] = scheduleDependencyRows.map((row) => ({
+  const dependencyDtos: SxDependency[] = liveDependencyRows.map((row) => ({ id: stringValue(row, "id"), predecessorMilestoneId: stringValue(row, "predecessor_milestone_id"), successorMilestoneId: stringValue(row, "successor_milestone_id"), predecessorSlug: stringValue(milestoneById.get(stringValue(row, "predecessor_milestone_id")) || {}, "slug", "不明な前提"), successorSlug: stringValue(milestoneById.get(stringValue(row, "successor_milestone_id")) || {}, "slug", "不明な成果"), dependencyType: (row.dependency_type as SxDependency["dependencyType"]) || "finish_to_start", required: row.required !== false, lagDays: numberValue(row, "lag_days"), note: nullableString(row, "note") }));
+  const scheduleDependencies: SxScheduleDependency[] = liveScheduleDependencyRows.map((row) => ({
     id: stringValue(row, "id"),
     predecessorType: row.predecessor_type === "milestone" ? "milestone" : "task",
     predecessorTaskId: nullableString(row, "predecessor_task_id"),
