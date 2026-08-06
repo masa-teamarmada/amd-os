@@ -4,7 +4,9 @@ import {
   useEffect,
   useRef,
   useState,
+  type CSSProperties,
   type MutableRefObject,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 import {
@@ -1160,7 +1162,7 @@ function pocFacetChipsView(partner: SxManagementPartner) {
       className={`inline-flex max-w-full items-baseline gap-0.5 border px-1 py-px text-[10px] font-semibold leading-3 ${tone}`}
     >
       <span className="shrink-0 font-normal opacity-70">{facet}</span>
-      <span className="truncate">{value}</span>
+      <span className="min-w-0 break-words">{value}</span>
     </span>
   );
   return (
@@ -1205,7 +1207,7 @@ function pocFacetChipsView(partner: SxManagementPartner) {
       )}
       {partner.valueNote && (
         <span
-          className="w-full truncate text-[10px] leading-3 text-[#5a574c]"
+          className="w-full break-words text-[10px] leading-4 text-[#5a574c]"
           title={partner.valueNote}
           data-poc-value-note={partner.id}
         >
@@ -2230,16 +2232,235 @@ function HoldingRow({
 
 // 列順は「評価 → 関係先 → 現在の状況 → ゴール → 詰まり・PJ影響 → 次にやること → 次回面談
 // → 担当・期限 → 現在地の根拠 → 排液 → 接点の経緯 → 履歴・保有」。評価は行の外側の独立カラムなので
-// INNER 側には含めず、HEADER 側だけが先頭 32px を持つ (2026-08-06 まさ「一番左に評価カラムを作って」)。
+// INNER 側には含めず、HEADER と行の外枠だけが先頭カラムを持つ
+// (2026-08-06 まさ「一番左に評価カラムを作って」)。
 // 次回面談は「次にやること」の直後。訪問が決まった瞬間に書き込む欄なので、
 // 行動系の列の並びから離さない (2026-08-06 まさ「すぐに入力できる場所に設置してほしい」)。
 // 接点の経緯と排液は日次では読まない参照属性なので右へ寄せる
 // (2026-08-06 まさ「そこまで頻繁に見るものではないから右の方に移動してほしい」)。
-// 幅の合計は gap-2 × 11 と px-2 を足して 1248px のコンテナ閾値に収める。
+//
+// 幅は 1248px に詰め込まず、本文を「…」で切らずに読める既定幅を持つ
+// (2026-08-06 まさ「各カラムの情報は「…」で省略せずに表示して。カラムの幅はもっと太くしてもいいよ。
+// 基本、横スクロールは許容する前提で」)。合計幅がコンテナを超える分は一覧を横スクロールさせ、
+// 先頭列 (評価) と先頭行 (見出し) を固定する。幅は下のドラッグハンドルで変更でき、localStorage に残る。
+type PartnerLedgerColumnKey =
+  | "grade"
+  | "name"
+  | "current"
+  | "goal"
+  | "block"
+  | "action"
+  | "meeting"
+  | "owner"
+  | "basis"
+  | "effluent"
+  | "origin"
+  | "history";
+
+type PartnerLedgerColumn = {
+  key: PartnerLedgerColumnKey;
+  label: string;
+  title?: string;
+  defaultWidth: number;
+  minWidth: number;
+};
+
+const PARTNER_LEDGER_COLUMNS: readonly PartnerLedgerColumn[] = [
+  {
+    key: "grade",
+    label: "評価",
+    title: "顧客としての見込み。ペインの高さと単価の高い重金属の有無で付ける",
+    defaultWidth: 34,
+    minWidth: 30,
+  },
+  { key: "name", label: "関係先", defaultWidth: 220, minWidth: 120 },
+  { key: "current", label: "現在の状況", defaultWidth: 208, minWidth: 120 },
+  { key: "goal", label: "ゴール", defaultWidth: 176, minWidth: 90 },
+  { key: "block", label: "詰まり・PJ影響", defaultWidth: 184, minWidth: 90 },
+  { key: "action", label: "次にやること", defaultWidth: 200, minWidth: 90 },
+  {
+    key: "meeting",
+    label: "次回面談",
+    title: "次回面談の日時・形式・準備するもの",
+    defaultWidth: 184,
+    minWidth: 90,
+  },
+  { key: "owner", label: "担当・期限", defaultWidth: 140, minWidth: 80 },
+  { key: "basis", label: "現在地の根拠", defaultWidth: 224, minWidth: 100 },
+  { key: "effluent", label: "排液", defaultWidth: 208, minWidth: 100 },
+  { key: "origin", label: "接点の経緯", defaultWidth: 208, minWidth: 100 },
+  { key: "history", label: "履歴・保有", defaultWidth: 88, minWidth: 72 },
+];
+
+/** 行の内側 grid が持つ列 (評価と履歴・保有は行の外枠側)。 */
+const PARTNER_LEDGER_INNER_KEYS: readonly PartnerLedgerColumnKey[] =
+  PARTNER_LEDGER_COLUMNS.filter(
+    (column) => column.key !== "grade" && column.key !== "history",
+  ).map((column) => column.key);
+
+const PARTNER_LEDGER_WIDTH_STORAGE_KEY = "sx-partner-ledger-column-widths-v1";
+
+type PartnerLedgerWidths = Record<PartnerLedgerColumnKey, number>;
+
+function defaultPartnerLedgerWidths(): PartnerLedgerWidths {
+  return PARTNER_LEDGER_COLUMNS.reduce((acc, column) => {
+    acc[column.key] = column.defaultWidth;
+    return acc;
+  }, {} as PartnerLedgerWidths);
+}
+
+/**
+ * 列幅は端末ごとの見え方の好みなので localStorage に保存する。DB へは持たせない
+ * (共有すると他の閲覧者の幅まで動いてしまう)。保存値が壊れていても既定幅へ落として描画は続ける。
+ */
+function usePartnerLedgerColumnWidths() {
+  const [widths, setWidths] = useState<PartnerLedgerWidths>(
+    defaultPartnerLedgerWidths,
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(PARTNER_LEDGER_WIDTH_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Partial<
+        Record<PartnerLedgerColumnKey, unknown>
+      >;
+      const next = defaultPartnerLedgerWidths();
+      for (const column of PARTNER_LEDGER_COLUMNS) {
+        const value = parsed?.[column.key];
+        if (typeof value === "number" && Number.isFinite(value)) {
+          next[column.key] = Math.max(column.minWidth, Math.round(value));
+        }
+      }
+      setWidths(next);
+    } catch {
+      // 壊れた保存値は無視して既定幅のまま使う
+    }
+  }, []);
+
+  const persist = (next: PartnerLedgerWidths) => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        PARTNER_LEDGER_WIDTH_STORAGE_KEY,
+        JSON.stringify(next),
+      );
+    } catch {
+      // 保存できなくても表示は続ける
+    }
+  };
+
+  const setWidth = (key: PartnerLedgerColumnKey, width: number) => {
+    setWidths((previous) => ({ ...previous, [key]: width }));
+  };
+
+  const commitWidths = () => {
+    setWidths((previous) => {
+      persist(previous);
+      return previous;
+    });
+  };
+
+  const resetWidths = () => {
+    const next = defaultPartnerLedgerWidths();
+    setWidths(next);
+    persist(next);
+  };
+
+  const isCustomized = PARTNER_LEDGER_COLUMNS.some(
+    (column) => widths[column.key] !== column.defaultWidth,
+  );
+
+  return { widths, setWidth, commitWidths, resetWidths, isCustomized };
+}
+
+/** 幅を CSS 変数へ流し込む。行・見出し・横スクロール枠が同じ値を共有する。 */
+function partnerLedgerGridStyle(widths: PartnerLedgerWidths): CSSProperties {
+  const inner = PARTNER_LEDGER_INNER_KEYS.map(
+    (key) => `${widths[key]}px`,
+  ).join(" ");
+  const total =
+    PARTNER_LEDGER_COLUMNS.reduce((sum, column) => sum + widths[column.key], 0) +
+    // gap-2 × 11 本 + 行の px-2
+    8 * (PARTNER_LEDGER_COLUMNS.length - 1) +
+    16;
+  return {
+    "--sx-pl-inner": inner,
+    "--sx-pl-header": `${widths.grade}px ${inner} ${widths.history}px`,
+    "--sx-pl-row": `${widths.grade}px minmax(0,1fr) ${widths.history}px`,
+    "--sx-pl-total": `${total}px`,
+  } as CSSProperties;
+}
+
 const PARTNER_CONTROL_INNER_GRID =
-  "@min-[1248px]:grid-cols-[168px_136px_80px_78px_100px_104px_66px_100px_108px_100px]";
-const PARTNER_CONTROL_HEADER_GRID =
-  "@min-[1248px]:grid-cols-[32px_168px_136px_80px_78px_100px_104px_66px_100px_108px_100px_72px]";
+  "@min-[1248px]:[grid-template-columns:var(--sx-pl-inner)]";
+const PARTNER_CONTROL_ROW_GRID =
+  "@min-[1248px]:[grid-template-columns:var(--sx-pl-row)]";
+/** 横スクロール枠の中身は列幅の合計まで広げる。これで見出しと行の左端が揃う。 */
+const PARTNER_LEDGER_MIN_WIDTH = "@min-[1248px]:[min-width:var(--sx-pl-total)]";
+/** 先頭列 (評価) を横スクロールに対して固定する。 */
+const PARTNER_LEDGER_STICKY_LEFT =
+  "@min-[1248px]:sticky @min-[1248px]:left-0 @min-[1248px]:z-20";
+
+function PartnerLedgerHeaderCell({
+  column,
+  width,
+  onResize,
+  onCommit,
+  sticky,
+}: {
+  column: PartnerLedgerColumn;
+  width: number;
+  onResize: (key: PartnerLedgerColumnKey, width: number) => void;
+  onCommit: () => void;
+  sticky?: boolean;
+}) {
+  const handlePointerDown = (event: ReactPointerEvent<HTMLSpanElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = event.clientX;
+    const startWidth = width;
+    const move = (moveEvent: PointerEvent) => {
+      onResize(
+        column.key,
+        Math.max(
+          column.minWidth,
+          Math.round(startWidth + moveEvent.clientX - startX),
+        ),
+      );
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      document.body.style.removeProperty("cursor");
+      document.body.style.removeProperty("user-select");
+      onCommit();
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    document.body.style.setProperty("cursor", "col-resize");
+    document.body.style.setProperty("user-select", "none");
+  };
+
+  return (
+    <span
+      className={`relative flex min-w-0 items-center pr-2 ${sticky ? `${PARTNER_LEDGER_STICKY_LEFT} bg-[#f2eee0]` : ""}`}
+      title={column.title}
+    >
+      <span className="min-w-0 break-words">{column.label}</span>
+      <span
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={`${column.label}の列幅を変える`}
+        data-partner-column-resize={column.key}
+        className="absolute -right-1 top-0 h-full w-2 cursor-col-resize touch-none bg-transparent hover:bg-[#a1957e]"
+        title="左右にドラッグで列幅を変えられるよ"
+        onPointerDown={handlePointerDown}
+      />
+    </span>
+  );
+}
 
 type PartnerGateImpact = {
   title: string;
@@ -3137,12 +3358,12 @@ function PartnerInlineRow({
   const effluentView = (
     <span className="grid min-h-11 min-w-0 content-center gap-0.5">
       <span
-        className="line-clamp-2 break-words text-[10px] font-semibold leading-4 text-[#24231f]"
+        className="break-words text-[10px] font-semibold leading-4 text-[#24231f]"
         title={partner.effluentComponents || "成分 未確認"}
       >
         {partner.effluentComponents || "成分 未確認"}
       </span>
-      <span className="truncate text-[10px] leading-4 text-[#5a574c]">
+      <span className="break-words text-[10px] leading-4 text-[#5a574c]">
         年間 {partner.effluentVolumeAnnual || "量未確認"} ・ 処理費{" "}
         {partner.effluentCostAnnual || "未確認"}
       </span>
@@ -3165,13 +3386,13 @@ function PartnerInlineRow({
   const nextMeetingView = (
     <span className="grid min-h-11 min-w-0 content-center gap-0.5">
       <span
-        className={`truncate text-[10px] font-semibold leading-4 ${partner.nextMeetingOn ? "text-[#24231f]" : "text-[#5a574c]"}`}
+        className={`break-words text-[10px] font-semibold leading-4 ${partner.nextMeetingOn ? "text-[#24231f]" : "text-[#5a574c]"}`}
         title={nextMeetingDateText}
       >
         {nextMeetingDateText}
       </span>
       <span
-        className="line-clamp-2 break-words text-[10px] leading-4 text-[#5a574c]"
+        className="break-words text-[10px] leading-4 text-[#5a574c]"
         title={nextMeetingSubText}
       >
         {nextMeetingSubText}
@@ -3181,13 +3402,13 @@ function PartnerInlineRow({
   const connectionOriginView = (
     <span className="grid min-h-11 min-w-0 content-center gap-0.5">
       <span
-        className="line-clamp-2 break-words text-[10px] font-semibold leading-4 text-[#24231f]"
+        className="break-words text-[10px] font-semibold leading-4 text-[#24231f]"
         title={partner.connectionContext || "経緯 未登録"}
       >
         {partner.connectionContext || "経緯 未登録"}
       </span>
       <span
-        className="truncate text-[10px] leading-4 text-[#5a574c]"
+        className="break-words text-[10px] leading-4 text-[#5a574c]"
         title={partner.introducerLabel || "紹介者 未確認"}
       >
         紹介者 {partner.introducerLabel || "未確認"}
@@ -3196,20 +3417,20 @@ function PartnerInlineRow({
   );
   const currentView = (
     <span className="grid min-h-11 w-full min-w-0 grid-cols-[60px_minmax(0,1fr)] items-stretch">
-      <span className="grid min-w-0 grid-rows-[14px_30px] border-r border-[#d5cdba]">
+      <span className="grid min-w-0 grid-rows-[14px_minmax(30px,auto)] border-r border-[#d5cdba]">
         <span className="px-1 pt-0.5 text-[10px] font-semibold leading-3 text-[#5a574c]">
           保有側
         </span>
-        <span className="truncate px-1 text-[11px] font-semibold leading-[30px] text-[#24231f]">
+        <span className="break-words px-1 pb-1 text-[11px] font-semibold leading-4 text-[#24231f]">
           {sxBallSideLabel(partner.currentBallSide)}
         </span>
       </span>
-      <span className="grid min-w-0 grid-rows-[14px_30px]">
+      <span className="grid min-w-0 grid-rows-[14px_minmax(30px,auto)]">
         <span className="px-1 pt-0.5 text-[10px] font-semibold leading-3 text-[#5a574c]">
           担当
         </span>
         <span
-          className="truncate px-1 text-[11px] font-semibold leading-[30px] text-[#24231f]"
+          className="break-words px-1 pb-1 text-[11px] font-semibold leading-4 text-[#24231f]"
           title={
             partner.currentBallOwner
               ? sxNormalizePublicName(partner.currentBallOwner)
@@ -3225,7 +3446,7 @@ function PartnerInlineRow({
   );
   const goalView = (
     <p
-      className="line-clamp-2 text-[11px] font-semibold leading-4 text-[#24231f]"
+      className="break-words text-[11px] font-semibold leading-4 text-[#24231f]"
       title={goalStep?.title}
     >
       {goalStep?.title ?? "目標状態 未登録"}
@@ -3241,11 +3462,11 @@ function PartnerInlineRow({
       className="scroll-mt-24 border-b border-[#d5cdba] bg-[#fffdf7]"
     >
       <div
-        className="grid w-full grid-cols-[34px_minmax(0,1fr)] items-stretch gap-2 px-2 py-1.5 text-left sm:grid-cols-[34px_minmax(0,1fr)_72px]"
+        className={`grid w-full grid-cols-[34px_minmax(0,1fr)] items-stretch gap-2 px-2 py-1.5 text-left sm:grid-cols-[34px_minmax(0,1fr)_72px] ${PARTNER_CONTROL_ROW_GRID}`}
         data-partner-row-density="compact"
       >
         <div
-          className="min-w-0 self-stretch"
+          className={`min-w-0 self-stretch bg-[#fffdf7] ${PARTNER_LEDGER_STICKY_LEFT}`}
           data-partner-grade-cell={partner.id}
         >
           {canManage ? (
@@ -3472,7 +3693,7 @@ function PartnerInlineRow({
                 }}
                 view={
                   <p
-                    className={`mt-1 line-clamp-2 text-[10px] font-semibold leading-4 ${impact.critical ? "text-[#8c3329]" : "text-[#24231f]"}`}
+                    className={`mt-1 break-words text-[10px] font-semibold leading-4 ${impact.critical ? "text-[#8c3329]" : "text-[#24231f]"}`}
                     title={impact.title}
                   >
                     {impact.critical
@@ -3523,7 +3744,7 @@ function PartnerInlineRow({
               />
             ) : (
               <p
-                className={`mt-1 line-clamp-2 text-[10px] font-semibold leading-4 ${impact.critical ? "text-[#8c3329]" : "text-[#24231f]"}`}
+                className={`mt-1 break-words text-[10px] font-semibold leading-4 ${impact.critical ? "text-[#8c3329]" : "text-[#24231f]"}`}
                 title={impact.title}
               >
                 {impact.critical
@@ -3561,7 +3782,7 @@ function PartnerInlineRow({
                 view={
                   <>
                     <p
-                      className="line-clamp-2 text-[11px] font-semibold leading-4 text-[#24231f]"
+                      className="break-words text-[11px] font-semibold leading-4 text-[#24231f]"
                       title={actionText}
                     >
                       {actionText}
@@ -3655,7 +3876,7 @@ function PartnerInlineRow({
             ) : (
               <>
                 <p
-                  className="line-clamp-2 text-[11px] font-semibold leading-4 text-[#24231f]"
+                  className="break-words text-[11px] font-semibold leading-4 text-[#24231f]"
                   title={actionText}
                 >
                   {actionText}
@@ -3812,7 +4033,7 @@ function PartnerInlineRow({
                 view={
                   <>
                     <p
-                      className="truncate text-[11px] font-semibold text-[#24231f]"
+                      className="break-words text-[11px] font-semibold text-[#24231f]"
                       title={ownershipOwnerText}
                     >
                       {ownershipOwnerText}
@@ -3950,7 +4171,7 @@ function PartnerInlineRow({
             ) : (
               <>
                 <p
-                  className="truncate text-[11px] font-semibold text-[#24231f]"
+                  className="break-words text-[11px] font-semibold text-[#24231f]"
                   title={ownershipOwnerText}
                 >
                   {ownershipOwnerText}
@@ -4002,7 +4223,7 @@ function PartnerInlineRow({
                       ・ {sxInteractionKindLabel(latest.interactionKind)}
                     </p>
                     <p
-                      className="mt-0.5 line-clamp-2 text-[10px] leading-4 text-[#24231f]"
+                      className="mt-0.5 break-words text-[10px] leading-4 text-[#24231f]"
                       title={latestSummary}
                     >
                       {latestSummary}
@@ -4149,7 +4370,7 @@ function PartnerInlineRow({
                   ・ {sxInteractionKindLabel(latest.interactionKind)}
                 </p>
                 <p
-                  className="mt-0.5 line-clamp-2 text-[10px] leading-4 text-[#24231f]"
+                  className="mt-0.5 break-words text-[10px] leading-4 text-[#24231f]"
                   title={latestSummary}
                 >
                   {latestSummary}
@@ -4349,6 +4570,15 @@ export function SxPartnerPipeline({
   // 既定は優先度順。上から順にアタックすれば良い並びを初期表示にする (2026-08-06 まさ指示)。
   const [comparisonSort, setComparisonSort] =
     useState<SxPocComparisonSort>("priority");
+  const { widths, setWidth, commitWidths, resetWidths, isCustomized } =
+    usePartnerLedgerColumnWidths();
+  // 見出し行は横スクロール枠の外に置き、body 側のスクロール量を転記して左右を揃える。
+  // 枠の中へ入れると高さが固定され、セル編集のポップオーバーが切れてしまう。
+  const ledgerHeaderRef = useRef<HTMLDivElement | null>(null);
+  const syncLedgerHeaderScroll = (scrollLeft: number) => {
+    const header = ledgerHeaderRef.current;
+    if (header) header.scrollLeft = scrollLeft;
+  };
   const patchInlineCell = (request: PartnerInlinePatch): Promise<void> => {
     // A ledger cell commits to the visible row immediately. It is especially important for
     // blur-save: waiting for the full management bundle made the row feel stuck and blocked the
@@ -4543,14 +4773,26 @@ export function SxPartnerPipeline({
     <div
       className="relative isolate @container rounded-lg border border-[#ada18a] bg-[#fffdf7]"
       data-testid="sx-partner-pipeline"
+      style={partnerLedgerGridStyle(widths)}
     >
-      <div className="hidden rounded-t-[7px] border-b border-[#c5bba5] bg-[#f2eee0] px-3 py-2 md:block">
-        <p className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">
-          関係先の進捗比較
-        </p>
-        <h3 className="mt-0.5 text-sm font-semibold text-[#24231f]">
-          接点・現在地・次の行動・ゴールを、1社1行で確認
-        </h3>
+      <div className="hidden rounded-t-[7px] border-b border-[#c5bba5] bg-[#f2eee0] px-3 py-2 md:flex md:items-start md:justify-between md:gap-3">
+        <div>
+          <p className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">
+            関係先の進捗比較
+          </p>
+          <h3 className="mt-0.5 text-sm font-semibold text-[#24231f]">
+            接点・現在地・次の行動・ゴールを、1社1行で確認
+          </h3>
+        </div>
+        {isCustomized && (
+          <button
+            type="button"
+            onClick={resetWidths}
+            className={`shrink-0 rounded border border-[#ada18a] bg-[#fffdf7] px-2 py-1 text-[10px] font-semibold text-[#5a574c] hover:bg-[#f2eee0] ${FOCUS_RING}`}
+          >
+            列幅をリセット
+          </button>
+        )}
       </div>
       {!comparisonOnly && (
         <>
@@ -4671,97 +4913,110 @@ export function SxPartnerPipeline({
         />
       )}
 
+      {/* 先頭行 (見出し) の固定。横スクロール枠の外に出し、scrollLeft だけ body から転記する。 */}
       <div
-        className={`${comparisonOnly ? "sticky top-14 z-20 shadow-[0_1px_0_#d6cebf]" : ""} hidden ${PARTNER_CONTROL_HEADER_GRID} gap-2 border-b border-[#c5bba5] bg-[#f2eee0] px-2 py-1 text-[10px] font-semibold text-[#5a574c] @min-[1248px]:grid`}
+        ref={ledgerHeaderRef}
+        className={`${comparisonOnly ? "sticky top-14 z-30 shadow-[0_1px_0_#d6cebf]" : ""} hidden overflow-hidden border-b border-[#c5bba5] bg-[#f2eee0] @min-[1248px]:block`}
       >
-        <span title="顧客としての見込み。ペインの高さと単価の高い重金属の有無で付ける">
-          評価
-        </span>
-        <span>関係先</span>
-        <span>現在の状況</span>
-        <span>ゴール</span>
-        <span>詰まり・PJ影響</span>
-        <span>次にやること</span>
-        <span title="次回面談の日時・形式・準備するもの">次回面談</span>
-        <span>担当・期限</span>
-        <span>現在地の根拠</span>
-        <span>排液</span>
-        <span>接点の経緯</span>
-        <span>履歴・保有</span>
+        <div
+          className={`grid gap-2 px-2 py-1 text-[10px] font-semibold text-[#5a574c] @min-[1248px]:[grid-template-columns:var(--sx-pl-header)] ${PARTNER_LEDGER_MIN_WIDTH}`}
+        >
+          {PARTNER_LEDGER_COLUMNS.map((column) => (
+            <PartnerLedgerHeaderCell
+              key={column.key}
+              column={column}
+              width={widths[column.key]}
+              onResize={setWidth}
+              onCommit={commitWidths}
+              sticky={column.key === "grade"}
+            />
+          ))}
+        </div>
       </div>
 
       {/* spec P1: role filter中に「対応中」groupがゼロでも保留/終了に絞り込み結果が残っていることが
           あるため、3つの表示先すべて（active groups + deferred + ended）を合算してから空判定する
           （groups.length === 0 だけを見ると「該当なし」を誤表示してしまう）。 */}
-      {(comparisonOnly
-        ? comparisonPartners.length === 0
-        : groups.length === 0 &&
-          deferredPartners.length === 0 &&
-          endedPartners.length === 0) && (
-        <p className="px-3 py-6 text-center text-xs text-[#5a574c]">
-          該当する関係先はまだないよ。
-        </p>
-      )}
-      {comparisonOnly &&
-        comparisonPartners.map((partner) => (
-          <PartnerRow key={partner.id} partner={partner} {...rowProps} />
-        ))}
-      {!comparisonOnly &&
-        groups.map((group) => (
-          <div key={group.key}>
-            <div className="border-b border-l-4 border-[#c5bba5] border-l-[#38745d] bg-[#fffdf7] px-3 py-1.5">
-              {/* spec P1: 分類見出しh4は11-12px+左罫線で本文行と視覚的に区切る。in_progress/established
-                は同じ複合ラベル("XX先")になるため、unclassified以外は状態を（）で必ず明示して見出し
-                だけでも区別できるようにする。 */}
-              <h4 className="text-[11px] font-semibold text-[#38745d]">
-                {group.label}
-                {group.roleKind !== "unclassified" && (
-                  <span className="text-[#5a574c]">
-                    （{sxRelationshipStateLabel(group.relationshipState)}）
-                  </span>
-                )}{" "}
-                <span className="text-[#5a574c]">
-                  {group.partners.length}件
+      <div
+        className="@min-[1248px]:overflow-x-auto @min-[1248px]:pb-72"
+        onScroll={(event) => syncLedgerHeaderScroll(event.currentTarget.scrollLeft)}
+      >
+        <div className={PARTNER_LEDGER_MIN_WIDTH}>
+          {(comparisonOnly
+            ? comparisonPartners.length === 0
+            : groups.length === 0 &&
+              deferredPartners.length === 0 &&
+              endedPartners.length === 0) && (
+            <p className="px-3 py-6 text-center text-xs text-[#5a574c]">
+              該当する関係先はまだないよ。
+            </p>
+          )}
+          {comparisonOnly &&
+            comparisonPartners.map((partner) => (
+              <PartnerRow key={partner.id} partner={partner} {...rowProps} />
+            ))}
+          {!comparisonOnly &&
+            groups.map((group) => (
+              <div key={group.key}>
+                <div className="border-b border-l-4 border-[#c5bba5] border-l-[#38745d] bg-[#fffdf7] px-3 py-1.5">
+                  {/* spec P1: 分類見出しh4は11-12px+左罫線で本文行と視覚的に区切る。in_progress/established
+                    は同じ複合ラベル("XX先")になるため、unclassified以外は状態を（）で必ず明示して見出し
+                    だけでも区別できるようにする。 */}
+                  <h4 className="w-fit text-[11px] font-semibold text-[#38745d] @min-[1248px]:sticky @min-[1248px]:left-3">
+                    {group.label}
+                    {group.roleKind !== "unclassified" && (
+                      <span className="text-[#5a574c]">
+                        （{sxRelationshipStateLabel(group.relationshipState)}）
+                      </span>
+                    )}{" "}
+                    <span className="text-[#5a574c]">
+                      {group.partners.length}件
+                    </span>
+                  </h4>
+                </div>
+                {group.partners.map((partner) => (
+                  <PartnerRow key={partner.id} partner={partner} {...rowProps} />
+                ))}
+              </div>
+            ))}
+
+          {!comparisonOnly && deferredPartners.length > 0 && (
+            <details className="border-t border-[#c5bba5]">
+              <summary
+                className={`flex min-h-11 cursor-pointer select-none items-center px-3 py-2 text-[10px] font-semibold text-[#5a574c] ${FOCUS_RING}`}
+              >
+                <span className="w-fit @min-[1248px]:sticky @min-[1248px]:left-3">
+                  保留・低優先（重要経路外・{deferredPartners.length}件）
                 </span>
-              </h4>
-            </div>
-            {group.partners.map((partner) => (
-              <PartnerRow key={partner.id} partner={partner} {...rowProps} />
-            ))}
-          </div>
-        ))}
+              </summary>
+              <div>
+                {deferredPartners.map((partner) => (
+                  <PartnerRow key={partner.id} partner={partner} {...rowProps} />
+                ))}
+              </div>
+            </details>
+          )}
 
-      {!comparisonOnly && deferredPartners.length > 0 && (
-        <details className="border-t border-[#c5bba5]">
-          <summary
-            className={`flex min-h-11 cursor-pointer select-none items-center px-3 py-2 text-[10px] font-semibold text-[#5a574c] ${FOCUS_RING}`}
-          >
-            保留・低優先（重要経路外・{deferredPartners.length}件）
-          </summary>
-          <div>
-            {deferredPartners.map((partner) => (
-              <PartnerRow key={partner.id} partner={partner} {...rowProps} />
-            ))}
-          </div>
-        </details>
-      )}
-
-      {/* 終了は保留とは別単位（spec P1: 保留/終了を別単位）。同じ折りたたみ行UIを流用しつつ、
-          対応中カウントには入らないことがこのsectionの独立性からも分かるようにする。 */}
-      {!comparisonOnly && endedPartners.length > 0 && (
-        <details className="border-t border-[#c5bba5]">
-          <summary
-            className={`flex min-h-11 cursor-pointer select-none items-center px-3 py-2 text-[10px] font-semibold text-[#5a574c] ${FOCUS_RING}`}
-          >
-            終了（対応中から除外・{endedPartners.length}件）
-          </summary>
-          <div>
-            {endedPartners.map((partner) => (
-              <PartnerRow key={partner.id} partner={partner} {...rowProps} />
-            ))}
-          </div>
-        </details>
-      )}
+          {/* 終了は保留とは別単位（spec P1: 保留/終了を別単位）。同じ折りたたみ行UIを流用しつつ、
+              対応中カウントには入らないことがこのsectionの独立性からも分かるようにする。 */}
+          {!comparisonOnly && endedPartners.length > 0 && (
+            <details className="border-t border-[#c5bba5]">
+              <summary
+                className={`flex min-h-11 cursor-pointer select-none items-center px-3 py-2 text-[10px] font-semibold text-[#5a574c] ${FOCUS_RING}`}
+              >
+                <span className="w-fit @min-[1248px]:sticky @min-[1248px]:left-3">
+                  終了（対応中から除外・{endedPartners.length}件）
+                </span>
+              </summary>
+              <div>
+                {endedPartners.map((partner) => (
+                  <PartnerRow key={partner.id} partner={partner} {...rowProps} />
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

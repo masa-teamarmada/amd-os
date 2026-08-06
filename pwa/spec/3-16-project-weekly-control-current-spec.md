@@ -174,7 +174,7 @@ point-MS追加フォームは`接続する成果 / MS名 / 予定日`の3項目�
 - 確度は `sx-partner-progress.ts` の `SX_PARTNER_CONFIDENCE_ORDER = ["high","medium","low","unknown"]` を正本とし、表示語彙は `sxPartnerConfidenceLabel` で 確認済み / 推定 / 要確認 / 未確認 に対応させる。PoC候補先スプシの語彙をそのまま使い、`medium` を `high` へ丸めない。保存値が空・未知のときだけ `unknown` へ落とす。
 - `pocFacetChipsView` の3チップは「段階」「状態」「確度」の軸名をチップ内に必ず持つ。値だけを並べるチップへ戻さない。
 - `SxPocComparisonSort` に `"confidence"` を追加。`sxComparePartnersForPoc` は確度rank差を先に見て、同順位では既存の要対応rank・ボール側・期限・最終接点・名前で決める。UIは `data-partner-sort-trigger` の「要対応順 / 確度順」トグル（既定 `attention`）で、`activeInlineEditorKey` があるあいだは切替を無視する。
-- 列順は `PARTNER_CONTROL_INNER_GRID` / `PARTNER_CONTROL_HEADER_GRID` / ヘッダーspan順 / 行内cell位置の4箇所を必ず同時に動かす。接点の経緯を左から2番目へ戻さない（日次で読まない履歴属性のため）。**現行の列構成はv3.58.4の12列**（後述「次回面談カラムと、評価同点時の情報鮮度ソート」節が正本。この節の9列はv3.58.1、11列はv3.58.3時点の記録）。
+- 列順は `PARTNER_LEDGER_COLUMNS` の並びと行内cell位置の2箇所を同時に動かす（v3.58.6で見出しはこの配列から生成するようになり、`PARTNER_CONTROL_HEADER_GRID` とヘッダーspan列挙は廃止）。接点の経緯を左から2番目へ戻さない（日次で読まない履歴属性のため）。**現行の列構成はv3.58.4の12列で、幅と省略なし表示はv3.58.6節が正本**（この節の9列はv3.58.1、11列はv3.58.3時点の記録）。
 - 配色は `Sx*.tsx` / `sx-*.tsx` の色トークンを機械的に置換してコントラストを上げた（429箇所）。補助文字 `#69665d`→`#5a574c` (5.64→7.11)、`#777166`→`#5f5a4d` (4.76→6.76)、`#8f8a7e`/`#928c80`/`#9b9487`→`#65604f` (2.96–3.38→6.18、WCAG AA未達を解消)。罫線 `#d6cebf`→`#ada18a` (1.54→2.53)、`#e4ddd0`→`#c5bba5`、`#eee9df`→`#d5cdba` ほか、状態チップの地色も1段深くした。色相と意味の割当（赤=事業リスク、琥珀=待ち・要確認、緑=段階、青=確度高）は変えない。
 
 ### PoC実現可能性・顧客有望度の判断2軸と優先度 (build v3.58.2 / migration 237、2026-08-06)
@@ -209,3 +209,13 @@ point-MS追加フォームは`接続する成果 / MS名 / 予定日`の3項目�
 
 - `PRIORITY_TIER_ORDER` を `["s", "a", "b", "unrated", "x"]` にする。`✕` は顧客候補として適さないと**判明済み**で、まだ判断が入っていない `未` より情報として下位ではなく劣位だから（まさ 2026-08-06「『✕』は未より下にソーティングして。顧客候補としては適してないことが判明したわけだから」）。評価cellの選択肢の並び `SX_POC_GRADE_CHOICES` は S/A/B/✕/未 のまま変えない（入力時の見つけやすさとソート順は別の要件）。
 - `InlineCellEditor` に `align?: "center" | "start"`（既定 `center`）を足す。popoverは既定でcell中央寄せ（`left-1/2 -translate-x-1/2`）だが、最左の評価cellは幅34pxしかなく、中央寄せだと320pxのpopoverが画面左外へはみ出していた。評価cellだけ `align="start"`（`left-0`）にして、cellの左端から右へ開かせる（まさ 2026-08-06「評価の編集モーダルがブラウザの左端より左にはみ出てるから、評価カラムより右に出るようにして」）。今後も左端に狭いcellを足す場合は同じく `align="start"` を渡す。
+
+### 関係先台帳の省略なし表示・列幅のUI調整・先頭列先頭行の固定 (build v3.58.6、2026-08-06)
+
+- 台帳の**どのカラムも `…` で省略しない**。`truncate` / `line-clamp-2` を関係先の一覧cellから全廃し、`break-words` による自然折り返しへ変える（まさ 2026-08-06「各カラムの情報は、『…』で省略せずに表示して」）。`現在の状況` の下段は `grid-rows-[14px_30px]` の固定トラックをやめ `minmax(30px,auto)` にして、内容の行数ぶん高さを伸ばす。履歴モーダル内の `PartnerProgressFlow` のフローチップだけは固定幅の別UIなので `line-clamp-2` を残す（台帳のカラムではない）。
+- 列幅は `PARTNER_LEDGER_COLUMNS`（key / label / title / defaultWidth / minWidth）が正本。ヘッダーspan列挙と固定Tailwind grid文字列（旧 `PARTNER_CONTROL_HEADER_GRID`）は廃止し、見出しはこの配列から生成する。列を足すときはこの配列だけを直す。
+- 幅の実体はCSS変数。`partnerLedgerGridStyle()` が `--sx-pl-inner`（内側10列）/ `--sx-pl-header`（評価+内側+履歴）/ `--sx-pl-row`（評価 / 1fr / 履歴）/ `--sx-pl-total`（全列+gap+paddingの合計）を root の `@container` へ流し、grid側は `@min-[1248px]:[grid-template-columns:var(--sx-pl-*)]` で読む。TailwindのJITは動的な `grid-cols-[…]` を出力できないため、動的幅は必ずこの CSS変数経由にする。
+- 見出しの各cellは右端に幅2pxの `role="separator"`（`data-partner-column-resize`）を持ち、pointerドラッグで幅を変える。`minWidth` 未満へは縮まない。pointerup で `localStorage["sx-partner-ledger-column-widths-v1"]` へ保存する。**DBへは保存しない** — 幅は端末ごとの見え方の好みで、共有すると他の閲覧者の列まで動くから。保存値が壊れていれば既定幅で描画を続ける。既定から動いている間だけ、台帳ヘッダーに「列幅をリセット」ボタンを出す。
+- 横スクロールは許容する（まさ 2026-08-06「基本、横スクロールは許容する前提で。横に長くなる分には全然問題ないよ」）。行の集合を `@min-[1248px]:overflow-x-auto` の枠で包み、中身は `min-width: var(--sx-pl-total)` まで広げる。合計幅を1248pxへ収める旧予算計算（v3.58.3/3.58.4節）はこの版で撤廃する。
+- **先頭行（見出し）は横スクロール枠の外**に置き、body側の `onScroll` で `scrollLeft` だけを転記して左右を揃える。枠の内側へ入れて高さを固定すると、直接編集のpopover（`InlineCellEditor` の `absolute top-full`）が切れるため。同じ理由でスクロール枠には `pb-72` の下余白を置き、下端の行のpopoverが隠れないようにする。
+- **先頭列（評価）は `sticky left-0`** で固定する。見出し側は `bg-[#f2eee0]`、行側は `bg-[#fffdf7]` の不透明背景を必ず持たせる（透過すると右の列が下に透ける）。グループ見出し `h4` と `保留・低優先` / `終了` の折りたたみラベルも `sticky left-3` で左端へ留め、右へスクロールしても何のグループを見ているか失わない。
