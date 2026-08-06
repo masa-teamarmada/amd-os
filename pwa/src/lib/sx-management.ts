@@ -74,6 +74,12 @@ export type SxPocJudgment = "high" | "medium" | "low";
  */
 export type SxPocGrade = "s" | "a" | "b" | "x";
 
+/** 次回面談の形式。null は未定。 */
+export type SxMeetingMode = "onsite" | "online" | "hybrid" | "phone";
+
+// 表示ラベルと選択肢の並びは client からも参照するため sx-partner-progress.ts に置く。
+// このファイルは server-only なので、値を export するとクライアント側の import が壊れる。
+
 export type SxObjective = {
   id: string;
   slug: string;
@@ -504,6 +510,16 @@ export type SxManagementPartner = {
   effluentComponents: string | null;
   effluentVolumeAnnual: string | null;
   effluentCostAnnual: string | null;
+  /**
+   * 次回面談の予定。next_commitment（次にやること）とは別で、
+   * 訪問前日に見たい「いつ・現地かオンラインか・何を持っていくか」を持つ。
+   * 時刻は「午後」のような未確定表現も入るためテキスト (2026-08-06 まさ)。
+   */
+  nextMeetingOn: string | null;
+  nextMeetingTime: string | null;
+  nextMeetingMode: SxMeetingMode | null;
+  nextMeetingPlace: string | null;
+  nextMeetingPrep: string | null;
   agreementState: "agreed" | "partial" | "unagreed";
   agreedScope: string;
   unagreedScope: string;
@@ -1060,6 +1076,11 @@ function asPocGrade(value: unknown): SxPocGrade | null {
   return values.includes(value as SxPocGrade) ? (value as SxPocGrade) : null;
 }
 
+function asMeetingMode(value: unknown): SxMeetingMode | null {
+  const values: SxMeetingMode[] = ["onsite", "online", "hybrid", "phone"];
+  return values.includes(value as SxMeetingMode) ? (value as SxMeetingMode) : null;
+}
+
 function asSampleStatus(value: unknown): SxSampleStatus {
   const values: SxSampleStatus[] = ["intent", "negotiating", "agreed_pending", "scheduled", "received", "analyzed", "unknown"];
   return values.includes(value as SxSampleStatus) ? (value as SxSampleStatus) : "unknown";
@@ -1246,7 +1267,7 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
     live("project_management_decisions", "id,project_id,issue_id,hypothesis_id,title,context,decision_state,rationale,decision_text,decided_by,decided_on,owner_label,due_date,is_this_week,sort_order,confidence,last_verified_at,source_kind,source_ref").order("sort_order"),
     live("project_management_action_items", "id,project_id,decision_id,title,owner_label,due_date,completion_criteria,next_review_on,status,completion_note,completed_at,last_verified_at,source_kind,source_ref").order("due_date"),
     live("project_management_update_history", "id,project_id,entity_type,entity_id,update_kind,summary,changed_by,changed_on,from_status,to_status").order("changed_on", { ascending: false }).limit(40),
-    live("project_management_partners", "id,project_id,slug,name,introducer_label,connection_context,role_label,primary_track,relationship_stage,activity_state,poc_category,poc_grade,poc_likelihood,customer_value,value_note,effluent_components,effluent_volume_annual,effluent_cost_annual,agreement_state,agreed_scope,unagreed_scope,last_contact_date,next_commitment,due_date,owner_label,current_ball_side,current_ball_owner,next_ball_owner,target_state,due_date_precision,last_verified_at,confidence,source_kind,source_ref,sort_order").order("sort_order"),
+    live("project_management_partners", "id,project_id,slug,name,introducer_label,connection_context,role_label,primary_track,relationship_stage,activity_state,poc_category,poc_grade,poc_likelihood,customer_value,value_note,effluent_components,effluent_volume_annual,effluent_cost_annual,next_meeting_on,next_meeting_time,next_meeting_mode,next_meeting_place,next_meeting_prep,agreement_state,agreed_scope,unagreed_scope,last_contact_date,next_commitment,due_date,owner_label,current_ball_side,current_ball_owner,next_ball_owner,target_state,due_date_precision,last_verified_at,confidence,source_kind,source_ref,sort_order").order("sort_order"),
     plain("project_management_partner_tracks", "project_id,partner_id,track,role_label,is_primary"),
     live("project_management_partner_commitments", "id,project_id,partner_id,title,commitment_text,commitment_kind,status,promised_on,due_date,completed_on,owner_label,counterparty_owner,sx_owner,evidence,next_review_on,last_verified_at,confidence,source_kind,source_ref").order("due_date"),
     live("project_management_partner_interactions", "id,project_id,partner_id,interaction_kind,occurred_on,occurred_on_precision,summary,outcome_summary,ball_side_after,ball_owner_after,actor_side,actor_label,confidence,source_kind,source_ref,detail_md,created_at").order("created_at", { ascending: false }),
@@ -1369,7 +1390,7 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
     const deferredLowPriority = primaryRole?.relationshipState === "on_hold";
     return {
       id: partnerId, slug: partnerSlug, track: tracks.find((item) => item.isPrimary)?.track || tracks[0].track, tracks,
-      name: stringValue(row, "name"), introducerLabel: nullableString(row, "introducer_label"), connectionContext: nullableString(row, "connection_context"), roleLabel: stringValue(row, "role_label"), relationshipStage: asPartnerStage(row.relationship_stage), activityState: asActivityState(row.activity_state), pocCategory: asPocCategory(row.poc_category), pocGrade: asPocGrade(row.poc_grade), pocLikelihood: asPocJudgment(row.poc_likelihood), customerValue: asPocJudgment(row.customer_value), valueNote: nullableString(row, "value_note"), effluentComponents: nullableString(row, "effluent_components"), effluentVolumeAnnual: nullableString(row, "effluent_volume_annual"), effluentCostAnnual: nullableString(row, "effluent_cost_annual"),
+      name: stringValue(row, "name"), introducerLabel: nullableString(row, "introducer_label"), connectionContext: nullableString(row, "connection_context"), roleLabel: stringValue(row, "role_label"), relationshipStage: asPartnerStage(row.relationship_stage), activityState: asActivityState(row.activity_state), pocCategory: asPocCategory(row.poc_category), pocGrade: asPocGrade(row.poc_grade), pocLikelihood: asPocJudgment(row.poc_likelihood), customerValue: asPocJudgment(row.customer_value), valueNote: nullableString(row, "value_note"), effluentComponents: nullableString(row, "effluent_components"), effluentVolumeAnnual: nullableString(row, "effluent_volume_annual"), effluentCostAnnual: nullableString(row, "effluent_cost_annual"), nextMeetingOn: nullableString(row, "next_meeting_on"), nextMeetingTime: nullableString(row, "next_meeting_time"), nextMeetingMode: asMeetingMode(row.next_meeting_mode), nextMeetingPlace: nullableString(row, "next_meeting_place"), nextMeetingPrep: nullableString(row, "next_meeting_prep"),
       agreementState: asAgreementState(row.agreement_state), agreedScope: stringValue(row, "agreed_scope"), unagreedScope: stringValue(row, "unagreed_scope"),
       lastContactDate: nullableString(row, "last_contact_date"), nextCommitment: stringValue(row, "next_commitment"), dueDate: nullableString(row, "due_date"),
       ownerLabel: stringValue(row, "owner_label", "担当未確認"), currentBallSide: asBallSide(row.current_ball_side), currentBallOwner: nullableString(row, "current_ball_owner"),

@@ -163,6 +163,7 @@ const PARTNER_ACTIVITY_STATES = ["active", "waiting_partner", "waiting_internal"
 const POC_CATEGORIES = ["poc_candidate", "tech_partner", "sample_provider", "sample_route"];
 const POC_JUDGMENTS = ["high", "medium", "low"];
 const POC_GRADES = ["s", "a", "b", "x"];
+const MEETING_MODES = ["onsite", "online", "hybrid", "phone"];
 const SAMPLE_STATUSES = ["intent", "negotiating", "agreed_pending", "scheduled", "received", "analyzed", "unknown"];
 const AGREEMENT_STATES = ["agreed", "partial", "unagreed"];
 const DECISION_STATES = ["pending", "decided", "deferred"];
@@ -339,6 +340,12 @@ function patchFor(resource: Resource, raw: unknown): Record<string, unknown> {
     takeOptionalText("effluent_components", "effluent_components", 500);
     takeOptionalText("effluent_volume_annual", "effluent_volume_annual", 240);
     takeOptionalText("effluent_cost_annual", "effluent_cost_annual", 240);
+    // 次回面談。空文字でNULLへ戻せる。形式は未定(NULL)を既定にし、推測で埋めない。
+    takeDate("next_meeting_on");
+    takeOptionalText("next_meeting_time", "next_meeting_time", 60);
+    if ("next_meeting_mode" in raw) patch.next_meeting_mode = raw.next_meeting_mode == null || raw.next_meeting_mode === "" ? null : enumValue(raw.next_meeting_mode, "next_meeting_mode", MEETING_MODES);
+    takeOptionalText("next_meeting_place", "next_meeting_place", 500);
+    takeOptionalText("next_meeting_prep", "next_meeting_prep", 1200);
     assertSafeRelationshipOrigin(patch.introducer_label, "紹介者"); assertSafeRelationshipOrigin(patch.connection_context, "接点の経緯");
   }
   if (resource === "interaction") {

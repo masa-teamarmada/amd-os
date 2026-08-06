@@ -1,6 +1,7 @@
 import type {
   SxBallSide,
   SxManagementPartner,
+  SxMeetingMode,
   SxPartnerActivityState,
   SxPartnerStage,
   SxPocCategory,
@@ -16,6 +17,21 @@ import {
   type SxHoldingItem,
   type SxHoldingSide,
 } from "./sx-partner-holdings.ts";
+
+/** 次回面談の形式ラベル。selectの並び順もこの配列を正本にする。 */
+export const SX_MEETING_MODES: SxMeetingMode[] = [
+  "onsite",
+  "online",
+  "hybrid",
+  "phone",
+];
+
+export const SX_MEETING_MODE_LABEL: Record<SxMeetingMode, string> = {
+  onsite: "現地訪問",
+  online: "オンライン",
+  hybrid: "現地+オンライン",
+  phone: "電話",
+};
 
 /**
  * 全関係先で共有する比較軸。PoC固有の業務段階ではなく、関係形成の現在地を表す。
@@ -451,6 +467,16 @@ export function sxComparePartnersForPoc(
     const priorityCompare =
       sxPocPriorityRank(left) - sxPocPriorityRank(right);
     if (priorityCompare !== 0) return priorityCompare;
+    // 評価が同じなら情報が新しい方を上に置く (2026-08-06 まさ指示)。
+    // 同評価の中では、直近で確認した先ほどアタックの判断材料が揃っている。
+    const freshnessCompare = (right.lastVerifiedAt || "").localeCompare(
+      left.lastVerifiedAt || "",
+    );
+    if (freshnessCompare !== 0) return freshnessCompare;
+    const recentContactCompare = (right.lastContactDate || "").localeCompare(
+      left.lastContactDate || "",
+    );
+    if (recentContactCompare !== 0) return recentContactCompare;
   }
   if (sort === "confidence") {
     const confidenceCompare =

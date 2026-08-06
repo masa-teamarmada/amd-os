@@ -65,6 +65,8 @@ import {
   sxPocPriorityTierLabel,
   sxPocPriorityTierDescription,
   SX_POC_GRADE_CHOICES,
+  SX_MEETING_MODES,
+  SX_MEETING_MODE_LABEL,
   sxSampleStatusLabel,
   sxPartnerHasDataGap,
   sxPartnerHasContactRecord,
@@ -2216,15 +2218,18 @@ function HoldingRow({
   );
 }
 
-// 列順は「評価 → 関係先 → 現在の状況 → ゴール → 詰まり・PJ影響 → 次にやること → 担当・期限
-// → 現在地の根拠 → 排液 → 接点の経緯 → 履歴・保有」。評価は行の外側の独立カラムなので
-// INNER 側には含めず、HEADER 側だけが先頭 34px を持つ (2026-08-06 まさ「一番左に評価カラムを作って」)。
+// 列順は「評価 → 関係先 → 現在の状況 → ゴール → 詰まり・PJ影響 → 次にやること → 次回面談
+// → 担当・期限 → 現在地の根拠 → 排液 → 接点の経緯 → 履歴・保有」。評価は行の外側の独立カラムなので
+// INNER 側には含めず、HEADER 側だけが先頭 32px を持つ (2026-08-06 まさ「一番左に評価カラムを作って」)。
+// 次回面談は「次にやること」の直後。訪問が決まった瞬間に書き込む欄なので、
+// 行動系の列の並びから離さない (2026-08-06 まさ「すぐに入力できる場所に設置してほしい」)。
 // 接点の経緯と排液は日次では読まない参照属性なので右へ寄せる
 // (2026-08-06 まさ「そこまで頻繁に見るものではないから右の方に移動してほしい」)。
+// 幅の合計は gap-2 × 11 と px-2 を足して 1248px のコンテナ閾値に収める。
 const PARTNER_CONTROL_INNER_GRID =
-  "@min-[1248px]:grid-cols-[188px_148px_92px_88px_116px_72px_96px_128px_108px]";
+  "@min-[1248px]:grid-cols-[168px_136px_80px_78px_100px_104px_66px_100px_108px_100px]";
 const PARTNER_CONTROL_HEADER_GRID =
-  "@min-[1248px]:grid-cols-[34px_188px_148px_92px_88px_116px_72px_96px_128px_108px_72px]";
+  "@min-[1248px]:grid-cols-[32px_168px_136px_80px_78px_100px_104px_66px_100px_108px_100px_72px]";
 
 type PartnerGateImpact = {
   title: string;
@@ -3133,6 +3138,36 @@ function PartnerInlineRow({
       </span>
     </span>
   );
+  // 次回面談。日付が入っていない間も「未定」と出して、書き込む場所があることを見せる。
+  const nextMeetingDateText = partner.nextMeetingOn
+    ? `${sxFormatDate(partner.nextMeetingOn)}${partner.nextMeetingTime ? ` ${partner.nextMeetingTime}` : ""}`
+    : "日程 未定";
+  const nextMeetingModeText = partner.nextMeetingMode
+    ? SX_MEETING_MODE_LABEL[partner.nextMeetingMode]
+    : "形式 未定";
+  const nextMeetingSubText = [
+    nextMeetingModeText,
+    partner.nextMeetingPlace,
+    partner.nextMeetingPrep ? `準備 ${partner.nextMeetingPrep}` : null,
+  ]
+    .filter(Boolean)
+    .join(" ・ ");
+  const nextMeetingView = (
+    <span className="grid min-h-11 min-w-0 content-center gap-0.5">
+      <span
+        className={`truncate text-[10px] font-semibold leading-4 ${partner.nextMeetingOn ? "text-[#24231f]" : "text-[#5a574c]"}`}
+        title={nextMeetingDateText}
+      >
+        {nextMeetingDateText}
+      </span>
+      <span
+        className="line-clamp-2 break-words text-[10px] leading-4 text-[#5a574c]"
+        title={nextMeetingSubText}
+      >
+        {nextMeetingSubText}
+      </span>
+    </span>
+  );
   const connectionOriginView = (
     <span className="grid min-h-11 min-w-0 content-center gap-0.5">
       <span
@@ -3621,6 +3656,130 @@ function PartnerInlineRow({
                     : ""}
                 </p>
               </>
+            )}
+          </PartnerRowCell>
+
+          <PartnerRowCell>
+            <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
+              次回面談
+            </p>
+            {canManage ? (
+              <InlineCellEditor
+                editorKey={keyFor("next-meeting")}
+                activeEditorKey={activeEditorKey}
+                label={`${display.name}の次回面談`}
+                initialValues={{
+                  next_meeting_on: partner.nextMeetingOn || "",
+                  next_meeting_time: partner.nextMeetingTime || "",
+                  next_meeting_mode: partner.nextMeetingMode || "",
+                  next_meeting_place: partner.nextMeetingPlace || "",
+                  next_meeting_prep: partner.nextMeetingPrep || "",
+                }}
+                view={nextMeetingView}
+                onRequestEdit={onRequestInlineEdit}
+                onFinish={onFinishInlineEdit}
+                onSave={async (values) =>
+                  patchIfChanged(
+                    "partner",
+                    partner.id,
+                    {
+                      next_meeting_on: partner.nextMeetingOn,
+                      next_meeting_time: partner.nextMeetingTime,
+                      next_meeting_mode: partner.nextMeetingMode,
+                      next_meeting_place: partner.nextMeetingPlace,
+                      next_meeting_prep: partner.nextMeetingPrep,
+                    },
+                    {
+                      next_meeting_on: values.next_meeting_on || null,
+                      next_meeting_time:
+                        values.next_meeting_time.trim() || null,
+                      next_meeting_mode: values.next_meeting_mode || null,
+                      next_meeting_place:
+                        values.next_meeting_place.trim() || null,
+                      next_meeting_prep: values.next_meeting_prep.trim() || null,
+                    },
+                  )
+                }
+                renderFields={(values, setValue) => (
+                  <>
+                    <label className="grid gap-0.5">
+                      <span className="text-[10px] font-semibold text-[#5a574c]">
+                        日付
+                      </span>
+                      <input
+                        autoFocus
+                        type="date"
+                        className={INLINE_CONTROL_CLASS}
+                        value={values.next_meeting_on}
+                        onChange={(event) =>
+                          setValue("next_meeting_on", event.target.value)
+                        }
+                      />
+                    </label>
+                    <label className="grid gap-0.5">
+                      <span className="text-[10px] font-semibold text-[#5a574c]">
+                        時刻
+                      </span>
+                      <input
+                        className={INLINE_CONTROL_CLASS}
+                        placeholder="例: 14:00 / 午後"
+                        value={values.next_meeting_time}
+                        onChange={(event) =>
+                          setValue("next_meeting_time", event.target.value)
+                        }
+                      />
+                    </label>
+                    <label className="grid gap-0.5">
+                      <span className="text-[10px] font-semibold text-[#5a574c]">
+                        形式
+                      </span>
+                      <select
+                        className={INLINE_CONTROL_CLASS}
+                        value={values.next_meeting_mode}
+                        onChange={(event) =>
+                          setValue("next_meeting_mode", event.target.value)
+                        }
+                      >
+                        <option value="">未定</option>
+                        {SX_MEETING_MODES.map((mode) => (
+                          <option key={mode} value={mode}>
+                            {SX_MEETING_MODE_LABEL[mode]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="grid gap-0.5">
+                      <span className="text-[10px] font-semibold text-[#5a574c]">
+                        場所・接続先
+                      </span>
+                      <input
+                        className={INLINE_CONTROL_CLASS}
+                        placeholder="例: 新居浜本社工場 / Teams"
+                        value={values.next_meeting_place}
+                        onChange={(event) =>
+                          setValue("next_meeting_place", event.target.value)
+                        }
+                      />
+                    </label>
+                    <label className="grid gap-0.5">
+                      <span className="text-[10px] font-semibold text-[#5a574c]">
+                        準備すべきもの
+                      </span>
+                      <textarea
+                        rows={2}
+                        className={`${INLINE_CONTROL_CLASS} py-1.5 leading-4`}
+                        placeholder="例: 試料採取容器・実証計画案・NDA案"
+                        value={values.next_meeting_prep}
+                        onChange={(event) =>
+                          setValue("next_meeting_prep", event.target.value)
+                        }
+                      />
+                    </label>
+                  </>
+                )}
+              />
+            ) : (
+              nextMeetingView
             )}
           </PartnerRowCell>
 
@@ -4512,6 +4671,7 @@ export function SxPartnerPipeline({
         <span>ゴール</span>
         <span>詰まり・PJ影響</span>
         <span>次にやること</span>
+        <span title="次回面談の日時・形式・準備するもの">次回面談</span>
         <span>担当・期限</span>
         <span>現在地の根拠</span>
         <span>排液</span>
