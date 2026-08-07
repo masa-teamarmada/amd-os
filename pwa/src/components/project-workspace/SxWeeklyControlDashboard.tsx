@@ -2600,7 +2600,10 @@ function IssueEditor({
         temporaryId,
         fields,
       );
-      onSaved(optimistic, `${definition.title}を追加したよ。DBへ同期中`);
+      onSaved(
+        optimistic,
+        `${resource === "task" ? "タスク" : "MS"}を追加したよ。DBへ同期中`,
+      );
       void (async () => {
         try {
           const response = await fetch(

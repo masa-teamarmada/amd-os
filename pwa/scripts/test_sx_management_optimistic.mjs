@@ -115,6 +115,35 @@ assert.equal(inserted.tasks[1].milestoneId, "ms-1");
 assert.equal(inserted.tasks[1].forecastEnd, "2026-09-30");
 assert.equal(createBase.tasks.length, 1);
 
+// フォームは未選択の親タスクを空文字で送る。サーバは null として保存するので、
+// 楽観挿入も null に正規化する。空文字のままだとガントのトップレベル判定
+// (parentTaskId == null) から外れて「作成した瞬間だけ行が出ない」(v3.58.19の実欠陥)。
+const insertedTopLevel = sxInsertOptimisticManagementRecord(
+  createBase,
+  "task",
+  "p21",
+  sxNewOptimisticId("task-top"),
+  {
+    title: "トップレベル",
+    milestone_id: "ms-1",
+    parent_task_id: "",
+    track: "business_development",
+    planned_end: "2026-09-30",
+  },
+);
+assert.equal(insertedTopLevel.tasks[1].parentTaskId, null);
+assert.equal(insertedTopLevel.tasks[1].track, "business_development");
+
+const insertedNoTrack = sxInsertOptimisticManagementRecord(
+  createBase,
+  "task",
+  "p21",
+  sxNewOptimisticId("task-no-track"),
+  { title: "レーン未指定", milestone_id: "ms-1", parent_task_id: "", track: "" },
+);
+// track も空文字なら null (サーバと同じ)。レーンは所属MSのtrackから決まる。
+assert.equal(insertedNoTrack.tasks[1].track, null);
+
 const insertedMilestone = sxInsertOptimisticManagementRecord(
   createBase,
   "milestone",

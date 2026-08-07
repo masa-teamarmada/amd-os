@@ -212,7 +212,17 @@ function optimisticTask(
     version: 1,
   };
   const next = { ...base, ...fields } as SxTask;
-  return { ...next, id, projectId, forecastEnd: next.forecastEnd ?? next.plannedEnd };
+  return {
+    ...next,
+    id,
+    projectId,
+    // フォームは未選択を空文字で送るが、サーバは null として保存する。ガントの
+    // トップレベル判定は parentTaskId == null なので、空文字のまま挿入すると
+    // 「作成した瞬間だけ行が出ない」欠陥になる。サーバと同じ正規化をここで行う。
+    parentTaskId: next.parentTaskId ? next.parentTaskId : null,
+    track: next.track ? next.track : null,
+    forecastEnd: next.forecastEnd ?? next.plannedEnd,
+  };
 }
 
 function optimisticMilestone(
