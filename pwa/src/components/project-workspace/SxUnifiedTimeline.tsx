@@ -8,7 +8,6 @@ import {
   ChevronRight,
   Flag,
   GripVertical,
-  Link2,
   Plus,
   Unlink2,
 } from "lucide-react";
@@ -62,6 +61,19 @@ const LANE_HEADER_H = 34;
 const ROW_H = 48;
 const MILESTONE_PROMPT_FLIP_Y = 138;
 const LANE_GAP = 2;
+// 時間軸の縮尺。1.0 が既定 (チャート幅 1080px)、最大 4.0 まで引き伸ばせる。
+// バー・グリッド線・依存線はすべて % 配置なので、外側の幅を変えるだけで縮尺が変わる。
+const GANTT_BASE_WIDTH_PX = 1080;
+const GANTT_TIME_SCALE_MIN = 1;
+const GANTT_TIME_SCALE_MAX = 4;
+const GANTT_TIME_SCALE_STORAGE_KEY = "sx-gantt-time-scale-v1";
+function clampTimeScale(value: number) {
+  if (!Number.isFinite(value)) return 1;
+  return Math.min(
+    GANTT_TIME_SCALE_MAX,
+    Math.max(GANTT_TIME_SCALE_MIN, Math.round(value * 20) / 20),
+  );
+}
 // Reserve a real pointer gutter at both ends of the date domain. A 44px diamond centred on the
 // first/last day then stays wholly inside the grid, and a 16px resize handle can sit outside a
 // boundary bar without disappearing under the sticky label column or the scroll edge.
@@ -944,6 +956,22 @@ export function SxUnifiedTimeline({
     });
   };
   const [hoveredPin, setHoveredPin] = useState<string | null>(null);
+  // 時間軸の縮尺。バーもグリッドも % 配置なので、チャート全体の幅を伸ばすだけで
+  // 「1か月あたりの横幅」が素直に広がる (2026-08-07 まさ)。
+  const [timeScale, setTimeScale] = useState(1);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(GANTT_TIME_SCALE_STORAGE_KEY);
+    const parsed = stored ? Number(stored) : NaN;
+    if (Number.isFinite(parsed)) setTimeScale(clampTimeScale(parsed));
+  }, []);
+  const commitTimeScale = (value: number) => {
+    const next = clampTimeScale(value);
+    setTimeScale(next);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(GANTT_TIME_SCALE_STORAGE_KEY, String(next));
+    }
+  };
   const scrollerRef = useRef<HTMLDivElement>(null);
   const gridPaneRef = useRef<HTMLDivElement>(null);
   const justDraggedRef = useRef(false);
@@ -2394,6 +2422,26 @@ export function SxUnifiedTimeline({
         >
           今日へ
         </button>
+        <label className="hidden min-h-11 items-center gap-2 border border-[#ada18a] bg-[#fffdf7] px-3 text-[11px] font-semibold text-[#514e47] lg:inline-flex">
+          <span className="whitespace-nowrap">時間軸</span>
+          <input
+            type="range"
+            data-gantt-time-scale
+            min={GANTT_TIME_SCALE_MIN}
+            max={GANTT_TIME_SCALE_MAX}
+            step={0.05}
+            value={timeScale}
+            onChange={(event) => commitTimeScale(Number(event.target.value))}
+            onDoubleClick={() => commitTimeScale(1)}
+            className="h-1 w-32 cursor-ew-resize accent-[#38745d]"
+            aria-label="ガントの時間軸の縮尺"
+            aria-valuetext={`${timeScale.toFixed(2)}倍`}
+            title="ドラッグで時間軸を伸縮。ダブルクリックで等倍に戻る"
+          />
+          <span className="w-9 shrink-0 text-right tabular-nums text-[10px] text-[#5f5a4d]">
+            {timeScale.toFixed(2)}x
+          </span>
+        </label>
         <span className="ml-auto hidden text-[10px] text-[#5f5a4d] lg:inline">
           {dependencySource
             ? `${dependencySource.title} → 接続先のタスクかMSへ`
@@ -2403,47 +2451,8 @@ export function SxUnifiedTimeline({
         </span>
       </div>
 
-      {scheduleDependencyItems.length > 0 && (
-        <details
-          data-gantt-schedule-dependency-register
-          className="mb-1.5 border border-[#ddd5c8] bg-[#f5f2e6] text-[#514e47]"
-        >
-          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-[10px] font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5f4a66]">
-            <Link2 className="h-3.5 w-3.5 text-[#5f4a66]" aria-hidden="true" />
-            依存関係 {scheduleDependencyItems.length}件
-            <span className="ml-auto hidden font-normal text-[#5f5a4d] sm:inline">
-              折りたたみ・日程変更後もここから解除できる
-            </span>
-          </summary>
-          <div className="divide-y divide-[#e8e2d6] border-t border-[#ddd5c8]">
-            {scheduleDependencyItems.map((item) => (
-              <div
-                key={`dependency-register-${item.dependency.id}`}
-                className="flex min-h-11 items-center gap-2 px-3 py-1.5"
-              >
-                <span className="min-w-0 flex-1 truncate text-[10px]">
-                  {item.sourceTitle} <b aria-hidden="true">→</b>{" "}
-                  {item.targetTitle}
-                </span>
-                {canManage && projectId && (
-                  <button
-                    type="button"
-                    disabled={removingDependencyId != null}
-                    onClick={() =>
-                      void removeScheduleDependency(item.dependency.id)
-                    }
-                    className="inline-flex min-h-9 shrink-0 items-center gap-1 border border-[#9d8daa] bg-[#fffdf7] px-2 text-[10px] font-bold text-[#5f4a66] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#5f4a66] disabled:opacity-45 max-sm:min-h-11"
-                    aria-label={`${item.sourceTitle}から${item.targetTitle}への依存線を外す`}
-                  >
-                    <Unlink2 className="h-3.5 w-3.5" aria-hidden="true" />
-                    外す
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </details>
-      )}
+      {/* 依存関係の一覧表 (details) は 2026-08-07 に削除。線そのものを hover して外す導線が
+          すでにあり、一覧は使われないまま縦を食っていた (まさ指示)。 */}
 
       <div className="space-y-2 lg:hidden" aria-label="MSとタスクの縦一覧">
         {visibleLanes.map(({ lane, rows, milestones: laneMilestones, collapsed, taskCount }) => (
@@ -2743,7 +2752,7 @@ export function SxUnifiedTimeline({
         tabIndex={0}
         aria-label="ガントチャート。上下左右にスクロールできる"
       >
-        <div className="min-w-[1080px]">
+        <div style={{ minWidth: GANTT_BASE_WIDTH_PX * timeScale }}>
           <div
             className="sticky top-0 z-50 grid grid-cols-[minmax(275px,320px)_minmax(0,1fr)] items-end border-b border-[#ada18a] bg-[#fffdf7] shadow-[0_3px_8px_rgba(36,35,31,0.08)]"
             data-gantt-sticky-header

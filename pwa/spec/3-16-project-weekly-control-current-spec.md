@@ -249,3 +249,15 @@ point-MS追加フォームは`配置するグループ（複数選択可） / MS
 - 横スクロールは許容する（まさ 2026-08-06「基本、横スクロールは許容する前提で。横に長くなる分には全然問題ないよ」）。行の集合を `@min-[1248px]:overflow-x-auto` の枠で包み、中身は `min-width: var(--sx-pl-total)` まで広げる。合計幅を1248pxへ収める旧予算計算（v3.58.3/3.58.4節）はこの版で撤廃する。
 - **先頭行（見出し）は横スクロール枠の外**に置き、body側の `onScroll` で `scrollLeft` だけを転記して左右を揃える。枠の内側へ入れて高さを固定すると、直接編集のpopover（`InlineCellEditor` の `absolute top-full`）が切れるため。同じ理由でスクロール枠には `pb-72` の下余白を置き、下端の行のpopoverが隠れないようにする。
 - **先頭列（評価）は `sticky left-0`** で固定する。見出し側は `bg-[#f2eee0]`、行側は `bg-[#fffdf7]` の不透明背景を必ず持たせる（透過すると右の列が下に透ける）。グループ見出し `h4` と `保留・低優先` / `終了` の折りたたみラベルも `sticky left-3` で左端へ留め、右へスクロールしても何のグループを見ているか失わない。
+
+### 関係先台帳の列並べ替え・固定2列・担当プルダウン・着地点 / ガントの時間軸スライダー (build v3.58.17 / migration 242、2026-08-07)
+
+- **列の並べ替え**: 見出しcellはHTML5のネイティブDnD（`draggable`）で掴んで、別の見出しへ落とすと差し込みで入れ替わる。掴める列には `GripVertical` を出し、ドラッグ中の見出しは薄くする。**評価・関係先・履歴の3列は固定**で動かせない（左端の固定列と右端の履歴入口を並べ替え対象にすると、行の読み方そのものが壊れるため）。内側cellのDOM順はハードコードのままで、CSSの `order` だけを動かす（`cellOrder(key)`、関係先は常に0）。順序は `localStorage["sx-partner-ledger-column-order-v1"]` に保存し、**DBへは保存しない**（列幅と同じく端末ごとの見え方の好み）。既定から動いている間だけ「列の並びをリセット」ボタンを出す。
+- **固定列は「評価」「関係先」の2列**。評価は `sticky left-0` / `z-20`、関係先は `sticky left-[var(--sx-pl-name-left)]` / `z-10`（`--sx-pl-name-left` は評価列の実幅）。どちらも不透明背景を持つ。
+- **関係先列は縦積み**: 上から 関係先名 → 最終確認 → 進行項目レール。横に別列で置いていた進行項目レール（68px）を関係先列の中へ移し、1社の識別に要るものだけが固定領域に収まるようにした。レールの「進行項目◯件」という常時表示は削除し、注意が要る「保留」だけ文字で残す。
+- **「詰まり・PJ影響」列は廃止**。`PartnerGateImpact` 型・`partnerGateImpact()`・`interventionTone()` と、この列のためだけに引いていた `milestoneTitleBySlug` も同時に削除した。
+- **次回面談に「着地点」**: migration 242 で `project_management_partners.next_meeting_goal text` を追加。その面談で何を得られれば成功かを1行で書く欄で、形式や準備物より上に表示する（取りに行くものが先）。未記入なら「着地点 未記入」を淡色で出す。API は `takeOptionalText("next_meeting_goal", "next_meeting_goal", 600)` の allowlist で受ける。
+- **名前欄はプルダウン**: 担当（ownership編集・現在の状況）と紹介者（接点の経緯）は自由入力をやめ、`OwnerSelectControl` の選択式にした。同じ人が別表記で増えるのを止めるため。候補は管制データに実在する名前（`sxIsMissingOwner` で「担当未確認」等の欠測表現を除外）＋手動追加分から、非表示にした名前を引いたもの。「＋ 新しい名前を追加」で足し、選択中の名前の右の `×` で候補から外す。**名簿テーブルはDBに無い**ため、手動の追加・非表示は `localStorage["sx-partner-owner-roster-v1"]`（`{ added, hidden }`）に持つ端末ローカルの状態で、保存済みの担当名そのものはDBの各列に入る。既存値が候補から漏れていても選択状態は失わない（先頭に足す）。
+- **編集popoverは外側クリックで閉じる**: `InlineCellEditor` はcapture phaseの `pointerdown` を見て、popover外を押したら「変更があれば保存して」閉じる。台帳の他のseamless編集（`onBlur` 自動保存）と挙動を揃えるため、破棄ではなく保存で閉じる。`<select>` のoptionはOSレイヤなので `document` の `pointerdown` を発火せず、誤爆しない。
+- **ガントの時間軸スライダー**: ツールバーの「今日へ」の右に縮尺スライダーを置く（`data-gantt-time-scale`、1.00x〜4.00x、0.05刻み、ダブルクリックで等倍へ戻る）。ガント内の全要素は%配置なので、外枠の `minWidth` を `GANTT_BASE_WIDTH_PX(1080) × timeScale` にするだけで縮尺が変わり、バーのドラッグ判定も要素rectから比率を求めるので自動追随する。倍率は `localStorage["sx-gantt-time-scale-v1"]` に保存する。
+- **ガント上部の「依存関係」一覧は廃止**。線そのものをhoverして外す導線（`data-gantt-schedule-dependency-hover-remove`）が既にあり、一覧は使われないまま縦を食っていた。

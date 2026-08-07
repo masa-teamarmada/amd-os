@@ -363,6 +363,7 @@ function patchFor(resource: Resource, raw: unknown): Record<string, unknown> {
     if ("next_meeting_mode" in raw) patch.next_meeting_mode = raw.next_meeting_mode == null || raw.next_meeting_mode === "" ? null : enumValue(raw.next_meeting_mode, "next_meeting_mode", MEETING_MODES);
     takeOptionalText("next_meeting_place", "next_meeting_place", 500);
     takeOptionalText("next_meeting_prep", "next_meeting_prep", 1200);
+    takeOptionalText("next_meeting_goal", "next_meeting_goal", 600);
     assertSafeRelationshipOrigin(patch.introducer_label, "紹介者"); assertSafeRelationshipOrigin(patch.connection_context, "接点の経緯");
   }
   if (resource === "interaction") {

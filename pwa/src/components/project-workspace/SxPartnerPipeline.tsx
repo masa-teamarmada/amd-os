@@ -15,6 +15,7 @@ import {
   CircleCheck,
   CircleDot,
   Flag,
+  GripVertical,
   LoaderCircle,
   X,
 } from "lucide-react";
@@ -96,6 +97,7 @@ import {
   sxInteractionKindLabel,
   sxIsHoldingMonthPrecision,
   sxIsHoldingOverdue,
+  sxIsMissingOwner,
   sxIsPartnerEnded,
   sxLatestInteraction,
   sxPartnerDisplay,
@@ -237,11 +239,13 @@ function PartnerStageRail({
           />
         ))}
       </span>
-      <span
-        className={`mt-0.5 block text-[10px] font-semibold ${onHold ? "text-[#5a574c]" : "text-[#315f7d]"}`}
-      >
-        {onHold ? "保留" : `進行項目 ${steps.length}件`}
-      </span>
+      {/* 「進行項目◯件」の常時表示は 2026-08-07 に削除 (まさ)。件数はレールの節で
+          見えるので、注意が要る「保留」だけ文字で残す。 */}
+      {onHold ? (
+        <span className="mt-0.5 block text-[10px] font-semibold text-[#5a574c]">
+          保留
+        </span>
+      ) : null}
     </>
   );
   const className = `block w-full min-w-0 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${onOpen ? "cursor-pointer rounded-sm hover:bg-[#e2ecf1]" : ""}`;
@@ -530,6 +534,35 @@ function InlineCellEditor({
   const setValue = (key: string, value: string) =>
     setValues((current) => ({ ...current, [key]: value }));
 
+  // 外側クリックで閉じる (2026-08-07 まさ「モーダル外をクリックしたら閉じる」)。
+  // 台帳内の他エディタ (関係先名・現在地・接点の経緯) は blur で保存して閉じるので、
+  // ここも「変更があれば保存して閉じる」に揃える。捨てたいときは Esc か ✗ を使う。
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  const savingRef = useRef(false);
+  savingRef.current = saving;
+  const dirtyRef = useRef(false);
+  dirtyRef.current = Object.entries(values).some(
+    ([key, value]) => (initialValues[key] ?? "") !== value,
+  );
+  useEffect(() => {
+    if (!active) return;
+    const handler = (event: PointerEvent) => {
+      const node = popoverRef.current;
+      if (!node) return;
+      if (event.target instanceof Node && node.contains(event.target)) return;
+      if (savingRef.current) return;
+      if (dirtyRef.current) void saveRef.current();
+      else onFinish();
+    };
+    document.addEventListener("pointerdown", handler, true);
+    return () => document.removeEventListener("pointerdown", handler, true);
+    // onFinish は毎描画で作り直される親コールバックなので依存に入れない
+    // (入れると毎描画で listener が張り直され、開いた瞬間の pointerup を拾ってしまう)。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+
   if (!active) {
     return (
       <button
@@ -546,6 +579,7 @@ function InlineCellEditor({
 
   return (
     <div
+      ref={popoverRef}
       className="relative min-w-0"
       data-inline-editor={editorKey}
       data-inline-cell-mode="edit-popover"
@@ -769,12 +803,216 @@ function InlinePartnerNameEditor({
 /**
  * 接点の経緯は「経緯 / 紹介者」の固定2段。編集時も同じ2段だけを置換する。
  */
+/** 名前プルダウンで「新しい名前を追加」を選んだことを表す番兵。名前として保存されることはない。 */
+const OWNER_NEW_ENTRY = "__new_owner__";
+/** 名簿の手動追加・非表示はこの端末の好みなので localStorage に置く。DBには名簿table がない。 */
+const PARTNER_OWNER_ROSTER_STORAGE_KEY = "sx-partner-owner-roster-v1";
+
+type PartnerOwnerRoster = { added: string[]; hidden: string[] };
+
+function readPartnerOwnerRoster(): PartnerOwnerRoster {
+  if (typeof window === "undefined") return { added: [], hidden: [] };
+  try {
+    const raw = window.localStorage.getItem(PARTNER_OWNER_ROSTER_STORAGE_KEY);
+    if (!raw) return { added: [], hidden: [] };
+    const parsed = JSON.parse(raw) as Partial<PartnerOwnerRoster>;
+    const clean = (value: unknown) =>
+      Array.isArray(value)
+        ? value.filter((entry): entry is string => typeof entry === "string")
+        : [];
+    return { added: clean(parsed.added), hidden: clean(parsed.hidden) };
+  } catch {
+    return { added: [], hidden: [] };
+  }
+}
+
+/**
+ * 担当・紹介者に入れる名前の候補。管制データに実在する名前を集め、手動追加分を足し、
+ * 非表示にした名前を落とす。メンバー台帳ではないので、社外の人もそのまま候補に載る。
+ */
+function usePartnerOwnerRoster(management: SxManagementBundle) {
+  const [roster, setRoster] = useState<PartnerOwnerRoster>({
+    added: [],
+    hidden: [],
+  });
+
+  useEffect(() => {
+    setRoster(readPartnerOwnerRoster());
+  }, []);
+
+  const persist = (next: PartnerOwnerRoster) => {
+    setRoster(next);
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        PARTNER_OWNER_ROSTER_STORAGE_KEY,
+        JSON.stringify(next),
+      );
+    } catch {
+      // 保存できなくても、この画面が開いている間は候補として使える
+    }
+  };
+
+  const fromData = new Set<string>();
+  const push = (value: string | null | undefined) => {
+    const label = (value || "").trim();
+    if (!label || sxIsMissingOwner(label)) return;
+    fromData.add(label);
+  };
+  management.partners.forEach((partner) => {
+    push(partner.ownerLabel);
+    push(partner.currentBallOwner);
+    push(partner.introducerLabel);
+  });
+  management.partnerWorkItems.forEach((row) => push(row.ownerLabel));
+  management.partnerCommitments.forEach((row) => {
+    push(row.ownerLabel);
+    push(row.sxOwner);
+    push(row.counterpartyOwner);
+  });
+  management.tasks.forEach((row) => push(row.ownerLabel));
+  management.milestones.forEach((row) => push(row.ownerLabel));
+  management.actions.forEach((row) => push(row.ownerLabel));
+  roster.added.forEach((name) => fromData.add(name));
+  roster.hidden.forEach((name) => fromData.delete(name));
+  const candidates = [...fromData].sort((a, b) => a.localeCompare(b, "ja"));
+
+  const addOwner = (name: string) => {
+    const label = name.trim();
+    if (!label || candidates.includes(label)) return;
+    persist({
+      added: [...roster.added.filter((entry) => entry !== label), label],
+      hidden: roster.hidden.filter((entry) => entry !== label),
+    });
+  };
+  const hideOwner = (name: string) => {
+    const label = name.trim();
+    if (!label) return;
+    persist({
+      added: roster.added.filter((entry) => entry !== label),
+      hidden: [...roster.hidden.filter((entry) => entry !== label), label],
+    });
+  };
+
+  return { candidates, addOwner, hideOwner };
+}
+
+export type PartnerOwnerRosterControls = {
+  candidates: readonly string[];
+  addOwner: (name: string) => void;
+  hideOwner: (name: string) => void;
+};
+
+/**
+ * 名前を選ぶプルダウン。自由入力をやめて選択にすることで表記ゆれを止める。
+ * 候補にない人は「＋ 新しい名前」で足せる。要らなくなった名前は右の×で候補から外す。
+ */
+function OwnerSelectControl({
+  value,
+  ariaLabel,
+  className,
+  roster,
+  disabled,
+  autoFocus,
+  onChange,
+}: {
+  value: string;
+  ariaLabel: string;
+  className: string;
+  roster: PartnerOwnerRosterControls;
+  disabled?: boolean;
+  autoFocus?: boolean;
+  onChange: (value: string) => void;
+}) {
+  const [addingName, setAddingName] = useState(false);
+  const current = value.trim();
+  // 既存値が候補から漏れていても選択状態を失わない。
+  const options = current && !roster.candidates.includes(current)
+    ? [current, ...roster.candidates]
+    : [...roster.candidates];
+
+  if (addingName) {
+    return (
+      <span className="flex min-w-0 items-center gap-1">
+        <input
+          autoFocus
+          className={className}
+          aria-label={`${ariaLabel}に新しい名前を追加`}
+          placeholder="新しい名前"
+          defaultValue=""
+          disabled={disabled}
+          onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing) return;
+            if (event.key === "Escape") {
+              event.preventDefault();
+              event.stopPropagation();
+              setAddingName(false);
+            }
+          }}
+          onBlur={(event) => {
+            const name = event.target.value.trim();
+            setAddingName(false);
+            if (!name) return;
+            roster.addOwner(name);
+            onChange(name);
+          }}
+        />
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex min-w-0 items-center gap-0.5">
+      <select
+        autoFocus={autoFocus}
+        className={className}
+        aria-label={ariaLabel}
+        value={current}
+        disabled={disabled}
+        data-owner-select={ariaLabel}
+        onChange={(event) => {
+          if (event.target.value === OWNER_NEW_ENTRY) {
+            setAddingName(true);
+            return;
+          }
+          onChange(event.target.value);
+        }}
+      >
+        <option value="">未確認</option>
+        {options.map((name) => (
+          <option key={name} value={name}>
+            {name}
+          </option>
+        ))}
+        <option value={OWNER_NEW_ENTRY}>＋ 新しい名前を追加</option>
+      </select>
+      {current ? (
+        <button
+          type="button"
+          className="shrink-0 rounded px-0.5 text-[10px] leading-4 text-[#857b69] hover:bg-[#f2eee0] hover:text-[#8c3329]"
+          aria-label={`${current}を名前の候補から外す`}
+          title={`${current}を候補から外す`}
+          disabled={disabled}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            roster.hideOwner(current);
+            onChange("");
+          }}
+        >
+          ×
+        </button>
+      ) : null}
+    </span>
+  );
+}
+
 function InlineConnectionOriginEditor({
   editorKey,
   activeEditorKey,
   label,
   context,
   introducer,
+  roster,
   view,
   onRequestEdit,
   onFinish,
@@ -785,6 +1023,7 @@ function InlineConnectionOriginEditor({
   label: string;
   context: string;
   introducer: string;
+  roster: PartnerOwnerRosterControls;
   view: ReactNode;
   onRequestEdit: (editorKey: string) => boolean;
   onFinish: () => void;
@@ -923,17 +1162,18 @@ function InlineConnectionOriginEditor({
         readOnly={saving}
         onChange={(event) => setDraftContext(event.target.value)}
       />
-      <label className="grid min-w-0 grid-cols-[32px_minmax(0,1fr)] items-center">
+      {/* 紹介者は表記ゆれが起きやすいので自由入力をやめて名簿から選ぶ (2026-08-07 まさ)。 */}
+      <div className="grid min-w-0 grid-cols-[32px_minmax(0,1fr)] items-center">
         <span className="text-[10px] leading-4 text-[#5a574c]">紹介者</span>
-        <input
-          className="h-4 min-w-0 border-0 bg-transparent p-0 text-[10px] leading-4 text-[#5a574c] outline-none"
-          aria-label={`${label}の紹介者`}
-          placeholder="未確認"
+        <OwnerSelectControl
           value={draftIntroducer}
-          readOnly={saving}
-          onChange={(event) => setDraftIntroducer(event.target.value)}
+          ariaLabel={`${label}の紹介者`}
+          className="h-4 min-w-0 border-0 bg-transparent p-0 text-[10px] leading-4 text-[#5a574c] outline-none"
+          roster={roster}
+          disabled={saving}
+          onChange={setDraftIntroducer}
         />
-      </label>
+      </div>
       {error && (
         <span
           className="absolute left-0 top-full z-30 mt-1 whitespace-nowrap border border-[#a1957e] bg-[#fffdf7] px-2 py-1 text-[10px] font-semibold text-[#8c3329] shadow-[0_6px_18px_rgba(36,35,31,0.12)]"
@@ -957,6 +1197,7 @@ function InlineCurrentBallEditor({
   side,
   owner,
   options,
+  roster,
   view,
   onRequestEdit,
   onFinish,
@@ -968,6 +1209,7 @@ function InlineCurrentBallEditor({
   side: string;
   owner: string;
   options: ReadonlyArray<{ value: string; label: string }>;
+  roster: PartnerOwnerRosterControls;
   view: ReactNode;
   onRequestEdit: (editorKey: string) => boolean;
   onFinish: () => void;
@@ -1113,19 +1355,20 @@ function InlineCurrentBallEditor({
           ))}
         </select>
       </label>
-      <label className="grid min-w-0 grid-rows-[14px_30px]">
+      {/* 担当は名簿から選ぶ (2026-08-07 まさ)。同じ人が別表記で増えるのを止める。 */}
+      <div className="grid min-w-0 grid-rows-[14px_30px]">
         <span className="px-1 pt-0.5 text-[10px] font-semibold leading-3 text-[#5a574c]">
           担当
         </span>
-        <input
-          className={`h-[30px] min-w-0 border-0 bg-transparent px-1 text-[11px] font-semibold text-[#24231f] ${FOCUS_RING}`}
+        <OwnerSelectControl
           value={draftOwner}
-          onChange={(event) => setDraftOwner(event.target.value)}
-          readOnly={saving}
-          placeholder="担当未確認"
-          aria-label={`${label}の担当`}
+          ariaLabel={`${label}の担当`}
+          className={`h-[30px] min-w-0 border-0 bg-transparent px-1 text-[11px] font-semibold text-[#24231f] ${FOCUS_RING}`}
+          roster={roster}
+          disabled={saving}
+          onChange={setDraftOwner}
         />
-      </label>
+      </div>
       {error && (
         <p
           className="absolute left-0 top-full z-30 mt-1 border border-[#d7a49e] bg-[#fff7f5] px-2 py-1 text-[10px] leading-4 text-[#8c3329] shadow-sm"
@@ -2238,25 +2481,28 @@ function HoldingRow({
   );
 }
 
-// 列順は「評価 → 関係先 → 現在の状況 → ゴール → 詰まり・PJ影響 → 次にやること → 次回面談
-// → 担当・期限 → 現在地の根拠 → 排液 → 接点の経緯 → 履歴・保有」。評価は行の外側の独立カラムなので
-// INNER 側には含めず、HEADER と行の外枠だけが先頭カラムを持つ
-// (2026-08-06 まさ「一番左に評価カラムを作って」)。
-// 次回面談は「次にやること」の直後。訪問が決まった瞬間に書き込む欄なので、
-// 行動系の列の並びから離さない (2026-08-06 まさ「すぐに入力できる場所に設置してほしい」)。
-// 接点の経緯と排液は日次では読まない参照属性なので右へ寄せる
-// (2026-08-06 まさ「そこまで頻繁に見るものではないから右の方に移動してほしい」)。
+// 既定の列順は「評価 → 関係先 → 現在の状況 → ゴール → 次にやること → 次回面談
+// → 担当・期限 → 現在地の根拠 → 排液 → 接点の経緯 → 履歴・保有」。
+// 評価と履歴・保有は行の外枠側の独立カラムなので INNER 側には含めない。
+//
+// 「詰まり・PJ影響」列は 2026-08-07 に削除 (まさ「あまり意味がないと思うので」)。
+//
+// 固定列は評価と関係先の2つ (2026-08-07 まさ「固定列を「評価」「関係先」の２カラムに増やして」)。
+// 横へスクロールしても「どの会社の行か」を見失わないようにするため。
+//
+// 中間の列 (現在の状況〜接点の経緯) は見出しのドラッグで並べ替えできる
+// (2026-08-07 まさ「カラムの順番もドラッグアンドドロップで手動で入れ替えられるように」)。
+// DOM は書いた順のままで、CSS の order プロパティだけを動かす。
 //
 // 幅は 1248px に詰め込まず、本文を「…」で切らずに読める既定幅を持つ
 // (2026-08-06 まさ「各カラムの情報は「…」で省略せずに表示して。カラムの幅はもっと太くしてもいいよ。
-// 基本、横スクロールは許容する前提で」)。合計幅がコンテナを超える分は一覧を横スクロールさせ、
-// 先頭列 (評価) と先頭行 (見出し) を固定する。幅は下のドラッグハンドルで変更でき、localStorage に残る。
+// 基本、横スクロールは許容する前提で」)。合計幅がコンテナを超える分は一覧を横スクロールさせる。
+// 幅も順番も localStorage に残る (端末ごとの見え方の好みなので DB へは持たせない)。
 type PartnerLedgerColumnKey =
   | "grade"
   | "name"
   | "current"
   | "goal"
-  | "block"
   | "action"
   | "meeting"
   | "owner"
@@ -2281,16 +2527,15 @@ const PARTNER_LEDGER_COLUMNS: readonly PartnerLedgerColumn[] = [
     defaultWidth: 34,
     minWidth: 30,
   },
-  { key: "name", label: "関係先", defaultWidth: 220, minWidth: 120 },
+  { key: "name", label: "関係先", defaultWidth: 248, minWidth: 150 },
   { key: "current", label: "現在の状況", defaultWidth: 208, minWidth: 120 },
   { key: "goal", label: "ゴール", defaultWidth: 176, minWidth: 90 },
-  { key: "block", label: "詰まり・PJ影響", defaultWidth: 184, minWidth: 90 },
   { key: "action", label: "次にやること", defaultWidth: 200, minWidth: 90 },
   {
     key: "meeting",
     label: "次回面談",
-    title: "次回面談の日時・形式・準備するもの",
-    defaultWidth: 184,
+    title: "次回面談の日時・形式・着地点・準備するもの",
+    defaultWidth: 200,
     minWidth: 90,
   },
   { key: "owner", label: "担当・期限", defaultWidth: 140, minWidth: 80 },
@@ -2300,13 +2545,34 @@ const PARTNER_LEDGER_COLUMNS: readonly PartnerLedgerColumn[] = [
   { key: "history", label: "履歴・保有", defaultWidth: 88, minWidth: 72 },
 ];
 
-/** 行の内側 grid が持つ列 (評価と履歴・保有は行の外枠側)。 */
-const PARTNER_LEDGER_INNER_KEYS: readonly PartnerLedgerColumnKey[] =
+const PARTNER_LEDGER_COLUMN_BY_KEY = new Map(
+  PARTNER_LEDGER_COLUMNS.map((column) => [column.key, column]),
+);
+
+/** 並べ替えできない列。評価と関係先は左固定、履歴・保有は行の右端に据える。 */
+const PARTNER_LEDGER_FIXED_KEYS: readonly PartnerLedgerColumnKey[] = [
+  "grade",
+  "name",
+  "history",
+];
+
+/** 見出しのドラッグで並べ替えできる中間の列。既定順は宣言順。 */
+const PARTNER_LEDGER_MOVABLE_KEYS: readonly PartnerLedgerColumnKey[] =
   PARTNER_LEDGER_COLUMNS.filter(
-    (column) => column.key !== "grade" && column.key !== "history",
+    (column) => !PARTNER_LEDGER_FIXED_KEYS.includes(column.key),
   ).map((column) => column.key);
 
-const PARTNER_LEDGER_WIDTH_STORAGE_KEY = "sx-partner-ledger-column-widths-v1";
+/** 行の内側 grid が持つ列 (評価と履歴・保有は行の外枠側)。関係先は必ず先頭。 */
+function partnerLedgerInnerKeys(
+  order: readonly PartnerLedgerColumnKey[],
+): PartnerLedgerColumnKey[] {
+  return ["name", ...order];
+}
+
+// 幅は列の集合が変わったら作り直す。v1 には削除済みの「詰まり・PJ影響」が入っていて、
+// 関係先の既定幅も広げたので v2 へ上げる (2026-08-07)。
+const PARTNER_LEDGER_WIDTH_STORAGE_KEY = "sx-partner-ledger-column-widths-v2";
+const PARTNER_LEDGER_ORDER_STORAGE_KEY = "sx-partner-ledger-column-order-v1";
 
 type PartnerLedgerWidths = Record<PartnerLedgerColumnKey, number>;
 
@@ -2383,17 +2649,96 @@ function usePartnerLedgerColumnWidths() {
   return { widths, setWidth, commitWidths, resetWidths, isCustomized };
 }
 
-/** 幅を CSS 変数へ流し込む。行・見出し・横スクロール枠が同じ値を共有する。 */
-function partnerLedgerGridStyle(widths: PartnerLedgerWidths): CSSProperties {
-  const inner = PARTNER_LEDGER_INNER_KEYS.map((key) => `${widths[key]}px`).join(
-    " ",
+/**
+ * 列の並び順は端末ごとの好みなので localStorage に保存する。保存値に知らないキーや
+ * 重複が混ざっていても、既知のキーだけを拾って足りない分を既定順で足し、描画は続ける。
+ */
+function sanitizePartnerLedgerOrder(value: unknown): PartnerLedgerColumnKey[] {
+  const seen = new Set<PartnerLedgerColumnKey>();
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const key = entry as PartnerLedgerColumnKey;
+      if (!PARTNER_LEDGER_MOVABLE_KEYS.includes(key)) continue;
+      seen.add(key);
+    }
+  }
+  for (const key of PARTNER_LEDGER_MOVABLE_KEYS) seen.add(key);
+  return [...seen];
+}
+
+function usePartnerLedgerColumnOrder() {
+  const [order, setOrder] = useState<PartnerLedgerColumnKey[]>(() => [
+    ...PARTNER_LEDGER_MOVABLE_KEYS,
+  ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(PARTNER_LEDGER_ORDER_STORAGE_KEY);
+      if (!raw) return;
+      setOrder(sanitizePartnerLedgerOrder(JSON.parse(raw)));
+    } catch {
+      // 壊れた保存値は無視して既定順のまま使う
+    }
+  }, []);
+
+  const persist = (next: PartnerLedgerColumnKey[]) => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        PARTNER_LEDGER_ORDER_STORAGE_KEY,
+        JSON.stringify(next),
+      );
+    } catch {
+      // 保存できなくても表示は続ける
+    }
+  };
+
+  /** dragged を target の位置へ差し込む。target が右側なら target の後ろへ入る。 */
+  const moveColumn = (
+    dragged: PartnerLedgerColumnKey,
+    target: PartnerLedgerColumnKey,
+  ) => {
+    if (dragged === target) return;
+    setOrder((previous) => {
+      const from = previous.indexOf(dragged);
+      const to = previous.indexOf(target);
+      if (from < 0 || to < 0) return previous;
+      const next = [...previous];
+      next.splice(from, 1);
+      next.splice(to, 0, dragged);
+      persist(next);
+      return next;
+    });
+  };
+
+  const resetOrder = () => {
+    const next = [...PARTNER_LEDGER_MOVABLE_KEYS];
+    setOrder(next);
+    persist(next);
+  };
+
+  const isOrderCustomized = order.some(
+    (key, index) => PARTNER_LEDGER_MOVABLE_KEYS[index] !== key,
   );
+
+  return { order, moveColumn, resetOrder, isOrderCustomized };
+}
+
+/** 幅と並び順を CSS 変数へ流し込む。行・見出し・横スクロール枠が同じ値を共有する。 */
+function partnerLedgerGridStyle(
+  widths: PartnerLedgerWidths,
+  order: readonly PartnerLedgerColumnKey[],
+): CSSProperties {
+  const inner = partnerLedgerInnerKeys(order)
+    .map((key) => `${widths[key]}px`)
+    .join(" ");
   const total =
     PARTNER_LEDGER_COLUMNS.reduce(
       (sum, column) => sum + widths[column.key],
       0,
     ) +
-    // gap-2 × 11 本 + 行の px-2
+    // 列間の gap-2 + 行の px-2
     8 * (PARTNER_LEDGER_COLUMNS.length - 1) +
     16;
   return {
@@ -2401,6 +2746,8 @@ function partnerLedgerGridStyle(widths: PartnerLedgerWidths): CSSProperties {
     "--sx-pl-header": `${widths.grade}px ${inner} ${widths.history}px`,
     "--sx-pl-row": `${widths.grade}px minmax(0,1fr) ${widths.history}px`,
     "--sx-pl-total": `${total}px`,
+    // 評価カラムが左端 0 に貼り付くので、関係先はその右隣で止める。
+    "--sx-pl-name-left": `${widths.grade}px`,
   } as CSSProperties;
 }
 
@@ -2413,6 +2760,9 @@ const PARTNER_LEDGER_MIN_WIDTH = "@min-[1248px]:[min-width:var(--sx-pl-total)]";
 /** 先頭列 (評価) を横スクロールに対して固定する。 */
 const PARTNER_LEDGER_STICKY_LEFT =
   "@min-[1248px]:sticky @min-[1248px]:left-0 @min-[1248px]:z-20";
+/** 2列目 (関係先) は評価の右隣で止める。評価より内側なので z は一段下げる。 */
+const PARTNER_LEDGER_STICKY_NAME =
+  "@min-[1248px]:sticky @min-[1248px]:left-[var(--sx-pl-name-left)] @min-[1248px]:z-10";
 
 function PartnerLedgerHeaderCell({
   column,
@@ -2420,12 +2770,22 @@ function PartnerLedgerHeaderCell({
   onResize,
   onCommit,
   sticky,
+  movable,
+  dragging,
+  onDragColumnStart,
+  onDragColumnEnd,
+  onDropColumn,
 }: {
   column: PartnerLedgerColumn;
   width: number;
   onResize: (key: PartnerLedgerColumnKey, width: number) => void;
   onCommit: () => void;
-  sticky?: boolean;
+  sticky?: "grade" | "name";
+  movable?: boolean;
+  dragging?: boolean;
+  onDragColumnStart?: (key: PartnerLedgerColumnKey) => void;
+  onDragColumnEnd?: () => void;
+  onDropColumn?: (key: PartnerLedgerColumnKey) => void;
 }) {
   const handlePointerDown = (event: ReactPointerEvent<HTMLSpanElement>) => {
     event.preventDefault();
@@ -2454,11 +2814,59 @@ function PartnerLedgerHeaderCell({
     document.body.style.setProperty("user-select", "none");
   };
 
+  const stickyClass =
+    sticky === "grade"
+      ? `${PARTNER_LEDGER_STICKY_LEFT} bg-[#f2eee0]`
+      : sticky === "name"
+        ? `${PARTNER_LEDGER_STICKY_NAME} bg-[#f2eee0]`
+        : "";
+
   return (
     <span
-      className={`relative flex min-w-0 items-center pr-2 ${sticky ? `${PARTNER_LEDGER_STICKY_LEFT} bg-[#f2eee0]` : ""}`}
-      title={column.title}
+      className={`relative flex min-w-0 items-center pr-2 ${stickyClass} ${
+        movable ? "cursor-grab active:cursor-grabbing" : ""
+      } ${dragging ? "opacity-45" : ""}`}
+      title={
+        movable
+          ? `${column.title ? `${column.title}。` : ""}見出しを左右へドラッグすると列の順番を変えられるよ`
+          : column.title
+      }
+      draggable={movable || undefined}
+      data-partner-column-head={column.key}
+      onDragStart={
+        movable
+          ? (event) => {
+              event.dataTransfer.effectAllowed = "move";
+              // Firefox はデータが空だと drag を開始しない
+              event.dataTransfer.setData("text/plain", column.key);
+              onDragColumnStart?.(column.key);
+            }
+          : undefined
+      }
+      onDragEnd={movable ? () => onDragColumnEnd?.() : undefined}
+      onDragOver={
+        movable
+          ? (event) => {
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "move";
+            }
+          : undefined
+      }
+      onDrop={
+        movable
+          ? (event) => {
+              event.preventDefault();
+              onDropColumn?.(column.key);
+            }
+          : undefined
+      }
     >
+      {movable && (
+        <GripVertical
+          className="mr-0.5 h-3 w-3 shrink-0 text-[#a1957e]"
+          aria-hidden="true"
+        />
+      )}
       <span className="min-w-0 [overflow-wrap:anywhere]">
         {column.label}
       </span>
@@ -2467,41 +2875,14 @@ function PartnerLedgerHeaderCell({
         aria-orientation="vertical"
         aria-label={`${column.label}の列幅を変える`}
         data-partner-column-resize={column.key}
+        draggable={false}
+        onDragStart={(event) => event.preventDefault()}
         className="absolute -right-1 top-0 h-full w-2 cursor-col-resize touch-none bg-transparent hover:bg-[#a1957e]"
         title="左右にドラッグで列幅を変えられるよ"
         onPointerDown={handlePointerDown}
       />
     </span>
   );
-}
-
-type PartnerGateImpact = {
-  title: string;
-  critical: boolean;
-  connected: boolean;
-};
-
-function partnerGateImpact(
-  intervention: SxPartnerPrimaryIntervention,
-  milestoneTitleById: ReadonlyMap<string, string>,
-  milestoneSlugById: ReadonlyMap<string, string>,
-  milestoneTitleBySlug: ReadonlyMap<string, string>,
-  criticalPathSlugs: ReadonlySet<string>,
-): PartnerGateImpact {
-  const slug = intervention.relatedMilestoneId
-    ? milestoneSlugById.get(intervention.relatedMilestoneId) || null
-    : intervention.relatedMilestoneSlug;
-  const title = intervention.relatedMilestoneId
-    ? milestoneTitleById.get(intervention.relatedMilestoneId) ||
-      "関連工程未確認"
-    : slug
-      ? milestoneTitleBySlug.get(slug) || "関連工程未確認"
-      : "PJ影響 未接続";
-  return {
-    title,
-    critical: Boolean(slug && criticalPathSlugs.has(slug)),
-    connected: Boolean(intervention.relatedMilestoneId || slug),
-  };
 }
 
 function interventionStatusLabel(
@@ -2513,16 +2894,6 @@ function interventionStatusLabel(
   if (intervention.risk === "due_soon") return "7日以内";
   if (intervention.risk === "waiting") return "待ち";
   return HOLDING_STATUS_LABEL[intervention.status] || "進行中";
-}
-
-function interventionTone(intervention: SxPartnerPrimaryIntervention): string {
-  if (intervention.risk === "blocked" || intervention.risk === "overdue")
-    return ALERT_TONE;
-  if (intervention.risk === "due_soon") return WARN_TONE;
-  if (!intervention.hasStructuredHolding || !intervention.hasConcreteAction)
-    return FLAG_TONE;
-  if (intervention.risk === "waiting") return BALL_SIDE_TONE.partner;
-  return NEUTRAL_TONE;
 }
 
 function interventionOwnerText(
@@ -3221,24 +3592,32 @@ function PartnerProgressHistoryModal({
   );
 }
 
-/** 一覧の列幅を共有する表示区画。編集可否はセル内の値単位で決める。 */
+/**
+ * 一覧の列幅を共有する表示区画。編集可否はセル内の値単位で決める。
+ * order は列の並べ替え用。DOM の順序は書いたままで、CSS の order だけを動かす。
+ */
 function PartnerRowCell({
   className = "",
+  order,
   children,
 }: {
   className?: string;
+  order?: number;
   children: ReactNode;
 }) {
-  return <div className={`min-w-0 text-left ${className}`}>{children}</div>;
+  return (
+    <div className={`min-w-0 text-left ${className}`} style={{ order }}>
+      {children}
+    </div>
+  );
 }
 
 function PartnerInlineRow({
   partner,
-  milestones,
-  milestoneTitleBySlug,
+  columnOrder,
   milestoneTitleById,
   milestoneSlugById,
-  criticalPathSlugs,
+  roster,
   canManage,
   today,
   expanded,
@@ -3250,11 +3629,10 @@ function PartnerInlineRow({
   onCreateSample,
 }: {
   partner: SxManagementPartner;
-  milestones: Array<{ id: string; title: string }>;
-  milestoneTitleBySlug: ReadonlyMap<string, string>;
+  columnOrder: readonly PartnerLedgerColumnKey[];
   milestoneTitleById: ReadonlyMap<string, string>;
   milestoneSlugById: ReadonlyMap<string, string>;
-  criticalPathSlugs: ReadonlySet<string>;
+  roster: PartnerOwnerRosterControls;
   canManage: boolean;
   today: string;
   expanded: boolean;
@@ -3272,13 +3650,12 @@ function PartnerInlineRow({
   const holdings = sxHoldingsForPartner(partner);
   const intervention = sxPartnerPrimaryIntervention(partner, today);
   const target = primaryInterventionTarget(partner, intervention);
-  const impact = partnerGateImpact(
-    intervention,
-    milestoneTitleById,
-    milestoneSlugById,
-    milestoneTitleBySlug,
-    criticalPathSlugs,
-  );
+  /** セルの並び順。関係先は必ず先頭、以降は見出しドラッグで決めた順に従う。 */
+  const cellOrder = (key: PartnerLedgerColumnKey) => {
+    if (key === "name") return 0;
+    const index = columnOrder.indexOf(key);
+    return index < 0 ? columnOrder.length + 1 : index + 1;
+  };
   const actionText = sxCompactPartnerRowText(
     nominalizeSxNextActionLabel(sxNormalizePublicName(intervention.title)),
     display.name,
@@ -3290,17 +3667,6 @@ function PartnerInlineRow({
       )
     : "保存済み履歴なし";
   const nameHeadingId = `sx-partner-name-${partner.id}`;
-  const bottleneckLabel = !intervention.hasStructuredHolding
-    ? "管制情報不足"
-    : intervention.risk === "blocked"
-      ? "停止中"
-      : intervention.risk === "overdue"
-        ? "期限超過"
-        : intervention.risk === "due_soon"
-          ? "期限接近"
-          : intervention.risk === "waiting"
-            ? "待ち状態"
-            : "進行中";
   const keyFor = (field: string) => `${partner.id}:${field}`;
   const targetOwner =
     target?.resource === "partner_work_item"
@@ -3406,6 +3772,17 @@ function PartnerInlineRow({
         title={nextMeetingDateText}
       >
         {nextMeetingDateText}
+      </span>
+      {/* 着地点はその面談で何を取りに行くかなので、形式や準備物より上へ出す (2026-08-07 まさ)。 */}
+      <span
+        className={`[overflow-wrap:anywhere] text-[10px] leading-4 ${partner.nextMeetingGoal ? "font-semibold text-[#315f7d]" : "text-[#857b69]"}`}
+        title={
+          partner.nextMeetingGoal
+            ? `着地点 ${partner.nextMeetingGoal}`
+            : "着地点 未記入"
+        }
+      >
+        着地点 {partner.nextMeetingGoal || "未記入"}
       </span>
       <span
         className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]"
@@ -3533,8 +3910,15 @@ function PartnerInlineRow({
         <div
           className={`grid min-w-0 grid-cols-1 gap-x-2 gap-y-1.5 md:grid-cols-2 ${PARTNER_CONTROL_INNER_GRID}`}
         >
-          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_68px] items-center gap-2 md:col-span-2 @min-[1248px]:col-span-1">
-            <div className="flex min-h-11 min-w-0 flex-col justify-center border-b border-dashed border-[#857b69]">
+          {/* 関係先の列。上から 関係先名 → 最終確認 → 進行項目レール の縦積み
+              (2026-08-07 まさ)。横に 68px の別列で並べていたレールを名前の下へ入れ、
+              1社の識別に必要なものだけがこの固定列に収まるようにした。 */}
+          <div
+            className={`flex min-w-0 flex-col justify-center gap-1 self-stretch bg-[#fffdf7] md:col-span-2 @min-[1248px]:col-span-1 ${PARTNER_LEDGER_STICKY_NAME}`}
+            style={{ order: 0 }}
+            data-partner-name-cell={partner.id}
+          >
+            <div className="flex min-w-0 flex-col justify-center border-b border-dashed border-[#857b69]">
               {canManage ? (
                 <InlinePartnerNameEditor
                   editorKey={keyFor("name")}
@@ -3573,7 +3957,10 @@ function PartnerInlineRow({
             </div>
           </div>
 
-          <PartnerRowCell className="md:col-span-2 @min-[1248px]:col-span-1">
+          <PartnerRowCell
+            order={cellOrder("current")}
+            className="md:col-span-2 @min-[1248px]:col-span-1"
+          >
             <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
               現在の状況
             </p>
@@ -3623,6 +4010,7 @@ function PartnerInlineRow({
                   side={partner.currentBallSide}
                   owner={partner.currentBallOwner || ""}
                   options={INLINE_BALL_SIDE_OPTIONS}
+                  roster={roster}
                   view={currentView}
                   onRequestEdit={onRequestInlineEdit}
                   onFinish={onFinishInlineEdit}
@@ -3647,7 +4035,10 @@ function PartnerInlineRow({
             </div>
           </PartnerRowCell>
 
-          <PartnerRowCell className="md:col-span-2 @min-[1248px]:col-span-1">
+          <PartnerRowCell
+            order={cellOrder("goal")}
+            className="md:col-span-2 @min-[1248px]:col-span-1"
+          >
             <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
               ゴール
             </p>
@@ -3690,95 +4081,11 @@ function PartnerInlineRow({
             )}
           </PartnerRowCell>
 
-          <PartnerRowCell className="border-l-2 border-[#ada18a] pl-2">
-            <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
-              詰まり・PJ影響
-            </p>
-            <span
-              className={`inline-block border px-1.5 py-0.5 text-[10px] font-semibold ${interventionTone(intervention)}`}
-            >
-              {bottleneckLabel}
-            </span>
-            {canManage && target?.resource === "partner_work_item" ? (
-              <InlineCellEditor
-                editorKey={keyFor("impact")}
-                activeEditorKey={activeEditorKey}
-                label={`${display.name}のPJ影響先`}
-                initialValues={{
-                  related_milestone_id: target.record.relatedMilestoneId || "",
-                }}
-                view={
-                  <p
-                    className={`mt-1 [overflow-wrap:anywhere] text-[10px] font-semibold leading-4 ${impact.critical ? "text-[#8c3329]" : "text-[#24231f]"}`}
-                    title={impact.title}
-                  >
-                    {impact.critical
-                      ? "重要経路："
-                      : impact.connected
-                        ? "止まる先："
-                        : ""}
-                    {impact.title}
-                  </p>
-                }
-                viewClassName="mt-1"
-                onRequestEdit={onRequestInlineEdit}
-                onFinish={onFinishInlineEdit}
-                onSave={async (values) =>
-                  patchIfChanged(
-                    "partner_work_item",
-                    target.id,
-                    {
-                      related_milestone_id: target.record.relatedMilestoneId,
-                    },
-                    {
-                      related_milestone_id: values.related_milestone_id || null,
-                    },
-                  )
-                }
-                renderFields={(values, setValue) => (
-                  <label className="grid gap-0.5">
-                    <span className="text-[10px] font-semibold text-[#5a574c]">
-                      影響する工程
-                    </span>
-                    <select
-                      autoFocus
-                      className={INLINE_CONTROL_CLASS}
-                      value={values.related_milestone_id}
-                      onChange={(event) =>
-                        setValue("related_milestone_id", event.target.value)
-                      }
-                    >
-                      <option value="">工程未接続</option>
-                      {milestones.map((milestone) => (
-                        <option key={milestone.id} value={milestone.id}>
-                          {milestone.title}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-              />
-            ) : (
-              <p
-                className={`mt-1 [overflow-wrap:anywhere] text-[10px] font-semibold leading-4 ${impact.critical ? "text-[#8c3329]" : "text-[#24231f]"}`}
-                title={impact.title}
-              >
-                {impact.critical
-                  ? "重要経路："
-                  : impact.connected
-                    ? "止まる先："
-                    : ""}
-                {impact.title}
-              </p>
-            )}
-            {!intervention.hasStructuredHolding && (
-              <p className="mt-0.5 whitespace-nowrap text-[10px] leading-4 text-[#5f4a66]">
-                保有事項未接続
-              </p>
-            )}
-          </PartnerRowCell>
+          {/* 「詰まり・PJ影響」列は 2026-08-07 に削除 (まさ「あまり意味がないと思うので」)。
+              詰まりの度合いは各行の期限表示と進行項目レールから読めるので、専用列は縦横を
+              食うだけだった。工程との接続は保有事項の詳細モーダル側に残っている。 */}
 
-          <PartnerRowCell>
+          <PartnerRowCell order={cellOrder("action")}>
             <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
               次にやること
             </p>
@@ -3907,7 +4214,7 @@ function PartnerInlineRow({
             )}
           </PartnerRowCell>
 
-          <PartnerRowCell>
+          <PartnerRowCell order={cellOrder("meeting")}>
             <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
               次回面談
             </p>
@@ -3921,6 +4228,7 @@ function PartnerInlineRow({
                   next_meeting_time: partner.nextMeetingTime || "",
                   next_meeting_mode: partner.nextMeetingMode || "",
                   next_meeting_place: partner.nextMeetingPlace || "",
+                  next_meeting_goal: partner.nextMeetingGoal || "",
                   next_meeting_prep: partner.nextMeetingPrep || "",
                 }}
                 view={nextMeetingView}
@@ -3935,6 +4243,7 @@ function PartnerInlineRow({
                       next_meeting_time: partner.nextMeetingTime,
                       next_meeting_mode: partner.nextMeetingMode,
                       next_meeting_place: partner.nextMeetingPlace,
+                      next_meeting_goal: partner.nextMeetingGoal,
                       next_meeting_prep: partner.nextMeetingPrep,
                     },
                     {
@@ -3944,6 +4253,8 @@ function PartnerInlineRow({
                       next_meeting_mode: values.next_meeting_mode || null,
                       next_meeting_place:
                         values.next_meeting_place.trim() || null,
+                      next_meeting_goal:
+                        values.next_meeting_goal.trim() || null,
                       next_meeting_prep:
                         values.next_meeting_prep.trim() || null,
                     },
@@ -4012,6 +4323,20 @@ function PartnerInlineRow({
                     </label>
                     <label className="grid gap-0.5">
                       <span className="text-[10px] font-semibold text-[#5a574c]">
+                        着地点 (この面談で何を得るか)
+                      </span>
+                      <textarea
+                        rows={2}
+                        className={`${INLINE_CONTROL_CLASS} py-1.5 leading-4`}
+                        placeholder="例: 排液の年間量と処理コストの実数を口頭で確認する"
+                        value={values.next_meeting_goal}
+                        onChange={(event) =>
+                          setValue("next_meeting_goal", event.target.value)
+                        }
+                      />
+                    </label>
+                    <label className="grid gap-0.5">
+                      <span className="text-[10px] font-semibold text-[#5a574c]">
                         準備すべきもの
                       </span>
                       <textarea
@@ -4032,7 +4357,7 @@ function PartnerInlineRow({
             )}
           </PartnerRowCell>
 
-          <PartnerRowCell>
+          <PartnerRowCell order={cellOrder("owner")}>
             <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
               担当・期限
             </p>
@@ -4144,19 +4469,20 @@ function PartnerInlineRow({
                 }}
                 renderFields={(values, setValue) => (
                   <>
-                    <label className="grid gap-0.5">
+                    {/* 担当は名簿から選ぶ (2026-08-07 まさ)。 */}
+                    <div className="grid gap-0.5">
                       <span className="text-[10px] font-semibold text-[#5a574c]">
                         担当
                       </span>
-                      <input
+                      <OwnerSelectControl
                         autoFocus
-                        className={INLINE_CONTROL_CLASS}
                         value={values.owner}
-                        onChange={(event) =>
-                          setValue("owner", event.target.value)
-                        }
+                        ariaLabel="担当"
+                        className={INLINE_CONTROL_CLASS}
+                        roster={roster}
+                        onChange={(next) => setValue("owner", next)}
                       />
-                    </label>
+                    </div>
                     {target.resource === "partner_work_item" && (
                       <label className="grid gap-0.5">
                         <span className="text-[10px] font-semibold text-[#5a574c]">
@@ -4214,7 +4540,10 @@ function PartnerInlineRow({
             )}
           </PartnerRowCell>
 
-          <PartnerRowCell className="md:col-span-2 @min-[1248px]:col-span-1">
+          <PartnerRowCell
+            order={cellOrder("basis")}
+            className="md:col-span-2 @min-[1248px]:col-span-1"
+          >
             <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
               現在地の根拠
             </p>
@@ -4405,7 +4734,10 @@ function PartnerInlineRow({
             </p>
           </PartnerRowCell>
 
-          <PartnerRowCell className="md:col-span-2 @min-[1248px]:col-span-1">
+          <PartnerRowCell
+            order={cellOrder("effluent")}
+            className="md:col-span-2 @min-[1248px]:col-span-1"
+          >
             <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
               排液
             </p>
@@ -4491,7 +4823,10 @@ function PartnerInlineRow({
             )}
           </PartnerRowCell>
 
-          <PartnerRowCell className="md:col-span-2 @min-[1248px]:col-span-1">
+          <PartnerRowCell
+            order={cellOrder("origin")}
+            className="md:col-span-2 @min-[1248px]:col-span-1"
+          >
             <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
               接点の経緯
             </p>
@@ -4502,6 +4837,7 @@ function PartnerInlineRow({
                 label={`${display.name}の接点の経緯`}
                 context={partner.connectionContext || ""}
                 introducer={partner.introducerLabel || ""}
+                roster={roster}
                 view={connectionOriginView}
                 onRequestEdit={onRequestInlineEdit}
                 onFinish={onFinishInlineEdit}
@@ -4589,6 +4925,13 @@ export function SxPartnerPipeline({
     useState<SxPocComparisonSort>("priority");
   const { widths, setWidth, commitWidths, resetWidths, isCustomized } =
     usePartnerLedgerColumnWidths();
+  const { order, moveColumn, resetOrder, isOrderCustomized } =
+    usePartnerLedgerColumnOrder();
+  // 担当・紹介者に入れる名前の候補。表記ゆれを止めるため自由入力ではなく名簿から選ばせる。
+  const roster = usePartnerOwnerRoster(management);
+  // 見出しをつかんでいる列。ドラッグ中の見出しを薄くして、掴んだ対象を見失わないようにする。
+  const [draggingColumn, setDraggingColumn] =
+    useState<PartnerLedgerColumnKey | null>(null);
   // 見出し行は横スクロール枠の外に置き、body 側のスクロール量を転記して左右を揃える。
   // 枠の中へ入れると高さが固定され、セル編集のポップオーバーが切れてしまう。
   const ledgerHeaderRef = useRef<HTMLDivElement | null>(null);
@@ -4676,12 +5019,6 @@ export function SxPartnerPipeline({
     if (latest.ok && latestBody)
       onManagementChange(latestBody as SxManagementBundle);
   };
-  const milestoneTitleBySlug = new Map(
-    management.milestones.map((milestone) => [
-      milestone.slug,
-      nominalizeSxActionLabel(milestone.title),
-    ]),
-  );
   const milestoneTitleById = new Map(
     management.milestones.map((milestone) => [
       milestone.id,
@@ -4691,7 +5028,6 @@ export function SxPartnerPipeline({
   const milestoneSlugById = new Map(
     management.milestones.map((milestone) => [milestone.id, milestone.slug]),
   );
-  const criticalPathSlugs = new Set(management.judgment.criticalPathSlugs);
 
   // PoC候補先とVCは、同じ関係先台帳を絞る表示属性。別台帳は作らない。
   const pocPartners = management.partners.filter(sxIsPocPartner);
@@ -4761,14 +5097,10 @@ export function SxPartnerPipeline({
   const roleCounts = sxPrimaryRoleKindCounts(management.partners);
 
   const rowProps = {
-    milestones: management.milestones.map((milestone) => ({
-      id: milestone.id,
-      title: nominalizeSxActionLabel(milestone.title),
-    })),
-    milestoneTitleBySlug,
+    columnOrder: order,
     milestoneTitleById,
     milestoneSlugById,
-    criticalPathSlugs,
+    roster,
     canManage: management.canManage,
     today: management.asOf,
     expandedId,
@@ -4792,7 +5124,7 @@ export function SxPartnerPipeline({
     <div
       className="relative isolate @container rounded-lg border border-[#ada18a] bg-[#fffdf7]"
       data-testid="sx-partner-pipeline"
-      style={partnerLedgerGridStyle(widths)}
+      style={partnerLedgerGridStyle(widths, order)}
     >
       <div className="hidden rounded-t-[7px] border-b border-[#c5bba5] bg-[#f2eee0] px-3 py-2 md:flex md:items-start md:justify-between md:gap-3">
         <div>
@@ -4803,15 +5135,27 @@ export function SxPartnerPipeline({
             接点・現在地・次の行動・ゴールを、1社1行で確認
           </h3>
         </div>
-        {isCustomized && (
-          <button
-            type="button"
-            onClick={resetWidths}
-            className={`shrink-0 rounded border border-[#ada18a] bg-[#fffdf7] px-2 py-1 text-[10px] font-semibold text-[#5a574c] hover:bg-[#f2eee0] ${FOCUS_RING}`}
-          >
-            列幅をリセット
-          </button>
-        )}
+        <div className="flex shrink-0 flex-wrap items-start justify-end gap-1.5">
+          {isOrderCustomized && (
+            <button
+              type="button"
+              onClick={resetOrder}
+              data-testid="sx-partner-ledger-reset-order"
+              className={`rounded border border-[#ada18a] bg-[#fffdf7] px-2 py-1 text-[10px] font-semibold text-[#5a574c] hover:bg-[#f2eee0] ${FOCUS_RING}`}
+            >
+              列の並びをリセット
+            </button>
+          )}
+          {isCustomized && (
+            <button
+              type="button"
+              onClick={resetWidths}
+              className={`rounded border border-[#ada18a] bg-[#fffdf7] px-2 py-1 text-[10px] font-semibold text-[#5a574c] hover:bg-[#f2eee0] ${FOCUS_RING}`}
+            >
+              列幅をリセット
+            </button>
+          )}
+        </div>
       </div>
       {!comparisonOnly && (
         <>
@@ -4940,16 +5284,38 @@ export function SxPartnerPipeline({
         <div
           className={`grid gap-2 px-2 py-1 text-[10px] font-semibold text-[#5a574c] @min-[1248px]:[grid-template-columns:var(--sx-pl-header)] ${PARTNER_LEDGER_MIN_WIDTH}`}
         >
-          {PARTNER_LEDGER_COLUMNS.map((column) => (
-            <PartnerLedgerHeaderCell
-              key={column.key}
-              column={column}
-              width={widths[column.key]}
-              onResize={setWidth}
-              onCommit={commitWidths}
-              sticky={column.key === "grade"}
-            />
-          ))}
+          {(
+            [
+              "grade",
+              "name",
+              ...order,
+              "history",
+            ] as PartnerLedgerColumnKey[]
+          ).map((key) => {
+            const column = PARTNER_LEDGER_COLUMN_BY_KEY.get(key);
+            if (!column) return null;
+            const movable = !PARTNER_LEDGER_FIXED_KEYS.includes(key);
+            return (
+              <PartnerLedgerHeaderCell
+                key={key}
+                column={column}
+                width={widths[key]}
+                onResize={setWidth}
+                onCommit={commitWidths}
+                sticky={
+                  key === "grade" ? "grade" : key === "name" ? "name" : undefined
+                }
+                movable={movable}
+                dragging={draggingColumn === key}
+                onDragColumnStart={() => setDraggingColumn(key)}
+                onDragColumnEnd={() => setDraggingColumn(null)}
+                onDropColumn={() => {
+                  if (draggingColumn && movable) moveColumn(draggingColumn, key);
+                  setDraggingColumn(null);
+                }}
+              />
+            );
+          })}
         </div>
       </div>
 
@@ -5056,11 +5422,10 @@ export function SxPartnerPipeline({
 
 function PartnerRow({
   partner,
-  milestones,
-  milestoneTitleBySlug,
+  columnOrder,
   milestoneTitleById,
   milestoneSlugById,
-  criticalPathSlugs,
+  roster,
   canManage,
   today,
   expandedId,
@@ -5072,11 +5437,10 @@ function PartnerRow({
   onCreateSample,
 }: {
   partner: SxManagementPartner;
-  milestones: Array<{ id: string; title: string }>;
-  milestoneTitleBySlug: ReadonlyMap<string, string>;
+  columnOrder: readonly PartnerLedgerColumnKey[];
   milestoneTitleById: ReadonlyMap<string, string>;
   milestoneSlugById: ReadonlyMap<string, string>;
-  criticalPathSlugs: ReadonlySet<string>;
+  roster: PartnerOwnerRosterControls;
   canManage: boolean;
   today: string;
   expandedId: string | null;
@@ -5091,11 +5455,10 @@ function PartnerRow({
   return (
     <PartnerInlineRow
       partner={partner}
-      milestones={milestones}
-      milestoneTitleBySlug={milestoneTitleBySlug}
+      columnOrder={columnOrder}
       milestoneTitleById={milestoneTitleById}
       milestoneSlugById={milestoneSlugById}
-      criticalPathSlugs={criticalPathSlugs}
+      roster={roster}
       canManage={canManage}
       today={today}
       expanded={expanded}

@@ -796,11 +796,10 @@ expectNotIncludes(
   ],
 );
 expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
-  "milestoneTitleBySlug = new Map(",
-  "milestone.slug,\n      nominalizeSxActionLabel(milestone.title)",
+  // 2026-08-07: 「詰まり・PJ影響」列をまさ指示で削除。列が消えたことで slug 引きの
+  // milestoneTitleBySlug も不要になったため、両方のアンカーをここから外した。
   "milestoneTitleById = new Map(",
   "milestone.id,\n      nominalizeSxActionLabel(milestone.title)",
-  "詰まり・PJ影響",
   "次にやること",
   "現在地の根拠",
 ]);
@@ -1264,7 +1263,10 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "設立 {sxFormatDate(timeline.objectiveDate)}",
   "MSとタスクの縦一覧",
   "RowBar",
-  "min-w-[1080px]",
+  // 2026-08-07: 時間軸の縮尺スライダー導入で固定幅クラスをやめ、基準幅×倍率の
+  // インライン minWidth になった。潰れ防止の下限そのものは GANTT_BASE_WIDTH_PX が担う。
+  "GANTT_BASE_WIDTH_PX = 1080",
+  "minWidth: GANTT_BASE_WIDTH_PX * timeScale",
   // 行クリックは詳細、値クリックは直接編集。ブロッキングMSは有償PoC口頭合意と
   // 出資口頭合意の2件だけに限定する。
   "onCreateMilestone",

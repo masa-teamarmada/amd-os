@@ -439,7 +439,7 @@ assertIncludes(timelineFile, timeline, [
   'data-gantt-dependency-target-id={row.id}',
   'data-gantt-dependency-target-entity=',
   "data-gantt-schedule-dependency-lines",
-  "data-gantt-schedule-dependency-register",
+  "data-gantt-time-scale",
   "onPointerDownDependency={beginScheduleDependency}",
   "beginKeyboardScheduleDependency(row)",
   "接続先のタスクかMSを選んでね。Escで中止できるよ",
