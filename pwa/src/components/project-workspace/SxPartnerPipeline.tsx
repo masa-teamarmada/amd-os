@@ -805,15 +805,22 @@ function InlinePartnerNameEditor({
  */
 /** 名前プルダウンで「新しい名前を追加」を選んだことを表す番兵。名前として保存されることはない。 */
 const OWNER_NEW_ENTRY = "__new_owner__";
-/** 名簿の手動追加・非表示はこの端末の好みなので localStorage に置く。DBには名簿table がない。 */
-const PARTNER_OWNER_ROSTER_STORAGE_KEY = "sx-partner-owner-roster-v1";
+/**
+ * 名簿の手動追加・非表示はこの端末の好みなので localStorage に置く。DBには名簿table がない。
+ * 担当と紹介者は入る言葉が違う (担当=人、紹介者=紹介ルートや組織も入る) ので候補も別に持つ。
+ */
+const PARTNER_ROSTER_STORAGE_KEY = {
+  owner: "sx-partner-owner-roster-v1",
+  introducer: "sx-partner-introducer-roster-v1",
+} as const;
 
+type PartnerRosterRole = keyof typeof PARTNER_ROSTER_STORAGE_KEY;
 type PartnerOwnerRoster = { added: string[]; hidden: string[] };
 
-function readPartnerOwnerRoster(): PartnerOwnerRoster {
+function readPartnerRoster(role: PartnerRosterRole): PartnerOwnerRoster {
   if (typeof window === "undefined") return { added: [], hidden: [] };
   try {
-    const raw = window.localStorage.getItem(PARTNER_OWNER_ROSTER_STORAGE_KEY);
+    const raw = window.localStorage.getItem(PARTNER_ROSTER_STORAGE_KEY[role]);
     if (!raw) return { added: [], hidden: [] };
     const parsed = JSON.parse(raw) as Partial<PartnerOwnerRoster>;
     const clean = (value: unknown) =>
@@ -827,25 +834,37 @@ function readPartnerOwnerRoster(): PartnerOwnerRoster {
 }
 
 /**
- * 担当・紹介者に入れる名前の候補。管制データに実在する名前を集め、手動追加分を足し、
- * 非表示にした名前を落とす。メンバー台帳ではないので、社外の人もそのまま候補に載る。
+ * 「？」「-」のような記号だけの値は名前ではないので候補に載せない。
+ * sxIsMissingOwner が拾う「担当未確認」等の欠測表現とは別に、記号だけの入力を落とす。
  */
-function usePartnerOwnerRoster(management: SxManagementBundle) {
+function isSelectableRosterName(label: string) {
+  if (!label || sxIsMissingOwner(label)) return false;
+  return !/^[?？!！\-—–ー・.。,、/／\s]+$/.test(label);
+}
+
+/**
+ * 名前の候補を1系統ぶん組み立てる。管制データに実在する値を集め、手動追加分を足し、
+ * 非表示にした値を落とす。メンバー台帳ではないので、社外の人もそのまま候補に載る。
+ */
+function usePartnerRosterRole(
+  role: PartnerRosterRole,
+  fromData: readonly string[],
+): PartnerOwnerRosterControls {
   const [roster, setRoster] = useState<PartnerOwnerRoster>({
     added: [],
     hidden: [],
   });
 
   useEffect(() => {
-    setRoster(readPartnerOwnerRoster());
-  }, []);
+    setRoster(readPartnerRoster(role));
+  }, [role]);
 
   const persist = (next: PartnerOwnerRoster) => {
     setRoster(next);
     if (typeof window === "undefined") return;
     try {
       window.localStorage.setItem(
-        PARTNER_OWNER_ROSTER_STORAGE_KEY,
+        PARTNER_ROSTER_STORAGE_KEY[role],
         JSON.stringify(next),
       );
     } catch {
@@ -853,29 +872,14 @@ function usePartnerOwnerRoster(management: SxManagementBundle) {
     }
   };
 
-  const fromData = new Set<string>();
-  const push = (value: string | null | undefined) => {
+  const names = new Set<string>();
+  fromData.forEach((value) => {
     const label = (value || "").trim();
-    if (!label || sxIsMissingOwner(label)) return;
-    fromData.add(label);
-  };
-  management.partners.forEach((partner) => {
-    push(partner.ownerLabel);
-    push(partner.currentBallOwner);
-    push(partner.introducerLabel);
+    if (isSelectableRosterName(label)) names.add(label);
   });
-  management.partnerWorkItems.forEach((row) => push(row.ownerLabel));
-  management.partnerCommitments.forEach((row) => {
-    push(row.ownerLabel);
-    push(row.sxOwner);
-    push(row.counterpartyOwner);
-  });
-  management.tasks.forEach((row) => push(row.ownerLabel));
-  management.milestones.forEach((row) => push(row.ownerLabel));
-  management.actions.forEach((row) => push(row.ownerLabel));
-  roster.added.forEach((name) => fromData.add(name));
-  roster.hidden.forEach((name) => fromData.delete(name));
-  const candidates = [...fromData].sort((a, b) => a.localeCompare(b, "ja"));
+  roster.added.forEach((name) => names.add(name));
+  roster.hidden.forEach((name) => names.delete(name));
+  const candidates = [...names].sort((a, b) => a.localeCompare(b, "ja"));
 
   const addOwner = (name: string) => {
     const label = name.trim();
@@ -897,10 +901,44 @@ function usePartnerOwnerRoster(management: SxManagementBundle) {
   return { candidates, addOwner, hideOwner };
 }
 
+/** 担当と紹介者の2系統。担当の候補に紹介ルート名が混ざらないように分けている。 */
+function usePartnerOwnerRoster(
+  management: SxManagementBundle,
+): PartnerRosterSet {
+  const ownerNames: string[] = [];
+  const introducerNames: string[] = [];
+  management.partners.forEach((partner) => {
+    ownerNames.push(partner.ownerLabel || "");
+    ownerNames.push(partner.currentBallOwner || "");
+    introducerNames.push(partner.introducerLabel || "");
+  });
+  management.partnerWorkItems.forEach((row) =>
+    ownerNames.push(row.ownerLabel || ""),
+  );
+  management.partnerCommitments.forEach((row) => {
+    ownerNames.push(row.ownerLabel || "");
+    ownerNames.push(row.sxOwner || "");
+    ownerNames.push(row.counterpartyOwner || "");
+  });
+  management.tasks.forEach((row) => ownerNames.push(row.ownerLabel || ""));
+  management.milestones.forEach((row) => ownerNames.push(row.ownerLabel || ""));
+  management.actions.forEach((row) => ownerNames.push(row.ownerLabel || ""));
+
+  const owner = usePartnerRosterRole("owner", ownerNames);
+  const introducer = usePartnerRosterRole("introducer", introducerNames);
+  return { owner, introducer };
+}
+
 export type PartnerOwnerRosterControls = {
   candidates: readonly string[];
   addOwner: (name: string) => void;
   hideOwner: (name: string) => void;
+};
+
+/** 行から各エディタへ渡す名簿一式。担当と紹介者で候補が違う。 */
+export type PartnerRosterSet = {
+  owner: PartnerOwnerRosterControls;
+  introducer: PartnerOwnerRosterControls;
 };
 
 /**
@@ -3632,7 +3670,7 @@ function PartnerInlineRow({
   columnOrder: readonly PartnerLedgerColumnKey[];
   milestoneTitleById: ReadonlyMap<string, string>;
   milestoneSlugById: ReadonlyMap<string, string>;
-  roster: PartnerOwnerRosterControls;
+  roster: PartnerRosterSet;
   canManage: boolean;
   today: string;
   expanded: boolean;
@@ -4010,7 +4048,7 @@ function PartnerInlineRow({
                   side={partner.currentBallSide}
                   owner={partner.currentBallOwner || ""}
                   options={INLINE_BALL_SIDE_OPTIONS}
-                  roster={roster}
+                  roster={roster.owner}
                   view={currentView}
                   onRequestEdit={onRequestInlineEdit}
                   onFinish={onFinishInlineEdit}
@@ -4479,7 +4517,7 @@ function PartnerInlineRow({
                         value={values.owner}
                         ariaLabel="担当"
                         className={INLINE_CONTROL_CLASS}
-                        roster={roster}
+                        roster={roster.owner}
                         onChange={(next) => setValue("owner", next)}
                       />
                     </div>
@@ -4837,7 +4875,7 @@ function PartnerInlineRow({
                 label={`${display.name}の接点の経緯`}
                 context={partner.connectionContext || ""}
                 introducer={partner.introducerLabel || ""}
-                roster={roster}
+                roster={roster.introducer}
                 view={connectionOriginView}
                 onRequestEdit={onRequestInlineEdit}
                 onFinish={onFinishInlineEdit}
@@ -5440,7 +5478,7 @@ function PartnerRow({
   columnOrder: readonly PartnerLedgerColumnKey[];
   milestoneTitleById: ReadonlyMap<string, string>;
   milestoneSlugById: ReadonlyMap<string, string>;
-  roster: PartnerOwnerRosterControls;
+  roster: PartnerRosterSet;
   canManage: boolean;
   today: string;
   expandedId: string | null;
