@@ -261,3 +261,17 @@ point-MS追加フォームは`配置するグループ（複数選択可） / MS
 - **編集popoverは外側クリックで閉じる**: `InlineCellEditor` はcapture phaseの `pointerdown` を見て、popover外を押したら「変更があれば保存して」閉じる。台帳の他のseamless編集（`onBlur` 自動保存）と挙動を揃えるため、破棄ではなく保存で閉じる。`<select>` のoptionはOSレイヤなので `document` の `pointerdown` を発火せず、誤爆しない。
 - **ガントの時間軸スライダー**: ツールバーの「今日へ」の右に縮尺スライダーを置く（`data-gantt-time-scale`、1.00x〜4.00x、0.05刻み、ダブルクリックで等倍へ戻る）。ガント内の全要素は%配置なので、外枠の `minWidth` を `GANTT_BASE_WIDTH_PX(1080) × timeScale` にするだけで縮尺が変わり、バーのドラッグ判定も要素rectから比率を求めるので自動追随する。倍率は `localStorage["sx-gantt-time-scale-v1"]` に保存する。
 - **ガント上部の「依存関係」一覧は廃止**。線そのものをhoverして外す導線（`data-gantt-schedule-dependency-hover-remove`）が既にあり、一覧は使われないまま縦を食っていた。
+
+### ガントの年月2段ヘッダ・凡例廃止・時間軸6x / 変更の即時反映（楽観更新） (build v3.58.19、2026-08-07)
+
+- **時間軸の上限を6.00xへ**（`GANTT_TIME_SCALE_MAX = 6`、v3.58.17の4.00xから拡張。まさ 2026-08-07「時間軸は6xまで倍率を上げられるようにして」）。刻み0.05・ダブルクリックで等倍・`localStorage["sx-gantt-time-scale-v1"]` はそのまま。
+- **レーン右端の「詰まり: {lane.maxIssue}」表示を削除**（まさ 2026-08-07「ガント右側の『詰まり：〜〜』の文字は削除して」）。倍率を上げるとこの赤茶テキストが月ヘッダと重なり判読不能になっていた。詰まりは詳細モーダル側で読む。
+- **年ラベルを月ラベルの上段へ**。`MONTH_ROW_H = 44` を年15px + 月29pxの2段に割り、`SxEcdTimelineMonth` へ `yearLabel: string | null` を新設して `label` は `${month}月` のみにする（`sx-executive-control-deck.ts`）。年は年が変わる最初の月にだけ出す。同じcell内に年月を詰めて重ねない（まさ 2026-08-07「ガントの年の表記は月より上に置いてほしい。現状だと月と重なっちゃってるので」）。
+- **凡例（`Legend()`）を全廃**。「設立ゲート」だけを他のMSと区別して特出しする根拠が無く、凡例そのものも縦を食っていた（まさ 2026-08-07「凡例の『設立ゲート』は削除して。そこだけ他のMSと区別して特出しする意味がわからん。あと凡例自体削除して」）。設立前提2件の塗りつぶし◇と通常MSの中抜き◇という**描画上の区別は残す**（v3.55.0のドラッグ挙動の差を見分けるため）。
+- **すべての変更を楽観更新にする**（まさ 2026-08-07「MS作成、タスク削除など、何か変更するたびに確定ボタンを押してから長時間待たされるので、押したらすぐにUI上に反映されるようにして。DB変更はそのあとでやって」）。対象は次の全経路。
+  - モーダル経路（`SxWeeklyControlDashboard.submit()`）: 既存レコードのPATCH（v3.58.16で導入済み）に加え、**新規作成（create_task / create_milestone）も楽観化**。IDはサーバ採番なので `sxNewOptimisticId()` の仮IDで先に挿入し、応答の `body.id` を受けたら `sxReplaceOptimisticManagementId()` で差し替える。`selectedTaskId` / `selectedMilestoneId` も同時に移すので、追加直後に開いている詳細がそのまま編集できる。
+  - ガント上の直接操作（`SxUnifiedTimeline`）: 依存線の作成・解除、タスクの並べ替え、タスクの入れ子、バーとMSのドラッグ／リサイズ。
+- **成功応答の bundle をマージしない**のが不変条件。送信中に別の編集が入っていた場合、古い bundle が新しい可視編集を消してしまうため。受け取るのは新規作成時の `body.id` だけ。**失敗時だけ** DBから読み直す（`reloadManagementFromDb` / `bestEffortRefetchManagement`）か、新規なら `sxRemoveOptimisticManagementRecord()` で仮レコードを取り消し、いずれも必ず通知を出す。黙って元へ戻さない。
+- `SxUnifiedTimeline` は bundle 全体を持たずフラット配列propsだけを受けるため、楽観更新には **変換関数を渡す bridge prop** `onManagementOptimistic?: (mutate: (bundle) => bundle, message: string) => void` を新設した。親が `setManagement(mutate)` + `showNotice(message)` を実行する。この prop を渡さない呼び出し元は従来どおり応答待ちで動く（`onManagementChange` 経路は残す）。
+- 共通基盤は `src/lib/sx-management-optimistic.ts`。`sxApplyOptimisticManagementPatch` / `sxInsertOptimisticManagementRecord` / `sxRemoveOptimisticManagementRecord` / `sxReplaceOptimisticManagementId` / `sxNewOptimisticId` / `sxIsOptimisticId` が正本で、契約テストは `scripts/test_sx_management_optimistic.mjs`。DBが決める値（`version`・派生ステータス・`sortOrder`）は仮の初期値で埋め、次にDBから読み直したときに揃う。新しい編集経路を足すときは、この基盤を通す（各editorが独自の楽観表現を発明しない）。
+- **担当プルダウンの候補から状態記述を落とす**（`SxPartnerPipeline` の `ROSTER_STATUS_PHRASE_RE = /(待ち|未確認|要確認|未定)/` を `isSelectableRosterName` に追加）。「紹介接続待ち」「先方回答待ち」「担当者未確認」は人名ではないので候補に載せない。**すでに保存済みの値は選択中として先頭に残る**ので、表示が消えるわけではない（まさ 2026-08-07「Bで。」＝ 自動除外案の承認）。

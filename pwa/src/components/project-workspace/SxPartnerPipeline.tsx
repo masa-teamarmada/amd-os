@@ -837,8 +837,13 @@ function readPartnerRoster(role: PartnerRosterRole): PartnerOwnerRoster {
  * 「？」「-」のような記号だけの値は名前ではないので候補に載せない。
  * sxIsMissingOwner が拾う「担当未確認」等の欠測表現とは別に、記号だけの入力を落とす。
  */
+/** 「紹介接続待ち」「担当者未確認」のような状態の説明は人名ではないので候補に載せない。
+ *  すでに保存済みの値は選択中として先頭に残るので、表示が消えるわけではない。 */
+const ROSTER_STATUS_PHRASE_RE = /(待ち|未確認|要確認|未定)/;
+
 function isSelectableRosterName(label: string) {
   if (!label || sxIsMissingOwner(label)) return false;
+  if (ROSTER_STATUS_PHRASE_RE.test(label)) return false;
   return !/^[?？!！\-—–ー・.。,、/／\s]+$/.test(label);
 }
 

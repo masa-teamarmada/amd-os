@@ -59,7 +59,13 @@ import {
   sxOralAgreementEvidenceReady,
   type SxGateRequirement,
 } from "@/lib/sx-gate-requirements";
-import { sxApplyOptimisticManagementPatch } from "@/lib/sx-management-optimistic";
+import {
+  sxApplyOptimisticManagementPatch,
+  sxInsertOptimisticManagementRecord,
+  sxNewOptimisticId,
+  sxRemoveOptimisticManagementRecord,
+  sxReplaceOptimisticManagementId,
+} from "@/lib/sx-management-optimistic";
 import { sxIsMissingOwner } from "./sx-visual-shared";
 import {
   sxWeeklyIssueAttentionScore,
@@ -2102,6 +2108,8 @@ function IssueEditor({
   onClose,
   onSaved,
   onReconciled,
+  onReconciledId,
+  onRolledBack,
   onSyncFailed,
   onDirtyChange,
   embedded = false,
@@ -2119,6 +2127,10 @@ function IssueEditor({
   onSaved: (bundle: SxManagementBundle, message: string) => void;
   /** Replaces the temporary local projection after the background write settles. */
   onReconciled?: (bundle: SxManagementBundle) => void;
+  /** 先に画面へ置いた新規レコードの仮IDを、サーバが採番した本物のIDへ差し替える。 */
+  onReconciledId?: (temporaryId: string, realId: string) => void;
+  /** 新規レコードの書き込みが失敗したとき、先に置いた仮レコードを取り消す。 */
+  onRolledBack?: (temporaryId: string) => void;
   /** A save was locally accepted but did not reach the DB; never silently keep it on screen. */
   onSyncFailed?: (message: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
@@ -2564,6 +2576,71 @@ function IssueEditor({
             // The notification below makes the unresolved state explicit.
           }
           onSyncFailed?.(`${message}。同期状況を確認できないから、画面を再読み込みしてね`);
+        }
+      })();
+      return;
+    }
+
+    // 新規のタスク・MSも画面へ先に置く。IDはサーバが決めるので、仮IDで挿してから
+    // 応答の本物のIDへ差し替える。DBが決める値(version・派生ステータス・並び順)は仮の
+    // 初期値で埋まり、次にDBから読み直したときに揃う。書き込みが失敗したら、置いた
+    // 仮レコードを取り消してDBの内容へ戻す。
+    if (
+      editor.kind === "create_task" ||
+      editor.kind === "create_milestone"
+    ) {
+      const resource = editor.kind === "create_task" ? "task" : "milestone";
+      const temporaryId = sxNewOptimisticId(
+        `${resource}-${management.tasks.length + management.milestones.length}-${definition.title}`,
+      );
+      const optimistic = sxInsertOptimisticManagementRecord(
+        management,
+        resource,
+        projectId,
+        temporaryId,
+        fields,
+      );
+      onSaved(optimistic, `${definition.title}を追加したよ。DBへ同期中`);
+      void (async () => {
+        try {
+          const response = await fetch(
+            `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+            {
+              method: definition.method,
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(requestBody),
+            },
+          );
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok)
+            throw new Error(
+              typeof body.error === "string" ? body.error : "保存できなかったよ",
+            );
+          // 本物のIDだけを受け取る。応答のbundleは使わない: 送信中に別の編集が入って
+          // いた場合、古いbundleが新しい見た目を消してしまう。
+          if (typeof body.id === "string" && body.id)
+            onReconciledId?.(temporaryId, body.id);
+        } catch (caught) {
+          const message =
+            caught instanceof Error ? caught.message : "保存できなかったよ";
+          try {
+            const latest = await fetch(
+              `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+              { headers: { "Cache-Control": "no-store" } },
+            );
+            const latestBody = await latest.json().catch(() => null);
+            if (latest.ok && latestBody) {
+              onReconciled?.(latestBody as SxManagementBundle);
+              onSyncFailed?.(`${message}。最新の内容に戻したよ`);
+              return;
+            }
+          } catch {
+            // 下の通知で未解決の状態を明示する。
+          }
+          onRolledBack?.(temporaryId);
+          onSyncFailed?.(
+            `${message}。追加を取り消したよ。もう一度試してね`,
+          );
         }
       })();
       return;
@@ -4018,10 +4095,6 @@ export function SxWeeklyControlDashboard({
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [workloadFilter, setWorkloadFilter] =
     useState<WorkloadBucketKey | null>(null);
-  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
-  const [deletingMilestoneId, setDeletingMilestoneId] = useState<string | null>(
-    null,
-  );
 
   function showNotice(message: string) {
     setNotice(message);
@@ -4272,10 +4345,48 @@ export function SxWeeklyControlDashboard({
     else fallbackFocus();
   }
 
-  // タスク削除はAPI側のsoft delete（deleted_at）を使う。楽観更新はせず、成功したbundleで置き換えて
-  // 依存線や子タスクの見え方をサーバ側の判断に揃える。
+  /** DBの応答を待たずに最新のbundleを読み直す。楽観更新が失敗したときの唯一の巻き戻し経路。 */
+  async function reloadManagementFromDb() {
+    const latest = await fetch(
+      `/api/project-workspace/${encodeURIComponent(bundle.project.projectId)}/management`,
+      { headers: { "Cache-Control": "no-store" } },
+    );
+    const latestBody = await latest.json().catch(() => null);
+    if (!latest.ok || !latestBody) return false;
+    setManagement(latestBody as SxManagementBundle);
+    return true;
+  }
+
+  /** 先に画面へ置いた新規レコードの仮IDを、サーバが採番した本物のIDへ差し替える。
+   *  選択状態も一緒に移すので、追加した直後に開いている詳細がそのまま編集できる。 */
+  function reconcileOptimisticId(temporaryId: string, realId: string) {
+    setManagement((current) =>
+      sxReplaceOptimisticManagementId(current, temporaryId, realId),
+    );
+    setSelectedTaskId((current) => (current === temporaryId ? realId : current));
+    setSelectedMilestoneId((current) =>
+      current === temporaryId ? realId : current,
+    );
+  }
+
+  /** 新規レコードの書き込みが失敗したとき、先に置いた仮レコードを画面から取り消す。 */
+  function rollbackOptimisticRecord(temporaryId: string) {
+    setManagement((current) =>
+      sxRemoveOptimisticManagementRecord(current, temporaryId),
+    );
+    setSelectedTaskId((current) => (current === temporaryId ? null : current));
+    setSelectedMilestoneId((current) =>
+      current === temporaryId ? null : current,
+    );
+  }
+
+  // タスク削除はAPI側のsoft delete（deleted_at）。画面からは先に消す。DBの書き込みと全bundleの
+  // 作り直しは裏で走らせ、失敗したときだけDBから読み直して見え方を戻す。
   async function deleteTask(taskId: string) {
-    setDeletingTaskId(taskId);
+    const before = management;
+    setManagement(sxRemoveOptimisticManagementRecord(management, taskId));
+    setSelectedTaskId(null);
+    showNotice("タスクを削除したよ。DBへ同期中");
     try {
       const response = await fetch(
         `/api/project-workspace/${encodeURIComponent(bundle.project.projectId)}/management`,
@@ -4290,20 +4401,29 @@ export function SxWeeklyControlDashboard({
         throw new Error(
           typeof body.error === "string" ? body.error : "削除できなかったよ",
         );
-      if (body.bundle) setManagement(body.bundle as SxManagementBundle);
-      setSelectedTaskId(null);
-      showNotice("タスクを削除したよ");
     } catch (caught) {
-      showNotice(caught instanceof Error ? caught.message : "削除できなかったよ");
-    } finally {
-      setDeletingTaskId(null);
+      const message =
+        caught instanceof Error ? caught.message : "削除できなかったよ";
+      try {
+        if (await reloadManagementFromDb()) {
+          showNotice(`${message}。最新の内容に戻したよ`);
+          return;
+        }
+      } catch {
+        // 下の通知で未解決の状態を明示する。
+      }
+      setManagement(before);
+      showNotice(`${message}。画面を再読み込みしてね`);
     }
   }
 
-  // MS削除もAPI側のsoft delete。MS配下にタスクが残っていればAPIが断るので、UI側のガード文言と
-  // サーバ側の判断がずれても最後はサーバの答えを見せる。
+  // MS削除もAPI側のsoft delete。MS配下にタスクが残っていればAPIが断るので、断られたときは
+  // DBから読み直して、消したはずのMSを戻したうえで理由を見せる。
   async function deleteMilestone(milestoneId: string) {
-    setDeletingMilestoneId(milestoneId);
+    const before = management;
+    setManagement(sxRemoveOptimisticManagementRecord(management, milestoneId));
+    setSelectedMilestoneId(null);
+    showNotice("MSを削除したよ。DBへ同期中");
     try {
       const response = await fetch(
         `/api/project-workspace/${encodeURIComponent(bundle.project.projectId)}/management`,
@@ -4318,13 +4438,19 @@ export function SxWeeklyControlDashboard({
         throw new Error(
           typeof body.error === "string" ? body.error : "削除できなかったよ",
         );
-      if (body.bundle) setManagement(body.bundle as SxManagementBundle);
-      setSelectedMilestoneId(null);
-      showNotice("MSを削除したよ");
     } catch (caught) {
-      showNotice(caught instanceof Error ? caught.message : "削除できなかったよ");
-    } finally {
-      setDeletingMilestoneId(null);
+      const message =
+        caught instanceof Error ? caught.message : "削除できなかったよ";
+      try {
+        if (await reloadManagementFromDb()) {
+          showNotice(`${message}。最新の内容に戻したよ`);
+          return;
+        }
+      } catch {
+        // 下の通知で未解決の状態を明示する。
+      }
+      setManagement(before);
+      showNotice(`${message}。画面を再読み込みしてね`);
     }
   }
 
@@ -4763,6 +4889,10 @@ export function SxWeeklyControlDashboard({
                   setNotice(message);
                   window.setTimeout(() => setNotice(null), 3500);
                 }}
+                onManagementOptimistic={(mutate, message) => {
+                  setManagement(mutate);
+                  showNotice(message);
+                }}
                 selectedMilestoneId={selectedMilestoneId}
                 selectedTaskId={selectedTaskId}
                 onSelectMilestone={(id) => {
@@ -4822,6 +4952,8 @@ export function SxWeeklyControlDashboard({
                       focusSelectedPlanRowAfterClose();
                     }}
                     onReconciled={setManagement}
+                    onReconciledId={reconcileOptimisticId}
+                    onRolledBack={rollbackOptimisticRecord}
                     onSyncFailed={showNotice}
                   />
                 ) : null
@@ -4848,6 +4980,8 @@ export function SxWeeklyControlDashboard({
                       handleDetailSaved(next, message);
                     }}
                     onReconciled={setManagement}
+                    onReconciledId={reconcileOptimisticId}
+                    onRolledBack={rollbackOptimisticRecord}
                     onSyncFailed={showNotice}
                   />
                 ) : null
@@ -4867,12 +5001,8 @@ export function SxWeeklyControlDashboard({
                     ? "このMSに紐づくタスクがあるから削除できないよ。先にタスクを別のMSへ移すか削除してね"
                     : null
               }
-              deleting={
-                selectedTask
-                  ? deletingTaskId === selectedTask.id
-                  : Boolean(selectedMilestone) &&
-                    deletingMilestoneId === selectedMilestone!.id
-              }
+              // 削除は押した瞬間に画面から消えるので、待ち状態の表示は残さない。
+              deleting={false}
               onDelete={
                 selectedTask
                   ? () => {
@@ -5129,6 +5259,8 @@ export function SxWeeklyControlDashboard({
           }}
           onSaved={handleSaved}
           onReconciled={setManagement}
+          onReconciledId={reconcileOptimisticId}
+          onRolledBack={rollbackOptimisticRecord}
           onSyncFailed={showNotice}
           fieldKeys={editorFieldKeys ?? undefined}
         />

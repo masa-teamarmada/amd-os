@@ -31,6 +31,12 @@ import {
   sxIsBlockingMilestone,
   type SxGateRequirement,
 } from "@/lib/sx-gate-requirements";
+import {
+  sxApplyOptimisticManagementPatch,
+  sxNewOptimisticId,
+  sxRemoveOptimisticManagementRecord,
+  sxReplaceOptimisticManagementId,
+} from "@/lib/sx-management-optimistic";
 import { taskNestCandidateIds } from "@/lib/sx-gantt-task-nesting";
 import {
   buildFinishToStartRoute,
@@ -53,7 +59,9 @@ import { sxFormatDate } from "./sx-visual-shared";
 // Keep the sticky date header dense, but reserve two distinct baselines: the objective marker
 // above and month labels below. A single 20px line made a January objective overlap the year/month
 // label at the same x-position.
-const MONTH_ROW_H = 32;
+// 年ラベル(上段) + 月ラベル(下段) の2段ぶん。年と月を重ねない。
+const MONTH_ROW_H = 44;
+const MONTH_YEAR_ROW_H = 15;
 const PIN_ROW_H = 22;
 // The compact lane header doubles as the MS label band. It is deliberately smaller than a task
 // row, while leaving the marker's pointer target clear of the first task bar.
@@ -65,7 +73,7 @@ const LANE_GAP = 2;
 // バー・グリッド線・依存線はすべて % 配置なので、外側の幅を変えるだけで縮尺が変わる。
 const GANTT_BASE_WIDTH_PX = 1080;
 const GANTT_TIME_SCALE_MIN = 1;
-const GANTT_TIME_SCALE_MAX = 4;
+const GANTT_TIME_SCALE_MAX = 6;
 const GANTT_TIME_SCALE_STORAGE_KEY = "sx-gantt-time-scale-v1";
 function clampTimeScale(value: number) {
   if (!Number.isFinite(value)) return 1;
@@ -776,32 +784,6 @@ function RowBar({
   );
 }
 
-function Legend() {
-  return (
-    <div
-      className="mb-1.5 grid gap-px border border-[#ada18a] bg-[#d6cebf] text-[10px] text-[#514e47] sm:grid-cols-4"
-      aria-label="ガントの読み方"
-    >
-      <div className="flex items-center gap-2 bg-[#fffdf7] px-2 py-1">
-        <span className="h-2 w-8 rounded-sm border border-[#7da18f] bg-[#dceae2]" />
-        <span>計画期間｜薄いバー</span>
-      </div>
-      <div className="flex items-center gap-2 bg-[#fffdf7] px-2 py-1">
-        <span className="h-2 w-8 rounded-sm bg-[#38745d]" />
-        <span>実績｜濃い塗り・進捗率</span>
-      </div>
-      <div className="flex items-center gap-2 bg-[#fffdf7] px-2 py-1">
-        <span className="h-4 w-[10px] border-x border-[#5f4a66]/70 bg-[#5f4a66]/12" />
-        <span>MS（マイルストーン）｜グループ全体にかかるゲート帯</span>
-      </div>
-      <div className="flex items-center gap-2 bg-[#fffdf7] px-2 py-1">
-        <span className="h-4 w-[10px] border-x-2 border-[#5f4a66] bg-[#5f4a66]/28" />
-        <span>設立ゲート｜先へ進む前提（2件のみ）</span>
-      </div>
-    </div>
-  );
-}
-
 /** Pointer-drag state for gantt direct editing (move/resize a task bar, move an MS marker).
  * `dragging` only flips true once the pointer has moved past CLICK_DRAG_THRESHOLD_PX —
  * below that, releasing the pointer is a plain row click, not a drag commit. */
@@ -890,6 +872,7 @@ export function SxUnifiedTimeline({
   onCreateMilestone,
   onCreateTask = () => {},
   onManagementChange = () => {},
+  onManagementOptimistic,
   showPins = true,
 }: {
   timeline: SxEcdUnifiedTimeline;
@@ -929,6 +912,12 @@ export function SxUnifiedTimeline({
   onEditTask?: (taskId: string) => void;
   onCreateTask?: (laneKey: SxDisplayLaneKey) => void;
   onManagementChange?: (bundle: SxManagementBundle, message: string) => void;
+  /** DBの応答を待たずに、親が持つbundleへ直接変更を当てる。このコンポーネントはbundle
+   *  全体を持たないので、変換関数だけを渡す。省略された呼び出し元は従来どおり応答待ちで動く。 */
+  onManagementOptimistic?: (
+    mutate: (bundle: SxManagementBundle) => SxManagementBundle,
+    message: string,
+  ) => void;
   showPins?: boolean;
 }) {
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(
@@ -1225,6 +1214,34 @@ export function SxUnifiedTimeline({
     }
     setDependencyPreview(null);
     setDependencySource(null);
+    // 依存線は引いた瞬間に見えてほしい操作なので、先に画面へ描いてから書き込む。
+    // IDはサーバが決めるため、仮IDで描いて応答のIDへ差し替える。
+    const temporaryDependencyId = sxNewOptimisticId(
+      `dep-${source.entity}-${source.id}-${target.entity}-${target.id}`,
+    );
+    const connectedMessage = `${source.title} → ${successor.title} を接続したよ`;
+    if (onManagementOptimistic)
+      onManagementOptimistic(
+        (current) => ({
+          ...current,
+          scheduleDependencies: [
+            ...current.scheduleDependencies,
+            {
+              id: temporaryDependencyId,
+              predecessorType: source.entity,
+              predecessorTaskId: source.entity === "task" ? source.id : null,
+              predecessorMilestoneId:
+                source.entity === "milestone" ? source.id : null,
+              successorType: target.entity,
+              successorTaskId: target.entity === "task" ? target.id : null,
+              successorMilestoneId:
+                target.entity === "milestone" ? target.id : null,
+              dependencyType: "finish_to_start",
+            },
+          ],
+        }),
+        `${connectedMessage}。DBへ同期中`,
+      );
     try {
       const response = await fetch(
         `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
@@ -1247,10 +1264,21 @@ export function SxUnifiedTimeline({
         throw new Error(
           typeof body.error === "string" ? body.error : "依存線を保存できなかったよ",
         );
-      onManagementChange(
-        body.bundle as SxManagementBundle,
-        `${source.title} → ${successor.title} を接続したよ`,
-      );
+      if (onManagementOptimistic) {
+        // 応答のbundleは使わない: 送信中に入った別の編集を、古いbundleで消さないため。
+        if (typeof body.id === "string" && body.id)
+          onManagementOptimistic(
+            (current) =>
+              sxReplaceOptimisticManagementId(
+                current,
+                temporaryDependencyId,
+                body.id as string,
+              ),
+            connectedMessage,
+          );
+        return;
+      }
+      onManagementChange(body.bundle as SxManagementBundle, connectedMessage);
     } catch (caught) {
       const message =
         caught instanceof Error ? caught.message : "依存線を保存できなかったよ";
@@ -1266,6 +1294,12 @@ export function SxUnifiedTimeline({
     keepScheduleDependencyActions();
     setHoveredScheduleDependency(null);
     setRemovingDependencyId(dependencyId);
+    if (onManagementOptimistic)
+      onManagementOptimistic(
+        (current) =>
+          sxRemoveOptimisticManagementRecord(current, dependencyId),
+        "依存線を外したよ。DBへ同期中",
+      );
     try {
       const response = await fetch(
         `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
@@ -1284,14 +1318,25 @@ export function SxUnifiedTimeline({
         throw new Error(
           typeof body.error === "string" ? body.error : "依存線を外せなかったよ",
         );
+      if (onManagementOptimistic) {
+        showGanttNotice("依存線を外したよ");
+        return;
+      }
       onManagementChange(
         body.bundle as SxManagementBundle,
         "依存線を外したよ",
       );
     } catch (caught) {
-      showGanttNotice(
-        caught instanceof Error ? caught.message : "依存線を外せなかったよ",
-      );
+      const message =
+        caught instanceof Error ? caught.message : "依存線を外せなかったよ";
+      if (onManagementOptimistic) {
+        await bestEffortRefetchManagement(
+          `${message}。最新の状態に戻したよ`,
+          `${message}。画面を再読み込みしてね`,
+        );
+        return;
+      }
+      showGanttNotice(message);
     } finally {
       setRemovingDependencyId(null);
     }
@@ -2068,7 +2113,24 @@ export function SxUnifiedTimeline({
       setTaskNestDragBoth(null);
       return;
     }
-    setTaskNestDragBoth({ ...current, saving: true });
+    const reorderMessage = `「${current.title}」の並び順を変えたよ`;
+    if (onManagementOptimistic) {
+      // 並び替えは掴んで離した瞬間に確定して見えてほしいので、DBの往復を待たない。
+      onManagementOptimistic(
+        (currentBundle) =>
+          moved.reduce(
+            (accumulated, { task, sortOrder }) =>
+              sxApplyOptimisticManagementPatch(accumulated, "task", task.id, {
+                sort_order: sortOrder,
+              }),
+            currentBundle,
+          ),
+        `${reorderMessage}。DBへ同期中`,
+      );
+      setTaskNestDragBoth(null);
+    } else {
+      setTaskNestDragBoth({ ...current, saving: true });
+    }
     try {
       let bundle: SxManagementBundle | null = null;
       for (const { task, sortOrder } of moved) {
@@ -2103,8 +2165,9 @@ export function SxUnifiedTimeline({
         bundle = (body.bundle as SxManagementBundle) || bundle;
       }
       setTaskNestDragBoth(null);
-      if (bundle)
-        onManagementChange(bundle, `「${current.title}」の並び順を変えたよ`);
+      // 応答のbundleは使わない: 送信中に入った別の編集を、古いbundleで消さないため。
+      if (onManagementOptimistic) return;
+      if (bundle) onManagementChange(bundle, reorderMessage);
     } catch (caught) {
       setTaskNestDragBoth(null);
       const message =
@@ -2139,7 +2202,25 @@ export function SxUnifiedTimeline({
     const parentTitle = parentTaskId
       ? tasks.find((task) => task.id === parentTaskId)?.title || "親タスク"
       : null;
-    setTaskNestDragBoth({ ...current, saving: true });
+    const nestMessage = parentTitle
+      ? `「${current.title}」を「${parentTitle}」の子タスクにしたよ`
+      : `「${current.title}」を最上位タスクに戻したよ`;
+    if (onManagementOptimistic) {
+      onManagementOptimistic(
+        (currentBundle) =>
+          sxApplyOptimisticManagementPatch(currentBundle, "task", current.taskId, {
+            parent_task_id: parentTaskId,
+          }),
+        `${nestMessage}。DBへ同期中`,
+      );
+      if (parentTaskId)
+        setExpandedTasks((currentExpanded) =>
+          new Set([...currentExpanded, parentTaskId]),
+        );
+      setTaskNestDragBoth(null);
+    } else {
+      setTaskNestDragBoth({ ...current, saving: true });
+    }
     try {
       const response = await fetch(
         `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
@@ -2174,12 +2255,8 @@ export function SxUnifiedTimeline({
           new Set([...currentExpanded, parentTaskId]),
         );
       setTaskNestDragBoth(null);
-      onManagementChange(
-        body.bundle as SxManagementBundle,
-        parentTitle
-          ? `「${current.title}」を「${parentTitle}」の子タスクにしたよ`
-          : `「${current.title}」を最上位タスクに戻したよ`,
-      );
+      if (onManagementOptimistic) return;
+      onManagementChange(body.bundle as SxManagementBundle, nestMessage);
     } catch (caught) {
       setTaskNestDragBoth(null);
       const message =
@@ -2235,14 +2312,33 @@ export function SxUnifiedTimeline({
     // dispatch — the lostpointercapture that follows normal release checks this to know not to
     // cancel what we're about to save.
     commitStartedPointerIdRef.current = current.pointerId;
-    setDragBoth({ ...current, saving: true });
+    const patch: Record<string, string | null> =
+      current.mode === "resize-start"
+        ? { planned_start: current.previewStart }
+        : current.mode === "resize-end" || current.mode === "milestone-end-move"
+          ? { planned_end: current.previewEnd }
+          : { planned_start: current.previewStart, planned_end: current.previewEnd };
+    const dragMessage =
+      current.mode === "milestone-move" || current.mode === "milestone-end-move"
+        ? "マイルストーンの日付を更新したよ"
+        : "計画日程を更新したよ";
+    if (onManagementOptimistic) {
+      // 離した瞬間に新しい日程で確定させる。DBの書き込みは裏で追いかける。
+      onManagementOptimistic(
+        (currentBundle) =>
+          sxApplyOptimisticManagementPatch(
+            currentBundle,
+            current.entity,
+            current.rowId,
+            patch,
+          ),
+        `${dragMessage}。DBへ同期中`,
+      );
+      setDragBoth(null);
+    } else {
+      setDragBoth({ ...current, saving: true });
+    }
     try {
-      const patch: Record<string, string | null> =
-        current.mode === "resize-start"
-          ? { planned_start: current.previewStart }
-          : current.mode === "resize-end" || current.mode === "milestone-end-move"
-            ? { planned_end: current.previewEnd }
-            : { planned_start: current.previewStart, planned_end: current.previewEnd };
       const response = await fetch(
         `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
         {
@@ -2267,12 +2363,8 @@ export function SxUnifiedTimeline({
       }
       if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "保存できなかったよ");
       setDragBoth(null);
-      onManagementChange(
-        body.bundle as SxManagementBundle,
-        current.mode === "milestone-move" || current.mode === "milestone-end-move"
-          ? "マイルストーンの日付を更新したよ"
-          : "計画日程を更新したよ",
-      );
+      if (onManagementOptimistic) return;
+      onManagementChange(body.bundle as SxManagementBundle, dragMessage);
     } catch (caught) {
       setDragBoth(null);
       const message = caught instanceof Error ? caught.message : "保存できなかったよ";
@@ -2386,9 +2478,6 @@ export function SxUnifiedTimeline({
           {ganttNotice}
         </p>
       )}
-      <div className="hidden lg:block">
-        <Legend />
-      </div>
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <button
           type="button"
@@ -2762,6 +2851,17 @@ export function SxUnifiedTimeline({
               タスク
             </p>
             <div className="relative h-full">
+              {timeline.months.map((month) =>
+                month.yearLabel ? (
+                  <span
+                    key={`year-${month.pct}`}
+                    className="absolute top-0 pl-1 text-[9px] font-bold leading-none text-[#24231f]"
+                    style={{ left: timelinePctCss(month.pct) }}
+                  >
+                    {month.yearLabel}
+                  </span>
+                ) : null,
+              )}
               {timeline.months.map((month) => (
                 <span
                   key={month.pct}
@@ -2773,8 +2873,8 @@ export function SxUnifiedTimeline({
               ))}
               {timeline.objectivePct != null && (
                 <span
-                  className="absolute top-0.5 z-10 flex -translate-x-full items-center gap-0.5 whitespace-nowrap pr-1 text-[9px] font-bold leading-none text-[#5f4a66]"
-                  style={{ left: timelinePctCss(timeline.objectivePct) }}
+                  className="absolute z-10 flex -translate-x-full items-center gap-0.5 whitespace-nowrap pr-1 text-[9px] font-bold leading-none text-[#5f4a66]"
+                  style={{ left: timelinePctCss(timeline.objectivePct), top: MONTH_YEAR_ROW_H }}
                 >
                   <Flag className="h-3 w-3" />
                   設立 {sxFormatDate(timeline.objectiveDate)}
@@ -3269,11 +3369,6 @@ export function SxUnifiedTimeline({
                           ? `MS ${laneMilestones.length}件`
                           : "MSなし"}
                       </span>
-                      {lane.maxIssue && (
-                        <span className="min-w-0 truncate text-[#8c3329]">
-                          詰まり: {lane.maxIssue}
-                        </span>
-                      )}
                     </div>
                     {rows.map((row) => {
                       const isDraggingThisRow = drag?.rowId === row.id;

@@ -1,4 +1,9 @@
-import type { SxManagementBundle } from "./sx-management";
+import type {
+  SxManagementBundle,
+  SxManagementMilestone,
+  SxTask,
+  SxTrackKey,
+} from "./sx-management";
 
 /**
  * Applies a PATCH exactly where the weekly-control screen reads it, before the
@@ -94,4 +99,206 @@ export function sxApplyOptimisticManagementPatch(
   };
 
   return visit(bundle) as SxManagementBundle;
+}
+
+/**
+ * 楽観的に置いたレコードの仮ID。DBのUUIDと衝突しない接頭辞を付ける。
+ * サーバが本物のIDを返したら sxReplaceOptimisticManagementId で差し替える。
+ */
+export const SX_OPTIMISTIC_ID_PREFIX = "sx-optimistic-";
+
+export function sxIsOptimisticId(id: string) {
+  return id.startsWith(SX_OPTIMISTIC_ID_PREFIX);
+}
+
+export function sxNewOptimisticId(seed: string) {
+  return `${SX_OPTIMISTIC_ID_PREFIX}${seed}`;
+}
+
+/**
+ * 削除を画面に先に反映する。管理テーブルのIDは全体で一意なので、bundle 全体を
+ * 走査して同じIDの要素を配列から落とす。その要素を指していた依存線も一緒に消す
+ * （サーバも同じ扱いをするので、応答を待つ間だけ見え方が食い違うことはない）。
+ */
+export function sxRemoveOptimisticManagementRecord(
+  bundle: SxManagementBundle,
+  id: string,
+): SxManagementBundle {
+  const visit = (value: unknown): unknown => {
+    if (Array.isArray(value))
+      return value
+        .filter(
+          (item) =>
+            !item ||
+            typeof item !== "object" ||
+            (item as Record<string, unknown>).id !== id,
+        )
+        .map(visit);
+    if (!value || typeof value !== "object") return value;
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, child]) => [
+        key,
+        visit(child),
+      ]),
+    );
+  };
+
+  const next = visit(bundle) as SxManagementBundle;
+  return {
+    ...next,
+    scheduleDependencies: next.scheduleDependencies.filter(
+      (dependency) =>
+        dependency.predecessorTaskId !== id &&
+        dependency.predecessorMilestoneId !== id &&
+        dependency.successorTaskId !== id &&
+        dependency.successorMilestoneId !== id,
+    ),
+  };
+}
+
+/** 仮IDを、サーバが採番した本物のIDへ入れ替える。以後の編集・削除がそのまま通るようにする。 */
+export function sxReplaceOptimisticManagementId(
+  bundle: SxManagementBundle,
+  temporaryId: string,
+  realId: string,
+): SxManagementBundle {
+  const visit = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(visit);
+    if (!value || typeof value !== "object") return value;
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, child]) => [
+        key,
+        child === temporaryId ? realId : visit(child),
+      ]),
+    );
+  };
+  return visit(bundle) as SxManagementBundle;
+}
+
+function optimisticTask(
+  projectId: string,
+  id: string,
+  fields: Record<string, unknown>,
+): SxTask {
+  const base: SxTask = {
+    id,
+    projectId,
+    milestoneId: "",
+    parentTaskId: null,
+    track: null,
+    title: "",
+    description: null,
+    status: "not_started",
+    plannedStart: null,
+    plannedEnd: null,
+    forecastEnd: null,
+    actualEnd: null,
+    progressPct: 0,
+    dateCertainty: "provisional",
+    ownerMemberId: null,
+    ownerLabel: "担当未確認",
+    goal: null,
+    nextDeliverable: null,
+    blocker: null,
+    completionCriteria: null,
+    forecastChangeReason: null,
+    sortOrder: 0,
+    lastVerifiedAt: "",
+    confidence: "unknown",
+    sourceKind: "manual",
+    sourceRef: null,
+    createdBy: null,
+    updatedBy: null,
+    version: 1,
+  };
+  const next = { ...base, ...fields } as SxTask;
+  return { ...next, id, projectId, forecastEnd: next.forecastEnd ?? next.plannedEnd };
+}
+
+function optimisticMilestone(
+  id: string,
+  fields: Record<string, unknown>,
+): SxManagementMilestone {
+  const base: SxManagementMilestone = {
+    id,
+    slug: id,
+    track: "business_development" as SxTrackKey,
+    objectiveId: "",
+    outcomeId: "",
+    title: "",
+    gate: "",
+    timelineKind: "milestone",
+    displayLaneKeys: [],
+    version: 1,
+    status: "not_started",
+    manualStatus: "not_started",
+    derivedStatus: "not_started",
+    statusReason: "",
+    reasonCodes: [],
+    plannedStart: null,
+    plannedEnd: null,
+    forecastEnd: null,
+    actualEnd: null,
+    deltaDays: null,
+    progressPct: 0,
+    dateCertainty: "provisional",
+    ownerMemberId: null,
+    ownerLabel: "担当未確認",
+    nextDeliverable: "次の成果未確認",
+    maxIssue: "最大論点未確認",
+    completionCriteria: "完了条件未確認",
+    completionEvidence: null,
+    criticality: "high",
+    baselinePlanVersion: "",
+    forecastChangeReason: null,
+    statusSource: "derived",
+    statusOverrideReason: null,
+    statusOverrideExpiresOn: null,
+    statusOverrideApprovedBy: null,
+    lastVerifiedAt: "",
+    confidence: "unknown",
+    sourceKind: "manual",
+    sourceRef: null,
+    dependencySlugs: [],
+    predecessorIds: [],
+    successorIds: [],
+    relatedIssueSlugs: [],
+    relatedPartnerSlugs: [],
+    linkedKpiIds: [],
+    isStale: false,
+    isOverdue: false,
+    isBlocked: false,
+  };
+  const next = { ...base, ...fields } as SxManagementMilestone;
+  return {
+    ...next,
+    id,
+    manualStatus: next.status,
+    derivedStatus: next.status,
+    forecastEnd: next.forecastEnd ?? next.plannedEnd,
+  };
+}
+
+/**
+ * 新規作成を画面に先に反映する。DBが決める値（version・派生ステータス・並び順）は
+ * 仮の初期値で埋めるので、次にDBから読み直したときに正しい値へ揃う。ガントが読む
+ * 項目（レーン・日程・タイトル・親子）は送信内容そのままなので、見え方は変わらない。
+ */
+export function sxInsertOptimisticManagementRecord(
+  bundle: SxManagementBundle,
+  resource: "task" | "milestone",
+  projectId: string,
+  id: string,
+  fields: Record<string, unknown>,
+): SxManagementBundle {
+  const normalized = normalizedPatch(resource, fields);
+  if (resource === "task")
+    return {
+      ...bundle,
+      tasks: [...bundle.tasks, optimisticTask(projectId, id, normalized)],
+    };
+  return {
+    ...bundle,
+    milestones: [...bundle.milestones, optimisticMilestone(id, normalized)],
+  };
 }
