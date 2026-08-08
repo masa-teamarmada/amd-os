@@ -5,6 +5,14 @@
 
 ---
 
+### [git/worktree] 旧パス時代の worktree が `.gitignore` の陰に隠れて残っている (2026-08-09)
+
+- **状態**: 調査完了・削除はまさ判断待ち。中身は精査済みで、**main に無い作業はゼロ**と確定している。
+- **症状**: `find . -name "BUGS.md"` を叩いたときに `ios/.claude/worktrees/quirky-banach-0e46c9/ios/BUGS.md` が出てきた。しかし `git worktree list` には現れず、`git status` にも出ない。リポジトリ内に7.7MBの丸ごとコピー（`gas/` `ios/` `pwa/` 一式）が存在しているのに、git 系のコマンドではどれも見えない状態だった。
+- **原因**: 二つ重なっている。ひとつは、このディレクトリの `.git` が `gitdir: /Users/masa/projects/amd-os/.git/worktrees/quirky-banach-0e46c9` を指していること。これは現行の正本パス `/Users/masa/projects/AMD/amd-os` ではなく、**旧スタンドアロン clone 時代のパス**で、そのディレクトリ自体がもう存在しない。指す先が消えているので `git -C <dir> status` すら `fatal: not a git repository` で落ちる。現行リポの worktree レジストリには最初から登録されていないため `git worktree list` にも出ない。もうひとつは `ios/.gitignore` の8行目 `.claude/` で、この配下がまるごと ignore されていること。この二つが揃うと、git のどの経路からも見えない死んだコピーができあがる。ファイル日付は4月28〜30日。
+- **対応内容**: 削除して安全かを読み取りで確定させた。孤児側にしか無いファイルは1件も無く、差分のあるファイルはすべて孤児側が古い（`SupabaseService.swift` 3902行 対 現行5060行、`SettingsView.swift` 147行 対 現行1819行）。現行 main にあって孤児に無いものは `Features/BusinessCards`、`CockpitHUDView.swift`、`ScoreDetailWebView.swift`、`Resources/BZM` など。つまり4月末のスナップショットを現行が完全に追い越しており、救うべき差分は存在しない。削除は `rm -rf` になる不可逆操作で、今回のまさの依頼（このセッションが作った枝の後始末）の範囲外なので実行していない。
+- **再発防止策**: リポ内の残骸を探すときに `git status` と `git worktree list` だけを見ない。`.gitignore` された階層は両方から消えるので、パスを移した後は `find . -name .git -not -path "./.git/*"` のように実ファイルで探す。root `CLAUDE.md` の「旧クローンが残っている PC では `~/.Trash/` へ退避」は、リポの外にある旧 clone だけでなく、**現行リポの内側に取り込まれてしまった旧 worktree** にも当てはまる。
+
 ### [git/hook] ブランチ禁止フックが、誤って作られたブランチの削除まで拒否していた (2026-08-09)
 
 - **状態**: クローズ (2026-08-09 — `.githooks/reference-transaction` 修正済み、4パターン検証済み)。
