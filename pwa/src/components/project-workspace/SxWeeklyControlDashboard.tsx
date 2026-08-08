@@ -5123,6 +5123,12 @@ export function SxWeeklyControlDashboard({
               projectId={bundle.project.projectId}
               onManagementChange={setManagement}
               onSyncNotice={showNotice}
+              onCreateInteraction={(partnerId) =>
+                setEditor({ kind: "create_interaction", partnerId })
+              }
+              onEditInteraction={(interaction) =>
+                setEditor({ kind: "edit_interaction", interaction })
+              }
             />
           </div>
         </section>

@@ -649,168 +649,6 @@ function InlineCellEditor({
 }
 
 /**
- * 関係先名は一覧の識別主キーなので、編集開始で別フォームへ変形させない。
- * 表示中の文字だけを同じ文字面のinputへ置き換え、Enter/blurで保存、Escで取消する。
- */
-function InlinePartnerNameEditor({
-  editorKey,
-  activeEditorKey,
-  inputId,
-  label,
-  value,
-  view,
-  onRequestEdit,
-  onFinish,
-  onSave,
-}: {
-  editorKey: string;
-  activeEditorKey: string | null;
-  inputId: string;
-  label: string;
-  value: string;
-  view: ReactNode;
-  onRequestEdit: (editorKey: string) => boolean;
-  onFinish: () => void;
-  onSave: (value: string) => Promise<void>;
-}) {
-  const [draft, setDraft] = useState(value);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const active = activeEditorKey === editorKey;
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const finishingRef = useRef(false);
-  const cancelingRef = useRef(false);
-  const pointerReplayTargetRef = useInlinePointerReplayTarget(active);
-
-  useEffect(() => {
-    if (!active) return;
-    setDraft(value);
-    setError(null);
-    finishingRef.current = false;
-    cancelingRef.current = false;
-  }, [active, value]);
-
-  const begin = () => {
-    if (!onRequestEdit(editorKey)) return;
-    setDraft(value);
-    setError(null);
-    finishingRef.current = false;
-    cancelingRef.current = false;
-  };
-  const finish = (returnFocus: boolean) => {
-    onFinish();
-    if (returnFocus) {
-      requestAnimationFrame(() => triggerRef.current?.focus());
-    }
-  };
-  const cancel = () => {
-    if (saving) return;
-    cancelingRef.current = true;
-    setDraft(value);
-    setError(null);
-    finish(true);
-  };
-  const commit = async (returnFocus: boolean): Promise<boolean> => {
-    if (saving || finishingRef.current) return false;
-    const next = draft.trim();
-    if (!next) {
-      setError("関係先名を入力してね");
-      requestAnimationFrame(() => inputRef.current?.focus());
-      return false;
-    }
-    finishingRef.current = true;
-    setSaving(true);
-    setError(null);
-    try {
-      if (next !== value) await onSave(next);
-      finish(returnFocus);
-      return true;
-    } catch (caught) {
-      finishingRef.current = false;
-      setError(caught instanceof Error ? caught.message : "保存できなかったよ");
-      requestAnimationFrame(() => inputRef.current?.focus());
-      return false;
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (!active) {
-    return (
-      <button
-        ref={triggerRef}
-        type="button"
-        className={`w-full min-w-0 text-left hover:bg-[#e2ecf1] ${FOCUS_RING}`}
-        onClick={begin}
-        aria-label={`${label}を直接修正`}
-        data-inline-edit-trigger={editorKey}
-        data-inline-cell-mode="view"
-      >
-        {view}
-      </button>
-    );
-  }
-
-  return (
-    <div
-      className="relative min-w-0"
-      data-inline-editor={editorKey}
-      data-inline-cell-mode="edit-seamless"
-      aria-busy={saving}
-    >
-      <textarea
-        ref={inputRef}
-        id={inputId}
-        autoFocus
-        rows={1}
-        className="block min-h-4 w-full min-w-0 resize-none overflow-hidden border-0 bg-transparent p-0 text-[12px] font-semibold leading-4 text-[#24231f] outline-none [field-sizing:content]"
-        aria-label={label}
-        aria-invalid={Boolean(error)}
-        title="Enterまたはフォーカス移動で保存、Escで取り消し"
-        value={draft}
-        readOnly={saving}
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={() => {
-          if (cancelingRef.current) {
-            cancelingRef.current = false;
-            return;
-          }
-          const changed = draft.trim() !== value;
-          void commit(false).then((saved) => {
-            if (!saved) {
-              pointerReplayTargetRef.current = null;
-              return;
-            }
-            if (!changed) return;
-            replayInlinePointerTarget(pointerReplayTargetRef);
-          });
-        }}
-        onKeyDown={(event) => {
-          if (event.nativeEvent.isComposing) return;
-          if (event.key === "Enter") {
-            event.preventDefault();
-            void commit(true);
-          }
-          if (event.key === "Escape") {
-            event.preventDefault();
-            cancel();
-          }
-        }}
-      />
-      {error && (
-        <span
-          className="absolute left-0 top-full z-30 mt-1 whitespace-nowrap border border-[#a1957e] bg-[#fffdf7] px-2 py-1 text-[10px] font-semibold text-[#8c3329] shadow-[0_6px_18px_rgba(36,35,31,0.12)]"
-          role="alert"
-        >
-          {error}
-        </span>
-      )}
-    </div>
-  );
-}
-
-/**
  * 接点の経緯は「経緯 / 紹介者」の固定2段。編集時も同じ2段だけを置換する。
  */
 /** 名前プルダウンで「新しい名前を追加」を選んだことを表す番兵。名前として保存されることはない。 */
@@ -2273,7 +2111,7 @@ type PartnerLedgerColumnKey =
   | "basis"
   | "effluent"
   | "origin"
-  | "history";
+  | "procurement";
 
 type PartnerLedgerColumn = {
   key: PartnerLedgerColumnKey;
@@ -2306,18 +2144,24 @@ const PARTNER_LEDGER_COLUMNS: readonly PartnerLedgerColumn[] = [
   { key: "basis", label: "現在地の根拠", defaultWidth: 224, minWidth: 100 },
   { key: "effluent", label: "排液", defaultWidth: 208, minWidth: 100 },
   { key: "origin", label: "接点の経緯", defaultWidth: 208, minWidth: 100 },
-  { key: "history", label: "履歴・保有", defaultWidth: 88, minWidth: 72 },
+  {
+    key: "procurement",
+    label: "排液調達",
+    title: "試料台帳から導出。受領済み・分析済みの試料があれば調達済み",
+    defaultWidth: 104,
+    minWidth: 80,
+  },
 ];
 
 const PARTNER_LEDGER_COLUMN_BY_KEY = new Map(
   PARTNER_LEDGER_COLUMNS.map((column) => [column.key, column]),
 );
 
-/** 並べ替えできない列。評価と関係先は左固定、履歴・保有は行の右端に据える。 */
+/** 並べ替えできない列。評価と関係先は左固定。旧「履歴・保有」右端固定列は
+ * 2026-08-08 に削除した (まさ「全然使えない」)。代わりの排液調達は並べ替え可能な通常列。 */
 const PARTNER_LEDGER_FIXED_KEYS: readonly PartnerLedgerColumnKey[] = [
   "grade",
   "name",
-  "history",
 ];
 
 /** 見出しのドラッグで並べ替えできる中間の列。既定順は宣言順。 */
@@ -2326,7 +2170,7 @@ const PARTNER_LEDGER_MOVABLE_KEYS: readonly PartnerLedgerColumnKey[] =
     (column) => !PARTNER_LEDGER_FIXED_KEYS.includes(column.key),
   ).map((column) => column.key);
 
-/** 行の内側 grid が持つ列 (評価と履歴・保有は行の外枠側)。関係先は必ず先頭。 */
+/** 行の内側 grid が持つ列 (評価は行の外枠側)。関係先は必ず先頭。 */
 function partnerLedgerInnerKeys(
   order: readonly PartnerLedgerColumnKey[],
 ): PartnerLedgerColumnKey[] {
@@ -2334,8 +2178,9 @@ function partnerLedgerInnerKeys(
 }
 
 // 幅は列の集合が変わったら作り直す。v1 には削除済みの「詰まり・PJ影響」が入っていて、
-// 関係先の既定幅も広げたので v2 へ (2026-08-07)。評価列を34→48pxへ広げたので v3 へ (2026-08-08)。
-const PARTNER_LEDGER_WIDTH_STORAGE_KEY = "sx-partner-ledger-column-widths-v3";
+// 関係先の既定幅も広げたので v2 へ (2026-08-07)。評価列48px化で v3、履歴・保有の削除と
+// 排液調達の追加で v4 へ (どちらも 2026-08-08)。
+const PARTNER_LEDGER_WIDTH_STORAGE_KEY = "sx-partner-ledger-column-widths-v4";
 const PARTNER_LEDGER_ORDER_STORAGE_KEY = "sx-partner-ledger-column-order-v1";
 
 type PartnerLedgerWidths = Record<PartnerLedgerColumnKey, number>;
@@ -2507,8 +2352,8 @@ function partnerLedgerGridStyle(
     16;
   return {
     "--sx-pl-inner": inner,
-    "--sx-pl-header": `${widths.grade}px ${inner} ${widths.history}px`,
-    "--sx-pl-row": `${widths.grade}px minmax(0,1fr) ${widths.history}px`,
+    "--sx-pl-header": `${widths.grade}px ${inner}`,
+    "--sx-pl-row": `${widths.grade}px minmax(0,1fr)`,
     "--sx-pl-total": `${total}px`,
     // 評価カラムは sticky left-0 (行の左padding 8px の分だけ左へ寄る) なので、
     // 関係先は「評価幅 + gap 8px + padding 8px」で止める。旧値 (評価幅ぴったり) は
@@ -3098,6 +2943,8 @@ function PartnerProgressHistoryModal({
   canManage,
   onPatchSample,
   onCreateSample,
+  onCreateInteraction,
+  onEditInteraction,
   onClose,
 }: {
   partner: SxManagementPartner;
@@ -3107,6 +2954,8 @@ function PartnerProgressHistoryModal({
   canManage: boolean;
   onPatchSample: (request: PartnerInlinePatch) => Promise<void>;
   onCreateSample: (partnerId: string, label: string) => Promise<void>;
+  onCreateInteraction?: (partnerId: string) => void;
+  onEditInteraction?: (interaction: SxPartnerInteraction) => void;
   onClose: () => void;
 }) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -3340,12 +3189,26 @@ function PartnerProgressHistoryModal({
             className="mt-5 border-t border-[#c5bba5] pt-4"
             aria-labelledby={`${titleId}-interactions`}
           >
-            <p
-              id={`${titleId}-interactions`}
-              className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]"
-            >
-              やり取り履歴（全{interactions.length}件）
-            </p>
+            <div className="flex items-end justify-between gap-2">
+              <p
+                id={`${titleId}-interactions`}
+                className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]"
+              >
+                やり取り履歴（全{interactions.length}件）
+              </p>
+              {/* 履歴の手動追加。定義済みだった編集フォームへの導線が無く、
+                  取込データ以外で履歴を増やせなかった (2026-08-08 まさ質問で発覚)。 */}
+              {canManage && onCreateInteraction && (
+                <button
+                  type="button"
+                  data-testid="sx-partner-add-interaction"
+                  onClick={() => onCreateInteraction(partner.id)}
+                  className={`min-h-9 shrink-0 rounded border border-[#38745d] bg-[#fffdf7] px-2.5 text-[10px] font-semibold text-[#235f4b] hover:bg-[#dcecdf] ${FOCUS_RING}`}
+                >
+                  ＋ 履歴を追加
+                </button>
+              )}
+            </div>
             {interactions.length > 0 ? (
               <ul className="mt-2 divide-y divide-[#eee9df] border-y border-[#c5bba5] bg-white">
                 {interactions.map((interaction) => (
@@ -3353,7 +3216,12 @@ function PartnerProgressHistoryModal({
                     key={interaction.id}
                     interaction={interaction}
                     partnerName={display.name}
-                    canManage={false}
+                    canManage={canManage && Boolean(onEditInteraction)}
+                    onEdit={
+                      onEditInteraction
+                        ? () => onEditInteraction(interaction)
+                        : undefined
+                    }
                   />
                 ))}
               </ul>
@@ -3445,6 +3313,8 @@ function PartnerInlineRow({
   onFinishInlineEdit,
   onPatch,
   onCreateSample,
+  onCreateInteraction,
+  onEditInteraction,
 }: {
   partner: SxManagementPartner;
   columnOrder: readonly PartnerLedgerColumnKey[];
@@ -3460,6 +3330,8 @@ function PartnerInlineRow({
   onFinishInlineEdit: () => void;
   onPatch: (request: PartnerInlinePatch) => Promise<void>;
   onCreateSample: (partnerId: string, label: string) => Promise<void>;
+  onCreateInteraction?: (partnerId: string) => void;
+  onEditInteraction?: (interaction: SxPartnerInteraction) => void;
 }) {
   const display = sxPartnerDisplay(partner);
   const steps = buildPartnerProgressSteps(partner);
@@ -3663,6 +3535,43 @@ function PartnerInlineRow({
       {goalStep?.title ?? "目標状態 未登録"}
     </p>
   );
+  // 排液を調達できたかを試料台帳から導出する。受領済み・分析済みが1件でもあれば調達済み。
+  // 編集は進捗・履歴モーダルの試料台帳で行うので、このセルは表示のみ (押すと行と同じくモーダル)。
+  const receivedSamples = partner.samples.filter(
+    (sample) => sample.status === "received" || sample.status === "analyzed",
+  ).length;
+  const inProgressSamples = partner.samples.filter((sample) =>
+    ["intent", "negotiating", "agreed_pending", "scheduled"].includes(
+      sample.status,
+    ),
+  ).length;
+  const procurementView = (
+    <div
+      className="grid min-h-11 min-w-0 content-center justify-items-start gap-0.5"
+      data-partner-procurement-cell={partner.id}
+    >
+      <span
+        className={`inline-flex border px-1.5 py-0.5 text-[10px] font-semibold ${
+          receivedSamples > 0
+            ? "border-[#38745d] bg-[#dcebe1] text-[#1d5341]"
+            : inProgressSamples > 0
+              ? "border-[#bf7b2c] bg-[#f6ead2] text-[#69461c]"
+              : "border-dashed border-[#a69b84] bg-[#f6f1e6] text-[#6a665b]"
+        }`}
+      >
+        {receivedSamples > 0
+          ? `調達済み ${receivedSamples}件`
+          : inProgressSamples > 0
+            ? `調達前 ${inProgressSamples}件`
+            : "未調達"}
+      </span>
+      {receivedSamples > 0 && inProgressSamples > 0 && (
+        <span className="text-[10px] leading-3 text-[#5a574c]">
+          ほか調達前 {inProgressSamples}件
+        </span>
+      )}
+    </div>
+  );
 
   return (
     <article
@@ -3673,8 +3582,21 @@ function PartnerInlineRow({
       className="scroll-mt-24 border-b border-[#d5cdba] bg-[#fffdf7]"
     >
       <div
-        className={`grid w-full grid-cols-[34px_minmax(0,1fr)] items-stretch gap-2 px-2 py-1.5 text-left sm:grid-cols-[34px_minmax(0,1fr)_72px] ${PARTNER_CONTROL_ROW_GRID}`}
+        className={`grid w-full grid-cols-[48px_minmax(0,1fr)] items-stretch gap-2 px-2 py-1.5 text-left ${PARTNER_CONTROL_ROW_GRID}`}
         data-partner-row-density="compact"
+        onClick={(event) => {
+          // 行の空白はどこでもモーダルを開く (2026-08-08 まさ「モーダルを開ける場所が
+          // 少なすぎる」)。セル内の編集UIやリンクを押したときは開かない。
+          if (
+            event.target instanceof Element &&
+            event.target.closest(
+              "button, a, input, select, textarea, label, [data-inline-editor]",
+            )
+          )
+            return;
+          if (activeEditorKey) return;
+          onToggleExpand(partner.id);
+        }}
       >
         <div
           className={`min-w-0 self-stretch bg-[#fffdf7] ${PARTNER_LEDGER_STICKY_LEFT}`}
@@ -3737,28 +3659,19 @@ function PartnerInlineRow({
             data-partner-name-cell={partner.id}
           >
             <div className="flex min-w-0 flex-col justify-center border-b border-dashed border-[#857b69]">
-              {canManage ? (
-                <InlinePartnerNameEditor
-                  editorKey={keyFor("name")}
-                  activeEditorKey={activeEditorKey}
-                  inputId={nameHeadingId}
-                  label={`${display.name}の関係先名`}
-                  value={partner.name}
-                  view={relationNameView}
-                  onRequestEdit={onRequestInlineEdit}
-                  onFinish={onFinishInlineEdit}
-                  onSave={async (name) => {
-                    await patchIfChanged(
-                      "partner",
-                      partner.id,
-                      { name: partner.name },
-                      { name },
-                    );
-                  }}
-                />
-              ) : (
-                relationNameView
-              )}
+              {/* 関係先名はモーダルを開く入口 (2026-08-08 まさ「名称の編集じゃなくて
+                  モーダルが開くようにして」)。名称の変更は担当負荷経由の関係先編集で行う。 */}
+              <button
+                type="button"
+                onClick={() => onToggleExpand(partner.id)}
+                aria-expanded={expanded}
+                aria-controls={`sx-partner-history-${partner.id}`}
+                aria-label={`${display.name}の進捗と履歴を開く`}
+                data-partner-name-open={partner.id}
+                className={`min-w-0 text-left hover:bg-[#e7f0e9] ${FOCUS_RING}`}
+              >
+                {relationNameView}
+              </button>
               <span className="text-[10px] font-normal leading-3 text-[#5a574c]">
                 最終確認 {sxFormatDate(partner.lastVerifiedAt)}
               </span>
@@ -4676,17 +4589,17 @@ function PartnerInlineRow({
               connectionOriginView
             )}
           </PartnerRowCell>
+
+          <PartnerRowCell
+            order={cellOrder("procurement")}
+            className="md:col-span-2 @min-[1248px]:col-span-1"
+          >
+            <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
+              排液調達
+            </p>
+            {procurementView}
+          </PartnerRowCell>
         </div>
-        <span className="col-span-2 flex min-h-11 flex-col items-center justify-center self-stretch border border-[#a69b84] px-2 text-center text-[10px] font-semibold leading-4 text-[#315f7d] sm:col-span-1">
-          <span>
-            履歴 {partner.interactions.length}件 ・ 保有 {holdings.length}件
-          </span>
-          {partner.samples.length > 0 && (
-            <span data-partner-sample-count={partner.id}>
-              試料 {partner.samples.length}件
-            </span>
-          )}
-        </span>
       </div>
       {expanded && (
         <PartnerProgressHistoryModal
@@ -4697,6 +4610,8 @@ function PartnerInlineRow({
           canManage={canManage}
           onPatchSample={onPatch}
           onCreateSample={onCreateSample}
+          onCreateInteraction={onCreateInteraction}
+          onEditInteraction={onEditInteraction}
           onClose={() => onToggleExpand(partner.id)}
         />
       )}
@@ -4714,11 +4629,15 @@ export function SxPartnerPipeline({
   projectId,
   onManagementChange,
   onSyncNotice,
+  onCreateInteraction,
+  onEditInteraction,
 }: {
   management: SxManagementBundle;
   projectId: string;
   onManagementChange: (management: SxManagementBundle) => void;
   onSyncNotice?: (message: string) => void;
+  onCreateInteraction?: (partnerId: string) => void;
+  onEditInteraction?: (interaction: SxPartnerInteraction) => void;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeInlineEditorKey, setActiveInlineEditorKey] = useState<
@@ -4918,6 +4837,20 @@ export function SxPartnerPipeline({
     onFinishInlineEdit: () => setActiveInlineEditorKey(null),
     onPatch: patchInlineCell,
     onCreateSample: createSample,
+    // 履歴の追加・編集は親のフォームモーダルで行う。二重dialogを避けるため、
+    // 開く前にこの画面の進捗・履歴モーダルを閉じる。
+    onCreateInteraction: onCreateInteraction
+      ? (partnerId: string) => {
+          setExpandedId(null);
+          onCreateInteraction(partnerId);
+        }
+      : undefined,
+    onEditInteraction: onEditInteraction
+      ? (interaction: SxPartnerInteraction) => {
+          setExpandedId(null);
+          onEditInteraction(interaction);
+        }
+      : undefined,
   };
 
   return (
@@ -5013,7 +4946,6 @@ export function SxPartnerPipeline({
               "grade",
               "name",
               ...order,
-              "history",
             ] as PartnerLedgerColumnKey[]
           ).map((key) => {
             const column = PARTNER_LEDGER_COLUMN_BY_KEY.get(key);
