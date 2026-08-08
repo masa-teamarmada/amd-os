@@ -5,6 +5,14 @@
 
 ---
 
+### [bzm/教科書] 章内の相対リンクに `.md` を付けると必ず404になる (2026-08-08)
+
+- **状態**: リンク修正はローカルcommit済み、**本番未反映**（このセッションではpushしていない）。リンク正規化の恒久対応は未実装。
+- **症状**: 教科書章（`pwa/bzm/` の小文字始まりmd）の本文から他章へ `[表題](./course-bzm-foundations-s00.md)` の形で張ると、`/bzm` 画面でクリックしたときに404になる。`.md` を外した `./course-bzm-foundations-s00` なら正しく開く。ローカルのエディタやGitHub上では正しく解決するため、md単体を見ている限り気づけない。
+- **原因**: リンクを書き換える層がどこにも無い。`pwa/src/app/(app)/bzm/bzm-data.ts` の `normalizeBzmMarkdownSource()` はsourceを無変換で返す（章番号注入は2026-06-28に廃止済みで、以後この関数は素通し）。`pwa/src/components/bzm/BzmMarkdown.tsx` の `a:` レンダラーもhrefをそのまま `<Link href>` へ渡す。受け側の `pwa/src/app/(app)/bzm/[slug]/page.tsx` は decode したslugの末尾に `.md` を足してファイルパスを組むため、slugが `course-bzm-foundations-s00.md` で来ると `course-bzm-foundations-s00.md.md` を探しに行き、`getBzmChapter(decoded)` も一致せず `notFound()` に落ちる。
+- **対応内容**: `pwa/bzm/course-bzm-foundations-index.md` の実害3件を修正した。進捗表の2件（Session 0 / Session 1）は `.md` を除去。`BZM_2_0_DIAGNOSTIC_SCORE_SPEC.md` へのリンクは、大文字始まりで `isBzmChapterFile()` が章として扱わない＝そもそも `/bzm` に存在しないため、リンクを外してファイルパス表記へ変更した。他17件の `.md` 付き相対リンクは大文字始まりの運用台帳md内にあり、PWAに表示されないローカル参照なので修正対象外。
+- **再発防止策**: 教科書章（小文字始まり）から他の教科書章へ張る相対リンクは `.md` を付けない。教科書章から大文字始まりの運用台帳mdへはリンクを張らず、`pwa/bzm/XXX.md` のパス表記で示す（PWA上に対応ページが存在しないため、`.md` を外しても404になる）。恒久対応として `normalizeBzmMarkdownSource()` か `BzmMarkdown` の `a:` で `.md` サフィックスを剥がす正規化を入れる案があるが、台帳md側のローカル参照まで巻き込む影響があるため未着手。
+
 ### [notifications/D-7] 保存先が二系統なのに、通知説明がBZM専用のまま残っていた (2026-07-30)
 
 - **状態**: クローズ (2026-07-30 — `v3.51.23`)。
