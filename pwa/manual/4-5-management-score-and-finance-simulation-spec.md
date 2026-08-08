@@ -698,6 +698,52 @@ flowchart LR
 
 つまり 4-6 章機能が成功卒業を順に積み上げ → 29.6 戦略接近度の `graduation_score` が上がる → バイタルサイン total が向上、 という二段構造。
 
+## 長期戦略試算表 (= FY2026〜FY2035 トップダウン・モデル) (2026-07-02 新設 / 2026-08-08 復旧)
+
+上の運用試算表 (`GasMonthlySimulationPanel`, 18 ヶ月 / freee 実績連動 / 積み上げ) とは**独立**の、中期経営計画 KPI を目標値に固定して原価・固定費を整合させるトップダウン長期モデル。近未来のキャッシュ管理には一切影響しない (共存)。
+
+### 見え方 (= `/management-score` ページ下部)
+
+- コンポーネント: [`pwa/src/components/management-score/LongRangeProjectionPanel.tsx`](../src/components/management-score/LongRangeProjectionPanel.tsx)
+- 4 KPI カード: FY2035 売上 / FY2035 FCF / 累積 FCF (10 年) / FY2035 期末キャッシュ
+- 月次キャッシュ推移スパークライン (120 ヶ月, FY2026-01 → FY2035-12)
+- PL 年次表: 売上 → うちファンド管理報酬 → 変動費 → 粗利 → 粗利率 → 固定費 → 営業利益 → 税 → FCF → 期末キャッシュ
+- KPI 併記行: OS 導入機関数 / 連携機関数 / ファンド運用額 (億円) / 査読論文 (累積)
+
+### モデル (= 二アンカー設計)
+
+正本: [`pwa/src/lib/finance/longrange-projection.ts`](../src/lib/finance/longrange-projection.ts)
+
+売上 (revenue) と 年次フリーCF (fcf) の 2 つを目標値に固定し、原価・固定費はこの 2 つに整合するように導出する:
+
+```
+fee     = fundAum × 管理報酬率(2%)                # 売上のうちファンド管理報酬
+P       = fcf / (1 − 実効税率25%)                 # 税前営業利益 (FCFアンカー)
+tax     = P − fcf                                  # 税
+varCost = 変動費率(FY) × (revenue − fee)          # 業務原価 (物差しシフトで逓減)
+fixed   = (revenue − P) − varCost                  # 体制・固定費 (残差)
+grossProfit     = revenue − varCost
+operatingProfit = P
+```
+
+- 変動費率は FY をキーに逓減: FY2026 0.55 → FY2035 0.30 (=「掘る側から測る側 (= 物差し) へ」シフトを表現)。
+- 月次展開は年内フラット (FY = 暦年 Jan-Dec)。キャッシュだけ月次で累積し、年末で年次 `cashEnd` に端数調整。
+- 開始時キャッシュ (FY2026 期首) は運用試算表の `initialCash` と同値 (v1 では `606,423` にハードコード)。
+
+### 目標値 DB (= `company_longrange_targets`)
+
+- **目標値の編集はこのテーブルだけを触る**。原価率などの前提は `longrange-projection.ts` の `LONGRANGE_ASSUMPTIONS`。
+- 列: `fy` (PK), `revenue_yen`, `fcf_yen`, `fund_aum_yen`, `os_institutions`, `partner_institutions`, `papers_cumulative`, `note`
+- 現行値 (2026-07-02 時点): FY2026 売上 60M / FCF 2M / OS 導入 0 機関 → FY2035 売上 370M / FCF 50M / OS 導入 60+ 機関 / ファンド運用 32 億。
+- 数値の出所は AMD 事業戦略 (`/Users/masa/projects/AMD/amd_strategy.md`, ツルハシ屋モデル) と中期経営計画 (`/Users/masa/projects/knowledge/midterm_plan.md`) を接続した値。
+- migration: `pwa/scripts/migrations/245_company_longrange_targets.sql` (旧 162。2026-08-08 の復旧時に番号衝突回避で改番。本番 Supabase へは 2026-07-02 に適用済みで、冪等な再実行が可能)。
+
+### 運用試算表との境界
+
+- 運用試算表 = 直近 18 ヶ月, freee 実績連動, `company_budget_inputs` / `source=gas_monthly_pl`, 予実差分あり。
+- 長期戦略試算表 = FY2026-FY2035, トップダウン目標値, `company_longrange_targets`, 予実差分なし。
+- **依存も影響もない**。長期モデルを編集しても運用試算表は動かないし、その逆も同じ。
+
 ## 関連
 
 - 設計: [`pwa/design/management_score.md`](../design/management_score.md)
