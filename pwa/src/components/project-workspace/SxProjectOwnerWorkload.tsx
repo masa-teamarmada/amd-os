@@ -9,10 +9,10 @@ import { partitionOwnerLoadColumns } from "@/lib/sx-project-owner-load";
 import { sxFormatDate } from "./sx-visual-shared";
 
 function metricTone(value: number, danger = false) {
-  if (value === 0) return "border-[#e4ddd0] bg-white text-[#777166]";
+  if (value === 0) return "border-[#c5bba5] bg-white text-[#5f5a4d]";
   return danger
-    ? "border-[#d8b0a8] bg-[#f9e4e1] text-[#8c3329]"
-    : "border-[#e3c994] bg-[#fbf1dc] text-[#765022]";
+    ? "border-[#d8b0a8] bg-[#f6dad5] text-[#8c3329]"
+    : "border-[#bd9a52] bg-[#f7e8c8] text-[#765022]";
 }
 
 function OwnerLoadColumn({
@@ -31,7 +31,7 @@ function OwnerLoadColumn({
               <b className="block truncate text-[11px] text-[#24231f]">
                 {load.ownerLabel}
               </b>
-              <small className="block truncate text-[9px] text-[#69665d]">
+              <small className="block truncate text-[9px] text-[#5a574c]">
                 影響工程 {load.impactedGates.length || 0}件
               </small>
             </span>
@@ -39,40 +39,40 @@ function OwnerLoadColumn({
               未完了 {load.openCount}
             </span>
             <span
-              className={`whitespace-nowrap ${load.blockedCount > 0 ? "font-bold text-[#8c3329]" : "text-[#777166]"}`}
+              className={`whitespace-nowrap ${load.blockedCount > 0 ? "font-bold text-[#8c3329]" : "text-[#5f5a4d]"}`}
             >
               停止 {load.blockedCount}
             </span>
             <span
-              className={`whitespace-nowrap max-md:hidden ${load.overdueCount > 0 ? "font-bold text-[#8c3329]" : "text-[#777166]"}`}
+              className={`whitespace-nowrap max-md:hidden ${load.overdueCount > 0 ? "font-bold text-[#8c3329]" : "text-[#5f5a4d]"}`}
             >
               超過 {load.overdueCount}
             </span>
-            <span className="whitespace-nowrap text-[#777166] max-md:hidden">
+            <span className="whitespace-nowrap text-[#5f5a4d] max-md:hidden">
               7日内 {load.dueSoonCount}
             </span>
             <span
-              className={`whitespace-nowrap max-md:hidden ${load.dueUnsetCount > 0 ? "font-semibold text-[#765022]" : "text-[#777166]"}`}
+              className={`whitespace-nowrap max-md:hidden ${load.dueUnsetCount > 0 ? "font-semibold text-[#765022]" : "text-[#5f5a4d]"}`}
             >
               期限なし {load.dueUnsetCount}
             </span>
             <ChevronDown className="h-4 w-4 text-[#5f4a66] transition-transform group-open:rotate-180" />
           </summary>
-          <div className="border-t border-[#eee9df] bg-white px-3 py-2">
+          <div className="border-t border-[#d5cdba] bg-white px-3 py-2">
             {load.dataGapCount > 0 && (
               <p className="mb-2 flex items-center gap-1 text-[10px] font-semibold text-[#765022]">
                 <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
                 担当・期限・構造化の不足 {load.dataGapCount}件
               </p>
             )}
-            <ul className="max-h-72 divide-y divide-[#eee9df] overflow-y-auto border-y border-[#eee9df]">
+            <ul className="max-h-72 divide-y divide-[#eee9df] overflow-y-auto border-y border-[#d5cdba]">
               {load.items.map((item) => (
                 <li key={`${item.kind}:${item.id}`}>
                   <button
                     type="button"
                     disabled={!onSelectItem}
                     onClick={() => onSelectItem?.(item)}
-                    className="grid min-h-11 w-full grid-cols-1 items-start gap-x-2 gap-y-0.5 py-2 text-left text-[10px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] enabled:hover:bg-[#f8f5ec] xl:grid-cols-[110px_minmax(160px,1fr)_120px_minmax(140px,0.8fr)] xl:gap-y-2"
+                    className="grid min-h-11 w-full grid-cols-1 items-start gap-x-2 gap-y-0.5 py-2 text-left text-[10px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] enabled:hover:bg-[#f2eee0] xl:grid-cols-[110px_minmax(160px,1fr)_120px_minmax(140px,0.8fr)] xl:gap-y-2"
                     aria-label={`${item.title}を編集`}
                     data-work-unit-kind={item.kind}
                     data-work-unit-id={item.id}
@@ -93,13 +93,13 @@ function OwnerLoadColumn({
                         className={
                           item.blocked
                             ? "shrink-0 font-semibold text-[#8c3329]"
-                            : "shrink-0 text-[#69665d]"
+                            : "shrink-0 text-[#5a574c]"
                         }
                       >
                         {item.blocked ? "停止・" : ""}
                         {item.dueDate ? sxFormatDate(item.dueDate) : "期限未設定"}
                       </span>
-                      <span className="min-w-0 truncate text-[#69665d]">
+                      <span className="min-w-0 truncate text-[#5a574c]">
                         {item.impactedGates.length > 0
                           ? `影響：${item.impactedGates.join(" / ")}`
                           : "影響工程 未接続"}
@@ -137,7 +137,7 @@ export function SxProjectOwnerWorkload({
   );
   return (
     <section
-      className="border border-[#c9bfd0] bg-[#fffdf7]"
+      className="border border-[#9d8daa] bg-[#fffdf7]"
       aria-labelledby="sx-project-owner-workload-title"
     >
       <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#d9cfde] px-2.5 py-1.5">

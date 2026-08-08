@@ -2,6 +2,12 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* spec / manual / design などの md は仕様の説明文であり、Tailwind のクラス供給元ではない。
+   だが本文が `[grid-template-columns:var(--sx-pl-*)]` のようにクラス構文をそのまま引用する
+   ため、既定の source detection がそれを実在のユーティリティとして出力し、`*` を含む不正な
+   CSS で dev server の globals.css 全体が parse error になる。md は検出対象から外す。 */
+@source not "../../**/*.md";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -175,6 +181,12 @@ body:has(.amd-desk-page-skin) {
 
 .sx-management-workspace button {
   min-width: 44px;
+}
+
+/* ガントの依存線ポート (+) は 44px 幅を取るとバーから離れて見えるため例外。
+   高さは 44px を保つのでタッチターゲットは縦方向で確保される。 */
+.sx-management-workspace button.sx-gantt-dependency-port {
+  min-width: 0;
 }
 
 .amd-desk-page-skin .bg-card,

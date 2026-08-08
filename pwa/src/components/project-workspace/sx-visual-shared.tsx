@@ -48,6 +48,7 @@ export const SX_TRACK_LABELS: Record<SxTrackKey, string> = {
 };
 
 export const SX_STATUS_LABEL: Record<SxMilestoneStatus, string> = {
+  not_started: "未着手",
   unassessed: "未評価",
   on_track: "順調",
   attention: "注意",
@@ -57,12 +58,13 @@ export const SX_STATUS_LABEL: Record<SxMilestoneStatus, string> = {
 };
 
 export const SX_STATUS_TONE: Record<string, string> = {
-  on_track: "border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]",
-  attention: "border-[#e3c994] bg-[#fbf1dc] text-[#765022]",
-  at_risk: "border-[#e3c994] bg-[#fbf1dc] text-[#765022]",
-  blocked: "border-[#b5533f] bg-[#f9e4e1] text-[#8c3329]",
-  completed: "border-[#b7c8d2] bg-[#eef3f5] text-[#315f7d]",
-  unassessed: "border-[#b8b5c8] bg-[#eeedf4] text-[#55506d]",
+  on_track: "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]",
+  attention: "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]",
+  at_risk: "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]",
+  blocked: "border-[#ef4444] bg-[#fee2e2] text-[#dc2626]",
+  completed: "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]",
+  unassessed: "border-[#3D99E3] bg-[#E8F3FC] text-[#0267B2]",
+  not_started: "border-[#cbd5e1] bg-[#f5f5f7] text-[#86868b]",
 };
 
 export function sxFormatDate(value: string | null | undefined, fallback = "未設定") {
@@ -96,17 +98,19 @@ export function sxTechnicalTestStatusLabel(value: string) {
 }
 
 export const SX_TECH_TEST_STATUS_TONE: Record<string, string> = {
-  unassessed: "border-[#b8b5c8] bg-[#eeedf4] text-[#55506d]",
-  planned: "border-[#d6cebf] bg-[#f8f5ec] text-[#69665d]",
-  running: "border-[#b7c8d2] bg-[#eef3f5] text-[#315f7d]",
-  passed: "border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]",
-  failed: "border-[#b5533f] bg-[#f9e4e1] text-[#8c3329]",
-  blocked: "border-[#b5533f] bg-[#f9e4e1] text-[#8c3329]",
+  unassessed: "border-[#3D99E3] bg-[#E8F3FC] text-[#0267B2]",
+  planned: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
+  running: "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]",
+  passed: "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]",
+  failed: "border-[#ef4444] bg-[#fee2e2] text-[#dc2626]",
+  blocked: "border-[#ef4444] bg-[#fee2e2] text-[#dc2626]",
 };
 
-/** milestone.progressPct is meaningless while status is unassessed; never render a bare 0%. */
+/** milestone.progressPct is meaningless while status is unassessed / not_started; never render a bare 0%. */
 export function sxProgressDisplay(status: SxMilestoneStatus, progressPct: number) {
-  return status === "unassessed" ? "未評価" : `${progressPct}%`;
+  if (status === "unassessed") return "未評価";
+  if (status === "not_started") return "未着手";
+  return `${progressPct}%`;
 }
 
 export function sxFormatDelta(deltaDays: number | null, dateCertainty: "confirmed" | "provisional" | null) {
@@ -166,7 +170,7 @@ export function sxMonthPosition(dateStr: string | null | undefined, horizonMonth
   return horizonMonths.length;
 }
 
-export function SxBadge({ children, tone = "border-[#d6cebf] bg-[#f8f5ec] text-[#69665d]" }: { children: ReactNode; tone?: string }) {
+export function SxBadge({ children, tone = "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]" }: { children: ReactNode; tone?: string }) {
   return <span className={`inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-semibold leading-none ${tone}`}>{children}</span>;
 }
 
@@ -178,7 +182,7 @@ export function SxStatusIcon({ status, blocked, className = "h-4 w-4" }: { statu
 }
 
 /** Small inline diamond marker: filled=confirmed reading, dashed=provisional date, hollow=unknown confidence. */
-export function SxDiamondMark({ dashed, hollow, tone = "#3d382c", className = "" }: { dashed?: boolean; hollow?: boolean; tone?: string; className?: string }) {
+export function SxDiamondMark({ dashed, hollow, tone = "#1d1d1f", className = "" }: { dashed?: boolean; hollow?: boolean; tone?: string; className?: string }) {
   return (
     <svg viewBox="0 0 12 12" className={`h-3 w-3 shrink-0 ${className}`} aria-hidden="true">
       <polygon points="6,0.5 11.5,6 6,11.5 0.5,6" fill={hollow ? "none" : tone} stroke={tone} strokeWidth="1.4" strokeDasharray={dashed ? "2 1.6" : undefined} />
@@ -186,7 +190,7 @@ export function SxDiamondMark({ dashed, hollow, tone = "#3d382c", className = ""
   );
 }
 
-export function SxTickMark({ tone = "#3d382c", className = "" }: { tone?: string; className?: string }) {
+export function SxTickMark({ tone = "#1d1d1f", className = "" }: { tone?: string; className?: string }) {
   return <span className={`inline-block h-3.5 w-[2px] shrink-0 ${className}`} style={{ background: tone }} aria-hidden="true" />;
 }
 

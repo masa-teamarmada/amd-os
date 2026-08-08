@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-09 02:02 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-09 02:19 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -3494,7 +3494,7 @@ PRIMARY KEY: `id`
 
 ## project_killer_factor_states
 
-行数 (概算): -1
+行数 (概算): 189
 PRIMARY KEY: `state_id`
 UNIQUE: `(project_id,killer_factor_id)` (constraint: `project_killer_factor_states_pair_uniq`)
 

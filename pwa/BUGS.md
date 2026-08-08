@@ -4289,3 +4289,21 @@
 - **原因**: 画面本体だけでなく、共通ナビの件数表示が使う`vc-data.ts`と`seeds-data.ts`がmodule levelで個別のbrowser clientを作っていた。最初のsingleton化が画面側に限られ、コード分割された導線を横断できていなかった。
 - **対応内容**: `createBrowserSupabase()`をbrowser全体で共有するsingletonにし、上記2データmoduleも同じclientを使うように統一した。server側のclientは`persistSession: false`と個別storage keyを使い、browser sessionと競合させない。production `v3.56.2` / `4830bcae`のログイン済み`/dashboard`でconsoleが空になることを確認した。
 - **再発防止策**: GoTrue警告を直すときは、画面componentだけで完了にせず、`createClient()`・`createBrowserSupabase()`・module levelのデータ取得moduleを全検索する。認証に触る変更の完了条件には、ログイン済み本番のconsole確認を入れる。
+
+## [sx/gantt-dependency-density] 依存線が過剰に折れ、通常時に直接解除できなかった (2026-08-05)
+
+- **症状**: 依存線の始点・終点近くに固定した長い横逃がしで、ガント上の線が何度も折れ、どのタスクへつながるかを即座に読めなかった。解除も接続モードに入らなければできなかった。
+- **原因**: 距離に関係なく通常44px、迂回時20px/16pxを確保していた。保存済み線に通常時のhit targetと削除導線がなかった。
+- **対応内容**: `sx-gantt-dependency-route.ts`の通常端点余白を11px、迂回時を5px/4pxへ変更した。`SxUnifiedTimeline`へ透明10pxのhover hit areaと、PC通常時だけ出る`外す`を追加した。解除は既存のsoft delete APIを使い、接続モード中は非表示、mobile/keyboardは依存関係一覧を使う。
+- **再発防止策**: 線を追加・変更したら、端点がバー中心へ接していること、重なった経路で過剰に折れないこと、通常モードで解除できることをdesktop実画面で確認する。構造テストだけで終えず、production hoverと390pxの横あふれ・consoleも確認する。
+
+## [git/unpushed] 未 push commit を handoff に託して 37 日放置し、履歴巻き戻しで実装が消えた (2026-08-08)
+
+- **症状**: 2026-07-02 に実装した長期戦略試算表 (commit `19e9bfe7`, 5 ファイル 582 行) が、37 日後に再開したときローカル履歴からも作業ツリーからも消滅していた。同時に、未 commit だったマニュアル 4-5 の仕様節・変更履歴・セッションログの追記も失われた。本番 Supabase の `company_longrange_targets` 10 行だけが残り、コードのない孤立データになっていた。
+- **原因**: 7/2 時点で `main` が origin に対し ahead 7 / behind 17、作業ツリーが 79 ファイル dirty という乖離状態で、`deploy.sh` が hard-stop した。**その場で push を完了せず、rebase 手順を handoff に書いて次セッションへ委ねた**。以後 37 日のあいだに別セッション群が `pull --ff-only` や `reset` を繰り返し、参照されなくなった commit が HEAD の系譜から外れた。未 commit の docs 変更は、その過程で単純に上書き・破棄された。commit author はこのリポでは全て `Masa Yamaji` になるため、後から「誰が消したか」を author で追うこともできない。
+- **対応内容**: 参照されない commit object 自体はまだ GC されていなかったため、まず `git tag recovery/longrange-19e9bfe7` を打って保護した。復旧作業は、別セッションが本体作業ツリーへ書き込み中だったため本体では行わず、root `CLAUDE.md` が許可する使い捨てクリーンクローンを作り、origin/main の上に積み直した。実装 2 ファイルは commit object からそのまま取得。`management-score/page.tsx` は 37 日ぶんの変更が入っていたので、当時の差分 3 箇所を現行コードへ手で当て直した。migration は 162 番が別内容で埋まっていたため 245 番へ改番 (中身は冪等、本番へは 7/2 に適用済み)。失われた docs も書き直した。`v3.65.0` として本番反映。
+- **再発防止策**:
+  - **未 push commit を「次セッションでやる」と handoff に書いて閉じない**。乖離して `deploy.sh` が止まるなら、その場で解決する。他セッションが並行して動くこのリポでは、未 push commit の生存期間はそのまま消失リスクになる。
+  - どうしてもその場で push まで到達できないときは、最低限 `git tag` か `git push origin HEAD:refs/heads/keep/<topic>` で **到達可能な参照を残す**。handoff の文章は commit を守らない。
+  - 本体作業ツリーが他セッションで dirty なせいで rebase できない場合は、stash で他人の作業を巻き込まず、使い捨てクリーンクローンで origin/main の上に積む。
+  - セッション再開時、handoff に「未 push commit がある」と書かれていたら、**まず `git merge-base --is-ancestor <sha> HEAD` で生存を確認する**。`git log` に出ないことと object が消えたことは別で、object が生きていれば完全復旧できる。

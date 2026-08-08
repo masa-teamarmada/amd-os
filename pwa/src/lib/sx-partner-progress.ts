@@ -1,7 +1,13 @@
+import { sxIsPocPartner } from "./sx-poc-candidates";
 import type {
   SxBallSide,
   SxManagementPartner,
+  SxMeetingMode,
+  SxPartnerActivityState,
+  SxPartnerClassification,
   SxPartnerStage,
+  SxPocCategory,
+  SxSampleStatus,
 } from "./sx-management";
 import {
   sxHoldingsForPartner,
@@ -14,15 +20,34 @@ import {
   type SxHoldingSide,
 } from "./sx-partner-holdings.ts";
 
+/** 次回面談の形式ラベル。selectの並び順もこの配列を正本にする。 */
+export const SX_MEETING_MODES: SxMeetingMode[] = [
+  "onsite",
+  "online",
+  "hybrid",
+  "phone",
+];
+
+export const SX_MEETING_MODE_LABEL: Record<SxMeetingMode, string> = {
+  onsite: "現地訪問",
+  online: "オンライン",
+  hybrid: "現地+オンライン",
+  phone: "電話",
+};
+
 /**
  * 全関係先で共有する比較軸。PoC固有の業務段階ではなく、関係形成の現在地を表す。
  * on_holdは到達段階ではないため、この7段階へ混ぜず状態として重ねる。
  */
 export const SX_PARTNER_STAGE_ORDER = [
   "candidate",
+  "first_contact",
   "information_exchange",
-  "condition_alignment",
+  "hearing",
   "meeting_coordination",
+  "technical_review",
+  "condition_alignment",
+  "sample_acquisition",
   "validation_preparation",
   "agreement_confirmation",
   "executing",
@@ -30,22 +55,179 @@ export const SX_PARTNER_STAGE_ORDER = [
 
 const PARTNER_STAGE_LABEL: Record<SxPartnerStage, string> = {
   candidate: "候補",
+  first_contact: "初回接触",
   information_exchange: "情報交換",
-  condition_alignment: "条件整理",
+  hearing: "ヒアリング",
   meeting_coordination: "面談調整",
+  technical_review: "技術確認",
+  condition_alignment: "条件整理",
+  sample_acquisition: "試料調達",
   validation_preparation: "検証準備",
   agreement_confirmation: "合意確認",
   executing: "実行中",
   on_hold: "保留",
+  declined: "見送り",
 };
 
 export function sxPartnerStageLabel(stage: SxPartnerStage): string {
   return PARTNER_STAGE_LABEL[stage] || "未確認";
 }
 
-/** 1-7の関係段階。保留は到達度ではないためnull。 */
+/** 段階と独立した運用状態。到達度と混ぜず、待ち先と停滞の管制に使う。 */
+export const SX_PARTNER_ACTIVITY_STATE_ORDER = [
+  "active",
+  "waiting_partner",
+  "waiting_internal",
+  "stalled",
+  "on_hold",
+  "dropped",
+  "unknown",
+] as const satisfies readonly SxPartnerActivityState[];
+
+const PARTNER_ACTIVITY_STATE_LABEL: Record<SxPartnerActivityState, string> = {
+  active: "対応中",
+  waiting_partner: "先方待ち",
+  waiting_internal: "社内待ち",
+  stalled: "停滞",
+  on_hold: "保留",
+  dropped: "見送り",
+  unknown: "状態未確認",
+};
+
+export function sxPartnerActivityStateLabel(
+  state: SxPartnerActivityState,
+): string {
+  return PARTNER_ACTIVITY_STATE_LABEL[state] || "状態未確認";
+}
+
+export const SX_POC_CATEGORY_ORDER = [
+  "poc_candidate",
+  "tech_partner",
+  "sample_provider",
+  "sample_route",
+] as const satisfies readonly SxPocCategory[];
+
+const POC_CATEGORY_LABEL: Record<SxPocCategory, string> = {
+  poc_candidate: "PoC候補先",
+  tech_partner: "技術協力先",
+  sample_provider: "試料提供元",
+  sample_route: "試料提供ルート",
+};
+
+export function sxPocCategoryLabel(category: SxPocCategory): string {
+  return POC_CATEGORY_LABEL[category] || "区分未確認";
+}
+
+/** 分類の表示順。モーダルのチェックボックス群と一覧の分類タブが同じ順で並ぶ。 */
+export const SX_PARTNER_CLASSIFICATION_ORDER = [
+  "poc_candidate",
+  "tech_partner",
+  "sample_provider",
+  "sample_route",
+  "vc",
+] as const satisfies readonly SxPartnerClassification[];
+
+export function sxPartnerClassificationLabel(
+  classification: SxPartnerClassification,
+): string {
+  if (classification === "vc") return "VC";
+  return POC_CATEGORY_LABEL[classification] || "分類未確認";
+}
+
+/**
+ * 排液成分の定型語彙。プルダウンで選び、effluent_components へカンマ区切りで保存する
+ * (2026-08-08 まさ「成分についてはプルダウン選択形式にして、それぞれバッジで表示」)。
+ * 既存の自由文は選び直すまでそのまま表示される。
+ */
+export const SX_EFFLUENT_COMPONENT_CHOICES = [
+  { value: "Ni", label: "Ni（ニッケル）" },
+  { value: "Pb", label: "Pb（鉛）" },
+  { value: "Cr", label: "Cr（クロム）" },
+  { value: "Mn", label: "Mn（マンガン）" },
+  { value: "Al", label: "Al（アルミ）" },
+  { value: "Cu", label: "Cu（銅）" },
+  { value: "Zn", label: "Zn（亜鉛）" },
+  { value: "Nd", label: "Nd（ネオジム）" },
+  { value: "Dy", label: "Dy（ジスプロシウム）" },
+  { value: "その他重金属", label: "その他重金属" },
+  { value: "COD", label: "COD" },
+  { value: "BOD", label: "BOD" },
+  { value: "リン", label: "リン" },
+  { value: "窒素", label: "窒素" },
+  { value: "油分", label: "油分" },
+  { value: "塩分", label: "塩分" },
+  { value: "色度", label: "色度" },
+  { value: "SS", label: "SS" },
+  { value: "糖分", label: "糖分" },
+] as const;
+
+/** 旧表記 (元素名) を元素記号へ寄せる。保存値のパース時だけ使い、DBは書き換えない。 */
+const EFFLUENT_COMPONENT_ALIASES: Record<string, string> = {
+  "ニッケル": "Ni",
+  "鉛": "Pb",
+  "クロム": "Cr",
+  "マンガン": "Mn",
+  "アルミ": "Al",
+  "アルミニウム": "Al",
+  "銅": "Cu",
+  "亜鉛": "Zn",
+  "ネオジム": "Nd",
+  "ジスプロシウム": "Dy",
+};
+
+/** カンマ・読点区切りの保存値を成分トークンへ (旧表記は記号へ正規化)。 */
+export function sxParseEffluentComponents(value: string | null): string[] {
+  return (value || "")
+    .split(/[,、]/)
+    .map((token) => token.trim())
+    .map((token) => EFFLUENT_COMPONENT_ALIASES[token] || token)
+    .filter(Boolean);
+}
+
+/**
+ * 分類タブの判定。'poc_candidate' と 'vc' は保存前の旧データも拾う後方互換判定を通す。
+ * 一覧のタブとタイトル行の分類ボタンが同じ判定を共有する。
+ */
+export function sxPartnerHasClassification(
+  partner: Pick<
+    SxManagementPartner,
+    "roleLabel" | "pocCategory" | "classifications" | "roles"
+  >,
+  classification: SxPartnerClassification,
+): boolean {
+  if (classification === "poc_candidate") return sxIsPocPartner(partner);
+  if (classification === "vc")
+    return partner.classifications.includes("vc") || sxIsVcPartner(partner);
+  return partner.classifications.includes(classification);
+}
+
+const SAMPLE_STATUS_LABEL: Record<SxSampleStatus, string> = {
+  intent: "提供意向あり",
+  negotiating: "条件調整中",
+  agreed_pending: "合意済・未取得",
+  scheduled: "採取予定",
+  received: "受領済み",
+  analyzed: "分析済み",
+  unknown: "状態未確認",
+};
+
+export const SX_SAMPLE_STATUS_ORDER = [
+  "intent",
+  "negotiating",
+  "agreed_pending",
+  "scheduled",
+  "received",
+  "analyzed",
+  "unknown",
+] as const satisfies readonly SxSampleStatus[];
+
+export function sxSampleStatusLabel(status: SxSampleStatus): string {
+  return SAMPLE_STATUS_LABEL[status] || "状態未確認";
+}
+
+/** 1-11の関係段階。保留・見送りは到達度ではないためnull。 */
 export function sxPartnerStageIndex(stage: SxPartnerStage): number | null {
-  if (stage === "on_hold") return null;
+  if (stage === "on_hold" || stage === "declined") return null;
   const index = SX_PARTNER_STAGE_ORDER.findIndex(
     (candidate) => candidate === stage,
   );
@@ -59,7 +241,11 @@ export function sxPartnerIsOnHold(
     "relationshipStage" | "deferredLowPriority"
   >,
 ): boolean {
-  return partner.relationshipStage === "on_hold" || partner.deferredLowPriority;
+  return (
+    partner.relationshipStage === "on_hold" ||
+    partner.relationshipStage === "declined" ||
+    partner.deferredLowPriority
+  );
 }
 
 /** 「接触済み」という解釈をroleLabelへ預けず、一覧で確認できる接点記録の有無だけを返す。 */
@@ -69,6 +255,7 @@ export function sxPartnerHasContactRecord(
   return partner.interactions.length > 0 || partner.lastContactDate != null;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- re-exported via sxPartnerHasClassification
 /** VC表示は保存済みroleだけで判定し、名称や自由記述から推測しない。 */
 export function sxIsVcPartner(
   partner: Pick<SxManagementPartner, "roles">,
@@ -193,7 +380,11 @@ export function sxPartnerAttention(
   // 保留は到達段階ではなく運用状態。危険な停止・期限は先に拾い、平常の保留は
   // 担当/期限不足へ誤分類しない。
   if (sxPartnerIsOnHold(partner)) {
-    return { key: "on_hold", label: "保留", rank: 3 };
+    return {
+      key: "on_hold",
+      label: partner.relationshipStage === "declined" ? "見送り" : "保留",
+      rank: 3,
+    };
   }
 
   if (sxPartnerNeedsRefresh(partner, today)) {
@@ -215,7 +406,130 @@ export function sxPartnerAttention(
   return { key: "clear", label: "期限内", rank: 7 };
 }
 
-export type SxPocComparisonSort = "progress" | "attention";
+/**
+ * 確度はPoC候補先スプシの語彙 (確認済み / 推定 / 要確認) をそのまま正本にする。
+ * 保存値が空・未知のときだけ「未確認」へ落とし、推定を確認済みへ丸めない。
+ */
+export const SX_PARTNER_CONFIDENCE_ORDER = [
+  "high",
+  "medium",
+  "low",
+  "unknown",
+] as const;
+export type SxPartnerConfidence = (typeof SX_PARTNER_CONFIDENCE_ORDER)[number];
+
+export function sxNormalizePartnerConfidence(
+  value: string | null | undefined,
+): SxPartnerConfidence {
+  return (SX_PARTNER_CONFIDENCE_ORDER as readonly string[]).includes(
+    value || "",
+  )
+    ? (value as SxPartnerConfidence)
+    : "unknown";
+}
+
+export function sxPartnerConfidenceLabel(value: string | null | undefined) {
+  const labels: Record<SxPartnerConfidence, string> = {
+    high: "確認済み",
+    medium: "推定",
+    low: "要確認",
+    unknown: "未確認",
+  };
+  return labels[sxNormalizePartnerConfidence(value)];
+}
+
+/** 確度の高い順 (確認済み→推定→要確認→未確認)。数値が小さいほど確度が高い。 */
+export function sxPartnerConfidenceRank(value: string | null | undefined) {
+  return SX_PARTNER_CONFIDENCE_ORDER.indexOf(
+    sxNormalizePartnerConfidence(value),
+  );
+}
+
+/**
+ * 攻める順番の判断2軸。confidence (情報の確からしさ) とは別物で、
+ * likelihood = PoCをやらせてもらえそうか、value = 顧客として金になりそうか
+ * (2026-08-06 まさ「このリストの上の方を優先的にアタックしていく設計」)。
+ */
+export const SX_POC_JUDGMENT_ORDER = ["high", "medium", "low"] as const;
+export type SxPocJudgmentValue = (typeof SX_POC_JUDGMENT_ORDER)[number];
+
+export function sxNormalizePocJudgment(
+  value: string | null | undefined,
+): SxPocJudgmentValue | null {
+  return (SX_POC_JUDGMENT_ORDER as readonly string[]).includes(value || "")
+    ? (value as SxPocJudgmentValue)
+    : null;
+}
+
+export function sxPocLikelihoodLabel(value: string | null | undefined) {
+  const normalized = sxNormalizePocJudgment(value);
+  if (!normalized) return "未評価";
+  return { high: "高い", medium: "五分", low: "低い" }[normalized];
+}
+
+export function sxCustomerValueLabel(value: string | null | undefined) {
+  const normalized = sxNormalizePocJudgment(value);
+  if (!normalized) return "未評価";
+  return { high: "有望", medium: "中", low: "薄い" }[normalized];
+}
+
+/**
+ * 関係先リスト最左の評価。unratedは「未」で、推測で埋めない。
+ * 2026-08-06 まで likelihood×value の合成で出していたが、それは
+ * 「排液がもらえるか」を過大評価していた。まさの判断基準は
+ * 顧客として見込みがあるかが第一優先で、軸は (1)ペインの高さ
+ * (2)単価の高い（需要の高い）重金属が排出されているか の2つ。
+ * 排液提供の可否はそれより大幅に劣後する。よって合成をやめ、
+ * poc_grade を人が直接付ける独立カラムにした。
+ */
+export type SxPocPriorityTier = "s" | "a" | "b" | "x" | "unrated";
+
+// ✕ は「顧客候補として適さないと判明済み」なので、まだ見込みが分からない未評価より下へ置く
+// (2026-08-06 まさ指示)。評価セルの選択肢の並び (SX_POC_GRADE_CHOICES) は S/A/B/✕/未 のまま。
+const PRIORITY_TIER_ORDER: SxPocPriorityTier[] = ["s", "a", "b", "unrated", "x"];
+
+export function sxPocPriorityTier(
+  partner: Pick<SxManagementPartner, "pocGrade">,
+): SxPocPriorityTier {
+  const grade = partner.pocGrade;
+  return grade === "s" || grade === "a" || grade === "b" || grade === "x"
+    ? grade
+    : "unrated";
+}
+
+export function sxPocPriorityTierLabel(tier: SxPocPriorityTier) {
+  return { s: "S", a: "A", b: "B", x: "✕", unrated: "未" }[tier];
+}
+
+export function sxPocPriorityTierDescription(tier: SxPocPriorityTier) {
+  return {
+    s: "最優先。ペインが大きく、単価の高い重金属も出ている",
+    a: "優先。顧客として見込みがある",
+    b: "決め手に欠ける。様子見",
+    x: "顧客としての見込みは薄い",
+    unrated: "未評価。顧客として見込みがあるかを入れると並び順が決まる",
+  }[tier];
+}
+
+export const SX_POC_GRADE_CHOICES: SxPocPriorityTier[] = [
+  "s",
+  "a",
+  "b",
+  "x",
+  "unrated",
+];
+
+export function sxPocPriorityRank(
+  partner: Pick<SxManagementPartner, "pocGrade">,
+): number {
+  return PRIORITY_TIER_ORDER.indexOf(sxPocPriorityTier(partner));
+}
+
+export type SxPocComparisonSort =
+  | "progress"
+  | "attention"
+  | "confidence"
+  | "priority";
 
 /** PoC/VC比較タブの表示順。attentionでは旧固定段階をtie-breakにも使わない。 */
 export function sxComparePartnersForPoc(
@@ -237,6 +551,27 @@ export function sxComparePartnersForPoc(
 
   if (sort === "progress" && leftStage !== rightStage)
     return rightStage - leftStage;
+  if (sort === "priority") {
+    const priorityCompare =
+      sxPocPriorityRank(left) - sxPocPriorityRank(right);
+    if (priorityCompare !== 0) return priorityCompare;
+    // 評価が同じなら情報が新しい方を上に置く (2026-08-06 まさ指示)。
+    // 同評価の中では、直近で確認した先ほどアタックの判断材料が揃っている。
+    const freshnessCompare = (right.lastVerifiedAt || "").localeCompare(
+      left.lastVerifiedAt || "",
+    );
+    if (freshnessCompare !== 0) return freshnessCompare;
+    const recentContactCompare = (right.lastContactDate || "").localeCompare(
+      left.lastContactDate || "",
+    );
+    if (recentContactCompare !== 0) return recentContactCompare;
+  }
+  if (sort === "confidence") {
+    const confidenceCompare =
+      sxPartnerConfidenceRank(left.confidence) -
+      sxPartnerConfidenceRank(right.confidence);
+    if (confidenceCompare !== 0) return confidenceCompare;
+  }
   if (leftAttention !== rightAttention) return leftAttention - rightAttention;
   if (leftBall !== rightBall) return leftBall - rightBall;
 

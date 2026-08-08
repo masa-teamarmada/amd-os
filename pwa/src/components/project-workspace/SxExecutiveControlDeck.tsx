@@ -97,18 +97,18 @@ function rowPinSide(row: SxEcdInterventionRow): "sx" | "partner" {
 }
 
 const BUSINESS_TONE: Record<SxEcdVerdictSummary["business"]["tone"], string> = {
-  ok: "border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]",
-  warn: "border-[#e3c994] bg-[#fbf1dc] text-[#765022]",
-  bad: "border-[#b5533f] bg-[#f9e4e1] text-[#8c3329]",
-  unknown: "border-[#b8b5c8] bg-[#eeedf4] text-[#55506d]",
+  ok: "border-[#74a690] bg-[#dcecdf] text-[#205f49]",
+  warn: "border-[#bd9a52] bg-[#f7e8c8] text-[#765022]",
+  bad: "border-[#b5533f] bg-[#f6dad5] text-[#8c3329]",
+  unknown: "border-[#8e88a5] bg-[#e4e2ef] text-[#55506d]",
 };
 
 /** 帯1: 判定バー。業務判定（重要経路の停止・期限超過・遅延見込み）と運用判定（データ充足）を
  * 分け、STEP2消化・設立までの残日数を同じ1行で読む。赤系は事業リスクにだけ使う。 */
 function VerdictBar({ summary }: { summary: SxEcdVerdictSummary }) {
   return (
-    <div className="grid grid-cols-2 border-b border-[#e4ddd0] lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]" data-testid="sx-verdict-bar">
-      <div className={`flex min-w-0 flex-col justify-center gap-0.5 border-b border-r border-[#e4ddd0] px-3 py-1.5 lg:border-b-0 ${BUSINESS_TONE[summary.business.tone]}`}>
+    <div className="grid grid-cols-2 border-b border-[#c5bba5] lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]" data-testid="sx-verdict-bar">
+      <div className={`flex min-w-0 flex-col justify-center gap-0.5 border-b border-r border-[#c5bba5] px-3 py-1.5 lg:border-b-0 ${BUSINESS_TONE[summary.business.tone]}`}>
         <p className="text-[9px] font-semibold tracking-[0.12em]">業務判定（重要経路）</p>
         <p className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0">
           <span className="text-[17px] font-bold leading-none">{summary.business.label}</span>
@@ -116,16 +116,16 @@ function VerdictBar({ summary }: { summary: SxEcdVerdictSummary }) {
           {summary.business.detail && <span className="text-[11px] font-semibold">{summary.business.detail}</span>}
         </p>
       </div>
-      <div className="flex min-w-0 flex-col justify-center gap-0.5 border-b border-[#e4ddd0] px-3 py-1.5 lg:border-b-0 lg:border-r">
-        <p className="text-[9px] font-semibold tracking-[0.12em] text-[#777166]">運用判定（データ充足）</p>
+      <div className="flex min-w-0 flex-col justify-center gap-0.5 border-b border-[#c5bba5] px-3 py-1.5 lg:border-b-0 lg:border-r">
+        <p className="text-[9px] font-semibold tracking-[0.12em] text-[#5f5a4d]">運用判定（データ充足）</p>
         <p className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-[10px] text-[#514e47]">
           <span className="text-[13px] font-bold leading-none text-[#55506d]">{summary.operations.verdictLabel}</span>
           <span>充足 <span className="font-semibold text-[#24231f]">{summary.operations.completenessPct}%</span></span>
           <span>重大未確認 <span className="font-semibold text-[#24231f]">{summary.operations.criticalUnknownCount}件</span></span>
         </p>
       </div>
-      <div className="flex min-w-0 flex-col justify-center gap-0.5 border-r border-[#e4ddd0] px-3 py-1.5">
-        <p className="text-[9px] font-semibold tracking-[0.12em] text-[#777166]">STEP2消化</p>
+      <div className="flex min-w-0 flex-col justify-center gap-0.5 border-r border-[#c5bba5] px-3 py-1.5">
+        <p className="text-[9px] font-semibold tracking-[0.12em] text-[#5f5a4d]">STEP2消化</p>
         <button
           type="button"
           onClick={() => {
@@ -139,13 +139,13 @@ function VerdictBar({ summary }: { summary: SxEcdVerdictSummary }) {
         >
           {summary.step2.label}
         </button>
-        {!summary.step2.known && <p className="text-[9px] text-[#9b9487]">内訳: 管理台帳の資金欄（金額未登録）</p>}
+        {!summary.step2.known && <p className="text-[9px] text-[#65604f]">内訳: 管理台帳の資金欄（金額未登録）</p>}
       </div>
       <div className="flex min-w-0 flex-col justify-center gap-0.5 px-3 py-1.5">
         <p className="flex items-center gap-1 text-[9px] font-semibold tracking-[0.12em] text-[#5f4a66]"><Flag className="h-3 w-3" aria-hidden="true" />設立まで</p>
         <p className="text-[13px] font-bold leading-none text-[#24231f]">
           {summary.countdown.days != null ? `残${summary.countdown.days}日` : "期日未登録"}
-          {summary.countdown.targetDate && <span className="ml-1.5 text-[10px] font-semibold text-[#69665d]">{sxFormatDate(summary.countdown.targetDate)}</span>}
+          {summary.countdown.targetDate && <span className="ml-1.5 text-[10px] font-semibold text-[#5a574c]">{sxFormatDate(summary.countdown.targetDate)}</span>}
         </p>
       </div>
     </div>
@@ -154,7 +154,7 @@ function VerdictBar({ summary }: { summary: SxEcdVerdictSummary }) {
 
 function InterventionRowDesktop({ row, rank, onSelectMilestone }: { row: SxEcdInterventionRow; rank: number; onSelectMilestone: (id: string | null) => void }) {
   return (
-    <li className="border-b border-[#f1eee5] last:border-b-0">
+    <li className="border-b border-[#dcd5c3] last:border-b-0">
       <a
         href={anchorHref(row.anchor)}
         onClick={(event) => {
@@ -180,11 +180,11 @@ function InterventionRowDesktop({ row, rank, onSelectMilestone }: { row: SxEcdIn
         <span className={`min-w-0 truncate ${row.ballSide === "SX側" ? "font-bold text-[#8c3329]" : "text-[#514e47]"}`} title={ballDisplay(row.ballSide, row.ballOwner)}>
           {row.ballSide === "SX側" ? `当方ボール・${row.ballOwner}` : ballDisplay(row.ballSide, row.ballOwner)}
         </span>
-        <span className="whitespace-nowrap text-[#69665d]">
+        <span className="whitespace-nowrap text-[#5a574c]">
           {blockerDueDisplay(row)}
-          {row.dueContextLabel && <span className="block text-[10px] text-[#9b9487]">{row.dueContextLabel}</span>}
+          {row.dueContextLabel && <span className="block text-[10px] text-[#65604f]">{row.dueContextLabel}</span>}
         </span>
-        <span className="min-w-0 truncate text-[#69665d]" title={row.gate}>{row.gate || "未確認"}</span>
+        <span className="min-w-0 truncate text-[#5a574c]" title={row.gate}>{row.gate || "未確認"}</span>
       </a>
     </li>
   );
@@ -192,7 +192,7 @@ function InterventionRowDesktop({ row, rank, onSelectMilestone }: { row: SxEcdIn
 
 function InterventionRowMobile({ row, rank, onSelectMilestone }: { row: SxEcdInterventionRow; rank: number; onSelectMilestone: (id: string | null) => void }) {
   return (
-    <li className="border-b border-[#f1eee5] last:border-b-0">
+    <li className="border-b border-[#dcd5c3] last:border-b-0">
       <a
         href={anchorHref(row.anchor)}
         onClick={(event) => {
@@ -213,9 +213,9 @@ function InterventionRowMobile({ row, rank, onSelectMilestone }: { row: SxEcdInt
             {row.target}
             {row.dateCertainty === "provisional" && <span className="ml-1 text-[10px] font-semibold text-[#765022]">仮</span>}
           </span>
-          <span className="shrink-0 text-[10px] text-[#69665d]">{blockerDueDisplay(row)}</span>
+          <span className="shrink-0 text-[10px] text-[#5a574c]">{blockerDueDisplay(row)}</span>
         </span>
-        <span className="flex items-center justify-between gap-2 pl-[26px] text-[10px] text-[#777166]">
+        <span className="flex items-center justify-between gap-2 pl-[26px] text-[10px] text-[#5f5a4d]">
           <span className="truncate text-[#8c3329]">{INTERVENTION_KIND_LABEL[row.kind]}</span>
           <span className={`truncate ${row.ballSide === "SX側" ? "font-bold text-[#8c3329]" : ""}`}>ボール {row.ballSide === "SX側" ? `当方・${row.ballOwner}` : ballDisplay(row.ballSide, row.ballOwner)}</span>
         </span>
@@ -333,14 +333,14 @@ export function SxExecutiveControlDeck({
 
   return (
     <section
-      className="border border-[#cfc7b9] bg-[#fffdf7]"
+      className="border border-[#a69b84] bg-[#fffdf7]"
       aria-label="経営状況図: 判定・統合タイムライン・次の経営介入"
       data-testid="sx-executive-control-deck"
     >
       <VerdictBar summary={verdict} />
 
       {/* 帯2: 統合タイムライン（経営状況図の本体） */}
-      <div className="border-b border-[#e4ddd0] px-3 pb-1.5 pt-2 sm:px-4" data-testid="sx-state-map">
+      <div className="border-b border-[#c5bba5] px-3 pb-1.5 pt-2 sm:px-4" data-testid="sx-state-map">
         <h3 className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">経営状況図 — 全マイルストーン・重要経路・ボールの一枚図</h3>
         <div className="mt-1">
           <SxUnifiedTimeline timeline={timeline} asOf={management.asOf} selectedMilestoneId={selectedMilestoneId} onSelectMilestone={onSelectMilestone} canManage={management.canManage} onEditMilestone={onEditMilestone} onCreateMilestone={onCreateMilestone} />
@@ -349,17 +349,17 @@ export function SxExecutiveControlDeck({
 
       {/* 帯3: 意思決定待ち + 次の経営介入（①〜⑤はタイムラインのピンと同番号） */}
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
-        <section className="min-w-0 border-b border-[#e4ddd0] px-3 py-2 sm:px-4 xl:border-b-0 xl:border-r" aria-label="意思決定待ち">
+        <section className="min-w-0 border-b border-[#c5bba5] px-3 py-2 sm:px-4 xl:border-b-0 xl:border-r" aria-label="意思決定待ち">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">意思決定待ち（期限順）</h3>
-            <span className="text-[10px] text-[#777166]">全{pendingDecisions.length}件</span>
+            <span className="text-[10px] text-[#5f5a4d]">全{pendingDecisions.length}件</span>
           </div>
           {pendingDecisions.length === 0 ? (
-            <p className="mt-1.5 text-[11px] text-[#69665d]" data-testid="sx-decision-queue">意思決定待ちの論点は登録なし。</p>
+            <p className="mt-1.5 text-[11px] text-[#5a574c]" data-testid="sx-decision-queue">意思決定待ちの論点は登録なし。</p>
           ) : (
             <ul className="mt-1" data-testid="sx-decision-queue">
               {pendingDecisions.map((issue) => (
-                <li key={issue.id} className="border-b border-[#f1eee5] last:border-b-0">
+                <li key={issue.id} className="border-b border-[#dcd5c3] last:border-b-0">
                   <a
                     href={`#sx-issue-${issue.id}`}
                     onClick={(event) => {
@@ -370,7 +370,7 @@ export function SxExecutiveControlDeck({
                     aria-label={`意思決定待ち: ${issue.title}へ移動`}
                   >
                     <span className="line-clamp-2 text-[11px] font-semibold leading-[1.35] text-[#24231f]">{issue.title}</span>
-                    <span className="flex items-center justify-between gap-2 text-[10px] text-[#777166]">
+                    <span className="flex items-center justify-between gap-2 text-[10px] text-[#5f5a4d]">
                       <span className="truncate">{issue.ownerLabel || "担当未確認"}</span>
                       <span className="shrink-0">{issue.dueDate ? `期限 ${sxFormatDate(issue.dueDate)}` : "期限未設定"}</span>
                     </span>
@@ -384,14 +384,14 @@ export function SxExecutiveControlDeck({
         <section className="min-w-0 px-3 py-2 sm:px-4" aria-label="次の経営介入">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">次の経営介入（優先順・①〜⑤は図のピンと同番号）</h3>
-            <span className="text-[10px] text-[#777166]">全{queue.totalCount}件中 上位{quota.top.length}件</span>
+            <span className="text-[10px] text-[#5f5a4d]">全{queue.totalCount}件中 上位{quota.top.length}件</span>
           </div>
           {quota.top.length === 0 ? (
-            <p className="mt-1.5 text-[11px] text-[#69665d]" data-testid="sx-intervention-queue">対応待ちの案件は検出なし。</p>
+            <p className="mt-1.5 text-[11px] text-[#5a574c]" data-testid="sx-intervention-queue">対応待ちの案件は検出なし。</p>
           ) : (
             <>
               <div className="mt-1 hidden xl:block" data-testid="sx-intervention-queue">
-                <p className="grid grid-cols-[24px_minmax(0,1.6fr)_minmax(0,1fr)_100px_minmax(0,1fr)] gap-x-2 border-b border-[#e4ddd0] pb-0.5 text-[9px] font-semibold text-[#777166]">
+                <p className="grid grid-cols-[24px_minmax(0,1.6fr)_minmax(0,1fr)_100px_minmax(0,1fr)] gap-x-2 border-b border-[#c5bba5] pb-0.5 text-[9px] font-semibold text-[#5f5a4d]">
                   <span aria-hidden="true" />
                   <span>対象</span>
                   <span>ボール / 担当</span>

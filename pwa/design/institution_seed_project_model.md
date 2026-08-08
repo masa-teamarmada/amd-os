@@ -171,7 +171,9 @@ migration 212で新設する7テーブルが認可の正本になる。
 - 1資料は `scope_kind='institution'` または `scope_kind='project'` のどちらか一方だけを所有先にする。機関、シーズ、PJの区別をfolder名で代用しない。
 - 機関資料は明示された `institution_workspace_memberships`、PJ資料は明示された `project_access_memberships` を毎request再検証する。**機関所属はPJ資料へのアクセスを含意しない**。
 - `visibility='workspace_shared'` は対象scopeの外部メンバーにも共有、`amd_internal` はAMD内部だけ。外部の一覧・open APIは内部資料をnot foundとして扱う。
-- manager / contributor と機関owner / memberはfile・folder・linkを追加でき、整理・archiveはmanager / ownerまたはAMDの対象PJメンバー/adminに限る。archiveはStorage実体を削除しない。
+- `canUpload`（PJのmanager / contributor、機関のowner / member、AMDの対象PJメンバー/admin）はfile・folder・linkの追加に加え、既存HTMLの本文編集と、file・link・folderを資料室から削除できる。HTML本文の取得・保存は専用source APIが毎requestで同じscope・visibility・`canUpload`を再確認し、署名URLを返さない。本文はHTMLソースとしてtextareaへ渡すだけで実行・整形・sanitizeせず、空欄不可・UTF-8で5MBまでをserver側でも検証する。保存成功後に同じprivate Storage objectを上書きし、`file_size_bytes` / `mime_type='text/html'` / `content_sha256` / `updated_at`を更新する。本文そのものはaudit detailへ記録しない。
+- 名称変更・移動・共有範囲変更などの整理は従来どおり`canManage`（PJ manager、機関owner、AMDの対象PJメンバー/admin）だけに限る。資料室からの削除はarchiveであり、Storage実体を物理削除しない。通常一覧・共有画面から外して保護領域に残すが、復元画面はまだ提供しない。
+- fileを追加またはドロップしたとき、同じ資料室・同じfolderにactiveな大小文字非区別の同名entryがあれば、書込み前にFinder型の確認（中止／両方残す／置き換える）を出す。両方残すは既存entryと同時追加queueの両方を避けて`資料 2.pdf`のような名前を作る。置き換えは`canUpload`だけで行えるが、同じfolder・同名・activeな**file**へ明示した場合に限る。link/folderや同時追加中の資料はファイルで置き換えず、両方残すか中止を案内する。通常追加と置き換え準備はserverが毎回名前・scope・accessを再確認し、競合raceでの無言上書きをしない。置き換え完了は元行をpending/failedへ戻さずMIME・サイズ・更新時刻だけを実体に合わせ、移行由来のhash/source referenceを消して本文なしのauditを残す。
 - fileのStorage path、外部link URL、署名tokenを一覧DTOへ含めない。open APIが権限を再確認し、通常fileだけ60秒の署名URLを発行する。`mime_type='text/html'` と `.html` / `.htm` の保存fileは、資料名からは再認可済みのsandbox HTMLプレビューを別タブに表示する（5MBまで、script・外部通信・form送信を止める）。右端の明示的なPDF化ダウンロードだけが専用PDF APIで再認可後にA4 PDFとして保存する。PDF化ではHTML内のscriptと外部通信を止め、日本語フォントを埋め込む。入力は8MB、返却PDFは4MBまでとする。
 - AMD内部のPJコックピットは資料名・件数・最新資料を本文へ展開せず、`WorkspaceDocumentLauncher` の1ボタンだけを置く。押下時はURLを変更せず `WorkspaceDocumentRoom(presentation='modal')` を大きなモーダルで開き、閉じた時にコックピットの作業位置と文脈を保つ。独立routeは直接URL・外部共有面・復旧用に残す。
 - 資料室の視覚トークンは白、graphite、deep navy、AMD blue、cyanを基調にし、旧Project Share由来のivory / green / amberの全面配色を使わない。赤はarchiveなど破壊性を伴う意味だけに限定する。
@@ -183,7 +185,7 @@ migration 212で新設する7テーブルが認可の正本になる。
 - migration 207は機関46件・大学/国研シーズ141件・確定4PJ、migration 209は対象seed PJ 19件・二重分類0件・SX未設立/SPS ready・description全NULLをassertする。
 - `npm run test:institution-seed-project-domains` でテーブル分離、19PJ移行、固定対応の不在、フラット全件表示、ECR/SPS非合算を検査する。
 - `npm run test:kute-seeds-scope` と `npm run test:institution-soil-seeds` で表示スコープと評価系列を検査する。
-- §6の外部アクセスは契約テストで検査する。`test:workspace-access-scope`（所属・失効・機関からPJへの暗黙付与なし）、`test:workspace-access-session`（署名cookieの検証）、`test:workspace-email-start-contract`（登録有無を漏らさない応答）、`test:workspace-next-path`（遷移先の絞り込み）、`test:external-project-workspace`（外部DTOが内部バンドルへ広がらないこと）、`test:workspace-access-admin`（admin API の権限と自動復活禁止）、`test:workspace-rls-closure`（migration 213の閉鎖範囲）、`test:workspace-documents-core`（path/URL/storage key）、`test:workspace-documents-contract`（資料権限、private URL非返却、非破壊archive）。
+- §6の外部アクセスは契約テストで検査する。`test:workspace-access-scope`（所属・失効・機関からPJへの暗黙付与なし）、`test:workspace-access-session`（署名cookieの検証）、`test:workspace-email-start-contract`（登録有無を漏らさない応答）、`test:workspace-next-path`（遷移先の絞り込み）、`test:external-project-workspace`（外部DTOが内部バンドルへ広がらないこと）、`test:workspace-access-admin`（admin API の権限と自動復活禁止）、`test:workspace-rls-closure`（migration 213の閉鎖範囲）、`test:workspace-documents-core`（path/URL/storage key・HTML本文byte・Finder連番）、`test:workspace-documents-contract`（資料単位の再認可、明示置き換えだけのStorage上書き、同名raceの非上書き、HTML本文の署名URL非返却、`canUpload`でのHTML編集・archive、非破壊archive）。
 - PWAは型検査・本番build・desktop/mobile実画面、macOSはXcode buildで確認する。
 
 ## 8. ロールバック

@@ -7,7 +7,7 @@ import {
   ChevronsUpDown,
   ChevronRight,
   Flag,
-  Link2,
+  GripVertical,
   Plus,
   Unlink2,
 } from "lucide-react";
@@ -28,11 +28,21 @@ import type {
 import {
   sxGateRequirementCounts,
   sxGateRequirementState,
-  sxGateRequirementsBySuccessor,
   sxIsBlockingMilestone,
-  sxMilestoneRequiredTaskSummary,
   type SxGateRequirement,
 } from "@/lib/sx-gate-requirements";
+import {
+  sxApplyOptimisticManagementPatch,
+  sxNewOptimisticId,
+  sxRemoveOptimisticManagementRecord,
+  sxReplaceOptimisticManagementId,
+} from "@/lib/sx-management-optimistic";
+import { taskNestCandidateIds } from "@/lib/sx-gantt-task-nesting";
+import {
+  buildFinishToStartRoute,
+  timelinePctToPx,
+  visibleBarGeometryPx,
+} from "@/lib/sx-gantt-dependency-route";
 import {
   computeBarMove,
   computeBarResizeEnd,
@@ -46,17 +56,55 @@ import {
 } from "@/lib/sx-gantt-drag";
 import { sxFormatDate } from "./sx-visual-shared";
 
-const MONTH_ROW_H = 20;
+// Keep the sticky date header dense, but reserve two distinct baselines: the objective marker
+// above and month labels below. A single 20px line made a January objective overlap the year/month
+// label at the same x-position.
+// 年ラベル(上段) + 月ラベル(下段) の2段ぶん。年と月を重ねない。
+const MONTH_ROW_H = 44;
+const MONTH_YEAR_ROW_H = 15;
 const PIN_ROW_H = 22;
-const LANE_HEADER_H = 22;
+// The compact lane header doubles as the MS label band. It is deliberately smaller than a task
+// row, while leaving the marker's pointer target clear of the first task bar.
+const LANE_HEADER_H = 34;
 const ROW_H = 48;
 const MILESTONE_PROMPT_FLIP_Y = 138;
 const LANE_GAP = 2;
+// 時間軸の縮尺。1.0 が既定 (チャート幅 1080px)、最大 4.0 まで引き伸ばせる。
+// バー・グリッド線・依存線はすべて % 配置なので、外側の幅を変えるだけで縮尺が変わる。
+const GANTT_BASE_WIDTH_PX = 1080;
+const GANTT_TIME_SCALE_MIN = 1;
+const GANTT_TIME_SCALE_MAX = 6;
+const GANTT_TIME_SCALE_STORAGE_KEY = "sx-gantt-time-scale-v1";
+function clampTimeScale(value: number) {
+  if (!Number.isFinite(value)) return 1;
+  return Math.min(
+    GANTT_TIME_SCALE_MAX,
+    Math.max(GANTT_TIME_SCALE_MIN, Math.round(value * 20) / 20),
+  );
+}
 // Reserve a real pointer gutter at both ends of the date domain. A 44px diamond centred on the
 // first/last day then stays wholly inside the grid, and a 16px resize handle can sit outside a
 // boundary bar without disappearing under the sticky label column or the scroll edge.
 const TIMELINE_SIDE_GUTTER_PX = 22;
 const MIN_BAR_HIT_WIDTH_PX = 16;
+const TASK_BAR_HEIGHT_PX = 10;
+const TASK_BAR_TOP_PX = (ROW_H - TASK_BAR_HEIGHT_PX) / 2;
+const MILESTONE_DIAMOND_SIZE_PX = 12;
+const MILESTONE_VERTEX_RADIUS_PX = MILESTONE_DIAMOND_SIZE_PX / Math.sqrt(2);
+// An MS is a gate the whole lane has to pass, not a point event on one row. It is therefore drawn
+// as a vertical band spanning the lane. The band is wide enough to read as a gate at a glance
+// while still leaving the task bars underneath legible where they cross it.
+const MILESTONE_GATE_WIDTH_PX = 12;
+const MILESTONE_GATE_HALF_PX = MILESTONE_GATE_WIDTH_PX / 2;
+// Dragging a dependency towards a row that is outside the viewport has to bring that row into
+// view, otherwise the link can never be completed. Auto-scroll starts this far from the scroller's
+// edge and is capped so the surface never runs away from the pointer.
+const DEPENDENCY_AUTOSCROLL_EDGE_PX = 56;
+const DEPENDENCY_AUTOSCROLL_MAX_SPEED_PX = 18;
+// Lines are thin by default, but their invisible hover target needs to be generous enough for a
+// dense planning surface. This target never changes the visual geometry of the gantt.
+const DEPENDENCY_EDGE_HIT_WIDTH_PX = 10;
+const DEPENDENCY_HOVER_ACTION_WIDTH_PX = 56;
 
 function timelinePctCss(pct: number, extraPx = 0) {
   const clamped = Math.min(100, Math.max(0, pct));
@@ -101,10 +149,8 @@ type DisplayRow = {
   isCritical: boolean;
   isCurrent: boolean;
   isBlockingMilestone: boolean;
-  /** phase = rendered as a bar (工程); milestone = rendered as a diamond (MS). null for task
-   * rows — tasks are never diamonds. Blocking-gate rows (isBlockingMilestone) always render as
-   * a diamond regardless of this value — that special-case stays slug-driven, everything else
-   * must read this column instead of guessing from slug. */
+  /** Internal type from the milestone table. The gantt renders only task rows and point-MS
+   * lane overlays; hidden compatibility containers are never displayed as rows. */
   timelineKind: SxTimelineKind | null;
   /** project_management_milestones.version / project_management_tasks.version at the time this
    * row was built. Sent back as expected_version on a gantt-drag PATCH. */
@@ -122,14 +168,8 @@ type DisplayRow = {
   hasChildren: boolean;
   requirements: SxGateRequirement[];
   /** Only set for the two founding-prerequisite milestone rows (business-paid-poc /
-   * funding-investment). Achievement here follows sxGateRequirementState — the 4-item oral
-   * agreement evidence alone is not enough, required tasks must also be complete. */
+   * funding-investment). Achievement here follows the MS's own state and evidence. */
   achievement?: SxGateRequirement["state"] | null;
-  requiredTaskSummary?: {
-    completed: number;
-    total: number;
-    nextIncompleteTitle: string | null;
-  } | null;
 };
 
 type LaneMeta = {
@@ -180,14 +220,15 @@ const ROW_STATE_TEXT: Record<DisplayRow["state"], string> = {
   future: "予定",
   blocked: "停止",
   overdue: "期限超過",
+  not_started: "未着手",
   unassessed: "進捗未登録",
   attention: "要確認",
 };
 
 const GATE_STATE_TONE: Record<SxGateRequirement["state"], string> = {
-  met: "border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]",
-  unconfirmed: "border-[#e3c994] bg-[#fbf1dc] text-[#765022]",
-  unmet: "border-[#d8b0a8] bg-[#f9e4e1] text-[#8c3329]",
+  met: "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]",
+  unconfirmed: "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]",
+  unmet: "border-[#fca5a5] bg-[#fee2e2] text-[#dc2626]",
 };
 
 const GATE_STATE_TEXT: Record<SxGateRequirement["state"], string> = {
@@ -219,44 +260,11 @@ function classifyTask(task: SxTask, asOf: string): DisplayRow["state"] {
   if (task.status === "completed") return "complete";
   if (task.status === "blocked") return "blocked";
   if (task.plannedEnd && task.plannedEnd < asOf) return "overdue";
+  if (task.status === "not_started") return "not_started";
   if (task.status === "unassessed") return "unassessed";
   if (task.status === "attention" || task.status === "at_risk")
     return "attention";
   return task.progressPct > 0 ? "current" : "future";
-}
-
-function milestoneDisplayRow(
-  row: SxEcdTimelineRow,
-  milestone: SxManagementMilestone | undefined,
-  requirements: SxGateRequirement[],
-  hasChildren: boolean,
-): DisplayRow {
-  return {
-    id: row.milestoneId,
-    entity: "milestone",
-    milestoneId: row.milestoneId,
-    parentTaskId: null,
-    depth: 0,
-    title: row.title,
-    state: row.state,
-    isCritical: row.isCritical,
-    isCurrent: row.isCurrent,
-    isBlockingMilestone: Boolean(milestone && sxIsBlockingMilestone(milestone)),
-    timelineKind: milestone?.timelineKind ?? "phase",
-    version: milestone?.version ?? 1,
-    gate: milestone?.gate || row.gate,
-    plannedStart: row.plannedStart,
-    plannedEnd: row.plannedEnd,
-    actualEnd: milestone?.actualEnd || null,
-    plannedStartPct: row.plannedStartPct,
-    plannedEndPct: row.plannedEndPct,
-    dateCertainty: row.dateCertainty,
-    ownerLabel: row.ownerLabel,
-    progressPct: row.progressPct,
-    progressRegistered: row.state !== "unassessed",
-    hasChildren,
-    requirements,
-  };
 }
 
 function blockingRowState(
@@ -265,33 +273,35 @@ function blockingRowState(
   if (status === "completed") return "complete";
   if (status === "blocked") return "blocked";
   if (status === "attention" || status === "at_risk") return "attention";
+  if (status === "not_started") return "not_started";
   if (status === "unassessed") return "unassessed";
   return "current";
 }
 
-/** Founding-prerequisite milestone row. Dates come straight from the milestone (currently
- * always null — no date is invented here) and go through the same dateToPct as every other
- * row, so if a real date is ever entered this row naturally gains a normal bar instead of
- * needing a separate code path. */
-function blockingMilestoneRow(
+/** An MS is an overlay across its lane, never a fake parent task row. Dates come straight from
+ * the record: when there is no date, it is shown as a lane-band label rather than inventing an
+ * x-position. */
+function milestoneAnchorRow(
   milestone: SxManagementMilestone,
-  hasChildren: boolean,
-  tasks: SxTask[],
   timeline: SxEcdUnifiedTimeline,
 ): DisplayRow {
-  const summary = sxMilestoneRequiredTaskSummary(milestone.id, tasks);
-  const achievement = sxGateRequirementState(milestone, tasks);
+  const isBlockingMilestone = sxIsBlockingMilestone(milestone);
+  const achievement = isBlockingMilestone
+    ? sxGateRequirementState(milestone)
+    : null;
   return {
     id: milestone.id,
     entity: "milestone",
     milestoneId: milestone.id,
     parentTaskId: null,
     depth: 0,
-    title: milestone.gate || milestone.title,
+    // `gate` is the completion condition's short label. The user-visible MS name is always the
+    // record title: using `gate` here made the pre-existing large MS look as if it had vanished.
+    title: milestone.title,
     state: blockingRowState(milestone.manualStatus),
     isCritical: false,
     isCurrent: false,
-    isBlockingMilestone: true,
+    isBlockingMilestone,
     timelineKind: milestone.timelineKind,
     version: milestone.version,
     gate: milestone.gate,
@@ -311,15 +321,12 @@ function blockingMilestoneRow(
     dateCertainty: milestone.dateCertainty,
     ownerLabel: milestone.ownerLabel || "担当未確認",
     progressPct: milestone.progressPct,
-    progressRegistered: milestone.manualStatus !== "unassessed",
-    hasChildren,
+    progressRegistered:
+      milestone.manualStatus !== "unassessed" &&
+      milestone.manualStatus !== "not_started",
+    hasChildren: false,
     requirements: [],
     achievement,
-    requiredTaskSummary: {
-      completed: summary.completed,
-      total: summary.total,
-      nextIncompleteTitle: summary.nextIncomplete?.title ?? null,
-    },
   };
 }
 
@@ -361,21 +368,26 @@ function taskDisplayRow(
     dateCertainty: task.dateCertainty,
     ownerLabel: task.ownerLabel,
     progressPct: task.progressPct,
-    progressRegistered: task.status !== "unassessed",
+    progressRegistered:
+      task.status !== "unassessed" && task.status !== "not_started",
     hasChildren,
     requirements: [],
   };
 }
 
 function lanesTotalHeight(
-  lanes: Array<{ rows: DisplayRow[] }>,
+  lanes: Array<{ rows: DisplayRow[]; collapsed: boolean }>,
   includeTaskWriterRow: boolean,
 ) {
   return lanes.reduce(
     (sum, lane) =>
       sum +
       LANE_HEADER_H +
-      (lane.rows.length + (includeTaskWriterRow ? 1 : 0)) * ROW_H +
+      // A collapsed lane keeps only its header band — that band is where the MS gates live, so
+      // they stay visible — and drops the task rows together with the "新規タスク" writer row.
+      (lane.rows.length +
+        (includeTaskWriterRow && !lane.collapsed ? 1 : 0)) *
+        ROW_H +
       LANE_GAP,
     0,
   );
@@ -402,7 +414,7 @@ function RowBar({
   onPointerUp,
   onPointerCancel,
   onLostPointerCapture,
-  connectionMode,
+  dependencyEnabled,
   connectionSourceId,
   onPointerDownDependency,
   onKeyboardStartDependency,
@@ -423,14 +435,14 @@ function RowBar({
   onPointerUp: (event: React.PointerEvent) => void;
   onPointerCancel: (event: React.PointerEvent) => void;
   onLostPointerCapture: (event: React.PointerEvent) => void;
-  connectionMode: boolean;
+  dependencyEnabled: boolean;
   connectionSourceId: string | null;
   onPointerDownDependency: (
     row: DisplayRow,
     event: React.PointerEvent<HTMLButtonElement>,
   ) => void;
   onKeyboardStartDependency: (row: DisplayRow) => void;
-  onCompleteDependency: (taskId: string) => void;
+  onCompleteDependency: (target: ScheduleDependencyTarget) => void;
 }) {
   const barStart = row.plannedStartPct ?? row.plannedEndPct ?? 0;
   const plannedEnd = row.plannedEndPct;
@@ -441,14 +453,28 @@ function RowBar({
   // this column, never infer from slug. The 2 founding-prerequisite gates keep their
   // isBlockingMilestone special-case (slug-driven) on top of this.
   const isMilestoneMarker = row.isBlockingMilestone || row.timelineKind === "milestone";
+  const dependencyTargetPct = row.entity === "task"
+    ? row.plannedStartPct
+    : isMilestoneMarker
+      ? row.plannedEndPct
+      : null;
+  // Drawing a dependency is not a mode you switch into: the "+" port is always on the row, and
+  // only while a link is actually being drawn (a source is armed) do the date-drag affordances
+  // stand down, so a half-finished link can never be resolved as a schedule change.
+  const connectionDrafting = connectionSourceId != null;
+  const isConnectionSource = connectionSourceId === `${row.entity}:${row.id}`;
+  const showDependencyPort =
+    dependencyEnabled &&
+    (row.entity === "task" || isMilestoneMarker) &&
+    (!connectionDrafting || isConnectionSource);
   // A normal range is draggable only when BOTH endpoints exist. End-only normal rows are
   // intentionally read-only on the gantt: there is no honest duration to move or resize yet.
   // The sole end-only draggable exception is the NewCo diamond below.
   const draggableBar =
-    canManage && !connectionMode && row.plannedStart != null && row.plannedEnd != null && !isMilestoneMarker;
+    canManage && !connectionDrafting && row.plannedStart != null && row.plannedEnd != null && !isMilestoneMarker;
   const draggableMilestone =
     canManage &&
-    !connectionMode &&
+    !connectionDrafting &&
     hasBar &&
     isMilestoneMarker &&
     // Only the two NewCo gates may drag from an end-only date. A generic point-MS must have its
@@ -457,10 +483,6 @@ function RowBar({
   const barGeometry = hasBar && !isMilestoneMarker
     ? barHitGeometryCss(barStart, plannedEnd)
     : null;
-  // blocking milestone行は「必須タスク 完了/総数・次の未完了」を常時1行目に出すため、日付が
-  // 入ってバー/◇が付いても潰されないよう、通常行より下へ寄せる（48px行の中で summary(0-13px) →
-  // ◇(13-25px) → bar(24-32px) → 予定/実績(36-48px)の順に積む。日付は捏造しない）。
-  const barTop = row.isBlockingMilestone ? 24 : 15;
   const detailHitStyle = isMilestoneMarker
     ? {
         top: DRAG_HIT_TOP,
@@ -480,7 +502,7 @@ function RowBar({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
-      className={`group relative h-full w-full ${selected ? "bg-[#e8f2eb]/70" : "hover:bg-[#f8f5ec]/70"} ${dragging ? "cursor-grabbing" : ""} ${saving ? "opacity-60" : ""}`}
+      className={`group relative h-full w-full ${selected ? "bg-[#ecfdf5]/70" : "hover:bg-[#f5f5f7]/70"} ${dragging ? "cursor-grabbing" : ""} ${saving ? "opacity-60" : ""}`}
     >
       {/* The row is split into two real interactions: its true blank timeline surface proposes
           a new MS, while the rendered bar/diamond alone owns record selection and drag. Keeping
@@ -489,13 +511,13 @@ function RowBar({
       <button
         type="button"
         onClick={onTimelinePoint}
-        disabled={!canManage || saving || connectionMode}
-        className="absolute inset-0 z-0 w-full cursor-crosshair text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] disabled:cursor-default"
+        disabled={!canManage || saving || connectionDrafting}
+        className="absolute inset-0 z-0 w-full cursor-crosshair text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669] disabled:cursor-default"
         aria-label={`${row.title}行の日付を選んでMSを追加`}
       />
       {/* Move-drag hit target: the actual bar's full width, never empty row space. Sits below
           (DOM-order-first, so lower stacking) the resize handles, which claim their own hit area
-          at each edge. Visual bar stays 8px; this hit box is >=44px tall so touch/pointer users
+          at each edge. The 10px visual bar is row-centred; this hit box is >=44px tall so users
           don't need pixel precision to grab it. */}
       {draggableBar && (
         <button
@@ -509,7 +531,7 @@ function RowBar({
             onOpen();
           }}
           onLostPointerCapture={onLostPointerCapture}
-          className="absolute z-20 cursor-grab focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+          className="absolute z-20 cursor-grab focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
           style={{
             top: DRAG_HIT_TOP,
             left: barGeometry!.left,
@@ -520,23 +542,25 @@ function RowBar({
           aria-label={`${row.title}。ドラッグで期間を移動、クリックで詳細を開く`}
         />
       )}
-      {hasBar && !draggableBar && (
+      {hasBar && !draggableBar && !isMilestoneMarker && (
         <button
           type="button"
           onClick={(event) => {
             event.stopPropagation();
             onOpen();
           }}
-          className="absolute z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+          className="absolute z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
           style={detailHitStyle}
           aria-label={`${row.title}の詳細を開く`}
         />
       )}
       {hasBar && !isMilestoneMarker && (
         <span
-          className="pointer-events-none absolute h-[8px] overflow-hidden rounded-sm border"
+          data-gantt-task-bar={row.id}
+          className="pointer-events-none absolute overflow-hidden rounded-sm border"
           style={{
-            top: barTop,
+            top: TASK_BAR_TOP_PX,
+            height: TASK_BAR_HEIGHT_PX,
             left: barGeometry!.left,
             width: barGeometry!.width,
             borderColor: `${accent}99`,
@@ -576,7 +600,7 @@ function RowBar({
             style={{ top: DRAG_HIT_TOP, left: `calc(${barGeometry!.left} - 16px)`, height: DRAG_HIT_HEIGHT }}
             aria-label={`${row.title}の開始日を変更`}
           >
-            <span className="block h-3 w-[3px] bg-[#24231f]" />
+            <span className="block h-3 w-[3px] bg-[#1d1d1f]" />
           </button>
           <button
             type="button"
@@ -593,13 +617,14 @@ function RowBar({
             style={{ top: DRAG_HIT_TOP, left: barGeometry!.right, height: DRAG_HIT_HEIGHT }}
             aria-label={`${row.title}の終了日を変更`}
           >
-            <span className="block h-3 w-[3px] bg-[#24231f]" />
+            <span className="block h-3 w-[3px] bg-[#1d1d1f]" />
           </button>
         </>
       )}
       {draggableMilestone && (
         <button
           type="button"
+          data-gantt-milestone-marker={row.id}
           onPointerDown={(event) => {
             event.stopPropagation();
             onPointerDownMove(event);
@@ -609,33 +634,47 @@ function RowBar({
             onOpen();
           }}
           onLostPointerCapture={onLostPointerCapture}
-          className="absolute z-30 -translate-x-1/2 cursor-grab focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+          className="absolute z-30 grid -translate-x-1/2 cursor-grab place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
           style={{ top: DRAG_HIT_TOP, left: timelinePctCss(plannedEnd), width: DRAG_HIT_HEIGHT, height: DRAG_HIT_HEIGHT }}
           aria-label={`${row.title}。ドラッグで予定日を変更、クリックで詳細を開く`}
-        />
+        >
+          {/* The visible ◇ lives inside its semantic button. A marker click therefore always
+              selects this exact MS; the 44px button remains the generous drag hit area. */}
+          <i
+            className={`block h-3 w-3 rotate-45 border-2 border-[#027FDC] ${row.isBlockingMilestone ? "bg-[#027FDC]" : "bg-[#ffffff]"}`}
+            aria-hidden="true"
+          />
+        </button>
       )}
-      {hasBar && isMilestoneMarker && (
-        <span
-          className="pointer-events-none absolute top-[13px] -translate-x-1/2 text-center"
-          style={{ left: timelinePctCss(plannedEnd) }}
+      {hasBar && isMilestoneMarker && !draggableMilestone && (
+        <button
+          type="button"
+          data-gantt-milestone-marker={row.id}
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpen();
+          }}
+          className="absolute z-20 grid -translate-x-1/2 cursor-pointer place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
+          style={detailHitStyle}
+          aria-label={`${row.title}の詳細を開く`}
         >
           {/* NewCo blocking gate = filled purple diamond; generic MS = hollow — matches Legend. */}
           <i
-            className={`mx-auto block h-3 w-3 rotate-45 border-2 border-[#5f4a66] ${row.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
+            className={`block h-3 w-3 rotate-45 border-2 border-[#027FDC] ${row.isBlockingMilestone ? "bg-[#027FDC]" : "bg-[#ffffff]"}`}
             aria-hidden="true"
           />
-        </span>
+        </button>
       )}
-      {connectionMode &&
-        hasBar &&
-        (row.entity === "task" || isMilestoneMarker) &&
-        (!connectionSourceId ||
-          connectionSourceId === `${row.entity}:${row.id}`) && (
+      {/* The "+" port sits wholly to the RIGHT of everything the row already owns — past the
+          16px end-resize handle for a bar, past the 44px diamond drag box for an MS — so making
+          it permanent (hover-revealed, like the resize ticks) never steals a date-drag or a
+          detail click. Drag it onto another row to link; Enter/Space arms it for keyboard use. */}
+      {showDependencyPort && hasBar && (
           <button
             type="button"
             data-gantt-dependency-source={`${row.entity}:${row.id}`}
-            data-active={connectionSourceId === `${row.entity}:${row.id}` || undefined}
-            aria-pressed={connectionSourceId === `${row.entity}:${row.id}`}
+            data-active={isConnectionSource || undefined}
+            aria-pressed={isConnectionSource}
             onPointerDown={(event) => onPointerDownDependency(row, event)}
             onClick={(event) => {
               // Pointer users drag from this port. Enter/Space has detail===0 and provides the
@@ -643,85 +682,75 @@ function RowBar({
               if (event.detail !== 0) return;
               onKeyboardStartDependency(row);
             }}
-            className="absolute z-40 grid h-11 w-7 -translate-x-1/2 place-items-center rounded-full text-[#5f4a66] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#5f4a66] data-[active=true]:text-[#205f49]"
+            className="sx-gantt-dependency-port absolute z-40 grid h-11 w-6 cursor-crosshair place-items-center rounded-full text-[#027FDC] opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#027FDC] data-[active=true]:text-[#047857] data-[active=true]:opacity-100"
             style={{
               top: 2,
               left: isMilestoneMarker
-                ? timelinePctCss(plannedEnd)
-                : barGeometry!.right,
+                ? timelinePctCss(plannedEnd, DRAG_HIT_HEIGHT / 2)
+                : `calc(${barGeometry!.right} + 16px)`,
               touchAction: "none",
             }}
+            title="ドラッグして他のタスク・MSへ依存線を引く"
             aria-label={`${row.title}の右端から依存線を開始`}
           >
-            <span className="h-3 w-3 rounded-full border-2 border-current bg-[#fffdf7]" />
+            <Plus className="h-4 w-4" strokeWidth={3} aria-hidden="true" />
           </button>
         )}
-      {connectionMode &&
-        connectionSourceId &&
-        row.entity === "task" &&
-        row.plannedStartPct != null && (
+      {connectionSourceId &&
+        (row.entity === "task" || isMilestoneMarker) &&
+        dependencyTargetPct != null && (
         <button
           type="button"
-          data-gantt-dependency-target-task={row.id}
+          data-gantt-dependency-target-entity={row.entity}
+          data-gantt-dependency-target-id={row.id}
           onClick={(event) => {
             event.stopPropagation();
-            onCompleteDependency(row.id);
+            onCompleteDependency({ entity: row.entity, id: row.id });
           }}
-          className="absolute z-40 grid h-11 w-7 -translate-x-1/2 place-items-center rounded-full text-[#315f7d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#315f7d]"
-          style={{ top: 2, left: timelinePctCss(row.plannedStartPct) }}
-          aria-label={`${row.title}の左端を接続先にする`}
+          className="absolute z-40 grid h-11 w-7 -translate-x-1/2 place-items-center rounded-full text-[#027FDC] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#027FDC]"
+          style={{
+            top: 2,
+            left: isMilestoneMarker
+              ? timelinePctCss(dependencyTargetPct, -MILESTONE_VERTEX_RADIUS_PX)
+              : (barGeometry?.left ?? timelinePctCss(dependencyTargetPct)),
+          }}
+          aria-label={`${row.title}${row.entity === "task" ? "の左端" : ""}を接続先にする`}
         >
-          <span className="h-3 w-3 rounded-full border-2 border-current bg-[#fffdf7]" />
+          <span className="h-3 w-3 rounded-full border-2 border-current bg-[#ffffff]" />
         </button>
       )}
-      {/* blocking milestone（設立前提の2件）は「どのタスクをクリアすればMS達成か」を、日程の
-          有無に関わらず常時1行目に文字で示す（日程未設定の行は帯の代わりにも使う）。日付は
-          捏造しない。 */}
-      {row.requiredTaskSummary && (
-        <span className="pointer-events-none absolute inset-x-1 top-0.5 truncate text-[10px] font-semibold text-[#5f4a66]">
-          必須タスク {row.requiredTaskSummary.completed}/
-          {row.requiredTaskSummary.total}
-          {row.requiredTaskSummary.total === 0
-            ? "（未登録）"
-            : row.requiredTaskSummary.nextIncompleteTitle
-              ? ` ・ 次：${row.requiredTaskSummary.nextIncompleteTitle}`
-              : " ・ 全完了"}
-        </span>
+      {/* A date-less MS has no honest x-position on the time axis, so its ◇ sits beside
+          「日程未設定」. It is still the record's direct-edit affordance — never let the
+          blank-timeline button underneath turn a click on this visible marker into MS creation. */}
+      {!hasBar && isMilestoneMarker && (
+        <button
+          type="button"
+          data-gantt-milestone-marker={row.id}
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpen();
+          }}
+          className="absolute bottom-0 left-0 z-20 grid h-11 w-11 cursor-pointer place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
+          aria-label={`${row.title}の詳細を開く`}
+        >
+          <i
+            className={`block h-3 w-3 translate-y-2 rotate-45 border-2 border-[#027FDC] ${row.isBlockingMilestone ? "bg-[#027FDC]" : "bg-[#ffffff]"}`}
+            aria-hidden="true"
+          />
+        </button>
       )}
-      <span className="pointer-events-none absolute inset-x-1 bottom-0.5 z-10 flex flex-wrap items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] font-semibold text-[#69665d]">
-        {hasBar ? (
-          <>
-            <span>予定 {sxFormatDate(row.plannedEnd).slice(5)}</span>
-            {!isMilestoneMarker && (
-              <span
-                className={
-                  row.progressRegistered ? "text-[#315f7d]" : "text-[#765022]"
-                }
-              >
-                実績{" "}
-                {row.actualEnd
-                  ? `完了 ${sxFormatDate(row.actualEnd).slice(5)}`
-                  : row.progressRegistered
-                    ? `${row.progressPct}%`
-                    : "未登録"}
-              </span>
-            )}
-          </>
-        ) : (
-          <span className="flex items-center gap-1">
-            {isMilestoneMarker && (
-              <i
-                className={`inline-block h-3 w-3 shrink-0 rotate-45 border-2 border-[#5f4a66] ${row.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
-                aria-hidden="true"
-              />
-            )}
+      <span className="pointer-events-none absolute inset-x-1 bottom-0.5 z-10 flex flex-wrap items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] font-semibold text-[#3c3c43]">
+        {/* 「予定 …/実績 未登録」の常時表示は 2026-08-08 に削除 (まさ #16)。
+            日付と進捗は詳細モーダルとバーの位置・塗りで読む。 */}
+        {hasBar ? null : (
+          <span className={`flex items-center gap-1 ${isMilestoneMarker ? "pl-7" : ""}`}>
             日程未設定・{ROW_STATE_TEXT[row.state]}
           </span>
         )}
         {counts.total > 0 && (
           <span
             className={
-              counts.met === counts.total ? "text-[#205f49]" : "text-[#765022]"
+              counts.met === counts.total ? "text-[#047857]" : "text-[#92400e]"
             }
           >
             前提 {counts.met}/{counts.total}
@@ -739,43 +768,8 @@ function RowBar({
   );
 }
 
-function Legend() {
-  return (
-    <div
-      className="mb-1.5 grid gap-px border border-[#d6cebf] bg-[#d6cebf] text-[10px] text-[#514e47] sm:grid-cols-4"
-      aria-label="ガントの読み方"
-    >
-      <div className="flex items-center gap-2 bg-[#fffdf7] px-2 py-1">
-        <span className="h-2 w-8 rounded-sm border border-[#7da18f] bg-[#dceae2]" />
-        <span>計画期間｜薄いバー</span>
-      </div>
-      <div className="flex items-center gap-2 bg-[#fffdf7] px-2 py-1">
-        <span className="h-2 w-8 rounded-sm bg-[#38745d]" />
-        <span>実績｜濃い塗り・進捗率</span>
-      </div>
-      <div className="flex items-center gap-2 bg-[#fffdf7] px-2 py-1">
-        <span className="h-2.5 w-2.5 rotate-45 border-2 border-[#5f4a66] bg-[#fffdf7]" />
-        <span>MS（マイルストーン）｜計画上の到達目印</span>
-      </div>
-      <div className="flex items-center gap-2 bg-[#fffdf7] px-2 py-1">
-        <span className="h-2.5 w-2.5 rotate-45 border-2 border-[#5f4a66] bg-[#5f4a66]" />
-        <span>設立ゲート｜先へ進む前提（2件のみ）</span>
-      </div>
-    </div>
-  );
-}
-
-/** MS表示の3分類: タスクは常にタスク。工程/MSの行はtimelineKind(工程 or 一般MS)と
- * isBlockingMilestone(設立前提の2件だけ)を見て判定する — スラグから推測しない。 */
-function rowKindLabel(row: DisplayRow): string {
-  if (row.entity === "task") return "タスク";
-  if (row.isBlockingMilestone) return "設立ゲート";
-  if (row.timelineKind === "milestone") return "マイルストーン";
-  return "工程";
-}
-
-/** Pointer-drag state for gantt direct editing (move/resize a phase bar, move a milestone
- * diamond). `dragging` only flips true once the pointer has moved past CLICK_DRAG_THRESHOLD_PX —
+/** Pointer-drag state for gantt direct editing (move/resize a task bar, move an MS marker).
+ * `dragging` only flips true once the pointer has moved past CLICK_DRAG_THRESHOLD_PX —
  * below that, releasing the pointer is a plain row click, not a drag commit. */
 // "milestone-move" = generic point-MS: the diamond drags both planned_start/planned_end together
 // (computeMilestoneMove collapses them to one date, regardless of the row's original values).
@@ -799,6 +793,33 @@ type DragState = {
   saving: boolean;
 };
 
+type TaskNestTarget =
+  | { kind: "task"; taskId: string }
+  | { kind: "root"; laneKey: SxDisplayLaneKey }
+  /** Manual ordering: drop above/below a sibling row instead of onto it. */
+  | { kind: "reorder"; taskId: string; place: "before" | "after" };
+
+/** Separate from date-bar drag: the left-side grip moves the task hierarchy (drop onto a row) and
+ * the manual order (drop between rows). The pointer position is kept so the dragged row can be
+ * mirrored under the cursor while the drag is live. */
+type TaskNestDragState = {
+  taskId: string;
+  milestoneId: string;
+  title: string;
+  version: number;
+  pointerId: number;
+  startClientX: number;
+  startClientY: number;
+  pointerClientX: number;
+  pointerClientY: number;
+  dragging: boolean;
+  saving: boolean;
+  target: TaskNestTarget | null;
+};
+
+/** Drop zone split of a row: the outer bands reorder, the middle band nests. */
+const TASK_REORDER_EDGE_RATIO = 0.32;
+
 type ScheduleDependencySource = {
   entity: "task" | "milestone";
   id: string;
@@ -808,11 +829,14 @@ type ScheduleDependencySource = {
   startY: number;
 };
 
+type ScheduleDependencyTarget = {
+  entity: "task" | "milestone";
+  id: string;
+};
+
 type ScheduleDependencyEdge = {
   dependency: SxScheduleDependency;
   path: string;
-  labelX: number;
-  labelY: number;
 };
 
 export function SxUnifiedTimeline({
@@ -822,7 +846,6 @@ export function SxUnifiedTimeline({
   selectedMilestoneId,
   selectedTaskId = null,
   milestones = [],
-  dependencies = [],
   scheduleDependencies = [],
   tasks = [],
   outcomes = [],
@@ -833,6 +856,7 @@ export function SxUnifiedTimeline({
   onCreateMilestone,
   onCreateTask = () => {},
   onManagementChange = () => {},
+  onManagementOptimistic,
   showPins = true,
 }: {
   timeline: SxEcdUnifiedTimeline;
@@ -847,6 +871,8 @@ export function SxUnifiedTimeline({
   selectedMilestoneId: string | null;
   selectedTaskId?: string | null;
   milestones?: SxManagementMilestone[];
+  /** Kept in the public component contract for callers that share the management bundle. The
+   * task-only renderer no longer treats milestone dependencies as displayed parent rows. */
   dependencies?: SxDependency[];
   scheduleDependencies?: SxScheduleDependency[];
   tasks?: SxTask[];
@@ -870,17 +896,55 @@ export function SxUnifiedTimeline({
   onEditTask?: (taskId: string) => void;
   onCreateTask?: (laneKey: SxDisplayLaneKey) => void;
   onManagementChange?: (bundle: SxManagementBundle, message: string) => void;
+  /** DBの応答を待たずに、親が持つbundleへ直接変更を当てる。このコンポーネントはbundle
+   *  全体を持たないので、変換関数だけを渡す。省略された呼び出し元は従来どおり応答待ちで動く。 */
+  onManagementOptimistic?: (
+    mutate: (bundle: SxManagementBundle) => SxManagementBundle,
+    message: string,
+  ) => void;
   showPins?: boolean;
 }) {
-  const [expandedMilestones, setExpandedMilestones] = useState<Set<string>>(
-    // 設立前提の2件は初期展開にする（配下の必須タスクを開いた状態で見せる）。
-    () =>
-      new Set(milestones.filter(sxIsBlockingMilestone).map((item) => item.id)),
-  );
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(
+    // Promoted legacy roots represent the initial, readable task hierarchy. Their own child
+    // tasks are visible immediately; deeper task nesting remains independently collapsible.
+    () =>
+      new Set(
+        tasks
+          .filter((task) => task.sourceRef?.startsWith("ui-root-from-phase:"))
+          .map((task) => task.id),
+      ),
+  );
+  // Collapsing a lane hides its task rows only. The lane header band stays, so the MS gates that
+  // span the lane remain readable — that is the whole point of collapsing: keep the gate rhythm,
+  // drop the row detail.
+  const [collapsedLanes, setCollapsedLanes] = useState<Set<SxDisplayLaneKey>>(
     () => new Set(),
   );
+  const toggleLaneCollapsed = (key: SxDisplayLaneKey) => {
+    setCollapsedLanes((previous) => {
+      const next = new Set(previous);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
   const [hoveredPin, setHoveredPin] = useState<string | null>(null);
+  // 時間軸の縮尺。バーもグリッドも % 配置なので、チャート全体の幅を伸ばすだけで
+  // 「1か月あたりの横幅」が素直に広がる (2026-08-07 まさ)。
+  const [timeScale, setTimeScale] = useState(1);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(GANTT_TIME_SCALE_STORAGE_KEY);
+    const parsed = stored ? Number(stored) : NaN;
+    if (Number.isFinite(parsed)) setTimeScale(clampTimeScale(parsed));
+  }, []);
+  const commitTimeScale = (value: number) => {
+    const next = clampTimeScale(value);
+    setTimeScale(next);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(GANTT_TIME_SCALE_STORAGE_KEY, String(next));
+    }
+  };
   const scrollerRef = useRef<HTMLDivElement>(null);
   const gridPaneRef = useRef<HTMLDivElement>(null);
   const justDraggedRef = useRef(false);
@@ -890,6 +954,10 @@ export function SxUnifiedTimeline({
   // not a stale closure, to decide whether a capture loss is abnormal (cancel) or just the
   // implicit release that follows a normal pointerup (do nothing, finishDrag already owns it).
   const dragRef = useRef<DragState | null>(null);
+  const [taskNestDrag, setTaskNestDrag] = useState<TaskNestDragState | null>(
+    null,
+  );
+  const taskNestDragRef = useRef<TaskNestDragState | null>(null);
   // Set the instant finishDrag decides to actually PATCH (before any `await`), cleared once that
   // PATCH settles. lostpointercapture for this pointerId while it's set means "that was the
   // normal release after our own pointerup save, not an abnormal loss" — must not wipe the drag.
@@ -906,7 +974,10 @@ export function SxUnifiedTimeline({
   const milestonePromptOriginRef = useRef<HTMLButtonElement | null>(null);
   const milestonePromptSubmittingRef = useRef(false);
   const [ganttNotice, setGanttNotice] = useState<string | null>(null);
-  const [dependencyMode, setDependencyMode] = useState(false);
+  // Dependency drawing is an always-available affordance, not a mode: every schedulable row
+  // carries a hover-revealed "+" port. `dependencySource != null` is the only transient state,
+  // and it is what suspends the date-drag/nest-drag affordances mid-link.
+  const dependencyDrawingEnabled = canManage && Boolean(projectId);
   const [dependencySource, setDependencySource] =
     useState<ScheduleDependencySource | null>(null);
   const [dependencyPreview, setDependencyPreview] = useState<{
@@ -917,8 +988,16 @@ export function SxUnifiedTimeline({
   const [removingDependencyId, setRemovingDependencyId] = useState<
     string | null
   >(null);
+  const [hoveredScheduleDependency, setHoveredScheduleDependency] = useState<{
+    id: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const dependencyHoverLeaveTimerRef = useRef<number | null>(null);
   const dependencyArrowMarkerId = `sx-gantt-arrow-${useId().replaceAll(":", "")}`;
-  const connectScheduleDependencyRef = useRef<(taskId: string) => void>(() => {});
+  const connectScheduleDependencyRef = useRef<
+    (target: ScheduleDependencyTarget) => void
+  >(() => {});
 
   // dragRef.current is the single source of truth, not the setState updater's `current` argument
   // (which reflects React's queued state — batched pointer events firing in the same tick could
@@ -936,29 +1015,114 @@ export function SxUnifiedTimeline({
     setDrag(resolved);
   }
 
+  function setTaskNestDragBoth(
+    next:
+      | TaskNestDragState
+      | null
+      | ((current: TaskNestDragState | null) => TaskNestDragState | null),
+  ) {
+    const resolved =
+      typeof next === "function"
+        ? (next as (
+            current: TaskNestDragState | null,
+          ) => TaskNestDragState | null)(taskNestDragRef.current)
+        : next;
+    taskNestDragRef.current = resolved;
+    setTaskNestDrag(resolved);
+  }
+
   function showGanttNotice(message: string) {
     setGanttNotice(message);
     window.setTimeout(() => setGanttNotice(null), 4000);
   }
 
+  function keepScheduleDependencyActions() {
+    if (dependencyHoverLeaveTimerRef.current != null) {
+      window.clearTimeout(dependencyHoverLeaveTimerRef.current);
+      dependencyHoverLeaveTimerRef.current = null;
+    }
+  }
+
+  function showScheduleDependencyActions(
+    dependencyId: string,
+    event: React.PointerEvent<SVGPathElement>,
+  ) {
+    if (!canManage || !projectId || dependencySource) return;
+    const pane = gridPaneRef.current;
+    if (!pane) return;
+    keepScheduleDependencyActions();
+    const rect = pane.getBoundingClientRect();
+    const x = Math.min(rect.width, Math.max(0, event.clientX - rect.left));
+    const y = Math.min(rect.height, Math.max(0, event.clientY - rect.top));
+    setHoveredScheduleDependency({ id: dependencyId, x, y });
+  }
+
+  function hideScheduleDependencyActionsAfterLeave(dependencyId: string) {
+    keepScheduleDependencyActions();
+    dependencyHoverLeaveTimerRef.current = window.setTimeout(() => {
+      setHoveredScheduleDependency((current) =>
+        current?.id === dependencyId ? null : current,
+      );
+      dependencyHoverLeaveTimerRef.current = null;
+    }, 180);
+  }
+
+  useEffect(
+    () => () => {
+      if (dependencyHoverLeaveTimerRef.current != null)
+        window.clearTimeout(dependencyHoverLeaveTimerRef.current);
+    },
+    [],
+  );
+
   function sourceKey(source: Pick<ScheduleDependencySource, "entity" | "id">) {
     return `${source.entity}:${source.id}`;
+  }
+
+  function dependencySourcePoint(row: DisplayRow, paneWidth: number) {
+    const layout = visibleRowLayout.get(`${row.entity}:${row.id}`);
+    if (!layout || paneWidth <= TIMELINE_SIDE_GUTTER_PX * 2) return null;
+    const isPointMilestone =
+      row.entity === "milestone" ||
+      row.isBlockingMilestone ||
+      row.timelineKind === "milestone";
+    if (isPointMilestone) {
+      if (row.plannedEndPct == null) return null;
+      return {
+        x:
+          timelinePctToPx(
+            row.plannedEndPct,
+            paneWidth,
+            TIMELINE_SIDE_GUTTER_PX,
+          ) + MILESTONE_VERTEX_RADIUS_PX,
+        y: layout.centerY,
+      };
+    }
+    if (row.plannedEndPct == null) return null;
+    const geometry = visibleBarGeometryPx(
+      row.plannedStartPct ?? row.plannedEndPct,
+      row.plannedEndPct,
+      paneWidth,
+      TIMELINE_SIDE_GUTTER_PX,
+      MIN_BAR_HIT_WIDTH_PX,
+    );
+    return { x: geometry.right, y: layout.centerY };
   }
 
   function beginScheduleDependency(
     row: DisplayRow,
     event: React.PointerEvent<HTMLButtonElement>,
   ) {
-    if (!dependencyMode || !canManage || !projectId || event.button !== 0)
-      return;
+    if (!dependencyDrawingEnabled || event.button !== 0) return;
     const pane = gridPaneRef.current;
     if (!pane || row.plannedEndPct == null) return;
     event.preventDefault();
     event.stopPropagation();
     const paneRect = pane.getBoundingClientRect();
-    const portRect = event.currentTarget.getBoundingClientRect();
-    const startX = portRect.left + portRect.width / 2 - paneRect.left;
-    const startY = portRect.top + portRect.height / 2 - paneRect.top;
+    const sourcePoint = dependencySourcePoint(row, paneRect.width);
+    if (!sourcePoint) return;
+    const startX = sourcePoint.x;
+    const startY = sourcePoint.y;
     setDependencySource({
       entity: row.entity,
       id: row.id,
@@ -971,28 +1135,22 @@ export function SxUnifiedTimeline({
   }
 
   function beginKeyboardScheduleDependency(row: DisplayRow) {
-    if (!dependencyMode || !canManage || !projectId || row.plannedEndPct == null)
-      return;
-    const layout = visibleRowLayout.get(`${row.entity}:${row.id}`);
-    const startX =
-      layout && gridPaneWidth > 0
-        ? TIMELINE_SIDE_GUTTER_PX +
-          ((gridPaneWidth - TIMELINE_SIDE_GUTTER_PX * 2) * row.plannedEndPct) /
-            100
-        : 0;
+    if (!dependencyDrawingEnabled || row.plannedEndPct == null) return;
+    const sourcePoint = dependencySourcePoint(row, gridPaneWidth);
+    if (!sourcePoint) return;
     setDependencySource({
       entity: row.entity,
       id: row.id,
       title: row.title,
       pointerId: null,
-      startX,
-      startY: layout?.centerY ?? 0,
+      startX: sourcePoint.x,
+      startY: sourcePoint.y,
     });
     setDependencyPreview(null);
-    showGanttNotice("接続先タスクの左端を選んでね。Escで中止できるよ");
+    showGanttNotice("接続先のタスクかMSを選んでね。Escで中止できるよ");
   }
 
-  async function connectScheduleDependency(successorTaskId: string) {
+  async function connectScheduleDependency(target: ScheduleDependencyTarget) {
     const source = dependencySource;
     if (!source || !projectId) {
       showGanttNotice("先にタスクかMSの右端を選んでね");
@@ -1003,17 +1161,21 @@ export function SxUnifiedTimeline({
     // attached to an already-ended pointer id.
     if (source.pointerId != null)
       setDependencySource({ ...source, pointerId: null });
-    const successor = tasks.find((task) => task.id === successorTaskId);
+    const successor = target.entity === "task"
+      ? tasks.find((task) => task.id === target.id)
+      : milestones.find((milestone) => milestone.id === target.id);
     if (!successor) {
-      showGanttNotice("接続先タスクを確認できなかったよ");
+      showGanttNotice("接続先を確認できなかったよ");
       return;
     }
-    if (source.entity === "task" && source.id === successorTaskId) {
-      showGanttNotice("同じタスク同士は接続できないよ");
+    if (source.entity === target.entity && source.id === target.id) {
+      showGanttNotice("同じ項目同士は接続できないよ");
       return;
     }
     if (
       source.entity === "milestone" &&
+      target.entity === "task" &&
+      "milestoneId" in successor &&
       successor.milestoneId === source.id
     ) {
       showGanttNotice("MS自身の配下タスクを、そのMS完了後には接続できないよ");
@@ -1025,7 +1187,10 @@ export function SxUnifiedTimeline({
         (source.entity === "task"
           ? item.predecessorTaskId === source.id
           : item.predecessorMilestoneId === source.id) &&
-        item.successorTaskId === successorTaskId,
+        item.successorType === target.entity &&
+        (target.entity === "task"
+          ? item.successorTaskId === target.id
+          : item.successorMilestoneId === target.id),
     );
     if (duplicate) {
       showGanttNotice("この依存線はすでにあるよ");
@@ -1033,6 +1198,34 @@ export function SxUnifiedTimeline({
     }
     setDependencyPreview(null);
     setDependencySource(null);
+    // 依存線は引いた瞬間に見えてほしい操作なので、先に画面へ描いてから書き込む。
+    // IDはサーバが決めるため、仮IDで描いて応答のIDへ差し替える。
+    const temporaryDependencyId = sxNewOptimisticId(
+      `dep-${source.entity}-${source.id}-${target.entity}-${target.id}`,
+    );
+    const connectedMessage = `${source.title} → ${successor.title} を接続したよ`;
+    if (onManagementOptimistic)
+      onManagementOptimistic(
+        (current) => ({
+          ...current,
+          scheduleDependencies: [
+            ...current.scheduleDependencies,
+            {
+              id: temporaryDependencyId,
+              predecessorType: source.entity,
+              predecessorTaskId: source.entity === "task" ? source.id : null,
+              predecessorMilestoneId:
+                source.entity === "milestone" ? source.id : null,
+              successorType: target.entity,
+              successorTaskId: target.entity === "task" ? target.id : null,
+              successorMilestoneId:
+                target.entity === "milestone" ? target.id : null,
+              dependencyType: "finish_to_start",
+            },
+          ],
+        }),
+        `${connectedMessage}。DBへ同期中`,
+      );
     try {
       const response = await fetch(
         `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
@@ -1044,7 +1237,8 @@ export function SxUnifiedTimeline({
             fields: {
               predecessor_type: source.entity,
               predecessor_id: source.id,
-              successor_task_id: successorTaskId,
+              successor_type: target.entity,
+              successor_id: target.id,
             },
           }),
         },
@@ -1054,10 +1248,21 @@ export function SxUnifiedTimeline({
         throw new Error(
           typeof body.error === "string" ? body.error : "依存線を保存できなかったよ",
         );
-      onManagementChange(
-        body.bundle as SxManagementBundle,
-        `${source.title} → ${successor.title} を接続したよ`,
-      );
+      if (onManagementOptimistic) {
+        // 応答のbundleは使わない: 送信中に入った別の編集を、古いbundleで消さないため。
+        if (typeof body.id === "string" && body.id)
+          onManagementOptimistic(
+            (current) =>
+              sxReplaceOptimisticManagementId(
+                current,
+                temporaryDependencyId,
+                body.id as string,
+              ),
+            connectedMessage,
+          );
+        return;
+      }
+      onManagementChange(body.bundle as SxManagementBundle, connectedMessage);
     } catch (caught) {
       const message =
         caught instanceof Error ? caught.message : "依存線を保存できなかったよ";
@@ -1070,7 +1275,15 @@ export function SxUnifiedTimeline({
 
   async function removeScheduleDependency(dependencyId: string) {
     if (!projectId || removingDependencyId) return;
+    keepScheduleDependencyActions();
+    setHoveredScheduleDependency(null);
     setRemovingDependencyId(dependencyId);
+    if (onManagementOptimistic)
+      onManagementOptimistic(
+        (current) =>
+          sxRemoveOptimisticManagementRecord(current, dependencyId),
+        "依存線を外したよ。DBへ同期中",
+      );
     try {
       const response = await fetch(
         `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
@@ -1089,46 +1302,109 @@ export function SxUnifiedTimeline({
         throw new Error(
           typeof body.error === "string" ? body.error : "依存線を外せなかったよ",
         );
+      if (onManagementOptimistic) {
+        showGanttNotice("依存線を外したよ");
+        return;
+      }
       onManagementChange(
         body.bundle as SxManagementBundle,
         "依存線を外したよ",
       );
     } catch (caught) {
-      showGanttNotice(
-        caught instanceof Error ? caught.message : "依存線を外せなかったよ",
-      );
+      const message =
+        caught instanceof Error ? caught.message : "依存線を外せなかったよ";
+      if (onManagementOptimistic) {
+        await bestEffortRefetchManagement(
+          `${message}。最新の状態に戻したよ`,
+          `${message}。画面を再読み込みしてね`,
+        );
+        return;
+      }
+      showGanttNotice(message);
     } finally {
       setRemovingDependencyId(null);
     }
   }
 
   useEffect(() => {
-    connectScheduleDependencyRef.current = (taskId) => {
-      void connectScheduleDependency(taskId);
+    connectScheduleDependencyRef.current = (target) => {
+      void connectScheduleDependency(target);
     };
   });
 
   useEffect(() => {
     if (!dependencySource || dependencySource.pointerId == null) return;
     const pointerId = dependencySource.pointerId;
-    const move = (event: PointerEvent) => {
-      if (event.pointerId !== pointerId) return;
+    // Last viewport position of the dragging pointer. The auto-scroll loop keeps running between
+    // pointermove events (a stationary pointer parked at the edge must keep scrolling), so the
+    // position it steers by has to live outside the event handler.
+    let pointerClientX = 0;
+    let pointerClientY = 0;
+    let pointerSeen = false;
+    let autoScrollFrame = 0;
+    const syncPreview = () => {
       const pane = gridPaneRef.current;
       if (!pane) return;
       const rect = pane.getBoundingClientRect();
       setDependencyPreview({
-        x: Math.min(rect.width, Math.max(0, event.clientX - rect.left)),
-        y: Math.min(rect.height, Math.max(0, event.clientY - rect.top)),
+        x: Math.min(rect.width, Math.max(0, pointerClientX - rect.left)),
+        y: Math.min(rect.height, Math.max(0, pointerClientY - rect.top)),
       });
     };
+    const edgeSpeed = (overshoot: number) =>
+      Math.min(
+        DEPENDENCY_AUTOSCROLL_MAX_SPEED_PX,
+        Math.max(4, overshoot / 3),
+      );
+    const autoScrollStep = () => {
+      autoScrollFrame = requestAnimationFrame(autoScrollStep);
+      const scroller = scrollerRef.current;
+      if (!pointerSeen || !scroller) return;
+      const rect = scroller.getBoundingClientRect();
+      let dx = 0;
+      let dy = 0;
+      if (pointerClientX < rect.left + DEPENDENCY_AUTOSCROLL_EDGE_PX)
+        dx = -edgeSpeed(rect.left + DEPENDENCY_AUTOSCROLL_EDGE_PX - pointerClientX);
+      else if (pointerClientX > rect.right - DEPENDENCY_AUTOSCROLL_EDGE_PX)
+        dx = edgeSpeed(pointerClientX - (rect.right - DEPENDENCY_AUTOSCROLL_EDGE_PX));
+      if (pointerClientY < rect.top + DEPENDENCY_AUTOSCROLL_EDGE_PX)
+        dy = -edgeSpeed(rect.top + DEPENDENCY_AUTOSCROLL_EDGE_PX - pointerClientY);
+      else if (pointerClientY > rect.bottom - DEPENDENCY_AUTOSCROLL_EDGE_PX)
+        dy = edgeSpeed(pointerClientY - (rect.bottom - DEPENDENCY_AUTOSCROLL_EDGE_PX));
+      if (!dx && !dy) return;
+      const canScrollVertically =
+        scroller.scrollHeight > scroller.clientHeight + 1;
+      scroller.scrollLeft += dx;
+      if (canScrollVertically) scroller.scrollTop += dy;
+      // The gantt itself is usually taller than its scroller only horizontally; when it is not,
+      // the row the user is reaching for is off the *page*, so scroll the page instead.
+      else if (dy) window.scrollBy(0, dy);
+      syncPreview();
+    };
+    const move = (event: PointerEvent) => {
+      if (event.pointerId !== pointerId) return;
+      pointerClientX = event.clientX;
+      pointerClientY = event.clientY;
+      pointerSeen = true;
+      syncPreview();
+    };
+    autoScrollFrame = requestAnimationFrame(autoScrollStep);
     const finish = (event: PointerEvent) => {
       if (event.pointerId !== pointerId) return;
       const target = document
         .elementFromPoint(event.clientX, event.clientY)
-        ?.closest<HTMLElement>("[data-gantt-dependency-target-task]");
-      const taskId = target?.dataset.ganttDependencyTargetTask || null;
+        ?.closest<HTMLElement>(
+          "[data-gantt-dependency-target-entity][data-gantt-dependency-target-id]",
+        );
+      const targetEntity = target?.dataset.ganttDependencyTargetEntity;
+      const targetId = target?.dataset.ganttDependencyTargetId || null;
       setDependencyPreview(null);
-      if (taskId) connectScheduleDependencyRef.current(taskId);
+      if (
+        targetId &&
+        (targetEntity === "task" || targetEntity === "milestone")
+      ) {
+        connectScheduleDependencyRef.current({ entity: targetEntity, id: targetId });
+      }
       else {
         const pane = gridPaneRef.current;
         const rect = pane?.getBoundingClientRect();
@@ -1143,12 +1419,12 @@ export function SxUnifiedTimeline({
           // destination; this is also the pointer fallback when the target starts off-screen.
           setDependencySource({ ...dependencySource, pointerId: null });
           showGanttNotice(
-            "起点を選んだよ。別タスクの左端をクリックしてね。Escで中止できるよ",
+            "起点を選んだよ。接続先のタスクかMSを選んでね。Escで中止できるよ",
           );
         } else {
           setDependencySource(null);
           showGanttNotice(
-            "接続先タスクの左端で離すか、右端と左端を順にクリックしてね",
+            "接続先のタスクかMSで離すか、起点と終点を順にクリックしてね",
           );
         }
       }
@@ -1162,6 +1438,7 @@ export function SxUnifiedTimeline({
     window.addEventListener("pointerup", finish);
     window.addEventListener("pointercancel", cancel);
     return () => {
+      cancelAnimationFrame(autoScrollFrame);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", finish);
       window.removeEventListener("pointercancel", cancel);
@@ -1169,7 +1446,7 @@ export function SxUnifiedTimeline({
   }, [dependencySource]);
 
   useEffect(() => {
-    if (!dependencyMode) return;
+    if (!dependencySource) return;
     const cancelOnEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       setDependencySource(null);
@@ -1178,7 +1455,7 @@ export function SxUnifiedTimeline({
     };
     window.addEventListener("keydown", cancelOnEscape);
     return () => window.removeEventListener("keydown", cancelOnEscape);
-  }, [dependencyMode]);
+  }, [dependencySource]);
 
   // Best-effort refetch after ANY save failure (409 conflict or otherwise) — always attempt to
   // pull the true current state so the UI never keeps showing a stale optimistic preview. If the
@@ -1209,20 +1486,6 @@ export function SxUnifiedTimeline({
     () => new Map(milestones.map((milestone) => [milestone.id, milestone])),
     [milestones],
   );
-  const requirementsBySuccessor = useMemo(
-    () => sxGateRequirementsBySuccessor(milestones, dependencies, tasks),
-    [dependencies, milestones, tasks],
-  );
-
-  // ガント外のカード帯ではなく、専用レーンとしてガント内部に表示する2件の設立前提。
-  const blockingMilestones = useMemo(
-    () =>
-      milestones
-        .filter(sxIsBlockingMilestone)
-        .sort((left, right) => left.slug.localeCompare(right.slug)),
-    [milestones],
-  );
-
   const taskChildren = useMemo(() => {
     const map = new Map<string, SxTask[]>();
     for (const task of tasks) {
@@ -1237,24 +1500,20 @@ export function SxUnifiedTimeline({
       );
     return map;
   }, [tasks]);
+  const taskNestCandidateTaskIds = useMemo(
+    () => taskNestCandidateIds(tasks, taskNestDrag?.taskId ?? null),
+    [taskNestDrag?.taskId, tasks],
+  );
 
-  // 事業開発／技術開発／組織開発の3レーンだけを描く。資金調達は独立レーンを持たず組織開発へ
-  // 統合し、設立前提の2件は専用の4本目レーンではなく、それぞれの対象レーンへ直接組み込む。
+  // The visible tree contains only tasks. Legacy phase milestones remain in the database as
+  // FK containers, but their promoted root task is the visual root. Point-MS records are kept
+  // separately as lane-wide overlays, never as parent-like rows.
   const visibleLanes = useMemo(() => {
-    const appendTaskChildren = (
-      milestoneId: string,
-      rows: DisplayRow[],
-      parentTaskId: string | null,
-      depth: number,
-    ) => {
-      const key = parentTaskId || `milestone:${milestoneId}`;
-      for (const task of taskChildren.get(key) || []) {
-        const children = taskChildren.get(task.id) || [];
-        rows.push(
-          taskDisplayRow(task, depth, children.length > 0, timeline, asOf),
-        );
-        if (children.length > 0 && expandedTasks.has(task.id))
-          appendTaskChildren(milestoneId, rows, task.id, depth + 1);
+    const appendTaskTree = (task: SxTask, rows: DisplayRow[], depth: number) => {
+      const children = taskChildren.get(task.id) || [];
+      rows.push(taskDisplayRow(task, depth, children.length > 0, timeline, asOf));
+      if (children.length > 0 && expandedTasks.has(task.id)) {
+        for (const child of children) appendTaskTree(child, rows, depth + 1);
       }
     };
 
@@ -1264,43 +1523,43 @@ export function SxUnifiedTimeline({
       organization: [],
     };
 
-    for (const milestone of blockingMilestones) {
-      const rows: DisplayRow[] = [];
-      const children = taskChildren.get(`milestone:${milestone.id}`) || [];
-      rows.push(
-        blockingMilestoneRow(milestone, children.length > 0, tasks, timeline),
-      );
-      if (children.length > 0 && expandedMilestones.has(milestone.id))
-        appendTaskChildren(milestone.id, rows, null, 1);
-      bucket[BLOCKING_MILESTONE_LANE[milestone.slug] ?? "organization"].push(
-        ...rows,
-      );
+    const laneForTask = (task: SxTask): SxDisplayLaneKey => {
+      const backing = milestoneById.get(task.milestoneId);
+      // A task keeps its own workstream even when it contributes to a blocking MS whose diamond
+      // spans another lane. Only the MS marker is forced to BLOCKING_MILESTONE_LANE.
+      if (task.track) return displayLaneKeyForTrack(task.track);
+      if (backing && sxIsBlockingMilestone(backing))
+        return BLOCKING_MILESTONE_LANE[backing.slug] ?? "organization";
+      return displayLaneKeyForTrack(backing?.track || "organizational_building");
+    };
+    for (const task of tasks
+      .filter((candidate) => candidate.parentTaskId == null)
+      .sort((left, right) => left.sortOrder - right.sortOrder || left.title.localeCompare(right.title))) {
+      appendTaskTree(task, bucket[laneForTask(task)], 0);
     }
 
-    for (const lane of timeline.lanes) {
-      const laneKey = displayLaneKeyForTrack(lane.key);
-      for (const milestone of lane.rows) {
-        // 設立前提の2件は上ですでに強制配置済みなので、通常の柱レーンでは二重表示しない。
-        const definition = milestoneById.get(milestone.milestoneId);
-        if (definition && sxIsBlockingMilestone(definition)) continue;
-        const rows: DisplayRow[] = [];
-        const children =
-          taskChildren.get(`milestone:${milestone.milestoneId}`) || [];
-        rows.push(
-          milestoneDisplayRow(
-            milestone,
-            definition,
-            requirementsBySuccessor.get(milestone.milestoneId) || [],
-            children.length > 0,
-          ),
-        );
-        if (
-          children.length > 0 &&
-          expandedMilestones.has(milestone.milestoneId)
-        )
-          appendTaskChildren(milestone.milestoneId, rows, null, 1);
-        bucket[laneKey].push(...rows);
-      }
+    const milestoneBucket: Record<SxDisplayLaneKey, DisplayRow[]> = {
+      business_development: [],
+      technology_development: [],
+      organization: [],
+    };
+    for (const milestone of milestones.filter(
+      (candidate) => candidate.timelineKind === "milestone",
+    )) {
+      // An MS can be placed on several groups at once (display_lane_keys). The single record is
+      // then drawn as the same gate band in each of them; empty falls back to the track.
+      const chosenLanes = milestone.displayLaneKeys.filter(
+        (key): key is SxDisplayLaneKey => key in milestoneBucket,
+      );
+      const laneKeys: SxDisplayLaneKey[] = chosenLanes.length
+        ? chosenLanes
+        : [
+            sxIsBlockingMilestone(milestone)
+              ? (BLOCKING_MILESTONE_LANE[milestone.slug] ?? "organization")
+              : displayLaneKeyForTrack(milestone.track),
+          ];
+      for (const laneKey of laneKeys)
+        milestoneBucket[laneKey].push(milestoneAnchorRow(milestone, timeline));
     }
 
     const laneByKey = new Map(timeline.lanes.map((lane) => [lane.key, lane]));
@@ -1308,8 +1567,8 @@ export function SxUnifiedTimeline({
       key === "organization"
         ? (laneByKey.get("organizational_building")?.accent ??
           laneByKey.get("funding")?.accent ??
-          "#69665d")
-        : (laneByKey.get(key)?.accent ?? "#69665d");
+          "#86868b")
+        : (laneByKey.get(key)?.accent ?? "#86868b");
     const maxIssueFor = (key: SxDisplayLaneKey) =>
       key === "organization"
         ? [
@@ -1320,43 +1579,40 @@ export function SxUnifiedTimeline({
             .join(" / ")
         : (laneByKey.get(key)?.maxIssue ?? "");
 
-    return DISPLAY_LANE_ORDER.map((key) => ({
-      lane: {
-        key,
-        label: DISPLAY_LANE_LABEL[key],
-        shortLabel: DISPLAY_LANE_LABEL[key],
-        accent: accentFor(key),
-        maxIssue: maxIssueFor(key),
-      } satisfies LaneMeta,
-      rows: bucket[key],
-    }));
+    return DISPLAY_LANE_ORDER.map((key) => {
+      const collapsed = collapsedLanes.has(key);
+      return {
+        lane: {
+          key,
+          label: DISPLAY_LANE_LABEL[key],
+          shortLabel: DISPLAY_LANE_LABEL[key],
+          accent: accentFor(key),
+          maxIssue: maxIssueFor(key),
+        } satisfies LaneMeta,
+        collapsed,
+        // Emptying `rows` is what makes the collapse ripple through every downstream consumer —
+        // lane height, row layout, dependency endpoints — without a second code path.
+        rows: collapsed ? [] : bucket[key],
+        taskCount: bucket[key].length,
+        milestones: milestoneBucket[key].sort(
+          (left, right) => left.title.localeCompare(right.title),
+        ),
+      };
+    });
   }, [
     asOf,
-    blockingMilestones,
-    expandedMilestones,
+    collapsedLanes,
     expandedTasks,
     milestoneById,
-    requirementsBySuccessor,
     taskChildren,
     tasks,
     timeline,
+    milestones,
   ]);
 
   const hasAnyChildren = taskChildren.size > 0;
   const allExpanded =
     hasAnyChildren &&
-    blockingMilestones.every(
-      (milestone) =>
-        !taskChildren.has(`milestone:${milestone.id}`) ||
-        expandedMilestones.has(milestone.id),
-    ) &&
-    timeline.lanes.every((lane) =>
-      lane.rows.every(
-        (row) =>
-          !taskChildren.has(`milestone:${row.milestoneId}`) ||
-          expandedMilestones.has(row.milestoneId),
-      ),
-    ) &&
     tasks.every(
       (task) => !taskChildren.has(task.id) || expandedTasks.has(task.id),
     );
@@ -1366,11 +1622,36 @@ export function SxUnifiedTimeline({
   );
   const pinRowHeight = showPins ? PIN_ROW_H : 0;
   const gridHeight = pinRowHeight + lanesHeight;
+  const milestoneStats = useMemo(() => {
+    const all = visibleLanes.flatMap(({ milestones: laneMilestones }) => laneMilestones);
+    return {
+      undated: all.filter((milestone) => !milestone.plannedEnd).length,
+      completed: all.filter((milestone) => milestone.state === "complete").length,
+    };
+  }, [visibleLanes]);
 
   const visibleRowLayout = useMemo(() => {
     const rows = new Map<string, { row: DisplayRow; centerY: number }>();
     let top = pinRowHeight;
-    for (const { rows: laneRows } of visibleLanes) {
+    for (const {
+      rows: laneRows,
+      milestones: laneMilestones,
+      collapsed,
+    } of visibleLanes) {
+      const laneTop = top;
+      // The MS is a gate band spanning the whole lane, so a dependency line meets it at the
+      // vertical center of that band — not at the center of the lane header strip.
+      const laneSpanH =
+        LANE_HEADER_H +
+        (laneRows.length + (canManage && projectId && !collapsed ? 1 : 0)) * ROW_H;
+      for (const milestone of laneMilestones) {
+        // A multi-lane MS is drawn in every selected group; dependency lines meet the first one.
+        if (rows.has(`milestone:${milestone.id}`)) continue;
+        rows.set(`milestone:${milestone.id}`, {
+          row: milestone,
+          centerY: laneTop + laneSpanH / 2,
+        });
+      }
       top += LANE_HEADER_H;
       for (const row of laneRows) {
         rows.set(`${row.entity}:${row.id}`, {
@@ -1379,7 +1660,7 @@ export function SxUnifiedTimeline({
         });
         top += ROW_H;
       }
-      if (canManage && projectId) top += ROW_H;
+      if (canManage && projectId && !collapsed) top += ROW_H;
       top += LANE_GAP;
     }
     return rows;
@@ -1397,34 +1678,62 @@ export function SxUnifiedTimeline({
 
   const scheduleDependencyEdges = useMemo<ScheduleDependencyEdge[]>(() => {
     if (gridPaneWidth <= TIMELINE_SIDE_GUTTER_PX * 2) return [];
-    const pctToPx = (pct: number) =>
-      TIMELINE_SIDE_GUTTER_PX +
-      ((gridPaneWidth - TIMELINE_SIDE_GUTTER_PX * 2) * pct) / 100;
+    const endpointX = (row: DisplayRow, side: "source" | "target") => {
+      const isPointMilestone =
+        row.entity === "milestone" ||
+        row.isBlockingMilestone ||
+        row.timelineKind === "milestone";
+      if (isPointMilestone) {
+        if (row.plannedEndPct == null) return null;
+        const centerX = timelinePctToPx(
+          row.plannedEndPct,
+          gridPaneWidth,
+          TIMELINE_SIDE_GUTTER_PX,
+        );
+        // The MS is a gate band, so a dependency line meets its vertical edge, not a diamond vertex.
+        return centerX +
+          (side === "source"
+            ? MILESTONE_GATE_HALF_PX
+            : -MILESTONE_GATE_HALF_PX);
+      }
+      if (
+        row.plannedEndPct == null ||
+        (side === "target" && row.plannedStartPct == null)
+      )
+        return null;
+      const geometry = visibleBarGeometryPx(
+        row.plannedStartPct ?? row.plannedEndPct,
+        row.plannedEndPct,
+        gridPaneWidth,
+        TIMELINE_SIDE_GUTTER_PX,
+        MIN_BAR_HIT_WIDTH_PX,
+      );
+      return side === "source" ? geometry.right : geometry.left;
+    };
     return scheduleDependencies.flatMap((dependency) => {
       const sourceKey =
         dependency.predecessorType === "task"
           ? `task:${dependency.predecessorTaskId}`
           : `milestone:${dependency.predecessorMilestoneId}`;
       const source = visibleRowLayout.get(sourceKey);
-      const target = visibleRowLayout.get(`task:${dependency.successorTaskId}`);
-      const sourcePct = source?.row.plannedEndPct;
-      const targetPct = target?.row.plannedStartPct;
-      if (!source || !target || sourcePct == null || targetPct == null) return [];
-      const x1 = pctToPx(sourcePct);
-      const x2 = pctToPx(targetPct);
+      const targetKey = dependency.successorType === "task"
+        ? `task:${dependency.successorTaskId}`
+        : `milestone:${dependency.successorMilestoneId}`;
+      const target = visibleRowLayout.get(targetKey);
+      if (!source || !target) return [];
+      const x1 = endpointX(source.row, "source");
+      const x2 = endpointX(target.row, "target");
+      if (x1 == null || x2 == null) return [];
       const y1 = source.centerY;
       const y2 = target.centerY;
-      const directGap = x2 - x1;
-      const routeX =
-        directGap >= 44
-          ? x1 + directGap / 2
-          : Math.min(gridPaneWidth - 10, Math.max(x1, x2) + 28);
+      const route = buildFinishToStartRoute(
+        { x: x1, y: y1 },
+        { x: x2, y: y2 },
+      );
       return [
         {
           dependency,
-          path: `M ${x1} ${y1} H ${routeX} V ${y2} H ${x2}`,
-          labelX: routeX,
-          labelY: y1 + (y2 - y1) / 2,
+          path: route.path,
         },
       ];
     });
@@ -1441,9 +1750,12 @@ export function SxUnifiedTimeline({
                 (milestone) =>
                   milestone.id === dependency.predecessorMilestoneId,
               )?.title || "非表示の先行MS";
-        const targetTitle =
-          tasks.find((task) => task.id === dependency.successorTaskId)?.title ||
-          "非表示の後続タスク";
+        const targetTitle = dependency.successorType === "task"
+          ? tasks.find((task) => task.id === dependency.successorTaskId)?.title ||
+            "非表示の後続タスク"
+          : milestones.find(
+              (milestone) => milestone.id === dependency.successorMilestoneId,
+            )?.title || "非表示の後続MS";
         return { dependency, sourceTitle, targetTitle };
       }),
     [milestones, scheduleDependencies, tasks],
@@ -1461,17 +1773,8 @@ export function SxUnifiedTimeline({
 
   function toggleAll() {
     if (allExpanded) {
-      setExpandedMilestones(new Set());
       setExpandedTasks(new Set());
     } else {
-      setExpandedMilestones(
-        new Set([
-          ...blockingMilestones.map((milestone) => milestone.id),
-          ...timeline.lanes.flatMap((lane) =>
-            lane.rows.map((row) => row.milestoneId),
-          ),
-        ]),
-      );
       setExpandedTasks(new Set(tasks.map((task) => task.id)));
     }
   }
@@ -1513,6 +1816,17 @@ export function SxUnifiedTimeline({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isDragging]);
 
+  useEffect(() => {
+    if (!taskNestDrag) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape" || taskNestDragRef.current?.saving) return;
+      event.preventDefault();
+      setTaskNestDragBoth(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [taskNestDrag]);
+
   // The Y/N question is deliberately a lightweight non-modal popover. It disappears before the
   // real MS editor opens, so the dashboard never stacks two dialogs. Escape/N restore focus to
   // the exact timeline point that opened it; scrolling or resizing closes the stale-positioned
@@ -1551,7 +1865,8 @@ export function SxUnifiedTimeline({
   }, [pendingMilestonePoint]);
 
   function beginDrag(row: DisplayRow, mode: DragMode, event: React.PointerEvent) {
-    if (!canManage || !projectId || drag) return;
+    if (!canManage || !projectId || dragRef.current || taskNestDragRef.current)
+      return;
     if (!row.plannedEnd) return;
     // Every mode except a gate's end-only move requires a real plannedStart to drag from —
     // "milestone-end-move" is the one case where an end-only NewCo gate must still be draggable.
@@ -1635,6 +1950,339 @@ export function SxUnifiedTimeline({
     }
   }
 
+  function laneKeyForTask(task: SxTask): SxDisplayLaneKey {
+    const backing = milestoneById.get(task.milestoneId);
+    if (task.track) return displayLaneKeyForTrack(task.track);
+    if (backing && sxIsBlockingMilestone(backing))
+      return BLOCKING_MILESTONE_LANE[backing.slug] ?? "organization";
+    return displayLaneKeyForTrack(backing?.track || "organizational_building");
+  }
+
+  /** Sibling group of a task in display order: same parent, and for top-level tasks also the same
+   * visible lane — reordering must renumber only the rows the person can actually see reordering. */
+  function orderedSiblings(task: SxTask): SxTask[] {
+    const lane = laneKeyForTask(task);
+    return tasks
+      .filter(
+        (candidate) =>
+          (candidate.parentTaskId || null) === (task.parentTaskId || null) &&
+          (task.parentTaskId != null || laneKeyForTask(candidate) === lane),
+      )
+      .sort(
+        (left, right) =>
+          left.sortOrder - right.sortOrder || left.title.localeCompare(right.title),
+      );
+  }
+
+  function resolveTaskNestTarget(
+    source: TaskNestDragState,
+    clientX: number,
+    clientY: number,
+  ): TaskNestTarget | null {
+    const hit = document
+      .elementFromPoint(clientX, clientY)
+      ?.closest<HTMLElement>("[data-plan-row], [data-gantt-nest-root-lane]");
+    if (!hit) return null;
+    const sourceTask = tasks.find((task) => task.id === source.taskId) || null;
+    const planRow = hit.dataset.planRow || "";
+    const rowTaskId = planRow.startsWith("task:") ? planRow.slice(5) : "";
+    if (rowTaskId && rowTaskId !== source.taskId) {
+      const targetTask = tasks.find((task) => task.id === rowTaskId) || null;
+      const canReorder = Boolean(
+        sourceTask &&
+          targetTask &&
+          orderedSiblings(sourceTask).some((sibling) => sibling.id === targetTask.id),
+      );
+      const canNest = taskNestCandidateIds(tasks, source.taskId).has(rowTaskId);
+      const rect = hit.getBoundingClientRect();
+      const ratio = rect.height > 0 ? (clientY - rect.top) / rect.height : 0.5;
+      if (canReorder && (ratio <= TASK_REORDER_EDGE_RATIO || !canNest))
+        return {
+          kind: "reorder",
+          taskId: rowTaskId,
+          place: ratio < 0.5 ? "before" : "after",
+        };
+      if (canReorder && ratio >= 1 - TASK_REORDER_EDGE_RATIO)
+        return { kind: "reorder", taskId: rowTaskId, place: "after" };
+      if (canNest) return { kind: "task", taskId: rowTaskId };
+      // Neither sibling nor nest candidate: fall through to the lane, so dropping anywhere inside
+      // the person's own lane still means "back to top level".
+    }
+    const laneHost = hit.closest<HTMLElement>("[data-gantt-nest-root-lane]");
+    const rootLane = laneHost?.dataset.ganttNestRootLane as
+      | SxDisplayLaneKey
+      | undefined;
+    // 自レーンなら「最上位へ戻す」、別レーンなら「そのグループへ移動」(2026-08-08 まさ #15)。
+    if (rootLane) return { kind: "root", laneKey: rootLane };
+    return null;
+  }
+
+  /** 表示レーンから、タスク移動時に書き込む代表trackを引く。組織開発レーンは
+   * funding/organizational_building の2trackが同居するため organizational_building を代表にする。 */
+  const TRACK_FOR_LANE: Record<SxDisplayLaneKey, string> = {
+    business_development: "business_development",
+    technology_development: "technology_development",
+    organization: "organizational_building",
+  };
+
+  function beginTaskNestDrag(
+    row: DisplayRow,
+    event: React.PointerEvent<HTMLButtonElement>,
+  ) {
+    if (
+      row.entity !== "task" ||
+      !canManage ||
+      !projectId ||
+      dragRef.current ||
+      taskNestDragRef.current ||
+      dependencySource
+    )
+      return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setTaskNestDragBoth({
+      taskId: row.id,
+      milestoneId: row.milestoneId,
+      title: row.title,
+      version: row.version,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      pointerClientX: event.clientX,
+      pointerClientY: event.clientY,
+      dragging: false,
+      saving: false,
+      target: null,
+    });
+  }
+
+  function updateTaskNestDrag(event: React.PointerEvent<HTMLButtonElement>) {
+    setTaskNestDragBoth((current) => {
+      if (!current || current.pointerId !== event.pointerId || current.saving)
+        return current;
+      const deltaX = event.clientX - current.startClientX;
+      const deltaY = event.clientY - current.startClientY;
+      const dragging =
+        current.dragging || !isWithinClickThreshold(deltaX, deltaY);
+      if (!dragging) return current;
+      const target = resolveTaskNestTarget(current, event.clientX, event.clientY);
+      // The ghost mirrors the pointer every move, so this always produces a new state object.
+      return {
+        ...current,
+        dragging,
+        target,
+        pointerClientX: event.clientX,
+        pointerClientY: event.clientY,
+      };
+    });
+  }
+
+  /** Manual ordering: renumber the sibling group so the dragged row lands before/after the drop
+   * target, then PATCH only the rows whose sort_order actually moved. */
+  async function commitTaskReorder(
+    current: TaskNestDragState,
+    target: Extract<TaskNestTarget, { kind: "reorder" }>,
+  ) {
+    const sourceTask = tasks.find((task) => task.id === current.taskId);
+    if (!projectId || !sourceTask) {
+      setTaskNestDragBoth(null);
+      return;
+    }
+    const siblings = orderedSiblings(sourceTask);
+    const rest = siblings.filter((task) => task.id !== sourceTask.id);
+    const anchor = rest.findIndex((task) => task.id === target.taskId);
+    if (anchor < 0) {
+      setTaskNestDragBoth(null);
+      return;
+    }
+    const nextOrder = [...rest];
+    nextOrder.splice(target.place === "before" ? anchor : anchor + 1, 0, sourceTask);
+    const moved = nextOrder
+      .map((task, index) => ({ task, sortOrder: index * 10 }))
+      .filter(({ task, sortOrder }) => task.sortOrder !== sortOrder);
+    if (moved.length === 0) {
+      setTaskNestDragBoth(null);
+      return;
+    }
+    const reorderMessage = `「${current.title}」の並び順を変えたよ`;
+    if (onManagementOptimistic) {
+      // 並び替えは掴んで離した瞬間に確定して見えてほしいので、DBの往復を待たない。
+      onManagementOptimistic(
+        (currentBundle) =>
+          moved.reduce(
+            (accumulated, { task, sortOrder }) =>
+              sxApplyOptimisticManagementPatch(accumulated, "task", task.id, {
+                sort_order: sortOrder,
+              }),
+            currentBundle,
+          ),
+        `${reorderMessage}。DBへ同期中`,
+      );
+      setTaskNestDragBoth(null);
+    } else {
+      setTaskNestDragBoth({ ...current, saving: true });
+    }
+    try {
+      let bundle: SxManagementBundle | null = null;
+      for (const { task, sortOrder } of moved) {
+        const response = await fetch(
+          `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              resource: "task",
+              id: task.id,
+              patch: { sort_order: sortOrder },
+              expected_version: task.version,
+            }),
+          },
+        );
+        const body = await response.json().catch(() => ({}));
+        if (response.status === 409) {
+          setTaskNestDragBoth(null);
+          await bestEffortRefetchManagement(
+            "他の人がこのタスクを先に更新したよ。最新の状態に更新したよ",
+            "他の人がこのタスクを先に更新したみたい。画面を再読み込みしてね",
+          );
+          return;
+        }
+        if (!response.ok)
+          throw new Error(
+            typeof body.error === "string"
+              ? body.error
+              : "タスクの並び順を保存できなかったよ",
+          );
+        bundle = (body.bundle as SxManagementBundle) || bundle;
+      }
+      setTaskNestDragBoth(null);
+      // 応答のbundleは使わない: 送信中に入った別の編集を、古いbundleで消さないため。
+      if (onManagementOptimistic) return;
+      if (bundle) onManagementChange(bundle, reorderMessage);
+    } catch (caught) {
+      setTaskNestDragBoth(null);
+      const message =
+        caught instanceof Error
+          ? caught.message
+          : "タスクの並び順を保存できなかったよ";
+      await bestEffortRefetchManagement(
+        `${message}。最新の状態に更新したよ`,
+        `${message}。保存できたか確認できなかったよ。画面を再読み込みしてね`,
+      );
+    }
+  }
+
+  async function finishTaskNestDrag(
+    event: React.PointerEvent<HTMLButtonElement>,
+  ) {
+    const current = taskNestDragRef.current;
+    if (!current || current.pointerId !== event.pointerId || !projectId) return;
+    const target = current.dragging
+      ? resolveTaskNestTarget(current, event.clientX, event.clientY)
+      : null;
+    if (!current.dragging || !target) {
+      setTaskNestDragBoth(null);
+      return;
+    }
+    if (target.kind === "reorder") {
+      await commitTaskReorder(current, target);
+      return;
+    }
+    const parentTaskId =
+      target.kind === "task" ? target.taskId : null;
+    const parentTitle = parentTaskId
+      ? tasks.find((task) => task.id === parentTaskId)?.title || "親タスク"
+      : null;
+    const sourceTask = tasks.find((task) => task.id === current.taskId) || null;
+    const crossLane =
+      target.kind === "root" &&
+      sourceTask &&
+      laneKeyForTask(sourceTask) !== target.laneKey
+        ? target.laneKey
+        : null;
+    const patch: Record<string, unknown> = crossLane
+      ? { parent_task_id: parentTaskId, track: TRACK_FOR_LANE[crossLane] }
+      : { parent_task_id: parentTaskId };
+    const nestMessage = parentTitle
+      ? `「${current.title}」を「${parentTitle}」の子タスクにしたよ`
+      : crossLane
+        ? `「${current.title}」を${DISPLAY_LANE_LABEL[crossLane]}へ移動したよ`
+        : `「${current.title}」を最上位タスクに戻したよ`;
+    if (onManagementOptimistic) {
+      onManagementOptimistic(
+        (currentBundle) =>
+          sxApplyOptimisticManagementPatch(
+            currentBundle,
+            "task",
+            current.taskId,
+            patch,
+          ),
+        `${nestMessage}。DBへ同期中`,
+      );
+      if (parentTaskId)
+        setExpandedTasks((currentExpanded) =>
+          new Set([...currentExpanded, parentTaskId]),
+        );
+      setTaskNestDragBoth(null);
+    } else {
+      setTaskNestDragBoth({ ...current, saving: true });
+    }
+    try {
+      const response = await fetch(
+        `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            resource: "task",
+            id: current.taskId,
+            patch,
+            expected_version: current.version,
+          }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (response.status === 409) {
+        setTaskNestDragBoth(null);
+        await bestEffortRefetchManagement(
+          "他の人がこのタスクを先に更新したよ。最新の状態に更新したよ",
+          "他の人がこのタスクを先に更新したみたい。画面を再読み込みしてね",
+        );
+        return;
+      }
+      if (!response.ok)
+        throw new Error(
+          typeof body.error === "string"
+            ? body.error
+            : "タスク階層を保存できなかったよ",
+        );
+      if (parentTaskId)
+        setExpandedTasks((currentExpanded) =>
+          new Set([...currentExpanded, parentTaskId]),
+        );
+      setTaskNestDragBoth(null);
+      if (onManagementOptimistic) return;
+      onManagementChange(body.bundle as SxManagementBundle, nestMessage);
+    } catch (caught) {
+      setTaskNestDragBoth(null);
+      const message =
+        caught instanceof Error ? caught.message : "タスク階層を保存できなかったよ";
+      await bestEffortRefetchManagement(
+        `${message}。最新の状態に更新したよ`,
+        `${message}。保存できたか確認できなかったよ。画面を再読み込みしてね`,
+      );
+    }
+  }
+
+  function cancelTaskNestDrag(
+    event?: React.PointerEvent<HTMLButtonElement>,
+  ) {
+    if (event && taskNestDragRef.current?.pointerId !== event.pointerId)
+      return;
+    if (!taskNestDragRef.current?.saving) setTaskNestDragBoth(null);
+  }
+
   async function finishDrag(row: DisplayRow, event: React.PointerEvent) {
     // Read dragRef.current, not the `drag` state closed over by this render — if a pointermove
     // (updateDrag) and this pointerup land in the same batch/tick before React re-renders, the
@@ -1671,14 +2319,33 @@ export function SxUnifiedTimeline({
     // dispatch — the lostpointercapture that follows normal release checks this to know not to
     // cancel what we're about to save.
     commitStartedPointerIdRef.current = current.pointerId;
-    setDragBoth({ ...current, saving: true });
+    const patch: Record<string, string | null> =
+      current.mode === "resize-start"
+        ? { planned_start: current.previewStart }
+        : current.mode === "resize-end" || current.mode === "milestone-end-move"
+          ? { planned_end: current.previewEnd }
+          : { planned_start: current.previewStart, planned_end: current.previewEnd };
+    const dragMessage =
+      current.mode === "milestone-move" || current.mode === "milestone-end-move"
+        ? "マイルストーンの日付を更新したよ"
+        : "計画日程を更新したよ";
+    if (onManagementOptimistic) {
+      // 離した瞬間に新しい日程で確定させる。DBの書き込みは裏で追いかける。
+      onManagementOptimistic(
+        (currentBundle) =>
+          sxApplyOptimisticManagementPatch(
+            currentBundle,
+            current.entity,
+            current.rowId,
+            patch,
+          ),
+        `${dragMessage}。DBへ同期中`,
+      );
+      setDragBoth(null);
+    } else {
+      setDragBoth({ ...current, saving: true });
+    }
     try {
-      const patch: Record<string, string | null> =
-        current.mode === "resize-start"
-          ? { planned_start: current.previewStart }
-          : current.mode === "resize-end" || current.mode === "milestone-end-move"
-            ? { planned_end: current.previewEnd }
-            : { planned_start: current.previewStart, planned_end: current.previewEnd };
       const response = await fetch(
         `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
         {
@@ -1703,12 +2370,8 @@ export function SxUnifiedTimeline({
       }
       if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "保存できなかったよ");
       setDragBoth(null);
-      onManagementChange(
-        body.bundle as SxManagementBundle,
-        current.mode === "milestone-move" || current.mode === "milestone-end-move"
-          ? "マイルストーンの日付を更新したよ"
-          : "計画日程を更新したよ",
-      );
+      if (onManagementOptimistic) return;
+      onManagementChange(body.bundle as SxManagementBundle, dragMessage);
     } catch (caught) {
       setDragBoth(null);
       const message = caught instanceof Error ? caught.message : "保存できなかったよ";
@@ -1795,37 +2458,39 @@ export function SxUnifiedTimeline({
 
   return (
     <div data-testid="sx-unified-timeline">
+      {taskNestDrag?.dragging && (
+        // The dragged row is mirrored under the cursor so the move reads like a normal
+        // drag-and-drop instead of an invisible pointer gesture.
+        <div
+          aria-hidden
+          data-gantt-task-drag-ghost={taskNestDrag.taskId}
+          className="pointer-events-none fixed z-[70] max-w-[240px] truncate border border-[#047857] bg-[#ecfdf5] px-2 py-1 text-[11px] font-semibold text-[#065f46] shadow-[0_6px_14px_rgba(5,150,105,0.28)]"
+          style={{
+            left: taskNestDrag.pointerClientX + 12,
+            top: taskNestDrag.pointerClientY + 12,
+          }}
+        >
+          {taskNestDrag.title}
+        </div>
+      )}
       {!timeline.valid && (
-        <p className="mb-2 border border-dashed border-[#b5533f] bg-[#f9e4e1] px-3 py-2 text-[11px] font-semibold text-[#8c3329]">
+        <p className="mb-2 border border-dashed border-[#ef4444] bg-[#fee2e2] px-3 py-2 text-[11px] font-semibold text-[#dc2626]">
           {timeline.reason}
-          {blockingMilestones.length > 0 &&
-            "。設立前提の2件は日程未設定でも該当レーンに表示するよ。"}
+          {milestones.some((milestone) => milestone.timelineKind === "milestone") &&
+            "。MSは日程未設定でも該当レーンに表示するよ。"}
         </p>
       )}
       {ganttNotice && (
-        <p role="alert" className="mb-2 border border-[#e3c994] bg-[#fbf1dc] px-3 py-2 text-[11px] font-semibold text-[#765022]">
+        <p role="alert" className="mb-2 border border-[#fbbf24] bg-[#fef3c7] px-3 py-2 text-[11px] font-semibold text-[#92400e]">
           {ganttNotice}
         </p>
       )}
-      <div className="hidden lg:block">
-        <Legend />
-      </div>
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-        {canManage && (
-          <button
-            type="button"
-            onClick={() => onCreateMilestone({ track: null })}
-            className="inline-flex min-h-11 items-center gap-1 border border-[#315f7d] bg-[#315f7d] px-3 text-[11px] font-bold text-white"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            工程
-          </button>
-        )}
         <button
           type="button"
           disabled={!hasAnyChildren}
           onClick={toggleAll}
-          className="inline-flex min-h-11 items-center gap-1 border border-[#d6cebf] bg-[#fffdf7] px-3 text-[11px] font-semibold text-[#514e47] disabled:cursor-not-allowed disabled:opacity-45"
+          className="inline-flex min-h-11 items-center gap-1 border border-[#cbd5e1] bg-[#ffffff] px-3 text-[11px] font-semibold text-[#3c3c43] disabled:cursor-not-allowed disabled:opacity-45"
         >
           {allExpanded ? (
             <ChevronsDownUp className="h-3.5 w-3.5" />
@@ -1849,128 +2514,179 @@ export function SxUnifiedTimeline({
                 behavior: "smooth",
               });
           }}
-          className="hidden min-h-11 border border-[#d6cebf] bg-[#fffdf7] px-3 text-[11px] font-semibold text-[#514e47] lg:inline-flex lg:items-center"
+          className="hidden min-h-11 border border-[#cbd5e1] bg-[#ffffff] px-3 text-[11px] font-semibold text-[#3c3c43] lg:inline-flex lg:items-center"
         >
           今日へ
         </button>
-        {canManage && projectId && (
-          <button
-            type="button"
-            aria-pressed={dependencyMode}
-            onClick={() => {
-              setDependencyMode((current) => {
-                const next = !current;
-                if (!next) {
-                  setDependencySource(null);
-                  setDependencyPreview(null);
-                }
-                return next;
-              });
-            }}
-            className={`inline-flex min-h-11 items-center gap-1 border px-3 text-[11px] font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5f4a66] ${dependencyMode ? "border-[#5f4a66] bg-[#5f4a66] text-white" : "border-[#c9bfd0] bg-[#fffdf7] text-[#5f4a66]"}`}
-          >
-            <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
-            {dependencyMode ? "依存接続中" : "依存を接続"}
-          </button>
-        )}
-        <span className="ml-auto hidden text-[10px] text-[#777166] lg:inline">
-          {dependencyMode
-            ? dependencySource
-              ? `${dependencySource.title} → 接続先タスクの左端へ`
-              : "右端から左端へドラッグ、または順にクリック"
-            : "横に動かせるよ ↔"}
+        <label className="hidden min-h-11 items-center gap-2 border border-[#cbd5e1] bg-[#ffffff] px-3 text-[11px] font-semibold text-[#3c3c43] lg:inline-flex">
+          <span className="whitespace-nowrap">時間軸</span>
+          <input
+            type="range"
+            data-gantt-time-scale
+            min={GANTT_TIME_SCALE_MIN}
+            max={GANTT_TIME_SCALE_MAX}
+            step={0.05}
+            value={timeScale}
+            onChange={(event) => commitTimeScale(Number(event.target.value))}
+            onDoubleClick={() => commitTimeScale(1)}
+            className="h-1 w-32 cursor-ew-resize accent-[#059669]"
+            aria-label="ガントの時間軸の縮尺"
+            aria-valuetext={`${timeScale.toFixed(2)}倍`}
+            title="ドラッグで時間軸を伸縮。ダブルクリックで等倍に戻る"
+          />
+          <span className="w-9 shrink-0 text-right tabular-nums text-[10px] text-[#3c3c43]">
+            {timeScale.toFixed(2)}x
+          </span>
+        </label>
+        <span className="ml-auto hidden text-[10px] text-[#3c3c43] lg:inline">
+          {dependencySource
+            ? `${dependencySource.title} → 接続先のタスクかMSへ`
+            : dependencyDrawingEnabled
+              ? "バーで日程変更・左のグリップで階層変更・右端の＋をドラッグで依存線"
+              : "バーで日程変更・左のグリップで階層変更"}
         </span>
       </div>
 
-      {scheduleDependencyItems.length > 0 && (
-        <details
-          data-gantt-schedule-dependency-register
-          className="mb-1.5 border border-[#ddd5c8] bg-[#fbf9f2] text-[#514e47]"
-        >
-          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-[10px] font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5f4a66]">
-            <Link2 className="h-3.5 w-3.5 text-[#5f4a66]" aria-hidden="true" />
-            依存関係 {scheduleDependencyItems.length}件
-            <span className="ml-auto hidden font-normal text-[#777166] sm:inline">
-              折りたたみ・日程変更後もここから解除できる
-            </span>
-          </summary>
-          <div className="divide-y divide-[#e8e2d6] border-t border-[#ddd5c8]">
-            {scheduleDependencyItems.map((item) => (
-              <div
-                key={`dependency-register-${item.dependency.id}`}
-                className="flex min-h-11 items-center gap-2 px-3 py-1.5"
-              >
-                <span className="min-w-0 flex-1 truncate text-[10px]">
-                  {item.sourceTitle} <b aria-hidden="true">→</b>{" "}
-                  {item.targetTitle}
-                </span>
-                {canManage && projectId && (
-                  <button
-                    type="button"
-                    disabled={removingDependencyId != null}
-                    onClick={() =>
-                      void removeScheduleDependency(item.dependency.id)
-                    }
-                    className="inline-flex min-h-9 shrink-0 items-center gap-1 border border-[#c9bfd0] bg-[#fffdf7] px-2 text-[10px] font-bold text-[#5f4a66] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#5f4a66] disabled:opacity-45 max-sm:min-h-11"
-                    aria-label={`${item.sourceTitle}から${item.targetTitle}への依存線を外す`}
-                  >
-                    <Unlink2 className="h-3.5 w-3.5" aria-hidden="true" />
-                    外す
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </details>
-      )}
+      {/* 依存関係の一覧表 (details) は 2026-08-07 に削除。線そのものを hover して外す導線が
+          すでにあり、一覧は使われないまま縦を食っていた (まさ指示)。 */}
 
-      <div className="space-y-2 lg:hidden" aria-label="工程とタスクの縦一覧">
-        {visibleLanes.map(({ lane, rows }) => (
+      <div className="space-y-2 lg:hidden" aria-label="MSとタスクの縦一覧">
+        {visibleLanes.map(({ lane, rows, milestones: laneMilestones, collapsed, taskCount }) => (
           <section
             key={`mobile-${lane.key}`}
-            className="border border-[#d6cebf] bg-[#fffdf7]"
+            className="border border-[#cbd5e1] bg-[#ffffff]"
           >
-            <header className="flex items-center gap-2 border-b border-[#d6cebf] bg-[#f8f5ec] px-3 py-2">
-              <span
-                className="h-2.5 w-2.5"
-                style={{ background: lane.accent }}
-              />
-              <b className="text-[11px] text-[#24231f]">{lane.label}</b>
-              <span className="text-[9px] text-[#777166]">
-                工程 {rows.filter((row) => row.entity === "milestone").length}
-              </span>
+            <header
+              data-gantt-nest-root-lane={lane.key}
+              className="border-b border-[#cbd5e1] bg-[#f5f5f7]"
+            >
+              <button
+                type="button"
+                onClick={() => toggleLaneCollapsed(lane.key)}
+                aria-expanded={!collapsed}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left"
+              >
+                <ChevronRight
+                  className={`h-3 w-3 shrink-0 text-[#3c3c43] transition-transform ${collapsed ? "" : "rotate-90"}`}
+                  aria-hidden="true"
+                />
+                <span
+                  className="h-2.5 w-2.5 shrink-0"
+                  style={{ background: lane.accent }}
+                />
+                <b className="text-[11px] text-[#1d1d1f]">{lane.label}</b>
+                <span className="text-[9px] text-[#3c3c43]">
+                  MS {laneMilestones.length} / タスク {taskCount}
+                  {collapsed ? "（折りたたみ中）" : ""}
+                </span>
+              </button>
             </header>
-            <div className="divide-y divide-[#eee9df]">
-              {rows.map((row) => {
-                const selected =
-                  row.entity === "milestone"
-                    ? selectedMilestoneId === row.id
-                    : selectedTaskId === row.id;
-                const expanded =
-                  row.entity === "milestone"
-                    ? expandedMilestones.has(row.id)
-                    : expandedTasks.has(row.id);
-                const counts = sxGateRequirementCounts(row.requirements);
-                const incomingScheduleCount =
-                  row.entity === "task"
-                    ? scheduleDependencies.filter(
-                        (item) => item.successorTaskId === row.id,
-                      ).length
-                    : 0;
+            <div className="divide-y divide-[#f1f5f9]">
+              {laneMilestones.map((milestone) => {
+                const displayMilestone = milestone;
+                const hasScheduledPoint = displayMilestone.plannedEndPct != null;
+                const incomingScheduleCount = scheduleDependencies.filter(
+                  (item) =>
+                    item.successorType === "milestone" &&
+                    item.successorMilestoneId === milestone.id,
+                ).length;
                 const outgoingScheduleCount = scheduleDependencies.filter(
                   (item) =>
-                    item.predecessorType === row.entity &&
-                    (row.entity === "task"
-                      ? item.predecessorTaskId === row.id
-                      : item.predecessorMilestoneId === row.id),
+                    item.predecessorType === "milestone" &&
+                    item.predecessorMilestoneId === milestone.id,
                 ).length;
+                return (
+                  <article
+                    key={`mobile-ms-${milestone.id}`}
+                    className={selectedMilestoneId === milestone.id ? "bg-[#E8F3FC]" : "bg-[#f8fafc]"}
+                  >
+                    <button
+                      type="button"
+                      data-gantt-milestone-marker={milestone.id}
+                      onClick={() => select(milestone)}
+                      className="flex min-h-11 w-full items-center gap-2 px-3 text-left"
+                      aria-label={`${milestone.title}の詳細を開く`}
+                    >
+                      <i className={`h-3 w-3 shrink-0 rotate-45 border-2 border-[#027FDC] ${milestone.isBlockingMilestone ? "bg-[#027FDC]" : "bg-[#ffffff]"}`} aria-hidden="true" />
+                      <span className="min-w-0 flex-1 text-[10px] font-bold text-[#027FDC]">{milestone.title}</span>
+                      <span className="shrink-0 text-[9px] text-[#86868b]">{milestone.plannedEnd ? sxFormatDate(milestone.plannedEnd) : "日程未設定"}</span>
+                    </button>
+                    {dependencyDrawingEnabled && (
+                      <div className="flex items-center gap-2 border-t border-[#e2e8f0] px-3 py-1.5">
+                        <button
+                          type="button"
+                          disabled={!hasScheduledPoint}
+                          onClick={() => beginKeyboardScheduleDependency(displayMilestone)}
+                          className="flex min-h-11 flex-1 items-center justify-center gap-1 border border-[#7CBCEB] bg-[#ffffff] px-2 text-[10px] font-bold text-[#027FDC] disabled:opacity-40"
+                        >
+                          <Plus className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
+                          起点
+                        </button>
+                        {dependencySource && (
+                        <button
+                          type="button"
+                          disabled={!hasScheduledPoint}
+                          onClick={() =>
+                            void connectScheduleDependency({
+                              entity: "milestone",
+                              id: milestone.id,
+                            })
+                          }
+                          className="flex min-h-11 flex-1 items-center justify-center gap-1 border border-[#7CBCEB] bg-[#ffffff] px-2 text-[10px] font-bold text-[#027FDC] disabled:opacity-40"
+                        >
+                          <span aria-hidden="true">←</span>
+                          接続先
+                        </button>
+                        )}
+                        <span className="shrink-0 text-[9px] text-[#86868b]">
+                          入{incomingScheduleCount} / 出{outgoingScheduleCount}
+                        </span>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+              {rows.map((row) => {
+                const selected = selectedTaskId === row.id;
+                const expanded = expandedTasks.has(row.id);
+                const incomingScheduleCount = scheduleDependencies.filter(
+                  (item) =>
+                    item.successorType === "task" &&
+                    item.successorTaskId === row.id,
+                ).length;
+                const outgoingScheduleCount = scheduleDependencies.filter(
+                  (item) =>
+                    item.predecessorType === "task" && item.predecessorTaskId === row.id,
+                ).length;
+                const isNestSource =
+                  taskNestDrag?.taskId === row.id && taskNestDrag.dragging;
+                const isNestTaskTarget =
+                  taskNestDrag?.target?.kind === "task" &&
+                  taskNestDrag.target.taskId === row.id;
+                const isNestRootTarget = taskNestDrag?.target?.kind === "root" && taskNestDrag.target.laneKey === lane.key;
+                const isNestCandidate = taskNestCandidateTaskIds.has(row.id);
+                const reorderPlace =
+                  taskNestDrag?.target?.kind === "reorder" &&
+                  taskNestDrag.target.taskId === row.id
+                    ? taskNestDrag.target.place
+                    : null;
                 return (
                   <article
                     key={`mobile-${row.entity}-${row.id}`}
                     data-plan-row={`${row.entity}:${row.id}`}
-                    className={`p-2.5 ${selected ? "bg-[#e8f2eb]" : "bg-white"}`}
+                    data-gantt-nest-target-task={
+                      isNestCandidate ? row.id : undefined
+                    }
+                    className={`relative p-2.5 transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#ecfdf5] outline outline-2 outline-[#047857] outline-offset-[-2px]" : selected ? "bg-[#ecfdf5]" : "bg-white"}`}
                     style={{ marginLeft: row.depth * 12 }}
                   >
+                    {reorderPlace && (
+                      <span
+                        aria-hidden
+                        data-gantt-task-reorder-indicator={reorderPlace}
+                        className={`pointer-events-none absolute inset-x-0 z-30 h-[3px] bg-[#047857] ${reorderPlace === "before" ? "top-0" : "bottom-0"}`}
+                      />
+                    )}
                     <div className="flex items-start gap-2">
                       {row.hasChildren && (
                         <button
@@ -1982,11 +2698,9 @@ export function SxUnifiedTimeline({
                               else next.add(row.id);
                               return next;
                             };
-                            if (row.entity === "milestone")
-                              setExpandedMilestones(update);
-                            else setExpandedTasks(update);
+                            setExpandedTasks(update);
                           }}
-                          className="grid min-h-11 min-w-11 place-items-center text-[#69665d]"
+                          className="grid min-h-11 min-w-11 place-items-center text-[#3c3c43]"
                           aria-label={
                             expanded
                               ? `${row.title}を折りたたむ`
@@ -1998,30 +2712,38 @@ export function SxUnifiedTimeline({
                           />
                         </button>
                       )}
+                      {canManage && projectId && (
+                        <button
+                          type="button"
+                          data-gantt-task-nest-handle={row.id}
+                          onPointerDown={(event) => beginTaskNestDrag(row, event)}
+                          onPointerMove={updateTaskNestDrag}
+                          onPointerUp={(event) => void finishTaskNestDrag(event)}
+                          onPointerCancel={(event) => cancelTaskNestDrag(event)}
+                          onLostPointerCapture={(event) => cancelTaskNestDrag(event)}
+                          className="grid min-h-11 min-w-11 touch-none place-items-center text-[#86868b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669] disabled:opacity-40"
+                          disabled={Boolean(dependencySource) || taskNestDrag?.saving}
+                          aria-label={`${row.title}をドラッグして並び順や親タスクを変更`}
+                        >
+                          <GripVertical className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => select(row)}
-                        className="min-h-11 min-w-0 flex-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                        className="min-h-11 min-w-0 flex-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
                         aria-pressed={selected}
                       >
                         <span className="flex flex-wrap items-center gap-1">
-                          {(row.isBlockingMilestone || row.timelineKind === "milestone") && (
-                            <i
-                              className={`inline-block h-3 w-3 shrink-0 rotate-45 border-2 border-[#5f4a66] ${row.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
-                              aria-hidden="true"
-                            />
-                          )}
-                          <b className="text-[11px] text-[#24231f]">
+                          <b className="text-[11px] text-[#1d1d1f]">
                             {row.title}
                           </b>
-                          <i className="border border-[#c9bfd0] bg-[#f1edf3] px-1 text-[8px] not-italic text-[#5f4a66]">
-                            {rowKindLabel(row)}
-                          </i>
-                          <i className="border border-[#d6cebf] px-1 text-[8px] not-italic text-[#514e47]">
+                          <i className="border border-[#cbd5e1] px-1 text-[8px] not-italic text-[#3c3c43]">タスク</i>
+                          <i className="border border-[#cbd5e1] px-1 text-[8px] not-italic text-[#3c3c43]">
                             {ROW_STATE_TEXT[row.state]}
                           </i>
                         </span>
-                        <span className="mt-1 block text-[10px] text-[#69665d]">
+                        <span className="mt-1 block text-[10px] text-[#3c3c43]">
                           {row.plannedEnd
                             ? `${sxFormatDate(row.plannedStart)} → ${sxFormatDate(row.plannedEnd)}`
                             : "日程未設定"}{" "}
@@ -2029,73 +2751,36 @@ export function SxUnifiedTimeline({
                         </span>
                         {(incomingScheduleCount > 0 ||
                           outgoingScheduleCount > 0) && (
-                          <span className="mt-1 block text-[9px] font-semibold text-[#5f4a66]">
+                          <span className="mt-1 block text-[9px] font-semibold text-[#027FDC]">
                             依存：先行 {incomingScheduleCount} / 後続{" "}
                             {outgoingScheduleCount}
                           </span>
                         )}
-                        {row.entity === "milestone" &&
-                          row.requiredTaskSummary && (
-                            <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold text-[#5f4a66]">
-                              <span>
-                                必須タスク {row.requiredTaskSummary.completed}/
-                                {row.requiredTaskSummary.total}
-                                {row.requiredTaskSummary.total === 0
-                                  ? "（未登録）"
-                                  : row.requiredTaskSummary.nextIncompleteTitle
-                                    ? ` ・ 次：${row.requiredTaskSummary.nextIncompleteTitle}`
-                                    : " ・ 全完了"}
-                              </span>
-                              {row.achievement && (
-                                <em
-                                  className={`border px-1 py-0.5 text-[8px] font-bold not-italic ${GATE_STATE_TONE[row.achievement]}`}
-                                >
-                                  {GATE_STATE_TEXT[row.achievement]}
-                                </em>
-                              )}
-                            </span>
-                          )}
-                        {row.entity === "milestone" &&
-                          !row.requiredTaskSummary && (
-                            <span className="mt-1 block text-[10px] font-semibold text-[#5f4a66]">
-                              {row.requirements.length > 0
-                                ? `前提 ${counts.met}/${counts.total}｜${
-                                    row.requirements
-                                      .filter((item) => item.state !== "met")
-                                      .map(
-                                        (item) =>
-                                          item.milestone.gate ||
-                                          item.milestone.title,
-                                      )
-                                      .join(" / ") || "すべて充足"
-                                  }`
-                                : `到達点｜${row.gate}`}
-                            </span>
-                          )}
+                        {(isNestTaskTarget || isNestRootTarget) && (
+                          <span className="mt-1 block text-[10px] font-bold text-[#047857]">
+                            {isNestTaskTarget
+                              ? "ここを親タスクにする"
+                              : "最上位タスクに戻す"}
+                          </span>
+                        )}
                       </button>
                     </div>
-                    {dependencyMode && (
-                      <div className="mt-2 grid grid-cols-2 gap-2 border-t border-[#eee9df] pt-2">
-                        {row.plannedEndPct != null &&
-                        (row.entity === "task" ||
-                          row.timelineKind === "milestone" ||
-                          row.isBlockingMilestone) ? (
+                    {dependencyDrawingEnabled && (
+                      <div className="mt-2 grid grid-cols-2 gap-2 border-t border-[#e2e8f0] pt-2">
+                        {row.plannedEndPct != null ? (
                           <button
                             type="button"
                             aria-pressed={
-                              dependencySource
-                                ? sourceKey(dependencySource) ===
-                                  `${row.entity}:${row.id}`
-                                : false
+                              dependencySource ? sourceKey(dependencySource) === `task:${row.id}` : false
                             }
                             onClick={() => beginKeyboardScheduleDependency(row)}
-                            className="flex min-h-11 items-center justify-center gap-1 border border-[#c9bfd0] px-2 text-[10px] font-bold text-[#5f4a66] aria-pressed:bg-[#f1edf3]"
+                            className="flex min-h-11 items-center justify-center gap-1 border border-[#7CBCEB] px-2 text-[10px] font-bold text-[#027FDC] aria-pressed:bg-[#E8F3FC]"
                           >
-                            <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
+                            <Plus className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
                             右端を起点
                           </button>
                         ) : (
-                          <span className="flex min-h-11 items-center justify-center border border-dashed border-[#d6cebf] px-2 text-[9px] text-[#928c80]">
+                          <span className="flex min-h-11 items-center justify-center border border-dashed border-[#cbd5e1] px-2 text-[9px] text-[#86868b]">
                             起点は日程が必要
                           </span>
                         )}
@@ -2103,14 +2788,19 @@ export function SxUnifiedTimeline({
                           <button
                             type="button"
                             disabled={!dependencySource}
-                            onClick={() => void connectScheduleDependency(row.id)}
-                            className="flex min-h-11 items-center justify-center gap-1 border border-[#b9c9d3] px-2 text-[10px] font-bold text-[#315f7d] disabled:opacity-40"
+                            onClick={() =>
+                              void connectScheduleDependency({
+                                entity: "task",
+                                id: row.id,
+                              })
+                            }
+                            className="flex min-h-11 items-center justify-center gap-1 border border-[#7CBCEB] px-2 text-[10px] font-bold text-[#027FDC] disabled:opacity-40"
                           >
                             <span aria-hidden="true">←</span>
                             左端へ接続
                           </button>
                         ) : (
-                          <span className="flex min-h-11 items-center justify-center border border-dashed border-[#d6cebf] px-2 text-[9px] text-[#928c80]">
+                          <span className="flex min-h-11 items-center justify-center border border-dashed border-[#cbd5e1] px-2 text-[9px] text-[#86868b]">
                             接続先は開始日が必要
                           </span>
                         )}
@@ -2123,13 +2813,13 @@ export function SxUnifiedTimeline({
                 <button
                   type="button"
                   onClick={(event) => proposeMilestone(lane.key, event)}
-                  className="relative min-h-11 w-full overflow-hidden border-t border-[#d6cebf] bg-[#fffdf7] px-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                  className="relative min-h-11 w-full overflow-hidden border-t border-[#cbd5e1] bg-[#ffffff] px-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
                   aria-label={`${lane.label}のモバイル日付軸でMSを追加`}
                 >
-                  <span className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent_0,transparent_calc(12.5%-1px),rgba(113,109,99,0.16)_12.5%)]" />
-                  <span className="relative flex items-center justify-between gap-3 text-[9px] text-[#716d63]">
+                  <span className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent_0,transparent_calc(12.5%-1px),rgba(134,134,139,0.16)_12.5%)]" />
+                  <span className="relative flex items-center justify-between gap-3 text-[9px] text-[#86868b]">
                     <span>{sxFormatDate(timeline.domainStart)}</span>
-                    <b className="text-[10px] text-[#235f4b]">MS｜日付位置をタップ</b>
+                    <b className="text-[10px] text-[#047857]">MS｜日付位置をタップ</b>
                     <span>{sxFormatDate(timeline.domainEnd)}</span>
                   </span>
                 </button>
@@ -2139,7 +2829,7 @@ export function SxUnifiedTimeline({
                   type="button"
                   data-gantt-add-task-lane={lane.key}
                   onClick={() => onCreateTask(lane.key)}
-                  className="flex min-h-12 w-full items-center gap-2 bg-[#fbf9f2] px-3 text-left text-[11px] font-bold text-[#205f49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                  className="flex min-h-12 w-full items-center gap-2 bg-[#f8fafc] px-3 text-left text-[11px] font-bold text-[#047857] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
                   aria-label={`${lane.label}に新規タスクを追加`}
                   aria-haspopup="dialog"
                 >
@@ -2154,24 +2844,35 @@ export function SxUnifiedTimeline({
 
       <div
         ref={scrollerRef}
-        className="relative hidden max-h-[min(72vh,720px)] overflow-auto overscroll-contain border border-[#d6cebf] bg-[#fffdf7] shadow-[inset_-14px_0_12px_-14px_rgba(36,35,31,0.42)] lg:block"
+        className="relative hidden max-h-[min(72vh,720px)] overflow-auto overscroll-contain border border-[#cbd5e1] bg-[#ffffff] shadow-[inset_-14px_0_12px_-14px_rgba(29,29,31,0.42)] lg:block"
         tabIndex={0}
         aria-label="ガントチャート。上下左右にスクロールできる"
       >
-        <div className="min-w-[1080px]">
+        <div style={{ minWidth: GANTT_BASE_WIDTH_PX * timeScale }}>
           <div
-            className="sticky top-0 z-50 grid grid-cols-[minmax(275px,320px)_minmax(0,1fr)] items-end border-b border-[#d6cebf] bg-[#fffdf7] shadow-[0_3px_8px_rgba(36,35,31,0.08)]"
+            className="sticky top-0 z-50 grid grid-cols-[minmax(275px,320px)_minmax(0,1fr)] items-end border-b border-[#cbd5e1] bg-[#ffffff] shadow-[0_3px_8px_rgba(29,29,31,0.08)]"
             data-gantt-sticky-header
             style={{ height: MONTH_ROW_H }}
           >
-            <p className="sticky left-0 z-[51] bg-[#fffdf7] px-2 text-[9px] font-semibold tracking-[0.1em] text-[#777166]">
-              工程 / タスク
+            <p className="sticky left-0 z-[51] bg-[#ffffff] px-2 text-[9px] font-semibold tracking-[0.1em] text-[#3c3c43]">
+              タスク
             </p>
             <div className="relative h-full">
+              {timeline.months.map((month) =>
+                month.yearLabel ? (
+                  <span
+                    key={`year-${month.pct}`}
+                    className="absolute top-0 pl-1 text-[9px] font-bold leading-none text-[#1d1d1f]"
+                    style={{ left: timelinePctCss(month.pct) }}
+                  >
+                    {month.yearLabel}
+                  </span>
+                ) : null,
+              )}
               {timeline.months.map((month) => (
                 <span
                   key={month.pct}
-                  className={`absolute bottom-1 pl-1 text-[9px] ${month.isYearStart ? "font-bold text-[#24231f]" : "text-[#777166]"}`}
+                  className={`absolute bottom-0 pl-1 text-[9px] ${month.isYearStart ? "font-bold text-[#1d1d1f]" : "text-[#3c3c43]"}`}
                   style={{ left: timelinePctCss(month.pct) }}
                 >
                   {month.label}
@@ -2179,8 +2880,8 @@ export function SxUnifiedTimeline({
               ))}
               {timeline.objectivePct != null && (
                 <span
-                  className="absolute bottom-0 z-10 flex -translate-x-full items-center gap-0.5 whitespace-nowrap pr-1 text-[9px] font-bold text-[#5f4a66]"
-                  style={{ left: timelinePctCss(timeline.objectivePct) }}
+                  className="absolute z-10 flex -translate-x-full items-center gap-0.5 whitespace-nowrap pr-1 text-[9px] font-bold leading-none text-[#027FDC]"
+                  style={{ left: timelinePctCss(timeline.objectivePct), top: MONTH_YEAR_ROW_H }}
                 >
                   <Flag className="h-3 w-3" />
                   設立 {sxFormatDate(timeline.objectiveDate)}
@@ -2190,54 +2891,77 @@ export function SxUnifiedTimeline({
           </div>
 
           <div className="grid grid-cols-[minmax(275px,320px)_minmax(0,1fr)]">
-            <div className="sticky left-0 z-30 border-r border-[#d6cebf] bg-[#fffdf7]">
+            <div className="sticky left-0 z-30 border-r border-[#cbd5e1] bg-[#ffffff]">
               {showPins && (
                 <div
-                  className="flex items-center border-b border-[#e8e2d6] px-2 text-[9px] font-semibold text-[#69665d]"
+                  className="flex items-center border-b border-[#e2e8f0] px-2 text-[9px] font-semibold text-[#3c3c43]"
                   style={{ height: PIN_ROW_H }}
                 >
                   介入の期限
                 </div>
               )}
-              {visibleLanes.map(({ lane, rows }) => (
+              {visibleLanes.map(({ lane, milestones: laneMilestones, rows, collapsed, taskCount }) => (
                 <div key={lane.key} style={{ marginBottom: LANE_GAP }}>
-                  <div
-                    className="flex items-center gap-1.5 border-b border-[#d6cebf] px-2"
+                  {/* The lane header is both the collapse control and the "move to top level"
+                      drop target of the task-nesting drag, so the data attribute has to survive. */}
+                  <button
+                    type="button"
+                    data-gantt-nest-root-lane={lane.key}
+                    onClick={() => toggleLaneCollapsed(lane.key)}
+                    aria-expanded={!collapsed}
+                    className="!min-h-0 flex w-full items-center gap-1.5 border-b border-[#cbd5e1] px-2 text-left hover:bg-[#f5f5f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
                     style={{ height: LANE_HEADER_H }}
+                    title={collapsed ? "このグループを開く" : "このグループを折りたたむ（MSは残る）"}
                   >
+                    <ChevronRight
+                      className={`h-3 w-3 shrink-0 text-[#3c3c43] transition-transform ${collapsed ? "" : "rotate-90"}`}
+                      aria-hidden="true"
+                    />
                     <span
-                      className="h-2.5 w-2.5"
+                      className="h-2.5 w-2.5 shrink-0"
                       style={{ background: lane.accent }}
                     />
-                    <span className="text-[10px] font-bold text-[#24231f]">
+                    <span className="text-[10px] font-bold text-[#1d1d1f]">
                       {lane.label}
                     </span>
-                    <span className="text-[10px] text-[#777166]">
-                      工程{" "}
-                      {rows.filter((row) => row.entity === "milestone").length}{" "}
-                      / タスク{" "}
-                      {rows.filter((row) => row.entity === "task").length}
+                    <span className="text-[10px] text-[#3c3c43]">
+                      MS {laneMilestones.length} / タスク {taskCount}
+                      {collapsed ? "（折りたたみ中）" : ""}
                     </span>
-                  </div>
+                  </button>
                   {rows.map((row) => {
-                    const selected =
-                      row.entity === "milestone"
-                        ? selectedMilestoneId === row.id
-                        : selectedTaskId === row.id;
-                    const expanded =
-                      row.entity === "milestone"
-                        ? expandedMilestones.has(row.id)
-                        : expandedTasks.has(row.id);
-                    const nextRequirement = row.requirements.find(
-                      (item) => item.state !== "met",
-                    );
+                    const selected = selectedTaskId === row.id;
+                    const expanded = expandedTasks.has(row.id);
+                    const isNestSource =
+                      taskNestDrag?.taskId === row.id &&
+                      taskNestDrag.dragging;
+                    const isNestTaskTarget =
+                      taskNestDrag?.target?.kind === "task" &&
+                      taskNestDrag.target.taskId === row.id;
+                    const isNestRootTarget = taskNestDrag?.target?.kind === "root" && taskNestDrag.target.laneKey === lane.key;
+                    const isNestCandidate = taskNestCandidateTaskIds.has(row.id);
+                    const reorderPlace =
+                      taskNestDrag?.target?.kind === "reorder" &&
+                      taskNestDrag.target.taskId === row.id
+                        ? taskNestDrag.target.place
+                        : null;
                     return (
                       <div
                         key={`${row.entity}-${row.id}`}
                         data-plan-row={`${row.entity}:${row.id}`}
-                        className={`group relative flex scroll-mt-3 border-b border-[#f1eee5] ${selected ? "bg-[#e8f2eb]" : "hover:bg-[#f8f5ec]"}`}
+                        data-gantt-nest-target-task={
+                          isNestCandidate ? row.id : undefined
+                        }
+                        className={`group relative flex scroll-mt-3 border-b border-[#e8e8ed] transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#ecfdf5] outline outline-2 outline-[#047857] outline-offset-[-2px]" : selected ? "bg-[#ecfdf5]" : "hover:bg-[#f5f5f7]"}`}
                         style={{ height: ROW_H, paddingLeft: row.depth * 15 }}
                       >
+                        {reorderPlace && (
+                          <span
+                            aria-hidden
+                            data-gantt-task-reorder-indicator={reorderPlace}
+                            className={`pointer-events-none absolute inset-x-0 z-30 h-[3px] bg-[#047857] ${reorderPlace === "before" ? "top-0" : "bottom-0"}`}
+                          />
+                        )}
                         <button
                           type="button"
                           disabled={!row.hasChildren}
@@ -2249,11 +2973,9 @@ export function SxUnifiedTimeline({
                               else next.add(row.id);
                               return next;
                             };
-                            if (row.entity === "milestone")
-                              setExpandedMilestones(update);
-                            else setExpandedTasks(update);
+                            setExpandedTasks(update);
                           }}
-                          className={`flex w-11 shrink-0 items-center justify-center text-[#69665d] ${row.hasChildren ? "" : "opacity-0"}`}
+                          className={`flex w-11 shrink-0 items-center justify-center text-[#3c3c43] ${row.hasChildren ? "" : "opacity-0"}`}
                           aria-label={
                             expanded
                               ? `${row.title}を折りたたむ`
@@ -2264,73 +2986,72 @@ export function SxUnifiedTimeline({
                             className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-90" : ""}`}
                           />
                         </button>
+                        {canManage && projectId && (
+                          <button
+                            type="button"
+                            data-gantt-task-nest-handle={row.id}
+                            onPointerDown={(event) => beginTaskNestDrag(row, event)}
+                            onPointerMove={updateTaskNestDrag}
+                            onPointerUp={(event) => void finishTaskNestDrag(event)}
+                            onPointerCancel={(event) => cancelTaskNestDrag(event)}
+                            onLostPointerCapture={(event) => cancelTaskNestDrag(event)}
+                            className="grid h-full w-6 shrink-0 touch-none place-items-center text-[#86868b] transition-colors hover:text-[#047857] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669] disabled:opacity-40"
+                            disabled={Boolean(dependencySource) || taskNestDrag?.saving}
+                            title="ドラッグして並び替え。行の上下端で順番、中央へ重ねると子タスク、レーン見出しへ戻すと最上位"
+                            aria-label={`${row.title}をドラッグして並び順や親タスクを変更`}
+                          >
+                            <GripVertical className="h-3.5 w-3.5" aria-hidden="true" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => select(row)}
-                          className={`min-w-0 flex-1 px-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${row.isCritical ? "border-l-[3px] border-[#24231f]" : ""}`}
+                          className={`min-w-0 flex-1 px-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669] ${row.isCritical ? "border-l-[3px] border-[#1d1d1f]" : ""}`}
                           aria-pressed={selected}
                         >
                           <span className="flex items-center gap-1">
                             <b
-                              className={`truncate text-[10px] ${row.entity === "task" ? "font-medium" : "font-bold"}`}
+                              className="truncate text-[10px] font-medium"
                             >
                               {row.title}
                             </b>
-                            <i
-                              className={`shrink-0 border px-1 text-[8px] not-italic ${row.entity === "milestone" ? "border-[#c9bfd0] bg-[#f1edf3] text-[#5f4a66]" : "border-[#d6cebf] text-[#69665d]"}`}
-                            >
-                              {rowKindLabel(row)}
-                            </i>
+                            <i className="shrink-0 border border-[#cbd5e1] px-1 text-[8px] not-italic text-[#3c3c43]">タスク</i>
                             {row.isCurrent && (
-                              <i className="shrink-0 bg-[#38745d] px-1 text-[8px] not-italic text-white">
+                              <i className="shrink-0 bg-[#059669] px-1 text-[8px] not-italic text-white">
                                 進行中
                               </i>
                             )}
                           </span>
-                          <span className="mt-0.5 flex items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] text-[#777166]">
+                          <span className="mt-0.5 flex items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] text-[#3c3c43]">
                             <em className="not-italic">
                               {ROW_STATE_TEXT[row.state]}
                             </em>
                             <span>{row.ownerLabel}</span>
-                            {row.requirements.length > 0 && (
-                              <span
-                                className={
-                                  sxGateRequirementCounts(row.requirements)
-                                    .met === row.requirements.length
-                                    ? "text-[#205f49]"
-                                    : "font-semibold text-[#765022]"
-                                }
-                              >
-                                前提{" "}
-                                {sxGateRequirementCounts(row.requirements).met}/
-                                {row.requirements.length}
-                              </span>
-                            )}
                           </span>
-                          {row.entity === "milestone" && (
-                            <span className="mt-0.5 block truncate text-[9px] text-[#5f4a66]">
-                              {nextRequirement
-                                ? `${nextRequirement.state === "unconfirmed" ? "未確認" : "未達"}｜${nextRequirement.milestone.gate || nextRequirement.milestone.title}`
-                                : `到達点｜${row.gate}`}
+                          {(isNestTaskTarget || isNestRootTarget) && (
+                            <span className="mt-0.5 block text-[9px] font-bold text-[#047857]">
+                              {isNestTaskTarget
+                                ? "ここを親タスクにする"
+                                : "最上位タスクに戻す"}
                             </span>
                           )}
                         </button>
                       </div>
                     );
                   })}
-                  {canManage && projectId && (
+                  {canManage && projectId && !collapsed && (
                     <button
                       type="button"
                       data-gantt-add-task-lane={lane.key}
                       onClick={() => onCreateTask(lane.key)}
-                      className="flex w-full items-center gap-2 border-b border-[#e8e2d6] bg-[#fbf9f2] px-3 text-left text-[10px] font-bold text-[#205f49] hover:bg-[#f3efe5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                      className="flex w-full items-center gap-2 border-b border-[#e2e8f0] bg-[#f8fafc] px-3 text-left text-[10px] font-bold text-[#047857] hover:bg-[#f1f5f9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
                       style={{ height: ROW_H }}
                       aria-label={`${lane.label}に新規タスクを追加`}
                       aria-haspopup="dialog"
                     >
                       <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                       新規タスク
-                      <span className="font-normal text-[#777166]">
+                      <span className="font-normal text-[#3c3c43]">
                         このレーンへ追加
                       </span>
                     </button>
@@ -2343,13 +3064,13 @@ export function SxUnifiedTimeline({
               {timeline.months.map((month) => (
                 <span
                   key={`grid-${month.pct}`}
-                  className={`absolute top-0 w-px ${month.isYearStart ? "bg-[#cfc7b9]" : "bg-[#eee9df]"}`}
+                  className={`absolute top-0 w-px ${month.isYearStart ? "bg-[#cbd5e1]" : "bg-[#f1f5f9]"}`}
                   style={{ left: timelinePctCss(month.pct), height: gridHeight }}
                 />
               ))}
               {timeline.objectivePct != null && (
                 <span
-                  className="absolute top-0 w-[2px] bg-[#76637b]/45"
+                  className="absolute top-0 w-[2px] bg-[#027FDC]/45"
                   style={{
                     left: timelinePctCss(timeline.objectivePct),
                     height: gridHeight,
@@ -2357,11 +3078,11 @@ export function SxUnifiedTimeline({
                 />
               )}
               <span
-                className="absolute top-0 z-10 w-[2px] bg-[#24231f]"
+                className="absolute top-0 z-10 w-[2px] bg-[#1d1d1f]"
                 style={{ left: timelinePctCss(timeline.todayPct), height: gridHeight }}
               />
               <span
-                className="absolute z-20 -translate-x-1/2 bg-[#24231f] px-1 py-px text-[8px] font-bold text-white"
+                className="absolute z-20 -translate-x-1/2 bg-[#1d1d1f] px-1 py-px text-[8px] font-bold text-white"
                 style={{ left: timelinePctCss(timeline.todayPct), top: -1 }}
               >
                 今日 {sxFormatDate(asOf).slice(5)}
@@ -2381,58 +3102,113 @@ export function SxUnifiedTimeline({
                     <marker
                       id={dependencyArrowMarkerId}
                       viewBox="0 0 8 8"
-                      refX="7"
+                      refX="8"
                       refY="4"
-                      markerWidth="7"
-                      markerHeight="7"
-                      orient="auto-start-reverse"
+                      markerWidth="8"
+                      markerHeight="8"
+                      markerUnits="userSpaceOnUse"
+                      orient="auto"
                     >
-                      <path d="M 0 0 L 8 4 L 0 8 z" fill="#5f4a66" />
+                      <path d="M 0 0 L 8 4 L 0 8 z" fill="#027FDC" />
                     </marker>
                   </defs>
-                  {scheduleDependencyEdges.map((edge) => (
-                    <path
-                      key={edge.dependency.id}
-                      d={edge.path}
-                      fill="none"
-                      stroke="#5f4a66"
-                      strokeWidth="1.5"
-                      strokeOpacity="0.68"
-                      markerEnd={`url(#${dependencyArrowMarkerId})`}
-                    />
-                  ))}
+                  {scheduleDependencyEdges.map((edge) => {
+                    const hovered =
+                      !dependencySource &&
+                      hoveredScheduleDependency?.id === edge.dependency.id;
+                    return (
+                      <g key={edge.dependency.id}>
+                        <path
+                          data-gantt-schedule-dependency-hit={edge.dependency.id}
+                          d={edge.path}
+                          fill="none"
+                          stroke="transparent"
+                          strokeWidth={DEPENDENCY_EDGE_HIT_WIDTH_PX}
+                          pointerEvents="stroke"
+                          onPointerEnter={(event) =>
+                            showScheduleDependencyActions(
+                              edge.dependency.id,
+                              event,
+                            )
+                          }
+                          onPointerMove={(event) =>
+                            showScheduleDependencyActions(
+                              edge.dependency.id,
+                              event,
+                            )
+                          }
+                          onPointerLeave={() =>
+                            hideScheduleDependencyActionsAfterLeave(
+                              edge.dependency.id,
+                            )
+                          }
+                        />
+                        <path
+                          d={edge.path}
+                          fill="none"
+                          stroke="#027FDC"
+                          strokeWidth={hovered ? "2" : "1.5"}
+                          strokeOpacity={hovered ? "0.96" : "0.68"}
+                          markerEnd={`url(#${dependencyArrowMarkerId})`}
+                          pointerEvents="none"
+                        />
+                      </g>
+                    );
+                  })}
                   {dependencySource && dependencyPreview && (
                     <path
                       d={`M ${dependencySource.startX} ${dependencySource.startY} L ${dependencyPreview.x} ${dependencyPreview.y}`}
                       fill="none"
-                      stroke="#205f49"
+                      stroke="#047857"
                       strokeWidth="2"
                       markerEnd={`url(#${dependencyArrowMarkerId})`}
                     />
                   )}
                 </svg>
               )}
-              {dependencyMode &&
-                scheduleDependencyEdges.map((edge) => (
+              {!dependencySource &&
+                canManage &&
+                projectId &&
+                hoveredScheduleDependency && (
                   <button
-                    key={`remove-${edge.dependency.id}`}
                     type="button"
-                    disabled={removingDependencyId != null}
-                    onClick={() =>
-                      void removeScheduleDependency(edge.dependency.id)
+                    data-gantt-schedule-dependency-hover-remove={
+                      hoveredScheduleDependency.id
                     }
-                    className="absolute z-[45] grid h-8 w-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-[#c9bfd0] bg-[#fffdf7] text-[#5f4a66] shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#5f4a66] disabled:opacity-45"
-                    style={{ left: edge.labelX, top: edge.labelY }}
-                    aria-label={`${scheduleDependencyLabelById.get(edge.dependency.id) || "この依存関係"}を外す`}
+                    disabled={removingDependencyId != null}
+                    onPointerEnter={keepScheduleDependencyActions}
+                    onPointerLeave={() =>
+                      hideScheduleDependencyActionsAfterLeave(
+                        hoveredScheduleDependency.id,
+                      )
+                    }
+                    onClick={() =>
+                      void removeScheduleDependency(
+                        hoveredScheduleDependency.id,
+                      )
+                    }
+                    className="absolute z-[45] inline-flex h-8 min-w-14 -translate-y-1/2 items-center justify-center gap-1 border border-[#027FDC] bg-[#ffffff] px-2 text-[10px] font-bold text-[#027FDC] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#027FDC] disabled:opacity-45"
+                    style={{
+                      left: Math.min(
+                        Math.max(4, gridPaneWidth - DEPENDENCY_HOVER_ACTION_WIDTH_PX - 4),
+                        Math.max(4, hoveredScheduleDependency.x + 8),
+                      ),
+                      top: Math.min(
+                        Math.max(16, gridHeight - 16),
+                        Math.max(16, hoveredScheduleDependency.y),
+                      ),
+                    }}
+                    aria-label={`${scheduleDependencyLabelById.get(hoveredScheduleDependency.id) || "この依存関係"}を外す`}
                     title="依存線を外す"
                   >
                     <Unlink2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    外す
                   </button>
-                ))}
+                )}
 
               {showPins && (
                 <div
-                  className="absolute inset-x-0 top-0 border-b border-[#e8e2d6]"
+                  className="absolute inset-x-0 top-0 border-b border-[#e2e8f0]"
                   style={{ height: PIN_ROW_H }}
                 >
                   {timeline.pins.map((pin) => (
@@ -2444,13 +3220,13 @@ export function SxUnifiedTimeline({
                       onMouseLeave={() => setHoveredPin(null)}
                       onFocus={() => setHoveredPin(pin.key)}
                       onBlur={() => setHoveredPin(null)}
-                      className={`absolute top-1/2 z-20 flex h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-[10px] font-bold ${pin.side === "partner" ? "bg-[#bf7b2c] text-white" : pin.side === "unknown" ? "border-2 border-[#24231f] bg-[#fffdf7]" : "bg-[#24231f] text-white"}`}
+                      className={`absolute top-1/2 z-20 flex h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-[10px] font-bold ${pin.side === "partner" ? "bg-[#d97706] text-white" : pin.side === "unknown" ? "border-2 border-[#1d1d1f] bg-[#ffffff]" : "bg-[#1d1d1f] text-white"}`}
                       style={{ left: timelinePctCss(pin.duePct) }}
                     >
                       {pin.rank}
                       {hoveredPin === pin.key && (
-                        <span className="absolute top-6 z-30 w-[220px] border border-[#d6cebf] bg-[#fffdf7] p-2 text-left text-[10px] text-[#514e47] shadow-lg">
-                          <b className="block text-[#24231f]">{pin.target}</b>
+                        <span className="absolute top-6 z-30 w-[220px] border border-[#cbd5e1] bg-[#ffffff] p-2 text-left text-[10px] text-[#3c3c43] shadow-lg">
+                          <b className="block text-[#1d1d1f]">{pin.target}</b>
                           担当 {pin.ballOwner}
                           <br />
                           期限 {pin.dueDate}
@@ -2462,13 +3238,144 @@ export function SxUnifiedTimeline({
               )}
 
               <div className="absolute inset-x-0" style={{ top: pinRowHeight }}>
-                {visibleLanes.map(({ lane, rows }) => (
-                  <div key={lane.key} style={{ marginBottom: LANE_GAP }}>
+                {visibleLanes.map(({ lane, rows, milestones: laneMilestones, collapsed }) => (
+                  <div key={lane.key} className="relative" style={{ marginBottom: LANE_GAP }}>
+                    {laneMilestones.map((milestone, index) => {
+                      const isDraggingThisMilestone = drag?.rowId === milestone.id;
+                      const displayMilestone = isDraggingThisMilestone && drag
+                        ? {
+                            ...milestone,
+                            plannedStart: drag.previewStart,
+                            plannedEnd: drag.previewEnd,
+                            plannedStartPct: dateToPct(drag.previewStart, timeline.domainStart, timeline.domainEnd),
+                            plannedEndPct: dateToPct(drag.previewEnd, timeline.domainStart, timeline.domainEnd),
+                          }
+                        : milestone;
+                      const markerPct = displayMilestone.plannedEndPct;
+                      const markerMode: DragMode = displayMilestone.isBlockingMilestone
+                        ? "milestone-end-move"
+                        : "milestone-move";
+                      return markerPct != null ? (
+                        <div
+                          key={`lane-ms-${milestone.id}`}
+                          className="pointer-events-none absolute inset-y-0 z-[18]"
+                          style={{ left: timelinePctCss(markerPct) }}
+                          data-gantt-lane-milestone-spine={milestone.id}
+                        >
+                          {/* An MS gates the whole lane, so it is drawn as a vertical band across
+                              every task row of that lane rather than as a point diamond. The band
+                              is decoration only — the pointer targets stay in the header strip, so
+                              a gate never swallows a click meant for a bar crossing underneath. */}
+                          <span
+                            className={`absolute inset-y-0 -translate-x-1/2 ${
+                              milestone.isBlockingMilestone
+                                ? "border-x-2 border-[#027FDC] bg-[#027FDC]/28"
+                                : "border-x border-[#027FDC]/70 bg-[#027FDC]/12"
+                            }`}
+                            style={{ left: 0, width: MILESTONE_GATE_WIDTH_PX }}
+                            aria-hidden="true"
+                          />
+                          <button
+                            type="button"
+                            data-gantt-milestone-marker={milestone.id}
+                            data-gantt-dependency-target-entity={
+                              dependencySource ? "milestone" : undefined
+                            }
+                            data-gantt-dependency-target-id={
+                              dependencySource ? milestone.id : undefined
+                            }
+                            onPointerDown={(event) => {
+                              event.stopPropagation();
+                              // Mid-link the diamond is purely a landing pad; letting it also
+                              // start a date drag would resolve one gesture as two edits.
+                              if (dependencySource) return;
+                              beginDrag(displayMilestone, markerMode, event);
+                            }}
+                            onPointerMove={updateDrag}
+                            onPointerUp={(event) => void finishDrag(displayMilestone, event)}
+                            onPointerCancel={() => setDragBoth(null)}
+                            onLostPointerCapture={handleLostPointerCapture}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              if (dependencySource) {
+                                void connectScheduleDependency({
+                                  entity: "milestone",
+                                  id: milestone.id,
+                                });
+                                return;
+                              }
+                              handleRowClick(displayMilestone);
+                            }}
+                            className={`pointer-events-auto absolute -top-[5px] left-0 grid h-11 w-11 -translate-x-1/2 place-items-center focus-visible:outline focus-visible:outline-2 ${dependencySource ? "text-[#027FDC] focus-visible:outline-[#027FDC]" : "text-[#027FDC] focus-visible:outline-[#027FDC]"}`}
+                            aria-label={
+                              dependencySource
+                                ? `${milestone.title}を接続先にする`
+                                : `${milestone.title}の詳細を開く。ドラッグで日付を変更`
+                            }
+                            title={dependencySource ? "依存線を接続" : "クリックで詳細、ドラッグで日付を変更"}
+                          >
+                            {/* Cap at the head of the band: the grab handle for the gate's date. */}
+                            <i
+                              data-gantt-milestone-diamond={milestone.id}
+                              className={`h-5 border-2 border-[#027FDC] ${milestone.isBlockingMilestone ? "bg-[#027FDC]" : "bg-[#ffffff]"}`}
+                              style={{ width: MILESTONE_GATE_WIDTH_PX }}
+                              aria-hidden="true"
+                            />
+                          </button>
+                          {/* Lane-spanning MS get the same permanent "+" port as a row, parked
+                              clear of the diamond's own 44px drag box so neither steals the other. */}
+                          {dependencyDrawingEnabled && !dependencySource && (
+                            <button
+                              type="button"
+                              data-gantt-dependency-source={`milestone:${milestone.id}`}
+                              onPointerDown={(event) => {
+                                event.stopPropagation();
+                                beginScheduleDependency(displayMilestone, event);
+                              }}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                if (event.detail !== 0) return;
+                                beginKeyboardScheduleDependency(displayMilestone);
+                              }}
+                              className="sx-gantt-dependency-port pointer-events-auto absolute -top-[5px] grid h-11 w-6 cursor-crosshair place-items-center text-[#027FDC] opacity-0 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
+                              style={{ left: DRAG_HIT_HEIGHT / 2, touchAction: "none" }}
+                              title="ドラッグして他のタスク・MSへ依存線を引く"
+                              aria-label={`${milestone.title}から依存線を開始`}
+                            >
+                              <Plus className="h-4 w-4" strokeWidth={3} aria-hidden="true" />
+                            </button>
+                          )}
+                          <span
+                            className={`pointer-events-none absolute top-0 flex h-[34px] max-w-[144px] items-center truncate whitespace-nowrap text-[9px] font-bold text-[#027FDC] ${markerPct >= 60 ? "right-3 pr-2 text-right" : "left-3 pl-2 text-left"}`}
+                            aria-hidden="true"
+                          >
+                            {milestone.title}
+                          </span>
+                        </div>
+                      ) : (
+                        <button
+                          key={`lane-ms-undated-${milestone.id}`}
+                          type="button"
+                          data-gantt-milestone-marker={milestone.id}
+                          onClick={() => handleRowClick(milestone)}
+                          className="absolute right-1 top-0 z-[19] flex h-[22px] max-w-[52%] items-center gap-1 px-1 text-left text-[#027FDC] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
+                          style={{ transform: `translateX(-${index * 8}px)` }}
+                          aria-label={`${milestone.title}の詳細を開く`}
+                        >
+                          <i className={`h-3.5 w-[6px] shrink-0 border-x-2 border-[#027FDC] ${milestone.isBlockingMilestone ? "bg-[#027FDC]" : "bg-[#ffffff]"}`} aria-hidden="true" />
+                          <span className="truncate whitespace-nowrap text-[9px] font-bold">{milestone.title}｜日程未設定</span>
+                        </button>
+                      );
+                    })}
                     <div
-                      className="flex items-center border-b border-[#d6cebf] px-2 text-[10px] text-[#8c3329]"
+                      className="flex items-center justify-between gap-2 border-b border-[#cbd5e1] px-2 text-[10px]"
                       style={{ height: LANE_HEADER_H }}
                     >
-                      {lane.maxIssue ? `詰まり: ${lane.maxIssue}` : ""}
+                      <span className="min-w-0 truncate font-semibold text-[#027FDC]">
+                        {laneMilestones.length > 0
+                          ? `MS ${laneMilestones.length}件`
+                          : "MSなし"}
+                      </span>
                     </div>
                     {rows.map((row) => {
                       const isDraggingThisRow = drag?.rowId === row.id;
@@ -2495,7 +3402,7 @@ export function SxUnifiedTimeline({
                       return (
                         <div
                           key={`${row.entity}-${row.id}`}
-                          className="border-b border-[#f1eee5]"
+                          className="border-b border-[#e8e8ed]"
                           style={{ height: ROW_H }}
                         >
                           <RowBar
@@ -2534,7 +3441,7 @@ export function SxUnifiedTimeline({
                             onPointerUp={(event) => finishDrag(row, event)}
                             onPointerCancel={() => setDragBoth(null)}
                             onLostPointerCapture={handleLostPointerCapture}
-                            connectionMode={dependencyMode}
+                            dependencyEnabled={dependencyDrawingEnabled}
                             connectionSourceId={
                               dependencySource
                                 ? sourceKey(dependencySource)
@@ -2544,17 +3451,17 @@ export function SxUnifiedTimeline({
                             onKeyboardStartDependency={
                               beginKeyboardScheduleDependency
                             }
-                            onCompleteDependency={(taskId) =>
-                              void connectScheduleDependency(taskId)
+                            onCompleteDependency={(target) =>
+                              void connectScheduleDependency(target)
                             }
                           />
                         </div>
                       );
                     })}
-                    {canManage && projectId && (
+                    {canManage && projectId && !collapsed && (
                       <div
                         aria-hidden="true"
-                        className="relative border-b border-[#e8e2d6] bg-[#fbf9f2]/60"
+                        className="relative border-b border-[#e2e8f0] bg-[#f8fafc]/60"
                         style={{ height: ROW_H }}
                       />
                     )}
@@ -2565,12 +3472,12 @@ export function SxUnifiedTimeline({
           </div>
         </div>
       </div>
-      <div className="mt-1 hidden items-center justify-between gap-2 text-[10px] text-[#777166] lg:flex">
+      <div className="mt-1 hidden items-center justify-between gap-2 text-[10px] text-[#3c3c43] lg:flex">
         <span>
-          {timeline.undatedCount > 0
-            ? `日程未登録の工程 ${timeline.undatedCount}件`
-            : "全工程に日程あり"}{" "}
-          · 完了工程 {timeline.completedCount}件
+          {milestoneStats.undated > 0
+            ? `日程未登録のMS ${milestoneStats.undated}件`
+            : "全MSに日程あり"}{" "}
+          · 完了MS {milestoneStats.completed}件
         </span>
         <span aria-hidden="true">↕ 上下・← 左右にスクロール →</span>
       </div>
@@ -2581,14 +3488,14 @@ export function SxUnifiedTimeline({
             role="dialog"
             aria-modal="false"
             aria-label="MS追加の確認"
-            className={`fixed z-[120] w-[260px] -translate-x-1/2 border border-[#bcb3a4] bg-[#fffdf7] p-3 text-[#24231f] shadow-[0_18px_44px_rgba(36,35,31,0.24)] ${pendingMilestonePoint.side === "above" ? "-translate-y-[calc(100%+12px)]" : "translate-y-3"}`}
+            className={`fixed z-[120] w-[260px] -translate-x-1/2 border border-[#d2d2d7] bg-[#ffffff] p-3 text-[#1d1d1f] shadow-[0_18px_44px_rgba(29,29,31,0.24)] ${pendingMilestonePoint.side === "above" ? "-translate-y-[calc(100%+12px)]" : "translate-y-3"}`}
             style={{
               left: pendingMilestonePoint.viewportX,
               top: pendingMilestonePoint.viewportY,
             }}
           >
             <p className="text-[11px] font-bold">MSを追加する？</p>
-            <p className="mt-1 text-[10px] text-[#716d63]">
+            <p className="mt-1 text-[10px] text-[#86868b]">
               {DISPLAY_LANE_LABEL[pendingMilestonePoint.laneKey]} ・ {sxFormatDate(pendingMilestonePoint.date)}
             </p>
             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -2601,7 +3508,7 @@ export function SxUnifiedTimeline({
                     pendingMilestonePoint.date,
                   )
                 }
-                className="min-h-11 border border-[#205f49] bg-[#205f49] px-3 text-[11px] font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#205f49]"
+                className="min-h-11 border border-[#047857] bg-[#047857] px-3 text-[11px] font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#047857]"
               >
                 Y　追加する
               </button>
@@ -2613,7 +3520,7 @@ export function SxUnifiedTimeline({
                     milestonePromptOriginRef.current?.focus(),
                   );
                 }}
-                className="min-h-11 border border-[#c9c0b2] bg-[#fffdf7] px-3 text-[11px] font-bold text-[#514e47] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#38745d]"
+                className="min-h-11 border border-[#94a3b8] bg-[#ffffff] px-3 text-[11px] font-bold text-[#3c3c43] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#059669]"
               >
                 N　閉じる
               </button>

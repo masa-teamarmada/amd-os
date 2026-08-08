@@ -18,6 +18,13 @@ import {
   sxPartnerNeedsRefresh,
   sxPartnerOwnerLoads,
   sxPartnerPrimaryIntervention,
+  sxPartnerConfidenceLabel,
+  sxPartnerConfidenceRank,
+  sxPocLikelihoodLabel,
+  sxCustomerValueLabel,
+  sxPocPriorityTier,
+  sxPocPriorityTierLabel,
+  sxPocPriorityRank,
 } from "../src/lib/sx-partner-progress.ts";
 import { assertSafeRelationshipOrigin } from "../src/lib/sx-relationship-origin.ts";
 
@@ -238,15 +245,17 @@ for (const forbidden of ["due_date", "due_date_precision", "InlineDueFields"]) {
   );
 }
 
-// desktopの1社1行は9列の実必要幅に合わせたcontainer breakpointで成立させる。
+// desktopの1社1行は実必要幅に合わせたcontainer breakpointで成立させる。
 // 旧1280pxは1440px画面の実一覧幅1261pxでも発火せず、1行約500pxまで膨張した。
-// 1248px未満では無理に9列化せず、右端clipを避ける。
+// 1248px未満では無理に多列化せず、右端clipを避ける。
+// 2026-08-06に最左の評価カラム(34px)と排液カラムを足したため、
+// 内側9列は 1248 - padding16 - 評価34 - 履歴72 - 外側gap16 - 内側gap64 = 1046px以内に収める。
 for (const required of [
   'data-partner-row-density="compact"',
   "@container",
-  "@min-[1248px]:grid-cols-[236px_148px_196px_104px_96px_132px_72px_104px]",
-  "@min-[1248px]:grid-cols-[236px_148px_196px_104px_96px_132px_72px_104px_72px]",
-  "sm:grid-cols-[minmax(0,1fr)_72px]",
+  "@min-[1248px]:grid-cols-[188px_148px_92px_88px_116px_72px_96px_128px_108px]",
+  "@min-[1248px]:grid-cols-[34px_188px_148px_92px_88px_116px_72px_96px_128px_108px_72px]",
+  "sm:grid-cols-[34px_minmax(0,1fr)_72px]",
   "grid-cols-[minmax(0,1fr)_68px]",
   "@min-[1248px]:col-span-1",
   "@min-[1248px]:grid",
@@ -265,7 +274,7 @@ assert.equal(
 // 関係先名は識別主キー。全文を表示し、編集時も同じ文字面だけをinputへ置換する。
 const partnerNameViewSource = pipelineSource.slice(
   pipelineSource.indexOf("const relationNameView"),
-  pipelineSource.indexOf("const connectionOriginView"),
+  pipelineSource.indexOf("const effluentView"),
 );
 for (const required of ["whitespace-normal", "break-words"]) {
   assert.ok(
@@ -336,7 +345,7 @@ const partnerNameCellSource = comparisonRowSource.slice(
 );
 for (const required of [
   "<InlinePartnerNameEditor",
-  "border-b border-dashed border-[#aaa294]",
+  "border-b border-dashed border-[#857b69]",
   "最終確認",
 ]) {
   assert.ok(
@@ -435,9 +444,15 @@ for (const required of [
     `${required} must defer filter changes until the active inline save succeeds`,
   );
 }
+// 接点の経緯cellは9列の右端 (現在地の根拠のあと) に置く。
+// 日次で読む列ではないため左から2番目には戻さない (まさ 2026-08-06)。
 const originCellSource = comparisonRowSource.slice(
   comparisonRowSource.indexOf("<InlineConnectionOriginEditor"),
-  comparisonRowSource.indexOf('editorKey={keyFor("current")}'),
+);
+assert.ok(
+  comparisonRowSource.indexOf("<InlineConnectionOriginEditor") >
+    comparisonRowSource.indexOf('editorKey={keyFor("current")}'),
+  "接点の経緯cellは現在の状況cellより後ろ (行の右端側) に置く",
 );
 for (const required of [
   "connection_context",
@@ -899,6 +914,138 @@ function interventionWorkItem(overrides = {}) {
   assert.equal(ishihara.dueSoonCount, 1);
   assert.equal(unconfirmed.dataGapCount, 1);
   assert.deepEqual(unconfirmed.partnerIds, ["owner-2"]);
+}
+
+
+// 確度はPoC候補先スプシの語彙 (確認済み / 推定 / 要確認) をそのまま出し、
+// 推定を確認済みへ丸めない。未保存・未知値だけ「未確認」へ落とす (まさ 2026-08-06)。
+assert.equal(sxPartnerConfidenceLabel("high"), "確認済み");
+assert.equal(sxPartnerConfidenceLabel("medium"), "推定");
+assert.equal(sxPartnerConfidenceLabel("low"), "要確認");
+assert.equal(sxPartnerConfidenceLabel(null), "未確認");
+assert.equal(sxPartnerConfidenceLabel("bogus"), "未確認");
+assert.ok(sxPartnerConfidenceRank("high") < sxPartnerConfidenceRank("medium"));
+assert.ok(sxPartnerConfidenceRank("medium") < sxPartnerConfidenceRank("low"));
+assert.ok(sxPartnerConfidenceRank("low") < sxPartnerConfidenceRank(null));
+
+const confidenceHigh = { ...sxBall, id: "c-high", confidence: "high" };
+const confidenceLow = { ...sxBall, id: "c-low", confidence: "low" };
+assert.ok(
+  sxComparePartnersForPoc(confidenceHigh, confidenceLow, "2026-07-30", "confidence") < 0,
+  "確度順では確認済みが要確認より上にくる",
+);
+assert.equal(
+  sxComparePartnersForPoc(confidenceHigh, confidenceLow, "2026-07-30", "confidence") ===
+    sxComparePartnersForPoc(confidenceHigh, confidenceLow, "2026-07-30", "attention"),
+  false,
+  "確度順は既定の要対応順とは別の並びであること",
+);
+
+// 確度 (情報の確からしさ) と、PoC実現可能性・顧客有望度 (商談の見込み) は別軸。
+// 見込み判断をconfidenceへ相乗りさせない (まさ 2026-08-06)。
+assert.equal(sxPocLikelihoodLabel("high"), "高い");
+assert.equal(sxPocLikelihoodLabel("medium"), "五分");
+assert.equal(sxPocLikelihoodLabel("low"), "低い");
+assert.equal(sxPocLikelihoodLabel(null), "未評価");
+assert.equal(sxCustomerValueLabel("high"), "有望");
+assert.equal(sxCustomerValueLabel(null), "未評価");
+
+// 評価は2軸の合成ではなく、最左カラムで人が直接付ける poc_grade をそのまま使う。
+// 合成は「排液がもらえるか」を過大評価していた (2026-08-06 まさ)。
+// null は推測でランク付けせず「未」に落とす。
+const gradeS = { ...sxBall, id: "p-s", pocGrade: "s" };
+const gradeA = { ...sxBall, id: "p-a", pocGrade: "a" };
+const gradeX = { ...sxBall, id: "p-x", pocGrade: "x" };
+const gradeNone = { ...sxBall, id: "p-none", pocGrade: null };
+assert.equal(sxPocPriorityTier(gradeS), "s");
+assert.equal(sxPocPriorityTier(gradeA), "a");
+assert.equal(sxPocPriorityTier(gradeX), "x");
+assert.equal(sxPocPriorityTier(gradeNone), "unrated");
+// 見込み2軸が入っていても、評価カラムが空なら「未」のまま。合成へ戻さない。
+assert.equal(
+  sxPocPriorityTier({ ...sxBall, id: "p-mix", pocGrade: null, pocLikelihood: "high", customerValue: "high" }),
+  "unrated",
+);
+assert.equal(sxPocPriorityTierLabel("s"), "S");
+assert.equal(sxPocPriorityTierLabel("x"), "✕");
+assert.equal(sxPocPriorityTierLabel("unrated"), "未");
+assert.ok(sxPocPriorityRank(gradeS) < sxPocPriorityRank(gradeA));
+assert.ok(sxPocPriorityRank(gradeX) < sxPocPriorityRank(gradeNone));
+assert.ok(
+  sxComparePartnersForPoc(gradeS, gradeX, "2026-07-30", "priority") < 0,
+  "優先度順ではSが✕より上にくる",
+);
+assert.ok(
+  sxComparePartnersForPoc(gradeX, gradeNone, "2026-07-30", "priority") < 0,
+  "評価済みは未評価より上にくる",
+);
+
+// 評価は社名セルに混ぜず、行の最左に独立カラムとして立てる (2026-08-06 まさ)。
+// 排液プロファイル(成分・年間量・年間処理コスト)は評価の根拠なので同じ行に持つ。
+for (const required of [
+  "data-partner-grade-cell",
+  'keyFor("poc-grade")',
+  "SX_POC_GRADE_CHOICES",
+  'keyFor("effluent")',
+  "effluent_components",
+  "effluent_volume_annual",
+  "effluent_cost_annual",
+]) {
+  assert.ok(
+    pipelineSource.includes(required),
+    `${required} must keep the grade column and effluent profile on the partner row`,
+  );
+}
+// 議事録は共有リンクが失効するため、本文を関係先のやり取り履歴へ全文保存して読めるようにする。
+assert.ok(
+  pipelineSource.includes("interaction.detailMd"),
+  "stored meeting minutes must render in the interaction history",
+);
+for (const required of [
+  "pocGrade: SxPocGrade | null",
+  "effluentComponents: string | null",
+  "detailMd: string | null",
+  'nullableString(row, "detail_md")',
+  "poc_grade",
+]) {
+  assert.ok(
+    managementSource.includes(required),
+    `${required} must remain in the management read model`,
+  );
+}
+for (const required of [
+  'takeOptionalText("effluent_components", "effluent_components", 500)',
+  'takeOptionalText("detail_md", "detail_md", 40000)',
+  'enumValue(raw.poc_grade, "poc_grade", POC_GRADES)',
+]) {
+  assert.ok(
+    managementRouteSource.includes(required),
+    `${required} must remain writable through the management PATCH route`,
+  );
+}
+
+// チップは軸名 (段階 / 状態 / 確度 / 実現 / 顧客) を必ずchip内に持ち、値だけを並べない。
+for (const required of [
+  '"段階",\n        sxPartnerStageLabel',
+  '"状態",\n        sxPartnerActivityStateLabel',
+  '"確度",\n        sxPartnerConfidenceLabel',
+  '"実現",\n        sxPocLikelihoodLabel',
+  '"顧客",\n        sxCustomerValueLabel',
+  "SX_PARTNER_CONFIDENCE_ORDER",
+  "SX_POC_JUDGMENT_ORDER",
+  'data-poc-confidence={confidence}',
+  'data-poc-priority-tier={priorityTier}',
+  'data-partner-sort-trigger={sort}',
+  'poc_likelihood: values.likelihood || null',
+  'customer_value: values.value || null',
+  '優先度順',
+  '要対応順',
+  '確度順',
+]) {
+  assert.ok(
+    pipelineSource.includes(required),
+    `${required} must keep the PoC facet chips self-labeling and sortable`,
+  );
 }
 
 console.log("sx-poc comparison lens tests passed");

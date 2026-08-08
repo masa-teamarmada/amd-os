@@ -1,6 +1,7 @@
 export const WORKSPACE_DOCUMENTS_BUCKET = "workspace-files";
 export const WORKSPACE_DOCUMENT_MAX_BYTES = 100 * 1024 * 1024;
 export const WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES = 5 * 1024 * 1024;
+export const WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES = 5 * 1024 * 1024;
 export const WORKSPACE_DOCUMENT_HTML_PDF_MAX_INPUT_BYTES = 8 * 1024 * 1024;
 export const WORKSPACE_DOCUMENT_HTML_PDF_MAX_OUTPUT_BYTES = 4 * 1024 * 1024;
 
@@ -18,8 +19,57 @@ export function isWorkspaceDocumentHtml(mimeType: unknown, displayName?: unknown
   return typeof displayName === "string" && /\.html?$/i.test(displayName.trim());
 }
 
+/**
+ * HTML本文は入力値として扱うだけで、ここでは実行・整形・sanitizeしない。
+ * 保存前のサイズ判定と、ブラウザ側の表示用byte数に同じUTF-8基準を使う。
+ */
+export function workspaceDocumentHtmlSourceByteLength(value: string): number {
+  return new TextEncoder().encode(value).byteLength;
+}
+
+export function normalizeWorkspaceDocumentHtmlSource(value: unknown): {
+  source: string;
+  byteLength: number;
+} | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const byteLength = workspaceDocumentHtmlSourceByteLength(value);
+  if (byteLength > WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES) return null;
+  return { source: value, byteLength };
+}
+
 export function workspaceDocumentPdfDownloadName(displayName: string): string {
   return displayName.replace(/\.html?$/i, ".pdf");
+}
+
+/**
+ * 資料室の名前衝突判定は、DBのlower(display_name) unique indexと同じく
+ * 表示名の前後空白を除いた大小文字非区別の比較に固定する。
+ */
+export function workspaceDocumentNameKey(displayName: string): string {
+  return displayName.trim().toLocaleLowerCase("ja");
+}
+
+/**
+ * Finderと同じ読みやすさで、拡張子の直前へ連番を付ける。
+ * occupiedNameKeysには現在のfolderのactive entryと、同時追加で予約済みの名前を渡す。
+ */
+export function workspaceDocumentFinderCopyName(
+  displayName: string,
+  occupiedNameKeys: ReadonlySet<string>,
+): string {
+  const normalized = normalizeDocumentName(displayName);
+  if (!normalized) throw new Error("invalid workspace document name");
+
+  const extensionIndex = normalized.lastIndexOf(".");
+  const hasExtension = extensionIndex > 0 && extensionIndex < normalized.length - 1;
+  const stem = hasExtension ? normalized.slice(0, extensionIndex) : normalized;
+  const extension = hasExtension ? normalized.slice(extensionIndex) : "";
+
+  for (let sequence = 2; sequence <= 10000; sequence += 1) {
+    const candidate = `${stem} ${sequence}${extension}`;
+    if (!occupiedNameKeys.has(workspaceDocumentNameKey(candidate))) return candidate;
+  }
+  throw new Error("workspace document copy name exhausted");
 }
 
 export function normalizeDocumentName(value: unknown): string | null {

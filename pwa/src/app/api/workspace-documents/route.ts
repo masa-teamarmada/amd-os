@@ -7,14 +7,18 @@ import {
   normalizeDocumentName,
   normalizeDocumentVisibility,
   normalizeHttpUrl,
+  workspaceDocumentNameKey,
   workspaceDocumentStoragePath,
   WORKSPACE_DOCUMENT_MAX_BYTES,
   WORKSPACE_DOCUMENTS_BUCKET,
   type WorkspaceDocumentScopeKind,
 } from "@/lib/workspace-documents-core";
 import {
+  findActiveWorkspaceDocumentNameConflict,
   publicWorkspaceDocument,
+  resolveDocumentRowAccess,
   workspaceDocumentDestinationStatus,
+  workspaceDocumentMatchesAccess,
   workspaceDocumentOwnerInsert,
   WORKSPACE_DOCUMENT_FIELDS,
   type WorkspaceDocumentRow,
@@ -54,9 +58,16 @@ async function readBody(request: Request): Promise<Body | null> {
 }
 
 function safeInsertError(error: { code?: string; message: string }) {
-  if (error.code === "23505") return json({ ok: false, error: "同じ場所に同名の資料があるよ。" }, 409);
+  if (error.code === "23505") return json({ ok: false, error: "同じ場所に同名の資料があるよ。画面を更新して選び直してね。" }, 409);
   console.error("[workspace-documents] insert failed:", error.message);
   return json({ ok: false, error: "資料を保存できなかったよ。" }, 500);
+}
+
+function parseDocumentId(value: unknown): string | null {
+  const candidate = text(value, 80);
+  return candidate && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(candidate)
+    ? candidate
+    : null;
 }
 
 export async function GET(request: Request) {
@@ -201,6 +212,66 @@ export async function POST(request: Request) {
     return json({ ok: false, error: "ファイルは1件100MBまでだよ。" }, 400);
   }
   const mimeType = text(body.mimeType, 240) ?? "application/octet-stream";
+  const replaceDocumentId = body.replaceDocumentId == null ? null : parseDocumentId(body.replaceDocumentId);
+  if (body.replaceDocumentId != null && !replaceDocumentId) {
+    return json({ ok: false, error: "置き換える資料の指定が不正だよ。" }, 400);
+  }
+
+  if (replaceDocumentId) {
+    const { data: replacementData, error: replacementReadError } = await db
+      .from("workspace_documents")
+      .select(WORKSPACE_DOCUMENT_FIELDS)
+      .eq("document_id", replaceDocumentId)
+      .maybeSingle();
+    if (replacementReadError) {
+      console.error("[workspace-documents] replacement lookup failed:", replacementReadError.message);
+      return json({ ok: false, error: "置き換える資料を確認できなかったよ。" }, 500);
+    }
+    if (!replacementData) return json({ ok: false, error: "置き換える資料が見つからないよ。" }, 409);
+    const replacement = replacementData as unknown as WorkspaceDocumentRow;
+    const replacementAccess = await resolveDocumentRowAccess(db, replacement);
+    if (!replacementAccess || !replacementAccess.canUpload) {
+      return json({ ok: false, error: "この資料は置き換えられないよ。" }, 403);
+    }
+    if (
+      !workspaceDocumentMatchesAccess(replacement, access)
+      || replacement.entry_kind !== "file"
+      || replacement.upload_status !== "active"
+      || replacement.folder_path !== folderPath
+      || workspaceDocumentNameKey(replacement.display_name) !== workspaceDocumentNameKey(displayName)
+      || !replacement.storage_bucket
+      || !replacement.storage_path
+    ) {
+      return json({ ok: false, error: "この資料は同名ファイルとして置き換えられないよ。画面を更新して選び直してね。" }, 409);
+    }
+
+    const conflict = await findActiveWorkspaceDocumentNameConflict(db, access, folderPath, displayName);
+    if (!conflict || conflict.document_id !== replacement.document_id) {
+      return json({ ok: false, error: "同名の資料が変わったよ。画面を更新して選び直してね。" }, 409);
+    }
+    const { data: signed, error: signedError } = await db.storage
+      .from(replacement.storage_bucket)
+      .createSignedUploadUrl(replacement.storage_path, { upsert: true });
+    if (signedError || !signed?.token) {
+      console.error("[workspace-documents] signed replacement upload failed:", signedError?.message);
+      return json({ ok: false, error: "置き換えの準備に失敗したよ。" }, 500);
+    }
+
+    return json({
+      ok: true,
+      documentId: replacement.document_id,
+      storagePath: replacement.storage_path,
+      uploadToken: signed.token,
+      mimeType,
+      isReplacement: true,
+    });
+  }
+
+  const conflict = await findActiveWorkspaceDocumentNameConflict(db, access, folderPath, displayName);
+  if (conflict) {
+    return json({ ok: false, error: "同じ場所に同名の資料があるよ。画面を更新して選び直してね。" }, 409);
+  }
+
   const documentId = randomUUID();
   const storagePath = workspaceDocumentStoragePath(scope.kind, access.workspaceId ?? access.projectId ?? scope.id, documentId);
   const { error: insertError } = await db.from("workspace_documents").insert({

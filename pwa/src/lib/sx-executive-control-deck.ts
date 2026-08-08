@@ -172,6 +172,7 @@ export type SxEcdPathNodeState =
   | "future"
   | "blocked"
   | "overdue"
+  | "not_started"
   | "unassessed"
   | "attention";
 
@@ -214,6 +215,8 @@ function resolveNodeState(
   if (milestone.status === "completed") return "complete";
   if (milestone.isBlocked || milestone.status === "blocked") return "blocked";
   if (milestone.isOverdue) return "overdue";
+  // 手入力の「未着手」は宣言された状態。期限超過・停止より弱く、推定 (unassessed) より強い。
+  if (milestone.status === "not_started") return "not_started";
   const unknownConfidence =
     milestone.confidence === "unknown" || !milestone.confidence;
   if (
@@ -1558,6 +1561,8 @@ export interface SxEcdTimelinePin {
 
 export interface SxEcdTimelineMonth {
   label: string;
+  /** 年が変わる月と先頭月だけ `2026年`。それ以外は null。月ラベルより上の段へ描く。 */
+  yearLabel: string | null;
   pct: number;
   isYearStart: boolean;
 }
@@ -1727,10 +1732,9 @@ export function deriveSxUnifiedTimeline(params: {
   ) {
     const [year, month] = cursor.slice(0, 7).split("-").map(Number);
     months.push({
-      label:
-        month === 1 || cursor === domainStart
-          ? `${year}年${month}月`
-          : `${month}月`,
+      label: `${month}月`,
+      yearLabel:
+        month === 1 || cursor === domainStart ? `${year}年` : null,
       pct: dateToPct(cursor, domainStart, domainEnd),
       isYearStart: month === 1,
     });

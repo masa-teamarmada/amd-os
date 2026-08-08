@@ -11,7 +11,6 @@ import {
 } from "react";
 import Link from "next/link";
 import {
-  Archive,
   ChevronRight,
   Download,
   ExternalLink,
@@ -24,8 +23,10 @@ import {
   Link2,
   Loader2,
   MoreHorizontal,
+  PencilLine,
   Search,
   ShieldCheck,
+  Trash2,
   Upload,
   X,
 } from "lucide-react";
@@ -41,9 +42,14 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
   isWorkspaceDocumentHtml,
+  WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES,
+  workspaceDocumentFinderCopyName,
+  workspaceDocumentHtmlSourceByteLength,
+  workspaceDocumentNameKey,
   workspaceDocumentPdfDownloadName,
 } from "@/lib/workspace-documents-core";
 import type {
@@ -82,7 +88,14 @@ type ListResponse = {
 };
 
 type DialogKind =
-  "create_folder" | "create_link" | "organize" | "archive" | null;
+  "create_folder" | "create_link" | "edit_html" | "organize" | "archive" | "upload_conflict" | null;
+
+type UploadQueueItem = {
+  file: File;
+  displayName: string;
+  conflict: DocumentItem | "queued" | null;
+  replaceDocumentId: string | null;
+};
 
 const kindOrder: Record<WorkspaceDocumentEntryKind, number> = {
   folder: 0,
@@ -195,6 +208,10 @@ export function WorkspaceDocumentRoom({
   const [draftFolderPath, setDraftFolderPath] = useState("");
   const [draftVisibility, setDraftVisibility] =
     useState<WorkspaceDocumentVisibility>("workspace_shared");
+  const [draftHtmlSource, setDraftHtmlSource] = useState("");
+  const [htmlSourceLoading, setHtmlSourceLoading] = useState(false);
+  const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[] | null>(null);
+  const [uploadConflictIndex, setUploadConflictIndex] = useState<number | null>(null);
 
   const loadDocuments = useCallback(async () => {
     setLoading(true);
@@ -258,6 +275,10 @@ export function WorkspaceDocumentRoom({
     }),
     [documents],
   );
+  const draftHtmlByteLength = useMemo(
+    () => workspaceDocumentHtmlSourceByteLength(draftHtmlSource),
+    [draftHtmlSource],
+  );
 
   const breadcrumbs = currentFolder ? currentFolder.split("/") : [];
   const ownerTrail = scopeTrail?.length ? scopeTrail : [scopeName];
@@ -279,6 +300,37 @@ export function WorkspaceDocumentRoom({
     setDraftFolderPath(item?.folderPath ?? currentFolder);
     setDraftVisibility(item?.visibility ?? "workspace_shared");
     setError(null);
+  }
+
+  async function openHtmlEditor(item: DocumentItem) {
+    if (busy) return;
+    setSelected(item);
+    setDraftHtmlSource("");
+    setDialog("edit_html");
+    setError(null);
+    setHtmlSourceLoading(true);
+    try {
+      const response = await fetch(
+        `/api/workspace-documents/${encodeURIComponent(item.documentId)}/source`,
+        { cache: "no-store" },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        source?: string;
+        error?: string;
+      };
+      if (!response.ok || !payload.ok || typeof payload.source !== "string") {
+        throw new Error(payload.error || "HTML資料を読み込めなかったよ。");
+      }
+      setDraftHtmlSource(payload.source);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "HTML資料を読み込めなかったよ。",
+      );
+      setDialog(null);
+    } finally {
+      setHtmlSourceLoading(false);
+    }
   }
 
   async function createEntry(event: FormEvent) {
@@ -349,23 +401,27 @@ export function WorkspaceDocumentRoom({
     }
   }
 
-  async function uploadFiles(files: File[]) {
-    if (!permissions?.canUpload || busy || files.length === 0) return;
+  async function uploadQueuedFiles(queue: UploadQueueItem[]) {
+    if (!permissions?.canUpload || busy || queue.some((item) => item.conflict)) return;
     setBusy(true);
     setError(null);
     try {
       const supabase = createClient();
-      for (const file of files) {
+      for (const item of queue) {
+        const { file } = item;
         const prepareResponse = await fetch(apiUrl(scopeKind, scopeId), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "create_upload",
-            displayName: file.name,
+            displayName: item.displayName,
             folderPath: currentFolder,
             visibility: draftVisibility,
             fileSizeBytes: file.size,
             mimeType: file.type || "application/octet-stream",
+            ...(item.replaceDocumentId
+              ? { replaceDocumentId: item.replaceDocumentId }
+              : {}),
           }),
         });
         const prepared = (await prepareResponse.json().catch(() => ({}))) as {
@@ -375,6 +431,7 @@ export function WorkspaceDocumentRoom({
           storagePath?: string;
           uploadToken?: string;
           mimeType?: string;
+          isReplacement?: boolean;
         };
         if (
           !prepareResponse.ok ||
@@ -393,17 +450,19 @@ export function WorkspaceDocumentRoom({
           .uploadToSignedUrl(prepared.storagePath, prepared.uploadToken, file, {
             contentType:
               prepared.mimeType || file.type || "application/octet-stream",
-            upsert: false,
+            upsert: prepared.isReplacement === true,
           });
         if (uploadError) {
-          await fetch(
-            `/api/workspace-documents/${encodeURIComponent(prepared.documentId)}`,
-            {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "fail_upload" }),
-            },
-          ).catch(() => undefined);
+          if (!prepared.isReplacement) {
+            await fetch(
+              `/api/workspace-documents/${encodeURIComponent(prepared.documentId)}`,
+              {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "fail_upload" }),
+              },
+            ).catch(() => undefined);
+          }
           throw new Error(`${file.name}: ${uploadError.message}`);
         }
 
@@ -412,7 +471,10 @@ export function WorkspaceDocumentRoom({
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "complete_upload" }),
+            body: JSON.stringify({
+              action: prepared.isReplacement ? "complete_replace" : "complete_upload",
+              ...(prepared.isReplacement ? { mimeType: prepared.mimeType } : {}),
+            }),
           },
         );
         const completed = (await completeResponse.json().catch(() => ({}))) as {
@@ -432,7 +494,89 @@ export function WorkspaceDocumentRoom({
       );
     } finally {
       setBusy(false);
+      setUploadQueue(null);
+      setUploadConflictIndex(null);
     }
+  }
+
+  function uploadFiles(files: File[]) {
+    if (!permissions?.canUpload || busy || files.length === 0) return;
+    setError(null);
+    const occupied = new Map<string, DocumentItem | "queued">(
+      documents
+        .filter((item) => item.folderPath === currentFolder)
+        .map((item) => [workspaceDocumentNameKey(item.displayName), item]),
+    );
+    const queue = files.map<UploadQueueItem>((file) => {
+      const nameKey = workspaceDocumentNameKey(file.name);
+      const conflict = occupied.get(nameKey) ?? null;
+      if (!conflict) occupied.set(nameKey, "queued");
+      return {
+        file,
+        displayName: file.name,
+        conflict,
+        replaceDocumentId: null,
+      };
+    });
+    const firstConflictIndex = queue.findIndex((item) => item.conflict !== null);
+    setUploadQueue(queue);
+    if (firstConflictIndex >= 0) {
+      setUploadConflictIndex(firstConflictIndex);
+      setDialog("upload_conflict");
+      return;
+    }
+    void uploadQueuedFiles(queue);
+  }
+
+  function cancelQueuedUpload() {
+    if (busy) return;
+    setDialog(null);
+    setUploadQueue(null);
+    setUploadConflictIndex(null);
+    if (inputRef.current) inputRef.current.value = "";
+  }
+
+  function decideDuplicateUpload(choice: "keep_both" | "replace") {
+    if (!uploadQueue || uploadConflictIndex == null || busy) return;
+    const current = uploadQueue[uploadConflictIndex];
+    if (!current || !current.conflict) return;
+    const existing = current.conflict === "queued" ? null : current.conflict;
+    if (choice === "replace" && (!existing || existing.entryKind !== "file")) {
+      setError(existing
+        ? "同名のリンクやフォルダは、ファイルで置き換えられないよ。両方残すか中止してね。"
+        : "同時に追加する資料どうしは置き換えられないよ。両方残すか中止してね。");
+      return;
+    }
+
+    const next = uploadQueue.map((item, index) => {
+      if (index !== uploadConflictIndex) return item;
+      if (choice === "replace") {
+        return { ...item, conflict: null, replaceDocumentId: existing!.documentId };
+      }
+      const occupiedNameKeys = new Set([
+        ...documents
+          .filter((document) => document.folderPath === currentFolder)
+          .map((document) => workspaceDocumentNameKey(document.displayName)),
+        ...uploadQueue
+          .filter((_, queueIndex) => queueIndex !== uploadConflictIndex)
+          .map((queueItem) => workspaceDocumentNameKey(queueItem.displayName)),
+      ]);
+      return {
+        ...item,
+        displayName: workspaceDocumentFinderCopyName(item.file.name, occupiedNameKeys),
+        conflict: null,
+      };
+    });
+    const nextConflictIndex = next.findIndex((item) => item.conflict !== null);
+    setUploadQueue(next);
+    setError(null);
+    if (nextConflictIndex >= 0) {
+      setUploadConflictIndex(nextConflictIndex);
+      return;
+    }
+    setDialog(null);
+    setUploadConflictIndex(null);
+    void uploadQueuedFiles(next);
   }
 
   async function organizeEntry(event: FormEvent) {
@@ -471,6 +615,38 @@ export function WorkspaceDocumentRoom({
     }
   }
 
+  async function saveHtmlSource(event: FormEvent) {
+    event.preventDefault();
+    if (!selected || dialog !== "edit_html") return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/workspace-documents/${encodeURIComponent(selected.documentId)}/source`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
+          body: draftHtmlSource,
+        },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+      };
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error || "HTML資料を保存できなかったよ。");
+      }
+      setDialog(null);
+      await loadDocuments();
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "HTML資料を保存できなかったよ。",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function archiveEntry() {
     if (!selected) return;
     setBusy(true);
@@ -489,14 +665,14 @@ export function WorkspaceDocumentRoom({
         error?: string;
       };
       if (!response.ok || !payload.ok)
-        throw new Error(payload.error || "資料を保管済みにできなかったよ。");
+        throw new Error(payload.error || "資料室から削除できなかったよ。");
       setDialog(null);
       await loadDocuments();
     } catch (cause) {
       setError(
-        cause instanceof Error
-          ? cause.message
-          : "資料を保管済みにできなかったよ。",
+          cause instanceof Error
+            ? cause.message
+            : "資料室から削除できなかったよ。",
       );
     } finally {
       setBusy(false);
@@ -509,6 +685,13 @@ export function WorkspaceDocumentRoom({
     void uploadFiles(Array.from(event.dataTransfer.files));
   }
 
+  const activeUploadConflict = uploadQueue && uploadConflictIndex != null
+    ? uploadQueue[uploadConflictIndex] ?? null
+    : null;
+  const conflictDocument = activeUploadConflict?.conflict && activeUploadConflict.conflict !== "queued"
+    ? activeUploadConflict.conflict
+    : null;
+  const canReplaceConflict = conflictDocument?.entryKind === "file";
   const isModal = presentation === "modal";
 
   return (
@@ -783,7 +966,7 @@ export function WorkspaceDocumentRoom({
             </div>
           )}
 
-          <div className="hidden grid-cols-[minmax(0,1fr)_120px_120px_96px] gap-4 border-t border-slate-200 bg-slate-100 px-5 py-2 text-[10px] font-semibold tracking-[0.08em] text-slate-600 sm:grid">
+          <div className="hidden grid-cols-[minmax(0,1fr)_120px_120px_360px] gap-4 border-t border-slate-200 bg-slate-100 px-5 py-2 text-[10px] font-semibold tracking-[0.08em] text-slate-600 xl:grid">
             <span>名称</span>
             <span>共有範囲</span>
             <span>更新</span>
@@ -814,10 +997,10 @@ export function WorkspaceDocumentRoom({
                   key={item.documentId}
                   className={cn(
                     styles.fileRow,
-                    "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_120px_120px_96px] sm:gap-4 sm:px-5",
+                    "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 xl:grid-cols-[minmax(0,1fr)_120px_120px_360px] xl:gap-4 xl:px-5",
                   )}
                 >
-                  <div className="col-span-2 flex min-w-0 items-center gap-3 sm:col-span-1">
+                  <div className="col-span-2 flex min-w-0 items-center gap-3 xl:col-span-1">
                     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-slate-100">
                       <EntryIcon item={item} />
                     </span>
@@ -867,7 +1050,7 @@ export function WorkspaceDocumentRoom({
                       </p>
                     </div>
                   </div>
-                  <div className="flex min-w-0 flex-wrap items-center gap-2 sm:contents">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2 xl:contents">
                     <div>
                       <VisibilityBadge visibility={item.visibility} />
                     </div>
@@ -875,17 +1058,21 @@ export function WorkspaceDocumentRoom({
                       {formatDate(item.updatedAt)}
                     </p>
                   </div>
-                  <div className="flex min-h-11 items-center justify-end gap-1">
+                  <div className="col-span-2 flex min-h-11 flex-wrap items-center justify-start gap-2 xl:col-span-1 xl:justify-end">
                     {item.entryKind === "file" && isWorkspaceDocumentHtml(item.mimeType, item.displayName) ? (
                       <button
                         type="button"
                         onClick={() => void downloadHtmlAsPdf(item)}
                         disabled={busy}
-                        className="grid h-11 w-11 place-items-center rounded-md text-slate-600 hover:bg-slate-100 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-60"
+                        className={cn(
+                          styles.secondaryAction,
+                          "inline-flex h-11 items-center gap-2 rounded-md px-3 text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-60",
+                        )}
                         title="PDF化ダウンロード"
                         aria-label={`${item.displayName}をPDF化ダウンロード`}
                       >
                         <Download className="h-4 w-4" aria-hidden />
+                        PDF化
                       </button>
                     ) : item.entryKind !== "folder" ? (
                       <a
@@ -902,6 +1089,22 @@ export function WorkspaceDocumentRoom({
                         )}
                       </a>
                     ) : null}
+                    {permissions?.canUpload && item.entryKind === "file" && isWorkspaceDocumentHtml(item.mimeType, item.displayName) && (
+                      <button
+                        type="button"
+                        onClick={() => void openHtmlEditor(item)}
+                        disabled={busy}
+                        className={cn(
+                          styles.secondaryAction,
+                          "inline-flex h-11 items-center gap-2 rounded-md px-3 text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-60",
+                        )}
+                        title="HTMLを編集"
+                        aria-label={`${item.displayName}をHTMLで編集`}
+                      >
+                        <PencilLine className="h-4 w-4" aria-hidden />
+                        HTMLを編集
+                      </button>
+                    )}
                     {permissions?.canManage && (
                       <button
                         type="button"
@@ -912,6 +1115,22 @@ export function WorkspaceDocumentRoom({
                         <MoreHorizontal className="h-4 w-4" aria-hidden />
                       </button>
                     )}
+                    {permissions?.canUpload && (
+                      <button
+                        type="button"
+                        onClick={() => openDialog("archive", item)}
+                        disabled={busy}
+                        className={cn(
+                          "inline-flex h-11 items-center gap-2 rounded-md px-3 text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700 disabled:opacity-60",
+                          styles.dangerAction,
+                        )}
+                        title="資料室から削除"
+                        aria-label={`${item.displayName}を資料室から削除`}
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden />
+                        削除
+                      </button>
+                    )}
                   </div>
                 </article>
               ))
@@ -919,6 +1138,59 @@ export function WorkspaceDocumentRoom({
           </div>
         </section>
       </main>
+
+      <Dialog
+        open={dialog === "upload_conflict"}
+        onOpenChange={(open) => !open && cancelQueuedUpload()}
+      >
+        <DialogContent className="w-[calc(100vw-32px)] max-w-lg bg-white text-slate-950">
+          <DialogHeader>
+            <DialogTitle>同名のファイルがあります</DialogTitle>
+            <DialogDescription className="break-words leading-6">
+              <span className="font-semibold text-slate-800">{activeUploadConflict?.file.name}</span>
+              {conflictDocument
+                ? ` は、この場所にある${conflictDocument.entryKind === "file" ? "ファイル" : conflictDocument.entryKind === "link" ? "リンク" : "フォルダ"}と同じ名前だよ。`
+                : " は、同時に追加する資料と同じ名前だよ。"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="my-5 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
+            {canReplaceConflict
+              ? "置き換えると、今あるファイルの内容を新しいファイルへ差し替える。中止なら今回選んだ資料は追加しない。"
+              : conflictDocument
+                ? "リンクやフォルダは、ファイルで置き換えられない。両方残すと新しい資料へ番号を付けるよ。"
+                : "同時に追加する資料どうしは置き換えられない。両方残すと新しい資料へ番号を付けるよ。"}
+          </div>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full sm:w-auto"
+              disabled={busy}
+              onClick={cancelQueuedUpload}
+            >
+              中止
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full sm:w-auto"
+              disabled={busy}
+              onClick={() => decideDuplicateUpload("keep_both")}
+            >
+              両方残す
+            </Button>
+            <Button
+              type="button"
+              className="h-11 w-full bg-red-700 hover:bg-red-800 sm:w-auto"
+              disabled={busy || !canReplaceConflict}
+              title={canReplaceConflict ? "今あるファイルを新しい内容に置き換える" : "リンク・フォルダ・同時追加中の資料は置き換えられない"}
+              onClick={() => decideDuplicateUpload("replace")}
+            >
+              置き換える
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={dialog === "create_folder" || dialog === "create_link"}
@@ -998,6 +1270,63 @@ export function WorkspaceDocumentRoom({
       </Dialog>
 
       <Dialog
+        open={dialog === "edit_html"}
+        onOpenChange={(open) => !open && setDialog(null)}
+      >
+        <DialogContent className="flex max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-4xl flex-col overflow-hidden bg-white p-0 text-slate-950">
+          <form className="flex min-h-0 flex-1 flex-col" onSubmit={(event) => void saveHtmlSource(event)}>
+            <DialogHeader className="shrink-0 border-b-4 border-[#0066cc] bg-[#081b2b] px-5 py-4 text-white">
+              <DialogTitle className="text-base text-white sm:text-lg">HTMLを編集</DialogTitle>
+              <DialogDescription className="mt-1 text-xs leading-5 text-cyan-100">
+                {selected?.displayName}。ここはHTMLソースだけを編集する欄で、入力中のコードは実行しないよ。
+              </DialogDescription>
+            </DialogHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+              {htmlSourceLoading ? (
+                <div className="flex min-h-56 items-center justify-center gap-2 text-sm text-slate-500">
+                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                  HTMLソースを読み込み中
+                </div>
+              ) : (
+                <label className="block text-xs font-semibold text-slate-700">
+                  HTMLソース
+                  <Textarea
+                    value={draftHtmlSource}
+                    onChange={(event) => setDraftHtmlSource(event.target.value)}
+                    className="mt-2 min-h-[min(52dvh,520px)] resize-y rounded-md border-slate-300 bg-white font-mono text-xs leading-5 text-slate-950 focus-visible:border-blue-700 focus-visible:ring-blue-700/20"
+                    spellCheck={false}
+                    autoFocus
+                    aria-describedby="workspace-document-html-editor-note"
+                  />
+                </label>
+              )}
+              <p id="workspace-document-html-editor-note" className="mt-3 text-xs leading-5 text-slate-500">
+                {formatBytes(draftHtmlByteLength)} / {formatBytes(WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES)}。保存後は資料名から安全な別タブ表示で確認できる。
+              </p>
+            </div>
+            <DialogFooter className="shrink-0 border-t border-slate-200 px-4 py-3 sm:px-5">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11"
+                onClick={() => setDialog(null)}
+              >
+                キャンセル
+              </Button>
+              <Button
+                type="submit"
+                className="h-11 bg-[#0066cc] hover:bg-[#004f9e]"
+                disabled={busy || htmlSourceLoading || !draftHtmlSource.trim() || draftHtmlByteLength > WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES}
+              >
+                {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+                HTMLを保存
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
         open={dialog === "organize"}
         onOpenChange={(open) => !open && setDialog(null)}
       >
@@ -1058,8 +1387,8 @@ export function WorkspaceDocumentRoom({
                 className={cn("h-11", styles.dangerAction)}
                 onClick={() => setDialog("archive")}
               >
-                <Archive className="h-4 w-4" />
-                保管済みにする
+                <Trash2 className="h-4 w-4" />
+                削除
               </Button>
               <div className="flex gap-2">
                 <Button
@@ -1089,10 +1418,10 @@ export function WorkspaceDocumentRoom({
       >
         <DialogContent className="w-[calc(100vw-32px)] max-w-md bg-white text-slate-950">
           <DialogHeader>
-            <DialogTitle>保管済みにする？</DialogTitle>
+            <DialogTitle>資料室から削除する？</DialogTitle>
             <DialogDescription>
               {selected?.displayName}{" "}
-              を通常一覧から外す。ファイル本体は削除せず、保管領域に残すよ。
+              を資料室の通常一覧と共有画面から外す。ファイル本体や登録情報は保護された保管領域に残り、外部へ公開されないよ。今の資料室には戻す画面はない。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -1111,7 +1440,7 @@ export function WorkspaceDocumentRoom({
               onClick={() => void archiveEntry()}
             >
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-              保管済みにする
+              資料室から削除
             </Button>
           </DialogFooter>
         </DialogContent>

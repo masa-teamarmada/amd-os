@@ -1,52 +1,56 @@
 # AMD OS Handoff
 
-Last updated: 2026-08-03 JST
+最終更新: 2026-08-05 JST
 
-Topic: 研究ポートフォリオを主役にしたホーム採用後の詳細設計
+対象: SolvioraX（p21）週次管制／全体ガント
 
-Work type: `development`
+作業種別: 開発・受入確認・運用文書更新
 
-## 今回、確定したこと
+## 今回の到達点
 
-- AMD OSの母集団は **研究機関リスト** と **シーズリスト** の2つ。どちらもAMDとの契約・稼働の有無にかかわらず増やし、取れるデータを蓄積する。
-- AMDが契約して仕事をする状態になった研究機関またはシーズを「PJ」と呼ぶ。PJは第3の独立した母集団を増やす意味ではなく、契約・月次報告・タスク・資料室などの**運用レイヤー**を元の研究機関／シーズへ重ねる考え方。
-- ただし研究機関から受託するPJと、個別シーズから受託するPJは性質が違う。物理テーブルを分けるかは、カラム・ライフサイクル・既存データを照合して次セッションで決める。3テーブル前提にはしない。
-- `p30` は愛媛大学全体のエコシステム構築PJ。個別シーズPJとして扱わない。
-- ECRは研究機関環境、SPSは個別シーズ／PJの評価。合算して単一スコアにしない。
-- リストの表示優先は、PJ化済み → PJ化検討中 →（シーズでは）スコア入力済み → その他。研究機関／PJありなしで行グループを分けず、研究機関はシーズリストのカラムで表す。研究機関一覧の根拠の弱い一言コメントは置かない。
-- SXは会社未設立。スピンアウト済みと表示しない。SPS表示状態は実データで再確認する。
+- 全体ガントは事業開発／技術開発／組織開発の3レーンだけで運用する。最上位タスクは、NewCo設立の2つの前提MSから逆算した9件だけ。詳細作業は子タスクとして後から足す。
+- MSは「有償PoCの口頭合意を確認する」（事業開発全体）と「出資の口頭合意を確認する」（組織開発全体）の2件だけ。独立した「設立前提」レーンや、全MSへのゲート表示は作らない。
+- 関係先は `全関係先 / PoC候補先 / VC` を同じ台帳のタブで切り替える。1社1行・9列の直接編集で、進捗のrailだけが閲覧専用履歴を開く。編集のための二重モーダルは作らない。
+- 保存済み依存線は、desktopの通常モードでhoverするとその線だけを強調し、近くの`外す`で直接解除できる。接続モード中は解除UIを出さず、mobile/keyboardは依存関係一覧から同じ解除に到達する。
+- 依存線は接続元バー右端中央から接続先バー左端中央（MSは◇中心）へ接する。端点の横逃がしは通常11px、迂回時は始点5px・終点4px。タスクバーは10px。
 
-## 実装済みの画面状態
+## 正本と現在地
 
-- `/dashboard` は旧仮設 `/portfolio-preview` を正式採用した研究ポートフォリオ中心ホーム。上段は研究機関 → シーズ → PJ運用の順で優先キューを出し、その下に既存のPJ運用一覧を残す。
-- desktop右カラムはマイページを`sticky`かつ独立スクロールで埋め込み、mobile/tabletでは明示的なマイページリンクに落とす。`/portfolio-preview` は `/dashboard` へredirectする。
-- `/institutions` と `/seeds` は母集団の一覧、PJ一覧は契約後の運用を取り出すビューとして位置付け直した。現行実装と仕様には、研究機関PJを通常PJ一覧に二重表示しない契約と、実装側の`p00`だけを除外する挙動との差が残る（下記）。
-- PJコックピットの資料室は、ファイル全件を常時列挙せず「資料室を開く」ボタンから同一画面のモーダルで開く。資料室の淡い配色はやめ、AMDの白／graphite／濃紺／AMD blue／cyanの罫線中心デザインへ寄せた。
-- 認証client重複警告は`v3.56.2`で修正済み。共有browser clientへ統一し、`/dashboard`の本番コンソールは空で確認済み。現行productionは後続の`v3.56.3`。
+- 実装の主要commit: `d42cad4 fix(sx): simplify dependency line controls`（build `v3.57.22`）。desktopのhover解除、390px横あふれなし、console errorなしを本番で確認済み。
+- 現在の`origin/main`には、上記の後に別作業の立替申請改善 `dd21564`（build `v3.57.23`）が入っている。このhandoff・文書整合は同じmainへ続けて保存する。次セッション開始時は必ず`git fetch origin`と`/api/build-info`を取り直す。
+- 正式なローカルcheckout `/Users/masa/projects/AMD/amd-os` には、BZMとProject Shareの別作業差分がある。今回のSX作業では変更しない。次セッションで無断pull・reset・checkoutをしない。
+- 一時clone `/tmp/sx-schedule-1fHXQm/amd-os` はこのcloseout後に削除する。再開は正式checkoutがcleanになってから、またはmainのclean cloneを明示的に作って行う。
 
-## 現在のproduction
+## 検証済み
 
-- `origin/main`: `b8e76070` (`feat(pwa): add editable SX gantt dependencies`)
-- production `/api/build-info`: `v3.56.3` / `b8e7607062f331180302f02be5a62457981da519`
-- ポートフォリオホーム本採用は`a5ec937e`、認証client修正は`7b366f2c`・`4830bcae`として、上記mainに含まれる。
-- 今回はデータ修正、migration、再計算をしていない。初回の全件関係監査は未完了なので、関係の実在をコード上の互換マップや名称推定だけで確定しない。
+```text
+npm run test:sx-gantt-dependency-route
+npm run test:sx-gantt-ui-contracts
+npm run test:sx-weekly-control
+npx eslint src/components/project-workspace/SxUnifiedTimeline.tsx src/lib/sx-gantt-dependency-route.ts
+npx tsc --noEmit
+npm run build
+npm run test:critical-ui
+```
 
-## 次セッションで最初にやること
+上の全コマンドは依存線変更時点で成功。今回の文書更新後もbuild・型検査・SX契約テストを再実行してからpush/deployする。
 
-1. 研究機関・シーズ・既存PJをlive DBで読み取り専用に全件照合し、研究機関 ↔ 個別シーズ ↔ 契約PJの対応表を作る。事実／推論／設計案／未確認を分ける。
-2. 2つの母集団とPJ運用レイヤーを、既存`institutions`、`seeds.institution_id`、`projects`、`institution_projects`、`project_ventures`、各評価・契約・月次・タスク表へどう安全に対応させるかを決める。物理テーブルを分ける判断は、この監査後にする。
-3. `/dashboard`の「より高い情報密度」と右側マイページの中身を、実画面でまさと詰める。研究機関／シーズの全件一覧とPJ運用一覧の役割・入口・見せ方を、二重表示を含めて仕様と実装で一致させる。
-4. 資料室の研究機関ワークスペース化、PJ共有ダッシュボード、外部参加者のメールアドレス単位の閲覧範囲は、上の情報設計が固まってから接続する。資料をサブドメインから移す作業は別のProject Share差分で進行中のため、今回のホーム作業へ混ぜない。
+## 次セッションで最初にすること
 
-## 未解決の設計論点
+1. `/Users/masa/projects/AGENTS.common.md`から指示書を読み、次に`AGENTS.md`、`CLAUDE.md`、`pwa/AGENTS.md`、`pwa/CLAUDE.md`を読む。
+2. `SESSION_MIGRATION_PROMPT.md`の開始確認をそのまま実行し、main・production・ローカルcheckoutの状態を分けて報告する。
+3. `pwa/manual/2-3-pj-cockpit.md`、`pwa/spec/3-16-project-weekly-control-current-spec.md`、`pwa/design/FEATURE_REGISTRY.md`、`pwa/BUGS.md`、`pwa/design_log/sessions_2026-08.md`を読んでから、まさの次の具体的な指示に進む。
+4. UI変更では、情報密度・直接操作・二重モーダルなし・3レーン・固定ヘッダーを壊さない。まさに明白なUX不具合を発見させないため、実装前後に独立したUI/UX監査を入れる。
 
-- PJを「元の行への運用属性」で表せる範囲と、研究機関PJ／シーズPJの契約・請求・参加者・資料室が異なるため別のPJ実体が必要になる範囲。
-- 一つのシーズが複数機関・複数PJにまたがる場合、`seeds.institution_id`だけで足りるか。
-- `p30`（愛媛大学全体）のような機関PJ、SXのような未設立事業化シーズ、CX `p20`／`p26`など未確認対象を、名称推定なしでどう関係付けるか。
-- `SPEC_pwa.md` / runtime route仕様は`institution_projects`登録PJを通常PJ一覧に二重表示しないとしている一方、`dashboard/page.tsx`は現時点で`p00`のみ除外している。この矛盾は、DB確認と画面確認をしてから解消する。
+## 未解決
 
-## 守る運用
+今回の受入範囲に未解決の実装はない。次に何を改善するかは、まさの新しい指示を待つ。
 
-- main一本。新規branch / worktreeを作らず、対象ファイルだけ明示stageする。
-- PWAコード・表示を変えるときは、仕様・マニュアル・changelog・BUGS・実装履歴を同じ変更単位で更新し、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`でproductionまで確認する。
-- ECRとSPS、研究機関とシーズ、事実と推論を安易に混ぜない。全件監査が終わるまで、欠損を推定値で埋めない。
+## 参照先
+
+- 現行マニュアル: `pwa/manual/2-3-pj-cockpit.md`
+- 現行仕様: `pwa/spec/3-16-project-weekly-control-current-spec.md`
+- 機能台帳: `pwa/design/FEATURE_REGISTRY.md`
+- 実装: `pwa/src/components/project-workspace/SxUnifiedTimeline.tsx`
+- 経路計算: `pwa/src/lib/sx-gantt-dependency-route.ts`
+- 引き継ぎプロンプト: `SESSION_MIGRATION_PROMPT.md`

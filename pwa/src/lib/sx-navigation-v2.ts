@@ -56,6 +56,7 @@ export function navPillarMeta(track: SxTrackKey) {
 }
 
 const MILESTONE_STATUS_LABEL: Record<SxMilestoneStatus, string> = {
+  not_started: "未着手",
   unassessed: "未評価",
   on_track: "順調",
   attention: "注意",
