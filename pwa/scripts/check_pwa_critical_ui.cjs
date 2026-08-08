@@ -2768,6 +2768,7 @@ expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
 
 expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
   'data-testid="company-overview-tab"',
+  "CockpitKillerFactorCatalog",
   "buildCapTableSnapshots",
   "capTableTieOut",
   "convertibleScenario",
@@ -2776,6 +2777,23 @@ expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
   "現在の持株比率には入れず",
   "downloadCompanyOverviewXlsx",
   "exportPdf",
+]);
+
+// キラー要素カタログ (2026-08-09 まさ確定): 全PJ共通マスタ + PJ別の発生状態。
+expectIncludes("src/components/cockpit/CockpitKillerFactorCatalog.tsx", [
+  'data-testid="killer-factor-catalog"',
+  "要素を追加",
+  "発生を記録",
+  "発生日",
+  "根拠メモ",
+  "CEO本人の自己申告は発生判定の根拠に使わない",
+]);
+expectIncludes("src/app/api/governance/killer-factors/route.ts", [
+  "requireMember",
+  'body.action === "create_factor"',
+  'body.action === "mark_occurred"',
+  'from("killer_factor_catalog")',
+  'from("project_killer_factor_states")',
 ]);
 
 expectIncludes("src/lib/company-overview.ts", [

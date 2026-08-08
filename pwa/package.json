@@ -26,6 +26,7 @@
     "test:prs-mprs-grouping": "node --experimental-strip-types scripts/check_prs_mprs_grouping.mts",
     "test:company-overview-cap-table": "node --experimental-strip-types scripts/check_company_overview_cap_table.mts",
     "test:company-overview-xlsx": "node --experimental-strip-types scripts/check_company_overview_xlsx.mts",
+    "test:killer-factor-catalog": "node scripts/check_killer_factor_catalog_contract.mjs",
     "test:capital-plan": "node --experimental-strip-types scripts/check_capital_plan.mts",
     "test:capital-plan-presets": "node --experimental-strip-types scripts/check_capital_plan_presets.mts",
     "test:capital-plan-workspace": "node --experimental-strip-types scripts/check_capital_plan_workspace.mts",

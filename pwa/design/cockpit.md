@@ -86,6 +86,10 @@ CockpitHeader は `projects.contract_terms_json.currentContracts[]` を優先し
 ※ 旧最下段の `CockpitKanbanGas` と、旧 `proactive_outbox` 由来の `ProactiveQueuePanel` は主要導線から外す。MS内の細かな作業はMS詳細、先手TODOの棚卸しは `/proactive` で扱い、通常PJコックピットには混ぜない。
 ```
 
+### 会社概要タブのキラー要素カタログ（2026-08-09）
+
+`CockpitCompanyOverview` の基本情報直下に `CockpitKillerFactorCatalog` を常設する。型・事象・観測の手がかりは全PJ共通マスタで、表示中PJの未発生/発生だけをPJ別に重ねる。desktopは4列一覧、mobileは同じ4項目を縦積みし、横スクロールへ逃がさない。通常は白/slate、発生行だけroseのアイコン・文字・薄い背景を併用し、色だけで状態を伝えない。要素追加と発生記録は44px以上のボタンからダイアログで行い、発生には発生日と記録・文書に基づく根拠メモを必須とする。記録者はログイン中メンバーをサーバーで付与する。通知・成功確率再計算・LLM呼び出しはここでは行わない。
+
 ★ 2026-05-11 追加:
 - **凍結/再開履歴**: `project_freeze_periods` が正本。`projects.freeze_from_ym` / `restart_expected_ym` は現在状態の表示用キャッシュ。CTB のように「202412で一度終了 → 再開 → 202605で再凍結」のような複数期間は `project_freeze_periods` に複数行で保存する。
 - **CockpitFreezeBackfill**: `freeze_period_backfills` テーブルから `(project_id, freeze_from_ym, restart_ym)` を fetch、再開月以降に「📦 休止期間サマリ」パネルを MTGサマリの直上に表示。データソースは `cron/freeze-period-backfill` が休止期間中の monthly_reports + project_meeting_summaries を Sonnet で 400-700 字に統合

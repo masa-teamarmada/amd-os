@@ -32,6 +32,7 @@ import {
 } from "@/lib/company-overview";
 import { downloadCompanyOverviewXlsx } from "@/lib/company-overview-xlsx";
 import CapitalPlanWorkspace from "@/components/cockpit/CapitalPlanWorkspace";
+import { CockpitKillerFactorCatalog } from "@/components/cockpit/CockpitKillerFactorCatalog";
 
 type DialogKind = "profile" | "equity" | "round" | "convertible" | "financial" | "meeting" | null;
 
@@ -403,6 +404,8 @@ export function CockpitCompanyOverview({ projectId, projectName, showCapitalPlan
             <InfoCell label="確認元 / 確認日" value={[data.profile?.source_ref, data.profile?.source_verified_on && formatDate(data.profile.source_verified_on)].filter(Boolean).join(" / ")} wide />
           </div>
         </Section>
+
+        <CockpitKillerFactorCatalog projectId={projectId} />
 
         {showCapitalPlan && <CapitalPlanWorkspace projectId={projectId} projectName={data.profile?.legal_name || projectName} companyOverviewData={data} />}
 
