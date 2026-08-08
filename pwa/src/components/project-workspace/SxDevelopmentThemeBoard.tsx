@@ -36,14 +36,14 @@ type ThemeRow = {
 const STATUS_TONE: Record<string, string> = {
   passed: "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]",
   completed: "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]",
-  running: "border-[#93c5fd] bg-[#eff6ff] text-[#007aff]",
-  on_track: "border-[#93c5fd] bg-[#eff6ff] text-[#007aff]",
+  running: "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]",
+  on_track: "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]",
   planned: "border-[#d97706] bg-[#fef3c7] text-[#92400e]",
   attention: "border-[#d97706] bg-[#fef3c7] text-[#92400e]",
   at_risk: "border-[#fca5a5] bg-[#fee2e2] text-[#dc2626]",
   failed: "border-[#fca5a5] bg-[#fee2e2] text-[#dc2626]",
   blocked: "border-[#fca5a5] bg-[#fee2e2] text-[#dc2626]",
-  unassessed: "border-[#8b5cf6] bg-[#f5f3ff] text-[#6d28d9]",
+  unassessed: "border-[#3D99E3] bg-[#E8F3FC] text-[#0267B2]",
   not_started: "border-[#cbd5e1] bg-[#f5f5f7] text-[#86868b]",
 };
 
@@ -258,7 +258,7 @@ export function SxDevelopmentThemeBoard({ management }: { management: SxManageme
               <div className="min-w-0 border-l-[3px] border-[#059669] px-2 py-2"><p className="line-clamp-2 text-[11px] font-semibold leading-[14px] text-[#1d1d1f]">{row.name}</p><p className="truncate text-[10px] text-[#3c3c43]">{row.position} ・ 全文</p></div>
               <div className="px-1 py-2"><SxBadge tone={STATUS_TONE[row.status] || STATUS_TONE.unassessed}><span className="flex items-center gap-1"><StatusMark status={row.status} />{row.statusLabel}</span></SxBadge></div>
               <div className="min-w-0 px-2 py-2 text-[10px] leading-[13px]"><p className="truncate text-[#3c3c43]">完了: {row.completion}</p><p className="truncate text-[#3c3c43]">証拠: {row.evidence} / 未確定: {row.uncertainty}</p><p className={`truncate ${row.nextExperiment.includes("未登録") ? "text-[#86868b]" : "text-[#3c3c43]"}`}>次実験: {row.nextExperiment}</p></div>
-              <div className="min-w-0 px-2 py-1.5 text-[10px] leading-[13px]"><p className="truncate text-[#3c3c43]">{row.owner}</p>{row.schedule.slice(0, 2).map((line) => <p key={line} className="truncate text-[#3c3c43]">{line}</p>)}<p className={`truncate font-semibold ${row.contribution === "未接続" ? "text-[#86868b]" : "text-[#007aff]"}`}>→ {row.contribution}</p></div>
+              <div className="min-w-0 px-2 py-1.5 text-[10px] leading-[13px]"><p className="truncate text-[#3c3c43]">{row.owner}</p>{row.schedule.slice(0, 2).map((line) => <p key={line} className="truncate text-[#3c3c43]">{line}</p>)}<p className={`truncate font-semibold ${row.contribution === "未接続" ? "text-[#86868b]" : "text-[#027FDC]"}`}>→ {row.contribution}</p></div>
             </summary>
             <ThemeDetails row={row} />
           </details>

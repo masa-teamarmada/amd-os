@@ -641,7 +641,7 @@ function RowBar({
           {/* The visible ◇ lives inside its semantic button. A marker click therefore always
               selects this exact MS; the 44px button remains the generous drag hit area. */}
           <i
-            className={`block h-3 w-3 rotate-45 border-2 border-[#7c3aed] ${row.isBlockingMilestone ? "bg-[#7c3aed]" : "bg-[#ffffff]"}`}
+            className={`block h-3 w-3 rotate-45 border-2 border-[#027FDC] ${row.isBlockingMilestone ? "bg-[#027FDC]" : "bg-[#ffffff]"}`}
             aria-hidden="true"
           />
         </button>
@@ -660,7 +660,7 @@ function RowBar({
         >
           {/* NewCo blocking gate = filled purple diamond; generic MS = hollow — matches Legend. */}
           <i
-            className={`block h-3 w-3 rotate-45 border-2 border-[#7c3aed] ${row.isBlockingMilestone ? "bg-[#7c3aed]" : "bg-[#ffffff]"}`}
+            className={`block h-3 w-3 rotate-45 border-2 border-[#027FDC] ${row.isBlockingMilestone ? "bg-[#027FDC]" : "bg-[#ffffff]"}`}
             aria-hidden="true"
           />
         </button>
@@ -682,7 +682,7 @@ function RowBar({
               if (event.detail !== 0) return;
               onKeyboardStartDependency(row);
             }}
-            className="sx-gantt-dependency-port absolute z-40 grid h-11 w-6 cursor-crosshair place-items-center rounded-full text-[#7c3aed] opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#7c3aed] data-[active=true]:text-[#047857] data-[active=true]:opacity-100"
+            className="sx-gantt-dependency-port absolute z-40 grid h-11 w-6 cursor-crosshair place-items-center rounded-full text-[#027FDC] opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#027FDC] data-[active=true]:text-[#047857] data-[active=true]:opacity-100"
             style={{
               top: 2,
               left: isMilestoneMarker
@@ -707,7 +707,7 @@ function RowBar({
             event.stopPropagation();
             onCompleteDependency({ entity: row.entity, id: row.id });
           }}
-          className="absolute z-40 grid h-11 w-7 -translate-x-1/2 place-items-center rounded-full text-[#007aff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#007aff]"
+          className="absolute z-40 grid h-11 w-7 -translate-x-1/2 place-items-center rounded-full text-[#027FDC] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#027FDC]"
           style={{
             top: 2,
             left: isMilestoneMarker
@@ -734,7 +734,7 @@ function RowBar({
           aria-label={`${row.title}の詳細を開く`}
         >
           <i
-            className={`block h-3 w-3 translate-y-2 rotate-45 border-2 border-[#7c3aed] ${row.isBlockingMilestone ? "bg-[#7c3aed]" : "bg-[#ffffff]"}`}
+            className={`block h-3 w-3 translate-y-2 rotate-45 border-2 border-[#027FDC] ${row.isBlockingMilestone ? "bg-[#027FDC]" : "bg-[#ffffff]"}`}
             aria-hidden="true"
           />
         </button>
@@ -2598,7 +2598,7 @@ export function SxUnifiedTimeline({
                 return (
                   <article
                     key={`mobile-ms-${milestone.id}`}
-                    className={selectedMilestoneId === milestone.id ? "bg-[#f5f3ff]" : "bg-[#f8fafc]"}
+                    className={selectedMilestoneId === milestone.id ? "bg-[#E8F3FC]" : "bg-[#f8fafc]"}
                   >
                     <button
                       type="button"
@@ -2607,8 +2607,8 @@ export function SxUnifiedTimeline({
                       className="flex min-h-11 w-full items-center gap-2 px-3 text-left"
                       aria-label={`${milestone.title}の詳細を開く`}
                     >
-                      <i className={`h-3 w-3 shrink-0 rotate-45 border-2 border-[#7c3aed] ${milestone.isBlockingMilestone ? "bg-[#7c3aed]" : "bg-[#ffffff]"}`} aria-hidden="true" />
-                      <span className="min-w-0 flex-1 text-[10px] font-bold text-[#7c3aed]">{milestone.title}</span>
+                      <i className={`h-3 w-3 shrink-0 rotate-45 border-2 border-[#027FDC] ${milestone.isBlockingMilestone ? "bg-[#027FDC]" : "bg-[#ffffff]"}`} aria-hidden="true" />
+                      <span className="min-w-0 flex-1 text-[10px] font-bold text-[#027FDC]">{milestone.title}</span>
                       <span className="shrink-0 text-[9px] text-[#86868b]">{milestone.plannedEnd ? sxFormatDate(milestone.plannedEnd) : "日程未設定"}</span>
                     </button>
                     {dependencyDrawingEnabled && (
@@ -2617,7 +2617,7 @@ export function SxUnifiedTimeline({
                           type="button"
                           disabled={!hasScheduledPoint}
                           onClick={() => beginKeyboardScheduleDependency(displayMilestone)}
-                          className="flex min-h-11 flex-1 items-center justify-center gap-1 border border-[#a78bfa] bg-[#ffffff] px-2 text-[10px] font-bold text-[#7c3aed] disabled:opacity-40"
+                          className="flex min-h-11 flex-1 items-center justify-center gap-1 border border-[#7CBCEB] bg-[#ffffff] px-2 text-[10px] font-bold text-[#027FDC] disabled:opacity-40"
                         >
                           <Plus className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
                           起点
@@ -2632,7 +2632,7 @@ export function SxUnifiedTimeline({
                               id: milestone.id,
                             })
                           }
-                          className="flex min-h-11 flex-1 items-center justify-center gap-1 border border-[#93c5fd] bg-[#ffffff] px-2 text-[10px] font-bold text-[#007aff] disabled:opacity-40"
+                          className="flex min-h-11 flex-1 items-center justify-center gap-1 border border-[#7CBCEB] bg-[#ffffff] px-2 text-[10px] font-bold text-[#027FDC] disabled:opacity-40"
                         >
                           <span aria-hidden="true">←</span>
                           接続先
@@ -2751,7 +2751,7 @@ export function SxUnifiedTimeline({
                         </span>
                         {(incomingScheduleCount > 0 ||
                           outgoingScheduleCount > 0) && (
-                          <span className="mt-1 block text-[9px] font-semibold text-[#7c3aed]">
+                          <span className="mt-1 block text-[9px] font-semibold text-[#027FDC]">
                             依存：先行 {incomingScheduleCount} / 後続{" "}
                             {outgoingScheduleCount}
                           </span>
@@ -2774,7 +2774,7 @@ export function SxUnifiedTimeline({
                               dependencySource ? sourceKey(dependencySource) === `task:${row.id}` : false
                             }
                             onClick={() => beginKeyboardScheduleDependency(row)}
-                            className="flex min-h-11 items-center justify-center gap-1 border border-[#a78bfa] px-2 text-[10px] font-bold text-[#7c3aed] aria-pressed:bg-[#f5f3ff]"
+                            className="flex min-h-11 items-center justify-center gap-1 border border-[#7CBCEB] px-2 text-[10px] font-bold text-[#027FDC] aria-pressed:bg-[#E8F3FC]"
                           >
                             <Plus className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
                             右端を起点
@@ -2794,7 +2794,7 @@ export function SxUnifiedTimeline({
                                 id: row.id,
                               })
                             }
-                            className="flex min-h-11 items-center justify-center gap-1 border border-[#93c5fd] px-2 text-[10px] font-bold text-[#007aff] disabled:opacity-40"
+                            className="flex min-h-11 items-center justify-center gap-1 border border-[#7CBCEB] px-2 text-[10px] font-bold text-[#027FDC] disabled:opacity-40"
                           >
                             <span aria-hidden="true">←</span>
                             左端へ接続
@@ -2880,7 +2880,7 @@ export function SxUnifiedTimeline({
               ))}
               {timeline.objectivePct != null && (
                 <span
-                  className="absolute z-10 flex -translate-x-full items-center gap-0.5 whitespace-nowrap pr-1 text-[9px] font-bold leading-none text-[#7c3aed]"
+                  className="absolute z-10 flex -translate-x-full items-center gap-0.5 whitespace-nowrap pr-1 text-[9px] font-bold leading-none text-[#027FDC]"
                   style={{ left: timelinePctCss(timeline.objectivePct), top: MONTH_YEAR_ROW_H }}
                 >
                   <Flag className="h-3 w-3" />
@@ -3070,7 +3070,7 @@ export function SxUnifiedTimeline({
               ))}
               {timeline.objectivePct != null && (
                 <span
-                  className="absolute top-0 w-[2px] bg-[#7c3aed]/45"
+                  className="absolute top-0 w-[2px] bg-[#027FDC]/45"
                   style={{
                     left: timelinePctCss(timeline.objectivePct),
                     height: gridHeight,
@@ -3109,7 +3109,7 @@ export function SxUnifiedTimeline({
                       markerUnits="userSpaceOnUse"
                       orient="auto"
                     >
-                      <path d="M 0 0 L 8 4 L 0 8 z" fill="#7c3aed" />
+                      <path d="M 0 0 L 8 4 L 0 8 z" fill="#027FDC" />
                     </marker>
                   </defs>
                   {scheduleDependencyEdges.map((edge) => {
@@ -3146,7 +3146,7 @@ export function SxUnifiedTimeline({
                         <path
                           d={edge.path}
                           fill="none"
-                          stroke="#7c3aed"
+                          stroke="#027FDC"
                           strokeWidth={hovered ? "2" : "1.5"}
                           strokeOpacity={hovered ? "0.96" : "0.68"}
                           markerEnd={`url(#${dependencyArrowMarkerId})`}
@@ -3187,7 +3187,7 @@ export function SxUnifiedTimeline({
                         hoveredScheduleDependency.id,
                       )
                     }
-                    className="absolute z-[45] inline-flex h-8 min-w-14 -translate-y-1/2 items-center justify-center gap-1 border border-[#7c3aed] bg-[#ffffff] px-2 text-[10px] font-bold text-[#7c3aed] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#7c3aed] disabled:opacity-45"
+                    className="absolute z-[45] inline-flex h-8 min-w-14 -translate-y-1/2 items-center justify-center gap-1 border border-[#027FDC] bg-[#ffffff] px-2 text-[10px] font-bold text-[#027FDC] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#027FDC] disabled:opacity-45"
                     style={{
                       left: Math.min(
                         Math.max(4, gridPaneWidth - DEPENDENCY_HOVER_ACTION_WIDTH_PX - 4),
@@ -3269,8 +3269,8 @@ export function SxUnifiedTimeline({
                           <span
                             className={`absolute inset-y-0 -translate-x-1/2 ${
                               milestone.isBlockingMilestone
-                                ? "border-x-2 border-[#7c3aed] bg-[#7c3aed]/28"
-                                : "border-x border-[#7c3aed]/70 bg-[#7c3aed]/12"
+                                ? "border-x-2 border-[#027FDC] bg-[#027FDC]/28"
+                                : "border-x border-[#027FDC]/70 bg-[#027FDC]/12"
                             }`}
                             style={{ left: 0, width: MILESTONE_GATE_WIDTH_PX }}
                             aria-hidden="true"
@@ -3306,7 +3306,7 @@ export function SxUnifiedTimeline({
                               }
                               handleRowClick(displayMilestone);
                             }}
-                            className={`pointer-events-auto absolute -top-[5px] left-0 grid h-11 w-11 -translate-x-1/2 place-items-center focus-visible:outline focus-visible:outline-2 ${dependencySource ? "text-[#007aff] focus-visible:outline-[#007aff]" : "text-[#7c3aed] focus-visible:outline-[#7c3aed]"}`}
+                            className={`pointer-events-auto absolute -top-[5px] left-0 grid h-11 w-11 -translate-x-1/2 place-items-center focus-visible:outline focus-visible:outline-2 ${dependencySource ? "text-[#027FDC] focus-visible:outline-[#027FDC]" : "text-[#027FDC] focus-visible:outline-[#027FDC]"}`}
                             aria-label={
                               dependencySource
                                 ? `${milestone.title}を接続先にする`
@@ -3317,7 +3317,7 @@ export function SxUnifiedTimeline({
                             {/* Cap at the head of the band: the grab handle for the gate's date. */}
                             <i
                               data-gantt-milestone-diamond={milestone.id}
-                              className={`h-5 border-2 border-[#7c3aed] ${milestone.isBlockingMilestone ? "bg-[#7c3aed]" : "bg-[#ffffff]"}`}
+                              className={`h-5 border-2 border-[#027FDC] ${milestone.isBlockingMilestone ? "bg-[#027FDC]" : "bg-[#ffffff]"}`}
                               style={{ width: MILESTONE_GATE_WIDTH_PX }}
                               aria-hidden="true"
                             />
@@ -3337,7 +3337,7 @@ export function SxUnifiedTimeline({
                                 if (event.detail !== 0) return;
                                 beginKeyboardScheduleDependency(displayMilestone);
                               }}
-                              className="sx-gantt-dependency-port pointer-events-auto absolute -top-[5px] grid h-11 w-6 cursor-crosshair place-items-center text-[#7c3aed] opacity-0 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#7c3aed]"
+                              className="sx-gantt-dependency-port pointer-events-auto absolute -top-[5px] grid h-11 w-6 cursor-crosshair place-items-center text-[#027FDC] opacity-0 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
                               style={{ left: DRAG_HIT_HEIGHT / 2, touchAction: "none" }}
                               title="ドラッグして他のタスク・MSへ依存線を引く"
                               aria-label={`${milestone.title}から依存線を開始`}
@@ -3346,7 +3346,7 @@ export function SxUnifiedTimeline({
                             </button>
                           )}
                           <span
-                            className={`pointer-events-none absolute top-0 flex h-[34px] max-w-[144px] items-center truncate whitespace-nowrap text-[9px] font-bold text-[#7c3aed] ${markerPct >= 60 ? "right-3 pr-2 text-right" : "left-3 pl-2 text-left"}`}
+                            className={`pointer-events-none absolute top-0 flex h-[34px] max-w-[144px] items-center truncate whitespace-nowrap text-[9px] font-bold text-[#027FDC] ${markerPct >= 60 ? "right-3 pr-2 text-right" : "left-3 pl-2 text-left"}`}
                             aria-hidden="true"
                           >
                             {milestone.title}
@@ -3358,11 +3358,11 @@ export function SxUnifiedTimeline({
                           type="button"
                           data-gantt-milestone-marker={milestone.id}
                           onClick={() => handleRowClick(milestone)}
-                          className="absolute right-1 top-0 z-[19] flex h-[22px] max-w-[52%] items-center gap-1 px-1 text-left text-[#7c3aed] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#7c3aed]"
+                          className="absolute right-1 top-0 z-[19] flex h-[22px] max-w-[52%] items-center gap-1 px-1 text-left text-[#027FDC] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
                           style={{ transform: `translateX(-${index * 8}px)` }}
                           aria-label={`${milestone.title}の詳細を開く`}
                         >
-                          <i className={`h-3.5 w-[6px] shrink-0 border-x-2 border-[#7c3aed] ${milestone.isBlockingMilestone ? "bg-[#7c3aed]" : "bg-[#ffffff]"}`} aria-hidden="true" />
+                          <i className={`h-3.5 w-[6px] shrink-0 border-x-2 border-[#027FDC] ${milestone.isBlockingMilestone ? "bg-[#027FDC]" : "bg-[#ffffff]"}`} aria-hidden="true" />
                           <span className="truncate whitespace-nowrap text-[9px] font-bold">{milestone.title}｜日程未設定</span>
                         </button>
                       );
@@ -3371,7 +3371,7 @@ export function SxUnifiedTimeline({
                       className="flex items-center justify-between gap-2 border-b border-[#cbd5e1] px-2 text-[10px]"
                       style={{ height: LANE_HEADER_H }}
                     >
-                      <span className="min-w-0 truncate font-semibold text-[#7c3aed]">
+                      <span className="min-w-0 truncate font-semibold text-[#027FDC]">
                         {laneMilestones.length > 0
                           ? `MS ${laneMilestones.length}件`
                           : "MSなし"}

@@ -124,8 +124,7 @@ expectIncludes(
     "navigateToWorkUnit",
     "styles.workloadBand",
     "styles.workloadDrawer",
-    "onSelectItem={navigateToWorkUnit}",
-    "sxProjectWorkUnitIsOverdue",
+      "sxProjectWorkUnitIsOverdue",
     "sxProjectWorkUnitIsDueSoon",
     // 2026-08 provenance audit: 関係先由来の共通母集団クリックはスクロールせず、provenance
     // （originResource）別に単一の編集モーダルを直接開く。work itemはedit_partner_work_item、

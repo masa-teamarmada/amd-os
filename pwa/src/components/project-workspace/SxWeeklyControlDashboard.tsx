@@ -88,7 +88,6 @@ import {
   type SxDisplayLaneKey,
 } from "./SxUnifiedTimeline";
 import { SxPartnerPipeline } from "./SxPartnerPipeline";
-import { SxProjectOwnerWorkload } from "./SxProjectOwnerWorkload";
 import styles from "./weekly-control.module.css";
 
 type StageKey = SxWeeklyIssueStage;
@@ -97,7 +96,6 @@ type WorkloadBucketKey =
   | "blocked"
   | "overdue"
   | "due_soon"
-  | "owner_unknown"
   | "due_unset"
   | "decision";
 type EditorState =
@@ -231,7 +229,7 @@ type FormField = {
 function partnerClassificationChipClass(active: boolean) {
   return `min-h-8 shrink-0 rounded border px-2 py-1 text-[11px] font-semibold ${
     active
-      ? "border-[#0369a1] bg-[#eff6ff] text-[#0369a1]"
+      ? "border-[#0267B2] bg-[#E8F3FC] text-[#0267B2]"
       : "border-[#cbd5e1] bg-[#ffffff] text-[#3c3c43] hover:bg-[#f5f5f7]"
   }`;
 }
@@ -281,7 +279,7 @@ const TRACKS: Array<{
     key: "business_development",
     label: "事業開発",
     short: "事業",
-    accent: "#007aff",
+    accent: "#027FDC",
   },
   {
     key: "technology_development",
@@ -294,7 +292,7 @@ const TRACKS: Array<{
     key: "organizational_building",
     label: "体制構築",
     short: "体制",
-    accent: "#7c3aed",
+    accent: "#027FDC",
   },
 ];
 
@@ -346,7 +344,6 @@ const WORKLOAD_BUCKETS: Array<{
   { key: "blocked", label: "停止", hint: "MS・タスク・保有事項" },
   { key: "overdue", label: "期限超過", hint: "未完了のみ" },
   { key: "due_soon", label: "7日以内", hint: "今週〜来週が期限" },
-  { key: "owner_unknown", label: "担当不明", hint: "担当未確認" },
   { key: "due_unset", label: "期限なし", hint: "期限が未設定" },
 ];
 
@@ -4380,7 +4377,7 @@ export function SxWeeklyControlDashboard({
     [management],
   );
   // MS・タスク・論点・仮説・検証・判断・action・関係先保有事項を同じ未完了作業単位にした共通母集団。
-  // PJ全体担当負荷（担当者別グループ）が既に同じ正規化をしているので、フラット化して使い回す。
+  // WHO HOLDS WHAT帯は 2026-08-09 に削除 (担当概念の全廃) したが、この正規化は管制帯の母集団として使う。
   const allWorkUnits = useMemo(
     () => projectOwnerLoads.flatMap((load) => load.items),
     [projectOwnerLoads],
@@ -4394,9 +4391,6 @@ export function SxWeeklyControlDashboard({
       ),
       due_soon: allWorkUnits.filter((item) =>
         sxProjectWorkUnitIsDueSoon(item, asOf),
-      ),
-      owner_unknown: allWorkUnits.filter(
-        (item) => item.ownerLabel === "担当未確認",
       ),
       due_unset: allWorkUnits.filter(
         (item) => item.dueDate == null || item.dueDatePrecision === "unknown",
@@ -4827,6 +4821,8 @@ export function SxWeeklyControlDashboard({
           </nav>
         </header>
 
+        {/* 管制帯は週次差分タブ専用 (2026-08-09 まさ #11「週次差分以外のタブに管制のやつ入れないで」)。 */}
+        {activeView === "weekly" && (
         <section
           className={styles.workloadBand}
           aria-label="PJ全体の管制状態（MS・タスク・論点・仮説・検証・判断・action・関係先保有事項の共通母集団）"
@@ -4854,7 +4850,8 @@ export function SxWeeklyControlDashboard({
             );
           })}
         </section>
-        {workloadFilter && (
+        )}
+        {activeView === "weekly" && workloadFilter && (
           <section
             className={styles.workloadDrawer}
             aria-label={`${WORKLOAD_BUCKETS.find((bucket) => bucket.key === workloadFilter)?.label}の一覧`}
@@ -4885,7 +4882,6 @@ export function SxWeeklyControlDashboard({
                     >
                       <span>{item.kindLabel}</span>
                       <b>{item.title}</b>
-                      <span>{item.ownerLabel}</span>
                       <span>
                         {item.dueDate ? formatDate(item.dueDate) : "期限未設定"}
                       </span>
@@ -4901,11 +4897,6 @@ export function SxWeeklyControlDashboard({
             )}
           </section>
         )}
-
-        <SxProjectOwnerWorkload
-          loads={projectOwnerLoads}
-          onSelectItem={navigateToWorkUnit}
-        />
 
         {activeView === "weekly" && (
         <section

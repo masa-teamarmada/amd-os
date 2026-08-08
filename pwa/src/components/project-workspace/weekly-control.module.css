@@ -11,7 +11,7 @@
   --amber-soft: #fef3c7;
   --red: #dc2626;
   --red-soft: #fee2e2;
-  --blue: #007aff;
+  --blue: #027FDC;
   min-height: 100vh;
   background:
     linear-gradient(90deg, rgba(29, 29, 31, .035) 1px, transparent 1px) 0 0 / 32px 32px,
@@ -124,7 +124,7 @@
 .inspectorTitleEditor .inlineFieldForm { display: block; }
 .inspectorTitleEditor .inlineFieldForm .fieldSpan > span:first-child { display: none; }
 .inspectorTitleEditor .inlineFieldForm .fieldSpan textarea { min-height: 34px; height: 34px; resize: none; border-color: transparent; border-bottom-color: #d2d2d7; border-radius: 0; background: transparent; padding: 5px 2px; font-size: 18px; font-weight: 700; line-height: 1.3; box-shadow: none; }
-.inspectorTitleEditor .inlineFieldForm .fieldSpan textarea:focus, .inspectorTitleEditor .inlineFieldForm .fieldSpan textarea:focus-visible { border-color: transparent; border-bottom-color: #7c3aed; outline: 2px solid rgba(124, 58, 237, .24); outline-offset: 1px; box-shadow: none; }
+.inspectorTitleEditor .inlineFieldForm .fieldSpan textarea:focus, .inspectorTitleEditor .inlineFieldForm .fieldSpan textarea:focus-visible { border-color: transparent; border-bottom-color: #027FDC; outline: 2px solid rgba(124, 58, 237, .24); outline-offset: 1px; box-shadow: none; }
 .inspectorTitleEditor .inlineFieldActions { align-self: stretch; margin-top: 0; }
 .inspectorTitleEditor .inlineFieldActions button { min-height: 34px; padding: 0 7px; }
 .inlineFieldSlot { min-width: 0; width: 100%; color: var(--ink); font-weight: 400; }
@@ -187,7 +187,7 @@
 .stageColumn { min-width: 0; border-top: 3px solid #94a3b8; background: rgba(255, 255, 255, .46); }
 .stageColumn:nth-child(2) { border-color: #059669; }
 .stageColumn:nth-child(3) { border-color: #d97706; }
-.stageColumn:nth-child(4) { border-color: #7c3aed; }
+.stageColumn:nth-child(4) { border-color: #027FDC; }
 .stageColumn > header { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 8px; min-height: 58px; padding: 10px; border: 1px solid var(--line); border-top: 0; }
 .stageColumn > header > span { color: var(--quiet); font-size: 11px; }
 .stageColumn > header h3 { margin: 0; font-size: 14px; }

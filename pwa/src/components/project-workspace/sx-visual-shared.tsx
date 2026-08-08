@@ -62,8 +62,8 @@ export const SX_STATUS_TONE: Record<string, string> = {
   attention: "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]",
   at_risk: "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]",
   blocked: "border-[#ef4444] bg-[#fee2e2] text-[#dc2626]",
-  completed: "border-[#93c5fd] bg-[#eff6ff] text-[#007aff]",
-  unassessed: "border-[#8b5cf6] bg-[#f5f3ff] text-[#6d28d9]",
+  completed: "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]",
+  unassessed: "border-[#3D99E3] bg-[#E8F3FC] text-[#0267B2]",
   not_started: "border-[#cbd5e1] bg-[#f5f5f7] text-[#86868b]",
 };
 
@@ -98,9 +98,9 @@ export function sxTechnicalTestStatusLabel(value: string) {
 }
 
 export const SX_TECH_TEST_STATUS_TONE: Record<string, string> = {
-  unassessed: "border-[#8b5cf6] bg-[#f5f3ff] text-[#6d28d9]",
+  unassessed: "border-[#3D99E3] bg-[#E8F3FC] text-[#0267B2]",
   planned: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
-  running: "border-[#93c5fd] bg-[#eff6ff] text-[#007aff]",
+  running: "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]",
   passed: "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]",
   failed: "border-[#ef4444] bg-[#fee2e2] text-[#dc2626]",
   blocked: "border-[#ef4444] bg-[#fee2e2] text-[#dc2626]",
