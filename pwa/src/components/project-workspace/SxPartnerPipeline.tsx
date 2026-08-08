@@ -272,7 +272,7 @@ function PartnerStageRail({
       aria-expanded={expanded}
       aria-controls={`sx-partner-history-${partnerId}`}
       aria-label={`進捗${pct == null ? "保留" : `${pct}%`}。進捗と履歴を開く`}
-      className={`block w-full min-w-0 py-0.5 text-left hover:bg-[#e7f0e9] ${FOCUS_RING}`}
+      className={`block w-full min-w-0 text-left hover:bg-[#e7f0e9] ${FOCUS_RING}`}
     >
       {content}
     </button>
@@ -571,7 +571,7 @@ function InlineCellEditor({
     return (
       <button
         type="button"
-        className={`w-full min-w-0 border-b border-dashed border-[#857b69] text-left hover:border-[#38745d] hover:bg-[#e2ecf1] ${FOCUS_RING} ${viewClassName}`}
+        className={`w-full min-w-0 text-left hover:bg-[#e2ecf1] ${FOCUS_RING} ${viewClassName}`}
         onClick={begin}
         aria-label={`${label}を直接修正`}
         data-inline-edit-trigger={editorKey}
@@ -977,7 +977,7 @@ function InlineConnectionOriginEditor({
       <button
         ref={triggerRef}
         type="button"
-        className={`min-h-11 w-full min-w-0 border-b border-dashed border-[#857b69] text-left hover:bg-[#e2ecf1] ${FOCUS_RING}`}
+        className={`min-h-11 w-full min-w-0 text-left hover:bg-[#e2ecf1] ${FOCUS_RING}`}
         onClick={() => {
           if (!onRequestEdit(editorKey)) return;
           setDraftContext(context);
@@ -998,7 +998,7 @@ function InlineConnectionOriginEditor({
   return (
     <div
       ref={editorRef}
-      className="relative grid min-h-11 min-w-0 content-center gap-0.5 border-b border-dashed border-[#857b69]"
+      className="relative grid min-h-11 min-w-0 content-center gap-0.5"
       data-inline-editor={editorKey}
       data-inline-cell-mode="edit-seamless"
       aria-busy={saving}
@@ -1163,7 +1163,7 @@ function InlineCurrentBallEditor({
       <button
         ref={triggerRef}
         type="button"
-        className={`flex min-h-11 w-full min-w-0 items-center border-b border-dashed border-[#857b69] text-left hover:border-[#38745d] hover:bg-[#e2ecf1] ${FOCUS_RING}`}
+        className={`flex min-h-11 w-full min-w-0 items-center text-left hover:bg-[#e2ecf1] ${FOCUS_RING}`}
         onClick={() => {
           if (!onRequestEdit(editorKey)) return;
           setDraftSide(side);
@@ -1184,7 +1184,7 @@ function InlineCurrentBallEditor({
   return (
     <div
       ref={editorRef}
-      className="relative grid min-h-11 w-full min-w-0 grid-cols-[60px_minmax(0,1fr)] items-stretch border-b border-dashed border-[#857b69]"
+      className="relative grid min-h-11 w-full min-w-0 grid-cols-[60px_minmax(0,1fr)] items-stretch"
       data-inline-editor={editorKey}
       data-inline-cell-mode="edit-seamless"
       aria-busy={saving}
@@ -2524,15 +2524,123 @@ function interventionSideText(
         : "保有側未確認";
 }
 
+const INTERACTION_KIND_OPTIONS = [
+  { value: "meeting", label: "面談" },
+  { value: "email", label: "メール" },
+  { value: "agreement", label: "合意" },
+  { value: "deliverable", label: "成果物" },
+  { value: "handoff", label: "引継ぎ" },
+  { value: "status_update", label: "状況更新" },
+  { value: "note", label: "メモ" },
+] as const;
+
+const ACTOR_SIDE_INLINE_OPTIONS = [
+  { value: "sx", label: "当方" },
+  { value: "partner", label: "先方" },
+  { value: "shared", label: "共同" },
+  { value: "unknown", label: "未確認" },
+] as const;
+
+/** 進行状況の1カードを押すとフロー直下に編集フォームが開く (2026-08-08 まさ #13)。
+ * 編集対象は step の種類で決まる: 直近接点=履歴の内容、現在地=ボール・期限、
+ * これから=保有事項の題名/次の一手、ゴール=目標状態。 */
 function PartnerProgressFlow({
   partner,
   displayName,
   steps,
+  canManage = false,
+  onPatch,
 }: {
   partner: SxManagementPartner;
   displayName: string;
   steps: readonly PartnerProgressStep[];
+  canManage?: boolean;
+  onPatch?: (request: PartnerInlinePatch) => Promise<void>;
 }) {
+  const [activeStepKey, setActiveStepKey] = useState<string | null>(null);
+  const [stepDraft, setStepDraft] = useState<Record<string, string>>({});
+  const [stepSaving, setStepSaving] = useState(false);
+  const [stepError, setStepError] = useState<string | null>(null);
+  const editable = canManage && Boolean(onPatch);
+  const openStep = (step: PartnerProgressStep) => {
+    if (!editable) return;
+    if (activeStepKey === step.key) {
+      setActiveStepKey(null);
+      return;
+    }
+    setStepError(null);
+    if (step.key === "goal") setStepDraft({ value: partner.targetState || "" });
+    else if (step.key === "next")
+      setStepDraft({ value: partner.nextCommitment || "" });
+    else if (step.key === "now")
+      setStepDraft({
+        side: partner.currentBallSide,
+        owner: partner.currentBallOwner || "",
+        due: partner.dueDate || "",
+      });
+    else if (step.key.startsWith("interaction-")) {
+      const interaction = partner.interactions.find(
+        (item) => `interaction-${item.id}` === step.key,
+      );
+      setStepDraft({ value: interaction?.summary || "" });
+    } else if (step.key.startsWith("work-")) {
+      const workItem = partner.workItems.find(
+        (item) => `work-${item.id}` === step.key,
+      );
+      setStepDraft({ value: workItem?.title || "" });
+    }
+    setActiveStepKey(step.key);
+  };
+  const saveStep = async () => {
+    if (!onPatch || !activeStepKey || stepSaving) return;
+    setStepSaving(true);
+    setStepError(null);
+    try {
+      if (activeStepKey === "goal")
+        await onPatch({
+          resource: "partner",
+          id: partner.id,
+          patch: { target_state: stepDraft.value.trim() || null },
+        });
+      else if (activeStepKey === "next")
+        await onPatch({
+          resource: "partner",
+          id: partner.id,
+          patch: { next_commitment: stepDraft.value.trim() || "未確認" },
+        });
+      else if (activeStepKey === "now")
+        await onPatch({
+          resource: "partner",
+          id: partner.id,
+          patch: {
+            current_ball_side: stepDraft.side,
+            current_ball_owner: stepDraft.owner.trim() || null,
+            due_date: stepDraft.due || null,
+            due_date_precision: stepDraft.due ? "day" : "unknown",
+          },
+        });
+      else if (activeStepKey.startsWith("interaction-"))
+        await onPatch({
+          resource: "interaction",
+          id: activeStepKey.slice("interaction-".length),
+          patch: { summary: stepDraft.value.trim() || "内容未確認" },
+        });
+      else if (activeStepKey.startsWith("work-"))
+        await onPatch({
+          resource: "partner_work_item",
+          id: activeStepKey.slice("work-".length),
+          patch: { title: stepDraft.value.trim() || "作業名未確認" },
+        });
+      setActiveStepKey(null);
+    } catch (caught) {
+      setStepError(
+        caught instanceof Error ? caught.message : "保存できなかったよ",
+      );
+    } finally {
+      setStepSaving(false);
+    }
+  };
+  const activeStep = steps.find((step) => step.key === activeStepKey) || null;
   const flowRef = useRef<HTMLOListElement>(null);
   const stepSignature = steps.map((step) => step.key).join("|");
   useEffect(() => {
@@ -2571,7 +2679,23 @@ function PartnerProgressFlow({
             className="flex min-w-0 items-stretch"
           >
             <div
+              role={editable ? "button" : undefined}
+              tabIndex={editable ? 0 : undefined}
+              aria-label={editable ? `${step.title}をこの場で修正` : undefined}
+              onClick={editable ? () => openStep(step) : undefined}
+              onKeyDown={
+                editable
+                  ? (event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openStep(step);
+                      }
+                    }
+                  : undefined
+              }
               className={`flex w-[138px] min-w-[124px] flex-col gap-0.5 rounded-md border px-2 py-1 ${
+                editable ? "cursor-pointer hover:brightness-95" : ""
+              } ${activeStepKey === step.key ? "ring-2 ring-[#38745d]" : ""} ${
                 step.phase === "done"
                   ? "border-[#c9d9cf] bg-[#e7f0e9] text-[#205f49]"
                   : step.phase === "now"
@@ -2614,6 +2738,118 @@ function PartnerProgressFlow({
           </li>
         ))}
       </ol>
+      {editable && activeStep && (
+        <div
+          className="mt-1.5 grid gap-1.5 border border-[#38745d] bg-[#f6f9f4] p-2"
+          data-testid="sx-partner-step-editor"
+          aria-busy={stepSaving}
+        >
+          <p className="text-[10px] font-semibold text-[#235f4b]">
+            {activeStep.sub} を修正
+          </p>
+          {activeStepKey === "now" ? (
+            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+              <label className="grid gap-0.5">
+                <span className="text-[10px] font-semibold text-[#5a574c]">
+                  保有側
+                </span>
+                <select
+                  autoFocus
+                  className={INLINE_CONTROL_CLASS}
+                  value={stepDraft.side}
+                  disabled={stepSaving}
+                  onChange={(event) =>
+                    setStepDraft((current) => ({
+                      ...current,
+                      side: event.target.value,
+                    }))
+                  }
+                >
+                  {INLINE_BALL_SIDE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-0.5">
+                <span className="text-[10px] font-semibold text-[#5a574c]">
+                  担当
+                </span>
+                <input
+                  className={INLINE_CONTROL_CLASS}
+                  value={stepDraft.owner}
+                  disabled={stepSaving}
+                  onChange={(event) =>
+                    setStepDraft((current) => ({
+                      ...current,
+                      owner: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <label className="grid gap-0.5">
+                <span className="text-[10px] font-semibold text-[#5a574c]">
+                  期限
+                </span>
+                <input
+                  type="date"
+                  className={INLINE_CONTROL_CLASS}
+                  value={stepDraft.due}
+                  disabled={stepSaving}
+                  onChange={(event) =>
+                    setStepDraft((current) => ({
+                      ...current,
+                      due: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+            </div>
+          ) : (
+            <textarea
+              autoFocus
+              rows={2}
+              className={`${INLINE_CONTROL_CLASS} py-1.5 leading-4`}
+              value={stepDraft.value || ""}
+              disabled={stepSaving}
+              aria-label={`${activeStep.sub}の内容`}
+              onChange={(event) =>
+                setStepDraft((current) => ({
+                  ...current,
+                  value: event.target.value,
+                }))
+              }
+            />
+          )}
+          {stepError && (
+            <p
+              className="text-[10px] font-semibold text-[#8c3329]"
+              role="alert"
+            >
+              {stepError}
+            </p>
+          )}
+          <div className="flex justify-end gap-1.5">
+            <button
+              type="button"
+              onClick={() => setActiveStepKey(null)}
+              disabled={stepSaving}
+              className={`min-h-9 rounded border border-[#ada18a] bg-[#fffdf7] px-2.5 text-[10px] font-semibold text-[#5a574c] hover:bg-[#f2eee0] ${FOCUS_RING}`}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={() => void saveStep()}
+              disabled={stepSaving}
+              className={`min-h-9 rounded border border-[#235f4b] bg-[#235f4b] px-2.5 text-[10px] font-semibold text-[#fffdf7] hover:bg-[#1d5341] ${FOCUS_RING}`}
+            >
+              保存
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2938,7 +3174,6 @@ function PartnerProgressHistoryModal({
   onPatchSample,
   onCreateSample,
   onCreateInteraction,
-  onEditInteraction,
   onClose,
 }: {
   partner: SxManagementPartner;
@@ -2949,7 +3184,6 @@ function PartnerProgressHistoryModal({
   onPatchSample: (request: PartnerInlinePatch) => Promise<void>;
   onCreateSample: (partnerId: string, label: string) => Promise<void>;
   onCreateInteraction?: (partnerId: string) => void;
-  onEditInteraction?: (interaction: SxPartnerInteraction) => void;
   onClose: () => void;
 }) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -3191,6 +3425,8 @@ function PartnerProgressHistoryModal({
                 partner={partner}
                 displayName={display.name}
                 steps={steps}
+                canManage={canManage}
+                onPatch={onPatchSample}
               />
             </div>
           </section>
@@ -3307,11 +3543,13 @@ function PartnerProgressHistoryModal({
                     key={interaction.id}
                     interaction={interaction}
                     partnerName={display.name}
-                    canManage={canManage && Boolean(onEditInteraction)}
-                    onEdit={
-                      onEditInteraction
-                        ? () => onEditInteraction(interaction)
-                        : undefined
+                    canManage={canManage}
+                    onPatch={(patch) =>
+                      onPatchSample({
+                        resource: "interaction",
+                        id: interaction.id,
+                        patch,
+                      })
                     }
                   />
                 ))}
@@ -3405,7 +3643,6 @@ function PartnerInlineRow({
   onPatch,
   onCreateSample,
   onCreateInteraction,
-  onEditInteraction,
 }: {
   partner: SxManagementPartner;
   columnOrder: readonly PartnerLedgerColumnKey[];
@@ -3422,7 +3659,6 @@ function PartnerInlineRow({
   onPatch: (request: PartnerInlinePatch) => Promise<void>;
   onCreateSample: (partnerId: string, label: string) => Promise<void>;
   onCreateInteraction?: (partnerId: string) => void;
-  onEditInteraction?: (interaction: SxPartnerInteraction) => void;
 }) {
   const display = sxPartnerDisplay(partner);
   const steps = buildPartnerProgressSteps(partner);
@@ -3518,20 +3754,22 @@ function PartnerInlineRow({
       {display.name}
     </span>
   );
-  // 成分は定型語彙ならバッジ、旧データの自由文はそのまま表示 (編集で選び直すと定型化)。
+  // 成分はバッジ (旧表記の元素名は記号へ寄せて表示)。定型語彙もその場で足した独自成分も
+  // 同じバッジで出す。カンマ区切りに収まらない旧作文だけは自由文の行として残る。
   const effluentComponentTokens = sxParseEffluentComponents(
     partner.effluentComponents,
   );
-  const effluentComponentsAreBadges =
-    effluentComponentTokens.length > 0 &&
-    effluentComponentTokens.every((token) =>
-      (SX_EFFLUENT_COMPONENT_CHOICES as readonly string[]).includes(token),
-    );
+  const effluentBadgeTokens = effluentComponentTokens.filter(
+    (token) => token.length <= 16,
+  );
+  const effluentFreeTexts = effluentComponentTokens.filter(
+    (token) => token.length > 16,
+  );
   const effluentView = (
     <span className="grid min-h-11 min-w-0 content-center gap-0.5">
-      {effluentComponentsAreBadges ? (
+      {effluentBadgeTokens.length > 0 ? (
         <span className="flex min-w-0 flex-wrap gap-1">
-          {effluentComponentTokens.map((token) => (
+          {effluentBadgeTokens.map((token) => (
             <span
               key={token}
               data-effluent-component={token}
@@ -3541,14 +3779,20 @@ function PartnerInlineRow({
             </span>
           ))}
         </span>
-      ) : (
-        <span
-          className="[overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#24231f]"
-          title={partner.effluentComponents || "成分 未確認"}
-        >
-          {partner.effluentComponents || "成分 未確認"}
+      ) : effluentFreeTexts.length === 0 ? (
+        <span className="text-[10px] font-semibold leading-4 text-[#6a665b]">
+          成分 未確認
         </span>
-      )}
+      ) : null}
+      {effluentFreeTexts.map((text) => (
+        <span
+          key={text.slice(0, 24)}
+          className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#24231f]"
+          title={text}
+        >
+          {text}
+        </span>
+      ))}
       <span className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]">
         年間 {partner.effluentVolumeAnnual || "量未確認"} ・ 処理費{" "}
         {partner.effluentCostAnnual || "未確認"}
@@ -3737,7 +3981,7 @@ function PartnerInlineRow({
               (2026-08-07 まさ)。横に 68px の別列で並べていたレールを名前の下へ入れ、
               1社の識別に必要なものだけがこの固定列に収まるようにした。 */}
           <div
-            className={`flex min-w-0 flex-col justify-center gap-0.5 self-stretch bg-[#fffdf7] @min-[1248px]:pl-2 md:col-span-2 @min-[1248px]:col-span-1 ${PARTNER_LEDGER_STICKY_NAME}`}
+            className={`flex min-w-0 flex-col justify-center gap-0 self-stretch bg-[#fffdf7] @min-[1248px]:pl-2 md:col-span-2 @min-[1248px]:col-span-1 ${PARTNER_LEDGER_STICKY_NAME}`}
             style={{ order: 0 }}
             data-partner-name-cell={partner.id}
           >
@@ -3767,19 +4011,17 @@ function PartnerInlineRow({
                 </span>
               </button>
             </div>
-            {/* 進捗バーと最終確認は1行に横並び (2026-08-08 まさ「こんなに縦幅取らなくていい」)。 */}
-            <div className="flex min-w-0 items-center gap-1.5">
-              <div className="min-w-0 flex-1">
-                <PartnerStageRail
-                  partnerId={partner.id}
-                  onHold={sxPartnerIsOnHold(partner)}
-                  stage={partner.relationshipStage}
-                  onOpen={() => onToggleExpand(partner.id)}
-                  expanded={expanded}
-                />
-              </div>
+            {/* バーは会社名の直下、最終確認はバーの下 (2026-08-08 まさ #10 再指示)。 */}
+            <div className="min-w-0">
+              <PartnerStageRail
+                partnerId={partner.id}
+                onHold={sxPartnerIsOnHold(partner)}
+                stage={partner.relationshipStage}
+                onOpen={() => onToggleExpand(partner.id)}
+                expanded={expanded}
+              />
               <span
-                className="shrink-0 text-[10px] font-normal leading-3 text-[#5a574c]"
+                className="block text-[10px] font-normal leading-3 text-[#5a574c]"
                 title={`最終確認 ${sxFormatDate(partner.lastVerifiedAt)}`}
               >
                 確認 {sxFormatDate(partner.lastVerifiedAt)}
@@ -4232,12 +4474,14 @@ function PartnerInlineRow({
                   <>
                     <div className="grid gap-0.5">
                       <span className="text-[10px] font-semibold text-[#5a574c]">
-                        排液中の成分（プルダウンで追加・バッジを押して外す）
+                        排液中の成分（バッジを押すと外れる）
                       </span>
                       {(() => {
                         const chosen = sxParseEffluentComponents(
                           values.effluent_components,
                         );
+                        const commit = (next: string[]) =>
+                          setValue("effluent_components", next.join(","));
                         return (
                           <>
                             {chosen.length > 0 && (
@@ -4247,17 +4491,17 @@ function PartnerInlineRow({
                                     key={token}
                                     type="button"
                                     onClick={() =>
-                                      setValue(
-                                        "effluent_components",
-                                        chosen
-                                          .filter((item) => item !== token)
-                                          .join(","),
+                                      commit(
+                                        chosen.filter((item) => item !== token),
                                       )
                                     }
                                     aria-label={`成分 ${token} を外す`}
-                                    className={`inline-flex items-center gap-0.5 border border-[#3f6b8c] bg-[#dee8f0] px-1 py-px text-[10px] font-semibold leading-4 text-[#2a5473] hover:bg-[#c9dae8] ${FOCUS_RING}`}
+                                    title={token}
+                                    className={`inline-flex max-w-full items-center gap-0.5 border border-[#3f6b8c] bg-[#dee8f0] px-1 py-px text-[10px] font-semibold leading-4 text-[#2a5473] hover:bg-[#c9dae8] ${FOCUS_RING}`}
                                   >
-                                    {token}
+                                    <span className="max-w-[180px] truncate">
+                                      {token}
+                                    </span>
                                     <span aria-hidden="true">×</span>
                                   </button>
                                 ))}
@@ -4270,22 +4514,34 @@ function PartnerInlineRow({
                               onChange={(event) => {
                                 const token = event.target.value;
                                 if (!token || chosen.includes(token)) return;
-                                setValue(
-                                  "effluent_components",
-                                  [...chosen, token].join(","),
-                                );
+                                commit([...chosen, token]);
                               }}
-                              aria-label="成分を追加"
+                              aria-label="定型の成分を追加"
                             >
                               <option value="">成分を追加…</option>
                               {SX_EFFLUENT_COMPONENT_CHOICES.filter(
-                                (choice) => !chosen.includes(choice),
+                                (choice) => !chosen.includes(choice.value),
                               ).map((choice) => (
-                                <option key={choice} value={choice}>
-                                  {choice}
+                                <option key={choice.value} value={choice.value}>
+                                  {choice.label}
                                 </option>
                               ))}
                             </select>
+                            <input
+                              className={INLINE_CONTROL_CLASS}
+                              placeholder="リストに無い成分を入力してEnter"
+                              aria-label="リストに無い成分を追加"
+                              onKeyDown={(event) => {
+                                if (event.nativeEvent.isComposing) return;
+                                if (event.key !== "Enter") return;
+                                event.preventDefault();
+                                event.stopPropagation();
+                                const token = event.currentTarget.value.trim();
+                                if (!token || chosen.includes(token)) return;
+                                commit([...chosen, token]);
+                                event.currentTarget.value = "";
+                              }}
+                            />
                           </>
                         );
                       })()}
@@ -4397,7 +4653,6 @@ function PartnerInlineRow({
           onPatchSample={onPatch}
           onCreateSample={onCreateSample}
           onCreateInteraction={onCreateInteraction}
-          onEditInteraction={onEditInteraction}
           onClose={() => onToggleExpand(partner.id)}
         />
       )}
@@ -4416,7 +4671,6 @@ export function SxPartnerPipeline({
   onManagementChange,
   onSyncNotice,
   onCreateInteraction,
-  onEditInteraction,
   activeClassification: controlledClassification,
   onClassificationChange,
 }: {
@@ -4425,7 +4679,6 @@ export function SxPartnerPipeline({
   onManagementChange: (management: SxManagementBundle) => void;
   onSyncNotice?: (message: string) => void;
   onCreateInteraction?: (partnerId: string) => void;
-  onEditInteraction?: (interaction: SxPartnerInteraction) => void;
   /** 指定すると分類タブを親が持つ (週次管制はタイトル行へ出す)。未指定なら内部stateで従来表示。 */
   activeClassification?: SxPartnerClassification | null;
   onClassificationChange?: (classification: SxPartnerClassification | null) => void;
@@ -4632,12 +4885,6 @@ export function SxPartnerPipeline({
       ? (partnerId: string) => {
           setExpandedId(null);
           onCreateInteraction(partnerId);
-        }
-      : undefined,
-    onEditInteraction: onEditInteraction
-      ? (interaction: SxPartnerInteraction) => {
-          setExpandedId(null);
-          onEditInteraction(interaction);
         }
       : undefined,
   };
@@ -4870,7 +5117,6 @@ function PartnerRow({
   onPatch,
   onCreateSample,
   onCreateInteraction,
-  onEditInteraction,
 }: {
   partner: SxManagementPartner;
   columnOrder: readonly PartnerLedgerColumnKey[];
@@ -4887,7 +5133,6 @@ function PartnerRow({
   onPatch: (request: PartnerInlinePatch) => Promise<void>;
   onCreateSample: (partnerId: string, label: string) => Promise<void>;
   onCreateInteraction?: (partnerId: string) => void;
-  onEditInteraction?: (interaction: SxPartnerInteraction) => void;
 }) {
   const expanded = expandedId === partner.id;
   return (
@@ -4907,23 +5152,77 @@ function PartnerRow({
       onPatch={onPatch}
       onCreateSample={onCreateSample}
       onCreateInteraction={onCreateInteraction}
-      onEditInteraction={onEditInteraction}
     />
   );
 }
 
 /** モーダル内の保存済み履歴を、要約・結果・主体・接点後ボールまで省略せず表示する。 */
+/** やり取り履歴の1行。押すと同じ行の中がフォームへ変わり、別モーダルは開かない
+ * (2026-08-08 まさ「編集のときにモーダルが別で立ち上がると、元の項目がどれなのか
+ * 認識するだけでも大変」)。 */
 function InteractionFullRow({
   interaction,
   partnerName,
   canManage,
-  onEdit,
+  onPatch,
 }: {
   interaction: SxPartnerInteraction;
   partnerName: string;
   canManage: boolean;
-  onEdit?: (interactionId: string) => void;
+  onPatch?: (patch: Record<string, unknown>) => Promise<void>;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [draft, setDraft] = useState(() => ({
+    interaction_kind: interaction.interactionKind as string,
+    occurred_on: interaction.occurredOn || "",
+    summary: interaction.summary,
+    outcome_summary: interaction.outcomeSummary || "",
+    actor_side: interaction.actorSide as string,
+    actor_label: interaction.actorLabel || "",
+    ball_side_after: interaction.ballSideAfter as string,
+    ball_owner_after: interaction.ballOwnerAfter || "",
+  }));
+  const editable = canManage && Boolean(onPatch);
+  const startEdit = () => {
+    if (!editable || editing) return;
+    setDraft({
+      interaction_kind: interaction.interactionKind,
+      occurred_on: interaction.occurredOn || "",
+      summary: interaction.summary,
+      outcome_summary: interaction.outcomeSummary || "",
+      actor_side: interaction.actorSide,
+      actor_label: interaction.actorLabel || "",
+      ball_side_after: interaction.ballSideAfter,
+      ball_owner_after: interaction.ballOwnerAfter || "",
+    });
+    setError(null);
+    setEditing(true);
+  };
+  const save = async () => {
+    if (!onPatch || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await onPatch({
+        interaction_kind: draft.interaction_kind,
+        occurred_on: draft.occurred_on || null,
+        occurred_on_precision: draft.occurred_on ? "day" : "unknown",
+        summary: draft.summary.trim() || interaction.summary,
+        outcome_summary: draft.outcome_summary.trim() || null,
+        actor_side: draft.actor_side,
+        actor_label: draft.actor_label.trim() || null,
+        ball_side_after: draft.ball_side_after,
+        ball_owner_after: draft.ball_owner_after.trim() || null,
+      });
+      setEditing(false);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "保存できなかったよ");
+    } finally {
+      setSaving(false);
+    }
+  };
   const actorText =
     interaction.actorSide === "shared"
       ? interaction.actorLabel
@@ -4941,23 +5240,163 @@ function InteractionFullRow({
     interaction.occurredOnPrecision,
   );
   const ballText = `${sxBallSideLabel(interaction.ballSideAfter)}${interaction.ballOwnerAfter ? ` ・ ${sxNormalizePublicName(interaction.ballOwnerAfter)}` : ""}`;
+  if (editing) {
+    const field = (label: string, control: ReactNode, span?: boolean) => (
+      <label className={`grid min-w-0 gap-0.5 ${span ? "sm:col-span-2" : ""}`}>
+        <span className="text-[10px] font-semibold text-[#5a574c]">{label}</span>
+        {control}
+      </label>
+    );
+    const set = (key: keyof typeof draft) =>
+      (event: { target: { value: string } }) =>
+        setDraft((current) => ({ ...current, [key]: event.target.value }));
+    return (
+      <li
+        className="bg-[#f6f9f4] p-2.5"
+        data-interaction-inline-editor={interaction.id}
+        aria-busy={saving}
+      >
+        <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+          {field(
+            "接点種別",
+            <select
+              autoFocus
+              className={INLINE_CONTROL_CLASS}
+              value={draft.interaction_kind}
+              disabled={saving}
+              onChange={set("interaction_kind")}
+            >
+              {INTERACTION_KIND_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>,
+          )}
+          {field(
+            "発生日",
+            <input
+              type="date"
+              className={INLINE_CONTROL_CLASS}
+              value={draft.occurred_on}
+              disabled={saving}
+              onChange={set("occurred_on")}
+            />,
+          )}
+          {field(
+            "内容",
+            <textarea
+              rows={2}
+              className={`${INLINE_CONTROL_CLASS} py-1.5 leading-4`}
+              value={draft.summary}
+              disabled={saving}
+              onChange={set("summary")}
+            />,
+            true,
+          )}
+          {field(
+            "結果・要点",
+            <textarea
+              rows={2}
+              className={`${INLINE_CONTROL_CLASS} py-1.5 leading-4`}
+              value={draft.outcome_summary}
+              disabled={saving}
+              onChange={set("outcome_summary")}
+            />,
+            true,
+          )}
+          {field(
+            "行為主体",
+            <select
+              className={INLINE_CONTROL_CLASS}
+              value={draft.actor_side}
+              disabled={saving}
+              onChange={set("actor_side")}
+            >
+              {ACTOR_SIDE_INLINE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>,
+          )}
+          {field(
+            "行為主体名",
+            <input
+              className={INLINE_CONTROL_CLASS}
+              value={draft.actor_label}
+              disabled={saving}
+              onChange={set("actor_label")}
+            />,
+          )}
+          {field(
+            "接点後の保有側",
+            <select
+              className={INLINE_CONTROL_CLASS}
+              value={draft.ball_side_after}
+              disabled={saving}
+              onChange={set("ball_side_after")}
+            >
+              {INLINE_BALL_SIDE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>,
+          )}
+          {field(
+            "接点後の担当",
+            <input
+              className={INLINE_CONTROL_CLASS}
+              value={draft.ball_owner_after}
+              disabled={saving}
+              onChange={set("ball_owner_after")}
+            />,
+          )}
+        </div>
+        {error && (
+          <p className="mt-1 text-[10px] font-semibold text-[#8c3329]" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="mt-1.5 flex justify-end gap-1.5">
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            disabled={saving}
+            className={`min-h-9 rounded border border-[#ada18a] bg-[#fffdf7] px-2.5 text-[10px] font-semibold text-[#5a574c] hover:bg-[#f2eee0] ${FOCUS_RING}`}
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={saving}
+            className={`min-h-9 rounded border border-[#235f4b] bg-[#235f4b] px-2.5 text-[10px] font-semibold text-[#fffdf7] hover:bg-[#1d5341] ${FOCUS_RING}`}
+          >
+            保存
+          </button>
+        </div>
+      </li>
+    );
+  }
   return (
     <li
-      className={`p-2.5 text-[11px] leading-5 ${canManage && onEdit ? "cursor-pointer hover:bg-[#e7f0e9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]" : ""}`}
-      role={canManage && onEdit ? "button" : undefined}
-      tabIndex={canManage && onEdit ? 0 : undefined}
+      className={`p-2.5 text-[11px] leading-5 ${editable ? "cursor-pointer hover:bg-[#e7f0e9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]" : ""}`}
+      role={editable ? "button" : undefined}
+      tabIndex={editable ? 0 : undefined}
       aria-label={
-        canManage && onEdit
-          ? `${partnerName} - ${sxNormalizePublicName(interaction.summary)}を直接修正`
+        editable
+          ? `${partnerName} - ${sxNormalizePublicName(interaction.summary)}をこの場で修正`
           : undefined
       }
-      onClick={canManage && onEdit ? () => onEdit(interaction.id) : undefined}
+      onClick={editable ? startEdit : undefined}
       onKeyDown={
-        canManage && onEdit
+        editable
           ? (event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
-                onEdit(interaction.id);
+                startEdit();
               }
             }
           : undefined

@@ -140,32 +140,47 @@ export function sxPartnerClassificationLabel(
  * 既存の自由文は選び直すまでそのまま表示される。
  */
 export const SX_EFFLUENT_COMPONENT_CHOICES = [
-  "ニッケル",
-  "鉛",
-  "クロム",
-  "マンガン",
-  "アルミ",
-  "銅",
-  "亜鉛",
-  "ネオジム",
-  "ジスプロシウム",
-  "その他重金属",
-  "COD",
-  "BOD",
-  "リン",
-  "窒素",
-  "油分",
-  "塩分",
-  "色度",
-  "SS",
-  "糖分",
+  { value: "Ni", label: "Ni（ニッケル）" },
+  { value: "Pb", label: "Pb（鉛）" },
+  { value: "Cr", label: "Cr（クロム）" },
+  { value: "Mn", label: "Mn（マンガン）" },
+  { value: "Al", label: "Al（アルミ）" },
+  { value: "Cu", label: "Cu（銅）" },
+  { value: "Zn", label: "Zn（亜鉛）" },
+  { value: "Nd", label: "Nd（ネオジム）" },
+  { value: "Dy", label: "Dy（ジスプロシウム）" },
+  { value: "その他重金属", label: "その他重金属" },
+  { value: "COD", label: "COD" },
+  { value: "BOD", label: "BOD" },
+  { value: "リン", label: "リン" },
+  { value: "窒素", label: "窒素" },
+  { value: "油分", label: "油分" },
+  { value: "塩分", label: "塩分" },
+  { value: "色度", label: "色度" },
+  { value: "SS", label: "SS" },
+  { value: "糖分", label: "糖分" },
 ] as const;
 
-/** カンマ・読点区切りの保存値を成分トークンへ。全トークンが定型語彙ならバッジ表示できる。 */
+/** 旧表記 (元素名) を元素記号へ寄せる。保存値のパース時だけ使い、DBは書き換えない。 */
+const EFFLUENT_COMPONENT_ALIASES: Record<string, string> = {
+  "ニッケル": "Ni",
+  "鉛": "Pb",
+  "クロム": "Cr",
+  "マンガン": "Mn",
+  "アルミ": "Al",
+  "アルミニウム": "Al",
+  "銅": "Cu",
+  "亜鉛": "Zn",
+  "ネオジム": "Nd",
+  "ジスプロシウム": "Dy",
+};
+
+/** カンマ・読点区切りの保存値を成分トークンへ (旧表記は記号へ正規化)。 */
 export function sxParseEffluentComponents(value: string | null): string[] {
   return (value || "")
     .split(/[,、]/)
     .map((token) => token.trim())
+    .map((token) => EFFLUENT_COMPONENT_ALIASES[token] || token)
     .filter(Boolean);
 }
 
