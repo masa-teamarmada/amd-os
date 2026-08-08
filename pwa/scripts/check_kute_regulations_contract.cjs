@@ -32,12 +32,14 @@ expectIncludes("src/components/cockpit/CockpitKuteRegulations.tsx", [
   "認定委員会内規",
   "大学発スタートアップ支援細則",
   "認定審査チェックシート",
-  "原案未作成",
-  "2027/01 目途",
+  "S0は対象だけ確定、S4は決裁・施行待ち",
+  "8月",
+  "9/4",
+  "9〜11月",
+  "1月",
+  "進捗順",
   "既存規程・原典",
-  "docxを開く",
-  "期限はAMDの管理目標",
-  "版管理フォルダ",
+  "版管理",
 ]);
 
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
