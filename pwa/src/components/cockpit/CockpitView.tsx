@@ -9,6 +9,7 @@ import { CockpitStrategySignals } from "./CockpitStrategySignals";
 import { CockpitGrants } from "./CockpitGrants";
 import { WorkspaceDocumentLauncher } from "@/components/workspace-documents/WorkspaceDocumentRoom";
 import { CockpitKuteAnnualRoadmap } from "./CockpitKuteAnnualRoadmap";
+import { CockpitKuteRegulations } from "./CockpitKuteRegulations";
 import { ProjectInstitutionSeeds } from "./CockpitKuteSeeds";
 import { CockpitSeasonFinance } from "./CockpitSeasonFinance";
 import { CockpitMsChangeHistory } from "./CockpitMsChangeHistory";
@@ -241,7 +242,7 @@ function usesMsProgressCategory(category: string | null | undefined) {
   return ["dtsu", "ecosystem", "new_business"].includes(String(category || "dtsu").toLowerCase());
 }
 
-export type CockpitTab = "progress" | "score-detail" | "business-plan" | "company";
+export type CockpitTab = "progress" | "score-detail" | "business-plan" | "regulations" | "company";
 
 export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab, onTabChange }: CockpitViewProps) {
   const [localActiveTab, setLocalActiveTab] = useState<CockpitTab>("progress");
@@ -269,6 +270,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   const { project, currentYm, billingCycles, planCycle, milestones, progress, reports, members, subItems, responsibilities, memberMap, pastPlanCycles, msActivities, memberActivities, seasonFinance, msChangeHistory, strategySignals } = cockpit;
   const usesMsProgress = usesMsProgressCategory(project.projectCategory);
   const hasBusinessPlanTab = project.projectId === "p21";
+  const hasKuteRegulationsTab = project.projectId === "p25";
 
   const currentProgress = mergeProgress(progress, progressPatches);
   const patchedPastPlanCycles = (pastPlanCycles || []).map((bundle) => ({
@@ -391,7 +393,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
 
       <div
         className="grid overflow-hidden rounded-xl border border-[#d6d6da] bg-[#f5f5f7]"
-        style={{ gridTemplateColumns: `repeat(${2 + Number(hasScoreDetailTab) + Number(hasBusinessPlanTab)}, minmax(0, 1fr))` }}
+        style={{ gridTemplateColumns: `repeat(${2 + Number(hasScoreDetailTab) + Number(hasBusinessPlanTab) + Number(hasKuteRegulationsTab)}, minmax(0, 1fr))` }}
         role="tablist"
         aria-label="コックピット表示切り替え"
       >
@@ -399,6 +401,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
             { key: "progress" as const, label: "進捗管理" },
             ...(hasScoreDetailTab ? [{ key: "score-detail" as const, label: "スコア詳細" }] : []),
             ...(hasBusinessPlanTab ? [{ key: "business-plan" as const, label: "事業計画" }] : []),
+            ...(hasKuteRegulationsTab ? [{ key: "regulations" as const, label: "規程・内規" }] : []),
             { key: "company" as const, label: "会社概要" },
           ].map((tab, index) => {
             const selected = activeTab === tab.key;
@@ -546,6 +549,17 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           className={activeTab === "business-plan" ? "min-w-0" : "hidden"}
         >
           <CockpitBusinessPlan projectId={project.projectId} projectName={project.projectName} />
+        </section>
+      )}
+
+      {hasKuteRegulationsTab && (
+        <section
+          role="tabpanel"
+          aria-label="規程・内規"
+          hidden={activeTab !== "regulations"}
+          className={activeTab === "regulations" ? "min-w-0" : "hidden"}
+        >
+          <CockpitKuteRegulations />
         </section>
       )}
 
