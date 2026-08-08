@@ -2996,8 +2996,9 @@ console.log("critical PWA UI anchors ok");
 expectIncludes(
   "src/components/project-workspace/SxWeeklyControlDashboard.tsx",
   [
-    "partners: \"partner-ledger\"",
-    "role=\"tablist\"",
+    // 2026-08-08 深夜: タブ化(v3.65.0)はhydration停止の本番障害で一時撤回し、
+    // アンカーリンク版へ戻した。原因特定後の再実装時にtablistアサーションを復元する。
+    'href="#partner-ledger"',
     "onManagementChange={setManagement}",
     'kind: "create_partner"',
     'kind: "create_partner_work_item"',
