@@ -1306,8 +1306,6 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "top: TASK_BAR_TOP_PX,",
   // Round 24/29: 計画の薄いバーと登録済み実績の濃い塗りを分け、未登録は0%と表示しない。
   "row.progressRegistered && row.progressPct > 0",
-  '実績{" "}',
-  "{row.actualEnd",
   "最上位タスクに戻す",
   "日程未登録",
   "aria-pressed",

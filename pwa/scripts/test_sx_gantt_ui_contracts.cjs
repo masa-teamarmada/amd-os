@@ -307,7 +307,8 @@ assertIncludes(timelineFile, timeline, [
   "data-gantt-nest-target-task",
   "data-gantt-nest-root-lane",
   "data-gantt-milestone-marker",
-  "patch: { parent_task_id: parentTaskId }",
+  // 2026-08-08 #15: 別レーン移動で track も一緒にPATCHするため patch 変数化した
+  "{ parent_task_id: parentTaskId, track: TRACK_FOR_LANE[crossLane] }",
   "ここを親タスクにする",
   "最上位タスクに戻す",
 ]);

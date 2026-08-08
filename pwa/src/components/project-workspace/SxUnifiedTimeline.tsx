@@ -740,25 +740,9 @@ function RowBar({
         </button>
       )}
       <span className="pointer-events-none absolute inset-x-1 bottom-0.5 z-10 flex flex-wrap items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] font-semibold text-[#5a574c]">
-        {hasBar ? (
-          <>
-            <span>予定 {sxFormatDate(row.plannedEnd).slice(5)}</span>
-            {!isMilestoneMarker && (
-              <span
-                className={
-                  row.progressRegistered ? "text-[#315f7d]" : "text-[#765022]"
-                }
-              >
-                実績{" "}
-                {row.actualEnd
-                  ? `完了 ${sxFormatDate(row.actualEnd).slice(5)}`
-                  : row.progressRegistered
-                    ? `${row.progressPct}%`
-                    : "未登録"}
-              </span>
-            )}
-          </>
-        ) : (
+        {/* 「予定 …/実績 未登録」の常時表示は 2026-08-08 に削除 (まさ #16)。
+            日付と進捗は詳細モーダルとバーの位置・塗りで読む。 */}
+        {hasBar ? null : (
           <span className={`flex items-center gap-1 ${isMilestoneMarker ? "pl-7" : ""}`}>
             日程未設定・{ROW_STATE_TEXT[row.state]}
           </span>
@@ -2028,10 +2012,18 @@ export function SxUnifiedTimeline({
     const rootLane = laneHost?.dataset.ganttNestRootLane as
       | SxDisplayLaneKey
       | undefined;
-    const sourceLane = sourceTask ? laneKeyForTask(sourceTask) : null;
-    if (rootLane && rootLane === sourceLane) return { kind: "root", laneKey: rootLane };
+    // 自レーンなら「最上位へ戻す」、別レーンなら「そのグループへ移動」(2026-08-08 まさ #15)。
+    if (rootLane) return { kind: "root", laneKey: rootLane };
     return null;
   }
+
+  /** 表示レーンから、タスク移動時に書き込む代表trackを引く。組織開発レーンは
+   * funding/organizational_building の2trackが同居するため organizational_building を代表にする。 */
+  const TRACK_FOR_LANE: Record<SxDisplayLaneKey, string> = {
+    business_development: "business_development",
+    technology_development: "technology_development",
+    organization: "organizational_building",
+  };
 
   function beginTaskNestDrag(
     row: DisplayRow,
@@ -2202,15 +2194,30 @@ export function SxUnifiedTimeline({
     const parentTitle = parentTaskId
       ? tasks.find((task) => task.id === parentTaskId)?.title || "親タスク"
       : null;
+    const sourceTask = tasks.find((task) => task.id === current.taskId) || null;
+    const crossLane =
+      target.kind === "root" &&
+      sourceTask &&
+      laneKeyForTask(sourceTask) !== target.laneKey
+        ? target.laneKey
+        : null;
+    const patch: Record<string, unknown> = crossLane
+      ? { parent_task_id: parentTaskId, track: TRACK_FOR_LANE[crossLane] }
+      : { parent_task_id: parentTaskId };
     const nestMessage = parentTitle
       ? `「${current.title}」を「${parentTitle}」の子タスクにしたよ`
-      : `「${current.title}」を最上位タスクに戻したよ`;
+      : crossLane
+        ? `「${current.title}」を${DISPLAY_LANE_LABEL[crossLane]}へ移動したよ`
+        : `「${current.title}」を最上位タスクに戻したよ`;
     if (onManagementOptimistic) {
       onManagementOptimistic(
         (currentBundle) =>
-          sxApplyOptimisticManagementPatch(currentBundle, "task", current.taskId, {
-            parent_task_id: parentTaskId,
-          }),
+          sxApplyOptimisticManagementPatch(
+            currentBundle,
+            "task",
+            current.taskId,
+            patch,
+          ),
         `${nestMessage}。DBへ同期中`,
       );
       if (parentTaskId)
@@ -2230,7 +2237,7 @@ export function SxUnifiedTimeline({
           body: JSON.stringify({
             resource: "task",
             id: current.taskId,
-            patch: { parent_task_id: parentTaskId },
+            patch,
             expected_version: current.version,
           }),
         },
@@ -2902,7 +2909,7 @@ export function SxUnifiedTimeline({
                     data-gantt-nest-root-lane={lane.key}
                     onClick={() => toggleLaneCollapsed(lane.key)}
                     aria-expanded={!collapsed}
-                    className="flex w-full items-center gap-1.5 border-b border-[#ada18a] px-2 text-left hover:bg-[#f2eee0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                    className="!min-h-0 flex w-full items-center gap-1.5 border-b border-[#ada18a] px-2 text-left hover:bg-[#f2eee0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
                     style={{ height: LANE_HEADER_H }}
                     title={collapsed ? "このグループを開く" : "このグループを折りたたむ（MSは残る）"}
                   >
