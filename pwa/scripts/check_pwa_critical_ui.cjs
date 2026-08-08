@@ -945,20 +945,19 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "data-progress-step",
   "data-step-count={steps.length}",
   "sxIsPocPartner",
-  "sxPartnerHasContactRecord",
-  "sxPartnerHasDataGap",
-  "sxPartnerHasDueSoon",
-  "sxPartnerHasOverdue",
-  "sx-partner-filter-poc",
-  "sx-partner-filter-vc",
+  // 2026-08-08 まさ指示: タブ「表示」を「分類」に改名し、分類5種 (PoC候補先/技術協力先/
+  // 試料提供元/試料提供ルート/VC) を classifications (複数可) で絞る。担当・区分・段階・
+  // 管制の各絞り込み帯と説明文は削除した。
+  "sx-partner-filter-${classification}",
+  "SX_PARTNER_CLASSIFICATION_ORDER",
+  "partnerHasClassification",
   "PoC候補先",
   "sxIsVcPartner",
-  'heading="表示"',
+  'heading="分類"',
   'heading="役割"',
   "filterablePartners",
   "sxGroupPartnersByPrimaryClassification(filterablePartners)",
   "comparisonPartners",
-  "PartnerComparisonControls",
   "sxNormalizePublicName",
   "deferredLowPriority",
   "保留・低優先（重要経路外・",
@@ -994,10 +993,7 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "aria-labelledby={nameHeadingId}",
   "aria-pressed",
   // Round 32: one-row comparison keeps the dynamic progress rail/flow and intervention columns.
-  "OwnerLoadBand",
   "sxPartnerPrimaryIntervention",
-  "関係先の進捗比較",
-  "接点・現在地・次の行動・ゴールを、1社1行で確認",
   "進行状況",
   "詰まり・PJ影響",
   "次にやること",
@@ -3001,7 +2997,8 @@ expectIncludes(
     "onManagementChange={setManagement}",
     'kind: "create_partner"',
     'kind: "create_partner_work_item"',
-    "PoC先を含む全関係先",
+    // 2026-08-08 まさ指示: 見出し下の説明文は削除。分類の複数選択はモーダルへ。
+    "分類（複数選択可）",
   ],
 );
 expectNotIncludes(
@@ -3091,30 +3088,23 @@ expectIncludes("src/lib/sx-partner-progress.ts", [
   'partner: "先方"',
 ]);
 expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
-  "PartnerComparisonControls",
+  // 2026-08-08 まさ指示: 管制帯 (PartnerComparisonControls) と要対応クイックフィルタは
+  // 削除。タブは分類 (classifications 複数可) ベースで、既定はPoC候補先・並びは優先度順固定。
   "PartnerInlineRow",
   "PartnerProgressHistoryModal",
   "primaryInterventionTarget",
   "PartnerInlinePatch",
   "data-inline-edit-trigger",
   "data-inline-editor",
-  "activePocQuickFilter",
-  "pocMatchesQuickFilter",
   "sx-partner-comparison-row-",
   "sx-partner-stage-rail-",
   "sx-partner-progress-",
   "interaction-${interaction.id}",
   "work-${item.id}",
   'aria-modal="true"',
-  "判定材料不足",
-  "情報更新要",
-  "接点記録あり",
-  "関係先の進捗比較",
-  "const [pocOnly, setPocOnly] = useState(true)",
-  "const [vcOnly, setVcOnly] = useState(false)",
+  'useState<SxPartnerClassification | null>("poc_candidate")',
   "showRoleFilter={!comparisonOnly}",
   "comparisonPartners.map",
-  'data-testid="sx-partner-filter-vc"',
   "sxIsVcPartner",
   "sxCompactPartnerRowText",
   "現在の状況",
@@ -3124,7 +3114,6 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "aria-controls={`sx-partner-history-${partnerId}`}",
   "aria-label={`${steps.length}件の進捗と履歴を開く`}",
   "sticky top-0",
-  "sticky top-14",
 ]);
 expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "PartnerComparisonRow",

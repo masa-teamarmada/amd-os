@@ -3,6 +3,7 @@ import type {
   SxManagementPartner,
   SxMeetingMode,
   SxPartnerActivityState,
+  SxPartnerClassification,
   SxPartnerStage,
   SxPocCategory,
   SxSampleStatus,
@@ -114,6 +115,22 @@ const POC_CATEGORY_LABEL: Record<SxPocCategory, string> = {
 
 export function sxPocCategoryLabel(category: SxPocCategory): string {
   return POC_CATEGORY_LABEL[category] || "区分未確認";
+}
+
+/** 分類の表示順。モーダルのチェックボックス群と一覧の分類タブが同じ順で並ぶ。 */
+export const SX_PARTNER_CLASSIFICATION_ORDER = [
+  "poc_candidate",
+  "tech_partner",
+  "sample_provider",
+  "sample_route",
+  "vc",
+] as const satisfies readonly SxPartnerClassification[];
+
+export function sxPartnerClassificationLabel(
+  classification: SxPartnerClassification,
+): string {
+  if (classification === "vc") return "VC";
+  return POC_CATEGORY_LABEL[classification] || "分類未確認";
 }
 
 const SAMPLE_STATUS_LABEL: Record<SxSampleStatus, string> = {

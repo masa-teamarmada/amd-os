@@ -161,6 +161,7 @@ const ISSUE_STATUSES = ["open", "validating", "closed", "on_hold"];
 const PARTNER_STAGES = ["candidate", "first_contact", "information_exchange", "hearing", "meeting_coordination", "technical_review", "condition_alignment", "sample_acquisition", "validation_preparation", "agreement_confirmation", "executing", "on_hold", "declined"];
 const PARTNER_ACTIVITY_STATES = ["active", "waiting_partner", "waiting_internal", "stalled", "on_hold", "dropped", "unknown"];
 const POC_CATEGORIES = ["poc_candidate", "tech_partner", "sample_provider", "sample_route"];
+const PARTNER_CLASSIFICATIONS = [...POC_CATEGORIES, "vc"];
 const POC_JUDGMENTS = ["high", "medium", "low"];
 const POC_GRADES = ["s", "a", "b", "x"];
 const MEETING_MODES = ["onsite", "online", "hybrid", "phone"];
@@ -347,6 +348,14 @@ function patchFor(resource: Resource, raw: unknown): Record<string, unknown> {
     takeText("name", "name", 180); takeOptionalText("introducer_label", "introducer_label", 120); takeOptionalText("connection_context", "connection_context", 500); takeText("role_label", "role_label", 240); takeEnum("primary_track", TRACKS); takeEnum("relationship_stage", PARTNER_STAGES); takeEnum("agreement_state", AGREEMENT_STATES); takeText("agreed_scope", "agreed_scope", 1000); takeText("unagreed_scope", "unagreed_scope", 1000); takeDate("last_contact_date"); takeText("next_commitment", "next_commitment", 1000); takeDate("due_date"); takeText("owner_label", "owner_label", 120); takeEnum("current_ball_side", BALL_SIDES); takeOptionalText("current_ball_owner", "current_ball_owner", 120); takeOptionalText("next_ball_owner", "next_ball_owner", 120); takeOptionalText("target_state", "target_state", 500); takeEnum("due_date_precision", DATE_PRECISIONS); takeEnum("confidence", CONFIDENCES);
     takeEnum("activity_state", PARTNER_ACTIVITY_STATES);
     if ("poc_category" in raw) patch.poc_category = raw.poc_category == null || raw.poc_category === "" ? null : enumValue(raw.poc_category, "poc_category", POC_CATEGORIES);
+    // 分類は複数可。単一値の poc_category は旧コードの読み手のために分類から同期する
+    // (先頭のPoC系値、無ければ NULL)。分類と区分が食い違う状態を作らない。
+    if ("classifications" in raw) {
+      const list = Array.isArray(raw.classifications) ? raw.classifications : [];
+      const cleaned = [...new Set(list.map((item) => enumValue(item, "classifications", PARTNER_CLASSIFICATIONS)))];
+      patch.classifications = cleaned;
+      patch.poc_category = POC_CATEGORIES.find((category) => cleaned.includes(category)) ?? null;
+    }
     // 判断2軸は未評価を空文字で送ってNULLへ戻せるようにする。推測値を既定で入れない。
     for (const key of ["poc_likelihood", "customer_value"] as const) {
       if (key in raw) patch[key] = raw[key] == null || raw[key] === "" ? null : enumValue(raw[key], key, POC_JUDGMENTS);
@@ -532,13 +541,20 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
   }
   if (resource === "action") return { ...common(), project_id: projectId, decision_id: requiredId("decision_id"), title: requiredText("title", 240), owner_label: requiredText("owner_label", 120), due_date: optionalDate("due_date"), completion_criteria: requiredText("completion_criteria", 1200), next_review_on: optionalDate("next_review_on"), status: requiredEnum("status", ACTION_STATUSES, "open"), completion_note: optionalTextValue("completion_note", 1200), completed_at: optionalDate("completed_at"), last_verified_at: today };
   if (resource === "partner") {
+    // 分類は複数可。単一値の poc_category は分類の先頭のPoC系値から同期する (migration 243)。
+    const classifications = Array.isArray(raw.classifications)
+      ? [...new Set(raw.classifications.map((item) => enumValue(item, "classifications", PARTNER_CLASSIFICATIONS)))]
+      : [];
+    const pocCategory = classifications.length > 0
+      ? POC_CATEGORIES.find((category) => classifications.includes(category)) ?? null
+      : raw.poc_category == null || raw.poc_category === "" ? null : enumValue(raw.poc_category, "poc_category", POC_CATEGORIES);
     const dueDate = optionalDate("due_date");
     const dueDatePrecision = requiredEnum("due_date_precision", DATE_PRECISIONS, "unknown");
     const introducerLabel = optionalTextValue("introducer_label", 120);
     const connectionContext = optionalTextValue("connection_context", 500);
     assertDatePrecisionConsistency(dueDate, dueDatePrecision, "期限日", "期限精度");
     assertSafeRelationshipOrigin(introducerLabel, "紹介者"); assertSafeRelationshipOrigin(connectionContext, "接点の経緯");
-    return { ...common(), project_id: projectId, slug: requiredText("slug", 120), name: requiredText("name", 180), introducer_label: introducerLabel, connection_context: connectionContext, role_label: requiredText("role_label", 240), primary_track: requiredEnum("primary_track", TRACKS), relationship_stage: requiredEnum("relationship_stage", PARTNER_STAGES, "candidate"), activity_state: requiredEnum("activity_state", PARTNER_ACTIVITY_STATES, "unknown"), poc_category: raw.poc_category == null || raw.poc_category === "" ? null : enumValue(raw.poc_category, "poc_category", POC_CATEGORIES), agreement_state: requiredEnum("agreement_state", AGREEMENT_STATES, "unagreed"), agreed_scope: requiredText("agreed_scope", 1000), unagreed_scope: requiredText("unagreed_scope", 1000), last_contact_date: optionalDate("last_contact_date"), next_commitment: requiredText("next_commitment", 1000), due_date: dueDate, owner_label: requiredText("owner_label", 120), current_ball_side: requiredEnum("current_ball_side", BALL_SIDES, "unknown"), current_ball_owner: optionalTextValue("current_ball_owner", 120), next_ball_owner: optionalTextValue("next_ball_owner", 120), target_state: optionalTextValue("target_state", 500), due_date_precision: dueDatePrecision, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
+    return { ...common(), project_id: projectId, slug: requiredText("slug", 120), name: requiredText("name", 180), introducer_label: introducerLabel, connection_context: connectionContext, role_label: requiredText("role_label", 240), primary_track: requiredEnum("primary_track", TRACKS), relationship_stage: requiredEnum("relationship_stage", PARTNER_STAGES, "candidate"), activity_state: requiredEnum("activity_state", PARTNER_ACTIVITY_STATES, "unknown"), poc_category: pocCategory, classifications, agreement_state: requiredEnum("agreement_state", AGREEMENT_STATES, "unagreed"), agreed_scope: requiredText("agreed_scope", 1000), unagreed_scope: requiredText("unagreed_scope", 1000), last_contact_date: optionalDate("last_contact_date"), next_commitment: requiredText("next_commitment", 1000), due_date: dueDate, owner_label: requiredText("owner_label", 120), current_ball_side: requiredEnum("current_ball_side", BALL_SIDES, "unknown"), current_ball_owner: optionalTextValue("current_ball_owner", 120), next_ball_owner: optionalTextValue("next_ball_owner", 120), target_state: optionalTextValue("target_state", 500), due_date_precision: dueDatePrecision, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
   }
   if (resource === "interaction") {
     const occurredOn = optionalDate("occurred_on");

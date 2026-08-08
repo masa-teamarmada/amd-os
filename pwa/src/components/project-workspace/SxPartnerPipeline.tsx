@@ -31,7 +31,7 @@ import type {
   SxPartnerSample,
   SxPartnerStage,
   SxPartnerWorkItem,
-  SxPocCategory,
+  SxPartnerClassification,
   SxPocJudgment,
   SxSampleStatus,
 } from "@/lib/sx-management";
@@ -50,6 +50,7 @@ import { sxNormalizePublicName } from "@/lib/sx-name-normalize";
 import { sxIsPocPartner } from "@/lib/sx-poc-candidates";
 import {
   SX_PARTNER_ACTIVITY_STATE_ORDER,
+  SX_PARTNER_CLASSIFICATION_ORDER,
   SX_PARTNER_CONFIDENCE_ORDER,
   SX_PARTNER_STAGE_ORDER,
   SX_POC_CATEGORY_ORDER,
@@ -61,6 +62,7 @@ import {
   sxPartnerConfidenceLabel,
   sxPartnerActivityStateLabel,
   sxPartnerStageLabel,
+  sxPartnerClassificationLabel,
   sxPocCategoryLabel,
   sxPocLikelihoodLabel,
   sxCustomerValueLabel,
@@ -1425,7 +1427,6 @@ function InlineCurrentBallEditor({
 }
 
 type PocFacetValues = {
-  category: string;
   stage: string;
   activity: string;
   confidence: string;
@@ -1520,7 +1521,8 @@ function judgmentTone(value: SxPocJudgment | null) {
 
 /**
  * PoC営業ファセットは3チップの表示位置だけを2x2のselect群へ置換して編集する。
- * 段階(relationship_stage)・状態(activity_state)・確度(confidence)・区分(poc_category)を1PATCHで送る。
+ * 段階(relationship_stage)・状態(activity_state)・確度(confidence)などを1PATCHで送る。
+ * 区分(分類)の編集は 2026-08-08 に関係先編集モーダルの複数選択へ一本化した。
  */
 function InlinePocFacetEditor({
   editorKey,
@@ -1540,7 +1542,6 @@ function InlinePocFacetEditor({
   onSave: (values: PocFacetValues) => Promise<void>;
 }) {
   const initial: PocFacetValues = {
-    category: partner.pocCategory || "",
     stage: partner.relationshipStage,
     activity: partner.activityState,
     confidence: sxNormalizePartnerConfidence(partner.confidence),
@@ -1566,7 +1567,6 @@ function InlinePocFacetEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     active,
-    partner.pocCategory,
     partner.relationshipStage,
     partner.activityState,
     partner.confidence,
@@ -1709,14 +1709,6 @@ function InlinePocFacetEditor({
         SX_PARTNER_CONFIDENCE_ORDER.map((value) => ({
           value,
           label: sxPartnerConfidenceLabel(value),
-        })),
-      )}
-      {facetSelect(
-        "category",
-        "区分",
-        SX_POC_CATEGORY_ORDER.map((category) => ({
-          value: category,
-          label: sxPocCategoryLabel(category),
         })),
       )}
       {facetSelect("likelihood", "実現", [
@@ -2002,45 +1994,39 @@ function ControlBand({
   );
 }
 
-/** PoC候補先とVCは、同じ関係先台帳を絞る排他的な表示タブ。 */
+/** 分類タブ。全関係先と分類5種 (複数分類の会社は複数のタブに現れる) で同じ台帳を絞る。 */
 function CategoryNav({
   counts,
   totalCount,
-  pocCount,
-  vcCount,
+  classificationCounts,
+  activeClassification,
   activeKind,
-  pocOnly,
-  vcOnly,
   onClear,
   onSelect,
-  onSelectPoc,
-  onSelectVc,
+  onSelectClassification,
   showRoleFilter,
 }: {
   counts: Partial<Record<SxPartnerRoleKind, number>>;
   totalCount: number;
-  pocCount: number;
-  vcCount: number;
+  classificationCounts: Record<SxPartnerClassification, number>;
+  activeClassification: SxPartnerClassification | null;
   activeKind: SxPartnerRoleKind | null;
-  pocOnly: boolean;
-  vcOnly: boolean;
   onClear: () => void;
   onSelect: (kind: SxPartnerRoleKind | null) => void;
-  onSelectPoc: () => void;
-  onSelectVc: () => void;
+  onSelectClassification: (classification: SxPartnerClassification) => void;
   showRoleFilter: boolean;
 }) {
   const entries = (Object.keys(counts) as SxPartnerRoleKind[])
     .filter((kind) => (counts[kind] || 0) > 0)
     .sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
-  const allActive = activeKind === null && !pocOnly && !vcOnly;
+  const allActive = activeClassification === null;
   return (
     <div
       className="border-b border-[#c5bba5] bg-[#fffdf7]"
       role="group"
       aria-label="関係先の絞り込み"
     >
-      <ControlBandRow heading="表示" ariaLabel="表示対象の絞り込み">
+      <ControlBandRow heading="分類" ariaLabel="分類による絞り込み">
         <button
           type="button"
           data-partner-filter-trigger="all"
@@ -2052,28 +2038,25 @@ function CategoryNav({
           {allActive && <span aria-hidden="true">✓</span>}全関係先 {totalCount}
           件
         </button>
-        <button
-          type="button"
-          data-testid="sx-partner-filter-poc"
-          data-partner-filter-trigger="poc"
-          onClick={onSelectPoc}
-          aria-pressed={pocOnly}
-          aria-label={`PoC候補先だけを表示（${pocCount}件）`}
-          className={navChipClass(pocOnly)}
-        >
-          {pocOnly && <span aria-hidden="true">✓</span>}PoC候補先 {pocCount}件
-        </button>
-        <button
-          type="button"
-          data-testid="sx-partner-filter-vc"
-          data-partner-filter-trigger="vc"
-          onClick={onSelectVc}
-          aria-pressed={vcOnly}
-          aria-label={`VCだけを表示（${vcCount}件）`}
-          className={navChipClass(vcOnly)}
-        >
-          {vcOnly && <span aria-hidden="true">✓</span>}VC {vcCount}件
-        </button>
+        {SX_PARTNER_CLASSIFICATION_ORDER.map((classification) => {
+          const active = activeClassification === classification;
+          const count = classificationCounts[classification] || 0;
+          return (
+            <button
+              key={classification}
+              type="button"
+              data-testid={`sx-partner-filter-${classification}`}
+              data-partner-filter-trigger={classification}
+              onClick={() => onSelectClassification(classification)}
+              aria-pressed={active}
+              aria-label={`${sxPartnerClassificationLabel(classification)}だけを表示（${count}件）`}
+              className={navChipClass(active)}
+            >
+              {active && <span aria-hidden="true">✓</span>}
+              {sxPartnerClassificationLabel(classification)} {count}件
+            </button>
+          );
+        })}
       </ControlBandRow>
       {showRoleFilter && entries.length > 0 && (
         <ControlBandRow heading="役割" ariaLabel="役割による絞り込み">
@@ -2094,276 +2077,6 @@ function CategoryNav({
         </ControlBandRow>
       )}
     </div>
-  );
-}
-
-type SxPocQuickFilter =
-  "all" | "blocked" | "overdue" | "due_soon" | "stale" | "data_gap" | "sx_ball";
-
-function pocMatchesQuickFilter(
-  partner: SxManagementPartner,
-  today: string,
-  filter: SxPocQuickFilter,
-): boolean {
-  if (filter === "all") return true;
-  if (filter === "sx_ball")
-    return sxPartnerPrimaryIntervention(partner, today).side === "sx";
-  if (filter === "blocked") return sxPartnerHasBlockedHolding(partner);
-  if (filter === "overdue") return sxPartnerHasOverdue(partner, today);
-  if (filter === "due_soon") return sxPartnerHasDueSoon(partner, today);
-  if (filter === "stale") return sxPartnerNeedsRefresh(partner, today);
-  return sxPartnerHasDataGap(partner);
-}
-
-function PartnerComparisonControls({
-  partners,
-  visiblePartners,
-  today,
-  scopeLabel,
-  activeQuickFilter,
-  onSelectQuickFilter,
-  activeSort,
-  onSelectSort,
-}: {
-  partners: SxManagementPartner[];
-  visiblePartners: SxManagementPartner[];
-  today: string;
-  scopeLabel: string;
-  activeQuickFilter: SxPocQuickFilter;
-  onSelectQuickFilter: (filter: SxPocQuickFilter) => void;
-  activeSort: SxPocComparisonSort;
-  onSelectSort: (sort: SxPocComparisonSort) => void;
-}) {
-  const quickCount = (filter: SxPocQuickFilter) =>
-    partners.filter((partner) => pocMatchesQuickFilter(partner, today, filter))
-      .length;
-  const blockedCount = quickCount("blocked");
-  const overdueCount = quickCount("overdue");
-  const dueSoonCount = quickCount("due_soon");
-  const staleCount = quickCount("stale");
-  const sxBallCount = quickCount("sx_ball");
-  const dataGapCount = quickCount("data_gap");
-  const contactRecordCount = visiblePartners.filter(
-    sxPartnerHasContactRecord,
-  ).length;
-  const quickFilterButton = (
-    filter: SxPocQuickFilter,
-    label: string,
-    count: number,
-    tone: string,
-  ) => (
-    <button
-      type="button"
-      data-partner-filter-trigger={`quick-${filter}`}
-      onClick={() =>
-        onSelectQuickFilter(activeQuickFilter === filter ? "all" : filter)
-      }
-      disabled={count === 0}
-      aria-pressed={activeQuickFilter === filter}
-      aria-label={`${label}${count}件で絞り込み`}
-      className={`min-h-11 shrink-0 border disabled:cursor-not-allowed disabled:opacity-40 ${tone} ${FOCUS_RING}`}
-    >
-      <span className="block px-2 py-1 text-[10px] font-semibold">
-        {activeQuickFilter === filter && <span aria-hidden="true">✓ </span>}
-        {label} {count}
-      </span>
-    </button>
-  );
-  const sortButton = (sort: SxPocComparisonSort, label: string) => (
-    <button
-      type="button"
-      data-partner-sort-trigger={sort}
-      onClick={() => onSelectSort(sort)}
-      aria-pressed={activeSort === sort}
-      aria-label={`${label}に並び替え`}
-      className={`min-h-11 shrink-0 border ${
-        activeSort === sort
-          ? "border-[#3f6b8c] bg-[#dee8f0] text-[#2a5473]"
-          : NEUTRAL_TONE
-      } ${FOCUS_RING}`}
-    >
-      <span className="block px-2 py-1 text-[10px] font-semibold">
-        {activeSort === sort && <span aria-hidden="true">✓ </span>}
-        {label}
-      </span>
-    </button>
-  );
-  return (
-    <ControlBandRow
-      heading="管制"
-      ariaLabel={`${scopeLabel}の件数・並び順・要対応先の絞り込み`}
-      nowrap
-      className="sticky top-0 z-30 h-14 bg-[#f5f1e8] py-0 shadow-[0_1px_0_#d6cebf]"
-    >
-      <span
-        className={`shrink-0 border px-2 py-1 text-[10px] font-semibold ${NEUTRAL_TONE}`}
-      >
-        表示 {visiblePartners.length} / {scopeLabel} {partners.length}
-      </span>
-      <span
-        className={`shrink-0 border px-2 py-1 text-[10px] font-semibold ${NEUTRAL_TONE}`}
-      >
-        接点記録あり {contactRecordCount}
-      </span>
-      {/* 並び替えはフィルタと別軸なので、同じ管制帯の中でも独立したtoggle群にする
-          (2026-08-06 まさ「確度の高い順にソーティングしたい」)。 */}
-      {sortButton("priority", "優先度順")}
-      {sortButton("attention", "要対応順")}
-      {sortButton("confidence", "確度順")}
-      {quickFilterButton(
-        "blocked",
-        "停止",
-        blockedCount,
-        blockedCount > 0 ? ALERT_TONE : NEUTRAL_TONE,
-      )}
-      {quickFilterButton(
-        "overdue",
-        "期限超過",
-        overdueCount,
-        overdueCount > 0 ? ALERT_TONE : NEUTRAL_TONE,
-      )}
-      {quickFilterButton(
-        "due_soon",
-        "7日以内",
-        dueSoonCount,
-        dueSoonCount > 0 ? WARN_TONE : NEUTRAL_TONE,
-      )}
-      {quickFilterButton(
-        "stale",
-        "情報更新要",
-        staleCount,
-        staleCount > 0 ? WARN_TONE : NEUTRAL_TONE,
-      )}
-      {quickFilterButton(
-        "sx_ball",
-        "当方が動く",
-        sxBallCount,
-        sxBallCount > 0 ? WARN_TONE : NEUTRAL_TONE,
-      )}
-      {quickFilterButton(
-        "data_gap",
-        "判定材料不足",
-        dataGapCount,
-        dataGapCount > 0 ? FLAG_TONE : NEUTRAL_TONE,
-      )}
-    </ControlBandRow>
-  );
-}
-
-/**
- * PoC候補先タブ専用の区分・段階ファネル。同じ台帳を絞るチップで、別リストは作らない。
- * 段階チップの件数が営業ファネルKPI (段階別件数) をそのまま示す。
- */
-function PocFacetFilterBand({
-  partners,
-  activeCategory,
-  activeStage,
-  onSelectCategory,
-  onSelectStage,
-}: {
-  partners: SxManagementPartner[];
-  activeCategory: SxPocCategory | null;
-  activeStage: SxPartnerStage | null;
-  onSelectCategory: (category: SxPocCategory | null) => void;
-  onSelectStage: (stage: SxPartnerStage | null) => void;
-}) {
-  const categoryCount = (category: SxPocCategory) =>
-    partners.filter((partner) => partner.pocCategory === category).length;
-  const stageCount = (stage: SxPartnerStage) =>
-    partners.filter((partner) => partner.relationshipStage === stage).length;
-  const stageEntries = (
-    [...SX_PARTNER_STAGE_ORDER, "on_hold", "declined"] as SxPartnerStage[]
-  )
-    .map((stage) => ({ stage, count: stageCount(stage) }))
-    .filter((entry) => entry.count > 0);
-  return (
-    <div data-testid="sx-poc-facet-filter">
-      <ControlBandRow heading="区分" ariaLabel="候補区分の絞り込み">
-        {SX_POC_CATEGORY_ORDER.map((category) => {
-          const count = categoryCount(category);
-          const active = activeCategory === category;
-          return (
-            <button
-              key={category}
-              type="button"
-              data-partner-filter-trigger={`poc-category-${category}`}
-              onClick={() => onSelectCategory(active ? null : category)}
-              disabled={count === 0}
-              aria-pressed={active}
-              aria-label={`${sxPocCategoryLabel(category)}で絞り込み（${count}件）`}
-              className={`${navChipClass(active)} disabled:cursor-not-allowed disabled:opacity-40`}
-            >
-              {active && <span aria-hidden="true">✓</span>}
-              {sxPocCategoryLabel(category)} {count}件
-            </button>
-          );
-        })}
-      </ControlBandRow>
-      <ControlBandRow heading="段階" ariaLabel="営業段階別の件数と絞り込み">
-        {stageEntries.map(({ stage, count }) => {
-          const active = activeStage === stage;
-          return (
-            <button
-              key={stage}
-              type="button"
-              data-partner-filter-trigger={`poc-stage-${stage}`}
-              onClick={() => onSelectStage(active ? null : stage)}
-              aria-pressed={active}
-              aria-label={`${sxPartnerStageLabel(stage)}の${count}件で絞り込み`}
-              className={navChipClass(active)}
-            >
-              {active && <span aria-hidden="true">✓</span>}
-              {sxPartnerStageLabel(stage)} {count}
-            </button>
-          );
-        })}
-      </ControlBandRow>
-    </div>
-  );
-}
-
-function OwnerLoadBand({
-  partners,
-  today,
-  activeOwner,
-  onSelectOwner,
-}: {
-  partners: SxManagementPartner[];
-  today: string;
-  activeOwner: string | null;
-  onSelectOwner: (ownerKey: string | null) => void;
-}) {
-  const loads = sxPartnerOwnerLoads(partners, today);
-  if (loads.length === 0) return null;
-  return (
-    <ControlBandRow heading="担当" ariaLabel="担当者別の未完了事項と期限リスク">
-      {loads.map((load) => {
-        const active = activeOwner === load.ownerKey;
-        const riskText =
-          load.dangerCount > 0
-            ? `危険${load.dangerCount}`
-            : load.dueSoonCount > 0
-              ? `7日内${load.dueSoonCount}`
-              : load.dataGapCount > 0
-                ? `不足${load.dataGapCount}`
-                : "危険0";
-        return (
-          <button
-            key={load.ownerKey}
-            type="button"
-            data-partner-filter-trigger={`owner-${load.ownerKey}`}
-            aria-pressed={active}
-            aria-label={`${load.ownerLabel}の未完了${load.openCount}件、${riskText}で絞り込み`}
-            onClick={() => onSelectOwner(active ? null : load.ownerKey)}
-            className={navChipClass(active)}
-          >
-            {active && <span aria-hidden="true">✓</span>}
-            {sxNormalizePublicName(load.ownerLabel)} {load.openCount}・
-            {riskText}
-          </button>
-        );
-      })}
-    </ControlBandRow>
   );
 }
 
@@ -4025,7 +3738,6 @@ function PartnerInlineRow({
                           relationship_stage: partner.relationshipStage,
                           activity_state: partner.activityState,
                           confidence: partner.confidence,
-                          poc_category: partner.pocCategory,
                           poc_likelihood: partner.pocLikelihood,
                           customer_value: partner.customerValue,
                           value_note: partner.valueNote,
@@ -4034,7 +3746,6 @@ function PartnerInlineRow({
                           relationship_stage: values.stage,
                           activity_state: values.activity,
                           confidence: values.confidence,
-                          poc_category: values.category || null,
                           poc_likelihood: values.likelihood || null,
                           customer_value: values.value || null,
                           value_note: values.note.trim() || null,
@@ -4953,19 +4664,10 @@ export function SxPartnerPipeline({
   >(null);
   const [activeRoleKind, setActiveRoleKind] =
     useState<SxPartnerRoleKind | null>(null);
-  const [pocOnly, setPocOnly] = useState(true);
-  const [vcOnly, setVcOnly] = useState(false);
-  const [activePocQuickFilter, setActivePocQuickFilter] =
-    useState<SxPocQuickFilter>("all");
-  const [activePocCategory, setActivePocCategory] =
-    useState<SxPocCategory | null>(null);
-  const [activePocStage, setActivePocStage] = useState<SxPartnerStage | null>(
-    null,
-  );
-  const [activeOwnerKey, setActiveOwnerKey] = useState<string | null>(null);
-  // 既定は優先度順。上から順にアタックすれば良い並びを初期表示にする (2026-08-06 まさ指示)。
-  const [comparisonSort, setComparisonSort] =
-    useState<SxPocComparisonSort>("priority");
+  // 既定はPoC候補先タブ。担当・区分・段階・管制の各絞り込み帯は 2026-08-08 に削除 (まさ)。
+  // 並び順は優先度順固定 (上から順にアタックすれば良い並び、2026-08-06 まさ指示)。
+  const [activeClassification, setActiveClassification] =
+    useState<SxPartnerClassification | null>("poc_candidate");
   const { widths, setWidth, commitWidths, resetWidths, isCustomized } =
     usePartnerLedgerColumnWidths();
   const { order, moveColumn, resetOrder, isOrderCustomized } =
@@ -5072,48 +4774,41 @@ export function SxPartnerPipeline({
     management.milestones.map((milestone) => [milestone.id, milestone.slug]),
   );
 
-  // PoC候補先とVCは、同じ関係先台帳を絞る表示属性。別台帳は作らない。
-  const pocPartners = management.partners.filter(sxIsPocPartner);
-  const vcPartners = management.partners.filter(sxIsVcPartner);
-  const comparisonOnly = pocOnly || vcOnly;
+  // 分類は同じ関係先台帳を絞る表示属性。別台帳は作らない。複数分類の会社は複数タブに現れる。
+  // 'poc_candidate' と 'vc' は保存前の旧データも拾う後方互換判定を通す。
+  const partnerHasClassification = (
+    partner: SxManagementPartner,
+    classification: SxPartnerClassification,
+  ) => {
+    if (classification === "poc_candidate") return sxIsPocPartner(partner);
+    if (classification === "vc")
+      return (
+        partner.classifications.includes("vc") || sxIsVcPartner(partner)
+      );
+    return partner.classifications.includes(classification);
+  };
+  const classificationCounts = Object.fromEntries(
+    SX_PARTNER_CLASSIFICATION_ORDER.map((classification) => [
+      classification,
+      management.partners.filter((partner) =>
+        partnerHasClassification(partner, classification),
+      ).length,
+    ]),
+  ) as Record<SxPartnerClassification, number>;
+  const comparisonOnly = activeClassification !== null;
   const matchesRole = (partner: SxManagementPartner) =>
     activeRoleKind === null ||
     (partner.roles.find((role) => role.isPrimary)?.roleKind ||
       "unclassified") === activeRoleKind;
-  const comparisonScopePartners = pocOnly
-    ? pocPartners
-    : vcOnly
-      ? vcPartners
-      : [];
-  const facetScopePartners = pocOnly
-    ? comparisonScopePartners.filter(
-        (partner) =>
-          (activePocCategory === null ||
-            partner.pocCategory === activePocCategory) &&
-          (activePocStage === null ||
-            partner.relationshipStage === activePocStage),
-      )
-    : comparisonScopePartners;
-  const ownerScopePartners = comparisonOnly
-    ? facetScopePartners.filter((partner) =>
-        pocMatchesQuickFilter(partner, management.asOf, activePocQuickFilter),
+  const ownerScopePartners = activeClassification
+    ? management.partners.filter((partner) =>
+        partnerHasClassification(partner, activeClassification),
       )
     : management.partners.filter(matchesRole);
-  const activeOwnerPartnerIds = activeOwnerKey
-    ? new Set(
-        sxPartnerOwnerLoads(ownerScopePartners, management.asOf).find(
-          (load) => load.ownerKey === activeOwnerKey,
-        )?.partnerIds || [],
-      )
-    : null;
-  const filterablePartners = activeOwnerPartnerIds
-    ? ownerScopePartners.filter((partner) =>
-        activeOwnerPartnerIds.has(partner.id),
-      )
-    : ownerScopePartners;
+  const filterablePartners = ownerScopePartners;
 
   const comparisonPartners = [...filterablePartners].sort((left, right) =>
-    sxComparePartnersForPoc(left, right, management.asOf, comparisonSort),
+    sxComparePartnersForPoc(left, right, management.asOf, "priority"),
   );
   // Both trailing sections read from the role-filtered list too (spec P1: role filter中の保留欄も選択
   // roleに合うものだけ) — selecting a category must narrow 保留/終了 exactly like the main groups.
@@ -5169,16 +4864,10 @@ export function SxPartnerPipeline({
       data-testid="sx-partner-pipeline"
       style={partnerLedgerGridStyle(widths, order)}
     >
-      <div className="hidden rounded-t-[7px] border-b border-[#c5bba5] bg-[#f2eee0] px-3 py-2 md:flex md:items-start md:justify-between md:gap-3">
-        <div>
-          <p className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">
-            関係先の進捗比較
-          </p>
-          <h3 className="mt-0.5 text-sm font-semibold text-[#24231f]">
-            接点・現在地・次の行動・ゴールを、1社1行で確認
-          </h3>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-start justify-end gap-1.5">
+      {/* 説明文の常時表示は 2026-08-08 に削除 (まさ「説明文はそもそも削除して」)。
+          リセット系のボタンだけを、出るときだけ出す。 */}
+      {(isOrderCustomized || isCustomized) && (
+        <div className="hidden rounded-t-[7px] border-b border-[#c5bba5] bg-[#f2eee0] px-3 py-1.5 md:flex md:items-start md:justify-end md:gap-1.5">
           {isOrderCustomized && (
             <button
               type="button"
@@ -5199,7 +4888,7 @@ export function SxPartnerPipeline({
             </button>
           )}
         </div>
-      </div>
+      )}
       {!comparisonOnly && (
         <>
           <div className="flex flex-wrap gap-1.5 border-b border-[#c5bba5] bg-[#fffdf7] px-3 py-2 md:hidden">
@@ -5229,100 +4918,30 @@ export function SxPartnerPipeline({
       <CategoryNav
         counts={roleCounts}
         totalCount={management.partners.length}
-        pocCount={pocPartners.length}
-        vcCount={vcPartners.length}
+        classificationCounts={classificationCounts}
+        activeClassification={activeClassification}
         activeKind={activeRoleKind}
-        pocOnly={pocOnly}
-        vcOnly={vcOnly}
         onClear={() => {
           if (activeInlineEditorKey) return;
-          setPocOnly(false);
-          setVcOnly(false);
+          setActiveClassification(null);
           setActiveRoleKind(null);
-          setActivePocQuickFilter("all");
-          setActivePocCategory(null);
-          setActivePocStage(null);
-          setActiveOwnerKey(null);
         }}
         onSelect={(kind) => {
           if (activeInlineEditorKey) return;
           setActiveRoleKind(kind);
-          setActiveOwnerKey(null);
         }}
-        onSelectPoc={() => {
+        onSelectClassification={(classification) => {
           if (activeInlineEditorKey) return;
-          setPocOnly(true);
-          setVcOnly(false);
+          setActiveClassification(classification);
           setActiveRoleKind(null);
-          setActivePocQuickFilter("all");
-          setActivePocCategory(null);
-          setActivePocStage(null);
-          setActiveOwnerKey(null);
-        }}
-        onSelectVc={() => {
-          if (activeInlineEditorKey) return;
-          setPocOnly(false);
-          setVcOnly(true);
-          setActiveRoleKind(null);
-          setActivePocQuickFilter("all");
-          setActivePocCategory(null);
-          setActivePocStage(null);
-          setActiveOwnerKey(null);
         }}
         showRoleFilter={!comparisonOnly}
       />
-      <div className="hidden md:block">
-        <OwnerLoadBand
-          partners={ownerScopePartners}
-          today={management.asOf}
-          activeOwner={activeOwnerKey}
-          onSelectOwner={(ownerKey) => {
-            if (activeInlineEditorKey) return;
-            setActiveOwnerKey(ownerKey);
-          }}
-        />
-      </div>
-      {pocOnly && (
-        <PocFacetFilterBand
-          partners={comparisonScopePartners}
-          activeCategory={activePocCategory}
-          activeStage={activePocStage}
-          onSelectCategory={(category) => {
-            if (activeInlineEditorKey) return;
-            setActivePocCategory(category);
-            setActiveOwnerKey(null);
-          }}
-          onSelectStage={(stage) => {
-            if (activeInlineEditorKey) return;
-            setActivePocStage(stage);
-            setActiveOwnerKey(null);
-          }}
-        />
-      )}
-      {comparisonOnly && (
-        <PartnerComparisonControls
-          partners={facetScopePartners}
-          visiblePartners={comparisonPartners}
-          today={management.asOf}
-          scopeLabel={pocOnly ? "PoC候補先" : "VC"}
-          activeQuickFilter={activePocQuickFilter}
-          onSelectQuickFilter={(filter) => {
-            if (activeInlineEditorKey) return;
-            setActivePocQuickFilter(filter);
-            setActiveOwnerKey(null);
-          }}
-          activeSort={comparisonSort}
-          onSelectSort={(sort) => {
-            if (activeInlineEditorKey) return;
-            setComparisonSort(sort);
-          }}
-        />
-      )}
 
       {/* 先頭行 (見出し) の固定。横スクロール枠の外に出し、scrollLeft だけ body から転記する。 */}
       <div
         ref={ledgerHeaderRef}
-        className={`${comparisonOnly ? "sticky top-14 z-30 shadow-[0_1px_0_#d6cebf]" : ""} hidden overflow-hidden border-b border-[#c5bba5] bg-[#f2eee0] @min-[1248px]:block`}
+        className={`${comparisonOnly ? "sticky top-0 z-30 shadow-[0_1px_0_#d6cebf]" : ""} hidden overflow-hidden border-b border-[#c5bba5] bg-[#f2eee0] @min-[1248px]:block`}
       >
         <div
           className={`grid gap-2 px-2 py-1 text-[10px] font-semibold text-[#5a574c] @min-[1248px]:[grid-template-columns:var(--sx-pl-header)] ${PARTNER_LEDGER_MIN_WIDTH}`}

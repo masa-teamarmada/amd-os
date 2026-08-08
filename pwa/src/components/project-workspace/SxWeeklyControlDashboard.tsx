@@ -46,6 +46,10 @@ import type {
   SxTrackKey,
   SxValidationRun,
 } from "@/lib/sx-management";
+import {
+  SX_PARTNER_CLASSIFICATION_ORDER,
+  sxPartnerClassificationLabel,
+} from "@/lib/sx-partner-progress";
 import { deriveSxUnifiedTimeline } from "@/lib/sx-executive-control-deck";
 import {
   sxProjectOwnerLoads,
@@ -216,7 +220,8 @@ type FormField = {
     | "select"
     | "checkbox"
     | "owner"
-    | "lanes";
+    | "lanes"
+    | "multi";
   required?: boolean;
   span?: boolean;
   options?: Array<{ value: string; label: string }>;
@@ -608,6 +613,7 @@ function editorInitialValues(
     return {
       name: "",
       role_label: "",
+      classifications: "",
       primary_track: "business_development",
       relationship_stage: "candidate",
       agreement_state: "unagreed",
@@ -627,6 +633,7 @@ function editorInitialValues(
     return {
       name: editor.partner.name,
       role_label: editor.partner.roleLabel,
+      classifications: editor.partner.classifications.join(","),
       primary_track: editor.partner.track,
       relationship_stage: editor.partner.relationshipStage,
       agreement_state: editor.partner.agreementState,
@@ -1167,6 +1174,16 @@ function editorDefinition(
       fields: [
         { key: "name", label: "関係先名", required: true },
         { key: "role_label", label: "役割", required: true },
+        {
+          key: "classifications",
+          label: "分類（複数選択可）",
+          type: "multi",
+          span: true,
+          options: SX_PARTNER_CLASSIFICATION_ORDER.map((classification) => ({
+            value: classification,
+            label: sxPartnerClassificationLabel(classification),
+          })),
+        },
         {
           key: "primary_track",
           label: "主な柱",
@@ -2494,6 +2511,12 @@ function IssueEditor({
     }
     if (editor.kind === "create_partner")
       fields.slug = `weekly-partner-${Date.now().toString(36)}`;
+    if (
+      (editor.kind === "create_partner" || editor.kind === "edit_partner") &&
+      typeof fields.classifications === "string"
+    )
+      // 分類はチェックボックス群のカンマ連結。APIには配列で渡す。
+      fields.classifications = fields.classifications.split(",").filter(Boolean);
     if (editor.kind === "create_issue")
       fields.slug = `weekly-${Date.now().toString(36)}`;
     if (editor.kind === "create_hypothesis") fields.issue_id = editor.issue.id;
@@ -2827,6 +2850,37 @@ function IssueEditor({
                     }}
                   />
                   <span>{lane.label}</span>
+                </label>
+              );
+            })}
+          </span>
+        ) : field.type === "multi" ? (
+          /* options を複数選択するチェックボックス群。値はカンマ連結で持ち、送信時に配列へ戻す。 */
+          <span className={styles.laneChoiceRow}>
+            {field.options?.map((option) => {
+              const chosen = (values[field.key] || "")
+                .split(",")
+                .filter(Boolean);
+              return (
+                <label key={option.value}>
+                  <input
+                    type="checkbox"
+                    name={`${field.key}:${option.value}`}
+                    checked={chosen.includes(option.value)}
+                    onChange={(event) => {
+                      const next = new Set(chosen);
+                      if (event.target.checked) next.add(option.value);
+                      else next.delete(option.value);
+                      setValues((current) => ({
+                        ...current,
+                        [field.key]: (field.options || [])
+                          .map((item) => item.value)
+                          .filter((item) => next.has(item))
+                          .join(","),
+                      }));
+                    }}
+                  />
+                  <span>{option.label}</span>
                 </label>
               );
             })}
@@ -5051,9 +5105,6 @@ export function SxWeeklyControlDashboard({
           <div className={styles.sectionHeading}>
             <div>
               <h2>関係先リスト</h2>
-              <p>
-                PoC先を含む全関係先の進行、最新接点、現在のボールを一つの一覧で確認
-              </p>
             </div>
             {management.canManage && (
               <button

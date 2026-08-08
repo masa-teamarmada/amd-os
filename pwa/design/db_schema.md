@@ -4141,6 +4141,9 @@ UNIQUE: `(project_id,slug)` (constraint: `project_management_partners_project_id
 | 31 | `connection_context` | `text` | NULL | `` |
 | 32 | `activity_state` | `text` | NOT NULL | `'unknown'::text` |
 | 33 | `poc_category` | `text` | NULL | `` |
+| 34 | `classifications` | `text[]` | NOT NULL | `'{}'::text[]` |
+
+`classifications` は関係先の分類 (複数可)。許可値は `poc_candidate` / `tech_partner` / `sample_provider` / `sample_route` / `vc` (CHECK制約)。単一値の `poc_category` は後方互換のため残り、API が classifications の先頭のPoC系値を同期する (migration 243、2026-08-08)。
 
 ## project_management_raci
 
