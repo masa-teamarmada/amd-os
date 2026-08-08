@@ -70,16 +70,16 @@ Session 0とSession 1の講義資料は`live-reviewed v1.0`。
 
 ## Repo状態
 
-- 作業場所：`/Users/masa/projects/AMD/amd-os`、branch：`main`。HEADはこのhandoff commit。
-- **ローカル`main`は`origin/main`より10コミット進み、67コミット遅れている**（2026-08-08、handoff commit直後）。**作業中も別セッションがcommitを積むため、開始時に必ず`git log --oneline -10`とahead/behindを再確認する**（このhandoff中にも`8642bc8f`が増えた）。
-- 未pushコミット10本の内訳：
-  - このhandoff commit / `51f4233d` / `90f17318` / `e0e4b9d6` / `5ecb7b0c` = **このセッションの成果**（新章3本＋目次登録＋測定台帳＋`pilot/`＋BUGS記録＋changelog）
+- 作業場所：`/Users/masa/projects/AMD/amd-os`、branch：`main`。
+- **この`main`は複数セッションが同時にcommitを積む共有checkout**。ahead/behindの数は刻々と変わるので、**具体数を当てにせず、開始時に`git log --oneline -10`と`git status -sb --untracked-files=all`で必ず再確認する**。参考値として2026-08-08のcloseout時点は`ahead 10, behind 71`（同日のhandoff commit直後は`behind 67`だった）。
+- 未pushコミットは、本数ではなく所属で見る：
+  - `5ecb7b0c`以降のBZM関連commit（新章3本＋目次登録＋測定台帳＋`pilot/`＋BUGS記録＋changelog＋handoff）= **このセッションの成果**
   - `8c19f2f3` = 前セッションのBZM作業
-  - `8642bc8f` = kute規程コックピットタブ。**別セッション**
-  - `f2adac92` / `504f9004` / `6012a6ac` = 立替のSlack通知・Drive保管・24hリマインド。**別作業**
+  - `8642bc8f`（kute規程コックピットタブ）= **別セッション**
+  - `f2adac92` / `504f9004` / `6012a6ac`（立替のSlack通知・Drive保管・24hリマインド）= **別作業**
 - handoffで更新してcommitした対象は4ファイル：このHANDOFF、`SESSION_MIGRATION_PROMPT_BZM_COURSE.md`、`pwa/BUGS.md`、`pwa/bzm/course-bzm-foundations-index.md`。
-- BZM外に大量のステージ済み・未追跡変更がある（SX管理UI、Project Share各PJ、cockpit、build-info等）。**別セッションの作業なので触らず、stage、commit、restoreしない**。
-- push、deploy、外部公開、本番データ書き込み：**未実施**。この講座タスクでは、まさが明示しない限り行わない。加えて`behind 67`の状態でpushすると別作業の立替コミット3本まで巻き込むため、実務上も単純pushは不可。
+- BZM外に大量のステージ済み・未追跡変更がある（project-workspace系のSX管理UI11ファイル、migration 227、Project Share 6PJの`memberStore.mjs`/`members.mjs`/テスト24ファイル）。**別セッションの作業なので触らず、stage、commit、restoreしない**。
+- push、deploy、外部公開、本番データ書き込み：**未実施**。この講座タスクでは、まさが明示しない限り行わない。加えて`behind`が大きい状態で単純pushすると別作業のcommit4本まで巻き込むため、実務上も単純pushは不可。BZM分だけを出すならcherry-pickする。
 - branch、worktreeは新規作成していない（このセッションで作ったもの：none）。開発用`design_log/`は対象外。
 - OSマニュアル同期：**対象外**。`bzm-chapters.ts`を変更したが、これは教科書目次データであり、`manual-chapters.ts`にBZM教科書の章管理は存在しない（grep 0件）。manual/spec/bzmの3層分離は`pwa/manual/9-2-developer.md:21`に既出で、今回の追加はその分担どおり。AMD OSの製品仕様・UI導線・DB・権限は変更していない。
 
