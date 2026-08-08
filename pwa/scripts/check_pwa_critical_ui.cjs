@@ -2986,10 +2986,16 @@ console.log("critical PWA UI anchors ok");
 
 // Round 23 (2026-07-30): 関係先リストは1面に統合。メール専用の別リストは廃止し、
 // 直近接点は各社のmain grid内のcolumnに一本化。生の本文・アドレス・URLはDOMに出さない。
+// 2026-08-08 まさ指示 #11: 週次管制ナビを<a href="#...">から<button role="tab">へ置き換え、
+// 週次差分/ガント/関係先/論点・仮説の4タブ化(「データ接続」タブは廃止し週次差分タブへ内包)。
+// 旧アンカーhref="#partner-ledger"の直リンク文字列アサーションは、他画面からの
+// /weekly-control#partner-ledger 深リンク互換をSX_WEEKLY_VIEW_HASHのマッピングで
+// 引き継いでいるためこの2つに置き換える。
 expectIncludes(
   "src/components/project-workspace/SxWeeklyControlDashboard.tsx",
   [
-    'href="#partner-ledger"',
+    "partners: \"partner-ledger\"",
+    "role=\"tablist\"",
     "onManagementChange={setManagement}",
     'kind: "create_partner"',
     'kind: "create_partner_work_item"',
