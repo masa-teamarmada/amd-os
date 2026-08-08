@@ -4723,8 +4723,7 @@ export function SxPartnerPipeline({
     if (classificationControlled) onClassificationChange?.(classification);
     else setInternalClassification(classification);
   };
-  const { widths, setWidth, commitWidths, resetWidths, isCustomized } =
-    usePartnerLedgerColumnWidths();
+  const { widths, setWidth, commitWidths } = usePartnerLedgerColumnWidths();
   const { order, moveColumn } = usePartnerLedgerColumnOrder();
   // 担当・紹介者に入れる名前の候補。表記ゆれを止めるため自由入力ではなく名簿から選ばせる。
   const roster = usePartnerOwnerRoster(management);
@@ -4915,19 +4914,8 @@ export function SxPartnerPipeline({
       data-testid="sx-partner-pipeline"
       style={partnerLedgerGridStyle(widths, order)}
     >
-      {/* 説明文と「列の並びをリセット」は削除済み (2026-08-08 まさ)。列幅リセットだけを
-          カスタマイズ時に出す。 */}
-      {isCustomized && (
-        <div className="hidden rounded-t-[7px] border-b border-[#c5bba5] bg-[#f2eee0] px-3 py-1.5 md:flex md:items-start md:justify-end md:gap-1.5">
-          <button
-            type="button"
-            onClick={resetWidths}
-            className={`rounded border border-[#ada18a] bg-[#fffdf7] px-2 py-1 text-[10px] font-semibold text-[#5a574c] hover:bg-[#f2eee0] ${FOCUS_RING}`}
-          >
-            列幅をリセット
-          </button>
-        </div>
-      )}
+      {/* 説明文・「列の並びをリセット」「列幅をリセット」はすべて削除済み (2026-08-08 まさ)。
+          列幅は見出しのドラッグで調整でき、既定へ戻すには列幅を掴んでドラッグし直す。 */}
       {!comparisonOnly && (
         <>
           <div className="flex flex-wrap gap-1.5 border-b border-[#c5bba5] bg-[#fffdf7] px-3 py-2 md:hidden">
