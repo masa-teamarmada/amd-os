@@ -3155,6 +3155,50 @@ function PartnerProgressHistoryModal({
             >
               {display.name}
             </h4>
+            {/* 分類は複数選択でその場保存。チェックの結果は一覧の分類タブへ即反映される
+                (2026-08-08 まさ「各関係先のモーダルの中で分類を変更できるようにして」)。 */}
+            <div
+              className="mt-2 flex flex-wrap items-center gap-1.5"
+              data-testid="sx-partner-classification-editor"
+              role="group"
+              aria-label={`${display.name}の分類（複数選択可）`}
+            >
+              {SX_PARTNER_CLASSIFICATION_ORDER.map((classification) => {
+                const checked =
+                  partner.classifications.includes(classification);
+                return (
+                  <label
+                    key={classification}
+                    className={`inline-flex min-h-8 cursor-pointer items-center gap-1 border px-2 py-0.5 text-[10px] font-semibold ${
+                      checked
+                        ? "border-[#38745d] bg-[#dcebe1] text-[#1d5341]"
+                        : "border-[#bcb2a0] bg-[#fffdf7] text-[#45423b]"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-3.5 w-3.5 accent-[#235f4b]"
+                      checked={checked}
+                      disabled={!canManage}
+                      onChange={(event) => {
+                        const next = SX_PARTNER_CLASSIFICATION_ORDER.filter(
+                          (item) =>
+                            item === classification
+                              ? event.target.checked
+                              : partner.classifications.includes(item),
+                        );
+                        void onPatchSample({
+                          resource: "partner",
+                          id: partner.id,
+                          patch: { classifications: next },
+                        });
+                      }}
+                    />
+                    {sxPartnerClassificationLabel(classification)}
+                  </label>
+                );
+              })}
+            </div>
           </div>
           <button
             ref={closeButtonRef}

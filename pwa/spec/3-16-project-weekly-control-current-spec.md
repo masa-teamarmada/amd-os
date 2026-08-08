@@ -269,7 +269,7 @@ point-MS追加フォームは`配置するグループ（複数選択可） / MS
 - **説明文と絞り込み帯の削除 (#1)**: 見出し「関係先リスト」下の説明文、台帳ヘッダーの「関係先の進捗比較」「接点・現在地・次の行動・ゴールを、1社1行で確認」を削除。「担当」(OwnerLoadBand)・「区分」「段階」(PocFacetFilterBand)・「管制」(PartnerComparisonControls) の各絞り込み帯も削除した。これに伴い要対応クイックフィルタ (停止/期限超過/7日以内/情報更新要/当方が動く/判定材料不足)、担当別絞り込み、並び替えトグルは廃止。**並び順は優先度順固定** (2026-08-06 まさ指示の既定を恒久化)。「列の並び/列幅をリセット」ボタンはカスタマイズ時だけ右上に出る。
 - **タブ「表示」→「分類」(#2)**: タブは「全関係先」+ 分類5種 (PoC候補先/技術協力先/試料提供元/試料提供ルート/VC、`SX_PARTNER_CLASSIFICATION_ORDER` 順)。既定はPoC候補先。複数分類の会社は複数のタブに現れる。役割チップ (全関係先タブのみ) は従来どおり。
 - **分類の正本はDBの `classifications text[]` (#3、migration 243)**: 許可値は上記5種。既存の `poc_category` 単一値と VC role (`shareholder_investor`) から backfill 済み。`poc_category` は後方互換のため残し、API (PATCH/POST) が `classifications` の先頭のPoC系値を同期する。読み込みは `sx-management.ts` の `classifications`、ラベルと順序は client-safe な `sx-partner-progress.ts` (`sxPartnerClassificationLabel`)。
-- **モーダルで分類を複数選択 (#3)**: 「関係先を追加/編集」モーダルに「分類（複数選択可）」チェックボックス群 (フォーム field type `multi`、値はカンマ連結で保持し送信時に配列化)。行内のPoC営業ファセット編集から「区分」select は削除し、分類編集はモーダルへ一本化。
+- **モーダルで分類を複数選択 (#3)**: 「関係先を追加/編集」モーダルに「分類（複数選択可）」チェックボックス群 (フォーム field type `multi`、値はカンマ連結で保持し送信時に配列化)。さらに各関係先の「進捗・履歴」モーダル (`PartnerProgressHistoryModal`) のヘッダーにも同じ分類チェック群を置き、チェックした瞬間に PATCH 保存・一覧の分類タブへ即反映する (`data-testid="sx-partner-classification-editor"`、build v3.59.1)。行内のPoC営業ファセット編集から「区分」select は削除し、分類編集はモーダルへ一本化。
 - **タブ判定の後方互換**: PoC候補先 = `sxIsPocPartner` (classifications 優先 → poc_category → roleLabel prefix)。VC = `classifications` の `vc` または `sxIsVcPartner` (role)。**PoC候補先タブは poc_candidate 分類のみ**になり、旧「区分あり=全部PoC候補先63件」から変わった (技術協力先・試料提供元・試料提供ルートは各タブへ)。
 
 ### ガントの年月2段ヘッダ・凡例廃止・時間軸6x / 変更の即時反映（楽観更新） (build v3.58.19、2026-08-07)
