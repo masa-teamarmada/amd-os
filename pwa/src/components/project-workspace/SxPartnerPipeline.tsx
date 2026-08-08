@@ -5091,6 +5091,8 @@ function PartnerRow({
   onFinishInlineEdit,
   onPatch,
   onCreateSample,
+  onCreateInteraction,
+  onEditInteraction,
 }: {
   partner: SxManagementPartner;
   columnOrder: readonly PartnerLedgerColumnKey[];
@@ -5106,6 +5108,8 @@ function PartnerRow({
   onFinishInlineEdit: () => void;
   onPatch: (request: PartnerInlinePatch) => Promise<void>;
   onCreateSample: (partnerId: string, label: string) => Promise<void>;
+  onCreateInteraction?: (partnerId: string) => void;
+  onEditInteraction?: (interaction: SxPartnerInteraction) => void;
 }) {
   const expanded = expandedId === partner.id;
   return (
@@ -5124,6 +5128,8 @@ function PartnerRow({
       onFinishInlineEdit={onFinishInlineEdit}
       onPatch={onPatch}
       onCreateSample={onCreateSample}
+      onCreateInteraction={onCreateInteraction}
+      onEditInteraction={onEditInteraction}
     />
   );
 }
