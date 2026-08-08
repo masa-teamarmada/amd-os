@@ -135,6 +135,41 @@ export function sxPartnerClassificationLabel(
 }
 
 /**
+ * 排液成分の定型語彙。プルダウンで選び、effluent_components へカンマ区切りで保存する
+ * (2026-08-08 まさ「成分についてはプルダウン選択形式にして、それぞれバッジで表示」)。
+ * 既存の自由文は選び直すまでそのまま表示される。
+ */
+export const SX_EFFLUENT_COMPONENT_CHOICES = [
+  "ニッケル",
+  "鉛",
+  "クロム",
+  "マンガン",
+  "アルミ",
+  "銅",
+  "亜鉛",
+  "ネオジム",
+  "ジスプロシウム",
+  "その他重金属",
+  "COD",
+  "BOD",
+  "リン",
+  "窒素",
+  "油分",
+  "塩分",
+  "色度",
+  "SS",
+  "糖分",
+] as const;
+
+/** カンマ・読点区切りの保存値を成分トークンへ。全トークンが定型語彙ならバッジ表示できる。 */
+export function sxParseEffluentComponents(value: string | null): string[] {
+  return (value || "")
+    .split(/[,、]/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
+/**
  * 分類タブの判定。'poc_candidate' と 'vc' は保存前の旧データも拾う後方互換判定を通す。
  * 一覧のタブとタイトル行の分類ボタンが同じ判定を共有する。
  */

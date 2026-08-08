@@ -64,6 +64,8 @@ import {
   sxPartnerStageLabel,
   sxPartnerClassificationLabel,
   sxPartnerHasClassification,
+  SX_EFFLUENT_COMPONENT_CHOICES,
+  sxParseEffluentComponents,
   sxPocCategoryLabel,
   sxPocLikelihoodLabel,
   sxCustomerValueLabel,
@@ -270,7 +272,7 @@ function PartnerStageRail({
       aria-expanded={expanded}
       aria-controls={`sx-partner-history-${partnerId}`}
       aria-label={`進捗${pct == null ? "保留" : `${pct}%`}。進捗と履歴を開く`}
-      className={`block w-full min-w-0 py-1 text-left hover:bg-[#e7f0e9] ${FOCUS_RING}`}
+      className={`block w-full min-w-0 py-0.5 text-left hover:bg-[#e7f0e9] ${FOCUS_RING}`}
     >
       {content}
     </button>
@@ -2099,7 +2101,6 @@ function HoldingRow({
 type PartnerLedgerColumnKey =
   | "grade"
   | "name"
-  | "current"
   | "goal"
   | "action"
   | "meeting"
@@ -2125,7 +2126,6 @@ const PARTNER_LEDGER_COLUMNS: readonly PartnerLedgerColumn[] = [
     minWidth: 30,
   },
   { key: "name", label: "関係先", defaultWidth: 248, minWidth: 150 },
-  { key: "current", label: "現在の状況", defaultWidth: 208, minWidth: 120 },
   { key: "goal", label: "ゴール", defaultWidth: 176, minWidth: 90 },
   { key: "action", label: "次にやること", defaultWidth: 200, minWidth: 90 },
   {
@@ -2173,8 +2173,8 @@ function partnerLedgerInnerKeys(
 
 // 幅は列の集合が変わったら作り直す。v1 には削除済みの「詰まり・PJ影響」が入っていて、
 // 幅キーの版歴: v2=詰まり列削除 (2026-08-07)、v3=評価列48px、v4=履歴・保有→排液調達、
-// v5=現在地の根拠の削除と期限列の縮小 (いずれも 2026-08-08)。
-const PARTNER_LEDGER_WIDTH_STORAGE_KEY = "sx-partner-ledger-column-widths-v5";
+// v5=現在地の根拠の削除、v6=現在の状況の削除 (いずれも 2026-08-08)。
+const PARTNER_LEDGER_WIDTH_STORAGE_KEY = "sx-partner-ledger-column-widths-v6";
 const PARTNER_LEDGER_ORDER_STORAGE_KEY = "sx-partner-ledger-column-order-v1";
 
 type PartnerLedgerWidths = Record<PartnerLedgerColumnKey, number>;
@@ -2349,10 +2349,10 @@ function partnerLedgerGridStyle(
     "--sx-pl-header": `${widths.grade}px ${inner}`,
     "--sx-pl-row": `${widths.grade}px minmax(0,1fr)`,
     "--sx-pl-total": `${total}px`,
-    // 評価カラムは sticky left-0 (行の左padding 8px の分だけ左へ寄る) なので、
-    // 関係先は「評価幅 + gap 8px + padding 8px」で止める。旧値 (評価幅ぴったり) は
-    // 横スクロール時に社名が評価ボックスへ16px食い込んでいた (2026-08-08 まさ指摘)。
-    "--sx-pl-name-left": `${widths.grade + 16}px`,
+    // 評価カラムは sticky left-0。関係先は評価幅ちょうどで止め、視覚の間隔は関係先セル
+    // 自身の背景付き左paddingで持つ。left をずらして隙間を作ると、横スクロール時に
+    // 背後のセルが隙間から透けて見える (2026-08-08 まさ指摘 #9)。
+    "--sx-pl-name-left": `${widths.grade}px`,
   } as CSSProperties;
 }
 
@@ -2423,7 +2423,7 @@ function PartnerLedgerHeaderCell({
     sticky === "grade"
       ? `${PARTNER_LEDGER_STICKY_LEFT} bg-[#f2eee0]`
       : sticky === "name"
-        ? `${PARTNER_LEDGER_STICKY_NAME} bg-[#f2eee0]`
+        ? `${PARTNER_LEDGER_STICKY_NAME} bg-[#f2eee0] @min-[1248px]:pl-2`
         : "";
 
   return (
@@ -3071,6 +3071,103 @@ function PartnerProgressHistoryModal({
                 );
               })}
             </div>
+            {/* 営業状態。一覧の「現在の状況」列は 2026-08-08 に削除したため (まさ #11)、
+                段階・状態・確度・実現・顧客の編集はここに一本化。変更した瞬間に保存される。
+                段階は一覧の進捗バーの%の源泉。 */}
+            {partner.pocCategory && canManage && (
+              <div
+                className="mt-3 grid grid-cols-2 gap-x-2 gap-y-1.5 sm:grid-cols-5"
+                data-testid="sx-partner-facet-editor"
+              >
+                {(
+                  [
+                    {
+                      key: "relationship_stage",
+                      label: "段階",
+                      value: partner.relationshipStage,
+                      options: (
+                        [...SX_PARTNER_STAGE_ORDER, "on_hold", "declined"] as SxPartnerStage[]
+                      ).map((stage) => ({
+                        value: stage as string,
+                        label: sxPartnerStageLabel(stage),
+                      })),
+                    },
+                    {
+                      key: "activity_state",
+                      label: "状態",
+                      value: partner.activityState,
+                      options: SX_PARTNER_ACTIVITY_STATE_ORDER.map((state) => ({
+                        value: state as string,
+                        label: sxPartnerActivityStateLabel(state),
+                      })),
+                    },
+                    {
+                      key: "confidence",
+                      label: "確度",
+                      value: sxNormalizePartnerConfidence(partner.confidence),
+                      options: SX_PARTNER_CONFIDENCE_ORDER.map((value) => ({
+                        value: value as string,
+                        label: sxPartnerConfidenceLabel(value),
+                      })),
+                    },
+                    {
+                      key: "poc_likelihood",
+                      label: "実現",
+                      value: partner.pocLikelihood || "",
+                      options: [
+                        { value: "", label: "未評価" },
+                        ...SX_POC_JUDGMENT_ORDER.map((value) => ({
+                          value: value as string,
+                          label: sxPocLikelihoodLabel(value),
+                        })),
+                      ],
+                    },
+                    {
+                      key: "customer_value",
+                      label: "顧客",
+                      value: partner.customerValue || "",
+                      options: [
+                        { value: "", label: "未評価" },
+                        ...SX_POC_JUDGMENT_ORDER.map((value) => ({
+                          value: value as string,
+                          label: sxCustomerValueLabel(value),
+                        })),
+                      ],
+                    },
+                  ] as const
+                ).map((facet) => (
+                  <label key={facet.key} className="grid min-w-0 gap-px">
+                    <span className="text-[10px] font-semibold leading-3 text-[#5a574c]">
+                      {facet.label}
+                    </span>
+                    <select
+                      className={`h-7 min-w-0 border border-[#a69b84] bg-[#fffdf7] px-1 text-[11px] font-semibold text-[#24231f] ${FOCUS_RING}`}
+                      value={facet.value}
+                      onChange={(event) =>
+                        void onPatchSample({
+                          resource: "partner",
+                          id: partner.id,
+                          patch: {
+                            [facet.key]:
+                              facet.key === "poc_likelihood" ||
+                              facet.key === "customer_value"
+                                ? event.target.value || null
+                                : event.target.value,
+                          },
+                        })
+                      }
+                      aria-label={`${display.name}の${facet.label}`}
+                    >
+                      {facet.options.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
+            )}
           </section>
           <section aria-labelledby={`${titleId}-flow`}>
             <div className="flex items-end justify-between gap-2">
@@ -3421,18 +3518,49 @@ function PartnerInlineRow({
       {display.name}
     </span>
   );
+  // 成分は定型語彙ならバッジ、旧データの自由文はそのまま表示 (編集で選び直すと定型化)。
+  const effluentComponentTokens = sxParseEffluentComponents(
+    partner.effluentComponents,
+  );
+  const effluentComponentsAreBadges =
+    effluentComponentTokens.length > 0 &&
+    effluentComponentTokens.every((token) =>
+      (SX_EFFLUENT_COMPONENT_CHOICES as readonly string[]).includes(token),
+    );
   const effluentView = (
     <span className="grid min-h-11 min-w-0 content-center gap-0.5">
-      <span
-        className="[overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#24231f]"
-        title={partner.effluentComponents || "成分 未確認"}
-      >
-        {partner.effluentComponents || "成分 未確認"}
-      </span>
+      {effluentComponentsAreBadges ? (
+        <span className="flex min-w-0 flex-wrap gap-1">
+          {effluentComponentTokens.map((token) => (
+            <span
+              key={token}
+              data-effluent-component={token}
+              className="inline-flex border border-[#3f6b8c] bg-[#dee8f0] px-1 py-px text-[10px] font-semibold leading-4 text-[#2a5473]"
+            >
+              {token}
+            </span>
+          ))}
+        </span>
+      ) : (
+        <span
+          className="[overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#24231f]"
+          title={partner.effluentComponents || "成分 未確認"}
+        >
+          {partner.effluentComponents || "成分 未確認"}
+        </span>
+      )}
       <span className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]">
         年間 {partner.effluentVolumeAnnual || "量未確認"} ・ 処理費{" "}
         {partner.effluentCostAnnual || "未確認"}
       </span>
+      {partner.effluentTestResult && (
+        <span
+          className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]"
+          title={partner.effluentTestResult}
+        >
+          結果 {partner.effluentTestResult}
+        </span>
+      )}
     </span>
   );
   // 次回面談。日付が入っていない間も「未定」と出して、書き込む場所があることを見せる。
@@ -3609,11 +3737,11 @@ function PartnerInlineRow({
               (2026-08-07 まさ)。横に 68px の別列で並べていたレールを名前の下へ入れ、
               1社の識別に必要なものだけがこの固定列に収まるようにした。 */}
           <div
-            className={`flex min-w-0 flex-col justify-center gap-1 self-stretch bg-[#fffdf7] md:col-span-2 @min-[1248px]:col-span-1 ${PARTNER_LEDGER_STICKY_NAME}`}
+            className={`flex min-w-0 flex-col justify-center gap-0.5 self-stretch bg-[#fffdf7] @min-[1248px]:pl-2 md:col-span-2 @min-[1248px]:col-span-1 ${PARTNER_LEDGER_STICKY_NAME}`}
             style={{ order: 0 }}
             data-partner-name-cell={partner.id}
           >
-            <div className="flex min-w-0 flex-col justify-center border-b border-dashed border-[#857b69]">
+            <div className="flex min-w-0 flex-col justify-center">
               {/* 関係先名はモーダルを開く入口 (2026-08-08 まさ「名称の編集じゃなくて
                   モーダルが開くようにして」)。名称の変更は担当負荷経由の関係先編集で行う。 */}
               <button
@@ -3638,66 +3766,26 @@ function PartnerInlineRow({
                   )}
                 </span>
               </button>
-              <span className="text-[10px] font-normal leading-3 text-[#5a574c]">
-                最終確認 {sxFormatDate(partner.lastVerifiedAt)}
+            </div>
+            {/* 進捗バーと最終確認は1行に横並び (2026-08-08 まさ「こんなに縦幅取らなくていい」)。 */}
+            <div className="flex min-w-0 items-center gap-1.5">
+              <div className="min-w-0 flex-1">
+                <PartnerStageRail
+                  partnerId={partner.id}
+                  onHold={sxPartnerIsOnHold(partner)}
+                  stage={partner.relationshipStage}
+                  onOpen={() => onToggleExpand(partner.id)}
+                  expanded={expanded}
+                />
+              </div>
+              <span
+                className="shrink-0 text-[10px] font-normal leading-3 text-[#5a574c]"
+                title={`最終確認 ${sxFormatDate(partner.lastVerifiedAt)}`}
+              >
+                確認 {sxFormatDate(partner.lastVerifiedAt)}
               </span>
             </div>
-            <div className="min-w-0">
-              <PartnerStageRail
-                partnerId={partner.id}
-                onHold={sxPartnerIsOnHold(partner)}
-                stage={partner.relationshipStage}
-                onOpen={() => onToggleExpand(partner.id)}
-                expanded={expanded}
-              />
-            </div>
           </div>
-
-          <PartnerRowCell
-            order={cellOrder("current")}
-            className="md:col-span-2 @min-[1248px]:col-span-1"
-          >
-            <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
-              現在の状況
-            </p>
-            <div className="min-h-11" data-current-situation-cell={partner.id}>
-              {partner.pocCategory &&
-                (canManage ? (
-                  <InlinePocFacetEditor
-                    editorKey={keyFor("poc-facets")}
-                    activeEditorKey={activeEditorKey}
-                    label={`${display.name}のPoC営業状態`}
-                    partner={partner}
-                    onRequestEdit={onRequestInlineEdit}
-                    onFinish={onFinishInlineEdit}
-                    onSave={async (values) => {
-                      await patchIfChanged(
-                        "partner",
-                        partner.id,
-                        {
-                          relationship_stage: partner.relationshipStage,
-                          activity_state: partner.activityState,
-                          confidence: partner.confidence,
-                          poc_likelihood: partner.pocLikelihood,
-                          customer_value: partner.customerValue,
-                          value_note: partner.valueNote,
-                        },
-                        {
-                          relationship_stage: values.stage,
-                          activity_state: values.activity,
-                          confidence: values.confidence,
-                          poc_likelihood: values.likelihood || null,
-                          customer_value: values.value || null,
-                          value_note: values.note.trim() || null,
-                        },
-                      );
-                    }}
-                  />
-                ) : (
-                  pocFacetChipsView(partner)
-                ))}
-            </div>
-          </PartnerRowCell>
 
           <PartnerRowCell
             order={cellOrder("goal")}
@@ -4113,6 +4201,7 @@ function PartnerInlineRow({
                   effluent_components: partner.effluentComponents || "",
                   effluent_volume_annual: partner.effluentVolumeAnnual || "",
                   effluent_cost_annual: partner.effluentCostAnnual || "",
+                  effluent_test_result: partner.effluentTestResult || "",
                 }}
                 view={effluentView}
                 onRequestEdit={onRequestInlineEdit}
@@ -4125,6 +4214,7 @@ function PartnerInlineRow({
                       effluent_components: partner.effluentComponents,
                       effluent_volume_annual: partner.effluentVolumeAnnual,
                       effluent_cost_annual: partner.effluentCostAnnual,
+                      effluent_test_result: partner.effluentTestResult,
                     },
                     {
                       effluent_components:
@@ -4133,25 +4223,73 @@ function PartnerInlineRow({
                         values.effluent_volume_annual.trim() || null,
                       effluent_cost_annual:
                         values.effluent_cost_annual.trim() || null,
+                      effluent_test_result:
+                        values.effluent_test_result.trim() || null,
                     },
                   )
                 }
                 renderFields={(values, setValue) => (
                   <>
-                    <label className="grid gap-0.5">
+                    <div className="grid gap-0.5">
                       <span className="text-[10px] font-semibold text-[#5a574c]">
-                        排液中の成分
+                        排液中の成分（プルダウンで追加・バッジを押して外す）
                       </span>
-                      <textarea
-                        autoFocus
-                        rows={2}
-                        className={`${INLINE_CONTROL_CLASS} py-1.5 leading-4`}
-                        value={values.effluent_components}
-                        onChange={(event) =>
-                          setValue("effluent_components", event.target.value)
-                        }
-                      />
-                    </label>
+                      {(() => {
+                        const chosen = sxParseEffluentComponents(
+                          values.effluent_components,
+                        );
+                        return (
+                          <>
+                            {chosen.length > 0 && (
+                              <span className="flex flex-wrap gap-1">
+                                {chosen.map((token) => (
+                                  <button
+                                    key={token}
+                                    type="button"
+                                    onClick={() =>
+                                      setValue(
+                                        "effluent_components",
+                                        chosen
+                                          .filter((item) => item !== token)
+                                          .join(","),
+                                      )
+                                    }
+                                    aria-label={`成分 ${token} を外す`}
+                                    className={`inline-flex items-center gap-0.5 border border-[#3f6b8c] bg-[#dee8f0] px-1 py-px text-[10px] font-semibold leading-4 text-[#2a5473] hover:bg-[#c9dae8] ${FOCUS_RING}`}
+                                  >
+                                    {token}
+                                    <span aria-hidden="true">×</span>
+                                  </button>
+                                ))}
+                              </span>
+                            )}
+                            <select
+                              autoFocus
+                              className={INLINE_CONTROL_CLASS}
+                              value=""
+                              onChange={(event) => {
+                                const token = event.target.value;
+                                if (!token || chosen.includes(token)) return;
+                                setValue(
+                                  "effluent_components",
+                                  [...chosen, token].join(","),
+                                );
+                              }}
+                              aria-label="成分を追加"
+                            >
+                              <option value="">成分を追加…</option>
+                              {SX_EFFLUENT_COMPONENT_CHOICES.filter(
+                                (choice) => !chosen.includes(choice),
+                              ).map((choice) => (
+                                <option key={choice} value={choice}>
+                                  {choice}
+                                </option>
+                              ))}
+                            </select>
+                          </>
+                        );
+                      })()}
+                    </div>
                     <label className="grid gap-0.5">
                       <span className="text-[10px] font-semibold text-[#5a574c]">
                         年間の排液量
@@ -4175,6 +4313,20 @@ function PartnerInlineRow({
                         value={values.effluent_cost_annual}
                         onChange={(event) =>
                           setValue("effluent_cost_annual", event.target.value)
+                        }
+                      />
+                    </label>
+                    <label className="grid gap-0.5">
+                      <span className="text-[10px] font-semibold text-[#5a574c]">
+                        実験結果
+                      </span>
+                      <textarea
+                        rows={2}
+                        className={`${INLINE_CONTROL_CLASS} py-1.5 leading-4`}
+                        placeholder="例: 受領済み排液の分析では重金属がほとんど検出されなかった"
+                        value={values.effluent_test_result}
+                        onChange={(event) =>
+                          setValue("effluent_test_result", event.target.value)
                         }
                       />
                     </label>
