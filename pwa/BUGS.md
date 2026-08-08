@@ -5,6 +5,28 @@
 
 ---
 
+### [git/hook] ブランチ禁止フックが、誤って作られたブランチの削除まで拒否していた (2026-08-09)
+
+- **状態**: クローズ (2026-08-09 — `.githooks/reference-transaction` 修正済み、4パターン検証済み)。
+- **症状**: このリポで誤って作られた `claude/festive-cray-f56e75` を `git branch -D` で畳もうとしたところ、`AMD OS: branch 作成は禁止。main で作業すること。` と表示されて `fatal: ref updates aborted by hook` で失敗した。実際にやっているのは削除であり、メッセージと操作が食い違う。結果として、ブランチ禁止ルールの防止層が、そのルール違反の後始末そのものを妨げていた。closeout の「そのセッションが作った枝は必ず閉じる」義務を、防止層が構造的に実行不能にしていたことになる。
+- **原因**: git は branch 削除の reference-transaction で、`old_oid` と `new_oid` の**両方に zero** を渡す。hook 側は `old_oid` が zero であることだけを新規作成の条件にしていたため、削除も同じ条件に一致した。実測ログ（何もしない probe hook へ差し替えて取得）は次のとおりで、3フェーズすべて両方 zero だった。
+
+  ```
+  --- phase=prepared ---
+  0000000000000000000000000000000000000000 0000000000000000000000000000000000000000 refs/heads/claude/festive-cray-f56e75
+  ```
+
+- **対応内容**: 作成の判定を「`new_oid` が zero でない、**かつ** `old_oid` が zero」へ変更した。hook へ直接入力行を流す方式で、実 git 操作なしに4パターンを検証した（作成=拒否 / 削除=許可 / 更新=許可 / `refs/heads/main`=許可）。加えて実操作でも、通常の `git branch` が拒否されて枝が生まれないこと、`AMD_OS_ALLOW_BRANCH=1` 経由の作成と、その削除が通ることを確認した。`scripts/install-main-only-git-hook.sh` は hook 本文を生成せず `.githooks/` を指すだけなので、修正はこの1ファイルで完結する。
+- **再発防止策**: ref を止める hook を書くときは `old_oid` と `new_oid` を両方見る。片方だけの判定では作成と削除を区別できない。より一般的な教訓として、禁止ルールの防止層を足すときは「違反を防げるか」だけでなく「違反が起きた後に畳めるか」まで検証する。防止層が後始末を塞ぐと、ルールを守ろうとするほど身動きが取れなくなる。
+
+### [process] spawn_task で次セッションを起票すると、prompt の指示と無関係に worktree が作られる (2026-08-09)
+
+- **状態**: クローズ (2026-08-09 — 該当 branch / worktree 削除済み。運用側で回避)。
+- **症状**: BZM 講座の次セッションを `spawn_task` で起票したところ、branch `claude/festive-cray-f56e75` と worktree `pwa/bzm/.claude/worktrees/festive-cray-f56e75` が作られた。prompt 本文には「main で作業する、ブランチと worktree を作らない」と明記してあり、それでも作られた。まさから「次セッションだけど、ブランチ切ったでしょ」と指摘されて発覚した。
+- **原因**: `spawn_task` が出すチップは `start it in a fresh worktree` という起動導線を持つ。worktree の作成はセッション起動時に走るため、prompt 本文が読まれるより前に完了している。prompt の中でいくら禁止しても、起動側の挙動には届かない。
+- **対応内容**: 該当セッションが `isRunning: false`、独自 commit ゼロ、dirty ゼロで、削除して失うものが無いことを確認したうえで、`git worktree remove --force` と `git branch -D` で削除した（削除時に上記 hook バグを踏んだため、hook を先に直した）。
+- **再発防止策**: このリポで次セッションへ渡すときは `spawn_task` のチップに次作業を載せない。migration prompt をまさへ直接渡し、cwd を指定した通常セッションとして開いてもらう。`spawn_task` を使うのは、worktree が作られても支障のない読み取り専用の調査に限る。
+
 ### [bzm/教科書] 章内の相対リンクに `.md` を付けると必ず404になる (2026-08-08)
 
 - **状態**: リンク修正はローカルcommit済み、**本番未反映**（このセッションではpushしていない）。リンク正規化の恒久対応は未実装。

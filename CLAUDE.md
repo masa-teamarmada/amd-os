@@ -105,6 +105,8 @@ git status -s
 - PWA の本番反映は `main push = Vercel 自動 deploy`（`pwa/CLAUDE.md` 参照）。**main に無いものは本番に存在できない** — これがこのルールの機械的な裏付け。
 - **Codex Desktop でこの repo を target にした Local 子タスク作成・UI の Handoff は使わない。** 作業者へこのルールが渡る前に、アプリ側が正本 checkout へ `codex/<thread-id>` branch を作って切り替えることがある。分担は同じ main、または main の disposable clean clone で行う。
 - 防止層は、repo の `.codex/config.toml` にある `multi_agent = false` と、`.githooks/reference-transaction` の branch 作成拒否。clone 後は `bash scripts/install-main-only-git-hook.sh` を1回実行する。
+- この hook が止めるのは **作成だけ**。branch の削除と更新は通す。誤って作られた枝を畳めなくなると、closeout の「作った枝は必ず閉じる」義務が実行できなくなるため。2026-08-09 まで削除も誤ってブロックしていた（`pwa/BUGS.md` の `[git/hook]` 参照）。
+- **`spawn_task` で次セッションを起票しない。** チップの起動導線が worktree を作り、これは prompt 本文が読まれるより前に走るので、prompt でいくら禁止しても効かない（2026-08-09 実証）。次セッションへ渡すときは migration prompt をまさへ直接渡し、cwd 指定の通常セッションとして開いてもらう。
 - Codex で「ブランチを切り替えるには変更をコミットしてください」アラートが出たら **キャンセルする**。`コミットしてブランチを切り替える` は押さず、branch / dirty / worktree / unpushed commit を監査してから main を復旧する。
 
 ### dirty はブランチ作成理由にならない (2026-07-07 まさ再確定)

@@ -10,12 +10,15 @@ fi
 
 zero_oid='0000000000000000000000000000000000000000'
 
+# branch 削除は old_oid / new_oid が両方 zero で渡る (git の仕様)。
+# old_oid だけを見ると削除まで拒否してしまい、誤って作られた branch を畳めなくなる。
+# 作成の条件は「new_oid が実在し、かつ old_oid が zero」。
 while read -r old_oid new_oid ref_name; do
   case "$ref_name" in
     refs/heads/main)
       ;;
     refs/heads/*)
-      if [ "$old_oid" = "$zero_oid" ]; then
+      if [ "$new_oid" != "$zero_oid" ] && [ "$old_oid" = "$zero_oid" ]; then
         printf '%s\n' "AMD OS: branch 作成は禁止。main で作業すること。" >&2
         printf '%s\n' "まさがこのセッションで明示した例外だけ AMD_OS_ALLOW_BRANCH=1 を使う。" >&2
         exit 1
