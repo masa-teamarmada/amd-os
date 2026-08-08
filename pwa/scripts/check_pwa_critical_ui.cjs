@@ -3099,7 +3099,7 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "sx-partner-comparison-row-",
   "sx-partner-stage-rail-",
   "sx-partner-progress-",
-  "interaction-${interaction.id}",
+  "interaction-${latestInteraction.id}",
   "work-${item.id}",
   'aria-modal="true"',
   'useState<SxPartnerClassification | null>("poc_candidate")',

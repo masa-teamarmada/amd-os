@@ -160,13 +160,21 @@ function buildPartnerProgressSteps(
     partner.dueDatePrecision,
   );
 
+  // 接点は直近1件だけ。全接点の時系列は下の「やり取り履歴」が持つので、この列は
+  // 「ざっくり現在地とゴールまでのプロセス」に徹する (2026-08-08 まさ「すべてのやりとり
+  // 履歴を表示するものではなく、現在地とゴールまでのプロセスとゴールが見えるもの」)。
+  const latestInteraction = past[past.length - 1];
   return [
-    ...past.map((interaction) => ({
-      key: `interaction-${interaction.id}`,
-      phase: "done" as const,
-      title: sxNormalizePublicName(interaction.summary),
-      sub: `${sxInteractionKindLabel(interaction.interactionKind)}${interaction.occurredOn ? ` ・ ${sxFormatEventDateWithPrecision(interaction.occurredOn, interaction.occurredOnPrecision)}` : ""}`,
-    })),
+    ...(latestInteraction
+      ? [
+          {
+            key: `interaction-${latestInteraction.id}`,
+            phase: "done" as const,
+            title: sxNormalizePublicName(latestInteraction.summary),
+            sub: `直近接点 ・ ${sxInteractionKindLabel(latestInteraction.interactionKind)}${latestInteraction.occurredOn ? ` ・ ${sxFormatEventDateWithPrecision(latestInteraction.occurredOn, latestInteraction.occurredOnPrecision)}` : ""}`,
+          },
+        ]
+      : []),
     {
       key: "now",
       phase: "now" as const,
@@ -2280,7 +2288,7 @@ const PARTNER_LEDGER_COLUMNS: readonly PartnerLedgerColumn[] = [
     key: "grade",
     label: "評価",
     title: "顧客としての見込み。ペインの高さと単価の高い重金属の有無で付ける",
-    defaultWidth: 34,
+    defaultWidth: 48,
     minWidth: 30,
   },
   { key: "name", label: "関係先", defaultWidth: 248, minWidth: 150 },
@@ -2326,8 +2334,8 @@ function partnerLedgerInnerKeys(
 }
 
 // 幅は列の集合が変わったら作り直す。v1 には削除済みの「詰まり・PJ影響」が入っていて、
-// 関係先の既定幅も広げたので v2 へ上げる (2026-08-07)。
-const PARTNER_LEDGER_WIDTH_STORAGE_KEY = "sx-partner-ledger-column-widths-v2";
+// 関係先の既定幅も広げたので v2 へ (2026-08-07)。評価列を34→48pxへ広げたので v3 へ (2026-08-08)。
+const PARTNER_LEDGER_WIDTH_STORAGE_KEY = "sx-partner-ledger-column-widths-v3";
 const PARTNER_LEDGER_ORDER_STORAGE_KEY = "sx-partner-ledger-column-order-v1";
 
 type PartnerLedgerWidths = Record<PartnerLedgerColumnKey, number>;
@@ -2502,8 +2510,10 @@ function partnerLedgerGridStyle(
     "--sx-pl-header": `${widths.grade}px ${inner} ${widths.history}px`,
     "--sx-pl-row": `${widths.grade}px minmax(0,1fr) ${widths.history}px`,
     "--sx-pl-total": `${total}px`,
-    // 評価カラムが左端 0 に貼り付くので、関係先はその右隣で止める。
-    "--sx-pl-name-left": `${widths.grade}px`,
+    // 評価カラムは sticky left-0 (行の左padding 8px の分だけ左へ寄る) なので、
+    // 関係先は「評価幅 + gap 8px + padding 8px」で止める。旧値 (評価幅ぴったり) は
+    // 横スクロール時に社名が評価ボックスへ16px食い込んでいた (2026-08-08 まさ指摘)。
+    "--sx-pl-name-left": `${widths.grade + 16}px`,
   } as CSSProperties;
 }
 
@@ -3155,13 +3165,32 @@ function PartnerProgressHistoryModal({
             >
               {display.name}
             </h4>
-            {/* 分類は複数選択でその場保存。チェックの結果は一覧の分類タブへ即反映される
-                (2026-08-08 まさ「各関係先のモーダルの中で分類を変更できるようにして」)。 */}
+          </div>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            onClick={onClose}
+            aria-label={`${display.name}の進捗と履歴を閉じる`}
+            className={`grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[#a1957e] bg-[#fffdf7] text-[#514e47] hover:border-[#235f4b] hover:bg-[#dcecdf] hover:text-[#235f4b] ${FOCUS_RING}`}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-4 sm:px-[22px]">
+          {/* 分類は複数選択でその場保存。チェックの結果は一覧の分類タブへ即反映される
+              (2026-08-08 まさ「各関係先のモーダルの中で分類を変更できるようにして」)。
+              ヘッダーに置くと下の見出しへ重なったため、本文先頭の独立セクションに置く。 */}
+          <section
+            aria-label={`${display.name}の分類（複数選択可）`}
+            className="mb-4 border-b border-[#c5bba5] pb-4"
+          >
+            <p className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">
+              分類
+            </p>
             <div
-              className="mt-2 flex flex-wrap items-center gap-1.5"
+              className="mt-1.5 flex flex-wrap items-center gap-1.5"
               data-testid="sx-partner-classification-editor"
               role="group"
-              aria-label={`${display.name}の分類（複数選択可）`}
             >
               {SX_PARTNER_CLASSIFICATION_ORDER.map((classification) => {
                 const checked =
@@ -3199,18 +3228,7 @@ function PartnerProgressHistoryModal({
                 );
               })}
             </div>
-          </div>
-          <button
-            ref={closeButtonRef}
-            type="button"
-            onClick={onClose}
-            aria-label={`${display.name}の進捗と履歴を閉じる`}
-            className={`grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[#a1957e] bg-[#fffdf7] text-[#514e47] hover:border-[#235f4b] hover:bg-[#dcecdf] hover:text-[#235f4b] ${FOCUS_RING}`}
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </header>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-4 sm:px-[22px]">
+          </section>
           <section aria-labelledby={`${titleId}-flow`}>
             <div className="flex items-end justify-between gap-2">
               <div>
@@ -3221,7 +3239,7 @@ function PartnerProgressHistoryModal({
                   進行状況
                 </p>
                 <p className="mt-1 text-[11px] leading-5 text-[#5a574c]">
-                  接点、現在地、未完了事項、次の一手、ゴールを時系列で確認
+                  直近接点、現在地、未完了事項、次の一手、ゴールをざっくり確認。全接点は下のやり取り履歴で
                 </p>
               </div>
               <span className="text-[10px] font-semibold text-[#5a574c]">
