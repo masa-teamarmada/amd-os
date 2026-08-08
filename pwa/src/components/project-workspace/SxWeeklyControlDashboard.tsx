@@ -304,6 +304,38 @@ const STAGES: Array<{ key: StageKey; index: string; label: string }> = [
   { key: "decision", index: "03", label: "判断待ち" },
   { key: "resolved", index: "04", label: "決定・棄却" },
 ];
+const STAGE_LABEL: Record<StageKey, string> = Object.fromEntries(
+  STAGES.map((stage) => [stage.key, stage.label]),
+) as Record<StageKey, string>;
+
+// タブ化 (2026-08-08 まさ指示 #11)。データ接続は独立タブをやめ週次差分タブへ内包する
+// ため、4タブ("weekly"|"gantt"|"partners"|"issues")だけを持つ。既存のアンカー名
+// (#weekly-change / #project-gantt / #partner-ledger / #issue-hypothesis / #input-readiness)
+// は他画面からのリンク互換のためhashとしてそのまま残す。
+type SxWeeklyControlView = "weekly" | "gantt" | "partners" | "issues";
+const SX_WEEKLY_VIEW_STORAGE_KEY = "sx-weekly-control-view-v1";
+const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
+  weekly: "weekly-change",
+  gantt: "project-gantt",
+  partners: "partner-ledger",
+  issues: "issue-hypothesis",
+};
+const SX_WEEKLY_TABS: Array<{ key: SxWeeklyControlView; label: string }> = [
+  { key: "weekly", label: "週次差分" },
+  { key: "gantt", label: "ガント" },
+  { key: "partners", label: "関係先" },
+  { key: "issues", label: "論点・仮説" },
+];
+function viewForHash(hash: string): SxWeeklyControlView | null {
+  const normalized = hash.replace(/^#/, "");
+  if (!normalized) return null;
+  if (normalized === "project-gantt") return "gantt";
+  if (normalized === "partner-ledger") return "partners";
+  if (normalized === "issue-hypothesis") return "issues";
+  if (normalized === "weekly-change" || normalized === "input-readiness")
+    return "weekly";
+  return null;
+}
 
 const WORKLOAD_BUCKETS: Array<{
   key: WorkloadBucketKey;
@@ -3224,7 +3256,11 @@ function IssueEditor({
   );
 }
 
-function IssueCard({
+// 論点・仮説の表示は1論点=1行の表形式 (2026-08-08 まさ指示 #12)。旧IssueCard(Kanban card)を
+// IssueRowへ置き換え、詳細(仮説/根拠/判断/行動)の編集導線はdetailBodyのマークアップをそのまま
+// 流用し、<details>展開だった箇所をローカルexpanded stateで制御するtrへ変える。新しいフォーム
+// モーダルは追加せず、既存onEdit(editor state)呼び出しをそのまま使う。
+function IssueRow({
   issue,
   asOf,
   canManage,
@@ -3235,114 +3271,153 @@ function IssueCard({
   canManage: boolean;
   onEdit: (editor: EditorState) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const track = trackMeta(issue.track);
   const stale = sxWeeklyIssueIsStale(issue, asOf);
   const overdue = sxWeeklyIssueIsOverdue(issue, asOf);
   const attention = sxWeeklyIssueNeedsAttention(issue, asOf);
   const nextMove = sxWeeklyIssueNextMove(issue, asOf);
-  const nextDueDate = sxWeeklyIssueNextDueDate(issue);
-  const lastActivity = sxWeeklyIssueLastActivity(issue);
+  const openDecision = issue.decisions.find(
+    (decision) => decision.status === "open",
+  );
+  const representativeHypothesis =
+    issue.hypotheses.find(
+      (hypothesis) =>
+        hypothesis.status !== "rejected" && hypothesis.status !== "decided",
+    ) || issue.hypotheses[0];
+  const activeActionCount = issue.actionItems.filter(
+    (action) => action.status !== "completed",
+  ).length;
   return (
-    <article
-      className={styles.issueCard}
-      data-attention={attention || undefined}
-    >
-      <div className={styles.cardAccent} style={{ background: track.accent }} />
-      <div className={styles.issueCardHead}>
-        <div className={styles.badgeRow}>
-          <span
-            className={styles.trackBadge}
-            style={{ color: track.accent, borderColor: `${track.accent}55` }}
-          >
-            {track.short}
-          </span>
-          <span className={`${styles.statusBadge} ${statusTone(issue.status)}`}>
-            {issueStatusLabel(issue.status)}
-          </span>
-          {stale && (
-            <span className={`${styles.statusBadge} ${styles.toneDanger}`}>
-              更新切れ
+    <>
+      <tr className={styles.issueRow} data-attention={attention || undefined}>
+        <td className={styles.issueRowTitleCell}>
+          <div className={styles.badgeRow}>
+            <span
+              className={styles.trackBadge}
+              style={{ color: track.accent, borderColor: `${track.accent}55` }}
+            >
+              {track.short}
             </span>
-          )}
-          {overdue && (
-            <span className={`${styles.statusBadge} ${styles.toneDanger}`}>
-              期限超過
+            <span className={styles.issueRowKind}>
+              {issueKindLabel(issue.knowledgeType)}
             </span>
-          )}
-        </div>
-        {canManage && (
-          <div className={styles.issueHeadActions}>
+          </div>
+          {canManage ? (
             <button
               type="button"
-              onClick={() => onEdit({ kind: "create_hypothesis", issue })}
+              className={styles.issueRowTitleButton}
+              onClick={() => onEdit({ kind: "edit_issue", issue })}
+              aria-label={`${issue.title}を直接修正`}
+              title={issue.title}
             >
-              <Plus aria-hidden="true" />
-              仮説を追加
+              {issue.title}
             </button>
-          </div>
-        )}
-      </div>
-      <p className={styles.issueType}>{issueKindLabel(issue.knowledgeType)}</p>
-      <h3>
-        {canManage ? (
-          <button
-            type="button"
-            className="w-full text-left hover:border-[#059669] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
-            onClick={() => onEdit({ kind: "edit_issue", issue })}
-            aria-label={`${issue.title}を直接修正`}
-          >
-            {issue.title}
-          </button>
-        ) : (
-          issue.title
-        )}
-      </h3>
-      <dl className={styles.cardMeta}>
-        <div>
-          <dt>担当</dt>
-          <dd
+          ) : (
+            <span className={styles.issueRowTitleButton} title={issue.title}>
+              {issue.title}
+            </span>
+          )}
+          <small
+            className={styles.issueRowSub}
             data-missing={sxWeeklyValueMissing(issue.ownerLabel) || undefined}
           >
-            {sxWeeklyValueMissing(issue.ownerLabel)
-              ? "未設定"
-              : issue.ownerLabel}
-          </dd>
-        </div>
-        <div>
-          <dt>次の期限</dt>
-          <dd data-missing={!nextDueDate || undefined}>
-            {formatDate(nextDueDate)}
-          </dd>
-        </div>
-        <div>
-          <dt>最終更新</dt>
-          <dd data-missing={stale || undefined}>{formatDate(lastActivity)}</dd>
-        </div>
-      </dl>
-      <div className={styles.nextMove}>
-        <span>次の動き</span>
-        <strong>
-          {nextMove?.label ||
-            (issue.hypotheses.length === 0
-              ? "検証可能な仮説を置く"
-              : "次の検証を設定")}
-        </strong>
-      </div>
-      <details className={styles.issueDetails}>
-        <summary>
-          <span>仮説 {issue.hypotheses.length}</span>
-          <span>根拠 {issue.evidence.length}</span>
-          <span>検証 {issue.validationRuns.length}</span>
-          <span>
-            行動{" "}
-            {
-              issue.actionItems.filter(
-                (action) => action.status !== "completed",
-              ).length
-            }
+            {sxWeeklyValueMissing(issue.ownerLabel) ? "" : issue.ownerLabel}
+          </small>
+        </td>
+        <td className={styles.issueRowStatusCell}>
+          <div className={styles.badgeRow}>
+            <span className={`${styles.statusBadge} ${styles.toneMuted}`}>
+              {STAGE_LABEL[sxWeeklyIssueStage(issue)]}
+            </span>
+            <span className={`${styles.statusBadge} ${statusTone(issue.status)}`}>
+              {issueStatusLabel(issue.status)}
+            </span>
+            {stale && (
+              <span className={`${styles.statusBadge} ${styles.toneDanger}`}>
+                更新切れ
+              </span>
+            )}
+            {overdue && (
+              <span className={`${styles.statusBadge} ${styles.toneDanger}`}>
+                期限超過
+              </span>
+            )}
+          </div>
+        </td>
+        <td className={styles.issueRowTruncateCell}>
+          <span className={styles.issueRowCount}>
+            仮説 {issue.hypotheses.length}件
           </span>
-          <ChevronDown aria-hidden="true" />
-        </summary>
+          {representativeHypothesis && (
+            <p
+              className={styles.issueRowTruncate}
+              title={representativeHypothesis.statement}
+            >
+              {representativeHypothesis.statement}
+            </p>
+          )}
+        </td>
+        <td className={styles.issueRowTruncateCell}>
+          <span className={styles.issueRowCount}>
+            根拠 {issue.evidence.length}件 ・ 検証 {issue.validationRuns.length}件
+          </span>
+        </td>
+        <td className={styles.issueRowTruncateCell}>
+          {openDecision ? (
+            <>
+              <p className={styles.issueRowTruncate} title={openDecision.title}>
+                {openDecision.title}
+              </p>
+              {openDecision.dueDate && (
+                <small className={styles.issueRowSub}>
+                  {formatDate(openDecision.dueDate)}
+                </small>
+              )}
+            </>
+          ) : null}
+        </td>
+        <td className={styles.issueRowTruncateCell}>
+          {nextMove ? (
+            <>
+              <p className={styles.issueRowTruncate} title={nextMove.label}>
+                {nextMove.label}
+              </p>
+              {nextMove.dueDate && (
+                <small className={styles.issueRowSub}>
+                  {formatDate(nextMove.dueDate)}
+                </small>
+              )}
+            </>
+          ) : (
+            issue.hypotheses.length === 0 && (
+              <p className={styles.issueRowTruncate}>検証可能な仮説を置く</p>
+            )
+          )}
+        </td>
+        <td className={styles.issueRowExpandCell}>
+          <button
+            type="button"
+            className={styles.issueRowExpandButton}
+            onClick={() => setExpanded((value) => !value)}
+            aria-expanded={expanded}
+            aria-label={expanded ? "詳細を閉じる" : "詳細を開く"}
+          >
+            {activeActionCount > 0 && (
+              <span className={styles.issueRowActionCount}>{activeActionCount}</span>
+            )}
+            <ChevronDown
+              aria-hidden="true"
+              style={{
+                transform: expanded ? "rotate(180deg)" : undefined,
+              }}
+            />
+          </button>
+        </td>
+      </tr>
+      {expanded && (
+        <tr className={styles.issueDetailRow}>
+        <td colSpan={7}>
         <div className={styles.detailBody}>
           <section>
             <div className={styles.detailTitle}>
@@ -3532,8 +3607,10 @@ function IssueCard({
             </div>
           )}
         </div>
-      </details>
-    </article>
+        </td>
+        </tr>
+      )}
+    </>
   );
 }
 
@@ -4164,6 +4241,26 @@ export function SxWeeklyControlDashboard({
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [workloadFilter, setWorkloadFilter] =
     useState<WorkloadBucketKey | null>(null);
+  // タブ化 (2026-08-08 まさ指示 #11)。週次差分・ガント・関係先・論点仮説の4タブ、
+  // データ接続は週次差分タブへ内包する。既定は"weekly"、hash付きリンク→localStorageの順で復元する。
+  const [activeView, setActiveView] = useState<SxWeeklyControlView>("weekly");
+  useEffect(() => {
+    const fromHash = viewForHash(window.location.hash);
+    if (fromHash) {
+      setActiveView(fromHash);
+      return;
+    }
+    const stored = window.localStorage.getItem(SX_WEEKLY_VIEW_STORAGE_KEY);
+    if (stored === "weekly" || stored === "gantt" || stored === "partners" || stored === "issues") {
+      setActiveView(stored);
+    }
+  }, []);
+
+  function selectView(view: SxWeeklyControlView) {
+    setActiveView(view);
+    window.localStorage.setItem(SX_WEEKLY_VIEW_STORAGE_KEY, view);
+    window.history.replaceState(null, "", `#${SX_WEEKLY_VIEW_HASH[view]}`);
+  }
 
   function showNotice(message: string) {
     setNotice(message);
@@ -4240,18 +4337,6 @@ export function SxWeeklyControlDashboard({
           .includes(normalized);
       }),
     [allIssues, management.asOf, query, trackFilter, viewFilter],
-  );
-  const stageGroups = useMemo(
-    () =>
-      Object.fromEntries(
-        STAGES.map((stage) => [
-          stage.key,
-          visibleIssues.filter(
-            (issue) => sxWeeklyIssueStage(issue) === stage.key,
-          ),
-        ]),
-      ) as Record<StageKey, SxManagementIssue[]>,
-    [visibleIssues],
   );
   const pendingDecisions = management.decisions
     .filter((decision) => decision.status === "open")
@@ -4590,6 +4675,7 @@ export function SxWeeklyControlDashboard({
       setSelectedTaskId(null);
       setEditorFieldKeys(nextFieldKeys);
       setEditor(nextEditor);
+      selectView("partners");
       return;
     }
     // MS/タスク/論点系のいずれも、対象レコードのID/存在をすべて検証し切ってからだけ
@@ -4609,6 +4695,7 @@ export function SxWeeklyControlDashboard({
       setEditorFieldKeys(null);
       setSelectedMilestoneId(null);
       setSelectedTaskId(task.id);
+      selectView("gantt");
       document
         .getElementById("project-gantt")
         ?.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -4628,6 +4715,7 @@ export function SxWeeklyControlDashboard({
       setEditorFieldKeys(null);
       setSelectedTaskId(null);
       setSelectedMilestoneId(milestone.id);
+      selectView("gantt");
       document
         .getElementById("project-gantt")
         ?.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -4707,6 +4795,7 @@ export function SxWeeklyControlDashboard({
       setSelectedMilestoneId(null);
       setSelectedTaskId(null);
       setEditor(nextEditor);
+      selectView("issues");
       return;
     }
   }
@@ -4722,12 +4811,19 @@ export function SxWeeklyControlDashboard({
               <h1>SolvioraX PJワークスペース</h1>
             </div>
           </div>
-          <nav className={styles.sectionNav} aria-label="週次管制ナビ">
-            <a href="#weekly-change">週次差分</a>
-            <a href="#project-gantt">ガント</a>
-            <a href="#partner-ledger">関係先</a>
-            <a href="#issue-hypothesis">論点・仮説</a>
-            <a href="#input-readiness">データ接続</a>
+          <nav className={styles.sectionNav} aria-label="週次管制ナビ" role="tablist">
+            {SX_WEEKLY_TABS.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={activeView === tab.key}
+                aria-controls={SX_WEEKLY_VIEW_HASH[tab.key]}
+                onClick={() => selectView(tab.key)}
+              >
+                {tab.label}
+              </button>
+            ))}
           </nav>
         </header>
 
@@ -4811,7 +4907,13 @@ export function SxWeeklyControlDashboard({
           onSelectItem={navigateToWorkUnit}
         />
 
-        <section id="weekly-change" className={styles.section}>
+        {activeView === "weekly" && (
+        <section
+          id="weekly-change"
+          className={styles.section}
+          role="tabpanel"
+          aria-label="週次差分パネル"
+        >
           <div className={styles.sectionHeading}>
             <div>
               <h2>週次差分・判断・介入</h2>
@@ -4901,8 +5003,15 @@ export function SxWeeklyControlDashboard({
             </article>
           </div>
         </section>
+        )}
 
-        <section id="project-gantt" className={styles.section}>
+        {activeView === "gantt" && (
+        <section
+          id="project-gantt"
+          className={styles.section}
+          role="tabpanel"
+          aria-label="全体ガントパネル"
+        >
           <div className={styles.sectionHeading}>
             <div>
               <h2>全体ガント</h2>
@@ -5083,8 +5192,15 @@ export function SxWeeklyControlDashboard({
             />
           </div>
         </section>
+        )}
 
-        <section id="partner-ledger" className={styles.section}>
+        {activeView === "partners" && (
+        <section
+          id="partner-ledger"
+          className={styles.section}
+          role="tabpanel"
+          aria-label="関係先パネル"
+        >
           <div className={styles.sectionHeading}>
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
               <h2>関係先リスト</h2>
@@ -5154,8 +5270,15 @@ export function SxWeeklyControlDashboard({
             />
           </div>
         </section>
+        )}
 
-        <section id="issue-hypothesis" className={styles.section}>
+        {activeView === "issues" && (
+        <section
+          id="issue-hypothesis"
+          className={styles.section}
+          role="tabpanel"
+          aria-label="論点・仮説パネル"
+        >
           <div className={styles.issueHeading}>
             <div>
               <h2>論点・仮説リスト</h2>
@@ -5226,43 +5349,50 @@ export function SxWeeklyControlDashboard({
               ))}
             </select>
           </div>
-          <div className={styles.issueBoard}>
-            {STAGES.map((stage) => (
-              <section className={styles.stageColumn} key={stage.key}>
-                <header>
-                  <span>{stage.index}</span>
-                  <div>
-                    <h3>{stage.label}</h3>
-                  </div>
-                  <strong>{stageGroups[stage.key].length}</strong>
-                </header>
-                <div className={styles.stageCards}>
-                  {stageGroups[stage.key].map((issue) => (
-                    <IssueCard
-                      key={issue.id}
-                      issue={issue}
-                      asOf={management.asOf}
-                      canManage={management.canManage}
-                      onEdit={setEditor}
-                    />
-                  ))}
-                  {stageGroups[stage.key].length === 0 && (
-                    <div className={styles.columnEmpty}>
-                      <CircleDot aria-hidden="true" />
-                      <p>
-                        {query || viewFilter !== "all" || trackFilter !== "all"
-                          ? "条件に合う論点なし"
-                          : "この段階の論点なし"}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </section>
-            ))}
+          {/* 論点・仮説は1論点=1行の表形式 (2026-08-08 まさ指示 #12)。旧Kanban(段階列×カード)は
+             見にくいとの指摘で廃止し、visibleIssuesの表示順(attention score優先)をそのまま行順に
+             使う。段階(STAGE_LABEL)は状態列のバッジとして残し、情報は失わない。 */}
+          <div className={styles.issueTableWrap}>
+            <table className={styles.issueTable}>
+              <thead>
+                <tr>
+                  <th scope="col">論点名</th>
+                  <th scope="col">状態</th>
+                  <th scope="col">仮説</th>
+                  <th scope="col">検証・根拠の状況</th>
+                  <th scope="col">判断</th>
+                  <th scope="col">次の一手</th>
+                  <th scope="col" aria-label="詳細" />
+                </tr>
+              </thead>
+              <tbody>
+                {visibleIssues.map((issue) => (
+                  <IssueRow
+                    key={issue.id}
+                    issue={issue}
+                    asOf={management.asOf}
+                    canManage={management.canManage}
+                    onEdit={setEditor}
+                  />
+                ))}
+              </tbody>
+            </table>
+            {visibleIssues.length === 0 && (
+              <div className={styles.columnEmpty}>
+                <CircleDot aria-hidden="true" />
+                <p>
+                  {query || viewFilter !== "all" || trackFilter !== "all"
+                    ? "条件に合う論点なし"
+                    : "論点がまだ登録されていない"}
+                </p>
+              </div>
+            )}
           </div>
         </section>
+        )}
 
-        <section id="input-readiness" className={styles.inputSection}>
+        {activeView === "weekly" && (
+        <section id="input-readiness" className={styles.inputSection} role="tabpanel" aria-label="データ接続パネル">
           <div>
             <h2>データ接続状況</h2>
           </div>
@@ -5310,6 +5440,7 @@ export function SxWeeklyControlDashboard({
             </article>
           </div>
         </section>
+        )}
         <footer className={styles.pageFooter}>
           <span>
             基準日 {formatDate(management.asOf)} · 表示値は現行台帳の仮表示
