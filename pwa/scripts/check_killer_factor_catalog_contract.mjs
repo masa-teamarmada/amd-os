@@ -56,6 +56,8 @@ expectAll(component, [
   "根拠メモ",
   "記録者",
   "CEO本人の自己申告は発生判定の根拠に使わない",
+  'timeZone: "Asia/Tokyo"',
+  "todayInJapan()",
 ], "catalog component");
 
 expectAll(overview, [
