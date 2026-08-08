@@ -105,8 +105,7 @@ expectIncludes(
     "deriveSxUnifiedTimeline",
     "SxUnifiedTimeline",
     "showPins={false}",
-    "手動編集を正本にする · 抽出は差分候補",
-    "sxWeeklyIssueNextDueDate",
+      "sxWeeklyIssueNextDueDate",
     "sxWeeklyIssueLastActivity",
     "create_hypothesis",
     "create_validation",
@@ -115,8 +114,7 @@ expectIncludes(
     "create_action",
     "edit_action",
     "sxWeeklyIssueNextMove",
-    "sxWeeklyWeekRangeLabel",
-    // Round 32 (2026-08-02): 冒頭をPJ全体の管制入口へ再構成。工程・タスク・論点・仮説・検証・
+      // Round 32 (2026-08-02): 冒頭をPJ全体の管制入口へ再構成。工程・タスク・論点・仮説・検証・
     // 判断・action・関係先保有事項を同じ未完了作業単位（sxProjectOwnerLoadsの共通母集団）にした
     // 6バケット（停止/期限超過/7日以内/担当不明/期限なし/判断待ち）。クリックで元項目一覧へ絞り込み、
     // 項目クリックで必ず元の編集文脈（ガント該当行・詳細／論点カード・詳細／関係先該当行）へ移動する。

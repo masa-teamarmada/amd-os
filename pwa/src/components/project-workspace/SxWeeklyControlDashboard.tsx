@@ -9,7 +9,6 @@ import {
   Check,
   ChevronDown,
   CircleDot,
-  ExternalLink,
   FileSearch,
   FlaskConical,
   GitBranch,
@@ -17,7 +16,6 @@ import {
   Plus,
   RefreshCw,
   Search,
-  ShieldCheck,
   Target,
   X,
 } from "lucide-react";
@@ -83,7 +81,6 @@ import {
   sxWeeklyIssueNextMove,
   sxWeeklyIssueStage,
   sxWeeklyValueMissing,
-  sxWeeklyWeekRangeLabel,
   type SxWeeklyIssueStage,
 } from "@/lib/sx-weekly-control";
 import {
@@ -4717,41 +4714,12 @@ export function SxWeeklyControlDashboard({
   return (
     <main className={`${styles.page} sx-management-workspace`}>
       <div className={styles.shell}>
+        {/* バッジ行・既存ワークスペースリンク・週レンジ・運用準備中スタンプは
+            2026-08-08 まさ指示 #10 で削除。タイトルとナビだけを残す。 */}
         <header className={styles.header}>
-          <div className={styles.headerTop}>
-            <div className={styles.badgeRow}>
-              <span className={styles.productBadge}>
-                <ShieldCheck aria-hidden="true" />
-                SX / 週次管制
-              </span>
-              <span className={styles.previewBadge}>
-                手動編集を正本にする · 抽出は差分候補
-              </span>
-              <span className={styles.scopeBadge}>
-                {access.scope === "project" ? "参加PJ限定" : "AMD管理ビュー"}
-              </span>
-            </div>
-            <div className={styles.headerActions}>
-              <Link
-                href={`/project/${encodeURIComponent(bundle.project.projectId)}/workspace`}
-              >
-                <ExternalLink aria-hidden="true" />
-                既存ワークスペース
-              </Link>
-            </div>
-          </div>
           <div className={styles.titleRow}>
             <div>
-              <p className={styles.eyebrow}>
-                {sxWeeklyWeekRangeLabel(bundle.currentWeekStart)} / WEEKLY
-                CONTROL
-              </p>
               <h1>SolvioraX PJワークスペース</h1>
-            </div>
-            <div className={styles.readinessStamp}>
-              <span>画面</span>
-              <strong>運用準備中</strong>
-              <small>情報抽出は次の作業</small>
             </div>
           </div>
           <nav className={styles.sectionNav} aria-label="週次管制ナビ">

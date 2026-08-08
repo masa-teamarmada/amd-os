@@ -147,17 +147,6 @@ function buildPartnerProgressSteps(
     .sort((left, right) =>
       (left.dueDate ?? "9999").localeCompare(right.dueDate ?? "9999"),
     );
-  const workSideLabel = (side: string) =>
-    side === "sx"
-      ? "当方"
-      : side === "partner"
-        ? "先方"
-        : side === "shared"
-          ? "双方"
-          : "担当未確認";
-  const ballOwner = partner.currentBallOwner
-    ? sxNormalizePublicName(partner.currentBallOwner)
-    : "担当未確認";
   const nowDue = sxFormatDueDateWithPrecision(
     partner.dueDate,
     partner.dueDatePrecision,
@@ -181,14 +170,14 @@ function buildPartnerProgressSteps(
     {
       key: "now",
       phase: "now" as const,
-      title: `${sxBallSideLabel(partner.currentBallSide)}ボール: ${ballOwner}`,
-      sub: `現在地 ・ ${nowDue === "期限未設定" ? nowDue : `期限 ${nowDue}`}`,
+      title: `${sxBallSideLabel(partner.currentBallSide)}ボール`,
+      sub: `現在地${partner.dueDate ? ` ・ 期限 ${nowDue}` : ""}`,
     },
     ...pending.map((item) => ({
       key: `work-${item.id}`,
       phase: "next" as const,
       title: nominalizeSxNextActionLabel(sxNormalizePublicName(item.title)),
-      sub: `これから ・ ${workSideLabel(item.side)}${item.ownerLabel ? ` ${sxNormalizePublicName(item.ownerLabel)}` : ""}`,
+      sub: "これから",
     })),
     {
       key: "next",
@@ -1788,9 +1777,6 @@ function ControlBand({
         <SxBadge tone={counts.dueUnset > 0 ? WARN_TONE : NEUTRAL_TONE}>
           期限未設定 {counts.dueUnset}件
         </SxBadge>
-        <SxBadge tone={counts.ownerUnconfirmed > 0 ? FLAG_TONE : NEUTRAL_TONE}>
-          担当未確認 {counts.ownerUnconfirmed}件
-        </SxBadge>
       </ControlBandRow>
       <ControlBandRow heading="ボール" ariaLabel="保有側の指標">
         <SxBadge tone={NEUTRAL_TONE}>
@@ -1945,6 +1931,7 @@ function HoldingRow({
   showSideBadge,
   canManage,
   onEdit,
+  onInlinePatch,
 }: {
   item: SxHoldingItem;
   partnerName: string;
@@ -1954,7 +1941,58 @@ function HoldingRow({
   showSideBadge?: "sx" | "partner" | "shared" | "unknown";
   canManage?: boolean;
   onEdit?: (workItemId: string) => void;
+  /** その場編集 (2026-08-08 監査#5)。resource は item.originResource をそのまま使う。 */
+  onInlinePatch?: (
+    resource: "partner_work_item" | "commitment",
+    id: string,
+    patch: Record<string, unknown>,
+  ) => Promise<void>;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [draft, setDraft] = useState({
+    title: item.title,
+    detail: item.detail || "",
+    due: item.dueDate || "",
+  });
+  const inlineEditable = canManage && Boolean(onInlinePatch);
+  const startInlineEdit = () => {
+    if (!inlineEditable || editing) return;
+    setDraft({
+      title: item.title,
+      detail: item.detail || "",
+      due: item.dueDate || "",
+    });
+    setError(null);
+    setEditing(true);
+  };
+  const saveInline = async () => {
+    if (!onInlinePatch || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const patch: Record<string, unknown> =
+        item.originResource === "partner_work_item"
+          ? {
+              title: draft.title.trim() || item.title,
+              detail: draft.detail.trim() || null,
+              due_date: draft.due || null,
+              due_date_precision: draft.due ? "day" : "unknown",
+            }
+          : {
+              title: draft.title.trim() || item.title,
+              due_date: draft.due || null,
+            };
+      await onInlinePatch(item.originResource, item.id, patch);
+      setEditing(false);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "保存できなかったよ");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const overdue = sxIsHoldingOverdue(item, today);
   const monthPrecision = sxIsHoldingMonthPrecision(item);
   const { gateTitle, proofLabels } = gateAndProofForItem(
@@ -1964,21 +2002,28 @@ function HoldingRow({
   );
   return (
     <li
-      className={`border-b border-[#d5cdba] py-1.5 pl-2 last:border-0 ${canManage && onEdit ? "cursor-pointer hover:bg-[#e7f0e9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]" : ""}`}
-      role={canManage && onEdit ? "button" : undefined}
-      tabIndex={canManage && onEdit ? 0 : undefined}
+      className={`border-b border-[#d5cdba] py-1.5 pl-2 last:border-0 ${(canManage && onEdit) || inlineEditable ? "cursor-pointer hover:bg-[#e7f0e9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]" : ""}`}
+      role={(canManage && onEdit) || inlineEditable ? "button" : undefined}
+      tabIndex={(canManage && onEdit) || inlineEditable ? 0 : undefined}
       aria-label={
-        canManage && onEdit
+        (canManage && onEdit) || inlineEditable
           ? `${partnerName} - ${sxNormalizePublicName(item.title)}を直接修正`
           : undefined
       }
-      onClick={canManage && onEdit ? () => onEdit(item.id) : undefined}
-      onKeyDown={
+      onClick={
         canManage && onEdit
+          ? () => onEdit(item.id)
+          : inlineEditable
+            ? startInlineEdit
+            : undefined
+      }
+      onKeyDown={
+        (canManage && onEdit) || inlineEditable
           ? (event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
-                onEdit(item.id);
+                if (canManage && onEdit) onEdit(item.id);
+                else startInlineEdit();
               }
             }
           : undefined
@@ -2009,23 +2054,99 @@ function HoldingRow({
           )}
         </div>
       </div>
-      <p className="mt-1 text-[11px] font-semibold leading-4 text-[#24231f]">
-        {nominalizeSxActionLabel(sxNormalizePublicName(item.title))}
-      </p>
-      {item.detail && (
-        <p className="mt-0.5 text-[10px] leading-4 text-[#514e47]">
-          {sxNormalizePublicName(item.detail)}
+      {editing ? (
+        <div
+          className="mt-1 grid gap-1"
+          data-holding-inline-editor={item.id}
+          aria-busy={saving}
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => {
+            event.stopPropagation();
+            if (event.nativeEvent.isComposing) return;
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setEditing(false);
+            }
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              void saveInline();
+            }
+          }}
+          onBlur={(event) => {
+            if (
+              event.relatedTarget instanceof Node &&
+              event.currentTarget.contains(event.relatedTarget)
+            )
+              return;
+            void saveInline();
+          }}
+        >
+          <textarea
+            autoFocus
+            rows={2}
+            className={`${INLINE_CONTROL_CLASS} py-1 leading-4`}
+            value={draft.title}
+            disabled={saving}
+            aria-label="題名"
+            onChange={(event) =>
+              setDraft((current) => ({ ...current, title: event.target.value }))
+            }
+          />
+          {item.originResource === "partner_work_item" && (
+            <textarea
+              rows={2}
+              className={`${INLINE_CONTROL_CLASS} py-1 leading-4`}
+              value={draft.detail}
+              disabled={saving}
+              placeholder="詳細"
+              aria-label="詳細"
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  detail: event.target.value,
+                }))
+              }
+            />
+          )}
+          <input
+            type="date"
+            className={INLINE_CONTROL_CLASS}
+            value={draft.due}
+            disabled={saving}
+            aria-label="期限"
+            onChange={(event) =>
+              setDraft((current) => ({ ...current, due: event.target.value }))
+            }
+          />
+          {error && (
+            <p
+              className="text-[10px] font-semibold text-[#8c3329]"
+              role="alert"
+            >
+              {error}
+            </p>
+          )}
+        </div>
+      ) : (
+        <>
+          <p className="mt-1 text-[11px] font-semibold leading-4 text-[#24231f]">
+            {nominalizeSxActionLabel(sxNormalizePublicName(item.title))}
+          </p>
+          {item.detail && (
+            <p className="mt-0.5 text-[10px] leading-4 text-[#514e47]">
+              {sxNormalizePublicName(item.detail)}
+            </p>
+          )}
+        </>
+      )}
+      {/* 担当表示は 2026-08-08 に削除 (まさ「担当という概念自体を消して。全部おれ1人でやる」)。 */}
+      {item.dueDate && (
+        <p
+          className={`mt-0.5 text-[10px] ${overdue ? "font-semibold text-[#8c3329]" : "text-[#5a574c]"}`}
+        >
+          {sxFormatDueDateWithPrecision(item.dueDate, item.dueDatePrecision)}
         </p>
       )}
-      <p
-        className={`mt-0.5 text-[10px] ${overdue ? "font-semibold text-[#8c3329]" : "text-[#5a574c]"}`}
-      >
-        担当{" "}
-        {item.ownerLabel
-          ? sxNormalizePublicName(item.ownerLabel)
-          : "担当未確認"}{" "}
-        ・ {sxFormatDueDateWithPrecision(item.dueDate, item.dueDatePrecision)}
-      </p>
       {/* sourceEvidence (一次根拠 — a commitment's primary backing, present regardless of status) and
           completionEvidence (完了の証拠 — proof a work item is actually done) are separate claims and
           must never be merged into one line (2026-07-24 P1 fix: an open commitment's 一次根拠 used to
@@ -2575,7 +2696,6 @@ function PartnerProgressFlow({
     else if (step.key === "now")
       setStepDraft({
         side: partner.currentBallSide,
-        owner: partner.currentBallOwner || "",
         due: partner.dueDate || "",
       });
     else if (step.key.startsWith("interaction-")) {
@@ -2614,7 +2734,6 @@ function PartnerProgressFlow({
           id: partner.id,
           patch: {
             current_ball_side: stepDraft.side,
-            current_ball_owner: stepDraft.owner.trim() || null,
             due_date: stepDraft.due || null,
             due_date_precision: stepDraft.due ? "day" : "unknown",
           },
@@ -2730,19 +2849,6 @@ function PartnerProgressFlow({
                         </option>
                       ))}
                     </select>
-                    <input
-                      className={INLINE_CONTROL_CLASS}
-                      value={stepDraft.owner}
-                      placeholder="担当"
-                      aria-label="担当"
-                      disabled={stepSaving}
-                      onChange={(event) =>
-                        setStepDraft((current) => ({
-                          ...current,
-                          owner: event.target.value,
-                        }))
-                      }
-                    />
                     <input
                       type="date"
                       className={INLINE_CONTROL_CLASS}
@@ -2866,19 +2972,13 @@ function PartnerSampleRow({
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState({
     label: sample.label,
-    status: sample.status as string,
     received_on: sample.receivedOn || "",
-    storage_location: sample.storageLocation || "",
-    owner_label: sample.ownerLabel || "",
     notes: sample.notes || "",
   });
   const startEdit = () => {
     setDraft({
       label: sample.label,
-      status: sample.status,
       received_on: sample.receivedOn || "",
-      storage_location: sample.storageLocation || "",
-      owner_label: sample.ownerLabel || "",
       notes: sample.notes || "",
     });
     setError(null);
@@ -2889,12 +2989,12 @@ function PartnerSampleRow({
     setSaving(true);
     setError(null);
     try {
+      // 状態欄はUIから消したため、受領日の有無から同期する (受領日あり→received、
+      // 消したら旧状態を維持)。排液調達チェックはこの状態と受領日の両方を見る。
       await onPatch({
         label: draft.label.trim() || sample.label,
-        status: draft.status,
+        status: draft.received_on ? "received" : sample.status,
         received_on: draft.received_on || null,
-        storage_location: draft.storage_location.trim() || null,
-        owner_label: draft.owner_label.trim() || null,
         notes: draft.notes.trim() || null,
       });
       setEditing(false);
@@ -2904,12 +3004,6 @@ function PartnerSampleRow({
       setSaving(false);
     }
   };
-  const statusTone =
-    sample.status === "received" || sample.status === "analyzed"
-      ? "border-[#38745d]/50 bg-[#dcecdf] text-[#235f4b]"
-      : sample.status === "unknown"
-        ? "border-[#bf7b2c]/45 bg-[#f9f2e4] text-[#765022]"
-        : "border-[#a69b84] bg-[#f5f1e8] text-[#514e47]";
 
   const view = (
     <div className="grid min-w-0 gap-0.5 px-3 py-2 text-left">
@@ -2917,24 +3011,17 @@ function PartnerSampleRow({
         <span className="[overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#24231f]">
           {sample.label}
         </span>
-        <span
-          className={`inline-block border px-1 py-px text-[10px] font-semibold leading-3 ${statusTone}`}
-        >
-          {sxSampleStatusLabel(sample.status)}
-        </span>
         {(sample.confidence === "low" || sample.confidence === "unknown") && (
           <span className="inline-block border border-[#bf7b2c]/45 bg-[#f9f2e4] px-1 py-px text-[10px] font-semibold leading-3 text-[#765022]">
             要確認
           </span>
         )}
       </div>
-      <p className="text-[10px] leading-4 text-[#5a574c]">
-        受領 {sample.receivedOn ? sxFormatDate(sample.receivedOn) : "未確認"} ・
-        保管 {sample.storageLocation || "未確認"} ・ 担当{" "}
-        {sample.ownerLabel
-          ? sxNormalizePublicName(sample.ownerLabel)
-          : "未確認"}
-      </p>
+      {sample.receivedOn && (
+        <p className="text-[10px] leading-4 text-[#5a574c]">
+          受領 {sxFormatDate(sample.receivedOn)}
+        </p>
+      )}
       {sample.notes && (
         <p className="text-[10px] leading-4 text-[#514e47]">{sample.notes}</p>
       )}
@@ -2993,26 +3080,6 @@ function PartnerSampleRow({
           />,
         )}
         {field(
-          "状態",
-          <select
-            className={controlClass}
-            value={draft.status}
-            disabled={saving}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                status: event.target.value,
-              }))
-            }
-          >
-            {SX_SAMPLE_STATUS_ORDER.map((status) => (
-              <option key={status} value={status}>
-                {sxSampleStatusLabel(status)}
-              </option>
-            ))}
-          </select>,
-        )}
-        {field(
           "受領日",
           <input
             type="date"
@@ -3027,39 +3094,9 @@ function PartnerSampleRow({
             }
           />,
         )}
-        {field(
-          "保管場所",
-          <input
-            className={controlClass}
-            value={draft.storage_location}
-            readOnly={saving}
-            placeholder="未確認"
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                storage_location: event.target.value,
-              }))
-            }
-          />,
-        )}
-        {field(
-          "担当",
-          <input
-            className={controlClass}
-            value={draft.owner_label}
-            readOnly={saving}
-            placeholder="未確認"
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                owner_label: event.target.value,
-              }))
-            }
-          />,
-        )}
       </div>
       {field(
-        "要確認・条件",
+        "詳細",
         <textarea
           rows={2}
           className={controlClass}
@@ -3105,6 +3142,7 @@ function PartnerSampleAddForm({
   partnerId: string;
   onCreate: (partnerId: string, label: string) => Promise<void>;
 }) {
+  const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -3122,18 +3160,45 @@ function PartnerSampleAddForm({
       setSaving(false);
     }
   };
+  // 常設の入力欄は置かない。「＋ 試料を追加」を押したときだけ入力が現れる
+  // (2026-08-08 監査#6、履歴・成分の追加UIと同じ作法)。
+  if (!adding)
+    return (
+      <div className="mt-2">
+        <button
+          type="button"
+          onClick={() => {
+            setLabel("");
+            setError(null);
+            setAdding(true);
+          }}
+          data-testid="sx-partner-sample-add"
+          className={`min-h-9 rounded border border-[#38745d] bg-[#fffdf7] px-2.5 text-[10px] font-semibold text-[#235f4b] hover:bg-[#dcecdf] ${FOCUS_RING}`}
+        >
+          ＋ 試料を追加
+        </button>
+      </div>
+    );
   return (
     <div className="mt-2 grid gap-1">
       <div className="flex items-stretch gap-1.5">
         <input
+          autoFocus
           className={`min-w-0 flex-1 border border-[#a69b84] bg-[#fffdf7] px-2 py-1.5 text-[11px] text-[#24231f] ${FOCUS_RING}`}
           value={label}
           readOnly={saving}
           placeholder="試料名（例: 工場排液 / 触媒 / 井戸水）"
           aria-label="追加する試料名"
           onChange={(event) => setLabel(event.target.value)}
+          onBlur={() => {
+            if (!label.trim() && !saving) setAdding(false);
+          }}
           onKeyDown={(event) => {
             if (event.nativeEvent.isComposing) return;
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setAdding(false);
+            }
             if (event.key === "Enter") {
               event.preventDefault();
               void submit();
@@ -3145,9 +3210,8 @@ function PartnerSampleAddForm({
           onClick={() => void submit()}
           disabled={saving || !label.trim()}
           className={`border border-[#235f4b] bg-[#235f4b] px-3 py-1.5 text-[10px] font-semibold text-[#fffdf7] disabled:opacity-50 ${FOCUS_RING}`}
-          data-testid="sx-partner-sample-add"
         >
-          試料を追加
+          追加
         </button>
       </div>
       {error && (
@@ -3182,6 +3246,7 @@ function PartnerProgressHistoryModal({
 }) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
+  const [activeFacetKey, setActiveFacetKey] = useState<string | null>(null);
   const display = sxPartnerDisplay(partner);
   const steps = buildPartnerProgressSteps(partner);
   const interactions = sxSortInteractionsByRecency(partner.interactions);
@@ -3304,7 +3369,7 @@ function PartnerProgressHistoryModal({
                 段階は一覧の進捗バーの%の源泉。 */}
             {partner.pocCategory && canManage && (
               <div
-                className="mt-3 grid grid-cols-2 gap-x-2 gap-y-1.5 sm:grid-cols-5"
+                className="mt-3 flex flex-wrap items-end gap-1.5"
                 data-testid="sx-partner-facet-editor"
               >
                 {(
@@ -3363,37 +3428,62 @@ function PartnerProgressHistoryModal({
                       ],
                     },
                   ] as const
-                ).map((facet) => (
-                  <label key={facet.key} className="grid min-w-0 gap-px">
-                    <span className="text-[10px] font-semibold leading-3 text-[#5a574c]">
-                      {facet.label}
-                    </span>
-                    <select
-                      className={`h-7 min-w-0 border border-[#a69b84] bg-[#fffdf7] px-1 text-[11px] font-semibold text-[#24231f] ${FOCUS_RING}`}
-                      value={facet.value}
-                      onChange={(event) =>
-                        void onPatchSample({
-                          resource: "partner",
-                          id: partner.id,
-                          patch: {
-                            [facet.key]:
-                              facet.key === "poc_likelihood" ||
-                              facet.key === "customer_value"
-                                ? event.target.value || null
-                                : event.target.value,
-                          },
-                        })
-                      }
-                      aria-label={`${display.name}の${facet.label}`}
+                ).map((facet) =>
+                  activeFacetKey === facet.key ? (
+                    <label key={facet.key} className="grid min-w-0 gap-px">
+                      <span className="text-[10px] font-semibold leading-3 text-[#5a574c]">
+                        {facet.label}
+                      </span>
+                      <select
+                        autoFocus
+                        className={`h-7 min-w-0 border border-[#38745d] bg-[#fffdf7] px-1 text-[11px] font-semibold text-[#24231f] ${FOCUS_RING}`}
+                        value={facet.value}
+                        onBlur={() => setActiveFacetKey(null)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Escape") setActiveFacetKey(null);
+                        }}
+                        onChange={(event) => {
+                          void onPatchSample({
+                            resource: "partner",
+                            id: partner.id,
+                            patch: {
+                              [facet.key]:
+                                facet.key === "poc_likelihood" ||
+                                facet.key === "customer_value"
+                                  ? event.target.value || null
+                                  : event.target.value,
+                            },
+                          });
+                          setActiveFacetKey(null);
+                        }}
+                        aria-label={`${display.name}の${facet.label}`}
+                      >
+                        {facet.options.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : (
+                    /* 閲覧時は値チップ。押したものだけ select に変わる (2026-08-08 監査#4、
+                       「書いてある場所がそのまま入力に変わる」ルールへの統一)。 */
+                    <button
+                      key={facet.key}
+                      type="button"
+                      onClick={() => setActiveFacetKey(facet.key)}
+                      aria-label={`${facet.label} ${facet.options.find((option) => option.value === facet.value)?.label || "未評価"}をこの場で修正`}
+                      className={`!min-h-0 inline-flex items-baseline gap-0.5 border border-[#bcb2a0] bg-[#efe9dc] px-1.5 py-1 text-[10px] font-semibold leading-3 text-[#45423b] hover:bg-[#e2ecf1] ${FOCUS_RING}`}
                     >
-                      {facet.options.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ))}
+                      <span className="font-normal opacity-70">
+                        {facet.label}
+                      </span>
+                      {facet.options.find(
+                        (option) => option.value === facet.value,
+                      )?.label || "未評価"}
+                    </button>
+                  ),
+                )}
               </div>
             )}
           </section>
@@ -3441,6 +3531,10 @@ function PartnerProgressHistoryModal({
                   <HoldingRow
                     key={item.id}
                     item={item}
+                    onInlinePatch={(resource, id, patch) =>
+                      onPatchSample({ resource, id, patch })
+                    }
+                    canManage={canManage}
                     partnerName={display.name}
                     today={today}
                     milestoneTitleById={milestoneTitleById}
@@ -3753,12 +3847,19 @@ function PartnerInlineRow({
   const effluentComponentTokens = sxParseEffluentComponents(
     partner.effluentComponents,
   );
-  const effluentBadgeTokens = effluentComponentTokens.filter(
-    (token) => token.length <= 16,
-  );
-  const effluentFreeTexts = effluentComponentTokens.filter(
-    (token) => token.length > 16,
-  );
+  // 旧作文の断片 (読点区切り) を誤ってバッジ化しない: 1つでも長いトークンが
+  // 混ざっていたら全体を作文とみなして自由文で出す (2026-08-08 監査#3)。
+  const effluentIsStructured =
+    effluentComponentTokens.length > 0 &&
+    effluentComponentTokens.every((token) => token.length <= 16);
+  const effluentBadgeTokens = effluentIsStructured
+    ? effluentComponentTokens
+    : [];
+  const effluentFreeTexts = effluentIsStructured
+    ? []
+    : partner.effluentComponents
+      ? [partner.effluentComponents]
+      : [];
   const effluentView = (
     <span className="grid min-h-11 min-w-0 content-center gap-0.5">
       {effluentBadgeTokens.length > 0 ? (
@@ -3773,10 +3874,6 @@ function PartnerInlineRow({
             </span>
           ))}
         </span>
-      ) : effluentFreeTexts.length === 0 ? (
-        <span className="text-[10px] font-semibold leading-4 text-[#6a665b]">
-          成分 未確認
-        </span>
       ) : null}
       {effluentFreeTexts.map((text) => (
         <span
@@ -3787,10 +3884,20 @@ function PartnerInlineRow({
           {text}
         </span>
       ))}
-      <span className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]">
-        年間 {partner.effluentVolumeAnnual || "量未確認"} ・ 処理費{" "}
-        {partner.effluentCostAnnual || "未確認"}
-      </span>
+      {(partner.effluentVolumeAnnual || partner.effluentCostAnnual) && (
+        <span className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]">
+          {[
+            partner.effluentVolumeAnnual
+              ? `年間 ${partner.effluentVolumeAnnual}`
+              : null,
+            partner.effluentCostAnnual
+              ? `処理費 ${partner.effluentCostAnnual}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" ・ ")}
+        </span>
+      )}
       {partner.effluentTestResult && (
         <span
           className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]"
@@ -3801,15 +3908,14 @@ function PartnerInlineRow({
       )}
     </span>
   );
-  // 次回面談。日付が入っていない間も「未定」と出して、書き込む場所があることを見せる。
+  // 次回面談。未設定の項目はラベルごと出さない (2026-08-08 まさ「未設定未登録は空白表示に」)。
   const nextMeetingDateText = partner.nextMeetingOn
     ? `${sxFormatDate(partner.nextMeetingOn)}${partner.nextMeetingTime ? ` ${partner.nextMeetingTime}` : ""}`
-    : "日程 未定";
-  const nextMeetingModeText = partner.nextMeetingMode
-    ? SX_MEETING_MODE_LABEL[partner.nextMeetingMode]
-    : "形式 未定";
+    : "";
   const nextMeetingSubText = [
-    nextMeetingModeText,
+    partner.nextMeetingMode
+      ? SX_MEETING_MODE_LABEL[partner.nextMeetingMode]
+      : null,
     partner.nextMeetingPlace,
     partner.nextMeetingPrep ? `準備 ${partner.nextMeetingPrep}` : null,
   ]
@@ -3817,45 +3923,51 @@ function PartnerInlineRow({
     .join(" ・ ");
   const nextMeetingView = (
     <span className="grid min-h-11 min-w-0 content-center gap-0.5">
-      <span
-        className={`[overflow-wrap:anywhere] text-[10px] font-semibold leading-4 ${partner.nextMeetingOn ? "text-[#24231f]" : "text-[#5a574c]"}`}
-        title={nextMeetingDateText}
-      >
-        {nextMeetingDateText}
-      </span>
+      {nextMeetingDateText && (
+        <span
+          className="[overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#24231f]"
+          title={nextMeetingDateText}
+        >
+          {nextMeetingDateText}
+        </span>
+      )}
       {/* 着地点はその面談で何を取りに行くかなので、形式や準備物より上へ出す (2026-08-07 まさ)。 */}
-      <span
-        className={`[overflow-wrap:anywhere] text-[10px] leading-4 ${partner.nextMeetingGoal ? "font-semibold text-[#315f7d]" : "text-[#857b69]"}`}
-        title={
-          partner.nextMeetingGoal
-            ? `着地点 ${partner.nextMeetingGoal}`
-            : "着地点 未記入"
-        }
-      >
-        着地点 {partner.nextMeetingGoal || "未記入"}
-      </span>
-      <span
-        className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]"
-        title={nextMeetingSubText}
-      >
-        {nextMeetingSubText}
-      </span>
+      {partner.nextMeetingGoal && (
+        <span
+          className="[overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#315f7d]"
+          title={`着地点 ${partner.nextMeetingGoal}`}
+        >
+          着地点 {partner.nextMeetingGoal}
+        </span>
+      )}
+      {nextMeetingSubText && (
+        <span
+          className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]"
+          title={nextMeetingSubText}
+        >
+          {nextMeetingSubText}
+        </span>
+      )}
     </span>
   );
   const connectionOriginView = (
     <span className="grid min-h-11 min-w-0 content-center gap-0.5">
-      <span
-        className="[overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#24231f]"
-        title={partner.connectionContext || "経緯 未登録"}
-      >
-        {partner.connectionContext || "経緯 未登録"}
-      </span>
-      <span
-        className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]"
-        title={partner.introducerLabel || "紹介者 未確認"}
-      >
-        紹介者 {partner.introducerLabel || "未確認"}
-      </span>
+      {partner.connectionContext && (
+        <span
+          className="[overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#24231f]"
+          title={partner.connectionContext}
+        >
+          {partner.connectionContext}
+        </span>
+      )}
+      {partner.introducerLabel && (
+        <span
+          className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]"
+          title={`紹介者 ${partner.introducerLabel}`}
+        >
+          紹介者 {partner.introducerLabel}
+        </span>
+      )}
     </span>
   );
   const goalView = (
@@ -3863,13 +3975,16 @@ function PartnerInlineRow({
       className="[overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#24231f]"
       title={goalStep?.title}
     >
-      {goalStep?.title ?? "目標状態 未登録"}
+      {partner.targetState ? goalStep?.title : ""}
     </p>
   );
   // 排液を調達できたかを試料台帳から導出する。受領済み・分析済みが1件でもあれば調達済み。
   // 編集は進捗・履歴モーダルの試料台帳で行うので、このセルは表示のみ (押すと行と同じくモーダル)。
   const receivedSamples = partner.samples.filter(
-    (sample) => sample.status === "received" || sample.status === "analyzed",
+    (sample) =>
+      sample.status === "received" ||
+      sample.status === "analyzed" ||
+      sample.receivedOn != null,
   ).length;
   const inProgressSamples = partner.samples.filter((sample) =>
     ["intent", "negotiating", "agreed_pending", "scheduled"].includes(
@@ -4366,10 +4481,12 @@ function PartnerInlineRow({
                   <span
                     className={`text-[11px] font-semibold ${intervention.risk === "overdue" ? "text-[#8c3329]" : "text-[#24231f]"}`}
                   >
-                    {sxFormatDueDateWithPrecision(
-                      intervention.dueDate,
-                      intervention.dueDatePrecision,
-                    )}
+                    {intervention.dueDate
+                      ? sxFormatDueDateWithPrecision(
+                          intervention.dueDate,
+                          intervention.dueDatePrecision,
+                        )
+                      : ""}
                   </span>
                 }
                 onRequestEdit={onRequestInlineEdit}
@@ -4413,10 +4530,12 @@ function PartnerInlineRow({
               <span
                 className={`text-[11px] font-semibold ${intervention.risk === "overdue" ? "text-[#8c3329]" : "text-[#24231f]"}`}
               >
-                {sxFormatDueDateWithPrecision(
-                  intervention.dueDate,
-                  intervention.dueDatePrecision,
-                )}
+                {intervention.dueDate
+                  ? sxFormatDueDateWithPrecision(
+                      intervention.dueDate,
+                      intervention.dueDatePrecision,
+                    )
+                  : ""}
               </span>
             )}
           </PartnerRowCell>
@@ -4928,11 +5047,7 @@ export function SxPartnerPipeline({
             <SxBadge tone={counts.sxHeld > 0 ? WARN_TONE : NEUTRAL_TONE}>
               当方が動く {counts.sxHeld}
             </SxBadge>
-            <SxBadge
-              tone={counts.ownerUnconfirmed > 0 ? FLAG_TONE : NEUTRAL_TONE}
-            >
-              担当未確認 {counts.ownerUnconfirmed}
-            </SxBadge>
+
           </div>
           <div className="hidden md:block">
             <ControlBand
@@ -5247,7 +5362,7 @@ function InteractionFullRow({
     interaction.occurredOn,
     interaction.occurredOnPrecision,
   );
-  const ballText = `${sxBallSideLabel(interaction.ballSideAfter)}${interaction.ballOwnerAfter ? ` ・ ${sxNormalizePublicName(interaction.ballOwnerAfter)}` : ""}`;
+  const ballText = sxBallSideLabel(interaction.ballSideAfter);
   if (editing) {
     const field = (label: string, control: ReactNode, span?: boolean) => (
       <label className={`grid min-w-0 gap-0.5 ${span ? "sm:col-span-2" : ""}`}>
@@ -5351,15 +5466,6 @@ function InteractionFullRow({
                 </option>
               ))}
             </select>,
-          )}
-          {field(
-            "接点後の担当",
-            <input
-              className={INLINE_CONTROL_CLASS}
-              value={draft.ball_owner_after}
-              disabled={saving}
-              onChange={set("ball_owner_after")}
-            />,
           )}
         </div>
         {error && (
