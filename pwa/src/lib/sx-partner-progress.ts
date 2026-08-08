@@ -1,3 +1,4 @@
+import { sxIsPocPartner } from "./sx-poc-candidates";
 import type {
   SxBallSide,
   SxManagementPartner,
@@ -133,6 +134,23 @@ export function sxPartnerClassificationLabel(
   return POC_CATEGORY_LABEL[classification] || "分類未確認";
 }
 
+/**
+ * 分類タブの判定。'poc_candidate' と 'vc' は保存前の旧データも拾う後方互換判定を通す。
+ * 一覧のタブとタイトル行の分類ボタンが同じ判定を共有する。
+ */
+export function sxPartnerHasClassification(
+  partner: Pick<
+    SxManagementPartner,
+    "roleLabel" | "pocCategory" | "classifications" | "roles"
+  >,
+  classification: SxPartnerClassification,
+): boolean {
+  if (classification === "poc_candidate") return sxIsPocPartner(partner);
+  if (classification === "vc")
+    return partner.classifications.includes("vc") || sxIsVcPartner(partner);
+  return partner.classifications.includes(classification);
+}
+
 const SAMPLE_STATUS_LABEL: Record<SxSampleStatus, string> = {
   intent: "提供意向あり",
   negotiating: "条件調整中",
@@ -187,6 +205,7 @@ export function sxPartnerHasContactRecord(
   return partner.interactions.length > 0 || partner.lastContactDate != null;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- re-exported via sxPartnerHasClassification
 /** VC表示は保存済みroleだけで判定し、名称や自由記述から推測しない。 */
 export function sxIsVcPartner(
   partner: Pick<SxManagementPartner, "roles">,

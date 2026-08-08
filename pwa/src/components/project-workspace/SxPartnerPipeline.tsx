@@ -63,6 +63,7 @@ import {
   sxPartnerActivityStateLabel,
   sxPartnerStageLabel,
   sxPartnerClassificationLabel,
+  sxPartnerHasClassification,
   sxPocCategoryLabel,
   sxPocLikelihoodLabel,
   sxCustomerValueLabel,
@@ -208,80 +209,71 @@ function buildPartnerProgressSteps(
   ];
 }
 
-/** 進行状況列と同じ可変stepsを、会社名下へ縮約して表示する。 */
+/**
+ * 営業段階ベースの進捗％とプログレスバー。多色ピルの節表示は「どこまで進んだか」が
+ * 読めなかったため 2026-08-08 に廃止 (まさ「パーセンテージとプログレスバーにした方が
+ * よくない?」)。候補=0%〜実行中=100%。保留・見送りはグレーで％を出さない。
+ */
 function PartnerStageRail({
   partnerId,
   onHold,
-  currentBallSide,
-  steps,
+  stage,
   onOpen,
   expanded,
 }: {
   partnerId: string;
   onHold: boolean;
-  currentBallSide: SxManagementPartner["currentBallSide"];
-  steps: readonly PartnerProgressStep[];
+  stage: SxPartnerStage;
   onOpen?: () => void;
   expanded?: boolean;
 }) {
-  const content = (
-    <>
-      <span className="flex items-center gap-0.5" aria-hidden="true">
-        {steps.map((step) => (
-          <span
-            key={step.key}
-            data-progress-segment={step.phase}
-            className={`h-1.5 flex-1 rounded-full ${
-              onHold
-                ? "bg-[#d6cebf]"
-                : step.phase === "now"
-                  ? currentBallSide === "sx"
-                    ? "bg-[#b5533f]"
-                    : currentBallSide === "partner"
-                      ? "bg-[#d5bc82]"
-                      : "bg-[#b8b5c8]"
-                  : step.phase === "done"
-                    ? "bg-[#8fb5a2]"
-                    : step.phase === "goal"
-                      ? "bg-[#c9bfd0]"
-                      : "bg-[#e8e2d6]"
-            }`}
-          />
-        ))}
-      </span>
-      {/* 「進行項目◯件」の常時表示は 2026-08-07 に削除 (まさ)。件数はレールの節で
-          見えるので、注意が要る「保留」だけ文字で残す。 */}
-      {onHold ? (
-        <span className="mt-0.5 block text-[10px] font-semibold text-[#5a574c]">
-          保留
-        </span>
-      ) : null}
-    </>
+  const stageIndex = SX_PARTNER_STAGE_ORDER.indexOf(
+    stage as (typeof SX_PARTNER_STAGE_ORDER)[number],
   );
-  const className = `block w-full min-w-0 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${onOpen ? "cursor-pointer rounded-sm hover:bg-[#e2ecf1]" : ""}`;
-  return onOpen ? (
+  const pct =
+    !onHold && stageIndex >= 0
+      ? Math.round((stageIndex / (SX_PARTNER_STAGE_ORDER.length - 1)) * 100)
+      : null;
+  const content = (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <span
+        className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[#e3ddcf]"
+        aria-hidden="true"
+      >
+        <span
+          data-progress-bar={partnerId}
+          className="block h-full rounded-full bg-[#38745d]"
+          style={{ width: `${pct ?? 0}%` }}
+        />
+      </span>
+      <span className="shrink-0 text-[10px] font-semibold leading-3 text-[#5a574c]">
+        {pct == null ? "保留" : `${pct}%`}
+      </span>
+    </span>
+  );
+  if (!onOpen)
+    return (
+      <span
+        data-testid={`sx-partner-stage-rail-${partnerId}`}
+        data-progress-pct={pct ?? "on_hold"}
+        className="block min-w-0"
+      >
+        {content}
+      </span>
+    );
+  return (
     <button
       type="button"
+      data-testid={`sx-partner-stage-rail-${partnerId}`}
+      data-progress-pct={pct ?? "on_hold"}
       onClick={onOpen}
-      className={className}
-      aria-label={`${steps.length}件の進捗と履歴を開く`}
       aria-expanded={expanded}
       aria-controls={`sx-partner-history-${partnerId}`}
-      data-testid={`sx-partner-stage-rail-${partnerId}`}
-      data-step-count={steps.length}
+      aria-label={`進捗${pct == null ? "保留" : `${pct}%`}。進捗と履歴を開く`}
+      className={`block w-full min-w-0 py-1 text-left hover:bg-[#e7f0e9] ${FOCUS_RING}`}
     >
       {content}
     </button>
-  ) : (
-    <div
-      role="img"
-      aria-label={`進行状況 ${steps.length}件${onHold ? "・保留" : ""}`}
-      data-testid={`sx-partner-stage-rail-${partnerId}`}
-      data-step-count={steps.length}
-      className={className}
-    >
-      {content}
-    </div>
   );
 }
 
@@ -1846,6 +1838,7 @@ function CategoryNav({
   totalCount,
   classificationCounts,
   activeClassification,
+  showClassificationRow,
   activeKind,
   onClear,
   onSelect,
@@ -1856,6 +1849,7 @@ function CategoryNav({
   totalCount: number;
   classificationCounts: Record<SxPartnerClassification, number>;
   activeClassification: SxPartnerClassification | null;
+  showClassificationRow: boolean;
   activeKind: SxPartnerRoleKind | null;
   onClear: () => void;
   onSelect: (kind: SxPartnerRoleKind | null) => void;
@@ -1872,6 +1866,7 @@ function CategoryNav({
       role="group"
       aria-label="関係先の絞り込み"
     >
+      {showClassificationRow && (
       <ControlBandRow heading="分類" ariaLabel="分類による絞り込み">
         <button
           type="button"
@@ -1904,6 +1899,7 @@ function CategoryNav({
           );
         })}
       </ControlBandRow>
+      )}
       {showRoleFilter && entries.length > 0 && (
         <ControlBandRow heading="役割" ariaLabel="役割による絞り込み">
           {entries.map((kind) => (
@@ -2108,7 +2104,6 @@ type PartnerLedgerColumnKey =
   | "action"
   | "meeting"
   | "owner"
-  | "basis"
   | "effluent"
   | "origin"
   | "procurement";
@@ -2140,8 +2135,7 @@ const PARTNER_LEDGER_COLUMNS: readonly PartnerLedgerColumn[] = [
     defaultWidth: 200,
     minWidth: 90,
   },
-  { key: "owner", label: "担当・期限", defaultWidth: 140, minWidth: 80 },
-  { key: "basis", label: "現在地の根拠", defaultWidth: 224, minWidth: 100 },
+  { key: "owner", label: "期限", defaultWidth: 96, minWidth: 72 },
   { key: "effluent", label: "排液", defaultWidth: 208, minWidth: 100 },
   { key: "origin", label: "接点の経緯", defaultWidth: 208, minWidth: 100 },
   {
@@ -2178,9 +2172,9 @@ function partnerLedgerInnerKeys(
 }
 
 // 幅は列の集合が変わったら作り直す。v1 には削除済みの「詰まり・PJ影響」が入っていて、
-// 関係先の既定幅も広げたので v2 へ (2026-08-07)。評価列48px化で v3、履歴・保有の削除と
-// 排液調達の追加で v4 へ (どちらも 2026-08-08)。
-const PARTNER_LEDGER_WIDTH_STORAGE_KEY = "sx-partner-ledger-column-widths-v4";
+// 幅キーの版歴: v2=詰まり列削除 (2026-08-07)、v3=評価列48px、v4=履歴・保有→排液調達、
+// v5=現在地の根拠の削除と期限列の縮小 (いずれも 2026-08-08)。
+const PARTNER_LEDGER_WIDTH_STORAGE_KEY = "sx-partner-ledger-column-widths-v5";
 const PARTNER_LEDGER_ORDER_STORAGE_KEY = "sx-partner-ledger-column-order-v1";
 
 type PartnerLedgerWidths = Record<PartnerLedgerColumnKey, number>;
@@ -3498,35 +3492,6 @@ function PartnerInlineRow({
       </span>
     </span>
   );
-  const currentView = (
-    <span className="grid min-h-11 w-full min-w-0 grid-cols-[60px_minmax(0,1fr)] items-stretch">
-      <span className="grid min-w-0 grid-rows-[14px_minmax(30px,auto)] border-r border-[#d5cdba]">
-        <span className="px-1 pt-0.5 text-[10px] font-semibold leading-3 text-[#5a574c]">
-          保有側
-        </span>
-        <span className="[overflow-wrap:anywhere] px-1 pb-1 text-[11px] font-semibold leading-4 text-[#24231f]">
-          {sxBallSideLabel(partner.currentBallSide)}
-        </span>
-      </span>
-      <span className="grid min-w-0 grid-rows-[14px_minmax(30px,auto)]">
-        <span className="px-1 pt-0.5 text-[10px] font-semibold leading-3 text-[#5a574c]">
-          担当
-        </span>
-        <span
-          className="[overflow-wrap:anywhere] px-1 pb-1 text-[11px] font-semibold leading-4 text-[#24231f]"
-          title={
-            partner.currentBallOwner
-              ? sxNormalizePublicName(partner.currentBallOwner)
-              : "担当未確認"
-          }
-        >
-          {partner.currentBallOwner
-            ? sxNormalizePublicName(partner.currentBallOwner)
-            : "担当未確認"}
-        </span>
-      </span>
-    </span>
-  );
   const goalView = (
     <p
       className="[overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#24231f]"
@@ -3545,31 +3510,21 @@ function PartnerInlineRow({
       sample.status,
     ),
   ).length;
+  // 調達したかどうかだけのチェック表示 (2026-08-08 まさ)。変更は試料台帳の状態が正本なので
+  // ここでは書き換えない。押すと行と同じくモーダルが開き、試料台帳で編集する。
   const procurementView = (
     <div
-      className="grid min-h-11 min-w-0 content-center justify-items-start gap-0.5"
+      className="grid min-h-11 min-w-0 content-center justify-items-start"
       data-partner-procurement-cell={partner.id}
     >
-      <span
-        className={`inline-flex border px-1.5 py-0.5 text-[10px] font-semibold ${
-          receivedSamples > 0
-            ? "border-[#38745d] bg-[#dcebe1] text-[#1d5341]"
-            : inProgressSamples > 0
-              ? "border-[#bf7b2c] bg-[#f6ead2] text-[#69461c]"
-              : "border-dashed border-[#a69b84] bg-[#f6f1e6] text-[#6a665b]"
-        }`}
-      >
-        {receivedSamples > 0
-          ? `調達済み ${receivedSamples}件`
-          : inProgressSamples > 0
-            ? `調達前 ${inProgressSamples}件`
-            : "未調達"}
-      </span>
-      {receivedSamples > 0 && inProgressSamples > 0 && (
-        <span className="text-[10px] leading-3 text-[#5a574c]">
-          ほか調達前 {inProgressSamples}件
-        </span>
-      )}
+      <input
+        type="checkbox"
+        checked={receivedSamples > 0}
+        readOnly
+        tabIndex={-1}
+        aria-label={`排液調達${receivedSamples > 0 ? "済み" : "未"}。詳細は進捗と履歴で確認`}
+        className="pointer-events-none h-4 w-4 accent-[#235f4b]"
+      />
     </div>
   );
 
@@ -3670,7 +3625,18 @@ function PartnerInlineRow({
                 data-partner-name-open={partner.id}
                 className={`min-w-0 text-left hover:bg-[#e7f0e9] ${FOCUS_RING}`}
               >
-                {relationNameView}
+                <span className="flex min-w-0 items-start justify-between gap-1">
+                  {relationNameView}
+                  {/* 当方がボールを持つ先だけ知らせる。相手側保有は表示しない (2026-08-08 まさ)。 */}
+                  {partner.currentBallSide === "sx" && (
+                    <span
+                      data-partner-sx-ball={partner.id}
+                      className="mt-px shrink-0 border border-[#bf7b2c] bg-[#f6ead2] px-1 py-px text-[10px] font-semibold leading-3 text-[#69461c]"
+                    >
+                      SX側保有
+                    </span>
+                  )}
+                </span>
               </button>
               <span className="text-[10px] font-normal leading-3 text-[#5a574c]">
                 最終確認 {sxFormatDate(partner.lastVerifiedAt)}
@@ -3680,8 +3646,7 @@ function PartnerInlineRow({
               <PartnerStageRail
                 partnerId={partner.id}
                 onHold={sxPartnerIsOnHold(partner)}
-                currentBallSide={partner.currentBallSide}
-                steps={steps}
+                stage={partner.relationshipStage}
                 onOpen={() => onToggleExpand(partner.id)}
                 expanded={expanded}
               />
@@ -3731,36 +3696,6 @@ function PartnerInlineRow({
                 ) : (
                   pocFacetChipsView(partner)
                 ))}
-              {canManage ? (
-                <InlineCurrentBallEditor
-                  editorKey={keyFor("current")}
-                  activeEditorKey={activeEditorKey}
-                  label={`${display.name}の現在の状況`}
-                  side={partner.currentBallSide}
-                  owner={partner.currentBallOwner || ""}
-                  options={INLINE_BALL_SIDE_OPTIONS}
-                  roster={roster.owner}
-                  view={currentView}
-                  onRequestEdit={onRequestInlineEdit}
-                  onFinish={onFinishInlineEdit}
-                  onSave={async (values) =>
-                    patchIfChanged(
-                      "partner",
-                      partner.id,
-                      {
-                        current_ball_side: partner.currentBallSide,
-                        current_ball_owner: partner.currentBallOwner,
-                      },
-                      {
-                        current_ball_side: values.side,
-                        current_ball_owner: values.owner.trim() || null,
-                      },
-                    )
-                  }
-                />
-              ) : (
-                <div className="flex min-h-11 items-center">{currentView}</div>
-              )}
             </div>
           </PartnerRowCell>
 
@@ -4088,13 +4023,15 @@ function PartnerInlineRow({
 
           <PartnerRowCell order={cellOrder("owner")}>
             <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
-              担当・期限
+              期限
             </p>
+            {/* 担当名と当方/先方バッジは 2026-08-08 に削除 (まさ「シンプルに期限だけに」)。
+                担当の編集は進捗・履歴モーダルや関係先編集で行う。 */}
             {canManage && target ? (
               <InlineCellEditor
                 editorKey={keyFor("ownership")}
                 activeEditorKey={activeEditorKey}
-                label={`${display.name}の担当と期限`}
+                label={`${display.name}の期限`}
                 initialValues={{
                   owner: targetOwner,
                   side: targetSide,
@@ -4102,78 +4039,24 @@ function PartnerInlineRow({
                   due_date_precision: targetDuePrecision,
                 }}
                 view={
-                  <>
-                    <p
-                      className="[overflow-wrap:anywhere] text-[11px] font-semibold text-[#24231f]"
-                      title={ownershipOwnerText}
-                    >
-                      {ownershipOwnerText}
-                    </p>
-                    <div className="mt-1 flex flex-wrap items-center gap-1">
-                      {target.resource === "partner_work_item" && (
-                        <span
-                          className={`border px-1.5 py-0.5 text-[10px] font-semibold ${BALL_SIDE_TONE[intervention.side]}`}
-                        >
-                          {interventionSideText(intervention)}
-                        </span>
-                      )}
-                      <span
-                        className={`text-[10px] ${intervention.risk === "overdue" ? "font-semibold text-[#8c3329]" : "text-[#5a574c]"}`}
-                      >
-                        {sxFormatDueDateWithPrecision(
-                          intervention.dueDate,
-                          intervention.dueDatePrecision,
-                        )}
-                      </span>
-                    </div>
-                  </>
+                  <span
+                    className={`text-[11px] font-semibold ${intervention.risk === "overdue" ? "text-[#8c3329]" : "text-[#24231f]"}`}
+                  >
+                    {sxFormatDueDateWithPrecision(
+                      intervention.dueDate,
+                      intervention.dueDatePrecision,
+                    )}
+                  </span>
                 }
                 onRequestEdit={onRequestInlineEdit}
                 onFinish={onFinishInlineEdit}
                 onSave={async (values) => {
-                  if (target.resource === "partner_work_item") {
-                    const dueDate =
-                      values.due_date_precision === "unknown"
-                        ? null
-                        : values.due_date || null;
-                    await patchIfChanged(
-                      "partner_work_item",
-                      target.id,
-                      {
-                        owner_label: target.record.ownerLabel,
-                        side: target.record.side,
-                        due_date: target.record.dueDate,
-                        due_date_precision: target.record.dueDatePrecision,
-                      },
-                      {
-                        owner_label: values.owner.trim() || null,
-                        side: values.side,
-                        due_date: dueDate,
-                        due_date_precision: values.due_date_precision,
-                      },
-                    );
-                    return;
-                  }
                   if (target.resource === "commitment") {
-                    const ownerField =
-                      target.record.commitmentKind === "counterparty_promise"
-                        ? "counterparty_owner"
-                        : "sx_owner";
-                    const previousOwner =
-                      target.record.commitmentKind === "counterparty_promise"
-                        ? target.record.counterpartyOwner
-                        : target.record.sxOwner;
                     await patchIfChanged(
                       "commitment",
                       target.id,
-                      {
-                        [ownerField]: previousOwner,
-                        due_date: target.record.dueDate,
-                      },
-                      {
-                        [ownerField]: values.owner.trim() || null,
-                        due_date: values.due_date || null,
-                      },
+                      { due_date: target.record.dueDate },
+                      { due_date: values.due_date || null },
                     );
                     return;
                   }
@@ -4182,285 +4065,36 @@ function PartnerInlineRow({
                       ? null
                       : values.due_date || null;
                   await patchIfChanged(
-                    "partner",
+                    target.resource,
                     target.id,
                     {
-                      owner_label: target.record.ownerLabel,
                       due_date: target.record.dueDate,
                       due_date_precision: target.record.dueDatePrecision,
                     },
                     {
-                      owner_label: values.owner.trim() || "担当未確認",
                       due_date: dueDate,
                       due_date_precision: values.due_date_precision,
                     },
                   );
                 }}
                 renderFields={(values, setValue) => (
-                  <>
-                    {/* 担当は名簿から選ぶ (2026-08-07 まさ)。 */}
-                    <div className="grid gap-0.5">
-                      <span className="text-[10px] font-semibold text-[#5a574c]">
-                        担当
-                      </span>
-                      <OwnerSelectControl
-                        autoFocus
-                        value={values.owner}
-                        ariaLabel="担当"
-                        className={INLINE_CONTROL_CLASS}
-                        roster={roster.owner}
-                        onChange={(next) => setValue("owner", next)}
-                      />
-                    </div>
-                    {target.resource === "partner_work_item" && (
-                      <label className="grid gap-0.5">
-                        <span className="text-[10px] font-semibold text-[#5a574c]">
-                          保有側
-                        </span>
-                        <select
-                          className={INLINE_CONTROL_CLASS}
-                          value={values.side}
-                          onChange={(event) =>
-                            setValue("side", event.target.value)
-                          }
-                        >
-                          {INLINE_HOLDING_SIDE_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                    <InlineDueFields
-                      values={values}
-                      setValue={setValue}
-                      precision={target.resource !== "commitment"}
-                    />
-                  </>
+                  <InlineDueFields
+                    values={values}
+                    setValue={setValue}
+                    precision={target.resource !== "commitment"}
+                  />
                 )}
               />
             ) : (
-              <>
-                <p
-                  className="[overflow-wrap:anywhere] text-[11px] font-semibold text-[#24231f]"
-                  title={ownershipOwnerText}
-                >
-                  {ownershipOwnerText}
-                </p>
-                <div className="mt-1 flex flex-wrap items-center gap-1">
-                  {target?.resource === "partner_work_item" && (
-                    <span
-                      className={`border px-1.5 py-0.5 text-[10px] font-semibold ${BALL_SIDE_TONE[intervention.side]}`}
-                    >
-                      {interventionSideText(intervention)}
-                    </span>
-                  )}
-                  <span
-                    className={`text-[10px] ${intervention.risk === "overdue" ? "font-semibold text-[#8c3329]" : "text-[#5a574c]"}`}
-                  >
-                    {sxFormatDueDateWithPrecision(
-                      intervention.dueDate,
-                      intervention.dueDatePrecision,
-                    )}
-                  </span>
-                </div>
-              </>
+              <span
+                className={`text-[11px] font-semibold ${intervention.risk === "overdue" ? "text-[#8c3329]" : "text-[#24231f]"}`}
+              >
+                {sxFormatDueDateWithPrecision(
+                  intervention.dueDate,
+                  intervention.dueDatePrecision,
+                )}
+              </span>
             )}
-          </PartnerRowCell>
-
-          <PartnerRowCell
-            order={cellOrder("basis")}
-            className="md:col-span-2 @min-[1248px]:col-span-1"
-          >
-            <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
-              現在地の根拠
-            </p>
-            {latest && canManage ? (
-              <InlineCellEditor
-                editorKey={keyFor("latest-interaction")}
-                activeEditorKey={activeEditorKey}
-                label={`${display.name}の現在地の根拠`}
-                initialValues={{
-                  occurred_on: latest.occurredOn || "",
-                  occurred_on_precision: latest.occurredOnPrecision,
-                  interaction_kind: latest.interactionKind,
-                  summary: latest.summary,
-                  outcome_summary: latest.outcomeSummary || "",
-                }}
-                view={
-                  <>
-                    <p className="text-[10px] text-[#5a574c]">
-                      {sxFormatEventDateWithPrecision(
-                        latest.occurredOn,
-                        latest.occurredOnPrecision,
-                      )}{" "}
-                      ・ {sxInteractionKindLabel(latest.interactionKind)}
-                    </p>
-                    <p
-                      className="mt-0.5 [overflow-wrap:anywhere] text-[10px] leading-4 text-[#24231f]"
-                      title={latestSummary}
-                    >
-                      {latestSummary}
-                    </p>
-                  </>
-                }
-                onRequestEdit={onRequestInlineEdit}
-                onFinish={onFinishInlineEdit}
-                onSave={async (values) => {
-                  const occurredOn =
-                    values.occurred_on_precision === "unknown"
-                      ? null
-                      : values.occurred_on || null;
-                  const summary = values.summary.trim();
-                  if (!summary) throw new Error("接点の内容を入力してね");
-                  await patchIfChanged(
-                    "interaction",
-                    latest.id,
-                    {
-                      occurred_on: latest.occurredOn,
-                      occurred_on_precision: latest.occurredOnPrecision,
-                      interaction_kind: latest.interactionKind,
-                      summary: latest.summary,
-                      outcome_summary: latest.outcomeSummary,
-                    },
-                    {
-                      occurred_on: occurredOn,
-                      occurred_on_precision: values.occurred_on_precision,
-                      interaction_kind: values.interaction_kind,
-                      summary,
-                      outcome_summary: values.outcome_summary.trim() || null,
-                    },
-                  );
-                }}
-                renderFields={(values, setValue) => {
-                  const precision = values.occurred_on_precision;
-                  return (
-                    <>
-                      <label className="grid gap-0.5">
-                        <span className="text-[10px] font-semibold text-[#5a574c]">
-                          接点種別
-                        </span>
-                        <select
-                          autoFocus
-                          className={INLINE_CONTROL_CLASS}
-                          value={values.interaction_kind}
-                          onChange={(event) =>
-                            setValue("interaction_kind", event.target.value)
-                          }
-                        >
-                          <option value="meeting">面談</option>
-                          <option value="email">メール</option>
-                          <option value="agreement">合意</option>
-                          <option value="deliverable">成果物</option>
-                          <option value="handoff">引き継ぎ</option>
-                          <option value="status_update">状況更新</option>
-                          <option value="note">メモ</option>
-                        </select>
-                      </label>
-                      <label className="grid gap-0.5">
-                        <span className="text-[10px] font-semibold text-[#5a574c]">
-                          発生日の精度
-                        </span>
-                        <select
-                          className={INLINE_CONTROL_CLASS}
-                          value={precision}
-                          onChange={(event) => {
-                            setValue(
-                              "occurred_on_precision",
-                              event.target.value,
-                            );
-                            if (event.target.value === "unknown")
-                              setValue("occurred_on", "");
-                          }}
-                        >
-                          {INLINE_DATE_PRECISION_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      {precision !== "unknown" && (
-                        <label className="grid gap-0.5">
-                          <span className="text-[10px] font-semibold text-[#5a574c]">
-                            発生日
-                          </span>
-                          <input
-                            className={INLINE_CONTROL_CLASS}
-                            type={precision === "month" ? "month" : "date"}
-                            value={
-                              precision === "month"
-                                ? values.occurred_on.slice(0, 7)
-                                : values.occurred_on
-                            }
-                            onChange={(event) =>
-                              setValue(
-                                "occurred_on",
-                                precision === "month" && event.target.value
-                                  ? `${event.target.value}-01`
-                                  : event.target.value,
-                              )
-                            }
-                          />
-                        </label>
-                      )}
-                      <label className="grid gap-0.5">
-                        <span className="text-[10px] font-semibold text-[#5a574c]">
-                          内容
-                        </span>
-                        <textarea
-                          rows={2}
-                          className={`${INLINE_CONTROL_CLASS} py-1.5 leading-4`}
-                          value={values.summary}
-                          onChange={(event) =>
-                            setValue("summary", event.target.value)
-                          }
-                        />
-                      </label>
-                      <label className="grid gap-0.5">
-                        <span className="text-[10px] font-semibold text-[#5a574c]">
-                          結果・要点
-                        </span>
-                        <textarea
-                          rows={2}
-                          className={`${INLINE_CONTROL_CLASS} py-1.5 leading-4`}
-                          value={values.outcome_summary}
-                          onChange={(event) =>
-                            setValue("outcome_summary", event.target.value)
-                          }
-                        />
-                      </label>
-                    </>
-                  );
-                }}
-              />
-            ) : latest ? (
-              <>
-                <p className="text-[10px] text-[#5a574c]">
-                  {sxFormatEventDateWithPrecision(
-                    latest.occurredOn,
-                    latest.occurredOnPrecision,
-                  )}{" "}
-                  ・ {sxInteractionKindLabel(latest.interactionKind)}
-                </p>
-                <p
-                  className="mt-0.5 [overflow-wrap:anywhere] text-[10px] leading-4 text-[#24231f]"
-                  title={latestSummary}
-                >
-                  {latestSummary}
-                </p>
-              </>
-            ) : (
-              <p className="text-[10px] leading-4 text-[#5f4a66]">
-                保存済み履歴なし
-              </p>
-            )}
-            <p
-              className={`mt-0.5 text-[10px] ${sxPartnerNeedsRefresh(partner, today) ? "font-semibold text-[#765022]" : "text-[#5a574c]"}`}
-            >
-              最終確認 {sxFormatDate(partner.lastVerifiedAt)}
-            </p>
           </PartnerRowCell>
 
           <PartnerRowCell
@@ -4631,6 +4265,8 @@ export function SxPartnerPipeline({
   onSyncNotice,
   onCreateInteraction,
   onEditInteraction,
+  activeClassification: controlledClassification,
+  onClassificationChange,
 }: {
   management: SxManagementBundle;
   projectId: string;
@@ -4638,6 +4274,9 @@ export function SxPartnerPipeline({
   onSyncNotice?: (message: string) => void;
   onCreateInteraction?: (partnerId: string) => void;
   onEditInteraction?: (interaction: SxPartnerInteraction) => void;
+  /** 指定すると分類タブを親が持つ (週次管制はタイトル行へ出す)。未指定なら内部stateで従来表示。 */
+  activeClassification?: SxPartnerClassification | null;
+  onClassificationChange?: (classification: SxPartnerClassification | null) => void;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeInlineEditorKey, setActiveInlineEditorKey] = useState<
@@ -4647,12 +4286,21 @@ export function SxPartnerPipeline({
     useState<SxPartnerRoleKind | null>(null);
   // 既定はPoC候補先タブ。担当・区分・段階・管制の各絞り込み帯は 2026-08-08 に削除 (まさ)。
   // 並び順は優先度順固定 (上から順にアタックすれば良い並び、2026-08-06 まさ指示)。
-  const [activeClassification, setActiveClassification] =
+  const [internalClassification, setInternalClassification] =
     useState<SxPartnerClassification | null>("poc_candidate");
+  const classificationControlled = controlledClassification !== undefined;
+  const activeClassification = classificationControlled
+    ? controlledClassification
+    : internalClassification;
+  const setActiveClassification = (
+    classification: SxPartnerClassification | null,
+  ) => {
+    if (classificationControlled) onClassificationChange?.(classification);
+    else setInternalClassification(classification);
+  };
   const { widths, setWidth, commitWidths, resetWidths, isCustomized } =
     usePartnerLedgerColumnWidths();
-  const { order, moveColumn, resetOrder, isOrderCustomized } =
-    usePartnerLedgerColumnOrder();
+  const { order, moveColumn } = usePartnerLedgerColumnOrder();
   // 担当・紹介者に入れる名前の候補。表記ゆれを止めるため自由入力ではなく名簿から選ばせる。
   const roster = usePartnerOwnerRoster(management);
   // 見出しをつかんでいる列。ドラッグ中の見出しを薄くして、掴んだ対象を見失わないようにする。
@@ -4756,18 +4404,7 @@ export function SxPartnerPipeline({
   );
 
   // 分類は同じ関係先台帳を絞る表示属性。別台帳は作らない。複数分類の会社は複数タブに現れる。
-  // 'poc_candidate' と 'vc' は保存前の旧データも拾う後方互換判定を通す。
-  const partnerHasClassification = (
-    partner: SxManagementPartner,
-    classification: SxPartnerClassification,
-  ) => {
-    if (classification === "poc_candidate") return sxIsPocPartner(partner);
-    if (classification === "vc")
-      return (
-        partner.classifications.includes("vc") || sxIsVcPartner(partner)
-      );
-    return partner.classifications.includes(classification);
-  };
+  const partnerHasClassification = sxPartnerHasClassification;
   const classificationCounts = Object.fromEntries(
     SX_PARTNER_CLASSIFICATION_ORDER.map((classification) => [
       classification,
@@ -4859,29 +4496,17 @@ export function SxPartnerPipeline({
       data-testid="sx-partner-pipeline"
       style={partnerLedgerGridStyle(widths, order)}
     >
-      {/* 説明文の常時表示は 2026-08-08 に削除 (まさ「説明文はそもそも削除して」)。
-          リセット系のボタンだけを、出るときだけ出す。 */}
-      {(isOrderCustomized || isCustomized) && (
+      {/* 説明文と「列の並びをリセット」は削除済み (2026-08-08 まさ)。列幅リセットだけを
+          カスタマイズ時に出す。 */}
+      {isCustomized && (
         <div className="hidden rounded-t-[7px] border-b border-[#c5bba5] bg-[#f2eee0] px-3 py-1.5 md:flex md:items-start md:justify-end md:gap-1.5">
-          {isOrderCustomized && (
-            <button
-              type="button"
-              onClick={resetOrder}
-              data-testid="sx-partner-ledger-reset-order"
-              className={`rounded border border-[#ada18a] bg-[#fffdf7] px-2 py-1 text-[10px] font-semibold text-[#5a574c] hover:bg-[#f2eee0] ${FOCUS_RING}`}
-            >
-              列の並びをリセット
-            </button>
-          )}
-          {isCustomized && (
-            <button
-              type="button"
-              onClick={resetWidths}
-              className={`rounded border border-[#ada18a] bg-[#fffdf7] px-2 py-1 text-[10px] font-semibold text-[#5a574c] hover:bg-[#f2eee0] ${FOCUS_RING}`}
-            >
-              列幅をリセット
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={resetWidths}
+            className={`rounded border border-[#ada18a] bg-[#fffdf7] px-2 py-1 text-[10px] font-semibold text-[#5a574c] hover:bg-[#f2eee0] ${FOCUS_RING}`}
+          >
+            列幅をリセット
+          </button>
         </div>
       )}
       {!comparisonOnly && (
@@ -4915,6 +4540,7 @@ export function SxPartnerPipeline({
         totalCount={management.partners.length}
         classificationCounts={classificationCounts}
         activeClassification={activeClassification}
+        showClassificationRow={!classificationControlled}
         activeKind={activeRoleKind}
         onClear={() => {
           if (activeInlineEditorKey) return;

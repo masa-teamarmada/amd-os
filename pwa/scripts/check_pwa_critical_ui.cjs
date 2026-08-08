@@ -941,9 +941,9 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "buildPartnerProgressSteps",
   "sx-partner-stage-rail-",
   "sx-partner-progress-",
-  "data-progress-segment",
-  "data-progress-step",
-  "data-step-count={steps.length}",
+  // 2026-08-08 まさ指示: 多色ピルの節railは廃止し、営業段階ベースの%プログレスバーへ。
+  "data-progress-bar",
+  "data-progress-pct",
   "sxIsPocPartner",
   // 2026-08-08 まさ指示: タブ「表示」を「分類」に改名し、分類5種 (PoC候補先/技術協力先/
   // 試料提供元/試料提供ルート/VC) を classifications (複数可) で絞る。担当・区分・段階・
@@ -3112,7 +3112,7 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "createPortal",
   "useModalContainment",
   "aria-controls={`sx-partner-history-${partnerId}`}",
-  "aria-label={`${steps.length}件の進捗と履歴を開く`}",
+  "進捗と履歴を開く",
   "sticky top-0",
 ]);
 expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [

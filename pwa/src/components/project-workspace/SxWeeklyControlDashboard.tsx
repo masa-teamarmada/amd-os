@@ -49,7 +49,9 @@ import type {
 import {
   SX_PARTNER_CLASSIFICATION_ORDER,
   sxPartnerClassificationLabel,
+  sxPartnerHasClassification,
 } from "@/lib/sx-partner-progress";
+import type { SxPartnerClassification } from "@/lib/sx-management";
 import { deriveSxUnifiedTimeline } from "@/lib/sx-executive-control-deck";
 import {
   sxProjectOwnerLoads,
@@ -227,6 +229,15 @@ type FormField = {
   options?: Array<{ value: string; label: string }>;
   help?: string;
 };
+
+/** タイトル行の分類ボタンの見た目。一覧内の旧タブと同じ配色。 */
+function partnerClassificationChipClass(active: boolean) {
+  return `min-h-8 shrink-0 rounded border px-2 py-1 text-[11px] font-semibold ${
+    active
+      ? "border-[#3f6b8c] bg-[#dee8f0] text-[#2a5473]"
+      : "border-[#ada18a] bg-[#fffdf7] text-[#5a574c] hover:bg-[#f2eee0]"
+  }`;
+}
 
 /** 担当プルダウンで「新しい担当を追加」を選んだことを表す番兵値。担当名として保存されることはない。 */
 const OWNER_NEW_ENTRY = "__new_owner__";
@@ -4125,6 +4136,10 @@ export function SxWeeklyControlDashboard({
   const [viewFilter, setViewFilter] = useState<ViewFilter>("all");
   const [query, setQuery] = useState("");
   const [editor, setEditor] = useState<EditorState | null>(null);
+  // 関係先リストの分類タブ。タイトル行のボタン群が正で、一覧側は絞り込みだけを受ける
+  // (2026-08-08 まさ「タイトルの右の空いたスペースにボタン型で設置」)。
+  const [partnerClassification, setPartnerClassification] =
+    useState<SxPartnerClassification | null>("poc_candidate");
   // Only meaningful alongside editor.kind === "edit_partner" — restricts the generic 関係先編集
   // form down to the partner_next_action provenance's own fields (PARTNER_NEXT_ACTION_FIELD_KEYS).
   // null means "show every field" (the normal full-editor open path).
@@ -5103,8 +5118,48 @@ export function SxWeeklyControlDashboard({
 
         <section id="partner-ledger" className={styles.section}>
           <div className={styles.sectionHeading}>
-            <div>
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
               <h2>関係先リスト</h2>
+              <div
+                className="flex flex-wrap items-center gap-1.5"
+                role="group"
+                aria-label="分類による絞り込み"
+              >
+                <button
+                  type="button"
+                  data-partner-filter-trigger="all"
+                  onClick={() => setPartnerClassification(null)}
+                  aria-pressed={partnerClassification === null}
+                  className={partnerClassificationChipClass(
+                    partnerClassification === null,
+                  )}
+                >
+                  {partnerClassification === null && (
+                    <span aria-hidden="true">✓ </span>
+                  )}
+                  全関係先 {management.partners.length}
+                </button>
+                {SX_PARTNER_CLASSIFICATION_ORDER.map((classification) => {
+                  const active = partnerClassification === classification;
+                  const count = management.partners.filter((partner) =>
+                    sxPartnerHasClassification(partner, classification),
+                  ).length;
+                  return (
+                    <button
+                      key={classification}
+                      type="button"
+                      data-testid={`sx-partner-filter-${classification}`}
+                      data-partner-filter-trigger={classification}
+                      onClick={() => setPartnerClassification(classification)}
+                      aria-pressed={active}
+                      className={partnerClassificationChipClass(active)}
+                    >
+                      {active && <span aria-hidden="true">✓ </span>}
+                      {sxPartnerClassificationLabel(classification)} {count}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             {management.canManage && (
               <button
@@ -5123,6 +5178,8 @@ export function SxWeeklyControlDashboard({
               projectId={bundle.project.projectId}
               onManagementChange={setManagement}
               onSyncNotice={showNotice}
+              activeClassification={partnerClassification}
+              onClassificationChange={setPartnerClassification}
               onCreateInteraction={(partnerId) =>
                 setEditor({ kind: "create_interaction", partnerId })
               }
