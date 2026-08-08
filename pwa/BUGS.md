@@ -32,8 +32,11 @@
 - **状態**: クローズ (2026-08-09 — 該当 branch / worktree 削除済み。運用側で回避)。
 - **症状**: BZM 講座の次セッションを `spawn_task` で起票したところ、branch `claude/festive-cray-f56e75` と worktree `pwa/bzm/.claude/worktrees/festive-cray-f56e75` が作られた。prompt 本文には「main で作業する、ブランチと worktree を作らない」と明記してあり、それでも作られた。まさから「次セッションだけど、ブランチ切ったでしょ」と指摘されて発覚した。
 - **原因**: `spawn_task` が出すチップは `start it in a fresh worktree` という起動導線を持つ。worktree の作成はセッション起動時に走るため、prompt 本文が読まれるより前に完了している。prompt の中でいくら禁止しても、起動側の挙動には届かない。
-- **対応内容**: 該当セッションが `isRunning: false`、独自 commit ゼロ、dirty ゼロで、削除して失うものが無いことを確認したうえで、`git worktree remove --force` と `git branch -D` で削除した（削除時に上記 hook バグを踏んだため、hook を先に直した）。
-- **再発防止策**: このリポで次セッションへ渡すときは `spawn_task` のチップに次作業を載せない。migration prompt をまさへ直接渡し、cwd を指定した通常セッションとして開いてもらう。`spawn_task` を使うのは、worktree が作られても支障のない読み取り専用の調査に限る。
+- **対応内容**: 該当セッションが `isRunning: false`、独自 commit ゼロ、dirty ゼロであることを確認したうえで、`git worktree remove --force` と `git branch -D` で削除した（削除時に上記 hook バグを踏んだため、hook を先に直した）。
+- **二次事故（同日）**: 削除前に確認したのは commit と dirty だけで、**そのセッションで会話が始まっていたかを確認していなかった**。実際にはまさが既に議論を開始しており、まさから「え、会話スタートしてたのに閉じたの！？」と指摘された。伏線は出ていた——`dismiss_task` が `already started by the user` で失敗しており、これは「まさが起動済み」の明示的な信号だったが、読み違えた。
+- **二次事故の実害と復旧**: 会話ログは worktree の中には無い。CCD のセッションメタは `~/Library/Application Support/Claude/claude-code-sessions/<uuid>/<uuid>/local_<sessionId>.json`、トランスクリプトは `~/.claude/projects/<cwd-slug>/<別UUID>.jsonl` にあり、どちらも worktree 削除の影響を受けない。実際に全文を読み出して議論内容（まさの発言・こちらの応答・未回答の一問）を完全に復旧できた。失われたのは「そのセッションを再開する導線」だけ。
+- **トランスクリプトの探し方（ハマりどころ）**: `find ~/.claude -name "*<sessionId>*"` では見つからない。jsonl のファイル名はセッション ID と**別の UUID** だからである。また worktree で起動したセッションの `<cwd-slug>` は worktree パス全体をスラグ化したもので、`.claude` の先頭ドットがハイフンになるため `-Users-...-pwa-bzm--claude-worktrees-festive-cray-f56e75` のようにハイフンが二連する。`ls -d *festive*` のような部分一致でも、探す階層を間違えると空振りする。まず `~/.claude/projects/` のディレクトリ一覧を全部出して目視するのが確実。
+- **再発防止策**: (1) このリポで次セッションへ渡すときは `spawn_task` のチップに次作業を載せない。migration prompt をまさへ直接渡し、cwd を指定した通常セッションとして開いてもらう。`spawn_task` を使うのは、worktree が作られても支障のない読み取り専用の調査に限る。(2) **セッション由来の worktree / branch を削除する前は、commit と dirty だけでなく「会話が始まっていないか」を必ず確認する**。`dismiss_task` が `already started by the user` を返したら、それは削除の赤信号であって、無視して次の手順へ進む合図ではない。
 
 ### [bzm/教科書] 章内の相対リンクに `.md` を付けると必ず404になる (2026-08-08)
 
