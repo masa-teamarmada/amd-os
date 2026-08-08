@@ -71,9 +71,9 @@ Session 0とSession 1の講義資料は`live-reviewed v1.0`。
 ## Repo状態
 
 - 作業場所：`/Users/masa/projects/AMD/amd-os`、branch：`main`。HEADはこのhandoff commit。
-- **ローカル`main`は`origin/main`より8コミット進み、67コミット遅れている**（2026-08-08、handoff commit直後）。**作業中も別セッションがcommitを積むため、開始時に必ず`git log --oneline -10`とahead/behindを再確認する**（このhandoff中にも`8642bc8f`が増えた）。
-- 未pushコミット8本の内訳：
-  - このhandoff commit / `e0e4b9d6` / `5ecb7b0c` = **このセッションの成果**（新章3本＋目次登録＋測定台帳＋`pilot/`＋BUGS記録）
+- **ローカル`main`は`origin/main`より10コミット進み、67コミット遅れている**（2026-08-08、handoff commit直後）。**作業中も別セッションがcommitを積むため、開始時に必ず`git log --oneline -10`とahead/behindを再確認する**（このhandoff中にも`8642bc8f`が増えた）。
+- 未pushコミット10本の内訳：
+  - このhandoff commit / `51f4233d` / `90f17318` / `e0e4b9d6` / `5ecb7b0c` = **このセッションの成果**（新章3本＋目次登録＋測定台帳＋`pilot/`＋BUGS記録＋changelog）
   - `8c19f2f3` = 前セッションのBZM作業
   - `8642bc8f` = kute規程コックピットタブ。**別セッション**
   - `f2adac92` / `504f9004` / `6012a6ac` = 立替のSlack通知・Drive保管・24hリマインド。**別作業**

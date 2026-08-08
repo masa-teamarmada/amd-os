@@ -63,8 +63,8 @@
 
 ### Git・デプロイ
 
-- branch `main`。2026-08-08のhandoff commit直後で**`origin/main`より8コミット進み、67コミット遅れている**。**この`main`は複数セッションが同時にcommitを積む共有checkout**（handoff実行中にも別セッションのcommitが1本増えた）。開始時に`git log --oneline -10`と`git status -sb --untracked-files=all`、ahead/behindを必ず再確認する。
-- 未pushコミットのうち、`e0e4b9d6` / `5ecb7b0c`とhandoff commitがこの講座の成果、`8c19f2f3`が前セッションのBZM作業、`8642bc8f`（kute規程タブ）と`f2adac92` / `504f9004` / `6012a6ac`（立替）は**別セッションの別作業**。
+- branch `main`。2026-08-08のhandoff commit直後で**`origin/main`より10コミット進み、67コミット遅れている**。**この`main`は複数セッションが同時にcommitを積む共有checkout**（handoff実行中にも別セッションのcommitが1本増えた）。開始時に`git log --oneline -10`と`git status -sb --untracked-files=all`、ahead/behindを必ず再確認する。
+- 未pushコミットのうち、`5ecb7b0c` / `e0e4b9d6` / `90f17318` / `51f4233d`とhandoff commitがこの講座の成果、`8c19f2f3`が前セッションのBZM作業、`8642bc8f`（kute規程タブ）と`f2adac92` / `504f9004` / `6012a6ac`（立替）は**別セッションの別作業**。
 - BZM外に大量のステージ済み・未追跡変更（SX管理UI、Project Share各PJ、cockpit、build-info等）。**別セッションの作業なので触らず、stage、commit、restoreしない**。
 - push、deploy、外部公開、本番データ書き込みは**未実施**。現行PWAのSPS、GO判定、表示、本番データは変更していない。
 - branch、worktreeの新規作成なし。
