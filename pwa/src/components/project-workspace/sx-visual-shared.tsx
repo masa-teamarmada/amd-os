@@ -58,13 +58,13 @@ export const SX_STATUS_LABEL: Record<SxMilestoneStatus, string> = {
 };
 
 export const SX_STATUS_TONE: Record<string, string> = {
-  on_track: "border-[#74a690] bg-[#dcecdf] text-[#205f49]",
-  attention: "border-[#bd9a52] bg-[#f7e8c8] text-[#765022]",
-  at_risk: "border-[#bd9a52] bg-[#f7e8c8] text-[#765022]",
-  blocked: "border-[#b5533f] bg-[#f6dad5] text-[#8c3329]",
-  completed: "border-[#86a2b3] bg-[#e2ecf1] text-[#315f7d]",
-  unassessed: "border-[#8e88a5] bg-[#e4e2ef] text-[#55506d]",
-  not_started: "border-[#d6cebf] bg-[#f8f5ec] text-[#69665d]",
+  on_track: "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]",
+  attention: "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]",
+  at_risk: "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]",
+  blocked: "border-[#ef4444] bg-[#fee2e2] text-[#dc2626]",
+  completed: "border-[#93c5fd] bg-[#eff6ff] text-[#007aff]",
+  unassessed: "border-[#8b5cf6] bg-[#f5f3ff] text-[#6d28d9]",
+  not_started: "border-[#cbd5e1] bg-[#f5f5f7] text-[#86868b]",
 };
 
 export function sxFormatDate(value: string | null | undefined, fallback = "未設定") {
@@ -98,12 +98,12 @@ export function sxTechnicalTestStatusLabel(value: string) {
 }
 
 export const SX_TECH_TEST_STATUS_TONE: Record<string, string> = {
-  unassessed: "border-[#8e88a5] bg-[#e4e2ef] text-[#55506d]",
-  planned: "border-[#ada18a] bg-[#f2eee0] text-[#5a574c]",
-  running: "border-[#86a2b3] bg-[#e2ecf1] text-[#315f7d]",
-  passed: "border-[#74a690] bg-[#dcecdf] text-[#205f49]",
-  failed: "border-[#b5533f] bg-[#f6dad5] text-[#8c3329]",
-  blocked: "border-[#b5533f] bg-[#f6dad5] text-[#8c3329]",
+  unassessed: "border-[#8b5cf6] bg-[#f5f3ff] text-[#6d28d9]",
+  planned: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
+  running: "border-[#93c5fd] bg-[#eff6ff] text-[#007aff]",
+  passed: "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]",
+  failed: "border-[#ef4444] bg-[#fee2e2] text-[#dc2626]",
+  blocked: "border-[#ef4444] bg-[#fee2e2] text-[#dc2626]",
 };
 
 /** milestone.progressPct is meaningless while status is unassessed / not_started; never render a bare 0%. */
@@ -170,7 +170,7 @@ export function sxMonthPosition(dateStr: string | null | undefined, horizonMonth
   return horizonMonths.length;
 }
 
-export function SxBadge({ children, tone = "border-[#ada18a] bg-[#f2eee0] text-[#5a574c]" }: { children: ReactNode; tone?: string }) {
+export function SxBadge({ children, tone = "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]" }: { children: ReactNode; tone?: string }) {
   return <span className={`inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-semibold leading-none ${tone}`}>{children}</span>;
 }
 
@@ -182,7 +182,7 @@ export function SxStatusIcon({ status, blocked, className = "h-4 w-4" }: { statu
 }
 
 /** Small inline diamond marker: filled=confirmed reading, dashed=provisional date, hollow=unknown confidence. */
-export function SxDiamondMark({ dashed, hollow, tone = "#3d382c", className = "" }: { dashed?: boolean; hollow?: boolean; tone?: string; className?: string }) {
+export function SxDiamondMark({ dashed, hollow, tone = "#1d1d1f", className = "" }: { dashed?: boolean; hollow?: boolean; tone?: string; className?: string }) {
   return (
     <svg viewBox="0 0 12 12" className={`h-3 w-3 shrink-0 ${className}`} aria-hidden="true">
       <polygon points="6,0.5 11.5,6 6,11.5 0.5,6" fill={hollow ? "none" : tone} stroke={tone} strokeWidth="1.4" strokeDasharray={dashed ? "2 1.6" : undefined} />
@@ -190,7 +190,7 @@ export function SxDiamondMark({ dashed, hollow, tone = "#3d382c", className = ""
   );
 }
 
-export function SxTickMark({ tone = "#3d382c", className = "" }: { tone?: string; className?: string }) {
+export function SxTickMark({ tone = "#1d1d1f", className = "" }: { tone?: string; className?: string }) {
   return <span className={`inline-block h-3.5 w-[2px] shrink-0 ${className}`} style={{ background: tone }} aria-hidden="true" />;
 }
 

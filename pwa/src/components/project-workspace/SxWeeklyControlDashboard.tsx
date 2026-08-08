@@ -231,8 +231,8 @@ type FormField = {
 function partnerClassificationChipClass(active: boolean) {
   return `min-h-8 shrink-0 rounded border px-2 py-1 text-[11px] font-semibold ${
     active
-      ? "border-[#3f6b8c] bg-[#dee8f0] text-[#2a5473]"
-      : "border-[#ada18a] bg-[#fffdf7] text-[#5a574c] hover:bg-[#f2eee0]"
+      ? "border-[#0369a1] bg-[#eff6ff] text-[#0369a1]"
+      : "border-[#cbd5e1] bg-[#ffffff] text-[#3c3c43] hover:bg-[#f5f5f7]"
   }`;
 }
 
@@ -281,20 +281,20 @@ const TRACKS: Array<{
     key: "business_development",
     label: "事業開発",
     short: "事業",
-    accent: "#315f7d",
+    accent: "#007aff",
   },
   {
     key: "technology_development",
     label: "技術開発",
     short: "技術",
-    accent: "#38745d",
+    accent: "#059669",
   },
-  { key: "funding", label: "資金調達", short: "資金", accent: "#b56d20" },
+  { key: "funding", label: "資金調達", short: "資金", accent: "#d97706" },
   {
     key: "organizational_building",
     label: "体制構築",
     short: "体制",
-    accent: "#76637b",
+    accent: "#7c3aed",
   },
 ];
 
@@ -3443,7 +3443,7 @@ function IssueRow({
                     onClick={() =>
                       onEdit({ kind: "edit_hypothesis", issue, hypothesis })
                     }
-                    className="min-w-0 flex-1 text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                    className="min-w-0 flex-1 text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
                     aria-label={`${hypothesis.statement}を直接修正`}
                   >
                     <span
@@ -3549,7 +3549,7 @@ function IssueRow({
                     onClick={() =>
                       onEdit({ kind: "edit_decision", issue, decision })
                     }
-                    className="block w-full border-b border-dashed border-[#857b69] text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                    className="block w-full border-b border-dashed border-[#86868b] text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
                     aria-label={`${decision.title}を直接修正`}
                   >
                     <b>{decision.title}</b>
@@ -3578,7 +3578,7 @@ function IssueRow({
                           action,
                         })
                       }
-                      className="min-w-0 flex-1 border-b border-dashed border-[#857b69] text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                      className="min-w-0 flex-1 border-b border-dashed border-[#86868b] text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
                       aria-label={`${action.title}を直接修正`}
                     >
                       <b>{action.title}</b>
@@ -4001,14 +4001,14 @@ function PlanInspector({
                       {metRequirements}/{requirements.length}件
                     </strong>
                   </div>
-                  <ul className="mt-2 divide-y divide-[#e4ddd0] border-y border-[#c5bba5]">
+                  <ul className="mt-2 divide-y divide-[#e2e8f0] border-y border-[#d2d2d7]">
                     {requirements.map((requirement) => (
                       <li
                         key={requirement.dependency.id}
                         className="flex items-start gap-2 py-2 text-[11px]"
                       >
                         <span
-                          className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center border ${requirement.state === "met" ? "border-[#74a690] bg-[#dcecdf] text-[#205f49]" : requirement.state === "unconfirmed" ? "border-[#bd9a52] bg-[#f7e8c8] text-[#765022]" : "border-[#ada18a] bg-white text-[#5a574c]"}`}
+                          className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center border ${requirement.state === "met" ? "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]" : requirement.state === "unconfirmed" ? "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]" : "border-[#cbd5e1] bg-white text-[#3c3c43]"}`}
                         >
                           {requirement.state === "met" ? (
                             <Check className="h-3 w-3" aria-hidden="true" />

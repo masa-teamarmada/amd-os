@@ -228,16 +228,16 @@ function PartnerStageRail({
   const content = (
     <span className="flex min-w-0 items-center gap-1.5">
       <span
-        className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[#e3ddcf]"
+        className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[#e2e8f0]"
         aria-hidden="true"
       >
         <span
           data-progress-bar={partnerId}
-          className="block h-full rounded-full bg-[#38745d]"
+          className="block h-full rounded-full bg-[#059669]"
           style={{ width: `${pct ?? 0}%` }}
         />
       </span>
-      <span className="shrink-0 text-[10px] font-semibold leading-3 text-[#5a574c]">
+      <span className="shrink-0 text-[10px] font-semibold leading-3 text-[#3c3c43]">
         {pct == null ? "保留" : `${pct}%`}
       </span>
     </span>
@@ -261,7 +261,7 @@ function PartnerStageRail({
       aria-expanded={expanded}
       aria-controls={`sx-partner-history-${partnerId}`}
       aria-label={`進捗${pct == null ? "保留" : `${pct}%`}。進捗と履歴を開く`}
-      className={`!min-h-0 block w-full min-w-0 text-left hover:bg-[#e7f0e9] ${FOCUS_RING}`}
+      className={`!min-h-0 block w-full min-w-0 text-left hover:bg-[#ecfdf5] ${FOCUS_RING}`}
     >
       {content}
     </button>
@@ -269,42 +269,42 @@ function PartnerStageRail({
 }
 
 const BALL_SIDE_TONE: Record<string, string> = {
-  sx: "border-[#86a2b3] bg-[#e2ecf1] text-[#315f7d]",
-  partner: "border-[#bd9a52] bg-[#f7e8c8] text-[#765022]",
-  shared: "border-[#9d8daa] bg-[#e9e2ee] text-[#5f4a66]",
-  none: "border-[#ada18a] bg-[#f2eee0] text-[#5a574c]",
-  unknown: "border-[#8e88a5] bg-[#e4e2ef] text-[#55506d]",
+  sx: "border-[#93c5fd] bg-[#eff6ff] text-[#007aff]",
+  partner: "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]",
+  shared: "border-[#a78bfa] bg-[#f5f3ff] text-[#7c3aed]",
+  none: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
+  unknown: "border-[#8b5cf6] bg-[#f5f3ff] text-[#6d28d9]",
 };
 
 /** 最左の評価カラムの配色。S だけ塗りつぶして、上から潰す順番が一目で分かるようにする。 */
 const GRADE_TONE: Record<string, string> = {
-  s: "border-[#2f6650] bg-[#2f6650] text-[#f5f1e8]",
-  a: "border-[#38745d] bg-[#dcebe1] text-[#1d5341]",
-  b: "border-[#3f6b8c] bg-[#dee8f0] text-[#2a5473]",
-  x: "border-[#a4988a] bg-[#eae5da] text-[#5a574c]",
-  unrated: "border-dashed border-[#a69b84] bg-[#f6f1e6] text-[#6a665b]",
+  s: "border-[#047857] bg-[#047857] text-[#f5f5f7]",
+  a: "border-[#059669] bg-[#ecfdf5] text-[#065f46]",
+  b: "border-[#0369a1] bg-[#eff6ff] text-[#0369a1]",
+  x: "border-[#94a3b8] bg-[#f1f5f9] text-[#3c3c43]",
+  unrated: "border-dashed border-[#cbd5e1] bg-[#f8fafc] text-[#86868b]",
 };
 
 const HOLDING_STATUS_TONE: Record<string, string> = {
-  open: "border-[#ada18a] bg-[#f2eee0] text-[#5a574c]",
-  in_progress: "border-[#86a2b3] bg-[#e2ecf1] text-[#315f7d]",
-  waiting: "border-[#bd9a52] bg-[#f7e8c8] text-[#765022]",
-  blocked: "border-[#b5533f] bg-[#f6dad5] text-[#8c3329]",
-  on_hold: "border-[#9d8daa] bg-[#e9e2ee] text-[#5f4a66]",
-  completed: "border-[#74a690] bg-[#dcecdf] text-[#205f49]",
-  cancelled: "border-[#ada18a] bg-[#f2eee0] text-[#5a574c]",
+  open: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
+  in_progress: "border-[#93c5fd] bg-[#eff6ff] text-[#007aff]",
+  waiting: "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]",
+  blocked: "border-[#ef4444] bg-[#fee2e2] text-[#dc2626]",
+  on_hold: "border-[#a78bfa] bg-[#f5f3ff] text-[#7c3aed]",
+  completed: "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]",
+  cancelled: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
 };
 
 /** Left status-line color per holding status — replaces the old rounded-card look with a dense,
  * shared-ruled row + left status line (spec C: 保有事項は角丸カードをやめ、共有罫線/左ステータス線の高密度行にする). */
 const HOLDING_STATUS_LINE: Record<string, string> = {
-  open: "#cbbfa0",
-  in_progress: "#7ea0b7",
-  waiting: "#dcb45a",
-  blocked: "#b5533f",
-  on_hold: "#a08bb0",
-  completed: "#57a884",
-  cancelled: "#c9c2b3",
+  open: "#94a3b8",
+  in_progress: "#007aff",
+  waiting: "#d97706",
+  blocked: "#ef4444",
+  on_hold: "#7c3aed",
+  completed: "#059669",
+  cancelled: "#cbd5e1",
 };
 
 const HOLDING_STATUS_LABEL: Record<string, string> = {
@@ -319,17 +319,17 @@ const HOLDING_STATUS_LABEL: Record<string, string> = {
 };
 
 const INTERACTION_KIND_TONE: Record<string, string> = {
-  meeting: "border-[#86a2b3] bg-[#e2ecf1] text-[#315f7d]",
-  email: "border-[#ada18a] bg-[#f2eee0] text-[#5a574c]",
-  agreement: "border-[#74a690] bg-[#dcecdf] text-[#205f49]",
-  deliverable: "border-[#74a690] bg-[#dcecdf] text-[#205f49]",
-  handoff: "border-[#bd9a52] bg-[#f7e8c8] text-[#765022]",
-  status_update: "border-[#9d8daa] bg-[#e9e2ee] text-[#5f4a66]",
-  note: "border-[#ada18a] bg-[#f2eee0] text-[#5a574c]",
+  meeting: "border-[#93c5fd] bg-[#eff6ff] text-[#007aff]",
+  email: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
+  agreement: "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]",
+  deliverable: "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]",
+  handoff: "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]",
+  status_update: "border-[#a78bfa] bg-[#f5f3ff] text-[#7c3aed]",
+  note: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
 };
 
 const FOCUS_RING =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]";
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]";
 
 type PartnerInlineResource =
   | "partner"
@@ -390,7 +390,7 @@ function primaryInterventionTarget(
   return null;
 }
 
-const INLINE_CONTROL_CLASS = `min-h-9 w-full min-w-0 border border-[#857b69] bg-[#f3f0e8] px-2 text-[11px] text-[#24231f] ${FOCUS_RING}`;
+const INLINE_CONTROL_CLASS = `min-h-9 w-full min-w-0 border border-[#86868b] bg-[#f5f5f7] px-2 text-[11px] text-[#1d1d1f] ${FOCUS_RING}`;
 const INLINE_ACTION_CLASS = `grid h-9 min-w-9 place-items-center border text-[10px] font-semibold ${FOCUS_RING}`;
 const INLINE_BALL_SIDE_OPTIONS = [
   { value: "sx", label: "当方" },
@@ -560,7 +560,7 @@ function InlineCellEditor({
     return (
       <button
         type="button"
-        className={`w-full min-w-0 text-left hover:bg-[#e2ecf1] ${FOCUS_RING} ${viewClassName}`}
+        className={`w-full min-w-0 text-left hover:bg-[#eff6ff] ${FOCUS_RING} ${viewClassName}`}
         onClick={begin}
         aria-label={`${label}を直接修正`}
         data-inline-edit-trigger={editorKey}
@@ -587,7 +587,7 @@ function InlineCellEditor({
         {view}
       </div>
       <div
-        className={`absolute top-full z-40 mt-1 w-[min(320px,calc(100vw-32px))] border border-[#a1957e] bg-[#fffdf7] p-2 shadow-[0_12px_32px_rgba(36,35,31,0.18)] ${
+        className={`absolute top-full z-40 mt-1 w-[min(320px,calc(100vw-32px))] border border-[#94a3b8] bg-[#ffffff] p-2 shadow-[0_12px_32px_rgba(29,29,31,0.18)] ${
           align === "start" ? "left-0" : "left-1/2 -translate-x-1/2"
         }`}
       >
@@ -595,14 +595,14 @@ function InlineCellEditor({
           {renderFields(values, setValue)}
         </div>
         {error && (
-          <p className="mt-1 text-[10px] leading-4 text-[#8c3329]" role="alert">
+          <p className="mt-1 text-[10px] leading-4 text-[#dc2626]" role="alert">
             {error}
           </p>
         )}
         <div className="mt-1.5 flex justify-end gap-1">
           <button
             type="button"
-            className={`${INLINE_ACTION_CLASS} border-[#a69b84] bg-white text-[#5a574c]`}
+            className={`${INLINE_ACTION_CLASS} border-[#cbd5e1] bg-white text-[#3c3c43]`}
             onClick={cancel}
             disabled={saving}
             aria-label={`${label}の編集を取り消す`}
@@ -611,7 +611,7 @@ function InlineCellEditor({
           </button>
           <button
             type="button"
-            className={`${INLINE_ACTION_CLASS} border-[#38745d] bg-[#38745d] text-white disabled:opacity-60`}
+            className={`${INLINE_ACTION_CLASS} border-[#059669] bg-[#059669] text-white disabled:opacity-60`}
             onClick={save}
             disabled={saving}
             aria-label={`${label}を保存`}
@@ -863,7 +863,7 @@ function OwnerSelectControl({
       {current ? (
         <button
           type="button"
-          className="shrink-0 rounded px-0.5 text-[10px] leading-4 text-[#857b69] hover:bg-[#f2eee0] hover:text-[#8c3329]"
+          className="shrink-0 rounded px-0.5 text-[10px] leading-4 text-[#86868b] hover:bg-[#f5f5f7] hover:text-[#dc2626]"
           aria-label={`${current}を名前の候補から外す`}
           title={`${current}を候補から外す`}
           disabled={disabled}
@@ -966,7 +966,7 @@ function InlineConnectionOriginEditor({
       <button
         ref={triggerRef}
         type="button"
-        className={`min-h-11 w-full min-w-0 text-left hover:bg-[#e2ecf1] ${FOCUS_RING}`}
+        className={`min-h-11 w-full min-w-0 text-left hover:bg-[#eff6ff] ${FOCUS_RING}`}
         onClick={() => {
           if (!onRequestEdit(editorKey)) return;
           setDraftContext(context);
@@ -1029,7 +1029,7 @@ function InlineConnectionOriginEditor({
       <textarea
         autoFocus
         rows={1}
-        className="block max-h-8 min-h-4 w-full min-w-0 resize-none overflow-y-auto border-0 bg-transparent p-0 text-[10px] font-semibold leading-4 text-[#24231f] outline-none [field-sizing:content]"
+        className="block max-h-8 min-h-4 w-full min-w-0 resize-none overflow-y-auto border-0 bg-transparent p-0 text-[10px] font-semibold leading-4 text-[#1d1d1f] outline-none [field-sizing:content]"
         aria-label={`${label}の経緯`}
         placeholder="経緯 未登録"
         value={draftContext}
@@ -1038,11 +1038,11 @@ function InlineConnectionOriginEditor({
       />
       {/* 紹介者は表記ゆれが起きやすいので自由入力をやめて名簿から選ぶ (2026-08-07 まさ)。 */}
       <div className="grid min-w-0 grid-cols-[32px_minmax(0,1fr)] items-center">
-        <span className="text-[10px] leading-4 text-[#5a574c]">紹介者</span>
+        <span className="text-[10px] leading-4 text-[#3c3c43]">紹介者</span>
         <OwnerSelectControl
           value={draftIntroducer}
           ariaLabel={`${label}の紹介者`}
-          className="h-4 min-w-0 border-0 bg-transparent p-0 text-[10px] leading-4 text-[#5a574c] outline-none"
+          className="h-4 min-w-0 border-0 bg-transparent p-0 text-[10px] leading-4 text-[#3c3c43] outline-none"
           roster={roster}
           disabled={saving}
           onChange={setDraftIntroducer}
@@ -1050,7 +1050,7 @@ function InlineConnectionOriginEditor({
       </div>
       {error && (
         <span
-          className="absolute left-0 top-full z-30 mt-1 whitespace-nowrap border border-[#a1957e] bg-[#fffdf7] px-2 py-1 text-[10px] font-semibold text-[#8c3329] shadow-[0_6px_18px_rgba(36,35,31,0.12)]"
+          className="absolute left-0 top-full z-30 mt-1 whitespace-nowrap border border-[#94a3b8] bg-[#ffffff] px-2 py-1 text-[10px] font-semibold text-[#dc2626] shadow-[0_6px_18px_rgba(29,29,31,0.12)]"
           role="alert"
         >
           {error}
@@ -1152,7 +1152,7 @@ function InlineCurrentBallEditor({
       <button
         ref={triggerRef}
         type="button"
-        className={`flex min-h-11 w-full min-w-0 items-center text-left hover:bg-[#e2ecf1] ${FOCUS_RING}`}
+        className={`flex min-h-11 w-full min-w-0 items-center text-left hover:bg-[#eff6ff] ${FOCUS_RING}`}
         onClick={() => {
           if (!onRequestEdit(editorKey)) return;
           setDraftSide(side);
@@ -1210,13 +1210,13 @@ function InlineCurrentBallEditor({
         }
       }}
     >
-      <label className="grid min-w-0 grid-rows-[14px_30px] border-r border-[#ada18a]">
-        <span className="px-1 pt-0.5 text-[10px] font-semibold leading-3 text-[#5a574c]">
+      <label className="grid min-w-0 grid-rows-[14px_30px] border-r border-[#cbd5e1]">
+        <span className="px-1 pt-0.5 text-[10px] font-semibold leading-3 text-[#3c3c43]">
           保有側
         </span>
         <select
           autoFocus
-          className={`h-[30px] min-w-0 border-0 bg-transparent px-1 text-[11px] font-semibold text-[#24231f] ${FOCUS_RING}`}
+          className={`h-[30px] min-w-0 border-0 bg-transparent px-1 text-[11px] font-semibold text-[#1d1d1f] ${FOCUS_RING}`}
           value={draftSide}
           onChange={(event) => setDraftSide(event.target.value)}
           disabled={saving}
@@ -1231,13 +1231,13 @@ function InlineCurrentBallEditor({
       </label>
       {/* 担当は名簿から選ぶ (2026-08-07 まさ)。同じ人が別表記で増えるのを止める。 */}
       <div className="grid min-w-0 grid-rows-[14px_30px]">
-        <span className="px-1 pt-0.5 text-[10px] font-semibold leading-3 text-[#5a574c]">
+        <span className="px-1 pt-0.5 text-[10px] font-semibold leading-3 text-[#3c3c43]">
           担当
         </span>
         <OwnerSelectControl
           value={draftOwner}
           ariaLabel={`${label}の担当`}
-          className={`h-[30px] min-w-0 border-0 bg-transparent px-1 text-[11px] font-semibold text-[#24231f] ${FOCUS_RING}`}
+          className={`h-[30px] min-w-0 border-0 bg-transparent px-1 text-[11px] font-semibold text-[#1d1d1f] ${FOCUS_RING}`}
           roster={roster}
           disabled={saving}
           onChange={setDraftOwner}
@@ -1245,7 +1245,7 @@ function InlineCurrentBallEditor({
       </div>
       {error && (
         <p
-          className="absolute left-0 top-full z-30 mt-1 border border-[#d7a49e] bg-[#fff7f5] px-2 py-1 text-[10px] leading-4 text-[#8c3329] shadow-sm"
+          className="absolute left-0 top-full z-30 mt-1 border border-[#fca5a5] bg-[#fef2f2] px-2 py-1 text-[10px] leading-4 text-[#dc2626] shadow-sm"
           role="alert"
         >
           {error}
@@ -1296,26 +1296,26 @@ function pocFacetChipsView(partner: SxManagementPartner) {
       {chip(
         "段階",
         sxPartnerStageLabel(partner.relationshipStage),
-        "border-[#38745d] bg-[#dcebe1] text-[#1d5341]",
+        "border-[#059669] bg-[#ecfdf5] text-[#065f46]",
       )}
       {chip(
         "状態",
         sxPartnerActivityStateLabel(partner.activityState),
         stalled
-          ? "border-[#b5533f] bg-[#f6e0da] text-[#7d2b22]"
+          ? "border-[#ef4444] bg-[#fee2e2] text-[#991b1b]"
           : partner.activityState === "waiting_partner" ||
               partner.activityState === "waiting_internal"
-            ? "border-[#bf7b2c] bg-[#f6ead2] text-[#69461c]"
-            : "border-[#bcb2a0] bg-[#efe9dc] text-[#45423b]",
+            ? "border-[#d97706] bg-[#fef3c7] text-[#92400e]"
+            : "border-[#cbd5e1] bg-[#f1f5f9] text-[#1d1d1f]",
       )}
       {chip(
         "確度",
         sxPartnerConfidenceLabel(confidence),
         confidence === "high"
-          ? "border-[#3f6b8c] bg-[#dee8f0] text-[#2a5473]"
+          ? "border-[#0369a1] bg-[#eff6ff] text-[#0369a1]"
           : confidence === "medium"
-            ? "border-[#bcb2a0] bg-[#efe9dc] text-[#45423b]"
-            : "border-[#bf7b2c] bg-[#f6ead2] text-[#69461c]",
+            ? "border-[#cbd5e1] bg-[#f1f5f9] text-[#1d1d1f]"
+            : "border-[#d97706] bg-[#fef3c7] text-[#92400e]",
       )}
       {chip(
         "実現",
@@ -1329,7 +1329,7 @@ function pocFacetChipsView(partner: SxManagementPartner) {
       )}
       {partner.valueNote && (
         <span
-          className="w-full [overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]"
+          className="w-full [overflow-wrap:anywhere] text-[10px] leading-4 text-[#3c3c43]"
           title={partner.valueNote}
           data-poc-value-note={partner.id}
         >
@@ -1342,10 +1342,10 @@ function pocFacetChipsView(partner: SxManagementPartner) {
 
 /** 実現可能性・顧客有望度の色。未評価だけは「入っていない」と分かる薄い枠にする。 */
 function judgmentTone(value: SxPocJudgment | null) {
-  if (value === "high") return "border-[#38745d] bg-[#dcebe1] text-[#1d5341]";
-  if (value === "medium") return "border-[#bcb2a0] bg-[#efe9dc] text-[#45423b]";
-  if (value === "low") return "border-[#b5533f] bg-[#f6e0da] text-[#7d2b22]";
-  return "border-dashed border-[#a69b84] bg-[#f6f1e6] text-[#6a665b]";
+  if (value === "high") return "border-[#059669] bg-[#ecfdf5] text-[#065f46]";
+  if (value === "medium") return "border-[#cbd5e1] bg-[#f1f5f9] text-[#1d1d1f]";
+  if (value === "low") return "border-[#ef4444] bg-[#fee2e2] text-[#991b1b]";
+  return "border-dashed border-[#cbd5e1] bg-[#f8fafc] text-[#86868b]";
 }
 
 /**
@@ -1439,7 +1439,7 @@ function InlinePocFacetEditor({
       <button
         ref={triggerRef}
         type="button"
-        className={`w-full min-w-0 text-left hover:bg-[#e2ecf1] ${FOCUS_RING}`}
+        className={`w-full min-w-0 text-left hover:bg-[#eff6ff] ${FOCUS_RING}`}
         onClick={() => {
           if (!onRequestEdit(editorKey)) return;
           setDraft(initial);
@@ -1462,11 +1462,11 @@ function InlinePocFacetEditor({
     options: ReadonlyArray<{ value: string; label: string }>,
   ) => (
     <label className="grid min-w-0 gap-px">
-      <span className="text-[10px] font-semibold leading-3 text-[#5a574c]">
+      <span className="text-[10px] font-semibold leading-3 text-[#3c3c43]">
         {facetLabel}
       </span>
       <select
-        className={`h-[22px] min-w-0 border border-[#a69b84] bg-[#fffdf7] px-0.5 text-[10px] font-semibold text-[#24231f] ${FOCUS_RING}`}
+        className={`h-[22px] min-w-0 border border-[#cbd5e1] bg-[#ffffff] px-0.5 text-[10px] font-semibold text-[#1d1d1f] ${FOCUS_RING}`}
         value={draft[key]}
         disabled={saving}
         onChange={(event) =>
@@ -1555,12 +1555,12 @@ function InlinePocFacetEditor({
         })),
       ])}
       <label className="col-span-2 grid min-w-0 gap-px">
-        <span className="text-[10px] font-semibold leading-3 text-[#5a574c]">
+        <span className="text-[10px] font-semibold leading-3 text-[#3c3c43]">
           理由
         </span>
         <input
           type="text"
-          className={`h-[22px] min-w-0 border border-[#a69b84] bg-[#fffdf7] px-1 text-[10px] text-[#24231f] ${FOCUS_RING}`}
+          className={`h-[22px] min-w-0 border border-[#cbd5e1] bg-[#ffffff] px-1 text-[10px] text-[#1d1d1f] ${FOCUS_RING}`}
           value={draft.note}
           maxLength={240}
           disabled={saving}
@@ -1573,7 +1573,7 @@ function InlinePocFacetEditor({
       </label>
       {error && (
         <p
-          className="absolute left-0 top-full z-30 mt-1 border border-[#d7a49e] bg-[#fff7f5] px-2 py-1 text-[10px] leading-4 text-[#8c3329] shadow-sm"
+          className="absolute left-0 top-full z-30 mt-1 border border-[#fca5a5] bg-[#fef2f2] px-2 py-1 text-[10px] leading-4 text-[#dc2626] shadow-sm"
           role="alert"
         >
           {error}
@@ -1599,7 +1599,7 @@ function InlineDueFields({
     <>
       {precision && (
         <label className="grid gap-0.5">
-          <span className="text-[10px] font-semibold text-[#5a574c]">
+          <span className="text-[10px] font-semibold text-[#3c3c43]">
             期限の精度
           </span>
           <select
@@ -1620,7 +1620,7 @@ function InlineDueFields({
       )}
       {duePrecision !== "unknown" && (
         <label className="grid gap-0.5">
-          <span className="text-[10px] font-semibold text-[#5a574c]">期限</span>
+          <span className="text-[10px] font-semibold text-[#3c3c43]">期限</span>
           <input
             className={INLINE_CONTROL_CLASS}
             type={duePrecision === "month" ? "month" : "date"}
@@ -1666,8 +1666,8 @@ function gateAndProofForItem(
 function navChipClass(active: boolean) {
   return `inline-flex min-h-11 shrink-0 items-center gap-1 whitespace-nowrap border-b-2 border-x-0 border-t-0 px-2.5 py-1.5 text-[10px] font-semibold ${FOCUS_RING} ${
     active
-      ? "border-b-[#315f7d] bg-[#e2ecf1] text-[#315f7d]"
-      : "border-b-transparent bg-transparent text-[#514e47] hover:border-b-[#aaa294] hover:bg-[#f2eee0]"
+      ? "border-b-[#007aff] bg-[#eff6ff] text-[#007aff]"
+      : "border-b-transparent bg-transparent text-[#3c3c43] hover:border-b-[#cbd5e1] hover:bg-[#f5f5f7]"
   }`;
 }
 
@@ -1696,7 +1696,7 @@ function ScrollHintArrow({ always }: { always?: boolean }) {
   return (
     <span
       aria-hidden="true"
-      className={`pointer-events-none absolute inset-y-0 right-0 flex items-center pl-1 text-[11px] font-semibold text-[#5a574c] ${always ? "" : "sm:hidden"}`}
+      className={`pointer-events-none absolute inset-y-0 right-0 flex items-center pl-1 text-[11px] font-semibold text-[#3c3c43] ${always ? "" : "sm:hidden"}`}
     >
       ▸
     </span>
@@ -1720,9 +1720,9 @@ function ControlBandRow({
 }) {
   return (
     <div
-      className={`flex items-center gap-2 border-b border-[#c5bba5] px-3 py-1.5 last:border-b-0 ${className}`}
+      className={`flex items-center gap-2 border-b border-[#d2d2d7] px-3 py-1.5 last:border-b-0 ${className}`}
     >
-      <span className="w-9 shrink-0 text-[10px] font-semibold tracking-[0.08em] text-[#5a574c]">
+      <span className="w-9 shrink-0 text-[10px] font-semibold tracking-[0.08em] text-[#3c3c43]">
         {heading}
       </span>
       <div className="relative min-w-0 flex-1">
@@ -1740,10 +1740,10 @@ function ControlBandRow({
   );
 }
 
-const NEUTRAL_TONE = "border-[#ada18a] bg-white text-[#514e47]";
-const FLAG_TONE = "border-[#9d8daa] bg-[#e9e2ee] text-[#5f4a66]";
-const ALERT_TONE = "border-[#b5533f] bg-[#f6dad5] text-[#8c3329]";
-const WARN_TONE = "border-[#bd9a52] bg-[#f7e8c8] text-[#765022]";
+const NEUTRAL_TONE = "border-[#cbd5e1] bg-white text-[#3c3c43]";
+const FLAG_TONE = "border-[#a78bfa] bg-[#f5f3ff] text-[#7c3aed]";
+const ALERT_TONE = "border-[#ef4444] bg-[#fee2e2] text-[#dc2626]";
+const WARN_TONE = "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]";
 /** Control band — split into 3 groups (spec P1: 緊急→ボール→母数の順、2026-07-24 P0で緊急を先頭へ
  * 並び替え。まず読むべき情報＝緊急度を最初に置く): 緊急 (urgency — blocked/overdue/due-soon/月精度/
  * 期限未設定/担当未確認, active partners only), ボール (who currently holds what, active partners
@@ -1850,7 +1850,7 @@ function CategoryNav({
   const allActive = activeClassification === null;
   return (
     <div
-      className="border-b border-[#c5bba5] bg-[#fffdf7]"
+      className="border-b border-[#d2d2d7] bg-[#ffffff]"
       role="group"
       aria-label="関係先の絞り込み"
     >
@@ -2002,7 +2002,7 @@ function HoldingRow({
   );
   return (
     <li
-      className={`border-b border-[#d5cdba] py-1.5 pl-2 last:border-0 ${(canManage && onEdit) || inlineEditable ? "cursor-pointer hover:bg-[#e7f0e9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]" : ""}`}
+      className={`border-b border-[#e2e8f0] py-1.5 pl-2 last:border-0 ${(canManage && onEdit) || inlineEditable ? "cursor-pointer hover:bg-[#ecfdf5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]" : ""}`}
       role={(canManage && onEdit) || inlineEditable ? "button" : undefined}
       tabIndex={(canManage && onEdit) || inlineEditable ? 0 : undefined}
       aria-label={
@@ -2034,7 +2034,7 @@ function HoldingRow({
     >
       <div className="flex flex-wrap items-center justify-between gap-1">
         <div className="flex flex-wrap items-center gap-1">
-          <SxBadge tone="border-[#ada18a] bg-[#f2eee0] text-[#5a574c]">
+          <SxBadge tone="border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]">
             {item.itemKindLabel}
           </SxBadge>
           <SxBadge
@@ -2048,7 +2048,7 @@ function HoldingRow({
             </SxBadge>
           )}
           {monthPrecision && (
-            <SxBadge tone="border-[#ada18a] bg-white text-[#5a574c]">
+            <SxBadge tone="border-[#cbd5e1] bg-white text-[#3c3c43]">
               月精度
             </SxBadge>
           )}
@@ -2120,7 +2120,7 @@ function HoldingRow({
           />
           {error && (
             <p
-              className="text-[10px] font-semibold text-[#8c3329]"
+              className="text-[10px] font-semibold text-[#dc2626]"
               role="alert"
             >
               {error}
@@ -2129,11 +2129,11 @@ function HoldingRow({
         </div>
       ) : (
         <>
-          <p className="mt-1 text-[11px] font-semibold leading-4 text-[#24231f]">
+          <p className="mt-1 text-[11px] font-semibold leading-4 text-[#1d1d1f]">
             {nominalizeSxActionLabel(sxNormalizePublicName(item.title))}
           </p>
           {item.detail && (
-            <p className="mt-0.5 text-[10px] leading-4 text-[#514e47]">
+            <p className="mt-0.5 text-[10px] leading-4 text-[#3c3c43]">
               {sxNormalizePublicName(item.detail)}
             </p>
           )}
@@ -2142,7 +2142,7 @@ function HoldingRow({
       {/* 担当表示は 2026-08-08 に削除 (まさ「担当という概念自体を消して。全部おれ1人でやる」)。 */}
       {item.dueDate && (
         <p
-          className={`mt-0.5 text-[10px] ${overdue ? "font-semibold text-[#8c3329]" : "text-[#5a574c]"}`}
+          className={`mt-0.5 text-[10px] ${overdue ? "font-semibold text-[#dc2626]" : "text-[#3c3c43]"}`}
         >
           {sxFormatDueDateWithPrecision(item.dueDate, item.dueDatePrecision)}
         </p>
@@ -2152,35 +2152,35 @@ function HoldingRow({
           must never be merged into one line (2026-07-24 P1 fix: an open commitment's 一次根拠 used to
           render mislabeled as "完了の証拠" even before anything was completed). */}
       {item.sourceEvidence && (
-        <p className="mt-0.5 text-[10px] leading-4 text-[#514e47]">
+        <p className="mt-0.5 text-[10px] leading-4 text-[#3c3c43]">
           一次根拠: {sxNormalizePublicName(item.sourceEvidence)}
         </p>
       )}
       {item.completionCriteria && (
-        <p className="mt-0.5 text-[10px] leading-4 text-[#514e47]">
+        <p className="mt-0.5 text-[10px] leading-4 text-[#3c3c43]">
           完了条件: {sxNormalizePublicName(item.completionCriteria)}
         </p>
       )}
       {item.completedOn && (
-        <p className="mt-0.5 text-[10px] leading-4 text-[#205f49]">
+        <p className="mt-0.5 text-[10px] leading-4 text-[#047857]">
           完了日: {sxFormatDate(item.completedOn)}
         </p>
       )}
       {item.completionEvidence && (
-        <p className="mt-0.5 text-[10px] leading-4 text-[#205f49]">
+        <p className="mt-0.5 text-[10px] leading-4 text-[#047857]">
           完了の証拠: {sxNormalizePublicName(item.completionEvidence)}
         </p>
       )}
       {item.acceptedBy && (
-        <p className="mt-0.5 text-[10px] leading-4 text-[#205f49]">
+        <p className="mt-0.5 text-[10px] leading-4 text-[#047857]">
           受領者: {sxNormalizePublicName(item.acceptedBy)}
           {item.acceptedOn ? ` ・ 受領日 ${sxFormatDate(item.acceptedOn)}` : ""}
         </p>
       )}
-      <p className="mt-0.5 text-[10px] leading-4 text-[#5a574c]">
+      <p className="mt-0.5 text-[10px] leading-4 text-[#3c3c43]">
         関連工程: {gateTitle || "工程未接続"}
         {proofLabels.length > 0 && (
-          <span className="text-[#315f7d]">
+          <span className="text-[#007aff]">
             {" "}
             ・ 証明: {proofLabels.join(" / ")}
           </span>
@@ -2189,7 +2189,7 @@ function HoldingRow({
       {/* 出典/最終確認/確度 — read-only provenance audit trail for every viewer, not just canManage
           (spec: 全件監査表示で「出典」「最終確認」「確度」を見える化). sourceRef is never rendered
           verbatim — sxSourceRefDisplayLabel masks raw URLs/internal tracking-key shapes first. */}
-      <p className="mt-0.5 text-[10px] leading-4 text-[#5a574c]">
+      <p className="mt-0.5 text-[10px] leading-4 text-[#3c3c43]">
         出典: {sxSourceKindLabel(item.sourceKind)}
         {sxSourceRefDisplayLabel(item.sourceRef)
           ? ` (${sxSourceRefDisplayLabel(item.sourceRef)})`
@@ -2542,9 +2542,9 @@ function PartnerLedgerHeaderCell({
 
   const stickyClass =
     sticky === "grade"
-      ? `${PARTNER_LEDGER_STICKY_LEFT} bg-[#f2eee0]`
+      ? `${PARTNER_LEDGER_STICKY_LEFT} bg-[#f5f5f7]`
       : sticky === "name"
-        ? `${PARTNER_LEDGER_STICKY_NAME} bg-[#f2eee0] @min-[1248px]:pl-2`
+        ? `${PARTNER_LEDGER_STICKY_NAME} bg-[#f5f5f7] @min-[1248px]:pl-2`
         : "";
 
   return (
@@ -2589,7 +2589,7 @@ function PartnerLedgerHeaderCell({
     >
       {movable && (
         <GripVertical
-          className="mr-0.5 h-3 w-3 shrink-0 text-[#a1957e]"
+          className="mr-0.5 h-3 w-3 shrink-0 text-[#94a3b8]"
           aria-hidden="true"
         />
       )}
@@ -2603,7 +2603,7 @@ function PartnerLedgerHeaderCell({
         data-partner-column-resize={column.key}
         draggable={false}
         onDragStart={(event) => event.preventDefault()}
-        className="absolute -right-1 top-0 h-full w-2 cursor-col-resize touch-none bg-transparent hover:bg-[#a1957e]"
+        className="absolute -right-1 top-0 h-full w-2 cursor-col-resize touch-none bg-transparent hover:bg-[#94a3b8]"
         title="左右にドラッグで列幅を変えられるよ"
         onPointerDown={handlePointerDown}
       />
@@ -2772,17 +2772,17 @@ function PartnerProgressFlow({
   }, [stepSignature]);
   const nowTone =
     partner.currentBallSide === "sx"
-      ? "border-[#b5533f] bg-[#f6dad5] text-[#8c3329]"
+      ? "border-[#ef4444] bg-[#fee2e2] text-[#dc2626]"
       : partner.currentBallSide === "partner"
-        ? "border-[#b1934e] bg-[#f7e8c8] text-[#765022]"
-        : "border-[#8e88a5] bg-[#f1f0f6] text-[#55506d]";
+        ? "border-[#d97706] bg-[#fef3c7] text-[#92400e]"
+        : "border-[#8b5cf6] bg-[#f5f3ff] text-[#6d28d9]";
   return (
     <div
       className="min-w-0 overflow-hidden"
       data-testid={`sx-partner-progress-${partner.id}`}
       data-step-count={steps.length}
     >
-      <p className="text-[10px] font-semibold text-[#5a574c] xl:hidden">
+      <p className="text-[10px] font-semibold text-[#3c3c43] xl:hidden">
         進行状況
       </p>
       <ol
@@ -2803,7 +2803,7 @@ function PartnerProgressFlow({
                  blurで保存・Escで取消・Enterで保存、一覧のセル編集と同じ作法。 */
               <div
                 data-testid="sx-partner-step-editor"
-                className={`flex w-[220px] shrink-0 flex-col gap-1 rounded-md border-2 border-[#38745d] bg-[#f6f9f4] px-2 py-1 text-[#24231f]`}
+                className={`flex w-[220px] shrink-0 flex-col gap-1 rounded-md border-2 border-[#059669] bg-[#ecfdf5] px-2 py-1 text-[#1d1d1f]`}
                 aria-busy={stepSaving}
                 onBlur={(event) => {
                   if (
@@ -2825,7 +2825,7 @@ function PartnerProgressFlow({
                   }
                 }}
               >
-                <span className="text-[10px] font-semibold tracking-wide text-[#235f4b]">
+                <span className="text-[10px] font-semibold tracking-wide text-[#047857]">
                   {step.sub}
                 </span>
                 {step.key === "now" ? (
@@ -2881,7 +2881,7 @@ function PartnerProgressFlow({
                 )}
                 {stepError && (
                   <span
-                    className="text-[10px] font-semibold text-[#8c3329]"
+                    className="text-[10px] font-semibold text-[#dc2626]"
                     role="alert"
                   >
                     {stepError}
@@ -2908,12 +2908,12 @@ function PartnerProgressFlow({
                 editable ? "cursor-pointer hover:brightness-95" : ""
               } ${
                 step.phase === "done"
-                  ? "border-[#c9d9cf] bg-[#e7f0e9] text-[#205f49]"
+                  ? "border-[#a7f3d0] bg-[#ecfdf5] text-[#047857]"
                   : step.phase === "now"
                     ? `border-2 ${nowTone}`
                     : step.phase === "goal"
-                      ? "border-[#9d8daa] bg-[#f6f3f8] text-[#5f4a66]"
-                      : "border-dashed border-[#a69b84] bg-[#fffdf7] text-[#514e47]"
+                      ? "border-[#a78bfa] bg-[#f5f3ff] text-[#7c3aed]"
+                      : "border-dashed border-[#cbd5e1] bg-[#ffffff] text-[#3c3c43]"
               }`}
             >
               <span className="flex items-center gap-1 text-[10px] font-semibold tracking-wide">
@@ -2941,7 +2941,7 @@ function PartnerProgressFlow({
             )}
             {index < steps.length - 1 && (
               <span
-                className="flex shrink-0 items-center px-0.5 text-[#65604f]"
+                className="flex shrink-0 items-center px-0.5 text-[#86868b]"
                 aria-hidden="true"
               >
                 <ArrowRight className="h-3 w-3" />
@@ -3008,22 +3008,22 @@ function PartnerSampleRow({
   const view = (
     <div className="grid min-w-0 gap-0.5 px-3 py-2 text-left">
       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-        <span className="[overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#24231f]">
+        <span className="[overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#1d1d1f]">
           {sample.label}
         </span>
         {(sample.confidence === "low" || sample.confidence === "unknown") && (
-          <span className="inline-block border border-[#bf7b2c]/45 bg-[#f9f2e4] px-1 py-px text-[10px] font-semibold leading-3 text-[#765022]">
+          <span className="inline-block border border-[#d97706]/45 bg-[#fffbeb] px-1 py-px text-[10px] font-semibold leading-3 text-[#92400e]">
             要確認
           </span>
         )}
       </div>
       {sample.receivedOn && (
-        <p className="text-[10px] leading-4 text-[#5a574c]">
+        <p className="text-[10px] leading-4 text-[#3c3c43]">
           受領 {sxFormatDate(sample.receivedOn)}
         </p>
       )}
       {sample.notes && (
-        <p className="text-[10px] leading-4 text-[#514e47]">{sample.notes}</p>
+        <p className="text-[10px] leading-4 text-[#3c3c43]">{sample.notes}</p>
       )}
     </div>
   );
@@ -3034,7 +3034,7 @@ function PartnerSampleRow({
       <li>
         <button
           type="button"
-          className={`block w-full text-left hover:bg-[#e2ecf1] ${FOCUS_RING}`}
+          className={`block w-full text-left hover:bg-[#eff6ff] ${FOCUS_RING}`}
           onClick={startEdit}
           aria-label={`試料「${sample.label}」を直接修正`}
           data-sample-row={sample.id}
@@ -3046,16 +3046,16 @@ function PartnerSampleRow({
   }
   const field = (label: string, node: ReactNode) => (
     <label className="grid min-w-0 gap-0.5">
-      <span className="text-[10px] font-semibold leading-3 text-[#5a574c]">
+      <span className="text-[10px] font-semibold leading-3 text-[#3c3c43]">
         {label}
       </span>
       {node}
     </label>
   );
-  const controlClass = `min-w-0 border border-[#a69b84] bg-[#fffdf7] px-1.5 py-1 text-[11px] text-[#24231f] ${FOCUS_RING}`;
+  const controlClass = `min-w-0 border border-[#cbd5e1] bg-[#ffffff] px-1.5 py-1 text-[11px] text-[#1d1d1f] ${FOCUS_RING}`;
   return (
     <li
-      className="grid gap-1.5 bg-[#f2eee0] px-3 py-2"
+      className="grid gap-1.5 bg-[#f5f5f7] px-3 py-2"
       data-sample-row-editing={sample.id}
       aria-busy={saving}
       onKeyDown={(event) => {
@@ -3108,7 +3108,7 @@ function PartnerSampleRow({
         />,
       )}
       {error && (
-        <p className="text-[10px] font-semibold text-[#8c3329]" role="alert">
+        <p className="text-[10px] font-semibold text-[#dc2626]" role="alert">
           {error}
         </p>
       )}
@@ -3117,7 +3117,7 @@ function PartnerSampleRow({
           type="button"
           onClick={() => void save()}
           disabled={saving}
-          className={`border border-[#235f4b] bg-[#235f4b] px-2.5 py-1 text-[10px] font-semibold text-[#fffdf7] disabled:opacity-50 ${FOCUS_RING}`}
+          className={`border border-[#047857] bg-[#047857] px-2.5 py-1 text-[10px] font-semibold text-[#ffffff] disabled:opacity-50 ${FOCUS_RING}`}
         >
           保存
         </button>
@@ -3125,7 +3125,7 @@ function PartnerSampleRow({
           type="button"
           onClick={() => setEditing(false)}
           disabled={saving}
-          className={`border border-[#a1957e] bg-[#fffdf7] px-2.5 py-1 text-[10px] font-semibold text-[#514e47] disabled:opacity-50 ${FOCUS_RING}`}
+          className={`border border-[#94a3b8] bg-[#ffffff] px-2.5 py-1 text-[10px] font-semibold text-[#3c3c43] disabled:opacity-50 ${FOCUS_RING}`}
         >
           取消
         </button>
@@ -3173,7 +3173,7 @@ function PartnerSampleAddForm({
             setAdding(true);
           }}
           data-testid="sx-partner-sample-add"
-          className={`min-h-9 rounded border border-[#38745d] bg-[#fffdf7] px-2.5 text-[10px] font-semibold text-[#235f4b] hover:bg-[#dcecdf] ${FOCUS_RING}`}
+          className={`min-h-9 rounded border border-[#059669] bg-[#ffffff] px-2.5 text-[10px] font-semibold text-[#047857] hover:bg-[#ecfdf5] ${FOCUS_RING}`}
         >
           ＋ 試料を追加
         </button>
@@ -3184,7 +3184,7 @@ function PartnerSampleAddForm({
       <div className="flex items-stretch gap-1.5">
         <input
           autoFocus
-          className={`min-w-0 flex-1 border border-[#a69b84] bg-[#fffdf7] px-2 py-1.5 text-[11px] text-[#24231f] ${FOCUS_RING}`}
+          className={`min-w-0 flex-1 border border-[#cbd5e1] bg-[#ffffff] px-2 py-1.5 text-[11px] text-[#1d1d1f] ${FOCUS_RING}`}
           value={label}
           readOnly={saving}
           placeholder="試料名（例: 工場排液 / 触媒 / 井戸水）"
@@ -3209,13 +3209,13 @@ function PartnerSampleAddForm({
           type="button"
           onClick={() => void submit()}
           disabled={saving || !label.trim()}
-          className={`border border-[#235f4b] bg-[#235f4b] px-3 py-1.5 text-[10px] font-semibold text-[#fffdf7] disabled:opacity-50 ${FOCUS_RING}`}
+          className={`border border-[#047857] bg-[#047857] px-3 py-1.5 text-[10px] font-semibold text-[#ffffff] disabled:opacity-50 ${FOCUS_RING}`}
         >
           追加
         </button>
       </div>
       {error && (
-        <p className="text-[10px] font-semibold text-[#8c3329]" role="alert">
+        <p className="text-[10px] font-semibold text-[#dc2626]" role="alert">
           {error}
         </p>
       )}
@@ -3274,7 +3274,7 @@ function PartnerProgressHistoryModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] grid place-items-end bg-[#24231f]/45 p-0 backdrop-blur-[4px] sm:place-items-center sm:p-6"
+      className="fixed inset-0 z-[100] grid place-items-end bg-[#1d1d1f]/45 p-0 backdrop-blur-[4px] sm:place-items-center sm:p-6"
       role="presentation"
       data-modal-layer="sx-partner-history"
       onMouseDown={(event) => {
@@ -3287,17 +3287,17 @@ function PartnerProgressHistoryModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="flex max-h-[calc(100dvh-8px)] w-full flex-col overflow-hidden rounded-t-xl border border-[#a1957e] bg-[#fffdf7] shadow-[0_24px_72px_rgba(36,35,31,0.24)] sm:max-h-[min(780px,calc(100dvh-48px))] sm:max-w-[840px] sm:rounded-xl"
+        className="flex max-h-[calc(100dvh-8px)] w-full flex-col overflow-hidden rounded-t-xl border border-[#94a3b8] bg-[#ffffff] shadow-[0_24px_72px_rgba(29,29,31,0.24)] sm:max-h-[min(780px,calc(100dvh-48px))] sm:max-w-[840px] sm:rounded-xl"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <header className="flex min-h-[68px] items-start justify-between gap-4 border-b border-[#d7d0c3]/70 px-4 py-3.5 sm:px-[22px] sm:pb-3.5 sm:pt-4">
+        <header className="flex min-h-[68px] items-start justify-between gap-4 border-b border-[#d2d2d7]/70 px-4 py-3.5 sm:px-[22px] sm:pb-3.5 sm:pt-4">
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-extrabold text-[#235f4b]">
+            <p className="text-[11px] font-extrabold text-[#047857]">
               進捗・履歴
             </p>
             <h4
               id={titleId}
-              className="mt-0.5 [overflow-wrap:anywhere] text-xl font-semibold leading-[1.35] text-[#24231f]"
+              className="mt-0.5 [overflow-wrap:anywhere] text-xl font-semibold leading-[1.35] text-[#1d1d1f]"
             >
               {display.name}
             </h4>
@@ -3307,7 +3307,7 @@ function PartnerProgressHistoryModal({
             type="button"
             onClick={onClose}
             aria-label={`${display.name}の進捗と履歴を閉じる`}
-            className={`grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[#a1957e] bg-[#fffdf7] text-[#514e47] hover:border-[#235f4b] hover:bg-[#dcecdf] hover:text-[#235f4b] ${FOCUS_RING}`}
+            className={`grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[#94a3b8] bg-[#ffffff] text-[#3c3c43] hover:border-[#047857] hover:bg-[#ecfdf5] hover:text-[#047857] ${FOCUS_RING}`}
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -3318,9 +3318,9 @@ function PartnerProgressHistoryModal({
               ヘッダーに置くと下の見出しへ重なったため、本文先頭の独立セクションに置く。 */}
           <section
             aria-label={`${display.name}の分類（複数選択可）`}
-            className="mb-4 border-b border-[#c5bba5] pb-4"
+            className="mb-4 border-b border-[#d2d2d7] pb-4"
           >
-            <p className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">
+            <p className="text-[10px] font-semibold tracking-[0.14em] text-[#059669]">
               分類
             </p>
             <div
@@ -3336,13 +3336,13 @@ function PartnerProgressHistoryModal({
                     key={classification}
                     className={`inline-flex min-h-8 cursor-pointer items-center gap-1 border px-2 py-0.5 text-[10px] font-semibold ${
                       checked
-                        ? "border-[#38745d] bg-[#dcebe1] text-[#1d5341]"
-                        : "border-[#bcb2a0] bg-[#fffdf7] text-[#45423b]"
+                        ? "border-[#059669] bg-[#ecfdf5] text-[#065f46]"
+                        : "border-[#cbd5e1] bg-[#ffffff] text-[#1d1d1f]"
                     }`}
                   >
                     <input
                       type="checkbox"
-                      className="h-3.5 w-3.5 accent-[#235f4b]"
+                      className="h-3.5 w-3.5 accent-[#047857]"
                       checked={checked}
                       disabled={!canManage}
                       onChange={(event) => {
@@ -3431,12 +3431,12 @@ function PartnerProgressHistoryModal({
                 ).map((facet) =>
                   activeFacetKey === facet.key ? (
                     <label key={facet.key} className="grid min-w-0 gap-px">
-                      <span className="text-[10px] font-semibold leading-3 text-[#5a574c]">
+                      <span className="text-[10px] font-semibold leading-3 text-[#3c3c43]">
                         {facet.label}
                       </span>
                       <select
                         autoFocus
-                        className={`h-7 min-w-0 border border-[#38745d] bg-[#fffdf7] px-1 text-[11px] font-semibold text-[#24231f] ${FOCUS_RING}`}
+                        className={`h-7 min-w-0 border border-[#059669] bg-[#ffffff] px-1 text-[11px] font-semibold text-[#1d1d1f] ${FOCUS_RING}`}
                         value={facet.value}
                         onBlur={() => setActiveFacetKey(null)}
                         onKeyDown={(event) => {
@@ -3473,7 +3473,7 @@ function PartnerProgressHistoryModal({
                       type="button"
                       onClick={() => setActiveFacetKey(facet.key)}
                       aria-label={`${facet.label} ${facet.options.find((option) => option.value === facet.value)?.label || "未評価"}をこの場で修正`}
-                      className={`!min-h-0 inline-flex items-baseline gap-0.5 border border-[#bcb2a0] bg-[#efe9dc] px-1.5 py-1 text-[10px] font-semibold leading-3 text-[#45423b] hover:bg-[#e2ecf1] ${FOCUS_RING}`}
+                      className={`!min-h-0 inline-flex items-baseline gap-0.5 border border-[#cbd5e1] bg-[#f1f5f9] px-1.5 py-1 text-[10px] font-semibold leading-3 text-[#1d1d1f] hover:bg-[#eff6ff] ${FOCUS_RING}`}
                     >
                       <span className="font-normal opacity-70">
                         {facet.label}
@@ -3492,15 +3492,15 @@ function PartnerProgressHistoryModal({
               <div>
                 <p
                   id={`${titleId}-flow`}
-                  className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]"
+                  className="text-[10px] font-semibold tracking-[0.14em] text-[#059669]"
                 >
                   進行状況
                 </p>
-                <p className="mt-1 text-[11px] leading-5 text-[#5a574c]">
+                <p className="mt-1 text-[11px] leading-5 text-[#3c3c43]">
                   直近接点、現在地、未完了事項、次の一手、ゴールをざっくり確認。全接点は下のやり取り履歴で
                 </p>
               </div>
-              <span className="text-[10px] font-semibold text-[#5a574c]">
+              <span className="text-[10px] font-semibold text-[#3c3c43]">
                 全{steps.length}項目
               </span>
             </div>
@@ -3516,17 +3516,17 @@ function PartnerProgressHistoryModal({
           </section>
 
           <section
-            className="mt-5 border-t border-[#c5bba5] pt-4"
+            className="mt-5 border-t border-[#d2d2d7] pt-4"
             aria-labelledby={`${titleId}-holdings`}
           >
             <p
               id={`${titleId}-holdings`}
-              className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]"
+              className="text-[10px] font-semibold tracking-[0.14em] text-[#059669]"
             >
               未完了の保有事項・約束 {openHoldings.length}件
             </p>
             {openHoldings.length > 0 ? (
-              <ul className="mt-2 divide-y divide-[#eee9df] border-y border-[#c5bba5] bg-white">
+              <ul className="mt-2 divide-y divide-[#f1f5f9] border-y border-[#d2d2d7] bg-white">
                 {openHoldings.map((item) => (
                   <HoldingRow
                     key={item.id}
@@ -3544,7 +3544,7 @@ function PartnerProgressHistoryModal({
                 ))}
               </ul>
             ) : (
-              <p className="mt-2 border border-dashed border-[#ada18a] p-3 text-[11px] text-[#5a574c]">
+              <p className="mt-2 border border-dashed border-[#cbd5e1] p-3 text-[11px] text-[#3c3c43]">
                 未完了の保有事項・約束はない。
               </p>
             )}
@@ -3553,18 +3553,18 @@ function PartnerProgressHistoryModal({
           {(partner.samples.length > 0 ||
             (canManage && partner.pocCategory)) && (
             <section
-              className="mt-5 border-t border-[#c5bba5] pt-4"
+              className="mt-5 border-t border-[#d2d2d7] pt-4"
               aria-labelledby={`${titleId}-samples`}
               data-testid="sx-partner-sample-ledger"
             >
               <p
                 id={`${titleId}-samples`}
-                className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]"
+                className="text-[10px] font-semibold tracking-[0.14em] text-[#059669]"
               >
                 試料台帳 {partner.samples.length}件
               </p>
               {partner.samples.length > 0 ? (
-                <ul className="mt-2 divide-y divide-[#eee9df] border-y border-[#c5bba5] bg-white">
+                <ul className="mt-2 divide-y divide-[#f1f5f9] border-y border-[#d2d2d7] bg-white">
                   {[...partner.samples]
                     .sort(
                       (left, right) =>
@@ -3587,7 +3587,7 @@ function PartnerProgressHistoryModal({
                     ))}
                 </ul>
               ) : (
-                <p className="mt-2 border border-dashed border-[#ada18a] p-3 text-[11px] text-[#5a574c]">
+                <p className="mt-2 border border-dashed border-[#cbd5e1] p-3 text-[11px] text-[#3c3c43]">
                   保存済みの試料はまだない。
                 </p>
               )}
@@ -3601,13 +3601,13 @@ function PartnerProgressHistoryModal({
           )}
 
           <section
-            className="mt-5 border-t border-[#c5bba5] pt-4"
+            className="mt-5 border-t border-[#d2d2d7] pt-4"
             aria-labelledby={`${titleId}-interactions`}
           >
             <div className="flex items-end justify-between gap-2">
               <p
                 id={`${titleId}-interactions`}
-                className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]"
+                className="text-[10px] font-semibold tracking-[0.14em] text-[#059669]"
               >
                 やり取り履歴（全{interactions.length}件）
               </p>
@@ -3618,14 +3618,14 @@ function PartnerProgressHistoryModal({
                   type="button"
                   data-testid="sx-partner-add-interaction"
                   onClick={() => onCreateInteraction(partner.id)}
-                  className={`min-h-9 shrink-0 rounded border border-[#38745d] bg-[#fffdf7] px-2.5 text-[10px] font-semibold text-[#235f4b] hover:bg-[#dcecdf] ${FOCUS_RING}`}
+                  className={`min-h-9 shrink-0 rounded border border-[#059669] bg-[#ffffff] px-2.5 text-[10px] font-semibold text-[#047857] hover:bg-[#ecfdf5] ${FOCUS_RING}`}
                 >
                   ＋ 履歴を追加
                 </button>
               )}
             </div>
             {interactions.length > 0 ? (
-              <ul className="mt-2 divide-y divide-[#eee9df] border-y border-[#c5bba5] bg-white">
+              <ul className="mt-2 divide-y divide-[#f1f5f9] border-y border-[#d2d2d7] bg-white">
                 {interactions.map((interaction) => (
                   <InteractionFullRow
                     key={interaction.id}
@@ -3643,22 +3643,22 @@ function PartnerProgressHistoryModal({
                 ))}
               </ul>
             ) : (
-              <p className="mt-2 border border-dashed border-[#ada18a] p-3 text-[11px] text-[#5a574c]">
+              <p className="mt-2 border border-dashed border-[#cbd5e1] p-3 text-[11px] text-[#3c3c43]">
                 保存済みのやり取り履歴はまだない。
               </p>
             )}
           </section>
 
           {(closedWorkItems.length > 0 || closedCommitments.length > 0) && (
-            <details className="mt-5 border-t border-[#c5bba5] pt-3">
+            <details className="mt-5 border-t border-[#d2d2d7] pt-3">
               <summary
-                className={`flex min-h-11 cursor-pointer items-center text-[10px] font-semibold text-[#5a574c] ${FOCUS_RING}`}
+                className={`flex min-h-11 cursor-pointer items-center text-[10px] font-semibold text-[#3c3c43] ${FOCUS_RING}`}
               >
                 完了・取消の保有事項{" "}
                 {closedWorkItems.length + closedCommitments.length}件
               </summary>
               {closedWorkItems.length > 0 && (
-                <ul className="divide-y divide-[#eee9df] border-y border-[#c5bba5] bg-white">
+                <ul className="divide-y divide-[#f1f5f9] border-y border-[#d2d2d7] bg-white">
                   {closedWorkItems.map((item) => (
                     <HoldingRow
                       key={item.id}
@@ -3675,12 +3675,12 @@ function PartnerProgressHistoryModal({
               {closedCommitments.map((item) => (
                 <div
                   key={item.id}
-                  className="border-b border-[#d5cdba] bg-white p-3 text-[11px]"
+                  className="border-b border-[#e2e8f0] bg-white p-3 text-[11px]"
                 >
-                  <p className="font-semibold text-[#24231f]">
+                  <p className="font-semibold text-[#1d1d1f]">
                     {nominalizeSxActionLabel(sxNormalizePublicName(item.title))}
                   </p>
-                  <p className="mt-1 text-[#5a574c]">
+                  <p className="mt-1 text-[#3c3c43]">
                     {item.status === "completed" ? "完了" : "取消"} ・{" "}
                     {sxFormatDate(item.completedOn)}
                   </p>
@@ -3837,7 +3837,7 @@ function PartnerInlineRow({
   const relationNameView = (
     <span
       id={nameHeadingId}
-      className="whitespace-normal [overflow-wrap:anywhere] text-[12px] font-semibold leading-4 text-[#24231f]"
+      className="whitespace-normal [overflow-wrap:anywhere] text-[12px] font-semibold leading-4 text-[#1d1d1f]"
     >
       {display.name}
     </span>
@@ -3868,7 +3868,7 @@ function PartnerInlineRow({
             <span
               key={token}
               data-effluent-component={token}
-              className="inline-flex border border-[#3f6b8c] bg-[#dee8f0] px-1 py-px text-[10px] font-semibold leading-4 text-[#2a5473]"
+              className="inline-flex border border-[#0369a1] bg-[#eff6ff] px-1 py-px text-[10px] font-semibold leading-4 text-[#0369a1]"
             >
               {token}
             </span>
@@ -3878,14 +3878,14 @@ function PartnerInlineRow({
       {effluentFreeTexts.map((text) => (
         <span
           key={text.slice(0, 24)}
-          className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#24231f]"
+          className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#1d1d1f]"
           title={text}
         >
           {text}
         </span>
       ))}
       {(partner.effluentVolumeAnnual || partner.effluentCostAnnual) && (
-        <span className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]">
+        <span className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#3c3c43]">
           {[
             partner.effluentVolumeAnnual
               ? `年間 ${partner.effluentVolumeAnnual}`
@@ -3900,7 +3900,7 @@ function PartnerInlineRow({
       )}
       {partner.effluentTestResult && (
         <span
-          className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]"
+          className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#3c3c43]"
           title={partner.effluentTestResult}
         >
           結果 {partner.effluentTestResult}
@@ -3925,7 +3925,7 @@ function PartnerInlineRow({
     <span className="grid min-h-11 min-w-0 content-center gap-0.5">
       {nextMeetingDateText && (
         <span
-          className="[overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#24231f]"
+          className="[overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#1d1d1f]"
           title={nextMeetingDateText}
         >
           {nextMeetingDateText}
@@ -3934,7 +3934,7 @@ function PartnerInlineRow({
       {/* 着地点はその面談で何を取りに行くかなので、形式や準備物より上へ出す (2026-08-07 まさ)。 */}
       {partner.nextMeetingGoal && (
         <span
-          className="[overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#315f7d]"
+          className="[overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#007aff]"
           title={`着地点 ${partner.nextMeetingGoal}`}
         >
           着地点 {partner.nextMeetingGoal}
@@ -3942,7 +3942,7 @@ function PartnerInlineRow({
       )}
       {nextMeetingSubText && (
         <span
-          className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]"
+          className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#3c3c43]"
           title={nextMeetingSubText}
         >
           {nextMeetingSubText}
@@ -3954,7 +3954,7 @@ function PartnerInlineRow({
     <span className="grid min-h-11 min-w-0 content-center gap-0.5">
       {partner.connectionContext && (
         <span
-          className="[overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#24231f]"
+          className="[overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#1d1d1f]"
           title={partner.connectionContext}
         >
           {partner.connectionContext}
@@ -3962,7 +3962,7 @@ function PartnerInlineRow({
       )}
       {partner.introducerLabel && (
         <span
-          className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#5a574c]"
+          className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#3c3c43]"
           title={`紹介者 ${partner.introducerLabel}`}
         >
           紹介者 {partner.introducerLabel}
@@ -3972,7 +3972,7 @@ function PartnerInlineRow({
   );
   const goalView = (
     <p
-      className="[overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#24231f]"
+      className="[overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#1d1d1f]"
       title={goalStep?.title}
     >
       {partner.targetState ? goalStep?.title : ""}
@@ -4004,7 +4004,7 @@ function PartnerInlineRow({
         readOnly
         tabIndex={-1}
         aria-label={`排液調達${receivedSamples > 0 ? "済み" : "未"}。詳細は進捗と履歴で確認`}
-        className="pointer-events-none h-4 w-4 accent-[#235f4b]"
+        className="pointer-events-none h-4 w-4 accent-[#047857]"
       />
     </div>
   );
@@ -4015,7 +4015,7 @@ function PartnerInlineRow({
       data-sx-anchor={`sx-partner-${partner.id}`}
       data-testid={`sx-partner-comparison-row-${partner.id}`}
       aria-labelledby={nameHeadingId}
-      className="scroll-mt-24 border-b border-[#d5cdba] bg-[#fffdf7]"
+      className="scroll-mt-24 border-b border-[#e2e8f0] bg-[#ffffff]"
     >
       <div
         className={`grid w-full grid-cols-[48px_minmax(0,1fr)] items-stretch gap-2 px-2 py-1.5 text-left ${PARTNER_CONTROL_ROW_GRID}`}
@@ -4035,7 +4035,7 @@ function PartnerInlineRow({
         }}
       >
         <div
-          className={`min-w-0 self-stretch bg-[#fffdf7] ${PARTNER_LEDGER_STICKY_LEFT}`}
+          className={`min-w-0 self-stretch bg-[#ffffff] ${PARTNER_LEDGER_STICKY_LEFT}`}
           data-partner-grade-cell={partner.id}
         >
           {canManage ? (
@@ -4058,7 +4058,7 @@ function PartnerInlineRow({
               }
               renderFields={(values, setValue) => (
                 <label className="grid gap-0.5">
-                  <span className="text-[10px] font-semibold text-[#5a574c]">
+                  <span className="text-[10px] font-semibold text-[#3c3c43]">
                     顧客としての見込み
                   </span>
                   <select
@@ -4090,7 +4090,7 @@ function PartnerInlineRow({
               (2026-08-07 まさ)。横に 68px の別列で並べていたレールを名前の下へ入れ、
               1社の識別に必要なものだけがこの固定列に収まるようにした。 */}
           <div
-            className={`flex min-w-0 flex-col justify-center gap-0 self-stretch bg-[#fffdf7] @min-[1248px]:pl-2 md:col-span-2 @min-[1248px]:col-span-1 ${PARTNER_LEDGER_STICKY_NAME}`}
+            className={`flex min-w-0 flex-col justify-center gap-0 self-stretch bg-[#ffffff] @min-[1248px]:pl-2 md:col-span-2 @min-[1248px]:col-span-1 ${PARTNER_LEDGER_STICKY_NAME}`}
             style={{ order: 0 }}
             data-partner-name-cell={partner.id}
           >
@@ -4104,7 +4104,7 @@ function PartnerInlineRow({
                 aria-controls={`sx-partner-history-${partner.id}`}
                 aria-label={`${display.name}の進捗と履歴を開く`}
                 data-partner-name-open={partner.id}
-                className={`!min-h-0 min-w-0 text-left hover:bg-[#e7f0e9] ${FOCUS_RING}`}
+                className={`!min-h-0 min-w-0 text-left hover:bg-[#ecfdf5] ${FOCUS_RING}`}
               >
                 <span className="flex min-w-0 items-start justify-between gap-1">
                   {relationNameView}
@@ -4112,7 +4112,7 @@ function PartnerInlineRow({
                   {partner.currentBallSide === "sx" && (
                     <span
                       data-partner-sx-ball={partner.id}
-                      className="mt-px shrink-0 border border-[#bf7b2c] bg-[#f6ead2] px-1 py-px text-[10px] font-semibold leading-3 text-[#69461c]"
+                      className="mt-px shrink-0 border border-[#d97706] bg-[#fef3c7] px-1 py-px text-[10px] font-semibold leading-3 text-[#92400e]"
                     >
                       SX側保有
                     </span>
@@ -4130,7 +4130,7 @@ function PartnerInlineRow({
                 expanded={expanded}
               />
               <span
-                className="block text-[10px] font-normal leading-3 text-[#5a574c]"
+                className="block text-[10px] font-normal leading-3 text-[#3c3c43]"
                 title={`最終確認 ${sxFormatDate(partner.lastVerifiedAt)}`}
               >
                 確認 {sxFormatDate(partner.lastVerifiedAt)}
@@ -4142,7 +4142,7 @@ function PartnerInlineRow({
             order={cellOrder("goal")}
             className="md:col-span-2 @min-[1248px]:col-span-1"
           >
-            <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
+            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[1248px]:hidden">
               ゴール
             </p>
             {canManage ? (
@@ -4164,7 +4164,7 @@ function PartnerInlineRow({
                 }
                 renderFields={(values, setValue) => (
                   <label className="grid gap-0.5">
-                    <span className="text-[10px] font-semibold text-[#5a574c]">
+                    <span className="text-[10px] font-semibold text-[#3c3c43]">
                       ゴール
                     </span>
                     <textarea
@@ -4189,7 +4189,7 @@ function PartnerInlineRow({
               食うだけだった。工程との接続は保有事項の詳細モーダル側に残っている。 */}
 
           <PartnerRowCell order={cellOrder("action")}>
-            <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
+            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[1248px]:hidden">
               次にやること
             </p>
             {canManage && target ? (
@@ -4208,12 +4208,12 @@ function PartnerInlineRow({
                 view={
                   <>
                     <p
-                      className="[overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#24231f]"
+                      className="[overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#1d1d1f]"
                       title={actionText}
                     >
                       {actionText}
                     </p>
-                    <p className="mt-1 text-[10px] text-[#5a574c]">
+                    <p className="mt-1 text-[10px] text-[#3c3c43]">
                       {interventionStatusLabel(intervention)}
                       {holdings.length > 1
                         ? ` ・ ほか${holdings.length - 1}件`
@@ -4260,7 +4260,7 @@ function PartnerInlineRow({
                 renderFields={(values, setValue) => (
                   <>
                     <label className="grid gap-0.5">
-                      <span className="text-[10px] font-semibold text-[#5a574c]">
+                      <span className="text-[10px] font-semibold text-[#3c3c43]">
                         次にやること
                       </span>
                       <textarea
@@ -4275,7 +4275,7 @@ function PartnerInlineRow({
                     </label>
                     {target.resource !== "partner" && (
                       <label className="grid gap-0.5">
-                        <span className="text-[10px] font-semibold text-[#5a574c]">
+                        <span className="text-[10px] font-semibold text-[#3c3c43]">
                           状態
                         </span>
                         <select
@@ -4302,12 +4302,12 @@ function PartnerInlineRow({
             ) : (
               <>
                 <p
-                  className="[overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#24231f]"
+                  className="[overflow-wrap:anywhere] text-[11px] font-semibold leading-4 text-[#1d1d1f]"
                   title={actionText}
                 >
                   {actionText}
                 </p>
-                <p className="mt-1 text-[10px] text-[#5a574c]">
+                <p className="mt-1 text-[10px] text-[#3c3c43]">
                   {interventionStatusLabel(intervention)}
                   {holdings.length > 1
                     ? ` ・ ほか${holdings.length - 1}件`
@@ -4318,7 +4318,7 @@ function PartnerInlineRow({
           </PartnerRowCell>
 
           <PartnerRowCell order={cellOrder("meeting")}>
-            <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
+            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[1248px]:hidden">
               次回面談
             </p>
             {canManage ? (
@@ -4366,7 +4366,7 @@ function PartnerInlineRow({
                 renderFields={(values, setValue) => (
                   <>
                     <label className="grid gap-0.5">
-                      <span className="text-[10px] font-semibold text-[#5a574c]">
+                      <span className="text-[10px] font-semibold text-[#3c3c43]">
                         日付
                       </span>
                       <input
@@ -4380,7 +4380,7 @@ function PartnerInlineRow({
                       />
                     </label>
                     <label className="grid gap-0.5">
-                      <span className="text-[10px] font-semibold text-[#5a574c]">
+                      <span className="text-[10px] font-semibold text-[#3c3c43]">
                         時刻
                       </span>
                       <input
@@ -4393,7 +4393,7 @@ function PartnerInlineRow({
                       />
                     </label>
                     <label className="grid gap-0.5">
-                      <span className="text-[10px] font-semibold text-[#5a574c]">
+                      <span className="text-[10px] font-semibold text-[#3c3c43]">
                         形式
                       </span>
                       <select
@@ -4412,7 +4412,7 @@ function PartnerInlineRow({
                       </select>
                     </label>
                     <label className="grid gap-0.5">
-                      <span className="text-[10px] font-semibold text-[#5a574c]">
+                      <span className="text-[10px] font-semibold text-[#3c3c43]">
                         場所・接続先
                       </span>
                       <input
@@ -4425,7 +4425,7 @@ function PartnerInlineRow({
                       />
                     </label>
                     <label className="grid gap-0.5">
-                      <span className="text-[10px] font-semibold text-[#5a574c]">
+                      <span className="text-[10px] font-semibold text-[#3c3c43]">
                         着地点 (この面談で何を得るか)
                       </span>
                       <textarea
@@ -4439,7 +4439,7 @@ function PartnerInlineRow({
                       />
                     </label>
                     <label className="grid gap-0.5">
-                      <span className="text-[10px] font-semibold text-[#5a574c]">
+                      <span className="text-[10px] font-semibold text-[#3c3c43]">
                         準備すべきもの
                       </span>
                       <textarea
@@ -4461,7 +4461,7 @@ function PartnerInlineRow({
           </PartnerRowCell>
 
           <PartnerRowCell order={cellOrder("owner")}>
-            <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
+            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[1248px]:hidden">
               期限
             </p>
             {/* 担当名と当方/先方バッジは 2026-08-08 に削除 (まさ「シンプルに期限だけに」)。
@@ -4479,7 +4479,7 @@ function PartnerInlineRow({
                 }}
                 view={
                   <span
-                    className={`text-[11px] font-semibold ${intervention.risk === "overdue" ? "text-[#8c3329]" : "text-[#24231f]"}`}
+                    className={`text-[11px] font-semibold ${intervention.risk === "overdue" ? "text-[#dc2626]" : "text-[#1d1d1f]"}`}
                   >
                     {intervention.dueDate
                       ? sxFormatDueDateWithPrecision(
@@ -4528,7 +4528,7 @@ function PartnerInlineRow({
               />
             ) : (
               <span
-                className={`text-[11px] font-semibold ${intervention.risk === "overdue" ? "text-[#8c3329]" : "text-[#24231f]"}`}
+                className={`text-[11px] font-semibold ${intervention.risk === "overdue" ? "text-[#dc2626]" : "text-[#1d1d1f]"}`}
               >
                 {intervention.dueDate
                   ? sxFormatDueDateWithPrecision(
@@ -4544,7 +4544,7 @@ function PartnerInlineRow({
             order={cellOrder("effluent")}
             className="md:col-span-2 @min-[1248px]:col-span-1"
           >
-            <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
+            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[1248px]:hidden">
               排液
             </p>
             {canManage ? (
@@ -4586,7 +4586,7 @@ function PartnerInlineRow({
                 renderFields={(values, setValue) => (
                   <>
                     <div className="grid gap-0.5">
-                      <span className="text-[10px] font-semibold text-[#5a574c]">
+                      <span className="text-[10px] font-semibold text-[#3c3c43]">
                         排液中の成分（バッジを押すと外れる）
                       </span>
                       {(() => {
@@ -4610,7 +4610,7 @@ function PartnerInlineRow({
                                     }
                                     aria-label={`成分 ${token} を外す`}
                                     title={token}
-                                    className={`inline-flex max-w-full items-center gap-0.5 border border-[#3f6b8c] bg-[#dee8f0] px-1 py-px text-[10px] font-semibold leading-4 text-[#2a5473] hover:bg-[#c9dae8] ${FOCUS_RING}`}
+                                    className={`inline-flex max-w-full items-center gap-0.5 border border-[#0369a1] bg-[#eff6ff] px-1 py-px text-[10px] font-semibold leading-4 text-[#0369a1] hover:bg-[#dbeafe] ${FOCUS_RING}`}
                                   >
                                     <span className="max-w-[180px] truncate">
                                       {token}
@@ -4686,7 +4686,7 @@ function PartnerInlineRow({
                       })()}
                     </div>
                     <label className="grid gap-0.5">
-                      <span className="text-[10px] font-semibold text-[#5a574c]">
+                      <span className="text-[10px] font-semibold text-[#3c3c43]">
                         年間の排液量
                       </span>
                       <input
@@ -4699,7 +4699,7 @@ function PartnerInlineRow({
                       />
                     </label>
                     <label className="grid gap-0.5">
-                      <span className="text-[10px] font-semibold text-[#5a574c]">
+                      <span className="text-[10px] font-semibold text-[#3c3c43]">
                         年間の排液処理コスト
                       </span>
                       <input
@@ -4712,7 +4712,7 @@ function PartnerInlineRow({
                       />
                     </label>
                     <label className="grid gap-0.5">
-                      <span className="text-[10px] font-semibold text-[#5a574c]">
+                      <span className="text-[10px] font-semibold text-[#3c3c43]">
                         実験結果
                       </span>
                       <textarea
@@ -4737,7 +4737,7 @@ function PartnerInlineRow({
             order={cellOrder("origin")}
             className="md:col-span-2 @min-[1248px]:col-span-1"
           >
-            <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
+            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[1248px]:hidden">
               接点の経緯
             </p>
             {canManage ? (
@@ -4775,7 +4775,7 @@ function PartnerInlineRow({
             order={cellOrder("procurement")}
             className="md:col-span-2 @min-[1248px]:col-span-1"
           >
-            <p className="text-[10px] font-semibold text-[#5a574c] @min-[1248px]:hidden">
+            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[1248px]:hidden">
               排液調達
             </p>
             {procurementView}
@@ -5029,7 +5029,7 @@ export function SxPartnerPipeline({
 
   return (
     <div
-      className="relative isolate @container rounded-lg border border-[#ada18a] bg-[#fffdf7]"
+      className="relative isolate @container rounded-lg border border-[#cbd5e1] bg-[#ffffff]"
       data-testid="sx-partner-pipeline"
       style={partnerLedgerGridStyle(widths, order)}
     >
@@ -5037,7 +5037,7 @@ export function SxPartnerPipeline({
           列幅は見出しのドラッグで調整でき、既定へ戻すには列幅を掴んでドラッグし直す。 */}
       {!comparisonOnly && (
         <>
-          <div className="flex flex-wrap gap-1.5 border-b border-[#c5bba5] bg-[#fffdf7] px-3 py-2 md:hidden">
+          <div className="flex flex-wrap gap-1.5 border-b border-[#d2d2d7] bg-[#ffffff] px-3 py-2 md:hidden">
             <SxBadge tone={NEUTRAL_TONE}>
               関係先 {countScopePartners.length}
             </SxBadge>
@@ -5084,10 +5084,10 @@ export function SxPartnerPipeline({
       {/* 先頭行 (見出し) の固定。横スクロール枠の外に出し、scrollLeft だけ body から転記する。 */}
       <div
         ref={ledgerHeaderRef}
-        className={`${comparisonOnly ? "sticky top-0 z-30 shadow-[0_1px_0_#d6cebf]" : ""} hidden overflow-hidden border-b border-[#c5bba5] bg-[#f2eee0] @min-[1248px]:block`}
+        className={`${comparisonOnly ? "sticky top-0 z-30 shadow-[0_1px_0_#cbd5e1]" : ""} hidden overflow-hidden border-b border-[#d2d2d7] bg-[#f5f5f7] @min-[1248px]:block`}
       >
         <div
-          className={`grid gap-2 px-2 py-1 text-[10px] font-semibold text-[#5a574c] @min-[1248px]:[grid-template-columns:var(--sx-pl-header)] ${PARTNER_LEDGER_MIN_WIDTH}`}
+          className={`grid gap-2 px-2 py-1 text-[10px] font-semibold text-[#3c3c43] @min-[1248px]:[grid-template-columns:var(--sx-pl-header)] ${PARTNER_LEDGER_MIN_WIDTH}`}
         >
           {(
             [
@@ -5138,7 +5138,7 @@ export function SxPartnerPipeline({
             : groups.length === 0 &&
               deferredPartners.length === 0 &&
               endedPartners.length === 0) && (
-            <p className="px-3 py-6 text-center text-xs text-[#5a574c]">
+            <p className="px-3 py-6 text-center text-xs text-[#3c3c43]">
               該当する関係先はまだないよ。
             </p>
           )}
@@ -5149,18 +5149,18 @@ export function SxPartnerPipeline({
           {!comparisonOnly &&
             groups.map((group) => (
               <div key={group.key}>
-                <div className="border-b border-l-4 border-[#c5bba5] border-l-[#38745d] bg-[#fffdf7] px-3 py-1.5">
+                <div className="border-b border-l-4 border-[#d2d2d7] border-l-[#059669] bg-[#ffffff] px-3 py-1.5">
                   {/* spec P1: 分類見出しh4は11-12px+左罫線で本文行と視覚的に区切る。in_progress/established
                     は同じ複合ラベル("XX先")になるため、unclassified以外は状態を（）で必ず明示して見出し
                     だけでも区別できるようにする。 */}
-                  <h4 className="w-fit text-[11px] font-semibold text-[#38745d] @min-[1248px]:sticky @min-[1248px]:left-3">
+                  <h4 className="w-fit text-[11px] font-semibold text-[#059669] @min-[1248px]:sticky @min-[1248px]:left-3">
                     {group.label}
                     {group.roleKind !== "unclassified" && (
-                      <span className="text-[#5a574c]">
+                      <span className="text-[#3c3c43]">
                         （{sxRelationshipStateLabel(group.relationshipState)}）
                       </span>
                     )}{" "}
-                    <span className="text-[#5a574c]">
+                    <span className="text-[#3c3c43]">
                       {group.partners.length}件
                     </span>
                   </h4>
@@ -5176,9 +5176,9 @@ export function SxPartnerPipeline({
             ))}
 
           {!comparisonOnly && deferredPartners.length > 0 && (
-            <details className="border-t border-[#c5bba5]">
+            <details className="border-t border-[#d2d2d7]">
               <summary
-                className={`flex min-h-11 cursor-pointer select-none items-center px-3 py-2 text-[10px] font-semibold text-[#5a574c] ${FOCUS_RING}`}
+                className={`flex min-h-11 cursor-pointer select-none items-center px-3 py-2 text-[10px] font-semibold text-[#3c3c43] ${FOCUS_RING}`}
               >
                 <span className="w-fit @min-[1248px]:sticky @min-[1248px]:left-3">
                   保留・低優先（重要経路外・{deferredPartners.length}件）
@@ -5199,9 +5199,9 @@ export function SxPartnerPipeline({
           {/* 終了は保留とは別単位（spec P1: 保留/終了を別単位）。同じ折りたたみ行UIを流用しつつ、
               対応中カウントには入らないことがこのsectionの独立性からも分かるようにする。 */}
           {!comparisonOnly && endedPartners.length > 0 && (
-            <details className="border-t border-[#c5bba5]">
+            <details className="border-t border-[#d2d2d7]">
               <summary
-                className={`flex min-h-11 cursor-pointer select-none items-center px-3 py-2 text-[10px] font-semibold text-[#5a574c] ${FOCUS_RING}`}
+                className={`flex min-h-11 cursor-pointer select-none items-center px-3 py-2 text-[10px] font-semibold text-[#3c3c43] ${FOCUS_RING}`}
               >
                 <span className="w-fit @min-[1248px]:sticky @min-[1248px]:left-3">
                   終了（対応中から除外・{endedPartners.length}件）
@@ -5366,7 +5366,7 @@ function InteractionFullRow({
   if (editing) {
     const field = (label: string, control: ReactNode, span?: boolean) => (
       <label className={`grid min-w-0 gap-0.5 ${span ? "sm:col-span-2" : ""}`}>
-        <span className="text-[10px] font-semibold text-[#5a574c]">{label}</span>
+        <span className="text-[10px] font-semibold text-[#3c3c43]">{label}</span>
         {control}
       </label>
     );
@@ -5375,7 +5375,7 @@ function InteractionFullRow({
         setDraft((current) => ({ ...current, [key]: event.target.value }));
     return (
       <li
-        className="bg-[#f6f9f4] p-2.5"
+        className="bg-[#ecfdf5] p-2.5"
         data-interaction-inline-editor={interaction.id}
         aria-busy={saving}
       >
@@ -5469,7 +5469,7 @@ function InteractionFullRow({
           )}
         </div>
         {error && (
-          <p className="mt-1 text-[10px] font-semibold text-[#8c3329]" role="alert">
+          <p className="mt-1 text-[10px] font-semibold text-[#dc2626]" role="alert">
             {error}
           </p>
         )}
@@ -5478,7 +5478,7 @@ function InteractionFullRow({
             type="button"
             onClick={() => setEditing(false)}
             disabled={saving}
-            className={`min-h-9 rounded border border-[#ada18a] bg-[#fffdf7] px-2.5 text-[10px] font-semibold text-[#5a574c] hover:bg-[#f2eee0] ${FOCUS_RING}`}
+            className={`min-h-9 rounded border border-[#cbd5e1] bg-[#ffffff] px-2.5 text-[10px] font-semibold text-[#3c3c43] hover:bg-[#f5f5f7] ${FOCUS_RING}`}
           >
             取消
           </button>
@@ -5486,7 +5486,7 @@ function InteractionFullRow({
             type="button"
             onClick={() => void save()}
             disabled={saving}
-            className={`min-h-9 rounded border border-[#235f4b] bg-[#235f4b] px-2.5 text-[10px] font-semibold text-[#fffdf7] hover:bg-[#1d5341] ${FOCUS_RING}`}
+            className={`min-h-9 rounded border border-[#047857] bg-[#047857] px-2.5 text-[10px] font-semibold text-[#ffffff] hover:bg-[#065f46] ${FOCUS_RING}`}
           >
             保存
           </button>
@@ -5496,7 +5496,7 @@ function InteractionFullRow({
   }
   return (
     <li
-      className={`p-2.5 text-[11px] leading-5 ${editable ? "cursor-pointer hover:bg-[#e7f0e9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]" : ""}`}
+      className={`p-2.5 text-[11px] leading-5 ${editable ? "cursor-pointer hover:bg-[#ecfdf5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]" : ""}`}
       role={editable ? "button" : undefined}
       tabIndex={editable ? 0 : undefined}
       aria-label={
@@ -5518,7 +5518,7 @@ function InteractionFullRow({
     >
       <div className="flex flex-wrap items-center justify-between gap-1">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] text-[#5a574c]">{dateText}</span>
+          <span className="text-[10px] text-[#3c3c43]">{dateText}</span>
           <SxBadge
             tone={
               INTERACTION_KIND_TONE[interaction.interactionKind] ||
@@ -5529,18 +5529,18 @@ function InteractionFullRow({
           </SxBadge>
         </div>
       </div>
-      <p className="mt-1 text-[10px] font-semibold text-[#514e47]">
+      <p className="mt-1 text-[10px] font-semibold text-[#3c3c43]">
         主体: {actorText}
       </p>
-      <p className="mt-0.5 font-semibold leading-5 text-[#24231f]">
+      <p className="mt-0.5 font-semibold leading-5 text-[#1d1d1f]">
         {sxNormalizePublicName(interaction.summary)}
       </p>
       {interaction.outcomeSummary && (
-        <p className="mt-0.5 leading-5 text-[#514e47]">
+        <p className="mt-0.5 leading-5 text-[#3c3c43]">
           {sxNormalizePublicName(interaction.outcomeSummary)}
         </p>
       )}
-      <p className="mt-0.5 text-[10px] leading-4 text-[#315f7d]">
+      <p className="mt-0.5 text-[10px] leading-4 text-[#007aff]">
         ボール: {ballText}
       </p>
       {/* 議事録の本文。共有リンク（plaud等）は失効するので、全文をここに保存して読めるようにする
@@ -5548,16 +5548,16 @@ function InteractionFullRow({
           行クリックの直接編集と衝突しないよう、開閉のクリックは親へ伝播させない。 */}
       {interaction.detailMd && (
         <details
-          className="mt-1.5 border-t border-dashed border-[#d5cdba] pt-1.5"
+          className="mt-1.5 border-t border-dashed border-[#e2e8f0] pt-1.5"
           onClick={(event) => event.stopPropagation()}
           onKeyDown={(event) => event.stopPropagation()}
         >
           <summary
-            className={`flex min-h-11 cursor-pointer items-center text-[10px] font-semibold text-[#38745d] ${FOCUS_RING}`}
+            className={`flex min-h-11 cursor-pointer items-center text-[10px] font-semibold text-[#059669] ${FOCUS_RING}`}
           >
             議事録の全文を読む
           </summary>
-          <div className="mt-1 max-h-80 overflow-y-auto whitespace-pre-wrap [overflow-wrap:anywhere] border border-[#d5cdba] bg-[#fffdf7] p-2 text-[11px] leading-5 text-[#24231f]">
+          <div className="mt-1 max-h-80 overflow-y-auto whitespace-pre-wrap [overflow-wrap:anywhere] border border-[#e2e8f0] bg-[#ffffff] p-2 text-[11px] leading-5 text-[#1d1d1f]">
             {interaction.detailMd}
           </div>
         </details>

@@ -421,7 +421,8 @@ assertIncludes(weeklyCssFile, weeklyCss, [
   '.field input, .field select, .field textarea, .fieldSpan input, .fieldSpan select, .fieldSpan textarea { width: 100%; min-height: 36px;',
   '.editorFooter .primaryButton, .editorFooter .secondaryButton, .editorFooter .dangerButton { min-height: 38px; }',
   '.editorPanel,\n  .editorPanel[data-editor-width="wide"] { width: 100%;',
-  "background: rgba(36, 35, 31, .46); backdrop-filter: blur(4px);",
+  // v3.66.0: AMD標準カラートーン刷新でbackdrop rgba(36, 35, 31, .46)→rgba(29, 29, 31, .46) に置換
+  "background: rgba(29, 29, 31, .46); backdrop-filter: blur(4px);",
   "font-size: 16px;",
 ]);
 
@@ -459,10 +460,11 @@ assertIncludes(timelineFile, timeline, [
   "const MONTH_ROW_H = 44;",
   "const MONTH_YEAR_ROW_H = 15;",
   // 年は月より上の段。重ねない。
-  'className="absolute top-0 pl-1 text-[9px] font-bold leading-none text-[#24231f]"',
+  // v3.66.0: AMD標準カラートーン刷新で#24231f→#1d1d1f, #5f5a4d→#3c3c43, #5f4a66→#7c3aed に置換
+  'className="absolute top-0 pl-1 text-[9px] font-bold leading-none text-[#1d1d1f]"',
   "{month.yearLabel}",
-  'className={`absolute bottom-0 pl-1 text-[9px] ${month.isYearStart ? "font-bold text-[#24231f]" : "text-[#5f5a4d]"}`}',
-  'className="absolute z-10 flex -translate-x-full items-center gap-0.5 whitespace-nowrap pr-1 text-[9px] font-bold leading-none text-[#5f4a66]"',
+  'className={`absolute bottom-0 pl-1 text-[9px] ${month.isYearStart ? "font-bold text-[#1d1d1f]" : "text-[#3c3c43]"}`}',
+  'className="absolute z-10 flex -translate-x-full items-center gap-0.5 whitespace-nowrap pr-1 text-[9px] font-bold leading-none text-[#7c3aed]"',
   'data-gantt-milestone-diamond={milestone.id}',
   'absolute -top-[5px] left-0 grid h-11 w-11',
   'markerPct >= 60 ? "right-3 pr-2 text-right" : "left-3 pl-2 text-left"',

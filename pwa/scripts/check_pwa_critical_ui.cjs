@@ -1003,7 +1003,8 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   'heading="母数"',
   "SCROLL_HINT_CLASS",
   "ALWAYS_SCROLL_HINT_CLASS",
-  "border-l-4 border-[#c5bba5] border-l-[#38745d]",
+  // v3.66.0: AMD標準カラートーン刷新でborder-[#c5bba5]→#d2d2d7, border-l-[#38745d]→#059669 に置換
+  "border-l-4 border-[#d2d2d7] border-l-[#059669]",
   // spec P0-10: 登録率(対応中N先中)。
   "登録率",
   "停止",
@@ -1300,7 +1301,8 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "日程未設定・{ROW_STATE_TEXT[row.state]}",
   // desktop expand/collapse toggle must be a full 44px hit target, not a 32px (w-8) one
   // (監査追補 2026-08-02).
-  "flex w-11 shrink-0 items-center justify-center text-[#5a574c]",
+  // v3.66.0: AMD標準カラートーン刷新でtext-[#5a574c]→#3c3c43 に置換
+  "flex w-11 shrink-0 items-center justify-center text-[#3c3c43]",
   "const TASK_BAR_HEIGHT_PX = 10;",
   "const TASK_BAR_TOP_PX = (ROW_H - TASK_BAR_HEIGHT_PX) / 2;",
   "top: TASK_BAR_TOP_PX,",
@@ -3190,9 +3192,11 @@ expectIncludes("src/components/project-workspace/weekly-control.module.css", [
 // おり、透明な生成りsheet・崩れたink/border/focusの原因だった。PlanInspectorLayerと同じ
 // トークン一式をここで再定義し、44pxヒットターゲットとfocus-visibleの可視outlineも揃える。
 expectPattern("src/components/project-workspace/weekly-control.module.css", [
-  /\.editorBackdrop\s*\{[^}]*--sheet:\s*#fffdf7;/,
-  /\.editorBackdrop\s*\{[^}]*--ink:\s*#24231f;/,
-  /\.editorBackdrop\s*\{[^}]*--green:\s*#235f4b;/,
+  // v3.66.0: AMD標準カラートーン刷新で.editorBackdropの--sheet: #fffdf7→#ffffff,
+  // --ink: #24231f→#1d1d1f, --green: #235f4b→#047857 に置換
+  /\.editorBackdrop\s*\{[^}]*--sheet:\s*#ffffff;/,
+  /\.editorBackdrop\s*\{[^}]*--ink:\s*#1d1d1f;/,
+  /\.editorBackdrop\s*\{[^}]*--green:\s*#047857;/,
   // 監査追補 (2026-08-02、色再監査): CSS変数の再定義だけでは、.editorPanel配下のh2/strong/
   // label/本文がcolorを明示していない限りbody側のdark themeを継承してしまい、不透明な生成り
   // #fffdf7背景の上で文字が薄く読めなくなる。.editorPanel自体にcolor: var(--ink)を明示する。
@@ -3200,10 +3204,12 @@ expectPattern("src/components/project-workspace/weekly-control.module.css", [
 ]);
 expectIncludes("src/components/project-workspace/weekly-control.module.css", [
   ".iconButton { width: 44px; height: 44px; border-radius: 8px; }",
-  ".iconButton:hover, .iconButton:focus-visible { border-color: var(--green); background: #e8f2eb; color: var(--green); outline: 2px solid var(--green); outline-offset: 2px; }",
+  // v3.66.0: AMD標準カラートーン刷新でhover背景 #e8f2eb→#ecfdf5 に置換
+  ".iconButton:hover, .iconButton:focus-visible { border-color: var(--green); background: #ecfdf5; color: var(--green); outline: 2px solid var(--green); outline-offset: 2px; }",
   ".primaryButton, .secondaryButton { min-height: 44px;",
   ".primaryButton:focus-visible, .secondaryButton:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }",
-  "min-height: 36px; border: 1px solid #c9c0b2; border-radius: 5px; background: #fffefa; padding: 6px 8px; color: var(--ink); font-size: 12px;",
+  // v3.66.0: AMD標準カラートーン刷新でborder #c9c0b2→#d2d2d7, background #fffefa→#ffffff に置換
+  "min-height: 36px; border: 1px solid #d2d2d7; border-radius: 5px; background: #ffffff; padding: 6px 8px; color: var(--ink); font-size: 12px;",
   ".field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible, .fieldSpan input:focus-visible, .fieldSpan select:focus-visible, .fieldSpan textarea:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }",
   ".checkboxRow { min-height: 36px;",
   ".checkboxRow input:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }",

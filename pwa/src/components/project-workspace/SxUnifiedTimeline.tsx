@@ -226,9 +226,9 @@ const ROW_STATE_TEXT: Record<DisplayRow["state"], string> = {
 };
 
 const GATE_STATE_TONE: Record<SxGateRequirement["state"], string> = {
-  met: "border-[#74a690] bg-[#dcecdf] text-[#205f49]",
-  unconfirmed: "border-[#bd9a52] bg-[#f7e8c8] text-[#765022]",
-  unmet: "border-[#d8b0a8] bg-[#f6dad5] text-[#8c3329]",
+  met: "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]",
+  unconfirmed: "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]",
+  unmet: "border-[#fca5a5] bg-[#fee2e2] text-[#dc2626]",
 };
 
 const GATE_STATE_TEXT: Record<SxGateRequirement["state"], string> = {
@@ -502,7 +502,7 @@ function RowBar({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
-      className={`group relative h-full w-full ${selected ? "bg-[#dcecdf]/70" : "hover:bg-[#f2eee0]/70"} ${dragging ? "cursor-grabbing" : ""} ${saving ? "opacity-60" : ""}`}
+      className={`group relative h-full w-full ${selected ? "bg-[#ecfdf5]/70" : "hover:bg-[#f5f5f7]/70"} ${dragging ? "cursor-grabbing" : ""} ${saving ? "opacity-60" : ""}`}
     >
       {/* The row is split into two real interactions: its true blank timeline surface proposes
           a new MS, while the rendered bar/diamond alone owns record selection and drag. Keeping
@@ -512,7 +512,7 @@ function RowBar({
         type="button"
         onClick={onTimelinePoint}
         disabled={!canManage || saving || connectionDrafting}
-        className="absolute inset-0 z-0 w-full cursor-crosshair text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] disabled:cursor-default"
+        className="absolute inset-0 z-0 w-full cursor-crosshair text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669] disabled:cursor-default"
         aria-label={`${row.title}行の日付を選んでMSを追加`}
       />
       {/* Move-drag hit target: the actual bar's full width, never empty row space. Sits below
@@ -531,7 +531,7 @@ function RowBar({
             onOpen();
           }}
           onLostPointerCapture={onLostPointerCapture}
-          className="absolute z-20 cursor-grab focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+          className="absolute z-20 cursor-grab focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
           style={{
             top: DRAG_HIT_TOP,
             left: barGeometry!.left,
@@ -549,7 +549,7 @@ function RowBar({
             event.stopPropagation();
             onOpen();
           }}
-          className="absolute z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+          className="absolute z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
           style={detailHitStyle}
           aria-label={`${row.title}の詳細を開く`}
         />
@@ -600,7 +600,7 @@ function RowBar({
             style={{ top: DRAG_HIT_TOP, left: `calc(${barGeometry!.left} - 16px)`, height: DRAG_HIT_HEIGHT }}
             aria-label={`${row.title}の開始日を変更`}
           >
-            <span className="block h-3 w-[3px] bg-[#24231f]" />
+            <span className="block h-3 w-[3px] bg-[#1d1d1f]" />
           </button>
           <button
             type="button"
@@ -617,7 +617,7 @@ function RowBar({
             style={{ top: DRAG_HIT_TOP, left: barGeometry!.right, height: DRAG_HIT_HEIGHT }}
             aria-label={`${row.title}の終了日を変更`}
           >
-            <span className="block h-3 w-[3px] bg-[#24231f]" />
+            <span className="block h-3 w-[3px] bg-[#1d1d1f]" />
           </button>
         </>
       )}
@@ -634,14 +634,14 @@ function RowBar({
             onOpen();
           }}
           onLostPointerCapture={onLostPointerCapture}
-          className="absolute z-30 grid -translate-x-1/2 cursor-grab place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+          className="absolute z-30 grid -translate-x-1/2 cursor-grab place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
           style={{ top: DRAG_HIT_TOP, left: timelinePctCss(plannedEnd), width: DRAG_HIT_HEIGHT, height: DRAG_HIT_HEIGHT }}
           aria-label={`${row.title}。ドラッグで予定日を変更、クリックで詳細を開く`}
         >
           {/* The visible ◇ lives inside its semantic button. A marker click therefore always
               selects this exact MS; the 44px button remains the generous drag hit area. */}
           <i
-            className={`block h-3 w-3 rotate-45 border-2 border-[#5f4a66] ${row.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
+            className={`block h-3 w-3 rotate-45 border-2 border-[#7c3aed] ${row.isBlockingMilestone ? "bg-[#7c3aed]" : "bg-[#ffffff]"}`}
             aria-hidden="true"
           />
         </button>
@@ -654,13 +654,13 @@ function RowBar({
             event.stopPropagation();
             onOpen();
           }}
-          className="absolute z-20 grid -translate-x-1/2 cursor-pointer place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+          className="absolute z-20 grid -translate-x-1/2 cursor-pointer place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
           style={detailHitStyle}
           aria-label={`${row.title}の詳細を開く`}
         >
           {/* NewCo blocking gate = filled purple diamond; generic MS = hollow — matches Legend. */}
           <i
-            className={`block h-3 w-3 rotate-45 border-2 border-[#5f4a66] ${row.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
+            className={`block h-3 w-3 rotate-45 border-2 border-[#7c3aed] ${row.isBlockingMilestone ? "bg-[#7c3aed]" : "bg-[#ffffff]"}`}
             aria-hidden="true"
           />
         </button>
@@ -682,7 +682,7 @@ function RowBar({
               if (event.detail !== 0) return;
               onKeyboardStartDependency(row);
             }}
-            className="sx-gantt-dependency-port absolute z-40 grid h-11 w-6 cursor-crosshair place-items-center rounded-full text-[#5f4a66] opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#5f4a66] data-[active=true]:text-[#205f49] data-[active=true]:opacity-100"
+            className="sx-gantt-dependency-port absolute z-40 grid h-11 w-6 cursor-crosshair place-items-center rounded-full text-[#7c3aed] opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#7c3aed] data-[active=true]:text-[#047857] data-[active=true]:opacity-100"
             style={{
               top: 2,
               left: isMilestoneMarker
@@ -707,7 +707,7 @@ function RowBar({
             event.stopPropagation();
             onCompleteDependency({ entity: row.entity, id: row.id });
           }}
-          className="absolute z-40 grid h-11 w-7 -translate-x-1/2 place-items-center rounded-full text-[#315f7d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#315f7d]"
+          className="absolute z-40 grid h-11 w-7 -translate-x-1/2 place-items-center rounded-full text-[#007aff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#007aff]"
           style={{
             top: 2,
             left: isMilestoneMarker
@@ -716,7 +716,7 @@ function RowBar({
           }}
           aria-label={`${row.title}${row.entity === "task" ? "の左端" : ""}を接続先にする`}
         >
-          <span className="h-3 w-3 rounded-full border-2 border-current bg-[#fffdf7]" />
+          <span className="h-3 w-3 rounded-full border-2 border-current bg-[#ffffff]" />
         </button>
       )}
       {/* A date-less MS has no honest x-position on the time axis, so its ◇ sits beside
@@ -730,16 +730,16 @@ function RowBar({
             event.stopPropagation();
             onOpen();
           }}
-          className="absolute bottom-0 left-0 z-20 grid h-11 w-11 cursor-pointer place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+          className="absolute bottom-0 left-0 z-20 grid h-11 w-11 cursor-pointer place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
           aria-label={`${row.title}の詳細を開く`}
         >
           <i
-            className={`block h-3 w-3 translate-y-2 rotate-45 border-2 border-[#5f4a66] ${row.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
+            className={`block h-3 w-3 translate-y-2 rotate-45 border-2 border-[#7c3aed] ${row.isBlockingMilestone ? "bg-[#7c3aed]" : "bg-[#ffffff]"}`}
             aria-hidden="true"
           />
         </button>
       )}
-      <span className="pointer-events-none absolute inset-x-1 bottom-0.5 z-10 flex flex-wrap items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] font-semibold text-[#5a574c]">
+      <span className="pointer-events-none absolute inset-x-1 bottom-0.5 z-10 flex flex-wrap items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] font-semibold text-[#3c3c43]">
         {/* 「予定 …/実績 未登録」の常時表示は 2026-08-08 に削除 (まさ #16)。
             日付と進捗は詳細モーダルとバーの位置・塗りで読む。 */}
         {hasBar ? null : (
@@ -750,7 +750,7 @@ function RowBar({
         {counts.total > 0 && (
           <span
             className={
-              counts.met === counts.total ? "text-[#205f49]" : "text-[#765022]"
+              counts.met === counts.total ? "text-[#047857]" : "text-[#92400e]"
             }
           >
             前提 {counts.met}/{counts.total}
@@ -1567,8 +1567,8 @@ export function SxUnifiedTimeline({
       key === "organization"
         ? (laneByKey.get("organizational_building")?.accent ??
           laneByKey.get("funding")?.accent ??
-          "#69665d")
-        : (laneByKey.get(key)?.accent ?? "#69665d");
+          "#86868b")
+        : (laneByKey.get(key)?.accent ?? "#86868b");
     const maxIssueFor = (key: SxDisplayLaneKey) =>
       key === "organization"
         ? [
@@ -2464,7 +2464,7 @@ export function SxUnifiedTimeline({
         <div
           aria-hidden
           data-gantt-task-drag-ghost={taskNestDrag.taskId}
-          className="pointer-events-none fixed z-[70] max-w-[240px] truncate border border-[#205f49] bg-[#eef6ef] px-2 py-1 text-[11px] font-semibold text-[#1d3f31] shadow-[0_6px_14px_rgba(32,95,73,0.28)]"
+          className="pointer-events-none fixed z-[70] max-w-[240px] truncate border border-[#047857] bg-[#ecfdf5] px-2 py-1 text-[11px] font-semibold text-[#065f46] shadow-[0_6px_14px_rgba(5,150,105,0.28)]"
           style={{
             left: taskNestDrag.pointerClientX + 12,
             top: taskNestDrag.pointerClientY + 12,
@@ -2474,14 +2474,14 @@ export function SxUnifiedTimeline({
         </div>
       )}
       {!timeline.valid && (
-        <p className="mb-2 border border-dashed border-[#b5533f] bg-[#f6dad5] px-3 py-2 text-[11px] font-semibold text-[#8c3329]">
+        <p className="mb-2 border border-dashed border-[#ef4444] bg-[#fee2e2] px-3 py-2 text-[11px] font-semibold text-[#dc2626]">
           {timeline.reason}
           {milestones.some((milestone) => milestone.timelineKind === "milestone") &&
             "。MSは日程未設定でも該当レーンに表示するよ。"}
         </p>
       )}
       {ganttNotice && (
-        <p role="alert" className="mb-2 border border-[#bd9a52] bg-[#f7e8c8] px-3 py-2 text-[11px] font-semibold text-[#765022]">
+        <p role="alert" className="mb-2 border border-[#fbbf24] bg-[#fef3c7] px-3 py-2 text-[11px] font-semibold text-[#92400e]">
           {ganttNotice}
         </p>
       )}
@@ -2490,7 +2490,7 @@ export function SxUnifiedTimeline({
           type="button"
           disabled={!hasAnyChildren}
           onClick={toggleAll}
-          className="inline-flex min-h-11 items-center gap-1 border border-[#ada18a] bg-[#fffdf7] px-3 text-[11px] font-semibold text-[#514e47] disabled:cursor-not-allowed disabled:opacity-45"
+          className="inline-flex min-h-11 items-center gap-1 border border-[#cbd5e1] bg-[#ffffff] px-3 text-[11px] font-semibold text-[#3c3c43] disabled:cursor-not-allowed disabled:opacity-45"
         >
           {allExpanded ? (
             <ChevronsDownUp className="h-3.5 w-3.5" />
@@ -2514,11 +2514,11 @@ export function SxUnifiedTimeline({
                 behavior: "smooth",
               });
           }}
-          className="hidden min-h-11 border border-[#ada18a] bg-[#fffdf7] px-3 text-[11px] font-semibold text-[#514e47] lg:inline-flex lg:items-center"
+          className="hidden min-h-11 border border-[#cbd5e1] bg-[#ffffff] px-3 text-[11px] font-semibold text-[#3c3c43] lg:inline-flex lg:items-center"
         >
           今日へ
         </button>
-        <label className="hidden min-h-11 items-center gap-2 border border-[#ada18a] bg-[#fffdf7] px-3 text-[11px] font-semibold text-[#514e47] lg:inline-flex">
+        <label className="hidden min-h-11 items-center gap-2 border border-[#cbd5e1] bg-[#ffffff] px-3 text-[11px] font-semibold text-[#3c3c43] lg:inline-flex">
           <span className="whitespace-nowrap">時間軸</span>
           <input
             type="range"
@@ -2529,16 +2529,16 @@ export function SxUnifiedTimeline({
             value={timeScale}
             onChange={(event) => commitTimeScale(Number(event.target.value))}
             onDoubleClick={() => commitTimeScale(1)}
-            className="h-1 w-32 cursor-ew-resize accent-[#38745d]"
+            className="h-1 w-32 cursor-ew-resize accent-[#059669]"
             aria-label="ガントの時間軸の縮尺"
             aria-valuetext={`${timeScale.toFixed(2)}倍`}
             title="ドラッグで時間軸を伸縮。ダブルクリックで等倍に戻る"
           />
-          <span className="w-9 shrink-0 text-right tabular-nums text-[10px] text-[#5f5a4d]">
+          <span className="w-9 shrink-0 text-right tabular-nums text-[10px] text-[#3c3c43]">
             {timeScale.toFixed(2)}x
           </span>
         </label>
-        <span className="ml-auto hidden text-[10px] text-[#5f5a4d] lg:inline">
+        <span className="ml-auto hidden text-[10px] text-[#3c3c43] lg:inline">
           {dependencySource
             ? `${dependencySource.title} → 接続先のタスクかMSへ`
             : dependencyDrawingEnabled
@@ -2554,11 +2554,11 @@ export function SxUnifiedTimeline({
         {visibleLanes.map(({ lane, rows, milestones: laneMilestones, collapsed, taskCount }) => (
           <section
             key={`mobile-${lane.key}`}
-            className="border border-[#ada18a] bg-[#fffdf7]"
+            className="border border-[#cbd5e1] bg-[#ffffff]"
           >
             <header
               data-gantt-nest-root-lane={lane.key}
-              className="border-b border-[#ada18a] bg-[#f2eee0]"
+              className="border-b border-[#cbd5e1] bg-[#f5f5f7]"
             >
               <button
                 type="button"
@@ -2567,21 +2567,21 @@ export function SxUnifiedTimeline({
                 className="flex w-full items-center gap-2 px-3 py-2 text-left"
               >
                 <ChevronRight
-                  className={`h-3 w-3 shrink-0 text-[#5f5a4d] transition-transform ${collapsed ? "" : "rotate-90"}`}
+                  className={`h-3 w-3 shrink-0 text-[#3c3c43] transition-transform ${collapsed ? "" : "rotate-90"}`}
                   aria-hidden="true"
                 />
                 <span
                   className="h-2.5 w-2.5 shrink-0"
                   style={{ background: lane.accent }}
                 />
-                <b className="text-[11px] text-[#24231f]">{lane.label}</b>
-                <span className="text-[9px] text-[#5f5a4d]">
+                <b className="text-[11px] text-[#1d1d1f]">{lane.label}</b>
+                <span className="text-[9px] text-[#3c3c43]">
                   MS {laneMilestones.length} / タスク {taskCount}
                   {collapsed ? "（折りたたみ中）" : ""}
                 </span>
               </button>
             </header>
-            <div className="divide-y divide-[#eee9df]">
+            <div className="divide-y divide-[#f1f5f9]">
               {laneMilestones.map((milestone) => {
                 const displayMilestone = milestone;
                 const hasScheduledPoint = displayMilestone.plannedEndPct != null;
@@ -2598,7 +2598,7 @@ export function SxUnifiedTimeline({
                 return (
                   <article
                     key={`mobile-ms-${milestone.id}`}
-                    className={selectedMilestoneId === milestone.id ? "bg-[#e9e2ee]" : "bg-[#f5f2e6]"}
+                    className={selectedMilestoneId === milestone.id ? "bg-[#f5f3ff]" : "bg-[#f8fafc]"}
                   >
                     <button
                       type="button"
@@ -2607,17 +2607,17 @@ export function SxUnifiedTimeline({
                       className="flex min-h-11 w-full items-center gap-2 px-3 text-left"
                       aria-label={`${milestone.title}の詳細を開く`}
                     >
-                      <i className={`h-3 w-3 shrink-0 rotate-45 border-2 border-[#5f4a66] ${milestone.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`} aria-hidden="true" />
-                      <span className="min-w-0 flex-1 text-[10px] font-bold text-[#5f4a66]">{milestone.title}</span>
-                      <span className="shrink-0 text-[9px] text-[#5a564b]">{milestone.plannedEnd ? sxFormatDate(milestone.plannedEnd) : "日程未設定"}</span>
+                      <i className={`h-3 w-3 shrink-0 rotate-45 border-2 border-[#7c3aed] ${milestone.isBlockingMilestone ? "bg-[#7c3aed]" : "bg-[#ffffff]"}`} aria-hidden="true" />
+                      <span className="min-w-0 flex-1 text-[10px] font-bold text-[#7c3aed]">{milestone.title}</span>
+                      <span className="shrink-0 text-[9px] text-[#86868b]">{milestone.plannedEnd ? sxFormatDate(milestone.plannedEnd) : "日程未設定"}</span>
                     </button>
                     {dependencyDrawingEnabled && (
-                      <div className="flex items-center gap-2 border-t border-[#e2dce5] px-3 py-1.5">
+                      <div className="flex items-center gap-2 border-t border-[#e2e8f0] px-3 py-1.5">
                         <button
                           type="button"
                           disabled={!hasScheduledPoint}
                           onClick={() => beginKeyboardScheduleDependency(displayMilestone)}
-                          className="flex min-h-11 flex-1 items-center justify-center gap-1 border border-[#9d8daa] bg-[#fffdf7] px-2 text-[10px] font-bold text-[#5f4a66] disabled:opacity-40"
+                          className="flex min-h-11 flex-1 items-center justify-center gap-1 border border-[#a78bfa] bg-[#ffffff] px-2 text-[10px] font-bold text-[#7c3aed] disabled:opacity-40"
                         >
                           <Plus className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
                           起点
@@ -2632,13 +2632,13 @@ export function SxUnifiedTimeline({
                               id: milestone.id,
                             })
                           }
-                          className="flex min-h-11 flex-1 items-center justify-center gap-1 border border-[#b9c9d3] bg-[#fffdf7] px-2 text-[10px] font-bold text-[#315f7d] disabled:opacity-40"
+                          className="flex min-h-11 flex-1 items-center justify-center gap-1 border border-[#93c5fd] bg-[#ffffff] px-2 text-[10px] font-bold text-[#007aff] disabled:opacity-40"
                         >
                           <span aria-hidden="true">←</span>
                           接続先
                         </button>
                         )}
-                        <span className="shrink-0 text-[9px] text-[#5a564b]">
+                        <span className="shrink-0 text-[9px] text-[#86868b]">
                           入{incomingScheduleCount} / 出{outgoingScheduleCount}
                         </span>
                       </div>
@@ -2677,14 +2677,14 @@ export function SxUnifiedTimeline({
                     data-gantt-nest-target-task={
                       isNestCandidate ? row.id : undefined
                     }
-                    className={`relative p-2.5 transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#dcecdf] outline outline-2 outline-[#205f49] outline-offset-[-2px]" : selected ? "bg-[#dcecdf]" : "bg-white"}`}
+                    className={`relative p-2.5 transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#ecfdf5] outline outline-2 outline-[#047857] outline-offset-[-2px]" : selected ? "bg-[#ecfdf5]" : "bg-white"}`}
                     style={{ marginLeft: row.depth * 12 }}
                   >
                     {reorderPlace && (
                       <span
                         aria-hidden
                         data-gantt-task-reorder-indicator={reorderPlace}
-                        className={`pointer-events-none absolute inset-x-0 z-30 h-[3px] bg-[#205f49] ${reorderPlace === "before" ? "top-0" : "bottom-0"}`}
+                        className={`pointer-events-none absolute inset-x-0 z-30 h-[3px] bg-[#047857] ${reorderPlace === "before" ? "top-0" : "bottom-0"}`}
                       />
                     )}
                     <div className="flex items-start gap-2">
@@ -2700,7 +2700,7 @@ export function SxUnifiedTimeline({
                             };
                             setExpandedTasks(update);
                           }}
-                          className="grid min-h-11 min-w-11 place-items-center text-[#5a574c]"
+                          className="grid min-h-11 min-w-11 place-items-center text-[#3c3c43]"
                           aria-label={
                             expanded
                               ? `${row.title}を折りたたむ`
@@ -2721,7 +2721,7 @@ export function SxUnifiedTimeline({
                           onPointerUp={(event) => void finishTaskNestDrag(event)}
                           onPointerCancel={(event) => cancelTaskNestDrag(event)}
                           onLostPointerCapture={(event) => cancelTaskNestDrag(event)}
-                          className="grid min-h-11 min-w-11 touch-none place-items-center text-[#65604f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] disabled:opacity-40"
+                          className="grid min-h-11 min-w-11 touch-none place-items-center text-[#86868b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669] disabled:opacity-40"
                           disabled={Boolean(dependencySource) || taskNestDrag?.saving}
                           aria-label={`${row.title}をドラッグして並び順や親タスクを変更`}
                         >
@@ -2731,19 +2731,19 @@ export function SxUnifiedTimeline({
                       <button
                         type="button"
                         onClick={() => select(row)}
-                        className="min-h-11 min-w-0 flex-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                        className="min-h-11 min-w-0 flex-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
                         aria-pressed={selected}
                       >
                         <span className="flex flex-wrap items-center gap-1">
-                          <b className="text-[11px] text-[#24231f]">
+                          <b className="text-[11px] text-[#1d1d1f]">
                             {row.title}
                           </b>
-                          <i className="border border-[#ada18a] px-1 text-[8px] not-italic text-[#5a574c]">タスク</i>
-                          <i className="border border-[#ada18a] px-1 text-[8px] not-italic text-[#514e47]">
+                          <i className="border border-[#cbd5e1] px-1 text-[8px] not-italic text-[#3c3c43]">タスク</i>
+                          <i className="border border-[#cbd5e1] px-1 text-[8px] not-italic text-[#3c3c43]">
                             {ROW_STATE_TEXT[row.state]}
                           </i>
                         </span>
-                        <span className="mt-1 block text-[10px] text-[#5a574c]">
+                        <span className="mt-1 block text-[10px] text-[#3c3c43]">
                           {row.plannedEnd
                             ? `${sxFormatDate(row.plannedStart)} → ${sxFormatDate(row.plannedEnd)}`
                             : "日程未設定"}{" "}
@@ -2751,13 +2751,13 @@ export function SxUnifiedTimeline({
                         </span>
                         {(incomingScheduleCount > 0 ||
                           outgoingScheduleCount > 0) && (
-                          <span className="mt-1 block text-[9px] font-semibold text-[#5f4a66]">
+                          <span className="mt-1 block text-[9px] font-semibold text-[#7c3aed]">
                             依存：先行 {incomingScheduleCount} / 後続{" "}
                             {outgoingScheduleCount}
                           </span>
                         )}
                         {(isNestTaskTarget || isNestRootTarget) && (
-                          <span className="mt-1 block text-[10px] font-bold text-[#205f49]">
+                          <span className="mt-1 block text-[10px] font-bold text-[#047857]">
                             {isNestTaskTarget
                               ? "ここを親タスクにする"
                               : "最上位タスクに戻す"}
@@ -2766,7 +2766,7 @@ export function SxUnifiedTimeline({
                       </button>
                     </div>
                     {dependencyDrawingEnabled && (
-                      <div className="mt-2 grid grid-cols-2 gap-2 border-t border-[#d5cdba] pt-2">
+                      <div className="mt-2 grid grid-cols-2 gap-2 border-t border-[#e2e8f0] pt-2">
                         {row.plannedEndPct != null ? (
                           <button
                             type="button"
@@ -2774,13 +2774,13 @@ export function SxUnifiedTimeline({
                               dependencySource ? sourceKey(dependencySource) === `task:${row.id}` : false
                             }
                             onClick={() => beginKeyboardScheduleDependency(row)}
-                            className="flex min-h-11 items-center justify-center gap-1 border border-[#9d8daa] px-2 text-[10px] font-bold text-[#5f4a66] aria-pressed:bg-[#e9e2ee]"
+                            className="flex min-h-11 items-center justify-center gap-1 border border-[#a78bfa] px-2 text-[10px] font-bold text-[#7c3aed] aria-pressed:bg-[#f5f3ff]"
                           >
                             <Plus className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
                             右端を起点
                           </button>
                         ) : (
-                          <span className="flex min-h-11 items-center justify-center border border-dashed border-[#ada18a] px-2 text-[9px] text-[#65604f]">
+                          <span className="flex min-h-11 items-center justify-center border border-dashed border-[#cbd5e1] px-2 text-[9px] text-[#86868b]">
                             起点は日程が必要
                           </span>
                         )}
@@ -2794,13 +2794,13 @@ export function SxUnifiedTimeline({
                                 id: row.id,
                               })
                             }
-                            className="flex min-h-11 items-center justify-center gap-1 border border-[#b9c9d3] px-2 text-[10px] font-bold text-[#315f7d] disabled:opacity-40"
+                            className="flex min-h-11 items-center justify-center gap-1 border border-[#93c5fd] px-2 text-[10px] font-bold text-[#007aff] disabled:opacity-40"
                           >
                             <span aria-hidden="true">←</span>
                             左端へ接続
                           </button>
                         ) : (
-                          <span className="flex min-h-11 items-center justify-center border border-dashed border-[#ada18a] px-2 text-[9px] text-[#65604f]">
+                          <span className="flex min-h-11 items-center justify-center border border-dashed border-[#cbd5e1] px-2 text-[9px] text-[#86868b]">
                             接続先は開始日が必要
                           </span>
                         )}
@@ -2813,13 +2813,13 @@ export function SxUnifiedTimeline({
                 <button
                   type="button"
                   onClick={(event) => proposeMilestone(lane.key, event)}
-                  className="relative min-h-11 w-full overflow-hidden border-t border-[#ada18a] bg-[#fffdf7] px-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                  className="relative min-h-11 w-full overflow-hidden border-t border-[#cbd5e1] bg-[#ffffff] px-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
                   aria-label={`${lane.label}のモバイル日付軸でMSを追加`}
                 >
-                  <span className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent_0,transparent_calc(12.5%-1px),rgba(113,109,99,0.16)_12.5%)]" />
-                  <span className="relative flex items-center justify-between gap-3 text-[9px] text-[#5a564b]">
+                  <span className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent_0,transparent_calc(12.5%-1px),rgba(134,134,139,0.16)_12.5%)]" />
+                  <span className="relative flex items-center justify-between gap-3 text-[9px] text-[#86868b]">
                     <span>{sxFormatDate(timeline.domainStart)}</span>
-                    <b className="text-[10px] text-[#235f4b]">MS｜日付位置をタップ</b>
+                    <b className="text-[10px] text-[#047857]">MS｜日付位置をタップ</b>
                     <span>{sxFormatDate(timeline.domainEnd)}</span>
                   </span>
                 </button>
@@ -2829,7 +2829,7 @@ export function SxUnifiedTimeline({
                   type="button"
                   data-gantt-add-task-lane={lane.key}
                   onClick={() => onCreateTask(lane.key)}
-                  className="flex min-h-12 w-full items-center gap-2 bg-[#f5f2e6] px-3 text-left text-[11px] font-bold text-[#205f49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                  className="flex min-h-12 w-full items-center gap-2 bg-[#f8fafc] px-3 text-left text-[11px] font-bold text-[#047857] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
                   aria-label={`${lane.label}に新規タスクを追加`}
                   aria-haspopup="dialog"
                 >
@@ -2844,17 +2844,17 @@ export function SxUnifiedTimeline({
 
       <div
         ref={scrollerRef}
-        className="relative hidden max-h-[min(72vh,720px)] overflow-auto overscroll-contain border border-[#ada18a] bg-[#fffdf7] shadow-[inset_-14px_0_12px_-14px_rgba(36,35,31,0.42)] lg:block"
+        className="relative hidden max-h-[min(72vh,720px)] overflow-auto overscroll-contain border border-[#cbd5e1] bg-[#ffffff] shadow-[inset_-14px_0_12px_-14px_rgba(29,29,31,0.42)] lg:block"
         tabIndex={0}
         aria-label="ガントチャート。上下左右にスクロールできる"
       >
         <div style={{ minWidth: GANTT_BASE_WIDTH_PX * timeScale }}>
           <div
-            className="sticky top-0 z-50 grid grid-cols-[minmax(275px,320px)_minmax(0,1fr)] items-end border-b border-[#ada18a] bg-[#fffdf7] shadow-[0_3px_8px_rgba(36,35,31,0.08)]"
+            className="sticky top-0 z-50 grid grid-cols-[minmax(275px,320px)_minmax(0,1fr)] items-end border-b border-[#cbd5e1] bg-[#ffffff] shadow-[0_3px_8px_rgba(29,29,31,0.08)]"
             data-gantt-sticky-header
             style={{ height: MONTH_ROW_H }}
           >
-            <p className="sticky left-0 z-[51] bg-[#fffdf7] px-2 text-[9px] font-semibold tracking-[0.1em] text-[#5f5a4d]">
+            <p className="sticky left-0 z-[51] bg-[#ffffff] px-2 text-[9px] font-semibold tracking-[0.1em] text-[#3c3c43]">
               タスク
             </p>
             <div className="relative h-full">
@@ -2862,7 +2862,7 @@ export function SxUnifiedTimeline({
                 month.yearLabel ? (
                   <span
                     key={`year-${month.pct}`}
-                    className="absolute top-0 pl-1 text-[9px] font-bold leading-none text-[#24231f]"
+                    className="absolute top-0 pl-1 text-[9px] font-bold leading-none text-[#1d1d1f]"
                     style={{ left: timelinePctCss(month.pct) }}
                   >
                     {month.yearLabel}
@@ -2872,7 +2872,7 @@ export function SxUnifiedTimeline({
               {timeline.months.map((month) => (
                 <span
                   key={month.pct}
-                  className={`absolute bottom-0 pl-1 text-[9px] ${month.isYearStart ? "font-bold text-[#24231f]" : "text-[#5f5a4d]"}`}
+                  className={`absolute bottom-0 pl-1 text-[9px] ${month.isYearStart ? "font-bold text-[#1d1d1f]" : "text-[#3c3c43]"}`}
                   style={{ left: timelinePctCss(month.pct) }}
                 >
                   {month.label}
@@ -2880,7 +2880,7 @@ export function SxUnifiedTimeline({
               ))}
               {timeline.objectivePct != null && (
                 <span
-                  className="absolute z-10 flex -translate-x-full items-center gap-0.5 whitespace-nowrap pr-1 text-[9px] font-bold leading-none text-[#5f4a66]"
+                  className="absolute z-10 flex -translate-x-full items-center gap-0.5 whitespace-nowrap pr-1 text-[9px] font-bold leading-none text-[#7c3aed]"
                   style={{ left: timelinePctCss(timeline.objectivePct), top: MONTH_YEAR_ROW_H }}
                 >
                   <Flag className="h-3 w-3" />
@@ -2891,10 +2891,10 @@ export function SxUnifiedTimeline({
           </div>
 
           <div className="grid grid-cols-[minmax(275px,320px)_minmax(0,1fr)]">
-            <div className="sticky left-0 z-30 border-r border-[#ada18a] bg-[#fffdf7]">
+            <div className="sticky left-0 z-30 border-r border-[#cbd5e1] bg-[#ffffff]">
               {showPins && (
                 <div
-                  className="flex items-center border-b border-[#cbc2ad] px-2 text-[9px] font-semibold text-[#5a574c]"
+                  className="flex items-center border-b border-[#e2e8f0] px-2 text-[9px] font-semibold text-[#3c3c43]"
                   style={{ height: PIN_ROW_H }}
                 >
                   介入の期限
@@ -2909,22 +2909,22 @@ export function SxUnifiedTimeline({
                     data-gantt-nest-root-lane={lane.key}
                     onClick={() => toggleLaneCollapsed(lane.key)}
                     aria-expanded={!collapsed}
-                    className="!min-h-0 flex w-full items-center gap-1.5 border-b border-[#ada18a] px-2 text-left hover:bg-[#f2eee0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                    className="!min-h-0 flex w-full items-center gap-1.5 border-b border-[#cbd5e1] px-2 text-left hover:bg-[#f5f5f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
                     style={{ height: LANE_HEADER_H }}
                     title={collapsed ? "このグループを開く" : "このグループを折りたたむ（MSは残る）"}
                   >
                     <ChevronRight
-                      className={`h-3 w-3 shrink-0 text-[#5f5a4d] transition-transform ${collapsed ? "" : "rotate-90"}`}
+                      className={`h-3 w-3 shrink-0 text-[#3c3c43] transition-transform ${collapsed ? "" : "rotate-90"}`}
                       aria-hidden="true"
                     />
                     <span
                       className="h-2.5 w-2.5 shrink-0"
                       style={{ background: lane.accent }}
                     />
-                    <span className="text-[10px] font-bold text-[#24231f]">
+                    <span className="text-[10px] font-bold text-[#1d1d1f]">
                       {lane.label}
                     </span>
-                    <span className="text-[10px] text-[#5f5a4d]">
+                    <span className="text-[10px] text-[#3c3c43]">
                       MS {laneMilestones.length} / タスク {taskCount}
                       {collapsed ? "（折りたたみ中）" : ""}
                     </span>
@@ -2952,14 +2952,14 @@ export function SxUnifiedTimeline({
                         data-gantt-nest-target-task={
                           isNestCandidate ? row.id : undefined
                         }
-                        className={`group relative flex scroll-mt-3 border-b border-[#dcd5c3] transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#dcecdf] outline outline-2 outline-[#205f49] outline-offset-[-2px]" : selected ? "bg-[#dcecdf]" : "hover:bg-[#f2eee0]"}`}
+                        className={`group relative flex scroll-mt-3 border-b border-[#e8e8ed] transition-colors ${isNestSource ? "opacity-45" : ""} ${isNestTaskTarget || isNestRootTarget ? "bg-[#ecfdf5] outline outline-2 outline-[#047857] outline-offset-[-2px]" : selected ? "bg-[#ecfdf5]" : "hover:bg-[#f5f5f7]"}`}
                         style={{ height: ROW_H, paddingLeft: row.depth * 15 }}
                       >
                         {reorderPlace && (
                           <span
                             aria-hidden
                             data-gantt-task-reorder-indicator={reorderPlace}
-                            className={`pointer-events-none absolute inset-x-0 z-30 h-[3px] bg-[#205f49] ${reorderPlace === "before" ? "top-0" : "bottom-0"}`}
+                            className={`pointer-events-none absolute inset-x-0 z-30 h-[3px] bg-[#047857] ${reorderPlace === "before" ? "top-0" : "bottom-0"}`}
                           />
                         )}
                         <button
@@ -2975,7 +2975,7 @@ export function SxUnifiedTimeline({
                             };
                             setExpandedTasks(update);
                           }}
-                          className={`flex w-11 shrink-0 items-center justify-center text-[#5a574c] ${row.hasChildren ? "" : "opacity-0"}`}
+                          className={`flex w-11 shrink-0 items-center justify-center text-[#3c3c43] ${row.hasChildren ? "" : "opacity-0"}`}
                           aria-label={
                             expanded
                               ? `${row.title}を折りたたむ`
@@ -2995,7 +2995,7 @@ export function SxUnifiedTimeline({
                             onPointerUp={(event) => void finishTaskNestDrag(event)}
                             onPointerCancel={(event) => cancelTaskNestDrag(event)}
                             onLostPointerCapture={(event) => cancelTaskNestDrag(event)}
-                            className="grid h-full w-6 shrink-0 touch-none place-items-center text-[#65604f] transition-colors hover:text-[#205f49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] disabled:opacity-40"
+                            className="grid h-full w-6 shrink-0 touch-none place-items-center text-[#86868b] transition-colors hover:text-[#047857] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669] disabled:opacity-40"
                             disabled={Boolean(dependencySource) || taskNestDrag?.saving}
                             title="ドラッグして並び替え。行の上下端で順番、中央へ重ねると子タスク、レーン見出しへ戻すと最上位"
                             aria-label={`${row.title}をドラッグして並び順や親タスクを変更`}
@@ -3006,7 +3006,7 @@ export function SxUnifiedTimeline({
                         <button
                           type="button"
                           onClick={() => select(row)}
-                          className={`min-w-0 flex-1 px-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${row.isCritical ? "border-l-[3px] border-[#24231f]" : ""}`}
+                          className={`min-w-0 flex-1 px-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669] ${row.isCritical ? "border-l-[3px] border-[#1d1d1f]" : ""}`}
                           aria-pressed={selected}
                         >
                           <span className="flex items-center gap-1">
@@ -3015,21 +3015,21 @@ export function SxUnifiedTimeline({
                             >
                               {row.title}
                             </b>
-                            <i className="shrink-0 border border-[#ada18a] px-1 text-[8px] not-italic text-[#5a574c]">タスク</i>
+                            <i className="shrink-0 border border-[#cbd5e1] px-1 text-[8px] not-italic text-[#3c3c43]">タスク</i>
                             {row.isCurrent && (
-                              <i className="shrink-0 bg-[#38745d] px-1 text-[8px] not-italic text-white">
+                              <i className="shrink-0 bg-[#059669] px-1 text-[8px] not-italic text-white">
                                 進行中
                               </i>
                             )}
                           </span>
-                          <span className="mt-0.5 flex items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] text-[#5f5a4d]">
+                          <span className="mt-0.5 flex items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] text-[#3c3c43]">
                             <em className="not-italic">
                               {ROW_STATE_TEXT[row.state]}
                             </em>
                             <span>{row.ownerLabel}</span>
                           </span>
                           {(isNestTaskTarget || isNestRootTarget) && (
-                            <span className="mt-0.5 block text-[9px] font-bold text-[#205f49]">
+                            <span className="mt-0.5 block text-[9px] font-bold text-[#047857]">
                               {isNestTaskTarget
                                 ? "ここを親タスクにする"
                                 : "最上位タスクに戻す"}
@@ -3044,14 +3044,14 @@ export function SxUnifiedTimeline({
                       type="button"
                       data-gantt-add-task-lane={lane.key}
                       onClick={() => onCreateTask(lane.key)}
-                      className="flex w-full items-center gap-2 border-b border-[#cbc2ad] bg-[#f5f2e6] px-3 text-left text-[10px] font-bold text-[#205f49] hover:bg-[#f3efe5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                      className="flex w-full items-center gap-2 border-b border-[#e2e8f0] bg-[#f8fafc] px-3 text-left text-[10px] font-bold text-[#047857] hover:bg-[#f1f5f9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
                       style={{ height: ROW_H }}
                       aria-label={`${lane.label}に新規タスクを追加`}
                       aria-haspopup="dialog"
                     >
                       <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                       新規タスク
-                      <span className="font-normal text-[#5f5a4d]">
+                      <span className="font-normal text-[#3c3c43]">
                         このレーンへ追加
                       </span>
                     </button>
@@ -3064,13 +3064,13 @@ export function SxUnifiedTimeline({
               {timeline.months.map((month) => (
                 <span
                   key={`grid-${month.pct}`}
-                  className={`absolute top-0 w-px ${month.isYearStart ? "bg-[#cfc7b9]" : "bg-[#eee9df]"}`}
+                  className={`absolute top-0 w-px ${month.isYearStart ? "bg-[#cbd5e1]" : "bg-[#f1f5f9]"}`}
                   style={{ left: timelinePctCss(month.pct), height: gridHeight }}
                 />
               ))}
               {timeline.objectivePct != null && (
                 <span
-                  className="absolute top-0 w-[2px] bg-[#76637b]/45"
+                  className="absolute top-0 w-[2px] bg-[#7c3aed]/45"
                   style={{
                     left: timelinePctCss(timeline.objectivePct),
                     height: gridHeight,
@@ -3078,11 +3078,11 @@ export function SxUnifiedTimeline({
                 />
               )}
               <span
-                className="absolute top-0 z-10 w-[2px] bg-[#24231f]"
+                className="absolute top-0 z-10 w-[2px] bg-[#1d1d1f]"
                 style={{ left: timelinePctCss(timeline.todayPct), height: gridHeight }}
               />
               <span
-                className="absolute z-20 -translate-x-1/2 bg-[#24231f] px-1 py-px text-[8px] font-bold text-white"
+                className="absolute z-20 -translate-x-1/2 bg-[#1d1d1f] px-1 py-px text-[8px] font-bold text-white"
                 style={{ left: timelinePctCss(timeline.todayPct), top: -1 }}
               >
                 今日 {sxFormatDate(asOf).slice(5)}
@@ -3109,7 +3109,7 @@ export function SxUnifiedTimeline({
                       markerUnits="userSpaceOnUse"
                       orient="auto"
                     >
-                      <path d="M 0 0 L 8 4 L 0 8 z" fill="#5f4a66" />
+                      <path d="M 0 0 L 8 4 L 0 8 z" fill="#7c3aed" />
                     </marker>
                   </defs>
                   {scheduleDependencyEdges.map((edge) => {
@@ -3146,7 +3146,7 @@ export function SxUnifiedTimeline({
                         <path
                           d={edge.path}
                           fill="none"
-                          stroke="#5f4a66"
+                          stroke="#7c3aed"
                           strokeWidth={hovered ? "2" : "1.5"}
                           strokeOpacity={hovered ? "0.96" : "0.68"}
                           markerEnd={`url(#${dependencyArrowMarkerId})`}
@@ -3159,7 +3159,7 @@ export function SxUnifiedTimeline({
                     <path
                       d={`M ${dependencySource.startX} ${dependencySource.startY} L ${dependencyPreview.x} ${dependencyPreview.y}`}
                       fill="none"
-                      stroke="#205f49"
+                      stroke="#047857"
                       strokeWidth="2"
                       markerEnd={`url(#${dependencyArrowMarkerId})`}
                     />
@@ -3187,7 +3187,7 @@ export function SxUnifiedTimeline({
                         hoveredScheduleDependency.id,
                       )
                     }
-                    className="absolute z-[45] inline-flex h-8 min-w-14 -translate-y-1/2 items-center justify-center gap-1 border border-[#5f4a66] bg-[#fffdf7] px-2 text-[10px] font-bold text-[#5f4a66] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#5f4a66] disabled:opacity-45"
+                    className="absolute z-[45] inline-flex h-8 min-w-14 -translate-y-1/2 items-center justify-center gap-1 border border-[#7c3aed] bg-[#ffffff] px-2 text-[10px] font-bold text-[#7c3aed] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#7c3aed] disabled:opacity-45"
                     style={{
                       left: Math.min(
                         Math.max(4, gridPaneWidth - DEPENDENCY_HOVER_ACTION_WIDTH_PX - 4),
@@ -3208,7 +3208,7 @@ export function SxUnifiedTimeline({
 
               {showPins && (
                 <div
-                  className="absolute inset-x-0 top-0 border-b border-[#cbc2ad]"
+                  className="absolute inset-x-0 top-0 border-b border-[#e2e8f0]"
                   style={{ height: PIN_ROW_H }}
                 >
                   {timeline.pins.map((pin) => (
@@ -3220,13 +3220,13 @@ export function SxUnifiedTimeline({
                       onMouseLeave={() => setHoveredPin(null)}
                       onFocus={() => setHoveredPin(pin.key)}
                       onBlur={() => setHoveredPin(null)}
-                      className={`absolute top-1/2 z-20 flex h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-[10px] font-bold ${pin.side === "partner" ? "bg-[#bf7b2c] text-white" : pin.side === "unknown" ? "border-2 border-[#24231f] bg-[#fffdf7]" : "bg-[#24231f] text-white"}`}
+                      className={`absolute top-1/2 z-20 flex h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-[10px] font-bold ${pin.side === "partner" ? "bg-[#d97706] text-white" : pin.side === "unknown" ? "border-2 border-[#1d1d1f] bg-[#ffffff]" : "bg-[#1d1d1f] text-white"}`}
                       style={{ left: timelinePctCss(pin.duePct) }}
                     >
                       {pin.rank}
                       {hoveredPin === pin.key && (
-                        <span className="absolute top-6 z-30 w-[220px] border border-[#ada18a] bg-[#fffdf7] p-2 text-left text-[10px] text-[#514e47] shadow-lg">
-                          <b className="block text-[#24231f]">{pin.target}</b>
+                        <span className="absolute top-6 z-30 w-[220px] border border-[#cbd5e1] bg-[#ffffff] p-2 text-left text-[10px] text-[#3c3c43] shadow-lg">
+                          <b className="block text-[#1d1d1f]">{pin.target}</b>
                           担当 {pin.ballOwner}
                           <br />
                           期限 {pin.dueDate}
@@ -3269,8 +3269,8 @@ export function SxUnifiedTimeline({
                           <span
                             className={`absolute inset-y-0 -translate-x-1/2 ${
                               milestone.isBlockingMilestone
-                                ? "border-x-2 border-[#5f4a66] bg-[#5f4a66]/28"
-                                : "border-x border-[#5f4a66]/70 bg-[#5f4a66]/12"
+                                ? "border-x-2 border-[#7c3aed] bg-[#7c3aed]/28"
+                                : "border-x border-[#7c3aed]/70 bg-[#7c3aed]/12"
                             }`}
                             style={{ left: 0, width: MILESTONE_GATE_WIDTH_PX }}
                             aria-hidden="true"
@@ -3306,7 +3306,7 @@ export function SxUnifiedTimeline({
                               }
                               handleRowClick(displayMilestone);
                             }}
-                            className={`pointer-events-auto absolute -top-[5px] left-0 grid h-11 w-11 -translate-x-1/2 place-items-center focus-visible:outline focus-visible:outline-2 ${dependencySource ? "text-[#315f7d] focus-visible:outline-[#315f7d]" : "text-[#5f4a66] focus-visible:outline-[#5f4a66]"}`}
+                            className={`pointer-events-auto absolute -top-[5px] left-0 grid h-11 w-11 -translate-x-1/2 place-items-center focus-visible:outline focus-visible:outline-2 ${dependencySource ? "text-[#007aff] focus-visible:outline-[#007aff]" : "text-[#7c3aed] focus-visible:outline-[#7c3aed]"}`}
                             aria-label={
                               dependencySource
                                 ? `${milestone.title}を接続先にする`
@@ -3317,7 +3317,7 @@ export function SxUnifiedTimeline({
                             {/* Cap at the head of the band: the grab handle for the gate's date. */}
                             <i
                               data-gantt-milestone-diamond={milestone.id}
-                              className={`h-5 border-2 border-[#5f4a66] ${milestone.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`}
+                              className={`h-5 border-2 border-[#7c3aed] ${milestone.isBlockingMilestone ? "bg-[#7c3aed]" : "bg-[#ffffff]"}`}
                               style={{ width: MILESTONE_GATE_WIDTH_PX }}
                               aria-hidden="true"
                             />
@@ -3337,7 +3337,7 @@ export function SxUnifiedTimeline({
                                 if (event.detail !== 0) return;
                                 beginKeyboardScheduleDependency(displayMilestone);
                               }}
-                              className="sx-gantt-dependency-port pointer-events-auto absolute -top-[5px] grid h-11 w-6 cursor-crosshair place-items-center text-[#5f4a66] opacity-0 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5f4a66]"
+                              className="sx-gantt-dependency-port pointer-events-auto absolute -top-[5px] grid h-11 w-6 cursor-crosshair place-items-center text-[#7c3aed] opacity-0 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#7c3aed]"
                               style={{ left: DRAG_HIT_HEIGHT / 2, touchAction: "none" }}
                               title="ドラッグして他のタスク・MSへ依存線を引く"
                               aria-label={`${milestone.title}から依存線を開始`}
@@ -3346,7 +3346,7 @@ export function SxUnifiedTimeline({
                             </button>
                           )}
                           <span
-                            className={`pointer-events-none absolute top-0 flex h-[34px] max-w-[144px] items-center truncate whitespace-nowrap text-[9px] font-bold text-[#5f4a66] ${markerPct >= 60 ? "right-3 pr-2 text-right" : "left-3 pl-2 text-left"}`}
+                            className={`pointer-events-none absolute top-0 flex h-[34px] max-w-[144px] items-center truncate whitespace-nowrap text-[9px] font-bold text-[#7c3aed] ${markerPct >= 60 ? "right-3 pr-2 text-right" : "left-3 pl-2 text-left"}`}
                             aria-hidden="true"
                           >
                             {milestone.title}
@@ -3358,20 +3358,20 @@ export function SxUnifiedTimeline({
                           type="button"
                           data-gantt-milestone-marker={milestone.id}
                           onClick={() => handleRowClick(milestone)}
-                          className="absolute right-1 top-0 z-[19] flex h-[22px] max-w-[52%] items-center gap-1 px-1 text-left text-[#5f4a66] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5f4a66]"
+                          className="absolute right-1 top-0 z-[19] flex h-[22px] max-w-[52%] items-center gap-1 px-1 text-left text-[#7c3aed] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#7c3aed]"
                           style={{ transform: `translateX(-${index * 8}px)` }}
                           aria-label={`${milestone.title}の詳細を開く`}
                         >
-                          <i className={`h-3.5 w-[6px] shrink-0 border-x-2 border-[#5f4a66] ${milestone.isBlockingMilestone ? "bg-[#5f4a66]" : "bg-[#fffdf7]"}`} aria-hidden="true" />
+                          <i className={`h-3.5 w-[6px] shrink-0 border-x-2 border-[#7c3aed] ${milestone.isBlockingMilestone ? "bg-[#7c3aed]" : "bg-[#ffffff]"}`} aria-hidden="true" />
                           <span className="truncate whitespace-nowrap text-[9px] font-bold">{milestone.title}｜日程未設定</span>
                         </button>
                       );
                     })}
                     <div
-                      className="flex items-center justify-between gap-2 border-b border-[#ada18a] px-2 text-[10px]"
+                      className="flex items-center justify-between gap-2 border-b border-[#cbd5e1] px-2 text-[10px]"
                       style={{ height: LANE_HEADER_H }}
                     >
-                      <span className="min-w-0 truncate font-semibold text-[#5f4a66]">
+                      <span className="min-w-0 truncate font-semibold text-[#7c3aed]">
                         {laneMilestones.length > 0
                           ? `MS ${laneMilestones.length}件`
                           : "MSなし"}
@@ -3402,7 +3402,7 @@ export function SxUnifiedTimeline({
                       return (
                         <div
                           key={`${row.entity}-${row.id}`}
-                          className="border-b border-[#dcd5c3]"
+                          className="border-b border-[#e8e8ed]"
                           style={{ height: ROW_H }}
                         >
                           <RowBar
@@ -3461,7 +3461,7 @@ export function SxUnifiedTimeline({
                     {canManage && projectId && !collapsed && (
                       <div
                         aria-hidden="true"
-                        className="relative border-b border-[#cbc2ad] bg-[#f5f2e6]/60"
+                        className="relative border-b border-[#e2e8f0] bg-[#f8fafc]/60"
                         style={{ height: ROW_H }}
                       />
                     )}
@@ -3472,7 +3472,7 @@ export function SxUnifiedTimeline({
           </div>
         </div>
       </div>
-      <div className="mt-1 hidden items-center justify-between gap-2 text-[10px] text-[#5f5a4d] lg:flex">
+      <div className="mt-1 hidden items-center justify-between gap-2 text-[10px] text-[#3c3c43] lg:flex">
         <span>
           {milestoneStats.undated > 0
             ? `日程未登録のMS ${milestoneStats.undated}件`
@@ -3488,14 +3488,14 @@ export function SxUnifiedTimeline({
             role="dialog"
             aria-modal="false"
             aria-label="MS追加の確認"
-            className={`fixed z-[120] w-[260px] -translate-x-1/2 border border-[#bcb3a4] bg-[#fffdf7] p-3 text-[#24231f] shadow-[0_18px_44px_rgba(36,35,31,0.24)] ${pendingMilestonePoint.side === "above" ? "-translate-y-[calc(100%+12px)]" : "translate-y-3"}`}
+            className={`fixed z-[120] w-[260px] -translate-x-1/2 border border-[#d2d2d7] bg-[#ffffff] p-3 text-[#1d1d1f] shadow-[0_18px_44px_rgba(29,29,31,0.24)] ${pendingMilestonePoint.side === "above" ? "-translate-y-[calc(100%+12px)]" : "translate-y-3"}`}
             style={{
               left: pendingMilestonePoint.viewportX,
               top: pendingMilestonePoint.viewportY,
             }}
           >
             <p className="text-[11px] font-bold">MSを追加する？</p>
-            <p className="mt-1 text-[10px] text-[#5a564b]">
+            <p className="mt-1 text-[10px] text-[#86868b]">
               {DISPLAY_LANE_LABEL[pendingMilestonePoint.laneKey]} ・ {sxFormatDate(pendingMilestonePoint.date)}
             </p>
             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -3508,7 +3508,7 @@ export function SxUnifiedTimeline({
                     pendingMilestonePoint.date,
                   )
                 }
-                className="min-h-11 border border-[#205f49] bg-[#205f49] px-3 text-[11px] font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#205f49]"
+                className="min-h-11 border border-[#047857] bg-[#047857] px-3 text-[11px] font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#047857]"
               >
                 Y　追加する
               </button>
@@ -3520,7 +3520,7 @@ export function SxUnifiedTimeline({
                     milestonePromptOriginRef.current?.focus(),
                   );
                 }}
-                className="min-h-11 border border-[#a1957e] bg-[#fffdf7] px-3 text-[11px] font-bold text-[#514e47] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#38745d]"
+                className="min-h-11 border border-[#94a3b8] bg-[#ffffff] px-3 text-[11px] font-bold text-[#3c3c43] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#059669]"
               >
                 N　閉じる
               </button>
