@@ -45,6 +45,25 @@ export interface BzmNumberedChapter extends BzmChapterConfig {
 }
 
 export const BZM_PARTS: BzmPartConfig[] = [
+  // ============================================================
+  // SPS 2.0 到達見込み (2026-08-08 確定、BZM 2.0 講座セッションの成果)
+  // — SPS = qP の q 側。共通到達目標 G_self(12m)、資金の崖、測定可能性ゲート、SX実測記録。
+  //   運用台帳 (BZM_2_0_MEASURABILITY_GATE.md / SPS_2_0_PREREGISTRATION_SX_2026-08-07.md) は
+  //   大文字始まりのため章として扱われない (bzm-data.ts の isBzmChapterFile 参照)。
+  //   教科書として読ませるのはこの3章、確定文の正本は台帳側、という分担。
+  // ============================================================
+  {
+    key: "sps-2-reachability",
+    label: "SPS 2.0 到達見込み",
+    description:
+      "潜在価値に掛ける到達見込み q の定義。共通到達目標、戦略余力、資金の崖、数字を出してよい条件、SX 1件の実測記録。前向き検証は未着手。",
+    slugs: [
+      "sps-2-0-reachability-model",
+      "sps-2-0-measurability-gate",
+      "sps-2-0-sx-measurement-log",
+    ],
+  },
+
   {
     key: "bzm-2-revision",
     label: "BZM 2.0 改訂",
@@ -284,6 +303,29 @@ export const BZM_PARTS: BzmPartConfig[] = [
 ];
 
 export const BZM_CHAPTERS: BzmChapterConfig[] = [
+  // --- SPS 2.0 到達見込み (2026-08-08、BZM 2.0 講座セッションで確定) ---
+  {
+    slug: "sps-2-0-reachability-model",
+    title: "到達見込みモデル — 資金の崖が締切を作る",
+    summary:
+      "SPS = qP の q を、到達時間 T_C と戦略余力 T_Y の競争として定義する。共通到達目標 G_self(12m) の二段判定、T_Y の5成分と資金成分のみの部分実装、計画期限と資金の崖の区別。",
+    status: "completed",
+  },
+  {
+    slug: "sps-2-0-measurability-gate",
+    title: "測定可能性ゲート — 数字を出してよい条件",
+    summary:
+      "撤回された v0.1 の反省から置いた7問。必要支出と反復可能な対価の範囲、二段判定、独立二名判定、欠測時の入力序列と出所タグ、根拠源対応表、事前登録5項目。",
+    status: "completed",
+  },
+  {
+    slug: "sps-2-0-sx-measurement-log",
+    title: "SX 実測記録 — 版を追って q がどう動いたか",
+    summary:
+      "SX 1件に当てた v0.2〜v0.5 の改訂ループ。q の推移と各変化の原因タグ、死因の内訳、期限を延ばしても到達率が増えないこと、燃焼と速度が資金切れをどう動かすか。",
+    status: "completed",
+  },
+
   {
     slug: "BZM_2_0_REVISION_REQUIREMENTS",
     title: "BZM 2.0 改訂要求書",
