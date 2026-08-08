@@ -272,7 +272,7 @@ function PartnerStageRail({
       aria-expanded={expanded}
       aria-controls={`sx-partner-history-${partnerId}`}
       aria-label={`進捗${pct == null ? "保留" : `${pct}%`}。進捗と履歴を開く`}
-      className={`block w-full min-w-0 text-left hover:bg-[#e7f0e9] ${FOCUS_RING}`}
+      className={`!min-h-0 block w-full min-w-0 text-left hover:bg-[#e7f0e9] ${FOCUS_RING}`}
     >
       {content}
     </button>
@@ -2640,7 +2640,7 @@ function PartnerProgressFlow({
       setStepSaving(false);
     }
   };
-  const activeStep = steps.find((step) => step.key === activeStepKey) || null;
+
   const flowRef = useRef<HTMLOListElement>(null);
   const stepSignature = steps.map((step) => step.key).join("|");
   useEffect(() => {
@@ -2678,6 +2678,111 @@ function PartnerProgressFlow({
             data-progress-step={step.phase}
             className="flex min-w-0 items-stretch"
           >
+            {activeStepKey === step.key ? (
+              /* 書いてある場所がそのまま入力に変わる (2026-08-08 まさ #13 再指示
+                 「フォームを別で作らないで。関係先リスト自体、そういうルール」)。
+                 blurで保存・Escで取消・Enterで保存、一覧のセル編集と同じ作法。 */
+              <div
+                data-testid="sx-partner-step-editor"
+                className={`flex w-[220px] shrink-0 flex-col gap-1 rounded-md border-2 border-[#38745d] bg-[#f6f9f4] px-2 py-1 text-[#24231f]`}
+                aria-busy={stepSaving}
+                onBlur={(event) => {
+                  if (
+                    event.relatedTarget instanceof Node &&
+                    event.currentTarget.contains(event.relatedTarget)
+                  )
+                    return;
+                  void saveStep();
+                }}
+                onKeyDown={(event) => {
+                  if (event.nativeEvent.isComposing) return;
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    setActiveStepKey(null);
+                  }
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void saveStep();
+                  }
+                }}
+              >
+                <span className="text-[10px] font-semibold tracking-wide text-[#235f4b]">
+                  {step.sub}
+                </span>
+                {step.key === "now" ? (
+                  <>
+                    <select
+                      autoFocus
+                      className={INLINE_CONTROL_CLASS}
+                      value={stepDraft.side}
+                      disabled={stepSaving}
+                      aria-label="保有側"
+                      onChange={(event) =>
+                        setStepDraft((current) => ({
+                          ...current,
+                          side: event.target.value,
+                        }))
+                      }
+                    >
+                      {INLINE_BALL_SIDE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      className={INLINE_CONTROL_CLASS}
+                      value={stepDraft.owner}
+                      placeholder="担当"
+                      aria-label="担当"
+                      disabled={stepSaving}
+                      onChange={(event) =>
+                        setStepDraft((current) => ({
+                          ...current,
+                          owner: event.target.value,
+                        }))
+                      }
+                    />
+                    <input
+                      type="date"
+                      className={INLINE_CONTROL_CLASS}
+                      value={stepDraft.due}
+                      aria-label="期限"
+                      disabled={stepSaving}
+                      onChange={(event) =>
+                        setStepDraft((current) => ({
+                          ...current,
+                          due: event.target.value,
+                        }))
+                      }
+                    />
+                  </>
+                ) : (
+                  <textarea
+                    autoFocus
+                    rows={3}
+                    className={`${INLINE_CONTROL_CLASS} py-1 leading-4`}
+                    value={stepDraft.value || ""}
+                    disabled={stepSaving}
+                    aria-label={`${step.sub}の内容`}
+                    onChange={(event) =>
+                      setStepDraft((current) => ({
+                        ...current,
+                        value: event.target.value,
+                      }))
+                    }
+                  />
+                )}
+                {stepError && (
+                  <span
+                    className="text-[10px] font-semibold text-[#8c3329]"
+                    role="alert"
+                  >
+                    {stepError}
+                  </span>
+                )}
+              </div>
+            ) : (
             <div
               role={editable ? "button" : undefined}
               tabIndex={editable ? 0 : undefined}
@@ -2695,7 +2800,7 @@ function PartnerProgressFlow({
               }
               className={`flex w-[138px] min-w-[124px] flex-col gap-0.5 rounded-md border px-2 py-1 ${
                 editable ? "cursor-pointer hover:brightness-95" : ""
-              } ${activeStepKey === step.key ? "ring-2 ring-[#38745d]" : ""} ${
+              } ${
                 step.phase === "done"
                   ? "border-[#c9d9cf] bg-[#e7f0e9] text-[#205f49]"
                   : step.phase === "now"
@@ -2727,6 +2832,7 @@ function PartnerProgressFlow({
                 {step.title}
               </span>
             </div>
+            )}
             {index < steps.length - 1 && (
               <span
                 className="flex shrink-0 items-center px-0.5 text-[#65604f]"
@@ -2738,118 +2844,6 @@ function PartnerProgressFlow({
           </li>
         ))}
       </ol>
-      {editable && activeStep && (
-        <div
-          className="mt-1.5 grid gap-1.5 border border-[#38745d] bg-[#f6f9f4] p-2"
-          data-testid="sx-partner-step-editor"
-          aria-busy={stepSaving}
-        >
-          <p className="text-[10px] font-semibold text-[#235f4b]">
-            {activeStep.sub} を修正
-          </p>
-          {activeStepKey === "now" ? (
-            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
-              <label className="grid gap-0.5">
-                <span className="text-[10px] font-semibold text-[#5a574c]">
-                  保有側
-                </span>
-                <select
-                  autoFocus
-                  className={INLINE_CONTROL_CLASS}
-                  value={stepDraft.side}
-                  disabled={stepSaving}
-                  onChange={(event) =>
-                    setStepDraft((current) => ({
-                      ...current,
-                      side: event.target.value,
-                    }))
-                  }
-                >
-                  {INLINE_BALL_SIDE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-0.5">
-                <span className="text-[10px] font-semibold text-[#5a574c]">
-                  担当
-                </span>
-                <input
-                  className={INLINE_CONTROL_CLASS}
-                  value={stepDraft.owner}
-                  disabled={stepSaving}
-                  onChange={(event) =>
-                    setStepDraft((current) => ({
-                      ...current,
-                      owner: event.target.value,
-                    }))
-                  }
-                />
-              </label>
-              <label className="grid gap-0.5">
-                <span className="text-[10px] font-semibold text-[#5a574c]">
-                  期限
-                </span>
-                <input
-                  type="date"
-                  className={INLINE_CONTROL_CLASS}
-                  value={stepDraft.due}
-                  disabled={stepSaving}
-                  onChange={(event) =>
-                    setStepDraft((current) => ({
-                      ...current,
-                      due: event.target.value,
-                    }))
-                  }
-                />
-              </label>
-            </div>
-          ) : (
-            <textarea
-              autoFocus
-              rows={2}
-              className={`${INLINE_CONTROL_CLASS} py-1.5 leading-4`}
-              value={stepDraft.value || ""}
-              disabled={stepSaving}
-              aria-label={`${activeStep.sub}の内容`}
-              onChange={(event) =>
-                setStepDraft((current) => ({
-                  ...current,
-                  value: event.target.value,
-                }))
-              }
-            />
-          )}
-          {stepError && (
-            <p
-              className="text-[10px] font-semibold text-[#8c3329]"
-              role="alert"
-            >
-              {stepError}
-            </p>
-          )}
-          <div className="flex justify-end gap-1.5">
-            <button
-              type="button"
-              onClick={() => setActiveStepKey(null)}
-              disabled={stepSaving}
-              className={`min-h-9 rounded border border-[#ada18a] bg-[#fffdf7] px-2.5 text-[10px] font-semibold text-[#5a574c] hover:bg-[#f2eee0] ${FOCUS_RING}`}
-            >
-              取消
-            </button>
-            <button
-              type="button"
-              onClick={() => void saveStep()}
-              disabled={stepSaving}
-              className={`min-h-9 rounded border border-[#235f4b] bg-[#235f4b] px-2.5 text-[10px] font-semibold text-[#fffdf7] hover:bg-[#1d5341] ${FOCUS_RING}`}
-            >
-              保存
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -3995,7 +3989,7 @@ function PartnerInlineRow({
                 aria-controls={`sx-partner-history-${partner.id}`}
                 aria-label={`${display.name}の進捗と履歴を開く`}
                 data-partner-name-open={partner.id}
-                className={`min-w-0 text-left hover:bg-[#e7f0e9] ${FOCUS_RING}`}
+                className={`!min-h-0 min-w-0 text-left hover:bg-[#e7f0e9] ${FOCUS_RING}`}
               >
                 <span className="flex min-w-0 items-start justify-between gap-1">
                   {relationNameView}
@@ -4507,41 +4501,67 @@ function PartnerInlineRow({
                                 ))}
                               </span>
                             )}
-                            <select
-                              autoFocus
-                              className={INLINE_CONTROL_CLASS}
-                              value=""
-                              onChange={(event) => {
-                                const token = event.target.value;
-                                if (!token || chosen.includes(token)) return;
-                                commit([...chosen, token]);
-                              }}
-                              aria-label="定型の成分を追加"
-                            >
-                              <option value="">成分を追加…</option>
-                              {SX_EFFLUENT_COMPONENT_CHOICES.filter(
-                                (choice) => !chosen.includes(choice.value),
-                              ).map((choice) => (
-                                <option key={choice.value} value={choice.value}>
-                                  {choice.label}
+                            {values.component_adding === "true" ? (
+                              /* 「＋ 新しい成分を追加」を選んだときだけ現れる入力。担当プル
+                                 ダウンの「新しい担当を追加」と同じ番兵方式で全体を統一する。 */
+                              <input
+                                autoFocus
+                                className={INLINE_CONTROL_CLASS}
+                                placeholder="新しい成分を入力してEnter"
+                                aria-label="新しい成分を入力"
+                                onBlur={() =>
+                                  setValue("component_adding", "")
+                                }
+                                onKeyDown={(event) => {
+                                  if (event.nativeEvent.isComposing) return;
+                                  if (event.key === "Escape") {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    setValue("component_adding", "");
+                                    return;
+                                  }
+                                  if (event.key !== "Enter") return;
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  const token =
+                                    event.currentTarget.value.trim();
+                                  if (token && !chosen.includes(token))
+                                    commit([...chosen, token]);
+                                  setValue("component_adding", "");
+                                }}
+                              />
+                            ) : (
+                              <select
+                                autoFocus
+                                className={INLINE_CONTROL_CLASS}
+                                value=""
+                                onChange={(event) => {
+                                  const token = event.target.value;
+                                  if (token === "__new_component__") {
+                                    setValue("component_adding", "true");
+                                    return;
+                                  }
+                                  if (!token || chosen.includes(token)) return;
+                                  commit([...chosen, token]);
+                                }}
+                                aria-label="成分を追加"
+                              >
+                                <option value="">成分を追加…</option>
+                                {SX_EFFLUENT_COMPONENT_CHOICES.filter(
+                                  (choice) => !chosen.includes(choice.value),
+                                ).map((choice) => (
+                                  <option
+                                    key={choice.value}
+                                    value={choice.value}
+                                  >
+                                    {choice.label}
+                                  </option>
+                                ))}
+                                <option value="__new_component__">
+                                  ＋ 新しい成分を追加
                                 </option>
-                              ))}
-                            </select>
-                            <input
-                              className={INLINE_CONTROL_CLASS}
-                              placeholder="リストに無い成分を入力してEnter"
-                              aria-label="リストに無い成分を追加"
-                              onKeyDown={(event) => {
-                                if (event.nativeEvent.isComposing) return;
-                                if (event.key !== "Enter") return;
-                                event.preventDefault();
-                                event.stopPropagation();
-                                const token = event.currentTarget.value.trim();
-                                if (!token || chosen.includes(token)) return;
-                                commit([...chosen, token]);
-                                event.currentTarget.value = "";
-                              }}
-                            />
+                              </select>
+                            )}
                           </>
                         );
                       })()}
