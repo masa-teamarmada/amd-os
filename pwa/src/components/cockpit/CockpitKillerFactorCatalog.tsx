@@ -43,6 +43,21 @@ function formatDate(value: string | null) {
   return value.replaceAll("-", "/");
 }
 
+function todayInJapan() {
+  const values = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Tokyo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    })
+      .formatToParts(new Date())
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 function Field({ label, name, children, hint }: { label: string; name: string; children: ReactNode; hint?: string }) {
   return (
     <div className="space-y-1.5">
@@ -306,7 +321,7 @@ export function CockpitKillerFactorCatalog({ projectId }: { projectId: string })
                     name="occurred_on"
                     type="date"
                     required
-                    defaultValue={occurrenceFactor.occurredOn || new Date().toISOString().slice(0, 10)}
+                    defaultValue={occurrenceFactor.occurredOn || todayInJapan()}
                     className="h-11"
                   />
                 </Field>
