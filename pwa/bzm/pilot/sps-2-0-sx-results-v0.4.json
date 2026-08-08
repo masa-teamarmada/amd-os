@@ -1,0 +1,416 @@
+{
+  "version": "sps-2.0-sx-results-v0.4",
+  "model_version": "gself-path-cashflow-v0.4",
+  "information_cutoff": "2026-08-07T23:59:59+09:00",
+  "runs": 10000,
+  "masa_cumulative_reference": {
+    "tech": 0.9,
+    "b1": 0.8,
+    "b2": 0.7,
+    "p1": 0.5,
+    "p2": 0.3,
+    "p3": 0.25
+  },
+  "cases": [
+    {
+      "case": "base",
+      "label": "基準（Seed期限2027-04末）",
+      "deadline_months": 55.8,
+      "seed_deadline_months": 8.8,
+      "q": 0.0335,
+      "q_wilson95": {
+        "low": 0.0301,
+        "high": 0.0372
+      },
+      "founded_in_time_rate": 0.5142,
+      "trl5_incomplete_at_funding_share_of_founded": 0.0546,
+      "masa_seed_cumulative_reference": 0.7,
+      "all_clear_rate": 0.1757,
+      "failure_breakdown_share": {
+        "success": 0.0335,
+        "tech_stop": 0.0981,
+        "poc_stop": 0.1805,
+        "seed_stop": 0.0924,
+        "seed_timing_stop": 0.1148,
+        "cash_out_p1": 0.0541,
+        "cash_out_p2": 0,
+        "cash_out_p3": 0,
+        "p1_stop": 0.1058,
+        "p2_stop": 0.1406,
+        "p3_stop": 0.038,
+        "deadline_exceeded": 0.1422
+      },
+      "t_c_success_months": {
+        "n": 335,
+        "p05": 50.4916,
+        "median": 54.0338,
+        "p95": 55.5884,
+        "mean": 53.5897
+      },
+      "t_c_all_clear_months": {
+        "n": 1757,
+        "p05": 52.619,
+        "median": 59.8073,
+        "p95": 67.8918,
+        "mean": 59.9999
+      },
+      "t_founded_months": {
+        "n": 5142,
+        "p05": 6.4995,
+        "median": 7.766,
+        "p95": 8.6695,
+        "mean": 7.7025
+      }
+    },
+    {
+      "case": "seed_may",
+      "label": "Seed期限2027-05末",
+      "deadline_months": 55.8,
+      "seed_deadline_months": 9.8,
+      "q": 0.0413,
+      "q_wilson95": {
+        "low": 0.0376,
+        "high": 0.0454
+      },
+      "founded_in_time_rate": 0.6176,
+      "trl5_incomplete_at_funding_share_of_founded": 0.0534,
+      "masa_seed_cumulative_reference": 0.7,
+      "all_clear_rate": 0.2155,
+      "failure_breakdown_share": {
+        "success": 0.0413,
+        "tech_stop": 0.1016,
+        "poc_stop": 0.1811,
+        "seed_stop": 0.088,
+        "seed_timing_stop": 0.0117,
+        "cash_out_p1": 0.0597,
+        "cash_out_p2": 0,
+        "cash_out_p3": 0,
+        "p1_stop": 0.1284,
+        "p2_stop": 0.1705,
+        "p3_stop": 0.0435,
+        "deadline_exceeded": 0.1742
+      },
+      "t_c_success_months": {
+        "n": 413,
+        "p05": 50.3858,
+        "median": 53.9351,
+        "p95": 55.5853,
+        "mean": 53.5564
+      },
+      "t_c_all_clear_months": {
+        "n": 2155,
+        "p05": 52.6865,
+        "median": 59.9582,
+        "p95": 68.5133,
+        "mean": 60.1972
+      },
+      "t_founded_months": {
+        "n": 6176,
+        "p05": 6.5474,
+        "median": 7.9037,
+        "p95": 9.2517,
+        "mean": 7.9025
+      }
+    },
+    {
+      "case": "burn_up_30",
+      "label": "全フェーズ純燃焼+30%",
+      "deadline_months": 55.8,
+      "seed_deadline_months": 8.8,
+      "q": 0.0239,
+      "q_wilson95": {
+        "low": 0.0211,
+        "high": 0.0271
+      },
+      "founded_in_time_rate": 0.5243,
+      "trl5_incomplete_at_funding_share_of_founded": 0.0568,
+      "masa_seed_cumulative_reference": 0.7,
+      "all_clear_rate": 0.0954,
+      "failure_breakdown_share": {
+        "success": 0.0239,
+        "tech_stop": 0.0964,
+        "poc_stop": 0.1803,
+        "seed_stop": 0.0896,
+        "seed_timing_stop": 0.1094,
+        "cash_out_p1": 0.215,
+        "cash_out_p2": 0.0009,
+        "cash_out_p3": 0.0009,
+        "p1_stop": 0.1086,
+        "p2_stop": 0.083,
+        "p3_stop": 0.0205,
+        "deadline_exceeded": 0.0715
+      },
+      "t_c_success_months": {
+        "n": 239,
+        "p05": 49.2558,
+        "median": 53.4947,
+        "p95": 55.6306,
+        "mean": 53.167
+      },
+      "t_c_all_clear_months": {
+        "n": 954,
+        "p05": 51.6057,
+        "median": 58.5855,
+        "p95": 66.4028,
+        "mean": 58.7597
+      },
+      "t_founded_months": {
+        "n": 5243,
+        "p05": 6.4648,
+        "median": 7.7724,
+        "p95": 8.6679,
+        "mean": 7.6998
+      }
+    },
+    {
+      "case": "prob_up",
+      "label": "手応え累積+10pt",
+      "deadline_months": 55.8,
+      "seed_deadline_months": 8.8,
+      "q": 0.0524,
+      "q_wilson95": {
+        "low": 0.0482,
+        "high": 0.0569
+      },
+      "founded_in_time_rate": 0.6547,
+      "trl5_incomplete_at_funding_share_of_founded": 0.0603,
+      "masa_seed_cumulative_reference": 0.7,
+      "all_clear_rate": 0.2553,
+      "failure_breakdown_share": {
+        "success": 0.0524,
+        "tech_stop": 0.0097,
+        "poc_stop": 0.1001,
+        "seed_stop": 0.0989,
+        "seed_timing_stop": 0.1366,
+        "cash_out_p1": 0.0607,
+        "cash_out_p2": 0,
+        "cash_out_p3": 0,
+        "p1_stop": 0.1573,
+        "p2_stop": 0.1452,
+        "p3_stop": 0.0362,
+        "deadline_exceeded": 0.2029
+      },
+      "t_c_success_months": {
+        "n": 524,
+        "p05": 50.3214,
+        "median": 54.0853,
+        "p95": 55.6386,
+        "mean": 53.6393
+      },
+      "t_c_all_clear_months": {
+        "n": 2553,
+        "p05": 52.5999,
+        "median": 59.6633,
+        "p95": 68.0399,
+        "mean": 59.9006
+      },
+      "t_founded_months": {
+        "n": 6547,
+        "p05": 6.4755,
+        "median": 7.7758,
+        "p95": 8.6728,
+        "mean": 7.7039
+      }
+    },
+    {
+      "case": "prob_down",
+      "label": "手応え累積-10pt",
+      "deadline_months": 55.8,
+      "seed_deadline_months": 8.8,
+      "q": 0.0204,
+      "q_wilson95": {
+        "low": 0.0178,
+        "high": 0.0234
+      },
+      "founded_in_time_rate": 0.4001,
+      "trl5_incomplete_at_funding_share_of_founded": 0.055,
+      "masa_seed_cumulative_reference": 0.7,
+      "all_clear_rate": 0.1058,
+      "failure_breakdown_share": {
+        "success": 0.0204,
+        "tech_stop": 0.1995,
+        "poc_stop": 0.2354,
+        "seed_stop": 0.0804,
+        "seed_timing_stop": 0.0846,
+        "cash_out_p1": 0.0403,
+        "cash_out_p2": 0,
+        "cash_out_p3": 0,
+        "p1_stop": 0.0682,
+        "p2_stop": 0.151,
+        "p3_stop": 0.0348,
+        "deadline_exceeded": 0.0854
+      },
+      "t_c_success_months": {
+        "n": 204,
+        "p05": 50.3677,
+        "median": 53.8354,
+        "p95": 55.5651,
+        "mean": 53.4953
+      },
+      "t_c_all_clear_months": {
+        "n": 1058,
+        "p05": 52.2575,
+        "median": 59.748,
+        "p95": 68.2468,
+        "mean": 59.9016
+      },
+      "t_founded_months": {
+        "n": 4001,
+        "p05": 6.4997,
+        "median": 7.7428,
+        "p95": 8.6506,
+        "mean": 7.6864
+      }
+    },
+    {
+      "case": "time_fast",
+      "label": "全所要時間-25%",
+      "deadline_months": 55.8,
+      "seed_deadline_months": 8.8,
+      "q": 0.244,
+      "q_wilson95": {
+        "low": 0.2357,
+        "high": 0.2525
+      },
+      "founded_in_time_rate": 0.63,
+      "trl5_incomplete_at_funding_share_of_founded": 0.0494,
+      "masa_seed_cumulative_reference": 0.7,
+      "all_clear_rate": 0.2447,
+      "failure_breakdown_share": {
+        "success": 0.244,
+        "tech_stop": 0.0949,
+        "poc_stop": 0.1827,
+        "seed_stop": 0.0924,
+        "seed_timing_stop": 0,
+        "cash_out_p1": 0.0011,
+        "cash_out_p2": 0,
+        "cash_out_p3": 0,
+        "p1_stop": 0.132,
+        "p2_stop": 0.2008,
+        "p3_stop": 0.0514,
+        "deadline_exceeded": 0.0007
+      },
+      "t_c_success_months": {
+        "n": 2440,
+        "p05": 39.7035,
+        "median": 45.3654,
+        "p95": 51.4339,
+        "mean": 45.3982
+      },
+      "t_c_all_clear_months": {
+        "n": 2447,
+        "p05": 39.7098,
+        "median": 45.3722,
+        "p95": 51.4717,
+        "mean": 45.4323
+      },
+      "t_founded_months": {
+        "n": 6300,
+        "p05": 4.9315,
+        "median": 5.9594,
+        "p95": 7.0656,
+        "mean": 5.9742
+      }
+    },
+    {
+      "case": "time_slow",
+      "label": "全所要時間+25%",
+      "deadline_months": 55.8,
+      "seed_deadline_months": 8.8,
+      "q": 0,
+      "q_wilson95": {
+        "low": 0,
+        "high": 0.0004
+      },
+      "founded_in_time_rate": 0.0884,
+      "trl5_incomplete_at_funding_share_of_founded": 0.2704,
+      "masa_seed_cumulative_reference": 0.7,
+      "all_clear_rate": 0.0191,
+      "failure_breakdown_share": {
+        "success": 0,
+        "tech_stop": 0.0981,
+        "poc_stop": 0.1872,
+        "seed_stop": 0.0903,
+        "seed_timing_stop": 0.536,
+        "cash_out_p1": 0.0323,
+        "cash_out_p2": 0.0002,
+        "cash_out_p3": 0.0002,
+        "p1_stop": 0.0178,
+        "p2_stop": 0.0155,
+        "p3_stop": 0.0033,
+        "deadline_exceeded": 0.0191
+      },
+      "t_c_success_months": {
+        "n": 0,
+        "p05": null,
+        "median": null,
+        "p95": null,
+        "mean": null
+      },
+      "t_c_all_clear_months": {
+        "n": 191,
+        "p05": 63.4413,
+        "median": 72.3135,
+        "p95": 82.035,
+        "mean": 72.5709
+      },
+      "t_founded_months": {
+        "n": 884,
+        "p05": 7.4704,
+        "median": 8.3811,
+        "p95": 8.7745,
+        "mean": 8.2909
+      }
+    },
+    {
+      "case": "deadline_plus6",
+      "label": "期限+6か月(2031-09)",
+      "deadline_months": 61.8,
+      "seed_deadline_months": 8.8,
+      "q": 0.1254,
+      "q_wilson95": {
+        "low": 0.1191,
+        "high": 0.132
+      },
+      "founded_in_time_rate": 0.529,
+      "trl5_incomplete_at_funding_share_of_founded": 0.0652,
+      "masa_seed_cumulative_reference": 0.7,
+      "all_clear_rate": 0.1867,
+      "failure_breakdown_share": {
+        "success": 0.1254,
+        "tech_stop": 0.0963,
+        "poc_stop": 0.1812,
+        "seed_stop": 0.0897,
+        "seed_timing_stop": 0.1038,
+        "cash_out_p1": 0.0508,
+        "cash_out_p2": 0,
+        "cash_out_p3": 0,
+        "p1_stop": 0.1067,
+        "p2_stop": 0.1496,
+        "p3_stop": 0.0352,
+        "deadline_exceeded": 0.0613
+      },
+      "t_c_success_months": {
+        "n": 1254,
+        "p05": 51.8101,
+        "median": 57.7069,
+        "p95": 61.2923,
+        "mean": 57.3204
+      },
+      "t_c_all_clear_months": {
+        "n": 1867,
+        "p05": 52.5557,
+        "median": 59.7401,
+        "p95": 67.6749,
+        "mean": 59.8201
+      },
+      "t_founded_months": {
+        "n": 5290,
+        "p05": 6.4475,
+        "median": 7.7344,
+        "p95": 8.6493,
+        "mean": 7.6765
+      }
+    }
+  ]
+}

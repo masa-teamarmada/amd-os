@@ -1,0 +1,2363 @@
+{
+  "generated_at": "2026-08-04T13:11:13.625Z",
+  "input_file": "sps-2-0-pilot-inputs-v0.1.json",
+  "schema_version": "sps-2.0-pilot-input-ticket-v0.1",
+  "model_version": "joint-path-pert-v0.1",
+  "status": "uncalibrated-pilot",
+  "seed_rule": "FNV-1a(model_version + project_id) -> mulberry32; common random-number seed across sensitivity scenarios",
+  "runs_per_project_per_scenario": 10000,
+  "interpretation_boundary": "Model probability under frozen analyst assumptions. Not empirically calibrated success probability, valuation, investment decision, or automatic GO judgment.",
+  "projects": [
+    {
+      "project_id": "p21",
+      "label": "SX / SolvioraX",
+      "information_cutoff": "2026-08-04T23:59:59+09:00",
+      "plan_version": "sx-v2026-08-01-manual-gate+2026-07-14-current-truth",
+      "model_version": "joint-path-pert-v0.1",
+      "horizon_date": "2027-03-31",
+      "horizon_months": 7.86,
+      "P": {
+        "V_soc": {
+          "base": 60,
+          "low": 40,
+          "high": 80,
+          "components": {
+            "magnitude": 30,
+            "intensity": 20,
+            "additionality": 10
+          },
+          "evidence_quality": "C",
+          "basis": "Industrial wastewater, heavy-metal recovery, resource recovery, and environmental burden are material, but treated volume, avoided harm, attribution, and advantage over incumbent treatment are not yet quantified.",
+          "missing": [
+            "annual treated volume at target scale",
+            "pollutant removal and recovery baseline",
+            "avoided environmental or health damage",
+            "counterfactual incumbent outcome"
+          ],
+          "refutation": "Lower the score if validated unit economics or field tests show no material outcome beyond incumbent treatment; raise only after quantified field outcomes and additionality are independently reproduced."
+        },
+        "V_econ": {
+          "base": 24000000000,
+          "low": 5000000000,
+          "high": 80000000000,
+          "proxy_not_dcf": true,
+          "evidence_quality": "C",
+          "basis": "Disclosed long-term domestic SOM revenue of JPY 20bn multiplied by pilot assumptions of 15% normalized operating margin and 8x enterprise-value multiple.",
+          "missing": [
+            "five-year cash-flow rows",
+            "validated price and cost by use case",
+            "working capital",
+            "capital expenditure",
+            "post-commercialization risk and terminal value"
+          ],
+          "refutation": "Replace the proxy with conditional DCF. Reject the central proxy if paid PoC pricing, treatment cost, or obtainable market evidence cannot support the revenue and margin assumptions."
+        }
+      },
+      "results": [
+        {
+          "scenario": "base",
+          "modifiers": {},
+          "runs": 10000,
+          "successes": 2,
+          "q": 0.0002,
+          "simulation_standard_error": 0.0001,
+          "simulation_wilson_95pct_interval": {
+            "low": 0.0001,
+            "high": 0.0007
+          },
+          "x_star_reached_share_ignoring_deadline_and_slack": 0.0357,
+          "T_C_months_given_x_star_reached": {
+            "n": 357,
+            "p05": 9.5589,
+            "p25": 12.6011,
+            "median": 14.2985,
+            "p75": 16.5284,
+            "p95": 19.9635,
+            "mean": 14.516
+          },
+          "T_C_months_successful_paths": {
+            "n": 2,
+            "p05": 7.2172,
+            "p25": 7.2799,
+            "median": 7.3582,
+            "p75": 7.4365,
+            "p95": 7.4992,
+            "mean": 7.3582
+          },
+          "T_Y_months_all_paths": {
+            "n": 10000,
+            "p05": 1.5197,
+            "p25": 5.0065,
+            "median": 6.6386,
+            "p75": 8.1556,
+            "p95": 10.7503,
+            "mean": 6.5345
+          },
+          "failure_categories": {
+            "milestone": {
+              "count": 9643,
+              "share_of_all_paths": 0.9643,
+              "share_of_failures": 0.9645
+            },
+            "slack": {
+              "count": 274,
+              "share_of_all_paths": 0.0274,
+              "share_of_failures": 0.0274
+            },
+            "deadline": {
+              "count": 81,
+              "share_of_all_paths": 0.0081,
+              "share_of_failures": 0.0081
+            },
+            "other": {
+              "count": 0,
+              "share_of_all_paths": 0,
+              "share_of_failures": 0
+            }
+          },
+          "major_failure_paths": [
+            {
+              "path": "milestone:sx_reactor_recheck:retry",
+              "count": 832,
+              "share_of_all_paths": 0.0832,
+              "share_of_failures": 0.0832
+            },
+            {
+              "path": "milestone:sx_cost_model:retry",
+              "count": 816,
+              "share_of_all_paths": 0.0816,
+              "share_of_failures": 0.0816
+            },
+            {
+              "path": "milestone:sx_paid_poc_oral:retry",
+              "count": 714,
+              "share_of_all_paths": 0.0714,
+              "share_of_failures": 0.0714
+            },
+            {
+              "path": "milestone:sx_poc_conditions:retry",
+              "count": 599,
+              "share_of_all_paths": 0.0599,
+              "share_of_failures": 0.0599
+            },
+            {
+              "path": "milestone:sx_reactor_recheck:detour",
+              "count": 584,
+              "share_of_all_paths": 0.0584,
+              "share_of_failures": 0.0584
+            },
+            {
+              "path": "milestone:sx_paid_poc_oral:stop",
+              "count": 581,
+              "share_of_all_paths": 0.0581,
+              "share_of_failures": 0.0581
+            },
+            {
+              "path": "milestone:sx_reactor_recheck:stop",
+              "count": 576,
+              "share_of_all_paths": 0.0576,
+              "share_of_failures": 0.0576
+            },
+            {
+              "path": "milestone:sx_business_capital_plan:retry",
+              "count": 553,
+              "share_of_all_paths": 0.0553,
+              "share_of_failures": 0.0553
+            },
+            {
+              "path": "milestone:sx_cost_model:stop",
+              "count": 519,
+              "share_of_all_paths": 0.0519,
+              "share_of_failures": 0.0519
+            },
+            {
+              "path": "milestone:sx_cost_model:detour",
+              "count": 404,
+              "share_of_all_paths": 0.0404,
+              "share_of_failures": 0.0404
+            }
+          ],
+          "qP": {
+            "V_soc_pilot_points": 0.012,
+            "V_econ_JPY_probability_adjusted_proxy": 4800000,
+            "simulation_interval_only": {
+              "low": {
+                "V_soc_pilot_points": 0.0033,
+                "V_econ_JPY_probability_adjusted_proxy": 1316346.701
+              },
+              "high": {
+                "V_soc_pilot_points": 0.0437,
+                "V_econ_JPY_probability_adjusted_proxy": 17496266.2456
+              }
+            },
+            "warning": "uncalibrated q multiplied by provisional P; not a calibrated expected value, valuation, investment decision, or GO rule"
+          }
+        },
+        {
+          "scenario": "duration_minus_25pct",
+          "modifiers": {
+            "duration_scale": 0.75
+          },
+          "runs": 10000,
+          "successes": 35,
+          "q": 0.0035,
+          "simulation_standard_error": 0.0006,
+          "simulation_wilson_95pct_interval": {
+            "low": 0.0025,
+            "high": 0.0049
+          },
+          "x_star_reached_share_ignoring_deadline_and_slack": 0.0357,
+          "T_C_months_given_x_star_reached": {
+            "n": 357,
+            "p05": 7.1692,
+            "p25": 9.4508,
+            "median": 10.7239,
+            "p75": 12.3963,
+            "p95": 14.9726,
+            "mean": 10.887
+          },
+          "T_C_months_successful_paths": {
+            "n": 35,
+            "p05": 5.8536,
+            "p25": 6.7045,
+            "median": 7.1226,
+            "p75": 7.4711,
+            "p95": 7.7868,
+            "mean": 6.9889
+          },
+          "T_Y_months_all_paths": {
+            "n": 10000,
+            "p05": 1.1402,
+            "p25": 4.3719,
+            "median": 6.279,
+            "p75": 8.1149,
+            "p95": 11.4991,
+            "mean": 6.3331
+          },
+          "failure_categories": {
+            "milestone": {
+              "count": 9643,
+              "share_of_all_paths": 0.9643,
+              "share_of_failures": 0.9677
+            },
+            "slack": {
+              "count": 159,
+              "share_of_all_paths": 0.0159,
+              "share_of_failures": 0.016
+            },
+            "deadline": {
+              "count": 163,
+              "share_of_all_paths": 0.0163,
+              "share_of_failures": 0.0164
+            },
+            "other": {
+              "count": 0,
+              "share_of_all_paths": 0,
+              "share_of_failures": 0
+            }
+          },
+          "major_failure_paths": [
+            {
+              "path": "milestone:sx_reactor_recheck:retry",
+              "count": 832,
+              "share_of_all_paths": 0.0832,
+              "share_of_failures": 0.0835
+            },
+            {
+              "path": "milestone:sx_cost_model:retry",
+              "count": 816,
+              "share_of_all_paths": 0.0816,
+              "share_of_failures": 0.0819
+            },
+            {
+              "path": "milestone:sx_paid_poc_oral:retry",
+              "count": 714,
+              "share_of_all_paths": 0.0714,
+              "share_of_failures": 0.0717
+            },
+            {
+              "path": "milestone:sx_poc_conditions:retry",
+              "count": 599,
+              "share_of_all_paths": 0.0599,
+              "share_of_failures": 0.0601
+            },
+            {
+              "path": "milestone:sx_reactor_recheck:detour",
+              "count": 584,
+              "share_of_all_paths": 0.0584,
+              "share_of_failures": 0.0586
+            },
+            {
+              "path": "milestone:sx_paid_poc_oral:stop",
+              "count": 581,
+              "share_of_all_paths": 0.0581,
+              "share_of_failures": 0.0583
+            },
+            {
+              "path": "milestone:sx_reactor_recheck:stop",
+              "count": 576,
+              "share_of_all_paths": 0.0576,
+              "share_of_failures": 0.0578
+            },
+            {
+              "path": "milestone:sx_business_capital_plan:retry",
+              "count": 553,
+              "share_of_all_paths": 0.0553,
+              "share_of_failures": 0.0555
+            },
+            {
+              "path": "milestone:sx_cost_model:stop",
+              "count": 519,
+              "share_of_all_paths": 0.0519,
+              "share_of_failures": 0.0521
+            },
+            {
+              "path": "milestone:sx_cost_model:detour",
+              "count": 404,
+              "share_of_all_paths": 0.0404,
+              "share_of_failures": 0.0405
+            }
+          ],
+          "qP": {
+            "V_soc_pilot_points": 0.21,
+            "V_econ_JPY_probability_adjusted_proxy": 84000000,
+            "simulation_interval_only": {
+              "low": {
+                "V_soc_pilot_points": 0.1511,
+                "V_econ_JPY_probability_adjusted_proxy": 60426321.5161
+              },
+              "high": {
+                "V_soc_pilot_points": 0.2918,
+                "V_econ_JPY_probability_adjusted_proxy": 116725463.8541
+              }
+            },
+            "warning": "uncalibrated q multiplied by provisional P; not a calibrated expected value, valuation, investment decision, or GO rule"
+          }
+        },
+        {
+          "scenario": "duration_plus_25pct",
+          "modifiers": {
+            "duration_scale": 1.25
+          },
+          "runs": 10000,
+          "successes": 0,
+          "q": 0,
+          "simulation_standard_error": 0,
+          "simulation_wilson_95pct_interval": {
+            "low": 0,
+            "high": 0.0004
+          },
+          "x_star_reached_share_ignoring_deadline_and_slack": 0.0357,
+          "T_C_months_given_x_star_reached": {
+            "n": 357,
+            "p05": 11.9486,
+            "p25": 15.7514,
+            "median": 17.8731,
+            "p75": 20.6605,
+            "p95": 24.9544,
+            "mean": 18.145
+          },
+          "T_C_months_successful_paths": {
+            "n": 0,
+            "p05": null,
+            "p25": null,
+            "median": null,
+            "p75": null,
+            "p95": null,
+            "mean": null
+          },
+          "T_Y_months_all_paths": {
+            "n": 10000,
+            "p05": 1.8916,
+            "p25": 5.3471,
+            "median": 6.9274,
+            "p75": 8.1908,
+            "p95": 10.3938,
+            "mean": 6.6709
+          },
+          "failure_categories": {
+            "milestone": {
+              "count": 9643,
+              "share_of_all_paths": 0.9643,
+              "share_of_failures": 0.9643
+            },
+            "slack": {
+              "count": 327,
+              "share_of_all_paths": 0.0327,
+              "share_of_failures": 0.0327
+            },
+            "deadline": {
+              "count": 30,
+              "share_of_all_paths": 0.003,
+              "share_of_failures": 0.003
+            },
+            "other": {
+              "count": 0,
+              "share_of_all_paths": 0,
+              "share_of_failures": 0
+            }
+          },
+          "major_failure_paths": [
+            {
+              "path": "milestone:sx_reactor_recheck:retry",
+              "count": 832,
+              "share_of_all_paths": 0.0832,
+              "share_of_failures": 0.0832
+            },
+            {
+              "path": "milestone:sx_cost_model:retry",
+              "count": 816,
+              "share_of_all_paths": 0.0816,
+              "share_of_failures": 0.0816
+            },
+            {
+              "path": "milestone:sx_paid_poc_oral:retry",
+              "count": 714,
+              "share_of_all_paths": 0.0714,
+              "share_of_failures": 0.0714
+            },
+            {
+              "path": "milestone:sx_poc_conditions:retry",
+              "count": 599,
+              "share_of_all_paths": 0.0599,
+              "share_of_failures": 0.0599
+            },
+            {
+              "path": "milestone:sx_reactor_recheck:detour",
+              "count": 584,
+              "share_of_all_paths": 0.0584,
+              "share_of_failures": 0.0584
+            },
+            {
+              "path": "milestone:sx_paid_poc_oral:stop",
+              "count": 581,
+              "share_of_all_paths": 0.0581,
+              "share_of_failures": 0.0581
+            },
+            {
+              "path": "milestone:sx_reactor_recheck:stop",
+              "count": 576,
+              "share_of_all_paths": 0.0576,
+              "share_of_failures": 0.0576
+            },
+            {
+              "path": "milestone:sx_business_capital_plan:retry",
+              "count": 553,
+              "share_of_all_paths": 0.0553,
+              "share_of_failures": 0.0553
+            },
+            {
+              "path": "milestone:sx_cost_model:stop",
+              "count": 519,
+              "share_of_all_paths": 0.0519,
+              "share_of_failures": 0.0519
+            },
+            {
+              "path": "milestone:sx_cost_model:detour",
+              "count": 404,
+              "share_of_all_paths": 0.0404,
+              "share_of_failures": 0.0404
+            }
+          ],
+          "qP": {
+            "V_soc_pilot_points": 0,
+            "V_econ_JPY_probability_adjusted_proxy": 0,
+            "simulation_interval_only": {
+              "low": {
+                "V_soc_pilot_points": 0,
+                "V_econ_JPY_probability_adjusted_proxy": 0
+              },
+              "high": {
+                "V_soc_pilot_points": 0.023,
+                "V_econ_JPY_probability_adjusted_proxy": 9216299.4664
+              }
+            },
+            "warning": "uncalibrated q multiplied by provisional P; not a calibrated expected value, valuation, investment decision, or GO rule"
+          }
+        },
+        {
+          "scenario": "success_probability_plus_10pp",
+          "modifiers": {
+            "success_probability_shift": 0.1
+          },
+          "runs": 10000,
+          "successes": 19,
+          "q": 0.0019,
+          "simulation_standard_error": 0.0004,
+          "simulation_wilson_95pct_interval": {
+            "low": 0.0012,
+            "high": 0.003
+          },
+          "x_star_reached_share_ignoring_deadline_and_slack": 0.1211,
+          "T_C_months_given_x_star_reached": {
+            "n": 1211,
+            "p05": 8.7987,
+            "p25": 11.2269,
+            "median": 13.7208,
+            "p75": 16.1872,
+            "p95": 19.5833,
+            "mean": 13.8421
+          },
+          "T_C_months_successful_paths": {
+            "n": 19,
+            "p05": 6.866,
+            "p25": 7.3326,
+            "median": 7.5602,
+            "p75": 7.7566,
+            "p95": 7.832,
+            "mean": 7.4714
+          },
+          "T_Y_months_all_paths": {
+            "n": 10000,
+            "p05": 1.9525,
+            "p25": 5.7091,
+            "median": 7.282,
+            "p75": 9.0703,
+            "p95": 14.7494,
+            "mean": 7.5447
+          },
+          "failure_categories": {
+            "milestone": {
+              "count": 8789,
+              "share_of_all_paths": 0.8789,
+              "share_of_failures": 0.8806
+            },
+            "slack": {
+              "count": 787,
+              "share_of_all_paths": 0.0787,
+              "share_of_failures": 0.0788
+            },
+            "deadline": {
+              "count": 405,
+              "share_of_all_paths": 0.0405,
+              "share_of_failures": 0.0406
+            },
+            "other": {
+              "count": 0,
+              "share_of_all_paths": 0,
+              "share_of_failures": 0
+            }
+          },
+          "major_failure_paths": [
+            {
+              "path": "milestone:sx_paid_poc_oral:retry",
+              "count": 718,
+              "share_of_all_paths": 0.0718,
+              "share_of_failures": 0.0719
+            },
+            {
+              "path": "milestone:sx_reactor_recheck:retry",
+              "count": 704,
+              "share_of_all_paths": 0.0704,
+              "share_of_failures": 0.0705
+            },
+            {
+              "path": "milestone:sx_paid_poc_oral:stop",
+              "count": 645,
+              "share_of_all_paths": 0.0645,
+              "share_of_failures": 0.0646
+            },
+            {
+              "path": "milestone:sx_cost_model:retry",
+              "count": 515,
+              "share_of_all_paths": 0.0515,
+              "share_of_failures": 0.0516
+            },
+            {
+              "path": "milestone:sx_reactor_recheck:stop",
+              "count": 480,
+              "share_of_all_paths": 0.048,
+              "share_of_failures": 0.0481
+            },
+            {
+              "path": "milestone:sx_on_site_poc_trl5:stop",
+              "count": 479,
+              "share_of_all_paths": 0.0479,
+              "share_of_failures": 0.048
+            },
+            {
+              "path": "milestone:sx_reactor_recheck:detour",
+              "count": 477,
+              "share_of_all_paths": 0.0477,
+              "share_of_failures": 0.0478
+            },
+            {
+              "path": "milestone:sx_investment_oral:stop",
+              "count": 459,
+              "share_of_all_paths": 0.0459,
+              "share_of_failures": 0.046
+            },
+            {
+              "path": "milestone:sx_business_capital_plan:retry",
+              "count": 457,
+              "share_of_all_paths": 0.0457,
+              "share_of_failures": 0.0458
+            },
+            {
+              "path": "milestone:sx_investment_oral:retry",
+              "count": 426,
+              "share_of_all_paths": 0.0426,
+              "share_of_failures": 0.0427
+            }
+          ],
+          "qP": {
+            "V_soc_pilot_points": 0.114,
+            "V_econ_JPY_probability_adjusted_proxy": 45600000,
+            "simulation_interval_only": {
+              "low": {
+                "V_soc_pilot_points": 0.073,
+                "V_econ_JPY_probability_adjusted_proxy": 29201624.5009
+              },
+              "high": {
+                "V_soc_pilot_points": 0.1779,
+                "V_econ_JPY_probability_adjusted_proxy": 71179653.0275
+              }
+            },
+            "warning": "uncalibrated q multiplied by provisional P; not a calibrated expected value, valuation, investment decision, or GO rule"
+          }
+        },
+        {
+          "scenario": "success_probability_minus_10pp",
+          "modifiers": {
+            "success_probability_shift": -0.1
+          },
+          "runs": 10000,
+          "successes": 2,
+          "q": 0.0002,
+          "simulation_standard_error": 0.0001,
+          "simulation_wilson_95pct_interval": {
+            "low": 0.0001,
+            "high": 0.0007
+          },
+          "x_star_reached_share_ignoring_deadline_and_slack": 0.007,
+          "T_C_months_given_x_star_reached": {
+            "n": 70,
+            "p05": 10.2233,
+            "p25": 13.0942,
+            "median": 15.4786,
+            "p75": 17.8346,
+            "p95": 20.7155,
+            "mean": 15.4323
+          },
+          "T_C_months_successful_paths": {
+            "n": 2,
+            "p05": 7.5151,
+            "p25": 7.5162,
+            "median": 7.5175,
+            "p75": 7.5188,
+            "p95": 7.5198,
+            "mean": 7.5175
+          },
+          "T_Y_months_all_paths": {
+            "n": 10000,
+            "p05": 1.2177,
+            "p25": 4.1653,
+            "median": 6.209,
+            "p75": 7.4516,
+            "p95": 9.629,
+            "mean": 5.8527
+          },
+          "failure_categories": {
+            "milestone": {
+              "count": 9930,
+              "share_of_all_paths": 0.993,
+              "share_of_failures": 0.9932
+            },
+            "slack": {
+              "count": 59,
+              "share_of_all_paths": 0.0059,
+              "share_of_failures": 0.0059
+            },
+            "deadline": {
+              "count": 9,
+              "share_of_all_paths": 0.0009,
+              "share_of_failures": 0.0009
+            },
+            "other": {
+              "count": 0,
+              "share_of_all_paths": 0,
+              "share_of_failures": 0
+            }
+          },
+          "major_failure_paths": [
+            {
+              "path": "milestone:sx_cost_model:retry",
+              "count": 1111,
+              "share_of_all_paths": 0.1111,
+              "share_of_failures": 0.1111
+            },
+            {
+              "path": "milestone:sx_reactor_recheck:retry",
+              "count": 968,
+              "share_of_all_paths": 0.0968,
+              "share_of_failures": 0.0968
+            },
+            {
+              "path": "milestone:sx_poc_conditions:retry",
+              "count": 914,
+              "share_of_all_paths": 0.0914,
+              "share_of_failures": 0.0914
+            },
+            {
+              "path": "milestone:sx_cost_model:stop",
+              "count": 630,
+              "share_of_all_paths": 0.063,
+              "share_of_failures": 0.063
+            },
+            {
+              "path": "milestone:sx_reactor_recheck:stop",
+              "count": 627,
+              "share_of_all_paths": 0.0627,
+              "share_of_failures": 0.0627
+            },
+            {
+              "path": "milestone:sx_reactor_recheck:detour",
+              "count": 593,
+              "share_of_all_paths": 0.0593,
+              "share_of_failures": 0.0593
+            },
+            {
+              "path": "milestone:sx_paid_poc_oral:retry",
+              "count": 592,
+              "share_of_all_paths": 0.0592,
+              "share_of_failures": 0.0592
+            },
+            {
+              "path": "milestone:sx_business_capital_plan:retry",
+              "count": 575,
+              "share_of_all_paths": 0.0575,
+              "share_of_failures": 0.0575
+            },
+            {
+              "path": "milestone:sx_poc_conditions:stop",
+              "count": 565,
+              "share_of_all_paths": 0.0565,
+              "share_of_failures": 0.0565
+            },
+            {
+              "path": "milestone:sx_cost_model:detour",
+              "count": 548,
+              "share_of_all_paths": 0.0548,
+              "share_of_failures": 0.0548
+            }
+          ],
+          "qP": {
+            "V_soc_pilot_points": 0.012,
+            "V_econ_JPY_probability_adjusted_proxy": 4800000,
+            "simulation_interval_only": {
+              "low": {
+                "V_soc_pilot_points": 0.0033,
+                "V_econ_JPY_probability_adjusted_proxy": 1316346.701
+              },
+              "high": {
+                "V_soc_pilot_points": 0.0437,
+                "V_econ_JPY_probability_adjusted_proxy": 17496266.2456
+              }
+            },
+            "warning": "uncalibrated q multiplied by provisional P; not a calibrated expected value, valuation, investment decision, or GO rule"
+          }
+        },
+        {
+          "scenario": "initial_slack_plus_25pct",
+          "modifiers": {
+            "slack_scale": 1.25
+          },
+          "runs": 10000,
+          "successes": 2,
+          "q": 0.0002,
+          "simulation_standard_error": 0.0001,
+          "simulation_wilson_95pct_interval": {
+            "low": 0.0001,
+            "high": 0.0007
+          },
+          "x_star_reached_share_ignoring_deadline_and_slack": 0.0357,
+          "T_C_months_given_x_star_reached": {
+            "n": 357,
+            "p05": 9.5589,
+            "p25": 12.6011,
+            "median": 14.2985,
+            "p75": 16.5284,
+            "p95": 19.9635,
+            "mean": 14.516
+          },
+          "T_C_months_successful_paths": {
+            "n": 2,
+            "p05": 7.2172,
+            "p25": 7.2799,
+            "median": 7.3582,
+            "p75": 7.4365,
+            "p95": 7.4992,
+            "mean": 7.3582
+          },
+          "T_Y_months_all_paths": {
+            "n": 10000,
+            "p05": 1.5203,
+            "p25": 5.8266,
+            "median": 8.0156,
+            "p75": 10.0863,
+            "p95": 13.6736,
+            "mean": 7.9231
+          },
+          "failure_categories": {
+            "milestone": {
+              "count": 9643,
+              "share_of_all_paths": 0.9643,
+              "share_of_failures": 0.9645
+            },
+            "slack": {
+              "count": 195,
+              "share_of_all_paths": 0.0195,
+              "share_of_failures": 0.0195
+            },
+            "deadline": {
+              "count": 160,
+              "share_of_all_paths": 0.016,
+              "share_of_failures": 0.016
+            },
+            "other": {
+              "count": 0,
+              "share_of_all_paths": 0,
+              "share_of_failures": 0
+            }
+          },
+          "major_failure_paths": [
+            {
+              "path": "milestone:sx_reactor_recheck:retry",
+              "count": 832,
+              "share_of_all_paths": 0.0832,
+              "share_of_failures": 0.0832
+            },
+            {
+              "path": "milestone:sx_cost_model:retry",
+              "count": 816,
+              "share_of_all_paths": 0.0816,
+              "share_of_failures": 0.0816
+            },
+            {
+              "path": "milestone:sx_paid_poc_oral:retry",
+              "count": 714,
+              "share_of_all_paths": 0.0714,
+              "share_of_failures": 0.0714
+            },
+            {
+              "path": "milestone:sx_poc_conditions:retry",
+              "count": 599,
+              "share_of_all_paths": 0.0599,
+              "share_of_failures": 0.0599
+            },
+            {
+              "path": "milestone:sx_reactor_recheck:detour",
+              "count": 584,
+              "share_of_all_paths": 0.0584,
+              "share_of_failures": 0.0584
+            },
+            {
+              "path": "milestone:sx_paid_poc_oral:stop",
+              "count": 581,
+              "share_of_all_paths": 0.0581,
+              "share_of_failures": 0.0581
+            },
+            {
+              "path": "milestone:sx_reactor_recheck:stop",
+              "count": 576,
+              "share_of_all_paths": 0.0576,
+              "share_of_failures": 0.0576
+            },
+            {
+              "path": "milestone:sx_business_capital_plan:retry",
+              "count": 553,
+              "share_of_all_paths": 0.0553,
+              "share_of_failures": 0.0553
+            },
+            {
+              "path": "milestone:sx_cost_model:stop",
+              "count": 519,
+              "share_of_all_paths": 0.0519,
+              "share_of_failures": 0.0519
+            },
+            {
+              "path": "milestone:sx_cost_model:detour",
+              "count": 404,
+              "share_of_all_paths": 0.0404,
+              "share_of_failures": 0.0404
+            }
+          ],
+          "qP": {
+            "V_soc_pilot_points": 0.012,
+            "V_econ_JPY_probability_adjusted_proxy": 4800000,
+            "simulation_interval_only": {
+              "low": {
+                "V_soc_pilot_points": 0.0033,
+                "V_econ_JPY_probability_adjusted_proxy": 1316346.701
+              },
+              "high": {
+                "V_soc_pilot_points": 0.0437,
+                "V_econ_JPY_probability_adjusted_proxy": 17496266.2456
+              }
+            },
+            "warning": "uncalibrated q multiplied by provisional P; not a calibrated expected value, valuation, investment decision, or GO rule"
+          }
+        },
+        {
+          "scenario": "initial_slack_minus_25pct",
+          "modifiers": {
+            "slack_scale": 0.75
+          },
+          "runs": 10000,
+          "successes": 2,
+          "q": 0.0002,
+          "simulation_standard_error": 0.0001,
+          "simulation_wilson_95pct_interval": {
+            "low": 0.0001,
+            "high": 0.0007
+          },
+          "x_star_reached_share_ignoring_deadline_and_slack": 0.0357,
+          "T_C_months_given_x_star_reached": {
+            "n": 357,
+            "p05": 9.5589,
+            "p25": 12.6011,
+            "median": 14.2985,
+            "p75": 16.5284,
+            "p95": 19.9635,
+            "mean": 14.516
+          },
+          "T_C_months_successful_paths": {
+            "n": 2,
+            "p05": 7.2172,
+            "p25": 7.2799,
+            "median": 7.3582,
+            "p75": 7.4365,
+            "p95": 7.4992,
+            "mean": 7.3582
+          },
+          "T_Y_months_all_paths": {
+            "n": 10000,
+            "p05": 1.4747,
+            "p25": 3.843,
+            "median": 5.2583,
+            "p75": 6.2718,
+            "p95": 7.9586,
+            "mean": 5.0422
+          },
+          "failure_categories": {
+            "milestone": {
+              "count": 9643,
+              "share_of_all_paths": 0.9643,
+              "share_of_failures": 0.9645
+            },
+            "slack": {
+              "count": 331,
+              "share_of_all_paths": 0.0331,
+              "share_of_failures": 0.0331
+            },
+            "deadline": {
+              "count": 24,
+              "share_of_all_paths": 0.0024,
+              "share_of_failures": 0.0024
+            },
+            "other": {
+              "count": 0,
+              "share_of_all_paths": 0,
+              "share_of_failures": 0
+            }
+          },
+          "major_failure_paths": [
+            {
+              "path": "milestone:sx_reactor_recheck:retry",
+              "count": 832,
+              "share_of_all_paths": 0.0832,
+              "share_of_failures": 0.0832
+            },
+            {
+              "path": "milestone:sx_cost_model:retry",
+              "count": 816,
+              "share_of_all_paths": 0.0816,
+              "share_of_failures": 0.0816
+            },
+            {
+              "path": "milestone:sx_paid_poc_oral:retry",
+              "count": 714,
+              "share_of_all_paths": 0.0714,
+              "share_of_failures": 0.0714
+            },
+            {
+              "path": "milestone:sx_poc_conditions:retry",
+              "count": 599,
+              "share_of_all_paths": 0.0599,
+              "share_of_failures": 0.0599
+            },
+            {
+              "path": "milestone:sx_reactor_recheck:detour",
+              "count": 584,
+              "share_of_all_paths": 0.0584,
+              "share_of_failures": 0.0584
+            },
+            {
+              "path": "milestone:sx_paid_poc_oral:stop",
+              "count": 581,
+              "share_of_all_paths": 0.0581,
+              "share_of_failures": 0.0581
+            },
+            {
+              "path": "milestone:sx_reactor_recheck:stop",
+              "count": 576,
+              "share_of_all_paths": 0.0576,
+              "share_of_failures": 0.0576
+            },
+            {
+              "path": "milestone:sx_business_capital_plan:retry",
+              "count": 553,
+              "share_of_all_paths": 0.0553,
+              "share_of_failures": 0.0553
+            },
+            {
+              "path": "milestone:sx_cost_model:stop",
+              "count": 519,
+              "share_of_all_paths": 0.0519,
+              "share_of_failures": 0.0519
+            },
+            {
+              "path": "milestone:sx_cost_model:detour",
+              "count": 404,
+              "share_of_all_paths": 0.0404,
+              "share_of_failures": 0.0404
+            }
+          ],
+          "qP": {
+            "V_soc_pilot_points": 0.012,
+            "V_econ_JPY_probability_adjusted_proxy": 4800000,
+            "simulation_interval_only": {
+              "low": {
+                "V_soc_pilot_points": 0.0033,
+                "V_econ_JPY_probability_adjusted_proxy": 1316346.701
+              },
+              "high": {
+                "V_soc_pilot_points": 0.0437,
+                "V_econ_JPY_probability_adjusted_proxy": 17496266.2456
+              }
+            },
+            "warning": "uncalibrated q multiplied by provisional P; not a calibrated expected value, valuation, investment decision, or GO rule"
+          }
+        },
+        {
+          "scenario": "horizon_plus_3months",
+          "modifiers": {
+            "horizon_extension_months": 3
+          },
+          "runs": 10000,
+          "successes": 41,
+          "q": 0.0041,
+          "simulation_standard_error": 0.0006,
+          "simulation_wilson_95pct_interval": {
+            "low": 0.003,
+            "high": 0.0056
+          },
+          "x_star_reached_share_ignoring_deadline_and_slack": 0.0357,
+          "T_C_months_given_x_star_reached": {
+            "n": 357,
+            "p05": 9.5589,
+            "p25": 12.6011,
+            "median": 14.2985,
+            "p75": 16.5284,
+            "p95": 19.9635,
+            "mean": 14.516
+          },
+          "T_C_months_successful_paths": {
+            "n": 41,
+            "p05": 7.9291,
+            "p25": 9.1853,
+            "median": 9.6854,
+            "p75": 10.2384,
+            "p95": 10.7304,
+            "mean": 9.556
+          },
+          "T_Y_months_all_paths": {
+            "n": 10000,
+            "p05": 1.5197,
+            "p25": 5.0065,
+            "median": 6.6386,
+            "p75": 8.1556,
+            "p95": 10.7503,
+            "mean": 6.5345
+          },
+          "failure_categories": {
+            "milestone": {
+              "count": 9643,
+              "share_of_all_paths": 0.9643,
+              "share_of_failures": 0.9683
+            },
+            "slack": {
+              "count": 274,
+              "share_of_all_paths": 0.0274,
+              "share_of_failures": 0.0275
+            },
+            "deadline": {
+              "count": 42,
+              "share_of_all_paths": 0.0042,
+              "share_of_failures": 0.0042
+            },
+            "other": {
+              "count": 0,
+              "share_of_all_paths": 0,
+              "share_of_failures": 0
+            }
+          },
+          "major_failure_paths": [
+            {
+              "path": "milestone:sx_reactor_recheck:retry",
+              "count": 832,
+              "share_of_all_paths": 0.0832,
+              "share_of_failures": 0.0835
+            },
+            {
+              "path": "milestone:sx_cost_model:retry",
+              "count": 816,
+              "share_of_all_paths": 0.0816,
+              "share_of_failures": 0.0819
+            },
+            {
+              "path": "milestone:sx_paid_poc_oral:retry",
+              "count": 714,
+              "share_of_all_paths": 0.0714,
+              "share_of_failures": 0.0717
+            },
+            {
+              "path": "milestone:sx_poc_conditions:retry",
+              "count": 599,
+              "share_of_all_paths": 0.0599,
+              "share_of_failures": 0.0601
+            },
+            {
+              "path": "milestone:sx_reactor_recheck:detour",
+              "count": 584,
+              "share_of_all_paths": 0.0584,
+              "share_of_failures": 0.0586
+            },
+            {
+              "path": "milestone:sx_paid_poc_oral:stop",
+              "count": 581,
+              "share_of_all_paths": 0.0581,
+              "share_of_failures": 0.0583
+            },
+            {
+              "path": "milestone:sx_reactor_recheck:stop",
+              "count": 576,
+              "share_of_all_paths": 0.0576,
+              "share_of_failures": 0.0578
+            },
+            {
+              "path": "milestone:sx_business_capital_plan:retry",
+              "count": 553,
+              "share_of_all_paths": 0.0553,
+              "share_of_failures": 0.0555
+            },
+            {
+              "path": "milestone:sx_cost_model:stop",
+              "count": 519,
+              "share_of_all_paths": 0.0519,
+              "share_of_failures": 0.0521
+            },
+            {
+              "path": "milestone:sx_cost_model:detour",
+              "count": 404,
+              "share_of_all_paths": 0.0404,
+              "share_of_failures": 0.0406
+            }
+          ],
+          "qP": {
+            "V_soc_pilot_points": 0.246,
+            "V_econ_JPY_probability_adjusted_proxy": 98400000,
+            "simulation_interval_only": {
+              "low": {
+                "V_soc_pilot_points": 0.1814,
+                "V_econ_JPY_probability_adjusted_proxy": 72572108.6673
+              },
+              "high": {
+                "V_soc_pilot_points": 0.3334,
+                "V_econ_JPY_probability_adjusted_proxy": 133368617.1435
+              }
+            },
+            "warning": "uncalibrated q multiplied by provisional P; not a calibrated expected value, valuation, investment decision, or GO rule"
+          }
+        }
+      ]
+    },
+    {
+      "project_id": "p20",
+      "label": "CX / CryoX",
+      "information_cutoff": "2026-08-04T23:59:59+09:00",
+      "plan_version": "cx-v2026-07-31-year-end-founding",
+      "model_version": "joint-path-pert-v0.1",
+      "horizon_date": "2026-12-31",
+      "horizon_months": 4.89,
+      "P": {
+        "V_soc": {
+          "base": 60,
+          "low": 35,
+          "high": 85,
+          "components": {
+            "magnitude": 30,
+            "intensity": 20,
+            "additionality": 10
+          },
+          "evidence_quality": "C",
+          "basis": "Helium-3 independence, lower-energy cooling, research infrastructure, and cross-sector applications may be material, but initial product impact and additionality over dilution refrigeration and competing ADR are unresolved.",
+          "missing": [
+            "energy and refrigerant baseline per delivered service",
+            "adoption volume",
+            "lifecycle burden",
+            "incremental scientific or industrial outcome",
+            "additionality against incumbent cooling"
+          ],
+          "refutation": "Lower if the integrated product cannot materially improve cooling power, consumption, noise, total cost, or accessibility relative to available alternatives."
+        },
+        "V_econ": {
+          "base": 100000000000,
+          "low": 10000000000,
+          "high": 150000000000,
+          "proxy_not_dcf": true,
+          "evidence_quality": "D",
+          "basis": "The March strategy document disclosed an illustrative JPY 100bn IPO value. This is used as the declared ceiling proxy, not as a DCF or confirmed valuation.",
+          "missing": [
+            "five-year cash-flow rows",
+            "initial unit gross margin",
+            "service and warranty cost",
+            "sales cycle",
+            "licensing economics",
+            "capital intensity",
+            "terminal value evidence"
+          ],
+          "refutation": "Replace with conditional DCF. Reject the central proxy if initial-product unit economics and expansion evidence cannot support a path beyond a niche custom-equipment business."
+        }
+      },
+      "results": [
+        {
+          "scenario": "base",
+          "modifiers": {},
+          "runs": 10000,
+          "successes": 0,
+          "q": 0,
+          "simulation_standard_error": 0,
+          "simulation_wilson_95pct_interval": {
+            "low": 0,
+            "high": 0.0004
+          },
+          "x_star_reached_share_ignoring_deadline_and_slack": 0.0554,
+          "T_C_months_given_x_star_reached": {
+            "n": 554,
+            "p05": 6.8301,
+            "p25": 9.028,
+            "median": 10.9171,
+            "p75": 13.3002,
+            "p95": 16.3761,
+            "mean": 11.2973
+          },
+          "T_C_months_successful_paths": {
+            "n": 0,
+            "p05": null,
+            "p25": null,
+            "median": null,
+            "p75": null,
+            "p95": null,
+            "mean": null
+          },
+          "T_Y_months_all_paths": {
+            "n": 10000,
+            "p05": 1.4376,
+            "p25": 2.4265,
+            "median": 3.5279,
+            "p75": 5.1714,
+            "p95": 9.0173,
+            "mean": 4.1551
+          },
+          "failure_categories": {
+            "milestone": {
+              "count": 9446,
+              "share_of_all_paths": 0.9446,
+              "share_of_failures": 0.9446
+            },
+            "slack": {
+              "count": 392,
+              "share_of_all_paths": 0.0392,
+              "share_of_failures": 0.0392
+            },
+            "deadline": {
+              "count": 162,
+              "share_of_all_paths": 0.0162,
+              "share_of_failures": 0.0162
+            },
+            "other": {
+              "count": 0,
+              "share_of_all_paths": 0,
+              "share_of_failures": 0
+            }
+          },
+          "major_failure_paths": [
+            {
+              "path": "milestone:cx_team_ownership:stop",
+              "count": 840,
+              "share_of_all_paths": 0.084,
+              "share_of_failures": 0.084
+            },
+            {
+              "path": "milestone:cx_customer_requirements:retry",
+              "count": 789,
+              "share_of_all_paths": 0.0789,
+              "share_of_failures": 0.0789
+            },
+            {
+              "path": "milestone:cx_ip_license_boundary:stop",
+              "count": 696,
+              "share_of_all_paths": 0.0696,
+              "share_of_failures": 0.0696
+            },
+            {
+              "path": "milestone:cx_team_ownership:retry",
+              "count": 674,
+              "share_of_all_paths": 0.0674,
+              "share_of_failures": 0.0674
+            },
+            {
+              "path": "milestone:cx_heat_switch_gate:retry",
+              "count": 656,
+              "share_of_all_paths": 0.0656,
+              "share_of_failures": 0.0656
+            },
+            {
+              "path": "milestone:cx_heat_switch_gate:stop",
+              "count": 566,
+              "share_of_all_paths": 0.0566,
+              "share_of_failures": 0.0566
+            },
+            {
+              "path": "milestone:cx_ip_license_boundary:retry",
+              "count": 546,
+              "share_of_all_paths": 0.0546,
+              "share_of_failures": 0.0546
+            },
+            {
+              "path": "milestone:cx_customer_requirements:stop",
+              "count": 494,
+              "share_of_all_paths": 0.0494,
+              "share_of_failures": 0.0494
+            },
+            {
+              "path": "milestone:cx_initial_product_gate:stop",
+              "count": 447,
+              "share_of_all_paths": 0.0447,
+              "share_of_failures": 0.0447
+            },
+            {
+              "path": "milestone:cx_initial_product_gate:retry",
+              "count": 441,
+              "share_of_all_paths": 0.0441,
+              "share_of_failures": 0.0441
+            }
+          ],
+          "qP": {
+            "V_soc_pilot_points": 0,
+            "V_econ_JPY_probability_adjusted_proxy": 0,
+            "simulation_interval_only": {
+              "low": {
+                "V_soc_pilot_points": 0,
+                "V_econ_JPY_probability_adjusted_proxy": 0
+              },
+              "high": {
+                "V_soc_pilot_points": 0.023,
+                "V_econ_JPY_probability_adjusted_proxy": 38401247.7767
+              }
+            },
+            "warning": "uncalibrated q multiplied by provisional P; not a calibrated expected value, valuation, investment decision, or GO rule"
+          }
+        },
+        {
+          "scenario": "duration_minus_25pct",
+          "modifiers": {
+            "duration_scale": 0.75
+          },
+          "runs": 10000,
+          "successes": 16,
+          "q": 0.0016,
+          "simulation_standard_error": 0.0004,
+          "simulation_wilson_95pct_interval": {
+            "low": 0.001,
+            "high": 0.0026
+          },
+          "x_star_reached_share_ignoring_deadline_and_slack": 0.0554,
+          "T_C_months_given_x_star_reached": {
+            "n": 554,
+            "p05": 5.1226,
+            "p25": 6.771,
+            "median": 8.1878,
+            "p75": 9.9752,
+            "p95": 12.2821,
+            "mean": 8.473
+          },
+          "T_C_months_successful_paths": {
+            "n": 16,
+            "p05": 4.2167,
+            "p25": 4.4623,
+            "median": 4.5963,
+            "p75": 4.7403,
+            "p95": 4.8167,
+            "mean": 4.5779
+          },
+          "T_Y_months_all_paths": {
+            "n": 10000,
+            "p05": 1.1053,
+            "p25": 2.107,
+            "median": 3.4264,
+            "p75": 5.1506,
+            "p95": 10.1134,
+            "mean": 4.1074
+          },
+          "failure_categories": {
+            "milestone": {
+              "count": 9446,
+              "share_of_all_paths": 0.9446,
+              "share_of_failures": 0.9461
+            },
+            "slack": {
+              "count": 238,
+              "share_of_all_paths": 0.0238,
+              "share_of_failures": 0.0238
+            },
+            "deadline": {
+              "count": 300,
+              "share_of_all_paths": 0.03,
+              "share_of_failures": 0.03
+            },
+            "other": {
+              "count": 0,
+              "share_of_all_paths": 0,
+              "share_of_failures": 0
+            }
+          },
+          "major_failure_paths": [
+            {
+              "path": "milestone:cx_team_ownership:stop",
+              "count": 840,
+              "share_of_all_paths": 0.084,
+              "share_of_failures": 0.0841
+            },
+            {
+              "path": "milestone:cx_customer_requirements:retry",
+              "count": 789,
+              "share_of_all_paths": 0.0789,
+              "share_of_failures": 0.079
+            },
+            {
+              "path": "milestone:cx_ip_license_boundary:stop",
+              "count": 696,
+              "share_of_all_paths": 0.0696,
+              "share_of_failures": 0.0697
+            },
+            {
+              "path": "milestone:cx_team_ownership:retry",
+              "count": 674,
+              "share_of_all_paths": 0.0674,
+              "share_of_failures": 0.0675
+            },
+            {
+              "path": "milestone:cx_heat_switch_gate:retry",
+              "count": 656,
+              "share_of_all_paths": 0.0656,
+              "share_of_failures": 0.0657
+            },
+            {
+              "path": "milestone:cx_heat_switch_gate:stop",
+              "count": 566,
+              "share_of_all_paths": 0.0566,
+              "share_of_failures": 0.0567
+            },
+            {
+              "path": "milestone:cx_ip_license_boundary:retry",
+              "count": 546,
+              "share_of_all_paths": 0.0546,
+              "share_of_failures": 0.0547
+            },
+            {
+              "path": "milestone:cx_customer_requirements:stop",
+              "count": 494,
+              "share_of_all_paths": 0.0494,
+              "share_of_failures": 0.0495
+            },
+            {
+              "path": "milestone:cx_initial_product_gate:stop",
+              "count": 447,
+              "share_of_all_paths": 0.0447,
+              "share_of_failures": 0.0448
+            },
+            {
+              "path": "milestone:cx_initial_product_gate:retry",
+              "count": 441,
+              "share_of_all_paths": 0.0441,
+              "share_of_failures": 0.0442
+            }
+          ],
+          "qP": {
+            "V_soc_pilot_points": 0.096,
+            "V_econ_JPY_probability_adjusted_proxy": 160000000,
+            "simulation_interval_only": {
+              "low": {
+                "V_soc_pilot_points": 0.0591,
+                "V_econ_JPY_probability_adjusted_proxy": 98512404.6505
+              },
+              "high": {
+                "V_soc_pilot_points": 0.1559,
+                "V_econ_JPY_probability_adjusted_proxy": 259765959.1332
+              }
+            },
+            "warning": "uncalibrated q multiplied by provisional P; not a calibrated expected value, valuation, investment decision, or GO rule"
+          }
+        },
+        {
+          "scenario": "duration_plus_25pct",
+          "modifiers": {
+            "duration_scale": 1.25
+          },
+          "runs": 10000,
+          "successes": 0,
+          "q": 0,
+          "simulation_standard_error": 0,
+          "simulation_wilson_95pct_interval": {
+            "low": 0,
+            "high": 0.0004
+          },
+          "x_star_reached_share_ignoring_deadline_and_slack": 0.0554,
+          "T_C_months_given_x_star_reached": {
+            "n": 554,
+            "p05": 8.5377,
+            "p25": 11.285,
+            "median": 13.6463,
+            "p75": 16.6253,
+            "p95": 20.4702,
+            "mean": 14.1216
+          },
+          "T_C_months_successful_paths": {
+            "n": 0,
+            "p05": null,
+            "p25": null,
+            "median": null,
+            "p75": null,
+            "p95": null,
+            "mean": null
+          },
+          "T_Y_months_all_paths": {
+            "n": 10000,
+            "p05": 1.7272,
+            "p25": 2.7073,
+            "median": 3.6546,
+            "p75": 5.1011,
+            "p95": 8.2967,
+            "mean": 4.1836
+          },
+          "failure_categories": {
+            "milestone": {
+              "count": 9446,
+              "share_of_all_paths": 0.9446,
+              "share_of_failures": 0.9446
+            },
+            "slack": {
+              "count": 479,
+              "share_of_all_paths": 0.0479,
+              "share_of_failures": 0.0479
+            },
+            "deadline": {
+              "count": 75,
+              "share_of_all_paths": 0.0075,
+              "share_of_failures": 0.0075
+            },
+            "other": {
+              "count": 0,
+              "share_of_all_paths": 0,
+              "share_of_failures": 0
+            }
+          },
+          "major_failure_paths": [
+            {
+              "path": "milestone:cx_team_ownership:stop",
+              "count": 840,
+              "share_of_all_paths": 0.084,
+              "share_of_failures": 0.084
+            },
+            {
+              "path": "milestone:cx_customer_requirements:retry",
+              "count": 789,
+              "share_of_all_paths": 0.0789,
+              "share_of_failures": 0.0789
+            },
+            {
+              "path": "milestone:cx_ip_license_boundary:stop",
+              "count": 696,
+              "share_of_all_paths": 0.0696,
+              "share_of_failures": 0.0696
+            },
+            {
+              "path": "milestone:cx_team_ownership:retry",
+              "count": 674,
+              "share_of_all_paths": 0.0674,
+              "share_of_failures": 0.0674
+            },
+            {
+              "path": "milestone:cx_heat_switch_gate:retry",
+              "count": 656,
+              "share_of_all_paths": 0.0656,
+              "share_of_failures": 0.0656
+            },
+            {
+              "path": "milestone:cx_heat_switch_gate:stop",
+              "count": 566,
+              "share_of_all_paths": 0.0566,
+              "share_of_failures": 0.0566
+            },
+            {
+              "path": "milestone:cx_ip_license_boundary:retry",
+              "count": 546,
+              "share_of_all_paths": 0.0546,
+              "share_of_failures": 0.0546
+            },
+            {
+              "path": "milestone:cx_customer_requirements:stop",
+              "count": 494,
+              "share_of_all_paths": 0.0494,
+              "share_of_failures": 0.0494
+            },
+            {
+              "path": "milestone:cx_initial_product_gate:stop",
+              "count": 447,
+              "share_of_all_paths": 0.0447,
+              "share_of_failures": 0.0447
+            },
+            {
+              "path": "milestone:cx_initial_product_gate:retry",
+              "count": 441,
+              "share_of_all_paths": 0.0441,
+              "share_of_failures": 0.0441
+            }
+          ],
+          "qP": {
+            "V_soc_pilot_points": 0,
+            "V_econ_JPY_probability_adjusted_proxy": 0,
+            "simulation_interval_only": {
+              "low": {
+                "V_soc_pilot_points": 0,
+                "V_econ_JPY_probability_adjusted_proxy": 0
+              },
+              "high": {
+                "V_soc_pilot_points": 0.023,
+                "V_econ_JPY_probability_adjusted_proxy": 38401247.7767
+              }
+            },
+            "warning": "uncalibrated q multiplied by provisional P; not a calibrated expected value, valuation, investment decision, or GO rule"
+          }
+        },
+        {
+          "scenario": "success_probability_plus_10pp",
+          "modifiers": {
+            "success_probability_shift": 0.1
+          },
+          "runs": 10000,
+          "successes": 0,
+          "q": 0,
+          "simulation_standard_error": 0,
+          "simulation_wilson_95pct_interval": {
+            "low": 0,
+            "high": 0.0004
+          },
+          "x_star_reached_share_ignoring_deadline_and_slack": 0.1466,
+          "T_C_months_given_x_star_reached": {
+            "n": 1466,
+            "p05": 6.7143,
+            "p25": 8.5292,
+            "median": 10.5723,
+            "p75": 12.749,
+            "p95": 16.0774,
+            "mean": 10.8426
+          },
+          "T_C_months_successful_paths": {
+            "n": 0,
+            "p05": null,
+            "p25": null,
+            "median": null,
+            "p75": null,
+            "p95": null,
+            "mean": null
+          },
+          "T_Y_months_all_paths": {
+            "n": 10000,
+            "p05": 1.5828,
+            "p25": 2.7407,
+            "median": 4.1971,
+            "p75": 6.4801,
+            "p95": 12.6228,
+            "mean": 5.1121
+          },
+          "failure_categories": {
+            "milestone": {
+              "count": 8534,
+              "share_of_all_paths": 0.8534,
+              "share_of_failures": 0.8534
+            },
+            "slack": {
+              "count": 855,
+              "share_of_all_paths": 0.0855,
+              "share_of_failures": 0.0855
+            },
+            "deadline": {
+              "count": 611,
+              "share_of_all_paths": 0.0611,
+              "share_of_failures": 0.0611
+            },
+            "other": {
+              "count": 0,
+              "share_of_all_paths": 0,
+              "share_of_failures": 0
+            }
+          },
+          "major_failure_paths": [
+            {
+              "path": "milestone:cx_team_ownership:stop",
+              "count": 673,
+              "share_of_all_paths": 0.0673,
+              "share_of_failures": 0.0673
+            },
+            {
+              "path": "deadline",
+              "count": 611,
+              "share_of_all_paths": 0.0611,
+              "share_of_failures": 0.0611
+            },
+            {
+              "path": "milestone:cx_ip_license_boundary:stop",
+              "count": 586,
+              "share_of_all_paths": 0.0586,
+              "share_of_failures": 0.0586
+            },
+            {
+              "path": "milestone:cx_team_ownership:retry",
+              "count": 585,
+              "share_of_all_paths": 0.0585,
+              "share_of_failures": 0.0585
+            },
+            {
+              "path": "milestone:cx_heat_switch_gate:retry",
+              "count": 539,
+              "share_of_all_paths": 0.0539,
+              "share_of_failures": 0.0539
+            },
+            {
+              "path": "milestone:cx_initial_product_gate:stop",
+              "count": 506,
+              "share_of_all_paths": 0.0506,
+              "share_of_failures": 0.0506
+            },
+            {
+              "path": "milestone:cx_customer_requirements:retry",
+              "count": 503,
+              "share_of_all_paths": 0.0503,
+              "share_of_failures": 0.0503
+            },
+            {
+              "path": "milestone:cx_initial_product_gate:retry",
+              "count": 468,
+              "share_of_all_paths": 0.0468,
+              "share_of_failures": 0.0468
+            },
+            {
+              "path": "milestone:cx_heat_switch_gate:stop",
+              "count": 453,
+              "share_of_all_paths": 0.0453,
+              "share_of_failures": 0.0453
+            },
+            {
+              "path": "milestone:cx_ip_license_boundary:retry",
+              "count": 421,
+              "share_of_all_paths": 0.0421,
+              "share_of_failures": 0.0421
+            }
+          ],
+          "qP": {
+            "V_soc_pilot_points": 0,
+            "V_econ_JPY_probability_adjusted_proxy": 0,
+            "simulation_interval_only": {
+              "low": {
+                "V_soc_pilot_points": 0,
+                "V_econ_JPY_probability_adjusted_proxy": 0
+              },
+              "high": {
+                "V_soc_pilot_points": 0.023,
+                "V_econ_JPY_probability_adjusted_proxy": 38401247.7767
+              }
+            },
+            "warning": "uncalibrated q multiplied by provisional P; not a calibrated expected value, valuation, investment decision, or GO rule"
+          }
+        },
+        {
+          "scenario": "success_probability_minus_10pp",
+          "modifiers": {
+            "success_probability_shift": -0.1
+          },
+          "runs": 10000,
+          "successes": 0,
+          "q": 0,
+          "simulation_standard_error": 0,
+          "simulation_wilson_95pct_interval": {
+            "low": 0,
+            "high": 0.0004
+          },
+          "x_star_reached_share_ignoring_deadline_and_slack": 0.0138,
+          "T_C_months_given_x_star_reached": {
+            "n": 138,
+            "p05": 6.7527,
+            "p25": 9.2643,
+            "median": 11.1391,
+            "p75": 14.2762,
+            "p95": 17.4147,
+            "mean": 11.6513
+          },
+          "T_C_months_successful_paths": {
+            "n": 0,
+            "p05": null,
+            "p25": null,
+            "median": null,
+            "p75": null,
+            "p95": null,
+            "mean": null
+          },
+          "T_Y_months_all_paths": {
+            "n": 10000,
+            "p05": 1.3759,
+            "p25": 2.2546,
+            "median": 3.1026,
+            "p75": 4.4005,
+            "p95": 7.0775,
+            "mean": 3.5454
+          },
+          "failure_categories": {
+            "milestone": {
+              "count": 9862,
+              "share_of_all_paths": 0.9862,
+              "share_of_failures": 0.9862
+            },
+            "slack": {
+              "count": 104,
+              "share_of_all_paths": 0.0104,
+              "share_of_failures": 0.0104
+            },
+            "deadline": {
+              "count": 34,
+              "share_of_all_paths": 0.0034,
+              "share_of_failures": 0.0034
+            },
+            "other": {
+              "count": 0,
+              "share_of_all_paths": 0,
+              "share_of_failures": 0
+            }
+          },
+          "major_failure_paths": [
+            {
+              "path": "milestone:cx_customer_requirements:retry",
+              "count": 1125,
+              "share_of_all_paths": 0.1125,
+              "share_of_failures": 0.1125
+            },
+            {
+              "path": "milestone:cx_team_ownership:stop",
+              "count": 991,
+              "share_of_all_paths": 0.0991,
+              "share_of_failures": 0.0991
+            },
+            {
+              "path": "milestone:cx_ip_license_boundary:stop",
+              "count": 862,
+              "share_of_all_paths": 0.0862,
+              "share_of_failures": 0.0862
+            },
+            {
+              "path": "milestone:cx_team_ownership:retry",
+              "count": 728,
+              "share_of_all_paths": 0.0728,
+              "share_of_failures": 0.0728
+            },
+            {
+              "path": "milestone:cx_customer_requirements:stop",
+              "count": 644,
+              "share_of_all_paths": 0.0644,
+              "share_of_failures": 0.0644
+            },
+            {
+              "path": "milestone:cx_ip_license_boundary:retry",
+              "count": 624,
+              "share_of_all_paths": 0.0624,
+              "share_of_failures": 0.0624
+            },
+            {
+              "path": "milestone:cx_heat_switch_gate:stop",
+              "count": 602,
+              "share_of_all_paths": 0.0602,
+              "share_of_failures": 0.0602
+            },
+            {
+              "path": "milestone:cx_heat_switch_gate:retry",
+              "count": 599,
+              "share_of_all_paths": 0.0599,
+              "share_of_failures": 0.0599
+            },
+            {
+              "path": "milestone:cx_customer_requirements:detour",
+              "count": 576,
+              "share_of_all_paths": 0.0576,
+              "share_of_failures": 0.0576
+            },
+            {
+              "path": "milestone:cx_business_capital_plan:retry",
+              "count": 380,
+              "share_of_all_paths": 0.038,
+              "share_of_failures": 0.038
+            }
+          ],
+          "qP": {
+            "V_soc_pilot_points": 0,
+            "V_econ_JPY_probability_adjusted_proxy": 0,
+            "simulation_interval_only": {
+              "low": {
+                "V_soc_pilot_points": 0,
+                "V_econ_JPY_probability_adjusted_proxy": 0
+              },
+              "high": {
+                "V_soc_pilot_points": 0.023,
+                "V_econ_JPY_probability_adjusted_proxy": 38401247.7767
+              }
+            },
+            "warning": "uncalibrated q multiplied by provisional P; not a calibrated expected value, valuation, investment decision, or GO rule"
+          }
+        },
+        {
+          "scenario": "initial_slack_plus_25pct",
+          "modifiers": {
+            "slack_scale": 1.25
+          },
+          "runs": 10000,
+          "successes": 0,
+          "q": 0,
+          "simulation_standard_error": 0,
+          "simulation_wilson_95pct_interval": {
+            "low": 0,
+            "high": 0.0004
+          },
+          "x_star_reached_share_ignoring_deadline_and_slack": 0.0554,
+          "T_C_months_given_x_star_reached": {
+            "n": 554,
+            "p05": 6.8301,
+            "p25": 9.028,
+            "median": 10.9171,
+            "p75": 13.3002,
+            "p95": 16.3761,
+            "mean": 11.2973
+          },
+          "T_C_months_successful_paths": {
+            "n": 0,
+            "p05": null,
+            "p25": null,
+            "median": null,
+            "p75": null,
+            "p95": null,
+            "mean": null
+          },
+          "T_Y_months_all_paths": {
+            "n": 10000,
+            "p05": 1.4768,
+            "p25": 2.8965,
+            "median": 4.6314,
+            "p75": 6.6421,
+            "p95": 11.8436,
+            "mean": 5.1991
+          },
+          "failure_categories": {
+            "milestone": {
+              "count": 9446,
+              "share_of_all_paths": 0.9446,
+              "share_of_failures": 0.9446
+            },
+            "slack": {
+              "count": 287,
+              "share_of_all_paths": 0.0287,
+              "share_of_failures": 0.0287
+            },
+            "deadline": {
+              "count": 267,
+              "share_of_all_paths": 0.0267,
+              "share_of_failures": 0.0267
+            },
+            "other": {
+              "count": 0,
+              "share_of_all_paths": 0,
+              "share_of_failures": 0
+            }
+          },
+          "major_failure_paths": [
+            {
+              "path": "milestone:cx_team_ownership:stop",
+              "count": 840,
+              "share_of_all_paths": 0.084,
+              "share_of_failures": 0.084
+            },
+            {
+              "path": "milestone:cx_customer_requirements:retry",
+              "count": 789,
+              "share_of_all_paths": 0.0789,
+              "share_of_failures": 0.0789
+            },
+            {
+              "path": "milestone:cx_ip_license_boundary:stop",
+              "count": 696,
+              "share_of_all_paths": 0.0696,
+              "share_of_failures": 0.0696
+            },
+            {
+              "path": "milestone:cx_team_ownership:retry",
+              "count": 674,
+              "share_of_all_paths": 0.0674,
+              "share_of_failures": 0.0674
+            },
+            {
+              "path": "milestone:cx_heat_switch_gate:retry",
+              "count": 656,
+              "share_of_all_paths": 0.0656,
+              "share_of_failures": 0.0656
+            },
+            {
+              "path": "milestone:cx_heat_switch_gate:stop",
+              "count": 566,
+              "share_of_all_paths": 0.0566,
+              "share_of_failures": 0.0566
+            },
+            {
+              "path": "milestone:cx_ip_license_boundary:retry",
+              "count": 546,
+              "share_of_all_paths": 0.0546,
+              "share_of_failures": 0.0546
+            },
+            {
+              "path": "milestone:cx_customer_requirements:stop",
+              "count": 494,
+              "share_of_all_paths": 0.0494,
+              "share_of_failures": 0.0494
+            },
+            {
+              "path": "milestone:cx_initial_product_gate:stop",
+              "count": 447,
+              "share_of_all_paths": 0.0447,
+              "share_of_failures": 0.0447
+            },
+            {
+              "path": "milestone:cx_initial_product_gate:retry",
+              "count": 441,
+              "share_of_all_paths": 0.0441,
+              "share_of_failures": 0.0441
+            }
+          ],
+          "qP": {
+            "V_soc_pilot_points": 0,
+            "V_econ_JPY_probability_adjusted_proxy": 0,
+            "simulation_interval_only": {
+              "low": {
+                "V_soc_pilot_points": 0,
+                "V_econ_JPY_probability_adjusted_proxy": 0
+              },
+              "high": {
+                "V_soc_pilot_points": 0.023,
+                "V_econ_JPY_probability_adjusted_proxy": 38401247.7767
+              }
+            },
+            "warning": "uncalibrated q multiplied by provisional P; not a calibrated expected value, valuation, investment decision, or GO rule"
+          }
+        },
+        {
+          "scenario": "initial_slack_minus_25pct",
+          "modifiers": {
+            "slack_scale": 0.75
+          },
+          "runs": 10000,
+          "successes": 0,
+          "q": 0,
+          "simulation_standard_error": 0,
+          "simulation_wilson_95pct_interval": {
+            "low": 0,
+            "high": 0.0004
+          },
+          "x_star_reached_share_ignoring_deadline_and_slack": 0.0554,
+          "T_C_months_given_x_star_reached": {
+            "n": 554,
+            "p05": 6.8301,
+            "p25": 9.028,
+            "median": 10.9171,
+            "p75": 13.3002,
+            "p95": 16.3761,
+            "mean": 11.2973
+          },
+          "T_C_months_successful_paths": {
+            "n": 0,
+            "p05": null,
+            "p25": null,
+            "median": null,
+            "p75": null,
+            "p95": null,
+            "mean": null
+          },
+          "T_Y_months_all_paths": {
+            "n": 10000,
+            "p05": 1.281,
+            "p25": 1.9332,
+            "median": 2.5686,
+            "p75": 3.5446,
+            "p95": 6.4464,
+            "mean": 3.0504
+          },
+          "failure_categories": {
+            "milestone": {
+              "count": 9446,
+              "share_of_all_paths": 0.9446,
+              "share_of_failures": 0.9446
+            },
+            "slack": {
+              "count": 477,
+              "share_of_all_paths": 0.0477,
+              "share_of_failures": 0.0477
+            },
+            "deadline": {
+              "count": 77,
+              "share_of_all_paths": 0.0077,
+              "share_of_failures": 0.0077
+            },
+            "other": {
+              "count": 0,
+              "share_of_all_paths": 0,
+              "share_of_failures": 0
+            }
+          },
+          "major_failure_paths": [
+            {
+              "path": "milestone:cx_team_ownership:stop",
+              "count": 840,
+              "share_of_all_paths": 0.084,
+              "share_of_failures": 0.084
+            },
+            {
+              "path": "milestone:cx_customer_requirements:retry",
+              "count": 789,
+              "share_of_all_paths": 0.0789,
+              "share_of_failures": 0.0789
+            },
+            {
+              "path": "milestone:cx_ip_license_boundary:stop",
+              "count": 696,
+              "share_of_all_paths": 0.0696,
+              "share_of_failures": 0.0696
+            },
+            {
+              "path": "milestone:cx_team_ownership:retry",
+              "count": 674,
+              "share_of_all_paths": 0.0674,
+              "share_of_failures": 0.0674
+            },
+            {
+              "path": "milestone:cx_heat_switch_gate:retry",
+              "count": 656,
+              "share_of_all_paths": 0.0656,
+              "share_of_failures": 0.0656
+            },
+            {
+              "path": "milestone:cx_heat_switch_gate:stop",
+              "count": 566,
+              "share_of_all_paths": 0.0566,
+              "share_of_failures": 0.0566
+            },
+            {
+              "path": "milestone:cx_ip_license_boundary:retry",
+              "count": 546,
+              "share_of_all_paths": 0.0546,
+              "share_of_failures": 0.0546
+            },
+            {
+              "path": "milestone:cx_customer_requirements:stop",
+              "count": 494,
+              "share_of_all_paths": 0.0494,
+              "share_of_failures": 0.0494
+            },
+            {
+              "path": "milestone:cx_initial_product_gate:stop",
+              "count": 447,
+              "share_of_all_paths": 0.0447,
+              "share_of_failures": 0.0447
+            },
+            {
+              "path": "milestone:cx_initial_product_gate:retry",
+              "count": 441,
+              "share_of_all_paths": 0.0441,
+              "share_of_failures": 0.0441
+            }
+          ],
+          "qP": {
+            "V_soc_pilot_points": 0,
+            "V_econ_JPY_probability_adjusted_proxy": 0,
+            "simulation_interval_only": {
+              "low": {
+                "V_soc_pilot_points": 0,
+                "V_econ_JPY_probability_adjusted_proxy": 0
+              },
+              "high": {
+                "V_soc_pilot_points": 0.023,
+                "V_econ_JPY_probability_adjusted_proxy": 38401247.7767
+              }
+            },
+            "warning": "uncalibrated q multiplied by provisional P; not a calibrated expected value, valuation, investment decision, or GO rule"
+          }
+        },
+        {
+          "scenario": "horizon_plus_3months",
+          "modifiers": {
+            "horizon_extension_months": 3
+          },
+          "runs": 10000,
+          "successes": 60,
+          "q": 0.006,
+          "simulation_standard_error": 0.0008,
+          "simulation_wilson_95pct_interval": {
+            "low": 0.0047,
+            "high": 0.0077
+          },
+          "x_star_reached_share_ignoring_deadline_and_slack": 0.0554,
+          "T_C_months_given_x_star_reached": {
+            "n": 554,
+            "p05": 6.8301,
+            "p25": 9.028,
+            "median": 10.9171,
+            "p75": 13.3002,
+            "p95": 16.3761,
+            "mean": 11.2973
+          },
+          "T_C_months_successful_paths": {
+            "n": 60,
+            "p05": 5.9276,
+            "p25": 6.5203,
+            "median": 7.0022,
+            "p75": 7.5465,
+            "p95": 7.844,
+            "mean": 6.9564
+          },
+          "T_Y_months_all_paths": {
+            "n": 10000,
+            "p05": 1.4376,
+            "p25": 2.4265,
+            "median": 3.5279,
+            "p75": 5.1714,
+            "p95": 9.0173,
+            "mean": 4.1551
+          },
+          "failure_categories": {
+            "milestone": {
+              "count": 9446,
+              "share_of_all_paths": 0.9446,
+              "share_of_failures": 0.9503
+            },
+            "slack": {
+              "count": 392,
+              "share_of_all_paths": 0.0392,
+              "share_of_failures": 0.0394
+            },
+            "deadline": {
+              "count": 102,
+              "share_of_all_paths": 0.0102,
+              "share_of_failures": 0.0103
+            },
+            "other": {
+              "count": 0,
+              "share_of_all_paths": 0,
+              "share_of_failures": 0
+            }
+          },
+          "major_failure_paths": [
+            {
+              "path": "milestone:cx_team_ownership:stop",
+              "count": 840,
+              "share_of_all_paths": 0.084,
+              "share_of_failures": 0.0845
+            },
+            {
+              "path": "milestone:cx_customer_requirements:retry",
+              "count": 789,
+              "share_of_all_paths": 0.0789,
+              "share_of_failures": 0.0794
+            },
+            {
+              "path": "milestone:cx_ip_license_boundary:stop",
+              "count": 696,
+              "share_of_all_paths": 0.0696,
+              "share_of_failures": 0.07
+            },
+            {
+              "path": "milestone:cx_team_ownership:retry",
+              "count": 674,
+              "share_of_all_paths": 0.0674,
+              "share_of_failures": 0.0678
+            },
+            {
+              "path": "milestone:cx_heat_switch_gate:retry",
+              "count": 656,
+              "share_of_all_paths": 0.0656,
+              "share_of_failures": 0.066
+            },
+            {
+              "path": "milestone:cx_heat_switch_gate:stop",
+              "count": 566,
+              "share_of_all_paths": 0.0566,
+              "share_of_failures": 0.0569
+            },
+            {
+              "path": "milestone:cx_ip_license_boundary:retry",
+              "count": 546,
+              "share_of_all_paths": 0.0546,
+              "share_of_failures": 0.0549
+            },
+            {
+              "path": "milestone:cx_customer_requirements:stop",
+              "count": 494,
+              "share_of_all_paths": 0.0494,
+              "share_of_failures": 0.0497
+            },
+            {
+              "path": "milestone:cx_initial_product_gate:stop",
+              "count": 447,
+              "share_of_all_paths": 0.0447,
+              "share_of_failures": 0.045
+            },
+            {
+              "path": "milestone:cx_initial_product_gate:retry",
+              "count": 441,
+              "share_of_all_paths": 0.0441,
+              "share_of_failures": 0.0444
+            }
+          ],
+          "qP": {
+            "V_soc_pilot_points": 0.36,
+            "V_econ_JPY_probability_adjusted_proxy": 600000000,
+            "simulation_interval_only": {
+              "low": {
+                "V_soc_pilot_points": 0.2799,
+                "V_econ_JPY_probability_adjusted_proxy": 466450141.381
+              },
+              "high": {
+                "V_soc_pilot_points": 0.4629,
+                "V_econ_JPY_probability_adjusted_proxy": 771490291.4224
+              }
+            },
+            "warning": "uncalibrated q multiplied by provisional P; not a calibrated expected value, valuation, investment decision, or GO rule"
+          }
+        }
+      ]
+    }
+  ]
+}

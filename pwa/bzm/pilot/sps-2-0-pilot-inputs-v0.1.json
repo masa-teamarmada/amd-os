@@ -1,0 +1,373 @@
+{
+  "schema_version": "sps-2.0-pilot-input-ticket-v0.1",
+  "model_version": "joint-path-pert-v0.1",
+  "frozen_at": "2026-08-04T23:59:59+09:00",
+  "simulation_runs_per_project": 10000,
+  "status": "uncalibrated-pilot",
+  "value_scale": {
+    "V_soc": {
+      "unit": "pilot social-value points (0-100)",
+      "rule": "magnitude 0-40 + consequence intensity 0-30 + additionality 0-30, conditional on the declared value scenario",
+      "evidence_quality_is_separate": true,
+      "anchors": {
+        "magnitude": "0=no affected unit identified; 10=one site or organization; 20=local region or narrow segment; 30=multi-region or material industry segment; 40=quantified national or global system scale",
+        "intensity": "0=no measurable outcome; 10=convenience or efficiency; 20=material environmental, health, cost, or resilience benefit; 30=severe-harm avoidance or critical-resource/security benefit with quantified outcome",
+        "additionality": "0=readily substitutable; 10=alternatives exist and advantage is unverified; 20=meaningful advantage has external evidence; 30=no close substitute for the declared outcome"
+      },
+      "missing_rule": "If an anchor cannot be scored from cutoff-known evidence, assign the lower adjacent anchor and retain an explicit interval. Do not substitute q, XRL, or evidence confidence into V_soc."
+    },
+    "V_econ": {
+      "unit": "JPY, conditional enterprise-value proxy",
+      "target_rule": "Use conditional DCF after X* when available. For this pilot only, if cash-flow rows are missing, use a disclosed plan proxy and mark proxy_not_dcf=true.",
+      "missing_rule": "Never invent undisclosed cash-flow rows. A plan proxy must carry low confidence, a wide interval, and a refutation trigger. q is not included in the proxy discount rate."
+    }
+  },
+  "missing_and_version_rules": {
+    "time": "Keep event_time and recognition_time separately. A fact learned later is a reconstruction and never overwrites the then-known series.",
+    "plan": "A changed X*, deadline, or dependency graph creates a new plan_version. Old versions are immutable.",
+    "model": "A changed PERT rule, branch rule, slack rule, or prior creates a new model_version and must be rerun from the same frozen input.",
+    "probability": "Missing milestone probabilities use a disclosed structural prior with low confidence; they are not empirical success frequencies.",
+    "slack": "Missing runway or option-expiry months use a wide structural prior and must appear in sensitivity analysis. Unknown is never converted to zero.",
+    "duplicates": "Within one PJ, select one row at the information cutoff. Same-PJ observations at different event times remain a time series and are not pooled as independent PJ inputs.",
+    "future_rows": "Plan-derived future rows remain forecasts even after their nominal date unless a later observation confirms them.",
+    "no_double_count": "One evidence item updates one primary model input. Derived M, XRL, FRL, and R_net values are audit references and are never multiplied into qP."
+  },
+  "projects": [
+    {
+      "project_id": "p21",
+      "label": "SX / SolvioraX",
+      "information_cutoff": "2026-08-04T23:59:59+09:00",
+      "event_time_basis": "Evidence events through 2026-08-04",
+      "recognition_time_basis": "Evidence available to AMD OS or the reviewed plan set by 2026-08-04",
+      "plan_version": "sx-v2026-08-01-manual-gate+2026-07-14-current-truth",
+      "model_version": "joint-path-pert-v0.1",
+      "horizon_date": "2027-03-31",
+      "horizon_months": 7.86,
+      "policy": "current AMD support, no additional BZSF intervention",
+      "environment": "Japan current environment as recognized at cutoff",
+      "value_scenario": "Industrial wastewater treatment and resource recovery platform reaches repeatable paid PoC entry, establishes a company, and preserves a path to the disclosed long-term domestic market scenario.",
+      "P": {
+        "V_soc": {
+          "base": 60,
+          "low": 40,
+          "high": 80,
+          "components": { "magnitude": 30, "intensity": 20, "additionality": 10 },
+          "evidence_quality": "C",
+          "basis": "Industrial wastewater, heavy-metal recovery, resource recovery, and environmental burden are material, but treated volume, avoided harm, attribution, and advantage over incumbent treatment are not yet quantified.",
+          "missing": ["annual treated volume at target scale", "pollutant removal and recovery baseline", "avoided environmental or health damage", "counterfactual incumbent outcome"],
+          "refutation": "Lower the score if validated unit economics or field tests show no material outcome beyond incumbent treatment; raise only after quantified field outcomes and additionality are independently reproduced."
+        },
+        "V_econ": {
+          "base": 24000000000,
+          "low": 5000000000,
+          "high": 80000000000,
+          "proxy_not_dcf": true,
+          "evidence_quality": "C",
+          "basis": "Disclosed long-term domestic SOM revenue of JPY 20bn multiplied by pilot assumptions of 15% normalized operating margin and 8x enterprise-value multiple.",
+          "missing": ["five-year cash-flow rows", "validated price and cost by use case", "working capital", "capital expenditure", "post-commercialization risk and terminal value"],
+          "refutation": "Replace the proxy with conditional DCF. Reject the central proxy if paid PoC pricing, treatment cost, or obtainable market evidence cannot support the revenue and margin assumptions."
+        }
+      },
+      "X_star": {
+        "label": "NewCo founding gate with paid demand, technical field gate, financing option, and controllable rights",
+        "required_milestones": ["sx_on_site_poc_trl5", "sx_paid_poc_oral", "sx_investment_oral", "sx_newco_conditions", "sx_founding_gate"],
+        "boundary": [
+          "On-site PoC completion evidence satisfies the declared TRL5 gate",
+          "At least one paid PoC counterparty, content, confirmation date, and evidence are recorded",
+          "An investment oral agreement records investor, amount, timing, and principal conditions",
+          "Company role, incorporation主体, IP conditions, and university conditions are resolved enough to choose",
+          "The 2027-03-31 founding decision is made with unresolved actions explicitly recorded"
+        ],
+        "consistency_note": "The boundary is intentionally not relaxed to mere incorporation; doing so would preserve P while making q easier and would be inconsistent with the value scenario."
+      },
+      "initial_slack": [
+        { "id": "cash", "label": "research, PoC, and founding-resource options", "pert_months": [5, 9, 14], "confidence": "unknown", "source": "2026-07-14 funding snapshot has no required, secured, burn, or runway values; wide structural prior", "loss_event": "no executable funding or bridge remains before required spending" },
+        { "id": "customer", "label": "live PoC-counterparty options", "pert_months": [3, 6, 10], "confidence": "low", "source": "candidate pipeline and sample discussions exist, but acceptance and validity periods are not fixed", "loss_event": "no live counterparty remains able to enter a paid PoC" },
+        { "id": "team", "label": "founding-team commitment", "pert_months": [5, 9, 15], "confidence": "low", "source": "roles and candidates exist, but authority, participation, and final commitment remain provisional", "loss_event": "a required founding or technical role can no longer be assembled under acceptable terms" },
+        { "id": "ip_control", "label": "IP and contracting option", "pert_months": [7, 12, 20], "confidence": "low", "source": "IP, university, and contracting conditions are unresolved; no fixed expiry is recorded", "loss_event": "required rights or acceptable contracting path becomes unavailable" }
+      ],
+      "milestones": [
+        {
+          "id": "sx_poc_conditions", "label": "PoC candidate acceptance conditions", "dependencies": [], "pert_months": [0.25, 0.8, 1.5], "success_probability": 0.7, "max_retries": 1,
+          "failure_branches": [
+            { "type": "retry", "weight": 0.65, "extra_pert_months": [0.2, 0.5, 1.0], "success_probability_multiplier": 0.95 },
+            { "type": "detour", "weight": 0.25, "extra_pert_months": [0.6, 1.2, 2.2], "success_probability_multiplier": 0.85 },
+            { "type": "stop", "weight": 0.1 }
+          ],
+          "failure_slack_impacts": { "customer": -1.0 }, "success_replenishments": { "customer": 3.0 },
+          "source": "p21 management milestone business-poc-conditions, verified 2026-08-02",
+          "confidence": "low", "counterexample": "A candidate may satisfy intake conditions but still lack budget or contracting authority.", "alternative_hypothesis": "The bottleneck is reactor performance or contracting主体, not candidate conditions.", "refutation": "Replace duration and probability after a dated intake sheet and counterparty confirmation are observed."
+        },
+        {
+          "id": "sx_reactor_recheck", "label": "Reactor configuration and reproducible performance", "dependencies": [], "pert_months": [1.0, 2.5, 4.5], "success_probability": 0.5, "max_retries": 1,
+          "failure_branches": [
+            { "type": "retry", "weight": 0.55, "extra_pert_months": [0.5, 1.0, 2.0], "success_probability_multiplier": 0.95 },
+            { "type": "detour", "weight": 0.35, "extra_pert_months": [1.0, 2.0, 3.5], "success_probability_multiplier": 0.8 },
+            { "type": "stop", "weight": 0.1 }
+          ],
+          "failure_slack_impacts": { "cash": -1.0, "team": -0.5 }, "success_replenishments": { "team": 1.0 },
+          "source": "p21 management milestone tech-reactor-recheck and nine technical-test rows; targets and repetitions mostly missing",
+          "confidence": "low", "counterexample": "The 47L reactor signal may not reproduce in real effluent or at the required selectivity and cycle durability.", "alternative_hypothesis": "Use-case choice, rather than reactor configuration, explains the cost and performance gap.", "refutation": "Update only from preregistered target, repetition, real-effluent, and dated measurement evidence."
+        },
+        {
+          "id": "sx_cost_model", "label": "Use-case-specific cost model", "dependencies": [], "pert_months": [0.5, 1.5, 3.0], "success_probability": 0.6, "max_retries": 1,
+          "failure_branches": [
+            { "type": "retry", "weight": 0.6, "extra_pert_months": [0.3, 0.8, 1.5], "success_probability_multiplier": 0.95 },
+            { "type": "detour", "weight": 0.3, "extra_pert_months": [0.8, 1.5, 2.5], "success_probability_multiplier": 0.85 },
+            { "type": "stop", "weight": 0.1 }
+          ],
+          "failure_slack_impacts": { "customer": -0.5 }, "success_replenishments": { "customer": 1.0 },
+          "source": "p21 cost-model-refinement plus July report cost hearing and use-case cost gap",
+          "confidence": "low", "counterexample": "A model may fit interview prices while excluding scale-up and disposal costs.", "alternative_hypothesis": "The economically viable entry use case is dye or organic wastewater rather than heavy-metal recovery.", "refutation": "Require measured process inputs and a counterparty-specific willingness-to-pay ceiling."
+        },
+        {
+          "id": "sx_on_site_poc_trl5", "label": "On-site PoC and TRL5 evidence", "dependencies": ["sx_poc_conditions", "sx_reactor_recheck"], "pert_months": [2.0, 3.5, 5.5], "success_probability": 0.45, "max_retries": 1,
+          "failure_branches": [
+            { "type": "retry", "weight": 0.5, "extra_pert_months": [0.8, 1.5, 3.0], "success_probability_multiplier": 0.9 },
+            { "type": "detour", "weight": 0.35, "extra_pert_months": [1.5, 2.5, 4.0], "success_probability_multiplier": 0.75 },
+            { "type": "stop", "weight": 0.15 }
+          ],
+          "failure_slack_impacts": { "cash": -1.5, "customer": -1.0, "team": -0.5 }, "success_replenishments": { "customer": 5.0, "team": 2.0 },
+          "source": "p21 critical milestone tech-poc-gate; counterparty, metric, and executor are unresolved",
+          "confidence": "low", "counterexample": "A PoC can finish without satisfying a reproducible or customer-relevant TRL5 criterion.", "alternative_hypothesis": "A smaller paid lab validation may preserve the value path without an on-site TRL5 gate.", "refutation": "Change X* only together with P and the value scenario; otherwise update from explicit PoC completion criteria and evidence."
+        },
+        {
+          "id": "sx_paid_poc_oral", "label": "Paid PoC oral agreement", "dependencies": ["sx_poc_conditions", "sx_cost_model", "sx_reactor_recheck"], "pert_months": [0.5, 1.3, 2.8], "success_probability": 0.4, "max_retries": 1,
+          "failure_branches": [
+            { "type": "retry", "weight": 0.55, "extra_pert_months": [0.5, 1.0, 2.0], "success_probability_multiplier": 0.9 },
+            { "type": "detour", "weight": 0.3, "extra_pert_months": [1.0, 2.0, 3.0], "success_probability_multiplier": 0.8 },
+            { "type": "stop", "weight": 0.15 }
+          ],
+          "failure_slack_impacts": { "customer": -1.5, "cash": -0.5 }, "success_replenishments": { "customer": 8.0, "cash": 1.5 },
+          "source": "p21 manual gate business-paid-poc-oral-agreement, verified 2026-08-01",
+          "confidence": "low", "counterexample": "An oral agreement may omit price, authority, or procurement path and therefore fail to preserve demand.", "alternative_hypothesis": "A non-paid field partnership could create more option value than a weak paid agreement.", "refutation": "Require counterparty, scope, price logic, decision authority, date, and evidence."
+        },
+        {
+          "id": "sx_business_capital_plan", "label": "Business plan and capital-policy consistency", "dependencies": ["sx_cost_model"], "pert_months": [1.0, 2.0, 3.5], "success_probability": 0.55, "max_retries": 1,
+          "failure_branches": [
+            { "type": "retry", "weight": 0.65, "extra_pert_months": [0.4, 0.8, 1.5], "success_probability_multiplier": 0.95 },
+            { "type": "detour", "weight": 0.25, "extra_pert_months": [0.8, 1.5, 2.5], "success_probability_multiplier": 0.85 },
+            { "type": "stop", "weight": 0.1 }
+          ],
+          "failure_slack_impacts": { "cash": -0.5, "team": -0.5 }, "success_replenishments": { "cash": 1.0, "team": 1.0 },
+          "source": "July report: business plan, capital policy, use of funds, and participation conditions remain provisional",
+          "confidence": "low", "counterexample": "A polished plan can mask unresolved unit economics and contracting terms.", "alternative_hypothesis": "A staged non-equity finance plan may dominate immediate VC financing.", "refutation": "Replace the prior after internally consistent cash flow, cap table, use of funds, and counter-signed role assumptions exist."
+        },
+        {
+          "id": "sx_investment_oral", "label": "Investment oral agreement", "dependencies": ["sx_business_capital_plan", "sx_paid_poc_oral"], "pert_months": [1.5, 3.0, 5.0], "success_probability": 0.3, "max_retries": 1,
+          "failure_branches": [
+            { "type": "retry", "weight": 0.5, "extra_pert_months": [0.8, 1.5, 2.5], "success_probability_multiplier": 0.9 },
+            { "type": "detour", "weight": 0.35, "extra_pert_months": [1.5, 2.5, 4.0], "success_probability_multiplier": 0.8 },
+            { "type": "stop", "weight": 0.15 }
+          ],
+          "failure_slack_impacts": { "cash": -1.0, "team": -0.5 }, "success_replenishments": { "cash": 5.0, "team": 2.0 },
+          "source": "p21 manual funding gate; investor, amount, timing, and conditions are unconfirmed",
+          "confidence": "unknown", "counterexample": "Investor interest or DD start is not an oral investment agreement and may consume time without extending cash runway.", "alternative_hypothesis": "PSI, loans, or customer finance could preserve autonomy without equity.", "refutation": "Update only from named investor, amount, timing, material terms, decision authority, and dated evidence."
+        },
+        {
+          "id": "sx_newco_conditions", "label": "Company, roles, IP, and university conditions", "dependencies": ["sx_on_site_poc_trl5", "sx_business_capital_plan"], "pert_months": [1.0, 2.5, 4.5], "success_probability": 0.5, "max_retries": 1,
+          "failure_branches": [
+            { "type": "retry", "weight": 0.6, "extra_pert_months": [0.5, 1.0, 2.0], "success_probability_multiplier": 0.95 },
+            { "type": "detour", "weight": 0.25, "extra_pert_months": [1.0, 2.0, 3.0], "success_probability_multiplier": 0.8 },
+            { "type": "stop", "weight": 0.15 }
+          ],
+          "failure_slack_impacts": { "team": -1.0, "ip_control": -1.0 }, "success_replenishments": { "team": 4.0, "ip_control": 6.0 },
+          "source": "p21 critical milestone org-newco-conditions",
+          "confidence": "low", "counterexample": "Nominal role assignment may not establish authority, commitment, or IP control.", "alternative_hypothesis": "A university-held licensing vehicle or project company with narrower scope may be preferable.", "refutation": "Require explicit role authority, commitment, incorporation主体, IP route, and university approval path."
+        },
+        {
+          "id": "sx_founding_gate", "label": "Founding decision gate", "dependencies": ["sx_on_site_poc_trl5", "sx_paid_poc_oral", "sx_investment_oral", "sx_newco_conditions"], "pert_months": [0.2, 0.5, 1.0], "success_probability": 0.9, "max_retries": 0,
+          "failure_branches": [{ "type": "stop", "weight": 1.0 }],
+          "failure_slack_impacts": { "team": -1.0 }, "success_replenishments": {},
+          "source": "p21 critical milestone org-founding-gate",
+          "confidence": "medium", "counterexample": "Formal gate completion can occur despite a weak underlying oral agreement.", "alternative_hypothesis": "The rational decision may be WAIT, which is a governance success but not X* attainment for this plan version.", "refutation": "Record the actual decision, dissent, unresolved actions, and whether all declared boundary conditions were satisfied."
+        },
+        {
+          "id": "sx_psi_bridge", "label": "PSI or other bridge-funding replenishment", "dependencies": ["sx_business_capital_plan"], "pert_months": [1.5, 3.5, 6.0], "success_probability": 0.45, "max_retries": 0, "optional": true,
+          "failure_branches": [{ "type": "stop", "weight": 1.0, "project_stop": false }],
+          "failure_slack_impacts": { "cash": -0.5 }, "success_replenishments": { "cash": 7.0 },
+          "source": "PSI STEP2 is a disclosed route, but amount available to this path, payment timing, and conditions are not fixed in the funding snapshot",
+          "confidence": "unknown", "counterexample": "Program funding may be restricted to research and may not preserve company-level strategic autonomy.", "alternative_hypothesis": "Paid PoC or loan finance, rather than PSI, is the operative bridge.", "refutation": "Replace with dated funding decision, eligible use, amount, payment schedule, and control conditions."
+        }
+      ],
+      "legacy_evidence_mapping": {
+        "M": "mu_a=6, mu_i=5, mu_g=7 in the 2026-04-30 row. Use only its underlying trend evidence when revising P scenario or external-event priors; no numeric multiplier.",
+        "XRL": "TRL/BRL/GRL/SRL/HRL stages update only the named reactor, PoC, customer, IP, and team inputs through their underlying evidence. Stage numbers are not arithmetic inputs.",
+        "FRL": "frl=5, cap=4, cap_amd=1, grit=7, resilience=6 are retrospective evidence locators. Capacity evidence maps to team/cash slack; coping evidence maps to one retry branch only.",
+        "R_net": "R_net=2 is retained for old-model comparison only. It updates no pilot parameter directly.",
+        "time_status": "The 2026-04-30 row was created 2026-05-07 and P/R_net were updated 2026-06-06, so it is a latest-knowledge reconstruction, not a then-known 2026-04-30 input."
+      },
+      "bias_audit": {
+        "scale_dependence": "V_soc changes with the breadth/additionality anchors; V_econ changes by more than an order of magnitude across the disclosed proxy interval.",
+        "rater_difference": "All PERT and probability inputs are one-rater analyst estimates; independent technical, commercial, and finance ratings are missing.",
+        "hindsight": "Future results after 2026-08-04 are excluded; older P/R_net fields added later are labeled reconstruction.",
+        "selection": "SX was selected because its structured management records are unusually complete; performance is not representative of all PJ.",
+        "intervention_endogeneity": "AMD support and evidence density are jointly related to perceived promise; q cannot be interpreted as causal effect of AMD support.",
+        "falsification": "A dated prospective rerating must be compared with realized milestones, slack loss, and founding boundary without rewriting this version."
+      }
+    },
+    {
+      "project_id": "p20",
+      "label": "CX / CryoX",
+      "information_cutoff": "2026-08-04T23:59:59+09:00",
+      "event_time_basis": "Evidence events through 2026-08-04",
+      "recognition_time_basis": "Evidence available to AMD OS or the reviewed plan set by 2026-08-04",
+      "plan_version": "cx-v2026-07-31-year-end-founding",
+      "model_version": "joint-path-pert-v0.1",
+      "horizon_date": "2026-12-31",
+      "horizon_months": 4.89,
+      "policy": "current AMD support, no additional BZSF intervention",
+      "environment": "Japan current environment as recognized at cutoff",
+      "value_scenario": "CryoX establishes a company around an initial academic TES+ADR product path, retains usable IP and disclosure control, and preserves expansion options into quantum, medical, hydrogen, and data-center cooling.",
+      "P": {
+        "V_soc": {
+          "base": 60,
+          "low": 35,
+          "high": 85,
+          "components": { "magnitude": 30, "intensity": 20, "additionality": 10 },
+          "evidence_quality": "C",
+          "basis": "Helium-3 independence, lower-energy cooling, research infrastructure, and cross-sector applications may be material, but initial product impact and additionality over dilution refrigeration and competing ADR are unresolved.",
+          "missing": ["energy and refrigerant baseline per delivered service", "adoption volume", "lifecycle burden", "incremental scientific or industrial outcome", "additionality against incumbent cooling"],
+          "refutation": "Lower if the integrated product cannot materially improve cooling power, consumption, noise, total cost, or accessibility relative to available alternatives."
+        },
+        "V_econ": {
+          "base": 100000000000,
+          "low": 10000000000,
+          "high": 150000000000,
+          "proxy_not_dcf": true,
+          "evidence_quality": "D",
+          "basis": "The March strategy document disclosed an illustrative JPY 100bn IPO value. This is used as the declared ceiling proxy, not as a DCF or confirmed valuation.",
+          "missing": ["five-year cash-flow rows", "initial unit gross margin", "service and warranty cost", "sales cycle", "licensing economics", "capital intensity", "terminal value evidence"],
+          "refutation": "Replace with conditional DCF. Reject the central proxy if initial-product unit economics and expansion evidence cannot support a path beyond a niche custom-equipment business."
+        }
+      },
+      "X_star": {
+        "label": "Year-end founding gate with initial-product demand, technical gate, usable rights, team, and financing",
+        "required_milestones": ["cx_initial_product_gate", "cx_ip_license_boundary", "cx_team_ownership", "cx_financing_path", "cx_incorporation"],
+        "boundary": [
+          "Initial TES+ADR product specification, price logic, order/payment path, and written customer intent are recorded",
+          "Heat-switch and integration evidence satisfy the minimum product gate",
+          "Required IP, license, and external-disclosure boundaries are usable by the planned company",
+          "Founding roles, ownership, authority, and participation conditions are agreed",
+          "A financing path sufficient for the initial unit is secured or contractually executable",
+          "Incorporation completes by 2026-12-31"
+        ],
+        "consistency_note": "The older March plan targeted 2027-04 incorporation and seed funding. This ticket uses the later July report's year-end target and therefore creates a new plan version rather than overwriting the older one."
+      },
+      "initial_slack": [
+        { "id": "cash", "label": "research-budget and bridge-finance options", "pert_months": [3, 7, 12], "confidence": "unknown", "source": "July report says existing research budget, initial sales, and loans precede equity, but no amount or runway is fixed", "loss_event": "no funding route remains for the initial unit and incorporation path" },
+        { "id": "customer", "label": "initial academic-customer option", "pert_months": [2, 4.5, 8], "confidence": "low", "source": "initial customer and price discussions exist, but specification, special price, order, and payment terms are unresolved", "loss_event": "no live customer path remains for the initial product" },
+        { "id": "team", "label": "founding-team and ownership option", "pert_months": [3, 6, 10], "confidence": "low", "source": "founding and management roles, ownership, and land/organization choices remain unresolved", "loss_event": "required founders cannot agree on roles, authority, ownership, or timing" },
+        { "id": "ip_control", "label": "IP, disclosure, and license option", "pert_months": [2.5, 5, 9], "confidence": "low", "source": "IP boundary is needed before external events; license and ownership conditions are unresolved", "loss_event": "critical know-how is disclosed or the company cannot obtain usable rights on acceptable terms" }
+      ],
+      "milestones": [
+        {
+          "id": "cx_customer_requirements", "label": "Initial customer requirements and willingness to pay", "dependencies": [], "pert_months": [0.4, 1.2, 2.5], "success_probability": 0.6, "max_retries": 1,
+          "failure_branches": [
+            { "type": "retry", "weight": 0.6, "extra_pert_months": [0.3, 0.7, 1.3], "success_probability_multiplier": 0.95 },
+            { "type": "detour", "weight": 0.3, "extra_pert_months": [0.8, 1.5, 2.5], "success_probability_multiplier": 0.85 },
+            { "type": "stop", "weight": 0.1 }
+          ],
+          "failure_slack_impacts": { "customer": -1.0 }, "success_replenishments": { "customer": 3.0 },
+          "source": "July report and TRL workbook: initial spec, special price, order, and payment terms unresolved; academic price discussion exists",
+          "confidence": "low", "counterexample": "A research collaborator's technical interest may not imply budget authority or willingness to buy.", "alternative_hypothesis": "Contract engineering, not a product sale, is the viable first revenue path.", "refutation": "Require a named decision process, performance requirement, budget range, and procurement timing."
+        },
+        {
+          "id": "cx_heat_switch_gate", "label": "Heat-switch and integration performance gate", "dependencies": [], "pert_months": [1.0, 2.2, 4.0], "success_probability": 0.5, "max_retries": 1,
+          "failure_branches": [
+            { "type": "retry", "weight": 0.55, "extra_pert_months": [0.5, 1.0, 2.0], "success_probability_multiplier": 0.95 },
+            { "type": "detour", "weight": 0.35, "extra_pert_months": [1.0, 2.0, 3.0], "success_probability_multiplier": 0.8 },
+            { "type": "stop", "weight": 0.1 }
+          ],
+          "failure_slack_impacts": { "cash": -1.0, "customer": -0.5 }, "success_replenishments": { "customer": 2.0, "team": 1.0 },
+          "source": "July report identifies heat switch as bottleneck; second design is under development and third design could enable sales. Integrated product remains TRL3.",
+          "confidence": "low", "counterexample": "A third heat-switch design can pass component tests while integrated cooling power, noise, or reliability still fails.", "alternative_hypothesis": "System integration, software, support, or customer-fit—not the heat switch—is the true bottleneck.", "refutation": "Use preregistered integrated-system thresholds for cooling power, consumption, noise, stability, and serviceability."
+        },
+        {
+          "id": "cx_initial_product_gate", "label": "Initial product specification and written demand", "dependencies": ["cx_customer_requirements", "cx_heat_switch_gate"], "pert_months": [0.5, 1.3, 2.5], "success_probability": 0.45, "max_retries": 1,
+          "failure_branches": [
+            { "type": "retry", "weight": 0.55, "extra_pert_months": [0.4, 0.8, 1.5], "success_probability_multiplier": 0.9 },
+            { "type": "detour", "weight": 0.3, "extra_pert_months": [0.8, 1.5, 2.5], "success_probability_multiplier": 0.8 },
+            { "type": "stop", "weight": 0.15 }
+          ],
+          "failure_slack_impacts": { "customer": -1.5, "cash": -0.5 }, "success_replenishments": { "customer": 7.0, "cash": 2.0 },
+          "source": "July report and March plan place initial academic equipment before broader markets; order/payment terms remain unresolved",
+          "confidence": "low", "counterexample": "A written intent without technical acceptance or procurement authority may not create a repeatable product path.", "alternative_hypothesis": "A paid custom build or license could be a more coherent X* than a standard initial product.", "refutation": "Change X* only with the declared value scenario; otherwise require specification, price, order/payment path, authority, and evidence."
+        },
+        {
+          "id": "cx_ip_license_boundary", "label": "Usable IP, license, and disclosure boundary", "dependencies": [], "pert_months": [0.8, 2.0, 4.0], "success_probability": 0.55, "max_retries": 1,
+          "failure_branches": [
+            { "type": "retry", "weight": 0.55, "extra_pert_months": [0.4, 0.8, 1.5], "success_probability_multiplier": 0.95 },
+            { "type": "detour", "weight": 0.3, "extra_pert_months": [0.8, 1.5, 2.5], "success_probability_multiplier": 0.8 },
+            { "type": "stop", "weight": 0.15 }
+          ],
+          "failure_slack_impacts": { "ip_control": -1.5, "customer": -0.5 }, "success_replenishments": { "ip_control": 8.0, "customer": 1.0 },
+          "source": "confirmed GRL evidence structures patents and disclosure boundaries, but exclusive or conditional-exclusive rights are not fixed",
+          "confidence": "medium", "counterexample": "A patent portfolio can be extensive while the planned company lacks freedom to operate or usable rights.", "alternative_hypothesis": "Know-how and service contracts, not exclusive patent rights, may be the operative moat.", "refutation": "Require a rights matrix, owner consent, license route, disclosure rule, and company-use conditions."
+        },
+        {
+          "id": "cx_business_capital_plan", "label": "Five-year plan, initial-unit economics, and capital policy", "dependencies": ["cx_customer_requirements"], "pert_months": [0.8, 1.8, 3.5], "success_probability": 0.55, "max_retries": 1,
+          "failure_branches": [
+            { "type": "retry", "weight": 0.65, "extra_pert_months": [0.3, 0.8, 1.5], "success_probability_multiplier": 0.95 },
+            { "type": "detour", "weight": 0.25, "extra_pert_months": [0.8, 1.5, 2.5], "success_probability_multiplier": 0.85 },
+            { "type": "stop", "weight": 0.1 }
+          ],
+          "failure_slack_impacts": { "cash": -0.7 }, "success_replenishments": { "cash": 1.5, "team": 0.5 },
+          "source": "March roadmap and July report; remaining development cost, period, holding time, initial price, and funding plan are unresolved",
+          "confidence": "low", "counterexample": "An illustrative valuation path may not reconcile with capital intensity and unit margin.", "alternative_hypothesis": "A service and design business may finance the product path with a different capital curve.", "refutation": "Require linked unit economics, development cash needs, runway, cap table, and scenario-specific cash flows."
+        },
+        {
+          "id": "cx_team_ownership", "label": "Founding team, authority, ownership, and location", "dependencies": [], "pert_months": [0.8, 2.0, 4.0], "success_probability": 0.5, "max_retries": 1,
+          "failure_branches": [
+            { "type": "retry", "weight": 0.6, "extra_pert_months": [0.5, 1.0, 2.0], "success_probability_multiplier": 0.95 },
+            { "type": "detour", "weight": 0.25, "extra_pert_months": [1.0, 1.8, 3.0], "success_probability_multiplier": 0.8 },
+            { "type": "stop", "weight": 0.15 }
+          ],
+          "failure_slack_impacts": { "team": -1.5 }, "success_replenishments": { "team": 6.0 },
+          "source": "July report: funding, ownership, land, organization, and role conditions unresolved",
+          "confidence": "low", "counterexample": "Support participation does not equal founder commitment or decision authority.", "alternative_hypothesis": "A narrower founding team with contracted technical access may be more executable.", "refutation": "Require named roles, authority, commitment, ownership, compensation, conflict rules, and start timing."
+        },
+        {
+          "id": "cx_financing_path", "label": "Executable financing for initial unit and founding", "dependencies": ["cx_initial_product_gate", "cx_business_capital_plan", "cx_ip_license_boundary"], "pert_months": [1.0, 2.5, 4.5], "success_probability": 0.3, "max_retries": 1,
+          "failure_branches": [
+            { "type": "retry", "weight": 0.45, "extra_pert_months": [0.7, 1.3, 2.3], "success_probability_multiplier": 0.9 },
+            { "type": "detour", "weight": 0.4, "extra_pert_months": [1.0, 2.0, 3.5], "success_probability_multiplier": 0.8 },
+            { "type": "stop", "weight": 0.15 }
+          ],
+          "failure_slack_impacts": { "cash": -1.5, "team": -0.5 }, "success_replenishments": { "cash": 9.0, "team": 3.0 },
+          "source": "July report prioritizes research budget, initial sales, and loans before equity; amount, timing, and conditions remain unresolved",
+          "confidence": "unknown", "counterexample": "Investor or lender interest may not fund the first unit before the deadline.", "alternative_hypothesis": "Customer prepayment or research procurement may be the only executable route.", "refutation": "Require amount, source, use, payment date, conditions, and control consequences."
+        },
+        {
+          "id": "cx_incorporation", "label": "Company incorporation", "dependencies": ["cx_team_ownership", "cx_ip_license_boundary", "cx_financing_path"], "pert_months": [0.4, 0.8, 1.5], "success_probability": 0.85, "max_retries": 0,
+          "failure_branches": [{ "type": "stop", "weight": 1.0 }],
+          "failure_slack_impacts": { "team": -1.0 }, "success_replenishments": {},
+          "source": "July report year-end 2026 target; March roadmap had 2027-04, so version conflict is preserved",
+          "confidence": "medium", "counterexample": "Legal incorporation can finish while product, rights, team, and finance remain non-executable.", "alternative_hypothesis": "Waiting beyond year-end may preserve more value than deadline-driven incorporation.", "refutation": "Record the actual incorporation decision and verify all X* prerequisites rather than treating registration alone as success."
+        },
+        {
+          "id": "cx_bridge_finance", "label": "Research-budget, customer, or loan bridge", "dependencies": ["cx_business_capital_plan"], "pert_months": [1.0, 2.5, 4.5], "success_probability": 0.4, "max_retries": 0, "optional": true,
+          "failure_branches": [{ "type": "stop", "weight": 1.0, "project_stop": false }],
+          "failure_slack_impacts": { "cash": -0.5 }, "success_replenishments": { "cash": 6.0 },
+          "source": "July report lists non-equity bridge routes without committed amount or timing",
+          "confidence": "unknown", "counterexample": "Restricted research funding may not pay incorporation or product-manufacturing costs.", "alternative_hypothesis": "A customer-funded custom build may replenish both cash and demand more effectively.", "refutation": "Replace with dated executable source, amount, eligible use, and payment schedule."
+        }
+      ],
+      "legacy_evidence_mapping": {
+        "M": "mu_a=7, mu_i=6, mu_g=8 appears in a plan-derived 2026-08-01 score row created in May; use underlying trend evidence only, never the row as confirmed 2026-08-01 observation or a multiplier.",
+        "XRL": "The confirmed/candidate evidence that integrated product remains TRL3, initial market is under validation, IP rights are unresolved, and team formation is partial updates the corresponding technical, customer, IP, and team inputs only.",
+        "FRL": "The 2026-07-21 row has frl=7, cap=5, cap_amd=2, grit=7, resilience=6. Capacity maps to team/cash slack; retry capacity maps once to failure branches; no top-level factor.",
+        "R_net": "R_net=3 is retained for comparison. It updates no pilot parameter directly.",
+        "time_status": "The 2026-07-21 row is a direct observed input. The 2026-08-01 row lacks P/R_net and was created in May, so it is retained as plan-derived rather than silently inherited."
+      },
+      "bias_audit": {
+        "scale_dependence": "The JPY 100bn ceiling is an illustrative plan value, not a DCF; the low-high interval spans 15x. V_soc depends strongly on additionality against mature cooling alternatives.",
+        "rater_difference": "All PERT and probability inputs are one-rater estimates; technical thresholds and finance probabilities lack independent ratings.",
+        "hindsight": "Post-cutoff outcomes are excluded. A later update must append a prospective version and keep the July plan conflict.",
+        "selection": "CX was selected because narrative and XRL evidence are dense, even though structured dependency data are absent; evidence density is not outcome quality.",
+        "intervention_endogeneity": "AMD support intensity, plan production, and investor/customer access are endogenous to perceived promise and cannot identify intervention effect.",
+        "falsification": "Compare this frozen path forecast with dated customer, heat-switch, IP, team, financing, and incorporation outcomes without retuning v0.1 after seeing them."
+      }
+    }
+  ]
+}

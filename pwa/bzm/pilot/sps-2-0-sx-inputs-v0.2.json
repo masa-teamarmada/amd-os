@@ -1,0 +1,109 @@
+{
+  "version": "sps-2.0-sx-input-v0.2",
+  "model_version": "gself-path-pert-v0.2",
+  "project": "SX (p21)",
+  "information_cutoff": "2026-08-07T23:59:59+09:00",
+  "frozen_at": "2026-08-07",
+  "goal": "G_self(12m) フロー自給達成 = 営業黒字化（コックピット事業計画FY2030相当の状態への到達。期限判定はモデル側で行い、確率入力は時間無制限の到達手応えとして扱う）",
+  "policy": "pi_0 現行AMD支援の継続・BZSF追加介入なし",
+  "deadline_note": "H_v = 2031-03-31（事業計画タブ正本 sx-business-plan.ts のFY2030営業黒字化の期末）",
+  "deadline_months_from_cutoff": 55.8,
+  "psi_end_months_from_cutoff": 7.8,
+  "runs": 10000,
+  "seed_text": "sps-2.0-sx-v0.2",
+  "probability_interpretation": "まさの累積到達確率（2026-08-07 hearing）を逐次比で条件付きへ較正。再試行込みの最終成功確率であり、失敗=その経路の停止。詳細は SPS_2_0_PREREGISTRATION_SX_2026-08-07.md 5.4-5.5節",
+  "hearing_width_convention": "まさ回答は一点値のため、感度分析で累積確率に±10ポイントの規約幅を適用する（assumptionタグ）",
+  "nodes": [
+    {
+      "id": "T1",
+      "label": "リアクター構築とオンサイト機能確認",
+      "lane": "technology",
+      "depends_on": [],
+      "success_prob": 0.9,
+      "prob_source": "hearing:masa:2026-08-07（累積90%、再試行込み）",
+      "time_months": [1.5, 2.5, 8.0],
+      "time_source": "document: MS台帳 tech-reactor-recheck planned〜2026-09-30/forecast 2026-10-16。悲観はassumption（再試行1〜2回の時間消費を織込み）"
+    },
+    {
+      "id": "T2",
+      "label": "100LオンサイトPoC完遂＝TRL5",
+      "lane": "technology",
+      "depends_on": ["T1"],
+      "success_prob": 1.0,
+      "prob_source": "hearing:masa:2026-08-07（T1完了後は時間リスクのみ。累積90%=T1と同値）",
+      "time_months": [2.5, 3.5, 7.0],
+      "time_source": "document: MS台帳 tech-poc-gate planned 2026-09-01〜12-18/forecast 2027-01-15。悲観はassumption（オンサイト調整・季節要因）"
+    },
+    {
+      "id": "B1",
+      "label": "有償PoCの口頭合意1社以上",
+      "lane": "business",
+      "depends_on": [],
+      "success_prob": 0.8,
+      "prob_source": "hearing:masa:2026-08-07（累積80%）",
+      "time_months": [3.5, 4.7, 10.0],
+      "time_source": "document: MS台帳 business-paid-poc-oral-agreement planned 2026-12-18〜12-25、前提のPoC受入条件/コストモデルは8〜9月forecast。悲観はassumption（候補入替え発生時）"
+    },
+    {
+      "id": "B2",
+      "label": "Seed 1.5億円の出資合意（PF/いよぎん/DAVP）",
+      "lane": "business",
+      "depends_on": ["B1"],
+      "success_prob": 0.875,
+      "prob_source": "hearing:masa:2026-08-07（累積70%を有償PoC80%所与で較正: 70/80）",
+      "time_months": [0.5, 1.5, 5.0],
+      "time_source": "document: MS台帳 funding-investor-conditions 〜2026-11-27/forecast 12-18、funding-investment-oral-agreement 12-18。B1完了からの追加所要。悲観はassumption"
+    },
+    {
+      "id": "G",
+      "label": "NewCo条件解決・設立（手続き工程）",
+      "lane": "organization",
+      "depends_on": ["T2", "B2"],
+      "success_prob": 1.0,
+      "prob_source": "hearing:masa:2026-08-07（独立確率を設けない。有償PoC口頭合意とSeed口頭合意の完了で決定論的に進む）",
+      "time_months": [1.5, 3.0, 5.0],
+      "time_source": "document: MS台帳 org-newco-conditions forecast 2027-02-26、org-founding-gate 2027-02〜03、設立2027-04-01。悲観はassumption（大学手続き・登記遅延）"
+    },
+    {
+      "id": "P1",
+      "label": "Phase 1出口：有償PoC2件以上＋年間契約へ進む顧客1社",
+      "lane": "business",
+      "depends_on": ["G"],
+      "success_prob": 0.794,
+      "prob_source": "hearing:masa:2026-08-07（累積50%を設立まで63%所与で較正: 50/63）",
+      "time_months": [12.0, 17.0, 26.0],
+      "time_source": "document: 事業計画Phase 1期間 2027-04〜2028-09（17か月）。最短・悲観はassumption（計画比±約30〜50%）"
+    },
+    {
+      "id": "P2",
+      "label": "Phase 2出口：継続顧客3社以上・売上7億円規模・変動粗利黒字",
+      "lane": "business",
+      "depends_on": ["P1"],
+      "success_prob": 0.6,
+      "prob_source": "hearing:masa:2026-08-07（累積30%をPhase 1出口50%所与で較正: 30/50）",
+      "time_months": [24.0, 30.0, 42.0],
+      "time_source": "document: 事業計画Phase 2期間 2028-10〜2031-03（30か月）。最短・悲観はassumption"
+    },
+    {
+      "id": "P3",
+      "label": "フロー自給達成（営業黒字化）＝G_self成立",
+      "lane": "business",
+      "depends_on": ["P2"],
+      "success_prob": 0.833,
+      "prob_source": "hearing:masa:2026-08-07（累積25%をPhase 2出口30%所与で較正: 25/30）",
+      "time_months": [0.0, 3.0, 12.0],
+      "time_source": "document: 事業計画上はPhase 2出口とFY2030黒字化がほぼ同時期。追加所要は変動粗利黒字から営業黒字までの固定費カバー期間としてassumption"
+    }
+  ],
+  "sensitivity_cases": [
+    { "id": "base", "label": "基準", "prob_delta_cumulative": 0, "time_scale": 1.0, "deadline_delta_months": 0, "bridge_constraint": false },
+    { "id": "prob_up", "label": "手応え累積+10pt", "prob_delta_cumulative": 0.10, "time_scale": 1.0, "deadline_delta_months": 0, "bridge_constraint": false },
+    { "id": "prob_down", "label": "手応え累積-10pt", "prob_delta_cumulative": -0.10, "time_scale": 1.0, "deadline_delta_months": 0, "bridge_constraint": false },
+    { "id": "time_fast", "label": "全所要時間-25%", "prob_delta_cumulative": 0, "time_scale": 0.75, "deadline_delta_months": 0, "bridge_constraint": false },
+    { "id": "time_slow", "label": "全所要時間+25%", "prob_delta_cumulative": 0, "time_scale": 1.25, "deadline_delta_months": 0, "bridge_constraint": false },
+    { "id": "deadline_plus6", "label": "期限+6か月(2031-09)", "prob_delta_cumulative": 0, "time_scale": 1.0, "deadline_delta_months": 6, "bridge_constraint": false },
+    { "id": "deadline_minus6", "label": "期限-6か月(2030-09)", "prob_delta_cumulative": 0, "time_scale": 1.0, "deadline_delta_months": -6, "bridge_constraint": false },
+    { "id": "bridge_9m", "label": "PSI終了後9か月以内にSeed合意が必要（橋制約）", "prob_delta_cumulative": 0, "time_scale": 1.0, "deadline_delta_months": 0, "bridge_constraint": true, "bridge_gap_limit_months": 9 }
+  ],
+  "source_composition_note": "確率6値=hearing。時間三点24値のうち最短・最頻16値=document（MS台帳planned/forecast・事業計画フェーズ期間）、悲観8値=assumption。期限・構造=document＋hearing（NewCo手続き化）。橋制約と規約幅=assumption（感度のみ）"
+}

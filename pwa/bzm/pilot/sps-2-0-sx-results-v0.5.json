@@ -1,0 +1,259 @@
+{
+  "version": "sps-2.0-sx-results-v0.5",
+  "model_version": "gself-path-cashflow-v0.5",
+  "information_cutoff": "2026-08-07T23:59:59+09:00",
+  "runs": 10000,
+  "masa_cumulative_reference": {
+    "founded": 0.63,
+    "p1": 0.5,
+    "p2": 0.3,
+    "p3": 0.25
+  },
+  "cases": [
+    {
+      "case": "base",
+      "label": "基準",
+      "deadline_months": 55.8,
+      "q": 0.0415,
+      "q_wilson95": {
+        "low": 0.0378,
+        "high": 0.0456
+      },
+      "reach_rate_ignoring_plan_deadline": 0.2224,
+      "failure_breakdown_share": {
+        "success": 0.0415,
+        "tech_stop": 0.0961,
+        "pre_founding_stop": 0.2714,
+        "p1_stop": 0.1286,
+        "cash_out_p1": 0.0622,
+        "p2_stop": 0.178,
+        "cash_out_p2": 0,
+        "p3_stop": 0.0413,
+        "cash_out_p3": 0,
+        "plan_deadline_missed": 0.1809
+      },
+      "t_c_success_months": {
+        "n": 415,
+        "p05": 50.4875,
+        "median": 54.007,
+        "p95": 55.5439
+      },
+      "t_c_all_clear_months": {
+        "n": 2224,
+        "p05": 52.7497,
+        "median": 59.9443,
+        "p95": 67.8271
+      }
+    },
+    {
+      "case": "prob_up",
+      "label": "手応え累積+10pt",
+      "deadline_months": 55.8,
+      "q": 0.057,
+      "q_wilson95": {
+        "low": 0.0526,
+        "high": 0.0617
+      },
+      "reach_rate_ignoring_plan_deadline": 0.3069,
+      "failure_breakdown_share": {
+        "success": 0.057,
+        "tech_stop": 0.0721,
+        "pre_founding_stop": 0.1998,
+        "p1_stop": 0.1332,
+        "cash_out_p1": 0.0733,
+        "p2_stop": 0.171,
+        "cash_out_p2": 0,
+        "p3_stop": 0.0437,
+        "cash_out_p3": 0,
+        "plan_deadline_missed": 0.2499
+      },
+      "t_c_success_months": {
+        "n": 570,
+        "p05": 50.3056,
+        "median": 54.1341,
+        "p95": 55.6535
+      },
+      "t_c_all_clear_months": {
+        "n": 3069,
+        "p05": 52.7916,
+        "median": 59.7293,
+        "p95": 68.0899
+      }
+    },
+    {
+      "case": "prob_down",
+      "label": "手応え累積-10pt",
+      "deadline_months": 55.8,
+      "q": 0.0283,
+      "q_wilson95": {
+        "low": 0.0252,
+        "high": 0.0317
+      },
+      "reach_rate_ignoring_plan_deadline": 0.1351,
+      "failure_breakdown_share": {
+        "success": 0.0283,
+        "tech_stop": 0.1222,
+        "pre_founding_stop": 0.3454,
+        "p1_stop": 0.1387,
+        "cash_out_p1": 0.0445,
+        "p2_stop": 0.1736,
+        "cash_out_p2": 0,
+        "p3_stop": 0.0405,
+        "cash_out_p3": 0,
+        "plan_deadline_missed": 0.1068
+      },
+      "t_c_success_months": {
+        "n": 283,
+        "p05": 51.0876,
+        "median": 53.8973,
+        "p95": 55.6684
+      },
+      "t_c_all_clear_months": {
+        "n": 1351,
+        "p05": 52.6238,
+        "median": 59.8852,
+        "p95": 67.5681
+      }
+    },
+    {
+      "case": "time_fast",
+      "label": "後段所要時間-25%",
+      "deadline_months": 55.8,
+      "q": 0.2558,
+      "q_wilson95": {
+        "low": 0.2473,
+        "high": 0.2644
+      },
+      "reach_rate_ignoring_plan_deadline": 0.2584,
+      "failure_breakdown_share": {
+        "success": 0.2558,
+        "tech_stop": 0.0967,
+        "pre_founding_stop": 0.2619,
+        "p1_stop": 0.1293,
+        "cash_out_p1": 0.0008,
+        "p2_stop": 0.2023,
+        "cash_out_p2": 0,
+        "p3_stop": 0.0506,
+        "cash_out_p3": 0,
+        "plan_deadline_missed": 0.0026
+      },
+      "t_c_success_months": {
+        "n": 2558,
+        "p05": 41.6041,
+        "median": 47.1542,
+        "p95": 53.0905
+      },
+      "t_c_all_clear_months": {
+        "n": 2584,
+        "p05": 41.6088,
+        "median": 47.2171,
+        "p95": 53.3852
+      }
+    },
+    {
+      "case": "time_slow",
+      "label": "後段所要時間+25%",
+      "deadline_months": 55.8,
+      "q": 0,
+      "q_wilson95": {
+        "low": 0,
+        "high": 0.0004
+      },
+      "reach_rate_ignoring_plan_deadline": 0.1363,
+      "failure_breakdown_share": {
+        "success": 0,
+        "tech_stop": 0.1005,
+        "pre_founding_stop": 0.2703,
+        "p1_stop": 0.1322,
+        "cash_out_p1": 0.2259,
+        "p2_stop": 0.1055,
+        "cash_out_p2": 0.0008,
+        "p3_stop": 0.0282,
+        "cash_out_p3": 0.0003,
+        "plan_deadline_missed": 0.1363
+      },
+      "t_c_success_months": {
+        "n": 0,
+        "p05": null,
+        "median": null,
+        "p95": null
+      },
+      "t_c_all_clear_months": {
+        "n": 1363,
+        "p05": 63.2747,
+        "median": 71.7015,
+        "p95": 81.6648
+      }
+    },
+    {
+      "case": "burn_up_30",
+      "label": "純燃焼+30%",
+      "deadline_months": 55.8,
+      "q": 0.033,
+      "q_wilson95": {
+        "low": 0.0297,
+        "high": 0.0367
+      },
+      "reach_rate_ignoring_plan_deadline": 0.1153,
+      "failure_breakdown_share": {
+        "success": 0.033,
+        "tech_stop": 0.0914,
+        "pre_founding_stop": 0.269,
+        "p1_stop": 0.1368,
+        "cash_out_p1": 0.2595,
+        "p2_stop": 0.1009,
+        "cash_out_p2": 0.0012,
+        "p3_stop": 0.025,
+        "cash_out_p3": 0.0009,
+        "plan_deadline_missed": 0.0823
+      },
+      "t_c_success_months": {
+        "n": 330,
+        "p05": 50.1193,
+        "median": 53.8782,
+        "p95": 55.61
+      },
+      "t_c_all_clear_months": {
+        "n": 1153,
+        "p05": 51.7203,
+        "median": 58.3002,
+        "p95": 65.6641
+      }
+    },
+    {
+      "case": "deadline_plus6",
+      "label": "計画期限+6か月",
+      "deadline_months": 61.8,
+      "q": 0.1464,
+      "q_wilson95": {
+        "low": 0.1396,
+        "high": 0.1535
+      },
+      "reach_rate_ignoring_plan_deadline": 0.2213,
+      "failure_breakdown_share": {
+        "success": 0.1464,
+        "tech_stop": 0.0975,
+        "pre_founding_stop": 0.267,
+        "p1_stop": 0.1316,
+        "cash_out_p1": 0.0642,
+        "p2_stop": 0.1755,
+        "cash_out_p2": 0,
+        "p3_stop": 0.0429,
+        "cash_out_p3": 0,
+        "plan_deadline_missed": 0.0749
+      },
+      "t_c_success_months": {
+        "n": 1464,
+        "p05": 52.0264,
+        "median": 57.9385,
+        "p95": 61.381
+      },
+      "t_c_all_clear_months": {
+        "n": 2213,
+        "p05": 52.7217,
+        "median": 59.8415,
+        "p95": 67.6058
+      }
+    }
+  ]
+}

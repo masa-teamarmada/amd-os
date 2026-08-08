@@ -1,0 +1,48 @@
+{
+  "version": "sps-2.0-sx-input-v0.4",
+  "model_version": "gself-path-cashflow-v0.4",
+  "project": "SX (p21)",
+  "information_cutoff": "2026-08-07T23:59:59+09:00",
+  "frozen_at": "2026-08-07",
+  "revision_of": "sps-2-0-sx-inputs-v0.3.json",
+  "revision_reason": "まさの段取り発言（12月DD完了→1〜3月条件交渉・投資委→4月着金）と分解分析（analyze-sx-v0.3-founding-delay.mjs）により、(1)設立手続きの直列読み3か月が誤り＝並行準備で1.5か月へ、(2)再試行の尾が過大＝再試行1回までへ、(3)TRL5は設立ゲートの前提でない（未達ならvaluation低下、着金遅れの選択肢は無い）を確定。時間訂正は結果合わせでなく段取り発言からの独立較正で、その帰結が期限内設立率75.5%とまさのSeed 70%の整合だった",
+  "goal": "G_self(12m) フロー自給達成（v0.3と同一）",
+  "policy": "pi_0 現行AMD支援の継続・BZSF追加介入なし",
+  "deadline_months_from_cutoff": 55.8,
+  "runs": 10000,
+  "seed_text": "sps-2.0-sx-v0.4",
+  "structure_change": {
+    "founding_gate": "事業レーンのみ（設立 = B1→B2完了 + 設立手続き）。技術レーンは並行で走り、TRL5が着金時点で未達の経路は trl5_incomplete_at_funding としてフラグ記録（valuation低下の帰結は欠測＝Phase 1出口の累積手応え50%に紆余曲折込みで織り込まれていると解釈）",
+    "t1_failure": "リアクターがオンサイトで機能しないと判明した経路は従来どおり死亡（事業の根幹が崩れ、調達・設立を中止する）",
+    "source": "hearing:masa:2026-08-07「進められるけど、valuationは下がるだろうね。着金が遅れるという選択肢は、SXの場合には有り得ない」"
+  },
+  "nodes": [
+    { "id": "T1", "label": "リアクター構築とオンサイト機能確認", "success_prob": 0.9, "time_months": [1.5, 2.5, 4.0], "time_revision": "悲観8→4（再試行1回まで。まさ「何回か試行したらほぼほぼ」の時間解釈を段取り整合で較正）" },
+    { "id": "T2", "label": "100LオンサイトPoC完遂＝TRL5", "success_prob": 1.0, "time_months": [2.5, 3.5, 5.0], "time_revision": "悲観7→5" },
+    { "id": "B1", "label": "有償PoCの口頭合意1社以上", "success_prob": 0.8, "time_months": [3.5, 4.7, 6.5], "time_revision": "悲観10→6.5（12月DD完了の段取りと整合）" },
+    { "id": "B2", "label": "Seed 1.5億円の出資合意", "success_prob": 0.875, "time_months": [0.5, 1.5, 3.0], "time_revision": "悲観5→3" },
+    { "id": "G", "label": "設立手続き（並行準備済みの最終確認・登記）", "success_prob": 1.0, "time_months": [0.5, 1.5, 3.0], "time_revision": "[1.5,3,5]→[0.5,1.5,3]。NewCo条件・登記準備はDD・交渉と並行で進む段取りのため直列3か月は誤読" },
+    { "id": "P1", "label": "Phase 1出口", "success_prob": 0.794, "time_months": [12.0, 17.0, 26.0], "time_revision": "変更なし" },
+    { "id": "P2", "label": "Phase 2出口", "success_prob": 0.6, "time_months": [24.0, 30.0, 42.0], "time_revision": "変更なし" },
+    { "id": "P3", "label": "フロー自給達成（営業黒字化）", "success_prob": 0.833, "time_months": [0.0, 3.0, 12.0], "time_revision": "変更なし" }
+  ],
+  "cash_model": {
+    "seed_hard_deadline_months": 8.8,
+    "phase1_initial_cash_myen": 150,
+    "phase1_net_burn_myen_per_month": [4.5, 6.5, 10.0],
+    "phase2_cash_in_myen": 600,
+    "phase2_net_burn_myen_per_month": [7.0, 10.0, 15.0],
+    "phase3_net_burn_myen_per_month": [0.0, 4.0, 8.0]
+  },
+  "sensitivity_cases": [
+    { "id": "base", "label": "基準（Seed期限2027-04末）", "prob_delta_cumulative": 0, "time_scale": 1.0, "deadline_delta_months": 0, "burn_scale": 1.0, "seed_deadline_months": 8.8 },
+    { "id": "seed_may", "label": "Seed期限2027-05末", "prob_delta_cumulative": 0, "time_scale": 1.0, "deadline_delta_months": 0, "burn_scale": 1.0, "seed_deadline_months": 9.8 },
+    { "id": "burn_up_30", "label": "全フェーズ純燃焼+30%", "prob_delta_cumulative": 0, "time_scale": 1.0, "deadline_delta_months": 0, "burn_scale": 1.3, "seed_deadline_months": 8.8 },
+    { "id": "prob_up", "label": "手応え累積+10pt", "prob_delta_cumulative": 0.10, "time_scale": 1.0, "deadline_delta_months": 0, "burn_scale": 1.0, "seed_deadline_months": 8.8 },
+    { "id": "prob_down", "label": "手応え累積-10pt", "prob_delta_cumulative": -0.10, "time_scale": 1.0, "deadline_delta_months": 0, "burn_scale": 1.0, "seed_deadline_months": 8.8 },
+    { "id": "time_fast", "label": "全所要時間-25%", "prob_delta_cumulative": 0, "time_scale": 0.75, "deadline_delta_months": 0, "burn_scale": 1.0, "seed_deadline_months": 8.8 },
+    { "id": "time_slow", "label": "全所要時間+25%", "prob_delta_cumulative": 0, "time_scale": 1.25, "deadline_delta_months": 0, "burn_scale": 1.0, "seed_deadline_months": 8.8 },
+    { "id": "deadline_plus6", "label": "期限+6か月(2031-09)", "prob_delta_cumulative": 0, "time_scale": 1.0, "deadline_delta_months": 6, "burn_scale": 1.0, "seed_deadline_months": 8.8 }
+  ],
+  "source_composition_note": "v0.3の44値のうち、時間9値（T1/T2/B1/B2悲観4値・G三点3値は再較正でhearingへ移動、G最短最頻2値も同様）。改訂後の構成：document 16（36%）／hearing 16（36%）／assumption 12（27%）。assumptionの主な残り：P1〜P3の時間幅、燃焼レート幅、Phase 3燃焼"
+}

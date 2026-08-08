@@ -1,0 +1,39 @@
+{
+  "version": "sps-2.0-sx-input-v0.3",
+  "model_version": "gself-path-cashflow-v0.3",
+  "project": "SX (p21)",
+  "information_cutoff": "2026-08-07T23:59:59+09:00",
+  "frozen_at": "2026-08-07",
+  "goal": "G_self(12m) フロー自給達成 = 営業黒字化（v0.2と同一。追加：Seedハードカットとフェーズ別資金繰りによる経路死亡）",
+  "policy": "pi_0 現行AMD支援の継続・BZSF追加介入なし",
+  "deadline_note": "H_v = 2031-03-31",
+  "deadline_months_from_cutoff": 55.8,
+  "runs": 10000,
+  "seed_text": "sps-2.0-sx-v0.3",
+  "probability_interpretation": "v0.2と同一（まさ累積を条件付きへ較正）。Series A以降の成立確率の遅延劣化は欠測（まさ2026-08-07「要因の解像度を上げないと回答できない」）のため入れず、遅延の帰結は資金繰りのみで表現",
+  "nodes_same_as_v02": "T1/T2/B1/B2/G/P1/P2/P3 の確率・所要時間三点は sps-2-0-sx-inputs-v0.2.json と同一",
+  "cash_model": {
+    "seed_hard_deadline_months": 8.8,
+    "seed_hard_deadline_source": "hearing:masa:2026-08-07「ステップ2が3月までで、そのあとは活動資金がなくなるから、4月に調達できなかったらPJ終了」= 設立・Seed着金が2027-04末まで",
+    "phase1_initial_cash_myen": 150,
+    "phase1_net_burn_myen_per_month": [4.5, 6.5, 10.0],
+    "phase1_burn_source": "document: 事業計画年次PL（FY2027純減50M/年＋FY2028純減120M/年→Phase 1計画17か月で約110M＝月6.5M）を最頻、幅はassumption（バーン上振れリスク）",
+    "phase2_cash_in_myen": 600,
+    "phase2_net_burn_myen_per_month": [7.0, 10.0, 15.0],
+    "phase2_burn_source": "document: FY2029純減210M/年・FY2030純減90M/年→Phase 2計画30か月で約300M＝月10M。幅はassumption",
+    "phase3_net_burn_myen_per_month": [0.0, 4.0, 8.0],
+    "phase3_burn_source": "assumption: 営業黒字化直前の残存純燃焼",
+    "series_b_note": "Series B 15億円は本格工場の成長投資であり運転資金の生存条件に入れない（G_self定義と整合）"
+  },
+  "sensitivity_cases": [
+    { "id": "base", "label": "基準（Seed期限2027-04末）", "prob_delta_cumulative": 0, "time_scale": 1.0, "deadline_delta_months": 0, "burn_scale": 1.0, "seed_deadline_months": 8.8 },
+    { "id": "seed_grace_jun", "label": "Seed期限を2027-06末へ緩和", "prob_delta_cumulative": 0, "time_scale": 1.0, "deadline_delta_months": 0, "burn_scale": 1.0, "seed_deadline_months": 10.8 },
+    { "id": "burn_up_30", "label": "全フェーズ純燃焼+30%", "prob_delta_cumulative": 0, "time_scale": 1.0, "deadline_delta_months": 0, "burn_scale": 1.3, "seed_deadline_months": 8.8 },
+    { "id": "prob_up", "label": "手応え累積+10pt", "prob_delta_cumulative": 0.10, "time_scale": 1.0, "deadline_delta_months": 0, "burn_scale": 1.0, "seed_deadline_months": 8.8 },
+    { "id": "prob_down", "label": "手応え累積-10pt", "prob_delta_cumulative": -0.10, "time_scale": 1.0, "deadline_delta_months": 0, "burn_scale": 1.0, "seed_deadline_months": 8.8 },
+    { "id": "time_fast", "label": "全所要時間-25%", "prob_delta_cumulative": 0, "time_scale": 0.75, "deadline_delta_months": 0, "burn_scale": 1.0, "seed_deadline_months": 8.8 },
+    { "id": "time_slow", "label": "全所要時間+25%", "prob_delta_cumulative": 0, "time_scale": 1.25, "deadline_delta_months": 0, "burn_scale": 1.0, "seed_deadline_months": 8.8 },
+    { "id": "deadline_plus6", "label": "期限+6か月(2031-09)※資金制約下の再評価", "prob_delta_cumulative": 0, "time_scale": 1.0, "deadline_delta_months": 6, "burn_scale": 1.0, "seed_deadline_months": 8.8 }
+  ],
+  "source_composition_note": "v0.2の31値（document 17／hearing 6／assumption 8）に加え、Seed期限=hearing 1値、資金5値（初期現金・Series A入金=document 2、燃焼三点の最頻2値=document導出、幅・Phase 3=assumption 7値）。合計44値：document 21（48%）／hearing 7（16%）／assumption 16（36%）"
+}

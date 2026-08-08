@@ -1,0 +1,457 @@
+{
+  "version": "sps-2.0-sx-results-v0.2",
+  "model_version": "gself-path-pert-v0.2",
+  "input_file": "sps-2-0-sx-inputs-v0.2.json",
+  "information_cutoff": "2026-08-07T23:59:59+09:00",
+  "runs": 10000,
+  "masa_cumulative_reference": {
+    "tech": 0.9,
+    "b1": 0.8,
+    "b2": 0.7,
+    "p1": 0.5,
+    "p2": 0.3,
+    "p3": 0.25
+  },
+  "cases": [
+    {
+      "case": "base",
+      "label": "基準",
+      "deadline_months": 55.8,
+      "conditional_probs": {
+        "T1": 0.9,
+        "T2": 1,
+        "B1": 0.8,
+        "B2": 0.875,
+        "G": 1,
+        "P1": 0.7937,
+        "P2": 0.6,
+        "P3": 0.8333
+      },
+      "q": 0.0131,
+      "q_wilson95": {
+        "low": 0.0111,
+        "high": 0.0155
+      },
+      "all_clear_rate_ignoring_deadline": 0.2491,
+      "deadline_hit_rate_among_all_clear": 0.0526,
+      "failure_breakdown_share": {
+        "success": 0.0131,
+        "tech_stop": 0.0971,
+        "poc_stop": 0.1817,
+        "seed_stop": 0.092,
+        "bridge_stop": 0,
+        "p1_stop": 0.1305,
+        "p2_stop": 0.2023,
+        "p3_stop": 0.0473,
+        "deadline_exceeded": 0.236
+      },
+      "parallel_double_stop_share": 0.0177,
+      "t_c_success_months": {
+        "n": 131,
+        "p05": 51.6416,
+        "median": 54.4281,
+        "p95": 55.6756,
+        "mean": 54.155
+      },
+      "t_c_all_clear_months": {
+        "n": 2491,
+        "p05": 55.6932,
+        "median": 63.6209,
+        "p95": 72.0539,
+        "mean": 63.7406
+      },
+      "t_founded_months": {
+        "n": 6292,
+        "p05": 8.9197,
+        "median": 11.0339,
+        "p95": 13.5174,
+        "mean": 11.0909
+      }
+    },
+    {
+      "case": "prob_up",
+      "label": "手応え累積+10pt",
+      "deadline_months": 55.8,
+      "conditional_probs": {
+        "T1": 0.99,
+        "T2": 1,
+        "B1": 0.9,
+        "B2": 0.8889,
+        "G": 1,
+        "P1": 0.7576,
+        "P2": 0.6667,
+        "P3": 0.875
+      },
+      "q": 0.017,
+      "q_wilson95": {
+        "low": 0.0146,
+        "high": 0.0197
+      },
+      "all_clear_rate_ignoring_deadline": 0.3485,
+      "deadline_hit_rate_among_all_clear": 0.0488,
+      "failure_breakdown_share": {
+        "success": 0.017,
+        "tech_stop": 0.0101,
+        "poc_stop": 0.097,
+        "seed_stop": 0.0992,
+        "bridge_stop": 0,
+        "p1_stop": 0.1926,
+        "p2_stop": 0.202,
+        "p3_stop": 0.0506,
+        "deadline_exceeded": 0.3315
+      },
+      "parallel_double_stop_share": 0.0011,
+      "t_c_success_months": {
+        "n": 170,
+        "p05": 51.7931,
+        "median": 54.6702,
+        "p95": 55.7261,
+        "mean": 54.3786
+      },
+      "t_c_all_clear_months": {
+        "n": 3485,
+        "p05": 55.8721,
+        "median": 63.7043,
+        "p95": 71.9699,
+        "mean": 63.7619
+      },
+      "t_founded_months": {
+        "n": 7937,
+        "p05": 8.8815,
+        "median": 10.9993,
+        "p95": 13.4555,
+        "mean": 11.0569
+      }
+    },
+    {
+      "case": "prob_down",
+      "label": "手応え累積-10pt",
+      "deadline_months": 55.8,
+      "conditional_probs": {
+        "T1": 0.8,
+        "T2": 1,
+        "B1": 0.7,
+        "B2": 0.8571,
+        "G": 1,
+        "P1": 0.8333,
+        "P2": 0.5,
+        "P3": 0.75
+      },
+      "q": 0.0078,
+      "q_wilson95": {
+        "low": 0.0063,
+        "high": 0.0097
+      },
+      "all_clear_rate_ignoring_deadline": 0.1472,
+      "deadline_hit_rate_among_all_clear": 0.053,
+      "failure_breakdown_share": {
+        "success": 0.0078,
+        "tech_stop": 0.2058,
+        "poc_stop": 0.2425,
+        "seed_stop": 0.0772,
+        "bridge_stop": 0,
+        "p1_stop": 0.0765,
+        "p2_stop": 0.1997,
+        "p3_stop": 0.0511,
+        "deadline_exceeded": 0.1394
+      },
+      "parallel_double_stop_share": 0.0612,
+      "t_c_success_months": {
+        "n": 78,
+        "p05": 51.0256,
+        "median": 54.3238,
+        "p95": 55.5975,
+        "mean": 53.9363
+      },
+      "t_c_all_clear_months": {
+        "n": 1472,
+        "p05": 55.6392,
+        "median": 63.2455,
+        "p95": 71.8895,
+        "mean": 63.4944
+      },
+      "t_founded_months": {
+        "n": 4745,
+        "p05": 8.8853,
+        "median": 11.035,
+        "p95": 13.5088,
+        "mean": 11.0791
+      }
+    },
+    {
+      "case": "time_fast",
+      "label": "全所要時間-25%",
+      "deadline_months": 55.8,
+      "conditional_probs": {
+        "T1": 0.9,
+        "T2": 1,
+        "B1": 0.8,
+        "B2": 0.875,
+        "G": 1,
+        "P1": 0.7937,
+        "P2": 0.6,
+        "P3": 0.8333
+      },
+      "q": 0.2436,
+      "q_wilson95": {
+        "low": 0.2353,
+        "high": 0.2521
+      },
+      "all_clear_rate_ignoring_deadline": 0.2477,
+      "deadline_hit_rate_among_all_clear": 0.9834,
+      "failure_breakdown_share": {
+        "success": 0.2436,
+        "tech_stop": 0.0971,
+        "poc_stop": 0.185,
+        "seed_stop": 0.0904,
+        "bridge_stop": 0,
+        "p1_stop": 0.1331,
+        "p2_stop": 0.1995,
+        "p3_stop": 0.0472,
+        "deadline_exceeded": 0.0041
+      },
+      "parallel_double_stop_share": 0.0201,
+      "t_c_success_months": {
+        "n": 2436,
+        "p05": 41.9527,
+        "median": 47.5209,
+        "p95": 53.4423,
+        "mean": 47.5796
+      },
+      "t_c_all_clear_months": {
+        "n": 2477,
+        "p05": 41.9885,
+        "median": 47.5796,
+        "p95": 53.9782,
+        "mean": 47.7383
+      },
+      "t_founded_months": {
+        "n": 6275,
+        "p05": 6.7067,
+        "median": 8.2692,
+        "p95": 10.1258,
+        "mean": 8.3201
+      }
+    },
+    {
+      "case": "time_slow",
+      "label": "全所要時間+25%",
+      "deadline_months": 55.8,
+      "conditional_probs": {
+        "T1": 0.9,
+        "T2": 1,
+        "B1": 0.8,
+        "B2": 0.875,
+        "G": 1,
+        "P1": 0.7937,
+        "P2": 0.6,
+        "P3": 0.8333
+      },
+      "q": 0,
+      "q_wilson95": {
+        "low": 0,
+        "high": 0.0004
+      },
+      "all_clear_rate_ignoring_deadline": 0.2565,
+      "deadline_hit_rate_among_all_clear": 0,
+      "failure_breakdown_share": {
+        "success": 0,
+        "tech_stop": 0.0963,
+        "poc_stop": 0.1785,
+        "seed_stop": 0.0901,
+        "bridge_stop": 0,
+        "p1_stop": 0.1311,
+        "p2_stop": 0.1959,
+        "p3_stop": 0.0516,
+        "deadline_exceeded": 0.2565
+      },
+      "parallel_double_stop_share": 0.0201,
+      "t_c_success_months": {
+        "n": 0,
+        "p05": null,
+        "median": null,
+        "p95": null,
+        "mean": null
+      },
+      "t_c_all_clear_months": {
+        "n": 2565,
+        "p05": 69.7394,
+        "median": 79.5014,
+        "p95": 90.5143,
+        "mean": 79.8394
+      },
+      "t_founded_months": {
+        "n": 6351,
+        "p05": 11.1219,
+        "median": 13.7837,
+        "p95": 16.8849,
+        "mean": 13.8591
+      }
+    },
+    {
+      "case": "deadline_plus6",
+      "label": "期限+6か月(2031-09)",
+      "deadline_months": 61.8,
+      "conditional_probs": {
+        "T1": 0.9,
+        "T2": 1,
+        "B1": 0.8,
+        "B2": 0.875,
+        "G": 1,
+        "P1": 0.7937,
+        "P2": 0.6,
+        "P3": 0.8333
+      },
+      "q": 0.0851,
+      "q_wilson95": {
+        "low": 0.0798,
+        "high": 0.0907
+      },
+      "all_clear_rate_ignoring_deadline": 0.2458,
+      "deadline_hit_rate_among_all_clear": 0.3462,
+      "failure_breakdown_share": {
+        "success": 0.0851,
+        "tech_stop": 0.1004,
+        "poc_stop": 0.1834,
+        "seed_stop": 0.0905,
+        "bridge_stop": 0,
+        "p1_stop": 0.1285,
+        "p2_stop": 0.2027,
+        "p3_stop": 0.0487,
+        "deadline_exceeded": 0.1607
+      },
+      "parallel_double_stop_share": 0.0181,
+      "t_c_success_months": {
+        "n": 851,
+        "p05": 54.4462,
+        "median": 59.0931,
+        "p95": 61.5802,
+        "mean": 58.6267
+      },
+      "t_c_all_clear_months": {
+        "n": 2458,
+        "p05": 55.925,
+        "median": 63.8469,
+        "p95": 72.1902,
+        "mean": 63.916
+      },
+      "t_founded_months": {
+        "n": 6257,
+        "p05": 8.9104,
+        "median": 11.0131,
+        "p95": 13.522,
+        "mean": 11.0851
+      }
+    },
+    {
+      "case": "deadline_minus6",
+      "label": "期限-6か月(2030-09)",
+      "deadline_months": 49.8,
+      "conditional_probs": {
+        "T1": 0.9,
+        "T2": 1,
+        "B1": 0.8,
+        "B2": 0.875,
+        "G": 1,
+        "P1": 0.7937,
+        "P2": 0.6,
+        "P3": 0.8333
+      },
+      "q": 0,
+      "q_wilson95": {
+        "low": 0,
+        "high": 0.0004
+      },
+      "all_clear_rate_ignoring_deadline": 0.2413,
+      "deadline_hit_rate_among_all_clear": 0,
+      "failure_breakdown_share": {
+        "success": 0,
+        "tech_stop": 0.0995,
+        "poc_stop": 0.1788,
+        "seed_stop": 0.094,
+        "bridge_stop": 0,
+        "p1_stop": 0.1326,
+        "p2_stop": 0.2013,
+        "p3_stop": 0.0525,
+        "deadline_exceeded": 0.2413
+      },
+      "parallel_double_stop_share": 0.0203,
+      "t_c_success_months": {
+        "n": 0,
+        "p05": null,
+        "median": null,
+        "p95": null,
+        "mean": null
+      },
+      "t_c_all_clear_months": {
+        "n": 2413,
+        "p05": 55.7301,
+        "median": 63.3677,
+        "p95": 71.6008,
+        "mean": 63.5342
+      },
+      "t_founded_months": {
+        "n": 6277,
+        "p05": 8.8764,
+        "median": 11.031,
+        "p95": 13.5214,
+        "mean": 11.0975
+      }
+    },
+    {
+      "case": "bridge_9m",
+      "label": "PSI終了後9か月以内にSeed合意が必要（橋制約）",
+      "deadline_months": 55.8,
+      "conditional_probs": {
+        "T1": 0.9,
+        "T2": 1,
+        "B1": 0.8,
+        "B2": 0.875,
+        "G": 1,
+        "P1": 0.7937,
+        "P2": 0.6,
+        "P3": 0.8333
+      },
+      "q": 0.0135,
+      "q_wilson95": {
+        "low": 0.0114,
+        "high": 0.016
+      },
+      "all_clear_rate_ignoring_deadline": 0.2568,
+      "deadline_hit_rate_among_all_clear": 0.0526,
+      "failure_breakdown_share": {
+        "success": 0.0135,
+        "tech_stop": 0.1044,
+        "poc_stop": 0.1802,
+        "seed_stop": 0.0883,
+        "bridge_stop": 0,
+        "p1_stop": 0.1209,
+        "p2_stop": 0.2034,
+        "p3_stop": 0.046,
+        "deadline_exceeded": 0.2433
+      },
+      "parallel_double_stop_share": 0.021,
+      "t_c_success_months": {
+        "n": 135,
+        "p05": 52.2699,
+        "median": 54.7218,
+        "p95": 55.6617,
+        "mean": 54.3918
+      },
+      "t_c_all_clear_months": {
+        "n": 2568,
+        "p05": 55.6863,
+        "median": 63.5197,
+        "p95": 71.9338,
+        "mean": 63.634
+      },
+      "t_founded_months": {
+        "n": 6271,
+        "p05": 8.9229,
+        "median": 11.0093,
+        "p95": 13.4703,
+        "mean": 11.0721
+      }
+    }
+  ]
+}
