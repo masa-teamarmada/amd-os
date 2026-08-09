@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-09 14:19 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-09 15:08 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -1812,6 +1812,9 @@ UNIQUE: `(factor_type,event_description)` (constraint: `killer_factor_catalog_id
 | 7 | `created_by_member_id` | `text` | NULL | `` |
 | 8 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 9 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 10 | `operating_mode` | `text` | NOT NULL | `'monitoring'::text` |
+| 11 | `preventive_action` | `text` | NULL | `` |
+| 12 | `timing_guidance` | `text` | NULL | `` |
 
 ## knowledge_sessions
 
@@ -3503,12 +3506,14 @@ UNIQUE: `(project_id,killer_factor_id)` (constraint: `project_killer_factor_stat
 | 1 | `state_id` | `uuid` | NOT NULL | `gen_random_uuid()` |
 | 2 | `project_id` | `text` | NOT NULL | `` |
 | 3 | `killer_factor_id` | `uuid` | NOT NULL | `` |
-| 4 | `status` | `text` | NOT NULL | `'not_occurred'::text` |
+| 4 | `status` | `text` | NOT NULL | `'unchecked'::text` |
 | 5 | `occurred_on` | `date` | NULL | `` |
 | 6 | `evidence_note` | `text` | NULL | `` |
 | 7 | `recorded_by_member_id` | `text` | NULL | `` |
 | 8 | `recorded_at` | `timestamptz` | NULL | `` |
 | 9 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 10 | `status_on` | `date` | NULL | `` |
+| 11 | `target_on` | `date` | NULL | `` |
 
 ## project_knowledge
 
