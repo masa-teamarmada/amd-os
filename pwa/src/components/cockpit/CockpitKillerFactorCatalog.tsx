@@ -375,7 +375,7 @@ export function CockpitKillerFactorCatalog({ projectId }: { projectId: string })
               const StatusIcon = statusMeta.icon;
               const critical = item.status === "occurred" || item.status === "breached";
               const guidance = item.operatingMode === "prevention"
-                ? item.preventiveAction || "予防策未登録"
+                ? `${item.preventiveAction || "予防策未登録"}${item.timingGuidance ? `（${item.timingGuidance}まで）` : ""}`
                 : item.observationClues;
               return (
                 <div
@@ -401,9 +401,6 @@ export function CockpitKillerFactorCatalog({ projectId }: { projectId: string })
                       {item.operatingMode === "prevention" ? <FileCheck2 className="mt-0.5 size-3.5 shrink-0 text-blue-600" /> : <Eye className="mt-0.5 size-3.5 shrink-0 text-slate-400" />}
                       <p className="line-clamp-1 min-w-0 text-[11px] leading-4 text-slate-600 lg:line-clamp-2" title={guidance}>{guidance}</p>
                     </div>
-                    {item.operatingMode === "prevention" && item.timingGuidance && (
-                      <div className="mt-0.5 truncate pl-5 text-[10px] text-blue-700" title={item.timingGuidance}>期限目安: {item.timingGuidance}</div>
-                    )}
                   </div>
                   <div role="cell" className="col-start-3 row-start-1 min-w-0 lg:col-start-5 lg:row-start-1">
                     <Button
