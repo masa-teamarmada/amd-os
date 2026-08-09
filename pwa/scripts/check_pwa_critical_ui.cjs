@@ -2763,21 +2763,40 @@ expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
   "exportPdf",
 ]);
 
-// キラー要素カタログ (2026-08-09 まさ確定): 全PJ共通マスタ + PJ別の発生状態。
+// キラー要素カタログ (2026-08-09 まさ確定): 予防統制 + 常時監視 + PJ全体判定を高密度表示。
 expectIncludes("src/components/cockpit/CockpitKillerFactorCatalog.tsx", [
   'data-testid="killer-factor-catalog"',
+  'data-testid="killer-factor-risk-overview"',
+  'data-testid="killer-factor-density-table"',
+  'data-testid="killer-factor-density-row"',
+  "このPJの全体判定",
+  "予防統制",
+  "常時監視",
+  "未確認は安全扱いしない",
   "要素を追加",
-  "発生を記録",
-  "発生日",
+  "状態を保存",
   "根拠メモ",
-  "CEO本人の自己申告は発生判定の根拠に使わない",
+  "CEO本人の自己申告だけでは平常・兆候・発生を確定しない",
+]);
+expectNotIncludes("src/components/cockpit/CockpitKillerFactorCatalog.tsx", [
+  "発生を記録",
+  "未発生",
+  'lg:grid-cols-[9rem_minmax(16rem,1.15fr)_minmax(18rem,1.35fr)_15rem]',
 ]);
 expectIncludes("src/app/api/governance/killer-factors/route.ts", [
   "requireMember",
   'body.action === "create_factor"',
+  'body.action === "update_state"',
   'body.action === "mark_occurred"',
   'from("killer_factor_catalog")',
   'from("project_killer_factor_states")',
+  "summarizeKillerFactorRisk",
+]);
+expectIncludes("src/lib/killer-factor-risk.ts", [
+  '"critical" | "attention" | "unknown" | "stable"',
+  "criticalCount > 0",
+  "actionCount > 0",
+  "unknownCount > 0 || items.length === 0",
 ]);
 
 expectIncludes("src/lib/company-overview.ts", [

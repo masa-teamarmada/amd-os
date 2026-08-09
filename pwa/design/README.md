@@ -14,6 +14,7 @@
 | 1 | [SPEC_pwa.md](SPEC_pwa.md) ⭐ | **PWA 全体の正本仕様** — 画面・ルート・データモデル・cron・運用コマンド・実装規約 |
 | 2 | [FEATURE_REGISTRY.md](FEATURE_REGISTRY.md) ⭐ | **重要UIの回帰防止登録簿** — 画面ごとの「消してはいけない業務導線」と `test:critical-ui` anchor |
 | 2.5 | [SPEC_GOVERNANCE.md](SPEC_GOVERNANCE.md) ⭐ | **仕様ドリフト防止運用** — Capability Catalog / functional spec / ADR / traceability / executable spec の使い分け |
+| 2.7 | [../spec/2-7-ui-design-code-current-spec.md](../spec/2-7-ui-design-code-current-spec.md) ⭐ | **PWA UIデザインコード** — 情報密度、全件比較、反復行高、状態表現、desktop/mobile実寸検証の共通規約 |
 | 3 | [cockpit.md](cockpit.md) ⭐ | コックピット (`/project/[projectId]/cockpit`) — PJ Status / MS / カンバン / 月次カード / MTGサマリ |
 | 4 | [routine.md](routine.md) ⭐ | OS上のPM月次ルーティン廃止の正本。dashboard / mypage / cockpit / legacy GAS の回帰防止 |
 | 4 | [mypage.md](mypage.md) | `/mypage` 仕様 — 自分の参加 PJ・今月の活動・月次報酬 |
@@ -29,6 +30,7 @@
 |---|---|
 | 認証 | [google_signin.md](google_signin.md) |
 | 仕様ドリフト防止 | [SPEC_GOVERNANCE.md](SPEC_GOVERNANCE.md) / [FEATURE_REGISTRY.md](FEATURE_REGISTRY.md) |
+| PWA UIデザインコード | [../spec/2-7-ui-design-code-current-spec.md](../spec/2-7-ui-design-code-current-spec.md) — 情報密度・全件比較・状態表現・実寸検証の共通規約 |
 | Notion コンテンツ移植 | [notion_content_migration.md](notion_content_migration.md) — member list / history / photo を AMD OS に移すための UIUX・権限・データ設計案 |
 | H-1 source auth fallback | [h1_source_auth_fallback.md](h1_source_auth_fallback.md) — Notion connector 再認証待ち禁止、Chrome/local と5生データへの即時fallback、connector_auth再認証アクション |
 | Atlas (判断の地図) | [atlas.md](atlas.md) |

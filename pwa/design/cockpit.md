@@ -88,7 +88,9 @@ CockpitHeader は `projects.contract_terms_json.currentContracts[]` を優先し
 
 ### 会社概要タブのキラー要素カタログ（2026-08-09）
 
-`CockpitCompanyOverview` の基本情報直下に `CockpitKillerFactorCatalog` を常設する。型・事象・観測の手がかりは全PJ共通マスタで、表示中PJの未発生/発生だけをPJ別に重ねる。desktopは4列一覧、mobileは同じ4項目を縦積みし、横スクロールへ逃がさない。通常は白/slate、発生行だけroseのアイコン・文字・薄い背景を併用し、色だけで状態を伝えない。要素追加と発生記録は44px以上のボタンからダイアログで行い、発生には発生日と記録・文書に基づく根拠メモを必須とする。記録者はログイン中メンバーをサーバーで付与する。通知・成功確率再計算・LLM呼び出しはここでは行わない。
+`CockpitCompanyOverview` の基本情報直下に `CockpitKillerFactorCatalog` を常設する。型・事象・確認根拠は全PJ共通マスタ、状態はPJ別。共通要素は `prevention`（予防統制）と `monitoring`（常時監視）に分ける。予防統制はAMDの具体的な打ち手と完了時機を必須とし、`unchecked / not_started / in_progress / controlled / breached` で発生前の統制進捗を記録する。常時監視は `unchecked / clear / warning / occurred` で継続観測する。`summarizeKillerFactorRisk()` は重大 (`occurred / breached`) > 要対応 (`warning / not_started / in_progress`) > 未確認 (`unchecked`) > 安全 (`clear / controlled`) の順で全体判定を導出し、未確認を安全へ数えない。
+
+desktopは先頭に全体判定と4区分件数、その下に方式 / 型 / リスク / AMDの打ち手または見るもの / PJ状態を同じ列へ揃える。初版7件を `1440×900` で同一画面に表示し、反復行は44〜64px、行操作はコンパクトな状態ボタンとする。各行へ同じ大型ボタンを置かない。mobileは方式・型・状態を先頭、リスク・打ち手を短い縦積みにし、横スクロールへ逃がさない。詳細入力は44px以上の操作領域を持つダイアログへ分離する。根拠メモは記録・文書に基づく内容を必須とし、記録者はログイン中メンバーをサーバーで付与する。通知・成功確率再計算・LLM呼び出しはここでは行わない。全PWA共通の密度規約は `/spec/2-7-ui-design-code-current-spec` を正本とする。
 
 ★ 2026-05-11 追加:
 - **凍結/再開履歴**: `project_freeze_periods` が正本。`projects.freeze_from_ym` / `restart_expected_ym` は現在状態の表示用キャッシュ。CTB のように「202412で一度終了 → 再開 → 202605で再凍結」のような複数期間は `project_freeze_periods` に複数行で保存する。
