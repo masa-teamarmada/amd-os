@@ -79,8 +79,8 @@
 
 ### Git・デプロイ
 
-- branch `main`。**この`main`は複数セッションが同時にcommitを積む共有checkout**で、ahead/behindの数は刻々と変わる。**具体数を当てにせず、開始時に`git fetch`＋`git log --oneline -10`＋`git status -sb --untracked-files=all`＋`git log --branches --not --remotes --oneline`で必ず再確認する**。参考値として2026-08-10のcloseout時点は`ahead 11, behind 88`。
-- 未pushコミットは本数ではなく所属で見る。2026-08-10時点の11本は**BZM講座6本**（`200feaba` LST事前登録を開く / `6c60932f` 資金の崖1か所へ骨格修正 / `4a63e78e` 8ノード条件付き確率 / `6f2253e0` 順序訂正2件 / `072a3f28` 会議駆動の入力収集 / `81f5a68e` #7を遅延型へ）と、**キラー要素カタログのPWA実装5本**（`c9f2eb10` / `166cbe97` / `f115bd24` / `233ca172` / `3bd4bc2e`）。後者は**migration 249とbuild-info bumpを含むので、単純pushすると本番反映が走る**。BZM分だけを出す必要が生じたらcherry-pickする。
+- branch `main`。**この`main`は複数セッションが同時にcommitを積む共有checkout**で、ahead/behindの数は刻々と変わる。**具体数を当てにせず、開始時に`git fetch`＋`git log --oneline -10`＋`git status -sb --untracked-files=all`＋`git log --branches --not --remotes --oneline`で必ず再確認する**。参考値として2026-08-10のcloseout時点は`ahead 12, behind 88`。
+- 未pushコミットは本数ではなく所属で見る。2026-08-10時点の12本は**BZM講座7本**（`200feaba` LST事前登録を開く / `6c60932f` 資金の崖1か所へ骨格修正 / `4a63e78e` 8ノード条件付き確率 / `6f2253e0` 順序訂正2件 / `072a3f28` 会議駆動の入力収集 / `81f5a68e` #7を遅延型へ / `8d1fd274` handoff）と、**キラー要素カタログのPWA実装5本**（`c9f2eb10` / `166cbe97` / `f115bd24` / `233ca172` / `3bd4bc2e`）。後者は**migration 249とbuild-info bumpを含むので、単純pushすると本番反映が走る**。BZM分だけを出す必要が生じたらcherry-pickする。
 - 前セッションの`44c70a47`（到達見込みモデル3.4節）と`74247839`（ゲート台帳のヒアリング規律）は、**すでにorigin/mainに入っている**（別セッションが同一checkoutからpushした際に巻き込まれた）。同じ内容を二重に書かない。
 - BZM外に大量の未追跡・未ステージ変更（project-workspace系のSX管理UI11ファイル、migration 227、Project Share 6PJの`memberStore.mjs`/`members.mjs`/テスト24ファイル）。**別セッションの作業なので触らず、stage、commit、restoreしない**。
 - push、deploy、外部公開、本番データ書き込みは**未実施**。現行PWAのSPS、GO判定、表示、本番データは変更していない。
