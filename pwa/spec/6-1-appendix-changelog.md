@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-08-09 15:27 JST | 2-7 PWA UIデザインコード / 3-8 PJ Cockpit | 修正 | build v3.70.2。mobileの追加・filter・状態操作を44px以上にし、常時監視の状態ダイアログへ観測の手がかり全文を追加。desktopの56px反復行は維持した | v3.70.1の390×844実測で一部操作が36〜40pxとなり、mobile操作領域契約を満たしていなかったため | えいみ |
 | 2026-08-09 15:17 JST | 2-7 PWA UIデザインコード / 3-8 PJ Cockpit | 修正 | build v3.70.1。`CockpitKillerFactorCatalog`の予防統制における打ち手と完了時機を同一の2行clampへ統合し、反復行を実測44〜64px契約内に収めた | v3.70.0の本番1440×900実測で予防統制行だけ65.9pxとなり、契約上限を超えていたため | えいみ |
 | 2026-08-09 14:56 JST | 2-7 PWA UIデザインコード / 3-8 PJ Cockpit / design cockpit・FEATURE_REGISTRY | 追加・再設計 | build v3.70.0 / migration 249。PWA共通の情報密度・10件以下全件表示・44〜64px比較行・未確認と安全の分離・desktop/mobile実寸検証をspec化。キラー要素は予防統制と常時監視、方式別状態、全体判定`critical > attention > unknown > stable`へ変更し、DB guard・API・純粋集計関数・UI・回帰テストを同期した | AMDの予防責任を発生後記録から分離し、PJ全体の危険度と全要素を最初の画面で比較できるようにするため | まさ・えいみ |
 | 2026-08-09 02:29 JST | 3-8 Cockpit | 修正 | build v3.69.1。`CockpitKillerFactorCatalog` の発生日初期値を `Asia/Tokyo` の年月日から生成し、UTC日付への依存を除いた。契約テストにJST固定のanchorを追加 | 日本時間の深夜帯に未記録要素の発生ダイアログを開くと、初期日付が前日になる回帰を防ぐため | えいみ |

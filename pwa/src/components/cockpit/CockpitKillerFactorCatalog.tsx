@@ -282,7 +282,7 @@ export function CockpitKillerFactorCatalog({ projectId }: { projectId: string })
         </div>
         <Button
           variant="outline"
-          className="h-10 w-full shrink-0 sm:h-9 sm:w-auto"
+          className="h-11 w-full shrink-0 sm:h-9 sm:w-auto"
           onClick={() => setAddOpen(true)}
           data-html2canvas-ignore="true"
         >
@@ -332,7 +332,7 @@ export function CockpitKillerFactorCatalog({ projectId }: { projectId: string })
               role="tab"
               aria-selected={filter === value}
               onClick={() => setFilter(value)}
-              className={`min-h-8 rounded-md px-2.5 text-[11px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${filter === value ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}
+              className={`min-h-11 rounded-md px-2.5 text-[11px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 lg:min-h-8 ${filter === value ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}
             >
               {label} <span className="tabular-nums opacity-70">{count}</span>
             </button>
@@ -406,7 +406,7 @@ export function CockpitKillerFactorCatalog({ projectId }: { projectId: string })
                     <Button
                       type="button"
                       variant="outline"
-                      className={`h-9 w-full min-w-0 justify-between gap-1.5 px-2.5 text-[11px] ${statusMeta.className}`}
+                      className={`h-11 w-full min-w-0 justify-between gap-1.5 px-2.5 text-[11px] lg:h-9 ${statusMeta.className}`}
                       onClick={() => openStateEditor(item)}
                       title={item.statusOn ? `${statusMeta.label} · ${formatDate(item.statusOn)} · ${item.recordedByLabel || "記録者未確認"}` : `${statusMeta.label} · 状態を更新`}
                       data-html2canvas-ignore="true"
@@ -501,6 +501,12 @@ export function CockpitKillerFactorCatalog({ projectId }: { projectId: string })
                     <div className="font-semibold">先に完了させること</div>
                     <div className="mt-0.5">{editFactor.preventiveAction}</div>
                     {editFactor.timingGuidance && <div className="mt-1 text-[11px] text-blue-700">期限目安: {editFactor.timingGuidance}</div>}
+                  </div>
+                )}
+                {editFactor.operatingMode === "monitoring" && (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-700">
+                    <div className="font-semibold text-slate-900">観測の手がかり</div>
+                    <div className="mt-0.5">{editFactor.observationClues}</div>
                   </div>
                 )}
                 <div className="space-y-1.5">
