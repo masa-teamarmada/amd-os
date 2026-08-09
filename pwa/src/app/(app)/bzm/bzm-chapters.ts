@@ -56,11 +56,12 @@ export const BZM_PARTS: BzmPartConfig[] = [
     key: "sps-2-reachability",
     label: "SPS 2.0 到達見込み",
     description:
-      "潜在価値に掛ける到達見込み q の定義。共通到達目標、戦略余力、資金の崖、数字を出してよい条件、SX 1件の実測記録。前向き検証は未着手。",
+      "潜在価値に掛ける到達見込み q の定義。共通到達目標、戦略余力、資金の崖、数字を出してよい条件、SX 1件の実測記録、領域定義 (診断ドメインと予測地平の分離)。前向き検証は未着手。",
     slugs: [
       "sps-2-0-reachability-model",
       "sps-2-0-measurability-gate",
       "sps-2-0-sx-measurement-log",
+      "sps-2-0-domain-definition",
     ],
   },
 
@@ -323,6 +324,13 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
     title: "SX 実測記録 — 版を追って q がどう動いたか",
     summary:
       "SX 1件に当てた v0.2〜v0.5 の改訂ループ。q の推移と各変化の原因タグ、死因の内訳、期限を延ばしても到達率が増えないこと、燃焼と速度が資金切れをどう動かすか。",
+    status: "completed",
+  },
+  {
+    slug: "sps-2-0-domain-definition",
+    title: "領域定義 — Before Zero で診断し、ゼロの先で検証する",
+    summary:
+      "「単年度黒字化まで含めてまだ Before Zero の理論なのか」への答え。診断ドメインと予測地平の分離、設立をゴールにできない三つの理由、投資判定の二階建て (BZM + BZSF投資層)、設立後診断アドオンの三条件、設立前出資とセカンダリ市場の構想、早期設立圧力という誤指摘の撤回記録。",
     status: "completed",
   },
 
