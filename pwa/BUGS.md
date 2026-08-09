@@ -5,6 +5,14 @@
 
 ---
 
+### [git/multi-session] 追記専用 md の行が、別セッションの全文書き戻しで working tree から消えた (2026-08-10)
+
+- **状態**: クローズ (2026-08-10 — 消えた行を working tree へ復元済み、deletion ゼロを確認)。
+- **症状**: BZM 講座セッションが commit `200feaba` で `pwa/bzm/9-5-appendix-changelog.md` の変更履歴表へ追記した 1 行（LST を 2 件目の実測対象として事前登録した記録）が、working tree から消えていた。handoff 前の `git diff` で deletion として現れて発覚。commit 済みなので main の履歴には残っており永久喪失ではないが、**その状態のまま誰かが changelog を commit すれば、履歴上は「追記した次の commit で消した」形になり、この附則の append-only ルールを破った跡が正本に残る**。
+- **原因**: 正本 checkout `/Users/masa/projects/AMD/amd-os` を複数の Claude セッションが同時に共有していること。別セッション（BZM 2.0 スコープ検討、最終活動 2026-08-09 14:27）が changelog を読み込んだ時点の内容を保持したまま、こちらの commit より後にファイル**全体**を書き戻した。追記型の md でファイル全体を書き直すと、書き手は「自分が読んだときの全文 + 自分の追記」を出力するため、読んでから書くまでの間に他セッションが入れた行が黙って消える。commit 済みかどうかは無関係で、working tree は上書きされる。他セッションの停止・実行状態も無関係（この別セッションは既に `isRunning: false` だった）。
+- **対応内容**: `git show HEAD:pwa/bzm/9-5-appendix-changelog.md` から消えた 1 行だけを取り出し、working tree の表の先頭（区切り行の直後、= この附則の新しい順の並びに合う位置）へ戻した。別セッションが末尾に足した 2 行はそのまま残した。復元後の `git diff --stat` が `2 insertions(+)` のみ（deletion ゼロ）になり、両セッションの追記が揃った状態を確認している。
+- **再発防止策**: 追記専用 md（`pwa/bzm/9-5-appendix-changelog.md` / `pwa/manual/9-3-appendix-changelog.md` / `pwa/spec/6-1-appendix-changelog.md`）は、Write でファイル全体を書き直さず **Edit で該当箇所だけを差し替える**。加えて commit の直前に `git diff -- <対象ファイル>` を実際に見て、`-` 行が出ていないことを確認する。追記しかしていないはずのファイルに deletion があれば、それは自分の編集ではなく他セッションの上書きか、自分が他セッション分を消したかのどちらかである。`git status` の `modified` 表示だけでは区別できない。
+
 ### [git/worktree] 旧パス時代の worktree が `.gitignore` の陰に隠れて残っている (2026-08-09)
 
 - **状態**: 調査完了・削除はまさ判断待ち。中身は精査済みで、**main に無い作業はゼロ**と確定している。
