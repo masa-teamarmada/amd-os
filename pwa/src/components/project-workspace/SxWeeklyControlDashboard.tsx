@@ -7,7 +7,6 @@ import {
   ArrowRight,
   CalendarClock,
   Check,
-  ChevronDown,
   CircleDot,
   FileSearch,
   FlaskConical,
@@ -75,7 +74,6 @@ import {
   sxWeeklyIssueAttentionScore,
   sxWeeklyIssueIsOverdue,
   sxWeeklyIssueIsStale,
-  sxWeeklyIssueLastActivity,
   sxWeeklyIssueNeedsAttention,
   sxWeeklyIssueNextDueDate,
   sxWeeklyIssueNextMove,
@@ -806,15 +804,14 @@ function editorInitialValues(
   if (editor.kind === "edit_issue")
     return {
       title: editor.issue.title,
+      background: editor.issue.background || "",
       knowledge_type:
         editor.issue.knowledgeType === "decision"
           ? "decision_needed"
           : editor.issue.knowledgeType,
       status:
         editor.issue.status === "decided" ? "closed" : editor.issue.status,
-      owner_label: editor.issue.ownerLabel,
       due_date: editor.issue.dueDate || "",
-      confidence: editor.issue.confidence,
     };
   if (editor.kind === "create_hypothesis")
     return {
@@ -1672,14 +1669,19 @@ function editorDefinition(
           key: "title",
           label: "内容",
           type: "textarea",
-          required: true,
           span: true,
+        },
+        {
+          key: "background",
+          label: "発生した背景",
+          type: "textarea",
+          span: true,
+          help: "何が起きて、なぜ今この論点を扱うのか",
         },
         {
           key: "knowledge_type",
           label: "種類",
           type: "select",
-          required: true,
           options: [
             { value: "fact", label: "論点" },
             { value: "hypothesis", label: "仮説" },
@@ -1690,7 +1692,6 @@ function editorDefinition(
           key: "status",
           label: "状態",
           type: "select",
-          required: true,
           options: [
             { value: "open", label: "未解決" },
             { value: "validating", label: "検証中" },
@@ -1698,9 +1699,7 @@ function editorDefinition(
             { value: "closed", label: "完了" },
           ],
         },
-        { key: "owner_label", label: "担当", required: true },
         { key: "due_date", label: "期限", type: "date" },
-        confidence,
       ],
     };
   if (editor.kind === "create_hypothesis")
@@ -2366,7 +2365,7 @@ function IssueEditor({
     const minimalCreateField =
       editor.kind === "create_partner"
         ? { key: "name", label: "関係先名" }
-        : editor.kind === "create_issue"
+        : editor.kind === "create_issue" || editor.kind === "edit_issue"
           ? { key: "title", label: "内容" }
           : editor.kind === "create_hypothesis"
             ? { key: "statement", label: "仮説" }
@@ -3271,14 +3270,17 @@ function IssueRow({
   canManage,
   onEdit,
   onAddDiscussion,
+  onOpen,
 }: {
   issue: SxManagementIssue;
   asOf: string;
   canManage: boolean;
   onEdit: (editor: EditorState) => void;
   onAddDiscussion: (issueId: string, summary: string) => Promise<void>;
+  onOpen: (issueId: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  // 詳細はワークベンチへ統合。旧inline詳細は移行中も表示されない。
+  const expanded = false;
   const [discussionDraft, setDiscussionDraft] = useState("");
   const [discussionSaving, setDiscussionSaving] = useState(false);
   const [discussionError, setDiscussionError] = useState<string | null>(null);
@@ -3311,21 +3313,14 @@ function IssueRow({
               {track.short}
             </span>
           </div>
-          {canManage ? (
-            <button
-              type="button"
-              className={styles.issueRowTitleButton}
-              onClick={() => onEdit({ kind: "edit_issue", issue })}
-              aria-label={`${issue.title}を直接修正`}
-              title={issue.title}
-            >
-              {issue.title}
-            </button>
-          ) : (
-            <span className={styles.issueRowTitleButton} title={issue.title}>
-              {issue.title}
-            </span>
-          )}
+          <button
+            type="button"
+            className={styles.issueRowTitleButton}
+            onClick={() => onOpen(issue.id)}
+            aria-label={`${issue.title}の論点ワークベンチを開く`}
+          >
+            {issue.title}
+          </button>
           <small
             className={styles.issueRowSub}
             data-missing={sxWeeklyValueMissing(issue.ownerLabel) || undefined}
@@ -3420,19 +3415,13 @@ function IssueRow({
           <button
             type="button"
             className={styles.issueRowExpandButton}
-            onClick={() => setExpanded((value) => !value)}
-            aria-expanded={expanded}
-            aria-label={expanded ? "詳細を閉じる" : "詳細を開く"}
+            onClick={() => onOpen(issue.id)}
+            aria-label={`${issue.title}の論点ワークベンチを開く`}
           >
             {activeActionCount > 0 && (
               <span className={styles.issueRowActionCount}>{activeActionCount}</span>
             )}
-            <ChevronDown
-              aria-hidden="true"
-              style={{
-                transform: expanded ? "rotate(180deg)" : undefined,
-              }}
-            />
+            <FileSearch aria-hidden="true" />
           </button>
         </td>
       </tr>
@@ -3693,6 +3682,383 @@ function IssueRow({
         </tr>
       )}
     </>
+  );
+}
+
+/**
+ * 論点を扱う会議中に閉じない、高密度の3ペイン作業面。
+ * 左=背景/仮説、中央=議論、右=判断/次の一手。子レコードの編集も右ペイン内で完結する。
+ */
+function IssueWorkbench({
+  issue,
+  management,
+  access,
+  projectId,
+  onClose,
+  onManagementChange,
+  onReconciledId,
+  onRolledBack,
+  onShowNotice,
+  onAddDiscussion,
+  onAddHypothesis,
+  onSetResolved,
+}: {
+  issue: SxManagementIssue;
+  management: SxManagementBundle;
+  access: CurrentMemberAccess;
+  projectId: string;
+  onClose: () => void;
+  onManagementChange: (bundle: SxManagementBundle) => void;
+  onReconciledId: (temporaryId: string, realId: string) => void;
+  onRolledBack: (temporaryId: string) => void;
+  onShowNotice: (message: string) => void;
+  onAddDiscussion: (issueId: string, summary: string) => Promise<void>;
+  onAddHypothesis: (issueId: string, statement: string) => Promise<void>;
+  onSetResolved: (issueId: string, resolved: boolean) => Promise<void>;
+}) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const editorRequestCloseRef = useRef<(() => void) | null>(null);
+  const [activeEditor, setActiveEditor] = useState<EditorState | null>(null);
+  const [editorDirty, setEditorDirty] = useState(false);
+  const [discussionDraft, setDiscussionDraft] = useState("");
+  const [hypothesisDraft, setHypothesisDraft] = useState("");
+  const [discussionSaving, setDiscussionSaving] = useState(false);
+  const [hypothesisSaving, setHypothesisSaving] = useState(false);
+  const [resolutionSaving, setResolutionSaving] = useState(false);
+  const [discussionError, setDiscussionError] = useState<string | null>(null);
+  const [hypothesisError, setHypothesisError] = useState<string | null>(null);
+  const stage = sxWeeklyIssueStage(issue);
+  const resolved = stage === "resolved";
+  const nextMove = sxWeeklyIssueNextMove(issue, management.asOf);
+  const chronologicalDiscussions = [...issue.discussions].reverse();
+  const decidedDecisions = issue.decisions.filter(
+    (decision) => decision.status === "decided",
+  );
+
+  function requestClose() {
+    if (editorDirty && activeEditor) {
+      editorRequestCloseRef.current?.();
+      return;
+    }
+    onClose();
+  }
+
+  useModalContainment({
+    dialogRef,
+    initialFocusRef: closeButtonRef,
+    onClose: requestClose,
+    active: true,
+  });
+
+  if (typeof document === "undefined") return null;
+
+  const openEditor = (next: EditorState) => {
+    setEditorDirty(false);
+    setActiveEditor(next);
+  };
+  const finishEditor = (next: SxManagementBundle, message: string) => {
+    onManagementChange(next);
+    setEditorDirty(false);
+    setActiveEditor(null);
+    onShowNotice(message);
+  };
+
+  return createPortal(
+    <div
+      className={styles.issueWorkbenchBackdrop}
+      role="presentation"
+      data-modal-layer="sx-issue-workbench"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) requestClose();
+      }}
+    >
+      <section
+        ref={dialogRef}
+        tabIndex={-1}
+        className={styles.issueWorkbench}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="sx-issue-workbench-title"
+        data-testid="sx-issue-workbench"
+      >
+        <header className={styles.issueWorkbenchHeader}>
+          <div className={styles.issueWorkbenchTitle}>
+            <div className={styles.issueWorkbenchMeta}>
+              <span>{trackMeta(issue.track).short}</span>
+              <span>{issueKindLabel(issue.knowledgeType)}</span>
+              <span>{STAGE_LABEL[stage]}</span>
+              <span>{issueStatusLabel(issue.status)}</span>
+              <span>{issue.dueDate ? `期限 ${formatDate(issue.dueDate)}` : "期限未設定"}</span>
+            </div>
+            <h2 id="sx-issue-workbench-title">{issue.title}</h2>
+          </div>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            className={styles.iconButton}
+            onClick={requestClose}
+            aria-label="論点ワークベンチを閉じる"
+          >
+            <X aria-hidden="true" />
+          </button>
+        </header>
+
+        <div className={styles.issueWorkbenchGrid}>
+          <section className={styles.issueWorkbenchPane} aria-label="背景と仮説">
+            <div className={styles.issueWorkbenchPaneHead}>
+              <div><b>01</b><h3>背景・論点</h3></div>
+              {management.canManage && (
+                <button type="button" onClick={() => openEditor({ kind: "edit_issue", issue })}>編集</button>
+              )}
+            </div>
+            {issue.background ? (
+              <p className={styles.issueWorkbenchLongText}>{issue.background}</p>
+            ) : (
+              <p className={styles.issueWorkbenchEmpty}>発生した経緯・前提はまだない</p>
+            )}
+            <div className={styles.issueWorkbenchSubhead}>
+              <div><b>03</b><h3>ネスト仮説</h3></div>
+              <span>{issue.hypotheses.length}件</span>
+            </div>
+            {issue.hypotheses.length === 0 ? (
+              <p className={styles.issueWorkbenchEmpty}>議論から生まれた仮説はまだない</p>
+            ) : (
+              <div className={styles.issueWorkbenchHypotheses}>
+                {issue.hypotheses.map((hypothesis) => {
+                  const validations = issue.validationRuns.filter(
+                    (validation) => validation.hypothesisId === hypothesis.id,
+                  );
+                  return (
+                    <article key={hypothesis.id}>
+                      <div>
+                        <span className={`${styles.statusBadge} ${statusTone(hypothesis.status)}`}>
+                          {hypothesisStatusLabel(hypothesis.status)}
+                        </span>
+                        {management.canManage && (
+                          <span className={styles.issueWorkbenchInlineActions}>
+                            <button type="button" onClick={() => openEditor({ kind: "edit_hypothesis", issue, hypothesis })}>編集</button>
+                            <button type="button" onClick={() => openEditor({ kind: "create_validation", issue, hypothesis })}>検証</button>
+                          </span>
+                        )}
+                      </div>
+                      <p>{hypothesis.statement}</p>
+                      {validations.map((validation) => (
+                        <button
+                          key={validation.id}
+                          type="button"
+                          className={styles.issueWorkbenchValidation}
+                          disabled={!management.canManage}
+                          onClick={() => openEditor({ kind: "edit_validation", issue, hypothesis, validation })}
+                        >
+                          <FlaskConical aria-hidden="true" />
+                          <span>{validation.method}<small>{validation.dueDate ? formatDate(validation.dueDate) : "期限未設定"}</small></span>
+                        </button>
+                      ))}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <section className={styles.issueWorkbenchPane} aria-label="議論の記録">
+            <div className={styles.issueWorkbenchPaneHead}>
+              <div><b>02</b><h3>議論</h3></div>
+              <span>{issue.discussions.length}件</span>
+            </div>
+            {chronologicalDiscussions.length === 0 ? (
+              <p className={styles.issueWorkbenchEmpty}>前回までの議論はまだない</p>
+            ) : (
+              <ol className={styles.issueWorkbenchTimeline}>
+                {chronologicalDiscussions.map((discussion, index) => (
+                  <li key={discussion.id}>
+                    <div><b>{index + 1}</b><time dateTime={discussion.discussedOn}>{formatDate(discussion.discussedOn)}</time></div>
+                    <p>{discussion.summary}</p>
+                  </li>
+                ))}
+              </ol>
+            )}
+            {management.canManage && (
+              <div className={styles.issueWorkbenchComposers}>
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const summary = discussionDraft.trim();
+                    if (!summary) {
+                      setDiscussionError("今回の議論を一文だけ入れてね");
+                      return;
+                    }
+                    setDiscussionSaving(true);
+                    setDiscussionError(null);
+                    void onAddDiscussion(issue.id, summary)
+                      .then(() => setDiscussionDraft(""))
+                      .catch((caught) => setDiscussionError(caught instanceof Error ? caught.message : "議論を記録できなかったよ"))
+                      .finally(() => setDiscussionSaving(false));
+                  }}
+                >
+                  <label htmlFor={`discussion-${issue.id}`}>今回の議論</label>
+                  <textarea
+                    id={`discussion-${issue.id}`}
+                    rows={4}
+                    maxLength={1600}
+                    value={discussionDraft}
+                    onChange={(event) => setDiscussionDraft(event.target.value)}
+                    placeholder="話したこと、分かったこと、残った問い"
+                  />
+                  {discussionError && <p role="alert">{discussionError}</p>}
+                  <button type="submit" disabled={discussionSaving}><Plus aria-hidden="true" />{discussionSaving ? "記録中" : "議論を記録"}</button>
+                </form>
+                <form
+                  className={styles.issueWorkbenchNestedComposer}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const statement = hypothesisDraft.trim();
+                    if (!statement) {
+                      setHypothesisError("生まれた仮説を一文だけ入れてね");
+                      return;
+                    }
+                    setHypothesisSaving(true);
+                    setHypothesisError(null);
+                    void onAddHypothesis(issue.id, statement)
+                      .then(() => setHypothesisDraft(""))
+                      .catch((caught) => setHypothesisError(caught instanceof Error ? caught.message : "仮説を追加できなかったよ"))
+                      .finally(() => setHypothesisSaving(false));
+                  }}
+                >
+                  <label htmlFor={`hypothesis-${issue.id}`}><GitBranch aria-hidden="true" />この議論から生まれた仮説</label>
+                  <textarea
+                    id={`hypothesis-${issue.id}`}
+                    rows={2}
+                    maxLength={1200}
+                    value={hypothesisDraft}
+                    onChange={(event) => setHypothesisDraft(event.target.value)}
+                    placeholder="反証できる一文で親論点へネスト"
+                  />
+                  {hypothesisError && <p role="alert">{hypothesisError}</p>}
+                  <button type="submit" disabled={hypothesisSaving}>{hypothesisSaving ? "追加中" : "仮説をネスト"}</button>
+                </form>
+              </div>
+            )}
+          </section>
+
+          <section className={styles.issueWorkbenchPane} aria-label="判断と次の一手">
+            {activeEditor && (
+              <div className={styles.issueWorkbenchEditor}>
+                <div className={styles.issueWorkbenchEditorHead}>
+                  <strong>この論点の中で編集</strong>
+                  <button type="button" onClick={() => editorRequestCloseRef.current?.()}>閉じる</button>
+                </div>
+                <IssueEditor
+                  key={`${activeEditor.kind}-${"issue" in activeEditor ? activeEditor.issue.id : "new"}-${"hypothesis" in activeEditor ? activeEditor.hypothesis?.id || "" : ""}-${"decision" in activeEditor ? activeEditor.decision.id : ""}-${"action" in activeEditor ? activeEditor.action.id : ""}`}
+                  editor={activeEditor}
+                  management={management}
+                  access={access}
+                  projectId={projectId}
+                  embedded
+                  fieldKeys={activeEditor.kind === "edit_issue" ? ["title", "background", "knowledge_type", "status", "due_date"] : undefined}
+                  requestCloseRef={editorRequestCloseRef}
+                  onDirtyChange={setEditorDirty}
+                  onClose={() => {
+                    setEditorDirty(false);
+                    setActiveEditor(null);
+                  }}
+                  onSaved={finishEditor}
+                  onReconciled={onManagementChange}
+                  onReconciledId={onReconciledId}
+                  onRolledBack={onRolledBack}
+                  onSyncFailed={onShowNotice}
+                />
+              </div>
+            )}
+
+            <div className={styles.issueWorkbenchPaneHead}>
+              <div><b>04</b><h3>判断</h3></div>
+              {management.canManage && (
+                <span className={styles.issueWorkbenchInlineActions}>
+                  <button type="button" onClick={() => openEditor({ kind: "create_evidence", issue })}>材料</button>
+                  <button type="button" onClick={() => openEditor({ kind: "create_decision", issue })}>判断</button>
+                </span>
+              )}
+            </div>
+            <div className={styles.issueWorkbenchEvidence}>
+              {issue.evidence.length === 0 ? (
+                <p className={styles.issueWorkbenchEmpty}>根拠・反証はまだない</p>
+              ) : issue.evidence.map((evidence) => (
+                <p key={evidence.id}><b>{({ supporting: "支持", counter: "反証", missing: "不足", observation: "観測" } as const)[evidence.kind]}</b>{evidence.summary}</p>
+              ))}
+            </div>
+            <div className={styles.issueWorkbenchDecisions}>
+              {issue.decisions.map((decision) => (
+                <button
+                  type="button"
+                  key={decision.id}
+                  disabled={!management.canManage}
+                  onClick={() => openEditor({ kind: "edit_decision", issue, decision })}
+                >
+                  <span className={`${styles.statusBadge} ${statusTone(decision.status)}`}>{decision.status === "decided" ? "決定済み" : decision.status === "deferred" ? "保留" : "判断待ち"}</span>
+                  <b>{decision.title}</b>
+                  {decision.decisionText && <small>{decision.decisionText}</small>}
+                </button>
+              ))}
+            </div>
+
+            <div className={styles.issueWorkbenchSubhead}>
+              <div><b>05</b><h3>次の一手</h3></div>
+            </div>
+            {nextMove && (
+              <div className={styles.issueWorkbenchNextMove}>
+                <ArrowRight aria-hidden="true" />
+                <div><small>いま先頭に置く行動</small><strong>{nextMove.label}</strong>{nextMove.dueDate && <span>期限 {formatDate(nextMove.dueDate)}</span>}</div>
+              </div>
+            )}
+            <div className={styles.issueWorkbenchActions}>
+              {issue.actionItems.length === 0 && !nextMove && (
+                <p className={styles.issueWorkbenchEmpty}>判断後の行動はまだない</p>
+              )}
+              {issue.actionItems.map((action) => {
+                const decision = issue.decisions.find((candidate) => candidate.id === action.decisionId);
+                return (
+                  <button
+                    type="button"
+                    key={action.id}
+                    disabled={!management.canManage || !decision}
+                    onClick={() => decision && openEditor({ kind: "edit_action", issue, decision, action })}
+                  >
+                    <span className={`${styles.statusBadge} ${statusTone(action.status)}`}>{action.status === "completed" ? "完了" : action.status === "blocked" ? "停止" : "実行中"}</span>
+                    <b>{action.title}</b>
+                    <small>{action.dueDate ? `期限 ${formatDate(action.dueDate)}` : "期限未設定"}</small>
+                  </button>
+                );
+              })}
+              {management.canManage && decidedDecisions.map((decision) => (
+                <button type="button" key={`new-${decision.id}`} className={styles.issueWorkbenchAddAction} onClick={() => openEditor({ kind: "create_action", issue, decision })}>
+                  <Plus aria-hidden="true" />次の一手を追加
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <footer className={styles.issueWorkbenchFooter}>
+          <span>{resolved ? "解決済みとして一覧の下部へ整理" : "解けたら一覧の下部へ整理"}</span>
+          {management.canManage && (
+            <button
+              type="button"
+              data-resolved={resolved || undefined}
+              disabled={resolutionSaving}
+              onClick={() => {
+                setResolutionSaving(true);
+                void onSetResolved(issue.id, !resolved).finally(() => setResolutionSaving(false));
+              }}
+            >
+              <Check aria-hidden="true" />{resolutionSaving ? "更新中" : resolved ? "未解決に戻す" : "解決済みにして下へ移動"}
+            </button>
+          )}
+        </footer>
+      </section>
+    </div>,
+    document.body,
   );
 }
 
@@ -4292,6 +4658,7 @@ export function SxWeeklyControlDashboard({
   const [viewFilter, setViewFilter] = useState<ViewFilter>("all");
   const [query, setQuery] = useState("");
   const [editor, setEditor] = useState<EditorState | null>(null);
+  const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   // 関係先リストの分類タブ。タイトル行のボタン群が正で、一覧側は絞り込みだけを受ける
   // (2026-08-08 まさ「タイトルの右の空いたスペースにボタン型で設置」)。
   const [partnerClassification, setPartnerClassification] =
@@ -4366,6 +4733,8 @@ export function SxWeeklyControlDashboard({
     () =>
       [...management.issues].sort(
         (left, right) =>
+          Number(sxWeeklyIssueStage(left) === "resolved") -
+            Number(sxWeeklyIssueStage(right) === "resolved") ||
           sxWeeklyIssueAttentionScore(right, management.asOf) -
             sxWeeklyIssueAttentionScore(left, management.asOf) ||
           (sxWeeklyIssueNextDueDate(left) || "9999").localeCompare(
@@ -4374,6 +4743,9 @@ export function SxWeeklyControlDashboard({
       ),
     [management],
   );
+  const selectedIssue = selectedIssueId
+    ? management.issues.find((issue) => issue.id === selectedIssueId) || null
+    : null;
   const counts = useMemo(
     () => ({
       attention: allIssues.filter((issue) =>
@@ -4628,6 +5000,73 @@ export function SxWeeklyControlDashboard({
     showNotice("議論の進捗を追加したよ");
   }
 
+  async function addIssueHypothesis(issueId: string, statement: string) {
+    const response = await fetch(
+      `/api/project-workspace/${encodeURIComponent(bundle.project.projectId)}/management`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resource: "hypothesis",
+          fields: {
+            issue_id: issueId,
+            statement,
+            status: "open",
+            owner_label: "未確認",
+            confidence: "unknown",
+          },
+        }),
+      },
+    );
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw new Error(
+        typeof body.error === "string" ? body.error : "仮説を追加できなかったよ",
+      );
+    const returned = body.bundle as SxManagementBundle | undefined;
+    const returnedIssue = returned?.issues.find((issue) => issue.id === issueId);
+    if (!returnedIssue) throw new Error("追加後の仮説を読み直せなかったよ");
+    // POST中の別編集を古い完全bundleで消さず、採番済みの仮説だけを親論点へ合流する。
+    setManagement((current) => ({
+      ...current,
+      issues: current.issues.map((issue) =>
+        issue.id === issueId
+          ? { ...issue, hypotheses: returnedIssue.hypotheses }
+          : issue,
+      ),
+    }));
+    showNotice("親論点の下に仮説を追加したよ");
+  }
+
+  async function setIssueResolved(issueId: string, resolved: boolean) {
+    const response = await fetch(
+      `/api/project-workspace/${encodeURIComponent(bundle.project.projectId)}/management`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resource: "issue",
+          id: issueId,
+          patch: { status: resolved ? "closed" : "open" },
+        }),
+      },
+    );
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      showNotice(
+        typeof body.error === "string" ? body.error : "論点の状態を更新できなかったよ",
+      );
+      return;
+    }
+    // 同時編集中の別レコードを古い完全bundleで戻さず、確定したstatusだけを現在値へ反映する。
+    setManagement((current) =>
+      sxApplyOptimisticManagementPatch(current, "issue", issueId, {
+        status: resolved ? "closed" : "open",
+      }),
+    );
+    showNotice(resolved ? "解決済みにして一覧の下へ移したよ" : "未解決に戻したよ");
+  }
+
   /** 先に画面へ置いた新規レコードの仮IDを、サーバが採番した本物のIDへ差し替える。
    *  選択状態も一緒に移すので、追加した直後に開いている詳細がそのまま編集できる。 */
   function reconcileOptimisticId(temporaryId: string, realId: string) {
@@ -4839,8 +5278,8 @@ export function SxWeeklyControlDashboard({
       return;
     }
     if (unit.navIssueId) {
-      // 論点系（論点・仮説・検証・判断・action）はroot editorモーダルという1段上の重畳面を
-      // 開くだけで、背景のページ自体は動かさない。以前はここで#issue-hypothesisへ
+      // 論点系（論点・仮説・検証・判断・action）は、単体編集ではなく親論点のワークベンチを
+      // 開く。以前はここで#issue-hypothesisへ
       // scrollIntoViewしていたが、モーダルが全画面backdropで覆う以上スクロールする理由が
       // なく、担当負荷から開いたときだけ画面が意図せず流れるバグになっていた（2026-08
       // 監査追補）。IDが一致する子レコードを見つけられない場合は、他kindのprovenance監査と
@@ -4911,7 +5350,11 @@ export function SxWeeklyControlDashboard({
       setEditorFieldKeys(null);
       setSelectedMilestoneId(null);
       setSelectedTaskId(null);
-      setEditor(nextEditor);
+      // 上の解決で子レコードの存在まで検証済み。編集対象を単体で開かず、背景・議論・
+      // 仮説・判断・次の一手が同時に見える親ワークベンチへ着地する。
+      void nextEditor;
+      setEditor(null);
+      setSelectedIssueId(issue.id);
       selectView("issues");
       return;
     }
@@ -5480,6 +5923,10 @@ export function SxWeeklyControlDashboard({
                     canManage={management.canManage}
                     onEdit={setEditor}
                     onAddDiscussion={addIssueDiscussion}
+                    onOpen={(issueId) => {
+                      setEditor(null);
+                      setSelectedIssueId(issueId);
+                    }}
                   />
                 ))}
               </tbody>
@@ -5565,6 +6012,23 @@ export function SxWeeklyControlDashboard({
           <Check aria-hidden="true" />
           {notice}
         </div>
+      )}
+      {selectedIssue && (
+        <IssueWorkbench
+          key={selectedIssue.id}
+          issue={selectedIssue}
+          management={management}
+          access={access}
+          projectId={bundle.project.projectId}
+          onClose={() => setSelectedIssueId(null)}
+          onManagementChange={setManagement}
+          onReconciledId={reconcileOptimisticId}
+          onRolledBack={rollbackOptimisticRecord}
+          onShowNotice={showNotice}
+          onAddDiscussion={addIssueDiscussion}
+          onAddHypothesis={addIssueHypothesis}
+          onSetResolved={setIssueResolved}
+        />
       )}
       {editor && (
         <IssueEditor

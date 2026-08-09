@@ -17,6 +17,7 @@ function issue(overrides = {}) {
     track: "technology_development",
     milestoneSlug: null,
     title: "再現性を確認する",
+    background: null,
     knowledgeType: "hypothesis",
     status: "open",
     hypothesis: "",

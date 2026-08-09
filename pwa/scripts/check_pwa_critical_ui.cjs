@@ -106,7 +106,6 @@ expectIncludes(
     "SxUnifiedTimeline",
     "showPins={false}",
       "sxWeeklyIssueNextDueDate",
-    "sxWeeklyIssueLastActivity",
     "create_hypothesis",
     "create_validation",
     "create_decision",
@@ -197,8 +196,9 @@ expectIncludes(
     "const task = management.tasks.find((item) => item.id === unit.navTaskId);",
     "const milestone = management.milestones.find(\n        (item) => item.id === unit.navMilestoneId,\n      );",
     // issue kindもnavIssueId一致だけで別issueへ取り違えないよう、unit.id===issue.idを必須にする。
+    // 有効な子レコードを確認した後は単体editorではなく、親論点のworkbenchへ着地する。
     '} else if (unit.kind === "issue") {\n        if (unit.id !== issue.id) {',
-    "setWorkloadFilter(null);\n      setDetailEditor(null);\n      setPlanFieldEditor(null);\n      setEditorFieldKeys(null);\n      setSelectedMilestoneId(null);\n      setSelectedTaskId(null);\n      setEditor(nextEditor);",
+    "void nextEditor;\n      setEditor(null);\n      setSelectedIssueId(issue.id);\n      selectView(\"issues\");",
     // root editorモーダルへ、開いているeditorのkind/resource/record-idを静的に出し、実
     // ブラウザ監査で「押した項目」と「開いたeditor」の対象一致を検査できるようにする。
     "data-editor-kind={editor.kind}",
@@ -3398,6 +3398,7 @@ expectIncludes("package.json", ["test:bzm-theory-graph"]);
 
 // SX関係先・論点の低摩擦入力 (2026-08-09): 排液調達は明示boolを行内PATCH、
 // 論点は種類/期限を一覧で見せ、議論の進捗は上書きせず追記履歴として保存する。
+// 長文は省略せず、背景/仮説・議論・判断/次の一手を3ペインのworkbenchへ集約する。
 expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "partner.effluentProcured ?? receivedSamples > 0",
   "effluent_procured: event.target.checked",
@@ -3412,18 +3413,35 @@ expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", 
   '<th scope="col">種類</th>',
   '<th scope="col">期限</th>',
   "議論の進捗",
+  "IssueWorkbench",
+  "今回の議論",
+  "この議論から生まれた仮説",
+  "次の一手",
+  "解決済みにして下へ移動",
+  'fieldKeys={activeEditor.kind === "edit_issue" ? ["title", "background", "knowledge_type", "status", "due_date"] : undefined}',
   'resource: "issue_discussion"',
   "onAddDiscussion={addIssueDiscussion}",
+]);
+expectIncludes("src/components/project-workspace/weekly-control.module.css", [
+  ".issueWorkbenchGrid",
+  "grid-template-columns: minmax(280px, .82fr) minmax(360px, 1.18fr) minmax(300px, .92fr)",
+  ".issueRowTruncate { margin: 3px 0 0; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; }",
+]);
+expectNotIncludes("src/components/project-workspace/weekly-control.module.css", [
+  ".issueRowTitleButton { display: block; width: 100%; margin-top: 4px; border: 0; border-bottom: 1px dashed transparent; background: transparent; color: var(--ink); font-size: 12px; line-height: 1.4; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }",
+  ".issueRowTruncate { margin: 3px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }",
 ]);
 expectIncludes("src/app/api/project-workspace/[projectId]/management/route.ts", [
   'body.resource === "issue_discussion"',
   'from("project_management_issue_discussions")',
+  'takeOptionalText("background", "background", 4000)',
   'takeBoolean("effluent_procured")',
 ]);
 expectIncludes("src/lib/sx-management.ts", [
   'plain("project_management_issue_discussions"',
   "effluentProcured: boolean | null",
   "discussions: SxIssueDiscussion[]",
+  "background: string | null",
 ]);
 expectIncludes("scripts/migrations/247_sx_partner_effluent_procured.sql", [
   "effluent_procured boolean",
@@ -3432,4 +3450,7 @@ expectIncludes("scripts/migrations/247_sx_partner_effluent_procured.sql", [
 expectIncludes("scripts/migrations/248_project_management_issue_discussions.sql", [
   "CREATE TABLE IF NOT EXISTS public.project_management_issue_discussions",
   "project_management_issue_discussions_manager_insert",
+]);
+expectIncludes("scripts/migrations/250_project_management_issue_background.sql", [
+  "ADD COLUMN IF NOT EXISTS background text",
 ]);

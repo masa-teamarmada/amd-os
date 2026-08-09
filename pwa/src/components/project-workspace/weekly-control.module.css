@@ -276,7 +276,7 @@
 .issueRowTitleCell { min-width: 200px; max-width: 260px; }
 .issueRowKindCell { min-width: 92px; }
 .issueRowKind { display: inline-flex; min-height: 22px; align-items: center; padding: 2px 7px; border: 1px solid #7CBCEB; border-radius: 999px; background: #E8F3FC; color: #0267B2; font-size: 9px; font-weight: 800; letter-spacing: .04em; }
-.issueRowTitleButton { display: block; width: 100%; margin-top: 4px; border: 0; border-bottom: 1px dashed transparent; background: transparent; color: var(--ink); font-size: 12px; line-height: 1.4; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.issueRowTitleButton { display: block; width: 100%; margin-top: 4px; border: 0; border-bottom: 1px dashed transparent; background: transparent; color: var(--ink); font-size: 12px; line-height: 1.5; text-align: left; white-space: normal; overflow-wrap: anywhere; }
 button.issueRowTitleButton { border-bottom-color: #7CBCEB; cursor: pointer; }
 button.issueRowTitleButton:hover, button.issueRowTitleButton:focus-visible { border-color: #027FDC; color: #0267B2; outline: 2px solid #7CBCEB; outline-offset: 2px; }
 .issueRowSub { display: block; margin-top: 3px; color: var(--muted); font-size: 9px; }
@@ -287,7 +287,7 @@ button.issueRowTitleButton:hover, button.issueRowTitleButton:focus-visible { bor
 .issueRowDueCell[data-overdue] { color: var(--red); }
 .issueRowTruncateCell { min-width: 150px; max-width: 220px; }
 .issueRowCount { display: block; color: var(--quiet); font-size: 9px; font-weight: 750; }
-.issueRowTruncate { margin: 3px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.issueRowTruncate { margin: 3px 0 0; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; }
 .issueRowExpandCell { width: 46px; text-align: right; }
 .issueRowExpandButton { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--muted); }
 .issueRowExpandButton:hover, .issueRowExpandButton:focus-visible { border-color: #027FDC; color: #0267B2; outline: 2px solid #7CBCEB; outline-offset: 2px; }
@@ -308,6 +308,96 @@ button.issueRowTitleButton:hover, button.issueRowTitleButton:focus-visible { bor
 .discussionList li { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 12px; padding: 9px 0; border-bottom: 1px solid #D2E7F8; }
 .discussionList time { color: #0267B2; font-size: 9px; font-weight: 800; }
 .discussionList p { margin: 0; color: var(--ink); font-size: 11px; line-height: 1.55; overflow-wrap: anywhere; }
+
+/* 論点ワークベンチ。デスクトップは3ペインを同時表示し、背景→議論→判断/次の一手を
+   視線移動だけで往復できる密度にする。portal先でもAMD色と文字色が欠落しないよう変数を持つ。 */
+.issueWorkbenchBackdrop { --sheet: #ffffff; --ink: #1d1d1f; --muted: #3c3c43; --quiet: #64748b; --line: #D2E7F8; --green: #027FDC; --green-soft: #E8F3FC; --red: #dc2626; --red-soft: #fee2e2; position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(15, 23, 42, .5); backdrop-filter: blur(4px); }
+.issueWorkbench { display: flex; width: min(1360px, calc(100vw - 32px)); height: min(880px, calc(100dvh - 32px)); min-width: 0; flex-direction: column; overflow: hidden; border: 1px solid #7CBCEB; border-radius: 10px; background: #fff; color: var(--ink); box-shadow: 0 24px 72px rgba(15, 23, 42, .28); }
+.issueWorkbenchHeader { flex: 0 0 auto; display: flex; min-height: 64px; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 10px 12px 9px; border-bottom: 1px solid #7CBCEB; background: #fff; }
+.issueWorkbenchTitle { min-width: 0; flex: 1; }
+.issueWorkbenchTitle h2 { margin: 4px 0 0; font-size: 18px; line-height: 1.35; overflow-wrap: anywhere; }
+.issueWorkbenchMeta { display: flex; flex-wrap: wrap; gap: 4px; }
+.issueWorkbenchMeta span { min-height: 19px; padding: 2px 6px; border: 1px solid #7CBCEB; border-radius: 999px; background: #E8F3FC; color: #0267B2; font-size: 9px; font-weight: 800; }
+.issueWorkbenchGrid { display: grid; flex: 1 1 auto; min-height: 0; grid-template-columns: minmax(280px, .82fr) minmax(360px, 1.18fr) minmax(300px, .92fr); }
+.issueWorkbenchPane { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 10px; border-right: 1px solid #D2E7F8; background: #fff; }
+.issueWorkbenchPane:nth-child(2) { background: #F7FBFF; }
+.issueWorkbenchPane:last-child { border-right: 0; }
+.issueWorkbenchPaneHead, .issueWorkbenchSubhead { display: flex; min-height: 28px; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 7px; border-bottom: 1px solid #D2E7F8; }
+.issueWorkbenchSubhead { margin-top: 12px; }
+.issueWorkbenchPaneHead > div, .issueWorkbenchSubhead > div { display: flex; min-width: 0; align-items: center; gap: 6px; }
+.issueWorkbenchPaneHead h3, .issueWorkbenchSubhead h3 { margin: 0; font-size: 12px; line-height: 1.3; }
+.issueWorkbenchPaneHead > div > b, .issueWorkbenchSubhead > div > b { color: #027FDC; font-size: 9px; }
+.issueWorkbenchPaneHead > span, .issueWorkbenchSubhead > span { color: var(--quiet); font-size: 9px; font-weight: 750; }
+.issueWorkbenchPaneHead button, .issueWorkbenchInlineActions button, .issueWorkbenchEditorHead button { min-height: 27px; padding: 3px 7px; border: 1px solid #7CBCEB; border-radius: 4px; background: #fff; color: #0267B2; font-size: 9px; font-weight: 800; }
+.issueWorkbenchPaneHead button:hover, .issueWorkbenchPaneHead button:focus-visible, .issueWorkbenchInlineActions button:hover, .issueWorkbenchInlineActions button:focus-visible { border-color: #027FDC; outline: 2px solid #7CBCEB; outline-offset: 1px; }
+.issueWorkbenchLongText { margin: 0; color: var(--ink); font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.issueWorkbenchEmpty { margin: 4px 0; color: var(--quiet); font-size: 10px; line-height: 1.5; }
+.issueWorkbenchHypotheses { display: grid; gap: 7px; }
+.issueWorkbenchHypotheses article { padding: 8px; border: 1px solid #D2E7F8; border-left: 3px solid #3D99E3; background: #F7FBFF; }
+.issueWorkbenchHypotheses article > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.issueWorkbenchHypotheses article > p { margin: 5px 0 0; font-size: 11px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.issueWorkbenchInlineActions { display: inline-flex; align-items: center; gap: 3px; }
+.issueWorkbenchValidation { display: flex; width: 100%; min-width: 0; align-items: flex-start; gap: 5px; margin-top: 6px; padding: 5px 6px; border: 1px solid #D2E7F8; background: #fff; color: var(--ink); text-align: left; }
+.issueWorkbenchValidation svg { width: 12px; height: 12px; flex: 0 0 auto; color: #027FDC; }
+.issueWorkbenchValidation span, .issueWorkbenchValidation small { display: block; min-width: 0; overflow-wrap: anywhere; }
+.issueWorkbenchValidation span { font-size: 9px; line-height: 1.4; }
+.issueWorkbenchValidation small { margin-top: 2px; color: var(--quiet); font-size: 8px; }
+.issueWorkbenchTimeline { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; border-top: 1px solid #D2E7F8; }
+.issueWorkbenchTimeline li { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 7px; padding: 7px 0; border-bottom: 1px solid #D2E7F8; }
+.issueWorkbenchTimeline li > div { display: flex; align-items: baseline; gap: 4px; color: #0267B2; font-size: 8px; }
+.issueWorkbenchTimeline li > div b { display: grid; width: 15px; height: 15px; place-items: center; border-radius: 50%; background: #E8F3FC; }
+.issueWorkbenchTimeline p { margin: 0; font-size: 11px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.issueWorkbenchComposers { display: grid; gap: 7px; margin-top: 8px; }
+.issueWorkbenchComposers form { display: grid; gap: 5px; padding: 8px; border: 1px solid #7CBCEB; background: #fff; }
+.issueWorkbenchComposers label { display: flex; align-items: center; gap: 5px; color: #0267B2; font-size: 10px; font-weight: 800; }
+.issueWorkbenchComposers label svg { width: 12px; height: 12px; }
+.issueWorkbenchComposers textarea { width: 100%; min-height: 58px; resize: vertical; padding: 7px 8px; border: 1px solid #D2E7F8; border-radius: 4px; background: #fff; color: var(--ink); font: inherit; font-size: 11px; line-height: 1.5; }
+.issueWorkbenchComposers textarea:focus-visible { border-color: #027FDC; outline: 2px solid #7CBCEB; outline-offset: 1px; }
+.issueWorkbenchComposers form > p { margin: 0; color: var(--red); font-size: 9px; font-weight: 750; }
+.issueWorkbenchComposers form > button { justify-self: end; min-height: 30px; display: inline-flex; align-items: center; gap: 4px; padding: 4px 9px; border: 1px solid #027FDC; border-radius: 4px; background: #027FDC; color: #fff; font-size: 9px; font-weight: 800; }
+.issueWorkbenchComposers form > button svg { width: 11px; height: 11px; }
+.issueWorkbenchNestedComposer { margin-left: 14px; border-left-width: 3px !important; background: #E8F3FC !important; }
+.issueWorkbenchEditor { margin-bottom: 10px; border: 2px solid #027FDC; background: #fff; }
+.issueWorkbenchEditorHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border-bottom: 1px solid #7CBCEB; background: #E8F3FC; color: #0267B2; font-size: 10px; }
+.issueWorkbenchEditor .editorEmbeddedBody { max-height: 360px; padding: 8px; }
+.issueWorkbenchEditor .editorFooter { padding: 7px 8px; }
+.issueWorkbenchEvidence { display: grid; gap: 4px; }
+.issueWorkbenchEvidence > p:not(.issueWorkbenchEmpty) { margin: 0; padding: 5px 6px; border-left: 2px solid #7CBCEB; background: #F7FBFF; font-size: 10px; line-height: 1.45; overflow-wrap: anywhere; }
+.issueWorkbenchEvidence > p b { margin-right: 5px; color: #0267B2; font-size: 9px; }
+.issueWorkbenchDecisions, .issueWorkbenchActions { display: grid; gap: 5px; margin-top: 7px; }
+.issueWorkbenchDecisions > button, .issueWorkbenchActions > button { display: grid; min-width: 0; gap: 3px; padding: 7px; border: 1px solid #D2E7F8; background: #fff; color: var(--ink); text-align: left; }
+.issueWorkbenchDecisions > button b, .issueWorkbenchActions > button b { font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
+.issueWorkbenchDecisions > button small, .issueWorkbenchActions > button small { color: var(--quiet); font-size: 8px; line-height: 1.4; overflow-wrap: anywhere; }
+.issueWorkbenchNextMove { display: flex; gap: 7px; padding: 8px; border: 1px solid #7CBCEB; border-left: 3px solid #027FDC; background: #E8F3FC; }
+.issueWorkbenchNextMove > svg { width: 14px; height: 14px; flex: 0 0 auto; color: #027FDC; }
+.issueWorkbenchNextMove small, .issueWorkbenchNextMove strong, .issueWorkbenchNextMove span { display: block; }
+.issueWorkbenchNextMove small { color: #0267B2; font-size: 8px; font-weight: 800; }
+.issueWorkbenchNextMove strong { margin-top: 2px; font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; }
+.issueWorkbenchNextMove span { margin-top: 2px; color: var(--quiet); font-size: 8px; }
+.issueWorkbenchAddAction { display: flex !important; align-items: center; justify-content: center; gap: 4px !important; border-style: dashed !important; color: #0267B2 !important; font-size: 9px; font-weight: 800; }
+.issueWorkbenchAddAction svg { width: 11px; height: 11px; }
+.issueWorkbenchFooter { flex: 0 0 auto; display: flex; min-height: 48px; align-items: center; justify-content: flex-end; gap: 10px; padding: 7px 12px; border-top: 1px solid #7CBCEB; background: #F7FBFF; }
+.issueWorkbenchFooter > span { color: var(--quiet); font-size: 9px; }
+.issueWorkbenchFooter > button { min-height: 34px; display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border: 1px solid #027FDC; border-radius: 4px; background: #027FDC; color: #fff; font-size: 10px; font-weight: 800; }
+.issueWorkbenchFooter > button[data-resolved] { background: #fff; color: #0267B2; }
+.issueWorkbenchFooter > button svg { width: 12px; height: 12px; }
+
+@media (max-width: 980px) {
+  .issueWorkbench { height: calc(100dvh - 20px); }
+  .issueWorkbenchGrid { display: block; overflow-y: auto; }
+  .issueWorkbenchPane { overflow: visible; border-right: 0; border-bottom: 1px solid #D2E7F8; }
+}
+
+@media (max-width: 640px) {
+  .issueWorkbenchBackdrop { place-items: end center; padding: 0; }
+  .issueWorkbench { width: 100%; height: calc(100dvh - 8px); border-right: 0; border-bottom: 0; border-left: 0; border-radius: 12px 12px 0 0; }
+  .issueWorkbenchHeader { padding: 10px 12px; }
+  .issueWorkbenchTitle h2 { font-size: 16px; }
+  .issueWorkbenchPane { padding: 10px 12px; }
+  .issueWorkbenchComposers textarea { font-size: 16px; }
+  .issueWorkbenchPaneHead button, .issueWorkbenchInlineActions button, .issueWorkbenchEditorHead button, .issueWorkbenchComposers form > button, .issueWorkbenchFooter > button { min-height: 44px; }
+  .issueWorkbenchFooter { justify-content: space-between; }
+}
 
 .inputSection { display: grid; grid-template-columns: minmax(250px, .7fr) minmax(600px, 1.3fr); gap: 40px; align-items: center; margin-top: 48px; padding: 26px 0; border-top: 1px solid #bbb3a7; border-bottom: 1px solid #bbb3a7; }
 .inputCards { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); background: var(--sheet); }
