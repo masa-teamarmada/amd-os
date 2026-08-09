@@ -312,7 +312,7 @@ button.issueRowTitleButton:hover, button.issueRowTitleButton:focus-visible { bor
 /* 論点ワークベンチ。デスクトップは3ペインを同時表示し、背景→議論→判断/次の一手を
    視線移動だけで往復できる密度にする。portal先でもAMD色と文字色が欠落しないよう変数を持つ。 */
 .issueWorkbenchBackdrop { --sheet: #ffffff; --ink: #1d1d1f; --muted: #3c3c43; --quiet: #64748b; --line: #D2E7F8; --green: #027FDC; --green-soft: #E8F3FC; --red: #dc2626; --red-soft: #fee2e2; position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(15, 23, 42, .5); backdrop-filter: blur(4px); }
-.issueWorkbench { display: flex; width: min(1360px, calc(100vw - 32px)); height: min(880px, calc(100dvh - 32px)); min-width: 0; flex-direction: column; overflow: hidden; border: 1px solid #7CBCEB; border-radius: 10px; background: #fff; color: var(--ink); box-shadow: 0 24px 72px rgba(15, 23, 42, .28); }
+.issueWorkbench { display: flex; width: min(1360px, calc(100vw - 32px)); max-height: min(880px, calc(100dvh - 32px)); min-width: 0; flex-direction: column; overflow: hidden; border: 1px solid #7CBCEB; border-radius: 10px; background: #fff; color: var(--ink); box-shadow: 0 24px 72px rgba(15, 23, 42, .28); }
 .issueWorkbenchHeader { flex: 0 0 auto; display: flex; min-height: 64px; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 10px 12px 9px; border-bottom: 1px solid #7CBCEB; background: #fff; }
 .issueWorkbenchTitle { min-width: 0; flex: 1; }
 .issueWorkbenchTitle h2 { margin: 4px 0 0; font-size: 18px; line-height: 1.35; overflow-wrap: anywhere; }
