@@ -49,6 +49,7 @@ export const SPEC_SECTIONS: SpecSectionConfig[] = [
       "2-4-proactive-todo-current-spec",
       "2-5-business-cards-current-spec",
       "2-6-bzm-theory-map-current-spec",
+      "2-7-ui-design-code-current-spec",
     ],
   },
   {
@@ -120,6 +121,7 @@ export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "2-4-proactive-todo-current-spec", title: "先手 TODO", summary: "MTG next_actions と次回MTG予定から自動抽出する全PJ横断の先手TODOリスト。/proactive で期限順表示、3ボタン完了UI、毎朝 cron で proactive_todos に upsert。旧『ループカーネル × 役割レンズ』の白紙やり直し版 (2026-06-27)。" },
   { slug: "2-5-business-cards-current-spec", title: "名刺管理 / OCR / PJ Knowledge 連携仕様", summary: "スマホ撮影、非公開画像保存、DB管理promptによるOCR、人の確認、複数PJ紐づけ、D-3人物knowledge同期の契約。" },
   { slug: "2-6-bzm-theory-map-current-spec", title: "BZM 2.0 理論マップ仕様", summary: "`/bzm/map` の本人作成型論証台帳。DB-only正本、0件reset、空白作成、通常クリック編集、Cmd二点接続、非重複panel、9 relationと権限境界の契約。" },
+  { slug: "2-7-ui-design-code-current-spec", title: "PWA UIデザインコード", summary: "業務画面の情報密度、比較行44〜64px、10件以下の全件表示、未確認と安全の分離、desktop/mobile実寸検証の共通規約。" },
   { slug: "3-1-l2-data-extraction-current-spec", title: "L2 データ抽出 / Outbox 仕様", summary: "5 生データ、M/W/D/H L2、subscription automation、outbox / LaunchAgent 反映の確定仕様。" },
   { slug: "3-2-monthly-reports-current-spec", title: "M-1 Monthly Reports 仕様", summary: "monthly_reports の writer、上書き禁止、source refs、outbox 反映、旧 R313 / PWA route の扱い。" },
   { slug: "3-3-meeting-flow-current-spec", title: "H-1 Meeting Flow 仕様", summary: "MTGサマリ、予定MTGカード、Drive資料同期、TODO、Calendar作業枠、Gmail draft の現行仕様。" },
