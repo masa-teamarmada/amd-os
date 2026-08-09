@@ -367,6 +367,7 @@ function patchFor(resource: Resource, raw: unknown): Record<string, unknown> {
     takeOptionalText("effluent_volume_annual", "effluent_volume_annual", 240);
     takeOptionalText("effluent_cost_annual", "effluent_cost_annual", 240);
     takeOptionalText("effluent_test_result", "effluent_test_result", 2000);
+    takeBoolean("effluent_procured");
     // 次回面談。空文字でNULLへ戻せる。形式は未定(NULL)を既定にし、推測で埋めない。
     takeDate("next_meeting_on");
     takeOptionalText("next_meeting_time", "next_meeting_time", 60);
@@ -525,8 +526,8 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     if (thresholdRule === "between" && (threshold == null || thresholdUpper == null || threshold > thresholdUpper)) throw new Error("範囲内ルールは下限と上限を入力し、下限を上限以下にしてね");
     return { ...common(), project_id: projectId, outcome_id: requiredId("outcome_id"), track: requiredEnum("track", TRACKS), slug: requiredText("slug", 120), title: requiredText("title", 180), metric_kind: requiredText("metric_kind", 120), baseline: optionalNumber("baseline"), target: optionalNumber("target"), actual: optionalNumber("actual"), unit: requiredText("unit", 60), threshold, measurement_date: optionalDate("measurement_date"), frequency: requiredText("frequency", 60), source_label: requiredText("source_label", 240), threshold_rule: thresholdRule, threshold_upper: thresholdUpper, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), last_verified_at: today, created_by: memberId, updated_by: memberId };
   }
-  if (resource === "issue") return { ...common(), project_id: projectId, milestone_id: optionalId("milestone_id"), outcome_id: optionalId("outcome_id"), slug: requiredText("slug", 120), track: requiredEnum("track", TRACKS), title: requiredText("title", 180), knowledge_type: requiredEnum("knowledge_type", ISSUE_KINDS), status: requiredEnum("status", ISSUE_STATUSES, "open"), owner_label: requiredText("owner_label", 120), due_date: optionalDate("due_date"), last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
-  if (resource === "hypothesis") return { ...common(), project_id: projectId, issue_id: requiredId("issue_id"), statement: requiredText("statement", 1200), status: requiredEnum("status", ["open", "validating", "validated", "rejected", "decided", "on_hold"], "open"), owner_label: requiredText("owner_label", 120), due_date: optionalDate("due_date"), confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), last_verified_at: today };
+  if (resource === "issue") return { ...common(), project_id: projectId, milestone_id: optionalId("milestone_id"), outcome_id: optionalId("outcome_id"), slug: requiredText("slug", 120), track: requiredEnum("track", TRACKS, "business_development"), title: requiredText("title", 180), knowledge_type: requiredEnum("knowledge_type", ISSUE_KINDS, "fact"), status: requiredEnum("status", ISSUE_STATUSES, "open"), owner_label: optionalTextValue("owner_label", 120) || "未確認", due_date: optionalDate("due_date"), last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), created_by: memberId, updated_by: memberId };
+  if (resource === "hypothesis") return { ...common(), project_id: projectId, issue_id: requiredId("issue_id"), statement: requiredText("statement", 1200), status: requiredEnum("status", ["open", "validating", "validated", "rejected", "decided", "on_hold"], "open"), owner_label: optionalTextValue("owner_label", 120) || "未確認", due_date: optionalDate("due_date"), confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), last_verified_at: today };
   if (resource === "evidence") return { project_id: projectId, issue_id: requiredId("issue_id"), hypothesis_id: optionalId("hypothesis_id"), evidence_kind: requiredEnum("evidence_kind", ["supporting", "counter", "missing", "observation"]), summary: requiredText("summary", 1600), observed_on: optionalDate("observed_on"), source_label: requiredText("source_label", 240), confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), last_verified_at: today, created_by: memberId };
   if (resource === "validation") return { ...common(), project_id: projectId, hypothesis_id: requiredId("hypothesis_id"), validation_kind: requiredText("validation_kind", 180), planned_on: optionalDate("planned_on"), due_date: optionalDate("due_date"), completed_on: optionalDate("completed_on"), status: requiredEnum("status", ["planned", "running", "completed", "blocked", "cancelled"], "planned"), owner_label: requiredText("owner_label", 120), method: requiredText("method", 1200), result_summary: optionalTextValue("result_summary", 1600), confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
   if (resource === "decision") {
@@ -549,13 +550,21 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     const pocCategory = classifications.length > 0
       ? POC_CATEGORIES.find((category) => classifications.includes(category)) ?? null
       : raw.poc_category == null || raw.poc_category === "" ? null : enumValue(raw.poc_category, "poc_category", POC_CATEGORIES);
+    const classificationLabels: Record<string, string> = {
+      poc_candidate: "PoC候補先",
+      tech_partner: "技術協力先",
+      sample_provider: "試料提供元",
+      sample_route: "試料提供ルート",
+      vc: "VC",
+    };
+    const inferredRole = classifications.map((value) => classificationLabels[value] || value).join(" / ") || "未分類";
     const dueDate = optionalDate("due_date");
     const dueDatePrecision = requiredEnum("due_date_precision", DATE_PRECISIONS, "unknown");
     const introducerLabel = optionalTextValue("introducer_label", 120);
     const connectionContext = optionalTextValue("connection_context", 500);
     assertDatePrecisionConsistency(dueDate, dueDatePrecision, "期限日", "期限精度");
     assertSafeRelationshipOrigin(introducerLabel, "紹介者"); assertSafeRelationshipOrigin(connectionContext, "接点の経緯");
-    return { ...common(), project_id: projectId, slug: requiredText("slug", 120), name: requiredText("name", 180), introducer_label: introducerLabel, connection_context: connectionContext, role_label: requiredText("role_label", 240), primary_track: requiredEnum("primary_track", TRACKS), relationship_stage: requiredEnum("relationship_stage", PARTNER_STAGES, "candidate"), activity_state: requiredEnum("activity_state", PARTNER_ACTIVITY_STATES, "unknown"), poc_category: pocCategory, classifications, agreement_state: requiredEnum("agreement_state", AGREEMENT_STATES, "unagreed"), agreed_scope: requiredText("agreed_scope", 1000), unagreed_scope: requiredText("unagreed_scope", 1000), last_contact_date: optionalDate("last_contact_date"), next_commitment: requiredText("next_commitment", 1000), due_date: dueDate, owner_label: requiredText("owner_label", 120), current_ball_side: requiredEnum("current_ball_side", BALL_SIDES, "unknown"), current_ball_owner: optionalTextValue("current_ball_owner", 120), next_ball_owner: optionalTextValue("next_ball_owner", 120), target_state: optionalTextValue("target_state", 500), due_date_precision: dueDatePrecision, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
+    return { ...common(), project_id: projectId, slug: requiredText("slug", 120), name: requiredText("name", 180), introducer_label: introducerLabel, connection_context: connectionContext, role_label: optionalTextValue("role_label", 240) || inferredRole, primary_track: requiredEnum("primary_track", TRACKS, "business_development"), relationship_stage: requiredEnum("relationship_stage", PARTNER_STAGES, "candidate"), activity_state: requiredEnum("activity_state", PARTNER_ACTIVITY_STATES, "unknown"), poc_category: pocCategory, classifications, agreement_state: requiredEnum("agreement_state", AGREEMENT_STATES, "unagreed"), agreed_scope: optionalTextValue("agreed_scope", 1000) || "未確認", unagreed_scope: optionalTextValue("unagreed_scope", 1000) || "未確認", last_contact_date: optionalDate("last_contact_date"), next_commitment: optionalTextValue("next_commitment", 1000) || "未確認", due_date: dueDate, owner_label: optionalTextValue("owner_label", 120) || "未確認", current_ball_side: requiredEnum("current_ball_side", BALL_SIDES, "unknown"), current_ball_owner: optionalTextValue("current_ball_owner", 120), next_ball_owner: optionalTextValue("next_ball_owner", 120), target_state: optionalTextValue("target_state", 500), due_date_precision: dueDatePrecision, effluent_procured: null, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
   }
   if (resource === "interaction") {
     const occurredOn = optionalDate("occurred_on");
@@ -782,6 +791,40 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     const body: unknown = await request.json();
     if (!isRecord(body)) throw new Error("追加内容が不正だよ");
+    if (body.resource === "issue_discussion") {
+      const fields = body.fields ?? body.payload;
+      if (!isRecord(fields)) throw new Error("議論の進捗が空だよ");
+      const issueId = text(fields.issue_id, "issue_id", 80);
+      const summary = text(fields.summary, "summary", 1600);
+      const discussedOn = dateValue(fields.discussed_on ?? todayJst(), "discussed_on");
+      const db = createAdminClient();
+      const { data: issue, error: issueError } = await db
+        .from("project_management_issues")
+        .select("id")
+        .eq("id", issueId)
+        .eq("project_id", projectId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (issueError) throw new Error(`論点の確認に失敗したよ: ${issueError.message}`);
+      if (!issue) throw new Error("この論点は見つからないか、非表示になっているよ");
+      const { data, error } = await db
+        .from("project_management_issue_discussions")
+        .insert({
+          project_id: projectId,
+          issue_id: issueId,
+          summary,
+          discussed_on: discussedOn,
+          created_by: context.access.memberId,
+        })
+        .select("id")
+        .single();
+      if (error) throw new Error(`議論の進捗を追加できなかったよ: ${error.message}`);
+      const bundle = await getSxManagementBundle(projectId, true);
+      return NextResponse.json(
+        { id: String((data as { id: string }).id), bundle },
+        { status: 201, headers: { "Cache-Control": "no-store, max-age=0" } },
+      );
+    }
     const resource = parseResource(body.resource);
     const payload = createFor(resource, body.fields ?? body.payload, projectId, context.access.memberId, todayJst());
     const db = createAdminClient();

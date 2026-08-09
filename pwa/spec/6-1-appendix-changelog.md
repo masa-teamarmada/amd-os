@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-08-09 JST | 3-16 PJ週次管制 / FEATURE_REGISTRY / DB migration 247-248 | 追加・変更・削除 | build v3.69.2。関係先へnullable `effluent_procured`を追加し、NULL時だけ試料導出・操作後は明示boolを正本化。関係先作成を名前＋任意分類へ縮約し役割UIを削除、`poc_grade`を全分類共通のPJ優先度へ意味変更。論点表をAMDブルー化し種類・期限列、低摩擦作成、append-only `project_management_issue_discussions`と追記UI・鮮度判定を追加 | 実際のPJ進行で、最初に最低限だけ登録し、議論を重ねながら論点・仮説・期限・根拠・判断へ育てられるUIにするため | まさ・えいみ |
 | 2026-08-09 02:29 JST | 3-8 Cockpit | 修正 | build v3.69.1。`CockpitKillerFactorCatalog` の発生日初期値を `Asia/Tokyo` の年月日から生成し、UTC日付への依存を除いた。契約テストにJST固定のanchorを追加 | 日本時間の深夜帯に未記録要素の発生ダイアログを開くと、初期日付が前日になる回帰を防ぐため | えいみ |
 | 2026-08-09 02:09 JST | 3-8 Cockpit / FEATURE_REGISTRY / DB migration 246 | 追加 | build v3.69.0。会社概要タブへ `CockpitKillerFactorCatalog` を追加。全PJ共通 `killer_factor_catalog`、PJ別 `project_killer_factor_states`、初版7型、既存PJ/新規PJ/新規要素の状態補完trigger、発生時の発生日・根拠メモ・記録者・記録日時必須CHECK、members権限RLS、`/api/governance/killer-factors` の一覧・要素追加・発生記録を仕様化した。通知・成功確率再計算・LLM接続は対象外 | BZM 2.0のキラー要素を事前確率でなく発生駆動で扱い、全PJ共通の想起支援とPJごとの観測事実を分離して保存するため | えいみ |
 | 2026-08-09 JST | 3-8 Cockpit / FEATURE_REGISTRY | 修正 | build v3.68.2。KUTE (`p25`) の規程・内規タブを高密度の進捗台帳へ変更。`S0 対象確定 → S1 原典確認 → S2 AMD原案 → S3 学内調整 → S4 決裁・施行` の5段階を全規程に付与し、`S?/4` と4分割バー、現状、次ゲート、次ゲート時期、実在資料と途中版数を1行に表示する。一律の2027/01期限列は廃止し、8月素案、9/4修正案・進捗確認、9〜11月学内議論・修正、1月施行版を全体工程として表示する | 規程ごとの進捗差と直近の判断地点を一目で比較できず、低密度な説明文と一律期限が判断を妨げていたため | まさ・えいみ |

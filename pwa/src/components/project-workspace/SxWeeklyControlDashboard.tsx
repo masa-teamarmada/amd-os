@@ -285,14 +285,14 @@ const TRACKS: Array<{
     key: "technology_development",
     label: "技術開発",
     short: "技術",
-    accent: "#059669",
+    accent: "#3D99E3",
   },
-  { key: "funding", label: "資金調達", short: "資金", accent: "#d97706" },
+  { key: "funding", label: "資金調達", short: "資金", accent: "#7CBCEB" },
   {
     key: "organizational_building",
     label: "体制構築",
     short: "体制",
-    accent: "#027FDC",
+    accent: "#0267B2",
   },
 ];
 
@@ -516,10 +516,10 @@ function issueKindLabel(kind: SxManagementIssue["knowledgeType"]) {
   return (
     (
       {
-        fact: "事実",
+        fact: "論点",
         hypothesis: "仮説",
-        decision_needed: "判断要",
-        decision: "旧分類",
+        decision_needed: "論点（判断要）",
+        decision: "論点",
       } as const
     )[kind] || kind
   );
@@ -649,7 +649,6 @@ function editorInitialValues(
   if (editor.kind === "create_partner")
     return {
       name: "",
-      role_label: "",
       classifications: "",
       primary_track: "business_development",
       relationship_stage: "candidate",
@@ -660,7 +659,7 @@ function editorInitialValues(
       next_commitment: "未確認",
       due_date: "",
       due_date_precision: "unknown",
-      owner_label: access.displayName,
+      owner_label: "未確認",
       current_ball_side: "unknown",
       current_ball_owner: "",
       target_state: "",
@@ -669,7 +668,6 @@ function editorInitialValues(
   if (editor.kind === "edit_partner")
     return {
       name: editor.partner.name,
-      role_label: editor.partner.roleLabel,
       classifications: editor.partner.classifications.join(","),
       primary_track: editor.partner.track,
       relationship_stage: editor.partner.relationshipStage,
@@ -792,7 +790,7 @@ function editorInitialValues(
       title: "",
       knowledge_type: "fact",
       status: "open",
-      owner_label: access.displayName,
+      owner_label: "未確認",
       due_date: "",
       confidence: "unknown",
     };
@@ -801,7 +799,7 @@ function editorInitialValues(
       issue_id: "",
       statement: "",
       status: "open",
-      owner_label: access.displayName,
+      owner_label: "未確認",
       due_date: "",
       confidence: "unknown",
     };
@@ -822,10 +820,8 @@ function editorInitialValues(
     return {
       statement: "",
       status: "open",
-      owner_label: sxWeeklyValueMissing(editor.issue.ownerLabel)
-        ? access.displayName
-        : editor.issue.ownerLabel,
-      due_date: editor.issue.dueDate || "",
+      owner_label: "未確認",
+      due_date: "",
       confidence: "unknown",
     };
   if (editor.kind === "edit_hypothesis")
@@ -1201,16 +1197,40 @@ function editorDefinition(
         { key: "note", label: "条件の説明", type: "textarea", span: true },
       ],
     };
-  if (editor.kind === "create_partner" || editor.kind === "edit_partner")
+  if (editor.kind === "create_partner")
     return {
-      title: editor.kind === "create_partner" ? "関係先を追加" : "関係先を編集",
+      title: "関係先を追加",
       eyebrow: "関係先",
       resource: "partner",
-      method: editor.kind === "create_partner" ? "POST" : "PATCH",
-      id: editor.kind === "edit_partner" ? editor.partner.id : undefined,
+      method: "POST",
+      fields: [
+        {
+          key: "name",
+          label: "関係先名",
+          help: "名前だけで追加できるよ。分かる情報は後から足せる。",
+          span: true,
+        },
+        {
+          key: "classifications",
+          label: "分類（任意・複数選択可）",
+          type: "multi",
+          span: true,
+          options: SX_PARTNER_CLASSIFICATION_ORDER.map((classification) => ({
+            value: classification,
+            label: sxPartnerClassificationLabel(classification),
+          })),
+        },
+      ],
+    };
+  if (editor.kind === "edit_partner")
+    return {
+      title: "関係先を編集",
+      eyebrow: "関係先",
+      resource: "partner",
+      method: "PATCH",
+      id: editor.partner.id,
       fields: [
         { key: "name", label: "関係先名", required: true },
-        { key: "role_label", label: "役割", required: true },
         {
           key: "classifications",
           label: "分類（複数選択可）",
@@ -1593,7 +1613,6 @@ function editorDefinition(
           key: "issue_id",
           label: "対象論点",
           type: "select",
-          required: true,
           span: true,
           options: [
             { value: "", label: "論点を選んでね" },
@@ -1609,91 +1628,36 @@ function editorDefinition(
           key: "statement",
           label: "仮説",
           type: "textarea",
-          required: true,
           span: true,
           help: "反証できる形で書く",
         },
-        {
-          key: "status",
-          label: "状態",
-          type: "select",
-          required: true,
-          options: [
-            { value: "open", label: "未着手" },
-            { value: "validating", label: "検証中" },
-            { value: "on_hold", label: "保留" },
-          ],
-        },
-        { key: "owner_label", label: "担当", required: true },
-        { key: "due_date", label: "期限", type: "date" },
-        confidence,
+        { key: "due_date", label: "期限（任意）", type: "date" },
       ],
     };
   if (editor.kind === "create_issue")
     return {
-      title: "論点を追加",
-      eyebrow: "論点",
+      title: "論点・仮説を追加",
+      eyebrow: "論点・仮説",
       resource: "issue",
       method: "POST",
       fields: [
         {
-          key: "track",
-          label: "柱",
-          type: "select",
-          required: true,
-          options: TRACKS.map((track) => ({
-            value: track.key,
-            label: track.label,
-          })),
-        },
-        {
-          key: "milestone_id",
-          label: "関連MS",
+          key: "knowledge_type",
+          label: "種類",
           type: "select",
           options: [
-            { value: "", label: "未接続" },
-            ...management.milestones
-              .filter((milestone) => milestone.timelineKind === "milestone")
-              .map((milestone) => ({
-              value: milestone.id,
-              label: `${trackMeta(milestone.track).short}｜${milestone.title}`,
-              })),
+            { value: "fact", label: "論点" },
+            { value: "hypothesis", label: "仮説" },
           ],
         },
         {
           key: "title",
-          label: "論点",
+          label: "内容",
           type: "textarea",
-          required: true,
           span: true,
-          help: "何が分からず、何を決められないのかを一文で",
+          help: "まず一文だけ。議論の進捗・期限・根拠は追加後に育てられる。",
         },
-        {
-          key: "knowledge_type",
-          label: "分類",
-          type: "select",
-          required: true,
-          options: [
-            { value: "fact", label: "事実確認" },
-            { value: "hypothesis", label: "仮説" },
-            { value: "decision_needed", label: "意思決定待ち" },
-          ],
-        },
-        {
-          key: "status",
-          label: "状態",
-          type: "select",
-          required: true,
-          options: [
-            { value: "open", label: "未解決" },
-            { value: "validating", label: "検証中" },
-            { value: "on_hold", label: "保留" },
-            { value: "closed", label: "完了" },
-          ],
-        },
-        { key: "owner_label", label: "担当", required: true },
-        { key: "due_date", label: "期限", type: "date" },
-        confidence,
+        { key: "due_date", label: "期限（任意）", type: "date" },
       ],
     };
   if (editor.kind === "edit_issue")
@@ -1706,20 +1670,20 @@ function editorDefinition(
       fields: [
         {
           key: "title",
-          label: "論点",
+          label: "内容",
           type: "textarea",
           required: true,
           span: true,
         },
         {
           key: "knowledge_type",
-          label: "分類",
+          label: "種類",
           type: "select",
           required: true,
           options: [
-            { value: "fact", label: "事実確認" },
+            { value: "fact", label: "論点" },
             { value: "hypothesis", label: "仮説" },
-            { value: "decision_needed", label: "意思決定待ち" },
+            { value: "decision_needed", label: "論点（判断が必要）" },
           ],
         },
         {
@@ -1739,13 +1703,29 @@ function editorDefinition(
         confidence,
       ],
     };
-  if (editor.kind === "create_hypothesis" || editor.kind === "edit_hypothesis")
+  if (editor.kind === "create_hypothesis")
     return {
-      title: editor.kind === "create_hypothesis" ? "仮説を追加" : "仮説を編集",
+      title: "仮説を追加",
       eyebrow: "仮説",
       resource: "hypothesis",
-      method: editor.kind === "create_hypothesis" ? "POST" : "PATCH",
-      id: editor.kind === "edit_hypothesis" ? editor.hypothesis.id : undefined,
+      method: "POST",
+      fields: [
+        {
+          key: "statement",
+          label: "仮説",
+          type: "textarea",
+          span: true,
+          help: "一文だけで追加できる。検証方法や期限は後から足せる。",
+        },
+      ],
+    };
+  if (editor.kind === "edit_hypothesis")
+    return {
+      title: "仮説を編集",
+      eyebrow: "仮説",
+      resource: "hypothesis",
+      method: "PATCH",
+      id: editor.hypothesis.id,
       fields: [
         {
           key: "statement",
@@ -2383,6 +2363,34 @@ function IssueEditor({
 
   async function save() {
     setError(null);
+    const minimalCreateField =
+      editor.kind === "create_partner"
+        ? { key: "name", label: "関係先名" }
+        : editor.kind === "create_issue"
+          ? { key: "title", label: "内容" }
+          : editor.kind === "create_hypothesis"
+            ? { key: "statement", label: "仮説" }
+            : null;
+    if (
+      minimalCreateField &&
+      !fieldValue(values, minimalCreateField.key).trim()
+    ) {
+      setError(`${minimalCreateField.label}を一文だけ入れてね`);
+      focusField(minimalCreateField.key);
+      return;
+    }
+    if (editor.kind === "create_hypothesis_any") {
+      const missing = !fieldValue(values, "issue_id").trim()
+        ? { key: "issue_id", label: "対象論点" }
+        : !fieldValue(values, "statement").trim()
+          ? { key: "statement", label: "仮説" }
+          : null;
+      if (missing) {
+        setError(`${missing.label}を入れてね`);
+        focusField(missing.key);
+        return;
+      }
+    }
     const missingRequired = activeFields.find(
       (field) => field.required && !fieldValue(values, field.key).trim(),
     );
@@ -3262,16 +3270,22 @@ function IssueRow({
   asOf,
   canManage,
   onEdit,
+  onAddDiscussion,
 }: {
   issue: SxManagementIssue;
   asOf: string;
   canManage: boolean;
   onEdit: (editor: EditorState) => void;
+  onAddDiscussion: (issueId: string, summary: string) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [discussionDraft, setDiscussionDraft] = useState("");
+  const [discussionSaving, setDiscussionSaving] = useState(false);
+  const [discussionError, setDiscussionError] = useState<string | null>(null);
   const track = trackMeta(issue.track);
   const stale = sxWeeklyIssueIsStale(issue, asOf);
   const overdue = sxWeeklyIssueIsOverdue(issue, asOf);
+  const nextDueDate = sxWeeklyIssueNextDueDate(issue);
   const attention = sxWeeklyIssueNeedsAttention(issue, asOf);
   const nextMove = sxWeeklyIssueNextMove(issue, asOf);
   const openDecision = issue.decisions.find(
@@ -3296,9 +3310,6 @@ function IssueRow({
             >
               {track.short}
             </span>
-            <span className={styles.issueRowKind}>
-              {issueKindLabel(issue.knowledgeType)}
-            </span>
           </div>
           {canManage ? (
             <button
@@ -3322,6 +3333,11 @@ function IssueRow({
             {sxWeeklyValueMissing(issue.ownerLabel) ? "" : issue.ownerLabel}
           </small>
         </td>
+        <td className={styles.issueRowKindCell}>
+          <span className={styles.issueRowKind}>
+            {issueKindLabel(issue.knowledgeType)}
+          </span>
+        </td>
         <td className={styles.issueRowStatusCell}>
           <div className={styles.badgeRow}>
             <span className={`${styles.statusBadge} ${styles.toneMuted}`}>
@@ -3342,6 +3358,9 @@ function IssueRow({
             )}
           </div>
         </td>
+        <td className={styles.issueRowDueCell} data-overdue={overdue || undefined}>
+          {nextDueDate ? formatDate(nextDueDate) : <span>未設定</span>}
+        </td>
         <td className={styles.issueRowTruncateCell}>
           <span className={styles.issueRowCount}>
             仮説 {issue.hypotheses.length}件
@@ -3357,8 +3376,13 @@ function IssueRow({
         </td>
         <td className={styles.issueRowTruncateCell}>
           <span className={styles.issueRowCount}>
-            根拠 {issue.evidence.length}件 ・ 検証 {issue.validationRuns.length}件
+            議論 {issue.discussions.length}件 ・ 根拠 {issue.evidence.length}件 ・ 検証 {issue.validationRuns.length}件
           </span>
+          {issue.discussions[0] && (
+            <p className={styles.issueRowTruncate} title={issue.discussions[0].summary}>
+              {issue.discussions[0].summary}
+            </p>
+          )}
         </td>
         <td className={styles.issueRowTruncateCell}>
           {openDecision ? (
@@ -3414,8 +3438,69 @@ function IssueRow({
       </tr>
       {expanded && (
         <tr className={styles.issueDetailRow}>
-        <td colSpan={7}>
+        <td colSpan={9}>
         <div className={styles.detailBody}>
+          <section className={styles.discussionSection}>
+            <div className={styles.detailTitle}>
+              <h4>議論の進捗</h4>
+              <span className={styles.issueRowCount}>{issue.discussions.length}件</span>
+            </div>
+            {canManage && (
+              <form
+                className={styles.discussionComposer}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const summary = discussionDraft.trim();
+                  if (!summary) {
+                    setDiscussionError("議論の進捗を一文だけ入れてね");
+                    return;
+                  }
+                  setDiscussionSaving(true);
+                  setDiscussionError(null);
+                  void onAddDiscussion(issue.id, summary)
+                    .then(() => setDiscussionDraft(""))
+                    .catch((caught) =>
+                      setDiscussionError(
+                        caught instanceof Error
+                          ? caught.message
+                          : "議論の進捗を追加できなかったよ",
+                      ),
+                    )
+                    .finally(() => setDiscussionSaving(false));
+                }}
+              >
+                <textarea
+                  value={discussionDraft}
+                  onChange={(event) => setDiscussionDraft(event.target.value)}
+                  rows={2}
+                  maxLength={1600}
+                  placeholder="話したこと、分かったこと、残った問いを短く追加"
+                  aria-label={`${issue.title}の議論の進捗`}
+                />
+                <button type="submit" disabled={discussionSaving}>
+                  <Plus aria-hidden="true" />
+                  {discussionSaving ? "追加中" : "進捗を追加"}
+                </button>
+              </form>
+            )}
+            {discussionError && (
+              <p className={styles.discussionError} role="alert">{discussionError}</p>
+            )}
+            {issue.discussions.length === 0 ? (
+              <p className={styles.emptyLine}>議論の進捗はまだない</p>
+            ) : (
+              <ol className={styles.discussionList}>
+                {issue.discussions.map((discussion) => (
+                  <li key={discussion.id}>
+                    <time dateTime={discussion.discussedOn}>
+                      {formatDate(discussion.discussedOn)}
+                    </time>
+                    <p>{discussion.summary}</p>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
           <section>
             <div className={styles.detailTitle}>
               <h4>仮説</h4>
@@ -3440,7 +3525,7 @@ function IssueRow({
                     onClick={() =>
                       onEdit({ kind: "edit_hypothesis", issue, hypothesis })
                     }
-                    className="min-w-0 flex-1 text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
+                    className="min-w-0 flex-1 text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
                     aria-label={`${hypothesis.statement}を直接修正`}
                   >
                     <span
@@ -3546,7 +3631,7 @@ function IssueRow({
                     onClick={() =>
                       onEdit({ kind: "edit_decision", issue, decision })
                     }
-                    className="block w-full border-b border-dashed border-[#86868b] text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
+                    className="block w-full border-b border-dashed border-[#86868b] text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
                     aria-label={`${decision.title}を直接修正`}
                   >
                     <b>{decision.title}</b>
@@ -3575,7 +3660,7 @@ function IssueRow({
                           action,
                         })
                       }
-                      className="min-w-0 flex-1 border-b border-dashed border-[#86868b] text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]"
+                      className="min-w-0 flex-1 border-b border-dashed border-[#86868b] text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
                       aria-label={`${action.title}を直接修正`}
                     >
                       <b>{action.title}</b>
@@ -4329,7 +4414,7 @@ export function SxWeeklyControlDashboard({
           return false;
         const normalized = query.trim().toLowerCase();
         if (!normalized) return true;
-        return `${issue.title} ${issue.ownerLabel} ${issue.hypotheses.map((hypothesis) => hypothesis.statement).join(" ")}`
+        return `${issue.title} ${issue.ownerLabel} ${issue.hypotheses.map((hypothesis) => hypothesis.statement).join(" ")} ${issue.discussions.map((discussion) => discussion.summary).join(" ")}`
           .toLowerCase()
           .includes(normalized);
       }),
@@ -4503,6 +4588,44 @@ export function SxWeeklyControlDashboard({
     if (!latest.ok || !latestBody) return false;
     setManagement(latestBody as SxManagementBundle);
     return true;
+  }
+
+  async function addIssueDiscussion(issueId: string, summary: string) {
+    const response = await fetch(
+      `/api/project-workspace/${encodeURIComponent(bundle.project.projectId)}/management`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resource: "issue_discussion",
+          fields: {
+            issue_id: issueId,
+            summary,
+          },
+        }),
+      },
+    );
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw new Error(
+        typeof body.error === "string"
+          ? body.error
+          : "議論の進捗を追加できなかったよ",
+      );
+    const returned = body.bundle as SxManagementBundle;
+    const returnedIssue = returned.issues.find((issue) => issue.id === issueId);
+    if (!returnedIssue) throw new Error("追加後の論点を読み直せなかったよ");
+    // POST中に別セルの楽観更新が走っても、古い完全bundleで消さない。
+    // サーバが採番した議論履歴だけを現在の論点へ合流する。
+    setManagement((current) => ({
+      ...current,
+      issues: current.issues.map((issue) =>
+        issue.id === issueId
+          ? { ...issue, discussions: returnedIssue.discussions }
+          : issue,
+      ),
+    }));
+    showNotice("議論の進捗を追加したよ");
   }
 
   /** 先に画面へ置いた新規レコードの仮IDを、サーバが採番した本物のIDへ差し替える。
@@ -5275,24 +5398,14 @@ export function SxWeeklyControlDashboard({
               <h2>論点・仮説リスト</h2>
             </div>
             {management.canManage && (
-              <div className={styles.issueCreateActions}>
-                <button
-                  type="button"
-                  className={styles.primaryButton}
-                  onClick={() => setEditor({ kind: "create_issue" })}
-                >
-                  <Plus aria-hidden="true" />
-                  論点を追加
-                </button>
-                <button
-                  type="button"
-                  className={styles.secondaryButton}
-                  onClick={() => setEditor({ kind: "create_hypothesis_any" })}
-                >
-                  <Plus aria-hidden="true" />
-                  仮説を追加
-                </button>
-              </div>
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={() => setEditor({ kind: "create_issue" })}
+              >
+                <Plus aria-hidden="true" />
+                論点・仮説を追加
+              </button>
             )}
           </div>
           <div className={styles.controls}>
@@ -5301,7 +5414,7 @@ export function SxWeeklyControlDashboard({
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="論点・仮説・担当で検索"
+                placeholder="論点・仮説・議論で検索"
                 aria-label="論点・仮説を検索"
               />
             </div>
@@ -5347,10 +5460,12 @@ export function SxWeeklyControlDashboard({
             <table className={styles.issueTable}>
               <thead>
                 <tr>
-                  <th scope="col">論点名</th>
+                  <th scope="col">内容</th>
+                  <th scope="col">種類</th>
                   <th scope="col">状態</th>
+                  <th scope="col">期限</th>
                   <th scope="col">仮説</th>
-                  <th scope="col">検証・根拠の状況</th>
+                  <th scope="col">議論・検証</th>
                   <th scope="col">判断</th>
                   <th scope="col">次の一手</th>
                   <th scope="col" aria-label="詳細" />
@@ -5364,6 +5479,7 @@ export function SxWeeklyControlDashboard({
                     asOf={management.asOf}
                     canManage={management.canManage}
                     onEdit={setEditor}
+                    onAddDiscussion={addIssueDiscussion}
                   />
                 ))}
               </tbody>

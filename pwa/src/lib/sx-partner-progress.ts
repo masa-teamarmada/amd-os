@@ -477,10 +477,8 @@ export function sxCustomerValueLabel(value: string | null | undefined) {
  * 関係先リスト最左の評価。unratedは「未」で、推測で埋めない。
  * 2026-08-06 まで likelihood×value の合成で出していたが、それは
  * 「排液がもらえるか」を過大評価していた。まさの判断基準は
- * 顧客として見込みがあるかが第一優先で、軸は (1)ペインの高さ
- * (2)単価の高い（需要の高い）重金属が排出されているか の2つ。
- * 排液提供の可否はそれより大幅に劣後する。よって合成をやめ、
- * poc_grade を人が直接付ける独立カラムにした。
+ * 関係先の種類にかかわらず、PJにとっての優先度を人が直接付ける。
+ * poc_grade は履歴互換の列名で、PoC顧客限定の評価ではない。
  */
 export type SxPocPriorityTier = "s" | "a" | "b" | "x" | "unrated";
 
@@ -503,11 +501,11 @@ export function sxPocPriorityTierLabel(tier: SxPocPriorityTier) {
 
 export function sxPocPriorityTierDescription(tier: SxPocPriorityTier) {
   return {
-    s: "最優先。ペインが大きく、単価の高い重金属も出ている",
-    a: "優先。顧客として見込みがある",
-    b: "決め手に欠ける。様子見",
-    x: "顧客としての見込みは薄い",
-    unrated: "未評価。顧客として見込みがあるかを入れると並び順が決まる",
+    s: "最優先。今週、具体的な次の一手を進める",
+    a: "有望。関係を深める価値が高い",
+    b: "継続確認。条件が整うかを見極める",
+    x: "現時点では対象外",
+    unrated: "未評価。PJにとっての優先度を入れると並び順が決まる",
   }[tier];
 }
 

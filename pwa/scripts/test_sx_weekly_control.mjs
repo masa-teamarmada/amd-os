@@ -35,6 +35,7 @@ function issue(overrides = {}) {
     hypotheses: [],
     evidence: [],
     validationRuns: [],
+    discussions: [],
     decisions: [],
     actionItems: [],
     ...overrides,
@@ -97,6 +98,13 @@ const childUpdated = issue({
 });
 assert.equal(sxWeeklyIssueLastActivity(childUpdated), "2026-07-27", "子の更新日を親の鮮度へ反映");
 assert.equal(sxWeeklyIssueIsStale(childUpdated, "2026-07-27"), false, "子更新済みを更新切れにしない");
+
+const discussedRecently = issue({
+  lastVerifiedAt: "2026-07-01",
+  discussions: [{ id: "discussion-1", issueId: "issue-1", summary: "前提条件を整理", discussedOn: "2026-07-27", createdAt: "2026-07-27T01:00:00Z" }],
+});
+assert.equal(sxWeeklyIssueLastActivity(discussedRecently), "2026-07-27", "議論の追記を親の鮮度へ反映");
+assert.equal(sxWeeklyIssueIsStale(discussedRecently, "2026-07-27"), false, "議論更新済みを更新切れにしない");
 
 const missingActivity = issue({ lastVerifiedAt: "", hypotheses: [] });
 assert.equal(sxWeeklyIssueIsStale(missingActivity, "2026-07-27"), true, "日付欠損は0日扱いしない");

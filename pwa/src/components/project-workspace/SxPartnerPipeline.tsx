@@ -2242,7 +2242,7 @@ const PARTNER_LEDGER_COLUMNS: readonly PartnerLedgerColumn[] = [
   {
     key: "grade",
     label: "評価",
-    title: "顧客としての見込み。ペインの高さと単価の高い重金属の有無で付ける",
+    title: "PJにとっての優先度。関係先の分類にかかわらず共通で使う",
     defaultWidth: 48,
     minWidth: 30,
   },
@@ -3978,21 +3978,15 @@ function PartnerInlineRow({
       {partner.targetState ? goalStep?.title : ""}
     </p>
   );
-  // 排液を調達できたかを試料台帳から導出する。受領済み・分析済みが1件でもあれば調達済み。
-  // 編集は進捗・履歴モーダルの試料台帳で行うので、このセルは表示のみ (押すと行と同じくモーダル)。
+  // 移行前の行だけ、従来どおり試料台帳から排液調達状態を導出する。
+  // 一度でもチェックを操作した後は effluentProcured の明示値が正本になる。
   const receivedSamples = partner.samples.filter(
     (sample) =>
       sample.status === "received" ||
       sample.status === "analyzed" ||
       sample.receivedOn != null,
   ).length;
-  const inProgressSamples = partner.samples.filter((sample) =>
-    ["intent", "negotiating", "agreed_pending", "scheduled"].includes(
-      sample.status,
-    ),
-  ).length;
-  // 調達したかどうかだけのチェック表示 (2026-08-08 まさ)。変更は試料台帳の状態が正本なので
-  // ここでは書き換えない。押すと行と同じくモーダルが開き、試料台帳で編集する。
+  const procurementChecked = partner.effluentProcured ?? receivedSamples > 0;
   const procurementView = (
     <div
       className="grid min-h-11 min-w-0 content-center justify-items-start"
@@ -4000,11 +3994,18 @@ function PartnerInlineRow({
     >
       <input
         type="checkbox"
-        checked={receivedSamples > 0}
-        readOnly
-        tabIndex={-1}
-        aria-label={`排液調達${receivedSamples > 0 ? "済み" : "未"}。詳細は進捗と履歴で確認`}
-        className="pointer-events-none h-4 w-4 accent-[#047857]"
+        checked={procurementChecked}
+        disabled={!canManage}
+        onClick={(event) => event.stopPropagation()}
+        onChange={(event) => {
+          void onPatch({
+            resource: "partner",
+            id: partner.id,
+            patch: { effluent_procured: event.target.checked },
+          });
+        }}
+        aria-label={`${display.name}の排液調達を${procurementChecked ? "未調達に戻す" : "調達済みにする"}`}
+        className="h-4 w-4 cursor-pointer accent-[#027FDC] disabled:cursor-not-allowed disabled:opacity-50"
       />
     </div>
   );
@@ -4059,7 +4060,7 @@ function PartnerInlineRow({
               renderFields={(values, setValue) => (
                 <label className="grid gap-0.5">
                   <span className="text-[10px] font-semibold text-[#3c3c43]">
-                    顧客としての見込み
+                    PJにとっての優先度
                   </span>
                   <select
                     autoFocus

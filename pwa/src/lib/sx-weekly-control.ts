@@ -39,6 +39,7 @@ export function sxWeeklyIssueLastActivity(issue: SxManagementIssue) {
     issue.lastVerifiedAt,
     ...issue.hypotheses.map((hypothesis) => hypothesis.lastVerifiedAt),
     ...issue.evidence.map((evidence) => evidence.lastVerifiedAt),
+    ...issue.discussions.map((discussion) => discussion.discussedOn),
     ...issue.decisions.map((decision) => decision.lastVerifiedAt),
     ...issue.actionItems.map((action) => action.lastVerifiedAt),
   ].filter(Boolean).sort().at(-1) || null;

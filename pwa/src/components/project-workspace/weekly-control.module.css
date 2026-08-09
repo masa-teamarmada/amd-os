@@ -168,6 +168,9 @@
 .ganttSelection a svg { width: 13px; height: 13px; }
 
 .issueHeading { align-items: flex-end; margin-bottom: 16px; }
+.issueHeading .primaryButton { border-color: #027FDC; background: #027FDC; }
+.issueHeading .primaryButton:hover { border-color: #0267B2; background: #0267B2; }
+.issueHeading .primaryButton:focus-visible { outline-color: #027FDC; }
 .issueCreateActions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .primaryButton, .secondaryButton { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; border: 1px solid var(--green); border-radius: 6px; font-size: 12px; font-weight: 750; }
 .primaryButton { background: var(--green); color: white; }
@@ -181,13 +184,13 @@
 .searchBox input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 12px; }
 .filterGroup { justify-content: center; gap: 4px; }
 .filterGroup button { min-height: 44px; padding: 0 10px; border: 1px solid transparent; color: var(--muted); font-size: 11px; font-weight: 750; }
-.filterGroup button[data-active] { border-color: #a7f3d0; background: var(--green-soft); color: var(--green); }
+.filterGroup button[data-active] { border-color: #7CBCEB; background: #E8F3FC; color: #0267B2; }
 .trackSelect { min-height: 40px; border: 1px solid var(--line); background: white; padding: 0 9px; color: var(--ink); font-size: 11px; }
 .issueBoard { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; align-items: start; }
-.stageColumn { min-width: 0; border-top: 3px solid #94a3b8; background: rgba(255, 255, 255, .46); }
-.stageColumn:nth-child(2) { border-color: #059669; }
-.stageColumn:nth-child(3) { border-color: #d97706; }
-.stageColumn:nth-child(4) { border-color: #027FDC; }
+.stageColumn { min-width: 0; border-top: 3px solid #7CBCEB; background: rgba(255, 255, 255, .46); }
+.stageColumn:nth-child(2) { border-color: #3D99E3; }
+.stageColumn:nth-child(3) { border-color: #027FDC; }
+.stageColumn:nth-child(4) { border-color: #0267B2; }
 .stageColumn > header { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 8px; min-height: 58px; padding: 10px; border: 1px solid var(--line); border-top: 0; }
 .stageColumn > header > span { color: var(--quiet); font-size: 11px; }
 .stageColumn > header h3 { margin: 0; font-size: 14px; }
@@ -198,12 +201,12 @@
 .cardAccent { height: 3px; }
 .issueCardHead { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 7px; padding: 11px 11px 0; }
 .issueHeadActions { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
-.issueHeadActions button { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border: 1px solid var(--line); color: var(--green); font-size: 10px; font-weight: 800; }
-.issueHeadActions button:last-child { border-color: #a7f3d0; background: var(--green-soft); }
+.issueHeadActions button { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border: 1px solid var(--line); color: #0267B2; font-size: 10px; font-weight: 800; }
+.issueHeadActions button:last-child { border-color: #7CBCEB; background: #E8F3FC; }
 .issueHeadActions svg { width: 12px; height: 12px; }
 .trackBadge, .statusBadge { min-height: 22px; padding: 2px 7px; background: transparent; font-size: 9px; }
 .toneOpen { color: #3c3c43; border-color: #cbd5e1; background: #f1f5f9; }
-.toneValidating { color: #047857; border-color: #6ee7b7; background: #ecfdf5; }
+.toneValidating { color: #0267B2; border-color: #7CBCEB; background: #E8F3FC; }
 .toneResolved { color: #3c3c43; border-color: #cbd5e1; background: #f1f5f9; }
 .toneDanger { color: var(--red); border-color: #fca5a5; background: var(--red-soft); }
 .toneMuted { color: #86868b; border-color: #d2d2d7; background: #f5f5f7; }
@@ -243,7 +246,7 @@
 .hypothesisRow small { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; }
 .rowActions { display: flex; align-items: flex-start; gap: 3px; }
 .evidenceLine { margin: 0; padding: 7px 0; border-top: 1px solid #e2e8f0; font-size: 10px; line-height: 1.5; }
-.evidenceLine b { margin-right: 6px; color: var(--green); }
+.evidenceLine b { margin-right: 6px; color: #0267B2; }
 .decisionLine { margin: 0; padding: 7px 0; border-top: 1px solid #e2e8f0; font-size: 10px; line-height: 1.5; }
 .decisionHead { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .inlineActions { display: inline-flex; gap: 3px; }
@@ -265,29 +268,46 @@
    対応しない (横scrollのみ)。行クリックでの展開は.issueRowExpandButtonが担い、展開中の
    詳細行(.issueDetailRow)は既存の.detailBody以下のスタイルをそのまま流用する。 */
 .issueTableWrap { overflow-x: auto; border: 1px solid var(--line); background: var(--sheet); }
-.issueTable { width: 100%; min-width: 920px; border-collapse: collapse; }
-.issueTable thead th { position: sticky; top: 0; padding: 9px 10px; border-bottom: 1px solid var(--line); background: #f4f1e6; color: var(--muted); font-size: 10px; font-weight: 800; text-align: left; white-space: nowrap; }
-.issueRow { border-top: 1px solid #e8e2d7; }
-.issueRow[data-attention] { background: #fbf5e8; }
+.issueTable { width: 100%; min-width: 1120px; border-collapse: collapse; }
+.issueTable thead th { position: sticky; top: 0; padding: 9px 10px; border-bottom: 1px solid #7CBCEB; background: #E8F3FC; color: #0267B2; font-size: 10px; font-weight: 800; text-align: left; white-space: nowrap; }
+.issueRow { border-top: 1px solid #D2E7F8; }
+.issueRow[data-attention] { background: #F7FBFF; box-shadow: inset 3px 0 0 #7CBCEB; }
 .issueRow > td { padding: 9px 10px; vertical-align: top; font-size: 11px; }
 .issueRowTitleCell { min-width: 200px; max-width: 260px; }
-.issueRowKind { color: var(--quiet); font-size: 9px; font-weight: 800; letter-spacing: .06em; }
+.issueRowKindCell { min-width: 92px; }
+.issueRowKind { display: inline-flex; min-height: 22px; align-items: center; padding: 2px 7px; border: 1px solid #7CBCEB; border-radius: 999px; background: #E8F3FC; color: #0267B2; font-size: 9px; font-weight: 800; letter-spacing: .04em; }
 .issueRowTitleButton { display: block; width: 100%; margin-top: 4px; border: 0; border-bottom: 1px dashed transparent; background: transparent; color: var(--ink); font-size: 12px; line-height: 1.4; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-button.issueRowTitleButton { border-bottom-color: #857b69; cursor: pointer; }
-button.issueRowTitleButton:hover, button.issueRowTitleButton:focus-visible { border-color: var(--green); color: var(--green); outline: 0; }
+button.issueRowTitleButton { border-bottom-color: #7CBCEB; cursor: pointer; }
+button.issueRowTitleButton:hover, button.issueRowTitleButton:focus-visible { border-color: #027FDC; color: #0267B2; outline: 2px solid #7CBCEB; outline-offset: 2px; }
 .issueRowSub { display: block; margin-top: 3px; color: var(--muted); font-size: 9px; }
 .issueRowSub[data-missing] { color: var(--red); }
 .issueRowStatusCell { min-width: 150px; }
+.issueRowDueCell { min-width: 92px; color: var(--muted); font-size: 10px !important; font-weight: 750; white-space: nowrap; }
+.issueRowDueCell span { color: var(--quiet); font-weight: 600; }
+.issueRowDueCell[data-overdue] { color: var(--red); }
 .issueRowTruncateCell { min-width: 150px; max-width: 220px; }
 .issueRowCount { display: block; color: var(--quiet); font-size: 9px; font-weight: 750; }
 .issueRowTruncate { margin: 3px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .issueRowExpandCell { width: 46px; text-align: right; }
 .issueRowExpandButton { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--muted); }
-.issueRowExpandButton:hover, .issueRowExpandButton:focus-visible { border-color: var(--green); color: var(--green); outline: 0; }
+.issueRowExpandButton:hover, .issueRowExpandButton:focus-visible { border-color: #027FDC; color: #0267B2; outline: 2px solid #7CBCEB; outline-offset: 2px; }
 .issueRowExpandButton svg { width: 14px; height: 14px; transition: transform .16s ease; }
 .issueRowActionCount { position: absolute; top: -5px; right: -5px; display: grid; place-items: center; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 999px; background: var(--amber); color: #fff; font-size: 8px; font-weight: 800; }
-.issueDetailRow > td { padding: 0 10px 14px; border-top: 0; background: #fbf9f3; }
+.issueDetailRow > td { padding: 0 10px 14px; border-top: 0; background: #F7FBFF; }
 .issueDetailRow .detailBody { padding: 0; }
+.discussionSection { margin-top: 10px; padding: 12px; border-left: 3px solid #027FDC; background: #ffffff; }
+.discussionComposer { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; gap: 8px; }
+.discussionComposer textarea { min-width: 0; min-height: 70px; resize: vertical; padding: 9px 10px; border: 1px solid #7CBCEB; border-radius: 4px; background: #ffffff; color: var(--ink); font: inherit; font-size: 11px; line-height: 1.5; }
+.discussionComposer textarea:focus-visible { border-color: #027FDC; outline: 2px solid #7CBCEB; outline-offset: 1px; }
+.discussionComposer button { min-height: 44px; align-self: end; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 0 12px; border: 1px solid #027FDC; border-radius: 4px; background: #027FDC; color: #ffffff; font-size: 10px; font-weight: 800; }
+.discussionComposer button:disabled { opacity: .55; }
+.discussionComposer button:focus-visible { outline: 2px solid #7CBCEB; outline-offset: 2px; }
+.discussionComposer button svg { width: 12px; height: 12px; }
+.discussionError { margin: 6px 0 0; color: var(--red); font-size: 10px; font-weight: 700; }
+.discussionList { display: grid; gap: 0; margin: 10px 0 0; padding: 0; list-style: none; border-top: 1px solid #D2E7F8; }
+.discussionList li { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 12px; padding: 9px 0; border-bottom: 1px solid #D2E7F8; }
+.discussionList time { color: #0267B2; font-size: 9px; font-weight: 800; }
+.discussionList p { margin: 0; color: var(--ink); font-size: 11px; line-height: 1.55; overflow-wrap: anywhere; }
 
 .inputSection { display: grid; grid-template-columns: minmax(250px, .7fr) minmax(600px, 1.3fr); gap: 40px; align-items: center; margin-top: 48px; padding: 26px 0; border-top: 1px solid #bbb3a7; border-bottom: 1px solid #bbb3a7; }
 .inputCards { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); background: var(--sheet); }
@@ -307,6 +327,13 @@ button.issueRowTitleButton:hover, button.issueRowTitleButton:focus-visible { bor
    portal先でも不透明な生成りsheet・濃墨文字・深緑CTAを保証する（2026-08 監査追補）。 */
 .editorBackdrop { --sheet: #ffffff; --ink: #1d1d1f; --muted: #3c3c43; --quiet: #86868b; --line: #d2d2d7; --green: #047857; --amber: #d97706; --red: #dc2626; --red-soft: #fee2e2; position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(29, 29, 31, .46); backdrop-filter: blur(4px); }
 .editorPanel { display: flex; flex-direction: column; width: min(640px, calc(100vw - 48px)); max-height: min(720px, calc(100dvh - 48px)); min-width: 0; overflow: hidden; border: 1px solid #d2d2d7; border-radius: 10px; background: var(--sheet); color: var(--ink); box-shadow: 0 20px 60px rgba(29, 29, 31, .22); }
+.editorPanel[data-editor-resource="issue"], .editorPanel[data-editor-resource="hypothesis"], .editorPanel[data-editor-resource="evidence"], .editorPanel[data-editor-resource="validation"], .editorPanel[data-editor-resource="decision"], .editorPanel[data-editor-resource="action"] { --green: #027FDC; --green-soft: #E8F3FC; }
+.editorPanel[data-editor-resource="issue"] .iconButton:hover, .editorPanel[data-editor-resource="issue"] .iconButton:focus-visible,
+.editorPanel[data-editor-resource="hypothesis"] .iconButton:hover, .editorPanel[data-editor-resource="hypothesis"] .iconButton:focus-visible,
+.editorPanel[data-editor-resource="evidence"] .iconButton:hover, .editorPanel[data-editor-resource="evidence"] .iconButton:focus-visible,
+.editorPanel[data-editor-resource="validation"] .iconButton:hover, .editorPanel[data-editor-resource="validation"] .iconButton:focus-visible,
+.editorPanel[data-editor-resource="decision"] .iconButton:hover, .editorPanel[data-editor-resource="decision"] .iconButton:focus-visible,
+.editorPanel[data-editor-resource="action"] .iconButton:hover, .editorPanel[data-editor-resource="action"] .iconButton:focus-visible { background: #E8F3FC; }
 .editorPanel[data-editor-width="wide"] { width: min(760px, calc(100vw - 48px)); }
 /* embedded(新規task追加)フォームはbodyだけがscrollし、footerは常に固定表示にする — 親の
    .planInspectorInlineEditorがflexで高さを配って自身はscrollせず、この.editorEmbedded自身が

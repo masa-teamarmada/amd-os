@@ -3376,3 +3376,41 @@ expectNotIncludes("src/components/bzm/BzmTheoryComposerDialog.tsx", [
   "接続のプレビュー",
 ]);
 expectIncludes("package.json", ["test:bzm-theory-graph"]);
+
+// SX関係先・論点の低摩擦入力 (2026-08-09): 排液調達は明示boolを行内PATCH、
+// 論点は種類/期限を一覧で見せ、議論の進捗は上書きせず追記履歴として保存する。
+expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
+  "partner.effluentProcured ?? receivedSamples > 0",
+  "effluent_procured: event.target.checked",
+  "PJにとっての優先度",
+]);
+expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
+  'className="pointer-events-none h-4 w-4 accent-[#047857]"',
+  "顧客としての見込み。ペインの高さと単価の高い重金属の有無で付ける",
+]);
+expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
+  "論点・仮説を追加",
+  '<th scope="col">種類</th>',
+  '<th scope="col">期限</th>',
+  "議論の進捗",
+  'resource: "issue_discussion"',
+  "onAddDiscussion={addIssueDiscussion}",
+]);
+expectIncludes("src/app/api/project-workspace/[projectId]/management/route.ts", [
+  'body.resource === "issue_discussion"',
+  'from("project_management_issue_discussions")',
+  'takeBoolean("effluent_procured")',
+]);
+expectIncludes("src/lib/sx-management.ts", [
+  'plain("project_management_issue_discussions"',
+  "effluentProcured: boolean | null",
+  "discussions: SxIssueDiscussion[]",
+]);
+expectIncludes("scripts/migrations/247_sx_partner_effluent_procured.sql", [
+  "effluent_procured boolean",
+  "project_management_partners.poc_grade",
+]);
+expectIncludes("scripts/migrations/248_project_management_issue_discussions.sql", [
+  "CREATE TABLE IF NOT EXISTS public.project_management_issue_discussions",
+  "project_management_issue_discussions_manager_insert",
+]);
