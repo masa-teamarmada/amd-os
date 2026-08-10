@@ -49,11 +49,13 @@ const EVIDENCE_LABELS: Record<Bzm2EvidenceKind, string> = {
 };
 
 const SYMBOL_TEX: Record<string, string> = {
+  SPS: String.raw`\mathbf{SPS}`,
   q: "q",
   P: String.raw`\mathbf P`,
   T_C: String.raw`T_C`,
   T_Y: String.raw`T_Y`,
   H_v: String.raw`H_v`,
+  Z_tau: String.raw`\mathbf Z_\tau`,
   Z_policy: String.raw`Z_{\mathrm{policy}}`,
   C_0: String.raw`C_0`,
   p_1: String.raw`p_1`,
@@ -164,17 +166,19 @@ function StatusBadge({ status }: { status: Bzm2ValueStatus }) {
   );
 }
 
-function FormulaParameter({
+function FormulaValueCell({
   symbol,
   label,
   observation,
+  className,
 }: {
   symbol: string;
   label: string;
   observation: Bzm2Observation | null | undefined;
+  className?: string;
 }) {
   return (
-    <div className="min-w-0 border-l-2 border-[#274c68] pl-3">
+    <div className={`min-w-0 bg-[#fffdf8] px-2.5 py-2 ${className ?? ""}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <MathSymbol
           symbol={symbol}
@@ -194,14 +198,86 @@ function FormulaParameter({
   );
 }
 
-function EquationArrow() {
+function EquationMark({ mark }: { mark: "×" | "=" }) {
   return (
     <div
-      className="flex items-center justify-center text-[#8a867c]"
+      className="flex items-center justify-center font-mono text-[15px] font-semibold text-[#8a867c]"
       aria-hidden="true"
     >
-      <span className="hidden text-lg xl:inline">→</span>
-      <span className="py-1 text-lg xl:hidden">↓</span>
+      {mark}
+    </div>
+  );
+}
+
+function DerivedSpsResult({
+  q,
+  potential,
+}: {
+  q: Bzm2Observation | null | undefined;
+  potential: Bzm2Observation | null | undefined;
+}) {
+  const blockers: string[] = [];
+  if (!q || q.valueStatus === "missing") blockers.push("qが欠測");
+  if (!potential || potential.valueStatus === "missing") {
+    blockers.push("Pが欠測");
+  } else if (potential.valueStatus === "not_started") {
+    blockers.push("Pが未着手");
+  } else {
+    blockers.push("Pの尺度・合成規則が未登録");
+  }
+  const status =
+    potential?.valueStatus === "not_started" ? "not_started" : "missing";
+
+  return (
+    <div className="min-w-0 bg-[#fffdf8] px-2.5 py-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <MathSymbol
+          symbol="SPS"
+          className="text-[12px] font-bold text-[#274c68]"
+        />
+        <StatusBadge status={status} />
+      </div>
+      <div className="mt-1 text-[10px] text-[#77736a]">現在のBZM 2.0 SPS</div>
+      <div className="mt-1 font-mono text-[14px] font-semibold text-[#8a3f25]">
+        未測定
+      </div>
+      <div className="mt-1 text-[9px] leading-3 text-[#7c5541]">
+        {blockers.join(" / ")}
+      </div>
+    </div>
+  );
+}
+
+function StateFormulaValue({
+  parameters,
+}: {
+  parameters: Bzm2ParameterSeries[];
+}) {
+  const current = parameters.find((parameter) => parameter.current)?.current;
+  return (
+    <div className="min-w-0 bg-[#fffdf8] px-2.5 py-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <MathSymbol
+          symbol="Z_tau"
+          className="text-[12px] font-bold text-[#274c68]"
+        />
+        <StatusBadge status={current?.valueStatus ?? "missing"} />
+      </div>
+      <div className="mt-1 text-[10px] text-[#77736a]">共通状態</div>
+      {parameters.length === 0 ? (
+        <div className="mt-1 font-mono text-[12px] font-semibold text-[#9a5a3c]">
+          未登録
+        </div>
+      ) : (
+        <div className="mt-1 space-y-1 font-mono text-[10px] font-semibold text-[#242621]">
+          {parameters.map((parameter) => (
+            <div key={parameter.parameterKey} className="break-words">
+              <MathSymbol symbol={parameter.symbol} /> ={" "}
+              <CurrentValue observation={parameter.current} />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -491,8 +567,8 @@ export function Bzm2ModelObservatory({ model }: { model: Bzm2Observatory }) {
       )}
 
       <div className="px-3 py-3 sm:px-4">
-        <div className="overflow-x-auto rounded-lg border border-[#b9c8cf] bg-[#f4f8f9]">
-          <div className="grid min-w-[660px] grid-cols-[0.8fr_1.7fr] divide-x divide-[#c7d2d6]">
+        <div className="grid gap-2 xl:grid-cols-[minmax(0,0.86fr)_minmax(0,1.35fr)]">
+          <section className="overflow-hidden rounded-lg border border-[#b9c8cf] bg-[#f4f8f9]">
             <div className="px-3 py-2.5">
               <div className="text-[9px] font-semibold tracking-[0.12em] text-[#365b70]">
                 トップ構造
@@ -505,9 +581,35 @@ export function Bzm2ModelObservatory({ model }: { model: Bzm2Observatory }) {
                 />
               </div>
               <p className="mt-1 text-[9px] leading-4 text-[#5f6d72]">
-                qとPは別の証拠で決める。
+                qとPは別の証拠で決める。未着手・欠測を0にはしない。
               </p>
             </div>
+            <div className="border-t border-[#c7d2d6] px-3 py-2">
+              <div className="text-[9px] font-semibold tracking-[0.1em] text-[#365b70]">
+                現在の代入
+              </div>
+              <div className="mt-1 grid grid-cols-[minmax(0,0.8fr)_12px_minmax(0,0.8fr)_12px_minmax(0,1fr)] gap-px overflow-hidden rounded-md border border-[#c9d4d7] bg-[#c9d4d7]">
+                <FormulaValueCell
+                  symbol="q"
+                  label="到達見込み"
+                  observation={currentByKey.get("q")}
+                />
+                <EquationMark mark="×" />
+                <FormulaValueCell
+                  symbol="P"
+                  label="潜在価値"
+                  observation={currentByKey.get("P")}
+                />
+                <EquationMark mark="=" />
+                <DerivedSpsResult
+                  q={currentByKey.get("q")}
+                  potential={currentByKey.get("P")}
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-lg border border-[#b9c8cf] bg-[#f4f8f9]">
             <div className="px-3 py-2.5">
               <div className="text-[9px] font-semibold tracking-[0.12em] text-[#365b70]">
                 共通状態を含む到達競争
@@ -523,78 +625,36 @@ export function Bzm2ModelObservatory({ model }: { model: Bzm2Observatory }) {
                 共通状態は別加点せず、影響工程・時間・資金を条件づける。
               </p>
             </div>
-          </div>
-        </div>
-
-        <div className="mt-2 grid items-stretch gap-1.5 xl:grid-cols-[minmax(0,0.9fr)_20px_minmax(0,1.35fr)_20px_minmax(0,0.8fr)]">
-          <div className="rounded-lg border border-[#c9b98f] bg-[#fffaf0] px-2.5 py-2">
-            <div className="text-[9px] font-semibold text-[#725a28]">
-              共通状態（例 <MathSymbol symbol="Z_policy" />）
-            </div>
-            {stateParameters.length === 0 ? (
-              <div className="mt-1.5 text-[10px] text-[#9a5a3c]">Zは未登録</div>
-            ) : (
-              <div className="mt-1.5 space-y-1.5">
-                {stateParameters.map((parameter) => (
-                  <div
-                    key={parameter.parameterKey}
-                    className="border-l-2 border-[#b99446] pl-2"
-                  >
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <MathSymbol
-                        symbol={parameter.symbol}
-                        className="text-[10px] font-bold text-[#6f5420]"
-                      />
-                      <span className="font-mono text-[10px] font-semibold">
-                        <CurrentValue observation={parameter.current} />
-                      </span>
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {parameter.current?.affects.map((target) => (
-                        <span
-                          key={target}
-                          className="rounded-full border border-[#d4bf8a] px-1.5 py-0.5 font-mono text-[8px] text-[#755b27]"
-                        >
-                          → <AffectsTarget target={target} />
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+            <div className="border-t border-[#c7d2d6] px-3 py-2">
+              <div className="text-[9px] font-semibold tracking-[0.1em] text-[#365b70]">
+                現在の判定値
               </div>
-            )}
-          </div>
-          <EquationArrow />
-          <div className="grid gap-2 rounded-lg border border-[#b7c5cc] bg-[#fcfdfb] px-2.5 py-2 sm:grid-cols-3">
-            <FormulaParameter
-              symbol="T_C"
-              label="到達時間"
-              observation={currentByKey.get("T_C")}
-            />
-            <FormulaParameter
-              symbol="T_Y"
-              label="余力喪失時間"
-              observation={currentByKey.get("T_Y")}
-            />
-            <FormulaParameter
-              symbol="H_v"
-              label="計画期限"
-              observation={currentByKey.get("H_v")}
-            />
-          </div>
-          <EquationArrow />
-          <div className="grid gap-2 rounded-lg border border-[#9bb9b1] bg-[#f1f8f4] px-2.5 py-2 sm:grid-cols-2 xl:grid-cols-1">
-            <FormulaParameter
-              symbol="q"
-              label="到達見込み"
-              observation={currentByKey.get("q")}
-            />
-            <FormulaParameter
-              symbol="P"
-              label="潜在価値"
-              observation={currentByKey.get("P")}
-            />
-          </div>
+              <div className="mt-1 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-[#c9d4d7] bg-[#c9d4d7] sm:grid-cols-5">
+                <StateFormulaValue parameters={stateParameters} />
+                <FormulaValueCell
+                  symbol="T_C"
+                  label="到達時間"
+                  observation={currentByKey.get("T_C")}
+                />
+                <FormulaValueCell
+                  symbol="T_Y"
+                  label="余力喪失時間"
+                  observation={currentByKey.get("T_Y")}
+                />
+                <FormulaValueCell
+                  symbol="H_v"
+                  label="計画期限"
+                  observation={currentByKey.get("H_v")}
+                />
+                <FormulaValueCell
+                  symbol="q"
+                  label="到達見込み"
+                  observation={currentByKey.get("q")}
+                  className="col-span-2 sm:col-span-1"
+                />
+              </div>
+            </div>
+          </section>
         </div>
       </div>
 
