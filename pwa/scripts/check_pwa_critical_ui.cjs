@@ -105,9 +105,7 @@ expectIncludes(
     "deriveSxUnifiedTimeline",
     "SxUnifiedTimeline",
     "showPins={false}",
-    "手動編集を正本にする · 抽出は差分候補",
-    "sxWeeklyIssueNextDueDate",
-    "sxWeeklyIssueLastActivity",
+      "sxWeeklyIssueNextDueDate",
     "create_hypothesis",
     "create_validation",
     "create_decision",
@@ -115,8 +113,7 @@ expectIncludes(
     "create_action",
     "edit_action",
     "sxWeeklyIssueNextMove",
-    "sxWeeklyWeekRangeLabel",
-    // Round 32 (2026-08-02): 冒頭をPJ全体の管制入口へ再構成。工程・タスク・論点・仮説・検証・
+      // Round 32 (2026-08-02): 冒頭をPJ全体の管制入口へ再構成。工程・タスク・論点・仮説・検証・
     // 判断・action・関係先保有事項を同じ未完了作業単位（sxProjectOwnerLoadsの共通母集団）にした
     // 6バケット（停止/期限超過/7日以内/担当不明/期限なし/判断待ち）。クリックで元項目一覧へ絞り込み、
     // 項目クリックで必ず元の編集文脈（ガント該当行・詳細／論点カード・詳細／関係先該当行）へ移動する。
@@ -126,8 +123,7 @@ expectIncludes(
     "navigateToWorkUnit",
     "styles.workloadBand",
     "styles.workloadDrawer",
-    "onSelectItem={navigateToWorkUnit}",
-    "sxProjectWorkUnitIsOverdue",
+      "sxProjectWorkUnitIsOverdue",
     "sxProjectWorkUnitIsDueSoon",
     // 2026-08 provenance audit: 関係先由来の共通母集団クリックはスクロールせず、provenance
     // （originResource）別に単一の編集モーダルを直接開く。work itemはedit_partner_work_item、
@@ -200,8 +196,9 @@ expectIncludes(
     "const task = management.tasks.find((item) => item.id === unit.navTaskId);",
     "const milestone = management.milestones.find(\n        (item) => item.id === unit.navMilestoneId,\n      );",
     // issue kindもnavIssueId一致だけで別issueへ取り違えないよう、unit.id===issue.idを必須にする。
+    // 有効な子レコードを確認した後は単体editorではなく、親論点のworkbenchへ着地する。
     '} else if (unit.kind === "issue") {\n        if (unit.id !== issue.id) {',
-    "setWorkloadFilter(null);\n      setDetailEditor(null);\n      setPlanFieldEditor(null);\n      setEditorFieldKeys(null);\n      setSelectedMilestoneId(null);\n      setSelectedTaskId(null);\n      setEditor(nextEditor);",
+    "void nextEditor;\n      setEditor(null);\n      setSelectedIssueId(issue.id);\n      selectView(\"issues\");",
     // root editorモーダルへ、開いているeditorのkind/resource/record-idを静的に出し、実
     // ブラウザ監査で「押した項目」と「開いたeditor」の対象一致を検査できるようにする。
     "data-editor-kind={editor.kind}",
@@ -284,7 +281,7 @@ expectIncludes("src/components/project-workspace/SxProjectOwnerWorkload.tsx", [
   "<OwnerLoadColumn loads={rightLoads} onSelectItem={onSelectItem} />",
   '<div className="lg:hidden">\n        <OwnerLoadColumn loads={loads} onSelectItem={onSelectItem} />',
   'className="flex flex-col gap-px bg-[#d9cfde]"',
-  'className="border border-[#c9bfd0] bg-[#fffdf7]"',
+  'className="border border-[#9d8daa] bg-[#fffdf7]"',
   // 実動作は元の編集文脈を開くことなので、aria-labelは「移動」ではなく「編集」で実態を表す。
   "aria-label={`${item.title}を編集`}",
   // 実ブラウザ監査でクリック対象と後続の編集モーダル対象の一致を検査できるようにする。
@@ -796,11 +793,10 @@ expectNotIncludes(
   ],
 );
 expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
-  "milestoneTitleBySlug = new Map(",
-  "milestone.slug,\n      nominalizeSxActionLabel(milestone.title)",
+  // 2026-08-07: 「詰まり・PJ影響」列をまさ指示で削除。列が消えたことで slug 引きの
+  // milestoneTitleBySlug も不要になったため、両方のアンカーをここから外した。
   "milestoneTitleById = new Map(",
   "milestone.id,\n      nominalizeSxActionLabel(milestone.title)",
-  "詰まり・PJ影響",
   "次にやること",
   "現在地の根拠",
 ]);
@@ -942,24 +938,23 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "buildPartnerProgressSteps",
   "sx-partner-stage-rail-",
   "sx-partner-progress-",
-  "data-progress-segment",
-  "data-progress-step",
-  "data-step-count={steps.length}",
+  // 2026-08-08 まさ指示: 多色ピルの節railは廃止し、営業段階ベースの%プログレスバーへ。
+  "data-progress-bar",
+  "data-progress-pct",
   "sxIsPocPartner",
-  "sxPartnerHasContactRecord",
-  "sxPartnerHasDataGap",
-  "sxPartnerHasDueSoon",
-  "sxPartnerHasOverdue",
-  "sx-partner-filter-poc",
-  "sx-partner-filter-vc",
+  // 2026-08-08 まさ指示: タブ「表示」を「分類」に改名し、分類5種 (PoC候補先/技術協力先/
+  // 試料提供元/試料提供ルート/VC) を classifications (複数可) で絞る。担当・区分・段階・
+  // 管制の各絞り込み帯と説明文は削除した。
+  "sx-partner-filter-${classification}",
+  "SX_PARTNER_CLASSIFICATION_ORDER",
+  "partnerHasClassification",
   "PoC候補先",
   "sxIsVcPartner",
-  'heading="表示"',
+  'heading="分類"',
   'heading="役割"',
   "filterablePartners",
   "sxGroupPartnersByPrimaryClassification(filterablePartners)",
   "comparisonPartners",
-  "PartnerComparisonControls",
   "sxNormalizePublicName",
   "deferredLowPriority",
   "保留・低優先（重要経路外・",
@@ -995,10 +990,7 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "aria-labelledby={nameHeadingId}",
   "aria-pressed",
   // Round 32: one-row comparison keeps the dynamic progress rail/flow and intervention columns.
-  "OwnerLoadBand",
   "sxPartnerPrimaryIntervention",
-  "関係先の進捗比較",
-  "接点・現在地・次の行動・ゴールを、1社1行で確認",
   "進行状況",
   "詰まり・PJ影響",
   "次にやること",
@@ -1010,12 +1002,13 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   'heading="母数"',
   "SCROLL_HINT_CLASS",
   "ALWAYS_SCROLL_HINT_CLASS",
-  "border-l-4 border-[#e4ddd0] border-l-[#38745d]",
+  // v3.66.0: AMD標準カラートーン刷新でborder-[#c5bba5]→#d2d2d7, border-l-[#38745d]→#059669 に置換
+  "border-l-4 border-[#d2d2d7] border-l-[#059669]",
   // spec P0-10: 登録率(対応中N先中)。
   "登録率",
   "停止",
   "空レーンあり",
-  "deferredPartners.length === 0 &&\n          endedPartners.length === 0",
+  "deferredPartners.length === 0 &&\n              endedPartners.length === 0",
   "sourceEvidence",
   "一次根拠",
   "出典",
@@ -1027,12 +1020,12 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
 expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "text-[9px]",
   "opacity-80",
-  "text-[#777166]",
+  "text-[#5f5a4d]",
   "組成率",
   "未整理（当方側の確認未実施）",
   "未整理（先方側の確認未実施）",
   'pt-3" open>',
-  "inline-flex h-6 w-6 items-center justify-center rounded-md border border-[#cfc7b9] text-[#514e47] hover:bg-[#f8f5ec]",
+  "inline-flex h-6 w-6 items-center justify-center rounded-md border border-[#a69b84] text-[#514e47] hover:bg-[#f2eee0]",
   // spec (2026-07-24): mask-imageのcontent-fadeは末尾指標そのものを薄くするため撤去済み。
   "mask-image",
   // spec (2026-07-24 COO差し戻し4点目): ScrollHintArrowの薄い#a49d8cは#69665dへ統一済み、復活させない。
@@ -1262,30 +1255,28 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "sx-unified-timeline",
   "今日",
   "設立 {sxFormatDate(timeline.objectiveDate)}",
-  "工程 / タスク",
+  "MSとタスクの縦一覧",
   "RowBar",
-  "min-w-[1080px]",
-  // Round 20/24/31: 行クリックは横インスペクタ、値クリックは直接編集。ブロッキング
-  // マイルストーンは有償PoC口頭合意と出資口頭合意の2件だけに限定する。
+  // 2026-08-07: 時間軸の縮尺スライダー導入で固定幅クラスをやめ、基準幅×倍率の
+  // インライン minWidth になった。潰れ防止の下限そのものは GANTT_BASE_WIDTH_PX が担う。
+  "GANTT_BASE_WIDTH_PX = 1080",
+  "minWidth: GANTT_BASE_WIDTH_PX * timeScale",
+  // 行クリックは詳細、値クリックは直接編集。ブロッキングMSは有償PoC口頭合意と
+  // 出資口頭合意の2件だけに限定する。
   "onCreateMilestone",
   "onCreateTask",
   "selectedTaskId",
-  "expandedMilestones",
   "expandedTasks",
   "すべて展開",
   "canManage",
   "sxIsBlockingMilestone",
   "sxGateRequirementState",
   "マイルストーン",
-  "sxGateRequirementsBySuccessor",
   "前提",
-  // Round 33 (2026-08-02): ガントは常に事業開発／技術開発／組織開発の3レーンだけを描く。
-  // 資金調達(funding)は独立レーンを持たず組織開発へ統合。設立前提の2件（有償PoC口頭合意・
-  // 出資口頭合意）はガント外の独立sectionでも4本目の合成レーン（旧FOUNDING_LANE）でもなく、
-  // それぞれ事業開発／組織開発レーンへ直接強制配置する（BLOCKING_MILESTONE_LANE）。日程未設定
-  // でも隠さず、配下の必須タスクは初期展開し、完了数と次の未完了タスクを同じ行（RowBarの右列）
-  // で示す。通常の柱レーンからはこの2件を除外し二重表示しない。達成判定は4項目証跡＋配下タスク
-  // 全完了の両方が揃って初めて「充足」になる。timeline.valid=falseでもこの説明文は残る。
+  // ガントは常に事業開発／技術開発／組織開発の3レーンだけを描く。資金調達(funding)は
+  // 独立レーンを持たず組織開発へ統合。設立条件の2MSはガント外の独立sectionでも4本目の
+  // 合成レーンでもなく、それぞれ事業開発／組織開発レーンへ直接強制配置する。MS名は
+  // レコードtitleを使い、達成判定はMS自身の完了状態と4項目証跡で行う。
   "DISPLAY_LANE_ORDER",
   "DISPLAY_LANE_LABEL",
   "BLOCKING_MILESTONE_LANE",
@@ -1293,12 +1284,9 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "事業開発",
   "技術開発",
   "組織開発",
-  "blockingMilestones",
-  "blockingMilestoneRow",
-  "sxMilestoneRequiredTaskSummary",
-  "設立前提",
-  "必須タスク",
-  "requiredTaskSummary",
+  "milestoneAnchorRow",
+  "data-gantt-lane-milestone-spine={milestone.id}",
+  "title: milestone.title,",
   "row.achievement",
   "GATE_STATE_TEXT",
   "!timeline.valid &&",
@@ -1310,21 +1298,16 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   // recognizable as a milestone (監査追補 2026-08-02).
   "isMilestoneMarker && (",
   "日程未設定・{ROW_STATE_TEXT[row.state]}",
-  '{(row.isBlockingMilestone || row.timelineKind === "milestone") && (\n                            <i',
   // desktop expand/collapse toggle must be a full 44px hit target, not a 32px (w-8) one
   // (監査追補 2026-08-02).
-  "flex w-11 shrink-0 items-center justify-center text-[#69665d]",
-  // 監査追補 (2026-08-02): blocking milestoneの「必須タスク 完了/総数・次の未完了」は日程の
-  // 有無に関わらず常時RowBar 1行目に出す(!hasBar && の条件を外し、日付が入っても消えない)。
-  // undatedの◇(12px)はdatedの◇(12px)と同じ大きさへ統一する。
-  "{row.requiredTaskSummary && (",
-  "const barTop = row.isBlockingMilestone ? 24 : 15;",
-  'top: barTop,',
+  // v3.66.0: AMD標準カラートーン刷新でtext-[#5a574c]→#3c3c43 に置換
+  "flex w-11 shrink-0 items-center justify-center text-[#3c3c43]",
+  "const TASK_BAR_HEIGHT_PX = 10;",
+  "const TASK_BAR_TOP_PX = (ROW_H - TASK_BAR_HEIGHT_PX) / 2;",
+  "top: TASK_BAR_TOP_PX,",
   // Round 24/29: 計画の薄いバーと登録済み実績の濃い塗りを分け、未登録は0%と表示しない。
   "row.progressRegistered && row.progressPct > 0",
-  '実績{" "}',
-  "{row.actualEnd",
-  'aria-label="工程とタスクの縦一覧"',
+  "最上位タスクに戻す",
   "日程未登録",
   "aria-pressed",
   "focus-visible:outline",
@@ -1336,6 +1319,7 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   'resource: "schedule_dependency"',
   "data-gantt-schedule-dependency-lines",
   "data-gantt-sticky-header",
+  "日程未登録のMS",
   'className="sticky top-0 z-50 grid',
   'className="sticky left-0 z-[51]',
   "max-h-[min(72vh,720px)] overflow-auto overscroll-contain",
@@ -1359,9 +1343,9 @@ expectNotIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "FOUNDING_LANE_META",
   "FOUNDING_LANE_KEY",
   "founding-prerequisites",
-  // 監査追補 (2026-08-02): 必須タスクsummaryは日程が入っても消してはいけない(!hasBar限定禁止)。
-  // undatedの◇は8px(h-2 w-2)ではなくdatedと同じ12px(h-3 w-3)に統一する。
-  "!hasBar && row.requiredTaskSummary",
+  "requiredTaskSummary",
+  "sxMilestoneRequiredTaskSummary",
+  "必須タスク",
   "h-2 w-2 shrink-0 rotate-45",
 ]);
 expectIncludes("src/lib/sx-executive-control-deck.ts", [
@@ -3066,14 +3050,23 @@ console.log("critical PWA UI anchors ok");
 
 // Round 23 (2026-07-30): 関係先リストは1面に統合。メール専用の別リストは廃止し、
 // 直近接点は各社のmain grid内のcolumnに一本化。生の本文・アドレス・URLはDOMに出さない。
+// 2026-08-08 まさ指示 #11: 週次管制ナビを<a href="#...">から<button role="tab">へ置き換え、
+// 週次差分/ガント/関係先/論点・仮説の4タブ化(「データ接続」タブは廃止し週次差分タブへ内包)。
+// 旧アンカーhref="#partner-ledger"の直リンク文字列アサーションは、他画面からの
+// /weekly-control#partner-ledger 深リンク互換をSX_WEEKLY_VIEW_HASHのマッピングで
+// 引き継いでいるためこの2つに置き換える。
 expectIncludes(
   "src/components/project-workspace/SxWeeklyControlDashboard.tsx",
   [
-    'href="#partner-ledger"',
+    // 2026-08-08: 「hydration停止」の正体は検証側の背面タブ (rAF停止で
+    // streaming revealが保留されるだけ) と判明。タブ化を再適用しアサーションも復元。
+    "partners: \"partner-ledger\"",
+    "role=\"tablist\"",
     "onManagementChange={setManagement}",
     'kind: "create_partner"',
     'kind: "create_partner_work_item"',
-    "PoC先を含む全関係先",
+    // 2026-08-08 まさ指示: 見出し下の説明文は削除。分類の複数選択はモーダルへ。
+    "分類（複数選択可）",
   ],
 );
 expectNotIncludes(
@@ -3148,7 +3141,11 @@ expectIncludes("src/lib/sx-partner-progress.ts", [
   "SX_PARTNER_STAGE_ORDER",
   '"candidate"',
   '"executing"',
-  'export type SxPocComparisonSort = "progress" | "attention"',
+  "export type SxPocComparisonSort =\n  | \"progress\"\n  | \"attention\"\n  | \"confidence\"\n  | \"priority\";",
+  // 見込み判断はconfidence(情報の確からしさ)へ相乗りさせず独立2軸で持つ (2026-08-06 まさ指摘)。
+  "sxPocPriorityTier",
+  "sxPocLikelihoodLabel",
+  "sxCustomerValueLabel",
   "sxPartnerStageIndex",
   "sxPartnerAttention",
   "sxPartnerHasContactRecord",
@@ -3159,30 +3156,23 @@ expectIncludes("src/lib/sx-partner-progress.ts", [
   'partner: "先方"',
 ]);
 expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
-  "PartnerComparisonControls",
+  // 2026-08-08 まさ指示: 管制帯 (PartnerComparisonControls) と要対応クイックフィルタは
+  // 削除。タブは分類 (classifications 複数可) ベースで、既定はPoC候補先・並びは優先度順固定。
   "PartnerInlineRow",
   "PartnerProgressHistoryModal",
   "primaryInterventionTarget",
   "PartnerInlinePatch",
   "data-inline-edit-trigger",
   "data-inline-editor",
-  "activePocQuickFilter",
-  "pocMatchesQuickFilter",
   "sx-partner-comparison-row-",
   "sx-partner-stage-rail-",
   "sx-partner-progress-",
-  "interaction-${interaction.id}",
+  "interaction-${latestInteraction.id}",
   "work-${item.id}",
   'aria-modal="true"',
-  "判定材料不足",
-  "情報更新要",
-  "接点記録あり",
-  "関係先の進捗比較",
-  "const [pocOnly, setPocOnly] = useState(true)",
-  "const [vcOnly, setVcOnly] = useState(false)",
+  'useState<SxPartnerClassification | null>("poc_candidate")',
   "showRoleFilter={!comparisonOnly}",
   "comparisonPartners.map",
-  'data-testid="sx-partner-filter-vc"',
   "sxIsVcPartner",
   "sxCompactPartnerRowText",
   "現在の状況",
@@ -3190,9 +3180,8 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "createPortal",
   "useModalContainment",
   "aria-controls={`sx-partner-history-${partnerId}`}",
-  "aria-label={`${steps.length}件の進捗と履歴を開く`}",
+  "進捗と履歴を開く",
   "sticky top-0",
-  "sticky top-14",
 ]);
 expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "PartnerComparisonRow",
@@ -3267,9 +3256,11 @@ expectIncludes("src/components/project-workspace/weekly-control.module.css", [
 // おり、透明な生成りsheet・崩れたink/border/focusの原因だった。PlanInspectorLayerと同じ
 // トークン一式をここで再定義し、44pxヒットターゲットとfocus-visibleの可視outlineも揃える。
 expectPattern("src/components/project-workspace/weekly-control.module.css", [
-  /\.editorBackdrop\s*\{[^}]*--sheet:\s*#fffdf7;/,
-  /\.editorBackdrop\s*\{[^}]*--ink:\s*#24231f;/,
-  /\.editorBackdrop\s*\{[^}]*--green:\s*#235f4b;/,
+  // v3.66.0: AMD標準カラートーン刷新で.editorBackdropの--sheet: #fffdf7→#ffffff,
+  // --ink: #24231f→#1d1d1f, --green: #235f4b→#047857 に置換
+  /\.editorBackdrop\s*\{[^}]*--sheet:\s*#ffffff;/,
+  /\.editorBackdrop\s*\{[^}]*--ink:\s*#1d1d1f;/,
+  /\.editorBackdrop\s*\{[^}]*--green:\s*#047857;/,
   // 監査追補 (2026-08-02、色再監査): CSS変数の再定義だけでは、.editorPanel配下のh2/strong/
   // label/本文がcolorを明示していない限りbody側のdark themeを継承してしまい、不透明な生成り
   // #fffdf7背景の上で文字が薄く読めなくなる。.editorPanel自体にcolor: var(--ink)を明示する。
@@ -3277,10 +3268,12 @@ expectPattern("src/components/project-workspace/weekly-control.module.css", [
 ]);
 expectIncludes("src/components/project-workspace/weekly-control.module.css", [
   ".iconButton { width: 44px; height: 44px; border-radius: 8px; }",
-  ".iconButton:hover, .iconButton:focus-visible { border-color: var(--green); background: #e8f2eb; color: var(--green); outline: 2px solid var(--green); outline-offset: 2px; }",
+  // v3.66.0: AMD標準カラートーン刷新でhover背景 #e8f2eb→#ecfdf5 に置換
+  ".iconButton:hover, .iconButton:focus-visible { border-color: var(--green); background: #ecfdf5; color: var(--green); outline: 2px solid var(--green); outline-offset: 2px; }",
   ".primaryButton, .secondaryButton { min-height: 44px;",
   ".primaryButton:focus-visible, .secondaryButton:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }",
-  "min-height: 36px; border: 1px solid #c9c0b2; border-radius: 5px; background: #fffefa; padding: 6px 8px; color: var(--ink); font-size: 12px;",
+  // v3.66.0: AMD標準カラートーン刷新でborder #c9c0b2→#d2d2d7, background #fffefa→#ffffff に置換
+  "min-height: 36px; border: 1px solid #d2d2d7; border-radius: 5px; background: #ffffff; padding: 6px 8px; color: var(--ink); font-size: 12px;",
   ".field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible, .fieldSpan input:focus-visible, .fieldSpan select:focus-visible, .fieldSpan textarea:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }",
   ".checkboxRow { min-height: 36px;",
   ".checkboxRow input:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }",
@@ -3428,3 +3421,62 @@ expectNotIncludes("src/components/bzm/BzmTheoryComposerDialog.tsx", [
   "接続のプレビュー",
 ]);
 expectIncludes("package.json", ["test:bzm-theory-graph"]);
+
+// SX関係先・論点の低摩擦入力 (2026-08-09): 排液調達は明示boolを行内PATCH、
+// 論点は種類/期限を一覧で見せ、議論の進捗は上書きせず追記履歴として保存する。
+// 長文は省略せず、背景/仮説・議論・判断/次の一手を3ペインのworkbenchへ集約する。
+expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
+  "partner.effluentProcured ?? receivedSamples > 0",
+  "effluent_procured: event.target.checked",
+  "PJにとっての優先度",
+]);
+expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
+  'className="pointer-events-none h-4 w-4 accent-[#047857]"',
+  "顧客としての見込み。ペインの高さと単価の高い重金属の有無で付ける",
+]);
+expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
+  "論点・仮説を追加",
+  '<th scope="col">種類</th>',
+  '<th scope="col">期限</th>',
+  "議論の進捗",
+  "IssueWorkbench",
+  "今回の議論",
+  "この議論から生まれた仮説",
+  "次の一手",
+  "解決済みにして下へ移動",
+  'fieldKeys={activeEditor.kind === "edit_issue" ? ["title", "background", "knowledge_type", "status", "due_date"] : undefined}',
+  'resource: "issue_discussion"',
+  "onAddDiscussion={addIssueDiscussion}",
+]);
+expectIncludes("src/components/project-workspace/weekly-control.module.css", [
+  ".issueWorkbenchGrid",
+  "grid-template-columns: minmax(280px, .82fr) minmax(360px, 1.18fr) minmax(300px, .92fr)",
+  ".issueRowTruncate { margin: 3px 0 0; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; }",
+]);
+expectNotIncludes("src/components/project-workspace/weekly-control.module.css", [
+  ".issueRowTitleButton { display: block; width: 100%; margin-top: 4px; border: 0; border-bottom: 1px dashed transparent; background: transparent; color: var(--ink); font-size: 12px; line-height: 1.4; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }",
+  ".issueRowTruncate { margin: 3px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }",
+]);
+expectIncludes("src/app/api/project-workspace/[projectId]/management/route.ts", [
+  'body.resource === "issue_discussion"',
+  'from("project_management_issue_discussions")',
+  'takeOptionalText("background", "background", 4000)',
+  'takeBoolean("effluent_procured")',
+]);
+expectIncludes("src/lib/sx-management.ts", [
+  'plain("project_management_issue_discussions"',
+  "effluentProcured: boolean | null",
+  "discussions: SxIssueDiscussion[]",
+  "background: string | null",
+]);
+expectIncludes("scripts/migrations/247_sx_partner_effluent_procured.sql", [
+  "effluent_procured boolean",
+  "project_management_partners.poc_grade",
+]);
+expectIncludes("scripts/migrations/248_project_management_issue_discussions.sql", [
+  "CREATE TABLE IF NOT EXISTS public.project_management_issue_discussions",
+  "project_management_issue_discussions_manager_insert",
+]);
+expectIncludes("scripts/migrations/250_project_management_issue_background.sql", [
+  "ADD COLUMN IF NOT EXISTS background text",
+]);

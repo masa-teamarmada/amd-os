@@ -33,6 +33,12 @@ async function readBody(request: Request): Promise<Body | null> {
   }
 }
 
+function mimeType(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized && normalized.length <= 240 ? normalized : null;
+}
+
 function mutationError(error: { code?: string; message: string }) {
   if (error.code === "23505") return json({ ok: false, error: "移動先に同名の資料があるよ。" }, 409);
   console.error("[workspace-documents] mutation failed:", error.message);
@@ -116,9 +122,48 @@ export async function PATCH(
     return json({ ok: true, document: publicWorkspaceDocument(updated as unknown as WorkspaceDocumentRow) });
   }
 
-  if (!access.canManage) return json({ ok: false, error: "この資料は整理できないよ。" }, 403);
+  if (body.action === "complete_replace") {
+    if (!access.canUpload || row.entry_kind !== "file" || row.upload_status !== "active" || !row.storage_path || !row.storage_bucket) {
+      return json({ ok: false, error: "このファイルは置き換えを確定できないよ。" }, 403);
+    }
+    const replacementMimeType = mimeType(body.mimeType);
+    if (!replacementMimeType) return json({ ok: false, error: "ファイル形式を確認できないよ。" }, 400);
+
+    const { data: objectInfo, error: infoError } = await db.storage.from(row.storage_bucket).info(row.storage_path);
+    if (infoError || !objectInfo) return json({ ok: false, error: "置き換えたファイルを確認できなかったよ。" }, 409);
+
+    const objectSize = Number(objectInfo.size || 0);
+    const { data: updated, error: updateError } = await db
+      .from("workspace_documents")
+      .update({
+        mime_type: replacementMimeType,
+        file_size_bytes: objectSize,
+        source_kind: "manual_upload",
+        source_ref: null,
+        content_sha256: null,
+        source_updated_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("document_id", documentId)
+      .eq("entry_kind", "file")
+      .eq("upload_status", "active")
+      .select(WORKSPACE_DOCUMENT_FIELDS)
+      .single();
+    if (updateError) return mutationError(updateError);
+
+    await recordWorkspaceAuditEvent(db, {
+      eventType: "workspace_document_mutated",
+      userAccountId: access.accountId,
+      email: access.accountId ? access.email : null,
+      workspaceId: access.workspaceId,
+      projectId: access.projectId,
+      detail: { document_id: documentId, entry_kind: "file", action: "replace_file" },
+    });
+    return json({ ok: true, document: publicWorkspaceDocument(updated as unknown as WorkspaceDocumentRow) });
+  }
 
   if (body.action === "archive") {
+    if (!access.canUpload) return json({ ok: false, error: "この資料は削除できないよ。" }, 403);
     const { error: archiveError } = await db.rpc("workspace_archive_document", { p_document_id: documentId });
     if (archiveError) return mutationError(archiveError);
     await recordWorkspaceAuditEvent(db, {
@@ -131,6 +176,8 @@ export async function PATCH(
     });
     return json({ ok: true });
   }
+
+  if (!access.canManage) return json({ ok: false, error: "この資料は整理できないよ。" }, 403);
 
   if (body.action !== "organize") return json({ ok: false, error: "操作内容が不正だよ。" }, 400);
 

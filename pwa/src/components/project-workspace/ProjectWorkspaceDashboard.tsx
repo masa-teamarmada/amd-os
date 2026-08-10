@@ -107,6 +107,7 @@ const STATUS_TONE: Record<string, string> = {
   blocked: "border-[#e4a39b] bg-[#f9e4e1] text-[#8c3329]",
   completed: "border-[#b7c8d2] bg-[#eef3f5] text-[#315f7d]",
   unassessed: "border-[#b8b5c8] bg-[#eeedf4] text-[#55506d]",
+  not_started: "border-[#d6cebf] bg-[#f8f5ec] text-[#69665d]",
 };
 
 const RESOURCE_LABELS: Record<ManagementResource, string> = {
@@ -150,7 +151,7 @@ const EDIT_FIELDS: Record<ManagementResource, Array<{
   ],
   milestone: [
     { key: "status", label: "状態", type: "select", options: [
-      { value: "unassessed", label: "未評価" }, { value: "on_track", label: "順調" }, { value: "attention", label: "注意" },
+      { value: "not_started", label: "未着手" }, { value: "unassessed", label: "未評価" }, { value: "on_track", label: "順調" }, { value: "attention", label: "注意" },
       { value: "at_risk", label: "遅れ懸念" }, { value: "blocked", label: "停止" }, { value: "completed", label: "完了" },
     ] },
     { key: "planned_end", label: "予定日", type: "date" },
@@ -456,7 +457,7 @@ function compactYm(ym: string | null) {
 }
 
 function statusLabel(status: string) {
-  return ({ unassessed: "未評価", on_track: "順調", attention: "注意", at_risk: "遅れ懸念", blocked: "停止", completed: "完了", open: "未着手", validating: "検証中", decided: "判断済み", closed: "完了", on_hold: "保留", in_progress: "進行中", planned: "計画", running: "実施中", cancelled: "取消" } as Record<string, string>)[status] || "未確認";
+  return ({ not_started: "未着手", unassessed: "未評価", on_track: "順調", attention: "注意", at_risk: "遅れ懸念", blocked: "停止", completed: "完了", open: "未着手", validating: "検証中", decided: "判断済み", closed: "完了", on_hold: "保留", in_progress: "進行中", planned: "計画", running: "実施中", cancelled: "取消" } as Record<string, string>)[status] || "未確認";
 }
 
 function hypothesisStatusLabel(status: string) {

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ReactNode } from "react";
 import { GasMonthlySimulationPanel, type GasMonthlyRow, type GasProjectListItem, type GasSimulationResult } from "@/components/management-score/GasMonthlySimulationPanel";
+import { LongRangeProjectionPanel } from "@/components/management-score/LongRangeProjectionPanel";
 import {
   EvidencePanel,
   type EvidenceRow,
@@ -10,6 +11,7 @@ import {
 import { AlertTriangle, CheckCircle2, CircleGauge, ShieldAlert } from "lucide-react";
 import { runMonthlyPlSimulation, type MonthlyPlInputs } from "@/lib/finance/monthly-pl-simulation";
 import { buildLiveMonthlyPlInputs } from "@/lib/finance/live-monthly-pl-inputs";
+import { buildLongRangeProjection, type LongRangeTarget } from "@/lib/finance/longrange-projection";
 import { LIVE_MONTHLY_PL_VERSION } from "@/lib/finance/live-monthly-pl-budget";
 import { expandExtraRevenueCash, type ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 import { effectivePaymentYmForCycle } from "@/lib/payment-groups";
@@ -2326,6 +2328,30 @@ export default async function ManagementScorePage() {
       console.error("[management-score] live PL inputs build failed, falling back to snapshot", err);
     }
   }
+
+  // 長期戦略試算表 (FY2026–FY2035): 中期経営計画 KPI をアンカーにした独立モデル。
+  // 運用試算表 (company_budget_inputs / source=gas_monthly_pl) には一切依存・影響しない。
+  let longRangeProjection: ReturnType<typeof buildLongRangeProjection> | null = null;
+  try {
+    const { data: lrRows } = await admin
+      .from("company_longrange_targets")
+      .select("fy,revenue_yen,fcf_yen,fund_aum_yen,os_institutions,partner_institutions,papers_cumulative,note")
+      .order("fy", { ascending: true });
+    const longRangeTargets: LongRangeTarget[] = ((lrRows ?? []) as Array<Record<string, unknown>>).map((row) => ({
+      fy: Number(row.fy),
+      revenueYen: Number(row.revenue_yen ?? 0),
+      fcfYen: Number(row.fcf_yen ?? 0),
+      fundAumYen: Number(row.fund_aum_yen ?? 0),
+      osInstitutions: Number(row.os_institutions ?? 0),
+      partnerInstitutions: Number(row.partner_institutions ?? 0),
+      papersCumulative: Number(row.papers_cumulative ?? 0),
+      note: (row.note as string | null) ?? null,
+    }));
+    if (longRangeTargets.length > 0) longRangeProjection = buildLongRangeProjection(longRangeTargets);
+  } catch (err) {
+    console.error("[management-score] long-range projection build failed", err);
+  }
+
   const expectedReceiptsByYm = buildExpectedReceiptsByPaymentYm(billingCycles, paymentProjects);
   const oneOffInflowGrossByYm = buildOneOffInflowGrossByYm(budgetInputRows);
   const pastActualYm = addMonths(ymCap, -1);
@@ -2791,6 +2817,8 @@ export default async function ManagementScorePage() {
         </section>
 
         <GasMonthlySimulationPanel result={gasSimulationResult} inputs={gasSimulationInputs} />
+
+        {longRangeProjection && <LongRangeProjectionPanel projection={longRangeProjection} />}
 
         <ManagementSignalReviewPanel reviews={managementSignalReviews} />
 

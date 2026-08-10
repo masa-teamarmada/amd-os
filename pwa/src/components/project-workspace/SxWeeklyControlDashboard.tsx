@@ -7,10 +7,7 @@ import {
   ArrowRight,
   CalendarClock,
   Check,
-  ChevronDown,
-  ChevronRight,
   CircleDot,
-  ExternalLink,
   FileSearch,
   FlaskConical,
   GitBranch,
@@ -18,7 +15,6 @@ import {
   Plus,
   RefreshCw,
   Search,
-  ShieldCheck,
   Target,
   X,
 } from "lucide-react";
@@ -47,6 +43,12 @@ import type {
   SxTrackKey,
   SxValidationRun,
 } from "@/lib/sx-management";
+import {
+  SX_PARTNER_CLASSIFICATION_ORDER,
+  sxPartnerClassificationLabel,
+  sxPartnerHasClassification,
+} from "@/lib/sx-partner-progress";
+import type { SxPartnerClassification } from "@/lib/sx-management";
 import { deriveSxUnifiedTimeline } from "@/lib/sx-executive-control-deck";
 import {
   sxProjectOwnerLoads,
@@ -61,16 +63,22 @@ import {
   type SxGateRequirement,
 } from "@/lib/sx-gate-requirements";
 import {
+  sxApplyOptimisticManagementPatch,
+  sxInsertOptimisticManagementRecord,
+  sxNewOptimisticId,
+  sxRemoveOptimisticManagementRecord,
+  sxReplaceOptimisticManagementId,
+} from "@/lib/sx-management-optimistic";
+import { sxIsMissingOwner } from "./sx-visual-shared";
+import {
   sxWeeklyIssueAttentionScore,
   sxWeeklyIssueIsOverdue,
   sxWeeklyIssueIsStale,
-  sxWeeklyIssueLastActivity,
   sxWeeklyIssueNeedsAttention,
   sxWeeklyIssueNextDueDate,
   sxWeeklyIssueNextMove,
   sxWeeklyIssueStage,
   sxWeeklyValueMissing,
-  sxWeeklyWeekRangeLabel,
   type SxWeeklyIssueStage,
 } from "@/lib/sx-weekly-control";
 import {
@@ -78,7 +86,6 @@ import {
   type SxDisplayLaneKey,
 } from "./SxUnifiedTimeline";
 import { SxPartnerPipeline } from "./SxPartnerPipeline";
-import { SxProjectOwnerWorkload } from "./SxProjectOwnerWorkload";
 import styles from "./weekly-control.module.css";
 
 type StageKey = SxWeeklyIssueStage;
@@ -87,7 +94,6 @@ type WorkloadBucketKey =
   | "blocked"
   | "overdue"
   | "due_soon"
-  | "owner_unknown"
   | "due_unset"
   | "decision";
 type EditorState =
@@ -141,9 +147,8 @@ type EditorState =
       kind: "create_milestone";
       track: SxTrackKey | null;
       laneKey?: SxDisplayLaneKey | null;
-      /** Set by "MSを置く"/"MSを追加" — the created row is a generic point-MS (single "予定日"
-       * field saved into both planned_start/planned_end). Omit/"phase" keeps the ordinary
-       * 工程 create form (start+end fields). */
+      /** Set by "MSを置く"/"MSを追加" — the created row is a point-MS (single "予定日"
+       * field saved into both planned_start/planned_end). */
       timelineKind?: SxTimelineKind;
       plannedDate?: string | null;
       outcomeId?: string | null;
@@ -190,9 +195,8 @@ type PlanFieldEditorState = {
   >;
   fieldKeys: string[];
   /** What record this edit applies to (usually the open item's title, but a prerequisite/
-   * dependency row names its own milestone/gate instead) — shown at the top of the shared edit
-   * tray ("編集中｜対象 / 項目") so the origin stays clear even if the triggering cell has
-   * scrolled off-screen. */
+   * dependency row names its own milestone/gate instead). It is used by the direct-edit
+   * control's accessible label. */
   targetLabel: string;
   /** Which field/value is being edited (担当, 状態, 予定日, 完了条件, ...). */
   fieldLabel: string;
@@ -201,12 +205,67 @@ type PlanFieldEditorState = {
 type FormField = {
   key: string;
   label: string;
-  type?: "text" | "textarea" | "date" | "number" | "select" | "checkbox";
+  /** `owner` = 既存の担当から選ぶプルダウン + 「新しい担当を追加」で自由入力へ切り替え。
+   *  `lanes` = ガントの3グループの複数選択。値はレーンキーのカンマ連結で持つ。 */
+  type?:
+    | "text"
+    | "textarea"
+    | "date"
+    | "number"
+    | "select"
+    | "checkbox"
+    | "owner"
+    | "lanes"
+    | "multi";
   required?: boolean;
   span?: boolean;
   options?: Array<{ value: string; label: string }>;
   help?: string;
 };
+
+/** タイトル行の分類ボタンの見た目。一覧内の旧タブと同じ配色。 */
+function partnerClassificationChipClass(active: boolean) {
+  return `min-h-8 shrink-0 rounded border px-2 py-1 text-[11px] font-semibold ${
+    active
+      ? "border-[#0267B2] bg-[#E8F3FC] text-[#0267B2]"
+      : "border-[#cbd5e1] bg-[#ffffff] text-[#3c3c43] hover:bg-[#f5f5f7]"
+  }`;
+}
+
+/** 担当プルダウンで「新しい担当を追加」を選んだことを表す番兵値。担当名として保存されることはない。 */
+const OWNER_NEW_ENTRY = "__new_owner__";
+
+/** 担当プルダウンの候補。管制データに実在する担当名だけを集め、「担当未確認」等の欠測表現は外す。
+ * メンバー台帳ではなく実データから作るので、社外の人・チーム名もそのまま候補に載る。 */
+function collectOwnerCandidates(
+  management: SxManagementBundle,
+  currentValue: string,
+  selfName?: string,
+) {
+  const seen = new Set<string>();
+  const push = (value: string | null | undefined) => {
+    const label = (value || "").trim();
+    if (!label || sxIsMissingOwner(label)) return;
+    seen.add(label);
+  };
+  management.milestones.forEach((row) => push(row.ownerLabel));
+  management.tasks.forEach((row) => push(row.ownerLabel));
+  management.outcomes.forEach((row) => push(row.ownerLabel));
+  management.issues.forEach((row) => push(row.ownerLabel));
+  management.hypotheses.forEach((row) => push(row.ownerLabel));
+  management.validationRuns.forEach((row) => push(row.ownerLabel));
+  management.decisions.forEach((row) => push(row.ownerLabel));
+  management.actions.forEach((row) => push(row.ownerLabel));
+  management.partnerWorkItems.forEach((row) => push(row.ownerLabel));
+  management.technicalTests.forEach((row) => push(row.ownerLabel));
+  management.organizationRoles.forEach((row) => push(row.ownerLabel));
+  push(selfName);
+  const list = [...seen].sort((a, b) => a.localeCompare(b, "ja"));
+  const current = currentValue.trim();
+  // 既存値が候補から漏れていても選択状態を失わない（欠測表現・過去の自由入力もここで拾う）。
+  if (current && !list.includes(current)) list.unshift(current);
+  return list;
+}
 
 const TRACKS: Array<{
   key: SxTrackKey;
@@ -218,20 +277,20 @@ const TRACKS: Array<{
     key: "business_development",
     label: "事業開発",
     short: "事業",
-    accent: "#315f7d",
+    accent: "#027FDC",
   },
   {
     key: "technology_development",
     label: "技術開発",
     short: "技術",
-    accent: "#38745d",
+    accent: "#3D99E3",
   },
-  { key: "funding", label: "資金調達", short: "資金", accent: "#b56d20" },
+  { key: "funding", label: "資金調達", short: "資金", accent: "#7CBCEB" },
   {
     key: "organizational_building",
     label: "体制構築",
     short: "体制",
-    accent: "#76637b",
+    accent: "#0267B2",
   },
 ];
 
@@ -241,6 +300,38 @@ const STAGES: Array<{ key: StageKey; index: string; label: string }> = [
   { key: "decision", index: "03", label: "判断待ち" },
   { key: "resolved", index: "04", label: "決定・棄却" },
 ];
+const STAGE_LABEL: Record<StageKey, string> = Object.fromEntries(
+  STAGES.map((stage) => [stage.key, stage.label]),
+) as Record<StageKey, string>;
+
+// タブ化 (2026-08-08 まさ指示 #11)。データ接続は独立タブをやめ週次差分タブへ内包する
+// ため、4タブ("weekly"|"gantt"|"partners"|"issues")だけを持つ。既存のアンカー名
+// (#weekly-change / #project-gantt / #partner-ledger / #issue-hypothesis / #input-readiness)
+// は他画面からのリンク互換のためhashとしてそのまま残す。
+type SxWeeklyControlView = "weekly" | "gantt" | "partners" | "issues";
+const SX_WEEKLY_VIEW_STORAGE_KEY = "sx-weekly-control-view-v1";
+const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
+  weekly: "weekly-change",
+  gantt: "project-gantt",
+  partners: "partner-ledger",
+  issues: "issue-hypothesis",
+};
+const SX_WEEKLY_TABS: Array<{ key: SxWeeklyControlView; label: string }> = [
+  { key: "weekly", label: "週次差分" },
+  { key: "gantt", label: "ガント" },
+  { key: "partners", label: "関係先" },
+  { key: "issues", label: "論点・仮説" },
+];
+function viewForHash(hash: string): SxWeeklyControlView | null {
+  const normalized = hash.replace(/^#/, "");
+  if (!normalized) return null;
+  if (normalized === "project-gantt") return "gantt";
+  if (normalized === "partner-ledger") return "partners";
+  if (normalized === "issue-hypothesis") return "issues";
+  if (normalized === "weekly-change" || normalized === "input-readiness")
+    return "weekly";
+  return null;
+}
 
 const WORKLOAD_BUCKETS: Array<{
   key: WorkloadBucketKey;
@@ -248,10 +339,9 @@ const WORKLOAD_BUCKETS: Array<{
   hint: string;
 }> = [
   { key: "decision", label: "判断待ち", hint: "今週決めること" },
-  { key: "blocked", label: "停止", hint: "工程・タスク・保有事項" },
+  { key: "blocked", label: "停止", hint: "MS・タスク・保有事項" },
   { key: "overdue", label: "期限超過", hint: "未完了のみ" },
   { key: "due_soon", label: "7日以内", hint: "今週〜来週が期限" },
-  { key: "owner_unknown", label: "担当不明", hint: "担当未確認" },
   { key: "due_unset", label: "期限なし", hint: "期限が未設定" },
 ];
 
@@ -321,6 +411,40 @@ function ganttLaneLabelForTrack(track: SxTrackKey) {
   return "組織開発";
 }
 
+/** ガントの3グループ。MS作成フォームの複数選択と、レーン→保存用トラックの変換に使う。 */
+const GANTT_LANE_CHOICES: Array<{ key: SxDisplayLaneKey; label: string }> = [
+  { key: "business_development", label: "事業開発" },
+  { key: "technology_development", label: "技術開発" },
+  { key: "organization", label: "組織開発" },
+];
+
+function laneMatchesTrack(laneKey: SxDisplayLaneKey, track: SxTrackKey) {
+  if (laneKey === "organization")
+    return track === "funding" || track === "organizational_building";
+  return track === laneKey;
+}
+
+/** MSはDB上いまも成果(outcome)にぶら下がる。人が選ぶのは表示グループだけなので、選んだ先頭
+ * グループから保存用の親成果を自動で決める。 */
+function milestoneOutcomeForLane(
+  management: SxManagementBundle,
+  laneKey: SxDisplayLaneKey,
+) {
+  return (
+    management.outcomes.find((outcome) =>
+      laneMatchesTrack(laneKey, outcome.track),
+    ) || null
+  );
+}
+
+/** カンマ連結で持っているレーン選択を、正規の順序（事業→技術→組織）の配列へ戻す。 */
+function parseLaneKeys(value: string | undefined): SxDisplayLaneKey[] {
+  const chosen = new Set((value || "").split(",").filter(Boolean));
+  return GANTT_LANE_CHOICES.filter((lane) => chosen.has(lane.key)).map(
+    (lane) => lane.key,
+  );
+}
+
 function ganttLaneKeyForMilestone(
   milestone: SxManagementMilestone,
 ): SxDisplayLaneKey {
@@ -335,11 +459,10 @@ function ganttLaneKeyForMilestone(
   return "organization";
 }
 
-/** A lane is only a visual grouping; a task still needs an exact parent engineering phase.
- * Point-MS rows cannot own work, and an ordinary undated phase is not currently visible on the
- * Gantt, so attaching a task to it would make the new record disappear immediately after Save.
- * If the ordinary timeline is invalid, the two blocking milestones remain visible and usable. */
-function taskParentMilestones(
+/** A task retains a hidden legacy milestone FK only for database compatibility. The control
+ * board never exposes that container: a new task uses the first active backing container in its
+ * visible lane automatically. */
+function taskBackingMilestone(
   management: SxManagementBundle,
   laneKey: SxDisplayLaneKey,
 ) {
@@ -347,12 +470,9 @@ function taskParentMilestones(
     (milestone) =>
       ganttLaneKeyForMilestone(milestone) === laneKey &&
       milestone.status !== "completed" &&
-      (sxIsBlockingMilestone(milestone) ||
-        (milestone.timelineKind === "phase" && Boolean(milestone.plannedEnd))),
+      milestone.timelineKind === "phase",
   );
-  return management.judgment.dagValid
-    ? candidates
-    : candidates.filter(sxIsBlockingMilestone);
+  return candidates.sort((left, right) => left.title.localeCompare(right.title))[0] || null;
 }
 
 function issueStatusLabel(status: SxManagementIssue["status"]) {
@@ -394,10 +514,10 @@ function issueKindLabel(kind: SxManagementIssue["knowledgeType"]) {
   return (
     (
       {
-        fact: "事実",
+        fact: "論点",
         hypothesis: "仮説",
-        decision_needed: "判断要",
-        decision: "旧分類",
+        decision_needed: "論点（判断要）",
+        decision: "論点",
       } as const
     )[kind] || kind
   );
@@ -436,31 +556,13 @@ function editorInitialValues(
 ): Record<string, string> {
   const asOf = management.asOf;
   if (editor.kind === "create_milestone") {
-    const isGenericMs = editor.timelineKind === "milestone";
-    if (isGenericMs) {
-      // A point-MS only needs a name, a parent outcome and its point on the timeline. Legacy
-      // phase-oriented fields are filled with explicit unknown defaults by the API and can be
-      // refined later; placing a marker must not force the user to design the next phase.
-      return {
-        outcome_id: editor.outcomeId || "",
-        title: "",
-        planned_date: editor.plannedDate || "",
-        completion_criteria: "",
-      };
-    }
+    // A new MS is always a point. The legacy phase creation branch intentionally has no UI
+    // path: people place task and MS records only.
     return {
-      outcome_id: editor.outcomeId || "",
+      display_lane_keys: editor.laneKey || "",
       title: "",
-      gate: "",
-      planned_start: asOf,
-      planned_end: "",
-      date_certainty: "provisional",
-      owner_label: access.displayName,
-      next_deliverable: "",
-      max_issue: "未確認",
+      planned_date: editor.plannedDate || "",
       completion_criteria: "",
-      criticality: "high",
-      confidence: "unknown",
     };
   }
   if (editor.kind === "edit_milestone")
@@ -486,8 +588,7 @@ function editorInitialValues(
       confidence: editor.milestone.confidence,
     };
   if (editor.kind === "create_task") {
-    const candidates = taskParentMilestones(management, editor.laneKey);
-    const selected = candidates.length === 1 ? candidates[0] : null;
+    const selected = taskBackingMilestone(management, editor.laneKey);
     return {
       milestone_id: selected?.id || "",
       parent_task_id: "",
@@ -500,6 +601,9 @@ function editorInitialValues(
       progress_pct: "0",
       date_certainty: "provisional",
       owner_label: selected?.ownerLabel || access.displayName,
+      goal: "",
+      next_deliverable: "",
+      blocker: "",
       completion_criteria: "",
       confidence: "unknown",
     };
@@ -518,6 +622,9 @@ function editorInitialValues(
       progress_pct: String(editor.task.progressPct),
       date_certainty: editor.task.dateCertainty,
       owner_label: editor.task.ownerLabel,
+      goal: editor.task.goal || "",
+      next_deliverable: editor.task.nextDeliverable || "",
+      blocker: editor.task.blocker || "",
       completion_criteria: editor.task.completionCriteria || "",
       confidence: editor.task.confidence,
     };
@@ -540,7 +647,7 @@ function editorInitialValues(
   if (editor.kind === "create_partner")
     return {
       name: "",
-      role_label: "",
+      classifications: "",
       primary_track: "business_development",
       relationship_stage: "candidate",
       agreement_state: "unagreed",
@@ -550,7 +657,7 @@ function editorInitialValues(
       next_commitment: "未確認",
       due_date: "",
       due_date_precision: "unknown",
-      owner_label: access.displayName,
+      owner_label: "未確認",
       current_ball_side: "unknown",
       current_ball_owner: "",
       target_state: "",
@@ -559,7 +666,7 @@ function editorInitialValues(
   if (editor.kind === "edit_partner")
     return {
       name: editor.partner.name,
-      role_label: editor.partner.roleLabel,
+      classifications: editor.partner.classifications.join(","),
       primary_track: editor.partner.track,
       relationship_stage: editor.partner.relationshipStage,
       agreement_state: editor.partner.agreementState,
@@ -681,7 +788,7 @@ function editorInitialValues(
       title: "",
       knowledge_type: "fact",
       status: "open",
-      owner_label: access.displayName,
+      owner_label: "未確認",
       due_date: "",
       confidence: "unknown",
     };
@@ -690,31 +797,28 @@ function editorInitialValues(
       issue_id: "",
       statement: "",
       status: "open",
-      owner_label: access.displayName,
+      owner_label: "未確認",
       due_date: "",
       confidence: "unknown",
     };
   if (editor.kind === "edit_issue")
     return {
       title: editor.issue.title,
+      background: editor.issue.background || "",
       knowledge_type:
         editor.issue.knowledgeType === "decision"
           ? "decision_needed"
           : editor.issue.knowledgeType,
       status:
         editor.issue.status === "decided" ? "closed" : editor.issue.status,
-      owner_label: editor.issue.ownerLabel,
       due_date: editor.issue.dueDate || "",
-      confidence: editor.issue.confidence,
     };
   if (editor.kind === "create_hypothesis")
     return {
       statement: "",
       status: "open",
-      owner_label: sxWeeklyValueMissing(editor.issue.ownerLabel)
-        ? access.displayName
-        : editor.issue.ownerLabel,
-      due_date: editor.issue.dueDate || "",
+      owner_label: "未確認",
+      due_date: "",
       confidence: "unknown",
     };
   if (editor.kind === "edit_hypothesis")
@@ -831,6 +935,7 @@ function editorDefinition(
     type: "select",
     required: true,
     options: [
+      { value: "not_started", label: "未着手" },
       { value: "unassessed", label: "進捗未登録" },
       { value: "on_track", label: "進行中" },
       { value: "attention", label: "要確認" },
@@ -876,119 +981,55 @@ function editorDefinition(
     confidence,
   ];
   if (editor.kind === "create_milestone") {
-    const isGenericMs = editor.timelineKind === "milestone";
     return {
-      title: isGenericMs ? "MSを追加" : "工程を追加",
-      eyebrow: isGenericMs ? "MS" : "工程",
+      title: "MSを追加",
+      eyebrow: "MS",
       resource: "milestone",
       method: "POST",
       fields: [
         {
-          key: "outcome_id",
-          label: "接続する成果（配置レーン）",
-          type: "select",
+          key: "display_lane_keys",
+          label: "配置するグループ",
+          type: "lanes",
           required: true,
-          options: [
-            { value: "", label: "選択してね" },
-            ...management.outcomes
-              .filter(
-                (outcome) =>
-                  !editor.laneKey ||
-                  (editor.laneKey === "business_development"
-                    ? outcome.track === "business_development"
-                    : editor.laneKey === "technology_development"
-                      ? outcome.track === "technology_development"
-                      : ["funding", "organizational_building"].includes(
-                          outcome.track,
-                        )),
-              )
-              .map((outcome) => ({
-                value: outcome.id,
-                label: `${ganttLaneLabelForTrack(outcome.track)}｜${outcome.title}`,
-              })),
-          ],
+          span: true,
+          help: "このMSをゲートとして出すグループ。複数のグループにまたがるMSは、またがる分だけ選んでね。",
         },
         {
           key: "title",
-          label: isGenericMs ? "MS名" : "工程名",
+          label: "MS名",
           type: "textarea",
           required: true,
           span: true,
         },
-        ...(isGenericMs
-          ? [
-              {
-                key: "planned_date",
-                label: "予定日",
-                type: "date" as const,
-                required: true,
-              },
-              {
-                key: "completion_criteria",
-                label: "完了条件（任意）",
-                type: "textarea" as const,
-                span: true,
-                help: "何を確認できたらこのMSを達成とするか。まだ決められなければ空欄で追加できるよ。",
-              },
-            ]
-          : [
-              { key: "gate", label: "到達点", required: true },
-              { key: "owner_label", label: "担当", required: true },
-              { key: "planned_start", label: "計画開始", type: "date" as const },
-              { key: "planned_end", label: "計画完了", type: "date" as const },
-              {
-                key: "date_certainty",
-                label: "日程の確度",
-                type: "select" as const,
-                required: true,
-                options: [
-                  { value: "provisional", label: "仮" },
-                  { value: "confirmed", label: "確定" },
-                ],
-              },
-              {
-                key: "next_deliverable",
-                label: "次の成果物",
-                type: "textarea" as const,
-                required: true,
-                span: true,
-              },
-              {
-                key: "completion_criteria",
-                label: "完了条件",
-                type: "textarea" as const,
-                required: true,
-                span: true,
-              },
-              {
-                key: "criticality",
-                label: "重要度",
-                type: "select" as const,
-                required: true,
-                options: [
-                  { value: "critical", label: "最重要" },
-                  { value: "high", label: "高" },
-                  { value: "medium", label: "中" },
-                  { value: "low", label: "低" },
-                ],
-              },
-              confidence,
-            ]),
+        {
+          key: "planned_date",
+          label: "予定日",
+          type: "date" as const,
+          required: true,
+        },
+        {
+          key: "completion_criteria",
+          label: "完了条件（任意）",
+          type: "textarea" as const,
+          span: true,
+          help: "何を確認できたらこのMSを達成とするか。まだ決められなければ空欄で追加できるよ。",
+        },
       ],
     };
   }
   if (editor.kind === "edit_milestone") {
     const isGenericMs = isGenericPointMilestone(editor.milestone);
     return {
-      title: isGenericMs ? "MSを編集" : "工程を編集",
-      eyebrow: isGenericMs ? "MS" : "工程",
+      title: "MSを編集",
+      eyebrow: "MS",
       resource: "milestone",
       method: "PATCH",
       id: editor.milestone.id,
       fields: [
         {
           key: "title",
-          label: isGenericMs ? "MS名" : "工程名",
+          label: "MS名",
           type: "textarea",
           required: true,
           span: true,
@@ -1076,72 +1117,11 @@ function editorDefinition(
       method: editor.kind === "create_task" ? "POST" : "PATCH",
       id: editor.kind === "edit_task" ? editor.task.id : undefined,
       fields: [
-        ...(editor.kind === "create_task"
-          ? [
-              {
-                key: "milestone_id",
-                label: "接続する工程",
-                type: "select" as const,
-                required: true,
-                help:
-                  taskParentMilestones(management, editor.laneKey).length === 0
-                    ? "このレーンに接続できる工程がないよ。先に工程と日程を追加してね。"
-                    : "レーンは表示上の分類。実際にこのタスクを進める工程を選んでね。",
-                options: [
-                  { value: "", label: "工程を選択" },
-                  ...taskParentMilestones(management, editor.laneKey).map(
-                    (milestone) => ({
-                      value: milestone.id,
-                      label: milestone.title,
-                    }),
-                  ),
-                ],
-              },
-              {
-                key: "parent_task_id",
-                label: "ネスト先（親タスク）",
-                type: "select" as const,
-                help:
-                  "工程の直下 = 親なし。既存タスクを選ぶ = その子タスクとしてネストする。",
-                options: [
-                  { value: "", label: "工程の直下（親なし）" },
-                  ...management.tasks
-                    .filter((task) =>
-                      taskParentMilestones(management, editor.laneKey).some(
-                        (milestone) => milestone.id === task.milestoneId,
-                      ),
-                    )
-                    .map((task) => ({
-                      value: task.id,
-                      label: `${management.milestones.find((item) => item.id === task.milestoneId)?.title || "工程"}｜「${task.title}」の子にする`,
-                    })),
-                ],
-              },
-            ]
-          : [
-              {
-                key: "parent_task_id",
-                label: "ネスト先（親タスク）",
-                type: "select" as const,
-                help:
-                  "工程の直下に戻すとネストを外せる。既存タスクを選ぶと、その子タスクへ付け替える。",
-                options: [
-                  { value: "", label: "工程の直下（親なし）" },
-                  ...management.tasks
-                    .filter(
-                      (task) =>
-                        task.milestoneId === editor.task.milestoneId &&
-                        task.id !== editor.task.id,
-                    )
-                    .map((task) => ({
-                      value: task.id,
-                      label: `「${task.title}」の子にする`,
-                    })),
-                ],
-              },
-            ]),
         ...planFields,
         { key: "description", label: "作業内容", type: "textarea", span: true },
+        { key: "goal", label: "ゴール", type: "textarea", span: true },
+        { key: "next_deliverable", label: "次の成果物", type: "textarea", span: true },
+        { key: "blocker", label: "詰まり", type: "textarea", span: true },
         { key: "actual_end", label: "実績完了", type: "date" },
       ],
     };
@@ -1160,23 +1140,27 @@ function editorDefinition(
           ? [
               {
                 key: "predecessor_milestone_id",
-                label: "先へ進む前に満たす工程",
+                label: "先へ進む前に満たすMS",
                 type: "select" as const,
                 required: true,
                 span: true,
                 options: [
-                  { value: "", label: "工程を選んでね" },
+                  { value: "", label: "MSを選んでね" },
                   ...management.milestones
-                    .filter((milestone) => milestone.id !== editor.successor.id)
+                    .filter(
+                      (milestone) =>
+                        milestone.timelineKind === "milestone" &&
+                        milestone.id !== editor.successor.id,
+                    )
                     .map((milestone) => ({
                       value: milestone.id,
-                      label: `${trackMeta(milestone.track).short}｜${milestone.gate || milestone.title}`,
+                      label: `${trackMeta(milestone.track).short}｜${milestone.title}`,
                     })),
                 ],
               },
               {
                 key: "successor_milestone_id",
-                label: "この工程",
+                label: "このMS",
                 type: "select" as const,
                 required: true,
                 span: true,
@@ -1192,7 +1176,7 @@ function editorDefinition(
           type: "select",
           required: true,
           options: [
-            { value: "finish_to_start", label: "前工程の完了後に進む" },
+            { value: "finish_to_start", label: "先行MSの完了後に進む" },
           ],
           help: "設立前提は「口頭合意の確認＋証跡」を充足条件にするよ。",
         },
@@ -1210,16 +1194,50 @@ function editorDefinition(
         { key: "note", label: "条件の説明", type: "textarea", span: true },
       ],
     };
-  if (editor.kind === "create_partner" || editor.kind === "edit_partner")
+  if (editor.kind === "create_partner")
     return {
-      title: editor.kind === "create_partner" ? "関係先を追加" : "関係先を編集",
+      title: "関係先を追加",
       eyebrow: "関係先",
       resource: "partner",
-      method: editor.kind === "create_partner" ? "POST" : "PATCH",
-      id: editor.kind === "edit_partner" ? editor.partner.id : undefined,
+      method: "POST",
+      fields: [
+        {
+          key: "name",
+          label: "関係先名",
+          help: "名前だけで追加できるよ。分かる情報は後から足せる。",
+          span: true,
+        },
+        {
+          key: "classifications",
+          label: "分類（任意・複数選択可）",
+          type: "multi",
+          span: true,
+          options: SX_PARTNER_CLASSIFICATION_ORDER.map((classification) => ({
+            value: classification,
+            label: sxPartnerClassificationLabel(classification),
+          })),
+        },
+      ],
+    };
+  if (editor.kind === "edit_partner")
+    return {
+      title: "関係先を編集",
+      eyebrow: "関係先",
+      resource: "partner",
+      method: "PATCH",
+      id: editor.partner.id,
       fields: [
         { key: "name", label: "関係先名", required: true },
-        { key: "role_label", label: "役割", required: true },
+        {
+          key: "classifications",
+          label: "分類（複数選択可）",
+          type: "multi",
+          span: true,
+          options: SX_PARTNER_CLASSIFICATION_ORDER.map((classification) => ({
+            value: classification,
+            label: sxPartnerClassificationLabel(classification),
+          })),
+        },
         {
           key: "primary_track",
           label: "主な柱",
@@ -1438,15 +1456,17 @@ function editorDefinition(
         },
         {
           key: "related_milestone_id",
-          label: "影響する工程",
+          label: "影響するMS",
           type: "select",
           span: true,
           options: [
             { value: "", label: "未接続" },
-            ...management.milestones.map((milestone) => ({
+            ...management.milestones
+              .filter((milestone) => milestone.timelineKind === "milestone")
+              .map((milestone) => ({
               value: milestone.id,
               label: `${trackMeta(milestone.track).short}｜${milestone.title}`,
-            })),
+              })),
           ],
         },
         {
@@ -1590,7 +1610,6 @@ function editorDefinition(
           key: "issue_id",
           label: "対象論点",
           type: "select",
-          required: true,
           span: true,
           options: [
             { value: "", label: "論点を選んでね" },
@@ -1606,89 +1625,36 @@ function editorDefinition(
           key: "statement",
           label: "仮説",
           type: "textarea",
-          required: true,
           span: true,
           help: "反証できる形で書く",
         },
-        {
-          key: "status",
-          label: "状態",
-          type: "select",
-          required: true,
-          options: [
-            { value: "open", label: "未着手" },
-            { value: "validating", label: "検証中" },
-            { value: "on_hold", label: "保留" },
-          ],
-        },
-        { key: "owner_label", label: "担当", required: true },
-        { key: "due_date", label: "期限", type: "date" },
-        confidence,
+        { key: "due_date", label: "期限（任意）", type: "date" },
       ],
     };
   if (editor.kind === "create_issue")
     return {
-      title: "論点を追加",
-      eyebrow: "論点",
+      title: "論点・仮説を追加",
+      eyebrow: "論点・仮説",
       resource: "issue",
       method: "POST",
       fields: [
         {
-          key: "track",
-          label: "柱",
-          type: "select",
-          required: true,
-          options: TRACKS.map((track) => ({
-            value: track.key,
-            label: track.label,
-          })),
-        },
-        {
-          key: "milestone_id",
-          label: "関連工程",
+          key: "knowledge_type",
+          label: "種類",
           type: "select",
           options: [
-            { value: "", label: "未接続" },
-            ...management.milestones.map((milestone) => ({
-              value: milestone.id,
-              label: `${trackMeta(milestone.track).short}｜${milestone.title}`,
-            })),
+            { value: "fact", label: "論点" },
+            { value: "hypothesis", label: "仮説" },
           ],
         },
         {
           key: "title",
-          label: "論点",
+          label: "内容",
           type: "textarea",
-          required: true,
           span: true,
-          help: "何が分からず、何を決められないのかを一文で",
+          help: "まず一文だけ。議論の進捗・期限・根拠は追加後に育てられる。",
         },
-        {
-          key: "knowledge_type",
-          label: "分類",
-          type: "select",
-          required: true,
-          options: [
-            { value: "fact", label: "事実確認" },
-            { value: "hypothesis", label: "仮説" },
-            { value: "decision_needed", label: "意思決定待ち" },
-          ],
-        },
-        {
-          key: "status",
-          label: "状態",
-          type: "select",
-          required: true,
-          options: [
-            { value: "open", label: "未解決" },
-            { value: "validating", label: "検証中" },
-            { value: "on_hold", label: "保留" },
-            { value: "closed", label: "完了" },
-          ],
-        },
-        { key: "owner_label", label: "担当", required: true },
-        { key: "due_date", label: "期限", type: "date" },
-        confidence,
+        { key: "due_date", label: "期限（任意）", type: "date" },
       ],
     };
   if (editor.kind === "edit_issue")
@@ -1701,27 +1667,31 @@ function editorDefinition(
       fields: [
         {
           key: "title",
-          label: "論点",
+          label: "内容",
           type: "textarea",
-          required: true,
           span: true,
         },
         {
+          key: "background",
+          label: "発生した背景",
+          type: "textarea",
+          span: true,
+          help: "何が起きて、なぜ今この論点を扱うのか",
+        },
+        {
           key: "knowledge_type",
-          label: "分類",
+          label: "種類",
           type: "select",
-          required: true,
           options: [
-            { value: "fact", label: "事実確認" },
+            { value: "fact", label: "論点" },
             { value: "hypothesis", label: "仮説" },
-            { value: "decision_needed", label: "意思決定待ち" },
+            { value: "decision_needed", label: "論点（判断が必要）" },
           ],
         },
         {
           key: "status",
           label: "状態",
           type: "select",
-          required: true,
           options: [
             { value: "open", label: "未解決" },
             { value: "validating", label: "検証中" },
@@ -1729,18 +1699,32 @@ function editorDefinition(
             { value: "closed", label: "完了" },
           ],
         },
-        { key: "owner_label", label: "担当", required: true },
         { key: "due_date", label: "期限", type: "date" },
-        confidence,
       ],
     };
-  if (editor.kind === "create_hypothesis" || editor.kind === "edit_hypothesis")
+  if (editor.kind === "create_hypothesis")
     return {
-      title: editor.kind === "create_hypothesis" ? "仮説を追加" : "仮説を編集",
+      title: "仮説を追加",
       eyebrow: "仮説",
       resource: "hypothesis",
-      method: editor.kind === "create_hypothesis" ? "POST" : "PATCH",
-      id: editor.kind === "edit_hypothesis" ? editor.hypothesis.id : undefined,
+      method: "POST",
+      fields: [
+        {
+          key: "statement",
+          label: "仮説",
+          type: "textarea",
+          span: true,
+          help: "一文だけで追加できる。検証方法や期限は後から足せる。",
+        },
+      ],
+    };
+  if (editor.kind === "edit_hypothesis")
+    return {
+      title: "仮説を編集",
+      eyebrow: "仮説",
+      resource: "hypothesis",
+      method: "PATCH",
+      id: editor.hypothesis.id,
       fields: [
         {
           key: "statement",
@@ -2156,6 +2140,10 @@ function IssueEditor({
   projectId,
   onClose,
   onSaved,
+  onReconciled,
+  onReconciledId,
+  onRolledBack,
+  onSyncFailed,
   onDirtyChange,
   embedded = false,
   inlineField = false,
@@ -2170,6 +2158,14 @@ function IssueEditor({
   projectId: string;
   onClose: () => void;
   onSaved: (bundle: SxManagementBundle, message: string) => void;
+  /** Replaces the temporary local projection after the background write settles. */
+  onReconciled?: (bundle: SxManagementBundle) => void;
+  /** 先に画面へ置いた新規レコードの仮IDを、サーバが採番した本物のIDへ差し替える。 */
+  onReconciledId?: (temporaryId: string, realId: string) => void;
+  /** 新規レコードの書き込みが失敗したとき、先に置いた仮レコードを取り消す。 */
+  onRolledBack?: (temporaryId: string) => void;
+  /** A save was locally accepted but did not reach the DB; never silently keep it on screen. */
+  onSyncFailed?: (message: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
   embedded?: boolean;
   inlineField?: boolean;
@@ -2191,19 +2187,25 @@ function IssueEditor({
     () => initialValues.current,
   );
   const definition = editorDefinition(editor, management);
+  // 候補は開いた時点の担当で固定する。入力途中の文字列で作り直すと候補が揺れる。
+  const ownerCandidates = useMemo(
+    () =>
+      collectOwnerCandidates(
+        management,
+        initialValues.current.owner_label || "",
+        access.displayName,
+      ),
+    [management, access.displayName],
+  );
   const fieldsForCurrentSelection = definition.fields.map((field) => {
-    if (editor.kind !== "create_task" || field.key !== "parent_task_id")
-      return field;
+    if (field.key !== "owner_label" || field.options) return field;
     return {
       ...field,
+      type: "owner" as const,
       options: [
-        { value: "", label: "工程の直下（親なし）" },
-        ...management.tasks
-          .filter((task) => task.milestoneId === values.milestone_id)
-          .map((task) => ({
-            value: task.id,
-            label: `「${task.title}」の子にする`,
-          })),
+        { value: "", label: "担当を選ぶ" },
+        ...ownerCandidates.map((name) => ({ value: name, label: name })),
+        { value: OWNER_NEW_ENTRY, label: "＋ 新しい担当を追加" },
       ],
     };
   });
@@ -2216,6 +2218,11 @@ function IssueEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
+  /** 担当欄のうち、いま自由入力モードにしているフィールド。入力中の文字が既存候補と一致した
+   * 瞬間に入力欄が消えないよう、値ではなくモードそのものを保持する。 */
+  const [manualOwnerKeys, setManualOwnerKeys] = useState<ReadonlySet<string>>(
+    () => new Set<string>(),
+  );
   const editorPanelRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const discardBackButtonRef = useRef<HTMLButtonElement>(null);
@@ -2355,6 +2362,34 @@ function IssueEditor({
 
   async function save() {
     setError(null);
+    const minimalCreateField =
+      editor.kind === "create_partner"
+        ? { key: "name", label: "関係先名" }
+        : editor.kind === "create_issue" || editor.kind === "edit_issue"
+          ? { key: "title", label: "内容" }
+          : editor.kind === "create_hypothesis"
+            ? { key: "statement", label: "仮説" }
+            : null;
+    if (
+      minimalCreateField &&
+      !fieldValue(values, minimalCreateField.key).trim()
+    ) {
+      setError(`${minimalCreateField.label}を一文だけ入れてね`);
+      focusField(minimalCreateField.key);
+      return;
+    }
+    if (editor.kind === "create_hypothesis_any") {
+      const missing = !fieldValue(values, "issue_id").trim()
+        ? { key: "issue_id", label: "対象論点" }
+        : !fieldValue(values, "statement").trim()
+          ? { key: "statement", label: "仮説" }
+          : null;
+      if (missing) {
+        setError(`${missing.label}を入れてね`);
+        focusField(missing.key);
+        return;
+      }
+    }
     const missingRequired = activeFields.find(
       (field) => field.required && !fieldValue(values, field.key).trim(),
     );
@@ -2409,30 +2444,30 @@ function IssueEditor({
         return;
       }
     }
-    const selectedMilestoneOutcome =
+    // MSが立つ場所は人にとっては「グループ」。DBの親成果はそこから逆算する。
+    const selectedMilestoneLanes =
       editor.kind === "create_milestone"
-        ? management.outcomes.find(
-            (outcome) => outcome.id === values.outcome_id,
-          ) || null
+        ? parseLaneKeys(values.display_lane_keys)
+        : [];
+    const selectedMilestoneOutcome =
+      editor.kind === "create_milestone" && selectedMilestoneLanes.length
+        ? milestoneOutcomeForLane(management, selectedMilestoneLanes[0])
         : null;
+    if (editor.kind === "create_milestone" && !selectedMilestoneLanes.length) {
+      setError("配置するグループを選んでね");
+      focusField("display_lane_keys:business_development");
+      return;
+    }
     if (editor.kind === "create_milestone" && !selectedMilestoneOutcome) {
-      setError("接続する成果を選んでね");
-      focusField("outcome_id");
+      setError("このグループにMSを置くための基準情報がまだないよ");
       return;
     }
     const selectedTaskMilestone =
       editor.kind === "create_task"
-        ? taskParentMilestones(management, editor.laneKey).find(
-            (milestone) => milestone.id === values.milestone_id,
-          ) || null
+        ? taskBackingMilestone(management, editor.laneKey)
         : null;
     if (editor.kind === "create_task" && !selectedTaskMilestone) {
-      setError(
-        taskParentMilestones(management, editor.laneKey).length === 0
-          ? "先にこのレーンへ工程と日程を追加してね"
-          : "接続する工程を選んでね",
-      );
-      focusField("milestone_id");
+      setError("このレーンにタスクを置くための基準情報がまだないよ");
       return;
     }
     if (editor.kind === "create_task" && values.parent_task_id) {
@@ -2443,7 +2478,7 @@ function IssueEditor({
         !selectedParentTask ||
         selectedParentTask.milestoneId !== selectedTaskMilestone?.id
       ) {
-        setError("親タスクは、接続する工程の配下から選んでね");
+        setError("親タスクは同じタスク群から選んでね");
         focusField("parent_task_id");
         return;
       }
@@ -2487,31 +2522,28 @@ function IssueEditor({
     }
     if (editor.kind === "create_task") {
       // The visible lane is not a persistence parent. Derive the authoritative raw track from
-      // the exact phase selected in this same form, so changing the phase never leaves a stale
-      // track behind (organization visually merges two DB tracks).
+      // its internal backing record so the three visible lanes remain stable.
       fields.track = selectedTaskMilestone?.track || "";
       fields.milestone_id = selectedTaskMilestone?.id || "";
     }
     if (editor.kind === "create_milestone") {
       fields.objective_id = management.objective?.id || "";
+      // 人が選ぶのは表示グループ。1件のMSが複数グループにゲートとして現れる。
+      fields.display_lane_keys = selectedMilestoneLanes;
+      fields.outcome_id = selectedMilestoneOutcome?.id || "";
       // The selected outcome is the authoritative parent. Deriving the exact DB track from it
       // keeps the form's visible taxonomy at the approved three Gantt lanes while satisfying the
       // DB invariant milestone.track === outcome.track (funding and organizational_building both
       // render in the single 組織開発 lane).
       fields.track = selectedMilestoneOutcome?.track || "";
-      const isGenericMs = editor.timelineKind === "milestone";
-      fields.timeline_kind = isGenericMs ? "milestone" : "phase";
-      fields.slug = isGenericMs
-        ? `ms-${Date.now().toString(36)}`
-        : `weekly-ms-${Date.now().toString(36)}`;
-      if (isGenericMs) {
-        // 一般MSは単一の予定日。フォームでは1項目(予定日)だけ見せ、保存時にplanned_start/
-        // planned_endの両方へ同じ値を書く（gantt直接編集のcomputeMilestoneMoveと同じ不変条件）。
-        const plannedDate = (fields.planned_date as string | null) ?? null;
-        delete fields.planned_date;
-        fields.planned_start = plannedDate;
-        fields.planned_end = plannedDate;
-      }
+      fields.timeline_kind = "milestone";
+      fields.slug = `ms-${Date.now().toString(36)}`;
+      // MSは単一の予定日。フォームでは1項目だけ見せ、保存時にplanned_start/
+      // planned_endの両方へ同じ値を書く。
+      const plannedDate = (fields.planned_date as string | null) ?? null;
+      delete fields.planned_date;
+      fields.planned_start = plannedDate;
+      fields.planned_end = plannedDate;
     }
     if (editor.kind === "edit_milestone" && "planned_date" in fields) {
       // 既存の一般MSを編集するときも同じ不変条件: 予定日1項目をplanned_start/planned_endの
@@ -2523,6 +2555,12 @@ function IssueEditor({
     }
     if (editor.kind === "create_partner")
       fields.slug = `weekly-partner-${Date.now().toString(36)}`;
+    if (
+      (editor.kind === "create_partner" || editor.kind === "edit_partner") &&
+      typeof fields.classifications === "string"
+    )
+      // 分類はチェックボックス群のカンマ連結。APIには配列で渡す。
+      fields.classifications = fields.classifications.split(",").filter(Boolean);
     if (editor.kind === "create_issue")
       fields.slug = `weekly-${Date.now().toString(36)}`;
     if (editor.kind === "create_hypothesis") fields.issue_id = editor.issue.id;
@@ -2536,7 +2574,7 @@ function IssueEditor({
     }
     if (editor.kind === "create_action")
       fields.decision_id = editor.decision.id;
-    // 工程/タスクの計画日程は本番データで、ガントの直接編集(ドラッグ)と同じ楽観的並行制御を
+    // MS/タスクの計画日程は本番データで、ガントの直接編集(ドラッグ)と同じ楽観的並行制御を
     // 使う。読み込んだ時点のversionを一緒に送り、他の変更と競合していたら409で検知する
     // （最後に保存した側が黙って上書きしない）。
     const expectedVersion =
@@ -2545,24 +2583,145 @@ function IssueEditor({
         : isPatch && editor.kind === "edit_task"
           ? editor.task.version
           : undefined;
+    const requestBody = isPatch
+      ? {
+          resource: definition.resource,
+          id: definition.id,
+          patch: fields,
+          ...(expectedVersion != null
+            ? { expected_version: expectedVersion }
+            : {}),
+        }
+      : { resource: definition.resource, fields };
+
+    // Existing records commit to the screen first. A PM should be able to continue straight
+    // away; the server's full-bundle rebuild is deliberately no longer on the modal's critical
+    // path. A failed background write always reconciles from the DB and is called out explicitly.
+    if (isPatch && definition.id) {
+      const optimistic = sxApplyOptimisticManagementPatch(
+        management,
+        definition.resource,
+        definition.id,
+        fields,
+      );
+      onSaved(optimistic, `${definition.title}を保存したよ。DBへ同期中`);
+      void (async () => {
+        try {
+          const response = await fetch(
+            `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+            {
+              method: definition.method,
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(requestBody),
+            },
+          );
+          const body = await response.json().catch(() => ({}));
+          if (response.status === 409)
+            throw new Error("他の人がこの内容を先に更新したよ");
+          if (!response.ok)
+            throw new Error(
+              typeof body.error === "string" ? body.error : "保存できなかったよ",
+            );
+          // The optimistic projection already contains the exact submitted fields. Do not
+          // replace it with this response: another cell may have been saved while this request
+          // was in flight, and an older full bundle must never erase that newer visible edit.
+        } catch (caught) {
+          const message =
+            caught instanceof Error ? caught.message : "保存できなかったよ";
+          try {
+            const latest = await fetch(
+              `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+              { headers: { "Cache-Control": "no-store" } },
+            );
+            const latestBody = await latest.json().catch(() => null);
+            if (latest.ok && latestBody) {
+              onReconciled?.(latestBody as SxManagementBundle);
+              onSyncFailed?.(`${message}。最新の内容に戻したよ`);
+              return;
+            }
+          } catch {
+            // The notification below makes the unresolved state explicit.
+          }
+          onSyncFailed?.(`${message}。同期状況を確認できないから、画面を再読み込みしてね`);
+        }
+      })();
+      return;
+    }
+
+    // 新規のタスク・MSも画面へ先に置く。IDはサーバが決めるので、仮IDで挿してから
+    // 応答の本物のIDへ差し替える。DBが決める値(version・派生ステータス・並び順)は仮の
+    // 初期値で埋まり、次にDBから読み直したときに揃う。書き込みが失敗したら、置いた
+    // 仮レコードを取り消してDBの内容へ戻す。
+    if (
+      editor.kind === "create_task" ||
+      editor.kind === "create_milestone"
+    ) {
+      const resource = editor.kind === "create_task" ? "task" : "milestone";
+      const temporaryId = sxNewOptimisticId(
+        `${resource}-${management.tasks.length + management.milestones.length}-${definition.title}`,
+      );
+      const optimistic = sxInsertOptimisticManagementRecord(
+        management,
+        resource,
+        projectId,
+        temporaryId,
+        fields,
+      );
+      onSaved(
+        optimistic,
+        `${resource === "task" ? "タスク" : "MS"}を追加したよ。DBへ同期中`,
+      );
+      void (async () => {
+        try {
+          const response = await fetch(
+            `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+            {
+              method: definition.method,
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(requestBody),
+            },
+          );
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok)
+            throw new Error(
+              typeof body.error === "string" ? body.error : "保存できなかったよ",
+            );
+          // 本物のIDだけを受け取る。応答のbundleは使わない: 送信中に別の編集が入って
+          // いた場合、古いbundleが新しい見た目を消してしまう。
+          if (typeof body.id === "string" && body.id)
+            onReconciledId?.(temporaryId, body.id);
+        } catch (caught) {
+          const message =
+            caught instanceof Error ? caught.message : "保存できなかったよ";
+          try {
+            const latest = await fetch(
+              `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
+              { headers: { "Cache-Control": "no-store" } },
+            );
+            const latestBody = await latest.json().catch(() => null);
+            if (latest.ok && latestBody) {
+              onReconciled?.(latestBody as SxManagementBundle);
+              onSyncFailed?.(`${message}。最新の内容に戻したよ`);
+              return;
+            }
+          } catch {
+            // 下の通知で未解決の状態を明示する。
+          }
+          onRolledBack?.(temporaryId);
+          onSyncFailed?.(
+            `${message}。追加を取り消したよ。もう一度試してね`,
+          );
+        }
+      })();
+      return;
+    }
     try {
       const response = await fetch(
         `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
         {
           method: definition.method,
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(
-            isPatch
-              ? {
-                  resource: definition.resource,
-                  id: definition.id,
-                  patch: fields,
-                  ...(expectedVersion != null
-                    ? { expected_version: expectedVersion }
-                    : {}),
-                }
-              : { resource: definition.resource, fields },
-          ),
+          body: JSON.stringify(requestBody),
         },
       );
       const body = await response.json().catch(() => ({}));
@@ -2621,6 +2780,71 @@ function IssueEditor({
               }))
             }
           />
+        ) : field.type === "owner" ? (
+          manualOwnerKeys.has(field.key) ? (
+            <span className={styles.ownerManualRow}>
+              <input
+                name={field.key}
+                type="text"
+                autoFocus
+                placeholder="担当の名前を入力"
+                required={field.required}
+                value={fieldValue(values, field.key)}
+                onChange={(event) =>
+                  setValues((current) => ({
+                    ...current,
+                    [field.key]: event.target.value,
+                  }))
+                }
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setManualOwnerKeys((current) => {
+                    const next = new Set(current);
+                    next.delete(field.key);
+                    return next;
+                  });
+                  // 一覧へ戻したら、自由入力を始める前の担当へ復帰させる。空のまま残すと
+                  // 「変更していないのに未保存」の状態が居座り、破棄確認から抜けられなくなる。
+                  const restored = initialValues.current[field.key] || "";
+                  setValues((current) => ({
+                    ...current,
+                    [field.key]: field.options?.some(
+                      (option) => option.value === restored,
+                    )
+                      ? restored
+                      : "",
+                  }));
+                }}
+              >
+                一覧から選ぶ
+              </button>
+            </span>
+          ) : (
+            <select
+              name={field.key}
+              required={field.required}
+              value={fieldValue(values, field.key)}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                if (nextValue === OWNER_NEW_ENTRY) {
+                  setManualOwnerKeys((current) =>
+                    new Set(current).add(field.key),
+                  );
+                  setValues((current) => ({ ...current, [field.key]: "" }));
+                  return;
+                }
+                setValues((current) => ({ ...current, [field.key]: nextValue }));
+              }}
+            >
+              {field.options?.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          )
         ) : field.type === "select" ? (
           <select
             name={field.key}
@@ -2645,6 +2869,66 @@ function IssueEditor({
               </option>
             ))}
           </select>
+        ) : field.type === "lanes" ? (
+          <span className={styles.laneChoiceRow}>
+            {GANTT_LANE_CHOICES.map((lane) => {
+              const chosen = parseLaneKeys(values[field.key]);
+              return (
+                <label key={lane.key}>
+                  <input
+                    type="checkbox"
+                    name={`${field.key}:${lane.key}`}
+                    checked={chosen.includes(lane.key)}
+                    onChange={(event) => {
+                      const next = new Set(chosen);
+                      if (event.target.checked) next.add(lane.key);
+                      else next.delete(lane.key);
+                      setValues((current) => ({
+                        ...current,
+                        [field.key]: GANTT_LANE_CHOICES.filter((item) =>
+                          next.has(item.key),
+                        )
+                          .map((item) => item.key)
+                          .join(","),
+                      }));
+                    }}
+                  />
+                  <span>{lane.label}</span>
+                </label>
+              );
+            })}
+          </span>
+        ) : field.type === "multi" ? (
+          /* options を複数選択するチェックボックス群。値はカンマ連結で持ち、送信時に配列へ戻す。 */
+          <span className={styles.laneChoiceRow}>
+            {field.options?.map((option) => {
+              const chosen = (values[field.key] || "")
+                .split(",")
+                .filter(Boolean);
+              return (
+                <label key={option.value}>
+                  <input
+                    type="checkbox"
+                    name={`${field.key}:${option.value}`}
+                    checked={chosen.includes(option.value)}
+                    onChange={(event) => {
+                      const next = new Set(chosen);
+                      if (event.target.checked) next.add(option.value);
+                      else next.delete(option.value);
+                      setValues((current) => ({
+                        ...current,
+                        [field.key]: (field.options || [])
+                          .map((item) => item.value)
+                          .filter((item) => next.has(item))
+                          .join(","),
+                      }));
+                    }}
+                  />
+                  <span>{option.label}</span>
+                </label>
+              );
+            })}
+          </span>
         ) : field.type === "checkbox" ? (
           <span className={styles.checkboxRow}>
             <input
@@ -2909,13 +3193,13 @@ function IssueEditor({
             )}
             {"milestone" in editor && !hasVisibleField("title") && (
               <>
-                <span>対象工程</span>
+                <span>対象MS</span>
                 <strong>{editor.milestone.title}</strong>
               </>
             )}
             {"successor" in editor && (
               <>
-                <span>先へ進む工程</span>
+                <span>先へ進むMS</span>
                 <strong>{editor.successor.title}</strong>
               </>
             )}
@@ -2976,126 +3260,236 @@ function IssueEditor({
   );
 }
 
-function IssueCard({
+// 論点・仮説の表示は1論点=1行の表形式 (2026-08-08 まさ指示 #12)。旧IssueCard(Kanban card)を
+// IssueRowへ置き換え、詳細(仮説/根拠/判断/行動)の編集導線はdetailBodyのマークアップをそのまま
+// 流用し、<details>展開だった箇所をローカルexpanded stateで制御するtrへ変える。新しいフォーム
+// モーダルは追加せず、既存onEdit(editor state)呼び出しをそのまま使う。
+function IssueRow({
   issue,
   asOf,
   canManage,
   onEdit,
+  onAddDiscussion,
+  onOpen,
 }: {
   issue: SxManagementIssue;
   asOf: string;
   canManage: boolean;
   onEdit: (editor: EditorState) => void;
+  onAddDiscussion: (issueId: string, summary: string) => Promise<void>;
+  onOpen: (issueId: string) => void;
 }) {
+  // 詳細はワークベンチへ統合。旧inline詳細は移行中も表示されない。
+  const expanded = false;
+  const [discussionDraft, setDiscussionDraft] = useState("");
+  const [discussionSaving, setDiscussionSaving] = useState(false);
+  const [discussionError, setDiscussionError] = useState<string | null>(null);
   const track = trackMeta(issue.track);
   const stale = sxWeeklyIssueIsStale(issue, asOf);
   const overdue = sxWeeklyIssueIsOverdue(issue, asOf);
+  const nextDueDate = sxWeeklyIssueNextDueDate(issue);
   const attention = sxWeeklyIssueNeedsAttention(issue, asOf);
   const nextMove = sxWeeklyIssueNextMove(issue, asOf);
-  const nextDueDate = sxWeeklyIssueNextDueDate(issue);
-  const lastActivity = sxWeeklyIssueLastActivity(issue);
+  const openDecision = issue.decisions.find(
+    (decision) => decision.status === "open",
+  );
+  const representativeHypothesis =
+    issue.hypotheses.find(
+      (hypothesis) =>
+        hypothesis.status !== "rejected" && hypothesis.status !== "decided",
+    ) || issue.hypotheses[0];
+  const activeActionCount = issue.actionItems.filter(
+    (action) => action.status !== "completed",
+  ).length;
   return (
-    <article
-      className={styles.issueCard}
-      data-attention={attention || undefined}
-    >
-      <div className={styles.cardAccent} style={{ background: track.accent }} />
-      <div className={styles.issueCardHead}>
-        <div className={styles.badgeRow}>
-          <span
-            className={styles.trackBadge}
-            style={{ color: track.accent, borderColor: `${track.accent}55` }}
-          >
-            {track.short}
-          </span>
-          <span className={`${styles.statusBadge} ${statusTone(issue.status)}`}>
-            {issueStatusLabel(issue.status)}
-          </span>
-          {stale && (
-            <span className={`${styles.statusBadge} ${styles.toneDanger}`}>
-              更新切れ
-            </span>
-          )}
-          {overdue && (
-            <span className={`${styles.statusBadge} ${styles.toneDanger}`}>
-              期限超過
-            </span>
-          )}
-        </div>
-        {canManage && (
-          <div className={styles.issueHeadActions}>
-            <button
-              type="button"
-              onClick={() => onEdit({ kind: "create_hypothesis", issue })}
+    <>
+      <tr className={styles.issueRow} data-attention={attention || undefined}>
+        <td className={styles.issueRowTitleCell}>
+          <div className={styles.badgeRow}>
+            <span
+              className={styles.trackBadge}
+              style={{ color: track.accent, borderColor: `${track.accent}55` }}
             >
-              <Plus aria-hidden="true" />
-              仮説を追加
-            </button>
+              {track.short}
+            </span>
           </div>
-        )}
-      </div>
-      <p className={styles.issueType}>{issueKindLabel(issue.knowledgeType)}</p>
-      <h3>
-        {canManage ? (
           <button
             type="button"
-            className="w-full border-b border-dashed border-[#aaa294] text-left hover:border-[#38745d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
-            onClick={() => onEdit({ kind: "edit_issue", issue })}
-            aria-label={`${issue.title}を直接修正`}
+            className={styles.issueRowTitleButton}
+            onClick={() => onOpen(issue.id)}
+            aria-label={`${issue.title}の論点ワークベンチを開く`}
           >
             {issue.title}
           </button>
-        ) : (
-          issue.title
-        )}
-      </h3>
-      <dl className={styles.cardMeta}>
-        <div>
-          <dt>担当</dt>
-          <dd
+          <small
+            className={styles.issueRowSub}
             data-missing={sxWeeklyValueMissing(issue.ownerLabel) || undefined}
           >
-            {sxWeeklyValueMissing(issue.ownerLabel)
-              ? "未設定"
-              : issue.ownerLabel}
-          </dd>
-        </div>
-        <div>
-          <dt>次の期限</dt>
-          <dd data-missing={!nextDueDate || undefined}>
-            {formatDate(nextDueDate)}
-          </dd>
-        </div>
-        <div>
-          <dt>最終更新</dt>
-          <dd data-missing={stale || undefined}>{formatDate(lastActivity)}</dd>
-        </div>
-      </dl>
-      <div className={styles.nextMove}>
-        <span>次の動き</span>
-        <strong>
-          {nextMove?.label ||
-            (issue.hypotheses.length === 0
-              ? "検証可能な仮説を置く"
-              : "次の検証を設定")}
-        </strong>
-      </div>
-      <details className={styles.issueDetails}>
-        <summary>
-          <span>仮説 {issue.hypotheses.length}</span>
-          <span>根拠 {issue.evidence.length}</span>
-          <span>検証 {issue.validationRuns.length}</span>
-          <span>
-            行動{" "}
-            {
-              issue.actionItems.filter(
-                (action) => action.status !== "completed",
-              ).length
-            }
+            {sxWeeklyValueMissing(issue.ownerLabel) ? "" : issue.ownerLabel}
+          </small>
+        </td>
+        <td className={styles.issueRowKindCell}>
+          <span className={styles.issueRowKind}>
+            {issueKindLabel(issue.knowledgeType)}
           </span>
-          <ChevronDown aria-hidden="true" />
-        </summary>
+        </td>
+        <td className={styles.issueRowStatusCell}>
+          <div className={styles.badgeRow}>
+            <span className={`${styles.statusBadge} ${styles.toneMuted}`}>
+              {STAGE_LABEL[sxWeeklyIssueStage(issue)]}
+            </span>
+            <span className={`${styles.statusBadge} ${statusTone(issue.status)}`}>
+              {issueStatusLabel(issue.status)}
+            </span>
+            {stale && (
+              <span className={`${styles.statusBadge} ${styles.toneDanger}`}>
+                更新切れ
+              </span>
+            )}
+            {overdue && (
+              <span className={`${styles.statusBadge} ${styles.toneDanger}`}>
+                期限超過
+              </span>
+            )}
+          </div>
+        </td>
+        <td className={styles.issueRowDueCell} data-overdue={overdue || undefined}>
+          {nextDueDate ? formatDate(nextDueDate) : <span>未設定</span>}
+        </td>
+        <td className={styles.issueRowTruncateCell}>
+          <span className={styles.issueRowCount}>
+            仮説 {issue.hypotheses.length}件
+          </span>
+          {representativeHypothesis && (
+            <p
+              className={styles.issueRowTruncate}
+              title={representativeHypothesis.statement}
+            >
+              {representativeHypothesis.statement}
+            </p>
+          )}
+        </td>
+        <td className={styles.issueRowTruncateCell}>
+          <span className={styles.issueRowCount}>
+            議論 {issue.discussions.length}件 ・ 根拠 {issue.evidence.length}件 ・ 検証 {issue.validationRuns.length}件
+          </span>
+          {issue.discussions[0] && (
+            <p className={styles.issueRowTruncate} title={issue.discussions[0].summary}>
+              {issue.discussions[0].summary}
+            </p>
+          )}
+        </td>
+        <td className={styles.issueRowTruncateCell}>
+          {openDecision ? (
+            <>
+              <p className={styles.issueRowTruncate} title={openDecision.title}>
+                {openDecision.title}
+              </p>
+              {openDecision.dueDate && (
+                <small className={styles.issueRowSub}>
+                  {formatDate(openDecision.dueDate)}
+                </small>
+              )}
+            </>
+          ) : null}
+        </td>
+        <td className={styles.issueRowTruncateCell}>
+          {nextMove ? (
+            <>
+              <p className={styles.issueRowTruncate} title={nextMove.label}>
+                {nextMove.label}
+              </p>
+              {nextMove.dueDate && (
+                <small className={styles.issueRowSub}>
+                  {formatDate(nextMove.dueDate)}
+                </small>
+              )}
+            </>
+          ) : (
+            issue.hypotheses.length === 0 && (
+              <p className={styles.issueRowTruncate}>検証可能な仮説を置く</p>
+            )
+          )}
+        </td>
+        <td className={styles.issueRowExpandCell}>
+          <button
+            type="button"
+            className={styles.issueRowExpandButton}
+            onClick={() => onOpen(issue.id)}
+            aria-label={`${issue.title}の論点ワークベンチを開く`}
+          >
+            {activeActionCount > 0 && (
+              <span className={styles.issueRowActionCount}>{activeActionCount}</span>
+            )}
+            <FileSearch aria-hidden="true" />
+          </button>
+        </td>
+      </tr>
+      {expanded && (
+        <tr className={styles.issueDetailRow}>
+        <td colSpan={9}>
         <div className={styles.detailBody}>
+          <section className={styles.discussionSection}>
+            <div className={styles.detailTitle}>
+              <h4>議論の進捗</h4>
+              <span className={styles.issueRowCount}>{issue.discussions.length}件</span>
+            </div>
+            {canManage && (
+              <form
+                className={styles.discussionComposer}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const summary = discussionDraft.trim();
+                  if (!summary) {
+                    setDiscussionError("議論の進捗を一文だけ入れてね");
+                    return;
+                  }
+                  setDiscussionSaving(true);
+                  setDiscussionError(null);
+                  void onAddDiscussion(issue.id, summary)
+                    .then(() => setDiscussionDraft(""))
+                    .catch((caught) =>
+                      setDiscussionError(
+                        caught instanceof Error
+                          ? caught.message
+                          : "議論の進捗を追加できなかったよ",
+                      ),
+                    )
+                    .finally(() => setDiscussionSaving(false));
+                }}
+              >
+                <textarea
+                  value={discussionDraft}
+                  onChange={(event) => setDiscussionDraft(event.target.value)}
+                  rows={2}
+                  maxLength={1600}
+                  placeholder="話したこと、分かったこと、残った問いを短く追加"
+                  aria-label={`${issue.title}の議論の進捗`}
+                />
+                <button type="submit" disabled={discussionSaving}>
+                  <Plus aria-hidden="true" />
+                  {discussionSaving ? "追加中" : "進捗を追加"}
+                </button>
+              </form>
+            )}
+            {discussionError && (
+              <p className={styles.discussionError} role="alert">{discussionError}</p>
+            )}
+            {issue.discussions.length === 0 ? (
+              <p className={styles.emptyLine}>議論の進捗はまだない</p>
+            ) : (
+              <ol className={styles.discussionList}>
+                {issue.discussions.map((discussion) => (
+                  <li key={discussion.id}>
+                    <time dateTime={discussion.discussedOn}>
+                      {formatDate(discussion.discussedOn)}
+                    </time>
+                    <p>{discussion.summary}</p>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
           <section>
             <div className={styles.detailTitle}>
               <h4>仮説</h4>
@@ -3120,7 +3514,7 @@ function IssueCard({
                     onClick={() =>
                       onEdit({ kind: "edit_hypothesis", issue, hypothesis })
                     }
-                    className="min-w-0 flex-1 text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                    className="min-w-0 flex-1 text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
                     aria-label={`${hypothesis.statement}を直接修正`}
                   >
                     <span
@@ -3226,7 +3620,7 @@ function IssueCard({
                     onClick={() =>
                       onEdit({ kind: "edit_decision", issue, decision })
                     }
-                    className="block w-full border-b border-dashed border-[#aaa294] text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                    className="block w-full border-b border-dashed border-[#86868b] text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
                     aria-label={`${decision.title}を直接修正`}
                   >
                     <b>{decision.title}</b>
@@ -3255,7 +3649,7 @@ function IssueCard({
                           action,
                         })
                       }
-                      className="min-w-0 flex-1 border-b border-dashed border-[#aaa294] text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+                      className="min-w-0 flex-1 border-b border-dashed border-[#86868b] text-left disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]"
                       aria-label={`${action.title}を直接修正`}
                     >
                       <b>{action.title}</b>
@@ -3284,8 +3678,387 @@ function IssueCard({
             </div>
           )}
         </div>
-      </details>
-    </article>
+        </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+/**
+ * 論点を扱う会議中に閉じない、高密度の3ペイン作業面。
+ * 左=背景/仮説、中央=議論、右=判断/次の一手。子レコードの編集も右ペイン内で完結する。
+ */
+function IssueWorkbench({
+  issue,
+  management,
+  access,
+  projectId,
+  onClose,
+  onManagementChange,
+  onReconciledId,
+  onRolledBack,
+  onShowNotice,
+  onAddDiscussion,
+  onAddHypothesis,
+  onSetResolved,
+}: {
+  issue: SxManagementIssue;
+  management: SxManagementBundle;
+  access: CurrentMemberAccess;
+  projectId: string;
+  onClose: () => void;
+  onManagementChange: (bundle: SxManagementBundle) => void;
+  onReconciledId: (temporaryId: string, realId: string) => void;
+  onRolledBack: (temporaryId: string) => void;
+  onShowNotice: (message: string) => void;
+  onAddDiscussion: (issueId: string, summary: string) => Promise<void>;
+  onAddHypothesis: (issueId: string, statement: string) => Promise<void>;
+  onSetResolved: (issueId: string, resolved: boolean) => Promise<void>;
+}) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const editorRequestCloseRef = useRef<(() => void) | null>(null);
+  const [activeEditor, setActiveEditor] = useState<EditorState | null>(null);
+  const [editorDirty, setEditorDirty] = useState(false);
+  const [discussionDraft, setDiscussionDraft] = useState("");
+  const [hypothesisDraft, setHypothesisDraft] = useState("");
+  const [discussionSaving, setDiscussionSaving] = useState(false);
+  const [hypothesisSaving, setHypothesisSaving] = useState(false);
+  const [resolutionSaving, setResolutionSaving] = useState(false);
+  const [discussionError, setDiscussionError] = useState<string | null>(null);
+  const [hypothesisError, setHypothesisError] = useState<string | null>(null);
+  const stage = sxWeeklyIssueStage(issue);
+  const resolved = stage === "resolved";
+  const nextMove = sxWeeklyIssueNextMove(issue, management.asOf);
+  const chronologicalDiscussions = [...issue.discussions].reverse();
+  const decidedDecisions = issue.decisions.filter(
+    (decision) => decision.status === "decided",
+  );
+
+  function requestClose() {
+    if (editorDirty && activeEditor) {
+      editorRequestCloseRef.current?.();
+      return;
+    }
+    onClose();
+  }
+
+  useModalContainment({
+    dialogRef,
+    initialFocusRef: closeButtonRef,
+    onClose: requestClose,
+    active: true,
+  });
+
+  if (typeof document === "undefined") return null;
+
+  const openEditor = (next: EditorState) => {
+    setEditorDirty(false);
+    setActiveEditor(next);
+  };
+  const finishEditor = (next: SxManagementBundle, message: string) => {
+    onManagementChange(next);
+    setEditorDirty(false);
+    setActiveEditor(null);
+    onShowNotice(message);
+  };
+
+  return createPortal(
+    <div
+      className={styles.issueWorkbenchBackdrop}
+      role="presentation"
+      data-modal-layer="sx-issue-workbench"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) requestClose();
+      }}
+    >
+      <section
+        ref={dialogRef}
+        tabIndex={-1}
+        className={styles.issueWorkbench}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="sx-issue-workbench-title"
+        data-testid="sx-issue-workbench"
+      >
+        <header className={styles.issueWorkbenchHeader}>
+          <div className={styles.issueWorkbenchTitle}>
+            <div className={styles.issueWorkbenchMeta}>
+              <span>{trackMeta(issue.track).short}</span>
+              <span>{issueKindLabel(issue.knowledgeType)}</span>
+              <span>{STAGE_LABEL[stage]}</span>
+              <span>{issueStatusLabel(issue.status)}</span>
+              <span>{issue.dueDate ? `期限 ${formatDate(issue.dueDate)}` : "期限未設定"}</span>
+            </div>
+            <h2 id="sx-issue-workbench-title">{issue.title}</h2>
+          </div>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            className={styles.iconButton}
+            onClick={requestClose}
+            aria-label="論点ワークベンチを閉じる"
+          >
+            <X aria-hidden="true" />
+          </button>
+        </header>
+
+        <div className={styles.issueWorkbenchGrid}>
+          <section className={styles.issueWorkbenchPane} aria-label="背景と仮説">
+            <div className={styles.issueWorkbenchPaneHead}>
+              <div><b>01</b><h3>背景・論点</h3></div>
+              {management.canManage && (
+                <button type="button" onClick={() => openEditor({ kind: "edit_issue", issue })}>編集</button>
+              )}
+            </div>
+            {issue.background ? (
+              <p className={styles.issueWorkbenchLongText}>{issue.background}</p>
+            ) : (
+              <p className={styles.issueWorkbenchEmpty}>発生した経緯・前提はまだない</p>
+            )}
+            <div className={styles.issueWorkbenchSubhead}>
+              <div><b>03</b><h3>ネスト仮説</h3></div>
+              <span>{issue.hypotheses.length}件</span>
+            </div>
+            {issue.hypotheses.length === 0 ? (
+              <p className={styles.issueWorkbenchEmpty}>議論から生まれた仮説はまだない</p>
+            ) : (
+              <div className={styles.issueWorkbenchHypotheses}>
+                {issue.hypotheses.map((hypothesis) => {
+                  const validations = issue.validationRuns.filter(
+                    (validation) => validation.hypothesisId === hypothesis.id,
+                  );
+                  return (
+                    <article key={hypothesis.id}>
+                      <div>
+                        <span className={`${styles.statusBadge} ${statusTone(hypothesis.status)}`}>
+                          {hypothesisStatusLabel(hypothesis.status)}
+                        </span>
+                        {management.canManage && (
+                          <span className={styles.issueWorkbenchInlineActions}>
+                            <button type="button" onClick={() => openEditor({ kind: "edit_hypothesis", issue, hypothesis })}>編集</button>
+                            <button type="button" onClick={() => openEditor({ kind: "create_validation", issue, hypothesis })}>検証</button>
+                          </span>
+                        )}
+                      </div>
+                      <p>{hypothesis.statement}</p>
+                      {validations.map((validation) => (
+                        <button
+                          key={validation.id}
+                          type="button"
+                          className={styles.issueWorkbenchValidation}
+                          disabled={!management.canManage}
+                          onClick={() => openEditor({ kind: "edit_validation", issue, hypothesis, validation })}
+                        >
+                          <FlaskConical aria-hidden="true" />
+                          <span>{validation.method}<small>{validation.dueDate ? formatDate(validation.dueDate) : "期限未設定"}</small></span>
+                        </button>
+                      ))}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <section className={styles.issueWorkbenchPane} aria-label="議論の記録">
+            <div className={styles.issueWorkbenchPaneHead}>
+              <div><b>02</b><h3>議論</h3></div>
+              <span>{issue.discussions.length}件</span>
+            </div>
+            {chronologicalDiscussions.length === 0 ? (
+              <p className={styles.issueWorkbenchEmpty}>前回までの議論はまだない</p>
+            ) : (
+              <ol className={styles.issueWorkbenchTimeline}>
+                {chronologicalDiscussions.map((discussion, index) => (
+                  <li key={discussion.id}>
+                    <div><b>{index + 1}</b><time dateTime={discussion.discussedOn}>{formatDate(discussion.discussedOn)}</time></div>
+                    <p>{discussion.summary}</p>
+                  </li>
+                ))}
+              </ol>
+            )}
+            {management.canManage && (
+              <div className={styles.issueWorkbenchComposers}>
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const summary = discussionDraft.trim();
+                    if (!summary) {
+                      setDiscussionError("今回の議論を一文だけ入れてね");
+                      return;
+                    }
+                    setDiscussionSaving(true);
+                    setDiscussionError(null);
+                    void onAddDiscussion(issue.id, summary)
+                      .then(() => setDiscussionDraft(""))
+                      .catch((caught) => setDiscussionError(caught instanceof Error ? caught.message : "議論を記録できなかったよ"))
+                      .finally(() => setDiscussionSaving(false));
+                  }}
+                >
+                  <label htmlFor={`discussion-${issue.id}`}>今回の議論</label>
+                  <textarea
+                    id={`discussion-${issue.id}`}
+                    rows={4}
+                    maxLength={1600}
+                    value={discussionDraft}
+                    onChange={(event) => setDiscussionDraft(event.target.value)}
+                    placeholder="話したこと、分かったこと、残った問い"
+                  />
+                  {discussionError && <p role="alert">{discussionError}</p>}
+                  <button type="submit" disabled={discussionSaving}><Plus aria-hidden="true" />{discussionSaving ? "記録中" : "議論を記録"}</button>
+                </form>
+                <form
+                  className={styles.issueWorkbenchNestedComposer}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const statement = hypothesisDraft.trim();
+                    if (!statement) {
+                      setHypothesisError("生まれた仮説を一文だけ入れてね");
+                      return;
+                    }
+                    setHypothesisSaving(true);
+                    setHypothesisError(null);
+                    void onAddHypothesis(issue.id, statement)
+                      .then(() => setHypothesisDraft(""))
+                      .catch((caught) => setHypothesisError(caught instanceof Error ? caught.message : "仮説を追加できなかったよ"))
+                      .finally(() => setHypothesisSaving(false));
+                  }}
+                >
+                  <label htmlFor={`hypothesis-${issue.id}`}><GitBranch aria-hidden="true" />この議論から生まれた仮説</label>
+                  <textarea
+                    id={`hypothesis-${issue.id}`}
+                    rows={2}
+                    maxLength={1200}
+                    value={hypothesisDraft}
+                    onChange={(event) => setHypothesisDraft(event.target.value)}
+                    placeholder="反証できる一文で親論点へネスト"
+                  />
+                  {hypothesisError && <p role="alert">{hypothesisError}</p>}
+                  <button type="submit" disabled={hypothesisSaving}>{hypothesisSaving ? "追加中" : "仮説をネスト"}</button>
+                </form>
+              </div>
+            )}
+          </section>
+
+          <section className={styles.issueWorkbenchPane} aria-label="判断と次の一手">
+            {activeEditor && (
+              <div className={styles.issueWorkbenchEditor}>
+                <div className={styles.issueWorkbenchEditorHead}>
+                  <strong>この論点の中で編集</strong>
+                  <button type="button" onClick={() => editorRequestCloseRef.current?.()}>閉じる</button>
+                </div>
+                <IssueEditor
+                  key={`${activeEditor.kind}-${"issue" in activeEditor ? activeEditor.issue.id : "new"}-${"hypothesis" in activeEditor ? activeEditor.hypothesis?.id || "" : ""}-${"decision" in activeEditor ? activeEditor.decision.id : ""}-${"action" in activeEditor ? activeEditor.action.id : ""}`}
+                  editor={activeEditor}
+                  management={management}
+                  access={access}
+                  projectId={projectId}
+                  embedded
+                  fieldKeys={activeEditor.kind === "edit_issue" ? ["title", "background", "knowledge_type", "status", "due_date"] : undefined}
+                  requestCloseRef={editorRequestCloseRef}
+                  onDirtyChange={setEditorDirty}
+                  onClose={() => {
+                    setEditorDirty(false);
+                    setActiveEditor(null);
+                  }}
+                  onSaved={finishEditor}
+                  onReconciled={onManagementChange}
+                  onReconciledId={onReconciledId}
+                  onRolledBack={onRolledBack}
+                  onSyncFailed={onShowNotice}
+                />
+              </div>
+            )}
+
+            <div className={styles.issueWorkbenchPaneHead}>
+              <div><b>04</b><h3>判断</h3></div>
+              {management.canManage && (
+                <span className={styles.issueWorkbenchInlineActions}>
+                  <button type="button" onClick={() => openEditor({ kind: "create_evidence", issue })}>材料</button>
+                  <button type="button" onClick={() => openEditor({ kind: "create_decision", issue })}>判断</button>
+                </span>
+              )}
+            </div>
+            <div className={styles.issueWorkbenchEvidence}>
+              {issue.evidence.length === 0 ? (
+                <p className={styles.issueWorkbenchEmpty}>根拠・反証はまだない</p>
+              ) : issue.evidence.map((evidence) => (
+                <p key={evidence.id}><b>{({ supporting: "支持", counter: "反証", missing: "不足", observation: "観測" } as const)[evidence.kind]}</b>{evidence.summary}</p>
+              ))}
+            </div>
+            <div className={styles.issueWorkbenchDecisions}>
+              {issue.decisions.map((decision) => (
+                <button
+                  type="button"
+                  key={decision.id}
+                  disabled={!management.canManage}
+                  onClick={() => openEditor({ kind: "edit_decision", issue, decision })}
+                >
+                  <span className={`${styles.statusBadge} ${statusTone(decision.status)}`}>{decision.status === "decided" ? "決定済み" : decision.status === "deferred" ? "保留" : "判断待ち"}</span>
+                  <b>{decision.title}</b>
+                  {decision.decisionText && <small>{decision.decisionText}</small>}
+                </button>
+              ))}
+            </div>
+
+            <div className={styles.issueWorkbenchSubhead}>
+              <div><b>05</b><h3>次の一手</h3></div>
+            </div>
+            {nextMove && (
+              <div className={styles.issueWorkbenchNextMove}>
+                <ArrowRight aria-hidden="true" />
+                <div><small>いま先頭に置く行動</small><strong>{nextMove.label}</strong>{nextMove.dueDate && <span>期限 {formatDate(nextMove.dueDate)}</span>}</div>
+              </div>
+            )}
+            <div className={styles.issueWorkbenchActions}>
+              {issue.actionItems.length === 0 && !nextMove && (
+                <p className={styles.issueWorkbenchEmpty}>判断後の行動はまだない</p>
+              )}
+              {issue.actionItems.map((action) => {
+                const decision = issue.decisions.find((candidate) => candidate.id === action.decisionId);
+                return (
+                  <button
+                    type="button"
+                    key={action.id}
+                    disabled={!management.canManage || !decision}
+                    onClick={() => decision && openEditor({ kind: "edit_action", issue, decision, action })}
+                  >
+                    <span className={`${styles.statusBadge} ${statusTone(action.status)}`}>{action.status === "completed" ? "完了" : action.status === "blocked" ? "停止" : "実行中"}</span>
+                    <b>{action.title}</b>
+                    <small>{action.dueDate ? `期限 ${formatDate(action.dueDate)}` : "期限未設定"}</small>
+                  </button>
+                );
+              })}
+              {management.canManage && decidedDecisions.map((decision) => (
+                <button type="button" key={`new-${decision.id}`} className={styles.issueWorkbenchAddAction} onClick={() => openEditor({ kind: "create_action", issue, decision })}>
+                  <Plus aria-hidden="true" />次の一手を追加
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <footer className={styles.issueWorkbenchFooter}>
+          <span>{resolved ? "解決済みとして一覧の下部へ整理" : "解けたら一覧の下部へ整理"}</span>
+          {management.canManage && (
+            <button
+              type="button"
+              data-resolved={resolved || undefined}
+              disabled={resolutionSaving}
+              onClick={() => {
+                setResolutionSaving(true);
+                void onSetResolved(issue.id, !resolved).finally(() => setResolutionSaving(false));
+              }}
+            >
+              <Check aria-hidden="true" />{resolutionSaving ? "更新中" : resolved ? "未解決に戻す" : "解決済みにして下へ移動"}
+            </button>
+          )}
+        </footer>
+      </section>
+    </div>,
+    document.body,
   );
 }
 
@@ -3298,7 +4071,10 @@ function PlanInspector({
   detailEditor,
   inlineEditorSlot,
   inlineEditor,
+  deleteBlockedReason,
+  deleting,
   onClose,
+  onDelete,
   onEditField,
 }: {
   milestone: SxManagementMilestone | null;
@@ -3309,7 +4085,10 @@ function PlanInspector({
   detailEditor?: ReactNode;
   inlineEditorSlot?: string | null;
   inlineEditor?: ReactNode;
+  deleteBlockedReason?: string | null;
+  deleting?: boolean;
   onClose: () => void;
+  onDelete?: () => void;
   onEditField: (
     slot: string,
     editor: PlanFieldEditorState["editor"],
@@ -3320,15 +4099,20 @@ function PlanInspector({
 }) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
+  // 削除は取り消しづらいので同じトレイ内で2段階に踏ませる。別モーダルは開かない。
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const item = task || milestone;
   const isTask = Boolean(task);
   const plannedStart = item?.plannedStart ?? null;
   const plannedEnd = item?.plannedEnd ?? null;
-  const progressRegistered = isTask
-    ? task?.status !== "unassessed"
-    : milestone?.manualStatus !== "unassessed";
+  // 未着手も進捗を登録した状態ではない。0% を実績として見せない。
+  const currentStatus = isTask ? task?.status : milestone?.manualStatus;
+  const progressRegistered =
+    currentStatus !== "unassessed" && currentStatus !== "not_started";
   const description = task?.description || milestone?.gate || "未設定";
-  const blocker = milestone?.maxIssue || task?.description || "未設定";
+  const goal = task?.goal || milestone?.gate || "未設定";
+  const blocker = task?.blocker || milestone?.maxIssue || "未設定";
+  const nextDeliverable = task?.nextDeliverable || milestone?.nextDeliverable || "未設定";
   const criteria =
     task?.completionCriteria || milestone?.completionCriteria || "未設定";
   const metRequirements = requirements.filter(
@@ -3356,16 +4140,19 @@ function PlanInspector({
     return () => window.cancelAnimationFrame(frame);
   }, [item, canManage]);
 
+  const itemId = item?.id ?? null;
+  useEffect(() => {
+    setConfirmingDelete(false);
+  }, [itemId]);
+
   if (!item) return null;
 
   const itemEditor: PlanFieldEditorState["editor"] = task
     ? { kind: "edit_task", task }
     : { kind: "edit_milestone", milestone: milestone! };
-  // Every editable value (title, description/gate, blocker, completion criteria/evidence,
-  // prerequisite fields, and the 5 facts-row cells alike) stays a fixed-size display button —
-  // never swapped in place for the edit form. Exactly one shared edit tray renders below the
-  // fixed facts row for whichever slot is active (see inlineEditorSlot below); this function only
-  // ever returns the stable button (highlighted via data-editing while its tray is open).
+  // One field can be edited at a time, in the exact position that was clicked. The detail dialog
+  // remains the only dialog; there is no lower "edit tray" that visually reads as a second
+  // modal or loses the connection to the original value.
   const editableValue = (
     slot: string,
     label: string,
@@ -3376,7 +4163,11 @@ function PlanInspector({
     // different record than the item itself) pass an explicit override.
     targetLabel: string = item!.title,
   ) =>
-    canManage ? (
+    inlineEditorSlot === slot && inlineEditor ? (
+      <span className={styles.inspectorInlineSlot} data-plan-inline-slot={slot}>
+        {inlineEditor}
+      </span>
+    ) : canManage ? (
       <button
         type="button"
         className={styles.inspectorEditable}
@@ -3417,14 +4208,14 @@ function PlanInspector({
         <header>
           <div>
             <p>
-              {isTask
-                ? "タスク詳細"
-                : isGenericMs
-                  ? "マイルストーン詳細"
-                  : "工程詳細"}
+              {isTask ? "タスク詳細" : "MS詳細"}
             </p>
             {detailEditor ? (
               <h3>{item.title}</h3>
+            ) : inlineEditorSlot === "item-title" && inlineEditor ? (
+              <div className={styles.inspectorTitleEditor} data-plan-inline-slot="item-title">
+                {inlineEditor}
+              </div>
             ) : (
               <h3>
                 {editableValue("item-title", "名称", item.title, itemEditor, [
@@ -3443,22 +4234,19 @@ function PlanInspector({
             <X aria-hidden="true" />
           </button>
         </header>
-        {/* 現在の項目名はh3に既に出ているので、パンくずには重複させない — タスクは track >
-            親工程、工程/MSはtrackのみ。状態も下のfactsの「状態」セルで既に見えるため、ここに
-            ステータスチップは置かない（2026-08 監査追補）。 */}
+        {/* 項目名はheader、表示レーンはbreadcrumbで分担する。hidden compatibility
+            containerの名称は出さず、状態もfactsで一度だけ示す。 */}
         {!detailEditor && (
           <div className={styles.inspectorBreadcrumb}>
-            {milestone && task ? (
-              <>
-                <span>{ganttLaneLabelForTrack(milestone.track)}</span>
-                <ChevronRight aria-hidden="true" />
-                <strong>{milestone.title}</strong>
-              </>
-            ) : (
-              <span>
-                {milestone ? ganttLaneLabelForTrack(milestone.track) : "工程"}
-              </span>
-            )}
+            <span>
+              {task
+                ? ganttLaneLabelForTrack(
+                    task.track || milestone?.track || "organizational_building",
+                  )
+                : milestone
+                  ? ganttLaneLabelForTrack(milestone.track)
+                  : "タスク"}
+            </span>
           </div>
         )}
         {detailEditor ? (
@@ -3551,54 +4339,70 @@ function PlanInspector({
                 </div>
               )}
             </dl>
-            {inlineEditorSlot && (
-              <div
-                className={styles.inspectorEditTray}
-                data-plan-inline-slot={inlineEditorSlot}
-              >
-                {inlineEditor}
-              </div>
-            )}
-
             <div className={styles.inspectorContentGrid}>
               {isTask && (
                 <section className={styles.inspectorSection}>
-                  <span>ネスト先（親タスク）</span>
+                  <span>タスク階層</span>
                   <div className={styles.inspectorSectionValue}>
-                    {editableValue(
-                      "item-parent-task",
-                      "ネスト先（親タスク）",
-                      taskParentTitle
+                    <p>
+                      {taskParentTitle
                         ? `「${taskParentTitle}」の子タスク`
-                        : "工程の直下（親なし）",
-                      itemEditor,
-                      ["parent_task_id"],
+                        : "最上位タスク"}
+                    </p>
+                    {canManage && (
+                      <small>
+                        ガント左のグリップを、親にしたいタスクへドラッグ
+                      </small>
                     )}
                   </div>
                 </section>
               )}
               <section className={styles.inspectorSection}>
-                <span>内容 / 到達点</span>
+                <span>{isTask ? "内容" : "到達点"}</span>
                 <div className={styles.inspectorSectionValue}>
                   {editableValue(
                     "item-description",
-                    "内容と到達点",
+                    isTask ? "内容" : "到達点",
                     description,
                     itemEditor,
                     [isTask ? "description" : "gate"],
                   )}
                 </div>
               </section>
-              {!isTask && (
+              <section className={styles.inspectorSection}>
+                <span>{isTask ? "ゴール" : "次の成果物"}</span>
+                <div className={styles.inspectorSectionValue}>
+                  {editableValue(
+                    "item-goal-or-next",
+                    isTask ? "ゴール" : "次の成果物",
+                    isTask ? goal : nextDeliverable,
+                    itemEditor,
+                    [isTask ? "goal" : "next_deliverable"],
+                  )}
+                </div>
+              </section>
+              <section className={styles.inspectorSection}>
+                <span>詰まり</span>
+                <div className={styles.inspectorSectionValue}>
+                  {editableValue(
+                    "item-blocker",
+                    "詰まり",
+                    blocker,
+                    itemEditor,
+                    [isTask ? "blocker" : "max_issue"],
+                  )}
+                </div>
+              </section>
+              {isTask && (
                 <section className={styles.inspectorSection}>
-                  <span>詰まり</span>
+                  <span>次の成果物</span>
                   <div className={styles.inspectorSectionValue}>
                     {editableValue(
-                      "item-blocker",
-                      "詰まり",
-                      blocker,
+                      "item-next-deliverable",
+                      "次の成果物",
+                      nextDeliverable,
                       itemEditor,
-                      ["max_issue"],
+                      ["next_deliverable"],
                     )}
                   </div>
                 </section>
@@ -3645,14 +4449,14 @@ function PlanInspector({
                       {metRequirements}/{requirements.length}件
                     </strong>
                   </div>
-                  <ul className="mt-2 divide-y divide-[#e4ddd0] border-y border-[#e4ddd0]">
+                  <ul className="mt-2 divide-y divide-[#e2e8f0] border-y border-[#d2d2d7]">
                     {requirements.map((requirement) => (
                       <li
                         key={requirement.dependency.id}
                         className="flex items-start gap-2 py-2 text-[11px]"
                       >
                         <span
-                          className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center border ${requirement.state === "met" ? "border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]" : requirement.state === "unconfirmed" ? "border-[#e3c994] bg-[#fbf1dc] text-[#765022]" : "border-[#d6cebf] bg-white text-[#69665d]"}`}
+                          className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center border ${requirement.state === "met" ? "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]" : requirement.state === "unconfirmed" ? "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]" : "border-[#cbd5e1] bg-white text-[#3c3c43]"}`}
                         >
                           {requirement.state === "met" ? (
                             <Check className="h-3 w-3" aria-hidden="true" />
@@ -3790,6 +4594,39 @@ function PlanInspector({
                   </ul>
                 </section>
               )}
+              {canManage && onDelete && (
+                <div className={styles.inspectorDangerRow}>
+                  {deleteBlockedReason ? (
+                    <span data-tone="quiet">{deleteBlockedReason}</span>
+                  ) : confirmingDelete ? (
+                    <>
+                      <span>
+                        削除すると、この{isTask ? "タスク" : "MS"}はガントと一覧から消えます。
+                      </span>
+                      <button
+                        type="button"
+                        data-tone="confirm"
+                        disabled={deleting}
+                        onClick={onDelete}
+                      >
+                        {deleting ? "削除中…" : "削除する"}
+                      </button>
+                      <button
+                        type="button"
+                        data-tone="quiet"
+                        disabled={deleting}
+                        onClick={() => setConfirmingDelete(false)}
+                      >
+                        やめる
+                      </button>
+                    </>
+                  ) : (
+                    <button type="button" onClick={() => setConfirmingDelete(true)}>
+                      この{isTask ? "タスク" : "MS"}を削除
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -3800,6 +4637,7 @@ function PlanInspector({
 }
 
 const ROW_PLAN_STATUS: Record<SxManagementMilestone["manualStatus"], string> = {
+  not_started: "未着手",
   unassessed: "進捗未登録",
   on_track: "進行中",
   attention: "要確認",
@@ -3820,6 +4658,11 @@ export function SxWeeklyControlDashboard({
   const [viewFilter, setViewFilter] = useState<ViewFilter>("all");
   const [query, setQuery] = useState("");
   const [editor, setEditor] = useState<EditorState | null>(null);
+  const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
+  // 関係先リストの分類タブ。タイトル行のボタン群が正で、一覧側は絞り込みだけを受ける
+  // (2026-08-08 まさ「タイトルの右の空いたスペースにボタン型で設置」)。
+  const [partnerClassification, setPartnerClassification] =
+    useState<SxPartnerClassification | null>("poc_candidate");
   // Only meaningful alongside editor.kind === "edit_partner" — restricts the generic 関係先編集
   // form down to the partner_next_action provenance's own fields (PARTNER_NEXT_ACTION_FIELD_KEYS).
   // null means "show every field" (the normal full-editor open path).
@@ -3840,17 +4683,58 @@ export function SxWeeklyControlDashboard({
   // once (close detail / open another cell / add child). A normal tray Cancel never populates it.
   const pendingPlanIntentRef = useRef<(() => void) | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimerRef = useRef<number | null>(null);
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(
     null,
   );
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [workloadFilter, setWorkloadFilter] =
     useState<WorkloadBucketKey | null>(null);
+  // タブ化 (2026-08-08 まさ指示 #11)。週次差分・ガント・関係先・論点仮説の4タブ、
+  // データ接続は週次差分タブへ内包する。既定は"weekly"、hash付きリンク→localStorageの順で復元する。
+  const [activeView, setActiveView] = useState<SxWeeklyControlView>("weekly");
+  useEffect(() => {
+    const fromHash = viewForHash(window.location.hash);
+    if (fromHash) {
+      setActiveView(fromHash);
+      return;
+    }
+    const stored = window.localStorage.getItem(SX_WEEKLY_VIEW_STORAGE_KEY);
+    if (stored === "weekly" || stored === "gantt" || stored === "partners" || stored === "issues") {
+      setActiveView(stored);
+    }
+  }, []);
+
+  function selectView(view: SxWeeklyControlView) {
+    setActiveView(view);
+    window.localStorage.setItem(SX_WEEKLY_VIEW_STORAGE_KEY, view);
+    window.history.replaceState(null, "", `#${SX_WEEKLY_VIEW_HASH[view]}`);
+  }
+
+  function showNotice(message: string) {
+    setNotice(message);
+    if (noticeTimerRef.current != null)
+      window.clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = window.setTimeout(() => {
+      setNotice(null);
+      noticeTimerRef.current = null;
+    }, 3500);
+  }
+
+  useEffect(
+    () => () => {
+      if (noticeTimerRef.current != null)
+        window.clearTimeout(noticeTimerRef.current);
+    },
+    [],
+  );
 
   const allIssues = useMemo(
     () =>
       [...management.issues].sort(
         (left, right) =>
+          Number(sxWeeklyIssueStage(left) === "resolved") -
+            Number(sxWeeklyIssueStage(right) === "resolved") ||
           sxWeeklyIssueAttentionScore(right, management.asOf) -
             sxWeeklyIssueAttentionScore(left, management.asOf) ||
           (sxWeeklyIssueNextDueDate(left) || "9999").localeCompare(
@@ -3859,6 +4743,9 @@ export function SxWeeklyControlDashboard({
       ),
     [management],
   );
+  const selectedIssue = selectedIssueId
+    ? management.issues.find((issue) => issue.id === selectedIssueId) || null
+    : null;
   const counts = useMemo(
     () => ({
       attention: allIssues.filter((issue) =>
@@ -3899,23 +4786,11 @@ export function SxWeeklyControlDashboard({
           return false;
         const normalized = query.trim().toLowerCase();
         if (!normalized) return true;
-        return `${issue.title} ${issue.ownerLabel} ${issue.hypotheses.map((hypothesis) => hypothesis.statement).join(" ")}`
+        return `${issue.title} ${issue.ownerLabel} ${issue.hypotheses.map((hypothesis) => hypothesis.statement).join(" ")} ${issue.discussions.map((discussion) => discussion.summary).join(" ")}`
           .toLowerCase()
           .includes(normalized);
       }),
     [allIssues, management.asOf, query, trackFilter, viewFilter],
-  );
-  const stageGroups = useMemo(
-    () =>
-      Object.fromEntries(
-        STAGES.map((stage) => [
-          stage.key,
-          visibleIssues.filter(
-            (issue) => sxWeeklyIssueStage(issue) === stage.key,
-          ),
-        ]),
-      ) as Record<StageKey, SxManagementIssue[]>,
-    [visibleIssues],
   );
   const pendingDecisions = management.decisions
     .filter((decision) => decision.status === "open")
@@ -3958,8 +4833,8 @@ export function SxWeeklyControlDashboard({
     () => sxProjectOwnerLoads(management),
     [management],
   );
-  // 工程・タスク・論点・仮説・検証・判断・action・関係先保有事項を同じ未完了作業単位にした共通母集団。
-  // PJ全体担当負荷（担当者別グループ）が既に同じ正規化をしているので、フラット化して使い回す。
+  // MS・タスク・論点・仮説・検証・判断・action・関係先保有事項を同じ未完了作業単位にした共通母集団。
+  // WHO HOLDS WHAT帯は 2026-08-09 に削除 (担当概念の全廃) したが、この正規化は管制帯の母集団として使う。
   const allWorkUnits = useMemo(
     () => projectOwnerLoads.flatMap((load) => load.items),
     [projectOwnerLoads],
@@ -3973,9 +4848,6 @@ export function SxWeeklyControlDashboard({
       ),
       due_soon: allWorkUnits.filter((item) =>
         sxProjectWorkUnitIsDueSoon(item, asOf),
-      ),
-      owner_unknown: allWorkUnits.filter(
-        (item) => item.ownerLabel === "担当未確認",
       ),
       due_unset: allWorkUnits.filter(
         (item) => item.dueDate == null || item.dueDatePrecision === "unknown",
@@ -4001,13 +4873,11 @@ export function SxWeeklyControlDashboard({
       sxGateRequirementsBySuccessor(
         management.milestones,
         management.dependencies,
-        management.tasks,
       ).get(selectedPlanMilestone.id) || []
     );
   }, [
     management.dependencies,
     management.milestones,
-    management.tasks,
     selectedPlanMilestone,
   ]);
 
@@ -4015,8 +4885,7 @@ export function SxWeeklyControlDashboard({
     setManagement(next);
     setEditor(null);
     setEditorFieldKeys(null);
-    setNotice(message);
-    window.setTimeout(() => setNotice(null), 3500);
+    showNotice(message);
   }
 
   function handleDetailSaved(next: SxManagementBundle, message: string) {
@@ -4025,8 +4894,7 @@ export function SxWeeklyControlDashboard({
     setDetailEditorDirty(false);
     setDetailEditor(null);
     setPlanFieldEditor(null);
-    setNotice(message);
-    window.setTimeout(() => setNotice(null), 3500);
+    showNotice(message);
   }
 
   // 保存/キャンセル/破棄完了のいずれでインライン編集trayが閉じても、次にfocusを失わない
@@ -4082,12 +4950,226 @@ export function SxWeeklyControlDashboard({
     else fallbackFocus();
   }
 
+  /** DBの応答を待たずに最新のbundleを読み直す。楽観更新が失敗したときの唯一の巻き戻し経路。 */
+  async function reloadManagementFromDb() {
+    const latest = await fetch(
+      `/api/project-workspace/${encodeURIComponent(bundle.project.projectId)}/management`,
+      { headers: { "Cache-Control": "no-store" } },
+    );
+    const latestBody = await latest.json().catch(() => null);
+    if (!latest.ok || !latestBody) return false;
+    setManagement(latestBody as SxManagementBundle);
+    return true;
+  }
+
+  async function addIssueDiscussion(issueId: string, summary: string) {
+    const response = await fetch(
+      `/api/project-workspace/${encodeURIComponent(bundle.project.projectId)}/management`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resource: "issue_discussion",
+          fields: {
+            issue_id: issueId,
+            summary,
+          },
+        }),
+      },
+    );
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw new Error(
+        typeof body.error === "string"
+          ? body.error
+          : "議論の進捗を追加できなかったよ",
+      );
+    const returned = body.bundle as SxManagementBundle;
+    const returnedIssue = returned.issues.find((issue) => issue.id === issueId);
+    if (!returnedIssue) throw new Error("追加後の論点を読み直せなかったよ");
+    // POST中に別セルの楽観更新が走っても、古い完全bundleで消さない。
+    // サーバが採番した議論履歴だけを現在の論点へ合流する。
+    setManagement((current) => ({
+      ...current,
+      issues: current.issues.map((issue) =>
+        issue.id === issueId
+          ? { ...issue, discussions: returnedIssue.discussions }
+          : issue,
+      ),
+    }));
+    showNotice("議論の進捗を追加したよ");
+  }
+
+  async function addIssueHypothesis(issueId: string, statement: string) {
+    const response = await fetch(
+      `/api/project-workspace/${encodeURIComponent(bundle.project.projectId)}/management`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resource: "hypothesis",
+          fields: {
+            issue_id: issueId,
+            statement,
+            status: "open",
+            owner_label: "未確認",
+            confidence: "unknown",
+          },
+        }),
+      },
+    );
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw new Error(
+        typeof body.error === "string" ? body.error : "仮説を追加できなかったよ",
+      );
+    const returned = body.bundle as SxManagementBundle | undefined;
+    const returnedIssue = returned?.issues.find((issue) => issue.id === issueId);
+    if (!returnedIssue) throw new Error("追加後の仮説を読み直せなかったよ");
+    // POST中の別編集を古い完全bundleで消さず、採番済みの仮説だけを親論点へ合流する。
+    setManagement((current) => ({
+      ...current,
+      issues: current.issues.map((issue) =>
+        issue.id === issueId
+          ? { ...issue, hypotheses: returnedIssue.hypotheses }
+          : issue,
+      ),
+    }));
+    showNotice("親論点の下に仮説を追加したよ");
+  }
+
+  async function setIssueResolved(issueId: string, resolved: boolean) {
+    const response = await fetch(
+      `/api/project-workspace/${encodeURIComponent(bundle.project.projectId)}/management`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resource: "issue",
+          id: issueId,
+          patch: { status: resolved ? "closed" : "open" },
+        }),
+      },
+    );
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      showNotice(
+        typeof body.error === "string" ? body.error : "論点の状態を更新できなかったよ",
+      );
+      return;
+    }
+    // 同時編集中の別レコードを古い完全bundleで戻さず、確定したstatusだけを現在値へ反映する。
+    setManagement((current) =>
+      sxApplyOptimisticManagementPatch(current, "issue", issueId, {
+        status: resolved ? "closed" : "open",
+      }),
+    );
+    showNotice(resolved ? "解決済みにして一覧の下へ移したよ" : "未解決に戻したよ");
+  }
+
+  /** 先に画面へ置いた新規レコードの仮IDを、サーバが採番した本物のIDへ差し替える。
+   *  選択状態も一緒に移すので、追加した直後に開いている詳細がそのまま編集できる。 */
+  function reconcileOptimisticId(temporaryId: string, realId: string) {
+    setManagement((current) =>
+      sxReplaceOptimisticManagementId(current, temporaryId, realId),
+    );
+    setSelectedTaskId((current) => (current === temporaryId ? realId : current));
+    setSelectedMilestoneId((current) =>
+      current === temporaryId ? realId : current,
+    );
+  }
+
+  /** 新規レコードの書き込みが失敗したとき、先に置いた仮レコードを画面から取り消す。 */
+  function rollbackOptimisticRecord(temporaryId: string) {
+    setManagement((current) =>
+      sxRemoveOptimisticManagementRecord(current, temporaryId),
+    );
+    setSelectedTaskId((current) => (current === temporaryId ? null : current));
+    setSelectedMilestoneId((current) =>
+      current === temporaryId ? null : current,
+    );
+  }
+
+  // タスク削除はAPI側のsoft delete（deleted_at）。画面からは先に消す。DBの書き込みと全bundleの
+  // 作り直しは裏で走らせ、失敗したときだけDBから読み直して見え方を戻す。
+  async function deleteTask(taskId: string) {
+    const before = management;
+    setManagement(sxRemoveOptimisticManagementRecord(management, taskId));
+    setSelectedTaskId(null);
+    showNotice("タスクを削除したよ。DBへ同期中");
+    try {
+      const response = await fetch(
+        `/api/project-workspace/${encodeURIComponent(bundle.project.projectId)}/management`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resource: "task", id: taskId, delete: true }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(
+          typeof body.error === "string" ? body.error : "削除できなかったよ",
+        );
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : "削除できなかったよ";
+      try {
+        if (await reloadManagementFromDb()) {
+          showNotice(`${message}。最新の内容に戻したよ`);
+          return;
+        }
+      } catch {
+        // 下の通知で未解決の状態を明示する。
+      }
+      setManagement(before);
+      showNotice(`${message}。画面を再読み込みしてね`);
+    }
+  }
+
+  // MS削除もAPI側のsoft delete。MS配下にタスクが残っていればAPIが断るので、断られたときは
+  // DBから読み直して、消したはずのMSを戻したうえで理由を見せる。
+  async function deleteMilestone(milestoneId: string) {
+    const before = management;
+    setManagement(sxRemoveOptimisticManagementRecord(management, milestoneId));
+    setSelectedMilestoneId(null);
+    showNotice("MSを削除したよ。DBへ同期中");
+    try {
+      const response = await fetch(
+        `/api/project-workspace/${encodeURIComponent(bundle.project.projectId)}/management`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resource: "milestone", id: milestoneId, delete: true }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(
+          typeof body.error === "string" ? body.error : "削除できなかったよ",
+        );
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : "削除できなかったよ";
+      try {
+        if (await reloadManagementFromDb()) {
+          showNotice(`${message}。最新の内容に戻したよ`);
+          return;
+        }
+      } catch {
+        // 下の通知で未解決の状態を明示する。
+      }
+      setManagement(before);
+      showNotice(`${message}。画面を再読み込みしてね`);
+    }
+  }
+
   function notifyWorkUnitNotFound() {
     setNotice("元の項目を見つけられなかったよ");
     window.setTimeout(() => setNotice(null), 3500);
   }
 
-  // 共通母集団の1件から、必ず元の編集文脈へ移動する。工程/タスクはガント該当行・詳細、
+  // 共通母集団の1件から、必ず元の編集文脈へ移動する。MS/タスクはガント該当位置・詳細、
   // 論点系（論点・仮説・検証・判断・action）は該当カード/詳細、関係先はprovenance別の編集
   // モーダルを直接開く（スクロールしない）。開く前に他のplan/detail editorを閉じ、モーダルは
   // 常に1つだけにする。
@@ -4149,9 +5231,10 @@ export function SxWeeklyControlDashboard({
       setSelectedTaskId(null);
       setEditorFieldKeys(nextFieldKeys);
       setEditor(nextEditor);
+      selectView("partners");
       return;
     }
-    // 工程/タスク/論点系のいずれも、対象レコードのID/存在をすべて検証し切ってからだけ
+    // MS/タスク/論点系のいずれも、対象レコードのID/存在をすべて検証し切ってからだけ
     // workloadFilter/detailEditor/planFieldEditor/editorFieldKeys/selectedMilestoneId/
     // selectedTaskIdの既存overlay stateを一括で解除する（partner分岐と同じ「解決してから
     // 閉じる」パターン）。無効IDのクリックでnotifyWorkUnitNotFound()だけを出すつもりが、
@@ -4168,6 +5251,7 @@ export function SxWeeklyControlDashboard({
       setEditorFieldKeys(null);
       setSelectedMilestoneId(null);
       setSelectedTaskId(task.id);
+      selectView("gantt");
       document
         .getElementById("project-gantt")
         ?.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -4187,14 +5271,15 @@ export function SxWeeklyControlDashboard({
       setEditorFieldKeys(null);
       setSelectedTaskId(null);
       setSelectedMilestoneId(milestone.id);
+      selectView("gantt");
       document
         .getElementById("project-gantt")
         ?.scrollIntoView({ block: "start", behavior: "smooth" });
       return;
     }
     if (unit.navIssueId) {
-      // 論点系（論点・仮説・検証・判断・action）はroot editorモーダルという1段上の重畳面を
-      // 開くだけで、背景のページ自体は動かさない。以前はここで#issue-hypothesisへ
+      // 論点系（論点・仮説・検証・判断・action）は、単体編集ではなく親論点のワークベンチを
+      // 開く。以前はここで#issue-hypothesisへ
       // scrollIntoViewしていたが、モーダルが全画面backdropで覆う以上スクロールする理由が
       // なく、担当負荷から開いたときだけ画面が意図せず流れるバグになっていた（2026-08
       // 監査追補）。IDが一致する子レコードを見つけられない場合は、他kindのprovenance監査と
@@ -4265,7 +5350,12 @@ export function SxWeeklyControlDashboard({
       setEditorFieldKeys(null);
       setSelectedMilestoneId(null);
       setSelectedTaskId(null);
-      setEditor(nextEditor);
+      // 上の解決で子レコードの存在まで検証済み。編集対象を単体で開かず、背景・議論・
+      // 仮説・判断・次の一手が同時に見える親ワークベンチへ着地する。
+      void nextEditor;
+      setEditor(null);
+      setSelectedIssueId(issue.id);
+      selectView("issues");
       return;
     }
   }
@@ -4273,55 +5363,35 @@ export function SxWeeklyControlDashboard({
   return (
     <main className={`${styles.page} sx-management-workspace`}>
       <div className={styles.shell}>
+        {/* バッジ行・既存ワークスペースリンク・週レンジ・運用準備中スタンプは
+            2026-08-08 まさ指示 #10 で削除。タイトルとナビだけを残す。 */}
         <header className={styles.header}>
-          <div className={styles.headerTop}>
-            <div className={styles.badgeRow}>
-              <span className={styles.productBadge}>
-                <ShieldCheck aria-hidden="true" />
-                SX / 週次管制
-              </span>
-              <span className={styles.previewBadge}>
-                手動編集を正本にする · 抽出は差分候補
-              </span>
-              <span className={styles.scopeBadge}>
-                {access.scope === "project" ? "参加PJ限定" : "AMD管理ビュー"}
-              </span>
-            </div>
-            <div className={styles.headerActions}>
-              <Link
-                href={`/project/${encodeURIComponent(bundle.project.projectId)}/workspace`}
-              >
-                <ExternalLink aria-hidden="true" />
-                既存ワークスペース
-              </Link>
-            </div>
-          </div>
           <div className={styles.titleRow}>
             <div>
-              <p className={styles.eyebrow}>
-                {sxWeeklyWeekRangeLabel(bundle.currentWeekStart)} / WEEKLY
-                CONTROL
-              </p>
               <h1>SolvioraX PJワークスペース</h1>
             </div>
-            <div className={styles.readinessStamp}>
-              <span>画面</span>
-              <strong>運用準備中</strong>
-              <small>情報抽出は次工程</small>
-            </div>
           </div>
-          <nav className={styles.sectionNav} aria-label="週次管制ナビ">
-            <a href="#weekly-change">週次差分</a>
-            <a href="#project-gantt">ガント</a>
-            <a href="#partner-ledger">関係先</a>
-            <a href="#issue-hypothesis">論点・仮説</a>
-            <a href="#input-readiness">データ接続</a>
+          <nav className={styles.sectionNav} aria-label="週次管制ナビ" role="tablist">
+            {SX_WEEKLY_TABS.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={activeView === tab.key}
+                aria-controls={SX_WEEKLY_VIEW_HASH[tab.key]}
+                onClick={() => selectView(tab.key)}
+              >
+                {tab.label}
+              </button>
+            ))}
           </nav>
         </header>
 
+        {/* 管制帯は週次差分タブ専用 (2026-08-09 まさ #11「週次差分以外のタブに管制のやつ入れないで」)。 */}
+        {activeView === "weekly" && (
         <section
           className={styles.workloadBand}
-          aria-label="PJ全体の管制状態（工程・タスク・論点・仮説・検証・判断・action・関係先保有事項の共通母集団）"
+          aria-label="PJ全体の管制状態（MS・タスク・論点・仮説・検証・判断・action・関係先保有事項の共通母集団）"
         >
           {WORKLOAD_BUCKETS.map((bucket) => {
             const items = workloadBuckets[bucket.key];
@@ -4346,7 +5416,8 @@ export function SxWeeklyControlDashboard({
             );
           })}
         </section>
-        {workloadFilter && (
+        )}
+        {activeView === "weekly" && workloadFilter && (
           <section
             className={styles.workloadDrawer}
             aria-label={`${WORKLOAD_BUCKETS.find((bucket) => bucket.key === workloadFilter)?.label}の一覧`}
@@ -4377,14 +5448,13 @@ export function SxWeeklyControlDashboard({
                     >
                       <span>{item.kindLabel}</span>
                       <b>{item.title}</b>
-                      <span>{item.ownerLabel}</span>
                       <span>
                         {item.dueDate ? formatDate(item.dueDate) : "期限未設定"}
                       </span>
                       <span>
                         {item.impactedGates.length > 0
                           ? `影響：${item.impactedGates.join(" / ")}`
-                          : "影響工程 未接続"}
+                          : "影響MS 未接続"}
                       </span>
                     </button>
                   </li>
@@ -4394,12 +5464,13 @@ export function SxWeeklyControlDashboard({
           </section>
         )}
 
-        <SxProjectOwnerWorkload
-          loads={projectOwnerLoads}
-          onSelectItem={navigateToWorkUnit}
-        />
-
-        <section id="weekly-change" className={styles.section}>
+        {activeView === "weekly" && (
+        <section
+          id="weekly-change"
+          className={styles.section}
+          role="tabpanel"
+          aria-label="週次差分パネル"
+        >
           <div className={styles.sectionHeading}>
             <div>
               <h2>週次差分・判断・介入</h2>
@@ -4489,13 +5560,20 @@ export function SxWeeklyControlDashboard({
             </article>
           </div>
         </section>
+        )}
 
-        <section id="project-gantt" className={styles.section}>
+        {activeView === "gantt" && (
+        <section
+          id="project-gantt"
+          className={styles.section}
+          role="tabpanel"
+          aria-label="全体ガントパネル"
+        >
           <div className={styles.sectionHeading}>
             <div>
               <h2>全体ガント</h2>
               <p>
-                工程を開くと細かいタスクを表示。バーか名称を押すとガント上に詳細が開く
+                タスクは階層を開閉できる。バー・MS・名称を押すとガント上に詳細が開く
               </p>
             </div>
             <p>基準日 {formatDate(management.asOf)}</p>
@@ -4516,6 +5594,10 @@ export function SxWeeklyControlDashboard({
                   setManagement(next);
                   setNotice(message);
                   window.setTimeout(() => setNotice(null), 3500);
+                }}
+                onManagementOptimistic={(mutate, message) => {
+                  setManagement(mutate);
+                  showNotice(message);
                 }}
                 selectedMilestoneId={selectedMilestoneId}
                 selectedTaskId={selectedTaskId}
@@ -4575,40 +5657,74 @@ export function SxWeeklyControlDashboard({
                       handleDetailSaved(next, message);
                       focusSelectedPlanRowAfterClose();
                     }}
+                    onReconciled={setManagement}
+                    onReconciledId={reconcileOptimisticId}
+                    onRolledBack={rollbackOptimisticRecord}
+                    onSyncFailed={showNotice}
                   />
                 ) : null
               }
               inlineEditorSlot={planFieldEditor?.slot}
               inlineEditor={
                 planFieldEditor ? (
-                  <>
-                    {/* 共通edit trayの文脈: 元セルが画面外へスクロールしていても、何をどのレコード
-                        について編集しているかが常に分かるようにする（2026-08 再監査是正）。 */}
-                    <p id="sx-plan-editor-context" className={styles.inspectorEditTrayContext}>
-                      編集中｜{planFieldEditor.targetLabel} / {planFieldEditor.fieldLabel}
-                    </p>
-                    <IssueEditor
-                      key={`${planFieldEditor.slot}-${planFieldEditor.editor.kind}-${planFieldEditor.fieldKeys.join("-")}`}
-                      editor={planFieldEditor.editor}
-                      management={management}
-                      access={access}
-                      projectId={bundle.project.projectId}
-                      inlineField
-                      fieldKeys={planFieldEditor.fieldKeys}
-                      requestCloseRef={planEditorRequestCloseRef}
-                      onKeepEditing={() => { pendingPlanIntentRef.current = null; }}
-                      ariaDescribedBy="sx-plan-editor-context"
-                      onDirtyChange={setDetailEditorDirty}
-                      onClose={() => {
-                        finishPlanEditorClose(() => focusPlanEditSlotAfterClose(planFieldEditor.slot));
-                      }}
-                      onSaved={(next, message) => {
-                        focusPlanEditSlotAfterClose(planFieldEditor.slot);
-                        handleDetailSaved(next, message);
-                      }}
-                    />
-                  </>
+                  <IssueEditor
+                    key={`${planFieldEditor.slot}-${planFieldEditor.editor.kind}-${planFieldEditor.fieldKeys.join("-")}`}
+                    editor={planFieldEditor.editor}
+                    management={management}
+                    access={access}
+                    projectId={bundle.project.projectId}
+                    inlineField
+                    fieldKeys={planFieldEditor.fieldKeys}
+                    requestCloseRef={planEditorRequestCloseRef}
+                    onKeepEditing={() => { pendingPlanIntentRef.current = null; }}
+                    onDirtyChange={setDetailEditorDirty}
+                    onClose={() => {
+                      finishPlanEditorClose(() => focusPlanEditSlotAfterClose(planFieldEditor.slot));
+                    }}
+                    onSaved={(next, message) => {
+                      focusPlanEditSlotAfterClose(planFieldEditor.slot);
+                      handleDetailSaved(next, message);
+                    }}
+                    onReconciled={setManagement}
+                    onReconciledId={reconcileOptimisticId}
+                    onRolledBack={rollbackOptimisticRecord}
+                    onSyncFailed={showNotice}
+                  />
                 ) : null
+              }
+              deleteBlockedReason={
+                selectedTask
+                  ? management.tasks.some(
+                      (candidate) => candidate.parentTaskId === selectedTask.id,
+                    )
+                    ? "子タスクがあるから削除できないよ。先に子タスクを移すか削除してね"
+                    : null
+                  : selectedMilestone &&
+                      management.tasks.some(
+                        (candidate) =>
+                          candidate.milestoneId === selectedMilestone.id,
+                      )
+                    ? "このMSに紐づくタスクがあるから削除できないよ。先にタスクを別のMSへ移すか削除してね"
+                    : null
+              }
+              // 削除は押した瞬間に画面から消えるので、待ち状態の表示は残さない。
+              deleting={false}
+              onDelete={
+                selectedTask
+                  ? () => {
+                      const taskId = selectedTask.id;
+                      requestPlanIntent(() => {
+                        void deleteTask(taskId);
+                      });
+                    }
+                  : selectedMilestone
+                    ? () => {
+                        const milestoneId = selectedMilestone.id;
+                        requestPlanIntent(() => {
+                          void deleteMilestone(milestoneId);
+                        });
+                      }
+                    : undefined
               }
               onClose={() => {
                 requestPlanIntent(() => {
@@ -4633,14 +5749,58 @@ export function SxWeeklyControlDashboard({
             />
           </div>
         </section>
+        )}
 
-        <section id="partner-ledger" className={styles.section}>
+        {activeView === "partners" && (
+        <section
+          id="partner-ledger"
+          className={styles.section}
+          role="tabpanel"
+          aria-label="関係先パネル"
+        >
           <div className={styles.sectionHeading}>
-            <div>
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
               <h2>関係先リスト</h2>
-              <p>
-                PoC先を含む全関係先の進行、最新接点、現在のボールを一つの一覧で確認
-              </p>
+              <div
+                className="flex flex-wrap items-center gap-1.5"
+                role="group"
+                aria-label="分類による絞り込み"
+              >
+                <button
+                  type="button"
+                  data-partner-filter-trigger="all"
+                  onClick={() => setPartnerClassification(null)}
+                  aria-pressed={partnerClassification === null}
+                  className={partnerClassificationChipClass(
+                    partnerClassification === null,
+                  )}
+                >
+                  {partnerClassification === null && (
+                    <span aria-hidden="true">✓ </span>
+                  )}
+                  全関係先 {management.partners.length}
+                </button>
+                {SX_PARTNER_CLASSIFICATION_ORDER.map((classification) => {
+                  const active = partnerClassification === classification;
+                  const count = management.partners.filter((partner) =>
+                    sxPartnerHasClassification(partner, classification),
+                  ).length;
+                  return (
+                    <button
+                      key={classification}
+                      type="button"
+                      data-testid={`sx-partner-filter-${classification}`}
+                      data-partner-filter-trigger={classification}
+                      onClick={() => setPartnerClassification(classification)}
+                      aria-pressed={active}
+                      className={partnerClassificationChipClass(active)}
+                    >
+                      {active && <span aria-hidden="true">✓ </span>}
+                      {sxPartnerClassificationLabel(classification)} {count}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             {management.canManage && (
               <button
@@ -4658,34 +5818,37 @@ export function SxWeeklyControlDashboard({
               management={management}
               projectId={bundle.project.projectId}
               onManagementChange={setManagement}
+              onSyncNotice={showNotice}
+              activeClassification={partnerClassification}
+              onClassificationChange={setPartnerClassification}
+              onCreateInteraction={(partnerId) =>
+                setEditor({ kind: "create_interaction", partnerId })
+              }
             />
           </div>
         </section>
+        )}
 
-        <section id="issue-hypothesis" className={styles.section}>
+        {activeView === "issues" && (
+        <section
+          id="issue-hypothesis"
+          className={styles.section}
+          role="tabpanel"
+          aria-label="論点・仮説パネル"
+        >
           <div className={styles.issueHeading}>
             <div>
               <h2>論点・仮説リスト</h2>
             </div>
             {management.canManage && (
-              <div className={styles.issueCreateActions}>
-                <button
-                  type="button"
-                  className={styles.primaryButton}
-                  onClick={() => setEditor({ kind: "create_issue" })}
-                >
-                  <Plus aria-hidden="true" />
-                  論点を追加
-                </button>
-                <button
-                  type="button"
-                  className={styles.secondaryButton}
-                  onClick={() => setEditor({ kind: "create_hypothesis_any" })}
-                >
-                  <Plus aria-hidden="true" />
-                  仮説を追加
-                </button>
-              </div>
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={() => setEditor({ kind: "create_issue" })}
+              >
+                <Plus aria-hidden="true" />
+                論点・仮説を追加
+              </button>
             )}
           </div>
           <div className={styles.controls}>
@@ -4694,7 +5857,7 @@ export function SxWeeklyControlDashboard({
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="論点・仮説・担当で検索"
+                placeholder="論点・仮説・議論で検索"
                 aria-label="論点・仮説を検索"
               />
             </div>
@@ -4733,43 +5896,57 @@ export function SxWeeklyControlDashboard({
               ))}
             </select>
           </div>
-          <div className={styles.issueBoard}>
-            {STAGES.map((stage) => (
-              <section className={styles.stageColumn} key={stage.key}>
-                <header>
-                  <span>{stage.index}</span>
-                  <div>
-                    <h3>{stage.label}</h3>
-                  </div>
-                  <strong>{stageGroups[stage.key].length}</strong>
-                </header>
-                <div className={styles.stageCards}>
-                  {stageGroups[stage.key].map((issue) => (
-                    <IssueCard
-                      key={issue.id}
-                      issue={issue}
-                      asOf={management.asOf}
-                      canManage={management.canManage}
-                      onEdit={setEditor}
-                    />
-                  ))}
-                  {stageGroups[stage.key].length === 0 && (
-                    <div className={styles.columnEmpty}>
-                      <CircleDot aria-hidden="true" />
-                      <p>
-                        {query || viewFilter !== "all" || trackFilter !== "all"
-                          ? "条件に合う論点なし"
-                          : "この段階の論点なし"}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </section>
-            ))}
+          {/* 論点・仮説は1論点=1行の表形式 (2026-08-08 まさ指示 #12)。旧Kanban(段階列×カード)は
+             見にくいとの指摘で廃止し、visibleIssuesの表示順(attention score優先)をそのまま行順に
+             使う。段階(STAGE_LABEL)は状態列のバッジとして残し、情報は失わない。 */}
+          <div className={styles.issueTableWrap}>
+            <table className={styles.issueTable}>
+              <thead>
+                <tr>
+                  <th scope="col">内容</th>
+                  <th scope="col">種類</th>
+                  <th scope="col">状態</th>
+                  <th scope="col">期限</th>
+                  <th scope="col">仮説</th>
+                  <th scope="col">議論・検証</th>
+                  <th scope="col">判断</th>
+                  <th scope="col">次の一手</th>
+                  <th scope="col" aria-label="詳細" />
+                </tr>
+              </thead>
+              <tbody>
+                {visibleIssues.map((issue) => (
+                  <IssueRow
+                    key={issue.id}
+                    issue={issue}
+                    asOf={management.asOf}
+                    canManage={management.canManage}
+                    onEdit={setEditor}
+                    onAddDiscussion={addIssueDiscussion}
+                    onOpen={(issueId) => {
+                      setEditor(null);
+                      setSelectedIssueId(issueId);
+                    }}
+                  />
+                ))}
+              </tbody>
+            </table>
+            {visibleIssues.length === 0 && (
+              <div className={styles.columnEmpty}>
+                <CircleDot aria-hidden="true" />
+                <p>
+                  {query || viewFilter !== "all" || trackFilter !== "all"
+                    ? "条件に合う論点なし"
+                    : "論点がまだ登録されていない"}
+                </p>
+              </div>
+            )}
           </div>
         </section>
+        )}
 
-        <section id="input-readiness" className={styles.inputSection}>
+        {activeView === "weekly" && (
+        <section id="input-readiness" className={styles.inputSection} role="tabpanel" aria-label="データ接続パネル">
           <div>
             <h2>データ接続状況</h2>
           </div>
@@ -4817,6 +5994,7 @@ export function SxWeeklyControlDashboard({
             </article>
           </div>
         </section>
+        )}
         <footer className={styles.pageFooter}>
           <span>
             基準日 {formatDate(management.asOf)} · 表示値は現行台帳の仮表示
@@ -4835,6 +6013,23 @@ export function SxWeeklyControlDashboard({
           {notice}
         </div>
       )}
+      {selectedIssue && (
+        <IssueWorkbench
+          key={selectedIssue.id}
+          issue={selectedIssue}
+          management={management}
+          access={access}
+          projectId={bundle.project.projectId}
+          onClose={() => setSelectedIssueId(null)}
+          onManagementChange={setManagement}
+          onReconciledId={reconcileOptimisticId}
+          onRolledBack={rollbackOptimisticRecord}
+          onShowNotice={showNotice}
+          onAddDiscussion={addIssueDiscussion}
+          onAddHypothesis={addIssueHypothesis}
+          onSetResolved={setIssueResolved}
+        />
+      )}
       {editor && (
         <IssueEditor
           key={`${editor.kind}-${"issue" in editor ? editor.issue.id : "new"}-${"hypothesis" in editor ? editor.hypothesis?.id || "" : ""}-${"decision" in editor ? editor.decision.id : ""}-${"action" in editor ? editor.action.id : ""}-${"milestone" in editor ? editor.milestone.id : ""}-${"task" in editor ? editor.task.id : ""}-${"laneKey" in editor ? editor.laneKey : ""}-${"workItem" in editor ? editor.workItem.id : ""}-${"commitment" in editor ? editor.commitment.id : ""}-${"partner" in editor ? editor.partner.id : ""}-${editorFieldKeys?.join(",") || ""}`}
@@ -4847,6 +6042,10 @@ export function SxWeeklyControlDashboard({
             setEditorFieldKeys(null);
           }}
           onSaved={handleSaved}
+          onReconciled={setManagement}
+          onReconciledId={reconcileOptimisticId}
+          onRolledBack={rollbackOptimisticRecord}
+          onSyncFailed={showNotice}
           fieldKeys={editorFieldKeys ?? undefined}
         />
       )}

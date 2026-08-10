@@ -1,4 +1,5 @@
-export type ManagementDerivedStatus = "unassessed" | "on_track" | "attention" | "at_risk" | "blocked" | "completed";
+/** `not_started` は手入力専用。deriveMilestoneStatus は生成しない (= 着手前だと人が宣言した状態)。 */
+export type ManagementDerivedStatus = "not_started" | "unassessed" | "on_track" | "attention" | "at_risk" | "blocked" | "completed";
 
 export type LogicMilestone = {
   id: string;

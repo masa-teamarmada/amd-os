@@ -6,6 +6,7 @@ import {
   resolveProjectDocumentAccess,
   type WorkspaceDocumentAccess,
 } from "@/lib/workspace-document-access";
+import { workspaceDocumentNameKey } from "@/lib/workspace-documents-core";
 
 export const WORKSPACE_DOCUMENT_FIELDS = [
   "document_id",
@@ -23,6 +24,9 @@ export const WORKSPACE_DOCUMENT_FIELDS = [
   "file_size_bytes",
   "upload_status",
   "source_kind",
+  "source_ref",
+  "content_sha256",
+  "source_updated_at",
   "created_by_account_id",
   "created_by_member_id",
   "created_at",
@@ -45,6 +49,9 @@ export type WorkspaceDocumentRow = {
   file_size_bytes: number;
   upload_status: "pending" | "active" | "failed" | "archived";
   source_kind: string;
+  source_ref: string | null;
+  content_sha256: string | null;
+  source_updated_at: string | null;
   created_by_account_id: string | null;
   created_by_member_id: string | null;
   created_at: string;
@@ -81,6 +88,43 @@ export function workspaceDocumentOwnerInsert(access: WorkspaceDocumentAccess) {
         institution_workspace_id: access.workspaceId,
         project_id: null,
       };
+}
+
+export function workspaceDocumentMatchesAccess(
+  row: WorkspaceDocumentRow,
+  access: WorkspaceDocumentAccess,
+): boolean {
+  return access.scopeKind === "project"
+    ? row.scope_kind === "project" && row.project_id === access.projectId
+    : row.scope_kind === "institution" && row.institution_workspace_id === access.workspaceId;
+}
+
+/**
+ * PostgREST lower() filterへ依存せず、DB unique indexと同じ名前keyでactive entryを探す。
+ * ここで返すrowはserver内だけで使い、private storage pathをブラウザへ返さない。
+ */
+export async function findActiveWorkspaceDocumentNameConflict(
+  db: SupabaseClient,
+  access: WorkspaceDocumentAccess,
+  folderPath: string,
+  displayName: string,
+): Promise<WorkspaceDocumentRow | null> {
+  let query = db
+    .from("workspace_documents")
+    .select(WORKSPACE_DOCUMENT_FIELDS)
+    .eq("scope_kind", access.scopeKind)
+    .eq("folder_path", folderPath)
+    .eq("upload_status", "active")
+    .limit(3000);
+  query = access.scopeKind === "project"
+    ? query.eq("project_id", access.projectId)
+    : query.eq("institution_workspace_id", access.workspaceId);
+  const { data, error } = await query;
+  if (error) throw new Error(`workspace document name lookup: ${error.message}`);
+  const nameKey = workspaceDocumentNameKey(displayName);
+  return ((data ?? []) as unknown as WorkspaceDocumentRow[]).find(
+    (row) => workspaceDocumentNameKey(row.display_name) === nameKey,
+  ) ?? null;
 }
 
 export async function workspaceDocumentDestinationStatus(
