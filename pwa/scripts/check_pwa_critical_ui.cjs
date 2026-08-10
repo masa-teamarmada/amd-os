@@ -1988,8 +1988,21 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
 ]);
 
 expectIncludes("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
+  "Bzm2ModelObservatory",
   "AmdScoreView",
   "embedded",
+]);
+expectIncludes("src/components/cockpit/Bzm2ModelObservatory.tsx", [
+  "BZM 2.0 / MODEL OBSERVATORY",
+  "到達見込みの数式と現在値",
+  "Z_policy",
+  "前向き検証",
+  "パラメータ台帳",
+  "現行運用SPSとは別の検証中モデル",
+]);
+expectIncludes("src/app/api/project/[projectId]/amd-score-detail/route.ts", [
+  "fetchBzm2Observatory",
+  "bzm2",
 ]);
 expectIncludes("src/components/venture-map/AmdScoreView.tsx", [
   "XrlChecklistPanel",

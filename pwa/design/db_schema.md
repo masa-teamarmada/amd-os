@@ -625,6 +625,53 @@ PRIMARY KEY: `id`
 | 36 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 | 37 | `updated_by_email` | `text` | NULL | `` |
 
+## bzm_2_model_revisions
+
+migration 251適用時の初期投入: 5行（SX 4版、LST 1版）
+PRIMARY KEY: `revision_id`
+UNIQUE: `(project_id,revision_key)`, `(project_id,revision_order)`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `revision_id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `revision_key` | `text` | NOT NULL | `` |
+| 4 | `revision_order` | `int4` | NOT NULL | `` |
+| 5 | `theory_version` | `text` | NOT NULL | `` |
+| 6 | `model_version` | `text` | NOT NULL | `` |
+| 7 | `measurement_status` | `text` | NOT NULL | `` |
+| 8 | `information_cutoff` | `timestamptz` | NOT NULL | `` |
+| 9 | `forward_validation_count` | `int4` | NOT NULL | `0` |
+| 10 | `revision_reason` | `text` | NOT NULL | `` |
+| 11 | `source_ref` | `text` | NOT NULL | `` |
+| 12 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## bzm_2_parameter_observations
+
+migration 251適用時の初期投入: 36行
+PRIMARY KEY: `observation_id`
+UNIQUE: `(revision_id,parameter_key)`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `observation_id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `revision_id` | `uuid` | NOT NULL | `` |
+| 3 | `parameter_key` | `text` | NOT NULL | `` |
+| 4 | `symbol` | `text` | NOT NULL | `` |
+| 5 | `label` | `text` | NOT NULL | `` |
+| 6 | `parameter_group` | `text` | NOT NULL | `` |
+| 7 | `value_json` | `jsonb` | NULL | `` |
+| 8 | `display_value` | `text` | NOT NULL | `` |
+| 9 | `value_status` | `text` | NOT NULL | `` |
+| 10 | `unit` | `text` | NULL | `` |
+| 11 | `evidence_kind` | `text` | NOT NULL | `` |
+| 12 | `evidence_ref` | `text` | NULL | `` |
+| 13 | `affects` | `_text` | NOT NULL | `'{}'::text[]` |
+| 14 | `condition_json` | `jsonb` | NOT NULL | `'{}'::jsonb` |
+| 15 | `note` | `text` | NULL | `` |
+| 16 | `sort_order` | `int4` | NOT NULL | `100` |
+| 17 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
 ## bzm_theory_edges
 
 行数 (概算): 0

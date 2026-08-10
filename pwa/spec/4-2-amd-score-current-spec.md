@@ -64,6 +64,63 @@ M と S を分けた効果は診断にある。旧構造では σ_SU の高さ�
 
 `K_SPS` はこの構造を壊さないための校正係数であり、事業価値そのものの入力ではない。`M` / `P` / `R` / `S` の相対構造を保ったまま、全軸9点の理想状態を `100,000` に合わせる。
 
+## BZM 2.0観測台帳
+
+PJコックピットのスコア詳細は、現行運用SPSの前にBZM 2.0観測画面を表示する。
+
+二つのモデルは式、尺度、検証状態が異なるため、同じスコアとして合算または置換しない。
+
+観測画面の式は、理論正本`pwa/bzm/sps-2-0-reachability-model.md`に従う。
+
+$$
+\mathbf{SPS}=q\mathbf P
+$$
+
+$$
+q(\mathbf z)
+=
+\Pr\!\left(
+T_C(\mathbf z)<T_Y(\mathbf z),\quad
+T_C(\mathbf z)\le H_v
+\mid \mathbf Z_\tau=\mathbf z
+\right)
+$$
+
+`bzm_2_model_revisions`はPJ別の測定版を追記する。
+
+`bzm_2_parameter_observations`は版ごとのパラメータ値、欠測、出所、影響先、条件を追記する。
+
+`parameter_key`を行として持つため、`Z_policy`のような共通状態を列追加なしで登録できる。
+
+| 項目 | 保存規則 |
+|---|---|
+| 版 | `project_id + revision_key`と`project_id + revision_order`を一意にする |
+| 情報締切 | `information_cutoff`へ保存し、後の結果で過去入力を書き換えない |
+| 欠測 | `value_status=missing`または`not_started`、`value_json=null`とする。0へ変換しない |
+| 出所 | 計算、文書、記録、ヒアリング、仮定、複合を区別し、欠測以外は`evidence_ref`を必須にする |
+| 共通状態 | `affects`へ影響工程と時計を保存し、`condition_json`へ条件づけた入力を保存する |
+| 前向き検証 | `forward_validation_count`として版に保存し、計算済みと検証済みを分ける |
+
+`Z_policy`は独立加点ではない。
+
+LSTでは`#2=90%`と`#6=60%`を`Z_policy=present`へ条件づけ、`affects`に`#2`、`#6`、`T_C`、`T_Y`、`q`を保存する。
+
+反実仮想となる`Z_policy=absent`の工程入力は欠測なので、ロビイングの追加効果を計算しない。
+
+APIの`/api/project/[projectId]/amd-score-detail`は、既存payloadへ`bzm2`を追加する。
+
+`fetchBzm2Observatory()`は版と観測を取得し、パラメータごとに最新値と履歴を組み立てる。
+
+台帳が未適用または取得不能でも既存スコア詳細を失敗させず、BZM 2.0側だけを欠測表示にする。
+
+初期データは、撤回済みSX v0.1を除外し、SX v0.2からv0.5とLST v0.1事前登録を投入する。
+
+初期データの投入は既存の一次資料を画面用台帳へ写す処理であり、新しい確率の推定ではない。
+
+この画面は読み取り専用である。
+
+パラメータの更新は、凍結入力または事前登録の新しい版を作り、同じ版の観測行を追加する処理として行う。
+
 ## Legacy AMD / M-X-F の位置づけ
 
 legacy AMD / M-X-F では 7 軸を次の 3 要素で見せる。これは現行 primary score ではなく、SPS の R/S の根拠と比較用ブロックとして読む。
@@ -83,6 +140,9 @@ FRL は XRL に飲み込まない。AMD Studio の哲学上、FRL と `sigma_SU`
 | `pwa/src/lib/amd-score.ts` | SPS/legacy score 計算、alpha default、K、bottleneck、FRL CES |
 | `pwa/src/lib/amd-score-derived.ts` | DB row から SPS primary と legacy comparison の derived score を作る |
 | `pwa/src/lib/amd-score-data.ts` | `amd_score_inputs` / `amd_score_alpha` data access |
+| `pwa/src/lib/bzm-2-observatory.ts` | BZM 2.0の必須記号、版、パラメータ履歴を組み立てる純粋契約 |
+| `pwa/src/lib/bzm-2-observatory-data.ts` | BZM 2.0観測台帳のserver-side read。取得不能時は欠測payloadを返す |
+| `pwa/src/components/cockpit/Bzm2ModelObservatory.tsx` | 数式、現在値、共通状態の影響先、q版推移、全パラメータ履歴を表示 |
 | `pwa/src/components/venture-map/AmdScoreView.tsx` | 個別 PJ 詳細。SPS Primary を先頭に出し、legacy AMD / M-X-F を comparison として残す |
 | `pwa/src/components/venture-map/AmdScoreList.tsx` | 一覧。SPS primary を主表示し、legacy AMD は比較列 |
 | `pwa/src/components/cockpit/*AmdScore*` | cockpit chip / breakdown modal。SPS status を主語にする |
@@ -94,6 +154,8 @@ FRL は XRL に飲み込まない。AMD Studio の哲学上、FRL と `sigma_SU`
 | `amd_score_inputs` | project_id + evaluated_at ごとの SPS input (`prs_potential`, `prs_r_net`) と legacy 7 軸入力、notes、FRL cap |
 | `amd_score_alpha` | alpha weights の version 管理 |
 | `amd_score_revisions` | 軸値の修正依頼履歴 |
+| `bzm_2_model_revisions` | PJ別BZM 2.0測定版、情報締切、検証件数、変更理由 |
+| `bzm_2_parameter_observations` | 版ごとのBZM 2.0パラメータ、欠測、出所、条件、影響先 |
 | `project_xrl_log` | XRL 時系列評価ログ |
 | `project_xrl_evidence` | L2M-2 XRL 根拠 |
 
@@ -164,7 +226,7 @@ $$
 | route | 役割 |
 |---|---|
 | `/venture-map/amd-score` | 全 SU PJ の SPS primary 一覧。legacy AMD は comparison 列 |
-| `/project/[projectId]/cockpit?tab=score-detail` | SPS primary 入力 / SPS history / R_net / legacy M-X-F / FRL panel / XRL チェックリストの正規画面 |
+| `/project/[projectId]/cockpit?tab=score-detail` | BZM 2.0観測画面 / 現行SPS primary入力 / SPS history / R_net / legacy M-X-F / FRL panel / XRLチェックリストの正規画面 |
 | `/venture-map/amd-score/[projectId]` | 旧個別URLから cockpit score detail への互換 redirect (`p99` デモを除く) |
 | `/venture-map/amd-score/retrofit` | SPS review queue + legacy alpha 調整 |
 | `/project/[projectId]/cockpit` | SPS primary status chip / legacy AMD comparison / 進捗管理 |

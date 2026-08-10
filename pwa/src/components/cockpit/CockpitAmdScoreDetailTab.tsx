@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Bzm2ModelObservatory } from "@/components/cockpit/Bzm2ModelObservatory";
 import { AmdScoreView } from "@/components/venture-map/AmdScoreView";
 import type { AlphaWeights } from "@/lib/amd-score";
 import type { AmdScoreInputRow } from "@/lib/amd-score-data";
 import type { AtlasMacroSignals } from "@/lib/atlas-macro-signals";
+import type { Bzm2Observatory } from "@/lib/bzm-2-observatory";
 import type { TripleHelixComputed } from "@/lib/triple-helix-observations";
 import type { VentureRow, XrlLogRow } from "@/lib/venture-map-data";
 
@@ -15,6 +17,7 @@ interface AmdScoreDetailPayload {
   latestXrlLog: XrlLogRow | null;
   atlasMacroSignals: AtlasMacroSignals | null;
   tripleHelix: TripleHelixComputed | null;
+  bzm2: Bzm2Observatory;
 }
 
 type LoadState =
@@ -131,14 +134,21 @@ export function CockpitAmdScoreDetailTab({
   }
 
   return (
-    <AmdScoreView
-      venture={state.payload.venture}
-      inputs={state.payload.inputs}
-      initialAlpha={state.payload.initialAlpha}
-      latestXrlLog={state.payload.latestXrlLog}
-      atlasMacroSignals={state.payload.atlasMacroSignals}
-      tripleHelix={state.payload.tripleHelix}
-      embedded
-    />
+    <div className="min-w-0 space-y-4">
+      <Bzm2ModelObservatory model={state.payload.bzm2} />
+      <div className="rounded-xl border border-[#d7dce0] bg-[#f5f7f8] px-4 py-3 text-[11px] leading-5 text-[#59636a]">
+        <div className="font-semibold text-[#29343a]">現行運用SPS</div>
+        <div>以下は現在のAMD OSで運用している M × P × R × S。上のBZM 2.0とは式、尺度、検証状態が別。</div>
+      </div>
+      <AmdScoreView
+        venture={state.payload.venture}
+        inputs={state.payload.inputs}
+        initialAlpha={state.payload.initialAlpha}
+        latestXrlLog={state.payload.latestXrlLog}
+        atlasMacroSignals={state.payload.atlasMacroSignals}
+        tripleHelix={state.payload.tripleHelix}
+        embedded
+      />
+    </div>
   );
 }
