@@ -2,6 +2,7 @@ export const BZM2_PARAMETER_GROUPS = [
   "result",
   "clock",
   "state",
+  "context",
   "node",
   "cash",
   "quality",
@@ -139,9 +140,10 @@ const GROUP_ORDER: Record<Bzm2ParameterGroup, number> = {
   result: 0,
   clock: 1,
   state: 2,
-  node: 3,
-  cash: 4,
-  quality: 5,
+  context: 3,
+  node: 4,
+  cash: 5,
+  quality: 6,
 };
 
 function compareRevision(a: Bzm2Revision, b: Bzm2Revision) {

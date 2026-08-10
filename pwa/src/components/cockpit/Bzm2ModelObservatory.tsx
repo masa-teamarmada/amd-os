@@ -12,6 +12,7 @@ const GROUP_LABELS: Record<Bzm2ParameterGroup, string> = {
   result: "出力と価値",
   clock: "時計と期限",
   state: "共通状態",
+  context: "PJの観測状態",
   node: "工程入力",
   cash: "資金入力",
   quality: "測定品質",
@@ -56,6 +57,7 @@ function measurementStatusLabel(value: string | undefined) {
   if (value === "measured_hypothesis") return "仮説出力";
   if (value === "preregistration_open") return "事前登録中";
   if (value === "measurement_ready") return "計算準備済み";
+  if (value === "data_collection") return "観測収集中";
   return "測定未登録";
 }
 

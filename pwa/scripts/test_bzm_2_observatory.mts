@@ -58,6 +58,21 @@ const observations: Bzm2ObservationRow[] = [
   observation({ observation_id: "o1", revision_id: "r1", parameter_key: "q", value_json: 0.1, display_value: "0.1" }),
   observation({ observation_id: "o2", revision_id: "r2", parameter_key: "q", value_json: 0.2, display_value: "0.2", created_at: "2026-08-02T00:00:00Z" }),
   observation({
+    observation_id: "o4",
+    revision_id: "r2",
+    parameter_key: "context.lifecycle",
+    symbol: "status_PJ",
+    label: "PJの現行状態",
+    parameter_group: "context",
+    value_json: { status: "active" },
+    display_value: "Active",
+    value_status: "observed",
+    evidence_kind: "record",
+    evidence_ref: "projects",
+    sort_order: 70,
+    created_at: "2026-08-02T00:00:00Z",
+  }),
+  observation({
     observation_id: "o3",
     revision_id: "r2",
     parameter_key: "Z_policy",
@@ -88,6 +103,10 @@ assert.deepEqual(q?.history.map((item) => item.revisionKey), ["v0.1", "v0.2"]);
 const policy = model.parameters.find((parameter) => parameter.parameterKey === "Z_policy");
 assert.equal(policy?.current?.displayValue, "present");
 assert.deepEqual(policy?.current?.affects, ["#2", "#6", "q"]);
+
+const lifecycle = model.parameters.find((parameter) => parameter.parameterKey === "context.lifecycle");
+assert.equal(lifecycle?.group, "context");
+assert.equal(lifecycle?.current?.displayValue, "Active");
 
 const p = model.parameters.find((parameter) => parameter.parameterKey === "P");
 assert.ok(p, "core parameter P must stay visible without an observation");

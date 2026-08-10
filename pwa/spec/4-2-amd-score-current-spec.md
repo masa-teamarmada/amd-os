@@ -99,6 +99,7 @@ $$
 | 欠測 | `value_status=missing`または`not_started`、`value_json=null`とする。0へ変換しない |
 | 出所 | 計算、文書、記録、ヒアリング、仮定、複合を区別し、欠測以外は`evidence_ref`を必須にする |
 | 共通状態 | `affects`へ影響工程と時計を保存し、`condition_json`へ条件づけた入力を保存する |
+| PJ文脈 | `parameter_group=context`へ現行状態、設立、AMD支援を保存する。共通状態の式へ混ぜず、過去予測へ遡及利用しない |
 | 前向き検証 | `forward_validation_count`として版に保存し、計算済みと検証済みを分ける |
 
 `Z_policy`は独立加点ではない。
@@ -115,7 +116,17 @@ APIの`/api/project/[projectId]/amd-score-detail`は、既存payloadへ`bzm2`を
 
 初期データは、撤回済みSX v0.1を除外し、SX v0.2からv0.5とLST v0.1事前登録を投入する。
 
-初期データの投入は既存の一次資料を画面用台帳へ写す処理であり、新しい確率の推定ではない。
+SXとLST以外で現行SPSを持つ10PJは`measurement_status=data_collection`でv0.1を作り、2026-08-10の情報締切までに構造化DBから確認できたPJ文脈、政策支援、現行SPS入力、証拠被覆、資金調達履歴を凍結する。
+
+`data_collection`は計算前の観測収集中を表す。依存グラフ、時間分布、現在現金、バーン、計画期限が未接続なら、記録数が多くても`q`は欠測のままにする。
+
+現行SPS入力は`quality.current_sps_input`として保持するが、`prs_potential`をBZM 2.0の`P`へ、XRLを条件付き確率へ自動変換しない。
+
+資金調達ラウンドの既知合計は`cash.funding_history`として保持するが、`C_0`または`T_Y`へ読み替えない。
+
+現行PJ状態は`context.lifecycle`として保持し、予測時点より後の結果を過去入力へ混入させない。
+
+初期データの投入は既存の一次資料と構造化DBを画面用台帳へ写す処理であり、新しい確率の推定ではない。
 
 この画面は読み取り専用である。
 

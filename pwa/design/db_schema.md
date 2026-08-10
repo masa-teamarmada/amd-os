@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-10 18:17 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-10 18:40 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -649,7 +649,7 @@ UNIQUE: `(project_id,revision_order)` (constraint: `bzm_2_model_revisions_projec
 
 ## bzm_2_parameter_observations
 
-行数 (概算): -1
+行数 (概算): 158
 PRIMARY KEY: `observation_id`
 UNIQUE: `(revision_id,parameter_key)` (constraint: `bzm_2_parameter_observations_revision_key_uniq`)
 
@@ -4813,7 +4813,7 @@ PRIMARY KEY: `project_id`
 
 ## project_weekly_effort_entries
 
-行数 (概算): 54
+行数 (概算): 71
 PRIMARY KEY: `id`
 UNIQUE: `(project_id,member_id,week_start,work_category)` (constraint: `project_weekly_effort_entries_project_id_member_id_week_sta_key`)
 
