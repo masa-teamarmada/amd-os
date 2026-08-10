@@ -2779,7 +2779,7 @@ expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
   "exportPdf",
 ]);
 
-// キラー要素カタログ (2026-08-09 まさ確定): 予防統制 + 常時監視 + PJ全体判定を高密度表示。
+// キラー要素カタログ (2026-08-10 まさ確定): 二群同時表示 + 方式別4段階 + PJ全体判定。
 expectIncludes("src/components/cockpit/CockpitKillerFactorCatalog.tsx", [
   'data-testid="killer-factor-catalog"',
   'data-testid="killer-factor-risk-overview"',
@@ -2788,6 +2788,11 @@ expectIncludes("src/components/cockpit/CockpitKillerFactorCatalog.tsx", [
   "このPJの全体判定",
   "予防統制",
   "常時監視",
+  'data-testid={`killer-factor-group-${mode}`}',
+  "未整備 → 整備中 → 実装済 → 運用確認済",
+  "兆候なし → 要観察 → 明確な悪化 → 重大事象",
+  "統制の成熟度",
+  "兆候の悪化度",
   "未確認は安全扱いしない",
   "要素を追加",
   "状態を保存",
@@ -2797,6 +2802,7 @@ expectIncludes("src/components/cockpit/CockpitKillerFactorCatalog.tsx", [
 expectNotIncludes("src/components/cockpit/CockpitKillerFactorCatalog.tsx", [
   "発生を記録",
   "未発生",
+  'role="tablist"',
   'lg:grid-cols-[9rem_minmax(16rem,1.15fr)_minmax(18rem,1.35fr)_15rem]',
 ]);
 expectIncludes("src/app/api/governance/killer-factors/route.ts", [
@@ -2809,10 +2815,17 @@ expectIncludes("src/app/api/governance/killer-factors/route.ts", [
   "summarizeKillerFactorRisk",
 ]);
 expectIncludes("src/lib/killer-factor-risk.ts", [
-  '"critical" | "attention" | "unknown" | "stable"',
+  '"critical" | "attention" | "watch" | "unknown" | "stable"',
+  'item.status === "watch" || item.status === "implemented"',
   "criticalCount > 0",
   "actionCount > 0",
   "unknownCount > 0 || items.length === 0",
+  "watchCount > 0",
+]);
+expectIncludes("scripts/migrations/250_killer_factor_graduated_assessment.sql", [
+  "'watch'",
+  "'implemented'",
+  "project_killer_factor_state_guard",
 ]);
 
 expectIncludes("src/lib/company-overview.ts", [
