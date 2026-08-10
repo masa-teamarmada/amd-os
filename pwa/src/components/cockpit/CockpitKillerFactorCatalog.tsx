@@ -56,10 +56,9 @@ type KillerFactorItem = {
   recordedAt: string | null;
 };
 
-type RiskFilter = "all" | KillerFactorOperatingMode;
-
 type StatusPresentation = {
   label: string;
+  stage?: string;
   icon: LucideIcon;
   className: string;
 };
@@ -71,37 +70,55 @@ const STATUS_PRESENTATION: Record<KillerFactorStatus, StatusPresentation> = {
     className: "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
   },
   clear: {
-    label: "異常なし",
+    label: "兆候なし",
+    stage: "1 / 4",
     icon: CircleCheckBig,
     className: "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
   },
+  watch: {
+    label: "要観察",
+    stage: "2 / 4",
+    icon: Eye,
+    className: "border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100",
+  },
   warning: {
-    label: "兆候あり",
+    label: "明確な悪化",
+    stage: "3 / 4",
     icon: TriangleAlert,
     className: "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100",
   },
   occurred: {
-    label: "発生",
+    label: "重大事象",
+    stage: "4 / 4",
     icon: CircleAlert,
     className: "border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100",
   },
   not_started: {
-    label: "未着手",
+    label: "未整備",
+    stage: "1 / 4",
     icon: CircleAlert,
     className: "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100",
   },
   in_progress: {
-    label: "対応中",
+    label: "整備中",
+    stage: "2 / 4",
     icon: Clock3,
     className: "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100",
   },
+  implemented: {
+    label: "実装済",
+    stage: "3 / 4",
+    icon: FileCheck2,
+    className: "border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100",
+  },
   controlled: {
-    label: "統制済",
+    label: "運用確認済",
+    stage: "4 / 4",
     icon: ShieldCheck,
     className: "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
   },
   breached: {
-    label: "逸脱",
+    label: "統制逸脱",
     icon: ShieldAlert,
     className: "border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100",
   },
@@ -110,8 +127,32 @@ const STATUS_PRESENTATION: Record<KillerFactorStatus, StatusPresentation> = {
 const OVERALL_PRESENTATION: Record<KillerFactorOverallLevel, { label: string; className: string }> = {
   critical: { label: "危険", className: "border-rose-300 bg-rose-50 text-rose-800" },
   attention: { label: "要対応", className: "border-amber-300 bg-amber-50 text-amber-900" },
+  watch: { label: "要観察", className: "border-sky-300 bg-sky-50 text-sky-800" },
   unknown: { label: "要確認", className: "border-slate-300 bg-slate-100 text-slate-800" },
   stable: { label: "安定", className: "border-emerald-300 bg-emerald-50 text-emerald-800" },
+};
+
+const MODE_PRESENTATION: Record<KillerFactorOperatingMode, {
+  title: string;
+  description: string;
+  scale: string;
+  icon: LucideIcon;
+  className: string;
+}> = {
+  prevention: {
+    title: "予防統制",
+    description: "AMDが先回りして仕組みを整える",
+    scale: "未整備 → 整備中 → 実装済 → 運用確認済",
+    icon: ShieldCheck,
+    className: "border-blue-200 bg-blue-50/70 text-blue-900",
+  },
+  monitoring: {
+    title: "常時監視",
+    description: "記録・文書から悪化の兆候を追う",
+    scale: "兆候なし → 要観察 → 明確な悪化 → 重大事象",
+    icon: Eye,
+    className: "border-slate-200 bg-slate-50 text-slate-900",
+  },
 };
 
 function formatDate(value: string | null) {
@@ -152,13 +193,24 @@ function defaultStatusFor(mode: KillerFactorOperatingMode): KillerFactorStatus {
   return mode === "prevention" ? "not_started" : "clear";
 }
 
+function groupSnapshot(items: KillerFactorItem[]) {
+  const summary = summarizeKillerFactorRisk(items);
+  const values = [
+    summary.criticalCount > 0 ? `重大 ${summary.criticalCount}` : "",
+    summary.actionCount > 0 ? `要対応 ${summary.actionCount}` : "",
+    summary.watchCount > 0 ? `要観察 ${summary.watchCount}` : "",
+    summary.unknownCount > 0 ? `未確認 ${summary.unknownCount}` : "",
+    summary.safeCount > 0 ? `安全 ${summary.safeCount}` : "",
+  ].filter(Boolean);
+  return values.length > 0 ? values.join(" · ") : "0件";
+}
+
 export function CockpitKillerFactorCatalog({ projectId }: { projectId: string }) {
   const [items, setItems] = useState<KillerFactorItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [filter, setFilter] = useState<RiskFilter>("all");
   const [addOpen, setAddOpen] = useState(false);
   const [addMode, setAddMode] = useState<KillerFactorOperatingMode>("monitoring");
   const [editFactor, setEditFactor] = useState<KillerFactorItem | null>(null);
@@ -182,12 +234,10 @@ export function CockpitKillerFactorCatalog({ projectId }: { projectId: string })
   useEffect(() => { void load(); }, [load]);
 
   const summary = useMemo(() => summarizeKillerFactorRisk(items), [items]);
-  const filteredItems = useMemo(
-    () => filter === "all" ? items : items.filter((item) => item.operatingMode === filter),
-    [filter, items],
-  );
-  const preventionCount = useMemo(() => items.filter((item) => item.operatingMode === "prevention").length, [items]);
-  const monitoringCount = items.length - preventionCount;
+  const groupedItems = useMemo(() => ({
+    prevention: items.filter((item) => item.operatingMode === "prevention"),
+    monitoring: items.filter((item) => item.operatingMode === "monitoring"),
+  }), [items]);
   const overall = OVERALL_PRESENTATION[summary.level];
 
   async function post(body: Record<string, unknown>) {
@@ -291,17 +341,18 @@ export function CockpitKillerFactorCatalog({ projectId }: { projectId: string })
       </div>
 
       <div
-        className="grid grid-cols-2 border-b border-slate-200 bg-slate-50/70 sm:grid-cols-[minmax(12rem,1.4fr)_repeat(4,minmax(5rem,0.65fr))]"
+        className="grid grid-cols-5 border-b border-slate-200 bg-slate-50/70 sm:grid-cols-[minmax(13rem,1.5fr)_repeat(5,minmax(4.5rem,0.6fr))]"
         data-testid="killer-factor-risk-overview"
       >
-        <div className="col-span-2 flex min-h-14 items-center justify-between gap-3 border-b border-slate-200 px-3 py-2 sm:col-span-1 sm:border-b-0 sm:border-r sm:px-4">
+        <div className="col-span-5 flex min-h-14 items-center justify-between gap-3 border-b border-slate-200 px-3 py-2 sm:col-span-1 sm:border-b-0 sm:border-r sm:px-4">
           <div>
             <div className="text-[10px] font-medium text-slate-500">このPJの全体判定</div>
             <div className="mt-0.5 text-[11px] text-slate-600">
               {summary.level === "critical" && `${summary.criticalCount}件の重大事象`}
-              {summary.level === "attention" && `${summary.actionCount}件が対応途上`}
+              {summary.level === "attention" && `${summary.actionCount}件が要対応`}
+              {summary.level === "watch" && `${summary.watchCount}件を継続確認`}
               {summary.level === "unknown" && `${summary.unknownCount}件をまだ確認できていない`}
-              {summary.level === "stable" && "全項目が異常なし・統制済"}
+              {summary.level === "stable" && "全項目が兆候なし・運用確認済"}
             </div>
           </div>
           <span className={`rounded-md border px-2.5 py-1 text-sm font-semibold ${overall.className}`}>{overall.label}</span>
@@ -309,36 +360,15 @@ export function CockpitKillerFactorCatalog({ projectId }: { projectId: string })
         {[
           { label: "重大", value: summary.criticalCount, className: "text-rose-700" },
           { label: "要対応", value: summary.actionCount, className: "text-amber-800" },
+          { label: "要観察", value: summary.watchCount, className: "text-sky-700" },
           { label: "未確認", value: summary.unknownCount, className: "text-slate-700" },
           { label: "安全", value: summary.safeCount, className: "text-emerald-700" },
-        ].map((metric, index) => (
-          <div key={metric.label} className={`flex min-h-12 items-center justify-between px-3 py-2 sm:min-h-14 sm:flex-col sm:justify-center sm:border-r sm:last:border-r-0 ${index % 2 === 0 ? "border-r border-slate-200" : ""}`}>
+        ].map((metric) => (
+          <div key={metric.label} className="flex min-h-12 flex-col items-center justify-center border-r border-slate-200 px-1 py-2 last:border-r-0 sm:min-h-14">
             <span className="text-[10px] font-medium text-slate-500">{metric.label}</span>
             <span className={`text-base font-semibold tabular-nums ${metric.className}`}>{metric.value}</span>
           </div>
         ))}
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2 sm:px-4">
-        <div role="tablist" aria-label="キラー要素の方式" className="flex items-center gap-1">
-          {([
-            ["all", "すべて", items.length],
-            ["prevention", "予防統制", preventionCount],
-            ["monitoring", "常時監視", monitoringCount],
-          ] as const).map(([value, label, count]) => (
-            <button
-              key={value}
-              type="button"
-              role="tab"
-              aria-selected={filter === value}
-              onClick={() => setFilter(value)}
-              className={`min-h-11 rounded-md px-2.5 text-[11px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 lg:min-h-8 ${filter === value ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}
-            >
-              {label} <span className="tabular-nums opacity-70">{count}</span>
-            </button>
-          ))}
-        </div>
-        <div className="text-[10px] text-slate-500">状態を押して更新</div>
       </div>
 
       {error && (
@@ -362,66 +392,86 @@ export function CockpitKillerFactorCatalog({ projectId }: { projectId: string })
         </div>
       ) : (
         <div role="table" aria-label="キラー要素カタログ" data-testid="killer-factor-density-table">
-          <div role="row" className="hidden grid-cols-[7rem_7.5rem_minmax(12rem,0.9fr)_minmax(16rem,1.25fr)_11.5rem] items-center gap-3 bg-slate-50 px-4 py-2 text-[10px] font-medium text-slate-500 lg:grid">
-            <div role="columnheader">方式</div>
+          <div role="row" className="hidden grid-cols-[7.5rem_minmax(12rem,0.85fr)_minmax(17rem,1.35fr)_12rem] items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-2 text-[10px] font-medium text-slate-500 lg:grid">
             <div role="columnheader">型</div>
             <div role="columnheader">リスク</div>
             <div role="columnheader">AMDの打ち手 / 見るもの</div>
             <div role="columnheader">このPJの状態</div>
           </div>
-          <div className="divide-y divide-slate-100">
-            {filteredItems.map((item) => {
-              const statusMeta = STATUS_PRESENTATION[item.status];
-              const StatusIcon = statusMeta.icon;
-              const critical = item.status === "occurred" || item.status === "breached";
-              const guidance = item.operatingMode === "prevention"
-                ? `${item.preventiveAction || "予防策未登録"}${item.timingGuidance ? `（${item.timingGuidance}まで）` : ""}`
-                : item.observationClues;
-              return (
-                <div
-                  key={item.killerFactorId}
-                  role="row"
-                  data-testid="killer-factor-density-row"
-                  className={`grid grid-cols-[auto_minmax(0,1fr)_auto] gap-x-2 gap-y-1.5 px-3 py-2.5 lg:min-h-14 lg:grid-cols-[7rem_7.5rem_minmax(12rem,0.9fr)_minmax(16rem,1.25fr)_11.5rem] lg:items-center lg:gap-3 lg:px-4 lg:py-2 ${critical ? "bg-rose-50/40" : "bg-white"}`}
-                >
-                  <div role="cell" className="col-start-1 row-start-1 min-w-0 lg:col-start-1 lg:row-start-1">
-                    <span className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-semibold ${item.operatingMode === "prevention" ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
-                      {item.operatingMode === "prevention" ? <ShieldCheck className="size-3" /> : <Eye className="size-3" />}
-                      {modeLabel(item.operatingMode)}
+          {(["prevention", "monitoring"] as const).map((mode) => {
+            const modeMeta = MODE_PRESENTATION[mode];
+            const ModeIcon = modeMeta.icon;
+            const modeItems = groupedItems[mode];
+            return (
+              <div key={mode} role="rowgroup" data-testid={`killer-factor-group-${mode}`}>
+                <div className={`flex min-h-10 flex-col justify-center gap-0.5 border-b px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-4 ${modeMeta.className}`}>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <ModeIcon className="size-3.5 shrink-0" />
+                    <span className="text-xs font-semibold">{modeMeta.title}</span>
+                    <span className="text-[10px] opacity-70">{modeMeta.description}</span>
+                    <span className="rounded border border-current/15 bg-white/60 px-1.5 py-0.5 text-[10px] font-medium tabular-nums">
+                      {modeItems.length}件
                     </span>
                   </div>
-                  <div role="cell" className="col-start-2 row-start-1 min-w-0 lg:col-start-2 lg:row-start-1">
-                    <span className="text-xs font-semibold text-slate-800">{item.factorType}</span>
-                  </div>
-                  <div role="cell" className="col-span-3 row-start-2 min-w-0 lg:col-span-1 lg:col-start-3 lg:row-start-1">
-                    <p className="line-clamp-1 text-xs font-medium leading-4 text-slate-900 lg:line-clamp-2" title={item.eventDescription}>{item.eventDescription}</p>
-                  </div>
-                  <div role="cell" className="col-span-3 row-start-3 min-w-0 lg:col-span-1 lg:col-start-4 lg:row-start-1">
-                    <div className="flex min-w-0 items-start gap-1.5">
-                      {item.operatingMode === "prevention" ? <FileCheck2 className="mt-0.5 size-3.5 shrink-0 text-blue-600" /> : <Eye className="mt-0.5 size-3.5 shrink-0 text-slate-400" />}
-                      <p className="line-clamp-1 min-w-0 text-[11px] leading-4 text-slate-600 lg:line-clamp-2" title={guidance}>{guidance}</p>
-                    </div>
-                  </div>
-                  <div role="cell" className="col-start-3 row-start-1 min-w-0 lg:col-start-5 lg:row-start-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={`h-11 w-full min-w-0 justify-between gap-1.5 px-2.5 text-[11px] lg:h-9 ${statusMeta.className}`}
-                      onClick={() => openStateEditor(item)}
-                      title={item.statusOn ? `${statusMeta.label} · ${formatDate(item.statusOn)} · ${item.recordedByLabel || "記録者未確認"}` : `${statusMeta.label} · 状態を更新`}
-                      data-html2canvas-ignore="true"
-                    >
-                      <span className="flex min-w-0 items-center gap-1.5">
-                        <StatusIcon className="size-3.5 shrink-0" />
-                        <span className="truncate">{statusMeta.label}</span>
-                      </span>
-                      {item.statusOn ? <span className="hidden shrink-0 tabular-nums opacity-70 xl:inline">{formatDate(item.statusOn).slice(5)}</span> : <Pencil className="size-3.5 shrink-0 opacity-70" />}
-                    </Button>
+                  <div className="flex min-w-0 items-center justify-between gap-3 pl-5 sm:justify-end sm:pl-0">
+                    <span className="text-[10px] font-medium opacity-75">{groupSnapshot(modeItems)}</span>
+                    <span className="hidden text-[10px] opacity-60 md:inline" data-testid="killer-factor-level-scale">{modeMeta.scale}</span>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+                {modeItems.length === 0 ? (
+                  <div className="border-b border-slate-100 px-4 py-3 text-[11px] text-slate-500">このグループの要素はまだない。</div>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {modeItems.map((item) => {
+                      const statusMeta = STATUS_PRESENTATION[item.status];
+                      const StatusIcon = statusMeta.icon;
+                      const critical = item.status === "occurred" || item.status === "breached";
+                      const guidance = item.operatingMode === "prevention"
+                        ? `${item.preventiveAction || "予防策未登録"}${item.timingGuidance ? `（${item.timingGuidance}まで）` : ""}`
+                        : item.observationClues;
+                      return (
+                        <div
+                          key={item.killerFactorId}
+                          role="row"
+                          data-testid="killer-factor-density-row"
+                          className={`grid grid-cols-[minmax(0,1fr)_minmax(7rem,auto)] gap-x-2 gap-y-1.5 px-3 py-2.5 lg:min-h-14 lg:grid-cols-[7.5rem_minmax(12rem,0.85fr)_minmax(17rem,1.35fr)_12rem] lg:items-center lg:gap-3 lg:px-4 lg:py-2 ${critical ? "bg-rose-50/40" : "bg-white"}`}
+                        >
+                          <div role="cell" className="col-start-1 row-start-1 min-w-0 lg:col-start-1 lg:row-start-1">
+                            <span className="text-xs font-semibold text-slate-800">{item.factorType}</span>
+                          </div>
+                          <div role="cell" className="col-span-2 row-start-2 min-w-0 lg:col-span-1 lg:col-start-2 lg:row-start-1">
+                            <p className="line-clamp-1 text-xs font-medium leading-4 text-slate-900 lg:line-clamp-2" title={item.eventDescription}>{item.eventDescription}</p>
+                          </div>
+                          <div role="cell" className="col-span-2 row-start-3 min-w-0 lg:col-span-1 lg:col-start-3 lg:row-start-1">
+                            <div className="flex min-w-0 items-start gap-1.5">
+                              {item.operatingMode === "prevention" ? <FileCheck2 className="mt-0.5 size-3.5 shrink-0 text-blue-600" /> : <Eye className="mt-0.5 size-3.5 shrink-0 text-slate-400" />}
+                              <p className="line-clamp-1 min-w-0 text-[11px] leading-4 text-slate-600 lg:line-clamp-2" title={guidance}>{guidance}</p>
+                            </div>
+                          </div>
+                          <div role="cell" className="col-start-2 row-start-1 min-w-0 lg:col-start-4 lg:row-start-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className={`h-11 w-full min-w-0 justify-between gap-1.5 px-2.5 text-[11px] lg:h-9 ${statusMeta.className}`}
+                              onClick={() => openStateEditor(item)}
+                              title={item.statusOn ? `${statusMeta.label} · ${formatDate(item.statusOn)} · ${item.recordedByLabel || "記録者未確認"}` : `${statusMeta.label} · 状態を更新`}
+                              data-html2canvas-ignore="true"
+                            >
+                              <span className="flex min-w-0 items-center gap-1.5">
+                                <StatusIcon className="size-3.5 shrink-0" />
+                                <span className="truncate">{statusMeta.label}</span>
+                              </span>
+                              {statusMeta.stage ? <span className="shrink-0 tabular-nums opacity-60">{statusMeta.stage}</span> : item.statusOn ? <span className="hidden shrink-0 tabular-nums opacity-70 xl:inline">{formatDate(item.statusOn).slice(5)}</span> : <Pencil className="size-3.5 shrink-0 opacity-70" />}
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -510,10 +560,20 @@ export function CockpitKillerFactorCatalog({ projectId }: { projectId: string })
                   </div>
                 )}
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-slate-700">状態</Label>
+                  <div className="flex items-end justify-between gap-3">
+                    <div>
+                      <Label className="text-xs text-slate-700">
+                        {editFactor.operatingMode === "prevention" ? "統制の成熟度" : "兆候の悪化度"}
+                      </Label>
+                      <p className="mt-0.5 text-[10px] text-slate-500">
+                        {editFactor.operatingMode === "prevention" ? "左から右へ、実装と運用の確かさが上がる" : "左から右へ、事業化への危険が強くなる"}
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-medium text-slate-500">4段階</span>
+                  </div>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {(editFactor.operatingMode === "prevention" ? PREVENTION_STATUSES : MONITORING_STATUSES)
-                      .filter((status) => status !== "unchecked")
+                      .filter((status) => status !== "unchecked" && status !== "breached")
                       .map((status) => {
                         const meta = STATUS_PRESENTATION[status];
                         const Icon = meta.icon;
@@ -523,13 +583,29 @@ export function CockpitKillerFactorCatalog({ projectId }: { projectId: string })
                             type="button"
                             aria-pressed={editingStatus === status}
                             onClick={() => setEditingStatus(status)}
-                            className={`flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-2 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${editingStatus === status ? meta.className : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+                            className={`flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-lg border px-2 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${editingStatus === status ? meta.className : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
                           >
-                            <Icon className="size-3.5" />{meta.label}
+                            <span className="flex items-center gap-1.5"><Icon className="size-3.5" />{meta.label}</span>
+                            <span className="text-[9px] font-medium opacity-60">{meta.stage}</span>
                           </button>
                         );
                       })}
                   </div>
+                  {editFactor.operatingMode === "prevention" && (() => {
+                    const meta = STATUS_PRESENTATION.breached;
+                    const Icon = meta.icon;
+                    return (
+                      <button
+                        type="button"
+                        aria-pressed={editingStatus === "breached"}
+                        onClick={() => setEditingStatus("breached")}
+                        className={`flex min-h-11 w-full items-center justify-between rounded-lg border px-3 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600 ${editingStatus === "breached" ? meta.className : "border-rose-200 bg-white text-rose-700 hover:bg-rose-50"}`}
+                      >
+                        <span className="flex items-center gap-1.5"><Icon className="size-3.5" />統制逸脱を記録</span>
+                        <span className="text-[10px] font-normal opacity-70">成熟度とは別の重大状態</span>
+                      </button>
+                    );
+                  })()}
                 </div>
                 <div className={`grid gap-4 ${editFactor.operatingMode === "prevention" ? "sm:grid-cols-2" : ""}`}>
                   <Field label="状態日" name="status_on">

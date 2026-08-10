@@ -4,30 +4,33 @@ export type KillerFactorOperatingMode = typeof KILLER_FACTOR_OPERATING_MODES[num
 export const KILLER_FACTOR_STATUSES = [
   "unchecked",
   "clear",
+  "watch",
   "warning",
   "occurred",
   "not_started",
   "in_progress",
+  "implemented",
   "controlled",
   "breached",
 ] as const;
 export type KillerFactorStatus = typeof KILLER_FACTOR_STATUSES[number];
 
-export const MONITORING_STATUSES = ["unchecked", "clear", "warning", "occurred"] as const;
-export const PREVENTION_STATUSES = ["unchecked", "not_started", "in_progress", "controlled", "breached"] as const;
+export const MONITORING_STATUSES = ["unchecked", "clear", "watch", "warning", "occurred"] as const;
+export const PREVENTION_STATUSES = ["unchecked", "not_started", "in_progress", "implemented", "controlled", "breached"] as const;
 
 export type KillerFactorRiskInput = {
   operatingMode: KillerFactorOperatingMode;
   status: KillerFactorStatus;
 };
 
-export type KillerFactorOverallLevel = "critical" | "attention" | "unknown" | "stable";
+export type KillerFactorOverallLevel = "critical" | "attention" | "watch" | "unknown" | "stable";
 
 export type KillerFactorRiskSummary = {
   level: KillerFactorOverallLevel;
   totalCount: number;
   criticalCount: number;
   actionCount: number;
+  watchCount: number;
   unknownCount: number;
   safeCount: number;
 };
@@ -51,6 +54,7 @@ export function isKillerFactorStatusAllowed(
 export function summarizeKillerFactorRisk(items: KillerFactorRiskInput[]): KillerFactorRiskSummary {
   let criticalCount = 0;
   let actionCount = 0;
+  let watchCount = 0;
   let unknownCount = 0;
   let safeCount = 0;
 
@@ -59,6 +63,8 @@ export function summarizeKillerFactorRisk(items: KillerFactorRiskInput[]): Kille
       criticalCount += 1;
     } else if (item.status === "warning" || item.status === "not_started" || item.status === "in_progress") {
       actionCount += 1;
+    } else if (item.status === "watch" || item.status === "implemented") {
+      watchCount += 1;
     } else if (item.status === "unchecked") {
       unknownCount += 1;
     } else if (item.status === "clear" || item.status === "controlled") {
@@ -72,13 +78,16 @@ export function summarizeKillerFactorRisk(items: KillerFactorRiskInput[]): Kille
       ? "attention"
       : unknownCount > 0 || items.length === 0
         ? "unknown"
-        : "stable";
+        : watchCount > 0
+          ? "watch"
+          : "stable";
 
   return {
     level,
     totalCount: items.length,
     criticalCount,
     actionCount,
+    watchCount,
     unknownCount,
     safeCount,
   };

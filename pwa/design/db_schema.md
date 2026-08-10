@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-09 15:25 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-10 15:23 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -118,7 +118,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 2,107
+行数 (概算): 2,112
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -3099,7 +3099,7 @@ PRIMARY KEY: `outbox_id`
 
 ## proactive_todos
 
-行数 (概算): 422
+行数 (概算): 437
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |

@@ -10,6 +10,7 @@ const expectAll = (source, needles, label) => {
 
 const baseMigration = read("scripts/migrations/246_killer_factor_catalog.sql");
 const operatingMigration = read("scripts/migrations/249_killer_factor_operating_model.sql");
+const graduatedMigration = read("scripts/migrations/250_killer_factor_graduated_assessment.sql");
 const route = read("src/app/api/governance/killer-factors/route.ts");
 const component = read("src/components/cockpit/CockpitKillerFactorCatalog.tsx");
 const risk = read("src/lib/killer-factor-risk.ts");
@@ -45,6 +46,16 @@ expectAll(operatingMigration, [
   "会社設立・外部資金受入の前",
 ], "operating model migration");
 
+expectAll(graduatedMigration, [
+  "project_killer_factor_states_status_check",
+  "'watch'",
+  "'implemented'",
+  "status NOT IN ('unchecked', 'clear', 'watch', 'warning', 'occurred')",
+  "status NOT IN ('unchecked', 'not_started', 'in_progress', 'implemented', 'controlled', 'breached')",
+  "悪化度",
+  "成熟度",
+], "graduated assessment migration");
+
 expectAll(route, [
   "requireMember",
   ".from(\"killer_factor_catalog\")",
@@ -65,10 +76,12 @@ expectAll(risk, [
   "KILLER_FACTOR_OPERATING_MODES",
   "MONITORING_STATUSES",
   "PREVENTION_STATUSES",
-  '"critical" | "attention" | "unknown" | "stable"',
+  '"critical" | "attention" | "watch" | "unknown" | "stable"',
+  'item.status === "watch" || item.status === "implemented"',
   "criticalCount > 0",
   "actionCount > 0",
   "unknownCount > 0 || items.length === 0",
+  "watchCount > 0",
 ], "risk summary");
 
 expectAll(component, [
@@ -79,18 +92,24 @@ expectAll(component, [
   "このPJの全体判定",
   "危険",
   "要対応",
+  "要観察",
   "要確認",
   "安定",
   "予防統制",
   "常時監視",
+  'data-testid={`killer-factor-group-${mode}`}',
+  'data-testid="killer-factor-level-scale"',
+  "未整備 → 整備中 → 実装済 → 運用確認済",
+  "兆候なし → 要観察 → 明確な悪化 → 重大事象",
+  "統制の成熟度",
+  "兆候の悪化度",
+  "統制逸脱を記録",
   "未確認は安全扱いしない",
   "AMDの打ち手 / 見るもの",
   "状態を保存",
   "根拠メモ",
   "観測の手がかり",
   'h-11 w-full shrink-0 sm:h-9 sm:w-auto',
-  'min-h-11 rounded-md',
-  'lg:min-h-8',
   'h-11 w-full min-w-0',
   'lg:h-9',
   "CEO本人の自己申告だけでは平常・兆候・発生を確定しない",
@@ -101,6 +120,7 @@ expectAll(component, [
 for (const forbidden of [
   "発生を記録",
   "未発生",
+  'role="tablist"',
   'lg:grid-cols-[9rem_minmax(16rem,1.15fr)_minmax(18rem,1.35fr)_15rem]',
 ]) {
   assert.ok(!component.includes(forbidden), `catalog component must not contain old low-density UI: ${forbidden}`);
@@ -110,6 +130,8 @@ expectAll(designCode, [
   "情報密度",
   "10件以下なら全件",
   "44〜64px",
+  "タブやfilterで一方を隠さず",
+  "連続的な状態",
   "未確認を安全扱いしない",
   "desktop 1440×900",
   "mobile 390×844",
