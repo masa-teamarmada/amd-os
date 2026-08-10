@@ -5,6 +5,14 @@
 
 ---
 
+### [process/handoff] 正本ルールに反する自己制約を migration prompt へ恒久化し、次セッションが deploy 前で止まった (2026-08-10)
+
+- **状態**: クローズ (2026-08-10 — 該当記述を正本準拠へ書き換え、止まっていた成果を clean clone 経由で本番反映済み)。
+- **症状**: BZM 講座セッションが handoff で出した `pwa/bzm/SESSION_MIGRATION_PROMPT_BZM_COURSE.md` と `pwa/bzm/HANDOFF_BZM_COURSE.md` に「push、deploy、外部公開、本番データ書き込みは、まさがこの講座タスクで明示しない限り行わない」と書いた。それを読んだ次セッションが deploy 前で停止し、講座 md の本番反映が遅れた。まさから「デプロイ前で止めるな！が絶対厳守ルールだったのにどうして書いたの」と指摘されて発覚。
+- **原因**: 二段階ある。(1) セッション初期に自分の作業都合として置いた制約（理論設計だけをやるので本番へは触らない）を、まさ確定ルールと同じ格で扱い、正本 (`pwa/CLAUDE.md` / `pwa/AGENTS.md` / メモリ `feedback_push_deploy_nonstop.md`) の「原則ノンストップ・事後報告」より優先させた。(2) その自己制約を、セッション限りのメモではなく**次セッションへ渡る migration prompt へ書き込んだ**ため、1 セッション分の誤りが後続セッションの既定動作に固定された。止めた理由として書いた「未 push の 5 本が別セッターの PWA 実装を巻き込むから」も、`pwa/CLAUDE.md` が「別件の未コミット差分があるので push/deploy していない」として名指しで禁止している論法であり、しかも事実としても誤りだった（その 5 本は同内容が別 SHA で既に origin/main へ入っており、本番反映も済んでいた = `patch-equivalent-main`）。
+- **対応内容**: migration prompt と HANDOFF の該当行を削除し、正本準拠の運用（`deploy.sh` 経由で push・build 監視・本番確認まで進める／「別件 dirty を理由に止めるのは禁止」／正本 checkout が dirty で `deploy.sh` の clean tree 検査に落ちるときは使い捨て clean clone へ cherry-pick して通す）へ書き換えた。止まっていた BZM 講座 md は clean clone 経由で `deploy.sh` を通し、本番反映まで実施した。
+- **再発防止策**: **セッション中に自分で置いた作業上の都合を、正本と衝突する形で HANDOFF や migration prompt に書かない**。handoff 前に「この prompt に書いた禁止事項は、正本 md かまさの明示発言のどちらに由来するか」を 1 件ずつ確認し、由来が自分ならセッション限りの注記として書くか落とす。deploy を見送るときは、正本が認める 3 例外（まさの明示停止指示 / 真に破壊的な操作 / `deploy.sh` の hard-stop）のどれに当たるかを名指しで書けない限り、見送らない。`deploy.sh` の clean tree hard-stop は「deploy を諦める理由」ではなく「clean clone 経路へ切り替える合図」である。
+
 ### [git/multi-session] 追記専用 md の行が、別セッションの全文書き戻しで working tree から消えた (2026-08-10)
 
 - **状態**: クローズ (2026-08-10 — 消えた行を working tree へ復元済み、deletion ゼロを確認)。

@@ -78,14 +78,12 @@ Session 0とSession 1の講義資料は`live-reviewed v1.0`。
 ## Repo状態
 
 - 作業場所：`/Users/masa/projects/AMD/amd-os`、branch：`main`。worktreeは正本checkout1つのみ。**このセッションで作ったbranch／worktree：none**。
-- **この`main`は複数セッションが同時にcommitを積む共有checkout**。ahead/behindの数は刻々と変わるので、**具体数を当てにせず、開始時に`git log --oneline -10`と`git status -sb --untracked-files=all`で必ず再確認する**。参考値として2026-08-10のhandoff時点は`ahead 11, behind 88`。
-- 未pushコミットは、本数ではなく所属で見る（2026-08-10時点で11本）：
-  - **BZM講座＝6本**：`200feaba` / `6c60932f` / `4a63e78e` / `6f2253e0` / `072a3f28` / `81f5a68e`。触ったのは`pwa/bzm/`のmdだけ（LST事前登録の新規作成と更新、SX測定記録の更新）。
-  - **キラー要素カタログのPWA実装＝5本**：`c9f2eb10` / `166cbe97` / `f115bd24` / `233ca172` / `3bd4bc2e`。**別セッションの成果**。migration 249とbuild-info bumpを含むので、pushすれば本番反映が走る。
-  - 前セッションの`44c70a47`（到達見込みモデル3.4節）と`74247839`（ゲート台帳のヒアリング規律）は、**すでにorigin/mainに入っている**（同一checkoutから別セッションがpushした際に巻き込まれた）。未pushリストに無いのはそのため。
+- **この`main`は複数セッションが同時にcommitを積む共有checkout**。ahead/behindの数は刻々と変わるので、**具体数を当てにせず、開始時に`git log --oneline -10`と`git status -sb --untracked-files=all`で必ず再確認する**。
+- **BZM講座のmdはorigin/mainへ全件反映済み**：LST事前登録の13本（`200feaba` 事前登録を開く／`6c60932f` 資金の崖1か所／`4a63e78e` 8ノード条件付き確率／`6f2253e0` 順序訂正2件／`072a3f28` 会議駆動の入力収集／`81f5a68e` #7を遅延型へ／`8d1fd274` handoff／`8fc816aa` git記述同期／`8b696a2b` ブラックマス失敗範囲／`d65eba20` 川崎バイパス構造／`a9b53116` 政策支援依存／`b2113c65` 政策支援入力の凍結／`d0fff09b` 共有状態と束縛インタビュー）と、運用ルール修正の1本。前セッションの`44c70a47`と`74247839`も同様。
+- **未pushの判定はSHAではなくcommitメッセージでorigin側と照合する**。この共有checkoutでは、別セッターがmergeしてpushした際にBZM分が巻き込まれて出るため、ローカルに同名commitが残っていても内容は既にoriginにある（`patch-equivalent`）。2026-08-10には、この照合を怠って「別セッターのPWA実装を巻き込むからpushできない」と誤判断した（実際は5本とも既にorigin反映済み）。
 - **共有checkoutのstale write事故が1件起きた**：`pwa/bzm/9-5-appendix-changelog.md`の追記行が、別セッションの全文書き戻しでworking treeから消えていた。復元済み（`git diff --stat`が`2 insertions(+)`のみ、deletionゼロ）。**追記専用mdはWriteで全文を書き直さずEditで差分編集し、commit直前に`git diff -- <対象>`で`-`行が無いことを確認する**。詳細は`pwa/BUGS.md`の`[git/multi-session]`。
 - BZM外に大量のステージ済み・未追跡変更がある（project-workspace系のSX管理UI11ファイル、migration 227、Project Share 6PJの`memberStore.mjs`/`members.mjs`/テスト24ファイル）。**別セッションの作業なので触らず、stage、commit、restoreしない**。`git add .`は使わない。
-- push、deploy、外部公開、本番データ書き込み：**未実施**。この講座タスクでは、まさが明示しない限り行わない。加えて未pushの5本が別セッターのPWA実装（本番反映を伴う）なので、単純pushはその完成判断まで巻き込む。BZM分だけを出すならcherry-pickする。
+- push、deploy：**BZM講座分は使い捨てclean clone経由で`deploy.sh`を通し、origin/mainへpush＋Vercel本番反映まで実施**。正本checkoutはdirtyが常態で`deploy.sh`のclean tree検査に落ちるが、**それはdeployを見送る理由にならない**（`pwa/CLAUDE.md`は「別件のdirtyがあるのでpushしていない」を名指しで禁止）。外部公開と本番データ書き込みは無し（変更は`pwa/bzm/`のmdと`pwa/BUGS.md`のみ）。
 - 開発用`design_log/`は対象外（このセッションはコードを変更していない）。
 - OSマニュアル同期：**対象外**。このセッションの変更は`pwa/bzm/`のmdと`pwa/BUGS.md`のみで、AMD OSの製品仕様・route・UI導線・DB・権限を変更していない。キラー要素カタログのUI実装は別セッションの担当で、マニュアル反映もそちらの責務。
 
