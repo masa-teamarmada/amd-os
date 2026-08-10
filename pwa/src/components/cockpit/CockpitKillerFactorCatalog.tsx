@@ -407,9 +407,9 @@ export function CockpitKillerFactorCatalog({ projectId }: { projectId: string })
                 <div className={`flex min-h-10 flex-col justify-center gap-0.5 border-b px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-4 ${modeMeta.className}`}>
                   <div className="flex min-w-0 items-center gap-2">
                     <ModeIcon className="size-3.5 shrink-0" />
-                    <span className="text-xs font-semibold">{modeMeta.title}</span>
-                    <span className="text-[10px] opacity-70">{modeMeta.description}</span>
-                    <span className="rounded border border-current/15 bg-white/60 px-1.5 py-0.5 text-[10px] font-medium tabular-nums">
+                    <span className="shrink-0 whitespace-nowrap text-xs font-semibold">{modeMeta.title}</span>
+                    <span className="min-w-0 truncate text-[10px] opacity-70">{modeMeta.description}</span>
+                    <span className="shrink-0 rounded border border-current/15 bg-white/60 px-1.5 py-0.5 text-[10px] font-medium tabular-nums">
                       {modeItems.length}件
                     </span>
                   </div>
