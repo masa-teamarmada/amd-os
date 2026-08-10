@@ -135,5 +135,8 @@ LSTの8ノードは条件付き確信度を取得済みだが、結合構造は�
 - **編集したら論理単位ごとに小刻みにcommitする**。この正本checkoutは5〜10セッションが並行して触るため、編集を放置すると別セッションのWriteで巻き戻る。
 - **追記専用md（`bzm/9-5-appendix-changelog.md`、`manual/9-3`、`spec/6-1`）はWriteで全文を書き直さずEditで差分編集する。commit直前に`git diff -- <対象>`で`-`行が無いことを確認する。**
 - BZM外のProject Share各PJにあるステージ済み・未追跡変更は別作業。触らず、stage、commit、restoreしない。
-- push、deploy、外部公開、本番データ書き込みは、まさがこの講座タスクで明示しない限り行わない。
+- **PWAの本番反映は原則ノンストップ。deploy前の承認待ちで止めない**（`pwa/CLAUDE.md`／`pwa/AGENTS.md`）。`pwa/`配下を変更したら——`pwa/bzm/`のmdも`/bzm`で表示される本番物なので同じ——`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`でpush、Vercel build監視、本番確認まで進め、deploy bundleを事後報告する。事前承認が要るのは既存業務導線（`FEATURE_REGISTRY`）の削除・置き換えと、まさが明示的に「確認してから」と言った作業だけ。DDLと本番データ書き込みは事前承認不要。
+- **「別件のdirtyがあるのでpush／deployしていない」は禁止**（`pwa/CLAUDE.md`が名指しで禁止）。今回触った対象ファイルだけをstageしてcommitし、既存dirtyは戻さず「除外した差分」として事後報告する。
+- 正本checkoutはdirtyが常態で、`deploy.sh`のclean tree検査に引っかかる。**そのときもdeployを見送らない**。`main`をcheckoutした使い捨てclean clone（`git clone /Users/masa/projects/AMD/amd-os <scratchpad>/... && git remote set-url origin https://github.com/masa-teamarmada/amd-os.git`、`pwa/node_modules`は正本からsymlink）へ対象commitをcherry-pickして`deploy.sh`を通し、closeoutでclone削除まで書く（root `CLAUDE.md`の「disposable clean clone」）。
+- 自分でセッション中に置いた作業上の都合を、まさ確定ルールのように扱わない。とくに**正本ルールと衝突する自己制約をこのpromptやHANDOFFへ書き込まない**（2026-08-10に実害。`pwa/BUGS.md`の`[process/handoff]`）。
 - `AskUserQuestion`ツールは使わない。質問は普通のテキストで書く。
