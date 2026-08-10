@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-08-10 20:02 JST | 3-8 PJ Cockpit / 4-2 AMD Score / score detail UI | 修正 | build v3.70.11。BZM 2.0観測画面の数式記号をLaTeXで描画し、q版推移を初期折りたたみに変更。パラメータ台帳を、記号・現在値・測定/出所・反映先・履歴を横比較する圧縮表へ変更し、説明・出所参照・版別履歴は行内詳細へ退避 | まさ指摘「情報密度が低すぎて見にくい」と下付き記号の表記要望に応え、データ意味を変えずに測定値の比較速度を上げるため | まさ・えいみ |
 | 2026-08-10 18:40 JST | 3-8 PJ Cockpit / 4-2 AMD Score / DB / score detail UI | 追加・本番DB反映 | build v3.70.10 / migration 252。測定状態へ`data_collection`、パラメータ群へ`context`を追加。SPS対象10PJのv0.1へ、2026-08-10締切の構造化DB事実を凍結し、q/P/TC/TY/Hvは入力不足のまま明示する。本番readbackは全12PJ・15版・158観測行。現行XRL、政策支援、証拠被覆、資金履歴は出所つきで表示するが、因果接続を後付けしない | 全SPS対象PJを同じ観測面へ載せつつ、既存診断値や結果情報をBZM 2.0の予測値へ誤変換しないため | まさ・えいみ |
 | 2026-08-10 17:04 JST | 3-8 PJ Cockpit / 4-2 AMD Score / DB / score detail API・UI | 追加 | migration 251とBZM 2.0観測台帳を追加。PJ別の測定版と汎用パラメータ行を追記し、`parameter_key`により共通状態を列追加なしで扱う。スコア詳細APIへ`bzm2`を追加し、数式、現在値、影響先、q版推移、出所履歴を現行SPSと分離表示する。SX v0.2〜v0.5とLST v0.1を既存一次資料から初期化し、欠測を0へ変換しない。migration適用、push、deploy、本番データ書き込みは未実施 | 新しい変数が数式上のどこへ作用し、各版で何が変わったかをPJごとに再現可能な形で追うため | まさ・えいみ |
 | 2026-08-10 18:18 JST | 3-8 PJ Cockpit / 4-2 AMD Score / DB / score detail API・UI | 本番反映 | build v3.70.8 / migration 251。BZM 2.0観測台帳を本番へ適用し、`bzm_2_model_revisions=5`、`bzm_2_parameter_observations=36`をreadback。スコア詳細APIと観測画面をproductionへ反映する | ローカルcommitだけで停止していた実装を正規deploy経路で完了させるため | えいみ |

@@ -112,6 +112,8 @@ APIの`/api/project/[projectId]/amd-score-detail`は、既存payloadへ`bzm2`を
 
 `fetchBzm2Observatory()`は版と観測を取得し、パラメータごとに最新値と履歴を組み立てる。
 
+`Bzm2ModelObservatory`は数式記号をLaTeXで組む。たとえば`T_C`という生文字列を表示せず、$T_C$として下付きを含めて描画する。共通状態、時計、入力、資金、品質の台帳は、記号と変数名、現在値、測定状態・出所、反映先、履歴を同じ圧縮表へ並べる。各行の詳細で説明、出所参照、版別の値・状態・情報締切を確認する。$q$の版推移は初期状態で閉じ、必要なときだけ開く。
+
 台帳が未適用または取得不能でも既存スコア詳細を失敗させず、BZM 2.0側だけを欠測表示にする。
 
 初期データは、撤回済みSX v0.1を除外し、SX v0.2からv0.5とLST v0.1事前登録を投入する。
@@ -153,7 +155,7 @@ FRL は XRL に飲み込まない。AMD Studio の哲学上、FRL と `sigma_SU`
 | `pwa/src/lib/amd-score-data.ts` | `amd_score_inputs` / `amd_score_alpha` data access |
 | `pwa/src/lib/bzm-2-observatory.ts` | BZM 2.0の必須記号、版、パラメータ履歴を組み立てる純粋契約 |
 | `pwa/src/lib/bzm-2-observatory-data.ts` | BZM 2.0観測台帳のserver-side read。取得不能時は欠測payloadを返す |
-| `pwa/src/components/cockpit/Bzm2ModelObservatory.tsx` | 数式、現在値、共通状態の影響先、q版推移、全パラメータ履歴を表示 |
+| `pwa/src/components/cockpit/Bzm2ModelObservatory.tsx` | LaTeX数式、現在値、共通状態の影響先、初期折りたたみのq版推移、圧縮表のパラメータ台帳と行内履歴を表示 |
 | `pwa/src/components/venture-map/AmdScoreView.tsx` | 個別 PJ 詳細。SPS Primary を先頭に出し、legacy AMD / M-X-F を comparison として残す |
 | `pwa/src/components/venture-map/AmdScoreList.tsx` | 一覧。SPS primary を主表示し、legacy AMD は比較列 |
 | `pwa/src/components/cockpit/*AmdScore*` | cockpit chip / breakdown modal。SPS status を主語にする |
