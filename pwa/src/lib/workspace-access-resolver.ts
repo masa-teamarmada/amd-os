@@ -35,23 +35,33 @@ export async function resolveWorkspaceAccessForAccount(
 ): Promise<WorkspaceScopeSummary | null> {
   const service = getServiceClient();
 
-  const { data: account } = await service
+  const { data: account, error: accountError } = await service
     .from("workspace_user_accounts")
     .select("id,email_normalized,auth_user_id,status")
     .eq("id", accountId)
     .maybeSingle<WorkspaceAccountRow>();
 
+  if (accountError) throw new Error(`workspace account access lookup: ${accountError.message}`);
+
   if (!account) return null;
 
-  const { data: institutionMemberships } = await service
+  const { data: institutionMemberships, error: institutionMembershipError } = await service
     .from("institution_workspace_memberships")
     .select("role,status,workspace:institution_workspaces(slug,name,status)")
     .eq("user_account_id", accountId);
 
-  const { data: projectMemberships } = await service
+  if (institutionMembershipError) {
+    throw new Error(`workspace institution membership lookup: ${institutionMembershipError.message}`);
+  }
+
+  const { data: projectMemberships, error: projectMembershipError } = await service
     .from("project_access_memberships")
     .select("project_id,role,status")
     .eq("user_account_id", accountId);
+
+  if (projectMembershipError) {
+    throw new Error(`workspace project membership lookup: ${projectMembershipError.message}`);
+  }
 
   return buildWorkspaceScopeSummary(
     account,

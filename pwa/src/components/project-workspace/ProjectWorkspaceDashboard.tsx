@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Activity, CalendarClock, CheckCircle2, Database, Pencil, ShieldCheck, UsersRound } from "lucide-react";
 import type { ProjectWorkspaceBundle } from "@/lib/project-workspace";
 import type { SharedWorkspaceAccess } from "@/lib/project-shared-workspace-access";
+import type { SharedProjectControlPublication, ViewerLens } from "@/lib/shared-project-control";
 import type {
   SxManagementBundle,
   SxObjective,
@@ -32,6 +33,7 @@ import type {
 import { EFFORT_CATEGORIES, type EffortCategory } from "@/lib/project-workspace-types";
 import { EffortEntryForm } from "./EffortEntryForm";
 import { SxExecutiveControlDeck } from "./SxExecutiveControlDeck";
+import { SharedProjectControlDeck } from "./SharedProjectControlDeck";
 import { SxDevelopmentThemeBoard } from "./SxDevelopmentThemeBoard";
 import { SxProofOutcomes } from "./SxProofOutcomes";
 import { SxPartnerPipeline } from "./SxPartnerPipeline";
@@ -1003,7 +1005,18 @@ function SelectedMilestoneContext({ milestone: rawMilestone, milestoneLabelMap, 
   );
 }
 
-export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectWorkspaceBundle; access: SharedWorkspaceAccess }) {
+export function ProjectWorkspaceDashboard({
+  bundle,
+  access,
+  sharedControl,
+}: {
+  bundle: ProjectWorkspaceBundle;
+  access: SharedWorkspaceAccess;
+  sharedControl: {
+    publication: Exclude<SharedProjectControlPublication, null>;
+    lens: ViewerLens;
+  };
+}) {
   const [workspace, setWorkspace] = useState(bundle);
   const [selectedTrack, setSelectedTrack] = useState<SxTrackKey | null>(null);
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(null);
@@ -1108,7 +1121,14 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
 
         <section id="management-summary" className="scroll-mt-20" aria-label="経営状況図: 判定・統合タイムライン・次の経営介入">
           <h2 className="sr-only">判定・統合タイムライン・意思決定待ち・次の経営介入を一続きで表示する経営状況図</h2>
-          <div className="min-w-0">
+          <div className="min-w-0 space-y-4">
+            <SharedProjectControlDeck
+              snapshot={sharedControl.publication.state === "published" ? sharedControl.publication.snapshot : null}
+              lens={sharedControl.lens}
+              state={sharedControl.publication.state === "published" ? "ready" : "unpublished"}
+            />
+            <div className="border-t border-[#d6cebf] pt-4">
+              <p className="mb-2 text-[10px] font-semibold tracking-[0.14em] text-[#777166]">AMD内部計画</p>
             <SxExecutiveControlDeck management={management} judgment={effectiveJudgment} selectedMilestoneId={selectedMilestoneId} onSelectMilestone={openMilestoneDetail} onEditMilestone={(id) => setEditing({ resource: "milestone", id })} onCreateMilestone={(prefill) => {
               const outcome = prefill.outcomeId
                 ? management.outcomes.find((item) => item.id === prefill.outcomeId)
@@ -1124,6 +1144,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
                 },
               });
             }} />
+            </div>
           </div>
         </section>
 

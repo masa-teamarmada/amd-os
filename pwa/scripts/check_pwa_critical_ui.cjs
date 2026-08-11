@@ -345,7 +345,9 @@ expectIncludes(
     "ProjectWorkspaceDashboard",
     "ExternalProjectWorkspaceDashboard",
     "getProjectWorkspaceBundle",
-    "getExternalProjectWorkspaceBundle",
+    "getExternalProjectWorkspacePublication",
+    "getSharedProjectControlForMember",
+    "publicationViewerLens",
     "SharedWorkspaceScopeRibbon",
   ],
 );

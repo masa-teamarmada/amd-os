@@ -1,7 +1,7 @@
 # AMD OS 全体収束仕様
 
 > この章は、AMD内部、研究機関、スタートアップ、共同PJで増えた画面、権限、データを、役割ごとの入口を残しながら共通の業務構造へ収束させるための現行方針である。
-> 2026-08-11時点では、収束原則と情報境界を採択済みとし、共通カーネルへの実装移行は一部未実装である。
+> 2026-08-11時点では、収束原則と情報境界を採択済みとし、SX p21で本人・組織・権限と外部公開版の共通カーネルを先行実装している。共通作業・判断と他PJへの展開は未実装である。
 
 ## 目的
 
@@ -145,6 +145,24 @@ AMD非公開メモ、共同正本、相手方主権データを一つのknowledg
 ECRとSPSは別の測定対象であり、合算しない。
 
 外部向けの根拠は、内部メモや個人情報を漏らさないsafe summaryとして別途作成する。
+
+### SX p21の先行実装
+
+SX p21では、PJ固有の別writerを増やさず、PJ横断で再利用する`principal / organization / organization membership / project party / project grant`を先に実装する。
+
+共有画面の値は、内部テーブルの現在値ではなく、許可されたsource rowと版をAMDの公開承認者が選び、DBが許可列だけから組み立てたimmutable publicationから読む。
+
+外部workspace accountの閲覧には、既存の当該PJ membershipと、新しい当該PJ・当該partyの`publication.view` grantの両方を必要とする。
+
+研究機関workspaceへの所属だけではPJ公開版を読めない。
+
+外部認可がない場合はPJの存在を区別できない`not found`、認可済みで公開版がない場合は内部PJ名を出さない`未公開`、DB取得またはpayload検査に失敗した場合はerrorとする。
+
+外部向けに内部の最新値へfallbackしない。
+
+同じpublication snapshotをAMD、SU、研究機関のレンズへ渡し、`自分のボール / 共同判断 / 相手待ち / 主体未確認`だけをexact party IDで分ける。
+
+画面上段は全体判定、4本柱、重要経路、ボールの順とし、従来のSX統合タイムラインはAMD内部計画として下段に維持する。
 
 ## 事実境界
 
@@ -301,4 +319,10 @@ surface catalogと資料権限のcapability bundleは初期実装済みである
 
 security closureのmigration 258は2026-08-11に本番適用し、table、function、trigger、foreign key、実行権限をreadback済みである。
 
-共通のorganization tenant、作業、判断、資料revision、外部公開版へのDB移行、画面統合、旧Project Share退役は未実装である。
+共通principal、organization、organization membership、project party、project grant、immutable publication revisionはmigration 259で初期実装した。
+
+`/project/[id]/workspace`は公開版を先頭の共通4本柱面へ表示し、workspace accountの旧内部latest読取を廃止した。
+
+migration 259は人物、外部organization、grant、publicationを自動作成しない。p21の初期grantと最初の公開版は、実利用者と公開対象を明示確認してから別migrationまたは承認操作で作成する。
+
+共通作業・判断の状態遷移、SUと研究機関が自組織データを確定するwriter、資料revision、他PJへのgrant展開、旧Project Share退役は未実装である。

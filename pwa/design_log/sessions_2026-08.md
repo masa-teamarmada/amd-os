@@ -100,3 +100,24 @@ automation作成後の最初の自然な平日09:00実行は未観測。2026-08-
 - stash復元時の9競合は、現行mainの後継仕様を保持して解消した。元差分の大半はmainへ同内容が入っており、旧migrationは番号違いの同一SQL、BZM新章は完全一致だった。
 - 唯一の有意な未反映差分は、成立条件ナビゲーションで`not_started`を`neutral`へ割り当てる1行だった。既存の「未着手は未評価と区別する」仕様に沿うため、回帰テストとbuild `v3.71.8`で本流へ統合した。
 - closeout時点はmainのみ、worktree 1件、ahead 0 / behind 0、未push commit・競合・未追跡物なし。
+
+## 2026-08-11 — SXを先行例に共有PJを共通カーネルへ接続（v3.72.0）
+
+### 判断
+
+- ホームは再設計せず、局所最適を全体最適へ寄せる最初の実装対象をSX p21にした。
+- AMD、SU、研究機関へ別々のdashboardとwriterを作らず、同じimmutable publication snapshotをrole lensだけ変えて表示する。
+- 共有面の署名を`4本柱を横切る重要経路`と`現在のボール`にし、従来の3レーン統合タイムラインはAMD内部計画として下段に維持する。
+
+### 実装
+
+- migration 259でgeneric principal、organization、organization membership、project party、exact capability grant、immutable publication revision/items/audience、transactional auditを追加した。
+- publication publisherは任意payloadを受けず、許可された既存management rowのIDとversionからDBが許可列だけを組み立てる。外部readは既存のexact project membershipと新grantを両方検査し、project全体の最新revisionがviewer audienceを含まなければ過去版へfallbackしない。
+- 外部workspaceの`projects / plan cycle / milestone / progress`直接読取を削除した。認可なしはgeneric not found、認可済み未公開は内部PJ名を出さない未公開、DB/parser失敗はerrorに分離した。
+- 共通deckは全体判定、4本柱、重要経路、my/joint/waiting/unknownを表示する。partyはserverで解決したUUIDだけを使い、role・email・名称から推定しない。
+- 人物、SU、研究機関、外部accountへのgrantと初回publicationは自動seedしない。明示確認後の別変更に分離する。
+
+### 検証
+
+- strict parser、3レンズ不変、bucket排他、dangling/cycle/rank conflict、内部値漏洩防止、DB migration security contractを自動テスト化した。
+- TypeScript、対象ESLint、SQL parser、production build、390/768/1440の実寸UIを完了条件にした。
