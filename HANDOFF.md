@@ -24,7 +24,7 @@
 - Codex automation `automation-2`「つくよみ 外部リサーチ候補」はACTIVE。平日09:00 JST、失敗時だけ通知する。
 - 実行repo `/Users/masa/projects/AMD/amd-os-automation-runtime` はmainへ同期済み。既存の未追跡probe 1件は別運用のため触っていない。
 - 旧GASのSlack外部リサーチ入口はearly returnへ変更し、`clasp push`とremote code readbackまで完了している。
-- 正規checkout `/Users/masa/projects/AMD/amd-os` は、最終追記直前の再計測で`HEAD=c515d4e3`、`origin/main=123cf8c8`、ahead 3 / behind 114。owner調査で`303abd57`と`c515d4e3`はpatch-equivalent、`31538ad7`は現行mainより古く保存価値なし、残るBZM・週次管制dirtyはmain反映済みか後続版に置換済みと判定した。Project Shareの欠損24ファイルだけは`123cf8c8`で救出済み。正規checkoutの復旧はCodexタスク「AMD OS全体仕様を監査」が所有し、回収branch作成・dirtyの復元用commit・local mainのorigin/mainへの付替えについて、まさの承認を待っている。最終追記のpushでbehind数は増えるため、作業開始時に必ず再計測する。
+- 正規checkout `/Users/masa/projects/AMD/amd-os` は、最終追記直前の再計測で`HEAD=c515d4e3`、`origin/main=123cf8c8`、ahead 3 / behind 114。read-only調査で`303abd57`と`c515d4e3`はpatch-equivalent、`31538ad7`は現行mainより古く保存価値なし、残るBZM・週次管制dirtyはmain反映済みか後続版に置換済みと判定した。Project Shareの欠損24ファイルだけは`123cf8c8`で救出済み。正規checkoutの復旧ownerは未割当で、既存の別目的タスクへ流用しない。専用の同期処置として、回収branch作成・dirtyの復元用commit・local mainのorigin/mainへの付替えを判断する。最終追記のpushでbehind数は増えるため、作業開始時に必ず再計測する。
 
 ## 検証済み
 
@@ -39,7 +39,7 @@
 
 - automation作成後の最初の自然な平日09:00実行は未観測。次回予定は2026-08-12 09:00 JST。
 - 新規候補0件は正常で、通知もoutboxも作らない。0件を失敗扱いしない。
-- 正規checkoutの同期P0は別ownerが対応中。復旧処置はまさの承認待ちで、behindが0になるまで、そのcheckoutをcurrent truthの読取りや新規編集に使わない。
+- 正規checkoutの同期P0はowner未割当。別件のCodexタスク「AMD OS全体仕様を監査」への誤った引き継ぎは撤回済み。behindが0になるまで、そのcheckoutをcurrent truthの読取りや新規編集に使わない。
 
 ## 次セッションで最初にすること
 

@@ -4339,3 +4339,10 @@
   - どうしてもその場で push まで到達できないときは、最低限 `git tag` か `git push origin HEAD:refs/heads/keep/<topic>` で **到達可能な参照を残す**。handoff の文章は commit を守らない。
   - 本体作業ツリーが他セッションで dirty なせいで rebase できない場合は、stash で他人の作業を巻き込まず、使い捨てクリーンクローンで origin/main の上に積む。
   - セッション再開時、handoff に「未 push commit がある」と書かれていたら、**まず `git merge-base --is-ancestor <sha> HEAD` で生存を確認する**。`git log` に出ないことと object が消えたことは別で、object が生きていれば完全復旧できる。
+
+## [closeout/routing] 別目的の進行中タスクをrepo同期P0のownerへ流用した (2026-08-11)
+
+- **症状**: つくよみ外部リサーチのcloseoutで見つけた正規checkoutの同期P0を、AMD OS全体最適化を監査していた既存Codexタスクへ引き継いだ。そのタスクは本来の監査を中断し、repo復旧の調査と承認待ちへ移った。
+- **原因**: dirty stateへowner/actionを付けるcloseout要件を満たす際、同じrepoを扱うことだけで既存タスクをowner候補と判断し、元タスクの目的・進行中の仕事・割込み影響を確認しなかった。
+- **対応内容**: 誤った引き継ぎを明示撤回し、対象タスクへ本来の全体最適化監査を再開するよう訂正した。Project Share欠損の救出commitは独立した完了成果として保持し、正規checkout同期P0はowner未割当へ戻した。
+- **再発防止策**: closeoutで見つけた別件P0は、同じrepoの既存タスクへ自動で割り当てない。既存タスクへ送る前に、依頼目的が一致していることと中断してよいことを確認する。一致しない場合は現在タスクの未解決として残し、専用タスクの明示作成をまさへ提案する。

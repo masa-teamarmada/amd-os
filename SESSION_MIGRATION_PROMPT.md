@@ -34,7 +34,7 @@
 - execution repoは /Users/masa/projects/AMD/amd-os-automation-runtime。main同期済み。
 - 旧GASのSlack配信入口は停止し、clasp pushとremote code readbackを確認済み。
 - automation作成後の最初の自然実行は未確認。次回予定は2026-08-12 09:00 JST。
-- 正規checkout /Users/masa/projects/AMD/amd-os は、最終追記直前の再計測でHEAD=c515d4e3 / origin/main=123cf8c8、ahead 3 / behind 114。owner調査で303abd57とc515d4e3はpatch-equivalent、31538ad7は保存価値なし、残るBZM・週次管制dirtyはmain反映済みか後続版に置換済みと判定した。Project Shareの欠損24ファイルは123cf8c8で救出済み。同期P0はCodexタスク「AMD OS全体仕様を監査」が所有し、回収branch作成・dirtyの復元用commit・local mainのorigin/mainへの付替えについて、まさの承認待ち。最終追記のpushでbehind数は増えるため、開始時に必ず再計測する。
+- 正規checkout /Users/masa/projects/AMD/amd-os は、最終追記直前の再計測でHEAD=c515d4e3 / origin/main=123cf8c8、ahead 3 / behind 114。read-only調査で303abd57とc515d4e3はpatch-equivalent、31538ad7は保存価値なし、残るBZM・週次管制dirtyはmain反映済みか後続版に置換済みと判定した。Project Shareの欠損24ファイルは123cf8c8で救出済み。同期P0のownerは未割当。別件のCodexタスク「AMD OS全体仕様を監査」への誤った引き継ぎは撤回済みなので、そのタスクを同期作業へ戻さない。専用の同期処置として扱う。最終追記のpushでbehind数は増えるため、開始時に必ず再計測する。
 
 ## 開始確認
 
