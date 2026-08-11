@@ -335,6 +335,10 @@ export type Bzm21DynamicPolicyModel = {
       probabilityMeasure: "physical";
       discounting: "deterministic_rate";
       discountRateBasis: "nominal";
+      taxBasis:
+        | "pre_tax_plus_explicit_tax_payments"
+        | "post_tax_inclusive"
+        | "tax_exempt";
       evidence: Bzm21EvidenceRef;
     }
   >;
@@ -1308,7 +1312,12 @@ export function validateBzm21DynamicPolicyModel(
     } else if (
       valuationRule.probabilityMeasure !== "physical" ||
       valuationRule.discounting !== "deterministic_rate" ||
-      valuationRule.discountRateBasis !== "nominal"
+      valuationRule.discountRateBasis !== "nominal" ||
+      ![
+        "pre_tax_plus_explicit_tax_payments",
+        "post_tax_inclusive",
+        "tax_exempt",
+      ].includes(valuationRule.taxBasis)
     ) {
       issues.push(
         issue(

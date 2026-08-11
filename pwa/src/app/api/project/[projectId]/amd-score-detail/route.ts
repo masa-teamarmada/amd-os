@@ -3,7 +3,8 @@ import { fetchActiveAlpha, fetchAmdScoreInputs } from "@/lib/amd-score-data";
 import { fetchAtlasMacroSignals } from "@/lib/atlas-macro-signals";
 import { fetchBzm21PolicyModelLedger } from "@/lib/bzm-2-1-policy-model-data";
 import { fetchBzm2Observatory } from "@/lib/bzm-2-observatory-data";
-import { createClient } from "@/lib/supabase/server";
+import { requireMember } from "@/lib/supabase/api-auth";
+import { fetchSpsPrimaryModelState } from "@/lib/sps-primary-model-data";
 import { fetchTripleHelixComputed } from "@/lib/triple-helix-observations";
 import { fetchVentureById, fetchXrlLog } from "@/lib/venture-map-data";
 
@@ -19,14 +20,10 @@ export async function GET(
     return NextResponse.json({ error: "projectId required" }, { status: 400 });
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const auth = await requireMember();
+  if (!auth.ok) return auth.errorResponse;
 
+  const spsPrimary = await fetchSpsPrimaryModelState(projectId);
   const [venture, inputs, activeAlpha, xrlLog, atlasMacroSignals, bzm2, bzm21] = await Promise.all([
     fetchVentureById(projectId),
     fetchAmdScoreInputs(projectId),
@@ -34,7 +31,12 @@ export async function GET(
     fetchXrlLog(projectId),
     fetchAtlasMacroSignals(5).catch(() => null),
     fetchBzm2Observatory(projectId),
-    fetchBzm21PolicyModelLedger(projectId),
+    fetchBzm21PolicyModelLedger(
+      projectId,
+      spsPrimary.switchStatus === "active"
+        ? spsPrimary.activeBzm21RevisionId
+        : null,
+    ),
   ]);
 
   if (!venture) {
@@ -55,9 +57,10 @@ export async function GET(
     tripleHelix,
     bzm2,
     bzm21,
+    spsPrimary,
   }, {
     headers: {
-      "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+      "Cache-Control": "private, no-store, max-age=0",
     },
   });
 }

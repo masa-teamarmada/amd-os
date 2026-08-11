@@ -30,8 +30,15 @@ import {
   type Bzm21Transition as EngineTransition,
 } from "./bzm-2-1-dynamic-policy.ts";
 import {
+  BZM21_COMPUTABLE_INPUT_STATUSES,
   BZM21_OBJECTIVE_KINDS,
+  BZM21_REQUIRED_ACTION_INPUT_KEYS,
   BZM21_REQUIRED_REVISION_INPUT_KEYS,
+  BZM21_REQUIRED_STATE_INPUT_KEYS,
+  BZM21_REQUIRED_TRANSITION_INPUT_KEYS,
+  bzm21RequiredActionInputValues,
+  bzm21RequiredStateInputValues,
+  bzm21RequiredTransitionInputValues,
   type Bzm21CashflowEvent,
   type Bzm21InputObservation,
   type Bzm21ModelRevision,
@@ -904,7 +911,7 @@ export function computeBzm21PolicyLedgerInputHash(
       ),
     })),
   });
-  const { createdAt: _revisionCreatedAt, ...canonicalRevision } = revision;
+  const canonicalRevision = { ...revision, createdAt: undefined };
   const payload = {
     projectId: ledger.projectId,
     revision: canonicalRevision,
@@ -945,15 +952,82 @@ export function computeBzm21PolicyLedgerInputHash(
         a.parameterKey.localeCompare(b.parameterKey),
       ),
     })),
-    cashflowEvents: [...ledger.cashflowEvents].sort((a, b) =>
-      a.eventKey.localeCompare(b.eventKey),
-    ).map(({ createdAt: _createdAt, ...event }) => event),
+    cashflowEvents: [...ledger.cashflowEvents]
+      .sort((a, b) => a.eventKey.localeCompare(b.eventKey))
+      .map((event) => ({ ...event, createdAt: undefined })),
   };
   return createHash("sha256").update(stableJson(payload)).digest("hex");
 }
 
 function inputMatches(input: Bzm21InputObservation, expected: unknown) {
   return stableJson(input.value) === stableJson(expected);
+}
+
+function scopedInputDiagnostics(args: {
+  scopeLabel: string;
+  inputs: Bzm21InputObservation[];
+  requiredKeys: readonly string[];
+  expectedValues: Record<string, unknown>;
+  revisionInformationCutoff: string;
+}): string[] {
+  const diagnostics: string[] = [];
+  const inputRowsByKey = new Map<string, Bzm21InputObservation[]>();
+  for (const input of args.inputs) {
+    inputRowsByKey.set(input.parameterKey, [
+      ...(inputRowsByKey.get(input.parameterKey) ?? []),
+      input,
+    ]);
+  }
+  const revisionCutoff = Date.parse(args.revisionInformationCutoff);
+  for (const parameterKey of args.requiredKeys) {
+    const matchingRows = inputRowsByKey.get(parameterKey) ?? [];
+    const input = matchingRows[0];
+    const inputLabel = `${args.scopeLabel}/${parameterKey}`;
+    if (!input) {
+      diagnostics.push(`${inputLabel}: scope必須入力行が未登録`);
+      continue;
+    }
+    if (matchingRows.length !== 1) {
+      diagnostics.push(`${inputLabel}: scope必須入力行が重複`);
+    }
+    if (
+      !(BZM21_COMPUTABLE_INPUT_STATUSES as readonly string[]).includes(
+        input.valueStatus,
+      )
+    ) {
+      diagnostics.push(`${inputLabel}: scope必須入力が未完了`);
+    }
+    if (
+      ![
+        "calculation",
+        "document",
+        "record",
+        "structured_hearing",
+        "mixed",
+      ].includes(input.evidenceKind) ||
+      !input.evidenceRef?.trim()
+    ) {
+      diagnostics.push(`${inputLabel}: scope必須入力に根拠がない`);
+    }
+    const inputCutoff = Date.parse(input.informationCutoff);
+    if (
+      !Number.isFinite(inputCutoff) ||
+      !Number.isFinite(revisionCutoff) ||
+      inputCutoff > revisionCutoff
+    ) {
+      diagnostics.push(`${inputLabel}: scope必須入力が情報締切を超える`);
+    }
+    if (
+      input.valueStatus === "conditional" &&
+      Object.keys(input.condition).length === 0
+    ) {
+      diagnostics.push(`${inputLabel}: 条件付きscope入力に条件がない`);
+    }
+    if (!inputMatches(input, args.expectedValues[parameterKey])) {
+      diagnostics.push(`${inputLabel}: 入力台帳と型付きフィールドが不一致`);
+    }
+  }
+  return diagnostics;
 }
 
 export function buildBzm21DynamicPolicyModelFromLedger(
@@ -1023,6 +1097,40 @@ export function buildBzm21DynamicPolicyModelFromLedger(
         diagnostics.push(
           `${intervention.interventionKey}: 実PJ版に合成支援根拠を使用できない`,
         );
+      }
+    }
+    for (const state of ledger.states) {
+      diagnostics.push(
+        ...scopedInputDiagnostics({
+          scopeLabel: state.stateKey,
+          inputs: state.inputs,
+          requiredKeys: BZM21_REQUIRED_STATE_INPUT_KEYS,
+          expectedValues: bzm21RequiredStateInputValues(state),
+          revisionInformationCutoff: revision.informationCutoff,
+        }),
+      );
+      for (const action of state.actions) {
+        const actionPath = `${state.stateKey}/${action.actionKey}`;
+        diagnostics.push(
+          ...scopedInputDiagnostics({
+            scopeLabel: actionPath,
+            inputs: action.inputs,
+            requiredKeys: BZM21_REQUIRED_ACTION_INPUT_KEYS,
+            expectedValues: bzm21RequiredActionInputValues(action),
+            revisionInformationCutoff: revision.informationCutoff,
+          }),
+        );
+        for (const transition of action.transitions) {
+          diagnostics.push(
+            ...scopedInputDiagnostics({
+              scopeLabel: `${actionPath}/${transition.transitionKey}`,
+              inputs: transition.inputs,
+              requiredKeys: BZM21_REQUIRED_TRANSITION_INPUT_KEYS,
+              expectedValues: bzm21RequiredTransitionInputValues(transition),
+              revisionInformationCutoff: revision.informationCutoff,
+            }),
+          );
+        }
       }
     }
   }
@@ -1957,9 +2065,42 @@ export function serializeBzm21DynamicPolicyEvaluation(args: {
   ) {
     throw new Error("BZM 2.1評価の情報締切が保存先の版締切を超えている");
   }
+  const hasBzsfValueLeg = args.ledger.cashflowEvents.some((event) => {
+    const attribution = event.perspectiveAttribution.bzsf;
+    return isRecord(attribution) && attribution.included === true;
+  });
   return BZM21_OBJECTIVE_KINDS.flatMap((objective) => {
     const perspective = args.evaluation.perspectives[objective];
     if (perspective.status === "computed") {
+      if (
+        objective === "bzsf" &&
+        revision.dataMode === "project" &&
+        !hasBzsfValueLeg
+      ) {
+        return (["fixed_baseline", "optimized"] as const).map((policyKind) =>
+          nonComputedPolicyRow({
+            revisionId: revision.revisionId,
+            objective,
+            policyKind,
+            status: "not_computable",
+            selectionObjective:
+              policyKind === "optimized"
+                ? perspective.optimal.selectionObjective
+                : null,
+            informationCutoff: args.evaluation.informationCutoff,
+            engineVersion: args.engineVersion,
+            inputHash,
+            issues: [
+              "BZSF取得証券・投資支出・分配waterfallのCF脚がないため投資価値を保存しない",
+            ],
+            missingInputs: ["bzsf_security_cashflow_legs"],
+            structuralPolicy:
+              policyKind === "fixed_baseline"
+                ? perspective.baseline
+                : perspective.optimal,
+          }),
+        );
+      }
       if (objective === "public") {
         const baselineDecomposition =
           args.publicPolicyDecompositionByPolicy?.fixed_baseline;
@@ -2230,8 +2371,15 @@ export function serializeBzm21DynamicPolicyRun(args: {
       const metric = metricsByAction.get(actionId);
       const publicDecomposition =
         args.publicActionDecompositionByActionId?.[actionId];
+      const hasBzsfValueLeg = args.ledger.cashflowEvents.some((event) => {
+        const attribution = event.perspectiveAttribution.bzsf;
+        return isRecord(attribution) && attribution.included === true;
+      });
       if (
         metric &&
+        (objective !== "bzsf" ||
+          revision.dataMode === "synthetic" ||
+          hasBzsfValueLeg) &&
         (objective !== "public" ||
           (revision.dataMode === "synthetic" &&
             completePublicDecomposition(
@@ -2254,7 +2402,9 @@ export function serializeBzm21DynamicPolicyRun(args: {
       const perspectiveIssues =
         perspective.status === "computed" ? [] : perspective.issues;
       const missingInputs =
-        objective === "public" && metric
+        objective === "bzsf" && metric && !hasBzsfValueLeg
+          ? ["bzsf_security_cashflow_legs"]
+          : objective === "public" && metric
           ? ["public_path_decomposition_engine"]
           : perspectiveIssues.length > 0
             ? missingPaths(perspectiveIssues)
@@ -2273,12 +2423,18 @@ export function serializeBzm21DynamicPolicyRun(args: {
         engineVersion: args.engineVersion,
         inputHash,
         issues:
-          objective === "public" && metric
+          objective === "bzsf" && metric && !hasBzsfValueLeg
+            ? ["BZSF取得証券・投資支出・分配waterfallのCF脚がないため投資価値を保存しない"]
+            : objective === "public" && metric
             ? ["v0.1 engineは公的価値をCF経路別に分解しないため保存停止"]
             : perspectiveIssues,
         missingInputs,
         publicDecomposition,
-        structuralAction: objective === "public" ? metric : undefined,
+        structuralAction:
+          objective === "public" ||
+          (objective === "bzsf" && !hasBzsfValueLeg)
+            ? metric
+            : undefined,
       });
     });
   });

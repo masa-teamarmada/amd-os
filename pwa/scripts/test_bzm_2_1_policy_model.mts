@@ -3,9 +3,15 @@ import { readFileSync } from "node:fs";
 import {
   BZM21_ACTION_TYPES,
   BZM21_CASHFLOW_INCLUDED_IN_KINDS,
+  BZM21_COMPUTABLE_INPUT_STATUSES,
   BZM21_OBJECTIVE_KINDS,
   BZM21_POLICY_KINDS,
-  BZM21_REQUIRED_REVISION_INPUT_KEYS,
+  BZM21_REQUIRED_ACTION_INPUT_KEYS,
+  BZM21_REQUIRED_STATE_INPUT_KEYS,
+  BZM21_REQUIRED_TRANSITION_INPUT_KEYS,
+  bzm21RequiredActionInputValues,
+  bzm21RequiredStateInputValues,
+  bzm21RequiredTransitionInputValues,
   buildBzm21PolicyModelLedger,
   type Bzm21ActionEvaluationRow,
   type Bzm21ActionRow,
@@ -35,8 +41,18 @@ const TARGET_PROJECTS = [
   "p18", "p20", "p21", "p24", "p26", "p29",
 ] as const;
 
+assert.deepEqual(BZM21_COMPUTABLE_INPUT_STATUSES, [
+  "calculated",
+  "observed",
+  "conditional",
+  "estimated",
+]);
+assert.equal(BZM21_REQUIRED_STATE_INPUT_KEYS.length, 8);
+assert.equal(BZM21_REQUIRED_ACTION_INPUT_KEYS.length, 11);
+assert.equal(BZM21_REQUIRED_TRANSITION_INPUT_KEYS.length, 5);
+
 const migrationSql = readFileSync(
-  new URL("./migrations/260_bzm_2_1_dynamic_policy_model.sql", import.meta.url),
+  new URL("./migrations/261_bzm_2_1_dynamic_policy_model.sql", import.meta.url),
   "utf8",
 );
 const packageJson = JSON.parse(
@@ -686,6 +702,90 @@ assert.equal(ledger.states[0].actions[0].inputs[0].value, null);
 assert.equal(ledger.interventions.length, 1);
 assert.equal(ledger.policyViews.length, 6);
 
+function completedScopedInputRows(
+  sourceLedger: ReturnType<typeof buildBzm21PolicyModelLedger>,
+): Bzm21InputObservationRow[] {
+  let sortOrder = 1;
+  const rows: Bzm21InputObservationRow[] = [];
+  const addScope = (
+    scopeKind: "state" | "action" | "transition",
+    scopeKey: string,
+    expectedValues: Record<string, unknown>,
+  ) => {
+    for (const [parameterKey, value] of Object.entries(expectedValues)) {
+      rows.push({
+        observation_id: `scope-${sortOrder}`,
+        revision_id: sourceLedger.currentRevision!.revisionId,
+        scope_kind: scopeKind,
+        scope_key: scopeKey,
+        parameter_key: parameterKey,
+        symbol: parameterKey,
+        label: parameterKey,
+        value_json: value,
+        display_value: JSON.stringify(value) ?? "null",
+        value_status: "estimated",
+        unit: null,
+        evidence_kind: "calculation",
+        evidence_ref: "scope-fixture-v1",
+        information_cutoff: sourceLedger.currentRevision!.informationCutoff,
+        condition_json: {},
+        note: "scope gate fixture",
+        sort_order: sortOrder,
+        created_at: "2026-08-11T00:00:00Z",
+      });
+      sortOrder += 1;
+    }
+  };
+  for (const state of sourceLedger.states) {
+    addScope("state", state.stateKey, bzm21RequiredStateInputValues(state));
+    for (const action of state.actions) {
+      const actionPath = `${state.stateKey}/${action.actionKey}`;
+      addScope(
+        "action",
+        actionPath,
+        bzm21RequiredActionInputValues(action),
+      );
+      for (const transition of action.transitions) {
+        addScope(
+          "transition",
+          `${actionPath}/${transition.transitionKey}`,
+          bzm21RequiredTransitionInputValues(transition),
+        );
+      }
+    }
+  }
+  return rows;
+}
+
+const completeScopedInputs = completedScopedInputRows(ledger);
+assert.equal(
+  completeScopedInputs.length,
+  ledger.states.length * BZM21_REQUIRED_STATE_INPUT_KEYS.length +
+    ledger.states.reduce(
+      (total, state) =>
+        total +
+        state.actions.length * BZM21_REQUIRED_ACTION_INPUT_KEYS.length +
+        state.actions.reduce(
+          (transitionTotal, action) =>
+            transitionTotal +
+            action.transitions.length *
+              BZM21_REQUIRED_TRANSITION_INPUT_KEYS.length,
+          0,
+        ),
+      0,
+    ),
+);
+const completeScopedLedger = buildBzm21PolicyModelLedger({
+  projectId: "p21",
+  revisionRows,
+  stateRows,
+  actionRows,
+  transitionRows,
+  interventionRows,
+  cashflowEventRows,
+  inputRows: completeScopedInputs,
+});
+
 const mappedCostEvent = mapBzm21CashflowEventToEngine(ledger.cashflowEvents[0]);
 assert.deepEqual(mappedCostEvent.diagnostics, []);
 assert.equal(mappedCostEvent.event?.eventId, "cf-row-1");
@@ -713,8 +813,121 @@ assert.equal(incompleteEngineInput.status, "not_computable");
 assert.equal(incompleteEngineInput.model, null);
 assert.ok(
   incompleteEngineInput.diagnostics.some((diagnostic) =>
+    diagnostic.includes("start/current_state: scope必須入力行が未登録"),
+  ),
+);
+assert.ok(
+  incompleteEngineInput.diagnostics.some((diagnostic) =>
     diagnostic.includes("immediate_benefitの明示CF事象が欠測"),
   ),
+);
+const completeScopedEngineInput =
+  buildBzm21DynamicPolicyModelFromLedger(completeScopedLedger);
+assert.equal(completeScopedEngineInput.status, "not_computable");
+assert.ok(
+  completeScopedEngineInput.diagnostics.every(
+    (diagnostic) =>
+      !diagnostic.includes("scope必須入力") &&
+      !diagnostic.includes("入力台帳と型付きフィールドが不一致"),
+  ),
+  "matching state/action/transition observations must clear the scoped-input gate",
+);
+const mismatchedScopedLedger = buildBzm21PolicyModelLedger({
+  projectId: "p21",
+  revisionRows,
+  stateRows,
+  actionRows,
+  transitionRows,
+  interventionRows,
+  cashflowEventRows,
+  inputRows: completeScopedInputs.map((row) =>
+    row.scope_kind === "transition" &&
+    row.parameter_key === "physical_probability"
+      ? { ...row, value_json: 0.99 }
+      : row,
+  ),
+});
+const mismatchedScopedEngineInput =
+  buildBzm21DynamicPolicyModelFromLedger(mismatchedScopedLedger);
+assert.ok(
+  mismatchedScopedEngineInput.status === "not_computable" &&
+    mismatchedScopedEngineInput.diagnostics.some((diagnostic) =>
+      diagnostic.includes(
+        "start/continue-and-finance/offer-arrives/physical_probability: 入力台帳と型付きフィールドが不一致",
+      ),
+    ),
+);
+const futureScopedLedger = buildBzm21PolicyModelLedger({
+  projectId: "p21",
+  revisionRows,
+  stateRows,
+  actionRows,
+  transitionRows,
+  interventionRows,
+  cashflowEventRows,
+  inputRows: completeScopedInputs.map((row, index) =>
+    index === 0
+      ? { ...row, information_cutoff: "2026-08-12T00:00:00Z" }
+      : row,
+  ),
+});
+const futureScopedEngineInput =
+  buildBzm21DynamicPolicyModelFromLedger(futureScopedLedger);
+assert.ok(
+  futureScopedEngineInput.status === "not_computable" &&
+    futureScopedEngineInput.diagnostics.some((diagnostic) =>
+      diagnostic.includes("start/current_state: scope必須入力が情報締切を超える"),
+    ),
+);
+const unprovenScopedLedger = buildBzm21PolicyModelLedger({
+  projectId: "p21",
+  revisionRows,
+  stateRows,
+  actionRows,
+  transitionRows,
+  interventionRows,
+  cashflowEventRows,
+  inputRows: completeScopedInputs.map((row, index) =>
+    index === 0
+      ? {
+          ...row,
+          value_status: "partial",
+          evidence_kind: "none",
+          evidence_ref: null,
+        }
+      : row,
+  ),
+});
+const unprovenScopedEngineInput =
+  buildBzm21DynamicPolicyModelFromLedger(unprovenScopedLedger);
+assert.ok(
+  unprovenScopedEngineInput.status === "not_computable" &&
+    unprovenScopedEngineInput.diagnostics.some((diagnostic) =>
+      diagnostic.includes("start/current_state: scope必須入力が未完了"),
+    ) &&
+    unprovenScopedEngineInput.diagnostics.some((diagnostic) =>
+      diagnostic.includes("start/current_state: scope必須入力に根拠がない"),
+    ),
+);
+const conditionlessScopedLedger = buildBzm21PolicyModelLedger({
+  projectId: "p21",
+  revisionRows,
+  stateRows,
+  actionRows,
+  transitionRows,
+  interventionRows,
+  cashflowEventRows,
+  inputRows: completeScopedInputs.map((row, index) =>
+    index === 0 ? { ...row, value_status: "conditional" } : row,
+  ),
+});
+const conditionlessScopedEngineInput =
+  buildBzm21DynamicPolicyModelFromLedger(conditionlessScopedLedger);
+assert.ok(
+  conditionlessScopedEngineInput.status === "not_computable" &&
+    conditionlessScopedEngineInput.diagnostics.some((diagnostic) =>
+      diagnostic.includes("start/current_state: 条件付きscope入力に条件がない"),
+    ),
 );
 const explicitNotApplicableEvent = mapBzm21CashflowEventToEngine({
   ...ledger.cashflowEvents[0],
@@ -1113,6 +1326,14 @@ assert.ok(
   ),
 );
 assert.ok(
+  fakeComputedWithSparseInputsLedger.diagnostics.some((diagnostic) =>
+    diagnostic.includes(
+      "start/current_state: 保存済み評価にscope必須入力行がない",
+    ),
+  ),
+  "persisted project q/value must be suppressed when scoped evidence rows are absent",
+);
+assert.ok(
   fakeComputedWithSparseInputsLedger.policyViews.every(
     (policyView) => policyView.current === null,
   ),
@@ -1122,6 +1343,57 @@ assert.ok(
   fakeComputedWithSparseInputsLedger.diagnostics.includes(
     "保存済み評価のinput hashがcurrent canonical入力と不一致",
   ),
+);
+
+const persistedWithScopedInputsLedger = buildBzm21PolicyModelLedger({
+  projectId: "p21",
+  revisionRows,
+  stateRows,
+  actionRows,
+  transitionRows,
+  interventionRows,
+  cashflowEventRows,
+  inputRows: completeScopedInputs,
+  policyEvaluationRows,
+  expectedInputHash: "0".repeat(64),
+});
+assert.ok(
+  persistedWithScopedInputsLedger.diagnostics.every(
+    (diagnostic) =>
+      !diagnostic.includes("scope必須入力") &&
+      !diagnostic.includes("入力台帳と型付きフィールドが不一致"),
+  ),
+  "matching scoped observations must clear the persisted-evaluation gate",
+);
+const persistedWithMismatchedScopedInputLedger = buildBzm21PolicyModelLedger({
+  projectId: "p21",
+  revisionRows,
+  stateRows,
+  actionRows,
+  transitionRows,
+  interventionRows,
+  cashflowEventRows,
+  inputRows: completeScopedInputs.map((row) =>
+    row.scope_kind === "action" && row.parameter_key === "duration"
+      ? { ...row, value_json: 99 }
+      : row,
+  ),
+  policyEvaluationRows,
+  expectedInputHash: "0".repeat(64),
+});
+assert.ok(
+  persistedWithMismatchedScopedInputLedger.storageState === "invalid" &&
+    persistedWithMismatchedScopedInputLedger.diagnostics.some((diagnostic) =>
+      diagnostic.includes(
+        "start/continue-and-finance/duration: 入力台帳と型付きフィールドが不一致",
+      ),
+    ),
+);
+assert.ok(
+  persistedWithMismatchedScopedInputLedger.policyViews.every(
+    (policyView) => policyView.current === null,
+  ),
+  "a scoped typed-value mismatch must suppress persisted q/value rows",
 );
 
 const futureInputLedger = buildBzm21PolicyModelLedger({
@@ -1332,7 +1604,11 @@ assert.equal(
   packageJson.scripts?.["test:bzm-2-1-dynamic-policy"],
   "node --experimental-strip-types scripts/test_bzm_2_1_dynamic_policy.mts",
 );
-assert.match(apiRouteSource, /fetchBzm21PolicyModelLedger\(projectId\)/);
+assert.match(
+  apiRouteSource,
+  /fetchBzm21PolicyModelLedger\(\s*projectId,\s*spsPrimary\.switchStatus === "active"/,
+);
+assert.match(apiRouteSource, /spsPrimary\.activeBzm21RevisionId/);
 assert.match(apiRouteSource, /\bbzm21,\s*\n/);
 assert.match(scoreDetailSource, /bzm21:\s*Bzm21PolicyModelLedger/);
 assert.match(

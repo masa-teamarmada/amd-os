@@ -73,6 +73,46 @@ export const BZM21_REQUIRED_REVISION_INPUT_KEYS = [
   "single_cashflow_ledger",
 ] as const;
 
+export const BZM21_REQUIRED_STATE_INPUT_KEYS = [
+  "current_state",
+  "beliefs",
+  "reachability_history",
+  "decision_controller",
+  "elapsed_months",
+  "remaining_cost",
+  "remaining_time",
+  "available_information",
+] as const;
+
+export const BZM21_REQUIRED_ACTION_INPUT_KEYS = [
+  "action_bundle",
+  "action_sequence",
+  "shared_resources",
+  "availability",
+  "feasibility",
+  "authority",
+  "consents",
+  "financing_feasibility",
+  "duration",
+  "required_funding",
+  "information_gain",
+] as const;
+
+export const BZM21_REQUIRED_TRANSITION_INPUT_KEYS = [
+  "physical_probability",
+  "next_state_or_terminal",
+  "goal_first_passage",
+  "slack_first_loss",
+  "cashflow_refs",
+] as const;
+
+export const BZM21_COMPUTABLE_INPUT_STATUSES = [
+  "calculated",
+  "observed",
+  "conditional",
+  "estimated",
+] as const;
+
 export const BZM21_CASHFLOW_INCLUDED_IN_KINDS = [
   "immediate_cost",
   "immediate_benefit",
@@ -265,6 +305,62 @@ export type Bzm21DecisionState = {
   inputs: Bzm21InputObservation[];
   actions: Bzm21Action[];
 };
+
+export function bzm21RequiredStateInputValues(
+  state: Bzm21DecisionState,
+): Record<(typeof BZM21_REQUIRED_STATE_INPUT_KEYS)[number], unknown> {
+  return {
+    current_state: state.currentState,
+    beliefs: state.beliefs,
+    reachability_history: state.reachabilityHistory,
+    decision_controller: state.decisionController,
+    elapsed_months: state.elapsedMonths,
+    remaining_cost: state.remainingCostMillionJpy,
+    remaining_time: state.remainingTimeMonths,
+    available_information: state.availableInformation,
+  };
+}
+
+export function bzm21RequiredActionInputValues(
+  action: Bzm21Action,
+): Record<(typeof BZM21_REQUIRED_ACTION_INPUT_KEYS)[number], unknown> {
+  return {
+    action_bundle: {
+      bundleId: action.bundleId,
+      actionType: action.actionType,
+      componentTypes: action.componentTypes,
+      customComponents: action.customComponents,
+    },
+    action_sequence: action.sequence,
+    shared_resources: action.sharedResources,
+    availability: {
+      status: action.availabilityStatus,
+      reason: action.availabilityReason,
+    },
+    feasibility: action.feasibilityGate,
+    authority: action.authorityGate,
+    consents: action.consents,
+    financing_feasibility: action.financingFeasibility,
+    duration: action.durationMonths,
+    required_funding: action.requiredFundingMillionJpy,
+    information_gain: action.informationGain,
+  };
+}
+
+export function bzm21RequiredTransitionInputValues(
+  transition: Bzm21Transition,
+): Record<(typeof BZM21_REQUIRED_TRANSITION_INPUT_KEYS)[number], unknown> {
+  return {
+    physical_probability: transition.probability,
+    next_state_or_terminal: {
+      nextStateId: transition.nextStateId,
+      terminalOutcome: transition.terminalOutcome,
+    },
+    goal_first_passage: transition.goalReachedAtMonths,
+    slack_first_loss: transition.slackLostAtMonths,
+    cashflow_refs: transition.cashflowEventKeys,
+  };
+}
 
 export type Bzm21Intervention = {
   interventionId: string;
@@ -1305,6 +1401,73 @@ function compareInput(a: Bzm21InputObservation, b: Bzm21InputObservation) {
   return a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt);
 }
 
+function persistedScopedInputDiagnostics(args: {
+  scopeLabel: string;
+  inputs: Bzm21InputObservation[];
+  requiredKeys: readonly string[];
+  expectedValues: Record<string, unknown>;
+  revisionInformationCutoff: string;
+}): string[] {
+  const diagnostics: string[] = [];
+  const inputRowsByKey = new Map<string, Bzm21InputObservation[]>();
+  for (const input of args.inputs) {
+    inputRowsByKey.set(input.parameterKey, [
+      ...(inputRowsByKey.get(input.parameterKey) ?? []),
+      input,
+    ]);
+  }
+  const revisionCutoff = Date.parse(args.revisionInformationCutoff);
+  for (const parameterKey of args.requiredKeys) {
+    const matchingRows = inputRowsByKey.get(parameterKey) ?? [];
+    const input = matchingRows[0];
+    const inputLabel = `${args.scopeLabel}/${parameterKey}`;
+    if (!input) {
+      diagnostics.push(`${inputLabel}: 保存済み評価にscope必須入力行がない`);
+      continue;
+    }
+    if (matchingRows.length !== 1) {
+      diagnostics.push(`${inputLabel}: 保存済み評価のscope必須入力行が重複`);
+    }
+    if (
+      !(BZM21_COMPUTABLE_INPUT_STATUSES as readonly string[]).includes(
+        input.valueStatus,
+      )
+    ) {
+      diagnostics.push(`${inputLabel}: 保存済み評価のscope必須入力が未完了`);
+    }
+    if (
+      ![
+        "calculation",
+        "document",
+        "record",
+        "structured_hearing",
+        "mixed",
+      ].includes(input.evidenceKind) ||
+      !input.evidenceRef?.trim()
+    ) {
+      diagnostics.push(`${inputLabel}: 保存済み評価のscope必須入力に根拠がない`);
+    }
+    const inputCutoff = Date.parse(input.informationCutoff);
+    if (
+      !Number.isFinite(inputCutoff) ||
+      !Number.isFinite(revisionCutoff) ||
+      inputCutoff > revisionCutoff
+    ) {
+      diagnostics.push(`${inputLabel}: 保存済み評価のscope必須入力が情報締切を超える`);
+    }
+    if (
+      input.valueStatus === "conditional" &&
+      Object.keys(input.condition).length === 0
+    ) {
+      diagnostics.push(`${inputLabel}: 保存済み評価の条件付きscope入力に条件がない`);
+    }
+    if (stableJson(input.value) !== stableJson(args.expectedValues[parameterKey])) {
+      diagnostics.push(`${inputLabel}: 入力台帳と型付きフィールドが不一致`);
+    }
+  }
+  return diagnostics;
+}
+
 export function buildBzm21PolicyModelLedger(args: {
   projectId: string;
   revisionRows?: Bzm21ModelRevisionRow[];
@@ -1318,6 +1481,7 @@ export function buildBzm21PolicyModelLedger(args: {
   policyEvaluationRows?: Bzm21PolicyEvaluationRow[];
   expectedInputHash?: string | null;
   expectedPublicAggregationHashes?: Record<string, string>;
+  activeRevisionId?: string | null;
   storageState?: Bzm21PolicyModelLedger["storageState"];
   storageMessage?: string | null;
 }): Bzm21PolicyModelLedger {
@@ -1335,10 +1499,17 @@ export function buildBzm21PolicyModelLedger(args: {
   const revisionById = new Map(
     revisions.map((revision) => [revision.revisionId, revision]),
   );
-  const currentRevision =
-    revisions.filter((revision) => revision.dataMode === "project").at(-1) ??
-    revisions.at(-1) ??
-    null;
+  const requestedActiveRevision = args.activeRevisionId
+    ? revisionById.get(args.activeRevisionId) ?? null
+    : null;
+  const currentRevision = args.activeRevisionId
+    ? requestedActiveRevision
+    : revisions.filter((revision) => revision.dataMode === "project").at(-1) ??
+      revisions.at(-1) ??
+      null;
+  if (args.activeRevisionId && !requestedActiveRevision) {
+    diagnostics.push("SPS主モデルregistryが指定したBZM 2.1版を読み出せない");
+  }
   if (currentRevision?.dataMode === "synthetic") {
     diagnostics.push("合成テスト版は実PJの現在値として表示できない");
   }
@@ -2590,6 +2761,42 @@ export function buildBzm21PolicyModelLedger(args: {
           Object.keys(input.condition).length === 0)
       ) {
         diagnostics.push(`${parameterKey}: 保存済み評価の必須入力または根拠が未完了`);
+      }
+    }
+    if (currentRevision.dataMode === "project") {
+      for (const state of states) {
+        diagnostics.push(
+          ...persistedScopedInputDiagnostics({
+            scopeLabel: state.stateKey,
+            inputs: state.inputs,
+            requiredKeys: BZM21_REQUIRED_STATE_INPUT_KEYS,
+            expectedValues: bzm21RequiredStateInputValues(state),
+            revisionInformationCutoff: currentRevision.informationCutoff,
+          }),
+        );
+        for (const action of state.actions) {
+          const actionPath = `${state.stateKey}/${action.actionKey}`;
+          diagnostics.push(
+            ...persistedScopedInputDiagnostics({
+              scopeLabel: actionPath,
+              inputs: action.inputs,
+              requiredKeys: BZM21_REQUIRED_ACTION_INPUT_KEYS,
+              expectedValues: bzm21RequiredActionInputValues(action),
+              revisionInformationCutoff: currentRevision.informationCutoff,
+            }),
+          );
+          for (const transition of action.transitions) {
+            diagnostics.push(
+              ...persistedScopedInputDiagnostics({
+                scopeLabel: `${actionPath}/${transition.transitionKey}`,
+                inputs: transition.inputs,
+                requiredKeys: BZM21_REQUIRED_TRANSITION_INPUT_KEYS,
+                expectedValues: bzm21RequiredTransitionInputValues(transition),
+                revisionInformationCutoff: currentRevision.informationCutoff,
+              }),
+            );
+          }
+        }
       }
     }
 

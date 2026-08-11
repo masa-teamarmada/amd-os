@@ -284,6 +284,7 @@ function unavailable(projectId: string, message: string): Bzm21PolicyModelLedger
 
 export async function fetchBzm21PolicyModelLedger(
   projectId: string,
+  activeRevisionId?: string | null,
 ): Promise<Bzm21PolicyModelLedger> {
   try {
     const db = createAdminClient();
@@ -304,7 +305,7 @@ export async function fetchBzm21PolicyModelLedger(
     const revisionRows = (revisionsResult.data ?? []) as unknown as Bzm21ModelRevisionRow[];
     const revisionIds = revisionRows.map((row) => row.revision_id);
     if (revisionIds.length === 0) {
-      return buildBzm21PolicyModelLedger({ projectId, revisionRows });
+      return buildBzm21PolicyModelLedger({ projectId, revisionRows, activeRevisionId });
     }
 
     const [
@@ -406,6 +407,7 @@ export async function fetchBzm21PolicyModelLedger(
 
     const ledgerArgs = {
       projectId,
+      activeRevisionId,
       revisionRows,
       stateRows,
       actionRows,

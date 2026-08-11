@@ -252,6 +252,7 @@ function commonDecisionRules() {
         probabilityMeasure: "physical" as const,
         discounting: "deterministic_rate" as const,
         discountRateBasis: "nominal" as const,
+        taxBasis: "post_tax_inclusive" as const,
         evidence: SYNTHETIC_EVIDENCE,
       },
       bzsf: {
@@ -260,6 +261,7 @@ function commonDecisionRules() {
         probabilityMeasure: "physical" as const,
         discounting: "deterministic_rate" as const,
         discountRateBasis: "nominal" as const,
+        taxBasis: "post_tax_inclusive" as const,
         evidence: SYNTHETIC_EVIDENCE,
       },
       public: {
@@ -268,6 +270,7 @@ function commonDecisionRules() {
         probabilityMeasure: "physical" as const,
         discounting: "deterministic_rate" as const,
         discountRateBasis: "nominal" as const,
+        taxBasis: "post_tax_inclusive" as const,
         evidence: SYNTHETIC_EVIDENCE,
       },
     },

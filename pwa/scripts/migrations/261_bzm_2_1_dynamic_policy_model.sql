@@ -1,4 +1,4 @@
--- 260_bzm_2_1_dynamic_policy_model.sql
+-- 261_bzm_2_1_dynamic_policy_model.sql
 --
 -- BZM 2.1の動的方針評価を、BZM 2.0の観測台帳を変更せずに追加する。
 -- 現行運用SPSとも別の追記型台帳であり、会社・BZSF・公的支援者の
@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS public.bzm_2_1_model_revisions (
     UNIQUE (project_id, revision_key),
   CONSTRAINT bzm_2_1_model_revisions_project_order_uniq
     UNIQUE (project_id, revision_order),
+  CONSTRAINT bzm_2_1_model_revisions_project_id_revision_id_uniq
+    UNIQUE (project_id, revision_id),
   CONSTRAINT bzm_2_1_model_revisions_order_check CHECK (revision_order > 0),
   CONSTRAINT bzm_2_1_model_revisions_validation_count_check
     CHECK (forward_validation_count >= 0),
