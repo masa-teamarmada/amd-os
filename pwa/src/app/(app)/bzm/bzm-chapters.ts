@@ -46,6 +46,19 @@ export interface BzmNumberedChapter extends BzmChapterConfig {
 
 export const BZM_PARTS: BzmPartConfig[] = [
   // ============================================================
+  // BZM 1.x → 2.1 進化編 (2026-08-12 公開)
+  // — 1.xの動的観測、2.0の固定方針下の動的到達予測、
+  //   2.1の行動選択つき動的事業価値を区別する導入章。
+  // ============================================================
+  {
+    key: "bzm-1-to-2-1-evolution",
+    label: "BZM 1.0から2.1への進化",
+    description:
+      "BZMは最初から動的だったのか。1.xで動いた観測、2.0で動いた到達経路、2.1で動く行動選択と事業価値の違いを、研究開発PJの判断例から理解する。",
+    slugs: ["bzm-1-0-to-2-1-evolution-guide"],
+  },
+
+  // ============================================================
   // SPS 2.0 到達見込み (2026-08-08 確定、BZM 2.0 講座セッションの成果)
   // — 計画診断 q_plan(H_v)、共通期間比較 Q(h)、資本自立経路 q_G の側。
   //   会社全体価値は全経路 SPS_all=sum(q_o P_o) とし、単純な qP へ戻さない。
@@ -305,6 +318,15 @@ export const BZM_PARTS: BzmPartConfig[] = [
 ];
 
 export const BZM_CHAPTERS: BzmChapterConfig[] = [
+  // --- BZM 1.x → 2.1 進化編 (2026-08-12 公開) ---
+  {
+    slug: "bzm-1-0-to-2-1-evolution-guide",
+    title: "BZM 1.0から2.1への進化 — 観測から動的な事業価値へ",
+    summary:
+      "1.xの動的観測、2.0の固定方針下の動的到達予測、2.1の行動選択つき動的事業価値の違いを、判断例と比較表から理解する導入編。",
+    status: "completed",
+  },
+
   // --- SPS 2.0 到達見込み (2026-08-08、BZM 2.0 講座セッションで確定) ---
   {
     slug: "sps-2-0-reachability-model",
