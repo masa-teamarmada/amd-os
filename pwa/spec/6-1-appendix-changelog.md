@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-08-11 JST | 3-16 PJ週次管制 / 成立条件ナビゲーション | 回帰修正 | build v3.71.8。手入力状態`not_started`をナビゲーション上で中立トーンへ明示的に割り当て、`unassessed`の未確認トーンと分離した。契約テストで行トーンを固定 | 正規checkout同期後に残った1行差分を監査し、既存の「未着手は未評価より強い状態」という仕様に沿う有意な未反映差分と確認したため | えいみ |
 | 2026-08-11 JST | 2-2 PWA Surface / 日本文化マップ | 本番受入修正 | build v3.71.7。日本地図をmobileでは地図と一覧の縦積みへ切り替え、地図領域の幅0化と横overflowを解消。詳細パネルを画面幅内へ収め、主要操作を44px以上へ統一 | v3.71.6本番の390px相当受入で、固定幅一覧が地図領域を押し潰していたため | えいみ |
 | 2026-08-11 JST | 2-2 PWA Surface / admin navigation | 本番受入修正 | build v3.71.6。mobile adminメニュー最上部のAMD OS戻りリンクへ`min-h-11`とfocus ringを追加し、全navigation操作を44px以上へ統一 | v3.71.5本番の実測で、戻りリンクだけ36pxだったため | えいみ |
 | 2026-08-11 JST | 1-4 AMD OS全体収束仕様 / 2-1 PWA Runtime Routes / 2-2 PWA Surface | 実装・安全性変更 | build v3.71.5 / migration 258（本番適用・readback済み）。共通surface catalogとcapability bundleを追加し、admin25画面を5業務群へ整理した。外部workspaceは未登録進捗と0%、取得失敗と0件を分離し、資料変更のsame-origin guard、OTP atomic rate limit、重要rowのtransactional audit、access台帳の完全pagination、資料owner FKのRESTRICTを実装した。Next.jsを16.3.0へ上げ、未使用CLIと旧日本地図依存を除去してdevを含むdependency auditを0件にした | 全体収束の最初の実装単位として、共通分類と外部境界を先に固定し、確認済みの実害経路を閉じるため | まさ・えいみ |

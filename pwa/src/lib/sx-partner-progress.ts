@@ -1,4 +1,4 @@
-import { sxIsPocPartner } from "./sx-poc-candidates";
+import { sxIsPocPartner } from "./sx-poc-candidates.ts";
 import type {
   SxBallSide,
   SxManagementPartner,

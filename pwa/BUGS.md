@@ -5,12 +5,20 @@
 
 ---
 
+### [pwa/proactive] Codexで作るMTG prepと先手TODOが二重に通知された (2026-08-11)
+
+- **状態**: クローズ (2026-08-11 — build `v3.71.3`で新規生成停止、既存open / blockedを全件退役、本番readback済み)。
+- **症状**: `/proactive`へ、複数PJの予定MTGについて`agenda / 進行案を先に提示する`という`次回MTG準備`TODOが自動生成され、期限超過の赤通知として増え続けた。実際のMTG prepはCodexのW-Prep / prep workerで作っているため、同じ準備を別のTODO棚でも要求する二重管理になっていた。
+- **原因**: `proactive-todo-extract`が`project_meeting_summaries.source_kinds='upcoming'`を読み、7日以内の予定ごとに`trigger_kind='next_meeting_prep'`をupsertする旧Stage 2を保持していた。7月の修正は会議開始後に自動完了させる出口を足しただけで、Codex prepへ一本化した後も新規生成の入口が残っていた。
+- **対応内容**: upcoming MTGの走査と`next_meeting_prep` upsertをcronから削除した。cron実行時は既存の`open` / `blocked`を削除せず`dismissed`へ移し、`resolved_by='system'`、退役理由、時刻を残す。開催済みMTGの`next_actions[]`とGmail期限つき依頼の抽出は維持した。新規生成禁止と履歴付き退役を`test:proactive-mtg-prep-retirement`で固定し、spec・設計・OSマニュアルへ同期した。本番cronで退役後、`next_meeting_prep`のopen / blockedが0件であることを確認した。
+- **再発防止策**: 同じ成果物をCodex automation / workerが正本として作る場合、PWA cronへ同目的のTODO生成を重ねない。責任を移す変更では、新経路の追加だけでなく旧入口、既存未処理行、通知、期限超過の出口まで同じcommitで閉じ、0件を回帰テストで固定する。
+
 ### [git/sync] clean cloneで本番を進めた一方、正規checkoutをbehindのまま常態化した (2026-08-11)
 
-- **状態**: ルール修正済み。正規checkoutの履歴・dirty解消は別途継続。
+- **状態**: クローズ (2026-08-11 — 正規checkoutを`origin/main`へ同期し、ahead 0 / behind 0、未push commit 0へ復旧)。
 - **症状**: 本番と`origin/main`は最新commitへ進んでいた一方、正規checkout `/Users/masa/projects/AMD/amd-os` は`main`のローカルcommitと別セッションのdirtyを抱えたまま大幅behindになった。BZMのHANDOFFとmigration promptには「ahead/behindは刻々と変わるので具体数を当てにしない」「正本checkoutはdirtyが常態」とあり、clean cloneでdeployできた事実と、正規checkoutの同期完了を分けていなかった。
 - **原因**: rootの開始手順が`git fetch`で止まり、fetch後のbehind数確認とfast-forward／発散解消を必須化していなかった。dirtyな共有checkoutを避けてclean cloneからcommit・push・deployする運用は本番反映を守ったが、終了時に正規checkoutへ戻って同期状態を閉じるゲートが無かった。さらにHANDOFFの「具体数を当てにしない」が、変動値を再計測する意味ではなく、behindを放置してよい意味に変質した。
-- **対応内容**: root `CLAUDE.md`へ、fetch後のahead/behind実数確認、behind>0での新規編集禁止、安全なff-only、発散時のpatch-equivalent分類、clean clone deploy後の正規checkout再確認を追加した。`pwa/CLAUDE.md`とBZMのHANDOFF／migration promptからbehind常態化の記述を除き、checkout同期未完をP0未解決として扱うよう統一した。
+- **対応内容**: root `CLAUDE.md`へ、fetch後のahead/behind実数確認、behind>0での新規編集禁止、安全なff-only、発散時のpatch-equivalent分類、clean clone deploy後の正規checkout再確認を追加した。`pwa/CLAUDE.md`とBZMのHANDOFF／migration promptからbehind常態化の記述を除き、checkout同期未完をP0未解決として扱うよう統一した。その後、正規checkoutのtracked 16件・untracked 2件をpatch / bundle / tarとstashへ二重保全し、local ahead 3件を照合した。2件は`git cherry`でpatch-equivalent、残るBZM handoff 1件もorigin側`80f2fd81`とファイル内容が完全一致し後継変更済みだったため、古い差分を再適用せず`origin/main`へrebaseした。stash復元時の9競合は現行仕様を優先して解消し、元差分のうち16件と新規2件はmain反映済みまたは後継版と確認。唯一の有意差分だった`not_started`の中立トーン1行はbuild `v3.71.8`の回帰修正として本流へ統合した。
 - **再発防止策**: **fetchは同期ではない。** `git rev-list --count HEAD..origin/main`が0であることを編集開始とcloseoutの両方で確認する。clean cloneはdeploy輸送路であり、正規checkoutの代替正本にしない。ahead/behindは毎回実数とSHAを記録し、「共有checkoutだからbehindは正常」と書かない。
 
 ### [manual/operations] 人が見る運用正本をローカル実行SKILLへ置いて完了扱いにした (2026-08-11)

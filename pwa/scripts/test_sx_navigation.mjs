@@ -231,7 +231,27 @@ function bundle(overrides = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// 7. マニホールド履歴: issueに紐づくevidence(observation)がmilestone配下の履歴イベント行になる
+// 7. 未着手は未評価ではなく中立トーンで表示する
+// ---------------------------------------------------------------------------
+{
+  const notStarted = milestone({
+    slug: "gate-not-started",
+    id: "m-gate-not-started",
+    status: "not_started",
+    manualStatus: "not_started",
+    derivedStatus: "not_started",
+  });
+  const model = buildSxNavigationViewModel({
+    project: { projectId: "p21", projectName: "テストPJ" },
+    sxManagement: bundle({ milestones: [notStarted] }),
+  });
+  const row = model.rows.find((item) => item.id.endsWith("/milestone:gate-not-started"));
+  assert.ok(row, "未着手のマイルストーン行が表示される");
+  assert.equal(row.tone, "neutral", "未着手を未評価のunknownトーンへ落とさない");
+}
+
+// ---------------------------------------------------------------------------
+// 8. マニホールド履歴: issueに紐づくevidence(observation)がmilestone配下の履歴イベント行になる
 // ---------------------------------------------------------------------------
 {
   const reactorMilestone = milestone({ slug: "tech-reactor-recheck", id: "m-reactor" });

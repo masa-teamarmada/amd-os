@@ -75,6 +75,7 @@ function toneForMilestoneStatus(status: SxMilestoneStatus): NavTone {
   if (status === "blocked") return "danger";
   if (status === "attention" || status === "at_risk") return "watch";
   if (status === "completed" || status === "on_track") return "ok";
+  if (status === "not_started") return "neutral";
   return "unknown";
 }
 

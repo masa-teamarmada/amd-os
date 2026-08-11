@@ -83,3 +83,20 @@
 ### 残る確認
 
 automation作成後の最初の自然な平日09:00実行は未観測。2026-08-12 09:00 JST以降に、成功または候補0件、Slack送信なし、候補がある場合だけOS通知が1候補1件で作られることをread-onlyで確認する。
+
+## 2026-08-11 — MTG prep通知の二重管理廃止と正規checkout同期（v3.71.3 / v3.71.8）
+
+### MTG prep通知の退役
+
+- まさの運用境界「MTG prepはすべてCodexで行う」に合わせ、`proactive-todo-extract`から予定MTGの`next_meeting_prep`新規生成を削除した。
+- 既存のopen / blockedは物理削除せず`dismissed`へ移し、system解決者・退役理由・解決時刻を残す。開催済みMTGのnext actionとGmail期限つき依頼は維持した。
+- `test:proactive-mtg-prep-retirement`を追加し、upsert入口が戻らないことと、既存行の履歴付き退役を固定した。spec、設計、scheduled tasks一覧、OSマニュアル2-6章、各変更履歴を同じcommitへ同期した。
+- 実装commitは`41151f12`。production build `v3.71.3`でcronを実行し、open / blockedの`next_meeting_prep`が0件であることをreadbackした。
+
+### 正規checkoutの復旧
+
+- `/Users/masa/projects/AMD/amd-os`は開始時`ahead 3 / behind 122`、tracked 16件・untracked 2件だった。完全履歴bundle、binary patch、untracked tar、stashへ復旧証跡を保存してから同期した。
+- local ahead 3件のうち2件はpatch-equivalent。残るBZM handoff 1件もorigin側既存commitと対象ファイルが完全一致し、その後さらに同期規律が更新済みだったため、古い文面を再適用せずrebaseで落とした。
+- stash復元時の9競合は、現行mainの後継仕様を保持して解消した。元差分の大半はmainへ同内容が入っており、旧migrationは番号違いの同一SQL、BZM新章は完全一致だった。
+- 唯一の有意な未反映差分は、成立条件ナビゲーションで`not_started`を`neutral`へ割り当てる1行だった。既存の「未着手は未評価と区別する」仕様に沿うため、回帰テストとbuild `v3.71.8`で本流へ統合した。
+- closeout時点はmainのみ、worktree 1件、ahead 0 / behind 0、未push commit・競合・未追跡物なし。
