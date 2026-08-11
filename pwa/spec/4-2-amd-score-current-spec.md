@@ -88,14 +88,14 @@ $$
 
 トップ式の直下は、`q`、`P`、BZM 2.0の`SPS`を同じ代入列で表示する。`P`は社会的価値とPJ自身の経済的価値を持つベクトルであり、現行運用SPSの値を暗黙には流用しない。
 
-ただし、値の版推移を初期から観察するため、`parameter_key='P'`には`P^(0)`（初期投影）を追記できる。`value_json.schema='bzm2-potential-proxy-v0.1'`のとき、`score_0_to_100`を画面に表示する。変換規則は次のどちらかに限る。
+ただし、値の版推移を初期から観察するため、`parameter_key='P'`には`P^(0)`（初期投影）を追記できる。`value_json.schema='bzm2-potential-proxy-v0.1'`のとき、内部の`score_0_to_100`を100で割った同値な割合として、画面はパーセント表示する。変換規則は次のどちらかに限る。
 
 | `source_mode` | 規則 | 前提 |
 |---|---|---|
 | `legacy_prs_potential` | `100 × prs_potential / 9` | 情報締切以前の`prs_potential`が記録済み |
 | `readiness_mean_fallback` | `100 × mean(TRL, BRL, GRL, SRL, HRL, FRL) / 9` | `prs_potential`が欠測で、6軸すべてが記録済み |
 
-`P^(0)`はBZM 2.0の価値ベクトル、社会的価値、条件付きDCF、校正済みの価値評価ではない。`components.V_soc`と`components.V_econ`は`unmeasured`のまま保存する。`q`が数値のPJだけ、UIは`SPS^(0)=q×P^(0)`を0〜100の初期投影として表示する。`q`が欠測ならSPSは計算しない。
+`P^(0)`はBZM 2.0の価値ベクトル、社会的価値、条件付きDCF、校正済みの価値評価ではない。`components.V_soc`と`components.V_econ`は`unmeasured`のまま保存する。`q`が数値のPJだけ、UIは`SPS^(0)=q×P^(0)`を同値なパーセントで表示する。`q`が欠測ならSPSは計算しない。
 
 到達競争式の直下は、`Z`、`T_C`、`T_Y`、`H_v`、`q`の現在の判定値を同じ表へ置く。式と現在値を別区画へ離さず、共通状態が時計と到達見込みを条件づける構造を監査できるようにする。
 
