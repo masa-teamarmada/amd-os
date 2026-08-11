@@ -1,4 +1,9 @@
 import { Tex } from "@/components/venture-map/Tex";
+import {
+  deriveBzm2InitialSps,
+  readBzm2InitialPotentialProjection,
+  readBzm2Probability,
+} from "@/lib/bzm-2-observatory";
 import type {
   Bzm2EvidenceKind,
   Bzm2Observation,
@@ -50,8 +55,10 @@ const EVIDENCE_LABELS: Record<Bzm2EvidenceKind, string> = {
 
 const SYMBOL_TEX: Record<string, string> = {
   SPS: String.raw`\mathbf{SPS}`,
+  SPS_0: String.raw`\mathbf{SPS}^{(0)}`,
   q: "q",
   P: String.raw`\mathbf P`,
+  P_0: String.raw`\mathbf P^{(0)}`,
   T_C: String.raw`T_C`,
   T_Y: String.raw`T_Y`,
   H_v: String.raw`H_v`,
@@ -153,7 +160,48 @@ function CurrentValue({
   observation: Bzm2Observation | null | undefined;
 }) {
   if (!observation) return <span className="text-[#9a5a3c]">欠測</span>;
+  if (observation.parameterKey === "q") {
+    const probability = readBzm2Probability(observation.value);
+    if (probability !== null) return <span>{formatPercent(probability)}</span>;
+  }
   return <span>{observation.displayValue}</span>;
+}
+
+function formatPercent(value: number) {
+  return new Intl.NumberFormat("ja-JP", {
+    style: "percent",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function parseConfidenceInterval(displayValue: string) {
+  const match = displayValue.match(
+    /95%CI\s+(\d+(?:\.\d+)?)\s*[–-]\s*(\d+(?:\.\d+)?)/i,
+  );
+  if (!match) return null;
+  const lower = Number(match[1]);
+  const upper = Number(match[2]);
+  if (!Number.isFinite(lower) || !Number.isFinite(upper)) return null;
+  return { lower, upper };
+}
+
+function ConfidenceInterval({
+  observation,
+  className,
+}: {
+  observation: Bzm2Observation | null | undefined;
+  className?: string;
+}) {
+  if (!observation || observation.parameterKey !== "q") return null;
+  const interval = parseConfidenceInterval(observation.displayValue);
+  if (!interval) return null;
+  return (
+    <div className={`mt-1 text-[9px] leading-3 text-[#665f55] ${className ?? ""}`}>
+      95%信頼区間（計算上のぶれ）: {formatPercent(interval.lower)}〜
+      {formatPercent(interval.upper)}
+    </div>
+  );
 }
 
 function StatusBadge({ status }: { status: Bzm2ValueStatus }) {
@@ -171,11 +219,13 @@ function FormulaValueCell({
   label,
   observation,
   className,
+  detail,
 }: {
   symbol: string;
   label: string;
   observation: Bzm2Observation | null | undefined;
   className?: string;
+  detail?: string;
 }) {
   return (
     <div className={`min-w-0 bg-[#fffdf8] px-2.5 py-2 ${className ?? ""}`}>
@@ -191,9 +241,13 @@ function FormulaValueCell({
         )}
       </div>
       <div className="mt-1 text-[10px] text-[#77736a]">{label}</div>
-      <div className="mt-1 break-words font-mono text-[14px] font-semibold text-[#222420]">
+      <div className="mt-1 break-words font-sans text-[15px] font-semibold tabular-nums text-[#222420]">
         <CurrentValue observation={observation} />
       </div>
+      <ConfidenceInterval observation={observation} />
+      {detail && (
+        <div className="mt-1 text-[9px] leading-3 text-[#665f55]">{detail}</div>
+      )}
     </div>
   );
 }
@@ -201,7 +255,7 @@ function FormulaValueCell({
 function EquationMark({ mark }: { mark: "×" | "=" }) {
   return (
     <div
-      className="flex items-center justify-center font-mono text-[15px] font-semibold text-[#8a867c]"
+      className="flex items-center justify-center text-[15px] font-semibold text-[#8a867c]"
       aria-hidden="true"
     >
       {mark}
@@ -216,13 +270,42 @@ function DerivedSpsResult({
   q: Bzm2Observation | null | undefined;
   potential: Bzm2Observation | null | undefined;
 }) {
+  const initialPotential = potential
+    ? readBzm2InitialPotentialProjection(potential.value)
+    : null;
+  const initialSps =
+    q && potential
+      ? deriveBzm2InitialSps({ probability: q.value, potential: potential.value })
+      : null;
+
+  if (initialPotential && initialSps !== null) {
+    return (
+      <div className="min-w-0 bg-[#fffdf8] px-2.5 py-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <MathSymbol
+            symbol="SPS_0"
+            className="text-[12px] font-bold text-[#274c68]"
+          />
+          <StatusBadge status="estimated" />
+        </div>
+        <div className="mt-1 text-[10px] text-[#77736a]">SPSの初期投影</div>
+        <div className="mt-1 font-sans text-[15px] font-semibold tabular-nums text-[#222420]">
+          {initialSps.toFixed(2)} / 100
+        </div>
+        <div className="mt-1 text-[9px] leading-3 text-[#7c5541]">
+          <MathSymbol symbol="q" /> × <MathSymbol symbol="P_0" />。価値ベクトルの本測定前の基準線
+        </div>
+      </div>
+    );
+  }
+
   const blockers: string[] = [];
   if (!q || q.valueStatus === "missing") blockers.push("qが欠測");
   if (!potential || potential.valueStatus === "missing") {
     blockers.push("Pが欠測");
   } else if (potential.valueStatus === "not_started") {
     blockers.push("Pが未着手");
-  } else {
+  } else if (!initialPotential) {
     blockers.push("Pの尺度・合成規則が未登録");
   }
   const status =
@@ -232,14 +315,14 @@ function DerivedSpsResult({
     <div className="min-w-0 bg-[#fffdf8] px-2.5 py-2">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <MathSymbol
-          symbol="SPS"
+          symbol="SPS_0"
           className="text-[12px] font-bold text-[#274c68]"
         />
         <StatusBadge status={status} />
       </div>
-      <div className="mt-1 text-[10px] text-[#77736a]">現在のBZM 2.0 SPS</div>
-      <div className="mt-1 font-mono text-[14px] font-semibold text-[#8a3f25]">
-        未測定
+      <div className="mt-1 text-[10px] text-[#77736a]">SPSの初期投影</div>
+      <div className="mt-1 font-sans text-[14px] font-semibold text-[#8a3f25]">
+        未計算
       </div>
       <div className="mt-1 text-[9px] leading-3 text-[#7c5541]">
         {blockers.join(" / ")}
@@ -265,11 +348,11 @@ function StateFormulaValue({
       </div>
       <div className="mt-1 text-[10px] text-[#77736a]">共通状態</div>
       {parameters.length === 0 ? (
-        <div className="mt-1 font-mono text-[12px] font-semibold text-[#9a5a3c]">
+        <div className="mt-1 text-[12px] font-semibold text-[#9a5a3c]">
           未登録
         </div>
       ) : (
-        <div className="mt-1 space-y-1 font-mono text-[10px] font-semibold text-[#242621]">
+        <div className="mt-1 space-y-1 text-[10px] font-semibold tabular-nums text-[#242621]">
           {parameters.map((parameter) => (
             <div key={parameter.parameterKey} className="break-words">
               <MathSymbol symbol={parameter.symbol} /> ={" "}
@@ -321,9 +404,10 @@ function QRevisionRail({ q }: { q: Bzm2ParameterSeries | undefined }) {
                   </span>
                   <StatusBadge status={observation.valueStatus} />
                 </div>
-                <div className="mt-1 font-mono text-[16px] font-bold leading-none text-[#274c68]">
-                  {observation.displayValue}
+                <div className="mt-1 text-[16px] font-semibold leading-none tabular-nums text-[#274c68]">
+                  <CurrentValue observation={observation} />
                 </div>
+                <ConfidenceInterval observation={observation} />
                 <div className="mt-1 text-[9px] text-[#77736a]">
                   {EVIDENCE_LABELS[observation.evidenceKind]}
                 </div>
@@ -392,8 +476,8 @@ function ParameterHistoryToggle({
                   <td className="py-1 pr-1 font-mono">
                     {observation.revisionKey}
                   </td>
-                  <td className="py-1 pr-1 font-mono font-semibold text-[#29302c]">
-                    {observation.displayValue}
+                  <td className="py-1 pr-1 font-sans font-semibold tabular-nums text-[#29302c]">
+                    <CurrentValue observation={observation} />
                   </td>
                   <td className="py-1 pr-1">
                     {VALUE_STATUS_LABELS[observation.valueStatus]}・
@@ -454,9 +538,10 @@ function ParameterLedgerTable({
                   </div>
                 </td>
                 <td className="px-2.5 py-1.5">
-                  <div className="font-mono text-[11px] font-semibold leading-4 text-[#242621]">
+                  <div className="font-sans text-[11px] font-semibold leading-4 tabular-nums text-[#242621]">
                     <CurrentValue observation={current} />
                   </div>
+                  <ConfidenceInterval observation={current} />
                   {current?.unit && (
                     <div className="text-[8px] leading-3 text-[#8b857a]">
                       {current.unit}
@@ -503,6 +588,11 @@ function ParameterLedgerTable({
 
 export function Bzm2ModelObservatory({ model }: { model: Bzm2Observatory }) {
   const currentByKey = latestByKey(model);
+  const currentQ = currentByKey.get("q");
+  const currentPotential = currentByKey.get("P");
+  const hasInitialPotential = Boolean(
+    currentPotential && readBzm2InitialPotentialProjection(currentPotential.value),
+  );
   const qSeries = model.parameters.find(
     (parameter) => parameter.parameterKey === "q",
   );
@@ -581,29 +671,34 @@ export function Bzm2ModelObservatory({ model }: { model: Bzm2Observatory }) {
                 />
               </div>
               <p className="mt-1 text-[9px] leading-4 text-[#5f6d72]">
-                qとPは別の証拠で決める。未着手・欠測を0にはしない。
+                qとPは別の証拠で決める。下の数値は、価値ベクトルの本測定前に置く初期投影。
               </p>
             </div>
             <div className="border-t border-[#c7d2d6] px-3 py-2">
               <div className="text-[9px] font-semibold tracking-[0.1em] text-[#365b70]">
-                現在の代入
+                現在の代入{hasInitialPotential ? "（初期投影）" : ""}
               </div>
               <div className="mt-1 grid grid-cols-[minmax(0,0.8fr)_12px_minmax(0,0.8fr)_12px_minmax(0,1fr)] gap-px overflow-hidden rounded-md border border-[#c9d4d7] bg-[#c9d4d7]">
                 <FormulaValueCell
                   symbol="q"
                   label="到達見込み"
-                  observation={currentByKey.get("q")}
+                  observation={currentQ}
                 />
                 <EquationMark mark="×" />
                 <FormulaValueCell
-                  symbol="P"
-                  label="潜在価値"
-                  observation={currentByKey.get("P")}
+                  symbol={hasInitialPotential ? "P_0" : "P"}
+                  label={hasInitialPotential ? "価値の初期投影" : "潜在価値"}
+                  observation={currentPotential}
+                  detail={
+                    hasInitialPotential
+                      ? "旧SPSの記録を透明な規則で100点へ換算。社会・経済価値は別測定。"
+                      : undefined
+                  }
                 />
                 <EquationMark mark="=" />
                 <DerivedSpsResult
-                  q={currentByKey.get("q")}
-                  potential={currentByKey.get("P")}
+                  q={currentQ}
+                  potential={currentPotential}
                 />
               </div>
             </div>

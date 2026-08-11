@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import {
   buildBzm2Observatory,
+  deriveBzm2InitialSps,
+  readBzm2InitialPotentialProjection,
+  readBzm2Probability,
   type Bzm2ObservationRow,
   type Bzm2RevisionRow,
 } from "../src/lib/bzm-2-observatory.ts";
@@ -116,5 +119,22 @@ const empty = buildBzm2Observatory({ projectId: "p00", storageState: "unavailabl
 assert.equal(empty.parameters.length, 5);
 assert.ok(empty.parameters.every((parameter) => parameter.current === null));
 assert.equal(empty.storageState, "unavailable");
+
+const p0 = readBzm2InitialPotentialProjection({
+  score_0_to_100: 88.9,
+  source_mode: "legacy_prs_potential",
+});
+assert.deepEqual(p0, { score0To100: 88.9, sourceMode: "legacy_prs_potential" });
+assert.equal(readBzm2InitialPotentialProjection({ score_0_to_100: 101 }), null);
+assert.equal(readBzm2Probability(0.0415), 0.0415);
+assert.equal(readBzm2Probability(1.01), null);
+assert.ok(
+  Math.abs(
+    (deriveBzm2InitialSps({
+      probability: 0.0415,
+      potential: { score_0_to_100: 88.9, source_mode: "legacy_prs_potential" },
+    }) ?? Number.NaN) - 3.68935,
+  ) < 1e-10,
+);
 
 console.log("BZM 2.0 observatory contract: OK");

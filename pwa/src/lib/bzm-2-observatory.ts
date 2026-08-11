@@ -91,6 +91,11 @@ export type Bzm2Observatory = {
   parameters: Bzm2ParameterSeries[];
 };
 
+export type Bzm2InitialPotentialProjection = {
+  score0To100: number;
+  sourceMode: string | null;
+};
+
 type CoreParameterDefinition = Omit<Bzm2ParameterSeries, "current" | "history">;
 
 export const BZM2_CORE_PARAMETERS: CoreParameterDefinition[] = [
@@ -135,6 +140,49 @@ export const BZM2_CORE_PARAMETERS: CoreParameterDefinition[] = [
     sortOrder: 50,
   },
 ];
+
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+/**
+ * P^(0) is deliberately separate from the unmeasured BZM 2.0 value vector.
+ * It gives the screen a reproducible initial numeric baseline without claiming
+ * that social value and conditional DCF have already been measured.
+ */
+export function readBzm2InitialPotentialProjection(
+  value: unknown,
+): Bzm2InitialPotentialProjection | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const score0To100 = asFiniteNumber(record.score_0_to_100);
+  if (score0To100 === null || score0To100 < 0 || score0To100 > 100) return null;
+  return {
+    score0To100,
+    sourceMode: typeof record.source_mode === "string" ? record.source_mode : null,
+  };
+}
+
+export function readBzm2Probability(value: unknown): number | null {
+  const probability = asFiniteNumber(value);
+  if (probability === null || probability < 0 || probability > 1) return null;
+  return probability;
+}
+
+export function deriveBzm2InitialSps(args: {
+  probability: unknown;
+  potential: unknown;
+}): number | null {
+  const probability = readBzm2Probability(args.probability);
+  const potential = readBzm2InitialPotentialProjection(args.potential);
+  if (probability === null || potential === null) return null;
+  return probability * potential.score0To100;
+}
 
 const GROUP_ORDER: Record<Bzm2ParameterGroup, number> = {
   result: 0,
