@@ -5,6 +5,14 @@
 
 ---
 
+### [git/sync] clean cloneで本番を進めた一方、正規checkoutをbehindのまま常態化した (2026-08-11)
+
+- **状態**: ルール修正済み。正規checkoutの履歴・dirty解消は別途継続。
+- **症状**: 本番と`origin/main`は最新commitへ進んでいた一方、正規checkout `/Users/masa/projects/AMD/amd-os` は`main`のローカルcommitと別セッションのdirtyを抱えたまま大幅behindになった。BZMのHANDOFFとmigration promptには「ahead/behindは刻々と変わるので具体数を当てにしない」「正本checkoutはdirtyが常態」とあり、clean cloneでdeployできた事実と、正規checkoutの同期完了を分けていなかった。
+- **原因**: rootの開始手順が`git fetch`で止まり、fetch後のbehind数確認とfast-forward／発散解消を必須化していなかった。dirtyな共有checkoutを避けてclean cloneからcommit・push・deployする運用は本番反映を守ったが、終了時に正規checkoutへ戻って同期状態を閉じるゲートが無かった。さらにHANDOFFの「具体数を当てにしない」が、変動値を再計測する意味ではなく、behindを放置してよい意味に変質した。
+- **対応内容**: root `CLAUDE.md`へ、fetch後のahead/behind実数確認、behind>0での新規編集禁止、安全なff-only、発散時のpatch-equivalent分類、clean clone deploy後の正規checkout再確認を追加した。`pwa/CLAUDE.md`とBZMのHANDOFF／migration promptからbehind常態化の記述を除き、checkout同期未完をP0未解決として扱うよう統一した。
+- **再発防止策**: **fetchは同期ではない。** `git rev-list --count HEAD..origin/main`が0であることを編集開始とcloseoutの両方で確認する。clean cloneはdeploy輸送路であり、正規checkoutの代替正本にしない。ahead/behindは毎回実数とSHAを記録し、「共有checkoutだからbehindは正常」と書かない。
+
 ### [process/handoff] 正本ルールに反する自己制約を migration prompt へ恒久化し、次セッションが deploy 前で止まった (2026-08-10)
 
 - **状態**: クローズ (2026-08-10 — 該当記述を正本準拠へ書き換え、止まっていた成果を clean clone 経由で本番反映済み)。

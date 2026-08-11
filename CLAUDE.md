@@ -55,7 +55,7 @@ amd-os/
 
 ---
 
-## 🚨 セッション開始時の 4 ステップ（全プラットフォーム共通）
+## 🚨 セッション開始時の同期 + 4 ステップ（全プラットフォーム共通）
 
 エラー閉じ・別マシン作業・別セッションの未push commit を **最初に検知** するため、
 毎セッション開始時に必ず実行:
@@ -65,6 +65,10 @@ cd ~/projects/AMD/amd-os
 
 # 1. リモート状態を取り込む
 git fetch --all --prune
+
+# 1.5. fetchだけで済ませず、mainの実際の乖離を数える
+git rev-list --count HEAD..origin/main
+git rev-list --count origin/main..HEAD
 
 # 2. ローカルにあって push されてない commit を検知（全ブランチ横断）
 git log --branches --not --remotes --oneline
@@ -78,6 +82,13 @@ git status -s
 
 **(2) の出力が空でなければ、push されてない作業が必ずある**。
 内容を見てから取り込むこと。**「未 push commit を見つけたら勝手に消さない」**。
+
+**fetch は同期ではない。`HEAD..origin/main` が1件以上なら、そのcheckoutは古い。古いcheckoutのままファイルを読んでcurrent truthと呼ぶことも、編集を始めることも禁止する。**
+
+- `HEAD..origin/main > 0` かつ `origin/main..HEAD = 0` なら、ユーザー所有のdirtyを確認したうえで `git merge --ff-only origin/main` し、もう一度behindが0になったことを確認する。
+- aheadとbehindが両方1件以上なら、`git cherry -v origin/main HEAD` と対象diffでpatch-equivalent／未反映を分類する。勝手なreset・rebase・stashはしない。解消まで新規編集は`origin/main`から作ったdisposable clean cloneで行う。
+- **「共有checkoutだからbehindは常態」「具体数は当てにしない」は禁止。** 数は毎回変わっても、確認時点の実数とSHAを記録し、behindを未解決として扱う。
+- disposable clean cloneからpush・deployした場合も、終了前に正規checkoutで再fetchする。正規checkoutのbehindが残るなら、deploy完了とcheckout同期未完を分けて報告し、リポジトリ全体のcloseoutを完了扱いにしない。
 
 ---
 

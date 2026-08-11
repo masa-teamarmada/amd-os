@@ -78,12 +78,12 @@ Session 0とSession 1の講義資料は`live-reviewed v1.0`。
 ## Repo状態
 
 - 作業場所：`/Users/masa/projects/AMD/amd-os`、branch：`main`。worktreeは正本checkout1つのみ。**このセッションで作ったbranch／worktree：none**。
-- **この`main`は複数セッションが同時にcommitを積む共有checkout**。ahead/behindの数は刻々と変わるので、**具体数を当てにせず、開始時に`git log --oneline -10`と`git status -sb --untracked-files=all`で必ず再確認する**。
+- **この`main`は複数セッションが触るため、開始時にfetch・ahead/behind実数・SHA・dirtyを必ず再確認する。behindを常態扱いしない。`HEAD..origin/main > 0`の古いcheckoutではcurrent truthを判断せず、新規編集を始めない。** root `CLAUDE.md`の同期ゲートに従う。
 - **BZM講座のmdはorigin/mainへ全件反映済み**：LST事前登録の13本（`200feaba` 事前登録を開く／`6c60932f` 資金の崖1か所／`4a63e78e` 8ノード条件付き確率／`6f2253e0` 順序訂正2件／`072a3f28` 会議駆動の入力収集／`81f5a68e` #7を遅延型へ／`8d1fd274` handoff／`8fc816aa` git記述同期／`8b696a2b` ブラックマス失敗範囲／`d65eba20` 川崎バイパス構造／`a9b53116` 政策支援依存／`b2113c65` 政策支援入力の凍結／`d0fff09b` 共有状態と束縛インタビュー）と、運用ルール修正の1本。前セッションの`44c70a47`と`74247839`も同様。
 - **未pushの判定はSHAではなくcommitメッセージでorigin側と照合する**。この共有checkoutでは、別セッターがmergeしてpushした際にBZM分が巻き込まれて出るため、ローカルに同名commitが残っていても内容は既にoriginにある（`patch-equivalent`）。2026-08-10には、この照合を怠って「別セッターのPWA実装を巻き込むからpushできない」と誤判断した（実際は5本とも既にorigin反映済み）。
 - **共有checkoutのstale write事故が1件起きた**：`pwa/bzm/9-5-appendix-changelog.md`の追記行が、別セッションの全文書き戻しでworking treeから消えていた。復元済み（`git diff --stat`が`2 insertions(+)`のみ、deletionゼロ）。**追記専用mdはWriteで全文を書き直さずEditで差分編集し、commit直前に`git diff -- <対象>`で`-`行が無いことを確認する**。詳細は`pwa/BUGS.md`の`[git/multi-session]`。
 - BZM外に大量のステージ済み・未追跡変更がある（project-workspace系のSX管理UI11ファイル、migration 227、Project Share 6PJの`memberStore.mjs`/`members.mjs`/テスト24ファイル）。**別セッションの作業なので触らず、stage、commit、restoreしない**。`git add .`は使わない。
-- push、deploy：**BZM講座分は使い捨てclean clone経由で`deploy.sh`を通し、origin/mainへpush＋Vercel本番反映まで実施**。正本checkoutはdirtyが常態で`deploy.sh`のclean tree検査に落ちるが、**それはdeployを見送る理由にならない**（`pwa/CLAUDE.md`は「別件のdirtyがあるのでpushしていない」を名指しで禁止）。外部公開と本番データ書き込みは無し（変更は`pwa/bzm/`のmdと`pwa/BUGS.md`のみ）。
+- push、deploy：**BZM講座分は使い捨てclean clone経由で`deploy.sh`を通し、origin/mainへpush＋Vercel本番反映まで実施**。dirtyはdeployを見送る理由にならないが、clean cloneでdeployできたことは正規checkoutの同期完了を意味しない。2026-08-11監査で正規checkoutが大幅behindのまま残ったため、root `CLAUDE.md`へ「古いcheckoutでは編集開始禁止／behind未解決を完了扱いしない」を追加した。外部公開と本番データ書き込みは無し。
 - 開発用`design_log/`は対象外（このセッションはコードを変更していない）。
 - OSマニュアル同期：**対象外**。このセッションの変更は`pwa/bzm/`のmdと`pwa/BUGS.md`のみで、AMD OSの製品仕様・route・UI導線・DB・権限を変更していない。キラー要素カタログのUI実装は別セッションの担当で、マニュアル反映もそちらの責務。
 

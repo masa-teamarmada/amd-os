@@ -82,12 +82,12 @@
 
 ### Git・デプロイ
 
-- branch `main`。**この`main`は複数セッションが同時にcommitを積む共有checkout**で、ahead/behindの数は刻々と変わる。**具体数を当てにせず、開始時に`git fetch`＋`git log --oneline -10`＋`git status -sb --untracked-files=all`＋`git log --branches --not --remotes --oneline`で必ず再確認する**。
+- branch `main`。複数セッションが触るため、開始時に`git fetch`＋ahead/behind実数＋SHA＋dirty＋未push commitを必ず確認する。**behindを常態扱いせず、`HEAD..origin/main > 0`の古いcheckoutではcurrent truthを判断せず、新規編集を始めない。** root `CLAUDE.md`の同期ゲートに従う。
 - **BZM講座のmdは2026-08-10時点でorigin/mainへ全件反映済み**（LST事前登録の13本＋運用ルール修正の1本）。うち13本は、別セッターがmergeしてpushした際に巻き込まれて出た。そのため**正本checkout側に同名のローカルcommitが残っていても、それは`patch-equivalent`（SHAは違うが内容は既にoriginにある）**。
 - 未pushコミットを所属で見るときは、**本数とSHAだけで判断せず、`git log origin/main --oneline --format=%s | grep -Fx "<commit message>"`でorigin側の有無を1本ずつ照合する**。2026-08-10には「別セッターのPWA実装を巻き込むからpushできない」と判断した5本が、実際には全て別SHAで既にorigin反映済みだった（`pwa/BUGS.md`の`[process/handoff]`）。
 - 前セッションの`44c70a47`（到達見込みモデル3.4節）と`74247839`（ゲート台帳のヒアリング規律）は、**すでにorigin/mainに入っている**（別セッションが同一checkoutからpushした際に巻き込まれた）。同じ内容を二重に書かない。
 - BZM外に大量の未追跡・未ステージ変更（project-workspace系のSX管理UI11ファイル、migration 227、Project Share 6PJの`memberStore.mjs`/`members.mjs`/テスト24ファイル）。**別セッションの作業なので触らず、stage、commit、restoreしない**。
-- push、deploy：**BZM講座分はorigin/mainへpush済みで、Vercel本番反映も完了**（正本checkoutはdirtyが常態で`deploy.sh`のclean tree検査に落ちるため、`main`をcheckoutした使い捨てclean cloneへcherry-pickして`deploy.sh`を通した）。外部公開と本番データ書き込みは無し。現行PWAのSPS、GO判定、表示、本番データは変更していない（触ったのは`pwa/bzm/`のmdと`pwa/BUGS.md`、および`BUILD_VERSION`のbumpだけ）。
+- push、deploy：**BZM講座分はorigin/mainへpush済みで、Vercel本番反映も完了**（使い捨てclean cloneへcherry-pickして`deploy.sh`を通した）。ただし2026-08-11監査で正規checkoutが大幅behindのまま残ったため、これはcheckout同期完了の証拠にはしない。外部公開と本番データ書き込みは無し。
 - branch、worktreeの新規作成なし。
 
 ## 次のタスク：LSTの依存グラフを文書先行で作る
@@ -138,6 +138,6 @@ LSTの8ノードは条件付き確信度を取得済みだが、結合構造は�
 - BZM外のProject Share各PJにあるステージ済み・未追跡変更は別作業。触らず、stage、commit、restoreしない。
 - **PWAの本番反映は原則ノンストップ。deploy前の承認待ちで止めない**（`pwa/CLAUDE.md`／`pwa/AGENTS.md`）。`pwa/`配下を変更したら——`pwa/bzm/`のmdも`/bzm`で表示される本番物なので同じ——`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`でpush、Vercel build監視、本番確認まで進め、deploy bundleを事後報告する。事前承認が要るのは既存業務導線（`FEATURE_REGISTRY`）の削除・置き換えと、まさが明示的に「確認してから」と言った作業だけ。DDLと本番データ書き込みは事前承認不要。
 - **「別件のdirtyがあるのでpush／deployしていない」は禁止**（`pwa/CLAUDE.md`が名指しで禁止）。今回触った対象ファイルだけをstageしてcommitし、既存dirtyは戻さず「除外した差分」として事後報告する。
-- 正本checkoutはdirtyが常態で、`deploy.sh`のclean tree検査に引っかかる。**そのときもdeployを見送らない**。`main`をcheckoutした使い捨てclean clone（`git clone /Users/masa/projects/AMD/amd-os <scratchpad>/... && git remote set-url origin https://github.com/masa-teamarmada/amd-os.git`、`pwa/node_modules`は正本からsymlink）へ対象commitをcherry-pickして`deploy.sh`を通し、closeoutでclone削除まで書く（root `CLAUDE.md`の「disposable clean clone」）。
+- 正規checkoutのdirtyで`deploy.sh`のclean tree検査に引っかかってもdeployは見送らない。`origin/main`から作った使い捨てclean cloneへ対象commitを載せて`deploy.sh`を通す。ただし終了前に正規checkoutを再fetchし、behindを解消またはP0未解決として明示する。**clean cloneから本番反映できたことを理由に、正規checkoutのbehindを常態化しない。**
 - 自分でセッション中に置いた作業上の都合を、まさ確定ルールのように扱わない。とくに**正本ルールと衝突する自己制約をこのpromptやHANDOFFへ書き込まない**（2026-08-10に実害。`pwa/BUGS.md`の`[process/handoff]`）。
 - `AskUserQuestion`ツールは使わない。質問は普通のテキストで書く。
