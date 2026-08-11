@@ -1,18 +1,29 @@
 # HANDOFF　BZM批判的基礎講座
 
-> **更新日**：2026-08-10
+> **更新日**：2026-08-11
 >
-> **仕事種別**：非開発PJ作業（BZM理論の批判的講座とSPS 2.0の測定設計）。このセッションで触ったのは`pwa/bzm/`のmdと`pwa/BUGS.md`のみで、PWAのコードは変更していない。
+> **仕事種別**：BZM理論の批判的講座、SPS 2.0の測定設計、PJコックピットの観測UIとDB台帳。
 >
 > **正本パス**：`/Users/masa/projects/AMD/amd-os/pwa/bzm`
 
 ## 最新セッションの要約
 
-2026-08-09〜10。前回の宿題だった**戦略余力$T_Y$の非資金成分**に決着をつけ、続けて**2件目のPJ（LST）の事前登録**を骨格確定・入力待ちの段階まで進めた。
+### 2026-08-11 学際模擬監査とP0修正
+
+- 経済学、経営学、ディープテック経営、産学連携、VCの5役でAIによる独立模擬監査を行った。実在専門家の署名監査ではない。判定は、研究用の測定プロトコルとして条件付き通過、PJ比較に使う予測モデルと投資配分モデルとして不通過。前向き検証は0件のまま。
+- 旧「$qP$＝期待時価総額」は撤回した。$q_{\mathrm{plan}}(H_v)$はPJ固有期限の計画達成診断、$Q(h)$は共通期間でのPJ比較、$q_G(H_{\mathrm{econ}})P_G(H_{\mathrm{econ}})$は期限後を含む資本自立経路全体の価値寄与へ分けた。
+- 会社全体の価値層は、計画期限内の資本自立、計画期限後の資本自立、M&A、ライセンス、知財売却、ピボット、撤退、清算、継続中を相互排他的かつ網羅的に分けた$\mathrm{SPS}_{\mathrm{all}}(H_{\mathrm{econ}})=\sum_o q_o(H_{\mathrm{econ}})P_o(H_{\mathrm{econ}})$へ変更した。経路集合、到達前費用、将来調達と希薄化、証券別権利、評価方式は未測定なので、全PJの$\mathrm{SPS}_{\mathrm{all}}(H_{\mathrm{econ}})$は0にせず未着手表示とする。
+- SX v0.5の0.0415は消さず、2031-03-31までの計画達成診断値へ改称した。一般的な成功確率、共通期間比較値、全経路価値ではない。
+- 監査台帳は`pwa/bzm/BZM_2_0_MULTIDISCIPLINARY_AUDIT_2026-08-11.md`、抽出正本は`pwa/bzm/BZM_2_0_PARAMETER_EXTRACTION_REGISTER.md` v0.2。産学連携ではchain of title、FTO、ライセンス条件、大学承認、利益相反、輸出管理を専用入力へ追加した。
+- PJコックピットのBZM 2.0画面も三層へ同期し、旧DBの`q`と`P`は値を変えず計画期限内経路へ意味を限定する。共通期間曲線、期限後を含む資本自立経路、全経路価値は欠測として新しい版へ追記する。
+
+### 2026-08-09〜10 LST事前登録と戦略余力
+
+前回の宿題だった**戦略余力$T_Y$の非資金成分**に決着をつけ、続けて**2件目のPJ（LST）の事前登録**を骨格確定・入力待ちの段階まで進めた。
 
 - **非資金成分は「時計としては欠測のまま」で確定した**。顧客信用やチームの余力を「あと何か月分」へ翻訳する再現可能な手続きが書けないため、独立ノードとして足すと出所タグが`assumption`になり、v0.1と同じ失格条件に触れる。工程にも資金にも割り当てられない止まり方は、時計ではなく**キラー要素カタログ＋発生駆動の再測定**で扱う。理論正本は [到達見込みモデル](./sps-2-0-reachability-model) 3.4節。
 - **キラー要素カタログを新設した**。工程失敗でも資金切れでもないのに事業化見込みを削る事象の追記型台帳で、初版は7型（経営整合／ガバナンス／管理体制／金銭感覚／経営チーム／社会的信用／出自機関）。**機械的な減点係数表は作らない**。発生したら影響工程の確率を構造化ヒアリングで聞き直して版を上げる。発生判定の証拠は記録・文書に限り、CEO本人の自己申告を使わない。まさの指示で、全DTSU PJ共通の雛形としてPJコックピット会社概要タブへ実装する作業は**別セッションへ分離済み**（下のRepo状態を参照）。
-- **LST（p07 / LiSTie株式会社）の事前登録を開いた**。台帳は `pwa/bzm/SPS_2_0_PREREGISTRATION_LST_2026-08-09.md`（`preregistration-open v0.1`、$q$は未計算）。第一目的は**分解能の点検**で、事前見立て「LST > SX」を計算前に凍結してある。$H_v$は2031-03-31（SXと同一日）。骨格は4フェーズ×3レーン、資金の崖は**FY2027前後の大型調達1か所**。
+- **LST（p07 / LiSTie株式会社）の事前登録を開いた**。台帳は `pwa/bzm/SPS_2_0_PREREGISTRATION_LST_2026-08-09.md`（`preregistration-open v0.1`、$q_{\mathrm{plan}}(H_v)$は未計算）。第一目的は**分解能の点検**で、事前見立て「LST > SX」を計算前に凍結してある。$H_v$は2031-03-31（SXと同一日）。骨格は4フェーズ×3レーン、資金の崖は**FY2027前後の大型調達1か所**。
 - 条件付き確信度を**8ノード分、条件付き形式で取得**した（80/90/70/60/65/60/50/85%）。**単純積は使わない**と明記済み。#7は停止ノードではなく**遅延型**（46億ライン到達時刻の混合分布、計画傾き50%／下振れ傾き50%）と訂正した。
 - **時間の三点幅と手元資金$C_0$は「会議駆動収集」に切り替えた**。まさの「その数字おれが埋めるのはしんどい。ブランクにしておいて、今後の経営会議とか取締役会で出てきたらあとから埋めてよ」に従い、いまは`missing`で登録し、議事録・取締役会資料から`document`/`record`で埋める。感覚で置かない。
 - ヒアリング中に**時間の順序の読み違いを2件、まさが訂正**した（①川崎拠点が先で2号機が後 ②ユニットは受注生産で商談は品質達成と並行）。SX v0.3で20倍の誤差を生んだのと同型の誤読を、今回は計算前に潰せた。
@@ -27,7 +38,7 @@ Session 0とSession 1の講義資料は`live-reviewed v1.0`。
 
 | 種別 | ファイル | 役割 |
 |---|---|---|
-| 教科書章（PWAの`/bzm`に表示） | `sps-2-0-reachability-model.md` | 到達見込みモデルの定義・原則。`theory-fixed v1.1` |
+| 教科書章（PWAの`/bzm`に表示） | `sps-2-0-reachability-model.md` | 計画診断、共通期間比較、資本自立経路、全価値実現経路の定義。`theory-fixed v1.4` |
 | 教科書章 | `sps-2-0-measurability-gate.md` | 数字を出してよい条件（7問）。`questions-fixed v1.1` |
 | 教科書章 | `sps-2-0-sx-measurement-log.md` | SX実測の版推移と感度。`measurement-log v0.5` |
 | 運用台帳（教科書に出ない） | `BZM_2_0_MEASURABILITY_GATE.md` | 確定文・証拠パッケージ表・変更履歴の正本 |
@@ -41,12 +52,12 @@ Session 0とSession 1の講義資料は`live-reviewed v1.0`。
 ## 全体工程と現在地
 
 1. 目的・非目的の固定：完了。
-2. 理論構造$\mathbf{SPS}=q\mathbf P$：`theory-fixed v1.1`（到達見込み側）。$\mathbf P$側は未着手。
+2. 理論構造：`theory-fixed v1.4`。計画診断$q_{\mathrm{plan}}(H_v)$、共通期間曲線$Q(h)$、共通経済評価地平$H_{\mathrm{econ}}$までの資本自立経路$q_GP_G$、全経路$\sum_o q_oP_o$を分離。$H_{\mathrm{econ}}$の実値と経路別価値入力は未着手。
 3. 測定設計（観測可能な定義・算出規則・停止条件）：完了（ゲート7問クローズ）。
 4. 1PJで入力を凍結する有効な試行：SXで`v0.5`まで完了。
 5. 複数PJへの適用と分解能の点検：**LSTで骨格確定・入力待ち。現在地**。複数評価者による前向き検証はまだ0件。
 6. 複数評価者による校正：未着手。
-7. 単一表示、全PJ更新、GOとの関係、PWA実装：未着手。ただしキラー要素カタログのUI実装だけは別セッターが先行している。
+7. 単一表示、全PJ更新、GOとの関係：PWAの観測UIと全12PJの欠測台帳まで実装。校正済みの単一順位、GO、投資配分への接続は未着手。
 
 ## 次セッションの最初の一手
 
@@ -65,27 +76,26 @@ Session 0とSession 1の講義資料は`live-reviewed v1.0`。
 1. **LST 8ノードの結合構造**（上記＝次の一手）。#4、#2、#7 は確定済み。#1 と残りノードは文書先行で依存グラフを作り、下流計算へ影響する未決だけを工程責任者へ確認する。単純積は使わない。
 2. **LSTの時間三点幅と$C_0$**。会議駆動収集へ切り替え済みで、いまは`missing`登録。今後の経営会議・取締役会の記録から`document`/`record`で埋める。Notion議事録へのアクセス経路が3経路とも塞がっている（4.3節に記録）ため、経路の確保自体が先に要る。
 3. **キラー要素カタログのLST初期診断**。SHA・定款の取得が前提。LSTは設立済みで取締役会が存在するため、カタログを実適用できる最初のPJになる。
-4. **分解能の点検（LSTの当初目的）**。$q$が出たら、計算前に凍結した事前見立て「LST > SX」と突き合わせる。順序が合っていても値の差が小さすぎればPJ間比較の計器としては失格、という読み方を先に決めておく。
+4. **分解能の点検（LSTの当初目的）**。共通期間$h$の$Q(h)$が出たら、計算前に凍結した事前見立て「LST > SX」と突き合わせる。順序が合っていても値の差が小さすぎればPJ間比較の計器としては失格、という読み方を先に決めておく。
 5. **キラー要素カタログのOS実装との整合**。別セッターがPJコックピット会社概要タブへ実装中（未pushの5 commit）。理論側の7型・発生駆動の再測定と、UI側のデータ構造がずれていないかを、実装がpushされた後に突き合わせる。
 6. SX側で仮定として残る入力の置換：Phase 1〜3の所要時間幅、各フェーズの燃焼レート幅、Phase 3の燃焼。まさが月次数値計画を作る予定で、それを文書由来へ格上げする。
 7. $q^{self}(\pi_{BZSF})$と$q^{self}(\pi_0)$、追加効果$\Delta q$の識別条件。
-8. 共通目標に対応する$\mathbf P$の尺度、条件付きDCF、社会的価値rubric。
+8. 全価値実現経路$\mathcal O$の分岐規則、経路別$q_o$と$P_o$、到達前費用、将来調達と希薄化、証券クラス別ウォーターフォール、採用する一つの評価方式。
 9. 設立後に必要となる状態変数と、Before Zero入力をそのまま使えない反例。
-10. `BZM_2_0_DIAGNOSTIC_SCORE_SPEC.md`の「試行済み」「校正前なら試行を妨げない」という記述が、測定可能性ゲートを欠くため現在の設計と不整合。同期が要る。
+10. 学際模擬監査の再監査ゲートG0〜G7。文書とUIのP0同期後も、経路計算、測定不変性、産学連携台帳、前向き検証、意思決定純便益は未通過。
 
 前回の未解決1（$T_Y$非資金成分）と3（ゲート文書へのヒアリング規律追記）は、このセッションで消化した。
 
 ## Repo状態
 
-- 作業場所：`/Users/masa/projects/AMD/amd-os`、branch：`main`。worktreeは正本checkout1つのみ。**このセッションで作ったbranch／worktree：none**。
+- 正本の作業場所は`/Users/masa/projects/AMD/amd-os`、branchは`main`。新しいbranchまたはworktreeを作らない。
 - **この`main`は複数セッションが触るため、開始時にfetch・ahead/behind実数・SHA・dirtyを必ず再確認する。behindを常態扱いしない。`HEAD..origin/main > 0`の古いcheckoutではcurrent truthを判断せず、新規編集を始めない。** root `CLAUDE.md`の同期ゲートに従う。
-- **BZM講座のmdはorigin/mainへ全件反映済み**：LST事前登録の13本（`200feaba` 事前登録を開く／`6c60932f` 資金の崖1か所／`4a63e78e` 8ノード条件付き確率／`6f2253e0` 順序訂正2件／`072a3f28` 会議駆動の入力収集／`81f5a68e` #7を遅延型へ／`8d1fd274` handoff／`8fc816aa` git記述同期／`8b696a2b` ブラックマス失敗範囲／`d65eba20` 川崎バイパス構造／`a9b53116` 政策支援依存／`b2113c65` 政策支援入力の凍結／`d0fff09b` 共有状態と束縛インタビュー）と、運用ルール修正の1本。前セッションの`44c70a47`と`74247839`も同様。
-- **未pushの判定はSHAではなくcommitメッセージでorigin側と照合する**。この共有checkoutでは、別セッターがmergeしてpushした際にBZM分が巻き込まれて出るため、ローカルに同名commitが残っていても内容は既にoriginにある（`patch-equivalent`）。2026-08-10には、この照合を怠って「別セッターのPWA実装を巻き込むからpushできない」と誤判断した（実際は5本とも既にorigin反映済み）。
+- 2026-08-11の学際模擬監査修正は、理論正本、監査台帳、抽出台帳、manual、spec、UI、runtime検査、migration 259、静的テストを一つの変更束へ同期した。migration 259は12PJへ`audit-p0-open-v1.4`を追記し、新しい6パラメータを数値なし・根拠なしで開始する。
+- **未pushの判定はcommitメッセージだけで決めず、`git fetch`後のSHA、対象差分、`git log --branches --not --remotes`を合わせて見る**。別セッションが同じmainを進めるため、古いahead/behind値を引き継がない。
 - **共有checkoutのstale write事故が1件起きた**：`pwa/bzm/9-5-appendix-changelog.md`の追記行が、別セッションの全文書き戻しでworking treeから消えていた。復元済み（`git diff --stat`が`2 insertions(+)`のみ、deletionゼロ）。**追記専用mdはWriteで全文を書き直さずEditで差分編集し、commit直前に`git diff -- <対象>`で`-`行が無いことを確認する**。詳細は`pwa/BUGS.md`の`[git/multi-session]`。
-- BZM外に大量のステージ済み・未追跡変更がある（project-workspace系のSX管理UI11ファイル、migration 227、Project Share 6PJの`memberStore.mjs`/`members.mjs`/テスト24ファイル）。**別セッションの作業なので触らず、stage、commit、restoreしない**。`git add .`は使わない。
-- push、deploy：**BZM講座分は使い捨てclean clone経由で`deploy.sh`を通し、origin/mainへpush＋Vercel本番反映まで実施**。dirtyはdeployを見送る理由にならないが、clean cloneでdeployできたことは正規checkoutの同期完了を意味しない。2026-08-11監査で正規checkoutが大幅behindのまま残ったため、root `CLAUDE.md`へ「古いcheckoutでは編集開始禁止／behind未解決を完了扱いしない」を追加した。外部公開と本番データ書き込みは無し。
-- 開発用`design_log/`は対象外（このセッションはコードを変更していない）。
-- OSマニュアル同期：**対象外**。このセッションの変更は`pwa/bzm/`のmdと`pwa/BUGS.md`のみで、AMD OSの製品仕様・route・UI導線・DB・権限を変更していない。キラー要素カタログのUI実装は別セッションの担当で、マニュアル反映もそちらの責務。
+- 同じcheckoutに別セッションの変更があれば、今回の対象だけを明示してstageする。`git add .`、無関係なrestore、別作業の取り込みをしない。
+- pushと本番反映はcheckout-localの`pwa/scripts/deploy.sh`だけを使う。完了判定はpush成功だけでなく、`/api/build-info`のSHA、migration 259の末尾検査、12PJのAPIとスコア詳細画面のreadbackまで行う。
+- OSマニュアル同期：`pwa/manual/4-3-amd-score-spec.md`、`pwa/spec/4-2-amd-score-current-spec.md`、`pwa/design/cockpit.md`、`pwa/design/FEATURE_REGISTRY.md`を同じ変更束で更新した。
 
 ## 読む資料
 
@@ -101,7 +111,7 @@ Session 0とSession 1の講義資料は`live-reviewed v1.0`。
 10. `pwa/bzm/SPS_2_0_PREREGISTRATION_LST_2026-08-09.md`（**LST事前登録。4.12節の入力取得手順が次の一手**）
 11. `pwa/bzm/SPS_2_0_PREREGISTRATION_SX_2026-08-07.md`（SX事前登録。5.4〜5.5節、9〜16章、17章）
 12. `pwa/bzm/BZM_2_0_MEASURABILITY_GATE.md`（ゲート運用台帳）
-13. `pwa/bzm/BZM_2_0_DIAGNOSTIC_SCORE_SPEC.md`（未解決10の不整合あり）
+13. `pwa/bzm/BZM_2_0_DIAGNOSTIC_SCORE_SPEC.md`（計画診断、共通期間比較、全経路価値の分離仕様）
 14. [`course-bzm-foundations-s01.md`](./course-bzm-foundations-s01.md)
 15. `pwa/bzm/BZM_2_0_REVISION_REQUIREMENTS.md`
 16. `/Users/masa/projects/AMD/amd-os/pwa/spec/4-2-amd-score-current-spec.md`

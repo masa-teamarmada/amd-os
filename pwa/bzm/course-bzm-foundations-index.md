@@ -68,13 +68,13 @@
 
 - [BZM 2.0 理論原案（ワークスペース文書）](https://amd-os-pwa.vercel.app/api/workspace-documents/5c00d293-cc97-4136-86df-4af6cdb1e304/render)
 
-統合教材はワークスペース文書を正本とし、ローカルHTMLを配布物または別正本として使わない。価値ベクトル$\mathbf P$、到達境界$X^*$、到達時間$T_C$、戦略余力$T_Y$、共同シミュレーションによる$q$、状態価値$W(X,Y)$、SPS 2.0の主張境界を、初見の大学院生向けに一続きで説明する。
+統合教材はワークスペース文書を配布正本とし、ローカルHTMLを配布物または別正本として使わない。ただし、2026-08-11の学際模擬監査より前の版にある「$qP$を会社全体価値とする説明」は撤回済みである。現行の理論正本は、計画期限内の到達診断$q_{\mathrm{plan}}(H_v)$、共通期間比較$Q(h)$、資本自立経路の価値寄与$q_G(H_{\mathrm{econ}})P_G(H_{\mathrm{econ}})$、全価値実現経路の総和$\mathrm{SPS}_{\mathrm{all}}(H_{\mathrm{econ}})=\sum_oq_o(H_{\mathrm{econ}})P_o(H_{\mathrm{econ}})$を分ける。
 
 ## SPS 2.0 到達見込みの三章
 
-到達見込み$q$の側は、2026-08-07〜08の測定設計セッションで独立した章立てを持った。上の全16回とは別系統で、$\mathbf{SPS}=q\mathbf P$のうち$q$だけを扱う。
+到達見込み側は、2026-08-07〜08の測定設計セッションで独立した章立てを持った。上の全16回とは別系統で、計画診断$q_{\mathrm{plan}}(H_v)$、共通期間比較$Q(h)$、期限後を含む資本自立確率$q_G(H_{\mathrm{econ}})$を扱う。会社全体の価値評価は、これらのうち一つへ単純に$P$を掛けるのではなく、相互排他的な全経路へ分ける。
 
-- [到達見込みモデル — 資金の崖が締切を作る](./sps-2-0-reachability-model)（`theory-fixed v1.0`）
+- [到達見込みモデル — 資金の崖が締切を作る](./sps-2-0-reachability-model)（`theory-fixed v1.4`）
 - [測定可能性ゲート — 数字を出してよい条件](./sps-2-0-measurability-gate)（`questions-fixed v1.0`）
 - [SX実測記録 — 版を追って$q$がどう動いたか](./sps-2-0-sx-measurement-log)（`measurement-log v0.5`）
 

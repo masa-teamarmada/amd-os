@@ -73,45 +73,50 @@ PJコックピットのスコア詳細は、現行運用SPSの前にBZM 2.0観�
 観測画面の式は、理論正本`pwa/bzm/sps-2-0-reachability-model.md`に従う。
 
 $$
-\mathrm{SPS}_{\tau}=q_{\tau}P_{\tau}
+\mathrm{SPS}_{\mathrm{all},\tau}(H_{\mathrm{econ}})
+=\sum_{o\in\mathcal O}q_{o,\tau}(H_{\mathrm{econ}})P_{o,\tau}(H_{\mathrm{econ}})
 $$
 
 $$
-P_{\tau}
-=\operatorname E\!\left[
-M_{\tau,T_C}V^{\mathrm{eq}}_{T_C}
-\mid A_v,\mathcal I_{\tau}
-\right]
-$$
-
-$$
-q_{\tau}(\mathbf z)
-=
-\Pr\!\left(
-T_C(\mathbf z)<T_Y(\mathbf z),\quad
-T_C(\mathbf z)\le H_v
-\mid \mathbf Z_\tau=\mathbf z,\mathcal I_\tau
+q_{\mathrm{plan},\tau}(H_v)
+=\Pr\!\left(
+T_C<T_Y,\quad T_C\le H_v
+\mid \mathcal I_\tau
 \right)
 $$
 
-トップ式の直下は、`q`、`P`、BZM 2.0の`SPS`を同じ代入列で表示する。
-`P`は共通到達目標へ着いた場合の会社全体の条件付き理論時価総額であり、単位は円とする。
-BZSFの取得持分、投資額、契約条件は入れない。
+$$
+Q_\tau(h)
+=\Pr\!\left(
+T_C<T_Y,\quad T_C\le h
+\mid \mathcal I_\tau
+\right)
+$$
 
-現行スキーマは、数値が測定できた版では`value_json.schema='bzm2-equity-value-v0.1'`とし、`value_million_jpy`、`valuation_date`、`method`、`conditional_on`、`currency='JPY'`を保存する。
-円建て評価入力が揃っていない版は、`value_status='missing'`、`value_json=null`、表示値`円建て評価入力待ち`とする。
+トップでは、全価値実現経路の総和、共通経済評価地平までの資本自立経路全体、PJ固有の計画期限内経路を三段に分ける。
+`q_plan`は計画達成診断、`q_G`は共通経済評価地平までの期限後到達を含む資本自立経路全体、`Q_h`は価値式へ掛けないPJ間比較用の共通期間曲線、`SPS_all`は相互排他的な全経路のモデル内確率加重持分価値である。
+旧`q × P`は計画期限内の資本自立経路の寄与としてだけ残し、会社全体の期待時価総額とは表示しない。
+非上場PJのモデル出力を市場で観測された時価総額と呼ばない。
+
+経路価値を測定できた版は`value_json.schema='bzm2-path-equity-value-v0.2'`とし、`value_million_jpy`、`valuation_date`、`method`、`conditional_on`、`outcome_key`、`horizon_key`、`information_cutoff`、`currency='JPY'`を保存する。
+全経路値を測定できた版は`value_json.schema='bzm2-all-path-value-v0.2'`とし、全PJ共通の`economic_horizon_months`と、各PJの情報締切から導いた`economic_horizon_date`を分けて保存する。
+同じ日付を全PJへ置くことを共通期間とは呼ばない。
+円建て評価入力が揃っていない版は、`value_status='missing'`、`value_json=null`とし、0へ変換しない。
+到達前開発費、将来調達、希薄化、負債、税、残存価値を同じ評価日と通貨へそろえる。
+評価方式はFCFFとWACC、FCFEと株主資本コスト、実確率と確率的割引因子、またはリスク中立確率と無リスク割引の一方式へ固定し、リスクを二重計上しない。
+負債と非持分請求は企業価値から総持分価値への橋で扱い、清算優先、参加、転換、ストックオプション、希薄化は総持分価値内の証券クラス別配分で扱う。
 
 2026-08-11に作った`P^(0)`と二成分指数`bzm2-potential-vector-v0.1`は撤回済みである。
-値と根拠状態は履歴として残すが、円への換算規則が無いため、現行`P`またはSPSへ使わない。
+値と根拠状態は履歴として残すが、円への換算規則が無いため、現行経路価値またはSPSへ使わない。
 
 社会的要素は独立加点しない。
-工程、時間、資金接続へ効くなら`q`へ、売上、補助、公共調達、規制、費用へ効くなら将来キャッシュフローへ、投資家需要、要求収益率、評価倍率へ効くなら市場の価格づけへ接続する。
+工程、時間、資金接続へ効くなら経路別`q_o`へ、売上、補助、公共調達、規制、費用へ効くなら将来キャッシュフローへ、投資家需要、要求収益率、評価倍率へ効くなら市場の価格づけへ接続する。
 反映経路を支える証拠または事前に固定した推定規則が無ければ、説明変数として保存し、数値は動かさない。
 
 全パラメータの抽出規則は`pwa/bzm/BZM_2_0_PARAMETER_EXTRACTION_REGISTER.md`を正本とする。
-画面では12群の要約を折りたたみ表で表示する。
+画面では13群の要約を折りたたみ表で表示する。
 
-到達競争式の直下は、`Z`、`T_C`、`T_Y`、`H_v`、`q`の現在の判定値を同じ表へ置く。式と現在値を別区画へ離さず、共通状態が時計と到達見込みを条件づける構造を監査できるようにする。
+到達競争式の直下は、`Z`、`T_C`、`T_Y`、`H_v`、`H_econ`、`q_plan`、`Q_h`の現在の判定値を同じ表へ置く。`H_econ`は共通の経過月数とPJ別の対応日を表示する。式と現在値を別区画へ離さず、共通状態が時計と計画診断を条件づける構造を監査できるようにする。
 
 `bzm_2_model_revisions`はPJ別の測定版を追記する。
 
@@ -122,7 +127,7 @@ BZSFの取得持分、投資額、契約条件は入れない。
 | 項目 | 保存規則 |
 |---|---|
 | 版 | `project_id + revision_key`と`project_id + revision_order`を一意にする |
-| 情報締切 | `information_cutoff`へ保存し、後の結果で過去入力を書き換えない |
+| 情報締切 | 版の締切を`information_cutoff`へ、コピーした観測自身の元締切を`condition_json.effective_information_cutoff`へ保存し、後の結果や定義改訂日で過去入力を書き換えない |
 | 欠測 | `value_status=missing`または`not_started`、`value_json=null`とする。0へ変換しない |
 | 出所 | 計算、文書、記録、ヒアリング、仮定、複合を区別し、欠測以外は`evidence_ref`を必須にする |
 | 共通状態 | `affects`へ影響工程と時計を保存し、`condition_json`へ条件づけた入力を保存する |
@@ -131,7 +136,7 @@ BZSFの取得持分、投資額、契約条件は入れない。
 
 `Z_policy`は独立加点ではない。
 
-LSTでは`#2=90%`と`#6=60%`を`Z_policy=present`へ条件づけ、`affects`に`#2`、`#6`、`T_C`、`T_Y`、`q`を保存する。
+LSTでは`#2=90%`と`#6=60%`を`Z_policy=present`へ条件づけ、`affects`に`#2`、`#6`、`T_C`、`T_Y`、`q_plan`を保存する。
 
 反実仮想となる`Z_policy=absent`の工程入力は欠測なので、ロビイングの追加効果を計算しない。
 
@@ -139,7 +144,7 @@ APIの`/api/project/[projectId]/amd-score-detail`は、既存payloadへ`bzm2`を
 
 `fetchBzm2Observatory()`は版と観測を取得し、パラメータごとに最新値と履歴を組み立てる。
 
-`Bzm2ModelObservatory`は数式記号をLaTeXで組む。たとえば`T_C`という生文字列を表示せず、$T_C$として下付きを含めて描画する。トップ式と到達競争式にはそれぞれ現在の代入・判定値を直下へ置く。`P`が円建て数値ならSPSを計算し、`q`または`P`が欠測なら未計算理由を表示する。撤回済み指数は履歴にだけ残す。確率値はパーセントで表示し、`95%CI`という略語ではなく「95%信頼区間（計算上のぶれ）」を併記する。数値は本文書体の`tabular-nums`で揃え、等幅書体は版IDや内部キーだけに限る。共通状態、時計、入力、資金、品質の台帳は、記号と変数名、現在値、測定状態・出所、反映先、履歴を同じ圧縮表へ並べる。各行の詳細で説明、出所参照、版別の値・状態・情報締切を確認する。$q$の版推移と全パラメータの抽出規則は初期状態で閉じ、必要なときだけ開く。
+`Bzm2ModelObservatory`は数式記号をLaTeXで組む。たとえば`T_C`という生文字列を表示せず、$T_C$として下付きを含めて描画する。トップは全経路、共通経済評価地平までの資本自立、計画期限内の資本自立を三段に分け、現在値と欠測理由を直下へ置く。確率値はパーセントで表示し、`95%CI`という略語ではなく「95%信頼区間（計算上のぶれ）」を併記する。数値は本文書体の`tabular-nums`で揃え、等幅書体は版IDや内部キーだけに限る。共通状態、時計、入力、資金、品質の台帳は、記号と変数名、現在値、測定状態・出所、反映先、履歴を同じ圧縮表へ並べる。各行の詳細で説明、出所参照、版別の観測自身の情報締切を確認する。$q_{\mathrm{plan}}$の版推移と全パラメータの抽出規則は初期状態で閉じ、必要なときだけ開く。
 
 台帳が未適用または取得不能でも既存スコア詳細を失敗させず、BZM 2.0側だけを欠測表示にする。
 
@@ -147,9 +152,9 @@ APIの`/api/project/[projectId]/amd-score-detail`は、既存payloadへ`bzm2`を
 
 SXとLST以外で現行SPSを持つ10PJは`measurement_status=data_collection`でv0.1を作り、2026-08-10の情報締切までに構造化DBから確認できたPJ文脈、政策支援、現行SPS入力、証拠被覆、資金調達履歴を凍結する。
 
-`data_collection`は計算前の観測収集中を表す。依存グラフ、時間分布、現在現金、バーン、計画期限が未接続なら、記録数が多くても`q`は欠測のままにする。
+`data_collection`は計算前の観測収集中を表す。依存グラフ、時間分布、現在現金、バーン、計画期限が未接続なら、記録数が多くても`parameter_key=q`、すなわち$q_{\mathrm{plan},\tau}(H_v)$は欠測のままにする。
 
-現行SPS入力は`quality.current_sps_input`として保持する。`prs_potential`をBZM 2.0の円建て`P`へ、XRLを条件付き確率へ自動変換しない。撤回済みの`P^(0)`と二成分指数は履歴にだけ残し、現行値へ暗黙に流用しない。
+現行SPS入力は`quality.current_sps_input`として保持する。`prs_potential`をBZM 2.0の円建て経路価値へ、XRLを条件付き確率へ自動変換しない。撤回済みの`P^(0)`と二成分指数は履歴にだけ残し、現行値へ暗黙に流用しない。
 
 資金調達ラウンドの既知合計は`cash.funding_history`として保持するが、`C_0`または`T_Y`へ読み替えない。
 

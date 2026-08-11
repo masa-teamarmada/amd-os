@@ -1,6 +1,10 @@
 import { Tex } from "@/components/venture-map/Tex";
 import {
-  deriveBzm2SpsValue,
+  bzm2ObservationInformationCutoff,
+  deriveBzm2PathContribution,
+  isClosedBzm2AllPathValue,
+  readBzm2AllPathValue,
+  readBzm2CommonHorizonProbability,
   readBzm2EquityValue,
   readBzm2InitialPotentialProjection,
   readBzm2PotentialVector,
@@ -58,11 +62,21 @@ const EVIDENCE_LABELS: Record<Bzm2EvidenceKind, string> = {
 const SYMBOL_TEX: Record<string, string> = {
   SPS: String.raw`\mathrm{SPS}`,
   SPS_tau: String.raw`\mathrm{SPS}_{\tau}`,
+  SPS_all: String.raw`\mathrm{SPS}_{\mathrm{all},\tau}(H_{\mathrm{econ}})`,
+  SPS_G: String.raw`\mathrm{SPS}_{G,\tau}(H_{\mathrm{econ}})`,
+  SPS_plan: String.raw`\mathrm{SPS}_{G,\mathrm{plan},\tau}(H_v)`,
   SPS_0: String.raw`\mathrm{SPS}^{(0)}`,
   q: "q",
   q_tau: String.raw`q_{\tau}`,
+  q_plan: String.raw`q_{\mathrm{plan},\tau}(H_v)`,
+  q_G: String.raw`q_{G,\tau}(H_{\mathrm{econ}})`,
+  q_o: String.raw`q_{o,\tau}(H_{\mathrm{econ}})`,
+  Q_h: String.raw`Q_{\tau}(h)`,
   P: "P",
   P_tau: String.raw`P_{\tau}`,
+  P_o: String.raw`P_{o,\tau}(H_{\mathrm{econ}})`,
+  P_G: String.raw`P_{G,\tau}(H_{\mathrm{econ}})`,
+  P_G_plan: String.raw`P_{G,\mathrm{plan},\tau}(H_v)`,
   P_0: String.raw`P^{(0)}`,
   V_soc: String.raw`V_{\mathrm{soc}}`,
   V_econ: String.raw`V_{\mathrm{econ}}`,
@@ -71,8 +85,9 @@ const SYMBOL_TEX: Record<string, string> = {
   T_C: String.raw`T_C`,
   T_Y: String.raw`T_Y`,
   H_v: String.raw`H_v`,
+  H_econ: String.raw`H_{\mathrm{econ}}`,
   A_v: String.raw`A_v`,
-  M_tau_TC: String.raw`M_{\tau,T_C}`,
+  m_tau_u: String.raw`m_{\tau,u}`,
   V_eq_TC: String.raw`V^{\mathrm{eq}}_{T_C}`,
   Z_tau: String.raw`\mathbf Z_\tau`,
   Z_policy: String.raw`Z_{\mathrm{policy}}`,
@@ -95,6 +110,7 @@ const SYMBOL_TEX: Record<string, string> = {
   F_hist: String.raw`F_{\mathrm{hist}}`,
   F_plan: String.raw`F_{\mathrm{plan}}`,
   coverage: String.raw`\mathrm{coverage}`,
+  O: String.raw`\mathcal O`,
 };
 
 function symbolTex(symbol: string) {
@@ -125,7 +141,7 @@ function AffectsTarget({ target }: { target: string }) {
 }
 
 const INLINE_SYMBOL_PATTERN =
-  /(T_C|T_Y|H_v|Z_policy|C_0|C_1|b_1|p_[1-8]|w_7|t_0|status_PJ|AMD_role|XRL_legacy|F_hist|F_plan)/g;
+  /(SPS_all|SPS_G|SPS_plan|q_plan|q_G|Q_h|P_G_plan|P_G|T_C|T_Y|H_econ|H_v|Z_policy|C_0|C_1|b_1|p_[1-8]|w_7|t_0|status_PJ|AMD_role|XRL_legacy|F_hist|F_plan)/g;
 
 function InlineMathText({ children }: { children: string }) {
   const parts = children.split(INLINE_SYMBOL_PATTERN);
@@ -172,11 +188,23 @@ function CurrentValue({
   observation: Bzm2Observation | null | undefined;
 }) {
   if (!observation) return <span className="text-[#9a5a3c]">欠測</span>;
-  if (observation.parameterKey === "q") {
+  if (observation.parameterKey === "Q_h") {
+    const commonHorizon = readBzm2CommonHorizonProbability(observation);
+    if (commonHorizon !== null) {
+      return <span>{formatPercent(commonHorizon.probability)}</span>;
+    }
+    if (observation.value !== null) {
+      return <span className="text-[#8a3f25]">期間条件が不整合</span>;
+    }
+  }
+  if (
+    observation.parameterKey === "q" ||
+    observation.parameterKey === "q_G"
+  ) {
     const probability = readBzm2Probability(observation.value);
     if (probability !== null) return <span>{formatPercent(probability)}</span>;
   }
-  if (observation.parameterKey === "P") {
+  if (observation.parameterKey === "P" || observation.parameterKey === "P_G") {
     const equityValue = readBzm2EquityValue(observation.value);
     if (equityValue) {
       return <span>{formatMillionJpy(equityValue.valueMillionJpy)}</span>;
@@ -197,6 +225,17 @@ function CurrentValue({
           撤回済み初期値 {formatInitialValue(potential.value)}
         </span>
       );
+    }
+  }
+  if (observation.parameterKey === "SPS_all") {
+    const allPathValue = isClosedBzm2AllPathValue(observation)
+      ? readBzm2AllPathValue(observation.value)
+      : null;
+    if (allPathValue) {
+      return <span>{formatMillionJpy(allPathValue.valueMillionJpy)}</span>;
+    }
+    if (observation.value !== null) {
+      return <span className="text-[#8a3f25]">閉鎖検査不通過</span>;
     }
   }
   return <span>{observation.displayValue}</span>;
@@ -235,6 +274,31 @@ function formatMillionJpy(value: number) {
   }).format(value)}百万円`;
 }
 
+function commonHorizonDetail(
+  observation: Bzm2Observation | null | undefined,
+) {
+  const horizonMonths = observation?.condition.horizon_months;
+  const economicHorizonMonths =
+    observation?.condition.economic_horizon_months;
+  const economicHorizonDate = observation?.condition.economic_horizon_date;
+  if (
+    typeof horizonMonths === "number" &&
+    Number.isInteger(horizonMonths) &&
+    horizonMonths > 0
+  ) {
+    return `比較期間 h = ${horizonMonths}か月 / 共通経済評価地平 ${
+      typeof economicHorizonMonths === "number"
+        ? `${economicHorizonMonths}か月`
+        : "未登録"
+    } / 対応日 ${
+      typeof economicHorizonDate === "string"
+        ? economicHorizonDate
+        : "未登録"
+    }`;
+  }
+  return "比較期間 h = 未登録。期間をそろえるまでPJ間比較しない。";
+}
+
 function parseConfidenceInterval(displayValue: string) {
   const match = displayValue.match(
     /95%CI\s+(\d+(?:\.\d+)?)\s*[–-]\s*(\d+(?:\.\d+)?)/i,
@@ -253,7 +317,13 @@ function ConfidenceInterval({
   observation: Bzm2Observation | null | undefined;
   className?: string;
 }) {
-  if (!observation || observation.parameterKey !== "q") return null;
+  if (
+    !observation ||
+    observation.parameterKey !== "q" &&
+    observation.parameterKey !== "q_G" &&
+    observation.parameterKey !== "Q_h"
+  )
+    return null;
   const interval = parseConfidenceInterval(observation.displayValue);
   if (!interval) return null;
   return (
@@ -325,63 +395,74 @@ function EquationMark({ mark }: { mark: "×" | "=" }) {
   );
 }
 
-function DerivedSpsResult({
+function DerivedPathContribution({
   q,
   potential,
+  symbol,
+  label,
 }: {
   q: Bzm2Observation | null | undefined;
   potential: Bzm2Observation | null | undefined;
+  symbol: "SPS_G" | "SPS_plan";
+  label: string;
 }) {
   const equityValue = potential ? readBzm2EquityValue(potential.value) : null;
-  const spsValue =
+  const pathValue =
     q && potential
-      ? deriveBzm2SpsValue({ probability: q.value, potential: potential.value })
+      ? deriveBzm2PathContribution({ probability: q, potential })
       : null;
 
-  if (equityValue && spsValue !== null) {
+  if (equityValue && pathValue !== null) {
     return (
       <div className="min-w-0 bg-[#fffdf8] px-2.5 py-2">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <MathSymbol
-            symbol="SPS_tau"
+            symbol={symbol}
             className="text-[12px] font-bold text-[#274c68]"
           />
           <StatusBadge status="calculated" />
         </div>
-        <div className="mt-1 text-[10px] text-[#77736a]">期待時価総額</div>
+        <div className="mt-1 text-[10px] text-[#77736a]">{label}</div>
         <div className="mt-1 text-[15px] font-semibold tabular-nums text-[#285b7a]">
-          {formatMillionJpy(spsValue)}
+          {formatMillionJpy(pathValue)}
         </div>
         <div className="mt-1 text-[9px] leading-3 text-[#665f55]">
-          <MathSymbol symbol="q_tau" /> × <MathSymbol symbol="P_tau" />
-          。会社全体の円建て期待値
+          この経路だけの円建て寄与。会社全体の価値ではない。
         </div>
       </div>
     );
   }
 
   const blockers: string[] = [];
-  if (!q || q.valueStatus === "missing") blockers.push("qが欠測");
+  if (!q || q.valueStatus === "missing") blockers.push("到達見込みが欠測");
+  else if (q.valueStatus === "not_started")
+    blockers.push("到達見込みが未着手");
   if (!potential || potential.valueStatus === "missing") {
-    blockers.push("Pが欠測");
+    blockers.push("経路価値が欠測");
   } else if (potential.valueStatus === "not_started") {
-    blockers.push("Pが未着手");
+    blockers.push("経路価値が未着手");
   } else if (!equityValue) {
-    blockers.push("Pの円建て評価入力が未登録");
+    blockers.push("円建て評価入力が未登録");
+  }
+  if (q && equityValue && pathValue === null) {
+    blockers.push("版・情報締切・条件事象・期間が一致していない");
   }
   const status =
-    potential?.valueStatus === "not_started" ? "not_started" : "missing";
+    q?.valueStatus === "not_started" ||
+    potential?.valueStatus === "not_started"
+      ? "not_started"
+      : "missing";
 
   return (
     <div className="min-w-0 bg-[#fffdf8] px-2.5 py-2">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <MathSymbol
-          symbol="SPS_tau"
+          symbol={symbol}
           className="text-[12px] font-bold text-[#274c68]"
         />
         <StatusBadge status={status} />
       </div>
-      <div className="mt-1 text-[10px] text-[#77736a]">期待時価総額</div>
+      <div className="mt-1 text-[10px] text-[#77736a]">{label}</div>
       <div className="mt-1 font-sans text-[14px] font-semibold text-[#8a3f25]">
         未計算
       </div>
@@ -434,7 +515,7 @@ const EXTRACTION_RULES = [
     method: "情報締切、計画版、支援方針、外部環境を固定し、後知恵を遮断する。",
   },
   {
-    tex: String.raw`G_{\mathrm{self}},\ X_v^*`,
+    tex: String.raw`G_{\mathrm{self}},\ X_G^*`,
     label: "到達境界",
     source: "理論正本・事業計画・契約・技術/供給要件",
     method: "12か月の自給に必要な技術、製造、顧客、権利、収支条件を列挙する。",
@@ -461,11 +542,11 @@ const EXTRACTION_RULES = [
       "利用可能資金、純燃焼、条件付き入金を月次経路へ置く。未契約調達は成立ノードにする。",
   },
   {
-    tex: String.raw`T_C,\ T_Y,\ q_\tau`,
-    label: "到達見込み",
+    tex: String.raw`T_C,\ T_Y,\ q_{\mathrm{plan},\tau}(H_v),\ Q_\tau(h)`,
+    label: "計画診断・共通期間比較",
     source: "共同経路シミュレーション",
     method:
-      "到達と余力喪失の初回時刻を共同生成し、期限内に到達した割合を求める。",
+      "到達と余力喪失を共同生成する。PJ固有期限の計画診断と、全PJ共通期間の累積曲線を分ける。",
   },
   {
     tex: String.raw`u_{s,t},\ n_{s,t},\ \rho_{s,t},\ R_t`,
@@ -481,30 +562,39 @@ const EXTRACTION_RULES = [
     method: "数量、歩留まり、人員、設備能力へ接続してボトムアップで積む。",
   },
   {
-    tex: String.raw`\Delta\mathrm{NWC}_t,\ \mathrm{Tax}_t,\ \mathrm{FCFF}_t`,
+    tex: String.raw`\Delta\mathrm{NWC}_t,\ \mathrm{Tax}_t,\ \mathrm{FCF}_t`,
     label: "自由キャッシュフロー",
     source: "回収/支払条件・在庫計画・税務条件",
-    method: "運転資本と税を反映し、FCFFまたはFCFEの方式を全期間で統一する。",
-  },
-  {
-    tex: String.raw`\mathrm{TV}_N,\ V^{\mathrm{eq}}_{T_C}`,
-    label: "到達時株主価値",
-    source: "長期前提・上場比較・M&A取引・資本政策",
     method:
-      "DCF/倍率から事業価値を出し、余剰現金、負債、優先請求、希薄化を橋渡しする。",
+      "到達前の開発費から残存価値までを含める。企業価値方式と株主価値方式を混ぜない。",
   },
   {
-    tex: String.raw`M_{\tau,T_C},\ D_{\mathrm{soc}}`,
-    label: "市場の価格づけ",
-    source: "金利・比較企業・資金調達価格・公共調達・投資家需要",
+    tex: String.raw`\mathcal O,\ q_{o,\tau},\ P_{o,\tau}`,
+    label: "価値実現経路",
+    source: "事業計画・M&A/ライセンス/IP契約・清算・継続計画",
     method:
-      "社会要素を到達、CF、要求収益率/倍率のどこへ効かせるか特定し、独立加点しない。",
+      "計画期限内の資本自立、期限後の資本自立、M&A、ライセンス、知財売却、ピボット、撤退、清算、継続中を重複なく分ける。",
   },
   {
-    tex: String.raw`P_\tau,\ \mathrm{SPS}_\tau`,
+    tex: String.raw`V^{\mathrm{enterprise}},\ D,\ V^{\mathrm{equity}}`,
+    label: "企業価値から株主価値への橋",
+    source: "借入・現金・非株主請求・資本政策・証券別契約",
+    method:
+      "負債等だけを企業価値から控除する。優先株・転換・希薄化は総持分価値内の証券別配分として扱う。",
+  },
+  {
+    tex: String.raw`m_{\tau,u},\ D_{\mathrm{soc}}`,
+    label: "現在価値への変換",
+    source: "金利・市場リスク・比較企業・取引価格・投資家需要",
+    method:
+      "実確率と確率的割引係数、またはリスク中立評価、またはリスク調整DCFの一方式だけを選び、リスクを二重計上しない。",
+  },
+  {
+    tex: String.raw`\mathrm{SPS}_{\mathrm{all},\tau}(H_{\mathrm{econ}}),\ \mathrm{SPS}_{G,\mathrm{plan},\tau}(H_v)`,
     label: "最終出力",
-    source: "到達経路の条件付き価値分布",
-    method: "到達時株主価値を現在へ写してPを出し、最後にqを一度だけ掛ける。",
+    source: "相互排他的な全経路の確率と条件付き価値",
+    method:
+      "全経路価値は経路寄与の和で出す。計画期限内の資本自立経路の積は内訳として残し、会社全体価値と呼ばない。",
   },
 ] as const;
 
@@ -518,7 +608,7 @@ function ExtractionRuleLedger() {
               全パラメータの抽出規則
             </h3>
             <p className="mt-0.5 text-[9px] text-[#77736a]">
-              12群の要約。値・出所・補完規則・反映先を同じ版で保存する。
+              {EXTRACTION_RULES.length}群の要約。値・出所・補完規則・反映先を同じ版で保存する。
             </p>
           </div>
           <span className="shrink-0 font-mono text-[10px] text-[#5f6870]">
@@ -582,7 +672,7 @@ function QRevisionRail({ q }: { q: Bzm2ParameterSeries | undefined }) {
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-md px-1 py-1 marker:content-none hover:bg-[#f2eee5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#274c68]">
           <div className="flex min-w-0 items-baseline gap-2">
             <h3 className="text-[11px] font-semibold text-[#252722]">
-              <MathSymbol symbol="q" />
+              <MathSymbol symbol="q_plan" />
               の版推移
             </h3>
             <span className="truncate text-[10px] text-[#77736a]">
@@ -598,7 +688,7 @@ function QRevisionRail({ q }: { q: Bzm2ParameterSeries | undefined }) {
         </summary>
         {history.length === 0 ? (
           <div className="mt-2 rounded-md border border-dashed border-[#cfc7b9] px-3 py-2 text-[10px] text-[#7f776c]">
-            qの計算履歴はまだない。0とは扱わない。
+            <MathSymbol symbol="q_plan" />の計算履歴はまだない。0とは扱わない。
           </div>
         ) : (
           <ol className="mt-2 grid gap-px overflow-hidden rounded-md border border-[#d9d2c6] bg-[#d9d2c6] sm:grid-cols-2 xl:grid-cols-4">
@@ -693,7 +783,9 @@ function ParameterHistoryToggle({
                     {EVIDENCE_LABELS[observation.evidenceKind]}
                   </td>
                   <td className="py-1 font-mono text-[8px]">
-                    {formatCutoff(observation.informationCutoff)}
+                    {formatCutoff(
+                      bzm2ObservationInformationCutoff(observation),
+                    )}
                   </td>
                 </tr>
               ))
@@ -801,8 +893,23 @@ function ParameterLedgerTable({
 
 export function Bzm2ModelObservatory({ model }: { model: Bzm2Observatory }) {
   const currentByKey = latestByKey(model);
-  const currentQ = currentByKey.get("q");
-  const currentPotential = currentByKey.get("P");
+  const currentPlanQ = currentByKey.get("q");
+  const currentPlanValue = currentByKey.get("P");
+  const currentCommonQ = currentByKey.get("Q_h");
+  const currentCapitalQ = currentByKey.get("q_G");
+  const currentCapitalValue = currentByKey.get("P_G");
+  const storedAllPathValue = currentByKey.get("SPS_all");
+  const currentAllPathValue = storedAllPathValue;
+  const allPathIsClosed = isClosedBzm2AllPathValue(storedAllPathValue);
+  const allPathDetail =
+    storedAllPathValue &&
+    storedAllPathValue.valueStatus !== "missing" &&
+    storedAllPathValue.valueStatus !== "not_started" &&
+    !allPathIsClosed
+      ? "保存値は経路の排反・網羅、確率和、評価基準、再計算の検査前なので表示を止めている。"
+      : allPathIsClosed
+        ? "全経路の再計算と閉鎖検査を通った、モデル上の総持分価値。市場価格・時価総額ではない。"
+        : "全経路の値はまだ未測定。欠測を0へ置き換えない。";
   const qSeries = model.parameters.find(
     (parameter) => parameter.parameterKey === "q",
   );
@@ -834,7 +941,7 @@ export function Bzm2ModelObservatory({ model }: { model: Bzm2Observatory }) {
               id="bzm2-observatory-title"
               className="mt-0.5 text-[16px] font-semibold tracking-tight"
             >
-              到達見込みの数式と現在値
+              全経路価値と到達診断の現在値
             </h2>
             <p className="mt-0.5 max-w-3xl text-[10px] leading-4 text-[#c9d6d9]">
               現行運用SPSとは別の検証中モデル。値、欠測、出所、版の変化を同じ場所で追う。
@@ -847,12 +954,15 @@ export function Bzm2ModelObservatory({ model }: { model: Bzm2Observatory }) {
             <span className="rounded-full border border-[#8f7955] bg-[#443924] px-2 py-0.5 font-semibold text-[#f2deb7]">
               前向き検証 {currentRevision?.forwardValidationCount ?? 0}件
             </span>
+            <span className="rounded-full border border-[#7f8892] bg-[#293743] px-2 py-0.5 font-semibold text-[#dce5ea]">
+              AI模擬監査 / 予測用途不通過
+            </span>
           </div>
         </div>
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t border-[#38505e] pt-2 font-mono text-[9px] text-[#aac0c5]">
           <span>版 {currentRevision?.revisionKey ?? "未登録"}</span>
           <span>
-            理論 {currentRevision?.theoryVersion ?? "theory-fixed v1.2"}
+            理論 {currentRevision?.theoryVersion ?? "未登録"}
           </span>
           <span>
             情報締切 {formatCutoff(currentRevision?.informationCutoff)}
@@ -867,47 +977,103 @@ export function Bzm2ModelObservatory({ model }: { model: Bzm2Observatory }) {
       )}
 
       <div className="px-3 py-3 sm:px-4">
-        <div className="grid gap-2 xl:grid-cols-[minmax(0,0.86fr)_minmax(0,1.35fr)]">
+        <div className="grid gap-2 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
           <section className="overflow-hidden rounded-lg border border-[#b9c8cf] bg-[#f4f8f9]">
             <div className="px-3 py-2.5">
               <div className="text-[9px] font-semibold tracking-[0.12em] text-[#365b70]">
-                トップ構造
+                全価値実現経路のモデル価値
               </div>
               <div className="mt-1 overflow-x-auto text-[#183b50]">
                 <Tex
-                  tex={String.raw`\mathrm{SPS}_{\tau}=q_{\tau}P_{\tau}`}
+                  tex={String.raw`\mathrm{SPS}_{\mathrm{all},\tau}(H_{\mathrm{econ}})=\sum_{o\in\mathcal O}q_{o,\tau}(H_{\mathrm{econ}})P_{o,\tau}(H_{\mathrm{econ}})`}
                   display
-                  className="text-[20px]"
-                />
-                <Tex
-                  tex={String.raw`P_{\tau}=\operatorname E\!\left[M_{\tau,T_C}V^{\mathrm{eq}}_{T_C}\mid A_v,\mathcal I_{\tau}\right]`}
-                  display
-                  className="text-[10px] sm:text-[12px]"
+                  className="text-[17px] sm:text-[20px]"
                 />
               </div>
               <p className="mt-1 text-[9px] leading-4 text-[#5f6d72]">
-                qは到達、Pは到達した世界の会社全体の理論時価総額。単位は円で、BZSFの持分比率は入れない。
+                計画期限内の資本自立、期限後の資本自立、M&amp;A、ライセンス、知財売却、ピボット、撤退、清算、継続中を重複なく分け、各経路の円建て寄与を足す。
               </p>
             </div>
             <div className="border-t border-[#c7d2d6] px-3 py-2">
               <div className="text-[9px] font-semibold tracking-[0.1em] text-[#365b70]">
-                現在の代入
+                全経路の現在値
+              </div>
+              <div className="mt-1 grid grid-cols-1 gap-px overflow-hidden rounded-md border border-[#c9d4d7] bg-[#c9d4d7] sm:grid-cols-2">
+                <FormulaValueCell
+                  symbol="SPS_all"
+                  label="全経路のモデル価値"
+                  observation={currentAllPathValue}
+                  detail={allPathDetail}
+                />
+                <FormulaValueCell
+                  symbol="O"
+                  label="価値実現経路"
+                  observation={currentByKey.get("O")}
+                  detail="経路の漏れ・重複が無いことを確認してから総和する。"
+                />
+              </div>
+            </div>
+            <div className="border-t border-[#c7d2d6] px-3 py-2">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div className="text-[9px] font-semibold tracking-[0.1em] text-[#365b70]">
+                  期限後を含む資本自立経路の内訳
+                </div>
+                <Tex
+                  tex={String.raw`\mathrm{SPS}_{G,\tau}(H_{\mathrm{econ}})=q_{G,\tau}(H_{\mathrm{econ}})P_{G,\tau}(H_{\mathrm{econ}})`}
+                  className="text-[10px] text-[#365b70]"
+                />
               </div>
               <div className="mt-1 grid grid-cols-1 gap-px overflow-hidden rounded-md border border-[#c9d4d7] bg-[#c9d4d7] sm:grid-cols-[minmax(0,0.8fr)_12px_minmax(0,0.8fr)_12px_minmax(0,1fr)]">
                 <FormulaValueCell
-                  symbol="q_tau"
-                  label="到達見込み"
-                  observation={currentQ}
+                  symbol="q_G"
+                  label="共通経済評価地平までの資本自立到達見込み"
+                  observation={currentCapitalQ}
                 />
                 <EquationMark mark="×" />
                 <FormulaValueCell
-                  symbol="P_tau"
-                  label="条件付き理論時価総額"
-                  observation={currentPotential}
-                  detail="会社全体の株主価値。旧指数は履歴のみ。"
+                  symbol="P_G"
+                  label="資本自立経路全体の条件付き価値"
+                  observation={currentCapitalValue}
                 />
                 <EquationMark mark="=" />
-                <DerivedSpsResult q={currentQ} potential={currentPotential} />
+                <DerivedPathContribution
+                  q={currentCapitalQ}
+                  potential={currentCapitalValue}
+                  symbol="SPS_G"
+                  label="資本自立経路全体の価値寄与"
+                />
+              </div>
+            </div>
+            <div className="border-t border-[#c7d2d6] px-3 py-2">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div className="text-[9px] font-semibold tracking-[0.1em] text-[#365b70]">
+                  PJ固有の計画期限に間に合う内訳
+                </div>
+                <Tex
+                  tex={String.raw`\mathrm{SPS}_{G,\mathrm{plan},\tau}(H_v)=q_{\mathrm{plan},\tau}(H_v)P_{G,\mathrm{plan},\tau}(H_v)`}
+                  className="text-[9px] text-[#365b70]"
+                />
+              </div>
+              <div className="mt-1 grid grid-cols-1 gap-px overflow-hidden rounded-md border border-[#c9d4d7] bg-[#c9d4d7] sm:grid-cols-[minmax(0,0.8fr)_12px_minmax(0,0.8fr)_12px_minmax(0,1fr)]">
+                <FormulaValueCell
+                  symbol="q_plan"
+                  label="計画期限内の到達見込み"
+                  observation={currentPlanQ}
+                />
+                <EquationMark mark="×" />
+                <FormulaValueCell
+                  symbol="P_G_plan"
+                  label="期限内到達経路の条件付き価値"
+                  observation={currentPlanValue}
+                  detail="旧Pの対象を明確化。旧指数は履歴のみ。"
+                />
+                <EquationMark mark="=" />
+                <DerivedPathContribution
+                  q={currentPlanQ}
+                  potential={currentPlanValue}
+                  symbol="SPS_plan"
+                  label="期限内資本自立経路の価値寄与"
+                />
               </div>
             </div>
           </section>
@@ -919,7 +1085,7 @@ export function Bzm2ModelObservatory({ model }: { model: Bzm2Observatory }) {
               </div>
               <div className="mt-1 overflow-x-auto text-[#183b50]">
                 <Tex
-                  tex={String.raw`q_{\tau}(\mathbf z)=\Pr\!\bigl(T_C(\mathbf z)<T_Y(\mathbf z),\ T_C(\mathbf z)\le H_v\mid\mathbf Z_\tau=\mathbf z,\mathcal I_\tau\bigr)`}
+                  tex={String.raw`q_{\mathrm{plan},\tau}(H_v\mid\mathbf z)=\Pr\!\bigl(T_C(\mathbf z)<T_Y(\mathbf z),\ T_C(\mathbf z)\le H_v\mid\mathbf Z_\tau=\mathbf z,\mathcal I_\tau\bigr)`}
                   display
                   className="text-[11px] sm:text-[14px]"
                 />
@@ -932,7 +1098,7 @@ export function Bzm2ModelObservatory({ model }: { model: Bzm2Observatory }) {
               <div className="text-[9px] font-semibold tracking-[0.1em] text-[#365b70]">
                 現在の判定値
               </div>
-              <div className="mt-1 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-[#c9d4d7] bg-[#c9d4d7] sm:grid-cols-5">
+              <div className="mt-1 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-[#c9d4d7] bg-[#c9d4d7] sm:grid-cols-4">
                 <StateFormulaValue parameters={stateParameters} />
                 <FormulaValueCell
                   symbol="T_C"
@@ -950,10 +1116,20 @@ export function Bzm2ModelObservatory({ model }: { model: Bzm2Observatory }) {
                   observation={currentByKey.get("H_v")}
                 />
                 <FormulaValueCell
-                  symbol="q_tau"
-                  label="到達見込み"
+                  symbol="H_econ"
+                  label="共通経済評価地平"
+                  observation={currentByKey.get("H_econ")}
+                />
+                <FormulaValueCell
+                  symbol="q_plan"
+                  label="計画期限内の到達見込み"
                   observation={currentByKey.get("q")}
-                  className="col-span-2 sm:col-span-1"
+                />
+                <FormulaValueCell
+                  symbol="Q_h"
+                  label="共通期間内の比較値"
+                  observation={currentCommonQ}
+                  detail={commonHorizonDetail(currentCommonQ)}
                 />
               </div>
             </div>
@@ -993,7 +1169,11 @@ export function Bzm2ModelObservatory({ model }: { model: Bzm2Observatory }) {
       </section>
 
       <footer className="border-t border-[#ded8cd] bg-[#f1ede4] px-3 py-2 text-[9px] leading-4 text-[#68635a] sm:px-4">
-        qは前向き検証前のモデル出力。PとSPSは円建ての理論値で、実際の資金調達価格や時価総額とは限らない。いずれもGO、NO_GO、投資額へ単独利用しない。
+        計画到達見込みは前向き検証前のモデル出力。
+        {allPathIsClosed
+          ? "全経路価値は構造検査を通過しているが、前向き妥当性はまだ未確認。"
+          : "全経路価値は未測定。"}
+        外部の実在専門家による署名監査も未実施。現段階ではGO、NO_GO、投資額へ単独利用しない。
       </footer>
     </section>
   );

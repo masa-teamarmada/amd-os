@@ -2004,14 +2004,20 @@ expectIncludes("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
 ]);
 expectIncludes("src/components/cockpit/Bzm2ModelObservatory.tsx", [
   "BZM 2.0 / MODEL OBSERVATORY",
-  "到達見込みの数式と現在値",
+  "全経路価値と到達診断の現在値",
   "Z_policy",
   "前向き検証",
-  "条件付き理論時価総額",
-  "期待時価総額",
+  "SPS}_{\\mathrm{all},\\tau}(H_{\\mathrm{econ}})",
+  "q_{\\mathrm{plan},\\tau}(H_v)",
+  "AI模擬監査 / 予測用途不通過",
+  "全経路のモデル価値",
   "全パラメータの抽出規則",
   "パラメータ台帳",
   "現行運用SPSとは別の検証中モデル",
+]);
+expectNotIncludes("src/components/cockpit/Bzm2ModelObservatory.tsx", [
+  "条件付き理論時価総額",
+  "期待時価総額",
 ]);
 expectIncludes("src/app/api/project/[projectId]/amd-score-detail/route.ts", [
   "fetchBzm2Observatory",
