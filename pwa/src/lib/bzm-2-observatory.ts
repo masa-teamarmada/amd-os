@@ -96,6 +96,48 @@ export type Bzm2InitialPotentialProjection = {
   sourceMode: string | null;
 };
 
+export const BZM2_POTENTIAL_EVIDENCE_STATUSES = [
+  "observed",
+  "proxy",
+  "imputed",
+] as const;
+
+export type Bzm2PotentialEvidenceStatus =
+  typeof BZM2_POTENTIAL_EVIDENCE_STATUSES[number];
+
+export type Bzm2PotentialAxis = {
+  key: string;
+  label: string;
+  value: number;
+  evidenceStatus: Bzm2PotentialEvidenceStatus;
+  evidenceRef: string;
+  note: string;
+};
+
+export type Bzm2PotentialComponent = {
+  key: "V_soc" | "V_econ";
+  label: string;
+  value: number;
+  scale: "index_0_100";
+  axes: Bzm2PotentialAxis[];
+};
+
+export type Bzm2PotentialVector = {
+  schema: "bzm2-potential-vector-v0.1";
+  components: {
+    V_soc: Bzm2PotentialComponent;
+    V_econ: Bzm2PotentialComponent;
+  };
+  scalarProjection: null;
+  conditionalOn: string;
+  imputationRule: string;
+};
+
+export type Bzm2SpsVector = {
+  V_soc: number;
+  V_econ: number;
+};
+
 type CoreParameterDefinition = Omit<Bzm2ParameterSeries, "current" | "history">;
 
 export const BZM2_CORE_PARAMETERS: CoreParameterDefinition[] = [
@@ -170,6 +212,92 @@ export function readBzm2InitialPotentialProjection(
   };
 }
 
+function readPotentialAxis(value: unknown): Bzm2PotentialAxis | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const axisValue = asFiniteNumber(record.value);
+  const evidenceStatus = record.evidence_status;
+  if (
+    typeof record.key !== "string" ||
+    typeof record.label !== "string" ||
+    axisValue === null ||
+    axisValue < 0 ||
+    axisValue > 20 ||
+    typeof evidenceStatus !== "string" ||
+    !(BZM2_POTENTIAL_EVIDENCE_STATUSES as readonly string[]).includes(
+      evidenceStatus,
+    )
+  ) {
+    return null;
+  }
+  return {
+    key: record.key,
+    label: record.label,
+    value: axisValue,
+    evidenceStatus: evidenceStatus as Bzm2PotentialEvidenceStatus,
+    evidenceRef:
+      typeof record.evidence_ref === "string" ? record.evidence_ref : "未登録",
+    note: typeof record.note === "string" ? record.note : "注記なし",
+  };
+}
+
+function readPotentialComponent(
+  value: unknown,
+  key: Bzm2PotentialComponent["key"],
+): Bzm2PotentialComponent | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const componentValue = asFiniteNumber(record.value);
+  const axes = Array.isArray(record.axes)
+    ? record.axes.map(readPotentialAxis).filter((axis): axis is Bzm2PotentialAxis => axis !== null)
+    : [];
+  if (
+    record.key !== key ||
+    typeof record.label !== "string" ||
+    record.scale !== "index_0_100" ||
+    componentValue === null ||
+    componentValue < 0 ||
+    componentValue > 100 ||
+    axes.length !== 5 ||
+    Math.abs(axes.reduce((sum, axis) => sum + axis.value, 0) - componentValue) > 1e-9
+  ) {
+    return null;
+  }
+  return {
+    key,
+    label: record.label,
+    value: componentValue,
+    scale: "index_0_100",
+    axes,
+  };
+}
+
+export function readBzm2PotentialVector(value: unknown): Bzm2PotentialVector | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (
+    record.schema !== "bzm2-potential-vector-v0.1" ||
+    !record.components ||
+    typeof record.components !== "object" ||
+    Array.isArray(record.components)
+  ) {
+    return null;
+  }
+  const components = record.components as Record<string, unknown>;
+  const V_soc = readPotentialComponent(components.V_soc, "V_soc");
+  const V_econ = readPotentialComponent(components.V_econ, "V_econ");
+  if (!V_soc || !V_econ || record.scalar_projection !== null) return null;
+  return {
+    schema: "bzm2-potential-vector-v0.1",
+    components: { V_soc, V_econ },
+    scalarProjection: null,
+    conditionalOn:
+      typeof record.conditional_on === "string" ? record.conditional_on : "未登録",
+    imputationRule:
+      typeof record.imputation_rule === "string" ? record.imputation_rule : "未登録",
+  };
+}
+
 export function readBzm2Probability(value: unknown): number | null {
   const probability = asFiniteNumber(value);
   if (probability === null || probability < 0 || probability > 1) return null;
@@ -184,6 +312,19 @@ export function deriveBzm2InitialSps(args: {
   const potential = readBzm2InitialPotentialProjection(args.potential);
   if (probability === null || potential === null) return null;
   return probability * potential.value;
+}
+
+export function deriveBzm2SpsVector(args: {
+  probability: unknown;
+  potential: unknown;
+}): Bzm2SpsVector | null {
+  const probability = readBzm2Probability(args.probability);
+  const potential = readBzm2PotentialVector(args.potential);
+  if (probability === null || potential === null) return null;
+  return {
+    V_soc: probability * potential.components.V_soc.value,
+    V_econ: probability * potential.components.V_econ.value,
+  };
 }
 
 const GROUP_ORDER: Record<Bzm2ParameterGroup, number> = {

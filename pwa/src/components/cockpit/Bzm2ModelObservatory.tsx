@@ -1,7 +1,9 @@
 import { Tex } from "@/components/venture-map/Tex";
 import {
   deriveBzm2InitialSps,
+  deriveBzm2SpsVector,
   readBzm2InitialPotentialProjection,
+  readBzm2PotentialVector,
   readBzm2Probability,
 } from "@/lib/bzm-2-observatory";
 import type {
@@ -10,6 +12,9 @@ import type {
   Bzm2Observatory,
   Bzm2ParameterGroup,
   Bzm2ParameterSeries,
+  Bzm2PotentialAxis,
+  Bzm2PotentialEvidenceStatus,
+  Bzm2PotentialVector,
   Bzm2ValueStatus,
 } from "@/lib/bzm-2-observatory";
 
@@ -53,12 +58,34 @@ const EVIDENCE_LABELS: Record<Bzm2EvidenceKind, string> = {
   none: "根拠なし",
 };
 
+const POTENTIAL_EVIDENCE_LABELS: Record<Bzm2PotentialEvidenceStatus, string> = {
+  observed: "観測",
+  proxy: "代理推定",
+  imputed: "欠測補完",
+};
+
+const POTENTIAL_EVIDENCE_TONES: Record<Bzm2PotentialEvidenceStatus, string> = {
+  observed: "border-[#82b7a7] bg-[#e8f4ef] text-[#205f52]",
+  proxy: "border-[#94b5ce] bg-[#edf5fa] text-[#285b7a]",
+  imputed: "border-[#dda16e] bg-[#fff0e4] text-[#8a4828]",
+};
+
+const POTENTIAL_VALUE_TONES: Record<Bzm2PotentialEvidenceStatus, string> = {
+  observed: "text-[#205f52]",
+  proxy: "text-[#285b7a]",
+  imputed: "text-[#a34f2d]",
+};
+
 const SYMBOL_TEX: Record<string, string> = {
   SPS: String.raw`\mathbf{SPS}`,
   SPS_0: String.raw`\mathbf{SPS}^{(0)}`,
   q: "q",
   P: String.raw`\mathbf P`,
   P_0: String.raw`\mathbf P^{(0)}`,
+  V_soc: String.raw`V_{\mathrm{soc}}`,
+  V_econ: String.raw`V_{\mathrm{econ}}`,
+  SPS_soc: String.raw`\mathrm{SPS}_{\mathrm{soc}}`,
+  SPS_econ: String.raw`\mathrm{SPS}_{\mathrm{econ}}`,
   T_C: String.raw`T_C`,
   T_Y: String.raw`T_Y`,
   H_v: String.raw`H_v`,
@@ -165,6 +192,14 @@ function CurrentValue({
     if (probability !== null) return <span>{formatPercent(probability)}</span>;
   }
   if (observation.parameterKey === "P") {
+    const vector = readBzm2PotentialVector(observation.value);
+    if (vector) {
+      return (
+        <span className="text-[#8a5a18]">
+          ({formatIndex(vector.components.V_soc.value)}, {formatIndex(vector.components.V_econ.value)})
+        </span>
+      );
+    }
     const potential = readBzm2InitialPotentialProjection(observation.value);
     if (potential) {
       return <span>{formatInitialValue(potential.value)}</span>;
@@ -186,6 +221,26 @@ function formatInitialValue(value: number) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 3,
   }).format(value);
+}
+
+function formatIndex(value: number) {
+  return new Intl.NumberFormat("ja-JP", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
+function PotentialVectorCompact({ vector }: { vector: Bzm2PotentialVector }) {
+  return (
+    <div className="grid gap-0.5 text-[11px] font-semibold tabular-nums">
+      <div className="text-[#8a5a18]">
+        <MathSymbol symbol="V_soc" /> {formatIndex(vector.components.V_soc.value)}
+      </div>
+      <div className="text-[#8a5a18]">
+        <MathSymbol symbol="V_econ" /> {formatIndex(vector.components.V_econ.value)}
+      </div>
+    </div>
+  );
 }
 
 function parseConfidenceInterval(displayValue: string) {
@@ -240,6 +295,10 @@ function FormulaValueCell({
   className?: string;
   detail?: string;
 }) {
+  const potentialVector =
+    observation?.parameterKey === "P"
+      ? readBzm2PotentialVector(observation.value)
+      : null;
   return (
     <div className={`min-w-0 bg-[#fffdf8] px-2.5 py-2 ${className ?? ""}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -255,7 +314,11 @@ function FormulaValueCell({
       </div>
       <div className="mt-1 text-[10px] text-[#77736a]">{label}</div>
       <div className="mt-1 break-words font-sans text-[15px] font-semibold tabular-nums text-[#222420]">
-        <CurrentValue observation={observation} />
+        {potentialVector ? (
+          <PotentialVectorCompact vector={potentialVector} />
+        ) : (
+          <CurrentValue observation={observation} />
+        )}
       </div>
       <ConfidenceInterval observation={observation} />
       {detail && (
@@ -283,6 +346,13 @@ function DerivedSpsResult({
   q: Bzm2Observation | null | undefined;
   potential: Bzm2Observation | null | undefined;
 }) {
+  const potentialVector = potential
+    ? readBzm2PotentialVector(potential.value)
+    : null;
+  const spsVector =
+    q && potential
+      ? deriveBzm2SpsVector({ probability: q.value, potential: potential.value })
+      : null;
   const initialPotential = potential
     ? readBzm2InitialPotentialProjection(potential.value)
     : null;
@@ -290,6 +360,38 @@ function DerivedSpsResult({
     q && potential
       ? deriveBzm2InitialSps({ probability: q.value, potential: potential.value })
       : null;
+
+  if (potentialVector) {
+    return (
+      <div className="min-w-0 bg-[#fffdf8] px-2.5 py-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <MathSymbol
+            symbol="SPS"
+            className="text-[12px] font-bold text-[#274c68]"
+          />
+          <StatusBadge status={spsVector ? "calculated" : "missing"} />
+        </div>
+        <div className="mt-1 text-[10px] text-[#77736a]">到達見込み調整後</div>
+        {spsVector ? (
+          <div className="mt-1 grid gap-0.5 text-[11px] font-semibold tabular-nums">
+            <div className="text-[#285b7a]">
+              <MathSymbol symbol="SPS_soc" /> {formatIndex(spsVector.V_soc)}
+            </div>
+            <div className="text-[#285b7a]">
+              <MathSymbol symbol="SPS_econ" /> {formatIndex(spsVector.V_econ)}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-1 text-[12px] font-semibold text-[#8a3f25]">
+            q欠測で未計算
+          </div>
+        )}
+        <div className="mt-1 text-[9px] leading-3 text-[#665f55]">
+          二成分の暫定指数。単一SPSへの合成は未実施
+        </div>
+      </div>
+    );
+  }
 
   if (initialPotential && initialSps !== null) {
     return (
@@ -375,6 +477,113 @@ function StateFormulaValue({
         </div>
       )}
     </div>
+  );
+}
+
+function PotentialAxisRow({ axis }: { axis: Bzm2PotentialAxis }) {
+  return (
+    <tr className="border-b border-[#e7e0d5] align-top last:border-b-0">
+      <td className="px-2 py-1.5">
+        <div className="text-[10px] font-semibold text-[#2d302b]">{axis.label}</div>
+        <div className="font-mono text-[8px] text-[#999185]">{axis.key}</div>
+      </td>
+      <td
+        className={`px-2 py-1.5 text-right text-[13px] font-semibold tabular-nums ${POTENTIAL_VALUE_TONES[axis.evidenceStatus]}`}
+      >
+        {formatIndex(axis.value)}
+      </td>
+      <td className="px-2 py-1.5">
+        <span
+          className={`inline-flex rounded-full border px-1.5 py-0.5 text-[8px] font-semibold ${POTENTIAL_EVIDENCE_TONES[axis.evidenceStatus]}`}
+        >
+          {POTENTIAL_EVIDENCE_LABELS[axis.evidenceStatus]}
+        </span>
+      </td>
+      <td className="px-2 py-1.5 text-[8px] leading-3.5 text-[#69645b]">
+        <div>{axis.note}</div>
+        <div className="mt-0.5 break-all font-mono text-[7px] text-[#9a9287]">
+          {axis.evidenceRef}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function PotentialMeasurementLedger({
+  potential,
+}: {
+  potential: Bzm2Observation | null | undefined;
+}) {
+  const vector = potential ? readBzm2PotentialVector(potential.value) : null;
+  if (!vector) return null;
+  const components = [vector.components.V_soc, vector.components.V_econ];
+  const imputedCount = components
+    .flatMap((component) => component.axes)
+    .filter((axis) => axis.evidenceStatus === "imputed").length;
+
+  return (
+    <section className="border-t border-[#ded8cd] px-3 py-2.5 sm:px-4">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h3 className="text-[11px] font-semibold text-[#252722]">
+            <MathSymbol symbol="P" /> 2.0 暫定測定台帳
+          </h3>
+          <p className="mt-0.5 text-[9px] leading-4 text-[#6d685f]">
+            到達した場合の価値だけを採点。各成分は5軸の和で、欠測軸も中立点10を置いて明示する。
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-1 text-[8px]">
+          <span className="rounded-full border border-[#94b5ce] bg-[#edf5fa] px-2 py-0.5 text-[#285b7a]">
+            代理推定 {10 - imputedCount}軸
+          </span>
+          <span className="rounded-full border border-[#dda16e] bg-[#fff0e4] px-2 py-0.5 text-[#8a4828]">
+            欠測補完 {imputedCount}軸
+          </span>
+          <span className="rounded-full border border-[#c9c2b6] bg-[#f7f3eb] px-2 py-0.5 text-[#6d685f]">
+            前向き検証 0件
+          </span>
+        </div>
+      </div>
+      <div className="mt-2 grid gap-2 xl:grid-cols-2">
+        {components.map((component) => (
+          <section
+            key={component.key}
+            className="overflow-hidden rounded-lg border border-[#d4ccbf] bg-[#fffdf8]"
+          >
+            <header className="flex items-center justify-between gap-3 border-b border-[#ded7cb] bg-[#f2eee6] px-2.5 py-1.5">
+              <div className="flex items-baseline gap-2">
+                <MathSymbol
+                  symbol={component.key}
+                  className="text-[11px] font-bold text-[#274c68]"
+                />
+                <span className="text-[9px] text-[#6f695f]">{component.label}</span>
+              </div>
+              <div className="text-[18px] font-semibold leading-none tabular-nums text-[#8a5a18]">
+                {formatIndex(component.value)}
+              </div>
+            </header>
+            <table className="w-full table-fixed border-collapse text-left">
+              <thead>
+                <tr className="border-b border-[#ded7cb] bg-[#faf7f0] text-[8px] text-[#847d72]">
+                  <th className="w-[27%] px-2 py-1 font-medium">評価軸</th>
+                  <th className="w-[10%] px-2 py-1 text-right font-medium">値</th>
+                  <th className="w-[16%] px-2 py-1 font-medium">状態</th>
+                  <th className="w-[47%] px-2 py-1 font-medium">根拠</th>
+                </tr>
+              </thead>
+              <tbody>
+                {component.axes.map((axis) => (
+                  <PotentialAxisRow key={axis.key} axis={axis} />
+                ))}
+              </tbody>
+            </table>
+          </section>
+        ))}
+      </div>
+      <p className="mt-1.5 text-[8px] leading-3.5 text-[#756f65]">
+        暫定指数は確率、DCF、企業価値ではない。単一のPへ足し合わせず、社会と経済の二成分をそのまま版管理する。
+      </p>
+    </section>
   );
 }
 
@@ -607,6 +816,9 @@ export function Bzm2ModelObservatory({ model }: { model: Bzm2Observatory }) {
   const currentByKey = latestByKey(model);
   const currentQ = currentByKey.get("q");
   const currentPotential = currentByKey.get("P");
+  const currentPotentialVector = currentPotential
+    ? readBzm2PotentialVector(currentPotential.value)
+    : null;
   const hasInitialPotential = Boolean(
     currentPotential && readBzm2InitialPotentialProjection(currentPotential.value),
   );
@@ -688,7 +900,7 @@ export function Bzm2ModelObservatory({ model }: { model: Bzm2Observatory }) {
                 />
               </div>
               <p className="mt-1 text-[9px] leading-4 text-[#5f6d72]">
-                qとPは別の証拠で決める。下の数値は、価値ベクトルの本測定前に置く初期投影。
+                qとPは別の証拠で決める。Pは社会と経済の二成分を保ち、単一値へは合成しない。
               </p>
             </div>
             <div className="border-t border-[#c7d2d6] px-3 py-2">
@@ -704,10 +916,18 @@ export function Bzm2ModelObservatory({ model }: { model: Bzm2Observatory }) {
                 <EquationMark mark="×" />
                 <FormulaValueCell
                   symbol={hasInitialPotential ? "P_0" : "P"}
-                  label={hasInitialPotential ? "価値の初期投影" : "潜在価値"}
+                  label={
+                    currentPotentialVector
+                      ? "社会的価値 / 経済的価値"
+                      : hasInitialPotential
+                        ? "価値の初期投影"
+                        : "潜在価値"
+                  }
                   observation={currentPotential}
                   detail={
-                    hasInitialPotential
+                    currentPotentialVector
+                      ? "0〜100の暫定指数。代理推定と欠測補完を軸別表示。"
+                      : hasInitialPotential
                       ? "旧SPSのPを換算せず、そのまま使用。社会・経済価値は別測定。"
                       : undefined
                   }
@@ -772,6 +992,8 @@ export function Bzm2ModelObservatory({ model }: { model: Bzm2Observatory }) {
 
       <QRevisionRail q={qSeries} />
 
+      <PotentialMeasurementLedger potential={currentPotential} />
+
       <section className="border-t border-[#ded8cd] px-3 py-2.5 sm:px-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-[11px] font-semibold text-[#252722]">
@@ -800,7 +1022,7 @@ export function Bzm2ModelObservatory({ model }: { model: Bzm2Observatory }) {
       </section>
 
       <footer className="border-t border-[#ded8cd] bg-[#f1ede4] px-3 py-2 text-[9px] leading-4 text-[#68635a] sm:px-4">
-        qは「定義に従って計算した数」で、当たると確認済みの予測ではない。欠測は0へ変換せず、GO、NO_GO、投資額へ単独利用しない。
+        qは前向き検証前のモデル出力。Pの暫定指数は校正前で、欠測補完を含む。どちらもGO、NO_GO、投資額へ単独利用しない。
       </footer>
     </section>
   );
