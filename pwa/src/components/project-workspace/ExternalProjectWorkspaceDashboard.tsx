@@ -1,75 +1,41 @@
 import Link from "next/link";
 import { FolderOpen } from "lucide-react";
-import type { ExternalProjectWorkspaceBundle } from "@/lib/external-project-workspace";
+import type {
+  SharedProjectControlPublication,
+  ViewerLens,
+} from "@/lib/shared-project-control";
+import { SharedProjectControlDeck } from "./SharedProjectControlDeck";
 
-// Read-only surface for workspace_account viewers. Renders only the fields present on
-// ExternalProjectWorkspaceBundle — do not import ProjectWorkspaceBundle or any internal
-// management types here, and do not add member/effort/evidence UI to this component.
-function formatYm(ym: string | null) {
-  if (!ym || ym.length !== 6) return "未設定";
-  return `${ym.slice(0, 4)}/${ym.slice(4, 6)}`;
-}
+type VisiblePublication = Exclude<SharedProjectControlPublication, null>;
 
-export function ExternalProjectWorkspaceDashboard({ bundle }: { bundle: ExternalProjectWorkspaceBundle }) {
+export function ExternalProjectWorkspaceDashboard({
+  projectId,
+  publication,
+  lens,
+}: {
+  projectId: string;
+  publication: VisiblePublication;
+  lens: ViewerLens;
+}) {
+  const snapshot = publication.state === "published" ? publication.snapshot : null;
+
   return (
-    <main className="mx-auto max-w-[880px] px-4 py-8 sm:px-6 lg:px-8">
-      <section className="rounded-lg border border-[#d6cebf] bg-white p-5">
-        <h1 className="text-lg font-bold text-[#24231f]">{bundle.project.projectName}</h1>
-        <p className="mt-1 text-[13px] text-[#777166]">状態: {bundle.project.status}</p>
-      </section>
-
-      <section className="mt-4 rounded-lg border border-[#d6cebf] bg-white p-5">
-        <h2 className="text-[13px] font-semibold text-[#24231f]">計画期間</h2>
-        {bundle.planCycle ? (
-          <p className="mt-2 text-[13px] text-[#4a453c]">
-            {formatYm(bundle.planCycle.periodStartYm)} 〜 {formatYm(bundle.planCycle.periodEndYm)}
-            <span className="ml-2 text-[#777166]">（{bundle.planCycle.status}）</span>
-          </p>
-        ) : (
-          <p className="mt-2 text-[13px] text-[#777166]">計画期間は未設定です。</p>
-        )}
-      </section>
-
-      <section className="mt-4 rounded-lg border border-[#d6cebf] bg-white p-5">
-        <h2 className="text-[13px] font-semibold text-[#24231f]">マイルストーン</h2>
-        {bundle.milestones.length === 0 ? (
-          <p className="mt-2 text-[13px] text-[#777166]">マイルストーンは未登録です。</p>
-        ) : (
-          <ul className="mt-3 space-y-3">
-            {bundle.milestones.map((milestone) => (
-              <li key={milestone.milestoneId} className="rounded-md border border-[#e7e1d4] bg-[#fffdf7] p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-[13px] font-semibold text-[#24231f]">{milestone.title}</span>
-                  <span className="text-[11px] text-[#777166]">目標: {formatYm(milestone.targetYm)}</span>
-                </div>
-                {milestone.progressPct == null ? (
-                  <p className="mt-2 text-[11px] font-medium text-[#777166]">進捗は未登録です。</p>
-                ) : (
-                  <>
-                    <div className="mt-2 h-2 w-full rounded-full bg-[#efe9dc]">
-                      <div
-                        className="h-2 rounded-full bg-[#38745d]"
-                        style={{ width: `${milestone.progressPct}%` }}
-                      />
-                    </div>
-                    <p className="mt-1 text-[11px] text-[#777166]">進捗 {milestone.progressPct}%</p>
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+    <main className="mx-auto min-w-0 max-w-[1480px] px-3 py-4 sm:px-5 lg:px-8 lg:py-7">
+      <SharedProjectControlDeck
+        snapshot={snapshot}
+        lens={lens}
+        state={snapshot ? "ready" : "unpublished"}
+      />
 
       <Link
-        href={`/project/${encodeURIComponent(bundle.project.projectId)}/workspace/files`}
-        className="mt-4 flex min-h-20 items-center justify-between gap-4 rounded-lg border border-[#d6cebf] bg-white p-5 transition-colors hover:bg-[#fffdf7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]"
+        href={`/project/${encodeURIComponent(projectId)}/workspace/files`}
+        className="mt-4 flex min-h-20 items-center justify-between gap-4 rounded-lg border border-[#cbd5e1] bg-white p-5 transition-colors hover:bg-[#f8fafc] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1677ff]"
       >
         <span className="flex min-w-0 items-center gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-[#e8f0eb] text-[#205f49]"><FolderOpen className="h-5 w-5" aria-hidden /></span>
-          <span className="min-w-0"><span className="block text-[13px] font-semibold text-[#24231f]">PJ資料室</span><span className="mt-1 block text-[11px] text-[#777166]">このPJで共有されている資料を確認する</span></span>
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-[#eaf3ff] text-[#075cad]"><FolderOpen className="h-5 w-5" aria-hidden /></span>
+          <span className="min-w-0"><span className="block text-[13px] font-semibold text-[#172033]">PJ資料室</span><span className="mt-1 block text-[11px] text-[#64748b]">このPJで共有されている資料を確認する</span></span>
         </span>
-        <span className="shrink-0 text-[12px] font-semibold text-[#205f49]">開く →</span>
+        <span className="shrink-0 text-[12px] font-semibold text-[#075cad]">開く →</span>
       </Link>
     </main>
   );

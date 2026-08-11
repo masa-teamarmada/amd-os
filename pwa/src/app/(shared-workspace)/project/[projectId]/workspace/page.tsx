@@ -2,7 +2,11 @@ import { notFound } from "next/navigation";
 import { resolveSharedWorkspaceAccess } from "@/lib/project-shared-workspace-access";
 import { externalWorkspaceRoleCapabilityLabel } from "@/lib/workspace-capabilities";
 import { getProjectWorkspaceBundle } from "@/lib/project-workspace";
-import { getExternalProjectWorkspaceBundle } from "@/lib/external-project-workspace";
+import { getExternalProjectWorkspacePublication } from "@/lib/external-project-workspace";
+import {
+  getSharedProjectControlForMember,
+  publicationViewerLens,
+} from "@/lib/shared-project-control-server";
 import { SharedWorkspaceScopeRibbon } from "@/components/project-workspace/SharedWorkspaceScopeRibbon";
 import { ProjectWorkspaceDashboard } from "@/components/project-workspace/ProjectWorkspaceDashboard";
 import { ExternalProjectWorkspaceDashboard } from "@/components/project-workspace/ExternalProjectWorkspaceDashboard";
@@ -22,24 +26,46 @@ export default async function SharedWorkspacePage({
   // workspace_account principals never reach getProjectWorkspaceBundle (member/effort/evidence/
   // internal-management data) — they get the narrow, allowlisted external DTO + read-only view.
   if (access.principal === "workspace_account") {
-    const bundle = await getExternalProjectWorkspaceBundle(projectId);
-    if (!bundle) notFound();
+    const publication = await getExternalProjectWorkspacePublication({
+      accountId: access.accountId,
+      projectId,
+    });
+    if (!publication) notFound();
+
+    const lens = publicationViewerLens(publication, "参加組織");
+    const projectName = publication.state === "published"
+      ? publication.snapshot.projectName
+      : "共有PJ";
 
     return (
       <>
         <SharedWorkspaceScopeRibbon
-          projectName={bundle.project.projectName}
+          projectName={projectName}
           roleLabel={externalWorkspaceRoleCapabilityLabel(access.role)}
           principal="workspace_account"
           projectId={projectId}
         />
-        <ExternalProjectWorkspaceDashboard bundle={bundle} />
+        <ExternalProjectWorkspaceDashboard
+          projectId={projectId}
+          publication={publication}
+          lens={lens}
+        />
       </>
     );
   }
 
   const bundle = await getProjectWorkspaceBundle(projectId, access);
   if (!bundle) notFound();
+
+  const publication = await getSharedProjectControlForMember({
+    memberId: access.memberId,
+    projectId,
+  }) ?? {
+    state: "unpublished" as const,
+    projectId,
+    viewerPartyIds: [],
+  };
+  const lens = publicationViewerLens(publication, "AMD");
 
   return (
     <>
@@ -49,7 +75,11 @@ export default async function SharedWorkspacePage({
         principal="member"
         projectId={projectId}
       />
-      <ProjectWorkspaceDashboard bundle={bundle} access={access} />
+      <ProjectWorkspaceDashboard
+        bundle={bundle}
+        access={access}
+        sharedControl={{ publication, lens }}
+      />
     </>
   );
 }

@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-08-11 JST | 1-4 AMD OS全体収束仕様 / 2-1 PWA Runtime Routes / 2-2 PWA Surface | SX先行実装 | build v3.72.0 / migration 259。PJ横断のprincipal、organization、membership、party、grantとimmutable publicationを追加。workspace accountは既存PJ membershipと`publication.view`の二重認可を通り、sealed公開版だけを読む。内部latestへのfallbackを削除し、SX上段を同一snapshotの4本柱・重要経路・ボールへ統合。人物grantと初回publicationは自動投入しない | SXを先行例に、別画面・別writerを増やさず、利用者分離と共有コンテンツの版固定を同じ共通カーネルで実装するため | まさ・えいみ |
 | 2026-08-11 JST | 3-16 PJ週次管制 / 成立条件ナビゲーション | 回帰修正 | build v3.71.8。手入力状態`not_started`をナビゲーション上で中立トーンへ明示的に割り当て、`unassessed`の未確認トーンと分離した。契約テストで行トーンを固定 | 正規checkout同期後に残った1行差分を監査し、既存の「未着手は未評価より強い状態」という仕様に沿う有意な未反映差分と確認したため | えいみ |
 | 2026-08-11 JST | 2-2 PWA Surface / 日本文化マップ | 本番受入修正 | build v3.71.7。日本地図をmobileでは地図と一覧の縦積みへ切り替え、地図領域の幅0化と横overflowを解消。詳細パネルを画面幅内へ収め、主要操作を44px以上へ統一 | v3.71.6本番の390px相当受入で、固定幅一覧が地図領域を押し潰していたため | えいみ |
 | 2026-08-11 JST | 2-2 PWA Surface / admin navigation | 本番受入修正 | build v3.71.6。mobile adminメニュー最上部のAMD OS戻りリンクへ`min-h-11`とfocus ringを追加し、全navigation操作を44px以上へ統一 | v3.71.5本番の実測で、戻りリンクだけ36pxだったため | えいみ |
