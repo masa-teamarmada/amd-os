@@ -814,6 +814,40 @@ function stableJson(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function canonicalTimestamp(value: string): string {
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return value;
+  return new Date(timestamp).toISOString().replace(/\.000Z$/, "Z");
+}
+
+function compareCanonicalInputs(
+  left: ReturnType<typeof canonicalBzm21Input>,
+  right: ReturnType<typeof canonicalBzm21Input>,
+) {
+  return [left.scopeKind, left.scopeKey, left.parameterKey]
+    .join("\u0000")
+    .localeCompare(
+      [right.scopeKind, right.scopeKey, right.parameterKey].join("\u0000"),
+    );
+}
+
+function canonicalBzm21Input(input: Bzm21InputObservation) {
+  return {
+    scopeKind: input.scopeKind,
+    scopeKey: input.scopeKey,
+    parameterKey: input.parameterKey,
+    symbol: input.symbol,
+    value: input.value,
+    valueStatus: input.valueStatus,
+    unit: input.unit,
+    evidenceKind: input.evidenceKind,
+    evidenceRef: input.evidenceRef,
+    informationCutoff: canonicalTimestamp(input.informationCutoff),
+    condition: input.condition,
+    note: input.note,
+  };
+}
+
 export function computeBzm21PublicAggregationInputHash(
   event: Bzm21CashflowEvent,
   revision: Bzm21ModelRevision,
@@ -843,25 +877,11 @@ export function computeBzm21PublicAggregationInputHash(
     .digest("hex");
 }
 
-export function computeBzm21PolicyLedgerInputHash(
+export function buildBzm21PolicyLedgerCanonicalInput(
   ledger: Bzm21PolicyModelLedger,
 ) {
   const revision = ledger.currentRevision;
   if (!revision) return null;
-  const canonicalInput = (input: Bzm21InputObservation) => ({
-    scopeKind: input.scopeKind,
-    scopeKey: input.scopeKey,
-    parameterKey: input.parameterKey,
-    symbol: input.symbol,
-    value: input.value,
-    valueStatus: input.valueStatus,
-    unit: input.unit,
-    evidenceKind: input.evidenceKind,
-    evidenceRef: input.evidenceRef,
-    informationCutoff: input.informationCutoff,
-    condition: input.condition,
-    note: input.note,
-  });
   const canonicalAction = (action: Bzm21PolicyModelLedger["states"][number]["actions"][number]) => ({
     actionId: action.actionId,
     stateId: action.stateId,
@@ -887,76 +907,117 @@ export function computeBzm21PolicyLedgerInputHash(
     cashflowEventKeys: [...action.cashflowEventKeys].sort(),
     informationGain: action.informationGain,
     evidence: action.evidence,
-    inputs: action.inputs.map(canonicalInput).sort((a, b) =>
-      a.parameterKey.localeCompare(b.parameterKey),
-    ),
-    transitions: action.transitions.map((transition) => ({
-      transitionId: transition.transitionId,
-      actionId: transition.actionId,
-      transitionKey: transition.transitionKey,
-      label: transition.label,
-      nextStateId: transition.nextStateId,
-      terminalOutcome: transition.terminalOutcome,
-      probability: transition.probability,
-      goalReachedAtMonths: transition.goalReachedAtMonths,
-      slackLostAtMonths: transition.slackLostAtMonths,
-      transitionCashFlowByObjective: transition.transitionCashFlowByObjective,
-      terminalValueByObjective: transition.terminalValueByObjective,
-      failureLossByObjective: transition.failureLossByObjective,
-      cashflowEventKeys: [...transition.cashflowEventKeys].sort(),
-      evidence: transition.evidence,
-      transitionOrder: transition.transitionOrder,
-      inputs: transition.inputs.map(canonicalInput).sort((a, b) =>
-        a.parameterKey.localeCompare(b.parameterKey),
+    inputs: action.inputs.map(canonicalBzm21Input).sort(compareCanonicalInputs),
+    transitions: action.transitions
+      .map((transition) => ({
+        transitionId: transition.transitionId,
+        actionId: transition.actionId,
+        transitionKey: transition.transitionKey,
+        label: transition.label,
+        nextStateId: transition.nextStateId,
+        terminalOutcome: transition.terminalOutcome,
+        probability: transition.probability,
+        goalReachedAtMonths: transition.goalReachedAtMonths,
+        slackLostAtMonths: transition.slackLostAtMonths,
+        transitionCashFlowByObjective:
+          transition.transitionCashFlowByObjective,
+        terminalValueByObjective: transition.terminalValueByObjective,
+        failureLossByObjective: transition.failureLossByObjective,
+        cashflowEventKeys: [...transition.cashflowEventKeys].sort(),
+        evidence: transition.evidence,
+        transitionOrder: transition.transitionOrder,
+        inputs: transition.inputs
+          .map(canonicalBzm21Input)
+          .sort(compareCanonicalInputs),
+      }))
+      .sort(
+        (left, right) =>
+          left.transitionOrder - right.transitionOrder ||
+          left.transitionKey.localeCompare(right.transitionKey) ||
+          left.transitionId.localeCompare(right.transitionId),
       ),
-    })),
   });
-  const canonicalRevision = { ...revision, createdAt: undefined };
+  const canonicalRevision = {
+    ...revision,
+    informationCutoff: canonicalTimestamp(revision.informationCutoff),
+    createdAt: undefined,
+  };
   const payload = {
     projectId: ledger.projectId,
     revision: canonicalRevision,
     revisionInputs: ledger.revisionInputs
-      .map(canonicalInput)
-      .sort((a, b) => a.parameterKey.localeCompare(b.parameterKey)),
-    states: ledger.states.map((state) => ({
-      stateId: state.stateId,
-      revisionId: state.revisionId,
-      stateKey: state.stateKey,
-      label: state.label,
-      decisionOrder: state.decisionOrder,
-      isInitial: state.isInitial,
-      elapsedMonths: state.elapsedMonths,
-      currentState: state.currentState,
-      beliefs: state.beliefs,
-      reachabilityHistory: state.reachabilityHistory,
-      decisionController: state.decisionController,
-      sunkCostMillionJpy: state.sunkCostMillionJpy,
-      remainingCostMillionJpy: state.remainingCostMillionJpy,
-      remainingTimeMonths: state.remainingTimeMonths,
-      availableInformation: state.availableInformation,
-      evidence: state.evidence,
-      inputs: state.inputs.map(canonicalInput).sort((a, b) =>
-        a.parameterKey.localeCompare(b.parameterKey),
+      .map(canonicalBzm21Input)
+      .sort(compareCanonicalInputs),
+    states: ledger.states
+      .map((state) => ({
+        stateId: state.stateId,
+        revisionId: state.revisionId,
+        stateKey: state.stateKey,
+        label: state.label,
+        decisionOrder: state.decisionOrder,
+        isInitial: state.isInitial,
+        elapsedMonths: state.elapsedMonths,
+        currentState: state.currentState,
+        beliefs: state.beliefs,
+        reachabilityHistory: state.reachabilityHistory,
+        decisionController: state.decisionController,
+        sunkCostMillionJpy: state.sunkCostMillionJpy,
+        remainingCostMillionJpy: state.remainingCostMillionJpy,
+        remainingTimeMonths: state.remainingTimeMonths,
+        availableInformation: state.availableInformation,
+        evidence: state.evidence,
+        inputs: state.inputs
+          .map(canonicalBzm21Input)
+          .sort(compareCanonicalInputs),
+        actions: state.actions.map(canonicalAction).sort(
+          (left, right) =>
+            left.actionOrder - right.actionOrder ||
+            left.actionKey.localeCompare(right.actionKey) ||
+            left.actionId.localeCompare(right.actionId),
+        ),
+      }))
+      .sort(
+        (left, right) =>
+          left.decisionOrder - right.decisionOrder ||
+          left.stateKey.localeCompare(right.stateKey) ||
+          left.stateId.localeCompare(right.stateId),
       ),
-      actions: state.actions.map(canonicalAction),
-    })),
-    interventions: ledger.interventions.map((intervention) => ({
-      interventionId: intervention.interventionId,
-      revisionId: intervention.revisionId,
-      interventionKey: intervention.interventionKey,
-      label: intervention.label,
-      enabled: intervention.enabled,
-      effects: intervention.effects,
-      evidence: intervention.evidence,
-      inputs: intervention.inputs.map(canonicalInput).sort((a, b) =>
-        a.parameterKey.localeCompare(b.parameterKey),
+    interventions: ledger.interventions
+      .map((intervention) => ({
+        interventionId: intervention.interventionId,
+        revisionId: intervention.revisionId,
+        interventionKey: intervention.interventionKey,
+        label: intervention.label,
+        enabled: intervention.enabled,
+        effects: intervention.effects,
+        evidence: intervention.evidence,
+        inputs: intervention.inputs
+          .map(canonicalBzm21Input)
+          .sort(compareCanonicalInputs),
+      }))
+      .sort(
+        (left, right) =>
+          left.interventionKey.localeCompare(right.interventionKey) ||
+          left.interventionId.localeCompare(right.interventionId),
       ),
-    })),
     cashflowEvents: [...ledger.cashflowEvents]
       .sort((a, b) => a.eventKey.localeCompare(b.eventKey))
-      .map((event) => ({ ...event, createdAt: undefined })),
+      .map((event) => ({
+        ...event,
+        informationCutoff: canonicalTimestamp(event.informationCutoff),
+        createdAt: undefined,
+      })),
   };
-  return createHash("sha256").update(stableJson(payload)).digest("hex");
+  return payload;
+}
+
+export function computeBzm21PolicyLedgerInputHash(
+  ledger: Bzm21PolicyModelLedger,
+) {
+  const payload = buildBzm21PolicyLedgerCanonicalInput(ledger);
+  return payload === null
+    ? null
+    : createHash("sha256").update(stableJson(payload)).digest("hex");
 }
 
 function inputMatches(input: Bzm21InputObservation, expected: unknown) {

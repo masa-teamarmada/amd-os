@@ -786,6 +786,88 @@ const completeScopedLedger = buildBzm21PolicyModelLedger({
   inputRows: completeScopedInputs,
 });
 
+const canonicalLedgerHash = computeBzm21PolicyLedgerInputHash(
+  completeScopedLedger,
+);
+const postgresTimestamp = (value: string) =>
+  value.endsWith("Z") ? value.replace(/Z$/, "+00:00") : value;
+const timestampRoundTripLedger = buildBzm21PolicyModelLedger({
+  projectId: "p21",
+  revisionRows: revisionRows.map((row) => ({
+    ...row,
+    information_cutoff: postgresTimestamp(row.information_cutoff),
+  })),
+  stateRows,
+  actionRows,
+  transitionRows,
+  interventionRows,
+  cashflowEventRows: cashflowEventRows.map((row) => ({
+    ...row,
+    information_cutoff: postgresTimestamp(row.information_cutoff),
+  })),
+  inputRows: completeScopedInputs.map((row) => ({
+    ...row,
+    information_cutoff: postgresTimestamp(row.information_cutoff),
+  })),
+});
+assert.equal(
+  computeBzm21PolicyLedgerInputHash(timestampRoundTripLedger),
+  canonicalLedgerHash,
+  "equivalent Z and +00:00 timestamps must produce the same canonical hash",
+);
+const jstTimestamp = (value: string) =>
+  new Date(Date.parse(value) + 9 * 60 * 60 * 1000)
+    .toISOString()
+    .replace(/Z$/, "+09:00");
+const timezoneOffsetLedger = buildBzm21PolicyModelLedger({
+  projectId: "p21",
+  revisionRows: revisionRows.map((row) => ({
+    ...row,
+    information_cutoff: jstTimestamp(row.information_cutoff),
+  })),
+  stateRows,
+  actionRows,
+  transitionRows,
+  interventionRows,
+  cashflowEventRows: cashflowEventRows.map((row) => ({
+    ...row,
+    information_cutoff: jstTimestamp(row.information_cutoff),
+  })),
+  inputRows: completeScopedInputs.map((row) => ({
+    ...row,
+    information_cutoff: jstTimestamp(row.information_cutoff),
+  })),
+});
+assert.equal(
+  computeBzm21PolicyLedgerInputHash(timezoneOffsetLedger),
+  canonicalLedgerHash,
+  "equivalent timezone-offset timestamps must produce the same canonical hash",
+);
+const oneSecondLaterLedger = structuredClone(completeScopedLedger);
+assert.ok(oneSecondLaterLedger.currentRevision);
+oneSecondLaterLedger.currentRevision.informationCutoff =
+  "2026-08-11T00:00:01Z";
+assert.notEqual(
+  computeBzm21PolicyLedgerInputHash(oneSecondLaterLedger),
+  canonicalLedgerHash,
+  "a genuinely different information cutoff must change the canonical hash",
+);
+const permutedLedger = buildBzm21PolicyModelLedger({
+  projectId: "p21",
+  revisionRows: [...revisionRows].reverse(),
+  stateRows: [...stateRows].reverse(),
+  actionRows: [...actionRows].reverse(),
+  transitionRows: [...transitionRows].reverse(),
+  interventionRows: [...interventionRows].reverse(),
+  cashflowEventRows: [...cashflowEventRows].reverse(),
+  inputRows: [...completeScopedInputs].reverse(),
+});
+assert.equal(
+  computeBzm21PolicyLedgerInputHash(permutedLedger),
+  canonicalLedgerHash,
+  "canonical hash must not depend on database row order",
+);
+
 const mappedCostEvent = mapBzm21CashflowEventToEngine(ledger.cashflowEvents[0]);
 assert.deepEqual(mappedCostEvent.diagnostics, []);
 assert.equal(mappedCostEvent.event?.eventId, "cf-row-1");
