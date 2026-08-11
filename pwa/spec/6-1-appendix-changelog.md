@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-08-11 JST | 2-1 PWA Runtime Routes / 2-4 Proactive TODO | 削除・変更 | build v3.71.3。`/api/cron/proactive-todo-extract` から upcoming MTGの `next_meeting_prep` upsertを削除。Codex W-Prep / prep workerへ一本化し、既存open / blocked行は `dismissed`、`resolved_by='system'`、退役理由と時刻を残して履歴退避する。meeting next action / Gmail依頼の抽出は維持する | Codex prepと先手TODOが同じ会議準備を二重管理し、期限超過のagenda通知がノイズになっていたため | まさ・えいみ |
 | 2026-08-11 JST | 3-6 経営ハイライト / 3-7 通知 / 3-8 PJ Cockpit | 追加・変更 | build v3.71.0 / migration 255。`project_strategy_signals` に `origin_kind` と `research_category` を追加。外部リサーチはsemantic fingerprintとcanonical URLで全履歴・pending outboxを照合し、候補だけOS通知へ出す。採用は通知hash完全一致の1件だけをconfirmedにし、cockpitの採用リサーチ棚へ表示する | 外部リサーチの重複配信と、通知前候補がPJの確定情報へ混ざる問題を同時に防ぐため | まさ・えいみ |
 | 2026-08-11 JST | 4-2 AMD Score現行仕様 | 初期投影の保存・表示規則を訂正 | build v3.70.15 / migration 254。`P^(0)`の現行スキーマをv0.2へ上げ、旧Pまたは6軸平均を換算せず`initial_value`へ保存。UIは数値だけを表示し、%と分母を付けない。全12PJを新しい測定版として追記する | Pを確率または100点満点の値と誤読させず、元入力を不要に変形しないため | まさ・えいみ |
 | 2026-08-11 JST | 4-2 AMD Score現行仕様 | 表示単位の変更 | build v3.70.14。`P^(0)`の内部`score_0_to_100`は維持し、画面表示だけを`88.9 / 100`形式から`88.9%`へ変更。`SPS^(0)`も同じくパーセント表示へ統一した | `q`との乗算関係を同じ単位で読みやすくするため | まさ・えいみ |

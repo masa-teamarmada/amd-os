@@ -9,7 +9,7 @@
  *   - 完了UIが無く、超過 666h の seed が残骸として叫び続けた
  *   - 「DB candidate のテーブルダンプ」になっており先手力維持と無関係だった
  *
- *   白紙やり直し: MTG (議事録 next_actions + 次回MTG予定) と PJ 連絡先からの
+ *   白紙やり直し: MTG議事録の next_actions と PJ 連絡先からの
  *   Gmail 依頼を起点に、全PJ横断の 1 画面 TODO リストにする。
  *   完了UIをつけて信頼できるリストにする。
  *
@@ -23,8 +23,8 @@
  *      - それ以外 → ambiguous (= AMD ボール扱い、TODO に積む)
  *    due_at は next_action 本文内の明示期限を優先。読めない場合だけ meeting_date + 7日。
  *
- * 2. next_meeting_prep: source_kinds='upcoming' な未来MTGで、開催 3 営業日前以内のものは
- *    agenda 準備TODOを積む。due_at は MTG 開始 - 1日。
+ * 2. next_meeting_prep: 2026-08-11 に新規生成を廃止。MTG prep は Codex の
+ *    W-Prep / prep worker に一本化し、既存の open / blocked 行は dismissed へ退避する。
  *
  * 3. email_action_request: projects.report_emails から来た Gmail を sweep。
  *    「期限/ご返送/ご回答/ご都合/修正案」などの依頼文だけを拾い、
@@ -50,7 +50,6 @@ export const runtime = "nodejs";
 export const maxDuration = 120;
 
 const LOOKBACK_DAYS = 14;
-const NEXT_MEETING_PREP_WINDOW_DAYS = 7;
 const BLOCKED_RESURFACE_DAYS = 3;
 
 // --- ball_owner ヒューリスティック ---
@@ -130,17 +129,6 @@ function detectBallOwner(text: string, amdMemberNames: Set<string>): "amd" | "co
 
 // --- 日付ヘルパ ---
 
-function addDays(iso: string, days: number): string {
-  const d = new Date(iso);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString();
-}
-
-function ymdToIsoDayEnd(ymd: string): string {
-  // JST 18:00 を期限の目安 (= 1営業日の終わり目安) として UTC へ
-  return new Date(`${ymd}T18:00:00+09:00`).toISOString();
-}
-
 function isPastIso(iso: string): boolean {
   return new Date(iso).getTime() < Date.now();
 }
@@ -149,16 +137,6 @@ function todayJstIsoDate(): string {
   const now = new Date();
   const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   return jst.toISOString().slice(0, 10);
-}
-
-function meetingStartIso(row: { meeting_start_at?: unknown; meeting_date?: unknown }): string {
-  const start = typeof row.meeting_start_at === "string" && row.meeting_start_at
-    ? row.meeting_start_at
-    : null;
-  const date = typeof row.meeting_date === "string" && row.meeting_date
-    ? row.meeting_date
-    : "";
-  return start || ymdToIsoDayEnd(date);
 }
 
 // --- next_action テキストから 1 行 title を作る ---
@@ -182,7 +160,6 @@ export async function GET(req: NextRequest) {
 
   const db = createAdminClient();
   const nowIso = new Date().toISOString();
-  const nowMs = new Date(nowIso).getTime();
   const today = todayJstIsoDate();
   const lookbackFrom = new Date(Date.now() - LOOKBACK_DAYS * 86400_000).toISOString().slice(0, 10);
 
@@ -281,75 +258,28 @@ export async function GET(req: NextRequest) {
   }
 
   // ============================================
-  // Stage 2: 次回MTG (source_kinds='upcoming') が NEXT_MEETING_PREP_WINDOW_DAYS 営業日以内
+  // Stage 2: 旧 next_meeting_prep を退役
+  // MTG prep は Codex W-Prep / prep worker に一本化したため、新規生成は行わない。
+  // 既存の未対応行は削除せず dismissed に退避し、履歴を保持する。
   // ============================================
-  const prepHorizon = addDays(today + "T00:00:00Z", 14).slice(0, 10);
-
-  const { data: upcomingMeetings, error: upErr } = await db
-    .from("project_meeting_summaries")
-    .select("meeting_id, project_id, meeting_date, meeting_start_at, title, source_kinds")
-    .gte("meeting_date", today)
-    .lte("meeting_date", prepHorizon)
-    .eq("source_kinds", "upcoming");
-  if (upErr) {
-    return NextResponse.json({ ok: false, stage: "upcoming_meetings", error: upErr.message }, { status: 500 });
-  }
-
-  let prepInserted = 0;
-  let prepSkippedFar = 0;
-  let prepSkippedGarbled = 0;
-  let prepSkippedStarted = 0;
-
-  for (const m of upcomingMeetings ?? []) {
-    const projectId = String(m.project_id);
-    const meetingDate = String(m.meeting_date);
-    const meetingTitle = String(m.title ?? "");
-    const meetingId = String(m.meeting_id);
-
-    // 文字化け guard: 化けた MTG タイトルから prep TODO を作ると「??? の準備をする」になるので skip
-    if (isGarbledText(meetingTitle)) {
-      prepSkippedGarbled++;
-      continue;
-    }
-
-    // NEXT_MEETING_PREP_WINDOW_DAYS 日後より先の MTG は skip
-    const horizonIso = new Date(nowMs + NEXT_MEETING_PREP_WINDOW_DAYS * 86400_000).toISOString();
-    const meetingStart = meetingStartIso(m);
-    const meetingStartMs = new Date(meetingStart).getTime();
-    if (!Number.isFinite(meetingStartMs) || meetingStartMs <= nowMs) {
-      prepSkippedStarted++;
-      continue;
-    }
-    if (meetingStartMs > new Date(horizonIso).getTime()) {
-      prepSkippedFar++;
-      continue;
-    }
-
-    const title = `${projectId} ${meetingTitle.length > 24 ? meetingTitle.slice(0, 24) + "…" : meetingTitle}: agenda / 進行案を先に提示する`;
-    const detail = `${meetingDate} 開催予定。AMD から agenda / 進行案 / 論点表を先に出して、相手側が議論をリードする状態を避ける。`;
-    // 期限 = MTG 開始の 1 日前 (準備 buffer)
-    const dueAt = new Date(new Date(meetingStart).getTime() - 86400_000).toISOString();
-
-    const { error: upsertErr } = await db.from("proactive_todos").upsert(
-      {
-        project_id: projectId,
-        trigger_kind: "next_meeting_prep",
-        source_meeting_id: "",
-        source_event_id: meetingId,
-        title,
-        detail,
-        ball_owner: "amd",
-        due_at: dueAt,
-        priority: isPastIso(dueAt) ? "red" : "normal",
-      },
-      { onConflict: "project_id,trigger_kind,source_meeting_id,source_event_id,title", ignoreDuplicates: false },
+  const { data: retiredPrepTodos, error: retirePrepErr } = await db
+    .from("proactive_todos")
+    .update({
+      status: "dismissed",
+      resolved_at: nowIso,
+      resolved_by: "system",
+      resolved_note: "MTG prepをCodexへ一本化したため自動退役",
+    })
+    .eq("trigger_kind", "next_meeting_prep")
+    .in("status", ["open", "blocked"])
+    .select("id");
+  if (retirePrepErr) {
+    return NextResponse.json(
+      { ok: false, stage: "retire_next_meeting_prep", error: retirePrepErr.message },
+      { status: 500 },
     );
-    if (upsertErr) {
-      console.error("[proactive-todo] upsert error (next_meeting_prep):", upsertErr.message, projectId, meetingId);
-    } else {
-      prepInserted++;
-    }
   }
+  const retiredPrepCount = retiredPrepTodos?.length ?? 0;
 
   // ============================================
   // Stage 3: Gmail から PJ メール依頼を抽出
@@ -393,69 +323,25 @@ export async function GET(req: NextRequest) {
     if (!error) resurfaced++;
   }
 
-  // ============================================
-  // Stage 6: MTG開始後の prep TODO を自動終了
-  // ============================================
-  const { data: openPrepTodos } = await db
-    .from("proactive_todos")
-    .select("id, source_event_id, status")
-    .eq("trigger_kind", "next_meeting_prep")
-    .in("status", ["open", "blocked"]);
-
-  const prepEventIds = Array.from(new Set(
-    (openPrepTodos ?? [])
-      .map((todo) => String(todo.source_event_id ?? "").trim())
-      .filter(Boolean),
-  ));
-  const { data: linkedPrepMeetings } = prepEventIds.length
-    ? await db
-      .from("project_meeting_summaries")
-      .select("meeting_id, meeting_date, meeting_start_at")
-      .in("meeting_id", prepEventIds)
-    : { data: [] as Array<{ meeting_id: string; meeting_date: string; meeting_start_at: string | null }> };
-
-  const meetingById = new Map(
-    (linkedPrepMeetings ?? []).map((meeting) => [String(meeting.meeting_id), meeting]),
-  );
-  let closedExpiredPrep = 0;
-  for (const todo of openPrepTodos ?? []) {
-    const sourceEventId = String(todo.source_event_id ?? "").trim();
-    const meeting = meetingById.get(sourceEventId);
-    if (!meeting) continue;
-    const startMs = new Date(meetingStartIso(meeting)).getTime();
-    if (!Number.isFinite(startMs) || startMs > nowMs) continue;
-    const { error } = await db
-      .from("proactive_todos")
-      .update({
-        status: "done",
-        resolved_at: nowIso,
-        resolved_by: "system",
-        resolved_note: "MTG開始時刻を過ぎたため自動終了",
-      })
-      .eq("id", todo.id);
-    if (!error) closedExpiredPrep++;
-  }
-
   return NextResponse.json({
     ok: true,
     scanned: {
       past_meetings: pastMeetings?.length ?? 0,
-      upcoming_meetings: upcomingMeetings?.length ?? 0,
       email_projects: emailSweep.scanned_projects,
       gmail_threads: emailSweep.gmail_threads,
     },
     upserted: {
       meeting_next_action: nextActionInserted,
-      next_meeting_prep: prepInserted,
+      next_meeting_prep: 0,
       email_action_request: emailSweep.upserted,
+    },
+    retired: {
+      next_meeting_prep: retiredPrepCount,
     },
     skipped: {
       next_action_counterpart: nextActionSkippedCounterpart,
       next_action_template: nextActionSkippedTemplate,
       next_action_garbled: nextActionSkippedGarbled,
-      prep_far_future: prepSkippedFar,
-      prep_garbled: prepSkippedGarbled,
-      prep_started: prepSkippedStarted,
       email_no_auth: emailSweep.skipped_no_auth,
       email_no_report_emails: emailSweep.skipped_no_report_emails,
       email_internal_sender: emailSweep.skipped_internal_sender,
@@ -467,6 +353,5 @@ export async function GET(req: NextRequest) {
     email_errors: emailSweep.errors.slice(0, 10),
     escalated_to_red: escalated,
     resurfaced_from_blocked: resurfaced,
-    closed_expired_prep: closedExpiredPrep,
   });
 }

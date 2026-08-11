@@ -6,7 +6,9 @@
 
 ## この章は何か
 
-過去 14 日のMTG議事録の `next_actions`、7 日以内に開催される予定MTG、PJ連絡先から届くGmail依頼から、AMD ボール (= AMD/PJ チームが次に動くべきもの) の先手 TODO を自動抽出し、admin 画面 `/proactive` で 1 画面・期限順・3 ボタン完了UI で消化する仕組みの正本仕様。
+過去 14 日のMTG議事録の `next_actions` と、PJ連絡先から届くGmail依頼から、AMD ボール (= AMD/PJ チームが次に動くべきもの) の先手 TODO を自動抽出し、admin 画面 `/proactive` で 1 画面・期限順・3 ボタン完了UI で消化する仕組みの正本仕様。
+
+予定MTGの agenda / 進行案準備は Codex の W-Prep / prep worker が担う。`proactive_todos.trigger_kind='next_meeting_prep'` の新規生成は 2026-08-11 に廃止し、先手TODOへ重複表示しない。
 
 「先手力を維持する」のサイクルが OS データとして閉じるための最小実装 MVP。
 
@@ -18,13 +20,11 @@ AMD の提供価値は「Before 0 におけるビジョン注入力、技術戦�
 
 - 外部 MTG が終わったあと、相手と AMD のどちらが次に動くのか曖昧になる
 - 初回顔合わせやキックオフ後に、AMD から「こう進めましょう」という進行案が出ない
-- 次回 MTG 前に、本来こちらから agenda / roadmap / 提案書を出すべきなのに、準備が見えない
 - こたさんや大学側から「その後どうなっていますか」と聞かれて初めて動き出す
 - メール本文に「いつまでに返してほしい」が書かれているのに、MTG議事録にはまだ載っていない
 
 仮説: これらの多くは **MTG 起点 + Gmail の期限つき依頼**で検知できる。
 - MTG が終わった → 議事録 `next_actions[]` に「AMD が次にやるべきこと」が含まれる
-- 次回 MTG が近い → agenda / 進行案を先に出す必要がある
 - 相手から期限つきメールが来た → 返信・返送・日程回答などが AMD ボールとして発生する
 
 検知の起点を「MTGで生まれたTODO」と「メールで新たに発生したTODO」に絞り、TODO を漏れなく 1 画面に並べ、その場で 3 ボタンで完了できれば「先に動くべきタイミングを見落とさない」運用が成立する。
@@ -36,7 +36,6 @@ AMD の提供価値は「Before 0 におけるビジョン注入力、技術戦�
 │ 既存データ                                                   │
 │  - project_meeting_summaries (next_actions[] / source_kinds) │
 │    └ H-1 MTG flow が writer (Windows MMO Codex Desktop)      │
-│  - source_kinds='upcoming' な未来MTG                         │
 │  - projects.report_emails から届く Gmail 依頼                 │
 └─────────────────────────────────────────────────────────────┘
                           ↓ daily 09:15 JST
@@ -44,7 +43,7 @@ AMD の提供価値は「Before 0 におけるビジョン注入力、技術戦�
 │ /api/cron/proactive-todo-extract  (PWA non-LLM cron)         │
 │  - 過去14日 開催済みMTGの next_actions sweep                 │
 │  - 文字列ヒューリスティックで ball_owner 判定                │
-│  - 7日以内の upcoming MTG に「agenda準備」TODO               │
+│  - 旧 next_meeting_prep の open / blocked を履歴退避          │
 │  - Gmail の期限つき依頼を「メール依頼」TODO に変換            │
 │  - 期限超過 open を red に昇格                               │
 │  - 3日経過 blocked を open に復帰                            │
@@ -73,13 +72,13 @@ AMD の提供価値は「Before 0 におけるビジョン注入力、技術戦�
 |---|---|---|
 | `id` | uuid | PK |
 | `project_id` | text | 対象 PJ |
-| `trigger_kind` | text | `meeting_next_action` (議事録由来) / `next_meeting_prep` (次回MTG準備) / `email_action_request` (Gmail依頼) |
+| `trigger_kind` | text | `meeting_next_action` (議事録由来) / `email_action_request` (Gmail依頼)。`next_meeting_prep` は履歴互換だけに残す廃止種別で、新規生成しない |
 | `source_meeting_id` | text | 元 MTG (`project_meeting_summaries.meeting_id`) |
 | `source_event_id` | text | 元予定 MTG (= upcoming `meeting_id`) または Gmail thread ref |
 | `title` | text | 1行で見える要約 (`{project_id} {MTG title}: {next_action 先頭文}`) |
 | `detail` | text | 推奨first move + 遅延リスクの本文。`email_action_request` では本文全文・URL・パスワードを保存しない短い要点 |
 | `ball_owner` | text | `amd` / `counterpart` / `ambiguous`。`counterpart` は cron で skip して保存しない |
-| `due_at` | timestamptz | 期限。`meeting_next_action` は next_action 本文内の明示期限を優先し、読めない場合だけ MTG 日 + 7 日。`next_meeting_prep` は MTG 開始 - 1 日、`email_action_request` はメール本文から抽出した期限 |
+| `due_at` | timestamptz | 期限。`meeting_next_action` は next_action 本文内の明示期限を優先し、読めない場合だけ MTG 日 + 7 日。`email_action_request` はメール本文から抽出した期限 |
 | `priority` | text | `red` / `normal`。期限超過 open は cron が `red` に昇格 |
 | `status` | text | `open` / `done` / `blocked` / `dismissed` |
 | `resolved_note` | text | 完了/ブロック時の任意 1 行メモ |
@@ -122,16 +121,11 @@ admin (= `members.is_admin = true`) と `service_role` のみ ALL。anon SELECT 
    - 明示期限が読めない場合だけ `meeting_date + 7 日` を仮期限にする。
 5. UNIQUE 制約で `(project_id, 'meeting_next_action', meeting_id, '', title)` で冪等。
 
-### Stage 2: 次回MTG準備 TODO
+### Stage 2: 旧 next_meeting_prep の退役
 
-対象: `source_kinds = 'upcoming'` かつ `meeting_date >= today` の `project_meeting_summaries` のうち、`meeting_start_at` が現在時刻より後のもの。開始時刻を過ぎた予定MTGから新しい準備TODOを作らない。
+`next_meeting_prep` は 2026-08-11 以降、新規生成しない。MTG prep は Codex の W-Prep / prep worker に一本化し、同じ準備を `/proactive` へ重複表示しない。
 
-7 日以内 (土日除外) に開催される MTG のみ TODO 化。`meetingTitle` が `isGarbledText` なら skip (= 「??? の準備をする」通知を出さない)。
-
-- `title = {project_id} {MTG title}: agenda / 進行案を先に提示する`
-- `detail = {meeting_date} 開催予定。AMD から agenda / 進行案 / 論点表を先に出して、相手側が議論をリードする状態を避ける。`
-- `ball_owner = 'amd'` (= 進行案出しは必ず AMD)
-- `due_at = MTG 開始 - 1 日`
+cron 実行時、既存の `trigger_kind='next_meeting_prep' AND status IN ('open','blocked')` を削除せず `dismissed` へ移す。`resolved_by='system'`、`resolved_note='MTG prepをCodexへ一本化したため自動退役'`、`resolved_at=now()` を残す。過去の `done` / `dismissed` 行と trigger kind の DB 制約は履歴互換のため保持する。
 
 ### Stage 3: Gmail 依頼 sweep
 
@@ -155,12 +149,6 @@ admin (= `members.is_admin = true`) と `service_role` のみ ALL。anon SELECT 
 ### Stage 5: blocked の自動復帰
 
 `status='blocked' AND updated_at < now() - 3 日` を `status='open'` に戻す。期限超過してれば同時に `red` 化。
-
-### Stage 6: MTG開始後の準備TODO自動終了
-
-`trigger_kind='next_meeting_prep'` の `open` / `blocked` TODO は、紐づく予定MTGの `meeting_start_at` が現在時刻を過ぎたら `done` へ自動更新する。これは「会議前にagenda/進行案を出す」という準備TODOが、会議開始後も赤い未対応として残り続けることを防ぐための出口。
-
-自動終了時は `resolved_by='system'`、`resolved_note='MTG開始時刻を過ぎたため自動終了'` を保存する。会議後の本当の次アクションは Stage 1 の開催済みMTG `next_actions[]` から別TODOとして抽出する。
 
 ### 課金 LLM 不使用
 
