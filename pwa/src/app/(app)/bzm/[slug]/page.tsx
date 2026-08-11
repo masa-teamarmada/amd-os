@@ -116,7 +116,7 @@ export default async function BzmChapterPage({ params }: { params: Promise<{ slu
 
   return (
     <section className="grid gap-6 px-6 py-8 lg:grid-cols-[280px_minmax(0,1fr)]">
-      <aside className="lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto">
+      <aside className="min-w-0 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto">
         <BzmSideNav groups={navGroups} activeSlug={decoded} />
       </aside>
 
