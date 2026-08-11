@@ -1071,7 +1071,7 @@ splitEquivalent.states = [
       action({
         actionId: "pay-and-proceed",
         kind: "continue",
-        immediateCostMillionJpy: amounts(40, 30, 10),
+        immediateCostMillionJpy: amounts(20, 15, 5),
         requiredFundingMillionJpy: 40,
         transitions: [
           transition({
@@ -1093,6 +1093,7 @@ splitEquivalent.states = [
         actionId: "resolve",
         kind: "continue",
         durationMonths: 12,
+        immediateCostMillionJpy: amounts(20, 15, 5),
         transitions: [
           transition({
             transitionId: "split-success",
@@ -1124,6 +1125,7 @@ rebuildCashFlowLedger(splitEquivalent);
 const splitCompany = getComputedPerspective(splitEquivalent, "company");
 assert.equal(splitCompany.baseline.expectedNetValueMillionJpy, -6);
 assert.equal(splitCompany.baseline.goalProbability, 0.4);
+assert.equal(splitCompany.baseline.conditionalGoalValueMillionJpy, 60);
 assert.equal(
   splitCompany.baseline.expectedNetValueMillionJpy,
   companyBase.baseline.expectedNetValueMillionJpy,

@@ -98,6 +98,8 @@
     "test:bzm-theory-graph": "node scripts/check_bzm_theory_graph.cjs",
     "test:bzm-theory-editor": "node scripts/check_bzm_theory_editor.cjs",
     "test:bzm-2-observatory": "node --experimental-strip-types scripts/test_bzm_2_observatory.mts",
+    "test:bzm-2-1-policy-model": "node --experimental-strip-types scripts/test_bzm_2_1_policy_model.mts",
+    "test:bzm-2-1-dynamic-policy": "node --experimental-strip-types scripts/test_bzm_2_1_dynamic_policy.mts",
     "diagnose:l6-calendar-colors": "node scripts/l6_calendar_color_diagnostic.mjs",
     "import:monthly-pl-budget": "node scripts/import_monthly_pl_budget.cjs",
     "sync:freee-cash-balances": "node scripts/sync_freee_cash_balances.cjs",
