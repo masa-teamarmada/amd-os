@@ -1850,8 +1850,23 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
 
 expectIncludes("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
   "Bzm2ModelObservatory",
+  "Bzm21DynamicPolicyObservatory",
+  "SPS 2.1の主表示版を正確に読み出せていない",
+  "旧SPS / BZM 2.0 アーカイブ",
+  "主表示版の値は抑止中",
   "AmdScoreView",
   "embedded",
+]);
+expectIncludes("src/components/cockpit/Bzm21DynamicPolicyObservatory.tsx", [
+  "SPS 2.1 動的方針評価",
+  "方針条件付き将来正味PJ価値",
+  "推定率（数値入力）",
+  "感度で行動反転",
+  "全パラメータ入力台帳",
+  "単一キャッシュフロー台帳",
+  "前向き検証",
+  'revision ? `${revision.forwardValidationCount}件` : "未登録"',
+  "投資配分の自動推薦には使わない",
 ]);
 expectIncludes("src/components/cockpit/Bzm2ModelObservatory.tsx", [
   "BZM 2.0 / MODEL OBSERVATORY",
@@ -1872,7 +1887,12 @@ expectNotIncludes("src/components/cockpit/Bzm2ModelObservatory.tsx", [
 ]);
 expectIncludes("src/app/api/project/[projectId]/amd-score-detail/route.ts", [
   "fetchBzm2Observatory",
+  "fetchBzm21PolicyModelLedger",
+  "fetchSpsPrimaryModelState",
+  '"Cache-Control": "private, no-store, max-age=0"',
   "bzm2",
+  "bzm21",
+  "spsPrimary",
 ]);
 expectIncludes("src/components/venture-map/AmdScoreView.tsx", [
   "XrlChecklistPanel",

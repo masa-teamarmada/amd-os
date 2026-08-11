@@ -2342,13 +2342,17 @@ export function serializeBzm21DynamicPolicyRun(args: {
   );
   let selectionObjective: Bzm21Objective | null = null;
   const selectedActionIds = new Set<string>();
+  const physicalMetricsByAction = new Map<string, EngineActionEvaluation>();
   for (const objective of BZM21_OBJECTIVES) {
     const perspective = args.evaluation.perspectives[objective];
     if (perspective.status !== "computed") continue;
     selectionObjective ??= perspective.optimal.selectionObjective;
     for (const decision of perspective.optimal.stateDecisions) {
       selectedActionIds.add(decision.selectedActionId);
-      decision.actions.forEach((action) => actionIds.add(action.actionId));
+      decision.actions.forEach((action) => {
+        actionIds.add(action.actionId);
+        physicalMetricsByAction.set(action.actionId, action);
+      });
       decision.excludedActions.forEach((action) => actionIds.add(action.actionId));
     }
   }
@@ -2369,6 +2373,7 @@ export function serializeBzm21DynamicPolicyRun(args: {
     }
     return [...actionIds].map((actionId) => {
       const metric = metricsByAction.get(actionId);
+      const structuralMetric = metric ?? physicalMetricsByAction.get(actionId);
       const publicDecomposition =
         args.publicActionDecompositionByActionId?.[actionId];
       const hasBzsfValueLeg = args.ledger.cashflowEvents.some((event) => {
@@ -2402,9 +2407,9 @@ export function serializeBzm21DynamicPolicyRun(args: {
       const perspectiveIssues =
         perspective.status === "computed" ? [] : perspective.issues;
       const missingInputs =
-        objective === "bzsf" && metric && !hasBzsfValueLeg
+        objective === "bzsf" && structuralMetric && !hasBzsfValueLeg
           ? ["bzsf_security_cashflow_legs"]
-          : objective === "public" && metric
+          : objective === "public" && structuralMetric
           ? ["public_path_decomposition_engine"]
           : perspectiveIssues.length > 0
             ? missingPaths(perspectiveIssues)
@@ -2423,9 +2428,9 @@ export function serializeBzm21DynamicPolicyRun(args: {
         engineVersion: args.engineVersion,
         inputHash,
         issues:
-          objective === "bzsf" && metric && !hasBzsfValueLeg
+          objective === "bzsf" && structuralMetric && !hasBzsfValueLeg
             ? ["BZSF取得証券・投資支出・分配waterfallのCF脚がないため投資価値を保存しない"]
-            : objective === "public" && metric
+            : objective === "public" && structuralMetric
             ? ["v0.1 engineは公的価値をCF経路別に分解しないため保存停止"]
             : perspectiveIssues,
         missingInputs,
@@ -2433,7 +2438,7 @@ export function serializeBzm21DynamicPolicyRun(args: {
         structuralAction:
           objective === "public" ||
           (objective === "bzsf" && !hasBzsfValueLeg)
-            ? metric
+            ? structuralMetric
             : undefined,
       });
     });

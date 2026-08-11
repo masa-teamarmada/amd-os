@@ -1071,6 +1071,51 @@ assert.equal(publicSelectedActionRow?.evaluation_status, "not_computable");
 assert.equal(publicSelectedActionRow?.goal_probability, 0.7);
 assert.equal(publicSelectedActionRow?.is_selected, true);
 assert.equal(publicSelectedActionRow?.expected_net_value, null);
+const companyOnlyEngineEvaluation: Bzm21DynamicPolicyEvaluation = {
+  ...syntheticEngineEvaluation,
+  status: "partial",
+  perspectives: {
+    company: syntheticEngineEvaluation.perspectives.company,
+    bzsf: {
+      status: "not_computable",
+      perspective: "bzsf",
+      issues: [{
+        severity: "error",
+        domain: "valuation",
+        perspective: "bzsf",
+        code: "missing_bzsf_security_cashflow_legs",
+        path: "cashflowEvents",
+        message: "BZSF証券CF脚が欠測",
+      }],
+    },
+    public: {
+      status: "not_computable",
+      perspective: "public",
+      issues: [{
+        severity: "error",
+        domain: "valuation",
+        perspective: "public",
+        code: "missing_public_path_decomposition",
+        path: "cashflowEvents",
+        message: "公的価値の経路分解が欠測",
+      }],
+    },
+  },
+};
+const serializedCompanyOnlyRun = serializeBzm21DynamicPolicyRun({
+  ledger,
+  evaluation: companyOnlyEngineEvaluation,
+  engineVersion: "bzm-2.1-dynamic-policy-v0.1",
+});
+for (const objective of ["bzsf", "public"] as const) {
+  const row = serializedCompanyOnlyRun.actionEvaluations.find(
+    (candidate) => candidate.objective_kind === objective && candidate.action_id === "a1",
+  );
+  assert.equal(row?.evaluation_status, "not_computable");
+  assert.equal(row?.goal_probability, 0.7);
+  assert.equal(row?.plan_deadline_goal_probability, 0.6);
+  assert.equal(row?.expected_net_value, null);
+}
 assert.equal(
   new Set(
     serializedProjectRun.policyEvaluations.map((row) => row.input_hash),
@@ -1613,15 +1658,16 @@ assert.match(apiRouteSource, /\bbzm21,\s*\n/);
 assert.match(scoreDetailSource, /bzm21:\s*Bzm21PolicyModelLedger/);
 assert.match(
   scoreDetailSource,
-  /<Bzm21DynamicPolicyObservatory model=\{state\.payload\.bzm21\} \/>/,
+  /<Bzm21DynamicPolicyObservatory model=\{state\.payload\.bzm21\} displayMode="primary" \/>/,
 );
 assert.match(observatorySource, /BZM21_OBJECTIVE_KINDS\.flatMap/);
 assert.match(observatorySource, /\["fixed_baseline", "optimized"\]/);
-assert.match(observatorySource, /value === null \|\| value === undefined\) return "未計算"/);
-assert.match(observatorySource, /到達時条件付き正味値/);
-assert.ok(
-  observatorySource.includes(String.raw`E[V_r^{\mathrm{net},\pi}\mid G]`),
-);
+assert.match(observatorySource, /value === null \|\| value === undefined \|\| !Number\.isFinite\(value\)\) return "欠測"/);
+assert.match(observatorySource, /方針条件付き将来正味PJ価値/);
+assert.match(observatorySource, /推定率（数値入力）/);
+assert.match(observatorySource, /感度で行動反転/);
+assert.match(observatorySource, /selectedActionSwitches/);
+assert.match(observatorySource, /tone=\{toneForValue\(companySelected\?\.expectedNetValue\)\}/);
 for (const derivedMetric of [
   "expectedCumulativeFundingMillionJpy",
   "expectedFailureLossMillionJpy",
@@ -1632,7 +1678,8 @@ for (const derivedMetric of [
 ]) {
   assert.match(observatorySource, new RegExp(derivedMetric));
 }
-assert.doesNotMatch(observatorySource, /text-\[8px\]/);
+assert.match(observatorySource, /全パラメータ入力台帳/);
+assert.match(observatorySource, /単一キャッシュフロー台帳/);
 assert.match(engineAdapterSource, /mapBzm21CashflowEventToEngine/);
 assert.match(engineAdapterSource, /serializeBzm21DynamicPolicyEvaluation/);
 assert.match(engineAdapterSource, /valueDifferenceFromBaselineMillionJpy/);

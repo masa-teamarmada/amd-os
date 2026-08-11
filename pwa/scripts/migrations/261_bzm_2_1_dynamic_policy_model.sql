@@ -1374,7 +1374,7 @@ CREATE TABLE IF NOT EXISTS public.bzm_2_1_action_evaluations (
       AND (
         (goal_probability IS NULL AND plan_deadline_goal_probability IS NULL)
         OR (
-          objective_kind = 'public'
+          objective_kind IN ('bzsf', 'public')
           AND goal_probability IS NOT NULL
           AND plan_deadline_goal_probability IS NOT NULL
           AND selection_objective IS NOT NULL
@@ -1597,7 +1597,7 @@ CREATE TABLE IF NOT EXISTS public.bzm_2_1_policy_evaluations (
       AND (
         (goal_probability IS NULL AND plan_deadline_goal_probability IS NULL)
         OR (
-          objective_kind = 'public'
+          objective_kind IN ('bzsf', 'public')
           AND goal_probability IS NOT NULL
           AND plan_deadline_goal_probability IS NOT NULL
           AND jsonb_object_length(controller_by_state_json) > 0
