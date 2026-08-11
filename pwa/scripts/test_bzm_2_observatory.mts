@@ -121,19 +121,19 @@ assert.ok(empty.parameters.every((parameter) => parameter.current === null));
 assert.equal(empty.storageState, "unavailable");
 
 const p0 = readBzm2InitialPotentialProjection({
-  score_0_to_100: 88.9,
+  initial_value: 8,
   source_mode: "legacy_prs_potential",
 });
-assert.deepEqual(p0, { score0To100: 88.9, sourceMode: "legacy_prs_potential" });
-assert.equal(readBzm2InitialPotentialProjection({ score_0_to_100: 101 }), null);
+assert.deepEqual(p0, { value: 8, sourceMode: "legacy_prs_potential" });
+assert.equal(readBzm2InitialPotentialProjection({ initial_value: 10 }), null);
 assert.equal(readBzm2Probability(0.0415), 0.0415);
 assert.equal(readBzm2Probability(1.01), null);
 assert.ok(
   Math.abs(
     (deriveBzm2InitialSps({
       probability: 0.0415,
-      potential: { score_0_to_100: 88.9, source_mode: "legacy_prs_potential" },
-    }) ?? Number.NaN) - 3.68935,
+      potential: { initial_value: 8, source_mode: "legacy_prs_potential" },
+    }) ?? Number.NaN) - 0.332,
   ) < 1e-10,
 );
 

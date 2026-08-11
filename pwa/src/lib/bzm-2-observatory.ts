@@ -92,7 +92,7 @@ export type Bzm2Observatory = {
 };
 
 export type Bzm2InitialPotentialProjection = {
-  score0To100: number;
+  value: number;
   sourceMode: string | null;
 };
 
@@ -160,10 +160,12 @@ export function readBzm2InitialPotentialProjection(
 ): Bzm2InitialPotentialProjection | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
-  const score0To100 = asFiniteNumber(record.score_0_to_100);
-  if (score0To100 === null || score0To100 < 0 || score0To100 > 100) return null;
+  const initialValue = asFiniteNumber(
+    record.initial_value ?? record.source_score_0_to_9,
+  );
+  if (initialValue === null || initialValue < 0 || initialValue > 9) return null;
   return {
-    score0To100,
+    value: initialValue,
     sourceMode: typeof record.source_mode === "string" ? record.source_mode : null,
   };
 }
@@ -181,7 +183,7 @@ export function deriveBzm2InitialSps(args: {
   const probability = readBzm2Probability(args.probability);
   const potential = readBzm2InitialPotentialProjection(args.potential);
   if (probability === null || potential === null) return null;
-  return probability * potential.score0To100;
+  return probability * potential.value;
 }
 
 const GROUP_ORDER: Record<Bzm2ParameterGroup, number> = {

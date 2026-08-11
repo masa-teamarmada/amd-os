@@ -167,33 +167,25 @@ function CurrentValue({
   if (observation.parameterKey === "P") {
     const potential = readBzm2InitialPotentialProjection(observation.value);
     if (potential) {
-      return <span>{formatPercent(potential.score0To100 / 100, 1)}</span>;
+      return <span>{formatInitialValue(potential.value)}</span>;
     }
   }
   return <span>{observation.displayValue}</span>;
 }
 
-function formatPercent(value: number, fractionDigits = 2) {
+function formatPercent(value: number) {
   return new Intl.NumberFormat("ja-JP", {
     style: "percent",
-    minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: fractionDigits,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(value);
 }
 
-function CurrentUnit({
-  observation,
-}: {
-  observation: Bzm2Observation | null | undefined;
-}) {
-  if (!observation) return null;
-  if (
-    observation.parameterKey === "P" &&
-    readBzm2InitialPotentialProjection(observation.value)
-  ) {
-    return <>%（初期投影）</>;
-  }
-  return observation.unit ? <>{observation.unit}</> : null;
+function formatInitialValue(value: number) {
+  return new Intl.NumberFormat("ja-JP", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 3,
+  }).format(value);
 }
 
 function parseConfidenceInterval(displayValue: string) {
@@ -311,7 +303,7 @@ function DerivedSpsResult({
         </div>
         <div className="mt-1 text-[10px] text-[#77736a]">SPSの初期投影</div>
         <div className="mt-1 font-sans text-[15px] font-semibold tabular-nums text-[#222420]">
-          {formatPercent(initialSps / 100)}
+          {formatInitialValue(initialSps)}
         </div>
         <div className="mt-1 text-[9px] leading-3 text-[#7c5541]">
           <MathSymbol symbol="q" /> × <MathSymbol symbol="P_0" />。価値ベクトルの本測定前の基準線
@@ -563,11 +555,13 @@ function ParameterLedgerTable({
                     <CurrentValue observation={current} />
                   </div>
                   <ConfidenceInterval observation={current} />
-                  {(current?.unit ||
-                    (current?.parameterKey === "P" &&
-                      readBzm2InitialPotentialProjection(current.value))) && (
+                  {current?.unit &&
+                    !(
+                      current.parameterKey === "P" &&
+                      readBzm2InitialPotentialProjection(current.value)
+                    ) && (
                     <div className="text-[8px] leading-3 text-[#8b857a]">
-                      <CurrentUnit observation={current} />
+                      {current.unit}
                     </div>
                   )}
                 </td>
@@ -714,7 +708,7 @@ export function Bzm2ModelObservatory({ model }: { model: Bzm2Observatory }) {
                   observation={currentPotential}
                   detail={
                     hasInitialPotential
-                      ? "旧SPSの記録を透明な規則で100点へ換算。社会・経済価値は別測定。"
+                      ? "旧SPSのPを換算せず、そのまま使用。社会・経済価値は別測定。"
                       : undefined
                   }
                 />
