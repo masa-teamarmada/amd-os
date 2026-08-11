@@ -9,8 +9,8 @@
 | auth | `/auth/login`, `/auth/callback` | Supabase Google OAuth login / callback | `pwa/src/app/auth/*` |
 | home | `/dashboard` | PJ一覧、抽出状況、Atlas / Venture Map / MyPage / Admin 入口 | `dashboard/page.tsx` |
 | cockpit | `/project/[projectId]/cockpit` | PJ status、AMD Score、MS、経営ハイライト、月次カード/モーダル、MTGサマリ、kanban | `project/[projectId]/cockpit/page.tsx`, `CockpitView.tsx` |
-| research workspace | `/project/[projectId]/workspace` | 計画詳細、技術証明、論点、関係先、週次エフォートを統合表示 | `project/[projectId]/workspace/page.tsx`, `ProjectWorkspaceDashboard.tsx` |
-| weekly control | `/project/[projectId]/weekly-control` | 週次差分・判断・介入と、論点/仮説の要整理→検証中→判断待ち→決定/棄却を別画面で管制 | `project/[projectId]/weekly-control/page.tsx`, `SxWeeklyControlDashboard.tsx` |
+| PJ workspace | `/project/[projectId]/workspace` | 週次差分・担当負荷・ガント・関係先・論点/仮説を、完成済みの4タブ式PJ管制で統合表示 | `project/[projectId]/workspace/page.tsx`, `SxWeeklyControlDashboard.tsx` |
+| weekly control compatibility | `/project/[projectId]/weekly-control` | 正規PJ workspaceへredirectする旧URL互換。独立surfaceは持たない | `project/[projectId]/weekly-control/page.tsx` |
 | member | `/mypage`, `/reimburse` | メンバー活動、週次活動、立替精算 | `mypage/page.tsx`, `reimburse/page.tsx` |
 | admin | `/admin/*` | 25画面を`組織・権限` / `契約・お金` / `PJ・実行` / `知識・AI` / `運用`の業務単位で表示する。表示名とURLはsurface catalogを共用し、追加順の独立配列を持たない。`AppShell` は現在pathnameで `GlobalNav` を `AdminSidebar` に差し替え、admin layoutは2枚目の左メニューを描画しない | `surface-catalog.ts`, `(app)/layout.tsx`, `AppShell.tsx`, `admin/layout.tsx`, `AdminSidebar.tsx`, `admin/*/page.tsx` |
 | admin knowledge | `/admin/japanese-culture-map` | `jp_culture_items` active 行をマインドマップ / 日本地図で読む admin-only 文化知識ビュー。旧 `/japanese-culture-map` は redirect | `admin/japanese-culture-map/page.tsx`, `jp-culture.ts` |

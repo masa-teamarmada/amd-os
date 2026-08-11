@@ -121,3 +121,18 @@ automation作成後の最初の自然な平日09:00実行は未観測。2026-08-
 
 - strict parser、3レンズ不変、bucket排他、dangling/cycle/rank conflict、内部値漏洩防止、DB migration security contractを自動テスト化した。
 - TypeScript、対象ESLint、SQL parser、production build、390/768/1440の実寸UIを完了条件にした。
+
+## 2026-08-12 — 無関係な共有PJ画面を撤回し、現行PJ画面をworkspaceへ一本化（v3.72.1）
+
+### 誤り
+
+- v3.72.0では、全体最適化を「新しい共通表示面の追加」と誤解し、完成済みのPJ画面と無関係な`SharedProjectControlDeck`を旧workspaceへ追加した。
+- PJの現行利用面、AMD内部cockpit、大学側workspaceという3面の責任分担を先に固定せず、route名とDB認可課題から表示面を逆算したため、第4の不要な画面を増やした。
+- isolated fixtureの390/768/1440確認を行った一方、現行PJ画面との実画面比較を受入gateにしなかった。
+
+### 是正
+
+- `SharedProjectControlDeck`、専用CSS、外部dashboard、TS parser/server loader、専用UI契約テストを削除した。
+- 完成済み`SxWeeklyControlDashboard`を`/project/[projectId]/workspace`へ移し、旧`/weekly-control`はworkspaceへのredirectだけにした。現行dashboard本体のデザインと操作は変更していない。
+- 未完成の外部account向け簡易代替面はgeneric not foundで閉じた。大学・SU向けは現行PJ画面を基準に、権限と表示項目を変える正式面として別途作る。
+- migration 259のprincipal / organization / grant / immutable publication / auditは、大学側・SU側の安全なデータ境界に再利用するDB基盤として保持し、現行画面へは接続しない。

@@ -4,8 +4,8 @@
 
 ## 正本境界
 
-- 新画面は `/project/[projectId]/weekly-control`。
-- 既存の `/project/[projectId]/workspace` は、計画詳細・技術証明・関係先・工数入力を扱う統合ワークスペースとして維持する。置換・redirectしない。
+- 正規画面は `/project/[projectId]/workspace`。`SxWeeklyControlDashboard`をPJワークスペース本体として表示する。
+- 旧 `/project/[projectId]/weekly-control` は正規workspaceへredirectする互換URL。独立画面・独立状態は持たない。
 - 新画面はUIを先に固定する。週次差分の自動抽出が未接続の項目は、0件・変化なしと断定せず `抽出接続待ち` と表示する。
 - ガントと関係先はこの画面から手動修正でき、手動で確認・保存した現在値を正本とする。将来の自動抽出は既存値を直接上書きせず、差分候補として人の確認へ回す。
 - H1見出しは `SolvioraX PJワークスペース` の固定文言。プロジェクト名を動的に埋め込まない。
@@ -22,11 +22,11 @@
 
 | 項目 | contract |
 |---|---|
-| page | `src/app/(app)/project/[projectId]/weekly-control/page.tsx` |
+| page | `src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx` |
 | view | `SxWeeklyControlDashboard` |
-| auth | `getCurrentMemberAccess()`。未ログインは同URLを `next` に保持してloginへ送る |
+| auth | `resolveSharedWorkspaceAccess(projectId)`で内部memberの当該PJ accessを確認する。外部workspace account向け簡易代替面は出さない |
 | PJ境界 | `getProjectWorkspaceBundle(projectId, access)` と `projectScopedPathAllowed()`。PJ限定ユーザーは所属PJだけ閲覧可 |
-| shell | `/workspace` と同じ埋め込みshell。月初合意overlayの対象外 |
+| shell | 共有ワークスペースshell。月初合意overlayの対象外 |
 | write | portfolio/adminだけ。既存 `/api/project-workspace/[projectId]/management` を使い、clientからDBへ直接書かない |
 
 ## 画面構造

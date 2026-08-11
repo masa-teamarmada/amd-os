@@ -4,7 +4,7 @@
 
 ## 正本境界
 
-- URLは `/project/[projectId]/navigation`。既存の `/workspace` と `/weekly-control` は置換しない。
+- URLは `/project/[projectId]/navigation`。正規`/workspace`は置換しない。旧`/weekly-control`はworkspaceへの互換redirectであり、独立面として扱わない。
 - 表示・入力の正本は既存の `project_management_*`。別の進捗台帳を作らない。
 - データ取得は `getProjectWorkspaceBundle()`、追加・更新は既存の `/api/project-workspace/[projectId]/management` を使う。
 - `src/lib/sx-navigation-v2.ts` の `buildSxNavigationViewModelV2()` がRSC境界を越える唯一の表示モデル。画面に不要な連絡先、契約原文、報酬、source URL、内部メモはClient Componentへ渡さない。

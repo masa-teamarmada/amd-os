@@ -281,7 +281,7 @@ assert.equal(foundationTables.length, 7, "212 must still create exactly 7 new wo
 const DEFERRED_ANON_TABLES = ["institution_capability_axes", "institution_capability_criteria"];
 
 const covered = new Set([...seenTables, ...foundationTables, ...DEFERRED_ANON_TABLES]);
-for (const libFile of ["external-project-workspace.ts", "institution-workspace-data.ts", "public-workspace-data.ts"]) {
+for (const libFile of ["institution-workspace-data.ts", "public-workspace-data.ts"]) {
   const libSource = readFileSync(path.join(srcDir, "lib", libFile), "utf8");
   const tables = [...new Set([...libSource.matchAll(/\.from\("([^"]+)"\)/g)].map((match) => match[1]))];
   for (const table of tables) {

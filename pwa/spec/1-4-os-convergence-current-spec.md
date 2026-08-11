@@ -1,7 +1,7 @@
 # AMD OS 全体収束仕様
 
 > この章は、AMD内部、研究機関、スタートアップ、共同PJで増えた画面、権限、データを、役割ごとの入口を残しながら共通の業務構造へ収束させるための現行方針である。
-> 2026-08-11時点では、収束原則と情報境界を採択済みとし、SX p21で本人・組織・権限と外部公開版の共通カーネルを先行実装している。共通作業・判断と他PJへの展開は未実装である。
+> 2026-08-12時点では、収束原則と情報境界を採択済みとし、SX p21で本人・組織・権限と外部公開版のDBカーネルを先行実装している。PJ画面は既存の完成済みworkspaceへ一本化し、大学向けPJレンズ、共通作業・判断、他PJへの展開は未実装である。
 
 ## 目的
 
@@ -150,19 +150,17 @@ ECRとSPSは別の測定対象であり、合算しない。
 
 SX p21では、PJ固有の別writerを増やさず、PJ横断で再利用する`principal / organization / organization membership / project party / project grant`を先に実装する。
 
-共有画面の値は、内部テーブルの現在値ではなく、許可されたsource rowと版をAMDの公開承認者が選び、DBが許可列だけから組み立てたimmutable publicationから読む。
+将来の大学・SU向けPJ面の値は、内部テーブルの現在値ではなく、許可されたsource rowと版をAMDの公開承認者が選び、DBが許可列だけから組み立てたimmutable publicationから読む。
 
 外部workspace accountの閲覧には、既存の当該PJ membershipと、新しい当該PJ・当該partyの`publication.view` grantの両方を必要とする。
 
 研究機関workspaceへの所属だけではPJ公開版を読めない。
 
-外部認可がない場合はPJの存在を区別できない`not found`、認可済みで公開版がない場合は内部PJ名を出さない`未公開`、DB取得またはpayload検査に失敗した場合はerrorとする。
+外部認可がない場合はPJの存在を区別できない`not found`とする。認可済み未公開と取得失敗の表示は、大学・SU向けの正式面を実装するときに現行workspace相当の受入契約と一緒に確定する。
 
 外部向けに内部の最新値へfallbackしない。
 
-同じpublication snapshotをAMD、SU、研究機関のレンズへ渡し、`自分のボール / 共同判断 / 相手待ち / 主体未確認`だけをexact party IDで分ける。
-
-画面上段は全体判定、4本柱、重要経路、ボールの順とし、従来のSX統合タイムラインはAMD内部計画として下段に維持する。
+2026-08-11に追加した別デザインの共通deckは、完成済みのPJ workspaceと無関係な第4の画面を増やす実装だったため撤回した。DBカーネルは画面へ未接続のまま保持し、新しい表示面を勝手に増やさない。
 
 ## 事実境界
 
@@ -187,12 +185,13 @@ SX p21では、PJ固有の別writerを増やさず、PJ横断で再利用する`
 | `/dashboard` | AMDホーム | 最近の再設計を維持し、共通カーネルのprojectionだけを受ける |
 | `/project/[id]/cockpit` | AMD内部PJ cockpit | AMD非公開の評価、仮説、助言、リスクを担当する |
 | `/project/[id]/workspace` | 共同PJ workspace | 作業、判断、会議、共有成果物の共同正本を担当する |
-| `/project/[id]/weekly-control` | 共同PJ workspaceまたは内部cockpitの週次レンズ | 独立writerを増やさず、共通作業・判断カーネルのprojectionへ移す |
+| `/project/[id]/weekly-control` | 共同PJ workspace | `/project/[id]/workspace`への互換redirectだけを残し、独立surfaceを廃止する |
 | `/project/[id]/navigation` | PJ計画レンズ | SX固有前提を外し、必要なPJだけが共通計画データを表示する |
 | `/notifications` | 共通受信箱 | 判断依頼、確認依頼、失敗、期限イベントを一つの処理列へ投影する |
 | `/proactive` | 共通受信箱の先行作業レンズ | 独立TODO正本ではなく、作業とイベントからのprojectionへ移す |
 | `/admin/*` | AMD経営・会社運営 | 権限、契約、財務、報酬、データ運用の職務別グループへ再編する |
 | `/workspaces` | 外部利用者の組織・PJ切替 | 取得失敗と参加先0件を分離し、organization文脈を選べるようにする |
+| `/workspace/[slug]` | 研究機関workspace | 大学の機関全体面を維持し、大学メンバー向けPJレンズをここから接続する。内部cockpitや簡易PJ代替面は流用しない |
 | 旧Project Share各instance | 共同PJ workspace | 内容と権限を移行し、read-only期間を経て入口を閉じる |
 | HUDと実験画面 | canonical画面のmirrorまたは検証用 | 独立writerを持たせず、surface catalogで状態を明示する |
 
@@ -321,8 +320,10 @@ security closureのmigration 258は2026-08-11に本番適用し、table、functi
 
 共通principal、organization、organization membership、project party、project grant、immutable publication revisionはmigration 259で初期実装した。
 
-`/project/[id]/workspace`は公開版を先頭の共通4本柱面へ表示し、workspace accountの旧内部latest読取を廃止した。
+`/project/[id]/workspace`は完成済みの`SxWeeklyControlDashboard`をPJ実行面として表示する。旧`/project/[id]/weekly-control`はworkspaceへredirectし、同じPJ実行面を二重管理しない。
 
-migration 259は人物、外部organization、grant、publicationを自動作成しない。p21の初期grantと最初の公開版は、実利用者と公開対象を明示確認してから別migrationまたは承認操作で作成する。
+AMD内部の評価、採算、経営判断は`/project/[id]/cockpit`が所有する。研究機関の入口は`/workspace/[slug]`にあるが、大学メンバーが当該PJを現行workspace相当の品質で見るためのPJレンズは未実装である。
+
+migration 259は人物、外部organization、grant、publicationを自動作成しない。p21の初期grantと最初の公開版は、大学・SU向けの正式面と実利用者・公開対象を明示確認してから別migrationまたは承認操作で作成する。
 
 共通作業・判断の状態遷移、SUと研究機関が自組織データを確定するwriter、資料revision、他PJへのgrant展開、旧Project Share退役は未実装である。
