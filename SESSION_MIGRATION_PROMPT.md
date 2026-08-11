@@ -5,35 +5,36 @@
 対象は、つくよみ外部リサーチの初回自然実行確認。
 実装と本番反映は完了しているので、新機能を作り直さず、平日09:00の実行結果をread-onlyで確認する。
 
-## 最初に読む順
+## 最初の同期ゲートと読む順
 
 1. /Users/masa/projects/AGENTS.common.md
 2. /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md
-3. /Users/masa/projects/AMD/amd-os/AGENTS.md
-4. /Users/masa/projects/AMD/amd-os/CLAUDE.md
-5. /Users/masa/projects/AMD/amd-os/pwa/AGENTS.md
-6. /Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md
-7. /Users/masa/projects/AMD/amd-os/HANDOFF.md
-8. /Users/masa/projects/AMD/amd-os/pwa/manual/3-3-notifications-and-tsukuyomi.md
-9. /Users/masa/projects/AMD/amd-os/pwa/spec/3-6-strategy-signals-current-spec.md
-10. /Users/masa/projects/AMD/amd-os/pwa/spec/3-7-notifications-current-spec.md
-11. /Users/masa/projects/AMD/amd-os/pwa/spec/3-8-cockpit-current-spec.md
-12. /Users/masa/projects/AMD/amd-os/pwa/design/project_strategy_signals.md
-13. /Users/masa/projects/AMD/amd-os/pwa/design/notifications.md
-14. /Users/masa/projects/AMD/amd-os/pwa/design/L2_DATA.md
-15. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md と pwa/design_log/sessions_2026-08.md の該当節
+3. /Users/masa/projects/AMD/amd-os をfetchし、ahead/behindをread-onlyで確認する。behindが1以上なら、そのcheckoutから以降の文書を読まず、最新origin/mainのclean cloneで同じ相対パスを読む。既存dirtyをreset・rebase・stashしない。
+4. AGENTS.md
+5. CLAUDE.md
+6. pwa/AGENTS.md
+7. pwa/CLAUDE.md
+8. HANDOFF.md
+9. pwa/manual/3-3-notifications-and-tsukuyomi.md
+10. pwa/spec/3-6-strategy-signals-current-spec.md
+11. pwa/spec/3-7-notifications-current-spec.md
+12. pwa/spec/3-8-cockpit-current-spec.md
+13. pwa/design/project_strategy_signals.md
+14. pwa/design/notifications.md
+15. pwa/design/L2_DATA.md
+16. pwa/BUGS.md と pwa/design_log/sessions_2026-08.md の該当節
 
 ## 状態スナップショット
 
 - feature実装commitは d6686547、運用正本化commitは f8b32f16。
 - 外部リサーチ機能とOSマニュアル3-3章の表示はbuild v3.71.1 / f8b32f16で確認済み。
-- その後の別作業を取り込んだ初回handoff commit 170ea1a7は、build v3.71.3としてproduction反映を確認済み。同期P0補足commitでlive SHAはさらに進むため、開始時にorigin/mainとproduction /api/build-infoを照合する。
+- handoffは170ea1a7と95f6964a。Project Share救出を含むcloseout時点の最新main 123cf8c8は、build v3.71.3としてproduction反映を確認済み。最終追記commitでlive SHAはさらに進むため、開始時にorigin/mainとproduction /api/build-infoを照合する。
 - migration 255でproject_strategy_signalsへ外部リサーチの区分と重複防止制約を追加済み。
 - Codex automation automation-2「つくよみ 外部リサーチ候補」はACTIVE。平日09:00 JST、失敗時だけ通知する。
 - execution repoは /Users/masa/projects/AMD/amd-os-automation-runtime。main同期済み。
 - 旧GASのSlack配信入口は停止し、clasp pushとremote code readbackを確認済み。
 - automation作成後の最初の自然実行は未確認。次回予定は2026-08-12 09:00 JST。
-- 正規checkout /Users/masa/projects/AMD/amd-os は、同期P0補足commit直前の再計測でHEAD=31538ad7 / origin/main=170ea1a7、ahead 2 / behind 112。BZM・SX・Project Shareの既存dirtyと未追跡物がある。303abd57はpatch-equivalent、31538ad7はoriginにない固有diff。同期P0はCodexタスク「AMD OS全体仕様を監査」へowner handoff済み。補足commitのpushでbehind数は増えるため、開始時に必ず再計測する。
+- 正規checkout /Users/masa/projects/AMD/amd-os は、最終追記直前の再計測でHEAD=c515d4e3 / origin/main=123cf8c8、ahead 3 / behind 114。owner調査で303abd57とc515d4e3はpatch-equivalent、31538ad7は保存価値なし、残るBZM・週次管制dirtyはmain反映済みか後続版に置換済みと判定した。Project Shareの欠損24ファイルは123cf8c8で救出済み。同期P0はCodexタスク「AMD OS全体仕様を監査」が所有し、回収branch作成・dirtyの復元用commit・local mainのorigin/mainへの付替えについて、まさの承認待ち。最終追記のpushでbehind数は増えるため、開始時に必ず再計測する。
 
 ## 開始確認
 
