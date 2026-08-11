@@ -27,16 +27,17 @@
 
 - feature実装commitは d6686547、運用正本化commitは f8b32f16。
 - 外部リサーチ機能とOSマニュアル3-3章の表示はbuild v3.71.1 / f8b32f16で確認済み。
-- その後の別作業を取り込み、closeout文書はbuild v3.71.3 / 41151f12をbaseにしている。closeout文書のpush後はgit SHAだけ新しくなるため、開始時にorigin/mainとproduction /api/build-infoを照合する。
+- その後の別作業を取り込んだ初回handoff commit 170ea1a7は、build v3.71.3としてproduction反映を確認済み。同期P0補足commitでlive SHAはさらに進むため、開始時にorigin/mainとproduction /api/build-infoを照合する。
 - migration 255でproject_strategy_signalsへ外部リサーチの区分と重複防止制約を追加済み。
 - Codex automation automation-2「つくよみ 外部リサーチ候補」はACTIVE。平日09:00 JST、失敗時だけ通知する。
 - execution repoは /Users/masa/projects/AMD/amd-os-automation-runtime。main同期済み。
 - 旧GASのSlack配信入口は停止し、clasp pushとremote code readbackを確認済み。
 - automation作成後の最初の自然実行は未確認。次回予定は2026-08-12 09:00 JST。
+- 正規checkout /Users/masa/projects/AMD/amd-os は、同期P0補足commit直前の再計測でHEAD=31538ad7 / origin/main=170ea1a7、ahead 2 / behind 112。BZM・SX・Project Shareの既存dirtyと未追跡物がある。303abd57はpatch-equivalent、31538ad7はoriginにない固有diff。同期P0はCodexタスク「AMD OS全体仕様を監査」へowner handoff済み。補足commitのpushでbehind数は増えるため、開始時に必ず再計測する。
 
 ## 開始確認
 
-1. /Users/masa/projects/AMD/amd-os でgit status、未push commit、branch、worktree、origin/mainをread-onlyで確認する。既存dirtyを戻さない。
+1. /Users/masa/projects/AMD/amd-os でfetch後のahead/behind、git status、未push commit、branch、worktree、origin/mainをread-onlyで確認する。既存dirtyを戻さない。behindが0になるまで、このcheckoutでcurrent truthを判断したり編集を始めたりしない。
 2. https://amd-os-pwa.vercel.app/api/build-info のgit SHAをorigin/mainと照合する。
 3. automation-2のstatus、schedule、notification policyを確認する。重複automationを作らない。
 4. 2026-08-12 09:00 JST以降なら、その1回の結果だけを確認する。未実行なら待機状態として報告し、手動runを追加しない。

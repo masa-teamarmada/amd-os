@@ -20,10 +20,11 @@
 - 確定仕様: `pwa/spec/3-6-strategy-signals-current-spec.md`、`3-7-notifications-current-spec.md`、`3-8-cockpit-current-spec.md`。
 - 設計正本: `pwa/design/project_strategy_signals.md`、`pwa/design/notifications.md`、`pwa/design/L2_DATA.md`。
 - 実装commit: `d6686547`。マニュアル正本化commit: `f8b32f16`。
-- 外部リサーチ機能とマニュアル表示はbuild `v3.71.1` / `f8b32f16`で確認済み。その後の別作業を取り込み、closeout文書はbuild `v3.71.3` / `41151f12`をbaseにしている。closeout文書commit後のlive SHAは、次セッション開始時に`/api/build-info`で`origin/main`と照合する。
+- 外部リサーチ機能とマニュアル表示はbuild `v3.71.1` / `f8b32f16`で確認済み。その後の別作業を取り込んだ初回handoff commit `170ea1a7`は、build `v3.71.3`としてproduction反映を確認した。この同期P0補足commitでlive SHAはさらに進むため、次セッション開始時に`/api/build-info`と`origin/main`を照合する。
 - Codex automation `automation-2`「つくよみ 外部リサーチ候補」はACTIVE。平日09:00 JST、失敗時だけ通知する。
 - 実行repo `/Users/masa/projects/AMD/amd-os-automation-runtime` はmainへ同期済み。既存の未追跡probe 1件は別運用のため触っていない。
 - 旧GASのSlack外部リサーチ入口はearly returnへ変更し、`clasp push`とremote code readbackまで完了している。
+- 正規checkout `/Users/masa/projects/AMD/amd-os` は、この補足commit直前の再計測で`HEAD=31538ad7`、`origin/main=170ea1a7`、ahead 2 / behind 112。BZM・SX・Project Shareの既存dirtyと未追跡物があるため触っていない。`303abd57`はpatch-equivalent、`31538ad7`はoriginにない固有diff。同期P0はCodexタスク「AMD OS全体仕様を監査」へowner handoff済み。補足commitのpushでbehind数は増えるため、作業開始時に必ず再計測する。
 
 ## 検証済み
 
@@ -38,6 +39,7 @@
 
 - automation作成後の最初の自然な平日09:00実行は未観測。次回予定は2026-08-12 09:00 JST。
 - 新規候補0件は正常で、通知もoutboxも作らない。0件を失敗扱いしない。
+- 正規checkoutの同期P0は別ownerが対応中。behindが0になるまで、そのcheckoutをcurrent truthの読取りや新規編集に使わない。
 
 ## 次セッションで最初にすること
 
