@@ -6,7 +6,7 @@
 
 ## 定義
 
-AMD Score の現行 primary model は **SPS = Seed Prospect Score (シーズ有望度)**。表示構造は `M x P x R x S` の4因子で、実計算は9軸を一層で乗法集約する。PWA の主表示は SPS を前面に出し、旧 7 軸 Cobb-Douglas / M-X-F は legacy AMD comparison と evidence chain として残す。
+スコア詳細のprimary modelは`public.sps_primary_model_registry`がPJごとに固定する。`primary_model='sps_2_1' AND switch_status='active'`ではSPS 2.1の会社視点・選択方針を主表示し、従来の9軸診断SPS、BZM 2.0、旧7軸Cobb-Douglas / M-X-Fはarchiveへ折りたたむ。準備中・取得不能・ロールバック時だけ、従来の9軸診断SPSを主表示へフォールバックする。
 
 > **呼称の正本 (2026-07-11 まさ確定、[`pwa/bzm/terminology_glossary.md`](../bzm/terminology_glossary.md) §1.5)**: 旧称 PRS は廃止済み。SPS は和名「シーズ有望度」の略であって成分の頭字ではないため、4因子化しても名称は壊れず、MPRS への改称は不要 (まさ再確認 2026-07-16)。コード変数 (`calculatePrsScore` / `PrsComponentBreakdown` 等)・DB 列 (`prs_potential` / `prs_r_net`)・テストコマンド (`test:prs-mprs-grouping`) は内部識別子として据え置き、**表示テキスト・文書の呼称のみ SPS を使う**。アーカイブ・過去ログ内の「PRS」は「= 現 SPS」と読む。
 
@@ -168,7 +168,11 @@ SXとLST以外で現行SPSを持つ10PJは`measurement_status=data_collection`�
 
 ## BZM 2.1動的方針台帳
 
-PJコックピットのスコア詳細は、BZM 2.0観測画面の後、現行運用SPSの前にBZM 2.1動的方針画面を表示する。
+PJコックピットのスコア詳細は、`sps_primary_model_registry`を読んで主表示を決める。
+
+`switch_status=active`かつ`primary_model=sps_2_1`ならBZM 2.1を先頭に置き、BZM 2.0と現行運用SPSを旧SPSアーカイブへ折りたたむ。
+
+未登録、取得不能、`preparing`、`rolled_back`ではlegacyを主表示に保ち、BZM 2.1をpreviewへ置く。
 
 BZM 2.1は、BZM 2.0の固定方針を消さず、判断ノードごとの行動が次状態、経路別費用、正味価値、到達見込みをどう変えるかを同じ有限グラフ上で評価する。
 理論・数式の正本は`pwa/bzm/bzm-2-1-dynamic-business-value-model.md`、入力抽出契約は`pwa/bzm/BZM_2_1_PARAMETER_EXTRACTION_REGISTER.md`とする。
@@ -184,7 +188,7 @@ BZM 2.1は、BZM 2.0の固定方針を消さず、判断ノードごとの行動
 
 | 視点 | 現行の価値範囲 | 混ぜないもの |
 |---|---|---|
-| 会社 | 会社が保有するPJの増分正味価値。営業・投資キャッシュフローと資金調達キャッシュフローを分ける | 市場で観測された時価総額、BZSF証券価値 |
+| 会社 | 会社が保有するPJの方針条件付き将来正味価値。増分は固定方針との差だけに使い、営業・投資キャッシュフローと資金調達キャッシュフローを分ける | 市場で観測された時価総額、BZSF証券価値 |
 | BZSF | 対象証券からBZSFへ帰属する正味キャッシュフロー | 会社への資金流入そのもの、他PJの機会費用を含むポートフォリオ配分 |
 | 公的 | 基金の財政価値と、換算規則を登録した社会厚生 | 補助金・税・公共調達の社会全体と基金内での二重計上 |
 
@@ -234,7 +238,7 @@ BZM 2.1は、BZM 2.0の固定方針を消さず、判断ノードごとの行動
 
 ### 保存・API・初期状態
 
-migration 260はBZM 2.0の表を変更せず、BZM 2.1専用の追記台帳を追加する。
+migration 261はBZM 2.0の表を変更せず、BZM 2.1専用の追記台帳を追加する。
 版、状態、行動束、遷移、支援条件、スコープ付き入力、行動評価、方針評価を別表に置き、各観測へ根拠、情報締切、欠測状態を保存する。
 
 版ごとの共通入力27項目は、存在、状態、値、根拠を計算前と読出時の両方で検査する。
@@ -248,9 +252,19 @@ migration 260はBZM 2.0の表を変更せず、BZM 2.1専用の追記台帳を�
 APIの`/api/project/[projectId]/amd-score-detail`は、既存の`bzm2`と現行SPS payloadを維持したまま`bzm21`を追加する。
 BZM 2.1台帳が未適用または取得不能でも既存スコア詳細を失敗させず、BZM 2.1だけを取得不能・計算不能として表示する。
 
-初版は現行のSPS対象12PJへ`measurement_status=incomplete`の版だけを追加する。
-実PJの判断ノード、行動別遷移、費用、撤退価値は未入力であり、合成テストの架空数値を本番台帳へ入れない。
-SXのBZM 2.0固定方針下の計画達成診断4.15%は消さないが、BZM 2.1の動的正味価値へ自動転記しない。
+初版は現行のSPS対象12PJへ`measurement_status=incomplete`の空版を追加する。
+
+migration 262は旧SPS入力、改訂、BZM 2.0履歴、旧alphaをPJ別のappend-only snapshotへ退避し、元表を変更しない。
+
+migration 263は共通推定器`estimated-v0.1`の入力、状態、二行動、三遷移、単一CF、行動評価、方針評価を12PJへ追記する。
+
+12PJすべての会社選択方針が`computed`、BZSFと公的価値が`not_computable`、入力hash、scope入力、archive hashが閉じた場合だけ、一つのtransactionでregistryを12件とも`active`へ切り替える。
+
+実PJの判断ノード、行動別遷移、費用、撤退価値を観測で閉じたわけではない。
+
+`estimated-v0.1`は合成fixtureではなく生データ抽出と共通推定器のshadow版だが、平均推定率97.4%のため測定済み価値として扱わない。
+
+SXのBZM 2.0固定方針下の計画達成診断4.15%は消さず、BZM 2.1の動的正味価値へ自動転記しない。
 前向き検証は0件のため、GO、NO_GO、投資額、支援採択の自動推薦に使わない。
 
 ## Legacy AMD / M-X-F の位置づけ
