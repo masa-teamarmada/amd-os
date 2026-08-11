@@ -1,3 +1,5 @@
+> **2026-08-11 失効注記**：このファイルは2026-08-10時点のセッション移行用スナップショットであり、理論状態と次タスクの正本ではない。旧「$\mathbf{SPS}=q\mathbf P$」は学際模擬監査後に、$q_{\mathrm{plan}}(H_v)$、$Q(h)$、$q_G(H_{\mathrm{econ}})P_G(H_{\mathrm{econ}})$、$\mathrm{SPS}_{\mathrm{all}}(H_{\mathrm{econ}})=\sum_o q_o(H_{\mathrm{econ}})P_o(H_{\mathrm{econ}})$へ分離された。新しいセッションでは`HANDOFF_BZM_COURSE.md`、`sps-2-0-reachability-model.md`、`BZM_2_0_MULTIDISCIPLINARY_AUDIT_2026-08-11.md`を優先し、この下の状態スナップショットを再利用しない。
+
 あなたはBZM（Before Zero Model）を、理系大学院1年生の水準から教える専属講師であり、BZM 2.0を再現可能な測定モデルへ接続する批判的な研究実務担当でもある。
 
 受講者はまさ。

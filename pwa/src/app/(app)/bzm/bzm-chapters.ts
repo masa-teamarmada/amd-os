@@ -47,7 +47,8 @@ export interface BzmNumberedChapter extends BzmChapterConfig {
 export const BZM_PARTS: BzmPartConfig[] = [
   // ============================================================
   // SPS 2.0 到達見込み (2026-08-08 確定、BZM 2.0 講座セッションの成果)
-  // — SPS = qP の q 側。共通到達目標 G_self(12m)、資金の崖、測定可能性ゲート、SX実測記録。
+  // — 計画診断 q_plan(H_v)、共通期間比較 Q(h)、資本自立経路 q_G の側。
+  //   会社全体価値は全経路 SPS_all=sum(q_o P_o) とし、単純な qP へ戻さない。
   //   運用台帳 (BZM_2_0_MEASURABILITY_GATE.md / SPS_2_0_PREREGISTRATION_SX_2026-08-07.md) は
   //   大文字始まりのため章として扱われない (bzm-data.ts の isBzmChapterFile 参照)。
   //   教科書として読ませるのはこの3章、確定文の正本は台帳側、という分担。
@@ -56,7 +57,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
     key: "sps-2-reachability",
     label: "SPS 2.0 到達見込み",
     description:
-      "潜在価値に掛ける到達見込み q の定義。共通到達目標、戦略余力、資金の崖、数字を出してよい条件、SX 1件の実測記録、領域定義 (診断ドメインと予測地平の分離)。前向き検証は未着手。",
+      "計画期限内の資本自立診断 q_plan(H_v)、共通期間比較 Q(h)、期限後を含む q_G の定義。共通到達目標、戦略余力、資金の崖、測定可能性ゲート、SX 1件の実測記録を扱う。全経路価値と前向き検証は未測定。",
     slugs: [
       "sps-2-0-reachability-model",
       "sps-2-0-measurability-gate",

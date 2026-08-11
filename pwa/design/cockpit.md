@@ -55,7 +55,7 @@ CockpitHeader は `projects.contract_terms_json.currentContracts[]` を優先し
                                                 2タブは横幅いっぱいを 1/2 ずつ占有し、クリック領域も左右半分。
                                                 進捗管理 = 従来 cockpit 本文。
                                                 スコア詳細 = `Bzm2ModelObservatory` + `AmdScoreView embedded`。正規URLは `/project/[projectId]/cockpit?tab=score-detail`。
-                                                BZM 2.0の式・現在値・欠測・共通状態・版履歴と、現行SPS / R_net / FRL / XRL evidence / XRLチェックリストを別区画で集約。
+                                                BZM 2.0は全価値実現経路の総和、共通経済評価地平までの資本自立経路全体、PJ固有の計画期限内経路を三段で表示し、PJ間比較用の共通期間曲線Q(h)を到達診断側へ分ける。旧q×Pを会社全体の期待時価総額と呼ばず、現在値・欠測・共通状態・版履歴と、現行SPS / R_net / FRL / XRL evidence / XRLチェックリストを別区画で集約。
                                                 旧 `/venture-map/amd-score/[projectId]` はこのタブへ redirect (`p99` デモを除く)。
                                                 スコア詳細は cockpit mount 時に非表示で先読みし、同一セッションでは 5 分TTLで再利用。
                                                 タブ再表示時に TTL 超過なら表示済み内容を保ったまま背景再取得する。
