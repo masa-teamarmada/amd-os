@@ -2,9 +2,20 @@
 
 > See also: [CLAUDE.md](CLAUDE.md) — 最重要ルール / [DESIGN.md](DESIGN.md) — **全画面の正本仕様（必読）** / [HANDOFF.md](HANDOFF.md) — 配布状況 / [BUGS.md](BUGS.md) — 既知バグ
 
-最終更新: 2026-07-24 (JST)
-対応 iOS commit: `3dfd235c` "feat(ios): add notification judgment deck"
+最終更新: 2026-08-12 (JST)
+対応 iOS commit: 本変更commit (注意・判断ゲート)
 TestFlight build: 未更新
+
+---
+
+## 2026-08-12 追記: 注意・判断ゲート
+
+- `proactive_todos` の未対応面は `attention_state='approved' AND attention_type IN ('decision','masa_action')` だけを表示する。MTG prep、チーム作業、相手ボール、保存完了、待ち、復旧、根拠不足を通知へ混ぜない。
+- `due_basis='explicit'` の期限だけを期限超過・redとして扱う。`synthetic` / `unknown` は仮置き日であり、緊急表示しない。
+- `l2_notifications` は `attention_state='approved' AND requires_masa_decision=true` だけを判断キュー、未読数、ローカル通知へ出す。
+- `meeting_notifications` は会議記録としてPJ cockpitに残すが、通知タブ、未読数、ローカル通知には出さない。会議準備はCodex task内で完結する。
+- `app_notifications(kind='connector_auth')` のローカル通知は、まさが直接開ける再認証URLがある場合だけ出す。URL欠落や設定不足の報告だけでは通知しない。
+- AndroidもDBのpending候補をクライアント側で推測昇格させない。Codex審査列をそのままgateにし、採否・復旧のwriterは既存PWA APIへ委譲する。
 
 ---
 

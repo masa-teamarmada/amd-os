@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
  *
  * 表示する通知:
  *  1. app_notifications: VC discover / VC news ingest / つくよみ等 (Web 系、AppNotificationsSection)
- *  2. l2_notifications (Phase 4: 3542) と meeting_notifications (Phase 3: 6) の一覧
+ *  2. Codex審査済みの l2_notifications 判断候補
  *  3. 各通知から元データ (member_knowledge / project_knowledge / protocols / milestone_monthly_progress / project_meeting_summaries / project_strategy_signals) を展開表示
  *  4. 「⚠️ つくよみに修正依頼」フォームから l2_feedbacks INSERT
  *     → 次回の cron 抽出時に LLM プロンプトに含められる
@@ -41,15 +41,12 @@ export default async function NotificationsPage({
     .maybeSingle();
   if (!member?.is_admin) notFound();
 
-  const [l2Res, mtgRes, feedbacksRes, projectsRes] = await Promise.all([
+  const [l2Res, feedbacksRes, projectsRes] = await Promise.all([
     supabase
       .from("l2_notifications")
       .select("*")
-      .order("created_at", { ascending: false })
-      .limit(100),
-    supabase
-      .from("meeting_notifications")
-      .select("*")
+      .eq("attention_state", "approved")
+      .eq("requires_masa_decision", true)
       .order("created_at", { ascending: false })
       .limit(100),
     supabase
@@ -63,32 +60,25 @@ export default async function NotificationsPage({
   ]);
 
   let l2Rows = l2Res.data ?? [];
-  let mtgRows = mtgRes.data ?? [];
 
   if (focusNotificationId && !l2Rows.some((row) => row.notification_id === focusNotificationId)) {
     const { data } = await supabase
       .from("l2_notifications")
       .select("*")
       .eq("notification_id", focusNotificationId)
+      .eq("attention_state", "approved")
+      .eq("requires_masa_decision", true)
       .maybeSingle();
     if (data) l2Rows = [data, ...l2Rows];
   }
 
-  if (focusMeetingId && !mtgRows.some((row) => row.meeting_id === focusMeetingId)) {
-    const { data } = await supabase
-      .from("meeting_notifications")
-      .select("*")
-      .eq("meeting_id", focusMeetingId)
-      .maybeSingle();
-    if (data) mtgRows = [data, ...mtgRows];
-  }
+  void focusMeetingId;
 
   const projectMap: Record<string, string> = {};
   for (const p of projectsRes.data ?? []) {
     projectMap[p.project_id] = p.project_name;
   }
   const l2Count = l2Rows.length;
-  const meetingCount = mtgRows.length;
   const feedbackCount = (feedbacksRes.data ?? []).length;
 
   return (
@@ -98,17 +88,13 @@ export default async function NotificationsPage({
           <div>
             <h1 className="text-xl font-semibold leading-tight">通知</h1>
             <p className="mt-1 text-xs text-muted-foreground">
-              cron / つくよみ / Phase 4 抽出 等の通知を統合表示。誤抽出があれば「つくよみに修正依頼」で次回以降の抽出を改善できる。
+              Codexが「まさの採否判断」と確認した候補と、具体的な対応契約があるOS通知だけを表示するよ。
             </p>
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="grid grid-cols-2 gap-2 text-center">
             <div className="rounded-[8px] border border-[var(--desk-line)] bg-[rgba(255,253,247,0.82)] px-3 py-2">
               <div className="font-mono text-xl font-bold text-[var(--desk-green)]">{l2Count}</div>
-              <div className="mt-1 text-[11px] text-muted-foreground">L2抽出</div>
-            </div>
-            <div className="rounded-[8px] border border-[var(--desk-line)] bg-[rgba(255,253,247,0.82)] px-3 py-2">
-              <div className="font-mono text-xl font-bold text-[var(--desk-blue)]">{meetingCount}</div>
-              <div className="mt-1 text-[11px] text-muted-foreground">MTG</div>
+              <div className="mt-1 text-[11px] text-muted-foreground">判断候補</div>
             </div>
             <div className="rounded-[8px] border border-[var(--desk-line)] bg-[rgba(255,253,247,0.82)] px-3 py-2">
               <div className="font-mono text-xl font-bold text-[var(--desk-amber)]">{feedbackCount}</div>
@@ -127,14 +113,14 @@ export default async function NotificationsPage({
           {/* VC 系 / Web 通知 (app_notifications) */}
           <AppNotificationsSection />
 
-          {/* L2 抽出 / MTG サマリ通知 */}
+          {/* Codex意味審査を通った採否判断だけ */}
           <section className="dashboard-desk-section">
-            <div className="dashboard-desk-section-title">L2 / MTG レビューキュー</div>
+            <div className="dashboard-desk-section-title">採否判断キュー</div>
             <NotificationsClient
               l2={l2Rows as Notification[]}
-              mtg={mtgRows as MeetingNotification[]}
+              mtg={[] as MeetingNotification[]}
               feedbacks={(feedbacksRes.data ?? []) as Feedback[]}
-              focus={{ l2NotificationId: focusNotificationId, meetingId: focusMeetingId }}
+              focus={{ l2NotificationId: focusNotificationId, meetingId: null }}
               projectMap={projectMap}
             />
           </section>

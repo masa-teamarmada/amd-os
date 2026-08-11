@@ -1,5 +1,7 @@
 # 先手 TODO — current spec
 
+> 2026-08-12以降、表示契約は [注意・判断ゲート](../design/attention_review.md) を優先する。collectorの生成行は `pending` で、Codex審査済みの `decision` / `masa_action` だけを未対応面へ出す。MTG prepはCodex task内で完結し、先手TODOには生成しない。仮期限は期限超過に使わない。
+
 > **status**: current truth (2026-06-27 実装、admin 限定で本稼働)
 >
 > **置き換え元**: 旧 `2-4-loop-kernel-role-lenses-plan.md` (ループカーネル × 役割レンズ plan) と `design/proactive_operating_loop.md` (先手力維持ループ設計)。両者は 2026-06-27 まさ × えいみ判断で**廃止**。詳しい背景は本章末尾「白紙やり直しの経緯」を参照。
@@ -78,11 +80,18 @@ AMD の提供価値は「Before 0 におけるビジョン注入力、技術戦�
 | `title` | text | 1行で見える要約 (`{project_id} {MTG title}: {next_action 先頭文}`) |
 | `detail` | text | 推奨first move + 遅延リスクの本文。`email_action_request` では本文全文・URL・パスワードを保存しない短い要点 |
 | `ball_owner` | text | `amd` / `counterpart` / `ambiguous`。`counterpart` は cron で skip して保存しない |
-| `due_at` | timestamptz | 期限。`meeting_next_action` は next_action 本文内の明示期限を優先し、読めない場合だけ MTG 日 + 7 日。`email_action_request` はメール本文から抽出した期限 |
-| `priority` | text | `red` / `normal`。期限超過 open は cron が `red` に昇格 |
+| `due_at` | timestamptz | 明示期限、または並び順用の仮置き日 |
+| `due_basis` | text | `explicit` / `synthetic` / `unknown`。期限超過・redに使えるのは `explicit` だけ |
+| `priority` | text | `red` / `normal`。明示期限を超過した open だけcronが `red` に昇格 |
 | `status` | text | `open` / `done` / `blocked` / `dismissed` |
 | `resolved_note` | text | 完了/ブロック時の任意 1 行メモ |
 | `resolved_by` | text | 押した人 (`members.code_name`) |
+| `attention_state` | text | `pending` / `approved` / `suppressed` / `needs_source`。collectorはpending、Codex審査済みだけapproved |
+| `attention_type` | text | `decision` / `masa_action` / `team_action` / `recovery` / `information` / `waiting` / `suppressed` / `needs_source` |
+| `attention_owner` | text | `masa` / `team` / `system` / `none` |
+| `requires_masa_decision` | bool | まさの採否判断が必要か |
+| `attention_reason` / `attention_action` / `attention_effect` | text | なぜ今見るか / 何をするか / その結果何が変わるか |
+| `attention_source_hash` / `attention_reviewed_at` / `attention_reviewed_by` | text / timestamptz / text | 審査時の素材同一性と監査情報 |
 
 UNIQUE 制約:
 `(project_id, trigger_kind, source_meeting_id, source_event_id, title)` で、同じ MTG の同じ next_action に対する upsert を冪等化する。

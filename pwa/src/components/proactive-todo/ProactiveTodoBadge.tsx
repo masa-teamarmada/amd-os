@@ -39,16 +39,22 @@ export function ProactiveTodoBadge() {
         return;
       }
       const [openRes, overdueRes, redRes] = await Promise.all([
-        supabase.from("proactive_todos").select("id", { count: "exact", head: true }).eq("status", "open"),
+        supabase.from("proactive_todos").select("id", { count: "exact", head: true }).eq("status", "open").eq("attention_state", "approved").in("attention_type", ["decision", "masa_action"]),
         supabase
           .from("proactive_todos")
           .select("id", { count: "exact", head: true })
           .eq("status", "open")
+          .eq("attention_state", "approved")
+          .in("attention_type", ["decision", "masa_action"])
+          .eq("due_basis", "explicit")
           .lt("due_at", new Date().toISOString()),
         supabase
           .from("proactive_todos")
           .select("id", { count: "exact", head: true })
           .eq("status", "open")
+          .eq("attention_state", "approved")
+          .in("attention_type", ["decision", "masa_action"])
+          .eq("due_basis", "explicit")
           .eq("priority", "red"),
       ]);
       if (!cancelled) {
@@ -92,7 +98,7 @@ export function ProactiveTodoBadge() {
         <div className="text-sm font-semibold text-foreground">先手 TODO</div>
         <div className="text-xs text-muted-foreground">
           {counts.open === 0 ? (
-            <span>未対応なし。次のMTG後・予定MTG3営業日前で自動再起する。</span>
+            <span>いま、まさが判断・対応する対象はないよ。</span>
           ) : (
             <>
               <span className="font-medium text-foreground">{counts.open}件</span> 未対応

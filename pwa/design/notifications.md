@@ -1,14 +1,16 @@
 # 通知 + つくよみ修正依頼 — 設計の正本
 
-最終更新: 2026-08-11 (つくよみ外部リサーチをSlackからOS採否へ移行)
+> 2026-08-12以降の注意面・未読数・OS通知は [注意・判断ゲート](attention_review.md) を優先する。`l2_notifications` はCodex審査済みの採否判断だけ、`app_notifications` はCodex審査済みかつまさ本人の完全なaction contractがある具体行動だけを出す。直接の再認証URLがある `connector_auth` だけは即時復旧例外。`meeting_notifications` は会議記録であり、通知・未読数・判断キューへ混ぜない。
+
+最終更新: 2026-08-12 (Codex注意・判断ゲート)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
 ---
 
 ## このドキュメントが扱う範囲
 
-Phase 4 で蓄積される 2 つの通知テーブル (`l2_notifications` + `meeting_notifications`) を
-PWA 画面 + iOS で確認し、誤抽出に対して **「つくよみ (LLM 抽出 cron) に修正依頼」** を出す仕組み。
+`app_notifications`、`l2_notifications`、`meeting_notifications` と先手TODO候補を、
+「まさの注意」と「OSに残す記録」へ分離する仕組み。PWA / iOS / macOS は同じgateを使う。
 
 修正依頼は `l2_feedbacks` テーブル (migration 032) に蓄積され、上流 cron が次回抽出時に
 LLM プロンプトに含めて再抽出する → 「過去の指摘が反映された L2 データ」が育つ。
@@ -27,11 +29,11 @@ L2候補の操作契約は、表示用 metadata に `destination_label`、`chang
 
 つくよみ外部リサーチは `l2_kind='project_strategy_signal'`、`metadata_json.origin_kind='external_research'` の通常通知として1候補1カードで出す。UIは「採用 / 見送り」と、その結果として `該当PJ cockpit → 経営ハイライト → 採用リサーチ` に残ることを明示する。採用APIは `signal_source_hash` 完全一致のcandidate 1件だけをconfirmedにし、見つからない場合は失敗として同月・同種別へfallbackしない。旧外部リサーチのSlack配信は停止する。
 
-PWA は admin session 中に `CriticalRealtimeNotify` が `app_notifications` / `l2_notifications` / `meeting_notifications` を Realtime 購読し、Realtime が落ちた場合も10秒pollで補完する。`notification-priority.ts` が `critical` と判定する未読通知は画面右下に即カード表示し、Browser Notification 権限があれば OS 通知も出す。`connector_auth` はカードから `reauth_url` を開いた時点で `read_at` を打つ。ただし再認証ページを開いたことは復旧成功の証拠ではないため、既読後も `/notifications` の「既読」タブに残し、そこから再試行できる状態にする。L2 critical はカードから `/notifications?notification_id=...` へ遷移し、通知ページ側で対象rowを追加取得・自動展開する。既読化・採否は既存の通知ページ UI に委ねる。MTG 通知は本文中に再認証・blocker 等の語が混じっても右下ポップアップには出さず、必要なら `connector_auth` / `guardrail_match` / `contract_signals` 等の専用通知として別発火させる。
+PWA は admin session 中に `CriticalRealtimeNotify` が `app_notifications` / `l2_notifications` を Realtime 購読し、Realtime が落ちた場合も10秒pollで補完する。`app_notifications` はCodex審査済みかつまさ本人の完全なaction contract、`l2_notifications` は `attention_state='approved' AND requires_masa_decision=true` の未読行だけが対象。`notification-priority.ts` が `critical` と判定するものは画面右下に即カード表示し、Browser Notification 権限があればOS通知も出す。`connector_auth` はカードから `reauth_url` を開いた時点で `read_at` を打つ。ただし再認証ページを開いたことは復旧成功の証拠ではないため、既読後も `/notifications` の「既読」タブに残し、そこから再試行できる状態にする。L2 critical はカードから `/notifications?notification_id=...` へ遷移し、通知ページ側で対象rowを追加取得・自動展開する。既読化・採否は既存の通知ページUIに委ねる。`meeting_notifications` はRealtime購読・poll・未読数・popupの対象外で、PJ cockpitの会議記録としてだけ残す。
 
-Swift は `app_notifications.native_notified_at IS NULL` の `connector_auth` を起動時/foreground復帰時に拾い、ローカル通知を即表示する。通知を表示したら `native_notified_at` を打つが、これは「Swiftへ配信済み」だけを表し、PWA/Swift共通の人間既読は引き続き `read_at`。Swift通知をタップすると通知ボックスを挟まず `reauth_url` を開き、`read_at` を打つ。ただし再認証リンクが閉じたり失敗した場合に再試行できるよう、Swift通知ボックスの「既読」タブにも `connector_auth` を残し、「再認証を開く」ボタンを出す。再認証は復旧レーンで、L2抽出の terminal blocker ではない。
+Swift は `app_notifications.native_notified_at IS NULL` の `connector_auth` のうち、直接開ける再認証URLがある行だけを起動時/foreground復帰時に拾い、ローカル通知を表示する。通知を表示したら `native_notified_at` を打つが、これは「Swiftへ配信済み」だけを表し、PWA/Swift共通の人間既読は引き続き `read_at`。L2ローカル通知もCodex審査済みのまさ判断だけに限定する。`meeting_notifications` のローカル通知は停止する。
 
-通知は表示上 `normal` と `critical` に分ける。`normal` は「OSに新データが入った / 候補が増えた / 通常レビュー」で、既存の L2 候補・MTGサマリ・VCニュース・通常の gap が入る。`critical` は「まさが見落とすと事故り、かつ今すぐ実行できるもの」。`app_notifications` は緊急語や明示priorityだけではcriticalにせず、`action_owner!='none'` かつ `action_required` / `action_url` / `completion_condition` が全部揃った場合だけcriticalにする。connector再認証の旧行は、直接の再認証URLがある場合だけcriticalを維持する。MTG本文に NDA / 契約 / 法務 / SHA / COI / 再認証 / blocker などの語が出ただけでは critical にしない。`action_item` も「要対応」というラベルだけでは critical にしない。2026-07-29時点では DB 列を増やさず、`pwa/src/lib/notification-priority.ts` が既存列とaction contractから分類する。
+注意面へ出る通知は表示上 `normal` と `critical` に分ける。`normal` でも、まさの採否か本人にしかできない具体行動というgateは必須。`critical` は「見落とすと事故り、かつ今すぐ実行できるもの」。`app_notifications` はCodex審査に加え、`action_owner` がまさで `action_required` / `action_url` / `completion_condition` が全部揃うことを必須にする。緊急語やwriterのpriority宣言だけでは通さない。connector再認証の旧行は、直接の再認証URLがある場合だけcriticalを維持する。MTG本文に NDA / 契約 / 法務 / SHA / COI / 再認証 / blocker などの語が出ただけでは通知しない。`action_item` も「要対応」というラベルだけでは通知しない。
 
 H-1 (`app_notifications.kind='h1_report'`) は、会議記録・予定カード・ノーションひも付けを新規保存または更新した `updated`、人の判断が必要な `review_required`、必要な処理が止まった `blocked` だけを作る。候補なし、既存カードの確認だけ、変更なしはsanitized reportとautomation memoryだけを残し、通知行を作らない。`review_required` / `blocked` は具体行動・直接URL・完了条件の3点が必須で、揃わない失敗は通知せずreport/memoryへ残して次回runで再試行する。`updated` と `review_required` はnormal、3点が揃った `blocked` だけcriticalとする。
 
@@ -39,9 +41,9 @@ H-1 (`app_notifications.kind='h1_report'`) は、会議記録・予定カード�
 
 | source | critical 判定 |
 |---|---|
-| `app_notifications` | critical候補で、かつ `action_owner!='none'`・具体行動・直接URL・完了条件が全部揃う場合だけcritical。旧 `connector_auth` は直接の再認証URLがある場合だけcritical。 |
-| `l2_notifications` | 明示 `notification_priority='critical'`、または `metadata_json` の priority/severity/reason/blocker_kind 等に期限超過 / blocker / 再認証 / 緊急等の運用緊急語があれば critical。通常の候補追加・レビューは normal。`l2_kind` / `importance >= 8` / title / summary だけでは critical にせず、契約予兆・総会/役会・D-11メディア掲載も通常レビューに残す。 |
-| `meeting_notifications` | 常に normal。MTG本文は一次記録なので、再認証 / blocker / 緊急等の語が含まれても右下ポップアップにはしない。緊急扱いが必要なものは `app_notifications(kind='connector_auth')` または `l2_notifications(l2_kind='guardrail_match'/'contract_signals' 等)` として別に出す。 |
+| `app_notifications` | Codex審査済みの本人判断/行動で、かつ `action_owner` がまさ・具体行動・直接URL・完了条件が全部揃う場合だけ表示。そのうちcritical候補だけcritical。旧 `connector_auth` は直接の再認証URLがある場合だけ審査待ちにせずcritical。 |
+| `l2_notifications` | まず `approved AND requires_masa_decision=true` が必須。その中で明示 `notification_priority='critical'`、またはmetadataの期限超過 / blocker / 再認証 / 緊急等の運用緊急語がある場合だけcritical。`l2_kind` / importance / title / summaryだけではcriticalにしない。 |
+| `meeting_notifications` | 注意面へ出さない。MTG本文は一次記録なので、緊急語が含まれても右下popup・未読数・OS通知には使わない。必要なら完全なaction contractを持つ専用通知として別発火させる。 |
 
 ---
 

@@ -58,7 +58,25 @@ private struct AMDOSParityAppNotification: Decodable, Identifiable, Sendable {
     let dismissedAt: String?
     let createdAt: String
     let updatedAt: String?
-    enum CodingKeys: String, CodingKey { case id, kind, title, body, link, meta, source, readAt = "read_at", dismissedAt = "dismissed_at", createdAt = "created_at", updatedAt = "updated_at" }
+    let attentionState: String?
+    let attentionType: String?
+    enum CodingKeys: String, CodingKey { case id, kind, title, body, link, meta, source, readAt = "read_at", dismissedAt = "dismissed_at", createdAt = "created_at", updatedAt = "updated_at", attentionState = "attention_state", attentionType = "attention_type" }
+
+    var isActionable: Bool {
+        let root = meta?.object ?? [:]
+        if kind == "connector_auth" {
+            return root["reauth_url"]?.string?.trimmedNonEmpty != nil
+                || root["reauth_install_url"]?.string?.trimmedNonEmpty != nil
+                || root["reauth_app_url"]?.string?.trimmedNonEmpty != nil
+        }
+        guard attentionState == "approved", attentionType == "decision" || attentionType == "masa_action" else { return false }
+        let contract = root["action_contract"]?.object ?? root["notification_contract"]?.object
+        let owner = contract?["action_owner"]?.string ?? "none"
+        let required = contract?["action_required"]?.string?.trimmedNonEmpty
+        let url = contract?["action_url"]?.string?.trimmedNonEmpty
+        let completion = contract?["completion_condition"]?.string?.trimmedNonEmpty
+        return (owner == "まさ" || owner.lowercased() == "masa") && required != nil && url != nil && completion != nil
+    }
 }
 
 private struct AMDOSParityNotificationProject: Codable, Identifiable, Sendable {
@@ -176,20 +194,17 @@ private final class AMDOSNotificationsParityStore: ObservableObject {
     func load(focusNotificationID: String? = nil, focusMeetingID: String? = nil) async {
         state = .loading; message = nil
         do {
-            async let l2Rows = AMDOSRESTClient.shared.fetchTable(AMDOSParityL2Notification.self, table: "l2_notifications", select: "*", order: "created_at.desc", limit: 100)
-            async let meetingRows = AMDOSRESTClient.shared.fetchTable(AMDOSParityMeetingNotification.self, table: "meeting_notifications", select: "*", order: "created_at.desc", limit: 100)
-            async let appRows = AMDOSRESTClient.shared.fetchTable(AMDOSParityAppNotification.self, table: "app_notifications", select: "id,kind,title,body,link,meta,source,read_at,dismissed_at,created_at,updated_at", filters: ["dismissed_at": "is.null"], order: "created_at.desc", limit: 200)
+            async let l2Rows = AMDOSRESTClient.shared.fetchTable(AMDOSParityL2Notification.self, table: "l2_notifications", select: "*", filters: ["attention_state": "eq.approved", "requires_masa_decision": "eq.true"], order: "created_at.desc", limit: 100)
+            async let appRows = AMDOSRESTClient.shared.fetchTable(AMDOSParityAppNotification.self, table: "app_notifications", select: "id,kind,title,body,link,meta,source,read_at,dismissed_at,created_at,updated_at,attention_state,attention_type", filters: ["dismissed_at": "is.null"], order: "created_at.desc", limit: 200)
             async let projectRows = AMDOSRESTClient.shared.fetchTable(AMDOSParityNotificationProject.self, table: "projects", select: "project_id,project_name", order: "project_name", limit: 500)
             async let feedbackRows = AMDOSRESTClient.shared.fetchTable(AMDOSParityNotificationFeedbackRow.self, table: "l2_feedbacks", select: "feedback_id,l2_kind,target_id,scope_key,notification_id,meeting_id,feedback_text,status,created_by,created_at,applied_count,last_applied_at", order: "created_at.desc", limit: 200)
             var loadedL2 = try await l2Rows
-            var loadedMeetings = try await meetingRows
+            let loadedMeetings: [AMDOSParityMeetingNotification] = []
             if let focusNotificationID = focusNotificationID?.trimmedNonEmpty, !loadedL2.contains(where: { $0.id == focusNotificationID }) {
-                loadedL2 = try await AMDOSRESTClient.shared.fetchTable(AMDOSParityL2Notification.self, table: "l2_notifications", select: "*", filters: ["notification_id": "eq.\(focusNotificationID)"], limit: 1) + loadedL2
+                loadedL2 = try await AMDOSRESTClient.shared.fetchTable(AMDOSParityL2Notification.self, table: "l2_notifications", select: "*", filters: ["notification_id": "eq.\(focusNotificationID)", "attention_state": "eq.approved", "requires_masa_decision": "eq.true"], limit: 1) + loadedL2
             }
-            if let focusMeetingID = focusMeetingID?.trimmedNonEmpty, !loadedMeetings.contains(where: { $0.id == focusMeetingID }) {
-                loadedMeetings = try await AMDOSRESTClient.shared.fetchTable(AMDOSParityMeetingNotification.self, table: "meeting_notifications", select: "*", filters: ["meeting_id": "eq.\(focusMeetingID)"], limit: 1) + loadedMeetings
-            }
-            l2 = loadedL2; meetings = loadedMeetings; app = try await appRows; projects = try await projectRows; feedbacks = try await feedbackRows
+            _ = focusMeetingID
+            l2 = loadedL2; meetings = loadedMeetings; app = (try await appRows).filter(\.isActionable); projects = try await projectRows; feedbacks = try await feedbackRows
             do {
                 let response = try await AMDOSRESTClient.shared.fetchPWA(AMDOSParityActionItemsEnvelope.self, path: "/api/action-items")
                 actionItems = response.items ?? []
@@ -11141,9 +11156,9 @@ private final class AMDOSParityDashboardStore: ObservableObject {
         // 内容と完了操作は /proactive に集約し、通常メンバーへは枠ごと出さない。
         if isAdmin {
             await loadOptional("Proactive TODO") {
-                async let open = AMDOSRESTClient.shared.countTable(table: "proactive_todos", filters: ["status": "eq.open"])
-                async let overdue = AMDOSRESTClient.shared.countTable(table: "proactive_todos", filters: ["status": "eq.open", "due_at": "lt.\(ISO8601DateFormatter().string(from: Date()))"])
-                async let red = AMDOSRESTClient.shared.countTable(table: "proactive_todos", filters: ["status": "eq.open", "priority": "eq.red"])
+                async let open = AMDOSRESTClient.shared.countTable(table: "proactive_todos", filters: ["status": "eq.open", "attention_state": "eq.approved", "attention_type": "in.(decision,masa_action)"])
+                async let overdue = AMDOSRESTClient.shared.countTable(table: "proactive_todos", filters: ["status": "eq.open", "attention_state": "eq.approved", "attention_type": "in.(decision,masa_action)", "due_basis": "eq.explicit", "due_at": "lt.\(ISO8601DateFormatter().string(from: Date()))"])
+                async let red = AMDOSRESTClient.shared.countTable(table: "proactive_todos", filters: ["status": "eq.open", "attention_state": "eq.approved", "attention_type": "in.(decision,masa_action)", "due_basis": "eq.explicit", "priority": "eq.red"])
                 proactive = AMDOSParityDashboardProactiveCounts(
                     open: try await open,
                     overdue: try await overdue,

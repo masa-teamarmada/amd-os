@@ -4564,6 +4564,7 @@ private struct AMDOSParityProactiveTodo: Decodable, Sendable, Identifiable {
     let detail: String?
     let ballOwner: String
     let dueAt: String
+    let dueBasis: String
     let priority: String
     let status: String
     let resolvedNote: String?
@@ -4572,7 +4573,7 @@ private struct AMDOSParityProactiveTodo: Decodable, Sendable, Identifiable {
     let updatedAt: String
     enum CodingKeys: String, CodingKey {
         case id, projectID = "project_id", triggerKind = "trigger_kind", sourceMeetingID = "source_meeting_id", sourceEventID = "source_event_id"
-        case title, detail, ballOwner = "ball_owner", dueAt = "due_at", priority, status, resolvedNote = "resolved_note", resolvedBy = "resolved_by"
+        case title, detail, ballOwner = "ball_owner", dueAt = "due_at", dueBasis = "due_basis", priority, status, resolvedNote = "resolved_note", resolvedBy = "resolved_by"
         case createdAt = "created_at", updatedAt = "updated_at"
     }
 }
@@ -4604,11 +4605,17 @@ private final class AMDOSProactiveParityStore: ObservableObject {
         state = .loading
         message = nil
         do {
+            var filters = ["status": "eq.\(tab)"]
+            if tab == "open" || tab == "blocked" {
+                filters["attention_state"] = "eq.approved"
+                filters["attention_type"] = "in.(decision,masa_action)"
+            }
+            let todoFilters = filters
             async let nextTodos = AMDOSRESTClient.shared.fetchTable(
                 AMDOSParityProactiveTodo.self,
                 table: "proactive_todos",
-                select: "id,project_id,trigger_kind,source_meeting_id,source_event_id,title,detail,ball_owner,due_at,priority,status,resolved_note,resolved_by,created_at,updated_at",
-                filters: ["status": "eq.\(tab)"], order: "priority.asc,due_at.asc", limit: 200
+                select: "id,project_id,trigger_kind,source_meeting_id,source_event_id,title,detail,ball_owner,due_at,due_basis,priority,status,resolved_note,resolved_by,created_at,updated_at",
+                filters: todoFilters, order: "priority.asc,due_at.asc", limit: 200
             )
             async let nextProjects = AMDOSRESTClient.shared.fetchTable(
                 AMDOSParityProjectName.self,
@@ -4679,12 +4686,12 @@ struct AMDOSParityProactiveView: View {
             AMDOSStateNotice(state: store.state) { Task { await store.load() } }
             if let message = store.message { Text(message).font(.caption).foregroundStyle(.red).textSelection(.enabled) }
             if store.tab == "open" {
-                let overdue = store.todos.filter { amdOSProactiveDue($0.dueAt).1 }.count
+                let overdue = store.todos.filter { $0.dueBasis == "explicit" && amdOSProactiveDue($0.dueAt).1 }.count
                 if overdue > 0 { AMDOSCard { Label("期限超過 \(overdue)件", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red) } }
             }
             ForEach(store.todos) { todo in
                 let expanded = expandedID == todo.id
-                let due = amdOSProactiveDue(todo.dueAt)
+                let due = todo.dueBasis == "explicit" ? amdOSProactiveDue(todo.dueAt) : ("期限未確定", false)
                 AMDOSCard {
                     VStack(alignment: .leading, spacing: 10) {
                         Button { expandedID = expanded ? nil : todo.id } label: {
@@ -4704,10 +4711,10 @@ struct AMDOSParityProactiveView: View {
                         if expanded {
                             if let detail = todo.detail?.trimmedNonEmpty { Text(detail).font(.caption).textSelection(.enabled) }
                             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 5) {
-                                GridRow { Text("期限").foregroundStyle(AMDOSDesign.muted); Text(amdOSManagementDate(todo.dueAt)) }
+                                GridRow { Text("期限").foregroundStyle(AMDOSDesign.muted); Text(todo.dueBasis == "explicit" ? amdOSManagementDate(todo.dueAt) : "素材に明示期限なし") }
                                 GridRow { Text("検知").foregroundStyle(AMDOSDesign.muted); Text(amdOSProactiveTrigger(todo.triggerKind)) }
                                 GridRow { Text("ボール").foregroundStyle(AMDOSDesign.muted); Text(amdOSProactiveBall(todo.ballOwner)) }
-                                GridRow { Text("優先度").foregroundStyle(AMDOSDesign.muted); Text(todo.priority == "red" ? "🔴 red" : "通常") }
+                                GridRow { Text("優先度").foregroundStyle(AMDOSDesign.muted); Text(todo.dueBasis == "explicit" && todo.priority == "red" ? "🔴 red" : "通常") }
                                 GridRow { Text("作成 / 更新").foregroundStyle(AMDOSDesign.muted); Text("\(amdOSManagementDate(todo.createdAt)) / \(amdOSManagementDate(todo.updatedAt))") }
                                 if let meeting = todo.sourceMeetingID { GridRow { Text("元MTG").foregroundStyle(AMDOSDesign.muted); Text(meeting) } }
                                 if let event = todo.sourceEventID { GridRow { Text("元予定MTG").foregroundStyle(AMDOSDesign.muted); Text(event) } }

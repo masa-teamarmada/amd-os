@@ -464,7 +464,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 必須機能:
 
-- 先手 TODO バッジ: dashboard 上段に `ProactiveTodoBadge` を出し、`proactive_todos.status='open'` の件数 / 期限超過件数 / red件数を 1 行で見せて `/proactive` フルページへ送る。バッジは admin (= `members.is_admin=true`) のみ表示で、非 admin は枠ごと消す。詳細仕様: [`pwa/spec/2-4-proactive-todo-current-spec.md`](../spec/2-4-proactive-todo-current-spec.md)。**旧 `ProactiveQueuePanel` 経由の `proactive_outbox` 表示 (= 5段ループ盤面の実行段) は 2026-06-27 廃止**。司令塔セッション運用の消滅と完了UI不在が理由 (詳細: spec 2-4 末尾)。dashboard 上段 (= 旧 `LoopKernelBoard` / 旧 `ProactiveQueuePanel`) からは両方とも除去済み。
+- 先手 TODO バッジ: dashboard 上段に `ProactiveTodoBadge` を出し、`proactive_todos.status='open' AND attention_state='approved' AND attention_type IN ('decision','masa_action')` の件数だけを `/proactive` へ送る。期限超過 / red件数は `due_basis='explicit'` に限定し、collectorの仮期限を緊急扱いしない。バッジは admin (= `members.is_admin=true`) のみ表示で、非 admin は枠ごと消す。詳細仕様: [`pwa/spec/2-4-proactive-todo-current-spec.md`](../spec/2-4-proactive-todo-current-spec.md)。**旧 `ProactiveQueuePanel` 経由の `proactive_outbox` 表示 (= 5段ループ盤面の実行段) は 2026-06-27 廃止**。司令塔セッション運用の消滅と完了UI不在が理由 (詳細: spec 2-4 末尾)。dashboard 上段 (= 旧 `LoopKernelBoard` / 旧 `ProactiveQueuePanel`) からは両方とも除去済み。
 - 研究ポートフォリオ優先キュー (`PortfolioPulse`、`ProactiveTodoBadge` 直下): 研究機関・シーズ・PJ運用の統計strip + 3パネルキューを表示する。パネル順は研究機関 (PJ化検討中) → シーズ (検討中・SPS評価済み) → PJ運用 (稼働中) の順で、PJを初期画面の主役に戻さない。研究機関・シーズの全件は出さず、上位候補だけを表示する (全件正本は `/institutions` `/seeds`)。データは client component から [`/api/dashboard/portfolio-pulse`](../src/app/api/dashboard/portfolio-pulse/route.ts) を叩いて取得し、`fetchErsBundle` / `fetchAllResearchInstitutionSeeds` の default browser client 直叩きは禁止 (**migration 213 の RLS closure で anon/default client がシーズ0件を返す既知障害があるため**、server-side の `createAdminClient()` 経由に一本化)。API route は `requireMember()` の認証に加えて `getCurrentMemberAccess()` が `portfolio` scope の場合だけ通し、project scope の外部PJメンバーへ横断母集団を返さない。service client はこのscope gateの後にだけ生成する。ECR系 (`fetchErsBundle`) とシーズ系 (`fetchAllResearchInstitutionSeeds`) は `Promise.allSettled` で障害分離する — 片方が失敗してももう片方は返し、失敗した側だけ `PortfolioPulse` 側のパネルに「読み込めなかった」inline通知を出す (0件と偽らない)。ECRとSPSは合算しない。並び順ロジックは [`src/lib/portfolio-pulse.ts`](../src/lib/portfolio-pulse.ts) の `buildPortfolioPulseModel` (旧 `/portfolio-preview` の `buildPreviewModel` を移設)。
 - PJ運用アンカー (`#pj-operations`): `PortfolioPulse` の「PJ運用を開く」、GlobalNav の「PJ運用」navはどちらも `/dashboard#pj-operations` へ実接続する (表示だけの偽ボタン禁止)。アンカー先は既存のPJ一覧 (下記) そのもの。
 - PJ一覧: `#pj-operations` アンカー配下に Active / Sales-Draft / Ended-Frozen の横長 stripe 一覧を維持する。AMD全体 (`p00`) だけを除き、`institution_projects` に入る研究機関型PJも含むPJ台帳の全行を表示する。すべての行は内部用 `/project/[projectId]/cockpit` を開き、共有workspaceへ直接送らない。
@@ -481,6 +481,19 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - `npm run test:portfolio-home-contract` (旧 `test:portfolio-preview-contract`) が redirect化・GlobalNav統合・API route の認証/portfolio scope gate/障害分離・ECR/SPS分離・パネル順・右MyPage幅・borders-onlyを検査する。
 - `npm run test:critical-ui` の既存 `expectNotIncludes("src/app/(app)/dashboard/page.tsx", ["fetchErsBundle", ...])` guard は維持 (= `/dashboard/page.tsx` 自体は institutions/seeds fetch を直接持たず、`PortfolioPulse` 経由に閉じる)。
+
+## /notifications と /proactive — まさの注意面
+
+目的: 自動抽出の保管庫ではなく、まさの判断または本人にしかできない具体行動だけを、理由・操作・効果つきで出す。
+
+必須契約:
+
+- collectorは候補を `attention_state='pending'` で保存し、Codex automationが意味審査した行だけを表示可能にする。provider APIや従量課金tokenを使わず、DB更新はallowlist済み非LLM applierだけが行う。
+- `/proactive` の未対応・ブロック中とdashboard badgeは、`approved` の `decision` / `masa_action` だけを読む。MTG prep、チーム作業、相手ボール、保存完了、待ち、復旧作業、根拠不足は混ぜない。
+- `/notifications`、GlobalNav未読数、Realtime popup、iOS/macOS通知は、`l2_notifications` の `approved AND requires_masa_decision=true` と、Codex審査済みかつまさ本人の完全なaction contractを持つ `app_notifications` だけを対象にする。直接の再認証URLがある `connector_auth` だけは復旧を遅らせない例外。
+- `meeting_notifications` は会議記録として保持し、注意面・未読数・OS通知には出さない。会議準備はCodex task内で行い、OSへ重複TODOを作らない。
+- `due_basis='explicit'` の期限だけを期限超過・redへ使う。synthetic / unknown は「期限未確定」と表示する。
+- 正本: [`pwa/design/attention_review.md`](attention_review.md)。回帰検査: `npm run test:attention-review`。
 
 ## /tasks (deprecated)
 

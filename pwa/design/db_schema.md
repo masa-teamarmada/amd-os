@@ -310,6 +310,19 @@ PRIMARY KEY: `id`
 | 12 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 | 13 | `related_seed_id` | `uuid` | NULL | `` |
 | 14 | `native_notified_at` | `timestamptz` | NULL | `` |
+| 15 | `attention_state` | `text` | NOT NULL | `'pending'::text` |
+| 16 | `attention_type` | `text` | NULL | `` |
+| 17 | `attention_owner` | `text` | NOT NULL | `'none'::text` |
+| 18 | `requires_masa_decision` | `bool` | NOT NULL | `false` |
+| 19 | `attention_reason` | `text` | NULL | `` |
+| 20 | `attention_action` | `text` | NULL | `` |
+| 21 | `attention_effect` | `text` | NULL | `` |
+| 22 | `attention_confidence` | `numeric` | NULL | `` |
+| 23 | `attention_source_hash` | `text` | NULL | `` |
+| 24 | `attention_reviewed_at` | `timestamptz` | NULL | `` |
+| 25 | `attention_reviewed_by` | `text` | NULL | `` |
+
+直接の再認証URLがある `connector_auth` を除き、通知面へ出すにはCodex審査の `attention_state='approved'` と、まさ本人の完全なaction contractの両方が必要。writerがaction contractを宣言しただけでは通知しない。
 
 ## atlas_decisions
 
@@ -1976,6 +1989,19 @@ UNIQUE: `(l2_kind,target_id,scope_key)` (constraint: `l2n_unique`)
 | 12 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 | 13 | `metadata_json` | `jsonb` | NOT NULL | `'{}'::jsonb` |
 | 14 | `read_at` | `timestamptz` | NULL | `` |
+| 15 | `attention_state` | `text` | NOT NULL | `'pending'::text` |
+| 16 | `attention_type` | `text` | NULL | `` |
+| 17 | `attention_owner` | `text` | NOT NULL | `'none'::text` |
+| 18 | `requires_masa_decision` | `bool` | NOT NULL | `false` |
+| 19 | `attention_reason` | `text` | NULL | `` |
+| 20 | `attention_action` | `text` | NULL | `` |
+| 21 | `attention_effect` | `text` | NULL | `` |
+| 22 | `attention_confidence` | `numeric` | NULL | `` |
+| 23 | `attention_source_hash` | `text` | NULL | `` |
+| 24 | `attention_reviewed_at` | `timestamptz` | NULL | `` |
+| 25 | `attention_reviewed_by` | `text` | NULL | `` |
+
+`attention_state` はCodex意味審査の状態。通知・未読数・判断キューは `approved` かつ `requires_masa_decision=true` だけを対象にする。素材列が変わるとDB triggerが審査結果を `pending` へ戻す。
 
 ## lane_suggestions
 
@@ -3168,6 +3194,20 @@ PRIMARY KEY: `id`
 | 14 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 15 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 | 16 | `resolved_at` | `timestamptz` | NULL | `` |
+| 17 | `due_basis` | `text` | NOT NULL | `'unknown'::text` |
+| 18 | `attention_state` | `text` | NOT NULL | `'pending'::text` |
+| 19 | `attention_type` | `text` | NULL | `` |
+| 20 | `attention_owner` | `text` | NOT NULL | `'none'::text` |
+| 21 | `requires_masa_decision` | `bool` | NOT NULL | `false` |
+| 22 | `attention_reason` | `text` | NULL | `` |
+| 23 | `attention_action` | `text` | NULL | `` |
+| 24 | `attention_effect` | `text` | NULL | `` |
+| 25 | `attention_confidence` | `numeric` | NULL | `` |
+| 26 | `attention_source_hash` | `text` | NULL | `` |
+| 27 | `attention_reviewed_at` | `timestamptz` | NULL | `` |
+| 28 | `attention_reviewed_by` | `text` | NULL | `` |
+
+未対応面に出すのは `attention_state='approved'` かつ `attention_type IN ('decision','masa_action')` だけ。`due_basis='explicit'` の期限だけを期限超過・red判定へ使い、`synthetic` / `unknown` は仮置き日として赤表示しない。素材列が変わるとDB triggerが審査結果を `pending` へ戻す。
 
 ## progress_estimate_state
 

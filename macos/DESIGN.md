@@ -54,7 +54,7 @@ admin権限がある場合だけ「管理ホーム」「PJ台帳」「請求書�
 - ログイン画面は白背景に透過AMDロゴmarkを主役として置き、名称・説明・Google認証の順序を保つ。仮の記号、ロゴ入り背景、別形状のシステム画像は使わない。
 - 今日の画面は「今日やる判断」「プロジェクト」「お知らせ」を主役にし、内部の進捗ラベルやデータ構造を表示しない。
 - プロジェクトは一覧から選択して詳細を開く。Macの横幅を活かし、ツールバー更新、キーボードフォーカス、Enter/Spaceでの選択を保つ。
-- お知らせはPWAと同じ `app_notifications`、`l2_notifications`、`meeting_notifications` をRLSで読み、既読・未読・削除だけは同じRLS更新に限定する。候補の反映・却下・コメントは `/api/notifications/feedback`、要対応の完了は `/api/action-items` に委譲する。
+- お知らせはPWAと同じ注意ゲートを使う。`app_notifications` はCodex審査済みかつまさ本人の完全なaction contract（直接の再認証URLがある`connector_auth`だけ例外）、`l2_notifications` は `attention_state='approved' AND requires_masa_decision=true` だけを読む。`meeting_notifications` は会議記録として保持し、通知・未読数・判断キューへ混ぜない。既読・未読・削除だけは同じRLS更新に限定し、候補の反映・却下・コメントは `/api/notifications/feedback`、要対応の完了は `/api/action-items` に委譲する。
 - 名刺はファイル選択、ドラッグ&ドロップ、クリップボード貼付を主導線とし、OCR候補は人が確認してから既存の認可済みAPIへ渡す。非公開の画像・個人情報をPJ知識へ自動複製しない。
 - 月初の確認は担当内容・予定額・合意履歴を確認する入口とし、管理上の安全な書込みは既存の認可済み経路へ委譲する。
 - 管理領域はadmin権限のときだけ表示し、権限のないユーザーへ内部の拒否理由やデータ境界を見せない。

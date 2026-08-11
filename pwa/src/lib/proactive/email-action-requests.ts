@@ -430,6 +430,7 @@ export async function sweepEmailActionRequests(db: AdminDb): Promise<EmailAction
           detail: detailText,
           ball_owner: "amd",
           due_at: dueAt,
+          due_basis: "explicit",
           priority: isPastIso(dueAt) ? "red" : "normal",
         },
         { onConflict: "project_id,trigger_kind,source_meeting_id,source_event_id,title", ignoreDuplicates: false },

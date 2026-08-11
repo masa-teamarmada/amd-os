@@ -167,6 +167,9 @@ struct L2Notification: Codable, Identifiable, Sendable {
     let savedCount: Int
     let totalCount: Int
     let importance: Int
+    let attentionState: String
+    let requiresMasaDecision: Bool
+    let attentionType: String?
     let notifiedAt: Date?
     let createdAt: Date
 
@@ -182,6 +185,9 @@ struct L2Notification: Codable, Identifiable, Sendable {
         case savedCount = "saved_count"
         case totalCount = "total_count"
         case importance
+        case attentionState = "attention_state"
+        case requiresMasaDecision = "requires_masa_decision"
+        case attentionType = "attention_type"
         case notifiedAt = "notified_at"
         case createdAt = "created_at"
     }
@@ -438,14 +444,12 @@ final class NotificationService: ObservableObject {
         if !granted { return }
 
         async let l2Count = pollL2Notifications()
-        async let mtgCount = pollMeetingNotifications()
         async let connectorAuthCount = pollConnectorAuthNotifications()
 
         let l2 = (try? await l2Count) ?? 0
-        let mtg = (try? await mtgCount) ?? 0
         let connectorAuth = (try? await connectorAuthCount) ?? 0
         lastFetchedAt = Date()
-        lastShownCount = l2 + mtg + connectorAuth
+        lastShownCount = l2 + connectorAuth
     }
 
     func handleNotificationTap(userInfo: [AnyHashable: Any]) {
@@ -497,6 +501,8 @@ final class NotificationService: ObservableObject {
             let rows: [L2Notification] = try await client
                 .from("l2_notifications")
                 .select()
+                .eq("attention_state", value: "approved")
+                .eq("requires_masa_decision", value: true)
                 .is("notified_at", value: nil)
                 .order("created_at", ascending: false)
                 .limit(50)
@@ -616,11 +622,12 @@ final class NotificationService: ObservableObject {
                 .execute()
                 .value
 
-            for row in rows {
+            let actionableRows = rows.filter { $0.reauthURL != nil }
+            for row in actionableRows {
                 await showConnectorAuthLocalNotification(row)
                 try? await markConnectorAuthNativeNotified(id: row.id)
             }
-            return rows.count
+            return actionableRows.count
         } catch {
             lastError = "connector_auth fetch failed: \(error.localizedDescription)"
             throw error

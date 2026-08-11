@@ -3710,25 +3710,6 @@ extension SupabaseService {
                 case createdAt = "created_at"
             }
         }
-        struct MeetingRow: Decodable {
-            let meetingId: String
-            let projectId: String
-            let title: String
-            let sourceKinds: String
-            let summaryShort: String
-            let notifiedAt: String?
-            let createdAt: String
-
-            enum CodingKeys: String, CodingKey {
-                case meetingId = "meeting_id"
-                case projectId = "project_id"
-                case title
-                case sourceKinds = "source_kinds"
-                case summaryShort = "summary_short"
-                case notifiedAt = "notified_at"
-                case createdAt = "created_at"
-            }
-        }
         struct ProjectLite: Decodable {
             let projectId: String
             let projectName: String
@@ -3769,13 +3750,8 @@ extension SupabaseService {
         async let l2Task: [L2Row] = client.database
             .from("l2_notifications")
             .select("notification_id, l2_kind, target_id, scope_key, title, summary, saved_count, total_count, importance, metadata_json, notified_at, created_at")
-            .order("created_at", ascending: false)
-            .limit(limit)
-            .execute()
-            .value
-        async let meetingTask: [MeetingRow] = client.database
-            .from("meeting_notifications")
-            .select("meeting_id, project_id, title, source_kinds, summary_short, notified_at, created_at")
+            .eq("attention_state", value: "approved")
+            .eq("requires_masa_decision", value: true)
             .order("created_at", ascending: false)
             .limit(limit)
             .execute()
@@ -3802,7 +3778,13 @@ extension SupabaseService {
             .execute()
             .value
 
-        let (l2Rows, meetingRows, connectorAuthRows, feedbacks, projects) = try await (l2Task, meetingTask, connectorAuthTask, feedbackTask, projectTask)
+        let (l2Rows, connectorAuthRowsRaw, feedbacks, projects) = try await (l2Task, connectorAuthTask, feedbackTask, projectTask)
+        let connectorAuthRows = connectorAuthRowsRaw.filter {
+            $0.stringMeta("reauth_url") != nil
+                || $0.stringMeta("reauth_install_url") != nil
+                || $0.stringMeta("reauth_app_url") != nil
+                || ($0.link?.isEmpty == false)
+        }
         var items: [NotificationInboxItem] = []
         items += l2Rows.map {
             NotificationInboxItem(
@@ -3822,29 +3804,6 @@ extension SupabaseService {
                 notifiedAt: $0.notifiedAt,
                 createdAt: $0.createdAt,
                 metadata: $0.metadataJson,
-                reauthUrl: nil,
-                connector: nil,
-                reason: nil
-            )
-        }
-        items += meetingRows.map {
-            NotificationInboxItem(
-                id: "meeting-\($0.meetingId)",
-                kind: "meeting",
-                notificationId: nil,
-                meetingId: $0.meetingId,
-                l2Kind: "meeting_summary",
-                targetId: $0.projectId,
-                projectId: $0.projectId,
-                scopeKey: $0.meetingId,
-                title: "議事録: \($0.title)",
-                body: $0.summaryShort,
-                countText: nil,
-                importance: 1,
-                sourceKinds: $0.sourceKinds,
-                notifiedAt: $0.notifiedAt,
-                createdAt: $0.createdAt,
-                metadata: nil,
                 reauthUrl: nil,
                 connector: nil,
                 reason: nil

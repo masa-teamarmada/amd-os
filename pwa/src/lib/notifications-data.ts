@@ -26,6 +26,8 @@ export interface AppNotification {
   related_vc_id: string | null;
   source: string;
   native_notified_at: string | null;
+  attention_state: string | null;
+  attention_type: string | null;
   read_at: string | null;
   dismissed_at: string | null;
   created_at: string;
@@ -81,13 +83,18 @@ export async function markNotificationRead(id: string): Promise<{ ok: boolean; e
   return { ok: true };
 }
 
-export async function markAllNotificationsRead(): Promise<{ ok: boolean; error?: string }> {
+export async function markAllNotificationsRead(ids?: string[]): Promise<{ ok: boolean; error?: string }> {
   const c = getAuthClient();
-  const { error } = await c
+  let query = c
     .from("app_notifications")
     .update({ read_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .is("read_at", null)
     .is("dismissed_at", null);
+  if (ids) {
+    if (ids.length === 0) return { ok: true };
+    query = query.in("id", ids);
+  }
+  const { error } = await query;
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }

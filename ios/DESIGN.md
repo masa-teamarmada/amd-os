@@ -94,7 +94,7 @@ Admin はタブではなく、`members.is_admin=true` の時だけ右下フロ�
   - `判断`: 未回答アイテムを1件ずつカードで判断させるキュー。件数分母・表示対象は「このセッションで“あとで”にしていないアイテム」のみ（あとでにした分は分母・表示から外れる。ただし総未回答件数は「あとで中」画面で別掲）
   - `未読`: 未読の通知一覧（開閉式カード）
   - `履歴`: 既読 or 回答済みの通知一覧。connector auth は既読後もここに残り、再認証を開き直せる
-- `l2_notifications` と `meeting_notifications` を作成日時降順で統合表示
+- `l2_notifications` は `attention_state='approved' AND requires_masa_decision=true` の採否判断だけを表示・ローカル通知する。`meeting_notifications` はcockpitの会議記録に残し、通知ボックス・未読数・ローカル通知へ混ぜない
 
 判断カード（1件ずつ表示、`NotificationJudgmentCard`）:
 - 「OSの見立て」= 通知タイトル・本文

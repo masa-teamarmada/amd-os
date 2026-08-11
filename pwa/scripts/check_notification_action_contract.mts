@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   appNotificationPriority,
   hasCompleteActionContract,
+  isActionableAppNotification,
   parseActionContract,
 } from "../src/lib/notification-priority.ts";
 
@@ -28,6 +29,8 @@ assert.equal(
   appNotificationPriority({
     kind: "h1_report",
     title: "会議確認: 処理が止まった",
+    attention_state: "approved",
+    attention_type: "masa_action",
     meta: { notification_channel: "critical", action_contract: fullActionContract },
   }),
   "critical",
@@ -47,6 +50,17 @@ assert.equal(
 
 assert.equal(hasCompleteActionContract({ action_contract: fullActionContract }), true);
 assert.equal(hasCompleteActionContract({ action_contract: { ...fullActionContract, action_owner: "none" } }), false);
+assert.equal(hasCompleteActionContract({ action_contract: { ...fullActionContract, action_owner: "team" } }), false);
+assert.equal(
+  isActionableAppNotification({ kind: "vc_new", meta: { action_contract: fullActionContract } }),
+  false,
+  "本人contractだけでは通知せずCodex審査を必須にする",
+);
+assert.equal(
+  isActionableAppNotification({ kind: "vc_new", attention_state: "approved", attention_type: "decision", meta: { action_contract: fullActionContract } }),
+  true,
+  "Codex審査済みの本人判断だけ通知する",
+);
 
 const compatibilityContract = parseActionContract({ notification_contract: fullActionContract });
 assert.equal(compatibilityContract?.actionUrl, "/project/p01/cockpit");

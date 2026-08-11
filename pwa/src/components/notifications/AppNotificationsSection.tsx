@@ -13,6 +13,7 @@ import {
 } from "@/lib/notifications-data";
 import {
   appNotificationPriority,
+  isActionableAppNotification,
   notificationPriorityLabel,
   parseActionContract,
   type ActionContract,
@@ -32,7 +33,7 @@ export function AppNotificationsSection() {
   const reload = async () => {
     setLoading(true);
     const list = await fetchNotifications({ limit: 200, includeRead: filter !== "unread" });
-    setItems(list);
+    setItems(list.filter(isActionableAppNotification));
     setLoading(false);
   };
 
@@ -55,7 +56,7 @@ export function AppNotificationsSection() {
       <div className="flex items-baseline gap-3 mb-3 flex-wrap">
         <h2 className="text-sm font-semibold">OS通知</h2>
         <span className="text-xs text-muted-foreground">
-          (task agent / cron / つくよみ から)
+          (まさの具体行動があるものだけ)
         </span>
         <div className="ml-auto flex items-center gap-2 text-xs">
           {(["unread", "read", "all"] as const).map((k) => (
@@ -75,7 +76,7 @@ export function AppNotificationsSection() {
             <button
               onClick={async () => {
                 if (!confirm("全部既読にする?")) return;
-                const res = await markAllNotificationsRead();
+                const res = await markAllNotificationsRead(visible.map((item) => item.id));
                 if (!res.ok) alert(res.error);
                 else reload();
               }}
@@ -92,7 +93,7 @@ export function AppNotificationsSection() {
         <div className="text-center text-muted-foreground py-6 text-xs">読み込み中…</div>
       ) : visible.length === 0 ? (
         <div className="text-center text-muted-foreground py-6 text-xs">
-          {filter === "unread" ? "未読の通知なし。" : "通知なし。"}次の cron は毎週土曜 09:00 JST。
+          {filter === "unread" ? "いま対応が必要な未読通知はないよ。" : "対応対象の通知はないよ。"}
         </div>
       ) : (
         <div className="space-y-4">

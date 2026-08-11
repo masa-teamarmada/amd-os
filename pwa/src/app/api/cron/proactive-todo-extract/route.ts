@@ -245,7 +245,8 @@ export async function GET(req: NextRequest) {
           detail: text,
           ball_owner: ballOwner,
           due_at: dueAt,
-          priority: isPastIso(dueAt) ? "red" : "normal",
+          due_basis: dueResolution.source === "fallback_meeting_date_plus_days" ? "synthetic" : "explicit",
+          priority: dueResolution.source !== "fallback_meeting_date_plus_days" && isPastIso(dueAt) ? "red" : "normal",
         },
         { onConflict: "project_id,trigger_kind,source_meeting_id,source_event_id,title", ignoreDuplicates: false },
       );
@@ -294,6 +295,7 @@ export async function GET(req: NextRequest) {
     .select("id")
     .eq("status", "open")
     .eq("priority", "normal")
+    .eq("due_basis", "explicit")
     .lt("due_at", new Date().toISOString());
   let escalated = 0;
   for (const r of openOverdue ?? []) {
@@ -310,12 +312,12 @@ export async function GET(req: NextRequest) {
   const resurfaceThreshold = new Date(Date.now() - BLOCKED_RESURFACE_DAYS * 86400_000).toISOString();
   const { data: blockedToResurface } = await db
     .from("proactive_todos")
-    .select("id, due_at")
+    .select("id, due_at, due_basis")
     .eq("status", "blocked")
     .lt("updated_at", resurfaceThreshold);
   let resurfaced = 0;
   for (const r of blockedToResurface ?? []) {
-    const overdue = isPastIso(String(r.due_at));
+    const overdue = r.due_basis === "explicit" && isPastIso(String(r.due_at));
     const { error } = await db
       .from("proactive_todos")
       .update({ status: "open", priority: overdue ? "red" : "normal" })

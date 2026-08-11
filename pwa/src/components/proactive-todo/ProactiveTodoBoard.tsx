@@ -28,7 +28,12 @@ type TodoRow = {
   detail: string | null;
   ball_owner: BallOwner;
   due_at: string;
+  due_basis: "explicit" | "synthetic" | "unknown";
   priority: "red" | "normal";
+  attention_type: "decision" | "masa_action" | string | null;
+  attention_reason: string | null;
+  attention_action: string | null;
+  attention_effect: string | null;
   status: Status;
   resolved_note: string | null;
   resolved_by: string | null;
@@ -43,7 +48,10 @@ const STATUS_TABS: { key: Status; label: string }[] = [
   { key: "dismissed", label: "関係ない" },
 ];
 
-function formatDueChip(dueAt: string): { label: string; tone: string; overdue: boolean } {
+function formatDueChip(dueAt: string, dueBasis: TodoRow["due_basis"]): { label: string; tone: string; overdue: boolean } {
+  if (dueBasis !== "explicit") {
+    return { label: "期限未確定", tone: "bg-muted text-muted-foreground border-border", overdue: false };
+  }
   const ms = new Date(dueAt).getTime() - Date.now();
   const h = Math.round(ms / 3600_000);
   if (ms < 0) {
@@ -119,11 +127,17 @@ export function ProactiveTodoBoard() {
   const load = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
+    let todosQuery = supabase
+      .from("proactive_todos")
+      .select("*")
+      .eq("status", tab);
+    if (tab === "open" || tab === "blocked") {
+      todosQuery = todosQuery
+        .eq("attention_state", "approved")
+        .in("attention_type", ["decision", "masa_action"]);
+    }
     const [todosRes, projectsRes] = await Promise.all([
-      supabase
-        .from("proactive_todos")
-        .select("*")
-        .eq("status", tab)
+      todosQuery
         .order("priority", { ascending: true })
         .order("due_at", { ascending: true })
         .limit(200),
@@ -183,7 +197,7 @@ export function ProactiveTodoBoard() {
   }, [rows]);
 
   const overdueCount = useMemo(
-    () => rows.filter((r) => r.status === "open" && new Date(r.due_at).getTime() < Date.now()).length,
+    () => rows.filter((r) => r.status === "open" && r.due_basis === "explicit" && new Date(r.due_at).getTime() < Date.now()).length,
     [rows],
   );
 
@@ -297,13 +311,13 @@ export function ProactiveTodoBoard() {
       ) : rows.length === 0 ? (
         <div className="rounded-md border border-dashed border-border bg-muted/10 px-4 py-8 text-center text-xs text-muted-foreground">
           {tab === "open"
-            ? "未対応の先手 TODO は無いよ。MTG後の next_action か、3営業日以内の予定MTGがあれば自動で積まれる。"
+            ? "いま、まさが判断・対応する先手 TODO はないよ。候補はCodex審査を通るまでここには出ない。"
             : `この状態 (${STATUS_TABS.find((t) => t.key === tab)?.label}) の TODO は無いよ。`}
         </div>
       ) : (
         <ul className="space-y-2">
           {rows.map((row) => {
-            const due = formatDueChip(row.due_at);
+            const due = formatDueChip(row.due_at, row.due_basis);
             const projectName = projects[row.project_id] || row.project_id;
             const expanded = expandedId === row.id;
             const busy = busyId === row.id;
@@ -322,7 +336,7 @@ export function ProactiveTodoBoard() {
                 id={`proactive-todo-${row.id}`}
                 data-proactive-todo-row="true"
                 className={`rounded-md border bg-card ${
-                  row.priority === "red" || due.overdue ? "border-red-200" : "border-border"
+                  (row.due_basis === "explicit" && row.priority === "red") || due.overdue ? "border-red-200" : "border-border"
                 }`}
               >
                 <div
@@ -367,11 +381,20 @@ export function ProactiveTodoBoard() {
                       </div>
                     ) : null}
 
+                    <div className="rounded border border-primary/20 bg-primary/5 px-3 py-2 text-xs leading-relaxed">
+                      <div className="font-semibold text-foreground">
+                        {row.attention_type === "decision" ? "まさの採否判断" : "まさの具体行動"}
+                      </div>
+                      {row.attention_reason ? <div className="mt-1 text-muted-foreground">理由: {row.attention_reason}</div> : null}
+                      {row.attention_action ? <div className="mt-1">やること: {row.attention_action}</div> : null}
+                      {row.attention_effect ? <div className="mt-1">決めると起きること: {row.attention_effect}</div> : null}
+                    </div>
+
                     <div className="grid grid-cols-2 gap-2 text-[11px]">
-                      <Meta label="期限" value={formatJst(row.due_at)} />
+                      <Meta label="期限" value={row.due_basis === "explicit" ? formatJst(row.due_at) : "素材に明示期限なし"} />
                       <Meta label="検知" value={TRIGGER_LABEL[row.trigger_kind] ?? row.trigger_kind} />
                       <Meta label="ボール" value={BALL_LABEL[row.ball_owner]} />
-                      <Meta label="優先度" value={row.priority === "red" ? "🔴 red" : "通常"} />
+                      <Meta label="優先度" value={row.due_basis === "explicit" && row.priority === "red" ? "🔴 red" : "通常"} />
                       <Meta label="作成" value={formatJst(row.created_at)} />
                       <Meta label="更新" value={formatJst(row.updated_at)} />
                       {row.source_meeting_id ? (

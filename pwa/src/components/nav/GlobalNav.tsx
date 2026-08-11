@@ -37,6 +37,7 @@ import {
 import { fetchVcInboxCount } from "@/lib/vc-data";
 import { fetchSeedInboxCount } from "@/lib/seeds-data";
 import { BUILD_VERSION } from "@/lib/build-info";
+import { isActionableAppNotification } from "@/lib/notification-priority";
 
 interface GlobalNavProps {
   userCodeName?: string;
@@ -124,23 +125,22 @@ export function GlobalNav({
         import("@/lib/supabase/client")
           .then(async ({ createClient }) => {
             const supabase = createClient();
-            const [l2Res, mtgRes, appRes] = await Promise.all([
+            const [l2Res, appRes] = await Promise.all([
               supabase
                 .from("l2_notifications")
                 .select("notification_id", { count: "exact", head: true })
-                .is("read_at", null),
-              supabase
-                .from("meeting_notifications")
-                .select("meeting_id", { count: "exact", head: true })
+                .eq("attention_state", "approved")
+                .eq("requires_masa_decision", true)
                 .is("read_at", null),
               supabase
                 .from("app_notifications")
-                .select("id", { count: "exact", head: true })
+                .select("id,kind,title,body,source,meta,attention_state,attention_type")
                 .is("read_at", null)
-                .is("dismissed_at", null),
+                .is("dismissed_at", null)
+                .limit(200),
             ]);
             setNotificationCount(
-              (l2Res.count ?? 0) + (mtgRes.count ?? 0) + (appRes.count ?? 0),
+              (l2Res.count ?? 0) + (appRes.data ?? []).filter(isActionableAppNotification).length,
             );
           })
           .catch(() => setNotificationCount(0));

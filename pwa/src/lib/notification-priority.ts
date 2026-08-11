@@ -6,6 +6,8 @@ type AppNotificationLike = {
   body?: string | null;
   source?: string | null;
   meta?: Record<string, unknown> | null;
+  attention_state?: string | null;
+  attention_type?: string | null;
 };
 
 type L2NotificationLike = {
@@ -14,6 +16,8 @@ type L2NotificationLike = {
   summary?: string | null;
   importance?: number | null;
   metadata_json?: unknown;
+  attention_state?: string | null;
+  requires_masa_decision?: boolean | null;
 };
 
 type MeetingNotificationLike = {
@@ -53,6 +57,8 @@ export function appNotificationPriority(notification: AppNotificationLike): Noti
       : "normal";
   }
 
+  if (!isActionableAppNotification(notification)) return "normal";
+
   const flaggedCritical =
     hasExplicitCritical(notification.meta) ||
     hasOperationalCriticalToken([notification.kind, notification.source, notification.title, notification.body, metaText(notification.meta)]);
@@ -64,6 +70,9 @@ export function appNotificationPriority(notification: AppNotificationLike): Noti
 }
 
 export function l2NotificationPriority(notification: L2NotificationLike): NotificationPriority {
+  if (notification.attention_state !== "approved" || notification.requires_masa_decision !== true) {
+    return "normal";
+  }
   const meta = objectValue(notification.metadata_json);
   if (hasExplicitCritical(meta)) return "critical";
   if (hasOperationalCriticalToken([metaText(meta)])) {
@@ -111,7 +120,19 @@ export function parseActionContract(meta: Record<string, unknown> | null | undef
 export function hasCompleteActionContract(meta: Record<string, unknown> | null | undefined): boolean {
   const contract = parseActionContract(meta);
   if (!contract) return false;
-  return contract.actionOwner !== "none" && !!contract.actionRequired && !!contract.actionUrl && !!contract.completionCondition;
+  return isMasaActionOwner(contract.actionOwner) && !!contract.actionRequired && !!contract.actionUrl && !!contract.completionCondition;
+}
+
+/** OSの注意面へ出せる app notification。再認証以外はCodex審査と本人action contractの両方を必須にする。 */
+export function isActionableAppNotification(notification: AppNotificationLike): boolean {
+  if (notification.kind === "connector_auth" && hasDirectReauthUrl(notification.meta)) return true;
+  return notification.attention_state === "approved"
+    && ["decision", "masa_action"].includes(notification.attention_type ?? "")
+    && hasCompleteActionContract(notification.meta);
+}
+
+function isMasaActionOwner(value: string): boolean {
+  return ["masa", "まさ"].includes(value.trim().toLowerCase());
 }
 
 function hasExplicitCritical(meta: Record<string, unknown> | null | undefined): boolean {
