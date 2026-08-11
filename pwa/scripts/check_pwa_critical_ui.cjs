@@ -89,9 +89,8 @@ expectNotIncludes("src/app/(app)/dashboard/page.tsx", [
 ]);
 
 expectIncludes("src/app/(app)/project/[projectId]/weekly-control/page.tsx", [
-  "SxWeeklyControlDashboard",
-  "getProjectWorkspaceBundle",
-  "/weekly-control",
+  "redirect",
+  "/workspace",
 ]);
 
 expectIncludes(
@@ -342,15 +341,21 @@ expectIncludes(
   "src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx",
   [
     "resolveSharedWorkspaceAccess",
-    "ProjectWorkspaceDashboard",
-    "ExternalProjectWorkspaceDashboard",
+    "SxWeeklyControlDashboard",
     "getProjectWorkspaceBundle",
-    "getExternalProjectWorkspacePublication",
-    "getSharedProjectControlForMember",
-    "publicationViewerLens",
-    "SharedWorkspaceScopeRibbon",
+    'access.principal === "workspace_account"',
+    "notFound()",
   ],
 );
+expectNotIncludes(
+  "src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx",
+  ["SharedWorkspaceScopeRibbon"],
+);
+
+expectIncludes("src/app/(app)/project/[projectId]/weekly-control/page.tsx", [
+  "redirect",
+  "/workspace",
+]);
 
 expectIncludes("src/app/(app)/project/[projectId]/navigation/page.tsx", [
   "SxNavigationDashboard",
@@ -685,94 +690,8 @@ expectNotIncludes("src/components/dashboard/DashboardGrid.tsx", [
   "isSharedWorkspace",
   "共有ダッシュボード",
 ]);
-expectIncludes(
+expectFileMissing(
   "src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
-  [
-    "研究からSUまでの時間配分",
-    "経営判定",
-    "次の経営介入",
-    "今週決めること",
-    "週次エフォートを確定",
-    "活動データの鮮度",
-    "研究側メンバー未確認",
-    "経営台帳への接続",
-    "confidenceLabel",
-    "hypothesisStatusLabel",
-    "auditEntityLabel",
-    "lg:hidden",
-    "hidden overflow-x-auto lg:block",
-    "運用準備 未完了",
-    "effectiveJudgment",
-    "selected-management-context",
-    "aria-pressed",
-    'aria-controls="selected-management-context"',
-    "buildMilestoneLabelMap",
-    "nominalizeSxActionLabel(displayManagementText(milestone.title))",
-    "milestoneLabels",
-    "milestoneOptions = management.milestones.map((item) => ({ value: item.id, label: `${nominalizeSxActionLabel(item.title)}",
-    '決定済み" : decision.status === "deferred" ? "保留" : "意思決定待ち"} / {nominalizeSxActionLabel(decision.title)}',
-    "次アクション: {nominalizeSxActionLabel(action.title)}",
-    "{nominalizeSxActionLabel(displayManagementText(outcome.title))}",
-    "資金残存月数",
-    "名称未確認",
-    "overflow-x-clip",
-    "sourceLabel",
-    "SX側の次アクション",
-    "非表示にする",
-    "DeletedManagementSection",
-    "非表示の情報を確認",
-    "復元",
-    "CategoryBand",
-    "decisionOptions = management.decisions.map((item) => ({ value: item.id, label: nominalizeSxActionLabel(item.title)",
-    "outcomeOptions = management.outcomes.map((item) => ({ value: item.id, label: `${nominalizeSxActionLabel(item.title)}",
-    "decisionDisplayTitle = nominalizeSxActionLabel(decision.title)",
-    '<h3 className="mt-3 text-sm font-semibold leading-5 text-[#24231f]">{decisionDisplayTitle}</h3>',
-    "aria-label={`${decisionDisplayTitle}を編集`}",
-  ],
-);
-// spec (2026-07-25 統合タイムライン化): workspace内部の左レール(desktop 152px / mobile・tablet横帯)は
-// GlobalNavサイドバーとは別物。経営サマリー節=deck(判定バー+統合タイムライン+意思決定・介入)、
-// 計画詳細節=全マイルストーン詳細表+選択文脈、技術証明節=三証明+7テーマ表。旧・事業化ロードマップ
-// (SxNineMonthTimeline)は統合タイムラインへ吸収して廃止。
-expectIncludes(
-  "src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
-  [
-    "lg:grid-cols-[152px_minmax(0,1fr)]",
-    'aria-label="経営診断ナビ"',
-    '["management-proof", "技術証明"]',
-    '["management-plan", "計画詳細"]',
-    "全マイルストーン詳細表を表示",
-    "sx-effort-entry-details",
-    // Round 20: ゲート詳細はモーダル（下方向スクロールをやめる）。図と詳細表から手動で追加・編集。
-    "sx-milestone-detail-modal",
-    "MilestoneDetailModal",
-    "openMilestoneDetail",
-    "sx-plan-manual-edit",
-    "マイルストーンを追加",
-    "依存関係を追加",
-    "予測日の根拠:",
-    'kicker="論点・仮説台帳"',
-    'data-testid="sx-issue-ledger-table"',
-    'kicker="関係先管理"',
-    'title="関係先リスト"',
-  ],
-);
-expectNotIncludes(
-  "src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
-  [
-    "9か月の全体時間軸",
-    "協力機関の進捗",
-    "次の受け渡し",
-    "受け渡し先",
-    "milestoneOptions = management.milestones.map((item) => ({ value: item.id, label: `${item.title}",
-    '決定済み" : decision.status === "deferred" ? "保留" : "意思決定待ち"} / {decision.title}',
-    "次アクション: {action.title}",
-    "decisionOptions = management.decisions.map((item) => ({ value: item.id, label: item.title }))",
-    "outcomeOptions = management.outcomes.map((item) => ({ value: item.id, label: `${item.title}（",
-    '<h3 className="mt-3 text-sm font-semibold leading-5 text-[#24231f]">{decision.title}</h3>',
-    "aria-label={`${decision.title}を編集`}",
-    "SxNineMonthTimeline",
-  ],
 );
 expectIncludes("src/lib/sx-action-label.ts", [
   "nominalizeSxActionLabel",
@@ -809,23 +728,6 @@ expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "[milestone.slug, milestone.title]",
   "[milestone.id, milestone.title]",
 ]);
-{
-  const dashboard = read(
-    "src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
-  );
-  const summaryIndex = dashboard.indexOf('id="management-summary"');
-  const readinessIndex = dashboard.indexOf(
-    'aria-labelledby="readiness-heading"',
-  );
-  if (summaryIndex < 0 || readinessIndex < 0 || readinessIndex < summaryIndex) {
-    throw new Error("経営判定が運用準備チェックより前に配置されていないよ");
-  }
-  if (dashboard.includes("overflow-x-hidden")) {
-    throw new Error(
-      "workspaceのoverflow-x-hiddenがstickyナビを分断する可能性があるよ",
-    );
-  }
-}
 expectIncludes(
   "src/app/api/project-workspace/[projectId]/management/route.ts",
   [
@@ -870,50 +772,12 @@ expectIncludes("scripts/migrations/185_sx_management_semantic_guards.sql", [
   "decision_state <> 'decided'",
   "commitment_kind <> 'sx_followup'",
 ]);
-expectIncludes(
-  "src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
-  [
-    "const CREATE_RESOURCES",
-    "const defaults: Record<string, string>",
-    'field.options?.[0]?.value || ""',
-    "effectiveJudgment",
-    "managementNavItems",
-  ],
-);
 expectIncludes("scripts/audit_sx_management_visible_terms.mjs", [
   "SCRIPT",
   "rawPattern",
   "scrollWidth",
   "SX_VISIBLE_AUDIT_COOKIE_VALUE",
 ]);
-expectCountAtLeast(
-  "src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
-  "<ObjectiveKpiSection",
-  1,
-);
-expectCountAtLeast(
-  "src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
-  "<MeasurementSection",
-  1,
-);
-expectCountAtLeast(
-  "src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
-  "<DecisionLoopSection",
-  1,
-);
-expectIncludes(
-  "src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
-  [
-    "<SxProofOutcomes",
-    "<SxPartnerPipeline",
-    "sx-management-ledger",
-    "管理台帳・編集",
-    // 2026-07-24: DecisionLoopSection「関係先との約束」/ SelectedMilestoneContext「関係先・約束」
-    // は SxPartnerPipeline とは別の、関係先データの2つ目の公開ビュー。この import が落ちると
-    // 片方のビューだけ内部コードネーム(まさ/かる/ちこ)が再露出する。
-    "sxNormalizePublicName",
-  ],
-);
 expectIncludes("src/lib/sx-proof-mapping.ts", [
   "SX_PROOF_THEME_SLUGS",
   "SX_THEME_PROOF_MAP",
@@ -1200,16 +1064,6 @@ expectNotIncludes("scripts/test_project_management_rls.mjs", [
   "project_management_partner_work_items_completion_requirements_192",
   "project_management_partner_work_items_deliverable_acceptance_192",
 ]);
-expectIncludes(
-  "src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
-  [
-    "projectId={projectId}",
-    "onManagementChange={(nextManagement)",
-    "interaction: [",
-    "partner_role: [",
-    "partner_work_item: [",
-  ],
-);
 expectIncludes("src/components/project-workspace/SxExecutiveControlDeck.tsx", [
   "sx-executive-control-deck",
   "sx-intervention-queue",
@@ -1387,20 +1241,12 @@ expectIncludes("src/lib/sx-executive-control-deck.ts", [
   "仮置きの見込みは予定より最大",
   '"未確認", known: false',
 ]);
-expectIncludes(
-  "src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
-  ["SxExecutiveControlDeck", "data-sx-anchor={`sx-issue-${issue.id}`}"],
-);
 expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "data-sx-anchor={`sx-partner-${partner.id}`}",
 ]);
 expectIncludes("src/app/globals.css", [
   "@media (prefers-reduced-motion: reduce)",
 ]);
-expectNotIncludes(
-  "src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
-  ["SxReactorPanel", "SxDecisionRunway"],
-);
 expectIncludes("src/app/api/project-workspace/[projectId]/effort/route.ts", [
   "canAccessWorkspaceProject",
   'access.scope === "project" && memberId !== access.memberId',
@@ -3177,15 +3023,6 @@ expectNotIncludes("src/lib/sx-poc-candidates.ts", [
   "sxPocStageLabel",
   "SX_POC_STAGE_ORDER",
 ]);
-expectIncludes(
-  "src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
-  ['id="management-partners"', 'label="PoC候補を追加"', "SxPartnerPipeline"],
-);
-expectNotIncludes(
-  "src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
-  ["management-poc", "PoC候補先リスト", "SxPocCandidateList"],
-);
-
 // Round 28/32 (2026-08-01): PoC候補先とVCは同じ台帳の表示タブ。
 // 関係先の進行表示は固定段階でなく、保存済み接点・現在地・未完了作業・次の一手・ゴールから可変生成する。
 expectIncludes("src/lib/sx-partner-progress.ts", [

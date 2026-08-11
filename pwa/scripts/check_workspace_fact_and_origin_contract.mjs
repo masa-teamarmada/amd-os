@@ -3,13 +3,13 @@ import { readFile } from "node:fs/promises";
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
-const [originGuard, listRoute, mutateRoute, sourceRoute, externalDto, externalDashboard, hub] = await Promise.all([
+const [originGuard, listRoute, mutateRoute, sourceRoute, workspacePage, weeklyControlPage, hub] = await Promise.all([
   read("../src/lib/workspace-mutation-origin.ts"),
   read("../src/app/api/workspace-documents/route.ts"),
   read("../src/app/api/workspace-documents/[documentId]/route.ts"),
   read("../src/app/api/workspace-documents/[documentId]/source/route.ts"),
-  read("../src/lib/external-project-workspace.ts"),
-  read("../src/components/project-workspace/ExternalProjectWorkspaceDashboard.tsx"),
+  read("../src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx"),
+  read("../src/app/(app)/project/[projectId]/weekly-control/page.tsx"),
   read("../src/app/workspaces/page.tsx"),
 ]);
 
@@ -29,11 +29,10 @@ const htmlPutBlock = sourceRoute.slice(sourceRoute.indexOf("export async functio
 assert.doesNotMatch(htmlGetBlock, /isSameOriginWorkspaceMutation/, "HTML本文のreadはmutation origin guardの対象にしない");
 assert.match(htmlPutBlock, /isSameOriginWorkspaceMutation\(request\)/, "HTML本文の保存だけをsame-origin guard対象にする");
 
-assert.match(externalDto, /progressPct: number \| null/, "外部DTOは進捗未登録をnullで保持する");
-assert.match(externalDto, /progressPct: progress\?\.progress_pct \?\? null/, "進捗行なしを0へ変換しない");
-assert.doesNotMatch(externalDto, /progress\?\.progress_pct \|\| 0/, "外部進捗でmissingを0へ変換しない");
-assert.match(externalDashboard, /milestone\.progressPct == null/, "外部画面は進捗未登録を分岐表示する");
-assert.match(externalDashboard, /進捗は未登録です。/, "外部画面は未登録を明記する");
+assert.match(workspacePage, /SxWeeklyControlDashboard/, "PJ workspaceは現行週次管制を本体にする");
+assert.match(workspacePage, /access\.principal === "workspace_account"\) notFound\(\)/, "未完成の外部代替画面はfail closedにする");
+assert.doesNotMatch(workspacePage, /SharedProjectControlDeck|ExternalProjectWorkspaceDashboard|SharedWorkspaceScopeRibbon|getExternalProjectWorkspacePublication/, "撤回した共通deckや旧帯をworkspaceへ戻さない");
+assert.match(weeklyControlPage, /redirect\(`\/project\/\$\{encodeURIComponent\(projectId\)\}\/workspace`\)/, "旧weekly-control URLは正本workspaceへ一本化する");
 
 assert.match(hub, /status: "error"; projects: \[\]/, "workspace hubはPJ取得失敗を別状態で保持する");
 assert.match(hub, /projectLoad\.status === "error"/, "workspace hubは取得失敗用UIを持つ");

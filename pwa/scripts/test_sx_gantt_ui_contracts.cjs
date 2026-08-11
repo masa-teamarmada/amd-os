@@ -637,18 +637,6 @@ assertIncludes(migrationFile, migration, [
   "BEFORE UPDATE OF project_id, deleted_at ON public.project_management_objectives",
 ]);
 
-// -- Legacy workspace/nav edit paths must refresh and close stale editors on 409 ---------------
-const workspaceFile = "src/components/project-workspace/ProjectWorkspaceDashboard.tsx";
-const workspace = read(workspaceFile);
-assertIncludes(workspaceFile, workspace, [
-  "if (response.status === 409) {",
-  'headers: { "Cache-Control": "no-store" }',
-  "onConflict(latestBody as SxManagementBundle);",
-  "timeline_kind: prefill.timelineKind",
-  "planned_start: prefill.plannedDate, planned_end: prefill.plannedDate",
-  "outcome_id: prefill.outcomeId",
-  "track: prefill.track || outcome!.track",
-]);
 const managementEditorFile = "src/components/project-navigation/ManagementEditor.tsx";
 const managementEditor = read(managementEditorFile);
 assertIncludes(managementEditorFile, managementEditor, [

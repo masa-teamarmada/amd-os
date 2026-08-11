@@ -7,12 +7,14 @@
 | route | file |
 |---|---|
 | `/project/[projectId]/cockpit` | `pwa/src/app/(app)/project/[projectId]/cockpit/page.tsx` |
-| `/project/[projectId]/workspace` | `pwa/src/app/(app)/project/[projectId]/workspace/page.tsx`。PJ限定メンバーにも共有できる研究開発ダッシュボード |
+| `/project/[projectId]/workspace` | `pwa/src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx`。PJの正本。`SxWeeklyControlDashboard`を表示する |
 | `/my-projects` | `pwa/src/app/(app)/my-projects/page.tsx`。複数PJへ参加するPJ限定メンバーの入口 |
 | `/institutions/[institutionId]/cockpit` | `pwa/src/app/(app)/institutions/[institutionId]/cockpit/page.tsx` wraps an existing project cockpit in institution context |
 | main component | `pwa/src/components/cockpit/CockpitView.tsx` |
 | data fetch | `pwa/src/lib/supabase-data.ts` (`fetchCockpitFromSupabase`) |
 | project documents | `pwa/src/components/cockpit/CockpitProjectDocuments.tsx`, `pwa/src/app/api/project-documents/route.ts` |
+
+この章のcurrent contractはAMD内部のcockpitだけを扱う。PJワークスペースのcurrent contractは `3-16-project-weekly-control-current-spec.md`、大学・研究機関側の未実装面を含む三者の境界は `1-4-os-convergence-current-spec.md` を正本とする。
 
 ## Data Bundle
 
@@ -266,9 +268,9 @@ Kanban の詳細 state machine、Meeting detail modal の attachment mutation、
 - `pwa/src/components/cockpit/CockpitManagementScoreHero.tsx`
 - `ios/supabase/functions/*`
 
-## SX COO統合経営ワークスペース（2026-07-19 current contract）
+## 旧SX COO統合経営ワークスペース（2026-07-19履歴・2026-08-12廃止）
 
-`/project/[projectId]/workspace` は、週次エフォート表を補助面へ下げ、週次会議直前にCOOが「いま何が止まり、今日何を決め、次に誰が何をいつ確認するか」を5分で診断する共有経営面とする。初期PJは`p21`だが、DB/APIの正本はPJ一般化した`project_management_*`であり、旧`project_sx_*`は作らない。
+以下は削除済み `ProjectWorkspaceDashboard` の設計履歴であり、現行UIの要件として再実装しない。`/project/[projectId]/workspace` は既存の完成済み `SxWeeklyControlDashboard` へ一本化し、旧 `/weekly-control` は同URLへredirectする。PJ・AMD・大学の三者設計に存在しない第4の共通画面を新設しない。
 
 ### 判定契約
 
