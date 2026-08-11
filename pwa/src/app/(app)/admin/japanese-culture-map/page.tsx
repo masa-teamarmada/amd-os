@@ -100,7 +100,7 @@ export default function JapaneseCultureMapPage() {
               key={k}
               onClick={() => setView(k)}
               className={cn(
-                "text-[11px] px-3 py-1 rounded-md font-medium transition-colors",
+                "min-h-11 rounded-md px-3 py-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:min-h-0",
                 view === k
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -521,9 +521,9 @@ function MapView({ geo }: { geo: Map<string, PrefectureGroup> }) {
   const prefGroup = selectedPref ? geo.get(selectedPref) : null;
 
   return (
-    <div className="flex-1 relative flex">
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
       {/* map */}
-      <div className="flex-1 relative min-w-0">
+      <div className="relative min-h-0 w-full flex-1 md:min-w-0">
         <JapanMap
           activePrefectures={new Set(geo.keys())}
           selectedPrefecture={selectedPref}
@@ -532,13 +532,13 @@ function MapView({ geo }: { geo: Map<string, PrefectureGroup> }) {
             setSelectedItem(null);
           }}
         />
-        <div className="absolute top-3 left-3 bg-background/85 backdrop-blur-sm rounded-lg border border-border px-3 py-2 text-[11px] text-muted-foreground shadow-sm">
+        <div className="absolute left-3 right-3 top-3 rounded-lg border border-border bg-background/85 px-3 py-2 text-[11px] text-muted-foreground shadow-sm backdrop-blur-sm sm:right-auto sm:max-w-sm">
           色のついた都道府県にコンテンツがあります。クリックで一覧表示
         </div>
       </div>
 
       {/* side list */}
-      <div className="w-80 border-l border-border overflow-y-auto shrink-0 bg-background/40">
+      <div className="h-44 w-full shrink-0 overflow-y-auto border-t border-border bg-background/40 md:h-auto md:w-80 md:border-l md:border-t-0">
         {!selectedPref ? (
           <div className="p-4 text-sm text-muted-foreground">
             都道府県を選択してください
@@ -569,7 +569,7 @@ function MapView({ geo }: { geo: Map<string, PrefectureGroup> }) {
                     <li key={it.id}>
                       <button
                         onClick={() => setSelectedItem(it)}
-                        className="w-full text-left text-xs px-2 py-1.5 rounded-md hover:bg-accent transition-colors"
+                        className="min-h-11 w-full rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       >
                         <span className="font-medium">{it.title}</span>
                         {it.category_path.length > 0 && (
@@ -608,7 +608,7 @@ function ItemDetailPanel({
   onClose: () => void;
 }) {
   return (
-    <div className="absolute top-3 right-3 w-96 bg-background rounded-lg border border-border shadow-xl p-3 space-y-3 max-h-[calc(100%-1.5rem)] overflow-y-auto">
+    <div className="absolute left-3 right-3 top-3 z-10 max-h-[calc(100%-1.5rem)] w-auto space-y-3 overflow-y-auto rounded-lg border border-border bg-background p-3 shadow-xl sm:left-auto sm:w-96">
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-1.5 flex-wrap">
           {item.category_path.map((c, i) => (
@@ -627,7 +627,7 @@ function ItemDetailPanel({
         </div>
         <button
           onClick={onClose}
-          className="text-muted-foreground hover:text-foreground transition-colors -mt-1 -mr-1 shrink-0"
+          className="-mr-1 -mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           aria-label="閉じる"
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
