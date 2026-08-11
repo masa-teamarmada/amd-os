@@ -44,7 +44,7 @@
 | route | 役割 |
 |---|---|
 | `/` | 公開トップ (認証不要)。認証状態にかかわらずredirectせず、全員にポータルを表示する。`institution_workspaces` の `status='active'` かつ `is_publicly_listed=true` の行だけを、slug / ワークスペース名 / 機関の名称・種別・地域で一覧し、説明文、シーズ・PJ件数、ECR、AMD Score は公開しない。ログイン済み内部メンバーは明示ボタンから自分のARMADAホームへ、外部アカウントは明示リンクから `/workspaces` へ進む |
-| `/workspaces` | 外部アカウント (`workspace_user_accounts`) の入口。所属する機関ワークスペースと、`project_access_memberships` で個別に許可されたPJだけを並べる。機関所属をPJ一覧の根拠にしない |
+| `/workspaces` | 外部アカウント (`workspace_user_accounts`) の入口。所属する機関ワークスペースと、`project_access_memberships` で個別に許可されたPJだけを並べる。機関所属をPJ一覧の根拠にしない。PJ台帳の取得失敗は参加0件へ変換せず、参加状況を変更していないことと再読込案内を出す |
 | `/workspace/[slug]` | 研究機関ワークスペース本体。内部アプリの chrome を共有しない独立シェル。対象機関のPJ、シーズ一覧、ECR を読み取り専用で表示する。シーズはPJ化済み → PJ化検討中 → PJなし・SPS算出済み → その他の順で、同区分内は表題の日本語順。ECR は1機関の縦並び (総合値 + 8軸) で、SPS とは別系列のまま合算しない。資料欄は BOX からの移行準備中の表示のみ (リンク / iframe / 署名トークンなし) |
 | `/auth/login` | ログイン。`audience` で内部 (`armada` = Google Workspace OAuth) と外部 (`institution` = メールリンク) を出し分ける。`?audience=institution` または `?workspace=` があれば外部入口として開く |
 | `/auth/logout` | 統一ログアウト。`amd_os_workspace_session` と旧 `amd_os_project_session` の両cookieを消し、Supabase も `scope:'local'` でログアウトして `/auth/login` へ戻す |
@@ -52,7 +52,7 @@
 | `/dashboard` | ARMADA内部メンバーの入口 = 研究ポートフォリオ中心IA (2026-08-02 まさ確定、旧 `/portfolio-preview` を統合)。上部の先手TODOバッジ直下に `PortfolioPulse` (研究機関・シーズ・PJ運用の統計strip + 3パネル優先キュー、パネル順は研究機関→シーズ→PJ運用) を置き、研究機関・シーズの全件は出さず上位候補だけを表示する (全件正本は `/institutions` `/seeds`)。データは `/api/dashboard/portfolio-pulse` (server-side `createAdminClient()` + `requireMember()` + `getCurrentMemberAccess().scope='portfolio'`、ECR/シーズを `Promise.allSettled` で障害分離) からだけ取り、project scope の外部PJメンバーへ横断母集団を返さない。default browser clientでの `fetchErsBundle`/`fetchAllResearchInstitutionSeeds` 直叩きは禁止 (migration 213 RLS下でシーズ0件になる既知障害の再発防止)。その下 `#pj-operations` アンカー配下に、AMD全体 (`p00`) だけを除くPJ台帳の全行を Active / Sales-Draft / Ended-Frozen で表示する (GlobalNav 「PJ運用」navと `PortfolioPulse` の「PJ運用を開く」はどちらもこのアンカーへ実接続)。`institution_projects` の p25 / p28 / p30 も除外せず、すべての行は内部用 `/project/[projectId]/cockpit` を開く。外部アカウントはこのrouteを使わず `/workspaces` から個別許可された面へ入る。PJ一覧の後に要対応 action queue、続けて折り畳み「経営指標・接続状況」(Management Score、全社実績、抽出・freee状態、既定open) を置き、下段全幅に Company Content shelf を置く。左メニューのボード (GlobalNav 最上位グループ「研究ポートフォリオ」のホーム) にマウスオーバーまたはフォーカスすると、全アクティブPJへのコックピットリンクを右側に出す。フライアウトはナビのスクロール領域でクリップされない上位レイヤーに出し、画面下端では一覧部分だけをスクロールする。右カラムの `MyPageContent` embed は desktop (xl+) で360–400pxの `sticky` + 独立 `overflow-y-auto`、mobile/tabletでは埋め込みを隠す代わりに「マイページを開く」実リンクカードを出す。埋込時の loading/error は `min-h-screen` を使わない。`MyPageContent` / `CompanyContentShelf` は `next/dynamic({ ssr:false })` で分離バンドル化し、Company Content (メンバー/沿革/写真/メディア掲載) の fetch は初回 `Promise.allSettled` に含めず、`IntersectionObserver` (`rootMargin: "600px 0px"`) で shelf アンカーが viewport 600px 圏内に入ってから `fetchCompanyContentPreview` を1回だけ起動する遅延ロードにする (v3.44.8)。取得完了までプレースホルダ表示、失敗時は空データへ fallback しダッシュボード主表示をブロックしない。配色は `amd-home-page-skin` (白/graphite/濃紺/AMD blue/cyan、borders-only、4pxベース) で、旧 `amd-desk-page-skin` の淡いベージュは使わない |
 | `/portfolio-preview` | 旧仮設IA。2026-08-02 `/dashboard` へ統合済みのため `redirect("/dashboard")` だけを持つ。旧URLを踏んでも `/dashboard` の認証・role-based topがそのまま効く |
 | `/project/[projectId]/cockpit` | PJ cockpit。Status / AMD Score / XRL / MS / 資料 / 経営ハイライト / ガバナンス / 助成金 / 月次 / MTGサマリ。旧 `proactive_outbox` TODO は表示しない |
-| `/project/[projectId]/workspace` | **同じURLの二面構成**。アクセス解決の後にどちらの面を出すかを決める。内部メンバー (`members` + PJ membership) には従来どおりの詳細バンドル (計画詳細、技術証明、論点、関係先、週次エフォート、編集導線) を出す。外部アカウントには、PJ名・状態、計画サイクル、マイルストーンの表題・目標年月・進捗率だけの読み取り専用DTOを出す。外部側は内部バンドルの取得経路を呼ばず、メンバー名、工数、根拠、出典、社内管理項目 (目的 / 成果 / 論点 / 仮説 / 意思決定 / 資金 / 関係先)、連絡先を含めない。外部アカウントが到達できるのは `project_access_memberships` の active 行が名指ししたPJだけで、機関ワークスペース所属では到達しない (p21 の詳細ワークスペースはこの個別付与のみ) |
+| `/project/[projectId]/workspace` | **同じURLの二面構成**。アクセス解決の後にどちらの面を出すかを決める。内部メンバー (`members` + PJ membership) には従来どおりの詳細バンドル (計画詳細、技術証明、論点、関係先、週次エフォート、編集導線) を出す。外部アカウントには、PJ名・状態、計画サイクル、マイルストーンの表題・目標年月・進捗率だけの読み取り専用DTOを出す。進捗行が無い場合は `null` と「未登録」を表示し、0%へ変換しない。外部側は内部バンドルの取得経路を呼ばず、メンバー名、工数、根拠、出典、社内管理項目 (目的 / 成果 / 論点 / 仮説 / 意思決定 / 資金 / 関係先)、連絡先を含めない。外部アカウントが到達できるのは `project_access_memberships` の active 行が名指ししたPJだけで、機関ワークスペース所属では到達しない (p21 の詳細ワークスペースはこの個別付与のみ) |
 | `/project/[projectId]/weekly-control` | 既存workspaceと分離した週次管制。先週差分、今週の判断、介入、論点・仮説の放置防止を扱う。差分抽出未接続は0件でなく `抽出接続待ち` |
 | `/project/[projectId]/navigation` | 既存workspace/weekly-controlと分離したPJ管制ダッシュボード。重要経路を初期展開し、4本柱からマイルストーン・技術試験・論点・履歴へ掘る階層WBSガントと、共通7段階の関係先比較を表示する。工程、論点閉ループ、技術試験、関係先・保有事項を同じ画面で追加・更新できる。RSC境界へは`buildSxNavigationViewModel()`が作る最小view modelだけを渡し、`ProjectWorkspaceBundle`/`CurrentMemberAccess`全体はClient Componentへ渡さない |
 | `/manual` | AMD OS マニュアル。使い方・運用者向け |
@@ -83,8 +83,9 @@
 - `/api/report/generate` と `/api/monthly-report/edit-by-tsukuyomi` は従量課金の誤実行防止で410停止。`/api/cron/monthly-reports-backfill` は重い手動復旧 route のため定期実行しない。
 - 入金・支払・freee 連携などの運用 API は、既存の admin auth / signed token / `CRON_SECRET` 境界を崩さない。
 - `/api/finance/live-cash-balances` は KAGAMI 等の外部クライアント向け read-only route。`/management-score` と同じ `buildLiveMonthlyPlInputs` + `runMonthlyPlSimulation` を server-side で実行し、月次の `cashBalance` だけを返す。過去月に `category='cash_balance'` の実績がある場合は実績残高を優先し、未来月は live 予算残高を返す。レスポンスは `ym`, `cashBalance`, `budgetCashBalance`, `actualCashBalance`, `runwayMonths`, `source(actual|forecast)` に限定し、PJ別・固定費・報酬内訳は返さない。
-- `/api/auth/email-start` は外部ユーザーのログインリンク送信。登録済みで、かつ失効していない所属がある場合だけメールを送る。登録の有無で応答の形も状態コードも変えない (メール列挙の防止)。ドメインで認可しない。
-- `/api/admin/workspace-access` は `requireAdmin()` + `service_role` で外部アクセス台帳を読み書きする。`kind` (`account` / `institution_membership` / `project_membership`) を必須にし、汎用の upsert 経路を作らない。停止済み (suspended / revoked) の行は作成では復活せず、明示的な PATCH だけで戻る。機関ワークスペース所属の付与がPJアクセスを自動作成しない。`auth.users` の id は select も返却もしない。
+- `/api/auth/email-start` は外部ユーザーのログインリンク送信。登録済みで、かつ失効していない所属がある場合だけメールを送る。登録の有無で応答の形も状態コードも変えない (メール列挙の防止)。ドメインで認可しない。送信前に `workspace_claim_email_otp_send` を呼び、登録account単位で60秒cooldown、15分5回までをDB transactionで直列化する。claim取得失敗または抑止時も同じ200応答を返す。
+- `/api/admin/workspace-access` は `requireAdmin()` + `service_role` で外部アクセス台帳を読み書きする。`kind` (`account` / `institution_membership` / `project_membership`) を必須にし、汎用の upsert 経路を作らない。停止済み (suspended / revoked) の行は作成では復活せず、明示的な PATCH だけで戻る。機関ワークスペース所属の付与がPJアクセスを自動作成しない。`auth.users` の id は select も返却もしない。GETは全対象tableを1000件単位でpaginationし、上限到達時は明示失敗する。500件または1000件で黙って切らない。
+- `POST/PATCH/PUT /api/workspace-documents/**` のcookie認証付き変更は `Origin`、`Sec-Fetch-Site`、`Referer` の順でsame-originを確認し、確認材料が無いrequestも403で閉じる。GETはこのmutation guardの対象外だが、資料単位の認可を毎回行う。
 - `/api/admin/private-wiki` は `requireAdmin()` + `service_role` で `private_wiki_entries` を list/create/update/archive する。browser client から直接書かせない。
 - `/api/admin/management-knowledge` は `requireAdmin()` + `service_role` で `management_knowledge_entries` を list/create/update/archive する。browser client から直接書かせない。source_excerpt は短い根拠だけで、メール全文・議事録全文・資料全文を保存しない。
 - `/tasks` 画面は廃止済み。`/api/tasks` は cockpit legacy kanban / H-1 互換のため残し、DB write は `service_role` 経由で、DELETE ではなく `active=false` を使う。通知 link は対象 PJ cockpit へ向ける。
@@ -99,24 +100,24 @@
 
 ## 外部ワークスペースアクセス
 
-migration 212 / 213 と対になる contract。両migrationは2026-08-01に本番適用済み。詳細設計は `pwa/design/institution_seed_project_model.md` §6。
+migration 212 / 213 / 216〜219 / 258 と対になる contract。212 / 213は2026-08-01、216〜219は2026-08-02、258は2026-08-11に本番適用済み。258の適用後readbackはOTP limiter tableとclaim function、audit trigger 4本、RESTRICT FK 2本、service_roleだけのclaim実行権限を確認した。詳細設計は `pwa/design/institution_seed_project_model.md` §6。
 
 | 項目 | contract |
 |---|---|
 | route | `/` / `/workspaces` / `/workspace/[slug]` / `/project/[projectId]/workspace` (外部面) / `/auth/login?audience=institution` / `/auth/logout` / `/admin/access` |
-| API | `POST /api/auth/email-start` / `/auth/callback` / `GET/POST/PATCH /api/admin/workspace-access` |
-| table (212 新設7件) | `workspace_user_accounts` / `institution_workspaces` / `institution_workspace_memberships` / `institution_workspace_project_scopes` / `institution_workspace_seed_scopes` / `project_access_memberships` / `workspace_access_audit_logs` |
-| authority | 7テーブルとも RLS 有効・anon / 一般 authenticated のポリシーなし。admin (`is_admin()`) と service_role のみ |
+| API | `POST /api/auth/email-start` / `/auth/callback` / `GET/POST/PATCH /api/admin/workspace-access` / `GET/POST/PATCH/PUT /api/workspace-documents/**` |
+| table | 212の7テーブル `workspace_user_accounts` / `institution_workspaces` / `institution_workspace_memberships` / `institution_workspace_project_scopes` / `institution_workspace_seed_scopes` / `project_access_memberships` / `workspace_access_audit_logs`、216の `workspace_documents`、258の `workspace_email_otp_rate_limits` |
+| authority | access 7テーブルとOTP limiterは RLS 有効・anon / 一般 authenticated の直接権限なし。admin (`is_admin()`) と service_roleだけを使う。role名は権限そのものにせず、`workspace-capabilities.ts` の明示capability束へ変換してから資料操作を判定する |
 | principal | 外部ユーザーの識別子はメールアドレスのみ。認可はアカウント登録・機関ワークスペース所属・PJ個別アクセスの3つの明示的な付与だけ |
 | 暗黙付与の禁止 | 機関ワークスペース所属はPJアクセスを含意しない。ドメイン一致も認可の根拠にしない |
 | session | email OTP → `signOut({scope:'local'})` → 30日固定の `amd_os_workspace_session` 署名cookie。同じブラウザでは期間内のメール再認証を不要にし、毎リクエストで cookie 検証 + DB 再検証する。権限失効は30日を待たず次のリクエストで即時反映 |
-| failure mode | 未認可・不明slugは redirect せず not found。失敗時は常に閉じる側へ倒し、機関・PJの存在を漏らさない |
+| failure mode | 未認可・不明slugは redirect せず not found。失敗時は常に閉じる側へ倒し、機関・PJの存在を漏らさない。PJ一覧取得失敗と参加0件、進捗未登録と0%を区別する |
 | 213 の閉鎖範囲 | `institutions` / `institution_assessments` / `projects` / `members` / `project_members` / `institution_projects` / `seed_projects` / `seeds` / `seed_funding` / `seed_news` / `seed_contact_log` / `seed_sps_assessments` / `value_plan_cycles` / `value_milestones` / `milestone_monthly_progress` の計15テーブルで anon read を撤去し、authenticated を `amd_os_is_member()` ゲートへ寄せる。内部ブラウザreadはログイン済みSupabase browser client、server routeは明示注入したservice clientを使う。write は `is_admin()` + service_role |
 | scope (愛媛) | p30 は `ehime` ワークスペースへ `shared_surface='summary'` で登録 (サマリのみ、詳細ワークスペースは非共有)。p21 はPJ範囲に含めず個別付与のみ。シーズ範囲は `inst_ehime` 紐付け全件。公開一覧は現時点 `ehime` 1件 |
 | 評価系列 | ECR は機関の縦並び (総合 + 8軸)、SPS はシーズごと。DTO 上も別プロパティで、合成スコア・相関・因果指標を作らない |
-| 資料共有 | BOX からの移行は未実装。資料欄は移行準備中の表示のみで、リンク / iframe / 署名トークンのいずれも実装していない |
-| audit | `workspace_access_audit_logs` にログイン要求・送信・成功・拒否・ログアウト・admin操作を記録する。メール本文、URL、トークン、未登録アドレスは残さない |
-| validation | `test:workspace-access-scope` / `test:workspace-access-session` / `test:workspace-email-start-contract` / `test:workspace-next-path` / `test:external-project-workspace` / `test:workspace-access-admin` / `test:workspace-rls-closure` |
+| 資料共有 | `workspace_documents` とprivate Storage `workspace-files`が正本。機関資料とPJ資料をscopeで分離し、外部は `workspace_shared` だけを読む。旧Project Shareは非破壊コピー済みだが、外部accountとgrantの本番到達確認までは旧入口を閉じない。公開後revisionの上書き禁止は未実装で、全体収束仕様の残課題 |
+| audit | `workspace_access_audit_logs` にログイン要求・送信・成功・拒否・ログアウト・admin操作を記録する。258はaccount、機関grant、PJ grant、資料metadataのrow変更をDB triggerで同じtransactionに記録する。semantic audit insert失敗も成功扱いしない。メール本文、URL、トークン、未登録アドレス、Storage pathは残さない |
+| validation | `test:workspace-access-scope` / `test:workspace-access-session` / `test:workspace-email-start-contract` / `test:workspace-next-path` / `test:external-project-workspace` / `test:workspace-access-admin` / `test:workspace-rls-closure` / `test:workspace-documents-core` / `test:workspace-documents-contract` / `test:workspace-fact-origin-contract` / `test:workspace-security-migration-contract` / `test:workspace-capabilities` |
 
 ## Admin Private Wiki
 

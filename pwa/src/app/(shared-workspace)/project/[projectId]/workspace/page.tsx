@@ -1,8 +1,6 @@
 import { notFound } from "next/navigation";
-import {
-  resolveSharedWorkspaceAccess,
-  PROJECT_MEMBERSHIP_ROLE_LABEL,
-} from "@/lib/project-shared-workspace-access";
+import { resolveSharedWorkspaceAccess } from "@/lib/project-shared-workspace-access";
+import { externalWorkspaceRoleCapabilityLabel } from "@/lib/workspace-capabilities";
 import { getProjectWorkspaceBundle } from "@/lib/project-workspace";
 import { getExternalProjectWorkspaceBundle } from "@/lib/external-project-workspace";
 import { SharedWorkspaceScopeRibbon } from "@/components/project-workspace/SharedWorkspaceScopeRibbon";
@@ -31,7 +29,7 @@ export default async function SharedWorkspacePage({
       <>
         <SharedWorkspaceScopeRibbon
           projectName={bundle.project.projectName}
-          roleLabel={PROJECT_MEMBERSHIP_ROLE_LABEL[access.role]}
+          roleLabel={externalWorkspaceRoleCapabilityLabel(access.role)}
           principal="workspace_account"
           projectId={projectId}
         />

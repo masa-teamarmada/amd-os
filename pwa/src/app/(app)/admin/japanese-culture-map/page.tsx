@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 // react-force-graph は Canvas 依存で SSR 不可 (atlas/map と同方針)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), { ssr: false }) as React.ComponentType<any>;
-// react-simple-maps も SSR で d3-geo の DOM 依存を避けるため dynamic
+// 地図データはclient fetchし、ResizeObserverで描画領域を確定するためdynamic
 const JapanMap = dynamic(() => import("./JapanMap"), { ssr: false });
 
 type ViewMode = "mindmap" | "map";

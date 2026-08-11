@@ -24,6 +24,7 @@ import {
   type WorkspaceDocumentRow,
 } from "@/lib/workspace-documents-server";
 import { recordWorkspaceAuditEvent } from "@/lib/workspace-access-audit";
+import { isSameOriginWorkspaceMutation } from "@/lib/workspace-mutation-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -112,6 +113,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (!isSameOriginWorkspaceMutation(request)) {
+    return json({ ok: false, error: "この操作元は確認できないよ。画面を再読み込みしてね。" }, 403);
+  }
+
   const scope = parseScope(request);
   if (!scope) return json({ ok: false, error: "資料室の指定が不正だよ。" }, 400);
 

@@ -41,6 +41,35 @@ const PROJECT_MEMBERSHIP_FIELDS = "id,project_id,user_account_id,role,status,cre
 type Body = Record<string, unknown>;
 type Db = SupabaseClient;
 
+const LIST_PAGE_SIZE = 1000;
+const LIST_MAX_ROWS = 100_000;
+
+type ListRowsResult =
+  | { data: Record<string, unknown>[]; error: null }
+  | { data: null; error: { message: string } };
+
+async function listAllRows(
+  db: Db,
+  table: string,
+  fields: string,
+  orderColumn: string,
+  ascending = true,
+): Promise<ListRowsResult> {
+  const rows: Record<string, unknown>[] = [];
+  for (let from = 0; from < LIST_MAX_ROWS; from += LIST_PAGE_SIZE) {
+    const { data, error } = await db
+      .from(table)
+      .select(fields)
+      .order(orderColumn, { ascending })
+      .range(from, from + LIST_PAGE_SIZE - 1);
+    if (error) return { data: null, error };
+    const page = (data ?? []) as unknown as Record<string, unknown>[];
+    rows.push(...page);
+    if (page.length < LIST_PAGE_SIZE) return { data: rows, error: null };
+  }
+  return { data: null, error: { message: `row_limit_exceeded:${table}:${LIST_MAX_ROWS}` } };
+}
+
 // --- small helpers -----------------------------------------------------------------
 
 function bad(error: string, status = 400) {
@@ -119,19 +148,11 @@ export async function GET() {
   const db = createAdminClient();
 
   const [accounts, workspaces, institutionMemberships, projects, projectMemberships] = await Promise.all([
-    db.from("workspace_user_accounts").select(ACCOUNT_FIELDS).order("created_at", { ascending: false }).limit(500),
-    db.from("institution_workspaces").select(INSTITUTION_WORKSPACE_FIELDS).order("name"),
-    db
-      .from("institution_workspace_memberships")
-      .select(INSTITUTION_MEMBERSHIP_FIELDS)
-      .order("created_at", { ascending: false })
-      .limit(1000),
-    db.from("projects").select("project_id,project_name,status").order("project_id"),
-    db
-      .from("project_access_memberships")
-      .select(PROJECT_MEMBERSHIP_FIELDS)
-      .order("created_at", { ascending: false })
-      .limit(1000),
+    listAllRows(db, "workspace_user_accounts", ACCOUNT_FIELDS, "created_at", false),
+    listAllRows(db, "institution_workspaces", INSTITUTION_WORKSPACE_FIELDS, "name"),
+    listAllRows(db, "institution_workspace_memberships", INSTITUTION_MEMBERSHIP_FIELDS, "created_at", false),
+    listAllRows(db, "projects", "project_id,project_name,status", "project_id"),
+    listAllRows(db, "project_access_memberships", PROJECT_MEMBERSHIP_FIELDS, "created_at", false),
   ]);
 
   const firstError =

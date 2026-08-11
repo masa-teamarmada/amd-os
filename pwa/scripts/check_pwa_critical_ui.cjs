@@ -363,11 +363,14 @@ expectIncludes("src/components/nav/AppShell.tsx", [
   "(?:workspace|weekly-control|navigation)",
 ]);
 
-expectIncludes("src/components/nav/PageTitleSetter.tsx", [
-  "PJ管制ダッシュボード",
-]);
+expectIncludes("src/components/nav/PageTitleSetter.tsx", ["surfaceTitleForPath"]);
 
-expectIncludes("src/app/(app)/layout.tsx", ["PJ管制ダッシュボード"]);
+expectIncludes("src/app/(app)/layout.tsx", ["surfaceTitleForPath"]);
+
+expectIncludes("src/lib/surface-catalog.ts", [
+  "PJ管制ダッシュボード",
+  'patterns: [/^\\/project\\/[^/]+\\/navigation\\/?$/]',
+]);
 
 expectIncludes("src/lib/sx-navigation-v2.ts", [
   "export function buildSxNavigationViewModel",
@@ -1451,14 +1454,18 @@ expectIncludes("src/app/(app)/manual/manual-chapters.ts", [
 ]);
 
 expectIncludes("src/components/admin/AdminSidebar.tsx", [
-  "請求書発行",
-  "/admin/invoices",
-  "裏wiki",
-  "/admin/private-wiki",
+  "ADMIN_SURFACE_GROUPS",
+  "getSurfaceById",
   "BUILD_VERSION",
   'href="/dashboard"',
   "Adminメニューを開く",
   "md:sticky",
+]);
+expectIncludes("src/lib/surface-catalog.ts", [
+  "請求書発行",
+  "/admin/invoices",
+  "裏wiki",
+  "/admin/private-wiki",
 ]);
 
 expectIncludes("src/components/admin/AdminPrivateWikiClient.tsx", [
@@ -1638,7 +1645,7 @@ expectNotIncludes("src/components/nav/GlobalNav.tsx", [
   "/japanese-culture-map",
 ]);
 
-expectIncludes("src/components/admin/AdminSidebar.tsx", [
+expectIncludes("src/lib/surface-catalog.ts", [
   "日本文化",
   "/admin/japanese-culture-map",
 ]);
@@ -2502,7 +2509,7 @@ expectIncludes("src/app/(app)/admin/season-pl/page.tsx", [
   "AdminSeasonPlClient",
 ]);
 
-expectIncludes("src/components/admin/AdminSidebar.tsx", [
+expectIncludes("src/lib/surface-catalog.ts", [
   "シーズン予実",
   "/admin/season-pl",
 ]);
@@ -2596,7 +2603,7 @@ expectIncludes("src/app/(app)/admin/ms-overview/page.tsx", [
   "AdminMsOverviewClient",
 ]);
 
-expectIncludes("src/components/admin/AdminSidebar.tsx", [
+expectIncludes("src/lib/surface-catalog.ts", [
   "MS一覧",
   "/admin/ms-overview",
 ]);

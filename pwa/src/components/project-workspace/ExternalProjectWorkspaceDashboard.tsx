@@ -42,13 +42,19 @@ export function ExternalProjectWorkspaceDashboard({ bundle }: { bundle: External
                   <span className="text-[13px] font-semibold text-[#24231f]">{milestone.title}</span>
                   <span className="text-[11px] text-[#777166]">目標: {formatYm(milestone.targetYm)}</span>
                 </div>
-                <div className="mt-2 h-2 w-full rounded-full bg-[#efe9dc]">
-                  <div
-                    className="h-2 rounded-full bg-[#38745d]"
-                    style={{ width: `${milestone.progressPct}%` }}
-                  />
-                </div>
-                <p className="mt-1 text-[11px] text-[#777166]">進捗 {milestone.progressPct}%</p>
+                {milestone.progressPct == null ? (
+                  <p className="mt-2 text-[11px] font-medium text-[#777166]">進捗は未登録です。</p>
+                ) : (
+                  <>
+                    <div className="mt-2 h-2 w-full rounded-full bg-[#efe9dc]">
+                      <div
+                        className="h-2 rounded-full bg-[#38745d]"
+                        style={{ width: `${milestone.progressPct}%` }}
+                      />
+                    </div>
+                    <p className="mt-1 text-[11px] text-[#777166]">進捗 {milestone.progressPct}%</p>
+                  </>
+                )}
               </li>
             ))}
           </ul>

@@ -2,23 +2,12 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { resolveWorkspaceAccess } from "@/lib/workspace-access-resolver";
+import { externalWorkspaceRoleCapabilityLabel } from "@/lib/workspace-capabilities";
 
 // External access hub for workspace_account principals. Institution membership never
 // implies project access here — the projects section is scoped strictly to the
 // project_access_memberships rows already resolved onto scopeSummary.projects.
 export const dynamic = "force-dynamic";
-
-const INSTITUTION_ROLE_LABEL: Record<"owner" | "member" | "readonly", string> = {
-  owner: "オーナー",
-  member: "メンバー",
-  readonly: "閲覧のみ",
-};
-
-const PROJECT_ROLE_LABEL: Record<"manager" | "contributor" | "readonly", string> = {
-  manager: "マネージャー",
-  contributor: "コントリビューター",
-  readonly: "閲覧のみ",
-};
 
 type AuthorizedProject = {
   projectId: string;
@@ -26,6 +15,10 @@ type AuthorizedProject = {
   status: string;
   role: "manager" | "contributor" | "readonly";
 };
+
+type AuthorizedProjectLoad =
+  | { status: "ok"; projects: AuthorizedProject[] }
+  | { status: "error"; projects: [] };
 
 function getServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -36,29 +29,37 @@ function getServiceClient() {
 
 async function getAuthorizedProjects(
   memberships: Array<{ projectId: string; role: "manager" | "contributor" | "readonly" }>,
-): Promise<AuthorizedProject[]> {
-  if (memberships.length === 0) return [];
+): Promise<AuthorizedProjectLoad> {
+  if (memberships.length === 0) return { status: "ok", projects: [] };
 
-  const service = getServiceClient();
-  const { data, error } = await service
-    .from("projects")
-    .select("project_id,project_name,status")
-    .in("project_id", memberships.map((m) => m.projectId));
+  try {
+    const service = getServiceClient();
+    const { data, error } = await service
+      .from("projects")
+      .select("project_id,project_name,status")
+      .in("project_id", memberships.map((m) => m.projectId));
 
-  if (error) {
-    console.warn("[workspaces] failed to load authorized projects:", error.message);
-    return [];
+    if (error) {
+      console.error("[workspaces] failed to load authorized projects:", error.message);
+      return { status: "error", projects: [] };
+    }
+
+    const roleByProjectId = new Map(memberships.map((m) => [m.projectId, m.role]));
+    return {
+      status: "ok",
+      projects: (data ?? [])
+        .filter((row) => roleByProjectId.has(row.project_id))
+        .map((row) => ({
+          projectId: row.project_id,
+          projectName: row.project_name,
+          status: row.status,
+          role: roleByProjectId.get(row.project_id)!,
+        })),
+    };
+  } catch (error) {
+    console.error("[workspaces] failed to initialize authorized project load:", error instanceof Error ? error.message : String(error));
+    return { status: "error", projects: [] };
   }
-
-  const roleByProjectId = new Map(memberships.map((m) => [m.projectId, m.role]));
-  return (data ?? [])
-    .filter((row) => roleByProjectId.has(row.project_id))
-    .map((row) => ({
-      projectId: row.project_id,
-      projectName: row.project_name,
-      status: row.status,
-      role: roleByProjectId.get(row.project_id)!,
-    }));
 }
 
 export default async function WorkspacesPage() {
@@ -68,7 +69,7 @@ export default async function WorkspacesPage() {
     redirect(`/auth/login?next=${encodeURIComponent("/workspaces")}&audience=institution`);
   }
 
-  const projects = await getAuthorizedProjects(scopeSummary.projects);
+  const projectLoad = await getAuthorizedProjects(scopeSummary.projects);
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-[#faf8f2] text-[#26251f]">
@@ -103,7 +104,7 @@ export default async function WorkspacesPage() {
                     className="flex min-h-11 items-center justify-between gap-3 px-4 py-3 text-sm transition-colors hover:bg-[#f4f1e7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#4338ca]"
                   >
                     <span className="font-medium">{workspace.name}</span>
-                    <span className="text-xs text-[#8a8574]">{INSTITUTION_ROLE_LABEL[workspace.role]}</span>
+                    <span className="text-xs text-[#8a8574]">{externalWorkspaceRoleCapabilityLabel(workspace.role)}</span>
                   </Link>
                 </li>
               ))}
@@ -115,11 +116,16 @@ export default async function WorkspacesPage() {
           <h2 id="projects-heading" className="text-sm font-semibold text-[#4338ca]">
             プロジェクト
           </h2>
-          {projects.length === 0 ? (
+          {projectLoad.status === "error" ? (
+            <div role="alert" className="rounded-lg border border-[#d4a7a0] bg-[#fff4f2] px-4 py-4 text-sm text-[#7f2f27]">
+              <p className="font-semibold">プロジェクト一覧を読み込めなかったよ。</p>
+              <p className="mt-1 text-xs">参加状況が0件になったわけではないよ。時間を置いて再読み込みしてね。</p>
+            </div>
+          ) : projectLoad.projects.length === 0 ? (
             <p className="text-sm text-[#5c584d]">参加中のプロジェクトはありません。</p>
           ) : (
             <ul className="divide-y divide-[#e4ddcd] rounded-lg border border-[#e4ddcd] bg-white">
-              {projects.map((project) => (
+              {projectLoad.projects.map((project) => (
                 <li key={project.projectId}>
                   <Link
                     href={`/project/${encodeURIComponent(project.projectId)}/workspace`}
@@ -127,7 +133,7 @@ export default async function WorkspacesPage() {
                   >
                     <span className="font-medium">{project.projectName}</span>
                     <span className="text-xs text-[#8a8574]">
-                      {PROJECT_ROLE_LABEL[project.role]} ・ 現在は閲覧専用
+                      {externalWorkspaceRoleCapabilityLabel(project.role)} ・ PJ管理情報は閲覧のみ
                       {project.status !== "active" ? ` ・ ${project.status}` : ""}
                     </span>
                   </Link>

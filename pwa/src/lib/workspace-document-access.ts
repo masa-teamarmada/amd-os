@@ -5,6 +5,11 @@ import { getCurrentMemberAccess } from "@/lib/project-workspace";
 import { resolveSharedWorkspaceAccess } from "@/lib/project-shared-workspace-access";
 import { resolveWorkspaceAccess } from "@/lib/workspace-access-resolver";
 import type { WorkspaceDocumentScopeKind } from "@/lib/workspace-documents-core";
+import {
+  hasWorkspaceCapability,
+  workspaceCapabilities,
+  type WorkspaceCapability,
+} from "@/lib/workspace-capabilities";
 
 export type WorkspaceDocumentAccess = {
   principal: "internal_member" | "workspace_account";
@@ -19,6 +24,7 @@ export type WorkspaceDocumentAccess = {
   accountId: string | null;
   memberId: string | null;
   email: string;
+  capabilities: ReadonlySet<WorkspaceCapability>;
 };
 
 export async function resolveProjectDocumentAccess(projectId: string): Promise<WorkspaceDocumentAccess | null> {
@@ -26,6 +32,11 @@ export async function resolveProjectDocumentAccess(projectId: string): Promise<W
   if (!access) return null;
 
   if (access.principal === "workspace_account") {
+    const capabilities = workspaceCapabilities({
+      principal: "workspace_account",
+      scopeKind: "project",
+      role: access.role,
+    });
     return {
       principal: "workspace_account",
       scopeKind: "project",
@@ -33,16 +44,22 @@ export async function resolveProjectDocumentAccess(projectId: string): Promise<W
       workspaceId: null,
       projectId,
       role: access.role,
-      canReadInternal: false,
-      canUpload: access.role === "manager" || access.role === "contributor",
-      canManage: access.role === "manager",
+      canReadInternal: hasWorkspaceCapability(capabilities, "document.view_internal"),
+      canUpload: hasWorkspaceCapability(capabilities, "document.upload"),
+      canManage: hasWorkspaceCapability(capabilities, "document.manage"),
       accountId: access.accountId,
       memberId: null,
       email: access.email,
+      capabilities,
     };
   }
 
   const directProjectMember = access.projects.some((project) => project.projectId === projectId);
+  const capabilities = workspaceCapabilities({
+    principal: "internal_member",
+    scopeKind: "project",
+    role: access.isAdmin ? "admin" : directProjectMember ? "project_member" : "portfolio_member",
+  });
   return {
     principal: "internal_member",
     scopeKind: "project",
@@ -50,12 +67,13 @@ export async function resolveProjectDocumentAccess(projectId: string): Promise<W
     workspaceId: null,
     projectId,
     role: access.isAdmin ? "AMD管理" : directProjectMember ? "PJメンバー" : "AMD閲覧",
-    canReadInternal: true,
-    canUpload: access.isAdmin || directProjectMember,
-    canManage: access.isAdmin || directProjectMember,
+    canReadInternal: hasWorkspaceCapability(capabilities, "document.view_internal"),
+    canUpload: hasWorkspaceCapability(capabilities, "document.upload"),
+    canManage: hasWorkspaceCapability(capabilities, "document.manage"),
     accountId: null,
     memberId: access.memberId,
     email: access.email,
+    capabilities,
   };
 }
 
@@ -71,6 +89,11 @@ export async function resolveInstitutionDocumentAccess(slug: string): Promise<Wo
   if (!workspace || workspace.status !== "active") return null;
 
   if (internal?.isAdmin) {
+    const capabilities = workspaceCapabilities({
+      principal: "internal_member",
+      scopeKind: "institution",
+      role: "admin",
+    });
     return {
       principal: "internal_member",
       scopeKind: "institution",
@@ -78,12 +101,13 @@ export async function resolveInstitutionDocumentAccess(slug: string): Promise<Wo
       workspaceId: String(workspace.id),
       projectId: null,
       role: "AMD管理",
-      canReadInternal: true,
-      canUpload: true,
-      canManage: true,
+      canReadInternal: hasWorkspaceCapability(capabilities, "document.view_internal"),
+      canUpload: hasWorkspaceCapability(capabilities, "document.upload"),
+      canManage: hasWorkspaceCapability(capabilities, "document.manage"),
       accountId: null,
       memberId: internal.memberId,
       email: internal.email,
+      capabilities,
     };
   }
 
@@ -92,6 +116,12 @@ export async function resolveInstitutionDocumentAccess(slug: string): Promise<Wo
   const membership = scope.institutionWorkspaces.find((item) => item.slug === slug);
   if (!membership) return null;
 
+  const capabilities = workspaceCapabilities({
+    principal: "workspace_account",
+    scopeKind: "institution",
+    role: membership.role,
+  });
+
   return {
     principal: "workspace_account",
     scopeKind: "institution",
@@ -99,12 +129,13 @@ export async function resolveInstitutionDocumentAccess(slug: string): Promise<Wo
     workspaceId: String(workspace.id),
     projectId: null,
     role: membership.role,
-    canReadInternal: false,
-    canUpload: membership.role === "owner" || membership.role === "member",
-    canManage: membership.role === "owner",
+    canReadInternal: hasWorkspaceCapability(capabilities, "document.view_internal"),
+    canUpload: hasWorkspaceCapability(capabilities, "document.upload"),
+    canManage: hasWorkspaceCapability(capabilities, "document.manage"),
     accountId: scope.accountId,
     memberId: null,
     email: scope.email,
+    capabilities,
   };
 }
 

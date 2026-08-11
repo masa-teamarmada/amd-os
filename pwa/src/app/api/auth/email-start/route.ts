@@ -93,6 +93,17 @@ export async function POST(request: Request) {
       return NextResponse.json(GENERIC_RESPONSE, { status: 200 });
     }
 
+    const { data: sendClaimed, error: claimError } = await service.rpc("workspace_claim_email_otp_send", {
+      p_user_account_id: account.id,
+    });
+    if (claimError) {
+      console.error("[email-start] OTP rate-limit claim failed:", claimError.message);
+      return NextResponse.json(GENERIC_RESPONSE, { status: 200 });
+    }
+    if (sendClaimed !== true) {
+      return NextResponse.json(GENERIC_RESPONSE, { status: 200 });
+    }
+
     const authClient = getAnonAuthClient();
     const { error: otpError } = await authClient.auth.signInWithOtp({
       email: account.email_normalized,

@@ -36,7 +36,7 @@ export const SPEC_SECTIONS: SpecSectionConfig[] = [
     key: "overview",
     label: "はじめに",
     description: "設計書セクションの目的、3 層ドキュメント体系、移行中の正本境界。",
-    slugs: ["1-1-overview", "1-2-document-layer-migration-map", "1-3-reconstruction-coverage-audit"],
+    slugs: ["1-1-overview", "1-2-document-layer-migration-map", "1-3-reconstruction-coverage-audit", "1-4-os-convergence-current-spec"],
   },
   {
     key: "platform",
@@ -115,6 +115,7 @@ export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "1-1-overview", title: "設計書について", summary: "確定仕様の正本。manual / spec / bzm の 3 層体系と、OS 画面で正本管理する理由。" },
   { slug: "1-2-document-layer-migration-map", title: "ドキュメント3層移行マップ", summary: "manual / design / bzm / spec の重複・衝突、移行優先順位、章単位の移行ゲート。" },
   { slug: "1-3-reconstruction-coverage-audit", title: "再構築カバレッジ監査", summary: "設計書だけで current OS を再構築できるかを領域別に評価し、不足と確認済み実装を明示。" },
+  { slug: "1-4-os-convergence-current-spec", title: "AMD OS 全体収束仕様", summary: "AMD、研究機関、スタートアップ、共同PJに増えた画面・権限・データを、共通カーネルと役割レンズへ収束させる現行方針。" },
   { slug: "2-1-pwa-runtime-routes", title: "PWA ランタイム / ルート仕様", summary: "Next.js PWA の実行環境、主要 route、API / cron / auth の現行契約。" },
   { slug: "2-2-pwa-surface-inventory-current-spec", title: "PWA 画面 / API Surface 仕様", summary: "現行 PWA の画面 route、API route groups、auth/authority、failure mode、検証入口。" },
   { slug: "2-3-supabase-data-model-current-spec", title: "Supabase Data Model 仕様", summary: "Supabase schema の source of truth、domain別 table map、status convention、DDL/dump手順。" },

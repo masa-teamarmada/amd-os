@@ -12,6 +12,7 @@ import {
   type WorkspaceDocumentRow,
 } from "@/lib/workspace-documents-server";
 import { recordWorkspaceAuditEvent } from "@/lib/workspace-access-audit";
+import { isSameOriginWorkspaceMutation } from "@/lib/workspace-mutation-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -94,6 +95,10 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ documentId: string }> },
 ) {
+  if (!isSameOriginWorkspaceMutation(request)) {
+    return json({ ok: false, error: "この操作元は確認できないよ。画面を再読み込みしてね。" }, 403);
+  }
+
   const { documentId } = await params;
   const loaded = await loadEditableHtmlDocument(documentId);
   if (loaded.response) return loaded.response;

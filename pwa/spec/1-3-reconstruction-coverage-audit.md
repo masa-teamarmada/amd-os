@@ -15,7 +15,8 @@
 
 | 領域 | 現行 spec | 判定 | まだ足りないもの |
 |---|---|---|---|
-| ドキュメント統制 | `1-1`, `1-2`, `1-3`, `5-1`, `6-1` | `partial` | spec lint / 附則追記漏れを機械検知する test |
+| ドキュメント統制 | `1-1`, `1-2`, `1-3`, `1-4`, `5-1`, `6-1` | `partial` | spec lint / 附則追記漏れを機械検知する test |
+| AMD OS全体収束 | `1-4` | `partial` | 共通カーネルmigration、surface catalog、旧画面のprojection化、本番権限readback |
 | PWA route / API surface | `2-1`, `2-2` | `partial` | route ごとの props / component state / edge cases は未移行 |
 | PWA UIデザインコード | `2-7` | `rebuildable` | 画面固有の比較軸と集計式は各機能specへ置く |
 | 名刺管理 / PJ人物ナレッジ | `2-5`, `3-11` | `rebuildable` | Gemini / Supabase production env と private Storage bucket は環境設定が必要 |
@@ -30,6 +31,7 @@
 | cockpit | `3-8` | `partial` | PM routine stepId は廃止済み。monthly/reward modal / Edge Function bridge 境界は補完済み。kanban、meeting detail attachments、score tabs は未完 |
 | AMD Score / FRL | `4-1`, `4-2` | `partial` | alpha retrofit UI、XRL revision API、Triple Helix recompute の詳細。2026-07-29に現行SPSを診断指数とする主張境界を追加したが、時点固定の前向き検証、独立複数評価者、重み・符号化・集約方式の感度分析は未実施 |
 | ECR | `4-3` | `partial` | 制度比較seedと投入手順、2026-07-29の主張境界は反映済み。rubric は `/bzm/9-4` 依存で、ECR 8軸rubricのPWA seed同期、自前ストック・実効サービス・流量成果の三層化、独立複数評価者、成果妥当性検証は未実装 |
+| 外部workspace / 研究機関 / SU | `1-4`, `2-1`, `2-2`, `2-3`, `4-3` | `partial` | organization tenant、capability、共同作業・判断、外部公開版、資料revision、旧Project Share退役readback |
 | Admin / Finance / Reward | 未移行 | `not yet` | manual 6章・7章、`reward-summary.ts`、GAS payout PDF の spec 化 |
 | Atlas / Seeds / VC / Scholar | 未移行 | `not yet` | manual 4-1/4-2/5章、design `atlas.md` / `seeds.md` / `vc_list.md` の spec 化 |
 | GAS | `5-2`, `5-3`, `5-5` | `partial` | GAS file/function 別の current / deprecated 表 |
@@ -63,3 +65,4 @@
 3. GAS file/function current/deprecated matrix を作る。
 4. Atlas / Seeds / VC / Scholar を `/spec` へ移す。
 5. iOS screen migration を `/spec` へ移す。
+6. `1-4` の共通カーネルとsurface収束を、migration・API・UI・本番readbackへ段階適用する。

@@ -7,6 +7,7 @@
 //   - the unregistered-account branch never stores the raw email in the audit log
 //   - OTP is only sent after both an account lookup AND a usable-membership check
 //   - shouldCreateUser is only set inside that gated branch
+//   - an atomic DB rate-limit claim succeeds before signInWithOtp
 //   - no domain-based authorization anywhere in the file
 import fs from "node:fs";
 import path from "node:path";
@@ -57,10 +58,24 @@ if (notFoundBranch) {
 // reached after the account + membership checks (i.e. after the `if (!usable)` early return).
 const usableGateIndex = src.indexOf("if (!usable)");
 const shouldCreateUserIndex = src.indexOf("shouldCreateUser: true");
+const rateLimitClaimIndex = src.indexOf('service.rpc("workspace_claim_email_otp_send"');
 check("shouldCreateUser: true is present", shouldCreateUserIndex !== -1);
 check(
   "shouldCreateUser: true appears only after the usable-membership gate",
   usableGateIndex !== -1 && shouldCreateUserIndex > usableGateIndex,
+);
+check("atomic OTP rate-limit claim is present", rateLimitClaimIndex !== -1);
+check(
+  "OTP send occurs only after the atomic rate-limit claim",
+  rateLimitClaimIndex > usableGateIndex && shouldCreateUserIndex > rateLimitClaimIndex,
+);
+check(
+  "rate-limit DB failure fails closed with the generic response",
+  /if \(claimError\)[\s\S]*?NextResponse\.json\(GENERIC_RESPONSE, \{ status: 200 \}\)/.test(src),
+);
+check(
+  "suppressed OTP claim returns the same generic response",
+  /if \(sendClaimed !== true\)[\s\S]*?NextResponse\.json\(GENERIC_RESPONSE, \{ status: 200 \}\)/.test(src),
 );
 
 // signInWithOtp must be called with the DB-verified account email, not the raw request input.

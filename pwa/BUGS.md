@@ -924,11 +924,11 @@
 
 ---
 
-### [deps] react-simple-maps は React 19 と peer dep 衝突 → `--legacy-peer-deps` 必須 (2026-06-03)
+### [deps] react-simple-maps は React 19 と peer dep 衝突 → `--legacy-peer-deps` 必須 (2026-06-03、2026-08-11解消)
 
-- **状態**: ✅ 既知ハマり (= 回避策確立済み)
+- **状態**: ✅ クローズ (= 2026-08-11に依存を除去)
 - **症状**: 🇯🇵 日本文化マップ (`/japanese-culture-map`) で日本地図描画に `react-simple-maps@^3.0.0` を追加。素の `npm install` は `react-simple-maps` の peerDependencies が `react: ^16.8 || 17.x || 18.x` 止まりで、本リポの React 19.2.4 と衝突して ERESOLVE で失敗する。
-- **回避策**: **このリポで `npm install` する時は `--legacy-peer-deps` を付ける** (= `react-simple-maps` / `d3-geo` 追加コミット以降)。`package.json` には正しく入っているので、CI / 別 PC の clone でも `npm install --legacy-peer-deps` で揃う。型定義は `@types/react-simple-maps` (React 17 向けで衝突) を避け、`src/types/react-simple-maps.d.ts` に必要分だけ自前 `declare module` した。
+- **対応内容**: `react-simple-maps`を除去し、既存の`d3-geo`と`topojson-client`だけで同じ47都道府県のSVG地図を描画する実装へ置換した。これによりReact 19のpeer依存衝突と、内部の旧`d3-color`に残っていたReDoS advisoryを同時に解消した。
 - **教訓**: React 19 環境に古い react エコシステムライブラリを足す時は peer dep を先に確認 (`npm info <pkg> peerDependencies`)。`--legacy-peer-deps` で「removed N packages」が出ても、`package.json` の差分が追加対象のみで `tsc`/`build` が通れば既存ツリーは壊れていない。
 
 ---

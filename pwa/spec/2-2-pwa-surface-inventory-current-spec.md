@@ -1,6 +1,6 @@
 # PWA 画面 / API Surface 仕様
 
-> **この章は何か**: 現行 PWA の route と API surface を、再構築時の入口として一覧化する。詳細 contract は各領域章に分ける。
+> **この章は何か**: 現行 PWA の route と API surface を、再構築時の入口として一覧化する。画面の名称、領域、利用者レンズ、移行状態は`src/lib/surface-catalog.ts`を正本とし、詳細 contract は各領域章に分ける。
 
 ## 画面 route
 
@@ -12,7 +12,7 @@
 | research workspace | `/project/[projectId]/workspace` | 計画詳細、技術証明、論点、関係先、週次エフォートを統合表示 | `project/[projectId]/workspace/page.tsx`, `ProjectWorkspaceDashboard.tsx` |
 | weekly control | `/project/[projectId]/weekly-control` | 週次差分・判断・介入と、論点/仮説の要整理→検証中→判断待ち→決定/棄却を別画面で管制 | `project/[projectId]/weekly-control/page.tsx`, `SxWeeklyControlDashboard.tsx` |
 | member | `/mypage`, `/reimburse` | メンバー活動、週次活動、立替精算 | `mypage/page.tsx`, `reimburse/page.tsx` |
-| admin | `/admin/*` | invoices / finance / projects（Slack CHの「チャンネルなし」明示を含む） / contracts（1契約1行。版・形式・作業記録は契約内へ収め、期限・立替経費・押印証跡・秘密保持をモーダルで即答） / members / payouts / prompts / settings / protocols / tsukuyomi / weekly (週次活動×月次報酬マトリクス: `/api/admin/weekly` が member_activities(member_weekly) と表示月の `billing_cycles.reward_summary_json` の `members[].totalPay` を返し、右端列=メンバー別月合計・最下行=PJ別月合計・総合計を描画) / 日本文化マップ (`/admin/japanese-culture-map`)。`AppShell` はブラウザ側の現在pathnameで `GlobalNav` を `AdminSidebar` に差し替え、dashboard からの画面内遷移でも admin menu へ切り替える。admin layout は2枚目の左メニューを描画しない | `(app)/layout.tsx`, `AppShell.tsx`, `admin/layout.tsx`, `AdminSidebar.tsx`, `admin/*/page.tsx` |
+| admin | `/admin/*` | 25画面を`組織・権限` / `契約・お金` / `PJ・実行` / `知識・AI` / `運用`の業務単位で表示する。表示名とURLはsurface catalogを共用し、追加順の独立配列を持たない。`AppShell` は現在pathnameで `GlobalNav` を `AdminSidebar` に差し替え、admin layoutは2枚目の左メニューを描画しない | `surface-catalog.ts`, `(app)/layout.tsx`, `AppShell.tsx`, `admin/layout.tsx`, `AdminSidebar.tsx`, `admin/*/page.tsx` |
 | admin knowledge | `/admin/japanese-culture-map` | `jp_culture_items` active 行をマインドマップ / 日本地図で読む admin-only 文化知識ビュー。旧 `/japanese-culture-map` は redirect | `admin/japanese-culture-map/page.tsx`, `jp-culture.ts` |
 | docs | `/manual`, `/spec`, `/bzm` | manual / design spec / textbook を OS 画面で表示 | `manual/*`, `spec/*`, `bzm/*` |
 | docs | `/bzm/map` | 理論マップ (論証台帳)。DBだけを正本に0件から本人が育てる。admin は空白クリックでノード作成、通常クリックで編集、通常ドラッグで配置変更、Cmd/Ctrl二点クリックで接続、線クリックで解除する。全panelはノードを覆わないマップ作業区画。旧Markdownは履歴資産で自動表示しない。真理マップではなく件数・接続数は真偽・確信度を表さない | `bzm/map/page.tsx`, `BzmTheoryMapView.tsx`, `BzmTheoryComposerDialog.tsx`, `lib/bzm-theory-store.ts`, `/api/bzm/theory-map` |
@@ -67,6 +67,7 @@
 ## Validation
 
 - route 追加・metadata 更新: `npx tsc --noEmit`
+- surface catalogとadmin分類: `npm run test:surface-catalog-contract`
 - 理論マップ: `npm run test:bzm-theory-graph` と `npm run test:bzm-theory-editor`
 - production build: `npm run build`
 - production deploy: `bash pwa/scripts/deploy.sh`

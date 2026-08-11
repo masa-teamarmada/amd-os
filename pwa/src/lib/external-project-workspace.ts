@@ -25,7 +25,7 @@ export type ExternalProjectWorkspaceBundle = {
     milestoneId: string;
     title: string;
     targetYm: string | null;
-    progressPct: number;
+    progressPct: number | null;
   }>;
 };
 
@@ -64,7 +64,7 @@ export async function getExternalProjectWorkspaceBundle(
     if (milestoneError) throw new Error(`external project workspace milestones: ${milestoneError.message}`);
 
     const milestoneIds = (milestoneRows ?? []).map((row) => String(row.milestone_id));
-    let progressRows: Array<{ milestone_key: string; ym: string; progress_pct: number }> = [];
+    let progressRows: Array<{ milestone_key: string; ym: string; progress_pct: number | null }> = [];
     if (milestoneIds.length > 0) {
       const { data, error } = await db
         .from("milestone_monthly_progress")
@@ -75,7 +75,9 @@ export async function getExternalProjectWorkspaceBundle(
       progressRows = (data ?? []).map((row) => ({
         milestone_key: String(row.milestone_key),
         ym: String(row.ym),
-        progress_pct: Number(row.progress_pct || 0),
+        progress_pct: row.progress_pct == null || !Number.isFinite(Number(row.progress_pct))
+          ? null
+          : Math.max(0, Math.min(100, Number(row.progress_pct))),
       }));
     }
 
@@ -85,7 +87,7 @@ export async function getExternalProjectWorkspaceBundle(
         milestoneId: String(row.milestone_id),
         title: String(row.title),
         targetYm: row.target_ym ? String(row.target_ym) : null,
-        progressPct: Math.max(0, Math.min(100, Number(progress?.progress_pct || 0))),
+        progressPct: progress?.progress_pct ?? null,
       };
     });
   }

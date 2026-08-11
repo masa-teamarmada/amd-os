@@ -45,6 +45,7 @@ export async function recordWorkspaceAuditEvent(
     detail: event.detail ?? {},
   });
   if (error) {
-    console.warn("[workspace-access-audit] failed to insert audit log:", error.message);
+    console.error("[workspace-access-audit] failed to insert audit log:", error.message);
+    throw new Error("workspace_audit_insert_failed");
   }
 }

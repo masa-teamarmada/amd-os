@@ -71,6 +71,18 @@ Supabase
 
 ### Admin
 
+Adminは、追加された順の一列メニューではなく、次の職務グループで表示する。
+
+| グループ | 主な対象 |
+|---|---|
+| 組織・権限 | PJ台帳、メンバー、外部アクセス、会社情報、ガバナンス |
+| 契約・お金 | 契約、請求、報酬、月初合意、予実、財務 |
+| PJ・実行 | 経営指標、週次活動、MS、未充足データ、知財 |
+| 知識・AI | 日本文化、LLM文脈、非公開wiki、つくよみ、prompt |
+| 運用 | 運営カレンダー、設定 |
+
+画面の名称、URL、業務領域、利用者レンズ、`canonical` / `projection` / `transitional` / `mirror` / `deprecated`の状態は、共通surface catalogを正本にする。
+
 | 画面 | 役割 |
 |---|---|
 | `/admin/projects` | PJ 台帳、契約・請求・支払条件 |
@@ -158,6 +170,10 @@ Decision / Ops UI
 - admin 画面と `/notifications` は admin 権限を前提にする
 - Google Workspace login は Calendar / Gmail scope を使う。Calendar 共有状態は `members.google_calendar_status` に残す
 - ログインが途中で弾かれたとき (メンバー未登録、社外ドメイン、参加PJなし、Calendar 未共有)、OS が捨てるのは**そのブラウザのログインだけ**。スマホや別PCのログインは残る
+- 外部workspaceは、account、研究機関所属、PJ個別grantを別々に確認する。研究機関所属だけでPJ閲覧を許可しない
+- role名をroute内の権限判定に直結せず、明示的なcapability束へ解決してから資料操作を許可する
+- 外部資料の変更はsame-originを確認し、重要なaccount・grant・資料metadata変更はDB transaction内の監査記録と一体で確定する
+- 外部進捗の未登録、参加PJ0件、DB取得失敗を同じ状態として扱わない
 
 ## 今回クロールで見つけた manual 化対象
 

@@ -8,6 +8,7 @@
 //   5. every mutation records a workspace audit event whose detail carries metadata only.
 //   6. granting an institution workspace membership never creates individual PJ access.
 //   7. auth.users ids are never selected, returned, or rendered.
+//   8. GET paginates every table instead of silently truncating accounts or grants.
 // Run: npm run test:workspace-access-admin
 
 import assert from "node:assert/strict";
@@ -281,9 +282,9 @@ const projectScopedFns = ["createProjectMembership", "patchProjectMembership"]
   .map((name) => functionBlock(routeCode, `async function ${name}(`))
   .join("\n");
 assert.equal(
-  [...projectScopedFns.matchAll(/\.from\("project_access_memberships"\)/g)].length + 1, // +1 for the GET listing
+  [...projectScopedFns.matchAll(/\.from\("project_access_memberships"\)/g)].length,
   projectTableWrites,
-  "project_access_memberships may only be touched by the GET listing and the project_membership handlers",
+  "project_access_memberships may only be touched by the project_membership handlers; GET uses the paginated table helper",
 );
 
 // --- 7. auth user ids are never exposed -------------------------------------------------------
@@ -316,6 +317,26 @@ const panelFetches = [...panelSource.matchAll(/fetch\(\s*"([^"]+)"/g)].map((matc
 assert.ok(panelFetches.length > 0, "the admin panel must call the admin API");
 for (const url of panelFetches) {
   assert.equal(url, "/api/admin/workspace-access", `the admin panel must only call its own admin API (found ${url})`);
+}
+
+// --- 9. list reads are complete or explicitly fail --------------------------------------------
+
+assert.ok(routeSource.includes("async function listAllRows("), "GET must use a shared paginated list helper");
+assert.ok(routeSource.includes(".range(from, from + LIST_PAGE_SIZE - 1)"), "the list helper must page with explicit ranges");
+assert.ok(routeSource.includes("row_limit_exceeded"), "an extreme row count must fail explicitly instead of truncating");
+assert.ok(!routeSource.includes(".limit(500)"), "accounts must not be silently truncated at 500 rows");
+assert.ok(!routeSource.includes(".limit(1000)"), "memberships must not be silently truncated at 1000 rows");
+for (const table of [
+  "workspace_user_accounts",
+  "institution_workspaces",
+  "institution_workspace_memberships",
+  "projects",
+  "project_access_memberships",
+]) {
+  assert.ok(
+    routeSource.includes(`listAllRows(db, "${table}"`),
+    `GET must paginate ${table} through listAllRows`,
+  );
 }
 
 console.log("check_workspace_access_admin_contract.mjs: OK");

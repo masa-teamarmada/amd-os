@@ -45,6 +45,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
+  externalWorkspaceRoleCapabilityLabel,
+  type ExternalWorkspaceRole,
+} from "@/lib/workspace-capabilities";
+import {
   isWorkspaceDocumentHtml,
   WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES,
   workspaceDocumentFinderCopyName,
@@ -131,17 +135,10 @@ function formatDate(value: string) {
 }
 
 function permissionRoleLabel(role: string) {
-  return (
-    (
-      {
-        manager: "マネージャー",
-        contributor: "コントリビューター",
-        readonly: "閲覧のみ",
-        owner: "機関管理者",
-        member: "機関メンバー",
-      } as Record<string, string>
-    )[role] ?? role
-  );
+  if (["manager", "contributor", "readonly", "owner", "member"].includes(role)) {
+    return externalWorkspaceRoleCapabilityLabel(role as ExternalWorkspaceRole);
+  }
+  return role;
 }
 
 function EntryIcon({ item }: { item: DocumentItem }) {

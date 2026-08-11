@@ -1,6 +1,6 @@
 # 研究機関・シーズ・AMD PJ データモデル
 
-最終更新: 2026-08-01
+最終更新: 2026-08-11
 
 ## 1. 確定した情報設計
 
@@ -144,6 +144,7 @@ migration 212で新設する7テーブルが認可の正本になる。
 
 1. 公開トップまたはログイン画面で、外部向けの入口としてメールアドレスを受け取る。
 2. 登録済みで、かつ失効していない所属がある場合だけログインリンクを送る。登録の有無で応答の形も状態コードも変えない（登録済みかどうかを外から判別させない）。
+   送信前にDBのatomic claimを取り、登録account単位で60秒cooldown、15分5回までに制限する。抑止と内部失敗は同じ200応答にする。
 3. メールリンクのコールバックでSupabaseのセッションが成立した直後に、`signOut({ scope: 'local' })` でそのブラウザのセッションだけを捨て、**30日固定の署名付きHTTP-only cookieへ交換する**。同じブラウザでは期間内のメール再認証を不要にし、以後、外部ユーザーはSupabaseのauthenticatedセッションを持たない。
 4. cookieは毎リクエスト検証し、**さらにDBを引き直す**。アカウント停止、所属の失効、ワークスペースのpauseは次のリクエストで即座に効く。cookieの中身だけを信用しない。
 5. 認可できない場合は常に閉じる側へ倒す。存在しないslug・権限のないPJは、リダイレクトではなく見つからない扱いにして、機関やPJの存在自体を漏らさない。
@@ -153,7 +154,7 @@ migration 212で新設する7テーブルが認可の正本になる。
 
 外部の面は、内部の取得経路を再利用せず専用の許可列DTOで組む。
 
-- **PJの外部DTO**: PJ名・状態、計画サイクル、マイルストーンの表題・目標年月・進捗率だけ。メンバー名、工数、根拠、出典、社内管理項目（目的・成果・論点・仮説・意思決定・資金・関係先）、連絡先は含めない。内部の詳細バンドルを外部側から呼ばない。
+- **PJの外部DTO**: PJ名・状態、計画サイクル、マイルストーンの表題・目標年月・進捗率だけ。進捗行が無い場合は `null` と「未登録」を返し、0%へ変換しない。メンバー名、工数、根拠、出典、社内管理項目（目的・成果・論点・仮説・意思決定・資金・関係先）、連絡先は含めない。内部の詳細バンドルを外部側から呼ばない。
 - **機関ワークスペースDTO**: 要約・説明・URL・出典・連絡先・根拠の形をした列を含めない。ECRは軸の点数だけ、SPSは軸と算出結果だけを返し、評価者や軸ごとの根拠は返さない。
 - **公開トップDTO**: slugと名称、機関の名称・種別・地域だけ。
 - 外部の面はサーバー側で service_role として読む。migration 213で既存テーブルのanon読み取りを閉じても、外部画面の表示は壊れない。
@@ -171,7 +172,8 @@ migration 212で新設する7テーブルが認可の正本になる。
 - 1資料は `scope_kind='institution'` または `scope_kind='project'` のどちらか一方だけを所有先にする。機関、シーズ、PJの区別をfolder名で代用しない。
 - 機関資料は明示された `institution_workspace_memberships`、PJ資料は明示された `project_access_memberships` を毎request再検証する。**機関所属はPJ資料へのアクセスを含意しない**。
 - `visibility='workspace_shared'` は対象scopeの外部メンバーにも共有、`amd_internal` はAMD内部だけ。外部の一覧・open APIは内部資料をnot foundとして扱う。
-- `canUpload`（PJのmanager / contributor、機関のowner / member、AMDの対象PJメンバー/admin）はfile・folder・linkの追加に加え、既存HTMLの本文編集と、file・link・folderを資料室から削除できる。HTML本文の取得・保存は専用source APIが毎requestで同じscope・visibility・`canUpload`を再確認し、署名URLを返さない。本文はHTMLソースとしてtextareaへ渡すだけで実行・整形・sanitizeせず、空欄不可・UTF-8で5MBまでをserver側でも検証する。保存成功後に同じprivate Storage objectを上書きし、`file_size_bytes` / `mime_type='text/html'` / `content_sha256` / `updated_at`を更新する。本文そのものはaudit detailへ記録しない。
+- role名は権限そのものにせず、`workspace-capabilities.ts` が `document.view_shared` / `document.view_internal` / `document.upload` / `document.manage` などのcapability束へ変換する。未実装のPJ共同編集、所属管理、相手方主権データ確定をmanager / ownerという名前だけから推定して付与しない。
+- `document.upload`（PJのmanager / contributor、機関のowner / member、AMDの対象PJメンバー/admin）はfile・folder・linkの追加に加え、既存HTMLの本文編集と、file・link・folderを資料室から削除できる。HTML本文の取得・保存は専用source APIが毎requestで同じscope・visibility・capabilityを再確認し、署名URLを返さない。本文はHTMLソースとしてtextareaへ渡すだけで実行・整形・sanitizeせず、空欄不可・UTF-8で5MBまでをserver側でも検証する。保存成功後に同じprivate Storage objectを上書きし、`file_size_bytes` / `mime_type='text/html'` / `content_sha256` / `updated_at`を更新する。本文そのものはaudit detailへ記録しない。
 - 名称変更・移動・共有範囲変更などの整理は従来どおり`canManage`（PJ manager、機関owner、AMDの対象PJメンバー/admin）だけに限る。資料室からの削除はarchiveであり、Storage実体を物理削除しない。通常一覧・共有画面から外して保護領域に残すが、復元画面はまだ提供しない。
 - fileを追加またはドロップしたとき、同じ資料室・同じfolderにactiveな大小文字非区別の同名entryがあれば、書込み前にFinder型の確認（中止／両方残す／置き換える）を出す。両方残すは既存entryと同時追加queueの両方を避けて`資料 2.pdf`のような名前を作る。置き換えは`canUpload`だけで行えるが、同じfolder・同名・activeな**file**へ明示した場合に限る。link/folderや同時追加中の資料はファイルで置き換えず、両方残すか中止を案内する。通常追加と置き換え準備はserverが毎回名前・scope・accessを再確認し、競合raceでの無言上書きをしない。置き換え完了は元行をpending/failedへ戻さずMIME・サイズ・更新時刻だけを実体に合わせ、移行由来のhash/source referenceを消して本文なしのauditを残す。
 - fileのStorage path、外部link URL、署名tokenを一覧DTOへ含めない。open APIが権限を再確認し、通常fileだけ60秒の署名URLを発行する。`mime_type='text/html'` と `.html` / `.htm` の保存fileは、資料名からは再認可済みのsandbox HTMLプレビューを別タブに表示する（5MBまで、script・外部通信・form送信を止める）。右端の明示的なPDF化ダウンロードだけが専用PDF APIで再認可後にA4 PDFとして保存する。PDF化ではHTML内のscriptと外部通信を止め、日本語フォントを埋め込む。入力は8MB、返却PDFは4MBまでとする。
@@ -179,13 +181,15 @@ migration 212で新設する7テーブルが認可の正本になる。
 - 資料室の視覚トークンは白、graphite、deep navy、AMD blue、cyanを基調にし、旧Project Share由来のivory / green / amberの全面配色を使わない。赤はarchiveなど破壊性を伴う意味だけに限定する。
 - migration 216〜219は2026-08-02に本番適用済み。VSX/CX/SE/SX/ZMP/KUTEの旧Project Shareはproject scopeへ非破壊コピーし、既存 `project_documents` は `AMD内部/Drive資料` の内部限定linkとして併記した。内容ハッシュを保存し、file全件を移行先から再取得して一致検証する。
 - 旧Project Shareと旧Drive行は削除・上書きしない。外部メールアカウントとPJ個別grantを登録し、対象者の到達を確認するまで旧入口を閉じない。切替失敗時は新規導線を止めて旧入口を継続できる。
+- cookie認証付きの資料変更はsame-origin guardを必須とする。`Origin`があればrequest URLのoriginと完全一致させ、無い場合は`Sec-Fetch-Site='same-origin'`、さらに無ければ同一originの`Referer`を要求する。三つとも無いrequestは閉じる。
+- account、機関grant、PJ grant、資料metadataはDB triggerでrow変更と監査insertを同じtransactionにする。監査にはtable、操作、row idだけを置き、email、本文、URL、Storage pathは置かない。workspaceまたはPJの削除で資料metadataをcascade削除せず、Storage orphanを作り得る削除をRESTRICTする。
 
 ## 7. 検証
 
 - migration 207は機関46件・大学/国研シーズ141件・確定4PJ、migration 209は対象seed PJ 19件・二重分類0件・SX未設立/SPS ready・description全NULLをassertする。
 - `npm run test:institution-seed-project-domains` でテーブル分離、19PJ移行、固定対応の不在、フラット全件表示、ECR/SPS非合算を検査する。
 - `npm run test:kute-seeds-scope` と `npm run test:institution-soil-seeds` で表示スコープと評価系列を検査する。
-- §6の外部アクセスは契約テストで検査する。`test:workspace-access-scope`（所属・失効・機関からPJへの暗黙付与なし）、`test:workspace-access-session`（署名cookieの検証）、`test:workspace-email-start-contract`（登録有無を漏らさない応答）、`test:workspace-next-path`（遷移先の絞り込み）、`test:external-project-workspace`（外部DTOが内部バンドルへ広がらないこと）、`test:workspace-access-admin`（admin API の権限と自動復活禁止）、`test:workspace-rls-closure`（migration 213の閉鎖範囲）、`test:workspace-documents-core`（path/URL/storage key・HTML本文byte・Finder連番）、`test:workspace-documents-contract`（資料単位の再認可、明示置き換えだけのStorage上書き、同名raceの非上書き、HTML本文の署名URL非返却、`canUpload`でのHTML編集・archive、非破壊archive）。
+- §6の外部アクセスは契約テストで検査する。`test:workspace-access-scope`（所属・失効・機関からPJへの暗黙付与なし）、`test:workspace-access-session`（署名cookieの検証）、`test:workspace-email-start-contract`（登録有無を漏らさない応答とOTP claim）、`test:workspace-next-path`（遷移先の絞り込み）、`test:external-project-workspace`（外部DTOが内部バンドルへ広がらないこと）、`test:workspace-access-admin`（admin API の権限、自動復活禁止、完全pagination）、`test:workspace-rls-closure`（migration 213の閉鎖範囲）、`test:workspace-documents-core`（path/URL/storage key・HTML本文byte・Finder連番）、`test:workspace-documents-contract`（資料単位の再認可、明示置き換えだけのStorage上書き、同名raceの非上書き、HTML本文の署名URL非返却、capabilityでのHTML編集・archive、非破壊archive）、`test:workspace-fact-origin-contract`（未登録と0、取得失敗と0件、same-origin）、`test:workspace-security-migration-contract`（atomic rate limit、transactional audit、資料owner RESTRICT）、`test:workspace-capabilities`（role bundle）で検査する。
 - PWAは型検査・本番build・desktop/mobile実画面、macOSはXcode buildで確認する。
 
 ## 8. ロールバック

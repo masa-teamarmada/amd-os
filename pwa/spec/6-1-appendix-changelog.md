@@ -14,6 +14,8 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-08-11 JST | 1-4 AMD OS全体収束仕様 / 2-1 PWA Runtime Routes / 2-2 PWA Surface | 実装・安全性変更 | build v3.71.5 / migration 258（本番適用・readback済み）。共通surface catalogとcapability bundleを追加し、admin25画面を5業務群へ整理した。外部workspaceは未登録進捗と0%、取得失敗と0件を分離し、資料変更のsame-origin guard、OTP atomic rate limit、重要rowのtransactional audit、access台帳の完全pagination、資料owner FKのRESTRICTを実装した。Next.jsを16.3.0へ上げ、未使用CLIと旧日本地図依存を除去してdevを含むdependency auditを0件にした | 全体収束の最初の実装単位として、共通分類と外部境界を先に固定し、確認済みの実害経路を閉じるため | まさ・えいみ |
+| 2026-08-11 JST | 1-4 AMD OS全体収束仕様 / 1-3 再構築カバレッジ監査 | 追加・変更 | AMD、研究機関、スタートアップ、共同PJの画面・権限・データを、本人・組織・権限、作業、判断、資料、受信箱、契約の共通カーネルと役割レンズへ収束する方針を追加。ホーム凍結、情報所有4区分、外部公開版、事実境界、2日間の最優先範囲、旧画面の移行完了条件を明記 | 局所的に追加した画面とwriterをさらに増やさず、利用者とコンテンツを分離しながら同じ業務概念を一つの正本へ統合するため | まさ・えいみ |
 | 2026-08-11 JST | 2-1 PWA Runtime Routes / 2-4 Proactive TODO | 削除・変更 | build v3.71.3。`/api/cron/proactive-todo-extract` から upcoming MTGの `next_meeting_prep` upsertを削除。Codex W-Prep / prep workerへ一本化し、既存open / blocked行は `dismissed`、`resolved_by='system'`、退役理由と時刻を残して履歴退避する。meeting next action / Gmail依頼の抽出は維持する | Codex prepと先手TODOが同じ会議準備を二重管理し、期限超過のagenda通知がノイズになっていたため | まさ・えいみ |
 | 2026-08-11 JST | 3-6 経営ハイライト / 3-7 通知 / 3-8 PJ Cockpit | 追加・変更 | build v3.71.0 / migration 255。`project_strategy_signals` に `origin_kind` と `research_category` を追加。外部リサーチはsemantic fingerprintとcanonical URLで全履歴・pending outboxを照合し、候補だけOS通知へ出す。採用は通知hash完全一致の1件だけをconfirmedにし、cockpitの採用リサーチ棚へ表示する | 外部リサーチの重複配信と、通知前候補がPJの確定情報へ混ざる問題を同時に防ぐため | まさ・えいみ |
 | 2026-08-11 JST | 4-2 AMD Score現行仕様 | 初期投影の保存・表示規則を訂正 | build v3.70.15 / migration 254。`P^(0)`の現行スキーマをv0.2へ上げ、旧Pまたは6軸平均を換算せず`initial_value`へ保存。UIは数値だけを表示し、%と分母を付けない。全12PJを新しい測定版として追記する | Pを確率または100点満点の値と誤読させず、元入力を不要に変形しないため | まさ・えいみ |

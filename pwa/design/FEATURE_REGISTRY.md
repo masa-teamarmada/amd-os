@@ -11,6 +11,24 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - `npm run test:critical-ui` は、この登録簿と実装内の重要 anchor を検査する。
 - 重要 UI を置き換える場合は、旧 anchor を消す前に新 UI の anchor と仕様を登録する。
 
+## 全画面surface catalog
+
+目的: 新画面を追加するたびに独立したtitle、ナビ、writer、状態を増やさず、役割別の見え方と業務正本を分ける。
+
+必須機能:
+
+- `src/lib/surface-catalog.ts` が主要画面のtitle、domain、lens、status、pathを一つの正本として持つ。
+- statusは `canonical`、`projection`、`transitional`、`mirror`、`deprecated` の閉じた集合とし、別URLが別writerを持つ根拠にしない。
+- SSRの`generateMetadata`とclientの`PageTitleSetter`は同じ`surfaceTitleForPath()`を使い、別々のroute title表を持たない。
+- ホーム `/dashboard` は `canonical`として維持し、本収束作業で再設計しない。
+- `/project/[projectId]/weekly-control`と`navigation`、`/notifications`と`/proactive`は移行中レンズとして登録し、共通作業・判断カーネルへ寄せるまでは独立writerを増やさない。
+- HUDとdashboard実験面は`mirror`とし、正規画面から独立した業務正本を持たせない。
+- admin navigationは同じcatalogから項目を取り、「組織・権限」「契約・お金」「PJ・実行」「知識・AI」「運用」の職務groupで並べる。既存routeは削除しない。
+
+回帰防止:
+
+- `npm run test:surface-catalog-contract`が共通title解決、ホーム凍結、移行中・mirror status、全admin route登録、職務groupを検査する。
+
 ## PJ共有ダッシュボード / role-based top
 
 目的: AMDメンバーは全PJを横断し、SX等のPJ限定メンバーは自分の参加PJだけを同じAMD OS基盤で確認する。
@@ -43,28 +61,30 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 必須機能:
 
 - public top: `/` は認証不要で、認証状態にかかわらず自動転送せず必ずポータルを表示する。`institution_workspaces` の `status='active'` かつ `is_publicly_listed=true` の行だけを slug / ワークスペース名 / 機関の名称・種別・地域で一覧し、説明文、件数、ECR、AMD Score を公開面へ出さない。ログイン済み内部メンバーにはARMADA OSへの明示ボタン、外部アカウントには `/workspaces` への明示リンクを出す。
-- external hub: `/workspaces` は所属する機関ワークスペースと、個別に許可されたPJだけを並べる。機関所属をPJ一覧の根拠にしない。
+- external hub: `/workspaces` は所属する機関ワークスペースと、個別に許可されたPJだけを並べる。機関所属をPJ一覧の根拠にしない。PJ取得失敗は参加0件へ変換せず、参加状況は変わっていないことと再読込案内を出す。
 - institution workspace: `/workspace/[slug]` は内部アプリのchromeを共有しない独立シェルで、対象機関のPJ・シーズ・ECRを読み取り専用で出す。
 - dual surface: `/project/[projectId]/workspace` は**同じURLのまま**、アクセス解決の後に内部メンバー向け詳細バンドルか外部向け読み取り専用DTOかを選ぶ。外部面のURLを別に切らない。
 - explicit grant only: 認可はアカウント登録 (`workspace_user_accounts`) + 機関ワークスペース所属 (`institution_workspace_memberships`) + PJ個別アクセス (`project_access_memberships`) の3つの明示的な付与だけ。**機関所属はPJアクセスを含意しない**。メールのドメイン一致を認可の根拠にしない。
-- narrow auth: メールリンクでログインし、Supabaseセッション成立直後に `signOut({ scope: "local" })` してHTTP-only署名cookie `amd_os_workspace_session` へ交換する。cookieは毎リクエスト検証したうえで必ずDBを引き直し、アカウント停止・所属失効・ワークスペースpauseを次のリクエストで反映する。cookieの中身だけを信用しない。
+- narrow auth: メールリンクでログインし、Supabaseセッション成立直後に `signOut({ scope: "local" })` してHTTP-only署名cookie `amd_os_workspace_session` へ交換する。cookieは毎リクエスト検証したうえで必ずDBを引き直し、アカウント停止・所属失効・ワークスペースpauseを次のリクエストで反映する。cookieの中身だけを信用しない。メール送信は登録account単位のDB atomic claimで60秒cooldown、15分5回までとする。
 - route isolation: `amd_os_workspace_session` が通常セッションの代わりになるのは `/workspaces`、`/workspace/**`、`/project/[projectId]/workspace` だけ。内部メンバーrouteや `/admin/**` へは効かない。
 - fail closed: 未認可・不明slug・未許可PJは redirect せず not found。機関やPJの存在自体を漏らさない。`/api/auth/email-start` は登録の有無で応答の形も状態コードも変えない。
-- safe DTO: 外部PJ面はPJ名・状態、計画サイクル、マイルストーンの表題・目標年月・進捗率だけ。内部バンドルの取得経路を外部面から呼ばず、メンバー名、工数、根拠、出典、社内管理項目 (目的 / 成果 / 論点 / 仮説 / 意思決定 / 資金 / 関係先)、連絡先を含めない。機関ワークスペースDTOも要約・説明・URL・出典・連絡先・根拠の形をした列と、SPSの `axis_evidence` / `evaluator`、ECRの note / evaluator / rubric を返さない。
+- safe DTO: 外部PJ面はPJ名・状態、計画サイクル、マイルストーンの表題・目標年月・進捗率だけ。進捗行なしは `null` と「未登録」を返し、0%へ変換しない。内部バンドルの取得経路を外部面から呼ばず、メンバー名、工数、根拠、出典、社内管理項目 (目的 / 成果 / 論点 / 仮説 / 意思決定 / 資金 / 関係先)、連絡先を含めない。機関ワークスペースDTOも要約・説明・URL・出典・連絡先・根拠の形をした列と、SPSの `axis_evidence` / `evaluator`、ECRの note / evaluator / rubric を返さない。
 - list sorting: 機関ワークスペースのシーズ一覧は `/seeds` と同じライフサイクル優先度 (PJ化済み → PJ化検討中 → PJなし・SPS算出済み → その他) で並べ、同区分内は表題の日本語順。
 - ECR transpose: ECR は1機関の縦並びで総合値と8軸を上から読む。機関横断の比較表 (1機関=1行×軸を列) とは別の見せ方として維持し、**SPSとは別系列のまま合算しない** (合成スコア・相関・因果指標を作らない)。
 - 愛媛スコープ: p30 は `ehime` ワークスペースへ `shared_surface='summary'` (サマリのみ共有、詳細ワークスペースは非共有)。**p21 の詳細ワークスペースはPJ個別付与でのみ到達可能**で、機関ワークスペースのPJ範囲には含めない。シーズ範囲は `inst_ehime` 紐付け全件をPJ化有無で絞らない。
 - 資料室: `/workspace/[slug]/files` と `/project/[projectId]/workspace/files` は `workspace_documents` + private Storage `workspace-files` を共通正本にする。資料は機関またはPJのどちらか一方へ属し、機関所属からPJ資料権限を派生させない。外部は `workspace_shared` だけ、AMD内部は `amd_internal` も読める。fileの実URLを一覧DTOへ返さず、open APIが毎回権限を再検証して60秒の署名URLを発行する。`canUpload`はfile/link/folder追加に加えてHTML本文編集とfile/link/folderのarchiveを行え、整理（名称変更・移動・共有範囲変更）だけは`canManage`に残す。activeな同名fileの追加は、同じfolderだけを対象にFinder型の中止／両方残す／置き換える確認を出す。`資料 2.pdf`の連番はactive entryと同時追加queueを避け、置き換えは`canUpload`かつserver再認可済みの同名active fileへ明示した時だけ既存Storage objectを上書きする。link/folderは置き換えず、通常追加の競合raceも409で止めて無言上書きしない。archiveは実体を消さず、通常一覧・共有画面から外して保護領域に残す（復元UIは未実装）。AMD内部のPJコックピットは資料名・件数・最新資料一覧を本文へ展開せず、`WorkspaceDocumentLauncher` の1ボタンからURLを変えない大きなモーダルを開く。閉じた後は同じコックピット文脈へ戻り、独立routeは直接到達用に残す。資料室の全面配色は白・graphite・deep navy・AMD blue・cyanで、旧ivory/green/amberを使わない。migration 216〜219は2026-08-02に本番適用済み。
 - HTML表示・編集とPDF化ダウンロード: 保存済み `text/html` と `.html` / `.htm` は短期署名URLへ直接リダイレクトしない。資料名は資料ごとの権限を再確認したsandboxプレビューを別タブへ表示し、HTML内のJavaScript・外部通信・form送信を止める（5MBまで）。`canUpload`のHTML編集は専用source APIで毎request再認可し、署名URLを返さず、HTMLソースを実行せずにtextareaへ渡す。空欄不可・UTF-8 5MBまでをserverで検証し、保存時は既存private Storage objectとサイズ/MIME/hash/更新日時を更新する。右端のPDF化ダウンロードだけが、同じく再認可したPDF APIで日本語フォントを埋め込んだA4 PDFとして返す。PDF入力HTMLは8MB、返却PDFは4MBまで。元HTMLをダウンロードとして配布しない。
 - BOX移行: VSX/CX/SE/SX/ZMP/KUTEの旧Project ShareをPJ資料室へ非破壊コピー済み。既存 `project_documents` のDrive資料は `AMD内部/Drive資料` へ内部限定linkとして併記し、旧テーブルは既存機能のため残す。旧Project Shareは、外部メールアカウントとPJ個別grantを登録して到達確認するまで入口を閉じず並行稼働する。旧BOXを資料の正本として新規運用し続けない。
-- admin management: `/admin/access` (内部admin限定) + `GET/POST/PATCH /api/admin/workspace-access` が唯一の付与・停止導線。`kind` を必須にし汎用upsert経路を作らない。停止済み (suspended / revoked) は作成では復活せず明示的な PATCH のみ。機関所属の付与がPJアクセスを自動作成しない。`auth.users` の id は select も返却もしない。
-- audit: `workspace_access_audit_logs` にログイン要求・送信・成功・拒否・ログアウト・admin操作を記録する。メール本文、URL、トークン、未登録アドレスは残さない。
+- capability: role名は `workspace-capabilities.ts` で明示capability束へ変換する。manager / ownerという名前から、未実装の所属管理、共同PJ更新、相手方主権データ確定を推定して付与しない。
+- mutation origin: cookie認証付き資料変更はsame-origin guardを必須とし、`Origin`、`Sec-Fetch-Site`、`Referer`のいずれでも同一originを確認できないrequestを403で閉じる。
+- admin management: `/admin/access` (内部admin限定) + `GET/POST/PATCH /api/admin/workspace-access` が唯一の付与・停止導線。`kind` を必須にし汎用upsert経路を作らない。停止済み (suspended / revoked) は作成では復活せず明示的な PATCH のみ。機関所属の付与がPJアクセスを自動作成しない。`auth.users` の id は select も返却もしない。GETは全対象tableをpaginationし、500/1000件で黙って切らない。
+- audit: `workspace_access_audit_logs` にログイン要求・送信・成功・拒否・ログアウト・admin操作を記録する。account、grant、資料metadataのrow変更はDB triggerで同じtransactionに記録し、semantic audit insert失敗も成功扱いしない。メール本文、URL、トークン、未登録アドレス、Storage pathは残さない。
 - RLS: migration 212 の新設7テーブルは anon / 一般 authenticated のポリシーを持たない (admin + service_role のみ)。migration 213 は既存15テーブルの anon read を撤去し、authenticated を `amd_os_is_member()` ゲートへ寄せる。ECR / SPS の軸値と評価行そのものへは INSERT / UPDATE / DELETE を行わない。
 - internal read client: migration 213で閉じた内部テーブルをブラウザから読む場合は、匿名固定clientでなくSupabaseのログイン済みsessionを持つbrowser clientを使う。server routeはservice clientを明示注入する。PJ取得失敗を0件表示へ潰さず、dashboardに再読み込み可能なエラーを出す。
 
 回帰防止:
 
-- `npm run test:workspace-access-scope` (所属・失効・機関→PJの暗黙付与なし)、`test:workspace-access-session` (署名cookieの検証)、`test:workspace-email-start-contract` (登録有無を漏らさない応答)、`test:workspace-next-path` (遷移先の絞り込み)、`test:external-project-workspace` (外部DTOが内部バンドルへ広がらないこと)、`test:workspace-access-admin` (admin APIの権限・自動復活禁止・`auth.users` 非返却)、`test:workspace-rls-closure` (213の閉鎖範囲)、`test:workspace-documents-core` (path/URL/storage key・HTML本文byte・Finder連番検証)、`test:workspace-documents-contract` (権限再検証・明示置き換えだけのStorage上書き・raceでの自動上書き禁止・HTML編集の署名URL非返却・`canUpload`での編集/削除・非破壊archive) が構造的に検査する。
+- `npm run test:workspace-access-scope` (所属・失効・機関→PJの暗黙付与なし)、`test:workspace-access-session` (署名cookieの検証)、`test:workspace-email-start-contract` (登録有無を漏らさない応答とOTP claim)、`test:workspace-next-path` (遷移先の絞り込み)、`test:external-project-workspace` (外部DTOが内部バンドルへ広がらないこと)、`test:workspace-access-admin` (admin APIの権限・自動復活禁止・完全pagination・`auth.users` 非返却)、`test:workspace-rls-closure` (213の閉鎖範囲)、`test:workspace-documents-core` (path/URL/storage key・HTML本文byte・Finder連番検証)、`test:workspace-documents-contract` (権限再検証・明示置き換えだけのStorage上書き・raceでの自動上書き禁止・HTML編集の署名URL非返却・capabilityでの編集/削除・非破壊archive)、`test:workspace-fact-origin-contract`、`test:workspace-security-migration-contract`、`test:workspace-capabilities` が構造的に検査する。
 - 外部面へ内部cockpit DTOや `getProjectWorkspaceBundle` を流用しない。外部が見る情報を増やす場合は外部専用の許可列を広げ、内部バンドルの再利用で代替しない。
 - `/project/[projectId]/workspace` を外部用の別URLへ分割しない (二面構成が契約)。
 

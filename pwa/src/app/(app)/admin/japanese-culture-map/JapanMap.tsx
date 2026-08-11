@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import {
-  ComposableMap,
-  Geographies,
-  Geography,
-  ZoomableGroup,
-} from "react-simple-maps";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { geoMercator, geoPath } from "d3-geo";
+import type { Feature, FeatureCollection, Geometry } from "geojson";
+import { feature } from "topojson-client";
+import type { GeometryCollection, Topology } from "topojson-specification";
 
 const TOPO_URL = "/geo/japan-prefectures.topojson";
 
@@ -23,6 +21,14 @@ interface PrefGeoProps {
   nam?: string;
 }
 
+interface JapanTopology extends Topology {
+  objects: {
+    japan: GeometryCollection<PrefGeoProps>;
+  };
+}
+
+type PrefectureFeature = Feature<Geometry, PrefGeoProps>;
+
 export default function JapanMap({
   activePrefectures,
   selectedPrefecture,
@@ -31,6 +37,8 @@ export default function JapanMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 800, h: 600 });
   const [hovered, setHovered] = useState<string | null>(null);
+  const [prefectures, setPrefectures] = useState<PrefectureFeature[]>([]);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -43,75 +51,111 @@ export default function JapanMap({
     return () => ro.disconnect();
   }, []);
 
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetch(TOPO_URL, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error("japan_topology_load_failed");
+        return response.json() as Promise<JapanTopology>;
+      })
+      .then((topology) => {
+        const converted = feature(topology, topology.objects.japan);
+        const nextFeatures =
+          converted.type === "FeatureCollection"
+            ? (converted.features as PrefectureFeature[])
+            : [converted as unknown as PrefectureFeature];
+        setPrefectures(nextFeatures);
+        setLoadError(false);
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setLoadError(true);
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  const mapPaths = useMemo(() => {
+    if (prefectures.length === 0 || size.w <= 0 || size.h <= 0) return [];
+
+    const collection: FeatureCollection<Geometry, PrefGeoProps> = {
+      type: "FeatureCollection",
+      features: prefectures,
+    };
+    const projection = geoMercator().fitExtent(
+      [
+        [16, 16],
+        [Math.max(17, size.w - 16), Math.max(17, size.h - 16)],
+      ],
+      collection,
+    );
+    const createPath = geoPath(projection);
+
+    return prefectures.map((prefecture, index) => ({
+      key: String(prefecture.id ?? index),
+      name: prefecture.properties?.nam_ja || prefecture.properties?.nam || "",
+      path: createPath(prefecture) ?? "",
+    }));
+  }, [prefectures, size.h, size.w]);
+
   return (
     <div ref={containerRef} className="absolute inset-0">
-      <ComposableMap
-        projection="geoMercator"
-        projectionConfig={{
-          // 日本列島が収まるよう中心を本州中部、スケールを調整
-          center: [137, 38],
-          scale: 1100,
-        }}
-        width={size.w}
-        height={size.h}
-        style={{ width: "100%", height: "100%" }}
+      <svg
+        viewBox={`0 0 ${size.w} ${size.h}`}
+        className="h-full w-full"
+        role="img"
+        aria-label="日本文化コンテンツの都道府県地図"
+        preserveAspectRatio="xMidYMid meet"
       >
-        <ZoomableGroup minZoom={1} maxZoom={8}>
-          <Geographies geography={TOPO_URL}>
-            {({ geographies }: { geographies: Array<{ rsmKey: string; properties: PrefGeoProps }> }) =>
-              geographies.map((geo) => {
-                const name = geo.properties.nam_ja || geo.properties.nam || "";
-                const hasContent = activePrefectures.has(name);
-                const isSelected = selectedPrefecture === name;
-                const isHovered = hovered === name;
+        {mapPaths.map(({ key, name, path }) => {
+          const hasContent = activePrefectures.has(name);
+          const isSelected = selectedPrefecture === name;
+          const isHovered = hovered === name;
+          const fill = isSelected
+            ? "#0ea5e9"
+            : hasContent
+              ? isHovered
+                ? "#38bdf8"
+                : "#0369a1"
+              : isHovered
+                ? "#334155"
+                : "#1e293b";
 
-                const fill = isSelected
-                  ? "#0ea5e9"
-                  : hasContent
-                    ? isHovered
-                      ? "#38bdf8"
-                      : "#0369a1"
-                    : isHovered
-                      ? "#334155"
-                      : "#1e293b";
+          return (
+            <path
+              key={key}
+              d={path}
+              fill={fill}
+              stroke="#0f172a"
+              strokeWidth={0.4}
+              className="transition-colors duration-150 focus:outline-none focus-visible:stroke-sky-300 focus-visible:stroke-[2]"
+              style={{ cursor: hasContent ? "pointer" : "default" }}
+              onMouseEnter={() => setHovered(name)}
+              onMouseLeave={() => setHovered(null)}
+              onFocus={() => setHovered(name)}
+              onBlur={() => setHovered(null)}
+              onClick={() => onSelectPrefecture(name)}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
+                onSelectPrefecture(name);
+              }}
+              tabIndex={0}
+              role="button"
+              aria-label={`${name}${hasContent ? "、コンテンツあり" : "、コンテンツなし"}`}
+            >
+              <title>{name}</title>
+            </path>
+          );
+        })}
+      </svg>
 
-                return (
-                  <Geography
-                    key={geo.rsmKey}
-                    geography={geo}
-                    onMouseEnter={() => setHovered(name)}
-                    onMouseLeave={() => setHovered(null)}
-                    onClick={() => onSelectPrefecture(name)}
-                    style={{
-                      default: {
-                        fill,
-                        stroke: "#0f172a",
-                        strokeWidth: 0.4,
-                        outline: "none",
-                        cursor: hasContent ? "pointer" : "default",
-                        transition: "fill 0.15s",
-                      },
-                      hover: {
-                        fill,
-                        stroke: "#0f172a",
-                        strokeWidth: 0.4,
-                        outline: "none",
-                        cursor: hasContent ? "pointer" : "default",
-                      },
-                      pressed: {
-                        fill: "#0ea5e9",
-                        stroke: "#0f172a",
-                        strokeWidth: 0.4,
-                        outline: "none",
-                      },
-                    }}
-                  />
-                );
-              })
-            }
-          </Geographies>
-        </ZoomableGroup>
-      </ComposableMap>
+      {loadError && (
+        <div className="absolute inset-0 grid place-items-center text-sm text-muted-foreground" role="alert">
+          地図を読み込めませんでした
+        </div>
+      )}
 
       {/* hover tooltip */}
       {hovered && (

@@ -69,9 +69,3 @@ export async function resolveSharedWorkspaceAccess(projectId: string): Promise<S
     projects: [{ projectId: membership.projectId, projectName: membership.projectId }],
   };
 }
-
-export const PROJECT_MEMBERSHIP_ROLE_LABEL: Record<ExternalProjectViewerAccess["role"], string> = {
-  manager: "マネージャー",
-  contributor: "コントリビューター",
-  readonly: "閲覧のみ",
-};

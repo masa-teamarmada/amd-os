@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 
 const files = {
   access: new URL("../src/lib/workspace-document-access.ts", import.meta.url),
+  capabilities: new URL("../src/lib/workspace-capabilities.ts", import.meta.url),
   list: new URL("../src/app/api/workspace-documents/route.ts", import.meta.url),
   mutate: new URL("../src/app/api/workspace-documents/[documentId]/route.ts", import.meta.url),
   open: new URL("../src/app/api/workspace-documents/[documentId]/open/route.ts", import.meta.url),
@@ -22,6 +23,12 @@ const files = {
 const source = Object.fromEntries(await Promise.all(Object.entries(files).map(async ([key, url]) => [key, await readFile(url, "utf8")])));
 
 assert.match(source.access, /resolveSharedWorkspaceAccess\(projectId\)/, "PJ資料は共有workspaceの明示アクセスを再利用する");
+assert.match(source.access, /workspaceCapabilities\(/, "資料権限はrole名の直接比較でなく共通capability bundleから解決する");
+assert.match(source.access, /hasWorkspaceCapability\(capabilities, "document\.upload"\)/, "資料追加は明示capabilityを検査する");
+assert.match(source.access, /hasWorkspaceCapability\(capabilities, "document\.manage"\)/, "資料整理は明示capabilityを検査する");
+assert.doesNotMatch(source.access, /access\.role === "manager"|membership\.role === "owner"/, "資料access resolverへrole名の認可分岐を直書きしない");
+assert.match(source.capabilities, /role: "manager" \| "contributor" \| "readonly"/, "既存PJ roleをcapability bundle入力として閉じる");
+assert.match(source.capabilities, /External role labels currently do not grant membership management/, "未実装権限を強いrole名から推定しない");
 assert.match(source.access, /scope\.institutionWorkspaces\.find/, "機関資料は機関membershipを明示確認する");
 assert.doesNotMatch(source.access, /institutionWorkspaces.*project_access/s, "機関membershipからPJ権限を自動生成しない");
 assert.match(source.list, /!access\.canReadInternal.*visibility.*workspace_shared/s, "外部一覧は共有資料だけに絞る");
