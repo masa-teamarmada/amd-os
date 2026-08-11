@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-11 22:26 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-12 01:52 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -291,7 +291,7 @@ PRIMARY KEY: `revision_id`
 
 ## app_notifications
 
-行数 (概算): 123
+行数 (概算): 147
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -321,7 +321,6 @@ PRIMARY KEY: `id`
 | 23 | `attention_source_hash` | `text` | NULL | `` |
 | 24 | `attention_reviewed_at` | `timestamptz` | NULL | `` |
 | 25 | `attention_reviewed_by` | `text` | NULL | `` |
-
 直接の再認証URLがある `connector_auth` を除き、通知面へ出すにはCodex審査の `attention_state='approved'` と、まさ本人の完全なaction contractの両方が必要。writerがaction contractを宣言しただけでは通知しない。
 
 ## atlas_decisions
@@ -1969,7 +1968,7 @@ PRIMARY KEY: `feedback_id`
 
 ## l2_notifications
 
-行数 (概算): 376
+行数 (概算): 389
 PRIMARY KEY: `notification_id`
 UNIQUE: `(l2_kind,target_id,scope_key)` (constraint: `l2n_unique`)
 
@@ -2000,7 +1999,6 @@ UNIQUE: `(l2_kind,target_id,scope_key)` (constraint: `l2n_unique`)
 | 23 | `attention_source_hash` | `text` | NULL | `` |
 | 24 | `attention_reviewed_at` | `timestamptz` | NULL | `` |
 | 25 | `attention_reviewed_by` | `text` | NULL | `` |
-
 `attention_state` はCodex意味審査の状態。通知・未読数・判断キューは `approved` かつ `requires_masa_decision=true` だけを対象にする。素材列が変わるとDB triggerが審査結果を `pending` へ戻す。
 
 ## lane_suggestions
@@ -3173,7 +3171,7 @@ PRIMARY KEY: `outbox_id`
 
 ## proactive_todos
 
-行数 (概算): 437
+行数 (概算): 443
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -3206,7 +3204,6 @@ PRIMARY KEY: `id`
 | 26 | `attention_source_hash` | `text` | NULL | `` |
 | 27 | `attention_reviewed_at` | `timestamptz` | NULL | `` |
 | 28 | `attention_reviewed_by` | `text` | NULL | `` |
-
 未対応面に出すのは `attention_state='approved'` かつ `attention_type IN ('decision','masa_action')` だけ。`due_basis='explicit'` の期限だけを期限超過・red判定へ使い、`synthetic` / `unknown` は仮置き日として赤表示しない。素材列が変わるとDB triggerが審査結果を `pending` へ戻す。
 
 ## progress_estimate_state

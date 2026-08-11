@@ -2,6 +2,7 @@
 
 > この章は、AMD内部、研究機関、スタートアップ、共同PJで増えた画面、権限、データを、役割ごとの入口を残しながら共通の業務構造へ収束させるための現行方針である。
 > 2026-08-12時点では、収束原則と情報境界を採択済みとし、SX p21で本人・組織・権限と外部公開版のDBカーネルを先行実装している。PJ画面は既存の完成済みworkspaceへ一本化し、大学向けPJレンズ、共通作業・判断、他PJへの展開は未実装である。
+> PJ・AMD・研究機関の三画面で何を同一にし、何を分離するかの受入条件は`1-5-three-party-project-view-acceptance-current-spec.md`を正本とする。
 
 ## 目的
 
@@ -319,6 +320,8 @@ surface catalogと資料権限のcapability bundleは初期実装済みである
 security closureのmigration 258は2026-08-11に本番適用し、table、function、trigger、foreign key、実行権限をreadback済みである。
 
 共通principal、organization、organization membership、project party、project grant、immutable publication revisionはmigration 259で初期実装した。
+
+migration 260は本番適用済みで、`publication.approve`をcanonical AMD studio organizationだけへ限定し、研究機関・SU organizationへ誤ったapprove grantが入っても公開RPCで利用できないようにする。本番readbackは不正active grant 0件、guard trigger 1件、resolverのAMD organization guardとstudio party guardを確認済みである。
 
 `/project/[id]/workspace`は完成済みの`SxWeeklyControlDashboard`をPJ実行面として表示する。旧`/project/[id]/weekly-control`はworkspaceへredirectし、同じPJ実行面を二重管理しない。
 

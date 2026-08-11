@@ -17,7 +17,7 @@ for (const status of ["canonical", "projection", "transitional", "mirror", "depr
   assert.ok(catalog.includes(`"${status}"`), `surface statusに${status}を定義する`);
 }
 assert.match(catalog, /id: "portfolio-home"[\s\S]*status: "canonical"/, "ホームはcanonicalとして凍結する");
-assert.match(catalog, /id: "weekly-control"[\s\S]*status: "transitional"/, "週次管制は移行中レンズとして明記する");
+assert.match(catalog, /id: "weekly-control"[\s\S]*status: "deprecated"/, "旧週次管制routeはdeprecatedとして明記する");
 assert.match(catalog, /id: "dashboard-cyber-lab"[\s\S]*status: "mirror"/, "実験dashboardはmirrorとして明記する");
 
 for (const [label, source] of [["server layout", serverLayout], ["client title", clientTitle]]) {

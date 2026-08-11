@@ -136,3 +136,27 @@ automation作成後の最初の自然な平日09:00実行は未観測。2026-08-
 - 完成済み`SxWeeklyControlDashboard`を`/project/[projectId]/workspace`へ移し、旧`/weekly-control`はworkspaceへのredirectだけにした。現行dashboard本体のデザインと操作は変更していない。
 - 未完成の外部account向け簡易代替面はgeneric not foundで閉じた。大学・SU向けは現行PJ画面を基準に、権限と表示項目を変える正式面として別途作る。
 - migration 259のprincipal / organization / grant / immutable publication / auditは、大学側・SU側の安全なデータ境界に再利用するDB基盤として保持し、現行画面へは接続しない。
+
+## 2026-08-12 — 三者PJ面の合格条件を実装前に固定（v3.72.2）
+
+### 判断
+
+- 採択面をPJ workspace、AMD cockpit、研究機関PJ面の三つに固定し、第4の共通dashboardを作らない。
+- 「元のデータが同じ」は、共同事実のcanonical ID、版、状態、期限、ボール、writerが同じという意味にする。全項目を全員へ同じように見せる意味にはしない。
+- AMD非公開と組織主権は分離し、評価・要約・資料の外部表示は承認済みimmutable publicationから読む。内部draftとの差は版と鮮度を明示する。
+
+### 受入土台
+
+- `1-5-three-party-project-view-acceptance-current-spec.md`を追加し、各面が5秒で答える問い、情報層、認可・操作matrix、機械受入、実account readbackを固定した。
+- `three_party_project_view_p21.json`は実データではない合成model fixtureとして、三者で一致するlive共同事実、AMD非公開、研究機関/SU主権、承認版と内部draft、期限未設定、別PJ混入を一つの例にした。
+- PM、研究機関/SU、認可DBの3視点で再監査し、初版testがlens名と単純grantだけを信用し、fixture内の期待値を自己照合していた弱点を検出した。principal / membership / party / exact grant / capability / expiry / organization / slugを結ぶmodelへ修正し、viewer partyをgrantから導出する。
+- `test:three-party-project-view`で、canonical全field一致、DTO厳密allowlistと秘密canary非漏洩、p21/p30分離、第2合成PJ、未設定保持、大学/SU主権の現在値と確定共有版、内部draftと承認版、最新audience除外後の旧版fallback禁止、主権確認・訂正・audit失敗rollbackを検査する。
+- migration 260で`publication.approve`をcanonical AMD studio organizationへ限定する。grant作成・更新trigger、publish RPCが使うactive-party resolver、既存active不正grantの適用時検査を重ね、研究機関・SU organizationを`party_role=studio`へ誤設定しても通さない。migration契約もdeploy gateへ追加した。
+- migration 260は本番へ適用し、不正active approver 0件、guard trigger 1件、resolver内のAMD organization guardとstudio party guardをManagement APIでreadbackした。`db_schema.md`も本番から再生成した。
+- このtestはproduction resolver、DTO、route、DBへ未接続の合成model契約であり、greenだけで実装合格や安全性を証明しない。実装時はproduction coreを接続し、DB RPC / network response / live account readbackを別gateで通す。
+- 旧`weekly-control`のsurface catalog状態を`deprecated`へ変更済みなのに、契約テストだけが`transitional`を要求していたため、現行catalogへ追随させた。
+
+### 完了境界
+
+- この変更では現行PJ workspace、AMD cockpit、研究機関workspaceの画面を変更しない。
+- 研究機関PJ面と、workspace/cockpitの共同正本完全接続は未実装であり、仕様追加だけで完成扱いにしない。

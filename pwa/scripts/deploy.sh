@@ -100,6 +100,8 @@ fi
 
 echo "Running critical UI / spec rollback guard ..."
 (cd "$REPO_ROOT/pwa" && npm run test:critical-ui)
+(cd "$REPO_ROOT/pwa" && npm run test:three-party-project-view)
+(cd "$REPO_ROOT/pwa" && npm run test:sx-shared-control-migration)
 
 echo "Running deploy rollback guard ..."
 node "$SCRIPT_DIR/deploy-version-guard.cjs" --target production --app-url "$APP_URL" --repo-root "$REPO_ROOT"

@@ -4,10 +4,15 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const sql = readFileSync(
+const foundationSql = readFileSync(
   path.join(scriptDir, "migrations", "259_sx_shared_project_control.sql"),
   "utf8",
 );
+const approverGuardSql = readFileSync(
+  path.join(scriptDir, "migrations", "260_publication_approver_studio_guard.sql"),
+  "utf8",
+);
+const sql = `${foundationSql}\n${approverGuardSql}`;
 
 assert.ok(!/CREATE\s+SCHEMA\s+amd_private/i.test(sql), "shared kernel must stay in public schema");
 assert.ok(!/CREATE\s+TABLE[^;]+sx_(actions|decisions)/is.test(sql), "must not create a second action/decision writer");
@@ -87,6 +92,13 @@ for (const hardeningContract of [
   "publication party display label is missing or too long",
   "project is missing or its publication name is invalid",
   "audiencePartyIds",
+  "workspace_publication_approve_studio_guard",
+  "publication.approve requires the canonical AMD studio project party",
+  "p_required_capability <> 'publication.approve' OR (",
+  "o.kind = 'amd'",
+  "o.source_kind = 'amd_internal'",
+  "o.source_id = 'amd'",
+  "active non-AMD-studio publication.approve grant exists",
 ]) {
   assert.ok(sql.includes(hardeningContract), `missing publication hardening: ${hardeningContract}`);
 }

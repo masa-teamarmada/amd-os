@@ -14,7 +14,7 @@
 | data fetch | `pwa/src/lib/supabase-data.ts` (`fetchCockpitFromSupabase`) |
 | project documents | `pwa/src/components/cockpit/CockpitProjectDocuments.tsx`, `pwa/src/app/api/project-documents/route.ts` |
 
-この章のcurrent contractはAMD内部のcockpitだけを扱う。PJワークスペースのcurrent contractは `3-16-project-weekly-control-current-spec.md`、大学・研究機関側の未実装面を含む三者の境界は `1-4-os-convergence-current-spec.md` を正本とする。
+この章のcurrent contractはAMD内部のcockpitだけを扱う。PJワークスペースのcurrent contractは `3-16-project-weekly-control-current-spec.md`、全体の情報境界は `1-4-os-convergence-current-spec.md`、PJ・AMD・研究機関の三者受入は `1-5-three-party-project-view-acceptance-current-spec.md` を正本とする。
 
 ## Data Bundle
 
