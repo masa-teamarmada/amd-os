@@ -2007,9 +2007,9 @@ expectIncludes("src/components/cockpit/Bzm2ModelObservatory.tsx", [
   "到達見込みの数式と現在値",
   "Z_policy",
   "前向き検証",
-  "暫定測定台帳",
-  "代理推定",
-  "欠測補完",
+  "条件付き理論時価総額",
+  "期待時価総額",
+  "全パラメータの抽出規則",
   "パラメータ台帳",
   "現行運用SPSとは別の検証中モデル",
 ]);

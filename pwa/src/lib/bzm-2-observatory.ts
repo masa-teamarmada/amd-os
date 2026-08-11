@@ -8,7 +8,7 @@ export const BZM2_PARAMETER_GROUPS = [
   "quality",
 ] as const;
 
-export type Bzm2ParameterGroup = typeof BZM2_PARAMETER_GROUPS[number];
+export type Bzm2ParameterGroup = (typeof BZM2_PARAMETER_GROUPS)[number];
 
 export const BZM2_VALUE_STATUSES = [
   "calculated",
@@ -20,7 +20,7 @@ export const BZM2_VALUE_STATUSES = [
   "not_started",
 ] as const;
 
-export type Bzm2ValueStatus = typeof BZM2_VALUE_STATUSES[number];
+export type Bzm2ValueStatus = (typeof BZM2_VALUE_STATUSES)[number];
 
 export const BZM2_EVIDENCE_KINDS = [
   "calculation",
@@ -32,7 +32,7 @@ export const BZM2_EVIDENCE_KINDS = [
   "none",
 ] as const;
 
-export type Bzm2EvidenceKind = typeof BZM2_EVIDENCE_KINDS[number];
+export type Bzm2EvidenceKind = (typeof BZM2_EVIDENCE_KINDS)[number];
 
 export type Bzm2Revision = {
   revisionId: string;
@@ -103,7 +103,7 @@ export const BZM2_POTENTIAL_EVIDENCE_STATUSES = [
 ] as const;
 
 export type Bzm2PotentialEvidenceStatus =
-  typeof BZM2_POTENTIAL_EVIDENCE_STATUSES[number];
+  (typeof BZM2_POTENTIAL_EVIDENCE_STATUSES)[number];
 
 export type Bzm2PotentialAxis = {
   key: string;
@@ -138,6 +138,15 @@ export type Bzm2SpsVector = {
   V_econ: number;
 };
 
+export type Bzm2EquityValue = {
+  schema: "bzm2-equity-value-v0.1";
+  valueMillionJpy: number;
+  valuationDate: string;
+  method: string;
+  conditionalOn: string;
+  currency: "JPY";
+};
+
 type CoreParameterDefinition = Omit<Bzm2ParameterSeries, "current" | "history">;
 
 export const BZM2_CORE_PARAMETERS: CoreParameterDefinition[] = [
@@ -146,15 +155,17 @@ export const BZM2_CORE_PARAMETERS: CoreParameterDefinition[] = [
     symbol: "q",
     label: "期限内到達見込み",
     group: "result",
-    description: "戦略余力を失う前かつ計画期限内に共通到達目標へ着く経路の割合。",
+    description:
+      "戦略余力を失う前かつ計画期限内に共通到達目標へ着く経路の割合。",
     sortOrder: 10,
   },
   {
     parameterKey: "P",
     symbol: "P",
-    label: "潜在価値ベクトル",
+    label: "条件付き理論時価総額",
     group: "result",
-    description: "共通到達目標に対応する社会的価値とPJ自身の経済的価値。",
+    description:
+      "共通到達目標へ着いた場合の、会社全体の現在時点における理論株主価値。単位は円。",
     sortOrder: 20,
   },
   {
@@ -162,7 +173,8 @@ export const BZM2_CORE_PARAMETERS: CoreParameterDefinition[] = [
     symbol: "T_C",
     label: "到達時間",
     group: "clock",
-    description: "共通到達目標へ着くまでの経路ごとの時間。単一の平均値へ潰さない。",
+    description:
+      "共通到達目標へ着くまでの経路ごとの時間。単一の平均値へ潰さない。",
     sortOrder: 30,
   },
   {
@@ -170,7 +182,8 @@ export const BZM2_CORE_PARAMETERS: CoreParameterDefinition[] = [
     symbol: "T_Y",
     label: "戦略余力の喪失時間",
     group: "clock",
-    description: "次の一手を自律的に選べなくなるまでの時間。資金時計と非資金成分を分ける。",
+    description:
+      "次の一手を自律的に選べなくなるまでの時間。資金時計と非資金成分を分ける。",
     sortOrder: 40,
   },
   {
@@ -205,10 +218,12 @@ export function readBzm2InitialPotentialProjection(
   const initialValue = asFiniteNumber(
     record.initial_value ?? record.source_score_0_to_9,
   );
-  if (initialValue === null || initialValue < 0 || initialValue > 9) return null;
+  if (initialValue === null || initialValue < 0 || initialValue > 9)
+    return null;
   return {
     value: initialValue,
-    sourceMode: typeof record.source_mode === "string" ? record.source_mode : null,
+    sourceMode:
+      typeof record.source_mode === "string" ? record.source_mode : null,
   };
 }
 
@@ -249,7 +264,9 @@ function readPotentialComponent(
   const record = value as Record<string, unknown>;
   const componentValue = asFiniteNumber(record.value);
   const axes = Array.isArray(record.axes)
-    ? record.axes.map(readPotentialAxis).filter((axis): axis is Bzm2PotentialAxis => axis !== null)
+    ? record.axes
+        .map(readPotentialAxis)
+        .filter((axis): axis is Bzm2PotentialAxis => axis !== null)
     : [];
   if (
     record.key !== key ||
@@ -259,7 +276,8 @@ function readPotentialComponent(
     componentValue < 0 ||
     componentValue > 100 ||
     axes.length !== 5 ||
-    Math.abs(axes.reduce((sum, axis) => sum + axis.value, 0) - componentValue) > 1e-9
+    Math.abs(axes.reduce((sum, axis) => sum + axis.value, 0) - componentValue) >
+      1e-9
   ) {
     return null;
   }
@@ -272,7 +290,9 @@ function readPotentialComponent(
   };
 }
 
-export function readBzm2PotentialVector(value: unknown): Bzm2PotentialVector | null {
+export function readBzm2PotentialVector(
+  value: unknown,
+): Bzm2PotentialVector | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
   if (
@@ -292,9 +312,13 @@ export function readBzm2PotentialVector(value: unknown): Bzm2PotentialVector | n
     components: { V_soc, V_econ },
     scalarProjection: null,
     conditionalOn:
-      typeof record.conditional_on === "string" ? record.conditional_on : "未登録",
+      typeof record.conditional_on === "string"
+        ? record.conditional_on
+        : "未登録",
     imputationRule:
-      typeof record.imputation_rule === "string" ? record.imputation_rule : "未登録",
+      typeof record.imputation_rule === "string"
+        ? record.imputation_rule
+        : "未登録",
   };
 }
 
@@ -302,6 +326,41 @@ export function readBzm2Probability(value: unknown): number | null {
   const probability = asFiniteNumber(value);
   if (probability === null || probability < 0 || probability > 1) return null;
   return probability;
+}
+
+export function readBzm2EquityValue(value: unknown): Bzm2EquityValue | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const valueMillionJpy = asFiniteNumber(record.value_million_jpy);
+  if (
+    record.schema !== "bzm2-equity-value-v0.1" ||
+    valueMillionJpy === null ||
+    valueMillionJpy < 0 ||
+    typeof record.valuation_date !== "string" ||
+    typeof record.method !== "string" ||
+    typeof record.conditional_on !== "string" ||
+    record.currency !== "JPY"
+  ) {
+    return null;
+  }
+  return {
+    schema: "bzm2-equity-value-v0.1",
+    valueMillionJpy,
+    valuationDate: record.valuation_date,
+    method: record.method,
+    conditionalOn: record.conditional_on,
+    currency: "JPY",
+  };
+}
+
+export function deriveBzm2SpsValue(args: {
+  probability: unknown;
+  potential: unknown;
+}): number | null {
+  const probability = readBzm2Probability(args.probability);
+  const potential = readBzm2EquityValue(args.potential);
+  if (probability === null || potential === null) return null;
+  return probability * potential.valueMillionJpy;
 }
 
 export function deriveBzm2InitialSps(args: {
@@ -338,30 +397,32 @@ const GROUP_ORDER: Record<Bzm2ParameterGroup, number> = {
 };
 
 function compareRevision(a: Bzm2Revision, b: Bzm2Revision) {
-  if (a.revisionOrder !== b.revisionOrder) return a.revisionOrder - b.revisionOrder;
+  if (a.revisionOrder !== b.revisionOrder)
+    return a.revisionOrder - b.revisionOrder;
   return a.createdAt.localeCompare(b.createdAt);
 }
 
 function compareObservation(a: Bzm2Observation, b: Bzm2Observation) {
-  if (a.revisionOrder !== b.revisionOrder) return a.revisionOrder - b.revisionOrder;
+  if (a.revisionOrder !== b.revisionOrder)
+    return a.revisionOrder - b.revisionOrder;
   return a.createdAt.localeCompare(b.createdAt);
 }
 
 function asGroup(value: string): Bzm2ParameterGroup {
   return (BZM2_PARAMETER_GROUPS as readonly string[]).includes(value)
-    ? value as Bzm2ParameterGroup
+    ? (value as Bzm2ParameterGroup)
     : "quality";
 }
 
 function asValueStatus(value: string): Bzm2ValueStatus {
   return (BZM2_VALUE_STATUSES as readonly string[]).includes(value)
-    ? value as Bzm2ValueStatus
+    ? (value as Bzm2ValueStatus)
     : "missing";
 }
 
 function asEvidenceKind(value: string): Bzm2EvidenceKind {
   return (BZM2_EVIDENCE_KINDS as readonly string[]).includes(value)
-    ? value as Bzm2EvidenceKind
+    ? (value as Bzm2EvidenceKind)
     : "none";
 }
 
@@ -415,13 +476,19 @@ function mapRevision(row: Bzm2RevisionRow): Bzm2Revision {
   };
 }
 
-function mapObservation(row: Bzm2ObservationRow, revision: Bzm2Revision): Bzm2Observation {
+function mapObservation(
+  row: Bzm2ObservationRow,
+  revision: Bzm2Revision,
+): Bzm2Observation {
   const affects = Array.isArray(row.affects)
     ? row.affects.filter((value): value is string => typeof value === "string")
     : [];
-  const condition = row.condition_json && typeof row.condition_json === "object" && !Array.isArray(row.condition_json)
-    ? row.condition_json as Record<string, unknown>
-    : {};
+  const condition =
+    row.condition_json &&
+    typeof row.condition_json === "object" &&
+    !Array.isArray(row.condition_json)
+      ? (row.condition_json as Record<string, unknown>)
+      : {};
   return {
     observationId: row.observation_id,
     revisionId: row.revision_id,
@@ -453,8 +520,12 @@ export function buildBzm2Observatory(args: {
   storageState?: Bzm2Observatory["storageState"];
   storageMessage?: string | null;
 }): Bzm2Observatory {
-  const revisions = (args.revisionRows ?? []).map(mapRevision).sort(compareRevision);
-  const revisionById = new Map(revisions.map((revision) => [revision.revisionId, revision]));
+  const revisions = (args.revisionRows ?? [])
+    .map(mapRevision)
+    .sort(compareRevision);
+  const revisionById = new Map(
+    revisions.map((revision) => [revision.revisionId, revision]),
+  );
   const observations = (args.observationRows ?? [])
     .map((row) => {
       const revision = revisionById.get(row.revision_id);
@@ -470,14 +541,20 @@ export function buildBzm2Observatory(args: {
     historyByKey.set(observation.parameterKey, history);
   }
 
-  const definitions = new Map(BZM2_CORE_PARAMETERS.map((definition) => [definition.parameterKey, definition]));
+  const definitions = new Map(
+    BZM2_CORE_PARAMETERS.map((definition) => [
+      definition.parameterKey,
+      definition,
+    ]),
+  );
   for (const observation of observations) {
     definitions.set(observation.parameterKey, {
       parameterKey: observation.parameterKey,
       symbol: observation.symbol,
       label: observation.label,
       group: observation.group,
-      description: observation.note ?? "版ごとに値と出所を追跡するBZM 2.0パラメータ。",
+      description:
+        observation.note ?? "版ごとに値と出所を追跡するBZM 2.0パラメータ。",
       sortOrder: observation.sortOrder,
     });
   }
@@ -491,7 +568,12 @@ export function buildBzm2Observatory(args: {
         history,
       };
     })
-    .sort((a, b) => GROUP_ORDER[a.group] - GROUP_ORDER[b.group] || a.sortOrder - b.sortOrder || a.label.localeCompare(b.label, "ja"));
+    .sort(
+      (a, b) =>
+        GROUP_ORDER[a.group] - GROUP_ORDER[b.group] ||
+        a.sortOrder - b.sortOrder ||
+        a.label.localeCompare(b.label, "ja"),
+    );
 
   return {
     projectId: args.projectId,
