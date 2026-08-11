@@ -57,3 +57,29 @@
 ### 教訓
 
 未 push commit は、放置した日数ぶんだけ「他セッションの履歴操作で消える」確率が上がる。1 セッションで push まで到達できない事情ができたときは、handoff に手順を書くだけでは資産を守れない。詳細は `pwa/BUGS.md` の同日エントリに残した。
+
+## 2026-08-11 — つくよみ外部リサーチをSlackからOS採否へ移行（v3.71.0〜v3.71.1）
+
+### 目的
+
+毎日同じ外部リサーチがSlackへ届く問題を止め、重複していない候補だけをAMD OSで1件ずつ確認し、まさが採用した情報だけをPJコックピットへ蓄積するA案を実装した。
+
+### 実装と運用
+
+- migration 255で`project_strategy_signals`へ`origin_kind`と`research_category`を追加し、外部リサーチの`(project_id, source_hash)`を全statusで一意にした。
+- canonical URLと、対象・出来事・発生日・重要差分のfingerprintを、DB全履歴と未反映outboxへ照合するhelperと契約テストを追加した。
+- 外部候補は`/notifications`へ1件ずつ通常通知として出し、`採用`は通知metadataのhashと完全一致するcandidateだけをconfirmedにする。`見送り`はrejectedにする。
+- PJコックピットの経営ハイライトを`重要な動き`と`採用リサーチ`へ分け、外部はconfirmedだけを後者へ表示する。
+- Codex automation `automation-2`を平日09:00 JSTで有効化した。新規0件は通知もoutboxも作らず、失敗時だけautomation通知を出す。
+- 旧GASのSlack配信入口はearly returnへ変更し、`clasp push`とremote code readbackまで確認した。
+- 人向け運用正本をAMD OSマニュアル3-3章へ集約し、実行SKILLはそのマニュアルを先に読む構造へ変更した。
+
+### 検証
+
+- `npm run test:external-research`、`npm run test:critical-ui`、対象ESLint、production buildを通した。
+- production `v3.71.1` / `f8b32f16`で`/api/build-info`を確認した。
+- ログイン済み本番マニュアルで、実行時刻、対象7PJ、重複防止、採否、保存先、異常時の表を読み戻した。
+
+### 残る確認
+
+automation作成後の最初の自然な平日09:00実行は未観測。2026-08-12 09:00 JST以降に、成功または候補0件、Slack送信なし、候補がある場合だけOS通知が1候補1件で作られることをread-onlyで確認する。

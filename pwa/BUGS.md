@@ -13,6 +13,14 @@
 - **対応内容**: root `CLAUDE.md`へ、fetch後のahead/behind実数確認、behind>0での新規編集禁止、安全なff-only、発散時のpatch-equivalent分類、clean clone deploy後の正規checkout再確認を追加した。`pwa/CLAUDE.md`とBZMのHANDOFF／migration promptからbehind常態化の記述を除き、checkout同期未完をP0未解決として扱うよう統一した。
 - **再発防止策**: **fetchは同期ではない。** `git rev-list --count HEAD..origin/main`が0であることを編集開始とcloseoutの両方で確認する。clean cloneはdeploy輸送路であり、正規checkoutの代替正本にしない。ahead/behindは毎回実数とSHAを記録し、「共有checkoutだからbehindは正常」と書かない。
 
+### [manual/operations] 人が見る運用正本をローカル実行SKILLへ置いて完了扱いにした (2026-08-11)
+
+- **状態**: クローズ (2026-08-11 — AMD OSマニュアル3-3章へ運用を集約し、production `v3.71.1`で表示確認済み)。
+- **症状**: つくよみ外部リサーチをSlackからOS通知へ移した実装は完了したが、最初の完了案内がローカルのautomation実行SKILLを運用仕様の参照先にしていた。OSを日常的に使う人が、実行時刻、対象PJ、重複判定、採用後の保存先、異常時の見方をAMD OS内から確認できない状態だった。
+- **原因**: automationが読む実行契約と、人が読む日常運用の正本を同じものとして扱った。既存のOSマニュアルには短い結果説明だけを置き、運用判断に必要な情報を実行ファイル側へ寄せていた。
+- **対応内容**: `pwa/manual/3-3-notifications-and-tsukuyomi.md`へ、平日09:00の検索窓、対象7PJ、候補3分類、全履歴での重複防止、採用・見送り、コックピットの保存先、異常時の確認表を追加した。章タイトル・要約・画面・テーブル索引を`manual-chapters.ts`へ登録し、automation SKILLはこのマニュアルを最初に読む構造へ変更した。
+- **再発防止策**: 新しいcron・routine・automationを追加するときは、実行者向けSKILLとは別に、人が見るOSマニュアルへ`いつ / 対象 / 候補条件 / 重複 / 判断 / 保存先 / 異常時`を置く。`test:critical-ui`でこの入口と主要項目を固定し、ローカルパスを人向けの最終案内先にしない。
+
 ### [process/handoff] 正本ルールに反する自己制約を migration prompt へ恒久化し、次セッションが deploy 前で止まった (2026-08-10)
 
 - **状態**: クローズ (2026-08-10 — 該当記述を正本準拠へ書き換え、止まっていた成果を clean clone 経由で本番反映済み)。
