@@ -255,7 +255,7 @@ function FormulaValueCell({
 function EquationMark({ mark }: { mark: "×" | "=" }) {
   return (
     <div
-      className="flex items-center justify-center text-[15px] font-semibold text-[#8a867c]"
+      className="flex min-h-4 items-center justify-center py-0.5 text-[15px] font-semibold text-[#8a867c] sm:min-h-0 sm:py-0"
       aria-hidden="true"
     >
       {mark}
@@ -678,7 +678,7 @@ export function Bzm2ModelObservatory({ model }: { model: Bzm2Observatory }) {
               <div className="text-[9px] font-semibold tracking-[0.1em] text-[#365b70]">
                 現在の代入{hasInitialPotential ? "（初期投影）" : ""}
               </div>
-              <div className="mt-1 grid grid-cols-[minmax(0,0.8fr)_12px_minmax(0,0.8fr)_12px_minmax(0,1fr)] gap-px overflow-hidden rounded-md border border-[#c9d4d7] bg-[#c9d4d7]">
+              <div className="mt-1 grid grid-cols-1 gap-px overflow-hidden rounded-md border border-[#c9d4d7] bg-[#c9d4d7] sm:grid-cols-[minmax(0,0.8fr)_12px_minmax(0,0.8fr)_12px_minmax(0,1fr)]">
                 <FormulaValueCell
                   symbol="q"
                   label="到達見込み"
