@@ -1506,6 +1506,11 @@ assert.ok(
 
 assert.match(migrationSql, /^BEGIN;$/m);
 assert.match(migrationSql, /^COMMIT;$/m);
+assert.doesNotMatch(
+  migrationSql,
+  /\bjsonb_object_length\s*\(/,
+  "production Postgres does not provide jsonb_object_length; compare validated objects with '{}'::jsonb instead",
+);
 for (const table of [
   "bzm_2_1_model_revisions",
   "bzm_2_1_decision_states",

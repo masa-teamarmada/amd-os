@@ -586,7 +586,7 @@ BEGIN
       END IF;
     END IF;
 
-    IF status = 'conditional' AND jsonb_object_length(component -> 'condition') = 0 THEN
+    IF status = 'conditional' AND component -> 'condition' = '{}'::jsonb THEN
       RETURN false;
     END IF;
     IF status = 'not_applicable'
@@ -1009,7 +1009,7 @@ CREATE TABLE IF NOT EXISTS public.bzm_2_1_cashflow_events (
     jsonb_typeof(condition_json) = 'object'
     AND (
       value_status <> 'conditional'
-      OR jsonb_object_length(condition_json) > 0
+      OR condition_json <> '{}'::jsonb
     )
   ),
   CONSTRAINT bzm_2_1_cashflow_events_public_components_check CHECK (
@@ -1600,8 +1600,8 @@ CREATE TABLE IF NOT EXISTS public.bzm_2_1_policy_evaluations (
           objective_kind IN ('bzsf', 'public')
           AND goal_probability IS NOT NULL
           AND plan_deadline_goal_probability IS NOT NULL
-          AND jsonb_object_length(controller_by_state_json) > 0
-          AND jsonb_object_length(selected_action_by_state_json) > 0
+          AND controller_by_state_json <> '{}'::jsonb
+          AND selected_action_by_state_json <> '{}'::jsonb
           AND engine_version IS NOT NULL
           AND btrim(engine_version) <> ''
           AND input_hash IS NOT NULL
@@ -1655,7 +1655,7 @@ CREATE TABLE IF NOT EXISTS public.bzm_2_1_policy_evaluations (
       AND expected_terminal_value_million_jpy IS NOT NULL
       AND expected_cost_million_jpy IS NOT NULL
       AND expected_benefit_million_jpy IS NOT NULL
-      AND jsonb_object_length(selected_action_by_state_json) > 0
+      AND selected_action_by_state_json <> '{}'::jsonb
       AND cardinality(missing_inputs) = 0
       AND engine_version IS NOT NULL
       AND btrim(engine_version) <> ''

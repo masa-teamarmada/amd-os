@@ -130,7 +130,12 @@ assert.ok(migration.includes("p.objective_kind IN ('bzsf', 'public')"));
 assert.ok(migration.includes("p.evaluation_status = 'not_computable'"));
 assert.ok(migration.includes("p.goal_probability IS NOT NULL"));
 assert.ok(migration.includes("ae.goal_probability IS NOT NULL"));
-assert.ok(migration.includes("jsonb_object_length(p.selected_action_by_state_json) > 0"));
+assert.ok(migration.includes("p.selected_action_by_state_json <> '{}'::jsonb"));
+assert.doesNotMatch(
+  migration,
+  /\bjsonb_object_length\s*\(/,
+  "production Postgres does not provide jsonb_object_length",
+);
 
 for (const project of artifact.projects) {
   assert.ok(migration.includes(`'${project.projectId}'`), `${project.projectId}: project scope`);
