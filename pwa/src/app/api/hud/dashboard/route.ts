@@ -6,7 +6,7 @@
  *
  * - projects / billingStatus / scoreHistory / signalMetrics: 既存 lib の anon read + 純粋計算関数を再利用
  * - managementScore / managementHistory: amd_management_score_snapshots を service_role で read
- * - 認証: Supabase JWT (Authorization: Bearer <access_token>) を検証。CRON_SECRET も許可。
+ * - 認証: AMD member の Supabase JWT (Authorization: Bearer <access_token>) を検証。CRON_SECRET も許可。
  *
  * 注: AAA (架空デモ PJ) は含めない（実機デモで実 PJ のみ見せるため）。
  */
@@ -59,7 +59,7 @@ function getCurrentYm(): string {
 }
 
 export async function GET(req: NextRequest) {
-  // --- auth: Bearer JWT (any logged-in member) or CRON_SECRET ---
+  // --- auth: AMD member Bearer JWT or CRON_SECRET ---
   const auth = req.headers.get("authorization") || "";
   const cronSecret = process.env.CRON_SECRET || "";
   const admin = createAdminClient();
@@ -68,7 +68,15 @@ export async function GET(req: NextRequest) {
     const token = auth.slice(7);
     if (token) {
       const { data } = await admin.auth.getUser(token);
-      authed = Boolean(data.user);
+      const email = data.user?.email?.toLowerCase() ?? null;
+      if (email) {
+        const { data: member, error: memberError } = await admin
+          .from("members")
+          .select("member_id")
+          .eq("email", email)
+          .maybeSingle();
+        authed = !memberError && Boolean(member);
+      }
     }
   }
   if (!authed) {

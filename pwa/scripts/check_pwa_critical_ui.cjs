@@ -649,6 +649,9 @@ expectIncludes("src/lib/supabase-data.ts", [
 expectIncludes("src/app/api/hud/dashboard/route.ts", [
   "fetchProjectsFromSupabase(admin)",
   "fetchBillingStatusFromSupabase(ym, admin)",
+  '.from("members")',
+  '.eq("email", email)',
+  "Boolean(member)",
 ]);
 expectIncludes("src/app/auth/callback/route.ts", [
   'member.os_access_scope === "project"',
