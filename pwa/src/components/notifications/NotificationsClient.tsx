@@ -90,8 +90,20 @@ function l2KindLabel(l2Kind: string): string {
   return L2_KIND_LABEL[l2Kind] ?? l2Kind;
 }
 
+function researchCategoryLabel(value: string): string {
+  if (value === "industry_market") return "業界・市場";
+  if (value === "grant") return "助成金";
+  if (value === "partner") return "協業候補";
+  return "";
+}
+
 function isCoverageGapItem(i: UnifiedItem): boolean {
   return i.kind === "l2" && i.data.l2_kind === "coverage_gap";
+}
+
+function isExternalResearchItem(i: UnifiedItem): boolean {
+  if (i.kind !== "l2" || i.data.l2_kind !== "project_strategy_signal") return false;
+  return textFromUnknown(objectValue(i.data.metadata_json).origin_kind) === "external_research";
 }
 
 function isGovernanceCoverageGap(n: Notification): boolean {
@@ -294,6 +306,9 @@ function itemMetaLabel(i: UnifiedItem, projectMap: Record<string, string>): stri
   if (i.kind === "l2" && isTextbookInsightItem(i) && textbookDestinationKind(i) === "management_knowledge") {
     return `経営ノウハウ追加候補 / ${displayTarget(i.data.target_id, i.data.scope_key, projectMap)}`;
   }
+  if (i.kind === "l2" && isExternalResearchItem(i)) {
+    return `外部リサーチ候補 / ${displayTarget(i.data.target_id, i.data.scope_key, projectMap)}`;
+  }
   if (i.kind === "l2") {
     return `${l2KindLabel(i.data.l2_kind)} (${i.data.l2_kind}) / ${displayTarget(i.data.target_id, i.data.scope_key, projectMap)}`;
   }
@@ -322,6 +337,18 @@ type ReviewActionCopy = {
 
 function reviewActionCopyForItem(i: UnifiedItem, alreadySaved: boolean): ReviewActionCopy {
   if (isCoverageGapItem(i)) return coverageGapActionCopy(i.data as Notification);
+  if (isExternalResearchItem(i)) {
+    return {
+      yesLabel: "採用",
+      noLabel: "見送り",
+      yesDoneLabel: "採用済み",
+      noDoneLabel: "見送り済み",
+      prompt: "この外部情報を、PJで残して使うリサーチとして採用するか判断する。",
+      footnote: "採用すると、この候補が該当PJコックピットの「経営ハイライト → 採用リサーチ」に残る。見送りはコックピットへ出さない。",
+      placeholder: "任意コメント。例: 次回公募の締切も追って / このPJには関係が薄い",
+      headlineLabel: "リサーチ候補",
+    };
+  }
   if (isTextbookInsightItem(i)) {
     if (textbookDestinationKind(i) === "management_knowledge") {
       return {
@@ -871,9 +898,10 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
           const ym = notificationYm(n.scope_key);
           let query = supabase
             .from("project_strategy_signals")
-            .select("signal_type, title, summary, impact_level, decision_state, status, source_refs_json, source_hash, confidence, signal_date, confirmed_at")
+            .select("signal_type, title, summary, impact_level, decision_state, status, source_refs_json, source_hash, confidence, signal_date, confirmed_at, origin_kind, research_category")
             .eq("project_id", n.target_id);
           query = textFromUnknown(meta.signal_type) ? query.eq("signal_type", textFromUnknown(meta.signal_type)) : query;
+          query = textFromUnknown(meta.origin_kind) ? query.eq("origin_kind", textFromUnknown(meta.origin_kind)) : query;
           const scopedQuery = n.scope_key === "global"
             ? query.is("ym", null)
             : query.eq("ym", ym);
@@ -898,7 +926,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
               .filter(Boolean)
               .join("\n");
             return {
-              heading: `${r.signal_type} / ${r.impact_level} [${r.status}]`,
+              heading: `${researchCategoryLabel(String(r.research_category || "")) || r.signal_type} / ${r.impact_level} [${r.status}]`,
               body: [
                 `${r.title}\n${r.summary}`,
                 refText ? `根拠:\n${refText}` : "",

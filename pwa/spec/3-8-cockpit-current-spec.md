@@ -29,7 +29,7 @@
 | `members` / `memberMap` | PJ member display |
 | `seasonFinance` | current plan cycle のシーズン収支。月次とシーズン合計で、クライアント支払、バッファ、PJ予算、メンバー現金支払、外部メンバー向け未払残、現金収支を返す。役員向け報酬相当額・役員繰越・予算残は検算用データとして保持するが、PJ cockpit では表示しない |
 | `msChangeHistory` | `/admin/ms-overview` 保存時に `milestone_change_events` へ残るMS変更履歴。cockpit では折りたたみ確認専用で、変更日時、記録者、MS差分、担当share差分、保存前支払検算サマリを表示する |
-| `strategySignals` | L2D-6 `project_strategy_signals` |
+| `strategySignals` | L2D-6 `project_strategy_signals`。internal の candidate/confirmed と、external_research の confirmed を別取得して結合する |
 | `tasks` | legacy kanban / H-1互換 task。通常PJ cockpit の主要表示には使わない |
 
 `proactive_outbox` / `proactive_loops` / `proactive_loop_events` は 2026-06-27 に廃止済みの旧先手力ループであり、通常PJ / institution cockpit には表示しない。先手TODOの棚卸しは `proactive_todos` を使う `/proactive` と dashboard 上段バッジで扱う。旧 `ProactiveQueuePanel` を cockpit に戻さない。
@@ -37,6 +37,8 @@
 `project_documents` も `CockpitData` bundle には混ぜず、`CockpitProjectDocuments` が `/api/project-documents?project_id=...` を fetch する。API は authenticated user の `members.email` を `project_members` に解決し、当該PJの active member または admin なら資料一覧を返す。ファイル本体は DB / Supabase Storage に置かず、Google Drive の `projects.drive_folder_id` 配下に作成する資料専用 folder (`AMD OS 資料`) へ保存し、DB には Drive file ID / folder ID / `webViewLink` / name / MIME / size / uploaded_by / timestamps だけを残す。
 
 `tsukuyomi_nudge_queue` は通常PJ / institution cockpit の `CockpitView` へ渡さず、`CockpitNudge` カードも表示しない。既存の `fetchCockpitFromSupabase` が互換用に `nudges` を返す場合でも、この画面では読まない。HUD / dashboard 実験面で同じ queue を使う場合は、それぞれの専用コンポーネントの契約として扱う。
+
+`CockpitStrategySignals` は経営ハイライト内に `重要な動き` と `採用リサーチ` の2棚を持つ。前者は従来の internal candidate/confirmed、後者は通知で採用済みの external_research confirmed だけを表示する。外部リサーチの未採用候補、見送り、過去の重複候補を cockpit に混ぜない。
 
 ## Permission / Mutation Boundary
 

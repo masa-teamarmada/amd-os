@@ -109,6 +109,8 @@ server page で `members.is_admin` を確認、 admin 以外は `notFound()`。 
 
 > `protocols` の「はい」は `confirmed` であって `active` ではない (= まさ #68 current truth 2026-05-25)。 旧 md / コードで `active` と書いてあったら正本訂正対象。
 
+> `strategy_signal` のうち `origin_kind='external_research'` はボタンを「採用 / 見送り」と表示する。採用は通知 metadata の `signal_source_hash` に一致する1候補だけを confirmed にし、PJ cockpit の「採用リサーチ」棚へ残す。hash不一致時に同月・同種別の別候補へ対象を広げない。
+
 > `raw_data_gap` は **例外**。 「はい」を押せば現物が OS に入る、 と勘違いする UX を作らない。 通知タイトルは `〜が OS 未取り込み` ではなく `〜の取り込み経路を確認` のように、 押した後に起きることを明示する書き方にする。
 
 > `coverage_gap` は `raw_data_gap` と違い、OS のカバレッジ漏れ候補を扱う。押したあとに手作業で別L2へ入れる運用にしない。安全にルートできる候補は「はい」と同時に下流テーブルへ自動反映する。2026-06-27 時点では `proposed_target_l2='strategy_signal'` を D-6 経営ハイライトへ自動昇格する。H-1 reviewer 由来の raw 再確認は採否APIではなく reviewer / source fallback 側の責務にする。ただし PWA のまさ向け表示では、この内部語を出さない。2026-07-16 以降、具体候補が取れている通知タイトルは「重要メモにコピーする？: ...」、詳細は「コピーされる文章」「判断の目安」「コピーしても起きないこと」へ統一する。元候補が見つからない / 通知本文が薄すぎる場合は「コピー前に元情報を確認」と表示し、重要メモへのコピー肯定ボタンを disabled にする。表示禁止語は `D-6` / `coverage_gap` / `raw transcript` / `元情報` / `取りこぼし` / `条件付き投資家関心` / `薄い` / `candidate` / `salience` / `目立たない話`。「重要メモにコピー」は D-6 への追加だが、H-1要約本文の復元・書き換えではない。
@@ -135,6 +137,7 @@ server page で `members.is_admin` を確認、 admin 以外は `notFound()`。 
 | `confidence` | `0.0-1.0` の数値 |
 | `source_refs_json` | 抽出元 5 生データへの参照 |
 | `source_hash` | 冪等性 |
+| `origin_kind` / `research_category` | 従来の重要な動きか外部リサーチか、外部なら業界・市場 / 助成金 / 協業候補のどれか |
 | `score_impact_summary` / `score_impact_delta_json` | Management Score / AMD Score への影響 |
 | `signal_scope` / `applies_to_company_score` | AMD会社バイタルへ入れる範囲分類。`company` / `cross_project` かつ TRUE のものだけ Management Score 対象 |
 | `pipeline_status` / `pipeline_probability` / `expected_amount_yen` / `expected_contract_ym` | 契約前 pipeline の状態、確度、見込み金額、見込み月 |
@@ -144,6 +147,8 @@ server page で `members.is_admin` を確認、 admin 以外は `notFound()`。 
 ### CockpitStrategySignals 表示
 
 PJ cockpit 経営ハイライト tab で:
+
+- `重要な動き` / `採用リサーチ` の棚切替。採用リサーチは external_research かつ confirmed だけ
 
 - impact_level の chip (= critical / high / medium / low、 赤 / 橙 / 黄 / 灰)
 - signal_type chip

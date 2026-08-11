@@ -72,7 +72,7 @@ CockpitHeader は `projects.contract_terms_json.currentContracts[]` を優先し
 │   └── [B3]  過去の期間 (折りたたみ)
 │
 ├── col2: 経営ハイライト (D-6)
-│   └── [B1]  CockpitStrategySignals  candidate / confirmed をMS直下の上位ボードとして見せる
+│   └── [B1]  CockpitStrategySignals  「重要な動き」はinternal candidate/confirmed、「採用リサーチ」はexternal_research confirmedだけを見せる
 │
 └── col3: ステータス補助パネル (凍結中 / 再開予定などがある時だけ、lg 以上で sticky top-12)
     └── ステータスバッジ

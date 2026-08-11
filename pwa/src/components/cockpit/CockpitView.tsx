@@ -170,6 +170,8 @@ interface CockpitViewProps {
       status: string;
       sourceRefs: unknown[];
       sourceHash: string;
+      originKind: "internal" | "external_research";
+      researchCategory: "industry_market" | "grant" | "partner" | null;
       confidence: number;
       createdAt: string;
       confirmedAt: string | null;

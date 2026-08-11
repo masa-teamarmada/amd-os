@@ -42,6 +42,8 @@
 
 `automation-prepare` の hard gate は Supabase / PWA API / snapshot refresh / 5 生データ。GAS health は任意診断で、デフォルト hard gate にしない。
 
+外部公開情報は別の Codex automation `tsukuyomi-external-research` が平日09:00 JSTに調べ、同じ outbox / applier へ候補を渡す。旧 `gas-external-research` の Slack 配信は停止し、候補の提示先は `/notifications` に一本化する。新情報ゼロは正常終了で、空 outbox や穴埋め記事は作らない。
+
 ## DB 契約
 
 | column | 契約 |
@@ -56,6 +58,8 @@
 | `status` | `candidate` / `confirmed` / `rejected` / `archived` |
 | `source_refs_json` | source id / date / title / short snippet / url / hash |
 | `source_hash` | 重複排除 |
+| `origin_kind` | `internal` = 従来の経営ハイライト、`external_research` = つくよみ外部リサーチ |
+| `research_category` | 外部リサーチだけ `industry_market` / `grant` / `partner`。internal は NULL |
 | `signal_scope` | `company` / `project` / `cross_project`。Management Scoreに入れる範囲分類 |
 | `applies_to_company_score` | AMD会社バイタルへ入れてよいとき TRUE |
 | `pipeline_status` / `pipeline_probability` | 契約前pipelineの状態と確度。高確度candidateは原則 0.75 以上 |
@@ -63,6 +67,8 @@
 | `company_score_axis` / `scope_reason` | Management Score 側の軸と、company/PJ分類の根拠 |
 
 `signal_date` は「リアクター特許出願完了（4/27付）」なら 4/27。議事録に出た日ではなく、事象発生日を優先する。
+
+外部リサーチの `source_hash` は、正規化した title / entity / event date / material update の SHA-256。canonical URL とこの fingerprint を、candidate / confirmed / rejected / archived の全履歴と未反映 outbox に対して照合する。status・月・種別が変わっても同じ出来事を再通知しない。締切確定、採択結果、金額変更など判断に効く新事実がある場合だけ `material_update` を変えて続報にする。
 
 ## Cockpit 表示
 
@@ -80,11 +86,20 @@
 
 candidate も表示してよいが、未確認 chip を必ず付ける。
 
+2026-08-11以降、経営ハイライト内は次の2棚に分ける。
+
+- `重要な動き`: `origin_kind='internal'` の candidate / confirmed。従来表示を維持する。
+- `採用リサーチ`: `origin_kind='external_research' AND status='confirmed'` だけ。業界・市場 / 助成金 / 協業候補の分類を出す。
+
+外部リサーチの candidate は cockpit に出さず `/notifications` だけに置く。
+
 ## 採否
 
 - 「はい」: `project_strategy_signals.status='confirmed'`。
 - 「いいえ」: `status='rejected'`。
 - コメント: `l2_feedbacks` に保存して次回 automation へ入れる。
+
+外部リサーチ通知だけは画面文言を「採用 / 見送り」にする。通知 metadata の `signal_source_hash` と完全一致する1件だけを更新し、一致しない場合に同月・同種別へ採否対象を広げない。
 
 `risk` は純粋な外部要因に使う。自社内部のリスクは本来の分類 (`management_decision` / `business_progress` / `commercial_progress` など) に寄せる。
 

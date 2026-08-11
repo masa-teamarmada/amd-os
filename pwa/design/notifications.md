@@ -1,6 +1,6 @@
 # 通知 + つくよみ修正依頼 — 設計の正本
 
-最終更新: 2026-07-29 (全app通知の対応契約 / 緊急通知の実行可能性gate)
+最終更新: 2026-08-11 (つくよみ外部リサーチをSlackからOS採否へ移行)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
 ---
@@ -24,6 +24,8 @@ L2候補の操作契約は、表示用 metadata に `destination_label`、`chang
 `app_notifications` は `meta.action_contract` に `action_owner`、`action_required`、`action_label`、`action_url`、`completion_condition`、`why_now` を持つ。PWAの全カードは **まさがやること / 開く場所 / 完了条件** を必ず出す。処理完了報告は `action_owner='none'` として「対応不要」を明示し、必要なら確認先だけ残す。既存行に契約がない場合はkind別の安全な説明を表示するが、新しいwriterは契約なしで通知を作らない。
 
 ガバナンスの候補は `coverage_gap + proposed_target_l2='shareholder_meeting'`。候補作成時点では `l2_coverage_gaps.review_status='candidate'` だけで、`project_shareholder_meetings` は増やさない。採用時にだけ `POST /api/notifications/feedback` が会議種別、開催日、議題、決議、添付ファイル名を `project_shareholder_meetings` へ1行追加する。追加先は `会社概要 → 総会・取締役会`。メール送信、Driveアップロード、元資料の更新はしない。添付URL、メール本文、source hashは表示用の開催履歴に持ち込まない。
+
+つくよみ外部リサーチは `l2_kind='project_strategy_signal'`、`metadata_json.origin_kind='external_research'` の通常通知として1候補1カードで出す。UIは「採用 / 見送り」と、その結果として `該当PJ cockpit → 経営ハイライト → 採用リサーチ` に残ることを明示する。採用APIは `signal_source_hash` 完全一致のcandidate 1件だけをconfirmedにし、見つからない場合は失敗として同月・同種別へfallbackしない。旧外部リサーチのSlack配信は停止する。
 
 PWA は admin session 中に `CriticalRealtimeNotify` が `app_notifications` / `l2_notifications` / `meeting_notifications` を Realtime 購読し、Realtime が落ちた場合も10秒pollで補完する。`notification-priority.ts` が `critical` と判定する未読通知は画面右下に即カード表示し、Browser Notification 権限があれば OS 通知も出す。`connector_auth` はカードから `reauth_url` を開いた時点で `read_at` を打つ。ただし再認証ページを開いたことは復旧成功の証拠ではないため、既読後も `/notifications` の「既読」タブに残し、そこから再試行できる状態にする。L2 critical はカードから `/notifications?notification_id=...` へ遷移し、通知ページ側で対象rowを追加取得・自動展開する。既読化・採否は既存の通知ページ UI に委ねる。MTG 通知は本文中に再認証・blocker 等の語が混じっても右下ポップアップには出さず、必要なら `connector_auth` / `guardrail_match` / `contract_signals` 等の専用通知として別発火させる。
 

@@ -27,6 +27,7 @@
 | D-13 | Claude routine + PWA route | `amd-os-l2-consolidated-evidence` Phase K-B / `POST /api/contracts/extract-l2` | daily 08:00 JST | Contract Signals |
 | M-2 XRL 根拠 | Codex automation + outbox applier | `amd-os-l8-xrl-evidence-extract` | 6h ごと (L7 +15 分) | `project_xrl_evidence` |
 | D-6 経営ハイライト | Codex automation + outbox applier | `amd-os-l9-strategy-signal-extract` | daily 03:20 JST | `project_strategy_signals` |
+| つくよみ外部リサーチ | Codex automation + outbox applier | `amd-os-external-research` | weekdays 09:00 JST | 公開情報を1件ずつ `/notifications` の候補へ出し、採用済みだけをPJ cockpitの「経営ハイライト → 採用リサーチ」に残す。全履歴+pending outboxでURL/出来事重複を除外し、新規ゼロは通知なし |
 | 先手 TODO | PWA non-LLM cron | `/api/cron/proactive-todo-extract` | daily 00:15 UTC (= 09:15 JST) | `project_meeting_summaries.next_actions` + 次回MTG予定 (7日以内) + Gmail期限つき依頼 (`email_action_request`) から `proactive_todos` upsert。開催済みMTG next_action の期限は本文内の明示期限を優先し、読めない場合だけ MTG 日 + 7 日。仕様: pwa/spec/2-4-proactive-todo-current-spec.md。MVP は daily 運用 (Vercel cron 制限のため)、頻度足りなければ Pro 化 or Mac LaunchAgent 移管。旧 `amd-os-proactive-heartbeat` (proactive_outbox 用) は 2026-06-27 廃止 |
 
 ## 関連 md

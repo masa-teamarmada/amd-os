@@ -1570,7 +1570,13 @@ async function updateStrategySignalCandidates(args: {
   const ym = xrlNotificationYm(args.scopeKey);
   const signalType = textValue(meta.signal_type);
   const sourceHash = textValue(meta.signal_source_hash);
+  const originKind = textValue(meta.origin_kind);
+  const isExternalResearch = originKind === "external_research";
   const now = new Date().toISOString();
+
+  if (isExternalResearch && !sourceHash) {
+    return { applied: false, message: "external research feedback requires signal_source_hash" };
+  }
 
   const run = async (includeSourceHash: boolean) => {
     let query = args.supabase
@@ -1583,6 +1589,7 @@ async function updateStrategySignalCandidates(args: {
       })
       .eq("project_id", args.targetId)
       .eq("status", "candidate");
+    query = isExternalResearch ? query.eq("origin_kind", "external_research") : query;
     query = ym === "global" ? query.is("ym", null) : query.eq("ym", ym);
     query = signalType ? query.eq("signal_type", signalType) : query;
     query = includeSourceHash && sourceHash ? query.eq("source_hash", sourceHash) : query;
@@ -1597,6 +1604,12 @@ async function updateStrategySignalCandidates(args: {
       message: `${args.status} strategy signals: ${(exact.data ?? []).length}`,
       row: exact.data,
     };
+  }
+
+  // 外部リサーチは通知が指した1件だけを採否する。hash不一致時に同月・同種別へ
+  // 広げると、別候補まで一括採用/見送りになるため fallback しない。
+  if (isExternalResearch) {
+    return { applied: false, message: "external research candidate not found for notification hash" };
   }
 
   const fallback = await run(false);

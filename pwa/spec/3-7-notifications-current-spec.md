@@ -90,6 +90,8 @@ POST body:
 | `action_item` | `action_items.review_status='confirmed'`。保存済み候補を確認済みにして dashboard / cockpit の要対応面へ出す | `review_status='rejected'` |
 | `guardrail_match` | `guardrail_matches.status='acknowledged'` | `status='dismissed'` |
 
+`project_strategy_signal` のうち `metadata_json.origin_kind='external_research'` は、つくよみ外部リサーチのレビュー候補。通常通知として1件ずつ表示し、ボタンは「採用 / 見送り」とする。採用時は `metadata_json.signal_source_hash` に完全一致する candidate だけを confirmed にし、該当PJ cockpit の `経営ハイライト → 採用リサーチ` へ残す。見送りは rejected とし cockpit へ出さない。候補提示・採否とも Slack は使わない。
+
 すべての action は `l2_feedbacks` に保存し、`tsukuyomi_learnings` にも通知回答として残す。
 `coverage_gap` は「確認してから手作業で別L2へ入れる」通知ではない。安全に自動ルートできる `proposed_target_l2` は「はい」の同一トランザクション相当の処理で下流テーブルへ反映し、未対応の target は `routed_to` が空のまま残して設計 gap として扱う。
 

@@ -14,6 +14,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import os from "node:os";
 import { resolveTextbookInsightRouting } from "./textbook_insight_routing.mjs";
+import { buildExternalResearchIdentity, canonicalizeResearchUrl } from "./external_research_identity.mjs";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const AUTOMATION_DIR = path.join(process.env.CODEX_HOME || path.join(os.homedir(), ".codex"), "automations", "amd-os-ms");
@@ -21,6 +22,12 @@ const DEFAULT_OS_SNAPSHOT = path.join(AUTOMATION_DIR, "snapshots", "os-latest.js
 const DEFAULT_OUTBOX_DIR = path.join(AUTOMATION_DIR, "outbox");
 const DEFAULT_APPLIED_DIR = path.join(AUTOMATION_DIR, "applied");
 const DEFAULT_FAILED_DIR = path.join(AUTOMATION_DIR, "failed");
+const DEFAULT_STRATEGY_OUTBOX_DIR = path.join(
+  process.env.CODEX_HOME || path.join(os.homedir(), ".codex"),
+  "automations",
+  "amd-os",
+  "strategy-signals-outbox",
+);
 loadEnv(path.join(ROOT, ".env.local"));
 loadEnv(path.join(ROOT, ".env.production.local"));
 const DEFAULT_MAX_SNAPSHOT_AGE_HOURS = positiveNumber(process.env.AMD_OS_MAX_SNAPSHOT_AGE_HOURS, 48);
@@ -271,6 +278,74 @@ function moveFileSafe(src, destDir, suffix = "") {
 
 function stableHash(value) {
   return crypto.createHash("sha256").update(JSON.stringify(value ?? {})).digest("hex").slice(0, 24);
+}
+
+function externalResearchKey(projectId, sourceHash) {
+  return `${String(projectId || "").trim()}:${String(sourceHash || "").trim()}`;
+}
+
+function canonicalUrlsFromRefs(refs) {
+  const urls = new Set();
+  for (const item of Array.isArray(refs) ? refs : []) {
+    if (!item || typeof item !== "object") continue;
+    const raw = item.canonical_url || item.canonicalUrl || item.url || item.source_url || item.sourceUrl;
+    const canonical = canonicalizeResearchUrl(raw);
+    if (canonical) urls.add(canonical);
+  }
+  return urls;
+}
+
+function pendingExternalResearchRows(dir) {
+  if (!fs.existsSync(dir)) return [];
+  const rows = [];
+  for (const name of fs.readdirSync(dir)) {
+    if (!name.endsWith(".json")) continue;
+    const file = path.join(dir, name);
+    if (!fs.statSync(file).isFile()) continue;
+    try {
+      const payload = readJson(file);
+      for (const item of payload.strategySignals || []) {
+        const origin = item.origin_kind || item.originKind || "internal";
+        if (origin !== "external_research") continue;
+        rows.push({
+          project_id: item.project_id || item.projectId,
+          source_hash: item.source_hash || item.sourceHash,
+          source_refs_json: item.source_refs_json || item.sourceRefs || [],
+        });
+      }
+    } catch {
+      // 壊れたoutboxはapplier側がfailedへ移す。重複照合では内容を出さず無視する。
+    }
+  }
+  return rows;
+}
+
+async function checkExternalResearchCandidate({ file, outboxDir = DEFAULT_STRATEGY_OUTBOX_DIR }) {
+  if (!file) throw new Error("external-research-check requires --file <candidate.json>");
+  const candidate = readJson(file);
+  const projectId = String(candidate.project_id || candidate.projectId || "").trim();
+  if (!projectId) throw new Error("external research candidate requires project_id");
+  const identity = buildExternalResearchIdentity(candidate);
+  const dbRows = await get(
+    "project_strategy_signals",
+    `select=source_hash,source_refs_json&project_id=eq.${enc(projectId)}&origin_kind=eq.external_research&limit=2000`,
+  );
+  const pendingRows = pendingExternalResearchRows(outboxDir).filter((row) => row.project_id === projectId);
+  const allRows = [...(dbRows || []), ...pendingRows];
+  const hashDuplicate = allRows.some((row) => row.source_hash === identity.sourceHash);
+  const urlDuplicate = identity.canonicalUrl
+    ? allRows.some((row) => canonicalUrlsFromRefs(row.source_refs_json).has(identity.canonicalUrl))
+    : false;
+  return {
+    ok: true,
+    accepted: !hashDuplicate && !urlDuplicate,
+    duplicate: hashDuplicate || urlDuplicate,
+    reason: hashDuplicate ? "semantic_fingerprint" : urlDuplicate ? "canonical_url" : null,
+    project_id: projectId,
+    source_hash: identity.sourceHash,
+    canonical_url: identity.canonicalUrl,
+    checked: { db: (dbRows || []).length, pending: pendingRows.length },
+  };
 }
 
 function importanceValue(value, fallback = 2) {
@@ -1064,15 +1139,6 @@ async function applyOutbox(file) {
     monthlyReportsExternal: null,
     projectPatches: null,
   };
-  for (const notification of payload.notifications || []) {
-    const tmp = path.join(os.tmpdir(), `amd-os-notification-${crypto.randomUUID()}.json`);
-    writeJson(tmp, notification);
-    try {
-      results.notifications.push(await notify(tmp));
-    } finally {
-      fs.rmSync(tmp, { force: true });
-    }
-  }
   if (Array.isArray(payload.revisions) && payload.revisions.length) {
     const tmp = path.join(os.tmpdir(), `amd-os-revisions-${crypto.randomUUID()}.json`);
     writeJson(tmp, { revisions: payload.revisions, notification: payload.revisionNotification });
@@ -1090,6 +1156,28 @@ async function applyOutbox(file) {
   }
   if (Array.isArray(payload.strategySignals) && payload.strategySignals.length) {
     results.strategySignals = await upsertStrategySignals(payload.strategySignals);
+  }
+  const writtenExternalKeys = new Set(results.strategySignals?.writtenExternalKeys || []);
+  for (const notification of payload.notifications || []) {
+    const metadata = notification.metadata_json || notification.metadata || {};
+    if (metadata.origin_kind === "external_research") {
+      const key = externalResearchKey(notification.target_id, metadata.signal_source_hash);
+      if (!metadata.signal_source_hash || !writtenExternalKeys.has(key)) {
+        results.notifications.push({
+          ok: true,
+          skipped: true,
+          reason: "external research notification has no newly inserted signal",
+        });
+        continue;
+      }
+    }
+    const tmp = path.join(os.tmpdir(), `amd-os-notification-${crypto.randomUUID()}.json`);
+    writeJson(tmp, notification);
+    try {
+      results.notifications.push(await notify(tmp));
+    } finally {
+      fs.rmSync(tmp, { force: true });
+    }
   }
   if (Array.isArray(payload.textbookInsights) && payload.textbookInsights.length) {
     results.textbookInsights = await upsertTextbookInsights(payload.textbookInsights);
@@ -1288,6 +1376,8 @@ async function upsertStrategySignals(items) {
   const validScopes = new Set(["company", "project", "cross_project"]);
   const validPipelineStatus = new Set(["prospect", "high_confidence", "contracting", "contracted", "lost", "deferred"]);
   const validCompanyScoreAxis = new Set(["pipeline", "funding", "runway", "finance", "capacity", "decision", "resource_allocation", "revenue"]);
+  const validOrigins = new Set(["internal", "external_research"]);
+  const validResearchCategories = new Set(["industry_market", "grant", "partner"]);
   const rows = items.map((item) => {
     const refs = item.source_refs_json || item.sourceRefs || [];
     const signalType = String(item.signal_type || item.signalType || "business_progress").trim();
@@ -1300,6 +1390,12 @@ async function upsertStrategySignals(items) {
     const probability = item.pipeline_probability ?? item.pipelineProbability;
     const expectedAmount = item.expected_amount_yen ?? item.expectedAmountYen;
     const expectedContractYm = item.expected_contract_ym || item.expectedContractYm || null;
+    const rawOrigin = String(item.origin_kind || item.originKind || "internal").trim();
+    const originKind = validOrigins.has(rawOrigin) ? rawOrigin : "internal";
+    const rawResearchCategory = item.research_category || item.researchCategory || null;
+    const researchCategory = originKind === "external_research" && validResearchCategories.has(String(rawResearchCategory))
+      ? String(rawResearchCategory)
+      : null;
     return {
       project_id: item.project_id || item.projectId,
       ym: item.ym || null,
@@ -1312,6 +1408,8 @@ async function upsertStrategySignals(items) {
       status: ["candidate", "confirmed", "rejected", "archived"].includes(rawStatus) ? rawStatus : "candidate",
       source_refs_json: refs,
       source_hash: item.source_hash || item.sourceHash || stableHash({ refs, title: item.title, summary: item.summary }),
+      origin_kind: originKind,
+      research_category: researchCategory,
       confidence: confidenceValue(item.confidence, 0.5),
       extraction_run_id: item.extraction_run_id || item.extractionRunId || null,
       created_by: item.created_by || "codex_automation",
@@ -1343,6 +1441,17 @@ async function upsertStrategySignals(items) {
   }
   const missing = rows.find((r) => !r.project_id || !r.title || !r.summary || !r.source_hash);
   if (missing) throw new Error(`strategySignals missing project_id/title/summary/source_hash: ${JSON.stringify(missing)}`);
+  const invalidExternal = rows.find((r) =>
+    r.origin_kind === "external_research"
+    && (
+      !r.research_category
+      || !/^[a-f0-9]{64}$/i.test(String(r.source_hash))
+      || canonicalUrlsFromRefs(r.source_refs_json).size === 0
+    )
+  );
+  if (invalidExternal) {
+    throw new Error("external strategySignals require research_category, a 64-char semantic source_hash, and a canonical source URL");
+  }
   const invalidCompanyScope = rows.find((r) =>
     r.applies_to_company_score === true
     && (!["company", "cross_project"].includes(r.signal_scope) || !r.company_score_axis || !r.scope_reason)
@@ -1359,12 +1468,54 @@ async function upsertStrategySignals(items) {
   if (invalidCandidatePipeline) {
     throw new Error(`strategySignals candidate company pipeline requires probability >= 0.75: ${JSON.stringify(invalidCandidatePipeline)}`);
   }
-  const written = await requestJson(rest("project_strategy_signals", "on_conflict=project_id,scope_key,signal_type,source_hash&select=*"), {
-    method: "POST",
-    headers: restHeaders({ prefer: "resolution=merge-duplicates,return=representation" }),
-    body: rows,
-  });
-  return { ok: true, writtenCount: written?.length || 0, written };
+  const internalRows = rows.filter((row) => row.origin_kind !== "external_research");
+  const externalRows = rows.filter((row) => row.origin_kind === "external_research");
+  const written = [];
+  const skippedDuplicates = [];
+  if (internalRows.length > 0) {
+    const internalWritten = await requestJson(rest("project_strategy_signals", "on_conflict=project_id,scope_key,signal_type,source_hash&select=*"), {
+      method: "POST",
+      headers: restHeaders({ prefer: "resolution=merge-duplicates,return=representation" }),
+      body: internalRows,
+    });
+    written.push(...(internalWritten || []));
+  }
+  for (const row of externalRows) {
+    const existing = await get(
+      "project_strategy_signals",
+      `select=signal_id&project_id=eq.${enc(row.project_id)}&origin_kind=eq.external_research&source_hash=eq.${enc(row.source_hash)}&limit=1`,
+    );
+    if (existing?.length) {
+      skippedDuplicates.push({ project_id: row.project_id, source_hash: row.source_hash, reason: "existing_history" });
+      continue;
+    }
+    try {
+      const inserted = await requestJson(rest("project_strategy_signals", "select=*"), {
+        method: "POST",
+        headers: restHeaders({ prefer: "return=representation" }),
+        body: row,
+      });
+      written.push(...(inserted || []));
+    } catch (error) {
+      const message = String(error?.message || error);
+      if (/409|23505|idx_project_strategy_signals_external_source/i.test(message)) {
+        skippedDuplicates.push({ project_id: row.project_id, source_hash: row.source_hash, reason: "unique_race" });
+        continue;
+      }
+      throw error;
+    }
+  }
+  const writtenExternalKeys = written
+    .filter((row) => row.origin_kind === "external_research")
+    .map((row) => externalResearchKey(row.project_id, row.source_hash));
+  return {
+    ok: true,
+    writtenCount: written.length,
+    skippedDuplicateCount: skippedDuplicates.length,
+    writtenExternalKeys,
+    skippedDuplicates,
+    written,
+  };
 }
 
 async function upsertTextbookInsights(items) {
@@ -2269,6 +2420,11 @@ async function main() {
     });
   } else if (cmd === "notify") {
     result = await notify(args.file);
+  } else if (cmd === "external-research-check") {
+    result = await checkExternalResearchCandidate({
+      file: args.file,
+      outboxDir: args.dir || DEFAULT_STRATEGY_OUTBOX_DIR,
+    });
   } else if (cmd === "upsert-source-cache") {
     result = await upsertSourceCache(readJson(args.file).sourceCache || readJson(args.file).items || []);
   } else if (cmd === "upsert-monthly-reports") {
@@ -2340,6 +2496,7 @@ async function main() {
         "node pwa/scripts/ms_progress_review_tool.mjs refresh-snapshot --ym 202605",
         "node pwa/scripts/ms_progress_review_tool.mjs upsert-review --file /tmp/review.json",
         "node pwa/scripts/ms_progress_review_tool.mjs notify --file /tmp/notification.json",
+        "node pwa/scripts/ms_progress_review_tool.mjs external-research-check --file /tmp/candidate.json",
         "node pwa/scripts/ms_progress_review_tool.mjs upsert-source-cache --file /tmp/source-cache.json",
         "node pwa/scripts/ms_progress_review_tool.mjs upsert-monthly-reports --file /tmp/monthly-reports.json",
         "node pwa/scripts/ms_progress_review_tool.mjs upsert-monthly-reports-external --file /tmp/monthly-reports-external.json",

@@ -479,6 +479,8 @@ export interface ProjectStrategySignal {
   status: string;
   sourceRefs: unknown[];
   sourceHash: string;
+  originKind: "internal" | "external_research";
+  researchCategory: "industry_market" | "grant" | "partner" | null;
   confidence: number;
   createdAt: string;
   confirmedAt: string | null;
@@ -2138,6 +2140,7 @@ export async function fetchCockpitFromSupabase(
     pmRes,
     membersRes,
     strategySignalsRes,
+    strategyResearchRes,
     msChangeHistoryRes,
   ] = await Promise.all([
     supabase.from("projects").select("*").eq("project_id", projectId).single(),
@@ -2149,10 +2152,20 @@ export async function fetchCockpitFromSupabase(
       .from("project_strategy_signals")
       .select("*")
       .eq("project_id", projectId)
+      .eq("origin_kind", "internal")
       .in("status", ["candidate", "confirmed"])
       .order("signal_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .limit(8),
+    supabase
+      .from("project_strategy_signals")
+      .select("*")
+      .eq("project_id", projectId)
+      .eq("origin_kind", "external_research")
+      .eq("status", "confirmed")
+      .order("signal_date", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .limit(20),
     supabase
       .from("milestone_change_events")
       .select("*")
@@ -2397,7 +2410,16 @@ export async function fetchCockpitFromSupabase(
     (pm) => memberMap[pm.member_id] || "PM"
   );
 
-  const strategySignals: ProjectStrategySignal[] = (strategySignalsRes.data || []).map((row) => ({
+  if (strategySignalsRes.error) {
+    console.warn("fetchCockpitFromSupabase internal strategy signals:", strategySignalsRes.error.message);
+  }
+  if (strategyResearchRes.error) {
+    console.warn("fetchCockpitFromSupabase adopted research:", strategyResearchRes.error.message);
+  }
+  const strategySignals: ProjectStrategySignal[] = [
+    ...(strategySignalsRes.data || []),
+    ...(strategyResearchRes.data || []),
+  ].map((row) => ({
     signalId: row.signal_id,
     projectId: row.project_id,
     ym: row.ym || null,
@@ -2415,6 +2437,10 @@ export async function fetchCockpitFromSupabase(
     status: row.status || "candidate",
     sourceRefs: Array.isArray(row.source_refs_json) ? row.source_refs_json : [],
     sourceHash: row.source_hash || "",
+    originKind: row.origin_kind === "external_research" ? "external_research" : "internal",
+    researchCategory: ["industry_market", "grant", "partner"].includes(row.research_category)
+      ? row.research_category
+      : null,
     confidence: Number(row.confidence) || 0,
     createdAt: row.created_at,
     confirmedAt: row.confirmed_at || null,

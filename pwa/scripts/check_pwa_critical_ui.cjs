@@ -2243,6 +2243,11 @@ expectIncludes("src/components/cockpit/CockpitStrategySignals.tsx", [
   "技術開発",
   "外部環境",
   "Atlas で全マクロ",
+  "重要な動き",
+  "採用リサーチ",
+  "industry_market",
+  "grant",
+  "partner",
   "つくよみに修正依頼",
   "/api/notifications/feedback",
   "project_strategy_signal",
@@ -2298,12 +2303,21 @@ expectIncludes("src/app/api/notifications/feedback/route.ts", [
   "project_strategy_signal",
   "project_strategy_signals",
   "updateStrategySignalCandidates",
+  "external research candidate not found for notification hash",
+]);
+
+expectIncludes("src/components/notifications/NotificationsClient.tsx", [
+  'yesLabel: "採用"',
+  'noLabel: "見送り"',
+  'origin_kind) === "external_research"',
 ]);
 
 expectIncludes("scripts/ms_progress_review_tool.mjs", [
   "strategySignals",
   "upsertStrategySignals",
   "project_strategy_signals",
+  "external-research-check",
+  "writtenExternalKeys",
 ]);
 
 expectIncludes("design/FEATURE_REGISTRY.md", [

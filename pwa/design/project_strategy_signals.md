@@ -22,6 +22,8 @@ MSは「計画した成果物の進捗」を扱う。
 
 表示セクション名: `経営ハイライト`
 
+2026-08-11採用のA案では、同じセクション内を `重要な動き` と `採用リサーチ` の2棚に分ける。新しいトップレベルページは作らない。外部リサーチ candidate は通知だけに置き、confirmed になった同じカードだけを `採用リサーチ` へ一方向に移す。
+
 1行に出すもの:
 
 - 日付
@@ -68,8 +70,12 @@ MSは「計画した成果物の進捗」を扱う。
 - `score_impact_delta_json`: 後追い集計用の構造化 delta。
 - `source_refs_json`: source id / date / title / short snippet / url / hash
 - `source_hash`: 重複排除用
+- `origin_kind`: `internal` / `external_research`
+- `research_category`: external_researchだけ `industry_market` / `grant` / `partner`
 - `confidence`: 0-1
 - `extraction_run_id`: Codex automation run の識別子
+
+外部リサーチは `(project_id, source_hash)` のpartial unique indexを持つ。canonical URLと、title / entity / event date / material updateを正規化したsemantic fingerprintを全status・未反映outboxへ照合し、採用済み・見送り済みを含めて同一情報を再通知しない。
 
 全文保存禁止:
 

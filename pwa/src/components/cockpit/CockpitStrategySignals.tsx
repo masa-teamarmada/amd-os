@@ -147,6 +147,34 @@ const CATEGORY_META: Record<CategoryKey, {
   },
 };
 
+type SignalShelf = "important" | "research";
+
+const RESEARCH_CATEGORY_META: Record<NonNullable<ProjectStrategySignal["researchCategory"]>, {
+  label: string;
+  emoji: string;
+  cardBorderClass: string;
+  legendClass: string;
+}> = {
+  industry_market: {
+    label: "業界・市場",
+    emoji: "🌐",
+    cardBorderClass: "border-l-4 border-l-amber-400",
+    legendClass: "border border-amber-300 bg-amber-100 text-amber-900",
+  },
+  grant: {
+    label: "助成金",
+    emoji: "🏛",
+    cardBorderClass: "border-l-4 border-l-violet-400",
+    legendClass: "border border-violet-300 bg-violet-100 text-violet-900",
+  },
+  partner: {
+    label: "協業候補",
+    emoji: "🤝",
+    cardBorderClass: "border-l-4 border-l-emerald-400",
+    legendClass: "border border-emerald-300 bg-emerald-100 text-emerald-900",
+  },
+};
+
 function formatDate(value: string | null) {
   if (!value) return "日付未設定";
   const date = new Date(`${value}T00:00:00+09:00`);
@@ -169,12 +197,16 @@ function sourceSummary(refs: unknown[]) {
 }
 
 export function CockpitStrategySignals({ signals, projectId }: { signals: ProjectStrategySignal[]; projectId: string }) {
-  // 4 分類すべて表示 (まさ #14-4th 2026-05-24)。rejected / archived のみ除外。
-  const visibleSignals = signals.filter((signal) => {
+  const internalSignals = signals.filter((signal) => {
+    if (signal.originKind === "external_research") return false;
     if (signal.status === "rejected" || signal.status === "archived") return false;
     return true;
   });
-  // 時間軸 (signal_date desc) で並べる — 分類セクションには分けない
+  const adoptedResearch = signals.filter((signal) =>
+    signal.originKind === "external_research" && signal.status === "confirmed"
+  );
+  const [activeShelf, setActiveShelf] = useState<SignalShelf>("important");
+  const visibleSignals = activeShelf === "important" ? internalSignals : adoptedResearch;
   const sorted = [...visibleSignals].sort((a, b) =>
     (b.signalDate || "").localeCompare(a.signalDate || "")
   );
@@ -219,27 +251,65 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
         <h2 className="text-[13px] font-semibold">経営ハイライト</h2>
         <span className="ml-auto rounded bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
-          {sorted.length}件
+          {internalSignals.length + adoptedResearch.length}件
         </span>
       </div>
 
-      {/* 4 色凡例 + Atlas リンク (= 外部マクロシグナル一覧の正本誘導) */}
+      <div className="flex gap-1 border-b border-border px-3 pt-2" role="tablist" aria-label="経営ハイライトの表示棚">
+        {([
+          ["important", "重要な動き", internalSignals.length],
+          ["research", "採用リサーチ", adoptedResearch.length],
+        ] as const).map(([key, label, count]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={activeShelf === key}
+            aria-controls={`strategy-shelf-${key}`}
+            onClick={() => setActiveShelf(key)}
+            className={`min-h-11 border-b-2 px-2 py-1.5 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+              activeShelf === key
+                ? "border-foreground text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {label} <span className="font-mono text-[10px]">{count}</span>
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-3 py-1.5 bg-muted/30">
-        {(["management", "business", "tech", "external"] as CategoryKey[]).map((k) => {
-          const meta = CATEGORY_META[k];
-          return (
-            <span key={k} className={`text-[10px] rounded px-1.5 py-0.5 ${meta.legendClass}`}>
-              {meta.emoji} {meta.label}
-            </span>
-          );
-        })}
-        <Link
-          href={`/atlas?projectId=${encodeURIComponent(projectId)}`}
-          className="ml-auto text-[10px] rounded px-1.5 py-0.5 border border-border bg-background text-muted-foreground hover:bg-muted hover:underline"
-          title="外部マクロシグナル一覧の正本は Atlas"
-        >
-          Atlas で全マクロ ↗
-        </Link>
+        {activeShelf === "important" ? (
+          <>
+            {(["management", "business", "tech", "external"] as CategoryKey[]).map((k) => {
+              const meta = CATEGORY_META[k];
+              return (
+                <span key={k} className={`text-[10px] rounded px-1.5 py-0.5 ${meta.legendClass}`}>
+                  {meta.emoji} {meta.label}
+                </span>
+              );
+            })}
+            <Link
+              href={`/atlas?projectId=${encodeURIComponent(projectId)}`}
+              className="ml-auto text-[10px] rounded px-1.5 py-0.5 border border-border bg-background text-muted-foreground hover:bg-muted hover:underline"
+              title="外部マクロシグナル一覧の正本は Atlas"
+            >
+              Atlas で全マクロ ↗
+            </Link>
+          </>
+        ) : (
+          <>
+            {(Object.keys(RESEARCH_CATEGORY_META) as Array<keyof typeof RESEARCH_CATEGORY_META>).map((key) => {
+              const meta = RESEARCH_CATEGORY_META[key];
+              return (
+                <span key={key} className={`rounded px-1.5 py-0.5 text-[10px] ${meta.legendClass}`}>
+                  {meta.emoji} {meta.label}
+                </span>
+              );
+            })}
+            <span className="ml-auto text-[10px] text-muted-foreground">通知で採用した情報だけ</span>
+          </>
+        )}
       </div>
 
       {feedbackError && (
@@ -248,14 +318,15 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
         </div>
       )}
       {sorted.length === 0 ? (
-        <div className="px-3 py-4 text-[12px] text-muted-foreground">
-          まだシグナルなし。
+        <div id={`strategy-shelf-${activeShelf}`} role="tabpanel" className="px-3 py-4 text-[12px] text-muted-foreground">
+          {activeShelf === "important" ? "まだシグナルなし。" : "採用済みのリサーチはまだない。通知から採用するとここに残る。"}
         </div>
       ) : (
-        <div className="divide-y divide-border">
+        <div id={`strategy-shelf-${activeShelf}`} role="tabpanel" className="divide-y divide-border">
           {sorted.map((signal) => {
+            const researchMeta = signal.researchCategory ? RESEARCH_CATEGORY_META[signal.researchCategory] : null;
             const cat = CATEGORY_OF_TYPE[signal.signalType] ?? "business";
-            const meta = CATEGORY_META[cat];
+            const meta = researchMeta ?? CATEGORY_META[cat];
             return (
               <StrategySignalRow
                 key={signal.signalId}
@@ -263,6 +334,7 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
                 projectId={projectId}
                 categoryBorder={meta.cardBorderClass}
                 categoryEmoji={meta.emoji}
+                typeLabel={researchMeta?.label}
                 pastFeedbacks={feedbacksBySignalId[signal.signalId] || []}
                 onConfirmed={() => setFeedbackTick((t) => t + 1)}
               />
@@ -294,6 +366,7 @@ function StrategySignalRow({
   projectId,
   categoryBorder,
   categoryEmoji,
+  typeLabel,
   pastFeedbacks,
   onConfirmed,
 }: {
@@ -301,6 +374,7 @@ function StrategySignalRow({
   projectId: string;
   categoryBorder: string;
   categoryEmoji: string;
+  typeLabel?: string;
   pastFeedbacks: FeedbackItem[];
   onConfirmed?: () => void;
 }) {
@@ -449,7 +523,7 @@ function StrategySignalRow({
           {polarity ? `${polarity.emoji} ${polarity.label}` : categoryEmoji}
         </span>
         <span className="rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px]">
-          {TYPE_LABEL[signal.signalType] ?? signal.signalType}
+          {typeLabel ?? TYPE_LABEL[signal.signalType] ?? signal.signalType}
         </span>
         <span className="inline-flex items-center gap-0.5">
           <span className={`rounded border px-1.5 py-0.5 text-[10px] ${impactClass}`}>

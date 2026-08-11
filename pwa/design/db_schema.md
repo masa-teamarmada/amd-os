@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-10 18:40 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-11 10:15 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -118,7 +118,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 2,112
+行数 (概算): 2,130
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -729,7 +729,7 @@ PRIMARY KEY: `id`
 
 ## company_actual_monthly
 
-行数 (概算): 124
+行数 (概算): 126
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -1287,7 +1287,7 @@ UNIQUE: `(source_kind,source_table,source_id,signal_type)` (constraint: `contrac
 
 ## contract_terms
 
-行数 (概算): 46
+行数 (概算): 47
 PRIMARY KEY: `term_id`
 UNIQUE: `(source_kind,source_table,source_id,source_term_hash)` (constraint: `contract_terms_source_kind_source_table_source_id_source_te_key`)
 
@@ -4676,7 +4676,7 @@ PRIMARY KEY: `id`
 
 ## project_strategy_signals
 
-行数 (概算): 303
+行数 (概算): 308
 PRIMARY KEY: `signal_id`
 
 | # | column | type | nullable | default |
@@ -4712,6 +4712,8 @@ PRIMARY KEY: `signal_id`
 | 29 | `expected_contract_ym` | `text` | NULL | `` |
 | 30 | `company_score_axis` | `text` | NULL | `` |
 | 31 | `scope_reason` | `text` | NULL | `` |
+| 32 | `origin_kind` | `text` | NOT NULL | `'internal'::text` |
+| 33 | `research_category` | `text` | NULL | `` |
 
 ## project_valuation_rounds
 
