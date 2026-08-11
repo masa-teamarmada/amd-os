@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-08-11 JST | 2-2 PWA Surface / admin navigation | 本番受入修正 | build v3.71.6。mobile adminメニュー最上部のAMD OS戻りリンクへ`min-h-11`とfocus ringを追加し、全navigation操作を44px以上へ統一 | v3.71.5本番の実測で、戻りリンクだけ36pxだったため | えいみ |
 | 2026-08-11 JST | 1-4 AMD OS全体収束仕様 / 2-1 PWA Runtime Routes / 2-2 PWA Surface | 実装・安全性変更 | build v3.71.5 / migration 258（本番適用・readback済み）。共通surface catalogとcapability bundleを追加し、admin25画面を5業務群へ整理した。外部workspaceは未登録進捗と0%、取得失敗と0件を分離し、資料変更のsame-origin guard、OTP atomic rate limit、重要rowのtransactional audit、access台帳の完全pagination、資料owner FKのRESTRICTを実装した。Next.jsを16.3.0へ上げ、未使用CLIと旧日本地図依存を除去してdevを含むdependency auditを0件にした | 全体収束の最初の実装単位として、共通分類と外部境界を先に固定し、確認済みの実害経路を閉じるため | まさ・えいみ |
 | 2026-08-11 JST | 1-4 AMD OS全体収束仕様 / 1-3 再構築カバレッジ監査 | 追加・変更 | AMD、研究機関、スタートアップ、共同PJの画面・権限・データを、本人・組織・権限、作業、判断、資料、受信箱、契約の共通カーネルと役割レンズへ収束する方針を追加。ホーム凍結、情報所有4区分、外部公開版、事実境界、2日間の最優先範囲、旧画面の移行完了条件を明記 | 局所的に追加した画面とwriterをさらに増やさず、利用者とコンテンツを分離しながら同じ業務概念を一つの正本へ統合するため | まさ・えいみ |
 | 2026-08-11 JST | 2-1 PWA Runtime Routes / 2-4 Proactive TODO | 削除・変更 | build v3.71.3。`/api/cron/proactive-todo-extract` から upcoming MTGの `next_meeting_prep` upsertを削除。Codex W-Prep / prep workerへ一本化し、既存open / blocked行は `dismissed`、`resolved_by='system'`、退役理由と時刻を残して履歴退避する。meeting next action / Gmail依頼の抽出は維持する | Codex prepと先手TODOが同じ会議準備を二重管理し、期限超過のagenda通知がノイズになっていたため | まさ・えいみ |
