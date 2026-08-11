@@ -169,6 +169,27 @@ function strings(value: unknown): string[] | null {
     : null;
 }
 
+function actionSequence(value: unknown): Array<string | string[]> | null {
+  if (!Array.isArray(value)) return null;
+  const result: Array<string | string[]> = [];
+  for (const stage of value) {
+    if (typeof stage === "string" && stage.trim() !== "") {
+      result.push(stage);
+      continue;
+    }
+    if (
+      Array.isArray(stage) &&
+      stage.length >= 2 &&
+      stage.every((component) => typeof component === "string" && component.trim() !== "")
+    ) {
+      result.push(stage);
+      continue;
+    }
+    return null;
+  }
+  return result;
+}
+
 function evidenceKind(value: unknown): value is Bzm21EvidenceKind {
   return (
     typeof value === "string" &&
@@ -429,6 +450,7 @@ export function mapBzm21CashflowEventToEngine(
       transitionId: event.transitionId,
       timing: event.timingKind,
       includedIn: event.includedIn as EngineCashFlowEvent["includedIn"],
+      economicNature: event.economicNature,
       objectiveAmountsMillionJpy: objectiveAmounts,
       owner: event.ownerRef,
       counterparty: event.counterpartyRef,
@@ -513,6 +535,48 @@ function financingFromJson(value: unknown): Bzm21FinancingFeasibility | null {
   if (!isRecord(value)) return null;
   const evidence = evidenceFromJson(value.evidence);
   const amount = value.committedFundingMillionJpy;
+  const openingCash = value.openingCashMillionJpy;
+  const requiredSchedule = Array.isArray(value.requiredFundingSchedule)
+    ? value.requiredFundingSchedule
+    : null;
+  const committedSchedule = Array.isArray(value.committedFundingSchedule)
+    ? value.committedFundingSchedule
+    : null;
+  const mappedRequired = requiredSchedule?.flatMap((row) => {
+    if (!isRecord(row)) return [];
+    const rowEvidence = evidenceFromJson(row.evidence);
+    return typeof row.scheduleId === "string" &&
+      (row.atMonths === null || isFiniteNumber(row.atMonths)) &&
+      (row.amountMillionJpy === null || isFiniteNumber(row.amountMillionJpy)) &&
+      typeof row.purpose === "string" &&
+      rowEvidence
+      ? [{
+          scheduleId: row.scheduleId,
+          atMonths: row.atMonths as number | null,
+          amountMillionJpy: row.amountMillionJpy as number | null,
+          purpose: row.purpose,
+          evidence: rowEvidence,
+        }]
+      : [];
+  });
+  const mappedCommitted = committedSchedule?.flatMap((row) => {
+    if (!isRecord(row)) return [];
+    const rowEvidence = evidenceFromJson(row.evidence);
+    const purposes = strings(row.permittedPurposes);
+    return typeof row.scheduleId === "string" &&
+      (row.atMonths === null || isFiniteNumber(row.atMonths)) &&
+      (row.amountMillionJpy === null || isFiniteNumber(row.amountMillionJpy)) &&
+      purposes &&
+      rowEvidence
+      ? [{
+          scheduleId: row.scheduleId,
+          atMonths: row.atMonths as number | null,
+          amountMillionJpy: row.amountMillionJpy as number | null,
+          permittedPurposes: purposes,
+          evidence: rowEvidence,
+        }]
+      : [];
+  });
   return [
     "secured",
     "contracted",
@@ -522,12 +586,20 @@ function financingFromJson(value: unknown): Bzm21FinancingFeasibility | null {
     "blocked",
     "unknown",
   ].includes(String(value.status)) &&
+    (openingCash === null || isFiniteNumber(openingCash)) &&
     (amount === null || isFiniteNumber(amount)) &&
+    requiredSchedule !== null &&
+    committedSchedule !== null &&
+    mappedRequired?.length === requiredSchedule.length &&
+    mappedCommitted?.length === committedSchedule.length &&
     typeof value.note === "string" &&
     evidence
     ? {
         status: value.status as Bzm21FinancingFeasibility["status"],
+        openingCashMillionJpy: openingCash as number | null,
         committedFundingMillionJpy: amount as number | null,
+        requiredFundingSchedule: mappedRequired ?? [],
+        committedFundingSchedule: mappedCommitted ?? [],
         note: value.note,
         evidence,
       }
@@ -649,6 +721,32 @@ function interventionEffectsFromJson(value: unknown): Bzm21InterventionEffect[] 
         return null;
       }
       effect.requiredFundingDeltaMillionJpy = raw.requiredFundingDeltaMillionJpy as number | null;
+    }
+    if ("committedFundingDeltaMillionJpy" in raw) {
+      if (raw.committedFundingDeltaMillionJpy !== null && !isFiniteNumber(raw.committedFundingDeltaMillionJpy)) {
+        return null;
+      }
+      effect.committedFundingDeltaMillionJpy = raw.committedFundingDeltaMillionJpy as number | null;
+    }
+    for (const [key, target] of [
+      ["requiredFundingScheduleDeltas", "requiredFundingScheduleDeltas"],
+      ["committedFundingScheduleDeltas", "committedFundingScheduleDeltas"],
+    ] as const) {
+      if (!(key in raw)) continue;
+      const rows = raw[key];
+      if (!Array.isArray(rows)) return null;
+      const mapped = rows.flatMap((entry) =>
+        isRecord(entry) &&
+        typeof entry.scheduleId === "string" &&
+        (entry.amountDeltaMillionJpy === null || isFiniteNumber(entry.amountDeltaMillionJpy))
+          ? [{
+              scheduleId: entry.scheduleId,
+              amountDeltaMillionJpy: entry.amountDeltaMillionJpy as number | null,
+            }]
+          : [],
+      );
+      if (mapped.length !== rows.length) return null;
+      effect[target] = mapped;
     }
     if ("cashFlowEventDeltas" in raw) {
       if (!Array.isArray(raw.cashFlowEventDeltas)) return null;
@@ -1172,7 +1270,7 @@ export function buildBzm21DynamicPolicyModelFromLedger(
       const authority = gateFromJson(action.authorityGate);
       const consents = action.consents.map(consentFromJson);
       const financing = financingFromJson(action.financingFeasibility);
-      const sequence = strings(action.sequence);
+      const sequence = actionSequence(action.sequence);
       const resources = action.sharedResources.map(sharedResourceFromJson);
       const informationGain = strings(action.informationGain);
       const actionEvidence = evidenceFromJson(action.evidence);

@@ -51,6 +51,7 @@ function syntheticCashFlowEvent(
     transitionId,
     timing: transitionId === null ? "action_start" : "action_end",
     includedIn,
+    economicNature: "operating",
     objectiveAmountsMillionJpy: { ...objectiveAmountsMillionJpy },
     owner: "synthetic-owner",
     counterparty: "synthetic-counterparty",
@@ -161,7 +162,32 @@ function action(
     consents: [],
     financingFeasibility: {
       status: requiredFunding > 0 ? "secured" : "not_required",
+      openingCashMillionJpy: 0,
       committedFundingMillionJpy: requiredFunding,
+      requiredFundingSchedule:
+        requiredFunding > 0
+          ? [
+              {
+                scheduleId: `${overrides.actionId}:required:0`,
+                atMonths: 0,
+                amountMillionJpy: requiredFunding,
+                purpose: "synthetic-purpose",
+                evidence: SYNTHETIC_EVIDENCE,
+              },
+            ]
+          : [],
+      committedFundingSchedule:
+        requiredFunding > 0
+          ? [
+              {
+                scheduleId: `${overrides.actionId}:committed:0`,
+                atMonths: 0,
+                amountMillionJpy: requiredFunding,
+                permittedPurposes: [],
+                evidence: SYNTHETIC_EVIDENCE,
+              },
+            ]
+          : [],
       note:
         requiredFunding > 0
           ? "synthetic funding secured"
@@ -537,6 +563,12 @@ supported.interventions = [
           },
         ],
         requiredFundingDeltaMillionJpy: -30,
+        requiredFundingScheduleDeltas: [
+          {
+            scheduleId: "continue:required:0",
+            amountDeltaMillionJpy: -30,
+          },
+        ],
       },
     ],
   },
@@ -808,7 +840,10 @@ const uncontractedBaseline = structuredClone(base);
 uncontractedBaseline.modelId = "synthetic-uncontracted-baseline";
 uncontractedBaseline.states[0].actions[0].financingFeasibility = {
   status: "uncontracted",
+  openingCashMillionJpy: 0,
   committedFundingMillionJpy: 0,
+  requiredFundingSchedule: [],
+  committedFundingSchedule: [],
   note: "synthetic financing has not been contracted",
   evidence: SYNTHETIC_EVIDENCE,
 };
@@ -860,7 +895,26 @@ const tieLicense = unresolvedTie.states[0].actions.find(
 tieLicense.requiredFundingMillionJpy = 40;
 tieLicense.financingFeasibility = {
   status: "secured",
+  openingCashMillionJpy: 0,
   committedFundingMillionJpy: 40,
+  requiredFundingSchedule: [
+    {
+      scheduleId: "license-required-0",
+      atMonths: 0,
+      amountMillionJpy: 40,
+      purpose: "synthetic-purpose",
+      evidence: SYNTHETIC_EVIDENCE,
+    },
+  ],
+  committedFundingSchedule: [
+    {
+      scheduleId: "license-committed-0",
+      atMonths: 0,
+      amountMillionJpy: 40,
+      permittedPurposes: [],
+      evidence: SYNTHETIC_EVIDENCE,
+    },
+  ],
   note: "synthetic funding secured",
   evidence: SYNTHETIC_EVIDENCE,
 };
@@ -1547,6 +1601,96 @@ assert.ok(
   validateBzm21DynamicPolicyModel(invalidCycle).some(
     (candidate) => candidate.code === "non_forward_transition",
   ),
+);
+
+// A bundle can state that components run in parallel. Flattened component
+// coverage remains exact, while serial and parallel structure stay distinct.
+const parallelBundle = structuredClone(bundled);
+parallelBundle.modelId = "synthetic-parallel-bundle";
+parallelBundle.states[0].actions[0].sequence = [
+  ["seek_financing", "negotiate_terms"],
+  "continue",
+];
+assert.equal(
+  validateBzm21DynamicPolicyModel(parallelBundle).some(
+    (candidate) => candidate.code === "invalid_action_bundle",
+  ),
+  false,
+);
+const duplicateParallelComponent = structuredClone(parallelBundle);
+duplicateParallelComponent.modelId = "synthetic-duplicate-parallel-component";
+duplicateParallelComponent.states[0].actions[0].sequence = [
+  ["seek_financing", "negotiate_terms"],
+  "continue",
+  "continue",
+];
+assert.ok(
+  validateBzm21DynamicPolicyModel(duplicateParallelComponent).some(
+    (candidate) => candidate.code === "invalid_action_bundle",
+  ),
+);
+
+// Equal total funding does not rescue a path when the cash arrives after the
+// payment cliff. The same applies when contracted cash is purpose-restricted.
+const lateFunding = structuredClone(base);
+lateFunding.modelId = "synthetic-late-funding-cliff";
+const lateContinue = lateFunding.states[0].actions.find(
+  (candidate) => candidate.actionId === "continue",
+)!;
+lateContinue.financingFeasibility.requiredFundingSchedule[0].atMonths = 3;
+lateContinue.financingFeasibility.committedFundingSchedule[0].atMonths = 6;
+const lateFundingResult = evaluateBzm21DynamicPolicyModel(lateFunding);
+assert.equal(lateFundingResult.baselineReachability.status, "not_computable");
+assert.ok(
+  lateFundingResult.issues.some((candidate) =>
+    candidate.message.includes("資金の崖"),
+  ),
+);
+
+const restrictedFunding = structuredClone(base);
+restrictedFunding.modelId = "synthetic-purpose-restricted-funding";
+const restrictedContinue = restrictedFunding.states[0].actions.find(
+  (candidate) => candidate.actionId === "continue",
+)!;
+restrictedContinue.financingFeasibility.requiredFundingSchedule[0].purpose =
+  "manufacturing";
+restrictedContinue.financingFeasibility.committedFundingSchedule[0]
+  .permittedPurposes = ["research"];
+assert.equal(
+  evaluateBzm21DynamicPolicyModel(restrictedFunding).baselineReachability.status,
+  "not_computable",
+);
+
+// Financing cash can be valued by the investor perspective, but it is never
+// operating/investing value created by the company-owned project itself.
+const companyFinancingContamination = structuredClone(base);
+companyFinancingContamination.modelId =
+  "synthetic-company-financing-contamination";
+const contaminatedEvent = companyFinancingContamination.cashFlowEvents.find(
+  (event) => event.includedIn === "immediate_benefit",
+)!;
+contaminatedEvent.economicNature = "financing";
+contaminatedEvent.objectiveAmountsMillionJpy.company = 10;
+assert.ok(
+  validateBzm21DynamicPolicyModel(companyFinancingContamination).some(
+    (candidate) =>
+      candidate.code === "company_value_includes_financing_cashflow",
+  ),
+);
+const investorFinancingCashFlow = structuredClone(base);
+investorFinancingCashFlow.modelId = "synthetic-investor-financing-cashflow";
+const investorEvent = investorFinancingCashFlow.cashFlowEvents.find(
+  (event) => event.includedIn === "immediate_benefit",
+)!;
+investorEvent.economicNature = "financing";
+investorEvent.objectiveAmountsMillionJpy.company = 0;
+investorEvent.objectiveAmountsMillionJpy.bzsf = 10;
+assert.equal(
+  validateBzm21DynamicPolicyModel(investorFinancingCashFlow).some(
+    (candidate) =>
+      candidate.code === "company_value_includes_financing_cashflow",
+  ),
+  false,
 );
 
 console.log(

@@ -646,6 +646,7 @@ CREATE TABLE IF NOT EXISTS public.bzm_2_1_cashflow_events (
   action_id               uuid REFERENCES public.bzm_2_1_actions(action_id) ON DELETE CASCADE,
   transition_id           uuid REFERENCES public.bzm_2_1_transitions(transition_id) ON DELETE CASCADE,
   event_key               text NOT NULL,
+  economic_nature         text NOT NULL,
   economic_event_group_key text,
   perspective_leg         text,
   label                   text NOT NULL,
@@ -688,6 +689,18 @@ CREATE TABLE IF NOT EXISTS public.bzm_2_1_cashflow_events (
   created_at              timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT bzm_2_1_cashflow_events_revision_key_uniq
     UNIQUE (revision_id, event_key),
+  CONSTRAINT bzm_2_1_cashflow_events_economic_nature_check CHECK (
+    economic_nature IN (
+      'operating', 'investing', 'financing', 'tax', 'transfer', 'social'
+    )
+    AND (
+      economic_nature <> 'financing'
+      OR NOT COALESCE(
+        (perspective_attribution_json -> 'company' ->> 'included')::boolean,
+        false
+      )
+    )
+  ),
   CONSTRAINT bzm_2_1_cashflow_events_transfer_leg_check CHECK (
     (
       economic_event_group_key IS NULL

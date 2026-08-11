@@ -285,6 +285,7 @@ export type Bzm21CashflowEvent = {
   actionId: string | null;
   transitionId: string | null;
   eventKey: string;
+  economicNature: "operating" | "investing" | "financing" | "tax" | "transfer" | "social";
   economicEventGroupKey: string | null;
   perspectiveLeg: Bzm21ObjectiveKind | null;
   label: string;
@@ -514,6 +515,7 @@ export type Bzm21CashflowEventRow = {
   action_id: string | null;
   transition_id: string | null;
   event_key: string;
+  economic_nature: string;
   economic_event_group_key: string | null;
   perspective_leg: string | null;
   label: string;
@@ -1042,6 +1044,9 @@ function mapCashflowEvent(
     !["revision", "state", "action", "transition", "terminal"].includes(
       row.scope_kind,
     ) ||
+    !["operating", "investing", "financing", "tax", "transfer", "social"].includes(
+      row.economic_nature,
+    ) ||
     (row.perspective_leg !== null &&
       !isOneOf(BZM21_OBJECTIVE_KINDS, row.perspective_leg)) ||
     !["action_start", "action_end"].includes(row.timing_kind) ||
@@ -1064,6 +1069,7 @@ function mapCashflowEvent(
     actionId: row.action_id,
     transitionId: row.transition_id,
     eventKey: row.event_key,
+    economicNature: row.economic_nature as Bzm21CashflowEvent["economicNature"],
     economicEventGroupKey: row.economic_event_group_key,
     perspectiveLeg: row.perspective_leg,
     label: row.label,
@@ -1555,6 +1561,7 @@ export function buildBzm21PolicyModelLedger(args: {
       stateId: event.stateId,
       actionId: event.actionId,
       transitionId: event.transitionId,
+      economicNature: event.economicNature,
       economicEventGroupKey: event.economicEventGroupKey,
       perspectiveLeg: event.perspectiveLeg,
       scopeKind: event.scopeKind,

@@ -66,6 +66,18 @@ export const BZM21_CASH_FLOW_CATEGORIES = [
 export type Bzm21CashFlowCategory =
   (typeof BZM21_CASH_FLOW_CATEGORIES)[number];
 
+export const BZM21_CASH_FLOW_ECONOMIC_NATURES = [
+  "operating",
+  "investing",
+  "financing",
+  "tax",
+  "transfer",
+  "social",
+] as const;
+
+export type Bzm21CashFlowEconomicNature =
+  (typeof BZM21_CASH_FLOW_ECONOMIC_NATURES)[number];
+
 export const BZM21_TAX_TREATMENTS = [
   "pre_tax",
   "post_tax",
@@ -90,6 +102,7 @@ export type Bzm21CashFlowEvent = {
   transitionId: string | null;
   timing: "action_start" | "action_end";
   includedIn: Bzm21CashFlowCategory;
+  economicNature: Bzm21CashFlowEconomicNature;
   objectiveAmountsMillionJpy: Bzm21ObjectiveAmounts;
   owner: string;
   counterparty: string;
@@ -160,7 +173,25 @@ export type Bzm21FinancingStatus =
 
 export type Bzm21FinancingFeasibility = {
   status: Bzm21FinancingStatus;
+  /** Cash already available at the decision time. */
+  openingCashMillionJpy: number | null;
   committedFundingMillionJpy: number | null;
+  /** Required cash-outs. Every amount must be tied to an absolute month. */
+  requiredFundingSchedule: Array<{
+    scheduleId: string;
+    atMonths: number | null;
+    amountMillionJpy: number | null;
+    purpose: string;
+    evidence: Bzm21EvidenceRef;
+  }>;
+  /** Contracted or secured cash-ins; purpose restrictions are explicit. */
+  committedFundingSchedule: Array<{
+    scheduleId: string;
+    atMonths: number | null;
+    amountMillionJpy: number | null;
+    permittedPurposes: string[];
+    evidence: Bzm21EvidenceRef;
+  }>;
   note: string;
   evidence: Bzm21EvidenceRef;
 };
@@ -171,7 +202,8 @@ export type Bzm21Action = {
   kind: Bzm21ActionKind;
   componentKinds: Bzm21ActionKind[];
   customComponents: string[];
-  sequence: string[];
+  /** Each top-level item is a serial stage; a nested array runs in parallel. */
+  sequence: Array<string | string[]>;
   sharedResourceRequirements: Array<{
     resourceId: string;
     amount: number | null;
@@ -261,6 +293,15 @@ export type Bzm21InterventionEffect = {
   stateId: string;
   actionId: string;
   requiredFundingDeltaMillionJpy?: number | null;
+  committedFundingDeltaMillionJpy?: number | null;
+  requiredFundingScheduleDeltas?: Array<{
+    scheduleId: string;
+    amountDeltaMillionJpy: number | null;
+  }>;
+  committedFundingScheduleDeltas?: Array<{
+    scheduleId: string;
+    amountDeltaMillionJpy: number | null;
+  }>;
   cashFlowEventDeltas?: Bzm21CashFlowEventInterventionEffect[];
   transitions?: Bzm21TransitionInterventionEffect[];
 };
@@ -751,6 +792,13 @@ function effectiveAction(
 ): Bzm21Action {
   let result: Bzm21Action = {
     ...action,
+    financingFeasibility: {
+      ...action.financingFeasibility,
+      requiredFundingSchedule:
+        action.financingFeasibility.requiredFundingSchedule.map((row) => ({ ...row })),
+      committedFundingSchedule:
+        action.financingFeasibility.committedFundingSchedule.map((row) => ({ ...row })),
+    },
     transitions: action.transitions.map((transition) => ({
       ...transition,
     })),
@@ -767,6 +815,43 @@ function effectiveAction(
           result.requiredFundingMillionJpy,
           effect.requiredFundingDeltaMillionJpy,
         ),
+        financingFeasibility: {
+          ...result.financingFeasibility,
+          committedFundingMillionJpy: applyNumberDelta(
+            result.financingFeasibility.committedFundingMillionJpy,
+            effect.committedFundingDeltaMillionJpy,
+          ),
+          requiredFundingSchedule:
+            result.financingFeasibility.requiredFundingSchedule.map((row) => {
+              const delta = effect.requiredFundingScheduleDeltas?.find(
+                (candidate) => candidate.scheduleId === row.scheduleId,
+              );
+              return delta
+                ? {
+                    ...row,
+                    amountMillionJpy: applyNumberDelta(
+                      row.amountMillionJpy,
+                      delta.amountDeltaMillionJpy,
+                    ),
+                  }
+                : row;
+            }),
+          committedFundingSchedule:
+            result.financingFeasibility.committedFundingSchedule.map((row) => {
+              const delta = effect.committedFundingScheduleDeltas?.find(
+                (candidate) => candidate.scheduleId === row.scheduleId,
+              );
+              return delta
+                ? {
+                    ...row,
+                    amountMillionJpy: applyNumberDelta(
+                      row.amountMillionJpy,
+                      delta.amountDeltaMillionJpy,
+                    ),
+                  }
+                : row;
+            }),
+        },
         transitions: result.transitions.map((transition) => {
           const transitionEffect = effect.transitions?.find(
             (candidate) =>
@@ -858,6 +943,102 @@ function validateDecisionGate(
   validateEvidence(gate.evidence, `${path}.evidence`, model, issues);
 }
 
+function fundingScheduleExclusionReason(action: Bzm21Action): string | null {
+  const financing = action.financingFeasibility;
+  const requiredTotal = action.requiredFundingMillionJpy;
+  if (requiredTotal === null) return "必要資金額が欠測";
+  if (financing.openingCashMillionJpy === null) return "判断時点の現金残高が欠測";
+  if (
+    !Array.isArray(financing.requiredFundingSchedule) ||
+    !Array.isArray(financing.committedFundingSchedule)
+  ) {
+    return "資金の入出金時点が欠測";
+  }
+
+  const requiredRows = financing.requiredFundingSchedule;
+  const committedRows = financing.committedFundingSchedule;
+  if (
+    requiredRows.some(
+      (row) =>
+        !isNonNegativeNumber(row.atMonths) ||
+        !isNonNegativeNumber(row.amountMillionJpy) ||
+        !row.purpose?.trim(),
+    ) ||
+    committedRows.some(
+      (row) =>
+        !isNonNegativeNumber(row.atMonths) ||
+        !isNonNegativeNumber(row.amountMillionJpy) ||
+        !Array.isArray(row.permittedPurposes),
+    )
+  ) {
+    return "資金scheduleの金額・時点・使途が欠測";
+  }
+
+  const scheduledRequired = requiredRows.reduce(
+    (sum, row) => sum + (row.amountMillionJpy ?? 0),
+    0,
+  );
+  if (Math.abs(scheduledRequired - requiredTotal) > EPSILON) {
+    return "必要資金総額と支払scheduleが不一致";
+  }
+  const committedTotal = financing.committedFundingMillionJpy;
+  if (committedTotal === null) return "契約済み・確保済み資金額が欠測";
+  const scheduledCommitted = committedRows.reduce(
+    (sum, row) => sum + (row.amountMillionJpy ?? 0),
+    0,
+  );
+  if (Math.abs(scheduledCommitted - committedTotal) > EPSILON) {
+    return "確保済み資金総額と入金scheduleが不一致";
+  }
+
+  const sources = [
+    {
+      atMonths: 0,
+      remaining: financing.openingCashMillionJpy,
+      permittedPurposes: [] as string[],
+    },
+    ...committedRows.map((row) => ({
+      atMonths: row.atMonths ?? Number.POSITIVE_INFINITY,
+      remaining: row.amountMillionJpy ?? 0,
+      permittedPurposes: row.permittedPurposes,
+    })),
+  ];
+  const requirements = [...requiredRows].sort(
+    (left, right) => (left.atMonths ?? 0) - (right.atMonths ?? 0),
+  );
+  for (const requirement of requirements) {
+    let remaining = requirement.amountMillionJpy ?? 0;
+    const eligible = sources
+      .filter(
+        (source) =>
+          source.atMonths <= (requirement.atMonths ?? -1) &&
+          (source.permittedPurposes.length === 0 ||
+            source.permittedPurposes.includes(requirement.purpose)),
+      )
+      .sort((left, right) => {
+        const leftFlexibility =
+          left.permittedPurposes.length === 0
+            ? Number.POSITIVE_INFINITY
+            : left.permittedPurposes.length;
+        const rightFlexibility =
+          right.permittedPurposes.length === 0
+            ? Number.POSITIVE_INFINITY
+            : right.permittedPurposes.length;
+        return leftFlexibility - rightFlexibility;
+      });
+    for (const source of eligible) {
+      const used = Math.min(source.remaining, remaining);
+      source.remaining -= used;
+      remaining -= used;
+      if (remaining <= EPSILON) break;
+    }
+    if (remaining > EPSILON) {
+      return `資金の崖: ${requirement.atMonths}か月時点の${requirement.purpose}支払に不足`;
+    }
+  }
+  return null;
+}
+
 function actionExclusionReason(action: Bzm21Action): string | null {
   if (action.availability === "unavailable") return "行動が利用不可";
   if (action.availability === "unknown") return "行動の利用可否が未確認";
@@ -886,18 +1067,7 @@ function actionExclusionReason(action: Bzm21Action): string | null {
   if (action.financingFeasibility.status === "unknown") {
     return "資金実行可能性が未確認";
   }
-  const requiredFunding = action.requiredFundingMillionJpy;
-  if (requiredFunding === null) return "必要資金額が欠測";
-  const committedFunding =
-    action.financingFeasibility.committedFundingMillionJpy;
-  if (
-    requiredFunding !== null &&
-    requiredFunding > 0 &&
-    (committedFunding === null || committedFunding + EPSILON < requiredFunding)
-  ) {
-    return "契約済み・確保済み資金が必要額に届かない";
-  }
-  return null;
+  return fundingScheduleExclusionReason(action);
 }
 
 function isActionUncertain(action: Bzm21Action): boolean {
@@ -1247,6 +1417,9 @@ export function validateBzm21DynamicPolicyModel(
       !event.counterparty?.trim() ||
       !event.scope?.trim() ||
       event.amountBasis !== "nominal" ||
+      !(BZM21_CASH_FLOW_ECONOMIC_NATURES as readonly string[]).includes(
+        event.economicNature,
+      ) ||
       !(BZM21_TAX_TREATMENTS as readonly string[]).includes(
         event.taxTreatment,
       ) ||
@@ -1262,6 +1435,22 @@ export function validateBzm21DynamicPolicyModel(
           "invalid_cashflow_event",
           eventPath,
           "単一CF台帳の帰属、範囲、時点、金額基準、税区分、集計区分を固定する。",
+        ),
+      );
+    }
+    if (
+      event.economicNature === "financing" &&
+      event.objectiveAmountsMillionJpy.company !== null &&
+      Math.abs(event.objectiveAmountsMillionJpy.company) > EPSILON
+    ) {
+      issues.push(
+        issue(
+          "error",
+          "valuation",
+          "company_value_includes_financing_cashflow",
+          `${eventPath}.objectiveAmountsMillionJpy.company`,
+          "資金調達の入出金は会社保有PJの事業価値へ入れず、資金制約とBZSF証券CFへ分離する。",
+          "company",
         ),
       );
     }
@@ -1622,6 +1811,24 @@ export function validateBzm21DynamicPolicyModel(
     const actionIds = new Set<string>();
     for (const [actionIndex, rawAction] of state.actions.entries()) {
       const actionPath = `${statePath}.actions[${actionIndex}]`;
+      const sequenceStages = Array.isArray(rawAction.sequence)
+        ? rawAction.sequence
+        : [];
+      const sequenceIsValid = sequenceStages.every(
+        (stage) =>
+          (typeof stage === "string" && stage.trim() !== "") ||
+          (Array.isArray(stage) &&
+            stage.length >= 2 &&
+            stage.every(
+              (component) =>
+                typeof component === "string" && component.trim() !== "",
+            )),
+      );
+      const flattenedSequence = sequenceIsValid
+        ? sequenceStages.flatMap((stage) =>
+            typeof stage === "string" ? [stage] : stage,
+          )
+        : [];
       if (!rawAction.actionId?.trim() || actionIds.has(rawAction.actionId)) {
         issues.push(
           issue(
@@ -1644,7 +1851,7 @@ export function validateBzm21DynamicPolicyModel(
             !(BZM21_ACTION_KINDS as readonly string[]).includes(component),
         ) ||
         !Array.isArray(rawAction.customComponents) ||
-        !Array.isArray(rawAction.sequence) ||
+        !sequenceIsValid ||
         rawAction.sequence.length === 0 ||
         rawAction.customComponents.some(
           (component) => !component?.trim(),
@@ -1654,13 +1861,13 @@ export function validateBzm21DynamicPolicyModel(
           ...rawAction.customComponents,
         ]).size !==
           rawAction.componentKinds.length + rawAction.customComponents.length ||
-        rawAction.sequence.length !==
+        flattenedSequence.length !==
           rawAction.componentKinds.length + rawAction.customComponents.length ||
-        new Set(rawAction.sequence).size !== rawAction.sequence.length ||
+        new Set(flattenedSequence).size !== flattenedSequence.length ||
         ![
           ...rawAction.componentKinds,
           ...rawAction.customComponents,
-        ].every((component) => rawAction.sequence.includes(component))
+        ].every((component) => flattenedSequence.includes(component))
       ) {
         issues.push(
           issue(
@@ -1668,7 +1875,7 @@ export function validateBzm21DynamicPolicyModel(
             "reachability",
             "invalid_action_bundle",
             actionPath,
-            "Bellman行動は、8つの基本動作と資金調達・交渉等を組み合わせた実行順序つきbundleで表す。",
+            "Bellman行動は、直列stageと並列stageを区別したbundleで表し、全componentを一度ずつ配置する。",
           ),
         );
       }
@@ -1735,8 +1942,12 @@ export function validateBzm21DynamicPolicyModel(
         ) ||
         typeof financing.note !== "string" ||
         financing.note.trim() === "" ||
+        (financing.openingCashMillionJpy !== null &&
+          !isNonNegativeAmount(financing.openingCashMillionJpy)) ||
         (financing.committedFundingMillionJpy !== null &&
-          !isNonNegativeAmount(financing.committedFundingMillionJpy))
+          !isNonNegativeAmount(financing.committedFundingMillionJpy)) ||
+        !Array.isArray(financing.requiredFundingSchedule) ||
+        !Array.isArray(financing.committedFundingSchedule)
       ) {
         issues.push(
           issue(
@@ -1754,6 +1965,46 @@ export function validateBzm21DynamicPolicyModel(
           model,
           issues,
         );
+        const scheduleIds = new Set<string>();
+        for (const [scheduleIndex, row] of [
+          ...financing.requiredFundingSchedule.map((entry) => ({
+            ...entry,
+            scheduleKind: "required" as const,
+          })),
+          ...financing.committedFundingSchedule.map((entry) => ({
+            ...entry,
+            scheduleKind: "committed" as const,
+          })),
+        ].entries()) {
+          const schedulePath = `${actionPath}.financingFeasibility.schedule[${scheduleIndex}]`;
+          const purposeValid =
+            row.scheduleKind === "required"
+              ? "purpose" in row && typeof row.purpose === "string" && row.purpose.trim() !== ""
+              : "permittedPurposes" in row &&
+                Array.isArray(row.permittedPurposes) &&
+                row.permittedPurposes.every(
+                  (purpose) => typeof purpose === "string" && purpose.trim() !== "",
+                );
+          if (
+            !row.scheduleId?.trim() ||
+            scheduleIds.has(row.scheduleId) ||
+            !isNonNegativeNumber(row.atMonths) ||
+            !isNonNegativeNumber(row.amountMillionJpy) ||
+            !purposeValid
+          ) {
+            issues.push(
+              issue(
+                "error",
+                "funding",
+                "invalid_funding_schedule",
+                schedulePath,
+                "資金の入出金は一意ID、絶対月、金額、使途または使途制限、根拠を持たせる。",
+              ),
+            );
+          }
+          scheduleIds.add(row.scheduleId);
+          validateEvidence(row.evidence, `${schedulePath}.evidence`, model, issues);
+        }
       }
       for (const [resourceIndex, resource] of (
         rawAction.sharedResourceRequirements ?? []
@@ -2541,6 +2792,54 @@ export function validateBzm21DynamicPolicyModel(
             "支援による必要資金差分は根拠のある有限値にする。",
           ),
         );
+      }
+      if (
+        effect.committedFundingDeltaMillionJpy !== undefined &&
+        !isFiniteNumber(effect.committedFundingDeltaMillionJpy)
+      ) {
+        issues.push(
+          issue(
+            "error",
+            "funding",
+            "invalid_intervention_committed_funding_delta",
+            `${effectPath}.committedFundingDeltaMillionJpy`,
+            "支援による確保済み資金差分は根拠のある有限値にする。",
+          ),
+        );
+      }
+      for (const [scheduleKind, deltas, rows] of [
+        [
+          "required",
+          effect.requiredFundingScheduleDeltas ?? [],
+          action.financingFeasibility.requiredFundingSchedule,
+        ],
+        [
+          "committed",
+          effect.committedFundingScheduleDeltas ?? [],
+          action.financingFeasibility.committedFundingSchedule,
+        ],
+      ] as const) {
+        const seenScheduleIds = new Set<string>();
+        for (const [deltaIndex, delta] of deltas.entries()) {
+          const deltaPath = `${effectPath}.${scheduleKind}FundingScheduleDeltas[${deltaIndex}]`;
+          if (
+            !delta.scheduleId?.trim() ||
+            seenScheduleIds.has(delta.scheduleId) ||
+            !rows.some((row) => row.scheduleId === delta.scheduleId) ||
+            !isFiniteNumber(delta.amountDeltaMillionJpy)
+          ) {
+            issues.push(
+              issue(
+                "error",
+                "funding",
+                "invalid_intervention_funding_schedule_delta",
+                deltaPath,
+                "支援による資金schedule差分は既存の一意な入出金行と有限値へ対応づける。",
+              ),
+            );
+          }
+          seenScheduleIds.add(delta.scheduleId);
+        }
       }
       for (const [transitionEffectIndex, transitionEffect] of (
         effect.transitions ?? []

@@ -158,6 +158,7 @@ const CASHFLOW_EVENT_SELECT = [
   "action_id",
   "transition_id",
   "event_key",
+  "economic_nature",
   "economic_event_group_key",
   "perspective_leg",
   "label",
