@@ -15,12 +15,16 @@ description: つくよみの平日外部リサーチを、SlackではなくAMD O
 
 ## 最初に読む
 
-1. `pwa/spec/3-6-strategy-signals-current-spec.md`
-2. `pwa/spec/3-7-notifications-current-spec.md`
-3. `pwa/spec/3-8-cockpit-current-spec.md`
-4. `pwa/design/project_strategy_signals.md`
-5. `pwa/design/notifications.md`
-6. `pwa/design/db_schema.md`
+日常運用の人向け正本は、AMD OSマニュアルの3-3章。
+このSKILLはautomationが読む実行手順であり、まさが運用を確認する入口にはしない。
+
+1. `pwa/manual/3-3-notifications-and-tsukuyomi.md` の「つくよみ外部リサーチ」
+2. `pwa/spec/3-6-strategy-signals-current-spec.md`
+3. `pwa/spec/3-7-notifications-current-spec.md`
+4. `pwa/spec/3-8-cockpit-current-spec.md`
+5. `pwa/design/project_strategy_signals.md`
+6. `pwa/design/notifications.md`
+7. `pwa/design/db_schema.md`
 
 ## 対象PJ
 

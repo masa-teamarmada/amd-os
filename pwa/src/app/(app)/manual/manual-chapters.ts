@@ -179,7 +179,7 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
 
   { slug: "3-1-system-architecture", title: "全体設計", summary: "画面、データ、書き込み経路、設計 md 索引まで含む OS の地図。", topics: ["system-dev", "developer"], screens: ["/manual"], tables: ["projects", "members", "billing_cycles"] },
   { slug: "3-2-data-and-extraction", title: "データと抽出", summary: "5 生データ、M/W/D/H L2、抽出 pipeline、復旧状況の開発者向け正本。", topics: ["system-dev", "knowledge-dev"], tables: ["source_cache", "project_meeting_summaries", "project_strategy_signals"] },
-  { slug: "3-3-notifications-and-tsukuyomi", title: "通知・修正依頼・正本反映ゲート", summary: "通知、つくよみ、ユーザー確認、正本反映の考え方。", topics: ["knowledge", "system"], screens: ["/notifications"], tables: ["l2_notifications", "l2_feedbacks"] },
+  { slug: "3-3-notifications-and-tsukuyomi", title: "通知・つくよみ外部リサーチ・正本反映ゲート", summary: "通知、つくよみ外部リサーチ、重複防止、採用・見送り、正本反映の運用。", topics: ["knowledge", "system", "discovery"], screens: ["/notifications", "/project/{projectId}/cockpit"], tables: ["l2_notifications", "l2_feedbacks", "project_strategy_signals"] },
 
   { slug: "4-1-atlas-protocol-score-macrotrend", title: "判断エンジン overview", summary: "Atlas、AMD Protocol、AMD Score、Macrotrend の関係。", topics: ["decision", "discovery"], screens: ["/atlas", "/venture-map/amd-score"] },
   { slug: "4-2-atlas-macrotrend-signal-spec", title: "Atlas / Macrotrend 詳細仕様", summary: "signal、story、theme、divergence の詳細。", topics: ["decision", "discovery", "system-dev"], screens: ["/atlas", "/atlas/macrotrends"], tables: ["atlas_signals", "atlas_stories", "atlas_themes"] },

@@ -1431,6 +1431,25 @@ expectNotIncludes("src/app/(app)/admin/layout.tsx", [
   "flex h-screen",
 ]);
 
+// つくよみ外部リサーチの日常運用は、ローカルの実行SKILLではなくAMD OSマニュアルを
+// 人向け正本にする。検索窓・対象・重複・採否・保存先・異常時の入口を同じ章から消さない。
+expectIncludes("manual/3-3-notifications-and-tsukuyomi.md", [
+  "この節が、つくよみ外部リサーチの日常運用の正本",
+  "平日09:00 JST",
+  "過去72時間",
+  "過去24時間",
+  "BWEは終了PJ",
+  "過去の未判断・採用・見送り・保管済みの全履歴",
+  "経営ハイライト → 採用リサーチ",
+  "いつもと違うとき",
+]);
+expectIncludes("src/app/(app)/manual/manual-chapters.ts", [
+  "通知・つくよみ外部リサーチ・正本反映ゲート",
+  "重複防止、採用・見送り",
+  '"/project/{projectId}/cockpit"',
+  '"project_strategy_signals"',
+]);
+
 expectIncludes("src/components/admin/AdminSidebar.tsx", [
   "請求書発行",
   "/admin/invoices",
