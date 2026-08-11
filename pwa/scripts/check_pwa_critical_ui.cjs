@@ -2000,7 +2000,7 @@ expectIncludes("src/components/cockpit/Bzm2ModelObservatory.tsx", [
   "到達見込みの数式と現在値",
   "Z_policy",
   "前向き検証",
-  "P 2.0 暫定測定台帳",
+  "暫定測定台帳",
   "代理推定",
   "欠測補完",
   "パラメータ台帳",
