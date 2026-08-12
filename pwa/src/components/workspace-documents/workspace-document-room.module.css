@@ -37,6 +37,11 @@
   background: var(--room-panel);
 }
 
+.scopeRail {
+  border: 1px solid var(--room-line);
+  background: var(--room-panel);
+}
+
 .scopeBandInstitution {
   box-shadow: inset 4px 0 0 var(--room-cyan);
 }
@@ -99,6 +104,33 @@
   border-color: white;
   background: rgba(255, 255, 255, 0.1);
   color: white;
+}
+
+.railControl {
+  min-height: 36px;
+  border: 1px solid var(--room-line-strong);
+  background: var(--room-panel);
+  color: var(--room-ink);
+}
+
+.railControl:focus-visible {
+  outline: 2px solid var(--room-blue);
+  outline-offset: 2px;
+}
+
+.railButton {
+  min-height: 36px;
+}
+
+.dropRail {
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+@media (max-width: 639px) {
+  .railControl,
+  .railButton {
+    min-height: 44px;
+  }
 }
 
 .fileRow {
