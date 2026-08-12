@@ -46,18 +46,19 @@ export interface BzmNumberedChapter extends BzmChapterConfig {
 
 export const BZM_PARTS: BzmPartConfig[] = [
   // ============================================================
-  // BZM 2.1 動的方針評価 (2026-08-11 theory-open)
-  // — 1.xからの進化を読み物で確認した後、2.0の固定方針を基準線として残し、
-  //   単一権限主体が選ぶ一つの方針を三視点から同じ有限グラフで評価する。
+  // BZM 2.2 戦略余力と推進力の動学 (2026-08-12 theory-open)
+  // — 1.xから2.1までの層を残し、2.2で状態、行動別制約、支出による遷移、
+  //   目標到達経路の頑健性を2.1の価値評価へ接続する。
   // ============================================================
   {
     key: "bzm-2-1-dynamic-policy",
-    label: "BZM 1.0から2.1へ — 動的な事業価値",
+    label: "BZM 1.0から2.2へ — 戦略余力と推進力",
     description:
-      "1.xの動的観測、2.0の固定方針下の動的到達予測を経て、2.1で続行・待機・再試行・迂回・縮小・拡張・ライセンス・撤退を動的に選ぶ。単一方針を会社、BZSF、公的支援者の三視点で分けて評価する。",
+      "1.xの動的観測、2.0の固定方針下の動的到達予測、2.1の動的方針評価を経て、2.2で資源を進捗へ変える推進力と、目標到達経路を保つ戦略余力を状態遷移として接続する。",
     slugs: [
       "bzm-1-0-to-2-1-evolution-guide",
       "bzm-2-1-dynamic-business-value-model",
+      "bzm-2-2-strategic-slack-and-propulsion",
     ],
   },
 
@@ -321,12 +322,12 @@ export const BZM_PARTS: BzmPartConfig[] = [
 ];
 
 export const BZM_CHAPTERS: BzmChapterConfig[] = [
-  // --- BZM 1.x → 2.1 進化編 (2026-08-12 公開) ---
+  // --- BZM 1.x → 2.2 進化編 (2026-08-12 公開) ---
   {
     slug: "bzm-1-0-to-2-1-evolution-guide",
-    title: "BZM 1.0から2.1への進化 — 観測から動的な事業価値へ",
+    title: "BZM 1.0から2.2への進化 — 観測から戦略余力へ",
     summary:
-      "1.xの動的観測、2.0の固定方針下の動的到達予測、2.1の行動選択つき動的事業価値の違いを、判断例と比較表から理解する導入編。",
+      "1.xの動的観測、2.0の固定方針下の動的到達予測、2.1の行動選択つき動的事業価値、2.2の戦略余力と推進力の違いを理解する導入編。",
     status: "completed",
   },
   // --- BZM 2.1 動的方針評価 (2026-08-11 theory-open) ---
@@ -335,6 +336,14 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
     title: "BZM 2.1 — 動的な事業価値モデル",
     summary:
       "BZM 2.0の固定方針を基準線として、有限個の判断ノードで複数行動を後退評価する。三視点を分離し、選択方針が到達見込みを内生的に変える最小計算契約と、先行研究・欠測・反証条件を定める。",
+    status: "in-progress",
+  },
+  // --- BZM 2.2 戦略余力と推進力の動学 (2026-08-12 theory-open) ---
+  {
+    slug: "bzm-2-2-strategic-slack-and-propulsion",
+    title: "BZM 2.2 — 戦略余力と推進力の動学",
+    summary:
+      "固定した余力成分を、状態、行動別制約、実行可能行動集合、支出による状態遷移、目標到達経路の頑健性へ置き換える。推進力、戦略余力、SPSを分離して2.1の価値評価へ接続する。",
     status: "in-progress",
   },
 

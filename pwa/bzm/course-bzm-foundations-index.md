@@ -79,3 +79,15 @@
 - [SX実測記録 — 版を追って$q$がどう動いたか](./sps-2-0-sx-measurement-log)（`measurement-log v0.5`）
 
 診断スコアの暫定仕様と、ゲートおよび事前登録の運用台帳は、教科書章ではなく`pwa/bzm/`直下の大文字始まりファイル（`BZM_2_0_DIAGNOSTIC_SCORE_SPEC.md`、`BZM_2_0_MEASURABILITY_GATE.md`、`SPS_2_0_PREREGISTRATION_SX_2026-08-07.md`）に置いてある。これらはPWAの教科書目次には現れない。
+
+## BZM 2.1から2.2への理論接続
+
+BZM 2.1は、行動選択と方針価値を有限判断グラフで評価する。
+
+BZM 2.2は、その価値式へ渡す状態と遷移を作り直し、支出による進捗、能力、権利、関係、行動集合の変化と、目標到達経路の頑健性を接続する。
+
+- [BZM 1.0から2.2への進化](./bzm-1-0-to-2-1-evolution-guide)
+- [BZM 2.1 — 動的な事業価値モデル](./bzm-2-1-dynamic-business-value-model)
+- [BZM 2.2 — 戦略余力と推進力の動学](./bzm-2-2-strategic-slack-and-propulsion)
+
+2.2は`theory-open / implementation-not-started`であり、現行2.1のPJ試算を2.2の計算結果へ読み替えない。
