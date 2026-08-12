@@ -5360,6 +5360,33 @@ export function SxWeeklyControlDashboard({
     }
   }
 
+  // コックピットのAMD介入行から、同じ正本レコードの編集文脈を直接開く。
+  // URLのkind/idだけを信用せず、現在取得済みのexact work unitへ解決できた場合だけ遷移する。
+  const focusHandledRef = useRef(false);
+  useEffect(() => {
+    if (focusHandledRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const focusKind = params.get("focusKind");
+    const focusId = params.get("focusId");
+    if (!focusKind && !focusId) return;
+    focusHandledRef.current = true;
+    if (!focusKind || !focusId) {
+      notifyWorkUnitNotFound();
+      return;
+    }
+    const unit = allWorkUnits.find(
+      (item) => item.kind === focusKind && item.id === focusId,
+    );
+    if (!unit) {
+      notifyWorkUnitNotFound();
+      return;
+    }
+    navigateToWorkUnit(unit);
+    // allWorkUnitsは初回bundleから確定済み。navigateToWorkUnitを依存へ入れると
+    // renderごとに再実行されるため、URLを一度だけ解決するref契約を優先する。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allWorkUnits]);
+
   return (
     <main className={`${styles.page} sx-management-workspace`}>
       <div className={styles.shell}>

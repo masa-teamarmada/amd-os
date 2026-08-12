@@ -20,6 +20,7 @@ import { CockpitFreezeBackfill } from "./CockpitFreezeBackfill";
 import { CockpitAmdScoreDetailTab } from "./CockpitAmdScoreDetailTab";
 import { CockpitCompanyOverview } from "./CockpitCompanyOverview";
 import { CockpitBusinessPlan } from "./CockpitBusinessPlan";
+import { SxCockpitInterventionRail } from "./SxCockpitInterventionRail";
 import type { CockpitSeasonFinance as CockpitSeasonFinanceData, MilestoneChangeHistory } from "@/lib/supabase-data";
 import type { ProjectContractTerms } from "@/lib/project-contract-terms";
 
@@ -430,6 +431,9 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
 
       {activeTab === "progress" && (
         <>
+      {project.projectId === "p21" && (
+        <SxCockpitInterventionRail projectId={project.projectId} />
+      )}
       {/* メインボード: 通常は 2 カラム。凍結/再開バッジがある時だけ 3 カラム目を出す。 */}
       <div className={mainGridClass}>
 

@@ -56,6 +56,7 @@
     "test:sx-name-normalize": "node --experimental-strip-types scripts/test_sx_name_normalize.mjs",
     "test:sx-executive-control-deck": "node --experimental-strip-types scripts/test_sx_executive_control_deck.mjs",
     "test:sx-weekly-control": "node --experimental-strip-types scripts/test_sx_weekly_control.mjs",
+    "test:sx-cockpit-intervention": "node --experimental-strip-types scripts/test_sx_cockpit_intervention.mjs",
     "test:sx-gate-requirements": "node --experimental-strip-types scripts/test_sx_gate_requirements.mjs",
     "test:sx-gantt-drag": "node --experimental-strip-types scripts/test_sx_gantt_drag.mjs",
     "test:sx-gantt-dependency-route": "node --experimental-strip-types scripts/test_sx_gantt_dependency_route.mjs",
