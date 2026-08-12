@@ -129,6 +129,25 @@ export function ReimburseWorkspace({ embedded = false }: { embedded?: boolean })
     }),
     [isAdmin, items, pmProjectSet]
   );
+  const approvedLedgerItems = useMemo(
+    () => {
+      if (!isAdmin) return [];
+      return items
+        .filter((item) => item.status === "approved" || item.status === "paid")
+        .slice()
+        .sort((a, b) => {
+          const aKey = a.admin_approved_at || a.date;
+          const bKey = b.admin_approved_at || b.date;
+          if (aKey === bKey) return a.reimbursement_id < b.reimbursement_id ? 1 : -1;
+          return aKey < bKey ? 1 : -1;
+        });
+    },
+    [isAdmin, items]
+  );
+  const approvedLedgerTotal = useMemo(
+    () => approvedLedgerItems.reduce((sum, item) => sum + item.amount, 0),
+    [approvedLedgerItems]
+  );
 
   const loadData = async () => {
     setLoading(true);
@@ -549,6 +568,73 @@ export function ReimburseWorkspace({ embedded = false }: { embedded?: boolean })
               </div>
             )}
           </section>
+
+          {isAdmin && (
+            <section className="border border-border border-l-2 border-l-emerald-500/50 bg-card p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold">承認済み</h2>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {approvedLedgerItems.length}件 / 合計 ¥{Math.round(approvedLedgerTotal).toLocaleString()}
+                </span>
+              </div>
+              {loading ? (
+                <p className="mt-4 text-sm text-muted-foreground">読み込み中...</p>
+              ) : approvedLedgerItems.length === 0 ? (
+                <p className="mt-4 text-sm text-muted-foreground">承認済みはなし</p>
+              ) : (
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full min-w-[860px] border-collapse text-[11px]">
+                    <thead>
+                      <tr className="border-b border-border text-left text-muted-foreground">
+                        <th className="whitespace-nowrap py-1.5 pr-3 font-medium">発生日</th>
+                        <th className="whitespace-nowrap py-1.5 pr-3 font-medium">PJ</th>
+                        <th className="py-1.5 pr-3 font-medium">摘要</th>
+                        <th className="whitespace-nowrap py-1.5 pr-3 font-medium">申請者</th>
+                        <th className="whitespace-nowrap py-1.5 pr-3 font-medium">費目</th>
+                        <th className="whitespace-nowrap py-1.5 pr-3 text-right font-medium">金額</th>
+                        <th className="whitespace-nowrap py-1.5 pr-3 font-medium">PM承認</th>
+                        <th className="whitespace-nowrap py-1.5 pr-3 font-medium">admin承認</th>
+                        <th className="whitespace-nowrap py-1.5 font-medium">領収書</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {approvedLedgerItems.map((item) => (
+                        <tr key={`ledger-${item.reimbursement_id}`} className="border-b border-border/60 align-top">
+                          <td className="whitespace-nowrap py-1.5 pr-3 font-mono">{item.date.slice(0, 10)}</td>
+                          <td className="whitespace-nowrap py-1.5 pr-3">{projectNameById.get(item.project_id) || item.project_name || item.project_id}</td>
+                          <td className="py-1.5 pr-3">{item.description || "摘要なし"}</td>
+                          <td className="whitespace-nowrap py-1.5 pr-3">{item.created_by || "-"}</td>
+                          <td className="whitespace-nowrap py-1.5 pr-3">{CATEGORY_LABELS[normalizeCategory(item.category)]}</td>
+                          <td className="whitespace-nowrap py-1.5 pr-3 text-right font-mono tabular-nums">¥{Math.round(item.amount).toLocaleString()}</td>
+                          <td className="whitespace-nowrap py-1.5 pr-3">
+                            {item.pm_approved_by ? (
+                              <span>{item.pm_approved_by}<span className="ml-1 text-muted-foreground">{item.pm_approved_at ? item.pm_approved_at.slice(0, 10) : ""}</span></span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap py-1.5 pr-3">
+                            {item.admin_approved_by ? (
+                              <span>{item.admin_approved_by}<span className="ml-1 text-muted-foreground">{item.admin_approved_at ? item.admin_approved_at.slice(0, 10) : ""}</span></span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
+                          <td className="py-1.5">
+                            {item.receipt_links && item.receipt_links.length > 0 ? (
+                              <ReceiptLinks links={item.receipt_links} />
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
 
           <section className="border border-border bg-card p-4">
             <div className="flex items-center justify-between gap-3">

@@ -363,14 +363,14 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - 名前: adminメニュー、ページtitle、見出しは `きよ`。用途説明を名称へ足して `きよ月次経理` に変えない。
 - 作業順: `01 立替精算`、`02 請求書`、`03 メンバー支払` の3taskを排他的に切り替える。切替後もURLは `/admin/kiyo?task=...` のままにし、別routeへ移動させない。
-- 立替精算: `/reimburse` と同じ実装を埋め込み、申請・編集・削除、PM承認・差戻し、admin承認・却下を実行できる。権限とstatus遷移は既存API/RLSを変えない。
+- 立替精算: `/reimburse` と同じ実装を埋め込み、申請・編集・削除、PM承認・差戻し、admin承認・却下を実行できる。権限とstatus遷移は既存API/RLSを変えない。adminだけに、admin承認済み（`status=approved`、互換で`paid`も含む）の全メンバー分を並べる常設台帳を持つ。件数・合計金額の見出し、発生日・PJ・摘要・申請者・費目・金額・PM承認・admin承認・領収書の9列、admin承認日降順（欠測時は発生日で安定sort）、丸角・影のないborder-onlyの高密度tableで、既存の申請・承認write workflowとは独立した表示（書込み経路を増やさない台帳）にする。
 - 請求書: `/admin/invoices` と同じ `AdminInvoiceIssueQueue` / `AdminInvoiceIssueDialog` を埋め込み、発行前確認、freee取引先保存、請求書発行、発行取消まで実行できる。
 - メンバー支払: `/admin/payouts` と同じ `AdminPayoutsClient` を埋め込み、報酬キャッシュ再計算、支払通知書発行・PDF確認・送付、入金確認nudgeまで実行できる。
 - 正本境界: きよ用に別のwrite endpoint、支払計算、請求判定、承認遷移を作らない。各専用画面の現行componentとserver-side guardをそのまま共有する。
 
 回帰防止:
 
-- `test:admin-kiyo` が3task、3つの既存作業UI、`きよ` の名称、`読み取り専用` の不在、tablist/tab/aria-selected、丸角カードgridへの回帰禁止、4/8/12px系の余白を検査する。
+- `test:admin-kiyo` が3task、3つの既存作業UI、`きよ` の名称、`読み取り専用` の不在、tablist/tab/aria-selected、丸角カードgridへの回帰禁止、4/8/12px系の余白に加えて、admin承認済み台帳の見出し・admin限定表示・対象status（`approved`／互換`paid`）・合計金額・丸角なしborder-onlyを検査する。
 - `test:surface-catalog-contract` がAdminSidebarの `きよ` と `/admin/kiyo` を検査する。
 - 3つのtaskを状態一覧やリンクだけへ縮退させない。専用画面にある主操作を `/admin/kiyo` でも同じcomponentで使えることを必須とする。
 - 3taskの切替UIは横並びタブ（`role="tablist"`/`role="tab"`/`aria-selected`、角丸ゼロ・影ゼロ・border-only）。PCは同じ幅の3区画が隣接し、縦の境界線（`border`の1px重ね）で区切る。選択中の区画は上辺・左右辺を持ち、下辺は作業面の背景色で消して下の作業面と前面でつながる（`-mb-px` + `border-b-background`）。非選択の区画は薄い面色（`bg-muted/30`）と下辺を持つ。各区画は1段目に番号+名称、2段目に工程説明を置き、説明の長さで区画幅を伸ばさない（幅は3等分固定、説明は`truncate`）。丸角個別カード（`rounded-lg` な3カードgrid）へ戻さない。mobileは各tabに安定した`min-width`（168px）を持たせ、タップ領域44px以上を保った横スクロール1行タブにする。`AdminInvoicesPage` / `AdminPayoutsPage` は `embedded` propで自身の重複見出しを省き、きよ内では密な余白（4/8/12px系）で表示する。専用route側の表示・write workflow・権限・URLは変えない。

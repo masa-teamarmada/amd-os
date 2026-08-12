@@ -53,4 +53,12 @@ assert.match(kiyoPage, /mb-3/, "きよタブ+作業面ブロック下の余白�
 assert.doesNotMatch(kiyoPage, /mb-5|mb-6/, "きよ見出し・タブの余白を20px以上に緩めない");
 assert.match(kiyoPage, /min-h-11/, "タブのタップ領域は44px以上を維持する");
 
+// admin承認済みの他メンバー分が消えて見える回帰の防止: adminだけの常設「承認済み」台帳
+assert.match(reimbursePage, />承認済み</, "adminへ承認済み台帳の見出しを出す");
+assert.match(reimbursePage, /approvedLedgerItems/, "status=approved\\(互換でpaidも含む\\)を一覧から拾う専用の一覧を持つ");
+assert.match(reimbursePage, /status === "approved" \|\| item\.status === "paid"/, "承認済み台帳はstatus=approved\\(paidは互換\\)だけを対象にする");
+assert.match(reimbursePage, /approvedLedgerTotal/, "承認済み台帳に合計金額を出す");
+assert.match(reimbursePage, /\{isAdmin && \(/, "承認済み台帳はadminだけに表示する");
+assert.doesNotMatch(reimbursePage, /rounded-lg|rounded-xl|shadow-/, "承認済み台帳を丸角カードや大きい集計カードにしない");
+
 console.log("admin kiyo workspace contract: ok");

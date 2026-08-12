@@ -134,6 +134,16 @@ flowchart LR
 
 PM 承認は `project_members.is_pm=true AND project_id=reimbursement.project_id` のメンバーのみ。 admin 承認は `members.is_admin=true` のみ。
 
+### admin 承認済み台帳
+
+`members.is_admin=true` で開いたときだけ、既存の「承認待ち」「自分の申請」に加えて「承認済み」台帳が常設表示される (`/reimburse` 単体、`/admin/kiyo?task=reimbursements` 埋め込みの両方)。書込みAPI・権限条件は変更せず、既存 fetch (`reimbursements` を最大400件、date降順) の結果をクライアント側でフィルタするだけの表示。同じ画面内の申請・編集・PM承認・admin承認の既存操作はそのまま使える (= 書込み経路を増やさない表示台帳)。
+
+- 対象: `status IN ('approved', 'paid')`（現行実装の正本 status は `approved`。`paid` は将来互換のため含めるだけで、新規に発生させない）
+- 並び: `admin_approved_at` 降順、欠測時は `date` で安定sort
+- 表示列: 発生日 / PJ / 摘要 / 申請者 / 費目 / 金額 / PM承認者+承認日 / admin承認者+承認日 / 領収書リンク
+- 見出しに件数と合計金額 (`¥`, 3桁区切り) を出す
+- 高密度table (border-only、丸角・影なし)。PCは列が揃うcompact table、mobileは横スクロールで同じtableを見る
+
 ## /admin/invoices
 
 admin/きよが締め済み稼働月の請求書発行を処理する画面 (= `pwa/src/app/(app)/admin/invoices/page.tsx`)。旧 `/admin/billing` は廃止済みで、この画面へ自動遷移する。
