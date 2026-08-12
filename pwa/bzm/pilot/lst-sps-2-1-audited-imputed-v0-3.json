@@ -26,7 +26,7 @@
     },
     "auditReportDate": "2026-05-28",
     "firstAvailableOnDriveAt": "2026-06-16T04:55:26.604Z",
-    "retrievedAt": "2026-08-12T23:59:59+09:00",
+    "retrievedAt": "2026-08-12T06:22:27Z",
     "physicalCopyCount": 3,
     "logicalDocumentCount": 1,
     "uniqueBinaryHashCount": 1,
@@ -34,6 +34,7 @@
     "sizeBytes": 357246,
     "pageCount": null,
     "pageCountStatus": "unknown_not_used_in_calculation",
+    "sourceLocatorStatus": "page numbers were unavailable through the connector; exact account labels and document-level binary hash are retained",
     "physicalCopies": [
       {
         "sourceRef": "drive:file:1JiZiAJZZbgyh_v7tQXMxwoDw958y1L2S",
@@ -94,7 +95,34 @@
       "long-term deposits received is a liability, not cash, revenue, salvage value or company value",
       "J-KISS 110 and short-term borrowing 83 are fiscal-year facts and are not added again after the balance-sheet date without transaction-level proof",
       "grant ceilings are not grant cash receipts and are not added directly to q or value"
-    ]
+    ],
+    "observationClasses": {
+      "auditedFinancialStatement": [
+        "cashAndDeposits",
+        "currentAssets",
+        "totalAssets",
+        "noncurrentAssets",
+        "shortTermBorrowing",
+        "accountsPayable",
+        "currentGrantAdvanceLiability",
+        "longTermDepositsReceivedLiability",
+        "totalLiabilities",
+        "netAssets",
+        "annualSales",
+        "operatingLoss",
+        "recurringLoss",
+        "netLoss",
+        "sellingGeneralAndAdministrativeExpense",
+        "researchAndDevelopmentExpenseIncludedInSga"
+      ],
+      "auditedDocumentObservation": [
+        "capex",
+        "accumulatedDepreciation",
+        "jkissRaisedDuringFiscalYear",
+        "employees",
+        "grantCeilings"
+      ]
+    }
   },
   "excludedFalsePositiveSources": [
     {
@@ -134,11 +162,21 @@
         "longTermDepositsReceivedLiability",
         "sales",
         "operatingExpense",
-        "R&D",
-        "capex"
+        "R&D"
       ],
       "status": "audited_observed",
       "source": "別紙1.事業報告・計算書類等.pdf"
+    },
+    {
+      "parameters": [
+        "capex",
+        "accumulated depreciation",
+        "J-KISS raised during FY2026",
+        "employees",
+        "grant ceilings"
+      ],
+      "status": "audited_document_observed",
+      "source": "business report and notes in the same hashed audited document package; not all are face financial-statement accounts"
     },
     {
       "parameters": [
@@ -48995,5 +49033,5 @@
       ]
     }
   ],
-  "calculationHash": "db524161b59a00c4ce2b53c2dee74cb7c5341bd39c9b542c957676b4f4a8ed1c"
+  "calculationHash": "9e71b721ee106c60bec6e1c7db519e078c6596bf86097266eb61a220f6c638da"
 }

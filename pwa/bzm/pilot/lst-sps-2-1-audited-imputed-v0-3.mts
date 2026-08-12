@@ -115,7 +115,7 @@ const REPORT = {
   fiscalPeriod: { from: "2025-04-01", to: "2026-03-31" },
   auditReportDate: "2026-05-28",
   firstAvailableOnDriveAt: "2026-06-16T04:55:26.604Z",
-  retrievedAt: INFORMATION_CUTOFF,
+  retrievedAt: "2026-08-12T06:22:27Z",
   physicalCopyCount: 3,
   logicalDocumentCount: 1,
   uniqueBinaryHashCount: 1,
@@ -124,6 +124,8 @@ const REPORT = {
   sizeBytes: 357_246,
   pageCount: null,
   pageCountStatus: "unknown_not_used_in_calculation",
+  sourceLocatorStatus:
+    "page numbers were unavailable through the connector; exact account labels and document-level binary hash are retained",
   physicalCopies: [
     {
       sourceRef: "drive:file:1JiZiAJZZbgyh_v7tQXMxwoDw958y1L2S",
@@ -183,6 +185,33 @@ const AUDITED = {
     "J-KISS 110 and short-term borrowing 83 are fiscal-year facts and are not added again after the balance-sheet date without transaction-level proof",
     "grant ceilings are not grant cash receipts and are not added directly to q or value",
   ],
+  observationClasses: {
+    auditedFinancialStatement: [
+      "cashAndDeposits",
+      "currentAssets",
+      "totalAssets",
+      "noncurrentAssets",
+      "shortTermBorrowing",
+      "accountsPayable",
+      "currentGrantAdvanceLiability",
+      "longTermDepositsReceivedLiability",
+      "totalLiabilities",
+      "netAssets",
+      "annualSales",
+      "operatingLoss",
+      "recurringLoss",
+      "netLoss",
+      "sellingGeneralAndAdministrativeExpense",
+      "researchAndDevelopmentExpenseIncludedInSga",
+    ],
+    auditedDocumentObservation: [
+      "capex",
+      "accumulatedDepreciation",
+      "jkissRaisedDuringFiscalYear",
+      "employees",
+      "grantCeilings",
+    ],
+  },
 } as const;
 
 const ASSUMPTIONS: Record<ScenarioId, ScenarioAssumption> = {
@@ -855,10 +884,21 @@ async function main() {
           "sales",
           "operatingExpense",
           "R&D",
-          "capex",
         ],
         status: "audited_observed",
         source: REPORT.title,
+      },
+      {
+        parameters: [
+          "capex",
+          "accumulated depreciation",
+          "J-KISS raised during FY2026",
+          "employees",
+          "grant ceilings",
+        ],
+        status: "audited_document_observed",
+        source:
+          "business report and notes in the same hashed audited document package; not all are face financial-statement accounts",
       },
       {
         parameters: [
