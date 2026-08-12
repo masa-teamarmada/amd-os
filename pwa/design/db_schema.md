@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-12 12:20 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-12 13:54 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -3493,7 +3493,7 @@ PRIMARY KEY: `id`
 | 6 | `title` | `text` | NOT NULL | `` |
 | 7 | `detail` | `text` | NULL | `` |
 | 8 | `ball_owner` | `text` | NOT NULL | `'ambiguous'::text` |
-| 9 | `due_at` | `timestamptz` | NOT NULL | `` |
+| 9 | `due_at` | `timestamptz` | NULL | `` |
 | 10 | `priority` | `text` | NOT NULL | `'normal'::text` |
 | 11 | `status` | `text` | NOT NULL | `'open'::text` |
 | 12 | `resolved_note` | `text` | NULL | `` |
@@ -3513,6 +3513,9 @@ PRIMARY KEY: `id`
 | 26 | `attention_source_hash` | `text` | NULL | `` |
 | 27 | `attention_reviewed_at` | `timestamptz` | NULL | `` |
 | 28 | `attention_reviewed_by` | `text` | NULL | `` |
+| 29 | `generation_key` | `text` | NULL | `` |
+| 30 | `evidence_refs` | `jsonb` | NOT NULL | `'[]'::jsonb` |
+| 31 | `completion_condition` | `text` | NULL | `` |
 
 ## progress_estimate_state
 

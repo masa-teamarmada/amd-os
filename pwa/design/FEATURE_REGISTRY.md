@@ -488,12 +488,12 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 必須契約:
 
-- collectorは候補を `attention_state='pending'` で保存し、Codex automationが意味審査した行だけを表示可能にする。provider APIや従量課金tokenを使わず、DB更新はallowlist済み非LLM applierだけが行う。
+- 先手TODOは、既存 Codex automation `amd-os-proactive-heartbeat` が5系統source cacheと開催済み会議要約から `decision` / `masa_action` だけを直接生成する。別automation、粗い候補、後段filterは作らない。provider APIや従量課金tokenを使わず、DB更新はvalidator後の非LLM applierだけが行う。
 - `/proactive` の未対応・ブロック中とdashboard badgeは、`approved` の `decision` / `masa_action` だけを読む。MTG prep、チーム作業、相手ボール、保存完了、待ち、復旧作業、根拠不足は混ぜない。
 - `/notifications`、GlobalNav未読数、Realtime popup、iOS/macOS通知は、`l2_notifications` の `approved AND requires_masa_decision=true` と、Codex審査済みかつまさ本人の完全なaction contractを持つ `app_notifications` だけを対象にする。直接の再認証URLがある `connector_auth` だけは復旧を遅らせない例外。
 - `meeting_notifications` は会議記録として保持し、注意面・未読数・OS通知には出さない。会議準備はCodex task内で行い、OSへ重複TODOを作らない。
-- `due_basis='explicit'` の期限だけを期限超過・redへ使う。synthetic / unknown は「期限未確定」と表示する。
-- 正本: [`pwa/design/attention_review.md`](attention_review.md)。回帰検査: `npm run test:attention-review`。
+- `due_basis='explicit'` の期限だけを期限超過・redへ使う。明示期限がなければ `none` / null。期限原文が元証跡に実在しない出力はvalidatorが拒否する。
+- 正本: [`pwa/spec/2-4-proactive-todo-current-spec.md`](../spec/2-4-proactive-todo-current-spec.md)。回帰検査: `npm run test:proactive-heartbeat`。
 
 ## /tasks (deprecated)
 

@@ -84,16 +84,18 @@ SKILL 正本は `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (
 
 ## Control layer: proactive TODO
 
-旧先手力 heartbeat (`proactive_outbox` + 司令塔通知) は 2026-06-27 に廃止済み。現在の先手TODOは `proactive_todos` を正本にし、`/api/cron/proactive-todo-extract` が MTG 起点で候補を作り、admin は `/proactive` と dashboard 上段バッジで棚卸しする。PJ cockpit / institution cockpit には旧 `proactive_outbox` 由来のTODOを表示しない。
+旧 `proactive_outbox` + 司令塔通知は廃止のまま。2026-08-12以降は同じ automation id `amd-os-proactive-heartbeat` を、元証跡からまさ本人の判断・行動だけを直接作る意味抽出ownerとして再利用する。別automationや候補の後段filterは置かない。adminは `/proactive` とdashboard上段バッジで棚卸しし、PJ cockpit / institution cockpitには旧outboxを表示しない。
 
 | 項目 | 契約 |
 |---|---|
 | 正本 spec | `pwa/spec/2-4-proactive-todo-current-spec.md` |
 | DB | `proactive_todos` |
-| 抽出 | `/api/cron/proactive-todo-extract` |
+| 抽出 | Codex automation `amd-os-proactive-heartbeat` → `proactive_heartbeat_tool.mjs` validator/applier |
+| 入力 | 5系統 `source_cache` + 開催済み `project_meeting_summaries`。既存TODO/通知は入力にしない |
+| lifecycle | `/api/cron/proactive-todo-extract` は明示期限超過のred昇格とblocked復帰だけ |
 | UI | `/proactive` + dashboard 上段 `ProactiveTodoBadge` |
 | 完了 | `/api/proactive-todos/:id/resolve` |
-| 禁止 | 旧 `proactive_outbox` / `ProactiveQueuePanel` を cockpit に戻さない。TODOをそのまま外部送付しない |
+| 禁止 | 別automation、provider課金LLM、粗い候補の後段filter、MTG prep、旧outbox/cockpit panel、TODO本文の外部送付 |
 
 ## Control layer: L2 health action ledger
 

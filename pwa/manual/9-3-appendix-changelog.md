@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-08-12 JST | 2-6 adminオペ / 3-3 通知・つくよみ / 8-3 抽出routine | 変更・削除 | build v3.72.7 / migration 265。既存 `amd-os-proactive-heartbeat` を10:15〜20:15 JSTの毎時15分のまま、5系統source cache + 開催済み会議要約から本人判断・本人限定行動だけを直接生成する入口へ改良。粗いMTG/Gmail候補writerと別attention review automationを廃止。明示期限原文、0.85 confidence、全証跡disposition、source hash再読、wording非依存dedupeを必須化。通知は24h以内の明示期限・不可逆な判断窓・本人限定blockerだけ。旧未完了候補と旧filter由来の未読通知は履歴付きで退役 | 「候補自体がイケていないためLLMで抽出し、既存automationを改良する」というまさ指示を実装し、後段filterと別入口を止めるため | まさ・えいみ |
 | 2026-08-12 JST | 2-3 PJコックピット | 修正 | build v3.72.6。SXの共通PJ管制を契約詳細より前へ移し、スマホでもPJ名の直後に現在地・AMD判断・次期限を確認できるようにした | 本番mobile受入で共通管制へ到達する前に契約詳細の長いスクロールが必要だったため | まさ・えいみ |
 | 2026-08-12 JST | 2-1 メンバー最短導線 | 変更 | build v3.72.5。研究機関利用者の個別PJ導線を、PJ実行member用workspaceではなく`/workspace/[slug]/project/[projectId]`へ分離。承認済み最新版だけを大学側の返答・相手待ち・期限中心に表示する | PJ workspace、AMD cockpit、研究機関PJ面の役割分担を実装どおり案内するため | まさ・えいみ |
 | 2026-08-12 JST | 2-3 PJコックピット / PJワークスペース | 撤回・統合 | build v3.72.1。現行PJ画面と無関係だった別デザインの共有PJ管制を削除。完成済み4タブ式PJ管制を`/project/{project_id}/workspace`の本体へ移し、旧`/weekly-control`は同URLへの転送だけにした。外部account向け簡易代替面は出さず、大学・SU向け正式面は別工程とする | まさの「作ったページ全削除」「現行ページをここに引っ越して」と、PJ=workspace・AMD=cockpit・大学=研究機関側ページという責任分担を正本へ戻すため | まさ・えいみ |

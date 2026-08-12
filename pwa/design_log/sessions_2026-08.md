@@ -160,3 +160,19 @@ automation作成後の最初の自然な平日09:00実行は未観測。2026-08-
 
 - この変更では現行PJ workspace、AMD cockpit、研究機関workspaceの画面を変更しない。
 - 研究機関PJ面と、workspace/cockpitの共同正本完全接続は未実装であり、仕様追加だけで完成扱いにしない。
+
+## 2026-08-12 — 既存heartbeatを先手TODOの意味抽出ownerへ改良（v3.72.7）
+
+### 問題
+
+- 会議next actionとGmail依頼を文字列で粗く候補化し、別automationで後から落とす設計になっていた。
+- 候補の入口で失われた判断は後段filterでは発見できず、候補台帳と通知にチーム作業・情報・MTG prepが混ざった。
+- `amd-os-proactive-heartbeat` と別のattention reviewを作る構成は、同じ目的に入口を二つ持つだけだった。
+
+### 是正
+
+- 同じ `amd-os-proactive-heartbeat` を、5系統source cacheと開催済み会議要約から本人判断・本人限定行動を直接抽出するownerへ変更した。
+- automation自身のCodexだけが意味抽出し、provider課金APIは使わない。promptはDB管理にし、全証跡をcreate/noop/needs_sourceへ分類する。
+- validatorは全件回答、confidence 0.85、明示期限の元証跡内完全一致、通知上限を検査する。applierはpromptと全証跡を再読してhash一致時だけ書く。
+- `/api/cron/proactive-todo-extract` は新規候補生成をやめ、red昇格とblocked復帰だけにした。旧attention review実装も削除した。
+- 旧heuristicの未完了TODOと旧filter由来の未読通知は削除せず退役し、同じ元証跡に必要な判断があれば新heartbeatから再生成する。

@@ -1,6 +1,6 @@
 # 通知・つくよみ修正依頼・正本反映ゲート
 
-AMD OS の通知は「お知らせ」だけではない。多くの通知は、LLM / automation が作った候補を **正本に入れてよいか確認するゲート**。
+AMD OS の通知は、まさが今判断または実行する必要がある時だけ出す。保存完了、同期完了、情報共有、チーム作業、相手待ちは通知理由にしない。候補の採否通知も、採用・見送りで正本や次の行動が本当に変わる場合だけ。
 
 ## 先に知っておく言葉
 
@@ -23,6 +23,21 @@ AMD OS の通知は「お知らせ」だけではない。多くの通知は、L
 | MTG 通知 | `meeting_notifications` | 議事録 / MTG サマリ確認 |
 | アプリ通知 | `app_notifications` | OS 運用上の通知 |
 | Slack nudge | Slack DM + signed URL | 入金確認、PL承認など |
+
+## 先手TODOと通知の入口
+
+先手TODOは、既存 Codex automation `amd-os-proactive-heartbeat` が毎日10:15〜20:15 JSTの毎時15分に生成する。別automationは使わない。
+
+入力は既存TODOや通知候補ではなく、直近のGmail / Drive / Calendar / Slack / Notionの保存証跡と開催済み会議要約。Codexが全証跡を意味で読み、次のどちらかだけをapproved TODOとして直接作る。
+
+- まさの採否で次の進行が分岐する
+- まさ本人の権限・本人確認・本人アカウントがなければ完了できない
+
+MTG prepはCodex task内で完結し、OSへ重複表示しない。チーム作業、一般提案、情報、完了報告、相手待ち、根拠不足は作らない。期限は証跡内の明示日時だけを使い、仮期限を作らない。
+
+TODOを作っても通常は通知しない。通知するのは、24時間以内の明示期限、取り消せない判断機会の終了、まさ本人にしか解除できない現行blockerだけ。候補0件は正常で、通知も空payloadも作らない。
+
+詳細は [`spec/2-4-proactive-todo-current-spec.md`](../spec/2-4-proactive-todo-current-spec.md)。
 
 ## H-1の会議確認通知
 

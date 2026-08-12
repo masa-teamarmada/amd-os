@@ -1,82 +1,47 @@
-# 注意・判断ゲート
+# 注意・判断の生成境界
 
 更新日: 2026-08-12
 
-## 目的
+## current truth
 
-自動抽出された候補と、まさが今判断・対応する項目を分離する。
-collector が見つけたこと、OSへ保存できたこと、会議記録が増えたことは、それだけでは通知理由にならない。
+先手TODOは、粗い候補を先に作ってLLMで後段審査する方式ではない。
+既存 automation `amd-os-proactive-heartbeat` が、元の業務証跡から `decision` / `masa_action` だけを直接生成する。
+詳細契約は [先手 TODO current spec](../spec/2-4-proactive-todo-current-spec.md) を正本とする。
 
 ## 注意面へ出してよいもの
 
-次のどちらかだけを `approved` にする。
+1. `decision`: まさの採否で次の行動が具体的に分岐する
+2. `masa_action`: まさ本人にしかできず、完了条件を具体的に言える
 
-1. `decision`: まさの採用・不採用で、反映先や次の行動が実際に変わる。
-2. `masa_action`: まさ本人にしかできない具体行動があり、完了条件を一文で言える。
+次は出さない。
 
-次は注意面へ出さない。
+- 保存、同期、抽出件数などの事後報告
+- MTG prep
+- チームメンバーが行う作業
+- 相手待ち、情報共有、一般的な提案
+- 根拠不足
+- 推測期限しかないものを「期限切迫」とする通知
 
-- 保存完了、同期完了、抽出件数などの事後報告
-- MTG prep。準備はCodex task内で行い、AMD OSの先手TODOへ複製しない
-- チームメンバーが実行する作業
-- connector、権限、設定、素材不足などの復旧作業。ただし `app_notifications.meta.action_contract` に、まさの具体行動・直接開ける場所・完了条件が揃う場合はOS通知として出してよい
-- 待ち状態、相手ボール、期限のない「念のため確認」
-- 根拠不足で採否や行動を決められないもの
-
-## データ契約
-
-`proactive_todos`、`l2_notifications`、`app_notifications` は、生成時の `attention_state='pending'` を既定にする。
-表示・未読数・OS通知は、次だけを対象にする。
+## 表示契約
 
 | source | 注意面の条件 |
 |---|---|
-| `proactive_todos` | `attention_state='approved'` かつ `attention_type IN ('decision','masa_action')` |
-| `l2_notifications` | `attention_state='approved'` かつ `requires_masa_decision=true` |
-| `app_notifications` | 直接の再認証URLがある `connector_auth`、または `attention_state='approved'` の `decision` / `masa_action` かつまさ本人の完全な `meta.action_contract` |
-| `meeting_notifications` | 注意面へ出さない。会議記録としてcockpitに残す |
+| `proactive_todos` | `approved` かつ `decision` / `masa_action` |
+| `app_notifications` | `approved` かつ `decision` / `masa_action`、完全な `action_contract`。`connector_auth` の直接復旧だけ既存例外 |
+| `l2_notifications` | 先手TODOの生成・通知経路には使わない |
+| `meeting_notifications` | 会議記録。注意面・未読数へ混ぜない |
 
-意味を持つ素材列が変わったらDB triggerが審査結果を `pending` へ戻す。
-既読、通知済み、優先度、解決状態だけの変更では再審査しない。
+## なぜ後段filterをやめるか
 
-## 期限
+候補生成が文字列ヒューリスティックなら、後段LLMは「大量の悪い候補を捨てる」仕事になる。
+入力にない判断候補は発見できず、候補テーブル自体もノイズで膨らむ。
 
-`proactive_todos.due_basis` は次の3値。
+そのため意味判断を入口へ移した。
 
-- `explicit`: メールやnext action本文に明示された期限。期限超過・red判定に使ってよい
-- `synthetic`: meeting date + 7日のようなcollectorの仮期限。赤表示しない
-- `unknown`: 未判定。赤表示しない
+- 入力: `source_cache` 5系統と開催済み会議要約
+- LLM: Codex automation自身。従量課金APIは禁止
+- 出力: validatorを通ったapproved TODO
+- 通知: 24h以内の明示期限、不可逆な判断窓、本人限定blockerだけ
+- 書込み: source hashを再検証する非LLM applierだけ
 
-## Codex automation と非LLM applier
-
-1. `attention_review_tool.mjs prepare` がpending候補を読み、URL・メール・認証情報を除いた審査素材を作る。DBは変更しない
-2. Codexが全候補を意味分類する。従量課金のOpenAI・Anthropic・Gemini APIは呼ばない
-3. `validate` が全件回答、source hash、列挙値、decision/action不変条件を検証する
-4. `apply` が素材を再読し、hash一致行の許可列だけを更新する。古くなった行はskipする
-
-候補0件は成功。空のreview payloadを作る必要はない。
-automationの実行結果は件数だけを報告し、本文、個人情報、URL、環境値を通知へ出さない。
-
-## 判定JSON
-
-```json
-{
-  "version": 1,
-  "reviewer": "codex-automation",
-  "decisions": [
-    {
-      "source_kind": "proactive_todo",
-      "source_id": "uuid",
-      "source_hash": "sha256",
-      "attention_type": "decision",
-      "owner": "masa",
-      "requires_masa_decision": true,
-      "reason": "採否で次の手続きが変わる",
-      "action": "提案を採用するか決める",
-      "effect": "採用なら正本へ反映し、不採用なら候補を閉じる",
-      "confidence": 0.95
-    }
-  ]
-}
-```
-
-`l2_notification` の保存完了行、回答済み行、raw/config gapを `decision` にすることはvalidatorが拒否する。`app_notification` はまさ本人の完全なaction contractが無ければapprovedにできず、`meeting_action` は通知面ではなくaction ledgerへ残す。
+候補ゼロは正常であり、空payloadや「何もなかった」通知を作らない。
