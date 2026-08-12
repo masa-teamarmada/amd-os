@@ -36,6 +36,7 @@ coverageGaps[] candidate → non-LLM applier → 通知採否
 ```
 
 探索ではファイル名だけを条件にしない。
+ただし全文を保持しない抜粋運用でも、正式なファイル名は本文・親フォルダ・MIME・会社帰属と合わせて書類種別の判定に使う。
 会社正式名、会社alias、PJ alias、PJ Drive root、親フォルダ、MIME、本文、更新日時を組み合わせ、ページングする。
 Gmail / Calendar / Slack / Notionも同じ重要度・帰属・根拠契約へ正規化する。
 

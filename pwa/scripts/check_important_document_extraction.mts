@@ -212,6 +212,26 @@ const observedUnverified = extractImportantEvidence({
   }],
 });
 assert.equal(observedUnverified.candidates[0]?.facts[0]?.value_status, "observed", "原文で確認した契約条項は履行未確認でも推定へ落とさない");
+const observedRisk = extractImportantEvidence({
+  project: batch.project,
+  observed_at: batch.observed_at,
+  materials: [{
+    source: "notion", source_ref: "notion-page:observed-risk", material_kind: "page", title: "LiSTie 安全報告", project_root_matched: true,
+    text: "強アルカリ液の漏出事故を2件確認し、安全上の課題として報告した。", extraction_method: "native_text", extraction_status: "available",
+    semantic_classification: { salient: true, categories: ["risk_compliance"], reasons: ["安全事故"], observations: [{ fact_key: "alkaline_incidents", label: "強アルカリ漏出事故", value_text: "2件", value_number: 2, unit: "件", observation_kind: "observed", section: "安全報告", evidence_text: "強アルカリ液の漏出事故を2件確認し、安全上の課題として報告した。", status: "reported" }] },
+  }],
+});
+assert.equal(observedRisk.candidates[0]?.facts[0]?.value_status, "observed", "原文で確認した事故やリスク認識は、語だけで推定へ落とさない");
+const financialClassFromTitle = extractImportantEvidence({
+  project: batch.project,
+  observed_at: batch.observed_at,
+  materials: [{
+    source: "drive", source_ref: "drive-file:historical-financial", material_kind: "document", title: "LiSTie 第2期事業報告・計算書類.docx", project_root_matched: true,
+    text: "LiSTie株式会社。対象期間2024年4月1日から2025年3月31日。売上高は0千円。", text_is_excerpt: true, extraction_method: "office_text", extraction_status: "partial",
+    semantic_classification: { salient: true, categories: ["financial"], reasons: ["正式な年度実績"] },
+  }],
+});
+assert.equal(financialClassFromTitle.candidates[0]?.document_class, "annual_financial_package", "本文抜粋に書類名がなくても正式なファイル名を分類へ使う");
 const financingClassification = extractImportantEvidence({
   project: batch.project,
   observed_at: batch.observed_at,

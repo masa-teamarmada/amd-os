@@ -353,7 +353,8 @@ function buildCandidate(batch: ImportantEvidenceBatch, group: Array<{
     || a.input.source_ref.localeCompare(b.input.source_ref));
   const primary = sorted[0];
   const categories = unique(sorted.flatMap((item) => item.category.categories)) as ImportanceCategory[];
-  const documentClass = classifyDocument(categories, primary.text, primary.input.material_kind);
+  const safeTitle = sanitizeImportantEvidenceText(primary.input.title, 500) || "重要情報";
+  const documentClass = classifyDocument(categories, `${safeTitle} ${primary.text}`, primary.input.material_kind);
   const period = sorted.find((item) => item.period)?.period || null;
   const audit = sorted.find((item) => item.audit.audited)?.audit || primary.audit;
   const facts = extractFacts(primary, period);
@@ -361,7 +362,6 @@ function buildCandidate(batch: ImportantEvidenceBatch, group: Array<{
   const proposedTargets = routeTargets(categories, primary.input.semantic_classification?.proposed_targets);
   const contentHash = primary.contentHash;
   const sourceHash = sha256(`important_evidence:${batch.project.project_id}:${contentHash}`);
-  const safeTitle = sanitizeImportantEvidenceText(primary.input.title, 500) || "重要情報";
   const familyKey = [batch.project.project_id, documentClass, period?.start || "no-period", period?.end || normalizeTitleFamily(safeTitle)].join(":");
   return {
     schema_version: 2,
@@ -505,7 +505,7 @@ function normalizeSemanticObservationKind(
 ): SemanticObservation["observation_kind"] {
   if (observationKind !== "observed") return observationKind;
   const value = `${String(status || "").toLowerCase()} ${normalizeEvidenceText(evidenceText)}`;
-  if (/(?:plan|planned|forecast|estimate|target|expected|intent|proposed|draft|pending|screening|application|risk|計画|予定|見込み|見込|見通し|予測|予想|目標|想定|推定|試算|概算|ドラフト|意向|検討中|未確定|審査中|申請中|協議中|交渉中|リスク|課題)/.test(value)) return "inferred";
+  if (/(?:plan|planned|forecast|estimate|target|expected|intent|proposed|draft|pending|screening|application|計画|予定|見込み|見込|見通し|予測|予想|目標|想定|推定|試算|概算|ドラフト|意向|検討中|未確定|審査中|申請中|協議中|交渉中)/.test(value)) return "inferred";
   return "observed";
 }
 
