@@ -53,42 +53,54 @@ export default async function AdminKiyoPage({
         </p>
       </header>
 
-      <div role="tablist" aria-label="きよの月次経理" className="mb-3 flex items-stretch overflow-x-auto border-b border-border">
-        {KIYO_TASKS.map((task) => {
-          const selected = task.id === activeTask;
-          return (
-            <Link
-              key={task.id}
-              id={`kiyo-tab-${task.id}`}
-              href={`/admin/kiyo?task=${task.id}`}
-              role="tab"
-              aria-selected={selected}
-              aria-current={selected ? "page" : undefined}
-              aria-controls={`kiyo-panel-${task.id}`}
-              className={cn(
-                "flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                selected
-                  ? "border-foreground text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <span className="font-mono text-[11px] text-muted-foreground">{task.step}</span>
-              <span className={cn("text-sm", selected ? "font-semibold" : "font-medium")}>{task.label}</span>
-              <span className="hidden text-xs text-muted-foreground sm:inline">{task.description}</span>
-            </Link>
-          );
-        })}
-      </div>
+      <div className="mb-3">
+        <div
+          role="tablist"
+          aria-label="きよの月次経理"
+          className="flex overflow-x-auto sm:grid sm:grid-cols-3 sm:overflow-visible"
+        >
+          {KIYO_TASKS.map((task, index) => {
+            const selected = task.id === activeTask;
+            return (
+              <Link
+                key={task.id}
+                id={`kiyo-tab-${task.id}`}
+                href={`/admin/kiyo?task=${task.id}`}
+                role="tab"
+                aria-selected={selected}
+                aria-current={selected ? "page" : undefined}
+                aria-controls={`kiyo-panel-${task.id}`}
+                className={cn(
+                  "flex min-h-11 w-[168px] shrink-0 flex-col justify-center gap-0.5 rounded-none border border-border px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-full",
+                  index > 0 && "-ml-px",
+                  selected
+                    ? "relative z-10 -mb-px border-t-2 border-t-foreground border-b-background bg-background"
+                    : "bg-muted/30 text-muted-foreground hover:bg-muted/50",
+                )}
+              >
+                <span className="flex items-baseline gap-2">
+                  <span className="font-mono text-[11px] text-muted-foreground">{task.step}</span>
+                  <span className={cn("text-sm", selected ? "font-semibold text-foreground" : "font-medium")}>
+                    {task.label}
+                  </span>
+                </span>
+                <span className="truncate text-[11px] text-muted-foreground">{task.description}</span>
+              </Link>
+            );
+          })}
+        </div>
 
-      <section
-        id={`kiyo-panel-${activeTask}`}
-        role="tabpanel"
-        aria-labelledby={`kiyo-tab-${activeTask}`}
-      >
-        {activeTask === "reimbursements" ? <ReimburseWorkspace embedded /> : null}
-        {activeTask === "invoices" ? <AdminInvoicesPage embedded /> : null}
-        {activeTask === "payouts" ? <AdminPayoutsPage embedded /> : null}
-      </section>
+        <section
+          id={`kiyo-panel-${activeTask}`}
+          role="tabpanel"
+          aria-labelledby={`kiyo-tab-${activeTask}`}
+          className="rounded-none border border-border bg-background p-3"
+        >
+          {activeTask === "reimbursements" ? <ReimburseWorkspace embedded /> : null}
+          {activeTask === "invoices" ? <AdminInvoicesPage embedded /> : null}
+          {activeTask === "payouts" ? <AdminPayoutsPage embedded /> : null}
+        </section>
+      </div>
     </div>
   );
 }

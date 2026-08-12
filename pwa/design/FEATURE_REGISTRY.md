@@ -373,7 +373,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - `test:admin-kiyo` が3task、3つの既存作業UI、`きよ` の名称、`読み取り専用` の不在、tablist/tab/aria-selected、丸角カードgridへの回帰禁止、4/8/12px系の余白を検査する。
 - `test:surface-catalog-contract` がAdminSidebarの `きよ` と `/admin/kiyo` を検査する。
 - 3つのtaskを状態一覧やリンクだけへ縮退させない。専用画面にある主操作を `/admin/kiyo` でも同じcomponentで使えることを必須とする。
-- 3taskの切替UIは横並びタブ（`role="tablist"`/`role="tab"`/`aria-selected`、下線・weight・控えめな面差で選択状態を示す、角丸ゼロ〜最小、影なし、border-only）。丸角個別カード（`rounded-lg` な3カードgrid）へ戻さない。PCは1行横並び、mobileはタップ領域44px以上を保った横スクロール1行タブにする。`AdminInvoicesPage` / `AdminPayoutsPage` は `embedded` propで自身の重複見出しを省き、きよ内では密な余白（4/8/12px系）で表示する。専用route側の表示・write workflow・権限・URLは変えない。
+- 3taskの切替UIは横並びタブ（`role="tablist"`/`role="tab"`/`aria-selected`、角丸ゼロ・影ゼロ・border-only）。PCは同じ幅の3区画が隣接し、縦の境界線（`border`の1px重ね）で区切る。選択中の区画は上辺・左右辺を持ち、下辺は作業面の背景色で消して下の作業面と前面でつながる（`-mb-px` + `border-b-background`）。非選択の区画は薄い面色（`bg-muted/30`）と下辺を持つ。各区画は1段目に番号+名称、2段目に工程説明を置き、説明の長さで区画幅を伸ばさない（幅は3等分固定、説明は`truncate`）。丸角個別カード（`rounded-lg` な3カードgrid）へ戻さない。mobileは各tabに安定した`min-width`（168px）を持たせ、タップ領域44px以上を保った横スクロール1行タブにする。`AdminInvoicesPage` / `AdminPayoutsPage` は `embedded` propで自身の重複見出しを省き、きよ内では密な余白（4/8/12px系）で表示する。専用route側の表示・write workflow・権限・URLは変えない。
 
 ## /admin/season-pl
 
