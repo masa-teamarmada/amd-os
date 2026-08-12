@@ -153,9 +153,9 @@ admin/きよが締め済み稼働月の請求書発行を処理する画面 (= `
 - レイアウト: 左列＝請求先PJ一覧（PJごとの未完了件数バッジ、`AdminInvoiceIssueQueue` 内で group化）。右列＝選択PJの作業面。デスクトップは document 全体をスクロールさせず、左右それぞれの内部領域でスクロールする。モバイルは縦積みに再配置
 - 右列の構成（上から）: ①契約条件パネル（`projects.contract_terms_json.currentContracts[].terms.cockpitSummary` の請求/支払タイミング・業務範囲・成果物・立替精算・実施体制。無ければ契約種別+月額 fallback）、②13か月請求台帳（稼働月/請求月/請求額/状態/発行条件の一覧、行クリックで③を切替）、③選択月の内訳ワークベンチ
 - 対象: 直近 13 ヶ月の締め済み稼働月 (= 現月は含めず前月まで) の `billing_cycles`
-- 行: `projects.status IN ('active','ended','frozen')` の PJ × 稼働月。ただし `start_ym` より前、`end_ym` より後、`freeze_from_ym` 以降は表示しない。金額が読めない行は blocker として表示する
+- 行: `projects.status IN ('active','ended','frozen')` のPJ×13か月を生成してcycleをleft joinする。期間外・freeze後は除外し、cycle欠損は `月次台帳未生成`、金額欠損は `請求額なし` blockerとして表示する
 - 金額表示: 台帳は「基本額/承認済立替/請求候補」、ワークベンチはさらに「未承認参考」を表示する。請求候補は基本額+承認済立替。`budget_yen` は使わない
-- 立替一覧と承認: 選択月の全ステータスを一覧表示する。担当PMには申請中のPM承認、adminにはPM承認済みのadmin承認を出す。`/api/reimbursements/decision` と共有サーバー処理が権限と遷移元statusを再検査する
+- 立替一覧と承認: 選択月の全ステータスを一覧表示する。担当PMまたはadminには申請中のPM承認、adminにはPM承認済みのadmin承認を出す。`/api/reimbursements/decision` と共有サーバー処理が権限と遷移元statusを再検査する
 - blocker明示: `freee取引先未設定` / `請求額なし` / `立替未承認 N件` / `月報未確定`。未承認は月報状態に関係なく必ず発行を止める
 - 主操作: 状態が `発行待ち` の月で「発行」から `AdminInvoiceIssueDialog`（既存コンポーネントを流用、新規作成しない）を開き、明細確認 → freee 発行
 - 発行モーダル: iOS `InvoiceStepView` と同じく、件名、基本明細行、契約月額との差分確認、前月明細引き継ぎ、承認済み立替の読み取り専用明細、調整行、請求日、支払期日、備考、発行済み情報、発行取消を扱う。件名・ヘッダー・freee fallback には `client_name` を使い、AMD内部の `project_name` / `project_id` を出さない。単純な件名/日付/全行だけのモーダルにはしない
@@ -175,7 +175,7 @@ admin/きよが締め済み稼働月の請求書発行を処理する画面 (= `
 
 ### 立替確認 (2026-08-12 更新)
 
-選択月の内訳ワークベンチが `reimbursements`（`billed_ym` 優先、無ければ `date`）を全ステータスで表示する。`submitted`/`pmApproved` が1件でも残れば発行不可。担当PM/adminは権限に応じた次の承認をその場で実行でき、更新後は候補額とblockerを即時再計算する。発行モーダルも同じ月判定で `approved/paid` を請求明細へ載せる。
+選択月の内訳ワークベンチが `reimbursements`（`billed_ym` 優先、無ければ `date`）を全ステータスで表示する。`submitted`/`pmApproved` が1件でも残れば発行不可。発行モーダルと`issue-invoice` Edge Functionも同じ月判定で `approved/paid` だけを明細へ載せ、Edge Functionはfreee送信直前にblockerを再検査する。authenticated RLSは本人のsubmitted申請・編集・削除だけを許可し、承認遷移は認証済みサーバー境界だけを通す。
 
 ## /admin/prompts
 

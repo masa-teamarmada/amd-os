@@ -255,11 +255,12 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - 左メニュー導線: AdminSidebar には `請求書発行` と `/admin/invoices` を置く。`Billing` 表記へ戻さない。
 - 2列レイアウト: 左列＝PJ名を主表示した選択リスト（請求先名と未完了件数も表示）。右列＝①契約条件、②13か月請求台帳、③選択月ワークベンチ。デスクトップは document 全体をスクロールさせず内部領域へ収め、モバイルは縦積みへ再配置する。
-- 台帳の対象: 直近13か月の締め済み稼働月 (= 現月は含めず前月まで) の `billing_cycles` と `projects.status IN ('active','ended','frozen')` を読む。`start_ym` 以前や `end_ym` 以後、`freeze_from_ym` 以後、未来月は出さない。金額が読めない行も隠さず `請求額なし` blocker として出す。
+- 台帳の対象: `projects.status IN ('active','ended','frozen')` の各PJについて直近13か月を生成し、`billing_cycles` をleft joinする。期間外・freeze後・未来月は出さない。cycle欠損は空白にせず `月次台帳未生成`、金額欠損は `請求額なし` blockerとして出す。
 - 金額表示: 台帳は「基本額 / 承認済立替 / 請求候補」を月ごとに並べる。選択月ワークベンチはさらに「未承認参考」を分離する。請求候補は **基本額 + 承認済立替**。基本額は `contract-money.ts` の正本ロジックを使い、`budget_yen` は使わない。
-- 立替一覧と承認: 選択月の立替を全ステータスで一覧表示する。ログイン中の担当PMには `submitted` の「PM承認」、adminには `pmApproved` の「admin承認」を出す。明示クリック時だけ `/api/reimbursements/decision` を呼び、共有 `reimbursement-decision.ts` が active member、担当PJのPM/admin、遷移元statusをサーバーで再検証して条件付き更新する。自動承認・自動通知はしない。
+- 立替一覧と承認: 選択月の立替を全ステータスで一覧表示する。`submitted` は担当PMまたはadminが「PM承認」、`pmApproved` はadminが「admin承認」できる。明示クリック時だけ `/api/reimbursements/decision` を呼び、共有サーバー処理がactive member、担当PJのPM/admin、遷移元statusを再検証して条件付き更新する。自動承認・自動通知はしない。
 - blocker明示: `freee取引先未設定` / `請求額なし` / `立替未承認 N件` / `月報未確定` を独立して発行不可理由にする。未承認立替は月報状態にかかわらず1件でも残れば必ず発行を止める。
-- 請求書発行: blockerがない未発行月（過去滞留を含む）に `発行` ボタンを置き、既存 `AdminInvoiceIssueDialog` から `issue-invoice` Edge Function を呼ぶ。発行モーダルが載せる立替も同じ月判定（`billed_ym` 優先、なければ `date`）かつ `approved/paid` に統一する。
+- 請求書発行: blockerがない未発行月（過去滞留を含む）に `発行` ボタンを置き、既存 `AdminInvoiceIssueDialog` から `issue-invoice` Edge Function を呼ぶ。Edge Functionもfreee送信直前に未承認件数・必須月報・発行済みを再読込し、409で拒否する。画面・モーダル・実発行の立替集合は `billed_ym` 優先（なければ`date`）かつ `approved/paid` へ統一する。
+- 書込み境界: `reimbursements` のauthenticated RLSは読取と「本人のsubmitted申請・編集・削除」だけを許可し、承認metadataはNULL固定。承認遷移は認証済みserver route/Edge Functionが役割とstatusを検査してservice-roleで反映する。ブラウザからの直接承認updateへ戻さない。
 - 発行モーダル: iOS `InvoiceStepView` / 旧 GAS `cpOpenInvoiceModal` と同じ発行仕様を維持する。件名、基本明細行、契約月額との差分確認、前月明細引き継ぎ、承認済み立替の読み取り専用明細、調整行、請求日、支払期日、備考、発行済み情報、発行取消を出す。件名とヘッダーは `client_name` を使い、`project_name` / `project_id` など AMD 内部呼称を請求書発行モーダルや freee 件名に出さない。単なる件名/日付/全行だけの薄いモーダルへ戻さない。
 - 請求額表示: 明細合計 (`invoice_base_lines_json`) を最優先し、なければ `contract-money.ts` の `contractBackedClientAmount`（確定請求額 `budget_reported_amount` > 契約スケジュール金額 > 月額固定契約の `projects.fee_amount`）へ fallback する。PJ 予算 (`budget_yen`) は AMD 側の原資/報酬予算なので、請求発生判定や請求額 fallback に一切使わない。
 - 明細保存: 発行前に `invoice_base_lines_json` / `invoice_subject` を保存できる。発行後は `invoice_issued_at` / `freee_invoice_number` / `invoice_pdf_url` が `billing_cycles` に反映される。

@@ -47,6 +47,7 @@ export interface ReimbursementRow {
 
 export interface BillingCycleRow {
   id: string;
+  cycle_exists: boolean;
   project_id: string;
   project_name: string;
   client_name: string | null;
@@ -98,7 +99,7 @@ type InvoiceState = {
 };
 
 type ResolutionItem = {
-  key: "freee_partner" | "amount" | "reimbursement" | "report";
+  key: "cycle" | "freee_partner" | "amount" | "reimbursement" | "report";
   label: string;
   done: boolean;
   status: string;
@@ -198,7 +199,18 @@ function prerequisiteItems(row: BillingCycleRow) {
 
 function resolutionItems(row: BillingCycleRow): ResolutionItem[] {
   const amount = invoiceNetAmount(row);
-  const items: ResolutionItem[] = [
+  const items: ResolutionItem[] = [];
+  if (!row.cycle_exists) {
+    items.push({
+      key: "cycle",
+      label: "月次台帳",
+      done: false,
+      status: "未生成",
+      detail: "この稼働月のbilling cycleが無い。月次台帳を生成してから請求する。",
+      blockerLabel: "月次台帳未生成",
+    });
+  }
+  items.push(
     {
       key: "freee_partner",
       label: "freee取引先",
@@ -219,7 +231,7 @@ function resolutionItems(row: BillingCycleRow): ResolutionItem[] {
         : "請求明細、確定請求額、契約条件のどれも入っていない。案件の契約条件か請求明細を確認する。",
       blockerLabel: "請求額なし",
     },
-  ];
+  );
   const pending = row.reimbursements.filter((r) => UNAPPROVED_STATUSES.has(r.status));
   if (pending.length > 0) {
     items.push({
@@ -266,7 +278,7 @@ function invoiceState(row: BillingCycleRow, targetYm: string): InvoiceState {
     return { key: "backlog", label: "過去滞留", tone: "red", Icon: AlertTriangle };
   }
   const blockers = blockerItems(row);
-  if (blockers.some((item) => item.key === "freee_partner")) {
+  if (blockers.some((item) => item.key === "cycle" || item.key === "freee_partner")) {
     return { key: "setup_missing", label: "設定不足", tone: "red", Icon: AlertTriangle };
   }
   if (blockers.length > 0) {
@@ -524,7 +536,7 @@ export function AdminInvoiceIssueQueue({ cycles, targetYm, viewerIsAdmin, viewer
             <section className="overflow-x-auto border border-border bg-background">
               <div className="min-w-[870px]">
               <div className="grid grid-cols-[68px_78px_108px_108px_116px_104px_1fr] gap-2 border-b border-border bg-muted/40 px-3 py-1.5 text-[10px] font-semibold text-muted-foreground">
-                <span>稼働月</span><span>請求月</span><span className="text-right">基本額</span><span className="text-right">承認立替</span><span className="text-right">請求候補</span><span>状態</span><span>発行条件</span>
+                <span>稼働月</span><span>請求月</span><span className="text-right">基本額</span><span className="text-right">承認立替</span><span className="text-right">候補(税抜)</span><span>状態</span><span>発行条件</span>
               </div>
               <div className="divide-y divide-border">
                 {activeProject.rows.map((row) => {
@@ -712,7 +724,7 @@ function MonthWorkbench({
           <p className="font-mono text-[14px] font-semibold text-emerald-900">{yen(approved)}</p>
         </div>
         <div className="bg-slate-900 px-2.5 py-1.5 text-white">
-          <p className="text-[10px] font-semibold text-slate-300">請求候補</p>
+          <p className="text-[10px] font-semibold text-slate-300">請求候補（税抜）</p>
           <p className="font-mono text-[16px] font-bold">{yen(base + approved)}</p>
         </div>
         <div className="bg-amber-50 px-2.5 py-1.5">
@@ -760,7 +772,7 @@ function MonthWorkbench({
                   >
                     {REIMBURSE_STATUS_LABEL[r.status] ?? r.status}
                   </span>
-                  {r.status === "submitted" && viewerCanPmApprove && (
+                  {r.status === "submitted" && (viewerCanPmApprove || viewerIsAdmin) && (
                     <Button type="button" size="sm" className="h-6 px-2 text-[10px]" disabled={decidingReimbursementId === r.reimbursement_id} onClick={() => onApproveReimbursement(r)}>
                       {decidingReimbursementId === r.reimbursement_id ? "承認中" : "PM承認"}
                     </Button>
@@ -862,7 +874,7 @@ function InvoiceDetailDialog({
               </div>
               <div className="text-right text-xs text-muted-foreground">
                 <p>請求月 {shortYm(row.invoice_ym || row.ym)}</p>
-                <p>請求候補 {yen(invoiceCandidateAmount(row))}</p>
+                <p>請求候補（税抜） {yen(invoiceCandidateAmount(row))}</p>
               </div>
             </div>
           </section>

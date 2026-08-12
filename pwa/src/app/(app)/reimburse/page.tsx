@@ -300,16 +300,13 @@ export function ReimburseWorkspace({ embedded = false }: { embedded?: boolean })
     setBusyId(item.reimbursement_id);
     setError(null);
     try {
-      const { error: deleteError } = await supabase
-        .from("reimbursements")
-        .delete()
-        .eq("reimbursement_id", item.reimbursement_id)
-        .eq("created_by", email)
-        .eq("status", "submitted");
-      if (deleteError) throw deleteError;
-      if (item.receipt_storage_paths.length > 0) {
-        await supabase.storage.from(RECEIPT_BUCKET).remove(item.receipt_storage_paths);
-      }
+      const response = await fetch("/api/reimbursements", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reimbursement_id: item.reimbursement_id }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "立替を削除できなかった");
       setMessage("立替を削除した");
       await loadData();
     } catch (e) {
@@ -324,39 +321,19 @@ export function ReimburseWorkspace({ embedded = false }: { embedded?: boolean })
     setError(null);
     setMessage(null);
     try {
-      const now = new Date().toISOString();
-      const baseClear = {
-        pm_approved_by: null,
-        pm_approved_at: null,
-        admin_approved_by: null,
-        admin_approved_at: null,
-        updated_at: now,
-      };
-      const patches = {
-        pmApprove: {
-          status: "pmApproved",
-          pm_approved_by: email,
-          pm_approved_at: now,
-          admin_approved_by: null,
-          admin_approved_at: null,
-          updated_at: now,
-        },
-        pmReject: { ...baseClear, status: "rejected" },
-        adminApprove: {
-          status: "approved",
-          admin_approved_by: email,
-          admin_approved_at: now,
-          updated_at: now,
-        },
-        adminReject: { ...baseClear, status: "rejected" },
+      const actions = {
+        pmApprove: "reimb_approve",
+        pmReject: "reimb_reject",
+        adminApprove: "reimb_admin_approve",
+        adminReject: "reimb_admin_reject",
       } as const;
-      const expectedStatus = action.startsWith("pm") ? "submitted" : item.status;
-      const { error: updateError } = await supabase
-        .from("reimbursements")
-        .update(patches[action])
-        .eq("reimbursement_id", item.reimbursement_id)
-        .eq("status", expectedStatus);
-      if (updateError) throw updateError;
+      const response = await fetch("/api/reimbursements/decision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reimbursementId: item.reimbursement_id, action: actions[action] }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "立替の状態を更新できなかった");
       setMessage(action.includes("Reject") ? "差し戻した" : "承認した");
       await loadData();
     } catch (e) {

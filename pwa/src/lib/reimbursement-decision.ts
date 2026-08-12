@@ -58,16 +58,18 @@ export async function applyReimbursementDecision(
   let label: string;
 
   if (PM_ACTIONS.has(action)) {
-    const { data: pmRow, error: pmError } = await db
-      .from("project_members")
-      .select("project_id")
-      .eq("member_id", member.member_id)
-      .eq("project_id", row.project_id)
-      .eq("is_active", true)
-      .eq("is_pm", true)
-      .maybeSingle();
-    if (pmError) throw new ReimbursementDecisionError(pmError.message, 500);
-    if (!pmRow) throw new ReimbursementDecisionError("このPJのPMではない", 403);
+    if (!member.is_admin) {
+      const { data: pmRow, error: pmError } = await db
+        .from("project_members")
+        .select("project_id")
+        .eq("member_id", member.member_id)
+        .eq("project_id", row.project_id)
+        .eq("is_active", true)
+        .eq("is_pm", true)
+        .maybeSingle();
+      if (pmError) throw new ReimbursementDecisionError(pmError.message, 500);
+      if (!pmRow) throw new ReimbursementDecisionError("このPJのPMではない", 403);
+    }
     if (currentStatus !== "submitted") {
       throw new ReimbursementDecisionError(`PM承認は申請中のときだけ (現在: ${currentStatus})`, 409);
     }

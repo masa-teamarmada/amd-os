@@ -132,50 +132,49 @@ export default async function AdminInvoicesPage({ embedded = false }: { embedded
     reimbursementsByProjectYm.set(key, list);
   }
 
-  const rows: BillingCycleRow[] = (cycles ?? [])
-    .filter((c) => {
-      const project = projectMap.get(c.project_id);
-      if (!project) return false;
-      if (c.ym > lastClosedYm) return false;
-      if (!isWithinWorkWindow(c, project)) return false;
-      return true;
+  const cycleMap = new Map((cycles ?? []).map((cycle) => [`${cycle.project_id}_${cycle.ym}`, cycle]));
+  const rows: BillingCycleRow[] = Array.from(projectMap.values()).flatMap((project) =>
+    yms.filter((ym) => isWithinWorkWindow({ ym }, project)).map((ym) => {
+      const c = cycleMap.get(`${project.project_id}_${ym}`);
+      return {
+        id: c?.id ?? `missing_${project.project_id}_${ym}`,
+        cycle_exists: Boolean(c),
+        project_id: project.project_id,
+        project_name: project.project_name,
+        client_name: project.client_name,
+        project_type: project.project_type,
+        fee_type: project.fee_type,
+        fee_amount: project.fee_amount,
+        start_ym: project.start_ym,
+        end_ym: project.end_ym,
+        contract_terms_json: project.contract_terms_json ?? null,
+        payment_due_rule: project.payment_due_rule,
+        payment_due_day: project.payment_due_day,
+        freee_partner_id: project.freee_partner_id,
+        monthly_report_required: project.monthly_report_required,
+        monthly_report_scope: project.monthly_report_scope,
+        ym,
+        invoice_ym: c?.invoice_ym ?? null,
+        invoice_base_lines_json: c?.invoice_base_lines_json ?? null,
+        invoice_subject: c?.invoice_subject ?? null,
+        freee_invoice_number: c?.freee_invoice_number ?? null,
+        invoice_pdf_url: c?.invoice_pdf_url ?? null,
+        status: c?.status ?? "not_started",
+        budget_reported_amount: c?.budget_reported_amount ?? null,
+        budget_confirmed_at: c?.budget_confirmed_at ?? null,
+        meeting_event_id: c?.meeting_event_id ?? null,
+        meeting_start_at: c?.meeting_start_at ?? null,
+        report_fixed_at: c?.report_fixed_at ?? null,
+        invoice_issued_at: c?.invoice_issued_at ?? null,
+        invoice_sent_at: c?.invoice_sent_at ?? null,
+        payout_notice_uploaded_at: c?.payout_notice_uploaded_at ?? null,
+        payment_confirmed_at: c?.payment_confirmed_at ?? null,
+        reward_paid_at: c?.reward_paid_at ?? null,
+        reimbursements: (reimbursementsByProjectYm.get(`${project.project_id}_${ym}`) ?? [])
+          .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "")),
+      };
     })
-    .map((c) => ({
-      id: c.id ?? `${c.project_id}_${c.ym}`,
-      project_id: c.project_id,
-      project_name: projectMap.get(c.project_id)?.project_name ?? c.project_id,
-      client_name: projectMap.get(c.project_id)?.client_name ?? null,
-      project_type: projectMap.get(c.project_id)?.project_type ?? null,
-      fee_type: projectMap.get(c.project_id)?.fee_type ?? null,
-      fee_amount: projectMap.get(c.project_id)?.fee_amount ?? null,
-      start_ym: projectMap.get(c.project_id)?.start_ym ?? null,
-      end_ym: projectMap.get(c.project_id)?.end_ym ?? null,
-      contract_terms_json: projectMap.get(c.project_id)?.contract_terms_json ?? null,
-      payment_due_rule: projectMap.get(c.project_id)?.payment_due_rule ?? null,
-      payment_due_day: projectMap.get(c.project_id)?.payment_due_day ?? null,
-      freee_partner_id: projectMap.get(c.project_id)?.freee_partner_id ?? null,
-      monthly_report_required: projectMap.get(c.project_id)?.monthly_report_required ?? false,
-      monthly_report_scope: projectMap.get(c.project_id)?.monthly_report_scope ?? "none",
-      ym: c.ym,
-      invoice_ym: c.invoice_ym ?? null,
-      invoice_base_lines_json: c.invoice_base_lines_json ?? null,
-      invoice_subject: c.invoice_subject ?? null,
-      freee_invoice_number: c.freee_invoice_number ?? null,
-      invoice_pdf_url: c.invoice_pdf_url ?? null,
-      status: c.status ?? "not_started",
-      budget_reported_amount: c.budget_reported_amount ?? null,
-      budget_confirmed_at: c.budget_confirmed_at ?? null,
-      meeting_event_id: c.meeting_event_id ?? null,
-      meeting_start_at: c.meeting_start_at ?? null,
-      report_fixed_at: c.report_fixed_at ?? null,
-      invoice_issued_at: c.invoice_issued_at ?? null,
-      invoice_sent_at: c.invoice_sent_at ?? null,
-      payout_notice_uploaded_at: c.payout_notice_uploaded_at ?? null,
-      payment_confirmed_at: c.payment_confirmed_at ?? null,
-      reward_paid_at: c.reward_paid_at ?? null,
-      reimbursements: (reimbursementsByProjectYm.get(`${c.project_id}_${c.ym}`) ?? [])
-        .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "")),
-    }));
+  );
 
   if (bcErr) console.error("AdminInvoicesPage:", bcErr.message);
   if (projectErr) console.error("AdminInvoicesPage projects:", projectErr.message);

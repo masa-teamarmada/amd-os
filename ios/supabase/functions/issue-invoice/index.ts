@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
     // 1) プロジェクト情報取得
     const { data: projects } = await db
       .from("projects")
-      .select("client_name, freee_partner_id")
+      .select("client_name, freee_partner_id, monthly_report_required")
       .eq("project_id", projectId)
       .limit(1);
     const project = projects?.[0];
@@ -175,6 +175,20 @@ Deno.serve(async (req) => {
     }
     const templateId: string | null = null; // freee_invoice_template_id は未移行のため省略
     const clientName = project?.client_name ?? "";
+
+    const { data: cycle, error: cycleError } = await db
+      .from("billing_cycles")
+      .select("report_fixed_at, invoice_issued_at")
+      .eq("project_id", projectId)
+      .eq("ym", ym)
+      .maybeSingle();
+    if (cycleError) return json({ ok: false, message: cycleError.message }, 500);
+    if (kind === "invoice" && !cycle) {
+      return json({ ok: false, message: "請求対象月のbilling cycleがない。再読み込みしてね" }, 409);
+    }
+    if (kind === "invoice" && cycle?.invoice_issued_at) {
+      return json({ ok: false, message: "この月はすでに発行済み。再読み込みしてね" }, 409);
+    }
 
     // 2) allLines をパース
     let allLines: Array<{ type?: string; description: string; quantity?: number; unit_price?: number }>;
@@ -192,20 +206,25 @@ Deno.serve(async (req) => {
       return json({ ok: false, message: "基本行の合計が0円。明細の単価を入力してね" }, 400);
     }
 
-    // 3) 承認済み立替取得
-    const { data: reimbs } = await db
-      .from("reimbursements")
-      .select("description, amount, date, category, transport_mode, transport_from, transport_to, transport_trip, tax_rate")
-      .eq("project_id", projectId)
-      .eq("status", "approved")
-      .gte("date", `${ym.slice(0, 4)}-${ym.slice(4, 6)}-01`)
-      .lt("date", getNextMonthStart(ym));
-
-    const reimbItems = reimbs ?? [];
-    const reimbYen = reimbItems.reduce((s, r) => s + (r.amount ?? 0), 0);
+    // 3) 発行条件と立替集合をサーバー正本で再検査する。
+    // billed_ym があれば優先し、なければ発生日の月へ帰属する。画面・preview・実発行で同じ条件を使う。
+    let reimbursementSnapshot = await loadInvoiceReimbursements(db, projectId, ym);
+    if (kind === "invoice") {
+      const blocked = invoiceBlockerMessage(project, cycle, reimbursementSnapshot.pendingCount);
+      if (blocked) return json({ ok: false, message: blocked }, 409);
+    }
 
     // 4) freee アクセストークン取得
     const accessToken = await getFreeeAccessToken(db);
+
+    // freee送信直前にも再読込する。画面表示後やtoken取得中に入った未承認を見逃さない。
+    reimbursementSnapshot = await loadInvoiceReimbursements(db, projectId, ym);
+    if (kind === "invoice") {
+      const blocked = invoiceBlockerMessage(project, cycle, reimbursementSnapshot.pendingCount);
+      if (blocked) return json({ ok: false, message: blocked }, 409);
+    }
+    const reimbItems = reimbursementSnapshot.billable;
+    const reimbYen = reimbItems.reduce((s, r) => s + (r.amount ?? 0), 0);
 
     // 5) freee 帳票リクエストボディ構築
     const subject = invoiceSubject?.trim() || (clientName ? `${clientName} 業務委託費` : "業務委託費");
@@ -312,6 +331,52 @@ function getNextMonthStart(ym: string): string {
   const m = parseInt(ym.slice(4, 6));
   const next = m >= 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
   return `${next}-01`;
+}
+
+type InvoiceReimbursement = {
+  description: string | null;
+  amount: number | null;
+  date: string | null;
+  category: string | null;
+  transport_mode: string | null;
+  transport_from: string | null;
+  transport_to: string | null;
+  transport_trip: string | null;
+  tax_rate: number | null;
+  status: string;
+  billed_ym: string | null;
+};
+
+function belongsToInvoiceYm(row: Pick<InvoiceReimbursement, "billed_ym" | "date">, ym: string) {
+  if (row.billed_ym && /^\d{6}$/.test(row.billed_ym)) return row.billed_ym === ym;
+  return Boolean(row.date && row.date >= `${ym.slice(0, 4)}-${ym.slice(4, 6)}-01` && row.date < getNextMonthStart(ym));
+}
+
+async function loadInvoiceReimbursements(
+  db: ReturnType<typeof createClient>,
+  projectId: string,
+  ym: string,
+) {
+  const { data, error } = await db
+    .from("reimbursements")
+    .select("description, amount, date, category, transport_mode, transport_from, transport_to, transport_trip, tax_rate, status, billed_ym")
+    .eq("project_id", projectId);
+  if (error) throw error;
+  const monthRows = ((data ?? []) as InvoiceReimbursement[]).filter((row) => belongsToInvoiceYm(row, ym));
+  return {
+    pendingCount: monthRows.filter((row) => row.status === "submitted" || row.status === "pmApproved" || row.status === "pmapproved").length,
+    billable: monthRows.filter((row) => row.status === "approved" || row.status === "paid"),
+  };
+}
+
+function invoiceBlockerMessage(
+  project: { monthly_report_required?: boolean | null } | null | undefined,
+  cycle: { report_fixed_at?: string | null } | null,
+  pendingCount: number,
+) {
+  if (pendingCount > 0) return `未承認の立替が${pendingCount}件あるため発行できない`;
+  if (project?.monthly_report_required && !cycle?.report_fixed_at) return "契約上必要な月報が未確定のため発行できない";
+  return null;
 }
 
 function ensureEstimateMarker(rawJson: string): string {

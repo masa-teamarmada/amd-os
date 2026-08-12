@@ -9,6 +9,8 @@ const invoiceQueue = fs.readFileSync(new URL("../src/components/admin/AdminInvoi
 const invoiceDialog = fs.readFileSync(new URL("../src/components/admin/AdminInvoiceIssueDialog.tsx", import.meta.url), "utf8");
 const decisionRoute = fs.readFileSync(new URL("../src/app/api/reimbursements/decision/route.ts", import.meta.url), "utf8");
 const decisionService = fs.readFileSync(new URL("../src/lib/reimbursement-decision.ts", import.meta.url), "utf8");
+const issueInvoice = fs.readFileSync(new URL("../../ios/supabase/functions/issue-invoice/index.ts", import.meta.url), "utf8");
+const reimbursementRls = fs.readFileSync(new URL("../../ios/supabase/migrations/20260812123000_lock_reimbursements_writes_to_server.sql", import.meta.url), "utf8");
 
 assert.match(kiyoPage, /absolute: "きよ - AMD OS"/, "page titleは『きよ』に固定する");
 assert.match(kiyoPage, />きよ<\/h1>/, "画面見出しは『きよ』に固定する");
@@ -84,6 +86,7 @@ assert.doesNotMatch(invoiceQueue, /rounded-full|rounded-lg|rounded-md|rounded-xl
 assert.doesNotMatch(invoicePage, /budget_yen/, "PJ予算を請求額の根拠にしない");
 assert.match(invoicePage, /viewerPmProjectIds/, "表示中ユーザーの担当PM権限を渡す");
 assert.match(invoicePage, /created_by_label/, "申請者のメールアドレスを表示用データへ直接使わない");
+assert.match(invoicePage, /cycle_exists: Boolean\(c\)/, "PJ×13か月を生成しbilling cycle欠損月も隠さない");
 
 assert.match(invoiceQueue, /\/api\/reimbursements\/decision/, "画面内承認は認証済みAPIを通す");
 assert.match(decisionRoute, /requireAuth\(\)/, "画面内承認APIはPWAセッションを必須にする");
@@ -92,5 +95,14 @@ assert.match(decisionService, /if \(!member\.is_admin\)/, "admin承認はadmin�
 assert.match(decisionService, /\.eq\("status", currentStatus\)|\.in\("status", Array\.from\(PM_APPROVED_STATUSES\)\)/, "状態遷移は遷移元statusを条件にして競合を拒否する");
 assert.match(invoiceDialog, /\.in\("status", \["approved", "paid"\]\)/, "発行モーダルは承認済み立替だけを載せる");
 assert.match(invoiceDialog, /item\.billed_ym === ym/, "発行モーダルもbilled_ym優先の月判定を使う");
+assert.match(issueInvoice, /loadInvoiceReimbursements[\s\S]*invoiceBlockerMessage/, "freee発行直前に未承認と月報blockerをサーバーで再検査する");
+assert.match(issueInvoice, /row\.status === "approved" \|\| row\.status === "paid"/, "実発行もapprovedとpaidを同じ立替集合として扱う");
+assert.match(issueInvoice, /row\.billed_ym === ym/, "実発行もbilled_ym優先の月帰属を使う");
+assert.doesNotMatch(reimbursePage, /\.from\("reimbursements"\)[\s\S]{0,120}?\.(?:update|delete)\(/, "既存立替画面からの直接writeを戻さない");
+assert.match(reimbursementRls, /DROP POLICY IF EXISTS "authenticated_all"/, "全authenticated書込みpolicyを廃止する");
+assert.match(reimbursementRls, /FOR SELECT TO authenticated/, "authenticated clientは読み取りだけ維持する");
+assert.doesNotMatch(reimbursementRls, /FOR ALL/, "authenticated全員への無条件write policyを戻さない");
+assert.match(reimbursementRls, /FOR UPDATE TO authenticated[\s\S]*created_by[\s\S]*status = 'submitted'[\s\S]*pm_approved_by IS NULL/, "本人のsubmitted編集だけを許可し承認metadataを拒否する");
+assert.doesNotMatch(reimbursementRls, /status\s+IN\s*\([^)]*approved/i, "RLS経由の承認遷移を許可しない");
 
 console.log("admin kiyo workspace contract: ok");
