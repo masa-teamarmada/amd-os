@@ -1,5 +1,12 @@
 # 2026-08 PWA development sessions
 
+## 2026-08-12 — 資料室を高密度の資料棚へ再構成（v3.72.22〜v3.72.23）
+
+- `WorkspaceDocumentRoom`のモーダルを、所属・folder・共有範囲・権限を一段に置くscope rail、件数・検索・絞り込み・追加操作をまとめたtoolbar、短いdrop rail、密な一覧行へ組み替えた。資料の正本、認可、操作内容、独立routeは変えていない。
+- desktopではheader 54px、scope rail 46px、検索・操作36px、一覧行55pxとし、1440×900の実画面で10行分の一覧高と横overflow 0を確認した。
+- mobile実測390×843では検索・追加・閉じる・ルートパンくずを44px、document／modalの横overflowを0に揃えた。desktopの圧縮値をmobileへそのまま流用しないよう、操作面積を`sm`境界で戻す。
+- `npm run test:workspace-documents-core`、`npm run test:workspace-documents-contract`、`npm run test:critical-ui`、対象ESLint、`npx tsc --noEmit`、`npm run build`を成功。productionは`v3.72.23` / `c59b319d`で確認した。buildの既知Turbopack filesystem trace警告2件は今回の変更外。
+
 ## 2026-08-02 — 研究ポートフォリオ中心ホームの本採用と認証client重複是正
 
 ### 目的
