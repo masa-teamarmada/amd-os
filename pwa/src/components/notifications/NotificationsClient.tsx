@@ -1361,7 +1361,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
   return (
     <div>
       {/* フィルタタブ */}
-      <div className="flex gap-2 mb-4">
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:flex">
         <FilterButton active={filter === "open"} onClick={() => setFilter("open")}>
           未対応 ({items.filter((i) => !isAnswered(i)).length})
         </FilterButton>
@@ -1432,7 +1432,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
               <div
                 role="button"
                 tabIndex={0}
-                className="w-full flex items-start justify-between p-3 hover:bg-muted/50 text-left cursor-pointer"
+                className="flex w-full flex-col items-stretch gap-2 p-3 text-left cursor-pointer hover:bg-muted/50 sm:flex-row sm:items-start sm:justify-between sm:gap-0"
                 onClick={() => toggleExpand(i)}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleExpand(i); } }}
               >
@@ -1480,7 +1480,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 ml-2 shrink-0">
+                <div className="flex shrink-0 items-center justify-end gap-2 sm:ml-2">
                   {isReadUi(i) && !responseAction && (
                     <button
                       type="button"
@@ -1671,7 +1671,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
 function FilterButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
-      className={`text-xs px-3 py-1.5 rounded ${active ? "bg-foreground text-background" : "bg-muted hover:bg-muted/70"}`}
+      className={`min-h-11 rounded px-3 py-1.5 text-xs sm:min-h-0 ${active ? "bg-foreground text-background" : "bg-muted hover:bg-muted/70"}`}
       onClick={onClick}
     >
       {children}
