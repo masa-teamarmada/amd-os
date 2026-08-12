@@ -143,6 +143,25 @@ type ContractActionContract = {
   insufficiency: string | null;
 };
 
+type FinalDecisionContract = {
+  destination: string;
+  changes: string[];
+  approvalEffect: string;
+  rejectionEffect: string;
+};
+
+function finalDecisionContract(n: Notification): FinalDecisionContract | null {
+  const meta = objectValue(n.metadata_json);
+  const destination = textFromUnknown(meta.destination_label);
+  const changes = Array.isArray(meta.changes)
+    ? meta.changes.map(textFromUnknown).filter(Boolean).slice(0, 6)
+    : [];
+  const approvalEffect = textFromUnknown(meta.approval_effect);
+  const rejectionEffect = textFromUnknown(meta.rejection_effect);
+  if (!destination || changes.length === 0 || !approvalEffect || !rejectionEffect) return null;
+  return { destination, changes, approvalEffect, rejectionEffect };
+}
+
 function isContractActionItem(n: Notification): boolean {
   if (n.l2_kind !== "action_item") return false;
   const meta = objectValue(n.metadata_json);
@@ -315,15 +334,6 @@ function itemMetaLabel(i: UnifiedItem, projectMap: Record<string, string>): stri
   return `H-1 MTGサマリ / ${projectMap[i.data.project_id] ?? i.data.project_id}`;
 }
 
-function isAlreadySavedForReview(i: UnifiedItem): boolean {
-  // coverage_gap は「候補行が保存済み」でも、まさの yes/no 判断はまだ未完了。
-  // 既存データに saved_count=1,total_count=1 の行があるので、ここだけ明示的に review 扱いに戻す。
-  if (isCoverageGapItem(i)) return false;
-  return i.kind === "l2"
-    && Number(i.data.total_count ?? 0) > 0
-    && Number(i.data.saved_count ?? 0) >= Number(i.data.total_count ?? 0);
-}
-
 type ReviewActionCopy = {
   yesLabel: string;
   noLabel: string;
@@ -335,7 +345,7 @@ type ReviewActionCopy = {
   headlineLabel: string;
 };
 
-function reviewActionCopyForItem(i: UnifiedItem, alreadySaved: boolean): ReviewActionCopy {
+function reviewActionCopyForItem(i: UnifiedItem): ReviewActionCopy {
   if (isCoverageGapItem(i)) return coverageGapActionCopy(i.data as Notification);
   if (isExternalResearchItem(i)) {
     return {
@@ -373,24 +383,34 @@ function reviewActionCopyForItem(i: UnifiedItem, alreadySaved: boolean): ReviewA
       headlineLabel: "通知ヘッドライン",
     };
   }
+  const decisionContract = i.kind === "l2" ? finalDecisionContract(i.data) : null;
+  if (decisionContract) {
+    return {
+      yesLabel: "採用する",
+      noLabel: "採用しない",
+      yesDoneLabel: "採用済み",
+      noDoneLabel: "不採用済み",
+      prompt: `この候補を「${decisionContract.destination}」へ採用するか、最終判断する。`,
+      footnote: `採用: ${decisionContract.approvalEffect} 不採用: ${decisionContract.rejectionEffect}`,
+      placeholder: "任意コメント。例: この条件だけ直してから採用 / 今回はプロトコル化しない",
+      headlineLabel: "判断候補",
+    };
+  }
   return {
-    yesLabel: alreadySaved ? "はい・確認済み" : "はい・反映",
+    // saved_count はcandidateの永続化件数。正本採用済みとは扱わない。
+    yesLabel: "はい・反映",
     noLabel: "いいえ・不採用",
-    yesDoneLabel: alreadySaved ? "はい・確認済み" : "はい・反映",
+    yesDoneLabel: "はい・反映",
     noDoneLabel: "いいえ・不採用",
-    prompt: alreadySaved
-      ? "これは既に正本へ保存済みの通知。内容が正しければ「はい・確認済み」、違っていれば「いいえ・不採用」。補足だけ残すならコメントだけ送信。"
-      : "反映してよければ「はい・反映」、違っていれば「いいえ・不採用」。補足だけ残すならコメントだけ送信。",
-    footnote: alreadySaved
-      ? "はい/いいえ/コメントは admin/tsukuyomi の学習リストに残る。保存済み通知の「はい」は確認済みフィードバックとして扱う。"
-      : "はい/いいえ/コメントは admin/tsukuyomi の学習リストに残る。安全に反映できる候補は「はい」でSupabaseへ反映する。",
+    prompt: "反映してよければ「はい・反映」、違っていれば「いいえ・不採用」。補足だけ残すならコメントだけ送信。",
+    footnote: "はい/いいえ/コメントは admin/tsukuyomi の学習リストに残る。安全に反映できる候補は「はい」でSupabaseへ反映する。",
     placeholder: "任意コメント。例: 今回は契約レビューだけなのでPJメンバーには入れない / 品質確認として継続参加なので登録してOK",
     headlineLabel: "通知ヘッドライン",
   };
 }
 
-function responseLabelForItem(action: FeedbackAction, i: UnifiedItem, alreadySaved: boolean): string {
-  const copy = reviewActionCopyForItem(i, alreadySaved);
+function responseLabelForItem(action: FeedbackAction, i: UnifiedItem): string {
+  const copy = reviewActionCopyForItem(i);
   if (action === "yes") return copy.yesDoneLabel;
   if (action === "no") return copy.noDoneLabel;
   return "コメント送信済み";
@@ -1382,9 +1402,9 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
           const itemFeedbacks = findFeedbacksFor(i);
           const responseAction = responseActionFor(key, itemFeedbacks);
           const priority = unifiedItemPriority(i);
-          const alreadySaved = isAlreadySavedForReview(i);
-          const actionCopy = reviewActionCopyForItem(i, alreadySaved);
+          const actionCopy = reviewActionCopyForItem(i);
           const contractAction = i.kind === "l2" ? contractActionContract(i.data) : null;
+          const finalDecision = i.kind === "l2" ? finalDecisionContract(i.data) : null;
           const contractActionBlocked = contractAction?.resolved === false;
           const coverageGapCopyBlocked = isCoverageGapItem(i)
             && !isGovernanceCoverageGap(i.data as Notification)
@@ -1493,12 +1513,15 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                     <GovernanceActionContractPanel contract={governanceActionContract(i.data as Notification)} />
                   )}
                   {contractAction && <ContractActionContractPanel contract={contractAction} />}
+                  {finalDecision && !(isCoverageGapItem(i) && isGovernanceCoverageGap(i.data as Notification)) && !contractAction && (
+                    <FinalDecisionContractPanel contract={finalDecision} />
+                  )}
 
                   {/* 実データ (lazy fetch) */}
                   <DetailSection detail={details[key]} title={detailTitleForItem(i)} />
 
                   {/* どこに何が反映されるかを、通知カード内でも先に明示する。 */}
-                  {!(isCoverageGapItem(i) && isGovernanceCoverageGap(i.data as Notification)) && !contractAction && (
+                  {!(isCoverageGapItem(i) && isGovernanceCoverageGap(i.data as Notification)) && !contractAction && !finalDecision && (
                     <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs dark:border-slate-800 dark:bg-slate-900/40">
                       <div className="font-medium text-slate-600 dark:text-slate-300">確認・反映先</div>
                       <div className="mt-1 text-blue-700 dark:text-blue-300">
@@ -1534,7 +1557,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                     {responseAction ? (
                       <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-emerald-500/25 bg-emerald-500/8 px-3 py-2">
                         <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
-                          回答済み: {responseLabelForItem(responseAction, i, alreadySaved)}
+                          回答済み: {responseLabelForItem(responseAction, i)}
                         </span>
                         {isSubmitting && <span className="text-[11px] text-muted-foreground">送信中...</span>}
                       </div>
@@ -1749,6 +1772,38 @@ function ContractActionContractPanel({ contract }: { contract: ContractActionCon
       </ul>
       <div className="mt-2 font-medium">押すと起きること</div>
       <p className="mt-0.5 leading-5">{contract.insufficiency ?? contract.approvalEffect}</p>
+    </div>
+  );
+}
+
+function FinalDecisionContractPanel({ contract }: { contract: FinalDecisionContract }) {
+  return (
+    <div className="rounded-md border border-border bg-muted/30 p-3 text-xs text-foreground">
+      <div className="font-semibold">この採否で正本が変わる内容</div>
+      <dl className="mt-3 grid gap-3">
+        <div>
+          <dt className="font-medium text-muted-foreground">反映先</dt>
+          <dd className="mt-1 font-medium">{contract.destination}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-muted-foreground">追加・更新する情報</dt>
+          <dd>
+            <ul className="mt-1 list-disc space-y-1 pl-4">
+              {contract.changes.map((change, index) => <li key={index}>{change}</li>)}
+            </ul>
+          </dd>
+        </div>
+        <div className="grid gap-3 border-t border-border pt-3 sm:grid-cols-2">
+          <div className="min-w-0">
+            <dt className="font-medium text-emerald-700 dark:text-emerald-300">採用すると</dt>
+            <dd className="mt-1 leading-5">{contract.approvalEffect}</dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="font-medium text-red-700 dark:text-red-300">採用しないと</dt>
+            <dd className="mt-1 leading-5">{contract.rejectionEffect}</dd>
+          </div>
+        </div>
+      </dl>
     </div>
   );
 }

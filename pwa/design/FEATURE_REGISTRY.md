@@ -506,7 +506,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 必須契約:
 
-- 先手TODOは、既存 Codex automation `amd-os-proactive-heartbeat` が5系統source cacheと開催済み会議要約から `decision` / `masa_action` だけを直接生成する。別automation、粗い候補、後段filterは作らない。provider APIや従量課金tokenを使わず、DB更新はvalidator後の非LLM applierだけが行う。
+- 先手TODOの汎用自動生成は停止中。既存 Codex automation `amd-os-proactive-heartbeat` は未審査L2 candidateを正本採否カードへ仕上げる。別automationは作らない。provider APIや従量課金tokenを使わず、DB更新はvalidator後の非LLM applierだけが行う。
 - `/proactive` の未対応・ブロック中とdashboard badgeは、`approved` の `decision` / `masa_action` だけを読む。MTG prep、チーム作業、相手ボール、保存完了、待ち、復旧作業、根拠不足は混ぜない。
 - `/notifications`、GlobalNav未読数、Realtime popup、iOS/macOS通知は、`l2_notifications` の `approved AND requires_masa_decision=true` と、Codex審査済みかつまさ本人の完全なaction contractを持つ `app_notifications` だけを対象にする。直接の再認証URLがある `connector_auth` だけは復旧を遅らせない例外。
 - `meeting_notifications` は会議記録として保持し、注意面・未読数・OS通知には出さない。会議準備はCodex task内で行い、OSへ重複TODOを作らない。

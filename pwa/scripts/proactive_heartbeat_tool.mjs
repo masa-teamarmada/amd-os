@@ -8,21 +8,68 @@ import { pathToFileURL } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 
 const REPO_ROOT = path.resolve(new URL("../..", import.meta.url).pathname);
-const CONTRACT = "amd-os-proactive-heartbeat-v2";
-const PROMPT_KEY = "attention.proactive.extract.v1";
-const EVIDENCE_KINDS = new Set(["source_cache", "meeting_summary"]);
-const DISPOSITIONS = new Set(["create", "noop", "needs_source"]);
-const ATTENTION_TYPES = new Set(["decision", "masa_action"]);
-const DUE_BASES = new Set(["explicit", "none"]);
-const NOTIFICATION_REASONS = new Set([
-  "explicit_deadline_24h",
-  "irreversible_decision_window",
-  "masa_only_blocker",
-]);
-const MAX_EVIDENCE = 160;
-const MAX_CANDIDATES = 10;
-const MAX_NOTIFICATIONS = 3;
-const MIN_CREATE_CONFIDENCE = 0.85;
+const CONTRACT = "amd-os-final-decision-review-v1";
+const PROMPT_KEY = "attention.l2.final_decision.v1";
+const MAX_LIMIT = 200;
+const DISPOSITIONS = new Set(["approve", "suppress", "needs_source"]);
+
+const DECISION_ROUTES = Object.freeze({
+  member_knowledge: {
+    destination: "管理 → メンバーナレッジ",
+    approval: "候補をactiveにしてメンバーナレッジへ採用する",
+    rejection: "候補をrejectedにして採用しない",
+  },
+  project_knowledge: {
+    destination: "PJコックピット → PJナレッジ",
+    approval: "候補をactiveにしてPJナレッジへ採用する",
+    rejection: "候補をrejectedにして採用しない",
+  },
+  protocols: {
+    destination: "管理 → AMDプロトコル",
+    approval: "対象候補だけをconfirmedにしてAMDプロトコルへ採用する",
+    rejection: "対象候補だけをrejectedにして採用しない",
+  },
+  founding_members: {
+    destination: "PJコックピット → 創業メンバー",
+    approval: "候補をactiveにして創業メンバーへ採用する",
+    rejection: "候補をinvalidにして採用しない",
+  },
+  ms_progress_revision: {
+    destination: "PJコックピット → MS進捗",
+    approval: "提案値を確定してMS進捗へ反映する",
+    rejection: "提案をdiscardedにして現行値を維持する",
+  },
+  project_registry_diff: {
+    destination: "PJ台帳",
+    approval: "allowlist済みの対象差分だけを台帳へ反映する",
+    rejection: "対象差分をrejectedにして台帳を変えない",
+  },
+  xrl_evidence: {
+    destination: "PJコックピット → XRL根拠",
+    approval: "候補をconfirmedにしてXRL根拠へ採用する",
+    rejection: "候補をrejectedにして採用しない",
+  },
+  project_strategy_signal: {
+    destination: "PJコックピット → 経営ハイライト",
+    approval: "候補をconfirmedにして経営ハイライトへ採用する",
+    rejection: "候補をrejectedにして採用しない",
+  },
+  textbook_insight: {
+    destination: "候補metadataに明示されたBZMまたは経営ノウハウ",
+    approval: "明示された保存先の候補をapprovedまたはappliedにする",
+    rejection: "候補をrejectedにして採用しない",
+  },
+  news_mention: {
+    destination: "PJコックピット → メディア掲載",
+    approval: "候補をconfirmedにして掲載実績へ採用する",
+    rejection: "候補をrejectedにして採用しない",
+  },
+  coverage_gap: {
+    destination: "候補metadataに明示された安全な正本反映先",
+    approval: "対応済みの反映先へ候補1件を追加する",
+    rejection: "gap候補をrejectedにして正本を変えない",
+  },
+});
 
 function parseArgs(argv) {
   const args = {};
@@ -66,7 +113,7 @@ async function loadEnv() {
     try {
       Object.assign(merged, parseEnvText(await fs.readFile(file, "utf8")));
     } catch {
-      // optional local file
+      // optional
     }
   }
   return { ...merged, ...process.env };
@@ -80,522 +127,329 @@ async function adminClient() {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
-function canonical(value) {
-  if (Array.isArray(value)) return value.map(canonical);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
-  }
-  return value;
-}
-
-export function sha256(value) {
-  return crypto.createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex");
-}
-
-function asText(value, max = 800) {
+function oneLine(value, max = 1000) {
   return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 }
 
-export function sanitizeEvidenceText(value, max = 1600) {
-  return asText(value, max * 2)
+export function sanitizeDecisionText(value, max = 1000) {
+  return oneLine(value, max * 2)
     .replace(/https?:\/\/\S+/gi, "[URL省略]")
     .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, "[メール省略]")
-    .replace(/(?:password|passcode|secret|token|api[_ -]?key|パスワード|パスコード|暗証番号)[^。\n]{0,120}/gi, "[認証情報省略]")
-    .replace(/\b\d{2,4}[-\s]?\d{2,4}[-\s]?\d{3,4}\b/g, "[電話番号省略]")
+    .replace(/(?:password|passcode|secret|token|api[_ -]?key|パスワード|パスコード|暗証番号)[^。\n]{0,100}/gi, "[認証情報省略]")
     .slice(0, max);
 }
 
-function jstDate() {
-  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+function objectValue(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
-function isFiveSource(value) {
-  const source = String(value ?? "").toLowerCase();
-  return ["gmail", "drive", "calendar", "slack", "notion"].some((name) => source.includes(name));
+function metadataHints(value) {
+  const meta = objectValue(value);
+  const out = {};
+  for (const key of [
+    "origin_kind",
+    "destination_kind",
+    "destination_label",
+    "approval_effect",
+    "effect",
+    "proposed_target_l2",
+    "gap_class",
+    "classification",
+    "practice_kind",
+    "signal_type",
+    "axis",
+    "evidence_kind",
+    "category",
+  ]) {
+    const text = sanitizeDecisionText(meta[key], 220);
+    if (text) out[key] = text;
+  }
+  if (Array.isArray(meta.changes)) {
+    out.changes = meta.changes.map((item) => sanitizeDecisionText(item, 300)).filter(Boolean).slice(0, 8);
+  }
+  return out;
 }
 
-function sourceCacheSemantic(row) {
+function semantic(row) {
   return {
-    cache_id: row.cache_id,
-    project_id: row.project_id,
-    source: row.source,
-    item_id: row.item_id,
-    title: row.title ?? "",
-    item_date: row.item_date,
-    content_text: row.content_text ?? "",
-    metadata_json: row.metadata_json ?? null,
-    collected_at: row.collected_at,
-  };
-}
-
-function meetingSemantic(row) {
-  return {
-    meeting_id: row.meeting_id,
-    project_id: row.project_id,
-    meeting_date: row.meeting_date,
-    meeting_start_at: row.meeting_start_at,
+    notification_id: row.notification_id,
+    l2_kind: row.l2_kind,
+    target_id: row.target_id,
+    scope_key: row.scope_key,
     title: row.title,
-    summary_short: row.summary_short,
-    decided: row.decided ?? [],
-    progress: row.progress ?? [],
-    next_actions: row.next_actions ?? [],
-    risks: row.risks ?? [],
-    source_hash: row.source_hash,
-    source_kinds: row.source_kinds,
+    summary: row.summary ?? "",
+    saved_count: Number(row.saved_count ?? 0),
+    total_count: Number(row.total_count ?? 0),
+    metadata_json: row.metadata_json ?? null,
+    created_at: row.created_at,
     updated_at: row.updated_at,
   };
 }
 
-export function sourceCacheEvidence(row) {
-  const semantic = sourceCacheSemantic(row);
+function sourceHash(row) {
+  return crypto.createHash("sha256").update(JSON.stringify(semantic(row))).digest("hex");
+}
+
+export function preparedDecisionItem(row, feedbackKeys = new Set()) {
+  const configuredRoute = DECISION_ROUTES[row.l2_kind] ?? null;
+  const hasExactProtocolTarget = row.l2_kind !== "protocols"
+    || /:protocol:[^:]+$/.test(String(row.scope_key ?? ""));
+  const route = configuredRoute && hasExactProtocolTarget ? configuredRoute : null;
+  const feedbackKey = `${row.l2_kind}|${row.target_id}|${row.scope_key}`;
   return {
-    evidence_kind: "source_cache",
-    evidence_id: String(row.id),
-    source_ref: `source_cache:${row.id}`,
-    source_hash: sha256(semantic),
-    project_id: String(row.project_id),
-    source: String(row.source),
-    observed_at: row.item_date ?? row.collected_at,
-    title: sanitizeEvidenceText(row.title, 240),
-    content: sanitizeEvidenceText(row.content_text, 1600),
+    notification_id: String(row.notification_id),
+    source_hash: sourceHash(row),
+    l2_kind: String(row.l2_kind),
+    target_id: sanitizeDecisionText(row.target_id, 100),
+    scope_key: sanitizeDecisionText(row.scope_key, 180),
+    title: sanitizeDecisionText(row.title, 260),
+    summary: sanitizeDecisionText(row.summary, 1400),
+    candidate_persisted_count: Number(row.saved_count ?? 0),
+    total_count: Number(row.total_count ?? 0),
+    already_answered: feedbackKeys.has(feedbackKey),
+    has_supported_apply_route: Boolean(route),
+    route: route ? { ...route } : null,
+    metadata_hints: metadataHints(row.metadata_json),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
   };
 }
 
-export function meetingEvidence(row) {
-  const semantic = meetingSemantic(row);
+async function loadPrompt(db) {
+  const { data, error } = await db
+    .from("llm_prompts")
+    .select("body,updated_at")
+    .eq("prompt_key", PROMPT_KEY)
+    .eq("is_active", true)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const body = String(data?.body ?? "").trim();
+  if (!body) throw new Error(`active ${PROMPT_KEY} prompt is missing`);
   return {
-    evidence_kind: "meeting_summary",
-    evidence_id: String(row.meeting_id),
-    source_ref: `project_meeting_summaries:${row.meeting_id}`,
-    source_hash: sha256(semantic),
-    project_id: String(row.project_id),
-    source: "held_meeting_summary",
-    observed_at: row.meeting_start_at ?? `${row.meeting_date}T00:00:00.000Z`,
-    title: sanitizeEvidenceText(row.title, 240),
-    content: sanitizeEvidenceText(JSON.stringify({
-      summary: row.summary_short,
-      decided: row.decided,
-      progress: row.progress,
-      next_actions: row.next_actions,
-      risks: row.risks,
-    }), 1800),
+    key: PROMPT_KEY,
+    body,
+    hash: crypto.createHash("sha256").update(body).digest("hex"),
+    updated_at: data.updated_at,
   };
-}
-
-function safeOutputPath(file, label) {
-  if (!file || file === true) throw new Error(`--${label} is required`);
-  const resolved = path.resolve(String(file));
-  if (!resolved.startsWith("/private/tmp/") && !resolved.startsWith("/tmp/")) {
-    throw new Error(`--${label} must be under /private/tmp or /tmp`);
-  }
-  return resolved;
-}
-
-async function writePrivateJson(file, payload) {
-  await fs.writeFile(file, `${JSON.stringify(payload, null, 2)}\n`, { mode: 0o600 });
 }
 
 async function prepare(args) {
   const db = await adminClient();
-  const limit = Math.max(1, Math.min(MAX_EVIDENCE, Number(args.limit || MAX_EVIDENCE)));
-  const since = new Date(Date.now() - 7 * 86400_000).toISOString();
-  const meetingSince = new Date(Date.now() - 14 * 86400_000).toISOString().slice(0, 10);
-  const [promptRes, projectsRes, sourceRes, meetingRes] = await Promise.all([
-    db.from("llm_prompts").select("prompt_key,body,is_active,updated_at").eq("prompt_key", PROMPT_KEY).maybeSingle(),
-    db.from("projects").select("project_id,project_name,status,project_type,work_content").eq("status", "active"),
+  const limit = Math.max(1, Math.min(MAX_LIMIT, Number(args.limit || 120)));
+  const [prompt, notificationRes, feedbackRes] = await Promise.all([
+    loadPrompt(db),
     db
-      .from("source_cache")
-      .select("id,cache_id,project_id,source,item_id,title,item_date,content_text,metadata_json,collected_at")
-      .gte("collected_at", since)
-      .order("collected_at", { ascending: false })
+      .from("l2_notifications")
+      .select("notification_id,l2_kind,target_id,scope_key,title,summary,saved_count,total_count,metadata_json,created_at,updated_at")
+      .eq("attention_state", "pending")
+      .order("updated_at", { ascending: false })
       .limit(limit),
     db
-      .from("project_meeting_summaries")
-      .select("meeting_id,project_id,meeting_date,meeting_start_at,title,summary_short,decided,progress,next_actions,risks,source_hash,source_kinds,updated_at")
-      .gte("meeting_date", meetingSince)
-      .lte("meeting_date", jstDate())
-      .order("meeting_date", { ascending: false })
-      .limit(limit),
+      .from("l2_feedbacks")
+      .select("l2_kind,target_id,scope_key")
+      .eq("status", "active")
+      .limit(2000),
   ]);
-  for (const result of [promptRes, projectsRes, sourceRes, meetingRes]) {
-    if (result.error) throw new Error(result.error.message);
-  }
-  const prompt = promptRes.data;
-  if (!prompt?.is_active || !asText(prompt.body, 200_000)) {
-    throw new Error(`${PROMPT_KEY} is missing, inactive, or empty`);
-  }
-  const projects = (projectsRes.data ?? []).map((row) => ({
-    project_id: String(row.project_id),
-    project_name: sanitizeEvidenceText(row.project_name, 160),
-    project_type: sanitizeEvidenceText(row.project_type, 80),
-    work_content: sanitizeEvidenceText(JSON.stringify(row.work_content ?? []), 800),
-  }));
-  const activeProjects = new Set(projects.map((row) => row.project_id));
-  const sourceEvidence = (sourceRes.data ?? [])
-    .filter((row) => activeProjects.has(String(row.project_id)))
-    .filter((row) => isFiveSource(row.source))
-    .filter((row) => asText(row.title, 20_000) || asText(row.content_text, 20_000))
-    .map(sourceCacheEvidence);
-  const heldEvidence = (meetingRes.data ?? [])
-    .filter((row) => activeProjects.has(String(row.project_id)))
-    .filter((row) => !/(^|[,;\s])(upcoming|prep)([,;\s]|$)/i.test(String(row.source_kinds ?? "")))
-    .filter((row) => row.meeting_date < jstDate() || (row.meeting_start_at && new Date(row.meeting_start_at).getTime() < Date.now()))
-    .filter((row) => asText(row.summary_short, 20_000) || (Array.isArray(row.next_actions) && row.next_actions.length > 0))
-    .map(meetingEvidence);
-  const evidence = [...sourceEvidence, ...heldEvidence]
-    .sort((a, b) => String(b.observed_at).localeCompare(String(a.observed_at)))
-    .slice(0, limit);
-  const output = safeOutputPath(args.output, "output");
-  if (evidence.length === 0) {
-    await fs.rm(output, { force: true });
-    console.log(JSON.stringify({ ok: true, evidence_count: 0, output_written: false }));
-    return;
-  }
+  if (notificationRes.error) throw new Error(notificationRes.error.message);
+  if (feedbackRes.error) throw new Error(feedbackRes.error.message);
+  const feedbackKeys = new Set((feedbackRes.data ?? []).map((row) => `${row.l2_kind}|${row.target_id}|${row.scope_key}`));
+  const items = (notificationRes.data ?? []).map((row) => preparedDecisionItem(row, feedbackKeys));
   const payload = {
-    version: 2,
+    version: 1,
     contract: CONTRACT,
     generated_at: new Date().toISOString(),
-    prompt: {
-      key: PROMPT_KEY,
-      hash: sha256(prompt.body),
-      body: prompt.body,
-      updated_at: prompt.updated_at,
-    },
-    limits: {
-      max_candidates: MAX_CANDIDATES,
-      max_notifications: MAX_NOTIFICATIONS,
-      min_create_confidence: MIN_CREATE_CONFIDENCE,
-    },
-    projects,
-    evidence_count: evidence.length,
-    evidence,
+    prompt,
+    item_count: items.length,
+    items,
   };
-  await writePrivateJson(output, payload);
-  console.log(JSON.stringify({ ok: true, evidence_count: evidence.length, output_written: true }));
-}
-
-function requireText(value, field, max, errors) {
-  const text = asText(value, max + 1);
-  if (!text) errors.push(`${field} is required`);
-  if (text.length > max) errors.push(`${field} exceeds ${max}`);
-  if (/https?:\/\/|\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.test(text)) {
-    errors.push(`${field} contains URL or email`);
+  if (args.output && args.output !== true && items.length > 0) {
+    await fs.writeFile(String(args.output), `${JSON.stringify(payload, null, 2)}\n`, { mode: 0o600 });
   }
-  return text;
+  console.log(JSON.stringify({ ok: true, item_count: items.length }));
 }
 
-export function candidateGenerationKey(candidate) {
-  return sha256({
-    project_id: candidate.project_id,
-    attention_type: candidate.attention_type,
-    evidence_ids: (candidate.evidence_refs ?? [])
-      .map((ref) => `${ref.evidence_kind}:${ref.evidence_id}`)
-      .sort(),
-  });
+function safeText(value, max) {
+  const text = oneLine(value, max + 1);
+  return text.length > 0 && text.length <= max && !/https?:\/\/|\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.test(text);
 }
 
-export function validateGenerationPayload(payload, prepared, now = new Date()) {
+export function validateDecisionPayload(payload, prepared) {
   const errors = [];
-  if (!payload || typeof payload !== "object") return ["generation payload must be an object"];
-  if (!prepared || prepared.contract !== CONTRACT || !Array.isArray(prepared.evidence)) {
-    return ["prepared payload is invalid"];
+  if (!payload || typeof payload !== "object") return ["review payload must be an object"];
+  if (payload.version !== 1) errors.push("version must be 1");
+  if (payload.contract !== CONTRACT) errors.push(`contract must be ${CONTRACT}`);
+  if (payload.prompt_hash !== prepared?.prompt?.hash) errors.push("prompt_hash mismatch");
+  if (!Array.isArray(payload.decisions)) errors.push("decisions must be an array");
+  if (!prepared || prepared.contract !== CONTRACT || !Array.isArray(prepared.items)) {
+    errors.push("prepared payload is invalid");
+    return errors;
   }
-  if (payload.version !== 2 || payload.contract !== CONTRACT) errors.push("generation contract/version is invalid");
-  if (payload.prompt_hash !== prepared.prompt?.hash) errors.push("prompt_hash mismatch");
-  if (!Array.isArray(payload.dispositions)) errors.push("dispositions must be an array");
-  if (!Array.isArray(payload.candidates)) errors.push("candidates must be an array");
-  if ((payload.candidates ?? []).length > MAX_CANDIDATES) errors.push(`candidates exceed ${MAX_CANDIDATES}`);
-
-  const expectedEvidence = new Map(prepared.evidence.map((item) => [
-    `${item.evidence_kind}|${item.evidence_id}`,
-    item,
-  ]));
-  const dispositions = new Map();
-  for (const [index, disposition] of (payload.dispositions ?? []).entries()) {
-    const prefix = `dispositions[${index}]`;
-    const key = `${disposition?.evidence_kind}|${disposition?.evidence_id}`;
-    if (!EVIDENCE_KINDS.has(disposition?.evidence_kind)) errors.push(`${prefix}.evidence_kind is invalid`);
-    if (dispositions.has(key)) errors.push(`${prefix} is duplicated`);
-    dispositions.set(key, disposition);
-    const evidence = expectedEvidence.get(key);
-    if (!evidence) errors.push(`${prefix} is not in prepared evidence`);
-    else if (disposition.source_hash !== evidence.source_hash) errors.push(`${prefix}.source_hash mismatch`);
-    if (!DISPOSITIONS.has(disposition?.disposition)) errors.push(`${prefix}.disposition is invalid`);
-    requireText(disposition?.reason, `${prefix}.reason`, 400, errors);
-    if (disposition?.disposition === "create" && !asText(disposition.candidate_id, 120)) {
-      errors.push(`${prefix}.candidate_id is required for create`);
-    }
-    if (disposition?.disposition !== "create" && asText(disposition.candidate_id, 120)) {
-      errors.push(`${prefix}.candidate_id is only allowed for create`);
-    }
-  }
-  if (dispositions.size !== expectedEvidence.size) {
-    errors.push(`dispositions must cover all evidence (${dispositions.size}/${expectedEvidence.size})`);
-  }
-
-  const activeProjects = new Set((prepared.projects ?? []).map((row) => row.project_id));
-  const candidateIds = new Set();
-  let notificationCount = 0;
-  for (const [index, candidate] of (payload.candidates ?? []).entries()) {
-    const prefix = `candidates[${index}]`;
-    const candidateId = asText(candidate?.candidate_id, 120);
-    if (!candidateId) errors.push(`${prefix}.candidate_id is required`);
-    if (candidateIds.has(candidateId)) errors.push(`${prefix}.candidate_id is duplicated`);
-    candidateIds.add(candidateId);
-    if (!activeProjects.has(candidate?.project_id)) errors.push(`${prefix}.project_id is not active`);
-    if (!ATTENTION_TYPES.has(candidate?.attention_type)) errors.push(`${prefix}.attention_type is invalid`);
-    requireText(candidate?.title, `${prefix}.title`, 180, errors);
-    requireText(candidate?.detail, `${prefix}.detail`, 800, errors);
-    requireText(candidate?.why_now, `${prefix}.why_now`, 400, errors);
-    requireText(candidate?.action, `${prefix}.action`, 400, errors);
-    requireText(candidate?.effect, `${prefix}.effect`, 400, errors);
-    requireText(candidate?.completion_condition, `${prefix}.completion_condition`, 400, errors);
-    const confidence = Number(candidate?.confidence);
-    if (!Number.isFinite(confidence) || confidence < MIN_CREATE_CONFIDENCE || confidence > 1) {
-      errors.push(`${prefix}.confidence must be ${MIN_CREATE_CONFIDENCE}..1`);
-    }
-    if (!DUE_BASES.has(candidate?.due_basis)) errors.push(`${prefix}.due_basis is invalid`);
-    const dueAt = candidate?.due_at ? new Date(candidate.due_at) : null;
-    if (candidate?.due_basis === "explicit" && (!dueAt || Number.isNaN(dueAt.getTime()))) {
-      errors.push(`${prefix}.due_at is required for explicit due_basis`);
-    }
-    const dueEvidenceText = asText(candidate?.due_evidence_text, 160);
-    if (candidate?.due_basis === "explicit" && !dueEvidenceText) {
-      errors.push(`${prefix}.due_evidence_text is required for explicit due_basis`);
-    }
-    if (candidate?.due_basis === "none" && candidate?.due_at != null) {
-      errors.push(`${prefix}.due_at must be null when due_basis is none`);
-    }
-    if (candidate?.due_basis === "none" && candidate?.due_evidence_text != null) {
-      errors.push(`${prefix}.due_evidence_text must be null when due_basis is none`);
-    }
-    if (!Array.isArray(candidate?.evidence_refs) || candidate.evidence_refs.length === 0) {
-      errors.push(`${prefix}.evidence_refs is required`);
-    }
-    const candidateEvidenceKeys = new Set();
-    for (const [refIndex, ref] of (candidate?.evidence_refs ?? []).entries()) {
-      const refPrefix = `${prefix}.evidence_refs[${refIndex}]`;
-      const key = `${ref?.evidence_kind}|${ref?.evidence_id}`;
-      const evidence = expectedEvidence.get(key);
-      if (!evidence) errors.push(`${refPrefix} is not in prepared evidence`);
-      else {
-        if (ref.source_hash !== evidence.source_hash) errors.push(`${refPrefix}.source_hash mismatch`);
-        if (evidence.project_id !== candidate.project_id) errors.push(`${refPrefix}.project_id mismatch`);
+  const expected = new Map(prepared.items.map((item) => [item.notification_id, item]));
+  const seen = new Set();
+  for (const [index, decision] of (payload.decisions ?? []).entries()) {
+    const prefix = `decisions[${index}]`;
+    const item = expected.get(String(decision?.notification_id));
+    if (!item) errors.push(`${prefix} is not in prepared payload`);
+    if (seen.has(String(decision?.notification_id))) errors.push(`${prefix} is duplicated`);
+    seen.add(String(decision?.notification_id));
+    if (item && decision?.source_hash !== item.source_hash) errors.push(`${prefix}.source_hash mismatch`);
+    if (!DISPOSITIONS.has(decision?.disposition)) errors.push(`${prefix}.disposition is invalid`);
+    const confidence = Number(decision?.confidence);
+    if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) errors.push(`${prefix}.confidence must be 0..1`);
+    if (!safeText(decision?.reason, 500)) errors.push(`${prefix}.reason is invalid`);
+    if (decision?.disposition === "approve") {
+      if (!item?.has_supported_apply_route) errors.push(`${prefix}: approve requires a supported apply route`);
+      if (item?.already_answered) errors.push(`${prefix}: answered candidate cannot be approved again`);
+      if (confidence < 0.85) errors.push(`${prefix}: approve confidence must be >= 0.85`);
+      if (!safeText(decision?.title, 180)) errors.push(`${prefix}.title is invalid`);
+      if (!safeText(decision?.summary, 1000)) errors.push(`${prefix}.summary is invalid`);
+      if (!safeText(decision?.destination_label, 220)) errors.push(`${prefix}.destination_label is invalid`);
+      if (!Array.isArray(decision?.changes) || decision.changes.length < 1 || decision.changes.length > 6) {
+        errors.push(`${prefix}.changes must contain 1..6 items`);
+      } else if (decision.changes.some((change) => !safeText(change, 400))) {
+        errors.push(`${prefix}.changes contains invalid text`);
       }
-      candidateEvidenceKeys.add(key);
-    }
-    if (candidate?.due_basis === "explicit" && dueEvidenceText) {
-      const duePhraseFound = [...candidateEvidenceKeys].some((key) => {
-        const evidence = expectedEvidence.get(key);
-        return evidence && `${evidence.title} ${evidence.content}`.includes(dueEvidenceText);
-      });
-      if (!duePhraseFound) errors.push(`${prefix}.due_evidence_text is not present in linked evidence`);
-    }
-    const linkedCreate = [...dispositions.entries()].some(([key, value]) => (
-      value.disposition === "create" && value.candidate_id === candidateId && candidateEvidenceKeys.has(key)
-    ));
-    if (!linkedCreate) errors.push(`${prefix} has no matching create disposition`);
-    if (/MTG\s*prep|MTG準備|会議準備|アジェンダ準備/i.test(`${candidate?.title ?? ""} ${candidate?.detail ?? ""}`)) {
-      errors.push(`${prefix} contains retired meeting prep work`);
-    }
-    if (candidate?.notify_now === true) {
-      notificationCount += 1;
-      if (!NOTIFICATION_REASONS.has(candidate?.notification_reason)) {
-        errors.push(`${prefix}.notification_reason is invalid`);
-      }
-      requireText(candidate?.notification_why_now, `${prefix}.notification_why_now`, 300, errors);
-      if (candidate.notification_reason === "explicit_deadline_24h") {
-        const hours = dueAt ? (dueAt.getTime() - now.getTime()) / 3_600_000 : Number.POSITIVE_INFINITY;
-        if (candidate.due_basis !== "explicit" || hours > 24) {
-          errors.push(`${prefix}: explicit_deadline_24h requires an explicit due within 24h`);
-        }
-      }
-    } else if (candidate?.notification_reason != null || candidate?.notification_why_now != null) {
-      errors.push(`${prefix}: notification fields require notify_now=true`);
+      if (!safeText(decision?.approval_effect, 500)) errors.push(`${prefix}.approval_effect is invalid`);
+      if (!safeText(decision?.rejection_effect, 500)) errors.push(`${prefix}.rejection_effect is invalid`);
     }
   }
-  if (notificationCount > MAX_NOTIFICATIONS) errors.push(`notifications exceed ${MAX_NOTIFICATIONS}`);
-  for (const [index, disposition] of (payload.dispositions ?? []).entries()) {
-    if (disposition.disposition === "create" && !candidateIds.has(disposition.candidate_id)) {
-      errors.push(`dispositions[${index}].candidate_id does not exist`);
-    }
-  }
+  if (seen.size !== expected.size) errors.push(`decisions must cover all prepared items (${seen.size}/${expected.size})`);
   return errors;
 }
 
 async function readJson(file, label) {
-  return JSON.parse(await fs.readFile(safeOutputPath(file, label), "utf8"));
+  if (!file || file === true) throw new Error(`--${label} is required`);
+  return JSON.parse(await fs.readFile(String(file), "utf8"));
 }
 
 async function validateCommand(args) {
+  const payload = await readJson(args.file, "file");
   const prepared = await readJson(args.prepared, "prepared");
-  const generated = await readJson(args.file, "file");
-  const errors = validateGenerationPayload(generated, prepared);
-  console.log(JSON.stringify({ ok: errors.length === 0, evidence: prepared.evidence?.length ?? 0, candidates: generated.candidates?.length ?? 0, errors }, null, 2));
+  const errors = validateDecisionPayload(payload, prepared);
+  console.log(JSON.stringify({ ok: errors.length === 0, reviewed: payload.decisions?.length ?? 0, errors }, null, 2));
   if (errors.length) process.exitCode = 1;
 }
 
-async function currentEvidence(db, evidence) {
-  if (evidence.evidence_kind === "source_cache") {
-    const { data, error } = await db
-      .from("source_cache")
-      .select("id,cache_id,project_id,source,item_id,title,item_date,content_text,metadata_json,collected_at")
-      .eq("id", evidence.evidence_id)
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    return data ? sourceCacheEvidence(data) : null;
-  }
+async function currentItem(db, notificationId) {
   const { data, error } = await db
-    .from("project_meeting_summaries")
-    .select("meeting_id,project_id,meeting_date,meeting_start_at,title,summary_short,decided,progress,next_actions,risks,source_hash,source_kinds,updated_at")
-    .eq("meeting_id", evidence.evidence_id)
+    .from("l2_notifications")
+    .select("notification_id,l2_kind,target_id,scope_key,title,summary,saved_count,total_count,metadata_json,created_at,updated_at,attention_state")
+    .eq("notification_id", notificationId)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return data ? meetingEvidence(data) : null;
+  return data;
 }
 
 async function applyCommand(args) {
+  const payload = await readJson(args.file, "file");
   const prepared = await readJson(args.prepared, "prepared");
-  const generated = await readJson(args.file, "file");
-  const errors = validateGenerationPayload(generated, prepared);
-  if (errors.length) throw new Error(`generation validation failed: ${errors.slice(0, 8).join("; ")}`);
+  const errors = validateDecisionPayload(payload, prepared);
+  if (errors.length) throw new Error(`review validation failed: ${errors.slice(0, 5).join("; ")}`);
   const db = await adminClient();
-  const promptRes = await db.from("llm_prompts").select("body,is_active").eq("prompt_key", PROMPT_KEY).maybeSingle();
-  if (promptRes.error) throw new Error(promptRes.error.message);
-  if (!promptRes.data?.is_active || sha256(promptRes.data.body) !== prepared.prompt.hash) {
+  const currentPrompt = await loadPrompt(db);
+  if (currentPrompt.hash !== prepared.prompt.hash) {
     throw new Error("prompt changed after prepare; refusing apply");
   }
-
-  const preparedEvidence = new Map(prepared.evidence.map((item) => [`${item.evidence_kind}|${item.evidence_id}`, item]));
-  const currentEvidenceByKey = new Map();
-  const stats = { evidence: prepared.evidence.length, candidates: generated.candidates.length, created: 0, duplicate: 0, notified: 0, stale: 0, missing: 0, errors: 0 };
-  for (const evidence of prepared.evidence) {
-    const current = await currentEvidence(db, evidence);
-    const key = `${evidence.evidence_kind}|${evidence.evidence_id}`;
-    if (!current) {
-      stats.missing += 1;
-      continue;
-    }
-    if (current.source_hash !== evidence.source_hash) {
-      stats.stale += 1;
-      continue;
-    }
-    currentEvidenceByKey.set(key, current);
-  }
-
-  if (stats.stale > 0 || stats.missing > 0) {
-    console.log(JSON.stringify({ ok: false, ...stats }));
-    process.exitCode = 1;
-    return;
-  }
-
-  for (const candidate of generated.candidates) {
+  const stats = { reviewed: payload.decisions.length, approved: 0, suppressed: 0, needs_source: 0, stale: 0, missing: 0, errors: 0 };
+  for (const decision of payload.decisions) {
     try {
-      const evidenceKeys = candidate.evidence_refs.map((ref) => `${ref.evidence_kind}|${ref.evidence_id}`);
-      if (evidenceKeys.some((key) => !currentEvidenceByKey.has(key))) continue;
-      const generationKey = candidateGenerationKey(candidate);
-      const existingRes = await db.from("proactive_todos").select("id,status").eq("generation_key", generationKey).maybeSingle();
-      if (existingRes.error) throw new Error(existingRes.error.message);
-      let todoId = existingRes.data ? String(existingRes.data.id) : null;
-      if (todoId) {
-        stats.duplicate += 1;
+      const current = await currentItem(db, decision.notification_id);
+      if (!current) {
+        stats.missing += 1;
+        continue;
       }
-      const refs = candidate.evidence_refs.map((ref) => {
-        const item = preparedEvidence.get(`${ref.evidence_kind}|${ref.evidence_id}`);
-        return { evidence_kind: ref.evidence_kind, evidence_id: ref.evidence_id, source_ref: item.source_ref, source_hash: ref.source_hash };
-      });
-      if (!todoId) {
-        const primaryMeeting = refs.find((ref) => ref.evidence_kind === "meeting_summary");
-        const primarySource = refs.find((ref) => ref.evidence_kind === "source_cache");
-        const insertRes = await db.from("proactive_todos").insert({
-          project_id: candidate.project_id,
-          trigger_kind: "source_evidence",
-          source_meeting_id: primaryMeeting?.evidence_id ?? "",
-          source_event_id: primarySource?.evidence_id ?? "",
-          title: asText(candidate.title, 180),
-          detail: asText(candidate.detail, 800),
-          ball_owner: "amd",
-          due_at: candidate.due_at ?? null,
-          due_basis: candidate.due_basis,
-          priority: candidate.due_basis === "explicit" && new Date(candidate.due_at).getTime() < Date.now() ? "red" : "normal",
-          status: "open",
-          generation_key: generationKey,
-          evidence_refs: refs,
-          completion_condition: asText(candidate.completion_condition, 400),
-          attention_state: "approved",
-          attention_type: candidate.attention_type,
-          attention_owner: "masa",
-          requires_masa_decision: candidate.attention_type === "decision",
-          attention_reason: asText(candidate.why_now, 400),
-          attention_action: asText(candidate.action, 400),
-          attention_effect: asText(candidate.effect, 400),
-          attention_confidence: Number(candidate.confidence),
-          attention_source_hash: sha256(refs),
-          attention_reviewed_at: new Date().toISOString(),
-          attention_reviewed_by: "amd-os-proactive-heartbeat",
-        }).select("id").single();
-        if (insertRes.error) throw new Error(insertRes.error.message);
-        todoId = String(insertRes.data.id);
-        stats.created += 1;
+      if (current.attention_state !== "pending" || sourceHash(current) !== decision.source_hash) {
+        stats.stale += 1;
+        continue;
       }
-      if (candidate.notify_now === true && (!existingRes.data || ["open", "blocked"].includes(existingRes.data.status))) {
-        const existingNotification = await db
-          .from("app_notifications")
-          .select("id")
-          .eq("source", "amd-os-proactive-heartbeat")
-          .contains("meta", { generation_key: generationKey })
-          .maybeSingle();
-        if (existingNotification.error) throw new Error(existingNotification.error.message);
-        if (existingNotification.data) continue;
-        const link = `/proactive?todo_id=${encodeURIComponent(todoId)}`;
-        const notificationRes = await db.from("app_notifications").insert({
-          kind: "proactive_attention",
-          title: asText(candidate.title, 180),
-          body: asText(candidate.notification_why_now, 300),
-          link,
-          source: "amd-os-proactive-heartbeat",
-          meta: {
-            generation_key: generationKey,
-            notification_priority: "critical",
-            notification_reason: candidate.notification_reason,
-            action_contract: {
-              action_owner: "masa",
-              action_required: asText(candidate.action, 400),
-              action_label: candidate.attention_type === "decision" ? "判断する" : "対応する",
-              action_url: link,
-              completion_condition: asText(candidate.completion_condition, 400),
-              why_now: asText(candidate.notification_why_now, 300),
-            },
+      const reviewedAt = new Date().toISOString();
+      if (decision.disposition === "approve") {
+        const metadata = {
+          ...objectValue(current.metadata_json),
+          destination_label: oneLine(decision.destination_label, 220),
+          changes: decision.changes.map((item) => oneLine(item, 400)),
+          approval_effect: oneLine(decision.approval_effect, 500),
+          rejection_effect: oneLine(decision.rejection_effect, 500),
+          decision_review: {
+            version: 1,
+            reviewed_at: reviewedAt,
+            source_hash: decision.source_hash,
           },
-          attention_state: "approved",
-          attention_type: candidate.attention_type,
-          attention_owner: "masa",
-          requires_masa_decision: candidate.attention_type === "decision",
-          attention_reason: asText(candidate.notification_why_now, 300),
-          attention_action: asText(candidate.action, 400),
-          attention_effect: asText(candidate.effect, 400),
-          attention_confidence: Number(candidate.confidence),
-          attention_source_hash: sha256(refs),
-          attention_reviewed_at: new Date().toISOString(),
-          attention_reviewed_by: "amd-os-proactive-heartbeat",
-        });
-        if (notificationRes.error) throw new Error(notificationRes.error.message);
-        stats.notified += 1;
+        };
+        const { data: contentRows, error: contentError } = await db
+          .from("l2_notifications")
+          .update({
+            title: oneLine(decision.title, 180),
+            summary: oneLine(decision.summary, 1000),
+            metadata_json: metadata,
+          })
+          .eq("notification_id", decision.notification_id)
+          .eq("attention_state", "pending")
+          .select("notification_id");
+        if (contentError) throw new Error(contentError.message);
+        if (contentRows?.length !== 1) throw new Error("candidate changed before content update");
+        const { data: gateRows, error: gateError } = await db
+          .from("l2_notifications")
+          .update({
+            attention_state: "approved",
+            attention_type: "decision",
+            attention_owner: "masa",
+            requires_masa_decision: true,
+            attention_reason: oneLine(decision.reason, 500),
+            attention_action: oneLine(decision.changes.join(" / "), 500),
+            attention_effect: oneLine(decision.approval_effect, 500),
+            attention_confidence: Number(decision.confidence),
+            attention_source_hash: decision.source_hash,
+            attention_reviewed_at: reviewedAt,
+            attention_reviewed_by: "codex-automation-l2-final-decision",
+            notified_at: null,
+            read_at: null,
+          })
+          .eq("notification_id", decision.notification_id)
+          .eq("attention_state", "pending")
+          .select("notification_id");
+        if (gateError) throw new Error(gateError.message);
+        if (gateRows?.length !== 1) throw new Error("candidate changed before gate update");
+        stats.approved += 1;
+      } else {
+        const state = decision.disposition === "needs_source" ? "needs_source" : "suppressed";
+        const type = decision.disposition === "needs_source" ? "needs_source" : "suppressed";
+        const { data: reviewRows, error } = await db
+          .from("l2_notifications")
+          .update({
+            attention_state: state,
+            attention_type: type,
+            attention_owner: "none",
+            requires_masa_decision: false,
+            attention_reason: oneLine(decision.reason, 500),
+            attention_action: null,
+            attention_effect: null,
+            attention_confidence: Number(decision.confidence),
+            attention_source_hash: decision.source_hash,
+            attention_reviewed_at: reviewedAt,
+            attention_reviewed_by: "codex-automation-l2-final-decision",
+          })
+          .eq("notification_id", decision.notification_id)
+          .eq("attention_state", "pending")
+          .select("notification_id");
+        if (error) throw new Error(error.message);
+        if (reviewRows?.length !== 1) throw new Error("candidate changed before review update");
+        stats[state] += 1;
       }
     } catch {
       stats.errors += 1;
     }
   }
-  const ok = stats.errors === 0 && stats.stale === 0 && stats.missing === 0;
-  console.log(JSON.stringify({ ok, ...stats }));
-  if (!ok) process.exitCode = 1;
+  console.log(JSON.stringify({ ok: stats.errors === 0, ...stats }, null, 2));
+  if (stats.errors) process.exitCode = 1;
 }
 
 function usage() {
   console.log(`Usage:
-  node pwa/scripts/proactive_heartbeat_tool.mjs prepare --output /private/tmp/prepared.json [--limit 160]
-  node pwa/scripts/proactive_heartbeat_tool.mjs validate --prepared /private/tmp/prepared.json --file /private/tmp/generated.json
-  node pwa/scripts/proactive_heartbeat_tool.mjs apply --prepared /private/tmp/prepared.json --file /private/tmp/generated.json`);
+  node pwa/scripts/proactive_heartbeat_tool.mjs prepare --output /private/tmp/prepared.json [--limit 120]
+  node pwa/scripts/proactive_heartbeat_tool.mjs validate --prepared /private/tmp/prepared.json --file /private/tmp/review.json
+  node pwa/scripts/proactive_heartbeat_tool.mjs apply --prepared /private/tmp/prepared.json --file /private/tmp/review.json`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

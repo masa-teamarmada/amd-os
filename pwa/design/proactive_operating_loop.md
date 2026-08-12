@@ -3,14 +3,14 @@
 作成日: 2026-05-31
 廃止日: 2026-06-27
 更新日: 2026-07-10
-ステータス: **この文書は2026-05-31の旧案で廃止済み**。本設計の `proactive_loops` / `proactive_outbox` / `proactive_loop_events` と司令塔通知は使わない。2026-08-12に同じ automation id `amd-os-proactive-heartbeat` を生証跡からの意味抽出器として再利用したが、この文書のoutbox配送設計が復活したわけではない。
+ステータス: **この文書は2026-05-31の旧案で廃止済み**。本設計の `proactive_loops` / `proactive_outbox` / `proactive_loop_events` と司令塔通知は使わない。2026-08-12に同じ automation id `amd-os-proactive-heartbeat` をL2採否判断レビューへ再利用したが、この文書のoutbox配送設計が復活したわけではない。
 
 ## 廃止と次の正本
 
 - **正本の置き換え先**: [`pwa/spec/2-4-proactive-todo-current-spec.md`](../spec/2-4-proactive-todo-current-spec.md) (先手 TODO 正本仕様)
 - **置き換え後のテーブル**: `proactive_todos`。旧 `proactive_outbox` / `proactive_loops` / `proactive_loop_events` は新規 write しない。
-- **置き換え後の検知主体**: 既存 Codex automation `amd-os-proactive-heartbeat`。provider APIを呼ばず、automation自身のCodexが元証跡から `decision` / `masa_action` を抽出する。`/api/cron/proactive-todo-extract` はライフサイクル維持だけ。
-- **置き換え後の検知対象**: 開催済み MTG の `next_actions[]`、7日以内の予定 MTG 準備、PJ `report_emails` から届く Gmail の期限つき依頼 (`trigger_kind='email_action_request'`)。メール本文全文・URL・パスワード・メールアドレス・電話番号は `proactive_todos` に保存しない。
+- **置き換え後の検知主体**: 先手TODOの汎用自動生成は停止。`/api/cron/proactive-todo-extract` はライフサイクル維持だけ。既存 `amd-os-proactive-heartbeat` はL2採否判断レビューを担う。
+- **置き換え後の検知対象**: 未審査の `l2_notifications` candidate。追加先・変更内容・採用/不採用の結果が揃ったものだけ通知へ出す。
 - **置き換え後の UI**: `/proactive` (admin 限定、3 ボタン完了 UI) + dashboard 上段の件数バッジ。`/loop` ルートと 5 段カーネル盤面 (`LoopKernelBoard`) は削除済み。
 
 ## なぜ白紙にしたか (2026-06-27 まさ判断)
