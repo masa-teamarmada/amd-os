@@ -1849,13 +1849,49 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
 ]);
 
 expectIncludes("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
+  "Bzm22ProvisionalObservatory",
+  "LazyArchiveDisclosure",
+  'data-testid="score-model-archives"',
   "Bzm2ModelObservatory",
   "Bzm21DynamicPolicyObservatory",
-  "SPS 2.1の主表示版を正確に読み出せていない",
-  "旧SPS / BZM 2.0 アーカイブ",
-  "主表示版の値は抑止中",
+  "現行SPS / BZM 2.1",
+  "BZM 2.0",
+  "SPS 1.0 / Legacy AMD",
   "AmdScoreView",
   "embedded",
+]);
+expectPattern("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
+  /<Bzm22ProvisionalObservatory[\s\S]*?data-testid="score-model-archives"/,
+  /if \(!active \|\| archiveRequestedProjectId !== projectId\) return;/,
+  /\{open \? <div[\s\S]*?\{children\}[\s\S]*?: null\}/,
+  /<Bzm21DynamicPolicyObservatory model=\{payload\.bzm21\} displayMode="archive" \/>/,
+]);
+expectIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
+  'data-testid="bzm22-provisional-primary"',
+  "BZM 2.2 暫定主表示",
+  "全パラメータ台帳",
+  "未検証・低精度",
+  "影の比較のみ",
+  "順位付け、資源配分、撤退判断には使わない",
+  "前向き検証",
+  "gate積 proxy",
+  "校正済み到達確率ではない",
+  "103項目",
+  "ParameterDesktopTable",
+  "ParameterMobileCards",
+  "全て開く",
+]);
+expectIncludes("src/lib/bzm-2-2-pilot-ui.server.ts", [
+  "PILOT_LOADERS",
+  "schemaVersion",
+  "projectId !== projectId",
+  "parameters.length, 0) !== 103",
+]);
+expectIncludes("src/app/api/project/[projectId]/bzm-2-2-pilot/route.ts", [
+  "requireMember",
+  "fetchBzm22PilotProject",
+  '"Cache-Control": "private, no-store, max-age=0"',
+  "BZM 2.2 暫定試算の対象PJではありません",
 ]);
 expectIncludes("src/components/cockpit/Bzm21DynamicPolicyObservatory.tsx", [
   "SPS 2.1 動的方針評価",
@@ -1867,6 +1903,8 @@ expectIncludes("src/components/cockpit/Bzm21DynamicPolicyObservatory.tsx", [
   "前向き検証",
   'revision ? `${revision.forwardValidationCount}件` : "未登録"',
   "投資配分の自動推薦には使わない",
+  '"archive"',
+  "現行運用・比較用",
 ]);
 expectIncludes("src/components/cockpit/Bzm2ModelObservatory.tsx", [
   "BZM 2.0 / MODEL OBSERVATORY",

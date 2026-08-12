@@ -134,6 +134,7 @@
     "q_plan_pi0_Hv and all other off-path pi0 outputs remain typed N/A for every project because no complete pi0 is registered",
     "terminal, discount rate and monthly economic CF are explicit low/base/high ledger bundles actually used by each scenario calculation",
     "canonical 103-slot runtime types, gate vectors, cash-state vectors, action-evaluation copies and zero-authority shadow boundary match the calculation",
+    "legacy possible/confirmed action-id registries and the retired liquidity_continuity_before_cliff key are absent from every project namespace",
     "J identity and independent action-value recomputation",
     "registered current control is an honestly named provisional shadow, not an executable-set argmax or an authority-approved action",
     "abandon is not implicitly executable",
@@ -162,6 +163,16 @@
           "ok": true,
           "errors": [],
           "actionCopiesEqual": true
+        },
+        {
+          "name": "canonicalLegacyMetadataCleanup",
+          "ok": true,
+          "forbiddenKeys": [
+            "possibleActionIds",
+            "confirmedActionIds",
+            "liquidity_continuity_before_cliff"
+          ],
+          "paths": []
         },
         {
           "name": "stateVectorNoScalarAggregation",
@@ -1076,6 +1087,16 @@
           "actionCopiesEqual": true
         },
         {
+          "name": "canonicalLegacyMetadataCleanup",
+          "ok": true,
+          "forbiddenKeys": [
+            "possibleActionIds",
+            "confirmedActionIds",
+            "liquidity_continuity_before_cliff"
+          ],
+          "paths": []
+        },
+        {
           "name": "stateVectorNoScalarAggregation",
           "ok": true,
           "stateErrors": [],
@@ -1799,6 +1820,16 @@
           "ok": true,
           "errors": [],
           "actionCopiesEqual": true
+        },
+        {
+          "name": "canonicalLegacyMetadataCleanup",
+          "ok": true,
+          "forbiddenKeys": [
+            "possibleActionIds",
+            "confirmedActionIds",
+            "liquidity_continuity_before_cliff"
+          ],
+          "paths": []
         },
         {
           "name": "stateVectorNoScalarAggregation",
@@ -3343,6 +3374,16 @@
           "ok": true,
           "errors": [],
           "actionCopiesEqual": true
+        },
+        {
+          "name": "canonicalLegacyMetadataCleanup",
+          "ok": true,
+          "forbiddenKeys": [
+            "possibleActionIds",
+            "confirmedActionIds",
+            "liquidity_continuity_before_cliff"
+          ],
+          "paths": []
         },
         {
           "name": "stateVectorNoScalarAggregation",
@@ -4900,6 +4941,16 @@
           "actionCopiesEqual": true
         },
         {
+          "name": "canonicalLegacyMetadataCleanup",
+          "ok": true,
+          "forbiddenKeys": [
+            "possibleActionIds",
+            "confirmedActionIds",
+            "liquidity_continuity_before_cliff"
+          ],
+          "paths": []
+        },
+        {
           "name": "stateVectorNoScalarAggregation",
           "ok": true,
           "stateErrors": [],
@@ -5747,6 +5798,16 @@
           "ok": true,
           "errors": [],
           "actionCopiesEqual": true
+        },
+        {
+          "name": "canonicalLegacyMetadataCleanup",
+          "ok": true,
+          "forbiddenKeys": [
+            "possibleActionIds",
+            "confirmedActionIds",
+            "liquidity_continuity_before_cliff"
+          ],
+          "paths": []
         },
         {
           "name": "stateVectorNoScalarAggregation",
@@ -7401,6 +7462,16 @@
           "actionCopiesEqual": true
         },
         {
+          "name": "canonicalLegacyMetadataCleanup",
+          "ok": true,
+          "forbiddenKeys": [
+            "possibleActionIds",
+            "confirmedActionIds",
+            "liquidity_continuity_before_cliff"
+          ],
+          "paths": []
+        },
+        {
           "name": "stateVectorNoScalarAggregation",
           "ok": true,
           "stateErrors": [],
@@ -8810,6 +8881,16 @@
           "actionCopiesEqual": true
         },
         {
+          "name": "canonicalLegacyMetadataCleanup",
+          "ok": true,
+          "forbiddenKeys": [
+            "possibleActionIds",
+            "confirmedActionIds",
+            "liquidity_continuity_before_cliff"
+          ],
+          "paths": []
+        },
+        {
           "name": "stateVectorNoScalarAggregation",
           "ok": true,
           "stateErrors": [],
@@ -10154,6 +10235,16 @@
           "actionCopiesEqual": true
         },
         {
+          "name": "canonicalLegacyMetadataCleanup",
+          "ok": true,
+          "forbiddenKeys": [
+            "possibleActionIds",
+            "confirmedActionIds",
+            "liquidity_continuity_before_cliff"
+          ],
+          "paths": []
+        },
+        {
           "name": "stateVectorNoScalarAggregation",
           "ok": true,
           "stateErrors": [],
@@ -11167,6 +11258,16 @@
           "actionCopiesEqual": true
         },
         {
+          "name": "canonicalLegacyMetadataCleanup",
+          "ok": true,
+          "forbiddenKeys": [
+            "possibleActionIds",
+            "confirmedActionIds",
+            "liquidity_continuity_before_cliff"
+          ],
+          "paths": []
+        },
+        {
           "name": "stateVectorNoScalarAggregation",
           "ok": true,
           "stateErrors": [],
@@ -12062,6 +12163,16 @@
           "ok": true,
           "errors": [],
           "actionCopiesEqual": true
+        },
+        {
+          "name": "canonicalLegacyMetadataCleanup",
+          "ok": true,
+          "forbiddenKeys": [
+            "possibleActionIds",
+            "confirmedActionIds",
+            "liquidity_continuity_before_cliff"
+          ],
+          "paths": []
         },
         {
           "name": "stateVectorNoScalarAggregation",
@@ -13243,6 +13354,16 @@
           "ok": true,
           "errors": [],
           "actionCopiesEqual": true
+        },
+        {
+          "name": "canonicalLegacyMetadataCleanup",
+          "ok": true,
+          "forbiddenKeys": [
+            "possibleActionIds",
+            "confirmedActionIds",
+            "liquidity_continuity_before_cliff"
+          ],
+          "paths": []
         },
         {
           "name": "stateVectorNoScalarAggregation",
@@ -14712,5 +14833,5 @@
     "dualCriticalAuditStatus": "completed_with_p0_fixed_and_p1_open"
   },
   "frozenArtifact": "bzm-2-2-all-pj-provisional-v0-1.json",
-  "frozenArtifactSha256": "59468bfcddf7c06081d7cfff13da735ee2251d007ceea50e53e250935516861b"
+  "frozenArtifactSha256": "e208c8ca6c405fd6fbd0581cb8abfb25650ac7a6b79988cb9de1eda283e85c01"
 }

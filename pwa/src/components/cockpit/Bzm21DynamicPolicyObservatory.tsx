@@ -36,7 +36,7 @@ const ACTION_LABEL: Record<Bzm21Action["actionType"], string> = {
   abandon: "撤退",
 };
 
-type DisplayMode = "primary" | "preview";
+type DisplayMode = "primary" | "preview" | "archive";
 
 type StatusTone = "verified" | "estimated" | "missing" | "na" | "neutral";
 
@@ -828,8 +828,8 @@ export function Bzm21DynamicPolicyObservatory({
               <h2 id="bzm21-observatory-title" className="text-[13px] font-semibold tracking-tight text-[#173f51]">
                 SPS 2.1 動的方針評価
               </h2>
-              <span className={`border px-1.5 py-0.5 text-[9px] font-semibold ${displayMode === "primary" ? "border-[#7fa8b5] bg-[#dcebed] text-[#174b60]" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
-                {displayMode === "primary" ? "主表示" : "切替前プレビュー"}
+              <span className={`border px-1.5 py-0.5 text-[9px] font-semibold ${displayMode === "primary" ? "border-[#7fa8b5] bg-[#dcebed] text-[#174b60]" : displayMode === "archive" ? "border-slate-300 bg-slate-100 text-slate-600" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+                {displayMode === "primary" ? "主表示" : displayMode === "archive" ? "現行運用・比較用" : "切替前プレビュー"}
               </span>
               <StatusBadge status={companySelected?.evaluationStatus ?? model.storageState} />
             </div>

@@ -191,6 +191,7 @@ const markdownOutput = path.resolve(positional[2] ?? (checkMode
   ? path.join(scriptDirectory, "..", "BZM_2_2_ALL_PJ_PARAMETER_LEDGER_2026-08-12.md")
   : path.join(outputDirectory, "BZM_2_2_ALL_PJ_PARAMETER_LEDGER_2026-08-12.md")));
 const auditOutput = path.resolve(positional[3] ?? path.join(outputDirectory, "bzm-2-2-all-pj-provisional-v0-1.audit.json"));
+const uiProjectionOutputDirectory = path.resolve(scriptDirectory, "../../src/generated/bzm-2-2-pilot");
 
 const raw = fs.readFileSync(inputPath);
 const source = JSON.parse(raw.toString("utf8"));
@@ -257,6 +258,43 @@ function recursivelyRenamePilotFields(value: any): any {
     output[renamed] = recursivelyRenamePilotFields(child);
   }
   return output;
+}
+const FORBIDDEN_LEGACY_METADATA_KEYS = new Set([
+  "possibleActionIds",
+  "confirmedActionIds",
+  "liquidity_continuity_before_cliff",
+]);
+function recursivelyDeleteExactKeys(value: any, forbidden = FORBIDDEN_LEGACY_METADATA_KEYS): any {
+  if (Array.isArray(value)) {
+    value.forEach((child) => recursivelyDeleteExactKeys(child, forbidden));
+    return value;
+  }
+  if (!value || typeof value !== "object") return value;
+  for (const key of Object.keys(value)) {
+    if (forbidden.has(key)) {
+      delete value[key];
+      continue;
+    }
+    recursivelyDeleteExactKeys(value[key], forbidden);
+  }
+  return value;
+}
+function recursivelyFindExactKeyPaths(value: any, forbidden = FORBIDDEN_LEGACY_METADATA_KEYS) {
+  const paths: string[] = [];
+  const visit = (child: any, currentPath: string) => {
+    if (Array.isArray(child)) {
+      child.forEach((item, index) => visit(item, `${currentPath}[${index}]`));
+      return;
+    }
+    if (!child || typeof child !== "object") return;
+    for (const [key, item] of Object.entries(child)) {
+      const nextPath = currentPath ? `${currentPath}.${key}` : key;
+      if (forbidden.has(key)) paths.push(nextPath);
+      visit(item, nextPath);
+    }
+  };
+  visit(value, "");
+  return paths;
 }
 const asSlack = (project: any) => {
   const inputs = asInputs(project);
@@ -1425,6 +1463,7 @@ function canonicalizeDerivedContracts(project: any) {
   delete project.provisionalSPS;
   delete project.sps22;
   const canonicalProject = recursivelyRenamePilotFields(project);
+  recursivelyDeleteExactKeys(canonicalProject);
   for (const key of Object.keys(project)) delete project[key];
   Object.assign(project, canonicalProject);
 }
@@ -1915,6 +1954,93 @@ function projectSummary(project: any) {
   };
 }
 
+const UI_SECTION_LABELS: Record<string, string> = {
+  version_horizon_rules: "版・地平・評価規則",
+  decision_state: "意思決定状態",
+  action_bundle: "行動束",
+  transition: "状態遷移",
+  cashflow_ledger: "キャッシュフロー台帳",
+  intervention: "介入",
+  derived_outputs: "派生出力",
+};
+
+const jsonValueOrNull = (value: unknown) => value === undefined ? null : value;
+
+function buildUiProjectProjection(
+  project: any,
+  summary: any,
+  artifactSha256: string,
+  rootArtifact: any,
+) {
+  const ledger = asLedger(project);
+  const projectCutoff = project.cutoff ?? project.informationCutoff ??
+    asInputs(project)?.cutoff ?? rootArtifact.informationCutoff;
+  let index = 0;
+  const groups = Object.entries(PARAMETER_SECTIONS).map(([section, keys]) => ({
+    key: section,
+    label: UI_SECTION_LABELS[section],
+    count: keys.length,
+    parameters: keys.map((key) => {
+      index += 1;
+      const slot = ledger[section][key];
+      return {
+        index,
+        id: `${section}.${key}`,
+        section,
+        key,
+        value: jsonValueOrNull(slot.value),
+        observedStatus: slot.observedStatus,
+        imputed: {
+          low: jsonValueOrNull(slot.imputed?.low),
+          base: jsonValueOrNull(slot.imputed?.base),
+          high: jsonValueOrNull(slot.imputed?.high),
+        },
+        unit: slot.unit,
+        rule: slot.rule,
+        sourceRefs: slot.sourceRefs,
+        confidenceDriver: slot.confidenceDriver,
+        usedInCalculation: slot.usedInCalculation,
+        precisionLossContribution: jsonValueOrNull(slot.precisionLossContribution),
+        cutoff: projectCutoff,
+      };
+    }),
+  }));
+  if (index !== 103) throw new Error(`${project.projectName}: UI projection expected 103 parameters, got ${index}`);
+  const derived = ledger.derived_outputs;
+  return {
+    schemaVersion: "bzm2.2-pilot-ui/v1",
+    artifactSha256,
+    projectId: project.projectIdAux,
+    projectName: project.projectName,
+    modelVersion: summary.modelVersion,
+    valuationDate: rootArtifact.valuationDate,
+    informationCutoff: rootArtifact.informationCutoff,
+    claimBoundary: rootArtifact.claimBoundary,
+    sourceCoverage: {
+      allComplete: SOURCE_NAMES.every((key) => rootArtifact.sourceInventory?.[key]?.paginationComplete === true),
+      sources: SOURCE_NAMES.map((key) => ({
+        key,
+        paginationComplete: rootArtifact.sourceInventory?.[key]?.paginationComplete === true,
+        fetchedItems: rootArtifact.sourceInventory?.[key]?.fetchedItems ?? 0,
+        uniqueItems: rootArtifact.sourceInventory?.[key]?.uniqueItems ?? 0,
+      })),
+    },
+    summary: {
+      registeredCurrentControl: summary.registeredCurrentControl,
+      controlRegistrationStatus: summary.controlRegistrationStatus,
+      qGateProductProxy: summary.qGateProductProxy,
+      qStressProxy: summary.qStressProxy,
+      jValueMillionJpy: derived.J_r.imputed,
+      conditionalSuccessValueMillionJpy: derived.E_V_net_given_G_a.imputed,
+      conditionalSuccessValueStatus: summary.conditionalSuccessValueStatus,
+      firstPathLossMonth: summary.firstPathLossMonth,
+      actionBoundaryCounts: summary.actionBoundaryCounts,
+      precisionStatus: summary.precisionStatus,
+    },
+    groups,
+  };
+}
+
 const projects = source.projects
   .slice()
   .sort((a: any, b: any) => PROJECT_ORDER.indexOf(a.projectName) - PROJECT_ORDER.indexOf(b.projectName));
@@ -2112,6 +2238,7 @@ const audit: any = {
     "q_plan_pi0_Hv and all other off-path pi0 outputs remain typed N/A for every project because no complete pi0 is registered",
     "terminal, discount rate and monthly economic CF are explicit low/base/high ledger bundles actually used by each scenario calculation",
     "canonical 103-slot runtime types, gate vectors, cash-state vectors, action-evaluation copies and zero-authority shadow boundary match the calculation",
+    "legacy possible/confirmed action-id registries and the retired liquidity_continuity_before_cliff key are absent from every project namespace",
     "J identity and independent action-value recomputation",
     "registered current control is an honestly named provisional shadow, not an executable-set argmax or an authority-approved action",
     "abandon is not implicitly executable",
@@ -2236,6 +2363,12 @@ for (const project of projects) {
   add("canonicalRuntimeTypesActionSyncAndShadowAuthority", runtimeTypeErrors.length === 0, {
     errors: runtimeTypeErrors,
     actionCopiesEqual,
+  });
+
+  const forbiddenLegacyMetadataPaths = recursivelyFindExactKeyPaths(project);
+  add("canonicalLegacyMetadataCleanup", forbiddenLegacyMetadataPaths.length === 0, {
+    forbiddenKeys: [...FORBIDDEN_LEGACY_METADATA_KEYS],
+    paths: forbiddenLegacyMetadataPaths,
   });
 
   const state = project.bzm22?.state ?? inputs?.bzm22State;
@@ -2384,6 +2517,39 @@ if (checkMode) {
 }
 const canonicalJson = `${JSON.stringify(artifact, null, 2)}\n`;
 const frozenJsonSha256 = sha256(canonicalJson);
+const uiProjectFiles = projects.map((project: any) => {
+  const summary = summaries.find((candidate: any) => candidate.projectIdAux === project.projectIdAux);
+  if (!summary) throw new Error(`${project.projectName}: UI projection summary missing`);
+  const projection = buildUiProjectProjection(project, summary, frozenJsonSha256, artifact);
+  const canonical = `${JSON.stringify(projection, null, 2)}\n`;
+  const bytes = Buffer.byteLength(canonical);
+  if (bytes > 512 * 1024) {
+    throw new Error(`${project.projectName}: UI projection exceeds 512 KiB (${bytes} bytes)`);
+  }
+  const privacy = privacyFailures(canonical);
+  if (privacy.length) {
+    throw new Error(`${project.projectName}: UI projection privacy guard failed: ${privacy.join(", ")}`);
+  }
+  return {
+    projectId: project.projectIdAux,
+    projectName: project.projectName,
+    file: `${project.projectIdAux}.json`,
+    parameterCount: projection.groups.reduce((sum: number, group: any) => sum + group.count, 0),
+    bytes,
+    sha256: sha256(canonical),
+    canonical,
+  };
+});
+const uiManifest = {
+  schemaVersion: "bzm2.2-pilot-ui-manifest/v1",
+  artifactSha256: frozenJsonSha256,
+  projects: uiProjectFiles.map((item: any) => {
+    const { canonical, ...row } = item;
+    void canonical;
+    return row;
+  }),
+};
+const canonicalUiManifest = `${JSON.stringify(uiManifest, null, 2)}\n`;
 audit.frozenArtifact = path.basename(jsonOutput);
 audit.frozenArtifactSha256 = frozenJsonSha256;
 const canonicalAudit = `${JSON.stringify(audit, null, 2)}\n`;
@@ -2525,11 +2691,37 @@ if (checkMode) {
   if (existingJson !== canonicalJson) throw new Error(`${inputPath}: JSON is not canonically formatted`);
   if (existingMarkdown !== canonicalMarkdown) throw new Error(`${markdownOutput}: differs from deterministic render`);
   if (existingAudit !== canonicalAudit) throw new Error(`${auditOutput}: differs from deterministic audit`);
+  if (!fs.existsSync(uiProjectionOutputDirectory)) {
+    throw new Error(`${uiProjectionOutputDirectory}: generated UI projection directory missing`);
+  }
+  const expectedUiFiles = new Set(["manifest.json", ...uiProjectFiles.map((row: any) => row.file)]);
+  const actualUiFiles = fs.readdirSync(uiProjectionOutputDirectory)
+    .filter((fileName) => fileName.endsWith(".json"));
+  const unexpectedUiFiles = actualUiFiles.filter((fileName) => !expectedUiFiles.has(fileName));
+  const missingUiFiles = [...expectedUiFiles].filter((fileName) => !actualUiFiles.includes(fileName));
+  if (unexpectedUiFiles.length || missingUiFiles.length) {
+    throw new Error(`UI projection file set differs: unexpected=${unexpectedUiFiles.join(",")}; missing=${missingUiFiles.join(",")}`);
+  }
+  const existingManifest = fs.readFileSync(path.join(uiProjectionOutputDirectory, "manifest.json"), "utf8");
+  if (existingManifest !== canonicalUiManifest) {
+    throw new Error("generated UI projection manifest differs from deterministic render");
+  }
+  for (const row of uiProjectFiles) {
+    const existingProjection = fs.readFileSync(path.join(uiProjectionOutputDirectory, row.file), "utf8");
+    if (existingProjection !== row.canonical) {
+      throw new Error(`${row.file}: generated UI projection differs from deterministic render`);
+    }
+  }
 } else {
   fs.mkdirSync(outputDirectory, { recursive: true });
+  fs.mkdirSync(uiProjectionOutputDirectory, { recursive: true });
   fs.writeFileSync(jsonOutput, canonicalJson);
   fs.writeFileSync(markdownOutput, canonicalMarkdown);
   fs.writeFileSync(auditOutput, canonicalAudit);
+  fs.writeFileSync(path.join(uiProjectionOutputDirectory, "manifest.json"), canonicalUiManifest);
+  for (const row of uiProjectFiles) {
+    fs.writeFileSync(path.join(uiProjectionOutputDirectory, row.file), row.canonical);
+  }
 }
 if (!audit.ok) throw new Error(`self-contained audit failed: ${JSON.stringify(audit.summary.failingProjects)}`);
 console.log(JSON.stringify({
@@ -2542,6 +2734,13 @@ console.log(JSON.stringify({
   markdownSha256: sha256(canonicalMarkdown),
   auditOutput,
   auditSha256: sha256(canonicalAudit),
+  uiProjectionOutputDirectory,
+  uiProjectionManifestSha256: sha256(canonicalUiManifest),
+  uiProjectionProjectFiles: uiProjectFiles.map((item: any) => {
+    const { canonical, ...row } = item;
+    void canonical;
+    return row;
+  }),
   projects: projects.length,
   slotsPerProject: 103,
   totalSlots: projects.length * 103,

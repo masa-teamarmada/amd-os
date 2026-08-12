@@ -1745,8 +1745,17 @@ assert.match(apiRouteSource, /\bbzm21,\s*\n/);
 assert.match(scoreDetailSource, /bzm21:\s*Bzm21PolicyModelLedger/);
 assert.match(
   scoreDetailSource,
-  /<Bzm21DynamicPolicyObservatory model=\{state\.payload\.bzm21\} displayMode="primary" \/>/,
+  /<Bzm21DynamicPolicyObservatory model=\{payload\.bzm21\} displayMode="archive" \/>/,
 );
+assert.match(
+  scoreDetailSource,
+  /<Bzm22ProvisionalObservatory[\s\S]*data-testid="score-model-archives"/,
+);
+assert.match(
+  scoreDetailSource,
+  /if \(!active \|\| archiveRequestedProjectId !== projectId\) return;/,
+);
+assert.match(scoreDetailSource, /\{open \? <div[\s\S]*\{children\}[\s\S]*: null\}/);
 assert.match(observatorySource, /BZM21_OBJECTIVE_KINDS\.flatMap/);
 assert.match(observatorySource, /\["fixed_baseline", "optimized"\]/);
 assert.match(observatorySource, /value === null \|\| value === undefined \|\| !Number\.isFinite\(value\)\) return "欠測"/);

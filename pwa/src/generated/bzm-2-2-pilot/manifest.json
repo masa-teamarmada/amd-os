@@ -1,0 +1,102 @@
+{
+  "schemaVersion": "bzm2.2-pilot-ui-manifest/v1",
+  "artifactSha256": "e208c8ca6c405fd6fbd0581cb8abfb25650ac7a6b79988cb9de1eda283e85c01",
+  "projects": [
+    {
+      "projectId": "p03",
+      "projectName": "ティエム",
+      "file": "p03.json",
+      "parameterCount": 103,
+      "bytes": 242528,
+      "sha256": "63bf3a54fd492776d8bf3b9db0c981ee5e985e1287496b62a490d609eb9df9ef"
+    },
+    {
+      "projectId": "p04",
+      "projectName": "輝翠TECH",
+      "file": "p04.json",
+      "parameterCount": 103,
+      "bytes": 231682,
+      "sha256": "8f61e1692007170697ce9de50aa696a3cacfdf750110adcf61f12f6775c68248"
+    },
+    {
+      "projectId": "p06",
+      "projectName": "CrestecBio",
+      "file": "p06.json",
+      "parameterCount": 103,
+      "bytes": 251427,
+      "sha256": "54ff67c478a6ac50919d5b6fd2be1a609522befba995892183974616220e99e4"
+    },
+    {
+      "projectId": "p07",
+      "projectName": "LST",
+      "file": "p07.json",
+      "parameterCount": 103,
+      "bytes": 356730,
+      "sha256": "9d805631ee5298581b6154591e07e45ada1d3e5f2ce6b06f390c86ebbd76567c"
+    },
+    {
+      "projectId": "p09",
+      "projectName": "JOYCLE",
+      "file": "p09.json",
+      "parameterCount": 103,
+      "bytes": 235957,
+      "sha256": "41174aaa6fefdb8c308818f41d1fbffe3ce16c04fe25845f7ea1a1c8d5c86dec"
+    },
+    {
+      "projectId": "p11",
+      "projectName": "BWE",
+      "file": "p11.json",
+      "parameterCount": 103,
+      "bytes": 243707,
+      "sha256": "b3cdead9534547acb4c543a89ea5e3ed0233484062021ca5998a7aa517860d45"
+    },
+    {
+      "projectId": "p18",
+      "projectName": "Yellow Duck",
+      "file": "p18.json",
+      "parameterCount": 103,
+      "bytes": 181688,
+      "sha256": "90e4f419da71f1305a87bd2fdc177f05fb73973c5396f05e42cdd056f43da088"
+    },
+    {
+      "projectId": "p20",
+      "projectName": "CryoX",
+      "file": "p20.json",
+      "parameterCount": 103,
+      "bytes": 272889,
+      "sha256": "cd151acdd4aae8c580c3659ab5585acd437d10563067b51b457038298590ace0"
+    },
+    {
+      "projectId": "p21",
+      "projectName": "SX",
+      "file": "p21.json",
+      "parameterCount": 103,
+      "bytes": 250055,
+      "sha256": "5bf0a6a9cd6618c284db7ffdcf128b9bd87a88a40b679c01cf2648dc4a0479b4"
+    },
+    {
+      "projectId": "p24",
+      "projectName": "チャレナジー",
+      "file": "p24.json",
+      "parameterCount": 103,
+      "bytes": 253696,
+      "sha256": "d805f309f11c042d99662b5e48c4ef27b4066d2a3e409cb89a1fcb9f89f50bb6"
+    },
+    {
+      "projectId": "p26",
+      "projectName": "VasculaX",
+      "file": "p26.json",
+      "parameterCount": 103,
+      "bytes": 244518,
+      "sha256": "be96577cd8e44f61803193f1f553648282c48e86bffc2ec33fb07fa7ad08e624"
+    },
+    {
+      "projectId": "p29",
+      "projectName": "KENQ",
+      "file": "p29.json",
+      "parameterCount": 103,
+      "bytes": 239477,
+      "sha256": "985cebdc41fd50eb4717f914557baf07b216e11cfebfae4055f235231e0fa630"
+    }
+  ]
+}

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Bzm21DynamicPolicyObservatory } from "@/components/cockpit/Bzm21DynamicPolicyObservatory";
+import { Bzm22ProvisionalObservatory } from "@/components/cockpit/Bzm22ProvisionalObservatory";
 import { Bzm2ModelObservatory } from "@/components/cockpit/Bzm2ModelObservatory";
 import { AmdScoreView } from "@/components/venture-map/AmdScoreView";
 import type { AlphaWeights } from "@/lib/amd-score";
@@ -42,25 +43,23 @@ interface SpsPrimaryModelState {
 }
 
 type LoadState =
-  | { status: "loading"; projectId: string; payload?: null; error?: null }
-  | { status: "ready"; projectId: string; payload: AmdScoreDetailPayload; fetchedAt: number; error?: null }
-  | { status: "error"; projectId: string; payload?: null; error: string };
+  | { status: "idle"; projectId: string }
+  | { status: "loading"; projectId: string }
+  | { status: "ready"; projectId: string; payload: AmdScoreDetailPayload; fetchedAt: number }
+  | { status: "error"; projectId: string; error: string };
 
-// Primary切替を5分間古い表示に固定しない。短時間のタブ往復だけ再利用する。
 const SCORE_DETAIL_CACHE_TTL_MS = 15 * 1000;
-
 const scoreDetailCache = new Map<string, { payload: AmdScoreDetailPayload; fetchedAt: number }>();
 const scoreDetailRequests = new Map<string, Promise<{ payload: AmdScoreDetailPayload; fetchedAt: number }>>();
 
 function getFreshScoreDetail(projectId: string) {
   const cached = scoreDetailCache.get(projectId);
-  if (!cached) return null;
-  if (Date.now() - cached.fetchedAt > SCORE_DETAIL_CACHE_TTL_MS) return null;
+  if (!cached || Date.now() - cached.fetchedAt > SCORE_DETAIL_CACHE_TTL_MS) return null;
   return cached;
 }
 
-function fetchScoreDetail(projectId: string, options?: { force?: boolean }) {
-  const fresh = options?.force ? null : getFreshScoreDetail(projectId);
+function fetchScoreDetail(projectId: string) {
+  const fresh = getFreshScoreDetail(projectId);
   if (fresh) return Promise.resolve(fresh);
 
   const existing = scoreDetailRequests.get(projectId);
@@ -69,11 +68,9 @@ function fetchScoreDetail(projectId: string, options?: { force?: boolean }) {
   const request = fetch(`/api/project/${encodeURIComponent(projectId)}/amd-score-detail`, {
     cache: "no-store",
   })
-    .then(async (res) => {
-      const json = await res.json().catch(() => null);
-      if (!res.ok) {
-        throw new Error(json?.error || "AMD Score 詳細の取得に失敗");
-      }
+    .then(async (response) => {
+      const json = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(json?.error || "旧スコア詳細の取得に失敗");
       const entry = { payload: json as AmdScoreDetailPayload, fetchedAt: Date.now() };
       scoreDetailCache.set(projectId, entry);
       return entry;
@@ -86,16 +83,6 @@ function fetchScoreDetail(projectId: string, options?: { force?: boolean }) {
   return request;
 }
 
-const UNAVAILABLE_PRIMARY: SpsPrimaryModelState = {
-  storageState: "unavailable",
-  primaryModel: "legacy_sps",
-  switchStatus: "not_registered",
-  activeBzm21RevisionId: null,
-  switchedAt: null,
-  rollbackNote: null,
-  legacyArchive: null,
-};
-
 function formatArchiveDate(value: string | null | undefined) {
   if (!value) return "未登録";
   const date = new Date(value);
@@ -107,27 +94,6 @@ function formatArchiveDate(value: string | null | undefined) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
-}
-
-function LegacyScoreStack({ payload }: { payload: AmdScoreDetailPayload }) {
-  return (
-    <div className="min-w-0 space-y-4">
-      <Bzm2ModelObservatory model={payload.bzm2} />
-      <div className="border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] leading-4 text-slate-600">
-        <div className="font-semibold text-slate-800">旧・現行運用SPS（9軸）</div>
-        <div>旧M・P・R・S診断。SPS 2.1の円価値、到達見込み、選択方針とは尺度を混ぜない。</div>
-      </div>
-      <AmdScoreView
-        venture={payload.venture}
-        inputs={payload.inputs}
-        initialAlpha={payload.initialAlpha}
-        latestXrlLog={payload.latestXrlLog}
-        atlasMacroSignals={payload.atlasMacroSignals}
-        tripleHelix={payload.tripleHelix}
-        embedded
-      />
-    </div>
-  );
 }
 
 function ArchiveMetadata({ primary }: { primary: SpsPrimaryModelState }) {
@@ -153,6 +119,94 @@ function ArchiveMetadata({ primary }: { primary: SpsPrimaryModelState }) {
   );
 }
 
+function LazyArchiveDisclosure({
+  title,
+  summary,
+  onFirstOpen,
+  children,
+}: {
+  title: string;
+  summary: string;
+  onFirstOpen: () => void;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <details
+      open={open}
+      onToggle={(event) => {
+        const nextOpen = event.currentTarget.open;
+        setOpen(nextOpen);
+        if (nextOpen) onFirstOpen();
+      }}
+      className="min-w-0 overflow-hidden border border-[#c9c2b5] bg-white"
+    >
+      <summary className="grid min-h-11 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-center gap-3 bg-[#eeeae2] px-3 py-2 hover:bg-[#e8e2d8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#675f52] marker:content-none">
+        <span className="min-w-0">
+          <span className="text-[11px] font-semibold text-[#514b42]">{title}</span>
+          <span className="ml-2 text-[9px] text-[#776f63]">{summary}</span>
+        </span>
+        <span className="text-[9px] text-[#776f63]">{open ? "閉じる⌃" : "開く⌄"}</span>
+      </summary>
+      {open ? <div className="min-w-0 border-t border-[#d8d3c9]">{children}</div> : null}
+    </details>
+  );
+}
+
+function ArchiveLoadBoundary({
+  state,
+  projectId,
+  children,
+}: {
+  state: LoadState;
+  projectId: string;
+  children: (payload: AmdScoreDetailPayload) => ReactNode;
+}) {
+  if (state.projectId !== projectId) {
+    return <div className="grid min-h-28 place-items-center px-3 text-[10px] text-slate-500">PJを切り替え中…</div>;
+  }
+  if (state.status === "idle" || state.status === "loading") {
+    return <div className="grid min-h-28 place-items-center px-3 text-[10px] text-slate-500">旧モデルを読み込み中…</div>;
+  }
+  if (state.status === "error") {
+    return (
+      <div className="border border-red-200 bg-red-50 px-3 py-3 text-[10px] leading-4 text-red-800">
+        {state.error}。BZM 2.2の値へ置き換えず、旧モデルだけを欠測として止める。
+      </div>
+    );
+  }
+  return <>{children(state.payload)}</>;
+}
+
+function CurrentSpsArchive({ payload }: { payload: AmdScoreDetailPayload }) {
+  const primary = payload.spsPrimary;
+  const sps21IsPrimary =
+    primary.storageState === "available" &&
+    primary.primaryModel === "sps_2_1" &&
+    primary.switchStatus === "active";
+  const exactRevisionLoaded =
+    Boolean(primary.activeBzm21RevisionId) &&
+    payload.bzm21.currentRevision?.revisionId === primary.activeBzm21RevisionId;
+
+  if (sps21IsPrimary && !exactRevisionLoaded) {
+    return (
+      <div className="border border-orange-200 bg-orange-50 px-3 py-3 text-[10px] leading-4 text-orange-900">
+        <div className="font-semibold">SPS 2.1のレジストリ指定版を正確に読み出せていない</div>
+        <div>別版を現行運用値として表示せず、指定版を読み直すまで抑止する。</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-w-0 space-y-2 p-2 sm:p-3">
+      <div className="border border-slate-200 bg-slate-50 px-3 py-2 text-[9px] leading-4 text-slate-600">
+        OSの運用レジストリは {sps21IsPrimary ? "SPS 2.1 active" : `${primary.primaryModel} / ${primary.switchStatus}`}。ここではBZM 2.2暫定値と混ぜず、比較用の旧モデルとして表示する。
+      </div>
+      <Bzm21DynamicPolicyObservatory model={payload.bzm21} displayMode="archive" />
+    </div>
+  );
+}
+
 export function CockpitAmdScoreDetailTab({
   projectId,
   active = true,
@@ -160,141 +214,97 @@ export function CockpitAmdScoreDetailTab({
   projectId: string;
   active?: boolean;
 }) {
-  const [state, setState] = useState<LoadState>(() => {
+  const [archiveRequestedProjectId, setArchiveRequestedProjectId] = useState<string | null>(null);
+  const [archiveState, setArchiveState] = useState<LoadState>(() => {
     const cached = getFreshScoreDetail(projectId);
     return cached
       ? { status: "ready", projectId, payload: cached.payload, fetchedAt: cached.fetchedAt }
-      : { status: "loading", projectId };
+      : { status: "idle", projectId };
   });
 
   useEffect(() => {
+    if (!active || archiveRequestedProjectId !== projectId) return;
     let cancelled = false;
-
     fetchScoreDetail(projectId)
       .then((entry) => {
-        if (cancelled) return;
-        setState({ status: "ready", projectId, payload: entry.payload, fetchedAt: entry.fetchedAt });
+        if (!cancelled) {
+          setArchiveState({ status: "ready", projectId, payload: entry.payload, fetchedAt: entry.fetchedAt });
+        }
       })
-      .catch((err) => {
-        if (cancelled) return;
-        setState({
-          status: "error",
-          projectId,
-          error: err instanceof Error ? err.message : "AMD Score 詳細の取得に失敗",
-        });
+      .catch((error) => {
+        if (!cancelled) {
+          setArchiveState({
+            status: "error",
+            projectId,
+            error: error instanceof Error ? error.message : "旧スコア詳細の取得に失敗",
+          });
+        }
       });
-
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [active, archiveRequestedProjectId, projectId]);
 
-  useEffect(() => {
-    if (!active || state.projectId !== projectId || state.status !== "ready") return;
-    if (Date.now() - state.fetchedAt <= SCORE_DETAIL_CACHE_TTL_MS) return;
-
-    let cancelled = false;
-    fetchScoreDetail(projectId, { force: true })
-      .then((entry) => {
-        if (cancelled) return;
-        setState({ status: "ready", projectId, payload: entry.payload, fetchedAt: entry.fetchedAt });
-      })
-      .catch(() => {
-        // Keep the last visible score detail if background refresh fails.
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [active, projectId, state]);
-
-  if (state.projectId !== projectId || state.status === "loading") {
-    return (
-      <div className="grid min-h-[220px] place-items-center rounded-xl border border-[#e5e5e7] bg-white text-[12px] text-muted-foreground">
-        スコア詳細を読み込み中…
-      </div>
-    );
-  }
-
-  if (state.status === "error") {
-    return (
-      <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[12px] text-red-700">
-        {state.error}
-      </div>
-    );
-  }
-
-  const primary = state.payload.spsPrimary ?? UNAVAILABLE_PRIMARY;
-  const sps21IsPrimary =
-    primary.storageState === "available" &&
-    primary.primaryModel === "sps_2_1" &&
-    primary.switchStatus === "active";
-  const exactRevisionLoaded =
-    Boolean(primary.activeBzm21RevisionId) &&
-    state.payload.bzm21.currentRevision?.revisionId === primary.activeBzm21RevisionId;
-
-  if (!sps21IsPrimary) {
-    const reason = primary.switchStatus === "preparing"
-      ? "SPS 2.1は切替準備中。完了するまでは旧SPSを主表示に固定。"
-      : primary.switchStatus === "rolled_back"
-        ? `SPS 2.1はロールバック済み。${primary.rollbackNote ?? "理由未登録"}`
-        : primary.storageState === "unavailable"
-          ? "主表示レジストリを取得できないため、旧SPSへ安全にフォールバック。"
-          : "SPS 2.1はまだ主表示へ登録されていない。";
-    return (
-      <div className="min-w-0 space-y-4">
-        <div className="border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] leading-4 text-amber-900">
-          <div className="font-semibold">現在の主表示: legacy SPS</div>
-          <div>{reason}</div>
-        </div>
-        <LegacyScoreStack payload={state.payload} />
-        <details className="min-w-0 overflow-hidden border border-amber-200 bg-white">
-          <summary className="grid min-h-11 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-center gap-3 bg-amber-50 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-amber-700 sm:min-h-0 marker:content-none">
-            <span className="min-w-0">
-              <span className="text-[11px] font-semibold text-amber-900">SPS 2.1 切替前プレビュー</span>
-              <span className="ml-2 text-[9px] text-amber-700">主値ではない。推定と欠測を確認するための表示。</span>
-            </span>
-            <span className="text-[9px] text-amber-700">開く ›</span>
-          </summary>
-          <div className="border-t border-amber-200 p-2 sm:p-3">
-            <Bzm21DynamicPolicyObservatory model={state.payload.bzm21} displayMode="preview" />
-          </div>
-        </details>
-      </div>
-    );
-  }
+  const requestArchives = () => setArchiveRequestedProjectId(projectId);
 
   return (
-    <div className="min-w-0 space-y-4">
-      {!exactRevisionLoaded ? (
-        <div className="border border-orange-200 bg-orange-50 px-3 py-2 text-[10px] leading-4 text-orange-900">
-          <div className="font-semibold">SPS 2.1の主表示版を正確に読み出せていない</div>
-          <div>レジストリの指定版と画面版が一致するまで値を0にせず、下のSPS 2.1画面を欠測表示にする。</div>
+    <div className="min-w-0 space-y-5">
+      <Bzm22ProvisionalObservatory projectId={projectId} active={active} />
+
+      <section data-testid="score-model-archives" aria-labelledby="score-model-archives-title" className="min-w-0 space-y-2 border-t border-slate-300 pt-4">
+        <div className="px-1">
+          <h2 id="score-model-archives-title" className="text-[11px] font-semibold text-slate-700">旧モデル / 現行運用モデル</h2>
+          <p className="mt-0.5 text-[9px] leading-4 text-slate-500">ページ最下部に分離。初期状態では閉じ、開いたモデルだけを描画する。</p>
         </div>
-      ) : null}
-      {exactRevisionLoaded ? (
-        <Bzm21DynamicPolicyObservatory model={state.payload.bzm21} displayMode="primary" />
-      ) : (
-        <div className="border border-orange-200 bg-orange-50 px-3 py-3 text-[10px] leading-4 text-orange-900">
-          主表示版の値は抑止中。レジストリ指定版を読み直すまで、別版の値をSPS 2.1として表示しない。
-        </div>
-      )}
-      <details className="min-w-0 overflow-hidden border border-[#c9c2b5] bg-white">
-        <summary className="grid min-h-11 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-center gap-3 bg-[#eeeae2] px-3 py-2 hover:bg-[#e8e2d8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#675f52] sm:min-h-0 marker:content-none">
-          <span className="min-w-0">
-            <span className="text-[11px] font-semibold text-[#514b42]">旧SPS / BZM 2.0 アーカイブ</span>
-            <span className="ml-2 text-[9px] text-[#776f63]">旧値は消さず凍結。SPS 2.1へ混ぜない。</span>
-          </span>
-          <span className="flex min-w-0 flex-wrap items-center justify-end gap-3 text-[9px] text-[#776f63]">
-            <span className="hidden break-all sm:inline">{primary.legacyArchive?.snapshotKey ?? "凍結版未取得"}</span>
-            <span>開く ›</span>
-          </span>
-        </summary>
-        <ArchiveMetadata primary={primary} />
-        <div className="min-w-0 space-y-4 border-t border-[#d8d3c9] p-2 sm:p-3">
-          <LegacyScoreStack payload={state.payload} />
-        </div>
-      </details>
+
+        <LazyArchiveDisclosure
+          key={`${projectId}-sps21`}
+          title="現行SPS / BZM 2.1"
+          summary="OS運用レジストリの版。BZM 2.2暫定値とは尺度を混ぜない。"
+          onFirstOpen={requestArchives}
+        >
+          <ArchiveLoadBoundary state={archiveState} projectId={projectId}>
+            {(payload) => <CurrentSpsArchive payload={payload} />}
+          </ArchiveLoadBoundary>
+        </LazyArchiveDisclosure>
+
+        <LazyArchiveDisclosure
+          key={`${projectId}-bzm20`}
+          title="BZM 2.0"
+          summary="過去理論のモデル観測台帳。比較用。"
+          onFirstOpen={requestArchives}
+        >
+          <ArchiveLoadBoundary state={archiveState} projectId={projectId}>
+            {(payload) => <div className="min-w-0 p-2 sm:p-3"><Bzm2ModelObservatory model={payload.bzm2} /></div>}
+          </ArchiveLoadBoundary>
+        </LazyArchiveDisclosure>
+
+        <LazyArchiveDisclosure
+          key={`${projectId}-sps10`}
+          title="SPS 1.0 / Legacy AMD"
+          summary="9軸SPSと旧M×X×F。履歴・根拠確認のため凍結保持。"
+          onFirstOpen={requestArchives}
+        >
+          <ArchiveLoadBoundary state={archiveState} projectId={projectId}>
+            {(payload) => (
+              <div className="min-w-0">
+                <ArchiveMetadata primary={payload.spsPrimary} />
+                <div className="min-w-0 p-2 sm:p-3">
+                  <AmdScoreView
+                    venture={payload.venture}
+                    inputs={payload.inputs}
+                    initialAlpha={payload.initialAlpha}
+                    latestXrlLog={payload.latestXrlLog}
+                    atlasMacroSignals={payload.atlasMacroSignals}
+                    tripleHelix={payload.tripleHelix}
+                    embedded
+                  />
+                </div>
+              </div>
+            )}
+          </ArchiveLoadBoundary>
+        </LazyArchiveDisclosure>
+      </section>
     </div>
   );
 }

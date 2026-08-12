@@ -6,7 +6,7 @@
 
 ## 定義
 
-スコア詳細のprimary modelは`public.sps_primary_model_registry`がPJごとに固定する。`primary_model='sps_2_1' AND switch_status='active'`ではSPS 2.1の会社視点・選択方針を主表示し、従来の9軸診断SPS、BZM 2.0、旧7軸Cobb-Douglas / M-X-Fはarchiveへ折りたたむ。準備中・取得不能・ロールバック時だけ、従来の9軸診断SPSを主表示へフォールバックする。
+スコア詳細の画面上の最上段は、BZM 2.2の`provisional-pilot-v0.1 / unvalidated`を暫定主表示とする。`public.sps_primary_model_registry`は現行運用SPS内の`legacy_sps / sps_2_1`切替だけをPJごとに固定し、BZM 2.2の表示順序や正本地位は切り替えない。現行SPS / BZM 2.1、BZM 2.0、SPS 1.0 / Legacy AMDは画面最下部の独立したアーカイブとし、すべて初期状態を閉じる。アーカイブ内の重いchildは初回openまでmountせず、閉じた`details`内で先読みしない。
 
 > **呼称の正本 (2026-07-11 まさ確定、[`pwa/bzm/terminology_glossary.md`](../bzm/terminology_glossary.md) §1.5)**: 旧称 PRS は廃止済み。SPS は和名「シーズ有望度」の略であって成分の頭字ではないため、4因子化しても名称は壊れず、MPRS への改称は不要 (まさ再確認 2026-07-16)。コード変数 (`calculatePrsScore` / `PrsComponentBreakdown` 等)・DB 列 (`prs_potential` / `prs_r_net`)・テストコマンド (`test:prs-mprs-grouping`) は内部識別子として据え置き、**表示テキスト・文書の呼称のみ SPS を使う**。アーカイブ・過去ログ内の「PRS」は「= 現 SPS」と読む。
 
@@ -66,7 +66,7 @@ M と S を分けた効果は診断にある。旧構造では σ_SU の高さ�
 
 ## BZM 2.0観測台帳
 
-PJコックピットのスコア詳細は、現行運用SPSの前にBZM 2.0観測画面を表示する。
+PJコックピットのスコア詳細は、BZM 2.0観測画面を最下部の初期閉じアーカイブとして表示する。
 
 二つのモデルは式、尺度、検証状態が異なるため、同じスコアとして合算または置換しない。
 
@@ -168,9 +168,9 @@ SXとLST以外で現行SPSを持つ10PJは`measurement_status=data_collection`�
 
 ## BZM 2.1動的方針台帳
 
-PJコックピットのスコア詳細は、`sps_primary_model_registry`を読んで主表示を決める。
+PJコックピットのスコア詳細は、`sps_primary_model_registry`を読んで、下段の「現行SPS / BZM 2.1」内の運用モデルを決める。
 
-`switch_status=active`かつ`primary_model=sps_2_1`ならBZM 2.1を先頭に置き、BZM 2.0と現行運用SPSを旧SPSアーカイブへ折りたたむ。
+`switch_status=active`かつ`primary_model=sps_2_1`なら、その下段アーカイブ内でBZM 2.1を現行運用モデルとする。BZM 2.2の暫定主表示より上には出さない。
 
 未登録、取得不能、`preparing`、`rolled_back`ではlegacyを主表示に保ち、BZM 2.1をpreviewへ置く。
 
@@ -273,7 +273,11 @@ SXのBZM 2.0固定方針下の計画達成診断4.15%は消さず、BZM 2.1の�
 
 状態は`provisional-pilot-v0.1 / unvalidated`、前向き検証は0件とする。
 
-このartifactと監査JSON、生成スクリプト、全パラメータ台帳は、現行PWAのAPI、DB、PJコックピット、primary model registryへ接続しない。
+このartifactのPJ別compact projectionは、read-only API `/api/project/[projectId]/bzm-2-2-pilot`を通じてPJコックピットのスコア詳細へ接続する。payloadは`{ pilot: Bzm22PilotProject }`とし、該当PJがartifact未登録ならBZM 2.2区画だけに明示的な未登録状態を返す。DB、監査JSONの正本、生成スクリプト、`sps_primary_model_registry`は書き換えない。
+
+`Bzm22ProvisionalObservatory`を`data-testid="bzm22-provisional-primary"`の最上段に置き、見出しは「BZM 2.2 暫定主表示」とする。ヘッダーに`unvalidated`、`shadow_only`、前向き検証0件、ランキング・配分・自動判断禁止を隠さず表示する。要約は低位・中央・高位scenarioの`q_gate_product_proxy`、`q_stress_proxy`、$J$、成功条件付き$P$、初回経路喪失を分離し、直下に「全パラメータ台帳」を置く。
+
+全パラメータ台帳は7群の103項目を全件収載し、各行のkey、値、推定状態、確度、根拠・注記、scenario別入力を監査可能にする。群は折りたためるが、検索・表示条件を初期状態へ戻せば全103項目へ到達でき、「全て開く」で同時展開できる。構造化値は形・hash・previewで圧縮しても行を間引かない。desktopは高密度表、mobileは各行のlabel/valueを縦再配置し、ページ全体の水平スクロールを発生させない。
 
 `npm run check:bzm-2-2-all-pj-pilot`は、12 PJ×103パラメータ、型、由来、scenario別計算入力、cash cliff、禁止用途とartifact整合を検査する。
 
@@ -357,12 +361,16 @@ FRL は XRL に飲み込まない。AMD Studio の哲学上、FRL と `sigma_SU`
 | `pwa/src/lib/bzm-2-observatory.ts` | BZM 2.0の必須記号、版、パラメータ履歴を組み立てる純粋契約 |
 | `pwa/src/lib/bzm-2-observatory-data.ts` | BZM 2.0観測台帳のserver-side read。取得不能時は欠測payloadを返す |
 | `pwa/src/components/cockpit/Bzm2ModelObservatory.tsx` | LaTeX数式、現在値、共通状態の影響先、初期折りたたみのq版推移、圧縮表のパラメータ台帳と行内履歴を表示 |
+| `pwa/src/lib/bzm-2-2-pilot-ui.ts` / `bzm-2-2-pilot-ui.server.ts` | PJ別compact projectionの型と、12 PJの静的import map・schema/projectId/103件検査を持つread-only server loader |
+| `pwa/src/generated/bzm-2-2-pilot/*.json` | 巨大artifactから生成したPJ別runtime projection。要約と7群103パラメータを保持する |
+| `pwa/src/app/api/project/[projectId]/bzm-2-2-pilot/route.ts` | PJ membershipを検査し、`{ pilot: Bzm22PilotProject }`をprivate/no-storeで返す。DB writeは行わない |
+| `pwa/src/components/cockpit/Bzm22ProvisionalObservatory.tsx` | BZM 2.2暫定主表示、用途禁止、scenario要約、103項目の全パラメータ台帳を表示する |
 | `pwa/src/lib/bzm-2-1-dynamic-policy.ts` | 単一意思決定主体の固定方針評価と閉じた行動集合内の選択、同じ方針の三視点再評価を行う純粋計算エンジン |
 | `pwa/src/lib/bzm-2-1-policy-model.ts` | BZM 2.1の追記台帳を画面用の版・状態・行動・遷移・方針評価へ組み立てる純粋契約 |
 | `pwa/src/lib/bzm-2-1-policy-model-data.ts` | BZM 2.1台帳のserver-side read。取得不能時はBZM 2.1だけを欠測payloadにする |
 | `pwa/src/lib/bzm-2-1-policy-engine-adapter.ts` | BZM 2.1台帳の状態、行動、遷移、単一CF eventを計算エンジン入力へ変換し、欠測・符号・時点・親子関係の契約違反を計算前に止める |
 | `pwa/src/components/cockpit/Bzm21DynamicPolicyObservatory.tsx` | 固定方針と選択方針、三視点の同一方針評価、欠測・停止理由、折りたたみ判断台帳を高密度表示 |
-| `pwa/src/components/venture-map/AmdScoreView.tsx` | 個別 PJ 詳細。SPS Primary を先頭に出し、legacy AMD / M-X-F を comparison として残す |
+| `pwa/src/components/venture-map/AmdScoreView.tsx` | 下段のSPS 1.0 / Legacy AMDアーカイブで、9軸SPS、R_net、FRL、XRL evidenceとlegacy M-X-F comparisonを残す |
 | `pwa/src/components/venture-map/AmdScoreList.tsx` | 一覧。SPS primary を主表示し、legacy AMD は比較列 |
 | `pwa/src/components/cockpit/*AmdScore*` | cockpit chip / breakdown modal。SPS status を主語にする |
 
@@ -486,7 +494,7 @@ SPS (`M x P x R x S`) を主表示とする。legacy 7軸 AMD Score / M×X×F �
 - SPS missing 時に legacy AMD を primary として見せること
 - 既存7軸の履歴再計算
 
-P/R_net rubric の厳密化と全 PJ の埋め切りは継続レビュー対象だが、UI 上の primary model は SPS とする。
+P/R_net rubric の厳密化と全 PJ の埋め切りは継続レビュー対象である。運用SPSのprimaryはSPSのまま維持するが、score-detail全体の画面最上段はBZM 2.2暫定主表示とし、両者の地位を混同しない。
 
 legacy 値しかない PJ でも、primary を legacy AMD へ戻さない。画面上は SPS review pending とし、legacy は `Legacy AMD comparison` / `legacy M-X-F` / `comparison only` の文脈で表示する。
 
@@ -496,6 +504,8 @@ cockpit の `スコア詳細` embedded view は、次の値をすべて説明可
 
 | UI表示 | 現行の位置づけ | 算出 / 取得元 |
 |---|---|---|
+| `BZM 2.2 暫定主表示` | unvalidated shadow pilot。画面最上段だが運用SPS primaryではない | checked-in pilot artifactのPJ別compact projection |
+| `全パラメータ台帳` | 7群103項目を省略しない監査表 | artifactのparameter ledger。値、推定状態、確度、根拠・注記、scenario別入力 |
 | `SPS Primary` score | 現行 primary | `calculatePrsScore()` の `Score_SPS`。`P` と `R_net` がある時だけ表示 |
 | `INPUT NEEDED` / missing axes | review pending | `missingAxes`。`P` / `R_net` が null または非数なら score は null |
 | `P Potential` | primary input | `amd_score_inputs.prs_potential`。空欄保存は null |
