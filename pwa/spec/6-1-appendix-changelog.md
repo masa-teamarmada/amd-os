@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-08-12 JST | SPEC_pwa / FEATURE_REGISTRY / admin/kiyo | UI変更 | build v3.72.16。3taskを個別の丸角カードgridから、連続する横タブへ変更。`tablist` / `tab` / `tabpanel` の関係と選択下線を持ち、mobileでは44px以上の操作域を保った1行横スクロールにする。埋め込み時は立替精算・請求書・メンバー支払の重複見出しを省き、4/8/12px系の余白へ圧縮する。専用route、write workflow、権限、保存先は不変 | 3taskがタブに見えず、見出しとカード面の重複で月次作業画面の情報密度が低かったため | まさ・えいみ |
 | 2026-08-12 JST | 3-0 / 3-1 / 3-18 L2抽出 | 訂正・一般化 | build v3.72.15 / migration 268。決算書専用D-15を撤回し、5生データとPDF / Word / Excel / PowerPoint / Google文書 / textの共通reader、重要カテゴリ、強いPJ帰属anchor、本文hash重複排除、意味抽出fieldの原文照合、OCR未読statusへ一般化。採用時だけ`project_important_evidence`へ追記し、LSTはPJ固有分岐でなく最初の回帰fixtureとした。27 PJをdry-runし、25 PJでtitle重要候補、PDF/Word/Excel/Google文書の実読、ZMP画像PDFのOCR待ちを確認 | 元依頼は「決算書だけ」でなく、重要データを抽出できないロジック全体の修正であり、Word対象外・PDF本文未接続・決算書条件固定は同種の取りこぼしを残すため | まさ・えいみ |
 | 2026-08-12 JST | SPEC_pwa / FEATURE_REGISTRY / admin/kiyo | 訂正・再設計 | build v3.72.14。AdminSidebar・title・見出しを `きよ` に統一し、read-only横断台帳を廃止。`立替精算 / 請求書 / メンバー支払` の3taskへ既存のwrite可能な作業componentとserver-side guardを埋め込み、`/admin/kiyo` 内で月次経理を完了するcontractへ変更 | 依頼は既存きよページの復活であり名称変更ではなく、確認専用化も「このページですべての作業をする」という運用目的から外れていたため | まさ・えいみ |
 | 2026-08-12 JST | 3-7 Notifications | 本番受入修正 | build v3.72.12。mobileの採否filterを2列化し、card headerの問いと未読/展開操作を縦分離。desktopは従来の横配置を維持 | 390x844本番目視で質問文が数文字単位に折り返され、判断票の読み始めが崩れていたため | えいみ |

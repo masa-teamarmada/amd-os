@@ -62,7 +62,7 @@ function isWithinWorkWindow(c: { ym: string }, project: InvoiceProjectRow) {
   return true;
 }
 
-export default async function AdminInvoicesPage() {
+export default async function AdminInvoicesPage({ embedded = false }: { embedded?: boolean } = {}) {
   const supabase = await createClient();
   const baseYm = currentYm();
   const lastClosedYm = addMonths(baseYm, -1);
@@ -150,13 +150,21 @@ export default async function AdminInvoicesPage() {
 
   return (
     <div>
-      <div className="flex items-baseline gap-3 mb-4">
-        <h1 className="text-lg font-semibold">請求書発行</h1>
-        <span className="text-sm text-muted-foreground">{ymLabel(firstYm)}〜{ymLabel(lastYm)} 稼働分 — {rows.length} 件</span>
-      </div>
-      <p className="text-xs text-muted-foreground mb-3">
-        締め済みで請求額がある稼働分だけを表示し、freee取引先と請求額がそろったものを発行待ちとして freee 発行まで進める。
-      </p>
+      {embedded ? (
+        <p className="mb-2 text-xs leading-relaxed text-muted-foreground">
+          {ymLabel(firstYm)}〜{ymLabel(lastYm)} 稼働分 — {rows.length} 件。締め済みで請求額がある稼働分のみ、freee取引先と請求額がそろったものから発行。
+        </p>
+      ) : (
+        <>
+          <div className="flex items-baseline gap-3 mb-4">
+            <h1 className="text-lg font-semibold">請求書発行</h1>
+            <span className="text-sm text-muted-foreground">{ymLabel(firstYm)}〜{ymLabel(lastYm)} 稼働分 — {rows.length} 件</span>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            締め済みで請求額がある稼働分だけを表示し、freee取引先と請求額がそろったものを発行待ちとして freee 発行まで進める。
+          </p>
+        </>
+      )}
       <AdminInvoiceIssueQueue cycles={rows} targetYm={lastClosedYm} />
     </div>
   );

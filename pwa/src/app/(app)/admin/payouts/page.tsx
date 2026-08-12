@@ -15,7 +15,7 @@ function getRecentYms(n = 6): string[] {
   return result;
 }
 
-export default async function AdminPayoutsPage() {
+export default async function AdminPayoutsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const currentYm = getRecentYms(1)[0];
   const ymOptions = getRecentYms(12);
   let initialData: Awaited<ReturnType<typeof loadTargetData>> | null = null;
@@ -28,13 +28,21 @@ export default async function AdminPayoutsPage() {
 
   return (
     <div>
-      <div className="flex items-baseline gap-3 mb-1">
-        <h1 className="text-lg font-semibold">Payouts</h1>
-        <span className="text-sm text-muted-foreground">支払管理 — {currentYm}</span>
-      </div>
-      <p className="text-xs text-muted-foreground mb-4">
-        支払月ベースで報酬確定済みcycleを集約し、支払明細とメンバー別通知額を保存する。
-      </p>
+      {embedded ? (
+        <p className="mb-2 text-xs leading-relaxed text-muted-foreground">
+          支払月ベースで報酬確定済みcycleを集約 — {currentYm}。支払明細とメンバー別通知額を保存する。
+        </p>
+      ) : (
+        <>
+          <div className="flex items-baseline gap-3 mb-1">
+            <h1 className="text-lg font-semibold">Payouts</h1>
+            <span className="text-sm text-muted-foreground">支払管理 — {currentYm}</span>
+          </div>
+          <p className="text-xs text-muted-foreground mb-4">
+            支払月ベースで報酬確定済みcycleを集約し、支払明細とメンバー別通知額を保存する。
+          </p>
+        </>
+      )}
       <AdminPayoutsClient initialYm={currentYm} ymOptions={ymOptions} initialData={initialData} />
     </div>
   );

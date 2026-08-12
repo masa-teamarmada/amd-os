@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-08-12 JST | 2-6 Admin Ops / admin/kiyo | UI変更 | build v3.72.16。3taskの切替UIを丸角カードgridから横並びタブ (`role="tablist"`/`role="tab"`/`aria-selected`、下線+weightで選択状態、角丸ゼロ・影なし・border-only) へ変更。`AdminInvoicesPage` / `AdminPayoutsPage` に `ReimburseWorkspace` と同じ `embedded` propを追加し、きよ内では重複見出しを省いて用途文1行にした。見出し・タブ・埋め込み作業面の余白を4/8/12px系に圧縮。専用route (`/reimburse` / `/admin/invoices` / `/admin/payouts`) の表示・write workflow・権限・URLは不変 | まさ指摘: 3カードはタブに見えず情報密度も低い。dense operations UIへ寄せる依頼 | まさ・えいみ |
 | 2026-08-12 JST | 3-2 データと抽出 / 8-3 抽出routine | 訂正・一般化 | build v3.72.15 / migration 268。重要情報の入口を決算書専用から、5生データとPDF・Word・Excel・PowerPoint・Google文書を読む共通処理へ変更。決算、会社運営、契約、資金、補助金、技術、計画、リスク、期限を同じ候補経路で扱い、同一内容、所在、版、項目別根拠、OCR待ちを保持する。LSTは特別扱いせず最初の再現テストとした | 重要データ全体の抽出漏れを直す依頼に対し、決算書と一部形式だけを見る説明では実装意図を満たさないため | まさ・えいみ |
 | 2026-08-12 JST | 2-6 Admin Ops / admin/kiyo | 訂正・再設計 | build v3.72.14。画面名を `きよ` へ戻し、確認専用台帳を廃止。立替精算、請求書、メンバー支払の既存作業componentを `/admin/kiyo?task=...` の3taskとして埋め込み、申請・承認・発行・取消・通知書PDF・送付・nudgeまで同じURLで実行可能にした | きよがこのページで月次経理を完了する主旨に対し、名称変更とread-only化が役割を失わせていたため | まさ・えいみ |
 | 2026-08-12 JST | 3-3 通知・つくよみ | 本番受入修正 | build v3.72.12。390px幅では採否フィルタを2列、通知見出しと未読操作を2段へ切り替え、質問文を数文字ずつ縦割れさせず読めるようにした | v3.72.11の本番スマホ目視で、右操作が見出し幅を圧迫して最終判断の問いが読みにくかったため | えいみ |

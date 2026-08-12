@@ -370,9 +370,10 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 回帰防止:
 
-- `test:admin-kiyo` が3task、3つの既存作業UI、`きよ` の名称、`読み取り専用` の不在を検査する。
+- `test:admin-kiyo` が3task、3つの既存作業UI、`きよ` の名称、`読み取り専用` の不在、tablist/tab/aria-selected、丸角カードgridへの回帰禁止、4/8/12px系の余白を検査する。
 - `test:surface-catalog-contract` がAdminSidebarの `きよ` と `/admin/kiyo` を検査する。
 - 3つのtaskを状態一覧やリンクだけへ縮退させない。専用画面にある主操作を `/admin/kiyo` でも同じcomponentで使えることを必須とする。
+- 3taskの切替UIは横並びタブ（`role="tablist"`/`role="tab"`/`aria-selected`、下線・weight・控えめな面差で選択状態を示す、角丸ゼロ〜最小、影なし、border-only）。丸角個別カード（`rounded-lg` な3カードgrid）へ戻さない。PCは1行横並び、mobileはタップ領域44px以上を保った横スクロール1行タブにする。`AdminInvoicesPage` / `AdminPayoutsPage` は `embedded` propで自身の重複見出しを省き、きよ内では密な余白（4/8/12px系）で表示する。専用route側の表示・write workflow・権限・URLは変えない。
 
 ## /admin/season-pl
 

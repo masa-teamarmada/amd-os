@@ -46,42 +46,48 @@ export default async function AdminKiyoPage({
 
   return (
     <div className="mx-auto w-full max-w-[1600px]">
-      <header className="mb-5">
+      <header className="mb-2">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">きよ</h1>
-        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+        <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
           月次経理の処理をここで完了する。立替精算、請求書、メンバー支払を作業順に進めてね。
         </p>
       </header>
 
-      <nav aria-label="きよの月次経理" className="mb-6 grid gap-2 sm:grid-cols-3">
+      <div role="tablist" aria-label="きよの月次経理" className="mb-3 flex items-stretch overflow-x-auto border-b border-border">
         {KIYO_TASKS.map((task) => {
           const selected = task.id === activeTask;
           return (
             <Link
               key={task.id}
+              id={`kiyo-tab-${task.id}`}
               href={`/admin/kiyo?task=${task.id}`}
+              role="tab"
+              aria-selected={selected}
               aria-current={selected ? "page" : undefined}
+              aria-controls={`kiyo-panel-${task.id}`}
               className={cn(
-                "group min-h-16 rounded-lg border px-4 py-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 selected
-                  ? "border-foreground/25 bg-accent text-accent-foreground"
-                  : "border-border bg-background text-foreground hover:bg-accent/50",
+                  ? "border-foreground text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
-              <span className="flex items-baseline gap-2">
-                <span className="font-mono text-[11px] text-muted-foreground">{task.step}</span>
-                <span className="text-sm font-semibold">{task.label}</span>
-              </span>
-              <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{task.description}</span>
+              <span className="font-mono text-[11px] text-muted-foreground">{task.step}</span>
+              <span className={cn("text-sm", selected ? "font-semibold" : "font-medium")}>{task.label}</span>
+              <span className="hidden text-xs text-muted-foreground sm:inline">{task.description}</span>
             </Link>
           );
         })}
-      </nav>
+      </div>
 
-      <section aria-label={KIYO_TASKS.find((task) => task.id === activeTask)?.label}>
+      <section
+        id={`kiyo-panel-${activeTask}`}
+        role="tabpanel"
+        aria-labelledby={`kiyo-tab-${activeTask}`}
+      >
         {activeTask === "reimbursements" ? <ReimburseWorkspace embedded /> : null}
-        {activeTask === "invoices" ? <AdminInvoicesPage /> : null}
-        {activeTask === "payouts" ? <AdminPayoutsPage /> : null}
+        {activeTask === "invoices" ? <AdminInvoicesPage embedded /> : null}
+        {activeTask === "payouts" ? <AdminPayoutsPage embedded /> : null}
       </section>
     </div>
   );

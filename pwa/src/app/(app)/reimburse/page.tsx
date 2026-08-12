@@ -357,21 +357,32 @@ export function ReimburseWorkspace({ embedded = false }: { embedded?: boolean })
   })();
 
   return (
-    <div className={embedded ? "space-y-5" : "mx-auto max-w-6xl space-y-5 p-5"}>
-      <header className="border border-border bg-card p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Reimbursement</p>
-            <h1 className="mt-1 text-xl font-semibold text-foreground">立替精算</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-              申請は submitted、PM承認で pmApproved、admin承認で approved。請求書発行時は approved の立替だけが明細に入る。
-            </p>
-          </div>
-          <button type="button" onClick={() => void loadData()} className="border border-border px-3 py-2 text-xs font-medium hover:bg-muted" disabled={loading}>
+    <div className={embedded ? "space-y-3" : "mx-auto max-w-6xl space-y-5 p-5"}>
+      {embedded ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-2">
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            申請は submitted、PM承認で pmApproved、admin承認で approved。請求書発行時は approved の立替だけが明細に入る。
+          </p>
+          <button type="button" onClick={() => void loadData()} className="border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted" disabled={loading}>
             再読み込み
           </button>
         </div>
-      </header>
+      ) : (
+        <header className="border border-border bg-card p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Reimbursement</p>
+              <h1 className="mt-1 text-xl font-semibold text-foreground">立替精算</h1>
+              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+                申請は submitted、PM承認で pmApproved、admin承認で approved。請求書発行時は approved の立替だけが明細に入る。
+              </p>
+            </div>
+            <button type="button" onClick={() => void loadData()} className="border border-border px-3 py-2 text-xs font-medium hover:bg-muted" disabled={loading}>
+              再読み込み
+            </button>
+          </div>
+        </header>
+      )}
 
       {(error || message) && (
         <div className={`border px-3 py-2 text-sm ${error ? "border-destructive/40 bg-destructive/8 text-destructive" : "border-emerald-500/30 bg-emerald-500/8 text-emerald-700"}`}>
