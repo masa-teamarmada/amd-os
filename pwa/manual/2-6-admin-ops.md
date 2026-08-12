@@ -14,6 +14,22 @@ adminメニューは追加順ではなく、`組織・権限`、`契約・お金
 
 mobileではメニュー、戻る、閉じる、各画面リンクの操作領域を44px以上にする。
 
+## admin/kiyo (= きよの月次経理作業台)
+
+URL: `/admin/kiyo`
+
+### 何をする画面か
+
+きよが月次経理をこのURLで完了する主入口。画面名は `きよ`。
+
+1. `立替精算`: 申請・編集、PM承認・差戻し、admin承認・却下
+2. `請求書`: 発行前確認、freee取引先設定、請求書発行、発行取消
+3. `メンバー支払`: 報酬確認、支払通知書発行、PDF確認、送付、入金確認nudge
+
+上の3taskは `/admin/kiyo?task=...` で切り替わる。専用画面へのリンクではなく、`/reimburse`、`/admin/invoices`、`/admin/payouts` の現行作業componentを同じページ内に埋め込む。そのため処理内容、権限、保存先、server-side guardは各専用画面と一致する。
+
+「読み取り専用」の状態一覧には戻さない。確認したあと別画面を探す運用も作らない。
+
 ## admin/weekly (= 週次活動 × 月次報酬マトリクス)
 
 URL: `/admin/weekly`
@@ -279,6 +295,7 @@ OS 上の PM 月次ルーティンは廃止済み。報告書確認の軽い連�
 
 ```text
 admin
+  /admin/kiyo      -> きよが立替・請求書・メンバー支払を完了する主入口
   /admin/projects  -> PJ 台帳・支払条件・月次予算
   /admin/invoices  -> SU x 月の請求書発行・送付・立替・入金状態
   /admin/payouts   -> AMD から SU への支払通知書

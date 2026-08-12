@@ -1,47 +1,23 @@
 import assert from "node:assert/strict";
-import { buildKiyoOverviewRows } from "../src/lib/admin-kiyo.ts";
+import fs from "node:fs";
 
-const projects = [
-  { project_id: "p1", project_name: "Active A", status: "active" },
-  { project_id: "p2", project_name: "Active B", status: "active" },
-  { project_id: "p3", project_name: "Ended", status: "ended" },
-];
+const kiyoPage = fs.readFileSync(new URL("../src/app/(app)/admin/kiyo/page.tsx", import.meta.url), "utf8");
+const reimbursePage = fs.readFileSync(new URL("../src/app/(app)/reimburse/page.tsx", import.meta.url), "utf8");
+const catalog = fs.readFileSync(new URL("../src/lib/surface-catalog.ts", import.meta.url), "utf8");
 
-const rows = buildKiyoOverviewRows({
-  projects,
-  payoutCycles: [{ project_id: "p1", reward_summary_json: { members: [] } }, { project_id: "p2", reward_summary_json: null }],
-  payoutEntries: [{ project_id: "p1", total_pay: 120000 }],
-  billingCycles: [
-    { project_id: "p1", invoice_sent_at: "2026-08-10T01:00:00Z", invoice_sent_by: "other@example.com" },
-    { project_id: "p2", invoice_sent_at: "2026-08-11T01:00:00Z", invoice_sent_by: null },
-  ],
-  billingLogs: [
-    { project_id: "p1", action: "invoice_sent", actor: "keiri@team-armada.jp" },
-    { project_id: "p2", action: "budget_approved", actor: "keiri@team-armada.jp" },
-  ],
-  reimbursements: [
-    { reimbursement_id: "r1", project_id: "p1", status: "approved" },
-    { reimbursement_id: "r2", project_id: "p1", status: "submitted" },
-  ],
-  availability: { payout: true, billing: true, billingLogs: true, reimbursements: true },
-});
+assert.match(kiyoPage, /absolute: "きよ - AMD OS"/, "page titleは『きよ』に固定する");
+assert.match(kiyoPage, />きよ<\/h1>/, "画面見出しは『きよ』に固定する");
+assert.doesNotMatch(kiyoPage, /読み取り専用|read-only/, "きよを確認専用画面へ戻さない");
 
-assert.deepEqual(rows.map((row) => row.projectId), ["p1", "p2"], "active PJだけを表示する");
-assert.equal(rows[0].payout.amountYen, 120000, "payoutsの確定entryをPJ別に集計する");
-assert.equal(rows[0].reimbursement.label, "要対応 1件", "未完了立替を完了扱いにしない");
-assert.equal(rows[0].invoice.label, "経理確認", "請求書送付actionと経理actorの証跡で経理確認にする");
-assert.equal(rows[1].payout.label, "未取得", "reward summary欠測を0円にしない");
-assert.equal(rows[1].invoice.label, "要確認", "無関係な経理actorログを送付証跡にしない");
+for (const task of ["reimbursements", "invoices", "payouts"]) {
+  assert.match(kiyoPage, new RegExp(`id: "${task}"`), `${task} taskをきよに置く`);
+  assert.match(kiyoPage, new RegExp(`/admin/kiyo\\?task=\\$\\{task\\.id\\}`), "task切替後も/admin/kiyoに留まる");
+}
 
-const unavailable = buildKiyoOverviewRows({
-  projects: [projects[0]], payoutCycles: [], payoutEntries: [],
-  billingCycles: [{ project_id: "p1", invoice_sent_at: "2026-08-10T01:00:00Z" }],
-  billingLogs: [], reimbursements: [],
-  availability: { payout: false, billing: true, billingLogs: false, reimbursements: false },
-})[0];
+assert.match(kiyoPage, /<ReimburseWorkspace embedded \/>/, "立替の申請・承認UIをきよへ埋め込む");
+assert.match(kiyoPage, /<AdminInvoicesPage \/>/, "請求書の発行UIをきよへ埋め込む");
+assert.match(kiyoPage, /<AdminPayoutsPage \/>/, "メンバー支払の通知書発行・送付UIをきよへ埋め込む");
+assert.match(reimbursePage, /embedded = false/, "立替画面は埋め込み時も同じwrite workflowを使う");
+assert.match(catalog, /id: "admin-kiyo"[^\n]*title: "きよ"[^\n]*navLabel: "きよ"/, "adminメニュー名を『きよ』に固定する");
 
-assert.equal(unavailable.payout.label, "取得失敗", "支払取得失敗を0円にしない");
-assert.equal(unavailable.reimbursement.label, "取得失敗", "立替取得失敗を対象なしにしない");
-assert.equal(unavailable.invoice.label, "証跡未取得", "log取得失敗を要確認に確定しない");
-
-console.log("admin kiyo contract: ok");
+console.log("admin kiyo workspace contract: ok");

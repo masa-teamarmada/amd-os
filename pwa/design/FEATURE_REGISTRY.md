@@ -247,24 +247,6 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - `pwa/scripts/check_pwa_critical_ui.cjs` が台帳の最低幅、PJ → 契約名の列順、2列の固定表示、AMD当事者境界、1契約1行、実務条件モーダル、PJコックピット反映の実装アンカーを検査する。
 - 表示境界を変える時は、`/spec/5-6` と manual 6-7 を同時に更新する。
 
-## /admin/kiyo
-
-目的: きよがactive PJの月次経理状態を、書込みを伴わず一画面で確認する。
-
-必須機能:
-
-- 左メニュー導線: AdminSidebar の「契約・お金」に `きよ月次経理` と `/admin/kiyo` を置く。
-- PJ範囲: `projects.status='active'` だけ。終了・凍結PJを混ぜない。
-- メンバー支払: `/admin/payouts` と同じ支払月集計を読み取り専用で使う。集計未取得を0円にしない。
-- 立替精算: 当月日付または当月請求対象の `reimbursements` をPJ別に集約し、未完了件数を完了扱いにしない。
-- 請求書送付: `billing_cycles.invoice_sent_at` を送付済み判定に使う。`invoice_sent_by` または請求書送付の `billing_log` に `keiri@team-armada.jp` の証跡がある場合だけ `経理確認` とし、送付済みでも経理証跡が無ければ `要確認` とする。
-- 安全境界: 支払保存、PDF生成、メール送信、立替承認、請求送付などのwrite actionを置かない。取得失敗や証跡欠測を0件・完了へ置き換えない。
-
-回帰防止:
-
-- `test:surface-catalog-contract` がrouteと左メニュー登録を検査する。
-- `test:admin-kiyo` がactive PJ限定、支払欠測、立替未完了、経理証跡の判定を検査する。
-
 ## /admin/invoices
 
 目的: admin/きよが、締め済み稼働月の請求書発行を上から処理する。旧 `/admin/billing` は廃止済みで、互換のため `/admin/invoices` へ redirect する。
@@ -375,21 +357,22 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 ## /admin/kiyo
 
-目的: きよ向けに、active PJ の月次の支払・立替精算・請求書送付確認を 1 画面で横断確認する read-only 台帳。
+目的: きよが月次経理の立替精算、請求書、メンバー支払を `/admin/kiyo` から離れず完了する作業台。
 
 必須機能:
 
-- 月選択: `ym=YYYYMM` で対象月を選ぶ。未指定時は JST の当月。
-- メンバー支払額: `/admin/payouts` と同じ `loadTargetData(ym, { includeAgreementGate: false })` を使い、`expectedEntries` のうち active PJ の明細だけをメンバー別・PJ別に集計する。表示のために `syncRewardSummariesForBillingCycles()` を走らせない。
-- 立替精算: 選択月の `reimbursements` を active PJ 行だけで表示し、`submitted` / `pmApproved` / `approved` / `billed_ym` を PM待ち / 経理待ち / 承認済 / 反映済に分ける。
-- 請求書送付: active PJ の `billing_cycles.invoice_ym=ym`、または `invoice_ym IS NULL` の cycle を `projects.payment_due_rule` で支払月判定した対象cycleを集約する。`invoice_sent_at` は送付済み判定、`invoice_sent_by` または `billing_log` に `keiri@team-armada.jp` の証跡がある場合だけ `keiri確認` とする。
-- 証跡境界: `invoice_sent_at` があっても keiri 証跡が無ければ `要確認` と表示する。送付元を断定しない。
+- 名前: adminメニュー、ページtitle、見出しは `きよ`。用途説明を名称へ足して `きよ月次経理` に変えない。
+- 作業順: `01 立替精算`、`02 請求書`、`03 メンバー支払` の3taskを排他的に切り替える。切替後もURLは `/admin/kiyo?task=...` のままにし、別routeへ移動させない。
+- 立替精算: `/reimburse` と同じ実装を埋め込み、申請・編集・削除、PM承認・差戻し、admin承認・却下を実行できる。権限とstatus遷移は既存API/RLSを変えない。
+- 請求書: `/admin/invoices` と同じ `AdminInvoiceIssueQueue` / `AdminInvoiceIssueDialog` を埋め込み、発行前確認、freee取引先保存、請求書発行、発行取消まで実行できる。
+- メンバー支払: `/admin/payouts` と同じ `AdminPayoutsClient` を埋め込み、報酬キャッシュ再計算、支払通知書発行・PDF確認・送付、入金確認nudgeまで実行できる。
+- 正本境界: きよ用に別のwrite endpoint、支払計算、請求判定、承認遷移を作らない。各専用画面の現行componentとserver-side guardをそのまま共有する。
 
 回帰防止:
 
-- `/admin/kiyo` は確認専用。支払保存、PDF生成、メール送信、立替承認、請求送付の write action を追加しない。
-- active 以外のPJを表示しない。inactive / ended / frozen / sales / lost はこの画面の対象外。
-- AdminSidebar の `きよ` 導線、`/admin/kiyo` route、keiri 証跡境界を消す変更は、`FEATURE_REGISTRY.md` と `SPEC_pwa.md` を同時に更新する。
+- `test:admin-kiyo` が3task、3つの既存作業UI、`きよ` の名称、`読み取り専用` の不在を検査する。
+- `test:surface-catalog-contract` がAdminSidebarの `きよ` と `/admin/kiyo` を検査する。
+- 3つのtaskを状態一覧やリンクだけへ縮退させない。専用画面にある主操作を `/admin/kiyo` でも同じcomponentで使えることを必須とする。
 
 ## /admin/season-pl
 

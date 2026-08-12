@@ -98,7 +98,7 @@ const initialForm = (): ReimburseFormState => ({
   files: [],
 });
 
-export default function ReimbursePage() {
+export function ReimburseWorkspace({ embedded = false }: { embedded?: boolean }) {
   const supabase = useMemo(() => createClient(), []);
   const [items, setItems] = useState<ReimbursementItem[]>([]);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
@@ -357,7 +357,7 @@ export default function ReimbursePage() {
   })();
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 p-5">
+    <div className={embedded ? "space-y-5" : "mx-auto max-w-6xl space-y-5 p-5"}>
       <header className="border border-border bg-card p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -569,6 +569,10 @@ export default function ReimbursePage() {
       </section>
     </div>
   );
+}
+
+export default function ReimbursePage() {
+  return <ReimburseWorkspace />;
 }
 
 function ReimburseCard({
