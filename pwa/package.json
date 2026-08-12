@@ -127,6 +127,7 @@
     "test:workspace-fact-origin-contract": "node scripts/check_workspace_fact_and_origin_contract.mjs",
     "test:workspace-security-migration-contract": "node scripts/check_workspace_security_migration_contract.mjs",
     "test:surface-catalog-contract": "node scripts/check_surface_catalog_contract.mjs",
+    "test:admin-kiyo": "node --experimental-strip-types scripts/check_admin_kiyo.mts",
     "test:workspace-capabilities": "node --experimental-strip-types scripts/check_workspace_capabilities.mts",
     "migrate:project-share-documents": "node scripts/migrate_project_share_to_workspace_documents.mjs --dry-run"
   },

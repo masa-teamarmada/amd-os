@@ -30,6 +30,8 @@ assert.doesNotMatch(adminSidebar, /const ADMIN_TABS/, "admin navに追加順のf
 for (const group of ["組織・権限", "契約・お金", "PJ・実行", "知識・AI", "運用"]) {
   assert.ok(catalog.includes(`label: "${group}"`), `admin navに${group}の職務groupを持つ`);
 }
+assert.match(catalog, /id: "admin-kiyo"[\s\S]*primaryPath: "\/admin\/kiyo"/, "きよ月次経理をsurface catalogへ登録する");
+assert.match(catalog, /label: "契約・お金"[\s\S]*"admin-kiyo"/, "きよ月次経理を契約・お金メニューへ置く");
 
 const adminRouteNames = adminEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
 for (const routeName of adminRouteNames) {

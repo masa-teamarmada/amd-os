@@ -247,6 +247,24 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - `pwa/scripts/check_pwa_critical_ui.cjs` が台帳の最低幅、PJ → 契約名の列順、2列の固定表示、AMD当事者境界、1契約1行、実務条件モーダル、PJコックピット反映の実装アンカーを検査する。
 - 表示境界を変える時は、`/spec/5-6` と manual 6-7 を同時に更新する。
 
+## /admin/kiyo
+
+目的: きよがactive PJの月次経理状態を、書込みを伴わず一画面で確認する。
+
+必須機能:
+
+- 左メニュー導線: AdminSidebar の「契約・お金」に `きよ月次経理` と `/admin/kiyo` を置く。
+- PJ範囲: `projects.status='active'` だけ。終了・凍結PJを混ぜない。
+- メンバー支払: `/admin/payouts` と同じ支払月集計を読み取り専用で使う。集計未取得を0円にしない。
+- 立替精算: 当月日付または当月請求対象の `reimbursements` をPJ別に集約し、未完了件数を完了扱いにしない。
+- 請求書送付: `billing_cycles.invoice_sent_at` を送付済み判定に使う。`invoice_sent_by` または請求書送付の `billing_log` に `keiri@team-armada.jp` の証跡がある場合だけ `経理確認` とし、送付済みでも経理証跡が無ければ `要確認` とする。
+- 安全境界: 支払保存、PDF生成、メール送信、立替承認、請求送付などのwrite actionを置かない。取得失敗や証跡欠測を0件・完了へ置き換えない。
+
+回帰防止:
+
+- `test:surface-catalog-contract` がrouteと左メニュー登録を検査する。
+- `test:admin-kiyo` がactive PJ限定、支払欠測、立替未完了、経理証跡の判定を検査する。
+
 ## /admin/invoices
 
 目的: admin/きよが、締め済み稼働月の請求書発行を上から処理する。旧 `/admin/billing` は廃止済みで、互換のため `/admin/invoices` へ redirect する。

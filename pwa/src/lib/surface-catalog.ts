@@ -88,6 +88,7 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
   { id: "admin-company", title: "Admin Company", navLabel: "会社情報", primaryPath: "/admin/company", domain: "company_operations", lens: "amd_operations", status: "canonical", exact: ["/admin/company"] },
   { id: "admin-governance", title: "株主・ガバナンス", navLabel: "株主・ガバナンス", primaryPath: "/admin/governance", domain: "company_operations", lens: "amd_operations", status: "canonical", exact: ["/admin/governance"] },
   { id: "admin-contracts", title: "Admin 契約", navLabel: "契約", primaryPath: "/admin/contracts", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/contracts"] },
+  { id: "admin-kiyo", title: "きよ月次経理", navLabel: "きよ月次経理", primaryPath: "/admin/kiyo", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/kiyo"] },
   { id: "admin-invoices", title: "請求書発行", navLabel: "請求書発行", primaryPath: "/admin/invoices", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/invoices"] },
   { id: "admin-billing", title: "請求書発行", navLabel: "旧請求入口", primaryPath: "/admin/billing", domain: "finance_contracts", lens: "amd_operations", status: "mirror", exact: ["/admin/billing"] },
   { id: "admin-payouts", title: "Admin 報酬", navLabel: "報酬", primaryPath: "/admin/payouts", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/payouts"] },
@@ -115,7 +116,7 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
 
 export const ADMIN_SURFACE_GROUPS = [
   { label: "組織・権限", surfaceIds: ["admin-projects", "admin-members", "admin-access", "admin-company", "admin-governance"] },
-  { label: "契約・お金", surfaceIds: ["admin-contracts", "admin-invoices", "admin-payouts", "admin-monthly-agreements", "admin-season-pl", "admin-finance"] },
+  { label: "契約・お金", surfaceIds: ["admin-contracts", "admin-kiyo", "admin-invoices", "admin-payouts", "admin-monthly-agreements", "admin-season-pl", "admin-finance"] },
   { label: "PJ・実行", surfaceIds: ["management-score", "admin-weekly", "admin-protocols", "admin-ms-overview", "admin-coverage", "admin-ip"] },
   { label: "知識・AI", surfaceIds: ["admin-japanese-culture", "admin-contexts", "admin-management-knowledge", "admin-private-wiki", "admin-tsukuyomi", "admin-prompts"] },
   { label: "運用", surfaceIds: ["admin-schedule", "admin-settings"] },
