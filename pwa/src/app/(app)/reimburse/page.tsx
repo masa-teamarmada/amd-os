@@ -525,7 +525,7 @@ export function ReimburseWorkspace({ embedded = false }: { embedded?: boolean })
           </button>
         </form>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <section className="border border-border bg-card p-4">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-sm font-semibold">承認待ち</h2>
@@ -570,7 +570,7 @@ export function ReimburseWorkspace({ embedded = false }: { embedded?: boolean })
           </section>
 
           {isAdmin && (
-            <section className="border border-border border-l-2 border-l-emerald-500/50 bg-card p-4">
+            <section className="min-w-0 border border-border border-l-2 border-l-emerald-500/50 bg-card p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-sm font-semibold">承認済み</h2>
                 <span className="font-mono text-xs text-muted-foreground">
@@ -582,7 +582,7 @@ export function ReimburseWorkspace({ embedded = false }: { embedded?: boolean })
               ) : approvedLedgerItems.length === 0 ? (
                 <p className="mt-4 text-sm text-muted-foreground">承認済みはなし</p>
               ) : (
-                <div className="mt-3 overflow-x-auto">
+                <div className="mt-3 max-w-full overflow-x-auto">
                   <table className="w-full min-w-[860px] border-collapse text-[11px]">
                     <thead>
                       <tr className="border-b border-border text-left text-muted-foreground">

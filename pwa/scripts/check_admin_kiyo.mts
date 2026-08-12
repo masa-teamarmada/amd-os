@@ -61,4 +61,9 @@ assert.match(reimbursePage, /approvedLedgerTotal/, "承認済み台帳に合計�
 assert.match(reimbursePage, /\{isAdmin && \(/, "承認済み台帳はadminだけに表示する");
 assert.doesNotMatch(reimbursePage, /rounded-lg|rounded-xl|shadow-/, "承認済み台帳を丸角カードや大きい集計カードにしない");
 
+// mobile document overflow回帰の防止: 承認済み台帳の860px tableはgrid右列とsection自身にmin-w-0が無いと親を押し広げる
+assert.match(reimbursePage, /<div className="min-w-0 space-y-4">/, "承認待ち/承認済み/自分の申請を束ねる右列wrapperにmin-w-0を付ける");
+assert.match(reimbursePage, /<section className="min-w-0 border border-border border-l-2 border-l-emerald-500\/50 bg-card p-4">/, "承認済みsection自体にもmin-w-0を付ける");
+assert.match(reimbursePage, /<div className="mt-3 max-w-full overflow-x-auto">/, "承認済み台帳のscroll boxにmax-w-fullを付けてtable幅で親を押し広げない");
+
 console.log("admin kiyo workspace contract: ok");
