@@ -11,9 +11,8 @@ const institutionReader = read("src", "lib", "institution-project-control-server
 const institutionView = read("src", "components", "workspace", "InstitutionProjectControlView.tsx");
 const institutionIndex = read("src", "app", "workspace", "[slug]", "page.tsx");
 const cockpit = read("src", "components", "cockpit", "CockpitView.tsx");
-const cockpitControl = read("src", "components", "cockpit", "CockpitSharedProjectControl.tsx");
+const cockpitHeader = read("src", "components", "cockpit", "CockpitHeader.tsx");
 const publicationRoute = read("src", "app", "api", "project", "[projectId]", "shared-publication", "route.ts");
-const cockpitCss = read("src", "components", "cockpit", "cockpit-shared-project-control.module.css");
 const institutionCss = read("src", "components", "workspace", "institution-project-control.module.css");
 
 // Institution route is an independent role lens, not the PJ workspace mounted elsewhere.
@@ -35,15 +34,11 @@ assert.doesNotMatch(institutionView, /internalDraft|SxManagementBundle|fetch\(|p
 assert.match(institutionIndex, /href={`\/workspace\/\$\{encodeURIComponent\(slug\)\}\/project\/\$\{encodeURIComponent\(project\.projectId\)\}`}/);
 assert.doesNotMatch(institutionIndex, /href={`\/project\/\$\{encodeURIComponent\(project\.projectId\)\}\/workspace`}/);
 
-// AMD cockpit consumes the same live management source as the existing PJ workspace,
-// while preserving the existing workspace as the editing/detail surface.
-assert.match(cockpit, /project\.projectId === "p21"[\s\S]*CockpitSharedProjectControl/);
-assert.match(cockpitControl, /\/api\/project-workspace\/\$\{encodeURIComponent\(projectId\)\}/);
-for (const source of ["milestones", "issues", "decisions", "actions", "partnerWorkItems", "tracks"]) {
-  assert.ok(cockpitControl.includes(`bundle.${source}`), `cockpit must derive ${source} from the canonical workspace bundle`);
-}
-assert.match(cockpitControl, /href={`\/project\/\$\{encodeURIComponent\(projectId\)\}\/workspace`}/);
-assert.match(cockpitControl, /大学・SU側には、ここから承認された共有版だけを表示する/);
+// The rejected SX summary band must not be re-mounted as a second management surface.
+// The current PJ workspace remains the detailed execution surface until an AMD lens
+// has exact, prioritized actions and an end-to-end acceptance contract.
+assert.doesNotMatch(cockpit, /CockpitSharedProjectControl|いま動かすもの|afterSummary/);
+assert.doesNotMatch(cockpitHeader, /CockpitSharedProjectControl|いま動かすもの|afterSummary/);
 assert.match(publicationRoute, /canAccessWorkspaceProject\(access, projectId\)/);
 assert.match(publicationRoute, /if \(!access\.isAdmin\) return invalid\("forbidden", 403\)/);
 assert.match(publicationRoute, /workspace_admin_project_publication_context/);
@@ -52,9 +47,7 @@ assert.match(publicationRoute, /new Set\(\[\.\.\.context\.actorPartyIds, \.\.\.a
 assert.match(publicationRoute, /context\.latestRevision\?\.id \?\? null/);
 assert.doesNotMatch(publicationRoute, /\.from\("project_publication_(revisions|items|audiences)"\)\.(insert|update|delete)/);
 
-// The new surfaces have explicit mobile/tablet contracts and no legacy amber shell.
-assert.match(cockpitCss, /@media \(max-width: 980px\)/);
-assert.match(cockpitCss, /@media \(max-width: 560px\)/);
+// The institution surface has explicit mobile/tablet contracts and no legacy amber shell.
 assert.match(institutionCss, /@media \(max-width: 860px\)/);
 assert.match(institutionCss, /@media \(max-width: 520px\)/);
 assert.doesNotMatch(institutionCss, /#f59e0b|amber/i);

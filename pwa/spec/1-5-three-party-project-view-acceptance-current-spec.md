@@ -2,7 +2,7 @@
 
 > この章は、同じPJをPJメンバー、AMD、大学・研究機関が別の画面で扱うときの合格条件を定める。
 > 画面の見た目を揃える仕様ではない。同じ正本を役割別の目的、可視範囲、操作権限で投影できていることを検査する仕様である。
-> 2026-08-12時点で、p21のproduction DTO、AMD cockpit投影、研究機関PJ面、immutable publication読取・発行、exact-project権限作成を実装した。研究機関実accountが0件のため、三者の実account横断受入と研究機関主権の確認・訂正操作は未完了である。
+> 2026-08-12時点で、p21のproduction DTO、研究機関PJ面、immutable publication読取・発行、exact-project権限作成を実装した。AMD cockpitへ追加した無順位の要約帯は実画面受入に不合格だったため削除し、共同正本のAMDレンズは未完了へ戻した。研究機関実accountが0件のため、三者の実account横断受入と研究機関主権の確認・訂正操作も未完了である。
 
 ## 結論
 
@@ -201,7 +201,7 @@ client側で非表示にするだけでは不合格である。server DTOとDB r
 | migration 260 公開承認者guard | 本番適用・readback済み |
 | production resolver / DTO / DB integration test | strict DTO・route・DB RPC・migration static contractを実装。live権限関数readback済み |
 | 現行PJ workspaceのデザイン | 維持 |
-| PJ workspaceとAMD cockpitの共同正本完全一致 | p21 cockpitが現行workspace bundleのMS・論点・判断・実行・関係先を同じIDのまま投影。実画面受入前 |
+| PJ workspaceとAMD cockpitの共同正本完全一致 | 未完了。無順位62件・全柱未評価・過去期限・詳細操作なしとなった要約帯は削除。介入対象と次アクションへ直結するprojectionを再設計する |
 | 研究機関PJ面 | `/workspace/[slug]/project/[projectId]`を実装。承認済み最新publicationのみ読取、内部fallbackなし |
 | p21三者の実account受入 | 未実施 |
 

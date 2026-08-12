@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
 import { paymentDueRuleLabel } from "@/lib/payment-rules";
 import {
   boolTerm,
@@ -35,7 +34,6 @@ interface Props {
     contractTerms?: ProjectContractTerms | null;
   };
   members: string[];
-  afterSummary?: ReactNode;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -221,7 +219,7 @@ function CurrentContractTerms({ contract, project }: { contract: ProjectCurrentC
   );
 }
 
-export function CockpitHeader({ project, members, afterSummary }: Props) {
+export function CockpitHeader({ project, members }: Props) {
   const contracts = currentContracts(project);
   const category = project.projectCategory || "dtsu";
   return (
@@ -239,8 +237,6 @@ export function CockpitHeader({ project, members, afterSummary }: Props) {
           共有ワークスペースへ
         </Link>
       </div>
-
-      {afterSummary}
 
       <section className="overflow-hidden rounded-md border border-[#d6d6da] bg-white shadow-sm" aria-label="契約上の実行条件">
         <div className="flex items-center justify-between gap-3 border-b border-[#e5e5ea] px-3 py-2">
