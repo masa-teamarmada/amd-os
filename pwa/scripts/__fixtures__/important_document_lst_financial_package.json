@@ -1,0 +1,53 @@
+{
+  "project": {
+    "project_id": "p07",
+    "company_name": "LiSTie株式会社",
+    "company_aliases": ["LiSTie", "LisTie"],
+    "project_aliases": ["LST"]
+  },
+  "observed_at": "2026-08-12T00:00:00.000Z",
+  "documents": [
+    {
+      "file_id": "fixture-lst-copy-a",
+      "name": "別紙1.事業報告・計算書類等.pdf",
+      "mime_type": "application/pdf",
+      "parent_folders": ["260624_第3回定時株主総会"],
+      "created_at": "2026-06-16T04:57:13.000Z",
+      "modified_at": "2026-06-24T03:00:00.000Z",
+      "content_sha256": "d15de7f0b7afb0af9da2ebd3deab65769f1edc698239fb20f69e42f06262b112",
+      "extraction_method": "pdf_text",
+      "extraction_status": "available",
+      "text": "LiSTie株式会社 第3期 事業報告\n対象期間 2025年4月1日から2026年3月31日\n事業報告\n設備投資額 121,912千円\nJ-KISS調達累計 110,000千円\nSBIR 上限15億円 最終金額確定 2028年3月\nNEDO 上限3億円 最終金額確定 2027年3月\nSusHi Tech 上限2億円\n貸借対照表\n現金及び預金 46,080千円\n借入金 83,000千円\n流動補助金預り金 8,001千円\n長期補助金預り金 563,677千円\n損益計算書\n売上高 450千円\n営業損失 348,873千円\n当期純損失 351,426千円\n附属明細\n研究開発費 302,089千円\n監査報告\n計算書類及び附属明細は適正である。2026年5月28日",
+      "page_markers": [
+        { "page": 2, "text": "設備投資額 121,912千円 J-KISS調達累計 110,000千円" },
+        { "page": 5, "text": "現金及び預金 46,080千円 借入金 83,000千円" },
+        { "page": 6, "text": "売上高 450千円 営業損失 348,873千円 当期純損失 351,426千円" },
+        { "page": 9, "text": "研究開発費 302,089千円" }
+      ]
+    },
+    {
+      "file_id": "fixture-lst-copy-b",
+      "name": "別紙1.事業報告・計算書類等.pdf",
+      "mime_type": "application/pdf",
+      "parent_folders": ["260710_第3回定時株主総会"],
+      "created_at": "2026-06-16T04:57:13.000Z",
+      "modified_at": "2026-07-10T03:00:00.000Z",
+      "content_sha256": "d15de7f0b7afb0af9da2ebd3deab65769f1edc698239fb20f69e42f06262b112",
+      "extraction_method": "pdf_text",
+      "extraction_status": "available",
+      "text": "LiSTie株式会社 第3期 事業報告\n対象期間 2025年4月1日から2026年3月31日\n事業報告\n設備投資額 121,912千円\nJ-KISS調達累計 110,000千円\nSBIR 上限15億円 最終金額確定 2028年3月\nNEDO 上限3億円 最終金額確定 2027年3月\nSusHi Tech 上限2億円\n貸借対照表\n現金及び預金 46,080千円\n借入金 83,000千円\n流動補助金預り金 8,001千円\n長期補助金預り金 563,677千円\n損益計算書\n売上高 450千円\n営業損失 348,873千円\n当期純損失 351,426千円\n附属明細\n研究開発費 302,089千円\n監査報告\n計算書類及び附属明細は適正である。2026年5月28日"
+    },
+    {
+      "file_id": "fixture-lst-copy-c",
+      "name": "別紙1.事業報告・計算書類等.pdf",
+      "mime_type": "application/pdf",
+      "parent_folders": ["260616_取締役会書面決議"],
+      "created_at": "2026-06-16T04:57:13.000Z",
+      "modified_at": "2026-06-16T04:57:13.000Z",
+      "content_sha256": "d15de7f0b7afb0af9da2ebd3deab65769f1edc698239fb20f69e42f06262b112",
+      "extraction_method": "pdf_text",
+      "extraction_status": "available",
+      "text": "LiSTie株式会社 第3期 事業報告\n対象期間 2025年4月1日から2026年3月31日\n事業報告\n設備投資額 121,912千円\nJ-KISS調達累計 110,000千円\nSBIR 上限15億円 最終金額確定 2028年3月\nNEDO 上限3億円 最終金額確定 2027年3月\nSusHi Tech 上限2億円\n貸借対照表\n現金及び預金 46,080千円\n借入金 83,000千円\n流動補助金預り金 8,001千円\n長期補助金預り金 563,677千円\n損益計算書\n売上高 450千円\n営業損失 348,873千円\n当期純損失 351,426千円\n附属明細\n研究開発費 302,089千円\n監査報告\n計算書類及び附属明細は適正である。2026年5月28日"
+    }
+  ]
+}

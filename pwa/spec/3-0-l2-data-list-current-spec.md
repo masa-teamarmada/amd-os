@@ -45,7 +45,7 @@ Claude routine と呼べるのは、Claude Routines UI上で存在し、`ACTIVE`
 
 | データ | tier | writer | 根拠 |
 |---|---|---|---|
-| D-1/D-3/D-4/D-5/D-6/D-7/D-8/D-10/D-11/D-13/D-14, M-1/M-2/M-3, W-1 | **L2** | LLM | 主に Codex automation と MMO 側 Codex が抽出する。D-10 は PWA route が evidence を集め、Codex automation が合成して POST 保存する。D-13/D-14 など一部は既存PWA APIを入口に使う。 |
+| D-1/D-3/D-4/D-5/D-6/D-7/D-8/D-10/D-11/D-13/D-14/D-15, M-1/M-2/M-3, W-1 | **L2** | LLM + deterministic extraction | 主に Codex automation と MMO 側 Codex が抽出する。D-10 は PWA route が evidence を集め、Codex automation が合成して POST 保存する。D-13/D-14 など一部は既存PWA APIを入口に使う。D-15はPDF/Docsの決定論的分類・hash集約を通す。 |
 | **D-2 MS Progress** | L2 + 非LLM派生 | 混在 | 乖離 revision 提案=LLM(L2)、デフォルト進捗%按分=`ms-schedule-progress` **非LLM**(派生) |
 | **D-9 Macrotrend** | L2 + 非LLM派生 | 混在 | observation 収集=LLM/web_search 一部(L2)、`macro_index_log` 集計=`macro-aggregate-indicators` **非LLM**(派生) |
 | **D-12 Finance/freee** | **L1相当** | **非LLM** | `freee-payment-sync` / `management-score-raw-data` は LLM を一切呼ばず、取引履歴をそのまま実績へ同期 (吟味なし) |
@@ -75,6 +75,7 @@ Claude routine と呼べるのは、Claude Routines UI上で存在し、`ACTIVE`
 | **D-12** | freee実績の同期 | PWA non-LLM cron | はい | 稼働中 | 現状維持 |
 | **D-13** | 契約予兆 | PWA route はあるが collector runner がない | はい | 未実装 | Codex collector を作る |
 | **D-14** | 要対応 (Action Items) + Governance Email Sweep | PWA route `POST /api/action-items/extract` + D-14G route `GET /api/cron/governance-email-sweep`。前段 collector は段階実装中 | はい | 部分実装 | `/admin/projects` の総会/役会ON PJから運転開始 |
+| **D-15** | 重要書類 | LST正式決算PDFのcollector + deterministic extractor + outbox/applierを実装 | はい | LST実証 / 全PJ schedule未登録 | 全PJのDrive root/alias、scan cursor、OCR queueを設計どおり段階導入 |
 | **L3-1** | 取りこぼし検知 | PWA route はあるが collector runner がない | はい | 未実装 | Codex collector を作る |
 | **W-1** | VCニュース・資金調達シグナル | Codex automation **`AMD OS W-1 VCニュース・資金調達シグナル抽出`** (`amd-os-l2-vc-news-funding-signals`) | はい | `ACTIVE` | そのまま運転 |
 | **M-3** | 月末の会社評価文 | まだ writer なし | はい | 未実装 | month-end runner を作る |
@@ -100,6 +101,7 @@ Claude routine と呼べるのは、Claude Routines UI上で存在し、`ACTIVE`
 | **D-12** | **L1相当** | Finance Ops Evidence / freee Transaction Actuals | サブスク、継続費、自動振替、領収書イベント、freee取引履歴から月次試算表へ入れる実績値 | 月次PL、Management Score finance軸 | PWA non-LLM cron + admin review | `/api/cron/management-score-raw-data?includeFreee=1` / `cron/freee-payment-sync` |
 | **D-13** | L2 | Contract Signals | 5生データから検知した契約締結予兆、契約予定枠、契約書version/signed版metadata | 契約管理、押印版未保存nudge候補、PJ別契約進行確認 | PWA route はある。collector はこれから Codex 化 | `POST /api/contracts/extract-l2` |
 | **D-14** | L2 | 要対応 (Action Items) + Governance Email Sweep | 期日つき inbound 義務 (株主総会招集/議決権/事前承諾/契約更新/振込 等)。D-14G は `/admin/projects` の「総会」「役会」ON PJだけ `report_emails` × keyword で Gmail を検索し、総会/取締役会履歴候補を作る | /notifications・要対応面・nudge・PJ cockpit 株主/ガバナンス | PWA route + D-14G sweep route。collector はON PJから段階運用 | `POST /api/action-items/extract` / `GET /api/cron/governance-email-sweep` / `POST /api/governance/extract` |
+| **D-15** | L2 | 重要書類 | 事業報告・計算書類・附属明細・監査報告を本文、親フォルダ、会社、期間、MIME、監査で分類し、内容hashで重複排除した候補 | 通知採否、採用後の重要書類正本、BZM次版入力候補 | Codex local collector + deterministic extractor + `amd-os-ms` non-LLM applier。定期scheduleは未登録 | `pwa/scripts/important_document_extraction.mts` / `project_important_documents` |
 | **L3-1** | **L3** | Coverage Scanner (不在検知) | 来た生データ × 既存L2カバレッジ の差分 = OS化されてない重要情報の候補。個別抽出器の上位安全網 | /notifications・/admin/coverage-gaps・取りこぼし防止 | PWA route はある。collector はこれから Codex 化 | `POST /api/coverage-gaps/extract` |
 | **W-1** | L2 | VC News / Funding Signals | VCニュース、ファンド組成、投資活動、資金調達シグナル | VC inbox、fund情報、fundraising判断 | Codex automation | `AMD OS W-1 VCニュース・資金調達シグナル抽出` / `amd-os-l2-vc-news-funding-signals` |
 | **M-3** | L2 | Management Monthly Signal | 月末時点の会社経営状態を、良い/悪い/次に見ることへ翻訳した評価文 | `/management-score` の月次試算表下、経営判断、過去ログ | month-end 専用 writer は未実装 | `amd-os-l2-monthend-evidence` (旧target名) |

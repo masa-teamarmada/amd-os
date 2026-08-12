@@ -74,6 +74,7 @@ cadence は **D / M / W / H** で残すが、writer は now mixed。下の表で
 | **D-12** | Finance Ops Evidence / freee Transaction Actuals | freee `trial_pl` / `company_actual_monthly` / `amd_management_score_raw_signals` / finance ops tables | PWA non-LLM cron `/api/cron/management-score-raw-data?includeFreee=1` + admin review | freee取引履歴 → 月次試算表の実績値 |
 | **D-13** | Contract Signals | `contract_signals` / `contracts` / `contract_documents` | Codex automation `AMD OS D-13 契約シグナル抽出` → PWA route `POST /api/contracts/extract-l2` | 契約管理 `/admin/contracts`、l2_notifications(l2_kind='contract_signals') |
 | **D-14** | Action Items + Governance Email Sweep | `action_items` / `project_shareholder_meetings` / `source_cache(source='gmail_governance')` | PWA routes `POST /api/action-items/extract` / `GET /api/cron/governance-email-sweep` / `POST /api/governance/extract` + Codex collector planned | `/admin/projects` の「総会」「役会」ON PJだけ `report_emails` × ガバナンスkeywordで Gmail を検索し、既定は候補、`apply=1` で canonical + Drive添付保存 |
+| **D-15** | Important Documents | `l2_coverage_gaps` → 採用後`project_important_documents` | Codex local collector + 決定論的`important_document_extraction.mts`。2026-08-12時点はLST再抽出で実証、定期scheduleは未登録 | `coverageGaps[]` outbox → non-LLM applier → 通知採否。本文hashで重複排除し、全所在lineageとfield provenanceを保持 |
 | **M-1** | Monthly Reports | `monthly_reports` | Codex automation `AMD OS M-1 月次報告抽出` (`amd-os-l2`) | monthly reports outbox → applier |
 | **M-2** | XRL Evidence | `project_xrl_evidence` / `project_founding_members` | `amd-os-ms` 系 second wave 予定 | M-1後に抽出。candidate → confirmed |
 | **M-3** | Management Monthly Signal | `company_management_signal_reviews` | month-end runner planned | M-1 / M-2後に抽出。18:00 MTG 前に出揃わせる |
@@ -107,7 +108,7 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 
 | outbox | 用途 |
 |---|---|
-| `~/.codex/automations/amd-os-ms/outbox/` | monthlyReports / registryDiffs / xrlEvidence / MS revision |
+| `~/.codex/automations/amd-os-ms/outbox/` | monthlyReports / registryDiffs / xrlEvidence / MS revision / important document coverageGaps |
 | `~/.codex/automations/amd-os/strategy-signals-outbox/` | D-6 経営ハイライト |
 | `~/.codex/automations/amd-atlas/outbox/` | Atlas 外部 signal |
 
@@ -125,6 +126,7 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 | PJナレッジ | `project_knowledge.status='active'` | `rejected` |
 | AMD Protocol | `protocols.status='confirmed'` | `rejected` |
 | founding members | `project_founding_members.status='active'` | `invalid` |
+| 重要書類 | `l2_coverage_gaps.confirmed` → `project_important_documents.status='confirmed'`へ追記。BZM入力は候補のまま | gapを`rejected`、正本行は作らない |
 
 ## 禁止事項
 
@@ -144,6 +146,7 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 | D-3 Project Knowledge | [/spec/3-11-l2-project-knowledge-current-spec](/spec/3-11-l2-project-knowledge-current-spec) |
 | D-4 Member Knowledge | [/spec/3-12-l2-member-knowledge-current-spec](/spec/3-12-l2-member-knowledge-current-spec) |
 | D-7 Textbook Insights | [/spec/3-13-l2-textbook-insights-current-spec](/spec/3-13-l2-textbook-insights-current-spec) |
+| D-15 Important Documents | [/spec/3-18-important-document-extraction-current-spec](/spec/3-18-important-document-extraction-current-spec) |
 
 ## 復旧時の確認順
 

@@ -182,6 +182,7 @@ const PWA_FEEDBACK_L2_KINDS = new Set([
   "textbook_insight",
   "founding_members",
   "meeting_summary",
+  "coverage_gap",
 ]);
 
 async function loadProjectCategories(projectIds) {
@@ -1131,6 +1132,7 @@ async function applyOutbox(file) {
     revisions: null,
     emailRegistrations: [],
     registryDiffs: null,
+    coverageGaps: null,
     xrlEvidence: null,
     strategySignals: null,
     textbookInsights: null,
@@ -1150,6 +1152,9 @@ async function applyOutbox(file) {
   }
   if (Array.isArray(payload.registryDiffs) && payload.registryDiffs.length) {
     results.registryDiffs = await upsertRegistryDiffs(payload.registryDiffs);
+  }
+  if (Array.isArray(payload.coverageGaps) && payload.coverageGaps.length) {
+    results.coverageGaps = await upsertCoverageGaps(payload.coverageGaps);
   }
   if (Array.isArray(payload.xrlEvidence) && payload.xrlEvidence.length) {
     results.xrlEvidence = await upsertXrlEvidence(payload.xrlEvidence);
@@ -1355,6 +1360,138 @@ async function upsertXrlEvidence(items) {
     body: rows,
   });
   return { ok: true, writtenCount: written?.length || 0, skippedEcosystem, written };
+}
+
+async function upsertCoverageGaps(items) {
+  const now = new Date().toISOString();
+  const validSources = new Set(["gmail", "drive", "calendar", "slack", "notion"]);
+  const validGapClasses = new Set(["extractor_miss", "structural_gap", "uncertain"]);
+  const rows = items.map((item) => {
+    const sourceHash = String(item.source_hash || item.sourceHash || "").trim().toLowerCase();
+    const source = String(item.source || "").trim().toLowerCase();
+    const projectId = String(item.project_id || item.projectId || "").trim();
+    const evidence = item.evidence_refs_json || item.evidenceRefs || {};
+    const importantDocument = evidence?.important_document;
+    const target = String(item.proposed_target_l2 || item.proposedTargetL2 || "").trim();
+    if (!validSources.has(source)) throw new Error(`coverageGaps invalid source: ${source || "(empty)"}`);
+    if (!/^[0-9a-f]{64}$/.test(sourceHash)) throw new Error(`coverageGaps invalid source_hash: ${sourceHash || "(empty)"}`);
+    if (!projectId) throw new Error("coverageGaps missing project_id");
+    if (target !== "important_document") throw new Error(`coverageGaps unsupported target: ${target || "(empty)"}`);
+    if (!importantDocument || importantDocument.review_status !== "candidate") {
+      throw new Error("coverageGaps important_document candidate evidence is required");
+    }
+    if (importantDocument.project_id !== projectId || importantDocument.source_hash !== sourceHash) {
+      throw new Error("coverageGaps important_document identity mismatch");
+    }
+    return {
+      gap_id: `cg:${sourceHash}`,
+      source,
+      source_ref: item.source_ref || item.sourceRef || null,
+      source_hash: sourceHash,
+      title: String(item.title || "重要書類候補").slice(0, 300),
+      summary: String(item.summary || "").slice(0, 1200) || null,
+      salience_score: confidenceValue(item.salience_score ?? item.salienceScore, 0.9),
+      matched_patterns: item.matched_patterns || item.matchedPatterns || {
+        document_class: importantDocument.document_class,
+        audited: importantDocument.audited,
+      },
+      proposed_target_l2: target,
+      gap_class: validGapClasses.has(item.gap_class || item.gapClass)
+        ? (item.gap_class || item.gapClass)
+        : "extractor_miss",
+      project_id: projectId,
+      scope: item.scope || "project",
+      due_at: item.due_at || item.dueAt || null,
+      review_status: "candidate",
+      evidence_refs_json: evidence,
+      created_by: item.created_by || "important_document_extractor",
+      detected_at: item.detected_at || item.detectedAt || now,
+      updated_at: now,
+    };
+  });
+  if (rows.length === 0) return { ok: true, writtenCount: 0, skippedKnown: 0, notifiedCount: 0, written: [] };
+
+  const existing = await get(
+    "l2_coverage_gaps",
+    `select=gap_id,project_id,source_hash,proposed_target_l2,review_status&source_hash=in.${inList(rows.map((row) => row.source_hash))}`,
+  );
+  const known = new Set((existing || []).map((row) => row.source_hash));
+  const fresh = rows.filter((row) => !known.has(row.source_hash));
+  const written = fresh.length > 0
+    ? await requestJson(rest("l2_coverage_gaps", "select=gap_id,project_id,source_hash,proposed_target_l2,review_status"), {
+        method: "POST",
+        headers: restHeaders({ prefer: "return=representation" }),
+        body: fresh,
+      })
+    : [];
+  const notifications = [];
+  // DB insert後に通知だけ失敗しても、同じoutboxの再投入でcandidate通知を回復できる。
+  const notificationRows = [...(written || []), ...(existing || []).filter((row) => row.review_status === "candidate")]
+    .filter((row, index, all) => all.findIndex((other) => other.gap_id === row.gap_id) === index);
+  for (const row of notificationRows) {
+    const source = fresh.find((item) => item.source_hash === row.source_hash);
+    const tmp = path.join(os.tmpdir(), `amd-os-important-document-notification-${crypto.randomUUID()}.json`);
+    writeJson(tmp, {
+      l2_kind: "coverage_gap",
+      target_id: row.project_id,
+      scope_key: row.gap_id,
+      title: "正式な重要書類を正本化する？",
+      summary: source?.summary || "重要書類候補を1件検出",
+      saved_count: 0,
+      total_count: 1,
+      importance: 8,
+      metadata_json: {
+        proposed_target_l2: "important_document",
+        source: source?.source || "drive",
+        source_hash: row.source_hash,
+      },
+    });
+    try {
+      notifications.push(await notify(tmp));
+    } finally {
+      fs.rmSync(tmp, { force: true });
+    }
+  }
+  return {
+    ok: true,
+    writtenCount: written?.length || 0,
+    skippedKnown: rows.length - fresh.length,
+    notifiedCount: notifications.filter((item) => !item.skipped).length,
+    written,
+    notifications,
+  };
+}
+
+async function readbackCoverageGap(sourceHash) {
+  const normalized = String(sourceHash || "").trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(normalized)) throw new Error("coverage-gap-readback requires --source-hash <64 hex>");
+  const rows = await get(
+    "l2_coverage_gaps",
+    `select=gap_id,project_id,source_hash,proposed_target_l2,review_status,routed_to,evidence_refs_json&source_hash=eq.${enc(normalized)}&limit=1`,
+  );
+  const row = rows?.[0] || null;
+  const document = row?.evidence_refs_json?.important_document || null;
+  return {
+    ok: true,
+    found: Boolean(row),
+    gap_id: row?.gap_id || null,
+    project_id: row?.project_id || null,
+    source_hash: row?.source_hash || null,
+    proposed_target_l2: row?.proposed_target_l2 || null,
+    review_status: row?.review_status || null,
+    routed_to: row?.routed_to || null,
+    document: document ? {
+      candidate_kind: document.candidate_kind,
+      document_class: document.document_class,
+      content_sha256: document.content_sha256,
+      lineage_count: Array.isArray(document.lineage) ? document.lineage.length : 0,
+      fact_count: Array.isArray(document.facts) ? document.facts.length : 0,
+      bzm_input_candidate_count: Array.isArray(document.bzm_input_candidates) ? document.bzm_input_candidates.length : 0,
+      reporting_period_start: document.reporting_period_start,
+      reporting_period_end: document.reporting_period_end,
+      audited: document.audited,
+    } : null,
+  };
 }
 
 async function upsertStrategySignals(items) {
@@ -2466,6 +2603,10 @@ async function main() {
     };
   } else if (cmd === "upsert-textbook-insights") {
     result = await upsertTextbookInsights(readJson(args.file).textbookInsights || readJson(args.file).items || []);
+  } else if (cmd === "upsert-coverage-gaps") {
+    result = await upsertCoverageGaps(readJson(args.file).coverageGaps || readJson(args.file).items || []);
+  } else if (cmd === "coverage-gap-readback") {
+    result = await readbackCoverageGap(args["source-hash"]);
   } else if (cmd === "update-projects") {
     result = await updateProjectPatches(readJson(args.file).projectPatches || readJson(args.file).items || []);
   } else if (cmd === "apply-outbox") {
@@ -2503,6 +2644,8 @@ async function main() {
         "node pwa/scripts/ms_progress_review_tool.mjs validate-monthly-report --file /tmp/monthly-reports.json",
         "node pwa/scripts/ms_progress_review_tool.mjs validate-monthly-report-external --file /tmp/monthly-reports-external.json",
         "node pwa/scripts/ms_progress_review_tool.mjs upsert-textbook-insights --file /tmp/textbook-insights.json",
+        "node pwa/scripts/ms_progress_review_tool.mjs upsert-coverage-gaps --file /tmp/important-document-outbox.json",
+        "node pwa/scripts/ms_progress_review_tool.mjs coverage-gap-readback --source-hash <64-hex>",
         "node pwa/scripts/ms_progress_review_tool.mjs update-projects --file /tmp/project-patches.json",
         "node pwa/scripts/ms_progress_review_tool.mjs apply-outbox --file /tmp/amd-os-outbox.json",
         "node pwa/scripts/ms_progress_review_tool.mjs apply-outbox-dir",

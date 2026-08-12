@@ -572,6 +572,9 @@ async function routeCoverageGapIfSupported(args: {
   if (target === "shareholder_meeting") {
     return routeGovernanceMeetingCoverageGap(args);
   }
+  if (target === "important_document") {
+    return routeImportantDocumentCoverageGap(args);
+  }
   if (target !== "strategy_signal") {
     return {
       message: target
@@ -600,6 +603,128 @@ async function routeCoverageGapIfSupported(args: {
   return {
     routedTo: signalId ? `project_strategy_signals:${signalId}` : "project_strategy_signals",
     message: signalId ? `routed project_strategy_signals:${signalId}` : "routed project_strategy_signals",
+    row: data,
+  };
+}
+
+/**
+ * 正式書類候補は、通知で採用された時だけ追記型の正本へ移す。
+ * raw本文・URL・BZM現行revisionは書かず、allowlistしたlineage/facts/接続候補だけを保存する。
+ */
+async function routeImportantDocumentCoverageGap(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  gap: CoverageGapRow;
+  createdBy: string | null;
+  feedbackText: string;
+  now: string;
+}): Promise<{ routedTo?: string; message?: string; row?: unknown; error?: string }> {
+  const projectId = String(args.gap.project_id || "").trim();
+  if (!projectId) return { error: "重要書類の追加先プロジェクトがない" };
+  const evidence = objectValue(args.gap.evidence_refs_json);
+  const candidate = objectValue(evidence.important_document);
+  if (textValue(candidate.candidate_kind) !== "important_document" || textValue(candidate.review_status) !== "candidate") {
+    return { error: "重要書類のcandidate証跡がない" };
+  }
+  if (textValue(candidate.project_id) !== projectId) return { error: "重要書類候補のプロジェクトが一致しない" };
+  if (textValue(candidate.source_hash) !== textValue(args.gap.source_hash)) return { error: "重要書類候補のsource hashが一致しない" };
+
+  const contentSha256 = textValue(candidate.content_sha256).toLowerCase();
+  const sourceHash = textValue(candidate.source_hash).toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(contentSha256) || !/^[0-9a-f]{64}$/.test(sourceHash)) {
+    return { error: "重要書類候補のcontent/source hashが不正" };
+  }
+  const periodStart = ymdValue(candidate.reporting_period_start);
+  const periodEnd = ymdValue(candidate.reporting_period_end);
+  if (!periodStart || !periodEnd || periodStart > periodEnd) return { error: "重要書類候補の対象期間が不正" };
+
+  const lineage = sanitizeImportantDocumentLineage(candidate.lineage);
+  const facts = sanitizeImportantDocumentFacts(candidate.facts);
+  const bzmCandidates = sanitizeImportantDocumentBzmCandidates(candidate.bzm_input_candidates);
+  const rawLineageCount = Array.isArray(candidate.lineage) ? Math.min(candidate.lineage.length, 50) : 0;
+  const rawFactCount = Array.isArray(candidate.facts) ? Math.min(candidate.facts.length, 100) : 0;
+  const rawBzmCount = Array.isArray(candidate.bzm_input_candidates) ? Math.min(candidate.bzm_input_candidates.length, 100) : 0;
+  if (lineage.length === 0 || facts.length === 0 || bzmCandidates.length === 0) {
+    return { error: "重要書類候補のlineage、facts、BZM接続候補のいずれかが空" };
+  }
+  if (lineage.length !== rawLineageCount || facts.length !== rawFactCount || bzmCandidates.length !== rawBzmCount) {
+    return { error: "重要書類候補にallowlist検査を通らないfieldがある" };
+  }
+  if (Array.isArray(candidate.monthly_actuals) && candidate.monthly_actuals.length > 0) {
+    return { error: "年度重要書類候補に月次実績を混在させない" };
+  }
+  const forbiddenValueFact = facts.find((fact) =>
+    ["financing_cash_flow", "grant_deposit", "grant_commitment_cap"].includes(String(fact.temporal_class))
+    && (fact.include_in_revenue === true || fact.include_in_company_value === true));
+  if (forbiddenValueFact) return { error: `重要書類候補の会計分類が不正: ${String(forbiddenValueFact.fact_key)}` };
+
+  const version = objectValue(candidate.version);
+  const versionRank = Math.max(1, Math.floor(numberValue(version.rank, 1)));
+  const versionState = ["canonical_candidate", "superseded_candidate"].includes(textValue(version.state))
+    ? textValue(version.state)
+    : "canonical_candidate";
+  const db = getServiceClient();
+  const { data: existing, error: existingError } = await db
+    .from("project_important_documents")
+    .select("important_document_id, project_id, document_class, reporting_period_end, content_sha256, status")
+    .eq("project_id", projectId)
+    .eq("content_sha256", contentSha256)
+    .maybeSingle();
+  if (existingError) return { error: `重要書類の重複確認に失敗: ${existingError.message}` };
+  if (existing) {
+    const id = String(existing.important_document_id || "");
+    return {
+      routedTo: id ? `project_important_documents:${id}` : "project_important_documents",
+      message: "同じ内容hashの重要書類はすでに正本化済み",
+      row: { ...existing, already_existed: true },
+    };
+  }
+
+  const missingFields = Array.isArray(candidate.missing_fields)
+    ? candidate.missing_fields.slice(0, 100).map((value) => limitedText(value, 120)).filter(Boolean)
+    : [];
+  const row = {
+    project_id: projectId,
+    source_gap_id: args.gap.gap_id,
+    source_hash: sourceHash,
+    content_sha256: contentSha256,
+    document_class: limitedText(candidate.document_class, 120) || "important_document",
+    document_title: limitedText(candidate.title, 500) || "正式書類",
+    company_name: limitedText(candidate.company_name, 300),
+    mime_type: limitedText(candidate.mime_type, 160),
+    reporting_period_start: periodStart,
+    reporting_period_end: periodEnd,
+    balance_sheet_date: ymdValue(candidate.balance_sheet_date),
+    audited: candidate.audited === true,
+    audit_opinion: ["unqualified", "other", "unknown"].includes(textValue(candidate.audit_opinion))
+      ? textValue(candidate.audit_opinion)
+      : "unknown",
+    audit_signed_on: ymdValue(candidate.audit_signed_on),
+    canonical_file_id: limitedText(candidate.canonical_file_id, 300),
+    lineage_json: lineage,
+    version_family_key: limitedText(version.family_key, 500),
+    version_rank: versionRank,
+    version_state: versionState,
+    facts_json: facts,
+    bzm_input_candidates_json: bzmCandidates,
+    missing_fields_json: missingFields,
+    status: "confirmed",
+    confirmed_by: args.createdBy || "notification_feedback",
+    confirmed_at: args.now,
+    updated_at: args.now,
+  };
+  if (!row.company_name || !row.mime_type || !row.canonical_file_id || !row.version_family_key) {
+    return { error: "重要書類候補の必須metadataが不足" };
+  }
+  const { data, error } = await db
+    .from("project_important_documents")
+    .insert(row)
+    .select("important_document_id, project_id, document_class, reporting_period_start, reporting_period_end, content_sha256, audited, status")
+    .single();
+  if (error) return { error: `重要書類の正本化に失敗: ${error.message}` };
+  const id = String(data?.important_document_id || "");
+  return {
+    routedTo: id ? `project_important_documents:${id}` : "project_important_documents",
+    message: "重要書類を内容hash単位で1件正本化した。BZM入力は候補のまま分離した",
     row: data,
   };
 }
@@ -744,6 +869,121 @@ function sanitizeGovernanceAttachments(value: unknown): Array<Record<string, str
   });
 }
 
+function sanitizeImportantDocumentLineage(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 50).flatMap((entry) => {
+    const item = objectValue(entry);
+    const fileId = limitedText(item.file_id, 300);
+    if (!fileId) return [];
+    const parents = Array.isArray(item.parent_folders)
+      ? item.parent_folders.slice(0, 20).map((parent) => limitedText(parent, 300)).filter(Boolean)
+      : [];
+    const extractionMethod = ["native_text", "pdf_text", "ocr", "unavailable"].includes(textValue(item.extraction_method))
+      ? textValue(item.extraction_method)
+      : "unavailable";
+    const extractionStatus = ["available", "partial", "missing"].includes(textValue(item.extraction_status))
+      ? textValue(item.extraction_status)
+      : "missing";
+    return [{
+      file_id: fileId,
+      parent_folders: parents,
+      created_at: limitedText(item.created_at, 80) || null,
+      modified_at: limitedText(item.modified_at, 80) || null,
+      extraction_method: extractionMethod,
+      extraction_status: extractionStatus,
+    }];
+  });
+}
+
+function sanitizeImportantDocumentFacts(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) return [];
+  const temporalClasses = new Set([
+    "monthly_actual",
+    "period_end_balance",
+    "annual_cumulative",
+    "financing_cash_flow",
+    "grant_deposit",
+    "grant_commitment_cap",
+  ]);
+  const valueStatuses = new Set(["observed", "calculated", "partial", "missing"]);
+  const factStatuses = new Set(["reported", "received_on_account", "conditional_cap", "missing"]);
+  return value.slice(0, 100).flatMap((entry) => {
+    const item = objectValue(entry);
+    const factKey = limitedText(item.fact_key, 160);
+    const temporalClass = textValue(item.temporal_class);
+    const valueStatus = textValue(item.value_status);
+    const factStatus = textValue(item.status);
+    if (!factKey || !temporalClasses.has(temporalClass) || !valueStatuses.has(valueStatus) || !factStatuses.has(factStatus)) return [];
+    const rawValue = item.value_yen;
+    const amount = rawValue === null || rawValue === undefined ? null : Number(rawValue);
+    if (amount !== null && !Number.isFinite(amount)) return [];
+    const provenance = objectValue(item.provenance);
+    const provenanceFileId = limitedText(provenance.file_id, 300);
+    const provenanceHash = textValue(provenance.content_sha256).toLowerCase();
+    const evidenceHash = textValue(provenance.evidence_sha256).toLowerCase();
+    const pageValue = Number(provenance.page);
+    const cleanProvenance = provenanceFileId && /^[0-9a-f]{64}$/.test(provenanceHash) && /^[0-9a-f]{64}$/.test(evidenceHash)
+      ? {
+          file_id: provenanceFileId,
+          content_sha256: provenanceHash,
+          section: limitedText(provenance.section, 200),
+          page: Number.isInteger(pageValue) && pageValue > 0 ? pageValue : null,
+          evidence_text: limitedText(provenance.evidence_text, 220),
+          evidence_sha256: evidenceHash,
+          extraction_method: ["native_text", "pdf_text", "ocr"].includes(textValue(provenance.extraction_method))
+            ? textValue(provenance.extraction_method)
+            : "unavailable",
+          observation_kind: "document",
+        }
+      : null;
+    if (valueStatus === "observed" && !cleanProvenance) return [];
+    return [{
+      fact_key: factKey,
+      label: limitedText(item.label, 200),
+      value_yen: amount,
+      value_status: valueStatus,
+      temporal_class: temporalClass,
+      period_start: ymdValue(item.period_start),
+      period_end: ymdValue(item.period_end),
+      as_of_date: ymdValue(item.as_of_date),
+      due_at: ymdValue(item.due_at),
+      due_precision: ["day", "month", "fiscal_year", "none"].includes(textValue(item.due_precision))
+        ? textValue(item.due_precision)
+        : "none",
+      status: factStatus,
+      accounting_treatment: limitedText(item.accounting_treatment, 500),
+      include_in_revenue: item.include_in_revenue === true,
+      include_in_company_value: item.include_in_company_value === true,
+      provenance: cleanProvenance,
+    }];
+  });
+}
+
+function sanitizeImportantDocumentBzmCandidates(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 100).flatMap((entry) => {
+    const item = objectValue(entry);
+    const parameterKey = limitedText(item.parameter_key, 180);
+    const sourceFactKey = limitedText(item.source_fact_key, 160);
+    const valueStatus = textValue(item.value_status);
+    if (!parameterKey || !sourceFactKey || !["observed", "calculated", "missing"].includes(valueStatus)) return [];
+    const rawValue = item.value;
+    const amount = rawValue === null || rawValue === undefined ? null : Number(rawValue);
+    if (amount !== null && !Number.isFinite(amount)) return [];
+    return [{
+      parameter_key: parameterKey,
+      value: amount,
+      unit: "JPY",
+      value_status: valueStatus,
+      information_date: ymdValue(item.information_date),
+      temporal_scope: limitedText(item.temporal_scope, 120),
+      use_rule: limitedText(item.use_rule, 500),
+      source_fact_key: sourceFactKey,
+      review_status: "candidate",
+    }];
+  });
+}
+
 function buildStrategySignalFromCoverageGap(
   gap: CoverageGapRow,
   opts: { projectId: string; createdBy: string | null; feedbackText: string; now: string }
@@ -813,6 +1053,7 @@ function normalizeCoverageTarget(value: string | null): string {
   if (["strategy_signal", "project_strategy_signal", "d-6", "d6"].includes(v)) return "strategy_signal";
   if (["action_item", "action_items", "governance_action_item"].includes(v)) return "action_item";
   if (["shareholder_meeting", "governance", "project_shareholder_meeting"].includes(v)) return "shareholder_meeting";
+  if (["important_document", "project_important_document", "formal_document"].includes(v)) return "important_document";
   return v;
 }
 
