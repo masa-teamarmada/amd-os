@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin } from "@/lib/supabase/api-auth";
 import { applyContractTerms, deriveContractApplyPlan } from "@/lib/contracts-apply";
+import { requireContractTermsOperator } from "@/lib/contract-terms-operator-auth";
 
 export const runtime = "nodejs";
 
@@ -16,7 +16,7 @@ export const runtime = "nodejs";
  */
 
 export async function GET(req: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireContractTermsOperator(req);
   if (!auth.ok) return auth.errorResponse;
 
   const url = new URL(req.url);
@@ -41,7 +41,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const auth = await requireAdmin();
+  const auth = await requireContractTermsOperator(req);
   if (!auth.ok) return auth.errorResponse;
 
   let body: { termId?: string } = {};
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
 
   const db = createAdminClient();
   try {
-    const result = await applyContractTerms(db, termId, auth.user.email || "admin");
+    const result = await applyContractTerms(db, termId, auth.actor);
     return NextResponse.json({ ok: true, result });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 });

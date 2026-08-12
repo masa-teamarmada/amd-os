@@ -275,7 +275,7 @@ SXのBZM 2.0固定方針下の計画達成診断4.15%は消さず、BZM 2.1の�
 
 このartifactのPJ別compact projectionは、read-only API `/api/project/[projectId]/bzm-2-2-pilot`を通じてPJコックピットのスコア詳細へ接続する。payloadは`{ pilot: Bzm22PilotProject }`とし、該当PJがartifact未登録ならBZM 2.2区画だけに明示的な未登録状態を返す。DB、監査JSONの正本、生成スクリプト、`sps_primary_model_registry`は書き換えない。
 
-`Bzm22ProvisionalObservatory`を`data-testid="bzm22-provisional-primary"`の最上段に置き、見出しは「BZM 2.2 暫定主表示」とする。ヘッダーに`unvalidated`、`shadow_only`、前向き検証0件、ランキング・配分・自動判断禁止を隠さず表示する。要約は低位・中央・高位scenarioの`q_gate_product_proxy`、`q_stress_proxy`、$J$、成功条件付き$P$、初回経路喪失を分離し、直下に「全パラメータ台帳」を置く。
+`Bzm22ProvisionalObservatory`を`data-testid="bzm22-provisional-primary"`の最上段に置き、見出しは「BZM 2.2 暫定主表示」とする。ヘッダーに`unvalidated`、`shadow_only`、前向き検証0件、ランキング・配分・自動判断禁止を隠さず表示する。要約は低位・中央・高位scenarioの`q_gate_product_proxy`、`q_stress_proxy`、$J$、成功条件付き$P$、初回経路喪失を分離し、直下に「全パラメータ台帳」を置く。金額表示は`¥4,010M`形式とし、百万JPY単位の値を整数へ四捨五入して表示する。artifact/APIの数値精度は変更しない。
 
 全パラメータ台帳は7群の103項目を全件収載し、各行のkey、値、推定状態、確度、根拠・注記、scenario別入力を監査可能にする。群は折りたためるが、検索・表示条件を初期状態へ戻せば全103項目へ到達でき、「全て開く」で同時展開できる。構造化値は形・hash・previewで圧縮しても行を間引かない。desktopは高密度表、mobileは各行のlabel/valueを縦再配置し、ページ全体の水平スクロールを発生させない。
 

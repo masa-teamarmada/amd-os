@@ -1,3 +1,14 @@
+const INTEGER_FORMATTER = new Intl.NumberFormat("ja-JP", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+
+export function formatMillionJpy(value: number) {
+  const normalized = Math.abs(value) < 0.5 ? 0 : value;
+  const sign = normalized < 0 ? "-" : "";
+  return `${sign}¥${INTEGER_FORMATTER.format(Math.abs(normalized))}M`;
+}
+
 export type Bzm22Scenario<T> = {
   low: T;
   base: T;

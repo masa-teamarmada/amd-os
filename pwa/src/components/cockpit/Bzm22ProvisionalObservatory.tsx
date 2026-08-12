@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type {
-  Bzm22PilotApiPayload,
-  Bzm22PilotParameter,
-  Bzm22PilotParameterGroup,
-  Bzm22PilotProject,
-  Bzm22Scenario,
+import {
+  formatMillionJpy,
+  type Bzm22PilotApiPayload,
+  type Bzm22PilotParameter,
+  type Bzm22PilotParameterGroup,
+  type Bzm22PilotProject,
+  type Bzm22Scenario,
 } from "@/lib/bzm-2-2-pilot-ui";
 
 type LoadState =
@@ -19,6 +20,7 @@ type ParameterFilter = "all" | "used" | "uncertain";
 
 const PILOT_CACHE = new Map<string, Bzm22PilotProject>();
 const UNCERTAIN_STATUS = /missing|estimated|partial|imputed|conditional|hearing|unknown|incomplete/i;
+const MILLION_JPY_UNIT = /^million_jpy(?:_|$)/i;
 
 const STATUS_META: Array<{
   pattern: RegExp;
@@ -60,6 +62,29 @@ function compactValue(value: unknown, maxLength = 78) {
   return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text;
 }
 
+function isMillionJpyUnit(unit: string) {
+  return MILLION_JPY_UNIT.test(unit);
+}
+
+function formatUnitLabel(unit: string) {
+  if (!isMillionJpyUnit(unit)) return unit || "単位なし";
+  if (/or_not_applicable/i.test(unit)) return "¥M / 対象外";
+  if (/pv/i.test(unit)) return "¥M（現在価値）";
+  return "¥M";
+}
+
+function formatUnitValue(value: unknown, unit: string): unknown {
+  if (!isMillionJpyUnit(unit)) return value;
+  if (typeof value === "number" && Number.isFinite(value)) return formatMillionJpy(value);
+  if (Array.isArray(value)) return value.map((entry) => formatUnitValue(entry, unit));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, formatUnitValue(entry, unit)]),
+    );
+  }
+  return value;
+}
+
 function jsonText(value: unknown) {
   try {
     return JSON.stringify(value, null, 2) ?? "未登録";
@@ -86,7 +111,7 @@ function formatNumber(value: number | null, kind: "probability" | "million") {
   if (kind === "probability") {
     return `${new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 2 }).format(value * 100)}%`;
   }
-  return `${new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 1 }).format(value)} 百万円`;
+  return formatMillionJpy(value);
 }
 
 function hasPrecisionLoss(value: Bzm22PilotParameter["precisionLossContribution"]) {
@@ -131,14 +156,22 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function ValueDisclosure({ value, label = "全値" }: { value: unknown; label?: string }) {
+function ValueDisclosure({
+  value,
+  label = "全値",
+  unit = "",
+}: {
+  value: unknown;
+  label?: string;
+  unit?: string;
+}) {
   return (
     <details className="min-w-0">
       <summary className="cursor-pointer list-none text-[9px] font-semibold text-[#376274] underline decoration-dotted underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-700 marker:content-none">
         {label}
       </summary>
       <pre className="mt-1 max-h-72 max-w-full overflow-auto whitespace-pre-wrap break-all border border-slate-200 bg-slate-50 p-2 font-mono text-[9px] leading-4 text-slate-600">
-        {jsonText(value)}
+        {jsonText(formatUnitValue(value, unit))}
       </pre>
     </details>
   );
@@ -186,11 +219,11 @@ function ScenarioValues({ parameter }: { parameter: Bzm22PilotParameter }) {
   return (
     <div className="min-w-0 space-y-1">
       <div className="grid grid-cols-[16px_minmax(0,1fr)] gap-x-1 font-mono text-[9px] leading-4 text-slate-600">
-        <span className="text-slate-400">L</span><span className="break-words">{compactValue(parameter.imputed.low)}</span>
-        <span className="text-slate-400">B</span><span className="break-words">{compactValue(parameter.imputed.base)}</span>
-        <span className="text-slate-400">H</span><span className="break-words">{compactValue(parameter.imputed.high)}</span>
+        <span className="text-slate-400">L</span><span className="break-words">{compactValue(formatUnitValue(parameter.imputed.low, parameter.unit))}</span>
+        <span className="text-slate-400">B</span><span className="break-words">{compactValue(formatUnitValue(parameter.imputed.base, parameter.unit))}</span>
+        <span className="text-slate-400">H</span><span className="break-words">{compactValue(formatUnitValue(parameter.imputed.high, parameter.unit))}</span>
       </div>
-      <ValueDisclosure label="L/B/H 全値" value={parameter.imputed} />
+      <ValueDisclosure label="L/B/H 全値" value={parameter.imputed} unit={parameter.unit} />
     </div>
   );
 }
@@ -216,11 +249,11 @@ function ParameterDesktopTable({ parameters }: { parameters: Bzm22PilotParameter
               <td className="px-2 py-2 text-right font-mono tabular-nums text-slate-400">{parameter.index}</td>
               <td className="px-2 py-2">
                 <div className="break-all font-mono text-[9px] font-semibold text-[#234d5e]">{parameter.id}</div>
-                <div className="mt-0.5 text-slate-500">{parameter.unit || "単位なし"}</div>
+                <div className="mt-0.5 text-slate-500">{formatUnitLabel(parameter.unit)}</div>
               </td>
               <td className="px-2 py-2">
-                <div className="break-words font-mono text-slate-700">{compactValue(parameter.value)}</div>
-                <ValueDisclosure value={parameter.value} />
+                <div className="break-words font-mono text-slate-700">{compactValue(formatUnitValue(parameter.value, parameter.unit))}</div>
+                <ValueDisclosure value={parameter.value} unit={parameter.unit} />
               </td>
               <td className="px-2 py-2"><ScenarioValues parameter={parameter} /></td>
               <td className="px-2 py-2">
@@ -251,15 +284,15 @@ function ParameterMobileCards({ parameters }: { parameters: Bzm22PilotParameter[
           <div className="flex min-w-0 items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="font-mono text-[9px] font-semibold text-[#234d5e]">#{parameter.index} {parameter.id}</div>
-              <div className="mt-0.5 text-[9px] text-slate-500">{parameter.unit || "単位なし"}</div>
+              <div className="mt-0.5 text-[9px] text-slate-500">{formatUnitLabel(parameter.unit)}</div>
             </div>
             <StatusBadge status={parameter.observedStatus} />
           </div>
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div className="min-w-0 border border-slate-100 bg-slate-50 p-2">
               <div className="text-[8px] font-semibold text-slate-500">現在値</div>
-              <div className="mt-1 break-words font-mono text-[10px] text-slate-700">{compactValue(parameter.value, 140)}</div>
-              <ValueDisclosure value={parameter.value} />
+              <div className="mt-1 break-words font-mono text-[10px] text-slate-700">{compactValue(formatUnitValue(parameter.value, parameter.unit), 140)}</div>
+              <ValueDisclosure value={parameter.value} unit={parameter.unit} />
             </div>
             <div className="min-w-0 border border-slate-100 p-2">
               <div className="mb-1 text-[8px] font-semibold text-slate-500">仮定束 L / B / H</div>
