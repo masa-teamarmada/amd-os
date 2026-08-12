@@ -39,6 +39,7 @@ type DetailRow = {
 };
 
 const COVERAGE_GAP_UNAVAILABLE_HEADING = "このカードだけではコピー対象を判断できない";
+const IMPORTANT_EVIDENCE_UNAVAILABLE_HEADING = "このカードだけでは保存対象を判断できない";
 
 function parseProtocolNotificationScope(scopeKey: string): { ym: string; protocolId: string | null } {
   const scoped = scopeKey.match(/^(20\d{4}):protocol:([^:]+)$/);
@@ -109,6 +110,13 @@ function isExternalResearchItem(i: UnifiedItem): boolean {
 function isGovernanceCoverageGap(n: Notification): boolean {
   const meta = objectValue(n.metadata_json);
   return normalizeCoverageTarget(textFromUnknown(meta.proposed_target_l2)) === "shareholder_meeting";
+}
+
+function isImportantEvidenceCoverageGap(n: Notification): boolean {
+  const meta = objectValue(n.metadata_json);
+  return ["important_evidence", "important_document"].includes(
+    normalizeCoverageTarget(textFromUnknown(meta.proposed_target_l2)),
+  );
 }
 
 // 旧抽出済みデータの安全弁。開催日が無い、または承認ワークフロー由来の候補は
@@ -320,6 +328,7 @@ function itemMetaLabel(i: UnifiedItem, projectMap: Record<string, string>): stri
   if (isCoverageGapItem(i)) {
     const n = i.data as Notification;
     if (isGovernanceCoverageGap(n)) return `開催履歴の追加 / ${projectMap[n.target_id] ?? n.target_id}`;
+    if (isImportantEvidenceCoverageGap(n)) return `重要情報の確認 / ${projectMap[n.target_id] ?? n.target_id}`;
     return `会議メモの確認 / ${projectMap[n.target_id] ?? n.target_id}`;
   }
   if (i.kind === "l2" && isTextbookInsightItem(i) && textbookDestinationKind(i) === "management_knowledge") {
@@ -417,7 +426,9 @@ function responseLabelForItem(action: FeedbackAction, i: UnifiedItem): string {
 }
 
 function detailTitleForItem(i: UnifiedItem): string | undefined {
-  if (isCoverageGapItem(i)) return "確認したい内容";
+  if (isCoverageGapItem(i)) {
+    return isImportantEvidenceCoverageGap(i.data as Notification) ? "保存候補の事実と根拠" : "確認したい内容";
+  }
   if (isTextbookInsightItem(i)) return textbookDestinationKind(i) === "management_knowledge" ? "経営ノウハウに追加する候補" : "BZMに追記する候補";
   return undefined;
 }
@@ -1073,7 +1084,11 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
             .limit(1);
           if (error) throw error;
           rows = (data ?? []).map((r) => {
-            if (normalizeCoverageTarget(textFromUnknown(r.proposed_target_l2)) === "shareholder_meeting") {
+            const coverageTarget = normalizeCoverageTarget(textFromUnknown(r.proposed_target_l2));
+            if (["important_evidence", "important_document"].includes(coverageTarget)) {
+              return importantEvidenceDetailRow(r, n);
+            }
+            if (coverageTarget === "shareholder_meeting") {
               const meeting = objectValue(objectValue(r.evidence_refs_json).governance_meeting);
               const resolutions = Array.isArray(meeting.resolutions_json) ? meeting.resolutions_json : [];
               const attachments = Array.isArray(meeting.attachments_json) ? meeting.attachments_json : [];
@@ -1340,6 +1355,15 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
         return;
       }
       const created = await res.json();
+      if (
+        action === "yes"
+        && isCoverageGapItem(i)
+        && isImportantEvidenceCoverageGap(i.data as Notification)
+        && objectValue(created.applyResult).applied !== true
+      ) {
+        alert("保存に失敗したため、候補は未対応のまま残した。もう一度試すか、コメントで再確認を依頼してね。");
+        return;
+      }
       // 楽観的反映
       restoreScrollAfterAnswer(key);
       setLocalFeedbacks((prev) => [created.feedback as Feedback, ...prev]);
@@ -1406,16 +1430,18 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
           const contractAction = i.kind === "l2" ? contractActionContract(i.data) : null;
           const finalDecision = i.kind === "l2" ? finalDecisionContract(i.data) : null;
           const contractActionBlocked = contractAction?.resolved === false;
+          const importantEvidenceCoverageGap = isCoverageGapItem(i)
+            && isImportantEvidenceCoverageGap(i.data as Notification);
           const coverageGapCopyBlocked = isCoverageGapItem(i)
             && !isGovernanceCoverageGap(i.data as Notification)
             && coverageGapDetailBlocksCopy(detail);
           const actionPrompt = contractActionBlocked
             ? contractAction?.insufficiency ?? "対象の契約を特定できないため、判断できない。"
-            : coverageGapCopyBlocked ? coverageGapBlockedPrompt(detail) : actionCopy.prompt;
+            : coverageGapCopyBlocked ? coverageGapBlockedPrompt(detail, importantEvidenceCoverageGap) : actionCopy.prompt;
           const actionFootnote = contractActionBlocked
             ? "コメントは通知の修正依頼として保存するだけで、契約台帳も要対応の状態も変更しない。"
-            : coverageGapCopyBlocked ? coverageGapBlockedFootnote(detail) : actionCopy.footnote;
-          const yesLabel = coverageGapCopyBlocked ? coverageGapBlockedYesLabel(detail) : actionCopy.yesLabel;
+            : coverageGapCopyBlocked ? coverageGapBlockedFootnote(detail, importantEvidenceCoverageGap) : actionCopy.footnote;
+          const yesLabel = coverageGapCopyBlocked ? coverageGapBlockedYesLabel(detail, importantEvidenceCoverageGap) : actionCopy.yesLabel;
           return (
             <div
               id={`notification-card-${key}`}
@@ -2006,6 +2032,118 @@ function truncateOneLine(value: string, limit = 360): string {
   return s.length > limit ? `${s.slice(0, limit)}...` : s;
 }
 
+function importantEvidenceDetailRow(
+  row: Record<string, unknown>,
+  notification: Notification,
+): { heading: string; body: string; sub?: string } {
+  const evidence = objectValue(row.evidence_refs_json);
+  const candidate = objectValue(evidence.important_evidence ?? evidence.important_document);
+  const importance = objectValue(candidate.importance);
+  const categories = Array.isArray(importance.categories)
+    ? importance.categories.map(textFromUnknown).filter(Boolean)
+    : [];
+  const facts = Array.isArray(candidate.facts)
+    ? candidate.facts.map(objectValue)
+    : [];
+  const visibleFacts = facts.filter((fact) => textFromUnknown(fact.value_status) !== "missing").slice(0, 40);
+  const missingFields = Array.isArray(candidate.missing_fields)
+    ? candidate.missing_fields.map(textFromUnknown).filter(Boolean)
+    : [];
+  const lineage = Array.isArray(candidate.lineage) ? candidate.lineage : [];
+  const primaryLineage = objectValue(lineage[0]);
+  const primaryExtractionStatus = textFromUnknown(primaryLineage.extraction_status);
+  const textReadRequired = candidate.text_read_required === true
+    || (primaryExtractionStatus !== "" && primaryExtractionStatus !== "available");
+  const bodyReadStatus = visibleFacts.length === 0 || primaryExtractionStatus === "missing"
+    ? "本文状態: 未読。OCRまたは形式変換が必要"
+    : textReadRequired
+      ? "本文状態: 抜粋・部分読取。全文は未確認"
+      : "本文状態: 読み取り済み";
+  const factLines = visibleFacts.map((fact) => {
+    const provenance = objectValue(fact.provenance);
+    const evidenceText = truncateOneLine(textFromUnknown(provenance.evidence_text), 240);
+    const context = [
+      importantEvidenceObservationLabel(textFromUnknown(fact.value_status)),
+      importantEvidenceTemporalLabel(textFromUnknown(fact.temporal_class)),
+      textFromUnknown(fact.period_start) && textFromUnknown(fact.period_end)
+        ? `${textFromUnknown(fact.period_start)}〜${textFromUnknown(fact.period_end)}`
+        : textFromUnknown(fact.as_of_date) ? `${textFromUnknown(fact.as_of_date)}時点` : "",
+      textFromUnknown(fact.due_at) ? `期限 ${textFromUnknown(fact.due_at)}` : "",
+      typeof provenance.page === "number" && provenance.page > 0 ? `${provenance.page}ページ` : "",
+    ].filter(Boolean).join("・");
+    return [
+      `・${textFromUnknown(fact.label) || textFromUnknown(fact.fact_key) || "抽出項目"}: ${importantEvidenceFactValue(fact)}`,
+      context ? `  ${context}` : "",
+      evidenceText !== "(snippetなし)" ? `  根拠: ${evidenceText}` : "",
+    ].filter(Boolean).join("\n");
+  });
+  const periodStart = textFromUnknown(candidate.effective_period_start ?? candidate.reporting_period_start);
+  const periodEnd = textFromUnknown(candidate.effective_period_end ?? candidate.reporting_period_end);
+  const body = [
+    `分類: ${categories.length > 0 ? categories.map(importantEvidenceCategoryLabel).join("・") : textFromUnknown(candidate.document_class) || "未分類"}`,
+    periodStart && periodEnd ? `対象期間: ${periodStart}〜${periodEnd}` : "",
+    candidate.audited === true ? `監査: あり${textFromUnknown(candidate.audit_signed_on) ? `（${textFromUnknown(candidate.audit_signed_on)}）` : ""}` : "監査: 未確認",
+    `同一内容の所在: ${lineage.length || 1}件（保存は1件）`,
+    bodyReadStatus,
+    factLines.length > 0 ? `\n抽出した事実\n${factLines.join("\n")}` : "\n抽出した事実: 具体値は未確認",
+    missingFields.length > 0 ? `\n未確認項目: ${missingFields.slice(0, 20).join("、")}` : "",
+  ].filter(Boolean).join("\n");
+  return {
+    heading: textFromUnknown(candidate.title) || coverageGapSubjectFromTitle(notification.title),
+    body,
+    sub: [
+      textFromUnknown(row.source) ? `取得元=${textFromUnknown(row.source)}` : "",
+      textFromUnknown(row.review_status) ? `状態=${textFromUnknown(row.review_status)}` : "",
+      textFromUnknown(row.detected_at) ? `抽出=${formatJST(textFromUnknown(row.detected_at))}` : "",
+    ].filter(Boolean).join(" · ") || undefined,
+  };
+}
+
+function importantEvidenceFactValue(fact: Record<string, unknown>): string {
+  const value = typeof fact.value_number === "number"
+    ? fact.value_number
+    : typeof fact.value_yen === "number" ? fact.value_yen : null;
+  const unit = textFromUnknown(fact.unit);
+  if (value != null) {
+    if (["JPY", "円"].includes(unit)) return `${new Intl.NumberFormat("ja-JP").format(value)}円`;
+    return `${new Intl.NumberFormat("ja-JP").format(value)}${unit ? ` ${unit}` : ""}`;
+  }
+  return truncateOneLine(textFromUnknown(fact.value_text), 120);
+}
+
+function importantEvidenceObservationLabel(value: string): string {
+  return ({ observed: "原文で確認", inferred: "推定", calculated: "計算", missing: "未確認" } as Record<string, string>)[value] ?? value;
+}
+
+function importantEvidenceTemporalLabel(value: string): string {
+  return ({
+    monthly_actual: "月次実績",
+    period_end_balance: "期末残高",
+    annual_cumulative: "年度累計",
+    financing_cash_flow: "資金調達による入出金",
+    grant_deposit: "補助金の預り",
+    grant_commitment_cap: "補助金の条件付き上限",
+    not_applicable: "時点区分なし",
+  } as Record<string, string>)[value] ?? value;
+}
+
+function importantEvidenceCategoryLabel(value: string): string {
+  return ({
+    financial: "財務",
+    governance: "会社運営",
+    contract: "契約",
+    funding: "資金調達",
+    grant: "補助金",
+    technical: "技術・知財",
+    project_plan: "事業計画",
+    commercial: "事業進展",
+    risk_compliance: "リスク・法令",
+    personnel: "人事",
+    deadline: "期限",
+    other: "その他",
+  } as Record<string, string>)[value] ?? value;
+}
+
 function textbookSourceLabel(table: string): string {
   const key = table.trim().toLowerCase();
   const labels: Record<string, string> = {
@@ -2148,6 +2286,9 @@ function coverageGapQuestionTitle(n: Notification): string {
     const headline = textFromUnknown(objectValue(n.metadata_json).meeting_name) || coverageGapSubjectFromTitle(n.title);
     return `開催履歴を追加する？: ${headline}`;
   }
+  if (isImportantEvidenceCoverageGap(n)) {
+    return `重要情報として保存する？: ${importantEvidenceSubjectFromTitle(n.title)}`;
+  }
   const subject = coverageGapQuestionSubject(n);
   if (coverageGapNotificationNeedsSourceRecovery(n)) {
     return `コピー前に元情報を確認: ${subject}`;
@@ -2169,6 +2310,9 @@ function coverageGapQuestionSubject(n: Notification): string {
 function coverageGapQuestionSummary(n: Notification): string {
   if (isGovernanceCoverageGap(n)) {
     return "この候補は、メールや資料から見つけた開催情報の下書き。採用するまで会社概要の開催履歴には追加されない。追加先と追加する情報を確認してから判断してね。";
+  }
+  if (isImportantEvidenceCoverageGap(n)) {
+    return "資料・メール・会議・Slack・Notionから抜き出した重要な事実の候補。下の値、根拠、期間、重複数を確認して、AMD OSの重要情報として保存するか判断する。";
   }
   const subject = coverageGapQuestionSubject(n);
   if (coverageGapNotificationNeedsSourceRecovery(n)) {
@@ -2196,6 +2340,18 @@ function coverageGapActionCopy(n: Notification): ReviewActionCopy {
       headlineLabel: "何をする通知？",
     };
   }
+  if (["important_evidence", "important_document"].includes(target)) {
+    return {
+      yesLabel: "重要情報として保存",
+      noLabel: "保存しない",
+      yesDoneLabel: "重要情報として保存済み",
+      noDoneLabel: "保存しないで完了",
+      prompt: "下の事実・根拠・期間を確認し、AMD OSの重要情報として正本化するか判断する。",
+      footnote: "保存すると、短い根拠と取得元、同一内容の所在、版、確認状態を1件の重要情報として残す。元資料、既存の月次実績、会社価値、BZMの計算値は自動で書き換えない。",
+      placeholder: "任意コメント。例: この事実は保存 / 金額の単位を再確認 / この資料は旧版",
+      headlineLabel: "何を保存する通知？",
+    };
+  }
   if (target === "strategy_signal") {
     return {
       yesLabel: "重要メモにコピー",
@@ -2218,6 +2374,15 @@ function coverageGapActionCopy(n: Notification): ReviewActionCopy {
     placeholder: "任意コメント。例: この文章なら残す / 元の要約も直したい / これはコピーしない",
     headlineLabel: "確認したいこと",
   };
+}
+
+function importantEvidenceSubjectFromTitle(raw: string | null | undefined): string {
+  return coverageGapSubjectFromTitle(raw)
+    .replace(/^この重要情報をAMD OSに残す[？?][:：]?\s*/, "")
+    .replace(/^正式な重要書類を正本化する[？?][:：]?\s*/, "")
+    .replace(/^重要情報候補[:：]\s*(?:[^/／]+[/／]\s*)?/, "")
+    .replace(/^重要書類候補[:：]\s*/, "")
+    .trim() || "重要情報候補";
 }
 
 function humanizeCoverageSubject(value: string): string {
@@ -2433,6 +2598,9 @@ function coverageGapOriginalSignal(summary: string, evidence: Record<string, unk
 
 function coverageGapCopyNonConsequence(targetValue: string): string {
   switch (normalizeCoverageTarget(targetValue)) {
+    case "important_evidence":
+    case "important_document":
+      return "元資料は書き換えない。既存の月次実績、会社価値、BZMの計算値へも自動反映しない。";
     case "strategy_signal":
       return "元の会議要約は直さない。会社の正式決定、出資合意、着金合意としても扱わない。";
     case "action_item":
@@ -2447,6 +2615,16 @@ function coverageGapCopyNonConsequence(targetValue: string): string {
 }
 
 function coverageGapUnavailableRows(n: Notification): NonNullable<DetailRow["rows"]> {
+  if (isImportantEvidenceCoverageGap(n)) {
+    return [{
+      heading: IMPORTANT_EVIDENCE_UNAVAILABLE_HEADING,
+      body: [
+        "保存候補の値と根拠をこの画面に表示できていない。",
+        "内容が見えないまま保存せず、元情報の再確認をコメントで依頼できる。",
+      ].join("\n\n"),
+      sub: `候補: ${importantEvidenceSubjectFromTitle(n.title)}`,
+    }];
+  }
   const subject = coverageGapQuestionSubject(n);
   const clue = coverageGapUnavailableClue(n);
   return [
@@ -2480,23 +2658,34 @@ function coverageGapDetailBlocksCopy(detail: DetailRow | undefined): boolean {
   if (!detail) return true;
   if (detail.loading) return true;
   if (detail.error) return true;
-  return (detail.rows ?? []).some((row) => row.heading === COVERAGE_GAP_UNAVAILABLE_HEADING);
+  return (detail.rows ?? []).some((row) => [
+    COVERAGE_GAP_UNAVAILABLE_HEADING,
+    IMPORTANT_EVIDENCE_UNAVAILABLE_HEADING,
+  ].includes(row.heading));
 }
 
-function coverageGapBlockedPrompt(detail: DetailRow | undefined): string {
+function coverageGapBlockedPrompt(detail: DetailRow | undefined, importantEvidence = false): string {
+  if (importantEvidence) {
+    if (!detail || detail.loading) return "保存候補の事実と根拠を確認中。表示されるまで保存判断を止める。";
+    return "保存候補の事実と根拠を読み込めていない。内容が分からないまま保存せず、コメントで元情報の再確認を依頼する。";
+  }
   if (!detail || detail.loading) return "コピー対象の具体内容を確認中。内容が表示されるまで、重要メモへのコピー判断は止める。";
   if (detail.error) return "コピー対象の具体内容を読み込めていない。内容が分からない場合は「コピーしない」。元情報から確認し直したい場合は、コメントに「元情報を再確認」と書いて送る。";
   return "このカードだけではコピー対象を判断できない。内容が分からない場合は「コピーしない」。元情報から確認し直したい場合は、コメントに「元情報を再確認」と書いて送る。";
 }
 
-function coverageGapBlockedFootnote(detail: DetailRow | undefined): string {
+function coverageGapBlockedFootnote(detail: DetailRow | undefined, importantEvidence = false): string {
+  if (importantEvidence) {
+    if (!detail || detail.loading) return "具体内容を読み込み中。保存はまだできない。";
+    return "内容不足のまま重要情報へ保存しない。元資料や既存データも書き換えない。";
+  }
   if (!detail || detail.loading) return "具体内容を読み込み中。コピーはまだできない。";
   return "内容不足のまま重要メモへコピーしない。元の会議要約も、この操作では書き換えない。";
 }
 
-function coverageGapBlockedYesLabel(detail: DetailRow | undefined): string {
+function coverageGapBlockedYesLabel(detail: DetailRow | undefined, importantEvidence = false): string {
   if (!detail || detail.loading) return "内容を確認中";
-  return "内容不足でコピー不可";
+  return importantEvidence ? "内容不足で保存不可" : "内容不足でコピー不可";
 }
 
 function notificationFallbackRows(n: Notification): NonNullable<DetailRow["rows"]> {

@@ -1412,14 +1412,37 @@ async function upsertCoverageGaps(items) {
       updated_at: now,
     };
   });
-  if (rows.length === 0) return { ok: true, writtenCount: 0, skippedKnown: 0, notifiedCount: 0, written: [] };
+  if (rows.length === 0) {
+    return {
+      ok: true,
+      writtenCount: 0,
+      refreshedCount: 0,
+      skippedKnown: 0,
+      notifiedCount: 0,
+      written: [],
+      refreshed: [],
+      notifications: [],
+    };
+  }
+
+  const duplicateSourceHash = rows.find((row, index) => rows.findIndex((other) => other.source_hash === row.source_hash) !== index);
+  if (duplicateSourceHash) {
+    throw new Error(`coverageGaps duplicate source_hash in one outbox: ${duplicateSourceHash.source_hash}`);
+  }
 
   const existing = await get(
     "l2_coverage_gaps",
     `select=gap_id,project_id,source_hash,proposed_target_l2,review_status&source_hash=in.${inList(rows.map((row) => row.source_hash))}`,
   );
-  const known = new Set((existing || []).map((row) => row.source_hash));
-  const fresh = rows.filter((row) => !known.has(row.source_hash));
+  const existingByHash = new Map((existing || []).map((row) => [row.source_hash, row]));
+  for (const row of rows) {
+    const current = existingByHash.get(row.source_hash);
+    if (!current) continue;
+    if (current.project_id !== row.project_id || current.proposed_target_l2 !== row.proposed_target_l2) {
+      throw new Error(`coverageGaps existing identity mismatch: ${row.source_hash}`);
+    }
+  }
+  const fresh = rows.filter((row) => !existingByHash.has(row.source_hash));
   const written = fresh.length > 0
     ? await requestJson(rest("l2_coverage_gaps", "select=gap_id,project_id,source_hash,proposed_target_l2,review_status"), {
         method: "POST",
@@ -1427,12 +1450,42 @@ async function upsertCoverageGaps(items) {
         body: fresh,
       })
     : [];
+  const refreshable = rows.filter((row) => existingByHash.get(row.source_hash)?.review_status === "candidate");
+  const refreshed = [];
+  // 同じ source_hash の再抽出では、未採否の candidate 本文だけを最新の決定論的抽出へ更新する。
+  // review_status 条件を PATCH 自体にも付け、SELECT 後に採否された行を競合で上書きしない。
+  // gap_id / project_id / source_hash / detected_at / created_by と、採否・route 列は保存時のまま保つ。
+  for (const row of refreshable) {
+    const current = existingByHash.get(row.source_hash);
+    const result = await requestJson(rest(
+      "l2_coverage_gaps",
+      `gap_id=eq.${enc(current.gap_id)}&source_hash=eq.${enc(row.source_hash)}&review_status=eq.candidate&select=gap_id,project_id,source_hash,proposed_target_l2,review_status`,
+    ), {
+      method: "PATCH",
+      headers: restHeaders({ prefer: "return=representation" }),
+      body: {
+        source: row.source,
+        source_ref: row.source_ref,
+        title: row.title,
+        summary: row.summary,
+        salience_score: row.salience_score,
+        matched_patterns: row.matched_patterns,
+        gap_class: row.gap_class,
+        scope: row.scope,
+        due_at: row.due_at,
+        evidence_refs_json: row.evidence_refs_json,
+        updated_at: now,
+      },
+    });
+    if (Array.isArray(result) && result[0]) refreshed.push(result[0]);
+  }
   const notifications = [];
-  // DB insert後に通知だけ失敗しても、同じoutboxの再投入でcandidate通知を回復できる。
-  const notificationRows = [...(written || []), ...(existing || []).filter((row) => row.review_status === "candidate")]
+  // DB insert / candidate refresh 後に通知だけ失敗しても、同じoutboxの再投入で通知を回復できる。
+  // confirmed / rejected 等は refreshed に入らず、既存の採否結果も通知も変更しない。
+  const notificationRows = [...(written || []), ...refreshed]
     .filter((row, index, all) => all.findIndex((other) => other.gap_id === row.gap_id) === index);
   for (const row of notificationRows) {
-    const source = fresh.find((item) => item.source_hash === row.source_hash);
+    const source = rows.find((item) => item.source_hash === row.source_hash);
     const tmp = path.join(os.tmpdir(), `amd-os-important-evidence-notification-${crypto.randomUUID()}.json`);
     writeJson(tmp, {
       l2_kind: "coverage_gap",
@@ -1447,6 +1500,14 @@ async function upsertCoverageGaps(items) {
         proposed_target_l2: row.proposed_target_l2,
         source: source?.source || "drive",
         source_hash: row.source_hash,
+        // source_hash は内容同一性、candidate_payload_hash は抽出分類・根拠の版を表す。
+        // evidence が変わった場合は通知の semantic-change trigger が最終判断審査を pending に戻す。
+        candidate_payload_hash: stableHash({
+          title: source?.title,
+          summary: source?.summary,
+          due_at: source?.due_at,
+          evidence_refs_json: source?.evidence_refs_json,
+        }),
       },
     });
     try {
@@ -1458,9 +1519,11 @@ async function upsertCoverageGaps(items) {
   return {
     ok: true,
     writtenCount: written?.length || 0,
-    skippedKnown: rows.length - fresh.length,
+    refreshedCount: refreshed.length,
+    skippedKnown: rows.length - fresh.length - refreshed.length,
     notifiedCount: notifications.filter((item) => !item.skipped).length,
     written,
+    refreshed,
     notifications,
   };
 }

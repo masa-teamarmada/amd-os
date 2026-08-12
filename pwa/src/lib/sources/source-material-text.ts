@@ -33,8 +33,11 @@ export type SourceOcr = (input: {
 
 const PDF_MIME = "application/pdf";
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+const DOCM_MIME = "application/vnd.ms-word.document.macroenabled.12";
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const XLSM_MIME = "application/vnd.ms-excel.sheet.macroenabled.12";
 const PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+const PPTM_MIME = "application/vnd.ms-powerpoint.presentation.macroenabled.12";
 const IMAGE_MIME_RE = /^image\/(?:png|jpe?g|webp|tiff?)$/i;
 const PLAIN_MIME_RE = /^(?:text\/|application\/(?:json|xml|csv))/i;
 const MIN_USEFUL_TEXT = 16;
@@ -74,13 +77,13 @@ export async function extractSourceText(input: {
       }
       return ocrOrMissing(input, contentSha256, "scanned_pdf", pdf.warning || "pdf_text_missing");
     }
-    if (mimeType === DOCX_MIME || input.filename.toLowerCase().endsWith(".docx")) {
+    if ([DOCX_MIME, DOCM_MIME].includes(mimeType) || /\.(?:docx|docm)$/i.test(input.filename)) {
       return available(extractDocxText(bytes), "office_text", contentSha256);
     }
-    if (mimeType === XLSX_MIME || input.filename.toLowerCase().endsWith(".xlsx")) {
+    if ([XLSX_MIME, XLSM_MIME].includes(mimeType) || /\.(?:xlsx|xlsm)$/i.test(input.filename)) {
       return available(extractXlsxText(bytes), "office_text", contentSha256);
     }
-    if (mimeType === PPTX_MIME || input.filename.toLowerCase().endsWith(".pptx")) {
+    if ([PPTX_MIME, PPTM_MIME].includes(mimeType) || /\.(?:pptx|pptm)$/i.test(input.filename)) {
       return available(extractPptxText(bytes), "office_text", contentSha256);
     }
     if (IMAGE_MIME_RE.test(mimeType)) {

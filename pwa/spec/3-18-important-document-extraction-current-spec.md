@@ -47,9 +47,9 @@ Gmail / Calendar / Slack / Notionも同じ重要度・帰属・根拠契約へ�
 |---|---|
 | Google Docs / Sheets / Slides | Drive export |
 | PDF | 原本bytesを取得し、全page textとpage markerを抽出 |
-| Word `.docx` | OOXML本文・header・footer・脚注を抽出 |
-| Excel `.xlsx` | shared stringsとsheet cellを抽出 |
-| PowerPoint `.pptx` | slideとspeaker noteのtextを抽出 |
+| Word `.docx / .docm` | OOXML本文・header・footer・脚注を抽出 |
+| Excel `.xlsx / .xlsm` | shared stringsとsheet cellを抽出 |
+| PowerPoint `.pptx / .pptm` | slideとspeaker noteのtextを抽出 |
 | text / markdown / csv / json / xml / html | UTF-8 textとして抽出 |
 | 画像PDF / image | 注入されたOCR経路を使う |
 | 旧Office形式 / 大容量 / OCR未接続 | `missing`と理由を残し、0・非該当へ変換しない |
@@ -135,7 +135,14 @@ pageが不明なら`null`、本文が読めないなら`missing`であり、0で
 3. 通知で採用された時だけ、非LLM feedback routeがallowlist済みmetadata、重要度、帰属根拠、lineage、facts、期限、接続先候補を`project_important_evidence`へ追記する。
 4. 不採用はgapを`rejected`にし、正本行を作らない。
 5. raw本文、URL、秘密値を正本表へ保存しない。
-6. 同じsource hashの再投入でconfirmed / rejectedを上書きしない。候補0件は正常なno-opとする。
+6. 同じsource hashの再投入でconfirmed / rejectedを上書きしない。未採否の`candidate`だけは、同じidentityを保ったまま決定論的な再抽出結果へ更新できる。候補0件は正常なno-opとする。
+7. collectorがraw本文を保持せず判定用抜粋だけを渡す場合は`text_is_excerpt=true`とする。原文または原ファイルから確実に算出した`content_sha256`がある時だけ内容重複へ使い、hashがない短い同文は別sourceとして保持する。
+8. OOXML本文readerは`.docx/.docm`、`.xlsx/.xlsm`、`.pptx/.pptm`を同じZIP/XML経路で扱う。旧binary Officeは変換待ちをmissingで残し、情報なしにしない。
+9. 原文に明記されていても、計画・予測・見積・意向・審査中・未締結は実績`observed`ではなく`inferred`として保存する。`status`には計画、承認、契約済み、着金、完了、未確認等の原文上の段階を残す。
+10. 抜粋・部分読取は`text_read_required=true`で保持し、画面でも全文未確認と出す。URL、メール、電話番号、認証情報は、候補・通知・正本へ入る短文を非LLMでsanitizeする。
+11. 資金調達・借入・補助金は、売上と会社価値への算入が両方とも明示的に`false`の候補だけを正本化できる。保存処理が失敗した場合は通知を回答済みにしない。
+
+`/notifications`では汎用coverage gapの「重要メモにコピー」表示を使わず、「重要情報として保存 / 保存しない」を出す。採否前に、分類、対象期間、監査、lineage数、本文読取状態、fieldごとの値・観測状態・短い根拠を展開表示する。
 
 既存`project_important_documents`はv1決算書候補の互換正本として残し、新規v2は`project_important_evidence`を使う。
 

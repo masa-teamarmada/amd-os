@@ -131,6 +131,36 @@ function oneLine(value, max = 1000) {
   return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 }
 
+export function prepareScopeFilters(args = {}) {
+  const targetId = args["target-id"] === true ? "" : oneLine(args["target-id"], 100);
+  const l2Kind = args["l2-kind"] === true ? "" : oneLine(args["l2-kind"], 100);
+  const rawScopeKeys = args["scope-keys"] === true ? "" : String(args["scope-keys"] ?? "").trim();
+  if (args["target-id"] && !targetId) throw new Error("--target-id requires a value");
+  if (args["l2-kind"] && !l2Kind) throw new Error("--l2-kind requires a value");
+  if (args["scope-keys"] && !rawScopeKeys) throw new Error("--scope-keys requires a value");
+  if (targetId && !/^[a-zA-Z0-9_.:-]+$/.test(targetId)) throw new Error("--target-id is invalid");
+  if (l2Kind && !/^[a-zA-Z0-9_:-]+$/.test(l2Kind)) throw new Error("--l2-kind is invalid");
+  const scopeKeys = rawScopeKeys
+    ? [...new Set(rawScopeKeys.split(",").map((value) => value.trim()).filter(Boolean))]
+    : [];
+  if (scopeKeys.length > MAX_LIMIT) throw new Error(`--scope-keys accepts at most ${MAX_LIMIT} values`);
+  if (scopeKeys.some((value) => !/^[a-zA-Z0-9_.:-]+$/.test(value))) throw new Error("--scope-keys is invalid");
+  return { targetId: targetId || null, l2Kind: l2Kind || null, scopeKeys };
+}
+
+export function prepareQueryLimit(args = {}, filters = prepareScopeFilters(args)) {
+  const requested = Number(args.limit || 120);
+  if (!Number.isFinite(requested)) throw new Error("--limit must be a number");
+  const bounded = Math.max(1, Math.min(MAX_LIMIT, Math.floor(requested)));
+  return Math.max(bounded, filters.scopeKeys.length);
+}
+
+export function missingPreparedScopeKeys(filters, rows) {
+  if (!filters?.scopeKeys?.length) return [];
+  const found = new Set((rows ?? []).map((row) => String(row.scope_key ?? "")));
+  return filters.scopeKeys.filter((scopeKey) => !found.has(scopeKey));
+}
+
 export function sanitizeDecisionText(value, max = 1000) {
   return oneLine(value, max * 2)
     .replace(/https?:\/\/\S+/gi, "[URL省略]")
@@ -236,13 +266,18 @@ async function loadPrompt(db) {
 
 async function prepare(args) {
   const db = await adminClient();
-  const limit = Math.max(1, Math.min(MAX_LIMIT, Number(args.limit || 120)));
+  const filters = prepareScopeFilters(args);
+  const limit = prepareQueryLimit(args, filters);
+  let notificationQuery = db
+    .from("l2_notifications")
+    .select("notification_id,l2_kind,target_id,scope_key,title,summary,saved_count,total_count,metadata_json,created_at,updated_at")
+    .eq("attention_state", "pending");
+  if (filters.targetId) notificationQuery = notificationQuery.eq("target_id", filters.targetId);
+  if (filters.l2Kind) notificationQuery = notificationQuery.eq("l2_kind", filters.l2Kind);
+  if (filters.scopeKeys.length > 0) notificationQuery = notificationQuery.in("scope_key", filters.scopeKeys);
   const [prompt, notificationRes, feedbackRes] = await Promise.all([
     loadPrompt(db),
-    db
-      .from("l2_notifications")
-      .select("notification_id,l2_kind,target_id,scope_key,title,summary,saved_count,total_count,metadata_json,created_at,updated_at")
-      .eq("attention_state", "pending")
+    notificationQuery
       .order("updated_at", { ascending: false })
       .limit(limit),
     db
@@ -253,6 +288,10 @@ async function prepare(args) {
   ]);
   if (notificationRes.error) throw new Error(notificationRes.error.message);
   if (feedbackRes.error) throw new Error(feedbackRes.error.message);
+  const missingScopeKeys = missingPreparedScopeKeys(filters, notificationRes.data ?? []);
+  if (missingScopeKeys.length > 0) {
+    throw new Error(`requested scope keys are not pending or not found: ${missingScopeKeys.join(",")}`);
+  }
   const feedbackKeys = new Set((feedbackRes.data ?? []).map((row) => `${row.l2_kind}|${row.target_id}|${row.scope_key}`));
   const items = (notificationRes.data ?? []).map((row) => preparedDecisionItem(row, feedbackKeys));
   const payload = {
@@ -260,6 +299,7 @@ async function prepare(args) {
     contract: CONTRACT,
     generated_at: new Date().toISOString(),
     prompt,
+    filters,
     item_count: items.length,
     items,
   };
@@ -447,7 +487,7 @@ async function applyCommand(args) {
 
 function usage() {
   console.log(`Usage:
-  node pwa/scripts/proactive_heartbeat_tool.mjs prepare --output /private/tmp/prepared.json [--limit 120]
+  node pwa/scripts/proactive_heartbeat_tool.mjs prepare --output /private/tmp/prepared.json [--limit 120] [--target-id p07] [--l2-kind coverage_gap] [--scope-keys cg:abc,cg:def]
   node pwa/scripts/proactive_heartbeat_tool.mjs validate --prepared /private/tmp/prepared.json --file /private/tmp/review.json
   node pwa/scripts/proactive_heartbeat_tool.mjs apply --prepared /private/tmp/prepared.json --file /private/tmp/review.json`);
 }

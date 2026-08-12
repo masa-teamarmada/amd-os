@@ -3,10 +3,26 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
+  missingPreparedScopeKeys,
   preparedDecisionItem,
+  prepareQueryLimit,
+  prepareScopeFilters,
   sanitizeDecisionText,
   validateDecisionPayload,
 } from "./proactive_heartbeat_tool.mjs";
+
+assert.deepEqual(prepareScopeFilters({ "target-id": "p07", "l2-kind": "coverage_gap", "scope-keys": "cg:abc,cg:def,cg:abc" }), {
+  targetId: "p07",
+  l2Kind: "coverage_gap",
+  scopeKeys: ["cg:abc", "cg:def"],
+});
+assert.deepEqual(prepareScopeFilters({}), { targetId: null, l2Kind: null, scopeKeys: [] });
+assert.throws(() => prepareScopeFilters({ "target-id": "p07,or(p08)" }), /invalid/);
+assert.throws(() => prepareScopeFilters({ "scope-keys": "cg:abc,or(scope_key.eq.anything)" }), /invalid/);
+const twoScopes = prepareScopeFilters({ "scope-keys": "cg:abc,cg:def" });
+assert.equal(prepareQueryLimit({ limit: "1" }, twoScopes), 2, "scope指定数より小さいlimitで候補を黙って欠落させない");
+assert.deepEqual(missingPreparedScopeKeys(twoScopes, [{ scope_key: "cg:abc" }]), ["cg:def"]);
+assert.deepEqual(missingPreparedScopeKeys(twoScopes, [{ scope_key: "cg:abc" }, { scope_key: "cg:def" }]), []);
 
 const protocol = preparedDecisionItem({
   notification_id: "11111111-1111-4111-8111-111111111111",

@@ -27,6 +27,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { syncRewardSummaryForCycle } from "@/lib/reward-summary";
+import { sanitizeImportantEvidenceText } from "@/lib/important-evidence-text";
 
 /**
  * ms_progress_revision の yes/no applier は RLS を跨いで
@@ -184,11 +185,40 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const applyResult = action === "yes"
-      ? await applyApprovedNotification({ supabase, l2Kind, targetId, scopeKey, notificationId, meetingId, feedbackText, feedbackId: data.feedback_id, createdBy })
-      : action === "no"
-        ? await rejectNotificationCandidates({ supabase, l2Kind, targetId, scopeKey, notificationId, feedbackText, createdBy })
-        : { applied: false, message: "comment only" };
+    let applyResult: { applied: boolean; message: string; row?: unknown };
+    try {
+      applyResult = action === "yes"
+        ? await applyApprovedNotification({ supabase, l2Kind, targetId, scopeKey, notificationId, meetingId, feedbackText, feedbackId: data.feedback_id, createdBy })
+        : action === "no"
+          ? await rejectNotificationCandidates({ supabase, l2Kind, targetId, scopeKey, notificationId, feedbackText, createdBy })
+          : { applied: false, message: "comment only" };
+    } catch (applyError) {
+      if (action !== "yes" || l2Kind !== "coverage_gap") throw applyError;
+      const message = applyError instanceof Error ? applyError.message : "unknown apply error";
+      const { error: rollbackError } = await getServiceClient()
+        .from("l2_feedbacks")
+        .delete()
+        .eq("feedback_id", data.feedback_id);
+      return NextResponse.json({
+        error: rollbackError
+          ? `保存処理が異常終了し、回答記録の取消にも失敗した: ${message}`
+          : `保存処理が異常終了した: ${message}`,
+      }, { status: 500 });
+    }
+
+    // coverage gapの「はい」は正本反映までが1操作。反映失敗を回答済みとして隠さない。
+    if (action === "yes" && l2Kind === "coverage_gap" && !applyResult.applied) {
+      const { error: rollbackError } = await getServiceClient()
+        .from("l2_feedbacks")
+        .delete()
+        .eq("feedback_id", data.feedback_id);
+      return NextResponse.json({
+        error: rollbackError
+          ? `保存できず、回答記録の取消にも失敗した: ${applyResult.message}`
+          : `保存できなかった: ${applyResult.message}`,
+        applyResult,
+      }, { status: rollbackError ? 500 : 409 });
+    }
 
     await supabase.from("tsukuyomi_learnings").insert({
       scope: "notification_response",
@@ -658,8 +688,8 @@ async function routeImportantEvidenceCoverageGap(args: {
     return { error: "重要情報候補にallowlist検査を通らないfieldがある" };
   }
   const forbiddenValueFact = facts.find((fact) =>
-    ["financing_cash_flow", "grant_deposit", "grant_commitment_cap"].includes(String(fact.temporal_class))
-    && (fact.include_in_revenue === true || fact.include_in_company_value === true));
+    importantEvidenceFactMustExcludeFromValue(fact)
+    && (fact.include_in_revenue !== false || fact.include_in_company_value !== false));
   if (forbiddenValueFact) return { error: `重要情報候補の会計分類が不正: ${String(forbiddenValueFact.fact_key)}` };
 
   const periodStart = ymdValue(candidate.effective_period_start);
@@ -688,19 +718,20 @@ async function routeImportantEvidenceCoverageGap(args: {
   }
 
   const missingFields = Array.isArray(candidate.missing_fields)
-    ? candidate.missing_fields.slice(0, 150).map((value) => limitedText(value, 160)).filter(Boolean)
+    ? candidate.missing_fields.slice(0, 150).map((value) => importantEvidenceText(value, 160)).filter(Boolean)
     : [];
+  const primaryExtractionStatus = textValue(lineage[0]?.extraction_status);
   const row = {
     project_id: projectId,
     source_gap_id: args.gap.gap_id,
     source,
-    source_ref: limitedText(args.gap.source_ref, 500) || limitedText(candidate.canonical_source_ref, 500),
+    source_ref: importantEvidenceText(args.gap.source_ref, 500) || importantEvidenceText(candidate.canonical_source_ref, 500),
     source_hash: sourceHash,
     content_sha256: contentSha256,
     material_kind: materialKind,
-    document_class: limitedText(candidate.document_class, 160) || "important_evidence",
-    title: limitedText(candidate.title, 500) || "重要情報",
-    mime_type: limitedText(candidate.mime_type, 180) || null,
+    document_class: importantEvidenceText(candidate.document_class, 160) || "important_evidence",
+    title: importantEvidenceText(candidate.title, 500) || "重要情報",
+    mime_type: importantEvidenceText(candidate.mime_type, 180) || null,
     importance_json: importance,
     ownership_json: ownership,
     effective_period_start: periodStart,
@@ -709,9 +740,9 @@ async function routeImportantEvidenceCoverageGap(args: {
     audited: candidate.audited === true,
     audit_opinion: ["unqualified", "other", "unknown"].includes(textValue(candidate.audit_opinion)) ? textValue(candidate.audit_opinion) : "unknown",
     audit_signed_on: ymdValue(candidate.audit_signed_on),
-    canonical_source_ref: limitedText(candidate.canonical_source_ref, 500),
+    canonical_source_ref: importantEvidenceText(candidate.canonical_source_ref, 500),
     lineage_json: lineage,
-    version_family_key: limitedText(version.family_key, 500),
+    version_family_key: importantEvidenceText(version.family_key, 500),
     version_rank: versionRank,
     version_state: versionState,
     facts_json: facts,
@@ -719,7 +750,9 @@ async function routeImportantEvidenceCoverageGap(args: {
     proposed_targets_json: targets,
     bzm_input_candidates_json: bzmCandidates,
     missing_fields_json: missingFields,
-    text_read_required: candidate.text_read_required === true,
+    // 既存候補には boolean が false のままでも primary lineage が partial/missing のものがある。
+    // 正本化時は保守的に再判定して、部分読取を全文読取済みへ昇格させない。
+    text_read_required: candidate.text_read_required === true || primaryExtractionStatus !== "available",
     status: "confirmed",
     confirmed_by: args.createdBy || "notification_feedback",
     confirmed_at: args.now,
@@ -786,8 +819,8 @@ async function routeImportantDocumentCoverageGap(args: {
     return { error: "年度重要書類候補に月次実績を混在させない" };
   }
   const forbiddenValueFact = facts.find((fact) =>
-    ["financing_cash_flow", "grant_deposit", "grant_commitment_cap"].includes(String(fact.temporal_class))
-    && (fact.include_in_revenue === true || fact.include_in_company_value === true));
+    importantEvidenceFactMustExcludeFromValue(fact)
+    && (fact.include_in_revenue !== false || fact.include_in_company_value !== false));
   if (forbiddenValueFact) return { error: `重要書類候補の会計分類が不正: ${String(forbiddenValueFact.fact_key)}` };
 
   const version = objectValue(candidate.version);
@@ -813,17 +846,17 @@ async function routeImportantDocumentCoverageGap(args: {
   }
 
   const missingFields = Array.isArray(candidate.missing_fields)
-    ? candidate.missing_fields.slice(0, 100).map((value) => limitedText(value, 120)).filter(Boolean)
+    ? candidate.missing_fields.slice(0, 100).map((value) => importantEvidenceText(value, 120)).filter(Boolean)
     : [];
   const row = {
     project_id: projectId,
     source_gap_id: args.gap.gap_id,
     source_hash: sourceHash,
     content_sha256: contentSha256,
-    document_class: limitedText(candidate.document_class, 120) || "important_document",
-    document_title: limitedText(candidate.title, 500) || "正式書類",
-    company_name: limitedText(candidate.company_name, 300),
-    mime_type: limitedText(candidate.mime_type, 160),
+    document_class: importantEvidenceText(candidate.document_class, 120) || "important_document",
+    document_title: importantEvidenceText(candidate.title, 500) || "正式書類",
+    company_name: importantEvidenceText(candidate.company_name, 300),
+    mime_type: importantEvidenceText(candidate.mime_type, 160),
     reporting_period_start: periodStart,
     reporting_period_end: periodEnd,
     balance_sheet_date: ymdValue(candidate.balance_sheet_date),
@@ -832,9 +865,9 @@ async function routeImportantDocumentCoverageGap(args: {
       ? textValue(candidate.audit_opinion)
       : "unknown",
     audit_signed_on: ymdValue(candidate.audit_signed_on),
-    canonical_file_id: limitedText(candidate.canonical_file_id, 300),
+    canonical_file_id: importantEvidenceText(candidate.canonical_file_id, 300),
     lineage_json: lineage,
-    version_family_key: limitedText(version.family_key, 500),
+    version_family_key: importantEvidenceText(version.family_key, 500),
     version_rank: versionRank,
     version_state: versionState,
     facts_json: facts,
@@ -960,6 +993,23 @@ function limitedText(value: unknown, max: number): string {
   return textValue(value).replace(/\s+/g, " ").trim().slice(0, max);
 }
 
+function importantEvidenceText(value: unknown, max: number): string {
+  return sanitizeImportantEvidenceText(value, max);
+}
+
+function importantEvidenceFactMustExcludeFromValue(fact: Record<string, unknown>): boolean {
+  if (["financing_cash_flow", "grant_deposit", "grant_commitment_cap"].includes(String(fact.temporal_class))) {
+    return true;
+  }
+  const classificationText = [
+    fact.fact_key,
+    fact.label,
+    fact.status,
+    fact.accounting_treatment,
+  ].map((value) => textValue(value)).join(" ");
+  return /(?:資金調達|借入|融資|出資|増資|転換社債|新株予約権|補助金|助成金|交付金|前受金|J[- ]?KISS|SBIR|NEDO|SusHi\s*Tech|financ(?:ing|e)|fundrais(?:ing|e)|borrow(?:ing)?|loan|debt|equity\s+financ|convertible|grant|subsid(?:y|ies)|advance\s+payment)/i.test(classificationText);
+}
+
 function normalizeGovernanceMeetingType(value: string): string {
   const raw = value.trim().toLowerCase();
   if (["agm", "annual", "annual_general_meeting", "定時株主総会"].includes(raw)) return "agm";
@@ -1006,10 +1056,10 @@ function sanitizeImportantDocumentLineage(value: unknown): Array<Record<string, 
   if (!Array.isArray(value)) return [];
   return value.slice(0, 50).flatMap((entry) => {
     const item = objectValue(entry);
-    const fileId = limitedText(item.file_id, 300);
+    const fileId = importantEvidenceText(item.file_id, 300);
     if (!fileId) return [];
     const parents = Array.isArray(item.parent_folders)
-      ? item.parent_folders.slice(0, 20).map((parent) => limitedText(parent, 300)).filter(Boolean)
+      ? item.parent_folders.slice(0, 20).map((parent) => importantEvidenceText(parent, 300)).filter(Boolean)
       : [];
     const extractionMethod = ["native_text", "pdf_text", "ocr", "unavailable"].includes(textValue(item.extraction_method))
       ? textValue(item.extraction_method)
@@ -1020,8 +1070,8 @@ function sanitizeImportantDocumentLineage(value: unknown): Array<Record<string, 
     return [{
       file_id: fileId,
       parent_folders: parents,
-      created_at: limitedText(item.created_at, 80) || null,
-      modified_at: limitedText(item.modified_at, 80) || null,
+      created_at: importantEvidenceText(item.created_at, 80) || null,
+      modified_at: importantEvidenceText(item.modified_at, 80) || null,
       extraction_method: extractionMethod,
       extraction_status: extractionStatus,
     }];
@@ -1042,7 +1092,7 @@ function sanitizeImportantDocumentFacts(value: unknown): Array<Record<string, un
   const factStatuses = new Set(["reported", "received_on_account", "conditional_cap", "missing"]);
   return value.slice(0, 100).flatMap((entry) => {
     const item = objectValue(entry);
-    const factKey = limitedText(item.fact_key, 160);
+    const factKey = importantEvidenceText(item.fact_key, 160);
     const temporalClass = textValue(item.temporal_class);
     const valueStatus = textValue(item.value_status);
     const factStatus = textValue(item.status);
@@ -1051,7 +1101,7 @@ function sanitizeImportantDocumentFacts(value: unknown): Array<Record<string, un
     const amount = rawValue === null || rawValue === undefined ? null : Number(rawValue);
     if (amount !== null && !Number.isFinite(amount)) return [];
     const provenance = objectValue(item.provenance);
-    const provenanceFileId = limitedText(provenance.file_id, 300);
+    const provenanceFileId = importantEvidenceText(provenance.file_id, 300);
     const provenanceHash = textValue(provenance.content_sha256).toLowerCase();
     const evidenceHash = textValue(provenance.evidence_sha256).toLowerCase();
     const pageValue = Number(provenance.page);
@@ -1059,9 +1109,9 @@ function sanitizeImportantDocumentFacts(value: unknown): Array<Record<string, un
       ? {
           file_id: provenanceFileId,
           content_sha256: provenanceHash,
-          section: limitedText(provenance.section, 200),
+          section: importantEvidenceText(provenance.section, 200),
           page: Number.isInteger(pageValue) && pageValue > 0 ? pageValue : null,
-          evidence_text: limitedText(provenance.evidence_text, 220),
+          evidence_text: importantEvidenceText(provenance.evidence_text, 220),
           evidence_sha256: evidenceHash,
           extraction_method: ["native_text", "pdf_text", "ocr"].includes(textValue(provenance.extraction_method))
             ? textValue(provenance.extraction_method)
@@ -1072,7 +1122,7 @@ function sanitizeImportantDocumentFacts(value: unknown): Array<Record<string, un
     if (valueStatus === "observed" && !cleanProvenance) return [];
     return [{
       fact_key: factKey,
-      label: limitedText(item.label, 200),
+      label: importantEvidenceText(item.label, 200),
       value_yen: amount,
       value_status: valueStatus,
       temporal_class: temporalClass,
@@ -1084,9 +1134,9 @@ function sanitizeImportantDocumentFacts(value: unknown): Array<Record<string, un
         ? textValue(item.due_precision)
         : "none",
       status: factStatus,
-      accounting_treatment: limitedText(item.accounting_treatment, 500),
-      include_in_revenue: item.include_in_revenue === true,
-      include_in_company_value: item.include_in_company_value === true,
+      accounting_treatment: importantEvidenceText(item.accounting_treatment, 500),
+      include_in_revenue: typeof item.include_in_revenue === "boolean" ? item.include_in_revenue : null,
+      include_in_company_value: typeof item.include_in_company_value === "boolean" ? item.include_in_company_value : null,
       provenance: cleanProvenance,
     }];
   });
@@ -1096,8 +1146,8 @@ function sanitizeImportantDocumentBzmCandidates(value: unknown): Array<Record<st
   if (!Array.isArray(value)) return [];
   return value.slice(0, 100).flatMap((entry) => {
     const item = objectValue(entry);
-    const parameterKey = limitedText(item.parameter_key, 180);
-    const sourceFactKey = limitedText(item.source_fact_key, 160);
+    const parameterKey = importantEvidenceText(item.parameter_key, 180);
+    const sourceFactKey = importantEvidenceText(item.source_fact_key, 160);
     const valueStatus = textValue(item.value_status);
     if (!parameterKey || !sourceFactKey || !["observed", "calculated", "missing"].includes(valueStatus)) return [];
     const rawValue = item.value;
@@ -1109,8 +1159,8 @@ function sanitizeImportantDocumentBzmCandidates(value: unknown): Array<Record<st
       unit: "JPY",
       value_status: valueStatus,
       information_date: ymdValue(item.information_date),
-      temporal_scope: limitedText(item.temporal_scope, 120),
-      use_rule: limitedText(item.use_rule, 500),
+      temporal_scope: importantEvidenceText(item.temporal_scope, 120),
+      use_rule: importantEvidenceText(item.use_rule, 500),
       source_fact_key: sourceFactKey,
       review_status: "candidate",
     }];
@@ -1131,10 +1181,10 @@ function sanitizeImportantEvidenceImportance(value: unknown): Record<string, unk
     const location = textValue(signal.location);
     const evidenceHash = textValue(signal.evidence_sha256).toLowerCase();
     if (!allowedCategories.has(category) || !["title", "parent", "body", "semantic"].includes(location) || !/^[0-9a-f]{64}$/.test(evidenceHash)) return [];
-    return [{ category, location, evidence_text: limitedText(signal.evidence_text, 300), evidence_sha256: evidenceHash }];
+    return [{ category, location, evidence_text: importantEvidenceText(signal.evidence_text, 300), evidence_sha256: evidenceHash }];
   }) : [];
   const semanticReasons = Array.isArray(item.semantic_reasons)
-    ? item.semantic_reasons.slice(0, 20).map((reason) => limitedText(reason, 300)).filter(Boolean)
+    ? item.semantic_reasons.slice(0, 20).map((reason) => importantEvidenceText(reason, 300)).filter(Boolean)
     : [];
   return { score, categories: [...new Set(categories)], matched_signals: matchedSignals, semantic_reasons: semanticReasons };
 }
@@ -1148,7 +1198,7 @@ function sanitizeImportantEvidenceOwnership(value: unknown): Record<string, unkn
     const kind = textValue(anchor.kind);
     const evidenceHash = textValue(anchor.evidence_sha256).toLowerCase();
     if (!["project_root", "title", "parent", "issuer_header", "semantic"].includes(kind) || !/^[0-9a-f]{64}$/.test(evidenceHash)) return [];
-    return [{ kind, evidence_text: limitedText(anchor.evidence_text, 300), evidence_sha256: evidenceHash }];
+    return [{ kind, evidence_text: importantEvidenceText(anchor.evidence_text, 300), evidence_sha256: evidenceHash }];
   }) : [];
   return anchors.length > 0 ? { status, anchors } : null;
 }
@@ -1158,12 +1208,12 @@ function sanitizeImportantEvidenceLineage(value: unknown): Array<Record<string, 
   return value.slice(0, 50).flatMap((entry) => {
     const item = objectValue(entry);
     const source = textValue(item.source);
-    const sourceRef = limitedText(item.source_ref, 500);
+    const sourceRef = importantEvidenceText(item.source_ref, 500);
     if (!["gmail", "drive", "calendar", "slack", "notion"].includes(source) || !sourceRef) return [];
-    const parents = Array.isArray(item.parent_folders) ? item.parent_folders.slice(0, 30).map((parent) => limitedText(parent, 300)).filter(Boolean) : [];
+    const parents = Array.isArray(item.parent_folders) ? item.parent_folders.slice(0, 30).map((parent) => importantEvidenceText(parent, 300)).filter(Boolean) : [];
     const extractionMethod = ["native_text", "pdf_text", "office_text", "plain_text", "ocr", "metadata_only", "unavailable"].includes(textValue(item.extraction_method)) ? textValue(item.extraction_method) : "unavailable";
     const extractionStatus = ["available", "partial", "missing"].includes(textValue(item.extraction_status)) ? textValue(item.extraction_status) : "missing";
-    return [{ source, source_ref: sourceRef, parent_folders: parents, created_at: limitedText(item.created_at, 80) || null, modified_at: limitedText(item.modified_at, 80) || null, extraction_method: extractionMethod, extraction_status: extractionStatus, extraction_warning: limitedText(item.extraction_warning, 180) || null }];
+    return [{ source, source_ref: sourceRef, parent_folders: parents, created_at: importantEvidenceText(item.created_at, 80) || null, modified_at: importantEvidenceText(item.modified_at, 80) || null, extraction_method: extractionMethod, extraction_status: extractionStatus, extraction_warning: importantEvidenceText(item.extraction_warning, 180) || null }];
   });
 }
 
@@ -1173,7 +1223,7 @@ function sanitizeImportantEvidenceFacts(value: unknown): Array<Record<string, un
   const observationKinds = new Set(["observed", "inferred", "calculated", "missing"]);
   return value.slice(0, 150).flatMap((entry) => {
     const item = objectValue(entry);
-    const factKey = limitedText(item.fact_key, 180);
+    const factKey = importantEvidenceText(item.fact_key, 180);
     const temporalClass = textValue(item.temporal_class);
     const valueStatus = textValue(item.value_status);
     if (!factKey || !temporalClasses.has(temporalClass) || !observationKinds.has(valueStatus)) return [];
@@ -1184,11 +1234,11 @@ function sanitizeImportantEvidenceFacts(value: unknown): Array<Record<string, un
     if (["observed", "inferred"].includes(valueStatus) && !provenance) return [];
     return [{
       fact_key: factKey,
-      label: limitedText(item.label, 240),
-      value_text: limitedText(item.value_text, 300) || null,
+      label: importantEvidenceText(item.label, 240),
+      value_text: importantEvidenceText(item.value_text, 300) || null,
       value_number: number,
       value_yen: yen,
-      unit: limitedText(item.unit, 80) || null,
+      unit: importantEvidenceText(item.unit, 80) || null,
       value_status: valueStatus,
       temporal_class: temporalClass,
       period_start: ymdValue(item.period_start),
@@ -1196,8 +1246,8 @@ function sanitizeImportantEvidenceFacts(value: unknown): Array<Record<string, un
       as_of_date: ymdValue(item.as_of_date),
       due_at: ymdValue(item.due_at),
       due_precision: ["day", "month", "fiscal_year", "none"].includes(textValue(item.due_precision)) ? textValue(item.due_precision) : "none",
-      status: limitedText(item.status, 100) || "reported",
-      accounting_treatment: limitedText(item.accounting_treatment, 500) || null,
+      status: importantEvidenceText(item.status, 100) || "reported",
+      accounting_treatment: importantEvidenceText(item.accounting_treatment, 500) || null,
       include_in_revenue: typeof item.include_in_revenue === "boolean" ? item.include_in_revenue : null,
       include_in_company_value: typeof item.include_in_company_value === "boolean" ? item.include_in_company_value : null,
       provenance,
@@ -1212,7 +1262,7 @@ function sanitizeImportantEvidenceDueItems(value: unknown): Array<Record<string,
     const dueAt = ymdValue(item.due_at);
     const provenance = sanitizeImportantEvidenceProvenance(item.provenance);
     if (!dueAt || !provenance || textValue(item.status) !== "observed") return [];
-    return [{ due_at: dueAt, precision: textValue(item.precision) === "month" ? "month" : "day", label: limitedText(item.label, 240) || "期限", status: "observed", provenance }];
+    return [{ due_at: dueAt, precision: textValue(item.precision) === "month" ? "month" : "day", label: importantEvidenceText(item.label, 240) || "期限", status: "observed", provenance }];
   });
 }
 
@@ -1224,7 +1274,7 @@ function sanitizeImportantEvidenceTargets(value: unknown): string[] {
 function sanitizeImportantEvidenceProvenance(value: unknown): Record<string, unknown> | null {
   const item = objectValue(value);
   const source = textValue(item.source);
-  const sourceRef = limitedText(item.source_ref, 500);
+  const sourceRef = importantEvidenceText(item.source_ref, 500);
   const contentHash = textValue(item.content_sha256).toLowerCase();
   const evidenceHash = textValue(item.evidence_sha256).toLowerCase();
   const method = textValue(item.extraction_method);
@@ -1233,7 +1283,7 @@ function sanitizeImportantEvidenceProvenance(value: unknown): Record<string, unk
   if (!["native_text", "pdf_text", "office_text", "plain_text", "ocr", "metadata_only", "unavailable"].includes(method)) return null;
   if (!["observed", "inferred", "calculated", "missing"].includes(observationKind)) return null;
   const page = Number(item.page);
-  return { source, source_ref: sourceRef, content_sha256: contentHash, section: limitedText(item.section, 240), page: Number.isInteger(page) && page > 0 ? page : null, evidence_text: limitedText(item.evidence_text, 300), evidence_sha256: evidenceHash, extraction_method: method, observation_kind: observationKind };
+  return { source, source_ref: sourceRef, content_sha256: contentHash, section: importantEvidenceText(item.section, 240), page: Number.isInteger(page) && page > 0 ? page : null, evidence_text: importantEvidenceText(item.evidence_text, 300), evidence_sha256: evidenceHash, extraction_method: method, observation_kind: observationKind };
 }
 
 function buildStrategySignalFromCoverageGap(

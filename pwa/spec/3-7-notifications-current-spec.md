@@ -3,6 +3,8 @@
 > **この章は何か**: `/notifications` と `POST /api/notifications/feedback` の current contract。通知の主目的は、L2 candidateをOS正本へ採用するか不採用にするかの最終判断。先手TODOと本人作業は [`2-4-proactive-todo-current-spec.md`](2-4-proactive-todo-current-spec.md) へ分ける。
 
 既存 automation id `amd-os-proactive-heartbeat` が未審査candidateを読み、`destination_label`、`changes[]`、`approval_effect`、`rejection_effect`を完成させる。全部揃い、feedback APIに安全な採否処理がある候補だけ `attention_state='approved' AND requires_masa_decision=true` にする。candidateの`status`や正本は、このレビュー段階では変更しない。
+
+特定PJ・候補種別だけを再審査する時は、prepareの`--target-id`、`--l2-kind`、必要なら`--scope-keys`で入力集合を固定する。対象外のpending通知を一括採否してはならない。
 通知カードはこの4項目を「反映先 / 追加・更新する情報 / 採用すると / 採用しないと」の順で表示する。`saved_count` はcandidate保存件数であり、採用済み表示の根拠にしない。
 
 ## 画面
@@ -101,6 +103,8 @@ POST body:
 PWA の `coverage_gap` 表示は、検知器の内部語や監査メモをそのまま出さない。カードタイトルは、具体候補が取れている場合だけ「重要メモにコピーする？: ...」にする。元候補が取れない、またはタイトルが「経営判断を要確認」程度の薄い通知は「コピー前に元情報を確認: ...」に変え、カード内では「このカードだけではコピー対象を判断できない」「内容が分からないならコピーしない」「再確認したい場合はコメントに元情報を再確認と書く」を表示する。この状態では肯定ボタンを押せない。具体候補が取れている場合の詳細欄は、最初に「コピーされる文章」を表示し、続けて「判断の目安」「コピーしても起きないこと」を表示する。「会議メモで見つかった内容」「通知した理由」のような監査者向け説明は出さない。UI 表示では `D-6` / `coverage_gap` / `raw transcript` / `元情報` / `取りこぼし` / `条件付き投資家関心` / `薄い` / `candidate` / `salience` / `目立たない話` を使わない。「重要メモにコピー」は内部的には D-6 `project_strategy_signals` への追加だが、まさ向けには「保存済みの会議要約とは別に、重要メモへコピーする」と説明する。H-1要約本文の復元・書き換えではない。
 
 `coverage_gap.proposed_target_l2='shareholder_meeting'` は「ガバナンス履歴候補」とは呼ばず、「開催履歴を追加する？」として表示する。これはメール・資料から見つけた下書きで、採用前は正式な開催履歴ではない。**開催日・会議種別・議事録/決議/書面決議の開催済み証跡がそろい、既存正本と重複しない場合だけ**通知を作る。ジョブカン等の承認ワークフローと招集通知だけのメールは候補にしない。カードには追加先 `会社概要 → 総会・取締役会`、追加する `会議種別 / 開催日 / 議題 / 決議 / 添付ファイル名`、採用結果（開催履歴を1件追加、外部送信・資料アップロードなし）を出す。採用経路は `POST /api/notifications/feedback` のみで、添付URL・メール本文・source hash は正本表示へ持ち込まない。
+
+`coverage_gap.proposed_target_l2 in ('important_evidence','important_document')` は、会議メモのコピーとして表示しない。カード名は内部番号を出さず「重要情報の確認」、肯定操作は「重要情報として保存」、否定操作は「保存しない」とする。展開部には分類、対象期間、監査有無、同一内容の所在数、本文の読取状態、観測・推定・計算・未確認を区別した項目、短い原文根拠を出す。抜粋・部分読取は「全文未確認」、本文ゼロは「OCRまたは形式変換が必要」と出し、具体値と根拠を表示できない時は保存操作を止める。肯定時だけ重要情報正本へ1件追記し、元資料、月次実績、会社価値、BZM現行入力は自動更新しない。正本反映が失敗した時は成功表示も回答済み化もしない。
 
 PWA / iPhone の `textbook_insight` 表示は、候補の本文を「OSの見立て」に一度だけ出し、その下に「追加先」「追加・更新する情報」「押すと起きること」を構造化して出す。`destination_kind='management_knowledge'` は追加先を `管理 → 経営ノウハウ` とし、分類・成熟度・タグ・再利用する場面・次に確認することを表示する。yes は同じ値と本文を `management_knowledge_entries` へ1件保存し、元の会議メモ・プロトコル・BZM本文を変更しない。`destination_kind='bzm_textbook'` は従来どおり BZM内の追記先と候補の型を表示し、yes は `approved`、no は `rejected`。BZM本文は Vercel runtime から編集せず、local applier 経路だけが追記する。保存先は `practice_kind` から推測せず抽出器が明示する。
 

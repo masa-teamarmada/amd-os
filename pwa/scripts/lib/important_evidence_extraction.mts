@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { sanitizeImportantEvidenceText } from "../../src/lib/important-evidence-text.ts";
 
 export type RawSourceKind = "gmail" | "drive" | "calendar" | "slack" | "notion";
 export type MaterialKind = "document" | "message" | "event" | "thread" | "page";
@@ -72,6 +73,7 @@ export type ImportantEvidenceInput = {
   created_at?: string | null;
   modified_at?: string | null;
   content_sha256?: string | null;
+  text_is_excerpt?: boolean;
   text: string;
   extraction_method: TextExtractionMethod;
   extraction_status: TextExtractionStatus;
@@ -204,8 +206,11 @@ const SUPPORTED_MIMES = [
   "application/vnd.google-apps.spreadsheet",
   "application/vnd.google-apps.presentation",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-word.document.macroenabled.12",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel.sheet.macroenabled.12",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/vnd.ms-powerpoint.presentation.macroenabled.12",
   "application/msword",
   "application/vnd.ms-excel",
   "application/vnd.ms-powerpoint",
@@ -255,22 +260,27 @@ export function extractImportantEvidence(batch: ImportantEvidenceBatch): Importa
     const text = normalizeEvidenceText(input.text);
     const category = classifyImportance(input, text);
     if (!category.salient) {
-      skipped.push({ source_ref: input.source_ref, reason: "not_salient" });
+      skipped.push({ source_ref: sanitizeImportantEvidenceText(input.source_ref, 500), reason: "not_salient" });
       continue;
     }
     const ownership = resolveOwnership(batch.project, input, text);
     if (!ownership) {
-      skipped.push({ source_ref: input.source_ref, reason: "project_ownership_not_anchored" });
+      skipped.push({ source_ref: sanitizeImportantEvidenceText(input.source_ref, 500), reason: "project_ownership_not_anchored" });
       continue;
     }
     const suppliedHash = String(input.content_sha256 || "").toLowerCase();
-    // 同じ本文を別フォルダへコピーした時は、ファイルmetadata差ではなく正規化本文で束ねる。
-    // 本文未読時だけ、collectorのraw bytes hashまたはmetadata identityを暫定キーにする。
-    const contentHash = text
-      ? sha256(text)
-      : /^[0-9a-f]{64}$/.test(suppliedHash)
+    const suppliedHashIsValid = /^[0-9a-f]{64}$/.test(suppliedHash);
+    // 全文を保持しないcollectorは、判定用抜粋とは別に原文/原ファイルhashを渡す。
+    // 抜粋しかない場合はsource identityも混ぜ、偶然同じ短文の別資料を重複扱いしない。
+    const contentHash = input.text_is_excerpt
+      ? suppliedHashIsValid
         ? suppliedHash
-        : sha256(`${input.source}:${input.source_ref}:${input.title}:${(input.parent_folders || []).join("/")}`);
+        : sha256(`excerpt:${input.source}:${input.source_ref}:${text}`)
+      : text
+        ? sha256(text)
+        : suppliedHashIsValid
+          ? suppliedHash
+          : sha256(`${input.source}:${input.source_ref}:${input.title}:${(input.parent_folders || []).join("/")}`);
     classified.push({ input, text, contentHash, category, ownership, period: parseEffectivePeriod(text), audit: parseAudit(text) });
   }
 
@@ -306,7 +316,11 @@ export function toImportantEvidenceOutbox(result: ImportantEvidenceExtractionRes
       summary: [
         `${candidate.importance.categories.map(categoryLabel).join("・")}の重要情報を検出。`,
         `同一内容${candidate.lineage.length}所在を1候補へ集約。`,
-        candidate.text_read_required ? "本文は未読のためOCRまたは変換が必要。" : `根拠付き項目${candidate.facts.filter((fact) => fact.value_status !== "missing").length}件。`,
+        candidate.text_read_required
+          ? candidate.facts.some((fact) => fact.value_status !== "missing")
+            ? `抜粋・部分読取から根拠付き項目${candidate.facts.filter((fact) => fact.value_status !== "missing").length}件。全文は未確認。`
+            : "本文は未読のためOCRまたは変換が必要。"
+          : `根拠付き項目${candidate.facts.filter((fact) => fact.value_status !== "missing").length}件。`,
         candidate.due_items.length > 0 ? `期限${candidate.due_items[0].due_at}を検出。` : "",
       ].filter(Boolean).join(""),
       salience_score: candidate.importance.score,
@@ -332,7 +346,11 @@ function buildCandidate(batch: ImportantEvidenceBatch, group: Array<{
   period: { start: string; end: string } | null;
   audit: ReturnType<typeof parseAudit>;
 }>): ImportantEvidenceCandidate {
-  const sorted = [...group].sort((a, b) => Number(b.input.canonical_preferred === true) - Number(a.input.canonical_preferred === true) || sortableTime(b.input).localeCompare(sortableTime(a.input)) || a.input.source_ref.localeCompare(b.input.source_ref));
+  const sorted = [...group].sort((a, b) =>
+    extractionPriority(b.input) - extractionPriority(a.input)
+    || Number(b.input.canonical_preferred === true) - Number(a.input.canonical_preferred === true)
+    || sortableTime(b.input).localeCompare(sortableTime(a.input))
+    || a.input.source_ref.localeCompare(b.input.source_ref));
   const primary = sorted[0];
   const categories = unique(sorted.flatMap((item) => item.category.categories)) as ImportanceCategory[];
   const documentClass = classifyDocument(categories, primary.text, primary.input.material_kind);
@@ -343,7 +361,8 @@ function buildCandidate(batch: ImportantEvidenceBatch, group: Array<{
   const proposedTargets = routeTargets(categories, primary.input.semantic_classification?.proposed_targets);
   const contentHash = primary.contentHash;
   const sourceHash = sha256(`important_evidence:${batch.project.project_id}:${contentHash}`);
-  const familyKey = [batch.project.project_id, documentClass, period?.start || "no-period", period?.end || normalizeTitleFamily(primary.input.title)].join(":");
+  const safeTitle = sanitizeImportantEvidenceText(primary.input.title, 500) || "重要情報";
+  const familyKey = [batch.project.project_id, documentClass, period?.start || "no-period", period?.end || normalizeTitleFamily(safeTitle)].join(":");
   return {
     schema_version: 2,
     candidate_kind: "important_evidence",
@@ -353,13 +372,13 @@ function buildCandidate(batch: ImportantEvidenceBatch, group: Array<{
     source: primary.input.source,
     material_kind: primary.input.material_kind,
     document_class: documentClass,
-    title: primary.input.title,
+    title: safeTitle,
     mime_type: primary.input.mime_type || null,
     importance: {
       score: Math.max(...sorted.map((item) => item.category.score)),
       categories,
       matched_signals: dedupeBy(sorted.flatMap((item) => item.category.matchedSignals), (value) => `${value.category}:${value.location}:${value.evidence_sha256}`).slice(0, 30),
-      semantic_reasons: unique(sorted.flatMap((item) => item.input.semantic_classification?.reasons || [])).slice(0, 20),
+      semantic_reasons: unique(sorted.flatMap((item) => item.input.semantic_classification?.reasons || []).map((value) => sanitizeImportantEvidenceText(value, 300))).slice(0, 20),
     },
     ownership: primary.ownership,
     effective_period_start: period?.start || null,
@@ -370,16 +389,16 @@ function buildCandidate(batch: ImportantEvidenceBatch, group: Array<{
     audit_signed_on: audit.signedOn,
     content_sha256: contentHash,
     source_hash: sourceHash,
-    canonical_source_ref: primary.input.source_ref,
+    canonical_source_ref: sanitizeImportantEvidenceText(primary.input.source_ref, 500),
     lineage: sorted.map(({ input }) => ({
       source: input.source,
-      source_ref: input.source_ref,
-      parent_folders: [...(input.parent_folders || [])],
+      source_ref: sanitizeImportantEvidenceText(input.source_ref, 500),
+      parent_folders: [...(input.parent_folders || [])].map((value) => sanitizeImportantEvidenceText(value, 300)),
       created_at: input.created_at || null,
       modified_at: input.modified_at || null,
       extraction_method: input.extraction_method,
       extraction_status: input.extraction_status,
-      extraction_warning: input.extraction_warning || null,
+      extraction_warning: sanitizeImportantEvidenceText(input.extraction_warning || (input.text_is_excerpt ? "excerpt_only" : ""), 180) || null,
     })),
     version: { family_key: familyKey, rank: 1, state: "canonical_candidate" },
     facts,
@@ -387,7 +406,7 @@ function buildCandidate(batch: ImportantEvidenceBatch, group: Array<{
     proposed_targets: proposedTargets,
     bzm_input_candidates: categories.includes("financial") && period ? buildBzmProjection(facts, period.end) : [],
     missing_fields: facts.filter((fact) => fact.value_status === "missing").map((fact) => fact.fact_key),
-    text_read_required: primary.input.extraction_status === "missing" || !primary.text,
+    text_read_required: primary.input.extraction_status !== "available" || primary.input.text_is_excerpt === true || !primary.text,
     detected_at: batch.observed_at,
   };
 }
@@ -404,7 +423,7 @@ function classifyImportance(input: ImportantEvidenceInput, text: string) {
       if (!pattern) continue;
       categories.add(spec.category);
       score += spec.weight * multiplier;
-      const evidence = snippetForPattern(value, pattern);
+      const evidence = sanitizeImportantEvidenceText(snippetForPattern(value, pattern), 240);
       matchedSignals.push({ category: spec.category, location, evidence_text: evidence, evidence_sha256: sha256(evidence) });
       break;
     }
@@ -413,8 +432,8 @@ function classifyImportance(input: ImportantEvidenceInput, text: string) {
   if (semantic?.salient) {
     for (const category of semantic.categories) {
       categories.add(category);
-      const evidence = semantic.reasons.find(Boolean) || `semantic:${category}`;
-      matchedSignals.push({ category, location: "semantic", evidence_text: evidence.slice(0, 240), evidence_sha256: sha256(evidence.slice(0, 240)) });
+      const evidence = sanitizeImportantEvidenceText(semantic.reasons.find(Boolean) || `semantic:${category}`, 240);
+      matchedSignals.push({ category, location: "semantic", evidence_text: evidence, evidence_sha256: sha256(evidence) });
     }
     score += 0.45;
   }
@@ -444,7 +463,8 @@ function resolveOwnership(project: ImportantEvidenceProject, input: ImportantEvi
 }
 
 function addAnchor(anchors: ImportantEvidenceCandidate["ownership"]["anchors"], kind: ImportantEvidenceCandidate["ownership"]["anchors"][number]["kind"], evidence: string) {
-  anchors.push({ kind, evidence_text: evidence.slice(0, 240), evidence_sha256: sha256(evidence.slice(0, 240)) });
+  const sanitized = sanitizeImportantEvidenceText(evidence, 240);
+  anchors.push({ kind, evidence_text: sanitized, evidence_sha256: sha256(sanitized) });
 }
 
 function extractFacts(primary: { input: ImportantEvidenceInput; text: string; contentHash: string }, period: { start: string; end: string } | null): ImportantEvidenceFact[] {
@@ -452,28 +472,47 @@ function extractFacts(primary: { input: ImportantEvidenceInput; text: string; co
   if (period && /(?:貸借対照表|損益計算書|計算書類|決算|事業報告)/.test(primary.text)) facts.push(...extractFinancialFacts(primary, period));
   for (const observed of primary.input.semantic_classification?.observations || []) {
     if (!semanticObservationIsGrounded(primary.text, observed)) continue;
+    const observationKind = normalizeSemanticObservationKind(observed.observation_kind, observed.status, observed.evidence_text);
+    const excludeFromValue = factMustNotAffectRevenueOrCompanyValue(observed);
     facts.push({
-      fact_key: observed.fact_key,
-      label: observed.label,
-      value_text: observed.value_text ?? null,
+      fact_key: sanitizeImportantEvidenceText(observed.fact_key, 180),
+      label: sanitizeImportantEvidenceText(observed.label, 240),
+      value_text: observed.value_text == null ? null : sanitizeImportantEvidenceText(observed.value_text, 300),
       value_number: observed.value_number ?? null,
       value_yen: observed.unit === "JPY" || observed.unit === "円" ? observed.value_number ?? null : null,
-      unit: observed.unit ?? null,
-      value_status: observed.observation_kind,
+      unit: observed.unit == null ? null : sanitizeImportantEvidenceText(observed.unit, 80),
+      value_status: observationKind,
       temporal_class: observed.temporal_class || "not_applicable",
       period_start: observed.period_start || null,
       period_end: observed.period_end || null,
       as_of_date: observed.as_of_date || null,
       due_at: observed.due_at || null,
       due_precision: observed.due_at ? "day" : "none",
-      status: observed.status || "reported",
+      status: sanitizeImportantEvidenceText(observed.status || "reported", 100),
       accounting_treatment: null,
-      include_in_revenue: observed.include_in_revenue ?? null,
-      include_in_company_value: observed.include_in_company_value ?? null,
-      provenance: provenance(primary, observed.section, observed.evidence_text, observed.observation_kind),
+      include_in_revenue: excludeFromValue ? false : observed.include_in_revenue ?? null,
+      include_in_company_value: excludeFromValue ? false : observed.include_in_company_value ?? null,
+      provenance: provenance(primary, observed.section, observed.evidence_text, observationKind),
     });
   }
   return dedupeBy(facts, (fact) => fact.fact_key);
+}
+
+function normalizeSemanticObservationKind(
+  observationKind: SemanticObservation["observation_kind"],
+  status: string | undefined,
+  evidenceText: string,
+): SemanticObservation["observation_kind"] {
+  if (observationKind !== "observed") return observationKind;
+  const value = `${String(status || "").toLowerCase()} ${normalizeEvidenceText(evidenceText)}`;
+  if (/(?:plan|planned|forecast|estimate|target|expected|intent|proposed|draft|pending|screening|application|risk|計画|予定|見込み|見込|見通し|予測|予想|目標|想定|推定|試算|概算|ドラフト|意向|検討中|未確定|審査中|申請中|協議中|交渉中|リスク|課題)/.test(value)) return "inferred";
+  return "observed";
+}
+
+function factMustNotAffectRevenueOrCompanyValue(observed: SemanticObservation): boolean {
+  if (["financing_cash_flow", "grant_deposit", "grant_commitment_cap"].includes(observed.temporal_class || "")) return true;
+  return /(?:fund|financ|loan|borrow|debt|investment|grant|subsid|jkiss|capital|資金調達|出資|投資|融資|借入|借入金|補助金|助成金|交付|概算払い|新株予約権|設備投資)/i
+    .test(`${observed.fact_key} ${observed.label} ${observed.status || ""}`);
 }
 
 function extractFinancialFacts(primary: { input: ImportantEvidenceInput; text: string; contentHash: string }, period: { start: string; end: string }): ImportantEvidenceFact[] {
@@ -603,10 +642,21 @@ function grantDue(text: string, factKey: string): { date: string; precision: "mo
 }
 
 function provenance(primary: { input: ImportantEvidenceInput; contentHash: string }, section: string, evidenceValue: string, observationKind: ObservationKind): FieldProvenance {
-  const evidence = normalizeEvidenceText(evidenceValue).slice(0, 300);
-  const compactEvidence = evidence.replace(/\s+/g, "");
+  const rawEvidence = normalizeEvidenceText(evidenceValue).slice(0, 300);
+  const compactEvidence = rawEvidence.replace(/\s+/g, "");
   const page = primary.input.page_markers?.find((marker) => normalizeEvidenceText(marker.text).replace(/\s+/g, "").includes(compactEvidence))?.page ?? null;
-  return { source: primary.input.source, source_ref: primary.input.source_ref, content_sha256: primary.contentHash, section, page, evidence_text: evidence, evidence_sha256: sha256(evidence), extraction_method: primary.input.extraction_method, observation_kind: observationKind };
+  const evidence = sanitizeImportantEvidenceText(rawEvidence, 300);
+  return {
+    source: primary.input.source,
+    source_ref: sanitizeImportantEvidenceText(primary.input.source_ref, 500),
+    content_sha256: primary.contentHash,
+    section: sanitizeImportantEvidenceText(section, 240),
+    page,
+    evidence_text: evidence,
+    evidence_sha256: sha256(evidence),
+    extraction_method: primary.input.extraction_method,
+    observation_kind: observationKind,
+  };
 }
 
 function routeTargets(categories: ImportanceCategory[], semantic: ProposedL2Target[] | undefined): ProposedL2Target[] {
@@ -621,6 +671,7 @@ function routeTargets(categories: ImportanceCategory[], semantic: ProposedL2Targ
 
 function classifyDocument(categories: ImportanceCategory[], text: string, materialKind: MaterialKind): string {
   if (categories.includes("financial") && /(?:事業報告|計算書類|貸借対照表|損益計算書)/.test(text)) return "annual_financial_package";
+  if (categories.includes("financial")) return "financial_record";
   if (categories.includes("governance")) return "governance_record";
   if (categories.includes("contract")) return "contract_record";
   if (categories.includes("funding")) return "funding_record";
@@ -689,6 +740,13 @@ function normalizeTitleFamily(value: string): string {
 }
 
 function sortableTime(input: ImportantEvidenceInput): string { return input.modified_at || input.created_at || "0000-00-00T00:00:00.000Z"; }
+function extractionPriority(input: ImportantEvidenceInput): number {
+  if (input.extraction_status === "available" && input.text_is_excerpt !== true) return 4;
+  if (input.extraction_status === "partial" && input.text_is_excerpt !== true) return 3;
+  if (input.extraction_status === "available") return 2;
+  if (input.extraction_status === "partial") return 1;
+  return 0;
+}
 function newestLineageTime(candidate: ImportantEvidenceCandidate): string {
   return candidate.lineage.reduce((latest, item) => {
     const value = item.modified_at || item.created_at || "0000-00-00T00:00:00.000Z";

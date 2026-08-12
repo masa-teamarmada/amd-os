@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { strToU8, zipSync } from "fflate";
 import { extractSourceText } from "../src/lib/sources/source-material-text.ts";
+import { sanitizeImportantEvidenceText } from "../src/lib/important-evidence-text.ts";
 import {
   extractImportantEvidence,
   toImportantEvidenceOutbox,
@@ -110,6 +111,13 @@ assert.equal(docx.method, "office_text");
 assert.match(docx.text, /技術報告/);
 assert.match(xlsx.text, /資金計画/);
 assert.match(pptx.text, /ロードマップ/);
+const xlsm = await extractSourceText({ bytes: xlsxBytes, mimeType: "application/vnd.ms-excel.sheet.macroenabled.12", filename: "承認済事業計画.xlsm" });
+assert.equal(xlsm.method, "office_text", "macro-enabled Excelも同じOffice本文経路で読む");
+assert.match(xlsm.text, /資金計画/);
+const docxByFilename = await extractSourceText({ bytes: docxBytes, mimeType: "application/octet-stream", filename: "技術報告.docx" });
+const xlsmByFilename = await extractSourceText({ bytes: xlsxBytes, mimeType: "application/octet-stream", filename: "承認済事業計画.xlsm" });
+assert.equal(docxByFilename.method, "office_text", "汎用MIMEでも標準Office拡張子を退行させない");
+assert.equal(xlsmByFilename.method, "office_text", "汎用MIMEでもmacro-enabled Office拡張子を読む");
 
 const pdfDocument = await PDFDocument.create();
 const pdfPage = pdfDocument.addPage();
@@ -184,9 +192,73 @@ const ungrounded = extractImportantEvidence({
 });
 assert.equal(ungrounded.candidates[0]?.facts.length, 0, "原文根拠に値がない意味抽出fieldは保存しない");
 assert.equal(notion?.facts.find((fact) => fact.fact_key === "catalyst_lifetime")?.provenance?.observation_kind, "observed");
+const planInference = extractImportantEvidence({
+  project: batch.project,
+  observed_at: batch.observed_at,
+  materials: [{
+    source: "notion", source_ref: "notion-page:forecast", material_kind: "page", title: "LiSTie 事業計画", project_root_matched: true,
+    text: "2028年に商業化する計画。", extraction_method: "native_text", extraction_status: "available",
+    semantic_classification: { salient: true, categories: ["project_plan"], reasons: ["明示された計画"], observations: [{ fact_key: "commercialization_plan", label: "商業化計画", value_text: "2028年", observation_kind: "observed", section: "事業計画", evidence_text: "2028年に商業化する計画。", status: "planned" }] },
+  }],
+});
+assert.equal(planInference.candidates[0]?.facts[0]?.value_status, "inferred", "原文にある計画・予測を実績observedへ昇格しない");
+const observedUnverified = extractImportantEvidence({
+  project: batch.project,
+  observed_at: batch.observed_at,
+  materials: [{
+    source: "drive", source_ref: "drive-file:observed-term", material_kind: "document", title: "LiSTie 契約書", project_root_matched: true,
+    text: "契約金額は1,000万円。", extraction_method: "native_text", extraction_status: "available",
+    semantic_classification: { salient: true, categories: ["contract"], reasons: ["契約条項"], observations: [{ fact_key: "contract_amount", label: "契約金額", value_text: "1,000万円", observation_kind: "observed", section: "契約条項", evidence_text: "契約金額は1,000万円。", status: "contract_term_execution_unverified" }] },
+  }],
+});
+assert.equal(observedUnverified.candidates[0]?.facts[0]?.value_status, "observed", "原文で確認した契約条項は履行未確認でも推定へ落とさない");
+const financingClassification = extractImportantEvidence({
+  project: batch.project,
+  observed_at: batch.observed_at,
+  materials: [{
+    source: "slack", source_ref: "slack:financing-no-flags", material_kind: "thread", title: "LiSTie 資金調達", project_root_matched: true,
+    text: "LiSTie株式会社はJ-KISSで5,000万円を調達する計画。", extraction_method: "native_text", extraction_status: "available",
+    semantic_classification: { salient: true, categories: ["funding"], reasons: ["資金調達計画"], observations: [{ fact_key: "jkiss_plan", label: "J-KISS調達計画", value_text: "5,000万円", value_number: 50_000_000, unit: "JPY", observation_kind: "observed", temporal_class: "financing_cash_flow", section: "資金調達", evidence_text: "LiSTie株式会社はJ-KISSで5,000万円を調達する計画。", status: "planned" }] },
+  }],
+});
+const financingFact = financingClassification.candidates[0]?.facts[0];
+assert.equal(financingFact?.value_status, "inferred", "調達計画を着金実績にしない");
+assert.equal(financingFact?.include_in_revenue, false, "調達はフラグ未指定でも売上へ入れない");
+assert.equal(financingFact?.include_in_company_value, false, "調達はフラグ未指定でも会社価値へ直加点しない");
 const unread = generic.candidates.find((candidate) => candidate.canonical_source_ref === "drive-file:scanned-board");
 assert.equal(unread?.text_read_required, true, "OCR未完を情報なしとして捨てない");
 assert.equal(unread?.facts.length, 0, "未読本文から事実を捏造しない");
+
+// 個人情報を残さない抜粋handoffは、全文hashがある時だけ同一内容へ束ねる。
+const excerptHash = "b".repeat(64);
+const excerptBatch: ImportantEvidenceBatch = {
+  project: batch.project,
+  observed_at: batch.observed_at,
+  materials: [
+    { source: "drive", source_ref: "drive-file:excerpt-copy-a", material_kind: "document", title: "LiSTie 事業計画A", project_root_matched: true, text: "LiSTie株式会社 事業計画を承認", text_is_excerpt: true, content_sha256: excerptHash, extraction_method: "native_text", extraction_status: "partial" },
+    { source: "drive", source_ref: "drive-file:excerpt-copy-b", material_kind: "document", title: "LiSTie 事業計画B", project_root_matched: true, text: "LiSTie株式会社 事業計画を承認", text_is_excerpt: true, content_sha256: excerptHash, extraction_method: "native_text", extraction_status: "partial" },
+    { source: "slack", source_ref: "slack:excerpt-same-words", material_kind: "thread", title: "LiSTie 事業計画", text: "LiSTie株式会社 事業計画を承認", text_is_excerpt: true, extraction_method: "native_text", extraction_status: "partial" },
+  ],
+};
+const excerptResult = extractImportantEvidence(excerptBatch);
+assert.equal(excerptResult.candidates.length, 2, "全文hash一致の2コピーだけを束ね、同文の別sourceは分ける");
+assert.equal(excerptResult.candidates.find((candidate) => candidate.content_sha256 === excerptHash)?.lineage.length, 2);
+assert.equal(excerptResult.candidates.find((candidate) => candidate.content_sha256 === excerptHash)?.text_read_required, true, "抜粋は本文読了扱いにしない");
+
+const availablePreferred = extractImportantEvidence({
+  project: batch.project,
+  observed_at: batch.observed_at,
+  materials: [
+    { source: "drive", source_ref: "drive-file:partial-new", material_kind: "document", title: "LiSTie 取締役会 技術報告", project_root_matched: true, canonical_preferred: true, modified_at: "2026-08-12T00:00:00.000Z", text: "LiSTie株式会社 取締役会で研究開発の量産試作を承認", extraction_method: "office_text", extraction_status: "partial" },
+    { source: "drive", source_ref: "drive-file:available-old", material_kind: "document", title: "LiSTie 取締役会 技術報告", project_root_matched: true, modified_at: "2026-08-01T00:00:00.000Z", text: "LiSTie株式会社 取締役会で研究開発の量産試作を承認", extraction_method: "office_text", extraction_status: "available" },
+  ],
+}).candidates[0];
+assert.equal(availablePreferred?.canonical_source_ref, "drive-file:available-old", "新しい部分読取より本文読取済みを正本候補にする");
+assert.equal(availablePreferred?.text_read_required, false);
+
+const sanitized = sanitizeImportantEvidenceText("契約先 https://example.invalid/private 担当 person@example.invalid 電話 03-1234-5678 token:demo-value sk-abcdefgh12345678");
+assert.doesNotMatch(sanitized, /https:\/\/|person@|03-1234-5678|demo-value|sk-abcdefgh/);
+assert.match(sanitized, /\[URL省略\].*\[メール省略\].*\[電話番号省略\].*\[認証情報省略\]/);
 
 // 会社名が本文の後半に偶然出るだけでは、別PJへ誤帰属させない。
 const wrongProject = extractImportantEvidence({
@@ -223,7 +295,18 @@ const feedbackSource = fs.readFileSync(path.join(here, "../src/app/api/notificat
 const routeSource = feedbackSource.slice(feedbackSource.indexOf("async function routeImportantEvidenceCoverageGap"), feedbackSource.indexOf("async function routeImportantDocumentCoverageGap"));
 assert.match(routeSource, /\.from\("project_important_evidence"\)/);
 assert.doesNotMatch(routeSource, /\.from\("bzm_2_1_/, "通知採用でもBZM現行revisionを直接更新しない");
-assert.match(routeSource, /financing_cash_flow[\s\S]{0,150}grant_deposit[\s\S]{0,150}grant_commitment_cap/);
+assert.match(feedbackSource, /function importantEvidenceFactMustExcludeFromValue[\s\S]{0,350}financing_cash_flow[\s\S]{0,120}grant_deposit[\s\S]{0,120}grant_commitment_cap/);
+assert.match(routeSource, /include_in_revenue !== false \|\| fact\.include_in_company_value !== false/, "調達・補助金は除外フラグ未設定も拒否する");
+assert.match(feedbackSource, /action === "yes"[\s\S]{0,180}l2Kind === "coverage_gap"[\s\S]{0,220}!applyResult\.applied/);
+
+const notificationsSource = fs.readFileSync(path.join(here, "../src/components/notifications/NotificationsClient.tsx"), "utf8");
+assert.match(notificationsSource, /重要情報として保存する？/);
+assert.match(notificationsSource, /重要情報として保存/);
+assert.match(notificationsSource, /保存しない/);
+assert.match(notificationsSource, /保存候補の事実と根拠/);
+assert.match(notificationsSource, /元資料、既存の月次実績、会社価値、BZMの計算値は自動で書き換えない/);
+assert.match(notificationsSource, /重要情報の確認/);
+assert.doesNotMatch(notificationsSource, /D-15 重要情報の採否/);
 
 const migrationSource = fs.readFileSync(path.join(here, "migrations/268_project_important_evidence.sql"), "utf8");
 assert.match(migrationSource, /UNIQUE \(project_id, content_sha256\)/);
