@@ -762,7 +762,7 @@ export function WorkspaceDocumentRoom({
                 setCurrentFolder("");
                 setQuery("");
               }}
-              className="min-h-8 shrink-0 rounded px-1.5 font-semibold hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
+              className="min-h-11 shrink-0 rounded px-1.5 font-semibold hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 sm:min-h-8"
             >
               資料
             </button>
@@ -777,7 +777,7 @@ export function WorkspaceDocumentRoom({
                       setCurrentFolder(path);
                       setQuery("");
                     }}
-                    className="min-h-8 max-w-[16ch] truncate rounded px-1.5 font-medium hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
+                    className="min-h-11 max-w-[16ch] truncate rounded px-1.5 font-medium hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 sm:min-h-8"
                   >
                     {segment}
                   </button>
@@ -1490,7 +1490,7 @@ export function WorkspaceDocumentLauncher({
                 render={
                   <button
                     type="button"
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-white/40 text-white transition-colors hover:border-white hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-200"
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-white/40 text-white transition-colors hover:border-white hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-200 sm:h-9 sm:w-9"
                     aria-label="資料室を閉じる"
                   />
                 }
