@@ -375,11 +375,13 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     //    col3 = ステータスバッジ (必要な時だけ sticky)
     <div className="max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3">
       {/* [A] Project Header (full width) */}
-      <CockpitHeader project={project} members={members} />
-
-      {activeTab === "progress" && project.projectId === "p21" && (
-        <CockpitSharedProjectControl projectId={project.projectId} />
-      )}
+      <CockpitHeader
+        project={project}
+        members={members}
+        afterSummary={activeTab === "progress" && project.projectId === "p21"
+          ? <CockpitSharedProjectControl projectId={project.projectId} />
+          : null}
+      />
 
       {activeTab === "progress" && project.projectId === "p25" && <CockpitKuteAnnualRoadmap currentYm={currentYm} />}
       {activeTab === "progress" && <ProjectInstitutionSeeds projectId={project.projectId} />}
