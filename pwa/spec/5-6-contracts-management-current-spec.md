@@ -175,10 +175,10 @@ DocuSign / クラウドサインの押印リレー完了後は、管理者が完
 |---|---|---|
 | `deriveContractApplyPlan(term)` | `src/lib/contracts-apply.ts` | applied term から反映プランを導出する純粋関数 (DB は触らない)。値の出所は applied term だけで、ここで金額を作り変えない |
 | `applyContractTerms(db, termId, actor)` | `src/lib/contracts-apply.ts` | plan を実際に ⓪①②③ へ書き戻す。`billing_log` に `action='contract_applied'` を残す |
-| `GET /api/contracts/apply?termId=...&dryRun=1` | `src/app/api/contracts/apply/route.ts` | 反映プランのプレビュー (DB write なし)。admin 限定 |
-| `POST /api/contracts/apply { termId }` | 同上 | 契約正本とPJ/請求へ実反映。admin 限定 |
+| `GET /api/contracts/apply?termId=...&dryRun=1` | `src/app/api/contracts/apply/route.ts` | 反映プランのプレビュー (DB write なし)。admin または契約抽出secret限定 |
+| `POST /api/contracts/apply { termId }` | 同上 | 契約正本とPJ/請求へ実反映。admin または契約抽出secret限定 |
 
-締結済み原本を管理者が直接確認した場合は `POST /api/contracts/terms` で `status='candidate' / review_status='pending'` の terms-only 候補を作る。原本本文は Drive に残し、DBには Drive metadata・短い根拠注記・`source_term_hash` だけを保存する。`PATCH /api/contracts/terms` は `termId` と期待hashを照合してレビュー結果を `applied` または `rejected` に確定するだけで、正本への書き戻しは行わない。承認後も必ず `GET /api/contracts/apply?...&dryRun=1` で反映計画を確認してから、既存の `POST /api/contracts/apply` を使う。
+締結済み原本を管理者が直接確認した場合は `POST /api/contracts/terms` で `status='candidate' / review_status='pending'` の terms-only 候補を作る。原本本文は Drive に残し、DBには Drive metadata・短い根拠注記・`source_term_hash` だけを保存する。`PATCH /api/contracts/terms` は `termId` と期待hashを照合してレビュー結果を `applied` または `rejected` に確定するだけで、正本への書き戻しは行わない。admin sessionのほか、D-13と同じ `CONTRACTS_EXTRACT_SECRET` (未設定時だけ `CRON_SECRET`) を使うoperatorを許可する。承認後も必ず `GET /api/contracts/apply?...&dryRun=1` で反映計画を確認してから、既存の `POST /api/contracts/apply` を使う。
 
 分岐ロジック:
 - `billing_distribution='schedule_based'` (または `monthly[]` があり `monthly_average` でない) → `fee_type='variable'` / `fee_amount=null` にし、`billing_distribution_json.monthly[]` を ③ `billing_cycles.budget_yen` に月別展開する。各月の `budget_yen` は `reward_cap_yen` をそのまま使う (無ければ `round(amount_tax_excl × 0.65)`)。`contract_source_term_id` を各 cycle に刻む (= 後段の自動確定 cron が「契約由来」と判定する印)。
