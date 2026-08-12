@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireContractTermsOperator } from "@/lib/contract-terms-operator-auth";
+import { requireAdmin } from "@/lib/supabase/api-auth";
 import {
   buildVerifiedOriginalExpenseCandidate,
   contractTermReviewPatch,
@@ -28,7 +28,7 @@ async function jsonBody(req: Request) {
  * 原本本文は Drive に残し、DB には出典metadataと短い根拠注記だけを保存する。
  */
 export async function POST(req: Request) {
-  const auth = await requireContractTermsOperator(req);
+  const auth = await requireAdmin();
   if (!auth.ok) return auth.errorResponse;
 
   const body = await jsonBody(req);
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
       expenseReimbursementAllowed: body.expenseReimbursementAllowed,
       expenseReimbursementNote: body.expenseReimbursementNote,
       executionEvidence: body.executionEvidence,
-    } as VerifiedOriginalExpenseCandidateInput, auth.actor);
+    } as VerifiedOriginalExpenseCandidateInput, auth.user.email || "admin");
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : String(error) }, { status: 400 });
   }
@@ -83,7 +83,7 @@ export async function POST(req: Request) {
 
 /** 候補hashを照合して、人のレビュー結果だけを確定する。正本反映は /api/contracts/apply が担う。 */
 export async function PATCH(req: Request) {
-  const auth = await requireContractTermsOperator(req);
+  const auth = await requireAdmin();
   if (!auth.ok) return auth.errorResponse;
 
   const body = await jsonBody(req);
@@ -114,7 +114,7 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ ok: false, error: "term is no longer pending review" }, { status: 409 });
   }
 
-  const patch = contractTermReviewPatch(decision, auth.actor, new Date().toISOString());
+  const patch = contractTermReviewPatch(decision, auth.user.email || "admin", new Date().toISOString());
   const { data, error } = await db.from("contract_terms")
     .update(patch)
     .eq("term_id", termId)
