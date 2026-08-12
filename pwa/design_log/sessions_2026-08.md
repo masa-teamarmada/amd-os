@@ -176,3 +176,19 @@ automation作成後の最初の自然な平日09:00実行は未観測。2026-08-
 - validatorは全件回答、confidence 0.85、明示期限の元証跡内完全一致、通知上限を検査する。applierはpromptと全証跡を再読してhash一致時だけ書く。
 - `/api/cron/proactive-todo-extract` は新規候補生成をやめ、red昇格とblocked復帰だけにした。旧attention review実装も削除した。
 - 旧heuristicの未完了TODOと旧filter由来の未読通知は削除せず退役し、同じ元証跡に必要な判断があれば新heartbeatから再生成する。
+
+## 2026-08-12 — 通知を正本採否ゲートへ戻す訂正（migration 267）
+
+### 誤り
+
+- 通知本来の役割は、AMDプロトコル等のcandidateを正本へ採用するか不採用にするかの最終判断だった。
+- v3.72.7では通知と先手TODOを「本人判断・本人限定行動」へ一般化し、L2 candidateを先手TODOの旧backlogと同じものとして一律suppressedへ落とした。
+- candidate行の`saved_count=1`はcandidateがDBへ保存済みという意味なのに、正本採用済みと取り違えた。
+
+### 訂正
+
+- 既存automation id `amd-os-proactive-heartbeat` は、未審査`l2_notifications`を最終判断カードへ仕上げる役割へ変更した。別automationは作らない。
+- 追加先、追加・更新内容、採用時の結果、不採用時の結果、安全なfeedback handlerが全部揃った候補だけをapprovedにする。
+- automationはcandidate tableのstatusや正本を変更しない。まさの「はい/いいえ」だけが既存feedback APIを通じてstatusを遷移させる。
+- migration 265で退役したL2候補だけをpendingへ戻し、汎用TODO抽出promptは停止する。先手TODOの汎用自動生成も停止する。
+- 本文、会議記録、本人作業、復旧、情報共有、raw data gap、反映先のないkindは採否通知へ出さない。

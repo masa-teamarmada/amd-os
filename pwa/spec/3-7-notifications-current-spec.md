@@ -1,6 +1,9 @@
 # Notifications / 採否ゲート仕様
 
-> **この章は何か**: `/notifications` と `POST /api/notifications/feedback` の current contract。注意面に出すのは、まさの採否で反映先が変わる候補か、まさ本人にしかできない行動だけ。先手TODOの生成正本は [`2-4-proactive-todo-current-spec.md`](2-4-proactive-todo-current-spec.md)。
+> **この章は何か**: `/notifications` と `POST /api/notifications/feedback` の current contract。通知の主目的は、L2 candidateをOS正本へ採用するか不採用にするかの最終判断。先手TODOと本人作業は [`2-4-proactive-todo-current-spec.md`](2-4-proactive-todo-current-spec.md) へ分ける。
+
+既存 automation id `amd-os-proactive-heartbeat` が未審査candidateを読み、`destination_label`、`changes[]`、`approval_effect`、`rejection_effect`を完成させる。全部揃い、feedback APIに安全な採否処理がある候補だけ `attention_state='approved' AND requires_masa_decision=true` にする。candidateの`status`や正本は、このレビュー段階では変更しない。
+通知カードはこの4項目を「反映先 / 追加・更新する情報 / 採用すると / 採用しないと」の順で表示する。`saved_count` はcandidate保存件数であり、採用済み表示の根拠にしない。
 
 ## 画面
 

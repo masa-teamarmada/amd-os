@@ -82,20 +82,20 @@ Media Mentions は D-11 として runner 未実装。Finance Ops Evidence / free
 
 SKILL 正本は `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 群) / `amd-os-l2-monthend-evidence/SKILL.md` (M 群) / `amd-os-l2-weekly-vc-funding-signals/SKILL.md` (W 群) と、各 L2 の個別 `amd-os-l<N>-*/SKILL.md` (= 束ね SKILL が参照する詳細手順)。L2 の品質改善は、PWA route / GAS function ではなく SKILL と outbox/applier contract を更新する。
 
-## Control layer: proactive TODO
+## Control layer: 採否通知と先手TODO
 
-旧 `proactive_outbox` + 司令塔通知は廃止のまま。2026-08-12以降は同じ automation id `amd-os-proactive-heartbeat` を、元証跡からまさ本人の判断・行動だけを直接作る意味抽出ownerとして再利用する。別automationや候補の後段filterは置かない。adminは `/proactive` とdashboard上段バッジで棚卸しし、PJ cockpit / institution cockpitには旧outboxを表示しない。
+旧 `proactive_outbox` + 司令塔通知は廃止のまま。2026-08-12以降、同じ automation id `amd-os-proactive-heartbeat` は、L2 candidateを正本採否カードへ仕上げる最終レビューownerとして使う。別automationは作らない。元証跡から汎用 `proactive_todos` / `app_notifications` を作る経路は停止する。
 
 | 項目 | 契約 |
 |---|---|
-| 正本 spec | `pwa/spec/2-4-proactive-todo-current-spec.md` |
-| DB | `proactive_todos` |
+| 正本 spec | `pwa/spec/3-7-notifications-current-spec.md` / `pwa/spec/2-4-proactive-todo-current-spec.md` |
+| DB | `l2_notifications`（採否） / `proactive_todos`（既存TODO） |
 | 抽出 | Codex automation `amd-os-proactive-heartbeat` → `proactive_heartbeat_tool.mjs` validator/applier |
-| 入力 | 5系統 `source_cache` + 開催済み `project_meeting_summaries`。既存TODO/通知は入力にしない |
+| 入力 | 未審査 `l2_notifications`。先手TODO、app通知、会議通知は入力にしない |
 | lifecycle | `/api/cron/proactive-todo-extract` は明示期限超過のred昇格とblocked復帰だけ |
 | UI | `/proactive` + dashboard 上段 `ProactiveTodoBadge` |
 | 完了 | `/api/proactive-todos/:id/resolve` |
-| 禁止 | 別automation、provider課金LLM、粗い候補の後段filter、MTG prep、旧outbox/cockpit panel、TODO本文の外部送付 |
+| 禁止 | 別automation、provider課金LLM、candidate statusの直接変更、MTG prep、旧outbox/cockpit panel、本文の外部送付 |
 
 ## Control layer: L2 health action ledger
 

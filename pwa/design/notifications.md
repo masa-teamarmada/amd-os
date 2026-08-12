@@ -1,6 +1,6 @@
 # 通知 + つくよみ修正依頼 — 設計の正本
 
-> 2026-08-12以降の注意面・未読数・OS通知は [注意・判断の生成境界](attention_review.md) を優先する。先手TODOは既存 `amd-os-proactive-heartbeat` が元証跡から直接生成し、別の後段filterは使わない。`l2_notifications` は各抽出ownerが作成時に確定した採否判断だけ、`app_notifications` は完全なaction contractがある本人行動だけをapprovedにする。直接の再認証URLがある `connector_auth` だけは即時復旧例外。`meeting_notifications` は会議記録であり、通知・未読数・判断キューへ混ぜない。
+> 2026-08-12以降の注意面・未読数・OS通知は [注意・判断の生成境界](attention_review.md) を優先する。通知の主目的はL2 candidateをOS正本へ採用するか不採用にするかの最終判断。既存 `amd-os-proactive-heartbeat` が、追加先・変更内容・はい/いいえの結果を揃えた候補だけをapprovedにする。先手TODO、本人作業、会議記録、復旧、情報共有はこの採否キューへ混ぜない。直接の再認証URLがある `connector_auth` だけは即時復旧例外。
 
 最終更新: 2026-08-12 (Codex注意・判断ゲート)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
@@ -10,9 +10,9 @@
 ## このドキュメントが扱う範囲
 
 `app_notifications`、`l2_notifications`、`meeting_notifications` と先手TODOを、
-「まさの注意」と「OSに残す記録」へ分離する仕組み。PWA / iOS / macOS は同じgateを使う。
+「正本採否」「直接復旧」「業務TODO」「会議記録」へ分離する仕組み。PWA / iOS / macOS は同じgateを使う。
 
-先手TODO由来の `app_notifications` は `source='amd-os-proactive-heartbeat'`。TODOが作られても通常は通知せず、24時間以内の明示期限、不可逆な判断窓、まさ本人限定blockerだけを最大3件/runで作る。linkは対象TODOを直接開く `/proactive?todo_id=<id>`。
+既存 automation id `amd-os-proactive-heartbeat` は、名前の履歴を保ったままL2最終判断レビューへ役割を訂正した。`proactive_todos` と `app_notifications` は生成しない。
 
 修正依頼は `l2_feedbacks` テーブル (migration 032) に蓄積され、上流 cron が次回抽出時に
 LLM プロンプトに含めて再抽出する → 「過去の指摘が反映された L2 データ」が育つ。

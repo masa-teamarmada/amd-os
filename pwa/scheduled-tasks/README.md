@@ -28,7 +28,7 @@
 | M-2 XRL 根拠 | Codex automation + outbox applier | `amd-os-l8-xrl-evidence-extract` | 6h ごと (L7 +15 分) | `project_xrl_evidence` |
 | D-6 経営ハイライト | Codex automation + outbox applier | `amd-os-l9-strategy-signal-extract` | daily 03:20 JST | `project_strategy_signals` |
 | つくよみ外部リサーチ | Codex automation + outbox applier | `amd-os-external-research` | weekdays 09:00 JST | 運用正本は[マニュアル3-3](../manual/3-3-notifications-and-tsukuyomi.md#つくよみ外部リサーチ)。公開情報を1件ずつ `/notifications` の候補へ出し、採用済みだけをPJ cockpitの「経営ハイライト → 採用リサーチ」に残す。全履歴+pending outboxでURL/出来事重複を除外し、新規ゼロは通知なし |
-| 先手 TODO | 既存 Codex automation + non-LLM applier | `amd-os-proactive-heartbeat` | daily 10:15–20:15 JST の毎時15分 | `source_cache` 5系統と開催済み会議要約を元証跡として、automation自身が `decision` / `masa_action` だけを直接抽出する。粗い候補の後段filter、provider課金API、MTG prep生成は禁止。validator後にapproved TODOを直接作り、通知は24h以内の明示期限・不可逆な判断窓・本人限定blockerだけ。`/api/cron/proactive-todo-extract` はred昇格とblocked復帰のみ。仕様: `pwa/spec/2-4-proactive-todo-current-spec.md` |
+| L2採否判断レビュー | 既存 Codex automation + non-LLM applier | `amd-os-proactive-heartbeat` | daily 10:15–20:15 JST の毎時15分 | 未審査 `l2_notifications` を読み、追加先・変更内容・採用/不採用の結果が揃ったcandidateだけをapprovedにする。candidate statusと正本、先手TODO、app通知は変更しない。provider課金APIは禁止。仕様: `pwa/spec/3-7-notifications-current-spec.md` |
 
 ## 関連 md
 

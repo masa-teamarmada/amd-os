@@ -23,7 +23,7 @@
 **Claude routine = マシン非依存**: cloud で発火するため laptop を閉じても・MMO が OFF でも動く。`claude.ai/code/routines` / `/schedule` / Desktop app のどこから登録しても同じ claude.ai アカウントに入る (= MMOマシンに置く必要はない)。Desktop / Local scheduled task (`~/.claude/scheduled-tasks/`、マシン依存) と混同しない。
 **制約**: 最小インターバル 1 時間、daily run cap あり (one-off は cap 外) → 同 cadence の L2 を 1 routine に束ねて run 数を最小化する設計。平常日の Claude routine run は 1 本だけ。
 
-**先手TODO**: `proactive_todos` を正本にし、既存 Codex automation `amd-os-proactive-heartbeat` が元証跡から `decision` / `masa_action` だけを直接生成する。旧outbox配送は廃止のまま。同じautomation idを別用途で再利用しており、別automationや粗い候補の後段filterは作らない。`/api/cron/proactive-todo-extract` はred昇格とblocked復帰だけ。確認・完了は `/proactive` と dashboard 上段バッジで扱う。正本手順は [`pwa/spec/2-4-proactive-todo-current-spec.md`](../spec/2-4-proactive-todo-current-spec.md)。
+**先手TODO / 採否通知**: `proactive_todos` の汎用自動生成は停止し、`/api/cron/proactive-todo-extract` はred昇格とblocked復帰だけを行う。既存 Codex automation `amd-os-proactive-heartbeat` は、未審査L2 candidateを正本採否カードへ仕上げる。同じautomation idを使い、別automationは作らない。正本手順は [`pwa/spec/2-4-proactive-todo-current-spec.md`](../spec/2-4-proactive-todo-current-spec.md) / [`pwa/spec/3-7-notifications-current-spec.md`](../spec/3-7-notifications-current-spec.md)。
 
 **L2 health action ledger**: `amd-os-l2-extraction-health-check` は red/yellow を検知するだけで修復しない。まず `cd pwa && npm run --silent health:l2 -- --env-file /Users/masa/projects/AMD/amd-os/pwa/.env.local --json` でread-onlyの `tmp/l2-health-latest.json` を更新し、その後 `npm run --silent health:l2:actions -- --input tmp/l2-health-latest.json` を実行すると、`tmp/l2-health-action-ledger.json` に未対応 incident が残る。各 incident は health output の row id / row name を主語に、owner、次アクション、deadline、close条件、visible worker用の短い prompt seed を持つ。healthは取得不能・rowなし・時刻不正をgreenと扱わない。正本表示名への対応が曖昧な行は `mapping_pending` として扱い、action loop側では新しいL2名や番号体系を作らない。同じ red/yellow は内部キーで集約され、次回 health で green になったものだけ `resolved` へ閉じる。これは local artifact のみで、DB / Slack / Notion / Drive / scheduler には書かない。automation登録に組み込む時は別途 scheduler change bundle が必要。
 
@@ -116,7 +116,7 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 | D-13 | D-13 Contract Signals | Codex automation `amd-os-d-13` + PWA route | `POST /api/contracts/extract-l2` | daily 03:35 JST | `contract_signals`、`contracts`、`contract_documents`、`l2_notifications(l2_kind='contract_signals')` |
 | W-1 | W-1 VC News / Funding Signals | Claude routine target / 暫定 Codex automation | `amd-os-l2-weekly-vc-funding-signals` / 暫定 `amd-os-l2-vc-news-funding-signals` | weekly Saturday 09:00 JST | `vc_news`、`vcs`、`vc_funds`、`vc_investments`、review outbox |
 | M-3 | M-3 Management Signal | (Claude routine target、新規) | M routine Phase C inline | 月末最終日 | `company_management_signal_reviews`、`/management-score` |
-| control | 先手TODO | 既存 Codex automation + non-LLM applier | `amd-os-proactive-heartbeat` | 10:15–20:15 JST の毎時15分 | 5系統 `source_cache` + 開催済み会議要約 → approved `proactive_todos`。厳格条件だけ `app_notifications` |
+| control | L2採否判断レビュー | 既存 Codex automation + non-LLM applier | `amd-os-proactive-heartbeat` | 10:15–20:15 JST の毎時15分 | 未審査 `l2_notifications` → 操作契約が揃ったapproved採否カード。candidate statusと正本は変更しない |
 
 ## 各 L2 の入出力仕様
 
