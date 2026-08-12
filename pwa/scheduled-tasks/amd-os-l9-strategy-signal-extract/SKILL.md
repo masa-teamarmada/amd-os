@@ -58,6 +58,15 @@ Phase A: 5 生データ + OS snapshot 収集
 - `amd_score_inputs?project_id=eq.<projectId>&order=evaluated_at.desc&limit=3` (= 直近 AMD Score)
 - p00 のみ追加: `amd_management_score_snapshots` 直近 3 ヶ月 + `amd_management_score_evidence` 直近 1 ヶ月
 
+### A-1b: SXワークスペースの完了事実 (`p21`だけ)
+
+- `GET $APP_BASE_URL/api/project-workspace/p21/automation-context?since=<前回成功日>&until=<JST今日>` を `Authorization: Bearer $WORKFLOW_SECRET`（未設定時は`$CRON_SECRET`）で読む。
+- `changes[]`は件数で切らず全件確認する。ただしLLMレビュー対象はまず`strategyEvidence.eligible=true`だけに絞る。
+- これはワークスペース保存時のLLM呼び出しではない。日次D-6の追加sourceである。
+- `meetingEvidence`だけの通常変更や進行中TODOを経営ハイライトへ昇格させない。
+- 採用する場合は受け取った`sourceRef`を改変せず`source_refs_json`へ入れ、`update_id`で既存signalと重複排除する。
+- routeが取れない場合は5生データのレビューを続け、p21だけ`workspace_context_unavailable`をrun summaryへ残す。内部値を推測で補わない。
+
 ### A-2: 5 生データ補強 (= 必要に応じて MCP 直叩き)
 - Gmail / Notion / Calendar / Slack / Drive で当月の関連 events / messages
 
@@ -94,10 +103,10 @@ Phase B: LLM 抽出 (= 私自身、done のみ / polarity 必須)
   - 契約前でも香川大/KUTE/NIMSのような高確度案件は `company_score_axis="pipeline"`, `pipeline_status="high_confidence"`, `pipeline_probability>=0.75`, `expected_contract_ym` を入れる
   - `scope_reason` は対象/非対象にした根拠を1文で残す
 
-**出力 JSON のみ**:
+**候補1件のJSON契約**（最終outboxでは`strategySignals[]`へ入れる）:
 ```json
 {
-  "signals": [
+  "strategySignals": [
     {
       "project_id": "<projectId>",
       "ym": "<ym>",
@@ -128,36 +137,15 @@ Phase B: LLM 抽出 (= 私自身、done のみ / polarity 必須)
 ```
 
 ═══════════════════════════════════════════════════
-Phase C: Supabase upsert + 通知
+Phase C: outbox作成（LLMはDBへ書かない）
 ═══════════════════════════════════════════════════
 
-### C-1: project_strategy_signals upsert
-```
-POST $SUPABASE_URL/rest/v1/project_strategy_signals
-body: {
-  ...signal 全部
-  "status": "candidate",
-  "created_by": "claude_routine_l9",
-  "extraction_run_id": "<run UUID>"
-}
-Prefer: return=minimal
-```
-
-### C-2: l2_notifications upsert (= signals.length > 0)
-```
-body: {
-  "l2_kind": "project_strategy_signal",
-  "target_id": "<projectId>",
-  "scope_key": "<ym>",
-  "title": "🚀 <projectName> (<ym>) 経営ハイライト候補 (<N>件)",
-  "summary": "<top 3 signal_type:title joined / >",
-  "saved_count": <N>,
-  "total_count": <N>,
-  "importance": 3
-}
-```
-
-### C-3: feedback applied_count++
+1. 候補が0件ならoutboxを作らない。空payload、空通知、穴埋めsignalは禁止。
+2. 候補がある時だけ `/Users/masa/.codex/automations/amd-os/strategy-signals-outbox/<YYYYMMDD-HHmmss>-strategy-signals.json` を作る。
+3. top-levelは `{ "generatedAt", "ym", "source": "codex-automation", "strategySignals": [], "notifications": [], "notes": [] }`。
+4. `strategySignals[]`は上記契約に`status="candidate"`, `created_by="codex-automation"`, `extraction_run_id`を加える。
+5. `notifications[]`は`l2_kind="project_strategy_signal"`, `target_id=project_id`, exact `signal_source_hash`と短いevidence refsを持つreview候補だけにする。
+6. LLM自身はSupabase REST、PWA write API、SQLへ書かない。反映は既存の非LLM `ms_progress_review_tool.mjs apply-outbox-dir`だけが行う。
 
 ═══════════════════════════════════════════════════
 Phase D: run summary

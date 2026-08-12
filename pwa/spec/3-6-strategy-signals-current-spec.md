@@ -42,6 +42,16 @@
 
 `automation-prepare` の hard gate は Supabase / PWA API / snapshot refresh / 5 生データ。GAS health は任意診断で、デフォルト hard gate にしない。
 
+### SXワークスペース接続
+
+SX (`p21`) だけは、5生データとOS snapshotに加えて `GET /api/project-workspace/p21/automation-context?since=YYYY-MM-DD&until=YYYY-MM-DD` を読む。このrouteは同じ `project_management_*` 正本の変更履歴を件数上限なしで返し、保存時にLLMは呼ばない。
+
+- `strategyEvidence.eligible=true` は「D-6がレビューすべき完了事実」の一次絞り込みであり、自動採用ではない。
+- 通常の進行中TODO、未完了、単なる編集は経営ハイライト候補にしない。
+- D-6のdone-only、claim gate、重複排除、candidate reviewをそのまま通す。
+- source refは `kind='project_management_update'` と `update_id` を保持し、Cockpitの根拠詳細から元のSXワークスペースへ戻れるようにする。
+- ワークスペースの件数・工程・判断一覧をCockpitへ別カードとして複製しない。
+
 外部公開情報は別の Codex automation `tsukuyomi-external-research` が平日09:00 JSTに調べ、同じ outbox / applier へ候補を渡す。旧 `gas-external-research` の Slack 配信は停止し、候補の提示先は `/notifications` に一本化する。新情報ゼロは正常終了で、空 outbox や穴埋め記事は作らない。
 
 ## DB 契約

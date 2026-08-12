@@ -182,18 +182,28 @@ function formatDate(value: string | null) {
   return new Intl.DateTimeFormat("ja-JP", { month: "numeric", day: "numeric" }).format(date);
 }
 
-function sourceSummary(refs: unknown[]) {
+type SourceSummary = { label: string; href: string | null };
+
+function sourceSummary(refs: unknown[], projectId: string): SourceSummary[] {
   return refs
-    .slice(0, 3)
     .map((item) => {
       const ref = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
-      return [
-        ref.source || ref.type || "source",
+      const label = [
+        ref.source || ref.type || ref.kind || "source",
         ref.date || ref.item_date || "",
         ref.title || ref.snippet || ref.summary || "",
       ].filter(Boolean).join(" / ");
+      const kind = String(ref.kind || ref.source || "");
+      const sourceUrl = typeof ref.source_url === "string" ? ref.source_url : "";
+      const safeWorkspacePrefix = `/project/${encodeURIComponent(projectId)}/workspace`;
+      return {
+        label,
+        href: kind === "project_management_update" && sourceUrl.startsWith(safeWorkspacePrefix)
+          ? sourceUrl
+          : null,
+      };
     })
-    .filter(Boolean);
+    .filter((ref) => Boolean(ref.label));
 }
 
 export function CockpitStrategySignals({ signals, projectId }: { signals: ProjectStrategySignal[]; projectId: string }) {
@@ -379,7 +389,7 @@ function StrategySignalRow({
   onConfirmed?: () => void;
 }) {
   const router = useRouter();
-  const refs = sourceSummary(signal.sourceRefs);
+  const refs = sourceSummary(signal.sourceRefs, projectId);
   const impactClass = IMPACT_CLASS[signal.impactLevel] ?? IMPACT_CLASS.medium;
   const polarity = signal.polarity ? POLARITY_META[signal.polarity] : null;
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -567,7 +577,11 @@ function StrategySignalRow({
           <div className="mt-1 space-y-1">
             {refs.map((ref, index) => (
               <div key={`${signal.signalId}:ref:${index}`} className="rounded bg-muted/40 px-2 py-1">
-                {ref}
+                {ref.href ? (
+                  <Link className="font-semibold text-emerald-700 underline underline-offset-2 hover:text-emerald-900" href={ref.href}>
+                    {ref.label} — SXワークスペースで確認
+                  </Link>
+                ) : ref.label}
               </div>
             ))}
           </div>

@@ -15,6 +15,7 @@ import { WebClient } from "@slack/web-api";
 import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { loadSxWorkspaceOperatingContext } from "@/lib/sx-workspace-operating-context-server";
 
 const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_BASE_URL || "https://amd-os-pwa.vercel.app";
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -182,6 +183,13 @@ async function loadOsContext(admin: AdminClient, meeting: MeetingRow): Promise<O
   const prevMeetings = (prevRes.data ?? []) as Array<Record<string, unknown>>;
   const upcomingMeetings = (upcomingRes.data ?? []) as Array<Record<string, unknown>>;
   const milestoneTitles = milestoneRows.map((m) => String(m.title || "")).filter(Boolean);
+  const sxWorkspaceContext = meeting.project_id === "p21"
+    ? await loadSxWorkspaceOperatingContext({
+        projectId: meeting.project_id,
+        since: prevMeetings[0]?.meeting_date ? String(prevMeetings[0].meeting_date).slice(0, 10) : null,
+        until: meeting.meeting_date.slice(0, 10),
+      }).catch(() => null)
+    : null;
 
   const text = [
     "## OSが見ている文脈",
@@ -209,6 +217,19 @@ async function loadOsContext(admin: AdminClient, meeting: MeetingRow): Promise<O
     upcomingMeetings.length
       ? upcomingMeetings.map((m) => `- ${String(m.meeting_date || "")} ${String(m.title || "MTG")}: ${truncateText(m.summary_short || m.narrative_md || "", 180)}`).join("\n")
       : "- 既存の次MTG準備カードなし",
+    ...(meeting.project_id === "p21" ? [
+      "",
+      "### SXワークスペースの変更（会議文脈。会議での決定とは限らない）",
+      sxWorkspaceContext?.changes.length
+        ? sxWorkspaceContext.changes.map((change) => {
+            const status = change.fromStatus || change.toStatus
+              ? ` / ${change.fromStatus || "未設定"}→${change.toStatus || "未設定"}`
+              : "";
+            const current = change.current?.title ? ` / 現在: ${change.current.title}` : "";
+            return `- ${change.changedOn} ${change.entityType}: ${change.summary}${status}${current}`;
+          }).join("\n")
+        : "- 対象期間の変更なし",
+    ] : []),
   ].join("\n");
 
   return { text, milestoneTitles };

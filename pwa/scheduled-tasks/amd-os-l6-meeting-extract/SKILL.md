@@ -509,6 +509,11 @@ Supabase から、この会議を PJ 全体の流れに位置づけるための 
    - `value_plan_cycles`: `project_id=<projectId>` かつ `period_start_ym <= ym <= period_end_ym`、`status in (active,confirmed,fixed,draft)`、最大 1 件
    - `value_milestones`: その `plan_cycle_id` の `is_active=true`、`sort_order asc`、最大 12 件
    - `milestone_monthly_progress`: 上記 `milestone_id` × `ym`
+6. **SXワークスペース変更 (`p21`だけ)**
+   - `GET $APP_BASE_URL/api/project-workspace/p21/automation-context?since=<直前の開催済みMTG日>&until=<今回MTG日>`を、`Authorization: Bearer $WORKFLOW_SECRET`（未設定時は`$CRON_SECRET`）で読む。
+   - `changes[]`は件数上限で切らず、今回会議に関係する事実の照合に使う。
+   - `meetingEvidence.claimBoundary='context_only'`を守る。ワークスペースに記録された事実だけで「今回会議で決まった」と書かず、会議sourceと一致した内容だけを`決まったこと`へ入れる。
+   - 会議後にワークスペースへ反映すべき差分の重複確認にも使う。同じ`entity_type + entity_id`を別台帳へ作らない。
 
 format:
 ```
@@ -524,6 +529,9 @@ project_id=... / project_name=... / status=... / category=...
 ## known_next_or_prep_meetings
 - YYYY-MM-DD <title>
   summary: ...
+
+## sx_workspace_changes (p21 only / context_only)
+- <changedOn> <entityType> <summary> / <fromStatus>→<toStatus> / source=<update_id>
 
 ## manual_meeting_assets
 - <asset_kind> <file_name> (<media_type>)

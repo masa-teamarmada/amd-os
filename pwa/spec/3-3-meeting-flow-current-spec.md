@@ -37,6 +37,9 @@ H-1は、終わった会議の記録、議事録なしの再確認、前後24時
 | Drive | Docs / Slides / Sheets / PDF / Office metadata |
 | Slack | thread / file / nudge context |
 | PWA | `meeting_assets` 添付、過去 meeting summaries、monthly reports、MS context |
+| SX workspace (`p21`) | 前回開催済みMTG日から今回MTG日までの `project_management_update_history`。`/api/project-workspace/p21/automation-context` の安全な投影だけを読む |
+
+SX workspaceの変更は議事録の文脈であり、会議sourceではない。H-1は全変更を件数上限で切らず照合するが、ワークスペース側に記録があるだけで`決まったこと`へ昇格させない。Notion / Gmail / Slack等の今回会議sourceと一致した内容だけを会議での合意として書く。別のmeeting用台帳へコピーせず、同じ`entity_type + entity_id`を参照する。
 
 ## Calendar PJ 判定
 
