@@ -251,24 +251,26 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 目的: admin/きよが、締め済み稼働月の請求書発行を上から処理する。旧 `/admin/billing` は廃止済みで、互換のため `/admin/invoices` へ redirect する。
 
-必須機能:
+必須機能 (2026-08-12 二列レイアウトへ再設計):
 
 - 左メニュー導線: AdminSidebar には `請求書発行` と `/admin/invoices` を置く。`Billing` 表記へ戻さない。
-- 発行キュー: 直近13か月の締め済み稼働月 (= 現月は含めず前月まで) の `billing_cycles` と `projects.status IN ('active','ended','frozen')` を読む。発行対象は `start_ym` 以降、`end_ym` 以前、`freeze_from_ym` より前、かつ請求額がある行だけ。未来月、請求額ゼロ、請求しないPJ、期間外の空cycleは出さない。
-- filter: 初期表示は `未完了` (= `発行待ち / 要確認 / 設定不足 / 過去滞留`)。きよの作業順に `未完了 / 発行待ち / 要確認 / 設定不足 / 過去滞留 / 発行済み / 送付済み / 入金済み / すべて` を置く。`発行待ち` は対象月でそのまま押せるもの、`要確認` は対象月の請求額が読めないもの、`設定不足` は対象月の freee取引先未設定など OS 設定で止まるもの、`過去滞留` は請求月 (`invoice_ym || ym`) が対象月より古い未発行行。稼働月が古くても請求月が対象月なら滞留扱いにしない。
-- 発行条件: 各行には `取引先 / 金額` の完了状態だけを小さく表示する。報告書FIXと立替精算は請求書発行の blocker にしない。`支払通知 / 報酬支払` など、請求書発行と直接関係しない全ステップ横並び chip を主画面に戻さない。
-- 状態クリック: `要確認 / 設定不足 / 過去滞留` の状態バッジまたは行操作を押すと詳細モーダルを開き、`freee取引先 / 請求額` の発行前チェックを、何を直せば解消するかの説明つきで出す。`設定不足` では freee取引先をプルダウンで選択して保存でき、保存後は同じ請求先の未発行行を再判定する。
-- 請求書発行: `発行待ち` 行の主操作にだけ `発行` / `請求書を発行` ボタンを置き、`AdminInvoiceIssueDialog` から `issue-invoice` Edge Function を呼ぶ。単なる `invoice_issued_at` 手動更新で発行済みに見せない。
+- 2列レイアウト: 左列＝PJ名を主表示した選択リスト（請求先名と未完了件数も表示）。右列＝①契約条件、②13か月請求台帳、③選択月ワークベンチ。デスクトップは document 全体をスクロールさせず内部領域へ収め、モバイルは縦積みへ再配置する。
+- 台帳の対象: 直近13か月の締め済み稼働月 (= 現月は含めず前月まで) の `billing_cycles` と `projects.status IN ('active','ended','frozen')` を読む。`start_ym` 以前や `end_ym` 以後、`freeze_from_ym` 以後、未来月は出さない。金額が読めない行も隠さず `請求額なし` blocker として出す。
+- 金額表示: 台帳は「基本額 / 承認済立替 / 請求候補」を月ごとに並べる。選択月ワークベンチはさらに「未承認参考」を分離する。請求候補は **基本額 + 承認済立替**。基本額は `contract-money.ts` の正本ロジックを使い、`budget_yen` は使わない。
+- 立替一覧と承認: 選択月の立替を全ステータスで一覧表示する。ログイン中の担当PMには `submitted` の「PM承認」、adminには `pmApproved` の「admin承認」を出す。明示クリック時だけ `/api/reimbursements/decision` を呼び、共有 `reimbursement-decision.ts` が active member、担当PJのPM/admin、遷移元statusをサーバーで再検証して条件付き更新する。自動承認・自動通知はしない。
+- blocker明示: `freee取引先未設定` / `請求額なし` / `立替未承認 N件` / `月報未確定` を独立して発行不可理由にする。未承認立替は月報状態にかかわらず1件でも残れば必ず発行を止める。
+- 請求書発行: blockerがない未発行月（過去滞留を含む）に `発行` ボタンを置き、既存 `AdminInvoiceIssueDialog` から `issue-invoice` Edge Function を呼ぶ。発行モーダルが載せる立替も同じ月判定（`billed_ym` 優先、なければ `date`）かつ `approved/paid` に統一する。
 - 発行モーダル: iOS `InvoiceStepView` / 旧 GAS `cpOpenInvoiceModal` と同じ発行仕様を維持する。件名、基本明細行、契約月額との差分確認、前月明細引き継ぎ、承認済み立替の読み取り専用明細、調整行、請求日、支払期日、備考、発行済み情報、発行取消を出す。件名とヘッダーは `client_name` を使い、`project_name` / `project_id` など AMD 内部呼称を請求書発行モーダルや freee 件名に出さない。単なる件名/日付/全行だけの薄いモーダルへ戻さない。
-- 請求額表示: 明細合計 (`invoice_base_lines_json`) を最優先し、なければ確定請求額 (`budget_reported_amount`)、月額固定契約だけ `projects.fee_amount` へ fallback する。PJ 予算 (`budget_yen`) は AMD 側の原資/報酬予算なので、請求発生判定や請求額 fallback に使わない。
-- 幅: admin 業務表として列幅を保ち、狭い画面では表本体を横スクロールさせる。列を圧縮して文字やボタンを重ねない。
+- 請求額表示: 明細合計 (`invoice_base_lines_json`) を最優先し、なければ `contract-money.ts` の `contractBackedClientAmount`（確定請求額 `budget_reported_amount` > 契約スケジュール金額 > 月額固定契約の `projects.fee_amount`）へ fallback する。PJ 予算 (`budget_yen`) は AMD 側の原資/報酬予算なので、請求発生判定や請求額 fallback に一切使わない。
 - 明細保存: 発行前に `invoice_base_lines_json` / `invoice_subject` を保存できる。発行後は `invoice_issued_at` / `freee_invoice_number` / `invoice_pdf_url` が `billing_cycles` に反映される。
 - 互換: `/admin/billing` は画面を持たず `/admin/invoices` に redirect する。
+- 通知: この画面の操作ではSlack/メール通知を一切送らない。
 
 回帰防止:
 
-- `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/invoices` route、`/admin/billing` redirect、AdminSidebar 導線、`AdminInvoiceIssueQueue`、`FreeePartnerPicker`、`AdminInvoiceIssueDialog` の `基本明細行 / 立替精算 / 調整行 / 備考 / 発行を取り消す`、`issue-invoice` anchor を検査する。
+- `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/invoices` route、`/admin/billing` redirect、AdminSidebar 導線、`AdminInvoiceIssueQueue`、`FreeePartnerPicker`、`AdminInvoiceIssueDialog` の `基本明細行 / 立替精算 / 調整行 / 備考 / 発行を取り消す`、`issue-invoice` anchor を検査する。2026-08-12 の二列レイアウト再設計でも、これらの文字列アンカーは維持したまま実装している。
 - 旧 PM 月次 routine へ請求書発行を戻さない。請求書発行・送付は admin 業務のままにする。
+- 立替の権限・状態遷移判定は画面へ複製せず、`reimbursement-decision.ts` の共有サーバー処理を正本にする。Slack受け口も同じ処理へ委譲する。
 
 ## /monthly-agreement
 

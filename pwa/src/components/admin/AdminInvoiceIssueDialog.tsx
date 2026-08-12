@@ -37,6 +37,7 @@ type ReimbItem = {
   transport_to?: string | null;
   transport_trip?: string | null;
   tax_rate?: number | null;
+  billed_ym?: string | null;
 };
 
 type Preview = {
@@ -238,11 +239,9 @@ async function loadPreview(projectId: string, ym: string): Promise<Preview> {
       .maybeSingle(),
     supabase
       .from("reimbursements")
-      .select("description, amount, date, category, transport_mode, transport_from, transport_to, transport_trip, tax_rate")
+      .select("description, amount, date, category, transport_mode, transport_from, transport_to, transport_trip, tax_rate, billed_ym")
       .eq("project_id", projectId)
-      .eq("status", "approved")
-      .gte("date", ymStart(ym))
-      .lt("date", nextYmStart(ym)),
+      .in("status", ["approved", "paid"]),
   ]);
   if (projectRes.error) throw projectRes.error;
   if (cycleRes.error) throw cycleRes.error;
@@ -291,7 +290,10 @@ async function loadPreview(projectId: string, ym: string): Promise<Preview> {
     baseLines = [defaultLine(ym, invoiceAmount)];
   }
 
-  const reimbItems = (reimbRes.data ?? []) as ReimbItem[];
+  const reimbItems = ((reimbRes.data ?? []) as ReimbItem[]).filter((item) => {
+    if (item.billed_ym && /^\d{6}$/.test(item.billed_ym)) return item.billed_ym === ym;
+    return Boolean(item.date && item.date >= ymStart(ym) && item.date < nextYmStart(ym));
+  });
   const reimbYen = reimbItems.reduce((sum, item) => sum + Number(item.amount ?? 0), 0);
 
   return {

@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { AdminInvoiceIssueQueue, type BillingCycleRow, type InvoiceProjectRow } from "@/components/admin/AdminInvoiceIssueQueue";
+import { AdminInvoiceIssueQueue, type BillingCycleRow, type InvoiceProjectRow, type ReimbursementRow } from "@/components/admin/AdminInvoiceIssueQueue";
 
 function currentYm() {
   const now = new Date();
@@ -18,41 +18,14 @@ function ymLabel(ym: string) {
   return `${ym.slice(0, 4)}年${Number(ym.slice(4, 6))}月`;
 }
 
-function parseInvoiceLines(value: string | null) {
-  if (!value) return [];
-  try {
-    const parsed = JSON.parse(value) as Array<{
-      type?: string;
-      quantity?: string | number;
-      qty?: string | number;
-      unit_price?: string | number;
-      unitPrice?: string | number;
-      amount?: string | number;
-    }>;
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+function ymFromDate(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const match = /^(\d{4})-(\d{2})/.exec(value);
+  return match ? `${match[1]}${match[2]}` : null;
 }
 
-function invoiceNetAmount(c: {
-  invoice_base_lines_json?: string | null;
-  budget_reported_amount?: number | string | null;
-  fee_type?: string | null;
-  fee_amount?: number | string | null;
-}) {
-  const totalFromLines = parseInvoiceLines(c.invoice_base_lines_json ?? null).reduce((sum, line) => {
-    if (line.type === "text") return sum;
-    const quantity = Number(line.quantity ?? line.qty ?? 1) || 1;
-    const unitPrice = Number(line.unit_price ?? line.unitPrice ?? line.amount ?? 0) || 0;
-    return sum + quantity * unitPrice;
-  }, 0);
-  if (totalFromLines > 0) return Math.round(totalFromLines);
-  const reported = Number(c.budget_reported_amount ?? 0);
-  if (reported > 0) return Math.round(reported);
-  const fixedFee = Number(c.fee_amount ?? 0);
-  if (c.fee_type === "monthly_fixed" && fixedFee > 0) return Math.round(fixedFee);
-  return 0;
+function arrayCount(value: unknown) {
+  return Array.isArray(value) ? value.length : 0;
 }
 
 function isWithinWorkWindow(c: { ym: string }, project: InvoiceProjectRow) {
@@ -64,6 +37,8 @@ function isWithinWorkWindow(c: { ym: string }, project: InvoiceProjectRow) {
 
 export default async function AdminInvoicesPage({ embedded = false }: { embedded?: boolean } = {}) {
   const supabase = await createClient();
+  const { data: authData } = await supabase.auth.getUser();
+  const currentEmail = authData.user?.email?.toLowerCase() ?? "";
   const baseYm = currentYm();
   const lastClosedYm = addMonths(baseYm, -1);
   const yms = Array.from({ length: 13 }, (_, index) => addMonths(lastClosedYm, index - 12));
@@ -78,8 +53,17 @@ export default async function AdminInvoicesPage({ embedded = false }: { embedded
 
   const { data: projects, error: projectErr } = await supabase
     .from("projects")
-    .select("project_id, project_name, client_name, status, project_type, start_ym, end_ym, freeze_from_ym, fee_type, fee_amount, freee_partner_id, monthly_report_required, monthly_report_scope")
+    .select("project_id, project_name, client_name, status, project_type, start_ym, end_ym, freeze_from_ym, fee_type, fee_amount, freee_partner_id, monthly_report_required, monthly_report_scope, contract_terms_json, payment_due_rule, payment_due_day")
     .in("status", ["active", "ended", "frozen"]);
+
+  const { data: activeMembers } = await supabase
+    .from("members")
+    .select("member_id, email, code_name, is_admin, status")
+    .eq("status", "active");
+  const currentMember = (activeMembers ?? []).find((member) => String(member.email ?? "").toLowerCase() === currentEmail) ?? null;
+  const memberLabelByEmail = new Map(
+    (activeMembers ?? []).map((member) => [String(member.email ?? "").toLowerCase(), member.code_name || "メンバー"]),
+  );
 
   const projectMap = new Map<string, InvoiceProjectRow>();
   for (const p of projects ?? []) {
@@ -97,21 +81,63 @@ export default async function AdminInvoicesPage({ embedded = false }: { embedded
       freee_partner_id: p.freee_partner_id ?? null,
       monthly_report_required: Boolean(p.monthly_report_required),
       monthly_report_scope: p.monthly_report_scope ?? "none",
+      contract_terms_json: p.contract_terms_json ?? null,
+      payment_due_rule: p.payment_due_rule ?? null,
+      payment_due_day: p.payment_due_day ?? null,
     });
+  }
+
+  const projectIds = Array.from(projectMap.keys());
+  const { data: pmMemberships } = currentMember && projectIds.length
+    ? await supabase
+        .from("project_members")
+        .select("project_id")
+        .eq("member_id", currentMember.member_id)
+        .eq("is_active", true)
+        .eq("is_pm", true)
+        .in("project_id", projectIds)
+    : { data: [] };
+  const viewerPmProjectIds = (pmMemberships ?? []).map((row) => String(row.project_id));
+
+  const { data: reimbursements, error: reimburseErr } = projectIds.length
+    ? await supabase
+        .from("reimbursements")
+        .select("reimbursement_id, project_id, project_name, date, category, amount, tax_rate, description, status, created_by, pm_approved_by, pm_approved_at, admin_approved_by, admin_approved_at, billed_ym, receipt_storage_paths, receipt_file_names, receipt_drive_links")
+        .in("project_id", projectIds)
+    : { data: [], error: null };
+  if (reimburseErr) console.error("AdminInvoicesPage reimbursements:", reimburseErr.message);
+
+  const reimbursementsByProjectYm = new Map<string, ReimbursementRow[]>();
+  for (const r of reimbursements ?? []) {
+    const ym = /^\d{6}$/.test(r.billed_ym ?? "") ? r.billed_ym! : ymFromDate(r.date);
+    if (!ym || !yms.includes(ym)) continue;
+    const key = `${r.project_id}_${ym}`;
+    const list = reimbursementsByProjectYm.get(key) ?? [];
+    list.push({
+      reimbursement_id: r.reimbursement_id,
+      project_id: r.project_id,
+      date: r.date ?? null,
+      category: r.category ?? null,
+      amount: r.amount ?? 0,
+      description: r.description ?? null,
+      status: r.status ?? "submitted",
+      created_by_label: memberLabelByEmail.get(String(r.created_by ?? "").toLowerCase()) ?? "メンバー",
+      receipt_count: Math.max(
+        arrayCount(r.receipt_storage_paths),
+        arrayCount(r.receipt_file_names),
+        arrayCount(r.receipt_drive_links),
+      ),
+      ym,
+    });
+    reimbursementsByProjectYm.set(key, list);
   }
 
   const rows: BillingCycleRow[] = (cycles ?? [])
     .filter((c) => {
       const project = projectMap.get(c.project_id);
       if (!project) return false;
-      const amount = invoiceNetAmount({
-        ...c,
-        fee_type: project.fee_type,
-        fee_amount: project.fee_amount,
-      });
       if (c.ym > lastClosedYm) return false;
       if (!isWithinWorkWindow(c, project)) return false;
-      if (amount <= 0) return false;
       return true;
     })
     .map((c) => ({
@@ -122,6 +148,11 @@ export default async function AdminInvoicesPage({ embedded = false }: { embedded
       project_type: projectMap.get(c.project_id)?.project_type ?? null,
       fee_type: projectMap.get(c.project_id)?.fee_type ?? null,
       fee_amount: projectMap.get(c.project_id)?.fee_amount ?? null,
+      start_ym: projectMap.get(c.project_id)?.start_ym ?? null,
+      end_ym: projectMap.get(c.project_id)?.end_ym ?? null,
+      contract_terms_json: projectMap.get(c.project_id)?.contract_terms_json ?? null,
+      payment_due_rule: projectMap.get(c.project_id)?.payment_due_rule ?? null,
+      payment_due_day: projectMap.get(c.project_id)?.payment_due_day ?? null,
       freee_partner_id: projectMap.get(c.project_id)?.freee_partner_id ?? null,
       monthly_report_required: projectMap.get(c.project_id)?.monthly_report_required ?? false,
       monthly_report_scope: projectMap.get(c.project_id)?.monthly_report_scope ?? "none",
@@ -132,7 +163,6 @@ export default async function AdminInvoicesPage({ embedded = false }: { embedded
       freee_invoice_number: c.freee_invoice_number ?? null,
       invoice_pdf_url: c.invoice_pdf_url ?? null,
       status: c.status ?? "not_started",
-      budget_yen: c.budget_yen ?? null,
       budget_reported_amount: c.budget_reported_amount ?? null,
       budget_confirmed_at: c.budget_confirmed_at ?? null,
       meeting_event_id: c.meeting_event_id ?? null,
@@ -143,6 +173,8 @@ export default async function AdminInvoicesPage({ embedded = false }: { embedded
       payout_notice_uploaded_at: c.payout_notice_uploaded_at ?? null,
       payment_confirmed_at: c.payment_confirmed_at ?? null,
       reward_paid_at: c.reward_paid_at ?? null,
+      reimbursements: (reimbursementsByProjectYm.get(`${c.project_id}_${c.ym}`) ?? [])
+        .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "")),
     }));
 
   if (bcErr) console.error("AdminInvoicesPage:", bcErr.message);
@@ -152,7 +184,7 @@ export default async function AdminInvoicesPage({ embedded = false }: { embedded
     <div>
       {embedded ? (
         <p className="mb-2 text-xs leading-relaxed text-muted-foreground">
-          {ymLabel(firstYm)}〜{ymLabel(lastYm)} 稼働分 — {rows.length} 件。締め済みで請求額がある稼働分のみ、freee取引先と請求額がそろったものから発行。
+          {ymLabel(firstYm)}〜{ymLabel(lastYm)} 稼働分 — {rows.length} 件。契約、請求実績、全立替を照合し、発行条件がそろった月をここから発行。
         </p>
       ) : (
         <>
@@ -161,11 +193,16 @@ export default async function AdminInvoicesPage({ embedded = false }: { embedded
             <span className="text-sm text-muted-foreground">{ymLabel(firstYm)}〜{ymLabel(lastYm)} 稼働分 — {rows.length} 件</span>
           </div>
           <p className="text-xs text-muted-foreground mb-3">
-            締め済みで請求額がある稼働分だけを表示し、freee取引先と請求額がそろったものを発行待ちとして freee 発行まで進める。
+            契約条件、13か月の請求実績、当月の全立替を同じ作業面で照合し、必要な承認を終えて freee 発行まで進める。
           </p>
         </>
       )}
-      <AdminInvoiceIssueQueue cycles={rows} targetYm={lastClosedYm} />
+      <AdminInvoiceIssueQueue
+        cycles={rows}
+        targetYm={lastClosedYm}
+        viewerIsAdmin={Boolean(currentMember?.is_admin)}
+        viewerPmProjectIds={viewerPmProjectIds}
+      />
     </div>
   );
 }

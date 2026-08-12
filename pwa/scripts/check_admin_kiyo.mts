@@ -4,6 +4,11 @@ import fs from "node:fs";
 const kiyoPage = fs.readFileSync(new URL("../src/app/(app)/admin/kiyo/page.tsx", import.meta.url), "utf8");
 const reimbursePage = fs.readFileSync(new URL("../src/app/(app)/reimburse/page.tsx", import.meta.url), "utf8");
 const catalog = fs.readFileSync(new URL("../src/lib/surface-catalog.ts", import.meta.url), "utf8");
+const invoicePage = fs.readFileSync(new URL("../src/app/(app)/admin/invoices/page.tsx", import.meta.url), "utf8");
+const invoiceQueue = fs.readFileSync(new URL("../src/components/admin/AdminInvoiceIssueQueue.tsx", import.meta.url), "utf8");
+const invoiceDialog = fs.readFileSync(new URL("../src/components/admin/AdminInvoiceIssueDialog.tsx", import.meta.url), "utf8");
+const decisionRoute = fs.readFileSync(new URL("../src/app/api/reimbursements/decision/route.ts", import.meta.url), "utf8");
+const decisionService = fs.readFileSync(new URL("../src/lib/reimbursement-decision.ts", import.meta.url), "utf8");
 
 assert.match(kiyoPage, /absolute: "きよ - AMD OS"/, "page titleは『きよ』に固定する");
 assert.match(kiyoPage, />きよ<\/h1>/, "画面見出しは『きよ』に固定する");
@@ -65,5 +70,27 @@ assert.doesNotMatch(reimbursePage, /rounded-lg|rounded-xl|shadow-/, "承認済�
 assert.match(reimbursePage, /<div className="min-w-0 space-y-4">/, "承認待ち/承認済み/自分の申請を束ねる右列wrapperにmin-w-0を付ける");
 assert.match(reimbursePage, /<section className="min-w-0 border border-border border-l-2 border-l-emerald-500\/50 bg-card p-4">/, "承認済みsection自体にもmin-w-0を付ける");
 assert.match(reimbursePage, /<div className="mt-3 max-w-full overflow-x-auto">/, "承認済み台帳のscroll boxにmax-w-fullを付けてtable幅で親を押し広げない");
+
+// 請求判断ワークベンチ: 契約→13か月実績→全立替→権限別承認→発行を同じ面に置く
+assert.match(invoiceQueue, /請求候補/, "基本額と承認済立替から請求候補を表示する");
+assert.match(invoiceQueue, /この月の立替（全ステータス）/, "選択月の立替をstatusで隠さない");
+assert.match(invoiceQueue, /viewerCanPmApprove[\s\S]*PM承認/, "担当PMだけにPM承認操作を出す");
+assert.match(invoiceQueue, /viewerIsAdmin[\s\S]*admin承認/, "adminだけにadmin承認操作を出す");
+assert.match(invoiceQueue, /pending\.length > 0/, "未承認立替が1件でもあれば月報状態に関係なくblockerを作る");
+assert.match(invoiceQueue, /blockers\.length === 0 && !\["issued", "sent", "paid"\]/, "blockerが無い過去滞留は発行できる");
+assert.match(invoiceQueue, /grid-cols-\[68px_78px_108px_108px_116px_104px_1fr\]/, "13か月台帳を高密度な固定列で保つ");
+assert.match(invoiceQueue, /overflow-x-auto/, "狭い画面では台帳だけを横スクロールさせる");
+assert.doesNotMatch(invoiceQueue, /rounded-full|rounded-lg|rounded-md|rounded-xl|shadow-/, "請求作業面を丸角カードやpillだらけに戻さない");
+assert.doesNotMatch(invoicePage, /budget_yen/, "PJ予算を請求額の根拠にしない");
+assert.match(invoicePage, /viewerPmProjectIds/, "表示中ユーザーの担当PM権限を渡す");
+assert.match(invoicePage, /created_by_label/, "申請者のメールアドレスを表示用データへ直接使わない");
+
+assert.match(invoiceQueue, /\/api\/reimbursements\/decision/, "画面内承認は認証済みAPIを通す");
+assert.match(decisionRoute, /requireAuth\(\)/, "画面内承認APIはPWAセッションを必須にする");
+assert.match(decisionService, /\.eq\("is_pm", true\)/, "PM承認は担当PJのPM権限をサーバーで検査する");
+assert.match(decisionService, /if \(!member\.is_admin\)/, "admin承認はadmin権限をサーバーで検査する");
+assert.match(decisionService, /\.eq\("status", currentStatus\)|\.in\("status", Array\.from\(PM_APPROVED_STATUSES\)\)/, "状態遷移は遷移元statusを条件にして競合を拒否する");
+assert.match(invoiceDialog, /\.in\("status", \["approved", "paid"\]\)/, "発行モーダルは承認済み立替だけを載せる");
+assert.match(invoiceDialog, /item\.billed_ym === ym/, "発行モーダルもbilled_ym優先の月判定を使う");
 
 console.log("admin kiyo workspace contract: ok");

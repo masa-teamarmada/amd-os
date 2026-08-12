@@ -148,16 +148,18 @@ PM 承認は `project_members.is_pm=true AND project_id=reimbursement.project_id
 
 admin/きよが締め済み稼働月の請求書発行を処理する画面 (= `pwa/src/app/(app)/admin/invoices/page.tsx`)。旧 `/admin/billing` は廃止済みで、この画面へ自動遷移する。
 
-### 表示構造
+### 表示構造 (2026-08-12 二列レイアウトへ再設計)
 
+- レイアウト: 左列＝請求先PJ一覧（PJごとの未完了件数バッジ、`AdminInvoiceIssueQueue` 内で group化）。右列＝選択PJの作業面。デスクトップは document 全体をスクロールさせず、左右それぞれの内部領域でスクロールする。モバイルは縦積みに再配置
+- 右列の構成（上から）: ①契約条件パネル（`projects.contract_terms_json.currentContracts[].terms.cockpitSummary` の請求/支払タイミング・業務範囲・成果物・立替精算・実施体制。無ければ契約種別+月額 fallback）、②13か月請求台帳（稼働月/請求月/請求額/状態/発行条件の一覧、行クリックで③を切替）、③選択月の内訳ワークベンチ
 - 対象: 直近 13 ヶ月の締め済み稼働月 (= 現月は含めず前月まで) の `billing_cycles`
-- 行: `projects.status IN ('active','ended','frozen')` の PJ × 稼働月。ただし `start_ym` より前、`end_ym` より後、`freeze_from_ym` 以降、請求額ゼロ、請求しないPJの空cycleは表示しない
-- filter: 初期表示は `未完了` (= `発行待ち / 要確認 / 設定不足 / 過去滞留`)。filter は `未完了 / 発行待ち / 要確認 / 設定不足 / 過去滞留 / 発行済み / 送付済み / 入金済み / すべて`
-- 状態詳細: `要確認 / 設定不足 / 過去滞留` の状態バッジまたは行操作から詳細モーダルを開く。モーダルには `freee取引先 / 請求額 / 報告書 / 立替` の発行前チェックと解消方法を出し、設定不足では freee取引先IDをその場で保存できる
-- 主操作: `発行待ち` 行の `発行` / `請求書を発行` から `AdminInvoiceIssueDialog` を開き、明細確認 → freee 発行
+- 行: `projects.status IN ('active','ended','frozen')` の PJ × 稼働月。ただし `start_ym` より前、`end_ym` より後、`freeze_from_ym` 以降は表示しない。金額が読めない行は blocker として表示する
+- 金額表示: 台帳は「基本額/承認済立替/請求候補」、ワークベンチはさらに「未承認参考」を表示する。請求候補は基本額+承認済立替。`budget_yen` は使わない
+- 立替一覧と承認: 選択月の全ステータスを一覧表示する。担当PMには申請中のPM承認、adminにはPM承認済みのadmin承認を出す。`/api/reimbursements/decision` と共有サーバー処理が権限と遷移元statusを再検査する
+- blocker明示: `freee取引先未設定` / `請求額なし` / `立替未承認 N件` / `月報未確定`。未承認は月報状態に関係なく必ず発行を止める
+- 主操作: 状態が `発行待ち` の月で「発行」から `AdminInvoiceIssueDialog`（既存コンポーネントを流用、新規作成しない）を開き、明細確認 → freee 発行
 - 発行モーダル: iOS `InvoiceStepView` と同じく、件名、基本明細行、契約月額との差分確認、前月明細引き継ぎ、承認済み立替の読み取り専用明細、調整行、請求日、支払期日、備考、発行済み情報、発行取消を扱う。件名・ヘッダー・freee fallback には `client_name` を使い、AMD内部の `project_name` / `project_id` を出さない。単純な件名/日付/全行だけのモーダルにはしない
-- きよ確認: `金額 / 報告 / 立替` の状態だけを小さく表示。`報告` は `monthly_report_scope='internal_and_external'` のとき発行前 blocker とする。旧 billing matrix のように全ステップを横並び表示しない
-- 請求額: `invoice_base_lines_json` の明細合計を最優先し、なければ `budget_reported_amount`、月額固定契約だけ `projects.fee_amount` へ fallback する。`budget_yen` は AMD 側の原資/報酬予算なので請求額判定には使わない
+- 請求額: `invoice_base_lines_json` の明細合計を最優先し、なければ `contract-money.ts` の `contractBackedClientAmount`（確定請求額 > 契約スケジュール金額 > 月額固定契約の `projects.fee_amount`）へ fallback する。`budget_yen` は AMD 側の原資/報酬予算なので請求額判定には使わない
 
 ### 状態分類
 
@@ -171,9 +173,9 @@ admin/きよが締め済み稼働月の請求書発行を処理する画面 (= `
 | 送付済み | `invoice_sent_at` あり、`payment_confirmed_at` なし |
 | 入金済み | `payment_confirmed_at` あり |
 
-### 立替確認
+### 立替確認 (2026-08-12 更新)
 
-`reimbursements.date` から該当月 × 該当 PJ の未処理立替を見て、きよ確認の `立替` チップへ反映する。未処理があれば `未完了`、締切後に未処理がなければ `完了` とする。旧 billing matrix のセル右下 badge は現行 UI へ戻さない。
+選択月の内訳ワークベンチが `reimbursements`（`billed_ym` 優先、無ければ `date`）を全ステータスで表示する。`submitted`/`pmApproved` が1件でも残れば発行不可。担当PM/adminは権限に応じた次の承認をその場で実行でき、更新後は候補額とblockerを即時再計算する。発行モーダルも同じ月判定で `approved/paid` を請求明細へ載せる。
 
 ## /admin/prompts
 
