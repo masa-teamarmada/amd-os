@@ -267,6 +267,74 @@ migration 263は共通推定器`estimated-v0.1`の入力、状態、二行動、
 SXのBZM 2.0固定方針下の計画達成診断4.15%は消さず、BZM 2.1の動的正味価値へ自動転記しない。
 前向き検証は0件のため、GO、NO_GO、投資額、支援採択の自動推薦に使わない。
 
+## BZM 2.2全PJprovisional pilot
+
+`pwa/bzm/pilot/bzm-2-2-all-pj-provisional-v0-1.json`は、12 PJの103パラメータへ欠測推定を入れたrepo内のshadow artifactである。
+
+状態は`provisional-pilot-v0.1 / unvalidated`、前向き検証は0件とする。
+
+このartifactと監査JSON、生成スクリプト、全パラメータ台帳は、現行PWAのAPI、DB、PJコックピット、primary model registryへ接続しない。
+
+`npm run check:bzm-2-2-all-pj-pilot`は、12 PJ×103パラメータ、型、由来、scenario別計算入力、cash cliff、禁止用途とartifact整合を検査する。
+
+この検査の成功は、予測妥当性または構成概念妥当性を意味しない。
+
+### 指標名と方針状態
+
+gate積は`q_gate_product_proxy`、登録stress別gate積の最小値は`q_stress_proxy`として保存する。
+
+条件付き確率としての校正とgate間依存を閉じていないため、`q`、`q_plan`、`q_robust`、$q_{\mathrm{rob}}^{-}$という名前で保存または表示しない。
+
+現在方針は`shadow_only`の登録制御である。
+
+確認済み実行可能、選択方針、最適方針のstatusを付けない。
+
+既存の固定方針$\pi_0$を測定していないPJでは$q_{\mathrm{plan}}^{\pi_0}$を`not_applicable`にし、shadow現在方針の代理値で補完しない。
+
+### cash cliffと資金
+
+無資金月次残高が初めて不足する月をcash cliffとする。
+
+既存のPJ gate月はcash cliffへ前倒ししない。
+
+別の`full_horizon_liquidity_package_proxy_before_first_cliff`を初回cliff月の月初に置き、評価期間中の全補填期限を満たす資金枠または共同調達packageの低精度代理値を一度だけ掛ける。
+
+同じ資金証拠を既存gateと二重に掛けず、重複する既存gateは非金融条件だけを残す。
+
+金融・非金融を分離できない複合gateは、元確率を監査用に保持し、代理積では乗法単位元にする。これは非金融残余の成功確率を1と推定したものではなく、識別不能な残余を代理積から除外した処理である。
+
+coverageは総額比でなく、補填期限ごとの利用可能capacityと累積必要額の比の最小値で検査する。日付なし資金はcapacityゼロとする。
+
+代理gate失敗経路はcliff当月から停止し、以後の便益と終端価値を計上しない。
+
+未確約資金は現金残高へ足さない。
+
+資金調達入金は流動性と行動実行可能性へ接続し、会社PJの価値創造CFまたは$J$へ便益として加算しない。
+
+希薄化、負債、証券別請求は持分評価層へ分ける。
+
+legacy key `expected_cumulative_funding`には、無資金残高の最小補填必要額を経路生存で加重した値を置く。
+
+このslotを資金受領期待額、コミット額、企業価値として読まない。
+
+### 出力と用途の境界
+
+$P$は成功条件付き価値、$J$は失敗を含む全経路の動的正味PJ価値、現行SPSは9軸診断指数である。
+
+三つの出力は合算または相互変換しない。
+
+低位、中央、高位は仮定束のscenarioであり、信頼区間ではない。
+
+Gmail、Drive、Calendar、Slack、Notion、OS DBは、globalな本文取得、remote scope、thread再帰、権限範囲のいずれかが未完であるため、六つすべて`incomplete`とする。
+
+未発見を不存在へ変換しない。
+
+独立した経済学者役と経営学者役が指摘した、代理指標の誤称、cash cliff後の価値計上、$\pi_0$の偽装、実行可能性と最適性の過大表示、103パラメータと計算入力の不一致は、pilot checkerの停止条件へ入れる。
+
+ただし、gateの条件付き確率としての妥当性、証拠間依存、状態遷移の因果識別、行動被覆、共有資源制約、前向き予測の較正は未検証である。
+
+PJ間ランキング、撤退または継続の自動判断、投資判断、支援採択、資源配分へ使わない。
+
 ## Legacy AMD / M-X-F の位置づけ
 
 legacy AMD / M-X-F では 7 軸を次の 3 要素で見せる。これは現行 primary score ではなく、SPS の R/S の根拠と比較用ブロックとして読む。

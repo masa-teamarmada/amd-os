@@ -29,7 +29,7 @@
 | L2 extraction overall | `3-1`〜`3-6`, `3-9`〜`3-13`, `5-3` | `partial` | H-1 のmeeting flow深掘り、D-5M-2D-6の個別schema、D-7の実 schedule / BZM commit loop をさらに column-level 化 |
 | notifications / 採否 | `3-7` | `partial` | `applyApprovedNotification()` の kind 別分岐を全件 table 化 |
 | cockpit | `3-8` | `partial` | PM routine stepId は廃止済み。monthly/reward modal / Edge Function bridge 境界は補完済み。kanban、meeting detail attachments、score tabs は未完 |
-| AMD Score / FRL | `4-1`, `4-2` | `partial` | alpha retrofit UI、XRL revision API、Triple Helix recompute の詳細。現行SPS、BZM 2.0観測台帳、BZM 2.1動的方針台帳のDB/API/UI境界は4-2へ記録済みだが、BZM 2.1の実PJ入力・前向き検証、独立複数評価者、重み・符号化・集約方式の感度分析は未実施 |
+| AMD Score / FRL | `4-1`, `4-2` | `partial` | alpha retrofit UI、XRL revision API、Triple Helix recompute の詳細。現行SPS、BZM 2.0観測台帳、BZM 2.1動的方針台帳のDB/API/UI境界は4-2へ記録済み。BZM 2.2の12 PJ×103パラメータはrepo内の強制推定pilotとcheckerまでで、PWAとDBへ未接続。前向き検証0件、六つのsource surfaceはglobal本文またはremote scopeがincompleteであり、条件付き確率の校正、因果識別、行動被覆、共有資源制約、独立複数評価者、重み・符号化・集約方式の感度分析は未実施 |
 | ECR | `4-3` | `partial` | 制度比較seedと投入手順、2026-07-29の主張境界は反映済み。rubric は `/bzm/9-4` 依存で、ECR 8軸rubricのPWA seed同期、自前ストック・実効サービス・流量成果の三層化、独立複数評価者、成果妥当性検証は未実装 |
 | 外部workspace / 研究機関 / SU | `1-4`, `1-5`, `2-1`, `2-2`, `2-3`, `4-3` | `partial` | organization tenant、capability、共同作業・判断、大学向けPJ面、外部公開版、資料revision、旧Project Share退役readback |
 | Admin / Finance / Reward | 未移行 | `not yet` | manual 6章・7章、`reward-summary.ts`、GAS payout PDF の spec 化 |
@@ -49,6 +49,7 @@
 - D-1〜D-4: `pwa/scheduled-tasks/amd-os-l2-protocol-extract/SKILL.md`, `pwa/scheduled-tasks/amd-os-l3-ms-progress-extract/SKILL.md`, `pwa/scheduled-tasks/amd-os-l4-project-knowledge-extract/SKILL.md`, `pwa/scheduled-tasks/amd-os-l5-member-knowledge-extract/SKILL.md`
 - cockpit: `pwa/src/app/(app)/project/[projectId]/cockpit/page.tsx`, `pwa/src/components/cockpit/CockpitView.tsx`, `pwa/src/components/cockpit/CockpitMonthlyList.tsx`, `pwa/src/components/cockpit/CockpitMonthlyModal.tsx`
 - ECR: `pwa/src/lib/ers-data.ts`, `pwa/src/app/api/institutions/assess/route.ts`
+- BZM 2.2内部pilot: `pwa/bzm/pilot/bzm-2-2-all-pj-provisional-v0-1.json`, `pwa/bzm/pilot/bzm-2-2-all-pj-provisional-v0-1.audit.json`, `pwa/bzm/pilot/bzm-2-2-all-pj-provisional-v0-1.mts`
 - iOS role boundary: `ios/DESIGN.md`
 - GAS role boundary: `gas/001_Router.js`, `gas/014_PaymentConfirm.js`, `gas/064_PayoutFreeeNotice.js`
 - schema: `pwa/design/db_schema.md`
