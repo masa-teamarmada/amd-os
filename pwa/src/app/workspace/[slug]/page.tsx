@@ -132,7 +132,7 @@ export default async function InstitutionWorkspacePage({ params }: { params: Pro
                 project.sharedSurface === "workspace" ? (
                   <li key={project.projectId}>
                     <Link
-                      href={`/project/${encodeURIComponent(project.projectId)}/workspace`}
+                      href={`/workspace/${encodeURIComponent(slug)}/project/${encodeURIComponent(project.projectId)}`}
                       className="flex min-h-11 flex-wrap items-start justify-between gap-2 px-4 py-3 text-sm transition-colors hover:bg-[#f4f1e7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#4338ca]"
                     >
                       <span className="font-medium">{project.projectName}</span>
@@ -179,7 +179,7 @@ export default async function InstitutionWorkspacePage({ params }: { params: Pro
                         <li key={project.projectId} className="flex flex-wrap items-center gap-2 text-xs">
                           {project.richLinkAllowed ? (
                             <Link
-                              href={`/project/${encodeURIComponent(project.projectId)}/workspace`}
+                              href={`/workspace/${encodeURIComponent(slug)}/project/${encodeURIComponent(project.projectId)}`}
                               className="font-medium text-[#4338ca] underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#4338ca]"
                             >
                               {project.ventureName ?? project.projectName}

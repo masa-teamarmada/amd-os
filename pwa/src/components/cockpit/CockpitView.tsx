@@ -20,6 +20,7 @@ import { CockpitFreezeBackfill } from "./CockpitFreezeBackfill";
 import { CockpitAmdScoreDetailTab } from "./CockpitAmdScoreDetailTab";
 import { CockpitCompanyOverview } from "./CockpitCompanyOverview";
 import { CockpitBusinessPlan } from "./CockpitBusinessPlan";
+import { CockpitSharedProjectControl } from "./CockpitSharedProjectControl";
 import type { CockpitSeasonFinance as CockpitSeasonFinanceData, MilestoneChangeHistory } from "@/lib/supabase-data";
 import type { ProjectContractTerms } from "@/lib/project-contract-terms";
 
@@ -375,6 +376,10 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     <div className="max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3">
       {/* [A] Project Header (full width) */}
       <CockpitHeader project={project} members={members} />
+
+      {activeTab === "progress" && project.projectId === "p21" && (
+        <CockpitSharedProjectControl projectId={project.projectId} />
+      )}
 
       {activeTab === "progress" && project.projectId === "p25" && <CockpitKuteAnnualRoadmap currentYm={currentYm} />}
       {activeTab === "progress" && <ProjectInstitutionSeeds projectId={project.projectId} />}

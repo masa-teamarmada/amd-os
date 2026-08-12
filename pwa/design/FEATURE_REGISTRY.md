@@ -36,7 +36,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 必須機能:
 
 - role-based top: `members.os_access_scope='portfolio'` は `/dashboard`、`project` は参加1件なら `/project/[projectId]/workspace`、複数なら `/my-projects`。
-- SX entry: AMD内部の `/dashboard` にあるSX (`p21`) の行は、他PJと同じく `/project/p21/cockpit` を開く。外部のPJ限定メンバーは `/workspaces` から個別許可された `/project/p21/workspace` へ入る。
+- SX entry: AMD内部の `/dashboard` にあるSX (`p21`) の行は `/project/p21/cockpit` を開く。PJ実行memberは現行 `/project/p21/workspace`、研究機関memberは `/workspaces` から機関別 `/workspace/[slug]/project/p21` へ入る。三画面の見た目は統一せず、workspaceのmanagement正本と承認済みpublicationをrole別に投影する。
 - narrow auth: PJ限定OAuthはGoogle本人確認後に通常のSupabase sessionを破棄し、HTTP-only署名付きPJセッションへ交換する。各requestでactive member / scope / PJ membershipを再確認する。破棄は `signOut({ scope: "local" })` に限る (scope省略の既定 `global` はそのユーザーの全デバイスを巻き添えにする)。
 - route isolation: PJ限定ユーザーの通常画面は `/my-projects` と許可された `/project/[projectId]/workspace` だけ。他PJ、`/dashboard`、社内cockpit、admin、financeへ遷移できない。
 - safe DTO: 共有面はPJ名、表示名、役割、週次時間、5区分、MS、抽出済み活動の件数・種別・最終日だけ。raw本文、URL、email、報酬、契約、内部戦略を含めない。
@@ -62,7 +62,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - public top: `/` は認証不要で、認証状態にかかわらず自動転送せず必ずポータルを表示する。`institution_workspaces` の `status='active'` かつ `is_publicly_listed=true` の行だけを slug / ワークスペース名 / 機関の名称・種別・地域で一覧し、説明文、件数、ECR、AMD Score を公開面へ出さない。ログイン済み内部メンバーにはARMADA OSへの明示ボタン、外部アカウントには `/workspaces` への明示リンクを出す。
 - external hub: `/workspaces` は所属する機関ワークスペースと、個別に許可されたPJだけを並べる。機関所属をPJ一覧の根拠にしない。PJ取得失敗は参加0件へ変換せず、参加状況は変わっていないことと再読込案内を出す。
-- institution workspace: `/workspace/[slug]` は内部アプリのchromeを共有しない独立シェルで、対象機関のPJ・シーズ・ECRを読み取り専用で出す。
+- institution workspace: `/workspace/[slug]` は内部アプリのchromeを共有しない独立シェルで、対象機関のPJ・シーズ・ECRを読み取り専用で出す。個別に許可されたPJリンクは `/workspace/[slug]/project/[projectId]` を開き、最新の承認済みpublicationだけを研究機関レンズで表示する。
 - dual surface: `/project/[projectId]/workspace` は**同じURLのまま**、アクセス解決の後に内部メンバー向け詳細バンドルか外部向け読み取り専用DTOかを選ぶ。外部面のURLを別に切らない。
 - explicit grant only: 認可はアカウント登録 (`workspace_user_accounts`) + 機関ワークスペース所属 (`institution_workspace_memberships`) + PJ個別アクセス (`project_access_memberships`) の3つの明示的な付与だけ。**機関所属はPJアクセスを含意しない**。メールのドメイン一致を認可の根拠にしない。
 - narrow auth: メールリンクでログインし、Supabaseセッション成立直後に `signOut({ scope: "local" })` してHTTP-only署名cookie `amd_os_workspace_session` へ交換する。cookieは毎リクエスト検証したうえで必ずDBを引き直し、アカウント停止・所属失効・ワークスペースpauseを次のリクエストで反映する。cookieの中身だけを信用しない。メール送信は登録account単位のDB atomic claimで60秒cooldown、15分5回までとする。

@@ -11,6 +11,7 @@
 //   5. auth.users ids are never selected or returned. The admin UI identifies people by email.
 
 import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 import { normalizeWorkspaceEmail } from "@/lib/workspace-email";
@@ -184,7 +185,7 @@ export async function POST(request: Request) {
   const db = createAdminClient();
   if (kind === "account") return createAccount(db, body);
   if (kind === "institution_membership") return createInstitutionMembership(db, body);
-  return createProjectMembership(db, body);
+  return createProjectMembership(db, body, auth.user.email);
 }
 
 async function createAccount(db: Db, body: Body) {
@@ -297,9 +298,11 @@ async function createInstitutionMembership(db: Db, body: Body) {
   return NextResponse.json({ ok: true, created: true, membershipId: inserted.id });
 }
 
-async function createProjectMembership(db: Db, body: Body) {
+async function createProjectMembership(db: Db, body: Body, actorEmail: string) {
   const projectId = text(body.projectId, 32);
   if (!projectId) return bad("project_required");
+  const workspaceId = text(body.workspaceId, 64);
+  if (!workspaceId) return bad("workspace_required");
 
   const hasRole = hasField(body, "role");
   const role = hasRole ? pick(body.role, PROJECT_ROLES) : "contributor";
@@ -335,20 +338,50 @@ async function createProjectMembership(db: Db, body: Body) {
     );
   }
 
-  const { data: inserted, error: insertError } = await db
-    .from("project_access_memberships")
-    .insert({ project_id: projectId, user_account_id: account.id, role, status })
-    .select("id")
-    .single();
-  if (insertError) return failed("membership_create_failed", insertError);
+  const { data: institutionMembership, error: institutionMembershipError } = await db
+    .from("institution_workspace_memberships")
+    .select("id,status")
+    .eq("workspace_id", workspaceId)
+    .eq("user_account_id", account.id)
+    .maybeSingle();
+  if (institutionMembershipError) return failed("institution_membership_lookup_failed", institutionMembershipError);
+  if (!institutionMembership || !MEMBERSHIP_CREATE_STATUSES.has(institutionMembership.status)) {
+    return bad("institution_membership_required");
+  }
 
-  await recordWorkspaceAuditEvent(db, {
-    eventType: "admin_project_membership_mutation",
-    userAccountId: account.id,
-    projectId,
-    detail: { action: "create", role, status },
-  });
-  return NextResponse.json({ ok: true, created: true, membershipId: inserted.id });
+  const { data: actor, error: actorError } = await db
+    .from("members")
+    .select("member_id")
+    .match({ email: actorEmail.toLowerCase(), status: "active", is_admin: true })
+    .maybeSingle();
+  if (actorError) return failed("admin_actor_lookup_failed", actorError);
+  if (!actor?.member_id) return bad("admin_actor_missing", 403);
+
+  const { data: granted, error: grantError } = await db.rpc(
+    "workspace_admin_grant_institution_project_access",
+    {
+      p_request_id: `admin-project-access:${randomUUID()}`,
+      p_actor_member_id: actor.member_id,
+      p_workspace_user_account_id: account.id,
+      p_workspace_id: workspaceId,
+      p_project_id: projectId,
+      p_project_role: role,
+      p_membership_status: status,
+    },
+  );
+  if (grantError) {
+    if (grantError.message.includes("project membership already exists")) return conflict("membership_exists");
+    if (grantError.message.includes("stopped") || grantError.message.includes("revoked")) {
+      return conflict("kernel_access_stopped");
+    }
+    return failed("project_access_grant_failed", grantError);
+  }
+
+  const result = granted as { projectMembershipId?: string } | null;
+  if (!result?.projectMembershipId) return failed("project_access_grant_failed", { message: "missing result" });
+  // Both workspace_access_audit_logs and workspace_control_audit_logs are written
+  // transactionally inside workspace_admin_grant_institution_project_access.
+  return NextResponse.json({ ok: true, created: true, membershipId: result.projectMembershipId });
 }
 
 // --- PATCH (explicit status / role change) --------------------------------------------

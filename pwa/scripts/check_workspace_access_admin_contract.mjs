@@ -5,7 +5,8 @@
 //   2. POST/PATCH dispatch on an explicit `kind` from a closed allowlist (no generic upsert).
 //   3. account lookup always goes through normalizeWorkspaceEmail (never a raw address).
 //   4. role/status values always come from the CHECK-constraint-mirroring allowlists.
-//   5. every mutation records a workspace audit event whose detail carries metadata only.
+//   5. every mutation records an audit event; the compound project grant does so
+//      transactionally inside its SECURITY DEFINER RPC.
 //   6. granting an institution workspace membership never creates individual PJ access.
 //   7. auth.users ids are never selected, returned, or rendered.
 //   8. GET paginates every table instead of silently truncating accounts or grants.
@@ -228,7 +229,6 @@ for (const eventType of [
 for (const mutator of [
   "createAccount",
   "createInstitutionMembership",
-  "createProjectMembership",
   "patchAccount",
   "patchInstitutionMembership",
   "patchProjectMembership",
@@ -239,6 +239,18 @@ for (const mutator of [
     `${mutator} must record a workspace audit event on success`,
   );
 }
+
+const createProjectAuditBody = functionBlock(routeCode, "async function createProjectMembership(");
+const createProjectAuditSource = functionBlock(routeSource, "async function createProjectMembership(");
+assert.ok(
+  createProjectAuditBody.includes("workspace_admin_grant_institution_project_access"),
+  "createProjectMembership must use the atomic legacy + kernel grant RPC",
+);
+assert.ok(
+  createProjectAuditSource.includes("workspace_access_audit_logs") &&
+    createProjectAuditSource.includes("workspace_control_audit_logs"),
+  "createProjectMembership must document both audit logs written by the atomic RPC",
+);
 
 const ALLOWED_DETAIL_KEYS = new Set(["action", "created", "role", "status"]);
 const detailLiterals = [...routeCode.matchAll(/detail:\s*\{([^}]*)\}/g)];

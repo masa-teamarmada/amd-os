@@ -85,6 +85,9 @@ const ERROR_LABELS: Record<string, string> = {
   unknown_membership: "対象の権限行が見つからない",
   membership_exists: "すでに権限がある",
   membership_stopped: "既存の権限が停止/剥奪状態。一覧の状態を変更して再開する",
+  institution_membership_required: "先に、この人へ対象の研究機関ワークスペース権限を付ける",
+  kernel_access_stopped: "共同正本の権限が停止済み。暗黙再開はできないので個別確認が必要",
+  project_access_grant_failed: "個別PJと共同正本の権限を同時に付与できなかった",
   nothing_to_change: "変更内容がない",
   load_failed: "読み込みに失敗",
 };
@@ -228,8 +231,11 @@ export function WorkspaceAccessAdminPanel() {
 
       <ProjectSection
         accounts={data.accounts}
+        workspaces={data.institutionWorkspaces}
+        institutionMemberships={data.institutionMemberships}
         projects={data.projects}
         memberships={data.projectMemberships}
+        workspacesById={workspacesById}
         projectsById={projectsById}
         accountLabel={accountLabel}
         busy={busy}
@@ -549,44 +555,91 @@ function InstitutionSection({
 
 function ProjectSection({
   accounts,
+  workspaces,
+  institutionMemberships,
   projects,
   memberships,
+  workspacesById,
   projectsById,
   accountLabel,
   busy,
   mutate,
 }: {
   accounts: AccountRow[];
+  workspaces: WorkspaceRow[];
+  institutionMemberships: InstitutionMembershipRow[];
   projects: ProjectRow[];
   memberships: ProjectMembershipRow[];
+  workspacesById: Map<string, WorkspaceRow>;
   projectsById: Map<string, ProjectRow>;
   accountLabel: (accountId: string) => string;
   busy: boolean;
   mutate: Mutate;
 }) {
   const [accountId, setAccountId] = useState("");
+  const [workspaceId, setWorkspaceId] = useState("");
   const [projectId, setProjectId] = useState("");
   const [role, setRole] = useState("contributor");
+
+  const availableWorkspaceIds = new Set(
+    institutionMemberships
+      .filter(
+        (membership) =>
+          membership.user_account_id === accountId &&
+          (membership.status === "invited" || membership.status === "active"),
+      )
+      .map((membership) => membership.workspace_id),
+  );
+  const availableWorkspaces = workspaces.filter(
+    (workspace) => workspace.status === "active" && availableWorkspaceIds.has(workspace.id),
+  );
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     const projectName = projectsById.get(projectId)?.project_name ?? projectId;
     const ok = await mutate(
       "POST",
-      { kind: "project_membership", accountId, projectId, role },
-      `${accountLabel(accountId)} に ${projectName} の権限を付けた。`,
+      { kind: "project_membership", accountId, workspaceId, projectId, role },
+      `${accountLabel(accountId)} に ${projectName} の研究機関PJ面と共同正本の閲覧権限を付けた。`,
     );
-    if (ok) setAccountId("");
+    if (ok) {
+      setAccountId("");
+      setWorkspaceId("");
+    }
   };
 
   return (
     <SectionShell
       icon={<FolderKanban className="h-4 w-4" aria-hidden="true" />}
       title="3. 個別PJ権限"
-      description="PJごとの共有ワークスペースに入れるかどうか。ここで付けたPJだけが対象で、機関ワークスペースの権限とは連動しない。"
+      description="対象の研究機関とPJを明示して、研究機関PJ面と承認済み共同正本の閲覧権限を同時に付ける。機関所属だけ、またはPJ名が一致するだけでは開かない。"
     >
-      <form onSubmit={submit} className="grid gap-3 sm:grid-cols-[1.4fr_1.2fr_0.8fr_auto] sm:items-end">
-        <AccountSelect accounts={accounts} value={accountId} onChange={setAccountId} />
+      <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[1.35fr_1.1fr_1.1fr_0.75fr_auto] xl:items-end">
+        <AccountSelect
+          accounts={accounts}
+          value={accountId}
+          onChange={(value) => {
+            setAccountId(value);
+            setWorkspaceId("");
+          }}
+        />
+        <label className={labelClass}>
+          研究機関
+          <select
+            required
+            value={workspaceId}
+            disabled={!accountId}
+            onChange={(event) => setWorkspaceId(event.target.value)}
+            className={inputClass}
+          >
+            <option value="">{accountId ? "所属を選択する" : "先にアカウントを選ぶ"}</option>
+            {availableWorkspaces.map((workspace) => (
+              <option key={workspace.id} value={workspace.id}>
+                {workspacesById.get(workspace.id)?.name ?? workspace.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className={labelClass}>
           PJ
           <select required value={projectId} onChange={(event) => setProjectId(event.target.value)} className={inputClass}>
@@ -608,10 +661,13 @@ function ProjectSection({
             ))}
           </select>
         </label>
-        <button type="submit" disabled={busy} className={buttonClass}>
+        <button type="submit" disabled={busy || availableWorkspaces.length === 0} className={buttonClass}>
           付与
         </button>
       </form>
+      {accountId && availableWorkspaces.length === 0 ? (
+        <p className="mt-2 text-xs text-amber-700">この人には利用可能な研究機関ワークスペース権限がない。先に2番で所属を付ける。</p>
+      ) : null}
 
       <ul className="mt-4 grid gap-2">
         {memberships.length === 0 && <li className="text-xs text-muted-foreground">まだ個別PJ権限がない。</li>}

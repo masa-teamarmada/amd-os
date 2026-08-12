@@ -2,7 +2,7 @@
 
 > この章は、同じPJをPJメンバー、AMD、大学・研究機関が別の画面で扱うときの合格条件を定める。
 > 画面の見た目を揃える仕様ではない。同じ正本を役割別の目的、可視範囲、操作権限で投影できていることを検査する仕様である。
-> 2026-08-12時点では本仕様とp21合成fixtureを採択済み。大学・研究機関向けPJ面と、現行cockpitから共同正本への完全接続は未実装である。
+> 2026-08-12時点で、p21のproduction DTO、AMD cockpit投影、研究機関PJ面、immutable publication読取・発行、exact-project権限作成を実装した。研究機関実accountが0件のため、三者の実account横断受入と研究機関主権の確認・訂正操作は未完了である。
 
 ## 結論
 
@@ -199,10 +199,10 @@ client側で非表示にするだけでは不合格である。server DTOとDB r
 | 三画面の責任分担 | 合格条件を確定 |
 | p21合成model fixture | 実装済み。runtime安全性の証明ではない |
 | migration 260 公開承認者guard | 本番適用・readback済み |
-| production resolver / DTO / DB integration test | 未実装 |
+| production resolver / DTO / DB integration test | strict DTO・route・DB RPC・migration static contractを実装。live権限関数readback済み |
 | 現行PJ workspaceのデザイン | 維持 |
-| PJ workspaceとAMD cockpitの共同正本完全一致 | 未検証・未完了 |
-| 研究機関PJ面 | 未実装 |
+| PJ workspaceとAMD cockpitの共同正本完全一致 | p21 cockpitが現行workspace bundleのMS・論点・判断・実行・関係先を同じIDのまま投影。実画面受入前 |
+| 研究機関PJ面 | `/workspace/[slug]/project/[projectId]`を実装。承認済み最新publicationのみ読取、内部fallbackなし |
 | p21三者の実account受入 | 未実施 |
 
-本章の追加だけで三者画面が完成したとは扱わない。
+研究機関実accountでnetwork response・操作・mobileを確認し、主権確認・訂正を実装するまで三者画面の完全合格とは扱わない。

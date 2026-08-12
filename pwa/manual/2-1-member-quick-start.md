@@ -93,7 +93,7 @@ PM 向けの月次 step / TODO は出さない。月次の状況は PJ cockpit �
 | PL | `/mypage` | 必要な承認通知 |
 | まさ | `p00 cockpit` / `/notifications` | 各 PJ cockpit / `まさえいMTG` |
 | admin | `/admin/projects` / `/admin/invoices` | `/admin/payouts` / `/admin/members` |
-| 研究機関・PJ関係者 | `/workspaces` | 明示付与された研究機関workspace / PJ workspace |
+| 研究機関・PJ関係者 | `/workspaces` | 機関全体は研究機関workspace、個別PJは `/workspace/[slug]/project/[projectId]` |
 
 ## 探索系の画面
 
