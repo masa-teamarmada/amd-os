@@ -134,6 +134,14 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let issueClaim: {
+    db: ReturnType<typeof createClient>;
+    projectId: string;
+    ym: string;
+    claimId: string;
+  } | null = null;
+  let freeeRequestStarted = false;
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -183,12 +191,6 @@ Deno.serve(async (req) => {
       .eq("ym", ym)
       .maybeSingle();
     if (cycleError) return json({ ok: false, message: cycleError.message }, 500);
-    if (kind === "invoice" && !cycle) {
-      return json({ ok: false, message: "請求対象月のbilling cycleがない。再読み込みしてね" }, 409);
-    }
-    if (kind === "invoice" && cycle?.invoice_issued_at) {
-      return json({ ok: false, message: "この月はすでに発行済み。再読み込みしてね" }, 409);
-    }
 
     // 2) allLines をパース
     let allLines: Array<{ type?: string; description: string; quantity?: number; unit_price?: number }>;
@@ -210,18 +212,31 @@ Deno.serve(async (req) => {
     // billed_ym があれば優先し、なければ発生日の月へ帰属する。画面・preview・実発行で同じ条件を使う。
     let reimbursementSnapshot = await loadInvoiceReimbursements(db, projectId, ym);
     if (kind === "invoice") {
-      const blocked = invoiceBlockerMessage(project, cycle, reimbursementSnapshot.pendingCount);
-      if (blocked) return json({ ok: false, message: blocked }, 409);
+      const claimId = crypto.randomUUID();
+      const { data: claimData, error: claimError } = await db.rpc("claim_invoice_issue", {
+        p_project_id: projectId,
+        p_ym: ym,
+        p_claim_id: claimId,
+        p_claimed_by: auth.email,
+      });
+      if (claimError) return json({ ok: false, message: claimError.message }, 500);
+      const claim = claimData as { ok?: boolean; message?: string; code?: string } | null;
+      if (!claim?.ok) return json({ ok: false, message: claim?.message ?? "発行条件を確保できなかった", code: claim?.code }, 409);
+      issueClaim = { db, projectId, ym, claimId };
     }
 
     // 4) freee アクセストークン取得
     const accessToken = await getFreeeAccessToken(db);
 
-    // freee送信直前にも再読込する。画面表示後やtoken取得中に入った未承認を見逃さない。
+    // freee送信直前にも立替を再読込する。claim後に新規申請が入った場合は送信せず解放する。
     reimbursementSnapshot = await loadInvoiceReimbursements(db, projectId, ym);
     if (kind === "invoice") {
       const blocked = invoiceBlockerMessage(project, cycle, reimbursementSnapshot.pendingCount);
-      if (blocked) return json({ ok: false, message: blocked }, 409);
+      if (blocked) {
+        await releaseInvoiceClaim(issueClaim);
+        issueClaim = null;
+        return json({ ok: false, message: blocked }, 409);
+      }
     }
     const reimbItems = reimbursementSnapshot.billable;
     const reimbYen = reimbItems.reduce((s, r) => s + (r.amount ?? 0), 0);
@@ -277,6 +292,7 @@ Deno.serve(async (req) => {
 
     // 6) freee 帳票発行
     const path = kind === "quotation" ? "quotations" : "invoices";
+    freeeRequestStarted = true;
     const documentData = await freeeIvPost(path, documentBody, accessToken);
     const freeeDocument = kind === "quotation" ? documentData.quotation : documentData.invoice;
     const freeeDocumentId = String(freeeDocument?.id ?? "");
@@ -305,9 +321,28 @@ Deno.serve(async (req) => {
         invoice_base_lines_json: normalizedLinesJson,
       };
 
-    await db.from("billing_cycles").update(updateBody)
+    const updateQuery = db.from("billing_cycles").update({
+      ...updateBody,
+      ...(kind === "invoice" ? {
+        invoice_issue_claim_id: null,
+        invoice_issue_claimed_at: null,
+        invoice_issue_claimed_by: null,
+      } : {}),
+    })
       .eq("project_id", projectId)
       .eq("ym", ym);
+    const { data: updatedCycle, error: updateError } = kind === "invoice" && issueClaim
+      ? await updateQuery.eq("invoice_issue_claim_id", issueClaim.claimId).select("id").maybeSingle()
+      : await updateQuery.select("id").maybeSingle();
+    if (updateError || !updatedCycle) {
+      return json({
+        ok: false,
+        message: "freee帳票は作成されたが月次台帳へ記録できなかった。再発行せずfreeeを照合してね",
+        freeeInvoiceId: freeeDocumentId,
+        freeeInvoiceNumber: freeeDocumentNumber,
+      }, 500);
+    }
+    issueClaim = null;
 
     return json({
       ok: true,
@@ -320,6 +355,8 @@ Deno.serve(async (req) => {
         : kind === "quotation" ? "見積書を発行したよ！" : "請求書を発行したよ！",
     });
   } catch (e) {
+    // freeeへの送信開始前だけclaimを解放する。送信後の通信断は成否不明なので安全側に保持する。
+    if (issueClaim && !freeeRequestStarted) await releaseInvoiceClaim(issueClaim);
     return json({ ok: false, message: String((e as Error).message ?? e) }, 500);
   }
 });
@@ -377,6 +414,23 @@ function invoiceBlockerMessage(
   if (pendingCount > 0) return `未承認の立替が${pendingCount}件あるため発行できない`;
   if (project?.monthly_report_required && !cycle?.report_fixed_at) return "契約上必要な月報が未確定のため発行できない";
   return null;
+}
+
+async function releaseInvoiceClaim(claim: {
+  db: ReturnType<typeof createClient>;
+  projectId: string;
+  ym: string;
+  claimId: string;
+} | null) {
+  if (!claim) return;
+  await claim.db.from("billing_cycles").update({
+    invoice_issue_claim_id: null,
+    invoice_issue_claimed_at: null,
+    invoice_issue_claimed_by: null,
+  })
+    .eq("project_id", claim.projectId)
+    .eq("ym", claim.ym)
+    .eq("invoice_issue_claim_id", claim.claimId);
 }
 
 function ensureEstimateMarker(rawJson: string): string {

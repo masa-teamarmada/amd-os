@@ -11,6 +11,7 @@ const decisionRoute = fs.readFileSync(new URL("../src/app/api/reimbursements/dec
 const decisionService = fs.readFileSync(new URL("../src/lib/reimbursement-decision.ts", import.meta.url), "utf8");
 const issueInvoice = fs.readFileSync(new URL("../../ios/supabase/functions/issue-invoice/index.ts", import.meta.url), "utf8");
 const reimbursementRls = fs.readFileSync(new URL("../../ios/supabase/migrations/20260812123000_lock_reimbursements_writes_to_server.sql", import.meta.url), "utf8");
+const invoiceClaimMigration = fs.readFileSync(new URL("../../ios/supabase/migrations/20260812131000_add_atomic_invoice_issue_claim.sql", import.meta.url), "utf8");
 
 assert.match(kiyoPage, /absolute: "きよ - AMD OS"/, "page titleは『きよ』に固定する");
 assert.match(kiyoPage, />きよ<\/h1>/, "画面見出しは『きよ』に固定する");
@@ -100,6 +101,12 @@ assert.match(invoiceDialog, /item\.billed_ym === ym/, "発行モーダルもbill
 assert.match(issueInvoice, /loadInvoiceReimbursements[\s\S]*invoiceBlockerMessage/, "freee発行直前に未承認と月報blockerをサーバーで再検査する");
 assert.match(issueInvoice, /row\.status === "approved" \|\| row\.status === "paid"/, "実発行もapprovedとpaidを同じ立替集合として扱う");
 assert.match(issueInvoice, /row\.billed_ym === ym/, "実発行もbilled_ym優先の月帰属を使う");
+assert.match(invoiceClaimMigration, /FOR UPDATE/, "発行claimはbilling cycle行をlockする");
+assert.match(invoiceClaimMigration, /invoice_issue_claim_id IS NULL/, "claim済みcycleへ並行claimさせない");
+assert.match(invoiceClaimMigration, /invoice_issued_at IS NOT NULL/, "発行済みcycleを再claimさせない");
+assert.doesNotMatch(invoiceClaimMigration, /invoice_issue_claimed_at\s*</, "成否不明のclaimを時間経過だけで自動再取得させない");
+assert.match(issueInvoice, /freeeRequestStarted = true;[\s\S]*freeeIvPost/, "freee送信開始後はclaimを安全側に保持する");
+assert.match(issueInvoice, /\.eq\("invoice_issue_claim_id", issueClaim\.claimId\)/, "発行済み更新は自分のclaim一致を必須にする");
 assert.doesNotMatch(reimbursePage, /\.from\("reimbursements"\)[\s\S]{0,120}?\.(?:update|delete)\(/, "既存立替画面からの直接writeを戻さない");
 assert.match(reimbursementRls, /DROP POLICY IF EXISTS "authenticated_all"/, "全authenticated書込みpolicyを廃止する");
 assert.match(reimbursementRls, /FOR SELECT TO authenticated/, "authenticated clientは読み取りだけ維持する");

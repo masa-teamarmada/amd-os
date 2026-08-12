@@ -175,7 +175,7 @@ admin/きよが締め済み稼働月の請求書発行を処理する画面 (= `
 
 ### 立替確認 (2026-08-12 更新)
 
-選択月の内訳ワークベンチが `reimbursements`（`billed_ym` 優先、無ければ `date`）を全ステータスで表示する。`submitted`/`pmApproved` が1件でも残れば発行不可。発行モーダルと`issue-invoice` Edge Functionも同じ月判定で `approved/paid` だけを明細へ載せ、Edge Functionはfreee送信直前にblockerを再検査する。authenticated RLSは本人のsubmitted申請・編集・削除だけを許可し、承認遷移は認証済みサーバー境界だけを通す。
+選択月の内訳ワークベンチが `reimbursements`（`billed_ym` 優先、無ければ `date`）を全ステータスで表示する。`submitted`/`pmApproved` が1件でも残れば発行不可。発行モーダルと`issue-invoice`も同じ月判定で `approved/paid` だけを明細へ載せる。`claim_invoice_issue` がbilling cycle行をlockしてblocker確認+claimを1トランザクションで行い、並行発行と発行済み再実行を拒否する。authenticated RLSは本人のsubmitted申請・編集・削除だけを許可し、承認遷移は認証済みサーバー境界だけを通す。
 
 ## /admin/prompts
 
