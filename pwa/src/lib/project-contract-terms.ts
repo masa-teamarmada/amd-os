@@ -123,6 +123,48 @@ export function boolTerm(value: unknown) {
   return null;
 }
 
+export type ExpenseReimbursementBillingRule = {
+  allowed: boolean | null;
+  note: string | null;
+};
+
+/**
+ * 立替をクライアント請求へ上乗せできるかを、現行契約→PJ運用条件の順で読む。
+ * null は「不可」ではなく未抽出。請求判断では必ず分けて扱う。
+ */
+export function expenseReimbursementBillingRule(value: unknown): ExpenseReimbursementBillingRule {
+  if (!value || typeof value !== "object") return { allowed: null, note: null };
+  const source = value as Record<string, unknown>;
+  const currentContracts = Array.isArray(source.currentContracts) ? source.currentContracts : [];
+  const current = currentContracts[0] && typeof currentContracts[0] === "object"
+    ? currentContracts[0] as Record<string, unknown>
+    : {};
+  const currentTerms = current.terms && typeof current.terms === "object"
+    ? current.terms as Record<string, unknown>
+    : {};
+  const sources = [currentTerms, current, source];
+
+  let allowed: boolean | null = null;
+  for (const terms of sources) {
+    const parsed = boolTerm(terms.expenseReimbursementAllowed);
+    if (parsed !== null) {
+      allowed = parsed;
+      break;
+    }
+  }
+
+  let note: string | null = null;
+  for (const terms of sources) {
+    const parsed = textTerm(terms.expenseReimbursementNote);
+    if (parsed) {
+      note = parsed;
+      break;
+    }
+  }
+
+  return { allowed, note };
+}
+
 export function termsHaveOperationalDetail(terms: ProjectContractTerms | null | undefined) {
   if (!terms) return false;
   return OPERATIONAL_TERM_KEYS.some((key) => {

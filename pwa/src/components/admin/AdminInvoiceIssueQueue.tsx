@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { AdminInvoiceIssueDialog } from "@/components/admin/AdminInvoiceIssueDialog";
 import { FreeePartnerPicker, type FreeePartnerOption } from "@/components/admin/FreeePartnerPicker";
 import { contractBackedClientAmount } from "@/lib/contract-money";
+import { expenseReimbursementBillingRule } from "@/lib/project-contract-terms";
 import {
   Dialog,
   DialogContent,
@@ -99,7 +100,7 @@ type InvoiceState = {
 };
 
 type ResolutionItem = {
-  key: "cycle" | "freee_partner" | "amount" | "reimbursement" | "report";
+  key: "cycle" | "freee_partner" | "amount" | "expense_rule" | "reimbursement" | "report";
   label: string;
   done: boolean;
   status: string;
@@ -172,12 +173,18 @@ function approvedReimbursementTotal(row: BillingCycleRow) {
   return row.reimbursements.filter((r) => APPROVED_STATUSES.has(r.status)).reduce((sum, r) => sum + Number(r.amount || 0), 0);
 }
 
+function billableApprovedReimbursementTotal(row: BillingCycleRow) {
+  return expenseReimbursementBillingRule(row.contract_terms_json).allowed === true
+    ? approvedReimbursementTotal(row)
+    : 0;
+}
+
 function unapprovedReimbursementTotal(row: BillingCycleRow) {
   return row.reimbursements.filter((r) => UNAPPROVED_STATUSES.has(r.status)).reduce((sum, r) => sum + Number(r.amount || 0), 0);
 }
 
 function invoiceCandidateAmount(row: BillingCycleRow) {
-  return (invoiceNetAmount(row) ?? 0) + approvedReimbursementTotal(row);
+  return (invoiceNetAmount(row) ?? 0) + billableApprovedReimbursementTotal(row);
 }
 
 function effectiveInvoiceYm(row: BillingCycleRow) {
@@ -199,6 +206,8 @@ function prerequisiteItems(row: BillingCycleRow) {
 
 function resolutionItems(row: BillingCycleRow): ResolutionItem[] {
   const amount = invoiceNetAmount(row);
+  const expenseRule = expenseReimbursementBillingRule(row.contract_terms_json);
+  const invoiceRelevantReimbursements = row.reimbursements.filter((item) => item.status !== "rejected");
   const items: ResolutionItem[] = [];
   if (!row.cycle_exists) {
     items.push({
@@ -232,8 +241,18 @@ function resolutionItems(row: BillingCycleRow): ResolutionItem[] {
       blockerLabel: "請求額なし",
     },
   );
+  if (invoiceRelevantReimbursements.length > 0 && expenseRule.allowed === null) {
+    items.push({
+      key: "expense_rule",
+      label: "立替の請求上乗せ",
+      done: false,
+      status: "未抽出",
+      detail: "このPJの立替をクライアント請求へ上乗せできるか、契約条件から確定していない。契約台帳で可否を抽出してから請求額を確定する。",
+      blockerLabel: "立替上乗せ条件未抽出",
+    });
+  }
   const pending = row.reimbursements.filter((r) => UNAPPROVED_STATUSES.has(r.status));
-  if (pending.length > 0) {
+  if (expenseRule.allowed === true && pending.length > 0) {
     items.push({
       key: "reimbursement",
       label: "立替承認",
@@ -346,13 +365,19 @@ function contractFacts(row: BillingCycleRow) {
     ?? (row.fee_amount ? yen(row.fee_amount) : null);
   const due = value("paymentTerms", "paymentTiming")
     ?? (row.payment_due_rule === "end_of_following_month" ? "翌月末払い" : row.payment_due_day ? `毎月${row.payment_due_day}日払い` : null);
+  const expenseRule = expenseReimbursementBillingRule(row.contract_terms_json);
+  const expenseRuleValue = expenseRule.allowed === true
+    ? `上乗せ可${expenseRule.note ? ` · ${expenseRule.note}` : ""}`
+    : expenseRule.allowed === false
+      ? `上乗せ不可${expenseRule.note ? ` · ${expenseRule.note}` : ""}`
+      : "未抽出（契約書確認が必要）";
   const facts: Array<[string, string | null]> = [
     ["契約", value("currentContractTitle", "title", "contractTitle")],
     ["期間", period || null],
     ["基本報酬", fee],
     ["請求配分", value("billingDistribution", "billingRule", "invoiceTiming")],
     ["支払条件", due],
-    ["立替精算", value("expenseReimbursementNote", "expenseReimbursementAllowed", "expense")],
+    ["立替の請求上乗せ", expenseRuleValue],
     ["月報", value("monthlyReportSubmissionRule", "monthlyReportDeadline", "reportRule")],
   ];
   return facts.filter((fact): fact is [string, string] => Boolean(fact[1]));
@@ -445,8 +470,10 @@ export function AdminInvoiceIssueQueue({ cycles, targetYm, viewerIsAdmin, viewer
       }
       applyLocalPatch(row.project_id, row.ym, { invoice_ym: payload.updatedCycle.invoiceYm ?? row.ym });
       setMessage(null);
+      return true;
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "請求月を保存できなかった");
+      return false;
     }
   }
 
@@ -547,7 +574,7 @@ export function AdminInvoiceIssueQueue({ cycles, targetYm, viewerIsAdmin, viewer
             <section className="overflow-x-auto border border-border bg-background">
               <div className="min-w-[870px]">
               <div className="grid grid-cols-[68px_78px_108px_108px_116px_104px_1fr] gap-2 border-b border-border bg-muted/40 px-3 py-1.5 text-[10px] font-semibold text-muted-foreground">
-                <span>稼働月</span><span>請求月</span><span className="text-right">基本額</span><span className="text-right">承認立替</span><span className="text-right">候補(税抜)</span><span>状態</span><span>発行条件</span>
+                <span>稼働月</span><span>請求月</span><span className="text-right">基本額</span><span className="text-right">上乗せ立替</span><span className="text-right">候補(税抜)</span><span>状態</span><span>発行条件</span>
               </div>
               <div className="divide-y divide-border">
                 {activeProject.rows.map((row) => {
@@ -580,9 +607,30 @@ export function AdminInvoiceIssueQueue({ cycles, targetYm, viewerIsAdmin, viewer
                         />
                       </span>
                       <span className="text-right font-mono text-[11px]">{yen(invoiceNetAmount(row))}</span>
-                      <span className="text-right font-mono text-[11px] text-emerald-700">{yen(approvedReimbursementTotal(row))}</span>
+                      <span
+                        className="text-right font-mono text-[11px] text-emerald-700"
+                        title={`承認済み発生額 ${yen(approvedReimbursementTotal(row))}`}
+                      >
+                        {yen(billableApprovedReimbursementTotal(row))}
+                      </span>
                       <span className="text-right font-mono text-[12px] font-bold">{yen(invoiceCandidateAmount(row))}</span>
-                      <StatusPill state={state} />
+                      {state.key === "backlog" ? (
+                        <button
+                          type="button"
+                          aria-label={`${ymDisplay(row.ym)}の過去滞留を解消`}
+                          title="過去滞留を解消する"
+                          className="flex h-8 items-center gap-1 text-red-700 underline decoration-dotted underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onClick={() => {
+                            setActiveYm(row.ym);
+                            setSelected(row);
+                          }}
+                        >
+                          <StatusPill state={state} />
+                          <span className="text-[9px] font-semibold">解消</span>
+                        </button>
+                      ) : (
+                        <StatusPill state={state} />
+                      )}
                       <div className="min-w-0 truncate text-[10px] text-muted-foreground" title={[...prerequisites.filter((item) => !item.done).map((item) => item.note), ...blockers].join(" / ")}>
                         {blockers.length > 0 ? blockers.join(" / ") : "発行条件OK"}
                       </div>
@@ -616,6 +664,7 @@ export function AdminInvoiceIssueQueue({ cycles, targetYm, viewerIsAdmin, viewer
             setSelected(null);
             setIssuingTarget(row);
           }}
+          onSaveInvoiceYm={saveInvoiceYm}
           onProjectPatch={applyProjectPatch}
         />
 
@@ -646,7 +695,7 @@ const COCKPIT_LABELS: Record<string, string> = {
   paymentTiming: "支払タイミング",
   scope: "業務範囲",
   deliverables: "成果物",
-  expense: "立替精算",
+  expense: "立替の請求上乗せ",
   execution: "実施体制",
 };
 
@@ -670,13 +719,26 @@ function ContractTermsPanel({ row }: { row: BillingCycleRow }) {
           契約条件サマリー未登録（{row.fee_type === "monthly_fixed" ? `月額固定 ${yen(row.fee_amount)}` : row.fee_type || "契約種別未設定"}）。/admin/contracts で登録できる。
         </p>
       ) : (
-        <div className="grid divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-          {entries.slice(0, 6).map(([label, value]) => (
-            <div key={label} className="min-w-0 px-2.5 py-1.5">
+        <div className="grid divide-y divide-border sm:grid-flow-col sm:auto-cols-fr sm:divide-x sm:divide-y-0">
+          {entries.slice(0, 6).map(([label, value]) => {
+            const isExpenseRule = label === "立替の請求上乗せ";
+            const expenseMissing = isExpenseRule && value.startsWith("未抽出");
+            const expenseBlocked = isExpenseRule && value.startsWith("上乗せ不可");
+            return (
+            <div
+              key={label}
+              className={`min-w-0 px-2.5 py-1.5 ${expenseMissing ? "bg-amber-50" : expenseBlocked ? "bg-slate-50" : ""}`}
+            >
               <p className="text-[9px] font-semibold text-muted-foreground">{label}</p>
-              <p className="line-clamp-2 text-[11px] leading-4" title={value}>{value}</p>
+              <p
+                className={`line-clamp-2 text-[11px] font-medium leading-4 ${expenseMissing ? "text-amber-800" : expenseBlocked ? "text-slate-700" : ""}`}
+                title={value}
+              >
+                {value}
+              </p>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>
@@ -706,7 +768,9 @@ function MonthWorkbench({
   const blockers = blockerLabels(row);
   const base = invoiceNetAmount(row) ?? 0;
   const approved = approvedReimbursementTotal(row);
+  const billableApproved = billableApprovedReimbursementTotal(row);
   const unapproved = unapprovedReimbursementTotal(row);
+  const expenseRule = expenseReimbursementBillingRule(row.contract_terms_json);
   const canIssue = blockers.length === 0 && !["issued", "sent", "paid"].includes(state.key);
 
   return (
@@ -714,12 +778,24 @@ function MonthWorkbench({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[12px] font-semibold">{ymDisplay(row.ym)} の内訳</p>
         <div className="flex items-center gap-2">
-          <StatusPill state={state} />
+          {state.key === "backlog" ? (
+            <button
+              type="button"
+              aria-label={`${ymDisplay(row.ym)}の過去滞留を解消`}
+              title="過去滞留を解消する"
+              className="h-8 text-red-700 underline decoration-dotted underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={onOpenDetail}
+            >
+              <StatusPill state={state} />
+            </button>
+          ) : (
+            <StatusPill state={state} />
+          )}
           <Button type="button" variant="outline" size="sm" onClick={onOpenDetail}>発行前チェックを開く</Button>
           {canIssue && (
             <Button type="button" size="sm" onClick={onIssue}>
               <FilePlus />
-              発行
+              請求書作成
             </Button>
           )}
         </div>
@@ -733,10 +809,11 @@ function MonthWorkbench({
         <div className="bg-emerald-50 px-2.5 py-1.5">
           <p className="text-[10px] font-semibold text-emerald-700">承認済立替</p>
           <p className="font-mono text-[14px] font-semibold text-emerald-900">{yen(approved)}</p>
+          <p className="text-[9px] text-emerald-800">請求上乗せ {yen(billableApproved)}</p>
         </div>
         <div className="bg-slate-900 px-2.5 py-1.5 text-white">
           <p className="text-[10px] font-semibold text-slate-300">請求候補（税抜）</p>
-          <p className="font-mono text-[16px] font-bold">{yen(base + approved)}</p>
+          <p className="font-mono text-[16px] font-bold">{yen(base + billableApproved)}</p>
         </div>
         <div className="bg-amber-50 px-2.5 py-1.5">
           <p className="text-[10px] font-semibold text-amber-700">未承認参考</p>
@@ -758,7 +835,13 @@ function MonthWorkbench({
       <div className="mt-2">
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-semibold text-muted-foreground">この月の立替（全ステータス）</p>
-          <p className="text-[10px] text-muted-foreground">未承認は発行を止める</p>
+          <p className="text-[10px] text-muted-foreground">
+            {expenseRule.allowed === true
+              ? "未承認は発行を止める"
+              : expenseRule.allowed === false
+                ? "契約上、請求へ上乗せしない"
+                : "立替があれば契約条件の抽出が必要"}
+          </p>
         </div>
         {row.reimbursements.length === 0 ? (
           <p className="mt-1 text-[12px] text-muted-foreground">この月の立替は無いよ。</p>
@@ -808,24 +891,34 @@ function InvoiceDetailDialog({
   targetYm,
   onClose,
   onIssue,
+  onSaveInvoiceYm,
   onProjectPatch,
 }: {
   row: BillingCycleRow | null;
   targetYm: string;
   onClose: () => void;
   onIssue: (row: BillingCycleRow) => void;
+  onSaveInvoiceYm: (row: BillingCycleRow, invoiceYm: string) => Promise<boolean>;
   onProjectPatch: (projectId: string, patch: Partial<BillingCycleRow>) => void;
 }) {
   const [freeePartnerDraft, setFreeePartnerDraft] = useState("");
   const [selectedFreeePartner, setSelectedFreeePartner] = useState<FreeePartnerOption | null>(null);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
+  const [invoiceYmDraft, setInvoiceYmDraft] = useState("");
+  const [invoiceYmSaving, setInvoiceYmSaving] = useState(false);
+  const [invoiceYmMessage, setInvoiceYmMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setFreeePartnerDraft(row?.freee_partner_id ?? "");
     setSelectedFreeePartner(null);
     setSettingsMessage(null);
   }, [row?.project_id, row?.freee_partner_id]);
+
+  useEffect(() => {
+    setInvoiceYmDraft(row?.invoice_ym || row?.ym || "");
+    setInvoiceYmMessage(null);
+  }, [row?.project_id, row?.ym, row?.invoice_ym]);
 
   if (!row) return null;
   const activeRow = row;
@@ -835,6 +928,14 @@ function InvoiceDetailDialog({
   const missingFreeePartner = resolution.some((item) => item.key === "freee_partner" && !item.done);
   const isBacklog = state.key === "backlog";
   const canIssue = blockers.length === 0 && !["issued", "sent", "paid"].includes(state.key);
+
+  async function saveBacklogInvoiceYm() {
+    setInvoiceYmSaving(true);
+    setInvoiceYmMessage(null);
+    const saved = await onSaveInvoiceYm(activeRow, invoiceYmDraft);
+    setInvoiceYmSaving(false);
+    setInvoiceYmMessage(saved ? "請求月を更新したよ。状態を再判定したよ。" : "請求月を更新できなかった");
+  }
 
   async function saveFreeePartner() {
     const nextValue = freeePartnerDraft.trim();
@@ -927,8 +1028,31 @@ function InvoiceDetailDialog({
                     <span className="text-xs font-semibold text-red-800">請求月 {shortYm(effectiveInvoiceYm(row))}</span>
                   </div>
                   <p className="mt-1 text-xs leading-5 text-red-800">
-                    請求月が現在の対象月（{ymDisplay(targetYm)}）より前で、発行・送付・入金の記録が入っていない。請求月が違うなら上の請求月を直す。
+                    請求月が現在の対象月（{ymDisplay(targetYm)}）より前で、発行・送付・入金の記録が入っていない。請求月が正しければ請求書作成へ、違うならここで更新する。
                   </p>
+                  <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end">
+                    <label className="flex-1 text-[10px] font-semibold text-red-900">
+                      正しい請求月（YYYYMM）
+                      <input
+                        value={invoiceYmDraft}
+                        inputMode="numeric"
+                        maxLength={6}
+                        className="mt-1 h-9 w-full border border-red-300 bg-background px-2 font-mono text-sm text-foreground"
+                        onChange={(event) => setInvoiceYmDraft(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                      />
+                    </label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="border-red-300 bg-background text-red-800 hover:bg-red-100"
+                      disabled={invoiceYmSaving || invoiceYmDraft.length !== 6}
+                      onClick={() => void saveBacklogInvoiceYm()}
+                    >
+                      <Save />
+                      {invoiceYmSaving ? "更新中" : "請求月を更新"}
+                    </Button>
+                  </div>
+                  {invoiceYmMessage && <p className="mt-1 text-xs font-medium text-red-800">{invoiceYmMessage}</p>}
                 </div>
               )}
             </div>
@@ -974,7 +1098,7 @@ function InvoiceDetailDialog({
             <div className="flex justify-end">
               <Button type="button" onClick={() => { onClose(); onIssue(row); }}>
                 <FilePlus />
-                請求書を発行
+                請求書作成
               </Button>
             </div>
           )}

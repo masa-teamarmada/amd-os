@@ -11,7 +11,7 @@ const decisionRoute = fs.readFileSync(new URL("../src/app/api/reimbursements/dec
 const decisionService = fs.readFileSync(new URL("../src/lib/reimbursement-decision.ts", import.meta.url), "utf8");
 const issueInvoice = fs.readFileSync(new URL("../../ios/supabase/functions/issue-invoice/index.ts", import.meta.url), "utf8");
 const reimbursementRls = fs.readFileSync(new URL("../../ios/supabase/migrations/20260812123000_lock_reimbursements_writes_to_server.sql", import.meta.url), "utf8");
-const invoiceClaimMigration = fs.readFileSync(new URL("../../ios/supabase/migrations/20260812131000_add_atomic_invoice_issue_claim.sql", import.meta.url), "utf8");
+const invoiceClaimMigration = fs.readFileSync(new URL("../../ios/supabase/migrations/20260812143000_enforce_invoice_expense_rule.sql", import.meta.url), "utf8");
 
 assert.match(kiyoPage, /absolute: "きよ - AMD OS"/, "page titleは『きよ』に固定する");
 assert.match(kiyoPage, />きよ<\/h1>/, "画面見出しは『きよ』に固定する");
@@ -96,7 +96,7 @@ assert.match(decisionRoute, /requireAuth\(\)/, "画面内承認APIはPWAセッ�
 assert.match(decisionService, /\.eq\("is_pm", true\)/, "PM承認は担当PJのPM権限をサーバーで検査する");
 assert.match(decisionService, /if \(!member\.is_admin\)/, "admin承認はadmin権限をサーバーで検査する");
 assert.match(decisionService, /\.eq\("status", currentStatus\)|\.in\("status", Array\.from\(PM_APPROVED_STATUSES\)\)/, "状態遷移は遷移元statusを条件にして競合を拒否する");
-assert.match(invoiceDialog, /\.in\("status", \["approved", "paid"\]\)/, "発行モーダルは承認済み立替だけを載せる");
+assert.match(invoiceDialog, /item\.status === "approved" \|\| item\.status === "paid"/, "発行モーダルは承認済み立替だけを請求候補へ載せる");
 assert.match(invoiceDialog, /item\.billed_ym === ym/, "発行モーダルもbilled_ym優先の月判定を使う");
 assert.match(issueInvoice, /loadInvoiceReimbursements[\s\S]*invoiceBlockerMessage/, "freee発行直前に未承認と月報blockerをサーバーで再検査する");
 assert.match(issueInvoice, /row\.status === "approved" \|\| row\.status === "paid"/, "実発行もapprovedとpaidを同じ立替集合として扱う");

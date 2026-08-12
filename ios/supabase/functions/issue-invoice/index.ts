@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
     // 1) プロジェクト情報取得
     const { data: projects } = await db
       .from("projects")
-      .select("client_name, freee_partner_id, monthly_report_required")
+      .select("client_name, freee_partner_id, monthly_report_required, contract_terms_json")
       .eq("project_id", projectId)
       .limit(1);
     const project = projects?.[0];
@@ -231,14 +231,15 @@ Deno.serve(async (req) => {
     // freee送信直前にも立替を再読込する。claim後に新規申請が入った場合は送信せず解放する。
     reimbursementSnapshot = await loadInvoiceReimbursements(db, projectId, ym);
     if (kind === "invoice") {
-      const blocked = invoiceBlockerMessage(project, cycle, reimbursementSnapshot.pendingCount);
+      const blocked = invoiceBlockerMessage(project, cycle, reimbursementSnapshot);
       if (blocked) {
         await releaseInvoiceClaim(issueClaim);
         issueClaim = null;
         return json({ ok: false, message: blocked }, 409);
       }
     }
-    const reimbItems = reimbursementSnapshot.billable;
+    const expenseReimbursementAllowed = expenseReimbursementBillingAllowed(project?.contract_terms_json);
+    const reimbItems = expenseReimbursementAllowed === true ? reimbursementSnapshot.billable : [];
     const reimbYen = reimbItems.reduce((s, r) => s + (r.amount ?? 0), 0);
 
     // 5) freee 帳票リクエストボディ構築
@@ -401,17 +402,45 @@ async function loadInvoiceReimbursements(
   if (error) throw error;
   const monthRows = ((data ?? []) as InvoiceReimbursement[]).filter((row) => belongsToInvoiceYm(row, ym));
   return {
+    monthCount: monthRows.filter((row) => row.status !== "rejected").length,
     pendingCount: monthRows.filter((row) => row.status === "submitted" || row.status === "pmApproved" || row.status === "pmapproved").length,
     billable: monthRows.filter((row) => row.status === "approved" || row.status === "paid"),
   };
 }
 
+function expenseReimbursementBillingAllowed(value: unknown): boolean | null {
+  if (!value || typeof value !== "object") return null;
+  const source = value as Record<string, unknown>;
+  const currentContracts = Array.isArray(source.currentContracts) ? source.currentContracts : [];
+  const current = currentContracts[0] && typeof currentContracts[0] === "object"
+    ? currentContracts[0] as Record<string, unknown>
+    : {};
+  const currentTerms = current.terms && typeof current.terms === "object"
+    ? current.terms as Record<string, unknown>
+    : {};
+  for (const candidate of [
+    currentTerms.expenseReimbursementAllowed,
+    current.expenseReimbursementAllowed,
+    source.expenseReimbursementAllowed,
+  ]) {
+    if (candidate === true || candidate === "true" || candidate === "あり" || candidate === "可" || candidate === "yes") return true;
+    if (candidate === false || candidate === "false" || candidate === "なし" || candidate === "不可" || candidate === "no") return false;
+  }
+  return null;
+}
+
 function invoiceBlockerMessage(
-  project: { monthly_report_required?: boolean | null } | null | undefined,
+  project: { monthly_report_required?: boolean | null; contract_terms_json?: unknown } | null | undefined,
   cycle: { report_fixed_at?: string | null } | null,
-  pendingCount: number,
+  reimbursementSnapshot: { monthCount: number; pendingCount: number },
 ) {
-  if (pendingCount > 0) return `未承認の立替が${pendingCount}件あるため発行できない`;
+  const expenseReimbursementAllowed = expenseReimbursementBillingAllowed(project?.contract_terms_json);
+  if (reimbursementSnapshot.monthCount > 0 && expenseReimbursementAllowed === null) {
+    return "立替を請求へ上乗せできるか契約条件から未抽出のため発行できない";
+  }
+  if (expenseReimbursementAllowed === true && reimbursementSnapshot.pendingCount > 0) {
+    return `未承認の立替が${reimbursementSnapshot.pendingCount}件あるため発行できない`;
+  }
   if (project?.monthly_report_required && !cycle?.report_fixed_at) return "契約上必要な月報が未確定のため発行できない";
   return null;
 }

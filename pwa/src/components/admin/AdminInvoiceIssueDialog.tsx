@@ -15,6 +15,7 @@ import { callEdgeFunctionPOST } from "@/lib/supabase/edge-functions";
 import { createClient } from "@/lib/supabase/client";
 import { contractBackedClientAmount } from "@/lib/contract-money";
 import { computePaymentDueDateByRule } from "@/lib/payment-rules";
+import { expenseReimbursementBillingRule } from "@/lib/project-contract-terms";
 
 type LineSection = "base" | "adjustment";
 
@@ -38,6 +39,7 @@ type ReimbItem = {
   transport_trip?: string | null;
   tax_rate?: number | null;
   billed_ym?: string | null;
+  status?: string | null;
 };
 
 type Preview = {
@@ -51,6 +53,9 @@ type Preview = {
   adjustmentLines: EditableLine[];
   reimbItems: ReimbItem[];
   reimbYen: number;
+  approvedReimbYen: number;
+  reimbursementCount: number;
+  expenseReimbursementAllowed: boolean | null;
   fromPrevMonth: boolean;
   issueDate: string;
   dueDate: string;
@@ -239,9 +244,9 @@ async function loadPreview(projectId: string, ym: string): Promise<Preview> {
       .maybeSingle(),
     supabase
       .from("reimbursements")
-      .select("description, amount, date, category, transport_mode, transport_from, transport_to, transport_trip, tax_rate, billed_ym")
+      .select("description, amount, date, category, transport_mode, transport_from, transport_to, transport_trip, tax_rate, billed_ym, status")
       .eq("project_id", projectId)
-      .in("status", ["approved", "paid"]),
+      .in("status", ["submitted", "pmApproved", "pmapproved", "approved", "paid"]),
   ]);
   if (projectRes.error) throw projectRes.error;
   if (cycleRes.error) throw cycleRes.error;
@@ -290,10 +295,14 @@ async function loadPreview(projectId: string, ym: string): Promise<Preview> {
     baseLines = [defaultLine(ym, invoiceAmount)];
   }
 
-  const reimbItems = ((reimbRes.data ?? []) as ReimbItem[]).filter((item) => {
+  const monthReimbursements = ((reimbRes.data ?? []) as ReimbItem[]).filter((item) => {
     if (item.billed_ym && /^\d{6}$/.test(item.billed_ym)) return item.billed_ym === ym;
     return Boolean(item.date && item.date >= ymStart(ym) && item.date < nextYmStart(ym));
   });
+  const approvedReimbursements = monthReimbursements.filter((item) => item.status === "approved" || item.status === "paid");
+  const expenseRule = expenseReimbursementBillingRule(project?.contract_terms_json);
+  const approvedReimbYen = approvedReimbursements.reduce((sum, item) => sum + Number(item.amount ?? 0), 0);
+  const reimbItems = expenseRule.allowed === true ? approvedReimbursements : [];
   const reimbYen = reimbItems.reduce((sum, item) => sum + Number(item.amount ?? 0), 0);
 
   return {
@@ -307,6 +316,9 @@ async function loadPreview(projectId: string, ym: string): Promise<Preview> {
     adjustmentLines,
     reimbItems,
     reimbYen,
+    approvedReimbYen,
+    reimbursementCount: monthReimbursements.length,
+    expenseReimbursementAllowed: expenseRule.allowed,
     fromPrevMonth,
     issueDate: todayJst(),
     dueDate: computePaymentDueDateByRule(ym, project?.payment_due_rule ?? null, project?.payment_due_day ?? null),
@@ -363,6 +375,9 @@ export function AdminInvoiceIssueDialog({ projectId, ym, open, onClose, onIssued
   const adjustmentTotal = useMemo(() => adjustmentLines.reduce((sum, line) => sum + lineAmount(line), 0), [adjustmentLines]);
   const netTotal = baseTotal + adjustmentTotal;
   const reimbYen = preview?.reimbYen ?? 0;
+  const expenseRuleMissing = Boolean(
+    preview && preview.reimbursementCount > 0 && preview.expenseReimbursementAllowed === null,
+  );
 
   const taxEstimate = Math.round((netTotal + reimbYen) * 0.1);
   const grossTotal = Math.round((netTotal + reimbYen) * 1.1);
@@ -589,11 +604,23 @@ export function AdminInvoiceIssueDialog({ projectId, ym, open, onClose, onIssued
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold">立替精算</h3>
-                  <p className="text-xs text-muted-foreground">承認済み立替は発行時に自動で明細へ追加される</p>
+                  <p className="text-xs text-muted-foreground">
+                    {preview.expenseReimbursementAllowed === true
+                      ? "契約上、承認済み立替を発行時に明細へ追加する"
+                      : preview.expenseReimbursementAllowed === false
+                        ? `契約上、請求へ上乗せしない（承認済み ${yen(preview.approvedReimbYen)}円）`
+                        : preview.reimbursementCount > 0
+                          ? "請求上乗せの契約条件が未抽出"
+                          : "今月の立替なし"}
+                  </p>
                 </div>
-                <span className="text-xs font-semibold text-muted-foreground">{preview.reimbItems.length}件</span>
+                <span className="text-xs font-semibold text-muted-foreground">請求対象 {preview.reimbItems.length}件</span>
               </div>
-              {preview.reimbItems.length > 0 ? (
+              {expenseRuleMissing ? (
+                <div className="mt-3 border-l-2 border-red-500 bg-red-50 px-3 py-2 text-xs text-red-800">
+                  立替が{preview.reimbursementCount}件あるため、契約台帳で上乗せ可否を確定するまで発行できない。
+                </div>
+              ) : preview.reimbItems.length > 0 ? (
                 <div className="mt-3 space-y-2">
                   {preview.reimbItems.map((item, index) => (
                     <div key={`${item.date ?? ""}_${index}`} className="flex items-start justify-between gap-3 text-xs">
@@ -602,8 +629,8 @@ export function AdminInvoiceIssueDialog({ projectId, ym, open, onClose, onIssued
                     </div>
                   ))}
                 </div>
-              ) : (
-                <p className="mt-3 text-xs text-muted-foreground">今月の立替なし</p>
+              ) : preview.expenseReimbursementAllowed !== false && (
+                <p className="mt-3 text-xs text-muted-foreground">請求へ上乗せする立替なし</p>
               )}
             </section>
 
@@ -696,7 +723,7 @@ export function AdminInvoiceIssueDialog({ projectId, ym, open, onClose, onIssued
               <Button
                 type="button"
                 onClick={issueInvoice}
-                disabled={issuing || saving || canceling || netTotal <= 0 || !preview.freeePartnerId}
+                disabled={issuing || saving || canceling || netTotal <= 0 || !preview.freeePartnerId || expenseRuleMissing}
               >
                 {issuing ? <Loader2 className="animate-spin" /> : <Send />}
                 請求書を発行

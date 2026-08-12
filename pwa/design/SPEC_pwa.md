@@ -500,7 +500,7 @@ npx tsc --noEmit     # 型チェック
 ### 月次ルーティン廃止
 - PM向けの OS 月次ルーティン / 月次TODO / cockpit step UI は廃止。
 - 報告書確認の軽い連絡は Slack 側で扱い、OS には TODO / nudge カードを出さない。
-- `/admin/invoices` はきよが月次で処理する請求書発行キューとして残す。対象は締め済み稼働月までで、稼働期間外・freeze後・請求額ゼロ・請求しないPJは発行キューに出さない。主画面の初期表示は `未完了` (= `発行待ち / 要確認 / 設定不足 / 過去滞留`) とし、filter として `発行済み / 送付済み / 入金済み / すべて` も置く。各行には `取引先 / 金額` の発行条件だけを出す。`要確認 / 設定不足 / 過去滞留` は状態バッジまたは行操作から詳細モーダルを開き、`freee取引先 / 請求額` の発行前チェックと解消方法を表示する。設定不足ではfreee取引先をプルダウンで選択して保存できる。発行モーダルは iOS `InvoiceStepView` 相当のまま、件名、基本明細行、承認済み立替、調整行、請求日、支払期日、備考、発行済み情報、発行取消を扱う。件名・ヘッダー・freee fallback には `client_name` を使い、AMD内部の `project_name` / `project_id` を出さない。旧 `/admin/billing` は互換 redirect のみ。
+- `/admin/invoices` はきよが月次で処理する請求書発行キューとして残す。対象は締め済み稼働月までで、稼働期間外・freeze後・請求額ゼロ・請求しないPJは発行キューに出さない。主画面の初期表示は `未完了` (= `発行待ち / 要確認 / 設定不足 / 過去滞留`) とする。契約条件には全PJの `立替の請求上乗せ` を `上乗せ可 / 上乗せ不可 / 未抽出` で必ず表示し、上乗せ不可の立替は発生・承認情報を残したまま請求候補とfreee明細から除外する。立替がある未抽出PJは発行を止める。`過去滞留` はクリックで解消詳細を開き、請求月更新または請求書作成へ進める。作成画面を開く入口は `請求書作成`、freeeへ実送信する最終操作だけは `請求書を発行` とする。発行モーダルは iOS `InvoiceStepView` 相当のまま、件名、基本明細行、契約上請求対象の承認済み立替、調整行、請求日、支払期日、備考、発行済み情報、発行取消を扱う。件名・ヘッダー・freee fallback には `client_name` を使い、AMD内部の `project_name` / `project_id` を出さない。旧 `/admin/billing` は互換 redirect のみ。
 - `?step=<stepId>&ym=YYYYMM` は legacy query。現行 cockpit は `step` を解釈せず、月次カードから `CockpitMonthlyModal` を開く。
 - `CockpitRoutine*` component / modal と `/api/notify/pl-review` は削除済み。詳細は [`routine.md`](routine.md)。
 - GAS legacy の monthly reminder / meeting schedule / invoice workflow / report fix cron は no-op。PWA cockpit は `tsukuyomi_nudge_queue` に残った legacy monthly message を表示しない。
