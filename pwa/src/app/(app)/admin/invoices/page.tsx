@@ -133,7 +133,20 @@ export default async function AdminInvoicesPage({ embedded = false }: { embedded
   }
 
   const cycleMap = new Map((cycles ?? []).map((cycle) => [`${cycle.project_id}_${cycle.ym}`, cycle]));
-  const rows: BillingCycleRow[] = Array.from(projectMap.values()).flatMap((project) =>
+  const projectIdsWithCycles = new Set((cycles ?? []).map((cycle) => String(cycle.project_id)));
+  const projectIdsWithReimbursements = new Set((reimbursements ?? []).map((row) => String(row.project_id)));
+  const invoiceProjects = Array.from(projectMap.values()).filter((project) =>
+    Boolean(
+      project.client_name
+      || project.freee_partner_id
+      || project.fee_type
+      || Number(project.fee_amount || 0) > 0
+      || project.contract_terms_json
+      || projectIdsWithCycles.has(project.project_id)
+      || projectIdsWithReimbursements.has(project.project_id)
+    )
+  );
+  const rows: BillingCycleRow[] = invoiceProjects.flatMap((project) =>
     yms.filter((ym) => isWithinWorkWindow({ ym }, project)).map((ym) => {
       const c = cycleMap.get(`${project.project_id}_${ym}`);
       return {

@@ -274,15 +274,15 @@ function invoiceState(row: BillingCycleRow, targetYm: string): InvoiceState {
   if (row.invoice_issued_at) {
     return { key: "issued", label: "発行済み", tone: "emerald", Icon: Check };
   }
-  if (effectiveInvoiceYm(row) < targetYm) {
-    return { key: "backlog", label: "過去滞留", tone: "red", Icon: AlertTriangle };
-  }
   const blockers = blockerItems(row);
   if (blockers.some((item) => item.key === "cycle" || item.key === "freee_partner")) {
     return { key: "setup_missing", label: "設定不足", tone: "red", Icon: AlertTriangle };
   }
   if (blockers.length > 0) {
     return { key: "needs_check", label: "要確認", tone: "slate", Icon: Clock };
+  }
+  if (effectiveInvoiceYm(row) < targetYm) {
+    return { key: "backlog", label: "過去滞留", tone: "red", Icon: AlertTriangle };
   }
   return { key: "ready", label: "発行待ち", tone: "amber", Icon: FilePlus };
 }
@@ -385,9 +385,10 @@ export function AdminInvoiceIssueQueue({ cycles, targetYm, viewerIsAdmin, viewer
     return Array.from(map.values())
       .map((entry) => ({ ...entry, rows: entry.rows.slice().sort((a, b) => b.ym.localeCompare(a.ym)) }))
       .sort((a, b) => {
-        const openA = a.rows.some((r) => ["ready", "needs_check", "setup_missing", "backlog"].includes(invoiceState(r, targetYm).key));
-        const openB = b.rows.some((r) => ["ready", "needs_check", "setup_missing", "backlog"].includes(invoiceState(r, targetYm).key));
-        if (openA !== openB) return openA ? -1 : 1;
+        const order: Record<StateKey, number> = { ready: 0, backlog: 1, needs_check: 2, setup_missing: 3, issued: 4, sent: 5, paid: 6 };
+        const rankA = Math.min(...a.rows.map((row) => order[invoiceState(row, targetYm).key]));
+        const rankB = Math.min(...b.rows.map((row) => order[invoiceState(row, targetYm).key]));
+        if (rankA !== rankB) return rankA - rankB;
         return a.name.localeCompare(b.name, "ja");
       });
   }, [rows, targetYm]);
@@ -478,14 +479,24 @@ export function AdminInvoiceIssueQueue({ cycles, targetYm, viewerIsAdmin, viewer
   const openTotal = rows.filter((r) => ["ready", "needs_check", "setup_missing", "backlog"].includes(invoiceState(r, targetYm).key)).length;
 
   return (
-    <div className="grid gap-3 lg:h-[calc(100vh-204px)] lg:min-h-[560px] lg:grid-cols-[230px_1fr]">
+    <div className="grid gap-3 lg:h-[calc(100vh-228px)] lg:min-h-[480px] lg:grid-cols-[230px_1fr]">
       {/* 左列: PJ選択リスト */}
       <section aria-label="請求先PJ一覧" className="flex flex-col border border-border bg-background lg:overflow-hidden">
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
           <p className="text-[12px] font-semibold">請求先 PJ</p>
           <span className="border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">未完了 {openTotal}</span>
         </div>
-        <div className="divide-y divide-border overflow-y-auto lg:flex-1">
+        {projects.length > 0 && (
+          <select
+            aria-label="請求先PJを選択"
+            className="m-2 h-10 w-[calc(100%-16px)] border border-border bg-background px-2 text-sm lg:hidden"
+            value={activeProject?.project_id ?? ""}
+            onChange={(event) => setActiveProjectId(event.target.value)}
+          >
+            {projects.map((project) => <option key={project.project_id} value={project.project_id}>{project.name} / {project.client}</option>)}
+          </select>
+        )}
+        <div className="hidden divide-y divide-border overflow-y-auto lg:block lg:flex-1">
           {projects.length === 0 ? (
             <p className="px-3 py-6 text-center text-[12px] text-muted-foreground">対象PJが無いよ。</p>
           ) : (
@@ -546,7 +557,6 @@ export function AdminInvoiceIssueQueue({ cycles, targetYm, viewerIsAdmin, viewer
                   return (
                     <div
                       key={row.id}
-                      onClick={() => setActiveYm(row.ym)}
                       className={`grid w-full grid-cols-[68px_78px_108px_108px_116px_104px_1fr] items-center gap-2 px-3 py-1.5 text-left text-[12px] hover:bg-muted/20 ${
                         activeYm === row.ym ? "bg-muted/40" : ""
                       }`}
@@ -559,6 +569,7 @@ export function AdminInvoiceIssueQueue({ cycles, targetYm, viewerIsAdmin, viewer
                         onClick={(event) => event.stopPropagation()}
                       >
                         <input
+                          aria-label={`${ymDisplay(row.ym)}の請求月`}
                           className="h-full w-full bg-transparent text-center"
                           defaultValue={row.invoice_ym || row.ym}
                           maxLength={6}
@@ -773,12 +784,12 @@ function MonthWorkbench({
                     {REIMBURSE_STATUS_LABEL[r.status] ?? r.status}
                   </span>
                   {r.status === "submitted" && (viewerCanPmApprove || viewerIsAdmin) && (
-                    <Button type="button" size="sm" className="h-6 px-2 text-[10px]" disabled={decidingReimbursementId === r.reimbursement_id} onClick={() => onApproveReimbursement(r)}>
+                    <Button type="button" size="sm" className="h-8 px-3 text-[10px]" disabled={decidingReimbursementId === r.reimbursement_id} onClick={() => onApproveReimbursement(r)}>
                       {decidingReimbursementId === r.reimbursement_id ? "承認中" : "PM承認"}
                     </Button>
                   )}
                   {(r.status === "pmApproved" || r.status === "pmapproved") && viewerIsAdmin && (
-                    <Button type="button" size="sm" className="h-6 px-2 text-[10px]" disabled={decidingReimbursementId === r.reimbursement_id} onClick={() => onApproveReimbursement(r)}>
+                    <Button type="button" size="sm" className="h-8 px-3 text-[10px]" disabled={decidingReimbursementId === r.reimbursement_id} onClick={() => onApproveReimbursement(r)}>
                       {decidingReimbursementId === r.reimbursement_id ? "承認中" : "admin承認"}
                     </Button>
                   )}

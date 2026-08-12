@@ -82,6 +82,8 @@ assert.match(invoiceQueue, /pending\.length > 0/, "未承認立替が1件でも�
 assert.match(invoiceQueue, /blockers\.length === 0 && !\["issued", "sent", "paid"\]/, "blockerが無い過去滞留は発行できる");
 assert.match(invoiceQueue, /grid-cols-\[68px_78px_108px_108px_116px_104px_1fr\]/, "13か月台帳を高密度な固定列で保つ");
 assert.match(invoiceQueue, /overflow-x-auto/, "狭い画面では台帳だけを横スクロールさせる");
+assert.match(invoiceQueue, /aria-label="請求先PJを選択"/, "mobileは長いPJ一覧をselectへ再配置する");
+assert.match(invoiceQueue, /lg:h-\[calc\(100vh-228px\)\]/, "desktopの作業面をviewport内へ収める");
 assert.doesNotMatch(invoiceQueue, /rounded-full|rounded-lg|rounded-md|rounded-xl|shadow-/, "請求作業面を丸角カードやpillだらけに戻さない");
 assert.doesNotMatch(invoicePage, /budget_yen/, "PJ予算を請求額の根拠にしない");
 assert.match(invoicePage, /viewerPmProjectIds/, "表示中ユーザーの担当PM権限を渡す");
