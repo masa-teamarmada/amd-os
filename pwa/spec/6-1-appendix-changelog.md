@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-08-12 JST | 3-7 Notifications | 本番受入修正 | build v3.72.12。mobileの採否filterを2列化し、card headerの問いと未読/展開操作を縦分離。desktopは従来の横配置を維持 | 390x844本番目視で質問文が数文字単位に折り返され、判断票の読み始めが崩れていたため | えいみ |
 | 2026-08-12 JST | 2-4 Proactive TODO / 3-7 Notifications / 5-3 Automation責務 | 訂正 | build v3.72.11 / migration 267。通知をL2 candidateの正本採否ゲートへ戻した。既存 `amd-os-proactive-heartbeat` は、追加先・変更内容・採用/不採用の結果が揃ったcandidateだけをapprovedにする。raw証跡から汎用TODO/app通知を作る役割は停止 | notificationとTODOを混同し、candidateを承認前に一律suppressedへ落とした設計誤りを直すため | まさ・えいみ |
 | 2026-08-12 JST | 1-5 三者PJ面受入 / 2-1 Runtime Routes / 3-8 PJ Cockpit | 実画面受入による撤回 | build v3.72.9。SX cockpitへ追加した`CockpitSharedProjectControl`、専用CSS、Header差し込み口を削除し、無順位集計の再導入をruntime contractで禁止した。研究機関PJ面、immutable publication、exact-project権限、DTO基盤は維持する。共同正本のAMDレンズは未完了へ戻す | 本番表示が全柱未評価、未完了62件、過去の次期限、詳細操作なしとなり、「AMDが今日どこへ介入するか」の5秒受入と既存cockpitの情報品質に不合格だったため | まさ・えいみ |
 | 2026-08-12 JST | 3-1 L2抽出 / 3-18重要書類 / 3-7通知 | 追加・変更 | build v3.72.8 / migration 266。LST正式決算PDFを最初の再現ケースに、会社・本文・親フォルダ・MIME・対象期間・監査有無で重要書類を分類し、同一内容3所在をhashで1候補へ集約する。lineage、版、field provenance、会計区分、BZM接続候補を`coverageGaps[]` outboxへ出し、非LLM applierと通知採否を経た採用分だけimmutableな`project_important_documents`へ追記する | Drive PDF本文を読まない旧reader、上位6件検索、H-1/D-14の対象境界により正式書類と主要決算値がL2/BZM入力から漏れたため | まさ・えいみ |
