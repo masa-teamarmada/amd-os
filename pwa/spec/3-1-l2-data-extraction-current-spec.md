@@ -54,6 +54,57 @@ L2 抽出は必ず次の 5 種類を対象にする。
 
 `source_cache` は旧 L1 正本ではなく、source refs / short snippet / hash の証跡キャッシュ。メール全文・議事録全文・Slack全文を L2 row に保存しない。
 
+### 可視母集団の全列挙契約
+
+5生データ抽出は検索上位から始めず、`観測枠固定 -> page EOF全列挙 -> source固有ID重複排除 -> 12 PJ暫定routing -> 全unique item内容抽出 -> canonical event統合`の順で行う。
+
+観測枠は、`source × credential/account × shared/private scope × query window × traversal policy`で固定する。
+
+ここでいう母集団は「この観測枠でAPIまたはconnectorから列挙できる可視集合」であり、サービス内に実在する全資料を意味しない。
+
+| 段階 | 必須契約 |
+|---|---|
+| page EOF全列挙 | 各root / container / thread / child streamをnext cursorが無くなるまで読む。25件・100件等の既定page size、検索上位、最初のpageで打ち切らない |
+| source固有ID重複排除 | Gmail message ID、Drive file ID、Calendar instance ID、Slack message ID、Notion page/block IDでdedupeする。thread/series/parentはlineageとして別に保持する |
+| 12 PJ暫定routing | 現行runで固定した正規12 project IDだけを候補に使う。単一帰属を強制せず、`multi_pj / shared / company / personal_private / unassigned / unknown`を許す |
+| 内容抽出 | routingは取得対象の除外に使わない。全unique itemを対象にし、unsupported / failure / backlogは`limitations`と`incomplete`へ出す |
+| canonical event統合 | source内ID dedupeと、跨sourceの同一事象統合を分ける。`canonical_event_id`は複数evidenceと複数PJを持てるが、同じeconomic / cashflow legは一度だけ計上する |
+
+Gmailはmessageを消してthreadだけに畳まない。
+
+Calendarはrecurring seriesとinstanceを分ける。
+
+Driveの同一内容コピーは内容hashを共有できるが、所在、権限、PJ帰属のlineageは失わない。
+
+Slackは可視shared/private channelのhistoryとthread repliesをそれぞれEOFまで読む。
+
+Notion再帰は宣言root配下のchild page、child block、database itemに限り、任意link、relation、backlinkは無制限に追わない。
+
+### source別complete/incomplete契約
+
+各sourceのrun reportは、最低限次を必須とする。
+
+| field | 意味 |
+|---|---|
+| `total` | provider推定値ではなく、全pageが返した重複込みindex行数 |
+| `fetched` | 内容取得に成功したunique ID数 |
+| `unique` | source固有IDの重複排除後件数 |
+| `dateRange` | requested from/toと、実際に列挙したitemのobserved min/max |
+| `paginationComplete` | 宣言scope内の全cursorがEOFへ達したか。世界全体の完全性ではない |
+| `limitations[]` | 権限不足、private未認可、保持期間、削除、API制約、未対応形式、rate limit、cursor/再帰/内容取得失敗の構造化code |
+
+補助fieldとして`duplicateOccurrences / fetchFailed / skipped / recursiveComplete / extractionComplete / visibilityScopes / status`も保持する。
+
+一つでも`paginationComplete=false`、再帰未完、内容取得未完、またはlimitationsがあればsourceとrun全体を`incomplete`にする。
+
+incomplete runの肯定証拠は候補化してよいが、欠測を0に置かず、「証拠なし」「該当なし」「全件確認済み」という否定判断へ使わない。
+
+raw本文、個人情報、URL、メールアドレスはreport / outbox / DBへ保存しない。
+
+永続化できるのはsource名、鍵付きID hash、内容hash、安全なlocator、日時、thread/parent hash、短い非個人特徴、PJ候補とconfidence、limitations codeだけである。
+
+実行可能な契約は`pwa/scripts/lib/five_source_population_contract.mts`、回帰は`node --experimental-strip-types pwa/scripts/check_five_source_population_contract.mts`で確認する。
+
 ## L2 writers (新ナンバリング D / M / W / H)
 
 cadence は **D / M / W / H** で残すが、writer は now mixed。下の表では **今動かす writer** を書く。

@@ -91,6 +91,52 @@ vs ローカル Mac scheduled task の問題:
 
 SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 群) / `amd-os-l2-monthend-evidence/SKILL.md` (M 群) / `amd-os-l2-weekly-vc-funding-signals/SKILL.md` (W 群)。束ね SKILL は各 L2 の個別 SKILL を Phase 詳細として参照する。
 
+## 5生データの母集団先行手順（2026-08-12）
+
+5生データを使う抽出は、PJ名や重要語の検索上位を読み始めてはいけない。
+
+最初に「その資格情報、その時点、その期間、その可視範囲で列挙できる集合」を固定し、次の順で処理する。
+
+1. Gmail / Drive / Calendar / Slack / Notionごとに、対象account、共有・private範囲、期間、再帰境界を宣言する。
+2. 各rootとcontainerを、次cursorが無くなるEOFまでページングする。先頭25件、100件、検索上位だけで止めない。
+3. source固有IDで重複を除く。Gmailのmessageとthread、Calendarのinstanceとseries、Slackの親投稿と返信、Notionの親子blockはlineageを残す。
+4. source indexのmetadataと既存locatorから、現行cohortの正規12 PJへ暫定routingする。`multi_pj` / `shared` / `company` / `personal_private` / `unassigned` / `unknown`を許し、一つへ無理に押し込まない。
+5. 暫定routingで候補を間引かず、全unique itemの内容を深掘りする。raw本文は処理中だけ使い、保存物はID hash、内容hash、locator、日時、短い特徴、PJ候補に限る。
+6. source内のID重複排除後、別sourceの証拠をBZMの`canonical_event_id`へ統合する。同じ経済・入出金脚は一度だけ数える。
+
+`paginationComplete=true`が意味するのは、宣言した可視scope内の全cursorと再帰streamがEOFへ達したことだけである。
+
+権限外、保持期間外、削除済み、非対応形式、private未認可まで存在しないとは言えない。
+
+### source別の確認面
+
+| source | EOFまで列挙する単位 | 見落とし防止 |
+|---|---|---|
+| Gmail | message一覧の全page | message IDをdedupeし、thread IDはlineageに残す。thread単位の上位結果だけで終えない |
+| Drive | My Drive、共有Drive、共有された可視scopeのfile一覧 | folder ancestryと同一内容の複数locatorを残す。root検索だけにしない |
+| Calendar | 可視calendarごとのevent instance一覧 | recurring seriesとinstanceを分け、各calendarのpageをEOFまで読む |
+| Slack | 可視shared/private channelのhistoryと各thread replies | shared/privateを別scopeにし、reply cursorもEOFまで読む。非認可privateはlimitationsへ出す |
+| Notion | 宣言root配下のchild page、child block、database item | 各branchを再帰し、各branchのcursorをEOFまで読む。任意link、relation、backlinkは無制限に追わない |
+
+### 完了報告
+
+run summaryは5 sourceそれぞれについて、`total / fetched / unique / dateRange / paginationComplete / limitations`を必須にする。
+
+ここで`total`は重複込みの列挙行数、`fetched`は内容取得に成功したunique件数、`unique`はsource固有IDの重複排除後件数である。
+
+一つでもEOF未到達、再帰未完、内容取得失敗、private未認可などがあれば、件数を隠さずrun全体を`incomplete`と表示する。
+
+`incomplete`でも確認済みの肯定証拠は候補化できるが、「該当なし」「全部確認済み」という否定判断には使わない。
+
+回帰検査は次を直接実行する。
+
+```sh
+cd pwa
+node --experimental-strip-types scripts/check_five_source_population_contract.mts
+```
+
+この検査は25件超、100件超、Gmail thread、Slack shared/privateと返信、Notion 100件超・多段再帰、cursor未完、raw保存禁止を確認する。
+
 ## 暫定 / 復旧先 automation 一覧 (= Claude routine UI 登録証跡が出るまでの writer)
 
 下表は **target が Claude routine に移るまでの暫定 writer**、および止まった時の復旧先。Claude routine が ACTIVE になったら、各暫定 writer は段階的に停止する (= 二重抽出を避ける)。

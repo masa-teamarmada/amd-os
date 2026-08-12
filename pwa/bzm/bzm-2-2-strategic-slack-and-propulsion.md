@@ -130,6 +130,18 @@ BZM 2.0で定義した$T_Y$は、2.2では互換表示を残しながら中身�
 
 資料を見つけただけで、権利、現金、技術成功、相手方確約を`observed`へ昇格しない。
 
+抽出時の重複排除は三段階を混ぜない。
+
+1. source固有IDの重複排除。
+2. 同じ内容hashを持つ複数所在の整理。
+3. 跨sourceの複数証拠を一つの`canonical_event_id`へ統合する意味上の判定。
+
+Gmailのmessageをthread一件へ潰したり、Calendarの各instanceをrecurring series一件へ潰したりしてはならない。
+
+反対に、別IDだから別の経済事象だとも仮定しない。
+
+一つの事象は複数PJへ関係してよいが、同じ`economic_leg`と`cashflow_leg`は一度だけ計上する。
+
 ### 監査用のタグ
 
 抽出漏れを探すため、次のタグを使ってよい。
@@ -832,6 +844,54 @@ OSは、原則としてまさへの質問ではなく、生データから次の
 
 人への確認は、生データと既存文書を読んでも結論が変わる重要な未決だけに限る。
 
+### 5生データの観測可能枠
+
+OSは、検索上位を母集団とみなしてはならない。
+
+Gmail、Drive、Calendar、Slack、Notionごとに、資格情報、account、shared/private scope、期間、再帰方針を固定した「観測可能枠」を宣言する。
+
+この枠は真の全資料ではない。
+
+権限、保持期間、削除、非対応形式によって、重要資料ほど非ランダムに欠ける可能性がある。
+
+したがって、次の順序を固定する。
+
+1. 宣言したroot、container、thread、child streamを、各cursorのEOFまで全列挙する。
+2. source固有IDで重複を除く。
+3. index metadataとlocatorで、現行cohortの正規12 PJへ暫定routingする。
+4. routingで除外せず、全unique itemの内容を抽出する。
+5. 跨sourceの証拠を正規化事象へ統合する。
+
+12 PJへのroutingは単一分類ではない。
+
+`multi_pj`、`shared`、`company`、`personal_private`、`unassigned`、`unknown`を許し、内容抽出後に帰属候補が変わる場合はreview対象にする。
+
+PJ分類前のmetadataで候補を落とすと、PJ名を含まない重要資料が系統的に欠けるため、暫定routingは注意配分には使えても抽出対象の除外には使わない。
+
+### 完全性を過大主張しない
+
+各sourceは、`total`、`fetched`、`unique`、要求期間と観測期間、`paginationComplete`、`limitations`を必ず出す。
+
+`total`は全pageから返った重複込みindex行数、`unique`はsource固有IDの重複排除後件数、`fetched`は内容取得に成功したunique件数である。
+
+`paginationComplete=true`は、宣言scope内の全cursorと再帰streamがEOFへ達したことだけを示す。
+
+権限外を含む世界全体の完全性、内容抽出の完全性、経営判断に十分な情報品質を意味しない。
+
+一つでもEOF未到達、再帰未完、private未認可、取得失敗、未対応形式があれば`incomplete`を表示する。
+
+incompleteでも観測済みの肯定証拠は使えるが、「証拠がない」「該当しない」という否定推論には使わない。
+
+見えない総数を5 source間のcapture-recaptureで推定しない。
+
+source間は同じ単位の独立捕捉ではなく、予定からメール、資料、threadが派生し、捕捉率も権限と機密性に依存するためである。
+
+EOF件数や候補件数を単独KPI、PJ評価、報酬、資源配分へ使わない。
+
+全件取得と、深いレビューへ経営の注意を配る優先順位は分ける。
+
+raw本文と個人情報は永続化せず、鍵付きID hash、内容hash、安全なlocator、日時、短い特徴、lineage、PJ候補、limitationsだけを残す。
+
 ### 必須の証拠段階
 
 | 地位 | 意味 | 計算上の扱い |
@@ -903,6 +963,25 @@ OSは、原則としてまさへの質問ではなく、生データから次の
 
 この反論を受け、2.2は八つの監査タグを状態座標へせず、八つの状態層、行動と投入束ごとの制約、物理遷移へ分解した。
 
+### 5生データ抽出拡張への追加監査
+
+2026-08-12に、検索上位から観測可能枠の全列挙へ変える案を、経済学者役と経営学者役が独立に再監査した。
+
+両者とも全列挙への変更を条件付きで支持し、次を共同条件にした。
+
+- 観測可能枠を真の母集団と呼ばない。
+- `paginationComplete`とaccess、再帰、内容取得、判断品質のcompleteを分ける。
+- 12 PJを閉じた単一分類にせず、複数PJ、会社共通、private、未分類、不明を残す。
+- routingで抽出対象を落とさず、全unique itemの深い抽出と経営上の注意配分を分ける。
+- source ID dedupeと`canonical_event_id`統合を分け、同じ経済・入出金脚だけを一度数える。
+- incomplete runから不在を確定せず、件数とEOFを成功KPIにしない。
+
+経済学側は、権限や機密性による欠測を無作為と仮定できず、source間依存の強い5生データへcapture-recaptureを適用できないと指摘した。
+
+経営学側は、固定PJ分類が探索を狭め、全件を同じ深さで読む設計が経営上の注意を枯渇させ、EOF件数のKPI化がGoodhart化を招くと指摘した。
+
+ページング、Notion再帰、routing表示の具体契約は、一次文献が直接定めたものではなく、これらの原則をAMD OSへ適用した設計仮説である。
+
 ---
 
 ## 13. この章が主張しないこと
@@ -917,6 +996,8 @@ OSは、原則としてまさへの質問ではなく、生データから次の
 - 登録済み行動集合が現実の全行動を覆うこと。
 - 2.2が会社全体の時価総額または既存株主持分価値を直接返すこと。
 - 現時点の2.2がPJ比較、資源配分、投資推奨に使えること。
+- `paginationComplete=true`なら権限外を含む全資料が存在しないこと。
+- 12 PJ分類不能の資料がBZM入力と無関係であること。
 
 2.2が追加するのは、支出と状態変化、状態と実行可能行動、行動集合と戦略余力を、反証できる形でつなぐ設計である。
 
@@ -936,6 +1017,11 @@ OSは、原則としてまさへの質問ではなく、生データから次の
 8. 余力を温存して進捗が止まっているPJを、継続的に高く評価する。
 9. 凍結した前向き予測で、2.2がBZM 2.1または単純runwayより危機の先行判別を改善しない。
 10. 制約の充足、不明、違反について、独立評価者間で再現しない。
+11. page sizeを25件または100件から変えると、EOF後のunique ID集合が変わる。
+12. thread replyまたはNotion子branchが失敗しても`paginationComplete=true`になる。
+13. incomplete runから「証拠なし」を確定する。
+14. 未分類監査標本から重要資料が継続的に見つかる。
+15. 同じ経済・入出金脚がsource数またはPJ数だけ複製される。
 
 実装後は、反証結果を成功例と同じ場所に追記する。
 
@@ -959,6 +1045,8 @@ OSは、原則としてまさへの質問ではなく、生データから次の
 - 潜在能力$\mathbf c_t$のposterior summary $\widehat{\mathbf c}_t$を因果効果と呼べる識別ゲート。
 - 同一イベントの尤度を一度だけ使う信念更新規則。
 - 単独PJに外生配分したquotaと、ポートフォリオ共同制約の分離。
+- 5生データ全sourceの観測枠、EOF、再帰、件数、limitationsを持つ完全性契約。
+- 25件超、100件超、thread、shared/private、Notion多段再帰、incompleteを含む回帰fixture。
 
 このゲートが閉じるまで、OS上の現行SPS、BZM 2.1の動的正味PJ価値、BZM 2.2の未実装出力を同じ数値として表示しない。
 
@@ -984,6 +1072,9 @@ OSは、原則としてまさへの質問ではなく、生データから次の
 | Suchman（1995）とZimmerman and Zeitz（2002） | 正当性が、複数の受け手との関係と資源獲得に関わること | 顧客、投資家、行政、規制当局、大学ごとの受容状態を分ける |
 | Garg（2013） | venture boardの監督が、成熟企業とは異なる統治問題を持つこと | controller、留保事項、同意、実行権限を行動別制約へ置く |
 | Kerr（1975） | 望む行動と、実際に報酬される指標がずれる危険 | 戦略余力を単独KPI、報酬、順位、配分条件にしない |
+| Heckman（1979） | 非ランダムな標本選択を無視した推定に偏りが生じること | 検索上位と可視資料だけを真の母集団と呼ばず、観測枠とlimitationsを明示する |
+| Rubin（1976） | 欠測過程を無視できる条件が限定されること | private、権限、保持、削除による欠測を0または不存在へ置かない |
+| March（1991） | 既知の分類と活用への過剰適応が探索を失わせうること | 12 PJの単一分類を強制せず、shared、未分類、不明を抽出対象に残す |
 
 Nohria and Gulatiの実証対象は二つの多国籍企業に属する264の機能部門であり、ディープテックSUに普遍的な最適余力量を示したものではない。
 
@@ -1011,6 +1102,9 @@ Nohria and Gulatiの実証対象は二つの多国籍企業に属する264の機
 - [Zimmerman and Zeitz, 2002, Beyond Survival: Achieving New Venture Growth by Building Legitimacy](https://journals.aom.org/doi/10.5465/amr.2002.7389921)
 - [Garg, 2013, Venture Boards: Distinctive Monitoring and Implications for Firm Performance](https://journals.aom.org/doi/10.5465/amr.2010.0193)
 - [Kerr, 1975, On the Folly of Rewarding A, While Hoping for B](https://journals.aom.org/doi/abs/10.5465/255378)
+- [Heckman, 1979, Sample Selection Bias as a Specification Error](https://www.jstor.org/stable/1912352)
+- [Rubin, 1976, Inference and Missing Data](https://academic.oup.com/biomet/article-abstract/63/3/581/270932)
+- [March, 1991, Exploration and Exploitation in Organizational Learning](https://pubsonline.informs.org/doi/10.1287/orsc.2.1.71)
 
 ---
 
