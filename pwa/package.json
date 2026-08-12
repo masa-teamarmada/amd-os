@@ -12,6 +12,7 @@
     "test:meeting-calendar-upsert-plan": "node --experimental-strip-types scripts/check_meeting_calendar_upsert_plan.mts --fixture scripts/__fixtures__/meeting_calendar_upsert_plan.json",
     "test:governance-candidate-gate": "node --experimental-strip-types scripts/check_governance_candidate_gate.mts",
     "test:important-document-extraction": "node --experimental-strip-types scripts/check_important_document_extraction.mts",
+    "test:important-evidence-extraction": "npm run test:important-document-extraction",
     "test:member-weekly-calendar-duration": "node --experimental-strip-types scripts/check_member_weekly_calendar_duration.mts",
     "test:member-weekly-effort-plan": "node --experimental-strip-types scripts/check_member_weekly_effort_plan.mts",
     "test:member-weekly-source-attribution": "node --experimental-strip-types scripts/check_member_weekly_source_attribution.mts",
@@ -170,6 +171,7 @@
     "three": "^0.184.0",
     "topojson-client": "^3.1.0",
     "tw-animate-css": "^1.4.0",
+    "unpdf": "^1.8.0",
     "zustand": "^5.0.12"
   },
   "devDependencies": {

@@ -35,18 +35,24 @@ AMD OS の **裏側**。「このデータはどこから来るか」「どう�
 | **Drive** | チームアルマダ Drive | 議事録 docs / 試算表 / 提案資料 PDF |
 | **Gmail** | AMD 関係者の受信箱 / 会社アカウント | 外部関係者連絡 |
 
-### 正式な重要書類
+### 重要情報の共通入口
 
-事業報告、計算書類、附属明細、監査報告は、会議カードの添付やメール候補だけで終わらせない。
-会社名、対象期間、本文、親フォルダ、MIME、監査有無をまとめて見て、内容hashが同じ複数コピーは1候補にする。
-コピーを消すのではなく、全所在をlineageとして残す。
+対象は決算書だけではない。
+決算、株主総会、取締役会、契約、資金調達、補助金、技術結果、特許、事業計画、重要リスク、明示期限など、会社やPJの判断を変える情報を共通の入口で見る。
 
-PDF本文が取れないときは「未取得」で止め、非該当や0へ変換しない。
-年度決算から月次実績を作らず、現金は期末残高、売上・損失・研究開発費・設備投資は年度累計、J-KISSと借入は資金調達CF、補助金の受領済み預りと上限は別区分にする。
+DriveではPDF、Word、Excel、PowerPoint、Google文書、text系を本文まで読む。
+Gmail、Calendar、Slack、Notionも同じ重要度とPJ帰属の判定へ流す。
+ファイル名だけで決めず、本文、親フォルダ、PJ root、発行主体を合わせて見る。
+
+同じ内容のコピーは1候補にするが、コピーを消さず全所在をlineageとして残す。
+画像PDFなど本文が取れない時は「OCR待ち」で残し、非該当や0へ変換しない。
+観測、推定、計算、欠測も分ける。
+
+決算値については、年度決算から月次実績を作らず、現金は期末残高、売上・損失・研究開発費・設備投資は年度累計、J-KISSと借入は資金調達CF、補助金の受領済み預りと上限は別区分にする。
 借入・補助金・J-KISSを売上や会社価値へそのまま足さない。
 
-抽出結果は`amd-os-ms/outbox`から候補へ入り、通知の「はい」後だけ重要書類正本へ移る。
-BZM 2.1へ渡す値も接続候補であり、現行計算を自動上書きしない。
+抽出結果は`amd-os-ms/outbox`から候補へ入り、通知で採用された後だけ重要情報正本へ移る。
+BZM 2.1や契約・ガバナンス等への反映先もまず接続候補にし、現行正本を自動上書きしない。
 詳しい合格条件は[/spec/3-18-important-document-extraction-current-spec](/spec/3-18-important-document-extraction-current-spec)を読む。
 
 ### 🚨 現状 (= 2026-05-29 正本訂正)
@@ -182,7 +188,7 @@ D-1D-3D-4H-1の復旧/移管状況は [8-3 章](8-3-l2-extraction-routines-spec.
 | M-2 | `project_xrl_evidence` | XRL 根拠 | 5 ソース + OS snapshot | Codex automation `amd-os-ms` (= `outbox.xrlEvidence`) + SKILL `amd-os-l8-xrl-evidence-extract` | ✅ subscription automation 枠で稼働 |
 | D-6 | `project_strategy_signals` | **経営ハイライト** | 5 ソース + OS snapshot | Codex automation `amd-os` (= daily 03:20) + SKILL `amd-os-l9-strategy-signal-extract` + dialogue API (= 提案前の論点整理セッション) | ✅ subscription automation 枠で稼働。修正依頼ループは対話型と接続予定 |
 | D-7 | `textbook_insight_candidates` | **Textbook Insights** | Supabase 内の既存 L2 / OS データ primary。必要なら 5 ソースは gap check | Codex automation / local worker `amd-os-l10-textbook-insight-extract` → `outbox.textbookInsights` → 通知 yes で approved → local BZM applier が `pwa/bzm/*.md` へ追記 | 🟡 partial。DB/API/outbox/local applier の最小導線を追加。実 schedule は未確定 |
-| D-15 | `l2_coverage_gaps` → `project_important_documents` | **重要書類** | Drive PDF/Docs本文、親フォルダ、会社、期間、監査 | Codex local collector → `coverageGaps[]` outbox → non-LLM applier → 通知採否 | 🟡 LST再現を実装。全PJの定期scheduleは未登録 |
+| D-15 | `l2_coverage_gaps` → `project_important_evidence` | **重要情報** | 5生データ、PDF / Office / Google文書本文、親フォルダ、PJ root、発行主体 | Codex collector + 意味抽出 + 決定論的検査 → `coverageGaps[]` outbox → non-LLM applier → 通知採否 | 🟡 27 PJ dry-run済。定期schedule、OCR owner、root未登録PJは残課題 |
 
 **📊 別 L2** (= `member_activities`、メンバー活動ログ): `cron/member-weekly-activities` の legacy GET synthesis は Anthropic 経路を持つため 2026-05-29 に Vercel active cron から退避。2026-07-08 以降の D-10 定期生成は、Codex automation が `GET ?mode=evidence` で証拠を読み、活動文を合成して `POST activities[]` で保存する。
 

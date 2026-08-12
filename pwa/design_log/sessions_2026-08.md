@@ -192,3 +192,24 @@ automation作成後の最初の自然な平日09:00実行は未観測。2026-08-
 - automationはcandidate tableのstatusや正本を変更しない。まさの「はい/いいえ」だけが既存feedback APIを通じてstatusを遷移させる。
 - migration 265で退役したL2候補だけをpendingへ戻し、汎用TODO抽出promptは停止する。先手TODOの汎用自動生成も停止する。
 - 本文、会議記録、本人作業、復旧、情報共有、raw data gap、反映先のないkindは採否通知へ出さない。
+
+## 2026-08-12 — 重要情報抽出を決算書専用から5生データ共通へ訂正（v3.72.15 / migration 268）
+
+### 誤り
+
+- Drive readerが本文を渡していたのはGoogleネイティブ文書だけで、PDFとOfficeはmetadataのまま後段へ流れていた。
+- 後段はPDFまたはGoogle文書、対象期間、複数の決算語を必須にする決算書専用判定だった。Word、Excel、PowerPoint、メール、予定、Slack、Notionにある契約、技術、会社運営、資金、期限等は同じ欠陥を残した。
+- LSTの正式決算書は原因を再現した最初のケースであり、LST専用処理や決算書専用処理を作ることは依頼の目的ではなかった。
+
+### 是正
+
+- 5生データを共通materialへ正規化し、PDF、Word、Excel、PowerPoint、Google文書、textを読むreaderを追加した。本文が取れない画像PDFは情報なしや0にせず`text_read_required`として残す。
+- 決算、会社運営、契約、資金、補助金、技術、計画、商談、リスク、人物、期限を同じ重要度判定へ載せた。PJ帰属はroot、title、親folder、発行主体header、意味抽出根拠の強いanchorに限定した。
+- 同一本文はhashで1候補へ束ね、全所在をlineageとして残す。改訂版はversion familyとrankを分け、各抽出値は原文一致するfield provenanceを必須にした。
+- 財務値だけをBZM接続候補にし、調達、借入、補助金は売上または会社価値へ直加点しない。候補から正本への採用は既存通知と非LLM applierだけが行う。
+
+### 検証
+
+- LST回帰fixtureで同一内容3所在が1候補となり、主要14値、期間、監査、根拠、会計区分を保持することを確認した。
+- 実形式でPDF、Word、Excel、PowerPoint、OCR fallbackを検査し、5生データすべての候補生成を確認した。
+- 本番Driveをread-onlyで全27 PJ検索し、25 PJでtitle上の重要候補を確認した。PDF、Word、Excel、Google文書の本文を個別に実読し、ZMPの画像PDFはOCR待ちとして検出した。p08とp26はこの検索だけでは候補を確認できず、13 PJのDrive root未登録とともに残課題とした。

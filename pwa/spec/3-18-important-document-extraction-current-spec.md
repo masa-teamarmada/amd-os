@@ -1,100 +1,167 @@
-# 重要書類抽出 / 正本化仕様
+# 重要情報抽出 / 正本化仕様
 
-> **current truth（2026-08-12）**: LSTの第3期事業報告・計算書類等を最初の再現ケースとして、Drive上の正式書類を内容hash単位で候補化する。collectorはrawを上書きせず、`coverageGaps[]` outbox、非LLM applier、通知採否を経て、採用時だけ`project_important_documents`へ追記する。
+> **current truth（2026-08-12）**: D-15は決算書専用ではない。Gmail / Drive / Calendar / Slack / Notionの5生データと、PDF / Word / Excel / PowerPoint / Google Docs・Sheets・Slides / text系本文を同じ入口へ正規化し、会社・PJにとって重要な観測を候補化する。LSTの第3期事業報告・計算書類等は、最初の実データ回帰ケースである。
 
-## 1. 起点と根因
+## 1. 問題と根因
 
-LSTの同一PDFが、株主総会2フォルダと取締役会書面決議1フォルダの計3所在にあったが、既存L2へ入っていなかった。
+LSTの正式PDFはDriveに同一内容3コピーあったが、既存L2とBZM入力根拠へ接続されていなかった。
+この事実は決算書だけの問題ではなく、重要情報の入口全体の欠陥を示した。
 
-原因は次の経路の隙間である。
+- 旧`src/lib/sources/drive.ts`はGoogle native文書だけを本文化し、PDFとOffice fileはMIME表示で止めていた。
+- 旧D-15はMIMEをPDF / Google Docsだけに限定し、「対象期間あり」「決算marker 4個以上」など年次決算書専用の条件で、それ以外の重要情報を捨てた。
+- 検索で会社名がhitしても、本文後半の支援先・関係先名なのか、発行主体・PJ rootなのかを分離せず、条件を緩めると別PJへ誤帰属する危険があった。
+- ファイル名、本文、親フォルダ、形式取得、重要度判定が一体化し、PDF読取失敗・Word対象外・分類不一致を同じ「非該当」にしていた。
+- 個別抽出器は既知カテゴリだけを見るため、技術結果、事業計画、契約、資金調達、補助金、ガバナンス、期限などを横断する上位の安全網が弱かった。
 
-- `src/lib/sources/drive.ts`の旧readerはGoogle native documentだけを本文化し、PDFはMIME markerしか返さない。
-- 旧Drive探索はPJ alias一語、更新順上位6件で、親フォルダ、対象会社、対象期間、監査有無、全ページングを検索条件にしていない。
-- H-1は会議1回のsummary、D-14はGmail由来ガバナンス候補が主対象で、Driveだけにある正式な計算書類一式を独立した重要書類として分類しない。
-- LST SPS 2.1 v0.2のsource anchorは既存構造化値を中心に作られ、このPDF自体、期末残高、年度累計、資金調達CF、補助金預りのfield-level provenanceへ接続していなかった。
+一部の事実が既存DBに存在していても、原文の観測、既存構造化値、BZM計算入力は同一視しない。
 
-一部のSBIR、J-KISS、借入事実が別テーブルに存在していても、PDF原文の観測、既存構造化値、BZM計算入力は同一視しない。
+## 2. 共通フロー
 
-## 2. 探索契約
+```text
+5生データ
+  ↓
+形式別本文取得（PDF / Office / Google native / text / OCR）
+  ↓
+重要度判定（既知カテゴリ + 意味判定）
+  ↓
+PJ帰属判定（PJ root / title / parent / 発行主体）
+  ↓
+内容hash重複排除 + lineage + 版管理
+  ↓
+項目別根拠・期限・接続先候補
+  ↓
+coverageGaps[] candidate → non-LLM applier → 通知採否
+  ↓
+採用時だけ project_important_evidence へ追記
+```
 
-collectorはPJごとに、会社正式名、会社alias、PJ aliasを検索語へ使う。
-これと「事業報告」「計算書類」「附属明細」「監査報告」「決算」、親フォルダの「株主総会」「取締役会」「書面決議」「監査」を組み合わせ、PDFとGoogle Docsを全ページングする。
+探索ではファイル名だけを条件にしない。
+会社正式名、会社alias、PJ alias、PJ Drive root、親フォルダ、MIME、本文、更新日時を組み合わせ、ページングする。
+Gmail / Calendar / Slack / Notionも同じ重要度・帰属・根拠契約へ正規化する。
 
-候補判定はファイル名だけで行わない。
-MIME、本文、親フォルダ、会社一致、対象期間、監査報告の6面を使う。
-PDF本文は`pdf_text`、画像PDFは`ocr`として取得方法を残す。
-本文を取得できないPDFは`document_text_missing`で止め、値0や非該当へ変換しない。
+## 3. 本文取得
 
-実装正本は`pwa/scripts/lib/important_document_extraction.mts`の`buildImportantDocumentSearchPlan`と`extractImportantDocuments`である。
+`src/lib/sources/source-material-text.ts`を共通readerとする。
 
-## 3. 重複と版
+| 形式 | 取得方法 |
+|---|---|
+| Google Docs / Sheets / Slides | Drive export |
+| PDF | 原本bytesを取得し、全page textとpage markerを抽出 |
+| Word `.docx` | OOXML本文・header・footer・脚注を抽出 |
+| Excel `.xlsx` | shared stringsとsheet cellを抽出 |
+| PowerPoint `.pptx` | slideとspeaker noteのtextを抽出 |
+| text / markdown / csv / json / xml / html | UTF-8 textとして抽出 |
+| 画像PDF / image | 注入されたOCR経路を使う |
+| 旧Office形式 / 大容量 / OCR未接続 | `missing`と理由を残し、0・非該当へ変換しない |
 
-NFKC・空白正規化した本文hash、またはcollectorが渡すcontent SHA-256を内容同一性の正本にする。
+readerはraw本文をDBへ保存しない。
+サイズ、page数、timeoutを制限し、未読は`needsOcr` / `text_read_required`として候補へ残す。
 
-- 同じPJ、同じcontent hashの複数所在は1候補へ束ねる。
-- `lineage`にはfile ID、全親フォルダ、作成・更新時刻、本文取得方法、取得statusを残す。
-- 代表所在は更新時刻、作成時刻、file IDの順で決定する。代表以外を削除しない。
-- 同じPJ・書類class・対象期間でもcontent hashが違えば別版候補にする。最新を`canonical_candidate`、それ以前を`superseded_candidate`とし、採否前に上書きしない。
+## 4. 重要度と分類
 
-## 4. field-level provenance
+初期カテゴリは次のとおりで、決算書はこの一部にすぎない。
 
-各factは最低限、次を持つ。
+- 決算・財務
+- 株主総会・取締役会・登記・監査
+- 契約・押印・解除
+- 資金調達・株式・評価額
+- 補助金・採択・交付決定
+- 技術結果・性能・特許・知財
+- 事業計画・予算・ロードマップ
+- 受注・PoC・提携など事業進展
+- リスク・法令・事故・資金繰り
+- 人事・代表・取締役変更
+- 明示的な提出・回答・支払期限
 
-- `fact_key`、金額、`observed / calculated / partial / missing`
-- `monthly_actual / period_end_balance / annual_cumulative / financing_cash_flow / grant_deposit / grant_commitment_cap`
-- 対象期間または基準日、根拠がある締切と精度、status
+キーワードは検索網へ上げるsignalであり、最終意味判定ではない。
+意味抽出側は`semantic_classification`としてカテゴリ、理由、観測項目、接続先候補を渡せる。
+意味抽出で得た値も、原文中の短い根拠表現が照合できない場合はfieldへ採用しない。
+
+## 5. PJ帰属
+
+会社名が本文のどこかに1回出ただけではPJ確定しない。
+
+- PJ Drive root配下
+- titleの会社・PJ名
+- 親フォルダの会社・PJ名
+- 本文先頭の発行主体
+
+を強いanchorとする。
+本文後半に支援先として「チームアルマダ」と書かれたLST資料をAMD資料へ誤帰属させない。
+root / title / parentが確定せず、発行主体だけが一致する場合は帰属もcandidateとして残す。
+
+## 6. 重複、lineage、版
+
+本文が読めた文書はNFKC・空白正規化後の本文hashを内容同一性に使う。
+同じ内容を別フォルダへコピーしても1候補へ束ね、全所在を`lineage`へ残す。
+本文未読時だけraw bytes hashまたはsource identityを暫定キーにする。
+
+同じPJ・分類・対象期間でも本文hashが違えば別版候補にし、最新を`canonical_candidate`、旧版を`superseded_candidate`とする。
+元ファイルを削除・上書きしない。
+
+## 7. field-level provenance
+
+各fieldは、値だけでなく次を持つ。
+
+- `observed / inferred / calculated / missing`
+- 対象期間、基準日、明示期限と精度
+- source、source ref、content hash、section、page、短い根拠表現、そのhash、本文取得方法
+- 財務なら`monthly_actual / period_end_balance / annual_cumulative / financing_cash_flow / grant_deposit / grant_commitment_cap`
 - 売上算入可否、会社価値への直算入可否、会計上の扱い
-- file ID、content hash、section、page、短い根拠表現、そのhash、本文取得方法
 
-年度書類から月次実績を補間しない。
-pageが不明なら`null`であり0にしない。
-2項目から合計した値は`calculated`、片方だけなら`partial`とする。
+観測・推定・計算・欠測を混ぜない。
+pageが不明なら`null`、本文が読めないなら`missing`であり、0ではない。
 
-## 5. 財務分類とBZM 2.1接続
+## 8. 財務・BZM 2.1の追加規則
 
 | 書類上の値 | 分類 | 接続規則 |
 |---|---|---|
-| 現金及び預金 | 期末残高 | 期末日の観測。現行valuation dateの`C0`へ時点補正なしで直結しない |
-| 売上、営業損失、純損失、研究開発費、設備投資 | 年度累計 | 過年度実績。月次値、将来burn、将来売上へ自動外挿しない |
-| J-KISS、借入 | 資金調達CF | 売上ではなく、会社価値へ直加点しない |
-| 受領済み補助金の預り金 | 補助金預り | 流動性の観測。売上・会社価値へ直加点しない |
-| SBIR / NEDO / SusHi Techの上限 | 条件付きgrant cap | 受領額でも売上でもない。確定見込み日は根拠精度つきで保持する |
+| 現金及び預金 | 期末残高 | 期末日の観測。現行評価日の現預金へ時点補正なしで直結しない |
+| 売上、損失、研究開発費、設備投資 | 年度累計 | 月次値や将来値へ自動外挿しない |
+| J-KISS、借入 | 資金調達CF | 売上でも会社価値への直加点でもない |
+| 補助金預り | 受領済み預り | 流動性の観測。売上・会社価値へ直加点しない |
+| 補助事業上限 | 条件付き上限 | 受領額、売上、会社価値ではない |
 
-`bzm_input_candidates_json`は次版への接続候補であり、既存`bzm_2_1_input_observations`、現行SPS、会社価値を自動更新しない。
-観測、計算、欠測を保ったまま、次のBZM revisionで採用するか別レビューする。
+金額に単位が無い場合は、直前の「単位: 千円」等を読めた場合だけ換算する。
+補助金の完了・確定見込み日はfieldの時間属性であり、本人の対応期限へ流用しない。
+年度決算から月次実績を作らない。
 
-## 6. outbox、採否、正本
+`bzm_input_candidates_json`は次版への接続候補であり、既存BZM revision、SPS、会社価値を自動更新しない。
 
-1. collectorが`amd-os-important-document-outbox-v1`の`coverageGaps[]`を作る。
-2. `ms_progress_review_tool.mjs apply-outbox`が`l2_coverage_gaps(review_status='candidate')`と`l2_notifications(l2_kind='coverage_gap')`だけを書く。
-3. 通知の「はい」で、allowlist済みmetadata、lineage、facts、BZM入力候補を`project_important_documents(status='confirmed')`へ1件追加する。
-4. 「いいえ」はgapを`rejected`にし、重要書類正本を作らない。
-5. 正本行のevidence列はimmutableで、訂正は別content hashの新しい版として追加する。
+## 9. 候補、採否、正本
 
-raw PDF本文、URL、秘密値は正本表へ保存しない。
-同じsource hashを再投入してもconfirmed/rejectedを上書きしない。
-候補0件は正常なno-opで、空payloadを作らない。
+1. collector / meaning extractorが`amd-os-important-evidence-outbox-v2`の`coverageGaps[]`を作る。
+2. `ms_progress_review_tool.mjs apply-outbox`が`l2_coverage_gaps(candidate)`と通知だけを作る。
+3. 通知で採用された時だけ、非LLM feedback routeがallowlist済みmetadata、重要度、帰属根拠、lineage、facts、期限、接続先候補を`project_important_evidence`へ追記する。
+4. 不採用はgapを`rejected`にし、正本行を作らない。
+5. raw本文、URL、秘密値を正本表へ保存しない。
+6. 同じsource hashの再投入でconfirmed / rejectedを上書きしない。候補0件は正常なno-opとする。
 
-## 7. LST再現の合格条件
+既存`project_important_documents`はv1決算書候補の互換正本として残し、新規v2は`project_important_evidence`を使う。
 
-- LiSTie第3期、2025-04-01〜2026-03-31、監査報告ありのannual financial packageとして候補化される。
-- 同じ内容3所在は候補1件、lineage 3件になる。
-- 現預金、売上、営業損失、純損失、研究開発費、設備投資、J-KISS、借入、補助金預り、3補助事業上限を、期間区分・status・根拠・根拠がある締切とともに保持する。
-- 年度書類から月次実績を作らず、欠測の締切やpageを0にしない。
-- J-KISS、借入、補助金、grant capは売上・会社価値へ直算入されない。
-- outbox適用後のreadbackが`candidate`、対象PJ、content hash、lineage 3、facts件数、BZM接続候補件数を返す。
+## 10. 合格条件と検証
 
 fixture回帰は`cd pwa && npm run test:important-document-extraction`で行う。
 
-## 8. 全PJへの一般化
+- LSTの2025-04-01〜2026-03-31、監査ありPDFが候補になる。
+- 同一内容3所在は候補1件、lineage 3件になる。
+- 主要決算値、会計区分、根拠、status、根拠がある日付を保存する。
+- Word / Excel / PowerPoint / PDFの実bytesから本文を取得できる。
+- 画像PDFはOCR接続、または`text_read_required=true`で残り、事実を捏造しない。
+- 決算以外の技術、計画、契約、資金調達、ガバナンスを候補化できる。
+- 5生データを同じ共通候補へ流せる。
+- 別会社文書の本文後半にAMD名があってもAMDへ誤帰属しない。
+- 財務以外ではBZM候補を作らず、財務でも現行BZMを直接更新しない。
 
-抽出器はPJ固有の数値を持たず、project identityとdocument batchを入力にするため、同じ契約を他PJへ使える。
-次段階では次の順で広げる。
+2026-08-12の全PJ live auditでは、27 PJを検索し、25 PJでtitleだけでも重要候補を確認した。
+PDF、Word、Excel、Google文書を実読し、ZMPの画像PDFは本文0件ではなくOCR待ちとして識別した。
+このauditは候補・DB・元ファイルへ書き込まないdry-runである。
 
-1. ガバナンス監視ON/OFFとは別に、全PJ台帳の会社aliasとDrive rootを入力化する。
-2. 株主総会、取締役会、書面決議、事業報告、計算書類、監査報告を同じ探索面で全ページングする。
-3. scan cursorとcontent hash台帳で増分化し、PDF text失敗をOCR queueへ分ける。
-4. 会社名・対象期間・監査署名の日本語表記差をfixtureで増やす。
-5. 本番automation登録、cadence、通知上限は別の運用変更として承認後に追加する。今回、新しい定期writerは登録しない。
+## 11. 残課題
 
-残課題は、スキャンcursorの永続化、画像PDFのOCR品質、連結計算書類・修正版の版優先規則、既存DB断片とのfield単位照合UI、BZM次版の採用操作である。
+- 27 PJのうちDrive root未登録13 PJは、名前検索だけでなくrootを台帳へ補完する必要がある。
+- 旧`.doc / .xls / .ppt`の変換経路を追加する。
+- 画像PDFのOCR実行owner、上限、監視を現行subscription automationへ接続する。
+- claimed source refsとの全件coverage照合を強化し、既に別L2へ入ったfactを二重候補化しない。
+- `proposed_targets`を契約・ガバナンス・期限・経営ハイライトの既存正規writerへfield単位で接続する。
+- 24-48時間の増分scanだけでなく、初回backfillとscan cursorを分ける。

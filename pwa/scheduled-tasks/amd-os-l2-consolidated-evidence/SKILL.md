@@ -234,6 +234,12 @@ Phase M: OS Coverage Scanner (不在検知 / negative space)
     既知ベンダー送信元 (`smartround.com`/`everidays.com`/`cloudsign`/`docusign`/freee/法務局/特許事務所)、期日表現を含む。
   - 広告メルマガ・通知音的メール・既知 noise 送信元・既に responded のものは網から落とす。
   - salience 語/送信元 allowlist は DB 化して採否ループで育てる (= hardcode 最小化)。
+  - **Drive本文取得は形式をゲートにしない**。PDF / Word / Excel / PowerPoint / Google Docs・Sheets・Slides / text系を読み、titleだけでなく本文をsalience判定へ渡す。画像PDF / imageはOCR経路へ回し、OCR未接続・旧Office形式・大容量は`text_read_required=true`の候補またはrun gapとして残す。本文未取得を非該当や0へ変換しない。
+  - D-15は決算書専用ではない。決算・ガバナンス・契約・資金調達・補助金・技術結果・知財・事業計画・事業進展・リスク・人事・期限を同じ`important_evidence`候補契約へ正規化する。LSTは最初の回帰例で、PJ固有分岐を置かない。
+  - PJ帰属は会社名の任意出現だけで確定しない。PJ Drive root、title、親フォルダ、本文先頭の発行主体を強いanchorにし、本文後半の支援先・関係先名で別PJへ誤帰属させない。
+  - 内容hashが同じ複数所在は1候補へ束ねるが、全source ref / 親フォルダをlineageとして残す。本文が読めた文書は正規化本文hashを使い、コピーごとのbytes metadata差で二重計上しない。
+  - fieldは観測・推定・計算・欠測、対象期間・基準日・明示期限、source ref、短い根拠、そのhashを分ける。意味抽出fieldは短い根拠が原文に照合できる場合だけ採用する。
+  - 財務値だけは期間区分と会計区分を追加する。J-KISS / 借入 / 補助金 / 採択上限を売上や会社価値へ直加点しない。補助金の完了見込みは本人の対応期限へ流用しない。BZM現行revisionへ直接書かない。
 - (B) **coverage check (negative space の計算)**: 各L2テーブルが持つ raw 参照
   (`action_items.source_ref/source_hash`、`project_meeting_summaries`=calendar event id、`source_cache.text_sha256`、
   `project_registry_diffs.evidence_refs_json`、`contract_signals` の source refs、`l2_coverage_gaps.source_hash` 等) を横断して
@@ -246,6 +252,7 @@ Phase M: OS Coverage Scanner (不在検知 / negative space)
   - 重要だが分類先未確定 → `gap_class='uncertain'`, `proposed_target_l2=null`。**捨てずに candidate で残す** (まさ確定: 分類精度より取りこぼし防止)。
 - (D) **反映**: `POST /api/coverage-gaps/extract { items: [{ source, source_ref, source_hash, title, summary, salience_score, matched_patterns, proposed_target_l2, gap_class, project_id, scope, due_at, evidence_refs_json }] }`。
   `source_hash` で dedup (= confirmed/rejected を壊さない)。route が `l2_coverage_gaps`(review_status='candidate') + `l2_notifications(l2_kind='coverage_gap')` を作る。
+  D-15は`proposed_target_l2='important_evidence'`、`evidence_refs_json.important_evidence`へallowlist候補を入れる。候補発見時は`project_important_evidence`へ直接書かない。通知採用時だけ非LLM feedback routeが追記する。
 - (E) **採否**: `/notifications` で はい=confirmed / いいえ=rejected (+ tsukuyomi_learnings で類似 salience を抑制)。一覧と指標は `/admin/coverage-gaps`。
 - raw 本文は保存しない (summary + source_ref + hash + snippet のみ)。cap table 数値の自動確定はしない (= governance の手動キュレーションへ)。
 

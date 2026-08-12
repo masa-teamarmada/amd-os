@@ -1372,16 +1372,18 @@ async function upsertCoverageGaps(items) {
     const projectId = String(item.project_id || item.projectId || "").trim();
     const evidence = item.evidence_refs_json || item.evidenceRefs || {};
     const importantDocument = evidence?.important_document;
+    const importantEvidence = evidence?.important_evidence;
     const target = String(item.proposed_target_l2 || item.proposedTargetL2 || "").trim();
     if (!validSources.has(source)) throw new Error(`coverageGaps invalid source: ${source || "(empty)"}`);
     if (!/^[0-9a-f]{64}$/.test(sourceHash)) throw new Error(`coverageGaps invalid source_hash: ${sourceHash || "(empty)"}`);
     if (!projectId) throw new Error("coverageGaps missing project_id");
-    if (target !== "important_document") throw new Error(`coverageGaps unsupported target: ${target || "(empty)"}`);
-    if (!importantDocument || importantDocument.review_status !== "candidate") {
-      throw new Error("coverageGaps important_document candidate evidence is required");
+    if (!["important_document", "important_evidence"].includes(target)) throw new Error(`coverageGaps unsupported target: ${target || "(empty)"}`);
+    const candidate = target === "important_evidence" ? importantEvidence : importantDocument;
+    if (!candidate || candidate.review_status !== "candidate") {
+      throw new Error(`coverageGaps ${target} candidate evidence is required`);
     }
-    if (importantDocument.project_id !== projectId || importantDocument.source_hash !== sourceHash) {
-      throw new Error("coverageGaps important_document identity mismatch");
+    if (candidate.project_id !== projectId || candidate.source_hash !== sourceHash) {
+      throw new Error(`coverageGaps ${target} identity mismatch`);
     }
     return {
       gap_id: `cg:${sourceHash}`,
@@ -1392,8 +1394,9 @@ async function upsertCoverageGaps(items) {
       summary: String(item.summary || "").slice(0, 1200) || null,
       salience_score: confidenceValue(item.salience_score ?? item.salienceScore, 0.9),
       matched_patterns: item.matched_patterns || item.matchedPatterns || {
-        document_class: importantDocument.document_class,
-        audited: importantDocument.audited,
+        document_class: candidate.document_class,
+        categories: candidate.importance?.categories || [],
+        audited: candidate.audited,
       },
       proposed_target_l2: target,
       gap_class: validGapClasses.has(item.gap_class || item.gapClass)
@@ -1404,7 +1407,7 @@ async function upsertCoverageGaps(items) {
       due_at: item.due_at || item.dueAt || null,
       review_status: "candidate",
       evidence_refs_json: evidence,
-      created_by: item.created_by || "important_document_extractor",
+      created_by: item.created_by || "important_evidence_extractor",
       detected_at: item.detected_at || item.detectedAt || now,
       updated_at: now,
     };
@@ -1430,18 +1433,18 @@ async function upsertCoverageGaps(items) {
     .filter((row, index, all) => all.findIndex((other) => other.gap_id === row.gap_id) === index);
   for (const row of notificationRows) {
     const source = fresh.find((item) => item.source_hash === row.source_hash);
-    const tmp = path.join(os.tmpdir(), `amd-os-important-document-notification-${crypto.randomUUID()}.json`);
+    const tmp = path.join(os.tmpdir(), `amd-os-important-evidence-notification-${crypto.randomUUID()}.json`);
     writeJson(tmp, {
       l2_kind: "coverage_gap",
       target_id: row.project_id,
       scope_key: row.gap_id,
-      title: "正式な重要書類を正本化する？",
-      summary: source?.summary || "重要書類候補を1件検出",
+      title: "この重要情報をAMD OSに残す？",
+      summary: source?.summary || "重要情報候補を1件検出",
       saved_count: 0,
       total_count: 1,
       importance: 8,
       metadata_json: {
-        proposed_target_l2: "important_document",
+        proposed_target_l2: row.proposed_target_l2,
         source: source?.source || "drive",
         source_hash: row.source_hash,
       },
@@ -1470,7 +1473,7 @@ async function readbackCoverageGap(sourceHash) {
     `select=gap_id,project_id,source_hash,proposed_target_l2,review_status,routed_to,evidence_refs_json&source_hash=eq.${enc(normalized)}&limit=1`,
   );
   const row = rows?.[0] || null;
-  const document = row?.evidence_refs_json?.important_document || null;
+  const document = row?.evidence_refs_json?.important_evidence || row?.evidence_refs_json?.important_document || null;
   return {
     ok: true,
     found: Boolean(row),
@@ -1487,8 +1490,8 @@ async function readbackCoverageGap(sourceHash) {
       lineage_count: Array.isArray(document.lineage) ? document.lineage.length : 0,
       fact_count: Array.isArray(document.facts) ? document.facts.length : 0,
       bzm_input_candidate_count: Array.isArray(document.bzm_input_candidates) ? document.bzm_input_candidates.length : 0,
-      reporting_period_start: document.reporting_period_start,
-      reporting_period_end: document.reporting_period_end,
+      reporting_period_start: document.effective_period_start || document.reporting_period_start,
+      reporting_period_end: document.effective_period_end || document.reporting_period_end,
       audited: document.audited,
     } : null,
   };

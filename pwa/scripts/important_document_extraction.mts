@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { extractImportantDocuments, toCoverageGapOutbox, type ImportantDocumentBatch } from "./lib/important_document_extraction.mts";
+import { extractImportantEvidence, toImportantEvidenceOutbox, type ImportantEvidenceBatch } from "./lib/important_evidence_extraction.mts";
+import { extractImportantDocuments, type ImportantDocumentBatch } from "./lib/important_document_extraction.mts";
 
 function parseArgs(argv: string[]) {
   const args: Record<string, string | boolean> = {};
@@ -22,8 +23,9 @@ function parseArgs(argv: string[]) {
 const args = parseArgs(process.argv.slice(2));
 const inputPath = typeof args.file === "string" ? path.resolve(args.file) : "";
 if (!inputPath) throw new Error("--file <batch.json> is required");
-const batch = JSON.parse(fs.readFileSync(inputPath, "utf8")) as ImportantDocumentBatch;
-const outbox = toCoverageGapOutbox(extractImportantDocuments(batch));
+const raw = JSON.parse(fs.readFileSync(inputPath, "utf8")) as ImportantEvidenceBatch | ImportantDocumentBatch;
+const result = "documents" in raw ? extractImportantDocuments(raw) : extractImportantEvidence(raw);
+const outbox = toImportantEvidenceOutbox(result);
 const serialized = `${JSON.stringify(outbox, null, 2)}\n`;
 if (typeof args.out === "string") {
   const outputPath = path.resolve(args.out);
