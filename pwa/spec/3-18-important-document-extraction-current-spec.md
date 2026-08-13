@@ -142,6 +142,7 @@ pageが不明なら`null`、本文が読めないなら`missing`であり、0で
 9. 原文に明記されていても、計画・予測・見積・意向・審査中・未締結は実績`observed`ではなく`inferred`として保存する。`status`には計画、承認、契約済み、着金、完了、未確認等の原文上の段階を残す。
 10. 抜粋・部分読取は`text_read_required=true`で保持し、画面でも全文未確認と出す。URL、メール、電話番号、認証情報は、候補・通知・正本へ入る短文を非LLMでsanitizeする。
 11. 資金調達・借入・補助金は、売上と会社価値への算入が両方とも明示的に`false`の候補だけを正本化できる。保存処理が失敗した場合は通知を回答済みにしない。
+12. `project_important_evidence`への正本化が成功した直後にだけ、同じ事象をBZM 2.2獲得台帳`project_bzm_2_2_acquisitions`へ表示専用の1行として派生させる。写像は非LLM (`src/lib/bzm-2-2-acquisition-from-evidence.ts`)、キーは`important_evidence:{content_sha256}`で冪等。閉じた条件・消費・行動の増減は抽出では埋めず空のまま残す (未取得であり「無し」ではない)。台帳への書き込みが失敗しても重要情報の正本化は取り消さず、通知の応答文言に失敗を添えるだけにする。契約は[`4-6 BZM 2.2 獲得台帳`](4-6-bzm-22-acquisition-ledger-current-spec.md) §6が正本。
 
 `/notifications`では汎用coverage gapの「重要メモにコピー」表示を使わず、「重要情報として保存 / 保存しない」を出す。採否前に、分類、対象期間、監査、lineage数、本文読取状態、fieldごとの値・観測状態・短い根拠を展開表示する。
 

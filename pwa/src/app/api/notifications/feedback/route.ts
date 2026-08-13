@@ -27,6 +27,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { syncRewardSummaryForCycle } from "@/lib/reward-summary";
+import { buildBzm22AcquisitionFromImportantEvidence } from "@/lib/bzm-2-2-acquisition-from-evidence";
 import {
   importantEvidenceFactMustExcludeFromValue,
   normalizeImportantEvidenceMaterialKind,
@@ -645,6 +646,47 @@ async function routeCoverageGapIfSupported(args: {
   };
 }
 
+/** ISO時刻をJSTの日付へ落とす (獲得台帳の information_cutoff 用)。 */
+function jstYmd(iso: string): string {
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return new Date(parsed.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/**
+ * 正本化できた重要情報を、BZM 2.2 獲得台帳へ表示専用の1事象として写す (spec 4-6 §6)。
+ *
+ * - 採用された候補からしか作らない。候補のままの行は台帳に入れない
+ * - `canonical_event_key` は content hash 由来なので、再採用しても重複しない
+ * - 閉じた条件 / 消費 / 行動の増減は抽出では埋めない (未取得であり「無し」ではない)
+ * - 台帳への書き込みが失敗しても重要情報の正本化は取り消さない。結果を文言で返すだけ
+ */
+async function upsertBzm22AcquisitionFromEvidence(args: {
+  db: ReturnType<typeof getServiceClient>;
+  candidate: Record<string, unknown>;
+  projectId: string;
+  importantEvidenceId: string;
+  now: string;
+}): Promise<string> {
+  try {
+    const acquisition = buildBzm22AcquisitionFromImportantEvidence({
+      candidate: args.candidate,
+      projectId: args.projectId,
+      importantEvidenceId: args.importantEvidenceId || null,
+      confirmedOn: jstYmd(args.now),
+    });
+    if (!acquisition) return "";
+    const { error } = await args.db
+      .from("project_bzm_2_2_acquisitions")
+      .upsert({ ...acquisition, updated_at: args.now }, { onConflict: "project_id,canonical_event_key" });
+    return error
+      ? `。獲得台帳への反映は失敗 (${error.message})`
+      : "。獲得台帳へ表示専用の1事象として並べた (計算には入れない)";
+  } catch (err) {
+    return `。獲得台帳への反映は失敗 (${err instanceof Error ? err.message : "unknown"})`;
+  }
+}
+
 /**
  * 決算書に限らない重要情報候補を、通知で採用された時だけ原本索引へ追記する。
  * 本文全文は保存せず、短い根拠、hash、lineage、接続先候補だけをallowlistする。
@@ -715,9 +757,14 @@ async function routeImportantEvidenceCoverageGap(args: {
   if (existingError) return { error: `重要情報の重複確認に失敗: ${existingError.message}` };
   if (existing) {
     const id = String(existing.important_evidence_id || "");
+    // 正本は既にあるが獲得台帳が空のことがある (台帳追加より前に正本化した分)。
+    // upsert は canonical_event_key で冪等なので、ここで並べ直しても重複しない。
+    const note = await upsertBzm22AcquisitionFromEvidence({
+      db, candidate, projectId, importantEvidenceId: id, now: args.now,
+    });
     return {
       routedTo: id ? `project_important_evidence:${id}` : "project_important_evidence",
-      message: "同じ内容hashの重要情報はすでに正本化済み",
+      message: `同じ内容hashの重要情報はすでに正本化済み${note}`,
       row: { ...existing, already_existed: true },
     };
   }
@@ -771,9 +818,14 @@ async function routeImportantEvidenceCoverageGap(args: {
     .single();
   if (error) return { error: `重要情報の正本化に失敗: ${error.message}` };
   const id = String(data?.important_evidence_id || "");
+
+  const acquisitionNote = await upsertBzm22AcquisitionFromEvidence({
+    db, candidate, projectId, importantEvidenceId: id, now: args.now,
+  });
+
   return {
     routedTo: id ? `project_important_evidence:${id}` : "project_important_evidence",
-    message: "重要情報を内容hash単位で1件正本化した。接続先とBZM入力は候補のまま分離した",
+    message: `重要情報を内容hash単位で1件正本化した。接続先とBZM入力は候補のまま分離した${acquisitionNote}`,
     row: data,
   };
 }

@@ -123,7 +123,42 @@ RLS は `project_management_tracks` と同方針（read は全員、書きは `i
 - `status='active'` のみ、`occurred_on` 降順（点数順に並べ替えない）
 - 返り値: `{ projectId, displayOnly, acquisitions[] }`。`displayOnly` は全行が `display_only` のとき true
 
-書き込み API は第1段では設けない。投入は migration もしくは `source_origin='extraction'` の抽出パイプライン側から行う。
+人が直接叩く書き込み API は第1段では設けない。投入経路は次の2つだけ。
+
+1. migration（`source_origin='manual'`）
+2. 重要情報の正本化に相乗りする派生書き込み（`source_origin='extraction'`）
+
+### 抽出由来の派生書き込み
+
+通知で「重要情報として保存する」が採用され、`project_important_evidence` への正本化が成功した直後にだけ、
+同じ事象を獲得台帳へ1行写す。実装は
+[`src/lib/bzm-2-2-acquisition-from-evidence.ts`](../src/lib/bzm-2-2-acquisition-from-evidence.ts) の
+`buildBzm22AcquisitionFromImportantEvidence()` と、
+`src/app/api/notifications/feedback/route.ts` の `upsertBzm22AcquisitionFromEvidence()`。
+LLM を呼ばない純粋写像で、判断は一切しない。
+
+| 台帳の列 | 抽出由来での埋め方 |
+|---|---|
+| `canonical_event_key` | `important_evidence:{content_sha256}` |
+| `occurred_on` | 監査日 → 決算日 → 対象期間末 → 資料の更新日/作成日 → 検知日 の順で最初に採れたもの |
+| `audit_tags` | 重要度カテゴリ → 監査タグの写像（多重付与。排他分類にしない） |
+| `state_effects` | 重要度カテゴリ → 状態8層の写像。`effect` は「この層の証拠が増えた」だけを書き、量を書かない |
+| `evidence_stage` | 文書自身の日付が採れ、かつ全文読取済みのときだけ `observed`。それ以外は `estimated` |
+| `evidence_refs` | `lineage` をそのまま参照へ。原文取得が未了なら `note` に明記 |
+| `closed_constraints` / `consumed` / `action_delta` | **常に空**（後述） |
+| `numeric_binding` | 常に `display_only` |
+
+**三点セットを抽出で埋めない理由**: どの制約が `不明`／`違反` から `充足` へ動いたかは意味判断であり、
+カテゴリの allowlist 写像で機械的に埋めると「未取得」を「無し」あるいは「充足」に見せてしまう。
+2.2 §10 の「missing を 0 に読み替えない」に反する。空配列は未取得であって 0 ではなく、
+UI は「記録なし（未取得）」と描く。ここを埋めるのは第2段（§2）で、人またはモデルの判断を経てからにする。
+
+**冪等性と失敗時の扱い**: `UNIQUE (project_id, canonical_event_key)` に対する upsert なので、
+同じ資料を何度採用しても行は増えない。既に正本化済みの重要情報を再採用した場合も同じ写像を通すので、
+台帳追加より前に正本化した分をここで拾える。台帳への書き込みが失敗しても重要情報の正本化は取り消さず、
+API 応答の `message` に失敗した旨だけを足す（獲得台帳は重要情報の従属物であり、逆ではない）。
+
+契約テストは `npm run test:bzm-2-2-acquisition-from-evidence`。
 
 ## 7. UI
 
