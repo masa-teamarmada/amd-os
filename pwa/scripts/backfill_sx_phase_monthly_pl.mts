@@ -41,7 +41,7 @@ function phase0() {
   const phaseMonths = months("2026-07", "2027-03");
   const totals: Record<Field, number> = { revenue_yen: 0, cogs_yen: 0, personnel_yen: 5_000_000, rd_yen: 40_000_000, marketing_yen: 10_000_000, other_opex_yen: 5_000_000 };
   const values = Object.fromEntries(Object.entries(totals).map(([field, total]) => [field, distribute(total, phaseMonths.map(() => 1))])) as Record<Field, number[]>;
-  return phaseMonths.map((ym, index): Row => ({ project_id: PROJECT_ID, ym, revenue_yen: values.revenue_yen[index], cogs_yen: values.cogs_yen[index], personnel_yen: values.personnel_yen[index], rd_yen: values.rd_yen[index], marketing_yen: values.marketing_yen[index], other_opex_yen: values.other_opex_yen[index], notes: `${SOURCE_TAG}; 計画値/推定値（低精度）; Phase 0 PSI・会社設立準備。月別一次内訳なしのため9か月均等按分。PSI等6,000万円は資金源であり売上へ非算入。` }));
+  return phaseMonths.map((ym, index): Row => ({ project_id: PROJECT_ID, ym, revenue_yen: values.revenue_yen[index], cogs_yen: values.cogs_yen[index], personnel_yen: values.personnel_yen[index], rd_yen: values.rd_yen[index], marketing_yen: values.marketing_yen[index], other_opex_yen: values.other_opex_yen[index], notes: `${SOURCE_TAG}; 計画値/推定値（低精度）; Phase 0 PSI・会社設立準備。2027-01までは設立前PJ支出でありNewCoのP/L・営業損失ではない。月別一次内訳なしのため9か月均等按分。PSI等6,000万円は資金源であり売上へ非算入。` }));
 }
 function annual() {
   const rows: Row[] = [];
@@ -69,6 +69,7 @@ const rows = [...phase0(), ...generatedAnnual].filter((row) => row.ym >= START_Y
 if (rows.length !== 62) throw new Error(`row count mismatch: ${rows.length}`);
 const phase0Cost = rows.filter((row) => row.ym <= "2027-03").reduce((sum, row) => sum + row.personnel_yen + row.rd_yen + row.marketing_yen + row.other_opex_yen, 0);
 if (phase0Cost !== 60_000_000) throw new Error(`Phase 0 tie-out failed: ${phase0Cost}`);
+if (rows.filter((row) => row.ym <= "2027-01").some((row) => !row.notes.includes("設立前PJ支出でありNewCoのP/L・営業損失ではない"))) throw new Error("設立前PJ支出の会計主体注記が欠けている");
 const db = createClient(env("NEXT_PUBLIC_SUPABASE_URL") ?? "", env("SUPABASE_SERVICE_ROLE_KEY") ?? "", { auth: { persistSession: false, autoRefreshToken: false } });
 const { data: existing, error } = await db.from("project_pl_monthly").select("project_id,ym,revenue_yen,cogs_yen,personnel_yen,rd_yen,marketing_yen,other_opex_yen,notes").eq("project_id", PROJECT_ID).gte("ym", START_YM).lte("ym", END_YM).order("ym");
 if (error) throw error;

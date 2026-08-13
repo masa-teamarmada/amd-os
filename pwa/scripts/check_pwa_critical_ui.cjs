@@ -1897,8 +1897,12 @@ expectIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   'data-testid="bzm22-formula-substitution-board"',
   "AnnotatedFormula",
   "FormulaTerm",
+  'data-testid="bzm22-formula-term"',
+  "w-max min-w-[152px] max-w-[720px] shrink-0 self-start",
+  "flex w-max items-start",
   "全パラメータ",
   'data-testid="bzm22-formula-parameter-table"',
+  "text-left font-medium leading-4 tabular-nums",
   "条件ごとの実数を開く",
   "逆風ごとの補正値を開く",
   "60か月すべての CFₜ・dₜ・Wₜ を開く",
@@ -1923,6 +1927,18 @@ expectNotIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   "理論上のq_robでも信頼区間でもない",
   "式に出てくる全記号",
   "Q × P はJではない",
+  "items-stretch",
+  "min-w-[168px] flex-1",
+]);
+expectIncludes("src/components/cockpit/Bzm22TimeLedger.tsx", [
+  "設立前PJ支出 / NewCo P/L",
+  "SX_PREINCORPORATION_SPEND_ROW",
+  'data-accounting-scope={notApplicableBeforeIncorporation ? "not-applicable-before-incorporation" : undefined}',
+  'if (beforeIncorporation && (key === "gross_profit" || key === "operating_profit")) return null;',
+]);
+expectIncludes("scripts/backfill_sx_phase_monthly_pl.mts", [
+  "設立前PJ支出でありNewCoのP/L・営業損失ではない",
+  "設立前PJ支出の会計主体注記が欠けている",
 ]);
 expectIncludes("src/components/cockpit/Bzm22CockpitSummary.tsx", [
   'data-testid="cockpit-bzm22-primary"',

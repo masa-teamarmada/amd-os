@@ -30,6 +30,7 @@ const sxFundingTimingApiPath = path.join(root, "src/app/api/project/[projectId]/
 const loaderPath = path.join(root, "src/lib/bzm-2-2-pilot-ui.server.ts");
 const componentPath = path.join(root, "src/components/cockpit/Bzm22ProvisionalObservatory.tsx");
 const timeLedgerPath = path.join(root, "src/components/cockpit/Bzm22TimeLedger.tsx");
+const sxMonthlyBackfillPath = path.join(root, "scripts/backfill_sx_phase_monthly_pl.mts");
 const scoreDetailPath = path.join(root, "src/components/cockpit/CockpitAmdScoreDetailTab.tsx");
 const cockpitSummaryPath = path.join(root, "src/components/cockpit/Bzm22CockpitSummary.tsx");
 const cockpitVenturePath = path.join(root, "src/components/cockpit/CockpitVentureStatus.tsx");
@@ -472,9 +473,13 @@ requireIncludes(componentSource, [
   'data-testid="bzm22-formula-substitution-board"',
   "AnnotatedFormula",
   "FormulaTerm",
+  'data-testid="bzm22-formula-term"',
+  "w-max min-w-[152px] max-w-[720px] shrink-0 self-start",
+  "flex w-max items-start",
   "の数式と代入値",
   "全パラメータ",
   'data-testid="bzm22-formula-parameter-table"',
+  'text-left font-medium leading-4 tabular-nums',
   "条件ごとの実数を開く",
   "逆風ごとの補正値を開く",
   "60か月すべての CFₜ・dₜ・Wₜ を開く",
@@ -499,6 +504,10 @@ requireIncludes(timeLedgerSource, [
   "単位：百万円",
   "計上主体",
   "設立前PJ",
+  "設立前PJ支出 / NewCo P/L",
+  "SX_PREINCORPORATION_SPEND_ROW",
+  'data-accounting-scope={notApplicableBeforeIncorporation ? "not-applicable-before-incorporation" : undefined}',
+  'if (beforeIncorporation && (key === "gross_profit" || key === "operating_profit")) return null;',
   "NewCo C/F・資金繰り",
   "設立前DD完了期限",
   "C/F・資金繰り",
@@ -527,6 +536,11 @@ requireIncludes(timeLedgerSource, [
   "[--bzm-ledger-label-width:108px]",
   "sm:[--bzm-ledger-label-width:172px]",
 ], "BZM 2.2 shared event/monthly ledger");
+const sxMonthlyBackfillSource = requireText(sxMonthlyBackfillPath);
+requireIncludes(sxMonthlyBackfillSource, [
+  "設立前PJ支出でありNewCoのP/L・営業損失ではない",
+  "設立前PJ支出の会計主体注記が欠けている",
+], "SX monthly PL accounting-entity notes");
 requireIncludes(componentSource, ['data-density="compact-score"'], "BZM 2.2 compact score density");
 requireIncludes(scoreDetailSource, ['data-density="compact-score-page"', "space-y-1"], "score detail compact density");
 if (timeLedgerSource.includes('`${value < 0 ? "-" : ""}¥${rounded.toLocaleString("ja-JP")}M`')) {
@@ -545,6 +559,9 @@ for (const forbidden of [
   "Q × P はJではない",
 ]) {
   if (componentSource.includes(forbidden)) throw new Error(`BZM 2.2 UI still exposes legacy wording: ${forbidden}`);
+}
+for (const forbidden of ["items-stretch", "min-w-[168px] flex-1"]) {
+  if (componentSource.includes(forbidden)) throw new Error(`BZM 2.2 formula term still stretches to fill unused space: ${forbidden}`);
 }
 if (componentSource.includes("parameter.usedInCalculation")) {
   throw new Error("BZM 2.2 UI must use six-way formula relation, not usedInCalculation boolean");

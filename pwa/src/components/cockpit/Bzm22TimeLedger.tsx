@@ -52,7 +52,7 @@ type PlField =
   | "marketing_yen"
   | "other_opex_yen";
 
-type PlMetricKey = PlField | "gross_profit" | "operating_profit";
+type PlMetricKey = PlField | "gross_profit" | "preincorporation_spend" | "operating_profit";
 
 const PL_ROWS: Array<{
   key: PlMetricKey;
@@ -67,6 +67,18 @@ const PL_ROWS: Array<{
   { key: "marketing_yen", label: "マーケ費", kind: "input" },
   { key: "other_opex_yen", label: "その他販管費", kind: "input" },
   { key: "operating_profit", label: "営業利益", kind: "calculated" },
+];
+
+const SX_PREINCORPORATION_SPEND_ROW = {
+  key: "preincorporation_spend",
+  label: "設立前PJ支出",
+  kind: "calculated",
+} as const;
+
+const SX_PL_ROWS: typeof PL_ROWS = [
+  ...PL_ROWS.slice(0, -1),
+  SX_PREINCORPORATION_SPEND_ROW,
+  PL_ROWS[PL_ROWS.length - 1],
 ];
 
 interface Draft {
@@ -159,7 +171,25 @@ function plValue(row: ProjectPlMonthly, key: PlMetricKey) {
     return revenue - cogs - Number(row.personnel_yen) - Number(row.rd_yen)
       - Number(row.marketing_yen) - Number(row.other_opex_yen);
   }
+  if (key === "preincorporation_spend") {
+    return cogs + Number(row.personnel_yen) + Number(row.rd_yen)
+      + Number(row.marketing_yen) + Number(row.other_opex_yen);
+  }
   return Number(row[key]);
+}
+
+function plDisplayValue(
+  row: ProjectPlMonthly,
+  key: PlMetricKey,
+  projectId: string,
+  ym: string,
+  incorporationYm: string,
+) {
+  if (projectId !== "p21") return key === "preincorporation_spend" ? null : plValue(row, key);
+  const beforeIncorporation = ym < incorporationYm;
+  if (key === "preincorporation_spend") return beforeIncorporation ? plValue(row, key) : null;
+  if (beforeIncorporation && (key === "gross_profit" || key === "operating_profit")) return null;
+  return plValue(row, key);
 }
 
 function formatMillionFromYen(value: number) {
@@ -570,6 +600,7 @@ export function Bzm22TimeLedger({
   }, [eventGroups.positioned, selectedMonth]);
 
   const rowByMonth = useMemo(() => new Map(rows.map((row) => [row.ym, row])), [rows]);
+  const visiblePlRows = pilot.projectId === "p21" ? SX_PL_ROWS : PL_ROWS;
   const sxCashLedger = useMemo(() => {
     if (pilot.projectId !== "p21") return [] as SxCashLedgerRow[];
     const financeRows = buildSxMonthlyFinancePlan(axis.map((month) => month.ym), sxEquityEvents)
@@ -639,18 +670,19 @@ export function Bzm22TimeLedger({
     }
     return grouped;
   }, [axis, sxEquityEvents, sxGrantEvidence]);
-  const sxPhaseCommentsByMonth = useMemo(() => new Map(
+  const sxPhaseCommentsByCell = useMemo(() => new Map(
     SX_BUSINESS_PLAN_PHASES.flatMap((phase): Array<[string, LedgerCellComment]> => {
       const ym = phaseStartYm(phase.period);
       if (!axis.some((month) => month.ym === ym)) return [];
-      return [[ym, {
+      const metricKey: PlMetricKey = ym < sxIncorporationYm ? "preincorporation_spend" : "operating_profit";
+      return [[`${metricKey}:${ym}`, {
         id: `phase-start-${phase.id}`,
         title: `${phase.label} 開始`,
-        detail: `${phase.period}。フェーズ予算 ${formatMillionFromYen(phase.budgetYen)}、開始時の資金計画は${phase.openingRound}。月次P/Lは一次月別内訳がない範囲を推定配賦している。`,
+        detail: `${phase.period}。フェーズ予算 ${formatMillionFromYen(phase.budgetYen)}、開始時の資金計画は${phase.openingRound}。${metricKey === "preincorporation_spend" ? "会社設立前はNewCoの営業損失にせず、PJ支出として表示する。" : "月次P/Lは一次月別内訳がない範囲を推定配賦している。"}`,
         evidenceState: "plan",
       }]];
     }),
-  ), [axis]);
+  ), [axis, sxIncorporationYm]);
   const selectedGroup = eventGroups.positioned.find((group) => group.monthIndex === selectedMonth) ?? null;
   const registeredPolicy = pilot.timeline.lanes.find((lane) => lane.key === "registered_policy")?.items[0];
   const gridStyle = {
@@ -823,33 +855,39 @@ export function Bzm22TimeLedger({
           ) : null}
 
           <div className="contents">
-            <div className="sticky left-0 z-30 border-b border-r border-slate-300 bg-[#173f51] px-2 py-0.5 text-[10px] font-semibold leading-4 text-white">設立前PJ / NewCo P/L</div>
+            <div className="sticky left-0 z-30 border-b border-r border-slate-300 bg-[#173f51] px-2 py-0.5 text-[10px] font-semibold leading-4 text-white">設立前PJ支出 / NewCo P/L</div>
             {axis.map((month) => <MonthCellFrame key={`pl-section-${month.ym}`} month={month} className={`bg-[#173f51] ${month.ym === sxIncorporationYm ? "border-l-2 border-l-white" : ""}`} />)}
           </div>
 
-          {PL_ROWS.map((metric) => {
-            const total = axis.reduce((sum, month) => sum + plValue(rowByMonth.get(month.ym) ?? emptyPlRow(pilot.projectId, month.ym), metric.key), 0);
+          {visiblePlRows.map((metric) => {
+            const total = axis.reduce((sum, month) => sum + (plDisplayValue(rowByMonth.get(month.ym) ?? emptyPlRow(pilot.projectId, month.ym), metric.key, pilot.projectId, month.ym, sxIncorporationYm) ?? 0), 0);
             const result = metric.key === "operating_profit";
+            const metricLabel = pilot.projectId === "p21" && metric.key === "gross_profit"
+              ? "粗利（NewCo）"
+              : pilot.projectId === "p21" && metric.key === "operating_profit"
+                ? "営業利益（NewCo）"
+                : metric.label;
             return (
-              <div key={metric.key} className="contents">
-                <div className={`sticky left-0 z-30 flex items-center justify-between gap-1 border-b border-r border-slate-300 px-2 py-0.5 ${result ? "bg-[#edf3f5]" : "bg-white"}`}>
-                  <div className={`truncate text-[10px] leading-4 ${result ? "font-semibold text-[#173f51]" : "text-slate-700"}`}>{metric.label}</div>
+              <div key={metric.key} className="contents" data-testid={`bzm22-pl-row-${metric.key}`}>
+                <div className={`sticky left-0 z-30 flex items-center justify-between gap-1 border-b border-r border-slate-300 px-2 py-0.5 ${result || metric.key === "preincorporation_spend" ? "bg-[#edf3f5]" : "bg-white"}`}>
+                  <div className={`truncate text-[10px] leading-4 ${result || metric.key === "preincorporation_spend" ? "font-semibold text-[#173f51]" : "text-slate-700"}`}>{metricLabel}</div>
                   <div className="truncate text-right font-mono text-[8px] leading-3 tabular-nums text-slate-500">計 {formatMillionFromYen(total)}</div>
                 </div>
                 {axis.map((month) => {
                   const row = rowByMonth.get(month.ym) ?? emptyPlRow(pilot.projectId, month.ym);
-                  const value = plValue(row, metric.key);
-                  const comments = result ? [sxPhaseCommentsByMonth.get(month.ym)].filter((comment): comment is LedgerCellComment => Boolean(comment)) : [];
+                  const value = plDisplayValue(row, metric.key, pilot.projectId, month.ym, sxIncorporationYm);
+                  const comments = [sxPhaseCommentsByCell.get(`${metric.key}:${month.ym}`)].filter((comment): comment is LedgerCellComment => Boolean(comment));
+                  const notApplicableBeforeIncorporation = value === null && month.ym < sxIncorporationYm;
                   return (
                     <MonthCellFrame key={`${metric.key}-${month.ym}`} month={month} className={`px-1.5 py-0.5 text-right ${comments.length > 0 ? "bg-amber-50/70" : metric.kind === "calculated" ? "bg-slate-50" : "bg-white"} ${month.ym === sxIncorporationYm ? "border-l-2 border-l-[#173f51]" : ""}`}>
                       {metric.kind === "input" ? (
-                        <button type="button" onClick={() => startEdit(month)} className="block w-full text-right font-mono text-[11px] leading-4 tabular-nums text-slate-700 hover:text-[#173f51] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d8a96] decoration-dotted" title={`${month.ym}の${metric.label}を編集`}>
-                          {formatMillionFromYen(value)}
+                        <button type="button" onClick={() => startEdit(month)} className="block w-full text-right font-mono text-[11px] leading-4 tabular-nums text-slate-700 hover:text-[#173f51] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d8a96] decoration-dotted" title={`${month.ym}の${metricLabel}を編集`}>
+                          {formatMillionFromYen(value ?? 0)}
                         </button>
                       ) : (
-                        <span className="flex items-center justify-end gap-1">
-                          <FinanceCellComment comments={comments} ym={month.ym} metricLabel={metric.label} />
-                          <span className={`font-mono text-[11px] leading-4 tabular-nums ${result && value < 0 ? "text-rose-700" : "text-slate-700"}`}>{formatMillionFromYen(value)}</span>
+                        <span className="flex items-center justify-end gap-1" data-accounting-scope={notApplicableBeforeIncorporation ? "not-applicable-before-incorporation" : undefined}>
+                          <FinanceCellComment comments={comments} ym={month.ym} metricLabel={metricLabel} />
+                          <span className={`font-mono text-[11px] leading-4 tabular-nums ${result && typeof value === "number" && value < 0 ? "text-rose-700" : "text-slate-700"}`} title={notApplicableBeforeIncorporation ? "会社設立前のためNewCoのP/L対象外" : undefined}>{value === null ? "—" : formatMillionFromYen(value)}</span>
                         </span>
                       )}
                     </MonthCellFrame>
