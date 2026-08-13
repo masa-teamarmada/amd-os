@@ -284,8 +284,8 @@ function detailLines(input: ReimbursementSummary): string[] {
 }
 
 /**
- * Slack の承認ボタン。押下は Cloud Run → GAS キュー → `/api/slack/reimbursement-decision` の順で
- * Supabase へ反映される。状態に応じて PM 承認 / admin 承認を出し分ける。
+ * Slack の承認ボタン。押下は Slack → `/api/slack/interactive` で直接 Supabase へ反映される
+ * (2026-08-13 に Cloud Run → GAS キュー経由から移行)。状態に応じて PM 承認 / admin 承認を出し分ける。
  */
 function approvalButtons(input: ReimbursementSummary) {
   const status = String(input.status ?? "submitted");
