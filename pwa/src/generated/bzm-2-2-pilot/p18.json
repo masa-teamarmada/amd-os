@@ -130,6 +130,8 @@
             "status": "historical_terminal_not_current_recommendation",
             "precision": "registered_shadow",
             "authorityStatus": "unconfirmed_not_executable_recommendation",
+            "choiceRole": "evaluation_selection",
+            "choiceLabel": "評価上の選択: 歴史的終端・整理済み",
             "sourceRefCount": 8,
             "description": "歴史的終端の分類記録。現在の推奨行動ではない。"
           }
@@ -160,6 +162,8 @@
             "precision": "unknown",
             "sourceStatus": "unknown",
             "sourceRefCount": 0,
+            "choiceRole": "inherited_registered_policy",
+            "choiceLabel": "前提にした登録方針: 歴史的終端・整理済み",
             "description": "登録済み固定方針に紐づく計画ゲート。表示月は意思決定日ではない。"
           },
           {
@@ -181,6 +185,8 @@
             "availabilityStatus": "not_cash_receipt",
             "amountMillionJpy": null,
             "probability": null,
+            "choiceRole": "inherited_registered_policy",
+            "choiceLabel": "前提にした登録方針: 歴史的終端・整理済み",
             "description": "資金パッケージ成立性の計算用ゲート。資金調達の決定、契約、入金ではない。"
           }
         ]
@@ -192,6 +198,81 @@
         "items": []
       }
     ]
+  },
+  "simulation": {
+    "saveMode": "browser_only_not_saved",
+    "valuationDate": "2026-08-12",
+    "currentPolicyId": "historical_terminal_closeout",
+    "policyOptions": [
+      {
+        "id": "historical_terminal_maintenance",
+        "label": "歴史的終端の維持管理",
+        "registrationRole": "unregistered_shadow_alternative",
+        "authorityStatus": "unconfirmed",
+        "sourceRefCount": 0,
+        "calculationStatus": "not_calculable",
+        "metrics": null
+      },
+      {
+        "id": "asset_transfer_scan",
+        "label": "資産移管先の探索",
+        "registrationRole": "unregistered_shadow_alternative",
+        "authorityStatus": "unconfirmed",
+        "sourceRefCount": 0,
+        "calculationStatus": "not_calculable",
+        "metrics": null
+      },
+      {
+        "id": "relaunch",
+        "label": "事業再立上げ",
+        "registrationRole": "unregistered_shadow_alternative",
+        "authorityStatus": "unconfirmed",
+        "sourceRefCount": 0,
+        "calculationStatus": "not_calculable",
+        "metrics": null
+      },
+      {
+        "id": "historical_terminal_closeout",
+        "label": "歴史的終端・整理済み",
+        "registrationRole": "historical_terminal_shadow",
+        "authorityStatus": "unconfirmed",
+        "sourceRefCount": 0,
+        "calculationStatus": "exact_frozen_engine_at_valuation_date",
+        "metrics": {
+          "jValueMillionJpy": {
+            "low": 4.535067,
+            "base": 11.999801,
+            "high": 23.818419
+          },
+          "conditionalSuccessValueMillionJpy": {
+            "low": null,
+            "base": null,
+            "high": null
+          },
+          "qGateProductProxy": {
+            "low": 0.0025,
+            "base": 0.0225,
+            "high": 0.0975
+          },
+          "qStressProxy": {
+            "low": 0.0025,
+            "base": 0.0225,
+            "high": 0.0975
+          }
+        }
+      }
+    ],
+    "comparisonOptionIds": [
+      "historical_terminal_maintenance",
+      "asset_transfer_scan",
+      "relaunch"
+    ],
+    "engineConnection": {
+      "policyAtValuationDate": "exact_precomputed_frozen_engine",
+      "policyDateChange": "not_connected",
+      "futureDecisionCandidate": "not_connected",
+      "futureDecisionDate": "not_connected"
+    }
   },
   "groups": [
     {

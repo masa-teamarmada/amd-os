@@ -90,6 +90,8 @@ export interface Bzm22TimelineItem {
   sourceStatus?: string;
   sourceRefCount: number;
   description: string;
+  choiceRole: "evaluation_selection" | "inherited_registered_policy" | "not_a_choice";
+  choiceLabel: string;
   authorityStatus?: string;
   occurrenceRole?: "occurred" | "available" | "recorded" | "conditional" | "imputed" | "unknown";
   commitmentStatus?: string;
@@ -113,6 +115,35 @@ export interface Bzm22PilotTimeline {
     dateRole: "shared_calendar_axis";
   };
   lanes: Bzm22TimelineLane[];
+}
+
+export interface Bzm22SimulationPolicyOption {
+  id: string;
+  label: string;
+  registrationRole: "registered_current" | "historical_terminal_shadow" | "unregistered_shadow_alternative";
+  authorityStatus: "unconfirmed";
+  sourceRefCount: number;
+  calculationStatus: "exact_frozen_engine_at_valuation_date" | "not_calculable";
+  metrics: {
+    jValueMillionJpy: Bzm22Scenario<number | null>;
+    conditionalSuccessValueMillionJpy: Bzm22Scenario<number | null>;
+    qGateProductProxy: Bzm22Scenario<number | null>;
+    qStressProxy: Bzm22Scenario<number | null>;
+  } | null;
+}
+
+export interface Bzm22PilotSimulation {
+  saveMode: "browser_only_not_saved";
+  valuationDate: string;
+  currentPolicyId: string;
+  policyOptions: Bzm22SimulationPolicyOption[];
+  comparisonOptionIds: string[];
+  engineConnection: {
+    policyAtValuationDate: "exact_precomputed_frozen_engine";
+    policyDateChange: "not_connected";
+    futureDecisionCandidate: "not_connected";
+    futureDecisionDate: "not_connected";
+  };
 }
 
 export interface Bzm22PilotProject {
@@ -141,6 +172,7 @@ export interface Bzm22PilotProject {
     precisionStatus: string;
   };
   timeline: Bzm22PilotTimeline;
+  simulation: Bzm22PilotSimulation;
   groups: Bzm22PilotParameterGroup[];
 }
 

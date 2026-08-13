@@ -10,6 +10,7 @@ import {
   type Bzm22PilotParameter,
   type Bzm22PilotParameterGroup,
   type Bzm22PilotProject,
+  type Bzm22SimulationPolicyOption,
   type Bzm22PilotTimeline,
   type Bzm22Scenario,
   type Bzm22TimelineItem,
@@ -32,6 +33,17 @@ type ParameterFilter = "all" | "used" | "uncertain";
 const PILOT_CACHE = new Map<string, Bzm22PilotProject>();
 const UNCERTAIN_STATUS = /missing|estimated|partial|imputed|conditional|hearing|unknown|incomplete/i;
 const MILLION_JPY_UNIT = /^million_jpy(?:_|$)/i;
+
+const SOURCE_LABELS: Record<string, string> = {
+  bzm: "BZMモデル仕様",
+  contract: "計算契約",
+  drive: "PJ資料室",
+  gmail: "Gmail",
+  notion: "Notion",
+  os_db: "OSデータ",
+  slack: "Slack",
+  calendar: "カレンダー",
+};
 
 const STATUS_META: Array<{
   pattern: RegExp;
@@ -98,6 +110,30 @@ function compactValue(value: unknown, maxLength = 78) {
   const text = typeof value === "string" ? value : JSON.stringify(value);
   if (!text) return "未登録";
   return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text;
+}
+
+function sameScenarioValue(parameter: Bzm22PilotParameter) {
+  return jsonText(parameter.imputed.low) === jsonText(parameter.imputed.base)
+    && jsonText(parameter.imputed.base) === jsonText(parameter.imputed.high);
+}
+
+function readableValue(value: unknown, unit: string, maxLength = 78) {
+  const formatted = formatUnitValue(value, unit);
+  if (Array.isArray(formatted)) return `${formatted.length}件の内訳`;
+  if (formatted && typeof formatted === "object") {
+    const count = Object.keys(formatted).length;
+    return `${count}項目の内訳`;
+  }
+  const text = compactValue(formatted, maxLength);
+  const labels: Record<string, string> = {
+    true: "有効",
+    false: "無効",
+    JPY: "日本円",
+    BZM: "BZM",
+    not_applicable: "対象外",
+    structurally_not_computable: "構造上、計算対象外",
+  };
+  return labels[text] ?? text;
 }
 
 function isMillionJpyUnit(unit: string) {
@@ -196,39 +232,45 @@ function ParameterIdentity({ parameter }: { parameter: Bzm22PilotParameter }) {
           {catalog.roleLabel}
         </span>
       </div>
-      <div className="mt-1 grid min-w-0 grid-cols-[30px_minmax(0,1fr)] gap-x-1.5 gap-y-0.5 text-[9px] leading-4">
-        <span className="text-slate-400">項目</span>
-        <span className="min-w-0 overflow-x-auto whitespace-nowrap text-[#285b6b]">
-          <Tex tex={catalog.dataNameTex} />
-        </span>
-        <span className="text-slate-400">理論</span>
-        <span className="min-w-0 overflow-x-auto whitespace-nowrap text-[11px] font-semibold text-[#285b6b]">
-          {catalog.symbolTex ? <Tex tex={catalog.symbolTex} /> : "—"}
-        </span>
-      </div>
-      <div className="mt-1 text-[9px] leading-4 text-slate-600">{catalog.formulaConnection}</div>
-      <div className="mt-1 space-y-0.5 border-t border-slate-100 pt-1">
-        <div className="text-[8px] font-semibold text-slate-400">接続式</div>
+      {catalog.symbolTex ? (
+        <div className="mt-1.5 border-l-2 border-cyan-700 bg-cyan-50/60 px-2 py-1">
+          <div className="text-[8px] font-semibold text-slate-500">この項目を表す記号</div>
+          <div className="mt-0.5 overflow-x-auto whitespace-nowrap text-[13px] font-semibold text-[#174b60]">
+            <Tex tex={catalog.symbolTex} />
+          </div>
+          <div className="mt-0.5 text-[8px] leading-3 text-slate-600">下の式では、この記号の値として使う。</div>
+        </div>
+      ) : (
+        <div className="mt-1.5 border-l-2 border-slate-300 bg-slate-50 px-2 py-1 text-[9px] font-semibold text-slate-600">
+          数式には直接入らない管理項目
+        </div>
+      )}
+      <p className="mt-1.5 text-[9px] leading-4 text-slate-700">{catalog.formulaConnection}</p>
+      <div className="mt-1.5 space-y-1 border-t border-slate-100 pt-1.5">
+        <div className="text-[8px] font-semibold text-slate-500">関係する式</div>
         {catalog.formulaRefs.map((ref) => {
           const formula = BZM22_FORMULA_CATALOG[ref];
           return (
-            <div key={ref} className="flex min-w-0 items-baseline gap-1">
-              <span className="shrink-0 border border-[#9fb8c1] bg-white px-1 py-0.5 font-mono text-[8px] font-bold leading-none text-[#285b6b]">{ref}</span>
-              <span className="min-w-0 overflow-x-auto whitespace-nowrap text-[8px] text-slate-500"><Tex tex={formula.tex} /></span>
-            </div>
+            <a key={ref} href={`#bzm22-formula-${ref}`} className="flex min-w-0 items-baseline gap-1.5 text-[#285b6b] hover:text-cyan-800">
+              <span className="shrink-0 border border-[#9fb8c1] bg-white px-1 py-0.5 font-mono text-[8px] font-bold leading-none">{ref}</span>
+              <span className="min-w-0 text-[8px] font-semibold">{formula.title}</span>
+            </a>
           );
         })}
       </div>
-      <div className="mt-1 break-all font-mono text-[8px] leading-3 text-slate-400">
-        {parameter.id} · {formatUnitLabel(parameter.unit)}
-      </div>
+      <details className="mt-1.5 text-[8px] text-slate-400">
+        <summary className="cursor-pointer list-none underline decoration-dotted underline-offset-2 marker:content-none">監査用の内部情報</summary>
+        <div className="mt-1 break-all border border-slate-100 bg-slate-50 p-1.5 font-mono leading-3">
+          {parameter.id} · {formatUnitLabel(parameter.unit)}
+        </div>
+      </details>
     </div>
   );
 }
 
 function FormulaIndex() {
   return (
-    <details className="border-b border-[#b9cbd1] bg-white">
+    <details id="bzm22-formulas" open className="border-b border-[#b9cbd1] bg-white">
       <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-[10px] font-semibold text-[#234d5e] marker:content-none hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-cyan-700 sm:px-4">
         <span>接続式一覧 F0–F14</span>
         <span className="text-[8px] font-normal text-slate-500">各入力の「接続式」番号を照合</span>
@@ -237,7 +279,7 @@ function FormulaIndex() {
         {Object.entries(BZM22_FORMULA_CATALOG)
           .filter(([ref]) => ref.startsWith("F"))
           .map(([ref, formula]) => (
-            <div key={ref} className="min-w-0 border-b border-r border-slate-200 px-3 py-2">
+            <div id={`bzm22-formula-${ref}`} key={ref} className="min-w-0 scroll-mt-20 border-b border-r border-slate-200 px-3 py-2">
               <div className="flex items-baseline gap-1.5">
                 <span className="border border-[#9fb8c1] bg-[#edf3f5] px-1 py-0.5 font-mono text-[8px] font-bold leading-none text-[#285b6b]">{ref}</span>
                 <span className="text-[9px] font-semibold text-[#234d5e]">{formula.title}</span>
@@ -326,6 +368,9 @@ function TimelineItemMeta({ item }: { item: Bzm22TimelineItem }) {
         {item.occurrenceRole ? <span className="border border-slate-200 bg-white px-1 py-0.5 text-[7px] leading-none text-slate-600">{TIMELINE_OCCURRENCE_LABELS[item.occurrenceRole]}</span> : null}
       </div>
       <div className="mt-0.5 text-[8px] leading-3 text-slate-500">{item.dateLabel} · {timelineStatusLabel(item)}</div>
+      <div className={`mt-1 border-l-2 px-1.5 text-[8px] font-semibold leading-3 ${item.choiceRole === "not_a_choice" ? "border-slate-300 text-slate-500" : "border-[#2d7a6a] text-[#205f52]"}`}>
+        {item.choiceLabel}
+      </div>
       <div className="mt-0.5 flex flex-wrap gap-x-2 text-[7px] leading-3 text-slate-400">
         <span>{TIMELINE_PRECISION_LABELS[item.precision] ?? "精度未登録"}</span>
         <span>根拠 {item.sourceRefCount}件</span>
@@ -343,7 +388,7 @@ function DecisionEventTimeline({ timeline }: { timeline: Bzm22PilotTimeline }) {
       <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200 px-3 py-2 sm:px-4">
         <div>
           <h3 id="bzm22-timeline-title" className="text-[11px] font-semibold text-[#173f51]">選択と事業イベントの時間軸</h3>
-          <p className="mt-0.5 text-[8px] leading-3 text-slate-500">実行済み判断、登録方針、将来判断点、計画イベント、資金イベントを混ぜずに表示。因果関係は示さない。</p>
+          <p className="mt-0.5 text-[8px] leading-3 text-slate-500">各イベントの時期と、そのイベントの試算で前提にした進め方を並べて確認する。</p>
         </div>
         <div className="text-[8px] text-[#2d7a6a]">評価日線 {timeline.axis.valuationDate}</div>
       </header>
@@ -423,16 +468,16 @@ function StatusBadge({ status }: { status: string }) {
   return (
     <span
       className={`inline-flex min-h-5 items-center border px-1.5 py-0.5 text-[9px] font-semibold leading-none ${meta.className}`}
-      title={`${meta.label}: ${status}`}
+      title={meta.label}
     >
-      {status || "未登録"}
+      {meta.label}
     </span>
   );
 }
 
 function ValueDisclosure({
   value,
-  label = "全値",
+  label = "内訳を見る",
   unit = "",
 }: {
   value: unknown;
@@ -478,54 +523,233 @@ function ScenarioMetric({
       <div className="mt-1 overflow-x-auto whitespace-nowrap border-y border-slate-100 py-1 text-[10px] text-[#294c5b]">
         <Tex tex={formula} />
       </div>
-      <div className="mt-1 text-[8px] font-semibold text-amber-800">暫定・未校正</div>
-      <div className="mt-1 grid grid-cols-3 gap-1 font-mono text-[8px] tabular-nums text-slate-500">
-        <span>L {formatNumber(value.low, kind)}</span>
-        <span>B {formatNumber(value.base, kind)}</span>
-        <span>H {formatNumber(value.high, kind)}</span>
+      <div className="mt-1 grid grid-cols-3 gap-1 text-[8px] tabular-nums text-slate-500">
+        <span>慎重 {formatNumber(value.low, kind)}</span>
+        <span>基準 {formatNumber(value.base, kind)}</span>
+        <span>強気 {formatNumber(value.high, kind)}</span>
       </div>
       <div className="mt-1 text-[8px] leading-3 text-slate-500">{note}</div>
     </div>
   );
 }
 
-function ParameterBasis({ parameter }: { parameter: Bzm22PilotParameter }) {
+function simulationValue(option: Bzm22SimulationPolicyOption, key: keyof NonNullable<Bzm22SimulationPolicyOption["metrics"]>, scenario: keyof Bzm22Scenario<unknown>) {
+  return option.metrics?.[key][scenario] ?? null;
+}
+
+function SimulationOutput({
+  symbol,
+  baseline,
+  simulated,
+  kind,
+}: {
+  symbol: keyof typeof BZM22_TOP_METRICS;
+  baseline: number | null;
+  simulated: number | null;
+  kind: "probability" | "million";
+}) {
+  const delta = baseline !== null && simulated !== null ? simulated - baseline : null;
+  const format = (value: number | null) => formatNumber(value, kind);
+  const deltaText = delta === null
+    ? "差分なし"
+    : kind === "million"
+      ? `${delta >= 0 ? "+" : ""}${formatMillionJpy(delta)}`
+      : `${delta >= 0 ? "+" : ""}${Math.round(delta * 100)}pt`;
+  return (
+    <div className="border-l border-slate-200 px-3 first:border-l-0">
+      <div className="text-[10px] font-black text-[#173f51]">{symbol}</div>
+      <div className="mt-1 font-mono text-[11px] tabular-nums text-slate-500">{format(baseline)}</div>
+      <div className="mt-0.5 font-mono text-[15px] font-bold tabular-nums text-[#173f51]">→ {format(simulated)}</div>
+      <div className="mt-0.5 text-[8px] font-semibold text-[#2d6b5d]">{deltaText}</div>
+    </div>
+  );
+}
+
+function PolicyWhatIf({ pilot }: { pilot: Bzm22PilotProject }) {
+  const [scenario, setScenario] = useState<keyof Bzm22Scenario<unknown>>("base");
+  const [selectedId, setSelectedId] = useState(pilot.simulation.currentPolicyId);
+  const baseline = pilot.simulation.policyOptions.find((option) => option.id === pilot.simulation.currentPolicyId);
+  const selected = pilot.simulation.policyOptions.find((option) => option.id === selectedId) ?? baseline;
+  if (!baseline || !selected) return null;
+  const changed = selected.id !== baseline.id;
+  const metrics = [
+    ["J", "jValueMillionJpy", "million"],
+    ["P", "conditionalSuccessValueMillionJpy", "million"],
+    ["Q", "qGateProductProxy", "probability"],
+    ["S", "qStressProxy", "probability"],
+  ] as const;
+  return (
+    <section aria-labelledby="bzm22-what-if-title" className="border-b border-[#8faab4] bg-[#edf3f5]">
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#b9cbd1] px-3 py-2 sm:px-4">
+        <div>
+          <h3 id="bzm22-what-if-title" className="text-[11px] font-semibold text-[#173f51]">別の進め方を試す</h3>
+          <p className="mt-0.5 text-[8px] text-slate-500">登録済みの計算条件を丸ごと切り替え、J・P・Q・Sの差を見る。この画面を離れると元に戻る。</p>
+        </div>
+        {changed ? (
+          <button type="button" onClick={() => setSelectedId(baseline.id)} className="min-h-8 border border-[#7898a5] bg-white px-2 text-[9px] font-semibold text-[#285b6b] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-700">
+            元の前提に戻す
+          </button>
+        ) : null}
+      </header>
+      <div className="grid gap-3 px-3 py-3 lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.4fr)] sm:px-4">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+          <label className="min-w-0">
+            <span className="block text-[8px] font-semibold text-slate-500">この画面で試す進め方</span>
+            <select
+              value={selected.id}
+              onChange={(event) => setSelectedId(event.target.value)}
+              className="mt-1 min-h-10 w-full border border-slate-300 bg-white px-2 text-[10px] font-semibold text-[#173f51] outline-none focus:border-cyan-700 focus:ring-1 focus:ring-cyan-700"
+            >
+              {pilot.simulation.policyOptions.map((option) => (
+                <option key={option.id} value={option.id} disabled={!option.metrics}>
+                  {option.label}{option.id === baseline.id ? "（登録中）" : "（比較候補）"}{!option.metrics ? "・計算条件不足" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div>
+            <div className="text-[8px] font-semibold text-slate-500">前提ケース</div>
+            <div className="mt-1 grid grid-cols-3 border border-slate-300 bg-white">
+              {(["low", "base", "high"] as const).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={scenario === key}
+                  onClick={() => setScenario(key)}
+                  className={`min-h-10 border-l border-slate-200 px-2 text-[9px] font-semibold first:border-l-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-700 ${scenario === key ? "bg-[#dcebed] text-[#174b60]" : "text-slate-500 hover:bg-slate-50"}`}
+                >
+                  {key === "low" ? "慎重" : key === "base" ? "基準" : "強気"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="sm:col-span-2 lg:col-span-1">
+            <div className="text-[8px] font-semibold text-slate-500">登録中の進め方</div>
+            <div className="mt-0.5 text-[9px] text-slate-700">{baseline.label}</div>
+            <div className="mt-1 text-[8px] font-semibold text-slate-500">試している進め方</div>
+            <div className="mt-0.5 text-[10px] font-semibold text-[#174b60]">{selected.label}</div>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-y-3 border border-[#b9cbd1] bg-white py-3 sm:grid-cols-4">
+          {metrics.map(([symbol, key, kind]) => (
+            <SimulationOutput
+              key={symbol}
+              symbol={symbol}
+              baseline={simulationValue(baseline, key, scenario)}
+              simulated={simulationValue(selected, key, scenario)}
+              kind={kind}
+            />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function sourceHref(sourceKey: string, refs: string[], projectId: string) {
+  if (sourceKey === "drive") return `/project/${projectId}/workspace/files`;
+  if (sourceKey === "os_db" || sourceKey === "calendar") return `/project/${projectId}/cockpit?tab=progress`;
+  if (sourceKey === "bzm" || sourceKey === "contract" || sourceKey === "calculation") return "#bzm22-formulas";
+  if (sourceKey === "gmail") {
+    const match = refs.join(" ").match(/gmail:(?:thread|message):([a-z0-9]+)/i);
+    return match ? `https://mail.google.com/mail/u/0/#all/${match[1]}` : null;
+  }
+  if (sourceKey === "slack") {
+    const match = refs.join(" ").match(/slack:([A-Z0-9]+):(\d+)\.(\d+)/i);
+    return match ? `https://team-armada.slack.com/archives/${match[1]}/p${match[2]}${match[3]}` : null;
+  }
+  return null;
+}
+
+function confidenceExplanation(parameter: Bzm22PilotParameter) {
+  const status = parameter.observedStatus;
+  if (/missing|estimated|partial|imputed|conditional|hearing|unknown|incomplete/i.test(status)) {
+    return "直接確認できない部分を、慎重・基準・強気の3ケースで補っている。";
+  }
+  if (/observed|document_extracted/i.test(status)) return "資料またはOSデータから確認した値を使っている。";
+  if (/calculated|computed|derived|mechanical/i.test(status)) return "ほかの登録値から計算している。";
+  if (/design_choice|registered|fixed/i.test(status)) return "BZMの計算仕様として固定している。";
+  return "値の決め方を監査情報に記録している。";
+}
+
+function ParameterBasis({ parameter, projectId }: { parameter: Bzm22PilotParameter; projectId: string }) {
+  const grouped = new Map<string, string[]>();
+  parameter.sourceRefs.forEach((ref) => {
+    const key = ref.split(":")[0] || "other";
+    grouped.set(key, [...(grouped.get(key) ?? []), ref]);
+  });
+  const groups = [...grouped.entries()];
   return (
     <div className="min-w-0 space-y-1 text-[9px] leading-4 text-slate-600">
-      <div><span className="font-semibold text-slate-700">規則</span> {parameter.rule || "未登録"}</div>
-      <div><span className="font-semibold text-slate-700">根拠</span> {parameter.sourceRefs.length > 0 ? parameter.sourceRefs.join(" / ") : "未登録"}</div>
-      <div><span className="font-semibold text-slate-700">精度要因</span> {parameter.confidenceDriver || "なし"}</div>
-      <div><span className="font-semibold text-slate-700">締切</span> {formatDateTime(parameter.cutoff)}</div>
+      <p>{confidenceExplanation(parameter)}</p>
+      <div className="flex flex-wrap gap-1">
+        {groups.length > 0 ? groups.map(([key, values]) => {
+          const href = sourceHref(key, values, projectId);
+          const label = SOURCE_LABELS[key] ?? "その他の根拠";
+          return href ? (
+            <a
+              key={key}
+              href={href}
+              target={href.startsWith("http") ? "_blank" : undefined}
+              rel={href.startsWith("http") ? "noreferrer noopener" : undefined}
+              className="border border-[#9fb8c1] bg-white px-1.5 py-0.5 font-semibold text-[#285b6b] underline decoration-dotted underline-offset-2 hover:bg-cyan-50"
+            >
+              {label}を開く（{values.length}件）
+            </a>
+          ) : (
+            <span key={key} className="border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-slate-500">
+              {label} {values.length}件・参照先未接続
+            </span>
+          );
+        }) : <span className="text-slate-400">根拠資料は未登録</span>}
+      </div>
+      <div><span className="font-semibold text-slate-700">この値に使った情報の締切</span> {formatDateTime(parameter.cutoff)}</div>
+      <details className="text-[8px] text-slate-400">
+        <summary className="cursor-pointer list-none underline decoration-dotted underline-offset-2 marker:content-none">設定規則の監査情報</summary>
+        <div className="mt-1 border border-slate-100 bg-slate-50 p-1.5">
+          <div>{parameter.rule || "未登録"}</div>
+          {parameter.confidenceDriver ? <div className="mt-1">精度要因: {parameter.confidenceDriver}</div> : null}
+        </div>
+      </details>
     </div>
   );
 }
 
 function ScenarioValues({ parameter }: { parameter: Bzm22PilotParameter }) {
+  if (sameScenarioValue(parameter)) {
+    return (
+      <div className="min-w-0 space-y-1">
+        <div className="text-[8px] font-semibold text-slate-500">3ケース共通</div>
+        <div className="break-words font-mono text-[9px] text-slate-700">{readableValue(parameter.imputed.base, parameter.unit)}</div>
+        <ValueDisclosure label="内訳を見る" value={parameter.imputed.base} unit={parameter.unit} />
+      </div>
+    );
+  }
   return (
     <div className="min-w-0 space-y-1">
-      <div className="grid grid-cols-[16px_minmax(0,1fr)] gap-x-1 font-mono text-[9px] leading-4 text-slate-600">
-        <span className="text-slate-400">L</span><span className="break-words">{compactValue(formatUnitValue(parameter.imputed.low, parameter.unit))}</span>
-        <span className="text-slate-400">B</span><span className="break-words">{compactValue(formatUnitValue(parameter.imputed.base, parameter.unit))}</span>
-        <span className="text-slate-400">H</span><span className="break-words">{compactValue(formatUnitValue(parameter.imputed.high, parameter.unit))}</span>
+      <div className="grid grid-cols-[32px_minmax(0,1fr)] gap-x-1 text-[9px] leading-4 text-slate-600">
+        <span className="text-slate-400">慎重</span><span className="break-words font-mono">{readableValue(parameter.imputed.low, parameter.unit)}</span>
+        <span className="text-slate-400">基準</span><span className="break-words font-mono">{readableValue(parameter.imputed.base, parameter.unit)}</span>
+        <span className="text-slate-400">強気</span><span className="break-words font-mono">{readableValue(parameter.imputed.high, parameter.unit)}</span>
       </div>
-      <ValueDisclosure label="L/B/H 全値" value={parameter.imputed} unit={parameter.unit} />
+      <ValueDisclosure label="3ケースの内訳を見る" value={parameter.imputed} unit={parameter.unit} />
     </div>
   );
 }
 
-function ParameterDesktopTable({ parameters }: { parameters: Bzm22PilotParameter[] }) {
+function ParameterDesktopTable({ parameters, projectId }: { parameters: Bzm22PilotParameter[]; projectId: string }) {
   return (
     <div className="hidden max-w-full overflow-x-auto lg:block">
       <table className="w-full min-w-[1240px] border-collapse text-left text-[9px] leading-4">
         <thead className="bg-slate-50 text-slate-500">
           <tr>
             <th className="w-10 px-2 py-1.5 text-right">#</th>
-            <th className="w-[300px] px-2 py-1.5">入力・数式接続</th>
-            <th className="w-[170px] px-2 py-1.5">現在値</th>
-            <th className="w-[210px] px-2 py-1.5">L / B / H</th>
-            <th className="w-[130px] px-2 py-1.5">状態</th>
-            <th className="px-2 py-1.5">設定根拠</th>
-            <th className="w-[120px] px-2 py-1.5">式との関係</th>
+            <th className="w-[320px] px-2 py-1.5">項目・記号・式</th>
+            <th className="w-[170px] px-2 py-1.5">登録値</th>
+            <th className="w-[210px] px-2 py-1.5">3つの前提ケース</th>
+            <th className="w-[130px] px-2 py-1.5">値の決め方</th>
+            <th className="px-2 py-1.5">根拠資料</th>
+            <th className="w-[120px] px-2 py-1.5">数式への入り方</th>
           </tr>
         </thead>
         <tbody>
@@ -536,8 +760,8 @@ function ParameterDesktopTable({ parameters }: { parameters: Bzm22PilotParameter
                 <ParameterIdentity parameter={parameter} />
               </td>
               <td className="px-2 py-2">
-                <div className="break-words font-mono text-slate-700">{compactValue(formatUnitValue(parameter.value, parameter.unit))}</div>
-                <ValueDisclosure value={parameter.value} unit={parameter.unit} />
+                <div className="break-words font-mono text-slate-700">{readableValue(parameter.value, parameter.unit)}</div>
+                <ValueDisclosure label="内訳を見る" value={parameter.value} unit={parameter.unit} />
               </td>
               <td className="px-2 py-2"><ScenarioValues parameter={parameter} /></td>
               <td className="px-2 py-2">
@@ -546,7 +770,7 @@ function ParameterDesktopTable({ parameters }: { parameters: Bzm22PilotParameter
                   <div className="mt-1 text-[8px] leading-3 text-amber-800">精度低下: {compactValue(parameter.precisionLossContribution)}</div>
                 ) : null}
               </td>
-              <td className="px-2 py-2"><ParameterBasis parameter={parameter} /></td>
+              <td className="px-2 py-2"><ParameterBasis parameter={parameter} projectId={projectId} /></td>
               <td className="px-2 py-2">
                 <FormulaRelation parameter={parameter} />
               </td>
@@ -558,7 +782,7 @@ function ParameterDesktopTable({ parameters }: { parameters: Bzm22PilotParameter
   );
 }
 
-function ParameterMobileCards({ parameters }: { parameters: Bzm22PilotParameter[] }) {
+function ParameterMobileCards({ parameters, projectId }: { parameters: Bzm22PilotParameter[]; projectId: string }) {
   return (
     <div className="divide-y divide-slate-100 lg:hidden">
       {parameters.map((parameter) => (
@@ -572,16 +796,16 @@ function ParameterMobileCards({ parameters }: { parameters: Bzm22PilotParameter[
           </div>
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div className="min-w-0 border border-slate-100 bg-slate-50 p-2">
-              <div className="text-[8px] font-semibold text-slate-500">現在値</div>
-              <div className="mt-1 break-words font-mono text-[10px] text-slate-700">{compactValue(formatUnitValue(parameter.value, parameter.unit), 140)}</div>
-              <ValueDisclosure value={parameter.value} unit={parameter.unit} />
+              <div className="text-[8px] font-semibold text-slate-500">登録値</div>
+              <div className="mt-1 break-words font-mono text-[10px] text-slate-700">{readableValue(parameter.value, parameter.unit, 140)}</div>
+              <ValueDisclosure label="内訳を見る" value={parameter.value} unit={parameter.unit} />
             </div>
             <div className="min-w-0 border border-slate-100 p-2">
-              <div className="mb-1 text-[8px] font-semibold text-slate-500">仮定束 L / B / H</div>
+              <div className="mb-1 text-[8px] font-semibold text-slate-500">3つの前提ケース</div>
               <ScenarioValues parameter={parameter} />
             </div>
           </div>
-          <div className="mt-2"><ParameterBasis parameter={parameter} /></div>
+          <div className="mt-2"><ParameterBasis parameter={parameter} projectId={projectId} /></div>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-[9px]">
             <FormulaRelation parameter={parameter} />
             {hasPrecisionLoss(parameter.precisionLossContribution) ? (
@@ -599,11 +823,13 @@ function ParameterGroup({
   parameters,
   open,
   onToggle,
+  projectId,
 }: {
   group: Bzm22PilotParameterGroup;
   parameters: Bzm22PilotParameter[];
   open: boolean;
   onToggle: () => void;
+  projectId: string;
 }) {
   return (
     <section className="min-w-0 border-t border-slate-200 first:border-t-0">
@@ -615,15 +841,14 @@ function ParameterGroup({
       >
         <span className="min-w-0">
           <span className="text-[11px] font-semibold text-[#254c5d]">{group.label}</span>
-          <span className="ml-2 font-mono text-[9px] text-slate-500">{group.key}</span>
         </span>
         <span className="text-[9px] text-slate-500">{parameters.length}/{group.count}件 {open ? "閉じる⌃" : "開く⌄"}</span>
       </button>
       {open ? (
         parameters.length > 0 ? (
           <div className="border-t border-slate-200">
-            <ParameterDesktopTable parameters={parameters} />
-            <ParameterMobileCards parameters={parameters} />
+            <ParameterDesktopTable parameters={parameters} projectId={projectId} />
+            <ParameterMobileCards parameters={parameters} projectId={projectId} />
           </div>
         ) : (
           <div className="border-t border-slate-100 px-3 py-4 text-[10px] text-slate-500">この条件に一致する項目はない。</div>
@@ -633,7 +858,7 @@ function ParameterGroup({
   );
 }
 
-function ParameterLedger({ groups }: { groups: Bzm22PilotParameterGroup[] }) {
+function ParameterLedger({ groups, projectId }: { groups: Bzm22PilotParameterGroup[]; projectId: string }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ParameterFilter>("all");
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set(groups[0] ? [groups[0].key] : []));
@@ -659,7 +884,7 @@ function ParameterLedger({ groups }: { groups: Bzm22PilotParameterGroup[] }) {
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
           <div>
             <h3 id="bzm22-parameter-ledger-title" className="text-[12px] font-semibold text-[#173f51]">全パラメータ台帳</h3>
-            <p className="mt-0.5 text-[9px] leading-4 text-slate-600">{totalCount}項目の現在値、L/B/H仮定束、状態、設定規則、根拠、情報締切を同じ表で確認する。</p>
+            <p className="mt-0.5 text-[9px] leading-4 text-slate-600">{totalCount}項目を、日本語名・数式の記号・登録値・3つの前提ケース・根拠資料の順に確認できる。</p>
           </div>
           <div className="font-mono text-[9px] tabular-nums text-slate-500">表示 {visibleCount} / {totalCount}</div>
         </div>
@@ -670,7 +895,7 @@ function ParameterLedger({ groups }: { groups: Bzm22PilotParameterGroup[] }) {
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="日本語名・記号・式・内部ID・根拠で検索"
+              placeholder="日本語名・記号・式・根拠で検索"
               className="min-h-10 w-full border border-slate-300 bg-white px-3 text-[11px] text-slate-800 outline-none placeholder:text-slate-400 focus:border-cyan-700 focus:ring-1 focus:ring-cyan-700 md:min-h-8"
             />
           </label>
@@ -709,6 +934,7 @@ function ParameterLedger({ groups }: { groups: Bzm22PilotParameterGroup[] }) {
             else next.add(group.key);
             return next;
           })}
+          projectId={projectId}
         />
       ))}
     </section>
@@ -716,9 +942,9 @@ function ParameterLedger({ groups }: { groups: Bzm22PilotParameterGroup[] }) {
 }
 
 function PilotPanel({ pilot }: { pilot: Bzm22PilotProject }) {
-  const incompleteSources = pilot.sourceCoverage.sources.filter((source) => !source.paginationComplete);
   const parameterCount = pilot.groups.reduce((sum, group) => sum + group.parameters.length, 0);
   const conditionalValueIsNa = /not_applicable|n\/a/i.test(pilot.summary.conditionalSuccessValueStatus);
+  const registeredOption = pilot.simulation.policyOptions.find((option) => option.id === pilot.simulation.currentPolicyId);
 
   return (
     <section
@@ -729,13 +955,9 @@ function PilotPanel({ pilot }: { pilot: Bzm22PilotProject }) {
       <header className="border-b border-[#365865] bg-[#162f3a] px-3 py-3 text-white sm:px-4">
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 id="bzm22-provisional-title" className="text-[14px] font-semibold tracking-tight">BZM 2.2 暫定主表示</h2>
-              <span className="border border-amber-300/70 bg-amber-200 px-1.5 py-0.5 text-[9px] font-bold text-amber-950">未検証・低精度</span>
-              <span className="border border-cyan-200/40 bg-cyan-50/10 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-50">影の比較のみ</span>
-            </div>
+            <h2 id="bzm22-provisional-title" className="text-[14px] font-semibold tracking-tight">BZM 2.2</h2>
             <p className="mt-1 max-w-4xl text-[10px] leading-4 text-slate-200">
-              valuationに出にくい戦略余力を、状態・行動・遷移・CF・介入の103項目で暫定可視化する。順位付け、資源配分、撤退判断には使わない。
+              現在の進め方、重要イベント、103項目の前提と数式を一つの画面で確認する。
             </p>
           </div>
           <div className="shrink-0 text-right font-mono text-[8px] leading-4 text-slate-300">
@@ -756,49 +978,47 @@ function PilotPanel({ pilot }: { pilot: Bzm22PilotProject }) {
       <div className="border-b border-[#b9cbd1] bg-[#edf3f5] px-3 py-1.5 text-[8px] leading-4 text-[#365865] sm:px-4">
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
           <span className="font-semibold"><Tex tex={BZM22_FIXED_POLICY.formula} /></span>
-          <span>{BZM22_FIXED_POLICY.label}。artifact上の登録名: {pilot.summary.registeredCurrentControl || "未登録"}。</span>
+          <span>この画面で評価している進め方: {registeredOption?.label ?? "未登録"}</span>
         </div>
         <div>
-          <span className="font-semibold">数式の記号:</span> CF=月ごとの収支、TV=目標到達後の将来価値、RV=途中で止まった時の残存価値、d=現在価値への割引、s=その月まで経路が続く重み、p=各条件の通過値、m=逆風時の補正。Q/Sは0〜100%で読む比較用指数。
+          <span className="font-semibold">記号:</span> CF=月ごとの収支、TV=目標到達後の将来価値、RV=途中で止まった時の残存価値、d=現在価値への割引、s=その月まで計画が続く重み、p=各条件の通過値、m=厳しい状況での補正。
         </div>
-        <div>留保: Q/Sは登録ゲートの積にもとづく未校正の暫定代理値。Sは戦略余力全体ではない。</div>
       </div>
 
+      <PolicyWhatIf key={pilot.projectId} pilot={pilot} />
       <FormulaIndex />
       <DecisionEventTimeline timeline={pilot.timeline} />
 
       <div className="grid gap-px border-b border-[#b9cbd1] bg-[#d4dde0] sm:grid-cols-3">
         <div className="bg-white px-3 py-2">
-          <div className="text-[8px] font-semibold text-slate-500">登録済み現在方針</div>
-          <div className="mt-1 text-[11px] font-semibold text-[#234d5e]">{pilot.summary.registeredCurrentControl || "未登録"}</div>
-          <div className="mt-0.5 text-[8px] text-slate-500">argmaxではなくshadow上の登録方針</div>
+          <div className="text-[8px] font-semibold text-slate-500">現在の試算で使う進め方</div>
+          <div className="mt-1 text-[11px] font-semibold text-[#234d5e]">{registeredOption?.label ?? "未登録"}</div>
+          <div className="mt-0.5 text-[8px] text-slate-500">評価基準日に固定した行動と投入の組み合わせ</div>
         </div>
         <div className="bg-white px-3 py-2">
-          <div className="text-[8px] font-semibold text-slate-500">最初の資金経路喪失</div>
+          <div className="text-[8px] font-semibold text-slate-500">資金が最初に不足する時期</div>
           <div className="mt-1 text-[11px] font-semibold tabular-nums text-[#234d5e]">{pilot.summary.firstPathLossMonth ?? "経路内なし / 未確認"}</div>
-          <div className="mt-0.5 text-[8px] text-slate-500">no-financing CFのfirst passage</div>
+          <div className="mt-0.5 text-[8px] text-slate-500">追加調達がない場合の月次収支から計算</div>
         </div>
         <div className="bg-white px-3 py-2">
-          <div className="text-[8px] font-semibold text-slate-500">行動境界 / パラメータ</div>
-          <div className="mt-1 text-[11px] font-semibold tabular-nums text-[#234d5e]">承認 {pilot.summary.actionBoundaryCounts.authorityApproved} / shadow {pilot.summary.actionBoundaryCounts.shadow} · {parameterCount}項目</div>
-          <div className="mt-0.5 text-[8px] text-slate-500">権限承認0件の行動を実行推奨へ昇格しない</div>
+          <div className="text-[8px] font-semibold text-slate-500">比較できる進め方 / パラメータ</div>
+          <div className="mt-1 text-[11px] font-semibold tabular-nums text-[#234d5e]">比較候補 {pilot.simulation.policyOptions.length}件 · {parameterCount}項目</div>
+          <div className="mt-0.5 text-[8px] text-slate-500">選択肢ごとにJ・P・Q・Sを比較</div>
         </div>
       </div>
 
-      <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[9px] leading-4 text-amber-950 sm:px-4">
-        <span className="font-semibold">精度:</span> 前向き検証 {pilot.claimBoundary.forwardValidationCount}件。L/B/Hは、前提をまとめて変えた低位・基準・高位の試算。情報源は {incompleteSources.length > 0 ? `${incompleteSources.length}系統で走査未完了` : "走査完了"}。
-      </div>
+      <details className="border-b border-slate-200 bg-white text-[8px] text-slate-500">
+        <summary className="cursor-pointer list-none px-3 py-2 font-semibold text-[#294c5b] marker:content-none sm:px-4">参照データの範囲</summary>
+        <div className="flex min-w-0 flex-wrap gap-x-3 gap-y-1 border-t border-slate-100 px-3 py-2 sm:px-4">
+          {pilot.sourceCoverage.sources.map((source) => (
+            <span key={source.key}>
+              {SOURCE_LABELS[source.key.toLowerCase()] ?? source.key} · {source.uniqueItems.toLocaleString("ja-JP")}件
+            </span>
+          ))}
+        </div>
+      </details>
 
-      <div className="flex min-w-0 flex-wrap gap-x-3 gap-y-1 border-b border-slate-200 bg-white px-3 py-1.5 text-[8px] text-slate-500 sm:px-4">
-        <span className="font-semibold text-[#294c5b]">情報源走査</span>
-        {pilot.sourceCoverage.sources.map((source) => (
-          <span key={source.key} className={source.paginationComplete ? "text-emerald-700" : "text-amber-800"}>
-            {source.key} {source.paginationComplete ? "完了" : "未完了"} · {source.uniqueItems.toLocaleString("ja-JP")}/{source.fetchedItems.toLocaleString("ja-JP")}
-          </span>
-        ))}
-      </div>
-
-      <ParameterLedger key={pilot.projectId} groups={pilot.groups} />
+      <ParameterLedger key={pilot.projectId} groups={pilot.groups} projectId={pilot.projectId} />
 
       <footer className="border-t border-slate-200 bg-slate-50 px-3 py-2 font-mono text-[8px] leading-4 text-slate-500 sm:px-4">
         artifact SHA-256 <span className="break-all">{pilot.artifactSha256}</span>
@@ -831,7 +1051,7 @@ export function Bzm22ProvisionalObservatory({
       .then(async (response) => {
         const json = await response.json().catch(() => null) as Bzm22PilotApiPayload | { error?: string } | null;
         if (!response.ok || !json || !("pilot" in json)) {
-          throw new Error(json && "error" in json && json.error ? json.error : "BZM 2.2 暫定試算の取得に失敗");
+          throw new Error(json && "error" in json && json.error ? json.error : "BZM 2.2の取得に失敗");
         }
         return json;
       });
@@ -845,7 +1065,7 @@ export function Bzm22ProvisionalObservatory({
           setState({
             status: "error",
             projectId,
-            error: error instanceof Error ? error.message : "BZM 2.2 暫定試算の取得に失敗",
+            error: error instanceof Error ? error.message : "BZM 2.2の取得に失敗",
           });
         }
       });
@@ -858,7 +1078,7 @@ export function Bzm22ProvisionalObservatory({
   if (state.projectId !== projectId) {
     return (
       <div data-testid="bzm22-provisional-primary" className="grid min-h-[220px] place-items-center border border-[#aac1ca] bg-[#f6f8f8] px-4 text-center text-[11px] text-slate-500">
-        BZM 2.2 暫定試算を切り替え中…
+        BZM 2.2を切り替え中…
       </div>
     );
   }
@@ -867,7 +1087,7 @@ export function Bzm22ProvisionalObservatory({
     return (
       <div data-testid="bzm22-provisional-primary" className="grid min-h-[220px] place-items-center border border-[#aac1ca] bg-[#f6f8f8] px-4 text-center text-[11px] text-slate-500">
         <div>
-          <div className="font-semibold text-[#254c5d]">BZM 2.2 暫定主表示</div>
+          <div className="font-semibold text-[#254c5d]">BZM 2.2</div>
           <div className="mt-1">103項目のPJ別台帳を読み込み中…</div>
         </div>
       </div>
@@ -877,9 +1097,9 @@ export function Bzm22ProvisionalObservatory({
   if (state.status === "error") {
     return (
       <div data-testid="bzm22-provisional-primary" className="border border-red-200 bg-red-50 px-4 py-3 text-[11px] leading-5 text-red-800">
-        <div className="font-semibold">BZM 2.2 暫定主表示を読み出せていない</div>
+        <div className="font-semibold">BZM 2.2を読み出せていない</div>
         <div>{state.error}</div>
-        <div className="text-[9px]">旧モデルの値へ自動置換せず、この表示だけを欠測として止める。</div>
+        <div className="text-[9px]">再読み込み後も続く場合は、生成データとの接続を確認する。</div>
       </div>
     );
   }

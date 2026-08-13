@@ -35,7 +35,6 @@ function Metric({
       </div>
       <div className="mt-1 font-mono text-lg font-bold tabular-nums text-[#173f51]">{formatMetric(value.base, kind)}</div>
       <div className="mt-1 overflow-x-auto whitespace-nowrap text-[10px] text-[#376274]"><Tex tex={metric.formula} /></div>
-      <div className="mt-1 text-[8px] font-semibold text-amber-800">暫定・未校正</div>
       <p className="mt-1 text-[9px] leading-4 text-slate-500">{metric.description}</p>
     </div>
   );
@@ -86,7 +85,6 @@ export function Bzm22CockpitSummary({
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#7898a5] bg-[#162f3a] px-3 py-2 text-white">
         <div>
           <span className="text-[12px] font-bold">BZM 2.2</span>
-          <span className="ml-2 text-[9px] text-slate-300">現在方針の影試算 · 未検証</span>
         </div>
         <button type="button" onClick={onOpenScoreDetail} className="text-[10px] font-semibold text-cyan-100 underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-100">
           103パラメータと計算を見る →
@@ -99,7 +97,7 @@ export function Bzm22CockpitSummary({
         <Metric symbol="S" value={pilot.summary.qStressProxy} kind="rate" />
       </div>
       <div className="border-t border-[#b9cbd1] bg-[#edf3f5] px-3 py-1.5 text-[8px] leading-4 text-[#365865]">
-        <span className="font-semibold"><Tex tex={BZM22_FIXED_POLICY.formula} /></span> = 登録済み固定方針（shadow・最適化なし）。CF=月ごとの収支、TV=目標到達後の将来価値、RV=途中で止まった時の残存価値、p=各条件の通過値。Q/Sは未校正の比較用指数で、Sは戦略余力全体ではない。
+        <span className="font-semibold"><Tex tex={BZM22_FIXED_POLICY.formula} /></span> = この画面で評価している進め方。CF=月ごとの収支、TV=目標到達後の将来価値、RV=途中で止まった時の残存価値、p=各条件の通過値。
       </div>
     </section>
   );

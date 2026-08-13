@@ -1968,10 +1968,21 @@ const UI_SECTION_LABELS: Record<string, string> = {
 };
 
 const UI_TIMELINE_CONTROL_LABELS: Record<string, string> = {
+  abandon: "撤退・事業終了",
+  asset_transfer_scan: "資産移管先の探索",
+  continue_large_poc_and_scale: "大型PoC継続・スケール検証",
   current_integrated_policy: "現行統合方針",
   continue_and_resolve_gates: "開発継続・残ゲート解消",
+  fundraise_and_partner_parallel: "資金調達・事業提携の並行推進",
   fundraise_and_public_program_parallel: "資金調達・公的制度の並行推進",
+  fundraise_and_strategic_partner_parallel: "資金調達・戦略提携の並行推進",
+  historical_terminal_maintenance: "歴史的終端の維持管理",
   historical_terminal_closeout: "歴史的終端・整理済み",
+  license_or_asset_transfer: "ライセンスまたは資産移管",
+  license_or_joint_venture: "ライセンスまたは共同事業",
+  partner_or_license_alternative: "提携またはライセンス代替案",
+  relaunch: "事業再立上げ",
+  staged_capital_light_policy: "段階的・資本軽量方針",
   continue_prototype_and_customer_validation: "試作・顧客検証の継続",
 };
 
@@ -2147,6 +2158,8 @@ function buildUiTimeline(project: any, summary: any, valuationDate: string) {
       : "fixed_shadow_not_optimized",
     precision: "registered_shadow",
     authorityStatus: "unconfirmed_not_executable_recommendation",
+    choiceRole: "evaluation_selection",
+    choiceLabel: `評価上の選択: ${registeredControlLabel}`,
     sourceRefCount: new Set(ledger?.derived_outputs?.pi_d_star?.sourceRefs ?? []).size,
     description: summary.controlRegistrationStatus === "historical_terminal_classification_not_current_recommendation"
       ? "歴史的終端の分類記録。現在の推奨行動ではない。"
@@ -2174,6 +2187,8 @@ function buildUiTimeline(project: any, summary: any, valuationDate: string) {
         precision: timelinePrecision(gate.evidenceStatus),
         sourceStatus: String(gate.evidenceStatus ?? "unknown"),
         sourceRefCount: new Set(gate.sourceRefs ?? []).size,
+        choiceRole: "inherited_registered_policy",
+        choiceLabel: `前提にした登録方針: ${registeredControlLabel}`,
         description: "登録済み固定方針に紐づく計画ゲート。表示月は意思決定日ではない。",
       };
     });
@@ -2218,6 +2233,8 @@ function buildUiTimeline(project: any, summary: any, valuationDate: string) {
         availabilityStatus,
         amountMillionJpy: finite(event.amount) ? event.amount : null,
         probability: finite(event.probability) ? event.probability : null,
+        choiceRole: "not_a_choice",
+        choiceLabel: "方針選択ではない（資金・外部事実）",
         description: occurred
           ? "評価日前に発生した外部資金イベント。評価日時点の利用可能額は推定しない。"
           : recorded
@@ -2253,6 +2270,8 @@ function buildUiTimeline(project: any, summary: any, valuationDate: string) {
         availabilityStatus: "not_cash_receipt",
         amountMillionJpy: null,
         probability: null,
+        choiceRole: "inherited_registered_policy",
+        choiceLabel: `前提にした登録方針: ${registeredControlLabel}`,
         description: "資金パッケージ成立性の計算用ゲート。資金調達の決定、契約、入金ではない。",
       };
     });
@@ -2277,6 +2296,70 @@ function buildUiTimeline(project: any, summary: any, valuationDate: string) {
       { key: "business_events", label: "事業・技術・設備・資金イベント", emptyMessage: businessItems.length || fundingItems.length ? null : "登録済み固定方針に紐づく計画イベントは未収載", items: [...businessItems, ...fundingItems] },
       { key: "external_events", label: "外部イベント", emptyMessage: "現版では独立した外部イベントは未収載", items: [] },
     ],
+  };
+}
+
+function buildUiSimulation(project: any, summary: any, valuationDate: string) {
+  const inputs = asInputs(project) ?? {};
+  const actions = Array.isArray(inputs.actions) ? inputs.actions : [];
+  const evaluations = asActionEvaluations(project);
+  const selectedId = String(summary.registeredCurrentControl ?? "");
+  const scenarios = ["low", "base", "high"];
+  const policyOptions = actions.map((action: any) => {
+    const id = String(action.id ?? "");
+    const label = requireUiTimelineLabel(UI_TIMELINE_CONTROL_LABELS, id, "simulation policy");
+    const evaluation = evaluations.find((candidate: any) => actionId(candidate) === id);
+    const metric = (selector: (row: any, scenario: string) => unknown) => Object.fromEntries(
+      scenarios.map((scenario) => [scenario, jsonValueOrNull(selector(storedActionScenario(evaluation, scenario), scenario))]),
+    );
+    const j = metric((row) => row.J);
+    const p = project.projectName === "Yellow Duck"
+      ? { low: null, base: null, high: null }
+      : metric((row) => row.conditionalSuccess);
+    const q = metric((row) => row.qGateProductProxy);
+    const s = Object.fromEntries(scenarios.map((scenario) => {
+      const stress = evaluation ? stressProxyScenario(project, scenario, evaluation) : null;
+      return [scenario, stress?.ok ? stress.qStressProxy : null];
+    }));
+    const requiredValues = [j.low, j.base, j.high, q.low, q.base, q.high, s.low, s.base, s.high];
+    if (project.projectName !== "Yellow Duck") requiredValues.push(p.low, p.base, p.high);
+    const exact = Boolean(evaluation) && requiredValues.every(finite);
+    return {
+      id,
+      label,
+      registrationRole: id === selectedId
+        ? (summary.controlRegistrationStatus === "historical_terminal_classification_not_current_recommendation"
+          ? "historical_terminal_shadow"
+          : "registered_current")
+        : "unregistered_shadow_alternative",
+      authorityStatus: "unconfirmed",
+      sourceRefCount: new Set([...(action.sourceRefs ?? []), ...(evaluation?.sourceRefs ?? [])]).size,
+      calculationStatus: exact ? "exact_frozen_engine_at_valuation_date" : "not_calculable",
+      metrics: exact ? {
+        jValueMillionJpy: j,
+        conditionalSuccessValueMillionJpy: p,
+        qGateProductProxy: q,
+        qStressProxy: s,
+      } : null,
+    };
+  });
+  if (!policyOptions.some((option: any) => option.id === selectedId)) {
+    throw new Error(`${project.projectName}: registered simulation policy option missing`);
+  }
+  return {
+    saveMode: "browser_only_not_saved",
+    valuationDate,
+    currentPolicyId: selectedId,
+    policyOptions,
+    comparisonOptionIds: policyOptions
+      .filter((option: any) => option.id !== selectedId)
+      .map((option: any) => option.id),
+    engineConnection: {
+      policyAtValuationDate: "exact_precomputed_frozen_engine",
+      policyDateChange: "not_connected",
+      futureDecisionCandidate: "not_connected",
+      futureDecisionDate: "not_connected",
+    },
   };
 }
 
@@ -2354,6 +2437,7 @@ function buildUiProjectProjection(
       precisionStatus: summary.precisionStatus,
     },
     timeline: buildUiTimeline(project, summary, rootArtifact.valuationDate),
+    simulation: buildUiSimulation(project, summary, rootArtifact.valuationDate),
     groups,
   };
 }

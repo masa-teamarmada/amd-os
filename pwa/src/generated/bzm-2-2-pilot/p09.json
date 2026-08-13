@@ -121,6 +121,8 @@
             "status": "fixed_shadow_not_optimized",
             "precision": "registered_shadow",
             "authorityStatus": "unconfirmed_not_executable_recommendation",
+            "choiceRole": "evaluation_selection",
+            "choiceLabel": "評価上の選択: 開発継続・残ゲート解消",
             "sourceRefCount": 15,
             "description": "登録済み固定方針。shadow比較のみで、最適化結果でも権限確認済みの実行推奨でもない。"
           }
@@ -151,6 +153,8 @@
             "precision": "observed_or_documented",
             "sourceStatus": "document_extracted",
             "sourceRefCount": 3,
+            "choiceRole": "inherited_registered_policy",
+            "choiceLabel": "前提にした登録方針: 開発継続・残ゲート解消",
             "description": "登録済み固定方針に紐づく計画ゲート。表示月は意思決定日ではない。"
           },
           {
@@ -167,6 +171,8 @@
             "precision": "unknown",
             "sourceStatus": "estimated",
             "sourceRefCount": 3,
+            "choiceRole": "inherited_registered_policy",
+            "choiceLabel": "前提にした登録方針: 開発継続・残ゲート解消",
             "description": "登録済み固定方針に紐づく計画ゲート。表示月は意思決定日ではない。"
           },
           {
@@ -183,6 +189,8 @@
             "precision": "unknown",
             "sourceStatus": "estimated",
             "sourceRefCount": 3,
+            "choiceRole": "inherited_registered_policy",
+            "choiceLabel": "前提にした登録方針: 開発継続・残ゲート解消",
             "description": "登録済み固定方針に紐づく計画ゲート。表示月は意思決定日ではない。"
           },
           {
@@ -204,6 +212,8 @@
             "availabilityStatus": "recorded_not_available_as_unrestricted_cash",
             "amountMillionJpy": null,
             "probability": 0,
+            "choiceRole": "not_a_choice",
+            "choiceLabel": "方針選択ではない（資金・外部事実）",
             "description": "採択・制度枠の記録。入金または自由に使える資金とは扱わない。"
           },
           {
@@ -225,6 +235,8 @@
             "availabilityStatus": "recorded_not_available_as_unrestricted_cash",
             "amountMillionJpy": null,
             "probability": 0,
+            "choiceRole": "not_a_choice",
+            "choiceLabel": "方針選択ではない（資金・外部事実）",
             "description": "採択・制度枠の記録。入金または自由に使える資金とは扱わない。"
           },
           {
@@ -246,6 +258,8 @@
             "availabilityStatus": "recorded_not_available_as_unrestricted_cash",
             "amountMillionJpy": null,
             "probability": 0,
+            "choiceRole": "not_a_choice",
+            "choiceLabel": "方針選択ではない（資金・外部事実）",
             "description": "採択・制度枠の記録。入金または自由に使える資金とは扱わない。"
           },
           {
@@ -267,6 +281,8 @@
             "availabilityStatus": "recorded_not_available_as_unrestricted_cash",
             "amountMillionJpy": null,
             "probability": 0,
+            "choiceRole": "not_a_choice",
+            "choiceLabel": "方針選択ではない（資金・外部事実）",
             "description": "採択・制度枠の記録。入金または自由に使える資金とは扱わない。"
           },
           {
@@ -288,6 +304,8 @@
             "availabilityStatus": "not_available_or_unconfirmed",
             "amountMillionJpy": 55.81212,
             "probability": 0.25,
+            "choiceRole": "not_a_choice",
+            "choiceLabel": "方針選択ではない（資金・外部事実）",
             "description": "将来または条件付きの外部資金候補。契約済み・入金済みとは扱わない。"
           },
           {
@@ -309,6 +327,8 @@
             "availabilityStatus": "recorded_not_available_as_unrestricted_cash",
             "amountMillionJpy": null,
             "probability": 0,
+            "choiceRole": "not_a_choice",
+            "choiceLabel": "方針選択ではない（資金・外部事実）",
             "description": "採択・制度枠の記録。入金または自由に使える資金とは扱わない。"
           },
           {
@@ -330,6 +350,8 @@
             "availabilityStatus": "historically_occurred_current_availability_not_inferred",
             "amountMillionJpy": 98.96454,
             "probability": 1,
+            "choiceRole": "not_a_choice",
+            "choiceLabel": "方針選択ではない（資金・外部事実）",
             "description": "評価日前に発生した外部資金イベント。評価日時点の利用可能額は推定しない。"
           },
           {
@@ -351,6 +373,8 @@
             "availabilityStatus": "historically_occurred_current_availability_not_inferred",
             "amountMillionJpy": 29.9997,
             "probability": 1,
+            "choiceRole": "not_a_choice",
+            "choiceLabel": "方針選択ではない（資金・外部事実）",
             "description": "評価日前に発生した外部資金イベント。評価日時点の利用可能額は推定しない。"
           },
           {
@@ -372,6 +396,8 @@
             "availabilityStatus": "historically_occurred_current_availability_not_inferred",
             "amountMillionJpy": 23.9925,
             "probability": 1,
+            "choiceRole": "not_a_choice",
+            "choiceLabel": "方針選択ではない（資金・外部事実）",
             "description": "評価日前に発生した外部資金イベント。評価日時点の利用可能額は推定しない。"
           },
           {
@@ -393,6 +419,8 @@
             "availabilityStatus": "not_available_or_unconfirmed",
             "amountMillionJpy": 50,
             "probability": 0.25,
+            "choiceRole": "not_a_choice",
+            "choiceLabel": "方針選択ではない（資金・外部事実）",
             "description": "将来または条件付きの外部資金候補。契約済み・入金済みとは扱わない。"
           },
           {
@@ -414,6 +442,8 @@
             "availabilityStatus": "not_available_or_unconfirmed",
             "amountMillionJpy": 590,
             "probability": 0.55,
+            "choiceRole": "not_a_choice",
+            "choiceLabel": "方針選択ではない（資金・外部事実）",
             "description": "将来または条件付きの外部資金候補。契約済み・入金済みとは扱わない。"
           },
           {
@@ -435,6 +465,8 @@
             "availabilityStatus": "not_cash_receipt",
             "amountMillionJpy": null,
             "probability": null,
+            "choiceRole": "inherited_registered_policy",
+            "choiceLabel": "前提にした登録方針: 開発継続・残ゲート解消",
             "description": "資金パッケージ成立性の計算用ゲート。資金調達の決定、契約、入金ではない。"
           }
         ]
@@ -446,6 +478,102 @@
         "items": []
       }
     ]
+  },
+  "simulation": {
+    "saveMode": "browser_only_not_saved",
+    "valuationDate": "2026-08-12",
+    "currentPolicyId": "continue_and_resolve_gates",
+    "policyOptions": [
+      {
+        "id": "continue_and_resolve_gates",
+        "label": "開発継続・残ゲート解消",
+        "registrationRole": "registered_current",
+        "authorityStatus": "unconfirmed",
+        "sourceRefCount": 0,
+        "calculationStatus": "exact_frozen_engine_at_valuation_date",
+        "metrics": {
+          "jValueMillionJpy": {
+            "low": 78.739435,
+            "base": 367.155866,
+            "high": 916.079872
+          },
+          "conditionalSuccessValueMillionJpy": {
+            "low": 771.569593,
+            "base": 1126.768875,
+            "high": 1541.168038
+          },
+          "qGateProductProxy": {
+            "low": 0.0572,
+            "base": 0.1836,
+            "high": 0.40508
+          },
+          "qStressProxy": {
+            "low": 0.046904,
+            "base": 0.16524,
+            "high": 0.388877
+          }
+        }
+      },
+      {
+        "id": "fundraise_and_partner_parallel",
+        "label": "資金調達・事業提携の並行推進",
+        "registrationRole": "unregistered_shadow_alternative",
+        "authorityStatus": "unconfirmed",
+        "sourceRefCount": 0,
+        "calculationStatus": "exact_frozen_engine_at_valuation_date",
+        "metrics": {
+          "jValueMillionJpy": {
+            "low": 81.507198,
+            "base": 395.694538,
+            "high": 1008.520441
+          },
+          "conditionalSuccessValueMillionJpy": {
+            "low": 874.991794,
+            "base": 1283.470969,
+            "high": 1760.030006
+          },
+          "qGateProductProxy": {
+            "low": 0.0572,
+            "base": 0.1836,
+            "high": 0.40508
+          },
+          "qStressProxy": {
+            "low": 0.046904,
+            "base": 0.16524,
+            "high": 0.388877
+          }
+        }
+      },
+      {
+        "id": "license_or_asset_transfer",
+        "label": "ライセンスまたは資産移管",
+        "registrationRole": "unregistered_shadow_alternative",
+        "authorityStatus": "unconfirmed",
+        "sourceRefCount": 0,
+        "calculationStatus": "not_calculable",
+        "metrics": null
+      },
+      {
+        "id": "abandon",
+        "label": "撤退・事業終了",
+        "registrationRole": "unregistered_shadow_alternative",
+        "authorityStatus": "unconfirmed",
+        "sourceRefCount": 0,
+        "calculationStatus": "not_calculable",
+        "metrics": null
+      }
+    ],
+    "comparisonOptionIds": [
+      "fundraise_and_partner_parallel",
+      "license_or_asset_transfer",
+      "abandon"
+    ],
+    "engineConnection": {
+      "policyAtValuationDate": "exact_precomputed_frozen_engine",
+      "policyDateChange": "not_connected",
+      "futureDecisionCandidate": "not_connected",
+      "futureDecisionDate": "not_connected"
+    }
   },
   "groups": [
     {

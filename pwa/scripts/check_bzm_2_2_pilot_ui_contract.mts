@@ -170,6 +170,8 @@ for (const row of manifest.projects) {
       || !item.datePrecision
       || !item.status
       || !item.precision
+      || !item.choiceLabel
+      || !item.choiceRole
       || !Number.isInteger(item.sourceRefCount)
       || item.sourceRefCount < 0
       || item.kind === "confirmed_decision"
@@ -187,6 +189,18 @@ for (const row of manifest.projects) {
     || timelineText.includes("選択済み")
   ) {
     throw new Error(`${row.projectId}: timeline leaks raw refs or overstates selection/cash receipt`);
+  }
+  if (
+    !projection.simulation
+    || projection.simulation.saveMode !== "browser_only_not_saved"
+    || projection.simulation.currentPolicyId !== projection.summary.registeredCurrentControl
+    || projection.simulation.policyOptions.length < 1
+    || !projection.simulation.policyOptions.some((option) => option.id === projection.simulation.currentPolicyId)
+    || projection.simulation.policyOptions.some((option) => option.registrationRole !== "registered_current"
+      && option.registrationRole !== "historical_terminal_shadow"
+      && option.registrationRole !== "unregistered_shadow_alternative")
+  ) {
+    throw new Error(`${row.projectId}: browser-only policy comparison contract invalid`);
   }
   if (/https?:\/\//i.test(raw) || /rawBody|messageBody|emailAddress|accessToken|refreshToken/i.test(raw)) {
     throw new Error(`${row.projectId}: projection contains forbidden raw/URL surface`);
@@ -314,11 +328,10 @@ requireIncludes(loaderSource, [
 
 const componentSource = requireText(componentPath);
 requireIncludes(componentSource, [
-  "BZM 2.2 暫定主表示",
+  ">BZM 2.2<",
   "全パラメータ台帳",
   "103項目",
-  "順位付け、資源配分、撤退判断には使わない",
-  "低位・基準・高位の試算",
+  "慎重・基準・強気",
   'data-testid="bzm22-provisional-primary"',
   'symbol="J"',
   'symbol="P"',
@@ -330,7 +343,6 @@ requireIncludes(componentSource, [
   "ParameterIdentity",
   "FormulaIndex",
   "接続式一覧 F0–F14",
-  "catalog.dataNameTex",
   "catalog.symbolTex ?",
   "catalog.formulaConnection",
   "catalog.formulaRefs.map",
@@ -339,9 +351,29 @@ requireIncludes(componentSource, [
   "TimelineTrack",
   "TimelineItemMeta",
   "選択と事業イベントの時間軸",
+  "別の進め方を試す",
+  "元の前提に戻す",
+  "この項目を表す記号",
+  "数式には直接入らない管理項目",
+  "3つの前提ケース",
+  "内訳を見る",
+  "参照先未接続",
+  "PJ資料室",
+  "を開く（",
   "formatUnitValue",
   "formatUnitLabel",
 ], "BZM 2.2 observatory UI");
+for (const forbidden of [
+  "BZM 2.2 暫定主表示",
+  "未検証・低精度",
+  "影の比較のみ",
+  "現在値",
+  "L / B / H",
+  "L/B/H 全値",
+  "catalog.dataNameTex",
+]) {
+  if (componentSource.includes(forbidden)) throw new Error(`BZM 2.2 UI still exposes legacy wording: ${forbidden}`);
+}
 if (componentSource.includes("parameter.usedInCalculation")) {
   throw new Error("BZM 2.2 UI must use six-way formula relation, not usedInCalculation boolean");
 }

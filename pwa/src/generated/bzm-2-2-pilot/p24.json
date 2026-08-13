@@ -121,6 +121,8 @@
             "status": "fixed_shadow_not_optimized",
             "precision": "registered_shadow",
             "authorityStatus": "unconfirmed_not_executable_recommendation",
+            "choiceRole": "evaluation_selection",
+            "choiceLabel": "評価上の選択: 現行統合方針",
             "sourceRefCount": 5,
             "description": "登録済み固定方針。shadow比較のみで、最適化結果でも権限確認済みの実行推奨でもない。"
           }
@@ -151,6 +153,8 @@
             "precision": "mixed",
             "sourceStatus": "mixed_document_and_imputation",
             "sourceRefCount": 5,
+            "choiceRole": "inherited_registered_policy",
+            "choiceLabel": "前提にした登録方針: 現行統合方針",
             "description": "登録済み固定方針に紐づく計画ゲート。表示月は意思決定日ではない。"
           },
           {
@@ -167,6 +171,8 @@
             "precision": "mixed",
             "sourceStatus": "mixed_document_and_imputation",
             "sourceRefCount": 5,
+            "choiceRole": "inherited_registered_policy",
+            "choiceLabel": "前提にした登録方針: 現行統合方針",
             "description": "登録済み固定方針に紐づく計画ゲート。表示月は意思決定日ではない。"
           },
           {
@@ -183,6 +189,8 @@
             "precision": "mixed",
             "sourceStatus": "mixed_document_and_imputation",
             "sourceRefCount": 5,
+            "choiceRole": "inherited_registered_policy",
+            "choiceLabel": "前提にした登録方針: 現行統合方針",
             "description": "登録済み固定方針に紐づく計画ゲート。表示月は意思決定日ではない。"
           },
           {
@@ -199,6 +207,8 @@
             "precision": "mixed",
             "sourceStatus": "mixed_document_and_imputation",
             "sourceRefCount": 5,
+            "choiceRole": "inherited_registered_policy",
+            "choiceLabel": "前提にした登録方針: 現行統合方針",
             "description": "登録済み固定方針に紐づく計画ゲート。表示月は意思決定日ではない。"
           },
           {
@@ -220,6 +230,8 @@
             "availabilityStatus": "not_available_or_unconfirmed",
             "amountMillionJpy": 4,
             "probability": 0.7,
+            "choiceRole": "not_a_choice",
+            "choiceLabel": "方針選択ではない（資金・外部事実）",
             "description": "将来または条件付きの外部資金候補。契約済み・入金済みとは扱わない。"
           },
           {
@@ -241,6 +253,8 @@
             "availabilityStatus": "not_available_or_unconfirmed",
             "amountMillionJpy": 30,
             "probability": 0.42,
+            "choiceRole": "not_a_choice",
+            "choiceLabel": "方針選択ではない（資金・外部事実）",
             "description": "将来または条件付きの外部資金候補。契約済み・入金済みとは扱わない。"
           },
           {
@@ -262,6 +276,8 @@
             "availabilityStatus": "not_available_or_unconfirmed",
             "amountMillionJpy": 50,
             "probability": 0.35,
+            "choiceRole": "not_a_choice",
+            "choiceLabel": "方針選択ではない（資金・外部事実）",
             "description": "将来または条件付きの外部資金候補。契約済み・入金済みとは扱わない。"
           },
           {
@@ -283,6 +299,8 @@
             "availabilityStatus": "not_cash_receipt",
             "amountMillionJpy": null,
             "probability": null,
+            "choiceRole": "inherited_registered_policy",
+            "choiceLabel": "前提にした登録方針: 現行統合方針",
             "description": "資金パッケージ成立性の計算用ゲート。資金調達の決定、契約、入金ではない。"
           }
         ]
@@ -294,6 +312,71 @@
         "items": []
       }
     ]
+  },
+  "simulation": {
+    "saveMode": "browser_only_not_saved",
+    "valuationDate": "2026-08-12",
+    "currentPolicyId": "current_integrated_policy",
+    "policyOptions": [
+      {
+        "id": "current_integrated_policy",
+        "label": "現行統合方針",
+        "registrationRole": "registered_current",
+        "authorityStatus": "unconfirmed",
+        "sourceRefCount": 5,
+        "calculationStatus": "exact_frozen_engine_at_valuation_date",
+        "metrics": {
+          "jValueMillionJpy": {
+            "low": 109.104481,
+            "base": 425.936649,
+            "high": 1504.955644
+          },
+          "conditionalSuccessValueMillionJpy": {
+            "low": 1116.451114,
+            "base": 2071.552787,
+            "high": 3435.983747
+          },
+          "qGateProductProxy": {
+            "low": 0.0399,
+            "base": 0.1782,
+            "high": 0.426205
+          },
+          "qStressProxy": {
+            "low": 0.01845,
+            "base": 0.0824,
+            "high": 0.197077
+          }
+        }
+      },
+      {
+        "id": "staged_capital_light_policy",
+        "label": "段階的・資本軽量方針",
+        "registrationRole": "unregistered_shadow_alternative",
+        "authorityStatus": "unconfirmed",
+        "sourceRefCount": 5,
+        "calculationStatus": "not_calculable",
+        "metrics": null
+      },
+      {
+        "id": "partner_or_license_alternative",
+        "label": "提携またはライセンス代替案",
+        "registrationRole": "unregistered_shadow_alternative",
+        "authorityStatus": "unconfirmed",
+        "sourceRefCount": 5,
+        "calculationStatus": "not_calculable",
+        "metrics": null
+      }
+    ],
+    "comparisonOptionIds": [
+      "staged_capital_light_policy",
+      "partner_or_license_alternative"
+    ],
+    "engineConnection": {
+      "policyAtValuationDate": "exact_precomputed_frozen_engine",
+      "policyDateChange": "not_connected",
+      "futureDecisionCandidate": "not_connected",
+      "futureDecisionDate": "not_connected"
+    }
   },
   "groups": [
     {

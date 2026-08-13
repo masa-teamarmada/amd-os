@@ -121,6 +121,8 @@
             "status": "fixed_shadow_not_optimized",
             "precision": "registered_shadow",
             "authorityStatus": "unconfirmed_not_executable_recommendation",
+            "choiceRole": "evaluation_selection",
+            "choiceLabel": "評価上の選択: 資金調達・公的制度の並行推進",
             "sourceRefCount": 16,
             "description": "登録済み固定方針。shadow比較のみで、最適化結果でも権限確認済みの実行推奨でもない。"
           }
@@ -151,6 +153,8 @@
             "precision": "observed_or_documented",
             "sourceStatus": "document_extracted",
             "sourceRefCount": 4,
+            "choiceRole": "inherited_registered_policy",
+            "choiceLabel": "前提にした登録方針: 資金調達・公的制度の並行推進",
             "description": "登録済み固定方針に紐づく計画ゲート。表示月は意思決定日ではない。"
           },
           {
@@ -167,6 +171,8 @@
             "precision": "unknown",
             "sourceStatus": "estimated",
             "sourceRefCount": 4,
+            "choiceRole": "inherited_registered_policy",
+            "choiceLabel": "前提にした登録方針: 資金調達・公的制度の並行推進",
             "description": "登録済み固定方針に紐づく計画ゲート。表示月は意思決定日ではない。"
           },
           {
@@ -183,6 +189,8 @@
             "precision": "unknown",
             "sourceStatus": "estimated",
             "sourceRefCount": 4,
+            "choiceRole": "inherited_registered_policy",
+            "choiceLabel": "前提にした登録方針: 資金調達・公的制度の並行推進",
             "description": "登録済み固定方針に紐づく計画ゲート。表示月は意思決定日ではない。"
           },
           {
@@ -204,6 +212,8 @@
             "availabilityStatus": "historically_occurred_current_availability_not_inferred",
             "amountMillionJpy": null,
             "probability": 0,
+            "choiceRole": "not_a_choice",
+            "choiceLabel": "方針選択ではない（資金・外部事実）",
             "description": "評価日前に発生した外部資金イベント。評価日時点の利用可能額は推定しない。"
           },
           {
@@ -225,6 +235,8 @@
             "availabilityStatus": "recorded_not_available_as_unrestricted_cash",
             "amountMillionJpy": 10,
             "probability": 1,
+            "choiceRole": "not_a_choice",
+            "choiceLabel": "方針選択ではない（資金・外部事実）",
             "description": "採択・制度枠の記録。入金または自由に使える資金とは扱わない。"
           },
           {
@@ -246,6 +258,8 @@
             "availabilityStatus": "recorded_not_available_as_unrestricted_cash",
             "amountMillionJpy": 100,
             "probability": 1,
+            "choiceRole": "not_a_choice",
+            "choiceLabel": "方針選択ではない（資金・外部事実）",
             "description": "採択・制度枠の記録。入金または自由に使える資金とは扱わない。"
           },
           {
@@ -267,6 +281,8 @@
             "availabilityStatus": "not_cash_receipt",
             "amountMillionJpy": null,
             "probability": null,
+            "choiceRole": "inherited_registered_policy",
+            "choiceLabel": "前提にした登録方針: 資金調達・公的制度の並行推進",
             "description": "資金パッケージ成立性の計算用ゲート。資金調達の決定、契約、入金ではない。"
           }
         ]
@@ -278,6 +294,102 @@
         "items": []
       }
     ]
+  },
+  "simulation": {
+    "saveMode": "browser_only_not_saved",
+    "valuationDate": "2026-08-12",
+    "currentPolicyId": "fundraise_and_public_program_parallel",
+    "policyOptions": [
+      {
+        "id": "continue_large_poc_and_scale",
+        "label": "大型PoC継続・スケール検証",
+        "registrationRole": "unregistered_shadow_alternative",
+        "authorityStatus": "unconfirmed",
+        "sourceRefCount": 0,
+        "calculationStatus": "exact_frozen_engine_at_valuation_date",
+        "metrics": {
+          "jValueMillionJpy": {
+            "low": 290.48159,
+            "base": 908.909568,
+            "high": 1933.190258
+          },
+          "conditionalSuccessValueMillionJpy": {
+            "low": 1240.46478,
+            "base": 1867.393793,
+            "high": 2598.810974
+          },
+          "qGateProductProxy": {
+            "low": 0.0899,
+            "base": 0.28782,
+            "high": 0.54405
+          },
+          "qStressProxy": {
+            "low": 0.073718,
+            "base": 0.259038,
+            "high": 0.522288
+          }
+        }
+      },
+      {
+        "id": "fundraise_and_public_program_parallel",
+        "label": "資金調達・公的制度の並行推進",
+        "registrationRole": "registered_current",
+        "authorityStatus": "unconfirmed",
+        "sourceRefCount": 0,
+        "calculationStatus": "exact_frozen_engine_at_valuation_date",
+        "metrics": {
+          "jValueMillionJpy": {
+            "low": 300.507451,
+            "base": 962.53461,
+            "high": 2076.088147
+          },
+          "conditionalSuccessValueMillionJpy": {
+            "low": 1368.950784,
+            "base": 2058.572698,
+            "high": 2863.131597
+          },
+          "qGateProductProxy": {
+            "low": 0.0899,
+            "base": 0.28782,
+            "high": 0.54405
+          },
+          "qStressProxy": {
+            "low": 0.073718,
+            "base": 0.259038,
+            "high": 0.522288
+          }
+        }
+      },
+      {
+        "id": "license_or_asset_transfer",
+        "label": "ライセンスまたは資産移管",
+        "registrationRole": "unregistered_shadow_alternative",
+        "authorityStatus": "unconfirmed",
+        "sourceRefCount": 0,
+        "calculationStatus": "not_calculable",
+        "metrics": null
+      },
+      {
+        "id": "abandon",
+        "label": "撤退・事業終了",
+        "registrationRole": "unregistered_shadow_alternative",
+        "authorityStatus": "unconfirmed",
+        "sourceRefCount": 0,
+        "calculationStatus": "not_calculable",
+        "metrics": null
+      }
+    ],
+    "comparisonOptionIds": [
+      "continue_large_poc_and_scale",
+      "license_or_asset_transfer",
+      "abandon"
+    ],
+    "engineConnection": {
+      "policyAtValuationDate": "exact_precomputed_frozen_engine",
+      "policyDateChange": "not_connected",
+      "futureDecisionCandidate": "not_connected",
+      "futureDecisionDate": "not_connected"
+    }
   },
   "groups": [
     {

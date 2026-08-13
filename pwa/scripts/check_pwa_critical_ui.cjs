@@ -1868,12 +1868,14 @@ expectPattern("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
 ]);
 expectIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   'data-testid="bzm22-provisional-primary"',
-  "BZM 2.2 暫定主表示",
+  ">BZM 2.2<",
   "全パラメータ台帳",
-  "未検証・低精度",
-  "影の比較のみ",
-  "順位付け、資源配分、撤退判断には使わない",
-  "前向き検証",
+  "別の進め方を試す",
+  "元の前提に戻す",
+  "この項目を表す記号",
+  "数式には直接入らない管理項目",
+  "慎重・基準・強気",
+  "参照先未接続",
   'symbol="J"',
   'symbol="P"',
   'symbol="Q"',
@@ -1885,6 +1887,13 @@ expectIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   "全て開く",
 ]);
 expectNotIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
+  "BZM 2.2 暫定主表示",
+  "未検証・低精度",
+  "影の比較のみ",
+  "catalog.dataNameTex",
+  "L / B / H",
+  "L/B/H 全値",
+  ">現在値<",
   'label="gate積 proxy"',
   'label="stress最小 gate積 proxy"',
   "校正済み到達確率ではない",
