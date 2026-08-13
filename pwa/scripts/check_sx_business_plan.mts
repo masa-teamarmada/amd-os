@@ -9,6 +9,7 @@ import {
   sxPhaseBudgetVariance,
 } from "../src/lib/sx-business-plan.ts";
 import {
+  buildSxMonthlyFinanceComments,
   buildSxMonthlyFinancePlan,
   SX_PHASE0_NON_DILUTIVE_FUNDING_YEN,
 } from "../src/lib/sx-monthly-finance-plan.ts";
@@ -106,5 +107,28 @@ assert.equal(sumFinance("equityFundingYen"), 2_250_000_000, "Seed・Series A・S
 assert.equal(sumFinance("grantReceiptYen"), 400_000_000, "FY2028・FY2031の助成金入金計画をtie-out");
 assert.ok(monthlyFinance.every((row) => row.loanDrawdownYen === null), "融資額は0と捏造せず未計画");
 assert.equal(monthlyFinance.find((row) => row.ym === "2028-10")?.equityFundingYen, 600_000_000, "Series AはPhase 2開始月");
+const monthlyFinanceComments = buildSxMonthlyFinanceComments(monthRange);
+assert.ok(
+  monthlyFinanceComments.some((comment) =>
+    comment.metric === "equityFundingYen"
+    && comment.ym === "2028-10"
+    && comment.title === "Series A調達"
+    && comment.detail.includes("600百万円")),
+  "Series A調達セルの注記を資本政策から再現",
+);
+assert.ok(
+  monthlyFinanceComments.some((comment) =>
+    comment.metric === "capexYen"
+    && comment.ym === "2031-04"
+    && comment.title === "本格自社工場の建設"
+    && comment.detail.includes("600百万円")),
+  "本格工場建設セルの注記をフェーズ計画から再現",
+);
+assert.ok(
+  monthlyFinanceComments.some((comment) =>
+    comment.metric === "grantReceiptYen"
+    && comment.detail.includes("受領月は未確認")),
+  "助成金計画注記は採択額・受領実績と自動同一視しない",
+);
 
 console.log("sx business plan: ok");

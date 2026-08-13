@@ -143,10 +143,12 @@ export function CockpitVentureStatus({
   projectId,
   projectName,
   onOpenScoreDetail,
+  compact = false,
 }: {
   projectId: string;
   projectName: string;
   onOpenScoreDetail: () => void;
+  compact?: boolean;
 }) {
   const [bundle, setBundle] = useState<VentureStatusBundle | null>(null);
   const [amdInputs, setAmdInputs] = useState<AmdScoreInputRow[]>([]);
@@ -396,9 +398,9 @@ export function CockpitVentureStatus({
   const yearTicks = Array.from({ length: Math.max(0, tickYearEnd - tickYearStart + 1) }, (_, i) => tickYearStart + i);
 
   return (
-    <section className="rounded-xl border border-[#e5e5e7] bg-white">
+    <section className="rounded-xl border border-[#e5e5e7] bg-white" data-density={compact ? "compact-score-hero" : undefined}>
       {/* Header (各要素クリックで編集) */}
-      <div className="px-4 py-3 border-b border-[#e5e5e7] flex flex-wrap items-center gap-2">
+      <div className={`border-b border-[#e5e5e7] flex flex-wrap items-center gap-2 ${compact ? "px-3 py-2" : "px-4 py-3"}`}>
         <button
           onClick={() => setMetaEditing("outcome")}
           className="text-lg hover:opacity-70"
@@ -492,7 +494,7 @@ export function CockpitVentureStatus({
 
       {/* PL / PM / クローザー / AMD 契約期間 / SU 設立年月日 (#15) */}
       {(roles.pls.length > 0 || roles.pms.length > 0 || roles.closers.length > 0 || venture.amd_support_started_at || venture.founded_at) && (
-        <div className="px-4 pt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+        <div className={`${compact ? "px-3 pt-0.5" : "px-4 pt-1"} flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground`}>
           {roles.pls.length > 0 && (
             <span><b className="text-blue-700">PL</b> {roles.pls.join(", ")}</span>
           )}
@@ -516,7 +518,7 @@ export function CockpitVentureStatus({
 
       <button
         onClick={() => setDescOpen(true)}
-        className="block w-full text-left px-4 pt-3 text-[12px] text-slate-700 hover:underline decoration-dotted"
+        className={`block w-full text-left text-[12px] text-slate-700 hover:underline decoration-dotted ${compact ? "px-3 pt-1" : "px-4 pt-3"}`}
         title="事業詳細を表示・編集 (つくよみがマージ)"
       >
         {venture.short_description || <span className="text-muted-foreground">事業概要を入力…</span>}
@@ -525,9 +527,9 @@ export function CockpitVentureStatus({
         )}
       </button>
 
-      <Bzm22CockpitSummary projectId={projectId} onOpenScoreDetail={onOpenScoreDetail} />
+      <Bzm22CockpitSummary projectId={projectId} onOpenScoreDetail={onOpenScoreDetail} compact={compact} />
 
-      <div className="mx-2 mt-2 flex justify-end">
+      <div className={`mx-2 flex justify-end ${compact ? "mt-1" : "mt-2"}`}>
         <button
           type="button"
           aria-expanded={legacyScoreHistoryOpen}

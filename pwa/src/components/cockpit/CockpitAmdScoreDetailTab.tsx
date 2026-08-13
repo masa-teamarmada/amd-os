@@ -248,10 +248,10 @@ export function CockpitAmdScoreDetailTab({
   const requestArchives = () => setArchiveRequestedProjectId(projectId);
 
   return (
-    <div className="min-w-0 space-y-5">
+    <div className="min-w-0 space-y-2" data-density="compact-score-page">
       <Bzm22ProvisionalObservatory projectId={projectId} active={active} />
 
-      <section data-testid="score-model-archives" aria-labelledby="score-model-archives-title" className="min-w-0 space-y-2 border-t border-slate-300 pt-4">
+      <section data-testid="score-model-archives" aria-labelledby="score-model-archives-title" className="min-w-0 space-y-1.5 border-t border-slate-300 pt-2">
         <div className="px-1">
           <h2 id="score-model-archives-title" className="text-[11px] font-semibold text-slate-700">旧モデル / 現行運用モデル</h2>
           <p className="mt-0.5 text-[9px] leading-4 text-slate-500">ページ最下部に分離。初期状態では閉じ、開いたモデルだけを描画する。</p>

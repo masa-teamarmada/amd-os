@@ -220,15 +220,15 @@ function ParameterDesktopTable({ parameters, projectId }: { parameters: Bzm22Pil
   return (
     <div className="hidden overflow-x-auto lg:block">
       <table className="w-full min-w-[1040px] border-collapse text-left">
-        <thead className="bg-slate-50 text-[9px] text-slate-500"><tr><th className="w-10 px-2 py-2 text-right">#</th><th className="w-[360px] px-2 py-2">日本語名・数式との接続</th><th className="px-2 py-2">意味</th><th className="w-[250px] px-2 py-2">入力値</th><th className="w-[170px] px-2 py-2">状態・根拠</th></tr></thead>
+        <thead className="bg-slate-50 text-[9px] text-slate-500"><tr><th className="w-10 px-2 py-1.5 text-right">#</th><th className="w-[360px] px-2 py-1.5">日本語名・数式との接続</th><th className="px-2 py-1.5">意味</th><th className="w-[250px] px-2 py-1.5">入力値</th><th className="w-[170px] px-2 py-1.5">状態・根拠</th></tr></thead>
         <tbody>{parameters.map((parameter) => {
           const catalog = getBzm22ParameterCatalogEntry(parameter.id);
           return <tr key={parameter.id} className="border-t border-slate-100 align-top even:bg-slate-50/40">
-            <td className="px-2 py-2 text-right font-mono text-[8px] text-slate-400">{parameter.index}</td>
-            <td className="px-2 py-2"><ParameterIdentity parameter={parameter} /></td>
-            <td className="px-2 py-2 text-[9px] leading-4 text-slate-600">{catalog.formulaConnection}</td>
-            <td className="px-2 py-2"><ScenarioValues parameter={parameter} /></td>
-            <td className="px-2 py-2"><StatusBadge status={parameter.observedStatus} /><AuditDetail parameter={parameter} projectId={projectId} /></td>
+            <td className="px-2 py-1.5 text-right font-mono text-[8px] text-slate-400">{parameter.index}</td>
+            <td className="px-2 py-1.5"><ParameterIdentity parameter={parameter} /></td>
+            <td className="px-2 py-1.5 text-[9px] leading-4 text-slate-600">{catalog.formulaConnection}</td>
+            <td className="px-2 py-1.5"><ScenarioValues parameter={parameter} /></td>
+            <td className="px-2 py-1.5"><StatusBadge status={parameter.observedStatus} /><AuditDetail parameter={parameter} projectId={projectId} /></td>
           </tr>;
         })}</tbody>
       </table>
@@ -238,10 +238,10 @@ function ParameterDesktopTable({ parameters, projectId }: { parameters: Bzm22Pil
 
 function ParameterMobileCards({ parameters, projectId }: { parameters: Bzm22PilotParameter[]; projectId: string }) {
   return <div className="divide-y divide-slate-200 lg:hidden">{parameters.map((parameter) => (
-    <article key={parameter.id} className="px-3 py-3">
+    <article key={parameter.id} className="px-3 py-2">
       <div className="flex items-start justify-between gap-2"><span className="font-mono text-[8px] text-slate-400">#{parameter.index}</span><StatusBadge status={parameter.observedStatus} /></div>
       <div className="mt-1"><ParameterIdentity parameter={parameter} /></div>
-      <div className="mt-2 border border-slate-200 bg-white p-2"><div className="mb-1 text-[8px] font-semibold text-slate-500">入力値・3つの前提ケース</div><ScenarioValues parameter={parameter} /></div>
+      <div className="mt-1.5 border border-slate-200 bg-white p-1.5"><div className="mb-1 text-[8px] font-semibold text-slate-500">入力値・3つの前提ケース</div><ScenarioValues parameter={parameter} /></div>
       <AuditDetail parameter={parameter} projectId={projectId} />
     </article>
   ))}</div>;
@@ -264,8 +264,8 @@ function ParameterLedger({ groups, projectId }: { groups: Bzm22PilotParameterGro
   const total = groups.reduce((sum, group) => sum + group.parameters.length, 0);
   return (
     <details data-testid="bzm22-parameter-ledger" className="border-t border-[#7898a5] bg-white">
-      <summary className="cursor-pointer list-none bg-[#edf3f5] px-3 py-3 marker:content-none sm:px-4"><span className="text-[12px] font-semibold text-[#173f51]">103項目の監査台帳</span><span className="ml-2 text-[9px] text-slate-500">最下部の監査用。開いて確認</span></summary>
-      <div className="border-t border-slate-200 p-3">
+      <summary className="cursor-pointer list-none bg-[#edf3f5] px-3 py-2 marker:content-none sm:px-4"><span className="text-[12px] font-semibold text-[#173f51]">103項目の監査台帳</span><span className="ml-2 text-[9px] text-slate-500">最下部の監査用。開いて確認</span></summary>
+      <div className="border-t border-slate-200 p-2">
         <div className="grid gap-2 md:grid-cols-[1fr_auto]">
           <input aria-label="項目を検索" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="日本語名・数式記号・意味で検索" className="min-h-10 border border-slate-300 px-3 text-[11px] outline-none focus:border-cyan-700 md:min-h-8" />
           <div className="grid grid-cols-3 border border-slate-300">{([['all','全項目'],['formula','数式に関係'],['assumption','仮定を含む']] as const).map(([value,label]) => <button key={value} type="button" onClick={() => setFilter(value)} className={`min-h-10 border-l border-slate-200 px-2 text-[9px] first:border-0 md:min-h-8 ${filter === value ? "bg-[#dcebed] font-semibold text-[#174b60]" : "text-slate-500"}`}>{label}</button>)}</div>
@@ -280,17 +280,17 @@ function ParameterLedger({ groups, projectId }: { groups: Bzm22PilotParameterGro
 
 function ScenarioMetric({ symbol, value, kind }: { symbol: keyof typeof BZM22_TOP_METRICS; value: Bzm22Scenario<number | null>; kind: "probability" | "million" }) {
   const metric = BZM22_TOP_METRICS[symbol];
-  return <div className="min-w-0 bg-white px-3 py-3"><div className="flex items-baseline gap-2"><span className="text-[18px] font-bold text-[#173f51]">{symbol}</span><span className="text-[10px] font-semibold text-slate-600">{metric.title}</span></div><div className="mt-1 text-[16px] font-semibold tabular-nums text-[#173f51]">{formatNumber(value.base, kind)}</div><div className="mt-2 grid grid-cols-3 gap-1 text-[8px] text-slate-500"><span>慎重 {formatNumber(value.low, kind)}</span><span>基準 {formatNumber(value.base, kind)}</span><span>強気 {formatNumber(value.high, kind)}</span></div><div className="mt-2 text-[8px] leading-3 text-slate-500">{metric.description}</div></div>;
+  return <div className="min-w-0 bg-white px-3 py-2"><div className="flex items-baseline gap-2"><span className="text-[18px] font-bold text-[#173f51]">{symbol}</span><span className="text-[10px] font-semibold text-slate-600">{metric.title}</span></div><div className="mt-0.5 text-[16px] font-semibold tabular-nums text-[#173f51]">{formatNumber(value.base, kind)}</div><div className="mt-1 grid grid-cols-3 gap-1 text-[8px] text-slate-500"><span>慎重 {formatNumber(value.low, kind)}</span><span>基準 {formatNumber(value.base, kind)}</span><span>強気 {formatNumber(value.high, kind)}</span></div><div className="mt-1 text-[8px] leading-3 text-slate-500">{metric.description}</div></div>;
 }
 
 function FormulaTerm({ tex, label, value, detail }: { tex: string; label: string; value: string; detail?: string }) {
   return (
     <div className="w-full min-w-0 lg:flex-1">
-      <div className="flex min-h-9 items-end justify-start overflow-x-auto whitespace-nowrap border-b-2 border-[#2b6c82] px-2 pb-1 text-left text-[11px] text-[#285b6b] lg:justify-center lg:text-center">
+      <div className="flex min-h-8 items-end justify-start overflow-x-auto whitespace-nowrap border-b-2 border-[#2b6c82] px-2 pb-1 text-left text-[11px] text-[#285b6b] lg:justify-center lg:text-center">
         <Tex tex={tex} />
       </div>
-      <div aria-hidden="true" className="mx-auto h-3 w-px bg-[#2b6c82]" />
-      <div className="border border-[#a9c5cf] bg-[#eaf2f4] px-2.5 py-2 text-center">
+      <div aria-hidden="true" className="mx-auto h-2 w-px bg-[#2b6c82]" />
+      <div className="border border-[#a9c5cf] bg-[#eaf2f4] px-2.5 py-1.5 text-center">
         <div className="text-[8px] font-semibold text-[#426573]">{label}</div>
         <div className="mt-1 break-words font-mono text-[11px] font-semibold tabular-nums text-[#173f51]">{value}</div>
         {detail ? <div className="mt-1 text-[8px] leading-3 text-slate-500">{detail}</div> : null}
@@ -328,10 +328,10 @@ function AnnotatedFormula({
         </div>
         <strong className="font-mono text-[14px] tabular-nums text-[#173f51]">{result}</strong>
       </header>
-      <div className="px-3 py-3 lg:overflow-x-auto">
+      <div className="px-3 py-2 lg:overflow-x-auto">
         <div className="w-full min-w-0 lg:min-w-[720px]">
           <div className="overflow-x-auto whitespace-nowrap text-[12px] text-[#285b6b]"><Tex tex={formula} /></div>
-          <div className="mt-3 flex flex-col items-stretch lg:flex-row lg:items-start">{children}</div>
+          <div className="mt-2 flex flex-col items-stretch lg:flex-row lg:items-start">{children}</div>
         </div>
       </div>
     </article>
@@ -463,7 +463,7 @@ function BrowserSimulator({
         <h3 id="execution-judgement-title" className="text-[12px] font-semibold text-[#173f51]">実行可能性と経営判断</h3>
         <p className="mt-0.5 text-[8px] text-slate-500">ブラウザ内シミュレーター。この画面内の変更は保存されない。</p>
       </header>
-      <div className="grid gap-3 p-3 lg:grid-cols-2">
+      <div className="grid gap-2 p-2 lg:grid-cols-2">
         <div>
           <label className="block text-[9px] font-semibold text-slate-600">評価日固定の方針比較
             <select value={policyId} onChange={(event) => setPolicyId(event.target.value)} className="mt-1 min-h-10 w-full border border-slate-300 bg-white px-2 text-[10px]">
@@ -492,7 +492,7 @@ function BrowserSimulator({
           <div className="mt-1 text-[8px] text-slate-500">Q・S・Pは不変。条件付き通過値の意味を守るため、gate順序は固定し、同月だけを許す。{gateTimingChanged ? "判定月を変更中。" : "登録月を表示中。"}</div>
         </div>
       </div>
-      <div className="px-3 pb-3"><button type="button" onClick={reset} className="min-h-9 border border-slate-300 px-3 text-[9px] font-semibold text-slate-600">元の前提に戻す</button></div>
+      <div className="px-2 pb-2"><button type="button" onClick={reset} className="min-h-9 border border-slate-300 px-3 text-[9px] font-semibold text-slate-600">元の前提に戻す</button></div>
     </section>
   );
 }
@@ -504,7 +504,7 @@ function CalculationConditions({ pilot }: { pilot: Bzm22PilotProject }) {
 function PilotPanel({ pilot }: { pilot: Bzm22PilotProject }) {
   const [gateMonths, setGateMonths] = useState<Record<string, number>>(() =>
     Object.fromEntries(pilot.calculationTrace.inputs.gates.map((gate) => [gate.id, gate.month])));
-  return <section data-testid="bzm22-provisional-primary" aria-labelledby="bzm22-title" className="min-w-0 overflow-hidden border border-[#7898a5] bg-[#f6f8f8]"><header className="border-b border-[#365865] bg-[#162f3a] px-3 py-3 text-white sm:px-4"><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 id="bzm22-title" className="text-[15px] font-semibold">BZM 2.2</h2><p className="mt-1 text-[10px] text-slate-200">{pilot.projectName}の事業価値と、条件を通り切る強さを式から確認する。</p></div><div className="text-right text-[8px] text-slate-300">価値基準日 {formatDate(pilot.valuationDate)}</div></div></header><div className="grid gap-px border-b border-[#b9cbd1] bg-[#c9d5d9] sm:grid-cols-2 xl:grid-cols-4"><ScenarioMetric symbol="J" value={pilot.summary.jValueMillionJpy} kind="million" /><ScenarioMetric symbol="P" value={pilot.summary.conditionalSuccessValueMillionJpy} kind="million" /><ScenarioMetric symbol="Q" value={pilot.summary.qGateProductProxy} kind="probability" /><ScenarioMetric symbol="S" value={pilot.summary.qStressProxy} kind="probability" /></div><CalculationConditions pilot={pilot} /><CalculationTrace pilot={pilot} /><BrowserSimulator pilot={pilot} gateMonths={gateMonths} setGateMonths={setGateMonths} /><Bzm22TimeLedger pilot={pilot} gateMonths={gateMonths} /><ParameterLedger groups={pilot.groups} projectId={pilot.projectId} /></section>;
+  return <section data-testid="bzm22-provisional-primary" data-density="compact-score" aria-labelledby="bzm22-title" className="min-w-0 overflow-hidden border border-[#7898a5] bg-[#f6f8f8]"><header className="border-b border-[#365865] bg-[#162f3a] px-3 py-2 text-white sm:px-4"><div className="flex flex-wrap items-end justify-between gap-2"><div><h2 id="bzm22-title" className="text-[15px] font-semibold">BZM 2.2</h2><p className="mt-0.5 text-[10px] text-slate-200">{pilot.projectName}の事業価値と、条件を通り切る強さを式から確認する。</p></div><div className="text-right text-[8px] text-slate-300">価値基準日 {formatDate(pilot.valuationDate)}</div></div></header><div className="grid gap-px border-b border-[#b9cbd1] bg-[#c9d5d9] sm:grid-cols-2 xl:grid-cols-4"><ScenarioMetric symbol="J" value={pilot.summary.jValueMillionJpy} kind="million" /><ScenarioMetric symbol="P" value={pilot.summary.conditionalSuccessValueMillionJpy} kind="million" /><ScenarioMetric symbol="Q" value={pilot.summary.qGateProductProxy} kind="probability" /><ScenarioMetric symbol="S" value={pilot.summary.qStressProxy} kind="probability" /></div><CalculationConditions pilot={pilot} /><CalculationTrace pilot={pilot} /><BrowserSimulator pilot={pilot} gateMonths={gateMonths} setGateMonths={setGateMonths} /><Bzm22TimeLedger pilot={pilot} gateMonths={gateMonths} /><ParameterLedger groups={pilot.groups} projectId={pilot.projectId} /></section>;
 }
 
 export function Bzm22ProvisionalObservatory({ projectId, active = true }: { projectId: string; active?: boolean }) {
@@ -521,8 +521,8 @@ export function Bzm22ProvisionalObservatory({ projectId, active = true }: { proj
     request.then((json) => { PILOT_CACHE.set(projectId, json.pilot); if (!cancelled) setState({ status: "ready", projectId, pilot: json.pilot }); }).catch((error) => { if (!cancelled) setState({ status: "error", projectId, error: error instanceof Error ? error.message : "BZM 2.2の取得に失敗" }); });
     return () => { cancelled = true; };
   }, [active, projectId]);
-  if (state.projectId !== projectId) return <div data-testid="bzm22-provisional-primary" className="grid min-h-56 place-items-center border border-[#aac1ca] bg-[#f6f8f8] text-[11px] text-slate-500">BZM 2.2を切り替え中…</div>;
-  if (state.status === "idle" || state.status === "loading") return <div data-testid="bzm22-provisional-primary" className="grid min-h-56 place-items-center border border-[#aac1ca] bg-[#f6f8f8] text-[11px] text-slate-500">BZM 2.2を読み込み中…</div>;
+  if (state.projectId !== projectId) return <div data-testid="bzm22-provisional-primary" className="grid min-h-32 place-items-center border border-[#aac1ca] bg-[#f6f8f8] text-[11px] text-slate-500">BZM 2.2を切り替え中…</div>;
+  if (state.status === "idle" || state.status === "loading") return <div data-testid="bzm22-provisional-primary" className="grid min-h-32 place-items-center border border-[#aac1ca] bg-[#f6f8f8] text-[11px] text-slate-500">BZM 2.2を読み込み中…</div>;
   if (state.status === "error") return <div data-testid="bzm22-provisional-primary" className="border border-red-200 bg-red-50 px-4 py-3 text-[11px] text-red-800"><div className="font-semibold">BZM 2.2を読み出せていない</div><div>{state.error}</div></div>;
   if (state.status === "ready") return <PilotPanel pilot={state.pilot} />;
   return null;

@@ -289,6 +289,10 @@ UIはTOP式に現れる26記号のmanifestを持ち、孤立記号を許さな�
 
 時間軸の直下に`project_pl_monthly`の月次PLを同じ列幅で表示する。売上、売上原価、粗利、人件費、研究開発費、マーケ費、その他販管費、営業利益を持ち、入力行は月セルから編集する。SX（p21）は同じ列へ月初資金残高、営業C/F（営業利益代用の簡易値）、設備投資、株式調達、融資実行、助成金等入金、月次純C/F、月末資金残高を続ける。設備投資は現行年次計画のFY4月、株式調達はactive資本政策のイベント月、助成金は受領月未確認の低精度計画としてFY4月へ置き、融資未登録は0円でなく未計画とする。PSI Step 2の6,000万円はPhase 0に1回だけ置き、FY2027へ重複させない。`calculationTrace.inputs.cashFlow.monthlyEconomicCFMillionJpy.base`はM1からM$H$の「BZM経済CF」行として別表示する。`project_pl_monthly`と資金繰りC/FとBZM経済CFは自動同一視せず、$J/P$への直接接続は最後のBZM経済CFだけとする。SXの初回backfillはコックピット年次PLを金額正本、旧月次表を発生タイミングの配賦キーとして使い、各行notesに計画/推定の状態を残す。資本調達・補助金cash・CAPEXをPL売上へ混ぜない。コックピットヘッダーとHUDの`CockpitPlMonthlyModal`導線は削除し、つくよみヒアリングと月次PL編集を同区画へ置く。試算表は表の外に`単位：百万円`を1回だけ置き、セル値へ`M`や`¥`を繰り返さない。月・金額は右寄せ、等幅数字、14px以上とし、DB円額とartifactの百万JPY値は丸めない。
 
+score-detail全体は`data-density="compact-score-page"`、BZM 2.2本体は`data-density="compact-score"`、月次表は`data-density="compact-ledger"`を密度契約とする。外周余白、section間gap、指標カード、数式box、シミュレーター、監査台帳、イベント時間軸、月次行の縦paddingを4px基準で圧縮するが、月次金額14px、右寄せ、等幅数字、操作buttonの主要tap targetは縮小しない。イベント時間軸は4段配置を維持したまま高さを圧縮し、月次表のC/F行から重複する「計画値」「残高は合計しない」を除く。残高を横合計しない意味と簡易C/Fの境界はsection説明に一度だけ置く。
+
+`buildSxMonthlyFinanceComments()`は`buildSxMonthlyFinancePlan()`と同じ`SX_ANNUAL_PROJECTION`、`SX_BUSINESS_PLAN_PHASES`、active資本政策イベントから、設備投資・株式調達・助成金等入金・Phase 0非希薄化資金のセル注記を決定的に再現する。設備投資の注記は該当フェーズの技術レーンから小規模パイロット設備、量産実証工場、本格自社工場建設を選び、FY4月仮置きであることを明示する。調達注記はイベント名、金額、月、計画であって契約・入金実績ではないことを示す。助成金計画は制度名・受領月未確認を残す。`project_grants`の採択名、機関、採択額、採択日、受領実績は別の観測注記として、助成金行の評価地平内最初の対象月へ表示し、受領未確認ならcashへ算入しない。フェーズ開始月は営業利益セルへフェーズ期間・予算・opening round・推定配賦を注記する。注記セルは`◆`と淡色背景を持ち、Base UI tooltip portalを使ってoverflow面の外へもマウスオーバー／focusで表示する。
+
 進捗管理タブを含む`CockpitVentureStatus`の主スコアは`Bzm22CockpitSummary`へ切り替え、同じ$J/P/Q/S$と数式を表示する。summary取得は既存member-only APIへ`?view=summary`を付け、103項目を初期表示へ同梱しない。従来SPSの折れ線とM/P/R/Sカードは初期閉じの「旧SPS履歴」トグル内に編集・参照用として残し、BZM 2.2の時系列に見せない。XRLはトグル外で常時表示する。
 
 パラメータ表示は三層に分ける。第一層「式に出てくる全記号」は上記26記号を数式と実値に添えて開く。第二層「実行可能性と経営判断」は状態、遷移、共有資源、権限、同意、行動束、資金制約、情報獲得を表示する。第三層「根拠・再現・監査」は7群の103項目を全件収載するが、初期状態を閉じる。モデルID、日付、通貨、各種ID、根拠資料、hash、税、換算、重複防止、現版未使用項目を第一層へ混ぜない。

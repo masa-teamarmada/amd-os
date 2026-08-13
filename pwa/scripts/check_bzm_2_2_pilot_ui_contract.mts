@@ -423,6 +423,7 @@ requireIncludes(loaderSource, [
 ], "BZM 2.2 server-only loader");
 
 const componentSource = requireText(componentPath);
+const scoreDetailSource = requireText(scoreDetailPath);
 requireIncludes(componentSource, [
   ">BZM 2.2<",
   "103項目の監査台帳",
@@ -477,6 +478,8 @@ requireIncludes(componentSource, [
 const timeLedgerSource = requireText(timeLedgerPath);
 requireIncludes(timeLedgerSource, [
   'data-testid="bzm22-time-ledger"',
+  'data-density="compact-ledger"',
+  'data-testid="bzm22-finance-comment"',
   'data-testid="bzm22-shared-month-scroll"',
   "buildBzm22SharedMonthAxis",
   "イベントと月次試算",
@@ -487,11 +490,15 @@ requireIncludes(timeLedgerSource, [
   "設備投資",
   "株式調達",
   "融資実行",
-  "助成金等入金（計画）",
+  "助成金等入金",
   "月次純C/F",
-  "月末資金残高（簡易）",
+  "月末資金残高",
   "BZM経済CF",
-  "上のイベントと下のP/L・C/Fは、同じ月の列で揃っている。",
+  "イベント、P/L、C/Fを同じ月列で読む。◆は変動理由。",
+  "buildSxMonthlyFinanceComments",
+  "TooltipContent",
+  "grid-cols-2 gap-px",
+  "py-1.5 text-right",
   "fetchPlMonthly",
   "upsertPlMonthly",
   "deletePlMonthly",
@@ -500,6 +507,8 @@ requireIncludes(timeLedgerSource, [
   "[--bzm-ledger-label-width:132px]",
   "sm:[--bzm-ledger-label-width:220px]",
 ], "BZM 2.2 shared event/monthly ledger");
+requireIncludes(componentSource, ['data-density="compact-score"'], "BZM 2.2 compact score density");
+requireIncludes(scoreDetailSource, ['data-density="compact-score-page"', "space-y-2"], "score detail compact density");
 if (timeLedgerSource.includes('`${value < 0 ? "-" : ""}¥${rounded.toLocaleString("ja-JP")}M`')) {
   throw new Error("BZM 2.2 monthly ledger must put the million-yen unit outside data cells");
 }
@@ -579,7 +588,6 @@ if (hudVentureSource.includes("CockpitPlMonthlyModal") || hudVentureSource.inclu
   throw new Error("HUD cockpit header must not keep the detached monthly P&L button/modal");
 }
 
-const scoreDetailSource = requireText(scoreDetailPath);
 requireIncludes(scoreDetailSource, [
   "Bzm22ProvisionalObservatory",
   "現行SPS / BZM 2.1",
