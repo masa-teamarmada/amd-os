@@ -26,6 +26,7 @@ const artifactPath = path.join(root, "bzm/pilot/bzm-2-2-all-pj-provisional-v0-1.
 const generatedDirectory = path.join(root, "src/generated/bzm-2-2-pilot");
 const manifestPath = path.join(generatedDirectory, "manifest.json");
 const apiPath = path.join(root, "src/app/api/project/[projectId]/bzm-2-2-pilot/route.ts");
+const sxFundingTimingApiPath = path.join(root, "src/app/api/project/[projectId]/sx-funding-timing/route.ts");
 const loaderPath = path.join(root, "src/lib/bzm-2-2-pilot-ui.server.ts");
 const componentPath = path.join(root, "src/components/cockpit/Bzm22ProvisionalObservatory.tsx");
 const timeLedgerPath = path.join(root, "src/components/cockpit/Bzm22TimeLedger.tsx");
@@ -422,6 +423,15 @@ requireIncludes(loaderSource, [
   "parameter",
 ], "BZM 2.2 server-only loader");
 
+const sxFundingTimingApiSource = requireText(sxFundingTimingApiPath);
+requireIncludes(sxFundingTimingApiSource, [
+  "requireMember()",
+  'from("project_meeting_summaries")',
+  'projectId !== "p21"',
+  "extractSxFirstFundingTarget",
+  '"Cache-Control": "private, no-store, max-age=0"',
+], "SX funding timing evidence API");
+
 const componentSource = requireText(componentPath);
 const scoreDetailSource = requireText(scoreDetailPath);
 requireIncludes(componentSource, [
@@ -471,8 +481,8 @@ requireIncludes(componentSource, [
   "停止寄与PV",
   "逆風ごとの補正値",
   "実行可能性と経営判断",
-  "条件判定月を試す",
-  "時期変更後 J",
+  "条件判定月シミュレーション",
+  "時期だけを変更・保存なし",
 ], "BZM 2.2 observatory UI");
 
 const timeLedgerSource = requireText(timeLedgerPath);
@@ -496,19 +506,24 @@ requireIncludes(timeLedgerSource, [
   "BZM経済CF",
   "イベント、P/L、C/Fを同じ月列で読む。◆は変動理由。",
   "buildSxMonthlyFinanceComments",
+  "sx-funding-timing",
   "TooltipContent",
+  'data-testid="bzm22-monthly-edit-dialog"',
+  'data-testid="sx-first-funding-target"',
+  'data-testid="sx-first-capital-plan-event"',
   "grid-cols-2 gap-px",
-  "py-1.5 text-right",
+  "const MONTH_WIDTH = 76",
+  "const TIMELINE_HEIGHT = 101",
   "fetchPlMonthly",
   "upsertPlMonthly",
   "deletePlMonthly",
   "CockpitPlHearingModal",
   "gateMonths",
-  "[--bzm-ledger-label-width:132px]",
-  "sm:[--bzm-ledger-label-width:220px]",
+  "[--bzm-ledger-label-width:108px]",
+  "sm:[--bzm-ledger-label-width:172px]",
 ], "BZM 2.2 shared event/monthly ledger");
 requireIncludes(componentSource, ['data-density="compact-score"'], "BZM 2.2 compact score density");
-requireIncludes(scoreDetailSource, ['data-density="compact-score-page"', "space-y-2"], "score detail compact density");
+requireIncludes(scoreDetailSource, ['data-density="compact-score-page"', "space-y-1"], "score detail compact density");
 if (timeLedgerSource.includes('`${value < 0 ? "-" : ""}¥${rounded.toLocaleString("ja-JP")}M`')) {
   throw new Error("BZM 2.2 monthly ledger must put the million-yen unit outside data cells");
 }

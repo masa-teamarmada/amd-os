@@ -1895,8 +1895,8 @@ expectIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   "60か月すべての CFₜ・dₜ・Wₜ を開く",
   "Q × P はJではない",
   "実行可能性と経営判断",
-  "条件判定月を試す",
-  "時期変更後 J",
+  "条件判定月シミュレーション",
+  "時期だけを変更・保存なし",
   "Bzm22TimeLedger",
 ]);
 expectNotIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
@@ -1942,6 +1942,10 @@ expectIncludes("src/components/cockpit/Bzm22TimeLedger.tsx", [
   "事業価値の時間軸",
   "月次試算表",
   "BZM経済CF",
+  'data-testid="bzm22-monthly-edit-dialog"',
+  'data-testid="sx-first-funding-target"',
+  "const MONTH_WIDTH = 76",
+  "const TIMELINE_HEIGHT = 101",
   "buildBzm22SharedMonthAxis",
   "fetchPlMonthly",
   "upsertPlMonthly",

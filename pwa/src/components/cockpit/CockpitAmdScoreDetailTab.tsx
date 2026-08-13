@@ -141,7 +141,7 @@ function LazyArchiveDisclosure({
       }}
       className="min-w-0 overflow-hidden border border-[#c9c2b5] bg-white"
     >
-      <summary className="grid min-h-11 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-center gap-3 bg-[#eeeae2] px-3 py-2 hover:bg-[#e8e2d8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#675f52] marker:content-none">
+      <summary className="grid min-h-8 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-center gap-2 bg-[#eeeae2] px-2 py-1 hover:bg-[#e8e2d8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#675f52] marker:content-none">
         <span className="min-w-0">
           <span className="text-[11px] font-semibold text-[#514b42]">{title}</span>
           <span className="ml-2 text-[9px] text-[#776f63]">{summary}</span>
@@ -248,10 +248,10 @@ export function CockpitAmdScoreDetailTab({
   const requestArchives = () => setArchiveRequestedProjectId(projectId);
 
   return (
-    <div className="min-w-0 space-y-2" data-density="compact-score-page">
+    <div className="min-w-0 space-y-1" data-density="compact-score-page">
       <Bzm22ProvisionalObservatory projectId={projectId} active={active} />
 
-      <section data-testid="score-model-archives" aria-labelledby="score-model-archives-title" className="min-w-0 space-y-1.5 border-t border-slate-300 pt-2">
+      <section data-testid="score-model-archives" aria-labelledby="score-model-archives-title" className="min-w-0 space-y-1 border-t border-slate-300 pt-1">
         <div className="px-1">
           <h2 id="score-model-archives-title" className="text-[11px] font-semibold text-slate-700">旧モデル / 現行運用モデル</h2>
           <p className="mt-0.5 text-[9px] leading-4 text-slate-500">ページ最下部に分離。初期状態では閉じ、開いたモデルだけを描画する。</p>

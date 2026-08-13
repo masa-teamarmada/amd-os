@@ -23,13 +23,15 @@ import {
   type SxEquityFundingPlanEvent,
 } from "@/lib/sx-monthly-finance-plan";
 import { SX_BUSINESS_PLAN_PHASES } from "@/lib/sx-business-plan";
+import type { SxFirstFundingTarget } from "@/lib/sx-funding-timing";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CockpitPlHearingModal } from "./CockpitPlHearingModal";
 
-const MONTH_WIDTH = 112;
-const EVENT_CARD_WIDTH = 232;
-const AXIS_Y = 142;
-const TIMELINE_HEIGHT = 268;
+const MONTH_WIDTH = 76;
+const EVENT_CARD_WIDTH = 168;
+const AXIS_Y = 61;
+const TIMELINE_HEIGHT = 101;
 
 const CATEGORY_META: Record<
   Bzm22TimelineItem["category"],
@@ -245,8 +247,8 @@ function buildEventGroups(
     groups.set(month, current);
   }
 
-  const lastMonthByPosition = [-99, -99, -99, -99];
-  const preferredPositions = [0, 2, 1, 3];
+  const lastMonthByPosition = [-99, -99];
+  const preferredPositions = [0, 1];
   const positioned: EventGroup[] = [...groups.entries()]
     .sort(([left], [right]) => left - right)
     .map(([monthIndex, items], index) => {
@@ -273,10 +275,9 @@ function EventCard({
 }) {
   const first = group.items[0];
   const category = CATEGORY_META[first.category];
-  const topSide = group.position < 2;
-  const tier = group.position % 2;
-  const top = topSide ? (tier === 0 ? 42 : 92) : (tier === 0 ? 166 : 216);
-  const cardHeight = 44;
+  const topSide = group.position === 0;
+  const top = topSide ? 27 : 70;
+  const cardHeight = 25;
   const cardX = group.monthIndex * MONTH_WIDTH + MONTH_WIDTH / 2;
   const transform = group.monthIndex === 0
     ? "translateX(0)"
@@ -290,7 +291,7 @@ function EventCard({
       <button
         type="button"
         onClick={onSelect}
-        className={`absolute z-20 overflow-hidden border bg-white px-2 py-1.5 text-left transition-colors ${selected ? "border-[#173f51]" : "border-slate-300 hover:border-[#678692]"}`}
+        className={`absolute z-20 overflow-hidden border bg-white px-1.5 text-left transition-colors ${selected ? "border-[#173f51]" : "border-slate-300 hover:border-[#678692]"}`}
         style={{
           left: cardX,
           top,
@@ -301,9 +302,11 @@ function EventCard({
         }}
         title={`${first.label}：${first.choiceLabel}`}
       >
-        <span className="block truncate text-xs font-semibold text-[#173f51]">{first.label}</span>
-        <span className="mt-0.5 block truncate text-[11px] text-slate-500">{first.choiceLabel}</span>
-        {group.items.length > 1 ? <span className="absolute right-1 top-1 text-xs text-slate-400">ほか{group.items.length - 1}件</span> : null}
+        <span className="flex h-full items-center gap-1 truncate">
+          <b className="truncate text-[9px] text-[#173f51]">{first.label}</b>
+          <span className="truncate text-[8px] text-slate-500">{first.choiceLabel}</span>
+        </span>
+        {group.items.length > 1 ? <span className="absolute right-0.5 top-0 text-[7px] text-slate-400">+{group.items.length - 1}</span> : null}
       </button>
       <span
         aria-hidden="true"
@@ -314,7 +317,7 @@ function EventCard({
         type="button"
         aria-label={`${axis[group.monthIndex].ym} ${first.label}`}
         onClick={onSelect}
-        className="absolute z-30 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rotate-45 border-2 bg-white"
+        className="absolute z-30 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rotate-45 border-2 bg-white"
         style={{ left: cardX, top: AXIS_Y, borderColor: category.color }}
       />
     </>
@@ -349,7 +352,7 @@ function FinanceCellComment({
         closeOnClick={false}
         aria-label={`${ym} ${metricLabel}の変動理由`}
         data-testid="bzm22-finance-comment"
-        className={`inline-flex h-5 w-5 shrink-0 items-center justify-center text-[9px] font-bold ${hasObserved ? "text-cyan-800" : "text-amber-700"}`}
+        className={`inline-flex h-4 w-4 shrink-0 items-center justify-center text-[8px] font-bold ${hasObserved ? "text-cyan-800" : "text-amber-700"}`}
       >
         ◆
       </TooltipTrigger>
@@ -407,6 +410,8 @@ export function Bzm22TimeLedger({
   const [draft, setDraft] = useState<Draft | null>(null);
   const [hearingOpen, setHearingOpen] = useState(false);
   const [sxEquityEvents, setSxEquityEvents] = useState<SxEquityFundingPlanEvent[]>(SX_DEFAULT_EQUITY_FUNDING_EVENTS);
+  const [sxCapitalPlanStatus, setSxCapitalPlanStatus] = useState<"loading" | "active" | "fallback">("loading");
+  const [sxFirstFundingTarget, setSxFirstFundingTarget] = useState<SxFirstFundingTarget | null>(null);
   const [sxGrantEvidence, setSxGrantEvidence] = useState<SxGrantEvidence[]>([]);
   const [sxGrantEvidenceStatus, setSxGrantEvidenceStatus] = useState<"loading" | "loaded" | "unavailable">("loading");
 
@@ -427,12 +432,20 @@ export function Bzm22TimeLedger({
     void Promise.allSettled([
       fetch(`/api/governance/capital-plans?projectId=${encodeURIComponent(pilot.projectId)}`).then((response) => response.ok ? response.json() : null),
       fetch(`/api/grants?projectId=${encodeURIComponent(pilot.projectId)}`).then((response) => response.ok ? response.json() : null),
-    ]).then(([capitalResult, grantResult]) => {
+      fetch(`/api/project/${encodeURIComponent(pilot.projectId)}/sx-funding-timing`).then((response) => response.ok ? response.json() : null),
+    ]).then(([capitalResult, grantResult, meetingResult]) => {
       if (!active) return;
       if (capitalResult.status === "fulfilled" && isRecord(capitalResult.value) && Array.isArray(capitalResult.value.plans)) {
         const activePlan = capitalResult.value.plans.find((plan) => isRecord(plan) && plan.status === "active");
         const events = isRecord(activePlan) ? equityEventsFromCapitalPlan(activePlan.document_json) : [];
-        if (events.length > 0) setSxEquityEvents(events);
+        if (events.length > 0) {
+          setSxEquityEvents(events);
+          setSxCapitalPlanStatus("active");
+        } else {
+          setSxCapitalPlanStatus("fallback");
+        }
+      } else {
+        setSxCapitalPlanStatus("fallback");
       }
       if (grantResult.status === "fulfilled" && isRecord(grantResult.value) && Array.isArray(grantResult.value.grants)) {
         setSxGrantEvidence(grantResult.value.grants.flatMap((grant): SxGrantEvidence[] => {
@@ -450,6 +463,17 @@ export function Bzm22TimeLedger({
         setSxGrantEvidenceStatus("loaded");
       } else {
         setSxGrantEvidenceStatus("unavailable");
+      }
+      if (meetingResult.status === "fulfilled" && isRecord(meetingResult.value) && isRecord(meetingResult.value.target)) {
+        const target = meetingResult.value.target;
+        if (typeof target.ym === "string" && typeof target.sourceMeetingDate === "string" && typeof target.sourceMeetingId === "string") {
+          setSxFirstFundingTarget({
+            ym: target.ym,
+            sourceMeetingDate: target.sourceMeetingDate,
+            sourceMeetingId: target.sourceMeetingId,
+            evidenceState: "internal_target",
+          });
+        }
       }
     });
     return () => { active = false; };
@@ -479,6 +503,10 @@ export function Bzm22TimeLedger({
     });
   }, [axis, pilot.projectId, rowByMonth, sxEquityEvents]);
   const sxCashByMonth = useMemo(() => new Map(sxCashLedger.map((row) => [row.ym, row])), [sxCashLedger]);
+  const sxFirstEquityEvent = useMemo(
+    () => [...sxEquityEvents].sort((left, right) => left.ym.localeCompare(right.ym))[0] ?? null,
+    [sxEquityEvents],
+  );
   const sxVisibleCashLedger = useMemo(() => axis.flatMap((month) => {
     const row = sxCashByMonth.get(month.ym);
     return row ? [row] : [];
@@ -595,20 +623,20 @@ export function Bzm22TimeLedger({
   return (
     <TooltipProvider delay={100}>
     <section data-testid="bzm22-time-ledger" data-density="compact-ledger" className="border-b border-[#b9cbd1] bg-white">
-      <header className="flex flex-wrap items-end justify-between gap-2 border-b border-slate-200 px-3 py-2 sm:px-4">
+      <header className="flex flex-wrap items-center justify-between gap-1 border-b border-slate-200 px-2 py-1.5">
         <div>
-          <h3 className="text-base font-semibold text-[#173f51]">イベントと月次試算表</h3>
-          <p className="mt-0.5 text-xs text-slate-600">イベント、P/L、C/Fを同じ月列で読む。◆は変動理由。</p>
+          <h3 className="text-[13px] font-semibold text-[#173f51]">イベントと月次試算表</h3>
+          <p className="text-[9px] text-slate-600">イベント、P/L、C/Fを同じ月列で読む。◆は変動理由。</p>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <span className="text-sm font-semibold text-slate-600">単位：百万円</span>
-          <button type="button" onClick={() => setHearingOpen(true)} className="min-h-11 border border-[#6d8a96] bg-white px-3 text-sm font-semibold text-[#285b6b] transition-colors hover:bg-[#f1f5f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d8a96]">つくよみと試算を作る</button>
-          <button type="button" onClick={() => startEdit(axis[0])} className="min-h-11 border border-[#173f51] bg-[#173f51] px-3 text-sm font-semibold text-white transition-colors hover:bg-[#285b6b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d8a96]">月を入力</button>
+        <div className="flex flex-wrap items-center justify-end gap-1">
+          <span className="mr-1 text-[10px] font-semibold text-slate-600">単位：百万円</span>
+          <button type="button" onClick={() => setHearingOpen(true)} className="h-8 border border-[#6d8a96] bg-white px-2 text-[10px] font-semibold text-[#285b6b] transition-colors hover:bg-[#f1f5f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d8a96]">つくよみと試算</button>
+          <button type="button" onClick={() => startEdit(axis[0])} className="h-8 border border-[#173f51] bg-[#173f51] px-2 text-[10px] font-semibold text-white transition-colors hover:bg-[#285b6b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d8a96]">月を入力</button>
         </div>
       </header>
 
       {sxFinanceSummary ? (
-        <div className="border-b border-slate-200 bg-[#f7f9fa] px-3 py-2 sm:px-4" data-testid="sx-monthly-finance-summary">
+        <div className="border-b border-slate-200 bg-[#f7f9fa] p-1.5" data-testid="sx-monthly-finance-summary">
           <div className="grid grid-cols-2 gap-px overflow-hidden border border-slate-200 bg-slate-200 sm:grid-cols-3 xl:grid-cols-6">
             {[
               ["Phase 0 非希薄化資金", formatMillionFromYen(sxFinanceSummary.phase0FundingYen)],
@@ -618,27 +646,31 @@ export function Bzm22TimeLedger({
               ["助成金等入金（計画）", formatMillionFromYen(sxFinanceSummary.grantReceiptYen)],
               ["M60 月末資金", formatMillionFromYen(sxFinanceSummary.closingCashYen)],
             ].map(([label, value]) => (
-              <div key={label} className="bg-white px-2.5 py-2">
-                <div className="text-[11px] font-medium leading-4 text-slate-500">{label}</div>
-                <div className="mt-0.5 text-right font-mono text-base font-semibold tabular-nums text-slate-900">{value}</div>
+              <div key={label} className="bg-white px-1.5 py-1">
+                <div className="truncate text-[8px] font-medium leading-3 text-slate-500">{label}</div>
+                <div className="text-right font-mono text-[12px] font-semibold leading-4 tabular-nums text-slate-900">{value}</div>
               </div>
             ))}
           </div>
-          <p className="mt-1.5 text-[11px] leading-4 text-slate-600">
-            PSI/GAPはDB採択額 {sxGrantEvidenceStatus === "loading" ? "読込中" : sxGrantEvidenceStatus === "unavailable" ? "取得不能" : formatMillionFromYen(sxFinanceSummary.adoptedYen)}、
-            受領実績 {sxGrantEvidenceStatus === "loaded" && sxFinanceSummary.disbursedKnown ? formatMillionFromYen(sxFinanceSummary.disbursedYen) : "未確認"}。
-            C/FはPhase 0計画6,000万円を2026-07に1回だけ置く。設備投資と助成金等は年次額を各FY4月へ仮置きした低精度の入出金時期で、税金・運転資金増減は未反映。残高行は横合計しない。
-          </p>
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 border border-slate-200 bg-white px-1.5 py-1 text-[8px] leading-3 text-slate-600">
+            <span data-testid="sx-first-funding-target"><b className="text-[#173f51]">初回調達目標</b> {sxFirstFundingTarget?.ym ?? "未抽出"} <span className="text-amber-700">MTG内部目標・着金未合意{sxFirstFundingTarget ? `（${sxFirstFundingTarget.sourceMeetingDate}）` : ""}</span></span>
+            <span data-testid="sx-first-capital-plan-event"><b className="text-[#173f51]">資本政策計上</b> {sxFirstEquityEvent ? `${sxFirstEquityEvent.ym} ${sxFirstEquityEvent.label} ${formatMillionFromYen(sxFirstEquityEvent.amountYen)}` : "未登録"} <span className="text-slate-400">{sxCapitalPlanStatus === "active" ? "active plan" : sxCapitalPlanStatus === "loading" ? "読込中" : "内蔵案"}</span></span>
+            <span><b className="text-[#173f51]">PSI/GAP</b> 採択 {sxGrantEvidenceStatus === "loading" ? "読込中" : sxGrantEvidenceStatus === "unavailable" ? "取得不能" : formatMillionFromYen(sxFinanceSummary.adoptedYen)} / 受領 {sxGrantEvidenceStatus === "loaded" && sxFinanceSummary.disbursedKnown ? formatMillionFromYen(sxFinanceSummary.disbursedYen) : "未確認"}</span>
+          </div>
+          <details className="mt-0.5 text-[8px] leading-3 text-slate-500">
+            <summary className="cursor-pointer list-none font-semibold text-[#376274] marker:content-none">計上規則と精度を表示</summary>
+            <p className="mt-0.5">Phase 0計画6,000万円は2026-07に1回だけ計上。設備投資・助成金等は年次額を各FY4月へ仮置きした低精度の入出金時期。税金・運転資金増減は未反映し、残高行は横合計しない。</p>
+          </details>
         </div>
       ) : null}
 
       <div data-testid="bzm22-shared-month-scroll" className="max-w-full overflow-x-auto overscroll-x-contain">
-        <div className="grid [--bzm-ledger-label-width:132px] sm:[--bzm-ledger-label-width:220px]" style={gridStyle}>
-          <div className="sticky left-0 z-40 border-b border-r border-slate-300 bg-[#f7f9fa] px-3 py-2">
-            <div className="text-sm font-semibold text-[#173f51]">事業価値の時間軸</div>
-            <div className="mt-1 text-[11px] leading-4 text-slate-500">M0が価値基準月。点を押すと前提を読める。</div>
-            {eventGroups.outside.length > 0 ? <div className="mt-1.5 text-[11px] text-slate-500">評価期間外 {eventGroups.outside.length}件</div> : null}
-            {eventGroups.undated.length > 0 ? <div className="mt-0.5 text-[11px] text-slate-500">日付未登録 {eventGroups.undated.length}件</div> : null}
+        <div className="grid [--bzm-ledger-label-width:108px] sm:[--bzm-ledger-label-width:172px]" style={gridStyle}>
+          <div className="sticky left-0 z-40 border-b border-r border-slate-300 bg-[#f7f9fa] px-2 py-1">
+            <div className="text-[11px] font-semibold text-[#173f51]">事業価値の時間軸</div>
+            <div className="text-[8px] leading-3 text-slate-500">M0=価値基準月。点で前提表示。</div>
+            {eventGroups.outside.length > 0 ? <div className="text-[8px] text-slate-500">期間外 {eventGroups.outside.length}件</div> : null}
+            {eventGroups.undated.length > 0 ? <div className="text-[8px] text-slate-500">日付なし {eventGroups.undated.length}件</div> : null}
           </div>
           <div className="relative border-b border-slate-300 bg-white" style={{ gridColumn: `2 / span ${axis.length}`, height: TIMELINE_HEIGHT }}>
             {axis.map((month) => (
@@ -650,8 +682,8 @@ export function Bzm22TimeLedger({
               />
             ))}
             {registeredPolicy ? (
-              <div className="absolute top-2 z-10 h-7 border-y border-[#82a3ae] bg-[#e7eff2]" style={{ left: MONTH_WIDTH / 2, width: (axis.length - 1) * MONTH_WIDTH }}>
-                <span className="sticky left-2 block w-fit px-2 text-xs font-semibold leading-7 text-[#24596a]">{registeredPolicy.label} · M0–M{axis.length - 1}</span>
+              <div className="absolute top-1 z-10 h-[18px] border-y border-[#82a3ae] bg-[#e7eff2]" style={{ left: MONTH_WIDTH / 2, width: (axis.length - 1) * MONTH_WIDTH }}>
+                <span className="sticky left-1 block w-fit px-1 text-[9px] font-semibold leading-[16px] text-[#24596a]">{registeredPolicy.label} · M0–M{axis.length - 1}</span>
               </div>
             ) : null}
             <div className="absolute left-0 right-0 h-px bg-[#173f51]" style={{ top: AXIS_Y }} />
@@ -669,21 +701,21 @@ export function Bzm22TimeLedger({
             ))}
           </div>
 
-          <div className="sticky left-0 z-40 border-b border-r border-slate-300 bg-[#edf3f5] px-3 py-1.5">
-            <div className="text-sm font-semibold text-[#173f51]">月次試算表</div>
-            <div className="text-[11px] leading-4 text-slate-500">P/L・資金繰り</div>
+          <div className="sticky left-0 z-40 border-b border-r border-slate-300 bg-[#edf3f5] px-2 py-1">
+            <div className="text-[11px] font-semibold text-[#173f51]">月次試算表</div>
+            <div className="text-[8px] leading-3 text-slate-500">P/L・資金繰り</div>
           </div>
           {axis.map((month) => (
-            <MonthCellFrame key={`header-${month.ym}`} month={month} className="bg-[#edf3f5] px-2 py-1.5 text-right">
+            <MonthCellFrame key={`header-${month.ym}`} month={month} className="bg-[#edf3f5] px-1.5 py-1 text-right">
               <button type="button" onClick={() => startEdit(month)} className="w-full text-right hover:text-[#173f51] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d8a96]" title={`${month.ym}を入力・編集`}>
-                <span className="block text-xs font-semibold text-[#365865]">M{month.month}</span>
-                <span className="block font-mono text-xs leading-4 text-slate-500">{month.ym}</span>
+                <span className="block text-[10px] font-semibold leading-3 text-[#365865]">M{month.month}</span>
+                <span className="block font-mono text-[8px] leading-3 text-slate-500">{month.ym}</span>
               </button>
             </MonthCellFrame>
           ))}
 
           <div className="contents">
-            <div className="sticky left-0 z-30 border-b border-r border-slate-300 bg-[#173f51] px-3 py-1.5 text-sm font-semibold text-white">P/L</div>
+            <div className="sticky left-0 z-30 border-b border-r border-slate-300 bg-[#173f51] px-2 py-0.5 text-[10px] font-semibold leading-4 text-white">P/L</div>
             {axis.map((month) => <MonthCellFrame key={`pl-section-${month.ym}`} month={month} className="bg-[#173f51]" />)}
           </div>
 
@@ -692,24 +724,24 @@ export function Bzm22TimeLedger({
             const result = metric.key === "operating_profit";
             return (
               <div key={metric.key} className="contents">
-                <div className={`sticky left-0 z-30 border-b border-r border-slate-300 px-3 py-1.5 ${result ? "bg-[#edf3f5]" : "bg-white"}`}>
-                  <div className={`text-sm leading-4 ${result ? "font-semibold text-[#173f51]" : "text-slate-700"}`}>{metric.label}</div>
-                  <div className="mt-0.5 text-right font-mono text-[11px] leading-3 tabular-nums text-slate-500">累計 {formatMillionFromYen(total)}</div>
+                <div className={`sticky left-0 z-30 flex items-center justify-between gap-1 border-b border-r border-slate-300 px-2 py-0.5 ${result ? "bg-[#edf3f5]" : "bg-white"}`}>
+                  <div className={`truncate text-[10px] leading-4 ${result ? "font-semibold text-[#173f51]" : "text-slate-700"}`}>{metric.label}</div>
+                  <div className="truncate text-right font-mono text-[8px] leading-3 tabular-nums text-slate-500">計 {formatMillionFromYen(total)}</div>
                 </div>
                 {axis.map((month) => {
                   const row = rowByMonth.get(month.ym) ?? emptyPlRow(pilot.projectId, month.ym);
                   const value = plValue(row, metric.key);
                   const comments = result ? [sxPhaseCommentsByMonth.get(month.ym)].filter((comment): comment is LedgerCellComment => Boolean(comment)) : [];
                   return (
-                    <MonthCellFrame key={`${metric.key}-${month.ym}`} month={month} className={`px-2 py-1.5 text-right ${comments.length > 0 ? "bg-amber-50/70" : metric.kind === "calculated" ? "bg-slate-50" : "bg-white"}`}>
+                    <MonthCellFrame key={`${metric.key}-${month.ym}`} month={month} className={`px-1.5 py-0.5 text-right ${comments.length > 0 ? "bg-amber-50/70" : metric.kind === "calculated" ? "bg-slate-50" : "bg-white"}`}>
                       {metric.kind === "input" ? (
-                        <button type="button" onClick={() => startEdit(month)} className="w-full text-right font-mono text-sm tabular-nums text-slate-700 hover:text-[#173f51] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d8a96] decoration-dotted" title={`${month.ym}の${metric.label}を編集`}>
+                        <button type="button" onClick={() => startEdit(month)} className="block w-full text-right font-mono text-[11px] leading-4 tabular-nums text-slate-700 hover:text-[#173f51] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d8a96] decoration-dotted" title={`${month.ym}の${metric.label}を編集`}>
                           {formatMillionFromYen(value)}
                         </button>
                       ) : (
                         <span className="flex items-center justify-end gap-1">
                           <FinanceCellComment comments={comments} ym={month.ym} metricLabel={metric.label} />
-                          <span className={`font-mono text-sm tabular-nums ${result && value < 0 ? "text-rose-700" : "text-slate-700"}`}>{formatMillionFromYen(value)}</span>
+                          <span className={`font-mono text-[11px] leading-4 tabular-nums ${result && value < 0 ? "text-rose-700" : "text-slate-700"}`}>{formatMillionFromYen(value)}</span>
                         </span>
                       )}
                     </MonthCellFrame>
@@ -722,15 +754,15 @@ export function Bzm22TimeLedger({
           {sxVisibleCashLedger.length > 0 ? (
             <>
               <div className="contents">
-                <div className="sticky left-0 z-30 border-b border-r border-slate-300 bg-[#365865] px-3 py-1.5 text-sm font-semibold text-white">C/F・資金繰り</div>
+                <div className="sticky left-0 z-30 border-b border-r border-slate-300 bg-[#365865] px-2 py-0.5 text-[10px] font-semibold leading-4 text-white">C/F・資金繰り</div>
                 {axis.map((month) => <MonthCellFrame key={`cf-section-${month.ym}`} month={month} className="bg-[#365865]" />)}
               </div>
               {SX_CASH_ROWS.map((metric) => (
                 <div key={metric.key} className="contents">
-                  <div className={`sticky left-0 z-30 border-b border-r border-slate-300 px-3 py-1.5 ${metric.emphasis ? "bg-[#edf3f5]" : "bg-white"}`}>
-                    <div className={`text-sm leading-5 ${metric.emphasis ? "font-semibold text-[#173f51]" : "text-slate-700"}`}>
+                  <div className={`sticky left-0 z-30 border-b border-r border-slate-300 px-2 py-0.5 ${metric.emphasis ? "bg-[#edf3f5]" : "bg-white"}`}>
+                    <div className={`truncate text-[10px] leading-4 ${metric.emphasis ? "font-semibold text-[#173f51]" : "text-slate-700"}`}>
                       {metric.label}
-                      {metric.kind === "unplanned" ? <span className="ml-1 text-[10px] text-slate-500">未計画</span> : null}
+                      {metric.kind === "unplanned" ? <span className="ml-1 text-[8px] text-slate-500">未計画</span> : null}
                     </div>
                   </div>
                   {axis.map((month) => {
@@ -743,10 +775,10 @@ export function Bzm22TimeLedger({
                         : null;
                     const comments = commentMetric ? sxFinanceCommentsByCell.get(`${commentMetric}:${month.ym}`) ?? [] : [];
                     return (
-                      <MonthCellFrame key={`${metric.key}-${month.ym}`} month={month} className={`px-2 py-1.5 text-right ${comments.length > 0 ? "bg-amber-50/70" : metric.emphasis ? "bg-slate-50" : "bg-white"}`}>
+                      <MonthCellFrame key={`${metric.key}-${month.ym}`} month={month} className={`px-1.5 py-0.5 text-right ${comments.length > 0 ? "bg-amber-50/70" : metric.emphasis ? "bg-slate-50" : "bg-white"}`}>
                         <span className="flex items-center justify-end gap-1">
                           <FinanceCellComment comments={comments} ym={month.ym} metricLabel={metric.label} />
-                          <span className={`font-mono text-sm tabular-nums ${typeof value === "number" && value < 0 ? "text-rose-700" : "text-slate-700"}`}>
+                          <span className={`font-mono text-[11px] leading-4 tabular-nums ${typeof value === "number" && value < 0 ? "text-rose-700" : "text-slate-700"}`}>
                             {value === null ? "—" : formatMillionFromYen(value)}
                           </span>
                         </span>
@@ -758,17 +790,17 @@ export function Bzm22TimeLedger({
             </>
           ) : null}
 
-          <div className="sticky left-0 z-30 border-b border-r border-t-2 border-slate-400 bg-[#f7f2e8] px-3 py-1.5">
-            <div className="text-sm font-semibold leading-4 text-[#6b5127]">BZM経済CF</div>
-            <div className="mt-0.5 text-[11px] leading-3 text-slate-500">資金繰りと別。J・Pへ接続</div>
+          <div className="sticky left-0 z-30 border-b border-r border-t-2 border-slate-400 bg-[#f7f2e8] px-2 py-0.5">
+            <div className="text-[10px] font-semibold leading-4 text-[#6b5127]">BZM経済CF</div>
+            <div className="text-[8px] leading-3 text-slate-500">資金繰りと別。J・Pへ接続</div>
           </div>
           {axis.map((month) => {
             const value = month.month === 0
               ? 0
               : pilot.calculationTrace.inputs.cashFlow.monthlyEconomicCFMillionJpy.base[month.month - 1] ?? 0;
             return (
-              <MonthCellFrame key={`bzm-cf-${month.ym}`} month={month} className="border-t-2 border-t-slate-400 bg-[#fdfaf4] px-2 py-1.5 text-right">
-                <span className="font-mono text-sm tabular-nums text-[#6b5127]">{formatMillion(value)}</span>
+              <MonthCellFrame key={`bzm-cf-${month.ym}`} month={month} className="border-t-2 border-t-slate-400 bg-[#fdfaf4] px-1.5 py-0.5 text-right">
+                <span className="font-mono text-[11px] leading-4 tabular-nums text-[#6b5127]">{formatMillion(value)}</span>
               </MonthCellFrame>
             );
           })}
@@ -776,8 +808,8 @@ export function Bzm22TimeLedger({
       </div>
 
       {selectedGroup ? (
-        <div className="border-t border-slate-200 bg-[#f7f9fa] px-3 py-2 sm:px-4">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] leading-4 text-slate-600">
+        <div className="border-t border-slate-200 bg-[#f7f9fa] px-2 py-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[8px] leading-3 text-slate-600">
             <span className="font-semibold text-[#173f51]">M{selectedGroup.monthIndex} · {axis[selectedGroup.monthIndex].ym}</span>
             {selectedGroup.items.map((item) => {
               const category = CATEGORY_META[item.category];
@@ -794,19 +826,18 @@ export function Bzm22TimeLedger({
         </div>
       ) : null}
 
-      {loading ? <div className="px-3 py-2 text-sm text-slate-500">月次試算を読み込み中…</div> : null}
-      {!loading && rows.length === 0 ? <div className="px-3 py-2 text-sm text-slate-500">月次試算の入力はまだない。月見出しか「月を入力」から入力できる。</div> : null}
+      {loading ? <div className="px-2 py-1 text-[9px] text-slate-500">月次試算を読み込み中…</div> : null}
+      {!loading && rows.length === 0 ? <div className="px-2 py-1 text-[9px] text-slate-500">月次試算の入力はまだない。月見出しか「月を入力」から入力できる。</div> : null}
 
+      <Dialog open={Boolean(draft)} onOpenChange={(open) => { if (!open && !saving) setDraft(null); }}>
       {draft ? (
-        <div className="border-t border-slate-200 bg-[#f7f9fa] p-2 sm:p-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div>
-              <h4 className="text-sm font-semibold text-[#173f51]">{draft.ym} の月次試算</h4>
-              <p className="mt-1 text-xs text-slate-500">入力単位は百万円。表は小数1桁まで表示する。</p>
-            </div>
-            <button type="button" onClick={() => setDraft(null)} className="min-h-11 px-3 text-sm text-slate-500">閉じる</button>
-          </div>
-          <div className="grid gap-1.5 sm:grid-cols-3">
+        <DialogContent data-testid="bzm22-monthly-edit-dialog" className="max-h-[90vh] overflow-y-auto rounded-none border border-[#7898a5] bg-white p-0 sm:!max-w-[680px]" showCloseButton={!saving}>
+          <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
+          <DialogHeader className="border-b border-slate-200 bg-[#edf3f5] px-4 py-3">
+            <DialogTitle className="text-[15px] font-semibold text-[#173f51]">{draft.ym} の月次試算</DialogTitle>
+            <DialogDescription className="text-[11px]">入力単位は百万円。保存後、同じ月列へ即時反映する。</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 p-4 sm:grid-cols-3">
             {([
               ["revenue_yen", "売上"],
               ["cogs_yen", "売上原価"],
@@ -815,22 +846,24 @@ export function Bzm22TimeLedger({
               ["marketing_yen", "マーケ費"],
               ["other_opex_yen", "その他販管費"],
             ] as const).map(([key, label]) => (
-              <label key={key} className="text-xs font-semibold text-slate-600">{label}（百万円）
-                <input type="number" step="0.1" value={draft[key]} onChange={(event) => setDraft({ ...draft, [key]: event.target.value })} onFocus={(event) => event.currentTarget.select()} className="mt-1 min-h-11 w-full border border-slate-300 bg-white px-3 text-right font-mono text-sm font-normal" />
+              <label key={key} className="text-[11px] font-semibold text-slate-600">{label}（百万円）
+                <input type="number" step="0.1" value={draft[key]} onChange={(event) => setDraft({ ...draft, [key]: event.target.value })} onFocus={(event) => event.currentTarget.select()} className="mt-1 h-10 w-full border border-slate-300 bg-white px-3 text-right font-mono text-sm font-normal outline-none focus:border-[#285b6b] focus:ring-2 focus:ring-[#a9c5cf]" />
               </label>
             ))}
-            <label className="text-xs font-semibold text-slate-600 sm:col-span-3">メモ
-              <textarea rows={2} value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} className="mt-1 w-full border border-slate-300 bg-white px-3 py-2 text-sm font-normal" />
+            <label className="text-[11px] font-semibold text-slate-600 sm:col-span-3">メモ
+              <textarea rows={2} value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} className="mt-1 w-full border border-slate-300 bg-white px-3 py-2 text-sm font-normal outline-none focus:border-[#285b6b] focus:ring-2 focus:ring-[#a9c5cf]" />
             </label>
+            {saveError ? <p className="text-[11px] text-rose-700 sm:col-span-3">{saveError}</p> : null}
           </div>
-          {saveError ? <p className="mt-2 text-sm text-rose-700">{saveError}</p> : null}
-          <div className="mt-2 flex justify-end gap-2">
-            {draft.id ? <button type="button" onClick={() => void remove()} disabled={saving} className="min-h-11 border border-rose-200 px-4 text-sm font-semibold text-rose-700 disabled:opacity-50">この月を削除</button> : null}
-            <button type="button" onClick={() => setDraft(null)} className="min-h-11 border border-slate-300 px-4 text-sm font-semibold text-slate-600">キャンセル</button>
-            <button type="button" onClick={() => void save()} disabled={saving} className="min-h-11 border border-[#173f51] bg-[#173f51] px-5 text-sm font-semibold text-white disabled:opacity-50">{saving ? "保存中…" : "保存"}</button>
+          <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-[#f7f9fa] px-4 py-3">
+            {draft.id ? <button type="button" onClick={() => void remove()} disabled={saving} className="h-10 border border-rose-200 px-4 text-[11px] font-semibold text-rose-700 disabled:opacity-50">この月を削除</button> : null}
+            <button type="button" onClick={() => setDraft(null)} disabled={saving} className="h-10 border border-slate-300 px-4 text-[11px] font-semibold text-slate-600 disabled:opacity-50">キャンセル</button>
+            <button type="submit" disabled={saving} className="h-10 border border-[#173f51] bg-[#173f51] px-5 text-[11px] font-semibold text-white disabled:opacity-50">{saving ? "保存中…" : "保存"}</button>
           </div>
-        </div>
+          </form>
+        </DialogContent>
       ) : null}
+      </Dialog>
 
       {hearingOpen ? (
         <CockpitPlHearingModal

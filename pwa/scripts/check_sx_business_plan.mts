@@ -13,6 +13,7 @@ import {
   buildSxMonthlyFinancePlan,
   SX_PHASE0_NON_DILUTIVE_FUNDING_YEN,
 } from "../src/lib/sx-monthly-finance-plan.ts";
+import { extractSxFirstFundingTarget, type SxFundingMeetingEvidence } from "../src/lib/sx-funding-timing.ts";
 
 assert.equal(SX_BUSINESS_PLAN_PHASES.length, 5, "SX事業計画は5フェーズ");
 for (const phase of SX_BUSINESS_PLAN_PHASES) {
@@ -129,6 +130,28 @@ assert.ok(
     comment.metric === "grantReceiptYen"
     && comment.detail.includes("受領月は未確認")),
   "助成金計画注記は採択額・受領実績と自動同一視しない",
+);
+
+const fundingTargetMeeting = {
+  meetingId: "sx-funding-target-evidence",
+  meetingDate: "2026-06-29",
+  title: "2026/06/29 SX MTG",
+  summaryShort: "2027年3月までの会社設立・資金調達は内部目標。投資家の参加や着金は未合意。",
+  decided: [],
+  progress: [],
+  nextActions: ["2026年12月までに投資判断材料をそろえる"],
+  risks: [],
+  narrativeMd: null,
+} satisfies SxFundingMeetingEvidence;
+assert.deepEqual(
+  extractSxFirstFundingTarget([fundingTargetMeeting]),
+  {
+    ym: "2027-03",
+    sourceMeetingDate: "2026-06-29",
+    sourceMeetingId: "sx-funding-target-evidence",
+    evidenceState: "internal_target",
+  },
+  "会議上の初回調達目標を資本政策計上日や着金実績へ昇格せず抽出",
 );
 
 console.log("sx business plan: ok");
