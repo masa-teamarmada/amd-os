@@ -593,6 +593,23 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - `/institutions/[institutionId]` の詳細画面からも研究機関コックピットと通常PJコックピットへ戻れる。
 - **「土壌×シーズ」タブ** (`CockpitSoilSeeds`、2026-07-30追加、build v3.52.0): `進捗管理` / `スコア詳細` に続く3本目のタブ。機関ECR8軸と所属シーズSPSを、実観測日unionの断面 (`観測断面台帳`、最大24断面) で同じ観測基準日として整列するが、ECR元評価日とSPS元評価日は別表示し、単一スコアへは絶対に合成しない (`terminology_glossary.md` §4 / `BZM_2_0_REVISION_REQUIREMENTS.md` §3-5)。相関/因果/予測モデルは出さない。所属は `seeds.institution_id` (migration `202_soil_seeds_institution_link.sql`、KUTE=`org_name`工学院大学のみbackfill、SPS値は未変更)。純粋関数は `pwa/src/lib/institution-soil-seeds.ts`、テストは `npm run test:institution-soil-seeds`。KUTEのみ所属シーズ上位ランクから既存p25 GTIE申請支援検討フローへの導線を持つ。削除禁止理由: ECRとSPSを機関単位で継続観測しつつ合成単一スコア禁止を守るための唯一の画面。
 
+## /institutions/[institutionId]/desk — 機関ワークスペース業務デスク (build v3.73.0、migration 270/271)
+
+目的: 愛媛大学・石原先生の産学連携業務ポートフォリオ29件をAMDが代理管理する「業務デスク」。EHM OSの第1波実装。設計: `EHM_OS_DESIGN_DRAFT_20260813.md` 論点11-A、`EHM_OS_ISHIHARA_WORK_WRAP_SPEC_v0_20260620.md`。DB: `workspace_work_cases` (業務ケース台帳) / `workspace_work_case_deadlines` (1業務:N締切)、RLS は `is_admin()` + `service_role` のみ (212系と同一方式)。データアクセス層は `src/lib/workspace-work-desk-data.ts`。
+
+必須機能:
+
+- `institutionId` (`institutions.institution_id`) から `institution_workspaces` を引いて対象ワークスペースを特定する。無ければ「この機関にはワークスペースがありません」の空状態を出し、他画面へリダイレクトしない。
+- **入力憲法**: 行はAMDが出典資料 (石原_業務一覧_研究開発OS用_1.xlsx 2026-06末版) から代理登録したものであり、先生本人には入力させない。サマリ帯に出典注記を常時表示し、確認前情報を含むことを明示する。
+- **期限レーダー**: 全締切を期日昇順 (vague/未設定は最後) で並べる。日精度確定 (`due_precision='day'`) はその日付をそのまま、月精度確定 (`due_precision='month'`) は「YYYY年M月（月のみ確定）」、vagueまたは日付なしは「期日未確認」と表示し、月精度を確定日へ丸めない。各行に締切ステータス変更用インラインセレクトを持つ。
+- **「遅延」断定禁止**: 期日が過去でステータスが `unconfirmed`/`upcoming` の締切は「遅延」「遅れ」ではなく「期日経過・状況未確認」(琥珀系chip、赤は使わない) と表示する。未確認データを遅延と断定しない規律をUI文言レベルで担保する。
+- **止まりもの(waiting_on)セクション**: `waiting_on` が非NULLのケースを列挙する。0件時は「登録された止まりものはありません。現況確認で待ち先が判明したらケース編集から登録します」の空状態。
+- **領域別ポートフォリオ**: `domain` でグルーピングした表。1440px幅はテーブル (`hidden md:block`)、390px幅はカード列 (`md:hidden`) に切り替えて横あふれを防ぐ。`priority_wave` (1=第1波・締切駆動/青系、2=第2波・定常/グレー、3=第3波・UA室横断/紫系) と `data_status` (unconfirmed=未確認/琥珀、confirmed=確認済み/緑、stale=要再確認/グレー) をそれぞれchipで表示する。
+- **ケース編集パネル**: 行クリックで展開し、`next_action` / `waiting_on` / `waiting_since` / `notes` / `data_status` / `last_confirmed_at` を編集して保存する。`data_status` を `confirmed` にして `last_confirmed_at` が未入力の場合はJST今日を自動セットする。同パネルから当該ケースの締切追加 (label / due_date / due_precision) ができる。
+- 書き込みは authenticated browser client (`@/lib/supabase/client`) 直呼び。admin RLS (`FOR ALL USING (is_admin())`) を前提にした既存admin画面と同じ方式で、専用API routeは持たない。
+- `/institutions/[institutionId]/cockpit` のヘッダーに「業務デスク」への常時リンクを1つ持つ (inst_ehime 以外は空状態が受ける)。
+- 削除禁止理由: 石原先生の29業務ポートフォリオをAMDが代理管理する唯一の業務導線であり、期限レーダー・ポートフォリオ表・データ状態編集を欠くとEHM OS第1波の巻き取り運用が回らない (まさ承認 2026-08-13)。
+
 ## 株主・ガバナンス + 要対応 (2026-06-15 追加、2026-07-16 会社概要タブへ統合)
 
 設計: `pwa/design/governance_action_items.md`。DB: migration `137_governance_and_action_items.sql` (`action_items` / `project_shareholders` / `project_valuation_rounds` / `project_shareholder_meetings`)、`174_project_company_overview_and_equity_ledger.sql` (`project_company_profiles` / `project_equity_transactions` / `project_equity_entries` / `project_convertible_instruments` / `project_financial_periods` + `amd_os_is_member()` gate 関数)。

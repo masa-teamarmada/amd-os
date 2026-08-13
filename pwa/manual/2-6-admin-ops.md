@@ -367,5 +367,24 @@ URL: `/proactive`
 
 ---
 
+## institutions/[institutionId]/desk (= 機関業務デスク)
+
+### 何をする画面か
+
+機関ワークスペース（現状は愛媛 `ehime` のみ）のキーパーソンが抱える業務ポートフォリオを、AMDが代理管理する台帳。EHM OSの第3の面「業務デスク」のAMD内部運用面（2026-08-13 まさ承認、設計は `/Users/masa/projects/AMD/ehm-os/EHM_OS_DESIGN_DRAFT_20260813.md` 論点11）。愛媛の初期データは石原先生の業務一覧29件（2026-06末版スナップショット、全件「未確認」状態）。
+
+- **期限レーダー**: 全締切を期日順に表示。月しか分からない期日は「月のみ確定」、期日不明は「期日未確認」と表示し、確定日に丸めない。期日が過ぎていて状況未確認のものは「期日経過・状況未確認」— **「遅延」とは断定しない**（本人確認前のスナップショット由来のため）
+- **止まりもの**: 待ち先（誰/何を待って止まっているか）が登録された業務の一覧
+- **領域別ポートフォリオ**: 6領域（YURUGAS運営 / 企業連携 / 教育プログラム / 研究・論文 / 資金・申請 / 組織・運営インフラ）ごとの業務一覧。巻き取り段階（第1波=締切駆動 / 第2波=定常 / 第3波=UA室横断）とデータ状態（未確認 / 確認済み / 要再確認）のchip付き
+- **HITL編集**: 現況更新ヒアリングやメール・資料で確認できた事実を、次アクション / 待ち先 / データ状態 / 締切状態へ反映する。「確認済み」にすると確認日が記録される
+
+### 運用ルール
+
+- 入力憲法どおり、機関側の本人（石原先生）には入力させない。行の追加・更新はAMDが既存資料から代理登録する
+- data_status を confirmed にできるのは、本人または一次資料で現況を確認できたときだけ。推測で確認済みにしない
+- DBは `workspace_work_cases` / `workspace_work_case_deadlines`（migration 270/271）。RLSはadmin + service_roleのみで、外部（本人）向け表示面は外部専用DTOを設計してから別途開ける
+
+---
+
 ## 関連
-- 設計議論: [`pwa/design/FEATURE_REGISTRY.md`](../design/FEATURE_REGISTRY.md) (= 各画面の消してはいけない業務導線), [`pwa/design/routine.md`](../design/routine.md) (= 月次ルーティン廃止)
+- 設計議論: [`pwa/design/FEATURE_REGISTRY.md`](../design/FEATURE_REGISTRY.md) (= 各画面の消してはいけない業務導線), [`pwa/design/routine.md`](../design/routine.md) (= 月次ルーティン廃止), [`pwa/design/institution_seed_project_model.md`](../design/institution_seed_project_model.md) §6.3.1 (= 業務デスクのデータ設計)
