@@ -14,7 +14,7 @@
 >
 > **対象読者**：経営学部の大学院生。確率、期待値、条件付き確率の初歩を前提にする。
 >
-> **続き**：[第II部 — 画面の四指標J・P・Q・Sと価値の式](./bzm-2-2-textbook-value-and-indices)、[第III部 — 理論の系譜と現在の限界](./bzm-2-2-textbook-context-and-limits)
+> **前後**：[序 — BZMとは何か、なぜ作るのか](./bzm-2-2-textbook-introduction)の問題意識と基本式を前提にする。続きは[第II部 — 画面の四指標J・P・Q・Sと価値の式](./bzm-2-2-textbook-value-and-indices)、[第III部 — 理論の系譜と現在の限界](./bzm-2-2-textbook-context-and-limits)。
 
 **到達目標**
 
