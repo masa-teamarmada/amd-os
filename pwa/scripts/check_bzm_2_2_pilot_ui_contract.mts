@@ -26,6 +26,7 @@ const artifactPath = path.join(root, "bzm/pilot/bzm-2-2-all-pj-provisional-v0-1.
 const generatedDirectory = path.join(root, "src/generated/bzm-2-2-pilot");
 const manifestPath = path.join(generatedDirectory, "manifest.json");
 const apiPath = path.join(root, "src/app/api/project/[projectId]/bzm-2-2-pilot/route.ts");
+const sxFundingTimingApiPath = path.join(root, "src/app/api/project/[projectId]/sx-funding-timing/route.ts");
 const loaderPath = path.join(root, "src/lib/bzm-2-2-pilot-ui.server.ts");
 const componentPath = path.join(root, "src/components/cockpit/Bzm22ProvisionalObservatory.tsx");
 const timeLedgerPath = path.join(root, "src/components/cockpit/Bzm22TimeLedger.tsx");
@@ -422,7 +423,17 @@ requireIncludes(loaderSource, [
   "parameter",
 ], "BZM 2.2 server-only loader");
 
+const sxFundingTimingApiSource = requireText(sxFundingTimingApiPath);
+requireIncludes(sxFundingTimingApiSource, [
+  "requireMember()",
+  'from("project_meeting_summaries")',
+  'projectId !== "p21"',
+  "extractSxFirstFundingTarget",
+  '"Cache-Control": "private, no-store, max-age=0"',
+], "SX funding timing evidence API");
+
 const componentSource = requireText(componentPath);
+const scoreDetailSource = requireText(scoreDetailPath);
 requireIncludes(componentSource, [
   ">BZM 2.2<",
   "103項目の監査台帳",
@@ -462,44 +473,62 @@ requireIncludes(componentSource, [
   "AnnotatedFormula",
   "FormulaTerm",
   "の数式と代入値",
-  "式に出てくる全記号",
+  "全パラメータ",
+  'data-testid="bzm22-formula-parameter-table"',
   "条件ごとの実数を開く",
   "逆風ごとの補正値を開く",
   "60か月すべての CFₜ・dₜ・Wₜ を開く",
-  "Q × P はJではない",
+  "前提監査未通過",
   "停止寄与PV",
   "逆風ごとの補正値",
   "実行可能性と経営判断",
-  "条件判定月を試す",
-  "時期変更後 J",
+  "条件判定月シミュレーション",
+  "時期だけを変更・保存なし",
 ], "BZM 2.2 observatory UI");
 
 const timeLedgerSource = requireText(timeLedgerPath);
 requireIncludes(timeLedgerSource, [
   'data-testid="bzm22-time-ledger"',
+  'data-density="compact-ledger"',
+  'data-testid="bzm22-finance-comment"',
   'data-testid="bzm22-shared-month-scroll"',
   "buildBzm22SharedMonthAxis",
   "イベントと月次試算",
   "事業価値の時間軸",
   "月次試算表",
   "単位：百万円",
+  "計上主体",
+  "設立前PJ",
+  "NewCo C/F・資金繰り",
+  "設立前DD完了期限",
   "C/F・資金繰り",
   "設備投資",
   "株式調達",
   "融資実行",
-  "助成金等入金（計画）",
+  "助成金等入金",
   "月次純C/F",
-  "月末資金残高（簡易）",
+  "月末資金残高",
   "BZM経済CF",
-  "上のイベントと下のP/L・C/Fは、同じ月の列で揃っている。",
+  "イベント、P/L、C/Fを同じ月列で読む。◆は変動理由。",
+  "buildSxMonthlyFinanceComments",
+  "sx-funding-timing",
+  "TooltipContent",
+  'data-testid="bzm22-monthly-edit-dialog"',
+  'data-testid="sx-first-funding-target"',
+  'data-testid="sx-first-capital-plan-event"',
+  "grid-cols-2 gap-px",
+  "const MONTH_WIDTH = 76",
+  "const TIMELINE_HEIGHT = 101",
   "fetchPlMonthly",
   "upsertPlMonthly",
   "deletePlMonthly",
   "CockpitPlHearingModal",
   "gateMonths",
-  "[--bzm-ledger-label-width:132px]",
-  "sm:[--bzm-ledger-label-width:220px]",
+  "[--bzm-ledger-label-width:108px]",
+  "sm:[--bzm-ledger-label-width:172px]",
 ], "BZM 2.2 shared event/monthly ledger");
+requireIncludes(componentSource, ['data-density="compact-score"'], "BZM 2.2 compact score density");
+requireIncludes(scoreDetailSource, ['data-density="compact-score-page"', "space-y-1"], "score detail compact density");
 if (timeLedgerSource.includes('`${value < 0 ? "-" : ""}¥${rounded.toLocaleString("ja-JP")}M`')) {
   throw new Error("BZM 2.2 monthly ledger must put the million-yen unit outside data cells");
 }
@@ -512,6 +541,8 @@ for (const forbidden of [
   "L/B/H 全値",
   "{pilot.modelVersion}",
   "精度低下:",
+  "式に出てくる全記号",
+  "Q × P はJではない",
 ]) {
   if (componentSource.includes(forbidden)) throw new Error(`BZM 2.2 UI still exposes legacy wording: ${forbidden}`);
 }
@@ -579,7 +610,6 @@ if (hudVentureSource.includes("CockpitPlMonthlyModal") || hudVentureSource.inclu
   throw new Error("HUD cockpit header must not keep the detached monthly P&L button/modal");
 }
 
-const scoreDetailSource = requireText(scoreDetailPath);
 requireIncludes(scoreDetailSource, [
   "Bzm22ProvisionalObservatory",
   "現行SPS / BZM 2.1",

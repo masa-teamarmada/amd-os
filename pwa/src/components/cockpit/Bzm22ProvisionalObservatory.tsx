@@ -220,15 +220,15 @@ function ParameterDesktopTable({ parameters, projectId }: { parameters: Bzm22Pil
   return (
     <div className="hidden overflow-x-auto lg:block">
       <table className="w-full min-w-[1040px] border-collapse text-left">
-        <thead className="bg-slate-50 text-[9px] text-slate-500"><tr><th className="w-10 px-2 py-2 text-right">#</th><th className="w-[360px] px-2 py-2">日本語名・数式との接続</th><th className="px-2 py-2">意味</th><th className="w-[250px] px-2 py-2">入力値</th><th className="w-[170px] px-2 py-2">状態・根拠</th></tr></thead>
+        <thead className="bg-slate-50 text-[9px] text-slate-500"><tr><th className="w-10 px-2 py-1.5 text-right">#</th><th className="w-[360px] px-2 py-1.5">日本語名・数式との接続</th><th className="px-2 py-1.5">意味</th><th className="w-[250px] px-2 py-1.5">入力値</th><th className="w-[170px] px-2 py-1.5">状態・根拠</th></tr></thead>
         <tbody>{parameters.map((parameter) => {
           const catalog = getBzm22ParameterCatalogEntry(parameter.id);
           return <tr key={parameter.id} className="border-t border-slate-100 align-top even:bg-slate-50/40">
-            <td className="px-2 py-2 text-right font-mono text-[8px] text-slate-400">{parameter.index}</td>
-            <td className="px-2 py-2"><ParameterIdentity parameter={parameter} /></td>
-            <td className="px-2 py-2 text-[9px] leading-4 text-slate-600">{catalog.formulaConnection}</td>
-            <td className="px-2 py-2"><ScenarioValues parameter={parameter} /></td>
-            <td className="px-2 py-2"><StatusBadge status={parameter.observedStatus} /><AuditDetail parameter={parameter} projectId={projectId} /></td>
+            <td className="px-2 py-1.5 text-right font-mono text-[8px] text-slate-400">{parameter.index}</td>
+            <td className="px-2 py-1.5"><ParameterIdentity parameter={parameter} /></td>
+            <td className="px-2 py-1.5 text-[9px] leading-4 text-slate-600">{catalog.formulaConnection}</td>
+            <td className="px-2 py-1.5"><ScenarioValues parameter={parameter} /></td>
+            <td className="px-2 py-1.5"><StatusBadge status={parameter.observedStatus} /><AuditDetail parameter={parameter} projectId={projectId} /></td>
           </tr>;
         })}</tbody>
       </table>
@@ -238,10 +238,10 @@ function ParameterDesktopTable({ parameters, projectId }: { parameters: Bzm22Pil
 
 function ParameterMobileCards({ parameters, projectId }: { parameters: Bzm22PilotParameter[]; projectId: string }) {
   return <div className="divide-y divide-slate-200 lg:hidden">{parameters.map((parameter) => (
-    <article key={parameter.id} className="px-3 py-3">
+    <article key={parameter.id} className="px-3 py-2">
       <div className="flex items-start justify-between gap-2"><span className="font-mono text-[8px] text-slate-400">#{parameter.index}</span><StatusBadge status={parameter.observedStatus} /></div>
       <div className="mt-1"><ParameterIdentity parameter={parameter} /></div>
-      <div className="mt-2 border border-slate-200 bg-white p-2"><div className="mb-1 text-[8px] font-semibold text-slate-500">入力値・3つの前提ケース</div><ScenarioValues parameter={parameter} /></div>
+      <div className="mt-1.5 border border-slate-200 bg-white p-1.5"><div className="mb-1 text-[8px] font-semibold text-slate-500">入力値・3つの前提ケース</div><ScenarioValues parameter={parameter} /></div>
       <AuditDetail parameter={parameter} projectId={projectId} />
     </article>
   ))}</div>;
@@ -264,8 +264,8 @@ function ParameterLedger({ groups, projectId }: { groups: Bzm22PilotParameterGro
   const total = groups.reduce((sum, group) => sum + group.parameters.length, 0);
   return (
     <details data-testid="bzm22-parameter-ledger" className="border-t border-[#7898a5] bg-white">
-      <summary className="cursor-pointer list-none bg-[#edf3f5] px-3 py-3 marker:content-none sm:px-4"><span className="text-[12px] font-semibold text-[#173f51]">103項目の監査台帳</span><span className="ml-2 text-[9px] text-slate-500">最下部の監査用。開いて確認</span></summary>
-      <div className="border-t border-slate-200 p-3">
+      <summary className="cursor-pointer list-none bg-[#edf3f5] px-3 py-2 marker:content-none sm:px-4"><span className="text-[12px] font-semibold text-[#173f51]">103項目の監査台帳</span><span className="ml-2 text-[9px] text-slate-500">最下部の監査用。開いて確認</span></summary>
+      <div className="border-t border-slate-200 p-2">
         <div className="grid gap-2 md:grid-cols-[1fr_auto]">
           <input aria-label="項目を検索" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="日本語名・数式記号・意味で検索" className="min-h-10 border border-slate-300 px-3 text-[11px] outline-none focus:border-cyan-700 md:min-h-8" />
           <div className="grid grid-cols-3 border border-slate-300">{([['all','全項目'],['formula','数式に関係'],['assumption','仮定を含む']] as const).map(([value,label]) => <button key={value} type="button" onClick={() => setFilter(value)} className={`min-h-10 border-l border-slate-200 px-2 text-[9px] first:border-0 md:min-h-8 ${filter === value ? "bg-[#dcebed] font-semibold text-[#174b60]" : "text-slate-500"}`}>{label}</button>)}</div>
@@ -280,27 +280,24 @@ function ParameterLedger({ groups, projectId }: { groups: Bzm22PilotParameterGro
 
 function ScenarioMetric({ symbol, value, kind }: { symbol: keyof typeof BZM22_TOP_METRICS; value: Bzm22Scenario<number | null>; kind: "probability" | "million" }) {
   const metric = BZM22_TOP_METRICS[symbol];
-  return <div className="min-w-0 bg-white px-3 py-3"><div className="flex items-baseline gap-2"><span className="text-[18px] font-bold text-[#173f51]">{symbol}</span><span className="text-[10px] font-semibold text-slate-600">{metric.title}</span></div><div className="mt-1 text-[16px] font-semibold tabular-nums text-[#173f51]">{formatNumber(value.base, kind)}</div><div className="mt-2 grid grid-cols-3 gap-1 text-[8px] text-slate-500"><span>慎重 {formatNumber(value.low, kind)}</span><span>基準 {formatNumber(value.base, kind)}</span><span>強気 {formatNumber(value.high, kind)}</span></div><div className="mt-2 text-[8px] leading-3 text-slate-500">{metric.description}</div></div>;
+  return <div className="min-w-0 bg-white px-3 py-2"><div className="flex items-baseline gap-2"><span className="text-[18px] font-bold text-[#173f51]">{symbol}</span><span className="text-[10px] font-semibold text-slate-600">{metric.title}</span></div><div className="mt-0.5 text-[16px] font-semibold tabular-nums text-[#173f51]">{formatNumber(value.base, kind)}</div><div className="mt-1 grid grid-cols-3 gap-1 text-[8px] text-slate-500"><span>慎重 {formatNumber(value.low, kind)}</span><span>基準 {formatNumber(value.base, kind)}</span><span>強気 {formatNumber(value.high, kind)}</span></div><div className="mt-1 text-[8px] leading-3 text-slate-500">{metric.description}</div></div>;
 }
 
 function FormulaTerm({ tex, label, value, detail }: { tex: string; label: string; value: string; detail?: string }) {
   return (
-    <div className="w-full min-w-0 lg:flex-1">
-      <div className="flex min-h-9 items-end justify-start overflow-x-auto whitespace-nowrap border-b-2 border-[#2b6c82] px-2 pb-1 text-left text-[11px] text-[#285b6b] lg:justify-center lg:text-center">
-        <Tex tex={tex} />
+    <div className="min-w-[168px] flex-1 border border-[#a9c5cf] bg-[#f7fafb] px-2 py-1">
+      <div className="overflow-x-auto whitespace-nowrap text-[10px] leading-4 text-[#285b6b]"><Tex tex={tex} /></div>
+      <div className="flex items-baseline justify-between gap-2 border-t border-slate-200 pt-0.5">
+        <span className="text-[8px] font-semibold text-[#426573]">{label}</span>
+        <span className="break-words text-right font-mono text-[10px] font-semibold tabular-nums text-[#173f51]">{value}</span>
       </div>
-      <div aria-hidden="true" className="mx-auto h-3 w-px bg-[#2b6c82]" />
-      <div className="border border-[#a9c5cf] bg-[#eaf2f4] px-2.5 py-2 text-center">
-        <div className="text-[8px] font-semibold text-[#426573]">{label}</div>
-        <div className="mt-1 break-words font-mono text-[11px] font-semibold tabular-nums text-[#173f51]">{value}</div>
-        {detail ? <div className="mt-1 text-[8px] leading-3 text-slate-500">{detail}</div> : null}
-      </div>
+      {detail ? <div className="truncate text-right text-[7px] leading-3 text-slate-500" title={detail}>{detail}</div> : null}
     </div>
   );
 }
 
 function FormulaJoin({ children }: { children: string }) {
-  return <div aria-hidden="true" className="flex h-7 shrink-0 items-center justify-center px-1 font-serif text-[18px] text-slate-400 lg:h-9 lg:items-end lg:pb-1 xl:px-2">{children}</div>;
+  return <div aria-hidden="true" className="flex shrink-0 items-center justify-center px-1 font-serif text-[14px] text-slate-400">{children}</div>;
 }
 
 function AnnotatedFormula({
@@ -320,7 +317,7 @@ function AnnotatedFormula({
 }) {
   return (
     <article data-testid={`bzm22-annotated-formula-${symbol.toLowerCase()}`} aria-label={`${symbol}の数式と代入値`} className="min-w-0 border border-slate-200 bg-white">
-      <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200 px-3 py-2">
+      <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200 px-2 py-1">
         <div className="flex items-baseline gap-2">
           <span className="text-[18px] font-bold text-[#173f51]">{symbol}</span>
           <span className="text-[10px] font-semibold text-slate-600">{title}</span>
@@ -328,10 +325,10 @@ function AnnotatedFormula({
         </div>
         <strong className="font-mono text-[14px] tabular-nums text-[#173f51]">{result}</strong>
       </header>
-      <div className="px-3 py-3 lg:overflow-x-auto">
-        <div className="w-full min-w-0 lg:min-w-[720px]">
-          <div className="overflow-x-auto whitespace-nowrap text-[12px] text-[#285b6b]"><Tex tex={formula} /></div>
-          <div className="mt-3 flex flex-col items-stretch lg:flex-row lg:items-start">{children}</div>
+      <div className="overflow-x-auto px-2 py-1">
+        <div className="min-w-max">
+          <div className="whitespace-nowrap text-[10px] leading-4 text-[#285b6b]"><Tex tex={formula} /></div>
+          <div className="mt-0.5 flex min-w-full items-stretch">{children}</div>
         </div>
       </div>
     </article>
@@ -357,7 +354,7 @@ function CalculationTrace({ pilot }: { pilot: Bzm22PilotProject }) {
   return (
     <section className="border-b border-[#b9cbd1] bg-[#f6f8f8]" aria-labelledby="calculation-trace-title">
       <header className="flex flex-wrap items-end justify-between gap-2 border-b border-slate-200 bg-white px-3 py-2 sm:px-4"><div><h3 id="calculation-trace-title" className="text-[12px] font-semibold text-[#173f51]">式と入力のつながり</h3><p className="mt-0.5 text-[9px] text-slate-500">各項の直下に、このPJで代入した数値を表示。評価に用いた登録方針: {trace.policyLabel}</p></div><div className="grid grid-cols-3 border border-slate-300">{([['low','慎重'],['base','基準'],['high','強気']] as const).map(([key,label]) => <button key={key} type="button" onClick={() => setScenario(key)} className={`min-h-8 border-l border-slate-200 px-3 text-[9px] first:border-0 ${scenario === key ? "bg-[#dcebed] font-semibold text-[#174b60]" : "bg-white text-slate-500"}`}>{label}</button>)}</div></header>
-      <div data-testid="bzm22-formula-substitution-board" className="grid gap-2 bg-[#f6f8f8] p-2">
+      <div data-testid="bzm22-formula-substitution-board" className="grid gap-1 bg-[#f6f8f8] p-1">
         <AnnotatedFormula symbol="J" title={BZM22_TOP_METRICS.J.title} scenarioLabel={scenarioLabel} formula={BZM22_TOP_METRICS.J.formula} result={formatMillionJpy(output.J)}>
           <FormulaTerm tex={String.raw`\sum_{t=1}^{H}d_tW_t(a)CF_t(a)`} label="経路中の月次収支" value={formatMillionJpy(output.pathPV)} detail={cashFlowRange} />
           <FormulaJoin>+</FormulaJoin>
@@ -385,7 +382,6 @@ function CalculationTrace({ pilot }: { pilot: Bzm22PilotProject }) {
           <FormulaTerm tex={String.raw`S(a)`} label="逆風耐久指数" value={formatRate(output.S)} />
         </AnnotatedFormula>
       </div>
-      <div className="border-t border-slate-200 bg-white px-3 py-2 text-[9px] leading-4 text-slate-600 sm:px-4"><strong>Q × P はJではない。</strong> {output.qTimesP === null ? "このPJではPが対象外。" : `このケースのQ × Pは ${formatMillionJpy(output.qTimesP)}、Jは ${formatMillionJpy(output.J)}。`} Jは毎月の収支を各時点の生存率で重み付けし、途中停止時の価値も足すため。</div>
       <AlgebraInputs pilot={pilot} scenario={scenario} />
     </section>
   );
@@ -424,7 +420,7 @@ function AlgebraInputs({ pilot, scenario }: { pilot: Bzm22PilotProject; scenario
     P: output.P === null ? "対象外" : formatMillionJpy(output.P),
     J: formatMillionJpy(output.J),
   };
-  return <div className="border-t border-slate-200 bg-white"><div className="px-3 py-2 sm:px-4"><h4 className="text-[11px] font-semibold text-[#173f51]">式に出てくる全記号</h4><p className="mt-0.5 text-[8px] text-slate-500">26記号を、入力・計算途中・集合・方針・出力に分け、選択中のケースの実値で表示。</p></div><div className="grid gap-px bg-slate-200 sm:grid-cols-2 xl:grid-cols-3">{BZM22_FORMULA_SYMBOLS.map((symbol) => <div key={symbol.key} className="min-w-0 bg-white p-2.5"><div className="flex items-start justify-between gap-2"><div><span className="border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[7px] font-semibold text-slate-500">{SYMBOL_KIND_LABEL[symbol.kind]}</span><div className="mt-1 text-[9px] text-slate-500">{symbol.label}</div></div><span className="shrink-0 text-[12px] font-semibold text-[#285b6b]"><Tex tex={symbol.tex} /></span></div><div className="mt-2 break-words text-[10px] font-semibold leading-4 text-[#173f51]">{symbolValue[symbol.key]}</div></div>)}</div>
+  return <div className="border-t border-slate-200 bg-white"><div className="px-3 py-1.5 sm:px-4"><h4 className="text-[11px] font-semibold text-[#173f51]">全パラメータ</h4><p className="text-[8px] leading-3 text-slate-500">計算式を構成する26項目。選択中ケースの値を一つの表で確認する。</p></div><div className="overflow-x-auto border-t border-slate-200"><table className="w-full min-w-[760px] border-collapse text-left text-[9px]" data-testid="bzm22-formula-parameter-table"><thead className="bg-slate-50 text-slate-500"><tr><th className="w-[92px] border-b border-r border-slate-200 px-2 py-1 font-semibold">種別</th><th className="w-[190px] border-b border-r border-slate-200 px-2 py-1 font-semibold">パラメータ</th><th className="w-[130px] border-b border-r border-slate-200 px-2 py-1 text-right font-semibold">記号</th><th className="border-b border-slate-200 px-2 py-1 text-right font-semibold">選択中ケースの値</th></tr></thead><tbody>{BZM22_FORMULA_SYMBOLS.map((symbol) => <tr key={symbol.key} className="even:bg-slate-50/50"><td className="border-b border-r border-slate-100 px-2 py-1 text-slate-500">{SYMBOL_KIND_LABEL[symbol.kind]}</td><td className="border-b border-r border-slate-100 px-2 py-1 text-slate-700">{symbol.label}</td><td className="border-b border-r border-slate-100 px-2 py-1 text-right text-[11px] font-semibold text-[#285b6b]"><Tex tex={symbol.tex} /></td><td className="border-b border-slate-100 px-2 py-1 text-right font-mono font-semibold leading-4 tabular-nums text-[#173f51]">{symbolValue[symbol.key]}</td></tr>)}</tbody></table></div>
     <details className="border-t border-slate-200"><summary className="cursor-pointer list-none px-3 py-2 text-[9px] font-semibold text-[#376274] marker:content-none sm:px-4">条件ごとの実数を開く（{values.gates.length}条件）</summary><div className="overflow-x-auto border-t border-slate-200"><table className="min-w-[980px] w-full text-left text-[8px]"><thead className="bg-slate-50 text-slate-500"><tr>{["i / 条件", "tᵢ", "pᵢ", "W(tᵢ−)", "1−pᵢ", "停止分岐重み", "d(tᵢ)", "RVᵢ", "停止寄与PV"].map((label) => <th key={label} className="border-b border-r border-slate-200 px-2 py-1.5 font-semibold">{label}</th>)}</tr></thead><tbody>{values.gates.map((gate) => <tr key={gate.id}>{[`${gate.index}. ${gate.label}`, `${gate.month}月`, formatRate(gate.probability), formatRate(gate.priorPathWeight), formatRate(gate.failureValue), formatRate(gate.failureBranchWeight), gate.discountFactor.toFixed(6), formatMillionJpy(gate.signedFailureSettlementMillionJpy), formatMillionJpy(gate.discountedFailureContributionMillionJpy)].map((value, index) => <td key={`${gate.id}-${index}`} className="border-b border-r border-slate-100 px-2 py-1.5 text-slate-700">{value}</td>)}</tr>)}</tbody></table></div></details>
     <details className="border-t border-slate-200"><summary className="cursor-pointer list-none px-3 py-2 text-[9px] font-semibold text-[#376274] marker:content-none sm:px-4">逆風ごとの補正値を開く（{values.stresses.length}逆風 × {values.gates.length}条件）</summary><div className="overflow-x-auto border-t border-slate-200"><table className="min-w-[760px] w-full text-left text-[8px]"><thead className="bg-slate-50 text-slate-500"><tr><th className="border-b border-r border-slate-200 px-2 py-1.5">δ / 逆風</th>{values.gates.map((gate) => <th key={gate.id} className="border-b border-r border-slate-200 px-2 py-1.5">{gate.label}</th>)}<th className="border-b border-slate-200 px-2 py-1.5">積</th></tr></thead><tbody>{values.stresses.map((stress) => <tr key={stress.id}><td className="border-b border-r border-slate-100 px-2 py-1.5 font-semibold">{stress.index}. {stress.label}</td>{stress.multipliers.map((entry) => <td key={entry.gateId} className="border-b border-r border-slate-100 px-2 py-1.5">{formatRate(entry.value)}</td>)}<td className="border-b border-slate-100 px-2 py-1.5 font-semibold">{formatRate(stress.product)}</td></tr>)}</tbody></table></div></details>
     <details className="border-t border-slate-200"><summary className="cursor-pointer list-none px-3 py-2 text-[9px] font-semibold text-[#376274] marker:content-none sm:px-4">60か月すべての CFₜ・dₜ・Wₜ を開く</summary><div className="max-h-[480px] overflow-auto border-t border-slate-200"><table className="min-w-[720px] w-full text-right text-[8px]"><thead className="sticky top-0 bg-slate-50 text-slate-500"><tr>{["t", "CFₜ", "dₜ", "Wₜ", "dₜCFₜ", "dₜWₜCFₜ"].map((label) => <th key={label} className="border-b border-r border-slate-200 px-2 py-1.5">{label}</th>)}</tr></thead><tbody>{values.months.map((month) => <tr key={month.month}>{[`${month.month}月`, formatMillionJpy(month.cashFlowMillionJpy), month.discountFactor.toFixed(6), formatRate(month.pathWeight), formatMillionJpy(month.discountedFullPathCashFlowMillionJpy), formatMillionJpy(month.discountedWeightedCashFlowMillionJpy)].map((value, index) => <td key={`${month.month}-${index}`} className="border-b border-r border-slate-100 px-2 py-1.5 tabular-nums text-slate-700">{value}</td>)}</tr>)}</tbody></table></div></details>
@@ -432,7 +428,7 @@ function AlgebraInputs({ pilot, scenario }: { pilot: Bzm22PilotProject; scenario
 }
 
 function SimulationMetric({ option }: { option: Bzm22SimulationPolicyOption }) {
-  return <div className="grid grid-cols-4 gap-px bg-slate-200">{(["J", "P", "Q", "S"] as const).map((key) => { const metric = option.metrics[key]; const value = metric.values?.base ?? null; return <div key={key} className="bg-white p-2"><div className="text-[10px] font-bold text-[#173f51]">{key}</div><div className="mt-1 text-[10px] font-semibold">{metric.status === "precomputed" ? (key === "Q" || key === "S" ? formatRate(value) : formatMillionJpy(value as number)) : metric.status === "not_applicable_historical_terminal" ? "対象外" : "計算結果なし"}</div></div>; })}</div>;
+  return <div className="grid grid-cols-4 gap-px bg-slate-200">{(["J", "P", "Q", "S"] as const).map((key) => { const metric = option.metrics[key]; const value = metric.values?.base ?? null; return <div key={key} className="flex items-baseline justify-between gap-1 bg-white px-1.5 py-1"><div className="text-[9px] font-bold text-[#173f51]">{key}</div><div className="text-right text-[9px] font-semibold tabular-nums">{metric.status === "precomputed" ? (key === "Q" || key === "S" ? formatRate(value) : formatMillionJpy(value as number)) : metric.status === "not_applicable_historical_terminal" ? "対象外" : "計算結果なし"}</div></div>; })}</div>;
 }
 
 function BrowserSimulator({
@@ -453,6 +449,7 @@ function BrowserSimulator({
   );
   const originalJ = pilot.calculationTrace.outputs.base.J;
   const gateTimingChanged = pilot.calculationTrace.inputs.gates.some((gate) => gateMonths[gate.id] !== gate.month);
+  const policyChanged = policyId !== simulation.currentPolicyId;
   const reset = () => {
     setPolicyId(simulation.currentPolicyId);
     setGateMonths(Object.fromEntries(pilot.calculationTrace.inputs.gates.map((gate) => [gate.id, gate.month])));
@@ -463,20 +460,22 @@ function BrowserSimulator({
         <h3 id="execution-judgement-title" className="text-[12px] font-semibold text-[#173f51]">実行可能性と経営判断</h3>
         <p className="mt-0.5 text-[8px] text-slate-500">ブラウザ内シミュレーター。この画面内の変更は保存されない。</p>
       </header>
-      <div className="grid gap-3 p-3 lg:grid-cols-2">
-        <div>
+      <div className="grid items-end gap-1 p-1.5 lg:grid-cols-[minmax(280px,1.1fr)_minmax(360px,1.5fr)_auto]">
           <label className="block text-[9px] font-semibold text-slate-600">評価日固定の方針比較
-            <select value={policyId} onChange={(event) => setPolicyId(event.target.value)} className="mt-1 min-h-10 w-full border border-slate-300 bg-white px-2 text-[10px]">
+            <select value={policyId} onChange={(event) => setPolicyId(event.target.value)} className="mt-0.5 h-8 w-full border border-slate-300 bg-white px-2 text-[9px]">
               {simulation.policyOptions.map((option) => <option key={option.id} value={option.id}>{option.label}（{option.registrationRole === "registered_current" ? "評価に用いた登録方針" : option.registrationRole === "historical_terminal_shadow" ? "歴史分類" : "未登録の比較案"}）</option>)}
             </select>
           </label>
-          <div className="mt-2 text-[8px] text-slate-500">評価日時点に凍結済みの値を切り替える。未登録案を実行推奨へ読み替えない。</div>
-          <div className="mt-2"><SimulationMetric option={selected} /></div>
-        </div>
-        <div className="border border-slate-200 bg-slate-50 p-2">
-          <div className="text-[9px] font-semibold text-[#365865]">登録方針の条件判定月を試す（基準ケース）</div>
-          <div className="mt-1 text-[8px] leading-3 text-slate-500">時期だけを変え、条件付き通過値・月次収支・将来価値は固定。経路重み、停止時価値の割引、Jだけを再計算する。</div>
-          <div className="mt-2 grid gap-1 sm:grid-cols-2">
+          <SimulationMetric option={selected} />
+          <button type="button" onClick={reset} disabled={!gateTimingChanged && !policyChanged} className="h-8 border border-slate-300 px-2 text-[8px] font-semibold text-slate-600 disabled:cursor-default disabled:opacity-35">元の前提に戻す</button>
+      </div>
+      <details className="border-t border-slate-200 bg-slate-50">
+        <summary className="grid min-h-8 cursor-pointer list-none grid-cols-[1fr_auto] items-center gap-2 px-2 text-[9px] font-semibold text-[#365865] marker:content-none">
+          <span>条件判定月シミュレーション <small className="font-normal text-slate-500">時期だけを変更・保存なし</small></span>
+          <span className="font-mono text-[8px] tabular-nums">J {formatMillionJpy(originalJ)} → {timingResult.status === "calculated" ? formatMillionJpy(timingResult.J) : "計算不可"}</span>
+        </summary>
+        <div className="border-t border-slate-200 p-1.5">
+          <div className="grid gap-1 sm:grid-cols-2 xl:grid-cols-3">
             {pilot.calculationTrace.inputs.gates.map((gate, index, gates) => {
               const minimumMonth = index > 0 ? (gateMonths[gates[index - 1].id] ?? gates[index - 1].month) : 0;
               const maximumMonth = index < gates.length - 1 ? (gateMonths[gates[index + 1].id] ?? gates[index + 1].month) : pilot.calculationTrace.inputs.horizonMonths;
@@ -488,11 +487,9 @@ function BrowserSimulator({
               );
             })}
           </div>
-          {timingResult.status === "calculated" ? <div className="mt-2 grid grid-cols-3 gap-px bg-slate-200 text-center"><div className="bg-white p-2"><div className="text-[7px] text-slate-500">登録値 J</div><div className="text-[10px] font-semibold">{formatMillionJpy(originalJ)}</div></div><div className="bg-white p-2"><div className="text-[7px] text-slate-500">時期変更後 J</div><div className="text-[10px] font-semibold text-[#174f45]">{formatMillionJpy(timingResult.J)}</div></div><div className="bg-white p-2"><div className="text-[7px] text-slate-500">差</div><div className="text-[10px] font-semibold">{formatMillionJpy(timingResult.J - originalJ)}</div></div></div> : <div className="mt-2 border-l-2 border-amber-400 pl-2 text-[9px] text-amber-900">gate順序が逆転するため計算できない。条件付き通過値の順序を維持して。</div>}
-          <div className="mt-1 text-[8px] text-slate-500">Q・S・Pは不変。条件付き通過値の意味を守るため、gate順序は固定し、同月だけを許す。{gateTimingChanged ? "判定月を変更中。" : "登録月を表示中。"}</div>
+          <div className="mt-1 text-[8px] text-slate-500">Q・S・Pは不変。gate順序は固定し、同月だけを許す。{gateTimingChanged ? "判定月を変更中。" : "登録月を表示中。"}</div>
         </div>
-      </div>
-      <div className="px-3 pb-3"><button type="button" onClick={reset} className="min-h-9 border border-slate-300 px-3 text-[9px] font-semibold text-slate-600">元の前提に戻す</button></div>
+      </details>
     </section>
   );
 }
@@ -504,7 +501,7 @@ function CalculationConditions({ pilot }: { pilot: Bzm22PilotProject }) {
 function PilotPanel({ pilot }: { pilot: Bzm22PilotProject }) {
   const [gateMonths, setGateMonths] = useState<Record<string, number>>(() =>
     Object.fromEntries(pilot.calculationTrace.inputs.gates.map((gate) => [gate.id, gate.month])));
-  return <section data-testid="bzm22-provisional-primary" aria-labelledby="bzm22-title" className="min-w-0 overflow-hidden border border-[#7898a5] bg-[#f6f8f8]"><header className="border-b border-[#365865] bg-[#162f3a] px-3 py-3 text-white sm:px-4"><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 id="bzm22-title" className="text-[15px] font-semibold">BZM 2.2</h2><p className="mt-1 text-[10px] text-slate-200">{pilot.projectName}の事業価値と、条件を通り切る強さを式から確認する。</p></div><div className="text-right text-[8px] text-slate-300">価値基準日 {formatDate(pilot.valuationDate)}</div></div></header><div className="grid gap-px border-b border-[#b9cbd1] bg-[#c9d5d9] sm:grid-cols-2 xl:grid-cols-4"><ScenarioMetric symbol="J" value={pilot.summary.jValueMillionJpy} kind="million" /><ScenarioMetric symbol="P" value={pilot.summary.conditionalSuccessValueMillionJpy} kind="million" /><ScenarioMetric symbol="Q" value={pilot.summary.qGateProductProxy} kind="probability" /><ScenarioMetric symbol="S" value={pilot.summary.qStressProxy} kind="probability" /></div><CalculationConditions pilot={pilot} /><CalculationTrace pilot={pilot} /><BrowserSimulator pilot={pilot} gateMonths={gateMonths} setGateMonths={setGateMonths} /><Bzm22TimeLedger pilot={pilot} gateMonths={gateMonths} /><ParameterLedger groups={pilot.groups} projectId={pilot.projectId} /></section>;
+  return <section data-testid="bzm22-provisional-primary" data-density="compact-score" aria-labelledby="bzm22-title" className="min-w-0 overflow-hidden border border-[#7898a5] bg-[#f6f8f8]"><header className="border-b border-[#365865] bg-[#162f3a] px-3 py-2 text-white sm:px-4"><div className="flex flex-wrap items-end justify-between gap-2"><div><h2 id="bzm22-title" className="text-[15px] font-semibold">BZM 2.2</h2><p className="mt-0.5 text-[10px] text-slate-200">{pilot.projectName}の事業価値と、条件を通り切る強さを式から確認する。</p></div><div className="text-right text-[8px] text-slate-300">価値基準日 {formatDate(pilot.valuationDate)}</div></div></header><div data-testid="bzm22-validation-boundary" className="border-b border-rose-300 bg-rose-50 px-3 py-1.5 text-[9px] font-semibold leading-4 text-rose-900 sm:px-4">前提監査未通過：前向き検証 {pilot.claimBoundary.forwardValidationCount}件。資源配分・PJ横比較には使用不可。{pilot.projectId === "p21" ? "SXの設立前DDは現計算ゲートへ未接続のため、J / P / Q / Sは再計算待ち。" : ""}</div><div className="grid gap-px border-b border-[#b9cbd1] bg-[#c9d5d9] sm:grid-cols-2 xl:grid-cols-4"><ScenarioMetric symbol="J" value={pilot.summary.jValueMillionJpy} kind="million" /><ScenarioMetric symbol="P" value={pilot.summary.conditionalSuccessValueMillionJpy} kind="million" /><ScenarioMetric symbol="Q" value={pilot.summary.qGateProductProxy} kind="probability" /><ScenarioMetric symbol="S" value={pilot.summary.qStressProxy} kind="probability" /></div><CalculationConditions pilot={pilot} /><CalculationTrace pilot={pilot} /><BrowserSimulator pilot={pilot} gateMonths={gateMonths} setGateMonths={setGateMonths} /><Bzm22TimeLedger pilot={pilot} gateMonths={gateMonths} /><ParameterLedger groups={pilot.groups} projectId={pilot.projectId} /></section>;
 }
 
 export function Bzm22ProvisionalObservatory({ projectId, active = true }: { projectId: string; active?: boolean }) {
@@ -521,8 +518,8 @@ export function Bzm22ProvisionalObservatory({ projectId, active = true }: { proj
     request.then((json) => { PILOT_CACHE.set(projectId, json.pilot); if (!cancelled) setState({ status: "ready", projectId, pilot: json.pilot }); }).catch((error) => { if (!cancelled) setState({ status: "error", projectId, error: error instanceof Error ? error.message : "BZM 2.2の取得に失敗" }); });
     return () => { cancelled = true; };
   }, [active, projectId]);
-  if (state.projectId !== projectId) return <div data-testid="bzm22-provisional-primary" className="grid min-h-56 place-items-center border border-[#aac1ca] bg-[#f6f8f8] text-[11px] text-slate-500">BZM 2.2を切り替え中…</div>;
-  if (state.status === "idle" || state.status === "loading") return <div data-testid="bzm22-provisional-primary" className="grid min-h-56 place-items-center border border-[#aac1ca] bg-[#f6f8f8] text-[11px] text-slate-500">BZM 2.2を読み込み中…</div>;
+  if (state.projectId !== projectId) return <div data-testid="bzm22-provisional-primary" className="grid min-h-32 place-items-center border border-[#aac1ca] bg-[#f6f8f8] text-[11px] text-slate-500">BZM 2.2を切り替え中…</div>;
+  if (state.status === "idle" || state.status === "loading") return <div data-testid="bzm22-provisional-primary" className="grid min-h-32 place-items-center border border-[#aac1ca] bg-[#f6f8f8] text-[11px] text-slate-500">BZM 2.2を読み込み中…</div>;
   if (state.status === "error") return <div data-testid="bzm22-provisional-primary" className="border border-red-200 bg-red-50 px-4 py-3 text-[11px] text-red-800"><div className="font-semibold">BZM 2.2を読み出せていない</div><div>{state.error}</div></div>;
   if (state.status === "ready") return <PilotPanel pilot={state.pilot} />;
   return null;

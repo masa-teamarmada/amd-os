@@ -4,14 +4,17 @@ import {
   SX_ANNUAL_PROJECTION,
   SX_BUSINESS_PLAN_PHASES,
   SX_CAPITAL_PLAN_DOCUMENT,
+  SX_INCORPORATION_DATE,
   createSxAnnualProjectionParameters,
   sxAnnualProjectionWithCash,
   sxPhaseBudgetVariance,
 } from "../src/lib/sx-business-plan.ts";
 import {
+  buildSxMonthlyFinanceComments,
   buildSxMonthlyFinancePlan,
   SX_PHASE0_NON_DILUTIVE_FUNDING_YEN,
 } from "../src/lib/sx-monthly-finance-plan.ts";
+import { extractSxFirstFundingTarget, type SxFundingMeetingEvidence } from "../src/lib/sx-funding-timing.ts";
 
 assert.equal(SX_BUSINESS_PLAN_PHASES.length, 5, "SX事業計画は5フェーズ");
 for (const phase of SX_BUSINESS_PLAN_PHASES) {
@@ -34,6 +37,8 @@ assert.ok(
 
 const incorporation = SX_CAPITAL_PLAN_DOCUMENT.events.find((event) => event.id === "sx-incorporation");
 assert.ok(incorporation, "設立イベント");
+assert.equal(incorporation.date, SX_INCORPORATION_DATE, "SX設立は2027年2月");
+assert.match(incorporation.note ?? "", /設立前DD完了を必須ゲート/, "会社設立より前にDDを完了する");
 const founderShares = Object.fromEntries(
   incorporation.allocations.map((allocation) => [allocation.holderId, allocation.shares.value]),
 );
@@ -106,5 +111,50 @@ assert.equal(sumFinance("equityFundingYen"), 2_250_000_000, "Seed・Series A・S
 assert.equal(sumFinance("grantReceiptYen"), 400_000_000, "FY2028・FY2031の助成金入金計画をtie-out");
 assert.ok(monthlyFinance.every((row) => row.loanDrawdownYen === null), "融資額は0と捏造せず未計画");
 assert.equal(monthlyFinance.find((row) => row.ym === "2028-10")?.equityFundingYen, 600_000_000, "Series AはPhase 2開始月");
+const monthlyFinanceComments = buildSxMonthlyFinanceComments(monthRange);
+assert.ok(
+  monthlyFinanceComments.some((comment) =>
+    comment.metric === "equityFundingYen"
+    && comment.ym === "2028-10"
+    && comment.title === "Series A調達"
+    && comment.detail.includes("600百万円")),
+  "Series A調達セルの注記を資本政策から再現",
+);
+assert.ok(
+  monthlyFinanceComments.some((comment) =>
+    comment.metric === "capexYen"
+    && comment.ym === "2031-04"
+    && comment.title === "本格自社工場の建設"
+    && comment.detail.includes("600百万円")),
+  "本格工場建設セルの注記をフェーズ計画から再現",
+);
+assert.ok(
+  monthlyFinanceComments.some((comment) =>
+    comment.metric === "grantReceiptYen"
+    && comment.detail.includes("受領月は未確認")),
+  "助成金計画注記は採択額・受領実績と自動同一視しない",
+);
+
+const fundingTargetMeeting = {
+  meetingId: "sx-funding-target-evidence",
+  meetingDate: "2026-06-29",
+  title: "2026/06/29 SX MTG",
+  summaryShort: "2027年3月までの会社設立・資金調達は内部目標。投資家の参加や着金は未合意。",
+  decided: [],
+  progress: [],
+  nextActions: ["2026年12月までに投資判断材料をそろえる"],
+  risks: [],
+  narrativeMd: null,
+} satisfies SxFundingMeetingEvidence;
+assert.deepEqual(
+  extractSxFirstFundingTarget([fundingTargetMeeting]),
+  {
+    ym: "2027-03",
+    sourceMeetingDate: "2026-06-29",
+    sourceMeetingId: "sx-funding-target-evidence",
+    evidenceState: "internal_target",
+  },
+  "会議上の初回調達目標を資本政策計上日や着金実績へ昇格せず抽出",
+);
 
 console.log("sx business plan: ok");

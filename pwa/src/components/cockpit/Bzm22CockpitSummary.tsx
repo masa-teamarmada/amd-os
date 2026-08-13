@@ -21,14 +21,16 @@ function Metric({
   symbol,
   value,
   kind,
+  compact = false,
 }: {
   symbol: keyof typeof BZM22_TOP_METRICS;
   value: Bzm22Scenario<number | null>;
   kind: "money" | "rate";
+  compact?: boolean;
 }) {
   const metric = BZM22_TOP_METRICS[symbol];
   return (
-    <div className="min-w-0 border-l border-slate-200 px-3 first:border-l-0">
+    <div className={`min-w-0 border-l border-slate-200 first:border-l-0 ${compact ? "px-2" : "px-3"}`}>
       <div className="flex items-baseline gap-1.5">
         <span className="text-xl font-black text-[#173f51]">{symbol}</span>
         <span className="text-[10px] font-semibold text-slate-600">{metric.title}</span>
@@ -43,9 +45,11 @@ function Metric({
 export function Bzm22CockpitSummary({
   projectId,
   onOpenScoreDetail,
+  compact = false,
 }: {
   projectId: string;
   onOpenScoreDetail: () => void;
+  compact?: boolean;
 }) {
   const [state, setState] = useState<
     | { status: "loading" }
@@ -69,7 +73,7 @@ export function Bzm22CockpitSummary({
 
   if (state.status !== "ready") {
     return (
-      <section data-testid="cockpit-bzm22-primary" className="mx-2 mt-3 border border-[#7898a5] bg-[#f6f8f8] px-3 py-3">
+      <section data-testid="cockpit-bzm22-primary" className={`mx-2 border border-[#7898a5] bg-[#f6f8f8] px-3 py-2 ${compact ? "mt-1" : "mt-3"}`}>
         <div className="text-[12px] font-bold text-[#173f51]">BZM 2.2</div>
         <div className="mt-1 text-[10px] text-slate-500">
           {state.status === "loading" ? "評価日時点の4指標を読み込み中…" : "このPJのBZM 2.2試算は準備中。"}
@@ -81,7 +85,7 @@ export function Bzm22CockpitSummary({
   const { pilot } = state;
 
   return (
-    <section data-testid="cockpit-bzm22-primary" className="mx-2 mt-3 overflow-hidden border border-[#7898a5] bg-white">
+    <section data-testid="cockpit-bzm22-primary" className={`mx-2 overflow-hidden border border-[#7898a5] bg-white ${compact ? "mt-1" : "mt-3"}`}>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#7898a5] bg-[#162f3a] px-3 py-2 text-white">
         <div>
           <span className="text-[12px] font-bold">BZM 2.2</span>
@@ -90,11 +94,11 @@ export function Bzm22CockpitSummary({
           103パラメータと計算を見る →
         </button>
       </div>
-      <div className="grid gap-y-3 py-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric symbol="J" value={pilot.summary.jValueMillionJpy} kind="money" />
-        <Metric symbol="P" value={pilot.summary.conditionalSuccessValueMillionJpy} kind="money" />
-        <Metric symbol="Q" value={pilot.summary.qGateProductProxy} kind="rate" />
-        <Metric symbol="S" value={pilot.summary.qStressProxy} kind="rate" />
+      <div className={`grid sm:grid-cols-2 xl:grid-cols-4 ${compact ? "gap-y-2 py-2" : "gap-y-3 py-3"}`}>
+        <Metric symbol="J" value={pilot.summary.jValueMillionJpy} kind="money" compact={compact} />
+        <Metric symbol="P" value={pilot.summary.conditionalSuccessValueMillionJpy} kind="money" compact={compact} />
+        <Metric symbol="Q" value={pilot.summary.qGateProductProxy} kind="rate" compact={compact} />
+        <Metric symbol="S" value={pilot.summary.qStressProxy} kind="rate" compact={compact} />
       </div>
       <div className="border-t border-[#b9cbd1] bg-[#edf3f5] px-3 py-1.5 text-[8px] leading-4 text-[#365865]">
         <span className="font-semibold"><Tex tex={BZM22_FIXED_POLICY.formula} /></span> = この画面で評価している進め方。CF=月ごとの収支、TV=目標到達後の将来価値、RV=途中で止まった時の残存価値、p=各条件の通過値。

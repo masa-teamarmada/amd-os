@@ -372,7 +372,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     //    col1 = 今期MS + 次期MS設定 + 過去の期間 + 月次カード + 休止期間 backfill
     //    col2 = 資料 + 経営ハイライト (D-6) + MTGサマリ
     //    col3 = ステータスバッジ (必要な時だけ sticky)
-    <div className="max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3">
+    <div className={`max-w-[1600px] mx-auto flex flex-col ${activeTab === "score-detail" ? "px-2 py-2 gap-2" : "px-4 py-3 gap-3"}`}>
       {/* [A] Project Header (full width) */}
       <CockpitHeader project={project} members={members} />
 
@@ -390,6 +390,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           projectId={project.projectId}
           projectName={project.projectName}
           onOpenScoreDetail={() => selectTab("score-detail")}
+          compact={activeTab === "score-detail"}
         />
       ) : null)}
 

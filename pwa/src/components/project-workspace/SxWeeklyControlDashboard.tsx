@@ -5395,7 +5395,9 @@ export function SxWeeklyControlDashboard({
         <header className={styles.header}>
           <div className={styles.titleRow}>
             <div>
-              <h1>SolvioraX PJワークスペース</h1>
+              {/* p21の受入済み表示名 SolvioraX は維持 (critical UI anchor)。他PJは
+                  projects.project_name を出す (p31 ZEO 等、この面をPJ横断で使うため) */}
+              <h1>{bundle.project.projectId === "p21" ? "SolvioraX PJワークスペース" : `${bundle.project.projectName} PJワークスペース`}</h1>
             </div>
           </div>
           <nav className={styles.sectionNav} aria-label="週次管制ナビ" role="tablist">

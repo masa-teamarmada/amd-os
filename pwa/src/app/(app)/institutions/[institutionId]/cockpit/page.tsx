@@ -215,6 +215,12 @@ function InstitutionCockpitHeader({
         </div>
         <div className="flex gap-2 shrink-0 flex-wrap justify-end">
           <Link
+            href={`/institutions/${projectLink.institutionId}/desk`}
+            className="text-xs rounded-md border border-border bg-white px-3 py-1.5 hover:bg-muted/40"
+          >
+            業務デスク
+          </Link>
+          <Link
             href={`/institutions/${projectLink.institutionId}`}
             className="text-xs rounded-md border border-border bg-white px-3 py-1.5 hover:bg-muted/40"
           >
