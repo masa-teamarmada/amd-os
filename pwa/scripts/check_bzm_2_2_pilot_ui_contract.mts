@@ -2,8 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import {
+  BZM22_FORMULA_SYMBOLS,
   BZM22_FIXED_POLICY,
   BZM22_TOP_METRICS,
+  buildBzm22FormulaTrace,
   calculateBzm22TimingOnlyJ,
   formatMillionJpy,
   type Bzm22PilotProject,
@@ -256,6 +258,22 @@ for (const row of manifest.projects) {
       throw new Error(`${row.projectId}: timing-only calculator must reject a gate-order reversal`);
     }
   }
+  for (const scenario of ["low", "base", "high"] as const) {
+    const formulaTrace = buildBzm22FormulaTrace(trace, scenario);
+    const pathPV = formulaTrace.months.reduce((sum, month) => sum + month.discountedWeightedCashFlowMillionJpy, 0);
+    const fullPathPV = formulaTrace.months.reduce((sum, month) => sum + month.discountedFullPathCashFlowMillionJpy, 0);
+    const failurePV = formulaTrace.gates.reduce((sum, gate) => sum + gate.discountedFailureContributionMillionJpy, 0);
+    if (
+      formulaTrace.months.length !== formulaTrace.horizonMonths
+      || formulaTrace.gates.length !== trace.inputs.gates.length
+      || formulaTrace.stresses.length !== trace.inputs.stressFamilies.length
+      || !approx(pathPV, trace.outputs[scenario].pathPV)
+      || !approx(fullPathPV, trace.outputs[scenario].fullPathPV)
+      || !approx(failurePV, trace.outputs[scenario].failureContribution)
+      || !approx(formulaTrace.terminal.discountedValueMillionJpy, trace.outputs[scenario].terminalPV)
+      || !approx(formulaTrace.terminal.successContributionMillionJpy, trace.outputs[scenario].successContribution)
+    ) throw new Error(`${row.projectId}/${scenario}: complete formula symbol trace mismatch`);
+  }
   if (/https?:\/\//i.test(raw) || /rawBody|messageBody|emailAddress|accessToken|refreshToken/i.test(raw)) {
     throw new Error(`${row.projectId}: projection contains forbidden raw/URL surface`);
   }
@@ -266,8 +284,8 @@ const catalogIds = Object.keys(BZM22_PARAMETER_CATALOG).sort();
 const relationIds = Object.keys(BZM22_PARAMETER_RELATIONS).sort();
 const theorySymbolIds = Object.keys(BZM22_PARAMETER_THEORY_SYMBOLS).sort();
 const formulaRefIds = Object.keys(BZM22_PARAMETER_FORMULA_REFS).sort();
-const expectedCatalogSha256 = "18cd890cc430d5b4436cffb694dd04eb7bd154828cad6eeee604cddbb561731f";
-const expectedFormulaRefsSha256 = "bdf03782917b54cde6006cd1f153505ff0f6c938343afa08bec4febbf4f1e957";
+const expectedCatalogSha256 = "9ccfd2512bc9ffa3c7fb9a0af5619e901283e9b4206c42c2e24561768ada5dc2";
+const expectedFormulaRefsSha256 = "ae6dcfaa995dacebabdcd2d7155c6cfd89118d8be7e857008e90f89edab14a3f";
 if (
   catalogIds.length !== 103
   || JSON.stringify(catalogIds) !== JSON.stringify(referenceParameterIds)
@@ -278,6 +296,9 @@ if (
   || sha256(JSON.stringify(BZM22_PARAMETER_FORMULA_REFS)) !== expectedFormulaRefsSha256
 ) {
   throw new Error("BZM 2.2 parameter catalog must keep the reviewed exact mapping for all 103 projection IDs");
+}
+if (BZM22_FORMULA_SYMBOLS.length !== 26 || new Set(BZM22_FORMULA_SYMBOLS.map((symbol) => symbol.key)).size !== 26) {
+  throw new Error("BZM 2.2 top formulas must expose the complete 26-symbol manifest");
 }
 for (const id of referenceParameterIds) {
   const catalog = BZM22_PARAMETER_CATALOG[id as keyof typeof BZM22_PARAMETER_CATALOG];
@@ -420,11 +441,13 @@ requireIncludes(componentSource, [
   "formatUnitValue",
   "formatUnitLabel",
   "式と入力のつながり",
-  "主な代数入力",
+  "式に出てくる全記号",
+  "条件ごとの実数を開く",
+  "逆風ごとの補正値を開く",
+  "60か月すべての CFₜ・dₜ・Wₜ を開く",
   "Q × P はJではない",
-  "条件付き通過値",
-  "途中停止時の価値",
-  "逆風補正",
+  "停止寄与PV",
+  "逆風ごとの補正値",
   "実行可能性と経営判断",
   "条件判定月を試す",
   "時期変更後 J",
@@ -453,8 +476,10 @@ if (
   || BZM22_TOP_METRICS.Q.title !== "基準到達指数"
   || BZM22_TOP_METRICS.S.title !== "逆風耐久指数"
   || BZM22_FIXED_POLICY.formula !== String.raw`a\equiv\pi_{\mathrm{reg}}`
-  || !BZM22_TOP_METRICS.J.formula.includes(String.raw`J(\pi_{\mathrm{reg}})\equiv J(a)`)
-  || !BZM22_TOP_METRICS.P.formula.includes(String.raw`P(\pi_{\mathrm{reg}})\equiv P(a)`)
+  || !BZM22_TOP_METRICS.J.formula.includes(String.raw`d_{t_i}W_{t_i^-}`)
+  || BZM22_TOP_METRICS.J.formula.includes(String.raw`s_t(a)`)
+  || BZM22_TOP_METRICS.J.formula.includes(String.raw`d_i`)
+  || !BZM22_TOP_METRICS.P.formula.includes(String.raw`\sum_{t=1}^{H}d_tCF_t(a)+d_HTV(a)`)
   || BZM22_TOP_METRICS.Q.description.includes("gate積proxy")
   || BZM22_TOP_METRICS.S.description.includes("gate積proxy")
 ) {

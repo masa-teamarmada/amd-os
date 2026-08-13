@@ -203,6 +203,163 @@ export interface Bzm22CalculationTrace {
   };
 }
 
+export type Bzm22FormulaSymbolKind = "policy" | "primitive" | "set_index" | "derived" | "output";
+
+export const BZM22_FORMULA_SYMBOLS = [
+  { key: "a", tex: String.raw`a\equiv\pi_{\mathrm{reg}}`, label: "今回の評価で固定した進め方", kind: "policy" },
+  { key: "H", tex: String.raw`H`, label: "経済計算の最終月", kind: "primitive" },
+  { key: "r_d", tex: String.raw`r_d`, label: "年率の割引率", kind: "primitive" },
+  { key: "t", tex: String.raw`t`, label: "評価開始からの月番号", kind: "set_index" },
+  { key: "T", tex: String.raw`\mathcal T=\{1,\ldots,H\}`, label: "計算する月の集合", kind: "set_index" },
+  { key: "CF_t", tex: String.raw`CF_t(a)`, label: "t月目の経済収支", kind: "primitive" },
+  { key: "d_t", tex: String.raw`d_t=(1+r_d)^{-t/12}`, label: "t月目の金額を現在価値へ直す係数", kind: "derived" },
+  { key: "d_H", tex: String.raw`d_H`, label: "最終月Hの割引係数", kind: "derived" },
+  { key: "i", tex: String.raw`i`, label: "条件の番号", kind: "set_index" },
+  { key: "G", tex: String.raw`G`, label: "計算に含める条件の集合", kind: "set_index" },
+  { key: "t_i", tex: String.raw`t_i`, label: "条件iを判定する月", kind: "primitive" },
+  { key: "d_t_i", tex: String.raw`d_{t_i}`, label: "条件iの判定月の割引係数", kind: "derived" },
+  { key: "p_i", tex: String.raw`p_i(a)`, label: "先行条件通過後の条件iの通過値", kind: "primitive" },
+  { key: "W_t", tex: String.raw`W_t(a)=\prod_{i\in G:t_i\leq t}p_i(a)`, label: "t月まで計画経路が続く重み", kind: "derived" },
+  { key: "W_before", tex: String.raw`W_{t_i^-}(a)=\prod_{j\in G:t_j<t_i}p_j(a)`, label: "条件iの直前まで経路が続く重み", kind: "derived" },
+  { key: "failure_probability", tex: String.raw`1-p_i(a)`, label: "条件iで止まる値", kind: "derived" },
+  { key: "branch_weight", tex: String.raw`W_{t_i^-}(a)(1-p_i(a))`, label: "条件iで初めて止まる分岐の重み", kind: "derived" },
+  { key: "RV_i", tex: String.raw`RV_i(a)`, label: "条件iで止まった時の価値", kind: "primitive" },
+  { key: "TV", tex: String.raw`TV(a)`, label: "H月目に全条件を通過した後の価値", kind: "primitive" },
+  { key: "delta", tex: String.raw`\delta`, label: "逆風ケースの番号", kind: "set_index" },
+  { key: "Delta", tex: String.raw`\Delta_{\mathrm{reg}}`, label: "今回計算する逆風ケースの集合", kind: "set_index" },
+  { key: "m_i_delta", tex: String.raw`m_{i\delta}(a)`, label: "逆風δが条件iへ与える補正", kind: "primitive" },
+  { key: "Q", tex: String.raw`Q(a)`, label: "基準到達指数", kind: "output" },
+  { key: "S", tex: String.raw`S(a)`, label: "逆風耐久指数", kind: "output" },
+  { key: "P", tex: String.raw`P(a)`, label: "全条件通過時の現在価値", kind: "output" },
+  { key: "J", tex: String.raw`J(a)`, label: "全分岐込み現在価値", kind: "output" },
+] as const satisfies ReadonlyArray<{ key: string; tex: string; label: string; kind: Bzm22FormulaSymbolKind }>;
+
+export type Bzm22FormulaScenario = keyof Bzm22Scenario<unknown>;
+
+export interface Bzm22FormulaTrace {
+  scenario: Bzm22FormulaScenario;
+  policy: { id: string; label: string };
+  horizonMonths: number;
+  discountRate: number;
+  months: Array<{
+    month: number;
+    cashFlowMillionJpy: number;
+    discountFactor: number;
+    pathWeight: number;
+    discountedFullPathCashFlowMillionJpy: number;
+    discountedWeightedCashFlowMillionJpy: number;
+  }>;
+  gates: Array<{
+    index: number;
+    id: string;
+    label: string;
+    month: number;
+    probability: number;
+    priorPathWeight: number;
+    failureValue: number;
+    failureBranchWeight: number;
+    discountFactor: number;
+    signedFailureSettlementMillionJpy: number;
+    discountedFailureContributionMillionJpy: number;
+  }>;
+  stresses: Array<{
+    index: number;
+    id: string;
+    label: string;
+    multipliers: Array<{ gateId: string; gateLabel: string; value: number }>;
+    product: number | null;
+  }>;
+  terminal: {
+    valueMillionJpy: number;
+    discountFactor: number;
+    discountedValueMillionJpy: number;
+    successContributionMillionJpy: number;
+  };
+  outputs: Bzm22CalculationTrace["outputs"]["base"];
+}
+
+export function buildBzm22FormulaTrace(
+  trace: Bzm22CalculationTrace,
+  scenario: Bzm22FormulaScenario = "base",
+): Bzm22FormulaTrace {
+  const H = trace.inputs.horizonMonths;
+  const r = trace.inputs.discountRate[scenario];
+  const cashFlows = trace.inputs.cashFlow.monthlyEconomicCFMillionJpy[scenario];
+  if (!Number.isInteger(H) || H <= 0 || cashFlows.length !== H || !Number.isFinite(r) || r <= -1) {
+    throw new Error("BZM 2.2 formula trace input contract mismatch");
+  }
+  const discount = (month: number) => Math.pow(1 + r, -month / 12);
+  const gates = trace.inputs.gates.map((gate, index) => {
+    const probability = gate.probabilities[scenario];
+    const priorPathWeight = trace.inputs.gates
+      .slice(0, index)
+      .reduce((value, previous) => value * previous.probabilities[scenario], 1);
+    const failureValue = 1 - probability;
+    const failureBranchWeight = priorPathWeight * failureValue;
+    const discountFactor = discount(gate.month);
+    const settlement = gate.signedFailureSettlementMillionJpy[scenario];
+    return {
+      index: index + 1,
+      id: gate.id,
+      label: gate.label,
+      month: gate.month,
+      probability,
+      priorPathWeight,
+      failureValue,
+      failureBranchWeight,
+      discountFactor,
+      signedFailureSettlementMillionJpy: settlement,
+      discountedFailureContributionMillionJpy: discountFactor * failureBranchWeight * settlement,
+    };
+  });
+  const months = cashFlows.map((cashFlowMillionJpy, index) => {
+    const month = index + 1;
+    const discountFactor = discount(month);
+    const pathWeight = trace.inputs.gates
+      .filter((gate) => gate.month <= month)
+      .reduce((value, gate) => value * gate.probabilities[scenario], 1);
+    return {
+      month,
+      cashFlowMillionJpy,
+      discountFactor,
+      pathWeight,
+      discountedFullPathCashFlowMillionJpy: discountFactor * cashFlowMillionJpy,
+      discountedWeightedCashFlowMillionJpy: discountFactor * pathWeight * cashFlowMillionJpy,
+    };
+  });
+  const stresses = trace.inputs.stressFamilies.map((stress, index) => ({
+    index: index + 1,
+    id: stress.id,
+    label: stress.label,
+    multipliers: trace.inputs.gates.map((gate) => ({
+      gateId: gate.id,
+      gateLabel: gate.label,
+      value: stress.gateMultipliers[gate.id]?.[scenario] ?? Number.NaN,
+    })),
+    product: stress.gateProduct[scenario],
+  }));
+  const terminalDiscountFactor = discount(H);
+  const terminalValue = trace.inputs.terminalValueMillionJpy[scenario];
+  const output = trace.outputs[scenario];
+  const gateProduct = trace.inputs.gates.reduce((value, gate) => value * gate.probabilities[scenario], 1);
+  return {
+    scenario,
+    policy: { id: trace.policyId, label: trace.policyLabel },
+    horizonMonths: H,
+    discountRate: r,
+    months,
+    gates,
+    stresses,
+    terminal: {
+      valueMillionJpy: terminalValue,
+      discountFactor: terminalDiscountFactor,
+      discountedValueMillionJpy: terminalDiscountFactor * terminalValue,
+      successContributionMillionJpy: gateProduct * terminalDiscountFactor * terminalValue,
+    },
+    outputs: output,
+  };
+}
+
 export function calculateBzm22TimingOnlyJ(
   trace: Bzm22CalculationTrace,
   gateMonths: Partial<Record<string, number>>,
@@ -299,12 +456,12 @@ export const BZM22_FIXED_POLICY = {
 export const BZM22_TOP_METRICS = {
   J: {
     title: "全分岐込み現在価値",
-    formula: String.raw`J(\pi_{\mathrm{reg}})\equiv J(a)=\sum_t d_t s_t(a)CF_t(a)+d_HQ(a)\,TV(a)+\sum_i d_i s_{i^-}(a)(1-p_i(a))RV_i(a)`,
+    formula: String.raw`J(a)=\sum_{t=1}^{H}d_tW_t(a)CF_t(a)+d_HQ(a)TV(a)+\sum_{i\in G}d_{t_i}W_{t_i^-}(a)(1-p_i(a))RV_i(a)`,
     description: "この方針を続けた場合の、成功・途中失敗・毎月の収支を起こりやすさで重み付けし、今日の金額に直した合計。",
   },
   P: {
     title: "全条件通過時の現在価値",
-    formula: String.raw`P(\pi_{\mathrm{reg}})\equiv P(a)=\operatorname E[V_{\mathrm{net}}\mid G,a]=\sum_t d_tCF_t(a)+d_H TV(a)`,
+    formula: String.raw`P(a)=\sum_{t=1}^{H}d_tCF_t(a)+d_HTV(a)`,
     description: "同じ方針のまま、登録した条件を全部通過した場合の、毎月の収支と将来価値を今日の金額に直した合計。",
   },
   Q: {

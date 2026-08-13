@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Tex } from "@/components/venture-map/Tex";
 import {
+  BZM22_FORMULA_SYMBOLS,
   BZM22_FIXED_POLICY,
   BZM22_TOP_METRICS,
+  buildBzm22FormulaTrace,
   calculateBzm22TimingOnlyJ,
   formatMillionJpy,
   type Bzm22CalculationGate,
@@ -284,7 +286,7 @@ function ScenarioMetric({ symbol, value, kind }: { symbol: keyof typeof BZM22_TO
 }
 
 function TraceFormula({ label, formula, substitution, result }: { label: string; formula: string; substitution: string; result: string }) {
-  return <div className="border border-slate-200 bg-white p-2"><div className="text-[10px] font-bold text-[#173f51]">{label}</div><div className="mt-1 overflow-x-auto whitespace-nowrap text-[10px] text-[#285b6b]"><Tex tex={formula} /></div><div className="mt-1 font-mono text-[9px] leading-4 text-slate-600">{substitution} = <strong className="text-[#173f51]">{result}</strong></div></div>;
+  return <div className="border border-slate-200 bg-white p-2"><div className="text-[10px] font-bold text-[#173f51]">{label}</div><div className="mt-1 overflow-x-auto whitespace-nowrap text-[10px] text-[#285b6b]"><Tex tex={formula} /></div><div className="mt-1 font-mono text-[9px] leading-4 text-slate-600">{substitution} ≈ <strong className="text-[#173f51]">{result}</strong></div></div>;
 }
 
 function CalculationTrace({ pilot }: { pilot: Bzm22PilotProject }) {
@@ -298,10 +300,10 @@ function CalculationTrace({ pilot }: { pilot: Bzm22PilotProject }) {
     <section className="border-b border-[#b9cbd1] bg-[#f6f8f8]" aria-labelledby="calculation-trace-title">
       <header className="flex flex-wrap items-end justify-between gap-2 border-b border-slate-200 bg-white px-3 py-2 sm:px-4"><div><h3 id="calculation-trace-title" className="text-[12px] font-semibold text-[#173f51]">式と入力のつながり</h3><p className="mt-0.5 text-[9px] text-slate-500">評価に用いた登録方針: {trace.policyLabel}</p></div><div className="grid grid-cols-3 border border-slate-300">{([['low','慎重'],['base','基準'],['high','強気']] as const).map(([key,label]) => <button key={key} type="button" onClick={() => setScenario(key)} className={`min-h-8 border-l border-slate-200 px-3 text-[9px] first:border-0 ${scenario === key ? "bg-[#dcebed] font-semibold text-[#174b60]" : "bg-white text-slate-500"}`}>{label}</button>)}</div></header>
       <div className="grid gap-px bg-slate-200 p-px lg:grid-cols-4">
-        <TraceFormula label={`Q・${scenarioLabel}`} formula={String.raw`Q=\prod_i p_i`} substitution={qFactors || "条件なし"} result={formatRate(output.Q)} />
-        <TraceFormula label={`S・${scenarioLabel}`} formula={String.raw`S=\min_\delta\prod_i(p_i m_{i\delta})`} substitution={`min(${stressValues || "対象なし"})`} result={formatRate(output.S)} />
-        <TraceFormula label={`P・${scenarioLabel}`} formula={String.raw`P=PV(CF\mid 全条件通過)+PV(TV)`} substitution={`${formatMillionJpy(output.fullPathPV)} + ${formatMillionJpy(output.terminalPV)}`} result={output.P === null ? "対象外" : formatMillionJpy(output.P)} />
-        <TraceFormula label={`J・${scenarioLabel}`} formula={String.raw`J=経路加重CF+成功寄与+停止寄与`} substitution={`${formatMillionJpy(output.pathPV)} + ${formatMillionJpy(output.successContribution)} + ${formatMillionJpy(output.failureContribution)}`} result={formatMillionJpy(output.J)} />
+        <TraceFormula label={`Q・${scenarioLabel}`} formula={BZM22_TOP_METRICS.Q.formula} substitution={qFactors || "条件なし"} result={formatRate(output.Q)} />
+        <TraceFormula label={`S・${scenarioLabel}`} formula={BZM22_TOP_METRICS.S.formula} substitution={`min(${stressValues || "対象なし"})`} result={formatRate(output.S)} />
+        <TraceFormula label={`P・${scenarioLabel}`} formula={BZM22_TOP_METRICS.P.formula} substitution={`${formatMillionJpy(output.fullPathPV)} + ${formatMillionJpy(output.terminalPV)}`} result={output.P === null ? "対象外" : formatMillionJpy(output.P)} />
+        <TraceFormula label={`J・${scenarioLabel}`} formula={BZM22_TOP_METRICS.J.formula} substitution={`${formatMillionJpy(output.pathPV)} + ${formatMillionJpy(output.successContribution)} + ${formatMillionJpy(output.failureContribution)}`} result={formatMillionJpy(output.J)} />
       </div>
       <div className="border-t border-slate-200 bg-white px-3 py-2 text-[9px] leading-4 text-slate-600 sm:px-4"><strong>Q × P はJではない。</strong> {output.qTimesP === null ? "このPJではPが対象外。" : `このケースのQ × Pは ${formatMillionJpy(output.qTimesP)}、Jは ${formatMillionJpy(output.J)}。`} Jは毎月の収支を各時点の生存率で重み付けし、途中停止時の価値も足すため。</div>
       <AlgebraInputs pilot={pilot} scenario={scenario} />
@@ -309,19 +311,44 @@ function CalculationTrace({ pilot }: { pilot: Bzm22PilotProject }) {
   );
 }
 
+const SYMBOL_KIND_LABEL = { policy: "固定方針", primitive: "入力", set_index: "集合・番号", derived: "計算途中", output: "出力" } as const;
+
 function AlgebraInputs({ pilot, scenario }: { pilot: Bzm22PilotProject; scenario: "low" | "base" | "high" }) {
-  const trace = pilot.calculationTrace;
-  const cards = [
-    { name: "評価期間", symbol: String.raw`H_v`, value: `${trace.inputs.horizonMonths}か月`, meaning: "何か月先まで計算するか" },
-    { name: "割引率", symbol: String.raw`r`, value: formatRate(trace.inputs.discountRate[scenario]), meaning: "将来の金額を今日の価値へ直す率" },
-    { name: "月ごとの収支", symbol: String.raw`CF_t`, value: `${trace.inputs.cashFlow.monthCount}か月・合計 ${formatMillionJpy(trace.inputs.cashFlow.totalMillionJpy[scenario])}`, meaning: "売上・費用・投資・運転資金の月次差引" },
-    { name: "条件付き通過値", symbol: String.raw`p_i`, value: `${trace.inputs.gates.length}条件`, meaning: "それ以前の条件を通過した上で、次の条件を通過する値" },
-    { name: "将来価値", symbol: String.raw`TV`, value: formatMillionJpy(trace.inputs.terminalValueMillionJpy[scenario]), meaning: "評価期間の末に残る価値" },
-    { name: "条件の時期", symbol: String.raw`\tau_i`, value: trace.inputs.gates.length ? `${Math.min(...trace.inputs.gates.map((gate) => gate.month))}〜${Math.max(...trace.inputs.gates.map((gate) => gate.month))}か月目` : "未登録", meaning: "通過・停止が起こる計算上の月" },
-    { name: "途中停止時の価値", symbol: String.raw`RV_i`, value: trace.inputs.gates.length ? `${trace.inputs.gates.length}条件ごとに登録` : "未登録", meaning: "その条件で止まった時に残る価値または整理費用" },
-    { name: "逆風補正", symbol: String.raw`m_{i\delta}`, value: `${trace.inputs.stressFamilies.length}種類`, meaning: "逆風ごとに条件付き通過値へ掛ける補正" },
-  ];
-  return <div className="border-t border-slate-200"><div className="px-3 py-2 sm:px-4"><h4 className="text-[11px] font-semibold text-[#173f51]">主な代数入力</h4><p className="mt-0.5 text-[8px] text-slate-500">J/P/Q/Sへ直接つながる入力だけを表示。</p></div><div className="grid gap-px bg-slate-200 sm:grid-cols-2 xl:grid-cols-3">{cards.map((card) => <div key={card.name} className="bg-white p-2.5"><div className="flex items-baseline justify-between gap-2"><span className="text-[9px] font-semibold text-slate-500">{card.name}</span><span className="text-[12px] font-semibold text-[#285b6b]"><Tex tex={card.symbol} /></span></div><div className="mt-1 text-[11px] font-semibold text-[#173f51]">{card.value}</div><div className="mt-1 text-[8px] text-slate-500">{card.meaning}</div></div>)}</div></div>;
+  const values = buildBzm22FormulaTrace(pilot.calculationTrace, scenario);
+  const output = values.outputs;
+  const symbolValue: Record<string, string> = {
+    a: values.policy.label,
+    H: `${values.horizonMonths}か月`,
+    r_d: formatRate(values.discountRate),
+    t: `1〜${values.horizonMonths}月`,
+    T: `{1, …, ${values.horizonMonths}}`,
+    CF_t: `${values.months.length}か月・単純合計 ${formatMillionJpy(pilot.calculationTrace.inputs.cashFlow.totalMillionJpy[scenario])}`,
+    d_t: `${values.months[0]?.discountFactor.toFixed(6)}〜${values.months.at(-1)?.discountFactor.toFixed(6)}`,
+    d_H: values.terminal.discountFactor.toFixed(6),
+    i: `1〜${values.gates.length}`,
+    G: values.gates.map((gate) => `${gate.index}. ${gate.label}`).join(" / "),
+    t_i: values.gates.map((gate) => `${gate.month}月`).join("、"),
+    d_t_i: values.gates.map((gate) => gate.discountFactor.toFixed(6)).join("、"),
+    p_i: values.gates.map((gate) => formatRate(gate.probability)).join(" × "),
+    W_t: `${formatRate(values.months[0]?.pathWeight)}〜${formatRate(values.months.at(-1)?.pathWeight)}`,
+    W_before: values.gates.map((gate) => formatRate(gate.priorPathWeight)).join("、"),
+    failure_probability: values.gates.map((gate) => formatRate(gate.failureValue)).join("、"),
+    branch_weight: values.gates.map((gate) => formatRate(gate.failureBranchWeight)).join("、"),
+    RV_i: values.gates.map((gate) => formatMillionJpy(gate.signedFailureSettlementMillionJpy)).join("、"),
+    TV: formatMillionJpy(values.terminal.valueMillionJpy),
+    delta: `1〜${values.stresses.length}`,
+    Delta: values.stresses.map((stress) => `${stress.index}. ${stress.label}`).join(" / "),
+    m_i_delta: `${values.stresses.length}逆風 × ${values.gates.length}条件`,
+    Q: formatRate(output.Q),
+    S: formatRate(output.S),
+    P: output.P === null ? "対象外" : formatMillionJpy(output.P),
+    J: formatMillionJpy(output.J),
+  };
+  return <div className="border-t border-slate-200 bg-white"><div className="px-3 py-2 sm:px-4"><h4 className="text-[11px] font-semibold text-[#173f51]">式に出てくる全記号</h4><p className="mt-0.5 text-[8px] text-slate-500">26記号を、入力・計算途中・集合・方針・出力に分け、選択中のケースの実値で表示。</p></div><div className="grid gap-px bg-slate-200 sm:grid-cols-2 xl:grid-cols-3">{BZM22_FORMULA_SYMBOLS.map((symbol) => <div key={symbol.key} className="min-w-0 bg-white p-2.5"><div className="flex items-start justify-between gap-2"><div><span className="border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[7px] font-semibold text-slate-500">{SYMBOL_KIND_LABEL[symbol.kind]}</span><div className="mt-1 text-[9px] text-slate-500">{symbol.label}</div></div><span className="shrink-0 text-[12px] font-semibold text-[#285b6b]"><Tex tex={symbol.tex} /></span></div><div className="mt-2 break-words text-[10px] font-semibold leading-4 text-[#173f51]">{symbolValue[symbol.key]}</div></div>)}</div>
+    <details className="border-t border-slate-200"><summary className="cursor-pointer list-none px-3 py-2 text-[9px] font-semibold text-[#376274] marker:content-none sm:px-4">条件ごとの実数を開く（{values.gates.length}条件）</summary><div className="overflow-x-auto border-t border-slate-200"><table className="min-w-[980px] w-full text-left text-[8px]"><thead className="bg-slate-50 text-slate-500"><tr>{["i / 条件", "tᵢ", "pᵢ", "W(tᵢ−)", "1−pᵢ", "停止分岐重み", "d(tᵢ)", "RVᵢ", "停止寄与PV"].map((label) => <th key={label} className="border-b border-r border-slate-200 px-2 py-1.5 font-semibold">{label}</th>)}</tr></thead><tbody>{values.gates.map((gate) => <tr key={gate.id}>{[`${gate.index}. ${gate.label}`, `${gate.month}月`, formatRate(gate.probability), formatRate(gate.priorPathWeight), formatRate(gate.failureValue), formatRate(gate.failureBranchWeight), gate.discountFactor.toFixed(6), formatMillionJpy(gate.signedFailureSettlementMillionJpy), formatMillionJpy(gate.discountedFailureContributionMillionJpy)].map((value, index) => <td key={`${gate.id}-${index}`} className="border-b border-r border-slate-100 px-2 py-1.5 text-slate-700">{value}</td>)}</tr>)}</tbody></table></div></details>
+    <details className="border-t border-slate-200"><summary className="cursor-pointer list-none px-3 py-2 text-[9px] font-semibold text-[#376274] marker:content-none sm:px-4">逆風ごとの補正値を開く（{values.stresses.length}逆風 × {values.gates.length}条件）</summary><div className="overflow-x-auto border-t border-slate-200"><table className="min-w-[760px] w-full text-left text-[8px]"><thead className="bg-slate-50 text-slate-500"><tr><th className="border-b border-r border-slate-200 px-2 py-1.5">δ / 逆風</th>{values.gates.map((gate) => <th key={gate.id} className="border-b border-r border-slate-200 px-2 py-1.5">{gate.label}</th>)}<th className="border-b border-slate-200 px-2 py-1.5">積</th></tr></thead><tbody>{values.stresses.map((stress) => <tr key={stress.id}><td className="border-b border-r border-slate-100 px-2 py-1.5 font-semibold">{stress.index}. {stress.label}</td>{stress.multipliers.map((entry) => <td key={entry.gateId} className="border-b border-r border-slate-100 px-2 py-1.5">{formatRate(entry.value)}</td>)}<td className="border-b border-slate-100 px-2 py-1.5 font-semibold">{formatRate(stress.product)}</td></tr>)}</tbody></table></div></details>
+    <details className="border-t border-slate-200"><summary className="cursor-pointer list-none px-3 py-2 text-[9px] font-semibold text-[#376274] marker:content-none sm:px-4">60か月すべての CFₜ・dₜ・Wₜ を開く</summary><div className="max-h-[480px] overflow-auto border-t border-slate-200"><table className="min-w-[720px] w-full text-right text-[8px]"><thead className="sticky top-0 bg-slate-50 text-slate-500"><tr>{["t", "CFₜ", "dₜ", "Wₜ", "dₜCFₜ", "dₜWₜCFₜ"].map((label) => <th key={label} className="border-b border-r border-slate-200 px-2 py-1.5">{label}</th>)}</tr></thead><tbody>{values.months.map((month) => <tr key={month.month}>{[`${month.month}月`, formatMillionJpy(month.cashFlowMillionJpy), month.discountFactor.toFixed(6), formatRate(month.pathWeight), formatMillionJpy(month.discountedFullPathCashFlowMillionJpy), formatMillionJpy(month.discountedWeightedCashFlowMillionJpy)].map((value, index) => <td key={`${month.month}-${index}`} className="border-b border-r border-slate-100 px-2 py-1.5 tabular-nums text-slate-700">{value}</td>)}</tr>)}</tbody></table></div></details>
+  </div>;
 }
 
 const TIMELINE_CATEGORY: Record<Bzm22TimelineItem["category"], string> = { registered_policy: "登録方針", technical: "技術", facility: "設備・量産", commercial: "事業・商流", funding_external: "資金" };

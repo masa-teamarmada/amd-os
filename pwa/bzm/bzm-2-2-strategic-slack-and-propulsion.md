@@ -1073,9 +1073,19 @@ pilot画面では内部keyを見出しへ露出せず、BZM 2.2の版表示と$J
 
 この$Q$と$S$はUI用のpilot記号であり、通常法則下の$q^{\pi}$、頑健到達確率$q_{\mathrm{rob}}^{-}$、または戦略余力の構成概念全体を置き換えない。
 
+内部pilotの記号は次で固定する。
+
+$$
+d_t=(1+r_d)^{-t/12},\qquad
+W_t(a)=\prod_{i\in G:t_i\le t}p_i(a),\qquad
+W_{t_i^-}(a)=\prod_{j\in G:t_j<t_i}p_j(a)
+$$
+
+ここで$H$はengineの`horizonMonths`へ接続する経済計算地平、$G$は登録gate集合、$\Delta_{\mathrm{reg}}$は登録stress集合である。$W_t$はその月まで固定方針の経路が続く計算上の重みであり、意思決定状態$\mathbf s_t$とは別である。
+
 $$
 J_r^{\pi_{\mathrm{reg}}}
-=\sum_t d_t W_t CF_{r,t}^{\pi_{\mathrm{reg}}}
+=\sum_{t=1}^{H} d_t W_t CF_{r,t}^{\pi_{\mathrm{reg}}}
 +d_HQ^{\pi_{\mathrm{reg}}}TV_r^{\pi_{\mathrm{reg}}}
 +\sum_i d_{t_i}\left(\prod_{j<i}p_j^{\pi_{\mathrm{reg}}}\right)(1-p_i^{\pi_{\mathrm{reg}}})RV_{r,i}
 $$
@@ -1084,7 +1094,7 @@ $J$は「登録済み現在方針を続けたとき、途中収支、全gate通�
 
 $$
 P_{r\mid G}^{\pi_{\mathrm{reg}}}
-=\sum_t d_t CF_{r,t}^{\pi_{\mathrm{reg}}}
+=\sum_{t=1}^{H} d_t CF_{r,t}^{\pi_{\mathrm{reg}}}
 +d_H TV_r^{\pi_{\mathrm{reg}}}
 $$
 
@@ -1122,6 +1132,8 @@ $QP$へ縮約すると、gateへ着く前にすでに発生する支出と収益
 同じ$Q$でも、失敗を早く安く観測できる方針と、大きく支出した後に失敗が判明する方針では$J$が異なる。
 
 pilot画面は$QP$を$J$として表示せず、月次経済CFの生存加重現在価値、$Q$で重みづけた終端価値、gate別の停止時価値を別々に代入してから合計する。
+
+画面は上の式に現れる26記号を、固定方針、入力、集合・番号、計算途中、出力へ分類し、$d_H$とgateごとの$d_{t_i}$を含む選択中scenarioの実値を添える。$G$と$\Delta_{\mathrm{reg}}$は全構成員、$CF_t,d_t,W_t$は全$H$月、$m_{i\delta}$は全行列を展開する。103項目のartifact監査台帳と、数式の全記号一覧は別のものとして表示する。
 
 $$
 Q=\prod_{i\in G}p_i
