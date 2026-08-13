@@ -528,6 +528,7 @@ cockpit の `スコア詳細` embedded view は、次の値をすべて説明可
 |---|---|---|
 | `BZM 2.2` | J/P/Q/S、方針比較、選択とイベント、103項目の計算前提を画面最上段に表示 | checked-in pilot artifactのPJ別compact projection |
 | `全パラメータ台帳` | 7群103項目を省略しない監査表 | artifactのparameter ledger。値、推定状態、確度、根拠・注記、scenario別入力 |
+| `これまでに得てきたもの` (BZM 2.2 獲得台帳) | 表示専用。J/P/Q/S・SPS・戦略余力のどの計算にも入らない | `GET /api/project/[projectId]/bzm-2-2-acquisitions` = `project_bzm_2_2_acquisitions` の `status='active'` を `occurred_on` 降順。仕様は [`4-6`](4-6-bzm-22-acquisition-ledger-current-spec.md) |
 | `SPS Primary` score | 現行 primary | `calculatePrsScore()` の `Score_SPS`。`P` と `R_net` がある時だけ表示 |
 | `INPUT NEEDED` / missing axes | review pending | `missingAxes`。`P` / `R_net` が null または非数なら score は null |
 | `P Potential` | primary input | `amd_score_inputs.prs_potential`。空欄保存は null |
