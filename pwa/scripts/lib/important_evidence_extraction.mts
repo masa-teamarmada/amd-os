@@ -1,8 +1,15 @@
 import crypto from "node:crypto";
-import { sanitizeImportantEvidenceText } from "../../src/lib/important-evidence-text.ts";
+import {
+  importantEvidenceFactMustExcludeFromValue,
+  normalizeImportantEvidenceMaterialKind,
+  normalizeImportantEvidenceTemporalClass,
+  sanitizeImportantEvidenceText,
+  type ImportantEvidenceMaterialKind,
+  type ImportantEvidenceTemporalClass,
+} from "../../src/lib/important-evidence-text.ts";
 
 export type RawSourceKind = "gmail" | "drive" | "calendar" | "slack" | "notion";
-export type MaterialKind = "document" | "message" | "event" | "thread" | "page";
+export type MaterialKind = ImportantEvidenceMaterialKind;
 export type TextExtractionMethod = "native_text" | "pdf_text" | "office_text" | "plain_text" | "ocr" | "metadata_only" | "unavailable";
 export type TextExtractionStatus = "available" | "partial" | "missing";
 export type ReviewStatus = "candidate" | "confirmed" | "rejected" | "archived";
@@ -21,7 +28,7 @@ export type ImportanceCategory =
   | "deadline"
   | "other";
 export type ProposedL2Target = "action_item" | "shareholder_meeting" | "contract_signal" | "strategy_signal" | "important_evidence" | "unclassified";
-export type FinancialTemporalClass = "monthly_actual" | "period_end_balance" | "annual_cumulative" | "financing_cash_flow" | "grant_deposit" | "grant_commitment_cap" | "not_applicable";
+export type FinancialTemporalClass = ImportantEvidenceTemporalClass;
 
 export type FieldProvenance = {
   source: RawSourceKind;
@@ -73,6 +80,7 @@ export type ImportantEvidenceInput = {
   created_at?: string | null;
   modified_at?: string | null;
   content_sha256?: string | null;
+  /** 保存payloadのtextが抜粋か。原文の取得・解析が完了したかはextraction_statusで表す。 */
   text_is_excerpt?: boolean;
   text: string;
   extraction_method: TextExtractionMethod;
@@ -156,6 +164,7 @@ export type ImportantEvidenceCandidate = {
     modified_at: string | null;
     extraction_method: TextExtractionMethod;
     extraction_status: TextExtractionStatus;
+    text_is_excerpt: boolean;
     extraction_warning: string | null;
   }>;
   version: { family_key: string; rank: number; state: "canonical_candidate" | "superseded_candidate" };
@@ -354,7 +363,9 @@ function buildCandidate(batch: ImportantEvidenceBatch, group: Array<{
   const primary = sorted[0];
   const categories = unique(sorted.flatMap((item) => item.category.categories)) as ImportanceCategory[];
   const safeTitle = sanitizeImportantEvidenceText(primary.input.title, 500) || "重要情報";
-  const documentClass = classifyDocument(categories, `${safeTitle} ${primary.text}`, primary.input.material_kind);
+  const materialKind = normalizeImportantEvidenceMaterialKind(primary.input.material_kind);
+  if (!materialKind) throw new Error(`unsupported important evidence material_kind: ${String(primary.input.material_kind || "(empty)")}`);
+  const documentClass = classifyDocument(categories, `${safeTitle} ${primary.text}`, materialKind);
   const period = sorted.find((item) => item.period)?.period || null;
   const audit = sorted.find((item) => item.audit.audited)?.audit || primary.audit;
   const facts = extractFacts(primary, period);
@@ -370,7 +381,7 @@ function buildCandidate(batch: ImportantEvidenceBatch, group: Array<{
     project_id: batch.project.project_id,
     company_name: batch.project.company_name,
     source: primary.input.source,
-    material_kind: primary.input.material_kind,
+    material_kind: materialKind,
     document_class: documentClass,
     title: safeTitle,
     mime_type: primary.input.mime_type || null,
@@ -398,7 +409,8 @@ function buildCandidate(batch: ImportantEvidenceBatch, group: Array<{
       modified_at: input.modified_at || null,
       extraction_method: input.extraction_method,
       extraction_status: input.extraction_status,
-      extraction_warning: sanitizeImportantEvidenceText(input.extraction_warning || (input.text_is_excerpt ? "excerpt_only" : ""), 180) || null,
+      text_is_excerpt: input.text_is_excerpt === true,
+      extraction_warning: sanitizeImportantEvidenceText(input.extraction_warning || (input.text_is_excerpt ? "stored_excerpt" : ""), 180) || null,
     })),
     version: { family_key: familyKey, rank: 1, state: "canonical_candidate" },
     facts,
@@ -406,7 +418,8 @@ function buildCandidate(batch: ImportantEvidenceBatch, group: Array<{
     proposed_targets: proposedTargets,
     bzm_input_candidates: categories.includes("financial") && period ? buildBzmProjection(facts, period.end) : [],
     missing_fields: facts.filter((fact) => fact.value_status === "missing").map((fact) => fact.fact_key),
-    text_read_required: primary.input.extraction_status !== "available" || primary.input.text_is_excerpt === true || !primary.text,
+    // 個人情報を持ち回らないための保存抜粋と、原文の取得・解析状態を混同しない。
+    text_read_required: primary.input.extraction_status !== "available" || !primary.text,
     detected_at: batch.observed_at,
   };
 }
@@ -482,7 +495,7 @@ function extractFacts(primary: { input: ImportantEvidenceInput; text: string; co
       value_yen: observed.unit === "JPY" || observed.unit === "円" ? observed.value_number ?? null : null,
       unit: observed.unit == null ? null : sanitizeImportantEvidenceText(observed.unit, 80),
       value_status: observationKind,
-      temporal_class: observed.temporal_class || "not_applicable",
+      temporal_class: normalizeSemanticTemporalClass(observed.temporal_class),
       period_start: observed.period_start || null,
       period_end: observed.period_end || null,
       as_of_date: observed.as_of_date || null,
@@ -504,15 +517,27 @@ function normalizeSemanticObservationKind(
   evidenceText: string,
 ): SemanticObservation["observation_kind"] {
   if (observationKind !== "observed") return observationKind;
-  const value = `${String(status || "").toLowerCase()} ${normalizeEvidenceText(evidenceText)}`;
+  const normalizedStatus = String(status || "").trim().toLowerCase();
+  // observed_* は「計画を承認した」「目標を達成した」等の出来事を直接確認した明示status。
+  // 根拠文中の計画語だけで、その確認済みの出来事自体を推定へ落とさない。
+  if (/^observed(?:_|$)/.test(normalizedStatus)) return "observed";
+  const value = `${normalizedStatus} ${normalizeEvidenceText(evidenceText)}`;
   if (/(?:plan|planned|forecast|estimate|target|expected|intent|proposed|draft|pending|screening|application|計画|予定|見込み|見込|見通し|予測|予想|目標|想定|推定|試算|概算|ドラフト|意向|検討中|未確定|審査中|申請中|協議中|交渉中)/.test(value)) return "inferred";
   return "observed";
 }
 
 function factMustNotAffectRevenueOrCompanyValue(observed: SemanticObservation): boolean {
-  if (["financing_cash_flow", "grant_deposit", "grant_commitment_cap"].includes(observed.temporal_class || "")) return true;
-  return /(?:fund|financ|loan|borrow|debt|investment|grant|subsid|jkiss|capital|資金調達|出資|投資|融資|借入|借入金|補助金|助成金|交付|概算払い|新株予約権|設備投資)/i
-    .test(`${observed.fact_key} ${observed.label} ${observed.status || ""}`);
+  return importantEvidenceFactMustExcludeFromValue(observed);
+}
+
+function normalizeSemanticTemporalClass(value: unknown): FinancialTemporalClass {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "not_applicable";
+  const normalized = normalizeImportantEvidenceTemporalClass(raw);
+  if (!normalized) {
+    throw new Error(`unsupported important evidence temporal_class: ${sanitizeImportantEvidenceText(raw, 80)}`);
+  }
+  return normalized;
 }
 
 function extractFinancialFacts(primary: { input: ImportantEvidenceInput; text: string; contentHash: string }, period: { start: string; end: string }): ImportantEvidenceFact[] {
@@ -742,8 +767,8 @@ function normalizeTitleFamily(value: string): string {
 function sortableTime(input: ImportantEvidenceInput): string { return input.modified_at || input.created_at || "0000-00-00T00:00:00.000Z"; }
 function extractionPriority(input: ImportantEvidenceInput): number {
   if (input.extraction_status === "available" && input.text_is_excerpt !== true) return 4;
-  if (input.extraction_status === "partial" && input.text_is_excerpt !== true) return 3;
-  if (input.extraction_status === "available") return 2;
+  if (input.extraction_status === "available") return 3;
+  if (input.extraction_status === "partial" && input.text_is_excerpt !== true) return 2;
   if (input.extraction_status === "partial") return 1;
   return 0;
 }

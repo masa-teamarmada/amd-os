@@ -27,7 +27,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { syncRewardSummaryForCycle } from "@/lib/reward-summary";
-import { sanitizeImportantEvidenceText } from "@/lib/important-evidence-text";
+import {
+  importantEvidenceFactMustExcludeFromValue,
+  normalizeImportantEvidenceMaterialKind,
+  normalizeImportantEvidenceTemporalClass,
+  sanitizeImportantEvidenceText,
+} from "@/lib/important-evidence-text";
 
 /**
  * ms_progress_revision の yes/no applier は RLS を跨いで
@@ -667,9 +672,9 @@ async function routeImportantEvidenceCoverageGap(args: {
     return { error: "重要情報候補のcontent/source hashが不正" };
   }
   const source = textValue(candidate.source);
-  const materialKind = textValue(candidate.material_kind);
+  const materialKind = normalizeImportantEvidenceMaterialKind(candidate.material_kind);
   if (!["gmail", "drive", "calendar", "slack", "notion"].includes(source)) return { error: "重要情報候補のsourceが不正" };
-  if (!["document", "message", "event", "thread", "page"].includes(materialKind)) return { error: "重要情報候補のmaterial kindが不正" };
+  if (!materialKind) return { error: "重要情報候補のmaterial kindが不正" };
 
   const importance = sanitizeImportantEvidenceImportance(candidate.importance);
   const ownership = sanitizeImportantEvidenceOwnership(candidate.ownership);
@@ -997,19 +1002,6 @@ function importantEvidenceText(value: unknown, max: number): string {
   return sanitizeImportantEvidenceText(value, max);
 }
 
-function importantEvidenceFactMustExcludeFromValue(fact: Record<string, unknown>): boolean {
-  if (["financing_cash_flow", "grant_deposit", "grant_commitment_cap"].includes(String(fact.temporal_class))) {
-    return true;
-  }
-  const classificationText = [
-    fact.fact_key,
-    fact.label,
-    fact.status,
-    fact.accounting_treatment,
-  ].map((value) => textValue(value)).join(" ");
-  return /(?:資金調達|借入|融資|出資|増資|転換社債|新株予約権|補助金|助成金|交付金|前受金|J[- ]?KISS|SBIR|NEDO|SusHi\s*Tech|financ(?:ing|e)|fundrais(?:ing|e)|borrow(?:ing)?|loan|debt|equity\s+financ|convertible|grant|subsid(?:y|ies)|advance\s+payment)/i.test(classificationText);
-}
-
 function normalizeGovernanceMeetingType(value: string): string {
   const raw = value.trim().toLowerCase();
   if (["agm", "annual", "annual_general_meeting", "定時株主総会"].includes(raw)) return "agm";
@@ -1213,20 +1205,19 @@ function sanitizeImportantEvidenceLineage(value: unknown): Array<Record<string, 
     const parents = Array.isArray(item.parent_folders) ? item.parent_folders.slice(0, 30).map((parent) => importantEvidenceText(parent, 300)).filter(Boolean) : [];
     const extractionMethod = ["native_text", "pdf_text", "office_text", "plain_text", "ocr", "metadata_only", "unavailable"].includes(textValue(item.extraction_method)) ? textValue(item.extraction_method) : "unavailable";
     const extractionStatus = ["available", "partial", "missing"].includes(textValue(item.extraction_status)) ? textValue(item.extraction_status) : "missing";
-    return [{ source, source_ref: sourceRef, parent_folders: parents, created_at: importantEvidenceText(item.created_at, 80) || null, modified_at: importantEvidenceText(item.modified_at, 80) || null, extraction_method: extractionMethod, extraction_status: extractionStatus, extraction_warning: importantEvidenceText(item.extraction_warning, 180) || null }];
+    return [{ source, source_ref: sourceRef, parent_folders: parents, created_at: importantEvidenceText(item.created_at, 80) || null, modified_at: importantEvidenceText(item.modified_at, 80) || null, extraction_method: extractionMethod, extraction_status: extractionStatus, text_is_excerpt: item.text_is_excerpt === true, extraction_warning: importantEvidenceText(item.extraction_warning, 180) || null }];
   });
 }
 
 function sanitizeImportantEvidenceFacts(value: unknown): Array<Record<string, unknown>> {
   if (!Array.isArray(value)) return [];
-  const temporalClasses = new Set(["monthly_actual", "period_end_balance", "annual_cumulative", "financing_cash_flow", "grant_deposit", "grant_commitment_cap", "not_applicable"]);
   const observationKinds = new Set(["observed", "inferred", "calculated", "missing"]);
   return value.slice(0, 150).flatMap((entry) => {
     const item = objectValue(entry);
     const factKey = importantEvidenceText(item.fact_key, 180);
-    const temporalClass = textValue(item.temporal_class);
+    const temporalClass = normalizeImportantEvidenceTemporalClass(item.temporal_class);
     const valueStatus = textValue(item.value_status);
-    if (!factKey || !temporalClasses.has(temporalClass) || !observationKinds.has(valueStatus)) return [];
+    if (!factKey || !temporalClass || !observationKinds.has(valueStatus)) return [];
     const number = item.value_number == null ? null : numberValue(item.value_number, Number.NaN);
     const yen = item.value_yen == null ? null : numberValue(item.value_yen, Number.NaN);
     if ((number !== null && !Number.isFinite(number)) || (yen !== null && !Number.isFinite(yen))) return [];

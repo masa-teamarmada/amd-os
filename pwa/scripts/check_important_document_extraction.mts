@@ -1,11 +1,17 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { strToU8, zipSync } from "fflate";
 import { extractSourceText } from "../src/lib/sources/source-material-text.ts";
-import { sanitizeImportantEvidenceText } from "../src/lib/important-evidence-text.ts";
+import {
+  importantEvidenceFactMustExcludeFromValue,
+  normalizeImportantEvidenceMaterialKind,
+  normalizeImportantEvidenceTemporalClass,
+  sanitizeImportantEvidenceText,
+} from "../src/lib/important-evidence-text.ts";
 import {
   extractImportantEvidence,
   toImportantEvidenceOutbox,
@@ -161,6 +167,7 @@ assert.ok(generic.candidates.some((candidate) => candidate.source === "calendar"
 assert.ok(generic.candidates.some((candidate) => candidate.source === "slack" && candidate.proposed_targets.includes("strategy_signal")));
 const notion = generic.candidates.find((candidate) => candidate.source === "notion");
 assert.equal(notion?.facts.find((fact) => fact.fact_key === "catalyst_lifetime")?.value_number, 2);
+assert.equal(notion?.facts.find((fact) => fact.fact_key === "catalyst_lifetime")?.temporal_class, "not_applicable", "未指定の時間分類だけをnot_applicableへ補完する");
 const ungrounded = extractImportantEvidence({
   project: batch.project,
   observed_at: "2026-08-12T00:00:00.000Z",
@@ -222,6 +229,24 @@ const observedRisk = extractImportantEvidence({
   }],
 });
 assert.equal(observedRisk.candidates[0]?.facts[0]?.value_status, "observed", "原文で確認した事故やリスク認識は、語だけで推定へ落とさない");
+const explicitObservedStatuses = extractImportantEvidence({
+  project: batch.project,
+  observed_at: batch.observed_at,
+  materials: [{
+    source: "drive", source_ref: "drive-file:explicit-observed-statuses", material_kind: "document", title: "LiSTie 進捗報告", project_root_matched: true,
+    text: "開発費不足を確認し、予算計画の再整理を依頼済み。膜寿命は未確定で、追加測定を予定している。出力目標を達成した。", extraction_method: "office_text", extraction_status: "available",
+    semantic_classification: { salient: true, categories: ["technical", "project_plan", "risk_compliance"], reasons: ["直接確認した進捗"], observations: [
+      { fact_key: "budget_shortfall_observed", label: "開発費不足", observation_kind: "observed", section: "進捗", evidence_text: "開発費不足を確認し、予算計画の再整理を依頼済み。", status: "observed_reported_risk" },
+      { fact_key: "lifetime_missing_observed", label: "膜寿命未確定", observation_kind: "observed", section: "進捗", evidence_text: "膜寿命は未確定で、追加測定を予定している。", status: "observed_missing_measurement" },
+      { fact_key: "target_achievement_observed", label: "出力目標達成", observation_kind: "observed", section: "進捗", evidence_text: "出力目標を達成した。", status: "observed_reported_achievement" },
+    ] },
+  }],
+});
+assert.deepEqual(
+  explicitObservedStatuses.candidates[0]?.facts.map((fact) => fact.value_status),
+  ["observed", "observed", "observed"],
+  "明示observed_*は根拠文の計画・予定・目標だけでinferredへ誤降格しない",
+);
 const financialClassFromTitle = extractImportantEvidence({
   project: batch.project,
   observed_at: batch.observed_at,
@@ -245,6 +270,116 @@ const financingFact = financingClassification.candidates[0]?.facts[0];
 assert.equal(financingFact?.value_status, "inferred", "調達計画を着金実績にしない");
 assert.equal(financingFact?.include_in_revenue, false, "調達はフラグ未指定でも売上へ入れない");
 assert.equal(financingFact?.include_in_company_value, false, "調達はフラグ未指定でも会社価値へ直加点しない");
+
+// 本番候補で発覚した14件のroute阻害を、raw本文を持たない最小fixtureで固定する。
+// source_hashは同じcandidateの回帰識別用。説明的な時間分類は実績へ昇格させず、
+// SBIR/NEDOの制度名だけを理由に技術目標・契約状態へ財務flagを要求しない。
+const routeRegressionCandidates = [
+  { source_hash: "22d6284e98529d5f033a3d6884197c75a8e03ac82af6c5961f8e9b445262e4e6", facts: [
+    { fact_key: "sbir_contract_listie_internal_approval", temporal_class: "not_applicable", include_in_revenue: null, include_in_company_value: null },
+    { fact_key: "sbir_contract_qst_internal_approval", temporal_class: "not_applicable", include_in_revenue: null, include_in_company_value: null },
+    { fact_key: "sbir_contract_signature_state", temporal_class: "not_applicable", include_in_revenue: null, include_in_company_value: null },
+  ] },
+  { source_hash: "ffd882bde6d6e7a3d2bce3d8f2191091fdeb4ed656da7dea26f087220f690467", facts: [
+    { fact_key: "tyk_nedo_contract_adjustment_2026", temporal_class: "not_applicable", include_in_revenue: null, include_in_company_value: null },
+    { fact_key: "tyk_nedo_budget_plan_2026", temporal_class: "not_applicable", include_in_revenue: null, include_in_company_value: null },
+  ] },
+  { source_hash: "0cb94ef41e62e7f78e76f9e094abe032a6b71fe66859291a606d3e834598099c", facts: [
+    { fact_key: "sbir_formal_project_end", temporal_class: "not_applicable", include_in_revenue: null, include_in_company_value: null },
+  ] },
+  { source_hash: "0528f294e52c138824e8f1259aff93500affbcb245682c8d35126ea11839a7cf", facts: [
+    { fact_key: "sbir_purity_target", temporal_class: "not_applicable", value_number: 99.99, unit: "percent", include_in_revenue: null, include_in_company_value: null },
+    { fact_key: "sbir_stage_gate_2025", temporal_class: "not_applicable", include_in_revenue: null, include_in_company_value: null },
+    { fact_key: "sbir_stage_gate_2026", temporal_class: "not_applicable", include_in_revenue: null, include_in_company_value: null },
+    { fact_key: "sbir_stage_gate_2027", temporal_class: "not_applicable", include_in_revenue: null, include_in_company_value: null },
+    { fact_key: "sbir_business_model", temporal_class: "not_applicable", include_in_revenue: null, include_in_company_value: null },
+    { fact_key: "sbir_cost_comparison_risk", temporal_class: "not_applicable", include_in_revenue: null, include_in_company_value: null },
+  ] },
+  { source_hash: "ea3944176b14e04e506fb245f95fa76a07d4b3e0b02920680202364467f8e3c3", facts: [
+    { fact_key: "sbir_reproducibility_risk", temporal_class: "not_applicable", include_in_revenue: null, include_in_company_value: null },
+    { fact_key: "sbir_standard_cell_plan", temporal_class: "not_applicable", include_in_revenue: null, include_in_company_value: null },
+    { fact_key: "sbir_supplier_pipeline_plan", temporal_class: "not_applicable", include_in_revenue: null, include_in_company_value: null },
+  ] },
+  { source_hash: "e30584df4e5132963f13c8534b3afa4047a20a35830492b1a1a728b7ea744912", facts: [
+    { fact_key: "unit_2_payment_schedule_2026", temporal_class: "capital_expenditure_cash_schedule", include_in_revenue: false, include_in_company_value: false },
+    { fact_key: "sbir_reimbursement_timing_risk_unit_2_2026", temporal_class: "grant_reimbursement_timing", include_in_revenue: false, include_in_company_value: false },
+  ] },
+  { source_hash: "dcf280319f5085519ca0e7e57b091735a3cc786699622c3032e0c500f46d3758", facts: [
+    { fact_key: "small_lismic_unit_price_plan_2025", temporal_class: "planned_product_price", include_in_revenue: false, include_in_company_value: false },
+  ] },
+  { source_hash: "444507a449bdd1a60126949550e8aaa9287ff311f532e1b2d2e445480c7ce15c", facts: [
+    { fact_key: "nedo_dtsu_development_cost_early_estimate_2025", temporal_class: "planned_project_cost_estimate", include_in_revenue: false, include_in_company_value: false },
+  ] },
+  { source_hash: "b1f890bde623daf0254d3add71ae6bded08d50535b79373bfc2a1796f97e2080", facts: [
+    { fact_key: "monthly_burn_rate_reported_2026_07", temporal_class: "monthly_actual_or_management_estimate", include_in_revenue: false, include_in_company_value: false },
+  ] },
+  { source_hash: "5eee9f65143d2c84a471159d7814b1302a95e1796336a730a0c8f5cb71333dd4", facts: [
+    { fact_key: "sbir_temporary_facility_cost_breakdown_2024", temporal_class: "planned_project_cost_estimate", include_in_revenue: false, include_in_company_value: false },
+    { fact_key: "sbir_temporary_facility_deposit_excluded_2024", temporal_class: "excluded_cost_component", include_in_revenue: false, include_in_company_value: false },
+  ] },
+  { source_hash: "6ac5a550e177ad0800175f78717ba89b7c89017633066fea062bb559bd6e17b9", facts: [
+    { fact_key: "membrane_acceptance_test_cell_approved_2026", temporal_class: "capital_expenditure_commitment", include_in_revenue: false, include_in_company_value: false },
+    { fact_key: "waste_li_target_cost_vs_market_2026", temporal_class: "unit_cost_target", include_in_revenue: false, include_in_company_value: false },
+  ] },
+  { source_hash: "7effc75e000c8d04942a69c28f86ebd34f066cd26b28c588116b15dcfbbf61bd", facts: [
+    { fact_key: "membrane_unit_cost_current_and_target_2025", temporal_class: "unit_cost_estimate", include_in_revenue: false, include_in_company_value: false },
+    { fact_key: "new_site_contract_cash_need_2025", temporal_class: "planned_contract_cash_outflow", include_in_revenue: false, include_in_company_value: false },
+  ] },
+  { source_hash: "59dae3cb5eefa60b95e9afec7244d6dffe944d507e078077a615d87cf745be42", facts: [
+    { fact_key: "demonstration_unit_2_quote_2026_06", temporal_class: "capital_expenditure_estimate", include_in_revenue: false, include_in_company_value: false },
+  ] },
+  { source_hash: "9fb3d317b58e6a1872b800d096e739b727c1669be4965699d60a4a38269334b3", facts: [
+    { fact_key: "umi_investment_review_stopped_2023", temporal_class: "financing_process_event", include_in_revenue: false, include_in_company_value: false },
+  ] },
+] as const;
+assert.equal(routeRegressionCandidates.length, 14);
+for (const candidate of routeRegressionCandidates) {
+  for (const fact of candidate.facts) {
+    assert.ok(normalizeImportantEvidenceTemporalClass(fact.temporal_class), `${candidate.source_hash}:${fact.fact_key} temporal_class`);
+    const excluded = importantEvidenceFactMustExcludeFromValue(fact);
+    assert.ok(!excluded || (fact.include_in_revenue === false && fact.include_in_company_value === false), `${candidate.source_hash}:${fact.fact_key} finance flags`);
+  }
+}
+assert.equal(normalizeImportantEvidenceTemporalClass("unbounded_new_class"), null, "未知の分類を無制限に受け入れない");
+const semanticTemporalAliasBatch = {
+  project: batch.project,
+  observed_at: batch.observed_at,
+  materials: [{
+    source: "notion", source_ref: "notion-page:temporal-alias", material_kind: "page", title: "LiSTie 価格計画", project_root_matched: true,
+    text: "LiSTie株式会社の小型装置価格を計画した。", extraction_method: "native_text", extraction_status: "available",
+    semantic_classification: { salient: true, categories: ["commercial"], reasons: ["価格計画"], observations: [{ fact_key: "planned_price", label: "価格計画", observation_kind: "observed", temporal_class: "planned_product_price", section: "価格", evidence_text: "小型装置価格を計画した。", status: "planned" }] },
+  }],
+} as unknown as ImportantEvidenceBatch;
+assert.equal(extractImportantEvidence(semanticTemporalAliasBatch).candidates[0]?.facts[0]?.temporal_class, "not_applicable", "既知aliasは実績へ昇格させず有限分類へ畳む");
+const unknownSemanticTemporalBatch = structuredClone(semanticTemporalAliasBatch) as unknown as { materials: Array<{ semantic_classification: { observations: Array<{ temporal_class: string }> } }> };
+unknownSemanticTemporalBatch.materials[0].semantic_classification.observations[0].temporal_class = "unbounded_new_class";
+assert.throws(
+  () => extractImportantEvidence(unknownSemanticTemporalBatch as unknown as ImportantEvidenceBatch),
+  /unsupported important evidence temporal_class: unbounded_new_class/,
+  "未知の非空分類は黙ってnot_applicableへ落とさない",
+);
+const messageThreadRegressionCandidates = [
+  "444507a449bdd1a60126949550e8aaa9287ff311f532e1b2d2e445480c7ce15c",
+  "5eee9f65143d2c84a471159d7814b1302a95e1796336a730a0c8f5cb71333dd4",
+  "eb1f17ddcf79a71c6aab536a78bae7ccfd079bb8879229abfa48ec7ba9ef9209",
+  "7f6626844c9fe05ea8c28d8c347f3fc713751ef560a7acd4287ea7cf3da71486",
+  "04dbada4a6c5dcbd2abd7794d17b0bd2dc22a5706ee9a6ec66536d8f14d899be",
+];
+for (const sourceHash of messageThreadRegressionCandidates) {
+  assert.equal(normalizeImportantEvidenceMaterialKind("message_thread"), "thread", `${sourceHash}:message_thread`);
+}
+assert.equal(normalizeImportantEvidenceMaterialKind("unbounded_new_kind"), null, "未知の資料種別を無制限に受け入れない");
+assert.equal(importantEvidenceFactMustExcludeFromValue({ fact_key: "sbir_purity_target", temporal_class: "not_applicable", value_number: 99.99, unit: "percent" }), false, "制度名だけで技術目標を資金CF扱いしない");
+assert.equal(importantEvidenceFactMustExcludeFromValue({ fact_key: "sbir_capacity_target", temporal_class: "not_applicable" }), false, "capacity中のcapを補助金上限と誤認しない");
+for (const actualCashFact of [
+  { fact_key: "jkiss_financing", temporal_class: "financing_cash_flow" },
+  { fact_key: "borrowings", temporal_class: "financing_cash_flow" },
+  { fact_key: "sbir_grant_cap", temporal_class: "grant_commitment_cap" },
+  { fact_key: "subsidy_deposit", temporal_class: "grant_deposit" },
+  { fact_key: "sbir_award_amount", temporal_class: "not_applicable", value_number: 100_000_000, value_yen: 100_000_000, unit: "JPY" },
+]) {
+  assert.equal(importantEvidenceFactMustExcludeFromValue(actualCashFact), true, `${actualCashFact.fact_key} must stay outside revenue/value`);
+}
 const unread = generic.candidates.find((candidate) => candidate.canonical_source_ref === "drive-file:scanned-board");
 assert.equal(unread?.text_read_required, true, "OCR未完を情報なしとして捨てない");
 assert.equal(unread?.facts.length, 0, "未読本文から事実を捏造しない");
@@ -263,7 +398,25 @@ const excerptBatch: ImportantEvidenceBatch = {
 const excerptResult = extractImportantEvidence(excerptBatch);
 assert.equal(excerptResult.candidates.length, 2, "全文hash一致の2コピーだけを束ね、同文の別sourceは分ける");
 assert.equal(excerptResult.candidates.find((candidate) => candidate.content_sha256 === excerptHash)?.lineage.length, 2);
-assert.equal(excerptResult.candidates.find((candidate) => candidate.content_sha256 === excerptHash)?.text_read_required, true, "抜粋は本文読了扱いにしない");
+assert.equal(excerptResult.candidates.find((candidate) => candidate.content_sha256 === excerptHash)?.text_read_required, true, "取得状態partialは保存抜粋の有無にかかわらず全文未確認にする");
+
+const readCompleteExcerptText = "LiSTie株式会社 研究開発の量産試作を承認";
+const readCompleteExcerptHash = crypto.createHash("sha256").update(readCompleteExcerptText).digest("hex");
+const readCompleteExcerptResult = extractImportantEvidence({
+  project: batch.project,
+  observed_at: batch.observed_at,
+  materials: [
+    { source: "drive", source_ref: "drive-file:available-stored-excerpt", material_kind: "document", title: "LiSTie 取締役会 技術報告", project_root_matched: true, text: readCompleteExcerptText, text_is_excerpt: true, content_sha256: readCompleteExcerptHash, extraction_method: "office_text", extraction_status: "available", extraction_warning: "stored_excerpt_from_full_text" },
+    { source: "drive", source_ref: "drive-file:partial-full-text", material_kind: "document", title: "LiSTie 取締役会 技術報告", project_root_matched: true, text: readCompleteExcerptText, extraction_method: "office_text", extraction_status: "partial" },
+  ],
+});
+const readCompleteExcerpt = readCompleteExcerptResult.candidates[0];
+assert.equal(readCompleteExcerpt?.canonical_source_ref, "drive-file:available-stored-excerpt", "保存抜粋でも原文取得済みをpartialより優先する");
+assert.equal(readCompleteExcerpt?.lineage[0]?.extraction_status, "available", "原文取得・解析完了statusを保存抜粋と分けて残す");
+assert.equal(readCompleteExcerpt?.lineage[0]?.text_is_excerpt, true, "保存payloadが抜粋であることをlineageへ明示する");
+assert.equal(readCompleteExcerpt?.lineage[0]?.extraction_warning, "stored_excerpt_from_full_text", "保存payloadが抜粋であることは別fieldへ残す");
+assert.equal(readCompleteExcerpt?.text_read_required, false, "全文fetch・parse成功なら保存payloadが抜粋でも再読取不要にする");
+assert.doesNotMatch(toImportantEvidenceOutbox(readCompleteExcerptResult).coverageGaps[0]?.summary || "", /全文は未確認/);
 
 const availablePreferred = extractImportantEvidence({
   project: batch.project,
@@ -312,10 +465,14 @@ assert.match(helperSource, /const written = fresh\.length > 0/, "空payloadは�
 assert.match(helperSource, /existing[\s\S]{0,260}review_status === "candidate"/, "通知失敗後はcandidate再投入で回復する");
 
 const feedbackSource = fs.readFileSync(path.join(here, "../src/app/api/notifications/feedback/route.ts"), "utf8");
+const importantEvidenceBoundarySource = fs.readFileSync(path.join(here, "../src/lib/important-evidence-text.ts"), "utf8");
 const routeSource = feedbackSource.slice(feedbackSource.indexOf("async function routeImportantEvidenceCoverageGap"), feedbackSource.indexOf("async function routeImportantDocumentCoverageGap"));
 assert.match(routeSource, /\.from\("project_important_evidence"\)/);
 assert.doesNotMatch(routeSource, /\.from\("bzm_2_1_/, "通知採用でもBZM現行revisionを直接更新しない");
-assert.match(feedbackSource, /function importantEvidenceFactMustExcludeFromValue[\s\S]{0,350}financing_cash_flow[\s\S]{0,120}grant_deposit[\s\S]{0,120}grant_commitment_cap/);
+assert.match(importantEvidenceBoundarySource, /function importantEvidenceFactMustExcludeFromValue[\s\S]{0,350}financing_cash_flow[\s\S]{0,120}grant_deposit[\s\S]{0,120}grant_commitment_cap/);
+assert.match(feedbackSource, /normalizeImportantEvidenceTemporalClass\(item\.temporal_class\)/, "正本化routeも共通の有限分類を使う");
+assert.match(routeSource, /normalizeImportantEvidenceMaterialKind\(candidate\.material_kind\)/, "Slack threadも共通の有限資料種別へ正規化する");
+assert.match(feedbackSource, /text_is_excerpt: item\.text_is_excerpt === true/, "保存抜粋flagを取得完了statusと分けてlineageへ残す");
 assert.match(routeSource, /include_in_revenue !== false \|\| fact\.include_in_company_value !== false/, "調達・補助金は除外フラグ未設定も拒否する");
 assert.match(feedbackSource, /action === "yes"[\s\S]{0,180}l2Kind === "coverage_gap"[\s\S]{0,220}!applyResult\.applied/);
 
