@@ -220,3 +220,15 @@ automation作成後の最初の自然な平日09:00実行は未観測。2026-08-
 - LST回帰fixtureで同一内容3所在が1候補となり、主要14値、期間、監査、根拠、会計区分を保持することを確認した。
 - 実形式でPDF、Word、Excel、PowerPoint、OCR fallbackを検査し、5生データすべての候補生成を確認した。
 - 本番Driveをread-onlyで全27 PJ検索し、25 PJでtitle上の重要候補を確認した。PDF、Word、Excel、Google文書の本文を個別に実読し、ZMPの画像PDFはOCR待ちとして検出した。p08とp26はこの検索だけでは候補を確認できず、13 PJのDrive root未登録とともに残課題とした。
+
+## 2026-08-13 — EHM OS第1波: p31ゼオライトPJ化 + 機関業務デスク + ブランド表示（v3.73.0 / v3.73.1 / migration 269-272）
+
+- 設計正本: `/Users/masa/projects/AMD/ehm-os/EHM_OS_DESIGN_DRAFT_20260813.md`（論点11件、まさ承認「その方向で実装してみよう」）。EHM OS = 3面構成（石原先生の業務デスク / 機関ホーム / テーマ面）のうち、DB基盤と業務デスクAMD内部面を実装。
+- migration 269: ゼオライトシーズ（愛媛大・野村信福教授名義。まさ発言の「中島先生」との不一致は未確認のため researcher_name は不変更）を p31 (ZEO, draft, dtsu) として seed_projects 経由でPJ化し、ehime ワークスペースへ `shared_surface='summary'` で追加。
+- migration 270/271: `workspace_work_cases` / `workspace_work_case_deadlines` 新設（RLS=is_admin+service_roleのみ、212系と同方式）。石原先生の業務一覧29件+締切19件を「2026-06末版スナップショット・全件unconfirmed」で投入。月精度・vague期日を確定日に丸めない。
+- migration 272: ehime ワークスペース表示名を「EHM OS（愛媛大学）」へ（slug/認可は不変）。
+- `/institutions/[institutionId]/desk` 新設（Sonnet worker実装・司令塔レビュー済み）: サマリ帯/期限レーダー/止まりもの/領域別ポートフォリオ/HITL編集。期日経過＋未確認は「期日経過・状況未確認」表示で「遅延」と断定しない。月精度の期日経過判定はYYYY-MM比較（workerが自己レビューで発見・修正）。
+- v3.73.1: `/project/p31/workspace` の見出しが「SolvioraX PJワークスペース」ハードコードだった不具合を本番実画面確認で検出し、p21は受入済み文言維持（critical UI anchor準拠）・他PJは project_name 表示へ修正。
+- 検証: tsc / production build / 対象eslint 0 / test:critical-ui / test:workspace-access-scope / test:institution-seed-project-domains 全PASS。本番実画面で 公開トップのEHM OS表示・業務デスク（29件/経過候補5件）・p31面（ZEO表示・空データが接続待ちへ閉じる）・p21面（無変化）を確認。
+- 運用注意: 業務デスクの初期データは6月末版で古い。石原先生への現況更新ヒアリング（30-60分）が confirmed 化の前提。石原先生のアカウント発行・外部公開面はまだ作っていない（契約とセットで次波）。
+- 本セッションは origin/main の使い捨てクリーンクローンから push（正規checkoutはBZM教科書セッションが使用中のため）。
