@@ -287,7 +287,7 @@ UIはTOP式に現れる26記号のmanifestを持ち、孤立記号を許さな�
 
 続く`Bzm22TimeLedger`は、評価月M0から$H$月までの`H+1`列を一つの時間軸として作る。登録方針は地平全体の帯、事業・技術・設備・資金イベントは月の点と上下の注記として置く。gateイベントは`calculationTrace.inputs.gates[].month`と同じ列へ置き、ブラウザ内でgate月を変えた場合は点も同じ列へ移動する。各注記には評価で前提にした登録方針、または「方針選択ではない」を表示する。gate月から意思決定を生成せず、条件付き資金を着金または確約として表示しない。desktopとmobileは同じ横長面を使い、mobileだけ縦カードへ置き換えない。
 
-時間軸の直下に`project_pl_monthly`の月次PLを同じ列幅で表示する。売上、売上原価、粗利、人件費、研究開発費、マーケ費、その他販管費、営業利益を持ち、入力行は月セルから編集する。`calculationTrace.inputs.cashFlow.monthlyEconomicCFMillionJpy.base`はM1からM$H$の「BZM経済CF」行として別表示する。`project_pl_monthly`とBZM経済CFは自動同一視せず、$J/P$への直接接続は後者だけとする。コックピットヘッダーとHUDの`CockpitPlMonthlyModal`導線は削除し、つくよみヒアリングと月次PL編集を同区画へ置く。表示金額は`¥#,###M`へ四捨五入するが、DBの円額とartifactの百万JPY値は丸めない。
+時間軸の直下に`project_pl_monthly`の月次PLを同じ列幅で表示する。売上、売上原価、粗利、人件費、研究開発費、マーケ費、その他販管費、営業利益を持ち、入力行は月セルから編集する。`calculationTrace.inputs.cashFlow.monthlyEconomicCFMillionJpy.base`はM1からM$H$の「BZM経済CF」行として別表示する。`project_pl_monthly`とBZM経済CFは自動同一視せず、$J/P$への直接接続は後者だけとする。SX（p21）の初回backfillはコックピット年次PLを金額正本、旧月次表を発生タイミングの配賦キーとして使い、各行notesに計画/推定の状態を残す。資本調達・補助金cash・CAPEXをPL売上へ混ぜない。コックピットヘッダーとHUDの`CockpitPlMonthlyModal`導線は削除し、つくよみヒアリングと月次PL編集を同区画へ置く。表示金額は`¥#,###M`へ四捨五入するが、DBの円額とartifactの百万JPY値は丸めない。
 
 進捗管理タブを含む`CockpitVentureStatus`の主スコアは`Bzm22CockpitSummary`へ切り替え、同じ$J/P/Q/S$と数式を表示する。summary取得は既存member-only APIへ`?view=summary`を付け、103項目を初期表示へ同梱しない。従来SPSの折れ線とM/P/R/Sカードは初期閉じの「旧SPS履歴」トグル内に編集・参照用として残し、BZM 2.2の時系列に見せない。XRLはトグル外で常時表示する。
 

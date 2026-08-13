@@ -123,6 +123,8 @@ SU の事業計画 (= PL) を構造化抽出する loop。 Q&A 形式でつく�
 
 設計議論: [`pwa/design/project_pl_monthly.md`](../design/project_pl_monthly.md)。 生データから未来予測抽出方針、 優先度は低めだが finance simulation との接続候補。
 
+SX（p21）のBZM 2.2表示では、評価月M0から計算地平までの計画PLをこの表から同じ月列に出す。これは観測実績ではなく、各行の`notes`で計画値/推定値と根拠を読む。資金調達・補助金cashは事業売上ではなく、BZM経済CFとも自動で同じ値にはしない。
+
 ## XRL 修正導線 (= `project_xrl_log` + `project_xrl_evidence` + `xrl_feedbacks`)
 
 XRL (= TRL/BRL/GRL/SRL/HRL) の評価値とその根拠を時系列で残す。
