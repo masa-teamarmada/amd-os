@@ -180,9 +180,12 @@ if (unitContractMissing.length || unitContractExtra.length || PARAMETER_UNITS.si
 
 const argv = process.argv.slice(2);
 const buildFromMode = argv.includes("--build-from");
-const checkMode = argv.includes("--check") || !buildFromMode;
-if (checkMode && buildFromMode) throw new Error("--check and --build-from are mutually exclusive");
-const positional = argv.filter((arg) => !["--check", "--build-from"].includes(arg));
+const writeUiMode = argv.includes("--write-ui");
+const checkMode = argv.includes("--check") || (!buildFromMode && !writeUiMode);
+if ([checkMode, buildFromMode, writeUiMode].filter(Boolean).length !== 1) {
+  throw new Error("--check, --build-from and --write-ui are mutually exclusive");
+}
+const positional = argv.filter((arg) => !["--check", "--build-from", "--write-ui"].includes(arg));
 const scriptDirectory = path.dirname(import.meta.filename);
 const inputPath = path.resolve(positional[0] ?? path.join(scriptDirectory, "bzm-2-2-all-pj-provisional-v0-1.json"));
 const outputDirectory = path.resolve(positional[1] ?? scriptDirectory);
@@ -1964,6 +1967,319 @@ const UI_SECTION_LABELS: Record<string, string> = {
   derived_outputs: "派生出力",
 };
 
+const UI_TIMELINE_CONTROL_LABELS: Record<string, string> = {
+  current_integrated_policy: "現行統合方針",
+  continue_and_resolve_gates: "開発継続・残ゲート解消",
+  fundraise_and_public_program_parallel: "資金調達・公的制度の並行推進",
+  historical_terminal_closeout: "歴史的終端・整理済み",
+  continue_prototype_and_customer_validation: "試作・顧客検証の継続",
+};
+
+const UI_TIMELINE_GATE_LABELS: Record<string, { label: string; category: "technical" | "facility" | "commercial" }> = {
+  anchor_customer_or_nonspace_market: { label: "アンカー顧客または非宇宙市場", category: "commercial" },
+  channel_and_anchor_customer: { label: "販売チャネル・アンカー顧客", category: "commercial" },
+  channel_partner_conversion: { label: "チャネルパートナーの契約転換", category: "commercial" },
+  cmc_technical_feasibility: { label: "CMC技術成立性", category: "technical" },
+  commercial_contract_and_repeatability: { label: "商用契約・再現性", category: "commercial" },
+  company_rights_team_and_funding: { label: "会社・権利・チーム・資金体制", category: "commercial" },
+  consortium_and_application: { label: "コンソーシアム組成・申請", category: "commercial" },
+  counterparty_binding_offer: { label: "相手方の拘束力ある提案", category: "commercial" },
+  current_cash_and_governance_reconciliation: { label: "現預金・統治情報の照合", category: "commercial" },
+  drug_substance_remediation: { label: "原薬課題の是正", category: "technical" },
+  field_reliability_and_serviceability: { label: "現場信頼性・保守性", category: "technical" },
+  field_sensor_reproducibility: { label: "現場センサー再現性", category: "technical" },
+  financing_and_public_funding_bridge: { label: "資金調達・公的資金のつなぎ", category: "commercial" },
+  followon_financing: { label: "追加資金調達", category: "commercial" },
+  full_horizon_liquidity_package_proxy_before_first_cliff: { label: "最初の資金経路喪失前の全期間資金パッケージ", category: "commercial" },
+  gap_or_equivalent_funding: { label: "GAP等の資金確保", category: "commercial" },
+  growth_financing_and_scale: { label: "成長資金・量産拡大", category: "facility" },
+  governance_and_rights_exit_consent: { label: "統治・権利上の整理同意", category: "commercial" },
+  historical_terminal_settlement: { label: "歴史的終端の整理", category: "commercial" },
+  kawasaki_scale_and_feedstock: { label: "川崎拠点の拡張・原料確保", category: "facility" },
+  large_poc_to_contract: { label: "大型PoCから契約への転換", category: "commercial" },
+  liquidity_extension: { label: "資金余命の延長", category: "commercial" },
+  magnus_deployment_economics: { label: "マグナス風車の導入経済性", category: "commercial" },
+  membrane_life_and_cost: { label: "膜寿命・コスト", category: "technical" },
+  nonclinical_package: { label: "非臨床パッケージ", category: "technical" },
+  nims_rights_and_licensing: { label: "NIMS権利・ライセンス", category: "commercial" },
+  orderly_maintenance: { label: "秩序ある維持管理", category: "commercial" },
+  paid_academic_or_tea_pilot: { label: "大学・茶園での有償実証", category: "commercial" },
+  paid_poc_and_unit_economics: { label: "有償PoC・単位経済性", category: "commercial" },
+  pmda_and_clinical_supply: { label: "PMDA対応・治験供給", category: "facility" },
+  pipeline_binding_conversion: { label: "案件パイプラインの拘束力ある契約転換", category: "commercial" },
+  product_margin_and_repeatability: { label: "製品粗利・再現性", category: "commercial" },
+  production_scale_economics: { label: "量産規模の経済性", category: "facility" },
+  prototype_performance: { label: "試作品性能", category: "technical" },
+  real_effluent_reproducibility: { label: "実排水での再現性", category: "technical" },
+  relaunch_or_asset_transfer: { label: "再立上げまたは資産移管", category: "commercial" },
+  repeatable_paid_orders: { label: "反復する有償受注", category: "commercial" },
+  repeatable_scaled_deployment: { label: "反復可能な大規模導入", category: "facility" },
+  repeatable_small_turbine_sales: { label: "小型風車の反復販売", category: "commercial" },
+  rights_holder_consent: { label: "権利者の同意", category: "commercial" },
+  rights_team_and_incorporation: { label: "権利・チーム・法人化", category: "commercial" },
+  rights_team_and_project_vehicle: { label: "権利・チーム・事業主体", category: "commercial" },
+  scale_cash_feasibility: { label: "拡大量産時の資金成立性", category: "facility" },
+  scale_engineering: { label: "スケールアップ設計", category: "facility" },
+  scale_financing: { label: "拡大資金調達", category: "commercial" },
+  series_a_or_veco_to_clinic: { label: "シリーズAまたはVECOによる臨床移行", category: "commercial" },
+  tyk_bench_uptime_and_recovery: { label: "TYKベンチの稼働率・復旧性", category: "technical" },
+  unit_economics_and_reliability: { label: "単位経済性・信頼性", category: "commercial" },
+  multi_customer_validation: { label: "複数顧客での検証", category: "commercial" },
+};
+
+const UI_TIMELINE_FINANCING_LABELS: Record<string, string> = {
+  active: "実施中と記録された外部資金制度",
+  adopted: "採択済みと記録された外部制度",
+  amed_award_nominal: "AMED採択枠",
+  application_first_tranche: "申請採択時の初回資金枠",
+  applied: "申請済みと記録された外部資金候補",
+  capital_business_alliance_t: "T社との資本業務提携候補",
+  closed: "完了済みと記録された資金調達",
+  completed: "完了済みと記録された外部制度",
+  corporate_codevelopment: "事業会社との共同開発候補",
+  corporate_investment_g: "G社の出資候補",
+  current_cash_estimate: "評価日時点の現預金推定",
+  customer_development_funding: "顧客開発資金候補",
+  gap_fund: "GAPファンド候補",
+  gogin_jkiss_conditional: "ごうぎんJ-KISS候補",
+  high_confidence: "確度が高いと記録された資金候補",
+  industrial_consortium: "産業コンソーシアム資金候補",
+  j_kiss_bridge: "J-KISSブリッジ候補",
+  j_kiss_closed_prevaluation: "評価日前に完了したJ-KISS",
+  jfc_loan_completed: "評価日前に実行済みの公庫融資",
+  monthly_sbir_bridge_facility: "評価日前の月次SBIRつなぎ融資",
+  nedo_dtsu_cap: "NEDO DTSU採択上限",
+  production_round: "量産ラウンド候補",
+  positive_discussion: "前向き協議中と記録された資金候補",
+  prospect: "初期候補と記録された資金調達",
+  restricted_award: "使途制限付き研究費",
+  sbir_phase3_cap: "SBIRフェーズ3採択上限",
+  seed_closed: "評価日前に完了したシード",
+  seed_or_partner: "シードまたは事業提携候補",
+  series_a_historical: "過去のシリーズA",
+  series_a_or_veco: "シリーズAまたはVECO候補",
+  space_strategy_fund: "宇宙戦略基金の制度上限",
+  strategic_equity_round: "戦略投資ラウンド候補",
+  sushi_tech_cap: "Sushi Tech採択上限",
+  university_cross_appointment: "大学クロスアポイント費",
+  vc_dd: "VCデューデリジェンス中の候補",
+  withdrawn: "取下げ済みの外部資金候補",
+};
+
+function requireUiTimelineLabel<T>(map: Record<string, T>, key: unknown, kind: string): T {
+  const normalized = String(key ?? "");
+  const label = map[normalized];
+  if (!label) throw new Error(`${kind} has no reviewed Japanese timeline label: ${normalized || "<empty>"}`);
+  return label;
+}
+
+function addUtcMonths(dateValue: string, monthCount: number) {
+  const match = dateValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) throw new Error(`timeline date must be YYYY-MM-DD: ${dateValue}`);
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1 + monthCount, Number(match[3])));
+  return date.toISOString().slice(0, 10);
+}
+
+function addUtcDays(dateValue: string, dayCount: number) {
+  const date = new Date(`${dateValue}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + dayCount);
+  return date.toISOString().slice(0, 10);
+}
+
+function timelineTiming(timing: unknown) {
+  const text = String(timing ?? "").trim();
+  let match = text.match(/^(\d{4})-(\d{2})\.\.(\d{4})-(\d{2})$/);
+  if (match) {
+    const startDate = `${match[1]}-${match[2]}-01`;
+    const lastMonth = `${match[3]}-${match[4]}-01`;
+    return { startDate, endDate: addUtcMonths(lastMonth, 1), dateRole: "source_month_range", datePrecision: "month", dateLabel: text };
+  }
+  match = text.match(/^received (\d{4}-\d{2}-\d{2})$/);
+  if (match) return { startDate: match[1], endDate: addUtcDays(match[1], 1), dateRole: "source_observed_day", datePrecision: "day", dateLabel: text };
+  match = text.match(/^through (\d{4})-(\d{2})$/);
+  if (match) {
+    const startDate = `${match[1]}-${match[2]}-01`;
+    return { startDate, endDate: addUtcMonths(startDate, 1), dateRole: "source_through_month", datePrecision: "month", dateLabel: text };
+  }
+  match = text.match(/^(\d{4})Q([1-4])$/);
+  if (match) {
+    const startDate = `${match[1]}-${String((Number(match[2]) - 1) * 3 + 1).padStart(2, "0")}-01`;
+    return { startDate, endDate: addUtcMonths(startDate, 3), dateRole: "source_quarter", datePrecision: "quarter", dateLabel: text };
+  }
+  match = text.match(/^(\d{4})-(\d{2})(?: imputed)?$/);
+  if (match) {
+    const startDate = `${match[1]}-${match[2]}-01`;
+    return { startDate, endDate: addUtcMonths(startDate, 1), dateRole: text.endsWith(" imputed") ? "imputed_month" : "source_month", datePrecision: "month", dateLabel: text };
+  }
+  match = text.match(/^(\d{4})$/);
+  if (match) return { startDate: `${match[1]}-01-01`, endDate: `${Number(match[1]) + 1}-01-01`, dateRole: "source_year", datePrecision: "year", dateLabel: text };
+  return { startDate: null, endDate: null, dateRole: "source_undated", datePrecision: "unknown", dateLabel: text || "日付未登録" };
+}
+
+function timelinePrecision(status: unknown) {
+  const value = String(status ?? "");
+  if (/^observed$|document_extracted/.test(value)) return "observed_or_documented";
+  if (/hearing_plus_document|mixed/.test(value)) return "mixed";
+  if (/imputed|missing_evidence|prior/.test(value)) return "imputed_or_assumed";
+  return "unknown";
+}
+
+function buildUiTimeline(project: any, summary: any, valuationDate: string) {
+  const inputs = asInputs(project) ?? {};
+  const ledger = asLedger(project);
+  const selectedControl = String(summary.registeredCurrentControl ?? "");
+  const registeredControlLabel = requireUiTimelineLabel(UI_TIMELINE_CONTROL_LABELS, selectedControl, "registered control");
+  const horizonMonths = finite(inputs.horizonMonths) ? Number(inputs.horizonMonths) : null;
+  if (!horizonMonths || horizonMonths <= 0) throw new Error(`${project.projectName}: timeline horizonMonths missing`);
+  const registeredEnd = addUtcMonths(valuationDate, horizonMonths);
+  const registeredItem = {
+    id: "registered-policy-1",
+    kind: "registered_current_control_shadow",
+    label: registeredControlLabel,
+    category: "registered_policy",
+    startDate: valuationDate,
+    endDate: registeredEnd,
+    dateRole: "registered_evaluation_horizon_band",
+    datePrecision: "valuation_day_plus_month_horizon",
+    dateLabel: `評価日 ${valuationDate} から評価地平${horizonMonths}か月`,
+    status: summary.controlRegistrationStatus === "historical_terminal_classification_not_current_recommendation"
+      ? "historical_terminal_not_current_recommendation"
+      : "fixed_shadow_not_optimized",
+    precision: "registered_shadow",
+    authorityStatus: "unconfirmed_not_executable_recommendation",
+    sourceRefCount: new Set(ledger?.derived_outputs?.pi_d_star?.sourceRefs ?? []).size,
+    description: summary.controlRegistrationStatus === "historical_terminal_classification_not_current_recommendation"
+      ? "歴史的終端の分類記録。現在の推奨行動ではない。"
+      : "登録済み固定方針。shadow比較のみで、最適化結果でも権限確認済みの実行推奨でもない。",
+  };
+
+  const gates = Array.isArray(inputs.gates) ? inputs.gates : [];
+  const businessItems = gates
+    .filter((gate: any) => gate?.key !== LIQUIDITY_GATE_KEY)
+    .map((gate: any, gateIndex: number) => {
+      const mapped = requireUiTimelineLabel(UI_TIMELINE_GATE_LABELS, gate.key, "gate");
+      if (!finite(gate.month)) throw new Error(`${project.projectName}/${gate.key}: timeline gate month missing`);
+      const startDate = addUtcMonths(valuationDate, Number(gate.month));
+      return {
+        id: `business-event-${gateIndex + 1}`,
+        kind: "planned_or_assumed_event",
+        label: mapped.label,
+        category: mapped.category,
+        startDate,
+        endDate: addUtcMonths(startDate, 1),
+        dateRole: "month_offset_from_valuation",
+        datePrecision: "month_offset",
+        dateLabel: `評価日から${gate.month}か月後（${startDate.slice(0, 7)}）`,
+        status: "registered_path_gate",
+        precision: timelinePrecision(gate.evidenceStatus),
+        sourceStatus: String(gate.evidenceStatus ?? "unknown"),
+        sourceRefCount: new Set(gate.sourceRefs ?? []).size,
+        description: "登録済み固定方針に紐づく計画ゲート。表示月は意思決定日ではない。",
+      };
+    });
+
+  const financingItems = (Array.isArray(inputs.financingPipeline) ? inputs.financingPipeline : [])
+    .map((event: any, eventIndex: number) => {
+      const label = requireUiTimelineLabel(UI_TIMELINE_FINANCING_LABELS, event.stage, "financing stage");
+      const classification = event.classification ?? null;
+      const occurred = classification === "prevaluation_closed" || classification === "prevaluation_closed_unknown_amount" || ["closed", "completed"].includes(event.stage);
+      const recorded = classification === "nominal_award" || ["restricted_award", "adopted", "active", "withdrawn"].includes(event.stage);
+      const imputed = classification === "opening_stock_imputation";
+      const conditional = classification === "future_conditional" || ["applied", "high_confidence", "positive_discussion", "prospect"].includes(event.stage);
+      const occurrenceRole = occurred ? "occurred" : recorded ? "recorded" : imputed ? "imputed" : conditional ? "conditional" : "unknown";
+      const commitmentStatus = occurred
+        ? "historically_closed"
+        : recorded
+          ? "recorded_award_disbursement_unconfirmed"
+          : imputed
+            ? "imputed_not_reconciled"
+            : conditional
+              ? "conditional_uncommitted"
+              : "commitment_unregistered";
+      const availabilityStatus = occurred
+        ? "historically_occurred_current_availability_not_inferred"
+        : recorded
+          ? "recorded_not_available_as_unrestricted_cash"
+          : imputed
+            ? "imputed_availability_unconfirmed"
+            : "not_available_or_unconfirmed";
+      return {
+        id: `funding-event-${eventIndex + 1}`,
+        kind: occurred || recorded ? "confirmed_external_event" : "planned_or_assumed_event",
+        label,
+        category: "funding_external",
+        ...timelineTiming(event.timing),
+        status: commitmentStatus,
+        precision: timelinePrecision(event.evidence?.status),
+        sourceStatus: String(event.evidence?.status ?? "unknown"),
+        sourceRefCount: new Set(event.evidence?.sourceRefs ?? []).size,
+        occurrenceRole,
+        commitmentStatus,
+        availabilityStatus,
+        amountMillionJpy: finite(event.amount) ? event.amount : null,
+        probability: finite(event.probability) ? event.probability : null,
+        description: occurred
+          ? "評価日前に発生した外部資金イベント。評価日時点の利用可能額は推定しない。"
+          : recorded
+            ? "採択・制度枠の記録。入金または自由に使える資金とは扱わない。"
+            : imputed
+              ? "評価日時点の残高推定。銀行照合済み残高ではない。"
+              : "将来または条件付きの外部資金候補。契約済み・入金済みとは扱わない。",
+      };
+    });
+
+  const liquidityItems = gates
+    .filter((gate: any) => gate?.key === LIQUIDITY_GATE_KEY)
+    .map((gate: any) => {
+      const mapped = requireUiTimelineLabel(UI_TIMELINE_GATE_LABELS, gate.key, "liquidity gate");
+      if (!finite(gate.month)) throw new Error(`${project.projectName}/${gate.key}: liquidity timeline month missing`);
+      const startDate = addUtcMonths(valuationDate, Number(gate.month));
+      return {
+        id: "funding-liquidity-proxy-1",
+        kind: "planned_or_assumed_event",
+        label: mapped.label,
+        category: "funding_external",
+        startDate,
+        endDate: addUtcMonths(startDate, 1),
+        dateRole: "month_offset_from_valuation",
+        datePrecision: "month_offset",
+        dateLabel: `評価日から${gate.month}か月後（${startDate.slice(0, 7)}）`,
+        status: "liquidity_proxy_not_commitment",
+        precision: timelinePrecision(gate.evidenceStatus),
+        sourceStatus: String(gate.evidenceStatus ?? "unknown"),
+        sourceRefCount: new Set(gate.sourceRefs ?? []).size,
+        occurrenceRole: "conditional",
+        commitmentStatus: "proxy_not_commitment",
+        availabilityStatus: "not_cash_receipt",
+        amountMillionJpy: null,
+        probability: null,
+        description: "資金パッケージ成立性の計算用ゲート。資金調達の決定、契約、入金ではない。",
+      };
+    });
+  const fundingItems = [...financingItems, ...liquidityItems];
+  const dated = [registeredItem, ...businessItems, ...fundingItems]
+    .flatMap((item: any) => [item.startDate, item.endDate])
+    .filter((date): date is string => typeof date === "string");
+  const axisStartDate = dated.slice().sort()[0] ?? valuationDate;
+  const axisEndDate = dated.slice().sort().at(-1) ?? registeredEnd;
+
+  return {
+    axis: {
+      startDate: axisStartDate,
+      endDate: axisEndDate,
+      valuationDate,
+      dateRole: "shared_calendar_axis",
+    },
+    lanes: [
+      { key: "confirmed_decisions", label: "根拠付きの実行済み意思決定", emptyMessage: "根拠付きの実行済み意思決定は未収載", items: [] },
+      { key: "registered_policy", label: "登録済み固定方針", emptyMessage: null, items: [registeredItem] },
+      { key: "future_decisions", label: "将来の意思決定点", emptyMessage: "根拠付きの将来意思決定点は未収載。計画ゲートを意思決定へ読み替えない。", items: [] },
+      { key: "business_events", label: "事業・技術・設備・資金イベント", emptyMessage: businessItems.length || fundingItems.length ? null : "登録済み固定方針に紐づく計画イベントは未収載", items: [...businessItems, ...fundingItems] },
+      { key: "external_events", label: "外部イベント", emptyMessage: "現版では独立した外部イベントは未収載", items: [] },
+    ],
+  };
+}
+
 const jsonValueOrNull = (value: unknown) => value === undefined ? null : value;
 
 function buildUiProjectProjection(
@@ -2037,6 +2353,7 @@ function buildUiProjectProjection(
       actionBoundaryCounts: summary.actionBoundaryCounts,
       precisionStatus: summary.precisionStatus,
     },
+    timeline: buildUiTimeline(project, summary, rootArtifact.valuationDate),
     groups,
   };
 }
@@ -2505,7 +2822,7 @@ audit.summary = {
   privacyOk: audit.privacy.ok,
 };
 audit.summary.dualCriticalAuditStatus = source.dualCriticalAudit.status;
-if (checkMode) {
+if (checkMode || writeUiMode) {
   if (JSON.stringify(artifact.projectSummary) !== JSON.stringify(summaries)) {
     throw new Error("frozen JSON projectSummary differs from recomputed summary");
   }
@@ -2712,6 +3029,12 @@ if (checkMode) {
       throw new Error(`${row.file}: generated UI projection differs from deterministic render`);
     }
   }
+} else if (writeUiMode) {
+  fs.mkdirSync(uiProjectionOutputDirectory, { recursive: true });
+  fs.writeFileSync(path.join(uiProjectionOutputDirectory, "manifest.json"), canonicalUiManifest);
+  for (const row of uiProjectFiles) {
+    fs.writeFileSync(path.join(uiProjectionOutputDirectory, row.file), row.canonical);
+  }
 } else {
   fs.mkdirSync(outputDirectory, { recursive: true });
   fs.mkdirSync(uiProjectionOutputDirectory, { recursive: true });
@@ -2725,7 +3048,7 @@ if (checkMode) {
 }
 if (!audit.ok) throw new Error(`self-contained audit failed: ${JSON.stringify(audit.summary.failingProjects)}`);
 console.log(JSON.stringify({
-  mode: checkMode ? "check" : "build-from",
+  mode: checkMode ? "check" : writeUiMode ? "write-ui" : "build-from",
   input: path.basename(inputPath),
   inputSha256: sha256(raw),
   jsonOutput,

@@ -89,6 +89,212 @@
     },
     "precisionStatus": "internal_unvalidated_low_precision_shadow_only"
   },
+  "timeline": {
+    "axis": {
+      "startDate": "2026-06-01",
+      "endDate": "2031-08-12",
+      "valuationDate": "2026-08-12",
+      "dateRole": "shared_calendar_axis"
+    },
+    "lanes": [
+      {
+        "key": "confirmed_decisions",
+        "label": "根拠付きの実行済み意思決定",
+        "emptyMessage": "根拠付きの実行済み意思決定は未収載",
+        "items": []
+      },
+      {
+        "key": "registered_policy",
+        "label": "登録済み固定方針",
+        "emptyMessage": null,
+        "items": [
+          {
+            "id": "registered-policy-1",
+            "kind": "registered_current_control_shadow",
+            "label": "現行統合方針",
+            "category": "registered_policy",
+            "startDate": "2026-08-12",
+            "endDate": "2031-08-12",
+            "dateRole": "registered_evaluation_horizon_band",
+            "datePrecision": "valuation_day_plus_month_horizon",
+            "dateLabel": "評価日 2026-08-12 から評価地平60か月",
+            "status": "fixed_shadow_not_optimized",
+            "precision": "registered_shadow",
+            "authorityStatus": "unconfirmed_not_executable_recommendation",
+            "sourceRefCount": 5,
+            "description": "登録済み固定方針。shadow比較のみで、最適化結果でも権限確認済みの実行推奨でもない。"
+          }
+        ]
+      },
+      {
+        "key": "future_decisions",
+        "label": "将来の意思決定点",
+        "emptyMessage": "根拠付きの将来意思決定点は未収載。計画ゲートを意思決定へ読み替えない。",
+        "items": []
+      },
+      {
+        "key": "business_events",
+        "label": "事業・技術・設備・資金イベント",
+        "emptyMessage": null,
+        "items": [
+          {
+            "id": "business-event-1",
+            "kind": "planned_or_assumed_event",
+            "label": "原薬課題の是正",
+            "category": "technical",
+            "startDate": "2027-02-12",
+            "endDate": "2027-03-12",
+            "dateRole": "month_offset_from_valuation",
+            "datePrecision": "month_offset",
+            "dateLabel": "評価日から6か月後（2027-02）",
+            "status": "registered_path_gate",
+            "precision": "mixed",
+            "sourceStatus": "mixed_document_and_imputation",
+            "sourceRefCount": 5,
+            "description": "登録済み固定方針に紐づく計画ゲート。表示月は意思決定日ではない。"
+          },
+          {
+            "id": "business-event-2",
+            "kind": "planned_or_assumed_event",
+            "label": "非臨床パッケージ",
+            "category": "technical",
+            "startDate": "2028-02-12",
+            "endDate": "2028-03-12",
+            "dateRole": "month_offset_from_valuation",
+            "datePrecision": "month_offset",
+            "dateLabel": "評価日から18か月後（2028-02）",
+            "status": "registered_path_gate",
+            "precision": "mixed",
+            "sourceStatus": "mixed_document_and_imputation",
+            "sourceRefCount": 5,
+            "description": "登録済み固定方針に紐づく計画ゲート。表示月は意思決定日ではない。"
+          },
+          {
+            "id": "business-event-3",
+            "kind": "planned_or_assumed_event",
+            "label": "PMDA対応・治験供給",
+            "category": "facility",
+            "startDate": "2029-02-12",
+            "endDate": "2029-03-12",
+            "dateRole": "month_offset_from_valuation",
+            "datePrecision": "month_offset",
+            "dateLabel": "評価日から30か月後（2029-02）",
+            "status": "registered_path_gate",
+            "precision": "mixed",
+            "sourceStatus": "mixed_document_and_imputation",
+            "sourceRefCount": 5,
+            "description": "登録済み固定方針に紐づく計画ゲート。表示月は意思決定日ではない。"
+          },
+          {
+            "id": "business-event-4",
+            "kind": "planned_or_assumed_event",
+            "label": "シリーズAまたはVECOによる臨床移行",
+            "category": "commercial",
+            "startDate": "2030-08-12",
+            "endDate": "2030-09-12",
+            "dateRole": "month_offset_from_valuation",
+            "datePrecision": "month_offset",
+            "dateLabel": "評価日から48か月後（2030-08）",
+            "status": "registered_path_gate",
+            "precision": "mixed",
+            "sourceStatus": "mixed_document_and_imputation",
+            "sourceRefCount": 5,
+            "description": "登録済み固定方針に紐づく計画ゲート。表示月は意思決定日ではない。"
+          },
+          {
+            "id": "funding-event-1",
+            "kind": "confirmed_external_event",
+            "label": "評価日前に完了したシード",
+            "category": "funding_external",
+            "startDate": "2026-06-01",
+            "endDate": "2026-07-01",
+            "dateRole": "source_through_month",
+            "datePrecision": "month",
+            "dateLabel": "through 2026-06",
+            "status": "historically_closed",
+            "precision": "observed_or_documented",
+            "sourceStatus": "observed",
+            "sourceRefCount": 5,
+            "occurrenceRole": "occurred",
+            "commitmentStatus": "historically_closed",
+            "availabilityStatus": "historically_occurred_current_availability_not_inferred",
+            "amountMillionJpy": 250,
+            "probability": 1,
+            "description": "評価日前に発生した外部資金イベント。評価日時点の利用可能額は推定しない。"
+          },
+          {
+            "id": "funding-event-2",
+            "kind": "confirmed_external_event",
+            "label": "AMED採択枠",
+            "category": "funding_external",
+            "startDate": "2026-12-01",
+            "endDate": "2027-01-01",
+            "dateRole": "source_through_month",
+            "datePrecision": "month",
+            "dateLabel": "through 2026-12",
+            "status": "recorded_award_disbursement_unconfirmed",
+            "precision": "observed_or_documented",
+            "sourceStatus": "document_extracted",
+            "sourceRefCount": 5,
+            "occurrenceRole": "recorded",
+            "commitmentStatus": "recorded_award_disbursement_unconfirmed",
+            "availabilityStatus": "recorded_not_available_as_unrestricted_cash",
+            "amountMillionJpy": 300,
+            "probability": 0.75,
+            "description": "採択・制度枠の記録。入金または自由に使える資金とは扱わない。"
+          },
+          {
+            "id": "funding-event-3",
+            "kind": "planned_or_assumed_event",
+            "label": "シリーズAまたはVECO候補",
+            "category": "funding_external",
+            "startDate": "2028-01-01",
+            "endDate": "2028-04-01",
+            "dateRole": "source_quarter",
+            "datePrecision": "quarter",
+            "dateLabel": "2028Q1",
+            "status": "conditional_uncommitted",
+            "precision": "observed_or_documented",
+            "sourceStatus": "document_extracted",
+            "sourceRefCount": 5,
+            "occurrenceRole": "conditional",
+            "commitmentStatus": "conditional_uncommitted",
+            "availabilityStatus": "not_available_or_unconfirmed",
+            "amountMillionJpy": 1000,
+            "probability": 0.3,
+            "description": "将来または条件付きの外部資金候補。契約済み・入金済みとは扱わない。"
+          },
+          {
+            "id": "funding-liquidity-proxy-1",
+            "kind": "planned_or_assumed_event",
+            "label": "最初の資金経路喪失前の全期間資金パッケージ",
+            "category": "funding_external",
+            "startDate": "2027-06-12",
+            "endDate": "2027-07-12",
+            "dateRole": "month_offset_from_valuation",
+            "datePrecision": "month_offset",
+            "dateLabel": "評価日から10か月後（2027-06）",
+            "status": "liquidity_proxy_not_commitment",
+            "precision": "imputed_or_assumed",
+            "sourceStatus": "pre_registered_missing_evidence_prior",
+            "sourceRefCount": 1,
+            "occurrenceRole": "conditional",
+            "commitmentStatus": "proxy_not_commitment",
+            "availabilityStatus": "not_cash_receipt",
+            "amountMillionJpy": null,
+            "probability": null,
+            "description": "資金パッケージ成立性の計算用ゲート。資金調達の決定、契約、入金ではない。"
+          }
+        ]
+      },
+      {
+        "key": "external_events",
+        "label": "外部イベント",
+        "emptyMessage": "現版では独立した外部イベントは未収載",
+        "items": []
+      }
+    ]
+  },
   "groups": [
     {
       "key": "version_horizon_rules",

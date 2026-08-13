@@ -3,14 +3,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { Tex } from "@/components/venture-map/Tex";
 import {
+  BZM22_FIXED_POLICY,
   BZM22_TOP_METRICS,
   formatMillionJpy,
   type Bzm22PilotApiPayload,
   type Bzm22PilotParameter,
   type Bzm22PilotParameterGroup,
   type Bzm22PilotProject,
+  type Bzm22PilotTimeline,
   type Bzm22Scenario,
+  type Bzm22TimelineItem,
 } from "@/lib/bzm-2-2-pilot-ui";
+import {
+  BZM22_FORMULA_CATALOG,
+  BZM22_PARAMETER_RELATION_LABELS,
+  getBzm22ParameterCatalogEntry,
+  type Bzm22ParameterRelation,
+} from "@/lib/bzm-2-2-parameter-catalog";
 
 type LoadState =
   | { status: "idle"; projectId: string }
@@ -50,6 +59,33 @@ const STATUS_META: Array<{
     className: "border-cyan-200 bg-cyan-50 text-cyan-900",
   },
 ];
+
+const RELATION_META: Record<Bzm22ParameterRelation, { className: string; description: string }> = {
+  direct: {
+    className: "border-[#8bbcaf] bg-[#e8f4ef] text-[#205f52]",
+    description: "数値として式へ入る",
+  },
+  indirect: {
+    className: "border-[#9bb7ce] bg-[#eef5fa] text-[#285b7a]",
+    description: "状態・遷移を介して効く",
+  },
+  guard: {
+    className: "border-slate-300 bg-slate-50 text-slate-600",
+    description: "計算可否・証拠境界を守る",
+  },
+  output: {
+    className: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    description: "式から算出した結果",
+  },
+  unused: {
+    className: "border-slate-200 bg-slate-100 text-slate-500",
+    description: "現pilotの計算には未接続",
+  },
+  alias: {
+    className: "border-amber-200 bg-amber-50 text-amber-900",
+    description: "別slotと同じ値・二重加算禁止",
+  },
+};
 
 function compactValue(value: unknown, maxLength = 78) {
   if (value === null || value === undefined || value === "") return "未登録";
@@ -127,7 +163,14 @@ function isUncertain(parameter: Bzm22PilotParameter) {
 }
 
 function parameterSearchText(parameter: Bzm22PilotParameter) {
+  const catalog = getBzm22ParameterCatalogEntry(parameter.id);
   return [
+    catalog.japaneseName,
+    catalog.symbolTex,
+    catalog.formulaConnection,
+    catalog.roleLabel,
+    catalog.relationLabel,
+    ...catalog.formulaRefs.flatMap((ref) => [ref, BZM22_FORMULA_CATALOG[ref].title, BZM22_FORMULA_CATALOG[ref].tex]),
     parameter.id,
     parameter.section,
     parameter.key,
@@ -141,6 +184,235 @@ function parameterSearchText(parameter: Bzm22PilotParameter) {
     .filter(Boolean)
     .join(" ")
     .toLocaleLowerCase("ja-JP");
+}
+
+function ParameterIdentity({ parameter }: { parameter: Bzm22PilotParameter }) {
+  const catalog = getBzm22ParameterCatalogEntry(parameter.id);
+  return (
+    <div className="min-w-0">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <div className="text-[11px] font-semibold leading-4 text-[#173f51]">{catalog.japaneseName}</div>
+        <span className="border border-[#b9cbd1] bg-[#f3f7f8] px-1.5 py-0.5 text-[8px] font-semibold leading-none text-[#365865]">
+          {catalog.roleLabel}
+        </span>
+      </div>
+      <div className="mt-1 grid min-w-0 grid-cols-[30px_minmax(0,1fr)] gap-x-1.5 gap-y-0.5 text-[9px] leading-4">
+        <span className="text-slate-400">項目</span>
+        <span className="min-w-0 overflow-x-auto whitespace-nowrap text-[#285b6b]">
+          <Tex tex={catalog.dataNameTex} />
+        </span>
+        <span className="text-slate-400">理論</span>
+        <span className="min-w-0 overflow-x-auto whitespace-nowrap text-[11px] font-semibold text-[#285b6b]">
+          {catalog.symbolTex ? <Tex tex={catalog.symbolTex} /> : "—"}
+        </span>
+      </div>
+      <div className="mt-1 text-[9px] leading-4 text-slate-600">{catalog.formulaConnection}</div>
+      <div className="mt-1 space-y-0.5 border-t border-slate-100 pt-1">
+        <div className="text-[8px] font-semibold text-slate-400">接続式</div>
+        {catalog.formulaRefs.map((ref) => {
+          const formula = BZM22_FORMULA_CATALOG[ref];
+          return (
+            <div key={ref} className="flex min-w-0 items-baseline gap-1">
+              <span className="shrink-0 border border-[#9fb8c1] bg-white px-1 py-0.5 font-mono text-[8px] font-bold leading-none text-[#285b6b]">{ref}</span>
+              <span className="min-w-0 overflow-x-auto whitespace-nowrap text-[8px] text-slate-500"><Tex tex={formula.tex} /></span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-1 break-all font-mono text-[8px] leading-3 text-slate-400">
+        {parameter.id} · {formatUnitLabel(parameter.unit)}
+      </div>
+    </div>
+  );
+}
+
+function FormulaIndex() {
+  return (
+    <details className="border-b border-[#b9cbd1] bg-white">
+      <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-[10px] font-semibold text-[#234d5e] marker:content-none hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-cyan-700 sm:px-4">
+        <span>接続式一覧 F0–F14</span>
+        <span className="text-[8px] font-normal text-slate-500">各入力の「接続式」番号を照合</span>
+      </summary>
+      <div className="grid border-t border-slate-200 sm:grid-cols-2 xl:grid-cols-3">
+        {Object.entries(BZM22_FORMULA_CATALOG)
+          .filter(([ref]) => ref.startsWith("F"))
+          .map(([ref, formula]) => (
+            <div key={ref} className="min-w-0 border-b border-r border-slate-200 px-3 py-2">
+              <div className="flex items-baseline gap-1.5">
+                <span className="border border-[#9fb8c1] bg-[#edf3f5] px-1 py-0.5 font-mono text-[8px] font-bold leading-none text-[#285b6b]">{ref}</span>
+                <span className="text-[9px] font-semibold text-[#234d5e]">{formula.title}</span>
+              </div>
+              <div className="mt-1 overflow-x-auto whitespace-nowrap text-[9px] text-[#285b6b]"><Tex tex={formula.tex} /></div>
+              <div className="mt-1 text-[8px] leading-3 text-slate-500">{formula.description}</div>
+            </div>
+          ))}
+      </div>
+      <div className="border-t border-slate-200 px-3 py-1.5 text-[8px] text-slate-500 sm:px-4">
+        「—」は管理・再現性または現pilot未接続。J / P / Q / S chipは同名の主出力を示す。
+      </div>
+    </details>
+  );
+}
+
+const TIMELINE_CATEGORY_META: Record<Bzm22TimelineItem["category"], { label: string; className: string }> = {
+  registered_policy: { label: "登録方針", className: "border-[#77a99c] bg-[#e8f4ef] text-[#205f52]" },
+  technical: { label: "技術", className: "border-cyan-200 bg-cyan-50 text-cyan-900" },
+  facility: { label: "設備・量産", className: "border-violet-200 bg-violet-50 text-violet-900" },
+  commercial: { label: "事業・商流", className: "border-blue-200 bg-blue-50 text-blue-900" },
+  funding_external: { label: "資金・外部", className: "border-amber-200 bg-amber-50 text-amber-900" },
+};
+
+const TIMELINE_PRECISION_LABELS: Record<string, string> = {
+  registered_shadow: "登録shadow",
+  observed_or_documented: "観測・文書",
+  mixed: "混合根拠",
+  imputed_or_assumed: "推定・仮定",
+  unknown: "精度未登録",
+};
+
+const TIMELINE_OCCURRENCE_LABELS: Record<string, string> = {
+  occurred: "過去実績",
+  available: "利用可能",
+  recorded: "記録済み",
+  conditional: "条件付き",
+  imputed: "推定",
+  unknown: "状態未登録",
+};
+
+function timelineStatusLabel(item: Bzm22TimelineItem) {
+  if (item.kind === "registered_current_control_shadow") return "固定方針・最適化なし";
+  if (item.kind === "confirmed_decision") return "根拠付き実行済み";
+  if (item.kind === "future_decision_point") return "将来判断点";
+  if (item.status === "liquidity_proxy_not_commitment") return "成立性proxy・確約なし";
+  if (item.kind === "confirmed_external_event") return "外部実績・意思決定ではない";
+  return "計画・仮定イベント";
+}
+
+function axisPercent(dateValue: string, timeline: Bzm22PilotTimeline) {
+  const start = Date.parse(`${timeline.axis.startDate}T00:00:00Z`);
+  const end = Date.parse(`${timeline.axis.endDate}T00:00:00Z`);
+  const point = Date.parse(`${dateValue}T00:00:00Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(point) || end <= start) return 0;
+  return Math.min(100, Math.max(0, ((point - start) / (end - start)) * 100));
+}
+
+function TimelineTrack({ item, timeline }: { item: Bzm22TimelineItem; timeline: Bzm22PilotTimeline }) {
+  if (!item.startDate || !item.endDate) {
+    return <div className="flex h-7 items-center justify-center border-x border-dashed border-slate-200 text-[8px] text-slate-400">日付未登録</div>;
+  }
+  const left = axisPercent(item.startDate, timeline);
+  const right = axisPercent(item.endDate, timeline);
+  const width = Math.max(1.25, right - left);
+  const valuation = axisPercent(timeline.axis.valuationDate, timeline);
+  return (
+    <div className="relative h-7 overflow-hidden border-x border-slate-200 bg-[linear-gradient(to_right,#f8fafc_1px,transparent_1px)] bg-[size:12.5%_100%]">
+      <div className="absolute inset-y-0 w-px bg-[#2d7a6a]/50" style={{ left: `${valuation}%` }} title={`評価日 ${timeline.axis.valuationDate}`} />
+      <div
+        className={`absolute top-2 h-3 min-w-1 border ${TIMELINE_CATEGORY_META[item.category].className}`}
+        style={{ left: `${left}%`, width: `${Math.min(100 - left, width)}%` }}
+        title={`${item.label} · ${item.dateLabel}`}
+      />
+    </div>
+  );
+}
+
+function TimelineItemMeta({ item }: { item: Bzm22TimelineItem }) {
+  const category = TIMELINE_CATEGORY_META[item.category];
+  return (
+    <div className="min-w-0 px-2 py-1.5">
+      <div className="flex min-w-0 flex-wrap items-center gap-1">
+        <span className="text-[9px] font-semibold leading-4 text-[#173f51]">{item.label}</span>
+        <span className={`border px-1 py-0.5 text-[7px] font-semibold leading-none ${category.className}`}>{category.label}</span>
+        {item.occurrenceRole ? <span className="border border-slate-200 bg-white px-1 py-0.5 text-[7px] leading-none text-slate-600">{TIMELINE_OCCURRENCE_LABELS[item.occurrenceRole]}</span> : null}
+      </div>
+      <div className="mt-0.5 text-[8px] leading-3 text-slate-500">{item.dateLabel} · {timelineStatusLabel(item)}</div>
+      <div className="mt-0.5 flex flex-wrap gap-x-2 text-[7px] leading-3 text-slate-400">
+        <span>{TIMELINE_PRECISION_LABELS[item.precision] ?? "精度未登録"}</span>
+        <span>根拠 {item.sourceRefCount}件</span>
+        {item.amountMillionJpy !== undefined && item.amountMillionJpy !== null ? <span>{formatMillionJpy(item.amountMillionJpy)}</span> : null}
+        {item.probability !== undefined && item.probability !== null ? <span>条件値 {(item.probability * 100).toFixed(0)}%</span> : null}
+      </div>
+    </div>
+  );
+}
+
+function DecisionEventTimeline({ timeline }: { timeline: Bzm22PilotTimeline }) {
+  const valuation = axisPercent(timeline.axis.valuationDate, timeline);
+  return (
+    <section aria-labelledby="bzm22-timeline-title" className="border-b border-[#b9cbd1] bg-white">
+      <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200 px-3 py-2 sm:px-4">
+        <div>
+          <h3 id="bzm22-timeline-title" className="text-[11px] font-semibold text-[#173f51]">選択と事業イベントの時間軸</h3>
+          <p className="mt-0.5 text-[8px] leading-3 text-slate-500">実行済み判断、登録方針、将来判断点、計画イベント、資金イベントを混ぜずに表示。因果関係は示さない。</p>
+        </div>
+        <div className="text-[8px] text-[#2d7a6a]">評価日線 {timeline.axis.valuationDate}</div>
+      </header>
+
+      <div className="hidden lg:block">
+        <div className="grid grid-cols-[250px_minmax(0,1fr)] border-b border-slate-200 bg-slate-50">
+          <div className="px-2 py-1 text-[8px] font-semibold text-slate-500">イベント / 根拠状態</div>
+          <div className="relative h-8 border-x border-slate-200 text-[7px] text-slate-400">
+            <span className="absolute left-1 top-1">{timeline.axis.startDate}</span>
+            <span className="absolute top-1 -translate-x-1/2 font-semibold text-[#2d7a6a]" style={{ left: `${valuation}%` }}>評価日</span>
+            <span className="absolute right-1 top-1">{timeline.axis.endDate}</span>
+            <div className="absolute bottom-1 left-0 right-0 h-px bg-slate-300" />
+          </div>
+        </div>
+        {timeline.lanes.map((lane) => (
+          <div key={lane.key} className="border-b border-slate-200 last:border-b-0">
+            <div className="grid grid-cols-[250px_minmax(0,1fr)] bg-[#f6f8f8]">
+              <div className="px-2 py-1 text-[8px] font-bold tracking-wide text-[#365865]">{lane.label}</div>
+              <div className="border-x border-slate-200" />
+            </div>
+            {lane.items.length === 0 ? (
+              <div className="grid grid-cols-[250px_minmax(0,1fr)]">
+                <div className="px-2 py-2 text-[8px] leading-3 text-slate-400">{lane.emptyMessage}</div>
+                <div className="h-8 border-x border-dashed border-slate-200 bg-slate-50/40" />
+              </div>
+            ) : lane.items.map((item) => (
+              <div key={item.id} className="grid grid-cols-[250px_minmax(0,1fr)] border-t border-slate-100 first:border-t-0">
+                <TimelineItemMeta item={item} />
+                <TimelineTrack item={item} timeline={timeline} />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      <div className="divide-y divide-slate-200 lg:hidden">
+        {timeline.lanes.map((lane) => (
+          <section key={lane.key} className="px-3 py-2 sm:px-4">
+            <h4 className="text-[9px] font-bold text-[#365865]">{lane.label}</h4>
+            {lane.items.length === 0 ? (
+              <p className="mt-1 border-l-2 border-slate-200 pl-2 text-[8px] leading-4 text-slate-400">{lane.emptyMessage}</p>
+            ) : (
+              <div className="mt-1 divide-y divide-slate-100 border border-slate-200">
+                {lane.items.map((item) => (
+                  <div key={item.id}>
+                    <TimelineItemMeta item={item} />
+                    <p className="border-t border-slate-100 px-2 py-1 text-[8px] leading-3 text-slate-500">{item.description}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function FormulaRelation({ parameter }: { parameter: Bzm22PilotParameter }) {
+  const catalog = getBzm22ParameterCatalogEntry(parameter.id);
+  const meta = RELATION_META[catalog.relation];
+  return (
+    <div className="min-w-0">
+      <span className={`inline-flex border px-1.5 py-0.5 text-[9px] font-semibold ${meta.className}`}>
+        {BZM22_PARAMETER_RELATION_LABELS[catalog.relation]}
+      </span>
+      <div className="mt-1 text-[8px] leading-3 text-slate-500">{meta.description}</div>
+    </div>
+  );
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -197,7 +469,7 @@ function ScenarioMetric({
   return (
     <div className="min-w-0 bg-white px-3 py-2.5">
       <div className="flex items-baseline gap-1.5">
-        <span className="font-mono text-[16px] font-bold text-[#173f51]">{symbol}</span>
+        <span className="text-[16px] font-bold text-[#173f51]">{symbol}</span>
         <span className="text-[9px] font-semibold tracking-wide text-slate-500">{label}</span>
       </div>
       <div className="mt-1 text-[15px] font-semibold tabular-nums text-[#173f51]">
@@ -244,16 +516,16 @@ function ScenarioValues({ parameter }: { parameter: Bzm22PilotParameter }) {
 function ParameterDesktopTable({ parameters }: { parameters: Bzm22PilotParameter[] }) {
   return (
     <div className="hidden max-w-full overflow-x-auto lg:block">
-      <table className="w-full min-w-[1120px] border-collapse text-left text-[9px] leading-4">
+      <table className="w-full min-w-[1240px] border-collapse text-left text-[9px] leading-4">
         <thead className="bg-slate-50 text-slate-500">
           <tr>
             <th className="w-10 px-2 py-1.5 text-right">#</th>
-            <th className="w-[210px] px-2 py-1.5">パラメータ</th>
+            <th className="w-[300px] px-2 py-1.5">入力・数式接続</th>
             <th className="w-[170px] px-2 py-1.5">現在値</th>
             <th className="w-[210px] px-2 py-1.5">L / B / H</th>
             <th className="w-[130px] px-2 py-1.5">状態</th>
             <th className="px-2 py-1.5">設定根拠</th>
-            <th className="w-[92px] px-2 py-1.5">計算</th>
+            <th className="w-[120px] px-2 py-1.5">式との関係</th>
           </tr>
         </thead>
         <tbody>
@@ -261,8 +533,7 @@ function ParameterDesktopTable({ parameters }: { parameters: Bzm22PilotParameter
             <tr key={parameter.id} className="border-t border-slate-100 align-top even:bg-slate-50/50">
               <td className="px-2 py-2 text-right font-mono tabular-nums text-slate-400">{parameter.index}</td>
               <td className="px-2 py-2">
-                <div className="break-all font-mono text-[9px] font-semibold text-[#234d5e]">{parameter.id}</div>
-                <div className="mt-0.5 text-slate-500">{formatUnitLabel(parameter.unit)}</div>
+                <ParameterIdentity parameter={parameter} />
               </td>
               <td className="px-2 py-2">
                 <div className="break-words font-mono text-slate-700">{compactValue(formatUnitValue(parameter.value, parameter.unit))}</div>
@@ -277,9 +548,7 @@ function ParameterDesktopTable({ parameters }: { parameters: Bzm22PilotParameter
               </td>
               <td className="px-2 py-2"><ParameterBasis parameter={parameter} /></td>
               <td className="px-2 py-2">
-                <span className={`inline-flex border px-1.5 py-0.5 font-semibold ${parameter.usedInCalculation ? "border-cyan-200 bg-cyan-50 text-cyan-900" : "border-slate-200 bg-slate-50 text-slate-500"}`}>
-                  {parameter.usedInCalculation ? "使用中" : "未使用"}
-                </span>
+                <FormulaRelation parameter={parameter} />
               </td>
             </tr>
           ))}
@@ -296,8 +565,8 @@ function ParameterMobileCards({ parameters }: { parameters: Bzm22PilotParameter[
         <article key={parameter.id} className="min-w-0 px-3 py-3">
           <div className="flex min-w-0 items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="font-mono text-[9px] font-semibold text-[#234d5e]">#{parameter.index} {parameter.id}</div>
-              <div className="mt-0.5 text-[9px] text-slate-500">{formatUnitLabel(parameter.unit)}</div>
+              <div className="mb-1 font-mono text-[8px] tabular-nums text-slate-400">#{parameter.index}</div>
+              <ParameterIdentity parameter={parameter} />
             </div>
             <StatusBadge status={parameter.observedStatus} />
           </div>
@@ -314,9 +583,7 @@ function ParameterMobileCards({ parameters }: { parameters: Bzm22PilotParameter[
           </div>
           <div className="mt-2"><ParameterBasis parameter={parameter} /></div>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-[9px]">
-            <span className={`border px-1.5 py-0.5 font-semibold ${parameter.usedInCalculation ? "border-cyan-200 bg-cyan-50 text-cyan-900" : "border-slate-200 bg-slate-50 text-slate-500"}`}>
-              {parameter.usedInCalculation ? "計算に使用" : "計算には未使用"}
-            </span>
+            <FormulaRelation parameter={parameter} />
             {hasPrecisionLoss(parameter.precisionLossContribution) ? (
               <span className="text-amber-800">精度低下: {compactValue(parameter.precisionLossContribution)}</span>
             ) : null}
@@ -376,7 +643,7 @@ function ParameterLedger({ groups }: { groups: Bzm22PilotParameterGroup[] }) {
     () => groups.map((group) => ({
       group,
       parameters: group.parameters.filter((parameter) => {
-        if (filter === "used" && !parameter.usedInCalculation) return false;
+        if (filter === "used" && getBzm22ParameterCatalogEntry(parameter.id).relation === "unused") return false;
         if (filter === "uncertain" && !isUncertain(parameter)) return false;
         return !normalizedQuery || parameterSearchText(parameter).includes(normalizedQuery);
       }),
@@ -403,14 +670,14 @@ function ParameterLedger({ groups }: { groups: Bzm22PilotParameterGroup[] }) {
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="ID・規則・根拠・状態で検索"
+              placeholder="日本語名・記号・式・内部ID・根拠で検索"
               className="min-h-10 w-full border border-slate-300 bg-white px-3 text-[11px] text-slate-800 outline-none placeholder:text-slate-400 focus:border-cyan-700 focus:ring-1 focus:ring-cyan-700 md:min-h-8"
             />
           </label>
           <div className="grid grid-cols-3 border border-slate-300 bg-white" aria-label="パラメータ表示条件">
             {([
               ["all", "全項目"],
-              ["used", "計算使用"],
+              ["used", "式に接続"],
               ["uncertain", "精度低下"],
             ] as const).map(([value, label]) => (
               <button
@@ -487,8 +754,18 @@ function PilotPanel({ pilot }: { pilot: Bzm22PilotProject }) {
       </div>
 
       <div className="border-b border-[#b9cbd1] bg-[#edf3f5] px-3 py-1.5 text-[8px] leading-4 text-[#365865] sm:px-4">
-        <span className="font-semibold">数式の記号:</span> CF=月ごとの収支、TV=目標到達後の将来価値、RV=途中で止まった時の残存価値、d=現在価値への割引、s=その月まで経路が続く重み、p=各条件の通過値、m=逆風時の補正。Q/Sは0〜100%で読む比較用指数。
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
+          <span className="font-semibold"><Tex tex={BZM22_FIXED_POLICY.formula} /></span>
+          <span>{BZM22_FIXED_POLICY.label}。artifact上の登録名: {pilot.summary.registeredCurrentControl || "未登録"}。</span>
+        </div>
+        <div>
+          <span className="font-semibold">数式の記号:</span> CF=月ごとの収支、TV=目標到達後の将来価値、RV=途中で止まった時の残存価値、d=現在価値への割引、s=その月まで経路が続く重み、p=各条件の通過値、m=逆風時の補正。Q/Sは0〜100%で読む比較用指数。
+        </div>
+        <div>留保: Q/Sは登録ゲートの積にもとづく未校正の暫定代理値。Sは戦略余力全体ではない。</div>
       </div>
+
+      <FormulaIndex />
+      <DecisionEventTimeline timeline={pilot.timeline} />
 
       <div className="grid gap-px border-b border-[#b9cbd1] bg-[#d4dde0] sm:grid-cols-3">
         <div className="bg-white px-3 py-2">

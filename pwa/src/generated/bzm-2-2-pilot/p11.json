@@ -89,6 +89,196 @@
     },
     "precisionStatus": "internal_unvalidated_low_precision_shadow_only"
   },
+  "timeline": {
+    "axis": {
+      "startDate": "2025-10-01",
+      "endDate": "2031-08-12",
+      "valuationDate": "2026-08-12",
+      "dateRole": "shared_calendar_axis"
+    },
+    "lanes": [
+      {
+        "key": "confirmed_decisions",
+        "label": "根拠付きの実行済み意思決定",
+        "emptyMessage": "根拠付きの実行済み意思決定は未収載",
+        "items": []
+      },
+      {
+        "key": "registered_policy",
+        "label": "登録済み固定方針",
+        "emptyMessage": null,
+        "items": [
+          {
+            "id": "registered-policy-1",
+            "kind": "registered_current_control_shadow",
+            "label": "資金調達・公的制度の並行推進",
+            "category": "registered_policy",
+            "startDate": "2026-08-12",
+            "endDate": "2031-08-12",
+            "dateRole": "registered_evaluation_horizon_band",
+            "datePrecision": "valuation_day_plus_month_horizon",
+            "dateLabel": "評価日 2026-08-12 から評価地平60か月",
+            "status": "fixed_shadow_not_optimized",
+            "precision": "registered_shadow",
+            "authorityStatus": "unconfirmed_not_executable_recommendation",
+            "sourceRefCount": 16,
+            "description": "登録済み固定方針。shadow比較のみで、最適化結果でも権限確認済みの実行推奨でもない。"
+          }
+        ]
+      },
+      {
+        "key": "future_decisions",
+        "label": "将来の意思決定点",
+        "emptyMessage": "根拠付きの将来意思決定点は未収載。計画ゲートを意思決定へ読み替えない。",
+        "items": []
+      },
+      {
+        "key": "business_events",
+        "label": "事業・技術・設備・資金イベント",
+        "emptyMessage": null,
+        "items": [
+          {
+            "id": "business-event-1",
+            "kind": "planned_or_assumed_event",
+            "label": "大型PoCから契約への転換",
+            "category": "commercial",
+            "startDate": "2027-08-12",
+            "endDate": "2027-09-12",
+            "dateRole": "month_offset_from_valuation",
+            "datePrecision": "month_offset",
+            "dateLabel": "評価日から12か月後（2027-08）",
+            "status": "registered_path_gate",
+            "precision": "observed_or_documented",
+            "sourceStatus": "document_extracted",
+            "sourceRefCount": 4,
+            "description": "登録済み固定方針に紐づく計画ゲート。表示月は意思決定日ではない。"
+          },
+          {
+            "id": "business-event-2",
+            "kind": "planned_or_assumed_event",
+            "label": "スケールアップ設計",
+            "category": "facility",
+            "startDate": "2028-08-12",
+            "endDate": "2028-09-12",
+            "dateRole": "month_offset_from_valuation",
+            "datePrecision": "month_offset",
+            "dateLabel": "評価日から24か月後（2028-08）",
+            "status": "registered_path_gate",
+            "precision": "unknown",
+            "sourceStatus": "estimated",
+            "sourceRefCount": 4,
+            "description": "登録済み固定方針に紐づく計画ゲート。表示月は意思決定日ではない。"
+          },
+          {
+            "id": "business-event-3",
+            "kind": "planned_or_assumed_event",
+            "label": "追加資金調達",
+            "category": "commercial",
+            "startDate": "2029-02-12",
+            "endDate": "2029-03-12",
+            "dateRole": "month_offset_from_valuation",
+            "datePrecision": "month_offset",
+            "dateLabel": "評価日から30か月後（2029-02）",
+            "status": "registered_path_gate",
+            "precision": "unknown",
+            "sourceStatus": "estimated",
+            "sourceRefCount": 4,
+            "description": "登録済み固定方針に紐づく計画ゲート。表示月は意思決定日ではない。"
+          },
+          {
+            "id": "funding-event-1",
+            "kind": "confirmed_external_event",
+            "label": "完了済みと記録された外部制度",
+            "category": "funding_external",
+            "startDate": null,
+            "endDate": null,
+            "dateRole": "source_undated",
+            "datePrecision": "unknown",
+            "dateLabel": "日付未登録",
+            "status": "historically_closed",
+            "precision": "observed_or_documented",
+            "sourceStatus": "document_extracted",
+            "sourceRefCount": 1,
+            "occurrenceRole": "occurred",
+            "commitmentStatus": "historically_closed",
+            "availabilityStatus": "historically_occurred_current_availability_not_inferred",
+            "amountMillionJpy": null,
+            "probability": 0,
+            "description": "評価日前に発生した外部資金イベント。評価日時点の利用可能額は推定しない。"
+          },
+          {
+            "id": "funding-event-2",
+            "kind": "confirmed_external_event",
+            "label": "採択済みと記録された外部制度",
+            "category": "funding_external",
+            "startDate": null,
+            "endDate": null,
+            "dateRole": "source_undated",
+            "datePrecision": "unknown",
+            "dateLabel": "日付未登録",
+            "status": "recorded_award_disbursement_unconfirmed",
+            "precision": "observed_or_documented",
+            "sourceStatus": "document_extracted",
+            "sourceRefCount": 1,
+            "occurrenceRole": "recorded",
+            "commitmentStatus": "recorded_award_disbursement_unconfirmed",
+            "availabilityStatus": "recorded_not_available_as_unrestricted_cash",
+            "amountMillionJpy": 10,
+            "probability": 1,
+            "description": "採択・制度枠の記録。入金または自由に使える資金とは扱わない。"
+          },
+          {
+            "id": "funding-event-3",
+            "kind": "confirmed_external_event",
+            "label": "実施中と記録された外部資金制度",
+            "category": "funding_external",
+            "startDate": "2025-10-01",
+            "endDate": "2025-11-01",
+            "dateRole": "source_month",
+            "datePrecision": "month",
+            "dateLabel": "2025-10",
+            "status": "recorded_award_disbursement_unconfirmed",
+            "precision": "observed_or_documented",
+            "sourceStatus": "document_extracted",
+            "sourceRefCount": 1,
+            "occurrenceRole": "recorded",
+            "commitmentStatus": "recorded_award_disbursement_unconfirmed",
+            "availabilityStatus": "recorded_not_available_as_unrestricted_cash",
+            "amountMillionJpy": 100,
+            "probability": 1,
+            "description": "採択・制度枠の記録。入金または自由に使える資金とは扱わない。"
+          },
+          {
+            "id": "funding-liquidity-proxy-1",
+            "kind": "planned_or_assumed_event",
+            "label": "最初の資金経路喪失前の全期間資金パッケージ",
+            "category": "funding_external",
+            "startDate": "2026-11-12",
+            "endDate": "2026-12-12",
+            "dateRole": "month_offset_from_valuation",
+            "datePrecision": "month_offset",
+            "dateLabel": "評価日から3か月後（2026-11）",
+            "status": "liquidity_proxy_not_commitment",
+            "precision": "imputed_or_assumed",
+            "sourceStatus": "pre_registered_missing_evidence_prior",
+            "sourceRefCount": 1,
+            "occurrenceRole": "conditional",
+            "commitmentStatus": "proxy_not_commitment",
+            "availabilityStatus": "not_cash_receipt",
+            "amountMillionJpy": null,
+            "probability": null,
+            "description": "資金パッケージ成立性の計算用ゲート。資金調達の決定、契約、入金ではない。"
+          }
+        ]
+      },
+      {
+        "key": "external_events",
+        "label": "外部イベント",
+        "emptyMessage": "現版では独立した外部イベントは未収載",
+        "items": []
+      }
+    ]
+  },
   "groups": [
     {
       "key": "version_horizon_rules",

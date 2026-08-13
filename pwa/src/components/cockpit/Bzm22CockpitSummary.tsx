@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Tex } from "@/components/venture-map/Tex";
 import {
+  BZM22_FIXED_POLICY,
   BZM22_TOP_METRICS,
   formatMillionJpy,
   type Bzm22PilotSummary,
@@ -29,7 +30,7 @@ function Metric({
   return (
     <div className="min-w-0 border-l border-slate-200 px-3 first:border-l-0">
       <div className="flex items-baseline gap-1.5">
-        <span className="font-mono text-xl font-black text-[#173f51]">{symbol}</span>
+        <span className="text-xl font-black text-[#173f51]">{symbol}</span>
         <span className="text-[10px] font-semibold text-slate-600">{metric.title}</span>
       </div>
       <div className="mt-1 font-mono text-lg font-bold tabular-nums text-[#173f51]">{formatMetric(value.base, kind)}</div>
@@ -98,7 +99,7 @@ export function Bzm22CockpitSummary({
         <Metric symbol="S" value={pilot.summary.qStressProxy} kind="rate" />
       </div>
       <div className="border-t border-[#b9cbd1] bg-[#edf3f5] px-3 py-1.5 text-[8px] leading-4 text-[#365865]">
-        CF=月ごとの収支、TV=目標到達後の将来価値、RV=途中で止まった時の残存価値、p=各条件の通過値。Q/Sは比較用指数。
+        <span className="font-semibold"><Tex tex={BZM22_FIXED_POLICY.formula} /></span> = 登録済み固定方針（shadow・最適化なし）。CF=月ごとの収支、TV=目標到達後の将来価値、RV=途中で止まった時の残存価値、p=各条件の通過値。Q/Sは未校正の比較用指数で、Sは戦略余力全体ではない。
       </div>
     </section>
   );

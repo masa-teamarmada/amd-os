@@ -2,10 +2,19 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import {
+  BZM22_FIXED_POLICY,
   BZM22_TOP_METRICS,
   formatMillionJpy,
   type Bzm22PilotProject,
 } from "../src/lib/bzm-2-2-pilot-ui.ts";
+import {
+  BZM22_FORMULA_CATALOG,
+  BZM22_PARAMETER_CATALOG,
+  BZM22_PARAMETER_FORMULA_REFS,
+  BZM22_PARAMETER_RELATION_LABELS,
+  BZM22_PARAMETER_RELATIONS,
+  BZM22_PARAMETER_THEORY_SYMBOLS,
+} from "../src/lib/bzm-2-2-parameter-catalog.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 const artifactPath = path.join(root, "bzm/pilot/bzm-2-2-all-pj-provisional-v0-1.json");
@@ -60,6 +69,7 @@ const expectedIdName = new Map(
 );
 
 const projectionResults: Array<{ projectId: string; bytes: number }> = [];
+let referenceParameterIds: string[] | null = null;
 for (const row of manifest.projects) {
   const filePath = path.join(generatedDirectory, row.file);
   const raw = requireText(filePath);
@@ -83,6 +93,12 @@ for (const row of manifest.projects) {
   if (parameters.length !== 103 || new Set(parameters.map((parameter) => parameter.id)).size !== 103) {
     throw new Error(`${row.projectId}: expected 103 unique parameter rows`);
   }
+  const parameterIds = parameters.map((parameter) => parameter.id).sort();
+  if (referenceParameterIds === null) {
+    referenceParameterIds = parameterIds;
+  } else if (JSON.stringify(parameterIds) !== JSON.stringify(referenceParameterIds)) {
+    throw new Error(`${row.projectId}: parameter IDs differ from the 103-slot catalog contract`);
+  }
   for (const parameter of parameters) {
     for (const field of ["observedStatus", "imputed", "unit", "rule", "sourceRefs", "confidenceDriver", "usedInCalculation", "cutoff"]) {
       if (!(field in parameter)) throw new Error(`${row.projectId}/${parameter.id}: ${field} missing`);
@@ -91,8 +107,192 @@ for (const row of manifest.projects) {
       throw new Error(`${row.projectId}/${parameter.id}: L/B/H missing`);
     }
   }
+  const expectedLaneKeys = [
+    "confirmed_decisions",
+    "registered_policy",
+    "future_decisions",
+    "business_events",
+    "external_events",
+  ];
+  if (
+    !projection.timeline
+    || projection.timeline.axis.dateRole !== "shared_calendar_axis"
+    || JSON.stringify(projection.timeline.lanes.map((lane) => lane.key)) !== JSON.stringify(expectedLaneKeys)
+  ) {
+    throw new Error(`${row.projectId}: timeline must expose one shared axis and the exact five lanes`);
+  }
+  const timelineByKey = Object.fromEntries(projection.timeline.lanes.map((lane) => [lane.key, lane]));
+  const confirmed = timelineByKey.confirmed_decisions;
+  const registered = timelineByKey.registered_policy;
+  const future = timelineByKey.future_decisions;
+  const business = timelineByKey.business_events;
+  const external = timelineByKey.external_events;
+  if (
+    confirmed.items.length !== 0
+    || confirmed.emptyMessage !== "根拠付きの実行済み意思決定は未収載"
+    || registered.items.length !== 1
+    || future.items.length !== 0
+    || external.items.length !== 0
+  ) {
+    throw new Error(`${row.projectId}: decision/external timeline lanes must not fabricate items`);
+  }
+  const policy = registered.items[0];
+  if (
+    policy.kind !== "registered_current_control_shadow"
+    || policy.dateRole !== "registered_evaluation_horizon_band"
+    || policy.authorityStatus !== "unconfirmed_not_executable_recommendation"
+    || (projection.projectId === "p18"
+      ? !policy.description.includes("現在の推奨行動ではない")
+      : !policy.description.includes("shadow")
+        || !policy.description.includes("最適化結果でも権限確認済みの実行推奨でもない"))
+  ) {
+    throw new Error(`${row.projectId}: registered policy must stay a fixed non-optimized, authority-unconfirmed band`);
+  }
+  const gateCount = Array.isArray(parameters.find((parameter) => parameter.id === "transition.p_phys")?.value)
+    ? (parameters.find((parameter) => parameter.id === "transition.p_phys")?.value as unknown[]).length
+    : 0;
+  const financingCount = Array.isArray(parameters.find((parameter) => parameter.id === "action_bundle.financing_status")?.value)
+    ? (parameters.find((parameter) => parameter.id === "action_bundle.financing_status")?.value as unknown[]).length
+    : 0;
+  const fundingItemCount = business.items.filter((item) => item.id.startsWith("funding-event-")).length;
+  if (
+    business.items.filter((item) => item.id.startsWith("business-event-")).length !== Math.max(0, gateCount - (gateCount > 0 ? 1 : 0))
+    || business.items.filter((item) => item.id.startsWith("funding-liquidity-proxy-")).length !== (gateCount > 0 ? 1 : 0)
+    || (financingCount > 0 && fundingItemCount !== financingCount)
+  ) {
+    throw new Error(`${row.projectId}: timeline must preserve every registered gate and every ledger-exposed financing event`);
+  }
+  for (const item of projection.timeline.lanes.flatMap((lane) => lane.items)) {
+    if (
+      !item.label.trim()
+      || item.label.includes("_")
+      || !item.dateRole
+      || !item.datePrecision
+      || !item.status
+      || !item.precision
+      || !Number.isInteger(item.sourceRefCount)
+      || item.sourceRefCount < 0
+      || item.kind === "confirmed_decision"
+      || item.kind === "future_decision_point"
+      || (["conditional", "imputed"].includes(item.occurrenceRole ?? "") && item.kind === "confirmed_external_event")
+      || (item.occurrenceRole === "occurred" && item.kind !== "confirmed_external_event")
+    ) {
+      throw new Error(`${row.projectId}/${item.id}: timeline label/type/date/status/source count contract invalid`);
+    }
+  }
+  const timelineText = JSON.stringify(projection.timeline);
+  if (
+    timelineText.includes("sourceRefs")
+    || timelineText.includes("選択中方針")
+    || timelineText.includes("選択済み")
+  ) {
+    throw new Error(`${row.projectId}: timeline leaks raw refs or overstates selection/cash receipt`);
+  }
   if (/https?:\/\//i.test(raw) || /rawBody|messageBody|emailAddress|accessToken|refreshToken/i.test(raw)) {
     throw new Error(`${row.projectId}: projection contains forbidden raw/URL surface`);
+  }
+}
+
+if (referenceParameterIds === null) throw new Error("BZM 2.2 parameter IDs unavailable");
+const catalogIds = Object.keys(BZM22_PARAMETER_CATALOG).sort();
+const relationIds = Object.keys(BZM22_PARAMETER_RELATIONS).sort();
+const theorySymbolIds = Object.keys(BZM22_PARAMETER_THEORY_SYMBOLS).sort();
+const formulaRefIds = Object.keys(BZM22_PARAMETER_FORMULA_REFS).sort();
+const expectedCatalogSha256 = "fb43152b5ccc20f0107ae0d81ea95910d9b03df2377dd01c30b264b107009c4b";
+const expectedFormulaRefsSha256 = "bdf03782917b54cde6006cd1f153505ff0f6c938343afa08bec4febbf4f1e957";
+if (
+  catalogIds.length !== 103
+  || JSON.stringify(catalogIds) !== JSON.stringify(referenceParameterIds)
+  || JSON.stringify(relationIds) !== JSON.stringify(referenceParameterIds)
+  || JSON.stringify(theorySymbolIds) !== JSON.stringify(referenceParameterIds)
+  || JSON.stringify(formulaRefIds) !== JSON.stringify(referenceParameterIds)
+  || sha256(JSON.stringify(BZM22_PARAMETER_CATALOG)) !== expectedCatalogSha256
+  || sha256(JSON.stringify(BZM22_PARAMETER_FORMULA_REFS)) !== expectedFormulaRefsSha256
+) {
+  throw new Error("BZM 2.2 parameter catalog must keep the reviewed exact mapping for all 103 projection IDs");
+}
+for (const id of referenceParameterIds) {
+  const catalog = BZM22_PARAMETER_CATALOG[id as keyof typeof BZM22_PARAMETER_CATALOG];
+  const expectedDataName = String.raw`\mathtt{${id.replaceAll("_", String.raw`\_`)}}`;
+  if (
+    !catalog
+    || !catalog.japaneseName.trim()
+    || catalog.dataNameTex !== expectedDataName
+    || typeof catalog.symbolTex !== "string"
+    || catalog.formulaRefs.length === 0
+    || catalog.formulaRefs.some((ref) => !(ref in BZM22_FORMULA_CATALOG))
+    || !catalog.formulaConnection.trim()
+    || !catalog.roleLabel.trim()
+    || catalog.relationLabel !== BZM22_PARAMETER_RELATION_LABELS[catalog.relation]
+  ) {
+    throw new Error(`${id}: Japanese name / LaTeX data name / formula connection / role / relation mapping incomplete`);
+  }
+}
+
+const protectedEmptyTheorySymbols = [
+  "version_horizon_rules.model_id",
+  "version_horizon_rules.model_version",
+  "version_horizon_rules.valuation_date",
+  "version_horizon_rules.information_cutoff",
+  "version_horizon_rules.currency",
+  "version_horizon_rules.forward_validation_count",
+  "version_horizon_rules.initial_state_id",
+  "decision_state.state_id",
+  "action_bundle.action_id_bundle_id",
+  "action_bundle.authority",
+  "action_bundle.consents",
+  "transition.transition_id",
+  "transition.next_state_id",
+  "cashflow_ledger.cashflow_event_id",
+  "cashflow_ledger.economic_event_group_key",
+  "cashflow_ledger.owner",
+  "cashflow_ledger.counterparty",
+  "cashflow_ledger.amount_currency",
+  "cashflow_ledger.conversion_rate_date",
+  "cashflow_ledger.conversion_rate_source_ref",
+  "cashflow_ledger.conversion_rule_ref",
+  "cashflow_ledger.nominal_or_real",
+  "cashflow_ledger.price_base_date",
+  "cashflow_ledger.tax_treatment",
+  "cashflow_ledger.tax_subject_ref",
+  "cashflow_ledger.source_ref",
+  "cashflow_ledger.information_cutoff",
+  "cashflow_ledger.included_in",
+  "cashflow_ledger.perspective_attribution",
+  "cashflow_ledger.public_aggregation_input_hash",
+  "intervention.intervention_id",
+] as const;
+for (const id of protectedEmptyTheorySymbols) {
+  if (BZM22_PARAMETER_CATALOG[id].symbolTex !== "") {
+    throw new Error(`${id}: management/provenance field must not invent a theory symbol`);
+  }
+}
+
+if (
+  BZM22_PARAMETER_CATALOG["decision_state.slack_state"].symbolTex !== ""
+  || BZM22_PARAMETER_CATALOG["decision_state.slack_state"].japaneseName === "S"
+  || BZM22_PARAMETER_CATALOG["transition.p_phys"].symbolTex !== String.raw`p_i(a)`
+  || !BZM22_PARAMETER_CATALOG["transition.p_phys"].formulaConnection.includes("完全な物理遷移核P⁰ではない")
+  || BZM22_PARAMETER_CATALOG["action_bundle.C_now"].relation !== "unused"
+  || BZM22_PARAMETER_CATALOG["action_bundle.benefit_now"].relation !== "unused"
+  || BZM22_PARAMETER_CATALOG["derived_outputs.pi_d_star"].symbolTex !== String.raw`\pi_{\mathrm{reg}}=a`
+  || BZM22_PARAMETER_CATALOG["derived_outputs.q_G_pi_d_star"].symbolTex !== String.raw`Q(a)=\prod_{i\in G}p_i(a)`
+) {
+  throw new Error("BZM 2.2 protected economic/management mappings drifted");
+}
+
+const aliasPairs = [
+  ["transition.transition_cf", "cashflow_ledger.model_amount_million_jpy"],
+  ["derived_outputs.V_r_pi_d_star", "derived_outputs.J_r"],
+  ["derived_outputs.E_V_net_pi_given_G", "derived_outputs.E_V_net_given_G_a"],
+  ["derived_outputs.expected_exit_value", "derived_outputs.expected_failure_loss"],
+] as const;
+for (const [aliasId, canonicalId] of aliasPairs) {
+  if (
+    BZM22_PARAMETER_CATALOG[aliasId].relation !== "alias"
+    || BZM22_PARAMETER_CATALOG[canonicalId].relation === "alias"
+  ) {
+    throw new Error(`${aliasId}: must remain an alias of ${canonicalId}`);
   }
 }
 
@@ -127,14 +327,37 @@ requireIncludes(componentSource, [
   "<Tex tex={formula}",
   "ParameterMobileCards",
   "ParameterDesktopTable",
+  "ParameterIdentity",
+  "FormulaIndex",
+  "接続式一覧 F0–F14",
+  "catalog.dataNameTex",
+  "catalog.symbolTex ?",
+  "catalog.formulaConnection",
+  "catalog.formulaRefs.map",
+  "FormulaRelation",
+  "DecisionEventTimeline",
+  "TimelineTrack",
+  "TimelineItemMeta",
+  "選択と事業イベントの時間軸",
   "formatUnitValue",
   "formatUnitLabel",
 ], "BZM 2.2 observatory UI");
+if (componentSource.includes("parameter.usedInCalculation")) {
+  throw new Error("BZM 2.2 UI must use six-way formula relation, not usedInCalculation boolean");
+}
+if (componentSource.includes("`${symbol}(a)`")) {
+  throw new Error("BZM 2.2 primary metric heading must stay exactly J/P/Q/S");
+}
 if (
-  BZM22_TOP_METRICS.Q.title !== "基準到達指数"
+  BZM22_TOP_METRICS.J.title !== "全分岐込み現在価値"
+  || BZM22_TOP_METRICS.P.title !== "全条件通過時の現在価値"
+  || BZM22_TOP_METRICS.Q.title !== "基準到達指数"
   || BZM22_TOP_METRICS.S.title !== "逆風耐久指数"
-  || !BZM22_TOP_METRICS.J.formula.startsWith("J=")
-  || !BZM22_TOP_METRICS.P.formula.startsWith("P=")
+  || BZM22_FIXED_POLICY.formula !== String.raw`a\equiv\pi_{\mathrm{reg}}`
+  || !BZM22_TOP_METRICS.J.formula.includes(String.raw`J(\pi_{\mathrm{reg}})\equiv J(a)`)
+  || !BZM22_TOP_METRICS.P.formula.includes(String.raw`P(\pi_{\mathrm{reg}})\equiv P(a)`)
+  || BZM22_TOP_METRICS.Q.description.includes("gate積proxy")
+  || BZM22_TOP_METRICS.S.description.includes("gate積proxy")
 ) {
   throw new Error("BZM 2.2 top metric symbol/formula contract mismatch");
 }
@@ -163,6 +386,9 @@ requireIncludes(cockpitSummarySource, [
   'symbol="S"',
   "103パラメータと計算を見る",
 ], "cockpit BZM 2.2 primary summary");
+if (cockpitSummarySource.includes("`${symbol}(a)`")) {
+  throw new Error("cockpit BZM 2.2 primary metric heading must stay exactly J/P/Q/S");
+}
 const cockpitVentureSource = requireText(cockpitVenturePath);
 requireIncludes(cockpitVentureSource, [
   "Bzm22CockpitSummary",

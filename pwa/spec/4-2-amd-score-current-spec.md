@@ -275,11 +275,13 @@ SXのBZM 2.0固定方針下の計画達成診断4.15%は消さず、BZM 2.1の�
 
 このartifactのPJ別compact projectionは、read-only API `/api/project/[projectId]/bzm-2-2-pilot`を通じてPJコックピットのスコア詳細へ接続する。payloadは`{ pilot: Bzm22PilotProject }`とし、該当PJがartifact未登録ならBZM 2.2区画だけに明示的な未登録状態を返す。DB、監査JSONの正本、生成スクリプト、`sps_primary_model_registry`は書き換えない。
 
-`Bzm22ProvisionalObservatory`を`data-testid="bzm22-provisional-primary"`の最上段に置き、見出しは「BZM 2.2 暫定主表示」とする。ヘッダーに`unvalidated`、`shadow_only`、前向き検証0件、ランキング・配分・自動判断禁止を隠さず表示する。要約は低位・中央・高位scenarioの$J$「動的正味PJ価値」、$P$「成功時価値」、$Q$「基準到達指数」、$S$「逆風耐久指数」と初回経路喪失を分離する。4指標は一文字、数値、数式、肯定形の一文を同じカードへ置き、内部keyの`proxy`表記をカード名へ出さない。$Q/S$には「暫定・未校正」を常設する。直下に「全パラメータ台帳」を置く。金額表示は`¥4,010M`形式とし、百万JPY単位の値を整数へ四捨五入して表示する。artifact/APIの数値精度は変更しない。
+`Bzm22ProvisionalObservatory`を`data-testid="bzm22-provisional-primary"`の最上段に置き、見出しは「BZM 2.2 暫定主表示」とする。ヘッダーに`unvalidated`、`shadow_only`、前向き検証0件、ランキング・配分・自動判断禁止を隠さず表示する。要約は低位・中央・高位scenarioの$J$「全分岐込み現在価値」、$P$「全条件通過時の現在価値」、$Q$「基準到達指数」、$S$「逆風耐久指数」と初回経路喪失を分離する。$P_{r\mid G}^{\pi_{\mathrm{reg}}}$は登録済み現在方針を固定した全gate通過条件の割引現在価値であり、最良方針を選ぶ値ではない。$J_r^{\pi_{\mathrm{reg}}}$は同じ方針の継続、全gate通過、各gate失敗を重みづけした割引現在価値である。4指標は一文字、数値、数式、肯定形の一文を同じカードへ置き、内部keyの`proxy`表記をカード名へ出さない。$Q/S$には「暫定・未校正」を常設する。直下に「全パラメータ台帳」を置く。金額表示は`¥4,010M`形式とし、百万JPY単位の値を整数へ四捨五入して表示する。artifact/APIの数値精度は変更しない。
+
+四指標と式の下、全パラメータ台帳の前に「選択とイベントの時間軸」を置く。同じ横軸へ、確認済み意思決定、登録済み現在方針、将来判断点、事業・技術・資金イベント、外部イベントの5レーンを分ける。現在のartifactは根拠付き意思決定履歴と明示的な将来判断点を収載していないため、両レーンは空状態を正直に表示する。登録済み現在方針は評価基準日からの帯とし、`shadow_only / fixed_not_argmax / authority_unverified`を常設する。gate月から意思決定を生成せず、条件付き資金を着金または確約として表示しない。gate、資金、設備、顧客、外部イベントは証拠地位と日付精度を文字で示し、登録された因果関係がない項目同士を矢印で結ばない。desktopは共通横軸のswimlane、mobileは同じレーン順の縦カードへ再配置する。タイムラインはread-onlyとし、承認、実行、外部送信、自動推薦を起動しない。
 
 進捗管理タブを含む`CockpitVentureStatus`の主スコアは`Bzm22CockpitSummary`へ切り替え、同じ$J/P/Q/S$と数式を表示する。summary取得は既存member-only APIへ`?view=summary`を付け、103項目を初期表示へ同梱しない。従来SPSの折れ線とM/P/R/Sカードは初期閉じの「旧SPS履歴」トグル内に編集・参照用として残し、BZM 2.2の時系列に見せない。XRLはトグル外で常時表示する。
 
-全パラメータ台帳は7群の103項目を全件収載し、各行のkey、値、推定状態、確度、根拠・注記、scenario別入力を監査可能にする。群は折りたためるが、検索・表示条件を初期状態へ戻せば全103項目へ到達でき、「全て開く」で同時展開できる。構造化値は形・hash・previewで圧縮しても行を間引かない。desktopは高密度表、mobileは各行のlabel/valueを縦再配置し、ページ全体の水平スクロールを発生させない。
+全パラメータ台帳は7群の103項目を全件収載し、各行へ日本語名、`\mathtt{section.key}`形式のLaTeXデータ名、理論記号または`—`、参照式、数式上の関係、平易な説明、内部key、値、推定状態、確度、根拠・注記、scenario別入力を出す。モデルID、日付、通貨、各種ID、根拠資料、hash、権限、同意などに理論変数を発明しない。数式上の関係は、直接入力、間接生成、実行条件、整合検査、派生出力、現版未使用、同じ元データの別名へ正規化し、artifactの`usedInCalculation` booleanを代数的な使用判定に流用しない。群は折りたためるが、検索・表示条件を初期状態へ戻せば全103項目へ到達でき、「全て開く」で同時展開できる。構造化値は形・hash・previewで圧縮しても行を間引かない。desktopは高密度表、mobileは各行のlabel/valueを縦再配置し、ページ全体の水平スクロールを発生させない。
 
 `npm run check:bzm-2-2-all-pj-pilot`は、12 PJ×103パラメータ、型、由来、scenario別計算入力、cash cliff、禁止用途とartifact整合を検査する。
 
@@ -366,9 +368,9 @@ FRL は XRL に飲み込まない。AMD Studio の哲学上、FRL と `sigma_SU`
 | `pwa/src/lib/bzm-2-observatory-data.ts` | BZM 2.0観測台帳のserver-side read。取得不能時は欠測payloadを返す |
 | `pwa/src/components/cockpit/Bzm2ModelObservatory.tsx` | LaTeX数式、現在値、共通状態の影響先、初期折りたたみのq版推移、圧縮表のパラメータ台帳と行内履歴を表示 |
 | `pwa/src/lib/bzm-2-2-pilot-ui.ts` / `bzm-2-2-pilot-ui.server.ts` | PJ別compact projectionの型と、12 PJの静的import map・schema/projectId/103件検査を持つread-only server loader |
-| `pwa/src/generated/bzm-2-2-pilot/*.json` | 巨大artifactから生成したPJ別runtime projection。要約と7群103パラメータを保持する |
+| `pwa/src/generated/bzm-2-2-pilot/*.json` | 巨大artifactから生成したPJ別runtime projection。要約、選択・イベント時間軸、7群103パラメータを保持する |
 | `pwa/src/app/api/project/[projectId]/bzm-2-2-pilot/route.ts` | PJ membershipを検査し、`{ pilot: Bzm22PilotProject }`をprivate/no-storeで返す。DB writeは行わない |
-| `pwa/src/components/cockpit/Bzm22ProvisionalObservatory.tsx` | BZM 2.2暫定主表示、用途禁止、scenario要約、103項目の全パラメータ台帳を表示する |
+| `pwa/src/components/cockpit/Bzm22ProvisionalObservatory.tsx` | BZM 2.2暫定主表示、用途禁止、scenario要約、選択・イベント時間軸、103項目の全パラメータ台帳を表示する |
 | `pwa/src/lib/bzm-2-1-dynamic-policy.ts` | 単一意思決定主体の固定方針評価と閉じた行動集合内の選択、同じ方針の三視点再評価を行う純粋計算エンジン |
 | `pwa/src/lib/bzm-2-1-policy-model.ts` | BZM 2.1の追記台帳を画面用の版・状態・行動・遷移・方針評価へ組み立てる純粋契約 |
 | `pwa/src/lib/bzm-2-1-policy-model-data.ts` | BZM 2.1台帳のserver-side read。取得不能時はBZM 2.1だけを欠測payloadにする |
