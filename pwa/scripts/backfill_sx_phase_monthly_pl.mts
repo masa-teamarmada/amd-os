@@ -47,12 +47,15 @@ function annual() {
   const rows: Row[] = [];
   for (const plan of SX_ANNUAL_PROJECTION.filter((item) => item.fiscalYear >= 2027 && item.fiscalYear <= 2031)) {
     const personnelProfile = profile(80, plan.fiscalYear).map((value, index) => value + profile(81, plan.fiscalYear)[index]);
-    const values: Record<Field, number[]> = { revenue_yen: distribute(plan.revenueYen, profile(11, plan.fiscalYear)), cogs_yen: distribute(plan.costOfSalesYen, profile(38, plan.fiscalYear)), personnel_yen: distribute(plan.executiveCompensationYen + plan.salariesAndBonusesYen, personnelProfile), rd_yen: distribute(plan.researchAndDevelopmentYen, profile(84, plan.fiscalYear)), marketing_yen: Array.from({ length: 12 }, () => 0), other_opex_yen: distribute(plan.sellingGeneralAdministrativeYen, profile(85, plan.fiscalYear)) };
-    months(`${plan.fiscalYear}-04`, `${plan.fiscalYear + 1}-03`).forEach((ym, index) => rows.push({ project_id: PROJECT_ID, ym, revenue_yen: values.revenue_yen[index], cogs_yen: values.cogs_yen[index], personnel_yen: values.personnel_yen[index], rd_yen: values.rd_yen[index], marketing_yen: values.marketing_yen[index], other_opex_yen: values.other_opex_yen[index], notes: `${SOURCE_TAG}; 計画値/推定値; Cockpit年次PL FY${plan.fiscalYear}を金額正本、SX_月次試算表_v1.0_260331.xlsxを月別発生タイミングだけの配賦キーに使用。資本調達・補助金cash・CAPEXはPL売上に非算入。` }));
+    const rdProfile = profile(84, plan.fiscalYear);
+    const rdUsesEvenAllocation = rdProfile.every((value) => value <= 0);
+    const values: Record<Field, number[]> = { revenue_yen: distribute(plan.revenueYen, profile(11, plan.fiscalYear)), cogs_yen: distribute(plan.costOfSalesYen, profile(38, plan.fiscalYear)), personnel_yen: distribute(plan.executiveCompensationYen + plan.salariesAndBonusesYen, personnelProfile), rd_yen: distribute(plan.researchAndDevelopmentYen, rdProfile), marketing_yen: Array.from({ length: 12 }, () => 0), other_opex_yen: distribute(plan.sellingGeneralAdministrativeYen, profile(85, plan.fiscalYear)) };
+    const precisionNote = rdUsesEvenAllocation ? " 研究開発費は旧表に月別基準がないため12か月均等按分（低精度）。" : "";
+    months(`${plan.fiscalYear}-04`, `${plan.fiscalYear + 1}-03`).forEach((ym, index) => rows.push({ project_id: PROJECT_ID, ym, revenue_yen: values.revenue_yen[index], cogs_yen: values.cogs_yen[index], personnel_yen: values.personnel_yen[index], rd_yen: values.rd_yen[index], marketing_yen: values.marketing_yen[index], other_opex_yen: values.other_opex_yen[index], notes: `${SOURCE_TAG}; 計画値/推定値; Cockpit年次PL FY${plan.fiscalYear}を金額正本、SX_月次試算表_v1.0_260331.xlsxを月別発生タイミングだけの配賦キーに使用。資本調達・補助金cash・CAPEXはPL売上に非算入。${precisionNote}` }));
   }
   return rows;
 }
-function same(left: Row[], right: Row[]) { return JSON.stringify(left.map(({ notes, ...row }) => row)) === JSON.stringify(right.map(({ notes, ...row }) => row)); }
+function same(left: Row[], right: Row[]) { return JSON.stringify(left) === JSON.stringify(right); }
 function assertAnnualTieOut(rows: Row[]) {
   for (const plan of SX_ANNUAL_PROJECTION.filter((item) => item.fiscalYear >= 2027 && item.fiscalYear <= 2031)) {
     const period = rows.filter((row) => row.ym >= `${plan.fiscalYear}-04` && row.ym <= `${plan.fiscalYear + 1}-03`);
