@@ -36,7 +36,6 @@ import { CockpitNarrativeModal } from "./CockpitNarrativeModal";
 import { CockpitMembersModal } from "./CockpitMembersModal";
 // 2026-05-11 まさ指摘 1 番: 旧 CockpitFoundingMembersModal を CockpitMembersModal に統合済、import 削除
 import { CockpitPartnersModal } from "./CockpitPartnersModal";
-import { CockpitPlMonthlyModal } from "./CockpitPlMonthlyModal";
 import { CockpitDescriptionDetailModal } from "./CockpitDescriptionDetailModal";
 import { CockpitAmdScoreBreakdownModal } from "./CockpitAmdScoreBreakdownModal";
 import { CockpitXrlDetailModal } from "./CockpitXrlDetailModal";
@@ -161,7 +160,6 @@ export function CockpitVentureStatus({
   const [membersOpen, setMembersOpen] = useState(false);
   // 2026-05-11 まさ指摘 1 番: foundingMembersOpen state を削除 (= CockpitMembersModal に統合)
   const [partnersOpen, setPartnersOpen] = useState(false);
-  const [plOpen, setPlOpen] = useState(false);
   const [descOpen, setDescOpen] = useState(false);
   const [scoreBreakdownOpen, setScoreBreakdownOpen] = useState(false);
   const [legacyScoreHistoryProjectId, setLegacyScoreHistoryProjectId] = useState<string | null>(null);
@@ -477,14 +475,7 @@ export function CockpitVentureStatus({
         >
           🤝 事業会社
         </button>
-        <button
-          onClick={() => setPlOpen(true)}
-          className="text-[11px] px-2 py-0.5 rounded-full border border-[#e5e5e7] hover:bg-[#fafafa]"
-          title="月次試算表"
-        >
-          📊 試算表
-        </button>
-        {/* 2026-05-11 まさ指摘 3 番: 試算表の後に小さく書いてた「AMD: xxx ▾」タブを削除。
+        {/* 2026-05-11 まさ指摘 3 番: 小さく書いてた「AMD: xxx ▾」タブを削除。
             代わりに「Chart 1: AMD スコア」グラフ内の現在地点プロットの上に大きいフォントで表示する。
             グラフ未評価の PJ には未評価リンクをそのままここに残す。 */}
         {latestScore == null && (
@@ -1009,10 +1000,6 @@ export function CockpitVentureStatus({
 
       {partnersOpen && (
         <CockpitPartnersModal projectId={projectId} onClose={() => setPartnersOpen(false)} />
-      )}
-
-      {plOpen && (
-        <CockpitPlMonthlyModal projectId={projectId} onClose={() => setPlOpen(false)} />
       )}
 
       {descOpen && venture && (

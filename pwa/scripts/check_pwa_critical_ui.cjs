@@ -1897,6 +1897,7 @@ expectIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   "実行可能性と経営判断",
   "条件判定月を試す",
   "時期変更後 J",
+  "Bzm22TimeLedger",
 ]);
 expectNotIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   "BZM 2.2 暫定主表示",
@@ -1923,6 +1924,28 @@ expectIncludes("src/components/cockpit/CockpitVentureStatus.tsx", [
   "SPS履歴（旧モデル）",
   "旧SPS履歴を開く",
   "legacyScoreHistoryOpen",
+]);
+expectNotIncludes("src/components/cockpit/CockpitVentureStatus.tsx", [
+  "CockpitPlMonthlyModal",
+  "📊 試算表",
+  "setPlOpen",
+]);
+expectNotIncludes("src/components/hud/HudCockpitVentureStatus.tsx", [
+  "CockpitPlMonthlyModal",
+  "📊 試算表",
+  "setPlOpen",
+]);
+expectIncludes("src/components/cockpit/Bzm22TimeLedger.tsx", [
+  'data-testid="bzm22-time-ledger"',
+  'data-testid="bzm22-shared-month-scroll"',
+  "イベントと月次試算",
+  "事業価値の時間軸",
+  "月次試算表",
+  "BZM経済CF",
+  "buildBzm22SharedMonthAxis",
+  "fetchPlMonthly",
+  "upsertPlMonthly",
+  "CockpitPlHearingModal",
 ]);
 expectIncludes("src/lib/bzm-2-2-pilot-ui.server.ts", [
   "PILOT_LOADERS",

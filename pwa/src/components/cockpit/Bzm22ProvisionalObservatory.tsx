@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { Tex } from "@/components/venture-map/Tex";
+import { Bzm22TimeLedger } from "./Bzm22TimeLedger";
 import {
   BZM22_FORMULA_SYMBOLS,
   BZM22_FIXED_POLICY,
@@ -10,15 +11,12 @@ import {
   buildBzm22FormulaTrace,
   calculateBzm22TimingOnlyJ,
   formatMillionJpy,
-  type Bzm22CalculationGate,
   type Bzm22PilotApiPayload,
   type Bzm22PilotParameter,
   type Bzm22PilotParameterGroup,
   type Bzm22PilotProject,
-  type Bzm22PilotTimeline,
   type Bzm22Scenario,
   type Bzm22SimulationPolicyOption,
-  type Bzm22TimelineItem,
 } from "@/lib/bzm-2-2-pilot-ui";
 import {
   BZM22_FORMULA_CATALOG,
@@ -433,31 +431,21 @@ function AlgebraInputs({ pilot, scenario }: { pilot: Bzm22PilotProject; scenario
   </div>;
 }
 
-const TIMELINE_CATEGORY: Record<Bzm22TimelineItem["category"], string> = { registered_policy: "登録方針", technical: "技術", facility: "設備・量産", commercial: "事業・商流", funding_external: "資金" };
-
-function TimelineItemMeta({ item, gate }: { item: Bzm22TimelineItem; gate?: Bzm22CalculationGate }) {
-  return <div className="px-2 py-2"><div className="flex flex-wrap items-center gap-1"><span className="text-[9px] font-semibold text-[#173f51]">{item.label}</span><span className="border border-slate-200 bg-white px-1 py-0.5 text-[7px] text-slate-500">{TIMELINE_CATEGORY[item.category]}</span></div><div className="mt-1 border-l-2 border-[#5f9a8d] pl-2 text-[8px] font-semibold text-[#205f52]">{item.choiceLabel}</div><div className="mt-1 text-[8px] text-slate-500">{item.dateLabel}</div>{gate ? <div className="mt-1 grid grid-cols-3 gap-1 text-[8px] text-slate-600"><span>pᵢ {formatRate(gate.probabilities.base)}</span><span>累積生存 {formatRate(gate.cumulativeSurvival.base)}</span><span>停止分岐 {formatRate(gate.failureBranchWeight.base)}</span><span className="col-span-3">停止時価値 {formatMillionJpy(gate.signedFailureSettlementMillionJpy.base)}</span></div> : null}</div>;
-}
-
-function TimelineTrack({ item, timeline }: { item: Bzm22TimelineItem; timeline: Bzm22PilotTimeline }) {
-  const start = Date.parse(timeline.axis.startDate); const end = Date.parse(timeline.axis.endDate); const point = Date.parse(item.startDate ?? timeline.axis.startDate); const widthEnd = Date.parse(item.endDate ?? item.startDate ?? timeline.axis.startDate);
-  const left = end > start ? Math.max(0, Math.min(100, ((point - start) / (end - start)) * 100)) : 0; const width = end > start ? Math.max(1.5, ((widthEnd - point) / (end - start)) * 100) : 1.5;
-  return <div className="relative h-8 border-x border-slate-200 bg-slate-50"><div className="absolute top-2 h-3 border border-[#77a99c] bg-[#dcebed]" style={{ left: `${left}%`, width: `${Math.min(100 - left, width)}%` }} /></div>;
-}
-
-function DecisionEventTimeline({ pilot }: { pilot: Bzm22PilotProject }) {
-  const timeline = pilot.timeline;
-  return <section data-testid="bzm22-decision-event-timeline" className="border-b border-[#b9cbd1] bg-white"><header className="border-b border-slate-200 px-3 py-2 sm:px-4"><h3 className="text-[11px] font-semibold text-[#173f51]">選択と事業イベントの時間軸</h3><p className="mt-0.5 text-[8px] text-slate-500">意思決定、評価に用いた登録方針、計画イベントを区別。イベント発生日を意思決定日へ読み替えない。</p></header><div className="hidden lg:block">{timeline.lanes.map((lane) => <div key={lane.key} className="border-b border-slate-200"><div className="bg-slate-50 px-2 py-1 text-[8px] font-semibold text-[#365865]">{lane.label}</div>{lane.items.length ? lane.items.map((item) => { const gate = pilot.calculationTrace.inputs.gates.find((row) => row.label === item.label); return <div key={item.id} className="grid grid-cols-[280px_1fr] border-t border-slate-100"><TimelineItemMeta item={item} gate={gate} /><TimelineTrack item={item} timeline={timeline} /></div>; }) : <div className="px-2 py-2 text-[8px] text-slate-400">{lane.emptyMessage}</div>}</div>)}</div><div className="divide-y divide-slate-200 lg:hidden">{timeline.lanes.map((lane) => <div key={lane.key} className="px-3 py-2"><div className="text-[9px] font-semibold text-[#365865]">{lane.label}</div>{lane.items.length ? lane.items.map((item) => <div key={item.id} className="mt-1 border border-slate-200"><TimelineItemMeta item={item} gate={pilot.calculationTrace.inputs.gates.find((row) => row.label === item.label)} /></div>) : <div className="mt-1 text-[8px] text-slate-400">{lane.emptyMessage}</div>}</div>)}</div></section>;
-}
-
 function SimulationMetric({ option }: { option: Bzm22SimulationPolicyOption }) {
   return <div className="grid grid-cols-4 gap-px bg-slate-200">{(["J", "P", "Q", "S"] as const).map((key) => { const metric = option.metrics[key]; const value = metric.values?.base ?? null; return <div key={key} className="bg-white p-2"><div className="text-[10px] font-bold text-[#173f51]">{key}</div><div className="mt-1 text-[10px] font-semibold">{metric.status === "precomputed" ? (key === "Q" || key === "S" ? formatRate(value) : formatMillionJpy(value as number)) : metric.status === "not_applicable_historical_terminal" ? "対象外" : "計算結果なし"}</div></div>; })}</div>;
 }
 
-function BrowserSimulator({ pilot }: { pilot: Bzm22PilotProject }) {
+function BrowserSimulator({
+  pilot,
+  gateMonths,
+  setGateMonths,
+}: {
+  pilot: Bzm22PilotProject;
+  gateMonths: Record<string, number>;
+  setGateMonths: Dispatch<SetStateAction<Record<string, number>>>;
+}) {
   const simulation = pilot.simulation;
   const [policyId, setPolicyId] = useState(simulation.currentPolicyId);
-  const [gateMonths, setGateMonths] = useState<Record<string, number>>(() => Object.fromEntries(pilot.calculationTrace.inputs.gates.map((gate) => [gate.id, gate.month])));
   const selected = simulation.policyOptions.find((option) => option.id === policyId) ?? simulation.policyOptions[0];
   const timingResult = useMemo(
     () => calculateBzm22TimingOnlyJ(pilot.calculationTrace, gateMonths, "base"),
@@ -514,7 +502,9 @@ function CalculationConditions({ pilot }: { pilot: Bzm22PilotProject }) {
 }
 
 function PilotPanel({ pilot }: { pilot: Bzm22PilotProject }) {
-  return <section data-testid="bzm22-provisional-primary" aria-labelledby="bzm22-title" className="min-w-0 overflow-hidden border border-[#7898a5] bg-[#f6f8f8]"><header className="border-b border-[#365865] bg-[#162f3a] px-3 py-3 text-white sm:px-4"><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 id="bzm22-title" className="text-[15px] font-semibold">BZM 2.2</h2><p className="mt-1 text-[10px] text-slate-200">{pilot.projectName}の事業価値と、条件を通り切る強さを式から確認する。</p></div><div className="text-right text-[8px] text-slate-300">価値基準日 {formatDate(pilot.valuationDate)}</div></div></header><div className="grid gap-px border-b border-[#b9cbd1] bg-[#c9d5d9] sm:grid-cols-2 xl:grid-cols-4"><ScenarioMetric symbol="J" value={pilot.summary.jValueMillionJpy} kind="million" /><ScenarioMetric symbol="P" value={pilot.summary.conditionalSuccessValueMillionJpy} kind="million" /><ScenarioMetric symbol="Q" value={pilot.summary.qGateProductProxy} kind="probability" /><ScenarioMetric symbol="S" value={pilot.summary.qStressProxy} kind="probability" /></div><CalculationConditions pilot={pilot} /><CalculationTrace pilot={pilot} /><BrowserSimulator key={pilot.projectId} pilot={pilot} /><DecisionEventTimeline pilot={pilot} /><ParameterLedger groups={pilot.groups} projectId={pilot.projectId} /></section>;
+  const [gateMonths, setGateMonths] = useState<Record<string, number>>(() =>
+    Object.fromEntries(pilot.calculationTrace.inputs.gates.map((gate) => [gate.id, gate.month])));
+  return <section data-testid="bzm22-provisional-primary" aria-labelledby="bzm22-title" className="min-w-0 overflow-hidden border border-[#7898a5] bg-[#f6f8f8]"><header className="border-b border-[#365865] bg-[#162f3a] px-3 py-3 text-white sm:px-4"><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 id="bzm22-title" className="text-[15px] font-semibold">BZM 2.2</h2><p className="mt-1 text-[10px] text-slate-200">{pilot.projectName}の事業価値と、条件を通り切る強さを式から確認する。</p></div><div className="text-right text-[8px] text-slate-300">価値基準日 {formatDate(pilot.valuationDate)}</div></div></header><div className="grid gap-px border-b border-[#b9cbd1] bg-[#c9d5d9] sm:grid-cols-2 xl:grid-cols-4"><ScenarioMetric symbol="J" value={pilot.summary.jValueMillionJpy} kind="million" /><ScenarioMetric symbol="P" value={pilot.summary.conditionalSuccessValueMillionJpy} kind="million" /><ScenarioMetric symbol="Q" value={pilot.summary.qGateProductProxy} kind="probability" /><ScenarioMetric symbol="S" value={pilot.summary.qStressProxy} kind="probability" /></div><CalculationConditions pilot={pilot} /><CalculationTrace pilot={pilot} /><BrowserSimulator pilot={pilot} gateMonths={gateMonths} setGateMonths={setGateMonths} /><Bzm22TimeLedger pilot={pilot} gateMonths={gateMonths} /><ParameterLedger groups={pilot.groups} projectId={pilot.projectId} /></section>;
 }
 
 export function Bzm22ProvisionalObservatory({ projectId, active = true }: { projectId: string; active?: boolean }) {

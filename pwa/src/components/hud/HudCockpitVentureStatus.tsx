@@ -42,7 +42,6 @@ import { CockpitNarrativeModal } from "../cockpit/CockpitNarrativeModal";
 import { CockpitMembersModal } from "../cockpit/CockpitMembersModal";
 // 2026-05-11 まさ指摘 1 番: 旧 CockpitFoundingMembersModal を CockpitMembersModal に統合済、import 削除
 import { CockpitPartnersModal } from "../cockpit/CockpitPartnersModal";
-import { CockpitPlMonthlyModal } from "../cockpit/CockpitPlMonthlyModal";
 import { CockpitDescriptionDetailModal } from "../cockpit/CockpitDescriptionDetailModal";
 import { CockpitAmdScoreBreakdownModal } from "../cockpit/CockpitAmdScoreBreakdownModal";
 import { CockpitXrlDetailModal } from "../cockpit/CockpitXrlDetailModal";
@@ -154,7 +153,6 @@ export function HudCockpitVentureStatus({ projectId, projectName }: { projectId:
   const [membersOpen, setMembersOpen] = useState(false);
   // 2026-05-11 まさ指摘 1 番: foundingMembersOpen state を削除 (= CockpitMembersModal に統合)
   const [partnersOpen, setPartnersOpen] = useState(false);
-  const [plOpen, setPlOpen] = useState(false);
   const [descOpen, setDescOpen] = useState(false);
   const [scoreBreakdownOpen, setScoreBreakdownOpen] = useState(false);
   const [pendingXrl, setPendingXrl] = useState<ProjectXrlRow | null>(null);
@@ -422,14 +420,7 @@ export function HudCockpitVentureStatus({ projectId, projectName }: { projectId:
         >
           🤝 事業会社
         </button>
-        <button
-          onClick={() => setPlOpen(true)}
-          className="border border-cyan-300/24 bg-cyan-300/8 px-2 py-0.5 text-[11px] text-cyan-100 hover:bg-cyan-300/14"
-          title="月次試算表"
-        >
-          📊 試算表
-        </button>
-        {/* 2026-05-11 まさ指摘 3 番: 試算表の後に小さく書いてた「AMD: xxx ▾」タブを削除。
+        {/* 2026-05-11 まさ指摘 3 番: 小さく書いてた「AMD: xxx ▾」タブを削除。
             代わりに「Chart 1: AMD スコア」グラフ内の現在地点プロットの上に大きいフォントで表示する。
             グラフ未評価の PJ には未評価リンクをそのままここに残す。 */}
         {latestScore == null && (
@@ -904,10 +895,6 @@ export function HudCockpitVentureStatus({ projectId, projectName }: { projectId:
 
       {partnersOpen && (
         <CockpitPartnersModal projectId={projectId} onClose={() => setPartnersOpen(false)} />
-      )}
-
-      {plOpen && (
-        <CockpitPlMonthlyModal projectId={projectId} onClose={() => setPlOpen(false)} />
       )}
 
       {descOpen && venture && (

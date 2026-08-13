@@ -197,8 +197,8 @@ MSは報酬配分の最小単位でもある。`milestone_responsibility.share` 
 | CockpitMembersModal              | 👥 メンバー                              | project_venture_members 編集 (member_kind: amd_internal / su_internal / support_org) |
 | CockpitFoundingMembersModal      | 🧑‍🤝‍🧑 関連メンバー                         | project_founding_members 表示。**関連メンバー (HRL評価のベース)** として運用。対象は `category in ('amd','startup','university')` (= AMD伴走 / 該当SU 社員・創業候補 / 大学キーパーソン)。VC / 顧客 / 行政 / 産業パートナーは HRL根拠外として `status='invalid'` 化する。AMDメンバーは `members.code_name` で記録 (フルネーム / 姓のみ表記は重複として invalid)。つくよみ修正依頼UIから追加・修正・invalid化を依頼できる。HRL 簡易推定 (ルールベース 0-9、`amd`+`startup`+`university` で算出) を末尾表示。詳細は [`xrl_evidence.md`](xrl_evidence.md) / [`../manual/4-4-frl-related-members-score-spec.md`](../manual/4-4-frl-related-members-score-spec.md) |
 | CockpitPartnersModal             | 🤝 事業会社                              | project_partners (collab / customer)                                 |
-| CockpitPlMonthlyModal            | 📊 試算表                                | project_pl_monthly 縦横ピボット表示 + 直接入力                       |
-| CockpitPlHearingModal            | 試算表内「✨ つくよみとヒアリング」      | Sonnet が質問→回答→月次 PL 36ヶ月生成 → upsert                       |
+| Bzm22TimeLedger                  | スコア詳細「イベントと月次試算」         | BZM 2.2の一本の月軸にイベントとproject_pl_monthly縦横表を揃え、直接入力する |
+| CockpitPlHearingModal            | イベントと月次試算内「つくよみと試算を作る」 | Sonnet が質問→回答→月次 PL 36ヶ月生成 → upsert                    |
 | CockpitDescriptionDetailModal    | short_description タップ                 | long_description 編集 + 自由文追記 + Sonnet マージ                   |
 | CockpitNarrativeModal            | 📜 沿革                                  | リスト形式 (年月+一行+詳細)、行 ✏ で修正依頼                          |
 | CockpitNarrativeFeedbackModal    | 沿革モーダル内 ✏                         | フィードバック → 即時 Gemini 再生成 + Sonnet lesson 抽出             |

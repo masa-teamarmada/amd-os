@@ -5,9 +5,11 @@ import {
   BZM22_FORMULA_SYMBOLS,
   BZM22_FIXED_POLICY,
   BZM22_TOP_METRICS,
+  buildBzm22SharedMonthAxis,
   buildBzm22FormulaTrace,
   calculateBzm22TimingOnlyJ,
   formatMillionJpy,
+  locateBzm22TimelineItemMonth,
   type Bzm22PilotProject,
 } from "../src/lib/bzm-2-2-pilot-ui.ts";
 import {
@@ -26,9 +28,11 @@ const manifestPath = path.join(generatedDirectory, "manifest.json");
 const apiPath = path.join(root, "src/app/api/project/[projectId]/bzm-2-2-pilot/route.ts");
 const loaderPath = path.join(root, "src/lib/bzm-2-2-pilot-ui.server.ts");
 const componentPath = path.join(root, "src/components/cockpit/Bzm22ProvisionalObservatory.tsx");
+const timeLedgerPath = path.join(root, "src/components/cockpit/Bzm22TimeLedger.tsx");
 const scoreDetailPath = path.join(root, "src/components/cockpit/CockpitAmdScoreDetailTab.tsx");
 const cockpitSummaryPath = path.join(root, "src/components/cockpit/Bzm22CockpitSummary.tsx");
 const cockpitVenturePath = path.join(root, "src/components/cockpit/CockpitVentureStatus.tsx");
+const hudVenturePath = path.join(root, "src/components/hud/HudCockpitVentureStatus.tsx");
 
 const sha256 = (value: string | Buffer) =>
   crypto.createHash("sha256").update(value).digest("hex");
@@ -226,6 +230,21 @@ for (const row of manifest.projects) {
     || trace.inputs.cashFlow.monthlyEconomicCFMillionJpy.base.length !== trace.inputs.horizonMonths
   ) {
     throw new Error(`${row.projectId}: calculation trace input/identity contract invalid`);
+  }
+  const sharedMonthAxis = buildBzm22SharedMonthAxis(projection.valuationDate, trace.inputs.horizonMonths);
+  if (
+    sharedMonthAxis.length !== trace.inputs.horizonMonths + 1
+    || sharedMonthAxis[0].month !== 0
+    || sharedMonthAxis[0].ym !== projection.valuationDate.slice(0, 7)
+    || sharedMonthAxis.at(-1)?.month !== trace.inputs.horizonMonths
+  ) {
+    throw new Error(`${row.projectId}: shared event/P&L month axis contract invalid`);
+  }
+  for (const gate of trace.inputs.gates) {
+    const timelineItem = business.items.find((item) => item.label === gate.label);
+    if (!timelineItem || locateBzm22TimelineItemMonth(timelineItem, sharedMonthAxis) !== gate.month) {
+      throw new Error(`${row.projectId}/${gate.id}: gate event must align with the same month column as the calculation trace`);
+    }
   }
   for (const scenario of ["low", "base", "high"] as const) {
     const output = trace.outputs[scenario];
@@ -426,10 +445,7 @@ requireIncludes(componentSource, [
   "catalog.formulaConnection",
   "catalog.formulaRefs.map",
   "FormulaRelation",
-  "DecisionEventTimeline",
-  "TimelineTrack",
-  "TimelineItemMeta",
-  "選択と事業イベントの時間軸",
+  "Bzm22TimeLedger",
   "評価日固定の方針比較",
   "元の前提に戻す",
   "この項目を表す記号",
@@ -457,6 +473,26 @@ requireIncludes(componentSource, [
   "条件判定月を試す",
   "時期変更後 J",
 ], "BZM 2.2 observatory UI");
+
+const timeLedgerSource = requireText(timeLedgerPath);
+requireIncludes(timeLedgerSource, [
+  'data-testid="bzm22-time-ledger"',
+  'data-testid="bzm22-shared-month-scroll"',
+  "buildBzm22SharedMonthAxis",
+  "イベントと月次試算",
+  "事業価値の時間軸",
+  "月次試算表",
+  "BZM経済CF",
+  "上のイベントと下の月次数字は、同じ月の列で揃っている。",
+  "fetchPlMonthly",
+  "upsertPlMonthly",
+  "deletePlMonthly",
+  "CockpitPlHearingModal",
+  "gateMonths",
+], "BZM 2.2 shared event/monthly ledger");
+if (timeLedgerSource.includes("百万円")) {
+  throw new Error("BZM 2.2 shared event/monthly ledger must use ¥M display");
+}
 for (const forbidden of [
   "BZM 2.2 暫定主表示",
   "未検証・低精度",
@@ -525,6 +561,13 @@ requireIncludes(cockpitVentureSource, [
   "旧SPS履歴を開く",
   "legacyScoreHistoryOpen",
 ], "cockpit BZM 2.2 primary ordering");
+if (cockpitVentureSource.includes("CockpitPlMonthlyModal") || cockpitVentureSource.includes("📊 試算表")) {
+  throw new Error("cockpit header must not keep the detached monthly P&L button/modal");
+}
+const hudVentureSource = requireText(hudVenturePath);
+if (hudVentureSource.includes("CockpitPlMonthlyModal") || hudVentureSource.includes("📊 試算表")) {
+  throw new Error("HUD cockpit header must not keep the detached monthly P&L button/modal");
+}
 
 const scoreDetailSource = requireText(scoreDetailPath);
 requireIncludes(scoreDetailSource, [

@@ -117,6 +117,54 @@ export interface Bzm22PilotTimeline {
   lanes: Bzm22TimelineLane[];
 }
 
+export interface Bzm22SharedMonthAxisCell {
+  month: number;
+  ym: string;
+  year: number;
+  calendarMonth: number;
+}
+
+function parseYearMonth(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})/);
+  if (!match) throw new Error(`BZM 2.2 month axis requires an ISO date: ${value}`);
+  return { year: Number(match[1]), monthIndex: Number(match[2]) - 1 };
+}
+
+/**
+ * 評価月を M0、経済計算の各月を M1..MH とする共通時間軸。
+ * イベントと project_pl_monthly を同じ calendar month 列へ置くための唯一の変換に使う。
+ */
+export function buildBzm22SharedMonthAxis(
+  valuationDate: string,
+  horizonMonths: number,
+): Bzm22SharedMonthAxisCell[] {
+  if (!Number.isInteger(horizonMonths) || horizonMonths <= 0) {
+    throw new Error("BZM 2.2 shared month axis requires a positive integer horizon");
+  }
+  const start = parseYearMonth(valuationDate);
+  return Array.from({ length: horizonMonths + 1 }, (_, month) => {
+    const absoluteMonth = start.year * 12 + start.monthIndex + month;
+    const year = Math.floor(absoluteMonth / 12);
+    const calendarMonth = (absoluteMonth % 12) + 1;
+    return {
+      month,
+      ym: `${year}-${String(calendarMonth).padStart(2, "0")}`,
+      year,
+      calendarMonth,
+    };
+  });
+}
+
+export function locateBzm22TimelineItemMonth(
+  item: Pick<Bzm22TimelineItem, "startDate">,
+  axis: readonly Bzm22SharedMonthAxisCell[],
+) {
+  if (!item.startDate) return null;
+  const ym = item.startDate.slice(0, 7);
+  const index = axis.findIndex((cell) => cell.ym === ym);
+  return index >= 0 ? index : null;
+}
+
 export interface Bzm22SimulationPolicyOption {
   id: string;
   label: string;
