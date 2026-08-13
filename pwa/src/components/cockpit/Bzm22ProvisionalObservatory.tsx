@@ -321,7 +321,7 @@ function AnnotatedFormula({
   children: ReactNode;
 }) {
   return (
-    <article data-testid={`bzm22-annotated-formula-${symbol.toLowerCase()}`} aria-label={`${symbol}の数式と代入値`} className="border border-slate-200 bg-white">
+    <article data-testid={`bzm22-annotated-formula-${symbol.toLowerCase()}`} aria-label={`${symbol}の数式と代入値`} className="min-w-0 border border-slate-200 bg-white">
       <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200 px-3 py-2">
         <div className="flex items-baseline gap-2">
           <span className="text-[18px] font-bold text-[#173f51]">{symbol}</span>
