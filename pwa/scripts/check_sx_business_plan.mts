@@ -8,6 +8,10 @@ import {
   sxAnnualProjectionWithCash,
   sxPhaseBudgetVariance,
 } from "../src/lib/sx-business-plan.ts";
+import {
+  buildSxMonthlyFinancePlan,
+  SX_PHASE0_NON_DILUTIVE_FUNDING_YEN,
+} from "../src/lib/sx-monthly-finance-plan.ts";
 
 assert.equal(SX_BUSINESS_PLAN_PHASES.length, 5, "SX事業計画は5フェーズ");
 for (const phase of SX_BUSINESS_PLAN_PHASES) {
@@ -79,7 +83,7 @@ const workforceFy27 = workforceAnnual.find((year) => year.fiscalYear === 2027)!;
 assert.equal(workforceFy27.executiveCompensationYen, 18_000_000, "役員人数×役員報酬が役員報酬へ反映される");
 assert.equal(workforceFy27.sellingGeneralAdministrativeYen, 39_200_000, "社員の旅費単価が販管費へ反映される");
 assert.equal(workforceFy27.capexYen, 50_000_000, "工場投資額が設備投資へ反映される");
-assert.equal(workforceFy27.closingCashYen, 79_800_000, "人件費・旅費・工場費の差分が期末現預金へ反映される");
+assert.equal(workforceFy27.closingCashYen, 19_800_000, "人件費・旅費・工場費の差分が期末現預金へ反映される");
 
 const ipoScenario = createSxAnnualProjectionParameters();
 ipoScenario.ipoFiscalYear = 2034;
@@ -87,5 +91,20 @@ ipoScenario.ipoProceedsYen = 8_000_000_000;
 const ipoAnnual = sxAnnualProjectionWithCash(ipoScenario);
 assert.equal(ipoAnnual.find((year) => year.fiscalYear === 2034)?.equityFundingYen, 8_000_000_000, "IPO時期と調達額が選択年度の株式調達へ反映される");
 assert.equal(ipoAnnual.find((year) => year.fiscalYear === 2035)?.equityFundingYen, 0, "IPOを前倒しすると元年度のIPO資金は残らない");
+
+const monthRange: string[] = [];
+for (let cursor = 2026 * 12 + 6; cursor <= 2031 * 12 + 7; cursor += 1) {
+  monthRange.push(`${Math.floor(cursor / 12)}-${String(cursor % 12 + 1).padStart(2, "0")}`);
+}
+const monthlyFinance = buildSxMonthlyFinancePlan(monthRange);
+const sumFinance = (key: "capexYen" | "equityFundingYen" | "grantReceiptYen" | "nonDilutiveFundingYen") =>
+  monthlyFinance.reduce((sum, row) => sum + row[key], 0);
+assert.equal(SX_ANNUAL_PROJECTION.find((year) => year.fiscalYear === 2027)?.subsidyCashReceiptYen, 0, "Phase 0 PSI資金をFY2027助成金へ二重計上しない");
+assert.equal(sumFinance("nonDilutiveFundingYen"), SX_PHASE0_NON_DILUTIVE_FUNDING_YEN, "Phase 0資金は1回だけ");
+assert.equal(sumFinance("capexYen"), 1_060_000_000, "M0〜M60内の設備投資計画をtie-out");
+assert.equal(sumFinance("equityFundingYen"), 2_250_000_000, "Seed・Series A・Series Bをラウンド月へ配置");
+assert.equal(sumFinance("grantReceiptYen"), 400_000_000, "FY2028・FY2031の助成金入金計画をtie-out");
+assert.ok(monthlyFinance.every((row) => row.loanDrawdownYen === null), "融資額は0と捏造せず未計画");
+assert.equal(monthlyFinance.find((row) => row.ym === "2028-10")?.equityFundingYen, 600_000_000, "Series AはPhase 2開始月");
 
 console.log("sx business plan: ok");

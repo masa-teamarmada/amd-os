@@ -368,7 +368,7 @@ function AnnualProjectionTable() {
     <SectionShell>
       <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-6">
         <h2 className="text-lg font-bold tracking-tight text-slate-950">年次試算表</h2>
-        <div className="text-[10px] leading-4 text-slate-500">期末現預金 = 前年残 + 営業利益 − 設備投資 + 株式調達 + 助成金入金<br />圧縮損は会計上の特別損失。税金・借入・運転資金増減は未反映</div>
+        <div className="text-xs leading-5 text-slate-500">期末現預金 = 前年残 + 営業利益 − 設備投資 + 株式調達 + 助成金入金<br />PSI 6,000万円はPhase 0に1回だけ計上。税金・借入・運転資金増減は未反映</div>
       </div>
       <div className="overflow-x-auto" data-testid="sx-annual-projection-table">
         <table className="w-full min-w-[1080px] text-xs">

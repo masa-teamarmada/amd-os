@@ -482,16 +482,24 @@ requireIncludes(timeLedgerSource, [
   "イベントと月次試算",
   "事業価値の時間軸",
   "月次試算表",
+  "単位：百万円",
+  "C/F・資金繰り",
+  "設備投資",
+  "株式調達",
+  "融資実行",
+  "助成金等入金（計画）",
+  "月次純C/F",
+  "月末資金残高（簡易）",
   "BZM経済CF",
-  "上のイベントと下の月次数字は、同じ月の列で揃っている。",
+  "上のイベントと下のP/L・C/Fは、同じ月の列で揃っている。",
   "fetchPlMonthly",
   "upsertPlMonthly",
   "deletePlMonthly",
   "CockpitPlHearingModal",
   "gateMonths",
 ], "BZM 2.2 shared event/monthly ledger");
-if (timeLedgerSource.includes("百万円")) {
-  throw new Error("BZM 2.2 shared event/monthly ledger must use ¥M display");
+if (timeLedgerSource.includes('`${value < 0 ? "-" : ""}¥${rounded.toLocaleString("ja-JP")}M`')) {
+  throw new Error("BZM 2.2 monthly ledger must put the million-yen unit outside data cells");
 }
 for (const forbidden of [
   "BZM 2.2 暫定主表示",
