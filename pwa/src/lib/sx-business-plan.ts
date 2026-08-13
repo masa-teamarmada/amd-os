@@ -44,6 +44,9 @@ export interface SxAnnualProjection {
   subsidyCashReceiptYen: number;
 }
 
+export const SX_INCORPORATION_DATE = "2027-02-01";
+export const SX_INCORPORATION_YM = SX_INCORPORATION_DATE.slice(0, 7);
+
 export const SX_BUSINESS_PLAN_PHASES: SxBusinessPlanPhase[] = [
   {
     id: "psi",
@@ -69,8 +72,8 @@ export const SX_BUSINESS_PLAN_PHASES: SxBusinessPlanPhase[] = [
       },
       organization: {
         costYen: 5_000_000,
-        activities: ["NewCo設立とCEO候補の役割確定", "大学・発明者・SX間の知財境界を整理", "培養・装置・顧客実装の責任者を仮置き"],
-        exitGate: "設立、知財、意思決定の未決事項をSeed DDへ渡せる",
+        activities: ["設立前DDの技術・法務・財務・知財論点を完了", "NewCo設立とCEO候補の役割確定", "大学・発明者・SX間の知財境界を整理"],
+        exitGate: "設立前DDを完了し、2027年2月の会社設立へ移れる",
         xrlKeys: ["hrl"],
       },
       funding: {
@@ -425,7 +428,7 @@ export const SX_CAPITAL_PLAN_EVENTS: CapitalEvent[] = [
     type: "incorporation",
     label: "設立",
     order: 1,
-    date: "2027-04-01",
+    date: SX_INCORPORATION_DATE,
     status: "planned",
     calculationBasis: "manual",
     allocations: [
@@ -433,7 +436,7 @@ export const SX_CAPITAL_PLAN_EVENTS: CapitalEvent[] = [
       { id: "sx-inc-sugiura", holderId: "sx-sugiura", shareClass: "common", shares: input(21_600) },
       { id: "sx-inc-amd", holderId: "sx-amd", shareClass: "common", shares: input(5_400) },
     ],
-    note: "中島先生は含めない。設立時持分の暫定原案。",
+    note: "設立予定は2027年2月。設立前DD完了を必須ゲートとする。中島先生は含めない。設立時持分の暫定原案。",
   },
   {
     id: "sx-option-pool",

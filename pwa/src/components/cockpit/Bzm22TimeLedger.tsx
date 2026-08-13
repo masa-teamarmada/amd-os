@@ -19,17 +19,17 @@ import {
   buildSxMonthlyFinancePlan,
   buildSxMonthlyFinanceComments,
   SX_DEFAULT_EQUITY_FUNDING_EVENTS,
+  SX_PHASE0_NON_DILUTIVE_FUNDING_YEN,
   type SxMonthlyFinanceComment,
   type SxEquityFundingPlanEvent,
 } from "@/lib/sx-monthly-finance-plan";
-import { SX_BUSINESS_PLAN_PHASES } from "@/lib/sx-business-plan";
+import { SX_BUSINESS_PLAN_PHASES, SX_INCORPORATION_YM } from "@/lib/sx-business-plan";
 import type { SxFirstFundingTarget } from "@/lib/sx-funding-timing";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CockpitPlHearingModal } from "./CockpitPlHearingModal";
 
 const MONTH_WIDTH = 76;
-const EVENT_CARD_WIDTH = 168;
 const AXIS_Y = 61;
 const TIMELINE_HEIGHT = 101;
 
@@ -106,8 +106,8 @@ interface SxCashLedgerRow {
   grantReceiptYen: number;
   nonDilutiveFundingYen: number;
   netCashFlowYen: number;
-  openingCashYen: number;
-  closingCashYen: number;
+  openingCashYen: number | null;
+  closingCashYen: number | null;
 }
 
 type SxCashMetricKey =
@@ -192,6 +192,48 @@ function equityEventsFromCapitalPlan(payload: unknown): SxEquityFundingPlanEvent
   });
 }
 
+function incorporationYmFromCapitalPlan(payload: unknown) {
+  if (!isRecord(payload) || !Array.isArray(payload.events)) return null;
+  const incorporation = payload.events.find((event) =>
+    isRecord(event) && event.type === "incorporation" && typeof event.date === "string");
+  return isRecord(incorporation) && typeof incorporation.date === "string"
+    ? incorporation.date.slice(0, 7)
+    : null;
+}
+
+function previousYm(ym: string) {
+  const [year, month] = ym.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 2, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function sxTimelineItem(
+  id: string,
+  label: string,
+  ym: string,
+  category: Bzm22TimelineItem["category"],
+  description: string,
+): Bzm22TimelineItem {
+  return {
+    id,
+    kind: "planned_or_assumed_event",
+    label,
+    category,
+    startDate: `${ym}-01`,
+    endDate: null,
+    dateRole: "sx_canonical_month",
+    datePrecision: "month",
+    dateLabel: ym,
+    status: "registered_project_premise",
+    precision: "documented_or_management_confirmed",
+    sourceStatus: "canonical_project_premise",
+    sourceRefCount: 1,
+    description,
+    choiceRole: "not_a_choice",
+    choiceLabel: "",
+  };
+}
+
 function formatRate(value: number | null | undefined) {
   if (value === null || value === undefined || !Number.isFinite(value)) return "—";
   return `${Math.round(value * 100)}%`;
@@ -227,13 +269,16 @@ function buildEventGroups(
   pilot: Bzm22PilotProject,
   axis: readonly Bzm22SharedMonthAxisCell[],
   gateMonths: Record<string, number>,
+  projectPremiseItems: readonly Bzm22TimelineItem[],
 ) {
   const groups = new Map<number, Bzm22TimelineItem[]>();
   const outside: Bzm22TimelineItem[] = [];
   const undated: Bzm22TimelineItem[] = [];
   const eventItems = pilot.timeline.lanes
     .flatMap((lane) => lane.items)
-    .filter((item) => item.category !== "registered_policy");
+    .filter((item) => item.category !== "registered_policy")
+    .filter((item) => pilot.projectId !== "p21" || item.id !== "funding-event-2")
+    .concat(projectPremiseItems);
   for (const item of eventItems) {
     const gate = pilot.calculationTrace.inputs.gates.find((candidate) => candidate.label === item.label);
     const month = eventMonth(item, gate, gateMonths, axis);
@@ -275,9 +320,10 @@ function EventCard({
 }) {
   const first = group.items[0];
   const category = CATEGORY_META[first.category];
+  const eventTitle = group.items.map((item) => item.label).join(" / ");
   const topSide = group.position === 0;
   const top = topSide ? 27 : 70;
-  const cardHeight = 25;
+  const cardHeight = 23;
   const cardX = group.monthIndex * MONTH_WIDTH + MONTH_WIDTH / 2;
   const transform = group.monthIndex === 0
     ? "translateX(0)"
@@ -291,22 +337,18 @@ function EventCard({
       <button
         type="button"
         onClick={onSelect}
-        className={`absolute z-20 overflow-hidden border bg-white px-1.5 text-left transition-colors ${selected ? "border-[#173f51]" : "border-slate-300 hover:border-[#678692]"}`}
+        className={`absolute z-20 flex items-center whitespace-nowrap border bg-white px-1.5 text-left text-[9px] font-semibold text-[#173f51] transition-colors ${selected ? "border-[#173f51]" : "border-slate-300 hover:border-[#678692]"}`}
         style={{
           left: cardX,
           top,
-          width: EVENT_CARD_WIDTH,
+          width: "max-content",
           height: cardHeight,
           transform,
           boxShadow: selected ? "0 0 0 1px #173f51" : "none",
         }}
-        title={`${first.label}：${first.choiceLabel}`}
+        title={eventTitle}
       >
-        <span className="flex h-full items-center gap-1 truncate">
-          <b className="truncate text-[9px] text-[#173f51]">{first.label}</b>
-          <span className="truncate text-[8px] text-slate-500">{first.choiceLabel}</span>
-        </span>
-        {group.items.length > 1 ? <span className="absolute right-0.5 top-0 text-[7px] text-slate-400">+{group.items.length - 1}</span> : null}
+        {eventTitle}
       </button>
       <span
         aria-hidden="true"
@@ -315,7 +357,7 @@ function EventCard({
       />
       <button
         type="button"
-        aria-label={`${axis[group.monthIndex].ym} ${first.label}`}
+        aria-label={`${axis[group.monthIndex].ym} ${eventTitle}`}
         onClick={onSelect}
         className="absolute z-30 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rotate-45 border-2 bg-white"
         style={{ left: cardX, top: AXIS_Y, borderColor: category.color }}
@@ -398,11 +440,7 @@ export function Bzm22TimeLedger({
     () => buildBzm22SharedMonthAxis(pilot.valuationDate, pilot.calculationTrace.inputs.horizonMonths),
     [pilot.valuationDate, pilot.calculationTrace.inputs.horizonMonths],
   );
-  const eventGroups = useMemo(
-    () => buildEventGroups(pilot, axis, gateMonths),
-    [axis, gateMonths, pilot],
-  );
-  const [selectedMonth, setSelectedMonth] = useState<number | null>(eventGroups.positioned[0]?.monthIndex ?? null);
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [rows, setRows] = useState<ProjectPlMonthly[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -411,6 +449,7 @@ export function Bzm22TimeLedger({
   const [hearingOpen, setHearingOpen] = useState(false);
   const [sxEquityEvents, setSxEquityEvents] = useState<SxEquityFundingPlanEvent[]>(SX_DEFAULT_EQUITY_FUNDING_EVENTS);
   const [sxCapitalPlanStatus, setSxCapitalPlanStatus] = useState<"loading" | "active" | "fallback">("loading");
+  const [sxIncorporationYm, setSxIncorporationYm] = useState(SX_INCORPORATION_YM);
   const [sxFirstFundingTarget, setSxFirstFundingTarget] = useState<SxFirstFundingTarget | null>(null);
   const [sxGrantEvidence, setSxGrantEvidence] = useState<SxGrantEvidence[]>([]);
   const [sxGrantEvidenceStatus, setSxGrantEvidenceStatus] = useState<"loading" | "loaded" | "unavailable">("loading");
@@ -438,6 +477,8 @@ export function Bzm22TimeLedger({
       if (capitalResult.status === "fulfilled" && isRecord(capitalResult.value) && Array.isArray(capitalResult.value.plans)) {
         const activePlan = capitalResult.value.plans.find((plan) => isRecord(plan) && plan.status === "active");
         const events = isRecord(activePlan) ? equityEventsFromCapitalPlan(activePlan.document_json) : [];
+        const incorporationYm = isRecord(activePlan) ? incorporationYmFromCapitalPlan(activePlan.document_json) : null;
+        if (incorporationYm) setSxIncorporationYm(incorporationYm);
         if (events.length > 0) {
           setSxEquityEvents(events);
           setSxCapitalPlanStatus("active");
@@ -479,8 +520,51 @@ export function Bzm22TimeLedger({
     return () => { active = false; };
   }, [pilot.projectId]);
 
+  const sxProjectPremiseItems = useMemo(() => {
+    if (pilot.projectId !== "p21") return [] as Bzm22TimelineItem[];
+    const items: Bzm22TimelineItem[] = [
+      sxTimelineItem(
+        "sx-dd-complete-before-incorporation",
+        "設立前DD完了期限",
+        previousYm(sxIncorporationYm),
+        "funding_external",
+        "AMDの必須ゲート。技術・法務・財務・知財のDD論点を会社設立より前に完了する。完了実績は未確認。",
+      ),
+      sxTimelineItem(
+        "sx-canonical-incorporation",
+        "会社設立",
+        sxIncorporationYm,
+        "commercial",
+        "SXの会社設立予定月。設立前PJ活動とNewCoの会計主体をこの月で分ける。",
+      ),
+    ];
+    if (sxFirstFundingTarget) {
+      items.push(sxTimelineItem(
+        "sx-first-funding-target",
+        "初回資金調達目標",
+        sxFirstFundingTarget.ym,
+        "funding_external",
+        "会議正本の内部目標。投資家合意・契約・着金実績ではない。",
+      ));
+    }
+    for (const event of sxEquityEvents) {
+      items.push(sxTimelineItem(
+        `sx-capital-plan-${event.label}-${event.ym}`,
+        `${event.label}調達（資本政策計上）`,
+        event.ym,
+        "funding_external",
+        "active資本政策の計画イベント。着金実績ではない。",
+      ));
+    }
+    return items;
+  }, [pilot.projectId, sxEquityEvents, sxFirstFundingTarget, sxIncorporationYm]);
+  const eventGroups = useMemo(
+    () => buildEventGroups(pilot, axis, gateMonths, sxProjectPremiseItems),
+    [axis, gateMonths, pilot, sxProjectPremiseItems],
+  );
+
   useEffect(() => {
-    if (selectedMonth !== null && !eventGroups.positioned.some((group) => group.monthIndex === selectedMonth)) {
+    if (selectedMonth === null || !eventGroups.positioned.some((group) => group.monthIndex === selectedMonth)) {
       setSelectedMonth(eventGroups.positioned[0]?.monthIndex ?? null);
     }
   }, [eventGroups.positioned, selectedMonth]);
@@ -488,20 +572,17 @@ export function Bzm22TimeLedger({
   const rowByMonth = useMemo(() => new Map(rows.map((row) => [row.ym, row])), [rows]);
   const sxCashLedger = useMemo(() => {
     if (pilot.projectId !== "p21") return [] as SxCashLedgerRow[];
-    const yms = ["2026-07", ...axis.map((month) => month.ym).filter((ym) => ym !== "2026-07")];
-    const financeRows = buildSxMonthlyFinancePlan(yms, sxEquityEvents);
-    let cashYen = 0;
+    const financeRows = buildSxMonthlyFinancePlan(axis.map((month) => month.ym), sxEquityEvents)
+      .filter((finance) => finance.ym >= sxIncorporationYm);
     return financeRows.map((finance): SxCashLedgerRow => {
       const plRow = rowByMonth.get(finance.ym) ?? emptyPlRow(pilot.projectId, finance.ym);
       const operatingCashFlowYen = plValue(plRow, "operating_profit");
       const capexCashFlowYen = -finance.capexYen;
-      const openingCashYen = cashYen;
       const netCashFlowYen = operatingCashFlowYen + capexCashFlowYen + finance.equityFundingYen
-        + (finance.loanDrawdownYen ?? 0) + finance.grantReceiptYen + finance.nonDilutiveFundingYen;
-      cashYen += netCashFlowYen;
-      return { ...finance, operatingCashFlowYen, capexCashFlowYen, netCashFlowYen, openingCashYen, closingCashYen: cashYen };
+        + (finance.loanDrawdownYen ?? 0) + finance.grantReceiptYen;
+      return { ...finance, nonDilutiveFundingYen: 0, operatingCashFlowYen, capexCashFlowYen, netCashFlowYen, openingCashYen: null, closingCashYen: null };
     });
-  }, [axis, pilot.projectId, rowByMonth, sxEquityEvents]);
+  }, [axis, pilot.projectId, rowByMonth, sxEquityEvents, sxIncorporationYm]);
   const sxCashByMonth = useMemo(() => new Map(sxCashLedger.map((row) => [row.ym, row])), [sxCashLedger]);
   const sxFirstEquityEvent = useMemo(
     () => [...sxEquityEvents].sort((left, right) => left.ym.localeCompare(right.ym))[0] ?? null,
@@ -513,7 +594,7 @@ export function Bzm22TimeLedger({
   }), [axis, sxCashByMonth]);
   const sxFinanceSummary = useMemo(() => {
     if (sxVisibleCashLedger.length === 0) return null;
-    const sum = (field: "capexCashFlowYen" | "equityFundingYen" | "grantReceiptYen" | "nonDilutiveFundingYen") =>
+    const sum = (field: "capexCashFlowYen" | "equityFundingYen" | "grantReceiptYen") =>
       sxVisibleCashLedger.reduce((total, row) => total + row[field], 0);
     const adoptedYen = sxGrantEvidence.reduce((total, grant) => total + Number(grant.amount_yen ?? 0), 0);
     const disbursedKnown = sxGrantEvidence.some((grant) => grant.disbursed_yen !== null);
@@ -522,13 +603,13 @@ export function Bzm22TimeLedger({
       capexYen: -sum("capexCashFlowYen"),
       equityFundingYen: sum("equityFundingYen"),
       grantReceiptYen: sum("grantReceiptYen"),
-      phase0FundingYen: sxCashLedger.reduce((total, row) => total + row.nonDilutiveFundingYen, 0),
-      closingCashYen: sxVisibleCashLedger.at(-1)?.closingCashYen ?? 0,
+      phase0FundingYen: SX_PHASE0_NON_DILUTIVE_FUNDING_YEN,
+      closingCashYen: null,
       adoptedYen,
       disbursedKnown,
       disbursedYen,
     };
-  }, [sxCashLedger, sxGrantEvidence, sxVisibleCashLedger]);
+  }, [sxGrantEvidence, sxVisibleCashLedger]);
   const sxFinanceCommentsByCell = useMemo(() => {
     const comments = buildSxMonthlyFinanceComments(axis.map((month) => month.ym), sxEquityEvents);
     const grouped = new Map<string, LedgerCellComment[]>();
@@ -637,14 +718,20 @@ export function Bzm22TimeLedger({
 
       {sxFinanceSummary ? (
         <div className="border-b border-slate-200 bg-[#f7f9fa] p-1.5" data-testid="sx-monthly-finance-summary">
-          <div className="grid grid-cols-2 gap-px overflow-hidden border border-slate-200 bg-slate-200 sm:grid-cols-3 xl:grid-cols-6">
+          <div data-testid="sx-premise-audit" className="mb-1 grid grid-cols-[auto_1fr] gap-x-2 border border-amber-300 bg-amber-50 px-1.5 py-1 text-[8px] leading-3">
+            <b className="text-amber-900">SX前提監査</b>
+            <span className="text-amber-900">設立 {sxIncorporationYm} / 設立前DD完了期限 {previousYm(sxIncorporationYm)} / 初回調達目標 {sxFirstFundingTarget?.ym ?? "未抽出"}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-px overflow-hidden border border-slate-200 bg-slate-200 sm:grid-cols-4 xl:grid-cols-8">
             {[
-              ["Phase 0 非希薄化資金", formatMillionFromYen(sxFinanceSummary.phase0FundingYen)],
+              ["会社設立", sxIncorporationYm],
+              ["設立前DD", `${previousYm(sxIncorporationYm)}まで`],
+              ["設立前PJ資金", formatMillionFromYen(sxFinanceSummary.phase0FundingYen)],
               ["設備投資", formatMillionFromYen(sxFinanceSummary.capexYen)],
               ["株式調達", formatMillionFromYen(sxFinanceSummary.equityFundingYen)],
               ["融資", "未計画"],
               ["助成金等入金（計画）", formatMillionFromYen(sxFinanceSummary.grantReceiptYen)],
-              ["M60 月末資金", formatMillionFromYen(sxFinanceSummary.closingCashYen)],
+              ["M60 月末資金", sxFinanceSummary.closingCashYen === null ? "算定不能" : formatMillionFromYen(sxFinanceSummary.closingCashYen)],
             ].map(([label, value]) => (
               <div key={label} className="bg-white px-1.5 py-1">
                 <div className="truncate text-[8px] font-medium leading-3 text-slate-500">{label}</div>
@@ -654,12 +741,12 @@ export function Bzm22TimeLedger({
           </div>
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 border border-slate-200 bg-white px-1.5 py-1 text-[8px] leading-3 text-slate-600">
             <span data-testid="sx-first-funding-target"><b className="text-[#173f51]">初回調達目標</b> {sxFirstFundingTarget?.ym ?? "未抽出"} <span className="text-amber-700">MTG内部目標・着金未合意{sxFirstFundingTarget ? `（${sxFirstFundingTarget.sourceMeetingDate}）` : ""}</span></span>
-            <span data-testid="sx-first-capital-plan-event"><b className="text-[#173f51]">資本政策計上</b> {sxFirstEquityEvent ? `${sxFirstEquityEvent.ym} ${sxFirstEquityEvent.label} ${formatMillionFromYen(sxFirstEquityEvent.amountYen)}` : "未登録"} <span className="text-slate-400">{sxCapitalPlanStatus === "active" ? "active plan" : sxCapitalPlanStatus === "loading" ? "読込中" : "内蔵案"}</span></span>
+            <span data-testid="sx-first-capital-plan-event"><b className="text-[#173f51]">資本政策計上</b> {sxFirstEquityEvent ? `${sxFirstEquityEvent.ym} ${sxFirstEquityEvent.label} ${formatMillionFromYen(sxFirstEquityEvent.amountYen)}` : "未登録"} <span className="text-slate-400">{sxCapitalPlanStatus === "active" ? "現行案" : sxCapitalPlanStatus === "loading" ? "読込中" : "内蔵案"}</span></span>
             <span><b className="text-[#173f51]">PSI/GAP</b> 採択 {sxGrantEvidenceStatus === "loading" ? "読込中" : sxGrantEvidenceStatus === "unavailable" ? "取得不能" : formatMillionFromYen(sxFinanceSummary.adoptedYen)} / 受領 {sxGrantEvidenceStatus === "loaded" && sxFinanceSummary.disbursedKnown ? formatMillionFromYen(sxFinanceSummary.disbursedYen) : "未確認"}</span>
           </div>
           <details className="mt-0.5 text-[8px] leading-3 text-slate-500">
             <summary className="cursor-pointer list-none font-semibold text-[#376274] marker:content-none">計上規則と精度を表示</summary>
-            <p className="mt-0.5">Phase 0計画6,000万円は2026-07に1回だけ計上。設備投資・助成金等は年次額を各FY4月へ仮置きした低精度の入出金時期。税金・運転資金増減は未反映し、残高行は横合計しない。</p>
+            <p className="mt-0.5">設立前PJのPhase 0資金はNewCoのC/F・現金残高へ入れない。NewCo C/Fは2027-02から表示し、設立時残高が未確認のため月初・月末残高は算定不能。設備投資・助成金等は年次額を各FY4月へ仮置きした低精度の入出金時期。</p>
           </details>
         </div>
       ) : null}
@@ -681,6 +768,13 @@ export function Bzm22TimeLedger({
                 style={{ left: month.month * MONTH_WIDTH }}
               />
             ))}
+            {pilot.projectId === "p21" && axis.some((month) => month.ym === sxIncorporationYm) ? (
+              <span
+                aria-hidden="true"
+                className="absolute inset-y-0 z-10 w-0 border-l-2 border-[#173f51]"
+                style={{ left: axis.findIndex((month) => month.ym === sxIncorporationYm) * MONTH_WIDTH }}
+              />
+            ) : null}
             {registeredPolicy ? (
               <div className="absolute top-1 z-10 h-[18px] border-y border-[#82a3ae] bg-[#e7eff2]" style={{ left: MONTH_WIDTH / 2, width: (axis.length - 1) * MONTH_WIDTH }}>
                 <span className="sticky left-1 block w-fit px-1 text-[9px] font-semibold leading-[16px] text-[#24596a]">{registeredPolicy.label} · M0–M{axis.length - 1}</span>
@@ -706,7 +800,7 @@ export function Bzm22TimeLedger({
             <div className="text-[8px] leading-3 text-slate-500">P/L・資金繰り</div>
           </div>
           {axis.map((month) => (
-            <MonthCellFrame key={`header-${month.ym}`} month={month} className="bg-[#edf3f5] px-1.5 py-1 text-right">
+            <MonthCellFrame key={`header-${month.ym}`} month={month} className={`bg-[#edf3f5] px-1.5 py-1 text-right ${month.ym === sxIncorporationYm ? "border-l-2 border-l-[#173f51]" : ""}`}>
               <button type="button" onClick={() => startEdit(month)} className="w-full text-right hover:text-[#173f51] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d8a96]" title={`${month.ym}を入力・編集`}>
                 <span className="block text-[10px] font-semibold leading-3 text-[#365865]">M{month.month}</span>
                 <span className="block font-mono text-[8px] leading-3 text-slate-500">{month.ym}</span>
@@ -714,9 +808,23 @@ export function Bzm22TimeLedger({
             </MonthCellFrame>
           ))}
 
+          {pilot.projectId === "p21" ? (
+            <>
+              <div className="sticky left-0 z-30 border-b border-r border-slate-300 bg-white px-2 py-0.5 text-[9px] font-semibold leading-4 text-slate-600">計上主体</div>
+              {axis.map((month) => {
+                const beforeIncorporation = month.ym < sxIncorporationYm;
+                return (
+                  <MonthCellFrame key={`entity-${month.ym}`} month={month} className={`px-1 py-0.5 text-right text-[8px] font-semibold leading-4 ${beforeIncorporation ? "bg-slate-100 text-slate-500" : "bg-[#e7eff2] text-[#173f51]"} ${month.ym === sxIncorporationYm ? "border-l-2 border-l-[#173f51]" : ""}`}>
+                    {beforeIncorporation ? "設立前PJ" : "NewCo"}
+                  </MonthCellFrame>
+                );
+              })}
+            </>
+          ) : null}
+
           <div className="contents">
-            <div className="sticky left-0 z-30 border-b border-r border-slate-300 bg-[#173f51] px-2 py-0.5 text-[10px] font-semibold leading-4 text-white">P/L</div>
-            {axis.map((month) => <MonthCellFrame key={`pl-section-${month.ym}`} month={month} className="bg-[#173f51]" />)}
+            <div className="sticky left-0 z-30 border-b border-r border-slate-300 bg-[#173f51] px-2 py-0.5 text-[10px] font-semibold leading-4 text-white">設立前PJ / NewCo P/L</div>
+            {axis.map((month) => <MonthCellFrame key={`pl-section-${month.ym}`} month={month} className={`bg-[#173f51] ${month.ym === sxIncorporationYm ? "border-l-2 border-l-white" : ""}`} />)}
           </div>
 
           {PL_ROWS.map((metric) => {
@@ -733,7 +841,7 @@ export function Bzm22TimeLedger({
                   const value = plValue(row, metric.key);
                   const comments = result ? [sxPhaseCommentsByMonth.get(month.ym)].filter((comment): comment is LedgerCellComment => Boolean(comment)) : [];
                   return (
-                    <MonthCellFrame key={`${metric.key}-${month.ym}`} month={month} className={`px-1.5 py-0.5 text-right ${comments.length > 0 ? "bg-amber-50/70" : metric.kind === "calculated" ? "bg-slate-50" : "bg-white"}`}>
+                    <MonthCellFrame key={`${metric.key}-${month.ym}`} month={month} className={`px-1.5 py-0.5 text-right ${comments.length > 0 ? "bg-amber-50/70" : metric.kind === "calculated" ? "bg-slate-50" : "bg-white"} ${month.ym === sxIncorporationYm ? "border-l-2 border-l-[#173f51]" : ""}`}>
                       {metric.kind === "input" ? (
                         <button type="button" onClick={() => startEdit(month)} className="block w-full text-right font-mono text-[11px] leading-4 tabular-nums text-slate-700 hover:text-[#173f51] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d8a96] decoration-dotted" title={`${month.ym}の${metric.label}を編集`}>
                           {formatMillionFromYen(value)}
@@ -754,8 +862,8 @@ export function Bzm22TimeLedger({
           {sxVisibleCashLedger.length > 0 ? (
             <>
               <div className="contents">
-                <div className="sticky left-0 z-30 border-b border-r border-slate-300 bg-[#365865] px-2 py-0.5 text-[10px] font-semibold leading-4 text-white">C/F・資金繰り</div>
-                {axis.map((month) => <MonthCellFrame key={`cf-section-${month.ym}`} month={month} className="bg-[#365865]" />)}
+                <div className="sticky left-0 z-30 border-b border-r border-slate-300 bg-[#365865] px-2 py-0.5 text-[10px] font-semibold leading-4 text-white">NewCo C/F・資金繰り</div>
+                {axis.map((month) => <MonthCellFrame key={`cf-section-${month.ym}`} month={month} className={`${month.ym < sxIncorporationYm ? "bg-slate-300" : "bg-[#365865]"} ${month.ym === sxIncorporationYm ? "border-l-2 border-l-white" : ""}`} />)}
               </div>
               {SX_CASH_ROWS.map((metric) => (
                 <div key={metric.key} className="contents">
@@ -775,7 +883,7 @@ export function Bzm22TimeLedger({
                         : null;
                     const comments = commentMetric ? sxFinanceCommentsByCell.get(`${commentMetric}:${month.ym}`) ?? [] : [];
                     return (
-                      <MonthCellFrame key={`${metric.key}-${month.ym}`} month={month} className={`px-1.5 py-0.5 text-right ${comments.length > 0 ? "bg-amber-50/70" : metric.emphasis ? "bg-slate-50" : "bg-white"}`}>
+                      <MonthCellFrame key={`${metric.key}-${month.ym}`} month={month} className={`px-1.5 py-0.5 text-right ${month.ym < sxIncorporationYm ? "bg-slate-100" : comments.length > 0 ? "bg-amber-50/70" : metric.emphasis ? "bg-slate-50" : "bg-white"} ${month.ym === sxIncorporationYm ? "border-l-2 border-l-[#173f51]" : ""}`}>
                         <span className="flex items-center justify-end gap-1">
                           <FinanceCellComment comments={comments} ym={month.ym} metricLabel={metric.label} />
                           <span className={`font-mono text-[11px] leading-4 tabular-nums ${typeof value === "number" && value < 0 ? "text-rose-700" : "text-slate-700"}`}>
@@ -799,7 +907,7 @@ export function Bzm22TimeLedger({
               ? 0
               : pilot.calculationTrace.inputs.cashFlow.monthlyEconomicCFMillionJpy.base[month.month - 1] ?? 0;
             return (
-              <MonthCellFrame key={`bzm-cf-${month.ym}`} month={month} className="border-t-2 border-t-slate-400 bg-[#fdfaf4] px-1.5 py-0.5 text-right">
+              <MonthCellFrame key={`bzm-cf-${month.ym}`} month={month} className={`border-t-2 border-t-slate-400 bg-[#fdfaf4] px-1.5 py-0.5 text-right ${month.ym === sxIncorporationYm ? "border-l-2 border-l-[#173f51]" : ""}`}>
                 <span className="font-mono text-[11px] leading-4 tabular-nums text-[#6b5127]">{formatMillion(value)}</span>
               </MonthCellFrame>
             );
@@ -817,7 +925,6 @@ export function Bzm22TimeLedger({
               return (
                 <span key={item.id} className="inline-flex flex-wrap items-center gap-1 border-l-2 pl-2" style={{ borderColor: category.color }}>
                   <b className="text-slate-700">{item.label}</b>
-                  <span>{item.choiceLabel}</span>
                   {gate ? <span>通過値 {formatRate(gate.probabilities.base)} / 停止時 {formatMillion(gate.signedFailureSettlementMillionJpy.base)}</span> : null}
                 </span>
               );

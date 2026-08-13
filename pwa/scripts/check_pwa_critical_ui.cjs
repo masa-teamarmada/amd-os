@@ -1889,11 +1889,12 @@ expectIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   'data-testid="bzm22-formula-substitution-board"',
   "AnnotatedFormula",
   "FormulaTerm",
-  "式に出てくる全記号",
+  "全パラメータ",
+  'data-testid="bzm22-formula-parameter-table"',
   "条件ごとの実数を開く",
   "逆風ごとの補正値を開く",
   "60か月すべての CFₜ・dₜ・Wₜ を開く",
-  "Q × P はJではない",
+  "前提監査未通過",
   "実行可能性と経営判断",
   "条件判定月シミュレーション",
   "時期だけを変更・保存なし",
@@ -1912,6 +1913,8 @@ expectNotIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   'label="stress最小 gate積 proxy"',
   "校正済み到達確率ではない",
   "理論上のq_robでも信頼区間でもない",
+  "式に出てくる全記号",
+  "Q × P はJではない",
 ]);
 expectIncludes("src/components/cockpit/Bzm22CockpitSummary.tsx", [
   'data-testid="cockpit-bzm22-primary"',

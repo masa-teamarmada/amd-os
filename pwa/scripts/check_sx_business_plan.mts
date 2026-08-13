@@ -4,6 +4,7 @@ import {
   SX_ANNUAL_PROJECTION,
   SX_BUSINESS_PLAN_PHASES,
   SX_CAPITAL_PLAN_DOCUMENT,
+  SX_INCORPORATION_DATE,
   createSxAnnualProjectionParameters,
   sxAnnualProjectionWithCash,
   sxPhaseBudgetVariance,
@@ -36,6 +37,8 @@ assert.ok(
 
 const incorporation = SX_CAPITAL_PLAN_DOCUMENT.events.find((event) => event.id === "sx-incorporation");
 assert.ok(incorporation, "設立イベント");
+assert.equal(incorporation.date, SX_INCORPORATION_DATE, "SX設立は2027年2月");
+assert.match(incorporation.note ?? "", /設立前DD完了を必須ゲート/, "会社設立より前にDDを完了する");
 const founderShares = Object.fromEntries(
   incorporation.allocations.map((allocation) => [allocation.holderId, allocation.shares.value]),
 );
