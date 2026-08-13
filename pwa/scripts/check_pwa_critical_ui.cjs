@@ -1911,6 +1911,8 @@ expectIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   "条件判定月シミュレーション",
   "時期だけを変更・保存なし",
   "Bzm22TimeLedger",
+  "formatBzm22RegisteredValue",
+  'data-testid="bzm22-registered-value"',
 ]);
 expectNotIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   "BZM 2.2 暫定主表示",
@@ -1929,6 +1931,9 @@ expectNotIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   "Q × P はJではない",
   "items-stretch",
   "min-w-[168px] flex-1",
+  "登録値あり（日本語表示未接続）",
+  "期間・件の登録データ",
+  "項目の登録データ",
 ]);
 expectIncludes("src/components/cockpit/Bzm22TimeLedger.tsx", [
   "設立前PJ支出 / NewCo P/L",
@@ -1942,12 +1947,18 @@ expectIncludes("scripts/backfill_sx_phase_monthly_pl.mts", [
 ]);
 expectIncludes("src/components/cockpit/Bzm22CockpitSummary.tsx", [
   'data-testid="cockpit-bzm22-primary"',
+  'data-testid="cockpit-bzm22-value-rail"',
+  'data-layout={embedded ? "value-rail" : "standalone"}',
   "BZM22_TOP_METRICS",
   "?view=summary",
-  "103パラメータと計算を見る",
+  "103パラメータと計算",
 ]);
 expectIncludes("src/components/cockpit/CockpitVentureStatus.tsx", [
   "Bzm22CockpitSummary",
+  'data-testid="cockpit-bzm22-xrl-overview"',
+  'data-testid="cockpit-xrl-panel"',
+  'data-testid="cockpit-legacy-sps-disclosure"',
+  "xl:grid-cols-[minmax(340px,24vw)_minmax(0,1fr)]",
   "SPS履歴（旧モデル）",
   "旧SPS履歴を開く",
   "legacyScoreHistoryOpen",

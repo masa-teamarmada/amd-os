@@ -527,24 +527,13 @@ export function CockpitVentureStatus({
         )}
       </button>
 
-      <Bzm22CockpitSummary projectId={projectId} onOpenScoreDetail={onOpenScoreDetail} compact={compact} />
-
-      <div className={`mx-2 flex justify-end ${compact ? "mt-1" : "mt-2"}`}>
-        <button
-          type="button"
-          aria-expanded={legacyScoreHistoryOpen}
-          onClick={() => setLegacyScoreHistoryProjectId(legacyScoreHistoryOpen ? null : projectId)}
-          className="min-h-9 border border-slate-200 bg-white px-3 text-[10px] font-semibold text-slate-600 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-700"
-        >
-          {legacyScoreHistoryOpen ? "旧SPS履歴を閉じる" : "旧SPS履歴を開く"}
-        </button>
-      </div>
-
       {/* BZM 2.2 が主表示。以下のSPSは時系列編集を保つ履歴表示。 */}
       {/* Chart 1 + Chart 2 — xl breakpoint (>=1280px) 以上で横並び。
           案C レイアウト (上 hero に AMD Score + XRL を並べる) のため。
           それ未満は従来通り縦並び。 */}
-      <div className="flex flex-col xl:flex-row gap-2">
+      <div data-testid="cockpit-bzm22-xrl-overview" className={`mx-2 overflow-hidden border border-[#7898a5] bg-white ${compact ? "mt-1" : "mt-2"} xl:grid xl:grid-cols-[minmax(340px,24vw)_minmax(0,1fr)]`}>
+      <Bzm22CockpitSummary projectId={projectId} onOpenScoreDetail={onOpenScoreDetail} compact={compact} embedded />
+      <div className={`min-w-0 ${legacyScoreHistoryOpen ? "flex flex-col gap-2 xl:col-span-2 xl:flex-row" : "flex"}`}>
       {legacyScoreHistoryOpen ? (
       <>
       {/* Chart 1: SPS history */}
@@ -824,26 +813,26 @@ export function CockpitVentureStatus({
       ) : null}
 
       {/* Chart 2: XRL */}
-      <div className="flex-1 min-w-0 overflow-x-auto px-2 pt-2 pb-3 xl:pt-3">
-        <div className="px-2 flex items-center justify-between flex-wrap gap-2">
+      <div data-testid="cockpit-xrl-panel" className="min-w-0 flex-1 overflow-x-auto border-t border-[#7898a5] px-2 pb-1 pt-1.5 xl:border-l xl:border-t-0">
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-1">
           <h3 className="text-[12px] font-semibold">XRL 進捗 (TRL / BRL / GRL / SRL / HRL)</h3>
-          <div className="flex items-center gap-3 text-[10px]">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9px]">
             {XRL_AXES.map((k) => (
               <span key={k} className="flex items-center gap-1">
                 <span style={{ color: XRL_COLORS[k] }}>—</span>
                 <span className="uppercase font-mono">{k}</span>
               </span>
             ))}
-            <span className="text-[10px] text-muted-foreground">
-              XRL 自動判定 schedule は停止中。既存 / 手動提案ドットは採用・却下できる
+            <span className="text-[9px] text-muted-foreground">
+              XRLの自動判定は停止中。既存値・手動提案はドットから確認できる
             </span>
           </div>
         </div>
 
         {pendingXrl && (
-          <div className="mx-2 mt-2 px-3 py-2 rounded-md border border-blue-200 bg-blue-50 text-[12px]">
+          <div className="mx-1 mt-1.5 border border-blue-200 bg-blue-50 px-2 py-1.5 text-[11px]">
             <div className="font-semibold text-blue-900">
-              LLM 提案:
+              自動提案:
               {XRL_AXES.map((k) => (
                 <span key={k} className="ml-2">
                   {k.toUpperCase()} {pendingXrl[k] ?? "—"}
@@ -857,13 +846,13 @@ export function CockpitVentureStatus({
             <div className="mt-1 flex gap-2">
               <button
                 onClick={() => onConfirmProposal(pendingXrl.id, "confirm")}
-                className="text-[11px] px-2 py-0.5 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                className="min-h-11 bg-blue-600 px-3 text-[11px] text-white hover:bg-blue-700"
               >
                 ✓ 採用
               </button>
               <button
                 onClick={() => onConfirmProposal(pendingXrl.id, "reject")}
-                className="text-[11px] px-2 py-0.5 rounded-md border border-blue-200 text-blue-700 hover:bg-blue-100"
+                className="min-h-11 border border-blue-200 px-3 text-[11px] text-blue-700 hover:bg-blue-100"
               >
                 ✕ 却下
               </button>
@@ -927,7 +916,7 @@ export function CockpitVentureStatus({
                   //   (b) 透明 hit area (r + 6) で clickable 範囲を拡大、見た目はそのまま
                   return (
                     <g key={`${r.id}-${k}`} style={{ cursor: "pointer" }} onClick={onClickAxis(upper)}>
-                      <title>{`${upper} ${v} (${r.observed_at})${isProposal ? " — LLM 提案" : " — クリックで詳細"}`}</title>
+                      <title>{`${upper} ${v} (${r.observed_at})${isProposal ? " — 自動提案" : " — クリックで詳細"}`}</title>
                       {/* 透明 hit area */}
                       <circle
                         cx={cx}
@@ -956,6 +945,18 @@ export function CockpitVentureStatus({
           })}
         </svg>
       </div>
+      </div>
+      </div>
+
+      <div data-testid="cockpit-legacy-sps-disclosure" className="mx-2 flex justify-end border-x border-b border-[#7898a5] bg-slate-50">
+        <button
+          type="button"
+          aria-expanded={legacyScoreHistoryOpen}
+          onClick={() => setLegacyScoreHistoryProjectId(legacyScoreHistoryOpen ? null : projectId)}
+          className="min-h-11 px-3 text-[9px] font-semibold text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-cyan-700"
+        >
+          {legacyScoreHistoryOpen ? "旧SPS履歴を閉じる" : "旧SPS履歴を開く"}
+        </button>
       </div>
 
       {(editingEvent || creatingAt) && (

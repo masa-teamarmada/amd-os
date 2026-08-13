@@ -20,6 +20,7 @@ import {
   BZM22_PARAMETER_RELATIONS,
   BZM22_PARAMETER_THEORY_SYMBOLS,
 } from "../src/lib/bzm-2-2-parameter-catalog.ts";
+import { formatBzm22RegisteredValue } from "../src/lib/bzm-2-2-display-value.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 const artifactPath = path.join(root, "bzm/pilot/bzm-2-2-all-pj-provisional-v0-1.json");
@@ -29,6 +30,7 @@ const apiPath = path.join(root, "src/app/api/project/[projectId]/bzm-2-2-pilot/r
 const sxFundingTimingApiPath = path.join(root, "src/app/api/project/[projectId]/sx-funding-timing/route.ts");
 const loaderPath = path.join(root, "src/lib/bzm-2-2-pilot-ui.server.ts");
 const componentPath = path.join(root, "src/components/cockpit/Bzm22ProvisionalObservatory.tsx");
+const displayValuePath = path.join(root, "src/lib/bzm-2-2-display-value.ts");
 const timeLedgerPath = path.join(root, "src/components/cockpit/Bzm22TimeLedger.tsx");
 const sxMonthlyBackfillPath = path.join(root, "scripts/backfill_sx_phase_monthly_pl.mts");
 const scoreDetailPath = path.join(root, "src/components/cockpit/CockpitAmdScoreDetailTab.tsx");
@@ -117,6 +119,34 @@ for (const row of manifest.projects) {
     if (!parameter.imputed || !["low", "base", "high"].every((scenario) => scenario in parameter.imputed)) {
       throw new Error(`${row.projectId}/${parameter.id}: L/B/H missing`);
     }
+    for (const scenario of ["low", "base", "high"] as const) {
+      const rendered = formatBzm22RegisteredValue(parameter.imputed[scenario], {
+        projectId: projection.projectId,
+        projectName: projection.projectName,
+        parameterKey: parameter.key,
+        unit: parameter.unit,
+      });
+      if (!rendered.trim() || /登録値あり|日本語表示未接続|期間・件の登録データ|項目の登録データ/.test(rendered)) {
+        throw new Error(`${row.projectId}/${parameter.id}/${scenario}: project-specific registered value was collapsed to a placeholder`);
+      }
+    }
+  }
+  if (row.projectId === "p21") {
+    const sxBaseValues = parameters.map((parameter) => formatBzm22RegisteredValue(parameter.imputed.base, {
+      projectId: projection.projectId,
+      projectName: projection.projectName,
+      parameterKey: parameter.key,
+      unit: parameter.unit,
+    })).join("\n");
+    requireIncludes(sxBaseValues, [
+      "PSI GAPファンド Step 2採択：¥78M・2026-01〜2027-03・確度100%",
+      "VC DD：¥100M・2027-02・確度45%",
+      "共同開発：¥50M・2027-08・確度50%",
+      "期首自由資金 ¥0M",
+      "資金調達による現金を除外",
+      "TRL 4",
+      "有償PoCとコスト根拠",
+    ], "SX concrete registered-value display");
   }
   const expectedLaneKeys = [
     "confirmed_decisions",
@@ -601,13 +631,15 @@ if (/generated\/bzm-2-2-pilot|bzm-2-2-all-pj-provisional-v0-1\.json/.test(compon
 const cockpitSummarySource = requireText(cockpitSummaryPath);
 requireIncludes(cockpitSummarySource, [
   'data-testid="cockpit-bzm22-primary"',
+  'data-testid="cockpit-bzm22-value-rail"',
+  'data-layout={embedded ? "value-rail" : "standalone"}',
   "BZM22_TOP_METRICS",
   "?view=summary",
   'symbol="J"',
   'symbol="P"',
   'symbol="Q"',
   'symbol="S"',
-  "103パラメータと計算を見る",
+  "103パラメータと計算",
 ], "cockpit BZM 2.2 primary summary");
 if (cockpitSummarySource.includes("`${symbol}(a)`")) {
   throw new Error("cockpit BZM 2.2 primary metric heading must stay exactly J/P/Q/S");
@@ -615,10 +647,20 @@ if (cockpitSummarySource.includes("`${symbol}(a)`")) {
 const cockpitVentureSource = requireText(cockpitVenturePath);
 requireIncludes(cockpitVentureSource, [
   "Bzm22CockpitSummary",
+  'data-testid="cockpit-bzm22-xrl-overview"',
+  'data-testid="cockpit-xrl-panel"',
+  'data-testid="cockpit-legacy-sps-disclosure"',
+  "xl:grid-cols-[minmax(340px,24vw)_minmax(0,1fr)]",
   "SPS履歴（旧モデル）",
   "旧SPS履歴を開く",
   "legacyScoreHistoryOpen",
 ], "cockpit BZM 2.2 primary ordering");
+const displayValueSource = requireText(displayValuePath);
+for (const forbidden of ["登録値あり（日本語表示未接続）", "期間・件の登録データ", "項目の登録データ"]) {
+  if (displayValueSource.includes(forbidden) || componentSource.includes(forbidden)) {
+    throw new Error(`BZM 2.2 registered-value display still contains anonymous placeholder: ${forbidden}`);
+  }
+}
 if (cockpitVentureSource.includes("CockpitPlMonthlyModal") || cockpitVentureSource.includes("📊 試算表")) {
   throw new Error("cockpit header must not keep the detached monthly P&L button/modal");
 }

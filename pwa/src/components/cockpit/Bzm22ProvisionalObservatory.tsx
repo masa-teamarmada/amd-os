@@ -24,12 +24,14 @@ import {
   BZM22_PARAMETER_RELATION_LABELS,
   getBzm22ParameterCatalogEntry,
 } from "@/lib/bzm-2-2-parameter-catalog";
+import { formatBzm22RegisteredValue } from "@/lib/bzm-2-2-display-value";
 
 type LoadState =
   | { status: "idle" | "loading"; projectId: string }
   | { status: "ready"; projectId: string; pilot: Bzm22PilotProject }
   | { status: "error"; projectId: string; error: string };
 type ParameterFilter = "all" | "formula" | "assumption";
+type ProjectValueContext = Pick<Bzm22PilotProject, "projectId" | "projectName">;
 
 const PILOT_CACHE = new Map<string, Bzm22PilotProject>();
 const UNCERTAIN_STATUS = /missing|estimated|partial|imputed|conditional|hearing|unknown|incomplete/i;
@@ -41,11 +43,6 @@ const STATUS_META = [
   { pattern: UNCERTAIN_STATUS, label: "推定", className: "border-amber-200 bg-amber-50 text-amber-900" },
   { pattern: /not_applicable|n\/a|excluded/i, label: "対象外", className: "border-slate-200 bg-slate-100 text-slate-500" },
 ];
-
-const VALUE_LABELS: Record<string, string> = {
-  JPY: "日本円", nominal: "名目値", real: "実質値", low: "慎重", base: "基準", high: "強気",
-  true: "はい", false: "いいえ", shadow_only: "比較計算のみ", registered: "登録済み",
-};
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "未登録";
@@ -73,28 +70,13 @@ function formatUnitLabel(unit: string) {
   return labels[unit] ?? (unit ? "登録単位" : "単位なし");
 }
 
-function formatUnitValue(value: unknown, unit: string): string {
-  if (value === null || value === undefined || value === "") return "未登録";
-  if (typeof value === "boolean") return value ? "はい" : "いいえ";
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) return "未登録";
-    if (/million_jpy/i.test(unit)) return formatMillionJpy(value);
-    if (/probability|annual_decimal|decimal/i.test(unit)) return formatRate(value);
-    return `${new Intl.NumberFormat("ja-JP", { maximumFractionDigits: 4 }).format(value)}${formatUnitLabel(unit) === "登録単位" ? "" : formatUnitLabel(unit)}`;
-  }
-  if (typeof value === "string") {
-    if (VALUE_LABELS[value]) return VALUE_LABELS[value];
-    if (/^\d{4}-\d{2}-\d{2}/.test(value)) return formatDate(value);
-    if (/[ぁ-んァ-ヶ一-龠]/.test(value)) return value.length > 100 ? `${value.slice(0, 100)}…` : value;
-    return "登録値あり（日本語表示未接続）";
-  }
-  if (Array.isArray(value)) {
-    if (value.length <= 4 && value.every((entry) => typeof entry !== "object")) {
-      return value.map((entry) => formatUnitValue(entry, unit)).join("、");
-    }
-    return `${value.length}期間・件の登録データ`;
-  }
-  return `${Object.keys(value as Record<string, unknown>).length}項目の登録データ`;
+function formatUnitValue(value: unknown, parameter: Bzm22PilotParameter, project: ProjectValueContext): string {
+  return formatBzm22RegisteredValue(value, {
+    projectId: project.projectId,
+    projectName: project.projectName,
+    parameterKey: parameter.key,
+    unit: parameter.unit,
+  });
 }
 
 function statusMeta(status: string) {
@@ -121,12 +103,12 @@ function sameScenario(value: Bzm22Scenario<unknown>) {
   return JSON.stringify(value.low) === JSON.stringify(value.base) && JSON.stringify(value.base) === JSON.stringify(value.high);
 }
 
-function ScenarioValues({ parameter }: { parameter: Bzm22PilotParameter }) {
+function ScenarioValues({ parameter, project }: { parameter: Bzm22PilotParameter; project: ProjectValueContext }) {
   if (sameScenario(parameter.imputed)) {
     return (
       <div>
         <div className="text-[8px] font-semibold text-[#376274]">3ケース共通</div>
-        <div className="mt-0.5 text-[10px] font-semibold text-slate-700">{formatUnitValue(parameter.imputed.base, parameter.unit)}</div>
+        <div data-testid="bzm22-registered-value" className="mt-0.5 text-left text-[10px] font-semibold leading-4 text-slate-700">{formatUnitValue(parameter.imputed.base, parameter, project)}</div>
       </div>
     );
   }
@@ -135,7 +117,7 @@ function ScenarioValues({ parameter }: { parameter: Bzm22PilotParameter }) {
       {(["low", "base", "high"] as const).map((key) => (
         <div key={key} className="grid grid-cols-[72px_minmax(0,1fr)] gap-2 border-b border-slate-100 last:border-0">
           <span className="text-slate-500">{key === "low" ? "慎重な仮定" : key === "base" ? "基準の仮定" : "強気の仮定"}</span>
-          <span className="font-semibold text-slate-700">{formatUnitValue(parameter.imputed[key], parameter.unit)}</span>
+          <span data-testid="bzm22-registered-value" className="text-left font-semibold text-slate-700">{formatUnitValue(parameter.imputed[key], parameter, project)}</span>
         </div>
       ))}
     </div>
@@ -217,7 +199,7 @@ function AuditDetail({ parameter, projectId }: { parameter: Bzm22PilotParameter;
   );
 }
 
-function ParameterDesktopTable({ parameters, projectId }: { parameters: Bzm22PilotParameter[]; projectId: string }) {
+function ParameterDesktopTable({ parameters, project }: { parameters: Bzm22PilotParameter[]; project: ProjectValueContext }) {
   return (
     <div className="hidden overflow-x-auto lg:block">
       <table className="w-full min-w-[1040px] border-collapse text-left">
@@ -228,8 +210,8 @@ function ParameterDesktopTable({ parameters, projectId }: { parameters: Bzm22Pil
             <td className="px-2 py-1.5 text-right font-mono text-[8px] text-slate-400">{parameter.index}</td>
             <td className="px-2 py-1.5"><ParameterIdentity parameter={parameter} /></td>
             <td className="px-2 py-1.5 text-[9px] leading-4 text-slate-600">{catalog.formulaConnection}</td>
-            <td className="px-2 py-1.5"><ScenarioValues parameter={parameter} /></td>
-            <td className="px-2 py-1.5"><StatusBadge status={parameter.observedStatus} /><AuditDetail parameter={parameter} projectId={projectId} /></td>
+            <td className="px-2 py-1.5"><ScenarioValues parameter={parameter} project={project} /></td>
+            <td className="px-2 py-1.5"><StatusBadge status={parameter.observedStatus} /><AuditDetail parameter={parameter} projectId={project.projectId} /></td>
           </tr>;
         })}</tbody>
       </table>
@@ -237,13 +219,13 @@ function ParameterDesktopTable({ parameters, projectId }: { parameters: Bzm22Pil
   );
 }
 
-function ParameterMobileCards({ parameters, projectId }: { parameters: Bzm22PilotParameter[]; projectId: string }) {
+function ParameterMobileCards({ parameters, project }: { parameters: Bzm22PilotParameter[]; project: ProjectValueContext }) {
   return <div className="divide-y divide-slate-200 lg:hidden">{parameters.map((parameter) => (
     <article key={parameter.id} className="px-3 py-2">
       <div className="flex items-start justify-between gap-2"><span className="font-mono text-[8px] text-slate-400">#{parameter.index}</span><StatusBadge status={parameter.observedStatus} /></div>
       <div className="mt-1"><ParameterIdentity parameter={parameter} /></div>
-      <div className="mt-1.5 border border-slate-200 bg-white p-1.5"><div className="mb-1 text-[8px] font-semibold text-slate-500">入力値・3つの前提ケース</div><ScenarioValues parameter={parameter} /></div>
-      <AuditDetail parameter={parameter} projectId={projectId} />
+      <div className="mt-1.5 border border-slate-200 bg-white p-1.5"><div className="mb-1 text-[8px] font-semibold text-slate-500">入力値・3つの前提ケース</div><ScenarioValues parameter={parameter} project={project} /></div>
+      <AuditDetail parameter={parameter} projectId={project.projectId} />
     </article>
   ))}</div>;
 }
@@ -252,7 +234,7 @@ function FormulaIndex() {
   return <details className="border-t border-slate-200"><summary className="cursor-pointer list-none px-3 py-2 text-[9px] font-semibold text-[#376274] marker:content-none">接続式一覧 F0–F14</summary><div className="grid border-t border-slate-200 sm:grid-cols-2 xl:grid-cols-3">{Object.entries(BZM22_FORMULA_CATALOG).filter(([ref]) => ref.startsWith("F")).map(([ref, formula]) => <div key={ref} className="border-b border-r border-slate-200 p-2"><div className="text-[9px] font-semibold text-[#234d5e]">{ref} {formula.title}</div><div className="mt-1 overflow-x-auto whitespace-nowrap text-[9px] text-[#285b6b]"><Tex tex={formula.tex} /></div></div>)}</div></details>;
 }
 
-function ParameterLedger({ groups, projectId }: { groups: Bzm22PilotParameterGroup[]; projectId: string }) {
+function ParameterLedger({ groups, project }: { groups: Bzm22PilotParameterGroup[]; project: ProjectValueContext }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ParameterFilter>("all");
   const normalized = query.trim().toLocaleLowerCase("ja-JP");
@@ -272,7 +254,7 @@ function ParameterLedger({ groups, projectId }: { groups: Bzm22PilotParameterGro
           <div className="grid grid-cols-3 border border-slate-300">{([['all','全項目'],['formula','数式に関係'],['assumption','仮定を含む']] as const).map(([value,label]) => <button key={value} type="button" onClick={() => setFilter(value)} className={`min-h-10 border-l border-slate-200 px-2 text-[9px] first:border-0 md:min-h-8 ${filter === value ? "bg-[#dcebed] font-semibold text-[#174b60]" : "text-slate-500"}`}>{label}</button>)}</div>
         </div>
       </div>
-      {filtered.map((group) => <details key={group.key} className="border-t border-slate-200"><summary className="cursor-pointer list-none px-3 py-2 text-[10px] font-semibold text-[#254c5d] marker:content-none">{group.label}<span className="ml-2 font-normal text-slate-500">{group.parameters.length}/{group.count}件</span></summary><div className="border-t border-slate-100"><ParameterDesktopTable parameters={group.parameters} projectId={projectId} /><ParameterMobileCards parameters={group.parameters} projectId={projectId} /></div></details>)}
+      {filtered.map((group) => <details key={group.key} className="border-t border-slate-200"><summary className="cursor-pointer list-none px-3 py-2 text-[10px] font-semibold text-[#254c5d] marker:content-none">{group.label}<span className="ml-2 font-normal text-slate-500">{group.parameters.length}/{group.count}件</span></summary><div className="border-t border-slate-100"><ParameterDesktopTable parameters={group.parameters} project={project} /><ParameterMobileCards parameters={group.parameters} project={project} /></div></details>)}
       <FormulaIndex />
       <div className="px-3 py-2 text-[8px] text-slate-500">全{total}項目。内部識別子は各行の監査詳細のさらに内側にだけ表示する。</div>
     </details>
@@ -502,7 +484,7 @@ function CalculationConditions({ pilot }: { pilot: Bzm22PilotProject }) {
 function PilotPanel({ pilot }: { pilot: Bzm22PilotProject }) {
   const [gateMonths, setGateMonths] = useState<Record<string, number>>(() =>
     Object.fromEntries(pilot.calculationTrace.inputs.gates.map((gate) => [gate.id, gate.month])));
-  return <section data-testid="bzm22-provisional-primary" data-density="compact-score" aria-labelledby="bzm22-title" className="min-w-0 overflow-hidden border border-[#7898a5] bg-[#f6f8f8]"><header className="border-b border-[#365865] bg-[#162f3a] px-3 py-2 text-white sm:px-4"><div className="flex flex-wrap items-end justify-between gap-2"><div><h2 id="bzm22-title" className="text-[15px] font-semibold">BZM 2.2</h2><p className="mt-0.5 text-[10px] text-slate-200">{pilot.projectName}の事業価値と、条件を通り切る強さを式から確認する。</p></div><div className="text-right text-[8px] text-slate-300">価値基準日 {formatDate(pilot.valuationDate)}</div></div></header><div data-testid="bzm22-validation-boundary" className="border-b border-rose-300 bg-rose-50 px-3 py-1.5 text-[9px] font-semibold leading-4 text-rose-900 sm:px-4">前提監査未通過：前向き検証 {pilot.claimBoundary.forwardValidationCount}件。資源配分・PJ横比較には使用不可。{pilot.projectId === "p21" ? "SXの設立前DDは現計算ゲートへ未接続のため、J / P / Q / Sは再計算待ち。" : ""}</div><div className="grid gap-px border-b border-[#b9cbd1] bg-[#c9d5d9] sm:grid-cols-2 xl:grid-cols-4"><ScenarioMetric symbol="J" value={pilot.summary.jValueMillionJpy} kind="million" /><ScenarioMetric symbol="P" value={pilot.summary.conditionalSuccessValueMillionJpy} kind="million" /><ScenarioMetric symbol="Q" value={pilot.summary.qGateProductProxy} kind="probability" /><ScenarioMetric symbol="S" value={pilot.summary.qStressProxy} kind="probability" /></div><CalculationConditions pilot={pilot} /><CalculationTrace pilot={pilot} /><BrowserSimulator pilot={pilot} gateMonths={gateMonths} setGateMonths={setGateMonths} /><Bzm22TimeLedger pilot={pilot} gateMonths={gateMonths} /><Bzm22AcquisitionLedger projectId={pilot.projectId} /><ParameterLedger groups={pilot.groups} projectId={pilot.projectId} /></section>;
+  return <section data-testid="bzm22-provisional-primary" data-density="compact-score" aria-labelledby="bzm22-title" className="min-w-0 overflow-hidden border border-[#7898a5] bg-[#f6f8f8]"><header className="border-b border-[#365865] bg-[#162f3a] px-3 py-2 text-white sm:px-4"><div className="flex flex-wrap items-end justify-between gap-2"><div><h2 id="bzm22-title" className="text-[15px] font-semibold">BZM 2.2</h2><p className="mt-0.5 text-[10px] text-slate-200">{pilot.projectName}の事業価値と、条件を通り切る強さを式から確認する。</p></div><div className="text-right text-[8px] text-slate-300">価値基準日 {formatDate(pilot.valuationDate)}</div></div></header><div data-testid="bzm22-validation-boundary" className="border-b border-rose-300 bg-rose-50 px-3 py-1.5 text-[9px] font-semibold leading-4 text-rose-900 sm:px-4">前提監査未通過：前向き検証 {pilot.claimBoundary.forwardValidationCount}件。資源配分・PJ横比較には使用不可。{pilot.projectId === "p21" ? "SXの設立前DDは現計算ゲートへ未接続のため、J / P / Q / Sは再計算待ち。" : ""}</div><div className="grid gap-px border-b border-[#b9cbd1] bg-[#c9d5d9] sm:grid-cols-2 xl:grid-cols-4"><ScenarioMetric symbol="J" value={pilot.summary.jValueMillionJpy} kind="million" /><ScenarioMetric symbol="P" value={pilot.summary.conditionalSuccessValueMillionJpy} kind="million" /><ScenarioMetric symbol="Q" value={pilot.summary.qGateProductProxy} kind="probability" /><ScenarioMetric symbol="S" value={pilot.summary.qStressProxy} kind="probability" /></div><CalculationConditions pilot={pilot} /><CalculationTrace pilot={pilot} /><BrowserSimulator pilot={pilot} gateMonths={gateMonths} setGateMonths={setGateMonths} /><Bzm22TimeLedger pilot={pilot} gateMonths={gateMonths} /><Bzm22AcquisitionLedger projectId={pilot.projectId} /><ParameterLedger groups={pilot.groups} project={pilot} /></section>;
 }
 
 export function Bzm22ProvisionalObservatory({ projectId, active = true }: { projectId: string; active?: boolean }) {
