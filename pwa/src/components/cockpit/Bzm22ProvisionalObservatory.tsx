@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Tex } from "@/components/venture-map/Tex";
 import {
   BZM22_FORMULA_SYMBOLS,
@@ -285,25 +285,107 @@ function ScenarioMetric({ symbol, value, kind }: { symbol: keyof typeof BZM22_TO
   return <div className="min-w-0 bg-white px-3 py-3"><div className="flex items-baseline gap-2"><span className="text-[18px] font-bold text-[#173f51]">{symbol}</span><span className="text-[10px] font-semibold text-slate-600">{metric.title}</span></div><div className="mt-1 text-[16px] font-semibold tabular-nums text-[#173f51]">{formatNumber(value.base, kind)}</div><div className="mt-2 grid grid-cols-3 gap-1 text-[8px] text-slate-500"><span>慎重 {formatNumber(value.low, kind)}</span><span>基準 {formatNumber(value.base, kind)}</span><span>強気 {formatNumber(value.high, kind)}</span></div><div className="mt-2 text-[8px] leading-3 text-slate-500">{metric.description}</div></div>;
 }
 
-function TraceFormula({ label, formula, substitution, result }: { label: string; formula: string; substitution: string; result: string }) {
-  return <div className="border border-slate-200 bg-white p-2"><div className="text-[10px] font-bold text-[#173f51]">{label}</div><div className="mt-1 overflow-x-auto whitespace-nowrap text-[10px] text-[#285b6b]"><Tex tex={formula} /></div><div className="mt-1 font-mono text-[9px] leading-4 text-slate-600">{substitution} ≈ <strong className="text-[#173f51]">{result}</strong></div></div>;
+function FormulaTerm({ tex, label, value, detail }: { tex: string; label: string; value: string; detail?: string }) {
+  return (
+    <div className="min-w-0 flex-1">
+      <div className="flex min-h-9 items-end justify-center border-b-2 border-[#2b6c82] px-2 pb-1 text-center text-[11px] text-[#285b6b]">
+        <Tex tex={tex} />
+      </div>
+      <div aria-hidden="true" className="mx-auto h-3 w-px bg-[#2b6c82]" />
+      <div className="border border-[#a9c5cf] bg-[#eaf2f4] px-2.5 py-2 text-center">
+        <div className="text-[8px] font-semibold text-[#426573]">{label}</div>
+        <div className="mt-1 font-mono text-[11px] font-semibold tabular-nums text-[#173f51]">{value}</div>
+        {detail ? <div className="mt-1 text-[8px] leading-3 text-slate-500">{detail}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+function FormulaJoin({ children }: { children: string }) {
+  return <div aria-hidden="true" className="flex h-7 shrink-0 items-center justify-center px-1 font-serif text-[18px] text-slate-400 lg:h-9 lg:items-end lg:pb-1 xl:px-2">{children}</div>;
+}
+
+function AnnotatedFormula({
+  symbol,
+  title,
+  scenarioLabel,
+  formula,
+  result,
+  children,
+}: {
+  symbol: "J" | "P" | "Q" | "S";
+  title: string;
+  scenarioLabel: string;
+  formula: string;
+  result: string;
+  children: ReactNode;
+}) {
+  return (
+    <article data-testid={`bzm22-annotated-formula-${symbol.toLowerCase()}`} aria-label={`${symbol}の数式と代入値`} className="border border-slate-200 bg-white">
+      <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200 px-3 py-2">
+        <div className="flex items-baseline gap-2">
+          <span className="text-[18px] font-bold text-[#173f51]">{symbol}</span>
+          <span className="text-[10px] font-semibold text-slate-600">{title}</span>
+          <span className="text-[8px] text-slate-400">{scenarioLabel}</span>
+        </div>
+        <strong className="font-mono text-[14px] tabular-nums text-[#173f51]">{result}</strong>
+      </header>
+      <div className="overflow-x-auto px-3 py-3">
+        <div className="min-w-0 lg:min-w-[720px]">
+          <div className="overflow-x-auto whitespace-nowrap text-[12px] text-[#285b6b]"><Tex tex={formula} /></div>
+          <div className="mt-3 flex flex-col items-stretch lg:flex-row lg:items-start">{children}</div>
+        </div>
+      </div>
+    </article>
+  );
 }
 
 function CalculationTrace({ pilot }: { pilot: Bzm22PilotProject }) {
   const trace = pilot.calculationTrace;
   const [scenario, setScenario] = useState<"low" | "base" | "high">("base");
   const output = trace.outputs[scenario];
+  const values = buildBzm22FormulaTrace(trace, scenario);
   const scenarioLabel = scenario === "low" ? "慎重" : scenario === "base" ? "基準" : "強気";
-  const qFactors = trace.inputs.gates.map((gate) => formatRate(gate.probabilities[scenario])).join(" × ");
-  const stressValues = trace.inputs.stressFamilies.map((family) => formatRate(family.gateProduct[scenario])).join("、");
+  const firstMonth = values.months[0];
+  const lastMonth = values.months.at(-1);
+  const qFactors = values.gates.map((gate) => formatRate(gate.probability)).join(" × ");
+  const stressValues = values.stresses.map((family) => `${family.label} ${formatRate(family.product)}`).join(" / ");
+  const cashFlowRange = firstMonth && lastMonth
+    ? `dₜ ${firstMonth.discountFactor.toFixed(6)}→${lastMonth.discountFactor.toFixed(6)} / Wₜ ${formatRate(firstMonth.pathWeight)}→${formatRate(lastMonth.pathWeight)}`
+    : "月次系列なし";
+  const fullCashFlowDetail = firstMonth && lastMonth
+    ? `t=1〜${values.horizonMonths} / dₜ ${firstMonth.discountFactor.toFixed(6)}→${lastMonth.discountFactor.toFixed(6)}`
+    : "月次系列なし";
   return (
     <section className="border-b border-[#b9cbd1] bg-[#f6f8f8]" aria-labelledby="calculation-trace-title">
-      <header className="flex flex-wrap items-end justify-between gap-2 border-b border-slate-200 bg-white px-3 py-2 sm:px-4"><div><h3 id="calculation-trace-title" className="text-[12px] font-semibold text-[#173f51]">式と入力のつながり</h3><p className="mt-0.5 text-[9px] text-slate-500">評価に用いた登録方針: {trace.policyLabel}</p></div><div className="grid grid-cols-3 border border-slate-300">{([['low','慎重'],['base','基準'],['high','強気']] as const).map(([key,label]) => <button key={key} type="button" onClick={() => setScenario(key)} className={`min-h-8 border-l border-slate-200 px-3 text-[9px] first:border-0 ${scenario === key ? "bg-[#dcebed] font-semibold text-[#174b60]" : "bg-white text-slate-500"}`}>{label}</button>)}</div></header>
-      <div className="grid gap-px bg-slate-200 p-px lg:grid-cols-4">
-        <TraceFormula label={`Q・${scenarioLabel}`} formula={BZM22_TOP_METRICS.Q.formula} substitution={qFactors || "条件なし"} result={formatRate(output.Q)} />
-        <TraceFormula label={`S・${scenarioLabel}`} formula={BZM22_TOP_METRICS.S.formula} substitution={`min(${stressValues || "対象なし"})`} result={formatRate(output.S)} />
-        <TraceFormula label={`P・${scenarioLabel}`} formula={BZM22_TOP_METRICS.P.formula} substitution={`${formatMillionJpy(output.fullPathPV)} + ${formatMillionJpy(output.terminalPV)}`} result={output.P === null ? "対象外" : formatMillionJpy(output.P)} />
-        <TraceFormula label={`J・${scenarioLabel}`} formula={BZM22_TOP_METRICS.J.formula} substitution={`${formatMillionJpy(output.pathPV)} + ${formatMillionJpy(output.successContribution)} + ${formatMillionJpy(output.failureContribution)}`} result={formatMillionJpy(output.J)} />
+      <header className="flex flex-wrap items-end justify-between gap-2 border-b border-slate-200 bg-white px-3 py-2 sm:px-4"><div><h3 id="calculation-trace-title" className="text-[12px] font-semibold text-[#173f51]">式と入力のつながり</h3><p className="mt-0.5 text-[9px] text-slate-500">各項の直下に、このPJで代入した数値を表示。評価に用いた登録方針: {trace.policyLabel}</p></div><div className="grid grid-cols-3 border border-slate-300">{([['low','慎重'],['base','基準'],['high','強気']] as const).map(([key,label]) => <button key={key} type="button" onClick={() => setScenario(key)} className={`min-h-8 border-l border-slate-200 px-3 text-[9px] first:border-0 ${scenario === key ? "bg-[#dcebed] font-semibold text-[#174b60]" : "bg-white text-slate-500"}`}>{label}</button>)}</div></header>
+      <div data-testid="bzm22-formula-substitution-board" className="grid gap-2 bg-[#f6f8f8] p-2">
+        <AnnotatedFormula symbol="J" title={BZM22_TOP_METRICS.J.title} scenarioLabel={scenarioLabel} formula={BZM22_TOP_METRICS.J.formula} result={formatMillionJpy(output.J)}>
+          <FormulaTerm tex={String.raw`\sum_{t=1}^{H}d_tW_t(a)CF_t(a)`} label="経路中の月次収支" value={formatMillionJpy(output.pathPV)} detail={cashFlowRange} />
+          <FormulaJoin>+</FormulaJoin>
+          <FormulaTerm tex={String.raw`d_HQ(a)TV(a)`} label="全条件通過時の寄与" value={`${values.terminal.discountFactor.toFixed(6)} × ${formatRate(output.Q)} × ${formatMillionJpy(values.terminal.valueMillionJpy)}`} detail={`≈ ${formatMillionJpy(output.successContribution)}`} />
+          <FormulaJoin>+</FormulaJoin>
+          <FormulaTerm tex={String.raw`\sum_{i\in G}d_{t_i}W_{t_i^-}(a)(1-p_i(a))RV_i(a)`} label={`${values.gates.length}条件の停止寄与`} value={formatMillionJpy(output.failureContribution)} detail="条件別の値は直下の表で展開" />
+          <FormulaJoin>≈</FormulaJoin>
+          <FormulaTerm tex={String.raw`J(a)`} label="全分岐込み" value={formatMillionJpy(output.J)} />
+        </AnnotatedFormula>
+        <AnnotatedFormula symbol="P" title={BZM22_TOP_METRICS.P.title} scenarioLabel={scenarioLabel} formula={BZM22_TOP_METRICS.P.formula} result={output.P === null ? "対象外" : formatMillionJpy(output.P)}>
+          <FormulaTerm tex={String.raw`\sum_{t=1}^{H}d_tCF_t(a)`} label="全条件通過時の月次収支" value={formatMillionJpy(output.fullPathPV)} detail={fullCashFlowDetail} />
+          <FormulaJoin>+</FormulaJoin>
+          <FormulaTerm tex={String.raw`d_HTV(a)`} label="最終月の将来価値" value={`${values.terminal.discountFactor.toFixed(6)} × ${formatMillionJpy(values.terminal.valueMillionJpy)}`} detail={`≈ ${formatMillionJpy(output.terminalPV)}`} />
+          <FormulaJoin>≈</FormulaJoin>
+          <FormulaTerm tex={String.raw`P(a)`} label="全条件通過時" value={output.P === null ? "対象外" : formatMillionJpy(output.P)} />
+        </AnnotatedFormula>
+        <AnnotatedFormula symbol="Q" title={BZM22_TOP_METRICS.Q.title} scenarioLabel={scenarioLabel} formula={BZM22_TOP_METRICS.Q.formula} result={formatRate(output.Q)}>
+          <FormulaTerm tex={String.raw`\prod_{i\in G}p_i(a)`} label={`${values.gates.length}条件の通過値`} value={qFactors || "条件なし"} detail={`≈ ${formatRate(output.Q)}`} />
+          <FormulaJoin>≈</FormulaJoin>
+          <FormulaTerm tex={String.raw`Q(a)`} label="基準到達指数" value={formatRate(output.Q)} />
+        </AnnotatedFormula>
+        <AnnotatedFormula symbol="S" title={BZM22_TOP_METRICS.S.title} scenarioLabel={scenarioLabel} formula={BZM22_TOP_METRICS.S.formula} result={formatRate(output.S)}>
+          <FormulaTerm tex={String.raw`\min_{\delta\in\Delta_{\mathrm{reg}}}\prod_{i\in G}(p_i(a)m_{i\delta}(a))`} label={`${values.stresses.length}逆風の計算結果`} value={stressValues || "対象なし"} detail={`最小値 ${formatRate(output.S)}`} />
+          <FormulaJoin>≈</FormulaJoin>
+          <FormulaTerm tex={String.raw`S(a)`} label="逆風耐久指数" value={formatRate(output.S)} />
+        </AnnotatedFormula>
       </div>
       <div className="border-t border-slate-200 bg-white px-3 py-2 text-[9px] leading-4 text-slate-600 sm:px-4"><strong>Q × P はJではない。</strong> {output.qTimesP === null ? "このPJではPが対象外。" : `このケースのQ × Pは ${formatMillionJpy(output.qTimesP)}、Jは ${formatMillionJpy(output.J)}。`} Jは毎月の収支を各時点の生存率で重み付けし、途中停止時の価値も足すため。</div>
       <AlgebraInputs pilot={pilot} scenario={scenario} />
