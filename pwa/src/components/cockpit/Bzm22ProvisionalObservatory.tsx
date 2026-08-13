@@ -130,6 +130,7 @@ function readableValue(value: unknown, unit: string, maxLength = 78) {
     false: "無効",
     JPY: "日本円",
     BZM: "BZM",
+    "2.2-provisional-full-imputation": "BZM 2.2・全項目推定版",
     not_applicable: "対象外",
     structurally_not_computable: "構造上、計算対象外",
   };
@@ -192,6 +193,16 @@ function hasPrecisionLoss(value: Bzm22PilotParameter["precisionLossContribution"
   if (value === null || value === false || value === 0 || value === "") return false;
   if (typeof value === "string" && /^(none|false|not_applicable|n\/a)$/i.test(value)) return false;
   return true;
+}
+
+function precisionImpactLabel(value: Bzm22PilotParameter["precisionLossContribution"]) {
+  const normalized = compactValue(value).toLowerCase();
+  const labels: Record<string, string> = {
+    low: "小",
+    medium: "中",
+    high: "大",
+  };
+  return labels[normalized] ?? compactValue(value);
 }
 
 function isUncertain(parameter: Bzm22PilotParameter) {
@@ -767,7 +778,7 @@ function ParameterDesktopTable({ parameters, projectId }: { parameters: Bzm22Pil
               <td className="px-2 py-2">
                 <StatusBadge status={parameter.observedStatus} />
                 {hasPrecisionLoss(parameter.precisionLossContribution) ? (
-                  <div className="mt-1 text-[8px] leading-3 text-amber-800">精度低下: {compactValue(parameter.precisionLossContribution)}</div>
+                  <div className="mt-1 text-[8px] leading-3 text-amber-800">精度への影響: {precisionImpactLabel(parameter.precisionLossContribution)}</div>
                 ) : null}
               </td>
               <td className="px-2 py-2"><ParameterBasis parameter={parameter} projectId={projectId} /></td>
@@ -809,7 +820,7 @@ function ParameterMobileCards({ parameters, projectId }: { parameters: Bzm22Pilo
           <div className="mt-2 flex flex-wrap items-center gap-2 text-[9px]">
             <FormulaRelation parameter={parameter} />
             {hasPrecisionLoss(parameter.precisionLossContribution) ? (
-              <span className="text-amber-800">精度低下: {compactValue(parameter.precisionLossContribution)}</span>
+              <span className="text-amber-800">精度への影響: {precisionImpactLabel(parameter.precisionLossContribution)}</span>
             ) : null}
           </div>
         </article>
@@ -903,7 +914,7 @@ function ParameterLedger({ groups, projectId }: { groups: Bzm22PilotParameterGro
             {([
               ["all", "全項目"],
               ["used", "式に接続"],
-              ["uncertain", "精度低下"],
+              ["uncertain", "精度への影響あり"],
             ] as const).map(([value, label]) => (
               <button
                 key={value}
@@ -961,7 +972,7 @@ function PilotPanel({ pilot }: { pilot: Bzm22PilotProject }) {
             </p>
           </div>
           <div className="shrink-0 text-right font-mono text-[8px] leading-4 text-slate-300">
-            <div>{pilot.projectName} · BZM {pilot.modelVersion}</div>
+            <div>{pilot.projectName} · BZM 2.2</div>
             <div>価値基準日 {pilot.valuationDate}</div>
             <div>情報締切 {formatDateTime(pilot.informationCutoff)}</div>
           </div>

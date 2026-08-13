@@ -1894,6 +1894,8 @@ expectNotIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   "L / B / H",
   "L/B/H 全値",
   ">現在値<",
+  "{pilot.modelVersion}",
+  "精度低下:",
   'label="gate積 proxy"',
   'label="stress最小 gate積 proxy"',
   "校正済み到達確率ではない",

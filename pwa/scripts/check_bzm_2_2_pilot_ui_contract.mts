@@ -371,6 +371,8 @@ for (const forbidden of [
   "L / B / H",
   "L/B/H 全値",
   "catalog.dataNameTex",
+  "{pilot.modelVersion}",
+  "精度低下:",
 ]) {
   if (componentSource.includes(forbidden)) throw new Error(`BZM 2.2 UI still exposes legacy wording: ${forbidden}`);
 }
