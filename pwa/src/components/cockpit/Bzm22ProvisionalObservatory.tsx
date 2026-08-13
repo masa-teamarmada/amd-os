@@ -287,14 +287,14 @@ function ScenarioMetric({ symbol, value, kind }: { symbol: keyof typeof BZM22_TO
 
 function FormulaTerm({ tex, label, value, detail }: { tex: string; label: string; value: string; detail?: string }) {
   return (
-    <div className="min-w-0 flex-1">
-      <div className="flex min-h-9 items-end justify-center border-b-2 border-[#2b6c82] px-2 pb-1 text-center text-[11px] text-[#285b6b]">
+    <div className="w-full min-w-0 lg:flex-1">
+      <div className="flex min-h-9 items-end justify-start overflow-x-auto whitespace-nowrap border-b-2 border-[#2b6c82] px-2 pb-1 text-left text-[11px] text-[#285b6b] lg:justify-center lg:text-center">
         <Tex tex={tex} />
       </div>
       <div aria-hidden="true" className="mx-auto h-3 w-px bg-[#2b6c82]" />
       <div className="border border-[#a9c5cf] bg-[#eaf2f4] px-2.5 py-2 text-center">
         <div className="text-[8px] font-semibold text-[#426573]">{label}</div>
-        <div className="mt-1 font-mono text-[11px] font-semibold tabular-nums text-[#173f51]">{value}</div>
+        <div className="mt-1 break-words font-mono text-[11px] font-semibold tabular-nums text-[#173f51]">{value}</div>
         {detail ? <div className="mt-1 text-[8px] leading-3 text-slate-500">{detail}</div> : null}
       </div>
     </div>
@@ -330,8 +330,8 @@ function AnnotatedFormula({
         </div>
         <strong className="font-mono text-[14px] tabular-nums text-[#173f51]">{result}</strong>
       </header>
-      <div className="overflow-x-auto px-3 py-3">
-        <div className="min-w-0 lg:min-w-[720px]">
+      <div className="px-3 py-3 lg:overflow-x-auto">
+        <div className="w-full min-w-0 lg:min-w-[720px]">
           <div className="overflow-x-auto whitespace-nowrap text-[12px] text-[#285b6b]"><Tex tex={formula} /></div>
           <div className="mt-3 flex flex-col items-stretch lg:flex-row lg:items-start">{children}</div>
         </div>
