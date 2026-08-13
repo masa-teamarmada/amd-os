@@ -275,7 +275,9 @@ SXのBZM 2.0固定方針下の計画達成診断4.15%は消さず、BZM 2.1の�
 
 このartifactのPJ別compact projectionは、read-only API `/api/project/[projectId]/bzm-2-2-pilot`を通じてPJコックピットのスコア詳細へ接続する。payloadは`{ pilot: Bzm22PilotProject }`とし、該当PJがartifact未登録ならBZM 2.2区画だけに明示的な未登録状態を返す。DB、監査JSONの正本、生成スクリプト、`sps_primary_model_registry`は書き換えない。
 
-`Bzm22ProvisionalObservatory`を`data-testid="bzm22-provisional-primary"`の最上段に置き、見出しは「BZM 2.2 暫定主表示」とする。ヘッダーに`unvalidated`、`shadow_only`、前向き検証0件、ランキング・配分・自動判断禁止を隠さず表示する。要約は低位・中央・高位scenarioの`q_gate_product_proxy`、`q_stress_proxy`、$J$、成功条件付き$P$、初回経路喪失を分離し、直下に「全パラメータ台帳」を置く。金額表示は`¥4,010M`形式とし、百万JPY単位の値を整数へ四捨五入して表示する。artifact/APIの数値精度は変更しない。
+`Bzm22ProvisionalObservatory`を`data-testid="bzm22-provisional-primary"`の最上段に置き、見出しは「BZM 2.2 暫定主表示」とする。ヘッダーに`unvalidated`、`shadow_only`、前向き検証0件、ランキング・配分・自動判断禁止を隠さず表示する。要約は低位・中央・高位scenarioの$J$「動的正味PJ価値」、$P$「成功時価値」、$Q$「基準到達指数」、$S$「逆風耐久指数」と初回経路喪失を分離する。4指標は一文字、数値、数式、肯定形の一文を同じカードへ置き、内部keyの`proxy`表記をカード名へ出さない。$Q/S$には「暫定・未校正」を常設する。直下に「全パラメータ台帳」を置く。金額表示は`¥4,010M`形式とし、百万JPY単位の値を整数へ四捨五入して表示する。artifact/APIの数値精度は変更しない。
+
+進捗管理タブを含む`CockpitVentureStatus`の主スコアは`Bzm22CockpitSummary`へ切り替え、同じ$J/P/Q/S$と数式を表示する。summary取得は既存member-only APIへ`?view=summary`を付け、103項目を初期表示へ同梱しない。従来SPSの折れ線とM/P/R/Sカードは初期閉じの「旧SPS履歴」トグル内に編集・参照用として残し、BZM 2.2の時系列に見せない。XRLはトグル外で常時表示する。
 
 全パラメータ台帳は7群の103項目を全件収載し、各行のkey、値、推定状態、確度、根拠・注記、scenario別入力を監査可能にする。群は折りたためるが、検索・表示条件を初期状態へ戻せば全103項目へ到達でき、「全て開く」で同時展開できる。構造化値は形・hash・previewで圧縮しても行を間引かない。desktopは高密度表、mobileは各行のlabel/valueを縦再配置し、ページ全体の水平スクロールを発生させない。
 
@@ -286,6 +288,8 @@ SXのBZM 2.0固定方針下の計画達成診断4.15%は消さず、BZM 2.1の�
 ### 指標名と方針状態
 
 gate積は`q_gate_product_proxy`、登録stress別gate積の最小値は`q_stress_proxy`として保存する。
+
+UIでは前者を$Q$「基準到達指数」、後者を$S$「逆風耐久指数」と短縮する。$S$は戦略余力全体を表す単一尺度ではない。
 
 条件付き確率としての校正とgate間依存を閉じていないため、`q`、`q_plan`、`q_robust`、$q_{\mathrm{rob}}^{-}$という名前で保存または表示しない。
 

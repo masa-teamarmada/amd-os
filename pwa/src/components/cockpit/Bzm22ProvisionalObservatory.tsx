@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Tex } from "@/components/venture-map/Tex";
 import {
+  BZM22_TOP_METRICS,
   formatMillionJpy,
   type Bzm22PilotApiPayload,
   type Bzm22PilotParameter,
@@ -178,22 +180,33 @@ function ValueDisclosure({
 }
 
 function ScenarioMetric({
+  symbol,
   label,
+  formula,
   value,
   kind,
   note,
 }: {
+  symbol: keyof typeof BZM22_TOP_METRICS;
   label: string;
+  formula: string;
   value: Bzm22Scenario<number | null>;
   kind: "probability" | "million";
   note: string;
 }) {
   return (
     <div className="min-w-0 bg-white px-3 py-2.5">
-      <div className="text-[9px] font-semibold tracking-wide text-slate-500">{label}</div>
+      <div className="flex items-baseline gap-1.5">
+        <span className="font-mono text-[16px] font-bold text-[#173f51]">{symbol}</span>
+        <span className="text-[9px] font-semibold tracking-wide text-slate-500">{label}</span>
+      </div>
       <div className="mt-1 text-[15px] font-semibold tabular-nums text-[#173f51]">
         {formatNumber(value.base, kind)}
       </div>
+      <div className="mt-1 overflow-x-auto whitespace-nowrap border-y border-slate-100 py-1 text-[10px] text-[#294c5b]">
+        <Tex tex={formula} />
+      </div>
+      <div className="mt-1 text-[8px] font-semibold text-amber-800">暫定・未校正</div>
       <div className="mt-1 grid grid-cols-3 gap-1 font-mono text-[8px] tabular-nums text-slate-500">
         <span>L {formatNumber(value.low, kind)}</span>
         <span>B {formatNumber(value.base, kind)}</span>
@@ -467,10 +480,14 @@ function PilotPanel({ pilot }: { pilot: Bzm22PilotProject }) {
       </header>
 
       <div className="grid grid-cols-1 gap-px border-b border-[#b9cbd1] bg-[#c9d5d9] sm:grid-cols-2 xl:grid-cols-4">
-        <ScenarioMetric label="J · 動的正味PJ価値" value={pilot.summary.jValueMillionJpy} kind="million" note="支出と将来の戦略余力寄与を同じ動学で扱う暫定値" />
-        <ScenarioMetric label="P · 成功時条件付き価値" value={pilot.summary.conditionalSuccessValueMillionJpy} kind="million" note={conditionalValueIsNa ? "歴史的終端などのため対象外" : "Jとは別の条件付き出力。二重計上しない"} />
-        <ScenarioMetric label="gate積 proxy" value={pilot.summary.qGateProductProxy} kind="probability" note="校正済み到達確率ではない" />
-        <ScenarioMetric label="stress最小 gate積 proxy" value={pilot.summary.qStressProxy} kind="probability" note="理論上のq_robでも信頼区間でもない" />
+        <ScenarioMetric symbol="J" label={BZM22_TOP_METRICS.J.title} formula={BZM22_TOP_METRICS.J.formula} value={pilot.summary.jValueMillionJpy} kind="million" note={BZM22_TOP_METRICS.J.description} />
+        <ScenarioMetric symbol="P" label={BZM22_TOP_METRICS.P.title} formula={BZM22_TOP_METRICS.P.formula} value={pilot.summary.conditionalSuccessValueMillionJpy} kind="million" note={conditionalValueIsNa ? "このPJは歴史的終端として記録されているため、成功時価値の対象外。" : BZM22_TOP_METRICS.P.description} />
+        <ScenarioMetric symbol="Q" label={BZM22_TOP_METRICS.Q.title} formula={BZM22_TOP_METRICS.Q.formula} value={pilot.summary.qGateProductProxy} kind="probability" note={BZM22_TOP_METRICS.Q.description} />
+        <ScenarioMetric symbol="S" label={BZM22_TOP_METRICS.S.title} formula={BZM22_TOP_METRICS.S.formula} value={pilot.summary.qStressProxy} kind="probability" note={BZM22_TOP_METRICS.S.description} />
+      </div>
+
+      <div className="border-b border-[#b9cbd1] bg-[#edf3f5] px-3 py-1.5 text-[8px] leading-4 text-[#365865] sm:px-4">
+        <span className="font-semibold">数式の記号:</span> CF=月ごとの収支、TV=目標到達後の将来価値、RV=途中で止まった時の残存価値、d=現在価値への割引、s=その月まで経路が続く重み、p=各条件の通過値、m=逆風時の補正。Q/Sは0〜100%で読む比較用指数。
       </div>
 
       <div className="grid gap-px border-b border-[#b9cbd1] bg-[#d4dde0] sm:grid-cols-3">
@@ -492,7 +509,7 @@ function PilotPanel({ pilot }: { pilot: Bzm22PilotProject }) {
       </div>
 
       <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[9px] leading-4 text-amber-950 sm:px-4">
-        <span className="font-semibold">読取境界:</span> 前向き検証 {pilot.claimBoundary.forwardValidationCount}件。L/B/Hは信頼区間ではなく仮定束。gate積 proxyは到達見込みではない。情報源は {incompleteSources.length > 0 ? `${incompleteSources.length}系統で走査未完了` : "走査完了"}。
+        <span className="font-semibold">精度:</span> 前向き検証 {pilot.claimBoundary.forwardValidationCount}件。L/B/Hは、前提をまとめて変えた低位・基準・高位の試算。情報源は {incompleteSources.length > 0 ? `${incompleteSources.length}系統で走査未完了` : "走査完了"}。
       </div>
 
       <div className="flex min-w-0 flex-wrap gap-x-3 gap-y-1 border-b border-slate-200 bg-white px-3 py-1.5 text-[8px] text-slate-500 sm:px-4">

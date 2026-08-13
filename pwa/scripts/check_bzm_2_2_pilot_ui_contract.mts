@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import {
+  BZM22_TOP_METRICS,
   formatMillionJpy,
   type Bzm22PilotProject,
 } from "../src/lib/bzm-2-2-pilot-ui.ts";
@@ -14,6 +15,8 @@ const apiPath = path.join(root, "src/app/api/project/[projectId]/bzm-2-2-pilot/r
 const loaderPath = path.join(root, "src/lib/bzm-2-2-pilot-ui.server.ts");
 const componentPath = path.join(root, "src/components/cockpit/Bzm22ProvisionalObservatory.tsx");
 const scoreDetailPath = path.join(root, "src/components/cockpit/CockpitAmdScoreDetailTab.tsx");
+const cockpitSummaryPath = path.join(root, "src/components/cockpit/Bzm22CockpitSummary.tsx");
+const cockpitVenturePath = path.join(root, "src/components/cockpit/CockpitVentureStatus.tsx");
 
 const sha256 = (value: string | Buffer) =>
   crypto.createHash("sha256").update(value).digest("hex");
@@ -99,6 +102,7 @@ requireIncludes(apiSource, [
   'export const dynamic = "force-dynamic"',
   'export const runtime = "nodejs"',
   '"Cache-Control": "private, no-store, max-age=0"',
+  'view === "summary"',
 ], "BZM 2.2 member API");
 
 const loaderSource = requireText(loaderPath);
@@ -114,13 +118,26 @@ requireIncludes(componentSource, [
   "全パラメータ台帳",
   "103項目",
   "順位付け、資源配分、撤退判断には使わない",
-  "L/B/Hは信頼区間ではなく仮定束",
+  "低位・基準・高位の試算",
   'data-testid="bzm22-provisional-primary"',
+  'symbol="J"',
+  'symbol="P"',
+  'symbol="Q"',
+  'symbol="S"',
+  "<Tex tex={formula}",
   "ParameterMobileCards",
   "ParameterDesktopTable",
   "formatUnitValue",
   "formatUnitLabel",
 ], "BZM 2.2 observatory UI");
+if (
+  BZM22_TOP_METRICS.Q.title !== "基準到達指数"
+  || BZM22_TOP_METRICS.S.title !== "逆風耐久指数"
+  || !BZM22_TOP_METRICS.J.formula.startsWith("J=")
+  || !BZM22_TOP_METRICS.P.formula.startsWith("P=")
+) {
+  throw new Error("BZM 2.2 top metric symbol/formula contract mismatch");
+}
 if (componentSource.includes("百万円")) {
   throw new Error("BZM 2.2 monetary UI must use ¥#,###M instead of 百万円");
 }
@@ -134,6 +151,25 @@ if (
 if (/generated\/bzm-2-2-pilot|bzm-2-2-all-pj-provisional-v0-1\.json/.test(componentSource)) {
   throw new Error("BZM 2.2 client component must not import generated/raw artifacts");
 }
+
+const cockpitSummarySource = requireText(cockpitSummaryPath);
+requireIncludes(cockpitSummarySource, [
+  'data-testid="cockpit-bzm22-primary"',
+  "BZM22_TOP_METRICS",
+  "?view=summary",
+  'symbol="J"',
+  'symbol="P"',
+  'symbol="Q"',
+  'symbol="S"',
+  "103パラメータと計算を見る",
+], "cockpit BZM 2.2 primary summary");
+const cockpitVentureSource = requireText(cockpitVenturePath);
+requireIncludes(cockpitVentureSource, [
+  "Bzm22CockpitSummary",
+  "SPS履歴（旧モデル）",
+  "旧SPS履歴を開く",
+  "legacyScoreHistoryOpen",
+], "cockpit BZM 2.2 primary ordering");
 
 const scoreDetailSource = requireText(scoreDetailPath);
 requireIncludes(scoreDetailSource, [

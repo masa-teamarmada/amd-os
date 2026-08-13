@@ -1874,12 +1874,33 @@ expectIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   "影の比較のみ",
   "順位付け、資源配分、撤退判断には使わない",
   "前向き検証",
-  "gate積 proxy",
-  "校正済み到達確率ではない",
+  'symbol="J"',
+  'symbol="P"',
+  'symbol="Q"',
+  'symbol="S"',
+  "<Tex tex={formula}",
   "103項目",
   "ParameterDesktopTable",
   "ParameterMobileCards",
   "全て開く",
+]);
+expectNotIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
+  'label="gate積 proxy"',
+  'label="stress最小 gate積 proxy"',
+  "校正済み到達確率ではない",
+  "理論上のq_robでも信頼区間でもない",
+]);
+expectIncludes("src/components/cockpit/Bzm22CockpitSummary.tsx", [
+  'data-testid="cockpit-bzm22-primary"',
+  "BZM22_TOP_METRICS",
+  "?view=summary",
+  "103パラメータと計算を見る",
+]);
+expectIncludes("src/components/cockpit/CockpitVentureStatus.tsx", [
+  "Bzm22CockpitSummary",
+  "SPS履歴（旧モデル）",
+  "旧SPS履歴を開く",
+  "legacyScoreHistoryOpen",
 ]);
 expectIncludes("src/lib/bzm-2-2-pilot-ui.server.ts", [
   "PILOT_LOADERS",

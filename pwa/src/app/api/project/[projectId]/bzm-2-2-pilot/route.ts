@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ projectId: string }> },
 ) {
   const { projectId } = await ctx.params;
@@ -25,8 +25,20 @@ export async function GET(
     );
   }
 
+  const view = new URL(req.url).searchParams.get("view");
+  const responsePilot = view === "summary"
+    ? {
+        projectId: pilot.projectId,
+        projectName: pilot.projectName,
+        modelVersion: pilot.modelVersion,
+        valuationDate: pilot.valuationDate,
+        claimBoundary: pilot.claimBoundary,
+        summary: pilot.summary,
+      }
+    : pilot;
+
   return NextResponse.json(
-    { pilot },
+    { pilot: responsePilot },
     {
       headers: {
         "Cache-Control": "private, no-store, max-age=0",

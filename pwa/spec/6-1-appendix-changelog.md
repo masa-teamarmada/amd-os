@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-08-13 JST | 3-8 PJ Cockpit / 4-2 AMD Score / FEATURE_REGISTRY | BZM 2.2主表示契約の変更 | SU系コックピット上部をPRS/SPS主表示からBZM 2.2の$J/P/Q/S$評価日時点スナップショットへ変更。4指標へ数式と肯定形の説明を添え、summary-only member APIを追加。旧SPSは履歴編集として残す | 最上位指標を内部実装語でなく一文字と意味・式の一体表示にし、コックピットの主表示とスコア詳細を2.2へ揃えるため | まさ・えいみ |
 | 2026-08-13 JST | 1-3 再構築監査 / 3-8 PJ Cockpit / 4-2 AMD Score / FEATURE_REGISTRY | BZM 2.2 score-detail UI契約の追加 | build v3.72.34。checked-in pilotのPJ別compact projectionをread-only APIで取得し、`Bzm22ProvisionalObservatory`をscore-detail最上段へ置く。7群103項目を省略なく収載し、金額は`¥4,010M`形式で小数を四捨五入する。現行SPS / BZM 2.1、BZM 2.0、SPS 1.0 / Legacy AMDは最下部の3つの初期閉じ・初回open時lazy mountアーカイブへ分離する。未登録・取得不能はBZM 2.2区画だけで処理し、DB/registry/writeを増やさない | BZM 2.2 pilotを全PJのscore-detailで確認しつつ、未検証shadowを現行SPSの正式切替や自動判断へ昇格させないため | まさ・えいみ |
 | 2026-08-13 JST | 4-2 AMD Score | BZM 2.2 pilot計算契約の訂正 | build v3.72.31。登録gate日不変、初回cliff月初の全期間資金package代理、期限別capacity coverage、同一資金証拠の一回計上、複合gate元値の監査保存、全action shadow、103-slot gate registry同期をcheckerの停止条件にした | 既存gateの前倒し、反復top-up未接続、資金成功の二重積、型とaction copyの残存不一致を経済学・経営学の独立監査がP0として検出したため | まさ・えいみ |
 | 2026-08-12 JST | 1-3 再構築監査 / 4-2 AMD Score | BZM 2.2内部pilot境界の追加 | build v3.72.31。12 PJ×103パラメータの強制推定artifactとcheckerをrepo内shadowとして記録した。`q_gate_product_proxy`、`q_stress_proxy`、cash cliff、資金調達CF除外、$\pi_0$ N/A、survival-weighted minimum cash top-up互換slot、$P$・$J$・現行9軸SPSの分離を固定。六つのsource surfaceはincomplete、前向き検証0件、PWA・DB未接続、PJ間順位・投資・資源配分禁止とした | 独立した経済学・経営学監査の構造上の停止要因をcheckerへ落としつつ、構造検査の通過を予測妥当性または構成概念妥当性と誤認しないため | まさ・えいみ |

@@ -40,6 +40,7 @@ import { CockpitPlMonthlyModal } from "./CockpitPlMonthlyModal";
 import { CockpitDescriptionDetailModal } from "./CockpitDescriptionDetailModal";
 import { CockpitAmdScoreBreakdownModal } from "./CockpitAmdScoreBreakdownModal";
 import { CockpitXrlDetailModal } from "./CockpitXrlDetailModal";
+import { Bzm22CockpitSummary } from "./Bzm22CockpitSummary";
 
 const LANE_LABELS: Record<string, string> = {
   gx_energy: "GX / エネルギー",
@@ -163,8 +164,10 @@ export function CockpitVentureStatus({
   const [plOpen, setPlOpen] = useState(false);
   const [descOpen, setDescOpen] = useState(false);
   const [scoreBreakdownOpen, setScoreBreakdownOpen] = useState(false);
+  const [legacyScoreHistoryProjectId, setLegacyScoreHistoryProjectId] = useState<string | null>(null);
   const [pendingXrl, setPendingXrl] = useState<ProjectXrlRow | null>(null);
   const [xrlDetailTarget, setXrlDetailTarget] = useState<{ row: ProjectXrlRow; axis: "TRL" | "BRL" | "GRL" | "SRL" | "HRL" } | null>(null);
+  const legacyScoreHistoryOpen = legacyScoreHistoryProjectId === projectId;
 
   useEffect(() => {
     let cancelled = false;
@@ -531,15 +534,31 @@ export function CockpitVentureStatus({
         )}
       </button>
 
+      <Bzm22CockpitSummary projectId={projectId} onOpenScoreDetail={onOpenScoreDetail} />
+
+      <div className="mx-2 mt-2 flex justify-end">
+        <button
+          type="button"
+          aria-expanded={legacyScoreHistoryOpen}
+          onClick={() => setLegacyScoreHistoryProjectId(legacyScoreHistoryOpen ? null : projectId)}
+          className="min-h-9 border border-slate-200 bg-white px-3 text-[10px] font-semibold text-slate-600 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-700"
+        >
+          {legacyScoreHistoryOpen ? "旧SPS履歴を閉じる" : "旧SPS履歴を開く"}
+        </button>
+      </div>
+
+      {/* BZM 2.2 が主表示。以下のSPSは時系列編集を保つ履歴表示。 */}
       {/* Chart 1 + Chart 2 — xl breakpoint (>=1280px) 以上で横並び。
           案C レイアウト (上 hero に AMD Score + XRL を並べる) のため。
           それ未満は従来通り縦並び。 */}
       <div className="flex flex-col xl:flex-row gap-2">
-      {/* Chart 1: SPS primary */}
+      {legacyScoreHistoryOpen ? (
+      <>
+      {/* Chart 1: SPS history */}
       <div className="flex-1 min-w-0 overflow-x-auto px-2 pt-3">
         <div className="px-2 flex items-center justify-between flex-wrap gap-2">
           <h3 className="text-[12px] font-semibold">
-            SPS primary (シーズ有望度)
+            SPS履歴（旧モデル）
             <span className="ml-2 text-[9px] text-muted-foreground font-normal">linear scale / dynamic range</span>
           </h3>
           <div className="flex items-center gap-2 text-[10px]">
@@ -789,7 +808,7 @@ export function CockpitVentureStatus({
         </svg>
       </div>
 
-      {/* M/P/R/S 値カード — Chart 1 (SPS) と Chart 2 (XRL) の間に挟む。
+      {/* 旧SPS M/P/R/S 値カード — 履歴編集の補助表示。
             現在 (今日以前) の SPS (M·P·R·S) primary components:
               M = macrotrend (マクロ追い風、σ_SU。2026-07-16 S から分離)
               P = potential input
@@ -808,6 +827,8 @@ export function CockpitVentureStatus({
           <span className="text-[10px] text-[#86868b]">SPS primary 入力待ち</span>
         )}
       </aside>
+      </>
+      ) : null}
 
       {/* Chart 2: XRL */}
       <div className="flex-1 min-w-0 overflow-x-auto px-2 pt-2 pb-3 xl:pt-3">
