@@ -497,6 +497,8 @@ requireIncludes(timeLedgerSource, [
   "deletePlMonthly",
   "CockpitPlHearingModal",
   "gateMonths",
+  "[--bzm-ledger-label-width:148px]",
+  "sm:[--bzm-ledger-label-width:220px]",
 ], "BZM 2.2 shared event/monthly ledger");
 if (timeLedgerSource.includes('`${value < 0 ? "-" : ""}¥${rounded.toLocaleString("ja-JP")}M`')) {
   throw new Error("BZM 2.2 monthly ledger must put the million-yen unit outside data cells");

@@ -23,7 +23,6 @@ import {
 import { CockpitPlHearingModal } from "./CockpitPlHearingModal";
 
 const MONTH_WIDTH = 112;
-const LABEL_WIDTH = 220;
 const EVENT_CARD_WIDTH = 232;
 const AXIS_Y = 184;
 
@@ -436,8 +435,8 @@ export function Bzm22TimeLedger({
   const selectedGroup = eventGroups.positioned.find((group) => group.monthIndex === selectedMonth) ?? null;
   const registeredPolicy = pilot.timeline.lanes.find((lane) => lane.key === "registered_policy")?.items[0];
   const gridStyle = {
-    gridTemplateColumns: `${LABEL_WIDTH}px repeat(${axis.length}, ${MONTH_WIDTH}px)`,
-    width: LABEL_WIDTH + axis.length * MONTH_WIDTH,
+    gridTemplateColumns: `var(--bzm-ledger-label-width) repeat(${axis.length}, ${MONTH_WIDTH}px)`,
+    width: `calc(var(--bzm-ledger-label-width) + ${axis.length * MONTH_WIDTH}px)`,
   } satisfies CSSProperties;
 
   const startEdit = (cell: Bzm22SharedMonthAxisCell) => {
@@ -523,7 +522,7 @@ export function Bzm22TimeLedger({
       ) : null}
 
       <div data-testid="bzm22-shared-month-scroll" className="max-w-full overflow-x-auto overscroll-x-contain">
-        <div className="grid" style={gridStyle}>
+        <div className="grid [--bzm-ledger-label-width:148px] sm:[--bzm-ledger-label-width:220px]" style={gridStyle}>
           <div className="sticky left-0 z-40 border-b border-r border-slate-300 bg-[#f7f9fa] px-4 py-4">
             <div className="text-sm font-semibold text-[#173f51]">事業価値の時間軸</div>
             <div className="mt-2 text-xs leading-5 text-slate-500">M0が価値基準月。点を押すと、その時点の前提を読める。</div>
