@@ -121,8 +121,8 @@
             "status": "fixed_shadow_not_optimized",
             "precision": "registered_shadow",
             "authorityStatus": "unconfirmed_not_executable_recommendation",
-            "choiceRole": "evaluation_selection",
-            "choiceLabel": "評価上の選択: 現行統合方針",
+            "choiceRole": "registered_evaluation_policy",
+            "choiceLabel": "評価に用いた登録方針: 現行統合方針",
             "sourceRefCount": 4,
             "description": "登録済み固定方針。shadow比較のみで、最適化結果でも権限確認済みの実行推奨でもない。"
           }
@@ -291,6 +291,7 @@
     ]
   },
   "simulation": {
+    "mode": "frozen_snapshot_comparison",
     "saveMode": "browser_only_not_saved",
     "valuationDate": "2026-08-12",
     "currentPolicyId": "current_integrated_policy",
@@ -301,27 +302,38 @@
         "registrationRole": "registered_current",
         "authorityStatus": "unconfirmed",
         "sourceRefCount": 4,
-        "calculationStatus": "exact_frozen_engine_at_valuation_date",
         "metrics": {
-          "jValueMillionJpy": {
-            "low": -38.932495,
-            "base": 115.093745,
-            "high": 870.504043
+          "J": {
+            "status": "precomputed",
+            "values": {
+              "low": -38.932495,
+              "base": 115.093745,
+              "high": 870.504043
+            }
           },
-          "conditionalSuccessValueMillionJpy": {
-            "low": 570.292979,
-            "base": 1385.200232,
-            "high": 2782.184094
+          "P": {
+            "status": "precomputed",
+            "values": {
+              "low": 570.292979,
+              "base": 1385.200232,
+              "high": 2782.184094
+            }
           },
-          "qGateProductProxy": {
-            "low": 0.01225,
-            "base": 0.10054,
-            "high": 0.314299
+          "Q": {
+            "status": "precomputed",
+            "values": {
+              "low": 0.01225,
+              "base": 0.10054,
+              "high": 0.314299
+            }
           },
-          "qStressProxy": {
-            "low": 0.005538,
-            "base": 0.045457,
-            "high": 0.142102
+          "S": {
+            "status": "precomputed",
+            "values": {
+              "low": 0.005538,
+              "base": 0.045457,
+              "high": 0.142102
+            }
           }
         }
       },
@@ -331,8 +343,36 @@
         "registrationRole": "unregistered_shadow_alternative",
         "authorityStatus": "unconfirmed",
         "sourceRefCount": 4,
-        "calculationStatus": "not_calculable",
-        "metrics": null
+        "metrics": {
+          "J": {
+            "status": "precomputed",
+            "values": {
+              "low": -50.752445,
+              "base": 34.923944,
+              "high": 457.074067
+            }
+          },
+          "P": {
+            "status": "precomputed",
+            "values": {
+              "low": 329.279314,
+              "base": 916.012536,
+              "high": 1921.840916
+            }
+          },
+          "Q": {
+            "status": "precomputed",
+            "values": {
+              "low": 0.009555,
+              "base": 0.078422,
+              "high": 0.245154
+            }
+          },
+          "S": {
+            "status": "not_calculable",
+            "values": null
+          }
+        }
       },
       {
         "id": "partner_or_license_alternative",
@@ -340,8 +380,36 @@
         "registrationRole": "unregistered_shadow_alternative",
         "authorityStatus": "unconfirmed",
         "sourceRefCount": 4,
-        "calculationStatus": "not_calculable",
-        "metrics": null
+        "metrics": {
+          "J": {
+            "status": "precomputed",
+            "values": {
+              "low": -43.03327,
+              "base": -11.158352,
+              "high": 119.240974
+            }
+          },
+          "P": {
+            "status": "precomputed",
+            "values": {
+              "low": 168.940422,
+              "base": 576.394049,
+              "high": 1274.88598
+            }
+          },
+          "Q": {
+            "status": "precomputed",
+            "values": {
+              "low": 0.004087,
+              "base": 0.033542,
+              "high": 0.104857
+            }
+          },
+          "S": {
+            "status": "not_calculable",
+            "values": null
+          }
+        }
       }
     ],
     "comparisonOptionIds": [
@@ -349,10 +417,510 @@
       "partner_or_license_alternative"
     ],
     "engineConnection": {
-      "policyAtValuationDate": "exact_precomputed_frozen_engine",
+      "policySwitch": "precomputed_only",
       "policyDateChange": "not_connected",
-      "futureDecisionCandidate": "not_connected",
+      "parameterOverride": "not_connected",
       "futureDecisionDate": "not_connected"
+    }
+  },
+  "calculationTrace": {
+    "policyId": "current_integrated_policy",
+    "policyLabel": "現行統合方針",
+    "inputs": {
+      "horizonMonths": 60,
+      "discountRate": {
+        "low": 0.28,
+        "base": 0.28,
+        "high": 0.28
+      },
+      "cashFlow": {
+        "monthCount": 60,
+        "totalMillionJpy": {
+          "low": 531.216,
+          "base": 531.216,
+          "high": 531.216
+        },
+        "monthlyEconomicCFMillionJpy": {
+          "low": [
+            -6.64,
+            -6.355,
+            -6.07,
+            -5.786,
+            -5.501,
+            -5.216,
+            -4.931,
+            -4.646,
+            -4.362,
+            -4.077,
+            -3.792,
+            -3.507,
+            -3.222,
+            -2.938,
+            -2.653,
+            -2.368,
+            -2.083,
+            -1.798,
+            -1.514,
+            -1.229,
+            -0.944,
+            -0.035,
+            0.874,
+            1.782,
+            0.991,
+            1.9,
+            2.809,
+            3.718,
+            4.626,
+            5.535,
+            6.444,
+            7.353,
+            8.262,
+            9.17,
+            10.079,
+            10.988,
+            11.897,
+            12.806,
+            13.714,
+            14.623,
+            15.532,
+            16.441,
+            17.35,
+            18.258,
+            19.167,
+            20.076,
+            20.985,
+            21.894,
+            22.802,
+            23.711,
+            24.62,
+            25.529,
+            26.438,
+            27.346,
+            28.255,
+            29.164,
+            30.073,
+            30.982,
+            31.89,
+            32.799
+          ],
+          "base": [
+            -6.64,
+            -6.355,
+            -6.07,
+            -5.786,
+            -5.501,
+            -5.216,
+            -4.931,
+            -4.646,
+            -4.362,
+            -4.077,
+            -3.792,
+            -3.507,
+            -3.222,
+            -2.938,
+            -2.653,
+            -2.368,
+            -2.083,
+            -1.798,
+            -1.514,
+            -1.229,
+            -0.944,
+            -0.035,
+            0.874,
+            1.782,
+            0.991,
+            1.9,
+            2.809,
+            3.718,
+            4.626,
+            5.535,
+            6.444,
+            7.353,
+            8.262,
+            9.17,
+            10.079,
+            10.988,
+            11.897,
+            12.806,
+            13.714,
+            14.623,
+            15.532,
+            16.441,
+            17.35,
+            18.258,
+            19.167,
+            20.076,
+            20.985,
+            21.894,
+            22.802,
+            23.711,
+            24.62,
+            25.529,
+            26.438,
+            27.346,
+            28.255,
+            29.164,
+            30.073,
+            30.982,
+            31.89,
+            32.799
+          ],
+          "high": [
+            -6.64,
+            -6.355,
+            -6.07,
+            -5.786,
+            -5.501,
+            -5.216,
+            -4.931,
+            -4.646,
+            -4.362,
+            -4.077,
+            -3.792,
+            -3.507,
+            -3.222,
+            -2.938,
+            -2.653,
+            -2.368,
+            -2.083,
+            -1.798,
+            -1.514,
+            -1.229,
+            -0.944,
+            -0.035,
+            0.874,
+            1.782,
+            0.991,
+            1.9,
+            2.809,
+            3.718,
+            4.626,
+            5.535,
+            6.444,
+            7.353,
+            8.262,
+            9.17,
+            10.079,
+            10.988,
+            11.897,
+            12.806,
+            13.714,
+            14.623,
+            15.532,
+            16.441,
+            17.35,
+            18.258,
+            19.167,
+            20.076,
+            20.985,
+            21.894,
+            22.802,
+            23.711,
+            24.62,
+            25.529,
+            26.438,
+            27.346,
+            28.255,
+            29.164,
+            30.073,
+            30.982,
+            31.89,
+            32.799
+          ]
+        }
+      },
+      "gates": [
+        {
+          "id": "field_reliability_and_serviceability",
+          "label": "現場信頼性・保守性",
+          "category": "technical",
+          "month": 9,
+          "probabilities": {
+            "low": 0.58,
+            "base": 0.78,
+            "high": 0.9
+          },
+          "cumulativeSurvival": {
+            "low": 0.58,
+            "base": 0.78,
+            "high": 0.9
+          },
+          "failureBranchWeight": {
+            "low": 0.42,
+            "base": 0.22,
+            "high": 0.1
+          },
+          "signedFailureSettlementMillionJpy": {
+            "low": -15,
+            "base": -15,
+            "high": -15
+          }
+        },
+        {
+          "id": "full_horizon_liquidity_package_proxy_before_first_cliff",
+          "label": "最初の資金経路喪失前の全期間資金パッケージ",
+          "category": "commercial",
+          "month": 11,
+          "probabilities": {
+            "low": 0.25,
+            "base": 0.45,
+            "high": 0.65
+          },
+          "cumulativeSurvival": {
+            "low": 0.145,
+            "base": 0.351,
+            "high": 0.585
+          },
+          "failureBranchWeight": {
+            "low": 0.435,
+            "base": 0.429,
+            "high": 0.315
+          },
+          "signedFailureSettlementMillionJpy": {
+            "low": -15,
+            "base": -15,
+            "high": -15
+          }
+        },
+        {
+          "id": "repeatable_paid_orders",
+          "label": "反復する有償受注",
+          "category": "commercial",
+          "month": 18,
+          "probabilities": {
+            "low": 0.48,
+            "base": 0.7,
+            "high": 0.84
+          },
+          "cumulativeSurvival": {
+            "low": 0.0696,
+            "base": 0.2457,
+            "high": 0.4914
+          },
+          "failureBranchWeight": {
+            "low": 0.0754,
+            "base": 0.1053,
+            "high": 0.0936
+          },
+          "signedFailureSettlementMillionJpy": {
+            "low": 40,
+            "base": 40,
+            "high": 40
+          }
+        },
+        {
+          "id": "channel_partner_conversion",
+          "label": "チャネルパートナーの契約転換",
+          "category": "commercial",
+          "month": 30,
+          "probabilities": {
+            "low": 0.44,
+            "base": 0.66,
+            "high": 0.82
+          },
+          "cumulativeSurvival": {
+            "low": 0.030624,
+            "base": 0.162162,
+            "high": 0.402948
+          },
+          "failureBranchWeight": {
+            "low": 0.038976,
+            "base": 0.083538,
+            "high": 0.088452
+          },
+          "signedFailureSettlementMillionJpy": {
+            "low": 175,
+            "base": 175,
+            "high": 175
+          }
+        },
+        {
+          "id": "production_scale_economics",
+          "label": "量産規模の経済性",
+          "category": "facility",
+          "month": 48,
+          "probabilities": {
+            "low": 0.4,
+            "base": 0.62,
+            "high": 0.78
+          },
+          "cumulativeSurvival": {
+            "low": 0.01225,
+            "base": 0.10054,
+            "high": 0.314299
+          },
+          "failureBranchWeight": {
+            "low": 0.018374,
+            "base": 0.061622,
+            "high": 0.088649
+          },
+          "signedFailureSettlementMillionJpy": {
+            "low": 500,
+            "base": 500,
+            "high": 500
+          }
+        }
+      ],
+      "terminalValueMillionJpy": {
+        "low": 1400,
+        "base": 4200,
+        "high": 9000
+      },
+      "stressFamilies": [
+        {
+          "id": "funding_delay",
+          "label": "資金到着の遅延",
+          "gateProduct": {
+            "low": 0.00643,
+            "base": 0.052772,
+            "high": 0.164969
+          },
+          "gateMultipliers": {
+            "field_reliability_and_serviceability": {
+              "low": 0.9,
+              "base": 0.9,
+              "high": 0.9
+            },
+            "full_horizon_liquidity_package_proxy_before_first_cliff": {
+              "low": 1,
+              "base": 1,
+              "high": 1
+            },
+            "repeatable_paid_orders": {
+              "low": 0.9,
+              "base": 0.9,
+              "high": 0.9
+            },
+            "channel_partner_conversion": {
+              "low": 0.9,
+              "base": 0.9,
+              "high": 0.9
+            },
+            "production_scale_economics": {
+              "low": 0.72,
+              "base": 0.72,
+              "high": 0.72
+            }
+          }
+        },
+        {
+          "id": "evidence_failure",
+          "label": "技術・市場根拠の再現失敗",
+          "gateProduct": {
+            "low": 0.006486,
+            "base": 0.053237,
+            "high": 0.166424
+          },
+          "gateMultipliers": {
+            "field_reliability_and_serviceability": {
+              "low": 0.92,
+              "base": 0.92,
+              "high": 0.92
+            },
+            "full_horizon_liquidity_package_proxy_before_first_cliff": {
+              "low": 1,
+              "base": 1,
+              "high": 1
+            },
+            "repeatable_paid_orders": {
+              "low": 0.92,
+              "base": 0.92,
+              "high": 0.92
+            },
+            "channel_partner_conversion": {
+              "low": 0.92,
+              "base": 0.92,
+              "high": 0.92
+            },
+            "production_scale_economics": {
+              "low": 0.68,
+              "base": 0.68,
+              "high": 0.68
+            }
+          }
+        },
+        {
+          "id": "shared_resource_shock",
+          "label": "共通資源への外部ショック",
+          "gateProduct": {
+            "low": 0.005538,
+            "base": 0.045457,
+            "high": 0.142102
+          },
+          "gateMultipliers": {
+            "field_reliability_and_serviceability": {
+              "low": 0.82,
+              "base": 0.82,
+              "high": 0.82
+            },
+            "full_horizon_liquidity_package_proxy_before_first_cliff": {
+              "low": 1,
+              "base": 1,
+              "high": 1
+            },
+            "repeatable_paid_orders": {
+              "low": 0.82,
+              "base": 0.82,
+              "high": 0.82
+            },
+            "channel_partner_conversion": {
+              "low": 0.82,
+              "base": 0.82,
+              "high": 0.82
+            },
+            "production_scale_economics": {
+              "low": 0.82,
+              "base": 0.82,
+              "high": 0.82
+            }
+          }
+        }
+      ]
+    },
+    "outputs": {
+      "low": {
+        "Q": 0.01225,
+        "S": 0.005538,
+        "fullPathPV": 162.839353,
+        "pathPV": -42.669663,
+        "terminalPV": 407.453626,
+        "successContribution": 4.991144,
+        "failureContribution": -1.253975,
+        "P": 570.292979,
+        "J": -38.932495,
+        "qTimesP": 6.986089
+      },
+      "base": {
+        "Q": 0.10054,
+        "S": 0.045457,
+        "fullPathPV": 162.839353,
+        "pathPV": -22.202046,
+        "terminalPV": 1222.360879,
+        "successContribution": 122.896701,
+        "failureContribution": 14.399091,
+        "P": 1385.200232,
+        "J": 115.093745,
+        "qTimesP": 139.268031
+      },
+      "high": {
+        "Q": 0.314299,
+        "S": 0.142102,
+        "fullPathPV": 162.839353,
+        "pathPV": 24.811965,
+        "terminalPV": 2619.344741,
+        "successContribution": 823.258585,
+        "failureContribution": 22.433493,
+        "P": 2782.184094,
+        "J": 870.504043,
+        "qTimesP": 874.437679
+      }
+    },
+    "identities": {
+      "Q": "product_of_gate_probabilities",
+      "S": "minimum_stress_family_gate_product",
+      "P": "full_path_pv_plus_terminal_pv",
+      "J": "path_pv_plus_success_contribution_plus_failure_contribution",
+      "qTimesPRelation": "comparison_only_not_identity_with_J"
     }
   },
   "groups": [

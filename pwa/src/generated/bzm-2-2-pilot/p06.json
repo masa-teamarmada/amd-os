@@ -121,8 +121,8 @@
             "status": "fixed_shadow_not_optimized",
             "precision": "registered_shadow",
             "authorityStatus": "unconfirmed_not_executable_recommendation",
-            "choiceRole": "evaluation_selection",
-            "choiceLabel": "評価上の選択: 現行統合方針",
+            "choiceRole": "registered_evaluation_policy",
+            "choiceLabel": "評価に用いた登録方針: 現行統合方針",
             "sourceRefCount": 5,
             "description": "登録済み固定方針。shadow比較のみで、最適化結果でも権限確認済みの実行推奨でもない。"
           }
@@ -314,6 +314,7 @@
     ]
   },
   "simulation": {
+    "mode": "frozen_snapshot_comparison",
     "saveMode": "browser_only_not_saved",
     "valuationDate": "2026-08-12",
     "currentPolicyId": "current_integrated_policy",
@@ -324,27 +325,38 @@
         "registrationRole": "registered_current",
         "authorityStatus": "unconfirmed",
         "sourceRefCount": 5,
-        "calculationStatus": "exact_frozen_engine_at_valuation_date",
         "metrics": {
-          "jValueMillionJpy": {
-            "low": -110.173298,
-            "base": 76.281578,
-            "high": 1565.572648
+          "J": {
+            "status": "precomputed",
+            "values": {
+              "low": -110.173298,
+              "base": 76.281578,
+              "high": 1565.572648
+            }
           },
-          "conditionalSuccessValueMillionJpy": {
-            "low": 57.409608,
-            "base": 1561.899814,
-            "high": 5033.800289
+          "P": {
+            "status": "precomputed",
+            "values": {
+              "low": 57.409608,
+              "base": 1561.899814,
+              "high": 5033.800289
+            }
           },
-          "qGateProductProxy": {
-            "low": 0.021375,
-            "base": 0.124027,
-            "high": 0.330928
+          "Q": {
+            "status": "precomputed",
+            "values": {
+              "low": 0.021375,
+              "base": 0.124027,
+              "high": 0.330928
+            }
           },
-          "qStressProxy": {
-            "low": 0.011785,
-            "base": 0.068385,
-            "high": 0.182463
+          "S": {
+            "status": "precomputed",
+            "values": {
+              "low": 0.011785,
+              "base": 0.068385,
+              "high": 0.182463
+            }
           }
         }
       },
@@ -354,27 +366,38 @@
         "registrationRole": "unregistered_shadow_alternative",
         "authorityStatus": "unconfirmed",
         "sourceRefCount": 5,
-        "calculationStatus": "exact_frozen_engine_at_valuation_date",
         "metrics": {
-          "jValueMillionJpy": {
-            "low": -94.758171,
-            "base": 40.817083,
-            "high": 1118.77168
+          "J": {
+            "status": "precomputed",
+            "values": {
+              "low": -94.758171,
+              "base": 40.817083,
+              "high": 1118.77168
+            }
           },
-          "conditionalSuccessValueMillionJpy": {
-            "low": 48.572597,
-            "base": 1131.805545,
-            "high": 3631.573887
+          "P": {
+            "status": "precomputed",
+            "values": {
+              "low": 48.572597,
+              "base": 1131.805545,
+              "high": 3631.573887
+            }
           },
-          "qGateProductProxy": {
-            "low": 0.021375,
-            "base": 0.124027,
-            "high": 0.330928
+          "Q": {
+            "status": "precomputed",
+            "values": {
+              "low": 0.021375,
+              "base": 0.124027,
+              "high": 0.330928
+            }
           },
-          "qStressProxy": {
-            "low": 0.011785,
-            "base": 0.068385,
-            "high": 0.182463
+          "S": {
+            "status": "precomputed",
+            "values": {
+              "low": 0.011785,
+              "base": 0.068385,
+              "high": 0.182463
+            }
           }
         }
       },
@@ -384,8 +407,36 @@
         "registrationRole": "unregistered_shadow_alternative",
         "authorityStatus": "unconfirmed",
         "sourceRefCount": 5,
-        "calculationStatus": "not_calculable",
-        "metrics": null
+        "metrics": {
+          "J": {
+            "status": "precomputed",
+            "values": {
+              "low": -58.322706,
+              "base": -18.808002,
+              "high": 309.234173
+            }
+          },
+          "P": {
+            "status": "precomputed",
+            "values": {
+              "low": 17.041759,
+              "base": 769.286862,
+              "high": 2505.237099
+            }
+          },
+          "Q": {
+            "status": "precomputed",
+            "values": {
+              "low": 0.009383,
+              "base": 0.054445,
+              "high": 0.145269
+            }
+          },
+          "S": {
+            "status": "not_calculable",
+            "values": null
+          }
+        }
       }
     ],
     "comparisonOptionIds": [
@@ -393,10 +444,510 @@
       "partner_or_license_alternative"
     ],
     "engineConnection": {
-      "policyAtValuationDate": "exact_precomputed_frozen_engine",
+      "policySwitch": "precomputed_only",
       "policyDateChange": "not_connected",
-      "futureDecisionCandidate": "not_connected",
+      "parameterOverride": "not_connected",
       "futureDecisionDate": "not_connected"
+    }
+  },
+  "calculationTrace": {
+    "policyId": "current_integrated_policy",
+    "policyLabel": "現行統合方針",
+    "inputs": {
+      "horizonMonths": 60,
+      "discountRate": {
+        "low": 0.34,
+        "base": 0.34,
+        "high": 0.34
+      },
+      "cashFlow": {
+        "monthCount": 60,
+        "totalMillionJpy": {
+          "low": -1017.6,
+          "base": -1017.6,
+          "high": -1017.6
+        },
+        "monthlyEconomicCFMillionJpy": {
+          "low": [
+            -14.5,
+            -14.6,
+            -14.7,
+            -14.8,
+            -14.9,
+            -15,
+            -15.1,
+            -15.2,
+            -15.3,
+            -15.4,
+            -15.5,
+            -15.6,
+            -15.7,
+            -15.8,
+            -15.9,
+            -16,
+            -16.1,
+            -16.2,
+            -18,
+            -18.1,
+            -18.2,
+            -18.3,
+            -18.4,
+            -18.5,
+            -18.6,
+            -18.7,
+            -18.8,
+            -18.9,
+            -19,
+            -19.1,
+            -19.2,
+            -19.3,
+            -19.4,
+            -19.5,
+            -19.6,
+            -19.7,
+            -19.464,
+            -19.228,
+            -18.992,
+            -18.756,
+            -18.52,
+            -18.284,
+            -18.048,
+            -17.812,
+            -17.576,
+            -17.34,
+            -17.104,
+            -16.868,
+            -16.632,
+            -16.396,
+            -16.16,
+            -15.924,
+            -15.688,
+            -15.452,
+            -15.216,
+            -14.98,
+            -14.744,
+            -14.508,
+            -14.272,
+            -14.036
+          ],
+          "base": [
+            -14.5,
+            -14.6,
+            -14.7,
+            -14.8,
+            -14.9,
+            -15,
+            -15.1,
+            -15.2,
+            -15.3,
+            -15.4,
+            -15.5,
+            -15.6,
+            -15.7,
+            -15.8,
+            -15.9,
+            -16,
+            -16.1,
+            -16.2,
+            -18,
+            -18.1,
+            -18.2,
+            -18.3,
+            -18.4,
+            -18.5,
+            -18.6,
+            -18.7,
+            -18.8,
+            -18.9,
+            -19,
+            -19.1,
+            -19.2,
+            -19.3,
+            -19.4,
+            -19.5,
+            -19.6,
+            -19.7,
+            -19.464,
+            -19.228,
+            -18.992,
+            -18.756,
+            -18.52,
+            -18.284,
+            -18.048,
+            -17.812,
+            -17.576,
+            -17.34,
+            -17.104,
+            -16.868,
+            -16.632,
+            -16.396,
+            -16.16,
+            -15.924,
+            -15.688,
+            -15.452,
+            -15.216,
+            -14.98,
+            -14.744,
+            -14.508,
+            -14.272,
+            -14.036
+          ],
+          "high": [
+            -14.5,
+            -14.6,
+            -14.7,
+            -14.8,
+            -14.9,
+            -15,
+            -15.1,
+            -15.2,
+            -15.3,
+            -15.4,
+            -15.5,
+            -15.6,
+            -15.7,
+            -15.8,
+            -15.9,
+            -16,
+            -16.1,
+            -16.2,
+            -18,
+            -18.1,
+            -18.2,
+            -18.3,
+            -18.4,
+            -18.5,
+            -18.6,
+            -18.7,
+            -18.8,
+            -18.9,
+            -19,
+            -19.1,
+            -19.2,
+            -19.3,
+            -19.4,
+            -19.5,
+            -19.6,
+            -19.7,
+            -19.464,
+            -19.228,
+            -18.992,
+            -18.756,
+            -18.52,
+            -18.284,
+            -18.048,
+            -17.812,
+            -17.576,
+            -17.34,
+            -17.104,
+            -16.868,
+            -16.632,
+            -16.396,
+            -16.16,
+            -15.924,
+            -15.688,
+            -15.452,
+            -15.216,
+            -14.98,
+            -14.744,
+            -14.508,
+            -14.272,
+            -14.036
+          ]
+        }
+      },
+      "gates": [
+        {
+          "id": "drug_substance_remediation",
+          "label": "原薬課題の是正",
+          "category": "technical",
+          "month": 6,
+          "probabilities": {
+            "low": 0.5,
+            "base": 0.72,
+            "high": 0.86
+          },
+          "cumulativeSurvival": {
+            "low": 0.5,
+            "base": 0.72,
+            "high": 0.86
+          },
+          "failureBranchWeight": {
+            "low": 0.5,
+            "base": 0.28,
+            "high": 0.14
+          },
+          "signedFailureSettlementMillionJpy": {
+            "low": -15,
+            "base": -15,
+            "high": -15
+          }
+        },
+        {
+          "id": "full_horizon_liquidity_package_proxy_before_first_cliff",
+          "label": "最初の資金経路喪失前の全期間資金パッケージ",
+          "category": "commercial",
+          "month": 10,
+          "probabilities": {
+            "low": 0.25,
+            "base": 0.45,
+            "high": 0.65
+          },
+          "cumulativeSurvival": {
+            "low": 0.125,
+            "base": 0.324,
+            "high": 0.559
+          },
+          "failureBranchWeight": {
+            "low": 0.375,
+            "base": 0.396,
+            "high": 0.301
+          },
+          "signedFailureSettlementMillionJpy": {
+            "low": -15,
+            "base": -15,
+            "high": -15
+          }
+        },
+        {
+          "id": "nonclinical_package",
+          "label": "非臨床パッケージ",
+          "category": "technical",
+          "month": 18,
+          "probabilities": {
+            "low": 0.45,
+            "base": 0.66,
+            "high": 0.8
+          },
+          "cumulativeSurvival": {
+            "low": 0.05625,
+            "base": 0.21384,
+            "high": 0.4472
+          },
+          "failureBranchWeight": {
+            "low": 0.06875,
+            "base": 0.11016,
+            "high": 0.1118
+          },
+          "signedFailureSettlementMillionJpy": {
+            "low": 20,
+            "base": 20,
+            "high": 20
+          }
+        },
+        {
+          "id": "pmda_and_clinical_supply",
+          "label": "PMDA対応・治験供給",
+          "category": "facility",
+          "month": 30,
+          "probabilities": {
+            "low": 0.38,
+            "base": 0.58,
+            "high": 0.74
+          },
+          "cumulativeSurvival": {
+            "low": 0.021375,
+            "base": 0.124027,
+            "high": 0.330928
+          },
+          "failureBranchWeight": {
+            "low": 0.034875,
+            "base": 0.089813,
+            "high": 0.116272
+          },
+          "signedFailureSettlementMillionJpy": {
+            "low": 200,
+            "base": 200,
+            "high": 200
+          }
+        },
+        {
+          "id": "series_a_or_veco_to_clinic",
+          "label": "シリーズAまたはVECOによる臨床移行",
+          "category": "commercial",
+          "month": 48,
+          "probabilities": {
+            "low": 1,
+            "base": 1,
+            "high": 1
+          },
+          "cumulativeSurvival": {
+            "low": 0.021375,
+            "base": 0.124027,
+            "high": 0.330928
+          },
+          "failureBranchWeight": {
+            "low": 0,
+            "base": 0,
+            "high": 0
+          },
+          "signedFailureSettlementMillionJpy": {
+            "low": 900,
+            "base": 900,
+            "high": 900
+          }
+        }
+      ],
+      "terminalValueMillionJpy": {
+        "low": 2500,
+        "base": 9000,
+        "high": 24000
+      },
+      "stressFamilies": [
+        {
+          "id": "funding_delay",
+          "label": "資金到着の遅延",
+          "gateProduct": {
+            "low": 0.015582,
+            "base": 0.090416,
+            "high": 0.241247
+          },
+          "gateMultipliers": {
+            "drug_substance_remediation": {
+              "low": 0.9,
+              "base": 0.9,
+              "high": 0.9
+            },
+            "full_horizon_liquidity_package_proxy_before_first_cliff": {
+              "low": 1,
+              "base": 1,
+              "high": 1
+            },
+            "nonclinical_package": {
+              "low": 0.9,
+              "base": 0.9,
+              "high": 0.9
+            },
+            "pmda_and_clinical_supply": {
+              "low": 0.9,
+              "base": 0.9,
+              "high": 0.9
+            },
+            "series_a_or_veco_to_clinic": {
+              "low": 1,
+              "base": 1,
+              "high": 1
+            }
+          }
+        },
+        {
+          "id": "evidence_failure",
+          "label": "技術・市場根拠の再現失敗",
+          "gateProduct": {
+            "low": 0.016644,
+            "base": 0.096578,
+            "high": 0.25769
+          },
+          "gateMultipliers": {
+            "drug_substance_remediation": {
+              "low": 0.92,
+              "base": 0.92,
+              "high": 0.92
+            },
+            "full_horizon_liquidity_package_proxy_before_first_cliff": {
+              "low": 1,
+              "base": 1,
+              "high": 1
+            },
+            "nonclinical_package": {
+              "low": 0.92,
+              "base": 0.92,
+              "high": 0.92
+            },
+            "pmda_and_clinical_supply": {
+              "low": 0.92,
+              "base": 0.92,
+              "high": 0.92
+            },
+            "series_a_or_veco_to_clinic": {
+              "low": 1,
+              "base": 1,
+              "high": 1
+            }
+          }
+        },
+        {
+          "id": "shared_resource_shock",
+          "label": "共通資源への外部ショック",
+          "gateProduct": {
+            "low": 0.011785,
+            "base": 0.068385,
+            "high": 0.182463
+          },
+          "gateMultipliers": {
+            "drug_substance_remediation": {
+              "low": 0.82,
+              "base": 0.82,
+              "high": 0.82
+            },
+            "full_horizon_liquidity_package_proxy_before_first_cliff": {
+              "low": 1,
+              "base": 1,
+              "high": 1
+            },
+            "nonclinical_package": {
+              "low": 0.82,
+              "base": 0.82,
+              "high": 0.82
+            },
+            "pmda_and_clinical_supply": {
+              "low": 0.82,
+              "base": 0.82,
+              "high": 0.82
+            },
+            "series_a_or_veco_to_clinic": {
+              "low": 1,
+              "base": 1,
+              "high": 1
+            }
+          }
+        }
+      ]
+    },
+    "outputs": {
+      "low": {
+        "Q": 0.021375,
+        "S": 0.011785,
+        "fullPathPV": -521.240471,
+        "pathPV": -115.897459,
+        "terminalPV": 578.650079,
+        "successContribution": 12.368645,
+        "failureContribution": -6.644485,
+        "P": 57.409608,
+        "J": -110.173298,
+        "qTimesP": 1.22713
+      },
+      "base": {
+        "Q": 0.124027,
+        "S": 0.068385,
+        "fullPathPV": -521.240471,
+        "pathPV": -183.864003,
+        "terminalPV": 2083.140285,
+        "successContribution": 258.366057,
+        "failureContribution": 1.779525,
+        "P": 1561.899814,
+        "J": 76.281578,
+        "qTimesP": 193.717748
+      },
+      "high": {
+        "Q": 0.330928,
+        "S": 0.182463,
+        "fullPathPV": -521.240471,
+        "pathPV": -280.023186,
+        "terminalPV": 5555.04076,
+        "successContribution": 1838.318529,
+        "failureContribution": 7.277305,
+        "P": 5033.800289,
+        "J": 1565.572648,
+        "qTimesP": 1665.825462
+      }
+    },
+    "identities": {
+      "Q": "product_of_gate_probabilities",
+      "S": "minimum_stress_family_gate_product",
+      "P": "full_path_pv_plus_terminal_pv",
+      "J": "path_pv_plus_success_contribution_plus_failure_contribution",
+      "qTimesPRelation": "comparison_only_not_identity_with_J"
     }
   },
   "groups": [

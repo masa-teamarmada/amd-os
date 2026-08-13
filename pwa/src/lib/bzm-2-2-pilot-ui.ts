@@ -90,7 +90,7 @@ export interface Bzm22TimelineItem {
   sourceStatus?: string;
   sourceRefCount: number;
   description: string;
-  choiceRole: "evaluation_selection" | "inherited_registered_policy" | "not_a_choice";
+  choiceRole: "registered_evaluation_policy" | "inherited_registered_policy" | "not_a_choice";
   choiceLabel: string;
   authorityStatus?: string;
   occurrenceRole?: "occurred" | "available" | "recorded" | "conditional" | "imputed" | "unknown";
@@ -123,26 +123,127 @@ export interface Bzm22SimulationPolicyOption {
   registrationRole: "registered_current" | "historical_terminal_shadow" | "unregistered_shadow_alternative";
   authorityStatus: "unconfirmed";
   sourceRefCount: number;
-  calculationStatus: "exact_frozen_engine_at_valuation_date" | "not_calculable";
   metrics: {
-    jValueMillionJpy: Bzm22Scenario<number | null>;
-    conditionalSuccessValueMillionJpy: Bzm22Scenario<number | null>;
-    qGateProductProxy: Bzm22Scenario<number | null>;
-    qStressProxy: Bzm22Scenario<number | null>;
-  } | null;
+    J: Bzm22SimulationMetric;
+    P: Bzm22SimulationMetric;
+    Q: Bzm22SimulationMetric;
+    S: Bzm22SimulationMetric;
+  };
+}
+
+export interface Bzm22SimulationMetric {
+  status: "precomputed" | "not_calculable" | "not_applicable_historical_terminal";
+  values: Bzm22Scenario<number> | null;
 }
 
 export interface Bzm22PilotSimulation {
+  mode: "frozen_snapshot_comparison";
   saveMode: "browser_only_not_saved";
   valuationDate: string;
   currentPolicyId: string;
   policyOptions: Bzm22SimulationPolicyOption[];
   comparisonOptionIds: string[];
   engineConnection: {
-    policyAtValuationDate: "exact_precomputed_frozen_engine";
+    policySwitch: "precomputed_only";
     policyDateChange: "not_connected";
-    futureDecisionCandidate: "not_connected";
+    parameterOverride: "not_connected";
     futureDecisionDate: "not_connected";
+  };
+}
+
+export interface Bzm22CalculationGate {
+  id: string;
+  label: string;
+  category: "technical" | "facility" | "commercial";
+  month: number;
+  probabilities: Bzm22Scenario<number>;
+  cumulativeSurvival: Bzm22Scenario<number>;
+  failureBranchWeight: Bzm22Scenario<number>;
+  signedFailureSettlementMillionJpy: Bzm22Scenario<number>;
+}
+
+export interface Bzm22CalculationTrace {
+  policyId: string;
+  policyLabel: string;
+  inputs: {
+    horizonMonths: number;
+    discountRate: Bzm22Scenario<number>;
+    cashFlow: {
+      monthCount: number;
+      totalMillionJpy: Bzm22Scenario<number>;
+      monthlyEconomicCFMillionJpy: Bzm22Scenario<number[]>;
+    };
+    gates: Bzm22CalculationGate[];
+    terminalValueMillionJpy: Bzm22Scenario<number>;
+    stressFamilies: Array<{
+      id: string;
+      label: string;
+      gateProduct: Bzm22Scenario<number | null>;
+      gateMultipliers: Record<string, Bzm22Scenario<number>>;
+    }>;
+  };
+  outputs: Record<"low" | "base" | "high", {
+    Q: number;
+    S: number | null;
+    fullPathPV: number;
+    pathPV: number;
+    terminalPV: number;
+    successContribution: number;
+    failureContribution: number;
+    P: number | null;
+    J: number;
+    qTimesP: number | null;
+  }>;
+  identities: {
+    Q: "product_of_gate_probabilities";
+    S: "minimum_stress_family_gate_product";
+    P: "full_path_pv_plus_terminal_pv";
+    J: "path_pv_plus_success_contribution_plus_failure_contribution";
+    qTimesPRelation: "comparison_only_not_identity_with_J";
+  };
+}
+
+export function calculateBzm22TimingOnlyJ(
+  trace: Bzm22CalculationTrace,
+  gateMonths: Partial<Record<string, number>>,
+  scenario: keyof Bzm22Scenario<unknown> = "base",
+) {
+  const gates = trace.inputs.gates.map((gate) => ({
+    ...gate,
+    month: gateMonths[gate.id] ?? gate.month,
+    probability: gate.probabilities[scenario],
+    settlement: gate.signedFailureSettlementMillionJpy[scenario],
+  }));
+  const orderInvalid = gates.some((gate, index) =>
+    !Number.isFinite(gate.month)
+    || gate.month < 0
+    || gate.month > trace.inputs.horizonMonths
+    || (index > 0 && gate.month < gates[index - 1].month));
+  if (orderInvalid) return { status: "order_invalid" as const };
+
+  const discountRate = trace.inputs.discountRate[scenario];
+  let pathPV = 0;
+  trace.inputs.cashFlow.monthlyEconomicCFMillionJpy[scenario].forEach((cashFlow, index) => {
+    const month = index + 1;
+    const survival = gates
+      .filter((gate) => gate.month <= month)
+      .reduce((value, gate) => value * gate.probability, 1);
+    pathPV += survival * cashFlow / Math.pow(1 + discountRate, month / 12);
+  });
+  let prior = 1;
+  let failureContribution = 0;
+  gates.forEach((gate) => {
+    failureContribution += prior * (1 - gate.probability) * gate.settlement /
+      Math.pow(1 + discountRate, gate.month / 12);
+    prior *= gate.probability;
+  });
+  const successContribution = trace.outputs[scenario].successContribution;
+  return {
+    status: "calculated" as const,
+    pathPV,
+    successContribution,
+    failureContribution,
+    J: pathPV + successContribution + failureContribution,
   };
 }
 
@@ -173,6 +274,7 @@ export interface Bzm22PilotProject {
   };
   timeline: Bzm22PilotTimeline;
   simulation: Bzm22PilotSimulation;
+  calculationTrace: Bzm22CalculationTrace;
   groups: Bzm22PilotParameterGroup[];
 }
 

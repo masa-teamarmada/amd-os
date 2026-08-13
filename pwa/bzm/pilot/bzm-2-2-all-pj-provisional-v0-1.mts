@@ -705,6 +705,7 @@ function independentActionScenario(project: any, evaluation: any, scenario: stri
   const successContribution = qGateProductProxy * terminalPV;
   let failureContribution = 0;
   let prior = 1;
+  const gateTrace: any[] = [];
   const chronologicalGates = [...gates].sort((left, right) =>
     Number(left.month) - Number(right.month) || left.originalIndex - right.originalIndex);
   for (const gate of chronologicalGates) {
@@ -725,9 +726,18 @@ function independentActionScenario(project: any, evaluation: any, scenario: stri
       signedExit = finite(gross) && finite(closure) ? gross - closure : null;
     }
     if (!finite(signedExit)) return { calculable: false, reason: "signed exit missing" };
-    failureContribution += prior * (1 - gate.probability) * signedExit /
+    const failureBranchWeight = prior * (1 - gate.probability);
+    failureContribution += failureBranchWeight * signedExit /
       Math.pow(1 + discountRate, Number(gate.month) / 12);
     prior *= gate.probability;
+    gateTrace.push({
+      key: gate.key,
+      month: gate.month,
+      probability: round6(gate.probability),
+      cumulativeSurvival: round6(prior),
+      failureBranchWeight: round6(failureBranchWeight),
+      signedFailureSettlementMillionJpy: round6(Number(signedExit)),
+    });
   }
   return {
     calculable: true,
@@ -750,6 +760,7 @@ function independentActionScenario(project: any, evaluation: any, scenario: stri
       month: gate.month,
       registeredOrder: gate.originalIndex,
     })),
+    gateTrace,
     terminalGateSurvival: round6(qGateProductProxy),
     failureStopsFutureEconomicCFAndTerminal: true,
   };
@@ -2077,6 +2088,16 @@ const UI_TIMELINE_FINANCING_LABELS: Record<string, string> = {
   withdrawn: "取下げ済みの外部資金候補",
 };
 
+const UI_STRESS_FAMILY_LABELS: Record<string, string> = {
+  baseline: "通常想定",
+  customer_budget_and_conversion_delay: "顧客予算・契約転換の遅延",
+  evidence_failure: "技術・市場根拠の再現失敗",
+  funding_delay: "資金到着の遅延",
+  funding_delay_and_cost_overrun: "資金遅延・費用超過",
+  shared_resource_shock: "共通資源への外部ショック",
+  technical_rights_and_reliability_delay: "技術・権利・信頼性の遅延",
+};
+
 function requireUiTimelineLabel<T>(map: Record<string, T>, key: unknown, kind: string): T {
   const normalized = String(key ?? "");
   const label = map[normalized];
@@ -2158,8 +2179,8 @@ function buildUiTimeline(project: any, summary: any, valuationDate: string) {
       : "fixed_shadow_not_optimized",
     precision: "registered_shadow",
     authorityStatus: "unconfirmed_not_executable_recommendation",
-    choiceRole: "evaluation_selection",
-    choiceLabel: `評価上の選択: ${registeredControlLabel}`,
+    choiceRole: "registered_evaluation_policy",
+    choiceLabel: `評価に用いた登録方針: ${registeredControlLabel}`,
     sourceRefCount: new Set(ledger?.derived_outputs?.pi_d_star?.sourceRefs ?? []).size,
     description: summary.controlRegistrationStatus === "historical_terminal_classification_not_current_recommendation"
       ? "歴史的終端の分類記録。現在の推奨行動ではない。"
@@ -2309,21 +2330,24 @@ function buildUiSimulation(project: any, summary: any, valuationDate: string) {
     const id = String(action.id ?? "");
     const label = requireUiTimelineLabel(UI_TIMELINE_CONTROL_LABELS, id, "simulation policy");
     const evaluation = evaluations.find((candidate: any) => actionId(candidate) === id);
-    const metric = (selector: (row: any, scenario: string) => unknown) => Object.fromEntries(
+    const scenarioValues = (selector: (row: any, scenario: string) => unknown) => Object.fromEntries(
       scenarios.map((scenario) => [scenario, jsonValueOrNull(selector(storedActionScenario(evaluation, scenario), scenario))]),
     );
-    const j = metric((row) => row.J);
+    const j = scenarioValues((row) => row.J);
     const p = project.projectName === "Yellow Duck"
       ? { low: null, base: null, high: null }
-      : metric((row) => row.conditionalSuccess);
-    const q = metric((row) => row.qGateProductProxy);
+      : scenarioValues((row) => row.conditionalSuccess);
+    const q = scenarioValues((row) => row.qGateProductProxy);
     const s = Object.fromEntries(scenarios.map((scenario) => {
       const stress = evaluation ? stressProxyScenario(project, scenario, evaluation) : null;
       return [scenario, stress?.ok ? stress.qStressProxy : null];
     }));
-    const requiredValues = [j.low, j.base, j.high, q.low, q.base, q.high, s.low, s.base, s.high];
-    if (project.projectName !== "Yellow Duck") requiredValues.push(p.low, p.base, p.high);
-    const exact = Boolean(evaluation) && requiredValues.every(finite);
+    const metricEnvelope = (values: any, unavailableStatus = "not_calculable") => ({
+      status: Boolean(evaluation) && [values.low, values.base, values.high].every(finite)
+        ? "precomputed"
+        : unavailableStatus,
+      values: Boolean(evaluation) && [values.low, values.base, values.high].every(finite) ? values : null,
+    });
     return {
       id,
       label,
@@ -2334,19 +2358,21 @@ function buildUiSimulation(project: any, summary: any, valuationDate: string) {
         : "unregistered_shadow_alternative",
       authorityStatus: "unconfirmed",
       sourceRefCount: new Set([...(action.sourceRefs ?? []), ...(evaluation?.sourceRefs ?? [])]).size,
-      calculationStatus: exact ? "exact_frozen_engine_at_valuation_date" : "not_calculable",
-      metrics: exact ? {
-        jValueMillionJpy: j,
-        conditionalSuccessValueMillionJpy: p,
-        qGateProductProxy: q,
-        qStressProxy: s,
-      } : null,
+      metrics: {
+        J: metricEnvelope(j),
+        P: project.projectName === "Yellow Duck"
+          ? { status: "not_applicable_historical_terminal", values: null }
+          : metricEnvelope(p),
+        Q: metricEnvelope(q),
+        S: metricEnvelope(s),
+      },
     };
   });
   if (!policyOptions.some((option: any) => option.id === selectedId)) {
     throw new Error(`${project.projectName}: registered simulation policy option missing`);
   }
   return {
+    mode: "frozen_snapshot_comparison",
     saveMode: "browser_only_not_saved",
     valuationDate,
     currentPolicyId: selectedId,
@@ -2355,10 +2381,115 @@ function buildUiSimulation(project: any, summary: any, valuationDate: string) {
       .filter((option: any) => option.id !== selectedId)
       .map((option: any) => option.id),
     engineConnection: {
-      policyAtValuationDate: "exact_precomputed_frozen_engine",
+      policySwitch: "precomputed_only",
       policyDateChange: "not_connected",
-      futureDecisionCandidate: "not_connected",
+      parameterOverride: "not_connected",
       futureDecisionDate: "not_connected",
+    },
+  };
+}
+
+function buildUiCalculationTrace(project: any, summary: any) {
+  const inputs = asInputs(project) ?? {};
+  const selectedId = String(summary.registeredCurrentControl ?? "");
+  const evaluation = asActionEvaluations(project).find((candidate: any) => actionId(candidate) === selectedId);
+  if (!evaluation) throw new Error(`${project.projectName}: calculation trace selected policy missing`);
+  const scenarios = ["low", "base", "high"];
+  const calculations = Object.fromEntries(scenarios.map((scenario) => {
+    const calculation: any = independentActionScenario(project, evaluation, scenario);
+    if (!calculation.calculable) {
+      throw new Error(`${project.projectName}/${selectedId}/${scenario}: calculation trace ${calculation.reason}`);
+    }
+    return [scenario, calculation];
+  }));
+  const baseGates = calculations.base.gateTrace ?? [];
+  const gates = baseGates.map((baseGate: any) => {
+    const id = String(baseGate.key ?? "");
+    const mapped = requireUiTimelineLabel(UI_TIMELINE_GATE_LABELS, id, "calculation trace gate");
+    const byScenario = Object.fromEntries(scenarios.map((scenario) => {
+      const gate = (calculations[scenario].gateTrace ?? []).find((row: any) => row.key === id);
+      if (!gate) throw new Error(`${project.projectName}/${selectedId}/${scenario}: trace gate ${id} missing`);
+      return [scenario, gate];
+    }));
+    return {
+      id,
+      label: mapped.label,
+      category: mapped.category,
+      month: baseGate.month,
+      probabilities: Object.fromEntries(scenarios.map((scenario) => [scenario, byScenario[scenario].probability])),
+      cumulativeSurvival: Object.fromEntries(scenarios.map((scenario) => [scenario, byScenario[scenario].cumulativeSurvival])),
+      failureBranchWeight: Object.fromEntries(scenarios.map((scenario) => [scenario, byScenario[scenario].failureBranchWeight])),
+      signedFailureSettlementMillionJpy: Object.fromEntries(scenarios.map((scenario) => [scenario, byScenario[scenario].signedFailureSettlementMillionJpy])),
+    };
+  });
+  const stressByScenario = Object.fromEntries(scenarios.map((scenario) => [scenario, stressProxyScenario(project, scenario, evaluation)]));
+  const stressKeys = stressByScenario.base.rows.map((row: any) => String(row.key ?? ""));
+  const stressDefinitions = asSlack(project).stressFamilies ?? asSlack(project).stressFamily ?? [];
+  const stressFamilies = stressKeys.map((id: string) => ({
+    id,
+    label: requireUiTimelineLabel(UI_STRESS_FAMILY_LABELS, id, "stress family"),
+    gateProduct: Object.fromEntries(scenarios.map((scenario) => {
+      const row = stressByScenario[scenario].rows.find((candidate: any) => candidate.key === id);
+      return [scenario, row?.ok ? row.gateProductProxy : null];
+    })),
+    gateMultipliers: Object.fromEntries(gates.map((gate: any) => [gate.id, Object.fromEntries(scenarios.map((scenario) => {
+      const family = stressDefinitions.find((candidate: any) => (candidate.key ?? candidate.name) === id);
+      const nested = family?.gateMultipliers?.[scenario] && typeof family.gateMultipliers[scenario] === "object";
+      const value = nested ? family.gateMultipliers[scenario]?.[gate.id] : family?.gateMultipliers?.[gate.id];
+      return [scenario, finite(value) ? value : 1];
+    }))])),
+  }));
+  const historicalTerminal = summary.controlRegistrationStatus === "historical_terminal_classification_not_current_recommendation";
+  const outputs = Object.fromEntries(scenarios.map((scenario) => {
+    const row = calculations[scenario];
+    const q = row.qGateProductProxy;
+    const p = historicalTerminal ? null : row.conditionalSuccess;
+    const s = stressByScenario[scenario].ok ? stressByScenario[scenario].qStressProxy : null;
+    const output = {
+      Q: q,
+      S: s,
+      fullPathPV: row.fullPathPV,
+      pathPV: row.pathPV,
+      terminalPV: row.terminalPV,
+      successContribution: row.successContribution,
+      failureContribution: row.failureContribution,
+      P: p,
+      J: row.J,
+      qTimesP: finite(p) ? round6(q * p) : null,
+    };
+    if (!approx(output.Q, product(gates.map((gate: any) => gate.probabilities[scenario])))) {
+      throw new Error(`${project.projectName}/${scenario}: calculation trace Q mismatch`);
+    }
+    if (finite(output.P) && !approx(output.P, output.fullPathPV + output.terminalPV)) {
+      throw new Error(`${project.projectName}/${scenario}: calculation trace P mismatch`);
+    }
+    if (!approx(output.J, output.pathPV + output.successContribution + output.failureContribution)) {
+      throw new Error(`${project.projectName}/${scenario}: calculation trace J mismatch`);
+    }
+    return [scenario, output];
+  }));
+  return {
+    policyId: selectedId,
+    policyLabel: requireUiTimelineLabel(UI_TIMELINE_CONTROL_LABELS, selectedId, "calculation trace policy"),
+    inputs: {
+      horizonMonths: inputs.horizonMonths,
+      discountRate: Object.fromEntries(scenarios.map((scenario) => [scenario, calculations[scenario].scenarioInputs.discountRate])),
+      cashFlow: {
+        monthCount: calculations.base.scenarioInputs.monthlyEconomicCF.length,
+        totalMillionJpy: Object.fromEntries(scenarios.map((scenario) => [scenario, round6(calculations[scenario].scenarioInputs.monthlyEconomicCF.reduce((sum: number, value: number) => sum + value, 0))])),
+        monthlyEconomicCFMillionJpy: Object.fromEntries(scenarios.map((scenario) => [scenario, calculations[scenario].scenarioInputs.monthlyEconomicCF])),
+      },
+      gates,
+      terminalValueMillionJpy: Object.fromEntries(scenarios.map((scenario) => [scenario, calculations[scenario].scenarioInputs.terminalValue])),
+      stressFamilies,
+    },
+    outputs,
+    identities: {
+      Q: "product_of_gate_probabilities",
+      S: "minimum_stress_family_gate_product",
+      P: "full_path_pv_plus_terminal_pv",
+      J: "path_pv_plus_success_contribution_plus_failure_contribution",
+      qTimesPRelation: "comparison_only_not_identity_with_J",
     },
   };
 }
@@ -2438,6 +2569,7 @@ function buildUiProjectProjection(
     },
     timeline: buildUiTimeline(project, summary, rootArtifact.valuationDate),
     simulation: buildUiSimulation(project, summary, rootArtifact.valuationDate),
+    calculationTrace: buildUiCalculationTrace(project, summary),
     groups,
   };
 }

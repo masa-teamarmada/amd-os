@@ -121,8 +121,8 @@
             "status": "fixed_shadow_not_optimized",
             "precision": "registered_shadow",
             "authorityStatus": "unconfirmed_not_executable_recommendation",
-            "choiceRole": "evaluation_selection",
-            "choiceLabel": "評価上の選択: 現行統合方針",
+            "choiceRole": "registered_evaluation_policy",
+            "choiceLabel": "評価に用いた登録方針: 現行統合方針",
             "sourceRefCount": 10,
             "description": "登録済み固定方針。shadow比較のみで、最適化結果でも権限確認済みの実行推奨でもない。"
           }
@@ -429,6 +429,7 @@
     ]
   },
   "simulation": {
+    "mode": "frozen_snapshot_comparison",
     "saveMode": "browser_only_not_saved",
     "valuationDate": "2026-08-12",
     "currentPolicyId": "current_integrated_policy",
@@ -439,27 +440,38 @@
         "registrationRole": "registered_current",
         "authorityStatus": "unconfirmed",
         "sourceRefCount": 10,
-        "calculationStatus": "exact_frozen_engine_at_valuation_date",
         "metrics": {
-          "jValueMillionJpy": {
-            "low": -139.202058,
-            "base": 505.746661,
-            "high": 4315.579664
+          "J": {
+            "status": "precomputed",
+            "values": {
+              "low": -139.202058,
+              "base": 505.746661,
+              "high": 4315.579664
+            }
           },
-          "conditionalSuccessValueMillionJpy": {
-            "low": 809.110231,
-            "base": 4010.531581,
-            "high": 10995.450891
+          "P": {
+            "status": "precomputed",
+            "values": {
+              "low": 809.110231,
+              "base": 4010.531581,
+              "high": 10995.450891
+            }
           },
-          "qGateProductProxy": {
-            "low": 0.028712,
-            "base": 0.163577,
-            "high": 0.402587
+          "Q": {
+            "status": "precomputed",
+            "values": {
+              "low": 0.028712,
+              "base": 0.163577,
+              "high": 0.402587
+            }
           },
-          "qStressProxy": {
-            "low": 0.012981,
-            "base": 0.073957,
-            "high": 0.182018
+          "S": {
+            "status": "precomputed",
+            "values": {
+              "low": 0.012981,
+              "base": 0.073957,
+              "high": 0.182018
+            }
           }
         }
       },
@@ -469,8 +481,36 @@
         "registrationRole": "unregistered_shadow_alternative",
         "authorityStatus": "unconfirmed",
         "sourceRefCount": 10,
-        "calculationStatus": "not_calculable",
-        "metrics": null
+        "metrics": {
+          "J": {
+            "status": "precomputed",
+            "values": {
+              "low": -136.842981,
+              "base": 229.420487,
+              "high": 2365.257054
+            }
+          },
+          "P": {
+            "status": "precomputed",
+            "values": {
+              "low": 552.082506,
+              "base": 2857.105879,
+              "high": 7886.247781
+            }
+          },
+          "Q": {
+            "status": "precomputed",
+            "values": {
+              "low": 0.022396,
+              "base": 0.12759,
+              "high": 0.314018
+            }
+          },
+          "S": {
+            "status": "not_calculable",
+            "values": null
+          }
+        }
       },
       {
         "id": "partner_or_license_alternative",
@@ -478,8 +518,36 @@
         "registrationRole": "unregistered_shadow_alternative",
         "authorityStatus": "unconfirmed",
         "sourceRefCount": 10,
-        "calculationStatus": "not_calculable",
-        "metrics": null
+        "metrics": {
+          "J": {
+            "status": "precomputed",
+            "values": {
+              "low": -69.845939,
+              "base": 80.786955,
+              "high": 754.34542
+            }
+          },
+          "P": {
+            "status": "precomputed",
+            "values": {
+              "low": 311.787314,
+              "base": 1912.49799,
+              "high": 5404.957644
+            }
+          },
+          "Q": {
+            "status": "precomputed",
+            "values": {
+              "low": 0.009579,
+              "base": 0.054573,
+              "high": 0.134312
+            }
+          },
+          "S": {
+            "status": "not_calculable",
+            "values": null
+          }
+        }
       }
     ],
     "comparisonOptionIds": [
@@ -487,10 +555,510 @@
       "partner_or_license_alternative"
     ],
     "engineConnection": {
-      "policyAtValuationDate": "exact_precomputed_frozen_engine",
+      "policySwitch": "precomputed_only",
       "policyDateChange": "not_connected",
-      "futureDecisionCandidate": "not_connected",
+      "parameterOverride": "not_connected",
       "futureDecisionDate": "not_connected"
+    }
+  },
+  "calculationTrace": {
+    "policyId": "current_integrated_policy",
+    "policyLabel": "現行統合方針",
+    "inputs": {
+      "horizonMonths": 60,
+      "discountRate": {
+        "low": 0.28,
+        "base": 0.28,
+        "high": 0.28
+      },
+      "cashFlow": {
+        "monthCount": 60,
+        "totalMillionJpy": {
+          "low": -1876.368,
+          "base": -1876.368,
+          "high": -1876.368
+        },
+        "monthlyEconomicCFMillionJpy": {
+          "low": [
+            -38.062,
+            -38.182,
+            -38.302,
+            -38.422,
+            -38.542,
+            -38.662,
+            -38.782,
+            -38.902,
+            -39.022,
+            -39.142,
+            -39.262,
+            -39.382,
+            -44.502,
+            -44.622,
+            -44.742,
+            -44.862,
+            -44.982,
+            -45.102,
+            -45.222,
+            -45.342,
+            -45.462,
+            -45.582,
+            -45.702,
+            -45.822,
+            -45.644,
+            -45.428,
+            -45.212,
+            -44.996,
+            -44.78,
+            -44.564,
+            -50.348,
+            -50.132,
+            -49.916,
+            -49.7,
+            -49.484,
+            -49.268,
+            -47.276,
+            -45.284,
+            -43.292,
+            -41.3,
+            -39.308,
+            -37.316,
+            -35.324,
+            -33.332,
+            -31.34,
+            -29.348,
+            -27.356,
+            -25.364,
+            -19.724,
+            -14.084,
+            -8.444,
+            -2.804,
+            2.836,
+            8.476,
+            14.116,
+            19.756,
+            25.396,
+            31.036,
+            36.676,
+            42.316
+          ],
+          "base": [
+            -38.062,
+            -38.182,
+            -38.302,
+            -38.422,
+            -38.542,
+            -38.662,
+            -38.782,
+            -38.902,
+            -39.022,
+            -39.142,
+            -39.262,
+            -39.382,
+            -44.502,
+            -44.622,
+            -44.742,
+            -44.862,
+            -44.982,
+            -45.102,
+            -45.222,
+            -45.342,
+            -45.462,
+            -45.582,
+            -45.702,
+            -45.822,
+            -45.644,
+            -45.428,
+            -45.212,
+            -44.996,
+            -44.78,
+            -44.564,
+            -50.348,
+            -50.132,
+            -49.916,
+            -49.7,
+            -49.484,
+            -49.268,
+            -47.276,
+            -45.284,
+            -43.292,
+            -41.3,
+            -39.308,
+            -37.316,
+            -35.324,
+            -33.332,
+            -31.34,
+            -29.348,
+            -27.356,
+            -25.364,
+            -19.724,
+            -14.084,
+            -8.444,
+            -2.804,
+            2.836,
+            8.476,
+            14.116,
+            19.756,
+            25.396,
+            31.036,
+            36.676,
+            42.316
+          ],
+          "high": [
+            -38.062,
+            -38.182,
+            -38.302,
+            -38.422,
+            -38.542,
+            -38.662,
+            -38.782,
+            -38.902,
+            -39.022,
+            -39.142,
+            -39.262,
+            -39.382,
+            -44.502,
+            -44.622,
+            -44.742,
+            -44.862,
+            -44.982,
+            -45.102,
+            -45.222,
+            -45.342,
+            -45.462,
+            -45.582,
+            -45.702,
+            -45.822,
+            -45.644,
+            -45.428,
+            -45.212,
+            -44.996,
+            -44.78,
+            -44.564,
+            -50.348,
+            -50.132,
+            -49.916,
+            -49.7,
+            -49.484,
+            -49.268,
+            -47.276,
+            -45.284,
+            -43.292,
+            -41.3,
+            -39.308,
+            -37.316,
+            -35.324,
+            -33.332,
+            -31.34,
+            -29.348,
+            -27.356,
+            -25.364,
+            -19.724,
+            -14.084,
+            -8.444,
+            -2.804,
+            2.836,
+            8.476,
+            14.116,
+            19.756,
+            25.396,
+            31.036,
+            36.676,
+            42.316
+          ]
+        }
+      },
+      "gates": [
+        {
+          "id": "full_horizon_liquidity_package_proxy_before_first_cliff",
+          "label": "最初の資金経路喪失前の全期間資金パッケージ",
+          "category": "commercial",
+          "month": 5,
+          "probabilities": {
+            "low": 0.25,
+            "base": 0.45,
+            "high": 0.65
+          },
+          "cumulativeSurvival": {
+            "low": 0.25,
+            "base": 0.45,
+            "high": 0.65
+          },
+          "failureBranchWeight": {
+            "low": 0.75,
+            "base": 0.55,
+            "high": 0.35
+          },
+          "signedFailureSettlementMillionJpy": {
+            "low": 20,
+            "base": 20,
+            "high": 20
+          }
+        },
+        {
+          "id": "tyk_bench_uptime_and_recovery",
+          "label": "TYKベンチの稼働率・復旧性",
+          "category": "technical",
+          "month": 8,
+          "probabilities": {
+            "low": 0.68,
+            "base": 0.84,
+            "high": 0.93
+          },
+          "cumulativeSurvival": {
+            "low": 0.17,
+            "base": 0.378,
+            "high": 0.6045
+          },
+          "failureBranchWeight": {
+            "low": 0.08,
+            "base": 0.072,
+            "high": 0.0455
+          },
+          "signedFailureSettlementMillionJpy": {
+            "low": 20,
+            "base": 20,
+            "high": 20
+          }
+        },
+        {
+          "id": "membrane_life_and_cost",
+          "label": "膜寿命・コスト",
+          "category": "technical",
+          "month": 18,
+          "probabilities": {
+            "low": 0.58,
+            "base": 0.76,
+            "high": 0.88
+          },
+          "cumulativeSurvival": {
+            "low": 0.0986,
+            "base": 0.28728,
+            "high": 0.53196
+          },
+          "failureBranchWeight": {
+            "low": 0.0714,
+            "base": 0.09072,
+            "high": 0.07254
+          },
+          "signedFailureSettlementMillionJpy": {
+            "low": 220,
+            "base": 220,
+            "high": 220
+          }
+        },
+        {
+          "id": "kawasaki_scale_and_feedstock",
+          "label": "川崎拠点の拡張・原料確保",
+          "category": "facility",
+          "month": 32,
+          "probabilities": {
+            "low": 0.56,
+            "base": 0.78,
+            "high": 0.88
+          },
+          "cumulativeSurvival": {
+            "low": 0.055216,
+            "base": 0.224078,
+            "high": 0.468125
+          },
+          "failureBranchWeight": {
+            "low": 0.043384,
+            "base": 0.063202,
+            "high": 0.063835
+          },
+          "signedFailureSettlementMillionJpy": {
+            "low": 950,
+            "base": 950,
+            "high": 950
+          }
+        },
+        {
+          "id": "commercial_contract_and_repeatability",
+          "label": "商用契約・再現性",
+          "category": "commercial",
+          "month": 48,
+          "probabilities": {
+            "low": 0.52,
+            "base": 0.73,
+            "high": 0.86
+          },
+          "cumulativeSurvival": {
+            "low": 0.028712,
+            "base": 0.163577,
+            "high": 0.402587
+          },
+          "failureBranchWeight": {
+            "low": 0.026504,
+            "base": 0.060501,
+            "high": 0.065537
+          },
+          "signedFailureSettlementMillionJpy": {
+            "low": 3550,
+            "base": 3550,
+            "high": 3550
+          }
+        }
+      ],
+      "terminalValueMillionJpy": {
+        "low": 7000,
+        "base": 18000,
+        "high": 42000
+      },
+      "stressFamilies": [
+        {
+          "id": "funding_delay",
+          "label": "資金到着の遅延",
+          "gateProduct": {
+            "low": 0.015071,
+            "base": 0.085858,
+            "high": 0.21131
+          },
+          "gateMultipliers": {
+            "full_horizon_liquidity_package_proxy_before_first_cliff": {
+              "low": 1,
+              "base": 1,
+              "high": 1
+            },
+            "tyk_bench_uptime_and_recovery": {
+              "low": 0.9,
+              "base": 0.9,
+              "high": 0.9
+            },
+            "membrane_life_and_cost": {
+              "low": 0.9,
+              "base": 0.9,
+              "high": 0.9
+            },
+            "kawasaki_scale_and_feedstock": {
+              "low": 0.72,
+              "base": 0.72,
+              "high": 0.72
+            },
+            "commercial_contract_and_repeatability": {
+              "low": 0.9,
+              "base": 0.9,
+              "high": 0.9
+            }
+          }
+        },
+        {
+          "id": "evidence_failure",
+          "label": "技術・市場根拠の再現失敗",
+          "gateProduct": {
+            "low": 0.020569,
+            "base": 0.117186,
+            "high": 0.288411
+          },
+          "gateMultipliers": {
+            "full_horizon_liquidity_package_proxy_before_first_cliff": {
+              "low": 1,
+              "base": 1,
+              "high": 1
+            },
+            "tyk_bench_uptime_and_recovery": {
+              "low": 0.92,
+              "base": 0.92,
+              "high": 0.92
+            },
+            "membrane_life_and_cost": {
+              "low": 0.92,
+              "base": 0.92,
+              "high": 0.92
+            },
+            "kawasaki_scale_and_feedstock": {
+              "low": 0.92,
+              "base": 0.92,
+              "high": 0.92
+            },
+            "commercial_contract_and_repeatability": {
+              "low": 0.92,
+              "base": 0.92,
+              "high": 0.92
+            }
+          }
+        },
+        {
+          "id": "shared_resource_shock",
+          "label": "共通資源への外部ショック",
+          "gateProduct": {
+            "low": 0.012981,
+            "base": 0.073957,
+            "high": 0.182018
+          },
+          "gateMultipliers": {
+            "full_horizon_liquidity_package_proxy_before_first_cliff": {
+              "low": 1,
+              "base": 1,
+              "high": 1
+            },
+            "tyk_bench_uptime_and_recovery": {
+              "low": 0.82,
+              "base": 0.82,
+              "high": 0.82
+            },
+            "membrane_life_and_cost": {
+              "low": 0.82,
+              "base": 0.82,
+              "high": 0.82
+            },
+            "kawasaki_scale_and_feedstock": {
+              "low": 0.82,
+              "base": 0.82,
+              "high": 0.82
+            },
+            "commercial_contract_and_repeatability": {
+              "low": 0.82,
+              "base": 0.82,
+              "high": 0.82
+            }
+          }
+        }
+      ]
+    },
+    "outputs": {
+      "low": {
+        "Q": 0.028712,
+        "S": 0.012981,
+        "fullPathPV": -1228.157901,
+        "pathPV": -279.823531,
+        "terminalPV": 2037.268132,
+        "successContribution": 58.494695,
+        "failureContribution": 82.126779,
+        "P": 809.110231,
+        "J": -139.202058,
+        "qTimesP": 23.231173
+      },
+      "base": {
+        "Q": 0.163577,
+        "S": 0.073957,
+        "fullPathPV": -1228.157901,
+        "pathPV": -487.208915,
+        "terminalPV": 5238.689482,
+        "successContribution": 856.930325,
+        "failureContribution": 136.025251,
+        "P": 4010.531581,
+        "J": 505.746661,
+        "qTimesP": 656.030724
+      },
+      "high": {
+        "Q": 0.402587,
+        "S": 0.182018,
+        "fullPathPV": -1228.157901,
+        "pathPV": -741.667171,
+        "terminalPV": 12223.608792,
+        "successContribution": 4921.070002,
+        "failureContribution": 136.176833,
+        "P": 10995.450891,
+        "J": 4315.579664,
+        "qTimesP": 4426.625588
+      }
+    },
+    "identities": {
+      "Q": "product_of_gate_probabilities",
+      "S": "minimum_stress_family_gate_product",
+      "P": "full_path_pv_plus_terminal_pv",
+      "J": "path_pv_plus_success_contribution_plus_failure_contribution",
+      "qTimesPRelation": "comparison_only_not_identity_with_J"
     }
   },
   "groups": [

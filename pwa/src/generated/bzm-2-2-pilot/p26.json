@@ -121,8 +121,8 @@
             "status": "fixed_shadow_not_optimized",
             "precision": "registered_shadow",
             "authorityStatus": "unconfirmed_not_executable_recommendation",
-            "choiceRole": "evaluation_selection",
-            "choiceLabel": "評価上の選択: 現行統合方針",
+            "choiceRole": "registered_evaluation_policy",
+            "choiceLabel": "評価に用いた登録方針: 現行統合方針",
             "sourceRefCount": 5,
             "description": "登録済み固定方針。shadow比較のみで、最適化結果でも権限確認済みの実行推奨でもない。"
           }
@@ -314,6 +314,7 @@
     ]
   },
   "simulation": {
+    "mode": "frozen_snapshot_comparison",
     "saveMode": "browser_only_not_saved",
     "valuationDate": "2026-08-12",
     "currentPolicyId": "current_integrated_policy",
@@ -324,27 +325,38 @@
         "registrationRole": "registered_current",
         "authorityStatus": "unconfirmed",
         "sourceRefCount": 5,
-        "calculationStatus": "exact_frozen_engine_at_valuation_date",
         "metrics": {
-          "jValueMillionJpy": {
-            "low": -3.462751,
-            "base": 9.813278,
-            "high": 136.858282
+          "J": {
+            "status": "precomputed",
+            "values": {
+              "low": -3.462751,
+              "base": 9.813278,
+              "high": 136.858282
+            }
           },
-          "conditionalSuccessValueMillionJpy": {
-            "low": 123.468533,
-            "base": 279.577985,
-            "high": 591.796888
+          "P": {
+            "status": "precomputed",
+            "values": {
+              "low": 123.468533,
+              "base": 279.577985,
+              "high": 591.796888
+            }
           },
-          "qGateProductProxy": {
-            "low": 0.00855,
-            "base": 0.06786,
-            "high": 0.248748
+          "Q": {
+            "status": "precomputed",
+            "values": {
+              "low": 0.00855,
+              "base": 0.06786,
+              "high": 0.248748
+            }
           },
-          "qStressProxy": {
-            "low": 0.003637,
-            "base": 0.028868,
-            "high": 0.10582
+          "S": {
+            "status": "precomputed",
+            "values": {
+              "low": 0.003637,
+              "base": 0.028868,
+              "high": 0.10582
+            }
           }
         }
       },
@@ -354,8 +366,36 @@
         "registrationRole": "unregistered_shadow_alternative",
         "authorityStatus": "unconfirmed",
         "sourceRefCount": 5,
-        "calculationStatus": "not_calculable",
-        "metrics": null
+        "metrics": {
+          "J": {
+            "status": "precomputed",
+            "values": {
+              "low": -2.57327,
+              "base": 1.525694,
+              "high": 61.115648
+            }
+          },
+          "P": {
+            "status": "precomputed",
+            "values": {
+              "low": 64.291831,
+              "base": 176.690636,
+              "high": 401.488246
+            }
+          },
+          "Q": {
+            "status": "precomputed",
+            "values": {
+              "low": 0.006029,
+              "base": 0.047855,
+              "high": 0.175417
+            }
+          },
+          "S": {
+            "status": "not_calculable",
+            "values": null
+          }
+        }
       },
       {
         "id": "partner_or_license_alternative",
@@ -363,8 +403,36 @@
         "registrationRole": "unregistered_shadow_alternative",
         "authorityStatus": "unconfirmed",
         "sourceRefCount": 5,
-        "calculationStatus": "not_calculable",
-        "metrics": null
+        "metrics": {
+          "J": {
+            "status": "precomputed",
+            "values": {
+              "low": 0.572327,
+              "base": 0.80639,
+              "high": 23.966367
+            }
+          },
+          "P": {
+            "status": "precomputed",
+            "values": {
+              "low": 30.002868,
+              "base": 108.057593,
+              "high": 264.167045
+            }
+          },
+          "Q": {
+            "status": "precomputed",
+            "values": {
+              "low": 0.003753,
+              "base": 0.029789,
+              "high": 0.109195
+            }
+          },
+          "S": {
+            "status": "not_calculable",
+            "values": null
+          }
+        }
       }
     ],
     "comparisonOptionIds": [
@@ -372,10 +440,510 @@
       "partner_or_license_alternative"
     ],
     "engineConnection": {
-      "policyAtValuationDate": "exact_precomputed_frozen_engine",
+      "policySwitch": "precomputed_only",
       "policyDateChange": "not_connected",
-      "futureDecisionCandidate": "not_connected",
+      "parameterOverride": "not_connected",
       "futureDecisionDate": "not_connected"
+    }
+  },
+  "calculationTrace": {
+    "policyId": "current_integrated_policy",
+    "policyLabel": "現行統合方針",
+    "inputs": {
+      "horizonMonths": 60,
+      "discountRate": {
+        "low": 0.35,
+        "base": 0.35,
+        "high": 0.35
+      },
+      "cashFlow": {
+        "monthCount": 60,
+        "totalMillionJpy": {
+          "low": 147.963,
+          "base": 147.963,
+          "high": 147.963
+        },
+        "monthlyEconomicCFMillionJpy": {
+          "low": [
+            -1.75,
+            -1.795,
+            -1.84,
+            -1.885,
+            -1.93,
+            -1.975,
+            -2.02,
+            -2.065,
+            -2.11,
+            -2.155,
+            -2.2,
+            -2.245,
+            -2.29,
+            -2.335,
+            -2.38,
+            -2.425,
+            -2.47,
+            -2.515,
+            -2.445,
+            -2.375,
+            -2.304,
+            -2.234,
+            -2.164,
+            -2.094,
+            -2.274,
+            -2.203,
+            -2.133,
+            -2.063,
+            -1.993,
+            -1.923,
+            -1.536,
+            -1.149,
+            -0.762,
+            -0.375,
+            0.012,
+            0.399,
+            0.786,
+            1.173,
+            1.56,
+            1.947,
+            2.334,
+            2.721,
+            3.636,
+            4.551,
+            5.466,
+            6.381,
+            7.296,
+            8.211,
+            9.126,
+            10.041,
+            10.956,
+            11.871,
+            12.786,
+            13.701,
+            14.616,
+            15.531,
+            16.446,
+            17.361,
+            18.276,
+            19.191
+          ],
+          "base": [
+            -1.75,
+            -1.795,
+            -1.84,
+            -1.885,
+            -1.93,
+            -1.975,
+            -2.02,
+            -2.065,
+            -2.11,
+            -2.155,
+            -2.2,
+            -2.245,
+            -2.29,
+            -2.335,
+            -2.38,
+            -2.425,
+            -2.47,
+            -2.515,
+            -2.445,
+            -2.375,
+            -2.304,
+            -2.234,
+            -2.164,
+            -2.094,
+            -2.274,
+            -2.203,
+            -2.133,
+            -2.063,
+            -1.993,
+            -1.923,
+            -1.536,
+            -1.149,
+            -0.762,
+            -0.375,
+            0.012,
+            0.399,
+            0.786,
+            1.173,
+            1.56,
+            1.947,
+            2.334,
+            2.721,
+            3.636,
+            4.551,
+            5.466,
+            6.381,
+            7.296,
+            8.211,
+            9.126,
+            10.041,
+            10.956,
+            11.871,
+            12.786,
+            13.701,
+            14.616,
+            15.531,
+            16.446,
+            17.361,
+            18.276,
+            19.191
+          ],
+          "high": [
+            -1.75,
+            -1.795,
+            -1.84,
+            -1.885,
+            -1.93,
+            -1.975,
+            -2.02,
+            -2.065,
+            -2.11,
+            -2.155,
+            -2.2,
+            -2.245,
+            -2.29,
+            -2.335,
+            -2.38,
+            -2.425,
+            -2.47,
+            -2.515,
+            -2.445,
+            -2.375,
+            -2.304,
+            -2.234,
+            -2.164,
+            -2.094,
+            -2.274,
+            -2.203,
+            -2.133,
+            -2.063,
+            -1.993,
+            -1.923,
+            -1.536,
+            -1.149,
+            -0.762,
+            -0.375,
+            0.012,
+            0.399,
+            0.786,
+            1.173,
+            1.56,
+            1.947,
+            2.334,
+            2.721,
+            3.636,
+            4.551,
+            5.466,
+            6.381,
+            7.296,
+            8.211,
+            9.126,
+            10.041,
+            10.956,
+            11.871,
+            12.786,
+            13.701,
+            14.616,
+            15.531,
+            16.446,
+            17.361,
+            18.276,
+            19.191
+          ]
+        }
+      },
+      "gates": [
+        {
+          "id": "full_horizon_liquidity_package_proxy_before_first_cliff",
+          "label": "最初の資金経路喪失前の全期間資金パッケージ",
+          "category": "commercial",
+          "month": 1,
+          "probabilities": {
+            "low": 0.25,
+            "base": 0.45,
+            "high": 0.65
+          },
+          "cumulativeSurvival": {
+            "low": 0.25,
+            "base": 0.45,
+            "high": 0.65
+          },
+          "failureBranchWeight": {
+            "low": 0.75,
+            "base": 0.55,
+            "high": 0.35
+          },
+          "signedFailureSettlementMillionJpy": {
+            "low": 3,
+            "base": 3,
+            "high": 3
+          }
+        },
+        {
+          "id": "gap_or_equivalent_funding",
+          "label": "GAP等の資金確保",
+          "category": "commercial",
+          "month": 9,
+          "probabilities": {
+            "low": 1,
+            "base": 1,
+            "high": 1
+          },
+          "cumulativeSurvival": {
+            "low": 0.25,
+            "base": 0.45,
+            "high": 0.65
+          },
+          "failureBranchWeight": {
+            "low": 0,
+            "base": 0,
+            "high": 0
+          },
+          "signedFailureSettlementMillionJpy": {
+            "low": 3,
+            "base": 3,
+            "high": 3
+          }
+        },
+        {
+          "id": "field_sensor_reproducibility",
+          "label": "現場センサー再現性",
+          "category": "technical",
+          "month": 18,
+          "probabilities": {
+            "low": 0.38,
+            "base": 0.58,
+            "high": 0.77
+          },
+          "cumulativeSurvival": {
+            "low": 0.095,
+            "base": 0.261,
+            "high": 0.5005
+          },
+          "failureBranchWeight": {
+            "low": 0.155,
+            "base": 0.189,
+            "high": 0.1495
+          },
+          "signedFailureSettlementMillionJpy": {
+            "low": 6,
+            "base": 6,
+            "high": 6
+          }
+        },
+        {
+          "id": "paid_academic_or_tea_pilot",
+          "label": "大学・茶園での有償実証",
+          "category": "commercial",
+          "month": 30,
+          "probabilities": {
+            "low": 0.3,
+            "base": 0.52,
+            "high": 0.71
+          },
+          "cumulativeSurvival": {
+            "low": 0.0285,
+            "base": 0.13572,
+            "high": 0.355355
+          },
+          "failureBranchWeight": {
+            "low": 0.0665,
+            "base": 0.12528,
+            "high": 0.145145
+          },
+          "signedFailureSettlementMillionJpy": {
+            "low": 14,
+            "base": 14,
+            "high": 14
+          }
+        },
+        {
+          "id": "rights_team_and_incorporation",
+          "label": "権利・チーム・法人化",
+          "category": "commercial",
+          "month": 48,
+          "probabilities": {
+            "low": 0.3,
+            "base": 0.5,
+            "high": 0.7
+          },
+          "cumulativeSurvival": {
+            "low": 0.00855,
+            "base": 0.06786,
+            "high": 0.248749
+          },
+          "failureBranchWeight": {
+            "low": 0.01995,
+            "base": 0.06786,
+            "high": 0.106607
+          },
+          "signedFailureSettlementMillionJpy": {
+            "low": 38,
+            "base": 38,
+            "high": 38
+          }
+        }
+      ],
+      "terminalValueMillionJpy": {
+        "low": 500,
+        "base": 1200,
+        "high": 2600
+      },
+      "stressFamilies": [
+        {
+          "id": "funding_delay",
+          "label": "資金到着の遅延",
+          "gateProduct": {
+            "low": 0.004986,
+            "base": 0.039576,
+            "high": 0.14507
+          },
+          "gateMultipliers": {
+            "full_horizon_liquidity_package_proxy_before_first_cliff": {
+              "low": 1,
+              "base": 1,
+              "high": 1
+            },
+            "gap_or_equivalent_funding": {
+              "low": 1,
+              "base": 1,
+              "high": 1
+            },
+            "field_sensor_reproducibility": {
+              "low": 0.9,
+              "base": 0.9,
+              "high": 0.9
+            },
+            "paid_academic_or_tea_pilot": {
+              "low": 0.9,
+              "base": 0.9,
+              "high": 0.9
+            },
+            "rights_team_and_incorporation": {
+              "low": 0.72,
+              "base": 0.72,
+              "high": 0.72
+            }
+          }
+        },
+        {
+          "id": "evidence_failure",
+          "label": "技術・市場根拠の再現失敗",
+          "gateProduct": {
+            "low": 0.003637,
+            "base": 0.028868,
+            "high": 0.10582
+          },
+          "gateMultipliers": {
+            "full_horizon_liquidity_package_proxy_before_first_cliff": {
+              "low": 1,
+              "base": 1,
+              "high": 1
+            },
+            "gap_or_equivalent_funding": {
+              "low": 1,
+              "base": 1,
+              "high": 1
+            },
+            "field_sensor_reproducibility": {
+              "low": 0.68,
+              "base": 0.68,
+              "high": 0.68
+            },
+            "paid_academic_or_tea_pilot": {
+              "low": 0.68,
+              "base": 0.68,
+              "high": 0.68
+            },
+            "rights_team_and_incorporation": {
+              "low": 0.92,
+              "base": 0.92,
+              "high": 0.92
+            }
+          }
+        },
+        {
+          "id": "shared_resource_shock",
+          "label": "共通資源への外部ショック",
+          "gateProduct": {
+            "low": 0.004714,
+            "base": 0.037416,
+            "high": 0.137152
+          },
+          "gateMultipliers": {
+            "full_horizon_liquidity_package_proxy_before_first_cliff": {
+              "low": 1,
+              "base": 1,
+              "high": 1
+            },
+            "gap_or_equivalent_funding": {
+              "low": 1,
+              "base": 1,
+              "high": 1
+            },
+            "field_sensor_reproducibility": {
+              "low": 0.82,
+              "base": 0.82,
+              "high": 0.82
+            },
+            "paid_academic_or_tea_pilot": {
+              "low": 0.82,
+              "base": 0.82,
+              "high": 0.82
+            },
+            "rights_team_and_incorporation": {
+              "low": 0.82,
+              "base": 0.82,
+              "high": 0.82
+            }
+          }
+        }
+      ]
+    },
+    "outputs": {
+      "low": {
+        "Q": 0.00855,
+        "S": 0.003637,
+        "fullPathPV": 11.961782,
+        "pathPV": -7.871361,
+        "terminalPV": 111.506751,
+        "successContribution": 0.953383,
+        "failureContribution": 3.455227,
+        "P": 123.468533,
+        "J": -3.462751,
+        "qTimesP": 1.055656
+      },
+      "base": {
+        "Q": 0.06786,
+        "S": 0.028868,
+        "fullPathPV": 11.961782,
+        "pathPV": -12.283997,
+        "terminalPV": 267.616202,
+        "successContribution": 18.160435,
+        "failureContribution": 3.936839,
+        "P": 279.577985,
+        "J": 9.813278,
+        "qTimesP": 18.972162
+      },
+      "high": {
+        "Q": 0.248748,
+        "S": 0.10582,
+        "fullPathPV": 11.961782,
+        "pathPV": -11.150013,
+        "terminalPV": 579.835105,
+        "successContribution": 144.233113,
+        "failureContribution": 3.775183,
+        "P": 591.796888,
+        "J": 136.858282,
+        "qTimesP": 147.208292
+      }
+    },
+    "identities": {
+      "Q": "product_of_gate_probabilities",
+      "S": "minimum_stress_family_gate_product",
+      "P": "full_path_pv_plus_terminal_pv",
+      "J": "path_pv_plus_success_contribution_plus_failure_contribution",
+      "qTimesPRelation": "comparison_only_not_identity_with_J"
     }
   },
   "groups": [

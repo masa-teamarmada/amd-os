@@ -145,7 +145,7 @@ const BZM22_PARAMETER_PRESENTATION = {
   "transition.T_C": transition("目標到達時間", String.raw`T_C(a)`, "固定方針aで目標集合へ初めて到達する経過時間を示す。"),
   "transition.T_Y": transition("戦略余力喪失時間", String.raw`T_Y^{2.2,a}`, "固定方針aが頑健捕捉領域から初めて外れる判断時点を示す。"),
   "transition.terminal_value": transition("目標到達後の終端価値", String.raw`TV_r(\zeta)`, "全条件通過分岐の将来価値をP(a)とJ(a)の成功脚へ渡す。"),
-  "transition.failure_loss": transition("失敗分岐損失", String.raw`L_{\mathrm{fail},r}(\zeta)`, "gate停止またはhard failure時の損失をJ(a)の失敗脚へ渡す。"),
+  "transition.failure_loss": transition("失敗損失の監査集計", "", "現pilotのJへ直接入る値ではない。Jは条件ごとの符号付き停止時価値を使い、この項目は監査用の集計としてだけ残す。"),
   "transition.transition_cf": transition("遷移区間CFの同値参照", String.raw`CF_r^{\mathrm{PV}}[j]\equiv A_j^{\mathrm{JPY}}`, "cashflow_ledger.model_amount_million_jpyと同じ月次CF列を遷移側から参照する互換slot。二度加算しない。"),
 
   "cashflow_ledger.cashflow_event_id": cashflow("キャッシュフロー事象ID", String.raw`e_j`, "一つの経済事象を一意にし、同じ金額の重複計上を防ぐ。"),
@@ -259,7 +259,7 @@ export const BZM22_PARAMETER_RELATIONS = {
   "transition.T_C": "output",
   "transition.T_Y": "output",
   "transition.terminal_value": "direct",
-  "transition.failure_loss": "direct",
+  "transition.failure_loss": "unused",
   "transition.transition_cf": "alias",
 
   "cashflow_ledger.cashflow_event_id": "guard",

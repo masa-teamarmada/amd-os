@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import {
   BZM22_FIXED_POLICY,
   BZM22_TOP_METRICS,
+  calculateBzm22TimingOnlyJ,
   formatMillionJpy,
   type Bzm22PilotProject,
 } from "../src/lib/bzm-2-2-pilot-ui.ts";
@@ -29,6 +30,8 @@ const cockpitVenturePath = path.join(root, "src/components/cockpit/CockpitVentur
 
 const sha256 = (value: string | Buffer) =>
   crypto.createHash("sha256").update(value).digest("hex");
+const approx = (left: number | null, right: number | null, tolerance = 1e-5) =>
+  left === null || right === null ? left === right : Math.abs(left - right) <= tolerance;
 const requireText = (filePath: string) => fs.readFileSync(filePath, "utf8");
 const requireIncludes = (text: string, snippets: string[], label: string) => {
   const missing = snippets.filter((snippet) => !text.includes(snippet));
@@ -202,6 +205,57 @@ for (const row of manifest.projects) {
   ) {
     throw new Error(`${row.projectId}: browser-only policy comparison contract invalid`);
   }
+  for (const option of projection.simulation.policyOptions) {
+    for (const metric of Object.values(option.metrics)) {
+      if (!["precomputed", "not_calculable", "not_applicable_historical_terminal"].includes(metric.status)) {
+        throw new Error(`${row.projectId}/${option.id}: simulation metric status invalid`);
+      }
+      if (metric.status === "precomputed" && (!metric.values || ![metric.values.low, metric.values.base, metric.values.high].every(Number.isFinite))) {
+        throw new Error(`${row.projectId}/${option.id}: precomputed metric values missing`);
+      }
+    }
+  }
+  const trace = projection.calculationTrace;
+  if (
+    !trace
+    || trace.policyId !== projection.summary.registeredCurrentControl
+    || trace.inputs.gates.length < 1
+    || trace.identities.qTimesPRelation !== "comparison_only_not_identity_with_J"
+    || trace.inputs.cashFlow.monthlyEconomicCFMillionJpy.base.length !== trace.inputs.horizonMonths
+  ) {
+    throw new Error(`${row.projectId}: calculation trace input/identity contract invalid`);
+  }
+  for (const scenario of ["low", "base", "high"] as const) {
+    const output = trace.outputs[scenario];
+    const q = trace.inputs.gates.reduce((value, gate) => value * gate.probabilities[scenario], 1);
+    const stressProducts = trace.inputs.stressFamilies.map((family) => family.gateProduct[scenario]).filter((value): value is number => value !== null);
+    const s = stressProducts.length ? Math.min(...stressProducts) : null;
+    if (
+      !approx(output.Q, q)
+      || !approx(output.S, s)
+      || (output.P !== null && !approx(output.P, output.fullPathPV + output.terminalPV))
+      || !approx(output.J, output.pathPV + output.successContribution + output.failureContribution)
+      || !approx(output.qTimesP, output.P === null ? null : output.Q * output.P)
+    ) {
+      throw new Error(`${row.projectId}/${scenario}: calculation trace arithmetic identity mismatch`);
+    }
+    for (const gate of trace.inputs.gates) {
+      if (![gate.probabilities[scenario], gate.cumulativeSurvival[scenario], gate.failureBranchWeight[scenario], gate.signedFailureSettlementMillionJpy[scenario]].every(Number.isFinite)) {
+        throw new Error(`${row.projectId}/${gate.id}/${scenario}: gate trace numeric input missing`);
+      }
+    }
+  }
+  const originalGateMonths = Object.fromEntries(trace.inputs.gates.map((gate) => [gate.id, gate.month]));
+  const reproducedTiming = calculateBzm22TimingOnlyJ(trace, originalGateMonths, "base");
+  if (reproducedTiming.status !== "calculated" || !approx(reproducedTiming.J, trace.outputs.base.J)) {
+    throw new Error(`${row.projectId}: timing-only calculator must reproduce the frozen base J`);
+  }
+  if (trace.inputs.gates.length > 1) {
+    const reversedMonths = { ...originalGateMonths, [trace.inputs.gates[0].id]: trace.inputs.gates.at(-1)!.month + 1 };
+    if (calculateBzm22TimingOnlyJ(trace, reversedMonths, "base").status !== "order_invalid") {
+      throw new Error(`${row.projectId}: timing-only calculator must reject a gate-order reversal`);
+    }
+  }
   if (/https?:\/\//i.test(raw) || /rawBody|messageBody|emailAddress|accessToken|refreshToken/i.test(raw)) {
     throw new Error(`${row.projectId}: projection contains forbidden raw/URL surface`);
   }
@@ -212,7 +266,7 @@ const catalogIds = Object.keys(BZM22_PARAMETER_CATALOG).sort();
 const relationIds = Object.keys(BZM22_PARAMETER_RELATIONS).sort();
 const theorySymbolIds = Object.keys(BZM22_PARAMETER_THEORY_SYMBOLS).sort();
 const formulaRefIds = Object.keys(BZM22_PARAMETER_FORMULA_REFS).sort();
-const expectedCatalogSha256 = "fb43152b5ccc20f0107ae0d81ea95910d9b03df2377dd01c30b264b107009c4b";
+const expectedCatalogSha256 = "18cd890cc430d5b4436cffb694dd04eb7bd154828cad6eeee604cddbb561731f";
 const expectedFormulaRefsSha256 = "bdf03782917b54cde6006cd1f153505ff0f6c938343afa08bec4febbf4f1e957";
 if (
   catalogIds.length !== 103
@@ -289,6 +343,8 @@ if (
   || !BZM22_PARAMETER_CATALOG["transition.p_phys"].formulaConnection.includes("完全な物理遷移核P⁰ではない")
   || BZM22_PARAMETER_CATALOG["action_bundle.C_now"].relation !== "unused"
   || BZM22_PARAMETER_CATALOG["action_bundle.benefit_now"].relation !== "unused"
+  || BZM22_PARAMETER_CATALOG["transition.failure_loss"].relation !== "unused"
+  || BZM22_PARAMETER_CATALOG["transition.failure_loss"].symbolTex !== ""
   || BZM22_PARAMETER_CATALOG["derived_outputs.pi_d_star"].symbolTex !== String.raw`\pi_{\mathrm{reg}}=a`
   || BZM22_PARAMETER_CATALOG["derived_outputs.q_G_pi_d_star"].symbolTex !== String.raw`Q(a)=\prod_{i\in G}p_i(a)`
 ) {
@@ -329,9 +385,11 @@ requireIncludes(loaderSource, [
 const componentSource = requireText(componentPath);
 requireIncludes(componentSource, [
   ">BZM 2.2<",
-  "全パラメータ台帳",
+  "103項目の監査台帳",
   "103項目",
-  "慎重・基準・強気",
+  "慎重な仮定",
+  "基準の仮定",
+  "強気の仮定",
   'data-testid="bzm22-provisional-primary"',
   'symbol="J"',
   'symbol="P"',
@@ -351,17 +409,25 @@ requireIncludes(componentSource, [
   "TimelineTrack",
   "TimelineItemMeta",
   "選択と事業イベントの時間軸",
-  "別の進め方を試す",
+  "評価日固定の方針比較",
   "元の前提に戻す",
   "この項目を表す記号",
-  "数式には直接入らない管理項目",
+  "計算を再現・監査するための管理情報",
   "3つの前提ケース",
-  "内訳を見る",
-  "参照先未接続",
+  "参照先はOS未接続",
   "PJ資料室",
-  "を開く（",
+  "Gmailで開く",
   "formatUnitValue",
   "formatUnitLabel",
+  "式と入力のつながり",
+  "主な代数入力",
+  "Q × P はJではない",
+  "条件付き通過値",
+  "途中停止時の価値",
+  "逆風補正",
+  "実行可能性と経営判断",
+  "条件判定月を試す",
+  "時期変更後 J",
 ], "BZM 2.2 observatory UI");
 for (const forbidden of [
   "BZM 2.2 暫定主表示",
@@ -370,7 +436,6 @@ for (const forbidden of [
   "現在値",
   "L / B / H",
   "L/B/H 全値",
-  "catalog.dataNameTex",
   "{pilot.modelVersion}",
   "精度低下:",
 ]) {
