@@ -41,7 +41,9 @@ const timeline = read(timelineFile);
 assertIncludes(timelineFile, timeline, [
   "function placeMilestone(laneKey: SxDisplayLaneKey, date: string) {",
   "const laneOutcomes = outcomes.filter(",
-  "displayLaneKeyForTrack(item.track) === laneKey",
+  // 2026-08-13: レーン導出を src/lib/sx-display-lanes.ts の buildSxLaneFold へ集約。
+  // 意味は不変 (このレーンへ写る outcome だけを親候補にする)。
+  "laneFold.laneKeyForTrack(item.track) === laneKey",
   "const singleOutcome = laneOutcomes.length === 1 ? laneOutcomes[0] : null;",
   "milestonePromptSubmittingRef.current = true;",
   "Y　追加する",
@@ -139,8 +141,8 @@ assertIncludes(timelineFile, timeline, [
   // 折りたたみ中は rows が空になるため、件数は畳んでも変わらない taskCount から出す（v3.58.14）
   "MS {laneMilestones.length} / タスク {taskCount}",
   "日程未登録のMS",
-  "if (task.track) return displayLaneKeyForTrack(task.track);",
-  "Only the MS marker is forced to BLOCKING_MILESTONE_LANE",
+  "if (task.track) return laneFold.laneKeyForTrack(task.track);",
+  "Only the MS marker is forced to the blocking-milestone lane",
 ]);
 assertNotIncludes(timelineFile, timeline, [
   "title: milestone.gate || milestone.title",
@@ -288,13 +290,16 @@ assertIncludes(dashboardFile, dashboard, [
   'taskParentTitle: string | null;',
   "タスク階層",
   'ガント左のグリップを、親にしたいタスクへドラッグ',
-  "taskBackingMilestone(management, editor.laneKey)",
+  // 2026-08-13: レーン導出の共有化で laneFold を引数に取るようになった (意味は不変)。
+  "taskBackingMilestone(management, laneFold, editor.laneKey)",
   "const candidates = management.milestones.filter(",
   'milestone.status !== "completed"',
   'fields.track = selectedTaskMilestone?.track || "";',
   "className={styles.inspectorInlineSlot}",
   "className={styles.inspectorTitleEditor}",
-  'task.track || milestone?.track || "organizational_building"',
+  // 柱がPJ属性になったので、既定レーンの固定文字列 "organizational_building" は持たない。
+  // ラベル解決は laneFold 経由 (未知トラックは先頭の柱へフォールバック)。
+  "ganttLaneLabelForTrack(laneFold, task.track || milestone?.track)",
 ]);
 assertNotIncludes(dashboardFile, dashboard, [
   'label: "ネスト先（親タスク）"',
@@ -308,7 +313,7 @@ assertIncludes(timelineFile, timeline, [
   "data-gantt-nest-root-lane",
   "data-gantt-milestone-marker",
   // 2026-08-08 #15: 別レーン移動で track も一緒にPATCHするため patch 変数化した
-  "{ parent_task_id: parentTaskId, track: TRACK_FOR_LANE[crossLane] }",
+  "{ parent_task_id: parentTaskId, track: laneFold.trackForLane(crossLane) }",
   "ここを親タスクにする",
   "最上位タスクに戻す",
 ]);
@@ -360,13 +365,14 @@ assertNotIncludes(dashboardFile, createMilestoneDefinition, [
   'key: "outcome_id"',
 ]);
 assertIncludes(dashboardFile, dashboard, [
-  "function ganttLaneLabelForTrack(track: SxTrackKey)",
-  'return "組織開発";',
+  // 2026-08-13: 柱がPJ属性になり、レーンのラベル解決は laneFold 経由になった。
+  // p21の「組織開発」への合流ラベルは src/lib/sx-display-lanes.ts 側のアンカーで担保する。
+  "function ganttLaneLabelForTrack(laneFold: SxLaneFold",
   // MSが立つ場所は「グループ」で選ぶ。1件で複数グループにまたがれる。DBの親成果は
   // 選んだ先頭グループから逆算するので、人に生のtrack/outcomeを見せない。
   'label: "配置するグループ"',
   'type: "lanes"',
-  "const GANTT_LANE_CHOICES:",
+  "function ganttLaneChoices(",
   "function milestoneOutcomeForLane(",
   "const selectedMilestoneOutcome =",
   "fields.display_lane_keys = selectedMilestoneLanes;",

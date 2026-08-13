@@ -6,7 +6,6 @@ import type {
   SxInteractionKind,
   SxMilestoneStatus,
   SxPartnerInteraction,
-  SxTrackKey,
 } from "@/lib/sx-management";
 
 // sx-management.ts is "server-only" and cannot be value-imported from these client components. The
@@ -39,13 +38,6 @@ export {
   type SxControlBandCounts,
   type SxPartnerGroup,
 } from "@/lib/sx-partner-holdings";
-
-export const SX_TRACK_LABELS: Record<SxTrackKey, string> = {
-  business_development: "事業開発",
-  technology_development: "技術開発",
-  funding: "資金調達",
-  organizational_building: "体制構築",
-};
 
 export const SX_STATUS_LABEL: Record<SxMilestoneStatus, string> = {
   not_started: "未着手",

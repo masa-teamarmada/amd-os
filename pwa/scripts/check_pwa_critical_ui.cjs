@@ -1113,6 +1113,19 @@ expectNotIncludes(
     "sx-critical-path-rail",
   ],
 );
+// 2026-08-13 新設: ガントのレーン折り畳みの正本。柱はPJごとにDB (project_management_tracks)
+// で定義するが、p21だけは従来の3レーン折り畳みを1文字も変えずに再現しなければならない。
+expectIncludes("src/lib/sx-display-lanes.ts", [
+  "buildSxLaneFold",
+  "business_development",
+  "technology_development",
+  "organizational_building",
+  "funding",
+  "事業開発",
+  "技術開発",
+  "組織開発",
+]);
+
 expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "sx-unified-timeline",
   "今日",
@@ -1135,17 +1148,12 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "sxGateRequirementState",
   "マイルストーン",
   "前提",
-  // ガントは常に事業開発／技術開発／組織開発の3レーンだけを描く。資金調達(funding)は
-  // 独立レーンを持たず組織開発へ統合。設立条件の2MSはガント外の独立sectionでも4本目の
-  // 合成レーンでもなく、それぞれ事業開発／組織開発レーンへ直接強制配置する。MS名は
-  // レコードtitleを使い、達成判定はMS自身の完了状態と4項目証跡で行う。
-  "DISPLAY_LANE_ORDER",
-  "DISPLAY_LANE_LABEL",
-  "BLOCKING_MILESTONE_LANE",
-  "displayLaneKeyForTrack",
-  "事業開発",
-  "技術開発",
-  "組織開発",
+  // 2026-08-13: 柱(track)をPJ属性へ一般化した (migration 273)。レーン折り畳みの
+  // 定数・関数はこのファイルから src/lib/sx-display-lanes.ts へ移し、そちらを唯一の正本にした。
+  // p21の契約 (事業開発／技術開発／組織開発の3レーン、資金調達は組織開発へ統合、
+  // 設立条件2MSの強制配置) は sx-display-lanes.ts 側のアンカーで担保する。
+  "buildSxLaneFold",
+  "laneFold",
   "milestoneAnchorRow",
   "data-gantt-lane-milestone-spine={milestone.id}",
   "title: milestone.title,",

@@ -25,7 +25,18 @@ export const SX_TRACKS = [
   { key: "organizational_building", label: "体制構築", shortLabel: "体制", accent: "#76637b" },
 ] as const;
 
-export type SxTrackKey = (typeof SX_TRACKS)[number]["key"];
+// 柱のキーはPJごとにDBで定義する (project_management_tracks)。狭いunionにすると
+// p21以外のPJ (p30=石原先生の産連6領域など) が型で弾かれるため string にする。
+// 実データの正しさは、経営管理8テーブルの (project_id, track) 複合FKがDB側で保証する。
+export type SxTrackKey = string;
+
+export type SxTrackDef = {
+  key: SxTrackKey;
+  label: string;
+  shortLabel: string;
+  accent: string;
+  sortOrder: number;
+};
 export type SxJudgmentKey = "on_track" | "attention" | "crisis" | "unassessed";
 export type SxMilestoneStatus = ManagementDerivedStatus;
 export type SxIssueKind = "fact" | "hypothesis" | "decision_needed" | "decision";
@@ -686,6 +697,7 @@ export type SxTrackSummary = {
   label: string;
   shortLabel: string;
   accent: string;
+  sortOrder: number;
   milestoneId: string | null;
   milestoneSlug: string | null;
   gate: string;
@@ -888,6 +900,7 @@ export function sxWorkItemStatusLabel(status: SxWorkItemStatus) {
   return WORK_ITEM_STATUS_LABEL[status] || "未確認";
 }
 
+// p21の4本柱だけを解決する簡易ラベル。PJ横断で使う面では bundle.tracks の label を使う。
 export function sxTrackLabel(track: SxTrackKey) {
   return SX_TRACKS.find((item) => item.key === track)?.label || track;
 }
@@ -914,8 +927,10 @@ function nullableNumber(row: RawRow, key: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function asTrack(value: unknown): SxTrackKey {
-  return SX_TRACKS.some((item) => item.key === value) ? (value as SxTrackKey) : "business_development";
+// DB側の複合FKが (project_id, track) の正しさを保証するので、文字列ならそのまま通す。
+// 値が欠けている場合だけ、既定の第1柱へ寄せる (呼び出し側はPJのtracksを知らないため)。
+function asTrack(value: unknown, fallback: SxTrackKey = SX_TRACKS[0].key): SxTrackKey {
+  return typeof value === "string" && value.length > 0 ? value : fallback;
 }
 
 function asTimelineKind(value: unknown): SxTimelineKind {
@@ -1030,7 +1045,7 @@ function mapAction(row: RawRow): SxActionItem {
 function mapTask(row: RawRow): SxTask {
   return {
     id: stringValue(row, "id"), projectId: stringValue(row, "project_id"), milestoneId: stringValue(row, "milestone_id"),
-    parentTaskId: nullableString(row, "parent_task_id"), track: SX_TRACKS.some((item) => item.key === row.track) ? (row.track as SxTrackKey) : null,
+    parentTaskId: nullableString(row, "parent_task_id"), track: typeof row.track === "string" && row.track.length > 0 ? row.track : null,
     title: stringValue(row, "title"), description: nullableString(row, "description"), status: asStatus(row.status),
     plannedStart: nullableString(row, "planned_start"), plannedEnd: nullableString(row, "planned_end"), forecastEnd: nullableString(row, "forecast_end"), actualEnd: nullableString(row, "actual_end"),
     progressPct: numberValue(row, "progress_pct"), dateCertainty: row.date_certainty === "confirmed" ? "confirmed" : "provisional",
@@ -1221,15 +1236,15 @@ function makeMilestone(row: RawRow, derived: MilestoneDerivedResult, dependencyR
   };
 }
 
-function makeTrackSummaries(milestones: SxManagementMilestone[], kpis: SxKpi[], today = todayJst()): SxTrackSummary[] {
-  return SX_TRACKS.map((track) => {
+function makeTrackSummaries(milestones: SxManagementMilestone[], kpis: SxKpi[], trackDefs: SxTrackDef[], today = todayJst()): SxTrackSummary[] {
+  return trackDefs.map((track) => {
     const trackMilestones = milestones.filter((item) => item.track === track.key);
     const milestone = selectCurrentMilestone(trackMilestones, today);
     const criticalUnknownCount = milestones.filter((item) => item.track === track.key && (item.status === "unassessed" || item.reasonCodes.includes("critical_unknown"))).length + kpis.filter((kpi) => kpi.track === track.key && (kpi.actual == null || kpi.confidence === "unknown")).length;
     const staleCount = milestones.filter((item) => item.track === track.key && item.isStale).length + kpis.filter((kpi) => kpi.track === track.key && dateDistance(kpi.lastVerifiedAt, todayJst()) > 14).length;
     const gateFailures = milestones.filter((item) => item.track === track.key && (item.criticality === "critical" || item.criticality === "high")).flatMap((item) => item.reasonCodes.map((code) => `${item.slug}:${code}`));
     return {
-      key: track.key, label: track.label, shortLabel: track.shortLabel, accent: track.accent, milestoneId: milestone?.id || null, milestoneSlug: milestone?.slug || null, gate: milestone?.gate || "現在ゲート未確認", status: milestone?.status || "unassessed", statusLabel: MILESTONE_STATUS_LABEL[milestone?.status || "unassessed"], derivedStatus: milestone?.derivedStatus || "unassessed", manualStatus: milestone?.manualStatus || "unassessed", plannedEnd: milestone?.plannedEnd || null, forecastEnd: milestone?.forecastEnd || null, deltaDays: milestone?.deltaDays ?? null, dateCertainty: milestone?.dateCertainty || null, progressPct: milestone?.progressPct || 0, ownerLabel: milestone?.ownerLabel || "担当未確認", nextDeliverable: milestone?.nextDeliverable || "次の成果未確認", maxIssue: milestone?.maxIssue || "最大論点未確認", lastVerifiedAt: milestone?.lastVerifiedAt || null, confidence: milestone?.confidence || "unknown", criticalUnknownCount, staleCount, gateReady: Boolean(milestone) && gateFailures.length === 0, gateFailures, reason: milestone?.statusReason || "現在地未評価",
+      key: track.key, label: track.label, shortLabel: track.shortLabel, accent: track.accent, sortOrder: track.sortOrder, milestoneId: milestone?.id || null, milestoneSlug: milestone?.slug || null, gate: milestone?.gate || "現在ゲート未確認", status: milestone?.status || "unassessed", statusLabel: MILESTONE_STATUS_LABEL[milestone?.status || "unassessed"], derivedStatus: milestone?.derivedStatus || "unassessed", manualStatus: milestone?.manualStatus || "unassessed", plannedEnd: milestone?.plannedEnd || null, forecastEnd: milestone?.forecastEnd || null, deltaDays: milestone?.deltaDays ?? null, dateCertainty: milestone?.dateCertainty || null, progressPct: milestone?.progressPct || 0, ownerLabel: milestone?.ownerLabel || "担当未確認", nextDeliverable: milestone?.nextDeliverable || "次の成果未確認", maxIssue: milestone?.maxIssue || "最大論点未確認", lastVerifiedAt: milestone?.lastVerifiedAt || null, confidence: milestone?.confidence || "unknown", criticalUnknownCount, staleCount, gateReady: Boolean(milestone) && gateFailures.length === 0, gateFailures, reason: milestone?.statusReason || "現在地未評価",
     };
   });
 }
@@ -1320,11 +1335,25 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
     live("project_management_funding_snapshots", "id,project_id,snapshot_date,required_amount,secured_amount,unconfirmed_amount,use_summary,burn_per_month,runway_months,probability,cash_condition,source_label,confidence,source_kind,source_ref").order("snapshot_date", { ascending: false }),
     live("project_management_organization_roles", "id,project_id,role_slug,role_name,required,candidate,commitment,authority,vacancy,join_condition,due_date,status,owner_label,last_verified_at,confidence,source_kind,source_ref").order("due_date"),
     plain("project_management_field_audit", "id,project_id,entity_type,entity_id,field_name,source,version,verified_by,next_review_on,recorded_at").order("recorded_at", { ascending: false }).limit(80),
+    // 柱(track)はPJ属性。migration 273以降、経営管理8テーブルのtrackは
+    // (project_id, track) の複合FKでこの表を参照する。p21=4本柱、p30=石原先生の6領域。
+    plain("project_management_tracks", "project_id,track_key,label,short_label,accent,sort_order").order("sort_order"),
   ]);
   const error = results.find((result) => result.error)?.error;
   if (error) throw new Error(`SX management bundle: ${error.message}`);
   const rows = results.map((result) => (result.data || []) as unknown as RawRow[]);
-  const [objectiveRows, outcomeRows, milestoneRows, kpiRows, milestoneKpiRows, taskRows, dependencyRows, scheduleDependencyRows, issueRows, issueDiscussionRows, hypothesisRows, evidenceRows, validationRows, decisionRows, actionRows, historyRows, partnerRows, partnerTrackRows, commitmentRows, interactionRows, partnerRoleRows, partnerWorkItemRows, partnerSampleRows, milestoneIssueRows, milestonePartnerRows, raciRows, capacityRows, technicalRows, fundingRows, roleRows, auditRows] = rows;
+  const [objectiveRows, outcomeRows, milestoneRows, kpiRows, milestoneKpiRows, taskRows, dependencyRows, scheduleDependencyRows, issueRows, issueDiscussionRows, hypothesisRows, evidenceRows, validationRows, decisionRows, actionRows, historyRows, partnerRows, partnerTrackRows, commitmentRows, interactionRows, partnerRoleRows, partnerWorkItemRows, partnerSampleRows, milestoneIssueRows, milestonePartnerRows, raciRows, capacityRows, technicalRows, fundingRows, roleRows, auditRows, trackDefRows] = rows;
+
+  // 柱の定義。DBに未登録のPJでは従来の4本柱へフォールバックする(既存PJの表示を壊さないため)。
+  const trackDefs: SxTrackDef[] = trackDefRows.length > 0
+    ? trackDefRows.map((row, index) => ({
+        key: stringValue(row, "track_key"),
+        label: stringValue(row, "label"),
+        shortLabel: stringValue(row, "short_label"),
+        accent: stringValue(row, "accent", "#315f7d"),
+        sortOrder: numberValue(row, "sort_order", index + 1),
+      }))
+    : SX_TRACKS.map((track, index) => ({ ...track, sortOrder: index + 1 }));
 
   const objectiveRow = objectiveRows[0];
   const objective: SxObjective | null = objectiveRow ? { id: stringValue(objectiveRow, "id"), slug: stringValue(objectiveRow, "slug"), title: stringValue(objectiveRow, "title"), definitionOfDone: stringValue(objectiveRow, "definition_of_done"), targetDate: nullableString(objectiveRow, "target_date"), dateCertainty: objectiveRow.date_certainty === "confirmed" ? "confirmed" : "provisional", status: (objectiveRow.status as SxObjective["status"]) || "unassessed", lastVerifiedAt: stringValue(objectiveRow, "last_verified_at"), confidence: asConfidence(objectiveRow.confidence), sourceKind: asSourceKind(objectiveRow.source_kind), sourceRef: nullableString(objectiveRow, "source_ref") } : null;
@@ -1478,7 +1507,7 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
   const organizationRoles: SxOrganizationRole[] = roleRows.map((row) => ({ id: stringValue(row, "id"), roleSlug: stringValue(row, "role_slug"), roleName: stringValue(row, "role_name"), required: row.required !== false, candidate: nullableString(row, "candidate"), commitment: nullableString(row, "commitment"), authority: stringValue(row, "authority"), vacancy: row.vacancy !== false, joinCondition: stringValue(row, "join_condition"), dueDate: nullableString(row, "due_date"), status: (row.status as SxOrganizationRole["status"]) || "unassessed", ownerLabel: stringValue(row, "owner_label", "担当未確認"), lastVerifiedAt: stringValue(row, "last_verified_at"), confidence: asConfidence(row.confidence) }));
   const history: SxHistory[] = historyRows.map((row) => ({ id: stringValue(row, "id"), entityType: stringValue(row, "entity_type"), entityId: nullableString(row, "entity_id"), updateKind: stringValue(row, "update_kind"), summary: stringValue(row, "summary"), changedBy: stringValue(row, "changed_by"), changedOn: stringValue(row, "changed_on"), fromStatus: nullableString(row, "from_status"), toStatus: nullableString(row, "to_status") }));
   const fieldAudit: SxFieldAudit[] = auditRows.map((row) => ({ id: stringValue(row, "id"), entityType: stringValue(row, "entity_type"), entityId: stringValue(row, "entity_id"), fieldName: stringValue(row, "field_name"), source: stringValue(row, "source"), version: numberValue(row, "version", 1), verifiedBy: stringValue(row, "verified_by"), nextReviewOn: nullableString(row, "next_review_on"), recordedAt: stringValue(row, "recorded_at") }));
-  const tracks = makeTrackSummaries(milestones, kpis, today);
+  const tracks = makeTrackSummaries(milestones, kpis, trackDefs, today);
   const priorityPartnerIds = new Set(partners.filter((partner) => !partner.deferredLowPriority).map((partner) => partner.id));
   const judgmentCommitments = commitments.filter((commitment) => priorityPartnerIds.has(commitment.partnerId));
   const judgment = computeSxJudgment(tracks, milestones, decisions, today, { kpis, actions, commitments: judgmentCommitments, roles: organizationRoles, dag, objectivePresent: Boolean(objective), outcomesCount: outcomes.length });

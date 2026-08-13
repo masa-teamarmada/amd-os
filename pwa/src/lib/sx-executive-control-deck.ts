@@ -1652,12 +1652,9 @@ export function deriveSxUnifiedTimeline(params: {
     pinCount = 5,
   } = params;
   const plannedOnly = params.dateMode === "planned_only";
-  const laneOrder = params.laneOrder ?? [
-    "business_development",
-    "technology_development",
-    "organizational_building",
-    "funding",
-  ];
+  // PJごとに柱のキーが違う (2026-08-13 柱の汎用化)。既定は渡された tracks の並び順そのもの —
+  // p21固定の4値リストを持たない。呼び出し元が特定の並びを強制したい場合だけ laneOrder を渡す。
+  const laneOrder = params.laneOrder ?? tracks.map((track) => track.key);
 
   if (!dagValid) {
     return {

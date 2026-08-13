@@ -593,22 +593,20 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - `/institutions/[institutionId]` の詳細画面からも研究機関コックピットと通常PJコックピットへ戻れる。
 - **「土壌×シーズ」タブ** (`CockpitSoilSeeds`、2026-07-30追加、build v3.52.0): `進捗管理` / `スコア詳細` に続く3本目のタブ。機関ECR8軸と所属シーズSPSを、実観測日unionの断面 (`観測断面台帳`、最大24断面) で同じ観測基準日として整列するが、ECR元評価日とSPS元評価日は別表示し、単一スコアへは絶対に合成しない (`terminology_glossary.md` §4 / `BZM_2_0_REVISION_REQUIREMENTS.md` §3-5)。相関/因果/予測モデルは出さない。所属は `seeds.institution_id` (migration `202_soil_seeds_institution_link.sql`、KUTE=`org_name`工学院大学のみbackfill、SPS値は未変更)。純粋関数は `pwa/src/lib/institution-soil-seeds.ts`、テストは `npm run test:institution-soil-seeds`。KUTEのみ所属シーズ上位ランクから既存p25 GTIE申請支援検討フローへの導線を持つ。削除禁止理由: ECRとSPSを機関単位で継続観測しつつ合成単一スコア禁止を守るための唯一の画面。
 
-## /institutions/[institutionId]/desk — 機関ワークスペース業務デスク (build v3.73.0、migration 270/271)
+## /project/p30/workspace — 愛媛大 産学連携ポートフォリオ (build v3.74.0、migration 273/274/275)
 
-目的: 愛媛大学・石原先生の産学連携業務ポートフォリオ29件をAMDが代理管理する「業務デスク」。EHM OSの第1波実装。設計: `EHM_OS_DESIGN_DRAFT_20260813.md` 論点11-A、`EHM_OS_ISHIHARA_WORK_WRAP_SPEC_v0_20260620.md`。DB: `workspace_work_cases` (業務ケース台帳) / `workspace_work_case_deadlines` (1業務:N締切)、RLS は `is_admin()` + `service_role` のみ (212系と同一方式)。データアクセス層は `src/lib/workspace-work-desk-data.ts`。
+目的: 石原先生(愛媛大)の産連業務29件を、p21 (SolvioraX) と同じ共有ワークスペースの型で管理する。EHM OSの中核面。設計: `/Users/masa/projects/AMD/ehm-os/EHM_OS_DESIGN_DRAFT_20260813.md` §3.0 と論点11の差し戻し節。
+
+> 2026-08-13、同日に作った専用画面 `/institutions/[institutionId]/desk` と `workspace_work_cases` / `workspace_work_case_deadlines` は撤回した。まさ指示「SXワークスペースと同じコンテンツを石原先生用に作る方がよくない?」により、独自UIではなく既存の共有ワークスペースへ一本化する。テーブルは残置(運用実績ゼロ、参照コードなし)。
 
 必須機能:
 
-- `institutionId` (`institutions.institution_id`) から `institution_workspaces` を引いて対象ワークスペースを特定する。無ければ「この機関にはワークスペースがありません」の空状態を出し、他画面へリダイレクトしない。
-- **入力憲法**: 行はAMDが出典資料 (石原_業務一覧_研究開発OS用_1.xlsx 2026-06末版) から代理登録したものであり、先生本人には入力させない。サマリ帯に出典注記を常時表示し、確認前情報を含むことを明示する。
-- **期限レーダー**: 全締切を期日昇順 (vague/未設定は最後) で並べる。日精度確定 (`due_precision='day'`) はその日付をそのまま、月精度確定 (`due_precision='month'`) は「YYYY年M月（月のみ確定）」、vagueまたは日付なしは「期日未確認」と表示し、月精度を確定日へ丸めない。各行に締切ステータス変更用インラインセレクトを持つ。
-- **「遅延」断定禁止**: 期日が過去でステータスが `unconfirmed`/`upcoming` の締切は「遅延」「遅れ」ではなく「期日経過・状況未確認」(琥珀系chip、赤は使わない) と表示する。未確認データを遅延と断定しない規律をUI文言レベルで担保する。
-- **止まりもの(waiting_on)セクション**: `waiting_on` が非NULLのケースを列挙する。0件時は「登録された止まりものはありません。現況確認で待ち先が判明したらケース編集から登録します」の空状態。
-- **領域別ポートフォリオ**: `domain` でグルーピングした表。1440px幅はテーブル (`hidden md:block`)、390px幅はカード列 (`md:hidden`) に切り替えて横あふれを防ぐ。`priority_wave` (1=第1波・締切駆動/青系、2=第2波・定常/グレー、3=第3波・UA室横断/紫系) と `data_status` (unconfirmed=未確認/琥珀、confirmed=確認済み/緑、stale=要再確認/グレー) をそれぞれchipで表示する。
-- **ケース編集パネル**: 行クリックで展開し、`next_action` / `waiting_on` / `waiting_since` / `notes` / `data_status` / `last_confirmed_at` を編集して保存する。`data_status` を `confirmed` にして `last_confirmed_at` が未入力の場合はJST今日を自動セットする。同パネルから当該ケースの締切追加 (label / due_date / due_precision) ができる。
-- 書き込みは authenticated browser client (`@/lib/supabase/client`) 直呼び。admin RLS (`FOR ALL USING (is_admin())`) を前提にした既存admin画面と同じ方式で、専用API routeは持たない。
-- `/institutions/[institutionId]/cockpit` のヘッダーに「業務デスク」への常時リンクを1つ持つ (inst_ehime 以外は空状態が受ける)。
-- 削除禁止理由: 石原先生の29業務ポートフォリオをAMDが代理管理する唯一の業務導線であり、期限レーダー・ポートフォリオ表・データ状態編集を欠くとEHM OS第1波の巻き取り運用が回らない (まさ承認 2026-08-13)。
+- **柱(track)はPJ属性**。`project_management_tracks` (project_id, track_key, label, short_label, accent, sort_order) が正本で、経営管理8テーブルの track は (project_id, track) の複合FKでこの表を参照する。p21=4本柱(事業開発/技術開発/資金調達/体制構築、表示は従来と完全同一)、p30=6領域(YURUGAS運営・基盤/企業連携・共創PJ/教育プログラム/研究・論文/資金・申請/組織・運営インフラ)。**柱を4値ハードコードへ戻さない** — 戻すとp30が開けなくなる。
+- ガントのレーン折り畳みは `src/lib/sx-display-lanes.ts` が単一の正本。p21だけが従来の3レーン折り畳み(display_lane_keys)を維持し、他PJは柱1本=1レーン。
+- p30のマイルストーン29件は石原先生の業務一覧(`石原_業務一覧_研究開発OS用_1.xlsx` 2026-06末版)由来で、全件 `status='unassessed'` / `date_certainty='provisional'` / `confidence='unknown'` / `source_ref='ishihara_worklist_20260630'`。**本人の現況確認が済むまで確定値として表示しない**。期日が過ぎているF-01(JST目利き 6/17)とR-02(地域活性学会 7/6)も、提出済みか未確認なので「遅延」と断定しない。
+- p30の論点6件(`project_management_issues`)は、本務とUA室兼務の役割境界 / Notion 3DBとの二重管理 / ExcelガントとOSの一本化 / M365読み取り経路 / 業務一覧の鮮度 / 契約スコープ。先生本人の発言で確認できていないものは `hypothesis`、資料から確実に読めるものだけ `fact`。
+- 機関コックピット `/institutions/[institutionId]/cockpit` のヘッダーから「業務ポートフォリオ」で当該機関PJのワークスペースへ入れる。
+- 削除禁止理由: 石原先生の29業務を管理する唯一の面であり、EHM OS契約(論点5)の提供物そのもの。柱のPJ属性化は他機関OSへの横展開の前提でもある。
 
 ## 株主・ガバナンス + 要対応 (2026-06-15 追加、2026-07-16 会社概要タブへ統合)
 

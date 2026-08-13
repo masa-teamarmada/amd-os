@@ -214,11 +214,14 @@ function InstitutionCockpitHeader({
           <p className="text-xs text-muted-foreground mt-2 max-w-3xl">{projectLink.cockpitSummary}</p>
         </div>
         <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+          {/* 業務ポートフォリオは専用画面を持たず、機関PJの共有ワークスペース
+              (判定バー / 統合タイムライン / 論点・仮説) で管理する。愛媛ではp30が
+              石原先生の産連業務29件を柱6本で持つ (2026-08-13 まさ指示)。 */}
           <Link
-            href={`/institutions/${projectLink.institutionId}/desk`}
+            href={`/project/${projectLink.projectId}/workspace`}
             className="text-xs rounded-md border border-border bg-white px-3 py-1.5 hover:bg-muted/40"
           >
-            業務デスク
+            業務ポートフォリオ
           </Link>
           <Link
             href={`/institutions/${projectLink.institutionId}`}

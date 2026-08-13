@@ -81,10 +81,12 @@ import {
   sxWeeklyValueMissing,
   type SxWeeklyIssueStage,
 } from "@/lib/sx-weekly-control";
+import { SxUnifiedTimeline } from "./SxUnifiedTimeline";
 import {
-  SxUnifiedTimeline,
+  buildSxLaneFold,
   type SxDisplayLaneKey,
-} from "./SxUnifiedTimeline";
+  type SxLaneFold,
+} from "@/lib/sx-display-lanes";
 import { SxPartnerPipeline } from "./SxPartnerPipeline";
 import styles from "./weekly-control.module.css";
 
@@ -206,7 +208,8 @@ type FormField = {
   key: string;
   label: string;
   /** `owner` = 既存の担当から選ぶプルダウン + 「新しい担当を追加」で自由入力へ切り替え。
-   *  `lanes` = ガントの3グループの複数選択。値はレーンキーのカンマ連結で持つ。 */
+   *  `lanes` = ガントの表示グループの複数選択（PJごとの柱数に応じて可変）。値はレーンキーの
+   *  カンマ連結で持つ。 */
   type?:
     | "text"
     | "textarea"
@@ -267,33 +270,6 @@ function collectOwnerCandidates(
   return list;
 }
 
-const TRACKS: Array<{
-  key: SxTrackKey;
-  label: string;
-  short: string;
-  accent: string;
-}> = [
-  {
-    key: "business_development",
-    label: "事業開発",
-    short: "事業",
-    accent: "#027FDC",
-  },
-  {
-    key: "technology_development",
-    label: "技術開発",
-    short: "技術",
-    accent: "#3D99E3",
-  },
-  { key: "funding", label: "資金調達", short: "資金", accent: "#7CBCEB" },
-  {
-    key: "organizational_building",
-    label: "体制構築",
-    short: "体制",
-    accent: "#0267B2",
-  },
-];
-
 const STAGES: Array<{ key: StageKey; index: string; label: string }> = [
   { key: "intake", index: "01", label: "要整理" },
   { key: "validating", index: "02", label: "検証中" },
@@ -316,6 +292,12 @@ const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   partners: "partner-ledger",
   issues: "issue-hypothesis",
 };
+// projects.project_name が内部コード名で、利用者に見せる名前と違うPJだけをここへ置く。
+const WORKSPACE_TITLE_OVERRIDES: Record<string, string> = {
+  p21: "SolvioraX PJワークスペース",
+  p30: "愛媛大学 産学連携ポートフォリオ",
+};
+
 const SX_WEEKLY_TABS: Array<{ key: SxWeeklyControlView; label: string }> = [
   { key: "weekly", label: "週次差分" },
   { key: "gantt", label: "ガント" },
@@ -397,66 +379,59 @@ function formatDate(value: string | null | undefined) {
   return match ? `${Number(match[2])}/${Number(match[3])}` : value;
 }
 
-function trackMeta(track: SxTrackKey) {
-  return TRACKS.find((item) => item.key === track) || TRACKS[0];
+/** 柱のメタ情報をbundle.tracksから引く。未知キー/未登録なら先頭の柱、柱が1本も無い
+ * (通常起きない)PJではキー自体をラベルとして返し、呼び出し側を落とさない。 */
+function trackMeta(tracks: SxManagementBundle["tracks"], track: string) {
+  return (
+    tracks.find((item) => item.key === track) ||
+    tracks[0] || { key: track, label: track, shortLabel: track, accent: "#8e8e93" }
+  );
 }
 
-/** The management model keeps funding and organization as distinct source tracks, but the
- * weekly-control Gantt has exactly three user-facing lanes. Anything that creates or describes a
- * Gantt row must speak this three-lane language; exposing the raw four-track taxonomy in the MS
- * form makes it look as though a forbidden fourth lane will be created. */
-function ganttLaneLabelForTrack(track: SxTrackKey) {
-  if (track === "business_development") return "事業開発";
-  if (track === "technology_development") return "技術開発";
-  return "組織開発";
+/** 柱→ガント表示レーンのラベル。折り畳みルール（p21は3レーン、他PJは柱1本=レーン1本）は
+ * src/lib/sx-display-lanes.ts に1本化されている。 */
+function ganttLaneLabelForTrack(laneFold: SxLaneFold, track: string | null | undefined) {
+  return laneFold.labelFor(laneFold.laneKeyForTrack(track));
 }
 
-/** ガントの3グループ。MS作成フォームの複数選択と、レーン→保存用トラックの変換に使う。 */
-const GANTT_LANE_CHOICES: Array<{ key: SxDisplayLaneKey; label: string }> = [
-  { key: "business_development", label: "事業開発" },
-  { key: "technology_development", label: "技術開発" },
-  { key: "organization", label: "組織開発" },
-];
-
-function laneMatchesTrack(laneKey: SxDisplayLaneKey, track: SxTrackKey) {
-  if (laneKey === "organization")
-    return track === "funding" || track === "organizational_building";
-  return track === laneKey;
+/** ガントの表示グループ選択肢。MS作成フォームの複数選択と、レーン→保存用トラックの変換に使う。 */
+function ganttLaneChoices(
+  laneFold: SxLaneFold,
+): Array<{ key: SxDisplayLaneKey; label: string }> {
+  return laneFold.order.map((key) => ({ key, label: laneFold.labelFor(key) }));
 }
 
 /** MSはDB上いまも成果(outcome)にぶら下がる。人が選ぶのは表示グループだけなので、選んだ先頭
  * グループから保存用の親成果を自動で決める。 */
 function milestoneOutcomeForLane(
   management: SxManagementBundle,
+  laneFold: SxLaneFold,
   laneKey: SxDisplayLaneKey,
 ) {
   return (
-    management.outcomes.find((outcome) =>
-      laneMatchesTrack(laneKey, outcome.track),
+    management.outcomes.find(
+      (outcome) => laneFold.laneKeyForTrack(outcome.track) === laneKey,
     ) || null
   );
 }
 
-/** カンマ連結で持っているレーン選択を、正規の順序（事業→技術→組織）の配列へ戻す。 */
-function parseLaneKeys(value: string | undefined): SxDisplayLaneKey[] {
+/** カンマ連結で持っているレーン選択を、そのPJの正規順序へ戻す。 */
+function parseLaneKeys(
+  value: string | undefined,
+  laneFold: SxLaneFold,
+): SxDisplayLaneKey[] {
   const chosen = new Set((value || "").split(",").filter(Boolean));
-  return GANTT_LANE_CHOICES.filter((lane) => chosen.has(lane.key)).map(
-    (lane) => lane.key,
-  );
+  return laneFold.order.filter((key) => chosen.has(key));
 }
 
 function ganttLaneKeyForMilestone(
+  laneFold: SxLaneFold,
   milestone: SxManagementMilestone,
 ): SxDisplayLaneKey {
-  if (milestone.slug === "business-paid-poc-oral-agreement")
-    return "business_development";
-  if (milestone.slug === "funding-investment-oral-agreement")
-    return "organization";
-  if (milestone.track === "business_development")
-    return "business_development";
-  if (milestone.track === "technology_development")
-    return "technology_development";
-  return "organization";
+  return (
+    laneFold.blockingMilestoneLane(milestone.slug) ??
+    laneFold.laneKeyForTrack(milestone.track)
+  );
 }
 
 /** A task retains a hidden legacy milestone FK only for database compatibility. The control
@@ -464,11 +439,12 @@ function ganttLaneKeyForMilestone(
  * visible lane automatically. */
 function taskBackingMilestone(
   management: SxManagementBundle,
+  laneFold: SxLaneFold,
   laneKey: SxDisplayLaneKey,
 ) {
   const candidates = management.milestones.filter(
     (milestone) =>
-      ganttLaneKeyForMilestone(milestone) === laneKey &&
+      ganttLaneKeyForMilestone(laneFold, milestone) === laneKey &&
       milestone.status !== "completed" &&
       milestone.timelineKind === "phase",
   );
@@ -588,7 +564,11 @@ function editorInitialValues(
       confidence: editor.milestone.confidence,
     };
   if (editor.kind === "create_task") {
-    const selected = taskBackingMilestone(management, editor.laneKey);
+    const selected = taskBackingMilestone(
+      management,
+      buildSxLaneFold(management.tracks),
+      editor.laneKey,
+    );
     return {
       milestone_id: selected?.id || "",
       parent_task_id: "",
@@ -648,7 +628,7 @@ function editorInitialValues(
     return {
       name: "",
       classifications: "",
-      primary_track: "business_development",
+      primary_track: management.tracks[0]?.key || "",
       relationship_stage: "candidate",
       agreement_state: "unagreed",
       agreed_scope: "未確認",
@@ -783,7 +763,7 @@ function editorInitialValues(
     };
   if (editor.kind === "create_issue")
     return {
-      track: "business_development",
+      track: management.tracks[0]?.key || "",
       milestone_id: "",
       title: "",
       knowledge_type: "fact",
@@ -1110,7 +1090,7 @@ function editorDefinition(
     return {
       title:
         editor.kind === "create_task"
-          ? `${editor.laneKey === "business_development" ? "事業開発" : editor.laneKey === "technology_development" ? "技術開発" : "組織開発"}にタスクを追加`
+          ? `${buildSxLaneFold(management.tracks).labelFor(editor.laneKey)}にタスクを追加`
           : "タスクを編集",
       eyebrow: "タスク",
       resource: "task",
@@ -1154,7 +1134,7 @@ function editorDefinition(
                     )
                     .map((milestone) => ({
                       value: milestone.id,
-                      label: `${trackMeta(milestone.track).short}｜${milestone.title}`,
+                      label: `${trackMeta(management.tracks, milestone.track).shortLabel}｜${milestone.title}`,
                     })),
                 ],
               },
@@ -1243,7 +1223,7 @@ function editorDefinition(
           label: "主な柱",
           type: "select",
           required: true,
-          options: TRACKS.map((track) => ({
+          options: management.tracks.map((track) => ({
             value: track.key,
             label: track.label,
           })),
@@ -1465,7 +1445,7 @@ function editorDefinition(
               .filter((milestone) => milestone.timelineKind === "milestone")
               .map((milestone) => ({
               value: milestone.id,
-              label: `${trackMeta(milestone.track).short}｜${milestone.title}`,
+              label: `${trackMeta(management.tracks, milestone.track).shortLabel}｜${milestone.title}`,
               })),
           ],
         },
@@ -1617,7 +1597,7 @@ function editorDefinition(
               .filter((issue) => issue.status !== "closed")
               .map((issue) => ({
                 value: issue.id,
-                label: `${trackMeta(issue.track).short}｜${issue.title}`,
+                label: `${trackMeta(management.tracks, issue.track).shortLabel}｜${issue.title}`,
               })),
           ],
         },
@@ -2187,6 +2167,12 @@ function IssueEditor({
     () => initialValues.current,
   );
   const definition = editorDefinition(editor, management);
+  // 表示レーンの折り畳みルール（p21は3レーン、他PJは柱1本=レーン1本）。MS/タスク作成の
+  // グループ選択と、レーン→保存用トラックの変換に使う。
+  const laneFold = useMemo(
+    () => buildSxLaneFold(management.tracks),
+    [management.tracks],
+  );
   // 候補は開いた時点の担当で固定する。入力途中の文字列で作り直すと候補が揺れる。
   const ownerCandidates = useMemo(
     () =>
@@ -2447,15 +2433,15 @@ function IssueEditor({
     // MSが立つ場所は人にとっては「グループ」。DBの親成果はそこから逆算する。
     const selectedMilestoneLanes =
       editor.kind === "create_milestone"
-        ? parseLaneKeys(values.display_lane_keys)
+        ? parseLaneKeys(values.display_lane_keys, laneFold)
         : [];
     const selectedMilestoneOutcome =
       editor.kind === "create_milestone" && selectedMilestoneLanes.length
-        ? milestoneOutcomeForLane(management, selectedMilestoneLanes[0])
+        ? milestoneOutcomeForLane(management, laneFold, selectedMilestoneLanes[0])
         : null;
     if (editor.kind === "create_milestone" && !selectedMilestoneLanes.length) {
       setError("配置するグループを選んでね");
-      focusField("display_lane_keys:business_development");
+      focusField(`display_lane_keys:${laneFold.order[0] ?? ""}`);
       return;
     }
     if (editor.kind === "create_milestone" && !selectedMilestoneOutcome) {
@@ -2464,7 +2450,7 @@ function IssueEditor({
     }
     const selectedTaskMilestone =
       editor.kind === "create_task"
-        ? taskBackingMilestone(management, editor.laneKey)
+        ? taskBackingMilestone(management, laneFold, editor.laneKey)
         : null;
     if (editor.kind === "create_task" && !selectedTaskMilestone) {
       setError("このレーンにタスクを置くための基準情報がまだないよ");
@@ -2532,9 +2518,10 @@ function IssueEditor({
       fields.display_lane_keys = selectedMilestoneLanes;
       fields.outcome_id = selectedMilestoneOutcome?.id || "";
       // The selected outcome is the authoritative parent. Deriving the exact DB track from it
-      // keeps the form's visible taxonomy at the approved three Gantt lanes while satisfying the
-      // DB invariant milestone.track === outcome.track (funding and organizational_building both
-      // render in the single 組織開発 lane).
+      // keeps the form's visible taxonomy at the project's approved Gantt lanes (see
+      // src/lib/sx-display-lanes.ts — p21 folds funding/organizational_building into one lane;
+      // other projects use one lane per track) while satisfying the DB invariant
+      // milestone.track === outcome.track.
       fields.track = selectedMilestoneOutcome?.track || "";
       fields.timeline_kind = "milestone";
       fields.slug = `ms-${Date.now().toString(36)}`;
@@ -2871,8 +2858,8 @@ function IssueEditor({
           </select>
         ) : field.type === "lanes" ? (
           <span className={styles.laneChoiceRow}>
-            {GANTT_LANE_CHOICES.map((lane) => {
-              const chosen = parseLaneKeys(values[field.key]);
+            {ganttLaneChoices(laneFold).map((lane) => {
+              const chosen = parseLaneKeys(values[field.key], laneFold);
               return (
                 <label key={lane.key}>
                   <input
@@ -2885,9 +2872,8 @@ function IssueEditor({
                       else next.delete(lane.key);
                       setValues((current) => ({
                         ...current,
-                        [field.key]: GANTT_LANE_CHOICES.filter((item) =>
-                          next.has(item.key),
-                        )
+                        [field.key]: ganttLaneChoices(laneFold)
+                          .filter((item) => next.has(item.key))
                           .map((item) => item.key)
                           .join(","),
                       }));
@@ -3241,13 +3227,7 @@ function IssueEditor({
             {editor.kind === "create_task" && (
               <>
                 <span>追加するレーン</span>
-                <strong>
-                  {editor.laneKey === "business_development"
-                    ? "事業開発"
-                    : editor.laneKey === "technology_development"
-                      ? "技術開発"
-                      : "組織開発"}
-                </strong>
+                <strong>{laneFold.labelFor(editor.laneKey)}</strong>
               </>
             )}
           </div>
@@ -3266,6 +3246,7 @@ function IssueEditor({
 // モーダルは追加せず、既存onEdit(editor state)呼び出しをそのまま使う。
 function IssueRow({
   issue,
+  tracks,
   asOf,
   canManage,
   onEdit,
@@ -3273,6 +3254,7 @@ function IssueRow({
   onOpen,
 }: {
   issue: SxManagementIssue;
+  tracks: SxManagementBundle["tracks"];
   asOf: string;
   canManage: boolean;
   onEdit: (editor: EditorState) => void;
@@ -3284,7 +3266,7 @@ function IssueRow({
   const [discussionDraft, setDiscussionDraft] = useState("");
   const [discussionSaving, setDiscussionSaving] = useState(false);
   const [discussionError, setDiscussionError] = useState<string | null>(null);
-  const track = trackMeta(issue.track);
+  const track = trackMeta(tracks, issue.track);
   const stale = sxWeeklyIssueIsStale(issue, asOf);
   const overdue = sxWeeklyIssueIsOverdue(issue, asOf);
   const nextDueDate = sxWeeklyIssueNextDueDate(issue);
@@ -3310,7 +3292,7 @@ function IssueRow({
               className={styles.trackBadge}
               style={{ color: track.accent, borderColor: `${track.accent}55` }}
             >
-              {track.short}
+              {track.shortLabel}
             </span>
           </div>
           <button
@@ -3785,7 +3767,7 @@ function IssueWorkbench({
         <header className={styles.issueWorkbenchHeader}>
           <div className={styles.issueWorkbenchTitle}>
             <div className={styles.issueWorkbenchMeta}>
-              <span>{trackMeta(issue.track).short}</span>
+              <span>{trackMeta(management.tracks, issue.track).shortLabel}</span>
               <span>{issueKindLabel(issue.knowledgeType)}</span>
               <span>{STAGE_LABEL[stage]}</span>
               <span>{issueStatusLabel(issue.status)}</span>
@@ -4067,6 +4049,7 @@ function PlanInspector({
   task,
   taskParentTitle,
   requirements,
+  laneFold,
   canManage,
   detailEditor,
   inlineEditorSlot,
@@ -4081,6 +4064,7 @@ function PlanInspector({
   task: SxTask | null;
   taskParentTitle: string | null;
   requirements: SxGateRequirement[];
+  laneFold: SxLaneFold;
   canManage: boolean;
   detailEditor?: ReactNode;
   inlineEditorSlot?: string | null;
@@ -4240,11 +4224,9 @@ function PlanInspector({
           <div className={styles.inspectorBreadcrumb}>
             <span>
               {task
-                ? ganttLaneLabelForTrack(
-                    task.track || milestone?.track || "organizational_building",
-                  )
+                ? ganttLaneLabelForTrack(laneFold, task.track || milestone?.track)
                 : milestone
-                  ? ganttLaneLabelForTrack(milestone.track)
+                  ? ganttLaneLabelForTrack(laneFold, milestone.track)
                   : "タスク"}
             </span>
           </div>
@@ -4806,6 +4788,12 @@ export function SxWeeklyControlDashboard({
   const enteredMembers = bundle.members.filter(
     (member) => member.plannedHours > 0 || member.actualHours > 0,
   ).length;
+  // 表示レーンの折り畳みルール（p21は3レーン、他PJは柱1本=レーン1本）。PlanInspectorの
+  // パンくずレーン表示に使う。
+  const laneFold = useMemo(
+    () => buildSxLaneFold(management.tracks),
+    [management.tracks],
+  );
   const timeline = useMemo(
     () =>
       deriveSxUnifiedTimeline({
@@ -5397,7 +5385,10 @@ export function SxWeeklyControlDashboard({
             <div>
               {/* p21の受入済み表示名 SolvioraX は維持 (critical UI anchor)。他PJは
                   projects.project_name を出す (p31 ZEO 等、この面をPJ横断で使うため) */}
-              <h1>{bundle.project.projectId === "p21" ? "SolvioraX PJワークスペース" : `${bundle.project.projectName} PJワークスペース`}</h1>
+              {/* p21の「SolvioraX PJワークスペース」はまさ受入済みの表示名(critical UI anchor)。
+                  p30はprojects.project_name='EHM'が内部コード名なので、先生に見せる名前を当てる。
+                  他PJはproject_nameをそのまま出す。 */}
+              <h1>{WORKSPACE_TITLE_OVERRIDES[bundle.project.projectId] ?? `${bundle.project.projectName} PJワークスペース`}</h1>
             </div>
           </div>
           <nav className={styles.sectionNav} aria-label="週次管制ナビ" role="tablist">
@@ -5539,7 +5530,7 @@ export function SxWeeklyControlDashboard({
                 {pendingDecisions.length > 0 ? (
                   pendingDecisions.map((decision) => (
                     <div key={decision.id}>
-                      <span>{trackMeta(decision.track).short}</span>
+                      <span>{trackMeta(management.tracks, decision.track).shortLabel}</span>
                       <p>{decision.title}</p>
                       <small>
                         {decision.ownerLabel || "担当未設定"} ·{" "}
@@ -5611,6 +5602,7 @@ export function SxWeeklyControlDashboard({
             <div className={styles.ganttFrame}>
               <SxUnifiedTimeline
                 timeline={timeline}
+                tracks={management.tracks}
                 asOf={management.asOf}
                 projectId={bundle.project.projectId}
                 milestones={management.milestones}
@@ -5658,6 +5650,7 @@ export function SxWeeklyControlDashboard({
             <PlanInspector
               milestone={selectedPlanMilestone}
               task={selectedTask}
+              laneFold={laneFold}
               taskParentTitle={
                 selectedTask?.parentTaskId
                   ? management.tasks.find(
@@ -5917,8 +5910,8 @@ export function SxWeeklyControlDashboard({
               }
               aria-label="柱で絞り込み"
             >
-              <option value="all">4本柱すべて</option>
-              {TRACKS.map((track) => (
+              <option value="all">{management.tracks.length}本柱すべて</option>
+              {management.tracks.map((track) => (
                 <option key={track.key} value={track.key}>
                   {track.label}
                 </option>
@@ -5948,6 +5941,7 @@ export function SxWeeklyControlDashboard({
                   <IssueRow
                     key={issue.id}
                     issue={issue}
+                    tracks={management.tracks}
                     asOf={management.asOf}
                     canManage={management.canManage}
                     onEdit={setEditor}

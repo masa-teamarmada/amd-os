@@ -39,6 +39,11 @@ import {
 } from "@/lib/sx-management-optimistic";
 import { taskNestCandidateIds } from "@/lib/sx-gantt-task-nesting";
 import {
+  buildSxLaneFold,
+  type SxDisplayLaneKey,
+  type SxDisplayLaneTrackDef,
+} from "@/lib/sx-display-lanes";
+import {
   buildFinishToStartRoute,
   timelinePctToPx,
   visibleBarGeometryPx,
@@ -180,39 +185,13 @@ type LaneMeta = {
   maxIssue: string;
 };
 
-/** The gantt shows exactly 3 lanes, never the raw 4 tracks: 資金調達(funding) has no dedicated
- * lane of its own — it merges into 組織開発 alongside organizational_building. There is no
- * separate "設立前提" lane; the two blocking milestones are forced into these 3 lanes directly
- * (see BLOCKING_MILESTONE_LANE below), not rendered as a 4th synthetic lane. */
-export type SxDisplayLaneKey =
-  | "business_development"
-  | "technology_development"
-  | "organization";
-
-const DISPLAY_LANE_ORDER: SxDisplayLaneKey[] = [
-  "business_development",
-  "technology_development",
-  "organization",
-];
-
-const DISPLAY_LANE_LABEL: Record<SxDisplayLaneKey, string> = {
-  business_development: "事業開発",
-  technology_development: "技術開発",
-  organization: "組織開発",
-};
-
-function displayLaneKeyForTrack(trackKey: string): SxDisplayLaneKey {
-  if (trackKey === "business_development") return "business_development";
-  if (trackKey === "technology_development") return "technology_development";
-  return "organization";
-}
-
-/** The 2 blocking milestones never follow their own track column — each is forced into a fixed
- * display lane regardless of its project_management_milestones.track value. */
-const BLOCKING_MILESTONE_LANE: Record<string, SxDisplayLaneKey> = {
-  "business-paid-poc-oral-agreement": "business_development",
-  "funding-investment-oral-agreement": "organization",
-};
+// Display-lane derivation (SxDisplayLaneKey, buildSxLaneFold, the p21 3-lane fold vs. generic
+// 1-lane-per-track behavior) lives in src/lib/sx-display-lanes.ts, shared with
+// SxWeeklyControlDashboard.tsx's track filter/MS-form lane pickers so both surfaces agree on the
+// same lane set per project (2026-08-13 柱の汎用化). Re-exported here for existing importers of
+// this module (`type { SxDisplayLaneKey } from "./SxUnifiedTimeline"`).
+export type { SxDisplayLaneKey } from "@/lib/sx-display-lanes";
+export type SxUnifiedTimelineTrackDef = SxDisplayLaneTrackDef;
 
 const ROW_STATE_TEXT: Record<DisplayRow["state"], string> = {
   complete: "完了",
@@ -842,6 +821,7 @@ type ScheduleDependencyEdge = {
 export function SxUnifiedTimeline({
   timeline,
   asOf,
+  tracks = [],
   projectId = null,
   selectedMilestoneId,
   selectedTaskId = null,
@@ -861,6 +841,10 @@ export function SxUnifiedTimeline({
 }: {
   timeline: SxEcdUnifiedTimeline;
   asOf: string;
+  /** Drives display-lane derivation (grouping/order/labels). Pass `management.tracks` (DB-backed,
+   * per-project). p21 keeps its historical 3-lane fold; any other track set gets one lane per
+   * track. Omit only for callers with no lane-bearing rows (falls back to no lanes). */
+  tracks?: SxUnifiedTimelineTrackDef[];
   /** Enables gantt-direct-edit writes (drag move/resize) — this component owns its own PATCH
    * fetch calls, matching SxPartnerPipeline's pattern rather than round-tripping every
    * pixel-drag through the parent. MSを置く placement never POSTs here either way — it only
@@ -1505,6 +1489,8 @@ export function SxUnifiedTimeline({
     [taskNestDrag?.taskId, tasks],
   );
 
+  const laneFold = useMemo(() => buildSxLaneFold(tracks), [tracks]);
+
   // The visible tree contains only tasks. Legacy phase milestones remain in the database as
   // FK containers, but their promoted root task is the visual root. Point-MS records are kept
   // separately as lane-wide overlays, never as parent-like rows.
@@ -1517,32 +1503,29 @@ export function SxUnifiedTimeline({
       }
     };
 
-    const bucket: Record<SxDisplayLaneKey, DisplayRow[]> = {
-      business_development: [],
-      technology_development: [],
-      organization: [],
-    };
+    const bucket: Record<SxDisplayLaneKey, DisplayRow[]> = {};
+    for (const key of laneFold.order) bucket[key] = [];
 
     const laneForTask = (task: SxTask): SxDisplayLaneKey => {
       const backing = milestoneById.get(task.milestoneId);
       // A task keeps its own workstream even when it contributes to a blocking MS whose diamond
-      // spans another lane. Only the MS marker is forced to BLOCKING_MILESTONE_LANE.
-      if (task.track) return displayLaneKeyForTrack(task.track);
-      if (backing && sxIsBlockingMilestone(backing))
-        return BLOCKING_MILESTONE_LANE[backing.slug] ?? "organization";
-      return displayLaneKeyForTrack(backing?.track || "organizational_building");
+      // spans another lane. Only the MS marker is forced to the blocking-milestone lane.
+      if (task.track) return laneFold.laneKeyForTrack(task.track);
+      if (backing && sxIsBlockingMilestone(backing)) {
+        const forced = laneFold.blockingMilestoneLane(backing.slug);
+        if (forced) return forced;
+      }
+      return laneFold.laneKeyForTrack(backing?.track);
     };
     for (const task of tasks
       .filter((candidate) => candidate.parentTaskId == null)
       .sort((left, right) => left.sortOrder - right.sortOrder || left.title.localeCompare(right.title))) {
-      appendTaskTree(task, bucket[laneForTask(task)], 0);
+      const laneKey = laneForTask(task);
+      if (bucket[laneKey]) appendTaskTree(task, bucket[laneKey], 0);
     }
 
-    const milestoneBucket: Record<SxDisplayLaneKey, DisplayRow[]> = {
-      business_development: [],
-      technology_development: [],
-      organization: [],
-    };
+    const milestoneBucket: Record<SxDisplayLaneKey, DisplayRow[]> = {};
+    for (const key of laneFold.order) milestoneBucket[key] = [];
     for (const milestone of milestones.filter(
       (candidate) => candidate.timelineKind === "milestone",
     )) {
@@ -1554,23 +1537,25 @@ export function SxUnifiedTimeline({
       const laneKeys: SxDisplayLaneKey[] = chosenLanes.length
         ? chosenLanes
         : [
-            sxIsBlockingMilestone(milestone)
-              ? (BLOCKING_MILESTONE_LANE[milestone.slug] ?? "organization")
-              : displayLaneKeyForTrack(milestone.track),
+            (sxIsBlockingMilestone(milestone) && laneFold.blockingMilestoneLane(milestone.slug)) ||
+              laneFold.laneKeyForTrack(milestone.track),
           ];
       for (const laneKey of laneKeys)
-        milestoneBucket[laneKey].push(milestoneAnchorRow(milestone, timeline));
+        if (milestoneBucket[laneKey]) milestoneBucket[laneKey].push(milestoneAnchorRow(milestone, timeline));
     }
 
     const laneByKey = new Map(timeline.lanes.map((lane) => [lane.key, lane]));
+    // p21's "organization" lane merges two raw tracks (funding + organizational_building), so its
+    // accent/maxIssue are combined here. Every other project's lane key IS its track key, so this
+    // is a direct lookup — no merging.
     const accentFor = (key: SxDisplayLaneKey) =>
-      key === "organization"
+      laneFold.isP21Fold && key === "organization"
         ? (laneByKey.get("organizational_building")?.accent ??
           laneByKey.get("funding")?.accent ??
           "#86868b")
         : (laneByKey.get(key)?.accent ?? "#86868b");
     const maxIssueFor = (key: SxDisplayLaneKey) =>
-      key === "organization"
+      laneFold.isP21Fold && key === "organization"
         ? [
             laneByKey.get("organizational_building")?.maxIssue,
             laneByKey.get("funding")?.maxIssue,
@@ -1579,13 +1564,13 @@ export function SxUnifiedTimeline({
             .join(" / ")
         : (laneByKey.get(key)?.maxIssue ?? "");
 
-    return DISPLAY_LANE_ORDER.map((key) => {
+    return laneFold.order.map((key) => {
       const collapsed = collapsedLanes.has(key);
       return {
         lane: {
           key,
-          label: DISPLAY_LANE_LABEL[key],
-          shortLabel: DISPLAY_LANE_LABEL[key],
+          label: laneFold.labelFor(key),
+          shortLabel: laneFold.labelFor(key),
           accent: accentFor(key),
           maxIssue: maxIssueFor(key),
         } satisfies LaneMeta,
@@ -1603,6 +1588,7 @@ export function SxUnifiedTimeline({
     asOf,
     collapsedLanes,
     expandedTasks,
+    laneFold,
     milestoneById,
     taskChildren,
     tasks,
@@ -1952,10 +1938,12 @@ export function SxUnifiedTimeline({
 
   function laneKeyForTask(task: SxTask): SxDisplayLaneKey {
     const backing = milestoneById.get(task.milestoneId);
-    if (task.track) return displayLaneKeyForTrack(task.track);
-    if (backing && sxIsBlockingMilestone(backing))
-      return BLOCKING_MILESTONE_LANE[backing.slug] ?? "organization";
-    return displayLaneKeyForTrack(backing?.track || "organizational_building");
+    if (task.track) return laneFold.laneKeyForTrack(task.track);
+    if (backing && sxIsBlockingMilestone(backing)) {
+      const forced = laneFold.blockingMilestoneLane(backing.slug);
+      if (forced) return forced;
+    }
+    return laneFold.laneKeyForTrack(backing?.track);
   }
 
   /** Sibling group of a task in display order: same parent, and for top-level tasks also the same
@@ -2016,14 +2004,6 @@ export function SxUnifiedTimeline({
     if (rootLane) return { kind: "root", laneKey: rootLane };
     return null;
   }
-
-  /** 表示レーンから、タスク移動時に書き込む代表trackを引く。組織開発レーンは
-   * funding/organizational_building の2trackが同居するため organizational_building を代表にする。 */
-  const TRACK_FOR_LANE: Record<SxDisplayLaneKey, string> = {
-    business_development: "business_development",
-    technology_development: "technology_development",
-    organization: "organizational_building",
-  };
 
   function beginTaskNestDrag(
     row: DisplayRow,
@@ -2202,12 +2182,12 @@ export function SxUnifiedTimeline({
         ? target.laneKey
         : null;
     const patch: Record<string, unknown> = crossLane
-      ? { parent_task_id: parentTaskId, track: TRACK_FOR_LANE[crossLane] }
+      ? { parent_task_id: parentTaskId, track: laneFold.trackForLane(crossLane) }
       : { parent_task_id: parentTaskId };
     const nestMessage = parentTitle
       ? `「${current.title}」を「${parentTitle}」の子タスクにしたよ`
       : crossLane
-        ? `「${current.title}」を${DISPLAY_LANE_LABEL[crossLane]}へ移動したよ`
+        ? `「${current.title}」を${laneFold.labelFor(crossLane)}へ移動したよ`
         : `「${current.title}」を最上位タスクに戻したよ`;
     if (onManagementOptimistic) {
       onManagementOptimistic(
@@ -2438,12 +2418,14 @@ export function SxUnifiedTimeline({
     milestonePromptSubmittingRef.current = true;
     setPendingMilestonePoint(null);
     const laneOutcomes = outcomes.filter(
-      (item) => displayLaneKeyForTrack(item.track) === laneKey,
+      (item) => laneFold.laneKeyForTrack(item.track) === laneKey,
     );
-    // Only preselect a parent when this visible lane maps to exactly one outcome. 組織開発 may
-    // contain both funding and organizational_building outcomes; silently choosing one would
-    // create a plausible-looking but semantically wrong MS. In that ambiguous case the form opens
-    // with no outcome selected and makes the user choose the exact parent before Save is enabled.
+    // Only preselect a parent when this visible lane maps to exactly one outcome. p21's 組織開発
+    // lane folds both funding and organizational_building outcomes together; silently choosing
+    // one would create a plausible-looking but semantically wrong MS. In that ambiguous case the
+    // form opens with no outcome selected and makes the user choose the exact parent before Save
+    // is enabled. (Non-p21 lanes map 1:1 to a track, so this ambiguity only arises there if a
+    // single track legitimately has multiple outcomes.)
     const singleOutcome = laneOutcomes.length === 1 ? laneOutcomes[0] : null;
     const track = singleOutcome?.track ?? null;
     const outcomeId = singleOutcome?.id ?? null;
@@ -3496,7 +3478,7 @@ export function SxUnifiedTimeline({
           >
             <p className="text-[11px] font-bold">MSを追加する？</p>
             <p className="mt-1 text-[10px] text-[#86868b]">
-              {DISPLAY_LANE_LABEL[pendingMilestonePoint.laneKey]} ・ {sxFormatDate(pendingMilestonePoint.date)}
+              {laneFold.labelFor(pendingMilestonePoint.laneKey)} ・ {sxFormatDate(pendingMilestonePoint.date)}
             </p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button
