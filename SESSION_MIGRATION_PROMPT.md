@@ -1,56 +1,48 @@
-# SESSION MIGRATION PROMPT — 資料室高密度化済み・共有checkoutの同期とcloseout
+# SESSION MIGRATION PROMPT — 請求対象PJの契約原本監査 継続
 
 ```text
 あなたは株式会社チームアルマダの社内OS「AMD OS」を引き継ぐえいみ。
-資料室の情報密度を上げる改修は本番済み。次の主作業は、共有checkoutを安全にorigin/mainへ同期してcloseoutできる状態へ戻すこと。資料室の改修を再実装・再deployしない。
+前セッションでは、SX（p21）の締結済み請負契約書を契約台帳の押印版として登録し、コックピットの実行条件を原本に基づいて更新した。CX（p20 / NIMS）には、現行の仕様・見積合わせ・提出書類、本見積書、前年度の入札一式を資料室へAMD内部限定でリンクした。
 
-## 最初の同期ゲートと読む順
+次の主作業は、請求書作成画面に出る全PJについて、現行の締結済み契約書原本または現行契約台帳を根拠に `expenseReimbursementAllowed` と根拠注記を監査し、未完了分を正規経路で反映すること。メモ、プロジェクト名、会議名から可否を推測しない。原本がないPJは未抽出のまま「原本欠測」として報告する。
 
-1. /Users/masa/projects/AGENTS.common.md
-2. /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md
-3. /Users/masa/projects/AMD/amd-os で `git fetch origin main`、`git rev-list --left-right --count HEAD...origin/main`、`git status -sb --untracked-files=all`、`git log --branches --not --remotes --oneline`、`git worktree list` を実行する。behindが1以上ならcurrent truthの編集を始めず、CLAUDE.mdの同期ゲートで先に解消する。
-4. /Users/masa/projects/AMD/amd-os/AGENTS.md
-5. /Users/masa/projects/AMD/amd-os/CLAUDE.md
-6. /Users/masa/projects/AMD/amd-os/HANDOFF.md
-7. pwa/spec/1-1-overview.md
-8. pwa/spec/1-2-document-layer-migration-map.md
-9. pwa/AGENTS.md
-10. pwa/CLAUDE.md
-11. pwa/design/FEATURE_REGISTRY.md の「資料室」
-12. pwa/manual/2-3-pj-cockpit.md の「資料」
-13. pwa/manual/9-3-appendix-changelog.md の2026-08-12「資料室」行
-14. pwa/design_log/sessions_2026-08.md の2026-08-12「資料室を高密度の資料棚へ再構成」節
-15. pwa/BUGS.md
+## 読む順
+
+1. `/Users/masa/projects/AGENTS.common.md`
+2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md`
+3. `/Users/masa/projects/AMD/amd-os` で `git fetch origin main`、`git rev-list --left-right --count HEAD...origin/main`、`git status -sb --untracked-files=all`、`git log --branches --not --remotes --oneline`、`git worktree list`
+4. `/Users/masa/projects/AMD/amd-os/AGENTS.md`
+5. `/Users/masa/projects/AMD/amd-os/CLAUDE.md`
+6. `/Users/masa/projects/AMD/amd-os/HANDOFF.md`
+7. `pwa/AGENTS.md` と `pwa/CLAUDE.md`
+8. `pwa/spec/5-6-contracts-management-current-spec.md`
+9. `pwa/spec/3-8-cockpit-current-spec.md`
+10. `pwa/manual/6-7-contracts-management-spec.md`
 
 ## 状態スナップショット
 
-- 資料室の高密度化は`374d5a28`（scope rail / toolbar / drop rail / desktop一覧行）と`c59b319d`（mobile 44px操作面積）でorigin/mainに反映済み。
-- 資料室はDesktop 1440×900で10行分、mobile 390×843で検索・追加・閉じる・ルートパンくず44px以上、document／modal横overflow 0を本番実測済み。資料の権限、操作、route、DB正本は変えていない。
-- productionとorigin/mainは`v3.72.34` / `6a5c4017` / main / dirty=false。資料室の本番確認時点は`v3.72.23` / `c59b319d`。
-- handoff更新時点の正規checkoutはorigin/mainに対してahead 1。この未push handoff commitは資料室の仕様・manual・履歴・handoffだけ。`pwa/AGENTS.md`と重要情報抽出・通知feedbackの4ファイルはunstagedで、今回の資料室作業とは別レーン。
-- detached worktree `/Users/masa/.codex/worktrees/f8b1/amd-os` は稼働中の別Codex sessionが使用中。終了・closeoutまで削除やpruneをせず、reset、stash、force pushもしない。
+- canonical repo は `/Users/masa/projects/AMD/amd-os`、`main` / `9d262b03`。2026-08-14時点で `origin/main` と一致、ahead 0 / behind 0、dirty 0。
+- SX（p21）は現行契約が `signed`。締結済み原本と現行見積書を資料室へAMD内部限定でリンク済み。
+- SXコックピットには、別紙内訳の月額請求、検査合格・適法な請求書受領後60日以内の支払、毎月の完了通知・検査、立替上乗せ不可、再委託の事前承認を表示している。
+- CX（p20 / NIMS）の「入札・調達」には4件の資料リンクを登録済み。共有範囲はすべてAMD内部。
+- p28 NIMSは連携覚書。個別有償支援の条件は都度書面であり、今回確認範囲に入札一式はない。
 
-## 最初の作業
+## 次タスクの詳細
 
-1. origin/mainをfetchし、current production `/api/build-info`のSHAと一致することを確認する。
-2. 5 dirty pathのownerを特定する。detached worktreeは稼働中sessionの所有と確認済みなので、その終了まで保全する。自分の変更ではないものをstage、stash、revert、deleteしない。
-3. ownerの同期または明示的な引き渡しが取れた場合だけ、正規checkoutをcleanにして、資料室handoff commitだけをorigin/mainへpushする。資料室実装commitは既に含まれるためcherry-pickしない。
-4. 最終closeoutでは、main以外のworktree/branchの扱い、ahead/behind、dirty pathごとのowner/action、production buildを短く明記する。
+1. 本番の請求書作成画面から、請求対象になり得るPJを状態違い・future・endedも含めて列挙する。
+2. SX（p21）は再判定しない。AMD（p00）は社内PJのため、クライアント契約対象外なら理由を残す。
+3. 各PJについて、現行の締結済み原本または現行契約台帳だけで、立替精算をクライアント請求へ上乗せできるかを判定する。
+4. 原本がある値だけ候補にし、既存の candidate → review → apply を通す。直接DB更新や一括手打ちはしない。
+5. 反映済みは契約台帳、PJコックピット、請求側の読戻しで確認する。原本欠測は値を作らない。
+6. 研究機関の契約で、現行契約に紐づく仕様書・見積書・入札関連書類がDriveにあれば、PJ資料室の「入札・調達」へAMD内部限定でリンクする。古い版や汎用テンプレは混ぜない。KUTEは私立なので入札書類セットの対象外。
 
-## 完成条件
+## 確立済みの運用境界
 
-- origin/mainとproduction SHAが一致する。
-- 資料室の仕様正本、manual、append-only変更履歴、開発履歴、HANDOFFが同じ内容を指す。
-- 他レーンのdirtyとdetached worktreeはowner/actionが明示され、unknownのまま残らない。
-- `git status -sb --untracked-files=all`、`git worktree list`、`git log --branches --not --remotes --oneline`、ahead/behindで、archive可否を判断できる。
+- `contracts.operational_terms_json` が契約の実務条件の正本。PJコックピットは `projects.contract_terms_json.currentContracts[]` を表示する。
+- Driveのファイル本体をDBへ保存しない。契約書は押印版metadataとして登録し、資料室には既存Driveリンクを追加する。共有設定は変えない。
+- `expenseReimbursementAllowed` の未抽出は未確認のまま。`申請不可` や `申請可` を推測で設定しない。
+- コード・仕様変更が必要な場合は、対象だけをmainへcommit・pushし、PWAなら `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で本番buildと画面を確認する。今回のような既存画面からのデータ登録だけならコードdeployは不要。
+- branch / worker worktreeを作らない。既存dirtyは保全し、対象差分だけを扱う。
 
-## 運用境界
-
-- UI変更は設計正本・OSマニュアル・変更履歴・開発履歴を同じ作業単位で同期する。資料室は`FEATURE_REGISTRY.md`と2-3章が正本。
-- desktopは1440×900で密度と横overflow、mobileは390×843で44px操作面積と横overflowを実測する。資料操作や認可を密度改善の理由で緩めない。
-- branchとworker worktreeを新規作成しない。対象ファイルだけをstageし、他レーンのdirtyを混ぜない。
-- PWA変更の本番反映は`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`のみ。`main` push後にproduction SHAを確認する。
-- reset、stash、force push、別workerのファイル削除は、まさの明示指示なしにしない。
-
-最初は同期結果、dirty pathごとのowner、稼働中detached worktreeの扱いだけを、短い日本語で報告すること。
+最初の報告は、対象PJ数、原本あり/なし、適用候補数、未確認点だけを短く出すこと。URL、原本文面、秘密値、個人情報は出さない。
 ```
