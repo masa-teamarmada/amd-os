@@ -188,7 +188,8 @@ function plDisplayValue(
   if (projectId !== "p21") return key === "preincorporation_spend" ? null : plValue(row, key);
   const beforeIncorporation = ym < incorporationYm;
   if (key === "preincorporation_spend") return beforeIncorporation ? plValue(row, key) : null;
-  if (beforeIncorporation && (key === "gross_profit" || key === "operating_profit")) return null;
+  // 設立前の明細はNewCo P/Lへ一切表示せず、費用は設立前PJ支出へ集約する。
+  if (beforeIncorporation) return null;
   return plValue(row, key);
 }
 
@@ -684,6 +685,7 @@ export function Bzm22TimeLedger({
     }),
   ), [axis, sxIncorporationYm]);
   const selectedGroup = eventGroups.positioned.find((group) => group.monthIndex === selectedMonth) ?? null;
+  const draftBeforeIncorporation = Boolean(draft && pilot.projectId === "p21" && draft.ym < sxIncorporationYm);
   const registeredPolicy = pilot.timeline.lanes.find((lane) => lane.key === "registered_policy")?.items[0];
   const gridStyle = {
     gridTemplateColumns: `var(--bzm-ledger-label-width) repeat(${axis.length}, ${MONTH_WIDTH}px)`,
@@ -880,7 +882,7 @@ export function Bzm22TimeLedger({
                   const notApplicableBeforeIncorporation = value === null && month.ym < sxIncorporationYm;
                   return (
                     <MonthCellFrame key={`${metric.key}-${month.ym}`} month={month} className={`px-1.5 py-0.5 text-right ${comments.length > 0 ? "bg-amber-50/70" : metric.kind === "calculated" ? "bg-slate-50" : "bg-white"} ${month.ym === sxIncorporationYm ? "border-l-2 border-l-[#173f51]" : ""}`}>
-                      {metric.kind === "input" ? (
+                      {metric.kind === "input" && !notApplicableBeforeIncorporation ? (
                         <button type="button" onClick={() => startEdit(month)} className="block w-full text-right font-mono text-[11px] leading-4 tabular-nums text-slate-700 hover:text-[#173f51] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6d8a96] decoration-dotted" title={`${month.ym}の${metricLabel}を編集`}>
                           {formatMillionFromYen(value ?? 0)}
                         </button>
@@ -979,8 +981,8 @@ export function Bzm22TimeLedger({
         <DialogContent data-testid="bzm22-monthly-edit-dialog" className="max-h-[90vh] overflow-y-auto rounded-none border border-[#7898a5] bg-white p-0 sm:!max-w-[680px]" showCloseButton={!saving}>
           <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
           <DialogHeader className="border-b border-slate-200 bg-[#edf3f5] px-4 py-3">
-            <DialogTitle className="text-[15px] font-semibold text-[#173f51]">{draft.ym} の月次試算</DialogTitle>
-            <DialogDescription className="text-[11px]">入力単位は百万円。保存後、同じ月列へ即時反映する。</DialogDescription>
+            <DialogTitle className="text-[15px] font-semibold text-[#173f51]">{draft.ym} の{draftBeforeIncorporation ? "設立前PJ支出" : "月次試算"}</DialogTitle>
+            <DialogDescription className="text-[11px]">入力単位は百万円。{draftBeforeIncorporation ? "この月の明細はNewCo P/Lへ表示せず、設立前PJ支出へ集約する。" : "保存後、同じ月列へ即時反映する。"}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-2 p-4 sm:grid-cols-3">
             {([

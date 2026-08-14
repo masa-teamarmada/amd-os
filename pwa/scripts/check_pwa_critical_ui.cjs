@@ -1946,7 +1946,9 @@ expectIncludes("src/components/cockpit/Bzm22TimeLedger.tsx", [
   "設立前PJ支出 / NewCo P/L",
   "SX_PREINCORPORATION_SPEND_ROW",
   'data-accounting-scope={notApplicableBeforeIncorporation ? "not-applicable-before-incorporation" : undefined}',
-  'if (beforeIncorporation && (key === "gross_profit" || key === "operating_profit")) return null;',
+  "設立前の明細はNewCo P/Lへ一切表示せず、費用は設立前PJ支出へ集約する。",
+  "draftBeforeIncorporation",
+  'draftBeforeIncorporation ? "設立前PJ支出" : "月次試算"',
 ]);
 expectIncludes("scripts/backfill_sx_phase_monthly_pl.mts", [
   "設立前PJ支出でありNewCoのP/L・営業損失ではない",
