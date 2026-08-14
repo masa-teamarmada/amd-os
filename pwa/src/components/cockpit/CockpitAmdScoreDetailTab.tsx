@@ -121,18 +121,19 @@ function ArchiveMetadata({ primary }: { primary: SpsPrimaryModelState }) {
 
 function LazyArchiveDisclosure({
   title,
-  summary,
+  testId,
   onFirstOpen,
   children,
 }: {
   title: string;
-  summary: string;
+  testId?: string;
   onFirstOpen: () => void;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <details
+      data-testid={testId}
       open={open}
       onToggle={(event) => {
         const nextOpen = event.currentTarget.open;
@@ -142,10 +143,7 @@ function LazyArchiveDisclosure({
       className="min-w-0 overflow-hidden border border-[#c9c2b5] bg-white"
     >
       <summary className="grid min-h-8 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-center gap-2 bg-[#eeeae2] px-2 py-1 hover:bg-[#e8e2d8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#675f52] marker:content-none">
-        <span className="min-w-0">
-          <span className="text-[11px] font-semibold text-[#514b42]">{title}</span>
-          <span className="ml-2 text-[9px] text-[#776f63]">{summary}</span>
-        </span>
+        <span className="min-w-0 text-[11px] font-semibold text-[#514b42]">{title}</span>
         <span className="text-[9px] text-[#776f63]">{open ? "閉じる⌃" : "開く⌄"}</span>
       </summary>
       {open ? <div className="min-w-0 border-t border-[#d8d3c9]">{children}</div> : null}
@@ -254,13 +252,11 @@ export function CockpitAmdScoreDetailTab({
       <section data-testid="score-model-archives" aria-labelledby="score-model-archives-title" className="min-w-0 space-y-1 border-t border-slate-300 pt-1">
         <div className="px-1">
           <h2 id="score-model-archives-title" className="text-[11px] font-semibold text-slate-700">旧モデル / 現行運用モデル</h2>
-          <p className="mt-0.5 text-[9px] leading-4 text-slate-500">ページ最下部に分離。初期状態では閉じ、開いたモデルだけを描画する。</p>
         </div>
 
         <LazyArchiveDisclosure
           key={`${projectId}-sps21`}
           title="現行SPS / BZM 2.1"
-          summary="OS運用レジストリの版。BZM 2.2暫定値とは尺度を混ぜない。"
           onFirstOpen={requestArchives}
         >
           <ArchiveLoadBoundary state={archiveState} projectId={projectId}>
@@ -271,7 +267,6 @@ export function CockpitAmdScoreDetailTab({
         <LazyArchiveDisclosure
           key={`${projectId}-bzm20`}
           title="BZM 2.0"
-          summary="過去理論のモデル観測台帳。比較用。"
           onFirstOpen={requestArchives}
         >
           <ArchiveLoadBoundary state={archiveState} projectId={projectId}>
@@ -281,8 +276,8 @@ export function CockpitAmdScoreDetailTab({
 
         <LazyArchiveDisclosure
           key={`${projectId}-sps10`}
-          title="SPS 1.0 / Legacy AMD"
-          summary="9軸SPSと旧M×X×F。履歴・根拠確認のため凍結保持。"
+          testId="cockpit-legacy-sps-history-archive"
+          title="旧SPS履歴 / Legacy AMD"
           onFirstOpen={requestArchives}
         >
           <ArchiveLoadBoundary state={archiveState} projectId={projectId}>

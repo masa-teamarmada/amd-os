@@ -12,7 +12,7 @@
  * 単位ルール: SU は「PJ」と数える。「ventures」「社」表記は禁止。
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchVentureStatus,
   confirmXrlObservation,
@@ -167,7 +167,24 @@ export function CockpitVentureStatus({
   const [legacyScoreHistoryProjectId, setLegacyScoreHistoryProjectId] = useState<string | null>(null);
   const [pendingXrl, setPendingXrl] = useState<ProjectXrlRow | null>(null);
   const [xrlDetailTarget, setXrlDetailTarget] = useState<{ row: ProjectXrlRow; axis: "TRL" | "BRL" | "GRL" | "SRL" | "HRL" } | null>(null);
-  const legacyScoreHistoryOpen = legacyScoreHistoryProjectId === projectId;
+  const xrlPlotRef = useRef<HTMLDivElement>(null);
+  const [xrlPlotSize, setXrlPlotSize] = useState({ width: SVG_W, height: SVG_H });
+  const legacyScoreHistoryOpen = !compact && legacyScoreHistoryProjectId === projectId;
+
+  useEffect(() => {
+    const plot = xrlPlotRef.current;
+    if (!plot || typeof ResizeObserver === "undefined") return;
+    const updateSize = () => {
+      const rect = plot.getBoundingClientRect();
+      const width = Math.max(600, Math.round(rect.width));
+      const height = Math.max(SVG_H, Math.round(rect.height));
+      setXrlPlotSize((current) => current.width === width && current.height === height ? current : { width, height });
+    };
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(plot);
+    return () => observer.disconnect();
+  }, [loading, projectId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -250,9 +267,6 @@ export function CockpitVentureStatus({
     const pad = Math.max(0.3, span * 0.06);
     return { xMin: dataMin - pad, xMax: dataMax + pad };
   }, [venture, bundle]);
-
-  const xOf = (yd: number) => ML + ((yd - range.xMin) / (range.xMax - range.xMin)) * PW;
-  const xOfDate = (iso: string) => xOf(dateToYearDecimal(iso));
 
   // SPS primary 時系列
   // まさ #20-2nd (2026-05-24):
@@ -340,15 +354,21 @@ export function CockpitVentureStatus({
     ? buildPrimaryScoreSnapshot(latestInput, alpha, { P: null, R_net: null }, amdInputs)
     : null;
 
-  // XRL 軸 (5 軸: TRL/BRL/GRL/SRL/HRL)
-  const yOfXrl = (v: number) => MT + PH - (v / 9) * PH;
+  // XRL は右ペインの実寸を座標系にする。固定比率SVGを拡大せず、円と線の形を保ったまま縦高を使い切る。
+  const xrlWidth = xrlPlotSize.width;
+  const xrlHeight = xrlPlotSize.height;
+  const xrlPlotWidth = Math.max(1, xrlWidth - ML - MR);
+  const xrlPlotHeight = Math.max(1, xrlHeight - MT - MB);
+  const xOfXrl = (yd: number) => ML + ((yd - range.xMin) / (range.xMax - range.xMin)) * xrlPlotWidth;
+  const xOfXrlDate = (iso: string) => xOfXrl(dateToYearDecimal(iso));
+  const yOfXrl = (v: number) => MT + ((9 - Math.max(1, Math.min(9, v))) / 8) * xrlPlotHeight;
   const buildXrlPath = (k: XrlAxisKey) => {
     const pts = (bundle?.xrlLog ?? [])
       .filter((r) => r[k] != null)
       .map((r) => ({ y: dateToYearDecimal(r.observed_at), v: r[k] as number }));
     if (pts.length < 2) return "";
     const dx = XRL_X_OFFSET[k];
-    return "M " + pts.map((p) => `${(xOf(p.y) + dx).toFixed(1)},${yOfXrl(p.v).toFixed(1)}`).join(" L ");
+    return "M " + pts.map((p) => `${(xOfXrl(p.y) + dx).toFixed(1)},${yOfXrl(p.v).toFixed(1)}`).join(" L ");
   };
   const xrlPaths: Record<XrlAxisKey, string> = {
     trl: buildXrlPath("trl"),
@@ -533,7 +553,7 @@ export function CockpitVentureStatus({
           それ未満は従来通り縦並び。 */}
       <div data-testid="cockpit-bzm22-xrl-overview" className={`mx-2 overflow-hidden border border-[#7898a5] bg-white ${compact ? "mt-1" : "mt-2"} xl:grid xl:grid-cols-[minmax(340px,24vw)_minmax(0,1fr)]`}>
       <Bzm22CockpitSummary projectId={projectId} onOpenScoreDetail={onOpenScoreDetail} compact={compact} embedded />
-      <div className={`min-w-0 ${legacyScoreHistoryOpen ? "flex flex-col gap-2 xl:col-span-2 xl:flex-row" : "flex"}`}>
+      <div className={`h-full min-h-0 min-w-0 ${legacyScoreHistoryOpen ? "flex flex-col gap-2 xl:col-span-2 xl:flex-row" : "flex"}`}>
       {legacyScoreHistoryOpen ? (
       <>
       {/* Chart 1: SPS history */}
@@ -813,7 +833,7 @@ export function CockpitVentureStatus({
       ) : null}
 
       {/* Chart 2: XRL */}
-      <div data-testid="cockpit-xrl-panel" className="min-w-0 flex-1 overflow-x-auto border-t border-[#7898a5] px-2 pb-1 pt-1.5 xl:border-l xl:border-t-0">
+      <div data-testid="cockpit-xrl-panel" className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-x-auto border-t border-[#7898a5] px-2 pb-1 pt-1.5 xl:border-l xl:border-t-0">
         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-1">
           <h3 className="text-[12px] font-semibold">XRL 進捗 (TRL / BRL / GRL / SRL / HRL)</h3>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9px]">
@@ -823,9 +843,6 @@ export function CockpitVentureStatus({
                 <span className="uppercase font-mono">{k}</span>
               </span>
             ))}
-            <span className="text-[9px] text-muted-foreground">
-              XRLの自動判定は停止中。既存値・手動提案はドットから確認できる
-            </span>
           </div>
         </div>
 
@@ -859,10 +876,16 @@ export function CockpitVentureStatus({
             </div>
           </div>
         )}
-        <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="block h-auto w-full min-w-[600px] xl:min-w-0">
+        <div ref={xrlPlotRef} data-testid="cockpit-xrl-plot" className="min-h-[220px] flex-1 min-w-[600px] xl:min-w-0">
+        <svg
+          viewBox={`0 0 ${xrlWidth} ${xrlHeight}`}
+          width={xrlWidth}
+          height={xrlHeight}
+          className="block h-full w-full"
+        >
           {[1, 3, 5, 7, 9].map((lv) => (
             <g key={lv}>
-              <line x1={ML} y1={yOfXrl(lv)} x2={ML + PW} y2={yOfXrl(lv)} stroke="#f1f5f9" />
+              <line x1={ML} y1={yOfXrl(lv)} x2={ML + xrlPlotWidth} y2={yOfXrl(lv)} stroke="#f1f5f9" />
               <text x={ML - 6} y={yOfXrl(lv) + 3} fontSize={9} fill="#94a3b8" textAnchor="end">
                 {lv}
               </text>
@@ -870,18 +893,18 @@ export function CockpitVentureStatus({
           ))}
           {yearTicks.map((yr) => (
             <g key={yr}>
-              <line x1={xOf(yr)} y1={MT} x2={xOf(yr)} y2={MT + PH} stroke="#f8fafc" />
-              <text x={xOf(yr)} y={MT + PH + 12} fontSize={9} fill="#94a3b8" textAnchor="middle">
+              <line x1={xOfXrl(yr)} y1={MT} x2={xOfXrl(yr)} y2={MT + xrlPlotHeight} stroke="#f8fafc" />
+              <text x={xOfXrl(yr)} y={MT + xrlPlotHeight + 12} fontSize={9} fill="#94a3b8" textAnchor="middle">
                 {yr}
               </text>
             </g>
           ))}
           {venture.founded_at && (
             <line
-              x1={xOfDate(venture.founded_at)}
+              x1={xOfXrlDate(venture.founded_at)}
               y1={MT}
-              x2={xOfDate(venture.founded_at)}
-              y2={MT + PH}
+              x2={xOfXrlDate(venture.founded_at)}
+              y2={MT + xrlPlotHeight}
               stroke="#f59e0b"
               strokeWidth={1.5}
               strokeDasharray="4 2"
@@ -909,7 +932,7 @@ export function CockpitVentureStatus({
                   const v = r[k];
                   if (v == null) return null;
                   const upper = k.toUpperCase() as "TRL" | "BRL" | "GRL" | "SRL" | "HRL";
-                  const cx = xOfDate(r.observed_at) + XRL_X_OFFSET[k];
+                  const cx = xOfXrlDate(r.observed_at) + XRL_X_OFFSET[k];
                   const cy = yOfXrl(v);
                   // 2026-05-12 まさ指示: 同位置 dot 重なり対策。
                   //   (a) 軸別 x offset で 5 並びに散らす
@@ -944,11 +967,12 @@ export function CockpitVentureStatus({
             );
           })}
         </svg>
+        </div>
       </div>
       </div>
       </div>
 
-      <div data-testid="cockpit-legacy-sps-disclosure" className="mx-2 flex justify-end border-x border-b border-[#7898a5] bg-slate-50">
+      {!compact && <div data-testid="cockpit-legacy-sps-disclosure" className="mx-2 flex justify-end border-x border-b border-[#7898a5] bg-slate-50">
         <button
           type="button"
           aria-expanded={legacyScoreHistoryOpen}
@@ -957,7 +981,7 @@ export function CockpitVentureStatus({
         >
           {legacyScoreHistoryOpen ? "旧SPS履歴を閉じる" : "旧SPS履歴を開く"}
         </button>
-      </div>
+      </div>}
 
       {(editingEvent || creatingAt) && (
         <CockpitVentureStatusEditModal

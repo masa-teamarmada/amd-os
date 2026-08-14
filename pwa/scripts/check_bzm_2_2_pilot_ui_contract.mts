@@ -513,7 +513,6 @@ requireIncludes(componentSource, [
   "条件ごとの実数を開く",
   "逆風ごとの補正値を開く",
   "60か月すべての CFₜ・dₜ・Wₜ を開く",
-  "前提監査未通過",
   "停止寄与PV",
   "逆風ごとの補正値",
   "実行可能性と経営判断",
@@ -587,6 +586,13 @@ for (const forbidden of [
   "精度低下:",
   "式に出てくる全記号",
   "Q × P はJではない",
+  "前提監査未通過",
+  "資源配分・PJ横比較には使用不可",
+  "SXの設立前DDは現計算ゲートへ未接続",
+  "事業価値と、条件を通り切る強さを式から確認する",
+  "最下部の監査用。開いて確認",
+  "ブラウザ内シミュレーター。この画面内の変更は保存されない",
+  "計算式を構成する26項目。選択中ケースの値を一つの表で確認する",
 ]) {
   if (componentSource.includes(forbidden)) throw new Error(`BZM 2.2 UI still exposes legacy wording: ${forbidden}`);
 }
@@ -649,12 +655,20 @@ requireIncludes(cockpitVentureSource, [
   "Bzm22CockpitSummary",
   'data-testid="cockpit-bzm22-xrl-overview"',
   'data-testid="cockpit-xrl-panel"',
+  'data-testid="cockpit-xrl-plot"',
   'data-testid="cockpit-legacy-sps-disclosure"',
   "xl:grid-cols-[minmax(340px,24vw)_minmax(0,1fr)]",
+  "ResizeObserver",
+  "xrlPlotWidth",
+  "xrlPlotHeight",
+  "!compact &&",
   "SPS履歴（旧モデル）",
   "旧SPS履歴を開く",
   "legacyScoreHistoryOpen",
 ], "cockpit BZM 2.2 primary ordering");
+for (const forbidden of ["XRLの自動判定は停止中。既存値・手動提案はドットから確認できる"]) {
+  if (cockpitVentureSource.includes(forbidden)) throw new Error(`cockpit XRL still exposes explanatory copy: ${forbidden}`);
+}
 const displayValueSource = requireText(displayValuePath);
 for (const forbidden of ["登録値あり（日本語表示未接続）", "期間・件の登録データ", "項目の登録データ"]) {
   if (displayValueSource.includes(forbidden) || componentSource.includes(forbidden)) {
@@ -673,15 +687,19 @@ requireIncludes(scoreDetailSource, [
   "Bzm22ProvisionalObservatory",
   "現行SPS / BZM 2.1",
   "BZM 2.0",
-  "SPS 1.0 / Legacy AMD",
+  "旧SPS履歴 / Legacy AMD",
+  'testId="cockpit-legacy-sps-history-archive"',
   "LazyArchiveDisclosure",
 ], "score-detail model ordering");
 const bzm22Index = scoreDetailSource.indexOf("<Bzm22ProvisionalObservatory");
 const currentSpsIndex = scoreDetailSource.indexOf('title="現行SPS / BZM 2.1"');
 const bzm20Index = scoreDetailSource.indexOf('title="BZM 2.0"');
-const legacyIndex = scoreDetailSource.indexOf('title="SPS 1.0 / Legacy AMD"');
+const legacyIndex = scoreDetailSource.indexOf('title="旧SPS履歴 / Legacy AMD"');
 if (!(bzm22Index >= 0 && bzm22Index < currentSpsIndex && currentSpsIndex < bzm20Index && bzm20Index < legacyIndex)) {
   throw new Error("score-detail model order must be BZM2.2 -> current SPS2.1 -> BZM2.0 -> BZM1.0/legacy");
+}
+for (const forbidden of ["OS運用レジストリの版", "過去理論のモデル観測台帳", "履歴・根拠確認のため凍結保持"]) {
+  if (scoreDetailSource.includes(forbidden)) throw new Error(`score-detail archive still exposes explanatory copy: ${forbidden}`);
 }
 
 console.log(JSON.stringify({

@@ -1864,7 +1864,8 @@ expectIncludes("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
   "Bzm21DynamicPolicyObservatory",
   "現行SPS / BZM 2.1",
   "BZM 2.0",
-  "SPS 1.0 / Legacy AMD",
+  "旧SPS履歴 / Legacy AMD",
+  'testId="cockpit-legacy-sps-history-archive"',
   "AmdScoreView",
   "embedded",
 ]);
@@ -1906,7 +1907,6 @@ expectIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   "条件ごとの実数を開く",
   "逆風ごとの補正値を開く",
   "60か月すべての CFₜ・dₜ・Wₜ を開く",
-  "前提監査未通過",
   "実行可能性と経営判断",
   "条件判定月シミュレーション",
   "時期だけを変更・保存なし",
@@ -1934,6 +1934,13 @@ expectNotIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   "登録値あり（日本語表示未接続）",
   "期間・件の登録データ",
   "項目の登録データ",
+  "前提監査未通過",
+  "資源配分・PJ横比較には使用不可",
+  "SXの設立前DDは現計算ゲートへ未接続",
+  "事業価値と、条件を通り切る強さを式から確認する",
+  "最下部の監査用。開いて確認",
+  "ブラウザ内シミュレーター。この画面内の変更は保存されない",
+  "計算式を構成する26項目。選択中ケースの値を一つの表で確認する",
 ]);
 expectIncludes("src/components/cockpit/Bzm22TimeLedger.tsx", [
   "設立前PJ支出 / NewCo P/L",
@@ -1957,11 +1964,24 @@ expectIncludes("src/components/cockpit/CockpitVentureStatus.tsx", [
   "Bzm22CockpitSummary",
   'data-testid="cockpit-bzm22-xrl-overview"',
   'data-testid="cockpit-xrl-panel"',
+  'data-testid="cockpit-xrl-plot"',
   'data-testid="cockpit-legacy-sps-disclosure"',
   "xl:grid-cols-[minmax(340px,24vw)_minmax(0,1fr)]",
+  "ResizeObserver",
+  "xrlPlotWidth",
+  "xrlPlotHeight",
+  "!compact &&",
   "SPS履歴（旧モデル）",
   "旧SPS履歴を開く",
   "legacyScoreHistoryOpen",
+]);
+expectNotIncludes("src/components/cockpit/CockpitVentureStatus.tsx", [
+  "XRLの自動判定は停止中。既存値・手動提案はドットから確認できる",
+]);
+expectNotIncludes("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
+  "OS運用レジストリの版",
+  "過去理論のモデル観測台帳",
+  "履歴・根拠確認のため凍結保持",
 ]);
 expectNotIncludes("src/components/cockpit/CockpitVentureStatus.tsx", [
   "CockpitPlMonthlyModal",
