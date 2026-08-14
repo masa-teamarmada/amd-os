@@ -25,8 +25,9 @@
 ## Repo状態
 
 - canonical path: `/Users/masa/projects/AMD/amd-os`
-- branch / HEAD: `main` / `9d262b03`
-- `origin/main` と一致、ahead 0 / behind 0、未push commit 0、dirty 0。
+- branch / HEAD: `main` / `98194573`
+- `origin/main` と一致、ahead 0 / behind 0、未push commit 0。
+- 今回と無関係のBZMレーンの未コミット3ファイルが正規checkoutにある。対象は `pwa/src/components/cockpit/Bzm22TimeLedger.tsx` とBZM UI検査2本。所有者はこの契約監査セッションでは未確認のため、stage・revert・削除しない。次のBZM担当が内容を確認してcommitまたはrevertを決める。
 - 今回はコード・仕様・スキーマ変更なし。OSマニュアル同期は対象外（既存画面からのデータ登録のみ）。
 
 ## 未解決
