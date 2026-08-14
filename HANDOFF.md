@@ -25,7 +25,7 @@
 ## Repo状態
 
 - canonical path: `/Users/masa/projects/AMD/amd-os`
-- branch / HEAD: `main` / `98194573`
+- branch: `main`（開始時に `origin/main` との一致を確認）
 - `origin/main` と一致、ahead 0 / behind 0、未push commit 0。
 - 今回と無関係のBZMレーンの未コミット差分が正規checkoutにある。UI、検査、仕様・manualにまたがり、同時更新中のため固定一覧はこのHANDOFFへ写さない。所有者はこの契約監査セッションでは未確認のため、stage・revert・削除しない。次のBZM担当が現在の `git status` を確認してcommitまたはrevertを決める。
 - 今回はコード・仕様・スキーマ変更なし。OSマニュアル同期は対象外（既存画面からのデータ登録のみ）。

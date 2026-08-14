@@ -21,7 +21,7 @@
 
 ## 状態スナップショット
 
-- canonical repo は `/Users/masa/projects/AMD/amd-os`、`main` / `98194573`。2026-08-14時点で `origin/main` と一致、ahead 0 / behind 0。
+- canonical repo は `/Users/masa/projects/AMD/amd-os`、`main`。開始時に必ず `origin/main` との一致、ahead / behind、dirtyを再確認する。
 - BZMのUI、検査、仕様・manualに別レーンの未コミット差分がある。契約監査の対象ではないので、開始時の `git status` にあるBZM差分をstage・revert・削除しない。BZM担当が引き取るまで保全する。
 - SX（p21）は現行契約が `signed`。締結済み原本と現行見積書を資料室へAMD内部限定でリンク済み。
 - SXコックピットには、別紙内訳の月額請求、検査合格・適法な請求書受領後60日以内の支払、毎月の完了通知・検査、立替上乗せ不可、再委託の事前承認を表示している。
