@@ -12,7 +12,7 @@ import {
   SEED_STATUS_LABEL,
   SEED_EVIDENCE_LEVEL_LABEL,
   SEED_EVIDENCE_LEVEL_DESCRIPTION,
-  formatSpsBandWithMedian,
+  formatOkuYen,
   seedScreeningBandMedianYen,
   seedComparisonSortValue,
   compareSeedSortValues,
@@ -94,7 +94,7 @@ export function CockpitKuteSeeds({
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<SeedPublicView | null>(null);
   const [requestKey, setRequestKey] = useState(0);
-  const [sortKey, setSortKey] = useState<SortKey>("sps");
+  const [sortKey, setSortKey] = useState<SortKey>(scope === "all" ? "spsBand" : "sps");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [confidenceFilter, setConfidenceFilter] = useState<ConfidenceFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -160,7 +160,9 @@ export function CockpitKuteSeeds({
 
   const flatSeeds = useMemo(() => {
     return [...filteredSeeds].sort((a, b) => {
-      const lifecycle = scope === "all" ? seedListPriority(a) - seedListPriority(b) : 0;
+      // SPS(スクリーニング帯)ソート時はPJ優先4段を外してリスト全体をフラットに並べる
+      // (まさ裁定 2026-08-15「全然ソーティングされない」への対応。他キーは従来どおり区分内ソート)
+      const lifecycle = scope === "all" && sortKey !== "spsBand" ? seedListPriority(a) - seedListPriority(b) : 0;
       if (lifecycle !== 0) return lifecycle;
       const byScore = compareSeedSortValues(
         sortKey === "spsBand"
@@ -302,6 +304,7 @@ export function CockpitKuteSeeds({
                       dir={sortDir}
                       onSort={toggleSort}
                       hint="中央値 (下限〜上限) を括弧書きで表示。中央値は仮置きの算術中点 (まさ裁定 2026-08-15)"
+                      widthClass="min-w-[170px]"
                     />
                   )}
                   {scope === "all" && (
@@ -394,6 +397,7 @@ function SortableTh({
   dir,
   onSort,
   hint,
+  widthClass,
 }: {
   label: string;
   sortKey: SortKey;
@@ -402,11 +406,13 @@ function SortableTh({
   onSort: (key: SortKey) => void;
   /** タイトルツールチップへ追記する補足説明 (省略可) */
   hint?: string;
+  /** 列幅の上書き (省略時は従来の min-w-[64px]) */
+  widthClass?: string;
 }) {
   const active = activeKey === sortKey;
   const Icon = active ? (dir === "desc" ? ArrowDown : ArrowUp) : ArrowUpDown;
   return (
-    <th className="min-w-[64px] border-b border-slate-200 px-2 py-2">
+    <th className={`${widthClass ?? "min-w-[64px]"} border-b border-slate-200 px-2 py-2`}>
       <button
         type="button"
         onClick={() => onSort(sortKey)}
@@ -534,8 +540,13 @@ function SeedRow({
       {screeningBand !== undefined && (
         <td className="border-b border-slate-100 px-3 py-2 align-top font-mono">
           {screeningBand && (screeningBand.sps_lower_yen != null || screeningBand.sps_upper_yen != null) ? (
-            <span className="text-slate-800">
-              {formatSpsBandWithMedian(screeningBand.sps_lower_yen, screeningBand.sps_upper_yen)}
+            <span className="whitespace-nowrap">
+              <span className="font-semibold text-slate-950">
+                {formatOkuYen(seedScreeningBandMedianYen(screeningBand.sps_lower_yen, screeningBand.sps_upper_yen))}
+              </span>
+              <span className="ml-1 text-[10px] text-slate-500">
+                ({formatOkuYen(screeningBand.sps_lower_yen)}〜{formatOkuYen(screeningBand.sps_upper_yen)})
+              </span>
             </span>
           ) : (
             <span className="text-slate-400">—</span>
