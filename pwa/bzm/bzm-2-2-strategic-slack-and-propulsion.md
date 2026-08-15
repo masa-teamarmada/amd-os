@@ -816,7 +816,7 @@ $C_r^{\mathrm{now}}$、$CF_r^{\mathrm{PV}}$、$M_r$は、2.1で定めた視点�
 | 戦略余力 | ショック後も目標到達方針を保持できるか | $\Gamma_{\mathrm{exec}}^{\mathrm{reg}}$と$\mathcal K_{\mathcal T}^{-}$ |
 | 動的正味PJ価値 | その動学の下で方針が生む将来正味価値はいくらか | Bellman価値$V_r$ |
 
-現行運用SPSは9軸の診断指数として別に残す。
+（2026-08-15 まさ確定による訂正）9軸の診断指数は旧版として退役した。SPSの現行版は$\sum_o q_oP_o$（`terminology_glossary.md` §1.7）。
 
 BZM 2.0の固定方針SPSと、2.1以降の動的正味PJ価値も同じ出力名へ潰さない。
 
