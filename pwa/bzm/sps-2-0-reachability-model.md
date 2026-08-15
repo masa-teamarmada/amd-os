@@ -8,6 +8,8 @@
 >
 > **関連**：[測定可能性ゲート](./sps-2-0-measurability-gate)（計画達成診断値と累積到達曲線を計算してよい条件）、[SX 実測記録](./sps-2-0-sx-measurement-log)（この定義を1PJに当てた記録）、運用台帳 `pwa/bzm/BZM_2_0_PARAMETER_EXTRACTION_REGISTER.md` / `pwa/bzm/BZM_2_0_MEASURABILITY_GATE.md` / `pwa/bzm/SPS_2_0_PREREGISTRATION_SX_2026-08-07.md`
 
+> **記号改名（2026-08-15 まさ確定）**：本章の$\mathrm{SPS}_{\mathrm{all}}$／$\mathrm{SPS}_{G}$は誤命名であり、以後**$V_{\mathrm{all}}$／$V_{G}$**（全経路価値／資本自立経路価値）と読む。SPSの名は9軸シーズ有望度スコアの単一系譜に限る（`terminology_glossary.md` §1.7）。本文の一括改名はerrata実施まで本注記が優先する。
+>
 > **2.2との版境界**：この章は固定方針下の到達見込みを定めたBZM 2.0の履歴版として残す。
 > 3.1節の固定五成分は必要十分でもMECEでもなく、現行の$T_Y$は[BZM 2.2](./bzm-2-2-strategic-slack-and-propulsion)で「目標到達方針を失う初回時点」へ改訂する。
 > この章の既存数値と版履歴は変更しない。
