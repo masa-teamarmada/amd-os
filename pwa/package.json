@@ -128,6 +128,7 @@
     "test:workspace-access-admin": "node scripts/check_workspace_access_admin_contract.mjs",
     "test:workspace-project-publication-access": "node scripts/check_workspace_project_publication_access_migration.mjs",
     "test:workspace-rls-closure": "node scripts/check_workspace_rls_closure_contract.mjs",
+    "test:seed-screening-bands": "node scripts/check_seed_screening_bands_contract.mjs",
     "test:workspace-documents-core": "node --experimental-strip-types scripts/check_workspace_documents_core.mts",
     "test:workspace-documents-contract": "node scripts/check_workspace_documents_contract.mjs",
     "test:workspace-fact-origin-contract": "node scripts/check_workspace_fact_and_origin_contract.mjs",

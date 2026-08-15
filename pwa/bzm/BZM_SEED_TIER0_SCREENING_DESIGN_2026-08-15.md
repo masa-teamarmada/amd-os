@@ -54,11 +54,11 @@ SXとLSTで確立した事前登録測定（工程骨格、出所タグ、資金
 歴史的な基礎率（spun_off 15件）から見て、判別性能の区間は当面広い。
 シーズ層はn=156で状態遷移が数か月単位で観測できるため、BZM体系の中で統計的な前向き検証が最も早く回る層であることは変わらないが、論文のデータ源にできるのは上記1と2を満たした部分に限る。
 
-## 4. 前提インフラ（帯の凍結より前に閉じる）
+## 4. 前提インフラ（帯の凍結より前に閉じる）— **✅ 2026-08-15 適用済み（migration 280）**
 
-1. `seeds.status`の語彙確定とCHECK制約。設計上の語彙（candidate／investigating／contacted／discussing／spun_off／declined）のうち`contacted`と`declined`は現DBに1件も存在せず、制約も無い。
-2. **状態遷移履歴テーブルの新設**（旧状態、新状態、時刻、変更者）。現行スキーマは`updated_at`しか持たず、遷移時刻を観測できない。履歴が無ければ3章の遷移率は測れない。
-3. 帯の保存先テーブル（2章8項）。
+1. `seeds.status`の語彙確定とCHECK制約。設計上の語彙（candidate／investigating／contacted／discussing／spun_off／declined）。→ `seeds_status_check`として適用済み（適用時点の実分布: investigating 132／candidate 24／spun_off 15／discussing 5、全値が語彙の内側であることを照会してから制約を張った）。
+2. **状態遷移履歴テーブルの新設**（旧状態、新状態、時刻、変更者）。→ `seed_status_transitions`＋自動記録トリガとして適用済み。**観測開始は2026-08-15**（過去の遷移は復元しない＝偽の遷移時刻を作らない）。ダミー行でinsert・update・CASCADE削除の動作検証済み。
+3. 帯の保存先テーブル（2章8項）。→ `seed_screening_bands`として適用済み（append-only、frozen行は更新しない、RLSポリシーなし＝service_role専用）。外部ワークスペースDTOに含めない契約は`pwa/scripts/check_seed_screening_bands_contract.mjs`（`npm run test:seed-screening-bands`）が静的に強制する。candidate 24件のv0.3帯（q帯・P帯・SPS帯・11要因根拠）をbackfill済み。9軸帯（状態記述子）のaxis_bands列は文書補完パイプライン整備時にbackfillする。
 
 ## 5. 実施計画
 

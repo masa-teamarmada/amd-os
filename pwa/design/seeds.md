@@ -44,6 +44,10 @@ migration: [024_seeds_overhaul.sql](../scripts/migrations/024_seeds_overhaul.sql
 | `seed_contact_log` | AMD メンバー × シーズ の接触履歴 |
 | `institutions` | 研究機関カタログ。シーズとは別の一覧を持つ |
 | `seed_projects` | 個別シーズを対象にするAMD契約PJ。`projects` と1対1、`seeds` と多対1 |
+| `seed_status_transitions` | `seeds.status` の遷移履歴 (旧状態/新状態/時刻/変更者)。migration 280 のトリガが自動記録。観測開始 2026-08-15、過去遷移は復元しない。一次選別 (Tier 0) の遷移率検証の前提インフラ |
+| `seed_screening_bands` | 一次選別のスクリーニング帯 (段階仮説 / q帯% / P帯円 / SPS帯円 / ルーブリック11要因の根拠引用)。`seed_sps_assessments` (本測定系) とは別。append-only・frozen行は更新しない。RLSポリシーなし = service_role専用、外部ワークスペースDTOへの追加は `npm run test:seed-screening-bands` が静的に禁止。正本設計: `pwa/bzm/BZM_SEED_TIER0_SCREENING_DESIGN_2026-08-15.md` |
+
+`seeds.status` は migration 280 で上記6値の CHECK 制約つき (`seeds_status_check`)。
 
 ### `seeds` の主要列
 
