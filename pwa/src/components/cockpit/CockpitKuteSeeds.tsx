@@ -12,7 +12,8 @@ import {
   SEED_STATUS_LABEL,
   SEED_EVIDENCE_LEVEL_LABEL,
   SEED_EVIDENCE_LEVEL_DESCRIPTION,
-  formatOkuYen,
+  formatSpsBandWithMedian,
+  seedScreeningBandMedianYen,
   seedComparisonSortValue,
   compareSeedSortValues,
   countDistinctResearchers,
@@ -35,15 +36,21 @@ const SORT_LABEL: Record<SortKey, string> = {
   p: "P",
   r: "R",
   s: "S",
-  spsBand: "SPS帯",
+  spsBand: "SPS(中央値)",
 };
 
-/** SPS帯の列ソート値。既定は上限降順 (2026-08-15 まさ確定)。帯が無いシーズは常に末尾。 */
+/**
+ * SPS列の列ソート値 = 帯の中央値 (下限+上限)/2。仮置き実装 (まさ裁定 2026-08-15:
+ * 「帯にしちゃってるからソーティングがきかない。一旦仮置きで中央値をSPSとして」「中央値でソーティング」)。
+ * 帯が無い、または上限・下限どちらかが欠けているシーズは常に末尾。
+ */
 function screeningBandSortValue(
   seed: SeedPublicView,
   bandsBySeedId: Map<string, SeedScreeningBandSummary>,
 ): number | null {
-  return bandsBySeedId.get(seed.id)?.sps_upper_yen ?? null;
+  const band = bandsBySeedId.get(seed.id);
+  if (!band) return null;
+  return seedScreeningBandMedianYen(band.sps_lower_yen, band.sps_upper_yen);
 }
 
 /** 通常PJコックピットで、institution_projects に属するPJだけ比較表を出す。 */
@@ -289,11 +296,12 @@ export function CockpitKuteSeeds({
                   <th className="min-w-[150px] border-b border-slate-200 px-3 py-2">PJ状態</th>
                   {scope === "all" && (
                     <SortableTh
-                      label="SPS帯(億円)"
+                      label="SPS(億円)"
                       sortKey="spsBand"
                       activeKey={sortKey}
                       dir={sortDir}
                       onSort={toggleSort}
+                      hint="中央値 (下限〜上限) を括弧書きで表示。中央値は仮置きの算術中点 (まさ裁定 2026-08-15)"
                     />
                   )}
                   {scope === "all" && (
@@ -385,12 +393,15 @@ function SortableTh({
   activeKey,
   dir,
   onSort,
+  hint,
 }: {
   label: string;
   sortKey: SortKey;
   activeKey: SortKey;
   dir: "asc" | "desc";
   onSort: (key: SortKey) => void;
+  /** タイトルツールチップへ追記する補足説明 (省略可) */
+  hint?: string;
 }) {
   const active = activeKey === sortKey;
   const Icon = active ? (dir === "desc" ? ArrowDown : ArrowUp) : ArrowUpDown;
@@ -399,7 +410,7 @@ function SortableTh({
       <button
         type="button"
         onClick={() => onSort(sortKey)}
-        title={`${SORT_LABEL[sortKey]}で並び替え`}
+        title={hint ? `${SORT_LABEL[sortKey]}で並び替え。${hint}` : `${SORT_LABEL[sortKey]}で並び替え`}
         className={`inline-flex items-center gap-1 font-semibold ${active ? "text-sky-700" : "text-slate-500 hover:text-slate-800"}`}
       >
         {label}
@@ -524,7 +535,7 @@ function SeedRow({
         <td className="border-b border-slate-100 px-3 py-2 align-top font-mono">
           {screeningBand && (screeningBand.sps_lower_yen != null || screeningBand.sps_upper_yen != null) ? (
             <span className="text-slate-800">
-              {formatOkuYen(screeningBand.sps_lower_yen)}〜{formatOkuYen(screeningBand.sps_upper_yen)}
+              {formatSpsBandWithMedian(screeningBand.sps_lower_yen, screeningBand.sps_upper_yen)}
             </span>
           ) : (
             <span className="text-slate-400">—</span>

@@ -15,6 +15,7 @@ import {
   SEED_EVIDENCE_LEVEL_LABEL,
   SEED_EVIDENCE_LEVEL_DESCRIPTION,
   formatOkuYen,
+  formatSpsBandWithMedian,
 } from "@/lib/seeds-data";
 import type { SeedPublicView, SeedScreeningBandDetail } from "@/types/seeds";
 
@@ -267,12 +268,12 @@ export function KuteSeedDetailModal({
                     />
                     <tr>
                       <th scope="row" className="w-[36%] border-b border-slate-100 bg-slate-50 px-3 py-2 text-left text-[11px] font-semibold text-slate-600">
-                        SPS帯 (億円) / 根拠Lv
+                        SPS (億円) / 根拠Lv
                       </th>
                       <td className="border-b border-slate-100 px-3 py-2 text-sm text-slate-800">
                         {screeningBand.sps_lower_yen != null || screeningBand.sps_upper_yen != null ? (
-                          <span className="mr-2">
-                            {formatOkuYen(screeningBand.sps_lower_yen)}〜{formatOkuYen(screeningBand.sps_upper_yen)}
+                          <span className="mr-2" title="中央値 (下限〜上限)。中央値は仮置きの算術中点 (まさ裁定 2026-08-15)">
+                            {formatSpsBandWithMedian(screeningBand.sps_lower_yen, screeningBand.sps_upper_yen)}
                           </span>
                         ) : (
                           <span className="mr-2 text-slate-400">未確定</span>

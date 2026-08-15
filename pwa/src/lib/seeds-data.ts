@@ -874,3 +874,31 @@ export function formatOkuYen(yen: number | null): string {
   const rounded = Math.round(oku * 10) / 10;
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
+
+/**
+ * スクリーニング帯の中央値 (円)。算術中点 (lower+upper)/2。仮置き実装 (まさ裁定 2026-08-15:
+ * 「帯にしちゃってるからソーティングがきかない。一旦仮置きで中央値をSPSとして」)。
+ * 上限・下限のどちらかが欠けている場合は中央値を計算できないため null。
+ */
+export function seedScreeningBandMedianYen(
+  lowerYen: number | null,
+  upperYen: number | null,
+): number | null {
+  if (lowerYen == null || upperYen == null) return null;
+  return (lowerYen + upperYen) / 2;
+}
+
+/**
+ * 「中央値 (下限〜上限)」表示。例: "30.3 (0.5〜60)"。仮置き実装 (まさ裁定 2026-08-15)。
+ * 中央値を計算できない (どちらかが null) 場合は、値がある方だけを単独表示する。両方 null なら "—"。
+ */
+export function formatSpsBandWithMedian(lowerYen: number | null, upperYen: number | null): string {
+  const median = seedScreeningBandMedianYen(lowerYen, upperYen);
+  if (median != null) {
+    return `${formatOkuYen(median)} (${formatOkuYen(lowerYen)}〜${formatOkuYen(upperYen)})`;
+  }
+  if (lowerYen != null || upperYen != null) {
+    return formatOkuYen(lowerYen ?? upperYen);
+  }
+  return "—";
+}
