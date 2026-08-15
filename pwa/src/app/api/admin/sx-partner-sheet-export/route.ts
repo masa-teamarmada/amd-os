@@ -46,7 +46,10 @@ const CONFIDENCE_LABEL: Record<string, string> = {
   unknown: "未確認",
 };
 
-/** sx-visual-shared.tsx の同名関数と同じ契約 (あちらは client component 側の正本)。 */
+/**
+ * sx-visual-shared.tsx の同名関数と同じ契約 (あちらは client component 側の正本)。
+ * 期限セルは OS 側も未設定なら空欄なので、呼び出し側で dueDate の有無を先に見る。
+ */
 function formatDueDateWithPrecision(dueDate: string | null, precision: string) {
   if (precision === "unknown" || !dueDate) return "期限未設定";
   const [year, month] = dueDate.slice(0, 7).split("-");
@@ -133,7 +136,9 @@ function buildRow(partner: SxManagementPartner, today: string): string[] {
     [meetingDate, meetingWhere].filter(Boolean).join(" / "),
     partner.nextMeetingGoal || "",
     partner.nextMeetingPrep || "",
-    formatDueDateWithPrecision(intervention.dueDate, intervention.dueDatePrecision),
+    intervention.dueDate
+      ? formatDueDateWithPrecision(intervention.dueDate, intervention.dueDatePrecision)
+      : "",
     partner.effluentComponents || "",
     partner.effluentVolumeAnnual || "",
     partner.effluentCostAnnual || "",
@@ -329,6 +334,14 @@ export async function GET(req: NextRequest) {
         fields: "pixelSize",
       },
     })),
+    // 見出し行は全列ぶち抜きで読ませる。A列だけだと基準時点の注記が切れる。
+    { unmergeCells: { range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: COLUMNS.length } } },
+    {
+      mergeCells: {
+        range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: COLUMNS.length },
+        mergeType: "MERGE_ROWS",
+      },
+    },
     {
       setBasicFilter: {
         filter: {
