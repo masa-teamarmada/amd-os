@@ -337,7 +337,7 @@ Meet / CircleBack / Gmail 議事録メールだけでは、会議中に画面共
 
 → えいみ / Codex が CLI から資料をコックピットに載せるときは、**PDF 変換や Storage 直挿しでこじらせない**。次の 3 手順を使う（まさが何度も指示している正規ルート）:
 
-1. **実ファイルは共有ドライブに置く**: ローカルにマウントされた Google Drive (`~/Library/CloudStorage/GoogleDrive-masa@team-armada.jp/共有ドライブ/...`) の、当該 PJ の `AMD OS 資料` フォルダへ `cp` する。例: p00 (AMD全社) = `共有ドライブ/ARMADA/a0_management/AMD OS 資料/`。`cp` だけで Drive へ同期される（コックピット「資料」セクションの実体フォルダ）。
+1. **実ファイルは共有ドライブに置く**: ローカルにマウントされた Google Drive (`~/Library/CloudStorage/GoogleDrive-masa@team-armada.jp/共有ドライブ/...`) の、当該 PJ の `AMD OS資料室` フォルダへ `cp` する。例: p00 (AMD全社) = `共有ドライブ/ARMADA/a0_management/AMD OS資料室/`。`cp` だけで Drive へ同期される（コックピット「資料」セクションの実体フォルダ）。
 2. **Drive ファイル ID は xattr から取る**: `xattr -p 'com.google.drivefs.item-id#S' "<file>"` → Drive item-id。Web URL は `https://drive.google.com/file/d/<id>/view`。Drive API 認証は不要。
 3. **リンクを埋める**: その Drive URL を、該当 MTG カードの `project_meeting_summaries.narrative_md`（または相応の表示箇所）へ service_role REST で埋める。
 

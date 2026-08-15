@@ -49,7 +49,7 @@ export function CockpitProjectDocuments({ projectId }: { projectId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [lastFiles, setLastFiles] = useState<File[] | null>(null);
-  const [documentsFolderName, setDocumentsFolderName] = useState("AMD OS 資料");
+  const [documentsFolderName, setDocumentsFolderName] = useState("AMD OS資料室");
   const [previewDoc, setPreviewDoc] = useState<ProjectDocument | null>(null);
   const [previewMarkdown, setPreviewMarkdown] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -72,7 +72,7 @@ export function CockpitProjectDocuments({ projectId }: { projectId: string }) {
       } else {
         setDocuments(json.documents || []);
         setWarning(json.warning || null);
-        setDocumentsFolderName(json.documentsFolderName || "AMD OS 資料");
+        setDocumentsFolderName(json.documentsFolderName || "AMD OS資料室");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "fetch error");

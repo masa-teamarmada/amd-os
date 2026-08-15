@@ -1,5 +1,6 @@
 # 附則（設計書変更履歴）
 
+| 2026-08-16 | 3-8 PJコックピット | folder改名 / 新機能 | Drive資料室folderを `AMD OS 資料` → `AMD OS資料室` へ改名 (drivefs `mv`、folder ID不変)。`PROJECT_DOCUMENTS_FOLDER_NAME` / `CockpitProjectDocuments` のデフォルト文字列を追随。`GET /api/project-documents` にfolder→資料室のadditive-only reconcileを追加 (project単位5分スロットル、fail soft)。全PJ一括強制同期用に `POST /api/project-documents/reconcile` (Bearer CRON_SECRET/WORKFLOW_SECRET またはadmin) を新設。同期ロジックは `src/lib/project-documents/reconcile.ts` に集約し、Drive folder直下 (サブフォルダ除く) の未登録ファイルを `source_kind='drive_folder_sync'` で追加するのみで既存行は不変。migrationなし (`source_kind`にCHECK制約なし) | 資料室folderへ手動で置いたファイルがコックピットの資料一覧に出てこない不一致を解消するため (まさ確定) | えいみ-worker |
 | 2026-08-14 | 4-2 AMD Score / SX月次試算 | 会計主体境界訂正 | SXの設立前月は売上・売上原価・粗利・人件費・研究開発費・マーケ費・その他販管費・営業利益をNewCo P/Lへ表示せず、費用入力を「設立前PJ支出」へ集約する契約を追加 | 営業利益だけ対象外にして他の費用明細が残る主体境界の不整合を解消するため | まさ・えいみ |
 
 > **この章は何か**: `/spec` の追加・変更・削除を append-only で記録する変更履歴。設計書は「読めば current OS を再構築できる」粒度を求めるため、仕様変更のたびに必ずここへ追記する。

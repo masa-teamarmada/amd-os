@@ -5,11 +5,15 @@ import { NextResponse } from "next/server";
 import { getGoogleAuthAsync } from "@/lib/sources/google";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth } from "@/lib/supabase/api-auth";
+import {
+  PROJECT_DOCUMENTS_FOLDER_NAME,
+  ensureDocumentsFolder,
+  reconcileProjectDocumentsThrottled,
+} from "@/lib/project-documents/reconcile";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const PROJECT_DOCUMENTS_FOLDER_NAME = "AMD OS 資料";
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
 
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -59,10 +63,6 @@ function contentTypeFromName(name: string): string {
 function validateFile(file: File): { ok: true; mimeType: string } | { ok: false; error: string } {
   if (file.size > MAX_FILE_BYTES) return { ok: false, error: `${file.name}: 50MB 以内にしてね` };
   return { ok: true, mimeType: file.type || contentTypeFromName(file.name) };
-}
-
-function driveQueryLiteral(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
 function toClientDocument(row: ProjectDocumentRow) {
@@ -155,38 +155,6 @@ async function getProjectDriveFolder(admin: AdminClient, projectId: string) {
   return { ok: true as const, folderId };
 }
 
-async function ensureDocumentsFolder(projectDriveFolderId: string) {
-  const auth = await getGoogleAuthAsync();
-  if (!auth) {
-    throw new Error("Google Drive credential が未設定だよ");
-  }
-
-  const drive = google.drive({ version: "v3", auth });
-  const escapedName = driveQueryLiteral(PROJECT_DOCUMENTS_FOLDER_NAME);
-  const escapedParent = driveQueryLiteral(projectDriveFolderId);
-  const existing = await drive.files.list({
-    q: `'${escapedParent}' in parents and name='${escapedName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-    fields: "files(id,name,webViewLink)",
-    pageSize: 1,
-    supportsAllDrives: true,
-    includeItemsFromAllDrives: true,
-  });
-  const folder = existing.data.files?.[0];
-  if (folder?.id) return folder.id;
-
-  const created = await drive.files.create({
-    requestBody: {
-      name: PROJECT_DOCUMENTS_FOLDER_NAME,
-      mimeType: "application/vnd.google-apps.folder",
-      parents: [projectDriveFolderId],
-    },
-    fields: "id",
-    supportsAllDrives: true,
-  });
-  if (!created.data.id) throw new Error("Drive資料フォルダの作成に失敗したよ");
-  return created.data.id;
-}
-
 async function uploadDriveFile(params: {
   documentsFolderId: string;
   file: File;
@@ -273,6 +241,12 @@ export async function GET(req: Request) {
     if (!access.ok) return access.response;
 
     const projectFolder = await getProjectDriveFolder(admin, projectId);
+    if (projectFolder.ok) {
+      // folder -> 資料室の additive-only 同期。失敗しても一覧表示は継続する (fail soft)。
+      await reconcileProjectDocumentsThrottled(admin, projectId, projectFolder.folderId).catch((error) => {
+        console.error(`[project-documents] reconcile failed project_id=${projectId}:`, error);
+      });
+    }
     const documents = await listDocuments(admin, projectId);
     return NextResponse.json({
       ok: true,
