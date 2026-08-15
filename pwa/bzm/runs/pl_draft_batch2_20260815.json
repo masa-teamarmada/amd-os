@@ -1,0 +1,205 @@
+{
+  "_meta": {
+    "batch": 2,
+    "generated_at": "2026-08-15",
+    "scope": "p12-p30のうちBZM 2.2台帳12PJに載るSPS対象PJ (p21=SX除く)",
+    "target_projects": {
+      "p18": "Yellow Duck (YD)",
+      "p20": "CryoX (CX)",
+      "p24": "チャレナジー (CLG)",
+      "p26": "VasculaX (VSX)",
+      "p29": "KENQ"
+    },
+    "excluded_and_why": "p19 ZMP/p22 OQC/p23 UST/p25 KUTE/p28 NIMS/p30 EHM はBZM 2.2台帳12PJに不在(ecosystem/new_business/非SPS)のため対象外。BZM 12PJのうちp03/p04/p06/p07/p09/p11はp12未満でbatch2担当外。",
+    "column_semantics_note": "billing_cycles.budget_reported_amount=クライアント請求額(税抜)、budget_yen=社内メンバー報酬予算であることをp21(fee_amount=1,048,000と202606以降のbudget_reported_amount一致)で確認済み。",
+    "notes_convention": "revenue_yen等の0は『欠測(出所なし)』の意の仮置きを含む。各行notesに欠測列を明記。DBスキーマがNOT NULL DEFAULT 0のため0を置くが、BZM入力時は欠測として扱うこと。"
+  },
+  "p18": {
+    "feasibility": "low",
+    "sources": [
+      "projects p18 (status=ended, start_ym=202505, end_ym=202509)",
+      "project_knowledge p18 (4件、全てbasic_fact: ue_fail 解散(UE不成立))",
+      "BZM_2_2_ALL_PJ_PARAMETER_LEDGER_2026-08-12.md Yellow Duckセクション (historical terminal分類)"
+    ],
+    "rows": [],
+    "gaps": [
+      "OS内に財務数値が一切ない: billing_cycles 0行、project_grants 0行、project_pl_hearings 0行、monthly_reports 0行、project_knowledgeに金額fact 0件",
+      "PJ期間202505-202509の活動支出・収入の記録がどのテーブルにも存在しない"
+    ],
+    "derivations": [
+      "historical terminal(解散/UE不成立)のPJであり、月次試算表を作る根拠文書がOSに存在しないためドラフト0行。BZM 2.2側もJ=12(百万円)を全面推定で置いている状態。追加調査先はNotion/Gmailの2025年当時の記録。"
+    ]
+  },
+  "p20": {
+    "feasibility": "low",
+    "sources": [
+      "billing_cycles p20 (15行: 202512-202702)",
+      "project_knowledge p20 (eimi-daily): 「2026年3月分の業務委託費290,000円(税抜)の請求書を発行」",
+      "project_knowledge p20 (eimi-daily): 「NIMS側から今年度のARMADAへの業務委託費として、年間最大100万円の予算が提示された」",
+      "monthly_reports p20 202511-202607 (財務は定性記述のみ、SU側P/L数値なし)",
+      "project_capital_plans p20 「IPOまでの標準プラン」(設立2026-07-23予定・Seed 5,000万円 2027-01等、エクイティイベントのみでP/L外)"
+    ],
+    "rows": [
+      {
+        "ym": "2026-03",
+        "revenue_yen": 0,
+        "cogs_yen": 0,
+        "personnel_yen": 0,
+        "rd_yen": 0,
+        "marketing_yen": 0,
+        "other_opex_yen": 290000,
+        "notes": "出所: billing_cycles p20 ym=202603 budget_reported_amount=290,000 + project_knowledge p20(eimi-daily)『2026年3月分の業務委託費290,000円(税抜)』。PJ支出のうちOSで金額確認できるのはAMD業務委託費のみ(NIMS研究予算側の人件費・装置費等は欠測)。NewCo未設立(設立予定2026-07-23はcapital plan上planned)のため売上なし。cogs/personnel/rd/marketingの0は欠測。"
+      },
+      {
+        "ym": "2026-07",
+        "revenue_yen": 0,
+        "cogs_yen": 0,
+        "personnel_yen": 0,
+        "rd_yen": 0,
+        "marketing_yen": 0,
+        "other_opex_yen": 274000,
+        "notes": "出所: billing_cycles p20 ym=202607 budget_reported_amount=274,000 (budget_confirmed_at=2026-07-01)。AMD業務委託費(税抜、対NIMS新契約)のみ収載。NIMS研究予算側支出は欠測。NewCo未設立につき売上なし。cogs/personnel/rd/marketingの0は欠測。"
+      },
+      {
+        "ym": "2026-08",
+        "revenue_yen": 0,
+        "cogs_yen": 0,
+        "personnel_yen": 0,
+        "rd_yen": 0,
+        "marketing_yen": 0,
+        "other_opex_yen": 274000,
+        "notes": "出所: billing_cycles p20 ym=202608 budget_reported_amount=274,000 (budget_confirmed_at=2026-08-01)。AMD業務委託費(税抜)のみ収載。NIMS研究予算側支出は欠測。NewCo未設立につき売上なし。cogs/personnel/rd/marketingの0は欠測。"
+      }
+    ],
+    "gaps": [
+      "202512/202601/202602はbilling_cyclesに請求送付・入金確認の日付があるがbudget_reported_amountがnullで請求額不明 → 行を作らず欠測扱い(Gmail/freeeの請求書実物で埋められる可能性)",
+      "202604-202606は請求額なし(202606はbudget_yen=50,700のみ=社内報酬予算であり請求額ではない) → 欠測",
+      "CryoXのPJ支出の大半(NIMS研究予算による装置・人件費、部品調達額5,400万円/GM冷凍機2,400万円という製品コスト構造情報はあるが月次額でない)が欠測",
+      "202609はbudget_yen=178,100があるがbudget_reported_amount未確定のため将来行を作らない"
+    ],
+    "derivations": [
+      "この試算表は『PJとしてのCryoX』のうちOSで金額が確認できるAMD業務委託費(NIMS負担)だけを収載した部分P/L。SX(p21)のような設立前PJ支出全体の按分は、根拠となる予算文書(PSI相当)がOSにないため行わない。",
+      "NewCo未設立のためrevenue=0は欠測ではなく事実に近いが、KEK/JAXAからのTES+ADR有料製作依頼(monthly_reports 202604)が受注化した場合は要更新。"
+    ]
+  },
+  "p24": {
+    "feasibility": "medium",
+    "sources": [
+      "project_knowledge p24 funding (source=codex_clg_review_20260525): 2026年4月月次株主報告・残高試算表「2026年1-3月売上約2.82百万円、営業損失約23.3百万円。3月末現預金約53.9百万円、12月末予測約3.75百万円、3月末純資産約-13.9百万円、ランウェイ2026年12月見込み」",
+      "project_meeting_summaries p24 2026-05-27 CLG取締役会: 「4月予実は全社+開発で予算9,934,630円に対し実績8,628,398円」「6月予算はDrive議案資料上、全社+開発合計7,610,860円を正として扱う」",
+      "project_meeting_summaries p24 2026-06-24 取締役会: 「5月予実は会社全体で予算7,569,170円に対して実績12,211,991円」「6月月次株主報告ではランウェイ2026年12月見込み、5月末預金残高40百万円、6月末予測38百万円」「GSアライアンス社からのJ-KISS 400万円出資が確定」",
+      "monthly_reports p24 202604-202607"
+    ],
+    "rows": [
+      {
+        "ym": "2026-01",
+        "revenue_yen": 940000,
+        "cogs_yen": 0,
+        "personnel_yen": 0,
+        "rd_yen": 0,
+        "marketing_yen": 0,
+        "other_opex_yen": 8706666,
+        "notes": "出所: project_knowledge p24(codex_clg_review_20260525)=2026年4月月次株主報告・残高試算表。2026年1-3月売上約2.82百万円・営業損失約23.3百万円の3か月均等按分(費用計26.12百万円=売上+営業損失)。約値ベースの低精度・月別一次内訳なし。費用内訳未分解のためother_opexへ仮置き。"
+      },
+      {
+        "ym": "2026-02",
+        "revenue_yen": 940000,
+        "cogs_yen": 0,
+        "personnel_yen": 0,
+        "rd_yen": 0,
+        "marketing_yen": 0,
+        "other_opex_yen": 8706667,
+        "notes": "出所: 同上(2026年4月株主報告 1-3月実績の3か月均等按分)。約値・月別内訳なし。費用はother_opexへ仮置き。"
+      },
+      {
+        "ym": "2026-03",
+        "revenue_yen": 940000,
+        "cogs_yen": 0,
+        "personnel_yen": 0,
+        "rd_yen": 0,
+        "marketing_yen": 0,
+        "other_opex_yen": 8706667,
+        "notes": "出所: 同上(2026年4月株主報告 1-3月実績の3か月均等按分)。約値・月別内訳なし。費用はother_opexへ仮置き。"
+      },
+      {
+        "ym": "2026-04",
+        "revenue_yen": 0,
+        "cogs_yen": 0,
+        "personnel_yen": 0,
+        "rd_yen": 0,
+        "marketing_yen": 0,
+        "other_opex_yen": 8628398,
+        "notes": "出所: project_meeting_summaries p24 2026-05-27 CLG取締役会『4月予実は全社+開発で予算9,934,630円に対し実績8,628,398円』。費用実績のみ収載・当月売上は欠測(revenue=0は欠測の意)。内訳未分解のためother_opexへ仮置き。"
+      },
+      {
+        "ym": "2026-05",
+        "revenue_yen": 0,
+        "cogs_yen": 0,
+        "personnel_yen": 0,
+        "rd_yen": 0,
+        "marketing_yen": 0,
+        "other_opex_yen": 12211991,
+        "notes": "出所: project_meeting_summaries p24 2026-06-24 取締役会『5月予実は会社全体で予算7,569,170円に対して実績12,211,991円(4,642,821円超過)』。費用実績のみ・当月売上は欠測(revenue=0は欠測の意)。内訳未分解のためother_opexへ仮置き。"
+      },
+      {
+        "ym": "2026-06",
+        "revenue_yen": 0,
+        "cogs_yen": 0,
+        "personnel_yen": 0,
+        "rd_yen": 0,
+        "marketing_yen": 0,
+        "other_opex_yen": 7610860,
+        "notes": "出所: project_meeting_summaries p24 2026-05-27 取締役会『6月予算はDrive議案資料上、全社+開発合計7,610,860円を正として扱う』。予算値(実績はOS未収載)。当月売上は欠測。内訳未分解のためother_opexへ仮置き。"
+      }
+    ],
+    "gaps": [
+      "2026-04/05/06の売上実績がOSにない(費用予実のみ)。取締役会資料・月次株主報告のDrive実物に月次売上があるはず",
+      "2026-06の費用実績・2026-07の予実数値がOS未収載(7/29取締役会の議事がOSに未反映、monthly_reports 202607も『確認できていない』と明記)",
+      "費用の科目内訳(人件費/開発費/販管費)が全期間で未分解。取締役会の全社+開発予実資料に内訳があるはず",
+      "2025年以前の月次実績なし",
+      "福島実証機撤去費用(2026-06決議、工期6/25-7/24)・250Wマイクロコントローラ開発費1,816,100円税込(7月発生・9月末支払)の月次計上額が実績未確認"
+    ],
+    "derivations": [
+      "2026-01〜03: 四半期実績(売上約2.82百万円、営業損失約23.3百万円)を3か月均等按分。費用=売上+営業損失=約26.12百万円とし、端数は26,120,000=8,706,666+8,706,667+8,706,667で整合させた。",
+      "2026-06は実績でなく取締役会承認予算を仮置き(SX p21の計画値行と同じ扱い)。実績が取れ次第置換すること。",
+      "J-KISS 400万円(GSアライアンス、8月末見込)は資金調達cashでありP/Lへ非算入(BZM 2.2の規約に従う)。"
+    ]
+  },
+  "p26": {
+    "feasibility": "low",
+    "sources": [
+      "project_meeting_summaries p26 2026-05-28 香川大学訪問: 「永冨先生が今年度予算から100万円を捻出しまさへの報酬の入口を確保(クロアポ実開始は10月見立て、それ以前に称号付与)」",
+      "project_grants p26 (3件: 科研費基盤A 24H00778 2024-04〜2028-03 配分額KAKEN未掲載 / 小笠原財団インキュベンチャー助成 金額null / 科研費基盤B 15H03545 17.03百万円 2015-2018=期間外)",
+      "monthly_reports p26 202605-202607"
+    ],
+    "rows": [],
+    "gaps": [
+      "香川大の今年度予算100万円は『枠の確保』であり、契約・月割り規則・執行開始月(クロアポ実開始10月見立て)が未確定のため月次行にできない",
+      "科研費基盤A 24H00778の年次配分額がKAKEN未掲載でOSにもない → 下川研のR&D支出を月次化する根拠がない",
+      "小笠原財団助成の金額null",
+      "NewCo未設立・売上ゼロ・経営チーム未組成(HRL律速)で、SU側のP/Lを構成する取引が現時点で存在しない",
+      "billing_cycles 0行(AMDからの請求実績なし)"
+    ],
+    "derivations": [
+      "唯一の確度ある将来キャッシュ線は香川大100万円/年度だが、開始月・支払条件が確定する(クロアポ契約 or 業務委託契約締結)までは行を作らない。契約確定後に『契約期間で月割り』の規則で追記するのが妥当。"
+    ]
+  },
+  "p29": {
+    "feasibility": "low",
+    "sources": [
+      "projects p29 (status=sales, project_category=new_business, start_ym=202606, fee未設定)",
+      "monthly_reports p29 202606-202607 (協業検討段階。茨城県補助金でのAI駆動型組織成長プラットフォーム事業計画・宇宙戦略基金=文科省再突入耐熱テーマ最大35億円/5年/補助率100%程度の共有のみで、KENQ社自体の月次財務数値なし)",
+      "project_meeting_summaries p29 2026-06-30 定例"
+    ],
+    "rows": [],
+    "gaps": [
+      "KENQ社のP/L・試算表・予算がOSに一切ない(billing_cycles 0行、project_grants 0行、hearings 0行)",
+      "茨城県補助金の採択額・期間がOS未収載",
+      "宇宙戦略基金は公募検討段階(採択決定文書なし)のため将来行の根拠にならない",
+      "AMDとの契約自体が未成立(status=sales)で、AMD委託費ベースの部分P/Lすら作れない"
+    ],
+    "derivations": [
+      "PJ化前(sales段階)であり月次試算表の対象になる取引がない。契約成立・茨城県補助金交付決定・宇宙戦略基金採択のいずれかが入った時点で着手するのが妥当。"
+    ]
+  }
+}

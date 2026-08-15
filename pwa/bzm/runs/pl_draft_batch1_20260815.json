@@ -1,0 +1,138 @@
+{
+  "_meta": {
+    "batch": 1,
+    "created": "2026-08-15",
+    "scope": "p01〜p11のうちBZM 2.2台帳(2026-08-12)掲載のSPS対象PJ",
+    "pj_mapping_note": "BZM 2.2の12PJとprojectsの対応: ティエム=p03 / 輝翠TECH=p04 / CrestecBio=p06 / LST=p07 / JOYCLE=p09 / BWE=p11 / Yellow Duck=p18 / CryoX=p20(p08 CCCではない。BZM台帳cashflow_event_id『p20:aggregate-economic-cf』で機械的確認) / SX=p21 / チャレナジー=p24 / VasculaX=p26 / KENQ=p29。よってbatch1対象はp03,p04,p06,p07,p09,p11の6PJ。p01(OPT)/p02(r3kt)/p05(MC)/p10(SE)はBZM 2.2台帳に非掲載のため対象外。",
+    "ym_format_warning": "project_pl_monthlyのym表記がDB内で不統一: p21(SX)既存62行は'2026-07'(ダッシュ有)、p09既存1行は'202605'(ダッシュ無)。本ドラフトはp09既存行に合わせ'YYYYMM'で書いた。反映時に正規化方針を決めること。",
+    "semantics_note": "design/project_pl_monthly.md §0 (2026-08-13) の通り、本テーブルはPJ企業側の計画/実績PL。資金調達cash(出資・借入・補助金入金)はrevenue_yenへ非算入。p21の様式(notesに 出所タグ; 精度ラベル; 按分規則)に準拠した。",
+    "verification": "billing_cycles / project_grants / project_pl_hearings(0行) / project_pl_monthly / project_financial_periods(対象PJ0行) / project_management_funding_snapshots(対象PJ0行) / monthly_reports(202601以降本文) をSupabase RESTで全件照会済み。"
+  },
+  "p03": {
+    "project_name": "ティエム (tiem / ティエムファクトリ)",
+    "feasibility": "low",
+    "sources": [
+      "projects: status=ended, start_ym=202204",
+      "project_grants: NEDO SUI(2014)・NEDO SES実用化(2018) いずれもcompleted・交付額非公開(amount_yen null)",
+      "billing_cycles: p03行なし",
+      "monthly_reports: p03行なし",
+      "project_pl_hearings / project_financial_periods / project_management_funding_snapshots: 0行"
+    ],
+    "rows": [],
+    "gaps": [
+      "SU側の月次PLを構成できる一次資料(試算表・株主報告資料・決算書)がOS内に1件も無い",
+      "grants2件とも交付額非公開のためrd_yen等への配分不能",
+      "AMD側請求実績(billing_cycles)すら無い(PJ期間がbilling_cycles導入前)"
+    ],
+    "derivations": [],
+    "recommendation": "月次試算表化は不可。SPS/BZM財務入力はBZM 2.2台帳の強制推定のままにするか、ティエムファクトリ公表情報(官報決算公告等)の取得を別タスク化する。"
+  },
+  "p04": {
+    "project_name": "輝翠TECH (KT)",
+    "feasibility": "low",
+    "sources": [
+      "projects: status=ended, start_ym=202304",
+      "project_grants: 農水省 大学発ベンチャー起業促進実証委託(令和3, completed, 委託費額非公開)",
+      "billing_cycles / monthly_reports: p04行なし",
+      "project_pl_hearings / project_financial_periods / project_management_funding_snapshots: 0行"
+    ],
+    "rows": [],
+    "gaps": [
+      "SU側月次PLの一次資料がOS内に皆無",
+      "唯一のgrantも額非公開",
+      "SPS 2.1抽出記録(§4)でもコホートA(p04含む)の月次CF粒度データは欠測と明記"
+    ],
+    "derivations": [],
+    "recommendation": "月次試算表化は不可。輝翠TECHの調達公表(プレスリリース)や決算公告の外部取得を別タスク化しない限り前進しない。"
+  },
+  "p06": {
+    "project_name": "CrestecBio (CTB)",
+    "feasibility": "low",
+    "sources": [
+      "projects: status=active(freeze_from_ym=202605), fee_type=variable, 契約end_ym=202702",
+      "project_grants: AMED S2 GAP拠点 3億円(2024-12〜2026-12, adopted, 社内認識値) / NEDO NEP 20,656,000円(2022-2023, completed) / SIP FS 500万(2022-2023) / SIP第3期テーマメンタリング 500万(2023-2024)",
+      "billing_cycles: 202512〜202702の枠あり。実額はbudget_yen=175,500(202604, reward_paid)・budget_reported_amount=270,000(202604)のみ",
+      "monthly_reports 202601〜202606: AMED中間検査・最終検査対応が主。202606に『シードラウンド資金調達2.5億円の成立が確認』(Slack #p06_ctb 2026-06-05/12) — financingでありPL外",
+      "monthly_reports 202604: 『シリーズA調達まで約1年間の資金状況が厳しい』(本田氏発言, 2026-03末) — 定性シグナルのみで金額なし"
+    ],
+    "rows": [],
+    "gaps": [
+      "CrestecBio社の月次PL一次資料(試算表・株主報告)がOSに無い",
+      "AMED 3億の月次執行額(人件費・研究開発費への落ち方)が無い — 収支簿はAMD側で更新実務をしているのに現物・数字がOSへ未取り込み(monthly_reports 202603『freeeデータからの収支簿転記ルールを体系化』)。ここが最短の精度向上ポイント",
+      "判明している費目はAMD業務委託料(月額27万→20万へ削減打診)だけで、これのみで月次PLを立てると費用を1桁以上過小表示しBZM入力を汚染するため、部分費目でのrows生成は見送った",
+      "シード2.5億の入金月・金額内訳の一次資料が無い(資金繰り表側にも置けない)"
+    ],
+    "derivations": [],
+    "recommendation": "AMD自身が中間検査対応で触っているCTB収支簿(freee転記)をOSへ月次で取り込めば、コホートAで最も早く実績PL化できるPJ。司令塔からまさへ『CTB収支簿の月次スナップショット取り込み』を提案する価値あり。"
+  },
+  "p07": {
+    "project_name": "LST (LiSTie)",
+    "feasibility": "low",
+    "sources": [
+      "projects: status=active, project_category=advisor",
+      "project_grants: SBIR 15億円(active, まさ確定2026-06-17) / SuSHi Tech 最大2億円(KPI連動, 協定2026-05-15) / NEDO補助金継続(期限3月末へ延長予定) / 柏市100万(applied)",
+      "monthly_reports 202601〜202607(202607はfinal): 経営会議・取締役会議事録由来の資金イベントが豊富",
+      "個別金額の観測例: J-KISSラウンド1.5億コミット(202606)→ごうぎん5,000万+DG大和8,000万+AdLibTech2,000万で1.5億(202607) / 公庫借入8,000万完了(202605) / QST委託 年額14,345,677円税込を2026年度継続(202603) / 3Dプリンター材料約340万購入(202605) / TYK輸送費約450万(202604) / 自動制御装置2号機 税込2億弱・40/30/30払い(202607) / 日亜向け有償販売 売上約10万円見込み(202605) / 3月末現預金残高約900万見込み(202601)"
+    ],
+    "rows": [],
+    "gaps": [
+      "観測できるのは資金調達(equity/借入=PL外)とスポット支出の承認月であり、発生主義の月次費用(人件費・経常R&D)がOSに無い",
+      "売上はほぼゼロ(日亜10万見込みのみ)だが、費用側の月次内訳欠測により営業損失の月次系列が組めない",
+      "承認月≠支出発生月のため、議事録金額をそのまま月次PLに置くと発生タイミングを誤る",
+      "SBIR 15億・SuSHi 2億の月次執行額が無い"
+    ],
+    "derivations": [],
+    "recommendation": "取締役会で月次試算表が回っている可能性が高い(資金繰り議論の精度から)。議事録でなく取締役会添付の試算表現物をDrive/メールから取得すれば一気にhigh化する。現状の議事録断片からのrows生成は発生月誤りリスクが大きく見送った。"
+  },
+  "p09": {
+    "project_name": "JOYCLE (JC)",
+    "feasibility": "medium",
+    "sources": [
+      "project_pl_monthly p09/202605 既存行(2026-07-01投入): 2026年6月株主報告会・5月末試算表由来。5月単月 売上3,627,273円/費用8,459,867円、期首から5月末累計 売上19,006,265円/営業損失82,738,310円、平均月次バーン8,273,831円、5月末現預金140,689,000円",
+      "project_grants: 経産省GX小規模実証FS 55,812,120円申請(applied, 未採択確認) / 愛知県・北九州市・東京都各補助(採択額非開示) / Woven City(現物支援) — いずれも月次PLへ算入せず",
+      "monthly_reports 202511〜202603: AMD請求(20万/月税抜)以外の財務数字なし"
+    ],
+    "rows": [
+      {"ym": "202508", "revenue_yen": 1708777, "cogs_yen": 0, "personnel_yen": 0, "rd_yen": 0, "marketing_yen": 0, "other_opex_yen": 10364968, "notes": "jc-fy25-monthly-pl-draft-v1; 推定値(累計均等按分/低精度); 出所: 2026年6月株主報告会・5月末試算表(OS既存行p09/202605のnotes)。期首2025-08〜2026-04の9か月へ累計値を均等按分。費用内訳未分解のためother_opexへ仮置き。"},
+      {"ym": "202509", "revenue_yen": 1708777, "cogs_yen": 0, "personnel_yen": 0, "rd_yen": 0, "marketing_yen": 0, "other_opex_yen": 10364968, "notes": "jc-fy25-monthly-pl-draft-v1; 推定値(累計均等按分/低精度); 出所: 同上。"},
+      {"ym": "202510", "revenue_yen": 1708777, "cogs_yen": 0, "personnel_yen": 0, "rd_yen": 0, "marketing_yen": 0, "other_opex_yen": 10364968, "notes": "jc-fy25-monthly-pl-draft-v1; 推定値(累計均等按分/低精度); 出所: 同上。"},
+      {"ym": "202511", "revenue_yen": 1708777, "cogs_yen": 0, "personnel_yen": 0, "rd_yen": 0, "marketing_yen": 0, "other_opex_yen": 10364968, "notes": "jc-fy25-monthly-pl-draft-v1; 推定値(累計均等按分/低精度); 出所: 同上。"},
+      {"ym": "202512", "revenue_yen": 1708777, "cogs_yen": 0, "personnel_yen": 0, "rd_yen": 0, "marketing_yen": 0, "other_opex_yen": 10364968, "notes": "jc-fy25-monthly-pl-draft-v1; 推定値(累計均等按分/低精度); 出所: 同上。"},
+      {"ym": "202601", "revenue_yen": 1708777, "cogs_yen": 0, "personnel_yen": 0, "rd_yen": 0, "marketing_yen": 0, "other_opex_yen": 10364968, "notes": "jc-fy25-monthly-pl-draft-v1; 推定値(累計均等按分/低精度); 出所: 同上。"},
+      {"ym": "202602", "revenue_yen": 1708777, "cogs_yen": 0, "personnel_yen": 0, "rd_yen": 0, "marketing_yen": 0, "other_opex_yen": 10364968, "notes": "jc-fy25-monthly-pl-draft-v1; 推定値(累計均等按分/低精度); 出所: 同上。"},
+      {"ym": "202603", "revenue_yen": 1708777, "cogs_yen": 0, "personnel_yen": 0, "rd_yen": 0, "marketing_yen": 0, "other_opex_yen": 10364968, "notes": "jc-fy25-monthly-pl-draft-v1; 推定値(累計均等按分/低精度); 出所: 同上。"},
+      {"ym": "202604", "revenue_yen": 1708776, "cogs_yen": 0, "personnel_yen": 0, "rd_yen": 0, "marketing_yen": 0, "other_opex_yen": 10364964, "notes": "jc-fy25-monthly-pl-draft-v1; 推定値(累計均等按分/低精度); 出所: 同上。端数調整月(9か月合計が累計と一致するようこの月で丸め差を吸収)。"}
+    ],
+    "gaps": [
+      "費用の費目内訳(人件費/R&D/マーケ)が未分解 — 既存202605行と同じ制約",
+      "月次のばらつき(単月実額)は5月しか無く、8か月は均等按分の平準値",
+      "2026-06以降の実績が無い(次回株主報告会資料の取得待ち)。PJ自体はend_ym=202603でAMD契約終了だがSUは存続",
+      "期首=2025-08は『営業損失累計÷平均月次バーン=10.0か月』からの逆算であり、決算期の一次確認(登記/定款)は未取得"
+    ],
+    "derivations": [
+      "期首推定: 82,738,310円 ÷ 8,273,831円/月 = 10.0か月 → 累計期間は2025-08〜2026-05と推定",
+      "均等按分: 累計売上19,006,265円 − 5月単月3,627,273円 = 15,378,992円を9か月へ均等按分(1,708,777円×8 + 1,708,776円)",
+      "同様に累計費用(売上+営業損失=101,744,575円) − 5月単月費用8,459,867円 = 93,284,708円を9か月へ均等按分(10,364,968円×8 + 10,364,964円)",
+      "202605は既存行があるためドラフトに含めない(上書き禁止)"
+    ],
+    "recommendation": "反映可。ただし『月次の形をした累計値の均等按分』であることがnotesタグで機械可読なので、BZM側は月次分散を使わないこと。"
+  },
+  "p11": {
+    "project_name": "BWE (client=NIMS)",
+    "feasibility": "low",
+    "sources": [
+      "projects: status=ended(202512〜202603のAMD支援期), client=物質・材料研究機構",
+      "billing_cycles: budget_yen 537,500円/月 ×4(202512〜202603) — これはNIMSがAMDへ払う業務委託料でありBWE社のPLではない",
+      "project_grants: 東京都クール・ネット 次世代再エネ社会実装(濃度差発電) 1億円(active, 2025-10〜2028-03, 助成率2/3) / 宇部市SU支援補助金 1,000万円(adopted) / SIP第3期(NIMS委託7.5億に参画, BWE単独交付額でない)",
+      "monthly_reports 202512〜202604: 財務数字を含む記述なし"
+    ],
+    "rows": [],
+    "gaps": [
+      "BWEは法人としての月次PL一次資料がOSに皆無(設立前後の支出はNIMS委託・助成金経由で執行され、月次の執行額記録が無い)",
+      "クール・ネット1億の交付決定はあるが月次執行スケジュール・実支出が無い",
+      "billing_cyclesの537,500円/月はAMD側売上であり、BWEのPL費目としての帰属(誰が負担したか=NIMS)を混ぜてはいけない"
+    ],
+    "derivations": [],
+    "recommendation": "月次試算表化は不可。クール・ネット助成の実績報告書(四半期/年次)が出る時期に執行額を取り込むのが現実的な次の一手。"
+  }
+}
