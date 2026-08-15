@@ -243,3 +243,13 @@ automation作成後の最初の自然な平日09:00実行は未観測。2026-08-
 - **BZSF系（repo外）**: ファンド仕様書v0.2+設立ロードマップ（`AMD/BZSF/BZSF_FUND_SPEC_AND_ROADMAP_2026-08-15.md`、まさ判断5件=旧計画承認/連携first・UMI第1候補/金策6案/質問票送付見送り/参加型はFund I最初から）。p00コックピットへDriveリンク掲示（dialogue:p00:20260815-145645）。参加型検証構想md新設。
 - **後続**: モデルセッション（migration prompt `pwa/bzm/SESSION_MIGRATION_PROMPT_BZM_MODEL_20260815.md`、24件q帯評価→円建てSPS帯v0.3）とファンドセッション（`AMD/BZSF/SESSION_MIGRATION_PROMPT_BZSF_FUND_20260815.md`）を分離起動済み。
 - 詳細な日時つき変更履歴は `pwa/bzm/9-5-appendix-changelog.md` の2026-08-13〜15の11行。
+
+## 2026-08-16 — 資料室Drive folder改名 + folder→cockpit双方向同期（v3.78.0）
+
+- まさ確定: コックピット「資料」（`project_documents` / `CockpitProjectDocuments` / `/api/project-documents`）と共有ドライブ各PJフォルダを一致させる。
+- Drive側: `a0_management` / `p20_cx` / `p25_kute` の `AMD OS 資料` folderを `mv` で `AMD OS資料室` へリネーム（drivefsのためfolder IDは不変。3件ともrename前後で `xattr -p 'com.google.drivefs.item-id#S'` が一致することを確認、a0_managementは想定どおり `1sVfyMo8eYkC_s0OmfYb6xYBvJoTqbaEo`）。コード側は先にDriveをリネームしてから追随した。
+- コード側: `PROJECT_DOCUMENTS_FOLDER_NAME` と `CockpitProjectDocuments` のデフォルト文字列2箇所を新名へ更新。`ensureDocumentsFolder` を含む同期ロジックを `pwa/src/lib/project-documents/reconcile.ts` へ切り出し、資料室folder直下（サブフォルダ除く）の未登録ファイルを `source_kind='drive_folder_sync'` / `uploaded_by='folder_sync'` で additive-only upsert する `reconcileProjectDocuments` を追加（`onConflict: drive_file_id, ignoreDuplicates: true` でDB側のUNIQUE制約に任せる。既存行は不変、削除方向の同期はしない）。
+- 発火点2つ: `GET /api/project-documents` はproject単位で直近5分スロットル・fail softで自動reconcile。全PJ一括の強制reconcileは新設 `POST /api/project-documents/reconcile`（Bearer `CRON_SECRET`/`WORKFLOW_SECRET` または admin session、meeting-prep cronと同じ認証パターン）。
+- `source_kind` にCHECK制約が無いことを事前に migration 131/132 で確認済みのため、DB migrationは不要。
+- 検証: `tsc --noEmit` / `npm run build` / 対象4ファイルの `eslint` すべてPASS。commit `21f124c5` → `pwa/scripts/deploy.sh` で本番push、3分17秒で production `git_sha=21f124c5...` Readyを確認。本番の `POST /api/project-documents/reconcile` を1回実行し、14 PJ中 p00 (+5) / p20 (+1) / p25 (+1) の計7件を新規追加、失敗0件。Supabaseで p00 の `project_documents` が5→10件（想定どおり。`260702_まさえいMTG` はサブフォルダのため対象外）になったことを直接クエリで確認。
+- spec/manual附則（`pwa/spec/6-1-appendix-changelog.md` / `pwa/manual/9-3-appendix-changelog.md`）と `pwa/spec/3-8-cockpit-current-spec.md` / `pwa/design/SPEC_pwa.md` / `pwa/design/meeting_summaries.md` の folder名参照も同じcommitで更新。
