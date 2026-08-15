@@ -141,6 +141,50 @@ export interface SeedPublicSpsAssessment {
   components: SeedPublicSpsComponents | null;
 }
 
+// 一次選別のスクリーニング帯 (Tier 0) — seed_sps_assessments (本測定系) とは別テーブル。
+// migration: scripts/migrations/280_seed_screening_infrastructure.sql
+// 設計正本: pwa/bzm/BZM_SEED_TIER0_SCREENING_DESIGN_2026-08-15.md
+// テーブル seed_screening_bands は RLS ポリシーなし = service_role 専用。
+// このファイルの型は API route (/api/seeds/screening-bands) 経由の DTO 用で、
+// クライアントコンポーネントから直接テーブルへは触れない。
+// 根拠Lv (スコア成熟度) は §6 確定13 の定義どおり DB から機械導出する。
+export type SeedEvidenceLevel = 0 | 1 | 2 | 3;
+
+/** 一次選別のスクリーニング帯 11 要因ルーブリックの根拠引用 1 件分 */
+export interface SeedScreeningQEvidenceItem {
+  id: number | string;
+  name: string;
+  direction: string;
+  evidence: string;
+  assessment?: string;
+}
+
+/** /seeds 一覧向け: 帯の最新行から表示に必要な値だけを持つ軽量サマリ (q_evidence の全文は含めない) */
+export interface SeedScreeningBandSummary {
+  seed_id: string;
+  sps_lower_yen: number | null;
+  sps_upper_yen: number | null;
+  assessed_at: string | null;
+  ruleset_version: string | null;
+  evidence_level: SeedEvidenceLevel;
+}
+
+/** シーズ詳細モーダル向け: 帯の最新行の全項目 + 根拠Lv */
+export interface SeedScreeningBandDetail extends SeedScreeningBandSummary {
+  evaluator: string;
+  stage_lower: string | null;
+  stage_upper: string | null;
+  stage_tag: string | null;
+  q_lower_pct: number | null;
+  q_upper_pct: number | null;
+  q_main_factor: string | null;
+  q_evidence: SeedScreeningQEvidenceItem[] | null;
+  p_class: string | null;
+  p_lower_yen: number | null;
+  p_upper_yen: number | null;
+  notes: string | null;
+}
+
 export interface Seed {
   id: string;
   // 識別

@@ -850,3 +850,27 @@ export const SEED_CONTACT_METHOD_LABEL: Record<string, string> = {
   visit: "訪問",
   other: "その他",
 };
+
+// 一次選別スクリーニング帯の根拠Lv (スコア成熟度)。
+// 正本: pwa/bzm/BZM_SEED_TIER0_SCREENING_DESIGN_2026-08-15.md §6 確定13
+export const SEED_EVIDENCE_LEVEL_LABEL: Record<0 | 1 | 2 | 3, string> = {
+  0: "Lv0",
+  1: "Lv1",
+  2: "Lv2",
+  3: "Lv3",
+};
+
+export const SEED_EVIDENCE_LEVEL_DESCRIPTION: Record<0 | 1 | 2 | 3, string> = {
+  0: "根拠Lv0 = ネットの情報だけ（一次選別の帯のみ）",
+  1: "根拠Lv1 = 実際に会ってヒアリング済み",
+  2: "根拠Lv2 = OSにPJの情報が抽出できている",
+  3: "根拠Lv3 = 月次試算表が作成されている",
+};
+
+/** 円 → 億円の丸め表示。整数億円は小数点を出さない (例: 60 / 0.5)。null は "—"。 */
+export function formatOkuYen(yen: number | null): string {
+  if (yen == null) return "—";
+  const oku = yen / 100_000_000;
+  const rounded = Math.round(oku * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { FileText, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronDown, FileText, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,8 +12,40 @@ import { SeedMarkdownPreviewModal } from "@/components/seeds/SeedMarkdownPreview
 import {
   SEED_COMMERCIALIZATION_TYPE_LABEL,
   SEED_KUTE_MARKET_CONFIDENCE_LABEL,
+  SEED_EVIDENCE_LEVEL_LABEL,
+  SEED_EVIDENCE_LEVEL_DESCRIPTION,
+  formatOkuYen,
 } from "@/lib/seeds-data";
-import type { SeedPublicView } from "@/types/seeds";
+import type { SeedPublicView, SeedScreeningBandDetail } from "@/types/seeds";
+
+const STAGE_TAG_LABEL: Record<string, string> = {
+  stage_document: "文書根拠",
+  stage_funding: "資金情報",
+  stage_inferred: "推定",
+  stage_unknown: "材料なし",
+};
+
+function stageTagLabel(tag: string | null): string | null {
+  if (!tag) return null;
+  return tag
+    .split("+")
+    .map((part) => STAGE_TAG_LABEL[part] ?? part)
+    .join(" + ");
+}
+
+const Q_EVIDENCE_DIRECTION_LABEL: Record<string, string> = {
+  down: "下押し",
+  up: "上振れ",
+  widen: "帯を広げる",
+  neutral: "中立",
+};
+
+const EVIDENCE_LEVEL_BADGE_CLASS: Record<0 | 1 | 2 | 3, string> = {
+  0: "border-slate-300 bg-slate-50 text-slate-500",
+  1: "border-sky-300 bg-sky-50 text-sky-700",
+  2: "border-amber-300 bg-amber-50 text-amber-800",
+  3: "border-emerald-300 bg-emerald-50 text-emerald-800",
+};
 
 function DetailRow({ label, value }: { label: string; value: string | null }) {
   return (
@@ -43,6 +75,28 @@ export function KuteSeedDetailModal({
   onClose: () => void;
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [screeningBand, setScreeningBand] = useState<SeedScreeningBandDetail | null>(null);
+  const [qEvidenceOpen, setQEvidenceOpen] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- seed/open 切替時に前回シーズの帯を残さないための同期リセット
+    setScreeningBand(null);
+    setQEvidenceOpen(false);
+    if (!open || !seed) return;
+    let cancelled = false;
+    fetch(`/api/seeds/screening-bands?seedId=${encodeURIComponent(seed.id)}`)
+      .then((res) => res.json())
+      .then((json: { ok: boolean; band?: SeedScreeningBandDetail | null }) => {
+        if (cancelled || !json.ok) return;
+        setScreeningBand(json.band ?? null);
+      })
+      .catch(() => {
+        // スクリーニング帯は補助表示。取得失敗してもシーズ詳細本体は表示を続ける。
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, seed]);
 
   if (!seed) return null;
   const sps = seed.latest_sps;
@@ -139,11 +193,13 @@ export function KuteSeedDetailModal({
               </tbody>
             </table>
 
-            <h3 className="mb-2 mt-5 text-xs font-semibold text-slate-900">SPS (全国共通シーズスコア)</h3>
+            <h3 className="mb-2 mt-5 text-xs font-semibold text-slate-900" title="旧: M×P×R×Sの9軸ルーブリック。一次選別のSPS帯 (下記) とは別系統">
+              旧SPS (全国共通シーズスコア)
+            </h3>
             <table className="w-full border-collapse text-sm">
               <tbody>
                 <DetailRow
-                  label="SPS"
+                  label="旧SPS"
                   value={
                     sps == null
                       ? null
@@ -174,6 +230,106 @@ export function KuteSeedDetailModal({
                 />
               </tbody>
             </table>
+
+            {screeningBand && (
+              <section className="mt-5">
+                <h3 className="mb-2 text-xs font-semibold text-slate-900">一次選別スクリーニング帯</h3>
+                <table className="w-full border-collapse text-sm">
+                  <tbody>
+                    <DetailRow
+                      label="段階仮説"
+                      value={
+                        screeningBand.stage_lower || screeningBand.stage_upper
+                          ? `${screeningBand.stage_lower ?? "—"}〜${screeningBand.stage_upper ?? "—"}${
+                              screeningBand.stage_tag ? ` (${stageTagLabel(screeningBand.stage_tag)})` : ""
+                            }`
+                          : null
+                      }
+                    />
+                    <DetailRow
+                      label="q帯 (資本自立への到達見込み)"
+                      value={
+                        screeningBand.q_lower_pct != null || screeningBand.q_upper_pct != null
+                          ? `${screeningBand.q_lower_pct ?? "—"}%〜${screeningBand.q_upper_pct ?? "—"}%${
+                              screeningBand.q_main_factor ? ` / 主要因: ${screeningBand.q_main_factor}` : ""
+                            }`
+                          : null
+                      }
+                    />
+                    <DetailRow label="P類型" value={screeningBand.p_class} />
+                    <DetailRow
+                      label="P帯 (億円)"
+                      value={
+                        screeningBand.p_lower_yen != null || screeningBand.p_upper_yen != null
+                          ? `${formatOkuYen(screeningBand.p_lower_yen)}〜${formatOkuYen(screeningBand.p_upper_yen)}`
+                          : null
+                      }
+                    />
+                    <tr>
+                      <th scope="row" className="w-[36%] border-b border-slate-100 bg-slate-50 px-3 py-2 text-left text-[11px] font-semibold text-slate-600">
+                        SPS帯 (億円) / 根拠Lv
+                      </th>
+                      <td className="border-b border-slate-100 px-3 py-2 text-sm text-slate-800">
+                        {screeningBand.sps_lower_yen != null || screeningBand.sps_upper_yen != null ? (
+                          <span className="mr-2">
+                            {formatOkuYen(screeningBand.sps_lower_yen)}〜{formatOkuYen(screeningBand.sps_upper_yen)}
+                          </span>
+                        ) : (
+                          <span className="mr-2 text-slate-400">未確定</span>
+                        )}
+                        <span
+                          title={SEED_EVIDENCE_LEVEL_DESCRIPTION[screeningBand.evidence_level]}
+                          className={`inline-flex border px-1.5 py-0.5 text-[10px] font-bold ${EVIDENCE_LEVEL_BADGE_CLASS[screeningBand.evidence_level]}`}
+                        >
+                          {SEED_EVIDENCE_LEVEL_LABEL[screeningBand.evidence_level]}
+                        </span>
+                      </td>
+                    </tr>
+                    <DetailRow
+                      label="評価者 / 評価日時"
+                      value={`${screeningBand.evaluator} / ${screeningBand.assessed_at ?? "—"}`}
+                    />
+                    <DetailRow label="ルールセット" value={screeningBand.ruleset_version} />
+                  </tbody>
+                </table>
+
+                <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-900">
+                  この帯は接触と調査の優先順位づけの下書き。上限は楽観シナリオの包絡であり評価額ではない。投資判断・対外表示には使わない。
+                </p>
+
+                {screeningBand.q_evidence && screeningBand.q_evidence.length > 0 && (
+                  <details
+                    className="mt-2 rounded-md border border-slate-200 bg-slate-50"
+                    open={qEvidenceOpen}
+                    onToggle={(e) => setQEvidenceOpen(e.currentTarget.open)}
+                  >
+                    <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-slate-700">
+                      <ChevronDown
+                        className={`h-3.5 w-3.5 transition-transform ${qEvidenceOpen ? "rotate-0" : "-rotate-90"}`}
+                        aria-hidden="true"
+                      />
+                      q帯の根拠 ({screeningBand.q_evidence.length}要因)
+                    </summary>
+                    <ul className="space-y-2 border-t border-slate-200 px-3 py-2">
+                      {screeningBand.q_evidence.map((item) => (
+                        <li key={item.id} className="text-[11px] leading-relaxed text-slate-700">
+                          <div className="flex flex-wrap items-baseline gap-1.5">
+                            <span className="font-semibold text-slate-900">{item.name}</span>
+                            <span className="rounded border border-slate-300 bg-white px-1 py-0.5 text-[9px] font-medium text-slate-500">
+                              {Q_EVIDENCE_DIRECTION_LABEL[item.direction] ?? item.direction}
+                            </span>
+                          </div>
+                          <div className="mt-0.5 text-slate-600">{item.evidence}</div>
+                          {item.assessment && (
+                            <div className="mt-0.5 text-slate-400">{item.assessment}</div>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+              </section>
+            )}
 
             <div className="mt-4">
               {seed.deep_dive_material_url ? (
