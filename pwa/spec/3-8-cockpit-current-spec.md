@@ -12,7 +12,7 @@
 | `/institutions/[institutionId]/cockpit` | `pwa/src/app/(app)/institutions/[institutionId]/cockpit/page.tsx` wraps an existing project cockpit in institution context |
 | main component | `pwa/src/components/cockpit/CockpitView.tsx` |
 | data fetch | `pwa/src/lib/supabase-data.ts` (`fetchCockpitFromSupabase`) |
-| project documents | `pwa/src/components/cockpit/CockpitProjectDocuments.tsx`, `pwa/src/app/api/project-documents/route.ts` |
+| project documents (資料室) | `pwa/src/components/workspace-documents/WorkspaceDocumentRoom.tsx` (`WorkspaceDocumentLauncher`)、`pwa/src/app/api/workspace-documents/**`。詳細は `pwa/manual/2-3-pj-cockpit.md` 「## 資料」節と `pwa/spec/2-1-pwa-runtime-routes.md`。旧 `CockpitProjectDocuments` / `pwa/src/app/api/project-documents/**` / `pwa/src/lib/project-documents/reconcile.ts` はどこからも参照されていないdead codeだったため2026-08-16 (v3.78.3) に削除した |
 
 この章のcurrent contractはAMD内部のcockpitだけを扱う。PJワークスペースのcurrent contractは `3-16-project-weekly-control-current-spec.md`、全体の情報境界は `1-4-os-convergence-current-spec.md`、PJ・AMD・研究機関の三者受入は `1-5-three-party-project-view-acceptance-current-spec.md` を正本とする。
 
@@ -36,7 +36,9 @@
 
 `proactive_outbox` / `proactive_loops` / `proactive_loop_events` は 2026-06-27 に廃止済みの旧先手力ループであり、通常PJ / institution cockpit には表示しない。先手TODOの棚卸しは `proactive_todos` を使う `/proactive` と dashboard 上段バッジで扱う。旧 `ProactiveQueuePanel` を cockpit に戻さない。
 
-`project_documents` も `CockpitData` bundle には混ぜず、`CockpitProjectDocuments` が `/api/project-documents?project_id=...` を fetch する。API は authenticated user の `members.email` を `project_members` に解決し、当該PJの active member または admin なら資料一覧を返す。ファイル本体は DB / Supabase Storage に置かず、Google Drive の `projects.drive_folder_id` 配下に作成する資料専用 folder (`AMD OS資料室`、2026-08-16に `AMD OS 資料` から改名。drivefsリネームのためfolder IDは不変) へ保存し、DB には Drive file ID / folder ID / `webViewLink` / name / MIME / size / uploaded_by / timestamps だけを残す。GET時にDrive資料室folder直下 (サブフォルダ除く) のファイルをスキャンし、`project_documents` に無い `drive_file_id` を `source_kind='drive_folder_sync'` で additive-only 追加する (project単位で直近5分以内はskipするin-memoryスロットル付き、失敗時は一覧表示を継続するfail soft)。全PJ一括の強制同期は `POST /api/project-documents/reconcile` (Bearer CRON_SECRET / WORKFLOW_SECRET またはadmin session) で行う。同期ロジックは `src/lib/project-documents/reconcile.ts` に集約し、既存行の削除・上書きはしない。
+`CockpitData` bundle にも資料一覧は混ぜず、`CockpitView` は右カラム先頭に `WorkspaceDocumentLauncher` (`WorkspaceDocumentRoom.tsx`) を独立マウントする。モーダルを開くと `scope_kind=project` で `/api/workspace-documents` を fetch する。正本は `workspace_documents` テーブルとprivate Storage `workspace-files`。詳細な契約 (folder/link/file種別、同名確認、削除の扱い、権限境界) は `pwa/manual/2-3-pj-cockpit.md` 「## 資料」節を正本とする。
+
+**削除履歴 (2026-08-16, v3.78.3)**: `project_documents` テーブルを実体とする旧 `CockpitProjectDocuments` コンポーネントと `GET/POST /api/project-documents`、`POST /api/project-documents/reconcile`、`src/lib/project-documents/reconcile.ts` は、`CockpitView` からどこからも呼ばれていないdead codeだったため削除した。2026-08-16 (v3.78.0) セッションでこのdead codeへ「Drive資料室folder → `project_documents` additive-only同期」機能を追加してしまっていたが (下記changelog該当行)、UIとして表示されたことは一度も無い。`project_documents` テーブル自体は `app/api/project/monthly-report-print/route.ts` が月次レポート添付一覧の読み取り専用ソースとして使い続けるため削除しない。共有ドライブの `AMD OS資料室` フォルダ名・folder ID (rename済み) はこの削除と無関係にそのまま維持する。
 
 `tsukuyomi_nudge_queue` は通常PJ / institution cockpit の `CockpitView` へ渡さず、`CockpitNudge` カードも表示しない。既存の `fetchCockpitFromSupabase` が互換用に `nudges` を返す場合でも、この画面では読まない。HUD / dashboard 実験面で同じ queue を使う場合は、それぞれの専用コンポーネントの契約として扱う。
 
@@ -91,7 +93,7 @@ This route is read-only during load. It does not create a duplicate project or w
 | goals compact | `CockpitGoalsCompact` | value plan / MS。`MilestoneGanttChart` の各MS行に pt / tag / 担当 / 進捗とあわせて `設計額` を表示し、バー上の担当者 chip には担当設計額も併記する。通常MSは plan cycle 予算、`cap_extra` は同期間の別財布予算から按分し、支払確定額としては扱わない |
 | MS change history | `CockpitMsChangeHistory` | `milestone_change_events`。今期MSの直下、`CockpitSeasonFinance` の手前に初期折りたたみで表示する。`/admin/ms-overview` の保存イベントと、2026-07-09 backfill の `source='migration'` 基準線を読み、cockpit からは編集しない。契約本文・メール全文・議事録全文・raw source は扱わない |
 | season finance | `CockpitSeasonFinance` | `fetchCockpitFromSupabase` が `billing_cycles`, `projects`, `reward_summary_json` から組み立てた `seasonFinance`。MS リスト直下、月次カードより上に表示し、シーズン全体と月次別に `クライアント支払` / `バッファ` / `原資上限` / `PJ予算` / `メンバー支払` / `期末未払` / `収支` を出す。`期末未払` / `未払残` は支払通知対象の外部メンバーへ将来払う残高だけで、役員分の繰越は会社留保側の内部検算へ寄せる |
-| project documents | `CockpitProjectDocuments` | 右カラム先頭の資料スペース。drag & drop / file picker で `/api/project-documents` へ multipart upload し、Drive の PJ folder 配下 `AMD OS資料室` folder に新規ファイルとして保存する。同名ファイルは上書きしない。リンク一覧は `project_documents` から取得し、Drive link を新規タブで開く。同folder直下に手動で置かれたファイルもGET時にadditive-onlyで一覧へ反映される (folder→資料室同期) |
+| project documents (資料室) | `WorkspaceDocumentLauncher` (`WorkspaceDocumentRoom.tsx`) | 右カラム先頭「資料室を開く」ボタン。契約詳細は `pwa/manual/2-3-pj-cockpit.md` 「## 資料」節を正本とする。旧 `CockpitProjectDocuments` (dead code) は2026-08-16 v3.78.3 で削除済み |
 | strategy signals | `CockpitStrategySignals` | `project_strategy_signals` |
 | company overview tab | `CockpitCompanyOverview` | (2026-07-16 追加、旧 `CockpitGovernance` を統合廃止) 常設「会社概要」タブ本体。会社基本情報 / cap table (`buildCapTableSnapshots` で現在株・完全希薄化後株を算出) / 100%資本構成推移 / 資金調達ラウンド / 転換前証券 (J-KISS等、`convertibleScenario` の別枠試算のみで現在持株比率へは混ぜない) / 株主総会・取締役会 / 年次決算 / Excel・PDF出力。全PJ・終了PJでも常設表示。`project_company_profiles` / `project_equity_transactions` / `project_equity_entries` / `project_convertible_instruments` / `project_financial_periods` / `project_valuation_rounds` / `project_shareholder_meetings` (migration 174)。データは `/api/governance` (`requireMember` gate、members登録済みAMDメンバー全員が閲覧・編集可、admin限定ではない)。cap table は単なる現在断面ではなく、confirmed 状態の株式イベント (`incorporation` / `new_issue` / `in_kind_contribution` 等) と次回ラウンド試算を1つの `CapitalPolicyWorkspace`（資本政策ワークスペース）に統合する (2026-07-16, v3.43.2 で旧 `CapitalTimeline` 横棒 + 別枠マトリクス + 選択イベントだけを再掲する冗長 `cap table｜{event}` セクション + 遠く離れた `NextRoundSimulator` を統合、選択イベント再掲セクションは廃止)。`data-testid="cap-table-history-matrix"` は1つの表になり、列見出しがイベント列 (設立・Seed・QST現物出資 等、日付+短縮ラベル) で、各列見出し直下に縦積み100%持株構成バーが乗る (holderNameベース、共通0-100%スケール)。列見出しは実 `<button>` で focus-visible 対応、クリックでその列が試算のベース断面になる (underline/tint、太い丸角選択枠は使わない)。表の下段は発行済株式・新規発行株式・払込/調達額・発行価額・pre-money・post-moneyの行、続けて株主行 (`shares株 · pct%` の1行コンパクト表記)。最終列は `次回ラウンド（試算）` (`仮・FD` ラベル、青の破線区切り) で、同じ縦積みバー・行構成を試算値で表示する。正史が `incorporation` から始まっていない場合は `capTableOriginWarning` により `data-cap-table-origin-warning` の警告 (「創業時の分を遡って再現できない」旨) をワークスペース内に出し、創業時株式イベントの入力導線を提示する。`data-testid="next-round-simulator"` の次回ラウンド試算列と、そのベースだった保護株主 / 目標比率入力は **2026-07-17、`CapitalPlanWorkspace`（下記 `capital plan` 行）へ置き換え・廃止**。単発・未保存の試算という位置づけと「保護株主」概念そのものが、複数ラウンドを保存して積み上げたい実運用に合わなかったため、名前付きシナリオ + 全フィールド編集可 + freeze 版という設計へ移行した。Excel出力も同シートは廃止し、frozen version からのみ生成する `capital plan` 側の出力に一本化した |
 | killer factor catalog | `CockpitKillerFactorCatalog`、`/api/governance/killer-factors`、`src/lib/killer-factor-risk.ts` | (2026-08-09 追加、2026-08-10 段階評価へ更新、migration 246 / 249 / 250) 会社概要タブの基本情報直下。`killer_factor_catalog` は全PJ共通マスタで、追加triggerが全既存PJへ `project_killer_factor_states` を補完し、新規PJ作成時も全有効要素を補完する。`operating_mode='prevention'` はAMDが発生前に塞ぐ予防統制で `preventive_action` / `timing_guidance` を必須とし、PJ状態を `unchecked / not_started / in_progress / implemented / controlled` の成熟度4段階と `breached`（統制逸脱）で持つ。`operating_mode='monitoring'` は常時監視で `unchecked / clear / watch / warning / occurred` の悪化度4段階。状態確定時は `status_on` / 非空の `evidence_note` / `recorded_by_member_id` / `recorded_at` が必須、予防統制だけ任意の `target_on` を持つ。DB triggerは方式と状態の不整合を拒否し、旧buildから予防項目へ来る`occurred`を`breached`へ正規化する。GETは全体集計も返し、`occurred / breached`が1件以上なら`critical`、次に`warning / not_started / in_progress`があれば`attention`、次に`unchecked`があれば`unknown`、次に`watch / implemented`があれば`watch`、全件が`clear / controlled`なら`stable`。未確認を安全へ加算しない。UIはfilterを使わず予防統制と常時監視を群見出しで同時表示し、desktopは全体判定+5区分件数と初版7件を`1440×900`で一覧できる44〜64px行、mobileは横スクロールなし。members登録済みAMDメンバーが`requireMember`経由で一覧・共通要素追加・PJ別状態更新を行う。初版7型のうちガバナンスは予防統制、残り6型は常時監視。通知、成功確率再計算、LLM呼び出しは行わない |
@@ -136,23 +138,21 @@ The card header includes `メモ再読込`, which refetches `project_meeting_sum
 
 For upcoming/tentative rows, `risks` is labeled as `必ず確認すること`. Legacy values that were written under the older `気をつけたい読み違い` label are not deleted; they are displayed and edited as confirmation items.
 
-## Project Documents Contract
+## Project Documents Contract (削除済み — 2026-08-16 v3.78.3)
 
-PJ cockpit の「資料」は、PJ全体で使う資料リンク置き場。MTG単位の添付資料 (`meeting_assets`) とは別で、会議に紐づかない提案書・試算表・契約案・参考PDFなどを置く。MTG単位の新規添付は `project_meeting_summaries.meeting_date` と `title` から `YYMMDD_会議名` folder を作り、同じ PJ folder 配下へ保存する。
+PJ cockpit の「資料室」は `WorkspaceDocumentLauncher` (`WorkspaceDocumentRoom.tsx`) / `workspace_documents` テーブルが正本。契約詳細は `pwa/manual/2-3-pj-cockpit.md` 「## 資料」節、API境界は `pwa/spec/2-1-pwa-runtime-routes.md` を参照。
 
-| item | contract |
+以下はこの節にかつて記載されていた、`projects.drive_folder_id` 配下の `AMD OS資料室` folder + `project_documents` テーブル + `CockpitProjectDocuments` コンポーネントによる旧実装の契約。`CockpitProjectDocuments` は `CockpitView` からどこからも呼ばれていないdead codeで、実際に画面へ表示されたことは一度も無かったため、API・コンポーネント・同期ロジックとも2026-08-16 (v3.78.3) に削除した。`project_documents` テーブル自体は `app/api/project/monthly-report-print/route.ts` が月次レポート添付一覧の読み取り専用ソースとして使うため残す:
+
+| item | contract (削除済み、参考記録) |
 |---|---|
 | source project folder | `projects.drive_folder_id` |
-| dedicated folder | `AMD OS資料室` under the source project folder (renamed from `AMD OS 資料` on 2026-08-16 via drivefs `mv`; folder ID unchanged). Missing if upload時に作成 |
-| upload API | `POST /api/project-documents` with `project_id` and `files[]` multipart form |
-| list API | `GET /api/project-documents?project_id=<id>` (also runs throttled folder→DB reconcile, see below) |
-| reconcile API | `POST /api/project-documents/reconcile` — force-reconciles all (or `project_ids`-filtered) projects. Auth: `Bearer CRON_SECRET`/`WORKFLOW_SECRET` or admin session |
-| reconcile logic | `src/lib/project-documents/reconcile.ts`. Lists non-folder files directly under the dedicated folder (subfolders excluded) and upserts rows missing from `project_documents` with `source_kind='drive_folder_sync'`, `uploaded_by='folder_sync'`, `web_view_link` from Drive API (fallback `https://drive.google.com/file/d/<id>/view?usp=drivesdk`). Additive-only: never updates or deletes existing rows. GET path throttles to once per project per 5 minutes (in-memory, best-effort) and fails soft |
-| DB table | `project_documents` (`pwa/scripts/migrations/131_project_documents_drive_uploads.sql`) |
-| DB payload | Drive file ID / project folder ID / dedicated folder ID / `webViewLink` / file name / MIME / size / uploaded_by / timestamps |
-| file body | Google Drive only. DB and Supabase Storage do not store the body |
-| duplicate handling | no delete / overwrite of existing rows. Drive same-name files are allowed, so every manual upload creates a new file; folder sync keys off `drive_file_id` (unique) |
-| auth | PWA API requires authenticated user. Read/upload/markdown preview/edit are allowed for active `project_members` of the target PJ or admin. Google credential must have Drive write scope and access to the PJ folder |
+| dedicated folder | `AMD OS資料室` under the source project folder (renamed from `AMD OS 資料` on 2026-08-16 via drivefs `mv`; folder ID unchanged) |
+| upload API | ~~`POST /api/project-documents`~~ (removed) |
+| list API | ~~`GET /api/project-documents`~~ (removed) |
+| reconcile API | ~~`POST /api/project-documents/reconcile`~~ (removed) |
+| reconcile logic | ~~`src/lib/project-documents/reconcile.ts`~~ (removed) |
+| DB table | `project_documents` (`pwa/scripts/migrations/131_project_documents_drive_uploads.sql`)。テーブルは残置、月次レポート印刷の読み取り専用ソースとしてのみ現役 |
 
 ### MTG単位添付 (`meeting_assets`)
 
@@ -224,15 +224,13 @@ GAS remains relevant for legacy freee/Slack/background automation. New cockpit m
 | score detail API returns 404 | tab shows a compact error; progress tab remains usable |
 | report-only month | monthly modal opens report tab only |
 | old proactive_outbox row exists | 通常PJ / institution cockpit には表示しない。旧手動seedや `drafted` 行が残っても、PJ 状況面のノイズにしない |
-| project_documents table missing | documents panel shows API error; cockpit remains usable |
-| projects.drive_folder_id missing | documents panel shows folder-setting warning and upload is blocked |
-| Google Drive write permission missing | upload returns permission error; no DB row is inserted |
+
+資料室 (`WorkspaceDocumentLauncher`) の failure/validation は `pwa/manual/2-3-pj-cockpit.md` 「## 資料」節と `pwa/spec/2-1-pwa-runtime-routes.md` の `workspace-documents` 系 validation (`test:workspace-documents-core` / `test:workspace-documents-contract`) を正本とする。
 
 ## Validation
 
 - `npx tsc --noEmit`
 - `npm run build`
-- dry API contract: `GET /api/project-documents?project_id=<id>` requires authenticated PJ active member or admin auth and returns documents / driveConfigured metadata.
 - route smoke after deploy: `/project/<projectId>/cockpit` auth redirect when logged out; logged-in admin sees cockpit.
 - query smoke: `/project/<projectId>/cockpit?ym=YYYYMM`, `?meeting=...`; `?step=...&ym=...` must not open a routine step modal.
 
