@@ -2503,6 +2503,7 @@ function buildUiProjectProjection(
   rootArtifact: any,
 ) {
   const ledger = asLedger(project);
+  const inputs = asInputs(project) ?? {};
   const projectCutoff = project.cutoff ?? project.informationCutoff ??
     asInputs(project)?.cutoff ?? rootArtifact.informationCutoff;
   let index = 0;
@@ -2570,6 +2571,19 @@ function buildUiProjectProjection(
     timeline: buildUiTimeline(project, summary, rootArtifact.valuationDate),
     simulation: buildUiSimulation(project, summary, rootArtifact.valuationDate),
     calculationTrace: buildUiCalculationTrace(project, summary),
+    ...(project.projectIdAux === "p20" ? { monthlyFinancePlan: (Array.isArray(inputs.monthlyForecast) ? inputs.monthlyForecast : []).flatMap((row: any) => {
+      if (typeof row?.month !== "string") return [];
+      return [{
+        ym: row.month,
+        revenueMillionJpy: Number(row.revenue ?? 0),
+        opexMillionJpy: Number(row.opex ?? 0),
+        capexMillionJpy: Number(row.capex ?? 0),
+        committedFundingMillionJpy: Number(row.committedFundingCash ?? 0),
+        conditionalFundingMillionJpy: Number(row.conditionalFundingCash ?? 0),
+        grantCashMillionJpy: Number(row.businessGrantCash ?? 0),
+        status: typeof row.status === "string" ? row.status : "unknown",
+      }];
+    }) } : {}),
     groups,
   };
 }

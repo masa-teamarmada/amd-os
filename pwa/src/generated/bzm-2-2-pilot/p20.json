@@ -1070,6 +1070,608 @@
       "qTimesPRelation": "comparison_only_not_identity_with_J"
     }
   },
+  "monthlyFinancePlan": [
+    {
+      "ym": "2026-08",
+      "revenueMillionJpy": 0,
+      "opexMillionJpy": 4,
+      "capexMillionJpy": 3,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2026-09",
+      "revenueMillionJpy": 0,
+      "opexMillionJpy": 4.032,
+      "capexMillionJpy": 3,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2026-10",
+      "revenueMillionJpy": 0,
+      "opexMillionJpy": 4.064,
+      "capexMillionJpy": 3,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 100,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2026-11",
+      "revenueMillionJpy": 0,
+      "opexMillionJpy": 4.097,
+      "capexMillionJpy": 3,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2026-12",
+      "revenueMillionJpy": 0,
+      "opexMillionJpy": 4.13,
+      "capexMillionJpy": 3,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2027-01",
+      "revenueMillionJpy": 0,
+      "opexMillionJpy": 4.163,
+      "capexMillionJpy": 3,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2027-02",
+      "revenueMillionJpy": 0,
+      "opexMillionJpy": 4.196,
+      "capexMillionJpy": 3,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2027-03",
+      "revenueMillionJpy": 0,
+      "opexMillionJpy": 4.229,
+      "capexMillionJpy": 3,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2027-04",
+      "revenueMillionJpy": 0,
+      "opexMillionJpy": 4.263,
+      "capexMillionJpy": 3,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2027-05",
+      "revenueMillionJpy": 0,
+      "opexMillionJpy": 4.297,
+      "capexMillionJpy": 3,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2027-06",
+      "revenueMillionJpy": 0,
+      "opexMillionJpy": 4.332,
+      "capexMillionJpy": 3,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2027-07",
+      "revenueMillionJpy": 0,
+      "opexMillionJpy": 4.366,
+      "capexMillionJpy": 3,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2027-08",
+      "revenueMillionJpy": 0,
+      "opexMillionJpy": 4.401,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2027-09",
+      "revenueMillionJpy": 0,
+      "opexMillionJpy": 4.437,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2027-10",
+      "revenueMillionJpy": 0,
+      "opexMillionJpy": 4.472,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2027-11",
+      "revenueMillionJpy": 0,
+      "opexMillionJpy": 4.508,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2027-12",
+      "revenueMillionJpy": 0,
+      "opexMillionJpy": 4.544,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2028-01",
+      "revenueMillionJpy": 0,
+      "opexMillionJpy": 4.58,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2028-02",
+      "revenueMillionJpy": 0.35,
+      "opexMillionJpy": 4.617,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2028-03",
+      "revenueMillionJpy": 0.7,
+      "opexMillionJpy": 4.654,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2028-04",
+      "revenueMillionJpy": 1.05,
+      "opexMillionJpy": 4.691,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2028-05",
+      "revenueMillionJpy": 1.4,
+      "opexMillionJpy": 4.729,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2028-06",
+      "revenueMillionJpy": 1.75,
+      "opexMillionJpy": 4.766,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2028-07",
+      "revenueMillionJpy": 2.1,
+      "opexMillionJpy": 4.805,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2028-08",
+      "revenueMillionJpy": 2.45,
+      "opexMillionJpy": 4.843,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2028-09",
+      "revenueMillionJpy": 2.8,
+      "opexMillionJpy": 4.882,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2028-10",
+      "revenueMillionJpy": 3.15,
+      "opexMillionJpy": 4.921,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2028-11",
+      "revenueMillionJpy": 3.5,
+      "opexMillionJpy": 4.96,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2028-12",
+      "revenueMillionJpy": 3.85,
+      "opexMillionJpy": 5,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2029-01",
+      "revenueMillionJpy": 4.2,
+      "opexMillionJpy": 5.04,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2029-02",
+      "revenueMillionJpy": 4.55,
+      "opexMillionJpy": 5.08,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2029-03",
+      "revenueMillionJpy": 4.9,
+      "opexMillionJpy": 5.121,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2029-04",
+      "revenueMillionJpy": 5.25,
+      "opexMillionJpy": 5.162,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2029-05",
+      "revenueMillionJpy": 5.6,
+      "opexMillionJpy": 5.203,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2029-06",
+      "revenueMillionJpy": 5.95,
+      "opexMillionJpy": 5.245,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2029-07",
+      "revenueMillionJpy": 6.3,
+      "opexMillionJpy": 5.287,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2029-08",
+      "revenueMillionJpy": 6.65,
+      "opexMillionJpy": 5.329,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2029-09",
+      "revenueMillionJpy": 7,
+      "opexMillionJpy": 5.372,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2029-10",
+      "revenueMillionJpy": 7.35,
+      "opexMillionJpy": 5.415,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2029-11",
+      "revenueMillionJpy": 7.7,
+      "opexMillionJpy": 5.458,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2029-12",
+      "revenueMillionJpy": 8.05,
+      "opexMillionJpy": 5.502,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2030-01",
+      "revenueMillionJpy": 8.4,
+      "opexMillionJpy": 5.546,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2030-02",
+      "revenueMillionJpy": 8.75,
+      "opexMillionJpy": 5.59,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2030-03",
+      "revenueMillionJpy": 9.1,
+      "opexMillionJpy": 5.635,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2030-04",
+      "revenueMillionJpy": 9.45,
+      "opexMillionJpy": 5.68,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2030-05",
+      "revenueMillionJpy": 9.8,
+      "opexMillionJpy": 5.725,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2030-06",
+      "revenueMillionJpy": 10.15,
+      "opexMillionJpy": 5.771,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2030-07",
+      "revenueMillionJpy": 10.5,
+      "opexMillionJpy": 5.817,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2030-08",
+      "revenueMillionJpy": 10.85,
+      "opexMillionJpy": 5.864,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2030-09",
+      "revenueMillionJpy": 11.2,
+      "opexMillionJpy": 5.911,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2030-10",
+      "revenueMillionJpy": 11.55,
+      "opexMillionJpy": 5.958,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2030-11",
+      "revenueMillionJpy": 11.9,
+      "opexMillionJpy": 6.005,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2030-12",
+      "revenueMillionJpy": 12.25,
+      "opexMillionJpy": 6.054,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2031-01",
+      "revenueMillionJpy": 12.6,
+      "opexMillionJpy": 6.102,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2031-02",
+      "revenueMillionJpy": 12.95,
+      "opexMillionJpy": 6.151,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2031-03",
+      "revenueMillionJpy": 13.3,
+      "opexMillionJpy": 6.2,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2031-04",
+      "revenueMillionJpy": 13.65,
+      "opexMillionJpy": 6.25,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2031-05",
+      "revenueMillionJpy": 14,
+      "opexMillionJpy": 6.3,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2031-06",
+      "revenueMillionJpy": 14.35,
+      "opexMillionJpy": 6.35,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    },
+    {
+      "ym": "2031-07",
+      "revenueMillionJpy": 14.7,
+      "opexMillionJpy": 6.401,
+      "capexMillionJpy": 0.75,
+      "committedFundingMillionJpy": 0,
+      "conditionalFundingMillionJpy": 0,
+      "grantCashMillionJpy": 0,
+      "status": "imputed_low_precision"
+    }
+  ],
   "groups": [
     {
       "key": "version_horizon_rules",

@@ -148,6 +148,16 @@ for (const row of manifest.projects) {
       "有償PoCとコスト根拠",
     ], "SX concrete registered-value display");
   }
+  if (row.projectId === "p20") {
+    const finance = projection.monthlyFinancePlan;
+    if (!finance || finance.length !== 60 || finance[0]?.ym !== "2026-08") {
+      throw new Error("CX: 60-month BZM finance input projection missing");
+    }
+    const october = finance.find((item) => item.ym === "2026-10");
+    if (!october || october.conditionalFundingMillionJpy !== 100 || october.status !== "imputed_low_precision") {
+      throw new Error("CX: conditional funding must remain low-precision BZM input, not P/L fact");
+    }
+  }
   const expectedLaneKeys = [
     "confirmed_decisions",
     "registered_policy",

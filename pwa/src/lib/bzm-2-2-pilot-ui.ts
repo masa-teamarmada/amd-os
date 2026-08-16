@@ -480,6 +480,20 @@ export interface Bzm22PilotProject {
   timeline: Bzm22PilotTimeline;
   simulation: Bzm22PilotSimulation;
   calculationTrace: Bzm22CalculationTrace;
+  /**
+   * BZM 2.2入力の月次資金前提。P/L実績ではなく、資金繰りの仮説を
+   * project_pl_monthly と混同しないために UI projection へ明示的に残す。
+   */
+  monthlyFinancePlan?: Array<{
+    ym: string;
+    revenueMillionJpy: number;
+    opexMillionJpy: number;
+    capexMillionJpy: number;
+    committedFundingMillionJpy: number;
+    conditionalFundingMillionJpy: number;
+    grantCashMillionJpy: number;
+    status: string;
+  }>;
   groups: Bzm22PilotParameterGroup[];
 }
 
