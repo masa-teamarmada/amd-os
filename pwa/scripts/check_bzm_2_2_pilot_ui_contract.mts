@@ -545,6 +545,7 @@ requireIncludes(timeLedgerSource, [
   "設立前PJ",
   "設立前PJ支出 / NewCo P/L",
   "SX_PREINCORPORATION_SPEND_ROW",
+  'const CX_INCORPORATION_YM = "2026-11"',
   'data-accounting-scope={notApplicableBeforeIncorporation ? "not-applicable-before-incorporation" : undefined}',
   "設立前の明細はNewCo P/Lへ一切表示せず、費用は設立前PJ支出へ集約する。",
   "draftBeforeIncorporation",

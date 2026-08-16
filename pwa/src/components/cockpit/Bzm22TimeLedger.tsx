@@ -81,9 +81,9 @@ const SX_PL_ROWS: typeof PL_ROWS = [
   PL_ROWS[PL_ROWS.length - 1],
 ];
 
-// project_ventures.founded_at=p20:2027-04-01 が会計主体開始の正本。capital plan の
-// 2026-07 planned は過去日未更新の作業案なので、NewCo開始日には使わない。
-const CX_INCORPORATION_YM = "2027-04";
+// project_ventures.founded_at=p20:2026-11-01 が会計主体開始の正本。capital plan の
+// 設立イベントも同月へ同期する。月単位で確定した日付は月初日で保持する。
+const CX_INCORPORATION_YM = "2026-11";
 
 interface Draft {
   id?: string;
