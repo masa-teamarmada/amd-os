@@ -208,7 +208,8 @@ export function CockpitKuteSeeds({
               {scope === "all" && `・PJ化済み${realizedProjectSeedCount}件`}
               {scope === "all" && `・PJ化検討中${consideringProjectSeedCount}件`}
               {scope === "all" && `・PJなし・SPS評価済み${unrealizedScoredSeedCount}件`}
-              ・研究者{researcherCount}名・資料{materialCount}件・旧SPS{scoredCount}件
+              ・研究者{researcherCount}名・資料{materialCount}件
+              {scope !== "all" && `・旧SPS${scoredCount}件`}
             </p>
           )}
         </div>
@@ -303,7 +304,7 @@ export function CockpitKuteSeeds({
                       activeKey={sortKey}
                       dir={sortDir}
                       onSort={toggleSort}
-                      hint="中央値 (下限〜上限) を括弧書きで表示。中央値は仮置きの算術中点 (まさ裁定 2026-08-15)"
+                      hint="中央値 (下限〜上限) を括弧書きで表示。中央値は仮置きの算術中点 (まさ裁定 2026-08-15)。産業創出価値版（sps-ind-v1）。そのシーズ事業が日本国内に生む付加価値NPVの桁×到達見込み"
                       widthClass="min-w-[170px]"
                     />
                   )}
@@ -315,17 +316,31 @@ export function CockpitKuteSeeds({
                       根拠Lv
                     </th>
                   )}
-                  <SortableTh
-                    label="旧SPS"
-                    sortKey="sps"
-                    activeKey={sortKey}
-                    dir={sortDir}
-                    onSort={toggleSort}
-                  />
-                  <SortableTh label="M" sortKey="m" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                  <SortableTh label="P" sortKey="p" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                  <SortableTh label="R" sortKey="r" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                  <SortableTh label="S" sortKey="s" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                  {/* 旧SPS (持分価値版・M/P/R/S) はOS非表示 (まさ裁定 2026-08-16、
+                      bzm/SPS_NAT_VALUE_MEASURE_PROPOSAL_2026-08-16.md §8)。データ・計算コードは保持し、
+                      /seeds (scope="all") でのみ列を隠す。PJ/機関cockpit比較表 (scope="project") は
+                      産業創出価値版の帯を持たないため、暫定的に旧SPSを表示し続ける。 */}
+                  {scope !== "all" && (
+                    <SortableTh
+                      label="旧SPS"
+                      sortKey="sps"
+                      activeKey={sortKey}
+                      dir={sortDir}
+                      onSort={toggleSort}
+                    />
+                  )}
+                  {scope !== "all" && (
+                    <SortableTh label="M" sortKey="m" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                  )}
+                  {scope !== "all" && (
+                    <SortableTh label="P" sortKey="p" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                  )}
+                  {scope !== "all" && (
+                    <SortableTh label="R" sortKey="r" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                  )}
+                  {scope !== "all" && (
+                    <SortableTh label="S" sortKey="s" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                  )}
                   <th className="min-w-[52px] border-b border-slate-200 px-2 py-2">TRL</th>
                   <th className="min-w-[52px] border-b border-slate-200 px-2 py-2">BRL</th>
                   <th className="min-w-[52px] border-b border-slate-200 px-2 py-2">GRL</th>
@@ -558,30 +573,42 @@ function SeedRow({
           <EvidenceLevelBadge level={screeningBand?.evidence_level ?? 0} />
         </td>
       )}
-      <td className="border-b border-slate-100 px-3 py-2 align-top">
-        {sps?.status === "ready" ? (
-          <div>
-            <span className="font-mono font-semibold text-slate-950">{sps.score?.toFixed(2)}</span>
-            {confidenceLabel && <span className="ml-1 text-[10px] text-slate-400">確度:{confidenceLabel}</span>}
-          </div>
-        ) : (
-          <span className="text-slate-400" title={sps ? `未評価 (欠損: ${sps.missing_axes.join(", ")})` : "評価なし"}>
-            未評価
-          </span>
-        )}
-      </td>
-      <td className="border-b border-slate-100 px-3 py-2 align-top font-mono">
-        {sps?.components ? sps.components.macro.toFixed(2) : <span className="text-slate-400">—</span>}
-      </td>
-      <td className="border-b border-slate-100 px-3 py-2 align-top font-mono">
-        {sps?.components ? sps.components.potential.toFixed(2) : <span className="text-slate-400">—</span>}
-      </td>
-      <td className="border-b border-slate-100 px-3 py-2 align-top font-mono">
-        {sps?.components ? sps.components.reach.toFixed(2) : <span className="text-slate-400">—</span>}
-      </td>
-      <td className="border-b border-slate-100 px-3 py-2 align-top font-mono">
-        {sps?.components ? sps.components.survival.toFixed(2) : <span className="text-slate-400">—</span>}
-      </td>
+      {/* 旧SPS (持分価値版・M/P/R/S) はOS非表示 (まさ裁定 2026-08-16)。データ・計算コードは保持し、
+          screeningBand===undefined (= scope!=="all") のときだけ表示を続ける。 */}
+      {screeningBand === undefined && (
+        <td className="border-b border-slate-100 px-3 py-2 align-top">
+          {sps?.status === "ready" ? (
+            <div>
+              <span className="font-mono font-semibold text-slate-950">{sps.score?.toFixed(2)}</span>
+              {confidenceLabel && <span className="ml-1 text-[10px] text-slate-400">確度:{confidenceLabel}</span>}
+            </div>
+          ) : (
+            <span className="text-slate-400" title={sps ? `未評価 (欠損: ${sps.missing_axes.join(", ")})` : "評価なし"}>
+              未評価
+            </span>
+          )}
+        </td>
+      )}
+      {screeningBand === undefined && (
+        <td className="border-b border-slate-100 px-3 py-2 align-top font-mono">
+          {sps?.components ? sps.components.macro.toFixed(2) : <span className="text-slate-400">—</span>}
+        </td>
+      )}
+      {screeningBand === undefined && (
+        <td className="border-b border-slate-100 px-3 py-2 align-top font-mono">
+          {sps?.components ? sps.components.potential.toFixed(2) : <span className="text-slate-400">—</span>}
+        </td>
+      )}
+      {screeningBand === undefined && (
+        <td className="border-b border-slate-100 px-3 py-2 align-top font-mono">
+          {sps?.components ? sps.components.reach.toFixed(2) : <span className="text-slate-400">—</span>}
+        </td>
+      )}
+      {screeningBand === undefined && (
+        <td className="border-b border-slate-100 px-3 py-2 align-top font-mono">
+          {sps?.components ? sps.components.survival.toFixed(2) : <span className="text-slate-400">—</span>}
+        </td>
+      )}
       <AxisCell value={axes?.trl} />
       <AxisCell value={axes?.brl} />
       <AxisCell value={axes?.grl} />

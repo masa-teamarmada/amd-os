@@ -100,7 +100,12 @@ export async function fetchSeedScreeningBandSummaries(): Promise<Map<string, See
   const [bandsResult, evidenceLevels] = await Promise.all([
     service
       .from("seed_screening_bands")
+      // measure_version='sps-ind-v1' (産業創出価値版・現行) に明示限定する。旧 'sps-eq-v0' (持分価値版) は
+      // まさ裁定 2026-08-16 (bzm/SPS_NAT_VALUE_MEASURE_PROPOSAL_2026-08-16.md §8) でOS非表示。
+      // 現状は assessed_at 降順の先頭行が偶然 ind-v1 と一致するが、将来 eq 系列の行が追加/再評価されて
+      // 新しい assessed_at を持った場合に紛れ込まないよう、無条件最新行から明示フィルタへ変更する。
       .select("seed_id, sps_lower_yen, sps_upper_yen, assessed_at, ruleset_version")
+      .eq("measure_version", "sps-ind-v1")
       .order("assessed_at", { ascending: false }),
     computeSeedEvidenceLevels(service),
   ]);
@@ -144,10 +149,12 @@ export async function fetchSeedScreeningBandDetail(seedId: string): Promise<Seed
   const [bandResult, evidenceLevels] = await Promise.all([
     service
       .from("seed_screening_bands")
+      // measure_version='sps-ind-v1' 限定 (上の fetchSeedScreeningBandSummaries と同じ理由)。
       .select(
-        "seed_id, ruleset_version, evaluator, assessed_at, stage_lower, stage_upper, stage_tag, q_lower_pct, q_upper_pct, q_main_factor, q_evidence, p_class, p_lower_yen, p_upper_yen, sps_lower_yen, sps_upper_yen, notes",
+        "seed_id, ruleset_version, evaluator, assessed_at, measure_version, stage_lower, stage_upper, stage_tag, q_lower_pct, q_upper_pct, q_main_factor, q_evidence, p_class, p_lower_yen, p_upper_yen, sps_lower_yen, sps_upper_yen, notes",
       )
       .eq("seed_id", seedId)
+      .eq("measure_version", "sps-ind-v1")
       .order("assessed_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -165,6 +172,7 @@ export async function fetchSeedScreeningBandDetail(seedId: string): Promise<Seed
     ruleset_version: string;
     evaluator: string;
     assessed_at: string;
+    measure_version: string;
     stage_lower: string | null;
     stage_upper: string | null;
     stage_tag: string | null;
@@ -185,6 +193,7 @@ export async function fetchSeedScreeningBandDetail(seedId: string): Promise<Seed
     evaluator: row.evaluator,
     ruleset_version: row.ruleset_version,
     assessed_at: row.assessed_at,
+    measure_version: row.measure_version,
     stage_lower: row.stage_lower,
     stage_upper: row.stage_upper,
     stage_tag: row.stage_tag,

@@ -172,6 +172,8 @@ export interface SeedScreeningBandSummary {
 /** シーズ詳細モーダル向け: 帯の最新行の全項目 + 根拠Lv */
 export interface SeedScreeningBandDetail extends SeedScreeningBandSummary {
   evaluator: string;
+  /** 'sps-ind-v1' (産業創出価値版・現行) 固定。旧 'sps-eq-v0' (持分価値版) 行はOS非表示のためこのDTOには出てこない */
+  measure_version: string;
   stage_lower: string | null;
   stage_upper: string | null;
   stage_tag: string | null;
