@@ -23,6 +23,7 @@
     "test:payment-obligations": "node --experimental-strip-types scripts/check_payment_obligations.mts",
     "test:freee-reconciliation-engine": "node --experimental-strip-types scripts/check_freee_reconciliation_engine.mts",
     "test:extra-revenue-cash": "node --experimental-strip-types scripts/check_extra_revenue_cash_timing.mts",
+    "test:contract-cash-month-fallback": "node --experimental-strip-types scripts/check_contract_cash_month_fallback.mts",
     "test:cockpit-season-finance-reserve": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_cockpit_season_finance_reserve.mts",
     "test:ms-overview-reward-reserve": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_ms_overview_reward_reserve.mts",
     "test:admin-schedule": "node --experimental-strip-types scripts/check_admin_schedule.mts",

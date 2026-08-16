@@ -44,7 +44,24 @@ export interface MonthlyPlProject {
   billingType?: "monthly" | "annual_march" | string;
   cashDelayMonths?: number | null;
   cashStartYm?: number | null;
+  /**
+   * PJ 単位のキャッシュ入金モード。`"explicit"` は「この PJ の入金は
+   * 全期間 projectRevenues.contractRevenueCash だけで供給される」の意味。
+   * 過去 snapshot 互換のために残しているフラグで、live 入力からは設定しない
+   * (= 台帳が将来月まで無い PJ の入金が丸ごと消える事故の原因になるため)。
+   * live 入力は月単位の `cashRevenueExplicitYms` を使う。
+   */
   cashRevenueMode?: "default" | "explicit" | string | null;
+  /**
+   * 本契約キャッシュ入金を billing_cycles 台帳で明示済みの稼働月 (YYYYMM の int)。
+   * ここに入っている月だけ自動入金 (売上 × 支払サイト) を止め、
+   * 台帳の無い月は自動入金へ戻す。
+   *
+   * PJ 単位で explicit を立てると「台帳が部分的にある PJ」だけが台帳切れ以降の
+   * 入金ゼロになる (契約継続中なのに CF が過少に出る) ため、月単位で判定する。
+   * 2026-08-16 修正。ZMP/SE/KUTE が 2027-04 以降 月116万円の入金欠落を起こしていた。
+   */
+  cashRevenueExplicitYms?: number[] | null;
 }
 
 export interface MonthlyPlFixedCost {
@@ -620,6 +637,14 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
     cashStartYm: p.cashStartYm,
     cashRevenueMode: p.cashRevenueMode,
   }));
+  // 本契約キャッシュ入金が台帳で明示済みの月 (PJ×稼働月)。ここに載る月だけ自動入金を止める。
+  const explicitCashYmsByProject = new Map<string, Set<number>>();
+  for (const p of projects) {
+    if (!p.cashRevenueExplicitYms?.length) continue;
+    explicitCashYmsByProject.set(p.projectId, new Set(p.cashRevenueExplicitYms));
+  }
+  const isCashExplicitFor = (pj: MonthlyPlProject, accrualYm: number) =>
+    pj.cashRevenueMode === "explicit" || (explicitCashYmsByProject.get(pj.projectId)?.has(accrualYm) ?? false);
   const cashRevenueByYm = new Map<number, Map<string, number>>();
   const addCashRevenue = (cashYm: number, projectId: string, amount: number) => {
     const byProject = cashRevenueByYm.get(cashYm) ?? new Map<string, number>();
@@ -644,7 +669,7 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
       const delay = Math.max(0, Math.floor(pj.cashDelayMonths ?? 0));
       let cashYm = addMonthsToYm(scheduleYm, delay);
       if (pj.cashStartYm && cashYm < pj.cashStartYm) cashYm = pj.cashStartYm;
-      if (pjRev > 0 && pj.cashRevenueMode !== "explicit") addCashRevenue(cashYm, pj.projectId, pjRev);
+      if (pjRev > 0 && !isCashExplicitFor(pj, scheduleYm)) addCashRevenue(cashYm, pj.projectId, pjRev);
       if (pjExtraCash > 0) addCashRevenue(scheduleYm, pj.projectId, pjExtraCash);
     }
     scheduleYm = nextYm(scheduleYm);

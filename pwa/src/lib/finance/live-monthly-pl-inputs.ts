@@ -436,7 +436,16 @@ export async function buildLiveMonthlyPlInputs(
   // PL 売上は稼働月に残し、キャッシュだけ請求月/支払サイトへ移す。
   // KUTE のように試算開始月より前の稼働分が当月入金になるケースを拾うため、
   // billing cycle は開始月から6か月遡って読む。
-  const contractCashProjectIds = new Set<string>();
+  // 台帳で入金を明示できた「PJ×稼働月」を集める。PJ 単位で explicit を立てると、
+  // 台帳が将来月まで無い継続 PJ (ZMP/SE/KUTE) の入金が丸ごと消える。
+  const contractCashExplicitYms = new Map<string, Set<number>>();
+  const markContractCashExplicit = (projectId: string, ym: string) => {
+    const ymInt = ymToInt(ym);
+    if (ymInt == null) return;
+    const set = contractCashExplicitYms.get(projectId) ?? new Set<number>();
+    set.add(ymInt);
+    contractCashExplicitYms.set(projectId, set);
+  };
   if (allProjectIds.length > 0) {
     const contractCashLookbackYm = addMonths(startYmStr, -6);
     const contractCashRes = await supabase
@@ -453,7 +462,7 @@ export async function buildLiveMonthlyPlInputs(
       if (!isProjectBudgetActive(project, row.ym)) continue;
       const cashRevenue = contractNetRevenueForCycle(row, project);
       if (cashRevenue <= 0) continue;
-      contractCashProjectIds.add(row.project_id);
+      markContractCashExplicit(row.project_id, row.ym);
       const cashYm = contractRevenueCashYm(row, project);
       if (cashYm == null || cashYm < startYm || cashYm > endInt) continue;
       projectRevenues.push({
@@ -467,8 +476,11 @@ export async function buildLiveMonthlyPlInputs(
     }
   }
 
+  // 台帳のある月だけ自動入金を止める。台帳の無い月 (契約継続中なのに billing_cycles が
+  // まだ作られていない将来月など) はエンジンの自動入金へ戻し、売上に見合う入金を立てる。
   for (const project of [...fixedRevenueProjects, ...variableProjectShells]) {
-    if (contractCashProjectIds.has(project.projectId)) project.cashRevenueMode = "explicit";
+    const explicitYms = contractCashExplicitYms.get(project.projectId);
+    if (explicitYms?.size) project.cashRevenueExplicitYms = [...explicitYms].sort((a, b) => a - b);
   }
 
   // ---- 別財布（別契約）売上: 全 PJ の billing_cycles.extra_revenue_json ----
