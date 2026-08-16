@@ -1946,7 +1946,8 @@ expectIncludes("src/components/cockpit/Bzm22TimeLedger.tsx", [
   "設立前PJ支出 / NewCo P/L",
   "SX_PREINCORPORATION_SPEND_ROW",
   'data-accounting-scope={notApplicableBeforeIncorporation ? "not-applicable-before-incorporation" : undefined}',
-  "設立前の明細はNewCo P/Lへ一切表示せず、費用は設立前PJ支出へ集約する。",
+  "CXはNewCo単体の試算表。設立前のAMD/NIMS PJ費用を会社のP/Lへ持ち込まない。",
+  "CX NewCoは${CX_INCORPORATION_YM}設立。設立前のPJ費用はこの試算表へ入力しない。",
   "draftBeforeIncorporation",
   'draftBeforeIncorporation ? "設立前PJ支出" : "月次試算"',
 ]);

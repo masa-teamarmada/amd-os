@@ -207,7 +207,7 @@ function plDisplayValue(
   if (!incorporationYm) return key === "preincorporation_spend" ? null : plValue(row, key);
   const beforeIncorporation = ym < incorporationYm;
   if (key === "preincorporation_spend") return beforeIncorporation ? plValue(row, key) : null;
-  // 設立前の明細はNewCo P/Lへ一切表示せず、費用は設立前PJ支出へ集約する。
+  // 設立前の明細はNewCo P/Lへ一切表示しない。SXだけは別途PJ支出として表示する。
   if (beforeIncorporation) return null;
   return plValue(row, key);
 }
@@ -484,14 +484,14 @@ function MonthCellFrame({ month, children = null, className = "" }: { month: Bzm
   );
 }
 
-function AnnualFinanceChart({ rows }: { rows: readonly AnnualFinanceSummaryRow[] }) {
+function AnnualFinanceChart({ rows, showPreincorporationSpend = false }: { rows: readonly AnnualFinanceSummaryRow[]; showPreincorporationSpend?: boolean }) {
   if (rows.length === 0) return null;
   const maxMagnitude = Math.max(
     1,
     ...rows.flatMap((row) => [
       row.revenueYen,
       row.cogsYen + row.personnelYen + row.rdYen + row.marketingYen + row.otherOpexYen,
-      row.preincorporationSpendYen,
+      ...(showPreincorporationSpend ? [row.preincorporationSpendYen] : []),
       Math.abs(row.operatingProfitYen),
       Math.abs(row.netCashFlowYen ?? 0),
     ]),
@@ -549,7 +549,7 @@ function AnnualFinanceChart({ rows }: { rows: readonly AnnualFinanceSummaryRow[]
                   <div className="relative h-3 bg-slate-100"><span aria-hidden="true" className="absolute inset-y-0 left-1/2 w-px bg-slate-300" /><div className={`absolute top-0 h-full ${row.operatingProfitYen < 0 ? "right-1/2 bg-rose-500" : "left-1/2 bg-[#173f51]"}`} style={{ width: `${Math.max(row.operatingProfitYen === 0 ? 0 : 2, Math.round((Math.abs(row.operatingProfitYen) / maxMagnitude) * 50))}%` }} /></div>
                   <span className={`text-right font-mono font-semibold tabular-nums ${row.operatingProfitYen < 0 ? "text-rose-700" : "text-[#173f51]"}`}>{formatMillionFromYen(row.operatingProfitYen)}</span>
                 </div>
-                {row.preincorporationSpendYen > 0 ? <div className="grid grid-cols-[68px_minmax(0,1fr)_58px] items-center gap-2 text-[9px]">
+                {showPreincorporationSpend && row.preincorporationSpendYen > 0 ? <div className="grid grid-cols-[68px_minmax(0,1fr)_58px] items-center gap-2 text-[9px]">
                   <span className="text-amber-800">設立前PJ支出</span>
                   <div className="h-3 overflow-hidden bg-amber-50"><div className="h-full bg-amber-500" style={{ width: width(row.preincorporationSpendYen) }} /></div>
                   <span className="text-right font-mono tabular-nums text-amber-900">{formatMillionFromYen(row.preincorporationSpendYen)}</span>
@@ -726,7 +726,8 @@ export function Bzm22TimeLedger({
     : pilot.projectId === "p20"
       ? CX_INCORPORATION_YM
       : null;
-  const visiblePlRows = accountingEntityYm ? SX_PL_ROWS : PL_ROWS;
+  // CXはNewCo単体の試算表。設立前のAMD/NIMS PJ費用を会社のP/Lへ持ち込まない。
+  const visiblePlRows = pilot.projectId === "p21" ? SX_PL_ROWS : PL_ROWS;
   const sxCashLedger = useMemo(() => {
     if (pilot.projectId !== "p21") return [] as SxCashLedgerRow[];
     const financeRows = buildSxMonthlyFinancePlan(axis.map((month) => month.ym), sxEquityEvents)
@@ -746,14 +747,16 @@ export function Bzm22TimeLedger({
     const financeByMonth = new Map((pilot.monthlyFinancePlan ?? []).map((row) => [row.ym, row]));
     return axis.filter((month) => month.ym >= CX_INCORPORATION_YM).map((month): SxCashLedgerRow => {
       const plan = financeByMonth.get(month.ym);
-      const operatingCashFlowYen = plan ? Math.round((plan.revenueMillionJpy - plan.opexMillionJpy) * 1_000_000) : 0;
+      const plRow = rowByMonth.get(month.ym) ?? emptyPlRow(pilot.projectId, month.ym);
+      // CX NewCoの営業C/FはNewCo P/Lから読む。BZM入力は別行の経済CFに残し、二重計上しない。
+      const operatingCashFlowYen = plValue(plRow, "operating_profit");
       const capexCashFlowYen = plan ? -Math.round(plan.capexMillionJpy * 1_000_000) : 0;
       const equityFundingYen = cxEquityEvents.filter((event) => event.ym === month.ym).reduce((total, event) => total + event.amountYen, 0);
       const grantReceiptYen = plan ? Math.round(plan.grantCashMillionJpy * 1_000_000) : 0;
       const netCashFlowYen = operatingCashFlowYen + capexCashFlowYen + equityFundingYen + grantReceiptYen;
       return { ym: month.ym, operatingCashFlowYen, capexCashFlowYen, equityFundingYen, loanDrawdownYen: null, grantReceiptYen, nonDilutiveFundingYen: 0, netCashFlowYen, openingCashYen: null, closingCashYen: null };
     });
-  }, [axis, cxEquityEvents, pilot.monthlyFinancePlan, pilot.projectId]);
+  }, [axis, cxEquityEvents, pilot.monthlyFinancePlan, pilot.projectId, rowByMonth]);
   const cashLedger = pilot.projectId === "p21" ? sxCashLedger : cxCashLedger;
   const cashByMonth = useMemo(() => new Map(cashLedger.map((row) => [row.ym, row])), [cashLedger]);
   const annualFinanceRows = useMemo(() => {
@@ -784,7 +787,7 @@ export function Bzm22TimeLedger({
         current.rdYen += plDisplayValue(plRow, "rd_yen", pilot.projectId, month.ym, accountingEntityYm) ?? 0;
         current.marketingYen += plDisplayValue(plRow, "marketing_yen", pilot.projectId, month.ym, accountingEntityYm) ?? 0;
         current.otherOpexYen += plDisplayValue(plRow, "other_opex_yen", pilot.projectId, month.ym, accountingEntityYm) ?? 0;
-        current.preincorporationSpendYen += plDisplayValue(plRow, "preincorporation_spend", pilot.projectId, month.ym, accountingEntityYm) ?? 0;
+        if (pilot.projectId === "p21") current.preincorporationSpendYen += plDisplayValue(plRow, "preincorporation_spend", pilot.projectId, month.ym, accountingEntityYm) ?? 0;
         current.operatingProfitYen += plDisplayValue(plRow, "operating_profit", pilot.projectId, month.ym, accountingEntityYm) ?? 0;
       }
       if (cashRow) {
@@ -907,6 +910,10 @@ export function Bzm22TimeLedger({
 
   const startEdit = (cell: Bzm22SharedMonthAxisCell) => {
     setSaveError(null);
+    if (pilot.projectId === "p20" && cell.ym < CX_INCORPORATION_YM) {
+      setSaveError(`CX NewCoは${CX_INCORPORATION_YM}設立。設立前のPJ費用はこの試算表へ入力しない。`);
+      return;
+    }
     setDraft(draftFromRow(rowByMonth.get(cell.ym) ?? emptyPlRow(pilot.projectId, cell.ym)));
   };
 
@@ -1062,7 +1069,7 @@ export function Bzm22TimeLedger({
                 const beforeIncorporation = month.ym < accountingEntityYm;
                 return (
                   <MonthCellFrame key={`entity-${month.ym}`} month={month} className={`px-1 py-0.5 text-right text-[8px] font-semibold leading-4 ${beforeIncorporation ? "bg-slate-100 text-slate-500" : "bg-[#e7eff2] text-[#173f51]"} ${month.ym === accountingEntityYm ? "border-l-2 border-l-[#173f51]" : ""}`}>
-                    {beforeIncorporation ? "設立前PJ" : "NewCo"}
+                    {beforeIncorporation ? (pilot.projectId === "p20" ? "法人未設立" : "設立前PJ") : "NewCo"}
                   </MonthCellFrame>
                 );
               })}
@@ -1070,7 +1077,7 @@ export function Bzm22TimeLedger({
           ) : null}
 
           <div className="contents">
-            <div className="sticky left-0 z-30 border-b border-r border-slate-300 bg-[#173f51] px-2 py-0.5 text-[10px] font-semibold leading-4 text-white">設立前PJ支出 / NewCo P/L</div>
+            <div className="sticky left-0 z-30 border-b border-r border-slate-300 bg-[#173f51] px-2 py-0.5 text-[10px] font-semibold leading-4 text-white">{pilot.projectId === "p20" ? "NewCo P/L" : "設立前PJ支出 / NewCo P/L"}</div>
             {axis.map((month) => <MonthCellFrame key={`pl-section-${month.ym}`} month={month} className={`bg-[#173f51] ${month.ym === accountingEntityYm ? "border-l-2 border-l-white" : ""}`} />)}
           </div>
 
@@ -1170,7 +1177,7 @@ export function Bzm22TimeLedger({
         </div>
       </div>
 
-      <AnnualFinanceChart rows={annualFinanceRows} />
+      <AnnualFinanceChart rows={annualFinanceRows} showPreincorporationSpend={pilot.projectId === "p21"} />
 
       {selectedGroup ? (
         <div className="border-t border-slate-200 bg-[#f7f9fa] px-2 py-1">
