@@ -1,5 +1,6 @@
 # 附則（変更履歴）
 
+| 2026-08-16 | 2-3 PJコックピット / 4-3 AMD Score詳細 | 追加 | スコア詳細の月次試算表直下に、4月始まりの年度ごとへ既存月次値を畳む年次集計グラフを追加。売上・費用内訳・営業利益を同じ尺度で表示し、C/FがあるPJは年次純C/Fも併記する。設立前PJ支出はNewCo P/Lと混ぜず別表示 | 月次表を横に追わず、年度ごとの収支構造と資金増減を比較できるようにするため | まさ・えいみ |
 | 2026-08-16 | 2-3 PJコックピット | 訂正 / 機能撤去 | 下記2026-08-16 (v3.78.0) 行が記録した「資料室folder→project_documents additive-only同期」機能を撤去 (v3.78.3)。実装先の `CockpitProjectDocuments` はPJ cockpitのどこからもレンダリングされていないdead codeで、UIとして一度も表示されたことが無かった (誤って死んだ実装へ機能追加していた)。`CockpitProjectDocuments.tsx` / `/api/project-documents` (GET/POST) / `/api/project-documents/reconcile` / `src/lib/project-documents/reconcile.ts` を削除。PJ cockpit「資料」の実体は本チャプター記載どおり `workspace_documents` / `WorkspaceDocumentRoom` のままで変更なし。共有ドライブの `AMD OS資料室` フォルダ名 (2026-08-16改名分) はそのまま維持し、ファイル移動・リネームはしない。`project_documents` テーブル自体は月次レポート印刷の添付一覧が読むため削除しない | まさ確定「使われていない実装を消す」(2026-08-16) | えいみ-worker |
 | 2026-08-16 | 2-3 PJコックピット | folder改名 / 新機能 | PJ cockpit「資料」の実体Drive folder名を `AMD OS 資料` → `AMD OS資料室` へ改名 (folder IDは不変)。資料室folderへ手動で置いたファイルも、コックピット表示時に自動でproject_documentsへadditive-only登録されるようになった (削除方向の同期はしない) | まさ確定「資料室と共有ドライブの各PJフォルダを双方向に一致させる」 | えいみ-worker |
 | 2026-08-14 | 4-3 AMD Score詳細 | 会計表示訂正 | SXの設立前月はNewCo P/Lの全明細を`—`にし、費用入力を正の「設立前PJ支出」へ集約。設立月以後だけNewCo P/L・C/Fを表示する | 営業利益だけを対象外にした表示漏れを解消するため | まさ・えいみ |

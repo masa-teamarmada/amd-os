@@ -126,6 +126,21 @@ interface SxCashLedgerRow {
   closingCashYen: number | null;
 }
 
+interface AnnualFinanceSummaryRow {
+  fiscalYear: number;
+  revenueYen: number;
+  cogsYen: number;
+  personnelYen: number;
+  rdYen: number;
+  marketingYen: number;
+  otherOpexYen: number;
+  preincorporationSpendYen: number;
+  operatingProfitYen: number;
+  netCashFlowYen: number | null;
+  equityFundingYen: number | null;
+  grantReceiptYen: number | null;
+}
+
 type SxCashMetricKey =
   | "openingCashYen"
   | "operatingCashFlowYen"
@@ -240,6 +255,11 @@ function previousYm(ym: string) {
   const [year, month] = ym.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 2, 1));
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function fiscalYearFromYm(ym: string) {
+  const [year, month] = ym.split("-").map(Number);
+  return month < 4 ? year - 1 : year;
 }
 
 function sxTimelineItem(
@@ -464,6 +484,90 @@ function MonthCellFrame({ month, children = null, className = "" }: { month: Bzm
   );
 }
 
+function AnnualFinanceChart({ rows }: { rows: readonly AnnualFinanceSummaryRow[] }) {
+  if (rows.length === 0) return null;
+  const maxMagnitude = Math.max(
+    1,
+    ...rows.flatMap((row) => [
+      row.revenueYen,
+      row.cogsYen + row.personnelYen + row.rdYen + row.marketingYen + row.otherOpexYen,
+      row.preincorporationSpendYen,
+      Math.abs(row.operatingProfitYen),
+      Math.abs(row.netCashFlowYen ?? 0),
+    ]),
+  );
+  const width = (value: number) => `${Math.max(value === 0 ? 0 : 3, Math.round((Math.abs(value) / maxMagnitude) * 100))}%`;
+  const expenseSegments = [
+    ["売上原価", "#7898a5", "cogsYen"],
+    ["人件費", "#557582", "personnelYen"],
+    ["研究開発費", "#2f766b", "rdYen"],
+    ["マーケ費", "#8b7045", "marketingYen"],
+    ["その他販管費", "#9aa9ad", "otherOpexYen"],
+  ] as const;
+  const hasCashFlow = rows.some((row) => row.netCashFlowYen !== null);
+
+  return (
+    <section data-testid="bzm22-annual-finance-chart" aria-labelledby="bzm22-annual-finance-chart-title" className="border-t border-[#b9cbd1] bg-[#f7f9fa] px-2 py-2 sm:px-3">
+      <div className="mb-2 flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
+        <div>
+          <h4 id="bzm22-annual-finance-chart-title" className="text-[12px] font-semibold text-[#173f51]">年次集計グラフ</h4>
+          <p className="text-[9px] leading-3 text-slate-600">4月始まり。月次試算表の値だけを年度単位へ集計。</p>
+        </div>
+        <span className="text-[9px] font-semibold text-slate-600">単位：百万円</span>
+      </div>
+      <div className="mb-2 flex flex-wrap gap-x-2.5 gap-y-1 text-[8px] text-slate-600">
+        {expenseSegments.map(([label, color]) => <span key={label} className="inline-flex items-center gap-1"><i aria-hidden="true" className="h-2 w-2" style={{ backgroundColor: color }} />{label}</span>)}
+        <span className="inline-flex items-center gap-1"><i aria-hidden="true" className="h-2 w-2 bg-[#173f51]" />営業利益</span>
+      </div>
+      <div className="grid gap-2 xl:grid-cols-2">
+        {rows.map((row) => {
+          const expenses = row.cogsYen + row.personnelYen + row.rdYen + row.marketingYen + row.otherOpexYen;
+          return (
+            <article key={row.fiscalYear} className="min-w-0 border border-slate-200 bg-white p-2">
+              <div className="mb-2 flex items-baseline justify-between gap-2 border-b border-slate-100 pb-1">
+                <h5 className="text-[11px] font-semibold text-[#173f51]">FY{row.fiscalYear}</h5>
+                <span className={`font-mono text-[11px] font-semibold tabular-nums ${row.operatingProfitYen < 0 ? "text-rose-700" : "text-[#2f766b]"}`}>営業利益 {formatMillionFromYen(row.operatingProfitYen)}</span>
+              </div>
+              <div className="space-y-1.5">
+                <div className="grid grid-cols-[68px_minmax(0,1fr)_58px] items-center gap-2 text-[9px]">
+                  <span className="text-slate-600">売上</span>
+                  <div className="h-3 overflow-hidden bg-[#e7eff2]"><div className="h-full bg-[#2f6f87]" style={{ width: width(row.revenueYen) }} /></div>
+                  <span className="text-right font-mono tabular-nums text-slate-800">{formatMillionFromYen(row.revenueYen)}</span>
+                </div>
+                <div className="grid grid-cols-[68px_minmax(0,1fr)_58px] items-center gap-2 text-[9px]">
+                  <span className="text-slate-600">費用</span>
+                  <div className="flex h-3 overflow-hidden bg-slate-100" style={{ width: width(expenses) }}>
+                    {expenseSegments.map(([, color, key]) => {
+                      const value = row[key];
+                      return value > 0 ? <div key={key} className="h-full" style={{ width: `${(value / expenses) * 100}%`, backgroundColor: color }} /> : null;
+                    })}
+                  </div>
+                  <span className="text-right font-mono tabular-nums text-slate-800">{formatMillionFromYen(expenses)}</span>
+                </div>
+                <div className="grid grid-cols-[68px_minmax(0,1fr)_58px] items-center gap-2 text-[9px]">
+                  <span className="font-semibold text-[#173f51]">営業利益</span>
+                  <div className="relative h-3 bg-slate-100"><span aria-hidden="true" className="absolute inset-y-0 left-1/2 w-px bg-slate-300" /><div className={`absolute top-0 h-full ${row.operatingProfitYen < 0 ? "right-1/2 bg-rose-500" : "left-1/2 bg-[#173f51]"}`} style={{ width: `${Math.max(row.operatingProfitYen === 0 ? 0 : 2, Math.round((Math.abs(row.operatingProfitYen) / maxMagnitude) * 50))}%` }} /></div>
+                  <span className={`text-right font-mono font-semibold tabular-nums ${row.operatingProfitYen < 0 ? "text-rose-700" : "text-[#173f51]"}`}>{formatMillionFromYen(row.operatingProfitYen)}</span>
+                </div>
+                {row.preincorporationSpendYen > 0 ? <div className="grid grid-cols-[68px_minmax(0,1fr)_58px] items-center gap-2 text-[9px]">
+                  <span className="text-amber-800">設立前PJ支出</span>
+                  <div className="h-3 overflow-hidden bg-amber-50"><div className="h-full bg-amber-500" style={{ width: width(row.preincorporationSpendYen) }} /></div>
+                  <span className="text-right font-mono tabular-nums text-amber-900">{formatMillionFromYen(row.preincorporationSpendYen)}</span>
+                </div> : null}
+                {hasCashFlow && row.netCashFlowYen !== null ? <div className="grid grid-cols-[68px_minmax(0,1fr)_58px] items-center gap-2 border-t border-slate-100 pt-1.5 text-[9px]">
+                  <span className="text-slate-600">年次純C/F</span>
+                  <div className="relative h-3 bg-slate-100"><span aria-hidden="true" className="absolute inset-y-0 left-1/2 w-px bg-slate-300" /><div className={`absolute top-0 h-full ${row.netCashFlowYen < 0 ? "right-1/2 bg-rose-400" : "left-1/2 bg-[#2f766b]"}`} style={{ width: `${Math.max(row.netCashFlowYen === 0 ? 0 : 2, Math.round((Math.abs(row.netCashFlowYen) / maxMagnitude) * 50))}%` }} /></div>
+                  <span className={`text-right font-mono tabular-nums ${row.netCashFlowYen < 0 ? "text-rose-700" : "text-[#2f766b]"}`}>{formatMillionFromYen(row.netCashFlowYen)}</span>
+                </div> : null}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export function Bzm22TimeLedger({
   pilot,
   gateMonths,
@@ -652,6 +756,46 @@ export function Bzm22TimeLedger({
   }, [axis, cxEquityEvents, pilot.monthlyFinancePlan, pilot.projectId]);
   const cashLedger = pilot.projectId === "p21" ? sxCashLedger : cxCashLedger;
   const cashByMonth = useMemo(() => new Map(cashLedger.map((row) => [row.ym, row])), [cashLedger]);
+  const annualFinanceRows = useMemo(() => {
+    const annual = new Map<number, AnnualFinanceSummaryRow>();
+    for (const month of axis) {
+      const plRow = rowByMonth.get(month.ym);
+      const cashRow = cashByMonth.get(month.ym);
+      if (!plRow && !cashRow) continue;
+      const fiscalYear = fiscalYearFromYm(month.ym);
+      const current = annual.get(fiscalYear) ?? {
+        fiscalYear,
+        revenueYen: 0,
+        cogsYen: 0,
+        personnelYen: 0,
+        rdYen: 0,
+        marketingYen: 0,
+        otherOpexYen: 0,
+        preincorporationSpendYen: 0,
+        operatingProfitYen: 0,
+        netCashFlowYen: cashRow ? 0 : null,
+        equityFundingYen: cashRow ? 0 : null,
+        grantReceiptYen: cashRow ? 0 : null,
+      };
+      if (plRow) {
+        current.revenueYen += plDisplayValue(plRow, "revenue_yen", pilot.projectId, month.ym, accountingEntityYm) ?? 0;
+        current.cogsYen += plDisplayValue(plRow, "cogs_yen", pilot.projectId, month.ym, accountingEntityYm) ?? 0;
+        current.personnelYen += plDisplayValue(plRow, "personnel_yen", pilot.projectId, month.ym, accountingEntityYm) ?? 0;
+        current.rdYen += plDisplayValue(plRow, "rd_yen", pilot.projectId, month.ym, accountingEntityYm) ?? 0;
+        current.marketingYen += plDisplayValue(plRow, "marketing_yen", pilot.projectId, month.ym, accountingEntityYm) ?? 0;
+        current.otherOpexYen += plDisplayValue(plRow, "other_opex_yen", pilot.projectId, month.ym, accountingEntityYm) ?? 0;
+        current.preincorporationSpendYen += plDisplayValue(plRow, "preincorporation_spend", pilot.projectId, month.ym, accountingEntityYm) ?? 0;
+        current.operatingProfitYen += plDisplayValue(plRow, "operating_profit", pilot.projectId, month.ym, accountingEntityYm) ?? 0;
+      }
+      if (cashRow) {
+        current.netCashFlowYen = (current.netCashFlowYen ?? 0) + cashRow.netCashFlowYen;
+        current.equityFundingYen = (current.equityFundingYen ?? 0) + cashRow.equityFundingYen;
+        current.grantReceiptYen = (current.grantReceiptYen ?? 0) + cashRow.grantReceiptYen;
+      }
+      annual.set(fiscalYear, current);
+    }
+    return [...annual.values()].sort((left, right) => left.fiscalYear - right.fiscalYear);
+  }, [accountingEntityYm, axis, cashByMonth, pilot.projectId, rowByMonth]);
   const sxFirstEquityEvent = useMemo(
     () => [...sxEquityEvents].sort((left, right) => left.ym.localeCompare(right.ym))[0] ?? null,
     [sxEquityEvents],
@@ -1025,6 +1169,8 @@ export function Bzm22TimeLedger({
           })}
         </div>
       </div>
+
+      <AnnualFinanceChart rows={annualFinanceRows} />
 
       {selectedGroup ? (
         <div className="border-t border-slate-200 bg-[#f7f9fa] px-2 py-1">
