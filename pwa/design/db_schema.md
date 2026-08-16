@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-15 16:24 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-16 10:28 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -118,7 +118,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 2,168
+行数 (概算): 2,175
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -1103,7 +1103,7 @@ UNIQUE: `(project_id,feed_url)` (constraint: `calendar_feed_sources_project_id_f
 
 ## company_actual_monthly
 
-行数 (概算): 126
+行数 (概算): 127
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -5469,7 +5469,7 @@ PRIMARY KEY: `project_id`
 
 ## project_weekly_effort_entries
 
-行数 (概算): 71
+行数 (概算): 81
 PRIMARY KEY: `id`
 UNIQUE: `(project_id,member_id,week_start,work_category)` (constraint: `project_weekly_effort_entries_project_id_member_id_week_sta_key`)
 
@@ -5817,6 +5817,7 @@ PRIMARY KEY: `id`
 | 19 | `frozen` | `bool` | NOT NULL | `false` |
 | 20 | `notes` | `text` | NULL | `` |
 | 21 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 22 | `measure_version` | `text` | NOT NULL | `'sps-eq-v0'::text` |
 
 ## seed_sps_assessments
 

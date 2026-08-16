@@ -1,0 +1,2146 @@
+[
+ {
+  "no": 1,
+  "title": "165〜220nm次世代クリーンUV面光源",
+  "stage_hypothesis": "S0〜S1",
+  "evaluator": "えいみ (session ff92697d サブエージェント batchA / rubric v1+v1.1 / blind)",
+  "evaluated_at": "2026-08-16",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "「出力密度、寿命、熱設計、オゾン等の安全性、量産面積、既存エキシマランプやLEDとの総コスト比較が未確認」(biggest_bottleneck)、「岩塩構造MgZnO半導体」「ミストCVD」(summary/keywords)",
+    "assessment": "単位経済の核心（コスト・寿命・出力）が全て未確認と明記。新材料MgZnO+ミストCVDは既存半導体設備がそのまま使えるか不明で、成立性は現状証明されていない。",
+    "direction": "down"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "「primary_commercialization_type: license」",
+    "assessment": "ライセンス型を想定しており、自社量産ラインを持たなければ累積資金の桁は抑えられる。ただしライセンス先が現れる水準までのデバイス実証には光源開発の設備投資が要る（一般知識）。",
+    "direction": "up"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "「ミストCVD」(keywords)、「量産再現性を検証する」(summary)",
+    "assessment": "成膜プロセスが律速のプロセス型要素が強い。歩留まり・面積スケールが壁になる型。",
+    "direction": "down"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "「出力、寿命、安全性、量産再現性を検証する」(summary)",
+    "assessment": "量産再現性がこれから検証する項目として明記されており、現時点で再現性の証拠はない。",
+    "direction": "widen"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "「真空紫外またはUV-Cの光源・殺菌装置メーカーの研究開発部門」(first_customer_candidate)、「水銀灯関連市場の置換可能部分」(market_size_range)",
+    "assessment": "既存の水銀灯・UV光源市場の置き換えで、支払者（装置メーカー）が既に存在する。新しい財布を作る必要がない。",
+    "direction": "up"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "「光源・殺菌装置メーカーの研究開発部門」(first_customer_candidate)",
+    "assessment": "部品（光源）のサンプル評価はメーカーR&D部門の通常業務に乗り、検証コストは相対的に軽い（一般知識）。",
+    "direction": "up"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "「オゾン等の安全性」(biggest_bottleneck)、industry_targetに「医療機器」",
+    "assessment": "第一顧客がメーカーR&Dなら承認関門は直接は無いが、オゾン安全性が未確認で、医療機器用途に進むなら認証年数がかかる（一般知識）。",
+    "direction": "neutral"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "「既存エキシマランプやLEDとの総コスト比較が未確認」(biggest_bottleneck)",
+    "assessment": "水銀フリー面光源という機能差はあるが、コスト・性能の差が10倍か10%かは未確認と明記。",
+    "direction": "widen"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "「水銀を使わず」(summary)、「水銀フリー」(keywords)",
+    "assessment": "水銀代替は規制・社会の追い風方向で、受容の構造逆風はない。ただし帯を桁で上げる政策資金流入の引用はJSONに無い。",
+    "direction": "neutral"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "直撃テーマ該当なし（「半導体製造プロセス・先端パッケージング」は成膜用途で周辺接触、「海洋・水資源・淡水化」は水処理用途で周辺接触に留まる）",
+    "assessment": "Atlas直撃なし。v1.1規律により該当なしは中立、下押しにも使わない。",
+    "direction": "neutral"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "「特願2025-119206、特願2025-119207の記載あり。請求項、帰属、海外出願、他方式への非侵害性は未確認」(ip_status)",
+    "assessment": "出願2件の存在は確認できるが、権利範囲と独占可能性は不明。存在自体はライセンスモデルの前提としてプラス、中身不明で幅要因。",
+    "direction": "widen"
+   }
+  ],
+  "q_lower_pct": 1,
+  "q_upper_pct": 6,
+  "main_factor_tag": "量産",
+  "notes": "帯の位置はライセンス型+既存財布（水銀灯置換）で押し上げ、量産再現性・総コスト未確認で押し下げ。S0〜S1・AMD接触前としてSX(22%)より大きく手前に置く。研究者の事業化シグナルは文書から観察されず。"
+ },
+ {
+  "no": 2,
+  "title": "500℃以下で動作するCO2→CO資源化触媒",
+  "stage_hypothesis": "S0〜S1",
+  "evaluator": "えいみ (session ff92697d サブエージェント batchA / rubric v1+v1.1 / blind)",
+  "evaluated_at": "2026-08-16",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "「低温動作で省エネ・低コスト化」(summary)。触媒コスト・寿命・CO製造単価の記載なし",
+    "assessment": "方向性の主張のみで、単位あたり経済（CO製造コストが既存合成ガス経路に勝つか）を判定する材料が無い。",
+    "direction": "widen"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "「化成品」「合成燃料」「CCU」(industry_target)",
+    "assessment": "適用先がプラント産業で、実証〜商用は化学プラントスケールの累積資金が要る型（一般知識）。触媒単体のライセンスに徹する道もあるがJSONに事業型の記載なし。",
+    "direction": "down"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "「低温触媒」「CO2還元」(keywords)",
+    "assessment": "素材・化学のプロセス型。連続運転・触媒劣化・スケールアップが壁になる型。",
+    "direction": "down"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "引用不可（性能データ・運転時間等の記載なし）",
+    "assessment": "判定材料なし。帯を広げる。",
+    "direction": "widen"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "引用不可（first_customer_candidate: null）。industry_targetの「CCU」から推す",
+    "assessment": "COは既存化学原料で財布は存在する（一般知識）が、CO2原料での置き換えが経済合理か政策財布（クレジット・補助）依存かをJSONから判定できない。",
+    "direction": "widen"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "引用不可。適用先が「化成品」「合成燃料」プラント(industry_target)",
+    "assessment": "顧客側の検証はベンチ〜パイロットプラント実証になり、金も期間も大きい型（一般知識）。",
+    "direction": "down"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "引用不可",
+    "assessment": "医薬のような承認プロセスは無い（一般知識）。中立。",
+    "direction": "neutral"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "「従来より低温域 (500℃以下)」(summary)",
+    "assessment": "低温化という差の方向はあるが、温度差が総コストで10倍効くのか10%なのかを判定する材料なし。",
+    "direction": "widen"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "「カーボンリサイクル」(keywords)、domain_lane「gx_circular」",
+    "assessment": "脱炭素文脈で社会受容の構造逆風はない。帯を桁で動かす引用材料も無い。",
+    "direction": "neutral"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "直撃テーマ該当なし（「水素・アンモニア」はtag「脱炭素」「NEDO公募」で周辺接触だがCCU/カーボンリサイクル直撃のテーマは54件に無い）",
+    "assessment": "Atlas直撃なし=中立。政策資金の実流入もJSONから観測できず（seed_funding空）、v1.1上げ側は適用しない。",
+    "direction": "neutral"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "引用不可（ip_status: null）",
+    "assessment": "判定材料なし。帯を広げる。",
+    "direction": "widen"
+   }
+  ],
+  "q_lower_pct": 0.2,
+  "q_upper_pct": 4,
+  "main_factor_tag": "資本集約",
+  "notes": "バッチ内で最も情報が薄い（研究者名・用途・IP・ボトルネック全てnull）。帯の位置はプロセス型×プラント資本集約で低く、帯の幅は知らなさで広く取った。研究者の事業化シグナルは観察不能（研究者名すら無い）。"
+ },
+ {
+  "no": 3,
+  "title": "iPS細胞由来 涙腺オルガノイド",
+  "stage_hypothesis": "S1",
+  "evaluator": "えいみ (session ff92697d サブエージェント batchA / rubric v1+v1.1 / blind)",
+  "evaluated_at": "2026-08-16",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "「iPS細胞から涙腺オルガノイドを作製」「再生医療シーズ」(summary)",
+    "assessment": "細胞加工製品はGMP細胞培養施設という特殊インフラ依存（ルーブリック§1の明示例）で、単位コストが構造的に重い。移植製品としての単価・原価の記載は無いが、型として成立ハードルが高い。",
+    "direction": "down"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "「再生医療」(industry_target)。一般知識: 再生医療等製品は非臨床〜治験〜承認まで累積数十億円規模",
+    "assessment": "資本自立までの累積資金の桁がバッチ内で最大。調達ゲートの回数が多く、到達見込みが掛け算で削られる典型。",
+    "direction": "down"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "「オルガノイド」「iPS細胞」(keywords)",
+    "assessment": "バイオのプロセス型。培養の歩留まり・品質一貫性が壁。",
+    "direction": "down"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "「作製する技術を確立」(summary)のみ。ロット間再現性・ヒト適用データの記載なし",
+    "assessment": "確立と書かれているが再現性を裏づける材料はJSONに無い。",
+    "direction": "widen"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "「ドライアイなど涙腺機能異常」(summary)、「眼科」(industry_target)",
+    "assessment": "承認後は公的医療保険という既存財布に乗る（一般知識）が、そこに届くまでの長い期間は財布が存在しない。二面的で判定を狭められない。",
+    "direction": "widen"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "「再生医療」(industry_target)。一般知識: 検証=治験",
+    "assessment": "顧客（医療）の検証は治験そのもので、金と期間が最大級。",
+    "direction": "down"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "「再生医療」(industry_target)。一般知識: 再生医療等製品の承認は年単位の関門",
+    "assessment": "承認プロセスが必須で年数がかかる。関門の存在は確実。",
+    "direction": "down"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "引用不可（既存治療との比較記載なし）",
+    "assessment": "軽症ドライアイには安価な点眼という代替があり、根治不能な重症涙腺機能異常なら差は桁になりうる（一般知識）が、対象セグメントの記載が無く判定不能。",
+    "direction": "widen"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "「iPS細胞」(keywords)",
+    "assessment": "iPS再生医療は日本で社会受容・制度整備が進んだ分野（一般知識）で、構造逆風はない。中立。",
+    "direction": "neutral"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "Atlasテーマ「再生医療・遺伝子治療」に直撃（tag: 再生医療等安全性確保法/細胞加工委託/バイオテック投資）",
+    "assessment": "テーマ1件直撃。ただしv1.1上げ側の要件である政策資金・調達の実流入はJSONから観測できず（seed_funding空）、帯を桁で上げる適用はしない。弱い上げに留める。",
+    "direction": "up"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "引用不可（ip_status: null）",
+    "assessment": "判定材料なし。帯を広げる。",
+    "direction": "widen"
+   }
+  ],
+  "q_lower_pct": 0.1,
+  "q_upper_pct": 1.5,
+  "main_factor_tag": "資本集約",
+  "notes": "二大要素の両方（GMP特殊インフラ依存のユニットエコノミクス+最大級の資本集約度）と治験・承認関門が重なり、法人設立前S1から資本自立への到達は調達ゲート通過確率の積で最も削られる。Atlas直撃はあるが政策資金流入の引用が無く帯の位置は動かさない。研究者の事業化シグナルは観察されず（研究者名の記載なし）。"
+ },
+ {
+  "no": 4,
+  "title": "シストセンチュウ孵化促進物質を基軸とした新規根圏シグナル分子群の開拓",
+  "stage_hypothesis": "S0",
+  "evaluator": "えいみ (session ff92697d サブエージェント batchA / rubric v1+v1.1 / blind)",
+  "evaluated_at": "2026-08-16",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "「未知のシグナル分子を網羅的に探索・同定する研究」(summary)、trl:1",
+    "assessment": "対象分子の同定前で、製造コストも製品形態も存在しない。単位経済は原理的に判定不能。",
+    "direction": "widen"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "「農薬・バイオ農薬」(industry_target)。一般知識: 農薬登録には安全性試験の積み上げで数億〜十億円規模",
+    "assessment": "医薬ほどではないが、登録試験の資金が要り調達ゲートが複数回ある型。分子が安価に合成できるかも未知。",
+    "direction": "down"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "「孵化促進物質」(keywords)",
+    "assessment": "低分子・天然物系なら既存の受託合成・製剤網に乗りうる（一般知識）で、プロセス型の中では軽い側。ただし分子未同定のため確定できない。",
+    "direction": "neutral"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "「trl: 1, brl: 1」",
+    "assessment": "TRL1=原理探索段階で、再現性を語る段階に達していない。",
+    "direction": "widen"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "「農業害虫防除」(summary)、「農薬・バイオ農薬」(industry_target)",
+    "assessment": "シストセンチュウ防除は既存の農薬予算が既に存在する置き換え型（一般知識）。財布は既にある。",
+    "direction": "up"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "「農業」(industry_target)。一般知識: 圃場試験は作期に律速され年単位",
+    "assessment": "効果検証が栽培サイクルに縛られ、検証期間が構造的に長い。",
+    "direction": "down"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "「農薬・バイオ農薬」(industry_target)。一般知識: 農薬取締法の登録は数年規模の関門",
+    "assessment": "農薬として売るなら登録関門が必須。バイオ農薬でも免除はない。",
+    "direction": "down"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "引用不可（既存殺線虫剤との比較記載なし）",
+    "assessment": "孵化促進による防除は既存殺線虫剤と別機序になりうる（一般知識）が、効果・コストの桁を判定する材料なし。",
+    "direction": "widen"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "「植物保護」(keywords)、domain_lane「life」",
+    "assessment": "バイオ由来の防除資材は化学農薬より受容が良い方向（一般知識）だが、帯を桁で動かす引用は無い。中立。",
+    "direction": "neutral"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "Atlasテーマ「食・農業政策とアグリテック」に接触（tag: スマート農業/アグリテック投資/農業投入コスト）。seed_fundingに「創発的研究支援事業（第6回公募・2025年度）status: awarded」",
+    "assessment": "テーマ適合はあるが直撃1件、かつ観測できた資金流入はJST創発（基礎研究費）で分野への産業政策資金ではない。v1.1の桁上げ要件は満たさず、弱い上げに留める。",
+    "direction": "up"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "引用不可（ip_status: null）",
+    "assessment": "判定材料なし。分子同定前なので物質特許の取り所はこれから（一般知識）。帯を広げる。",
+    "direction": "widen"
+   }
+  ],
+  "q_lower_pct": 0.2,
+  "q_upper_pct": 3,
+  "main_factor_tag": "規制",
+  "notes": "バッチ内で最も早期（TRL1/BRL1、S0）。既存の防除予算という財布の存在が下限を支え、農薬登録関門+圃場検証の時計が上限を抑える。JST創発採択(2025年度, awarded)は研究資金であり事業化シグナルとしては扱わない（帯に効かせず記録のみ）。"
+ },
+ {
+  "no": 5,
+  "title": "スポーツ組織における知識継承の社会実装",
+  "stage_hypothesis": "S1",
+  "evaluator": "えいみ (session ff92697d サブエージェント / 第2回 rubric v1.1)",
+  "evaluated_at": "2026-08-16",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "「地方クラブ発の知識継承の仕組みを実装し、スポーツが導く未来の組織運営モデルを構築」(summary)",
+    "assessment": "何をいくらで誰に売るかが文書から読めない。一般知識として地方スポーツクラブは支払余力が小さく、単価設計の成立性は未確認。",
+    "direction": "widen"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "industry_target「スポーツ, 組織開発」/ summary「組織運営モデルを構築」",
+    "assessment": "知識・サービス型で特殊インフラ依存の記載なし。資本自立までの累積資金の桁は小さい見込みで、調達ゲートの回数は少ない。",
+    "direction": "up"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "keywords「知識継承, スポーツ, 組織モデル」",
+    "assessment": "プロセス型の壁（連続運転・歩留まり）はない。ただし人的サービス型ならスケールは人に律速される可能性（一般知識）。",
+    "direction": "neutral"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "引用不可（trl/brl/hrl すべて null、研究データの記載なし）",
+    "assessment": "再現性を判定する材料が文書にない。",
+    "direction": "widen"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "industry_target「スポーツ, 組織開発」",
+    "assessment": "地方クラブに「知識継承」の既存予算科目は通常存在せず（一般知識）、新しい財布を作る必要がある型。二大要素の次にこの要因が帯の位置を押し下げる。",
+    "direction": "down"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "引用不可（envisioned_use_case / first_customer_candidate ともに null）",
+    "assessment": "導入金額は小さそうだが、知識継承の効果測定は長期に及ぶ可能性（一般知識）。文書根拠なし。",
+    "direction": "widen"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "引用不可（規制関門の記載なし）",
+    "assessment": "一般知識でも承認プロセスを要する分野ではない。関門なしとして中立。",
+    "direction": "neutral"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "引用不可",
+    "assessment": "既存の組織コンサル・研修との差の桁を判定する材料がない。",
+    "direction": "widen"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "引用不可（構造逆風を示す記載なし）",
+    "assessment": "前提インフラ未成立や市場閉鎖のような構造逆風は観察されない。中立。",
+    "direction": "neutral"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "該当なし（Atlas 54件にスポーツ組織・知識継承の直撃テーマなし）",
+    "assessment": "v1.1規律3に従い、該当なしは中立であり下押しに使わない。",
+    "direction": "neutral"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "ip_status: null（引用不可）",
+    "assessment": "権利化状況の記載なし。一般知識として組織運営モデルは権利化が困難で独占可能性は弱い見込みだが、文書根拠がないため幅で表す。",
+    "direction": "widen"
+   }
+  ],
+  "q_lower_pct": 0.5,
+  "q_upper_pct": 5,
+  "main_factor_tag": "財布",
+  "notes": "PSI GAP S1採択（seed_funding: status=awarded, FY2025）は公的資金の実流入だが、汎用のSU創出プログラムであり分野固有の風の根拠にはしない。低資本集約が上限を支え、支払者不明が位置を下げる。研究者の事業化シグナルの文書観察なし。"
+ },
+ {
+  "no": 6,
+  "title": "スマートハザードマップ 2.0 (松山編)",
+  "stage_hypothesis": "S1〜S2",
+  "evaluator": "えいみ (session ff92697d サブエージェント / 第2回 rubric v1.1)",
+  "evaluated_at": "2026-08-16",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "「災害シミュレーション × 個別避難経路最適化」(summary) / domain_lane「ict」",
+    "assessment": "ソフトウェア提供で限界費用は低い構造（一般知識）。ただし自治体向け単価・契約形態は文書になく、成立性そのものは未確認。",
+    "direction": "up"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "domain_lane「ict」/ summary「最適避難行動支援システム」",
+    "assessment": "特殊インフラ依存の記載なし。ICTシステムで累積資金の桁は小さく、調達ゲートの回数が少ない。二大要素の一方が明確に有利。",
+    "direction": "up"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "domain_lane「ict」/ industry_target「防災, スマートシティ」",
+    "assessment": "組立・ソフト型。既存の計算資源と配布網に乗る。",
+    "direction": "up"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "title「(松山編)」",
+    "assessment": "松山ローカルの実装が起点。都市ごとに倒壊・津波シミュレーションの再整備が必要になる可能性があり、横展開の再現コストは文書から判定できない。",
+    "direction": "widen"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "industry_target「防災, スマートシティ」",
+    "assessment": "自治体の防災予算という既存の財布が存在する（一般知識）。ハザードマップは自治体の既存業務であり置き換え型に近いが、高度化への追加支出は新規性あり。",
+    "direction": "up"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "引用不可（first_customer_candidate: null）",
+    "assessment": "実災害での効果検証は不可能でシミュレーション評価に依存。自治体実証は年度単位で長い（一般知識）。文書根拠がないため幅で表す。",
+    "direction": "widen"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "引用不可（規制関門の記載なし）",
+    "assessment": "防災支援システムに法定承認プロセスはない（一般知識）。中立。",
+    "direction": "neutral"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "「地震発生時に家屋倒壊や津波到達を考慮した最適避難行動支援」(summary)",
+    "assessment": "静的ハザードマップ比で質的な向上は読めるが、差の桁（10倍か10%か）の定量根拠は引用不可。",
+    "direction": "widen"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "引用不可（構造逆風を示す記載なし）",
+    "assessment": "防災は受容の高い分野で、前提インフラ（スマホ・自治体DX）は成立済み（一般知識）。構造逆風なし。上げ側はAtlas引用が取れる要因10で扱う。",
+    "direction": "neutral"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "Atlas「防災・災害リスク管理」（防災DX・リアルタイムモニタリングの事業機会）直撃、「公共・行政デジタル基盤」（行政DX）隣接。政策資金の実流入 = seed_funding「PSI GAP S1 awarded FY2025」",
+    "assessment": "v1.1上げ側の要件（Atlas直撃 + 資金の実流入の引用）を満たす。防災DXの風が調達ゲートを緩める主要因として上限を引き上げる。",
+    "direction": "up"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "ip_status: null（引用不可）",
+    "assessment": "権利化状況の記載なし。ソフトウェアの独占可能性は一般に弱いが、文書根拠がないため幅で表す。",
+    "direction": "widen"
+   }
+  ],
+  "q_lower_pct": 1,
+  "q_upper_pct": 7,
+  "main_factor_tag": "風",
+  "notes": "バッチB内で最上位。低資本集約×既存財布（自治体防災予算）×Atlas直撃が上限を押し上げ、自治体商流の単価の低さと横展開の再現コスト不明が下限を抑える。SXアンカー(22%, S2〜S3, CEO内定・調達合意形成中)より明確に手前のため上限は1桁%に留める。研究者の事業化シグナルの文書観察なし。"
+ },
+ {
+  "no": 7,
+  "title": "バイオガスと飼料バイオマスを同時生産する資源循環技術",
+  "stage_hypothesis": "S0",
+  "evaluator": "えいみ (session ff92697d サブエージェント / 第2回 rubric v1.1)",
+  "evaluated_at": "2026-08-16",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "「既存処理法との総コスト比較が未確認」(biggest_bottleneck)",
+    "assessment": "成立性の核心（既存処理法とのコスト差）が未検証であることを文書自身が明記。一般知識としてもバイオガス事業と藻類培養はいずれも単体で経済成立が難しい分野。",
+    "direction": "down"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "「下水汚泥や食品残渣を嫌気菌叢で分解してバイオガスを生産し、ガス中のCO₂を微細藻類で固定」(summary)",
+    "assessment": "嫌気消化槽＋ガス改質＋藻類培養のプラント型で、実証だけでも設備投資の桁が大きい（一般知識）。資金の崖の回数が多く、二大要素の双方が不利。",
+    "direction": "down"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "domain_lane「gx_circular」/ keywords「嫌気消化, 微細藻類」/ biggest_bottleneck「ガス改質と藻類培養の一貫運転…未確認」",
+    "assessment": "プロセス型。菌叢と藻類の連続運転・歩留まりが壁で、その一貫運転が未確認と文書に明記。",
+    "direction": "down"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "「大学公式上は基礎研究段階」(summary)",
+    "assessment": "一貫した収支と運用が未検証の基礎研究段階。再現性を支持する材料がない。",
+    "direction": "down"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "envisioned_use_case「下水処理・食品廃棄物処理におけるバイオガス改質と、養殖・畜産向け飼料バイオマスの生産」",
+    "assessment": "下水・廃棄物の処理費という既存予算の置き換え余地があり、支払者は既に存在する型。この要因は上向き。",
+    "direction": "up"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "primary_commercialization_type「joint_research_poc」/ biggest_bottleneck「廃棄物の受入・衛生要件」",
+    "assessment": "実廃棄物を受け入れるプラント実証が必要で、顧客側の検証は高額かつ長期（一般知識）。",
+    "direction": "down"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "「廃棄物の受入・衛生要件…飼料利用の品質要件」(biggest_bottleneck) / 「廃棄物処理・飼料利用に関わる権利と規制は未確認」(ip_status)",
+    "assessment": "廃棄物処理と飼料安全の二重の規制関門を文書自身が未確認と明記。",
+    "direction": "down"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "引用不可（既存処理法との比較データなし）",
+    "assessment": "バイオガス＋飼料の併産という構造差は読めるが、桁の根拠がない。",
+    "direction": "widen"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "「飼料利用の品質要件…未確認」(biggest_bottleneck)",
+    "assessment": "下水汚泥由来バイオマスの飼料利用は品質・受容のハードルがある（一般知識、文書も品質要件を未確認と明記）。ただし市場自体が閉じている構造逆風ではないため、v1.1の桁下げ主要因までは適用しない。",
+    "direction": "down"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "Atlas「食・農業政策とアグリテック」（tag: 代替タンパク・飼料関連）に部分該当。ただし本シーズへの政策資金の実流入は観測されず（seed_funding: 空）",
+    "assessment": "v1.1上げ側の要件（Atlas直撃＋資金実流入の引用セット）を満たさないため中立に留める。",
+    "direction": "neutral"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "「公開情報に特許第7695683号、特願2024-141143の記載あり。請求項、帰属、海外出願…は未確認」(ip_status)",
+    "assessment": "登録特許1件＋出願1件は独占可能性のプラス材料。ただし請求項・帰属が未確認のため効き目は限定。",
+    "direction": "up"
+   }
+  ],
+  "q_lower_pct": 0.2,
+  "q_upper_pct": 2,
+  "main_factor_tag": "資本集約",
+  "notes": "S0・調達実績なし・プラント型で、較正アンカーSX(22%, 同じ水処理隣接領域だがS2〜S3で調達合意形成中)より大きく手前。既存財布（処理費置き換え）と登録特許が下限をゼロ近傍から救う。研究者の事業化シグナルの文書観察なし。"
+ },
+ {
+  "no": 8,
+  "title": "メタンのドライ改質と固体炭素生成・捕集の組み合わせプロセス",
+  "stage_hypothesis": "S0〜S1",
+  "evaluator": "えいみ (session ff92697d サブエージェント / 第2回 rubric v1.1)",
+  "evaluated_at": "2026-08-16",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "「副生する固体炭素 (カーボンブラック等) を捕集」(summary)",
+    "assessment": "炭素材の販売収入で経済を支える構造は読めるが、コスト・品質・価格の根拠は引用不可。一般知識としてドライ改質は吸熱反応のエネルギーコストと触媒コーキングが古典的な壁。",
+    "direction": "widen"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "domain_lane「gx_circular」/ keywords「メタン改質」/ summary「シンガス化…プロセス」",
+    "assessment": "化学プラント型で、実証〜量産の累積資金の桁が大きい（一般知識）。調達ゲートの回数が多い。",
+    "direction": "down"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "summary「CO2 とメタンを反応させてシンガス化しつつ…捕集するプロセス」",
+    "assessment": "プロセス型。連続運転・触媒寿命・歩留まりが壁（一般知識）。",
+    "direction": "down"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "引用不可（researcher_name: null、trl: null、実験データの記載なし）",
+    "assessment": "研究者すら特定されておらず、再現性を判定する材料が皆無。",
+    "direction": "widen"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "industry_target「カーボン素材, 化成品, CCU」",
+    "assessment": "カーボンブラックはタイヤ・ゴム産業の既存市場で支払者が存在する置き換え型（一般知識）。この要因は上向き。",
+    "direction": "up"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "引用不可（first_customer_candidate: null）",
+    "assessment": "タイヤ・ゴム向け材料は認定サイクルが長期に及ぶのが通例（一般知識）だが、文書根拠がないため幅で表す。",
+    "direction": "widen"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "引用不可（規制関門の記載なし）",
+    "assessment": "素材分野で法定承認の関門は限定的（一般知識）。中立。",
+    "direction": "neutral"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "「CO2 削減と高機能炭素材料製造を同時実現」(summary)",
+    "assessment": "既存カーボンブラック製法（オイルファーネス）比でCO2面の質的差は読めるが、コスト・性能の桁の根拠は引用不可。",
+    "direction": "widen"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "引用不可（構造逆風を示す記載なし）",
+    "assessment": "CCU・脱炭素は受容良好な分野（一般知識）。構造逆風なし、中立。",
+    "direction": "neutral"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "該当なし（CCU・カーボンリサイクル直撃のAtlasテーマなし。「水素・アンモニア」の脱炭素・NEDO公募は隣接どまり）",
+    "assessment": "v1.1規律3に従い、該当なしは中立であり下押しに使わない。本シーズへの政策資金の実流入も観測されず（seed_funding: 空）、上げ側要件も満たさない。",
+    "direction": "neutral"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "ip_status: null（引用不可）",
+    "assessment": "権利化状況の記載なし。幅で表す。",
+    "direction": "widen"
+   }
+  ],
+  "q_lower_pct": 0.1,
+  "q_upper_pct": 2,
+  "main_factor_tag": "資本集約",
+  "notes": "researcher_name が null で source_detail「Web 検索 2026-05-08 / JST CRDS 報告書」— シーズ特定の粒度が粗く、情報の薄さを帯の広さ（下限0.1%）に反映。既存市場（カーボンブラック置き換え）が上限2%を支える。研究者の事業化シグナルは観察対象自体が不明。"
+ },
+ {
+  "no": 9,
+  "title": "リチウム金属-ガーネット型固体電解質の室温界面形成",
+  "stage_hypothesis": "S1",
+  "evaluator": "えいみ (session ff92697d / batch C subagent, 第2回 rubric v1.1)",
+  "evaluated_at": "2026-08-16",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "「超音波接合で室温・数秒以内に…界面を形成」(summary)。事業型・コスト構造の記載なし",
+    "assessment": "室温・数秒の接合は既存超音波接合装置系に乗る可能性があり(一般知識)、工程ライセンス/装置売りなら単位経済が立つ余地。ただし事業単位の経済は文書から判定不可。",
+    "direction": "widen"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "引用不可(資金歴・事業型の記載なし。seed_funding空)",
+    "assessment": "全固体電池の量産自体は桁違いの資本(一般知識)だが、界面形成工程の要素技術提供に留まるなら軽い。どちらの型かが文書で決まらないため幅が大きい。",
+    "direction": "widen"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "「Li 金属と LLZO (ガーネット型酸化物固体電解質)」(summary)",
+    "assessment": "素材・電池のプロセス型。歩留まり・連続運転が壁になる型で、第0近似では下方。",
+    "direction": "down"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "「界面抵抗を約 1.5 Ω·cm² まで低減」「2026/3 発表」(summary)",
+    "assessment": "定量実測値つきの大学プレス1点。数値は具体的だが独立再現・量産条件での再現は未確認。",
+    "direction": "widen"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "industry_target「EV, 蓄電池, モビリティ」",
+    "assessment": "電池メーカー・自動車の全固体電池R&D予算は既に存在する財布(一般知識)。新しい財布を作る必要はない。",
+    "direction": "up"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "引用不可",
+    "assessment": "車載電池の材料・工程採用はセル試作から信頼性試験まで年単位・高コスト(一般知識)。",
+    "direction": "down"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "引用不可",
+    "assessment": "工程技術自体に承認プロセスはないが、車載電池の安全認証サイクルが顧客側に乗る(一般知識)。中立寄り。",
+    "direction": "neutral"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "「室温・数秒以内に…界面を形成し、界面抵抗を約 1.5 Ω·cm² まで低減」(summary)",
+    "assessment": "Li/LLZO界面は従来高温・加圧処理が必要で界面抵抗が全固体電池の主要ボトルネック(一般知識)。室温・数秒は工程時間・エネルギーで桁の差になりうる。",
+    "direction": "up"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "industry_target「EV, 蓄電池」",
+    "assessment": "EV・蓄電池は前提インフラ・社会受容とも確立済みの領域。構造逆風なし。",
+    "direction": "neutral"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "Atlas「全固体電池・次世代EV」(量産化競争・2028年ターニングポイント)、「電池材料・リチウム・銅」(全固体電池材料)の2テーマ直撃",
+    "assessment": "Atlas複数テーマ直撃。分野への投資・量産化競争は活発(テーマ記述)。ただしこのシーズ固有の政策資金流入はJSONから引用不可なので、上げ側は上限の引き上げに限定して効かせる。",
+    "direction": "up"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "引用不可(ip_status null)",
+    "assessment": "権利化状況が不明。独占可能性を評価できず帯を広げる。",
+    "direction": "widen"
+   }
+  ],
+  "q_lower_pct": 0.5,
+  "q_upper_pct": 7,
+  "main_factor_tag": "風",
+  "notes": "S1・情報薄。帯の下限はプロセス型+車載検証の長さで低く、上限はAtlas2テーマ直撃(v1.1上げ側)と代替解との桁差の芽で引き上げた。事業型(装置/ライセンス vs 電池製造)が決まると帯は大きく動く。研究者名・資金歴なし。"
+ },
+ {
+  "no": 10,
+  "title": "塩水・交流電気分解による都市鉱山金回収",
+  "stage_hypothesis": "S0〜S1",
+  "evaluator": "えいみ (session ff92697d / batch C subagent, 第2回 rubric v1.1)",
+  "evaluated_at": "2026-08-16",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "「前処理から金回収、電解液再利用までの一貫収支を小規模リサイクラーと検証する」(summary)、「収率、処理速度、電力、電解液再生…を含む一貫プロセスが未実証」(biggest_bottleneck)",
+    "assessment": "回収物が金という高単価資源で、収支検証の設計まで言語化されている。ただし収率・電力コストが未実証で、成立は未確認。構造は良いが証拠はまだ無い。",
+    "direction": "widen"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "「小規模分散型の都市鉱山処理」(envisioned_use_case)",
+    "assessment": "電解槽ベースの小規模分散型プロセスで、GMP・巨大プラント等の特殊インフラ依存なし(一般知識含む)。資金の崖の回数が少ない型。",
+    "direction": "up"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "「交流電気分解で金を溶解する都市鉱山プロセス」(summary)",
+    "assessment": "湿式精錬のプロセス型だが、小規模分散のモジュール複製で伸ばす設計なら連続大規模運転の壁を回避しうる。中立。",
+    "direction": "neutral"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "「実基板での不純物耐性、収率、処理速度…一貫プロセスが未実証」(biggest_bottleneck)",
+    "assessment": "モデル系での溶解は成立している前提の書き方だが、実基板・実運用条件での再現は未実証と明記。下方。",
+    "direction": "down"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "「既存の王水処理費、安全対策費、外部精錬委託費を持つ中小リサイクル事業者」(first_customer_candidate)",
+    "assessment": "既存予算の置き換え。支払者が既にいて、置き換える費目まで特定済み。二大要素以外では最も強い上方材料。",
+    "direction": "up"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "「小規模リサイクラーと検証する」(summary)、primary_commercialization_type「joint_research_poc」",
+    "assessment": "小規模装置の共同PoCで検証でき、顧客側の試行コストは低い型(一般知識)。",
+    "direction": "up"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "「残渣の法規対応を含む一貫プロセスが未実証」(biggest_bottleneck)",
+    "assessment": "廃棄物処理・金属回収の許認可(廃掃法等、一般知識)と残渣処理の法規対応が明記された関門。年単位の承認プロセスではないが無視できない。",
+    "direction": "down"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "「王水を使わない点を活かし」(summary)",
+    "assessment": "王水(劇物・安全対策費大)の排除は安全・環境コストで明確な差。ただし回収率・速度で既存精錬委託に桁差があるかは未実証。中程度の上方。",
+    "direction": "up"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "industry_target「電子廃棄物リサイクル, 都市鉱山」",
+    "assessment": "都市鉱山・資源循環は政策的に推進される領域(一般知識)で受容の逆風なし。劇物を使わない点はむしろ受容を助ける。",
+    "direction": "neutral"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "Atlas「日本循環経済・グリーン調達」(重要鉱物リサイクル・資源自給率・官民投資)直撃。「重要鉱物備蓄・官民連携調達」も隣接",
+    "assessment": "循環経済・資源自給のAtlasテーマに直撃。金はレアアースほどの戦略素材騒ぎではないが、都市鉱山リサイクルへの政策関心は実在(テーマ記述の官民投資)。上限を一段引き上げる。",
+    "direction": "up"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "「特願2025-112603の記載あり。請求項の対象工程、PCT出願、共同発明・帰属…は未確認」(ip_status)",
+    "assessment": "出願済みの事実は確認できるが権利範囲・帰属が未確認。弱い上方+幅。",
+    "direction": "up"
+   }
+  ],
+  "q_lower_pct": 1,
+  "q_upper_pct": 8,
+  "main_factor_tag": "財布",
+  "notes": "バッチ内で商業構造の言語化が最も進んでいる(置換費目・初期顧客・PoC型・市場按分・出願まで揃う)。下限は一貫プロセス未実証と法規対応で抑え、上限は既存財布置き換え+軽資本+Atlas適合で引き上げた。"
+ },
+ {
+  "no": 11,
+  "title": "常時微動による建物診断・防災点検シーズ",
+  "stage_hypothesis": "S0〜S1",
+  "evaluator": "えいみ (session ff92697d / batch C subagent, 第2回 rubric v1.1)",
+  "evaluated_at": "2026-08-16",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "「診断サービス/SaaSとして、実建物データと差別化指標を検証する」(summary)",
+    "assessment": "計測+ソフトの診断サービス/SaaSは限界費用が低く単位経済が立ちやすい型(一般知識)。ただし価格・原価・差別化指標はすべて未検証。",
+    "direction": "widen"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "「加振なしで構造状態を推定する音響信号処理系シーズ」(summary)",
+    "assessment": "汎用センサ+信号処理で特殊インフラ・専用製造装置に依存しない(一般知識)。資本自立までの累積資金の桁が小さく、資金の崖が少ない。バッチ内で最軽量。",
+    "direction": "up"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "「音響信号処理系」「SaaS」(summary/keywords)",
+    "assessment": "組立型・ソフト型。既存部品と製造網に乗り、スケール律速が緩い。",
+    "direction": "up"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "「実建物データと差別化指標を検証する」(summary)",
+    "assessment": "実建物での推定精度がこれから検証の段階。診断の再現性・精度が未確認で下方かつ幅。",
+    "direction": "widen"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "industry_target「建物診断, 防災, 施設維持, 点検サービス」",
+    "assessment": "建物の法定点検・維持管理費は既存予算(一般知識)。常時微動診断がその費目を置き換えられるか(追加費用扱いにならないか)は未検証。弱い上方。",
+    "direction": "up"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "「加振なしで構造状態を推定」(summary)",
+    "assessment": "非破壊・加振不要なので建物側の負担が小さく、試行のハードルが低い(一般知識)。",
+    "direction": "up"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "引用不可",
+    "assessment": "必須の承認プロセスはないが、法定点検の代替として制度に食い込むには行政・業界標準への働きかけが要る(一般知識)。中立。",
+    "direction": "neutral"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "「加振なしで構造状態を推定」(summary)、差別化指標は「検証する」段階",
+    "assessment": "既存の目視点検・加振試験に対する簡便化は明確だが、差の桁は未検証。構造ヘルスモニタリング領域には既存プレイヤーも多い(一般知識)。",
+    "direction": "widen"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "industry_target「防災」",
+    "assessment": "地震国日本で防災点検の社会的要請は強く、受容の逆風なし。",
+    "direction": "neutral"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "Atlas「防災・災害リスク管理」(防災DX・リアルタイムモニタリングのタグ直撃)、「インフラ老朽化・改修投資」(予防保全・デジタルツイン)の2テーマ",
+    "assessment": "Atlas2テーマに直撃。防災DX・予防保全への政策・投資関心はテーマ記述で確認できる。上限を一段引き上げる。",
+    "direction": "up"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "引用不可(ip_status null)",
+    "assessment": "権利化状況が不明。信号処理系は特許で守りにくい面もある(一般知識)ため独占可能性は未知数。幅。",
+    "direction": "widen"
+   }
+  ],
+  "q_lower_pct": 1,
+  "q_upper_pct": 9,
+  "main_factor_tag": "軽資本",
+  "notes": "二大要素がバッチ内で最も有利な型(組立型・SaaS・特殊インフラ不要)で、受託点検からの小さく回るスモールビジネス・パスも見える。ただし技術の差別化・精度がすべて未検証で情報も薄く、上限9%止まり。ソースは「KUTE 3先生シーズ理解メモ」で接触経路が既にある点はnotesに留める(帯に効かせない)。"
+ },
+ {
+  "no": 12,
+  "title": "有機化学・触媒化学から学ぶ酵素補因子の革新",
+  "stage_hypothesis": "S0",
+  "evaluator": "えいみ (session ff92697d / batch C subagent, 第2回 rubric v1.1)",
+  "evaluated_at": "2026-08-16",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "「酵素機能を根本から革新する研究。医薬品合成や生体触媒産業への波及を目指す」(summary)。製品像・コスト構造の記載なし",
+    "assessment": "工業用酵素・生体触媒はライセンス/酵素供給で単位経済が成立している産業(一般知識)だが、本件は補因子設計の基礎研究で製品単位が未定。判定不能で幅。",
+    "direction": "widen"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "trl 2 / brl 1",
+    "assessment": "TRL2からの実用化は長期R&Dで累積資金が嵩む(一般知識)。工業酵素ならGMP不要で製造は軽いが、そこに到達するまでの研究資金ゲートが複数回。下方寄り。",
+    "direction": "down"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "「生体触媒（酵素）の補因子設計」(summary)",
+    "assessment": "バイオ・化学のプロセス型。発酵生産・精製の歩留まりが壁になる型(一般知識)。",
+    "direction": "down"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "trl 2 / brl 1、「革新する研究」(summary)",
+    "assessment": "原理検討段階で、機能実証データの記載なし。再現性を語る前の段階であり大きく幅。",
+    "direction": "widen"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "industry_target「医薬品, バイオ触媒, 化学工業」",
+    "assessment": "医薬中間体合成のプロセス改善予算・CDMOの技術導入予算は既存(一般知識)。ただし何を買ってもらうかが未定なので弱い。",
+    "direction": "neutral"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "引用不可",
+    "assessment": "医薬品製造プロセスへの新触媒導入は工程変更管理を伴い、検証は長期・高コスト(一般知識)。",
+    "direction": "down"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "引用不可",
+    "assessment": "触媒自体は承認対象ではないが、医薬品側の製造変更手続きが顧客の腰を重くする(一般知識)。軽い下方。",
+    "direction": "down"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "「酵素機能を根本から革新」(summary)",
+    "assessment": "人工補因子で天然酵素の限界を超えるなら桁の差になりうるが、実証値が無く方向を確定できない。幅。",
+    "direction": "widen"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "industry_target「バイオ触媒, 化学工業」",
+    "assessment": "生体触媒はグリーンケミストリーとして受容良好(一般知識)。逆風なし。",
+    "direction": "neutral"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "該当なし(「AI創薬・医薬品開発」は創薬パイプライン側、「医薬品サプライチェーン・国産化」はCDMO・原薬調達側で、補因子設計の基礎研究には直撃しない)",
+    "assessment": "Atlas直撃なし。v1.1の規律どおり中立扱いとし、下押しには使わない。",
+    "direction": "neutral"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "引用不可(ip_status null)",
+    "assessment": "権利化状況不明。補因子の物質・用途特許が取れれば独占性は強い領域(一般知識)だが確認できず幅。",
+    "direction": "widen"
+   }
+  ],
+  "q_lower_pct": 0.2,
+  "q_upper_pct": 3,
+  "main_factor_tag": "早期",
+  "notes": "バッチ内で最も手前(S0・TRL2/BRL1)。二大要素とも判定材料が薄く、資本自立までの距離が構造的に最長。seed_funding「創発的研究支援事業（第6回公募・2025年度）awarded」— JST創発採択は研究継続資金の裏付け(一般知識で最大7年規模)としてS0滞留中の消滅リスクを下げる弱い上方材料。帯の下限0.2%はこれを踏まえた水準。研究者の事業化シグナルは文書から観察されず。"
+ },
+ {
+  "no": 13,
+  "title": "植物修飾分子による情報伝達新原理解明と自在制御",
+  "stage_hypothesis": "S0〜S1",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "引用不可（primary_commercialization_type / envisioned_use_case / market_size_range すべてnull）",
+    "assessment": "何を単位に売るのか（分子製剤か、制御技術ライセンスか）が文書に一切ない。単位経済の成立可否を判定する材料がゼロ。",
+    "direction": "widen"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "「情報伝達の新原理を解明し、その制御技術を創出する研究」(summary)、trl:1",
+    "assessment": "原理解明前のTRL1。一般知識として、農業向け新規分子（植物調節剤等）は圃場実証・登録試験まで長期・高額で、資本自立までの累積資金は桁が大きくなりやすい。調達ゲート回数が多い。",
+    "direction": "down"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "「植物修飾分子」「シグナル制御」(keywords)",
+    "assessment": "分子・化学ベースのプロセス型。製造・製剤化・歩留まりが将来の壁になる型で、組立型より難路。",
+    "direction": "down"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "「新原理解明」(title)、trl:1, brl:1",
+    "assessment": "原理自体がこれから解明される段階で、再現性は未実証。低いと断ずる根拠もないが、実証済みという根拠もない。",
+    "direction": "widen"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "industry_target:「農業」「植物バイオテクノロジー」/ first_customer_candidate: null",
+    "assessment": "農薬・農業資材という既存財布は業界に存在する（一般知識）が、本シーズがその置き換えに刺さるかは用途未定のため不明。",
+    "direction": "widen"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "引用不可（envisioned_use_case null。一般知識として農業実証は圃場試験で作期に拘束される）",
+    "assessment": "農業分野の顧客検証は季節サイクルに縛られ1サイクル=1年になりがち。検証期間が長い型。",
+    "direction": "down"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "引用不可（ip_status / bottleneck null。一般知識として植物調節剤・農薬に該当すれば農薬取締法登録で複数年）",
+    "assessment": "用途が農薬・生育調節剤に落ちれば登録試験の関門が重い。研究ツールに落ちれば軽い。用途未定のため両方あり得る。",
+    "direction": "widen"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "引用不可（既存手段との比較記述なし）",
+    "assessment": "「新原理」の主張はあるが、既存の植物ホルモン制御・農薬に対する効果の桁は文書から判定できない。",
+    "direction": "widen"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "引用不可（受容を阻む構造の記述なし）",
+    "assessment": "農業の新規制御分子に市場を閉ざす構造逆風は文書からもAtlasからも観察されない。中立。",
+    "direction": "neutral"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "Atlas「食・農業政策とアグリテック」（スマート農業・アグリテック投資・食料安全保障）に部分適合。政策資金の実流入はJST創発採択（seed_funding awarded）のみ",
+    "assessment": "分野としての風はAtlasに存在するが、本件への実流入は研究費（創発）1件で、事業側資金の風直撃とまでは言えない。弱い追い風。",
+    "direction": "up"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "ip_status: null",
+    "assessment": "権利化状況の情報なし。独占可能性を上げにも下げにも使えない。",
+    "direction": "widen"
+   }
+  ],
+  "q_lower_pct": 0.1,
+  "q_upper_pct": 2,
+  "main_factor_tag": "基礎",
+  "notes": "TRL1・原理解明前・用途未定で引用可能な事業情報がほぼ皆無（11要因中5要因が引用不可widen）。帯は低く広く置いた。研究者の事業化シグナルは文書から観察されず。評価者: えいみ(session 9548d325配下 バッチD担当サブエージェント) / rubric v1+§5 v1.1 / 2026-08-16"
+ },
+ {
+  "no": 14,
+  "title": "機能的多層構造をもつ肝臓オルガノイド",
+  "stage_hypothesis": "S1",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "「iPS細胞から…肝臓オルガノイドの世界初の創出」(summary)、industry_target:「再生医療」「創薬」「医療機器」",
+    "assessment": "移植用途はGMP細胞製造という特殊インフラ依存そのもので、ルーブリック§1が名指しする難型。一方industry_targetに「創薬」があり、創薬スクリーニング用組織モデルとして売る経路なら単位経済は軽くなる（一般知識）。二面性。",
+    "direction": "down"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "「重度肝不全モデル動物への移植で生存率改善」(summary)、seed_funding: []（資金歴の記録なし）",
+    "assessment": "移植=再生医療等製品の本命路線は臨床試験で累積資金の桁が最大級（一般知識）。調達ゲートの回数が多く、掛け算でqが削られる型。ツール事業への分岐で桁を落とせる可能性はあるが文書上は未定。",
+    "direction": "down"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "「iPS細胞から」「Zonation (機能的な多層構造)」(summary)",
+    "assessment": "細胞培養のプロセス型。分化誘導・培養の歩留まりと連続生産が壁になる型。",
+    "direction": "down"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "「重度肝不全モデル動物への移植で生存率改善。Nature 2025/4 掲載」(summary)",
+    "assessment": "動物モデルでの機能実証がトップ誌査読を通っており、この段階のシーズとしては再現性の根拠が異例に強い。",
+    "direction": "up"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "industry_target:「創薬」/ first_customer_candidate: null",
+    "assessment": "創薬企業の肝毒性・薬物代謝評価には既存の試験予算が存在する（一般知識）。移植用途は保険償還という将来の財布で、承認まで存在しない。前者なら既存財布の置き換え。",
+    "direction": "up"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "引用不可（用途・顧客の記述なし）",
+    "assessment": "創薬ツールなら製薬の評価系比較試験で中程度。移植なら治験で巨大。用途未定のため幅で扱う。",
+    "direction": "widen"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "Atlas「再生医療・遺伝子治療」が「再生医療等安全性確保法」「FDA加速承認」「規制執行強化」を明記",
+    "assessment": "移植路線は再生医療等製品の承認プロセスで年数が長い。創薬ツール路線なら規制関門はほぼ無い。本命（移植）で見ると重い関門。",
+    "direction": "down"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "「Zonation (機能的な多層構造) を備えた肝臓オルガノイドの世界初の創出」(summary)",
+    "assessment": "既存オルガノイドが持たない生体類似機能構造の世界初主張で、差別化は質的（桁）である根拠が文書内にある。",
+    "direction": "up"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "引用不可（一般知識として日本はiPS再生医療への社会受容・政策支援が確立している）",
+    "assessment": "市場を閉ざす構造逆風はない。前提インフラ（CDMO・細胞加工体制）もAtlasが「細胞加工委託」「製造委託モデル」として存在を示す。中立〜微追い風。",
+    "direction": "neutral"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "Atlas「再生医療・遺伝子治療」に直撃（iPS/細胞治療・バイオテック投資・製造委託モデル）。「AI創薬・医薬品開発」（創薬パイプライン・R&D効率化）にも周辺適合",
+    "assessment": "Atlas複数テーマ適合。ただし本件への政策資金・調達の実流入はJSON内に引用できない（seed_funding空）ため、v1.1上げ側の満額適用は保留し、上限を中程度引き上げるに留める。",
+    "direction": "up"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "ip_status: null",
+    "assessment": "権利化状況の情報なし。Nature公表済みで新規性起点は切られている可能性があるが、出願状況は不明。",
+    "direction": "widen"
+   }
+  ],
+  "q_lower_pct": 1,
+  "q_upper_pct": 9,
+  "main_factor_tag": "資本集約",
+  "notes": "科学的実証の強さ（Nature・動物実証・世界初の質的差）と創薬ツール転用の既存財布が上限を押し上げ、移植本命路線の資本集約度・GMP依存・規制年数が帯全体を低位に抑える。両者の綱引きで4件中最上位だが幅広。資金歴の記録がない点も幅の根拠。研究者の事業化シグナルは文書から観察されず。評価者: えいみ(session 9548d325配下 バッチD担当サブエージェント) / rubric v1+§5 v1.1 / 2026-08-16"
+ },
+ {
+  "no": 15,
+  "title": "生成AI クラフト文化研修パッケージ",
+  "stage_hypothesis": "S1",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "「研修プログラム開発。教育現場向け」(summary)",
+    "assessment": "研修サービスは特殊インフラ・製造設備が不要で、開発済みパッケージの反復提供は粗利構造が立ちやすい（一般知識）。二大要素の一方が明確に軽い。",
+    "direction": "up"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "「研修プログラム開発」(summary)、PSI GAP S1採択（seed_funding awarded）",
+    "assessment": "資本自立までの累積資金は最小桁（人件費+教材開発）。調達ゲートがほぼ不要で、小さく回れば12か月自走の定義には最短距離の型。",
+    "direction": "up"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "「生成 AI 技術を活用した…研修プログラム」(summary)",
+    "assessment": "ソフト・サービスの組立型。既存の生成AI基盤に乗る。ただし対面研修は講師工数律速になりうる。",
+    "direction": "up"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "引用不可（研修効果の実証データ記述なし）",
+    "assessment": "科学的再現性が問われる型ではないが、教育効果・満足度の実証は文書にない。",
+    "direction": "widen"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "industry_target:「教育」「EdTech」/ first_customer_candidate: null",
+    "assessment": "学校の教員研修費・自治体の研修予算という既存財布はある（一般知識）が、公教育予算は単価が薄く決裁が遅い型でもある。半々。",
+    "direction": "widen"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "「研修プログラム」(summary)",
+    "assessment": "1回の研修導入は低額・短期間で試せる。顧客の検証障壁は本バッチ最小。",
+    "direction": "up"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "引用不可（規制の記述なし。一般知識として教員研修に承認プロセスはない）",
+    "assessment": "規制関門なし。",
+    "direction": "up"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "引用不可（競合比較の記述なし）",
+    "assessment": "生成AI研修の供給者は既に多数存在し（一般知識）、「クラフト文化×生成AI」の差別化が桁の差になる根拠は文書にない。防御性の弱さが最大の下押し。",
+    "direction": "down"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "引用不可（一般知識として学校現場の生成AI利用は政策側が推進、現場受容は途上）",
+    "assessment": "市場を閉ざす構造逆風はなく、政策は推進側。中立。",
+    "direction": "neutral"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "Atlas「AI教育・リテラシー制度化」に直撃（「学習指導要領改訂」「教材開発」「教員研修」「EdTech」）。政策資金の実流入 = 「JST 大学発新産業創出基金事業…PSI GAPファンド (ステップ1)」awarded (seed_funding)",
+    "assessment": "v1.1上げ側の条件（Atlas直撃+政策資金実流入の引用）を本バッチで唯一両方満たす。制度化で研修需要が立ち上がる局面であり、上限を大きく引き上げる主要因に採用。",
+    "direction": "up"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "ip_status: null",
+    "assessment": "情報なし。研修パッケージは特許防御が効きにくい型（一般知識）で、独占可能性は期待できない。",
+    "direction": "widen"
+   }
+  ],
+  "q_lower_pct": 2,
+  "q_upper_pct": 12,
+  "main_factor_tag": "風",
+  "notes": "二大要素（UE成立性・資本集約度）がともに軽く、v1.1の風（AI教育制度化×PSI GAP実流入）が直撃する唯一の案件のため上限を高めに置いた。上限を12%で止めたのは、代替解との差の桁が引用不可かつ防御性が弱く、スケール上限も小さいため（資本自立には足るが、SX比で組織・顧客実証の積み上げが無い）。研究者の事業化シグナルは文書から観察されず（PSI GAP応募自体は大学経由の可能性がありシグナルと断定しない）。評価者: えいみ(session 9548d325配下 バッチD担当サブエージェント) / rubric v1+§5 v1.1 / 2026-08-16"
+ },
+ {
+  "no": 16,
+  "title": "糸から未来の衣服へ—伝統×アバター×デジタルの設計基盤",
+  "stage_hypothesis": "S0〜S1",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "「次世代衣服の設計基盤を構築する研究」(summary) / primary_commercialization_type: null",
+    "assessment": "設計基盤=ソフトウェア/ツールなら単位経済は軽い型（一般知識）だが、誰に何を売るのかが文書に無く、成立可否は判定不能。",
+    "direction": "widen"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "「デジタルアバター技術を融合させ…設計基盤を構築」(summary)、trl:2",
+    "assessment": "デジタル基盤中心なら累積資金の桁は小さい。特殊インフラ依存の記述なし。二大要素のうちこちらは軽い側。",
+    "direction": "up"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "「デジタルアバター」「デジタル変革」(keywords)",
+    "assessment": "ソフト中心の組立型。既存のCG・アバター技術基盤に乗れる。伝統工芸側（糸・織物）は職人工程で、そこを商材にするならスケールしない。",
+    "direction": "up"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "trl:2, brl:1（基盤「構築を目指す」段階）",
+    "assessment": "技術実証前。再現性を云々する対象自体が未形成。",
+    "direction": "widen"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "industry_target:「繊維・アパレル」「デジタルファッション」「メタバース」/ first_customer_candidate: null",
+    "assessment": "アパレルの既存DX予算に刺さる可能性はあるが、デジタルファッション・メタバース衣服は新しい財布を作る側（一般知識）。既存予算置き換えの根拠は文書にない。",
+    "direction": "down"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "引用不可（用途未定）",
+    "assessment": "デジタルツールの試用自体は安価な型だが、何を検証させるのかが未定。",
+    "direction": "widen"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "引用不可（規制の記述なし。一般知識として衣服設計・デジタルファッションに承認プロセスはない）",
+    "assessment": "規制関門なし。",
+    "direction": "up"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "引用不可（CLO等既存の3D衣服設計ツールとの比較記述なし）",
+    "assessment": "3D衣服設計・アバター着装の既存ツールは商用で複数存在する（一般知識）。「伝統的な糸・織物技術」の組み込みが桁の差になる根拠は文書にない。",
+    "direction": "widen"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "industry_target:「メタバース」(JSON) — v1.1下げ側「前提インフラが未成立（例: パソコン普及前のインターネット事業）」に該当する構造",
+    "assessment": "ターゲット3枠のうちデジタルファッション・メタバースの2枠は、アバター常用という前提インフラが社会に普及していない市場（一般知識）。v1.1の構造逆風として上限を削る主要因に採用。繊維・アパレルDXの1枠のみ現実の財布に接続。",
+    "direction": "down"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "該当なし（Atlas54テーマにテキスタイル・ファッション・メタバース関連テーマは存在しない）",
+    "assessment": "v1.1規律に従い中立。下押しには使わない（下押しは要因9側で引用に基づき実施済み）。",
+    "direction": "neutral"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "ip_status: null",
+    "assessment": "権利化状況の情報なし。",
+    "direction": "widen"
+   }
+  ],
+  "q_lower_pct": 0.2,
+  "q_upper_pct": 3,
+  "main_factor_tag": "受容",
+  "notes": "資本集約度は軽い（上げ）が、主市場2/3（デジタルファッション・メタバース）の前提インフラ未成立というv1.1下げ側の構造逆風が上限を抑える。事業情報の空白（UE・顧客・IP引用不可）で幅は広め。JST創発採択は研究費であり事業側資金と区別した。研究者の事業化シグナルは文書から観察されず。評価者: えいみ(session 9548d325配下 バッチD担当サブエージェント) / rubric v1+§5 v1.1 / 2026-08-16"
+ },
+ {
+  "no": 17,
+  "title": "耳下腺腫瘍の Deep Learning 良悪性鑑別アプリ",
+  "stage_hypothesis": "S1〜S2",
+  "evaluator": "えいみ (session 9548d325 / batchE subagent, 第2回 rubric v1.1)",
+  "evaluated_at": "2026-08-16",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "「Deep Learning 型 AI を組み込んだ耳下腺腫瘍の良悪性鑑別診断支援アプリ」(summary)",
+    "assessment": "ソフトウェア診断支援アプリであり限界費用はほぼゼロ、既存設備・特殊インフラ不要（一般知識）。ただし課金モデル（診療報酬か病院直販か）は文書になく、成立の実証は不明。",
+    "direction": "up"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "引用不可（開発費・必要資金の記載なし）。summary からアプリ=ソフトウェアであることのみ引用可",
+    "assessment": "ソフトウェア医療AIは素材・装置系より累積資金の桁が小さい（一般知識）。ただし薬機法承認用の臨床性能試験費用は必要で、ゼロ桁ではない。",
+    "direction": "up"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "「診断支援アプリ」(summary)、industry_target「医療AI」「画像診断」",
+    "assessment": "組立型（ソフト）。連続運転・歩留まりの壁はなく、配布のスケールは容易。",
+    "direction": "up"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "引用不可（精度・データセット規模・検証結果の記載なし）",
+    "assessment": "DL鑑別モデルの汎化性能（施設間・装置間再現性）は医療AIの典型的な壁（一般知識）だが、本件固有のデータはない。追加探索はしない。",
+    "direction": "widen"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "引用不可（first_customer_candidate: null、envisioned_use_case: null）",
+    "assessment": "診断支援AIの支払者は診療報酬加算か病院IT予算だが、耳下腺腫瘍という対象の狭さから既存予算の置き換え先が細い可能性（一般知識）。文書根拠なし。",
+    "direction": "widen"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "引用不可",
+    "assessment": "病院側の試用はソフトなら比較的低コストだが、院内倫理・導入審査の期間はかかる（一般知識）。文書根拠なし。",
+    "direction": "widen"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "「良悪性鑑別診断支援」(summary) — 診断への直接寄与を謳う機能",
+    "assessment": "良悪性鑑別を支援するAIはプログラム医療機器（SaMD）として薬機法承認・認証が必要になる公算が大きい（一般知識）。承認プロセスは年単位で、資金の崖を1つ確実に増やす。",
+    "direction": "down"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "引用不可（既存診断法との精度比較の記載なし）",
+    "assessment": "既存の細胞診・MRI読影に対して10倍か10%かを判定する材料がない。",
+    "direction": "widen"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "引用不可（本件固有の受容性記述なし）。一般知識として医師支援型AIは「最終判断は医師」の枠内で受容が進んでいる",
+    "assessment": "診断支援（代替でなく支援）の位置づけなら社会・医療界の構造的逆風はない。市場が閉じている型ではないため中立。",
+    "direction": "neutral"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "Atlas「医療データ利活用・デジタルヘルス」（tag: 医療DX・デジタルヘルス）。政策資金の実流入 = seed_funding「PSI GAP S1 / awarded / 2025」",
+    "assessment": "医療DX系Atlasテーマに適合し、かつ政策資金（JST大学発新産業創出基金 PSI GAPファンド）の実流入が文書で確認できる。v1.1上げ側の条件（テーマ適合+実流入）を部分的に満たすが、テーマ直撃は画像診断AIそのものではなく周辺適合。上限を一段引き上げる。",
+    "direction": "up"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "引用不可（ip_status: null）",
+    "assessment": "権利化状況が不明。医療AIはモデル・データ優位が主でソフト特許の独占力は限定的（一般知識）だが、本件固有の判定材料なし。",
+    "direction": "widen"
+   }
+  ],
+  "q_lower_pct": 0.5,
+  "q_upper_pct": 7,
+  "main_factor_tag": "規制",
+  "notes": "PSI GAP S1採択（source_detail「PSI GAPファンド 2025 ステップ1 採択 / 愛媛大学 産学連携推進本部」）はGAPファンド審査を通過した事業化準備シグナルだが、研究者個人の事業化意思を示す文書記述はない。帯には効かせていない。二大要素（ソフトで軽い）が上限を支え、薬機法承認の関門と市場の狭さ（耳下腺腫瘍はニッチ）が上限を抑える。"
+ },
+ {
+  "no": 18,
+  "title": "自律移動型ミュオグラフィによる地下密度分布マッピング技術の創出",
+  "stage_hypothesis": "S0〜S1",
+  "evaluator": "えいみ (session 9548d325 / batchE subagent, 第2回 rubric v1.1)",
+  "evaluated_at": "2026-08-16",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "引用不可（事業モデル・単価・原価の記載なし）。「インフラ保全・資源探査・防災応用を目指す」(summary) から計測サービス型が推定されるのみ",
+    "assessment": "計測サービスとして1案件あたりの経済が成立するかは、検出器コストと計測期間に依存し文書からは判定できない。",
+    "direction": "widen"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "「自律移動型プラットフォームで実装」(summary)、trl: 2 / brl: 1",
+    "assessment": "検出器ハード+自律移動体の二重のハード開発をTRL2から積み上げる必要があり、実証機・フィールド試験の段階ごとに調達ゲートが複数回入る。GMP級ではないが軽くない。",
+    "direction": "down"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "keywords「ミュオグラフィ」「自律移動」— 検出器・移動体のデバイス系",
+    "assessment": "組立型（センサ・デバイス）。既存部品と製造網に乗る余地があり、プロセス型の連続運転の壁はない。",
+    "direction": "up"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "引用不可（計測精度・実証データの記載なし）",
+    "assessment": "ミュオグラフィ自体は火山・ピラミッド等で確立した物理計測（一般知識）で原理再現性は高いが、自律移動型での実装再現性は本件固有データがない。",
+    "direction": "widen"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "industry_target「インフラ保全」「資源探査」「防災・減災」「建設」",
+    "assessment": "インフラ点検・地盤調査には既存の点検予算・調査委託費が存在し（一般知識）、新しい財布を作る必要は薄い。既存予算の置き換え型。",
+    "direction": "up"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "引用不可（計測期間の記載なし）",
+    "assessment": "宇宙線ミュー粒子のフラックスは低く、1計測点の統計を貯めるのに週〜月単位を要するのが通例（一般知識）。顧客の試行が時間的に重く、PoCサイクルが遅い。",
+    "direction": "down"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "引用不可（規制記載なし）",
+    "assessment": "受動計測であり放射線源を使わないため規制関門は薄い（一般知識）。公道・現場での自律移動体運用ルールが残る程度。",
+    "direction": "neutral"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "「地下構造の密度分布を自律的にマッピング」(summary)",
+    "assessment": "ボーリング・物理探査（弾性波・電磁）に対し、非破壊で密度を直接見る点は質的差があるが、10倍か10%かを判定する定量材料は文書にない。",
+    "direction": "widen"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "引用不可（本件固有の受容性記述なし）",
+    "assessment": "非破壊・受動計測でインフラ安全に資する用途であり、構造的逆風は見当たらない。中立。",
+    "direction": "neutral"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "Atlas「インフラ老朽化・改修投資」（tag: 予防保全・インフラ老朽化）+「防災・災害リスク管理」（tag: 防災DX・リアルタイムモニタリング・地盤脆弱化・インフラリスク管理）の2テーマに適合。資金実流入 = seed_funding「JST 創発 / awarded / 2025」",
+    "assessment": "Atlas複数テーマ直撃。ただし確認できる資金は研究費（JST創発）であり、調達・政策資金の事業側実流入まではまだ文書で観測できない。v1.1上げ側を限定的に適用し上限を引き上げる。",
+    "direction": "up"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "引用不可（ip_status: null）",
+    "assessment": "権利化状況不明。",
+    "direction": "widen"
+   }
+  ],
+  "q_lower_pct": 0.5,
+  "q_upper_pct": 6,
+  "main_factor_tag": "検証コスト",
+  "notes": "TRL2/BRL1でS0〜S1、SX(q≈22%)より大きく手前。インフラ老朽化・防災の実需の風（Atlas 2テーマ）が上限を支え、ハード二重開発と計測の遅さ（顧客検証コスト）が帯を抑える。事業化シグナルの文書観察なし。"
+ },
+ {
+  "no": 19,
+  "title": "貼り付け型変位センサ・人声センサ",
+  "stage_hypothesis": "S1〜S2",
+  "evaluator": "えいみ (session 9548d325 / batchE subagent, 第2回 rubric v1.1)",
+  "evaluated_at": "2026-08-16",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "引用不可（原価・製法・単価の記載なし）。「身体に貼り付ける高感度変位センサ」(summary) のみ",
+    "assessment": "柔軟センサは材料系（伸縮電極・エラストマー等）であることが多く、既存設備で作れるかは材料次第（一般知識）。判定材料がない。",
+    "direction": "widen"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "引用不可（資金歴なし: seed_funding []）",
+    "assessment": "センサ部品はプロセス素材より軽く装置系より軽い部類（一般知識）だが、量産ラインの要否が不明で桁を置けない。",
+    "direction": "widen"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "domain_lane「robo」、keywords「変位センサ」「ウェアラブル」",
+    "assessment": "デバイス（組立型寄り）。ただし貼り付け型柔軟センサは機能材料が心臓部で、プロセス型の性質を部分的に持つ。",
+    "direction": "neutral"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "「NIMS 一般公開 2025 で展示」(summary)",
+    "assessment": "公開展示できる実動デモがある＝原理再現の最低ラインは越えている。ただし性能・歩留まりデータはない。",
+    "direction": "neutral"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "industry_target「ロボット」「ヘルスケア」「センサ」",
+    "assessment": "ロボット可動部センシングは部品BOMとして既存調達予算に乗りうる（既存財布の置き換え型、一般知識）。ヘルスケア側は財布が曖昧。",
+    "direction": "up"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "引用不可",
+    "assessment": "センサ部品のサンプル評価は顧客側で比較的低コスト・短期間（一般知識）。ただし本件固有の評価実績記述はない。",
+    "direction": "neutral"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "引用不可",
+    "assessment": "ロボット用途なら規制関門は薄い。ヘルスケアで医療機器に踏み込むなら認証が発生するが、用途確定の記述がない。",
+    "direction": "widen"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "「高感度」(summary)、「人声センサ」という独自モダリティ",
+    "assessment": "高感度の定量値も既存センサ（ひずみゲージ・MEMSマイク等）との比較もなく、差の桁は判定不能。",
+    "direction": "widen"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "引用不可（本件固有の受容性記述なし）",
+    "assessment": "ウェアラブル・ロボットセンシングに構造的な社会逆風はない。中立。",
+    "direction": "neutral"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "Atlas「産業用ロボット・倉庫自動化」（tag: フィジカルAI・ヒューマノイドロボット・現場実装）に適合。ただし本件への政策資金・調達の実流入は文書上ゼロ（seed_funding []）",
+    "assessment": "ヒューマノイド・フィジカルAIの風はロボット可動部の柔軟センシング需要に直結するが、v1.1上げ側の条件のうち「実流入の観測」を欠くため、上限の大幅引き上げには使わず小幅の上げに留める。",
+    "direction": "up"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "引用不可（ip_status: null。NIMSは機構として知財管理が強い傾向は一般知識だが本件固有情報なし）",
+    "assessment": "権利化状況不明。",
+    "direction": "widen"
+   }
+  ],
+  "q_lower_pct": 0.2,
+  "q_upper_pct": 5,
+  "main_factor_tag": "情報薄",
+  "notes": "研究者名・資金歴・IP・TRLすべてnullで、24シーズ中でも情報が最も薄い部類。ルーブリック「引用できない要因は帯を広げる側に使う」に従い幅を最大化。展示実績（NIMS一般公開2025）とロボットの風が上限5%を支え、事業化の手がかりゼロが下限を0.2%まで下げる。事業化シグナルの文書観察なし。"
+ },
+ {
+  "no": 20,
+  "title": "超・キラル増幅系の設計・創成・応用",
+  "stage_hypothesis": "S0〜S1",
+  "evaluator": "えいみ (session 9548d325 / batchE subagent, 第2回 rubric v1.1)",
+  "evaluated_at": "2026-08-16",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "「新しい化学系を設計・合成し、医薬品・機能性材料への応用基盤を構築」(summary)",
+    "assessment": "不斉合成触媒・キラル素材はライセンス/試薬販売なら単位経済が成立しうる（一般知識）が、応用基盤構築段階で製品形態が未確定。既存設備で作れる化学系かも不明。",
+    "direction": "widen"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "trl: 2 / brl: 1、「応用基盤を構築する研究」(summary)",
+    "assessment": "プロセス化学のスケールアップは段階ごとに設備投資が要り、医薬品向けはGMP対応が視野に入る（一般知識）。TRL2からの距離が長く、調達ゲートが複数回。",
+    "direction": "down"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "domain_lane「materials」、keywords「不斉合成」「機能性分子」",
+    "assessment": "プロセス型（素材・化学）。合成収率・光学純度・連続運転が壁になる型で、ルーブリックの重い側。",
+    "direction": "down"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "引用不可（増幅率・収率等の実験データ記載なし）",
+    "assessment": "キラル増幅は分子系依存で再現性のばらつきが論点になりやすい（一般知識）が、本件固有データがない。",
+    "direction": "widen"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "industry_target「医薬品」「精密化学」「機能性材料」",
+    "assessment": "光学活性化合物の合成コストは製薬・精密化学に既存予算が存在する（既存財布の置き換え型、一般知識）。財布は新設不要。",
+    "direction": "up"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "引用不可",
+    "assessment": "製薬企業が合成ルートを新触媒系に切り替える検証は、原薬品質・規制文書の再整備を伴い長く高コスト（一般知識）。",
+    "direction": "down"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "引用不可（直接の承認要件記載なし）",
+    "assessment": "触媒・材料自体に承認は不要だが、医薬品製造プロセスへの組み込みは顧客側の薬事変更手続きを誘発する（一般知識）。間接的な関門。",
+    "direction": "down"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "「キラリティを飛躍的に増幅する」「高効率合成に貢献」(summary)",
+    "assessment": "「飛躍的」の定量根拠が文書になく、既存不斉触媒（確立分野）に対する差の桁は判定不能。",
+    "direction": "widen"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "引用不可（本件固有の受容性記述なし）",
+    "assessment": "化学合成技術に構造的な社会逆風はない。中立。",
+    "direction": "neutral"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "Atlas「医薬品サプライチェーン・国産化」（tag: 原薬調達戦略・CDMO）に弱く隣接。直撃テーマなし",
+    "assessment": "原薬国産化・CDMOの風に間接的に乗りうるが、本件（キラル増幅の基盤研究）への直撃とは言えない。Atlas該当なしに近く中立扱い（v1.1: 該当なしは下押しに使わない）。",
+    "direction": "neutral"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "引用不可（ip_status: null）",
+    "assessment": "権利化状況不明。化学系は物質・製法特許の独占力が強い分野（一般知識）だが、本件の出願有無は不明。",
+    "direction": "widen"
+   }
+  ],
+  "q_lower_pct": 0.2,
+  "q_upper_pct": 4,
+  "main_factor_tag": "量産",
+  "notes": "TRL2/BRL1の基盤研究段階でプロセス型（素材・化学）。二大要素の両方（既存設備適合性が不明なプロセス化学+スケールアップの資本集約）が重く、製薬顧客の検証の遅さが重なる。バッチE 4件の中で最も帯を低く置いた。事業化シグナルの文書観察なし。"
+ },
+ {
+  "no": 21,
+  "title": "遷移金属不使用触媒による大気濃度CO2の合成ガス化",
+  "stage_hypothesis": "S1〜S2",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "「大気中の400ppmという低濃度CO2から、液体燃料や化学品の原料となる合成ガスを直接製造」(summary)",
+    "assessment": "一般知識として、400ppmの希薄CO2を原料にする場合、単位生成物あたり膨大なガス処理量とエネルギーが要り、化石由来の安価な合成ガスと単価で競合する構造。JSONにコスト情報は無いが、原料濃度そのものが単位経済の構造的逆風。",
+    "direction": "down"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "「合成ガスを直接製造する技術」(summary) / industry_target「化成品」「合成燃料」「CCU」",
+    "assessment": "化学品・燃料製造は実証プラント〜量産プラントの段階的スケールアップが必須（一般知識）。資本自立までの累積資金は桁が大きく、調達ゲートの回数が多い。",
+    "direction": "down"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "keywords「触媒」「CO2還元」「カーボンリサイクル」",
+    "assessment": "触媒化学のプロセス型。連続運転・触媒寿命・転化率が壁になる型（一般知識）。要因1・2の逆風を裏付ける。",
+    "direction": "down"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "「産総研プレス 2022-05-13」(source_detail)",
+    "assessment": "国研の公式プレスがあり、ラボ再現性は一定の傍証がある。ただしスケール後の再現性データは無い。",
+    "direction": "neutral"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "industry_target「合成燃料」「CCU」",
+    "assessment": "一般知識として、CCU由来燃料・化成品の支払者はカーボンプライシング・政策インセンティブに依存する新しい財布。既存予算の単純置き換えではない。",
+    "direction": "down"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "引用不可（JSONに顧客・検証に関する記載なし）",
+    "assessment": "envisioned_use_case / first_customer_candidate とも null。顧客検証の金と期間を見積もる材料が無い。",
+    "direction": "widen"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "引用不可（JSONに規制関連の記載なし）",
+    "assessment": "医薬のような承認プロセスは無い分野（一般知識）だが、燃料規格・保安関連の規律は不明。判定材料が無い。",
+    "direction": "widen"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "「遷移金属不使用の触媒を用いる」(summary)",
+    "assessment": "遷移金属不使用は触媒コスト・資源制約面の差別化候補だが、性能・総コストの差が10倍か10%かを判断する材料は無い。",
+    "direction": "widen"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "「大気中の400ppmという低濃度CO2から…直接製造」(summary)",
+    "assessment": "カーボンリサイクル自体の社会受容は高いが、一般知識として、この事業の前提インフラ（安価な再エネ電力・水素、実効的なカーボンプライシング）が国内で未成立。v1.1下げ側の「前提インフラ未成立」に該当し、上限を抑える。",
+    "direction": "down"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "該当なし（近接テーマ「水素・アンモニア」「港湾・海事DX・グリーン海運」はあるが、CCU・DAC・合成燃料そのものを扱うAtlasテーマは無い）",
+    "assessment": "Atlas直撃なし。§5規律に従い中立（下押しには使わない）。",
+    "direction": "neutral"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "引用不可（ip_status: null）",
+    "assessment": "権利化状況が不明。帯を広げる側に使う。",
+    "direction": "widen"
+   }
+  ],
+  "q_lower_pct": 0.1,
+  "q_upper_pct": 1.5,
+  "main_factor_tag": "経済性",
+  "notes": "研究者名・事業化シグナルの記載なし（researcher_name: null）。二大要素（希薄CO2原料のユニットエコノミクス構造逆風＋化学プラント級の資本集約度）と前提インフラ未成立（要因9）が上限を強く抑える。国研プレス由来でラボ実在性は高いが、事業情報フィールドがほぼ全てnullのため下限も広く取った。"
+ },
+ {
+  "no": 22,
+  "title": "金属フリー透明フレキシブル導電膜",
+  "stage_hypothesis": "S1〜S2",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "「面抵抗と透過率の両立、湿熱・屈曲の長期耐久、大面積均一性、CNTコスト、既存ITOや銀ナノワイヤとの総コスト比較が未確認」(biggest_bottleneck) / 「溶液塗工」(keywords)",
+    "assessment": "溶液塗工は既存塗工設備に乗る可能性がある型（一般知識）で、真空成膜のITOより設備面は軽い。ただし総コスト比較・CNTコストが未確認と文書自身が明記しており、成立性は未証明。両方向。",
+    "direction": "widen"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "primary_commercialization_type: \"license\" / first_customer_candidate「透明ヒーター部材メーカーの材料開発部門」",
+    "assessment": "ライセンス・部材メーカーへの技術供与が本線であり、自前量産工場を持たない経路。資本自立までの累積資金の桁は小さく、調達ゲートが少ない。",
+    "direction": "up"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "「CNTとSiO2の前駆体溶液をPET等へ塗布し、酸処理で形成」(summary) / 「大面積均一性」(biggest_bottleneck)",
+    "assessment": "材料プロセス型で大面積均一性が壁と文書自身が認識。ただしライセンスモデルなら量産の壁はライセンシー側の設備・ノウハウに委ねられる。",
+    "direction": "neutral"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "引用不可（性能データ・耐久データの記載なし）",
+    "assessment": "「湿熱・屈曲の長期耐久」が未確認とボトルネック欄にあり、再現性・耐久性のデータは文書に無い。",
+    "direction": "widen"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "「既存ITOや銀ナノワイヤとの総コスト比較」(biggest_bottleneck) / industry_target「透明ヒーター」「ディスプレイ」「太陽電池」",
+    "assessment": "透明導電膜は既に部材購買予算が存在する市場であり、既存財布の置き換え。支払者を新規に作る必要がない。",
+    "direction": "up"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "「透明ヒーターまたはウェアラブル電極で有償評価を目指す」(summary)",
+    "assessment": "材料サンプルの評価は部材メーカーの材料開発部門にとって比較的低コスト・短期で始められる（一般知識）。有償評価という低い入口を文書自身が設定している。",
+    "direction": "up"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "引用不可（規制関連の記載なし）",
+    "assessment": "車載部材の認証・CNTのナノ材料安全規制（一般知識）が関門になりうるが、承認プロセス型の分野ではない。判定材料は薄い。",
+    "direction": "neutral"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "「曲面、紫外から赤外の透過、溶液塗工を活かし」(summary)",
+    "assessment": "金属フリー・広帯域透過・フレキシブルという差別化軸は明記されているが、ITO・銀ナノワイヤ比の性能/コスト差が桁なのか数十%なのかは未確認（文書自身が総コスト比較未確認と明記）。",
+    "direction": "widen"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "引用不可（受容性の阻害要因を示す記載なし）",
+    "assessment": "透明導電膜の用途に社会受容の構造的逆風は見当たらない。前提インフラ（塗工・エレクトロニクス製造網）は成立済み。",
+    "direction": "neutral"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "該当なし（「レアアース・戦略素材供給リスク」はガリウム・ゲルマニウム等が対象でインジウム/ITO代替への直撃引用は不可。ウェアラブル関連も直撃テーマなし）",
+    "assessment": "ITO代替は戦略素材脱依存の文脈に近接するが、Atlasテーマ名と政策資金流入の引用がセットで成立しないため、§5規律により上げ側には使わない。中立。",
+    "direction": "neutral"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "「特許第7477889号、特願2024-192440の記載あり。権利範囲、共同発明・帰属、海外権利、用途クレームは未確認」(ip_status)",
+    "assessment": "登録特許1件＋新規出願1件が確認でき、権利化が進んでいる側。ただし範囲・帰属未確認のため確度は限定。",
+    "direction": "up"
+   }
+  ],
+  "q_lower_pct": 1.5,
+  "q_upper_pct": 7,
+  "main_factor_tag": "財布",
+  "notes": "研究者の事業化シグナルの直接記載はなし。ライセンス型で資本集約度が低く（要因2）、既存財布の置き換え（要因5）＋有償評価という低い検証入口（要因6）＋登録特許（要因11）が揃い、バッチ内で最も高い帯。上限を抑えるのは総コスト・耐久未確認（要因1・8）。SXアンカー(22%)より大きく手前だがライセンス経路は資金の崖が少ない分、S1〜S2としては上限をやや高めに置いた。"
+ },
+ {
+  "no": 23,
+  "title": "音響メタマテリアル・吸遮音部材シーズ",
+  "stage_hypothesis": "S0〜S2",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "引用不可（コスト・製造方法の記載なし）",
+    "assessment": "一般知識として、音響メタマテリアルは形状設計で機能を出すため既存の樹脂成形・加工設備に乗る可能性があるが、本シーズ固有の製造・コスト情報はJSONに無い。",
+    "direction": "widen"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "「自社製品より、既存メーカーとの共同開発や技術供与を前提」(summary) / primary_commercialization_type: \"license\"",
+    "assessment": "技術供与・共同開発前提で自前設備を持たない経路。資本自立までの累積資金の桁は小さい。",
+    "direction": "up"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "「複数障害物の回折で音速や音場を制御する」(summary)",
+    "assessment": "構造（形状）で機能を出す型であり、量産はライセンシーの既存成形・製造網に乗りうる（一般知識）。プロセス型の壁は相対的に軽い。",
+    "direction": "up"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "引用不可（実験データ・TRLの記載なし。「用途とTRLを確認する」(summary)と、TRL自体が未確認段階）",
+    "assessment": "音響メタマテリアルの物理原理は確立分野（一般知識）だが、本シーズの実証水準はTRL確認前で不明。",
+    "direction": "widen"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "industry_target「自動車」「建材」「吸遮音」",
+    "assessment": "自動車・建材の吸遮音部材は既存の購買予算が存在する市場。既存財布の置き換え。",
+    "direction": "up"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "引用不可（顧客・検証に関する記載なし）",
+    "assessment": "部材サンプルの音響試験は比較的低コスト（一般知識）だが、シーズ固有の検証計画は文書に無い。",
+    "direction": "widen"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "引用不可（規制関連の記載なし）",
+    "assessment": "建材は防火認証等（一般知識）があるが承認プロセス型ではない。判定材料が無い。",
+    "direction": "widen"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "引用不可（既存吸音材との比較データなし）",
+    "assessment": "ウレタン・グラスウール等の安価な既存吸音材（一般知識）に対する性能/コスト差の桁を判断する材料がJSONに無い。",
+    "direction": "widen"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "引用不可（阻害要因を示す記載なし）",
+    "assessment": "吸遮音部材に社会受容の構造的逆風は見当たらない。前提インフラも成立済み。",
+    "direction": "neutral"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "該当なし（自動車・建材の静粛化を直接扱うAtlasテーマは無い）",
+    "assessment": "Atlas直撃なし。§5規律に従い中立。",
+    "direction": "neutral"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "引用不可（ip_status: null）",
+    "assessment": "権利化状況が不明。技術供与前提のシーズで知財状態が不明なのは経路の根幹に関わる不確実性であり、帯を広げる。",
+    "direction": "widen"
+   }
+  ],
+  "q_lower_pct": 0.3,
+  "q_upper_pct": 4,
+  "main_factor_tag": "未検証",
+  "notes": "研究者の事業化シグナルの記載なし。ライセンス低資本経路＋既存財布（要因2・5）が下支えする一方、TRL・知財・代替差・コストがすべて引用不可で「知らなさ」が支配的。指示に従い、引用不可要因は帯を広げる側に使い、S0〜S2の広い段階仮説も反映して幅を広く取った。"
+ },
+ {
+  "no": 24,
+  "title": "鳥類音響デバイス・音響体験シーズ",
+  "stage_hypothesis": "S0〜S1",
+  "factors": [
+   {
+    "id": 1,
+    "name": "ユニットエコノミクス成立性",
+    "evidence": "「録音再生に対する優位性の証明」(biggest_bottleneck)",
+    "assessment": "デバイス自体は既存部品の組立で作れる型（一般知識）だが、代替解（録音再生）がほぼ無料であるため、価格プレミアムを正当化する優位性が未証明のままでは単位経済の成立根拠が立たない。",
+    "direction": "down"
+   },
+   {
+    "id": 2,
+    "name": "資本集約度",
+    "evidence": "primary_commercialization_type: \"small_business_1b_yen\" / 「小さく検証する」(summary)",
+    "assessment": "小規模事業型で、資本自立までの累積資金の桁が最小級。調達ゲートの回数が少なく、qの定義（新規調達なしで12か月回る）には構造的に届きやすい経路。",
+    "direction": "up"
+   },
+   {
+    "id": 3,
+    "name": "スケール律速の型",
+    "evidence": "「デバイス/体験シーズ」(summary)",
+    "assessment": "組立型・体験型で、既存部品と製造網に乗る（一般知識）。プロセス型の壁は無い。",
+    "direction": "up"
+   },
+   {
+    "id": 4,
+    "name": "再現性",
+    "evidence": "引用不可（音響再現の技術データなし）",
+    "assessment": "「鳴き声や声道構造を音響学的に再現」の再現水準を示すデータはJSONに無い。",
+    "direction": "widen"
+   },
+   {
+    "id": 5,
+    "name": "誰の財布か",
+    "evidence": "industry_target「鳥獣害対策」「農業」「自治体」/「教育、展示、趣味市場」(summary)",
+    "assessment": "鳥獣害対策には自治体・農業の既存対策予算が存在（一般知識）し置き換え可能性がある。一方、教育展示・趣味は新しい財布寄り。混在。",
+    "direction": "neutral"
+   },
+   {
+    "id": 6,
+    "name": "顧客の検証コスト",
+    "evidence": "「小さく検証する」(summary) / keywords「試験販売」",
+    "assessment": "試験販売で反応を見られる設計で、顧客の検証コストは金・期間とも小さい。",
+    "direction": "up"
+   },
+   {
+    "id": 7,
+    "name": "規制・認証の関門",
+    "evidence": "引用不可（規制関連の記載なし）",
+    "assessment": "鳥獣保護管理法まわりの規律（一般知識）はありうるが承認プロセス型ではない。判定材料が無い。",
+    "direction": "neutral"
+   },
+   {
+    "id": 8,
+    "name": "代替解との差の桁",
+    "evidence": "「録音再生に対する優位性の証明」(biggest_bottleneck)",
+    "assessment": "代替解がほぼ無料の録音再生であり、差の桁どころか優位性の存在自体が未証明と文書自身が最大ボトルネックに置いている。帯の上限を抑える主要因。",
+    "direction": "down"
+   },
+   {
+    "id": 9,
+    "name": "社会受容性",
+    "evidence": "引用不可（阻害要因を示す記載なし）",
+    "assessment": "教育・展示・鳥獣害対策のいずれも社会受容の構造的逆風は見当たらない。",
+    "direction": "neutral"
+   },
+   {
+    "id": 10,
+    "name": "マイクロトレンド適合",
+    "evidence": "該当なし（「食・農業政策とアグリテック」はスマート農業・アグリテック投資が対象だが、鳥獣害対策・音響デバイスへの直撃引用は不可）",
+    "assessment": "近接はあるが直撃＋政策資金流入の引用が成立しないため、§5規律により中立。",
+    "direction": "neutral"
+   },
+   {
+    "id": 11,
+    "name": "特許の状態",
+    "evidence": "「出願前」(ip_status) / 「知財保護と公開デモの順番を確認しながら」(summary)",
+    "assessment": "出願前で独占性は現状ゼロ。公開デモ先行で新規性を失うリスクを文書自身が認識している。",
+    "direction": "down"
+   }
+  ],
+  "q_lower_pct": 0.5,
+  "q_upper_pct": 5,
+  "main_factor_tag": "代替差",
+  "notes": "研究者の事業化シグナルの直接記載はなし（「知財保護と公開デモの順番を確認しながら小さく検証する」はシーズ運用方針の記述であり研究者本人のシグナルとは判別不能）。small_business型の低資本経路（要因2）が下限を持ち上げる一方、無料同然の代替解に対する優位性未証明（要因1・8）と出願前の知財（要因11）が上限を抑える。"
+ }
+]
