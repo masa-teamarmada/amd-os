@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildLiveMonthlyPlInputs } from "@/lib/finance/live-monthly-pl-inputs";
 import {
+  projectCashFromAnchor,
+  resolveCashAnchor,
+  type CashAnchorPoint,
+} from "@/lib/finance/cash-anchor";
+import {
   runMonthlyPlSimulation,
   toCompanyBudgetMonthlyRows,
   type BudgetInputKind,
@@ -32,6 +37,7 @@ export type LiveMonthlyPlBudgetRefreshResult = {
   companyRowCount: number;
   projectRowCount: number;
   inputFallbackVersion: string | null;
+  cashAnchor: CashAnchorPoint | null;
   warnings: string[];
 };
 
@@ -78,12 +84,17 @@ function recalculatedRunway(row: MonthlyPlSimulationResult["rows"][number], cash
   return Math.round((cashBalance / Math.abs(row.netCashFlow)) * 10) / 10;
 }
 
+/**
+ * freee 実残高でモデル残高を置き換える。
+ * アンカーは「当月より前の最新の実績月」= 月末が確定した月に限定する (`cash-anchor.ts` 参照)。
+ * 当月の残高は「締まった月の実残高 + 当月モデル月次CF」= モデル月末見込みになる。
+ */
 async function applyLatestActualCashAnchor(
   supabase: SupabaseClient,
   result: MonthlyPlSimulationResult
-): Promise<MonthlyPlSimulationResult> {
+): Promise<{ result: MonthlyPlSimulationResult; anchor: CashAnchorPoint | null }> {
   const lastYm = String(result.rows.at(-1)?.ym ?? "");
-  if (!lastYm) return result;
+  if (!lastYm) return { result, anchor: null };
   const { data, error } = await supabase
     .from("company_actual_monthly")
     .select("ym,actual_amount_yen,imported_at")
@@ -92,24 +103,36 @@ async function applyLatestActualCashAnchor(
     .lte("ym", lastYm)
     .order("ym", { ascending: false })
     .order("imported_at", { ascending: false, nullsFirst: false })
-    .limit(1);
+    .limit(200);
   if (error) throw new Error(`cash balance anchor load failed: ${error.message}`);
-  const anchor = data?.[0] as { ym?: string; actual_amount_yen?: number | string | null } | undefined;
-  if (!anchor?.ym) return result;
-  const anchorIndex = result.rows.findIndex((row) => String(row.ym) === String(anchor.ym));
-  const anchorCash = Number(anchor.actual_amount_yen ?? 0);
-  if (anchorIndex < 0 || !Number.isFinite(anchorCash)) return result;
 
-  let runningCash = anchorCash;
+  // ym ごとに最新 imported_at の1件だけ残す
+  const actualByYm = new Map<string, number>();
+  for (const row of (data ?? []) as Array<{ ym?: string | number; actual_amount_yen?: number | string | null }>) {
+    const ym = String(row.ym ?? "");
+    if (!ym || actualByYm.has(ym)) continue;
+    const cash = Number(row.actual_amount_yen ?? 0);
+    if (Number.isFinite(cash)) actualByYm.set(ym, cash);
+  }
+  if (actualByYm.size === 0) return { result, anchor: null };
+
+  const anchor = resolveCashAnchor(
+    result.rows.map((row) => ({
+      ym: row.ym,
+      actualCash: actualByYm.get(String(row.ym)) ?? null,
+      modelCash: row.cashBalance,
+    }))
+  );
+  const projected = projectCashFromAnchor(
+    result.rows.map((row) => row.netCashFlow),
+    anchor
+  );
   const rows = result.rows.map((row, index) => {
-    if (index < anchorIndex) return row;
-    if (index === anchorIndex) {
-      return { ...row, cashBalance: runningCash, runway: recalculatedRunway(row, runningCash) };
-    }
-    runningCash += row.netCashFlow;
-    return { ...row, cashBalance: runningCash, runway: recalculatedRunway(row, runningCash) };
+    const cashBalance = projected[index];
+    if (cashBalance == null) return row;
+    return { ...row, cashBalance, runway: recalculatedRunway(row, cashBalance) };
   });
-  return { ...result, rows };
+  return { result: { ...result, rows }, anchor };
 }
 
 async function loadFallbackInputRows(supabase: SupabaseClient): Promise<{
@@ -156,7 +179,9 @@ export async function refreshLiveMonthlyPlBudget(
     fallbackScenarios: fallbackInputs.scenarios,
     persistForecast: options.persistForecast === true,
   });
-  const result = await applyLatestActualCashAnchor(supabase, runMonthlyPlSimulation(live.inputs, null));
+  const anchored = await applyLatestActualCashAnchor(supabase, runMonthlyPlSimulation(live.inputs, null));
+  const result = anchored.result;
+  const cashAnchor = anchored.anchor;
   const sourceRef = options.sourceRef ?? "/management-score live monthly PL";
   const sourceRows = toCompanyBudgetMonthlyRows(result).filter(shouldPersistRow);
 
@@ -168,7 +193,7 @@ export async function refreshLiveMonthlyPlBudget(
       source: LIVE_MONTHLY_PL_SOURCE,
       source_ref: sourceRef,
       engine_version: LIVE_MONTHLY_PL_ENGINE_VERSION,
-      params: result.params,
+      params: { ...result.params, cashAnchor },
     })
     .select("id")
     .single();
@@ -217,6 +242,7 @@ export async function refreshLiveMonthlyPlBudget(
     companyRowCount: insertRows.filter((row) => row.scope === "company").length,
     projectRowCount: insertRows.filter((row) => row.scope === "project").length,
     inputFallbackVersion: fallback.version,
+    cashAnchor,
     warnings: live.warnings,
   };
 }

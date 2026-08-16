@@ -16,6 +16,11 @@ import {
   Tooltip,
 } from "chart.js";
 import type { MonthlyPlInputs, MonthlyPlSimulationResult } from "@/lib/finance/monthly-pl-simulation";
+import {
+  projectCashFromAnchor,
+  resolveCashAnchor,
+  type CashAnchorKind,
+} from "@/lib/finance/cash-anchor";
 
 Chart.register(
   BarController,
@@ -113,10 +118,28 @@ export type GasMonthlyRow = {
   obligationDetails: GasObligationDetail[];
 };
 
+/**
+ * 現預金の起点 (freee 実残高で置き換えた月) のメタ情報。
+ * 「この現預金がいつ時点のものか」を画面に出すために使う。
+ */
+export type GasCashAnchorMeta = {
+  ym: number;
+  actualCash: number;
+  /** アンカー置き換え前のモデル残高 */
+  modelCash: number;
+  variance: number;
+  kind: CashAnchorKind;
+  /** freee 取込時刻 (ISO) */
+  asOf?: string | null;
+  /** アンカーより後の月 (= 進行中の月) の口座残高。月末値ではない参考値 */
+  inMonth?: { ym: number; actualCash: number; asOf?: string | null } | null;
+};
+
 export type GasSimulationResult = {
   params: { rateCloser?: number };
   rows: GasMonthlyRow[];
   projectList: GasProjectListItem[];
+  cashAnchor?: GasCashAnchorMeta | null;
 };
 
 type SimulateResponse = {
@@ -147,6 +170,17 @@ function fmtYm(ym: number): string {
 
 function kpiYen(value: number): string {
   return `¥${fmt(value)}`;
+}
+
+/** ISO 文字列を JST の「M月D日 HH:MM」にする */
+function fmtJstStamp(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return null;
+  const jst = new Date(parsed.getTime() + 9 * 60 * 60 * 1000);
+  return `${jst.getUTCMonth() + 1}月${jst.getUTCDate()}日 ${String(jst.getUTCHours()).padStart(2, "0")}:${String(
+    jst.getUTCMinutes()
+  ).padStart(2, "0")}`;
 }
 
 function signedYen(value: number): string {
@@ -199,36 +233,34 @@ type CashProjection = {
   lowestCash: { ym: number; cash: number } | null;
 };
 
-function buildActualConnectedCashProjection(rows: GasMonthlyRow[]): CashProjection {
-  const data: (number | null)[] = rows.map(() => null);
-  let anchorIndex = -1;
-  for (let index = 0; index < rows.length; index += 1) {
-    if (rows[index].actualCashBalance != null) anchorIndex = index;
-  }
+/**
+ * 「実績接続見込み」系列。アンカーは締まった月に限定する (cash-anchor.ts 参照)。
+ * 進行中の月の口座残高で打ち切ると、その月の未払い分が消えて残高が過大に出る。
+ */
+function buildActualConnectedCashProjection(
+  rows: GasMonthlyRow[],
+  meta?: GasCashAnchorMeta | null
+): CashProjection {
+  const point = resolveCashAnchor(
+    rows.map((row) => ({ ym: row.ym, actualCash: row.actualCashBalance, modelCash: row.cashBalance }))
+  );
+  const data = projectCashFromAnchor(rows.map((row) => row.netCashFlow), point);
+  if (!point) return { data, anchor: null, finalCash: null, lowestCash: null };
 
-  if (anchorIndex < 0) {
-    return { data, anchor: null, finalCash: null, lowestCash: null };
-  }
-
-  const anchorRow = rows[anchorIndex];
-  let runningCash = anchorRow.actualCashBalance ?? anchorRow.cashBalance;
-  data[anchorIndex] = runningCash;
-
-  let lowestCash = { ym: anchorRow.ym, cash: runningCash };
-  for (let index = anchorIndex + 1; index < rows.length; index += 1) {
-    runningCash += rows[index].netCashFlow;
-    data[index] = runningCash;
-    if (runningCash < lowestCash.cash) {
-      lowestCash = { ym: rows[index].ym, cash: runningCash };
-    }
+  let lowestCash = { ym: point.ym, cash: point.actualCash };
+  for (let index = point.index + 1; index < rows.length; index += 1) {
+    const cash = data[index];
+    if (cash != null && cash < lowestCash.cash) lowestCash = { ym: rows[index].ym, cash };
   }
 
   return {
     data,
     anchor: {
-      ym: anchorRow.ym,
-      actualCash: anchorRow.actualCashBalance ?? 0,
-      variance: (anchorRow.actualCashBalance ?? 0) - anchorRow.cashBalance,
+      ym: point.ym,
+      actualCash: point.actualCash,
+      // rows[].cashBalance は既にアンカー適用済みなので差異は 0 になる。
+      // サーバ側が置き換え前のモデル残高を渡してきたときだけ本来の差異を出す。
+      variance: meta && meta.ym === point.ym ? meta.variance : point.variance,
     },
     finalCash: data[data.length - 1] ?? null,
     lowestCash,
@@ -266,7 +298,42 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
       }));
   }, [inputs]);
 
-  const cashProjection = useMemo(() => buildActualConnectedCashProjection(rows), [rows]);
+  const cashAnchorMeta = result.cashAnchor ?? null;
+  const cashProjection = useMemo(
+    () => buildActualConnectedCashProjection(rows, cashAnchorMeta),
+    [rows, cashAnchorMeta]
+  );
+
+  /**
+   * 「この現預金がいつ時点のものか」を明示する注記。
+   * 起点が締まった月なら月末確定値、当月しか無いなら月中値である旨を警告として出す。
+   */
+  const cashAnchorNote = useMemo(() => {
+    const anchor = cashProjection.anchor;
+    if (!anchor) return null;
+    const kind = cashAnchorMeta && cashAnchorMeta.ym === anchor.ym ? cashAnchorMeta.kind : "settled_month_end";
+    const anchorStamp = cashAnchorMeta && cashAnchorMeta.ym === anchor.ym ? fmtJstStamp(cashAnchorMeta.asOf) : null;
+    const nextYmIndex = rows.findIndex((row) => row.ym === anchor.ym) + 1;
+    const nextYm = rows[nextYmIndex]?.ym ?? null;
+
+    if (kind === "in_month_balance") {
+      return {
+        warn: true,
+        main: `⚠ 現預金の起点が${fmtYm(anchor.ym)}の口座残高${anchorStamp ? `（${anchorStamp} 時点）` : ""}です。月末が確定した月の実残高がまだ無いため、${fmtYm(anchor.ym)}にこれから出ていく支払いは残高に反映されていません。`,
+        sub: "この状態の見込み残高は実態より高く出ます。freee の月末残高が取り込まれると自動で解消します。",
+      };
+    }
+
+    const inMonth = cashAnchorMeta?.inMonth ?? null;
+    const inMonthStamp = fmtJstStamp(inMonth?.asOf);
+    return {
+      warn: false,
+      main: `現預金の起点は${fmtYm(anchor.ym)}末の実残高 ${kpiYen(anchor.actualCash)}（freee・月末確定）。${nextYm ? `${fmtYm(nextYm)}以降` : "以降"}はモデルの月次キャッシュフローを積み上げた見込みで、まだ動く数字です。`,
+      sub: inMonth
+        ? `参考: ${fmtYm(inMonth.ym)}の口座残高は ${kpiYen(inMonth.actualCash)}${inMonthStamp ? `（${inMonthStamp} 時点）` : ""}。月中の値なので、その月の未払い分は差し引かれていません。`
+        : null,
+    };
+  }, [cashProjection.anchor, cashAnchorMeta, rows]);
 
   const kpis = useMemo(() => {
     const totalRev = rows.reduce((sum, row) => sum + row.revenue, 0);
@@ -684,6 +751,29 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
         .projection-value.negative {
           color: #d84d7a;
         }
+        .cash-anchor-note {
+          margin-top: 8px;
+          padding: 7px 10px;
+          border: 1px solid #e0e4ec;
+          border-left: 3px solid #1b3a6b;
+          border-radius: 6px;
+          background: #f8f9fc;
+          color: #444;
+          font-size: 11px;
+          line-height: 1.6;
+        }
+        .cash-anchor-note.warn {
+          border-left-color: #d84d7a;
+          background: #fdf3f6;
+          color: #8a2f4c;
+        }
+        .cash-anchor-sub {
+          color: #777;
+          margin-top: 2px;
+        }
+        .cash-anchor-note.warn .cash-anchor-sub {
+          color: #a4566e;
+        }
         .table-wrap {
           overflow-x: auto;
         }
@@ -954,7 +1044,7 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
           </div>
           <div className="projection-strip">
             <div className="projection-item">
-              <div className="projection-label">最新実績</div>
+              <div className="projection-label">現預金の起点</div>
               <div className="projection-value">
                 {cashProjection.anchor ? `${fmtYm(cashProjection.anchor.ym)} ${kpiYen(cashProjection.anchor.actualCash)}` : "-"}
               </div>
@@ -986,6 +1076,12 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
               </div>
             </div>
           </div>
+          {cashAnchorNote ? (
+            <div className={`cash-anchor-note ${cashAnchorNote.warn ? "warn" : ""}`}>
+              <div>{cashAnchorNote.main}</div>
+              {cashAnchorNote.sub ? <div className="cash-anchor-sub">{cashAnchorNote.sub}</div> : null}
+            </div>
+          ) : null}
         </div>
       </div>
 

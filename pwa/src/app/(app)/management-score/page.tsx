@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ReactNode } from "react";
 import { GasMonthlySimulationPanel, type GasMonthlyRow, type GasProjectListItem, type GasSimulationResult } from "@/components/management-score/GasMonthlySimulationPanel";
+import { projectCashFromAnchor, resolveCashAnchor } from "@/lib/finance/cash-anchor";
 import { LongRangeProjectionPanel } from "@/components/management-score/LongRangeProjectionPanel";
 import {
   EvidencePanel,
@@ -1928,21 +1929,28 @@ function buildLiveGasSimulationResult(
       obligationDetails: row.obligationDetails,
     };
   });
-  let anchorIndex = -1;
+  // 現預金アンカーは「締まった月」に限定する (cash-anchor.ts 参照)。
+  // 当月の freee 残高は月中の値なので、そこで打ち切ると当月の未払い分が消える。
+  const anchor = resolveCashAnchor(
+    rows.map((row) => ({ ym: row.ym, actualCash: row.actualCashBalance, modelCash: row.cashBalance }))
+  );
+  const projected = projectCashFromAnchor(rows.map((row) => row.netCashFlow), anchor);
   for (let index = 0; index < rows.length; index += 1) {
-    if (rows[index].actualCashBalance != null) anchorIndex = index;
-  }
-  if (anchorIndex >= 0) {
-    let runningCash = rows[anchorIndex].actualCashBalance ?? rows[anchorIndex].cashBalance;
-    rows[anchorIndex] = { ...rows[anchorIndex], cashBalance: runningCash };
-    for (let index = anchorIndex + 1; index < rows.length; index += 1) {
-      runningCash += rows[index].netCashFlow;
-      rows[index] = { ...rows[index], cashBalance: runningCash };
-    }
+    const cashBalance = projected[index];
+    if (cashBalance != null) rows[index] = { ...rows[index], cashBalance };
   }
   return {
     params: { rateCloser: engine.params.rateCloser },
     rows,
+    cashAnchor: anchor
+      ? {
+          ym: anchor.ym,
+          actualCash: anchor.actualCash,
+          modelCash: anchor.modelCash,
+          variance: anchor.variance,
+          kind: anchor.kind,
+        }
+      : null,
     projectList: engine.projectList
       .filter((pj) => visibleProjectIds.has(pj.projectId))
       .map((pj) => ({
@@ -2420,6 +2428,36 @@ export default async function ManagementScorePage() {
       .map((row) => row.imported_at)
   );
   const cashActualRows = actualFreshnessRows.filter((row) => row.category === "cash_balance");
+  // 現預金の起点 (アンカー) がいつ時点のものかを画面に出すため、freee 取込時刻を ym ごとに引けるようにする。
+  const cashImportedAtByYm = new Map<string, string>();
+  for (const row of cashActualRows) {
+    if (!row.imported_at) continue;
+    const current = cashImportedAtByYm.get(row.ym);
+    if (!current || (timeValue(row.imported_at) ?? 0) > (timeValue(current) ?? 0)) {
+      cashImportedAtByYm.set(row.ym, row.imported_at);
+    }
+  }
+  if (gasSimulationResult.cashAnchor) {
+    const anchorMeta = gasSimulationResult.cashAnchor;
+    // アンカーより後の月に口座残高があれば、それは月中の値。参考値として注記に出す。
+    const inMonthRow = gasSimulationResult.rows
+      .filter((row) => row.ym > anchorMeta.ym && row.actualCashBalance != null)
+      .at(-1);
+    gasSimulationResult = {
+      ...gasSimulationResult,
+      cashAnchor: {
+        ...anchorMeta,
+        asOf: cashImportedAtByYm.get(String(anchorMeta.ym)) ?? null,
+        inMonth: inMonthRow
+          ? {
+              ym: inMonthRow.ym,
+              actualCash: inMonthRow.actualCashBalance ?? 0,
+              asOf: cashImportedAtByYm.get(String(inMonthRow.ym)) ?? null,
+            }
+          : null,
+      },
+    };
+  }
   const latestCashActual = cashActualRows
     .slice()
     .sort((a, b) => b.ym.localeCompare(a.ym) || (timeValue(b.imported_at) ?? 0) - (timeValue(a.imported_at) ?? 0))[0] ?? null;
