@@ -50,6 +50,7 @@ import {
 } from "@/lib/workspace-capabilities";
 import {
   isWorkspaceDocumentHtml,
+  isWorkspaceDocumentMarkdown,
   WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES,
   workspaceDocumentFinderCopyName,
   workspaceDocumentHtmlSourceByteLength,
@@ -115,6 +116,17 @@ function fullPath(item: DocumentItem) {
   return item.folderPath
     ? `${item.folderPath}/${item.displayName}`
     : item.displayName;
+}
+
+function workspaceDocumentViewHref(item: DocumentItem) {
+  const encodedId = encodeURIComponent(item.documentId);
+  if (isWorkspaceDocumentHtml(item.mimeType, item.displayName)) {
+    return `/api/workspace-documents/${encodedId}/render`;
+  }
+  if (isWorkspaceDocumentMarkdown(item.mimeType, item.displayName)) {
+    return `/workspace-document/${encodedId}`;
+  }
+  return `/api/workspace-documents/${encodedId}/open?download=0`;
 }
 
 function formatBytes(bytes: number) {
@@ -1002,19 +1014,9 @@ export function WorkspaceDocumentRoom({
                         >
                           {item.displayName}
                         </button>
-                      ) : item.entryKind === "file" && isWorkspaceDocumentHtml(item.mimeType, item.displayName) ? (
-                        <a
-                          href={`/api/workspace-documents/${encodeURIComponent(item.documentId)}/render`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block min-h-11 max-w-full truncate py-2 text-sm font-semibold hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 xl:min-h-0 xl:py-0.5"
-                          title={item.displayName}
-                        >
-                          {item.displayName}
-                        </a>
                       ) : (
                         <a
-                          href={`/api/workspace-documents/${encodeURIComponent(item.documentId)}/open?download=0`}
+                          href={workspaceDocumentViewHref(item)}
                           target="_blank"
                           rel="noreferrer"
                           className="block min-h-11 max-w-full truncate py-2 text-sm font-semibold hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 xl:min-h-0 xl:py-0.5"
@@ -1061,7 +1063,9 @@ export function WorkspaceDocumentRoom({
                       </button>
                     ) : item.entryKind !== "folder" ? (
                       <a
-                        href={`/api/workspace-documents/${encodeURIComponent(item.documentId)}/open?download=1`}
+                        href={item.entryKind === "link"
+                          ? workspaceDocumentViewHref(item)
+                          : `/api/workspace-documents/${encodeURIComponent(item.documentId)}/open?download=1`}
                         target="_blank"
                         rel="noreferrer"
                         className="grid h-11 w-11 place-items-center rounded-md text-slate-600 hover:bg-slate-100 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 xl:h-9 xl:w-9"

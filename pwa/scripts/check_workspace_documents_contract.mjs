@@ -8,6 +8,9 @@ const files = {
   mutate: new URL("../src/app/api/workspace-documents/[documentId]/route.ts", import.meta.url),
   open: new URL("../src/app/api/workspace-documents/[documentId]/open/route.ts", import.meta.url),
   render: new URL("../src/app/api/workspace-documents/[documentId]/render/route.ts", import.meta.url),
+  textLoader: new URL("../src/lib/workspace-document-text.ts", import.meta.url),
+  markdownPage: new URL("../src/app/workspace-document/[documentId]/page.tsx", import.meta.url),
+  markdownReader: new URL("../src/components/workspace-documents/WorkspaceMarkdownReader.tsx", import.meta.url),
   htmlSource: new URL("../src/app/api/workspace-documents/[documentId]/source/route.ts", import.meta.url),
   pdf: new URL("../src/app/api/workspace-documents/[documentId]/pdf/route.ts", import.meta.url),
   htmlPdf: new URL("../src/lib/workspace-document-html-pdf.ts", import.meta.url),
@@ -33,11 +36,15 @@ assert.match(source.access, /scope\.institutionWorkspaces\.find/, "機関資料�
 assert.doesNotMatch(source.access, /institutionWorkspaces.*project_access/s, "機関membershipからPJ権限を自動生成しない");
 assert.match(source.list, /!access\.canReadInternal.*visibility.*workspace_shared/s, "外部一覧は共有資料だけに絞る");
 assert.match(source.open, /row\.visibility === "amd_internal" && !access\.canReadInternal/, "open routeも内部資料を404にする");
+assert.match(source.open, /!download && isWorkspaceDocumentHtml[\s\S]*?\/render/, "旧open URLもHTMLをブラウザ表示へ振り分ける");
+assert.match(source.open, /!download && isWorkspaceDocumentMarkdown[\s\S]*?\/workspace-document\//, "旧open URLもMarkdown Readerへ振り分ける");
 assert.match(source.open, /createSignedUrl\(row\.storage_path, 60/, "private fileは60秒の署名URLで開く");
 assert.match(source.render, /resolveDocumentRowAccess\(db, row\)/, "HTML表示も資料ごとの権限を再確認する");
 assert.match(source.render, /row\.visibility === "amd_internal" && !access\.canReadInternal/, "HTML表示も内部資料を404にする");
 assert.match(source.render, /isWorkspaceDocumentHtml\(row\.mime_type, row\.display_name\)/, "HTMLだけを専用表示で返す");
 assert.match(source.render, /WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES/, "HTML表示の読込量を制限する");
+assert.match(source.render, /row\.entry_kind !== "file" && row\.entry_kind !== "link"/, "HTML表示は保存fileとDrive linkの両方を扱う");
+assert.match(source.render, /loadWorkspaceDocumentText\(db, row, WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES\)/, "HTML表示は共通の上限付き本文loaderを通す");
 assert.match(source.render, /default-src 'none';[\s\S]*sandbox/, "HTML表示はscriptを許可しないsandbox CSPを返す");
 assert.match(source.render, /Content-Type": "text\/html; charset=utf-8"/, "HTML表示は正しいMIMEで返す");
 assert.match(source.htmlSource, /resolveDocumentRowAccess\(db, row\)/, "HTML編集も資料ごとの権限を再確認する");
@@ -65,13 +72,22 @@ assert.match(source.htmlPdf, /request\.url\(\)\.startsWith\("data:"\)/, "HTML PD
 assert.match(source.htmlPdf, /format: "A4"/, "HTML PDF化はA4で組版する");
 assert.match(source.room, /\/render`/, "HTMLの資料名クリックは安全表示を開く");
 assert.match(source.room, /async function downloadHtmlAsPdf/, "PDF化ダウンロードはfetchで失敗を検知するhandlerを持つ");
-assert.match(source.room, /item\.entryKind === "file" && isWorkspaceDocumentHtml\(item\.mimeType, item\.displayName\)\s*\?\s*\(\s*<a[\s\S]*?\/render`/, "保存済みHTMLの資料名クリックは安全表示を開く");
+assert.match(source.room, /function workspaceDocumentViewHref[\s\S]*?isWorkspaceDocumentHtml[\s\S]*?\/render`[\s\S]*?isWorkspaceDocumentMarkdown[\s\S]*?\/workspace-document\//, "資料名クリックはHTML安全表示とMarkdown Readerへ振り分ける");
 assert.match(source.room, /"PDF化ダウンロード"/, "HTMLの右端操作はPDF化ダウンロードと明示する");
 assert.match(source.room, /HTMLを編集/, "HTMLの右端操作は本文編集を明示する");
 assert.match(source.room, /permissions\?\.canUpload && item\.entryKind === "file" && isWorkspaceDocumentHtml[\s\S]*?openHtmlEditor/, "HTML本文編集はcanUploadで表示する");
 assert.match(source.room, /permissions\?\.canUpload && \([\s\S]*?資料室から削除/, "資料室からの削除はcanUploadで表示する");
 assert.match(source.room, /資料室の通常一覧と共有画面から外す[\s\S]*?保護された保管領域に残り/, "削除確認は非破壊保管と公開停止を明示する");
 assert.match(source.room, /open\?download=1/, "非HTMLの右端操作はダウンロードlinkのまま");
+assert.match(source.textLoader, /ALLOWED_DRIVE_HOSTS = new Set\(\["drive\.google\.com", "docs\.google\.com"\]\)/, "Drive本文取得はGoogle Drive hostだけを許可する");
+assert.match(source.textLoader, /getGoogleAuthAsync\(\)/, "Drive本文取得はserver側Google認証を使う");
+assert.match(source.textLoader, /declaredSize > maxBytes[\s\S]*byteLength > maxBytes/, "Drive本文はmetadataと実byteの両方で上限判定する");
+assert.match(source.markdownPage, /resolveDocumentRowAccess\(db, row\)/, "Markdown Readerも資料ごとの権限を再確認する");
+assert.match(source.markdownPage, /row\.visibility === "amd_internal" && !access\.canReadInternal/, "Markdown Readerも内部資料を404にする");
+assert.match(source.markdownPage, /WORKSPACE_DOCUMENT_MARKDOWN_PREVIEW_MAX_BYTES/, "Markdown Readerは本文読込量を制限する");
+assert.match(source.markdownPage, /<WorkspaceMarkdownReader source=\{loaded\.text\}/, "Markdown本文は専用Readerへ渡す");
+assert.match(source.markdownReader, /ReactMarkdown[\s\S]*remarkPlugins=\{\[remarkGfm\]\}/, "Markdown ReaderはGFMをレンダリングする");
+assert.doesNotMatch(source.markdownPage, /Sidebar|WorkspaceDocumentRoom|Cockpit/, "Markdown Reader pageに資料室の左メニューを持ち込まない");
 assert.match(source.room, /<button[\s\S]*?downloadHtmlAsPdf/, "右端のPDF化ダウンロードだけが変換handlerを呼ぶ");
 assert.match(source.room, /setError\(\s*\n?\s*cause instanceof Error \? cause\.message : "PDFを生成できなかったよ。"/, "PDF化失敗はrole=alertへ日本語エラーを出し、JSON画面へは遷移しない");
 assert.doesNotMatch(source.serializer.split("export function publicWorkspaceDocument")[1], /storage_path|external_url/, "一覧DTOに保存先や外部URLを含めない");

@@ -6,6 +6,10 @@ import {
   type WorkspaceDocumentRow,
 } from "@/lib/workspace-documents-server";
 import { recordWorkspaceAuditEvent } from "@/lib/workspace-access-audit";
+import {
+  isWorkspaceDocumentHtml,
+  isWorkspaceDocumentMarkdown,
+} from "@/lib/workspace-documents-core";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,11 +42,24 @@ export async function GET(
   }
   if (row.entry_kind === "folder") return json({ ok: false, error: "フォルダは一覧から開いてね。" }, 400);
 
+  const download = new URL(request.url).searchParams.get("download") !== "0";
+  if (!download && isWorkspaceDocumentHtml(row.mime_type, row.display_name)) {
+    return NextResponse.redirect(
+      new URL(`/api/workspace-documents/${encodeURIComponent(documentId)}/render`, request.url),
+      303,
+    );
+  }
+  if (!download && isWorkspaceDocumentMarkdown(row.mime_type, row.display_name)) {
+    return NextResponse.redirect(
+      new URL(`/workspace-document/${encodeURIComponent(documentId)}`, request.url),
+      303,
+    );
+  }
+
   let destination: string | null = null;
   if (row.entry_kind === "link") {
     destination = row.external_url;
   } else if (row.storage_bucket && row.storage_path) {
-    const download = new URL(request.url).searchParams.get("download") !== "0";
     const { data: signed, error: signedError } = await db.storage
       .from(row.storage_bucket)
       .createSignedUrl(row.storage_path, 60, { download: download ? row.display_name : false });

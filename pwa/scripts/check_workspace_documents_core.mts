@@ -3,6 +3,7 @@ import {
   documentBaseName,
   documentParentPath,
   isWorkspaceDocumentHtml,
+  isWorkspaceDocumentMarkdown,
   joinDocumentFolderPath,
   normalizeWorkspaceDocumentHtmlSource,
   normalizeDocumentFolderPath,
@@ -60,6 +61,11 @@ assert.equal(isWorkspaceDocumentHtml("TEXT/HTML; charset=utf-8"), true);
 assert.equal(isWorkspaceDocumentHtml("application/octet-stream", "提案資料.HTML"), true);
 assert.equal(isWorkspaceDocumentHtml("application/octet-stream", "提案資料.htm"), true);
 assert.equal(isWorkspaceDocumentHtml("text/plain"), false);
+assert.equal(isWorkspaceDocumentMarkdown("text/markdown"), true);
+assert.equal(isWorkspaceDocumentMarkdown("TEXT/X-MARKDOWN; charset=utf-8"), true);
+assert.equal(isWorkspaceDocumentMarkdown("application/octet-stream", "議事録.MD"), true);
+assert.equal(isWorkspaceDocumentMarkdown("text/plain", "議事録.markdown"), true);
+assert.equal(isWorkspaceDocumentMarkdown("text/plain", "議事録.txt"), false);
 assert.equal(workspaceDocumentPdfDownloadName("提案資料.html"), "提案資料.pdf");
 assert.equal(workspaceDocumentPdfDownloadName("提案資料.HTM"), "提案資料.pdf");
 assert.equal(workspaceDocumentHtmlSourceByteLength("あ"), 3);

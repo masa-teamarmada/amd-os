@@ -4,6 +4,7 @@ import {
   isWorkspaceDocumentHtml,
   WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES,
 } from "@/lib/workspace-documents-core";
+import { loadWorkspaceDocumentText } from "@/lib/workspace-document-text";
 import {
   resolveDocumentRowAccess,
   WORKSPACE_DOCUMENT_FIELDS,
@@ -45,28 +46,15 @@ export async function GET(
   if (!access || (row.visibility === "amd_internal" && !access.canReadInternal)) {
     return json({ ok: false, error: "Not found" }, 404);
   }
-  if (
-    row.entry_kind !== "file"
-    || !row.storage_bucket
-    || !row.storage_path
-    || !isWorkspaceDocumentHtml(row.mime_type, row.display_name)
-  ) {
+  if ((row.entry_kind !== "file" && row.entry_kind !== "link") || !isWorkspaceDocumentHtml(row.mime_type, row.display_name)) {
     return json({ ok: false, error: "HTML資料ではないよ。" }, 400);
   }
   if (row.file_size_bytes > WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES) {
     return json({ ok: false, error: "HTMLプレビューは5MBまでだよ。" }, 413);
   }
 
-  const { data: file, error: downloadError } = await db.storage
-    .from(row.storage_bucket)
-    .download(row.storage_path);
-  if (downloadError || !file) {
-    console.error("[workspace-documents] render download failed:", downloadError?.message);
-    return json({ ok: false, error: "資料を開けなかったよ。" }, 500);
-  }
-  if (file.size > WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES) {
-    return json({ ok: false, error: "HTMLプレビューは5MBまでだよ。" }, 413);
-  }
+  const loaded = await loadWorkspaceDocumentText(db, row, WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES);
+  if (!loaded.ok) return json({ ok: false, error: loaded.error }, loaded.status);
 
   await recordWorkspaceAuditEvent(db, {
     eventType: "workspace_document_opened",
@@ -77,7 +65,7 @@ export async function GET(
     detail: { document_id: documentId, entry_kind: row.entry_kind, action: "render_html" },
   });
 
-  return new NextResponse(await file.text(), {
+  return new NextResponse(loaded.text, {
     headers: {
       "Cache-Control": "private, no-store, max-age=0",
       "Content-Disposition": `inline; filename*=UTF-8''${contentDispositionFilename(row.display_name)}`,

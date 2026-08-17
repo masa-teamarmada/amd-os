@@ -1,6 +1,7 @@
 export const WORKSPACE_DOCUMENTS_BUCKET = "workspace-files";
 export const WORKSPACE_DOCUMENT_MAX_BYTES = 100 * 1024 * 1024;
 export const WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES = 5 * 1024 * 1024;
+export const WORKSPACE_DOCUMENT_MARKDOWN_PREVIEW_MAX_BYTES = 2 * 1024 * 1024;
 export const WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES = 5 * 1024 * 1024;
 export const WORKSPACE_DOCUMENT_HTML_PDF_MAX_INPUT_BYTES = 8 * 1024 * 1024;
 export const WORKSPACE_DOCUMENT_HTML_PDF_MAX_OUTPUT_BYTES = 4 * 1024 * 1024;
@@ -17,6 +18,14 @@ export function isWorkspaceDocumentHtml(mimeType: unknown, displayName?: unknown
     : null;
   if (normalizedMimeType === "text/html") return true;
   return typeof displayName === "string" && /\.html?$/i.test(displayName.trim());
+}
+
+export function isWorkspaceDocumentMarkdown(mimeType: unknown, displayName?: unknown): boolean {
+  const normalizedMimeType = typeof mimeType === "string"
+    ? mimeType.split(";", 1)[0]?.trim().toLowerCase()
+    : null;
+  if (normalizedMimeType === "text/markdown" || normalizedMimeType === "text/x-markdown") return true;
+  return typeof displayName === "string" && /\.(?:md|markdown)$/i.test(displayName.trim());
 }
 
 /**
