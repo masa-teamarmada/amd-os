@@ -262,3 +262,9 @@ automation作成後の最初の自然な平日09:00実行は未観測。2026-08-
 - **触っていないもの**: `project_documents` テーブル自体（`app/api/project/monthly-report-print/route.ts` が月次レポート添付一覧の読み取り専用ソースとして使用中のため残置）、`workspace_documents` / `WorkspaceDocumentRoom` 系一切、共有ドライブの `AMD OS資料室` フォルダ（3PJ分、直前セッションでリネーム済み、ファイル移動もリネームもしていない）、DB migration（一切追加していない）。
 - ドキュメント訂正: `pwa/manual/9-3-appendix-changelog.md` / `pwa/spec/6-1-appendix-changelog.md` に訂正行を追記（append-only、旧2026-08-16行は削除せず残す）。`pwa/spec/3-8-cockpit-current-spec.md` の Project Documents Contract 節を「削除済み・参考記録」へ書き換え、資料室の正本ポインタを `pwa/manual/2-3-pj-cockpit.md` 「## 資料」節へ差し替え。`pwa/design/cockpit.md` のUI構成図、`pwa/design/SPEC_pwa.md` の route表・admin API一覧・db_schema系一覧、`pwa/design/meeting_summaries.md` のCLI手順注記も同じcommitで修正（CLIから`cp`した資料は資料室一覧へ自動反映されない旨を明記）。
 - BUILD_VERSION: v3.78.2 → v3.78.3 (patch、機能撤去)。
+
+## 2026-08-16 BZMモデルセッション(Fable司令塔+Sonnet worker)
+- SPS価値項を持分価値→産業創出価値P^indへ差し替え(まさ発案・二役監査P0×5解消・masa-agreed)。用語集§1.7・一次選別設計§6更新、migration 281(measure_version)適用
+- candidate 24件: q v2(ルーブリックv1.1)×P^ind判断帯→SPS ind版v1.0をDB反映、/seeds本番表示v3.78.1(旧SPS列非表示=まさ裁定)
+- 一次選別インフラ: migration 280(status CHECK/遷移履歴trigger/帯テーブル+DTO契約テスト)、根拠Lv0-3表示、月次試算表p09/p24追加
+- 詳細はbzm/9-5-appendix-changelog.md 2026-08-15〜16エントリ群とSESSION_MIGRATION_PROMPT_BZM_MODEL_20260816.md
