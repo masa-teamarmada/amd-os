@@ -12,7 +12,6 @@ import {
 import {
   buildSxMonthlyFinanceComments,
   buildSxMonthlyFinancePlan,
-  SX_PHASE0_NON_DILUTIVE_FUNDING_YEN,
 } from "../src/lib/sx-monthly-finance-plan.ts";
 import { extractSxFirstFundingTarget, type SxFundingMeetingEvidence } from "../src/lib/sx-funding-timing.ts";
 
@@ -85,10 +84,10 @@ workforceScenario.annualByFiscalYear[2027].employeeAnnualTravelPerPersonYen = 50
 workforceScenario.factoryProjects = workforceScenario.factoryProjects.map((factory) => factory.id === "pilot" ? { ...factory, costYen: 50_000_000 } : factory);
 const workforceAnnual = sxAnnualProjectionWithCash(workforceScenario);
 const workforceFy27 = workforceAnnual.find((year) => year.fiscalYear === 2027)!;
-assert.equal(workforceFy27.executiveCompensationYen, 18_000_000, "役員人数×役員報酬が役員報酬へ反映される");
-assert.equal(workforceFy27.sellingGeneralAdministrativeYen, 39_200_000, "社員の旅費単価が販管費へ反映される");
+assert.equal(workforceFy27.executiveCompensationYen, 16_800_000, "役員人数×役員報酬が役員報酬へ反映される");
+assert.equal(workforceFy27.sellingGeneralAdministrativeYen, 3_115_496, "社員の旅費単価が販管費へ反映される");
 assert.equal(workforceFy27.capexYen, 50_000_000, "工場投資額が設備投資へ反映される");
-assert.equal(workforceFy27.closingCashYen, 19_800_000, "人件費・旅費・工場費の差分が期末現預金へ反映される");
+assert.equal(workforceFy27.closingCashYen, 26_102_012, "人件費・旅費・工場費の差分が期末現預金へ反映される");
 
 const ipoScenario = createSxAnnualProjectionParameters();
 ipoScenario.ipoFiscalYear = 2034;
@@ -105,35 +104,30 @@ const monthlyFinance = buildSxMonthlyFinancePlan(monthRange);
 const sumFinance = (key: "capexYen" | "equityFundingYen" | "grantReceiptYen" | "nonDilutiveFundingYen") =>
   monthlyFinance.reduce((sum, row) => sum + row[key], 0);
 assert.equal(SX_ANNUAL_PROJECTION.find((year) => year.fiscalYear === 2027)?.subsidyCashReceiptYen, 0, "Phase 0 PSI資金をFY2027助成金へ二重計上しない");
-assert.equal(sumFinance("nonDilutiveFundingYen"), SX_PHASE0_NON_DILUTIVE_FUNDING_YEN, "Phase 0資金は1回だけ");
-assert.equal(sumFinance("capexYen"), 1_060_000_000, "M0〜M60内の設備投資計画をtie-out");
-assert.equal(sumFinance("equityFundingYen"), 2_250_000_000, "Seed・Series A・Series Bをラウンド月へ配置");
-assert.equal(sumFinance("grantReceiptYen"), 400_000_000, "FY2028・FY2031の助成金入金計画をtie-out");
+assert.equal(sumFinance("nonDilutiveFundingYen"), 0, "採用月次試算表の対象外期間をC/Fへ補完計上しない");
+assert.equal(sumFinance("capexYen"), 797_600_000, "採用月次試算表の設備投資を計上月でtie-out");
+assert.equal(sumFinance("equityFundingYen"), 2_550_000_000, "採用月次試算表の資金調達を計上月でtie-out");
+assert.equal(sumFinance("grantReceiptYen"), 0, "採用月次試算表に助成金入金計上はない");
 assert.ok(monthlyFinance.every((row) => row.loanDrawdownYen === null), "融資額は0と捏造せず未計画");
-assert.equal(monthlyFinance.find((row) => row.ym === "2028-10")?.equityFundingYen, 600_000_000, "Series AはPhase 2開始月");
+assert.equal(monthlyFinance.find((row) => row.ym === "2028-10")?.equityFundingYen, 300_000_000, "採用月次試算表の資金調達を2028-10へ置く");
 const monthlyFinanceComments = buildSxMonthlyFinanceComments(monthRange);
 assert.ok(
   monthlyFinanceComments.some((comment) =>
     comment.metric === "equityFundingYen"
     && comment.ym === "2028-10"
     && comment.title === "Series A調達"
-    && comment.detail.includes("600百万円")),
-  "Series A調達セルの注記を資本政策から再現",
+    && comment.detail.includes("300百万円")),
+  "Series A調達セルは採用月次試算表の金額を示す",
 );
 assert.ok(
   monthlyFinanceComments.some((comment) =>
     comment.metric === "capexYen"
     && comment.ym === "2031-04"
     && comment.title === "本格自社工場の建設"
-    && comment.detail.includes("600百万円")),
+    && comment.detail.includes("22.3百万円")),
   "本格工場建設セルの注記をフェーズ計画から再現",
 );
-assert.ok(
-  monthlyFinanceComments.some((comment) =>
-    comment.metric === "grantReceiptYen"
-    && comment.detail.includes("受領月は未確認")),
-  "助成金計画注記は採択額・受領実績と自動同一視しない",
-);
+assert.ok(!monthlyFinanceComments.some((comment) => comment.metric === "grantReceiptYen"), "採用月次試算表にない助成金入金を補完しない");
 
 const fundingTargetMeeting = {
   meetingId: "sx-funding-target-evidence",

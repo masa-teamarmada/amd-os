@@ -1,5 +1,4 @@
 import {
-  SX_ANNUAL_PROJECTION,
   SX_BUSINESS_PLAN_PHASES,
   SX_CAPITAL_PLAN_EVENTS,
 } from "./sx-business-plan.ts";
@@ -52,6 +51,27 @@ export const SX_DEFAULT_EQUITY_FUNDING_EVENTS: SxEquityFundingPlanEvent[] =
 export const SX_PHASE0_NON_DILUTIVE_FUNDING_YEN =
   SX_BUSINESS_PLAN_PHASES.find((phase) => phase.id === "psi")?.budgetYen ?? 0;
 
+/**
+ * かる作成の「SX_月次試算表_v2.0_260818.xlsx」C/Fをそのまま投影した明細。
+ * 対象は FY2027〜FY2031（2027-04〜2032-03）。設備投資・株式調達は
+ * 年次への機械的な4月配賦ではなく、原表で計上されている月だけに置く。
+ */
+const SX_TRIAL_BALANCE_CAPEX_BY_YM: Readonly<Record<string, number>> = {
+  "2027-04": 34_900_000,
+  "2028-04": 27_300_000,
+  "2029-04": 27_300_000,
+  "2030-04": 85_800_000,
+  "2031-04": 22_300_000,
+  "2031-08": 600_000_000,
+};
+
+const SX_TRIAL_BALANCE_EQUITY_BY_YM: Readonly<Record<string, number>> = {
+  "2027-04": 150_000_000,
+  "2028-10": 300_000_000,
+  "2030-03": 600_000_000,
+  "2031-04": 1_500_000_000,
+};
+
 function fiscalYearForYm(ym: string) {
   const [year, month] = ym.split("-").map(Number);
   return month >= 4 ? year : year - 1;
@@ -81,18 +101,18 @@ export function buildSxMonthlyFinancePlan(
   equityEvents: readonly SxEquityFundingPlanEvent[] = SX_DEFAULT_EQUITY_FUNDING_EVENTS,
 ): SxMonthlyFinancePlanRow[] {
   return yms.map((ym) => {
-    const fiscalYear = fiscalYearForYm(ym);
-    const annual = SX_ANNUAL_PROJECTION.find((item) => item.fiscalYear === fiscalYear);
-    const isFiscalYearOpening = ym === `${fiscalYear}-04`;
+    const sourceEquityYen = SX_TRIAL_BALANCE_EQUITY_BY_YM[ym];
+    const capitalPlanEquityYen = equityEvents
+      .filter((event) => event.ym === ym)
+      .reduce((sum, event) => sum + event.amountYen, 0);
     return {
       ym,
-      capexYen: isFiscalYearOpening ? annual?.capexYen ?? 0 : 0,
-      equityFundingYen: equityEvents
-        .filter((event) => event.ym === ym)
-        .reduce((sum, event) => sum + event.amountYen, 0),
+      capexYen: SX_TRIAL_BALANCE_CAPEX_BY_YM[ym] ?? 0,
+      // 採用月次試算表を優先し、原表の対象外期間だけ active 資本政策を補完表示する。
+      equityFundingYen: sourceEquityYen ?? capitalPlanEquityYen,
       loanDrawdownYen: null,
-      grantReceiptYen: isFiscalYearOpening ? annual?.subsidyCashReceiptYen ?? 0 : 0,
-      nonDilutiveFundingYen: ym === "2026-07" ? SX_PHASE0_NON_DILUTIVE_FUNDING_YEN : 0,
+      grantReceiptYen: 0,
+      nonDilutiveFundingYen: 0,
     };
   });
 }
@@ -124,18 +144,18 @@ export function buildSxMonthlyFinanceComments(
         metric: "capexYen",
         ym: row.ym,
         title,
-        detail: `${phase?.label ?? `FY${fiscalYear}`}。${facilityActivity ?? "設備投資"}。年次計画${formatYenAsMillion(row.capexYen)}を、支払月未確認のためFY${fiscalYear}の4月へ仮置き。`,
+        detail: `${phase?.label ?? `FY${fiscalYear}`}。${facilityActivity ?? "設備投資"}。採用月次試算表で${formatYenAsMillion(row.capexYen)}をこの月へ計上。`,
         evidenceState: "plan",
       });
     }
 
     const fundingEvents = equityEvents.filter((event) => event.ym === row.ym && event.amountYen > 0);
-    if (fundingEvents.length > 0) {
+    if (row.equityFundingYen > 0) {
       comments.push({
         metric: "equityFundingYen",
         ym: row.ym,
-        title: fundingEvents.map((event) => `${event.label}調達`).join("・"),
-        detail: `active資本政策の計画。${fundingEvents.map((event) => `${event.label} ${formatYenAsMillion(event.amountYen)}`).join("、")}をイベント月へ配置。契約・入金実績ではない。`,
+        title: fundingEvents.map((event) => `${event.label}調達`).join("・") || "資金調達",
+        detail: `採用月次試算表で${formatYenAsMillion(row.equityFundingYen)}をこの月へ計上。${fundingEvents.length ? "active資本政策のイベント名は参照用で、契約・入金実績ではない。" : "資本政策との対応は未確認。"}`,
         evidenceState: "plan",
       });
     }

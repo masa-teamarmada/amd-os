@@ -19,7 +19,6 @@ import {
   buildSxMonthlyFinancePlan,
   buildSxMonthlyFinanceComments,
   SX_DEFAULT_EQUITY_FUNDING_EVENTS,
-  SX_PHASE0_NON_DILUTIVE_FUNDING_YEN,
   type SxMonthlyFinanceComment,
   type SxEquityFundingPlanEvent,
 } from "@/lib/sx-monthly-finance-plan";
@@ -818,7 +817,8 @@ export function Bzm22TimeLedger({
       capexYen: -sum("capexCashFlowYen"),
       equityFundingYen: sum("equityFundingYen"),
       grantReceiptYen: sum("grantReceiptYen"),
-      phase0FundingYen: SX_PHASE0_NON_DILUTIVE_FUNDING_YEN,
+      // 採用月次試算表の対象外の資金は、C/F要約へ補完計上しない。
+      phase0FundingYen: 0,
       closingCashYen: null,
       adoptedYen,
       disbursedKnown,
@@ -980,7 +980,7 @@ export function Bzm22TimeLedger({
             {[
               ["会社設立", sxIncorporationYm],
               ["設立前DD", `${previousYm(sxIncorporationYm)}まで`],
-              ["設立前PJ資金", formatMillionFromYen(sxFinanceSummary.phase0FundingYen)],
+              ...(sxFinanceSummary.phase0FundingYen > 0 ? [["設立前PJ資金", formatMillionFromYen(sxFinanceSummary.phase0FundingYen)]] : []),
               ["設備投資", formatMillionFromYen(sxFinanceSummary.capexYen)],
               ["株式調達", formatMillionFromYen(sxFinanceSummary.equityFundingYen)],
               ["融資", "未計画"],

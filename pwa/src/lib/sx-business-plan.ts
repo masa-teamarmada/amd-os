@@ -231,11 +231,11 @@ export const SX_BUSINESS_PLAN_PHASES: SxBusinessPlanPhase[] = [
 ];
 
 export const SX_ANNUAL_PROJECTION: SxAnnualProjection[] = [
-  { fiscalYear: 2027, revenueYen: 30_000_000, costOfSalesYen: 10_000_000, executiveCompensationYen: 9_000_000, salariesAndBonusesYen: 18_000_000, researchAndDevelopmentYen: 25_000_000, sellingGeneralAdministrativeYen: 38_000_000, subsidySpecialGainYen: 0, subsidyCompressionLossYen: 0, capexYen: 40_000_000, equityFundingYen: 150_000_000, subsidyCashReceiptYen: 0 },
-  { fiscalYear: 2028, revenueYen: 120_000_000, costOfSalesYen: 40_000_000, executiveCompensationYen: 12_000_000, salariesAndBonusesYen: 42_000_000, researchAndDevelopmentYen: 60_000_000, sellingGeneralAdministrativeYen: 66_000_000, subsidySpecialGainYen: 100_000_000, subsidyCompressionLossYen: 100_000_000, capexYen: 120_000_000, equityFundingYen: 600_000_000, subsidyCashReceiptYen: 100_000_000 },
-  { fiscalYear: 2029, revenueYen: 300_000_000, costOfSalesYen: 90_000_000, executiveCompensationYen: 15_000_000, salariesAndBonusesYen: 72_000_000, researchAndDevelopmentYen: 90_000_000, sellingGeneralAdministrativeYen: 83_000_000, subsidySpecialGainYen: 0, subsidyCompressionLossYen: 0, capexYen: 160_000_000, equityFundingYen: 0, subsidyCashReceiptYen: 0 },
-  { fiscalYear: 2030, revenueYen: 700_000_000, costOfSalesYen: 210_000_000, executiveCompensationYen: 18_000_000, salariesAndBonusesYen: 130_000_000, researchAndDevelopmentYen: 130_000_000, sellingGeneralAdministrativeYen: 162_000_000, subsidySpecialGainYen: 0, subsidyCompressionLossYen: 0, capexYen: 140_000_000, equityFundingYen: 0, subsidyCashReceiptYen: 0 },
-  { fiscalYear: 2031, revenueYen: 1_500_000_000, costOfSalesYen: 450_000_000, executiveCompensationYen: 21_000_000, salariesAndBonusesYen: 260_000_000, researchAndDevelopmentYen: 210_000_000, sellingGeneralAdministrativeYen: 259_000_000, subsidySpecialGainYen: 300_000_000, subsidyCompressionLossYen: 300_000_000, capexYen: 600_000_000, equityFundingYen: 1_500_000_000, subsidyCashReceiptYen: 300_000_000 },
+  { fiscalYear: 2027, revenueYen: 11_550_000, costOfSalesYen: 12_732_492, executiveCompensationYen: 25_200_000, salariesAndBonusesYen: 16_800_000, researchAndDevelopmentYen: 36_000_000, sellingGeneralAdministrativeYen: 3_515_496, subsidySpecialGainYen: 0, subsidyCompressionLossYen: 0, capexYen: 34_900_000, equityFundingYen: 150_000_000, subsidyCashReceiptYen: 0 },
+  { fiscalYear: 2028, revenueYen: 71_850_000, costOfSalesYen: 62_417_988, executiveCompensationYen: 25_200_000, salariesAndBonusesYen: 37_800_000, researchAndDevelopmentYen: 36_000_000, sellingGeneralAdministrativeYen: 14_118_492, subsidySpecialGainYen: 0, subsidyCompressionLossYen: 0, capexYen: 27_300_000, equityFundingYen: 300_000_000, subsidyCashReceiptYen: 0 },
+  { fiscalYear: 2029, revenueYen: 338_400_000, costOfSalesYen: 278_088_984, executiveCompensationYen: 25_200_000, salariesAndBonusesYen: 126_000_000, researchAndDevelopmentYen: 36_000_000, sellingGeneralAdministrativeYen: 49_283_988, subsidySpecialGainYen: 0, subsidyCompressionLossYen: 0, capexYen: 27_300_000, equityFundingYen: 600_000_000, subsidyCashReceiptYen: 0 },
+  { fiscalYear: 2030, revenueYen: 670_800_000, costOfSalesYen: 516_031_980, executiveCompensationYen: 25_200_000, salariesAndBonusesYen: 126_000_000, researchAndDevelopmentYen: 48_000_000, sellingGeneralAdministrativeYen: 61_107_984, subsidySpecialGainYen: 0, subsidyCompressionLossYen: 0, capexYen: 85_800_000, equityFundingYen: 0, subsidyCashReceiptYen: 0 },
+  { fiscalYear: 2031, revenueYen: 973_200_000, costOfSalesYen: 710_876_288, executiveCompensationYen: 25_200_000, salariesAndBonusesYen: 126_000_000, researchAndDevelopmentYen: 48_000_000, sellingGeneralAdministrativeYen: 64_131_984, subsidySpecialGainYen: 0, subsidyCompressionLossYen: 0, capexYen: 622_300_000, equityFundingYen: 1_500_000_000, subsidyCashReceiptYen: 0 },
   { fiscalYear: 2032, revenueYen: 3_000_000_000, costOfSalesYen: 900_000_000, executiveCompensationYen: 24_000_000, salariesAndBonusesYen: 480_000_000, researchAndDevelopmentYen: 300_000_000, sellingGeneralAdministrativeYen: 496_000_000, subsidySpecialGainYen: 200_000_000, subsidyCompressionLossYen: 200_000_000, capexYen: 500_000_000, equityFundingYen: 0, subsidyCashReceiptYen: 200_000_000 },
   { fiscalYear: 2033, revenueYen: 6_000_000_000, costOfSalesYen: 1_800_000_000, executiveCompensationYen: 30_000_000, salariesAndBonusesYen: 900_000_000, researchAndDevelopmentYen: 450_000_000, sellingGeneralAdministrativeYen: 820_000_000, subsidySpecialGainYen: 500_000_000, subsidyCompressionLossYen: 500_000_000, capexYen: 800_000_000, equityFundingYen: 2_000_000_000, subsidyCashReceiptYen: 500_000_000 },
   { fiscalYear: 2034, revenueYen: 12_000_000_000, costOfSalesYen: 3_600_000_000, executiveCompensationYen: 36_000_000, salariesAndBonusesYen: 1_700_000_000, researchAndDevelopmentYen: 700_000_000, sellingGeneralAdministrativeYen: 1_464_000_000, subsidySpecialGainYen: 0, subsidyCompressionLossYen: 0, capexYen: 1_000_000_000, equityFundingYen: 0, subsidyCashReceiptYen: 0 },
@@ -264,7 +264,7 @@ export interface SxAnnualProjectionYearParameters {
 }
 
 export interface SxAnnualProjectionFactoryProject {
-  id: "pilot" | "demonstration" | "full-scale" | "second-line";
+  id: "pilot" | "seed-expansion" | "demonstration" | "pre-factory" | "full-scale" | "second-line";
   label: string;
   fiscalYear: number;
   costYen: number;
@@ -278,18 +278,20 @@ export interface SxAnnualProjectionParameters {
   ipoProceedsYen: number;
 }
 
-const DEFAULT_EXECUTIVE_HEADCOUNTS = [1, 1, 1, 2, 3, 3, 4, 5, 5] as const;
-const DEFAULT_EXECUTIVE_COMPENSATION_PER_PERSON_YEN = [9_000_000, 12_000_000, 15_000_000, 9_000_000, 7_000_000, 8_000_000, 7_500_000, 7_200_000, 9_000_000] as const;
-const DEFAULT_EMPLOYEE_HEADCOUNTS = [2, 4, 6, 10, 20, 30, 50, 80, 120] as const;
-const DEFAULT_EMPLOYEE_COMPENSATION_PER_PERSON_YEN = [9_000_000, 10_500_000, 12_000_000, 13_000_000, 13_000_000, 16_000_000, 18_000_000, 21_250_000, 27_500_000] as const;
+const DEFAULT_EXECUTIVE_HEADCOUNTS = [3, 3, 3, 3, 3, 3, 4, 5, 5] as const;
+const DEFAULT_EXECUTIVE_COMPENSATION_PER_PERSON_YEN = [8_400_000, 8_400_000, 8_400_000, 8_400_000, 8_400_000, 8_000_000, 7_500_000, 7_200_000, 9_000_000] as const;
+const DEFAULT_EMPLOYEE_HEADCOUNTS = [2, 3, 15, 15, 15, 30, 50, 80, 120] as const;
+const DEFAULT_EMPLOYEE_COMPENSATION_PER_PERSON_YEN = [8_400_000, 12_600_000, 8_400_000, 8_400_000, 8_400_000, 16_000_000, 18_000_000, 21_250_000, 27_500_000] as const;
 const DEFAULT_EXECUTIVE_TRAVEL_PER_PERSON_YEN = 600_000;
 const DEFAULT_EMPLOYEE_TRAVEL_PER_PERSON_YEN = 300_000;
 const DEFAULT_EXECUTIVE_CONSUMABLES_PER_PERSON_YEN = 200_000;
 const DEFAULT_EMPLOYEE_CONSUMABLES_PER_PERSON_YEN = 150_000;
 const DEFAULT_FACTORY_COST_BY_FISCAL_YEAR: Record<number, number> = {
-  2027: 40_000_000,
-  2029: 160_000_000,
-  2031: 600_000_000,
+  2027: 34_900_000,
+  2028: 27_300_000,
+  2029: 27_300_000,
+  2030: 85_800_000,
+  2031: 622_300_000,
   2033: 800_000_000,
 };
 
@@ -331,9 +333,11 @@ export const SX_ANNUAL_PROJECTION_DEFAULT_PARAMETERS: SxAnnualProjectionParamete
     SX_ANNUAL_PROJECTION.map((year) => [year.fiscalYear, year.fiscalYear === 2035 ? 0 : year.equityFundingYen]),
   ),
   factoryProjects: [
-    { id: "pilot", label: "小規模パイロット設備", fiscalYear: 2027, costYen: 40_000_000 },
-    { id: "demonstration", label: "自社量産実証工場", fiscalYear: 2029, costYen: 160_000_000 },
-    { id: "full-scale", label: "本格自社工場", fiscalYear: 2031, costYen: 600_000_000 },
+    { id: "pilot", label: "小規模パイロット設備", fiscalYear: 2027, costYen: 34_900_000 },
+    { id: "seed-expansion", label: "設備増強", fiscalYear: 2028, costYen: 27_300_000 },
+    { id: "demonstration", label: "量産実証設備", fiscalYear: 2029, costYen: 27_300_000 },
+    { id: "pre-factory", label: "工場設備", fiscalYear: 2030, costYen: 85_800_000 },
+    { id: "full-scale", label: "本格自社工場", fiscalYear: 2031, costYen: 622_300_000 },
     { id: "second-line", label: "第二ライン・自動倉庫", fiscalYear: 2033, costYen: 800_000_000 },
   ],
   ipoFiscalYear: 2035,
