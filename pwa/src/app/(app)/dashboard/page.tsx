@@ -17,7 +17,7 @@ import {
   DashboardScoreOverview,
   type DashboardManagementScoreSnapshot,
 } from "@/components/dashboard/DashboardScoreOverview";
-import type { DashboardPrimarySnapshot } from "@/components/dashboard/DashboardGrid";
+import type { CurrentSpsProjectAssessment } from "@/lib/current-sps-model";
 import { createClient } from "@/lib/supabase/client";
 import {
   fetchProjectsFromSupabase,
@@ -25,17 +25,6 @@ import {
   type DashProject,
   type DashBillingStatus,
 } from "@/lib/supabase-data";
-import {
-  fetchAllAmdScoreInputs,
-  fetchActiveAlpha,
-} from "@/lib/amd-score-data";
-import {
-  buildPrimaryScoreSnapshot,
-  buildAaaScoreInputsFromSx,
-  isScoreInputScorable,
-  latestVisibleScorableScoreInput,
-} from "@/lib/amd-score-derived";
-import { AAA_PROJECT_ID } from "@/lib/demo-aaa-data";
 import { ActionItemsPanel } from "@/components/governance/ActionItemsPanel";
 import { FundingStatsCard } from "@/components/dashboard/FundingStatsCard";
 import { ProactiveTodoBadge } from "@/components/proactive-todo/ProactiveTodoBadge";
@@ -70,8 +59,7 @@ function getCurrentYm() {
 export default function DashboardPage() {
   const [projects, setProjects] = useState<DashProject[]>([]);
   const [billingStatus, setBillingStatus] = useState<Record<string, DashBillingStatus>>({});
-  const [scoreHistory, setScoreHistory] = useState<Record<string, number[]>>({});
-  const [primarySnapshots, setPrimarySnapshots] = useState<Record<string, DashboardPrimarySnapshot>>({});
+  const [currentSps, setCurrentSps] = useState<Record<string, CurrentSpsProjectAssessment>>({});
   const [managementScore, setManagementScore] = useState<DashboardManagementScoreSnapshot | null>(null);
   const [managementHistory, setManagementHistory] = useState<DashboardManagementScoreSnapshot[]>([]);
   const [myProjectIds, setMyProjectIds] = useState<Set<string>>(new Set());
@@ -86,42 +74,10 @@ export default function DashboardPage() {
     Promise.allSettled([
       fetchProjectsFromSupabase(),
       fetchBillingStatusFromSupabase(getCurrentYm()),
-      Promise.all([fetchAllAmdScoreInputs(), fetchActiveAlpha()]).then(([inputs, activeAlpha]) => {
-        const grouped: Record<string, typeof inputs> = {};
-        for (const row of inputs) {
-          (grouped[row.project_id] ||= []).push(row);
-        }
-        if (grouped.p21?.length) {
-          grouped[AAA_PROJECT_ID] = buildAaaScoreInputsFromSx(grouped.p21, activeAlpha.alpha);
-        }
-        const history: Record<string, number[]> = {};
-        const primary: Record<string, DashboardPrimarySnapshot> = {};
-        for (const [projectId, rows] of Object.entries(grouped)) {
-          const visibleRows = visibleScoreInputs(rows);
-          history[projectId] = visibleRows
-            .filter(isScoreInputScorable)
-            .flatMap((row) => {
-              const snapshot = buildPrimaryScoreSnapshot(row, activeAlpha.alpha, { P: null, R_net: null }, visibleRows);
-              return snapshot.prs.status === "ready" && snapshot.prs.score != null ? [snapshot.prs.score] : [];
-            });
-          const latest = latestVisibleScorableScoreInput(rows);
-          if (latest) {
-            const latestSnapshot = buildPrimaryScoreSnapshot(latest, activeAlpha.alpha, { P: null, R_net: null }, visibleRows);
-            primary[projectId] = {
-              score: latestSnapshot.prs.status === "ready" ? latestSnapshot.prs.score : null,
-              status: latestSnapshot.prs.status,
-              missingAxes: latestSnapshot.prs.status === "ready" ? [] : latestSnapshot.prs.missingAxes,
-              legacyScore: latestSnapshot.legacy.score,
-              components: {
-                macro: latestSnapshot.prs.components?.macro ?? null,
-                potential: latestSnapshot.prs.axisValues.P,
-                reach: latestSnapshot.prs.components?.reach ?? null,
-                survival: latestSnapshot.prs.components?.survival ?? null,
-              },
-            };
-          }
-        }
-        return { history, primary };
+      fetch("/api/sps/current", { cache: "no-store" }).then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) throw new Error(payload.error || "現行SPSの取得に失敗");
+        return Object.fromEntries((payload.assessments as CurrentSpsProjectAssessment[]).map((assessment) => [assessment.project_id, assessment]));
       }),
       fetchManagementScoreHistory(supabase),
       fetchMyProjectIds(supabase),
@@ -132,10 +88,7 @@ export default function DashboardPage() {
       setProjectLoadFailed(projRes.status === "rejected");
       setBillingStatus(billingValue);
 
-      if (scoreRes.status === "fulfilled") {
-        setScoreHistory(scoreRes.value.history);
-        setPrimarySnapshots(scoreRes.value.primary);
-      }
+      if (scoreRes.status === "fulfilled") setCurrentSps(scoreRes.value);
 
       if (mgmtRes.status === "fulfilled") {
         setManagementHistory(mgmtRes.value);
@@ -219,8 +172,7 @@ export default function DashboardPage() {
                 <DashboardGrid
                   projects={dashboardProjects}
                   billingStatus={billingStatus}
-                  scoreHistory={scoreHistory}
-                  primarySnapshots={primarySnapshots}
+                  currentSps={currentSps}
                   myProjectIds={myProjectIds}
                 />
               )}
@@ -703,9 +655,4 @@ async function fetchMyProjectIds(supabase: ReturnType<typeof createClient>): Pro
   } catch {
     return new Set();
   }
-}
-
-function visibleScoreInputs(rows: Awaited<ReturnType<typeof fetchAllAmdScoreInputs>>) {
-  const today = new Date().toISOString().slice(0, 10);
-  return rows.filter((row) => row.evaluated_at.slice(0, 10) <= today);
 }

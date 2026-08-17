@@ -2,6 +2,8 @@
 
 最終更新: 2026-08-01
 
+> **現行SPS override（2026-08-18）**: `amdScore` / `amdScoreDetail` / HUD / dashboard / cyberspaceのactive routeは`/api/hud/dashboard`の現行SPS DTOだけを読む。完全版組は`sps-ind-tier0-v1 / sps-ind-v1 / q-eval-v2 / rubric-v1.1 / p-ind-v1 / rubric-v1.1+ind-v1`。旧スコアrouteは退役表示へ収束し、`AMDOSRESTClient`が旧3テーブルの読取・更新・追加・upsert・削除を拒否する。下表の旧AMD Score記述は履歴であり非規範。
+
 このファイルは開発・レビュー専用。ユーザー向けのmacOS画面、空状態、エラー、アクセシビリティ文言へ台帳の語彙を渡さない。
 NativeScreenID、読取元、書込み先、権限、回帰確認を全件残し、実装していない行を削除しない。
 

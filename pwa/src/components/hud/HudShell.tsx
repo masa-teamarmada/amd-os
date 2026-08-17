@@ -9,7 +9,7 @@ const hudLinks = [
   { href: "/hud/atlas", label: "Atlas" },
   { href: "/hud/seeds", label: "Seeds" },
   { href: "/hud/vcs", label: "VC" },
-  { href: "/hud/venture-map/amd-score/retrofit", label: "Score Retrofit" },
+  { href: "/venture-map/amd-score", label: "Current SPS" },
   { href: "/hud/notifications", label: "Notifications" },
 ];
 

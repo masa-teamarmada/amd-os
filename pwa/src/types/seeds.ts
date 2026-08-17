@@ -161,11 +161,15 @@ export interface SeedScreeningQEvidenceItem {
 
 /** /seeds 一覧向け: 帯の最新行から表示に必要な値だけを持つ軽量サマリ (q_evidence の全文は含めない) */
 export interface SeedScreeningBandSummary {
+  assessment_id: string | null;
   seed_id: string;
+  /** 現行SPSの価値尺度。現行DTOでは sps-ind-v1 以外を返さない。 */
+  measure_version: "sps-ind-v1" | null;
   sps_lower_yen: number | null;
   sps_upper_yen: number | null;
   assessed_at: string | null;
   ruleset_version: string | null;
+  frozen: boolean;
   evidence_level: SeedEvidenceLevel;
 }
 
@@ -173,7 +177,7 @@ export interface SeedScreeningBandSummary {
 export interface SeedScreeningBandDetail extends SeedScreeningBandSummary {
   evaluator: string;
   /** 'sps-ind-v1' (産業創出価値版・現行) 固定。旧 'sps-eq-v0' (持分価値版) 行はOS非表示のためこのDTOには出てこない */
-  measure_version: string;
+  measure_version: "sps-ind-v1";
   stage_lower: string | null;
   stage_upper: string | null;
   stage_tag: string | null;

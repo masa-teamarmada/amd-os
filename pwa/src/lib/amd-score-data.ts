@@ -188,6 +188,7 @@ function flattenInput(r: RawInputRow): AmdScoreInputRow {
 
 /** 全 PJ の amd_score_inputs を時系列で取得 */
 export async function fetchAllAmdScoreInputs(): Promise<AmdScoreInputRow[]> {
+  throw new Error("retired score access: use the current SPS API");
   const { data, error } = await supabase
     .from("amd_score_inputs")
     .select(INPUT_COLUMNS)
@@ -202,6 +203,7 @@ export async function fetchAllAmdScoreInputs(): Promise<AmdScoreInputRow[]> {
 
 /** 1 PJ の入力時系列を取得 (古い順) */
 export async function fetchAmdScoreInputs(projectId: string): Promise<AmdScoreInputRow[]> {
+  throw new Error(`retired score access for ${projectId}: use the current SPS API`);
   const { data, error } = await supabase
     .from("amd_score_inputs")
     .select(INPUT_COLUMNS)
@@ -253,6 +255,7 @@ export interface AmdScoreInputUpsert {
 export async function upsertAmdScoreInput(
   input: AmdScoreInputUpsert
 ): Promise<AmdScoreInputRow | null> {
+  throw new Error("retired score writer: reassess and append a frozen current SPS assessment");
   const auth = getAuthClient();
   const payload = {
     project_id: input.project_id,
@@ -342,6 +345,7 @@ export function toAmdScoreInputUpsert(
 }
 
 export async function deleteAmdScoreInput(id: string): Promise<boolean> {
+  throw new Error(`retired score writer cannot delete ${id}`);
   const auth = getAuthClient();
   const { error } = await auth.from("amd_score_inputs").delete().eq("id", id);
   if (error) {
@@ -359,6 +363,7 @@ const ALPHA_COLUMNS = "id, alpha, effective_from, effective_to, notes";
 
 /** 現役 (effective_to IS NULL) の alpha を取得。なければ ALPHA_DEFAULT */
 export async function fetchActiveAlpha(): Promise<{ alpha: AlphaWeights; row: AmdScoreAlphaRow | null }> {
+  throw new Error("retired alpha access: current SPS has no legacy alpha path");
   const { data, error } = await supabase
     .from("amd_score_alpha")
     .select(ALPHA_COLUMNS)
@@ -380,6 +385,7 @@ export async function fetchActiveAlpha(): Promise<{ alpha: AlphaWeights; row: Am
 }
 
 export async function fetchAlphaHistory(): Promise<AmdScoreAlphaRow[]> {
+  throw new Error("retired alpha access: current SPS has no legacy alpha path");
   const { data, error } = await supabase
     .from("amd_score_alpha")
     .select(ALPHA_COLUMNS)
@@ -399,6 +405,9 @@ export async function fetchAlphaHistory(): Promise<AmdScoreAlphaRow[]> {
 
 /** 新しい alpha を保存。前版の effective_to を now で閉じ、新版を effective_to=null で挿入。 */
 export async function saveNewAlpha(alpha: AlphaWeights, notes?: string): Promise<AmdScoreAlphaRow | null> {
+  void alpha;
+  void notes;
+  throw new Error("retired alpha writer: current SPS has no legacy alpha path");
   const auth = getAuthClient();
   const now = new Date().toISOString();
 

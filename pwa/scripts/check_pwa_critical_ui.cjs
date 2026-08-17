@@ -1858,22 +1858,23 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
 
 expectIncludes("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
   "Bzm22ProvisionalObservatory",
-  "LazyArchiveDisclosure",
-  'data-testid="score-model-archives"',
-  "Bzm2ModelObservatory",
-  "Bzm21DynamicPolicyObservatory",
-  "現行SPS / BZM 2.1",
-  "BZM 2.0",
-  "旧SPS履歴 / Legacy AMD",
-  'testId="cockpit-legacy-sps-history-archive"',
-  "AmdScoreView",
-  "embedded",
+  "CurrentSpsAssessmentCard",
+  "/sps-current",
+  "現行SPSを読み込み中",
+  "BZM 2.2 暫定パイロット（SPSとは別モデル）",
+  "J / P / Q / S はSPSへ合算せず",
+  'data-density="compact-score-page"',
 ]);
 expectPattern("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
-  /<Bzm22ProvisionalObservatory[\s\S]*?data-testid="score-model-archives"/,
-  /if \(!active \|\| archiveRequestedProjectId !== projectId\) return;/,
-  /\{open \? <div[\s\S]*?\{children\}[\s\S]*?: null\}/,
-  /<Bzm21DynamicPolicyObservatory model=\{payload\.bzm21\} displayMode="archive" \/>/,
+  /<CurrentSpsAssessmentCard assessment=\{state\.assessment\} \/>[\s\S]*?<Bzm22ProvisionalObservatory/,
+  /fetch\(`\/api\/project\/\$\{encodeURIComponent\(projectId\)\}\/sps-current`/,
+]);
+expectIncludes("src/components/sps/CurrentSpsAssessmentCard.tsx", [
+  'data-testid="current-sps-assessment"',
+  "現行SPS｜産業創出価値",
+  "最新版未評価",
+  "assessment.assessment_id",
+  "assessment.model.measureVersion",
 ]);
 expectIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   'data-testid="bzm22-provisional-primary"',
@@ -1965,18 +1966,15 @@ expectIncludes("src/components/cockpit/Bzm22CockpitSummary.tsx", [
 ]);
 expectIncludes("src/components/cockpit/CockpitVentureStatus.tsx", [
   "Bzm22CockpitSummary",
+  "CurrentSpsAssessmentCard",
+  "/sps-current",
   'data-testid="cockpit-bzm22-xrl-overview"',
   'data-testid="cockpit-xrl-panel"',
   'data-testid="cockpit-xrl-plot"',
-  'data-testid="cockpit-legacy-sps-disclosure"',
   "xl:grid-cols-[minmax(340px,24vw)_minmax(0,1fr)]",
   "ResizeObserver",
   "xrlPlotWidth",
   "xrlPlotHeight",
-  "!compact &&",
-  "SPS履歴（旧モデル）",
-  "旧SPS履歴を開く",
-  "legacyScoreHistoryOpen",
 ]);
 expectNotIncludes("src/components/cockpit/CockpitVentureStatus.tsx", [
   "XRLの自動判定は停止中。既存値・手動提案はドットから確認できる",
@@ -2055,13 +2053,11 @@ expectNotIncludes("src/components/cockpit/Bzm2ModelObservatory.tsx", [
   "期待時価総額",
 ]);
 expectIncludes("src/app/api/project/[projectId]/amd-score-detail/route.ts", [
-  "fetchBzm2Observatory",
-  "fetchBzm21PolicyModelLedger",
-  "fetchSpsPrimaryModelState",
+  "fetchCurrentSpsProjectAssessments",
   '"Cache-Control": "private, no-store, max-age=0"',
-  "bzm2",
-  "bzm21",
-  "spsPrimary",
+  '"Deprecation": "true"',
+  '"Sunset":',
+  "rel=successor-version",
 ]);
 expectIncludes("src/components/venture-map/AmdScoreView.tsx", [
   "XrlChecklistPanel",
@@ -2073,7 +2069,6 @@ expectPattern("src/components/venture-map/AmdScoreView.tsx", [
 expectIncludes("src/lib/amd-score-routes.ts", [
   "amdScoreDetailHref",
   "?tab=score-detail",
-  '"p99"',
 ]);
 expectIncludes("src/app/(app)/venture-map/amd-score/[projectId]/page.tsx", [
   "redirect(amdScoreDetailHref(projectId))",
@@ -2489,8 +2484,8 @@ expectIncludes("src/app/api/cron/founding-members-extract/route.ts", [
 ]);
 
 expectIncludes("src/app/api/cron/frl-grit-resilience-extract/route.ts", [
-  "project_category",
-  "ecosystem",
+  "status: 410",
+  "retired",
 ]);
 
 expectIncludes("scripts/ms_progress_review_tool.mjs", [
@@ -3400,7 +3395,7 @@ expectIncludes("scripts/migrations/211_sx_vc_partner_ledger.sql", [
   "partner.deleted_at IS NULL",
   "role.deleted_at IS NULL",
 ]);
-// 土壌×シーズタブ (2026-07-30): 機関ECRと所属シーズSPSをas-of断面で整列する。元評価日は別表示し、合成単一スコア化は禁止。
+// 土壌×シーズタブ: ECRと現行SPSだけを分離表示し、旧版fallbackと合成単一スコア化を禁止。
 expectIncludes("src/app/(app)/institutions/[institutionId]/cockpit/page.tsx", [
   "CockpitSoilSeeds",
   '"soil-seeds"',
@@ -3411,16 +3406,13 @@ expectIncludes("src/app/(app)/institutions/[institutionId]/cockpit/page.tsx", [
 ]);
 expectIncludes("src/components/cockpit/CockpitSoilSeeds.tsx", [
   "fetchSeedsForInstitution",
-  "fetchSeedSpsHistoryForSeeds",
-  "computeSpsDistributionStats",
-  "rankSeedsBySps",
-  "collectObservationDates",
-  "selectLatestPerKeyAsOf",
-  "StatisticalCautionNotice",
-  "観測断面台帳",
-  "最新ECR 8軸",
-  "最新SPS分布",
-  "所属シーズ順位",
+  "/api/seeds/screening-bands",
+  "seedScreeningBandMedianYen",
+  "土壌 × シーズ — ECRと現行SPS",
+  "現行SPS｜産業創出価値",
+  "最新版未評価",
+  "sps-ind-v1 / q-eval-v2 / rubric-v1.1 / p-ind-v1",
+  "ECRとSPSは合成しない",
 ]);
 expectNotIncludes("src/components/cockpit/CockpitSoilSeeds.tsx", [
   "recharts",

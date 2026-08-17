@@ -14,28 +14,20 @@ import {
   SEED_EVIDENCE_LEVEL_DESCRIPTION,
   formatOkuYen,
   seedScreeningBandMedianYen,
-  seedComparisonSortValue,
   compareSeedSortValues,
   countDistinctResearchers,
   countDistinctInstitutions,
   seedProjectLifecycle,
   seedProjectPriority,
   seedListPriority,
-  type SeedComparisonSortKey,
 } from "@/lib/seeds-data";
 import { projectStatusLifecycle } from "@/lib/institution-projects";
 import type { SeedPublicView, SeedScreeningBandSummary } from "@/types/seeds";
 
-type SortKey = SeedComparisonSortKey | "spsBand";
-type ConfidenceFilter = "all" | "low" | "medium" | "high";
-type StatusFilter = "all" | "ready" | "missing";
+type SortKey = "spsBand";
+type StatusFilter = "all" | "assessed" | "unassessed";
 
 const SORT_LABEL: Record<SortKey, string> = {
-  sps: "旧SPS",
-  m: "M",
-  p: "P",
-  r: "R",
-  s: "S",
   spsBand: "SPS(中央値)",
 };
 
@@ -94,11 +86,10 @@ export function CockpitKuteSeeds({
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<SeedPublicView | null>(null);
   const [requestKey, setRequestKey] = useState(0);
-  const [sortKey, setSortKey] = useState<SortKey>(scope === "all" ? "spsBand" : "sps");
+  const [sortKey, setSortKey] = useState<SortKey>("spsBand");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [confidenceFilter, setConfidenceFilter] = useState<ConfidenceFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  // /seeds (scope="all") 限定: 一次選別スクリーニング帯 (SPS帯 + 根拠Lv)。他 scope の列・挙動は変えない。
+  // 全scope共通: 現行SPSの完全一致・凍結評価だけをAPIから読む。
   const [bandsBySeedId, setBandsBySeedId] = useState<Map<string, SeedScreeningBandSummary>>(new Map());
 
   useEffect(() => {
@@ -117,7 +108,6 @@ export function CockpitKuteSeeds({
   }, [projectId, scope, requestKey]);
 
   useEffect(() => {
-    if (scope !== "all") return;
     let cancelled = false;
     fetch("/api/seeds/screening-bands")
       .then((res) => res.json())
@@ -139,7 +129,7 @@ export function CockpitKuteSeeds({
   }, [seeds]);
 
   const materialCount = scopedSeeds.filter((seed) => seed.deep_dive_material_url).length;
-  const scoredCount = scopedSeeds.filter((seed) => seed.latest_sps?.status === "ready").length;
+  const scoredCount = scopedSeeds.filter((seed) => bandsBySeedId.get(seed.id)?.assessment_id).length;
   const researcherCount = countDistinctResearchers(scopedSeeds);
   const institutionCount = countDistinctInstitutions(scopedSeeds);
   const realizedProjectSeedCount = scopedSeeds.filter((seed) => seedProjectPriority(seed) === 0).length;
@@ -148,13 +138,11 @@ export function CockpitKuteSeeds({
 
   const filteredSeeds = useMemo(() => {
     return scopedSeeds.filter((seed) => {
-      const sps = seed.latest_sps;
-      const evaluationStatus = sps?.status ?? "missing";
+      const evaluationStatus = bandsBySeedId.get(seed.id)?.assessment_id ? "assessed" : "unassessed";
       if (statusFilter !== "all" && evaluationStatus !== statusFilter) return false;
-      if (confidenceFilter !== "all" && sps?.confidence !== confidenceFilter) return false;
       return true;
     });
-  }, [scopedSeeds, statusFilter, confidenceFilter]);
+  }, [bandsBySeedId, scopedSeeds, statusFilter]);
 
   const dir = sortDir === "asc" ? 1 : -1;
 
@@ -162,15 +150,9 @@ export function CockpitKuteSeeds({
     return [...filteredSeeds].sort((a, b) => {
       // SPS(スクリーニング帯)ソート時はPJ優先4段を外してリスト全体をフラットに並べる
       // (まさ裁定 2026-08-15「全然ソーティングされない」への対応。他キーは従来どおり区分内ソート)
-      const lifecycle = scope === "all" && sortKey !== "spsBand" ? seedListPriority(a) - seedListPriority(b) : 0;
-      if (lifecycle !== 0) return lifecycle;
       const byScore = compareSeedSortValues(
-        sortKey === "spsBand"
-          ? screeningBandSortValue(a, bandsBySeedId)
-          : seedComparisonSortValue(a, sortKey),
-        sortKey === "spsBand"
-          ? screeningBandSortValue(b, bandsBySeedId)
-          : seedComparisonSortValue(b, sortKey),
+        screeningBandSortValue(a, bandsBySeedId),
+        screeningBandSortValue(b, bandsBySeedId),
         dir,
       );
       return byScore || a.title.localeCompare(b.title, "ja");
@@ -209,7 +191,7 @@ export function CockpitKuteSeeds({
               {scope === "all" && `・PJ化検討中${consideringProjectSeedCount}件`}
               {scope === "all" && `・PJなし・SPS評価済み${unrealizedScoredSeedCount}件`}
               ・研究者{researcherCount}名・資料{materialCount}件
-              {scope !== "all" && `・旧SPS${scoredCount}件`}
+              {`・現行SPS評価済み${scoredCount}件`}
             </p>
           )}
         </div>
@@ -233,24 +215,13 @@ export function CockpitKuteSeeds({
       {seeds && seeds.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px]">
           <FilterSelect
-            label="確度"
-            value={confidenceFilter}
-            onChange={(v) => setConfidenceFilter(v as ConfidenceFilter)}
-            options={[
-              { value: "all", label: "すべて" },
-              { value: "low", label: "低" },
-              { value: "medium", label: "中" },
-              { value: "high", label: "高" },
-            ]}
-          />
-          <FilterSelect
             label="評価状態"
             value={statusFilter}
             onChange={(v) => setStatusFilter(v as StatusFilter)}
             options={[
               { value: "all", label: "すべて" },
-              { value: "ready", label: "計算可" },
-              { value: "missing", label: "未評価" },
+              { value: "assessed", label: "評価済み" },
+              { value: "unassessed", label: "最新版未評価" },
             ]}
           />
         </div>
@@ -288,7 +259,7 @@ export function CockpitKuteSeeds({
           </div>
         ) : (
           <div className="max-h-[70vh] overflow-auto border border-slate-200">
-            <table className="w-full min-w-[1780px] border-collapse text-[12px]">
+            <table className="w-full min-w-[1420px] border-collapse text-[12px]">
               <thead className="sticky top-0 z-20">
                 <tr className="bg-slate-100 text-left text-[10px] font-semibold uppercase text-slate-500">
                   <th className="sticky left-0 z-30 w-[160px] min-w-[160px] max-w-[160px] border-b border-r border-slate-200 bg-slate-100 px-3 py-2 sm:w-[220px] sm:min-w-[220px] sm:max-w-[220px]">
@@ -297,54 +268,10 @@ export function CockpitKuteSeeds({
                   <th className="min-w-[140px] border-b border-slate-200 px-3 py-2">研究機関</th>
                   <th className="min-w-[130px] border-b border-slate-200 px-3 py-2">研究者 / PI</th>
                   <th className="min-w-[150px] border-b border-slate-200 px-3 py-2">PJ状態</th>
-                  {scope === "all" && (
-                    <SortableTh
-                      label="SPS(億円)"
-                      sortKey="spsBand"
-                      activeKey={sortKey}
-                      dir={sortDir}
-                      onSort={toggleSort}
-                      hint="中央値 (下限〜上限) を括弧書きで表示。中央値は仮置きの算術中点 (まさ裁定 2026-08-15)。産業創出価値版（sps-ind-v1）。そのシーズ事業が日本国内に生む付加価値NPVの桁×到達見込み"
-                      widthClass="min-w-[170px]"
-                    />
-                  )}
-                  {scope === "all" && (
-                    <th
-                      className="min-w-[70px] border-b border-slate-200 px-2 py-2"
-                      title="根拠Lv = そのスコアが立脚する情報の深さ。Lv0=ネット情報のみ / Lv1=ヒアリング済 / Lv2=OSにPJ情報抽出済 / Lv3=月次試算表あり"
-                    >
-                      根拠Lv
-                    </th>
-                  )}
-                  {/* 旧SPS (持分価値版・M/P/R/S) はOS非表示 (まさ裁定 2026-08-16、
-                      bzm/SPS_NAT_VALUE_MEASURE_PROPOSAL_2026-08-16.md §8)。データ・計算コードは保持し、
-                      /seeds (scope="all") でのみ列を隠す。PJ/機関cockpit比較表 (scope="project") は
-                      産業創出価値版の帯を持たないため、暫定的に旧SPSを表示し続ける。 */}
-                  {scope !== "all" && (
-                    <SortableTh
-                      label="旧SPS"
-                      sortKey="sps"
-                      activeKey={sortKey}
-                      dir={sortDir}
-                      onSort={toggleSort}
-                    />
-                  )}
-                  {scope !== "all" && (
-                    <SortableTh label="M" sortKey="m" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                  )}
-                  {scope !== "all" && (
-                    <SortableTh label="P" sortKey="p" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                  )}
-                  {scope !== "all" && (
-                    <SortableTh label="R" sortKey="r" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                  )}
-                  {scope !== "all" && (
-                    <SortableTh label="S" sortKey="s" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                  )}
+                  <SortableTh label="現行SPS(億円)" sortKey="spsBand" activeKey={sortKey} dir={sortDir} onSort={toggleSort} hint="sps-ind-v1 / q-eval-v2 / rubric-v1.1 / p-ind-v1。完全一致した凍結評価のみ" widthClass="min-w-[190px]" />
+                  <th className="min-w-[70px] border-b border-slate-200 px-2 py-2">根拠Lv</th>
                   <th className="min-w-[52px] border-b border-slate-200 px-2 py-2">TRL</th>
                   <th className="min-w-[52px] border-b border-slate-200 px-2 py-2">BRL</th>
-                  <th className="min-w-[52px] border-b border-slate-200 px-2 py-2">GRL</th>
-                  <th className="min-w-[52px] border-b border-slate-200 px-2 py-2">SRL</th>
                   <th className="min-w-[52px] border-b border-slate-200 px-2 py-2">HRL</th>
                   <th className="min-w-[140px] border-b border-slate-200 px-3 py-2">事業化タイプ</th>
                   <th className="min-w-[160px] border-b border-slate-200 px-3 py-2">用途</th>
@@ -362,7 +289,7 @@ export function CockpitKuteSeeds({
                     key={seed.id}
                     seed={seed}
                     onOpen={() => setSelected(seed)}
-                    screeningBand={scope === "all" ? (bandsBySeedId.get(seed.id) ?? null) : undefined}
+                    screeningBand={bandsBySeedId.get(seed.id) ?? null}
                   />
                 ))}
               </tbody>
@@ -485,12 +412,8 @@ function SeedRow({
 }: {
   seed: SeedPublicView;
   onOpen: () => void;
-  /** scope="all" のときだけ渡す。undefined なら列自体を出さない (他 scope の挙動は変えない)。 */
-  screeningBand?: SeedScreeningBandSummary | null;
+  screeningBand: SeedScreeningBandSummary | null;
 }) {
-  const sps = seed.latest_sps;
-  const axes = sps?.axes;
-  const confidenceLabel = sps?.confidence ? SEED_KUTE_MARKET_CONFIDENCE_LABEL[sps.confidence] ?? sps.confidence : null;
   const commercializationTypes = [
     seed.primary_commercialization_type,
     ...(seed.secondary_commercialization_types ?? []),
@@ -552,8 +475,7 @@ function SeedRow({
           </span>
         )}
       </td>
-      {screeningBand !== undefined && (
-        <td className="border-b border-slate-100 px-3 py-2 align-top font-mono">
+      <td className="border-b border-slate-100 px-3 py-2 align-top font-mono">
           {screeningBand && (screeningBand.sps_lower_yen != null || screeningBand.sps_upper_yen != null) ? (
             <span className="whitespace-nowrap">
               <span className="font-semibold text-slate-950">
@@ -564,56 +486,15 @@ function SeedRow({
               </span>
             </span>
           ) : (
-            <span className="text-slate-400">—</span>
+            <span className="text-amber-700">最新版未評価</span>
           )}
-        </td>
-      )}
-      {screeningBand !== undefined && (
-        <td className="border-b border-slate-100 px-2 py-2 align-top">
+      </td>
+      <td className="border-b border-slate-100 px-2 py-2 align-top">
           <EvidenceLevelBadge level={screeningBand?.evidence_level ?? 0} />
-        </td>
-      )}
-      {/* 旧SPS (持分価値版・M/P/R/S) はOS非表示 (まさ裁定 2026-08-16)。データ・計算コードは保持し、
-          screeningBand===undefined (= scope!=="all") のときだけ表示を続ける。 */}
-      {screeningBand === undefined && (
-        <td className="border-b border-slate-100 px-3 py-2 align-top">
-          {sps?.status === "ready" ? (
-            <div>
-              <span className="font-mono font-semibold text-slate-950">{sps.score?.toFixed(2)}</span>
-              {confidenceLabel && <span className="ml-1 text-[10px] text-slate-400">確度:{confidenceLabel}</span>}
-            </div>
-          ) : (
-            <span className="text-slate-400" title={sps ? `未評価 (欠損: ${sps.missing_axes.join(", ")})` : "評価なし"}>
-              未評価
-            </span>
-          )}
-        </td>
-      )}
-      {screeningBand === undefined && (
-        <td className="border-b border-slate-100 px-3 py-2 align-top font-mono">
-          {sps?.components ? sps.components.macro.toFixed(2) : <span className="text-slate-400">—</span>}
-        </td>
-      )}
-      {screeningBand === undefined && (
-        <td className="border-b border-slate-100 px-3 py-2 align-top font-mono">
-          {sps?.components ? sps.components.potential.toFixed(2) : <span className="text-slate-400">—</span>}
-        </td>
-      )}
-      {screeningBand === undefined && (
-        <td className="border-b border-slate-100 px-3 py-2 align-top font-mono">
-          {sps?.components ? sps.components.reach.toFixed(2) : <span className="text-slate-400">—</span>}
-        </td>
-      )}
-      {screeningBand === undefined && (
-        <td className="border-b border-slate-100 px-3 py-2 align-top font-mono">
-          {sps?.components ? sps.components.survival.toFixed(2) : <span className="text-slate-400">—</span>}
-        </td>
-      )}
-      <AxisCell value={axes?.trl} />
-      <AxisCell value={axes?.brl} />
-      <AxisCell value={axes?.grl} />
-      <AxisCell value={axes?.srl} />
-      <AxisCell value={axes?.hrl} />
+      </td>
+      <AxisCell value={seed.trl} />
+      <AxisCell value={seed.brl} />
+      <AxisCell value={seed.hrl} />
       <td className="border-b border-slate-100 px-3 py-2 align-top">
         {commercializationTypes.length > 0 ? (
           <div className="flex max-w-[140px] flex-wrap gap-1">

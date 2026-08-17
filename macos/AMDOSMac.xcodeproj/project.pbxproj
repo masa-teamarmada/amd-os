@@ -31,6 +31,7 @@
 		CB24A9FAA02326C3ACA38202 /* ExploreParityFeatureViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F87C8DC1E96943AC27173E8 /* ExploreParityFeatureViews.swift */; };
 		CB85B72989E0ACAC6C111CBC /* ParityCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94ACA4DFB2FCCD05521120EC /* ParityCatalog.swift */; };
 		CFBA735BAF375185572B1D58 /* PaymentConfirmFeatureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4537B6C072495933E74E99C4 /* PaymentConfirmFeatureView.swift */; };
+		D0B29F3529EFE4FC421BF4C2 /* CurrentSpsFeatureViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 571B6A189E079B97E61FCCDE /* CurrentSpsFeatureViews.swift */; };
 		D4EC219E741863B95BEE15AF /* SupabaseRESTClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10F2C20DA19BF43ECF23A97B /* SupabaseRESTClient.swift */; };
 		DADBE023CD3F863A2AB2EA27 /* AdminFeatureViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86BD42690BB3B7E7CA557AC7 /* AdminFeatureViews.swift */; };
 		FA0F1E759E982FC0AAE7800F /* AMDOSMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAFB27227FF0915A51A30FBA /* AMDOSMacApp.swift */; };
@@ -45,6 +46,7 @@
 		3312EEFDDBB61D5A0052A1CA /* WorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceView.swift; sourceTree = "<group>"; };
 		4537B6C072495933E74E99C4 /* PaymentConfirmFeatureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentConfirmFeatureView.swift; sourceTree = "<group>"; };
 		4CE5E1E0FD4FFF5807227B6B /* WorkFeatureViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkFeatureViews.swift; sourceTree = "<group>"; };
+		571B6A189E079B97E61FCCDE /* CurrentSpsFeatureViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentSpsFeatureViews.swift; sourceTree = "<group>"; };
 		5AEC3D37D0CFC9D55C4617A1 /* PoCParityFeatureViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoCParityFeatureViews.swift; sourceTree = "<group>"; };
 		5CFE03B5B552A650103C848A /* WorkParityFeatureViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkParityFeatureViews.swift; sourceTree = "<group>"; };
 		6C66831FCE04B2227ED03CFA /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -97,6 +99,7 @@
 				8074B383D6A76AD1EAD8D505 /* AdminProjectsMembersParityViews.swift */,
 				87EDDC7FC451FCB35266A3C8 /* AdminScheduleParityView.swift */,
 				E070424DD2C8BBC52F5DF28A /* AdminSettingsTsukuyomiParityViews.swift */,
+				571B6A189E079B97E61FCCDE /* CurrentSpsFeatureViews.swift */,
 				74F66F1E1C2A426771D1AD6B /* ExploreFeatureViews.swift */,
 				6F87C8DC1E96943AC27173E8 /* ExploreParityFeatureViews.swift */,
 				4537B6C072495933E74E99C4 /* PaymentConfirmFeatureView.swift */,
@@ -229,6 +232,7 @@
 				30A71E51FB2D9B7E60143BD7 /* AdminScheduleParityView.swift in Sources */,
 				98B1B38B454C48A85538E39D /* AdminSettingsTsukuyomiParityViews.swift in Sources */,
 				C0BD0F4B6FD765E0BBBB5A18 /* AuthStore.swift in Sources */,
+				D0B29F3529EFE4FC421BF4C2 /* CurrentSpsFeatureViews.swift in Sources */,
 				762944769043D0FF202DF9F8 /* ExploreFeatureViews.swift in Sources */,
 				CB24A9FAA02326C3ACA38202 /* ExploreParityFeatureViews.swift in Sources */,
 				3ACB49BBE5918F5D593D0B1D /* FeatureTypes.swift in Sources */,

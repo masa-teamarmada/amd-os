@@ -674,10 +674,45 @@ struct AMDOSHUDResponse: Codable, Sendable {
     let scoreHistory: [String: [Double]]
     let signalMetrics: [String: AMDOSHUDSignalMetrics]
     let primarySnapshots: [String: AMDOSHUDPrimarySnapshot]?
+    let currentSps: [AMDOSCurrentSpsAssessment]?
     let managementScore: AMDOSManagementScore?
     let managementHistory: [AMDOSManagementScore]
     let actionItems: [AMDOSActionItem]
-    enum CodingKeys: String, CodingKey { case ok, ym, projects, billingStatus, scoreHistory, signalMetrics, primarySnapshots, managementScore, managementHistory, actionItems }
+    enum CodingKeys: String, CodingKey { case ok, ym, projects, billingStatus, scoreHistory, signalMetrics, primarySnapshots, currentSps, managementScore, managementHistory, actionItems }
+}
+struct AMDOSCurrentSpsAssessment: Codable, Identifiable, Sendable {
+    let projectId: String
+    let seedId: String?
+    let seedTitle: String?
+    let status: String
+    let assessmentId: String?
+    let spsLowerYen: Double?
+    let spsUpperYen: Double?
+    let assessedAt: String?
+    let evidenceLevel: Int
+    let model: AMDOSCurrentSpsModel
+    var id: String { projectId }
+    enum CodingKeys: String, CodingKey {
+        case projectId = "project_id"
+        case seedId = "seed_id"
+        case seedTitle = "seed_title"
+        case status
+        case assessmentId = "assessment_id"
+        case spsLowerYen = "sps_lower_yen"
+        case spsUpperYen = "sps_upper_yen"
+        case assessedAt = "assessed_at"
+        case evidenceLevel = "evidence_level"
+        case model
+    }
+}
+struct AMDOSCurrentSpsModel: Codable, Sendable {
+    let modelVersion: String
+    let formula: String
+    let measureVersion: String
+    let qModelVersion: String
+    let qRulesetVersion: String
+    let pModelVersion: String
+    let assessmentRulesetVersion: String
 }
 struct AMDOSHUDProject: Codable, Identifiable, Sendable {
     let projectId: String

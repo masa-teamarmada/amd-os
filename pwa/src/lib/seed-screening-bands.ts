@@ -1,5 +1,5 @@
 // 一次選別スクリーニング帯 (Tier 0) の service_role 読み取り層。
-// テーブル seed_screening_bands / 参照する seed_projects・seed_contact_log・project_pl_monthly・seeds は
+// テーブル seed_screening_bands / 参照する seed_projects・seed_contact_log・seeds は
 // db_schema.md から列名をコピーする。design/seeds.md の「seed_screening_bands」節と
 // pwa/bzm/BZM_SEED_TIER0_SCREENING_DESIGN_2026-08-15.md §6 確定13 が正本。
 //
@@ -9,15 +9,13 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { CURRENT_SPS_MODEL, type CurrentSpsProjectAssessment } from "@/lib/current-sps-model";
 import type {
   SeedEvidenceLevel,
   SeedScreeningBandDetail,
   SeedScreeningBandSummary,
   SeedScreeningQEvidenceItem,
 } from "@/types/seeds";
-
-/** Lv3 判定の月次試算表しきい値 (§6 確定13: project_pl_monthly が6ヶ月分以上) */
-const PROJECT_PL_MONTHLY_LV3_THRESHOLD_MONTHS = 6;
 
 function toNullableNumber(value: unknown): number | null {
   if (value == null) return null;
@@ -29,7 +27,7 @@ type ServiceClient = ReturnType<typeof createAdminClient>;
 
 /**
  * 根拠Lv (スコア成熟度) を機械導出する。上位が勝つ。
- * Lv3: 紐付くPJの project_pl_monthly が6ヶ月分以上
+ * Lv3: 現行データでは自動付与しない。verified actualと計画値を区別できる正規化証跡が必要。
  * Lv2: seed_projects に紐付け行がある
  * Lv1: seed_contact_log に1件以上、または seeds.status が contacted/discussing
  * Lv0: それ以外
@@ -69,56 +67,44 @@ async function computeSeedEvidenceLevels(
     if ((result.get(row.seed_id) ?? 0) < 2) result.set(row.seed_id, 2);
   }
 
-  const projectIds = Array.from(new Set(links.map((row) => row.project_id)));
-  if (projectIds.length > 0) {
-    const { data: plRows, error: plError } = await service
-      .from("project_pl_monthly")
-      .select("project_id, ym")
-      .in("project_id", projectIds);
-    if (plError) throw new Error(`project_pl_monthly lookup failed: ${plError.message}`);
-    const monthCountByProject = new Map<string, number>();
-    for (const row of (plRows ?? []) as { project_id: string; ym: string }[]) {
-      monthCountByProject.set(row.project_id, (monthCountByProject.get(row.project_id) ?? 0) + 1);
-    }
-    const matureProjectIds = new Set(
-      Array.from(monthCountByProject.entries())
-        .filter(([, months]) => months >= PROJECT_PL_MONTHLY_LV3_THRESHOLD_MONTHS)
-        .map(([projectId]) => projectId),
-    );
-    for (const row of links) {
-      if (matureProjectIds.has(row.project_id)) result.set(row.seed_id, 3);
-    }
-  }
-
   return result;
 }
 
 /** /seeds 一覧向け: 全シーズの最新スクリーニング帯サマリ + 根拠Lv。帯が無いシーズもLvは持つため全件返す。 */
-export async function fetchSeedScreeningBandSummaries(): Promise<Map<string, SeedScreeningBandSummary>> {
+export async function fetchSeedScreeningBandSummaries(
+  seedIds?: string[],
+): Promise<Map<string, SeedScreeningBandSummary>> {
   const service = createAdminClient();
 
+  if (seedIds && seedIds.length === 0) return new Map();
+
+  let bandsQuery = service
+    .from("seed_screening_bands")
+    .select("id, seed_id, measure_version, sps_lower_yen, sps_upper_yen, assessed_at, ruleset_version, frozen")
+    .eq("measure_version", CURRENT_SPS_MODEL.measureVersion)
+    .eq("ruleset_version", CURRENT_SPS_MODEL.assessmentRulesetVersion)
+    .eq("frozen", true)
+    .order("assessed_at", { ascending: false })
+    .order("id", { ascending: false });
+  if (seedIds) bandsQuery = bandsQuery.in("seed_id", seedIds);
+
   const [bandsResult, evidenceLevels] = await Promise.all([
-    service
-      .from("seed_screening_bands")
-      // measure_version='sps-ind-v1' (産業創出価値版・現行) に明示限定する。旧 'sps-eq-v0' (持分価値版) は
-      // まさ裁定 2026-08-16 (bzm/SPS_NAT_VALUE_MEASURE_PROPOSAL_2026-08-16.md §8) でOS非表示。
-      // 現状は assessed_at 降順の先頭行が偶然 ind-v1 と一致するが、将来 eq 系列の行が追加/再評価されて
-      // 新しい assessed_at を持った場合に紛れ込まないよう、無条件最新行から明示フィルタへ変更する。
-      .select("seed_id, sps_lower_yen, sps_upper_yen, assessed_at, ruleset_version")
-      .eq("measure_version", "sps-ind-v1")
-      .order("assessed_at", { ascending: false }),
-    computeSeedEvidenceLevels(service),
+    bandsQuery,
+    computeSeedEvidenceLevels(service, seedIds),
   ]);
   if (bandsResult.error) {
     throw new Error(`seed_screening_bands lookup failed: ${bandsResult.error.message}`);
   }
 
   const rows = (bandsResult.data ?? []) as {
+    id: string;
     seed_id: string;
+    measure_version: "sps-ind-v1";
     sps_lower_yen: number | string | null;
     sps_upper_yen: number | string | null;
     assessed_at: string;
     ruleset_version: string | null;
+    frozen: boolean;
   }[];
 
   // append-only なテーブルなので assessed_at desc の先頭が最新行
@@ -131,11 +117,14 @@ export async function fetchSeedScreeningBandSummaries(): Promise<Map<string, See
   for (const [seedId, evidenceLevel] of evidenceLevels) {
     const band = latestBandBySeed.get(seedId);
     result.set(seedId, {
+      assessment_id: band?.id ?? null,
       seed_id: seedId,
+      measure_version: band?.measure_version ?? null,
       sps_lower_yen: band ? toNullableNumber(band.sps_lower_yen) : null,
       sps_upper_yen: band ? toNullableNumber(band.sps_upper_yen) : null,
       assessed_at: band?.assessed_at ?? null,
       ruleset_version: band?.ruleset_version ?? null,
+      frozen: band?.frozen ?? false,
       evidence_level: evidenceLevel,
     });
   }
@@ -151,11 +140,14 @@ export async function fetchSeedScreeningBandDetail(seedId: string): Promise<Seed
       .from("seed_screening_bands")
       // measure_version='sps-ind-v1' 限定 (上の fetchSeedScreeningBandSummaries と同じ理由)。
       .select(
-        "seed_id, ruleset_version, evaluator, assessed_at, measure_version, stage_lower, stage_upper, stage_tag, q_lower_pct, q_upper_pct, q_main_factor, q_evidence, p_class, p_lower_yen, p_upper_yen, sps_lower_yen, sps_upper_yen, notes",
+        "id, seed_id, ruleset_version, evaluator, assessed_at, measure_version, frozen, stage_lower, stage_upper, stage_tag, q_lower_pct, q_upper_pct, q_main_factor, q_evidence, p_class, p_lower_yen, p_upper_yen, sps_lower_yen, sps_upper_yen, notes",
       )
       .eq("seed_id", seedId)
-      .eq("measure_version", "sps-ind-v1")
+      .eq("measure_version", CURRENT_SPS_MODEL.measureVersion)
+      .eq("ruleset_version", CURRENT_SPS_MODEL.assessmentRulesetVersion)
+      .eq("frozen", true)
       .order("assessed_at", { ascending: false })
+      .order("id", { ascending: false })
       .limit(1)
       .maybeSingle(),
     computeSeedEvidenceLevels(service, [seedId]),
@@ -168,11 +160,13 @@ export async function fetchSeedScreeningBandDetail(seedId: string): Promise<Seed
   if (!bandResult.data) return null;
 
   const row = bandResult.data as {
+    id: string;
     seed_id: string;
     ruleset_version: string;
     evaluator: string;
     assessed_at: string;
-    measure_version: string;
+    measure_version: "sps-ind-v1";
+    frozen: boolean;
     stage_lower: string | null;
     stage_upper: string | null;
     stage_tag: string | null;
@@ -189,11 +183,13 @@ export async function fetchSeedScreeningBandDetail(seedId: string): Promise<Seed
   };
 
   return {
+    assessment_id: row.id,
     seed_id: row.seed_id,
     evaluator: row.evaluator,
     ruleset_version: row.ruleset_version,
     assessed_at: row.assessed_at,
     measure_version: row.measure_version,
+    frozen: row.frozen,
     stage_lower: row.stage_lower,
     stage_upper: row.stage_upper,
     stage_tag: row.stage_tag,
@@ -209,4 +205,83 @@ export async function fetchSeedScreeningBandDetail(seedId: string): Promise<Seed
     notes: row.notes,
     evidence_level: evidenceLevel,
   };
+}
+
+/**
+ * PJ画面向けの現行SPS読み取り。
+ * project_id -> seed_projects -> 現行版完全一致の凍結評価、の一本道だけを使う。
+ * 旧評価しか無い場合は値をfallbackせず status=unassessed を返す。
+ */
+export async function fetchCurrentSpsProjectAssessments(
+  projectIds?: string[],
+): Promise<Map<string, CurrentSpsProjectAssessment>> {
+  const service = createAdminClient();
+  if (projectIds && projectIds.length === 0) return new Map();
+
+  let resolvedProjectIds = projectIds;
+  if (!resolvedProjectIds) {
+    const { data: projectRows, error: projectError } = await service
+      .from("projects")
+      .select("project_id")
+      .eq("status", "active");
+    if (projectError) throw new Error(`active projects lookup failed: ${projectError.message}`);
+    resolvedProjectIds = ((projectRows ?? []) as { project_id: string }[]).map((row) => row.project_id);
+  }
+  if (resolvedProjectIds.length === 0) return new Map();
+
+  const linksQuery = service
+    .from("seed_projects")
+    .select("project_id, seed_id")
+    .in("project_id", resolvedProjectIds);
+  const { data: linkData, error: linkError } = await linksQuery;
+  if (linkError) throw new Error(`seed_projects lookup failed: ${linkError.message}`);
+
+  const links = (linkData ?? []) as { project_id: string; seed_id: string }[];
+  const seedIds = Array.from(new Set(links.map((row) => row.seed_id)));
+  const [bands, seedResult] = await Promise.all([
+    fetchSeedScreeningBandSummaries(seedIds),
+    seedIds.length > 0
+      ? service.from("seeds").select("id, title").in("id", seedIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (seedResult.error) throw new Error(`seeds title lookup failed: ${seedResult.error.message}`);
+  const titles = new Map(
+    ((seedResult.data ?? []) as { id: string; title: string }[]).map((row) => [row.id, row.title]),
+  );
+
+  const result = new Map<string, CurrentSpsProjectAssessment>();
+  for (const link of links) {
+    const band = bands.get(link.seed_id);
+    const assessed = Boolean(band?.assessment_id && band.frozen);
+    result.set(link.project_id, {
+      project_id: link.project_id,
+      seed_id: link.seed_id,
+      seed_title: titles.get(link.seed_id) ?? null,
+      status: assessed ? "assessed" : "unassessed",
+      assessment_id: assessed ? band?.assessment_id ?? null : null,
+      sps_lower_yen: assessed ? band?.sps_lower_yen ?? null : null,
+      sps_upper_yen: assessed ? band?.sps_upper_yen ?? null : null,
+      assessed_at: assessed ? band?.assessed_at ?? null : null,
+      evidence_level: band?.evidence_level ?? 0,
+      model: CURRENT_SPS_MODEL,
+    });
+  }
+
+  for (const projectId of resolvedProjectIds) {
+    if (result.has(projectId)) continue;
+    result.set(projectId, {
+      project_id: projectId,
+      seed_id: null,
+      seed_title: null,
+      status: "unassessed",
+      assessment_id: null,
+      sps_lower_yen: null,
+      sps_upper_yen: null,
+      assessed_at: null,
+      evidence_level: 0,
+      model: CURRENT_SPS_MODEL,
+    });
+  }
+
+  return result;
 }

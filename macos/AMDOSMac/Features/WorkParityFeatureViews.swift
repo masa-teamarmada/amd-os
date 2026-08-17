@@ -4392,7 +4392,7 @@ struct AMDOSParityProjectCockpitView: View {
             if activeTab == "progress" {
                 progressTab(project: project)
             } else if activeTab == "score-detail" {
-                AMDOSParityAMDScoreDetailView(projectId: project.projectId)
+                AMDOSCurrentSpsDetailView(projectId: project.projectId)
             } else {
                 AMDOSParityCockpitCompanyView(projectId: project.projectId, projectName: project.projectName)
             }
@@ -11531,12 +11531,10 @@ private struct AMDOSParityDashboardProjectStripe: View {
                     }
                     Text([project.clientName, project.roleLine, project.startYm.map { "開始 \($0)" }, project.endYm.map { "終了 \($0)" }].compactMap { $0 }.joined(separator: " · ")).font(.caption).foregroundStyle(AMDOSDesign.muted).lineLimit(2)
                     HStack(spacing: 12) {
-                        let primary = hud.primarySnapshots?[project.projectId]
-                        AMDOSMetricTile(label: "SPS Primary", value: primary?.score.map { amdOSDashboardNumber($0) } ?? "—", detail: primary?.status == "ready" ? "ready" : (primary?.missingAxes.isEmpty == false ? "入力待ち: \(primary?.missingAxes.joined(separator: ",") ?? "")" : "review待ち"), tint: AMDOSDesign.blue)
-                        let metrics = hud.signalMetrics[project.projectId]
-                        AMDOSMetricTile(label: "M / X / F", value: [metrics?.m, metrics?.x, metrics?.f].map { amdOSDashboardNumber($0) }.joined(separator: " / "), detail: "AMD Score signal")
+                        let current = hud.currentSps?.first { $0.projectId == project.projectId }
+                        AMDOSMetricTile(label: "現行SPS", value: current?.status == "assessed" ? bandText(current) : "最新版未評価", detail: current?.assessmentId ?? "no current assessment", tint: current?.status == "assessed" ? AMDOSDesign.success : AMDOSDesign.warning)
+                        AMDOSMetricTile(label: "根拠Lv", value: "Lv\(current?.evidenceLevel ?? 0)", detail: "sps-ind-v1")
                         AMDOSMetricTile(label: "請求・報告", value: amdOSDashboardBillingState(hud.billingStatus[project.projectId]), detail: hud.billingStatus[project.projectId]?.ym ?? hud.ym ?? "—")
-                        if let values = hud.scoreHistory[project.projectId], values.count > 1 { AMDOSDashboardSparkline(values: values).frame(width: 150, height: 42) }
                     }
                 }
             }

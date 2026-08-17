@@ -21,7 +21,7 @@ import {
   type ProjectEventKind,
   type ProjectXrlRow,
 } from "@/lib/venture-status-data";
-import { fetchAmdScoreInputs, fetchActiveAlpha, type AmdScoreInputRow } from "@/lib/amd-score-data";
+import type { AmdScoreInputRow } from "@/lib/amd-score-data";
 import { createClient } from "@/lib/supabase/client";
 import { ALPHA_DEFAULT, type AlphaWeights } from "@/lib/amd-score";
 import {
@@ -40,6 +40,8 @@ import { CockpitDescriptionDetailModal } from "./CockpitDescriptionDetailModal";
 import { CockpitAmdScoreBreakdownModal } from "./CockpitAmdScoreBreakdownModal";
 import { CockpitXrlDetailModal } from "./CockpitXrlDetailModal";
 import { Bzm22CockpitSummary } from "./Bzm22CockpitSummary";
+import { CurrentSpsAssessmentCard } from "@/components/sps/CurrentSpsAssessmentCard";
+import type { CurrentSpsProjectAssessment } from "@/lib/current-sps-model";
 
 const LANE_LABELS: Record<string, string> = {
   gx_energy: "GX / エネルギー",
@@ -153,6 +155,7 @@ export function CockpitVentureStatus({
   const [bundle, setBundle] = useState<VentureStatusBundle | null>(null);
   const [amdInputs, setAmdInputs] = useState<AmdScoreInputRow[]>([]);
   const [alpha, setAlpha] = useState<AlphaWeights>(ALPHA_DEFAULT);
+  const [currentSps, setCurrentSps] = useState<CurrentSpsProjectAssessment | null>(null);
   const [roles, setRoles] = useState<RoleMembers>({ pls: [], pms: [], closers: [] });
   const [loading, setLoading] = useState(true);
   const [editingEvent, setEditingEvent] = useState<ProjectEventRow | null>(null);
@@ -164,12 +167,11 @@ export function CockpitVentureStatus({
   const [partnersOpen, setPartnersOpen] = useState(false);
   const [descOpen, setDescOpen] = useState(false);
   const [scoreBreakdownOpen, setScoreBreakdownOpen] = useState(false);
-  const [legacyScoreHistoryProjectId, setLegacyScoreHistoryProjectId] = useState<string | null>(null);
   const [pendingXrl, setPendingXrl] = useState<ProjectXrlRow | null>(null);
   const [xrlDetailTarget, setXrlDetailTarget] = useState<{ row: ProjectXrlRow; axis: "TRL" | "BRL" | "GRL" | "SRL" | "HRL" } | null>(null);
   const xrlPlotRef = useRef<HTMLDivElement>(null);
   const [xrlPlotSize, setXrlPlotSize] = useState({ width: SVG_W, height: SVG_H });
-  const legacyScoreHistoryOpen = !compact && legacyScoreHistoryProjectId === projectId;
+  const legacyScoreHistoryOpen = false;
 
   useEffect(() => {
     const plot = xrlPlotRef.current;
@@ -191,8 +193,7 @@ export function CockpitVentureStatus({
     const supabase = createClient();
     Promise.all([
       fetchVentureStatus(projectId),
-      fetchAmdScoreInputs(projectId),
-      fetchActiveAlpha(),
+      fetch(`/api/project/${encodeURIComponent(projectId)}/sps-current`, { cache: "no-store" }).then((response) => response.ok ? response.json() as Promise<CurrentSpsProjectAssessment> : null),
       // PL/PM/クローザー の codeName を取得 (#15)
       (async () => {
         const { data: pm } = await supabase
@@ -216,11 +217,12 @@ export function CockpitVentureStatus({
         }
         return out;
       })(),
-    ]).then(([b, inputs, alphaRes, roleData]) => {
+    ]).then(([b, assessment, roleData]) => {
       if (!cancelled) {
         setBundle(b);
-        setAmdInputs(inputs);
-        setAlpha(alphaRes.alpha);
+        setAmdInputs([]);
+        setAlpha(ALPHA_DEFAULT);
+        setCurrentSps(assessment);
         setRoles(roleData);
         setLoading(false);
       }
@@ -231,14 +233,14 @@ export function CockpitVentureStatus({
   }, [projectId]);
 
   const reload = async () => {
-    const [b, inputs, alphaRes] = await Promise.all([
+    const [b, assessment] = await Promise.all([
       fetchVentureStatus(projectId),
-      fetchAmdScoreInputs(projectId),
-      fetchActiveAlpha(),
+      fetch(`/api/project/${encodeURIComponent(projectId)}/sps-current`, { cache: "no-store" }).then((response) => response.ok ? response.json() as Promise<CurrentSpsProjectAssessment> : null),
     ]);
     setBundle(b);
-    setAmdInputs(inputs);
-    setAlpha(alphaRes.alpha);
+    setAmdInputs([]);
+    setAlpha(ALPHA_DEFAULT);
+    setCurrentSps(assessment);
   };
 
   const onConfirmProposal = async (id: string, action: "confirm" | "reject") => {
@@ -500,14 +502,14 @@ export function CockpitVentureStatus({
         {/* 2026-05-11 まさ指摘 3 番: 小さく書いてた「AMD: xxx ▾」タブを削除。
             代わりに「Chart 1: AMD スコア」グラフ内の現在地点プロットの上に大きいフォントで表示する。
             グラフ未評価の PJ には未評価リンクをそのままここに残す。 */}
-        {latestScore == null && (
+        {currentSps?.status !== "assessed" && (
           <button
             type="button"
             onClick={onOpenScoreDetail}
             className="text-[11px] font-mono px-2 py-0.5 rounded-full border border-dashed border-slate-300 text-muted-foreground hover:bg-slate-50"
-            title="SPS primary 入力待ち。クリックで入力"
+            title="現行SPSの凍結評価が未登録"
           >
-            SPS: 入力待ち →
+            最新版未評価 →
           </button>
         )}
       </div>
@@ -547,7 +549,9 @@ export function CockpitVentureStatus({
         )}
       </button>
 
-      {/* BZM 2.2 が主表示。以下のSPSは時系列編集を保つ履歴表示。 */}
+      {currentSps ? <div className={`mx-2 ${compact ? "mt-1" : "mt-2"}`}><CurrentSpsAssessmentCard assessment={currentSps} compact /></div> : null}
+
+      {/* BZM 2.2はSPSとは別の暫定パイロットとして表示する。 */}
       {/* Chart 1 + Chart 2 — xl breakpoint (>=1280px) 以上で横並び。
           案C レイアウト (上 hero に AMD Score + XRL を並べる) のため。
           それ未満は従来通り縦並び。 */}
@@ -971,17 +975,6 @@ export function CockpitVentureStatus({
       </div>
       </div>
       </div>
-
-      {!compact && <div data-testid="cockpit-legacy-sps-disclosure" className="mx-2 flex justify-end border-x border-b border-[#7898a5] bg-slate-50">
-        <button
-          type="button"
-          aria-expanded={legacyScoreHistoryOpen}
-          onClick={() => setLegacyScoreHistoryProjectId(legacyScoreHistoryOpen ? null : projectId)}
-          className="min-h-11 px-3 text-[9px] font-semibold text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-cyan-700"
-        >
-          {legacyScoreHistoryOpen ? "旧SPS履歴を閉じる" : "旧SPS履歴を開く"}
-        </button>
-      </div>}
 
       {(editingEvent || creatingAt) && (
         <CockpitVentureStatusEditModal

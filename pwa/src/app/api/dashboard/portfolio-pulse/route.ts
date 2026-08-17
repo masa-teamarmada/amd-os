@@ -4,6 +4,7 @@ import { requireMember } from "@/lib/supabase/api-auth";
 import { getCurrentMemberAccess } from "@/lib/project-workspace";
 import { fetchErsBundle } from "@/lib/ers-data";
 import { fetchAllResearchInstitutionSeeds } from "@/lib/seeds-data";
+import { fetchSeedScreeningBandSummaries } from "@/lib/seed-screening-bands";
 
 export const runtime = "nodejs";
 
@@ -27,9 +28,10 @@ export async function GET() {
   }
 
   const readClient = createAdminClient();
-  const [institutionRes, seedsRes] = await Promise.allSettled([
+  const [institutionRes, seedsRes, bandsRes] = await Promise.allSettled([
     fetchErsBundle(readClient),
     fetchAllResearchInstitutionSeeds(readClient),
+    fetchSeedScreeningBandSummaries(),
   ]);
 
   if (institutionRes.status === "rejected") {
@@ -46,6 +48,8 @@ export async function GET() {
       institutionError: institutionRes.status === "rejected",
       seeds: seedsRes.status === "fulfilled" ? seedsRes.value : null,
       seedsError: seedsRes.status === "rejected",
+      screeningBands: bandsRes.status === "fulfilled" ? Array.from(bandsRes.value.values()) : null,
+      screeningBandsError: bandsRes.status === "rejected",
     },
     { headers: { "Cache-Control": "private, no-store" } },
   );

@@ -213,7 +213,7 @@ struct AMDOSHUDDashboardView: View {
                 HStack(spacing: 14) {
                     AMDOSMetricTile(label: "PJ", value: "\(hud.projects.count)", detail: hud.ym ?? "—")
                     AMDOSMetricTile(label: "評価履歴", value: "\(hud.managementHistory.count)", detail: "月次スナップショット")
-                    AMDOSMetricTile(label: "信号", value: "\(hud.signalMetrics.count)", detail: "M / X / F")
+                    AMDOSMetricTile(label: "現行SPS", value: "\(hud.currentSps?.filter { $0.status == "assessed" }.count ?? 0)", detail: "sps-ind-v1")
                     AMDOSMetricTile(label: "請求", value: "\(hud.billingStatus.count)", detail: "現在月の状態")
                 }
                 AMDOSSectionCard("Management Score", systemImage: "gauge.with.dots.needle.67percent") {
@@ -230,19 +230,14 @@ struct AMDOSHUDDashboardView: View {
                         }
                     }
                 }
-                AMDOSSectionCard("プロジェクト信号", systemImage: "waveform.path.ecg") {
+                AMDOSSectionCard("プロジェクト現行SPS", systemImage: "scope") {
                     ForEach(hud.projects) { project in
-                        let metrics = hud.signalMetrics[project.id]
+                        let assessment = hud.currentSps?.first { $0.projectId == project.id }
                         AMDOSCard {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack { Text(project.projectName).font(.headline); Spacer(); AMDOSStatusBadge(text: project.status ?? "—") }
                                 Text([project.clientName, project.startYm.map { "開始 \($0)" }, project.endYm.map { "終了 \($0)" }].compactMap { $0 }.joined(separator: " · ")).font(.caption).foregroundStyle(AMDOSDesign.muted)
-                                HStack {
-                                    AMDOSMetricTile(label: "M", value: amdOSPercentage(metrics?.m), detail: "market")
-                                    AMDOSMetricTile(label: "X", value: amdOSPercentage(metrics?.x), detail: "execution")
-                                    AMDOSMetricTile(label: "F", value: amdOSPercentage(metrics?.f), detail: "fit")
-                                    AMDOSHUDSparkline(values: hud.scoreHistory[project.id] ?? [], tint: AMDOSDesign.blue).frame(maxWidth: 180)
-                                }
+                                HStack { AMDOSMetricTile(label: "現行SPS", value: assessment?.status == "assessed" ? bandText(assessment) : "最新版未評価", detail: assessment?.assessmentId ?? "none", tint: assessment?.status == "assessed" ? AMDOSDesign.success : AMDOSDesign.warning); AMDOSMetricTile(label: "根拠Lv", value: "Lv\(assessment?.evidenceLevel ?? 0)", detail: "産業創出価値") }
                             }
                         }
                     }

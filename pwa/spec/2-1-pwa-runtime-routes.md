@@ -52,7 +52,7 @@
 | `/admin/access` | 外部アクセス権限の台帳 (内部admin限定)。外部アカウント、機関ワークスペース所属、PJ個別アクセスをここだけで付与・停止する。読み書きはすべて `/api/admin/workspace-access` 経由 |
 | `/dashboard` | ARMADA内部メンバーの入口 = 研究ポートフォリオ中心IA (2026-08-02 まさ確定、旧 `/portfolio-preview` を統合)。上部の先手TODOバッジ直下に `PortfolioPulse` (研究機関・シーズ・PJ運用の統計strip + 3パネル優先キュー、パネル順は研究機関→シーズ→PJ運用) を置き、研究機関・シーズの全件は出さず上位候補だけを表示する (全件正本は `/institutions` `/seeds`)。データは `/api/dashboard/portfolio-pulse` (server-side `createAdminClient()` + `requireMember()` + `getCurrentMemberAccess().scope='portfolio'`、ECR/シーズを `Promise.allSettled` で障害分離) からだけ取り、project scope の外部PJメンバーへ横断母集団を返さない。default browser clientでの `fetchErsBundle`/`fetchAllResearchInstitutionSeeds` 直叩きは禁止 (migration 213 RLS下でシーズ0件になる既知障害の再発防止)。その下 `#pj-operations` アンカー配下に、AMD全体 (`p00`) だけを除くPJ台帳の全行を Active / Sales-Draft / Ended-Frozen で表示する (GlobalNav 「PJ運用」navと `PortfolioPulse` の「PJ運用を開く」はどちらもこのアンカーへ実接続)。`institution_projects` の p25 / p28 / p30 も除外せず、すべての行は内部用 `/project/[projectId]/cockpit` を開く。外部アカウントはこのrouteを使わず `/workspaces` から個別許可された面へ入る。PJ一覧の後に要対応 action queue、続けて折り畳み「経営指標・接続状況」(Management Score、全社実績、抽出・freee状態、既定open) を置き、下段全幅に Company Content shelf を置く。左メニューのボード (GlobalNav 最上位グループ「研究ポートフォリオ」のホーム) にマウスオーバーまたはフォーカスすると、全アクティブPJへのコックピットリンクを右側に出す。フライアウトはナビのスクロール領域でクリップされない上位レイヤーに出し、画面下端では一覧部分だけをスクロールする。右カラムの `MyPageContent` embed は desktop (xl+) で360–400pxの `sticky` + 独立 `overflow-y-auto`、mobile/tabletでは埋め込みを隠す代わりに「マイページを開く」実リンクカードを出す。埋込時の loading/error は `min-h-screen` を使わない。`MyPageContent` / `CompanyContentShelf` は `next/dynamic({ ssr:false })` で分離バンドル化し、Company Content (メンバー/沿革/写真/メディア掲載) の fetch は初回 `Promise.allSettled` に含めず、`IntersectionObserver` (`rootMargin: "600px 0px"`) で shelf アンカーが viewport 600px 圏内に入ってから `fetchCompanyContentPreview` を1回だけ起動する遅延ロードにする (v3.44.8)。取得完了までプレースホルダ表示、失敗時は空データへ fallback しダッシュボード主表示をブロックしない。配色は `amd-home-page-skin` (白/graphite/濃紺/AMD blue/cyan、borders-only、4pxベース) で、旧 `amd-desk-page-skin` の淡いベージュは使わない |
 | `/portfolio-preview` | 旧仮設IA。2026-08-02 `/dashboard` へ統合済みのため `redirect("/dashboard")` だけを持つ。旧URLを踏んでも `/dashboard` の認証・role-based topがそのまま効く |
-| `/project/[projectId]/cockpit` | PJ cockpit。Status / AMD Score / XRL / MS / 資料 / 経営ハイライト / ガバナンス / 助成金 / 月次 / MTGサマリ。PJ workspaceの未完了項目を無順位で集計する別要約帯は置かない。共同正本のAMDレンズは、介入対象・要求行動・正しい未来期限・詳細導線が揃う受入契約を満たしてから既存情報構造へ統合する。旧 `proactive_outbox` TODO は表示しない |
+| `/project/[projectId]/cockpit` | PJ cockpit。Status / 現行SPS / XRL / MS / 資料 / 経営ハイライト / ガバナンス / 助成金 / 月次 / MTGサマリ。現行SPSは`sps-ind-v1`完全一致だけを表示し、無ければ最新版未評価。旧版へfallbackしない。BZM 2.2は別モデルとして分離表示する |
 | `/project/[projectId]/workspace` | PJ実行の正規入口。内部PJメンバーには`SxWeeklyControlDashboard`の4タブ（週次差分 / ガント / 関係先 / 論点・仮説）をそのまま表示する。未完成の外部account向け簡易代替面は出さずgeneric not foundで閉じる。大学・SUの正式レンズは、publication認可と現行画面相当の品質契約を満たしてから別途接続する |
 | `/project/[projectId]/weekly-control` | 旧ブックマーク互換。`/project/[projectId]/workspace`へredirectし、独立した画面・writer・状態を持たない |
 | `/project/[projectId]/navigation` | 正規workspaceと分離したPJ計画レンズ。重要経路を初期展開し、4本柱からマイルストーン・技術試験・論点・履歴へ掘る階層WBSガントと、共通7段階の関係先比較を表示する。工程、論点閉ループ、技術試験、関係先・保有事項を同じ画面で追加・更新できる。RSC境界へは`buildSxNavigationViewModel()`が作る最小view modelだけを渡し、`ProjectWorkspaceBundle`/`CurrentMemberAccess`全体はClient Componentへ渡さない |
@@ -64,9 +64,9 @@
 | `/business-cards` | 名刺管理。スマホ撮影 / 写真選択 → Gemini OCR → 人の確認 → 1件以上のPJ紐付け → `business_cards` と D-3 `project_knowledge(category='people')` へ保存する。OCR結果は自動確定しない |
 | `/native/business-cards` | iOS名刺タブ用のナビ無しnative shell。通常の月初合意overlayを重ねず、認証cookieつきWKWebViewから `/business-cards` と同じUI/APIを使う |
 | `/poc` | PoC案件化。Seeds とPoC先を入力し、その掛け合わせからヒアリング論点、PoC条件、謝礼、契約、資金、収益分配を追う |
-| `/venture-map/amd-score` | AMD Score 一覧 |
-| `/project/[projectId]/cockpit?tab=score-detail` | PJ cockpit 内の AMD Score 詳細 |
-| `/venture-map/amd-score/[projectId]` | 旧 AMD Score 詳細の互換 route。cockpit の `スコア詳細` へ redirect (`p99` デモを除く) |
+| `/venture-map/amd-score` | 現行SPS一覧。`sps-ind-v1 / q-eval-v2 / rubric-v1.1 / p-ind-v1`だけを表示 |
+| `/project/[projectId]/cockpit?tab=score-detail` | PJ cockpit 内の現行SPS詳細。BZM 2.2は別モデルとして続けて表示 |
+| `/venture-map/amd-score/[projectId]` | 互換route。例外なくcockpitの現行SPS詳細へredirect |
 | `/atlas` / `/atlas/*` | Atlas signal / story / divergence / map |
 | `/admin/*` | 管理者向け台帳・設定・請求・支払・prompt |
 | `/admin/japanese-culture-map` | 日本文化マップ。`jp_culture_items` の active 行を、admin layout gate 内でマインドマップ / 日本地図として読む。旧 `/japanese-culture-map` はこの route へ redirect |

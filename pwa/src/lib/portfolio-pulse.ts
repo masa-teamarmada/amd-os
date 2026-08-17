@@ -19,11 +19,12 @@ import {
 } from "@/lib/institution-projects";
 import { seedListPriority, seedProjectLifecycle } from "@/lib/kute-seeds-scoring";
 import type { DashProject } from "@/lib/supabase-data";
-import type { SeedPublicView } from "@/types/seeds";
+import type { SeedPublicView, SeedScreeningBandSummary } from "@/types/seeds";
 
 export type PortfolioPulseData = {
   institutionBundle: ErsBundle;
   seeds: SeedPublicView[];
+  screeningBands: SeedScreeningBandSummary[];
   projects: DashProject[];
 };
 
@@ -101,7 +102,8 @@ function projectStatusPriority(status: string) {
 }
 
 export function buildPortfolioPulseModel(data: PortfolioPulseData): PortfolioPulseModel {
-  const { institutionBundle, seeds, projects } = data;
+  const { institutionBundle, seeds, projects, screeningBands } = data;
+  const bandBySeed = new Map(screeningBands.map((band) => [band.seed_id, band]));
   const institutionRows = institutionBundle.institutions
     .map((institution): InstitutionRow => {
       const projectLink = selectPrimaryInstitutionProject(
@@ -135,8 +137,10 @@ export function buildPortfolioPulseModel(data: PortfolioPulseData): PortfolioPul
   const seedRows = [...seeds].sort((a, b) => {
     const priority = seedListPriority(a) - seedListPriority(b);
     if (priority) return priority;
-    const aScore = a.latest_sps?.status === "ready" ? a.latest_sps.score : null;
-    const bScore = b.latest_sps?.status === "ready" ? b.latest_sps.score : null;
+    const aBand = bandBySeed.get(a.id);
+    const bBand = bandBySeed.get(b.id);
+    const aScore = aBand?.assessment_id && aBand.sps_lower_yen != null && aBand.sps_upper_yen != null ? (aBand.sps_lower_yen + aBand.sps_upper_yen) / 2 : null;
+    const bScore = bBand?.assessment_id && bBand.sps_lower_yen != null && bBand.sps_upper_yen != null ? (bBand.sps_lower_yen + bBand.sps_upper_yen) / 2 : null;
     if (aScore == null && bScore != null) return 1;
     if (aScore != null && bScore == null) return -1;
     if (aScore != null && bScore != null && aScore !== bScore) return bScore - aScore;
@@ -204,8 +208,8 @@ export function buildPortfolioPulseModel(data: PortfolioPulseData): PortfolioPul
       seeds: seedRows.length,
       seedRealized,
       seedConsidering,
-      seedScoredWithoutProject: seedRows.filter((seed) => seedListPriority(seed) === 2).length,
-      seedSpsReady: seedRows.filter((seed) => seed.latest_sps?.status === "ready").length,
+      seedScoredWithoutProject: seedRows.filter((seed) => seedProjectLifecycle(seed) === "none" && Boolean(bandBySeed.get(seed.id)?.assessment_id)).length,
+      seedSpsReady: seedRows.filter((seed) => Boolean(bandBySeed.get(seed.id)?.assessment_id)).length,
       projects: projectRows.length,
       activeProjects: projectRows.filter((row) => row.project.status === "active").length,
       consideringProjects: projectRows.filter((row) => ["sales", "draft"].includes(row.project.status)).length,

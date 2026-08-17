@@ -1,9 +1,10 @@
 import "server-only";
 
 import { createClient as createServiceClient } from "@supabase/supabase-js";
-import { calculateSeedSpsScore, type SeedSpsAssessmentAxes, type SeedSpsScoreResult } from "@/lib/seed-sps";
+import { fetchSeedScreeningBandSummaries } from "@/lib/seed-screening-bands";
 import { computeErs, type ErsAxis, type ErsAssessment, type ErsCriterion } from "@/lib/ers";
 import { projectStatusLifecycle } from "@/lib/institution-projects";
+import type { SeedScreeningBandSummary } from "@/types/seeds";
 
 // Rich institution workspace bundle (slug-scoped). Unlike public-workspace-data.ts (top-page
 // listing, no auth), the caller here has already resolved that the requesting principal is
@@ -13,18 +14,17 @@ import { projectStatusLifecycle } from "@/lib/institution-projects";
 //
 // Field allowlist is intentionally narrow: summary/description/url/source/contact/evidence-shaped
 // columns (institutions.description, seeds.summary/public_summary/*_url, seed_contact_log, any
-// evidence_refs) must never be added here. SPS (seed_sps_assessments) and ECR
+// evidence_refs) must never be added here. 現行SPS帯とECR
 // (institution_assessments) select only the score-shaped columns below — axis_evidence /
 // evaluator / frl (SPS) and note / evaluator / rubric / corresponds_xrl (ECR) must never be
 // added. ECR and SPS stay on separate DTO properties and are never summed together.
 export type InstitutionWorkspaceSeedSps = {
+  assessmentId: string;
   evaluatedAt: string;
-  status: string;
-  confidence: string | null;
-  missingAxes: string[];
-  score: number | null;
-  components: SeedSpsScoreResult["components"];
-  axes: SeedSpsAssessmentAxes;
+  measureVersion: "sps-ind-v1";
+  lowerYen: number | null;
+  upperYen: number | null;
+  evidenceLevel: 0 | 1 | 2 | 3;
 };
 
 export type InstitutionWorkspaceEcr = {
@@ -109,14 +109,6 @@ type SeedProjectRow = {
   venture_name: string | null;
 };
 
-type SeedSpsAssessmentRow = SeedSpsAssessmentAxes & {
-  seed_id: string;
-  evaluated_at: string;
-  status: string;
-  confidence: string | null;
-  missing_axes: string[] | null;
-};
-
 type CapabilityAxisRow = {
   axis_id: string;
   axis_no: number;
@@ -140,7 +132,7 @@ type InstitutionAssessmentRow = {
 };
 
 function seedLifecyclePriority(seed: InstitutionWorkspaceData["seeds"][number]): number {
-  const hasSpsScore = seed.sps?.score != null;
+  const hasSpsScore = Boolean(seed.sps?.assessmentId);
   const priorities = seed.projects.map((project) => {
     const lifecycle = projectStatusLifecycle(project.status);
     if (lifecycle === "realized") return 0;
@@ -221,26 +213,18 @@ export async function getInstitutionWorkspaceData(
   let seedRows: SeedRow[] = [];
   let seedProjectRows: SeedProjectRow[] = [];
   let seedProjectProjectRows: ProjectRow[] = [];
-  let seedSpsRows: SeedSpsAssessmentRow[] = [];
+  let currentBands = new Map<string, SeedScreeningBandSummary>();
   if (scopedSeedIds.length > 0) {
-    const [{ data: seeds, error: seedsError }, { data: seedProjects, error: seedProjectsError }, { data: seedSpsAssessments, error: seedSpsError }] = await Promise.all([
+    const [{ data: seeds, error: seedsError }, { data: seedProjects, error: seedProjectsError }, bands] = await Promise.all([
       service.from("seeds").select("id,title,org_name,researcher_name,status").in("id", scopedSeedIds).returns<SeedRow[]>(),
       service.from("seed_projects").select("project_id,seed_id,commercialization_stage,venture_name").in("seed_id", scopedSeedIds).returns<SeedProjectRow[]>(),
-      service
-        .from("seed_sps_assessments")
-        .select(
-          "seed_id,evaluated_at,mu_a,mu_i,mu_g,potential,trl,brl,grl,srl,hrl,f_character,f_cap,r_net,shallow_tech_mode,status,confidence,missing_axes",
-        )
-        .in("seed_id", scopedSeedIds)
-        .order("evaluated_at", { ascending: false })
-        .returns<SeedSpsAssessmentRow[]>(),
+      fetchSeedScreeningBandSummaries(scopedSeedIds),
     ]);
     if (seedsError) throw new Error(`institution workspace seeds: ${seedsError.message}`);
     if (seedProjectsError) throw new Error(`institution workspace seed_projects: ${seedProjectsError.message}`);
-    if (seedSpsError) throw new Error(`institution workspace seed_sps_assessments: ${seedSpsError.message}`);
     seedRows = seeds ?? [];
     seedProjectRows = seedProjects ?? [];
-    seedSpsRows = seedSpsAssessments ?? [];
+    currentBands = bands;
 
     const seedProjectIds = Array.from(new Set(seedProjectRows.map((row) => row.project_id)));
     if (seedProjectIds.length > 0) {
@@ -286,11 +270,6 @@ export async function getInstitutionWorkspaceData(
   }
   const seedProjectProjectById = new Map(seedProjectProjectRows.map((row) => [row.project_id, row]));
   const authorizedProjectIdSet = new Set(authorizedProjectIds);
-
-  const latestSeedSpsBySeedId = new Map<string, SeedSpsAssessmentRow>();
-  for (const row of seedSpsRows) {
-    if (!latestSeedSpsBySeedId.has(row.seed_id)) latestSeedSpsBySeedId.set(row.seed_id, row);
-  }
 
   const ersAxes: ErsAxis[] = (capabilityAxisRows ?? []).map((row) => ({
     axisId: row.axis_id,
@@ -374,35 +353,16 @@ export async function getInstitutionWorkspaceData(
         })
         .filter((row): row is NonNullable<typeof row> => row !== null);
 
-      const latestSps = latestSeedSpsBySeedId.get(seed.id);
-      const sps: InstitutionWorkspaceSeedSps | null = latestSps
-        ? (() => {
-            const axes: SeedSpsAssessmentAxes = {
-              mu_a: latestSps.mu_a,
-              mu_i: latestSps.mu_i,
-              mu_g: latestSps.mu_g,
-              potential: latestSps.potential,
-              trl: latestSps.trl,
-              brl: latestSps.brl,
-              grl: latestSps.grl,
-              srl: latestSps.srl,
-              hrl: latestSps.hrl,
-              f_character: latestSps.f_character,
-              f_cap: latestSps.f_cap,
-              r_net: latestSps.r_net,
-              shallow_tech_mode: latestSps.shallow_tech_mode,
-            };
-            const scored = calculateSeedSpsScore(axes);
-            return {
-              evaluatedAt: latestSps.evaluated_at,
-              status: latestSps.status,
-              confidence: latestSps.confidence,
-              missingAxes: scored.missingAxes,
-              score: scored.score,
-              components: scored.components,
-              axes,
-            };
-          })()
+      const currentBand = currentBands.get(seed.id);
+      const sps: InstitutionWorkspaceSeedSps | null = currentBand?.assessment_id && currentBand.measure_version && currentBand.assessed_at
+        ? {
+            assessmentId: currentBand.assessment_id,
+            evaluatedAt: currentBand.assessed_at,
+            measureVersion: currentBand.measure_version,
+            lowerYen: currentBand.sps_lower_yen,
+            upperYen: currentBand.sps_upper_yen,
+            evidenceLevel: currentBand.evidence_level,
+          }
         : null;
 
       return {

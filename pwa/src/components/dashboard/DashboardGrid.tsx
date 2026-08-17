@@ -1,17 +1,9 @@
 "use client";
 
-/**
- * DashboardGrid — /dashboard の PJ 一覧 (= Active / Sales-Draft / Ended-Frozen)
- *
- * 2026-05-25 #71 後段再々設計 (= まさ「横長 stripe + ソート」確定):
- *  - 縦長 grid 3 列 → 横長 stripe 1 行 1 PJ (= HUD 版風の比較検討しやすさ)
- *  - ソート: ユーザー参画 PJ を上、その中で AMD Score 降順
- *  - 1 行に集約: code + name + status + client | PL/PM/Closer | AMD Score + sparkline | M/X/F | billing 5 dot
- *  - 左 4px border カラーで status 判別、hover で背景強調
- */
 import Link from "next/link";
 import { useState } from "react";
-import type { DashProject as GasProject, DashBillingStatus as GasBillingStatus } from "@/lib/supabase-data";
+import type { CurrentSpsProjectAssessment } from "@/lib/current-sps-model";
+import type { DashBillingStatus as GasBillingStatus, DashProject as GasProject } from "@/lib/supabase-data";
 import { AllPjIntroductionModal } from "./AllPjIntroductionModal";
 
 const STATUS_BADGE: Record<string, string> = {
@@ -22,343 +14,70 @@ const STATUS_BADGE: Record<string, string> = {
   frozen: "bg-[var(--desk-amber-soft)] text-[var(--desk-amber)] border-[rgba(168,100,22,0.24)]",
   advisor: "bg-[var(--desk-violet-soft)] text-[var(--desk-violet)] border-[rgba(109,82,117,0.24)]",
 };
-
 const STATUS_LEFT_BORDER: Record<string, string> = {
-  active: "border-l-[var(--desk-green)]",
-  sales: "border-l-[var(--desk-blue)]",
-  draft: "border-l-[var(--desk-blue)]",
-  ended: "border-l-[var(--desk-quiet)]",
-  frozen: "border-l-[var(--desk-amber)]",
-  advisor: "border-l-[var(--desk-violet)]",
+  active: "border-l-[var(--desk-green)]", sales: "border-l-[var(--desk-blue)]", draft: "border-l-[var(--desk-blue)]",
+  ended: "border-l-[var(--desk-quiet)]", frozen: "border-l-[var(--desk-amber)]", advisor: "border-l-[var(--desk-violet)]",
 };
 
 interface DashboardGridProps {
   projects: GasProject[];
   billingStatus: Record<string, GasBillingStatus>;
   projectHrefPrefix?: string;
-  scoreHistory?: Record<string, number[]>;
-  primarySnapshots?: Record<string, DashboardPrimarySnapshot>;
-  /** ログインユーザーが参画してる project_id の Set (= 上位表示) */
+  currentSps?: Record<string, CurrentSpsProjectAssessment>;
   myProjectIds?: Set<string>;
 }
 
-export interface DashboardPrimarySnapshot {
-  score: number | null;
-  status: "ready" | "missing";
-  missingAxes: string[];
-  legacyScore: number | null;
-  components: {
-    /** M = マクロ追い風 (Macrotrend)。σ_SU contribution (2026-07-16 S から分離) */
-    macro: number | null;
-    potential: number | null;
-    reach: number | null;
-    /** S = 自走力 (Survival = FRL × R_net) */
-    survival: number | null;
-  };
-}
-
-export function DashboardGrid({
-  projects,
-  billingStatus,
-  projectHrefPrefix = "/project",
-  scoreHistory = {},
-  primarySnapshots = {},
-  myProjectIds = new Set(),
-}: DashboardGridProps) {
+export function DashboardGrid({ projects, billingStatus, projectHrefPrefix = "/project", currentSps = {}, myProjectIds = new Set() }: DashboardGridProps) {
   const [introOpen, setIntroOpen] = useState(false);
+  const sorter = makePjSorter(myProjectIds, currentSps);
+  const groups = [
+    { title: "Active", rows: projects.filter((project) => project.status === "active").sort(sorter), open: true },
+    { title: "Sales / Draft", rows: projects.filter((project) => ["sales", "draft"].includes(project.status)).sort(sorter), open: true },
+    { title: "Ended / Frozen", rows: projects.filter((project) => !["active", "sales", "draft"].includes(project.status)).sort(sorter), open: false },
+  ];
+  if (projects.length === 0) return <section className="dashboard-desk-section px-4 py-6 text-sm text-[var(--desk-muted)]">PJ台帳に表示できるPJはまだないよ。</section>;
 
-  const sorter = makePjSorter(myProjectIds, scoreHistory);
-  const active = projects.filter((p) => p.status === "active").sort(sorter);
-  const sales = projects.filter((p) => p.status === "sales" || p.status === "draft").sort(sorter);
-  const other = projects.filter((p) => !["active", "sales", "draft"].includes(p.status)).sort(sorter);
-
-  if (projects.length === 0) {
-    return (
-      <section className="dashboard-desk-section px-4 py-6 text-sm text-[var(--desk-muted)]">
-        PJ台帳に表示できるPJはまだないよ。
-      </section>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-end">
-        <button
-          onClick={() => setIntroOpen(true)}
-          className="text-sm px-3 py-1.5 rounded-[7px] border border-[var(--desk-line)] bg-[var(--desk-panel-raised)] hover:bg-[var(--desk-sheet)] transition-colors shadow-[0_1px_6px_rgba(36,35,31,0.06)]"
-          title="チェックを入れた PJ のエグゼクティブサマリーを 1 つの HTML として出力"
-        >
-          📑 全 PJ 紹介資料作成
-        </button>
-      </div>
-
-      {introOpen && <AllPjIntroductionModal projects={projects} onClose={() => setIntroOpen(false)} />}
-
-      {active.length > 0 && (
-        <section className="dashboard-desk-section">
-          <h2 className="dashboard-desk-section-title">Active ({active.length})</h2>
-          <div className="space-y-2">
-            {active.map((pj) => (
-              <ProjectStripe
-                key={pj.projectId}
-                project={pj}
-                billing={billingStatus[pj.projectId]}
-                hrefPrefix={projectHrefPrefix}
-                scoreHistory={scoreHistory[pj.projectId] || []}
-                primarySnapshot={primarySnapshots[pj.projectId]}
-                isMine={myProjectIds.has(pj.projectId)}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {sales.length > 0 && (
-        <section className="dashboard-desk-section">
-          <h2 className="dashboard-desk-section-title">Sales / Draft ({sales.length})</h2>
-          <div className="space-y-2">
-            {sales.map((pj) => (
-              <ProjectStripe
-                key={pj.projectId}
-                project={pj}
-                billing={billingStatus[pj.projectId]}
-                hrefPrefix={projectHrefPrefix}
-                scoreHistory={scoreHistory[pj.projectId] || []}
-                primarySnapshot={primarySnapshots[pj.projectId]}
-                isMine={myProjectIds.has(pj.projectId)}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {other.length > 0 && (
-        <details className="dashboard-desk-section group">
-          <summary className="dashboard-desk-section-title cursor-pointer">
-            Ended / Frozen ({other.length})
-          </summary>
-          <div className="space-y-2 mt-2">
-            {other.map((pj) => (
-              <ProjectStripe
-                key={pj.projectId}
-                project={pj}
-                billing={billingStatus[pj.projectId]}
-                hrefPrefix={projectHrefPrefix}
-                scoreHistory={scoreHistory[pj.projectId] || []}
-                primarySnapshot={primarySnapshots[pj.projectId]}
-                isMine={myProjectIds.has(pj.projectId)}
-              />
-            ))}
-          </div>
-        </details>
-      )}
-    </div>
-  );
+  return <div className="space-y-4">
+    <div className="flex justify-end"><button onClick={() => setIntroOpen(true)} className="rounded-[7px] border border-[var(--desk-line)] bg-[var(--desk-panel-raised)] px-3 py-1.5 text-sm hover:bg-[var(--desk-sheet)]">📑 全 PJ 紹介資料作成</button></div>
+    {introOpen ? <AllPjIntroductionModal projects={projects} onClose={() => setIntroOpen(false)} /> : null}
+    {groups.filter((group) => group.rows.length > 0).map((group) => group.open ? <section key={group.title} className="dashboard-desk-section"><h2 className="dashboard-desk-section-title">{group.title} ({group.rows.length})</h2><div className="space-y-2">{group.rows.map((project) => <ProjectStripe key={project.projectId} project={project} billing={billingStatus[project.projectId]} assessment={currentSps[project.projectId]} hrefPrefix={projectHrefPrefix} isMine={myProjectIds.has(project.projectId)} />)}</div></section> : <details key={group.title} className="dashboard-desk-section"><summary className="dashboard-desk-section-title cursor-pointer">{group.title} ({group.rows.length})</summary><div className="mt-2 space-y-2">{group.rows.map((project) => <ProjectStripe key={project.projectId} project={project} billing={billingStatus[project.projectId]} assessment={currentSps[project.projectId]} hrefPrefix={projectHrefPrefix} isMine={myProjectIds.has(project.projectId)} />)}</div></details>)}
+  </div>;
 }
 
-function makePjSorter(myProjectIds: Set<string>, scoreHistory: Record<string, number[]>) {
+function makePjSorter(myProjectIds: Set<string>, currentSps: Record<string, CurrentSpsProjectAssessment>) {
   return (a: GasProject, b: GasProject) => {
-    // 1. 自分が参画してる PJ を上 (= true=0, false=1 → 小さい方が前)
-    const aMine = myProjectIds.has(a.projectId) ? 0 : 1;
-    const bMine = myProjectIds.has(b.projectId) ? 0 : 1;
-    if (aMine !== bMine) return aMine - bMine;
-    // 2. AMD Score 降順 (= 大きい方が前、null は最後)
-    const aScore = lastScore(scoreHistory[a.projectId]);
-    const bScore = lastScore(scoreHistory[b.projectId]);
-    if (aScore == null && bScore == null) return a.projectId.localeCompare(b.projectId);
-    if (aScore == null) return 1;
-    if (bScore == null) return -1;
-    return bScore - aScore;
+    const mine = Number(!myProjectIds.has(a.projectId)) - Number(!myProjectIds.has(b.projectId));
+    if (mine) return mine;
+    const aScore = midpoint(currentSps[a.projectId]);
+    const bScore = midpoint(currentSps[b.projectId]);
+    if (aScore == null && bScore != null) return 1;
+    if (aScore != null && bScore == null) return -1;
+    return (bScore ?? 0) - (aScore ?? 0) || a.projectId.localeCompare(b.projectId);
   };
 }
 
-function lastScore(history?: number[]): number | null {
-  if (!history || history.length === 0) return null;
-  return history[history.length - 1];
+function midpoint(assessment?: CurrentSpsProjectAssessment) {
+  if (!assessment || assessment.status !== "assessed" || assessment.sps_lower_yen == null || assessment.sps_upper_yen == null) return null;
+  return (assessment.sps_lower_yen + assessment.sps_upper_yen) / 2;
 }
 
-function ProjectStripe({
-  project,
-  billing,
-  hrefPrefix,
-  scoreHistory,
-  primarySnapshot,
-  isMine,
-}: {
-  project: GasProject;
-  billing?: GasBillingStatus;
-  hrefPrefix: string;
-  scoreHistory: number[];
-  primarySnapshot?: DashboardPrimarySnapshot;
-  isMine: boolean;
-}) {
+function formatOku(value: number | null) {
+  if (value == null) return "—";
+  return `${new Intl.NumberFormat("ja-JP", { maximumFractionDigits: value < 1_000_000_000 ? 1 : 0 }).format(value / 100_000_000)}億`;
+}
+
+function ProjectStripe({ project, billing, assessment, hrefPrefix, isMine }: { project: GasProject; billing?: GasBillingStatus; assessment?: CurrentSpsProjectAssessment; hrefPrefix: string; isMine: boolean }) {
   const roles = parseRoleLine(project.roleLine);
-  const leftBorder = STATUS_LEFT_BORDER[project.status] ?? "border-l-zinc-300";
-  const badgeClass = STATUS_BADGE[project.status] ?? "bg-zinc-50 text-zinc-700 border-zinc-300";
-  const prsReady = primarySnapshot?.status === "ready" && primarySnapshot.score != null;
-  const lastScoreV = prsReady ? primarySnapshot.score : null;
-  const prevScore = prsReady && scoreHistory.length > 1 ? scoreHistory[scoreHistory.length - 2] : null;
-  const trend = lastScoreV != null && prevScore != null ? (lastScoreV > prevScore ? "↗" : lastScoreV < prevScore ? "↘" : "→") : "";
-  const trendColor = lastScoreV != null && prevScore != null ? (lastScoreV > prevScore ? "text-emerald-600" : lastScoreV < prevScore ? "text-rose-600" : "text-zinc-500") : "text-zinc-400";
-  const primaryStatusLabel =
-    primarySnapshot?.status === "missing"
-      ? "P / R_net 入力待ち"
-      : primarySnapshot?.status === "ready"
-        ? "ready"
-        : "review 待ち";
-  // 2026-05-25 #71 v3 まさ確定: PL/PM/Closer を 1 行 inline (= 「PL まさ / PM かる / Closer ちこ」)、スペース節約
-  const rolesInline = [
-    roles.pl !== "--" && `PL ${roles.pl}`,
-    roles.pm !== "--" && `PM ${roles.pm}`,
-    roles.closer !== "--" && `Closer ${roles.closer}`,
-  ].filter(Boolean).join(" / ") || "—";
-
-  return (
-    <Link
-      href={`${hrefPrefix}/${project.projectId}/cockpit`}
-      className={`relative block rounded-[8px] border border-[var(--desk-line)] border-l-4 ${leftBorder} ${isMine ? "bg-[rgba(223,238,230,0.52)] ring-1 ring-[rgba(37,108,85,0.22)]" : "bg-[rgba(255,253,247,0.86)]"} overflow-hidden transition-all hover:shadow-[0_14px_34px_rgba(55,47,32,0.12)] hover:-translate-y-0.5`}
-    >
-      {/* 固定 12 列 grid: 各列幅は project 間で揃う。col-span 再配分 (= 3/2/3/2/2 = 12)
-          M/X/F と billing が狭くて縦書き化してたので幅増やす */}
-      <div className="grid grid-cols-12 gap-3 items-center px-3 py-2">
-        {/* === 識別: col-span-3 === */}
-        <div className="col-span-3 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-mono text-[10px] text-muted-foreground">{project.projectId}</span>
-            <h3 className="text-sm font-semibold truncate">{project.projectName}</h3>
-            <span className={`text-[9px] rounded border px-1.5 py-0.5 ${badgeClass}`}>{project.status}</span>
-            {isMine && <span className="text-[9px] rounded border border-sky-300 bg-sky-100 text-sky-800 px-1.5 py-0.5">参画</span>}
-          </div>
-          {project.clientName && <p className="text-[10px] text-muted-foreground truncate mt-0.5">{project.clientName}</p>}
-        </div>
-
-        {/* === 担当: col-span-2 (= inline 1 行で省スペース) === */}
-        <div className="col-span-2 border-l border-[var(--desk-line)] pl-3 text-[10px] min-w-0">
-          <div className="text-[9px] text-muted-foreground font-mono uppercase">担当</div>
-          <div className="truncate text-foreground" title={rolesInline}>{rolesInline}</div>
-        </div>
-
-        {/* === SPS primary + sparkline: col-span-3 === */}
-        <div className="col-span-3 flex items-center gap-2 border-l border-[var(--desk-line)] pl-3 min-w-0">
-          <div className="flex flex-col shrink-0">
-            <div className="text-[9px] text-muted-foreground font-mono uppercase">SPS Primary</div>
-            <div className="flex items-baseline gap-1 min-h-[28px]">
-              <span className="text-lg font-bold leading-none">{lastScoreV != null ? formatScore(lastScoreV) : "—"}</span>
-              {trend && <span className={`text-xs font-bold ${trendColor}`}>{trend}</span>}
-            </div>
-            <div className="text-[9px] text-muted-foreground">{primaryStatusLabel}</div>
-            {primarySnapshot?.legacyScore != null && (
-              <div className="text-[9px] text-muted-foreground font-mono uppercase">
-                legacy {formatScore(primarySnapshot.legacyScore)}
-              </div>
-            )}
-          </div>
-          <Sparkline values={prsReady ? scoreHistory : []} className="h-7 flex-1 min-w-[60px] text-sky-500" />
-        </div>
-
-        {/* === P/R/S components: col-span-2 === */}
-        <div className="col-span-2 border-l border-[var(--desk-line)] pl-3">
-          {primarySnapshot?.components ? (
-            <>
-              <div className="mb-1 text-[9px] text-muted-foreground font-mono uppercase">SPS M/P/R/S</div>
-              <div className="grid grid-cols-4 gap-1 text-[10px]">
-                <MetricCell label="M" value={primarySnapshot.components.macro} />
-                <MetricCell label="P" value={primarySnapshot.components.potential} />
-                <MetricCell label="R" value={primarySnapshot.components.reach} />
-                <MetricCell label="S" value={primarySnapshot.components.survival} />
-              </div>
-            </>
-          ) : (
-            <div className="text-[10px] text-muted-foreground text-center">—</div>
-          )}
-        </div>
-
-        {/* === billing 4 dot: col-span-2 === */}
-        <div className="col-span-2 border-l border-[var(--desk-line)] pl-3">
-          {billing ? (
-            <>
-              <div className="text-[9px] text-muted-foreground font-mono mb-1">{billing.ym?.slice(0, 4)}.{billing.ym?.slice(4, 6)}</div>
-              <div className="flex items-center justify-between gap-0.5">
-                <BillingStep done={billing.budgetDone} label="確" full="確定" />
-                <BillingStep done={billing.reportDone} label="報" full="報告" />
-                <BillingStep done={billing.invoiceDone} label="請" full="請求" />
-                <BillingStep done={billing.paymentDone} label="入" full="入金" />
-              </div>
-            </>
-          ) : (
-            <div className="text-[10px] text-muted-foreground text-center">—</div>
-          )}
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-function MetricCell({ label, value }: { label: string; value: number | null }) {
-  return (
-    <div className="rounded-[6px] border border-[var(--desk-line)] bg-[rgba(247,245,238,0.62)] px-1 py-0.5 text-center leading-tight">
-      <div className="font-mono text-[8px] text-muted-foreground">{label}</div>
-      <div className="text-[10px] font-semibold">{value == null ? "—" : formatMetric(value)}</div>
+  const assessed = assessment?.status === "assessed";
+  return <Link href={`${hrefPrefix}/${project.projectId}/cockpit`} className={`block overflow-hidden rounded-[8px] border border-[var(--desk-line)] border-l-4 ${STATUS_LEFT_BORDER[project.status] ?? "border-l-zinc-300"} ${isMine ? "bg-[rgba(223,238,230,0.52)]" : "bg-[rgba(255,253,247,0.86)]"} transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(55,47,32,0.12)]`}>
+    <div className="grid grid-cols-12 items-center gap-3 px-3 py-2">
+      <div className="col-span-4 min-w-0"><div className="flex flex-wrap items-center gap-1.5"><span className="font-mono text-[10px] text-muted-foreground">{project.projectId}</span><h3 className="truncate text-sm font-semibold">{project.projectName}</h3><span className={`rounded border px-1.5 py-0.5 text-[9px] ${STATUS_BADGE[project.status] ?? ""}`}>{project.status}</span>{isMine ? <span className="rounded border border-sky-300 bg-sky-100 px-1.5 py-0.5 text-[9px] text-sky-800">参画</span> : null}</div><p className="mt-0.5 truncate text-[10px] text-muted-foreground">{project.clientName ?? "—"}</p></div>
+      <div className="col-span-2 min-w-0 border-l border-[var(--desk-line)] pl-3 text-[10px]"><div className="font-mono text-[9px] uppercase text-muted-foreground">担当</div><div className="truncate">{[roles.pl !== "--" && `PL ${roles.pl}`, roles.pm !== "--" && `PM ${roles.pm}`, roles.closer !== "--" && `Closer ${roles.closer}`].filter(Boolean).join(" / ") || "—"}</div></div>
+      <div className="col-span-4 border-l border-[var(--desk-line)] pl-3"><div className="font-mono text-[9px] uppercase text-muted-foreground">現行SPS｜産業創出価値</div><div className={`mt-0.5 text-[13px] font-semibold ${assessed ? "text-[#174b42]" : "text-amber-700"}`}>{assessed ? `${formatOku(assessment?.sps_lower_yen ?? null)}〜${formatOku(assessment?.sps_upper_yen ?? null)}` : "最新版未評価"}</div><div className="font-mono text-[8px] text-muted-foreground">{assessment?.assessment_id ?? "no current assessment"}</div></div>
+      <div className="col-span-2 border-l border-[var(--desk-line)] pl-3">{billing ? <><div className="mb-1 font-mono text-[9px] text-muted-foreground">{billing.ym?.slice(0, 4)}.{billing.ym?.slice(4, 6)}</div><div className="flex justify-between"><BillingStep done={billing.budgetDone} label="確" full="確定" /><BillingStep done={billing.reportDone} label="報" full="報告" /><BillingStep done={billing.invoiceDone} label="請" full="請求" /><BillingStep done={billing.paymentDone} label="入" full="入金" /></div></> : <div className="text-center text-[10px] text-muted-foreground">—</div>}</div>
     </div>
-  );
+  </Link>;
 }
 
-/** billing 5 step (= 縦書き化を回避: 1 文字短縮ラベル + title で full 表示) */
-function BillingStep({ done, label, full }: { done: boolean; label: string; full: string }) {
-  return (
-    <span className="flex flex-col items-center gap-0.5" title={full}>
-      <span className={`inline-block w-2 h-2 rounded-full ${done ? "bg-emerald-500" : "bg-zinc-300"}`} />
-      <span className="text-[8px] text-muted-foreground leading-none">{label}</span>
-    </span>
-  );
-}
-
-function Sparkline({ values, className }: { values: number[]; className?: string }) {
-  // 2026-05-25 #71 v3 まさ「線の太さがバラバラで気持ち悪い」確定:
-  // preserveAspectRatio="none" + 異なる横幅 container で stroke が non-uniform scale されてた
-  // → vector-effect="non-scaling-stroke" を polyline に追加して常に 2.5px 均一に
-  if (!values || values.length < 2) return <div className={className} />;
-  const max = Math.max(...values);
-  const min = Math.min(...values);
-  const range = max - min || 1;
-  const pts = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * 100;
-    const y = 100 - ((v - min) / range) * 90 - 5;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-  return (
-    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className={className}>
-      <polyline
-        points={pts.join(" ")}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
-  );
-}
-
-function parseRoleLine(roleLine?: string): { pl: string; pm: string; closer: string } {
-  if (!roleLine) return { pl: "--", pm: "--", closer: "--" };
-  const plMatch = roleLine.match(/PL\s+([^/]+)/);
-  const pmMatch = roleLine.match(/PM\s+([^/]+)/);
-  const closerMatch = roleLine.match(/Closer\s+(.+)$/);
-  return {
-    pl: (plMatch?.[1] || "--").trim(),
-    pm: (pmMatch?.[1] || "--").trim(),
-    closer: (closerMatch?.[1] || "--").trim(),
-  };
-}
-
-function formatScore(v: number): string {
-  if (Number.isNaN(v)) return "—";
-  return Math.round(v).toLocaleString();
-}
-
-function formatMetric(v: number): string {
-  if (!Number.isFinite(v)) return "—";
-  return Math.round(v).toLocaleString();
-}
+function BillingStep({ done, label, full }: { done: boolean; label: string; full: string }) { return <span className="flex flex-col items-center gap-0.5" title={full}><span className={`h-2 w-2 rounded-full ${done ? "bg-emerald-500" : "bg-zinc-300"}`} /><span className="text-[8px] leading-none text-muted-foreground">{label}</span></span>; }
+function parseRoleLine(roleLine?: string) { if (!roleLine) return { pl: "--", pm: "--", closer: "--" }; return { pl: (roleLine.match(/PL\s+([^/]+)/)?.[1] || "--").trim(), pm: (roleLine.match(/PM\s+([^/]+)/)?.[1] || "--").trim(), closer: (roleLine.match(/Closer\s+(.+)$/)?.[1] || "--").trim() }; }

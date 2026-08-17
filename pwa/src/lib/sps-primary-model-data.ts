@@ -31,9 +31,16 @@ function unavailable(): SpsPrimaryModelState {
   };
 }
 
+function retiredPrimaryRegistry(): boolean {
+  return true;
+}
+
 export async function fetchSpsPrimaryModelState(
   projectId: string,
 ): Promise<SpsPrimaryModelState> {
+  if (retiredPrimaryRegistry()) {
+    throw new Error(`retired SPS registry access for ${projectId}: use sps-ind-tier0-v1`);
+  }
   try {
     const db = createAdminClient();
     const registry = await db

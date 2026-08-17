@@ -1,4 +1,4 @@
-import AmdScoreRetrofitPage from "../../../../venture-map/amd-score/retrofit/page";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "HUD AMD Score Retrofit | AMD OS",
@@ -6,4 +6,6 @@ export const metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default AmdScoreRetrofitPage;
+export default function RetiredHudScoreRetrofitRedirect() {
+  redirect("/venture-map/amd-score");
+}

@@ -594,7 +594,13 @@ requireIncludes(sxMonthlyBackfillSource, [
   "設立前PJ支出の会計主体注記が欠けている",
 ], "SX monthly PL accounting-entity notes");
 requireIncludes(componentSource, ['data-density="compact-score"'], "BZM 2.2 compact score density");
-requireIncludes(scoreDetailSource, ['data-density="compact-score-page"', "space-y-1"], "score detail compact density");
+requireIncludes(scoreDetailSource, [
+  'data-density="compact-score-page"',
+  "space-y-3",
+  "CurrentSpsAssessmentCard",
+  "BZM 2.2 暫定パイロット（SPSとは別モデル）",
+  "J / P / Q / S はSPSへ合算せず",
+], "score detail current SPS and separate BZM density");
 if (timeLedgerSource.includes('`${value < 0 ? "-" : ""}¥${rounded.toLocaleString("ja-JP")}M`')) {
   throw new Error("BZM 2.2 monthly ledger must put the million-yen unit outside data cells");
 }
@@ -676,18 +682,15 @@ if (cockpitSummarySource.includes("`${symbol}(a)`")) {
 const cockpitVentureSource = requireText(cockpitVenturePath);
 requireIncludes(cockpitVentureSource, [
   "Bzm22CockpitSummary",
+  "CurrentSpsAssessmentCard",
+  "/sps-current",
   'data-testid="cockpit-bzm22-xrl-overview"',
   'data-testid="cockpit-xrl-panel"',
   'data-testid="cockpit-xrl-plot"',
-  'data-testid="cockpit-legacy-sps-disclosure"',
   "xl:grid-cols-[minmax(340px,24vw)_minmax(0,1fr)]",
   "ResizeObserver",
   "xrlPlotWidth",
   "xrlPlotHeight",
-  "!compact &&",
-  "SPS履歴（旧モデル）",
-  "旧SPS履歴を開く",
-  "legacyScoreHistoryOpen",
 ], "cockpit BZM 2.2 primary ordering");
 for (const forbidden of ["XRLの自動判定は停止中。既存値・手動提案はドットから確認できる"]) {
   if (cockpitVentureSource.includes(forbidden)) throw new Error(`cockpit XRL still exposes explanatory copy: ${forbidden}`);
@@ -708,18 +711,14 @@ if (hudVentureSource.includes("CockpitPlMonthlyModal") || hudVentureSource.inclu
 
 requireIncludes(scoreDetailSource, [
   "Bzm22ProvisionalObservatory",
-  "現行SPS / BZM 2.1",
-  "BZM 2.0",
-  "旧SPS履歴 / Legacy AMD",
-  'testId="cockpit-legacy-sps-history-archive"',
-  "LazyArchiveDisclosure",
+  "CurrentSpsAssessmentCard",
+  "/sps-current",
+  "BZM 2.2 暫定パイロット（SPSとは別モデル）",
 ], "score-detail model ordering");
+const currentSpsIndex = scoreDetailSource.indexOf("<CurrentSpsAssessmentCard");
 const bzm22Index = scoreDetailSource.indexOf("<Bzm22ProvisionalObservatory");
-const currentSpsIndex = scoreDetailSource.indexOf('title="現行SPS / BZM 2.1"');
-const bzm20Index = scoreDetailSource.indexOf('title="BZM 2.0"');
-const legacyIndex = scoreDetailSource.indexOf('title="旧SPS履歴 / Legacy AMD"');
-if (!(bzm22Index >= 0 && bzm22Index < currentSpsIndex && currentSpsIndex < bzm20Index && bzm20Index < legacyIndex)) {
-  throw new Error("score-detail model order must be BZM2.2 -> current SPS2.1 -> BZM2.0 -> BZM1.0/legacy");
+if (!(currentSpsIndex >= 0 && currentSpsIndex < bzm22Index)) {
+  throw new Error("score-detail model order must be current SPS -> separate BZM 2.2 pilot");
 }
 for (const forbidden of ["OS運用レジストリの版", "過去理論のモデル観測台帳", "履歴・根拠確認のため凍結保持"]) {
   if (scoreDetailSource.includes(forbidden)) throw new Error(`score-detail archive still exposes explanatory copy: ${forbidden}`);

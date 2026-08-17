@@ -1,5 +1,23 @@
 # AMD Score 詳細仕様
 
+## 現行SPS（2026-08-18以降の唯一の運用版）
+
+OSが計算・表示・API返却に使うSPSは、`sps-ind-tier0-v1`の完全な版組だけ。
+
+- 式: `SPS = Σ q_o P^ind_o`
+- 測度: `sps-ind-v1`
+- q: `q-eval-v2` / `rubric-v1.1`
+- P: `p-ind-v1`
+- 評価行: `ruleset_version='rubric-v1.1+ind-v1'`かつ`frozen=true`
+
+この完全一致行がなければ「最新版未評価」と表示し、旧9軸、持分価値版、SPS 2.1、過去のPJ registryへfallbackしない。BZM 2.2のJ/P/Q/Sは別の暫定パイロットで、現行SPSへ合算しない。
+
+月次試算表、MTGカード、関係先、契約、入金などの追記は、SPSを直接書き換えない。まず同じ出来事を一つのcanonical eventへ重複排除し、`q` / `P^ind` / 影響なしを判定して再評価候補にする。独立review後だけ、新しい凍結評価行をappend-onlyでpublishする。契約・検収・着金・締め済actualはhard evidence、会議上の自己申告やpartner stageはsoft evidence、予定会議や単なる行追加は原則no-op。月次行数だけではactualとforecastを区別できないため、根拠Lv3を自動付与しない。
+
+---
+
+## 退役仕様の履歴（実行・表示には使わない）
+
 SXの設立前月次表示では、個別の売上・売上原価・粗利・人件費・研究開発費・マーケ費・その他販管費・営業利益をNewCo P/Lへ表示しない。費用入力は正の「設立前PJ支出」へ集約し、設立月以後だけNewCo P/Lを表示する。
 
 スコア詳細の画面最上段は「BZM 2.2」とし、現在の進め方、J・P・Q・S、実値を代入した計算、gate別の通過と停止分岐、選択とイベントの時間軸を確認する。数式へ入る入力、実行可能性・経営判断、根拠・再現・監査を分け、103項目の完全台帳は最下層で確認する。`SPS Primary Model Registry`は引き続き運用SPS内部の`legacy_sps / sps_2_1`選択だけを管理し、その結果は画面最下部の「現行SPS / BZM 2.1」で確認する。BZM 2.0とSPS 1.0 / Legacy AMDもその下に独立した折りたたみで残す。三つの下段アーカイブはすべて初期状態を閉じ、初めて開いた時だけ内容を読み込む。

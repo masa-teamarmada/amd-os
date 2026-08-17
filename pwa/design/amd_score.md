@@ -3,6 +3,8 @@
 作成: 2026-05-07 (blissful-kepler-9e95b0 セッション)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
+> **2026-08-18 superseded**: active pathの唯一の現行版は`SPS = Σ q_o P^ind_o`、`sps-ind-tier0-v1 / sps-ind-v1 / q-eval-v2 / rubric-v1.1 / p-ind-v1 / rubric-v1.1+ind-v1`。以下の旧9軸、SPS 2.1、BZM 2.0、legacy比較は設計履歴であり、計算・表示・API・writerへ接続しない。現行仕様は[`/spec/4-2-amd-score-current-spec.md`](../spec/4-2-amd-score-current-spec.md)冒頭を正本にする。
+
 > **manual / spec / bzm 3層分割中**: FRL CES の実装仕様は `/spec/4-1-frl-ces-current-spec.md`、AMD Score 全体契約は `/spec/4-2-amd-score-current-spec.md` へ移行済み。AMD Score の設計議論・履歴は、この `design/amd_score.md` も引き続き残す。理論導出は `/bzm`、画面の読み方は `/manual` に置く。
 
 ---

@@ -11,6 +11,14 @@ enum AMDOSAuthLog {
 actor AMDOSRESTClient {
     static let shared = AMDOSRESTClient()
 
+    /// 旧SPS/旧AMD Scoreは監査履歴としてDBに残すだけで、現行クライアントからは
+    /// 読み書きとも許可しない。画面の取りこぼしがあってもtransport境界で止める。
+    private static let retiredScoreTables: Set<String> = [
+        "amd_score_inputs",
+        "amd_score_alpha",
+        "seed_sps_assessments",
+    ]
+
     private let pwaBaseURL: URL
     private let baseURL: URL
     private let anonKey: String
@@ -210,6 +218,7 @@ actor AMDOSRESTClient {
         order: String? = nil,
         limit: Int? = nil
     ) async throws -> [T] {
+        try rejectRetiredScoreTable(table)
         var query = [URLQueryItem(name: "select", value: select)]
         query.append(contentsOf: filters.keys.sorted().map { URLQueryItem(name: $0, value: filters[$0]) })
         if let order { query.append(URLQueryItem(name: "order", value: order)) }
@@ -221,6 +230,7 @@ actor AMDOSRESTClient {
     /// PWA の `select(..., { count: "exact", head: true })` と同じ件数取得。
     /// 管理者限定バッジなどで全レコードを端末に読み出さないために使う。
     func countTable(table: String, filters: [String: String] = [:]) async throws -> Int {
+        try rejectRetiredScoreTable(table)
         try await refreshSessionIfNeeded()
         var components = URLComponents(url: baseURL.appendingPathComponent("rest/v1/\(table)"), resolvingAgainstBaseURL: false)
         var query = [URLQueryItem(name: "select", value: "id")]
@@ -312,12 +322,14 @@ actor AMDOSRESTClient {
         filters: [String: String],
         body: Body
     ) async throws -> Data {
+        try rejectRetiredScoreTable(table)
         let data = try JSONEncoder().encode(body)
         let query = filters.keys.sorted().map { URLQueryItem(name: $0, value: filters[$0]) }
         return try await request(path: "rest/v1/\(table)", method: "PATCH", queryItems: query, body: data, contentType: "application/json")
     }
 
     func postTable<Body: Encodable & Sendable>(table: String, body: Body) async throws -> Data {
+        try rejectRetiredScoreTable(table)
         let data = try JSONEncoder().encode(body)
         return try await request(path: "rest/v1/\(table)", method: "POST", body: data, contentType: "application/json")
     }
@@ -329,6 +341,7 @@ actor AMDOSRESTClient {
         onConflict: String,
         body: Body
     ) async throws -> Data {
+        try rejectRetiredScoreTable(table)
         let data = try JSONEncoder().encode(body)
         return try await request(
             path: "rest/v1/\(table)",
@@ -341,8 +354,15 @@ actor AMDOSRESTClient {
     }
 
     func deleteTable(table: String, filters: [String: String]) async throws {
+        try rejectRetiredScoreTable(table)
         let query = filters.keys.sorted().map { URLQueryItem(name: $0, value: filters[$0]) }
         _ = try await request(path: "rest/v1/\(table)", method: "DELETE", queryItems: query)
+    }
+
+    private func rejectRetiredScoreTable(_ table: String) throws {
+        if Self.retiredScoreTables.contains(table) {
+            throw AMDOSNetworkError.http("旧スコアテーブル \(table) は退役済み。現行SPS APIを使ってね")
+        }
     }
 
     /// private Storage の添付を、PWA と同じ1時間限定URLとして開くための読み取り境界。

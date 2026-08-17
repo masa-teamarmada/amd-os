@@ -17,7 +17,8 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { calculateAmdScore, calculatePrsScore, classifyPhase, normalizeAlpha, AXIS_LABEL_JP, PHASE_LABEL_JP, type AlphaWeights } from "@/lib/amd-score";
+import { fetchCurrentSpsProjectAssessments } from "@/lib/seed-screening-bands";
+import type { CurrentSpsProjectAssessment } from "@/lib/current-sps-model";
 import { getLevelInfo, type XrlAxisKey } from "@/lib/xrl-level-definitions";
 import { getPrimaryProjectAlias } from "@/lib/project-labels";
 
@@ -103,16 +104,7 @@ interface ProjectContext {
   xrl_next_levels: Record<string, unknown> | null;
   pl_monthly: unknown[];
   narrative_text: string | null;
-  amd_score: {
-    latest_input: unknown | null;
-    prs_primary_score: number | null;
-    prs_status: "ready" | "missing" | "no_row";
-    prs_missing_axes: string[];
-    legacy_amd_score: number | null;
-    phase_label: string | null;
-    bottleneck_axis: string | null;
-    alpha: AlphaWeights;
-  };
+  current_sps: CurrentSpsProjectAssessment | null;
 }
 
 async function loadProjectContext(
@@ -126,8 +118,6 @@ async function loadProjectContext(
     { data: partners },
     { data: xrl },
     { data: pl },
-    { data: amdInputs },
-    { data: alphaRow },
   ] = await Promise.all([
     supabase
       .from("project_ventures")
@@ -139,10 +129,6 @@ async function loadProjectContext(
     supabase.from("project_partners").select("partner_name, partner_type, partner_role, sales_target_date, is_sold").eq("project_id", projectId),
     supabase.from("project_xrl_log").select("observed_at, trl, brl, grl, srl, hrl, bottleneck, milestone_label, source_note, source").eq("project_id", projectId).order("observed_at", { ascending: true }),
     supabase.from("project_pl_monthly").select("ym, revenue_yen, cogs_yen, personnel_yen, rd_yen, marketing_yen, other_opex_yen, notes").eq("project_id", projectId).order("ym", { ascending: true }),
-    supabase.from("amd_score_inputs")
-      .select("id, evaluated_at, mu_a, mu_i, mu_g, trl, brl, grl, srl, hrl, frl, prs_potential, prs_r_net, alq_self_awareness, alq_relational_transparency, alq_balanced_processing, alq_internalized_moral, frl_grit, frl_resilience, frl_notes, mu_notes, xrl_notes, shallow_tech_mode, evaluator, notes")
-      .eq("project_id", projectId).order("evaluated_at", { ascending: true }),
-    supabase.from("amd_score_alpha").select("alpha").is("effective_to", null).order("effective_from", { ascending: false }).limit(1).maybeSingle(),
   ]);
   if (!v) return null;
   const project = Array.isArray(v.projects) ? v.projects[0] : v.projects;
@@ -168,48 +154,7 @@ async function loadProjectContext(
       )
     : null;
 
-  // AMD Score 計算 (最新 input × active alpha)
-  const alpha = normalizeAlpha((alphaRow as { alpha?: unknown } | null)?.alpha);
-  const latestInput = (amdInputs ?? []).at(-1) ?? null;
-  let prsPrimaryScore: number | null = null;
-  let prsStatus: "ready" | "missing" | "no_row" = "no_row";
-  let prsMissingAxes: string[] = [];
-  let legacyAmdScore: number | null = null;
-  let phaseLabel: string | null = null;
-  let bottleneckAxis: string | null = null;
-  if (latestInput) {
-    const li = latestInput as Record<string, number | boolean | null>;
-    const legacyResult = calculateAmdScore({
-      mu_A: (li.mu_a as number | null) ?? 0,
-      mu_I: (li.mu_i as number | null) ?? 0,
-      mu_G: (li.mu_g as number | null) ?? 0,
-      TRL: (li.shallow_tech_mode as boolean) ? null : (li.trl as number | null) ?? 0,
-      BRL: (li.brl as number | null) ?? 0,
-      GRL: (li.grl as number | null) ?? 0,
-      SRL: (li.srl as number | null) ?? 0,
-      HRL: (li.hrl as number | null) ?? 0,
-      FRL: (li.frl as number | null) ?? 0,
-    }, alpha);
-    const prsResult = calculatePrsScore({
-      P: (li.prs_potential as number | null) ?? null,
-      mu_A: (li.mu_a as number | null) ?? 0,
-      mu_I: (li.mu_i as number | null) ?? 0,
-      mu_G: (li.mu_g as number | null) ?? 0,
-      TRL: (li.shallow_tech_mode as boolean) ? null : (li.trl as number | null) ?? 0,
-      BRL: (li.brl as number | null) ?? 0,
-      GRL: (li.grl as number | null) ?? 0,
-      SRL: (li.srl as number | null) ?? 0,
-      HRL: (li.hrl as number | null) ?? 0,
-      FRL: (li.frl as number | null) ?? 0,
-      R_net: (li.prs_r_net as number | null) ?? null,
-    });
-    prsPrimaryScore = prsResult.score;
-    prsStatus = prsResult.status;
-    prsMissingAxes = prsResult.missingAxes;
-    legacyAmdScore = legacyResult.score;
-    phaseLabel = PHASE_LABEL_JP[classifyPhase(legacyResult.score)];
-    bottleneckAxis = AXIS_LABEL_JP[legacyResult.bottleneck];
-  }
+  const currentSps = (await fetchCurrentSpsProjectAssessments([projectId])).get(projectId) ?? null;
 
   return {
     project_name: project?.project_name?.trim() || projectId,
@@ -235,16 +180,7 @@ async function loadProjectContext(
     xrl_next_levels: xrlNextLevels,
     pl_monthly: pl ?? [],
     narrative_text: (v.narrative_text as string | null) ?? null,
-    amd_score: {
-      latest_input: latestInput,
-      prs_primary_score: prsPrimaryScore,
-      prs_status: prsStatus,
-      prs_missing_axes: prsMissingAxes,
-      legacy_amd_score: legacyAmdScore,
-      phase_label: phaseLabel,
-      bottleneck_axis: bottleneckAxis,
-      alpha,
-    },
+    current_sps: currentSps,
   };
 }
 
@@ -627,6 +563,10 @@ const TOOLS: Anthropic.Messages.Tool[] = [
   { type: "web_search_20250305", name: "web_search", max_uses: 5 } as unknown as Anthropic.Messages.Tool,
 ];
 
+// 旧9軸/SPS writerは月読へ一切公開せず、直接tool名を渡されても実行境界で拒否する。
+const RETIRED_SCORE_TOOL_NAMES = new Set(["update_amd_score_input", "update_amd_score_alpha"]);
+const ACTIVE_TOOLS = TOOLS.filter((tool) => !RETIRED_SCORE_TOOL_NAMES.has(tool.name));
+
 async function resolveVcId(
   supabase: ReturnType<typeof createAdminClient>,
   vcName: string
@@ -898,6 +838,9 @@ async function executeTool(
   name: string,
   input: Record<string, unknown>
 ): Promise<{ ok: boolean; summary: string }> {
+  if (RETIRED_SCORE_TOOL_NAMES.has(name)) {
+    return { ok: false, summary: "旧スコアwriterは退役済み。現行SPSは再評価候補→review→publishで更新する" };
+  }
   // VC 系 tool は projectId 不要
   const vcRes = await executeVcTool(supabase, projectId, name, input);
   if (vcRes) return vcRes;
@@ -1252,7 +1195,7 @@ export async function POST(req: Request) {
         max_tokens: 16000,
         system: fullSystem,
         messages: conversation,
-        tools: TOOLS,
+        tools: ACTIVE_TOOLS,
       });
     } catch (e) {
       console.error("[tsukuyomi/chat] anthropic error", e);

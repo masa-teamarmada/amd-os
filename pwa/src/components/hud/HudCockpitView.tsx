@@ -10,7 +10,7 @@ import { HudCockpitNudge } from "./HudCockpitNudge";
 import { HudCockpitMeetingSummary } from "./HudCockpitMeetingSummary";
 import { HudCockpitFreezeBackfill } from "./HudCockpitFreezeBackfill";
 import { AAA_PROJECT_ID } from "@/lib/demo-aaa-data";
-import { fetchAmdScoreInputs, fetchActiveAlpha, type AmdScoreInputRow } from "@/lib/amd-score-data";
+import type { AmdScoreInputRow } from "@/lib/amd-score-data";
 import { buildAaaScoreInputsFromSx, computeAmdScoreSeries } from "@/lib/amd-score-derived";
 import type { AlphaWeights } from "@/lib/amd-score";
 
@@ -612,25 +612,8 @@ export function HudCockpitView({ cockpit, nudges, initialModalYm }: HudCockpitVi
 }
 
 function HudCockpitSignalStrip({ projectId, status }: { projectId: string; status: string }) {
-  const fallbackSnapshot = COCKPIT_SIGNAL_SNAPSHOTS[projectId] ?? null;
-  const [snapshot, setSnapshot] = useState<CockpitSignalSnapshot | null>(fallbackSnapshot);
-
-  useEffect(() => {
-    let cancelled = false;
-    const sourceProjectId = projectId === AAA_PROJECT_ID ? "p21" : projectId;
-    Promise.all([fetchAmdScoreInputs(sourceProjectId), fetchActiveAlpha()])
-      .then(([inputs, alphaRes]) => {
-        if (cancelled) return;
-        const sourceInputs = projectId === AAA_PROJECT_ID ? buildAaaScoreInputsFromSx(inputs, alphaRes.alpha) : inputs;
-        setSnapshot(buildCockpitSignalSnapshot(sourceInputs, alphaRes.alpha, status) ?? fallbackSnapshot);
-      })
-      .catch(() => {
-        if (!cancelled) setSnapshot(fallbackSnapshot);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [fallbackSnapshot, projectId, status]);
+  // 旧9軸の計算結果は現行HUDへ読み込まない。現行SPSは上段の共通カードで表示する。
+  const snapshot: CockpitSignalSnapshot | null = null;
 
   if (!snapshot) {
     return (

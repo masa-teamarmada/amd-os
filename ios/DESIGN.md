@@ -244,7 +244,7 @@ Google Calendar に月次MTG枠を作成、参加者に招待を飛ばす。`sch
 - **PWA `/hud/dashboard` (HudControlCenterDashboard) と同じ構成・文言**。データは **Supabase 直読み**（API 不要・会場ネット非依存。`SupabaseService.fetchHudManagementSnapshots` / `fetchHudBillingCycles` / `fetchHudMonthlyReports` + `fetchActiveProjects`）:
   - **AMD Management Score**: `amd_management_score_snapshots` 最新 ym。総合スコアの大リング（`>=75 GOOD` / `>=55 WATCH` / `<55 ALERT`）+ 5サブリング（先手力=initiative / 財務=finance / 継続=retention / 新規=pipeline / 方向=direction）+ 6ヶ月推移ライン + `LOW CONF`（confidence ≤ 0.6）
   - **System Status**: Data Pipeline / Integration（BC 件数）/ Security / Backup
-  - **Project Signal Board**: active PJ を一覧（凡例 `M : Macrotrend / X : XRL / F : FRL`）。⚠️ **M/X/F の実数値は AMD Score 計算エンジン(PWA `amd-score.ts`)依存で iOS 未移植** → 当面は月次ルーティン進捗（meeting/report/invoice/payment の done 数）で代替表示。`/api/hud/dashboard`（PWA に実装済み）を deploy すれば API 経由で本物に差し替え可。
+  - **Project Signal Board**: active PJと現行SPSを`/api/hud/dashboard`から読む。現行版は`sps-ind-v1 / q-eval-v2 / rubric-v1.1 / p-ind-v1`だけで、欠測は「最新版未評価」。旧M/X/Fスコアや月次ルーティン進捗へfallbackしない。
   - **Next Action Queue**: `billing_cycles` 未完了から自動生成（PWA `buildMonthlyRoutineActions` 相当）
 - **PJカードをタップ → cockpit のスコア詳細**（`ScoreDetailWebView`）。iOS が開く互換URL `/venture-map/amd-score/{projectId}` は PWA `/project/{projectId}/cockpit?tab=score-detail`（PRS/R_net/XRL/FRL/ALQ radar/CES・計算式・XRLチェックリスト）へ自動転送する。iOS の Supabase セッションを `@supabase/ssr` 互換 cookie に変換して注入し、auth 必須ページを認証付きで開く。
 - ローディング / エラーも HUD テイスト（UPLINK スピナー・`DATA LINK FAILED` + RETRY）。**表示専用**。アニメは `TimelineView(.animation)`（スキャンライン・パルス）。**計器目盛は静止**（無意味な常時回転は禁止）。

@@ -25,7 +25,7 @@ import {
   type ProjectEventKind,
   type ProjectXrlRow,
 } from "@/lib/venture-status-data";
-import { fetchAmdScoreInputs, fetchActiveAlpha, type AmdScoreInputRow } from "@/lib/amd-score-data";
+import type { AmdScoreInputRow } from "@/lib/amd-score-data";
 import {
   buildAaaScoreInputsFromSx,
   buildPrimaryScoreSnapshot,
@@ -45,6 +45,8 @@ import { CockpitPartnersModal } from "../cockpit/CockpitPartnersModal";
 import { CockpitDescriptionDetailModal } from "../cockpit/CockpitDescriptionDetailModal";
 import { CockpitAmdScoreBreakdownModal } from "../cockpit/CockpitAmdScoreBreakdownModal";
 import { CockpitXrlDetailModal } from "../cockpit/CockpitXrlDetailModal";
+import { CurrentSpsAssessmentCard } from "@/components/sps/CurrentSpsAssessmentCard";
+import type { CurrentSpsProjectAssessment } from "@/lib/current-sps-model";
 
 const LANE_LABELS: Record<string, string> = {
   gx_energy: "GX / エネルギー",
@@ -144,6 +146,7 @@ export function HudCockpitVentureStatus({ projectId, projectName }: { projectId:
   const [bundle, setBundle] = useState<VentureStatusBundle | null>(null);
   const [amdInputs, setAmdInputs] = useState<AmdScoreInputRow[]>([]);
   const [alpha, setAlpha] = useState<AlphaWeights>(ALPHA_DEFAULT);
+  const [currentSps, setCurrentSps] = useState<CurrentSpsProjectAssessment | null>(null);
   const [roles, setRoles] = useState<RoleMembers>({ pls: [], pms: [], closers: [] });
   const [loading, setLoading] = useState(true);
   const [editingEvent, setEditingEvent] = useState<ProjectEventRow | null>(null);
@@ -162,9 +165,8 @@ export function HudCockpitVentureStatus({ projectId, projectName }: { projectId:
     let cancelled = false;
     const supabase = createClient();
     Promise.all([
-      fetchActiveAlpha(),
       fetchVentureStatus(projectId === AAA_PROJECT_ID ? "p21" : projectId),
-      fetchAmdScoreInputs(projectId === AAA_PROJECT_ID ? "p21" : projectId),
+      fetch(`/api/project/${encodeURIComponent(projectId)}/sps-current`, { cache: "no-store" }).then((response) => response.ok ? response.json() as Promise<CurrentSpsProjectAssessment> : null),
       // PL/PM/クローザー の codeName を取得 (#15)
       (async () => {
         const { data: pm } = await supabase
@@ -188,11 +190,12 @@ export function HudCockpitVentureStatus({ projectId, projectName }: { projectId:
         }
         return out;
       })(),
-    ]).then(([alphaRes, b, inputs, roleData]) => {
+    ]).then(([b, assessment, roleData]) => {
       if (!cancelled) {
         setBundle(projectId === AAA_PROJECT_ID ? buildAaaVentureStatusBundle(b) : b);
-        setAmdInputs(projectId === AAA_PROJECT_ID ? buildAaaScoreInputsFromSx(inputs, alphaRes.alpha) : inputs);
-        setAlpha(alphaRes.alpha);
+        setAmdInputs([]);
+        setAlpha(ALPHA_DEFAULT);
+        setCurrentSps(assessment);
         setRoles(roleData);
         setLoading(false);
       }
@@ -204,14 +207,14 @@ export function HudCockpitVentureStatus({ projectId, projectName }: { projectId:
 
   const reload = async () => {
     const sourceProjectId = projectId === AAA_PROJECT_ID ? "p21" : projectId;
-    const [b, inputs, alphaRes] = await Promise.all([
+    const [b, assessment] = await Promise.all([
       fetchVentureStatus(sourceProjectId),
-      fetchAmdScoreInputs(sourceProjectId),
-      fetchActiveAlpha(),
+      fetch(`/api/project/${encodeURIComponent(projectId)}/sps-current`, { cache: "no-store" }).then((response) => response.ok ? response.json() as Promise<CurrentSpsProjectAssessment> : null),
     ]);
     setBundle(projectId === AAA_PROJECT_ID ? buildAaaVentureStatusBundle(b) : b);
-    setAmdInputs(projectId === AAA_PROJECT_ID ? buildAaaScoreInputsFromSx(inputs, alphaRes.alpha) : inputs);
-    setAlpha(alphaRes.alpha);
+    setAmdInputs([]);
+    setAlpha(ALPHA_DEFAULT);
+    setCurrentSps(assessment);
   };
 
   const onConfirmProposal = async (id: string, action: "confirm" | "reject") => {
@@ -423,13 +426,13 @@ export function HudCockpitVentureStatus({ projectId, projectName }: { projectId:
         {/* 2026-05-11 まさ指摘 3 番: 小さく書いてた「AMD: xxx ▾」タブを削除。
             代わりに「Chart 1: AMD スコア」グラフ内の現在地点プロットの上に大きいフォントで表示する。
             グラフ未評価の PJ には未評価リンクをそのままここに残す。 */}
-        {latestScore == null && (
+        {currentSps?.status !== "assessed" && (
           <Link
             href={amdScoreDetailHref(projectId)}
             className="border border-dashed border-cyan-300/30 px-2 py-0.5 font-mono text-[11px] text-cyan-100/62 hover:bg-cyan-300/8"
-            title="SPS primary 入力待ち。クリックで入力"
+            title="現行SPSの凍結評価が未登録"
           >
-            SPS: 入力待ち →
+            最新版未評価 →
           </Link>
         )}
       </div>
@@ -469,8 +472,10 @@ export function HudCockpitVentureStatus({ projectId, projectName }: { projectId:
         )}
       </button>
 
-      {/* Chart 1: AMD スコア */}
-      <div className="relative px-2 pt-3">
+      {currentSps ? <div className="relative mx-2 mt-3 text-slate-900"><CurrentSpsAssessmentCard assessment={currentSps} compact /></div> : null}
+
+      {/* 退役済み旧チャート。DOMへ表示せず、現行SPSカードを唯一のスコア表示にする。 */}
+      <div className="hidden" aria-hidden="true">
         <div className="flex flex-wrap items-center justify-between gap-2 px-2">
           <h3 className="text-[12px] font-black uppercase tracking-[0.14em] text-cyan-100">
             Legacy AMD comparison

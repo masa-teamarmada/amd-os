@@ -2,6 +2,8 @@
 
 最終更新: 2026-07-19
 
+> **2026-08-18更新**: SPS関連の現行証跡は`AMDOSCurrentSpsView` / `AMDOSCurrentSpsDetailView`とtransportの旧テーブル拒否guard。以下に残るSPS/Legacy・旧writer記述は移植履歴で、active routeの完了条件には使わない。現行評価が無いPJは旧値へfallbackせず「最新版未評価」。
+
 この帳票は、PWAのsource route/API/componentと、独立SwiftUI macOS側の実装および認証済み実データ確認を突き合わせるための開発証跡。
 画面には表示しない。`Swift実装` と `実データ確認` は、generic画面・外部リンク・mockだけでは完了にしない。
 

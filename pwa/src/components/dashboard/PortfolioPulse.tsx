@@ -26,7 +26,7 @@ import {
   type ProjectRow,
 } from "@/lib/portfolio-pulse";
 import type { DashProject } from "@/lib/supabase-data";
-import type { SeedPublicView } from "@/types/seeds";
+import type { SeedPublicView, SeedScreeningBandSummary } from "@/types/seeds";
 
 const EMPTY_ERS_BUNDLE: ErsBundle = {
   institutions: [],
@@ -45,6 +45,8 @@ type PulseApiResponse = {
   institutionError: boolean;
   seeds: SeedPublicView[] | null;
   seedsError: boolean;
+  screeningBands: SeedScreeningBandSummary[] | null;
+  screeningBandsError: boolean;
 };
 
 type FetchState = {
@@ -53,6 +55,8 @@ type FetchState = {
   institutionError: boolean;
   seeds: SeedPublicView[] | null;
   seedsError: boolean;
+  screeningBands: SeedScreeningBandSummary[] | null;
+  screeningBandsError: boolean;
 };
 
 export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
@@ -62,6 +66,8 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
     institutionError: false,
     seeds: null,
     seedsError: false,
+    screeningBands: null,
+    screeningBandsError: false,
   });
 
   useEffect(() => {
@@ -76,6 +82,8 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
           institutionError: json.institutionError,
           seeds: json.seeds,
           seedsError: json.seedsError,
+          screeningBands: json.screeningBands,
+          screeningBandsError: json.screeningBandsError,
         });
       })
       .catch(() => {
@@ -91,6 +99,7 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
     return buildPortfolioPulseModel({
       institutionBundle: state.institutionBundle ?? EMPTY_ERS_BUNDLE,
       seeds: state.seeds ?? [],
+      screeningBands: state.screeningBands ?? [],
       projects,
     });
   }, [state, projects]);
@@ -113,7 +122,8 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
 
   const institutionCandidates = model.institutionRows.filter((row) => row.lifecycle === "considering").slice(0, 4);
   const seedConsidering = model.seedRows.filter((seed) => seedProjectLifecycle(seed) === "considering");
-  const seedScored = model.seedRows.filter((seed) => seedListPriority(seed) === 2);
+  const bandBySeed = new Map((state.screeningBands ?? []).map((band) => [band.seed_id, band]));
+  const seedScored = model.seedRows.filter((seed) => seedProjectLifecycle(seed) === "none" && Boolean(bandBySeed.get(seed.id)?.assessment_id));
   const activeProjects = model.projectRows.filter((row) => row.project.status === "active").slice(0, 6);
 
   return (
@@ -183,7 +193,7 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
               key={seed.id}
               icon={Sprout}
               label={seed.title}
-              meta={`${seed.org_name} ・ SPS ${formatScore(seed.latest_sps?.score)}`}
+              meta={`${seed.org_name} ・ 現行SPS ${formatBand(bandBySeed.get(seed.id))}`}
               badge="評価済み"
               href={`/seeds/${encodeURIComponent(seed.id)}`}
             />
@@ -345,7 +355,8 @@ function EmptyQueue({ label }: { label: string }) {
   return <p className="px-1 py-2 text-[13px] text-[var(--desk-muted)]">{label}</p>;
 }
 
-function formatScore(value: number | null | undefined) {
-  if (value == null || !Number.isFinite(value)) return "未評価";
-  return Math.round(value).toLocaleString("ja-JP");
+function formatBand(band: SeedScreeningBandSummary | undefined) {
+  if (!band?.assessment_id || band.sps_lower_yen == null || band.sps_upper_yen == null) return "最新版未評価";
+  const format = (value: number) => `${new Intl.NumberFormat("ja-JP", { maximumFractionDigits: value < 1_000_000_000 ? 1 : 0 }).format(value / 100_000_000)}億円`;
+  return `${format(band.sps_lower_yen)}〜${format(band.sps_upper_yen)}`;
 }

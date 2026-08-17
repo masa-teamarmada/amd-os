@@ -35,6 +35,11 @@ const EHIME_UNIVERSITY_SCOPE_LABELS = ["研究機関PJ", "愛媛大全体"];
 
 type SeedProjectBadge = { label: string };
 
+function formatSpsYen(value: number | null) {
+  if (value == null) return "—";
+  return `${new Intl.NumberFormat("ja-JP", { maximumFractionDigits: value < 1_000_000_000 ? 1 : 0 }).format(value / 100_000_000)}億円`;
+}
+
 function seedProjectBadges(
   project: InstitutionWorkspaceData["seeds"][number]["projects"][number],
 ): SeedProjectBadge[] {
@@ -203,10 +208,10 @@ export default async function InstitutionWorkspacePage({ params }: { params: Pro
                   {seed.sps ? (
                     <div className="mt-3 rounded-md border border-[#e4ddcd] bg-[#faf8f2] px-3 py-2 text-xs text-[#5c584d]">
                       <span className="font-semibold text-[#26251f]">
-                        SPS: {seed.sps.score != null ? seed.sps.score.toFixed(1) : "評価中"}
+                        現行SPS: {formatSpsYen(seed.sps.lowerYen)}〜{formatSpsYen(seed.sps.upperYen)}
                       </span>
-                      <span className="ml-2">{seed.sps.status}</span>
-                      {seed.sps.confidence ? <span className="ml-2">確度: {seed.sps.confidence}</span> : null}
+                      <span className="ml-2">根拠Lv{seed.sps.evidenceLevel}</span>
+                      <span className="ml-2 font-mono text-[10px]">{seed.sps.assessmentId}</span>
                     </div>
                   ) : null}
                 </li>

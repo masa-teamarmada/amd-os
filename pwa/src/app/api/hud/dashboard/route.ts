@@ -12,14 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { fetchActiveAlpha, fetchAllAmdScoreInputs, type AmdScoreInputRow } from "@/lib/amd-score-data";
-import {
-  buildPrimaryScoreSnapshot,
-  computeAmdScoreSeries,
-  latestVisibleScorableScoreInput,
-  scoreInputToSignalMetrics,
-  type AmdSignalMetrics,
-} from "@/lib/amd-score-derived";
+import { fetchCurrentSpsProjectAssessments } from "@/lib/seed-screening-bands";
 import {
   fetchBillingStatusFromSupabase,
   fetchProjectsFromSupabase,
@@ -38,19 +31,6 @@ type ManagementSnapshot = {
   pipeline_score: number | null;
   direction_score: number | null;
   confidence: number | null;
-};
-
-type PrimarySnapshot = {
-  score: number | null;
-  status: "ready" | "missing";
-  missingAxes: string[];
-  legacyScore: number | null;
-  components: {
-    macro: number | null;
-    potential: number | null;
-    reach: number | null;
-    survival: number | null;
-  };
 };
 
 function getCurrentYm(): string {
@@ -85,10 +65,10 @@ export async function GET(req: NextRequest) {
 
   try {
     const ym = getCurrentYm();
-    const [projects, billingStatus, scoreBundle, managementHistory] = await Promise.all([
+    const [projects, billingStatus, currentSps, managementHistory] = await Promise.all([
       fetchProjectsFromSupabase(admin),
       fetchBillingStatusFromSupabase(ym, admin),
-      buildScoreData(),
+      fetchCurrentSpsProjectAssessments(),
       fetchManagementHistory(admin),
     ]);
 
@@ -97,9 +77,10 @@ export async function GET(req: NextRequest) {
       ym,
       projects,
       billingStatus,
-      scoreHistory: scoreBundle.history,
-      signalMetrics: scoreBundle.metrics,
-      primarySnapshots: scoreBundle.primary,
+      scoreHistory: {},
+      signalMetrics: {},
+      primarySnapshots: {},
+      currentSps: Array.from(currentSps.values()),
       managementScore: managementHistory[managementHistory.length - 1] ?? null,
       managementHistory,
       actionItems: [],
@@ -110,56 +91,6 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-// ---- score history + M/X/F signal metrics (実 PJ のみ) ----
-async function buildScoreData(): Promise<{
-  history: Record<string, number[]>;
-  metrics: Record<string, AmdSignalMetrics>;
-  primary: Record<string, PrimarySnapshot>;
-}> {
-  const [inputs, activeAlpha] = await Promise.all([fetchAllAmdScoreInputs(), fetchActiveAlpha()]);
-  const grouped: Record<string, AmdScoreInputRow[]> = {};
-  for (const row of inputs) {
-    (grouped[row.project_id] ||= []).push(row);
-  }
-  const today = new Date().toISOString().slice(0, 10);
-  const visible = (rows: AmdScoreInputRow[]) => rows.filter((r) => r.evaluated_at.slice(0, 10) <= today);
-
-  const history = Object.fromEntries(
-    Object.entries(grouped).map(([projectId, rows]) => [
-      projectId,
-      computeAmdScoreSeries(visible(rows), activeAlpha.alpha).map((p) => p.score),
-    ])
-  );
-  const metrics = Object.fromEntries(
-    Object.entries(grouped).flatMap(([projectId, rows]) => {
-      const latest = latestVisibleScorableScoreInput(rows);
-      if (!latest) return [];
-      const metric = scoreInputToSignalMetrics(latest, activeAlpha.alpha);
-      return metric ? [[projectId, metric]] : [];
-    })
-  );
-  const primary: Record<string, PrimarySnapshot> = {};
-  for (const [projectId, rows] of Object.entries(grouped)) {
-    const visibleRows = visible(rows);
-    const latest = latestVisibleScorableScoreInput(rows);
-    if (!latest) continue;
-    const snapshot = buildPrimaryScoreSnapshot(latest, activeAlpha.alpha, { P: null, R_net: null }, visibleRows);
-    primary[projectId] = {
-      score: snapshot.prs.status === "ready" ? snapshot.prs.score : null,
-      status: snapshot.prs.status === "ready" ? "ready" : "missing",
-      missingAxes: snapshot.prs.status === "ready" ? [] : snapshot.prs.missingAxes,
-      legacyScore: snapshot.legacy.score,
-      components: {
-        macro: snapshot.prs.components?.macro ?? null,
-        potential: snapshot.prs.axisValues.P,
-        reach: snapshot.prs.components?.reach ?? null,
-        survival: snapshot.prs.components?.survival ?? null,
-      },
-    };
-  }
-  return { history, metrics, primary };
 }
 
 // ---- AMD Management Score snapshots ----

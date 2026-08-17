@@ -1,5 +1,28 @@
 # AMD Score 実装仕様
 
+## 現行実装契約（2026-08-18）
+
+この章の規範部分は現行SPSだけを指す。版の正本は`public.sps_model_versions`の`is_current=true`行で、現行の完全な組は次のとおり。
+
+| 項目 | 現行値 |
+|---|---|
+| composite model | `sps-ind-tier0-v1` |
+| formula | `SPS = Σ q_o P^ind_o` |
+| measure | `sps-ind-v1` |
+| q model / rubric | `q-eval-v2` / `rubric-v1.1` |
+| P model | `p-ind-v1` |
+| assessment ruleset | `rubric-v1.1+ind-v1` |
+
+読取は`measure_version`・`ruleset_version`・`frozen=true`の完全一致だけを許可する。日時順で旧行へfallbackせず、欠測は`status='unassessed'`として返す。`seed_screening_bands`の凍結行はDB triggerでUPDATE/DELETEを拒否し、再評価は新しい行のappendだけで行う。旧cron writerと月読の旧スコアtoolは410または実行時guardで停止する。
+
+更新設計は`source update -> canonical event -> dedupe -> q/P^ind impact classification -> reassessment candidate -> independent review -> append-only publish`。情報の発生時刻、OS認識時刻、評価の情報締切、評価時刻、公開時刻を分ける。ソース追加をトリガーにした自動再計算はしない。同一契約がMTG・関係先・月次PLへ現れても一事象として扱う。月次行数から根拠Lv3を機械付与せず、verified actualを計画値と分離できる正規化証跡ができるまでLv3は留保する。
+
+BZM 2.2は別の暫定パイロットであり、J/P/Q/Sを現行SPSへ代入・合算しない。
+
+---
+
+## 退役実装の履歴（非規範・active path禁止）
+
 SXの設立前月次表示では、個別の売上・売上原価・粗利・人件費・研究開発費・マーケ費・その他販管費・営業利益をNewCo P/Lへ表示しない。費用入力は正の「設立前PJ支出」へ集約し、設立月以後だけNewCo P/Lを表示する。
 
 > **この章は何か**: AMD Score の PWA 実装、DB、route、計算境界の確定仕様。理論導出は `/bzm`、詳細履歴は `pwa/design/amd_score.md` にも残す。

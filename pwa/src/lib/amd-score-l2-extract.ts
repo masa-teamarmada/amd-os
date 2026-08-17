@@ -97,6 +97,10 @@ export interface ExtractResult {
   errors: string[];
 }
 
+function retiredScoreExtractor(): boolean {
+  return true;
+}
+
 async function loadPjInfo(supabase: ReturnType<typeof createAdminClient>, projectId: string): Promise<PjInfo | null> {
   const { data: v, error } = await supabase
     .from("project_ventures")
@@ -367,6 +371,9 @@ async function upsertTimeline(
 }
 
 export async function extractAmdScoreForPj(projectId: string): Promise<ExtractResult> {
+  if (retiredScoreExtractor()) {
+    throw new Error(`retired score extractor for ${projectId}: source updates create reassessment candidates only`);
+  }
   const supabase = createAdminClient();
   const errors: string[] = [];
 
@@ -414,6 +421,9 @@ export async function extractAmdScoreForPj(projectId: string): Promise<ExtractRe
 
 /** 全 SU 系 PJ について順次抽出 (Vercel Hobby 300s 上限に注意) */
 export async function extractAmdScoreForAllPjs(): Promise<ExtractResult[]> {
+  if (retiredScoreExtractor()) {
+    throw new Error("retired score extractor: source updates create reassessment candidates only");
+  }
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("project_ventures")

@@ -19,10 +19,6 @@ import {
 } from "@/lib/seeds-data";
 import type { SeedPublicView, SeedScreeningBandDetail } from "@/types/seeds";
 
-/** 旧SPS (持分価値版・M/P/R/S) セクションの表示切替。まさ裁定 2026-08-16 でOS非表示、データ・コードは保持。
- * design/seeds.md「旧SPS表記」/ design/FEATURE_REGISTRY.md 参照。 */
-const SHOW_LEGACY_SPS = false;
-
 const STAGE_TAG_LABEL: Record<string, string> = {
   stage_document: "文書根拠",
   stage_funding: "資金情報",
@@ -104,8 +100,6 @@ export function KuteSeedDetailModal({
   }, [open, seed]);
 
   if (!seed) return null;
-  const sps = seed.latest_sps;
-
   return (
     <>
       <Dialog
@@ -197,51 +191,6 @@ export function KuteSeedDetailModal({
                 <DetailRow label="次の検証ステップ" value={seed.next_verification_step} />
               </tbody>
             </table>
-
-            {/* 旧SPS (持分価値版・9軸ルーブリック) はOS非表示 (まさ裁定 2026-08-16、
-                bzm/SPS_NAT_VALUE_MEASURE_PROPOSAL_2026-08-16.md §8「旧バージョンはOSに出さないでOK」)。
-                データ (seed_sps_assessments) と計算コードは保持し、表示だけ SHOW_LEGACY_SPS で外す。 */}
-            {SHOW_LEGACY_SPS && (
-              <>
-                <h3 className="mb-2 mt-5 text-xs font-semibold text-slate-900" title="旧: M×P×R×Sの9軸ルーブリック。一次選別のSPS帯 (下記) とは別系統">
-                  旧SPS (全国共通シーズスコア)
-                </h3>
-                <table className="w-full border-collapse text-sm">
-                  <tbody>
-                    <DetailRow
-                      label="旧SPS"
-                      value={
-                        sps == null
-                          ? null
-                          : sps.status === "ready"
-                          ? `${sps.score?.toFixed(2)} (評価日: ${sps.evaluated_at}${
-                              sps.confidence ? ` / 確度: ${SEED_KUTE_MARKET_CONFIDENCE_LABEL[sps.confidence] ?? sps.confidence}` : ""
-                            })`
-                          : `未評価 (欠損: ${sps.missing_axes.join(", ")})`
-                      }
-                    />
-                    <DetailRow
-                      label="M / P / R / S"
-                      value={
-                        sps?.components
-                          ? `${sps.components.macro.toFixed(2)} / ${sps.components.potential.toFixed(2)} / ${sps.components.reach.toFixed(2)} / ${sps.components.survival.toFixed(2)}`
-                          : null
-                      }
-                    />
-                    <DetailRow
-                      label="TRL / BRL / GRL / SRL / HRL"
-                      value={
-                        sps?.axes
-                          ? [sps.axes.trl, sps.axes.brl, sps.axes.grl, sps.axes.srl, sps.axes.hrl]
-                              .map((v) => (v == null ? "—" : v))
-                              .join(" / ")
-                          : null
-                      }
-                    />
-                  </tbody>
-                </table>
-              </>
-            )}
 
             {screeningBand && (
               <section className="mt-5">

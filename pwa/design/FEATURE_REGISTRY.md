@@ -4,6 +4,10 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 このファイルは実装の詳細仕様ではなく、回帰防止用の登録簿。画面・API・DBのいずれかから機能を削る場合は、同じ commit でこの登録を更新し、理由を残す。未更新のまま UI を削除しない。
 
+## 現行SPS override（2026-08-18）
+
+スコア関連の下位履歴より本節を優先する。`/dashboard`、HUD、PJ cockpit、Venture Map、Seeds、研究機関workspace、macOSが使うのは`SPS = Σ q_o P^ind_o`の現行完全版組だけ。旧9軸、持分価値版、SPS 2.1、`seed_sps_assessments`、`amd_score_inputs`、`amd_score_alpha`は監査履歴でありactive pathへ接続しない。現行評価がなければ「最新版未評価」とし、旧値へfallbackしない。BZM 2.2はSPSとは別モデル。回帰防止は`npm run test:current-sps-only`で検査する。
+
 ## 運用ルール
 
 - 新しい業務導線を追加したら、このファイルか該当 `pwa/design/*.md` に機能契約を残す。

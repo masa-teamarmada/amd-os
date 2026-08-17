@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AllPjIntroductionModal } from "@/components/dashboard/AllPjIntroductionModal";
 import { AAA_PROJECT_ID } from "@/lib/demo-aaa-data";
+import type { CurrentSpsProjectAssessment } from "@/lib/current-sps-model";
 import type { DashBillingStatus, DashProject } from "@/lib/supabase-data";
 
 type Props = {
@@ -11,8 +12,7 @@ type Props = {
   billingStatus: Record<string, DashBillingStatus>;
   user?: HudUser;
   actionItems?: HudActionItem[];
-  scoreHistory?: Record<string, number[]>;
-  signalMetrics?: Record<string, { m: number; x: number; f: number }>;
+  currentSps?: Record<string, CurrentSpsProjectAssessment>;
   managementScore?: HudManagementScoreSnapshot | null;
   managementHistory?: HudManagementScoreSnapshot[];
 };
@@ -156,26 +156,21 @@ function getBillingRatio(billingStatus: Record<string, DashBillingStatus>) {
 
 function buildSignals(
   projects: DashProject[],
-  scoreHistory: Record<string, number[]> = {},
-  signalMetrics: Record<string, { m: number; x: number; f: number }> = {}
+  currentSps: Record<string, CurrentSpsProjectAssessment> = {},
 ) {
-  const sourceProjects = projects.some((p) => p.projectId === demoSignalProject.projectId)
-    ? projects
-    : [demoSignalProject, ...projects];
-  const actualValues = Object.values(signalMetrics);
-  const scaleValues = actualValues;
-  const maxM = Math.max(1, ...scaleValues.map((v) => v.m).filter(Number.isFinite)) * 1.2;
-  const maxX = Math.max(1, ...scaleValues.map((v) => v.x).filter(Number.isFinite)) * 1.2;
-  const maxF = Math.max(1, ...scaleValues.map((v) => v.f).filter(Number.isFinite)) * 1.2;
+  const sourceProjects = projects;
+  const maxM = 1;
+  const maxX = 1;
+  const maxF = 1;
 
   const signals = sourceProjects.map((p) => {
     if (p.projectId === demoSignalProject.projectId) {
-      const actual = signalMetrics[p.projectId];
-      const scoreSpark = scoreHistory[p.projectId] ?? [];
-      const currentScore = scoreSpark.length ? scoreSpark[scoreSpark.length - 1] : 0;
-      const x = actual?.x ?? 0;
-      const f = actual?.f ?? 0;
-      const m = actual?.m ?? 0;
+      const assessment = currentSps[p.projectId];
+      const scoreSpark: number[] = [];
+      const currentScore = currentSpsMidpoint(assessment);
+      const x = 0;
+      const f = 0;
+      const m = 0;
       return {
         ...p,
         initials: "AAA",
@@ -183,28 +178,28 @@ function buildSignals(
         x,
         f,
         m,
-        xBar: actual ? metricBarPct(x, maxX) : 0,
-        fBar: actual ? metricBarPct(f, maxF) : 0,
-        mBar: actual ? metricBarPct(m, maxM) : 0,
-        hasSignalScore: Boolean(actual),
+        xBar: 0,
+        fBar: 0,
+        mBar: 0,
+        hasSignalScore: false,
         health: 96,
         initiative: 96,
         currentScore,
         scoreSpark,
       };
     }
-    const actual = signalMetrics[p.projectId];
-    const hasSignalScore = Boolean(actual);
-    const x = actual?.x ?? 0;
-    const f = actual?.f ?? 0;
-    const m = actual?.m ?? 0;
+    const assessment = currentSps[p.projectId];
+    const hasSignalScore = assessment?.status === "assessed";
+    const x = 0;
+    const f = 0;
+    const m = 0;
     const mBar = hasSignalScore ? metricBarPct(m, maxM) : 0;
     const xBar = hasSignalScore ? metricBarPct(x, maxX) : 0;
     const fBar = hasSignalScore ? metricBarPct(f, maxF) : 0;
     const health = hasSignalScore ? clamp(Math.round((xBar + fBar + mBar) / 3), 1, 98) : 0;
     const initiative = hasSignalScore ? clamp(Math.round(health * 0.72 + scoreFor(p.projectId, 23) * 0.28), 12, 98) : scoreFor(p.projectId, 31);
-    const scoreSpark = scoreHistory[p.projectId] ?? [];
-    const currentScore = scoreSpark.length ? scoreSpark[scoreSpark.length - 1] : 0;
+    const scoreSpark: number[] = [];
+    const currentScore = currentSpsMidpoint(assessment);
     return { ...p, initials: projectInitials(p.shortLabel || p.projectName, p.projectId), x, f, m, xBar, fBar, mBar, hasSignalScore, health, initiative, currentScore, scoreSpark };
   });
   return signals.sort((a, b) => {
@@ -214,6 +209,11 @@ function buildSignals(
     const bActive = b.status === "active" ? 0 : 1;
     return aActive - bActive || a.projectName.localeCompare(b.projectName, "ja");
   });
+}
+
+function currentSpsMidpoint(assessment?: CurrentSpsProjectAssessment) {
+  if (!assessment || assessment.status !== "assessed" || assessment.sps_lower_yen == null || assessment.sps_upper_yen == null) return 0;
+  return (assessment.sps_lower_yen + assessment.sps_upper_yen) / 200_000_000;
 }
 
 function metricBarPct(value: number, max: number) {
@@ -246,10 +246,10 @@ function isLowConfidence(confidence: number | null | undefined) {
   return value <= 1 ? value < 0.6 : value < 60;
 }
 
-export function HudControlCenterDashboard({ projects, billingStatus, user, actionItems = [], scoreHistory = {}, signalMetrics = {}, managementScore = null, managementHistory = [] }: Props) {
+export function HudControlCenterDashboard({ projects, billingStatus, user, actionItems = [], currentSps = {}, managementScore = null, managementHistory = [] }: Props) {
   const [introOpen, setIntroOpen] = useState(false);
   const [inactiveOpen, setInactiveOpen] = useState(false);
-  const signals = useMemo(() => buildSignals(projects, scoreHistory, signalMetrics), [projects, scoreHistory, signalMetrics]);
+  const signals = useMemo(() => buildSignals(projects, currentSps), [projects, currentSps]);
   const queue = useMemo(() => buildQueue(actionItems), [actionItems]);
   const primarySignals = signals
     .filter((p) => primarySignalStatuses.has(p.status))
@@ -1137,8 +1137,8 @@ function ScoreVector({ x, f, m }: { x: number; f: number; m: number }) {
   const pmX = 50 + Math.cos(Math.PI / 6) * (m / 100) * 34;
   const pmY = 52 + Math.sin(Math.PI / 6) * (m / 100) * 34;
   return (
-    <HudPanel title="Legacy AMD Vector" code="DETAIL">
-      <Link href="/hud/venture-map/amd-score/retrofit" className="absolute right-4 top-4 z-10 border border-cyan-300/35 bg-cyan-300/8 px-2 py-1 font-mono text-[10px] font-black uppercase text-cyan-100 hover:bg-cyan-300/15">
+    <HudPanel title="Current SPS" code="DETAIL">
+      <Link href="/venture-map/amd-score" className="absolute right-4 top-4 z-10 border border-cyan-300/35 bg-cyan-300/8 px-2 py-1 font-mono text-[10px] font-black uppercase text-cyan-100 hover:bg-cyan-300/15">
         Detail
       </Link>
       <div className="grid grid-cols-[150px_1fr] items-center gap-3">

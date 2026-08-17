@@ -2,14 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { HudControlCenterDashboard, type HudManagementScoreSnapshot } from "@/components/hud/HudControlCenterDashboard";
-import { fetchActiveAlpha, fetchAllAmdScoreInputs } from "@/lib/amd-score-data";
-import {
-  buildAaaScoreInputsFromSx,
-  computeAmdScoreSeries,
-  scoreInputToSignalMetrics,
-  latestVisibleScorableScoreInput,
-} from "@/lib/amd-score-derived";
-import { AAA_PROJECT_ID } from "@/lib/demo-aaa-data";
+import type { CurrentSpsProjectAssessment } from "@/lib/current-sps-model";
 import { createClient } from "@/lib/supabase/client";
 import {
   fetchBillingStatusFromSupabase,
@@ -33,8 +26,7 @@ export default function HudDashboardPage() {
   const [projects, setProjects] = useState<DashProject[]>([]);
   const [billingStatus, setBillingStatus] = useState<Record<string, DashBillingStatus>>({});
   const [hudUser, setHudUser] = useState<HudUser>({ codeName: "ONLINE", memberId: null, email: null });
-  const [scoreHistory, setScoreHistory] = useState<Record<string, number[]>>({});
-  const [signalMetrics, setSignalMetrics] = useState<Record<string, { m: number; x: number; f: number }>>({});
+  const [currentSps, setCurrentSps] = useState<Record<string, CurrentSpsProjectAssessment>>({});
   const [managementScore, setManagementScore] = useState<HudManagementScoreSnapshot | null>(null);
   const [managementHistory, setManagementHistory] = useState<HudManagementScoreSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,39 +50,17 @@ export default function HudDashboardPage() {
           email,
         };
       }),
-      Promise.all([fetchAllAmdScoreInputs(), fetchActiveAlpha()]).then(([inputs, activeAlpha]) => {
-        const grouped: Record<string, typeof inputs> = {};
-        for (const row of inputs) {
-          (grouped[row.project_id] ||= []).push(row);
-        }
-        if (grouped.p21?.length) {
-          grouped[AAA_PROJECT_ID] = buildAaaScoreInputsFromSx(grouped.p21, activeAlpha.alpha);
-        }
-        const history = Object.fromEntries(
-          Object.entries(grouped).map(([projectId, rows]) => [
-            projectId,
-            computeAmdScoreSeries(visibleScoreInputs(rows), activeAlpha.alpha).map((p) => p.score),
-          ])
-        );
-        const metrics = Object.fromEntries(
-          Object.entries(grouped).flatMap(([projectId, rows]) => {
-            const latest = latestVisibleScorableScoreInput(rows);
-            if (!latest) return [];
-            const metric = scoreInputToSignalMetrics(latest, activeAlpha.alpha);
-            return metric ? [[projectId, metric]] : [];
-          })
-        );
-        return { history, metrics };
+      fetch("/api/sps/current", { cache: "no-store" }).then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) throw new Error(payload.error || "現行SPSの取得に失敗");
+        return Object.fromEntries((payload.assessments as CurrentSpsProjectAssessment[]).map((assessment) => [assessment.project_id, assessment]));
       }),
       fetchManagementScoreHistory(supabase),
     ]).then(([projRes, billRes, userRes, scoreRes, managementRes]) => {
       if (projRes.status === "fulfilled") setProjects(projRes.value);
       if (billRes.status === "fulfilled") setBillingStatus(billRes.value);
       if (userRes.status === "fulfilled") setHudUser(userRes.value);
-      if (scoreRes.status === "fulfilled") {
-        setScoreHistory(scoreRes.value.history);
-        setSignalMetrics(scoreRes.value.metrics);
-      }
+      if (scoreRes.status === "fulfilled") setCurrentSps(scoreRes.value);
       if (managementRes?.status === "fulfilled") {
         setManagementHistory(managementRes.value);
         setManagementScore(managementRes.value[managementRes.value.length - 1] ?? null);
@@ -112,7 +82,7 @@ export default function HudDashboardPage() {
     );
   }
 
-  return <HudControlCenterDashboard projects={projects} billingStatus={billingStatus} user={hudUser} actionItems={[]} scoreHistory={scoreHistory} signalMetrics={signalMetrics} managementScore={managementScore} managementHistory={managementHistory} />;
+  return <HudControlCenterDashboard projects={projects} billingStatus={billingStatus} user={hudUser} actionItems={[]} currentSps={currentSps} managementScore={managementScore} managementHistory={managementHistory} />;
 }
 
 async function fetchManagementScoreHistory(supabase: ReturnType<typeof createClient>): Promise<HudManagementScoreSnapshot[]> {
@@ -128,11 +98,6 @@ async function fetchManagementScoreHistory(supabase: ReturnType<typeof createCli
     latestByYm.set(row.ym ?? "", normalizeManagementScore(row));
   }
   return Array.from(latestByYm.values()).filter((row) => row.ym);
-}
-
-function visibleScoreInputs(rows: Awaited<ReturnType<typeof fetchAllAmdScoreInputs>>) {
-  const today = new Date().toISOString().slice(0, 10);
-  return rows.filter((row) => row.evaluated_at.slice(0, 10) <= today);
 }
 
 function normalizeManagementScore(data: {
