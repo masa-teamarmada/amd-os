@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+| 2026-08-17 JST | 3-3 Meeting Flow / W-Prep | 事故防止・対話開始点 | visible W-Prepを`launch_mode=visible_w_prep`へ分離。workerはartifact/readinessを保存しても`preparing`に留め、最後のユーザー向け応答として`前回までの流れ / 今回の論点 / 推定着地 / まさがやること / 相談入口`の具体的なopening prep briefを出す。launcherだけがsidebar上のtask・pin・session・Notion gate・artifact・最後のbriefをreadbackしてから`ready`へ昇格する。pin APIの成功返却だけで可視扱いにせず、一覧に無いtaskはfailed/保留にする | 資料だけ作られた不可視taskや、完了報告しか出さないtaskを準備完了と誤認し、まさがそのまま会議準備の議論を再開できなかったため | まさ・えいみ |
+
 | 2026-08-16 JST | 4-2 AMD Score | CX NewCo月次試算表訂正 | 設立前のAMD/NIMS PJ費用をCX NewCo試算表から完全除外。一次記録の月間バーン5〜6百万円を5.5百万円/月の基準計画へ配賦し、Seed 1億円（2027-04）と18か月後のSeries A 3億円（2028-10）へ資本政策を再構成 | NewCo会計主体とPJ活動費を混ぜず、資金量・時期・バーンの因果をVC向けに検証可能にするため | えいみ |
 
 | 2026-08-16 | 3-8 PJコックピット / 4-2 AMD Score | 追加 | `Bzm22TimeLedger`の月次試算表直下へ、4月始まりFYごとの年次集計グラフを追加。表示済み月次P/L・C/Fだけを年度に加算し、売上・費用内訳・営業利益、C/FがあるPJの年次純C/Fを比較する。設立前PJ支出はNewCo P/L・営業利益に混ぜず別表示。mobileは横スクロールにせず年度カードを縦に読む | 月次の数字から、年度ごとの収支構造と資金増減を速く比較できるようにするため | まさ・えいみ |

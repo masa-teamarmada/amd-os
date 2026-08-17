@@ -280,17 +280,21 @@ PATCH /rest/v1/project_meeting_summaries?meeting_id=eq.{meeting_id}
 
 `prep_worker_session_id` / `prep_calendar_event_id` / `prep_worker_spawned_at` は Phase P 側で先に書かれているので touch しない。
 
+W-Prep の起動promptに `launch_mode=visible_w_prep` がある場合、このPhaseのDB upsertは artifact / draft / readiness と `prep_worker_status='preparing'` までに留める。`prep_worker_ready_at` は書かない。Phase 10でopening prep briefを最後のユーザー向け応答として出した後、launcherが visible task / pin / brief をreadbackして `ready` と `prep_worker_ready_at` を保存する。worker単独での`ready`昇格は禁止。
+
 ═══════════════════════════════════════════════════
 Phase 10: session を待機状態で保持
 ═══════════════════════════════════════════════════
 
 - worker session は終了しない。session は disk に persist され (`~/.codex/archived_sessions/rollout-...jsonl`)、まさが codex desktop から SESSION_ID で開ける状態のまま残る
-- まさが入ってきた瞬間の第一声は、会議冒頭のセリフ案ではなく、`prep_draft_md` の要点を使った opening prep brief にする。最低限、次の見出しで情報を並べる:
+- まさが入ってきた瞬間に表示される最後のユーザー向け応答は、会議冒頭のセリフ案でも短い完了報告でもなく、`prep_draft_md` の要点を使った opening prep brief にする。資料URLや処理完了の列挙を先に出して終わらせない。最低限、次の見出しで情報を並べる:
   - `前回までの流れ`: 直近MTG/関連やり取りで出た決定・未決・宿題
   - `今回の論点`: 今日話すべき順番つきアジェンダ
   - `推定着地`: 合意すること、判断すること、持ち帰ること
   - `まさがやること`: 会議前/会議中の確認・質問・判断
   - `相談入口`: まさがすぐ返せる具体的な相談候補
+- 各見出しは空にせず、固有の過去判断・今回の判断点・未決を含める。まさが読んだ直後に「前回はここまで進んでいて、今回は何を決め切る会なのか」を再開できることを品質基準にする。
+- W-Prep の起動promptに `launch_mode=visible_w_prep` がある場合、worker は Phase 9 で artifact / draft / readiness を保存しても `prep_worker_status='ready'` へは遷移しない。`prep_worker_status='preparing'` のまま、`prep_readiness_reasons.opening_prep_brief` に5見出しの準備完了を保存し、このbriefを最後のユーザー向け応答として出す。W-Prep launcher が task表示・pin・最後の応答をreadbackしてから `ready` へ昇格する。
 - 第一声や通常返信の末尾に「これであってる？どうする？」を必ず付ける運用は禁止。必要なら「A/Bどっちで進める？」「この論点から詰める？」のように、状況に合った短い確認だけにする。
 - まさが「合ってる」「ここ修正」「資料追加して」等を返したら、定型の確認に戻さず、対話で該当箇所を直接詰めていく
 - 通常の会話は **相談モード** として扱う。まさが質問・壁打ち・判断相談・「どう思う？」を投げた時は、まず答え・見立て・選択肢・次の一手を返す。資料を更新したり、DB/Drive/Notionへ書いたりしない。

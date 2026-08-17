@@ -203,7 +203,7 @@ WHERE pms.source_kinds LIKE '%upcoming%'
    ```
 5. **SESSION_ID 取得**: codex stdout の `session id: {UUID}` 行から取得 → `prep_worker_session_id` に保存
 6. **DB upsert**: `prep_worker_status='preparing'` + `prep_worker_spawned_at=now()`
-7. session 内で worker prompt が `prep_*` 列を upsert + Phase 完遂で `prep_worker_status='ready'`
+7. session 内で worker prompt が `prep_*` 列を upsert。visible W-Prepではworkerはopening prep briefを最後のユーザー向け応答として出して待機し、launcherのtask/pin/brief readbackだけが `prep_worker_status='ready'` へ昇格する。
 8. **Slack DM nudge**: H-1 run の Phase P 末尾で `ready` 達成MTG を まさ専用 Slack DM にまとめて送る
 
 ### Worker SKILL の役割 (= spawn された session の中で走る)
@@ -270,14 +270,16 @@ W-Prep の事故防止ルール:
 - Calendar-backed 候補は `calendar_event_id` を exact identity とし、`meeting_id='upcoming:<calendar_event_id>'` を canonical とする。同じ `calendar_event_id` の別 row に session id 付きの `preparing` / `ready` がある場合は絶対に二重起動しない。
 - `*TBD` や `calendar_event_id` なしの弱い重複は、calendar-backed canonical row があるなら除外する。同時刻・同一PJ・同一趣旨の重複行は canonical 1件だけ起動し、skip理由を memory へ残す。ただし同時刻・同一PJでも Calendar event id / meeting link / attendee metadata / title intent が異なる場合は別会議の可能性を保留扱いにし、勝手に統合しない。
 - 立ち上げた thread は必ず `{meeting_title} prep` へ改題し、`set_thread_pinned` でピン留めする。pin できなかった場合は保留として報告し、同じ会議に追加threadを作らない。
+- `set_thread_pinned` の成功返却だけで可視扱いにしない。`list_threads` の pinned 一覧に同じ thread ID と title が存在することをreadbackする。存在しない task は `visible_thread_not_listed_after_create` として failed / 保留にし、session保存や `ready` 昇格の根拠にしない。
 - `create_thread` prompt は日本語で書く。英語の見出し・英語指示文にしない。
 - root `AGENTS.md` の `@~/knowledge/...` は、この環境では `/Users/masa/projects/knowledge/` へ読み替える。
 
 W-Prep / worker の待機開始点:
 
-- まさが prep thread を開くまでに、worker は (1) これまでのMTGの流れ、(2) 今回のMTGの位置づけと推定着地点、(3) その着地点に到達するためにまさがやるべきこと、の3点を完了しておく。
-- 待機時の第一声は、会議冒頭で読み上げるセリフ案ではなく、この3点の完了報告にする。
-- 第一声の末尾は必ず「これであってる？どうする？」で止め、まさの判断を待つ。
+- worker は `launch_mode=visible_w_prep` で起動し、`prep_draft_md` を作った後、最後のユーザー向け応答として opening prep brief を出して待機する。短い完了報告、資料URLだけの案内、会議冒頭トークでは待機しない。
+- opening prep brief は `前回までの流れ`、`今回の論点`、`推定着地`、`まさがやること`、`相談入口` の5見出しを持つ。各項目は空欄不可で、過去の決定・未決、今回の判断、合意/持ち帰り、まさの具体的な確認行動を含める。
+- launcher は worker がidle/completedになった後に `read_thread` で最後のユーザー向け応答を読み、5見出しすべてと具体的内容を確認する。足りなければ同じtaskへbrief再提示を依頼して再readbackする。それでも欠ける場合は `prep_worker_status='failed'`、理由は `opening_prep_brief_not_visible` とし、同じ会議の追加taskは作らない。
+- `ready`へ昇格できるのは、Calendar identity、non-null session ID、`list_threads`で確認済みのpin、artifact/readiness/Notion gate、最後の応答で確認済みのopening prep briefがすべてそろった時だけ。どれか一つでも欠ける行は`ready`ではない。
 
 W-Prep / worker の共有フォルダ資料:
 
