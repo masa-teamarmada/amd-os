@@ -586,6 +586,12 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 目的: 研究機関カードから、機関の箱を保ったまま関連PJの進捗・月次・MTG履歴へ入る。
 
+### SU関連規程台帳（build v3.79.0 / migration 282）
+
+- `/institutions` の「SU関連規程」は、全研究機関×10規程種別を同じ行列で比較する。施行中のセルはクリック可能な `◯` とし、外部文書URLがあれば外部正本へ、なければOS内の `/institutions/[institutionId]/regulations/[regulationId]` へ遷移する。
+- 機関コックピットの「SU関連規程」は同じ `institution_regulation_*` 台帳から当該機関だけを投影する。作成中・審議中・決裁済・施行中を区別し、現在版、版履歴、次のゲートを管理する。
+- AMD memberは閲覧可、`members.is_admin=true` だけが台帳・版を更新できる。外部文書が存在する場合はそのリンクを正本とし、OSには本文を複製しない。
+
 必須機能:
 
 - KUTE / NIMS / 愛媛大学カードは `institution_projects` の関係を使って機関コックピットへ遷移する。KUTE=`p25`、NIMS=`p28`、愛媛大学全体=`p30`。研究機関PJは通常PJリストへ二重表示せず、機関行のPJ運用レイヤーとして表示する。

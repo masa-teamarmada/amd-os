@@ -41,6 +41,7 @@
     "test:proactive-heartbeat": "node scripts/check_proactive_heartbeat_contract.mjs",
     "test:kute-seeds-scope": "node --experimental-strip-types scripts/check_kute_seeds_scope.mts",
     "test:kute-regulations-contract": "node scripts/check_kute_regulations_contract.cjs",
+    "test:institution-regulations": "node scripts/check_institution_regulations_contract.mjs",
     "test:institution-seed-project-domains": "node --experimental-strip-types scripts/check_institution_seed_project_domains.mts",
     "test:portfolio-home-contract": "node scripts/check_portfolio_home_contract.mjs",
     "test:seed-sps-score": "node --experimental-strip-types scripts/check_seed_sps_score.mts",

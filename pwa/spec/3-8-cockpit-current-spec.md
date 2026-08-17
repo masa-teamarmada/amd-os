@@ -10,6 +10,7 @@
 | `/project/[projectId]/workspace` | `pwa/src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx`。PJの正本。`SxWeeklyControlDashboard`を表示する |
 | `/my-projects` | `pwa/src/app/(app)/my-projects/page.tsx`。複数PJへ参加するPJ限定メンバーの入口 |
 | `/institutions/[institutionId]/cockpit` | `pwa/src/app/(app)/institutions/[institutionId]/cockpit/page.tsx` wraps an existing project cockpit in institution context |
+| `/institutions/[institutionId]/regulations/[regulationId]` | 外部正本がない規程のOS内台帳・版履歴。外部正本が登録された版は外部リンクを優先する |
 | main component | `pwa/src/components/cockpit/CockpitView.tsx` |
 | data fetch | `pwa/src/lib/supabase-data.ts` (`fetchCockpitFromSupabase`) |
 | project documents (資料室) | `pwa/src/components/workspace-documents/WorkspaceDocumentRoom.tsx` (`WorkspaceDocumentLauncher`)、`pwa/src/app/api/workspace-documents/**`。詳細は `pwa/manual/2-3-pj-cockpit.md` 「## 資料」節と `pwa/spec/2-1-pwa-runtime-routes.md`。旧 `CockpitProjectDocuments` / `pwa/src/app/api/project-documents/**` / `pwa/src/lib/project-documents/reconcile.ts` はどこからも参照されていないdead codeだったため2026-08-16 (v3.78.3) に削除した |
@@ -62,7 +63,7 @@ Research-institution ecosystem work is represented as an ECR institution card fi
 
 | institution | related project | behavior |
 |---|---|---|
-| `inst_kute` | `p25` (KUTE) | `/dashboard` shows KUTE in the research institution ECR list, not in the normal PJ list. The institution card opens `/institutions/inst_kute/cockpit`; `進捗管理` mounts the existing `CockpitView` for `p25` so the current KUTE PJ cockpit content remains reachable |
+| `inst_kute` | `p25` (KUTE) | `/dashboard` shows KUTE in the research institution ECR list, not in the normal PJ list. The institution card opens `/institutions/inst_kute/cockpit`; `進捗管理` mounts the existing `CockpitView` for `p25` so the current KUTE PJ cockpit content remains reachable. `SU関連規程` は全機関共通台帳のKUTE行を表示し、旧ハードコード配列は持たない |
 | `inst_nims` | `p20` (CX / CryoX) | `/dashboard` NIMS card opens `/institutions/inst_nims/cockpit`; the page shows institution summary / readiness snapshot first, then `進捗管理` / `スコア詳細` tabs. `進捗管理` mounts the existing `CockpitView` for `p20` and keeps the MTG tree below it. `スコア詳細` shows ECR axis/criterion detail, not SU AMD Score |
 
 This route is read-only during load. It does not create a duplicate project or write production DB rows. If MS plan data is missing, the embedded normal cockpit shows the existing MS setup banner / monthly note fallback. MTG tree must not be the first visible block after the institution header; research institution cockpit uses the same high-level information architecture as PJ cockpit: summary first, progress tab for operational state, score detail tab for score evidence.
