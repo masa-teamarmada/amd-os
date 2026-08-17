@@ -276,13 +276,19 @@ W-Prep の事故防止ルール:
 
 W-Prep / worker の待機開始点:
 
-- worker は `launch_mode=visible_w_prep` で起動し、`prep_draft_md` を作った後、最後のユーザー向け応答として opening prep brief を出して待機する。短い完了報告、資料URLだけの案内、会議冒頭トークでは待機しない。
+- worker は `launch_mode=visible_w_prep` で起動し、`prep_draft_md` と論点台帳を作った後、最後のユーザー向け応答として opening prep brief を出して待機する。短い完了報告、資料URLだけの案内、会議冒頭トークでは待機しない。
 - opening prep brief は `前回までの流れ`、`今回の論点`、`推定着地`、`まさがやること`、`相談入口` の5見出しを持つ。各項目は空欄不可で、過去の決定・未決、今回の判断、合意/持ち帰り、まさの具体的な確認行動を含める。
+- 初回は相談開始点の形成を優先し、共有Drive資料と通常Notion draftを作らない。Notion AI Meeting Notesへの事前context append-onlyだけは初回必須。共有資料は、まさがスレッド内で明示write intentを出した後に作る。
+- worker は契約範囲、同シリーズ履歴、PJ横断の直近MTG、未完了action/保留、project knowledge、直近チーム入力、現在prepを論点台帳へ集める。7sourceそれぞれにchecked状態と抽出topic ID一覧を持たせ、source indexと論点台帳の相互包含を検査する。未完了かつ今回関連の各論点は `included` / `deferred` / `excluded` のいずれかを必須とし、先送りは理由・owner・再確認日、対象外は根拠を持たせる。
+- 各未完了論点について、既存規程、契約、申請、資料、システム、関係者工程への二次影響を確認する。影響があれば別論点として台帳へ追加する。「全体スケジュール」を示す場合は、今回の主要成果物だけでなく、この二次影響を含む未完了論点を全件載せる。
+- `pwa/scripts/l6_prep_scope_coverage_gate.cjs` が `scope_coverage_blocked` を返す間はready禁止。黙って消えた論点、二次影響未確認、期限/ownerの無い先送り、欠けた全体スケジュールを機械的に止める。結果は `prep_readiness_reasons.scope_coverage` にsanitizedなstatus/counts/code/topic IDだけ保存する。
 - launcher は worker がidle/completedになった後に `read_thread` で最後のユーザー向け応答を読み、5見出しすべてと具体的内容を確認する。足りなければ同じtaskへbrief再提示を依頼して再readbackする。それでも欠ける場合は `prep_worker_status='failed'`、理由は `opening_prep_brief_not_visible` とし、同じ会議の追加taskは作らない。
-- `ready`へ昇格できるのは、Calendar identity、non-null session ID、`list_threads`で確認済みのpin、artifact/readiness/Notion gate、最後の応答で確認済みのopening prep briefがすべてそろった時だけ。どれか一つでも欠ける行は`ready`ではない。
+- `ready`へ昇格できるのは、Calendar identity、non-null session ID、`list_threads`で確認済みのpin、readiness、`scope_coverage_complete`、Notion gate、最後の応答で確認済みのopening prep briefがすべてそろった時だけ。初回artifactは `awaiting_discussion` で正常であり、nullの `prep_drive_asset_id` をready阻害に使わない。どれか一つでも必要条件が欠ける行は`ready`ではない。
 
 W-Prep / worker の共有フォルダ資料:
 
+- 初回worker実行では作らない。まさがopening prep briefを見て議論し、「この前提で資料を作って」「資料に反映して」等の明示write intentを出した後だけ作る。
+- 資料化前に論点継続性gateを再実行し、`scope_coverage_complete` を確認する。
 - `projects.drive_folder_id` 直下の `YYMMDD_<MTG名>_prep/` に置く prep 資料の主成果物は、すべて AMD OS のデザインコードに従った HTML に統一する。
 - Google Docs / Markdown / Slides / Sheets を主成果物として作らない。表、チェックリスト、提案書、アジェンダ、試算も HTML 内の section / table / callout で表現する。
 - HTML は `pwa/src/lib/exec_summary/template.css`、`pwa/src/lib/exec_summary/template_section.html`、`pwa/design/cyber_hud_design_code.md`、`pwa/design/hud_visual_language.md` を参照し、原則 self-contained にする。外部URL、secret、raw本文は入れない。
@@ -292,7 +298,7 @@ W-Prep / worker の共有フォルダ資料:
 | シグナル | 重み | 取り方 |
 |---|---|---|
 | アジェンダ存在 | 30 | Notion 議事録ページ本文文字数 + Calendar description 文字数。100↑ で 30、50-99 で 15、<50 で 5 |
-| 持参資料 | 25 | `project_documents` + `meeting_assets` + worker 生成 `prep_drive_asset_id` の合計件数。3↑ で 25、1-2 で 12、0 で 0 |
+| 資料根拠 | 25 | 既存 `project_documents` + `meeting_assets` + 明示write後の `prep_drive_asset_id` の合計件数。3↑ で 25、1-2 で 12、0 で 0。初回artifactが `awaiting_discussion` であること自体は減点理由にしない |
 | 前回 next_actions 消化 | 20 | 同シリーズ前回 `next_actions[]` のうち `tasks.status='done'` 比率 × 20 |
 | 相手側コンテキスト | 15 | 直近30日 Gmail 往復 + 関連 Notion ページ件数。3↑ で 15、1-2 で 8、0 で 0 |
 | アサイン明確 | 10 | `project_meeting_summaries.facilitator_member_id` (MTG 行単位) が NOT NULL かつ対応メンバーが Calendar attendees に含まれていれば 10。`projects.facilitator_member_id` 列は現状 DB に存在しない (2026-06-24 確認) ので参照しない |

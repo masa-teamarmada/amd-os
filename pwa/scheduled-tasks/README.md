@@ -23,7 +23,7 @@
 | W-1 | Claude routine | `amd-os-l2-weekly-vc-funding-signals` | weekly Saturday 09:00 JST | VC News / Funding Signals |
 | H-1 | Mac LaunchAgentの非可視Codex runner | `run-h1-background.sh` / SKILL `amd-os-l6-meeting-extract` | 平日毎時15分。DB候補gate後、Calendarを一度だけ確認。候補なしは本文抽出・横断探索へ進まない | `project_meeting_summaries` / 予定MTGカード / Drive関連資料 |
 | W-Prep | Codex automation | `w-prep-launch` | weekly Wednesday 15:00 JST | 実行日から数えて7日後の23:59:59.999 JSTまでの確定 upcoming MTG を Calendar + DB で照合し、必要な visible prep thread をPJ workspaceに作成・改題・pin・DB保存する。厳密な `now()+7 days` で切らず、DBだけを見て完了扱いにしない。Calendar直読みでは `CFG_ColorPJHistory` を先に見て、`2025-06-01` 以降の `colorId=4` と `SolvioraX` alias は SX/p21 として扱う。重複防止は `calendar_event_id` exact identity と `upcoming:<calendar_event_id>` canonical を優先する |
-| W-Prep worker | visible Codex thread | `amd-os-l6-meeting-prep-worker` | thread 起動後に実行 | 1 MTG 専属。文脈ロード→着地点draft→HTML prep資料→Notion議事録draft→readiness 計算→prep_* 列 upsert→「これであってる？どうする？」で待機 |
+| W-Prep worker | visible Codex thread | `amd-os-l6-meeting-prep-worker` | thread 起動後に実行 | 1 MTG 専属。契約範囲・同シリーズ/PJ横断の履歴・未完了action・保留・直近チーム入力を論点台帳へ集め、二次影響と今回prepの網羅差分を機械検査する。初回は共有資料や通常Notion draftを作らず、5項目のopening prep briefで相談開始。Notion AI Meeting Notes contextだけ初回append-only。資料はまさの明示write後にHTMLで作る |
 | D-13 | Claude routine + PWA route | `amd-os-l2-consolidated-evidence` Phase K-B / `POST /api/contracts/extract-l2` | daily 08:00 JST | Contract Signals |
 | M-2 XRL 根拠 | Codex automation + outbox applier | `amd-os-l8-xrl-evidence-extract` | 6h ごと (L7 +15 分) | `project_xrl_evidence` |
 | D-6 経営ハイライト | Codex automation + outbox applier | `amd-os-l9-strategy-signal-extract` | daily 03:20 JST | `project_strategy_signals` |

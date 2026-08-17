@@ -1,0 +1,47 @@
+{
+  "source_checks": {
+    "contract_scope": {"checked": true, "topic_ids": ["core-regulations"]},
+    "same_series_history": {"checked": true, "topic_ids": ["core-regulations"]},
+    "project_wide_history": {"checked": true, "topic_ids": ["existing-regulations-amendment"]},
+    "active_actions_and_deferrals": {"checked": true, "topic_ids": ["core-regulations", "existing-regulations-amendment"]},
+    "project_knowledge": {"checked": true, "topic_ids": []},
+    "recent_team_inputs": {"checked": true, "topic_ids": ["existing-regulations-amendment"]},
+    "current_prep": {"checked": true, "topic_ids": ["core-regulations", "existing-regulations-amendment"]}
+  },
+  "topics": [
+    {
+      "topic_id": "core-regulations",
+      "status": "active",
+      "relevant_to_meeting": true,
+      "source_refs": ["contract:scope"],
+      "disposition": "included",
+      "prep_refs": ["prep:implementation-schedule"],
+      "impact_review": {
+        "status": "impacts_added",
+        "impact_topic_ids": ["existing-regulations-amendment"]
+      }
+    },
+    {
+      "topic_id": "existing-regulations-amendment",
+      "status": "deferred",
+      "relevant_to_meeting": true,
+      "source_refs": ["meeting:internal-review"],
+      "impact_review": {
+        "status": "none_found",
+        "evidence_refs": ["review:related-rules"]
+      }
+    }
+  ],
+  "complete_schedule_required": true,
+  "schedule_claims": [
+    {
+      "claim_id": "all-policy-work",
+      "scope": "complete",
+      "topic_ids": ["core-regulations", "existing-regulations-amendment"]
+    }
+  ],
+  "expected": {
+    "status": "scope_coverage_blocked",
+    "violation_codes": ["silent_omission"]
+  }
+}

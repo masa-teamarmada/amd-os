@@ -249,7 +249,7 @@ PJ cockpit の進捗管理タブでは、今期 MS リストの直下・月次�
 
 ### MTG Prep セッション自動立ち上げ (2026-06-22 まさ確定)
 
-> **何が嬉しいか**: 「明日 MTG あるけどまだ準備してない、codex を毎回開いて『背景はこうで…』と説明するのがだるい」を OS 側で解決する。**既存 H-1 automation の Phase P** が、翌7日の MTG ごとに **codex の新規 session を事前 spawn** する。session の中で文脈ロード・会議設計スターター・着地点 draft・資料 draft・readiness 計算まで終わって待機する。まさは codex desktop で該当 session に入り、「前回こうだった、今回の着地はこうだと思う」から会議設計の相談を始められる (= 普段どおりの操作、ターミナル不要)。
+> **何が嬉しいか**: 「明日 MTG あるけどまだ準備してない、codex を毎回開いて『背景はこうで…』と説明するのがだるい」を OS 側で解決する。現行の **W-Prep** が、翌7日までのMTGごとに visible prep task を事前に立ち上げる。taskの中では、契約範囲・過去MTG・未完了action・保留・直近チーム入力を横断して論点を引き継ぎ、まさは背景を思い出すところからではなく、今回の判断相談から始められる。
 
 #### prep の timing
 
@@ -272,24 +272,25 @@ PJ cockpit の進捗管理タブでは、今期 MS リストの直下・月次�
 - 翌7日に予定MTG (= `source_kinds='upcoming'`) がある PJ では、cockpit MTG サマリの予定MTGカードに以下が表示される:
   - **readiness pill**: 緑 80↑ (準備OK) / 黄 50-79 (もう一押し) / 赤 <50 (要相談)
   - **session 状態 chip**: 「prep セッション準備中」 / 「ready (codex で開いてね)」 / 「起動失敗」
-- worker が生成した資料 draft は Drive `PJfolder/YYMMDD_MTG名_prep/` に置かれる (= 本資料フォルダではなく draft フォルダ)
-- worker が会議前の AI Meeting Notes page を見つけた場合は、PJ 固有名詞・略称・拾うべき論点を `AI Meeting Notes用コンテキスト` として先に入れ、MTGカードの `notion_url` から開けるようにする。見つからない場合は、worker が作成したアジェンダ草案入り Notion 議事録ページまたは手動貼り付け用 context を表示する
+- 共有資料は初回に自動生成しない。opening prep briefで相談した後、まさが「この前提で資料を作って」等と明示した場合だけ、Drive `PJfolder/YYMMDD_MTG名_prep/` にHTML draftを置く
+- worker が会議前の AI Meeting Notes page を見つけた場合は、PJ 固有名詞・略称・拾うべき論点を `AI Meeting Notes用コンテキスト` として先に入れる。見つからない場合は、`prep_draft_md` に手動貼り付け用contextと状態を残す。通常Notion議事録draftは初回に自動作成しない
 - `AI Meeting Notes用コンテキスト` は「作った」だけでは完了扱いにしない。worker は当日の AI Meeting Notes page に marker 付きで入ったことを確認してから `ready` にする。見つからない、書けない、候補が曖昧、既存 `prep_notion_page_id` が過去 page を指す場合は、その状態を `prep_readiness_reasons.notion_ai_context` に残し、`prep_draft_md` に手動貼り付け用 context を残す
 
-#### prep session の第一声
+#### prep session の開始点
 
-- prep session を開いた時の最初の有用出力は、`ready` や保存先の技術報告ではなく、まさと会議設計を始めるための短い完了報告にする
-- worker は、まさが入ってくるまでに次の3点を完了しておく:
-  1. これまでのMTGの流れを把握した結果
-  2. 今回のMTGの位置づけと、推定した着地点
-  3. その着地点に到達するためにまさがやるべきこと
-- 会議冒頭で読み上げるセリフ案だけを置いて待機しない
-- 第一声の最後は必ず「これであってる？どうする？」で止め、まさの判断を待つ
-- 会議後も同じ session で、H-1 議事録を読んだうえで「こういう結果だった、次回はどうする？」という相談に続けられる前提で残す
+- prep session を開いた時の最初の有用出力は、`ready` や保存先の技術報告ではなく、まさと会議設計を始めるための opening prep brief にする
+- opening prep brief は `前回までの流れ / 今回の論点 / 推定着地 / まさがやること / 相談入口` の5項目を持つ
+- 同シリーズの前回だけでなく、契約時の依頼範囲、PJ内の別MTG、未完了action、保留事項、直近のチーム内検討まで論点台帳へ集める。各論点は「今回扱う」「ownerと再確認日を置いて後続へ送る」「根拠付きで対象外」のどれかにする
+- 各論点から既存規程・契約・申請・資料・システム・関係者工程への二次影響も確認する。全体スケジュールと呼ぶ場合は、主要成果物だけでなく後続の改定工程まで含める
+- 黙って消えた論点が1件でもある、二次影響を確認していない、先送りにowner/再確認日がない、全体日程から対象が落ちている場合は、機械gateでreadyにしない
+- 会議冒頭で読み上げるセリフ案だけを置かず、定型の「これであってる？どうする？」も強制しない
+- 初回は共有資料を作らず、このbriefを使った相談から始める。資料化はまさの明示write後だけ行う
 
 #### prep worker が作る共有フォルダ資料
 
-- worker が生成した資料 draft は Drive `PJfolder/YYMMDD_MTG名_prep/` に置く
+- opening prep briefで相談した後、まさが資料作成・反映を明示した場合だけ作る。初回task起動時に先回りして資料化しない
+- 資料化前に論点台帳と現在の構成を再突合し、未完了論点の黙った欠落がないことを確認する
+- 生成した資料 draft は Drive `PJfolder/YYMMDD_MTG名_prep/` に置く
 - prep 資料の主成果物は **HTML** に統一する。Google Docs / Markdown / Slides / Sheets を主成果物として作らない
 - 表、チェックリスト、提案書、アジェンダ、試算は HTML 内の section / table / callout で表現する
 - HTML は AMD OS のデザインコードに従い、原則 self-contained な `.html` として作る。ファイル名は `YYMMDD_MTG名_用途.html`

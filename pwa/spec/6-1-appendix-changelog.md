@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+| 2026-08-17 JST | 3-3 Meeting Flow / W-Prep | 論点継続性・artifact gate | `l6_prep_scope_coverage_gate.cjs` を追加。契約範囲、同シリーズ/PJ横断の履歴、未完了action/保留、project knowledge、直近チーム入力、現在prepの全source checkを必須化し、各未完了論点をincluded/deferred/excludedへ配置する。deferredは理由・owner・再確認日、excludedは根拠、全論点は二次影響reviewを必須とする。全体スケジュール宣言は関連未完了論点の全包含を検査し、silent omission等が1件でもあればready禁止。初回artifactは`awaiting_discussion`を正常とし、共有Drive HTMLと通常Notion draftはまさの明示write後だけ作る。Notion AI Meeting Notes context append-onlyは従来どおり初回必須 | KUTE prepで周辺既存規程の改定工程が全体日程から欠落し、個別修正ではまさの記憶負担を解消できないため | まさ・えいみ |
+
 | 2026-08-17 JST | 3-3 Meeting Flow / W-Prep | 事故防止・対話開始点 | visible W-Prepを`launch_mode=visible_w_prep`へ分離。workerはartifact/readinessを保存しても`preparing`に留め、最後のユーザー向け応答として`前回までの流れ / 今回の論点 / 推定着地 / まさがやること / 相談入口`の具体的なopening prep briefを出す。launcherだけがsidebar上のtask・pin・session・Notion gate・artifact・最後のbriefをreadbackしてから`ready`へ昇格する。pin APIの成功返却だけで可視扱いにせず、一覧に無いtaskはfailed/保留にする | 資料だけ作られた不可視taskや、完了報告しか出さないtaskを準備完了と誤認し、まさがそのまま会議準備の議論を再開できなかったため | まさ・えいみ |
 
 | 2026-08-16 JST | 4-2 AMD Score | CX NewCo月次試算表訂正 | 設立前のAMD/NIMS PJ費用をCX NewCo試算表から完全除外。一次記録の月間バーン5〜6百万円を5.5百万円/月の基準計画へ配賦し、Seed 1億円（2027-04）と18か月後のSeries A 3億円（2028-10）へ資本政策を再構成 | NewCo会計主体とPJ活動費を混ぜず、資金量・時期・バーンの因果をVC向けに検証可能にするため | えいみ |
