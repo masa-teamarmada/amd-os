@@ -572,6 +572,8 @@ requireIncludes(timeLedgerSource, [
   "AnnualFinanceChart",
   "資金レール",
   "調達は売上に含めない",
+  "年度別数値",
+  "max-w-6xl",
   "設立前PJ支出",
   'data-testid="sx-first-funding-target"',
   'data-testid="sx-first-capital-plan-event"',
