@@ -13,11 +13,13 @@ AMD OS の H-1 Meeting Flow をバックグラウンドで実行する。
 内部制約（connector未接続・権限不足・rate limit等）でソースが取得できない、またはソースが不足していて記録・ひも付けを確定できない場合は、まさの判断が要る内容なら `review_required` を使う。次回scheduled runが自動で再試行できる範囲の一時的な失敗（rate limitの一時超過など）は、そのrunでは通知せずreportとautomation memoryにだけ記録し、後続runに委ねる（=無理に `blocked` にしない）。`blocked` を使うのは、まさが取るべき**具体的な行動**・**直接の対象URL**・**完了条件**の3点がすべて揃っていて、それ以外にまさにできることがない場合だけに限定する。
 
 Notionメタデータ空欄scan:
-- gate JSONの`candidates.notion_metadata.limit`を上限として、既知の議事録data source内から`eventId` / `PJ` / member relation (`メンバー` / `参加メンバー`) / `日付`のいずれかが空のページだけを列挙する。本文は読まない。
+- 対象期間は議事録data sourceの全履歴。gate JSONの`start_cursor`からpaginationを再開し、`limit`件の空欄候補が集まるか、`max_scan_pages`へ達するか、data sourceのEOFへ到達するまで進める。先頭ページだけを毎回再走査しない。本文は読まない。
+- EOFへ到達したら次回開始cursorをnullへ戻し`cycle`を1増やす。EOF前なら返された`next_cursor`を次回へ引き継ぐ。cursor無効時だけ先頭から再開し、理由を残す。
 - page fetchでは空propertyが省略されるため、必ず親data sourceをfetchし、schemaから4 propertyの実在と型を確定する。page responseに無いことをschemaなしと解釈しない。
 - eventId、PJ、日付は既存値を上書きしない。member relationは既存IDを維持したunionだけ。一意・高信頼なCalendar event、PJ、AMD member照合がない項目は書かず理由を残す。日付は対応したCalendar開始日時のAsia/Tokyo日付を使う。
 - patch後に同じpageを再fetchし、4項目をreadbackする。readback不一致は`failed`であり`backfilled`へ数えない。
 - `checked` / `prepared` / `applied` / `readback_verified` / `skipped_*` / `failed`を別々に集計する。候補0件は正常no-op。上限超過は次回runへ持ち越し、全件処理と報告しない。
+- scanとreadbackが終わった後、gate JSONの`state_file`へ`version / next_cursor / cycle / last_run_id / last_scanned / last_blank_candidates / reached_eof`だけを一時file→renameで保存する。page ID、title、本文、URL、個人情報はstateへ保存しない。処理失敗時はcursorを進めない。
 
 責務境界:
 - H-1は開催済みサマリ、recent none recovery、近傍のnew/変更済みupcoming cardと、独立したNotion議事録メタデータ空欄補完だけを扱う。

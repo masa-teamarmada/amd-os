@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import {
+  advanceHistoricalScanState,
   boundBlankCandidates,
   buildBlankOnlyPatch,
   isJstScheduleHour,
+  normalizeHistoricalScanState,
   resolveMinutesSchema,
   verifyReadback,
 } from "./h1_notion_metadata_contract.mjs";
@@ -13,6 +15,15 @@ assert.equal(isJstScheduleHour(9, 1), true);
 assert.equal(isJstScheduleHour(21, 5), true);
 assert.equal(isJstScheduleHour(22, 5), false);
 assert.equal(isJstScheduleHour(12, 6), false);
+
+assert.deepEqual(normalizeHistoricalScanState({ next_cursor: "cursor-1", cycle: 2 }), {
+  version: 1, next_cursor: "cursor-1", cycle: 2,
+});
+assert.equal(advanceHistoricalScanState({ previous: { next_cursor: "cursor-1", cycle: 2 }, nextCursor: "cursor-2", runId: "run-1" }).next_cursor, "cursor-2");
+const wrapped = advanceHistoricalScanState({ previous: { next_cursor: "cursor-2", cycle: 2 }, reachedEof: true, runId: "run-2", scanned: 100, blankCandidates: 4 });
+assert.equal(wrapped.next_cursor, null);
+assert.equal(wrapped.cycle, 3);
+assert.equal(wrapped.reached_eof, true);
 
 const schema = resolveMinutesSchema({
   eventId: { type: "rich_text" },

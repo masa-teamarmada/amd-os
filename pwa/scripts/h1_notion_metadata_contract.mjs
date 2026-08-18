@@ -74,6 +74,27 @@ export function isJstScheduleHour(hour, weekday = 1) {
   return Number.isInteger(h) && Number.isInteger(day) && day >= 1 && day <= 5 && h >= 9 && h <= 21;
 }
 
+export function normalizeHistoricalScanState(value = {}) {
+  return {
+    version: 1,
+    next_cursor: typeof value.next_cursor === "string" && value.next_cursor ? value.next_cursor : null,
+    cycle: Number.isInteger(value.cycle) && value.cycle >= 0 ? value.cycle : 0,
+  };
+}
+
+export function advanceHistoricalScanState({ previous = {}, nextCursor = null, reachedEof = false, runId, scanned = 0, blankCandidates = 0 }) {
+  const current = normalizeHistoricalScanState(previous);
+  return {
+    version: 1,
+    next_cursor: reachedEof ? null : (typeof nextCursor === "string" && nextCursor ? nextCursor : current.next_cursor),
+    cycle: current.cycle + (reachedEof ? 1 : 0),
+    last_run_id: String(runId || ""),
+    last_scanned: Math.max(0, Number(scanned) || 0),
+    last_blank_candidates: Math.max(0, Number(blankCandidates) || 0),
+    reached_eof: Boolean(reachedEof),
+  };
+}
+
 function missingFields(properties, schema) {
   const missing = [];
   if (schema.eventId && !textValue(properties[schema.eventId.name])) missing.push("eventId");

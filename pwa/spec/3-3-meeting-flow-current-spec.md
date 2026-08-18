@@ -18,7 +18,7 @@
 
 H-1は、終わった会議の記録、議事録なしの再確認、前後24時間の予定カード、ノーション議事録のひも付けを整える定期確認である。sanitized reportとautomation memoryは毎run確定するが、`app_notifications(kind='h1_report')` は、まさの判断や操作が必要な結果だけで作る。
 
-LaunchAgentは毎時15分に起動し、`scripts/run-h1-background.sh` が `Asia/Tokyo` の平日09:00-21:59だけ本処理へ進める。Calendar/DB候補が0件でもNotion議事録data sourceのメタデータ空欄scanは省略しない。1run最大25件、本文非取得、既存値維持、member relationはunionのみ、更新後4項目readbackを必須とする。
+LaunchAgentは毎時15分に起動し、`scripts/run-h1-background.sh` が `Asia/Tokyo` の平日09:00-21:59だけ本処理へ進める。Calendar/DB候補が0件でもNotion議事録data sourceの全履歴メタデータ空欄scanは省略しない。pagination cursorをrun間で保存し、1run最大25空欄候補・最大8pageを順番に巡回、EOFで先頭へ戻る。本文非取得、既存値維持、member relationはunionのみ、更新後4項目readbackを必須とし、失敗runはcursorを進めない。
 
 | 結果 | OS通知 | 意味 |
 |---|---|---|

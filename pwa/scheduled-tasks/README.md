@@ -7,7 +7,7 @@
 - **正本**: 束ね routine は `amd-os-l2-consolidated-evidence` / `amd-os-l2-monthend-evidence` / `amd-os-l2-weekly-vc-funding-signals`。個別 L2 SKILL は束ね routine が参照する Phase 詳細。
 - **Mac 用同期先 (履歴/補助)**: `~/.claude/scheduled-tasks/amd-os-l<N>-<name>/SKILL.md` (= 現行 writer ではない)
 - **Cloud routine 用 (履歴/補助)**: claude.ai/code/routines の「指示」フィールドで `pwa/scheduled-tasks/amd-os-l<N>-<name>/SKILL.md を読んで実行` と指示していた。現行復旧先は 8-3 の実行場所表を優先
-- **H-1 background runner**: `scripts/run-h1-background.sh` と `scripts/run-h1-reviewer-background.sh` をLaunchAgentが実行する。H-1は平日09:00-21:59 JSTの毎時15分、reviewerは同45分。Codex Desktop cron `amd-os-l6-meeting-flow` / `amd-os-h-1-meeting-reviewer` はPAUSED。Calendar/DB候補がなくても最大25件のNotion議事録メタデータ空欄scanを行い、本文抽出・横断探索はしない。どちらも可視task・threadを作らない。
+- **H-1 background runner**: `scripts/run-h1-background.sh` と `scripts/run-h1-reviewer-background.sh` をLaunchAgentが実行する。H-1は平日09:00-21:59 JSTの毎時15分、reviewerは同45分。Codex Desktop cron `amd-os-l6-meeting-flow` / `amd-os-h-1-meeting-reviewer` はPAUSED。Calendar/DB候補がなくても全履歴をcursor巡回し、最大25件のNotion議事録メタデータ空欄scanを行う。本文抽出・横断探索はしない。どちらも可視task・threadを作らない。
 - **編集は repo の正本で**。Mac 側は rsync で同期 (= 双方向同期スクリプトを別途)
 - **M-1 monthly report**: 2026-05-31 以降は Supabase L2 snapshot primary。5生データは L2 coverage gap / stale / source refs 不足 / no-data 判定候補の fallback として見る。
 - **H-1 Notion eventId**: eventId を埋められるのは MMO automation。Calendar event から Notion page を見つけたら可能な範囲で `eventId` を追記し、欠損だけを理由に skip しない。title/date/attendees/Gemini/Drive/Gmail URL fallback を必ず使う。

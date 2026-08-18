@@ -12,7 +12,7 @@
 
 現在の是正ターゲットは、**cadence ベースで 3 本の Claude routine に束ねる** (= 2026-06-08 まさ確定、新ナンバリング D / M / W / H):
 
-> **2026-08-18 現行**: H-1とH-1 reviewerは、Codex Desktopの可視taskを作る定期automationを停止した。MacのLaunchAgentが `codex exec --ephemeral` を起動し、H-1は平日09:00-21:59 JSTの毎時15分、reviewerは同45分に動く。候補gateは先に固定スクリプトでDBを確認し、Calendarは接続済みconnectorを1回だけ読む。Calendar/DB候補なしでもNotion議事録のeventId/PJ/メンバー/日付空欄を本文なしで最大25件scanし、空欄だけを補完して4項目をreadbackする。本文抽出・横断探索は会議候補がある時だけ。人の判断が必要な時、処理が止まった時だけOS通知を作る。会議記録・予定・ノーションひも付けを更新しただけ（まさの判断や操作が不要）、既存カード確認だけ・対象なし・変更なしは通知しない。可視prep threadはW-Prep専任であり、H-1/reviewerは作らない。古い「MMO / Codex Desktop automation / archive watchdog」の記述は履歴で、この段落が優先する。
+> **2026-08-18 現行**: H-1とH-1 reviewerは、Codex Desktopの可視taskを作る定期automationを停止した。MacのLaunchAgentが `codex exec --ephemeral` を起動し、H-1は平日09:00-21:59 JSTの毎時15分、reviewerは同45分に動く。候補gateは先に固定スクリプトでDBを確認し、Calendarは接続済みconnectorを1回だけ読む。Calendar/DB候補なしでもNotion議事録の全履歴からeventId/PJ/メンバー/日付空欄を本文なしで最大25件scanし、pagination cursorで後半の古いpageまで巡回する。空欄だけを補完して4項目をreadbackし、失敗時はcursorを進めない。本文抽出・横断探索は会議候補がある時だけ。人の判断が必要な時、処理が止まった時だけOS通知を作る。会議記録・予定・ノーションひも付けを更新しただけ（まさの判断や操作が不要）、既存カード確認だけ・対象なし・変更なしは通知しない。可視prep threadはW-Prep専任であり、H-1/reviewerは作らない。古い「MMO / Codex Desktop automation / archive watchdog」の記述は履歴で、この段落が優先する。
 
 - **Claude routine `amd-os-l2-consolidated-evidence`** = 表示名「**AMD OS L2 日次抽出 (D-1〜D-11+D-13 統合)**」(daily 08:00 JST、`0 8 * * *`): D-1〜D-11 + D-13。MS Progress、Member Activity Evidence、Media Mentions も daily 化してここに同居。
 - **Claude Code Routine `amd-os-l2-monthend-evidence`** = 表示名「**AMD OS L2 月末抽出 (M-1月次レポート/M-2 XRL/M-3経営シグナル)**」(Fable 5固定、月末候補日16:00 JST発火、cron UTC `0 7 28-31 * *`、Phase 0で最終日判定、17:00完了): M-1〜M-3を依存順に1本で実行する。M-3 (Management Signal) を18:00月次振り返りMTG前に出揃わせる。

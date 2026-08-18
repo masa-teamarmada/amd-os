@@ -296,7 +296,7 @@ Notion page を採用できた event は、本文取得とは別にページプ�
 
 ### B-1c: 独立した Notion 空欄scan
 
-held / recovery / upcoming が0件でも、gate JSONの `candidates.notion_metadata.scan_required=true` なら議事録data sourceを本文なしで検索する。4項目のいずれかが空のpageを `limit` 件まで処理し、超過分は次回runへ持ち越す。Calendar event、PJ、memberを一意・高信頼に解決できない項目は書かないが、他の確定項目は空欄だけ補完してよい。候補0件は正常no-op。Calendar connector不在をNotion候補0件へ読み替えない。
+held / recovery / upcoming が0件でも、gate JSONの `candidates.notion_metadata.scan_required=true` なら議事録data sourceの**全履歴**を本文なしで検索する。`start_cursor`から再開し、4項目のいずれかが空のpageを `limit` 件集めるまで最大`max_scan_pages`だけpaginationする。EOF前は`next_cursor`を次回へ保存し、EOFではcursorをnullへ戻して`cycle`を増やすため、毎回先頭25件だけで止まらず古い後半pageまで巡回する。cursor stateにはpage ID/title/本文/URLを保存しない。Calendar event、PJ、memberを一意・高信頼に解決できない項目は書かないが、他の確定項目は空欄だけ補完してよい。候補0件は正常no-op。Calendar connector不在をNotion候補0件へ読み替えない。scanまたはreadback失敗時はcursorを進めない。
 
 **Auth failure branch**: Notion connector が `UNAUTHORIZED oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` / reauth required を返した場合も、ユーザーの再認証を待たない。可能なら最小 Notion connector ping だけで host 側の再認証 UI を発火し、すぐ `npm run notify:connector-auth -- --connector notion --source h1_meeting_flow --reason <reason> --context "<title / date>" --dedupe-hours 24` を実行する。この helper は connector/app ID と再認証リンクを自動解決し、`app_notifications(kind='connector_auth')` に PWA/Swift 両方が拾える復旧アクションを残す。既存未読通知がある場合は最新payloadへ更新し、Swift再通知用に `native_notified_at` も NULL に戻す。
 

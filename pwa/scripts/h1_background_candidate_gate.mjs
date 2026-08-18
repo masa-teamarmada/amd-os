@@ -20,9 +20,12 @@ loadEnv(path.join(PWA_ROOT, ".vercel", ".env.production.local"));
 
 const args = parseArgs(process.argv.slice(2));
 const NOTION_METADATA_CANDIDATE_LIMIT = 25;
+const NOTION_METADATA_MAX_SCAN_PAGES = 8;
 
 async function main() {
   const outputPath = requiredPath(args.output, "--output");
+  const notionMetadataStatePath = requiredPath(args["notion-metadata-state"], "--notion-metadata-state");
+  const notionMetadataState = readNotionMetadataState(notionMetadataStatePath);
   const now = new Date();
   const windows = {
     calendar_min: new Date(now.getTime() - 4 * 60 * 60 * 1000),
@@ -77,8 +80,13 @@ async function main() {
       upcoming: upcomingCandidates,
       notion_metadata: {
         scan_required: true,
+        scope: "all_history",
         limit: NOTION_METADATA_CANDIDATE_LIMIT,
+        max_scan_pages: NOTION_METADATA_MAX_SCAN_PAGES,
         data_source: "minutes",
+        state_file: notionMetadataStatePath,
+        start_cursor: notionMetadataState.next_cursor,
+        cycle: notionMetadataState.cycle,
         blank_properties: ["eventId", "PJ", "member", "date"],
         body_read_allowed: false,
         external_writes: "blank_only_after_unique_match",
@@ -276,6 +284,22 @@ function jstStamp(date) {
 function writeJson(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+function readNotionMetadataState(file) {
+  if (!fs.existsSync(file)) return { version: 1, next_cursor: null, cycle: 0 };
+  try {
+    const value = JSON.parse(fs.readFileSync(file, "utf8"));
+    return {
+      version: 1,
+      next_cursor: typeof value?.next_cursor === "string" && value.next_cursor ? value.next_cursor : null,
+      cycle: Number.isInteger(value?.cycle) && value.cycle >= 0 ? value.cycle : 0,
+    };
+  } catch {
+    // A corrupt local cursor must not disable historical coverage. Restart at
+    // the beginning and let the writer replace the state after a verified run.
+    return { version: 1, next_cursor: null, cycle: 0 };
+  }
 }
 
 function parseArgs(argv) {

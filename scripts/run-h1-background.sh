@@ -11,6 +11,7 @@ PROMPT_FILE="${REPO_DIR}/scripts/h1-background-runner-prompt.md"
 LOG_DIR="${AUTOMATION_DIR}/logs"
 MODE="${1:-}"
 WORK_DIR="${AUTOMATION_DIR}/background-work"
+NOTION_METADATA_STATE_FILE="${AUTOMATION_DIR}/run_state/notion_metadata_scan.json"
 
 mkdir -p "${LOG_DIR}" "${AUTOMATION_DIR}/runner-output" "${WORK_DIR}"
 
@@ -36,7 +37,8 @@ else
   node "${REPO_DIR}/pwa/scripts/h1_background_candidate_gate.mjs" \
     --output "${gate_file}" \
     --empty-report-dir "${AUTOMATION_DIR}/reports" \
-    --memory-file "${AUTOMATION_DIR}/memory.md"
+    --memory-file "${AUTOMATION_DIR}/memory.md" \
+    --notion-metadata-state "${NOTION_METADATA_STATE_FILE}"
   gate_status=$?
   set -e
   if [[ "${gate_status}" == "0" ]]; then
