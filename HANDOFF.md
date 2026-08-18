@@ -1,47 +1,47 @@
 # AMD OS Handoff
 
-最終更新: 2026-08-14 JST
+最終更新: 2026-08-19 JST
 
-対象: 請求対象PJの契約原本監査、資料室リンク、SX現行契約の台帳・コックピット反映
+対象: PJワークスペースのガント並べ替え保存、初期配色、再読み込み性能
 
-作業種別: 非開発PJ運用（本番データ更新）
+作業種別: development
 
 ## 今回の到達点
 
-- SX（p21）の締結済み請負契約書を契約台帳の押印版として登録し、現行契約を `signed` として確認した。
-- SXコックピットの契約上の実行条件を、原本から確認した月額請求、検収後60日以内の支払、毎月の完了通知・検査、再委託の事前承認へ更新した。立替上乗せ不可は既存の確定値を維持した。
-- SX資料室に締結済み原本を契約フォルダ、現行見積書を「入札・調達」フォルダへAMD内部限定でリンクした。
-- CX（p20 / NIMS）資料室の「入札・調達」に、現行の仕様・見積合わせ・提出書類、本見積書、前年度の入札一式をAMD内部限定でリンクした。
-- NIMS（p28）は連携覚書であり、個別有償支援は都度書面の扱い。今回確認した範囲では、この覚書に直結する入札一式はなかった。
+- ガントの同一階層タスク並べ替えを、兄弟全件のversionを検査する1トランザクション保存へ変更した。途中失敗で表示順が元へ戻る原因を解消した。
+- route-level loading/error/完成面をAMDブルー・白・チャコールの同一skinへ統一し、旧・淡い和風色の初期表示を廃止した。
+- 重いmanagement投影を他のsummary queryと同時開始し、PJ名・active member・表示名だけを認可確認後60秒cacheへ分離した。ガント・論点・関係先・週次データはcacheしていない。
+- 本番desktop/mobileで旧skin 0件、背景 `#f5f5f7`、横崩れなし、console warning/error 0件を確認した。再読み込み実測は約4.1〜5.1秒で、さらに短縮する場合はサーバー側query別計測が次段階。
+- 詳細仕様は `pwa/spec/3-16-project-weekly-control-current-spec.md`、利用者向け説明は `pwa/manual/2-3-pj-cockpit.md`、原因と再発防止は `pwa/BUGS.md` に記録した。`design_log/` は触っていない（現行spec・changelog・BUGSが既存の実装履歴正本）。
 
-## 正本と現在地
-
-- 契約条件の正本: `contracts.operational_terms_json`。PJコックピット表示は `projects.contract_terms_json.currentContracts[]`。
-- 契約台帳の運用仕様: `pwa/spec/5-6-contracts-management-current-spec.md`。
-- 資料室のリンク先はAMD OS本番の各PJ資料室。Drive共有範囲は変更せず、すべてAMD内部で登録した。
-- 今回の本番読戻しで、SXコックピットに「申請不可」「契約代金に含む。立替のクライアント請求上乗せ不可」を表示することを確認した。
-- durable note: 不要。再利用すべきPJ運用事実は契約台帳・コックピット・資料室に正規登録済みであり、別のプロジェクト文書へ重複保存しない。
-
-## Repo状態
+## Repo・本番状態
 
 - canonical path: `/Users/masa/projects/AMD/amd-os`
-- branch: `main`（開始時に `origin/main` との一致を確認）
-- `origin/main` と一致、ahead 0 / behind 0、未push commit 0。
-- 今回と無関係のBZMレーンの未コミット差分が正規checkoutにある。UI、検査、仕様・manualにまたがり、同時更新中のため固定一覧はこのHANDOFFへ写さない。所有者はこの契約監査セッションでは未確認のため、stage・revert・削除しない。次のBZM担当が現在の `git status` を確認してcommitまたはrevertを決める。
-- 今回はコード・仕様・スキーマ変更なし。OSマニュアル同期は対象外（既存画面からのデータ登録のみ）。
+- branch: `main`
+- 対象実装commit: `71a8ca5f`（並べ替え）、`4167691d`（配色・再読み込み）。いずれもorigin/mainと本番へ反映済み。
+- handoff/manual同期はこのhandoff作業のcommitを参照すること。
+- PWA本番は `/api/build-info` でbuild version、git SHA、dirty=falseを読戻す。
+- 検証済み: workspace契約検査、three-party view検査、TypeScript、Next.js production build、critical UI群、本番desktop/mobile実画面。
+
+## 既存dirty（今回の作業外）
+
+- `pwa/manual/4-3-amd-score-spec.md`、`pwa/spec/4-2-amd-score-current-spec.md`: AMD Score文書の別作業。所有者はAMD Score担当、stage/revertしない。次のAMD Score作業開始時に差分を再確認してcommitまたはrevertを判断する。
+- `docs/corporate/` の5ファイル: 役員貸付・金銭消費貸借文書の別作業。所有者はcorporate文書担当、削除しない。次のcorporate文書セッションで正本性とcommit対象を判断する。
+- `pwa/scripts/diagnose-cash-inflow.mts`、`pwa/scripts/refresh-live-monthly-pl.mts`: finance診断・更新スクリプトの別作業。所有者はfinance担当、実行・stage・削除しない。次のfinanceセッションで用途と安全弁を確認する。
 
 ## 未解決
 
-- 当初依頼の「請求書作成画面に出る全PJ」の原本監査は、SXとCX/NIMS関連の更新後も全件完了として再集計していない。残りのinvoice対象PJについて、現行の締結済み原本または現行契約台帳の有無を再監査する。
-- 原本不在のPJは `expenseReimbursementAllowed` を推測で埋めず、未抽出のまま「原本欠測」として残す。
+- 今回依頼は完了。再読み込みは本番実測4.1〜5.1秒なので、まさがさらに短縮を望む場合は、freshnessを保ったまま各Supabase queryとRSC payloadを計測し、最重量枝を特定する。
+- 以前のhandoffにあった請求対象PJの契約原本監査は未完了の運用バックログ。契約仕様 `pwa/spec/5-6-contracts-management-current-spec.md` を正本として、別タスクで再開する。
 
 ## 次セッションで最初にすること
 
-請求書作成画面に出るPJを現在の本番から一覧化し、SX（p21）を除外して、原本あり・原本欠測・candidate適用待ちを数で整理する。契約条件は原本または現行契約台帳だけを根拠にし、既存の candidate → review → apply 境界を守る。
+新しい依頼を確認する。ワークスペース高速化の続きなら、productionでquery別のサーバー計測を先に入れ、計測なしに運用データ全体をcacheしない。
 
 ## 参照先
 
-- 契約仕様: `pwa/spec/5-6-contracts-management-current-spec.md`
-- コックピット仕様: `pwa/spec/3-8-cockpit-current-spec.md`
-- 人向け契約運用: `pwa/manual/6-7-contracts-management-spec.md`
+- 現行仕様: `pwa/spec/3-16-project-weekly-control-current-spec.md`
+- 人向けマニュアル: `pwa/manual/2-3-pj-cockpit.md`
+- バグ記録: `pwa/BUGS.md`
+- 変更履歴: `pwa/spec/6-1-appendix-changelog.md`
 - 次セッション用プロンプト: `SESSION_MIGRATION_PROMPT.md`
