@@ -28,6 +28,9 @@
 - `pwa/manual/4-3-amd-score-spec.md`、`pwa/spec/4-2-amd-score-current-spec.md`: AMD Score文書の別作業。所有者はAMD Score担当、stage/revertしない。次のAMD Score作業開始時に差分を再確認してcommitまたはrevertを判断する。
 - `docs/corporate/` の5ファイル: 役員貸付・金銭消費貸借文書の別作業。所有者はcorporate文書担当、削除しない。次のcorporate文書セッションで正本性とcommit対象を判断する。
 - `pwa/scripts/diagnose-cash-inflow.mts`、`pwa/scripts/refresh-live-monthly-pl.mts`: finance診断・更新スクリプトの別作業。所有者はfinance担当、実行・stage・削除しない。次のfinanceセッションで用途と安全弁を確認する。
+- `pwa/src/app/(app)/admin/page.tsx`、`AdminScheduleClient.tsx`、GlobalNav、surface catalog、admin-scheduleのlib群と検査: Admin運用カレンダーの別作業。所有者はAdmin担当、現在も編集進行中とみなし、stage/revert/削除しない。次のAdminセッションが一式を検証してcommitする。
+
+上記のうちcorporate文書群とfinanceスクリプトはstage済み、Admin一式とAMD Score文書はunstaged、Admin pageはuntracked。今回のcommitへは混ぜていない。
 
 ## 未解決
 

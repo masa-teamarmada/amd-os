@@ -23,7 +23,7 @@
 - 並べ替え修正はcommit `71a8ca5f`、初期配色・reload修正は`4167691d`。どちらもmain、本番へ反映済み。
 - 本番desktop/mobileで旧skin 0件、背景`#f5f5f7`、横崩れなし、console warning/error 0件を確認済み。再読み込み実測は約4.1〜5.1秒。
 - 回帰検査は `pwa/scripts/check_workspace_reload_contract.cjs` と並べ替え関連のAPI/DB契約検査。TypeScriptとproduction buildも前セッションで成功済み。
-- AMD Scoreの2文書、`docs/corporate/`の文書群、financeの2スクリプトは別作業のdirty。対象タスクでない限りstage・revert・削除・実行しない。
+- AMD Scoreの2文書、`docs/corporate/`の文書群、financeの2スクリプト、Admin運用カレンダー一式は別作業のdirty。corporate/financeはstage済み、Admin/AMD Scoreはunstaged、Admin pageはuntracked。対象タスクでない限りstage・revert・削除・実行しない。
 
 ## 次タスク
 
