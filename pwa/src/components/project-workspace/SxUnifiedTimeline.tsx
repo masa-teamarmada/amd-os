@@ -2104,42 +2104,40 @@ export function SxUnifiedTimeline({
       setTaskNestDragBoth({ ...current, saving: true });
     }
     try {
-      let bundle: SxManagementBundle | null = null;
-      for (const { task, sortOrder } of moved) {
-        const response = await fetch(
+      const response = await fetch(
           `/api/project-workspace/${encodeURIComponent(projectId)}/management`,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              resource: "task",
-              id: task.id,
-              patch: { sort_order: sortOrder },
-              expected_version: task.version,
+              action: "reorder_tasks",
+              items: nextOrder.map((task, index) => ({
+                id: task.id,
+                expected_version: task.version,
+                sort_order: index * 10,
+              })),
             }),
           },
         );
-        const body = await response.json().catch(() => ({}));
-        if (response.status === 409) {
-          setTaskNestDragBoth(null);
-          await bestEffortRefetchManagement(
-            "他の人がこのタスクを先に更新したよ。最新の状態に更新したよ",
-            "他の人がこのタスクを先に更新したみたい。画面を再読み込みしてね",
-          );
-          return;
-        }
-        if (!response.ok)
-          throw new Error(
-            typeof body.error === "string"
-              ? body.error
-              : "タスクの並び順を保存できなかったよ",
-          );
-        bundle = (body.bundle as SxManagementBundle) || bundle;
+      const body = await response.json().catch(() => ({}));
+      if (response.status === 409) {
+        setTaskNestDragBoth(null);
+        await bestEffortRefetchManagement(
+          "他の人がこのタスクを先に更新したよ。最新の状態に更新したよ",
+          "他の人がこのタスクを先に更新したみたい。画面を再読み込みしてね",
+        );
+        return;
       }
+      if (!response.ok)
+        throw new Error(
+          typeof body.error === "string"
+            ? body.error
+            : "タスクの並び順を保存できなかったよ",
+        );
       setTaskNestDragBoth(null);
       // 応答のbundleは使わない: 送信中に入った別の編集を、古いbundleで消さないため。
       if (onManagementOptimistic) return;
-      if (bundle) onManagementChange(bundle, reorderMessage);
+      if (body.bundle) onManagementChange(body.bundle as SxManagementBundle, reorderMessage);
     } catch (caught) {
       setTaskNestDragBoth(null);
       const message =

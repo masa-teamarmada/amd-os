@@ -470,7 +470,7 @@ assertIncludes(timelineFile, timeline, [
   'className="absolute top-0 pl-1 text-[9px] font-bold leading-none text-[#1d1d1f]"',
   "{month.yearLabel}",
   'className={`absolute bottom-0 pl-1 text-[9px] ${month.isYearStart ? "font-bold text-[#1d1d1f]" : "text-[#3c3c43]"}`}',
-  'className="absolute z-10 flex -translate-x-full items-center gap-0.5 whitespace-nowrap pr-1 text-[9px] font-bold leading-none text-[#7c3aed]"',
+  'text-[9px] font-bold text-[#027FDC]',
   'data-gantt-milestone-diamond={milestone.id}',
   'absolute -top-[5px] left-0 grid h-11 w-11',
   'markerPct >= 60 ? "right-3 pr-2 text-right" : "left-3 pl-2 text-left"',
@@ -502,10 +502,28 @@ assertIncludes(timelineFile, timeline, [
   "function commitTaskReorder(",
   "function orderedSiblings(",
   "sort_order:",
+  'action: "reorder_tasks"',
+  "items: nextOrder.map((task, index)",
   "data-gantt-task-reorder-indicator={reorderPlace}",
   // The dragged row must follow the pointer, not move invisibly.
   "data-gantt-task-drag-ghost={taskNestDrag.taskId}",
   "left: taskNestDrag.pointerClientX + 12",
+]);
+assertNotIncludes(timelineFile, timeline, [
+  "for (const { task, sortOrder } of moved)",
+]);
+
+const atomicReorderMigrationFile =
+  "scripts/migrations/287_atomic_project_task_reorder.sql";
+const atomicReorderMigration = read(atomicReorderMigrationFile);
+assertIncludes(atomicReorderMigrationFile, atomicReorderMigration, [
+  "reorder_project_management_tasks",
+  "ORDER BY id\n  FOR UPDATE",
+  "task reorder version conflict",
+  "reorder tasks must be siblings",
+  "project_management_update_history",
+  "REVOKE ALL ON FUNCTION",
+  "GRANT EXECUTE ON FUNCTION",
 ]);
 
 const scheduleMigrationFile =

@@ -882,6 +882,34 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   try {
     const body: unknown = await request.json();
     if (!isRecord(body)) throw new Error("更新内容が不正だよ");
+    if (body.action === "reorder_tasks") {
+      if (!Array.isArray(body.items) || body.items.length < 2 || body.items.length > 500)
+        throw new Error("並び替えるタスクが不正だよ");
+      const items = body.items.map((item) => {
+        if (!isRecord(item)) throw new Error("並び替えるタスクが不正だよ");
+        return {
+          id: text(item.id, "id", 80),
+          expected_version: requiredExpectedVersion(item.expected_version),
+          sort_order: numericValue(item.sort_order, "sort_order", { min: 0 }),
+        };
+      });
+      const db = createAdminClient();
+      const { error } = await db.rpc("reorder_project_management_tasks", {
+        p_project_id: projectId,
+        p_items: items,
+        p_changed_by: context.access.memberId,
+      });
+      if (error) {
+        if (error.message.includes("task reorder version conflict"))
+          return NextResponse.json(
+            { error: "他の人がこのタスクを先に更新したよ。最新の状態に更新するね", code: "version_conflict" },
+            { status: 409 },
+          );
+        throw new Error(`タスクの並び順を保存できなかったよ: ${error.message}`);
+      }
+      const bundle = await getSxManagementBundle(projectId, true);
+      return NextResponse.json({ ok: true, bundle }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+    }
     const resource = parseResource(body.resource);
     const id = text(body.id, "id", 80);
     const meta = RESOURCE_META[resource];
