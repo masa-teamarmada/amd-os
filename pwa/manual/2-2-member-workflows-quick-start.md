@@ -38,7 +38,8 @@ AMD メンバー (= 社内常勤 / 副業) が AMD OS で日常的に触る画�
 | アクティブ value plan | `value_plan_cycles` (= `status='fixed'`) |
 | MS 一覧 | `value_milestones` (= `is_active=true`) |
 | 月次進捗率 | `milestone_monthly_progress` |
-| 今週やったこと | `member_activities` (= `source='member_weekly'`) |
+| 来週やること / 手動タスク | `member_weekly_tasks` |
+| 今週やったこと（自動抽出） | `member_activities` (= `source='member_weekly'`) |
 | 月初合意状態 | `member_monthly_work_agreements` + 当月 snapshot hash |
 
 報酬計算の正本は GAS `gas-main/059_RewardV2_Ops.js` の `rv2_calcRewardSummary`。 結果は `billing_cycles.member_allocations_json` にキャッシュされ、 PWA は再計算せずこの json を読むだけ。
@@ -73,6 +74,12 @@ PJ 判定は、 PJ 専用 email / PJ 名 / client 名 / `project_knowledge(categ
 社内メンバー 2 名以上の共同作業で PJ が特定できないものは `p00` (= AMD 全体) として保存される。
 
 `/mypage` は今週 (= 月-日 JST) の行を表示する。 マイページに自分の活動が出ないときは、 Calendar の共有設定または `members.google_calendar_status` を確認する。
+
+### 来週・今週の手動タスク
+
+マイページの最上部にある `来週やること` へ、来週進めることを追加する。来週になったタスクは次の `今週やったこと` に入り、チェックボックスをオンにすると `完了`、オフに戻すと `未完了` になる。前週・前々週は下のトグルから見られる。
+
+週をまたいで未完了だったタスクは、元の週に `未完了` として残したまま翌週へ自動で追加される。完了済みは追加されない。下段の「自動抽出の活動」はGmailやCalendar等の活動根拠で、手動タスクの完了チェックとは別もの。
 
 ## 立替申請 (`/reimburse`)
 

@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { LinkedMemberText } from "@/components/members/LinkedMemberText";
 import { createClient } from "@/lib/supabase/client";
+import type { MemberWeeklyTask } from "@/lib/mypage/member-weekly-tasks";
 
 type AllocationStatus = "confirmed" | "reported" | "not_set";
 
@@ -66,6 +67,7 @@ interface MyPageMonth {
 }
 
 interface MyPageData {
+  viewer: Member;
   member: Member;
   months: MyPageMonth[];
   weeklyActivities: MyPageWeeklyActivity[];
@@ -394,6 +396,7 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
   const yms = targetYms(6);
   const progressYms = Array.from(new Set([...yms, ...yms.map(prevYm)]));
   const week = currentWeekBoundsJST();
+  const firstVisibleWeekStart = new Date(week.start.getTime() - 14 * 86400000).toISOString();
 
   const [pmRes, weeklyRes] = await Promise.all([
     supabase
@@ -406,7 +409,7 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
       .select("id, project_id, source, title, content_preview, item_date, raw_metadata")
       .eq("member_id", member.memberId)
       .eq("source", "member_weekly")
-      .gte("item_date", week.startIso)
+      .gte("item_date", firstVisibleWeekStart)
       .lt("item_date", week.endIso)
       .order("item_date", { ascending: false, nullsFirst: false })
       .limit(60),
@@ -421,6 +424,7 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
 
   if (projectIds.length === 0) {
     return {
+      viewer,
       member,
       months: yms.map((ym) => ({ ym, isCurrent: ym === yms[0], projects: [] })),
       weeklyActivities: [],
@@ -615,6 +619,7 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
   });
 
   return {
+    viewer,
     member,
     months,
     weeklyActivities,
@@ -743,10 +748,12 @@ export function MyPageContent({
 
         <MonthlyAgreementCard memberId={data.member.memberId} />
 
-        <WeeklyActivitiesCard
+        <WeeklyTaskPlanner
           activities={data.weeklyActivities}
           weekStart={data.weekStart}
           weekEnd={data.weekEnd}
+          memberId={data.member.memberId}
+          editable={data.viewer.memberId === data.member.memberId}
           onRefreshed={() => {
             void load();
           }}
@@ -887,15 +894,276 @@ function MonthlyAgreementCard({ memberId }: { memberId: string }) {
   );
 }
 
-function WeeklyActivitiesCard({
+function shiftWeekStart(weekStart: string, offset: number) {
+  const date = dateFromJstKey(weekStart);
+  date.setUTCDate(date.getUTCDate() + offset * 7);
+  return dateKeyJST(date);
+}
+
+function weekEndFromStart(weekStart: string) {
+  const date = dateFromJstKey(weekStart);
+  date.setUTCDate(date.getUTCDate() + 6);
+  return dateKeyJST(date);
+}
+
+function isActivityInWeek(activity: MyPageWeeklyActivity, weekStart: string) {
+  if (!activity.itemDate) return false;
+  const date = dateKeyJST(new Date(activity.itemDate));
+  return date >= weekStart && date < shiftWeekStart(weekStart, 1);
+}
+
+function WeeklyTaskPlanner({
   activities,
   weekStart,
   weekEnd,
+  memberId,
+  editable,
   onRefreshed,
 }: {
   activities: MyPageWeeklyActivity[];
   weekStart: string;
   weekEnd: string;
+  memberId: string;
+  editable: boolean;
+  onRefreshed?: () => void;
+}) {
+  const nextWeekStart = useMemo(() => shiftWeekStart(weekStart, 1), [weekStart]);
+  const previousWeekStart = useMemo(() => shiftWeekStart(weekStart, -1), [weekStart]);
+  const twoWeeksAgoStart = useMemo(() => shiftWeekStart(weekStart, -2), [weekStart]);
+  const weekStarts = useMemo(() => [nextWeekStart, weekStart, previousWeekStart, twoWeeksAgoStart], [nextWeekStart, previousWeekStart, twoWeeksAgoStart, weekStart]);
+  const [tasks, setTasks] = useState<MemberWeeklyTask[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+
+  const loadTasks = useCallback(async () => {
+    setLoading(true);
+    setMessage(null);
+    try {
+      if (editable) {
+        const rollover = await fetch("/api/mypage/weekly-tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "rollover", weekStart }),
+        });
+        if (!rollover.ok) {
+          const payload = (await rollover.json().catch(() => ({}))) as { error?: string };
+          throw new Error(payload.error || "未完了タスクの繰越に失敗しました");
+        }
+      }
+      const params = new URLSearchParams({ memberId, weekStart: weekStarts.join(",") });
+      const response = await fetch(`/api/mypage/weekly-tasks?${params.toString()}`, { cache: "no-store" });
+      const payload = (await response.json().catch(() => ({}))) as { ok?: boolean; tasks?: MemberWeeklyTask[]; error?: string };
+      if (!response.ok || payload.ok === false) throw new Error(payload.error || "週次タスクを読み込めませんでした");
+      setTasks(payload.tasks || []);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "週次タスクを読み込めませんでした");
+    } finally {
+      setLoading(false);
+    }
+  }, [editable, memberId, weekStart, weekStarts]);
+
+  useEffect(() => {
+    void loadTasks();
+  }, [loadTasks]);
+
+  const mutate = async (body: Record<string, unknown>) => {
+    setSubmitting(true);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/mypage/weekly-tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!response.ok || payload.ok === false) throw new Error(payload.error || "保存に失敗しました");
+      await loadTasks();
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "保存に失敗しました");
+      return false;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const addNextWeekTask = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!newTaskTitle.trim()) return;
+    const saved = await mutate({ action: "create", weekStart: nextWeekStart, title: newTaskTitle });
+    if (saved) setNewTaskTitle("");
+  };
+
+  const setTaskStatus = async (task: MemberWeeklyTask, status: "open" | "completed") => {
+    if (!editable || task.status === status) return;
+    await mutate({ action: "set-status", taskId: task.id, status });
+  };
+
+  const tasksFor = (targetWeekStart: string) =>
+    tasks
+      .filter((task) => task.weekStart === targetWeekStart)
+      .sort((a, b) => Number(a.status === "completed") - Number(b.status === "completed"));
+  const activityFor = (targetWeekStart: string) => activities.filter((activity) => isActivityInWeek(activity, targetWeekStart));
+
+  return (
+    <>
+      <section className="bg-white rounded-2xl border border-[#e5e5e7] p-4 shadow-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold tracking-[0.12em] uppercase text-[#86868b]">Next Week</p>
+            <h2 className="mt-0.5 text-[14px] font-semibold text-[#1d1d1f]">来週やること</h2>
+          </div>
+          <span className="pt-0.5 text-[11px] text-[#86868b] whitespace-nowrap">
+            {formatDateJa(nextWeekStart)} - {formatDateJa(weekEndFromStart(nextWeekStart))}
+          </span>
+        </div>
+        {message && <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-800">{message}</p>}
+        <WeeklyTaskRows tasks={tasksFor(nextWeekStart)} editable={editable} onStatusChange={setTaskStatus} emptyText="来週の予定はまだありません。" />
+        {editable && (
+          <form onSubmit={addNextWeekTask} className="mt-3 flex items-center gap-2 border-t border-[#e5e5e7] pt-3">
+            <label className="sr-only" htmlFor="next-week-task">来週のタスク</label>
+            <input
+              id="next-week-task"
+              value={newTaskTitle}
+              onChange={(event) => setNewTaskTitle(event.target.value)}
+              maxLength={240}
+              placeholder="来週やることを追加"
+              className="min-w-0 flex-1 rounded-xl border border-[#d1d1d6] bg-[#f5f5f7] px-3 py-2 text-[13px] text-[#1d1d1f] placeholder:text-[#86868b] focus:border-[#007aff] focus:bg-white focus:outline-none"
+            />
+            <button type="submit" disabled={submitting || !newTaskTitle.trim()} className="min-h-10 shrink-0 rounded-xl bg-[#1d1d1f] px-3 text-[12px] font-semibold text-white disabled:opacity-45">
+              追加
+            </button>
+          </form>
+        )}
+        {!editable && <p className="mt-3 text-[11px] text-[#86868b]">他メンバーの週次タスクは閲覧専用です。</p>}
+      </section>
+
+      <WeeklyActivitiesCard
+        activities={activityFor(weekStart)}
+        weekStart={weekStart}
+        weekEnd={weekEnd}
+        manualTasks={tasksFor(weekStart)}
+        editable={editable}
+        taskLoading={loading}
+        onTaskStatusChange={setTaskStatus}
+        onRefreshed={onRefreshed}
+      />
+
+      <details className="group rounded-2xl border border-[#e5e5e7] bg-white shadow-sm">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 py-3 text-[13px] font-semibold text-[#1d1d1f] [&::-webkit-details-marker]:hidden">
+          <span className="text-[#86868b] transition-transform group-open:rotate-90">›</span>
+          前週・前々週を表示
+          <span className="ml-auto text-[11px] font-normal text-[#86868b]">未完了も履歴に残ります</span>
+        </summary>
+        <div className="space-y-4 border-t border-[#e5e5e7] px-4 py-3">
+          {[previousWeekStart, twoWeeksAgoStart].map((pastWeekStart) => (
+            <PastWeekSection key={pastWeekStart} weekStart={pastWeekStart} tasks={tasksFor(pastWeekStart)} activities={activityFor(pastWeekStart)} editable={editable} onStatusChange={setTaskStatus} />
+          ))}
+        </div>
+      </details>
+    </>
+  );
+}
+
+function WeeklyTaskRows({
+  tasks,
+  editable,
+  onStatusChange,
+  emptyText,
+}: {
+  tasks: MemberWeeklyTask[];
+  editable: boolean;
+  onStatusChange: (task: MemberWeeklyTask, status: "open" | "completed") => void;
+  emptyText: string;
+}) {
+  if (tasks.length === 0) return <p className="mt-3 rounded-xl bg-[#f5f5f7] px-3 py-3 text-[13px] text-[#86868b]">{emptyText}</p>;
+  return (
+    <div className="mt-3 divide-y divide-[#e5e5e7] rounded-xl border border-[#e5e5e7] bg-[#fbfbfd]">
+      {tasks.map((task) => {
+        const complete = task.status === "completed";
+        return (
+          <label key={task.id} className={`flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 ${editable ? "hover:bg-white" : "cursor-default"}`}>
+            <input
+              type="checkbox"
+              checked={complete}
+              disabled={!editable}
+              onChange={(event) => onStatusChange(task, event.target.checked ? "completed" : "open")}
+              className="size-4 shrink-0 accent-[#007aff] disabled:cursor-not-allowed"
+              aria-label={`${task.title}を${complete ? "未完了に戻す" : "完了にする"}`}
+            />
+            <span className={`min-w-0 flex-1 text-[13px] leading-snug ${complete ? "text-[#86868b] line-through" : "font-medium text-[#1d1d1f]"}`}>{task.title}</span>
+            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${complete ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>{complete ? "完了" : "未完了"}</span>
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
+function PastWeekSection({
+  weekStart,
+  tasks,
+  activities,
+  editable,
+  onStatusChange,
+}: {
+  weekStart: string;
+  tasks: MemberWeeklyTask[];
+  activities: MyPageWeeklyActivity[];
+  editable: boolean;
+  onStatusChange: (task: MemberWeeklyTask, status: "open" | "completed") => void;
+}) {
+  const weekEnd = weekEndFromStart(weekStart);
+  return (
+    <section>
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-[13px] font-semibold text-[#1d1d1f]">{formatDateJa(weekStart)} - {formatDateJa(weekEnd)}</h3>
+        <span className="text-[11px] text-[#86868b]">{tasks.filter((task) => task.status === "open").length}件未完了</span>
+      </div>
+      <WeeklyTaskRows tasks={tasks} editable={editable} onStatusChange={onStatusChange} emptyText="手動タスクはありません。" />
+      <ActivityEvidenceRows activities={activities} emptyText="抽出済みの活動はありません。" compact />
+    </section>
+  );
+}
+
+function ActivityEvidenceRows({ activities, emptyText, compact = false }: { activities: MyPageWeeklyActivity[]; emptyText: string; compact?: boolean }) {
+  if (activities.length === 0) return <p className="mt-2 text-[11px] text-[#86868b]">{emptyText}</p>;
+  return (
+    <div className={`mt-2 ${compact ? "space-y-1" : "space-y-2"}`}>
+      {activities.slice(0, compact ? 6 : 8).map((activity) => (
+        <div key={activity.id} className={compact ? "rounded-lg bg-[#f5f5f7] px-2.5 py-2" : "rounded-xl border border-[#e5e5e7] bg-[#fbfbfd] px-3 py-2.5"}>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-[#007aff]/10 px-2 py-0.5 text-[10px] font-semibold text-[#007aff]">{sourceKindLabel(activity.sourceKind || activity.source)}</span>
+            <span className="min-w-0 truncate text-[11px] text-[#86868b]">{activity.projectName}</span>
+            {activity.itemDate && <span className="ml-auto text-[10px] text-[#86868b] whitespace-nowrap">{formatDateJa(activity.itemDate)}</span>}
+          </div>
+          <p className="mt-1 text-[12px] font-medium leading-snug text-[#1d1d1f]"><LinkedMemberText text={activity.title} /></p>
+        </div>
+      ))}
+      {activities.length > (compact ? 6 : 8) && <p className="px-1 text-[11px] text-[#86868b]">ほか {activities.length - (compact ? 6 : 8)} 件</p>}
+    </div>
+  );
+}
+
+function WeeklyActivitiesCard({
+  activities,
+  weekStart,
+  weekEnd,
+  manualTasks = [],
+  editable = false,
+  taskLoading = false,
+  onTaskStatusChange,
+  onRefreshed,
+}: {
+  activities: MyPageWeeklyActivity[];
+  weekStart: string;
+  weekEnd: string;
+  manualTasks?: MemberWeeklyTask[];
+  editable?: boolean;
+  taskLoading?: boolean;
+  onTaskStatusChange?: (task: MemberWeeklyTask, status: "open" | "completed") => void;
   onRefreshed?: () => void;
 }) {
   const [refreshing, setRefreshing] = useState(false);
@@ -940,15 +1208,17 @@ function WeeklyActivitiesCard({
           <h2 className="text-[14px] font-semibold text-[#1d1d1f] mt-0.5">今週やったこと</h2>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <button
-            type="button"
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-[#007aff]/40 bg-[#007aff]/10 px-3 py-1 text-[11px] font-semibold text-[#007aff] hover:bg-[#007aff]/20 disabled:opacity-60"
-            title="Gmail / Calendar / source_cache から今週分を即時再抽出"
-          >
-            {refreshing ? "抽出中..." : "⚡ いますぐ抽出"}
-          </button>
+          {editable && (
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-[#007aff]/40 bg-[#007aff]/10 px-3 py-1 text-[11px] font-semibold text-[#007aff] hover:bg-[#007aff]/20 disabled:opacity-60"
+              title="Gmail / Calendar / source_cache から今週分を即時再抽出"
+            >
+              {refreshing ? "抽出中..." : "⚡ いますぐ抽出"}
+            </button>
+          )}
           <span className="text-[11px] text-[#86868b] whitespace-nowrap">
             {formatDateJa(weekStart)} - {formatDateJa(weekEnd)}
           </span>
@@ -967,42 +1237,58 @@ function WeeklyActivitiesCard({
         </div>
       )}
 
-      {activities.length === 0 ? (
-        <div className="rounded-xl bg-[#f5f5f7] px-3 py-3">
-          <p className="text-[13px] text-[#86868b]">
-            今週分のGmail/Calendar由来の活動はまだありません。週次抽出が走るとここに表示されます。
-          </p>
+      <div className="mb-4">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[12px] font-semibold text-[#424245]">今週のタスク</p>
+          {taskLoading && <span className="text-[11px] text-[#86868b]">読み込み中...</span>}
         </div>
-      ) : (
-        <div className="space-y-2">
-          {activities.slice(0, 8).map((activity) => (
-            <div key={activity.id} className="rounded-xl border border-[#e5e5e7] bg-[#fbfbfd] px-3 py-2.5">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-semibold text-[#007aff] bg-[#007aff]/10 rounded-full px-2 py-0.5">
-                  {sourceKindLabel(activity.sourceKind || activity.source)}
-                </span>
-                <span className="min-w-0 truncate text-[12px] text-[#86868b]">{activity.projectName}</span>
-                {activity.itemDate && (
-                  <span className="ml-auto text-[11px] text-[#86868b] whitespace-nowrap">
-                    {formatDateJa(activity.itemDate)}
+        <WeeklyTaskRows
+          tasks={manualTasks}
+          editable={editable}
+          onStatusChange={onTaskStatusChange || (() => {})}
+          emptyText="今週の手動タスクはありません。"
+        />
+      </div>
+
+      <div className="border-t border-[#e5e5e7] pt-3">
+        <p className="text-[12px] font-semibold text-[#424245]">自動抽出の活動</p>
+        {activities.length === 0 ? (
+          <div className="mt-3 rounded-xl bg-[#f5f5f7] px-3 py-3">
+            <p className="text-[13px] text-[#86868b]">
+              今週分のGmail/Calendar由来の活動はまだありません。週次抽出が走るとここに表示されます。
+            </p>
+          </div>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {activities.slice(0, 8).map((activity) => (
+              <div key={activity.id} className="rounded-xl border border-[#e5e5e7] bg-[#fbfbfd] px-3 py-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-semibold text-[#007aff] bg-[#007aff]/10 rounded-full px-2 py-0.5">
+                    {sourceKindLabel(activity.sourceKind || activity.source)}
                   </span>
+                  <span className="min-w-0 truncate text-[12px] text-[#86868b]">{activity.projectName}</span>
+                  {activity.itemDate && (
+                    <span className="ml-auto text-[11px] text-[#86868b] whitespace-nowrap">
+                      {formatDateJa(activity.itemDate)}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1.5 text-[13px] font-semibold leading-snug text-[#1d1d1f]">
+                  <LinkedMemberText text={activity.title} />
+                </p>
+                {activity.contentPreview && (
+                  <p className="mt-1 text-[12px] leading-relaxed text-[#3c3c43] line-clamp-2">
+                    <LinkedMemberText text={activity.contentPreview} />
+                  </p>
                 )}
               </div>
-              <p className="mt-1.5 text-[13px] font-semibold leading-snug text-[#1d1d1f]">
-                <LinkedMemberText text={activity.title} />
-              </p>
-              {activity.contentPreview && (
-                <p className="mt-1 text-[12px] leading-relaxed text-[#3c3c43] line-clamp-2">
-                  <LinkedMemberText text={activity.contentPreview} />
-                </p>
-              )}
-            </div>
-          ))}
-          {activities.length > 8 && (
-            <p className="text-[11px] text-[#86868b] px-1">ほか {activities.length - 8} 件</p>
-          )}
-        </div>
-      )}
+            ))}
+            {activities.length > 8 && (
+              <p className="text-[11px] text-[#86868b] px-1">ほか {activities.length - 8} 件</p>
+            )}
+          </div>
+        )}
+      </div>
     </section>
   );
 }

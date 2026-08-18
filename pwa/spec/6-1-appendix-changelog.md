@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+| 2026-08-18 JST | 2-1 PWA Runtime / 2-2 Member workflows / 6-6 Member Ops / db_schema | 追加 | `/mypage` に手動週次タスクを追加。`member_weekly_tasks` を正本に、最上段の来週入力、今週のチェックボックス完了、前週・前々週トグル、未完了の月曜JST繰越（元週の履歴保持、二重繰越防止）を実装。D-10の `member_activities` は活動根拠として分離し、`GET/POST /api/mypage/weekly-tasks` は本人更新・admin閲覧に閉じた | まさ指示の週単位の遡り、来週計画、手動完了、未完了繰越を、既存の自動抽出活動と混同せず実現するため | まさ・えいみ |
+
 | 2026-08-17 JST | 3-3 Meeting Flow / W-Prep | 論点継続性・artifact gate | `l6_prep_scope_coverage_gate.cjs` を追加。契約範囲、同シリーズ/PJ横断の履歴、未完了action/保留、project knowledge、直近チーム入力、現在prepの全source checkを必須化し、各未完了論点をincluded/deferred/excludedへ配置する。deferredは理由・owner・再確認日、excludedは根拠、全論点は二次影響reviewを必須とする。全体スケジュール宣言は関連未完了論点の全包含を検査し、silent omission等が1件でもあればready禁止。初回artifactは`awaiting_discussion`を正常とし、共有Drive HTMLと通常Notion draftはまさの明示write後だけ作る。Notion AI Meeting Notes context append-onlyは従来どおり初回必須 | KUTE prepで周辺既存規程の改定工程が全体日程から欠落し、個別修正ではまさの記憶負担を解消できないため | まさ・えいみ |
 
 | 2026-08-17 JST | 3-3 Meeting Flow / W-Prep | 事故防止・対話開始点 | visible W-Prepを`launch_mode=visible_w_prep`へ分離。workerはartifact/readinessを保存しても`preparing`に留め、最後のユーザー向け応答として`前回までの流れ / 今回の論点 / 推定着地 / まさがやること / 相談入口`の具体的なopening prep briefを出す。launcherだけがsidebar上のtask・pin・session・Notion gate・artifact・最後のbriefをreadbackしてから`ready`へ昇格する。pin APIの成功返却だけで可視扱いにせず、一覧に無いtaskはfailed/保留にする | 資料だけ作られた不可視taskや、完了報告しか出さないtaskを準備完了と誤認し、まさがそのまま会議準備の議論を再開できなかったため | まさ・えいみ |

@@ -1,5 +1,7 @@
 # 附則（変更履歴）
 
+| 2026-08-18 JST | 2-2 メンバー向けクイックスタート / 6-6 Member Ops | 追加 | `/mypage` の週次表示を、最上段 `来週やること`、次段 `今週やったこと`、下部の前週・前々週トグルへ再編。`member_weekly_tasks` を手動タスク正本として追加し、本人のチェックボックス完了、未完了の月曜JST繰越、元週の未完了履歴保持を実装。D-10の `member_activities(source='member_weekly')` は活動根拠として別表示のまま維持 | まさ指示「前週、前前週と週単位で遡れるように」「来週やることを一番上」「未完了を翌週にも追加」を、活動証跡と手動タスクを混同せず満たすため | まさ・えいみ |
+
 | 2026-08-17 JST | 2-3 PJ Cockpit / 3-2 Data / 8-3 W-Prep | prep継続性gate・相談優先 | W-Prepが契約範囲、同シリーズ/PJ横断の直近MTG、未完了action、保留、project knowledge、直近チーム入力を論点台帳へ集め、各論点の二次影響と今回prepへの配置を固定gateで照合する運用へ変更。未完了論点は今回に含める、owner/再確認日付きで後続へ送る、根拠付きで対象外のいずれかを必須とし、黙った欠落・二次影響未確認・欠けた全体日程があればready禁止。初回は共有資料と通常Notion draftを作らずopening prep briefで相談を始め、Notion AI Meeting Notes contextだけappend-onlyで実行。資料はまさの明示write後だけ作る | 主要規程の施行日程だけに視野が狭まり、別MTGで既に挙がっていた周辺既存規程の改定工程が全体スケジュールから消え、まさが全案件の未完了論点を記憶して補完する負担が生じたため | まさ・えいみ |
 
 | 2026-08-17 JST | 8-3 L2 extraction routines / W-Prep | 運用訂正 | W-Prepの完了を資料生成やsession IDだけで判定しない。まさが読むtaskの最後の応答を、過去の流れ・今回の論点・推定着地・まさの打ち手・相談入口を持つ具体的なopening prep briefへ統一し、sidebar上のpin・session・artifact/readiness・Notion gate・brief表示のreadback後だけreadyにする | prepを開いても背景と今週の判断を考え始められない状態を、準備完了として流さないため | まさ・えいみ |

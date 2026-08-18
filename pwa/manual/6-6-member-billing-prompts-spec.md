@@ -19,6 +19,7 @@ flowchart TD
   G --> H[value_milestones]
   H --> I[milestone_monthly_progress]
   B --> J[member_activities source=member_weekly]
+  B --> K[member_weekly_tasks]
 ```
 
 ### 表示要素と source
@@ -28,8 +29,16 @@ flowchart TD
 | 当月 PJ 別報酬額 | `billing_cycles.member_allocations_json[memberId]` | 正本。 PWA は再計算しない |
 | 月初合意カード | `/api/monthly-work-agreement` | `member_monthly_work_agreements` と当月 snapshot hash。API失敗時も `/mypage` 主表示はブロックしない |
 | MS 進捗バー | `milestone_monthly_progress` | 累積 % + 当月増分 |
-| 今週やったこと | `member_activities (source='member_weekly')` | 月-日 JST の今週 |
+| 来週やること | `member_weekly_tasks` | 本人が追加する来週の手動タスク。チェックボックスで完了管理 |
+| 今週やったこと | `member_weekly_tasks` + `member_activities (source='member_weekly')` | 上段は手動タスク、下段は月-日 JST の自動抽出活動 |
+| 前週・前々週 | 同上 | 初期状態で閉じたトグル。未完了も元週に残す |
 | 月別合計 | 過去 6 ヶ月分 × 当月、 chevron でトグル | |
+
+### 週次タスクの状態・繰越
+
+`member_weekly_tasks` は本人の手動タスクだけを持つ。自動抽出の `member_activities` を完了扱いにしたり書き換えたりしない。本人は「来週やること」に追加し、来週が今週になった後はチェックボックスで完了/未完了を切り替える。
+
+週が月曜（JST）へ切り替わった最初の本人表示時、直前週の未完了だけを今週にコピーする。コピー元の行は元週に `未完了` として残り、同じ元行を同じ週へ二度コピーしない。完了済みは繰り越さない。本人以外の閲覧はread-onlyで、adminにも他人のタスクを操作させない。
 
 ### 報酬計算正本 (= GAS rv2_calcRewardSummary)
 

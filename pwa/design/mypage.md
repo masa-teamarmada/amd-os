@@ -21,7 +21,7 @@
 - `members.exclude_from_payout_notice=true` かつ非役員のメンバーは、当月合計・月別合計・PJ別報酬額を `ー` 表示にする。報酬計算キャッシュ自体は他メンバーやadmin集計との整合のためそのまま読む。
 - 役員 (`members.is_officer=true`) は現金支払 `totalPay=0` でも、会社留保 (`companyReserveYen` / `officerReserveYen`) または報酬発生額を金額として表示する。`exclude_from_payout_notice=true` なら `（役員のため支払対象外）` を添える。
 
-### データ源泉（すべてSupabase既存テーブル、追加migration不要）
+### データ源泉
 | テーブル | 用途 |
 |---|---|
 | `members` | email → memberId 解決 |
@@ -32,6 +32,16 @@
 | `value_milestones` (is_active=true) | MS一覧（title, points, tag） |
 | `milestone_monthly_progress` | 月次進捗率 |
 | `member_activities(source='member_weekly')` | Gmail / 共有メンバーカレンダー / source_cache / `project_meeting_summaries` から抽出した「今週やったこと」 |
+| `member_weekly_tasks` | 本人が管理する週次タスク。完了状態と繰越元を保持する正本 |
+
+### 週次タスク（PWA、2026-08-18）
+
+- 表示順は `来週やること`、`今週やったこと`、初期状態で閉じた `前週・前々週を表示`。履歴トグルの中に過去2週の手動タスクと自動抽出活動を週ごとに残す。
+- `来週やること` は本人が追加し、各手動タスクのチェックボックスで `open` / `completed` を手動変更する。完了済みは取り消して未完了へ戻せる。
+- 月曜（JST）に本人のマイページを開くと、直前週で `open` の行だけを今週へ `carryover` として冪等に追加する。元週の行は `未完了` のまま残す。完了済みは繰り越さない。
+- `member_activities(source='member_weekly')` はD-10が残す活動根拠であり、タスクの完了状態・繰越には使わない。手動タスクと混ぜず、画面上でも「自動抽出の活動」として分ける。
+- 読み取りは本人またはadmin、作成・状態変更・繰越は本人だけ。PWA APIは `GET/POST /api/mypage/weekly-tasks`、DB書込みはservice roleのAPI経由だけに閉じる。
+- iOS/native版は同じDB契約を実装するときにこの挙動へ合わせる。今回の画面実装対象はPWA。
 
 ### 「いまやること」生成ルール
 
