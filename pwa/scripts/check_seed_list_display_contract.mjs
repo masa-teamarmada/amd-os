@@ -8,7 +8,10 @@ const cockpit = await readFile(
 
 assert.match(cockpit, />シーズ状態<\/th>/);
 assert.match(cockpit, /SEED_STATUS_LABEL\[seed\.status\]/);
-assert.match(cockpit, /seed\.status === "spun_off" \? projectLink\.venture_name \?\? projectLink\.project_name/);
+assert.match(cockpit, /seed\.status === "spun_off"\s*\n\s*\? projectLink\?\.venture_name \?\? projectLink\?\.project_name/);
+// PJ状態の独立列は廃止済み。シーズ状態セル内のPJバッジに統合した。
+assert.doesNotMatch(cockpit, />PJ状態<\/th>/);
+assert.match(cockpit, />\s*PJ\s*<\/span>/);
 assert.doesNotMatch(cockpit, /\{realized \? "PJ化済み"/);
 assert.doesNotMatch(cockpit, /\{projectLink\.project_name\} · \{projectLink\.project_status\}/);
 

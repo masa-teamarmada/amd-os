@@ -282,7 +282,6 @@ export function CockpitKuteSeeds({
                   <th className="min-w-[116px] border-b border-slate-200 px-3 py-2">シーズ状態</th>
                   <th className="min-w-[140px] border-b border-slate-200 px-3 py-2">研究機関</th>
                   <th className="min-w-[130px] border-b border-slate-200 px-3 py-2">研究者 / PI</th>
-                  <th className="min-w-[180px] border-b border-slate-200 px-3 py-2">PJ状態</th>
                   <SortableTh label="現行SPS(億円)" sortKey="spsBand" activeKey={sortKey} dir={sortDir} onSort={toggleSort} hint="sps-ind-v1 / q-eval-v2 / rubric-v1.1 / p-ind-v1。完全一致した凍結評価のみ" widthClass="min-w-[190px]" />
                   <th className="min-w-[70px] border-b border-slate-200 px-2 py-2">根拠Lv</th>
                   <th className="min-w-[52px] border-b border-slate-200 px-2 py-2">TRL</th>
@@ -487,9 +486,21 @@ function SeedRow({
         )}
       </td>
       <td className="border-b border-slate-100 px-3 py-2 align-top">
-        <span className="inline-flex border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
-          {SEED_STATUS_LABEL[seed.status] ?? seed.status}
-        </span>
+        <div className="flex flex-col items-start gap-1">
+          <span className="inline-flex whitespace-normal break-words border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
+            {seed.status === "spun_off"
+              ? projectLink?.venture_name ?? projectLink?.project_name ?? "—"
+              : SEED_STATUS_LABEL[seed.status] ?? seed.status}
+          </span>
+          {projectLink && (
+            <span
+              title={`紐付くPJ: ${projectLink.project_name}`}
+              className="inline-flex items-center border border-indigo-200 bg-indigo-50 px-1 py-0.5 text-[9px] font-medium leading-none text-indigo-500"
+            >
+              PJ
+            </span>
+          )}
+        </div>
       </td>
       <Cell value={seed.org_name} widthClass="max-w-[140px]" />
       <Cell
@@ -498,13 +509,6 @@ function SeedRow({
           : null}
         widthClass="max-w-[130px]"
       />
-      <td className="border-b border-slate-100 px-3 py-2 align-top">
-        <span className={`block max-w-[180px] whitespace-normal break-words text-[12px] font-medium leading-relaxed ${projectLink ? "text-slate-800" : "text-slate-400"}`}>
-          {projectLink
-            ? (seed.status === "spun_off" ? projectLink.venture_name ?? projectLink.project_name : projectLink.project_name)
-            : "—"}
-        </span>
-      </td>
       <td className="border-b border-slate-100 px-3 py-2 align-top font-mono">
           {screeningBand && (screeningBand.sps_lower_yen != null || screeningBand.sps_upper_yen != null) ? (
             <span className="whitespace-nowrap">
