@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectWorkspaceSession } from "@/lib/project-workspace-session";
@@ -232,6 +233,37 @@ function recentWeekStarts(count: number, now = new Date()) {
   });
 }
 
+const getWorkspaceIdentityCached = unstable_cache(
+  async (projectId: string) => {
+    const db = createAdminClient();
+    const [{ data: project, error: projectError }, { data: membershipRows, error: memberError }] =
+      await Promise.all([
+        db.from("projects").select("project_id,project_name,client_name,status").eq("project_id", projectId).maybeSingle(),
+        db.from("project_members").select("member_id,role_label,is_pm,is_pl,is_closer").eq("project_id", projectId).eq("is_active", true),
+      ]);
+    if (projectError) throw new Error(`project workspace project: ${projectError.message}`);
+    if (memberError) throw new Error(`project workspace members: ${memberError.message}`);
+    if (!project) return null;
+
+    const memberIds = Array.from(new Set((membershipRows ?? []).map((row) => String(row.member_id))));
+    let memberNames: Array<{ member_id: string; member_name: string | null }> = [];
+    if (memberIds.length > 0) {
+      const { data, error } = await db.from("members").select("member_id,member_name").in("member_id", memberIds);
+      if (error) throw new Error(`project workspace member labels: ${error.message}`);
+      memberNames = (data ?? []).map((row) => ({
+        member_id: String(row.member_id),
+        member_name: row.member_name ? String(row.member_name) : null,
+      }));
+    }
+    return { project, membershipRows: membershipRows ?? [], memberNames };
+  },
+  ["project-workspace-identity-v1"],
+  // Project labels and active membership change far less often than gantt or
+  // weekly-control data. A short shared cache removes three round trips on
+  // repeat reloads while access itself is still checked fresh before this call.
+  { revalidate: 60 },
+);
+
 export async function getProjectWorkspaceBundle(
   projectId: string,
   access: WorkspaceProjectAccess,
@@ -246,38 +278,27 @@ export async function getProjectWorkspaceBundle(
   const weeks = recentWeekStarts(8, now);
   const sixMonthStartIso = `${months[0].slice(0, 4)}-${months[0].slice(4, 6)}-01T00:00:00+09:00`;
 
-  const [{ data: project, error: projectError }, { data: membershipRows, error: memberError }, { data: activityRows, error: activityError }, { data: effortRows, error: effortError }, { data: planCycleRows, error: planError }, { data: sourceCacheRows, error: sourceCacheError }] = await Promise.all([
-    db.from("projects").select("project_id,project_name,client_name,status").eq("project_id", projectId).maybeSingle(),
-    db.from("project_members").select("member_id,role_label,is_pm,is_pl,is_closer").eq("project_id", projectId).eq("is_active", true),
+  // Management used to start only after all six workspace summary queries had
+  // completed. It is the largest projection on this route, so that serialized
+  // waterfall made a reload pay both costs. Start it in the same fan-out and
+  // make the response wait only for the slowest branch.
+  const canManage = access.scope === "portfolio" || access.isAdmin;
+  const [identity, { data: activityRows, error: activityError }, { data: effortRows, error: effortError }, { data: planCycleRows, error: planError }, { data: sourceCacheRows, error: sourceCacheError }, sxManagement] = await Promise.all([
+    getWorkspaceIdentityCached(projectId),
     db.from("member_activities").select("member_id,ym,source,item_date,raw_metadata").eq("project_id", projectId).gte("ym", months[0]).limit(5000),
     db.from("project_weekly_effort_entries").select("member_id,week_start,work_category,planned_hours,actual_hours,source_kind,management_track,management_milestone_id,deliverable_label").eq("project_id", projectId).gte("week_start", weeks[0]).limit(5000),
     db.from("value_plan_cycles").select("plan_cycle_id,status,period_start_ym,period_end_ym").eq("project_id", projectId).order("created_at", { ascending: false }).limit(20),
     db.from("source_cache").select("source,item_id,item_date").eq("project_id", projectId).gte("item_date", sixMonthStartIso).in("source", ["slack", "drive"]).limit(5000),
+    getSxManagementBundle(projectId, canManage),
   ]);
 
-  if (projectError) throw new Error(`project workspace project: ${projectError.message}`);
-  if (!project) return null;
-  if (memberError) throw new Error(`project workspace members: ${memberError.message}`);
+  if (!identity) return null;
   if (activityError) throw new Error(`project workspace activities: ${activityError.message}`);
   if (effortError) throw new Error(`project workspace effort: ${effortError.message}`);
   if (planError) throw new Error(`project workspace plan: ${planError.message}`);
   if (sourceCacheError) throw new Error(`project workspace source cache: ${sourceCacheError.message}`);
 
-  const sxManagement = await getSxManagementBundle(
-    projectId,
-    access.scope === "portfolio" || access.isAdmin,
-  );
-
-  const memberIds = Array.from(new Set((membershipRows ?? []).map((row) => String(row.member_id))));
-  let memberNameRows: Array<{ member_id: string; member_name: string | null }> = [];
-  if (memberIds.length > 0) {
-    const { data, error } = await db.from("members").select("member_id,member_name").in("member_id", memberIds);
-    if (error) throw new Error(`project workspace member labels: ${error.message}`);
-    memberNameRows = (data ?? []).map((row) => ({
-      member_id: String(row.member_id),
-      member_name: row.member_name ? String(row.member_name) : null,
-    }));
-  }
+  const { project, membershipRows, memberNames: memberNameRows } = identity;
   const memberDisplayNames = new Map(
     memberNameRows.map((row) => [row.member_id, row.member_name || "氏名未登録"]),
   );

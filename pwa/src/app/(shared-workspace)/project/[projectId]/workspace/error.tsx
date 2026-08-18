@@ -2,7 +2,7 @@
 
 export default function ProjectWorkspaceError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
-    <main className="amd-desk-page-skin min-h-screen px-4 py-10 sm:px-6 lg:px-8">
+    <main className="amd-workspace-page-skin min-h-screen px-4 py-10 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-xl rounded-xl border border-[#e4a39b] bg-[#f9e4e1] p-6 text-[#8c3329]" role="alert">
         <p className="text-[10px] font-semibold tracking-[0.16em]">読み込みエラー</p>
         <h1 className="mt-2 text-lg font-semibold">経営航路を読み込めなかったよ</h1>

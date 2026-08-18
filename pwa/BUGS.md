@@ -5,6 +5,14 @@
 
 ---
 
+### [workspace/loading-performance] 初期表示だけ旧和風色になり、リロードも重かった (2026-08-18)
+
+- **状態**: クローズ (2026-08-18 — build `v3.80.2`)
+- **症状**: ワークスペースを開くと、完成画面のAMD配色より先に生成り・淡緑・淡橙の旧desk skinが表示された。リロードでは待機時間も長かった。
+- **原因**: routeの`loading.tsx`だけが旧`amd-desk-page-skin`と旧色のスケルトンを使用していた。データ取得は6本のsummary queryが全て終わってから最重量の`getSxManagementBundle()`を開始する直列waterfallで、待ち時間が加算されていた。PJ名・active member・表示名も変更頻度に関係なく毎回3 queryを実行していた。
+- **対応内容**: loading/error/完成面を`amd-workspace-page-skin`へ統一した。management投影をsummary群と同じ最初の`Promise.all`へ移し、PJ/member identityだけ認証・access確認後の60秒cacheへ分離した。ガント・論点・関係先・週次データはcacheしていないため、編集直後の再読込で古い運用状態を返さない。
+- **再発防止策**: `check_workspace_reload_contract.cjs`で旧色の復活、managementの直列化、identity cache契約の欠落を検出する。
+
 ### [workspace/gantt-task-reorder] 手動で並べ替えたタスクが元の位置へ戻った (2026-08-18)
 
 - **状態**: クローズ (2026-08-18 — build `v3.80.1`、migration 287)

@@ -30,6 +30,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-08-18 JST | 3-16 Project Weekly Control | 初期表示・性能修正 | build v3.80.2。workspaceのloading/error/完成面をAMDブルー・白・チャコールへ統一。PJ/member identityだけ60秒cacheし、重いmanagement投影を他summary queryと同時開始する。運用データはcache外でfresh readを維持 | 旧和風色が初期表示だけ点滅し、summary完了後にmanagement取得を始める直列waterfallでリロードが重かったため | まさ・えいみ |
 | 2026-08-18 JST | 3-16 Project Weekly Control | バグ修正 | build v3.80.1。ガントのタスク並べ替えを兄弟行ごとの連続PATCHから、全兄弟のversionを検査して一括更新する`reorder_project_management_tasks`へ変更。競合・履歴記録失敗を含む途中エラーでは全件rollbackし、画面は409後にDB正本を再取得する | 複数PATCHの途中失敗で楽観表示がDB正本へ戻り、手動順序が保存されない欠陥をなくすため | まさ・えいみ |
 | 2026-08-14 JST | 3-8 PJ Cockpit / 4-2 AMD Score / FEATURE_REGISTRY | BZM 2.2表示契約 | build v3.75.1。desktop heroを左J/P/Q/S縦レール・右XRLの一体gridへ変更。103項目のscenario値はPJ文脈つきの決定的formatterを通し、匿名placeholderを禁止。SXのPSI GAPファンド Step 2、VC DD、共同開発、資金状態をartifactの登録値どおり表示する回帰検査を追加 | PJ固有の登録値と上段の情報密度を、表示契約と機械検査の双方で固定するため | まさ・えいみ |
 | 2026-08-16 JST | 4-2 AMD Score | CX BZM 2.2月次試算表 | CXを設立前PJ / NewCo（2026-11）で分離。確認済みAMD業務委託費3か月を`project_pl_monthly`へbackfillし、Seed（2027-04・5,000万円）をP/Lと分離した財務C/Fへ投影。Series A以後の日付は旧標準プランのまま確認待ち | 設立前の費用・未確定資金・BZM経済CFを実績P/Lや売上へ混在させないため | えいみ |

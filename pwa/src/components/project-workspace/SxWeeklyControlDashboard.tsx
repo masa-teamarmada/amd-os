@@ -5376,7 +5376,7 @@ export function SxWeeklyControlDashboard({
   }, [allWorkUnits]);
 
   return (
-    <main className={`${styles.page} sx-management-workspace`}>
+    <main className={`${styles.page} amd-workspace-page-skin sx-management-workspace`}>
       <div className={styles.shell}>
         {/* バッジ行・既存ワークスペースリンク・週レンジ・運用準備中スタンプは
             2026-08-08 まさ指示 #10 で削除。タイトルとナビだけを残す。 */}
