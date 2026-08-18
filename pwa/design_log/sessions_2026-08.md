@@ -269,6 +269,14 @@ automation作成後の最初の自然な平日09:00実行は未観測。2026-08-
 - 一次選別インフラ: migration 280(status CHECK/遷移履歴trigger/帯テーブル+DTO契約テスト)、根拠Lv0-3表示、月次試算表p09/p24追加
 - 詳細はbzm/9-5-appendix-changelog.md 2026-08-15〜16エントリ群とSESSION_MIGRATION_PROMPT_BZM_MODEL_20260816.md
 
+## 2026-08-19 — `/seeds` の会社名表示とPJ識別（v3.81.2）
+
+- `/seeds` のPJ状態列を廃止し、列名を「会社名」に変更。会社名を枠で囲む表示も廃止し、`seed_projects.venture_name`を太字の主表示にした。
+- `commercialization_stage='pre_incorporation'` は「会社名（未設立）」、会社名が無い行は「未設立」。状態語の「協議中」「スピンアウト済み」、PJのactive/ended、`PJ化済み`は表示しない。
+- PJ紐付きだけを会社名セル右上のabsolute配置した青い丸`PJ`バッジで示し、バッジを下段へ置いて行高を増やさないようにした。
+- migration 289を本番適用し、p21の会社名をSolvioraX、p20をCryoXへ訂正。両方の未設立状態を読戻しで確認した。
+- `test:seed-list-display`、`test:kute-seeds-scope`、TypeScript、critical UI、production buildと、本番desktop/mobile表示を確認。commit `8e28447c`、本番v3.81.2。
+
 ## 2026-08-19 — 管理カレンダーのGoogle Calendar共有同期（v3.81.3）
 
 - `/admin/schedule`の表示範囲がJSTの表示月から毎月1か月ずつ進み、2026年9月には2026年6月〜2027年5月になることを固定日計算と本番DB（2027年5月4件）で確認した。

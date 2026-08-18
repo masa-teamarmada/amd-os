@@ -1,42 +1,38 @@
-# SESSION MIGRATION PROMPT — PJワークスペース 継続
+# SESSION MIGRATION PROMPT — Seeds会社名表示
 
 ```text
-あなたは株式会社チームアルマダの社内OS「AMD OS」を引き継ぐえいみ。
-前セッションでは、PJワークスペースのガント並べ替えが元へ戻る不具合をトランザクション保存へ直し、初期表示の旧・淡い和風色をAMD配色へ統一した。再読み込みは重いmanagement投影を他queryと並列化し、PJ名・active member・表示名だけを認可確認後60秒cacheへ分離した。ガント・論点・関係先・週次データはfresh readのまま。
+あなたは株式会社チームアルマダの社内OS「AMD OS」を引き継ぐえいみ。canonical rootは `/Users/masa/projects/AMD/amd-os`、canonical branchはmain。
 
 ## 読む順
 
 1. `/Users/masa/projects/AGENTS.common.md`
 2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md`
 3. `/Users/masa/projects/AMD/amd-os` で `git fetch --all --prune`、`git rev-list --left-right --count HEAD...origin/main`、`git status -sb --untracked-files=all`、`git log --branches --not --remotes --oneline`、`git worktree list`
-4. `/Users/masa/projects/AMD/amd-os/AGENTS.md`
-5. `/Users/masa/projects/AMD/amd-os/CLAUDE.md`
-6. `/Users/masa/projects/AMD/amd-os/HANDOFF.md`
-7. `pwa/AGENTS.md` と `pwa/CLAUDE.md`
-8. `pwa/spec/3-16-project-weekly-control-current-spec.md`
-9. `pwa/manual/2-3-pj-cockpit.md`
-10. `pwa/BUGS.md` の `workspace/gantt-task-reorder` と `workspace/loading-performance`
+4. `/Users/masa/projects/AMD/amd-os/AGENTS.md` と `CLAUDE.md`
+5. `/Users/masa/projects/AMD/amd-os/HANDOFF.md`
+6. `pwa/AGENTS.md` と `pwa/CLAUDE.md`
+7. `pwa/spec/1-1-overview.md`、`pwa/spec/1-2-document-layer-migration-map.md`、`pwa/design/README.md`
+8. シーズ一覧を触る場合だけ `pwa/design/seeds.md`、`pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md`、`pwa/scripts/check_seed_list_display_contract.mjs`、`pwa/scripts/check_kute_seeds_scope.mts`
 
 ## 状態スナップショット
 
-- canonical repoは `/Users/masa/projects/AMD/amd-os`、canonical branchは`main`。開始時にorigin/mainとのahead/behind、未push commit、dirtyを必ず再確認する。
-- 並べ替え修正はcommit `71a8ca5f`、初期配色・reload修正は`4167691d`。どちらもmain、本番へ反映済み。
-- 本番desktop/mobileで旧skin 0件、背景`#f5f5f7`、横崩れなし、console warning/error 0件を確認済み。再読み込み実測は約4.1〜5.1秒。
-- 回帰検査は `pwa/scripts/check_workspace_reload_contract.cjs` と並べ替え関連のAPI/DB契約検査。TypeScriptとproduction buildも前セッションで成功済み。
-- AMD Scoreの2文書、`docs/corporate/`の文書群、financeの2スクリプト、Admin運用カレンダー一式は別作業のdirty。corporate/financeはstage済み、Admin/AMD Scoreはunstaged、Admin pageはuntracked。対象タスクでない限りstage・revert・削除・実行しない。
+- `/seeds` の会社名表示はcommit `8e28447c`でmainに統合済み。本番確認時はv3.81.2 / SHA `8e28447c`だった。現在のmain先端は、別作業の管理カレンダー同期 `f0dec491`。
+- 一覧は「会社名」列。`seed_projects.venture_name`を会社名の正本にし、`pre_incorporation`は`会社名（未設立）`、会社名なしは`未設立`。社名を枠で囲わず太字にし、PJ紐付きはセル右上の青い`PJ`バッジだけで示す。
+- `PJ化済み`、PJのactive/ended、`協議中`、`スピンアウト済み`は一覧に書かない。
+- p21は`SolvioraX`、p20は`CryoX`へmigration 289で訂正済み。両方とも`commercialization_stage='pre_incorporation'`を維持。migrationは本番適用と読戻し済み。
+- 検証済み: seed表示契約、KUTE seeds scope、TypeScript、critical UI、Next.js production build、本番desktop/mobile。UI再変更後もdesktop/mobile実寸で、会社名の可読性・PJバッジの右上配置・横スクロール・旧ラベル不在を確認する。
+- 別作業のdirtyがある。`docs/corporate/` 5ファイルとfinanceスクリプト2本はstage済み、AMD Score文書2本はunstaged。対象外ならstage/revert/delete/実行しない。
 
 ## 次タスク
 
-- 今回の依頼自体は完了。新しいまさの依頼を優先する。
-- もしワークスペースのさらなる高速化を求められたら、最初にproduction相当で各Supabase queryとRSC payloadの所要時間を計測する。現状の4.1〜5.1秒を基準にし、最重量枝を特定してから改善する。
-- ガント、論点、関係先、週次データを丸ごとcacheして編集直後に古い値を返す案は採らない。認可は毎回freshに確認する。
-- UI変更後はdesktop/mobile実寸、旧skin不在、背景色、横overflow、console warning/errorを再確認する。
+- 新しいまさの依頼を優先する。
+- シーズ一覧を修正する依頼なら、「シーズの状態」と会社名・PJ紐付き情報を混同しない。会社名は会社名、PJ有無は右上バッジに閉じ、状態語を復活させない。
+- 正式社名の追加・訂正は表示文言だけで終えず、`seed_projects.venture_name`の正本、migration、読戻しを同じ作業単位で扱う。会社設立状態は`commercialization_stage`で保持する。
 
-## 確立済みの運用ルール
+## 確立済み運用ルール
 
-- branch / worker worktreeを作らずmain一本。既存dirtyを保全し、対象ファイルだけを明示stageする。
-- commit前にorigin/mainをfetchし、同じ正本mdの並行更新を確認する。
-- PWAはbuild versionを上げ、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`でmain push、Vercel Ready、`/api/build-info`のgit SHAまで確認する。dirtyな正規checkoutからdeployしない場合は、mainの同一commitを持つ使い捨てclean cloneを使う。
-- 仕様変更は `pwa/spec/3-16-project-weekly-control-current-spec.md`、人向け挙動は `pwa/manual/2-3-pj-cockpit.md`、再発防止は `pwa/BUGS.md` と実行可能な検査へ同じ作業単位で反映する。
-- 本番確認はbuild/versionだけで終えず、実際のworkspace画面でまさが報告した操作・見た目を確認する。
+- branch / worker worktreeを作らずmain一本。既存dirtyを保全し、対象ファイルだけを明示stageする。`git add .`は禁止。
+- DB変更は実スキーマと正本を確認し、`pwa/scripts/migrations/`へSQLを残し、`python3 -X utf8 scripts/apply_ddl.py ...`で適用して読戻す。DDLならschema dumpも同じcommitへ含める。
+- PWAのコード変更はbuild versionを上げ、対象commitだけをclean cloneから `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` でpush・Vercel Ready・`/api/build-info`のSHA・実画面まで確認する。
+- 仕様変更はdesign/specとmanual、append-only changelog、実行可能な契約テストへ同じ作業単位で反映する。
 ```
