@@ -259,7 +259,7 @@ npm run test:l6-held-source-guard
     - 複数ヒット時は title 類似度、attendees、Calendar/Drive/Gmail URL一致、created/edited time で rank し、曖昧なら Notion source なしとして他 source へ進む。
 13. すべて失敗なら **notion なし** として `notionText = ""` で続行 (= Gmail / Drive / Slack 拾えるかも)。`eventId` が無いから失敗扱いにしない。
 
-### B-1b: Notion 議事録メタデータ補完 (= eventId / PJ relation / member relation)
+### B-1b: Notion 議事録メタデータ補完 (= eventId / PJ relation / member relation / 日付)
 
 Notion page を採用できた event は、本文取得とは別にページプロパティを best-effort で補完する。これは抽出の前提条件ではなく、次回以降の検索性・PJ別抽出・参加者文脈を整える self-healing task。
 
@@ -267,8 +267,10 @@ Notion page を採用できた event は、本文取得とは別にページプ�
 - `eventId`: rich_text/text 相当。空なら Calendar event id を入れる。
 - `PJ`: Notion PJ DB への relation。空なら H-1 で解決済みの `project_id` / `pjCode` から Notion PJ page を 1 件解決して入れる。
 - member relation: Notion member DB への relation。property 名は `NOTION_MINUTES_MEMBER_PROP` を正とし、未設定時は `メンバー` / `参加メンバー` を順に探す。通常の H-1 では Calendar organizer / attendees の email と AMD `members.email` を exact match し、対応する Notion member page が 1 件だけ解決できた member を追加する。過去分 backfill では参加者推定をせず、`NOTION_MINUTES_DEFAULT_MEMBER_PAGE_ID` が設定されている場合だけ既定 member を既存 relation に union 追加する。
+- `日付`: date 相当。空なら一意に対応した Calendar event の start を `Asia/Tokyo` へ変換した日付を入れる。
 
 **Notion DB / property 解決**
+- page fetch は空の property を省略することがあるため、採用pageの親 data source を必ず fetch し、schemaから `eventId` / `PJ` / member relation / `日付` の実在と型を解決する。page responseにpropertyが無いことを「property不存在」と解釈しない。
 - `PJ` relation はまず exact property name `PJ` を使う。無い場合だけ relation property 名に `PJ` を含むものを探す。
 - member relation は `NOTION_MINUTES_MEMBER_PROP` を最優先に使う。無い場合は exact property name `メンバー`、次に `参加メンバー` を使う。見つからない場合は書かない。
 - Notion PJ page id は、既存 GAS の `NOTION_PJ_DATABASE_ID` 相当、または Notion search で PJ DB page title が `project_name` / `pjCode` と一致するものから解決する。複数候補なら書かない。
@@ -277,16 +279,24 @@ Notion page を採用できた event は、本文取得とは別にページプ�
 **書き込みルール**
 - 既存 `eventId` が空なら入れる。既存値が Calendar event id と異なる場合は上書きせず `notion_event_id_conflict` として要確認に残す。
 - 既存 `PJ` relation が空なら入れる。既存に別PJらしき relation がある場合は上書きせず `notion_pj_relation_conflict` として要確認に残す。
+- 既存 `日付` が空なら入れる。既存日付は上書きしない。Calendar eventが一意に定まらない場合は `notion_date_unresolved` として書かない。
 - 既存 member relation は消さない。通常の H-1 は高信頼に解決できた AMD member page だけを既存 relation と union して追加する。過去分 backfill は既定 member だけを追加し、外部参加者や推定参加者は追加しない。
 - 外部参加者、メール不明、辞退者、optional で未参加と分かる人、候補が複数の人は自動追加しない。
 - Notion connector / API 書き込みが失敗しても H-1 を止めない。議事録本文の抽出は続け、run summary に `notion_metadata_backfill_failed` と不足理由を残す。
+- patch 後は同じ page を再fetchし、`eventId` / `PJ` / member relation / `日付` を readbackする。不一致は `notion_metadata_backfill_failed_readback` であり補完成功へ数えない。
 - raw Calendar description、会議URL、Drive URL、参加URL、passcode、secret、Notion本文は patch payload / review artifact / user report に出さない。
 
 **run summary に残す項目**
 - `notion_metadata_backfill_checked`: Notion page を採用して補完判定した件数。
-- `notion_metadata_backfilled`: eventId / PJ / member relation のどれかを実際に補完した件数。
+- `notion_metadata_backfill_prepared`: 空欄と根拠を確認しpatchを組み立てた件数。
+- `notion_metadata_backfilled`: eventId / PJ / member relation / 日付のどれかを実際に補完しreadbackまで一致した件数。
+- `notion_metadata_backfill_readback_verified`: 更新後4項目を再取得して一致した件数。
 - `notion_metadata_backfill_skipped_*`: 高信頼に解決できず書かなかった理由。
 - `notion_metadata_backfill_failed`: 書き込み失敗。成功扱いにしない。
+
+### B-1c: 独立した Notion 空欄scan
+
+held / recovery / upcoming が0件でも、gate JSONの `candidates.notion_metadata.scan_required=true` なら議事録data sourceを本文なしで検索する。4項目のいずれかが空のpageを `limit` 件まで処理し、超過分は次回runへ持ち越す。Calendar event、PJ、memberを一意・高信頼に解決できない項目は書かないが、他の確定項目は空欄だけ補完してよい。候補0件は正常no-op。Calendar connector不在をNotion候補0件へ読み替えない。
 
 **Auth failure branch**: Notion connector が `UNAUTHORIZED oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` / reauth required を返した場合も、ユーザーの再認証を待たない。可能なら最小 Notion connector ping だけで host 側の再認証 UI を発火し、すぐ `npm run notify:connector-auth -- --connector notion --source h1_meeting_flow --reason <reason> --context "<title / date>" --dedupe-hours 24` を実行する。この helper は connector/app ID と再認証リンクを自動解決し、`app_notifications(kind='connector_auth')` に PWA/Swift 両方が拾える復旧アクションを残す。既存未読通知がある場合は最新payloadへ更新し、Swift再通知用に `native_notified_at` も NULL に戻す。
 

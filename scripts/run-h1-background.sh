@@ -15,9 +15,9 @@ WORK_DIR="${AUTOMATION_DIR}/background-work"
 mkdir -p "${LOG_DIR}" "${AUTOMATION_DIR}/runner-output" "${WORK_DIR}"
 
 if [[ "${MODE}" != "--force" && "${MODE}" != "--probe" ]]; then
-  weekday=$(date +%u)
-  hour=$(date +%H)
-  if (( weekday > 5 || 10#${hour} > 12 )); then
+  weekday="${H1_NOW_WEEKDAY_JST:-$(TZ=Asia/Tokyo date +%u)}"
+  hour="${H1_NOW_HOUR_JST:-$(TZ=Asia/Tokyo date +%H)}"
+  if (( 10#${weekday} > 5 || 10#${hour} < 9 || 10#${hour} > 21 )); then
     exit 0
   fi
 fi
@@ -48,7 +48,7 @@ else
     exit "${gate_status}"
   fi
   prompt=$(<"${PROMPT_FILE}")
-  prompt="${prompt}\n\n固定候補gateは完了済み。候補一覧は ${gate_file} にある。Calendarの再取得、DB候補の再検索、repo全体検索、即席スクリプト作成は行わず、この一覧だけを起点に処理する。"
+  prompt="${prompt}\n\n固定候補gateは完了済み。候補一覧と独立したNotionメタデータ空欄scan契約は ${gate_file} にある。Calendarの再取得はcalendar.status=connector_requiredの場合だけ、DB候補の再検索、repo全体検索、即席スクリプト作成は行わず、この一覧とNotion scan契約だけを起点に処理する。"
 fi
 
 {

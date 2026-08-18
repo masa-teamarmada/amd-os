@@ -19,6 +19,7 @@ loadEnv(path.join(REPO_ROOT, ".vercel", ".env.production.local"));
 loadEnv(path.join(PWA_ROOT, ".vercel", ".env.production.local"));
 
 const args = parseArgs(process.argv.slice(2));
+const NOTION_METADATA_CANDIDATE_LIMIT = 25;
 
 async function main() {
   const outputPath = requiredPath(args.output, "--output");
@@ -74,12 +75,22 @@ async function main() {
       held: heldCandidates,
       recovery: recoveryCandidates,
       upcoming: upcomingCandidates,
+      notion_metadata: {
+        scan_required: true,
+        limit: NOTION_METADATA_CANDIDATE_LIMIT,
+        data_source: "minutes",
+        blank_properties: ["eventId", "PJ", "member", "date"],
+        body_read_allowed: false,
+        external_writes: "blank_only_after_unique_match",
+      },
     },
   };
   writeJson(outputPath, result);
 
   const candidateCount = heldCandidates.length + recoveryCandidates.length + upcomingCandidates.length;
-  if (candidateCount > 0 || calendarError) {
+  // The bounded Notion metadata repair lane is independent from Calendar.
+  // Codex must scan it before a run may be reported as a no-op.
+  if (candidateCount > 0 || calendarError || result.candidates.notion_metadata.scan_required) {
     process.exitCode = 10;
     return;
   }
