@@ -96,7 +96,7 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 
 ## UI
 
-> **実装補足 (2026-08-15)**: 現行の `/seeds` は `CockpitKuteSeeds` (`scope="all"`) + `KuteSeedDetailModal` で描画する ([CockpitKuteSeeds.tsx](../src/components/cockpit/CockpitKuteSeeds.tsx) / [KuteSeedDetailModal.tsx](../src/components/seeds/KuteSeedDetailModal.tsx))。`SeedDetailModal` (下記) は編集・削除・サブセクションCRUD用の別コンポーネントで、`/seeds/[id]` の直接URLフォールバックと「+ 新規シーズ」導線からのみ開く。行クリックで開く読み取り専用モーダルは `KuteSeedDetailModal`。
+> **実装補足 (2026-08-18)**: `/seeds` と AMD 内部の研究機関PJコックピットは、同じ `CockpitKuteSeeds` と社内用 `SeedDetailModal` を使う。一覧だけ `scope` に応じて全件または `institution_id` で絞り、行クリック後の詳細・接触履歴・編集導線は分岐させない。外部共有面だけ `KuteSeedDetailModal` と公開ホワイトリストを使う。`detailSurface` は `internal` / `public` を呼び出し側で必ず明示し、暗黙の公開・非公開切替を禁止する。
 
 ### `/seeds` リスト
 
@@ -111,14 +111,14 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 - **新規作成**: 右上「+ 新規シーズ」ボタン → `SeedDetailModal` を createMode で開く
 - **深掘り資料**: `deep_dive_material_url` には、AMDが確認済みの共有資料リンクだけを置く。資料本文、一次ソース本文、一次ソースの生URLは置かない。md はOS内Markdownモーダル (左メニューなし) で表示し、ヘッダーの補助リンクからDriveを開ける。
 
-### `KuteSeedDetailModal` (現行 `/seeds` 行クリックで開く読み取り専用モーダル)
+### `KuteSeedDetailModal` (外部共有用の読み取り専用モーダル)
 
 - **一次選別スクリーニング帯セクション** (2026-08-15 追加、2026-08-16 産業創出価値版へ差し替え、`seed_screening_bands` に `measure_version='sps-ind-v1'` の帯がある場合のみ表示): 見出しは「SPS帯（産業創出価値）」+ `measure_version` (`sps-ind-v1`) の小表示。段階仮説 (stage_lower〜stage_upper + stage_tag) / q帯 (q_lower_pct〜q_upper_pct % + 主要因タグ) / 「P^ind帯(産業創出価値・判断層)」(p_class) + P帯 (億円) / SPS (億円、中央値 (下限〜上限) 表示。中央値は仮置きの算術中点、まさ裁定 2026-08-15) + 根拠Lvバッジ / 評価者・評価日時・ruleset_version / 固定注記「この帯は接触と調査の優先順位づけの下書き。上限は楽観シナリオの包絡であり評価額ではない。投資判断・対外表示には使わない」。`q_evidence` (11要因の根拠引用) は折りたたみ (初期閉じ) で要因名・direction・根拠引用を表示。詳細DTOは `/api/seeds/screening-bands?seedId=` から取得 (member認証、service_role経由)
 - **旧SPSセクションの非表示化** (2026-08-15 見出しを「旧SPS (全国共通シーズスコア)」に改名 → 2026-08-16 まさ裁定でOS非表示化。[SPS_NAT_VALUE_MEASURE_PROPOSAL_2026-08-16.md](../bzm/SPS_NAT_VALUE_MEASURE_PROPOSAL_2026-08-16.md) §8): M/P/R/S 9軸ルーブリックのセクションを非表示にする。JSX・データ取得コードは `KuteSeedDetailModal.tsx` の `SHOW_LEGACY_SPS`定数 (`false`) で残したまま表示だけ切る (機能削除ではない)
 
-### `SeedDetailModal` (編集・削除用。`/seeds/[id]` フォールバックと新規作成導線から開く)
+### `SeedDetailModal` (AMD社内用の完全版詳細)
 
-- **詳細モード**: `/seeds` の行クリックでは内部向け詳細を開き、4 セクション (シーズ概要 / 機関・研究者 / AMD 評価 / 関連・ソース) + サブセクション 3 つ (補助金 / 接触履歴 / ニュース) を表示する。研究機関PJコックピットでは従来どおり公開安全な詳細だけを表示する
+- **詳細モード**: `/seeds` と研究機関PJコックピットの行クリックでは同じ内部向け詳細を開き、4 セクション (シーズ概要 / 機関・研究者 / AMD 評価 / 関連・ソース) + サブセクション 3 つ (補助金 / 接触履歴 / ニュース) を表示する。研究機関側は一覧だけ対象機関へ絞り、詳細は省略しない
 - **編集モード**: 編集ボタンで全フィールド inline form に切替。保存 / キャンセル
 - **サブセクション CRUD**: 補助金・接触履歴・ニュースは「+ 追加」ボタン → 軽量 form。接触履歴はメール、電話、Slack、Teams、MTG/面談、イベント、紹介、訪問、その他を記録できる。削除は ✕ ボタン
 
@@ -183,8 +183,8 @@ SPS はシーズ有望度スコア。KUTE / p25 に限らず **全国のすべ�
 - **事業化フィールド** (`seeds` テーブル、187 でリネーム、すべて nullable / CHECK 制約つき、根拠のない値は null のまま = 捏造禁止):
   - 事業化タイプ: `primary_commercialization_type` (単一) + `secondary_commercialization_types[]` (複数可)。enum は `large_startup` / `small_business_1b_yen` / `license` / `jv_ma` / `joint_research_poc`
   - 公開向けテキスト (旧 `kute_*` から全国共通名へ改名、値は保持): `envisioned_use_case` / `first_customer_candidate` / `market_size_range` / `market_size_confidence` (low/medium/high) / `biggest_bottleneck` / `ip_status` / `next_verification_step`
-- **プライバシー境界**: `internal_notes` / `source_detail` 等の社内限定フィールド、および `seed_sps_assessments.axis_evidence` / `evaluator` は公開面の select に含めない。ホワイトリスト型 `SeedPublicView` + 定数 `SEED_PUBLIC_VIEW_COLUMNS` ([`types/seeds.ts`](../src/types/seeds.ts)) を select の唯一の呼び出し元にする。既存の `SeedDetailModal` (編集用、confidential 項目を含む) は再利用せず、新規の読み取り専用 `KuteSeedDetailModal` ([`components/seeds/KuteSeedDetailModal.tsx`](../src/components/seeds/KuteSeedDetailModal.tsx)) を使う
-- **UI**: PJ cockpit (`/project/p25/cockpit`) と研究機関 cockpit (`/institutions/inst_kute/cockpit`) の進捗タブ、および `/seeds` で、横スクロール可能な比較テーブル (`CockpitKuteSeeds.tsx`) を共有する。1シーズ=1行で、研究機関・研究者/PI・PJ状態を通常列に置き、機関/研究者/PJ有無のgroup rowは作らない。`SPS` / `M` / `P` / `R` / `S`、`TRL` / `BRL` / `GRL` / `SRL` / `HRL`、事業化フィールドと資料有無を横並び比較する。長文は省略せずセル内で折り返す。`discovery_status='discovered'` は「公開情報候補」、SPS欠損は0へ変換せず「未評価」と表示する。`axis_evidence` / `evaluator` は内部専用なので画面へ返さない
+- **プライバシー境界**: AMD社内の `/seeds` と研究機関PJコックピットは `SeedDetailModal` から完全版を読む。外部 `/workspace/[slug]` と将来の公開シーズ詳細では `internal_notes` / `source_detail` / `seed_contact_log` 等を返さず、ホワイトリスト型 `SeedPublicView` + `KuteSeedDetailModal` を使う。`CockpitKuteSeeds.detailSurface` は呼び出し側で `internal` / `public` を明示する
+- **UI**: PJ cockpit (`/project/p25/cockpit`) と研究機関 cockpit (`/institutions/inst_kute/cockpit`) の進捗タブ、および `/seeds` で、横スクロール可能な比較テーブル (`CockpitKuteSeeds.tsx`) を共有する。社内では行クリック後も同じ完全版詳細へ接続する。1シーズ=1行で、研究機関・研究者/PI・PJ状態を通常列に置き、機関/研究者/PJ有無のgroup rowは作らない。`SPS` / `M` / `P` / `R` / `S`、`TRL` / `BRL` / `GRL` / `SRL` / `HRL`、事業化フィールドと資料有無を横並び比較する。長文は省略せずセル内で折り返す。`discovery_status='discovered'` は「公開情報候補」、SPS欠損は0へ変換せず「未評価」と表示する。`axis_evidence` / `evaluator` は内部専用なので公開面へ返さない
 - **KUTE公開情報の候補4件**: migration [`189_kute_public_seed_candidates.sql`](../scripts/migrations/189_kute_public_seed_candidates.sql) で「165〜220nm次世代クリーンUV面光源」「金属フリー透明フレキシブル導電膜」「塩水・交流電気分解による都市鉱山金回収」を、migration [`225_kute_public_seed_candidate_fujii.sql`](../scripts/migrations/225_kute_public_seed_candidate_fujii.sql) で「バイオガスと飼料バイオマスを同時生産する資源循環技術」を `discovery_status='discovered'` で追加する。225の後に追加された行は migration [`226_link_kute_fujii_public_seed.sql`](../scripts/migrations/226_link_kute_fujii_public_seed.sql) で `inst_kute` に紐付ける。公開情報調査の旧100点スクリーニング値はSPS/XRLへ移植せず、`seed_sps_assessments` は未登録のままにする
 - **`/seeds` (全機関横断比較)**: `CockpitKuteSeeds` を `scope="all"` で全175件表示する。フラットな1行台帳を `PJ化済み → PJ化検討中 → PJなし・SPS評価済み → その他` の順に固定し (`seedListPriority()`)、同じ区分内を列ソートする。`seeds.status='spun_off'` は会社設立状態であり、AMD PJ判定には使わない。SXは会社未設立のため `discussing` / `pre_incorporation`
 - **テスト**: `npm run test:kute-seeds-scope` は動的スコープとPJ優先度、公開ホワイトリストを検査する。`npm run test:institution-seed-project-domains` は物理テーブル分離、p30/p21移行、二重分類防止、全件表示、ECR/SPS非更新を検査する。`npm run test:seed-sps-score` はSPSの0/NULLと欠損軸を検査する

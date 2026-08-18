@@ -65,7 +65,7 @@ export function ProjectInstitutionSeeds({ projectId }: { projectId: string }) {
   }, [projectId]);
 
   if (!isInstitutionProject) return null;
-  return <CockpitKuteSeeds projectId={projectId} />;
+  return <CockpitKuteSeeds projectId={projectId} detailSurface="internal" />;
 }
 
 /**
@@ -79,9 +79,11 @@ export function ProjectInstitutionSeeds({ projectId }: { projectId: string }) {
 export function CockpitKuteSeeds({
   projectId,
   scope = "project",
+  detailSurface,
 }: {
   projectId?: string;
   scope?: "project" | "all";
+  detailSurface: "internal" | "public";
 }) {
   const [seeds, setSeeds] = useState<SeedPublicView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -310,27 +312,24 @@ export function CockpitKuteSeeds({
         )}
       </div>
 
-      {scope === "all" ? (
-        <>
-          {selected && (
-            <SeedDetailModal
-              seedId={selected.id}
-              createMode={false}
-              onClose={() => setSelected(null)}
-              onSaved={() => setRequestKey((value) => value + 1)}
-            />
-          )}
-          {createOpen && (
-            <SeedDetailModal
-              seedId={null}
-              createMode
-              onClose={() => setCreateOpen(false)}
-              onSaved={() => setRequestKey((value) => value + 1)}
-            />
-          )}
-        </>
-      ) : (
-        <KuteSeedDetailModal open={selected != null} seed={selected} onClose={() => setSelected(null)} />
+      {selected && detailSurface === "internal" && (
+        <SeedDetailModal
+          seedId={selected.id}
+          createMode={false}
+          onClose={() => setSelected(null)}
+          onSaved={() => setRequestKey((value) => value + 1)}
+        />
+      )}
+      {selected && detailSurface === "public" && (
+        <KuteSeedDetailModal open seed={selected} onClose={() => setSelected(null)} />
+      )}
+      {scope === "all" && createOpen && (
+        <SeedDetailModal
+          seedId={null}
+          createMode
+          onClose={() => setCreateOpen(false)}
+          onSaved={() => setRequestKey((value) => value + 1)}
+        />
       )}
     </section>
   );

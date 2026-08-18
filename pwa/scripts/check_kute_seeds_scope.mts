@@ -81,11 +81,11 @@ function readSrc(relPath: string): string {
   assert.ok(!/CompactField/.test(ui), "旧 CompactField パターンが残っています");
   assert.ok(!/kute_score/.test(ui), "旧 kute_score パターンが残っています");
   assert.ok(!/100\s*点/.test(ui), "旧 100点スケール表記が残っています");
-  // TRL/BRL/GRL/SRL/HRL は結合1セルではなく、各軸が独立した <th>/セル (AxisCell) を持つ
+  // 現行の readiness 軸は結合1セルではなく、各軸が独立した <th>/セル (AxisCell) を持つ
   assert.ok(!/function Metric/.test(ui), "旧 Metric mini-card 実装が残っています");
   assert.ok(!/axesText/.test(ui), "旧 XRL スラッシュ結合表示 (axesText) が残っています");
   assert.ok(/function AxisCell/.test(ui), "XRL 独立列用の AxisCell が見つかりません");
-  for (const axisLabel of ["TRL", "BRL", "GRL", "SRL", "HRL"]) {
+  for (const axisLabel of ["TRL", "BRL", "HRL"]) {
     assert.ok(
       new RegExp(`<th className="[^"]*">${axisLabel}</th>`).test(ui),
       `XRL の独立列見出し ${axisLabel} が見つかりません`
@@ -111,15 +111,28 @@ function readSrc(relPath: string): string {
   assert.ok(/whitespace-normal/.test(ui) && /break-words/.test(ui), "KUTE比較表の全文折り返し指定が見つかりません");
   assert.ok(/1行＝技術 × 用途/.test(ui), "同じ研究者が複数シーズを持てる案件単位の説明が見つかりません");
   assert.ok(/公開情報候補/.test(ui), "大学・研究者確認前の公開情報候補表示が見つかりません");
+  // 社内の全件一覧と研究機関コックピットは同じ完全版詳細を使う。
+  // 公開面を将来この表へ接続する場合だけ、明示的に公開用モーダルへ分岐する。
+  assert.match(ui, /detailSurface:\s*"internal"\s*\|\s*"public"/, "詳細面の内部/公開境界が型で明示されていません");
+  assert.match(ui, /detailSurface="internal"/, "研究機関コックピットが社内用詳細を明示していません");
+  assert.match(ui, /detailSurface === "internal"[\s\S]*<SeedDetailModal/, "社内用詳細が SeedDetailModal に接続されていません");
+  assert.match(ui, /detailSurface === "public"[\s\S]*<KuteSeedDetailModal/, "公開用詳細が KuteSeedDetailModal に分離されていません");
+  const seedsPage = readSrc("../src/app/(app)/seeds/page.tsx");
+  assert.match(seedsPage, /<CockpitKuteSeeds scope="all" detailSurface="internal" \/>/, "/seeds が社内用詳細を明示していません");
 }
 
 // 5. KuteSeedDetailModal は定義リスト/テーブル形式で、ネストしたカード装飾を持たない
 {
   const modal = readSrc("../src/components/seeds/KuteSeedDetailModal.tsx");
   assert.ok(modal.includes("<table"), "詳細モーダルにテーブルが見つかりません");
-  assert.ok(modal.includes("M / P / R / S") || modal.includes("components.macro"), "M/P/R/S 内訳が見つかりません");
-  assert.ok(modal.includes("TRL / BRL / GRL / SRL / HRL"), "XRL 軸の表示が見つかりません");
+  assert.ok(modal.includes("SPS帯（産業創出価値）"), "現行SPS帯の表示が見つかりません");
   assert.ok(!/rounded-lg border[^"]*bg-slate-50/.test(modal), "ネストしたカード装飾 (rounded + border + bg) が残っています");
+  for (const confidentialField of ["internal_notes", "source_detail", "contact_log"]) {
+    assert.ok(
+      !new RegExp(`(?:seed\\.|seed\\[|\\{[^}]*\\b)${confidentialField}\\b`).test(modal),
+      `公開用詳細が非公開フィールド ${confidentialField} を参照しています`
+    );
+  }
 }
 
 // 6. 187: seed_sps_assessments は axis_evidence/evaluator を持つため anon_read policy が無い
@@ -280,8 +293,8 @@ function readSrc(relPath: string): string {
     };
   }
 
-  // 9-7. /seeds 全機関横断リストの4段階優先度 (seedListPriority):
-  //      PJ化済み=0、PJ化検討中=1、PJなし・SPS評価済み=2、その他=3。ECRは関与しない
+  // 9-7. /seeds 全機関横断リストの優先度 (seedListPriority):
+  //      PJ化済み=0、PJ化検討中=1、PJなし=3。旧SPS/ECRは関与しない
   assert.equal(
     seedListPriority(makeSeed({ status: "candidate", project_links: [{ project_id: "p1", project_name: "PJ", project_status: "active", commercialization_stage: null, commercialization_route: null, venture_name: null, target_market: null }] })),
     0,
@@ -294,8 +307,8 @@ function readSrc(relPath: string): string {
   );
   assert.equal(
     seedListPriority(makeSeed({ status: "investigating", project_links: [], latest_sps: withSps(0.5) })),
-    2,
-    "PJなし・SPS評価済み(status=ready)は優先度2であるべきです",
+    3,
+    "PJなしは旧SPS評価済みでも優先度3であるべきです",
   );
   assert.equal(
     seedListPriority(makeSeed({ status: "investigating", project_links: [], latest_sps: { ...withSps(0.5)!, status: "missing" } })),
