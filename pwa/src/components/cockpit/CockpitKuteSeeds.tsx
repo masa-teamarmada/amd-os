@@ -10,7 +10,6 @@ import {
   fetchAllResearchInstitutionSeeds,
   SEED_COMMERCIALIZATION_TYPE_LABEL,
   SEED_KUTE_MARKET_CONFIDENCE_LABEL,
-  SEED_STATUS_LABEL,
   SEED_EVIDENCE_LEVEL_LABEL,
   SEED_EVIDENCE_LEVEL_DESCRIPTION,
   formatOkuYen,
@@ -279,7 +278,7 @@ export function CockpitKuteSeeds({
                   <th className="sticky left-0 z-30 w-[160px] min-w-[160px] max-w-[160px] border-b border-r border-slate-200 bg-slate-100 px-3 py-2 sm:w-[220px] sm:min-w-[220px] sm:max-w-[220px]">
                     シーズ
                   </th>
-                  <th className="min-w-[116px] border-b border-slate-200 px-3 py-2">シーズ状態</th>
+                  <th className="min-w-[180px] border-b border-slate-200 px-3 py-2">会社名</th>
                   <th className="min-w-[140px] border-b border-slate-200 px-3 py-2">研究機関</th>
                   <th className="min-w-[130px] border-b border-slate-200 px-3 py-2">研究者 / PI</th>
                   <SortableTh label="現行SPS(億円)" sortKey="spsBand" activeKey={sortKey} dir={sortDir} onSort={toggleSort} hint="sps-ind-v1 / q-eval-v2 / rubric-v1.1 / p-ind-v1。完全一致した凍結評価のみ" widthClass="min-w-[190px]" />
@@ -461,6 +460,10 @@ function SeedRow({
     ?? null;
   const realized = lifecycle === "realized";
   const considering = lifecycle === "considering";
+  const companyName = projectLink?.venture_name ?? projectLink?.project_name ?? null;
+  const companyLabel = companyName
+    ? `${companyName}${projectLink?.commercialization_stage === "pre_incorporation" ? "（未設立）" : ""}`
+    : "未設立";
 
   return (
     <tr
@@ -485,22 +488,18 @@ function SeedRow({
           </span>
         )}
       </td>
-      <td className="border-b border-slate-100 px-3 py-2 align-top">
-        <div className="flex flex-col items-start gap-1">
-          <span className="inline-flex whitespace-normal break-words border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
-            {seed.status === "spun_off"
-              ? projectLink?.venture_name ?? projectLink?.project_name ?? "—"
-              : SEED_STATUS_LABEL[seed.status] ?? seed.status}
+      <td className="relative border-b border-slate-100 px-3 py-2 align-top">
+        <span className={`block max-w-[156px] whitespace-normal break-words pr-7 text-[13px] font-bold leading-snug ${companyName ? "text-slate-950" : "text-slate-400"}`}>
+          {companyLabel}
+        </span>
+        {projectLink && (
+          <span
+            title={`紐付くPJ: ${projectLink.project_name}`}
+            className="absolute right-2 top-2 inline-flex items-center rounded-full bg-indigo-600 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white shadow-sm"
+          >
+            PJ
           </span>
-          {projectLink && (
-            <span
-              title={`紐付くPJ: ${projectLink.project_name}`}
-              className="inline-flex items-center border border-indigo-200 bg-indigo-50 px-1 py-0.5 text-[9px] font-medium leading-none text-indigo-500"
-            >
-              PJ
-            </span>
-          )}
-        </div>
+        )}
       </td>
       <Cell value={seed.org_name} widthClass="max-w-[140px]" />
       <Cell

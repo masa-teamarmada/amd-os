@@ -6,12 +6,14 @@ const cockpit = await readFile(
   "utf8",
 );
 
-assert.match(cockpit, />シーズ状態<\/th>/);
-assert.match(cockpit, /SEED_STATUS_LABEL\[seed\.status\]/);
-assert.match(cockpit, /seed\.status === "spun_off"\s*\n\s*\? projectLink\?\.venture_name \?\? projectLink\?\.project_name/);
-// PJ状態の独立列は廃止済み。シーズ状態セル内のPJバッジに統合した。
+assert.match(cockpit, />会社名<\/th>/);
+assert.match(cockpit, /const companyName = projectLink\?\.venture_name \?\? projectLink\?\.project_name \?\? null/);
+assert.match(cockpit, /commercialization_stage === "pre_incorporation" \? "（未設立）" : ""/);
+assert.match(cockpit, /: "未設立"/);
+// PJ状態の独立列は廃止済み。会社名セル右上のバッジに統合した。
 assert.doesNotMatch(cockpit, />PJ状態<\/th>/);
-assert.match(cockpit, />\s*PJ\s*<\/span>/);
+assert.match(cockpit, /absolute right-2 top-2[^`]*rounded-full[^`]*bg-indigo-600/);
+assert.match(cockpit, /text-\[13px\] font-bold/);
 assert.doesNotMatch(cockpit, /\{realized \? "PJ化済み"/);
 assert.doesNotMatch(cockpit, /\{projectLink\.project_name\} · \{projectLink\.project_status\}/);
 

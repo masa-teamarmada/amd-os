@@ -383,15 +383,15 @@ function readSrc(relPath: string): string {
   assert.deepEqual(sortSeedGroups([], (seed) => seedComparisonSortValue(seed, "sps"), -1), [], "空グループのソートは空配列を返すべきです");
 }
 
-// 10. 全件シーズリストは1シーズ1行。PJ状態の独立列は置かず、紐付けはシーズ状態セルのPJバッジで示す。group rowを持たない。
+// 10. 全件シーズリストは1シーズ1行。PJ状態の独立列は置かず、会社名セル右上のPJバッジで示す。group rowを持たない。
 {
   const ui = readSrc("../src/components/cockpit/CockpitKuteSeeds.tsx");
   assert.ok(/flatSeeds\.map/.test(ui), "1シーズ1行のflat mapが見つかりません");
   assert.ok(/研究機関<\/th>/.test(ui), "研究機関の通常列が見つかりません");
   assert.ok(/研究者 \/ PI<\/th>/.test(ui), "研究者/PIの通常列が見つかりません");
-  assert.ok(/シーズ状態<\/th>/.test(ui), "シーズ状態の通常列が見つかりません");
+  assert.ok(/会社名<\/th>/.test(ui), "会社名の通常列が見つかりません");
   assert.ok(!/PJ状態<\/th>/.test(ui), "廃止済みのPJ状態カラムが残っています");
-  assert.ok(/>\s*PJ\s*<\/span>/.test(ui), "PJバッジが見つかりません");
+  assert.ok(/absolute right-2 top-2[\s\S]*>\s*PJ\s*<\/span>/.test(ui), "会社名セル右上のPJバッジが見つかりません");
   assert.ok(!/scope="rowgroup"/.test(ui), "rowgroup見出しが残っています");
   assert.ok(!/data-researcher-group/.test(ui), "研究者group rowが残っています");
   assert.ok(!/data-institution-group/.test(ui), "研究機関group rowが残っています");
