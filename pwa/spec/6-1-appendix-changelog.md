@@ -1,6 +1,7 @@
 # 附則（設計書変更履歴）
 
 | 2026-08-18 JST | 2-1 PWA Runtime / 2-2 Member workflows / 6-6 Member Ops / db_schema | 追加 | `/mypage` に手動週次タスクを追加。`member_weekly_tasks` を正本に、最上段の来週入力、今週のチェックボックス完了、前週・前々週トグル、未完了の月曜JST繰越（元週の履歴保持、二重繰越防止）を実装。D-10の `member_activities` は活動根拠として分離し、`GET/POST /api/mypage/weekly-tasks` は本人更新・admin閲覧に閉じた | まさ指示の週単位の遡り、来週計画、手動完了、未完了繰越を、既存の自動抽出活動と混同せず実現するため | まさ・えいみ |
+| 2026-08-18 JST | 2-1 PWA Runtime / 2-2 Member workflows / 6-6 Member Ops / db_schema | 訂正 | `source_fusion` を活動保存時の内部集約として隠し、実根拠種別を表示。来週タスクの追加・完了を楽観更新へ変更。本人担当・confirmed・未完了・来週期限の `action_items` は候補に留め、本人の明示追加後だけ `member_weekly_tasks(source='action_item')` へ保存し、候補キーのDB一意制約で二重追加を防止 | 表示責務と保存責務を分離し、来週タスク候補を安全に導入するため | まさ・えいみ |
 
 | 2026-08-17 JST | 3-3 Meeting Flow / W-Prep | 論点継続性・artifact gate | `l6_prep_scope_coverage_gate.cjs` を追加。契約範囲、同シリーズ/PJ横断の履歴、未完了action/保留、project knowledge、直近チーム入力、現在prepの全source checkを必須化し、各未完了論点をincluded/deferred/excludedへ配置する。deferredは理由・owner・再確認日、excludedは根拠、全論点は二次影響reviewを必須とする。全体スケジュール宣言は関連未完了論点の全包含を検査し、silent omission等が1件でもあればready禁止。初回artifactは`awaiting_discussion`を正常とし、共有Drive HTMLと通常Notion draftはまさの明示write後だけ作る。Notion AI Meeting Notes context append-onlyは従来どおり初回必須 | KUTE prepで周辺既存規程の改定工程が全体日程から欠落し、個別修正ではまさの記憶負担を解消できないため | まさ・えいみ |
 

@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-18 11:10 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-18 12:49 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -2947,7 +2947,7 @@ UNIQUE: `(member_id)` (constraint: `member_profiles_member_id_key`)
 
 ## member_weekly_tasks
 
-行数 (概算): -1
+行数 (概算): 1
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -2963,6 +2963,7 @@ PRIMARY KEY: `id`
 | 9 | `carried_from_task_id` | `uuid` | NULL | `` |
 | 10 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 11 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 12 | `candidate_key` | `text` | NULL | `` |
 
 ## members
 
@@ -5046,7 +5047,7 @@ UNIQUE: `(project_id,track_key)` (constraint: `project_management_tracks_project
 
 ## project_management_update_history
 
-行数 (概算): 169
+行数 (概算): 267
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |

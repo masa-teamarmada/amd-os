@@ -1,5 +1,6 @@
 export type WeeklyTaskStatus = "open" | "completed";
-export type WeeklyTaskAction = "create" | "set-status" | "rollover";
+export type WeeklyTaskAction = "create" | "set-status" | "rollover" | "accept-candidate";
+export type WeeklyTaskSource = "manual" | "carryover" | "action_item";
 
 export type MemberWeeklyTask = {
   id: string;
@@ -10,7 +11,17 @@ export type MemberWeeklyTask = {
   status: WeeklyTaskStatus;
   completedAt: string | null;
   carriedFromTaskId: string | null;
-  source: "manual" | "carryover";
+  candidateKey: string | null;
+  source: WeeklyTaskSource;
+};
+
+/** 来週へ取り込む前の、本人確認待ちの候補。候補だけでは週次タスクを作らない。 */
+export type WeeklyTaskCandidate = {
+  candidateKey: string;
+  projectId: string | null;
+  title: string;
+  dueAt: string;
+  sourceLabel: "要対応";
 };
 
 const WEEK_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -42,6 +53,14 @@ export function addWeeks(weekStart: string, weeks: number) {
   return `${value.getUTCFullYear()}-${pad2(value.getUTCMonth() + 1)}-${pad2(value.getUTCDate())}`;
 }
 
+export function weekBoundsJst(weekStart: string) {
+  if (!isMondayWeekKey(weekStart)) throw new Error("weekStart must be a Monday in YYYY-MM-DD format");
+  const [year, month, day] = weekStart.split("-").map(Number);
+  const start = new Date(Date.UTC(year, month - 1, day) - 9 * 60 * 60 * 1000);
+  const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+  return { startIso: start.toISOString(), endIso: end.toISOString() };
+}
+
 export function isMondayWeekKey(value: string) {
   if (!WEEK_KEY_RE.test(value)) return false;
   const [year, month, day] = value.split("-").map(Number);
@@ -54,15 +73,15 @@ export function normalizeTaskTitle(value: unknown) {
 }
 
 export function validateWeeklyTaskCommand(value: unknown):
-  | { ok: true; action: WeeklyTaskAction; weekStart: string | null; title: string | null; taskId: string | null; status: WeeklyTaskStatus | null; projectId: string | null }
+  | { ok: true; action: WeeklyTaskAction; weekStart: string | null; title: string | null; taskId: string | null; status: WeeklyTaskStatus | null; projectId: string | null; candidateKey: string | null }
   | { ok: false; error: string } {
   if (!value || typeof value !== "object" || Array.isArray(value)) return { ok: false, error: "body must be an object" };
   const body = value as Record<string, unknown>;
   const action = body.action;
-  if (action !== "create" && action !== "set-status" && action !== "rollover") return { ok: false, error: "invalid action" };
+  if (action !== "create" && action !== "set-status" && action !== "rollover" && action !== "accept-candidate") return { ok: false, error: "invalid action" };
 
   const weekStart = typeof body.weekStart === "string" ? body.weekStart : null;
-  if ((action === "create" || action === "rollover") && (!weekStart || !isMondayWeekKey(weekStart))) {
+  if ((action === "create" || action === "rollover" || action === "accept-candidate") && (!weekStart || !isMondayWeekKey(weekStart))) {
     return { ok: false, error: "weekStart must be a Monday in YYYY-MM-DD format" };
   }
 
@@ -82,7 +101,31 @@ export function validateWeeklyTaskCommand(value: unknown):
   const projectId = typeof body.projectId === "string" && body.projectId.trim() ? body.projectId.trim() : null;
   if (projectId && projectId.length > 80) return { ok: false, error: "projectId is too long" };
 
-  return { ok: true, action, weekStart, title, taskId, status, projectId };
+  const candidateKey = action === "accept-candidate" && typeof body.candidateKey === "string" ? body.candidateKey.trim() : null;
+  if (action === "accept-candidate" && !isActionItemCandidateKey(candidateKey || "")) {
+    return { ok: false, error: "candidateKey must be an action_item candidate" };
+  }
+
+  return { ok: true, action, weekStart, title, taskId, status, projectId, candidateKey };
+}
+
+export function actionItemCandidateKey(actionId: string) {
+  return `action_item:${encodeURIComponent(actionId)}`;
+}
+
+export function isActionItemCandidateKey(value: string) {
+  return actionItemIdFromCandidateKey(value) !== null;
+}
+
+/** client payload の候補キーを、DB検索に使える action_items.action_id へ安全に戻す。 */
+export function actionItemIdFromCandidateKey(value: string) {
+  if (!/^action_item:(?:[A-Za-z0-9_.~-]|%[0-9A-Fa-f]{2}){1,540}$/.test(value)) return null;
+  try {
+    const actionId = decodeURIComponent(value.slice("action_item:".length));
+    return actionId && actionId.length <= 180 ? actionId : null;
+  } catch {
+    return null;
+  }
 }
 
 /** 既に同じ親タスクから繰越済みなら、再作成しないための純粋な候補化。 */

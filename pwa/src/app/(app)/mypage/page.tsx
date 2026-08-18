@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { LinkedMemberText } from "@/components/members/LinkedMemberText";
 import { createClient } from "@/lib/supabase/client";
-import type { MemberWeeklyTask } from "@/lib/mypage/member-weekly-tasks";
+import type { MemberWeeklyTask, WeeklyTaskCandidate } from "@/lib/mypage/member-weekly-tasks";
 
 type AllocationStatus = "confirmed" | "reported" | "not_set";
 
@@ -28,7 +28,7 @@ interface MyPageWeeklyActivity {
   title: string;
   contentPreview: string;
   itemDate: string | null;
-  sourceKind?: string | null;
+  sourceKinds: string[];
   sourceUrl?: string | null;
 }
 
@@ -266,7 +266,34 @@ function sourceKindLabel(source: string | null | undefined) {
   if (source === "gmail_message") return "Gmail";
   if (source === "gmeet") return "Calendar";
   if (source === "meeting_summary") return "議事録";
-  return source || "source";
+  if (source === "source_cache") return "社内記録";
+  return "活動根拠";
+}
+
+/** source_fusion は束ね方の内部名。表示は各根拠の実際の種類だけにする。 */
+function activitySourceKinds(meta: Record<string, unknown>, fallbackSource: string) {
+  const fusedKinds = Array.isArray(meta.source_kinds)
+    ? meta.source_kinds.filter((value): value is string => typeof value === "string" && Boolean(value.trim()))
+    : [];
+  const sourceKinds = [...new Set(fusedKinds.filter((value) => value !== "source_fusion"))];
+  if (sourceKinds.length > 0) return sourceKinds;
+
+  const rawSourceKind = typeof meta.source_kind === "string" ? meta.source_kind : fallbackSource;
+  if (rawSourceKind === "source_cache" && typeof meta.source_subkind === "string") return [meta.source_subkind];
+  return rawSourceKind && rawSourceKind !== "source_fusion" ? [rawSourceKind] : [];
+}
+
+function SourceKindBadges({ sourceKinds }: { sourceKinds: string[] }) {
+  const visibleKinds = sourceKinds.length > 0 ? sourceKinds : ["activity_evidence"];
+  return (
+    <span className="flex shrink-0 flex-wrap items-center gap-1">
+      {visibleKinds.map((sourceKind) => (
+        <span key={sourceKind} className="rounded-full bg-[#007aff]/10 px-2 py-0.5 text-[10px] font-semibold text-[#007aff]">
+          {sourceKindLabel(sourceKind)}
+        </span>
+      ))}
+    </span>
+  );
 }
 
 function plainPreview(value: string | null | undefined, max = 110) {
@@ -489,10 +516,6 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
     raw_metadata: Record<string, unknown> | null;
   }) => {
     const meta = row.raw_metadata || {};
-    const rawSourceKind = typeof meta.source_kind === "string" ? meta.source_kind : row.source;
-    const sourceKind = rawSourceKind === "source_cache" && typeof meta.source_subkind === "string"
-      ? meta.source_subkind
-      : rawSourceKind;
     const sourceUrl = typeof meta.source_url === "string" ? meta.source_url : null;
     const display = weeklyActivityText(row);
     return {
@@ -500,7 +523,7 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
       projectId: row.project_id,
       projectName: projectMap.get(row.project_id)?.project_name || row.project_id,
       source: row.source,
-      sourceKind,
+      sourceKinds: activitySourceKinds(meta, row.source),
       sourceUrl,
       title: display.title,
       contentPreview: display.contentPreview,
@@ -932,8 +955,11 @@ function WeeklyTaskPlanner({
   const twoWeeksAgoStart = useMemo(() => shiftWeekStart(weekStart, -2), [weekStart]);
   const weekStarts = useMemo(() => [nextWeekStart, weekStart, previousWeekStart, twoWeeksAgoStart], [nextWeekStart, previousWeekStart, twoWeeksAgoStart, weekStart]);
   const [tasks, setTasks] = useState<MemberWeeklyTask[]>([]);
+  const [suggestions, setSuggestions] = useState<WeeklyTaskCandidate[]>([]);
+  const [pendingTaskIds, setPendingTaskIds] = useState<Set<string>>(() => new Set());
+  const pendingTaskIdsRef = useRef<Set<string>>(new Set());
+  const pendingCandidateKeysRef = useRef<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [message, setMessage] = useState<string | null>(null);
 
@@ -954,9 +980,15 @@ function WeeklyTaskPlanner({
       }
       const params = new URLSearchParams({ memberId, weekStart: weekStarts.join(",") });
       const response = await fetch(`/api/mypage/weekly-tasks?${params.toString()}`, { cache: "no-store" });
-      const payload = (await response.json().catch(() => ({}))) as { ok?: boolean; tasks?: MemberWeeklyTask[]; error?: string };
+      const payload = (await response.json().catch(() => ({}))) as { ok?: boolean; tasks?: MemberWeeklyTask[]; suggestions?: WeeklyTaskCandidate[]; error?: string };
       if (!response.ok || payload.ok === false) throw new Error(payload.error || "週次タスクを読み込めませんでした");
-      setTasks(payload.tasks || []);
+      const serverTasks = payload.tasks || [];
+      setTasks((previous) => {
+        const pendingTasks = previous.filter((task) => pendingTaskIdsRef.current.has(task.id));
+        const pendingTaskIds = new Set(pendingTasks.map((task) => task.id));
+        return [...serverTasks.filter((task) => !pendingTaskIds.has(task.id)), ...pendingTasks];
+      });
+      setSuggestions((payload.suggestions || []).filter((candidate) => !pendingCandidateKeysRef.current.has(candidate.candidateKey)));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "週次タスクを読み込めませんでした");
     } finally {
@@ -968,37 +1000,124 @@ function WeeklyTaskPlanner({
     void loadTasks();
   }, [loadTasks]);
 
-  const mutate = async (body: Record<string, unknown>) => {
-    setSubmitting(true);
-    setMessage(null);
-    try {
-      const response = await fetch("/api/mypage/weekly-tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const payload = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!response.ok || payload.ok === false) throw new Error(payload.error || "保存に失敗しました");
-      await loadTasks();
-      return true;
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "保存に失敗しました");
-      return false;
-    } finally {
-      setSubmitting(false);
-    }
+  const writeTask = async (body: Record<string, unknown>) => {
+    const response = await fetch("/api/mypage/weekly-tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const payload = (await response.json().catch(() => ({}))) as { ok?: boolean; task?: MemberWeeklyTask; error?: string };
+    if (!response.ok || payload.ok === false) throw new Error(payload.error || "保存に失敗しました");
+    return payload;
   };
 
-  const addNextWeekTask = async (event: FormEvent<HTMLFormElement>) => {
+  const startTaskRequest = (taskId: string) => {
+    setPendingTaskIds((previous) => {
+      const next = new Set(previous).add(taskId);
+      pendingTaskIdsRef.current = next;
+      return next;
+    });
+  };
+
+  const finishTaskRequest = (taskId: string) => {
+    setPendingTaskIds((previous) => {
+      const next = new Set(previous);
+      next.delete(taskId);
+      pendingTaskIdsRef.current = next;
+      return next;
+    });
+  };
+
+  const addNextWeekTask = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!newTaskTitle.trim()) return;
-    const saved = await mutate({ action: "create", weekStart: nextWeekStart, title: newTaskTitle });
-    if (saved) setNewTaskTitle("");
+    const title = newTaskTitle.trim();
+    if (!title) return;
+    const taskId = `local:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+    const optimisticTask: MemberWeeklyTask = {
+      id: taskId,
+      memberId,
+      projectId: null,
+      weekStart: nextWeekStart,
+      title,
+      status: "open",
+      completedAt: null,
+      carriedFromTaskId: null,
+      candidateKey: null,
+      source: "manual",
+    };
+    setMessage(null);
+    setNewTaskTitle("");
+    setTasks((previous) => [...previous, optimisticTask]);
+    startTaskRequest(taskId);
+    void writeTask({ action: "create", weekStart: nextWeekStart, title })
+      .then((payload) => {
+        if (!payload.task) throw new Error("保存結果が不正です");
+        setTasks((previous) => previous.map((task) => task.id === taskId ? payload.task! : task));
+      })
+      .catch((error) => {
+        setTasks((previous) => previous.filter((task) => task.id !== taskId));
+        setMessage(error instanceof Error ? error.message : "保存に失敗しました");
+      })
+      .finally(() => finishTaskRequest(taskId));
   };
 
-  const setTaskStatus = async (task: MemberWeeklyTask, status: "open" | "completed") => {
-    if (!editable || task.status === status) return;
-    await mutate({ action: "set-status", taskId: task.id, status });
+  const setTaskStatus = (task: MemberWeeklyTask, status: "open" | "completed") => {
+    if (!editable || task.status === status || pendingTaskIds.has(task.id)) return;
+    const optimisticTask: MemberWeeklyTask = {
+      ...task,
+      status,
+      completedAt: status === "completed" ? new Date().toISOString() : null,
+    };
+    setMessage(null);
+    setTasks((previous) => previous.map((item) => item.id === task.id ? optimisticTask : item));
+    startTaskRequest(task.id);
+    void writeTask({ action: "set-status", taskId: task.id, status })
+      .then((payload) => {
+        if (!payload.task) throw new Error("保存結果が不正です");
+        setTasks((previous) => previous.map((item) => item.id === task.id ? payload.task! : item));
+      })
+      .catch((error) => {
+        setTasks((previous) => previous.map((item) => item.id === task.id ? task : item));
+        setMessage(error instanceof Error ? error.message : "保存に失敗しました");
+      })
+      .finally(() => finishTaskRequest(task.id));
+  };
+
+  const acceptSuggestion = (candidate: WeeklyTaskCandidate) => {
+    if (!editable) return;
+    const taskId = `local:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+    const optimisticTask: MemberWeeklyTask = {
+      id: taskId,
+      memberId,
+      projectId: candidate.projectId,
+      weekStart: nextWeekStart,
+      title: candidate.title,
+      status: "open",
+      completedAt: null,
+      carriedFromTaskId: null,
+      candidateKey: candidate.candidateKey,
+      source: "action_item",
+    };
+    setMessage(null);
+    setSuggestions((previous) => previous.filter((item) => item.candidateKey !== candidate.candidateKey));
+    setTasks((previous) => [...previous, optimisticTask]);
+    pendingCandidateKeysRef.current = new Set(pendingCandidateKeysRef.current).add(candidate.candidateKey);
+    startTaskRequest(taskId);
+    void writeTask({ action: "accept-candidate", weekStart: nextWeekStart, candidateKey: candidate.candidateKey })
+      .then((payload) => {
+        if (!payload.task) throw new Error("保存結果が不正です");
+        setTasks((previous) => previous.map((task) => task.id === taskId ? payload.task! : task));
+      })
+      .catch((error) => {
+        setTasks((previous) => previous.filter((task) => task.id !== taskId));
+        setSuggestions((previous) => [candidate, ...previous]);
+        setMessage(error instanceof Error ? error.message : "候補の追加に失敗しました");
+      })
+      .finally(() => {
+        pendingCandidateKeysRef.current = new Set(pendingCandidateKeysRef.current);
+        pendingCandidateKeysRef.current.delete(candidate.candidateKey);
+        finishTaskRequest(taskId);
+      });
   };
 
   const tasksFor = (targetWeekStart: string) =>
@@ -1020,7 +1139,36 @@ function WeeklyTaskPlanner({
           </span>
         </div>
         {message && <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-800">{message}</p>}
-        <WeeklyTaskRows tasks={tasksFor(nextWeekStart)} editable={editable} onStatusChange={setTaskStatus} emptyText="来週の予定はまだありません。" />
+        <WeeklyTaskRows tasks={tasksFor(nextWeekStart)} editable={editable} pendingTaskIds={pendingTaskIds} onStatusChange={setTaskStatus} emptyText="来週の予定はまだありません。" />
+        {editable && (
+          <div className="mt-3 border-t border-[#e5e5e7] pt-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-[12px] font-semibold text-[#424245]">自動候補</p>
+              <span className="text-[11px] text-[#86868b]">本人担当・確定済みの要対応</span>
+            </div>
+            {suggestions.length === 0 ? (
+              <p className="mt-2 text-[12px] text-[#86868b]">来週期限の候補はありません。</p>
+            ) : (
+              <div className="mt-2 divide-y divide-[#e5e5e7] rounded-xl border border-[#e5e5e7] bg-[#fbfbfd]">
+                {suggestions.map((candidate) => (
+                  <div key={candidate.candidateKey} className="flex min-h-11 items-center gap-3 px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-medium text-[#1d1d1f]">{candidate.title}</p>
+                      <p className="mt-0.5 text-[11px] text-[#86868b]">{candidate.sourceLabel} · 期限 {formatDateJa(candidate.dueAt)}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => acceptSuggestion(candidate)}
+                      className="shrink-0 rounded-lg border border-[#007aff]/40 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[#007aff] hover:bg-[#007aff]/10"
+                    >
+                      確認して追加
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {editable && (
           <form onSubmit={addNextWeekTask} className="mt-3 flex items-center gap-2 border-t border-[#e5e5e7] pt-3">
             <label className="sr-only" htmlFor="next-week-task">来週のタスク</label>
@@ -1032,7 +1180,7 @@ function WeeklyTaskPlanner({
               placeholder="来週やることを追加"
               className="min-w-0 flex-1 rounded-xl border border-[#d1d1d6] bg-[#f5f5f7] px-3 py-2 text-[13px] text-[#1d1d1f] placeholder:text-[#86868b] focus:border-[#007aff] focus:bg-white focus:outline-none"
             />
-            <button type="submit" disabled={submitting || !newTaskTitle.trim()} className="min-h-10 shrink-0 rounded-xl bg-[#1d1d1f] px-3 text-[12px] font-semibold text-white disabled:opacity-45">
+            <button type="submit" disabled={!newTaskTitle.trim()} className="min-h-10 shrink-0 rounded-xl bg-[#1d1d1f] px-3 text-[12px] font-semibold text-white disabled:opacity-45">
               追加
             </button>
           </form>
@@ -1047,6 +1195,7 @@ function WeeklyTaskPlanner({
         manualTasks={tasksFor(weekStart)}
         editable={editable}
         taskLoading={loading}
+        pendingTaskIds={pendingTaskIds}
         onTaskStatusChange={setTaskStatus}
         onRefreshed={onRefreshed}
       />
@@ -1059,7 +1208,7 @@ function WeeklyTaskPlanner({
         </summary>
         <div className="space-y-4 border-t border-[#e5e5e7] px-4 py-3">
           {[previousWeekStart, twoWeeksAgoStart].map((pastWeekStart) => (
-            <PastWeekSection key={pastWeekStart} weekStart={pastWeekStart} tasks={tasksFor(pastWeekStart)} activities={activityFor(pastWeekStart)} editable={editable} onStatusChange={setTaskStatus} />
+            <PastWeekSection key={pastWeekStart} weekStart={pastWeekStart} tasks={tasksFor(pastWeekStart)} activities={activityFor(pastWeekStart)} editable={editable} pendingTaskIds={pendingTaskIds} onStatusChange={setTaskStatus} />
           ))}
         </div>
       </details>
@@ -1070,11 +1219,13 @@ function WeeklyTaskPlanner({
 function WeeklyTaskRows({
   tasks,
   editable,
+  pendingTaskIds = new Set(),
   onStatusChange,
   emptyText,
 }: {
   tasks: MemberWeeklyTask[];
   editable: boolean;
+  pendingTaskIds?: ReadonlySet<string>;
   onStatusChange: (task: MemberWeeklyTask, status: "open" | "completed") => void;
   emptyText: string;
 }) {
@@ -1088,7 +1239,7 @@ function WeeklyTaskRows({
             <input
               type="checkbox"
               checked={complete}
-              disabled={!editable}
+              disabled={!editable || pendingTaskIds.has(task.id)}
               onChange={(event) => onStatusChange(task, event.target.checked ? "completed" : "open")}
               className="size-4 shrink-0 accent-[#007aff] disabled:cursor-not-allowed"
               aria-label={`${task.title}を${complete ? "未完了に戻す" : "完了にする"}`}
@@ -1107,12 +1258,14 @@ function PastWeekSection({
   tasks,
   activities,
   editable,
+  pendingTaskIds,
   onStatusChange,
 }: {
   weekStart: string;
   tasks: MemberWeeklyTask[];
   activities: MyPageWeeklyActivity[];
   editable: boolean;
+  pendingTaskIds: ReadonlySet<string>;
   onStatusChange: (task: MemberWeeklyTask, status: "open" | "completed") => void;
 }) {
   const weekEnd = weekEndFromStart(weekStart);
@@ -1122,7 +1275,7 @@ function PastWeekSection({
         <h3 className="text-[13px] font-semibold text-[#1d1d1f]">{formatDateJa(weekStart)} - {formatDateJa(weekEnd)}</h3>
         <span className="text-[11px] text-[#86868b]">{tasks.filter((task) => task.status === "open").length}件未完了</span>
       </div>
-      <WeeklyTaskRows tasks={tasks} editable={editable} onStatusChange={onStatusChange} emptyText="手動タスクはありません。" />
+      <WeeklyTaskRows tasks={tasks} editable={editable} pendingTaskIds={pendingTaskIds} onStatusChange={onStatusChange} emptyText="手動タスクはありません。" />
       <ActivityEvidenceRows activities={activities} emptyText="抽出済みの活動はありません。" compact />
     </section>
   );
@@ -1135,7 +1288,7 @@ function ActivityEvidenceRows({ activities, emptyText, compact = false }: { acti
       {activities.slice(0, compact ? 6 : 8).map((activity) => (
         <div key={activity.id} className={compact ? "rounded-lg bg-[#f5f5f7] px-2.5 py-2" : "rounded-xl border border-[#e5e5e7] bg-[#fbfbfd] px-3 py-2.5"}>
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-[#007aff]/10 px-2 py-0.5 text-[10px] font-semibold text-[#007aff]">{sourceKindLabel(activity.sourceKind || activity.source)}</span>
+            <SourceKindBadges sourceKinds={activity.sourceKinds} />
             <span className="min-w-0 truncate text-[11px] text-[#86868b]">{activity.projectName}</span>
             {activity.itemDate && <span className="ml-auto text-[10px] text-[#86868b] whitespace-nowrap">{formatDateJa(activity.itemDate)}</span>}
           </div>
@@ -1154,6 +1307,7 @@ function WeeklyActivitiesCard({
   manualTasks = [],
   editable = false,
   taskLoading = false,
+  pendingTaskIds,
   onTaskStatusChange,
   onRefreshed,
 }: {
@@ -1163,6 +1317,7 @@ function WeeklyActivitiesCard({
   manualTasks?: MemberWeeklyTask[];
   editable?: boolean;
   taskLoading?: boolean;
+  pendingTaskIds?: ReadonlySet<string>;
   onTaskStatusChange?: (task: MemberWeeklyTask, status: "open" | "completed") => void;
   onRefreshed?: () => void;
 }) {
@@ -1245,6 +1400,7 @@ function WeeklyActivitiesCard({
         <WeeklyTaskRows
           tasks={manualTasks}
           editable={editable}
+          pendingTaskIds={pendingTaskIds}
           onStatusChange={onTaskStatusChange || (() => {})}
           emptyText="今週の手動タスクはありません。"
         />
@@ -1263,9 +1419,7 @@ function WeeklyActivitiesCard({
             {activities.slice(0, 8).map((activity) => (
               <div key={activity.id} className="rounded-xl border border-[#e5e5e7] bg-[#fbfbfd] px-3 py-2.5">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-semibold text-[#007aff] bg-[#007aff]/10 rounded-full px-2 py-0.5">
-                    {sourceKindLabel(activity.sourceKind || activity.source)}
-                  </span>
+                  <SourceKindBadges sourceKinds={activity.sourceKinds} />
                   <span className="min-w-0 truncate text-[12px] text-[#86868b]">{activity.projectName}</span>
                   {activity.itemDate && (
                     <span className="ml-auto text-[11px] text-[#86868b] whitespace-nowrap">

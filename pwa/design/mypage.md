@@ -33,13 +33,15 @@
 | `milestone_monthly_progress` | 月次進捗率 |
 | `member_activities(source='member_weekly')` | Gmail / 共有メンバーカレンダー / source_cache / `project_meeting_summaries` から抽出した「今週やったこと」 |
 | `member_weekly_tasks` | 本人が管理する週次タスク。完了状態と繰越元を保持する正本 |
+| `action_items` | 来週の候補。本人担当・`confirmed`・未完了・来週期限に限り、明示追加前は正本タスクにしない |
 
 ### 週次タスク（PWA、2026-08-18）
 
 - 表示順は `来週やること`、`今週やったこと`、初期状態で閉じた `前週・前々週を表示`。履歴トグルの中に過去2週の手動タスクと自動抽出活動を週ごとに残す。
-- `来週やること` は本人が追加し、各手動タスクのチェックボックスで `open` / `completed` を手動変更する。完了済みは取り消して未完了へ戻せる。
+- `来週やること` は本人が追加し、各タスクのチェックボックスで `open` / `completed` を手動変更する。完了済みは取り消して未完了へ戻せる。追加・チェックは楽観更新で画面へ即時反映し、保存失敗時だけ元に戻してエラーを示す。
+- 来週の `action_items` 候補は、`assignee_member_id` が本人、`review_status='confirmed'`、`status IN ('open', 'in_progress')`、期限が来週JST内の行だけ。`確認して追加` を押すまで `member_weekly_tasks` を作らない。予定、議事録、自由文を自動で個人タスクへ変換しない。
 - 月曜（JST）に本人のマイページを開くと、直前週で `open` の行だけを今週へ `carryover` として冪等に追加する。元週の行は `未完了` のまま残す。完了済みは繰り越さない。
-- `member_activities(source='member_weekly')` はD-10が残す活動根拠であり、タスクの完了状態・繰越には使わない。手動タスクと混ぜず、画面上でも「自動抽出の活動」として分ける。
+- `member_activities(source='member_weekly')` はD-10が残す活動根拠であり、タスクの完了状態・繰越には使わない。手動タスクと混ぜず、画面上でも「自動抽出の活動」として分ける。保存時の `raw_metadata.source_kind='source_fusion'` は複数根拠を束ねた内部経路で、UIは `raw_metadata.source_kinds` の実際の根拠種別（Gmail / Calendar / 議事録）だけを表示する。
 - 読み取りは本人またはadmin、作成・状態変更・繰越は本人だけ。PWA APIは `GET/POST /api/mypage/weekly-tasks`、DB書込みはservice roleのAPI経由だけに閉じる。
 - iOS/native版は同じDB契約を実装するときにこの挙動へ合わせる。今回の画面実装対象はPWA。
 

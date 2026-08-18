@@ -38,7 +38,7 @@ AMD メンバー (= 社内常勤 / 副業) が AMD OS で日常的に触る画�
 | アクティブ value plan | `value_plan_cycles` (= `status='fixed'`) |
 | MS 一覧 | `value_milestones` (= `is_active=true`) |
 | 月次進捗率 | `milestone_monthly_progress` |
-| 来週やること / 手動タスク | `member_weekly_tasks` |
+| 来週やること / 手動タスク | `member_weekly_tasks`。本人担当・confirmed・来週期限の `action_items` は候補だけを表示し、確認後に追加 |
 | 今週やったこと（自動抽出） | `member_activities` (= `source='member_weekly'`) |
 | 月初合意状態 | `member_monthly_work_agreements` + 当月 snapshot hash |
 
