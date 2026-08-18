@@ -27,8 +27,8 @@
 ## Repo・本番状態
 
 - canonical path: `/Users/masa/projects/AMD/amd-os`
-- branch: `main`、HEAD/origin/main: `f0dec491`、ahead/behind: `0/0`
-- 最新commit `f0dec491` は別作業の管理カレンダーGoogle同期。今回のシーズ修正はその直前の`8e28447c`に含まれる。
+- branch: `main`、mainとorigin/mainは同期済み。次セッション開始時にSHAとahead/behindを再確認する。
+- 管理カレンダーGoogle同期のcommit `f0dec491` と、今回のシーズ修正 `8e28447c` はともにmainに含まれる。
 - worktree: 本体1個のみ。local branch: `main`のみ。
 
 ## 既存dirty（今回の作業外）

@@ -16,7 +16,7 @@
 
 ## 状態スナップショット
 
-- `/seeds` の会社名表示はcommit `8e28447c`でmainに統合済み。本番確認時はv3.81.2 / SHA `8e28447c`だった。現在のmain先端は、別作業の管理カレンダー同期 `f0dec491`。
+- `/seeds` の会社名表示はcommit `8e28447c`でmainに統合済み。本番確認時はv3.81.2 / SHA `8e28447c`だった。管理カレンダーGoogle同期 `f0dec491` もmainに統合済みで、開始時に必ず現在のmain先端を確認する。
 - 一覧は「会社名」列。`seed_projects.venture_name`を会社名の正本にし、`pre_incorporation`は`会社名（未設立）`、会社名なしは`未設立`。社名を枠で囲わず太字にし、PJ紐付きはセル右上の青い`PJ`バッジだけで示す。
 - `PJ化済み`、PJのactive/ended、`協議中`、`スピンアウト済み`は一覧に書かない。
 - p21は`SolvioraX`、p20は`CryoX`へmigration 289で訂正済み。両方とも`commercialization_stage='pre_incorporation'`を維持。migrationは本番適用と読戻し済み。
