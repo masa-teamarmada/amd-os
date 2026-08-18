@@ -701,6 +701,18 @@ freee、公的法人情報、既存の確定データからAMD運営ファクト
 
 `company_operating_facts`、`company_schedule_occurrences`、`company_schedule_notifications`はservice-role writerだけが作成と更新を行う。
 
+## Google Calendar投影
+
+管理カレンダーの確定予定は、会社Google Workspaceが所有する共有カレンダー`AMD 管理カレンダー`へ毎日投影する。
+
+- 投影先はadmin個人のprimary calendarへ複製せず、active admin全員へreader共有する単一カレンダーとする。
+- 同期範囲はJST当日から、当月を含む9か月目の月末まで。月替わり時に1か月先へ自動で進む。
+- `current_version=true`、`date_precision='day'`、日付確定済み、未完了の予定だけを同期する。月精度・日付未確定・生成不能の予定へ仮の日付を作らない。
+- Google Calendar予定は終日かつ`transparent`とし、時間を塞がず、個別通知を追加しない。
+- `occurrence_key`をGoogle Calendarのprivate extended propertyへ保持し、日次同期は作成・更新・削除を冪等に行う。
+- 予定の正本は`company_schedule_occurrences`ではなく、その生成元である契約・支払義務・会社属性・公的ルールに置く。Google Calendar上での編集を正本へ逆流させない。
+- `GET /api/cron/company-schedule`は派生予定の再生成後にSupabase Edge Function `admin-schedule-calendar-sync`を呼び、同期失敗を成功扱いにしない。
+
 browserからの直接INSERT、UPDATE、DELETEを許可しない。
 
 `company_schedule_actions`はadmin API経由だけで書く。

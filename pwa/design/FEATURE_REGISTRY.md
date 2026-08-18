@@ -653,6 +653,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 定時株主総会は`project_shareholder_meetings(project_id='p00')`を最優先する。確定日は-21/-14/0/+7日の4工程へ展開し、未確定年は2月の資料作成・3月の開催を月精度`正本要確認`で表示して法定期限と断定しない。
 - 会社単位の法定納付を主役にする。`company_payment_obligations` は `tax` / `social_insurance` だけを管理カレンダーへ取り込み、Gmail/email由来は`reviewed_at`またはreviewed/manualの明示確認がある行だけに限定する。納付正本の法人税・源泉・社保・労働保険も種別化し、先行する社内締切を派生する。PJ別の請求書発行/送付・入金確認 (`billing_cycles`) は生成対象から除外する。
 - カレンダーから予定・日付・金額・担当者を追加、編集、削除しない。元正本の修正後に `/api/admin/schedule/rebuild` で再生成する。
+- 日付確定済みの当日以降の予定は、会社所有の共有Google Calendar `AMD 管理カレンダー`へ日次で冪等同期し、active admin 2人へreader共有する。個人primary calendarへの複製、日付未確定予定への仮日付、時間ブロック、追加リマインダーは作らない。
 - detail drawer/sheet は期限精度 (`day` / `month` / `period` / `unknown`)、金額役割 (`outgoing` / `incoming` / `contract_reference` / `informational`)、担当、正本リンク、公式根拠、生成状態を表示する。不明額を0円表示しない。
 - `company_payment_obligations` は `notification_owner='payment_obligation'` として既存通知台帳を所有する。運営カレンダー通知は `AMD_OS_SCHEDULE_NOTIFICATIONS_ENABLED='1'` の明示opt-in時だけ `company_schedule_notifications` の一意キーで送信する。
 - migration `178_admin_operating_calendar.sql` の5テーブルは、facts/rules/occurrences/notificationsをservice_role writer、actionsを`requireAdmin`済みadmin APIがservice-roleでappend-only insertするwriterに限定する。browserからのauthenticated直書きは不可。middleware/proxyだけを認可根拠にしない。

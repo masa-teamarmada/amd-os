@@ -268,3 +268,10 @@ automation作成後の最初の自然な平日09:00実行は未観測。2026-08-
 - candidate 24件: q v2(ルーブリックv1.1)×P^ind判断帯→SPS ind版v1.0をDB反映、/seeds本番表示v3.78.1(旧SPS列非表示=まさ裁定)
 - 一次選別インフラ: migration 280(status CHECK/遷移履歴trigger/帯テーブル+DTO契約テスト)、根拠Lv0-3表示、月次試算表p09/p24追加
 - 詳細はbzm/9-5-appendix-changelog.md 2026-08-15〜16エントリ群とSESSION_MIGRATION_PROMPT_BZM_MODEL_20260816.md
+
+## 2026-08-19 — 管理カレンダーのGoogle Calendar共有同期（v3.81.3）
+
+- `/admin/schedule`の表示範囲がJSTの表示月から毎月1か月ずつ進み、2026年9月には2026年6月〜2027年5月になることを固定日計算と本番DB（2027年5月4件）で確認した。
+- admin個人OAuthはcalendar.readonlyのみだったため、全メンバーへ書込scopeを追加せず、会社Google Workspace所有の`AMD 管理カレンダー`をactive admin 2人へreader共有する方式を採用した。
+- Supabase Edge Function `admin-schedule-calendar-sync`を追加。日付確定済み・当日以降・未完了の派生予定を終日transparentで同期し、private extended propertyの`occurrence_key`で作成・更新・削除を冪等化した。月精度・日付未確定予定へ仮日付は作らない。
+- `GET /api/cron/company-schedule`は期限生成後に同Functionを呼び、Calendar同期失敗を成功扱いにしない。
