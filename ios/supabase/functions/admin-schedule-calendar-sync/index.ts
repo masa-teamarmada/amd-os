@@ -10,6 +10,7 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildTimedEventPlans, type TimedEventPlan } from "./schedule.ts";
 
 const CAL_API = "https://www.googleapis.com/calendar/v3";
 const CALENDAR_SETTING_KEY = "admin_schedule_google_calendar_id";
@@ -21,8 +22,8 @@ type GoogleEvent = {
   id?: string;
   summary?: string;
   description?: string;
-  start?: { date?: string };
-  end?: { date?: string };
+  start?: { date?: string; dateTime?: string };
+  end?: { date?: string; dateTime?: string };
   transparency?: string;
   extendedProperties?: { private?: Record<string, string> };
 };
@@ -80,7 +81,8 @@ async function googleRequest(token: string, path: string, init: RequestInit = {}
   const body = response.status === 204 ? null : await response.json();
   if (!response.ok) {
     const reason = body?.error?.errors?.[0]?.reason || body?.error?.status || `HTTP_${response.status}`;
-    throw new Error(`Google Calendar ${reason}`);
+    const message = body?.error?.message ? `: ${String(body.error.message).slice(0, 300)}` : "";
+    throw new Error(`Google Calendar ${reason}${message}`);
   }
   return body;
 }
@@ -138,7 +140,7 @@ async function ensureAdminReaders(db: ReturnType<typeof createClient>, token: st
 
 async function desiredOccurrences(db: ReturnType<typeof createClient>, from: string, to: string) {
   const { data, error } = await db.from("company_schedule_occurrences")
-    .select("occurrence_id,occurrence_key,title,due_on,category,lifecycle_status,date_precision")
+    .select("occurrence_id,occurrence_key,title,due_on,category,source_kind,lifecycle_status,date_precision")
     .eq("current_version", true)
     .eq("date_precision", "day")
     .gte("due_on", from)
@@ -162,19 +164,19 @@ async function desiredOccurrences(db: ReturnType<typeof createClient>, from: str
   return rows.filter((row) => !["completed", "not_applicable"].includes(latest.get(String(row.occurrence_id)) ?? ""));
 }
 
-function eventBody(row: Row) {
-  const dueOn = String(row.due_on);
-  const key = String(row.occurrence_key);
+function eventBody(row: TimedEventPlan) {
+  const key = row.occurrence_key;
   return {
-    summary: String(row.title),
+    summary: row.title,
     description: [
       "AMD OS 管理カレンダーから自動同期",
-      `区分: ${String(row.category)}`,
+      `区分: ${row.category}`,
+      `確保時間: ${row.duration_minutes}分`,
       "日付や内容の修正はAMD OSの元データで行う。",
     ].join("\n"),
-    start: { date: dueOn },
-    end: { date: addDays(dueOn, 1) },
-    transparency: "transparent",
+    start: { dateTime: row.start_time, timeZone: TZ },
+    end: { dateTime: row.end_time, timeZone: TZ },
+    transparency: "opaque",
     reminders: { useDefault: false },
     extendedProperties: { private: { amdOsSource: "admin_schedule", amdScheduleOccurrenceKey: key } },
   };
@@ -183,9 +185,10 @@ function eventBody(row: Row) {
 function eventMatches(existing: GoogleEvent, desired: ReturnType<typeof eventBody>): boolean {
   return existing.summary === desired.summary
     && existing.description === desired.description
-    && existing.start?.date === desired.start.date
-    && existing.end?.date === desired.end.date
-    && existing.transparency === desired.transparency;
+    && existing.start?.dateTime === desired.start.dateTime
+    && existing.end?.dateTime === desired.end.dateTime
+    // Google omits the field when the value is its default `opaque`.
+    && (existing.transparency ?? "opaque") === desired.transparency;
 }
 
 async function listManagedEvents(token: string, calendarId: string, from: string, to: string): Promise<GoogleEvent[]> {
@@ -220,7 +223,14 @@ Deno.serve(async (request) => {
     const token = await googleToken();
     const calendarId = await ensureCalendar(db, token);
     const adminMemberIds = await ensureAdminReaders(db, token, calendarId);
-    const desired = await desiredOccurrences(db, today, through);
+    const desiredRows = await desiredOccurrences(db, today, through);
+    const desired = buildTimedEventPlans(desiredRows.map((row) => ({
+      occurrence_key: String(row.occurrence_key),
+      title: String(row.title),
+      due_on: String(row.due_on),
+      category: String(row.category),
+      source_kind: String(row.source_kind),
+    })));
     const existing = await listManagedEvents(token, calendarId, today, through);
     const desiredByKey = new Map(desired.map((row) => [String(row.occurrence_key), row]));
     const existingByKey = new Map<string, GoogleEvent>();
@@ -242,7 +252,11 @@ Deno.serve(async (request) => {
         await googleRequest(token, `/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=none`, { method: "POST", body: JSON.stringify(body) });
         created += 1;
       } else if (!eventMatches(current, body)) {
-        await googleRequest(token, `/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(current.id)}?sendUpdates=none`, { method: "PATCH", body: JSON.stringify(body) });
+        // Google Events.patch merges nested start/end fields, so an all-day
+        // event can retain `date` beside `dateTime` and fail as invalid.
+        // These events are fully owned by this projection; replace the event
+        // resource to make the all-day -> timed transition explicit.
+        await googleRequest(token, `/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(current.id)}?sendUpdates=none`, { method: "PUT", body: JSON.stringify(body) });
         updated += 1;
       }
     }

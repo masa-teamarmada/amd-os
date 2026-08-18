@@ -283,3 +283,9 @@ automation作成後の最初の自然な平日09:00実行は未観測。2026-08-
 - admin個人OAuthはcalendar.readonlyのみだったため、全メンバーへ書込scopeを追加せず、会社Google Workspace所有の`AMD 管理カレンダー`をactive admin 2人へreader共有する方式を採用した。
 - Supabase Edge Function `admin-schedule-calendar-sync`を追加。日付確定済み・当日以降・未完了の派生予定を終日transparentで同期し、private extended propertyの`occurrence_key`で作成・更新・削除を冪等化した。月精度・日付未確定予定へ仮日付は作らない。
 - `GET /api/cron/company-schedule`は期限生成後に同Functionを呼び、Calendar同期失敗を成功扱いにしない。
+
+## 2026-08-19 — 管理カレンダーを実務時間枠へ訂正（v3.81.4）
+
+- v3.81.3の終日・transparent投影では月表示上部へ出るだけで、実務時間を確保できなかった。
+- Google Calendar投影をJSTの時刻付き・opaqueへ変更。書類作成・月次報告・ガバナンスは120分、税務は90分、その他は60分。同日分は09:00から並べ、12:00〜13:00を避ける。
+- 既存の48件は同じ`occurrence_key`のまま更新し、別予定として複製しない。

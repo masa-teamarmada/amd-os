@@ -708,7 +708,8 @@ freee、公的法人情報、既存の確定データからAMD運営ファクト
 - 投影先はadmin個人のprimary calendarへ複製せず、active admin全員へreader共有する単一カレンダーとする。
 - 同期範囲はJST当日から、当月を含む9か月目の月末まで。月替わり時に1か月先へ自動で進む。
 - `current_version=true`、`date_precision='day'`、日付確定済み、未完了の予定だけを同期する。月精度・日付未確定・生成不能の予定へ仮の日付を作らない。
-- Google Calendar予定は終日かつ`transparent`とし、時間を塞がず、個別通知を追加しない。
+- Google Calendar予定はJSTの時刻付きかつ`opaque`（予定あり）とし、実務時間を確保する。書類作成・月次報告・ガバナンスは120分、税務は90分、その他の納付・確認・契約等は60分を既定値とする。
+- 同日の予定は09:00から決定的に順番配置し、12:00〜13:00を避ける。同期のたびに同じ入力から同じ時間枠を再現し、追加リマインダーは作らない。
 - `occurrence_key`をGoogle Calendarのprivate extended propertyへ保持し、日次同期は作成・更新・削除を冪等に行う。
 - 予定の正本は`company_schedule_occurrences`ではなく、その生成元である契約・支払義務・会社属性・公的ルールに置く。Google Calendar上での編集を正本へ逆流させない。
 - `GET /api/cron/company-schedule`は派生予定の再生成後にSupabase Edge Function `admin-schedule-calendar-sync`を呼び、同期失敗を成功扱いにしない。
