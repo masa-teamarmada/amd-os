@@ -9,11 +9,12 @@ REPO_DIR="/Users/masa/projects/AMD/amd-os"
 AUTOMATION_DIR="${CODEX_HOME}/automations/amd-os-l6-meeting-flow"
 PROMPT_FILE="${REPO_DIR}/scripts/h1-background-runner-prompt.md"
 LOG_DIR="${AUTOMATION_DIR}/logs"
+DIAGNOSTIC_DIR="${AUTOMATION_DIR}/diagnostics"
 MODE="${1:-}"
 WORK_DIR="${AUTOMATION_DIR}/background-work"
 NOTION_METADATA_STATE_FILE="${AUTOMATION_DIR}/run_state/notion_metadata_scan.json"
 
-mkdir -p "${LOG_DIR}" "${AUTOMATION_DIR}/runner-output" "${WORK_DIR}"
+mkdir -p "${LOG_DIR}" "${DIAGNOSTIC_DIR}" "${AUTOMATION_DIR}/runner-output" "${WORK_DIR}"
 
 if [[ "${MODE}" != "--force" && "${MODE}" != "--probe" ]]; then
   weekday="${H1_NOW_WEEKDAY_JST:-$(TZ=Asia/Tokyo date +%u)}"
@@ -63,6 +64,17 @@ fi
       print -- "[$(date '+%F %T %Z')] h1 background runner completed before nonzero exit=${exit_code}"
       exit 0
     fi
+    # Keep only bounded runner diagnostics. The full transcript is deliberately
+    # discarded because connector results can contain meeting content and PII.
+    diagnostic_file="${DIAGNOSTIC_DIR}/${timestamp}-runner-failure.txt"
+    {
+      print -- "exit=${exit_code}"
+      print -- "diagnostic_lines:"
+      rg -m 40 '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[^ ]+ +(ERROR|WARN) ' "${transcript_file}" 2>/dev/null \
+        | tail -40 \
+        | cut -c1-1000 || true
+    } > "${diagnostic_file}"
+    chmod 600 "${diagnostic_file}"
     print -- "[$(date '+%F %T %Z')] h1 background runner failed exit=${exit_code}"
     exit "${exit_code}"
   fi
