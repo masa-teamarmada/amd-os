@@ -741,7 +741,9 @@ export const SEED_NEWS_KIND_LABEL: Record<string, string> = {
 export const SEED_CONTACT_METHOD_LABEL: Record<string, string> = {
   email: "メール",
   phone: "電話",
-  meeting: "面談",
+  slack: "Slack",
+  teams: "Teams",
+  meeting: "MTG / 面談",
   event: "イベント",
   referral: "紹介",
   visit: "訪問",

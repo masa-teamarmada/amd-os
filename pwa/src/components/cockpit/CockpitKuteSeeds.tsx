@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, FileText, Loader2, RotateCcw } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, FileText, Loader2, Plus, RotateCcw } from "lucide-react";
 import { KuteSeedDetailModal } from "@/components/seeds/KuteSeedDetailModal";
+import { SeedDetailModal } from "@/components/seeds/SeedDetailModal";
 import {
   fetchResearchInstitutionSeedsForProject,
   fetchInstitutionIdForProject,
@@ -85,6 +86,7 @@ export function CockpitKuteSeeds({
   const [seeds, setSeeds] = useState<SeedPublicView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<SeedPublicView | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const [requestKey, setRequestKey] = useState(0);
   const [sortKey, setSortKey] = useState<SortKey>("spsBand");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -157,7 +159,7 @@ export function CockpitKuteSeeds({
       );
       return byScore || a.title.localeCompare(b.title, "ja");
     });
-  }, [filteredSeeds, scope, sortKey, dir, bandsBySeedId]);
+  }, [filteredSeeds, dir, bandsBySeedId]);
 
   const isEmptyResult = flatSeeds.length === 0;
 
@@ -196,6 +198,16 @@ export function CockpitKuteSeeds({
           )}
         </div>
         <div className="flex shrink-0 items-start gap-3">
+          {scope === "all" && (
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-sky-700 px-3 text-xs font-semibold text-white hover:bg-sky-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              新規シーズ
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {
@@ -298,7 +310,28 @@ export function CockpitKuteSeeds({
         )}
       </div>
 
-      <KuteSeedDetailModal open={selected != null} seed={selected} onClose={() => setSelected(null)} />
+      {scope === "all" ? (
+        <>
+          {selected && (
+            <SeedDetailModal
+              seedId={selected.id}
+              createMode={false}
+              onClose={() => setSelected(null)}
+              onSaved={() => setRequestKey((value) => value + 1)}
+            />
+          )}
+          {createOpen && (
+            <SeedDetailModal
+              seedId={null}
+              createMode
+              onClose={() => setCreateOpen(false)}
+              onSaved={() => setRequestKey((value) => value + 1)}
+            />
+          )}
+        </>
+      ) : (
+        <KuteSeedDetailModal open={selected != null} seed={selected} onClose={() => setSelected(null)} />
+      )}
     </section>
   );
 }

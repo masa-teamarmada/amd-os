@@ -64,6 +64,8 @@ export type SeedNewsIngestSource =
 export type SeedContactMethod =
   | "email"
   | "phone"
+  | "slack"
+  | "teams"
   | "meeting"
   | "event"
   | "referral"
