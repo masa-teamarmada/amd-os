@@ -93,6 +93,15 @@ export function scheduleGenerationRange(today: string): { from: string; to: stri
   return { from: `${year - 1}-01-01`, to: `${year + 2}-12-31` };
 }
 
+export function rollingScheduleWindow(today: string, monthsBack = 3, monthsForward = 8): { from: string; to: string } {
+  if (!isIsoDate(today)) throw new Error(`invalid rolling window date: ${today}`);
+  const todayYm = ymFromDate(today);
+  if (!todayYm) throw new Error(`invalid rolling window date: ${today}`);
+  const fromYm = addMonthsYm(todayYm, -monthsBack);
+  const toYm = addMonthsYm(todayYm, monthsForward);
+  return { from: `${fromYm.slice(0, 4)}-${fromYm.slice(4, 6)}-01`, to: lastDayOfYm(toYm) };
+}
+
 export function monthList(fromYm: string, months: number): string[] {
   return Array.from({ length: months }, (_, index) => addMonthsYm(fromYm, index));
 }

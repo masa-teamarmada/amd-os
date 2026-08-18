@@ -104,7 +104,7 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
   { id: "admin-private-wiki", title: "裏wiki", navLabel: "非公開wiki", primaryPath: "/admin/private-wiki", domain: "knowledge_documents", lens: "amd_operations", status: "canonical", exact: ["/admin/private-wiki"] },
   { id: "admin-tsukuyomi", title: "Admin つくよみ", navLabel: "つくよみ", primaryPath: "/admin/tsukuyomi", domain: "knowledge_documents", lens: "amd_operations", status: "canonical", exact: ["/admin/tsukuyomi"] },
   { id: "admin-prompts", title: "LLM プロンプト", navLabel: "LLMプロンプト", primaryPath: "/admin/prompts", domain: "knowledge_documents", lens: "amd_operations", status: "canonical", exact: ["/admin/prompts"] },
-  { id: "admin-schedule", title: "運営カレンダー", navLabel: "運営カレンダー", primaryPath: "/admin/schedule", domain: "company_operations", lens: "amd_operations", status: "canonical", exact: ["/admin/schedule"] },
+  { id: "admin-schedule", title: "管理カレンダー", navLabel: "管理カレンダー", primaryPath: "/admin/schedule", domain: "company_operations", lens: "amd_operations", status: "canonical", exact: ["/admin/schedule"] },
   { id: "admin-settings", title: "Admin 設定", navLabel: "設定", primaryPath: "/admin/settings", domain: "platform", lens: "amd_operations", status: "canonical", exact: ["/admin/settings"] },
   { id: "admin-fallback", title: "Admin", domain: "company_operations", lens: "amd_operations", status: "transitional", prefixes: ["/admin"] },
 
@@ -113,11 +113,12 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
 ] as const;
 
 export const ADMIN_SURFACE_GROUPS = [
+  { label: "カレンダー", surfaceIds: ["admin-schedule"] },
   { label: "組織・権限", surfaceIds: ["admin-projects", "admin-members", "admin-access", "admin-company", "admin-governance"] },
   { label: "契約・お金", surfaceIds: ["admin-contracts", "admin-kiyo", "admin-invoices", "admin-payouts", "admin-monthly-agreements", "admin-season-pl", "admin-finance"] },
   { label: "PJ・実行", surfaceIds: ["management-score", "admin-weekly", "admin-protocols", "admin-ms-overview", "admin-coverage", "admin-ip"] },
   { label: "知識・AI", surfaceIds: ["admin-japanese-culture", "admin-contexts", "admin-management-knowledge", "admin-private-wiki", "admin-tsukuyomi", "admin-prompts"] },
-  { label: "運用", surfaceIds: ["admin-schedule", "admin-settings"] },
+  { label: "運用", surfaceIds: ["admin-settings"] },
 ] as const;
 
 const surfaceById = new Map(SURFACE_CATALOG.map((surface) => [surface.id, surface]));

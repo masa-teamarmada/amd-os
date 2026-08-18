@@ -44,3 +44,17 @@ export function isDatePrecisionDay(item: { date_precision: string; due_on: strin
   return item.date_precision === "day" && Boolean(item.due_on);
 }
 
+export function rollingCalendarMonths(fromYm: string, toYm: string): Array<{ year: number; month: number }> {
+  const result: Array<{ year: number; month: number }> = [];
+  let cursor = fromYm;
+  let guard = 0;
+  while (cursor <= toYm && guard < 60) {
+    result.push({ year: Number(cursor.slice(0, 4)), month: Number(cursor.slice(4, 6)) });
+    const year = Number(cursor.slice(0, 4));
+    const month = Number(cursor.slice(4, 6));
+    cursor = month === 12 ? `${year + 1}01` : `${year}${String(month + 1).padStart(2, "0")}`;
+    guard += 1;
+  }
+  return result;
+}
+

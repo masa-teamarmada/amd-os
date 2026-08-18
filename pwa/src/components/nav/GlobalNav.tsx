@@ -278,7 +278,7 @@ export function GlobalNav({
         items: [
           {
             label: "Admin",
-            href: "/admin/projects",
+            href: "/admin/schedule",
             icon: Shield,
             exact: true,
           },

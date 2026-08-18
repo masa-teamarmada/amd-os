@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+| 2026-08-19 JST | 5-9 管理カレンダー / FEATURE_REGISTRY | 機能拡張・トップ変更 | build v3.81.0。`/admin`とGlobalNavのAdmin導線を`/admin/schedule`へ変更し、AdminSidebar最上段を管理カレンダーにした。既定表示を過去3か月＋今月から9か月の月曜始まり12か月グリッドへ変更。法人税・中間申告・源泉所得税・社会保険・労働保険の書類作成工程を親期限から派生し、定時株主総会はp00正本を優先、未確定時は2月/3月の月精度`正本要確認`とする。未確認Gmail/email由来の税・社保候補は表示対象外 | 管理画面を開いた直後に、会社運営の締切と先行書類作成を年間の時間軸で判断し、候補メールや架空日付を確定予定に見せないため | まさ・えいみ |
+
 | 2026-08-18 JST | 2-1 PWA Runtime / 2-2 Member workflows / 6-6 Member Ops / db_schema | 追加 | `/mypage` に手動週次タスクを追加。`member_weekly_tasks` を正本に、最上段の来週入力、今週のチェックボックス完了、前週・前々週トグル、未完了の月曜JST繰越（元週の履歴保持、二重繰越防止）を実装。D-10の `member_activities` は活動根拠として分離し、`GET/POST /api/mypage/weekly-tasks` は本人更新・admin閲覧に閉じた | まさ指示の週単位の遡り、来週計画、手動完了、未完了繰越を、既存の自動抽出活動と混同せず実現するため | まさ・えいみ |
 | 2026-08-18 JST | 2-1 PWA Runtime / 2-2 Member workflows / 6-6 Member Ops / db_schema | 訂正 | `source_fusion` を活動保存時の内部集約として隠し、実根拠種別を表示。来週タスクの追加・完了を楽観更新へ変更。本人担当・confirmed・未完了・来週期限の `action_items` は候補に留め、本人の明示追加後だけ `member_weekly_tasks(source='action_item')` へ保存し、候補キーのDB一意制約で二重追加を防止 | 表示責務と保存責務を分離し、来週タスク候補を安全に導入するため | まさ・えいみ |
 

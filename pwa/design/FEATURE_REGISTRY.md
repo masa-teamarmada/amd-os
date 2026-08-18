@@ -642,14 +642,16 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 ## /admin/schedule
 
-目的: 契約・法定支払義務・報告書・確定 action item・会社運営ファクト・公式期限ルールから、年間の締切を自動生成するadmin read model。
+目的: 契約・法定支払義務・報告書・確定 action item・会社運営ファクト・定時株主総会正本・公式期限ルールから、過去3か月＋今月から9か月の締切と書類作成工程を自動生成するadmin read model。
 
 必須機能:
 
-- `AdminSidebar` に `運営カレンダー` → `/admin/schedule` を置く。admin layout/auth gateと既存full-width shellを使う。
-- 既定の`年間運営`は法定納付を主役にする。先頭は`今から要対応の口座流出`（要照合+未来の未完了納付）とし、`納付済み`、`要照合`、`これからの口座流出`、年間総額を混ぜずに表示する。12か月の支払額レールは要照合+今後分だけ、月ごとのカードもこの3レーンと`その他の運営`を分ける。納付行は日付、正式名称、支払先、完全な金額、確定/概算、状態を省略しない。社会保険料はカレンダーでは本人預り分を含む口座流出総額、PLでは会社負担コストとして別指標にする。
-- 12か月すべての実日付7列グリッドは補助タブ`日付カレンダー`として残す。xlは3か月×4段、md/lgは2か月、モバイルは1か月ずつ表示し、前月/次月・月選択・今日・選択日agendaを備える。
-- 会社単位の法定納付を主役にする。`company_payment_obligations` は `tax` / `social_insurance` だけを運営カレンダーへ取り込み、PJ別の請求書発行/送付・入金確認 (`billing_cycles`) は生成対象から除外する。
+- `/admin`とGlobalNavのAdmin導線を`/admin/schedule`へ着地させ、`AdminSidebar`の最上段に`管理カレンダー`を置く。admin layout/auth gateと既存full-width shellを使う。
+- 既定の`カレンダー`は`current month - 3`から`current month + 8`までの12か月を月曜始まりで連続表示する。1280px以上は3列、1024px以上は2列、それ未満は1列。日精度、月精度、社内締切、正本要確認をpill内で区別し、今月と今日を強調する。
+- 副タブ`年間運営`は法定納付を主役にする。先頭は`今から要対応の口座流出`（要照合+未来の未完了納付）とし、`納付済み`、`要照合`、`これからの口座流出`、年間総額を混ぜずに表示する。社会保険料はカレンダーでは本人預り分を含む口座流出総額、PLでは会社負担コストとして別指標にする。
+- 法人税・中間申告・源泉所得税・社会保険・労働保険の確定期限から、種別別の書類作成/確認日を社内締切として派生する。親予定が根拠不足なら派生しない。
+- 定時株主総会は`project_shareholder_meetings(project_id='p00')`を最優先する。確定日は-21/-14/0/+7日の4工程へ展開し、未確定年は2月の資料作成・3月の開催を月精度`正本要確認`で表示して法定期限と断定しない。
+- 会社単位の法定納付を主役にする。`company_payment_obligations` は `tax` / `social_insurance` だけを管理カレンダーへ取り込み、Gmail/email由来は`reviewed_at`またはreviewed/manualの明示確認がある行だけに限定する。納付正本の法人税・源泉・社保・労働保険も種別化し、先行する社内締切を派生する。PJ別の請求書発行/送付・入金確認 (`billing_cycles`) は生成対象から除外する。
 - カレンダーから予定・日付・金額・担当者を追加、編集、削除しない。元正本の修正後に `/api/admin/schedule/rebuild` で再生成する。
 - detail drawer/sheet は期限精度 (`day` / `month` / `period` / `unknown`)、金額役割 (`outgoing` / `incoming` / `contract_reference` / `informational`)、担当、正本リンク、公式根拠、生成状態を表示する。不明額を0円表示しない。
 - `company_payment_obligations` は `notification_owner='payment_obligation'` として既存通知台帳を所有する。運営カレンダー通知は `AMD_OS_SCHEDULE_NOTIFICATIONS_ENABLED='1'` の明示opt-in時だけ `company_schedule_notifications` の一意キーで送信する。
@@ -657,7 +659,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 回帰防止:
 
-- `npm run test:admin-schedule` が法定期限の純粋日付計算、2026年の年間納付集計、公式URL、amount role、notification owner、年間運営UI、手入力禁止のanchorを検査する。
+- `npm run test:admin-schedule` が法定期限、12か月窓、年またぎ・閏年、社内工程、株主総会正本優先、Gmail候補除外、年間納付集計、公式URL、amount role、notification owner、両タブUI、手入力禁止のanchorを検査する。
 - 予定追加ボタン、カレンダー上の日付/金額/担当者編集、支払義務の重複通知を戻さない。ルールの変更は公式一次情報、版、確認日、テストを同じ束で更新する。
 
 ## /project/[projectId]/workspace — SX COO統合経営ダッシュボード

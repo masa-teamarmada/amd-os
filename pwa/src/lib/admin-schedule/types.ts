@@ -134,6 +134,11 @@ export type GeneratedOccurrence = Omit<ScheduleOccurrence, "occurrence_id" | "ge
   updated_at?: string;
 };
 
+export type InternalPrepSpec = {
+  offsetDays: number;
+  title: string;
+};
+
 export type RuleDefinition = {
   ruleKey: string;
   ruleVersion: string;

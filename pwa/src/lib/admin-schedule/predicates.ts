@@ -62,6 +62,19 @@ export function isStatutoryScheduleObligation(row: SchedulePredicateRow): boolea
   return category === "tax" || category === "socialinsurance";
 }
 
+const GMAIL_SOURCE_KINDS = new Set(["gmail", "gmailextraction", "gmailmessage", "email"]);
+
+export function isEligibleTaxSocialObligation(row: SchedulePredicateRow): boolean {
+  if (!isStatutoryScheduleObligation(row)) return false;
+  const sourceKind = normalized(row.source_kind);
+  if (!GMAIL_SOURCE_KINDS.has(sourceKind)) return true;
+  const payload = objectValue(row.payload);
+  const reviewStatus = normalized(row.review_status ?? payload.review_status ?? payload.reviewStatus);
+  return present(row.reviewed_at)
+    || reviewStatus === "reviewed"
+    || reviewStatus === "manual";
+}
+
 function isAllowedActionClassification(value: unknown): boolean {
   const category = normalized(value);
   return /tax|税/.test(category)

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase schema varies across applied migrations; runtime rows stay narrow at adapter boundaries. */
 import { createHash } from "node:crypto";
 import {
+  addDays,
   addMonthsYm,
   adjustToNextBusinessDay,
   dateInRange,
@@ -14,30 +15,32 @@ import {
   todayJst,
   ymFromDate,
   ymInRange,
-} from "@/lib/admin-schedule/date";
-import { OFFICIAL_RULES, officialRule, ruleRefs } from "@/lib/admin-schedule/rules/official";
+} from "./date.ts";
+import { OFFICIAL_RULES, officialRule, ruleRefs } from "./rules/official.ts";
 import type {
   AmountRole,
   AmountStatus,
   DatePrecision,
   GeneratedOccurrence,
+  InternalPrepSpec,
   JsonRecord,
   LifecycleStatus,
   OperatingFact,
   ScheduleCategory,
-} from "@/lib/admin-schedule/types";
+} from "./types.ts";
 import {
   isAcceptedAmdContract,
   isContractSigningExpected,
   isCurrentAmdContract,
+  isEligibleTaxSocialObligation,
   isScheduleActionItem,
-  isStatutoryScheduleObligation,
 } from "./predicates.ts";
 import { deadlineForReportYm, planMonthlyReportSchedule, reportRule } from "./report-plan.ts";
 export {
   isAcceptedAmdContract,
   isContractSigningExpected,
   isCurrentAmdContract,
+  isEligibleTaxSocialObligation,
   isScheduleActionItem,
   isStatutoryScheduleObligation,
 } from "./predicates.ts";
@@ -406,8 +409,23 @@ function officialNextMonthEnd(ym: string): { raw: string; dueOn: string | null }
   return { raw, dueOn: officialBusinessDate(raw) };
 }
 
+export function paymentObligationEventKind(row: RawRow): string {
+  const title = normalized(row.title);
+  const category = normalized(row.category);
+  if (category === "socialinsurance") {
+    return /労働保険|年度更新/.test(String(row.title ?? ""))
+      ? "labor_insurance_annual_update"
+      : "social_insurance_payment";
+  }
+  if (title.includes(normalized("源泉所得税")) || title.includes(normalized("源泉徴収"))) return "withholding_tax_payment";
+  if (title.includes(normalized("法人税"))) {
+    return title.includes(normalized("中間")) ? "corporate_tax_interim" : "corporate_tax_filing";
+  }
+  return "tax_payment";
+}
+
 function generatePaymentObligations(obligations: RawRow[]): GeneratedOccurrence[] {
-  return obligations.filter(isStatutoryScheduleObligation).map((row) => {
+  return obligations.filter(isEligibleTaxSocialObligation).map((row) => {
     const dueOn = text(row.due_date);
     const dueYm = text(row.expected_payment_ym) || ymFromDate(dueOn);
     const precision = row.due_date_precision === "month" || (!dueOn && dueYm) ? "month" : dueOn ? "day" : "unknown";
@@ -421,7 +439,7 @@ function generatePaymentObligations(obligations: RawRow[]): GeneratedOccurrence[
       sourceHash: sourceHash("company_payment_obligation", row),
       scope: "company",
       category: isTax ? "tax" : "labor",
-      eventKind: isTax ? "tax_payment" : "social_insurance_payment",
+      eventKind: paymentObligationEventKind(row),
       title: String(row.title || "支払義務"),
       periodKey: dueYm,
       dueOn,
@@ -1194,6 +1212,200 @@ function generateActionItems(
   });
 }
 
+export const INTERNAL_PREP_SPECS: Record<string, InternalPrepSpec> = {
+  corporate_tax_filing: { offsetDays: -30, title: "決算書・法人税申告書の作成" },
+  corporate_tax_interim: { offsetDays: -14, title: "中間申告書・納付額の確認" },
+  withholding_tax_payment: { offsetDays: -5, title: "所得税徴収高計算書・納付額の確認" },
+  social_insurance_payment: { offsetDays: -5, title: "納入告知額・口座残高の確認" },
+  labor_insurance_annual_update: { offsetDays: -14, title: "年度更新申告書・賃金集計の作成" },
+};
+
+export function addInternalPrepMilestones(
+  rows: GeneratedOccurrence[],
+  from: string,
+  to: string,
+): GeneratedOccurrence[] {
+  const milestones: GeneratedOccurrence[] = [];
+  for (const row of rows) {
+    if (!row.due_on || row.lifecycle_status !== "open") continue;
+    const spec = INTERNAL_PREP_SPECS[row.event_kind];
+    if (!spec) continue;
+    const prepDueOn = addDays(row.due_on, spec.offsetDays);
+    if (!dateInRange(prepDueOn, from, to)) continue;
+    milestones.push(occurrence({
+      key: `${row.occurrence_key}:internal-prep`,
+      source: "internal_prep_milestone",
+      sourceId: row.occurrence_key,
+      sourceHash: sourceHash("internal_prep_milestone", { parent: row.occurrence_key, prepDueOn, spec }),
+      scope: row.scope,
+      category: row.category,
+      eventKind: `${row.event_kind}_internal_prep`,
+      title: spec.title,
+      periodKey: row.period_key,
+      dueOn: prepDueOn,
+      dueYm: ymFromDate(prepDueOn),
+      datePrecision: "day",
+      dateKind: "社内締切",
+      amountStatus: "not_applicable",
+      amountRole: "informational",
+      ownerMemberId: row.owner_member_id,
+      resolutionHref: row.resolution_href,
+      lifecycleStatus: "open",
+      sourceObservedAt: row.source_observed_at,
+      metadata: {
+        ...row.metadata_json,
+        parentOccurrenceKey: row.occurrence_key,
+        parentEventKind: row.event_kind,
+        leadDays: spec.offsetDays,
+        parentSourceKind: row.source_kind,
+        parentSourceId: row.source_id,
+        parentSourceHash: row.source_hash,
+      },
+    }));
+  }
+  return milestones;
+}
+
+const SHAREHOLDER_MEETING_EGOV_URL = "https://laws.e-gov.go.jp/document?lawid=417AC0000000086_20260624_508AC0000000046";
+const SHAREHOLDER_MEETING_AS_OF = "2026-08-19";
+const CANONICAL_SHAREHOLDER_MEETING_TYPES = ["agm", "annual", "annual_general_meeting", "定時株主総会"];
+export const SHAREHOLDER_MEETING_FLOW: Array<{ days: number; label: string; kind: string; dateKind: string }> = [
+  { days: -21, label: "計算書類・事業報告・議案・招集通知の確定", kind: "shareholder_documents_finalized", dateKind: "社内工程目安" },
+  { days: -14, label: "招集通知・総会資料の発送", kind: "shareholder_notice_dispatch", dateKind: "社内工程目安" },
+  { days: 0, label: "定時株主総会", kind: "shareholder_general_meeting", dateKind: "確定開催日" },
+  { days: 7, label: "株主総会議事録・登記要否の確認", kind: "shareholder_followup", dateKind: "社内工程目安" },
+];
+
+const CANONICAL_SHAREHOLDER_MEETING_TYPES_NORMALIZED = new Set(CANONICAL_SHAREHOLDER_MEETING_TYPES.map((value) => normalized(value)));
+
+export function canonicalShareholderMeetingForYear(rows: RawRow[], year: number): RawRow | null {
+  return rows.find((row) => CANONICAL_SHAREHOLDER_MEETING_TYPES_NORMALIZED.has(normalized(row.meeting_type))
+      && dateOnly(row.meeting_date)?.startsWith(String(year))) ?? null;
+}
+
+export function generateShareholderMeeting(
+  facts: Map<string, OperatingFact>,
+  shareholderMeetings: RawRow[],
+  ownerMemberId: string | null,
+  from: string,
+  to: string,
+): GeneratedOccurrence[] {
+  const rows: GeneratedOccurrence[] = [];
+  const factDate = dateOnly(factValue(facts, "shareholder_meeting_date"));
+  for (const year of rangeYears(from, to)) {
+    const canonical = canonicalShareholderMeetingForYear(shareholderMeetings, year);
+    const authoritativeDate = canonical
+      ? dateOnly(canonical.meeting_date)
+      : (factDate && factDate.startsWith(String(year)) ? factDate : null);
+    if (!authoritativeDate) {
+      const febYm = `${year}02`;
+      const marYm = `${year}03`;
+      if (ymInRange(febYm, from, to)) {
+        rows.push(occurrence({
+          key: `company:governance:shareholder-meeting:${year}:prep-guidance`,
+          source: "operating_fact_missing",
+          sourceId: "shareholder_meeting_date",
+          sourceHash: sourceHash("shareholder_meeting_prep_guidance", { year, fact: factSource(facts, "shareholder_meeting_date")?.source_hash ?? null }),
+          scope: "company",
+          category: "governance",
+          eventKind: "shareholder_meeting_prep_guidance",
+          title: `計算書類・事業報告・議案・招集通知の作成目安（${year}年2月・月精度の目安）`,
+          periodKey: febYm,
+          dueYm: febYm,
+          datePrecision: "month",
+          dateKind: "月精度の目安",
+          amountStatus: "not_applicable",
+          amountRole: "informational",
+          ownerMemberId,
+          resolutionHref: "/admin/company",
+          lifecycleStatus: "needs_source",
+          missingReason: "定時株主総会の確定日が未取得。正本要確認、月精度の目安のみで法定期限としての断定はしない",
+          metadata: {
+            year,
+            egovUrl: SHAREHOLDER_MEETING_EGOV_URL,
+            asOf: SHAREHOLDER_MEETING_AS_OF,
+            guidance: "authoritative_date_not_confirmed",
+            statutoryDeadline: false,
+            needsSourceLabel: "正本要確認",
+          },
+        }));
+      }
+      if (ymInRange(marYm, from, to)) {
+        rows.push(occurrence({
+          key: `company:governance:shareholder-meeting:${year}`,
+          source: "operating_fact_missing",
+          sourceId: "shareholder_meeting_date",
+          sourceHash: sourceHash("shareholder_meeting_guidance", { year, fact: factSource(facts, "shareholder_meeting_date")?.source_hash ?? null }),
+          scope: "company",
+          category: "governance",
+          eventKind: "shareholder_general_meeting",
+          title: `定時株主総会 開催目安（${year}年3月・月精度の目安）`,
+          periodKey: marYm,
+          dueYm: marYm,
+          datePrecision: "month",
+          dateKind: "月精度の目安",
+          amountStatus: "not_applicable",
+          amountRole: "informational",
+          ownerMemberId,
+          resolutionHref: "/admin/company",
+          lifecycleStatus: "needs_source",
+          missingReason: "定時株主総会の確定日が未取得。正本要確認、月精度の目安のみで法定期限としての断定はしない",
+          metadata: {
+            year,
+            egovUrl: SHAREHOLDER_MEETING_EGOV_URL,
+            asOf: SHAREHOLDER_MEETING_AS_OF,
+            guidance: "authoritative_date_not_confirmed",
+            statutoryDeadline: false,
+            needsSourceLabel: "正本要確認",
+          },
+        }));
+      }
+      continue;
+    }
+    const sourceKind = canonical ? "project_shareholder_meetings" : "operating_fact";
+    const sourceId = canonical ? String(canonical.id) : "shareholder_meeting_date";
+    const sourceRef = canonical ? (text(canonical.source_ref) ?? String(canonical.id)) : null;
+    const sourceObservedAt = canonical ? text(canonical.updated_at) : factSource(facts, "shareholder_meeting_date")?.observed_at ?? null;
+    for (const step of SHAREHOLDER_MEETING_FLOW) {
+      const dueOn = addDays(authoritativeDate, step.days);
+      if (!dateInRange(dueOn, from, to)) continue;
+      rows.push(occurrence({
+        key: `company:governance:shareholder-meeting:${year}:${step.kind}`,
+        source: sourceKind,
+        sourceId,
+        sourceHash: sourceHash("shareholder_meeting_flow", { year, step, authoritativeDate, sourceKind, sourceId }),
+        scope: "company",
+        category: "governance",
+        eventKind: step.kind,
+        title: step.days === 0 ? step.label : `定時株主総会 / ${step.label}`,
+        periodKey: `${year}年`,
+        dueOn,
+        dueYm: ymFromDate(dueOn),
+        datePrecision: "day",
+        dateKind: step.dateKind,
+        amountStatus: "not_applicable",
+        amountRole: "informational",
+        ownerMemberId,
+        sourceRefs: canonical ? [{ kind: "project_shareholder_meetings", ref: sourceRef }] : [],
+        resolutionHref: "/admin/company",
+        lifecycleStatus: "open",
+        sourceObservedAt,
+        metadata: {
+          year,
+          offsetDays: step.days,
+          egovUrl: SHAREHOLDER_MEETING_EGOV_URL,
+          asOf: SHAREHOLDER_MEETING_AS_OF,
+          authoritativeDate,
+          authoritativeSource: sourceKind,
+          sourceRef,
+          statutoryDeadline: false,
+        },
+      }));
+    }
+  }
+  return rows;
+}
+
 function occurrencePriority(row: GeneratedOccurrence): number {
   if (row.source_kind === "company_payment_obligation") return 100;
   if (row.source_kind === "contracts") return 90;
@@ -1320,7 +1532,7 @@ export async function generateSchedule(db: ScheduleDb, options: ScheduleGenerati
       to,
     };
   }
-  const [factsResult, obligationsResult, contractsResult, projectsResult, projectMembersResult, reportsResult, actionsResult, membersResult] = await Promise.all([
+  const [factsResult, obligationsResult, contractsResult, projectsResult, projectMembersResult, reportsResult, actionsResult, membersResult, shareholderMeetingsResult] = await Promise.all([
     db.from("company_operating_facts").select("*").is("superseded_at", null).limit(1000),
     db.from("company_payment_obligations").select("*").in("status", GENERATED_STATUSES).in("category", ["tax", "social_insurance"]).limit(10000),
     db.from("contracts").select("*").eq("relationship_scope", "amd_contract").eq("registry_status", "accepted").limit(1000),
@@ -1329,6 +1541,7 @@ export async function generateSchedule(db: ScheduleDb, options: ScheduleGenerati
     db.from("monthly_reports").select("*").gte("ym", fromYm).lte("ym", toYm).limit(20000),
     db.from("action_items").select("*").eq("review_status", "confirmed").in("status", ACTIVE_ACTION_STATUSES).not("due_at", "is", null).limit(10000),
     db.from("members").select("*").eq("status", "active").limit(1000),
+    db.from("project_shareholder_meetings").select("*").eq("project_id", "p00").in("meeting_type", CANONICAL_SHAREHOLDER_MEETING_TYPES).limit(200),
   ]);
   const results = [
     ["company_operating_facts", factsResult],
@@ -1339,6 +1552,7 @@ export async function generateSchedule(db: ScheduleDb, options: ScheduleGenerati
     ["monthly_reports", reportsResult],
     ["action_items", actionsResult],
     ["members", membersResult],
+    ["project_shareholder_meetings", shareholderMeetingsResult],
   ] as const;
   for (const [table, result] of results) if (result.error) errors.push(`${table}: ${result.error.message}`);
   if (errors.length) {
@@ -1352,15 +1566,28 @@ export async function generateSchedule(db: ScheduleDb, options: ScheduleGenerati
   const monthlyReports = (reportsResult.data ?? []) as RawRow[];
   const actionItems = (actionsResult.data ?? []) as RawRow[];
   const members = (membersResult.data ?? []) as RawRow[];
+  const shareholderMeetings = (shareholderMeetingsResult.data ?? []) as RawRow[];
   const ownerMemberId = kiyoId(members);
+  const paymentObligationRows = generatePaymentObligations(obligations);
+  const corporateTaxRows = generateCorporateTax(facts, obligations, ownerMemberId, from, to);
+  const corporateTaxInterimRows = generateCorporateTaxInterim(facts, ownerMemberId, from, to);
+  const withholdingRows = generateWithholding(facts, obligations, ownerMemberId, from, to);
+  const socialInsuranceRows = generateSocialInsurance(facts, obligations, ownerMemberId, from, to);
+  const laborInsuranceRows = generateLaborInsurance(facts, obligations, ownerMemberId, from, to);
   const generated = dedupeOccurrences([
-    ...generatePaymentObligations(obligations),
-    ...generateCorporateTax(facts, obligations, ownerMemberId, from, to),
-    ...generateCorporateTaxInterim(facts, ownerMemberId, from, to),
-    ...generateWithholding(facts, obligations, ownerMemberId, from, to),
-    ...generateSocialInsurance(facts, obligations, ownerMemberId, from, to),
-    ...generateLaborInsurance(facts, obligations, ownerMemberId, from, to),
+    ...paymentObligationRows,
+    ...addInternalPrepMilestones(paymentObligationRows, from, to),
+    ...corporateTaxRows,
+    ...corporateTaxInterimRows,
+    ...withholdingRows,
+    ...socialInsuranceRows,
+    ...laborInsuranceRows,
+    ...addInternalPrepMilestones([...corporateTaxRows, ...corporateTaxInterimRows], from, to),
+    ...addInternalPrepMilestones(withholdingRows, from, to),
+    ...addInternalPrepMilestones(socialInsuranceRows, from, to),
+    ...addInternalPrepMilestones(laborInsuranceRows, from, to),
     ...generateYearEndAdjustment(facts, ownerMemberId, from, to),
+    ...generateShareholderMeeting(facts, shareholderMeetings, ownerMemberId, from, to),
     ...generateContracts(contracts, projects, projectMembers, members, from, to),
     ...generateReports(contracts, projects, projectMembers, members, monthlyReports, from, to),
     ...generateActionItems(actionItems, obligations, projects, from, to),
