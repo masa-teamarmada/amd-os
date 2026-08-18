@@ -672,3 +672,4 @@
 | 2026-08-18 | 現行SPS | OS全体を産業創出価値版の現行SPSへ一本化。旧9軸・持分価値版・SPS 2.1は表示・sort・API・writerから退役し、評価が無ければ「最新版未評価」。月次PLやMTG等の追記は自動再計算せず、重複排除した再評価候補→review→append-only publishで扱う |
 | 2026-08-18 | 8-3 L2抽出 / H-1 | H-1の実行窓を平日09:00-21:59 JSTへ修正。Calendar/DB候補がなくてもNotion議事録のeventId・PJ・メンバー・日付空欄を毎run最大25件確認し、親data source schemaを正として空欄だけを補完、更新後4項目をreadbackする。旧GASはwriterへ戻さない |
 | 2026-08-18 | 8-3 L2抽出 / H-1過去分 | 過去分を含む議事録全履歴をrun間cursorで順番に巡回する。未解決の先頭25件を繰り返さず、最大8pageずつ進み、EOFで先頭へ戻る。失敗時はcursorを進めず再試行する |
+| 2026-08-19 | 5-1 探索・知識アセット | build v3.80.3。`/seeds` の「シーズ状態」をシーズ名から独立列へ移し、PJ状態はPJ名だけを表示する。スピンアウト済みは `seed_projects.venture_name` の会社名を優先し、PJコードと `active` / `ended` は表示しない |

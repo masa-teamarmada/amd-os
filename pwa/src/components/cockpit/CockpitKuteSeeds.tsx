@@ -273,15 +273,16 @@ export function CockpitKuteSeeds({
           </div>
         ) : (
           <div className="max-h-[70vh] overflow-auto border border-slate-200">
-            <table className="w-full min-w-[1420px] border-collapse text-[12px]">
+            <table className="w-full min-w-[1500px] border-collapse text-[12px]">
               <thead className="sticky top-0 z-20">
                 <tr className="bg-slate-100 text-left text-[10px] font-semibold uppercase text-slate-500">
                   <th className="sticky left-0 z-30 w-[160px] min-w-[160px] max-w-[160px] border-b border-r border-slate-200 bg-slate-100 px-3 py-2 sm:w-[220px] sm:min-w-[220px] sm:max-w-[220px]">
                     シーズ
                   </th>
+                  <th className="min-w-[116px] border-b border-slate-200 px-3 py-2">シーズ状態</th>
                   <th className="min-w-[140px] border-b border-slate-200 px-3 py-2">研究機関</th>
                   <th className="min-w-[130px] border-b border-slate-200 px-3 py-2">研究者 / PI</th>
-                  <th className="min-w-[150px] border-b border-slate-200 px-3 py-2">PJ状態</th>
+                  <th className="min-w-[180px] border-b border-slate-200 px-3 py-2">PJ状態</th>
                   <SortableTh label="現行SPS(億円)" sortKey="spsBand" activeKey={sortKey} dir={sortDir} onSort={toggleSort} hint="sps-ind-v1 / q-eval-v2 / rubric-v1.1 / p-ind-v1。完全一致した凍結評価のみ" widthClass="min-w-[190px]" />
                   <th className="min-w-[70px] border-b border-slate-200 px-2 py-2">根拠Lv</th>
                   <th className="min-w-[52px] border-b border-slate-200 px-2 py-2">TRL</th>
@@ -479,16 +480,16 @@ function SeedRow({
         <div className="whitespace-normal break-words font-semibold leading-snug text-slate-950">
           {seed.title}
         </div>
-        {seed.status !== "candidate" && (
-          <span className="mt-1.5 inline-flex border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
-            シーズ状態: {SEED_STATUS_LABEL[seed.status] ?? seed.status}
-          </span>
-        )}
         {seed.discovery_status === "discovered" && (
           <span className="mt-1.5 inline-flex whitespace-normal rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-amber-800">
             公開情報候補
           </span>
         )}
+      </td>
+      <td className="border-b border-slate-100 px-3 py-2 align-top">
+        <span className="inline-flex border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
+          {SEED_STATUS_LABEL[seed.status] ?? seed.status}
+        </span>
       </td>
       <Cell value={seed.org_name} widthClass="max-w-[140px]" />
       <Cell
@@ -498,14 +499,11 @@ function SeedRow({
         widthClass="max-w-[130px]"
       />
       <td className="border-b border-slate-100 px-3 py-2 align-top">
-        <span className={`inline-flex border px-1.5 py-0.5 text-[10px] font-bold ${realized ? "border-indigo-300 bg-indigo-100 text-indigo-900" : considering ? "border-amber-300 bg-amber-100 text-amber-900" : "border-slate-200 bg-slate-50 text-slate-500"}`}>
-          {realized ? "PJ化済み" : considering ? "PJ化検討中" : "未PJ化"}
+        <span className={`block max-w-[180px] whitespace-normal break-words text-[12px] font-medium leading-relaxed ${projectLink ? "text-slate-800" : "text-slate-400"}`}>
+          {projectLink
+            ? (seed.status === "spun_off" ? projectLink.venture_name ?? projectLink.project_name : projectLink.project_name)
+            : "—"}
         </span>
-        {projectLink && (
-          <span className="mt-1 block max-w-[150px] whitespace-normal break-words text-[10px] leading-relaxed text-slate-600">
-            {projectLink.project_name} · {projectLink.project_status}
-          </span>
-        )}
       </td>
       <td className="border-b border-slate-100 px-3 py-2 align-top font-mono">
           {screeningBand && (screeningBand.sps_lower_yen != null || screeningBand.sps_upper_yen != null) ? (
