@@ -62,7 +62,7 @@ institutions ──< institution_projects >── projects
 |---|---|---|
 | p25 KUTE | 研究機関PJ | 工学院大学 `inst_kute` |
 | p28 NIMS | 研究機関PJ | 物質・材料研究機構 `inst_nims` |
-| p30 EHM | 研究機関PJ | 愛媛大学 `inst_ehime`。対象は愛媛大学全体、目標は大学全体のエコシステム構築 |
+| p30 EHM | 研究機関PJ | 愛媛大学 `inst_ehime`。対象は愛媛大学全体、目標は大学全体のエコシステム構築。正式PJ化済みのため `projects.status='active'` |
 | p21 SX | シーズ事業化PJ | 旧参照で厳密に一意だった愛媛大学の個別シーズ |
 
 ### カタログ移行

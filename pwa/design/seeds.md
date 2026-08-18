@@ -47,6 +47,8 @@ migration: [024_seeds_overhaul.sql](../scripts/migrations/024_seeds_overhaul.sql
 | `seed_status_transitions` | `seeds.status` の遷移履歴 (旧状態/新状態/時刻/変更者)。migration 280 のトリガが自動記録。観測開始 2026-08-15、過去遷移は復元しない。一次選別 (Tier 0) の遷移率検証の前提インフラ |
 | `seed_screening_bands` | 現行SPSの凍結評価ストア。`measure_version='sps-ind-v1' AND ruleset_version='rubric-v1.1+ind-v1' AND frozen=true`の完全一致だけをactive pathが読む。frozen行はDB triggerで更新・削除不可、再評価はappend-only。旧評価テーブルは監査履歴として退役。RLSポリシーなし = service_role専用 |
 
+議事録、Slack、Teams等からシーズ情報を取り込むときは、本文要約や `internal_notes` だけで完了扱いにしない。助成金・採択は `seed_funding`、接触は `seed_contact_log`、ニュース・論文・特許は `seed_news`、PJ化は `seed_projects` または `institution_projects` へそれぞれ構造化して保存する。採択年度・金額・実施期間など根拠にない値は `null` のままにし、確認済み事実だけを登録する。
+
 `seeds.status` は migration 280 で上記6値の CHECK 制約つき (`seeds_status_check`)。
 
 ### `seeds` の主要列
