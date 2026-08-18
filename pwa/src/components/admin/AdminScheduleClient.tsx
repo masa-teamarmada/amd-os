@@ -77,16 +77,6 @@ const STATUS_STYLES: Record<ScheduleViewOccurrence["computed_status"], string> =
   needs_source: "border-l-amber-700 bg-amber-50 text-amber-950",
 };
 
-const STATUS_DOT_STYLES: Record<ScheduleViewOccurrence["computed_status"], string> = {
-  overdue: "bg-rose-600",
-  due_today: "bg-amber-600",
-  due_soon: "bg-amber-400",
-  open: "bg-sky-500",
-  completed: "bg-emerald-500",
-  cancelled: "bg-slate-400",
-  needs_source: "bg-amber-700",
-};
-
 const CATEGORY_ICONS: Record<ScheduleCategory, typeof CalendarDays> = {
   tax: Landmark,
   labor: UserRound,
@@ -179,13 +169,6 @@ function needsSourceCheck(item: ScheduleViewOccurrence): boolean {
   return item.computed_status === "needs_source"
     || item.freshness_state === "source_stale"
     || item.freshness_state === "rule_stale";
-}
-
-function precisionTag(item: ScheduleViewOccurrence): string {
-  if (item.date_precision === "day") return "日";
-  if (item.date_precision === "month") return "月内";
-  if (item.date_precision === "period") return "期";
-  return "未確定";
 }
 
 const ROLLING_STATUS_TONE: Record<ScheduleViewOccurrence["computed_status"], string> = {
@@ -294,11 +277,6 @@ export function AdminScheduleClient({ initialData }: Props) {
     setAgendaDate(date);
   }
 
-  function showAgenda(date: string) {
-    setSelectedDate(date);
-    setAgendaDate(date);
-  }
-
   async function rebuild() {
     const reason = rebuildReason.trim();
     if (!reason || !window.confirm("正本から運営カレンダーを再生成する？手入力の予定は作られないよ。")) return;
@@ -372,7 +350,7 @@ export function AdminScheduleClient({ initialData }: Props) {
         <span className="inline-flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden="true" /><span className="text-muted-foreground">生成済み</span><strong>{data.meta.generatedCount}</strong></span>
         <span className="inline-flex items-center gap-2"><CircleAlert className="h-4 w-4 text-amber-700" aria-hidden="true" /><span className="text-muted-foreground">根拠不足</span><strong>{data.meta.needsSourceCount}</strong></span>
         <span className="inline-flex items-center gap-2"><Clock3 className="h-4 w-4 text-sky-600" aria-hidden="true" /><span className="text-muted-foreground">鮮度・ルール確認</span><strong>{data.meta.staleOccurrenceCount + data.meta.staleRuleCount}</strong></span>
-        <span className="ml-auto text-xs text-muted-foreground">{viewMode === "calendar" ? `${rollingItems.length}件を表示（過去3か月＋今月から9か月）` : `${year}年 / ${yearItems.length}件を表示`}</span>
+        <span className="ml-auto text-xs text-muted-foreground">{viewMode === "calendar" ? `${rollingItems.length}件を表示` : `${year}年 / ${yearItems.length}件を表示`}</span>
       </section>
 
       <div role="tablist" aria-label="運営カレンダー表示" className="flex w-full border-b border-border">
@@ -407,14 +385,13 @@ export function AdminScheduleClient({ initialData }: Props) {
         <section aria-labelledby="rolling-calendar-title" data-testid="rolling-schedule-calendar" className="space-y-4 border border-[#d9cba8] bg-[#f8f1e0] p-4 text-[#2a2118] sm:p-5">
           <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#d9cba8] pb-4">
             <div>
-              <p className="text-xs font-semibold tracking-[0.18em] text-[#8a6d3b]">12か月の見通し</p>
-              <h2 id="rolling-calendar-title" className="mt-1 text-lg font-semibold">過去3か月＋今月から9か月</h2>
-              <p className="mt-1 text-sm text-[#5b4a34]">{monthLabel(rollingMonths[0]?.year ?? todayYear, rollingMonths[0]?.month ?? initialMonth)} 〜 {monthLabel(rollingMonths[rollingMonths.length - 1]?.year ?? todayYear, rollingMonths[rollingMonths.length - 1]?.month ?? initialMonth)}</p>
+              <p className="text-xs font-semibold tracking-[0.18em] text-[#8a6d3b]">管理期間</p>
+              <h2 id="rolling-calendar-title" className="mt-1 text-lg font-semibold">{monthLabel(rollingMonths[0]?.year ?? todayYear, rollingMonths[0]?.month ?? initialMonth)} 〜 {monthLabel(rollingMonths[rollingMonths.length - 1]?.year ?? todayYear, rollingMonths[rollingMonths.length - 1]?.month ?? initialMonth)}</h2>
             </div>
             <button type="button" onClick={goToToday} className="min-h-11 shrink-0 rounded-lg border border-[#a8330a]/40 bg-[#a8330a]/10 px-3 text-xs font-semibold text-[#5a1c05] hover:bg-[#a8330a]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">今日へ移動</button>
           </div>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3" data-testid="rolling-calendar-months">
-            {rollingMonths.map((item) => <RollingCalendarMonth key={item.key} calendarMonth={item} items={rollingItems} today={today} isCurrent={item.year === todayYear && item.month === initialMonth} selectedDate={selectedDate} onSelectId={setSelectedId} onSelectDate={selectDate} onShowAgenda={showAgenda} />)}
+            {rollingMonths.map((item) => <RollingCalendarMonth key={item.key} calendarMonth={item} items={rollingItems} today={today} isCurrent={item.year === todayYear && item.month === initialMonth} selectedDate={selectedDate} onSelectId={setSelectedId} onSelectDate={selectDate} />)}
           </div>
           {agendaDate && <DayAgenda date={agendaDate} items={desktopAgendaItems} onSelect={setSelectedId} />}
         </section>
@@ -423,7 +400,7 @@ export function AdminScheduleClient({ initialData }: Props) {
       <section className="grid gap-4 lg:grid-cols-2" aria-label="カレンダー補助情報">
         <div className="border border-border bg-card p-4">
           <div className="flex items-center justify-between gap-3"><h2 className="font-semibold">次に見る</h2><ArrowUpRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" /></div>
-          <p className="mt-1 text-xs text-muted-foreground">未完了・根拠不足を近い順に表示（過去3か月＋今月から9か月）</p>
+          <p className="mt-1 text-xs text-muted-foreground">未完了・根拠不足を期限の近い順に表示</p>
           <div className="mt-3 space-y-1">{rollingNearest.length ? rollingNearest.map((item) => <ScheduleListItem key={item.occurrence_id} item={item} compact onSelect={setSelectedId} />) : <p className="py-5 text-sm text-muted-foreground">確認対象はないよ。</p>}</div>
         </div>
         <div className="border border-dashed border-border bg-muted/20 p-4">
@@ -532,12 +509,16 @@ function DeadlineRailSelector({ year, years, onChange }: { year: number; years: 
   return <label className="flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm"><span className="text-xs text-muted-foreground">対象年</span><select value={year} onChange={(event) => onChange(Number(event.target.value))} className="bg-transparent font-semibold outline-none">{years.map((item) => <option key={item} value={item}>{item}年</option>)}</select></label>;
 }
 
-function RollingCalendarMonth({ calendarMonth, items, today, isCurrent, selectedDate, onSelectId, onSelectDate, onShowAgenda }: { calendarMonth: CalendarMonth; items: ScheduleViewOccurrence[]; today: string; isCurrent: boolean; selectedDate?: string | null; onSelectId: (id: string) => void; onSelectDate: (date: string) => void; onShowAgenda: (date: string) => void }) {
+function RollingCalendarMonth({ calendarMonth, items, today, isCurrent, selectedDate, onSelectId, onSelectDate }: { calendarMonth: CalendarMonth; items: ScheduleViewOccurrence[]; today: string; isCurrent: boolean; selectedDate?: string | null; onSelectId: (id: string) => void; onSelectDate: (date: string) => void }) {
   const { year, month, key } = calendarMonth;
   const cells = buildMonthGrid(year, month);
   const monthItems = items.filter((item) => itemMatchesMonth(item, key));
   const datedItems = monthItems.filter((item) => isDatePrecisionDay(item) && item.due_on?.startsWith(`${year}-${String(month).padStart(2, "0")}-`));
-  const undatedItems = monthItems.filter((item) => !isDatePrecisionDay(item));
+  const orderedItems = [...monthItems].sort((left, right) => {
+    const leftDate = left.due_on ?? `${left.due_ym ?? left.period_key ?? "999999"}-99`;
+    const rightDate = right.due_on ?? `${right.due_ym ?? right.period_key ?? "999999"}-99`;
+    return leftDate.localeCompare(rightDate) || left.title.localeCompare(right.title);
+  });
 
   return (
     <section id={`rolling-month-${key}`} className={`min-w-0 border bg-[#fbf6ea] ${isCurrent ? "border-2 border-[#a8330a]" : "border border-[#d9cba8]"}`} aria-labelledby={`rolling-month-title-${key}`}>
@@ -554,43 +535,48 @@ function RollingCalendarMonth({ calendarMonth, items, today, isCurrent, selected
       <div className="grid grid-cols-7">
         {cells.map((cell, index) => {
           const dateItems = cell.date ? datedItems.filter((item) => item.due_on === cell.date) : [];
-          const shown = dateItems.slice(0, 2);
-          const remainder = dateItems.length - shown.length;
           const isToday = cell.date === today;
           const isSelected = cell.date === selectedDate;
-          return <div key={cell.date ?? `outside-${index}`} className={`relative min-w-0 overflow-hidden border-b border-r border-[#e4d8b8] p-1 min-h-[74px] ${cell.outside ? "bg-[#efe9d5]/60" : cell.weekend ? "bg-[#f3ecd7]" : "bg-[#fbf6ea]"} ${isToday ? "outline outline-2 -outline-offset-2 outline-[#a8330a]" : ""} ${isSelected ? "bg-[#e3ece3]" : ""}`}>
-            {cell.day && cell.date ? <button type="button" onClick={() => onSelectDate(cell.date ?? "")} className="flex min-h-7 w-full items-center gap-1 rounded px-1 text-left text-xs font-semibold text-[#6b5a3f] hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`${cell.date}の締切`}><span>{cell.day}</span>{dateItems.length > 0 && <span className="h-1.5 w-1.5 rounded-full bg-[#a8330a]/60 md:hidden" />}</button> : <span className="block min-h-7" aria-hidden="true" />}
-            <div className="space-y-0.5">
-              {shown.map((item) => <RollingEventPill key={item.occurrence_id} item={item} date={cell.date ?? ""} onSelect={() => onSelectId(item.occurrence_id)} />)}
-              {remainder > 0 && <button type="button" onClick={() => onShowAgenda(cell.date ?? "")} className="flex min-h-6 w-full items-center rounded px-1 text-left text-[10px] font-semibold text-[#6b5a3f] underline-offset-2 hover:bg-black/5 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">ほか{remainder}件</button>}
-            </div>
+          return <div key={cell.date ?? `outside-${index}`} className={`relative min-h-[58px] min-w-0 overflow-hidden border-b border-r border-[#e4d8b8] p-1 ${cell.outside ? "bg-[#efe9d5]/60" : cell.weekend ? "bg-[#f3ecd7]" : "bg-[#fbf6ea]"} ${isToday ? "outline outline-2 -outline-offset-2 outline-[#a8330a]" : ""} ${isSelected ? "bg-[#e3ece3]" : ""}`}>
+            {cell.day && cell.date ? <button type="button" onClick={() => onSelectDate(cell.date ?? "")} className="flex min-h-12 w-full flex-col items-start justify-between rounded px-1 py-0.5 text-left text-xs font-semibold text-[#6b5a3f] hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`${cell.date}の締切 ${dateItems.length}件`}><span>{cell.day}</span>{dateItems.length > 0 && <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-[#8b2d0b]"><span className="h-1.5 w-1.5 rounded-full bg-[#a8330a]" />{dateItems.length}件</span>}</button> : <span className="block min-h-12" aria-hidden="true" />}
           </div>;
         })}
       </div>
-      <div className="border-t border-[#d9cba8] px-3 py-2">
-        <p className="text-[10px] font-semibold tracking-wide text-[#6b5a3f]">月内・日付未確定 {undatedItems.length}件</p>
-        {undatedItems.length > 0 && <div className="mt-1 space-y-0.5">{undatedItems.slice(0, 2).map((item) => <button type="button" key={item.occurrence_id} onClick={() => onSelectId(item.occurrence_id)} className="flex min-h-8 w-full min-w-0 items-center gap-1.5 rounded px-1 text-left text-xs text-[#2a2118] hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><span className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT_STYLES[item.computed_status]}`} /><span className="min-w-0 flex-1 truncate">{shortTitle(item)}</span><span className="shrink-0 text-[10px] text-[#8a6d3b]">{CATEGORY_LABELS[item.category]}</span></button>)}{undatedItems.length > 2 && <button type="button" onClick={() => onSelectId(undatedItems[2].occurrence_id)} className="min-h-8 px-1 text-xs font-semibold text-[#6b5a3f] hover:underline">ほか{undatedItems.length - 2}件</button>}</div>}
+      <div className="border-t border-[#d9cba8] bg-[#fffaf0] px-3 py-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="text-xs font-semibold tracking-wide text-[#4a3d29]">この月にやること</p>
+          <span className="text-[10px] text-[#8a6d3b]">{orderedItems.length}件</span>
+        </div>
+        {orderedItems.length > 0 ? <div className="mt-2 space-y-1.5">{orderedItems.map((item) => <MonthlyActionRow key={item.occurrence_id} item={item} onSelect={() => onSelectId(item.occurrence_id)} />)}</div> : <p className="py-3 text-xs text-[#8a6d3b]">予定なし</p>}
       </div>
     </section>
   );
 }
 
-function RollingEventPill({ item, date, onSelect }: { item: ScheduleViewOccurrence; date: string; onSelect: () => void }) {
+function monthlyActionDate(item: ScheduleViewOccurrence): string {
+  if (item.due_on) {
+    const date = new Date(`${item.due_on}T00:00:00Z`);
+    return `${date.getUTCDate()}日（${CALENDAR_WEEKDAYS[(date.getUTCDay() + 6) % 7]}）`;
+  }
+  if (item.due_ym) return "月内";
+  if (item.period_key) return "期間内";
+  return "未確定";
+}
+
+function MonthlyActionRow({ item, onSelect }: { item: ScheduleViewOccurrence; onSelect: () => void }) {
   const amount = shortAmountLabel(item);
-  const tag = isInternalDeadline(item) ? "社内締切" : needsSourceCheck(item) ? "正本要確認" : null;
-  const precision = precisionTag(item);
-  const label = item.event_kind === "social_insurance_payment"
-    ? "社会保険料"
-    : item.event_kind === "tax_payment"
-      ? "税金納付"
-      : shortTitle(item);
-  return <button type="button" onClick={onSelect} title={item.title} aria-label={`${date} ${label} ${stateLabel(item)}${amount ? ` ${amount}` : ""}`} className={`block min-h-9 w-full min-w-0 overflow-hidden rounded-sm border border-transparent border-l-[3px] px-1.5 py-1 text-left leading-tight transition-colors hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${ROLLING_STATUS_TONE[item.computed_status]}`}>
-    <span className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide opacity-80">
-      <span>{precision}</span>
-      {tag && <span className="truncate rounded-sm bg-black/10 px-1">{tag}</span>}
+  return <button type="button" onClick={onSelect} aria-label={`${monthlyActionDate(item)} ${item.title} ${stateLabel(item)}${amount ? ` ${amount}` : ""}`} className={`grid min-h-14 w-full min-w-0 grid-cols-[58px_minmax(0,1fr)] gap-2 rounded-sm border border-transparent border-l-[3px] px-2 py-2 text-left transition-colors hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${ROLLING_STATUS_TONE[item.computed_status]}`}>
+    <span className="text-xs font-semibold tabular-nums text-current">{monthlyActionDate(item)}</span>
+    <span className="min-w-0">
+      <span className="block break-words text-[13px] font-semibold leading-[1.45]">{item.title}</span>
+      <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] leading-4 opacity-80">
+        <span>{CATEGORY_LABELS[item.category]}</span>
+        <span>{stateLabel(item)}</span>
+        {isInternalDeadline(item) && <span className="rounded-sm bg-black/10 px-1">社内準備</span>}
+        {needsSourceCheck(item) && <span className="rounded-sm bg-black/10 px-1">正本要確認</span>}
+        {amount && <span className="font-semibold tabular-nums">{amount}</span>}
+      </span>
     </span>
-    <span className="block truncate text-[10px] font-semibold">{label}</span>
-    {amount && <span className="block whitespace-nowrap text-[9px] font-normal opacity-80">{amount}</span>}
   </button>;
 }
 
