@@ -24,7 +24,7 @@
 
 - 実装commit: `f0dec491`、時間枠訂正commit: `cd64820e`（いずれもmain履歴内）
 - Supabase Edge Function: production deploy済み
-- PWA: closeout commitをmainへpushし、production `/api/build-info`を確認して確定する
+- PWA: build `v3.82.2`、product bundle `45a3bd15` をmainへpushし、production `/api/build-info`でReadyを確認済み
 - 確認済み: `npm run test:admin-schedule`、`npx tsc --noEmit`、対象eslint、`npm run build`
 
 ## 今回と無関係なdirty
