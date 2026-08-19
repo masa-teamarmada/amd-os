@@ -155,7 +155,17 @@ function permissionRoleLabel(role: string) {
 
 function EntryIcon({ item }: { item: DocumentItem }) {
   if (item.entryKind === "folder")
-    return <Folder className="h-5 w-5 text-blue-700" aria-hidden />;
+    return (
+      <Folder
+        className={cn(
+          "h-5 w-5",
+          item.visibility === "amd_internal"
+            ? styles.internalFolderIcon
+            : "text-blue-700",
+        )}
+        aria-hidden
+      />
+    );
   if (item.entryKind === "link")
     return <Link2 className="h-5 w-5 text-cyan-700" aria-hidden />;
   if (item.mimeType.startsWith("image/"))
@@ -1231,7 +1241,9 @@ export function WorkspaceDocumentRoom({
                     }
                     className="mt-2 h-11 w-full rounded-md border border-slate-300 bg-white px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
                   >
-                    <option value="workspace_shared">外部共有</option>
+                    <option value="workspace_shared">
+                      {dialog === "create_folder" ? "PJ全体" : "外部共有"}
+                    </option>
                     <option value="amd_internal">AMD内部</option>
                   </select>
                 </label>
@@ -1363,7 +1375,9 @@ export function WorkspaceDocumentRoom({
                     }
                     className="mt-2 h-11 w-full rounded-md border border-slate-300 bg-white px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
                   >
-                    <option value="workspace_shared">外部共有</option>
+                    <option value="workspace_shared">
+                      {selected?.entryKind === "folder" ? "PJ全体" : "外部共有"}
+                    </option>
                     <option value="amd_internal">AMD内部</option>
                   </select>
                 </label>

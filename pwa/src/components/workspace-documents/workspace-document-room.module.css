@@ -155,6 +155,10 @@
   color: white;
 }
 
+.internalFolderIcon {
+  color: var(--room-navy);
+}
+
 .dropActive {
   border-color: var(--room-blue);
   background: #eef6ff;

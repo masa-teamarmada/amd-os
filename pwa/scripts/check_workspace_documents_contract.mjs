@@ -124,6 +124,10 @@ assert.match(source.room, /data-testid="workspace-document-modal"/, "資料室�
 assert.match(source.room, /presentation="modal"/, "modal内の資料室は専用presentationを使う");
 assert.doesNotMatch(source.room, /const latest =|slice\(0, 3\)/, "cockpit launcherで最新資料一覧を先読みしない");
 
+assert.match(source.room, /item\.visibility === "amd_internal"\s*\?\s*styles\.internalFolderIcon/, "AMD内部folderは専用色classでiconを分ける");
+assert.match(source.room, /dialog === "create_folder" \? "PJ全体" : "外部共有"/, "folder作成dialogのworkspace_sharedラベルはPJ全体にする");
+assert.match(source.room, /selected\?\.entryKind === "folder" \? "PJ全体" : "外部共有"/, "folder整理dialogのworkspace_sharedラベルはPJ全体にする");
+
 assert.match(
   source.nextConfig,
   /"\/api\/workspace-documents\/\*\/pdf":\s*\[[^\]]*@fontsource-variable\/noto-sans-jp[^\]]*\]/s,
