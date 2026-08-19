@@ -160,6 +160,9 @@ assert.doesNotMatch(source.room, /const latest =|slice\(0, 3\)/, "cockpit launch
 assert.doesNotMatch(source.room, /ここへファイルをドロップして追加/, "細い常設のファイルdrop帯を復活させない");
 assert.match(source.room, /data-testid=\{permissions\?\.canUpload && !query \? "workspace-document-empty-drop-zone" : undefined\}/, "追加できる空folderだけをファイルdrop先にする");
 assert.match(source.room, /onDrop=\{permissions\?\.canUpload && !query \? handleDrop : undefined\}/, "空folderのdropも既存upload handlerを通す");
+assert.match(source.room, /function isExternalFileDrag\(event: DragEvent<HTMLElement>\)[\s\S]*?includes\("Files"\)/, "Finder/Explorerの外部file dragだけを判別する");
+assert.match(source.room, /function preventExternalFileNavigation\(event: DragEvent<HTMLElement>\)[\s\S]*?isExternalFileDrag\(event\)[\s\S]*?event\.preventDefault\(\)/, "資料室内の外部file dropでブラウザ既定のopen/downloadを止める");
+assert.match(source.room, /onDragOverCapture=\{preventExternalFileNavigation\}[\s\S]*?onDropCapture=\{preventExternalFileNavigation\}/, "空状態の境界を外したFinder dropも資料室内では既定遷移させない");
 assert.match(source.room, /query \? "該当する資料はないよ" : "この場所はまだ空だよ"/, "検索0件と空folderの表示を分ける");
 
 assert.match(source.room, /item\.visibility === "amd_internal"\s*\?\s*styles\.internalFolderIcon/, "AMD内部folderは専用色classでiconを分ける");

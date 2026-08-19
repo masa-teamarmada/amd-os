@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+| 2026-08-19 JST | 2-1 PWA Runtime / FEATURE_REGISTRY（資料室） | Finderドロップ修正 | build v3.83.6。資料室内の外部file drag/dropだけをcaptureで判別し、ブラウザ既定のopen/downloadを止める。実際のuploadは追加権限あり・検索中でない空folderの空状態だけで既存upload処理へ渡し、内部資料のパンくず移動dragとは分離する | Finderからの資料追加がブラウザ遷移へ吸収されないようにするため | まさ・えいみ |
+
 | 2026-08-19 JST | 3-7 Notifications / L2 Data | SPS再評価の追加 | build v3.82.1 / migration 292〜295。最新版6項目tuple、sanitized source event、semantic dedupe、q/P差分整合、二段review、candidate UUID通知、採否RPC、append-only/CAS、stale置換、source・candidate・apply共通seed lockを仕様化。現行36件は凍結行を更新せず完全版組へappendし、算術不整合1件はq×Pで決定的に補正 | ソース追記だけでSPSを変えず、候補化・まさの採否・正本反映を分離しながら継続的な再評価を可能にするため | まさ・えいみ |
 
 | 2026-08-19 JST | FEATURE_REGISTRY (資料室) | 機能修正 | build v3.81.9。Google Drive許可リンク型HTMLも、既存の`loadWorkspaceDocumentText`によるallowlist・server側認証・metadata/実byte上限を通してPDF化できるようにした。UI/APIのfile/link条件を静的contractで固定し、HTML編集は保存file限定のまま | 資料の保管形式によるPDF化可否の差をなくし、外部URL取得の権限境界を広げないため | まさ・えいみ |

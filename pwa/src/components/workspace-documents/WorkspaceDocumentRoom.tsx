@@ -806,6 +806,18 @@ export function WorkspaceDocumentRoom({
     void uploadFiles(Array.from(event.dataTransfer.files));
   }
 
+  function isExternalFileDrag(event: DragEvent<HTMLElement>) {
+    return Array.from(event.dataTransfer.types).includes("Files");
+  }
+
+  function preventExternalFileNavigation(event: DragEvent<HTMLElement>) {
+    if (!isExternalFileDrag(event)) return;
+    // Finder/Explorer のdropが空状態を少し外れても、ブラウザがファイルを開いたり
+    // downloadしたりしないよう、資料室の範囲だけで既定動作を止める。実際の追加は
+    // 空folderのdrop targetがbubble phaseで既存upload handlerへ渡す。
+    event.preventDefault();
+  }
+
   function handleFileDragOver(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     if (!busy) setDragActive(true);
@@ -827,6 +839,8 @@ export function WorkspaceDocumentRoom({
 
   return (
     <div
+      onDragOverCapture={preventExternalFileNavigation}
+      onDropCapture={preventExternalFileNavigation}
       className={cn(
         styles.room,
         isModal ? styles.modalRoom : cn(styles.pageShell, "pb-24 sm:pb-10"),
