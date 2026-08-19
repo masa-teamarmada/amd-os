@@ -25,11 +25,21 @@ function json(body: Record<string, unknown>, status = 200) {
   return NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
 }
 
+// 署名Storage URLへ即転送する。旧クライアント(v3.82.5未満)はこのURLをresponse.blob()化して
+// 保存するため、JSONを返すとPDFではなくJSON本文をPDF名で保存してしまう(2026-08-19発覚)。
+// リダイレクトなら旧クライアントもfetchのredirect追跡で実PDF bytesを受け取れる。
+function redirectToSignedPdf(signedUrl: string) {
+  return NextResponse.redirect(signedUrl, { status: 302, headers: { "Cache-Control": "no-store" } });
+}
+
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ documentId: string }> },
 ) {
   const { documentId } = await params;
+  // 新クライアントは`?delivery=json`を明示し、資料室内のエラーUIを維持したままJSONで署名URLを受け取る。
+  // 既定(クエリなし)は旧クライアント互換のためredirectにする。
+  const wantsJson = new URL(request.url).searchParams.get("delivery") === "json";
   const db = createAdminClient();
   const { data, error } = await db
     .from("workspace_documents")
@@ -105,6 +115,8 @@ export async function GET(
     projectId: access.projectId,
     detail: { document_id: documentId, entry_kind: row.entry_kind, action: "download_html_as_pdf" },
   });
+
+  if (!wantsJson) return redirectToSignedPdf(signed.signedUrl);
 
   return json({
     ok: true,

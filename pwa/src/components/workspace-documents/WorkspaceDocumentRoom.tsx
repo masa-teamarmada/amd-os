@@ -493,7 +493,7 @@ export function WorkspaceDocumentRoom({
     setError(null);
     try {
       const response = await fetch(
-        `/api/workspace-documents/${encodeURIComponent(item.documentId)}/pdf`,
+        `/api/workspace-documents/${encodeURIComponent(item.documentId)}/pdf?delivery=json`,
         { cache: "no-store" },
       );
       const payload = (await response.json().catch(() => ({}))) as {
