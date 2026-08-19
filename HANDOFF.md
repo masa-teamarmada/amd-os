@@ -10,7 +10,7 @@
 - p21の外部利用者7件を、アカウント・愛媛機関ワークスペース所属・p21 contributorの3層で招待登録し、PJリストの関係先メールアドレスにも重複なく統合した。メール送信はしていない。
 - 旧SX Project Shareのアプリ・Blob Store・専用ドメインを退役した。旧Blobに移行対象は無く、専用ドメインは404を確認済み。
 - 資料室は、追加権限があり検索中でない場合、現在folderの資料一覧全体（空状態を含む）をFinder / Explorerのfile drop先にする。既存のupload・同名確認・権限処理を使い、資料行からパンくずへの内部移動dragとは混同しない。
-- 修正はcommit `70024d1a`（build v3.83.7）でmainへ反映済み。現在のmainは後続2件を含む`82d22b6d`（build v3.83.8）で、資料室修正を含む。
+- 修正はcommit `70024d1a`（build v3.83.7）でmainへ反映済み。このhandoff自体は`70c622fd`（build v3.83.8）までの正本へ反映済み。次セッションは開始時にmainと`/api/build-info`を再確認する。
 
 ## 正本
 
@@ -23,7 +23,7 @@
 
 ## 運用上の残り
 
-- `pwa/src/components/sps/SpsBandRationale.tsx` は、`pwa/bzm`で進行中のBZM作業が2026-08-20 JSTに作成した未追跡ファイル。資料室修正の対象外なので、次担当は削除・stageせずBZM担当のcommitを待つ。
+- `pwa/bzm`で進行中のBZM作業が、seeds / cockpit / sps関連と`build-info.ts`へ未コミット差分を持つ。資料室修正の対象外なので、次担当は削除・stage・rebaseせずBZM担当のcommitを待つ。
 - 招待済みの7アカウントは、各人がメールリンクで初回認証を終えるまで `invited` のまま。送信は本人への案内を出すと決めた時だけ行う。
 - 初回問い合わせでは、メール本文を共有せず、アカウント・機関所属・p21アクセスの3層とcallback後のactive化だけを読戻す。
 - 外部面に新しい項目を足す時は、safe DTOとroute isolationを先に検査し、内部管理情報を流用しない。

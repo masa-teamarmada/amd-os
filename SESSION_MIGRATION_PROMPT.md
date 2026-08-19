@@ -25,8 +25,8 @@
 - p21の外部利用者7件は、`workspace_user_accounts`、`institution_workspace_memberships`、`project_access_memberships` の3層を招待登録済み。PJリストの関係先メールアドレスも統合済み。メールは未送信で、初回認証後にactive化する。
 - 旧SX Project Shareのアプリ・Blob Store・専用ドメインは退役済み。専用ドメインは404、移行対象Blobなしを確認済み。
 - 資料室は、追加権限があり検索中でない場合、現在folderの資料一覧全体（空状態を含む）をFinder / Explorerのfile drop先にする。外部fileだけを既存upload・同名確認・権限処理へ渡し、資料行をパンくずへ移動する内部dragと混同しない。資料室内でのブラウザ既定のopen/downloadも止める。
-- 修正commitは`70024d1a`（build v3.83.7）。現在のmainは後続2件を含む`82d22b6d`（build v3.83.8）で、資料室修正を含む。productionの版・SHAは開始時に`/api/build-info`で再確認する。
-- handoff作成後に、BZMの進行中作業が`pwa/src/components/sps/SpsBandRationale.tsx`を未追跡で作成している。資料室修正の対象外。削除・stage・変更せず、BZM担当のcommitを待つ。
+- 修正commitは`70024d1a`（build v3.83.7）。handoffは`70c622fd`（build v3.83.8）までのmainへ反映済み。資料室修正を含むproductionの版・SHAは開始時に`/api/build-info`で再確認する。
+- BZMの進行中作業がseeds / cockpit / sps関連と`build-info.ts`へ未コミット差分を持つ。資料室修正の対象外。削除・stage・変更・rebaseせず、BZM担当のcommitを待つ。
 
 ## 最初にやること
 
