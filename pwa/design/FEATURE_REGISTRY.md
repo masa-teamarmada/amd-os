@@ -779,3 +779,5 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - Round 71（2026-08-09、v3.70.2 / migration 250）: **高密度の論点ワークベンチ**。論点表の内容・仮説・議論・判断・次の一手からellipsisを廃止して全文表示する。行から開く詳細は、左=背景/ネスト仮説、中央=過去/今回の議論と派生仮説、右=判断/次の一手/embedded編集の3ペインdialogへ統合。`project_management_issues.background`へ発生背景を固定保存し、議論ログと分離する。解決済み操作は同じdialog footerに置き、resolved行を一覧末尾へ送る。
 
 - Round 72（2026-08-19、v3.82.0）: **資料室のパンくず移動**。管理権限がある人はfolder内のfile/link/folder行を、上部パンくずの任意の上位folderまたは`資料`直下へドラッグして移動する。drop中は目的地だけ青くし、同じfolderはno-op。clientのdrag payloadはdocument IDだけで、保存は既存`organize` PATCHへ元の名称・visibility・destination pathを送る。サーバー側のfolder存在、内部folderへの外部共有資料禁止、folder自身/子孫移動禁止を迂回しない。touch/keyboardは行の`整理・移動`ダイアログにある既存保存先selectを使う。migrationなし。
+
+- Round 73（2026-08-19）: **資料室の最初のファイルは空状態へドロップする**。常設の細いdrop帯を廃止し、現在のfolderが空・検索中でない・追加権限ありのときだけ、「この場所はまだ空だよ」を含む空状態全体を大きいfile drop targetにする。上部の追加ボタンと既存のupload/conflict/権限処理を再利用する。検索0件はdrop targetにせず検索条件の案内を維持し、folder行からパンくずへの資料移動dragとclient payloadを混同しない。migrationなし。

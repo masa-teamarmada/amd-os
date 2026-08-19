@@ -122,8 +122,19 @@
   min-height: 36px;
 }
 
-.dropRail {
+.emptyUploadDropZone {
+  margin: 16px;
+  min-height: 224px;
+  border: 1px dashed rgba(0, 102, 204, 0.42);
+  background: #f8fbff;
   transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+@media (max-width: 639px) {
+  .emptyUploadDropZone {
+    margin: 12px;
+    min-height: 192px;
+  }
 }
 
 @media (max-width: 639px) {

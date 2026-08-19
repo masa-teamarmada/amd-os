@@ -806,6 +806,16 @@ export function WorkspaceDocumentRoom({
     void uploadFiles(Array.from(event.dataTransfer.files));
   }
 
+  function handleFileDragOver(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    if (!busy) setDragActive(true);
+  }
+
+  function handleFileDragLeave(event: DragEvent<HTMLDivElement>) {
+    if (event.currentTarget.contains(event.relatedTarget as Node)) return;
+    setDragActive(false);
+  }
+
   const activeUploadConflict = uploadQueue && uploadConflictIndex != null
     ? uploadQueue[uploadConflictIndex] ?? null
     : null;
@@ -1077,31 +1087,6 @@ export function WorkspaceDocumentRoom({
             </div>
           )}
 
-          {permissions?.canUpload && !query && (
-            <div
-              onDragOver={(event) => {
-                event.preventDefault();
-                setDragActive(true);
-              }}
-              onDragLeave={() => setDragActive(false)}
-              onDrop={handleDrop}
-              className={cn(
-                styles.dropRail,
-                "mx-3 mb-2 hidden min-h-9 items-center justify-center gap-2 rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 text-center text-[11px] text-slate-500 sm:mx-4 sm:flex",
-                dragActive && styles.dropActive,
-              )}
-            >
-              {busy ? (
-                <span className="inline-flex items-center gap-2">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                  資料を保存中
-                </span>
-              ) : (
-                "ここへファイルをドロップして追加"
-              )}
-            </div>
-          )}
-
           <div className="hidden grid-cols-[minmax(0,1fr)_120px_120px_360px] gap-4 border-t border-slate-200 bg-slate-100 px-5 py-1.5 text-[10px] font-semibold tracking-[0.08em] text-slate-600 xl:grid">
             <span>名称</span>
             <span>共有範囲</span>
@@ -1116,14 +1101,26 @@ export function WorkspaceDocumentRoom({
                 資料を読み込み中
               </div>
             ) : visibleDocuments.length === 0 ? (
-              <div className="flex min-h-48 flex-col items-center justify-center px-6 text-center">
+              <div
+                data-testid={permissions?.canUpload && !query ? "workspace-document-empty-drop-zone" : undefined}
+                onDragOver={permissions?.canUpload && !query ? handleFileDragOver : undefined}
+                onDragLeave={permissions?.canUpload && !query ? handleFileDragLeave : undefined}
+                onDrop={permissions?.canUpload && !query ? handleDrop : undefined}
+                className={cn(
+                  "flex min-h-48 flex-col items-center justify-center px-6 text-center",
+                  permissions?.canUpload && !query && styles.emptyUploadDropZone,
+                  dragActive && styles.dropActive,
+                )}
+              >
                 <Folder className="h-8 w-8 text-slate-400" aria-hidden />
                 <p className="mt-3 text-sm font-semibold">
                   {query ? "該当する資料はないよ" : "この場所はまだ空だよ"}
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
                   {permissions?.canUpload && !query
-                    ? "ファイル、フォルダ、オンライン資料を追加できる。"
+                    ? busy
+                      ? "資料を保存中"
+                      : "ファイルをここへドロップするか、上の「追加」から選んでね。"
                     : "別の場所か検索条件を確認してね。"}
                 </p>
               </div>
