@@ -684,12 +684,12 @@ export const SEED_STATUS_ORDER: string[] = [
 ];
 
 export const SEED_STATUS_COLOR: Record<string, string> = {
-  candidate: "border border-slate-300/35 bg-slate-300/12 text-slate-100",
-  investigating: "border border-sky-300/45 bg-sky-400/16 text-sky-100",
-  contacted: "border border-amber-300/45 bg-amber-400/16 text-amber-100",
-  discussing: "border border-emerald-300/45 bg-emerald-400/16 text-emerald-100",
-  spun_off: "border border-violet-300/45 bg-violet-400/16 text-violet-100",
-  declined: "border border-slate-500/35 bg-slate-700/24 text-slate-300",
+  candidate: "border border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200",
+  investigating: "border border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200",
+  contacted: "border border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200",
+  discussing: "border border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200",
+  spun_off: "border border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-200",
+  declined: "border border-slate-400 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300",
 };
 
 export const SEED_ORG_TYPE_LABEL: Record<string, string> = {
