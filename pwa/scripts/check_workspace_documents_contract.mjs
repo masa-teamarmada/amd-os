@@ -85,6 +85,9 @@ assert.match(source.htmlPdf, /page\.setViewport\(\{ width: DESKTOP_PROBE_WIDTH_P
 assert.match(source.htmlPdf, /page\.setViewport\(\{ width: A4_WIDTH_PX/, "PDF化前にA4幅でも資料を測る");
 assert.match(source.htmlPdf, /breakInside = "avoid"/, "比較カード・表など小さな論理ブロックをページ途中で割らない");
 assert.match(source.htmlPdf, /h1, h2, h3, h4, h5, h6/, "見出しだけをページ末尾へ残さない");
+assert.match(source.htmlPdf, /\.side, \.sidebar, aside, nav, \[role="navigation"\]/, "PDFには元HTMLのサイドナビを出さない");
+assert.match(source.htmlPdf, /\.layout \{[\s\S]*?display: block !important;/, "サイドナビを消した時は親gridも1列へ戻して空白列を残さない");
+assert.match(source.htmlPdf, /margin: \{[\s\S]*?top: PDF_PAGE_MARGIN/, "PDFの全ページに同じ余白を付ける");
 assert.match(source.htmlPdf, /width: pxToInches\(pdfWidthPx\)/, "PDF紙面幅は実測した資料幅から決める");
 assert.match(source.htmlPdf, /preferCSSPageSize: false/, "HTML内の固定@page指定で実測紙面幅を上書きしない");
 assert.match(source.htmlPdf, /process\.cwd\(\), "node_modules", "@sparticuz", "chromium", "bin"/, "HTML PDF化はFunctionのproject rootからChromium binを確定する");

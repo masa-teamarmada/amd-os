@@ -22,6 +22,7 @@ const A4_HEIGHT_PX = Math.round((297 / 25.4) * CSS_PX_PER_INCH);
 const DESKTOP_PROBE_WIDTH_PX = 1280;
 const MAX_CONTENT_WIDTH_PX = 1800;
 const COLLAPSE_HEIGHT_RATIO_THRESHOLD = 1.4;
+const PDF_PAGE_MARGIN = "0.35in";
 
 /** A4幅で横組みが縦積みに崩れた資料だけ、元のデスクトップ幅を使う。 */
 export function choosePdfContentWidthPx(params: {
@@ -141,11 +142,20 @@ export async function renderWorkspaceDocumentHtmlToPdf(
     await page.setViewport({ width: pdfWidthPx, height: 1600, deviceScaleFactor: 1 });
     await page.addStyleTag({
       content: `
-        @media print {
-          h1, h2, h3, h4, h5, h6 {
-            break-after: avoid-page !important;
-            page-break-after: avoid !important;
-          }
+        /* 元資料のサイドナビはPDFに不要。nav本体だけでなく、その親gridの列も消す。 */
+        .side, .sidebar, aside, nav, [role="navigation"] {
+          display: none !important;
+        }
+        .layout {
+          display: block !important;
+          grid-template-columns: minmax(0, 1fr) !important;
+        }
+        .layout > :not(.side) {
+          min-width: 0 !important;
+        }
+        h1, h2, h3, h4, h5, h6 {
+          break-after: avoid-page !important;
+          page-break-after: avoid !important;
         }
       `,
     });
@@ -164,6 +174,12 @@ export async function renderWorkspaceDocumentHtmlToPdf(
     return Buffer.from(await page.pdf({
       width: pxToInches(pdfWidthPx),
       height: pxToInches(pdfHeightPx),
+      margin: {
+        top: PDF_PAGE_MARGIN,
+        right: PDF_PAGE_MARGIN,
+        bottom: PDF_PAGE_MARGIN,
+        left: PDF_PAGE_MARGIN,
+      },
       printBackground: true,
       preferCSSPageSize: false,
     }));
