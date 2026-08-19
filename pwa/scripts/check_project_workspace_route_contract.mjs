@@ -9,6 +9,7 @@ const read = (relativePath) => readFileSync(path.join(srcDir, relativePath), "ut
 
 const workspacePage = read("src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx");
 const legacyWeeklyPage = read("src/app/(app)/project/[projectId]/weekly-control/page.tsx");
+const sxWorkspaceDashboard = read("src/components/project-workspace/SxWeeklyControlDashboard.tsx");
 
 assert.match(workspacePage, /resolveSharedWorkspaceAccess\(projectId\)/);
 assert.match(workspacePage, /if \(!access\) notFound\(\)/);
@@ -23,5 +24,14 @@ assert.doesNotMatch(
 
 assert.match(legacyWeeklyPage, /redirect\(`\/project\/\$\{encodeURIComponent\(projectId\)\}\/workspace`\)/);
 assert.doesNotMatch(legacyWeeklyPage, /SxWeeklyControlDashboard|getProjectWorkspaceBundle|getCurrentMemberAccess/);
+
+assert.match(sxWorkspaceDashboard, /const supportsDrive = bundle\.project\.projectId === "p21"/);
+assert.match(sxWorkspaceDashboard, /key: "drive"; label: string/);
+assert.match(sxWorkspaceDashboard, /label: "ドライブ"/);
+assert.match(
+  sxWorkspaceDashboard,
+  /<WorkspaceDocumentRoom[\s\S]*scopeKind="project"[\s\S]*scopeId=\{bundle\.project\.projectId\}[\s\S]*presentation="modal"/,
+  "SX drive must reuse the project document room instead of creating a second document surface",
+);
 
 console.log("project workspace route contract: ok");

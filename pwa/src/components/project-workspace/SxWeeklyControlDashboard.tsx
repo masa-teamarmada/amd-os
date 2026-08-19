@@ -88,6 +88,7 @@ import {
   type SxLaneFold,
 } from "@/lib/sx-display-lanes";
 import { SxPartnerPipeline } from "./SxPartnerPipeline";
+import { WorkspaceDocumentRoom } from "@/components/workspace-documents/WorkspaceDocumentRoom";
 import styles from "./weekly-control.module.css";
 
 type StageKey = SxWeeklyIssueStage;
@@ -280,17 +281,18 @@ const STAGE_LABEL: Record<StageKey, string> = Object.fromEntries(
   STAGES.map((stage) => [stage.key, stage.label]),
 ) as Record<StageKey, string>;
 
-// タブ化 (2026-08-08 まさ指示 #11)。データ接続は独立タブをやめ週次差分タブへ内包する
-// ため、4タブ("weekly"|"gantt"|"partners"|"issues")だけを持つ。既存のアンカー名
+// タブ化 (2026-08-08 まさ指示 #11)。データ接続は独立タブをやめ週次差分タブへ内包する。
+// SX (p21) だけは、PJ資料室と同じ正本を開く「ドライブ」を加える。既存のアンカー名
 // (#weekly-change / #project-gantt / #partner-ledger / #issue-hypothesis / #input-readiness)
 // は他画面からのリンク互換のためhashとしてそのまま残す。
-type SxWeeklyControlView = "weekly" | "gantt" | "partners" | "issues";
+type SxWeeklyControlView = "weekly" | "gantt" | "partners" | "issues" | "drive";
 const SX_WEEKLY_VIEW_STORAGE_KEY = "sx-weekly-control-view-v1";
 const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   weekly: "weekly-change",
   gantt: "project-gantt",
   partners: "partner-ledger",
   issues: "issue-hypothesis",
+  drive: "project-drive",
 };
 // projects.project_name が内部コード名で、利用者に見せる名前と違うPJだけをここへ置く。
 const WORKSPACE_TITLE_OVERRIDES: Record<string, string> = {
@@ -298,18 +300,20 @@ const WORKSPACE_TITLE_OVERRIDES: Record<string, string> = {
   p30: "愛媛大学 産学連携ポートフォリオ",
 };
 
-const SX_WEEKLY_TABS: Array<{ key: SxWeeklyControlView; label: string }> = [
+const SX_WEEKLY_TABS: Array<{ key: Exclude<SxWeeklyControlView, "drive">; label: string }> = [
   { key: "weekly", label: "週次差分" },
   { key: "gantt", label: "ガント" },
   { key: "partners", label: "関係先" },
   { key: "issues", label: "論点・仮説" },
 ];
+const SX_DRIVE_TAB: { key: "drive"; label: string } = { key: "drive", label: "ドライブ" };
 function viewForHash(hash: string): SxWeeklyControlView | null {
   const normalized = hash.replace(/^#/, "");
   if (!normalized) return null;
   if (normalized === "project-gantt") return "gantt";
   if (normalized === "partner-ledger") return "partners";
   if (normalized === "issue-hypothesis") return "issues";
+  if (normalized === "project-drive") return "drive";
   if (normalized === "weekly-change" || normalized === "input-readiness")
     return "weekly";
   return null;
@@ -4635,6 +4639,7 @@ export function SxWeeklyControlDashboard({
   bundle: ProjectWorkspaceBundle;
   access: CurrentMemberAccess;
 }) {
+  const supportsDrive = bundle.project.projectId === "p21";
   const [management, setManagement] = useState(bundle.sxManagement);
   const [trackFilter, setTrackFilter] = useState<SxTrackKey | "all">("all");
   const [viewFilter, setViewFilter] = useState<ViewFilter>("all");
@@ -4677,17 +4682,24 @@ export function SxWeeklyControlDashboard({
   const [activeView, setActiveView] = useState<SxWeeklyControlView>("weekly");
   useEffect(() => {
     const fromHash = viewForHash(window.location.hash);
-    if (fromHash) {
+    if (fromHash && (fromHash !== "drive" || supportsDrive)) {
       setActiveView(fromHash);
       return;
     }
     const stored = window.localStorage.getItem(SX_WEEKLY_VIEW_STORAGE_KEY);
-    if (stored === "weekly" || stored === "gantt" || stored === "partners" || stored === "issues") {
+    if (
+      stored === "weekly" ||
+      stored === "gantt" ||
+      stored === "partners" ||
+      stored === "issues" ||
+      (stored === "drive" && supportsDrive)
+    ) {
       setActiveView(stored);
     }
-  }, []);
+  }, [supportsDrive]);
 
   function selectView(view: SxWeeklyControlView) {
+    if (view === "drive" && !supportsDrive) return;
     setActiveView(view);
     window.localStorage.setItem(SX_WEEKLY_VIEW_STORAGE_KEY, view);
     window.history.replaceState(null, "", `#${SX_WEEKLY_VIEW_HASH[view]}`);
@@ -5392,7 +5404,7 @@ export function SxWeeklyControlDashboard({
             </div>
           </div>
           <nav className={styles.sectionNav} aria-label="週次管制ナビ" role="tablist">
-            {SX_WEEKLY_TABS.map((tab) => (
+            {[...SX_WEEKLY_TABS, ...(supportsDrive ? [SX_DRIVE_TAB] : [])].map((tab) => (
               <button
                 key={tab.key}
                 type="button"
@@ -5966,6 +5978,23 @@ export function SxWeeklyControlDashboard({
             )}
           </div>
         </section>
+        )}
+
+        {activeView === "drive" && supportsDrive && (
+          <section
+            id="project-drive"
+            className={styles.section}
+            role="tabpanel"
+            aria-label="SXドライブ"
+          >
+            <WorkspaceDocumentRoom
+              scopeKind="project"
+              scopeId={bundle.project.projectId}
+              scopeName={bundle.project.projectName}
+              scopeTrail={[bundle.project.projectName]}
+              presentation="modal"
+            />
+          </section>
         )}
 
         {activeView === "weekly" && (
