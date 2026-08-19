@@ -177,8 +177,10 @@ function EntryIcon({ item }: { item: DocumentItem }) {
 
 function VisibilityBadge({
   visibility,
+  entryKind,
 }: {
   visibility: WorkspaceDocumentVisibility;
+  entryKind: WorkspaceDocumentEntryKind;
 }) {
   return (
     <span
@@ -189,7 +191,11 @@ function VisibilityBadge({
           : styles.internalBadge,
       )}
     >
-      {visibility === "workspace_shared" ? "外部共有" : "AMD内部"}
+      {visibility === "workspace_shared"
+        ? entryKind === "folder"
+          ? "PJ全体"
+          : "外部共有"
+        : "AMD内部"}
     </span>
   );
 }
@@ -1049,7 +1055,10 @@ export function WorkspaceDocumentRoom({
                   </div>
                   <div className="flex min-w-0 flex-wrap items-center gap-2 xl:contents">
                     <div>
-                      <VisibilityBadge visibility={item.visibility} />
+                      <VisibilityBadge
+                        visibility={item.visibility}
+                        entryKind={item.entryKind}
+                      />
                     </div>
                     <p className="text-xs text-slate-500">
                       {formatDate(item.updatedAt)}

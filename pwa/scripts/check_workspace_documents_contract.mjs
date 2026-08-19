@@ -127,6 +127,8 @@ assert.doesNotMatch(source.room, /const latest =|slice\(0, 3\)/, "cockpit launch
 assert.match(source.room, /item\.visibility === "amd_internal"\s*\?\s*styles\.internalFolderIcon/, "AMD内部folderは専用色classでiconを分ける");
 assert.match(source.room, /dialog === "create_folder" \? "PJ全体" : "外部共有"/, "folder作成dialogのworkspace_sharedラベルはPJ全体にする");
 assert.match(source.room, /selected\?\.entryKind === "folder" \? "PJ全体" : "外部共有"/, "folder整理dialogのworkspace_sharedラベルはPJ全体にする");
+assert.match(source.room, /entryKind === "folder"\s*\?\s*"PJ全体"\s*:\s*"外部共有"/, "folder一覧のworkspace_sharedバッジはPJ全体と表示する");
+assert.match(source.room, /href=\{workspaceDocumentViewHref\(item\)\}\s*target="_blank"/s, "資料名は外部ブラウザの別タブで開く");
 
 assert.match(
   source.nextConfig,

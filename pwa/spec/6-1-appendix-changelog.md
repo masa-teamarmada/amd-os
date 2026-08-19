@@ -1,5 +1,6 @@
 # 附則（設計書変更履歴）
 
+| 2026-08-19 JST | FEATURE_REGISTRY (資料室) | 操作性修正 | build v3.81.8。folder一覧の`workspace_shared`バッジも`PJ全体`へ揃え、資料名クリックはHTML安全プレビューとMarkdown MD Readerを外部ブラウザ別タブで開く静的contractを追加 | 共有範囲の表示を一貫させ、HTML/Markdownの開き先が資料室内へ戻らないことを回帰テストで固定するため | まさ・えいみ |
 | 2026-08-19 JST | FEATURE_REGISTRY (資料室) | 表示修正 | build v3.81.7。`WorkspaceDocumentRoom`のfolder作成・整理ダイアログの共有範囲select表示名を`workspace_shared`→`PJ全体`に変更（値・権限は不変、file/link用ダイアログは`外部共有`のまま）。`amd_internal`のfolderアイコンを`--room-navy`色にし、既存のテキストバッジ（`AMD内部`/`外部共有`）と併用する。SX「ドライブ」タブとコックピット「資料室」は同一コンポーネントのため両方に反映。`check_workspace_documents_contract.mjs`へ静的contractを追加 | folderの共有範囲を「PJ全体」で見えることが「外部共有」という表現から伝わりにくかったため。テキストバッジのみへの依存を減らし、色でも即座に見分けられるようにするため | まさ・えいみ |
 | 2026-08-19 JST | 5-9 管理カレンダー / FEATURE_REGISTRY | 可読性修正 | build v3.81.2。期間計算を説明する見出しを画面から削除し、対象年月だけを表示。狭い日付セル内の省略予定pillを廃止し、日付セルは日付と件数、各月の下段は日付・正式な予定名・区分・状態・金額を省略しない`この月にやること`へ分離 | 3列表示で予定名が数文字に潰れ、いつ何を行うかを判定できなかったため | まさ・えいみ |
 
