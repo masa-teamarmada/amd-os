@@ -5993,6 +5993,7 @@ export function SxWeeklyControlDashboard({
               scopeName={bundle.project.projectName}
               scopeTrail={[bundle.project.projectName]}
               presentation="modal"
+              surface="workspace"
             />
           </section>
         )}

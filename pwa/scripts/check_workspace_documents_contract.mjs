@@ -18,6 +18,7 @@ const files = {
   middleware: new URL("../src/lib/supabase/middleware.ts", import.meta.url),
   institutionPage: new URL("../src/app/workspace/[slug]/files/page.tsx", import.meta.url),
   projectPage: new URL("../src/app/(shared-workspace)/project/[projectId]/workspace/files/page.tsx", import.meta.url),
+  sxWorkspace: new URL("../src/components/project-workspace/SxWeeklyControlDashboard.tsx", import.meta.url),
   room: new URL("../src/components/workspace-documents/WorkspaceDocumentRoom.tsx", import.meta.url),
   cockpit: new URL("../src/components/cockpit/CockpitView.tsx", import.meta.url),
   nextConfig: new URL("../next.config.ts", import.meta.url),
@@ -34,7 +35,7 @@ assert.match(source.capabilities, /role: "manager" \| "contributor" \| "readonly
 assert.match(source.capabilities, /External role labels currently do not grant membership management/, "未実装権限を強いrole名から推定しない");
 assert.match(source.access, /scope\.institutionWorkspaces\.find/, "機関資料は機関membershipを明示確認する");
 assert.doesNotMatch(source.access, /institutionWorkspaces.*project_access/s, "機関membershipからPJ権限を自動生成しない");
-assert.match(source.list, /!access\.canReadInternal.*visibility.*workspace_shared/s, "外部一覧は共有資料だけに絞る");
+assert.match(source.list, /surface === "workspace" \|\| !access\.canReadInternal[\s\S]*?visibility", "workspace_shared"/s, "workspace面と外部一覧は共有資料だけに絞る");
 assert.match(source.open, /row\.visibility === "amd_internal" && !access\.canReadInternal/, "open routeも内部資料を404にする");
 assert.match(source.open, /!download && isWorkspaceDocumentHtml[\s\S]*?\/render/, "旧open URLもHTMLをブラウザ表示へ振り分ける");
 assert.match(source.open, /!download && isWorkspaceDocumentMarkdown[\s\S]*?\/workspace-document\//, "旧open URLもMarkdown Readerへ振り分ける");
@@ -114,6 +115,9 @@ assert.match(source.institutionPage, /resolveInstitutionDocumentAccess\(slug\)/,
 assert.match(source.projectPage, /resolveProjectDocumentAccess\(projectId\)/, "PJ資料pageはproject accessを再検証する");
 assert.match(source.projectPage, /access\.principal === "internal_member"[\s\S]*\/cockpit/, "内部メンバーは資料室からcockpitへ戻る");
 assert.match(source.projectPage, /PJ概要へ戻る/, "外部メンバーは資料室から共有PJ概要へ戻る");
+assert.match(source.institutionPage, /surface="workspace"/, "機関workspace資料室は公開面を明示する");
+assert.match(source.projectPage, /surface="workspace"/, "PJ workspace資料室は公開面を明示する");
+assert.match(source.sxWorkspace, /<WorkspaceDocumentRoom[\s\S]*?surface="workspace"/s, "SXドライブはworkspace面として資料室を開く");
 assert.match(source.middleware, /workspace\(\?:\\\/files\)\?/, "外部workspace sessionでPJ資料室routeへ到達できる");
 assert.match(source.cockpit, /<WorkspaceDocumentLauncher/, "cockpitは資料一覧でなく資料室launcherを置く");
 assert.doesNotMatch(source.cockpit, /WorkspaceDocumentSummary/, "cockpitの資料サマリ一覧を復活させない");
@@ -124,6 +128,9 @@ assert.match(source.room, /workspaceDocumentFinderCopyName/, "両方残すはFin
 assert.match(source.room, /conflictDocument\?\.entryKind === "file"/, "置き換えるbuttonは既存active fileだけに限定する");
 assert.match(source.room, /upsert: prepared\.isReplacement === true/, "署名uploadのupsertは明示置き換えだけに限定する");
 assert.match(source.room, /data-testid="workspace-document-modal"/, "資料室はcockpit内modalで開く");
+assert.match(source.room, /type WorkspaceDocumentSurface = "cockpit" \| "workspace"/, "資料室の表示面を明示的に分ける");
+assert.match(source.room, /apiUrl\(scopeKind, scopeId, surface\)/, "資料室は表示面を一覧APIへ渡す");
+assert.match(source.room, /const canManageVisibility = surface === "cockpit" && Boolean\(permissions\?\.canReadInternal\)/, "共有範囲の操作はcockpit内部面だけに閉じる");
 assert.match(source.room, /presentation="modal"/, "modal内の資料室は専用presentationを使う");
 assert.doesNotMatch(source.room, /const latest =|slice\(0, 3\)/, "cockpit launcherで最新資料一覧を先読みしない");
 

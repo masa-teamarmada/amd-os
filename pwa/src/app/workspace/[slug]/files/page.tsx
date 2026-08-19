@@ -29,6 +29,7 @@ export default async function InstitutionWorkspaceFilesPage({ params }: { params
       scopeName={String(workspace.name)}
       returnHref={`/workspace/${encodeURIComponent(slug)}`}
       returnLabel="機関概要へ戻る"
+      surface="workspace"
     />
   );
 }
