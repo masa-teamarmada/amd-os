@@ -1,8 +1,8 @@
 # SPEC.md — Project Share 恒久仕様
 
 正本。PJ別インスタンスの実装詳細は各インスタンスの `README.md`（[`vsx/README.md`](vsx/README.md)、
-[`cx/README.md`](cx/README.md)、[`se/README.md`](se/README.md)、[`sx/README.md`](sx/README.md)、
-[`zmp/README.md`](zmp/README.md)、[`kute/README.md`](kute/README.md)）を見る。ここには、インスタンス横断で守るべき
+[`cx/README.md`](cx/README.md)、[`se/README.md`](se/README.md)、[`zmp/README.md`](zmp/README.md)、
+[`kute/README.md`](kute/README.md)）を見る。ここには、インスタンス横断で守るべき
 恒久仕様だけを置く。
 
 ## 目的
@@ -107,3 +107,5 @@ Vercelプロジェクトとし、AMD OS PWA 本体の認証・データとは分
   30日へ延長し、ログイン時点のメールアドレス・パスワードダイジェストに結び付けることで、
   許可リストからの除外・パスワード変更・署名鍵変更のいずれかで既存セッションを自動失効させる
   ようにした。エラーメッセージはメールアドレスの存在有無を漏らさない共通表示に統一した。
+- 2026-08-19: SXをProject Shareから退役。旧Vercelプロジェクト・サブドメイン・Blobは廃止し、
+  外部資料共有はAMD OSの明示的なPJ権限と`workspace_documents`へ統合した。

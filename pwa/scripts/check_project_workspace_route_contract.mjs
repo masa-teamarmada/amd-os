@@ -13,14 +13,17 @@ const sxWorkspaceDashboard = read("src/components/project-workspace/SxWeeklyCont
 
 assert.match(workspacePage, /resolveSharedWorkspaceAccess\(projectId\)/);
 assert.match(workspacePage, /if \(!access\) notFound\(\)/);
-assert.match(workspacePage, /if \(access\.principal === "workspace_account"\) notFound\(\)/);
+assert.match(workspacePage, /if \(access\.principal === "workspace_account"\) \{/);
+assert.match(workspacePage, /externalWorkspaceRoleCapabilityLabel\(access\.role\)/);
+assert.match(
+  workspacePage,
+  /href=\{`\/project\/\$\{encodeURIComponent\(projectId\)\}\/workspace\/files`\}/,
+);
+assert.match(workspacePage, /PJの内部管理情報は表示しない/);
 assert.match(workspacePage, /getProjectWorkspaceBundle\(projectId, access\)/);
 assert.match(workspacePage, /<SxWeeklyControlDashboard bundle=\{bundle\} access=\{access\} \/>/);
-assert.doesNotMatch(
-  workspacePage,
-  /ProjectWorkspaceDashboard|ExternalProjectWorkspaceDashboard|SharedProjectControlDeck|SharedWorkspaceScopeRibbon|shared-project-control/,
-  "workspace route must not keep the withdrawn substitute surfaces",
-);
+assert.match(workspacePage, /<SharedWorkspaceScopeRibbon[\s\S]*?principal="workspace_account"/);
+assert.doesNotMatch(workspacePage, /if \(access\.principal === "workspace_account"\) notFound\(\)/);
 
 assert.match(legacyWeeklyPage, /redirect\(`\/project\/\$\{encodeURIComponent\(projectId\)\}\/workspace`\)/);
 assert.doesNotMatch(legacyWeeklyPage, /SxWeeklyControlDashboard|getProjectWorkspaceBundle|getCurrentMemberAccess/);

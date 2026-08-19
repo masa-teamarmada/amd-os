@@ -1,6 +1,6 @@
 # Project Share Handoff
 
-Last updated: 2026-08-01 JST
+Last updated: 2026-08-19 JST
 
 Topic: 全PJ BOXのログインを、メールアドレス許可リスト＋既存パスワード方式へ変更
 
@@ -32,9 +32,10 @@ Topic: 全PJ BOXのログインを、メールアドレス許可リスト＋既�
   新しいコードをデプロイしても`503`でBOX全体がログイン不能になる）。
 - mainへのpushは完了。commit SHAとpush結果はセッション終了時の報告を参照（このファイルの
   更新と同じcommitに含む）。
-- 公開URLは変更なし: `https://vsx.team-armada.jp`、`https://cx.team-armada.jp`、
-  `https://se.team-armada.jp`、`https://sx.team-armada.jp`、`https://zmp.team-armada.jp`、
-  `https://kute.team-armada.jp`。本番はまだ旧パスワード単独方式のまま稼働中。
+- SXは2026-08-19にProject Shareから退役し、旧Vercelプロジェクト・サブドメイン・Blobを廃止する。
+  外部共有はAMD OSのSXワークスペースへ統合する。他の公開URLは変更なし:
+  `https://vsx.team-armada.jp`、`https://cx.team-armada.jp`、`https://se.team-armada.jp`、
+  `https://zmp.team-armada.jp`、`https://kute.team-armada.jp`。本番はまだ旧パスワード単独方式のまま稼働中。
 
 ## Unresolved Tasks
 

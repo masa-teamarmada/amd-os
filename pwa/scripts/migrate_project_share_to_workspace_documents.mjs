@@ -15,7 +15,6 @@ const SOURCES = [
   { alias: "vsx", projectId: "p26", tokenEnv: "PROJECT_SHARE_VSX_BLOB_TOKEN" },
   { alias: "cx", projectId: "p20", tokenEnv: "PROJECT_SHARE_CX_BLOB_TOKEN" },
   { alias: "se", projectId: "p10", tokenEnv: "PROJECT_SHARE_SE_BLOB_TOKEN" },
-  { alias: "sx", projectId: "p21", tokenEnv: "PROJECT_SHARE_SX_BLOB_TOKEN" },
   { alias: "zmp", projectId: "p19", tokenEnv: "PROJECT_SHARE_ZMP_BLOB_TOKEN" },
   { alias: "kute", projectId: "p25", tokenEnv: "PROJECT_SHARE_KUTE_BLOB_TOKEN" },
 ];

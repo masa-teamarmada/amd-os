@@ -345,11 +345,10 @@ expectIncludes(
     "getProjectWorkspaceBundle",
     'access.principal === "workspace_account"',
     "notFound()",
+    "SharedWorkspaceScopeRibbon",
+    "externalWorkspaceRoleCapabilityLabel",
+    "/workspace/files",
   ],
-);
-expectNotIncludes(
-  "src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx",
-  ["SharedWorkspaceScopeRibbon"],
 );
 
 expectIncludes("src/app/(app)/project/[projectId]/weekly-control/page.tsx", [
