@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CurrentSpsAssessmentCard } from "@/components/sps/CurrentSpsAssessmentCard";
 import type { CurrentSpsProjectAssessment } from "@/lib/current-sps-model";
+import type { SeedScreeningBandDetail } from "@/types/seeds";
 import { Bzm22ProvisionalObservatory } from "./Bzm22ProvisionalObservatory";
 
 type LoadState =
@@ -12,16 +13,29 @@ type LoadState =
 
 export function CockpitAmdScoreDetailTab({ projectId, active = true }: { projectId: string; active?: boolean }) {
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  // 判断根拠 (q帯・q要因11項目・P^ind帯・総合判断) は seed_screening_bands の詳細行にしか無い。
+  // 一覧系に積むとペイロードが膨らむため、根拠を出すこの画面だけが seedId 指定で追加取得する。
+  const [band, setBand] = useState<SeedScreeningBandDetail | null>(null);
 
   useEffect(() => {
     if (!active) return;
     const controller = new AbortController();
     setState({ status: "loading" });
+    setBand(null);
     fetch(`/api/project/${encodeURIComponent(projectId)}/sps-current`, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const payload = await response.json().catch(() => null);
         if (!response.ok || !payload) throw new Error(payload?.error || "現行SPSの取得に失敗");
-        setState({ status: "ready", assessment: payload as CurrentSpsProjectAssessment });
+        const assessment = payload as CurrentSpsProjectAssessment;
+        setState({ status: "ready", assessment });
+        if (!assessment.seed_id) return;
+        const bandResponse = await fetch(
+          `/api/seeds/screening-bands?seedId=${encodeURIComponent(assessment.seed_id)}`,
+          { cache: "no-store", signal: controller.signal },
+        );
+        const bandPayload = await bandResponse.json().catch(() => null);
+        // 根拠が取れなくても現行SPS本体の表示は落とさない
+        if (bandResponse.ok && bandPayload?.ok) setBand((bandPayload.band as SeedScreeningBandDetail | null) ?? null);
       })
       .catch((error) => {
         if (controller.signal.aborted) return;
@@ -37,7 +51,7 @@ export function CockpitAmdScoreDetailTab({ projectId, active = true }: { project
       ) : state.status === "error" ? (
         <div className="border border-red-200 bg-red-50 px-3 py-3 text-[10px] text-red-800">{state.message}</div>
       ) : (
-        <CurrentSpsAssessmentCard assessment={state.assessment} />
+        <CurrentSpsAssessmentCard assessment={state.assessment} band={band} />
       )}
 
       <section aria-labelledby="bzm22-separate-model-title" className="min-w-0 border-t border-slate-300 pt-3">

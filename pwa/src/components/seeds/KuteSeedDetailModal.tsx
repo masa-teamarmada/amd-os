@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, FileText, X } from "lucide-react";
+import { FileText, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SeedMarkdownPreviewModal } from "@/components/seeds/SeedMarkdownPreviewModal";
+import { SpsBandRationale } from "@/components/sps/SpsBandRationale";
 import {
   SEED_COMMERCIALIZATION_TYPE_LABEL,
   SEED_KUTE_MARKET_CONFIDENCE_LABEL,
@@ -33,13 +34,6 @@ function stageTagLabel(tag: string | null): string | null {
     .map((part) => STAGE_TAG_LABEL[part] ?? part)
     .join(" + ");
 }
-
-const Q_EVIDENCE_DIRECTION_LABEL: Record<string, string> = {
-  down: "下押し",
-  up: "上振れ",
-  widen: "帯を広げる",
-  neutral: "中立",
-};
 
 const EVIDENCE_LEVEL_BADGE_CLASS: Record<0 | 1 | 2 | 3, string> = {
   0: "border-slate-300 bg-slate-50 text-slate-500",
@@ -77,12 +71,10 @@ export function KuteSeedDetailModal({
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [screeningBand, setScreeningBand] = useState<SeedScreeningBandDetail | null>(null);
-  const [qEvidenceOpen, setQEvidenceOpen] = useState(false);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- seed/open 切替時に前回シーズの帯を残さないための同期リセット
     setScreeningBand(null);
-    setQEvidenceOpen(false);
     if (!open || !seed) return;
     let cancelled = false;
     fetch(`/api/seeds/screening-bands?seedId=${encodeURIComponent(seed.id)}`)
@@ -261,37 +253,12 @@ export function KuteSeedDetailModal({
                   この帯は接触と調査の優先順位づけの下書き。上限は楽観シナリオの包絡であり評価額ではない。投資判断・対外表示には使わない。
                 </p>
 
-                {screeningBand.q_evidence && screeningBand.q_evidence.length > 0 && (
-                  <details
-                    className="mt-2 rounded-md border border-slate-200 bg-slate-50"
-                    open={qEvidenceOpen}
-                    onToggle={(e) => setQEvidenceOpen(e.currentTarget.open)}
-                  >
-                    <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-slate-700">
-                      <ChevronDown
-                        className={`h-3.5 w-3.5 transition-transform ${qEvidenceOpen ? "rotate-0" : "-rotate-90"}`}
-                        aria-hidden="true"
-                      />
-                      q帯の根拠 ({screeningBand.q_evidence.length}要因)
-                    </summary>
-                    <ul className="space-y-2 border-t border-slate-200 px-3 py-2">
-                      {screeningBand.q_evidence.map((item) => (
-                        <li key={item.id} className="text-[11px] leading-relaxed text-slate-700">
-                          <div className="flex flex-wrap items-baseline gap-1.5">
-                            <span className="font-semibold text-slate-900">{item.name}</span>
-                            <span className="rounded border border-slate-300 bg-white px-1 py-0.5 text-[9px] font-medium text-slate-500">
-                              {Q_EVIDENCE_DIRECTION_LABEL[item.direction] ?? item.direction}
-                            </span>
-                          </div>
-                          <div className="mt-0.5 text-slate-600">{item.evidence}</div>
-                          {item.assessment && (
-                            <div className="mt-0.5 text-slate-400">{item.assessment}</div>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
+                <SpsBandRationale
+                  key={screeningBand.assessment_id ?? screeningBand.seed_id}
+                  notes={screeningBand.notes}
+                  qEvidence={screeningBand.q_evidence}
+                  className="mt-2"
+                />
               </section>
             )}
 
