@@ -69,6 +69,11 @@ const DECISION_ROUTES = Object.freeze({
     approval: "対応済みの反映先へ候補1件を追加する",
     rejection: "gap候補をrejectedにして正本を変えない",
   },
+  sps_reassessment: {
+    destination: "最新版SPS",
+    approval: "対象候補から新しい凍結評価をappend-onlyで1件追加する",
+    rejection: "対象候補をrejectedにして現行SPSを変えない",
+  },
 });
 
 function parseArgs(argv) {
@@ -173,6 +178,16 @@ function objectValue(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
+function spsRangeHint(value, lowerKey, upperKey) {
+  const range = objectValue(value);
+  const out = {};
+  for (const key of [lowerKey, upperKey]) {
+    const number = Number(range[key]);
+    if (Number.isFinite(number)) out[key] = number;
+  }
+  return Object.keys(out).length === 2 ? out : null;
+}
+
 function metadataHints(value) {
   const meta = objectValue(value);
   const out = {};
@@ -190,6 +205,9 @@ function metadataHints(value) {
     "axis",
     "evidence_kind",
     "category",
+    "impact_classification",
+    "evidence_strength",
+    "information_cutoff",
   ]) {
     const text = sanitizeDecisionText(meta[key], 220);
     if (text) out[key] = text;
@@ -197,6 +215,19 @@ function metadataHints(value) {
   if (Array.isArray(meta.changes)) {
     out.changes = meta.changes.map((item) => sanitizeDecisionText(item, 300)).filter(Boolean).slice(0, 8);
   }
+  for (const [key, lowerKey, upperKey] of [
+    ["current_sps", "lower_yen", "upper_yen"],
+    ["proposed_sps", "lower_yen", "upper_yen"],
+    ["current_q", "lower_pct", "upper_pct"],
+    ["proposed_q", "lower_pct", "upper_pct"],
+    ["current_p_ind", "lower_yen", "upper_yen"],
+    ["proposed_p_ind", "lower_yen", "upper_yen"],
+  ]) {
+    const range = spsRangeHint(meta[key], lowerKey, upperKey);
+    if (range) out[key] = range;
+  }
+  const confidence = Number(meta.confidence);
+  if (Number.isFinite(confidence) && confidence >= 0 && confidence <= 1) out.confidence = confidence;
   return out;
 }
 

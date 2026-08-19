@@ -11,8 +11,8 @@
  *
  * Body:
  *   {
- *     l2_kind: 'member_knowledge'|'project_knowledge'|'protocols'|'ms_progress'|'ms_progress_revision'|'meeting_summary'|'project_registry_diff'|'xrl_evidence'|'project_strategy_signal'|'textbook_insight'|'news_mention'|'action_item'|'coverage_gap'|'guardrail_match',
- *     target_id: string,            // code_name (member系) / project_id (PJ系)
+ *     l2_kind: 'member_knowledge'|'project_knowledge'|'protocols'|'ms_progress'|'ms_progress_revision'|'meeting_summary'|'project_registry_diff'|'xrl_evidence'|'project_strategy_signal'|'textbook_insight'|'news_mention'|'action_item'|'coverage_gap'|'guardrail_match'|'sps_reassessment',
+ *     target_id: string,            // code_name (member系) / project_id (PJ系) / seed_id (SPS再評価)
  *     scope_key?: string,            // ym (PJ系) / 'global' (member系) — default 'global'
  *     notification_id?: string,      // 関連 l2_notifications (optional)
  *     meeting_id?: string,           // 関連 meeting_notifications (optional)
@@ -157,6 +157,7 @@ export async function POST(req: NextRequest) {
       "action_item",
       "coverage_gap",
       "guardrail_match",
+      "sps_reassessment",
     ]);
     if (!allowedKinds.has(l2Kind)) {
       return NextResponse.json({ error: `unknown l2_kind: ${l2Kind}` }, { status: 400 });
@@ -199,7 +200,9 @@ export async function POST(req: NextRequest) {
           ? await rejectNotificationCandidates({ supabase, l2Kind, targetId, scopeKey, notificationId, feedbackText, createdBy })
           : { applied: false, message: "comment only" };
     } catch (applyError) {
-      if (action !== "yes" || l2Kind !== "coverage_gap") throw applyError;
+      const mustRollbackFeedback = (action === "yes" && ["coverage_gap", "sps_reassessment"].includes(l2Kind))
+        || (action === "no" && l2Kind === "sps_reassessment");
+      if (!mustRollbackFeedback) throw applyError;
       const message = applyError instanceof Error ? applyError.message : "unknown apply error";
       const { error: rollbackError } = await getServiceClient()
         .from("l2_feedbacks")
@@ -212,8 +215,8 @@ export async function POST(req: NextRequest) {
       }, { status: 500 });
     }
 
-    // coverage gapの「はい」は正本反映までが1操作。反映失敗を回答済みとして隠さない。
-    if (action === "yes" && l2Kind === "coverage_gap" && !applyResult.applied) {
+    // coverage gap / SPS再評価の「はい」は正本反映までが1操作。反映失敗を回答済みとして隠さない。
+    if (action === "yes" && ["coverage_gap", "sps_reassessment"].includes(l2Kind) && !applyResult.applied) {
       const { error: rollbackError } = await getServiceClient()
         .from("l2_feedbacks")
         .delete()
@@ -250,7 +253,7 @@ export async function POST(req: NextRequest) {
     //   誤抽出修正は cockpit の POST /api/meeting-summary/manual-update に一本化済み (2026-05-29)
     // - project_strategy_signal: 対話型 /api/notifications/feedback/dialog/* を別経路で使う (= 旧 reextractStrategySignalImmediate は廃止、2026-05-25 #71 まさ確定)
     // - ms_progress_revision: GAS 再抽出の対象外 (= revision の confirm/discard が完結処理)
-    if (l2Kind !== "meeting_summary" && l2Kind !== "project_strategy_signal" && l2Kind !== "ms_progress_revision" && l2Kind !== "guardrail_match") {
+    if (l2Kind !== "meeting_summary" && l2Kind !== "project_strategy_signal" && l2Kind !== "ms_progress_revision" && l2Kind !== "guardrail_match" && l2Kind !== "sps_reassessment") {
       void triggerImmediateReExtraction({ l2Kind, targetId, scopeKey, meetingId, feedbackText: storedFeedbackText, feedbackId: data.feedback_id }).catch((e) => {
         console.warn("[feedback] immediate re-extract failed:", e);
       });
@@ -274,6 +277,10 @@ async function applyApprovedNotification(args: {
   feedbackId: string;
   createdBy: string | null;
 }): Promise<{ applied: boolean; message: string; row?: unknown }> {
+  if (args.l2Kind === "sps_reassessment") {
+    return applySpsReassessmentCandidate(args);
+  }
+
   if (args.l2Kind === "meeting_summary") {
     return applyMeetingSummaryFeedback(args);
   }
@@ -1457,6 +1464,83 @@ function ymdValue(value: unknown): string | null {
   return match ? match[0] : null;
 }
 
+const SPS_REASSESSMENT_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+type SpsReassessmentActionArgs = {
+  targetId: string;
+  scopeKey: string;
+  feedbackText: string;
+  createdBy: string | null;
+};
+
+async function loadScopedSpsReassessmentCandidate(args: SpsReassessmentActionArgs) {
+  if (!SPS_REASSESSMENT_UUID_RE.test(args.scopeKey)) {
+    return { candidate: null, error: "sps_reassessment requires candidate UUID in scope_key" };
+  }
+  const service = getServiceClient();
+  const { data, error } = await service
+    .from("sps_reassessment_candidates")
+    .select("id,seed_id")
+    .eq("id", args.scopeKey)
+    .eq("seed_id", args.targetId)
+    .maybeSingle();
+  if (error) return { candidate: null, error: error.message };
+  if (!data) return { candidate: null, error: "sps_reassessment candidate does not match seed target_id and scope_key" };
+  return { candidate: data, error: null };
+}
+
+function spsReassessmentRpcResult(value: unknown): { applied: boolean; rejected: boolean; message: string; row?: unknown } {
+  const row = Array.isArray(value) ? value[0] : value;
+  if (typeof row === "boolean") {
+    return { applied: row, rejected: false, message: row ? "SPS reassessment applied" : "SPS reassessment was not applied", row };
+  }
+  if (row && typeof row === "object") {
+    const record = row as Record<string, unknown>;
+    const applied = record.applied === true;
+    const rejected = record.rejected === true;
+    const message = cleanOneLine(String(record.message ?? ""))
+      || (applied ? "SPS reassessment applied" : rejected ? "SPS reassessment rejected" : "SPS reassessment was not applied");
+    return { applied, rejected, message, row };
+  }
+  return { applied: false, rejected: false, message: "SPS reassessment RPC returned no action result", row };
+}
+
+async function applySpsReassessmentCandidate(
+  args: SpsReassessmentActionArgs
+): Promise<{ applied: boolean; message: string; row?: unknown }> {
+  const scoped = await loadScopedSpsReassessmentCandidate(args);
+  if (scoped.error || !scoped.candidate) {
+    return { applied: false, message: scoped.error || "SPS reassessment candidate not found" };
+  }
+  const actor = cleanOneLine(String(args.createdBy ?? ""));
+  if (!actor) return { applied: false, message: "SPS reassessment actor is missing" };
+  const { data, error } = await getServiceClient().rpc("apply_sps_reassessment_candidate", {
+    p_candidate_id: args.scopeKey,
+    p_actor: actor,
+  });
+  if (error) return { applied: false, message: error.message };
+  return spsReassessmentRpcResult(data);
+}
+
+async function rejectSpsReassessmentCandidate(
+  args: SpsReassessmentActionArgs
+): Promise<{ applied: boolean; message: string; row?: unknown }> {
+  const scoped = await loadScopedSpsReassessmentCandidate(args);
+  if (scoped.error || !scoped.candidate) throw new Error(scoped.error || "SPS reassessment candidate not found");
+  const actor = cleanOneLine(String(args.createdBy ?? ""));
+  if (!actor) throw new Error("SPS reassessment actor is missing");
+  const reason = cleanOneLine(args.feedbackText).slice(0, 500) || "通知で不採用";
+  const { data, error } = await getServiceClient().rpc("reject_sps_reassessment_candidate", {
+    p_candidate_id: args.scopeKey,
+    p_actor: actor,
+    p_reason: reason,
+  });
+  if (error) throw new Error(error.message);
+  const result = spsReassessmentRpcResult(data);
+  if (!result.rejected) throw new Error(result.message);
+  return { applied: false, message: "SPS reassessment candidate rejected; current SPS unchanged", row: result.row };
+}
+
 /**
  * MTGサマリ通知の「はい・反映」承認。
  *
@@ -1491,6 +1575,10 @@ async function rejectNotificationCandidates(args: {
   feedbackText: string;
   createdBy: string | null;
 }): Promise<{ applied: boolean; message: string; row?: unknown }> {
+  if (args.l2Kind === "sps_reassessment") {
+    return rejectSpsReassessmentCandidate(args);
+  }
+
   if (args.l2Kind === "ms_progress_revision") {
     return discardMsProgressRevision({
       supabase: args.supabase,

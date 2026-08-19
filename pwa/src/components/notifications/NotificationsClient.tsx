@@ -85,6 +85,7 @@ const L2_KIND_LABEL: Record<string, string> = {
   // Coverage Scanner (不在検知 / negative space)。既存抽出器の上位の安全網。
   coverage_gap: "会議メモの確認",
   guardrail_match: "経営ガードレール",
+  sps_reassessment: "SPS再評価",
 };
 
 function l2KindLabel(l2Kind: string): string {
@@ -153,6 +154,7 @@ type ContractActionContract = {
 
 type FinalDecisionContract = {
   destination: string;
+  href: string | null;
   changes: string[];
   approvalEffect: string;
   rejectionEffect: string;
@@ -167,7 +169,10 @@ function finalDecisionContract(n: Notification): FinalDecisionContract | null {
   const approvalEffect = textFromUnknown(meta.approval_effect);
   const rejectionEffect = textFromUnknown(meta.rejection_effect);
   if (!destination || changes.length === 0 || !approvalEffect || !rejectionEffect) return null;
-  return { destination, changes, approvalEffect, rejectionEffect };
+  const href = n.l2_kind === "sps_reassessment"
+    ? `/seeds/${encodeURIComponent(n.target_id)}`
+    : null;
+  return { destination, href, changes, approvalEffect, rejectionEffect };
 }
 
 function isContractActionItem(n: Notification): boolean {
@@ -1809,7 +1814,11 @@ function FinalDecisionContractPanel({ contract }: { contract: FinalDecisionContr
       <dl className="mt-3 grid gap-3">
         <div>
           <dt className="font-medium text-muted-foreground">反映先</dt>
-          <dd className="mt-1 font-medium">{contract.destination}</dd>
+          <dd className="mt-1 font-medium">
+            {contract.href
+              ? <Link href={contract.href} className="text-blue-700 underline dark:text-blue-300">{contract.destination}</Link>
+              : contract.destination}
+          </dd>
         </div>
         <div>
           <dt className="font-medium text-muted-foreground">追加・更新する情報</dt>
@@ -1959,6 +1968,12 @@ function DeepLinkForL2({ n }: { n: Notification }) {
           <code className="text-xs bg-muted px-1 rounded">guardrail_matches</code> match_id=
           <code className="text-xs bg-muted px-1 rounded">{n.scope_key}</code>
         </span>
+      );
+    case "sps_reassessment":
+      return (
+        <a className="text-blue-600 hover:underline" href={`/seeds/${encodeURIComponent(n.target_id)}`}>
+          シーズ詳細で最新版SPSを確認
+        </a>
       );
     default:
       return <span>{n.l2_kind}</span>;

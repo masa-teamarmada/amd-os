@@ -220,6 +220,9 @@ L2データ
 | D-3 PJナレッジ / D-4 メンバーナレッジ | `status='active'` | `status='rejected'` | `l2_feedbacks` / `tsukuyomi_learnings` |
 | D-1 AMDプロトコル | `status='active'` | `status='rejected'` | `l2_feedbacks` / `tsukuyomi_learnings` |
 | founding members | `status='active'` | `status='invalid'` | `l2_feedbacks` / `tsukuyomi_learnings` |
+| SPS再評価 | `apply_sps_reassessment_candidate` RPCが新しい凍結評価をappend-onlyで1件追加 | `reject_sps_reassessment_candidate` RPCがcandidateだけをrejectedにし、現行値を維持 | feedbackだけ。score再計算・汎用即時再抽出なし |
+
+SPS再評価の現行版tupleは `(model_version='sps-ind-tier0-v1', measure_version='sps-ind-v1', q_model_version='q-eval-v2', q_ruleset_version='rubric-v1.1', p_model_version='p-ind-v1', assessment_ruleset_version='rubric-v1.1+ind-v1')`。source更新は `canonical event -> dedupe -> q / P^ind / no-impact分類 -> reassessment candidate -> 独立review -> append-only publish` を通り、入力行の追加や通知作成だけではSPSを動かさない。同じsource rowの新事象は古いpending eventと未採用candidateを失効させ、最新stateだけを再審査する。source event INSERT、candidate INSERT、採用RPCは同じseed advisory lockを最初に取り、同時実行でも未commitの新事象を飛び越えて古い候補を作成・採用しない。旧9軸、`sps-eq-v0`、旧評価行へのfallbackは禁止し、最新評価がなければ「最新版未評価」のまま残す。
 
 `raw_data_gap` はこの表の正本反映ゲートとは別枠。これは「はいを押せば raw source がOSへ取り込まれる候補」ではなく、L2化先・backfill経路・helper/UI 対応が未確定なときの抽出経路確認通知。反映可能な候補を作れる場合、Codex automation は `raw_data_gap` で終えず、上表の具体 kind に寄せる。
 

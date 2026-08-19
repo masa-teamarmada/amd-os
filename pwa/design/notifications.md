@@ -25,6 +25,8 @@ connector 再認証は `app_notifications(kind='connector_auth')` に置く。H-
 
 L2候補の操作契約は、表示用 metadata に `destination_label`、`changes[]`、`approval_effect`（報告通知は `effect`）を持ち、PWA/iOSで **追加先 / 追加・更新する情報 / この操作の結果** として同じ順番で出す。
 
+SPS再評価は `l2_notifications(l2_kind='sps_reassessment', target_id=<seed UUID>, scope_key=<candidate UUID>)` の1候補1通知で扱う。metadataは `current_sps` / `proposed_sps`、`current_q` / `proposed_q`、`current_p_ind` / `proposed_p_ind`、`impact_classification`、`evidence_strength`、`information_cutoff`、`confidence` だけを判断用ヒントとして出し、追加先は「最新版SPS」とする。「はい」は `apply_sps_reassessment_candidate` RPCだけを通り、新しい凍結評価をappend-onlyで1件追加する。「いいえ」は `reject_sps_reassessment_candidate` RPCで候補だけをrejectedにし、現行SPSを変えない。コメントはscoreにも候補statusにも触れず、汎用の即時再抽出へ流さない。候補作成後に同じsource rowへ新しい事象が入った場合は、旧候補と通知を`superseded` / `suppressed`へ移して採否対象から外し、freshな証拠で候補を作り直せるようにする。`target_id` と候補の `seed_id` が一致しない、`scope_key` がcandidate UUIDでない、RPCが失敗または `applied=false` の「はい」、RPCが失敗または `rejected!=true` の「いいえ」はfeedbackを取り消して回答済みにしない。
+
 `app_notifications` は `meta.action_contract` に `action_owner`、`action_required`、`action_label`、`action_url`、`completion_condition`、`why_now` を持つ。PWAの全カードは **まさがやること / 開く場所 / 完了条件** を必ず出す。処理完了報告は `action_owner='none'` として「対応不要」を明示し、必要なら確認先だけ残す。既存行に契約がない場合はkind別の安全な説明を表示するが、新しいwriterは契約なしで通知を作らない。
 
 ガバナンスの候補は `coverage_gap + proposed_target_l2='shareholder_meeting'`。候補作成時点では `l2_coverage_gaps.review_status='candidate'` だけで、`project_shareholder_meetings` は増やさない。採用時にだけ `POST /api/notifications/feedback` が会議種別、開催日、議題、決議、添付ファイル名を `project_shareholder_meetings` へ1行追加する。追加先は `会社概要 → 総会・取締役会`。メール送信、Driveアップロード、元資料の更新はしない。添付URL、メール本文、source hashは表示用の開催履歴に持ち込まない。

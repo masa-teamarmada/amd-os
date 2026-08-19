@@ -70,7 +70,7 @@ POST body:
 | field | required | meaning |
 |---|---|---|
 | `l2_kind` | yes | kind。allowed list 以外は 400 |
-| `target_id` | yes | project_id / code_name 等 |
+| `target_id` | yes | project_id / code_name / seed_id 等 |
 | `scope_key` | no | default `global` |
 | `notification_id` | no | related `l2_notifications` |
 | `meeting_id` | no | related `meeting_notifications` |
@@ -94,6 +94,9 @@ POST body:
 | `coverage_gap` | `l2_coverage_gaps.review_status='confirmed'`。`proposed_target_l2='strategy_signal'` は同時に `project_strategy_signals.status='confirmed'` を upsert。`proposed_target_l2='shareholder_meeting'` は候補の会議種別・日付・議題・決議・添付ファイル名だけを `project_shareholder_meetings` に1行追加し、`routed_to='project_shareholder_meetings:<id>'` を保存。メール送信・Driveアップロード・元資料編集はしない | `review_status='rejected'` |
 | `action_item` | `action_items.review_status='confirmed'`。保存済み候補を確認済みにして dashboard / cockpit の要対応面へ出す | `review_status='rejected'` |
 | `guardrail_match` | `guardrail_matches.status='acknowledged'` | `status='dismissed'` |
+| `sps_reassessment` | `scope_key` のcandidate UUIDを `apply_sps_reassessment_candidate` RPCへ渡し、現行版で新しい凍結評価をappend-only publish | `reject_sps_reassessment_candidate` RPCでcandidateだけをrejectedにし、現行SPSは変更しない |
+
+`sps_reassessment` の通知identityは `(l2_kind='sps_reassessment', target_id=<seed UUID>, scope_key=<candidate UUID>)`。APIはcandidateの `seed_id=target_id` を確認し、UUIDでないscope、target不一致、RPC error、yesの `applied=false`、noの `rejected!=true` を成功扱いにしない。yesの反映失敗とnoのreject失敗は先にinsertした `l2_feedbacks` をrollbackし、回答済み表示を防ぐ。commentはfeedbackだけを保存し、SPS再評価RPCにも汎用の即時再抽出にも流さない。候補作成後に同じsource rowへ新しい事象が入った場合、旧候補は`superseded`、通知は`suppressed`にして採否対象から外し、rejected / superseded候補と同じsemantic fingerprintでもfreshな証拠から再提示できる。表示metadataは current/proposed のSPS・q・P^ind、影響分類、根拠強度、情報締切、confidenceに限定し、旧9軸や`SPS-Eq`へfallbackしない。
 
 `project_strategy_signal` のうち `metadata_json.origin_kind='external_research'` は、つくよみ外部リサーチのレビュー候補。通常通知として1件ずつ表示し、ボタンは「採用 / 見送り」とする。採用時は `metadata_json.signal_source_hash` に完全一致する candidate だけを confirmed にし、該当PJ cockpit の `経営ハイライト → 採用リサーチ` へ残す。見送りは rejected とし cockpit へ出さない。候補提示・採否とも Slack は使わない。
 
@@ -127,6 +130,7 @@ PWA / iPhone の `textbook_insight` 表示は、候補の本文を「OSの見立
 | Supabase update error | 500 with error message |
 | meeting_summary yes re-extract failure | 502 |
 | immediate re-extract failure | feedback insert は成功、console warning |
+| SPS reassessment yes RPC error / `applied=false` | feedback insertをrollbackし、500 / 409。現行SPSを維持 |
 
 ## Validation
 
@@ -141,6 +145,7 @@ PWA / iPhone の `textbook_insight` 表示は、候補の本文を「OSの見立
 - `?notification_id=` / `?meeting_id=` で開いた通知は、最新100件に含まれない場合も追加取得して表示し、自動展開する。
 - `comment` は `l2_feedbacks` だけ増え、候補 status を変えない。
 - `yes` / `no` は対象 table の status 遷移と `l2_feedbacks.feedback_text` prefix (`[はい]` / `[いいえ]`) を確認する。
+- `sps_reassessment` はyesだけが新しい凍結評価をappend-onlyで追加し、no/commentは現行SPSを変えない。target不一致とyes失敗は回答済みにならない。
 
 ## 再構築可能性チェック
 
