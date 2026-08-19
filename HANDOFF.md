@@ -19,7 +19,7 @@
 ## Repo / production状態
 
 - 本番データ是正そのものは既存API経由で行い、コード・migrationは変更していない。
-- この引き継ぎ・事故記録は `c4f57343` で `main` へpush済み。PWAの自動production deployはReadyで、`/api/build-info` は同commitを返した。
+- この引き継ぎ・事故記録は `c710ce72` で `main` へpush済み。PWAの自動production deployはReadyで、`/api/build-info` は直前の同内容commitを返した。次の文書commitの反映はcloseout時に確認する。
 - PWA本番の確認時バージョン: `v3.82.4`。
 
 ## 今回と無関係なdirty
