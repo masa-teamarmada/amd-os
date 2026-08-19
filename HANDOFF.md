@@ -23,6 +23,7 @@
 
 ## 運用上の残り
 
+- `pwa/src/components/sps/SpsBandRationale.tsx` は、`pwa/bzm`で進行中のBZM作業が2026-08-20 JSTに作成した未追跡ファイル。資料室修正の対象外なので、次担当は削除・stageせずBZM担当のcommitを待つ。
 - 招待済みの7アカウントは、各人がメールリンクで初回認証を終えるまで `invited` のまま。送信は本人への案内を出すと決めた時だけ行う。
 - 初回問い合わせでは、メール本文を共有せず、アカウント・機関所属・p21アクセスの3層とcallback後のactive化だけを読戻す。
 - 外部面に新しい項目を足す時は、safe DTOとroute isolationを先に検査し、内部管理情報を流用しない。
