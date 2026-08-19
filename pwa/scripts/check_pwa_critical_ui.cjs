@@ -1865,8 +1865,12 @@ expectIncludes("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
   'data-density="compact-score-page"',
 ]);
 expectPattern("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
-  /<CurrentSpsAssessmentCard assessment=\{state\.assessment\} \/>[\s\S]*?<Bzm22ProvisionalObservatory/,
+  /<CurrentSpsAssessmentCard\b[^>]*assessment=\{state\.assessment\}[\s\S]*?<Bzm22ProvisionalObservatory/,
   /fetch\(`\/api\/project\/\$\{encodeURIComponent\(projectId\)\}\/sps-current`/,
+  // 判断根拠 (q帯・q要因11項目・P^ind帯・総合判断) をこの画面から読めること。
+  // 根拠はseed_screening_bandsの詳細行にしか無いので、seedId指定の追加取得が導線そのもの。
+  /\/api\/seeds\/screening-bands\?seedId=\$\{encodeURIComponent\(assessment\.seed_id\)\}/,
+  /<CurrentSpsAssessmentCard\b[^>]*band=\{band\}/,
 ]);
 expectIncludes("src/components/sps/CurrentSpsAssessmentCard.tsx", [
   'data-testid="current-sps-assessment"',
@@ -1874,6 +1878,25 @@ expectIncludes("src/components/sps/CurrentSpsAssessmentCard.tsx", [
   "最新版未評価",
   "assessment.assessment_id",
   "assessment.model.measureVersion",
+  // 判断根拠の展開 (compact表示では出さない)
+  "SpsBandRationale",
+  "showRationale",
+  "q帯",
+  "P^ind帯",
+  "投資判断・対外表示には使わない",
+]);
+// 判断根拠の共通UI。シーズ詳細モーダルとPJコックピットのスコア詳細から同じ根拠を読む。
+// mdだけに根拠を置かないための導線なので、どちらかの画面から消さない。
+expectIncludes("src/components/sps/SpsBandRationale.tsx", [
+  'data-testid="sps-band-rationale"',
+  "総合判断",
+  "q帯の根拠",
+  "qEvidence",
+]);
+expectIncludes("src/components/seeds/KuteSeedDetailModal.tsx", [
+  "SpsBandRationale",
+  "screeningBand.notes",
+  "screeningBand.q_evidence",
 ]);
 expectIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   'data-testid="bzm22-provisional-primary"',
