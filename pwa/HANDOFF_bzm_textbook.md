@@ -1,65 +1,61 @@
-# HANDOFF — BZM 教科書 / AMD Score モデルワークストリーム
+# HANDOFF — BZM 教科書 / モデルワークストリーム
 
-> 最終更新: 2026-05-31 (Codex/eimi) / トピック: **FRL_cap_amd first pass。active/current PJ 3件に反映、CTBはfrozenのためAMD activeなしに補正**。
-> ⚠️ payment-confirm の引き継ぎは別ファイル `HANDOFF_pwa_rebuild.md` (codex 正本)。混ぜない。
-> 🚨 **モデル議論の正本は `/Users/masa/projects/knowledge/before_zero_theory.md`** (monorepo 外)。経営知識・モデル議論を `pwa/design/` に書くのは AGENTS.common 違反。各PJ=`knowledge/{pj}.md`、XRL/F_cap rubric=`knowledge/xrl_rubric.md`。
+> 最終更新: 2026-08-20 JST (Fable/えいみ) / トピック: **SPS 2.0 領域定義 §7/§8 に Fund I プロ投資家限定の前提更新を追記**
+> ⚠️ payment-confirm の引き継ぎは別ファイル `HANDOFF_pwa_rebuild.md` (別ワークストリーム、混ぜない)。
+> 🚨 **モデル議論の正本は monorepo 内 `pwa/bzm/` 配下**。旧記述にあった `/Users/masa/projects/knowledge/before_zero_theory.md` は現存しない (2026-08-20 確認、削除済みか移設済みで詳細未確認)。各PJ知識は `/Users/masa/projects/knowledge/{pj}.md`、XRL/F_cap rubric は `/Users/masa/projects/knowledge/xrl_rubric.md`。
 > 📊 グラフは **matplotlib** で統一 (memory `feedback_graphs_matplotlib`)。
 
 ## このワークストリームの目的
 
-BZM (Before Zero Model) を **学会発表・論文化まで見据えた厳密版** にする。Web 教科書 (`pwa/bzm/*.md`) + アカデミック論文 (JASVE向け) を並行育成。モデル定義の議論正本は `knowledge/before_zero_theory.md` (monorepo外)。本番実装は AMD Score (`pwa/src/lib/amd-score.ts` + venture-map/amd-score ページ)。
+BZM (Before Zero Model) を学会発表・論文化まで見据えた厳密版にする。Web 教科書 (`pwa/bzm/*.md`) + アカデミック論文を並行育成。本番実装は AMD Score (`pwa/src/lib/amd-score.ts` + venture-map/amd-score ページ)。
 
-## 直近セッション要約 (#101) — FRL 2 レイヤー化 (CES)
+BZM 配下は複数のサブワークストリームに分岐しており、それぞれ専用の migration prompt を持つ。**このファイルは「BZM教科書」統合窓口だが、2026-05-31〜2026-08-20 の間は更新が止まっていた**。直近の実質的な変更履歴は `pwa/bzm/9-5-appendix-changelog.md` の日次エントリのほうが確実。
 
-詳細は [design_log/sessions_2026-05.md](design_log/sessions_2026-05.md) の「#101」エントリ。要点:
+- モデル定義・数式: `pwa/bzm/SESSION_MIGRATION_PROMPT_BZM_MODEL_20260816.md` (最新、`_20260815.md` は前版)
+- BZM コース (教材): `pwa/bzm/SESSION_MIGRATION_PROMPT_BZM_COURSE.md`
+- Ch7 ワーカー closeout: `pwa/bzm/SESSION_MIGRATION_PROMPT_CH7_WORKER_CLOSE.md`
+- 命名整理: `pwa/bzm/SESSION_MIGRATION_PROMPT_NAMING.md`
+- ファンド設計 (BZSF、monorepo 外): `/Users/masa/projects/AMD/BZSF/` 配下 (直近は `SESSION_MIGRATION_PROMPT_BZSF_FUND_20260815.md` — パス未確認、着手前に `ls` で確認)
 
-- **FRL = CES(F_character, F_capability)** に再設計。F_character (資質・委譲不可=既存`frl`) × F_capability (経営実行力・CxO/AMDで補完可=新`frl_cap`)。合成は **CES ρ<0 (補完性)**=「どちらか一定以下なら FRL 大崩れ」(まさ確定)。Cobb-Douglas では作れないので CES 導入。**S 全体は Cobb-Douglas、FRL 内部だけ CES** の二層。初期 a=0.6/ρ=-2/α_F=1.5据置 (retrofit 校正待ち)。
-- **AMD 価値の定量化** (まさ着眼の本丸): `frl_cap_amd` で `F_cap(全員) − F_cap(AMD除く)` = AMD が経営 readiness を押し上げた分。
-- 実装完了: migration 110 (本番適用済) / `computeFrlCES` + `resolveFrl` / List・Retrofit・Cyberspace 配線 / F_cap 9PJ 初期投入 (えいみ推測) / 設計正本4ファイル更新。tsc・build・deploy 成功。
+## 直近セッション概要 (2026-08-20)
 
-## リポ状態
+まさから「設立前出資はプロ投資家限定に前提が変わったが、早期EXIT圧力はかけさせないルールで説明したうえで出資してもらう」という方針転換の共有を受け、`pwa/bzm/sps-2-0-domain-definition.md` §7/§8 へ追記した。
 
-- **branch: `main` 直運用**。今セッションの commit はすべて push 済 (最終 `6f6ce43`)。未 push なし。
-- 作業ツリー: FRL 関連は全 commit 済で clean。他セッションの dirty (spec/ 等) が残るが本ワークストリーム外。**`git add .` 禁止、対象のみ個別 add**。
-- 本番: v0.12.x deploy 済 (FRL CES 反映)。F_cap=NULL の PJ は従来挙動 (後方互換) なので既存スコアは不変。
+- §7 末尾に「追記（2026-08-20）— Fund I はプロ投資家限定で始まる」節を追加。
+- §8 末尾に、圧力遮断の担保方法を「誘因の不在（投資家属性に非依存で不変）」と「経路の不在（受動的構造遮断→規約による明示遮断＋事前説明・同意へ書き直しが要る）」に分けて4段落追記。
+- 既存本文は §9 の変更規律（既存本文は書き換えず追記方式）に従い一切書き換えていない。
+- `pwa/bzm/9-5-appendix-changelog.md` に1行追記。
+- `build-info.ts` の BUILD_VERSION を bump、commit `82d22b6d` として `deploy.sh` 経由で本番反映済み（v3.83.8。その後別セッション=SPS帯UI実装担当がv3.83.9へ進めたが無関係な並行作業）。
 
-## 直近セッション要約 (2026-05-31) — FRL_cap_amd first pass
+このセッションはコード・UI・DB 変更を伴わない理論・ファンド設計コンテンツの追記のみ。依頼は完結している。
 
-- live DB で `project_founding_members.status` 実値を確認: `active` / `tentative` / `invalid` / `left`。対象9PJでは `category='amd' AND status='active'` が0件だった。
-- 算定式は `frl_cap_amd = F_cap(全員) - F_cap(AMD抜き)`。`status='active'` + 実意思決定/PM/資金調達/事業計画へのコミットで見る。HRL と違い、F_cap では VC/シリアルアントレ等も算定候補。
-- migration 111 で active/current row に first pass を入れた後、まさ指示「CTBもfrozenだし、amd activeは無し」で migration 112 を追加。p06 CTB は `frl_cap=3`, `frl_cap_amd=0`, AMD row は `left` に補正。active/current 反映は p07 LST / p20 CX / p21 SX の3件。
+## 過去セッション要約 (2026-05-31 時点、FRL 2レイヤー化 / CES) — アーカイブ
 
-| PJ | F_cap(全員)案 | F_cap(AMD抜き)案 | `frl_cap_amd`案 | DB反映 | AMD紐付け |
-|---|---:|---:|---:|---|---|
-| p03 tiem | 2 | 2 | 0 | 未反映 | AMD設立前。紐付けなし |
-| p04 KT | 5 | 4 | 1 | 保留 | まさ=COO/体制構築候補。ただし current row はAMD関与終了後なので timeline化して反映 |
-| p06 CTB | 3 | 3 | 0 | migration 112 | frozen。AMD activeなし (`まさ` row は left) |
-| p07 LST | 6 | 5 | 1 | migration 111 | まさ=COO/CEO据付/体制構築を active 化 |
-| p09 JC | 3 | 2 | 1 | 保留 | まさ/うめ/きよ候補。ただし AMD関与終結 row なので timeline化して反映 |
-| p11 BWE | 3 | 2 | 1 | 保留 | まさ候補。ただし 2026-04-30 退任/移譲 row なので timeline化して反映 |
-| p18 YD | 2 | 2 | 0 | 未反映 | 資金調達サポートのみで押し上げ無し案 |
-| p20 CX | 5 | 3 | 2 | migration 111 | まさ/あき/きよ/りりを active 化 |
-| p21 SX | 4 | 3 | 1 | migration 111 | まさ/かる/ちこ/きよを active 化 |
+FRL = CES(F_character, F_capability) 化と `frl_cap_amd` (AMD価値の定量化) の実装は 2026-05 に完了・本番デプロイ済み (migration 110〜112)。9PJ 別の反映状況表など実装細部は `pwa/design_log/sessions_2026-05.md` の「#101」エントリと `git log -p pwa/HANDOFF_bzm_textbook.md` (旧版) を参照。
 
-次の一手: ended PJ (p04/p09/p11) は「現在の active state」ではなく、AMD関与時点の `amd_score_inputs` row を追加/選定して `frl_cap_amd` を入れる。p07/p20/p21 は今後 F_cap 編集 UI でまさ修正できるようにする。p06 CTB は frozen 中なので current active AMD 寄与は 0 のまま扱う。
-
-**その後の FRL 校正・UI タスク**:
-- CES の a/ρ を 9PJ retrofit で校正 (a=0.6/ρ=-2 は仮置き)。
-- F_cap を全 PJ の経時各点に展開 (今回は最新行のみ)。まさが画面で F_cap を修正する運用 (XRL チェックリストと同じ、Tsukuyomi 不使用)。
-- **F_cap 編集 UI**: スコア詳細ページ (`AmdScoreView.tsx` の FrlAlqPanel 近辺) に F_capability スライダー + notes を追加。
-
-**並行して残る UI 整理タスク (前セッションからの持ち越し)**:
-- #1 スコア詳細ページの HUD版汚染を分離 (現状UIを HUD版に移し、通常版を実装)。対象 `venture-map/amd-score/[projectId]/page.tsx` + `AmdScoreView.tsx`。
-- #2 スコア詳細をコックピットに移植 (タブ化)。上部に AMDスコア+XRLグラフ常時表示、下を「進捗管理」「スコア詳細」2タブ。スコア内訳モーダル廃止。対象 `CockpitVentureStatus.tsx` + `CockpitAmdScoreBreakdownModal.tsx`。
-- P・収益化指数 (R_net) を本番 AMD Score に2軸追加 (`amd-score.ts`)。重み αP/αR_net 校正。論文/教科書に P×R×S 反映。
+2026-05-31 時点で残っていた「次の一手」候補。**その後 3 ヶ月近く経過しており現在の有効性は未確認** — 着手前に `pwa/bzm/9-5-appendix-changelog.md` と AMD Score 実装を突き合わせて再確認すること:
+- CES の a/ρ を 9PJ retrofit で校正 (a=0.6/ρ=-2 は仮置きのままの可能性)。
+- F_cap 編集 UI (`AmdScoreView.tsx` の FrlAlqPanel 近辺) の実装状況。
+- P・収益化指数 (R_net) を本番 AMD Score に統合する件の進捗。
 
 ## ポインタ
 
-- **モデル議論の正本** ⭐⭐⭐: `/Users/masa/projects/knowledge/before_zero_theory.md`
-- **XRL/F_cap 判定 rubric**: `/Users/masa/projects/knowledge/xrl_rubric.md` (XRL 実装版は `src/lib/xrl-level-definitions.ts` が正)
-- 各PJ固有 (P/R_net生データ含む): `/Users/masa/projects/knowledge/{tiem,LST,ctb,jc,BWE,KT,yd,cx,sx}.md`
-- AMD Score 実装: `pwa/src/lib/amd-score.ts` (`computeFrlCES`) / `amd-score-derived.ts` (`resolveFrl`) / `amd-score-data.ts`
+- 教科書 SPS 2.0 領域定義 (今回追記箇所): `pwa/bzm/sps-2-0-domain-definition.md` §7/§8
+- 変更履歴: `pwa/bzm/9-5-appendix-changelog.md`
+- モデルセッション直近状態: `pwa/bzm/SESSION_MIGRATION_PROMPT_BZM_MODEL_20260816.md`
 - 教科書 FRL: `pwa/bzm/4-1-frl-founder-readiness.md` §4 / マニュアル: `pwa/manual/4-4-frl-related-members-score-spec.md`
-- AMD Score 設計: `pwa/design/amd_score.md` / 理論正本: `/Users/masa/projects/AMD/before-zero/theory/amd_score.md`
+- AMD Score 実装: `pwa/src/lib/amd-score.ts` (`computeFrlCES`) / `amd-score-derived.ts` (`resolveFrl`) / `amd-score-data.ts`
+- AMD Score 設計: `pwa/design/amd_score.md`
+- XRL/F_cap 判定 rubric: `/Users/masa/projects/knowledge/xrl_rubric.md` (実装版は `src/lib/xrl-level-definitions.ts`)
+- 各PJ固有知識: `/Users/masa/projects/knowledge/{pj}.md`
 - セッション詳細: `pwa/design_log/sessions_2026-05.md` / バグ・教訓: `pwa/BUGS.md`
 - deploy: `bash pwa/scripts/deploy.sh` (直 npx vercel 禁止)、deploy 前に BUILD_VERSION bump。DDL: `python3 -X utf8 scripts/apply_ddl.py scripts/migrations/NNN.sql`。
+
+## 未解決タスク
+
+- 今回追記した「Fund I プロ投資家限定」の前提が BZSF 側のファンド仕様書と整合しているかは未確認。次回 BZSF 側作業時に突き合わせ推奨。
+- FRL CES 校正 / F_cap 編集 UI / R_net 統合 (上記アーカイブ節参照) は 2026-05-31 時点で未完了。現在の状態は未確認。
+
+## 次の一手
+
+特になし。今回の依頼 (Fund I プロ投資家限定の前提追記) は完結済み。次にこのワークストリームへ触るセッションは、まず `pwa/bzm/9-5-appendix-changelog.md` の直近日付と該当する `SESSION_MIGRATION_PROMPT_BZM_*.md` を見て、どのサブワークストリームが最新かを把握してから着手する。
