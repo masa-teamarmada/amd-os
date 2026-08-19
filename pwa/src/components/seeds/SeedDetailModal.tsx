@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, CalendarDays, ExternalLink, FileText, FolderOpen, Loader2 } from "lucide-react";
+import { ArrowUpRight, ExternalLink, Loader2 } from "lucide-react";
 import {
   fetchSeedDetail,
   insertSeed,
@@ -24,6 +24,10 @@ import {
   SEED_FUNDING_STATUS_LABEL,
   SEED_NEWS_KIND_LABEL,
   SEED_CONTACT_METHOD_LABEL,
+  SEED_EVIDENCE_LEVEL_LABEL,
+  SEED_EVIDENCE_LEVEL_DESCRIPTION,
+  formatOkuYen,
+  formatSpsBandWithMedian,
 } from "@/lib/seeds-data";
 import type {
   Seed,
@@ -35,10 +39,11 @@ import type {
   SeedContactLog,
   SeedContactMethod,
   SeedProjectLink,
+  SeedScreeningBandDetail,
 } from "@/types/seeds";
 import { createClient } from "@/lib/supabase/client";
 import { SeedMarkdownPreviewModal } from "@/components/seeds/SeedMarkdownPreviewModal";
-import { fetchProjectMeetingSummaries, type ProjectMeetingSummary } from "@/lib/supabase-data";
+import { SpsBandRationale } from "@/components/sps/SpsBandRationale";
 
 interface MemberLite {
   member_id: string;
@@ -85,7 +90,7 @@ export function SeedDetailModal({
   const [deepDiveOpen, setDeepDiveOpen] = useState(false);
   const [activationOpen, setActivationOpen] = useState(false);
   const [activationBusy, setActivationBusy] = useState(false);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [screeningBand, setScreeningBand] = useState<SeedScreeningBandDetail | null>(null);
 
   // メンバー + PJ 一覧を読む (lookup 用)
   useEffect(() => {
@@ -136,6 +141,28 @@ export function SeedDetailModal({
         }
       })
       .finally(() => setLoading(false));
+  }, [seedId, createMode]);
+
+  // 一次選別スクリーニング帯 (SPS帯) を読む。
+  // seed_screening_bands は service_role 専用 (RLS ポリシー無し) のため、
+  // クライアントからは member 認証の API route 経由でのみ取得する。
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- シーズ切替時に前のシーズの帯を残さないための同期リセット
+    setScreeningBand(null);
+    if (!seedId || createMode) return;
+    let cancelled = false;
+    fetch(`/api/seeds/screening-bands?seedId=${encodeURIComponent(seedId)}`)
+      .then((res) => res.json())
+      .then((json: { ok: boolean; band?: SeedScreeningBandDetail | null }) => {
+        if (cancelled || !json.ok) return;
+        setScreeningBand(json.band ?? null);
+      })
+      .catch(() => {
+        /* 帯は補助表示。取得に失敗してもシーズ詳細本体の表示は続ける。 */
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [seedId, createMode]);
 
   // ESC で閉じる
@@ -220,7 +247,7 @@ export function SeedDetailModal({
   };
 
   const linkedProjects = [...(data?.project_links ?? [])].sort(projectLinkSort);
-  const linkedProject = linkedProjects.find((project) => project.project_id === selectedProjectId) ?? linkedProjects[0] ?? null;
+  const hasLinkedProject = linkedProjects.length > 0;
 
   const activateCommercialization = async () => {
     if (!data || activationBusy) return;
@@ -252,11 +279,11 @@ export function SeedDetailModal({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 backdrop-blur-sm ${linkedProject ? "p-0 sm:p-4" : "p-4"}`}
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className={`relative w-full border border-border bg-background shadow-xl ${linkedProject ? "min-h-dvh max-w-[1440px] overflow-hidden rounded-none p-0 sm:my-2 sm:min-h-[calc(100dvh-2rem)] sm:rounded-xl" : "my-4 max-w-[1200px] rounded-lg p-5"}`}
+        className="relative my-4 w-full max-w-[1200px] rounded-lg border border-border bg-background p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -271,9 +298,9 @@ export function SeedDetailModal({
         {notFound && <div className="py-10 text-center text-sm">シーズが見つかりません</div>}
 
         {(createMode || data) && (
-          <div className={linkedProject ? "h-full" : "space-y-5"}>
+          <div className="space-y-5">
             {/* ヘッダー */}
-            <div className={`border-b border-border ${linkedProject ? "sticky top-0 z-10 bg-background/95 py-4 pl-4 pr-14 backdrop-blur sm:px-5" : "pb-3"}`}>
+            <div className="border-b border-border pb-3">
               {editMode ? (
                 <input
                   className="text-lg font-semibold w-full bg-transparent border-b border-border focus:outline-none focus:border-primary py-1"
@@ -291,22 +318,16 @@ export function SeedDetailModal({
                       {SEED_STATUS_LABEL[data.seed.status] ?? data.seed.status}
                     </span>
                     {data.project_links.map((project) => (
-                      <span key={project.project_id} className="text-[10px] text-violet-600 dark:text-violet-300">
+                      <Link
+                        key={project.project_id}
+                        href={`/project/${encodeURIComponent(project.project_id)}/workspace`}
+                        title="このPJのワークスペース (コックピット) を開く"
+                        className="inline-flex items-center gap-0.5 text-[10px] text-violet-600 underline-offset-2 hover:underline dark:text-violet-300"
+                      >
                         AMD PJ: {project.project_name} ({project.project_status})
-                      </span>
+                        <ArrowUpRight className="h-3 w-3" aria-hidden />
+                      </Link>
                     ))}
-                    {linkedProjects.length > 1 && (
-                      <label className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-                        表示PJ
-                        <select
-                          value={linkedProject?.project_id ?? ""}
-                          onChange={(event) => setSelectedProjectId(event.target.value || null)}
-                          className="max-w-[220px] rounded border border-border bg-background px-1.5 py-0.5 text-[10px] text-foreground"
-                        >
-                          {linkedProjects.map((project) => <option key={project.project_id} value={project.project_id}>{project.project_name} ({project.project_status})</option>)}
-                        </select>
-                      </label>
-                    )}
                     <RatingDots r={data.seed.amd_rating} />
                     {data.amd_owner_code_name && (
                       <span className="text-muted-foreground">担当: {data.amd_owner_code_name}</span>
@@ -357,7 +378,7 @@ export function SeedDetailModal({
                   )}
                 </div>
               </div>
-              {!createMode && data && !linkedProject && !activationOpen && (
+              {!createMode && data && !hasLinkedProject && !activationOpen && (
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-cyan-500/30 bg-cyan-500/5 px-3 py-2">
                   <div>
                     <div className="text-xs font-semibold">事業化検討を始める</div>
@@ -368,7 +389,7 @@ export function SeedDetailModal({
                   </button>
                 </div>
               )}
-              {!createMode && data && !linkedProject && activationOpen && (
+              {!createMode && data && !hasLinkedProject && activationOpen && (
                 <div className="mt-3 rounded-md border border-cyan-500/40 bg-cyan-500/5 px-3 py-3">
                   <div className="text-xs font-semibold">このシーズの事業化検討を開始する？</div>
                   <div className="mt-1 text-[10px] leading-4 text-muted-foreground">状態 draft の仮PJを作成し、現在のアカウントを担当者として接続するよ。接触済み・協議中だけでは自動作成されない設計。</div>
@@ -389,20 +410,18 @@ export function SeedDetailModal({
             {/* 本文 */}
             {editMode ? (
               <SeedEditForm draft={draft} setDraft={setDraft} members={members} projects={projects} />
-            ) : linkedProject && data ? (
-              <CommercializationWorkbench
-                data={data}
-                project={linkedProject}
-                members={members}
-                onChanged={reload}
-                onOpenDeepDive={() => setDeepDiveOpen(true)}
-              />
             ) : (
-              data && <SeedReadView data={data} onOpenDeepDive={() => setDeepDiveOpen(true)} />
+              data && (
+                <SeedReadView
+                  data={data}
+                  screeningBand={screeningBand}
+                  onOpenDeepDive={() => setDeepDiveOpen(true)}
+                />
+              )
             )}
 
             {/* サブセクション (作成モードでは未生成のため非表示) */}
-            {!createMode && data && !linkedProject && (
+            {!createMode && data && (
               <>
                 <SeedFundingSection seed={data.seed} funding={data.funding} onChanged={reload} />
                 <SeedContactLogSection
@@ -447,290 +466,184 @@ function RatingDots({ r }: { r: number | null }) {
 
 function SeedReadView({
   data,
+  screeningBand,
   onOpenDeepDive,
 }: {
   data: SeedDetail;
+  screeningBand: SeedScreeningBandDetail | null;
   onOpenDeepDive: () => void;
 }) {
   const s = data.seed;
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
-      <Section title="シーズ概要">
-        <KV label="概要">{s.summary || "—"}</KV>
-        <KV label="領域">{s.domain_lane ? SEED_DOMAIN_LANE_LABEL[s.domain_lane] ?? s.domain_lane : "—"}</KV>
-        <KV label="成熟度 (TRL/BRL/HRL)">
-          <span className="font-mono">
-            {s.trl ?? "·"} / {s.brl ?? "·"} / {s.hrl ?? "·"}
-          </span>
-        </KV>
-        <KV label="応用先">{s.industry_target?.length ? s.industry_target.join(", ") : "—"}</KV>
-        <KV label="キーワード">
-          {s.keywords?.length ? (
-            <span className="flex flex-wrap gap-1">
-              {s.keywords.map((k) => (
-                <span key={k} className="px-1.5 py-0.5 bg-muted rounded text-[10px]">{k}</span>
-              ))}
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+        <Section title="シーズ概要">
+          <KV label="概要">{s.summary || "—"}</KV>
+          <KV label="領域">{s.domain_lane ? SEED_DOMAIN_LANE_LABEL[s.domain_lane] ?? s.domain_lane : "—"}</KV>
+          <KV label="成熟度 (TRL/BRL/HRL)">
+            <span className="font-mono">
+              {s.trl ?? "·"} / {s.brl ?? "·"} / {s.hrl ?? "·"}
             </span>
-          ) : "—"}
-        </KV>
-      </Section>
+          </KV>
+          <KV label="応用先">{s.industry_target?.length ? s.industry_target.join(", ") : "—"}</KV>
+          <KV label="キーワード">
+            {s.keywords?.length ? (
+              <span className="flex flex-wrap gap-1">
+                {s.keywords.map((k) => (
+                  <span key={k} className="px-1.5 py-0.5 bg-muted rounded text-[10px]">{k}</span>
+                ))}
+              </span>
+            ) : "—"}
+          </KV>
+        </Section>
 
-      <Section title="機関 / 研究者">
-        <KV label="機関">
-          {s.org_url ? (
-            <a className="underline hover:text-primary" href={s.org_url} target="_blank" rel="noreferrer">{s.org_name}</a>
-          ) : s.org_name}
-          {s.org_type ? ` (${SEED_ORG_TYPE_LABEL[s.org_type] ?? s.org_type})` : ""}
-        </KV>
-        <KV label="地域">{s.org_region || "—"}</KV>
-        <KV label="PI">{s.researcher_name || "—"}{s.researcher_title ? ` (${s.researcher_title})` : ""}</KV>
-        <KV label="研究室">{s.lab_name || "—"}</KV>
-        <KV label="researcher URL">
-          {s.researcher_url ? (
-            <a className="underline hover:text-primary break-all" href={s.researcher_url} target="_blank" rel="noreferrer">{s.researcher_url}</a>
-          ) : "—"}
-        </KV>
-      </Section>
+        <Section title="機関 / 研究者">
+          <KV label="機関">
+            {s.org_url ? (
+              <a className="underline hover:text-primary" href={s.org_url} target="_blank" rel="noreferrer">{s.org_name}</a>
+            ) : s.org_name}
+            {s.org_type ? ` (${SEED_ORG_TYPE_LABEL[s.org_type] ?? s.org_type})` : ""}
+          </KV>
+          <KV label="地域">{s.org_region || "—"}</KV>
+          <KV label="PI">{s.researcher_name || "—"}{s.researcher_title ? ` (${s.researcher_title})` : ""}</KV>
+          <KV label="研究室">{s.lab_name || "—"}</KV>
+          <KV label="researcher URL">
+            {s.researcher_url ? (
+              <a className="underline hover:text-primary break-all" href={s.researcher_url} target="_blank" rel="noreferrer">{s.researcher_url}</a>
+            ) : "—"}
+          </KV>
+        </Section>
 
-      <Section title="AMD 評価">
-        <KV label="ステータス">
-          <span className={`px-1.5 py-0.5 rounded text-[10px] ${SEED_STATUS_COLOR[s.status] ?? ""}`}>
-            {SEED_STATUS_LABEL[s.status] ?? s.status}
+        <Section title="AMD 評価">
+          <KV label="ステータス">
+            <span className={`px-1.5 py-0.5 rounded text-[10px] ${SEED_STATUS_COLOR[s.status] ?? ""}`}>
+              {SEED_STATUS_LABEL[s.status] ?? s.status}
+            </span>
+          </KV>
+          <KV label="★ 評価">
+            <RatingDots r={s.amd_rating} />
+            {s.amd_rating_note && <span className="text-muted-foreground ml-2">{s.amd_rating_note}</span>}
+          </KV>
+          <KV label="担当">{data.amd_owner_code_name || "—"}</KV>
+          <KV label="次の一手">{s.next_action || "—"}</KV>
+          <KV label="社内メモ"><span className="whitespace-pre-wrap">{s.internal_notes || "—"}</span></KV>
+        </Section>
+
+        <Section title="関連 / ソース">
+          <KV label="AMD シーズ事業化PJ">
+            {data.project_links.length > 0
+              ? data.project_links.map((project) => `${project.project_name} (${project.project_status})`).join(" / ")
+              : "—"}
+          </KV>
+          <KV label="旧スピンアウト参照">
+            {s.spun_off_project_id ? (data.spun_off_project_name ?? s.spun_off_project_id) : "—"}
+          </KV>
+          <KV label="発見経路">
+            {s.source ? SEED_SOURCE_LABEL[s.source] ?? s.source : "—"}
+            {s.source_detail ? ` / ${s.source_detail}` : ""}
+          </KV>
+          <KV label="公開可">{s.is_public ? "Yes" : "No"}</KV>
+          {s.public_summary && <KV label="公開要約">{s.public_summary}</KV>}
+          <KV label="深掘り資料">
+            {s.deep_dive_material_url ? (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 underline hover:text-primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenDeepDive();
+                }}
+              >
+                深掘り資料を開く
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            ) : "—"}
+          </KV>
+          <KV label="登録日">{s.created_at?.slice(0, 10)}</KV>
+          <KV label="更新日">{s.updated_at?.slice(0, 10)}</KV>
+        </Section>
+      </div>
+
+      {screeningBand && <SeedScreeningBandSection band={screeningBand} />}
+    </div>
+  );
+}
+
+// 一次選別スクリーニング帯 (SPS = 産業創出価値, sps-ind-v1)。
+// 帯そのものは接触・調査の優先順位づけ用の下書きで、評価額ではない。
+const SEED_STAGE_TAG_LABEL: Record<string, string> = {
+  stage_document: "文書根拠",
+  stage_funding: "資金情報",
+  stage_inferred: "推定",
+  stage_unknown: "材料なし",
+};
+
+function stageTagLabel(tag: string | null): string | null {
+  if (!tag) return null;
+  return tag
+    .split("+")
+    .map((part) => SEED_STAGE_TAG_LABEL[part.trim()] ?? part.trim())
+    .join(" + ");
+}
+
+function SeedScreeningBandSection({ band }: { band: SeedScreeningBandDetail }) {
+  const stageText =
+    band.stage_lower || band.stage_upper
+      ? `${band.stage_lower ?? "—"} 〜 ${band.stage_upper ?? "—"}`
+      : "—";
+  const stageTag = stageTagLabel(band.stage_tag);
+  const qText =
+    band.q_lower_pct != null || band.q_upper_pct != null
+      ? `${band.q_lower_pct ?? "—"}% 〜 ${band.q_upper_pct ?? "—"}%`
+      : "—";
+  const pText =
+    band.p_lower_yen != null || band.p_upper_yen != null
+      ? `${formatOkuYen(band.p_lower_yen)} 〜 ${formatOkuYen(band.p_upper_yen)}`
+      : "—";
+  const spsText =
+    band.sps_lower_yen != null || band.sps_upper_yen != null
+      ? formatSpsBandWithMedian(band.sps_lower_yen, band.sps_upper_yen)
+      : "未確定";
+
+  return (
+    <div className="space-y-2">
+      <Section title="一次選別スクリーニング帯 (SPS = 産業創出価値)">
+        <KV label="段階仮説">
+          {stageText}
+          {stageTag && <span className="ml-1 text-muted-foreground">({stageTag})</span>}
+        </KV>
+        <KV label="q帯 (資本自立)">
+          {qText}
+          {band.q_main_factor && (
+            <span className="ml-1 text-muted-foreground">主要因: {band.q_main_factor}</span>
+          )}
+        </KV>
+        <KV label="P^ind帯 (判断層)">{band.p_class ?? "—"}</KV>
+        <KV label="P帯 (億円)">{pText}</KV>
+        <KV label="SPS (億円)">
+          <span title="中央値 (下限〜上限)。中央値は仮置きの算術中点。">{spsText}</span>
+          <span
+            title={SEED_EVIDENCE_LEVEL_DESCRIPTION[band.evidence_level]}
+            className="ml-2 inline-block rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+          >
+            {SEED_EVIDENCE_LEVEL_LABEL[band.evidence_level]}
           </span>
         </KV>
-        <KV label="★ 評価">
-          <RatingDots r={s.amd_rating} />
-          {s.amd_rating_note && <span className="text-muted-foreground ml-2">{s.amd_rating_note}</span>}
+        <KV label="評価者 / 評価日時">
+          {band.evaluator} / {band.assessed_at ? band.assessed_at.slice(0, 16).replace("T", " ") : "—"}
         </KV>
-        <KV label="担当">{data.amd_owner_code_name || "—"}</KV>
-        <KV label="次の一手">{s.next_action || "—"}</KV>
-        <KV label="社内メモ"><span className="whitespace-pre-wrap">{s.internal_notes || "—"}</span></KV>
+        <KV label="版">
+          {band.measure_version}
+          {band.ruleset_version && <span className="ml-1 text-muted-foreground">/ {band.ruleset_version}</span>}
+          {band.frozen && <span className="ml-2 text-amber-700 dark:text-amber-300">凍結済み</span>}
+        </KV>
       </Section>
 
-      <Section title="関連 / ソース">
-        <KV label="AMD シーズ事業化PJ">
-          {data.project_links.length > 0
-            ? data.project_links.map((project) => `${project.project_name} (${project.project_status})`).join(" / ")
-            : "—"}
-        </KV>
-        <KV label="旧スピンアウト参照">
-          {s.spun_off_project_id ? (data.spun_off_project_name ?? s.spun_off_project_id) : "—"}
-        </KV>
-        <KV label="発見経路">
-          {s.source ? SEED_SOURCE_LABEL[s.source] ?? s.source : "—"}
-          {s.source_detail ? ` / ${s.source_detail}` : ""}
-        </KV>
-        <KV label="公開可">{s.is_public ? "Yes" : "No"}</KV>
-        {s.public_summary && <KV label="公開要約">{s.public_summary}</KV>}
-        <KV label="深掘り資料">
-          {s.deep_dive_material_url ? (
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 underline hover:text-primary"
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenDeepDive();
-              }}
-            >
-              深掘り資料を開く
-              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
-          ) : "—"}
-        </KV>
-        <KV label="登録日">{s.created_at?.slice(0, 10)}</KV>
-        <KV label="更新日">{s.updated_at?.slice(0, 10)}</KV>
-      </Section>
-    </div>
-  );
-}
+      <p className="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-900 dark:text-amber-200">
+        この帯は接触と調査の優先順位づけの下書き。上限は楽観シナリオの包絡であり評価額ではない。投資判断・対外表示には使わない。
+      </p>
 
-function CommercializationWorkbench({
-  data,
-  project,
-  members,
-  onChanged,
-  onOpenDeepDive,
-}: {
-  data: SeedDetail;
-  project: SeedProjectLink;
-  members: MemberLite[];
-  onChanged: () => Promise<void>;
-  onOpenDeepDive: () => void;
-}) {
-  const [tab, setTab] = useState<"decision" | "progress" | "record">("decision");
-  const [projectSnapshot, setProjectSnapshot] = useState<{
-    projectId: string;
-    meetings: ProjectMeetingSummary[];
-    documents: number | null;
-  }>({ projectId: "", meetings: [], documents: null });
-  const seed = data.seed;
-  const loading = projectSnapshot.projectId !== project.project_id;
-  const meetings = loading ? [] : projectSnapshot.meetings;
-  const documents = loading ? null : projectSnapshot.documents;
-
-  useEffect(() => {
-    let alive = true;
-    Promise.all([
-      fetchProjectMeetingSummaries(project.project_id, { limit: 6 }),
-      fetch(`/api/workspace-documents?scope_kind=project&scope_id=${encodeURIComponent(project.project_id)}&surface=cockpit`)
-        .then((response) => response.ok ? response.json() as Promise<{ documents?: unknown[] }> : null)
-        .catch(() => null),
-    ]).then(([meetingRows, documentPayload]) => {
-      if (!alive) return;
-      setProjectSnapshot({
-        projectId: project.project_id,
-        meetings: meetingRows,
-        documents: Array.isArray(documentPayload?.documents) ? documentPayload.documents.length : null,
-      });
-    });
-    return () => { alive = false; };
-  }, [project.project_id]);
-
-  const projectHref = `/project/${encodeURIComponent(project.project_id)}/workspace`;
-  const cockpitHref = `/project/${encodeURIComponent(project.project_id)}/cockpit`;
-  const filesHref = `${projectHref}/files`;
-  const judgmentLabel = ({
-    draft: "継続・保留を判断",
-    sales: "提案・外部協議",
-    active: "実行を継続",
-    frozen: "再開を判断",
-    ended: "終了済み",
-  } as Record<string, string>)[project.project_status] ?? "次の判断を設定";
-  const rail = [
-    { label: "根拠", value: "仮PJに接続済み", tone: "text-sky-700 dark:text-sky-300" },
-    { label: "仮説", value: seed.envisioned_use_case || "用途を定義", tone: seed.envisioned_use_case ? "text-foreground" : "text-amber-600" },
-    { label: "次の検証", value: seed.next_verification_step || "未設定", tone: seed.next_verification_step ? "text-foreground" : "text-amber-600 dark:text-amber-300" },
-    { label: "判断", value: judgmentLabel, tone: "text-sky-700 dark:text-sky-300" },
-    { label: "行動", value: seed.next_action || "担当と期限を設定", tone: seed.next_action ? "text-foreground" : "text-amber-600 dark:text-amber-300" },
-  ];
-  const decisionDomains = [
-    ["顧客・用途", seed.envisioned_use_case],
-    ["市場・収益", seed.market_size_range || project.target_market],
-    ["技術・PoC", seed.next_verification_step],
-    ["知財・規制", seed.ip_status],
-    ["事業化ルート", project.commercialization_route],
-    ["法人・チーム", project.venture_name || project.commercialization_stage],
-    ["資金", data.funding.length > 0 ? `${data.funding.length}件` : null],
-    ["機関・権利", null],
-  ] as const;
-
-  return (
-    <div className="space-y-4 p-5 sm:p-6">
-      <div className="rounded-lg border border-slate-200 bg-sky-50/50 p-4 dark:border-slate-800 dark:bg-slate-950/30">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-700 dark:text-sky-300">事業化判断レール</div>
-            <div className="mt-1 text-xs text-muted-foreground">根拠を仮説に変え、次の検証と判断へつなぐ</div>
-          </div>
-          <Link href={projectHref} className="inline-flex min-h-11 items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-800 hover:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 sm:min-h-0">
-            PJワークスペース <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
-          </Link>
-        </div>
-        <div className="mt-4 grid gap-2 sm:grid-cols-5">
-          {rail.map((item, index) => (
-            <div key={item.label} className="relative rounded-md border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900/70">
-              <div className="text-[10px] text-muted-foreground">{item.label}</div>
-              <div className={`mt-1 line-clamp-2 text-xs font-semibold ${item.tone}`}>{item.value}</div>
-              {index < rail.length - 1 && <span className="absolute -right-2 top-1/2 hidden text-slate-300 sm:block">→</span>}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex gap-1 overflow-x-auto border-b border-border" role="tablist" aria-label="事業化検討領域">
-        {([
-          ["decision", "判断"],
-          ["progress", "推進"],
-          ["record", "記録"],
-        ] as const).map(([key, label]) => (
-          <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)} className={`min-h-11 shrink-0 border-b-2 px-4 py-2 text-xs font-semibold ${tab === key ? "border-sky-600 text-sky-700 dark:text-sky-300" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {tab === "decision" && (
-        <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-          <Section title="判断のための現在地">
-            <KV label="シーズ概要">{seed.summary || "—"}</KV>
-            <KV label="機関 / PI">{seed.org_name}{seed.researcher_name ? ` / ${seed.researcher_name}` : ""}</KV>
-            <KV label="成熟度">TRL {seed.trl ?? "·"} / BRL {seed.brl ?? "·"} / HRL {seed.hrl ?? "·"}</KV>
-            <KV label="顧客候補">{seed.first_customer_candidate || "未確認"}</KV>
-            <KV label="対象市場">{project.target_market || "未確認"}</KV>
-            <KV label="最大の未確認点"><span className={seed.biggest_bottleneck ? "text-rose-600 dark:text-rose-300" : "text-amber-600 dark:text-amber-300"}>{seed.biggest_bottleneck || "未登録"}</span></KV>
-            {seed.deep_dive_material_url && (
-              <KV label="深掘り資料">
-                <button type="button" onClick={onOpenDeepDive} className="inline-flex min-h-11 items-center gap-1 text-sky-700 underline underline-offset-2 dark:text-sky-300 sm:min-h-0">
-                  深掘り資料を開く <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-                </button>
-              </KV>
-            )}
-          </Section>
-          <Section title="判断領域のチェック">
-            {decisionDomains.map(([label, value]) => (
-              <div key={label} className="flex items-center justify-between gap-3 border-b border-border/60 py-2 last:border-0">
-                <span className="text-xs">{label}</span>
-                <span className={`text-[10px] font-semibold ${value ? "text-sky-700 dark:text-sky-300" : "text-amber-600 dark:text-amber-300"}`}>{value ? "記録あり" : "未確認"}</span>
-              </div>
-            ))}
-          </Section>
-        </div>
-      )}
-
-      {tab === "progress" && (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Section title="次の行動">
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">最初の一手</div>
-              <div className="mt-1 text-sm font-semibold">{seed.next_action || seed.next_verification_step || "PJワークスペースで論点を登録"}</div>
-              <div className="mt-2 text-[10px] text-muted-foreground">担当: {data.amd_owner_code_name || "未設定"}　期限: 未設定</div>
-            </div>
-            <Link href={`${projectHref}#management-plan`} className="mt-3 inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-sky-700 hover:underline dark:text-sky-300 sm:min-h-0">課題・仮説・行動を開く <ArrowUpRight className="h-3.5 w-3.5" aria-hidden /></Link>
-          </Section>
-          <Section title="関係先・PoC">
-            <div className="text-xs text-muted-foreground">事業会社候補、PoC、技術試験は既存のPJ管理・PoC台帳に接続するよ。</div>
-            <Link href="/poc" className="mt-3 inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-sky-700 hover:underline dark:text-sky-300 sm:min-h-0">PoC台帳を開く <ArrowUpRight className="h-3.5 w-3.5" aria-hidden /></Link>
-          </Section>
-        </div>
-      )}
-
-      {tab === "record" && (
-        <div className="space-y-4">
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Section title={`MTGカード${loading ? "" : ` (${meetings.length})`}`}>
-              {loading ? <div className="flex items-center gap-2 py-3 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" />読み込み中…</div> : meetings.length === 0 ? <div className="py-3 text-xs text-muted-foreground">このPJのMTG記録はまだないよ。</div> : (
-                <div className="space-y-2">
-                  {meetings.slice(0, 4).map((meeting) => <MeetingCard key={meeting.meetingId} meeting={meeting} />)}
-                </div>
-              )}
-              <Link href={cockpitHref} className="mt-3 inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-sky-700 hover:underline dark:text-sky-300 sm:min-h-0">PJコックピットでMTGを開く <ArrowUpRight className="h-3.5 w-3.5" aria-hidden /></Link>
-            </Section>
-            <Section title="資料室">
-              <div className="flex items-start gap-3 rounded-md border border-cyan-500/30 bg-cyan-500/5 p-3">
-                <FolderOpen className="mt-0.5 h-5 w-5 shrink-0 text-cyan-700" aria-hidden />
-                <div><div className="text-sm font-semibold">PJ資料室</div><div className="mt-1 text-[10px] text-muted-foreground">既存のPJスコープ資料をそのまま使うよ。{documents == null ? "件数は未取得" : `${documents}件`}</div></div>
-              </div>
-              <Link href={filesHref} className="mt-3 inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-sky-700 hover:underline dark:text-sky-300 sm:min-h-0">資料室を開く <ArrowUpRight className="h-3.5 w-3.5" aria-hidden /></Link>
-            </Section>
-          </div>
-          <SeedContactLogSection seed={seed} contactLog={data.contact_log} members={members} onChanged={onChanged} />
-          <div className="grid gap-4 lg:grid-cols-2">
-            <SeedFundingSection seed={seed} funding={data.funding} onChanged={onChanged} />
-            <SeedNewsSection seed={seed} news={data.news} onChanged={onChanged} />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MeetingCard({ meeting }: { meeting: ProjectMeetingSummary }) {
-  return (
-    <div className="rounded-md border border-border/70 bg-muted/20 p-3">
-      <div className="flex items-center gap-2 text-[10px] text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" aria-hidden />{meeting.meetingDate || "日付未設定"}<span className="ml-auto">{meeting.prepStatus || "記録"}</span></div>
-      <div className="mt-1 text-xs font-semibold">{meeting.title || "MTG"}</div>
-      {meeting.summaryShort && <div className="mt-1 line-clamp-2 text-[10px] leading-4 text-muted-foreground">{meeting.summaryShort}</div>}
-      {meeting.nextActions?.[0] && <div className="mt-2 flex items-start gap-1 text-[10px] text-sky-700 dark:text-sky-300"><FileText className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />次の一手: {meeting.nextActions[0]}</div>}
+      <SpsBandRationale notes={band.notes} qEvidence={band.q_evidence} />
     </div>
   );
 }

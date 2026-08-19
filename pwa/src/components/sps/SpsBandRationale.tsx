@@ -34,36 +34,36 @@ export function SpsBandRationale({
   return (
     <div className={`space-y-2 ${className}`} data-testid="sps-band-rationale">
       {hasNotes && (
-        <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
-          <div className="text-[10px] font-semibold text-slate-500">総合判断</div>
-          <p className="mt-1 whitespace-pre-wrap text-[11px] leading-relaxed text-slate-700">{notes}</p>
+        <div className="rounded-md border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
+          <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">総合判断</div>
+          <p className="mt-1 whitespace-pre-wrap text-[11px] leading-relaxed text-slate-700 dark:text-slate-200">{notes}</p>
         </div>
       )}
 
       {hasEvidence && (
         <details
-          className="rounded-md border border-slate-200 bg-slate-50"
+          className="rounded-md border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/60"
           open={qEvidenceOpen}
           onToggle={(e) => setQEvidenceOpen(e.currentTarget.open)}
         >
-          <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-slate-700">
+          <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-slate-700 dark:text-slate-200">
             <ChevronDown
               className={`h-3.5 w-3.5 transition-transform ${qEvidenceOpen ? "rotate-0" : "-rotate-90"}`}
               aria-hidden="true"
             />
             q帯の根拠 ({qEvidence!.length}要因)
           </summary>
-          <ul className="space-y-2 border-t border-slate-200 px-3 py-2">
+          <ul className="space-y-2 border-t border-slate-200 px-3 py-2 dark:border-slate-700">
             {qEvidence!.map((item) => (
-              <li key={item.id} className="text-[11px] leading-relaxed text-slate-700">
+              <li key={item.id} className="text-[11px] leading-relaxed text-slate-700 dark:text-slate-200">
                 <div className="flex flex-wrap items-baseline gap-1.5">
-                  <span className="font-semibold text-slate-900">{item.name}</span>
-                  <span className="rounded border border-slate-300 bg-white px-1 py-0.5 text-[9px] font-medium text-slate-500">
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">{item.name}</span>
+                  <span className="rounded border border-slate-300 bg-white px-1 py-0.5 text-[9px] font-medium text-slate-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400">
                     {Q_EVIDENCE_DIRECTION_LABEL[item.direction] ?? item.direction}
                   </span>
                 </div>
-                <div className="mt-0.5 text-slate-600">{item.evidence}</div>
-                {item.assessment && <div className="mt-0.5 text-slate-400">{item.assessment}</div>}
+                <div className="mt-0.5 text-slate-600 dark:text-slate-300">{item.evidence}</div>
+                {item.assessment && <div className="mt-0.5 text-slate-400 dark:text-slate-500">{item.assessment}</div>}
               </li>
             ))}
           </ul>

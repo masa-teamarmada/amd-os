@@ -1898,6 +1898,23 @@ expectIncludes("src/components/seeds/KuteSeedDetailModal.tsx", [
   "screeningBand.notes",
   "screeningBand.q_evidence",
 ]);
+// /seeds が開く本命の詳細モーダル (internal面)。まさが帯・総合判断を読む唯一の画面。
+// public面 (KuteSeedDetailModal) は detailSurface="public" の呼び出し元がリポジトリに無く、
+// 現在どこからも表示されない。帯の導線をこちらから消すと OS 画面から根拠が読めなくなる。
+expectIncludes("src/components/seeds/SeedDetailModal.tsx", [
+  "一次選別スクリーニング帯",
+  "SpsBandRationale",
+  "band.notes",
+  "band.q_evidence",
+  "/api/seeds/screening-bands?seedId=",
+  "投資判断・対外表示には使わない",
+]);
+// PJ化の有無でシーズ詳細モーダルの中身を変えない (まさ確定 2026-08-20)。
+// 簡易コックピット (判断レール / 判断・推進・記録タブ) をモーダルへ戻さない。
+// 事業化検討開始とPJ化で本物のコックピットが生成されるため、モーダル側の再実装は重複になる。
+expectNotIncludes("src/components/seeds/SeedDetailModal.tsx", [
+  "CommercializationWorkbench",
+]);
 expectIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   'data-testid="bzm22-provisional-primary"',
   ">BZM 2.2<",

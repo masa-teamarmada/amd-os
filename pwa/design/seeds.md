@@ -115,16 +115,20 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 
 ### `KuteSeedDetailModal` (外部共有用の読み取り専用モーダル)
 
+> **現状 (2026-08-20 確認)**: `detailSurface="public"` を渡す呼び出し元はリポジトリに存在しない (`/seeds` の `page.tsx` も `CockpitKuteSeeds` の既定値も `internal`)。したがってこのモーダルは現在どの画面からも表示されない。外部共有面を再開するまでの間、**まさが実際に読むシーズ詳細は `SeedDetailModal` 側だけ**である。帯や根拠の表示を追加・変更するときは、まず `SeedDetailModal` に入れる。ここだけに入れても画面には出ない。
+
 - **一次選別スクリーニング帯セクション** (2026-08-15 追加、2026-08-16 産業創出価値版へ差し替え、`seed_screening_bands` に `measure_version='sps-ind-v1'` の帯がある場合のみ表示): 見出しは「SPS帯（産業創出価値）」+ `measure_version` (`sps-ind-v1`) の小表示。段階仮説 (stage_lower〜stage_upper + stage_tag) / q帯 (q_lower_pct〜q_upper_pct % + 主要因タグ) / 「P^ind帯(産業創出価値・判断層)」(p_class) + P帯 (億円) / SPS (億円、中央値 (下限〜上限) 表示。中央値は仮置きの算術中点、まさ裁定 2026-08-15) + 根拠Lvバッジ / 評価者・評価日時・ruleset_version / 固定注記「この帯は接触と調査の優先順位づけの下書き。上限は楽観シナリオの包絡であり評価額ではない。投資判断・対外表示には使わない」。判断根拠は共通UI [`SpsBandRationale`](../src/components/sps/SpsBandRationale.tsx) が描画する: `notes` (帯の総合判断。q上限側/下限側の理由とSPS主因) を「総合判断」段落で常時表示し、`q_evidence` (11要因の根拠引用) を折りたたみ (初期閉じ) で要因名・direction・根拠引用・評価として表示 (2026-08-20 追加。判断記録の md だけに根拠を置かず、OS画面から読める状態を正とする)。同じ共通UIをPJコックピットの `?tab=score-detail` でも使う。詳細DTOは `/api/seeds/screening-bands?seedId=` から取得 (member認証、service_role経由)
 - **旧SPSセクションの非表示化** (2026-08-15 見出しを「旧SPS (全国共通シーズスコア)」に改名 → 2026-08-16 まさ裁定でOS非表示化。[SPS_NAT_VALUE_MEASURE_PROPOSAL_2026-08-16.md](../bzm/SPS_NAT_VALUE_MEASURE_PROPOSAL_2026-08-16.md) §8): M/P/R/S 9軸ルーブリックのセクションを非表示にする。JSX・データ取得コードは `KuteSeedDetailModal.tsx` の `SHOW_LEGACY_SPS`定数 (`false`) で残したまま表示だけ切る (機能削除ではない)
 
 ### `SeedDetailModal` (AMD社内用の完全版詳細)
 
-- **詳細モード**: `/seeds` と研究機関PJコックピットの行クリックでは同じ内部向け詳細を開き、4 セクション (シーズ概要 / 機関・研究者 / AMD 評価 / 関連・ソース) + サブセクション 3 つ (補助金 / 接触履歴 / ニュース) を表示する。研究機関側は一覧だけ対象機関へ絞り、詳細は省略しない
+- **詳細モード**: `/seeds` と研究機関PJコックピットの行クリックでは同じ内部向け詳細を開き、4 セクション (シーズ概要 / 機関・研究者 / AMD 評価 / 関連・ソース) + 一次選別スクリーニング帯 + サブセクション 3 つ (補助金 / 接触履歴 / ニュース) を表示する。研究機関側は一覧だけ対象機関へ絞り、詳細は省略しない
+- **PJ化の有無で中身を変えない** (まさ確定 2026-08-20): `seed_projects` の接続有無でモーダルの構成・レイアウト・表示セクションを切り替えない。PJ化済みでも未PJ化と同じ読み取りビューとサブセクションを出す。PJへの導線はヘッダーのPJバッジ (`/project/{project_id}/workspace` へのリンク) だけに置く。まさ「PJ化しても元通りのコンテンツにしておいた方がいい。中途半端なコックピットみたいになっちゃってる。コックピットはPJ化される、または事業化検討開始で生成されてるようになってるし、モーダルは変える必要がない」
+- **一次選別スクリーニング帯セクション** (2026-08-20 追加、`seed_screening_bands` に `measure_version='sps-ind-v1'` の帯がある場合のみ表示): 段階仮説 (stage_lower〜stage_upper + stage_tag 和訳) / q帯 (q_lower_pct〜q_upper_pct % + 主要因) / 「P^ind帯 (判断層)」(p_class) / P帯 (億円) / SPS (億円、中央値 (下限〜上限)。中央値は仮置きの算術中点) + 根拠Lvバッジ / 評価者・評価日時 / 版 (`measure_version` + `ruleset_version` + 凍結表示) / 固定注記「この帯は接触と調査の優先順位づけの下書き。上限は楽観シナリオの包絡であり評価額ではない。投資判断・対外表示には使わない」。判断根拠は共通UI [`SpsBandRationale`](../src/components/sps/SpsBandRationale.tsx) が描画し、`notes` を「総合判断」段落で常時表示、`q_evidence` 11要因を折りたたみで出す。詳細DTOは `/api/seeds/screening-bands?seedId=` から取得 (member認証、`seed_screening_bands` はRLSポリシー無しのservice_role専用テーブルのため直読みしない)。取得に失敗してもシーズ詳細本体の表示は落とさない
 - **編集モード**: 編集ボタンで全フィールド inline form に切替。保存 / キャンセル
 - **サブセクション CRUD**: 補助金・接触履歴・ニュースは「+ 追加」ボタン → 軽量 form。接触履歴はメール、電話、Slack、Teams、MTG/面談、イベント、紹介、訪問、その他を記録できる。削除は ✕ ボタン
 - **事業化検討の開始** (2026-08-19): 接触済み・協議中への状態変更だけではPJを自動作成しない。詳細画面の「事業化検討を開始」から、member認証済みの `/api/seeds/[seedId]/commercialization` を呼び、DB RPC `activate_seed_commercialization` がseed行をロックしたうえで `projects.status='draft'`、`seed_projects`、実行者の `project_members` を同一transactionで作成する。機関所属や外部共有権限は自動付与しない。既に複数PJ接続がある場合はstatus優先で表示PJを選べる。
-- **事業化ワークベンチ**: `seed_projects`接続後は全画面型の社内詳細へ切り替え、固定ヘッダー、根拠→仮説→次の検証→判断→行動の判断レール、判断 / 推進 / 記録の3領域を表示する。記録領域は既存 `project_meeting_summaries`、`workspace_documents`、`seed_contact_log`、`seed_funding`、`seed_news` を再利用し、専用の重複台帳を作らない。複数PJはヘッダーの選択でMTG・資料室・判断対象を切り替える。
+- **事業化ワークベンチ (2026-08-19 導入 → 2026-08-20 廃止)**: `seed_projects` 接続後にモーダルを全画面型へ切り替え、固定ヘッダー・判断レール (根拠→仮説→次の検証→判断→行動)・判断 / 推進 / 記録の3領域を出していた `CommercializationWorkbench` は削除した。PJ化したシーズだけモーダルの中身が別物になり、補助金・接触履歴・ニュースまで消えていたため。事業化検討開始とPJ化で本物のPJコックピットが生成される以上、モーダル内に簡易コックピットを二重実装しない。MTG・資料室・判断記録はPJワークスペース側で見る。`check_pwa_critical_ui.cjs` に `CommercializationWorkbench` の `expectNotIncludes` を置いて再導入を止めている。
 
 ## 実装メモ
 

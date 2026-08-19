@@ -1,6 +1,6 @@
 // 一次選別スクリーニング帯 (Tier 0) の読み取り API。
 // seed_screening_bands は RLS ポリシーが無い service_role 専用テーブルのため、
-// クライアントコンポーネント (CockpitKuteSeeds / KuteSeedDetailModal) はこの route 経由で読む。
+// クライアントコンポーネント (CockpitKuteSeeds / SeedDetailModal / KuteSeedDetailModal) はこの route 経由で読む。
 // 設計正本: pwa/design/seeds.md「seed_screening_bands」節 / pwa/bzm/BZM_SEED_TIER0_SCREENING_DESIGN_2026-08-15.md §6 確定13
 import { NextResponse } from "next/server";
 import { requireMember } from "@/lib/supabase/api-auth";
