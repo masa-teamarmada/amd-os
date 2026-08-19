@@ -4,7 +4,11 @@ export const WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES = 5 * 1024 * 1024;
 export const WORKSPACE_DOCUMENT_MARKDOWN_PREVIEW_MAX_BYTES = 2 * 1024 * 1024;
 export const WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES = 5 * 1024 * 1024;
 export const WORKSPACE_DOCUMENT_HTML_PDF_MAX_INPUT_BYTES = 8 * 1024 * 1024;
-export const WORKSPACE_DOCUMENT_HTML_PDF_MAX_OUTPUT_BYTES = 4 * 1024 * 1024;
+// Vercel Node Function のレスポンスbody上限(4.5MB)を避けるため、生成したPDFは
+// Function responseで直接返さずStorageへ置いて署名URLで返す。この上限はFunctionの
+// メモリ/実行時間と両立する出力サイズの目安であり、body制限そのものの回避ではない。
+export const WORKSPACE_DOCUMENT_HTML_PDF_MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
+export const WORKSPACE_DOCUMENT_PDF_DOWNLOAD_URL_TTL_SECONDS = 60;
 
 export type WorkspaceDocumentScopeKind = "institution" | "project";
 export type WorkspaceDocumentVisibility = "amd_internal" | "workspace_shared";
@@ -146,6 +150,18 @@ export function workspaceDocumentStoragePath(
   const safeScopeId = scopeId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 120);
   if (!safeScopeId || !/^[0-9a-f-]{36}$/i.test(documentId)) throw new Error("invalid document storage identity");
   return `${scopeKind}/${safeScopeId}/${documentId}`;
+}
+
+/**
+ * HTML→PDF変換の出力先。元資料のstorage_path (拡張子なし) に `.pdf` を足すだけの
+ * 決定的なpathにして、documentIdごとに常に同じ場所を安全に上書きできるようにする。
+ */
+export function workspaceDocumentPdfCacheStoragePath(
+  scopeKind: WorkspaceDocumentScopeKind,
+  scopeId: string,
+  documentId: string,
+): string {
+  return `${workspaceDocumentStoragePath(scopeKind, scopeId, documentId)}.pdf`;
 }
 
 export function workspaceDocumentScopeLabel(kind: WorkspaceDocumentScopeKind) {

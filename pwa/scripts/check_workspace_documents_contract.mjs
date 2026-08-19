@@ -67,8 +67,12 @@ assert.match(source.pdf, /WORKSPACE_DOCUMENT_HTML_PDF_MAX_INPUT_BYTES/, "HTML PD
 assert.match(source.pdf, /WORKSPACE_DOCUMENT_HTML_PDF_MAX_OUTPUT_BYTES/, "HTML PDF化の出力量を制限する");
 assert.match(source.pdf, /loadWorkspaceDocumentText\(db, row, WORKSPACE_DOCUMENT_HTML_PDF_MAX_INPUT_BYTES\)/, "HTML PDF化も共通の許可host付き本文loaderを通す");
 assert.match(source.pdf, /renderWorkspaceDocumentHtmlToPdf/, "HTMLは専用の安全PDF変換を通す");
-assert.match(source.pdf, /Content-Type": "application\/pdf"/, "HTML PDF化はPDFとして返す");
-assert.match(source.pdf, /Content-Disposition.*attachment/, "HTML PDF化はブラウザ表示でなく保存する");
+assert.match(source.pdf, /workspaceDocumentPdfCacheStoragePath\(access\.scopeKind, access\.scopeId, documentId\)/, "PDFキャッシュ先はscope単位で決定的なpathにする");
+assert.match(source.pdf, /\.storage\s*\n?\s*\.from\(row\.storage_bucket[\s\S]*?\.upload\(pdfStoragePath, pdf/, "生成したPDFは既存のprivate Storageへ保存する");
+assert.match(source.pdf, /createSignedUrl\(pdfStoragePath, WORKSPACE_DOCUMENT_PDF_DOWNLOAD_URL_TTL_SECONDS/, "PDF DLは短命の署名URLだけを発行する");
+assert.match(source.pdf, /downloadUrl: signed\.signedUrl/, "PDF化routeはJSONで署名URLを返す");
+assert.doesNotMatch(source.pdf, /new NextResponse\(responseBytes/, "Vercel Function responseへPDF本体を直接載せない(4.5MB body上限を避ける)");
+assert.doesNotMatch(source.pdf, /Content-Type": "application\/pdf"/, "PDF本体のContent-TypeはFunction responseでなくStorage署名URLが設定する");
 assert.match(source.htmlPdf, /page\.setJavaScriptEnabled\(false\)/, "HTML PDF化ではscriptを実行しない");
 assert.match(source.htmlPdf, /page\.setRequestInterception\(true\)/, "HTML PDF化では外部通信を遮断する");
 assert.match(source.htmlPdf, /request\.url\(\)\.startsWith\("data:"\)/, "HTML PDF化は埋込dataだけを許可する");
@@ -81,6 +85,8 @@ assert.match(source.room, /\/render`/, "HTMLの資料名クリックは安全表
 assert.match(source.room, /async function downloadHtmlAsPdf/, "PDF化ダウンロードはfetchで失敗を検知するhandlerを持つ");
 assert.match(source.room, /function workspaceDocumentViewHref[\s\S]*?isWorkspaceDocumentHtml[\s\S]*?\/render`[\s\S]*?isWorkspaceDocumentMarkdown[\s\S]*?\/workspace-document\//, "資料名クリックはHTML安全表示とMarkdown Readerへ振り分ける");
 assert.match(source.room, /"PDF化ダウンロード"/, "HTMLの右端操作はPDF化ダウンロードと明示する");
+assert.match(source.room, /!response\.ok \|\| !payload\.ok \|\| !payload\.downloadUrl/, "PDF化ダウンロードはJSON応答のok/downloadUrlを見る");
+assert.doesNotMatch(source.room, /downloadHtmlAsPdf[\s\S]{0,600}response\.blob\(\)/, "PDF化ダウンロードはFunction responseをblob化しない(署名URLへ直接遷移する)");
 assert.match(source.room, /item\.entryKind === "file" \|\| item\.entryKind === "link"[\s\S]*?isWorkspaceDocumentHtml/, "HTML fileとDrive linkの両方にPDF化操作を出す");
 assert.match(source.room, /HTMLを編集/, "HTMLの右端操作は本文編集を明示する");
 assert.match(source.room, /permissions\?\.canUpload && item\.entryKind === "file" && isWorkspaceDocumentHtml[\s\S]*?openHtmlEditor/, "HTML本文編集はcanUploadで表示する");

@@ -10,9 +10,12 @@ import {
   normalizeDocumentName,
   normalizeDocumentVisibility,
   WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES,
+  WORKSPACE_DOCUMENT_HTML_PDF_MAX_OUTPUT_BYTES,
+  WORKSPACE_DOCUMENT_PDF_DOWNLOAD_URL_TTL_SECONDS,
   workspaceDocumentFinderCopyName,
   workspaceDocumentHtmlSourceByteLength,
   workspaceDocumentNameKey,
+  workspaceDocumentPdfCacheStoragePath,
   workspaceDocumentPdfDownloadName,
   normalizeHttpUrl,
   workspaceDocumentStoragePath,
@@ -87,6 +90,23 @@ assert.equal(
 assert.equal(
   workspaceDocumentStoragePath("institution", "d993b78d-cd29-4e24-b381-4f0a229bf687", documentId),
   `institution/d993b78d-cd29-4e24-b381-4f0a229bf687/${documentId}`,
+);
+
+// Vercel Node FunctionのレスポンスbodyにPDFを直接載せない設計の裏付け:
+// 出力上限はFunctionのbody上限(4.5MB)より十分大きく、Storage直配信前提であることを確認する。
+assert.equal(WORKSPACE_DOCUMENT_HTML_PDF_MAX_OUTPUT_BYTES, 16 * 1024 * 1024);
+assert.equal(WORKSPACE_DOCUMENT_PDF_DOWNLOAD_URL_TTL_SECONDS, 60);
+assert.equal(
+  workspaceDocumentPdfCacheStoragePath("project", "p21", documentId),
+  `project/p21/${documentId}.pdf`,
+);
+assert.equal(
+  workspaceDocumentPdfCacheStoragePath("institution", "d993b78d-cd29-4e24-b381-4f0a229bf687", documentId),
+  `institution/d993b78d-cd29-4e24-b381-4f0a229bf687/${documentId}.pdf`,
+);
+assert.equal(
+  workspaceDocumentPdfCacheStoragePath("project", "p21", documentId),
+  `${workspaceDocumentStoragePath("project", "p21", documentId)}.pdf`,
 );
 
 console.log("workspace documents core: ok");

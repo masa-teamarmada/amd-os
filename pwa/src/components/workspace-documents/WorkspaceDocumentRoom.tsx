@@ -496,24 +496,23 @@ export function WorkspaceDocumentRoom({
         `/api/workspace-documents/${encodeURIComponent(item.documentId)}/pdf`,
         { cache: "no-store" },
       );
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => ({}))) as {
-          error?: string;
-        };
+      const payload = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        downloadUrl?: string;
+        fileName?: string;
+      };
+      if (!response.ok || !payload.ok || !payload.downloadUrl) {
         throw new Error(payload.error || "PDFを生成できなかったよ。");
       }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      try {
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = workspaceDocumentPdfDownloadName(item.displayName);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-      } finally {
-        URL.revokeObjectURL(url);
-      }
+      // 署名URL(Supabase Storage)がContent-Dispositionを既に設定するので、
+      // blob/objectURL変換はせず直接遷移させる。
+      const link = document.createElement("a");
+      link.href = payload.downloadUrl;
+      link.download = payload.fileName || workspaceDocumentPdfDownloadName(item.displayName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "PDFを生成できなかったよ。",

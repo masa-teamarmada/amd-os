@@ -4,6 +4,8 @@ import {
   isWorkspaceDocumentHtml,
   WORKSPACE_DOCUMENT_HTML_PDF_MAX_INPUT_BYTES,
   WORKSPACE_DOCUMENT_HTML_PDF_MAX_OUTPUT_BYTES,
+  WORKSPACE_DOCUMENT_PDF_DOWNLOAD_URL_TTL_SECONDS,
+  workspaceDocumentPdfCacheStoragePath,
   workspaceDocumentPdfDownloadName,
 } from "@/lib/workspace-documents-core";
 import { loadWorkspaceDocumentText } from "@/lib/workspace-document-text";
@@ -21,10 +23,6 @@ export const maxDuration = 60;
 
 function json(body: Record<string, unknown>, status = 200) {
   return NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
-}
-
-function contentDispositionFilename(name: string) {
-  return encodeURIComponent(name).replace(/'/g, "%27");
 }
 
 export async function GET(
@@ -70,8 +68,33 @@ export async function GET(
     console.error("[workspace-documents] pdf conversion failed:", conversionError);
     return json({ ok: false, error: "PDFを生成できなかったよ。時間をおいてもう一度試してね。" }, 502);
   }
+  const maxOutputMb = Math.round(WORKSPACE_DOCUMENT_HTML_PDF_MAX_OUTPUT_BYTES / (1024 * 1024));
   if (pdf.byteLength > WORKSPACE_DOCUMENT_HTML_PDF_MAX_OUTPUT_BYTES) {
-    return json({ ok: false, error: "PDFが4MBを超えたためダウンロードできないよ。" }, 413);
+    return json({ ok: false, error: `PDFが${maxOutputMb}MBを超えたためダウンロードできないよ。` }, 413);
+  }
+
+  // Vercel Node FunctionのレスポンスbodyにはPDFを直接載せない (4.5MBのplatform上限に
+  // ぶつかるため)。生成物は既存のprivate Storageへ置き、短命の署名URLだけを返す。
+  const pdfStoragePath = workspaceDocumentPdfCacheStoragePath(access.scopeKind, access.scopeId, documentId);
+  const { error: uploadError } = await db.storage
+    .from(row.storage_bucket ?? "workspace-files")
+    .upload(pdfStoragePath, pdf, {
+      upsert: true,
+      contentType: "application/pdf",
+      cacheControl: "0",
+    });
+  if (uploadError) {
+    console.error("[workspace-documents] pdf cache upload failed:", uploadError.message);
+    return json({ ok: false, error: "PDFを保存できなかったよ。時間をおいてもう一度試してね。" }, 500);
+  }
+
+  const downloadName = workspaceDocumentPdfDownloadName(row.display_name);
+  const { data: signed, error: signedError } = await db.storage
+    .from(row.storage_bucket ?? "workspace-files")
+    .createSignedUrl(pdfStoragePath, WORKSPACE_DOCUMENT_PDF_DOWNLOAD_URL_TTL_SECONDS, { download: downloadName });
+  if (signedError || !signed?.signedUrl) {
+    console.error("[workspace-documents] pdf signed url failed:", signedError?.message);
+    return json({ ok: false, error: "PDFのダウンロードURLを発行できなかったよ。" }, 500);
   }
 
   await recordWorkspaceAuditEvent(db, {
@@ -83,15 +106,11 @@ export async function GET(
     detail: { document_id: documentId, entry_kind: row.entry_kind, action: "download_html_as_pdf" },
   });
 
-  const responseBytes = new Uint8Array(pdf.byteLength);
-  responseBytes.set(pdf);
-  return new NextResponse(responseBytes, {
-    headers: {
-      "Cache-Control": "private, no-store",
-      "Content-Disposition": `attachment; filename*=UTF-8''${contentDispositionFilename(workspaceDocumentPdfDownloadName(row.display_name))}`,
-      "Content-Length": String(pdf.byteLength),
-      "Content-Type": "application/pdf",
-      "X-Content-Type-Options": "nosniff",
-    },
+  return json({
+    ok: true,
+    downloadUrl: signed.signedUrl,
+    fileName: downloadName,
+    byteLength: pdf.byteLength,
+    expiresInSeconds: WORKSPACE_DOCUMENT_PDF_DOWNLOAD_URL_TTL_SECONDS,
   });
 }
