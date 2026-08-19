@@ -6,6 +6,11 @@ import puppeteer from "puppeteer-core";
 
 const require = createRequire(import.meta.url);
 const FONT_CSS_PATH = require.resolve("@fontsource-variable/noto-sans-jp/wght.css");
+// @sparticuz/chromium の executablePath() は引数なしだと CJS の __filename から
+// bin を求める。Turbopack の Vercel Function ではその __filename が無く、
+// require.resolve() も数値のmodule idへ変換されるため、Functionのproject rootから
+// 同梱済みbinを明示する。
+const CHROMIUM_BIN_PATH = join(process.cwd(), "node_modules", "@sparticuz", "chromium", "bin");
 const JAPANESE_TEXT_PATTERN = /[\u3040-\u30ff\u3400-\u9fff\uff00-\uffef]/;
 let fontCssPromise: Promise<string> | undefined;
 
@@ -43,7 +48,7 @@ export async function renderWorkspaceDocumentHtmlToPdf(
 ): Promise<Buffer> {
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | undefined;
   try {
-    const executablePath = options.executablePath ?? await chromium.executablePath();
+    const executablePath = options.executablePath ?? await chromium.executablePath(CHROMIUM_BIN_PATH);
     const args = options.args ?? (options.executablePath ? [] : chromium.args);
     browser = await puppeteer.launch({
       args,

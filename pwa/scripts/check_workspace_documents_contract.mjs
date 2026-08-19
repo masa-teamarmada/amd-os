@@ -73,6 +73,8 @@ assert.match(source.htmlPdf, /page\.setJavaScriptEnabled\(false\)/, "HTML PDF化
 assert.match(source.htmlPdf, /page\.setRequestInterception\(true\)/, "HTML PDF化では外部通信を遮断する");
 assert.match(source.htmlPdf, /request\.url\(\)\.startsWith\("data:"\)/, "HTML PDF化は埋込dataだけを許可する");
 assert.match(source.htmlPdf, /format: "A4"/, "HTML PDF化はA4で組版する");
+assert.match(source.htmlPdf, /process\.cwd\(\), "node_modules", "@sparticuz", "chromium", "bin"/, "HTML PDF化はFunctionのproject rootからChromium binを確定する");
+assert.match(source.htmlPdf, /chromium\.executablePath\(CHROMIUM_BIN_PATH\)/, "HTML PDF化はTurbopack上で__filenameとrequire.resolveに依存せずChromium binを渡す");
 assert.match(source.room, /\/render`/, "HTMLの資料名クリックは安全表示を開く");
 assert.match(source.room, /async function downloadHtmlAsPdf/, "PDF化ダウンロードはfetchで失敗を検知するhandlerを持つ");
 assert.match(source.room, /function workspaceDocumentViewHref[\s\S]*?isWorkspaceDocumentHtml[\s\S]*?\/render`[\s\S]*?isWorkspaceDocumentMarkdown[\s\S]*?\/workspace-document\//, "資料名クリックはHTML安全表示とMarkdown Readerへ振り分ける");
