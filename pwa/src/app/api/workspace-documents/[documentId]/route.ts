@@ -194,6 +194,14 @@ export async function PATCH(
   }
   if (access.principal === "workspace_account") visibility = "workspace_shared";
 
+  if (
+    row.folder_path === folderPath
+    && row.display_name === displayName
+    && row.visibility === visibility
+  ) {
+    return json({ ok: true, document: publicWorkspaceDocument(row) });
+  }
+
   const destinationStatus = await workspaceDocumentDestinationStatus(db, access, folderPath, visibility);
   if (destinationStatus === "missing_folder") {
     return json({ ok: false, error: "移動先フォルダが見つからないよ。" }, 400);
