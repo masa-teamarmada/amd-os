@@ -1,16 +1,18 @@
 import chromium from "@sparticuz/chromium";
 import { readFile } from "node:fs/promises";
-import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import puppeteer from "puppeteer-core";
 
-const require = createRequire(import.meta.url);
-const FONT_CSS_PATH = require.resolve("@fontsource-variable/noto-sans-jp/wght.css");
 // @sparticuz/chromium の executablePath() は引数なしだと CJS の __filename から
 // bin を求める。Turbopack の Vercel Function ではその __filename が無く、
 // require.resolve() も数値のmodule idへ変換されるため、Functionのproject rootから
 // 同梱済みbinを明示する。
+// FONT_CSS_PATH も同じ理由で require.resolve() を使わない: Turbopack の本番 chunk では
+// module-scope の require.resolve() 呼び出し自体が最適化で消え、`let` 宣言だけが残り
+// FONT_CSS_PATH が undefined のまま readFile() へ渡って TypeError になる
+// (2026-08-19 本番 /api/workspace-documents/[id]/pdf で発覚)。
 const CHROMIUM_BIN_PATH = join(process.cwd(), "node_modules", "@sparticuz", "chromium", "bin");
+const FONT_CSS_PATH = join(process.cwd(), "node_modules", "@fontsource-variable", "noto-sans-jp", "wght.css");
 const JAPANESE_TEXT_PATTERN = /[\u3040-\u30ff\u3400-\u9fff\uff00-\uffef]/;
 let fontCssPromise: Promise<string> | undefined;
 
