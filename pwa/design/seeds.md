@@ -123,6 +123,8 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 - **詳細モード**: `/seeds` と研究機関PJコックピットの行クリックでは同じ内部向け詳細を開き、4 セクション (シーズ概要 / 機関・研究者 / AMD 評価 / 関連・ソース) + サブセクション 3 つ (補助金 / 接触履歴 / ニュース) を表示する。研究機関側は一覧だけ対象機関へ絞り、詳細は省略しない
 - **編集モード**: 編集ボタンで全フィールド inline form に切替。保存 / キャンセル
 - **サブセクション CRUD**: 補助金・接触履歴・ニュースは「+ 追加」ボタン → 軽量 form。接触履歴はメール、電話、Slack、Teams、MTG/面談、イベント、紹介、訪問、その他を記録できる。削除は ✕ ボタン
+- **事業化検討の開始** (2026-08-19): 接触済み・協議中への状態変更だけではPJを自動作成しない。詳細画面の「事業化検討を開始」から、member認証済みの `/api/seeds/[seedId]/commercialization` を呼び、DB RPC `activate_seed_commercialization` がseed行をロックしたうえで `projects.status='draft'`、`seed_projects`、実行者の `project_members` を同一transactionで作成する。機関所属や外部共有権限は自動付与しない。既に複数PJ接続がある場合はstatus優先で表示PJを選べる。
+- **事業化ワークベンチ**: `seed_projects`接続後は全画面型の社内詳細へ切り替え、固定ヘッダー、根拠→仮説→次の検証→判断→行動の判断レール、判断 / 推進 / 記録の3領域を表示する。記録領域は既存 `project_meeting_summaries`、`workspace_documents`、`seed_contact_log`、`seed_funding`、`seed_news` を再利用し、専用の重複台帳を作らない。複数PJはヘッダーの選択でMTG・資料室・判断対象を切り替える。
 
 ## 実装メモ
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { ArrowUpRight, CalendarDays, ExternalLink, FileText, FolderOpen, Loader2 } from "lucide-react";
 import {
   fetchSeedDetail,
   insertSeed,
@@ -33,9 +34,11 @@ import type {
   SeedNewsKind,
   SeedContactLog,
   SeedContactMethod,
+  SeedProjectLink,
 } from "@/types/seeds";
 import { createClient } from "@/lib/supabase/client";
 import { SeedMarkdownPreviewModal } from "@/components/seeds/SeedMarkdownPreviewModal";
+import { fetchProjectMeetingSummaries, type ProjectMeetingSummary } from "@/lib/supabase-data";
 
 interface MemberLite {
   member_id: string;
@@ -51,6 +54,11 @@ interface RawProjectLite {
   project_id: string;
   short_label: string | null;
   projects: { project_name: string | null } | { project_name: string | null }[] | null;
+}
+
+function projectLinkSort(a: SeedProjectLink, b: SeedProjectLink): number {
+  const priority = (status: string) => ({ active: 0, sales: 1, draft: 2, frozen: 3, ended: 4 }[status] ?? 5);
+  return priority(a.project_status) - priority(b.project_status) || a.project_name.localeCompare(b.project_name, "ja");
 }
 
 export function SeedDetailModal({
@@ -75,6 +83,9 @@ export function SeedDetailModal({
   const [members, setMembers] = useState<MemberLite[]>([]);
   const [projects, setProjects] = useState<ProjectLite[]>([]);
   const [deepDiveOpen, setDeepDiveOpen] = useState(false);
+  const [activationOpen, setActivationOpen] = useState(false);
+  const [activationBusy, setActivationBusy] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
   // メンバー + PJ 一覧を読む (lookup 用)
   useEffect(() => {
@@ -208,19 +219,50 @@ export function SeedDetailModal({
     }
   };
 
+  const linkedProjects = [...(data?.project_links ?? [])].sort(projectLinkSort);
+  const linkedProject = linkedProjects.find((project) => project.project_id === selectedProjectId) ?? linkedProjects[0] ?? null;
+
+  const activateCommercialization = async () => {
+    if (!data || activationBusy) return;
+    setActivationBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/seeds/${encodeURIComponent(data.seed.id)}/commercialization`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectName: `事業化検討｜${data.seed.title}`,
+          targetMarket: data.seed.industry_target?.join(" / ") ?? "",
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.ok) {
+        setError(result.error ?? "事業化検討PJの作成に失敗したよ");
+        return;
+      }
+      setActivationOpen(false);
+      await reload();
+      onSaved();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "事業化検討PJの作成に失敗したよ");
+    } finally {
+      setActivationBusy(false);
+    }
+  };
+
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto"
+      className={`fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 backdrop-blur-sm ${linkedProject ? "p-0 sm:p-4" : "p-4"}`}
       onClick={onClose}
     >
       <div
-        className="bg-background border border-border rounded-lg shadow-xl max-w-[1200px] w-full my-4 p-5 relative"
+        className={`relative w-full border border-border bg-background shadow-xl ${linkedProject ? "min-h-dvh max-w-[1440px] overflow-hidden rounded-none p-0 sm:my-2 sm:min-h-[calc(100dvh-2rem)] sm:rounded-xl" : "my-4 max-w-[1200px] rounded-lg p-5"}`}
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
           aria-label="閉じる"
-          className="absolute top-3 right-3 text-muted-foreground hover:text-foreground text-sm w-7 h-7 rounded hover:bg-accent flex items-center justify-center"
+          className="absolute right-2 top-2 z-20 flex h-11 w-11 items-center justify-center rounded text-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:right-3 sm:top-3 sm:h-8 sm:w-8"
         >
           ✕
         </button>
@@ -229,9 +271,9 @@ export function SeedDetailModal({
         {notFound && <div className="py-10 text-center text-sm">シーズが見つかりません</div>}
 
         {(createMode || data) && (
-          <div className="space-y-5">
+          <div className={linkedProject ? "h-full" : "space-y-5"}>
             {/* ヘッダー */}
-            <div className="border-b border-border pb-3">
+            <div className={`border-b border-border ${linkedProject ? "sticky top-0 z-10 bg-background/95 py-4 pl-4 pr-14 backdrop-blur sm:px-5" : "pb-3"}`}>
               {editMode ? (
                 <input
                   className="text-lg font-semibold w-full bg-transparent border-b border-border focus:outline-none focus:border-primary py-1"
@@ -253,6 +295,18 @@ export function SeedDetailModal({
                         AMD PJ: {project.project_name} ({project.project_status})
                       </span>
                     ))}
+                    {linkedProjects.length > 1 && (
+                      <label className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                        表示PJ
+                        <select
+                          value={linkedProject?.project_id ?? ""}
+                          onChange={(event) => setSelectedProjectId(event.target.value || null)}
+                          className="max-w-[220px] rounded border border-border bg-background px-1.5 py-0.5 text-[10px] text-foreground"
+                        >
+                          {linkedProjects.map((project) => <option key={project.project_id} value={project.project_id}>{project.project_name} ({project.project_status})</option>)}
+                        </select>
+                      </label>
+                    )}
                     <RatingDots r={data.seed.amd_rating} />
                     {data.amd_owner_code_name && (
                       <span className="text-muted-foreground">担当: {data.amd_owner_code_name}</span>
@@ -303,6 +357,30 @@ export function SeedDetailModal({
                   )}
                 </div>
               </div>
+              {!createMode && data && !linkedProject && !activationOpen && (
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-cyan-500/30 bg-cyan-500/5 px-3 py-2">
+                  <div>
+                    <div className="text-xs font-semibold">事業化検討を始める</div>
+                    <div className="text-[10px] text-muted-foreground">明示操作で仮PJを作成し、MTG・資料室・判断記録を接続するよ。</div>
+                  </div>
+                  <button type="button" onClick={() => setActivationOpen(true)} className="inline-flex min-h-11 items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90 sm:min-h-0">
+                    事業化検討を開始 <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                </div>
+              )}
+              {!createMode && data && !linkedProject && activationOpen && (
+                <div className="mt-3 rounded-md border border-cyan-500/40 bg-cyan-500/5 px-3 py-3">
+                  <div className="text-xs font-semibold">このシーズの事業化検討を開始する？</div>
+                  <div className="mt-1 text-[10px] leading-4 text-muted-foreground">状態 draft の仮PJを作成し、現在のアカウントを担当者として接続するよ。接触済み・協議中だけでは自動作成されない設計。</div>
+                  <div className="mt-3 flex justify-end gap-2">
+                    <button type="button" onClick={() => setActivationOpen(false)} className="min-h-11 rounded-md border border-border px-3 py-1.5 text-[11px] hover:bg-accent sm:min-h-0">キャンセル</button>
+                    <button type="button" disabled={activationBusy} onClick={() => void activateCommercialization()} className="inline-flex min-h-11 items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-[11px] font-semibold text-primary-foreground disabled:opacity-60 sm:min-h-0">
+                      {activationBusy && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
+                      {activationBusy ? "作成中…" : "仮PJを作成"}
+                    </button>
+                  </div>
+                </div>
+              )}
               {error && (
                 <div className="mt-2 text-[11px] text-red-600 bg-red-500/10 px-2 py-1 rounded">{error}</div>
               )}
@@ -311,12 +389,20 @@ export function SeedDetailModal({
             {/* 本文 */}
             {editMode ? (
               <SeedEditForm draft={draft} setDraft={setDraft} members={members} projects={projects} />
+            ) : linkedProject && data ? (
+              <CommercializationWorkbench
+                data={data}
+                project={linkedProject}
+                members={members}
+                onChanged={reload}
+                onOpenDeepDive={() => setDeepDiveOpen(true)}
+              />
             ) : (
               data && <SeedReadView data={data} onOpenDeepDive={() => setDeepDiveOpen(true)} />
             )}
 
             {/* サブセクション (作成モードでは未生成のため非表示) */}
-            {!createMode && data && (
+            {!createMode && data && !linkedProject && (
               <>
                 <SeedFundingSection seed={data.seed} funding={data.funding} onChanged={reload} />
                 <SeedContactLogSection
@@ -454,6 +540,197 @@ function SeedReadView({
         <KV label="登録日">{s.created_at?.slice(0, 10)}</KV>
         <KV label="更新日">{s.updated_at?.slice(0, 10)}</KV>
       </Section>
+    </div>
+  );
+}
+
+function CommercializationWorkbench({
+  data,
+  project,
+  members,
+  onChanged,
+  onOpenDeepDive,
+}: {
+  data: SeedDetail;
+  project: SeedProjectLink;
+  members: MemberLite[];
+  onChanged: () => Promise<void>;
+  onOpenDeepDive: () => void;
+}) {
+  const [tab, setTab] = useState<"decision" | "progress" | "record">("decision");
+  const [projectSnapshot, setProjectSnapshot] = useState<{
+    projectId: string;
+    meetings: ProjectMeetingSummary[];
+    documents: number | null;
+  }>({ projectId: "", meetings: [], documents: null });
+  const seed = data.seed;
+  const loading = projectSnapshot.projectId !== project.project_id;
+  const meetings = loading ? [] : projectSnapshot.meetings;
+  const documents = loading ? null : projectSnapshot.documents;
+
+  useEffect(() => {
+    let alive = true;
+    Promise.all([
+      fetchProjectMeetingSummaries(project.project_id, { limit: 6 }),
+      fetch(`/api/workspace-documents?scope_kind=project&scope_id=${encodeURIComponent(project.project_id)}&surface=cockpit`)
+        .then((response) => response.ok ? response.json() as Promise<{ documents?: unknown[] }> : null)
+        .catch(() => null),
+    ]).then(([meetingRows, documentPayload]) => {
+      if (!alive) return;
+      setProjectSnapshot({
+        projectId: project.project_id,
+        meetings: meetingRows,
+        documents: Array.isArray(documentPayload?.documents) ? documentPayload.documents.length : null,
+      });
+    });
+    return () => { alive = false; };
+  }, [project.project_id]);
+
+  const projectHref = `/project/${encodeURIComponent(project.project_id)}/workspace`;
+  const cockpitHref = `/project/${encodeURIComponent(project.project_id)}/cockpit`;
+  const filesHref = `${projectHref}/files`;
+  const judgmentLabel = ({
+    draft: "継続・保留を判断",
+    sales: "提案・外部協議",
+    active: "実行を継続",
+    frozen: "再開を判断",
+    ended: "終了済み",
+  } as Record<string, string>)[project.project_status] ?? "次の判断を設定";
+  const rail = [
+    { label: "根拠", value: "仮PJに接続済み", tone: "text-sky-700 dark:text-sky-300" },
+    { label: "仮説", value: seed.envisioned_use_case || "用途を定義", tone: seed.envisioned_use_case ? "text-foreground" : "text-amber-600" },
+    { label: "次の検証", value: seed.next_verification_step || "未設定", tone: seed.next_verification_step ? "text-foreground" : "text-amber-600 dark:text-amber-300" },
+    { label: "判断", value: judgmentLabel, tone: "text-sky-700 dark:text-sky-300" },
+    { label: "行動", value: seed.next_action || "担当と期限を設定", tone: seed.next_action ? "text-foreground" : "text-amber-600 dark:text-amber-300" },
+  ];
+  const decisionDomains = [
+    ["顧客・用途", seed.envisioned_use_case],
+    ["市場・収益", seed.market_size_range || project.target_market],
+    ["技術・PoC", seed.next_verification_step],
+    ["知財・規制", seed.ip_status],
+    ["事業化ルート", project.commercialization_route],
+    ["法人・チーム", project.venture_name || project.commercialization_stage],
+    ["資金", data.funding.length > 0 ? `${data.funding.length}件` : null],
+    ["機関・権利", null],
+  ] as const;
+
+  return (
+    <div className="space-y-4 p-5 sm:p-6">
+      <div className="rounded-lg border border-slate-200 bg-sky-50/50 p-4 dark:border-slate-800 dark:bg-slate-950/30">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-700 dark:text-sky-300">事業化判断レール</div>
+            <div className="mt-1 text-xs text-muted-foreground">根拠を仮説に変え、次の検証と判断へつなぐ</div>
+          </div>
+          <Link href={projectHref} className="inline-flex min-h-11 items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-800 hover:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 sm:min-h-0">
+            PJワークスペース <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+          </Link>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-5">
+          {rail.map((item, index) => (
+            <div key={item.label} className="relative rounded-md border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900/70">
+              <div className="text-[10px] text-muted-foreground">{item.label}</div>
+              <div className={`mt-1 line-clamp-2 text-xs font-semibold ${item.tone}`}>{item.value}</div>
+              {index < rail.length - 1 && <span className="absolute -right-2 top-1/2 hidden text-slate-300 sm:block">→</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex gap-1 overflow-x-auto border-b border-border" role="tablist" aria-label="事業化検討領域">
+        {([
+          ["decision", "判断"],
+          ["progress", "推進"],
+          ["record", "記録"],
+        ] as const).map(([key, label]) => (
+          <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)} className={`min-h-11 shrink-0 border-b-2 px-4 py-2 text-xs font-semibold ${tab === key ? "border-sky-600 text-sky-700 dark:text-sky-300" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "decision" && (
+        <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <Section title="判断のための現在地">
+            <KV label="シーズ概要">{seed.summary || "—"}</KV>
+            <KV label="機関 / PI">{seed.org_name}{seed.researcher_name ? ` / ${seed.researcher_name}` : ""}</KV>
+            <KV label="成熟度">TRL {seed.trl ?? "·"} / BRL {seed.brl ?? "·"} / HRL {seed.hrl ?? "·"}</KV>
+            <KV label="顧客候補">{seed.first_customer_candidate || "未確認"}</KV>
+            <KV label="対象市場">{project.target_market || "未確認"}</KV>
+            <KV label="最大の未確認点"><span className={seed.biggest_bottleneck ? "text-rose-600 dark:text-rose-300" : "text-amber-600 dark:text-amber-300"}>{seed.biggest_bottleneck || "未登録"}</span></KV>
+            {seed.deep_dive_material_url && (
+              <KV label="深掘り資料">
+                <button type="button" onClick={onOpenDeepDive} className="inline-flex min-h-11 items-center gap-1 text-sky-700 underline underline-offset-2 dark:text-sky-300 sm:min-h-0">
+                  深掘り資料を開く <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                </button>
+              </KV>
+            )}
+          </Section>
+          <Section title="判断領域のチェック">
+            {decisionDomains.map(([label, value]) => (
+              <div key={label} className="flex items-center justify-between gap-3 border-b border-border/60 py-2 last:border-0">
+                <span className="text-xs">{label}</span>
+                <span className={`text-[10px] font-semibold ${value ? "text-sky-700 dark:text-sky-300" : "text-amber-600 dark:text-amber-300"}`}>{value ? "記録あり" : "未確認"}</span>
+              </div>
+            ))}
+          </Section>
+        </div>
+      )}
+
+      {tab === "progress" && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Section title="次の行動">
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">最初の一手</div>
+              <div className="mt-1 text-sm font-semibold">{seed.next_action || seed.next_verification_step || "PJワークスペースで論点を登録"}</div>
+              <div className="mt-2 text-[10px] text-muted-foreground">担当: {data.amd_owner_code_name || "未設定"}　期限: 未設定</div>
+            </div>
+            <Link href={`${projectHref}#management-plan`} className="mt-3 inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-sky-700 hover:underline dark:text-sky-300 sm:min-h-0">課題・仮説・行動を開く <ArrowUpRight className="h-3.5 w-3.5" aria-hidden /></Link>
+          </Section>
+          <Section title="関係先・PoC">
+            <div className="text-xs text-muted-foreground">事業会社候補、PoC、技術試験は既存のPJ管理・PoC台帳に接続するよ。</div>
+            <Link href="/poc" className="mt-3 inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-sky-700 hover:underline dark:text-sky-300 sm:min-h-0">PoC台帳を開く <ArrowUpRight className="h-3.5 w-3.5" aria-hidden /></Link>
+          </Section>
+        </div>
+      )}
+
+      {tab === "record" && (
+        <div className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Section title={`MTGカード${loading ? "" : ` (${meetings.length})`}`}>
+              {loading ? <div className="flex items-center gap-2 py-3 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" />読み込み中…</div> : meetings.length === 0 ? <div className="py-3 text-xs text-muted-foreground">このPJのMTG記録はまだないよ。</div> : (
+                <div className="space-y-2">
+                  {meetings.slice(0, 4).map((meeting) => <MeetingCard key={meeting.meetingId} meeting={meeting} />)}
+                </div>
+              )}
+              <Link href={cockpitHref} className="mt-3 inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-sky-700 hover:underline dark:text-sky-300 sm:min-h-0">PJコックピットでMTGを開く <ArrowUpRight className="h-3.5 w-3.5" aria-hidden /></Link>
+            </Section>
+            <Section title="資料室">
+              <div className="flex items-start gap-3 rounded-md border border-cyan-500/30 bg-cyan-500/5 p-3">
+                <FolderOpen className="mt-0.5 h-5 w-5 shrink-0 text-cyan-700" aria-hidden />
+                <div><div className="text-sm font-semibold">PJ資料室</div><div className="mt-1 text-[10px] text-muted-foreground">既存のPJスコープ資料をそのまま使うよ。{documents == null ? "件数は未取得" : `${documents}件`}</div></div>
+              </div>
+              <Link href={filesHref} className="mt-3 inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-sky-700 hover:underline dark:text-sky-300 sm:min-h-0">資料室を開く <ArrowUpRight className="h-3.5 w-3.5" aria-hidden /></Link>
+            </Section>
+          </div>
+          <SeedContactLogSection seed={seed} contactLog={data.contact_log} members={members} onChanged={onChanged} />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <SeedFundingSection seed={seed} funding={data.funding} onChanged={onChanged} />
+            <SeedNewsSection seed={seed} news={data.news} onChanged={onChanged} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MeetingCard({ meeting }: { meeting: ProjectMeetingSummary }) {
+  return (
+    <div className="rounded-md border border-border/70 bg-muted/20 p-3">
+      <div className="flex items-center gap-2 text-[10px] text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" aria-hidden />{meeting.meetingDate || "日付未設定"}<span className="ml-auto">{meeting.prepStatus || "記録"}</span></div>
+      <div className="mt-1 text-xs font-semibold">{meeting.title || "MTG"}</div>
+      {meeting.summaryShort && <div className="mt-1 line-clamp-2 text-[10px] leading-4 text-muted-foreground">{meeting.summaryShort}</div>}
+      {meeting.nextActions?.[0] && <div className="mt-2 flex items-start gap-1 text-[10px] text-sky-700 dark:text-sky-300"><FileText className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />次の一手: {meeting.nextActions[0]}</div>}
     </div>
   );
 }

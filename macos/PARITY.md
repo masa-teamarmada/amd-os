@@ -1,6 +1,6 @@
 # AMD OS macOS 開発用対応台帳
 
-最終更新: 2026-08-01
+最終更新: 2026-08-19
 
 > **現行SPS override（2026-08-18）**: `amdScore` / `amdScoreDetail` / HUD / dashboard / cyberspaceのactive routeは`/api/hud/dashboard`の現行SPS DTOだけを読む。完全版組は`sps-ind-tier0-v1 / sps-ind-v1 / q-eval-v2 / rubric-v1.1 / p-ind-v1 / rubric-v1.1+ind-v1`。旧スコアrouteは退役表示へ収束し、`AMDOSRESTClient`が旧3テーブルの読取・更新・追加・upsert・削除を拒否する。下表の旧AMD Score記述は履歴であり非規範。
 
@@ -33,7 +33,7 @@ PWAロゴ正本をプロジェクト内へ同期し、AppIconの各サイズは�
 | `/monthly-agreement` | `monthlyAgreement` | `/api/monthly-work-agreement` snapshot、agreement / revision records | `/api/monthly-work-agreement/agree`、`/request-revision` | member | 実装済み。状態→担当する仕事→その対価としての予定額→参照情報→合意/修正要望を同じbundleとAPIで実装 |
 | `/atlas`, `/atlas/admin/themes`, `/atlas/decisions`, `/atlas/divergence`, `/atlas/inbox`, `/atlas/inbox/submit`, `/atlas/macrotrends`, `/atlas/map` | `atlasHome`, `atlasThemes`, `atlasDecisions`, `atlasDivergence`, `atlasInbox`, `atlasInboxSubmit`, `atlasMacrotrends`, `atlasMap` | `atlas_*`, source refs | PWA既存の候補・採否・送信・theme API/RLS | member / admin API | 実装済み。PWAのrouteごとの一覧・詳細・絞り込み・採否・送信を対応Native画面へ接続。HUD aliasも同じ実装へ収束し、外部本文は保存しない。認証済み実読取・実書込みは未確認 |
 | `/knowledge-map` | `materials` | `materials-data`, `knowledge-map-data` | なし（read-only） | member | 実装済み。PWA同じ118元素・材料台帳から全体/元素/鉱物/樹脂/知識マップ/比較、4軸・需給根拠・出典・比較trayを読取表示。実データ読取は未確認 |
-| `/seeds`, `/seeds/[id]`, `/seeds/inbox` | `seeds`, `seed_projects`, `seed_funding`, `seed_news`, `seed_contact_log`, `members`, `projects`, `project_ventures` | `seeds`, `seed_funding`, `seed_news`, `seed_contact_log` | 既存RLS直書き + `/api/seeds/[seedId]/deep-dive` | member | **P0 Native 実装済み**。全175シーズを削らず1シーズ単位で表示し、PJ化済み→PJ化検討中→その他の順で並べる。機関・PI・PJ状態を同じ行に持ち、シーズ状態とAMD PJを分離。詳細、作成/編集/削除、資金・ニュース・接触履歴、深掘り、Inboxも維持。認証済み実データの書込み操作は未実行 |
+| `/seeds`, `/seeds/[id]`, `/seeds/inbox` | `seeds`, `seed_projects`, `seed_funding`, `seed_news`, `seed_contact_log`, `members`, `projects`, `project_ventures` | `seeds`, `seed_funding`, `seed_news`, `seed_contact_log` | 既存RLS直書き + `/api/seeds/[seedId]/deep-dive` | member | **P0 Native 実装済み**。全175シーズを削らず1シーズ単位で表示し、PJ化済み→PJ化検討中→その他の順で並べる。機関・PI・PJ状態を同じ行に持ち、シーズ状態とAMD PJを分離。詳細、作成/編集/削除、資金・ニュース・接触履歴、深掘り、Inboxも維持。2026-08-19にPWAへ追加した明示的な事業化開始API、判断レール、MTG・資料室ワークベンチはNative未移植。認証済み実データの書込み操作は未実行 |
 | `/poc` | `poc` | `poc_companies`, `poc_matches`, `seeds`, `projects`, `members` | PWA同一RLS直書き | member | **P0 Native 実装済み**。シーズ・PoC先・案件候補の検索/状態絞込/タグ絞込、PoC先とシーズの追加、既存の状態更新、シーズ×PoC先からの案件化、ヒアリング・謝礼・契約・資金・収益分配・担当/次アクションをPWAと同じテーブルと生成規則で実装。認証済み実データの書込み操作は未実行 |
 | `/vcs`, `/vcs/[id]`, `/vcs/[id]/edit`, `/vcs/inbox` | `vcs` | `vcs`, `vc_funds`, `vc_investments`, `vc_contacts`, `project_vc_relations`, `vc_news` | PWA同一RLS直書き | member / admin API | 実装済み。VC一覧・詳細・編集・受信箱、基本情報（slug / ロゴURL / 備考 / AMD評価の値・メモ・更新者・時刻）、ファンド（クローズ日・DPE根拠）、出資先（紐づくファンド・出所・備考）、担当者・PJ接点・ニュース確認を同じデータ境界で実装。認証済み実データの書込み操作は未実行 |
 | `/scholar` | `scholar` | `papers_log`（`lane, observed_at, paper_count, source`、時刻昇順・2000件） | なし（read-only） | member | 実装済み。PWA同じASPI 8領域、四半期集計、前年比、時系列・直近観測表をNativeで表示。認証済み実データ読取は未確認 |
