@@ -801,6 +801,7 @@ export function WorkspaceDocumentRoom({
   }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
+    if (!isExternalFileDrag(event)) return;
     event.preventDefault();
     setDragActive(false);
     void uploadFiles(Array.from(event.dataTransfer.files));
@@ -812,18 +813,20 @@ export function WorkspaceDocumentRoom({
 
   function preventExternalFileNavigation(event: DragEvent<HTMLElement>) {
     if (!isExternalFileDrag(event)) return;
-    // Finder/Explorer のdropが空状態を少し外れても、ブラウザがファイルを開いたり
+    // Finder/Explorer のdropが資料一覧を少し外れても、ブラウザがファイルを開いたり
     // downloadしたりしないよう、資料室の範囲だけで既定動作を止める。実際の追加は
-    // 空folderのdrop targetがbubble phaseで既存upload handlerへ渡す。
+    // 現在folderの一覧drop targetがbubble phaseで既存upload handlerへ渡す。
     event.preventDefault();
   }
 
   function handleFileDragOver(event: DragEvent<HTMLDivElement>) {
+    if (!isExternalFileDrag(event)) return;
     event.preventDefault();
     if (!busy) setDragActive(true);
   }
 
   function handleFileDragLeave(event: DragEvent<HTMLDivElement>) {
+    if (!isExternalFileDrag(event)) return;
     if (event.currentTarget.contains(event.relatedTarget as Node)) return;
     setDragActive(false);
   }
@@ -1108,7 +1111,17 @@ export function WorkspaceDocumentRoom({
             <span className="text-right">操作</span>
           </div>
 
-          <div className="space-y-2 p-4 pt-0 sm:space-y-0 sm:p-0">
+          <div
+            data-testid={permissions?.canUpload && !query ? "workspace-document-list-drop-zone" : undefined}
+            onDragOver={permissions?.canUpload && !query ? handleFileDragOver : undefined}
+            onDragLeave={permissions?.canUpload && !query ? handleFileDragLeave : undefined}
+            onDrop={permissions?.canUpload && !query ? handleDrop : undefined}
+            className={cn(
+              "space-y-2 p-4 pt-0 sm:space-y-0 sm:p-0",
+              permissions?.canUpload && !query && styles.documentListDropZone,
+              dragActive && styles.dropActive,
+            )}
+          >
             {loading ? (
               <div className="flex min-h-48 items-center justify-center gap-2 text-sm text-slate-500">
                 <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
@@ -1116,14 +1129,9 @@ export function WorkspaceDocumentRoom({
               </div>
             ) : visibleDocuments.length === 0 ? (
               <div
-                data-testid={permissions?.canUpload && !query ? "workspace-document-empty-drop-zone" : undefined}
-                onDragOver={permissions?.canUpload && !query ? handleFileDragOver : undefined}
-                onDragLeave={permissions?.canUpload && !query ? handleFileDragLeave : undefined}
-                onDrop={permissions?.canUpload && !query ? handleDrop : undefined}
                 className={cn(
                   "flex min-h-48 flex-col items-center justify-center px-6 text-center",
                   permissions?.canUpload && !query && styles.emptyUploadDropZone,
-                  dragActive && styles.dropActive,
                 )}
               >
                 <Folder className="h-8 w-8 text-slate-400" aria-hidden />
@@ -1134,7 +1142,7 @@ export function WorkspaceDocumentRoom({
                   {permissions?.canUpload && !query
                     ? busy
                       ? "資料を保存中"
-                      : "ファイルをここへドロップするか、上の「追加」から選んでね。"
+                      : "ファイルをこの一覧へドロップするか、上の「追加」から選んでね。"
                     : "別の場所か検索条件を確認してね。"}
                 </p>
               </div>

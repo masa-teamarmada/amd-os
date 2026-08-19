@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+| 2026-08-20 JST | 2-1 PWA Runtime / FEATURE_REGISTRY（資料室） | Finderドロップ修正 | build v3.83.7。追加権限があり検索中でないとき、現在folderの資料一覧全体（空状態を含む）を外部file drop先にし、既存upload・同名確認・権限処理へ渡す。内部資料行のパンくず移動dragは外部file dragとして扱わない | 資料があるfolderへのFinder追加を実際のuploadへ接続するため | まさ・えいみ |
+
 | 2026-08-19 JST | 2-1 PWA Runtime / FEATURE_REGISTRY（資料室） | Finderドロップ修正 | build v3.83.6。資料室内の外部file drag/dropだけをcaptureで判別し、ブラウザ既定のopen/downloadを止める。実際のuploadは追加権限あり・検索中でない空folderの空状態だけで既存upload処理へ渡し、内部資料のパンくず移動dragとは分離する | Finderからの資料追加がブラウザ遷移へ吸収されないようにするため | まさ・えいみ |
 
 | 2026-08-19 JST | 3-7 Notifications / L2 Data | SPS再評価の追加 | build v3.82.1 / migration 292〜295。最新版6項目tuple、sanitized source event、semantic dedupe、q/P差分整合、二段review、candidate UUID通知、採否RPC、append-only/CAS、stale置換、source・candidate・apply共通seed lockを仕様化。現行36件は凍結行を更新せず完全版組へappendし、算術不整合1件はq×Pで決定的に補正 | ソース追記だけでSPSを変えず、候補化・まさの採否・正本反映を分離しながら継続的な再評価を可能にするため | まさ・えいみ |

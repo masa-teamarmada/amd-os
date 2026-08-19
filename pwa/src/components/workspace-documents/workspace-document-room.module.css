@@ -130,6 +130,10 @@
   transition: background-color 160ms ease, border-color 160ms ease;
 }
 
+.documentListDropZone {
+  transition: background-color 160ms ease, outline-color 160ms ease;
+}
+
 @media (max-width: 639px) {
   .emptyUploadDropZone {
     margin: 12px;
@@ -171,8 +175,9 @@
 }
 
 .dropActive {
-  border-color: var(--room-blue);
   background: #eef6ff;
+  outline: 1px dashed var(--room-blue);
+  outline-offset: -1px;
 }
 
 .breadcrumbDropActive {

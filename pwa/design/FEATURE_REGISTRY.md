@@ -784,3 +784,5 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - Round 73（2026-08-19）: **資料室の最初のファイルは空状態へドロップする**。常設の細いdrop帯を廃止し、現在のfolderが空・検索中でない・追加権限ありのときだけ、「この場所はまだ空だよ」を含む空状態全体を大きいfile drop targetにする。上部の追加ボタンと既存のupload/conflict/権限処理を再利用する。検索0件はdrop targetにせず検索条件の案内を維持し、folder行からパンくずへの資料移動dragとclient payloadを混同しない。migrationなし。
 
 - Round 74（2026-08-19、v3.83.6）: **資料室内のFinder dropはブラウザ既定動作へ渡さない**。`WorkspaceDocumentRoom`は外部file drag/dropだけをcaptureで判別し、資料室内でのbrowser open/downloadを止める。空folderの空状態以外へ落としたfileは追加せず、空状態のdrop handlerだけが既存upload/conflict/権限処理へ渡す。資料行からパンくずへ移動する内部drag payloadは`Files`を含まないため、この抑止と混同しない。資料室外のpage全体へはhandlerを広げない。migrationなし。
+
+- Round 75（2026-08-20、v3.83.7）: **資料が並ぶfolderも一覧全体へFinderから追加する**。追加権限があり検索中でないとき、現在folderの資料一覧全体（空状態を含む）を外部fileのdrop targetにする。dropは既存upload/conflict/権限処理へ1回だけ渡し、外部fileでない内部資料行のパンくず移動dragでは一覧をdrop状態にせず従来の整理操作を保つ。資料室内だけでbrowser open/downloadの既定動作を止め、検索結果をdrop targetにしない。migrationなし。
