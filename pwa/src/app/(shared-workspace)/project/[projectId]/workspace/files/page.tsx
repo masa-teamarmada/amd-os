@@ -51,6 +51,7 @@ export default async function ProjectWorkspaceFilesPage({ params }: { params: Pr
         ? `/project/${encodeURIComponent(projectId)}/cockpit`
         : `/project/${encodeURIComponent(projectId)}/workspace`}
       returnLabel={access.principal === "internal_member" ? "コックピットへ戻る" : "PJ概要へ戻る"}
+      surface="workspace"
     />
   );
 }

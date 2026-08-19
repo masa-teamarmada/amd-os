@@ -110,8 +110,14 @@ const kindOrder: Record<WorkspaceDocumentEntryKind, number> = {
   link: 2,
 };
 
-function apiUrl(scopeKind: WorkspaceDocumentScopeKind, scopeId: string) {
-  return `/api/workspace-documents?scope_kind=${encodeURIComponent(scopeKind)}&scope_id=${encodeURIComponent(scopeId)}`;
+type WorkspaceDocumentSurface = "cockpit" | "workspace";
+
+function apiUrl(
+  scopeKind: WorkspaceDocumentScopeKind,
+  scopeId: string,
+  surface: WorkspaceDocumentSurface,
+) {
+  return `/api/workspace-documents?scope_kind=${encodeURIComponent(scopeKind)}&scope_id=${encodeURIComponent(scopeId)}&surface=${surface}`;
 }
 
 function fullPath(item: DocumentItem) {
@@ -210,6 +216,7 @@ export function WorkspaceDocumentRoom({
   returnHref,
   returnLabel = "概要へ戻る",
   presentation = "page",
+  surface = "cockpit",
 }: {
   scopeKind: WorkspaceDocumentScopeKind;
   scopeId: string;
@@ -218,6 +225,8 @@ export function WorkspaceDocumentRoom({
   returnHref?: string;
   returnLabel?: string;
   presentation?: "page" | "modal";
+  /** workspace面ではAMD内部資料を一覧へ出さず、共有範囲を操作させない。 */
+  surface?: WorkspaceDocumentSurface;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
@@ -247,7 +256,7 @@ export function WorkspaceDocumentRoom({
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(apiUrl(scopeKind, scopeId), {
+      const response = await fetch(apiUrl(scopeKind, scopeId, surface), {
         cache: "no-store",
       });
       const payload = (await response.json().catch(() => ({}))) as ListResponse;
@@ -265,7 +274,11 @@ export function WorkspaceDocumentRoom({
     } finally {
       setLoading(false);
     }
-  }, [scopeId, scopeKind]);
+  }, [scopeId, scopeKind, surface]);
+
+  // workspace面は、内部memberであっても公開済みのPJ共有資料だけを扱う。
+  // cockpit面だけがAMD内部の共有範囲を管理できる。
+  const canManageVisibility = surface === "cockpit" && Boolean(permissions?.canReadInternal);
 
   useEffect(() => {
     void loadDocuments();
@@ -448,7 +461,7 @@ export function WorkspaceDocumentRoom({
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(apiUrl(scopeKind, scopeId), {
+      const response = await fetch(apiUrl(scopeKind, scopeId, surface), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -518,7 +531,7 @@ export function WorkspaceDocumentRoom({
       const supabase = createClient();
       for (const item of queue) {
         const { file } = item;
-        const prepareResponse = await fetch(apiUrl(scopeKind, scopeId), {
+        const prepareResponse = await fetch(apiUrl(scopeKind, scopeId, surface), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -952,7 +965,7 @@ export function WorkspaceDocumentRoom({
               </h2>
               <p className="shrink-0 text-xs text-slate-500">
                 {counts.all}件 ・ 外部共有 {counts.shared}件
-                {permissions?.canReadInternal
+                {canManageVisibility
                   ? ` ・ AMD内部 ${counts.internal}件`
                   : ""}
               </p>
@@ -976,7 +989,7 @@ export function WorkspaceDocumentRoom({
 
               {permissions?.canUpload && (
                 <div className="ml-auto flex flex-wrap items-center gap-1.5">
-                  {permissions.canReadInternal && (
+                  {canManageVisibility && (
                     <select
                       aria-label="追加時の共有範囲"
                       value={draftVisibility}
@@ -1366,7 +1379,7 @@ export function WorkspaceDocumentRoom({
                   />
                 </label>
               )}
-              {permissions?.canReadInternal && (
+              {canManageVisibility && (
                 <label className="block text-xs font-semibold text-slate-700">
                   共有範囲
                   <select
@@ -1473,7 +1486,9 @@ export function WorkspaceDocumentRoom({
             <DialogHeader>
               <DialogTitle>資料を整理</DialogTitle>
               <DialogDescription>
-                名称・保存先・共有範囲を同じ画面で確認する。
+                {canManageVisibility
+                  ? "名称・保存先・共有範囲を同じ画面で確認する。"
+                  : "名称と保存先を同じ画面で確認する。"}
               </DialogDescription>
             </DialogHeader>
             <div className="my-6 space-y-4">
@@ -1500,7 +1515,7 @@ export function WorkspaceDocumentRoom({
                   ))}
                 </select>
               </label>
-              {permissions?.canReadInternal && (
+              {canManageVisibility && (
                 <label className="block text-xs font-semibold text-slate-700">
                   共有範囲
                   <select

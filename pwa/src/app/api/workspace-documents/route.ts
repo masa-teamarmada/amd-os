@@ -49,6 +49,16 @@ function parseScope(request: Request): { kind: WorkspaceDocumentScopeKind; id: s
   return { kind, id };
 }
 
+/**
+ * `workspace` はPJ/機関ワークスペースの公開面。AMD member が同じURLを開いても
+ * ここではPJ全体へ共有済みの資料だけを返す。未指定は従来どおりcockpit面として扱う。
+ */
+function parseSurface(request: Request): "cockpit" | "workspace" {
+  return new URL(request.url).searchParams.get("surface") === "workspace"
+    ? "workspace"
+    : "cockpit";
+}
+
 async function readBody(request: Request): Promise<Body | null> {
   try {
     const parsed = await request.json();
@@ -74,6 +84,7 @@ function parseDocumentId(value: unknown): string | null {
 export async function GET(request: Request) {
   const scope = parseScope(request);
   if (!scope) return json({ ok: false, error: "資料室の指定が不正だよ。" }, 400);
+  const surface = parseSurface(request);
 
   const access = await resolveWorkspaceDocumentAccess(scope.kind, scope.id);
   if (!access) return json({ ok: false, error: "Not found" }, 404);
@@ -91,7 +102,11 @@ export async function GET(request: Request) {
   query = scope.kind === "project"
     ? query.eq("project_id", access.projectId)
     : query.eq("institution_workspace_id", access.workspaceId);
-  if (!access.canReadInternal) query = query.eq("visibility", "workspace_shared");
+  // workspace面はprincipalに関係なくPJ全体へ共有済みの資料だけを一覧化する。
+  // 外部accountの既存境界もここで維持する。
+  if (surface === "workspace" || !access.canReadInternal) {
+    query = query.eq("visibility", "workspace_shared");
+  }
 
   const { data, error } = await query;
   if (error) {
