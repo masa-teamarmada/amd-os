@@ -132,6 +132,13 @@ assert.match(source.room, /dialog === "create_folder" \? "PJ全体" : "外部共
 assert.match(source.room, /selected\?\.entryKind === "folder" \? "PJ全体" : "外部共有"/, "folder整理dialogのworkspace_sharedラベルはPJ全体にする");
 assert.match(source.room, /entryKind === "folder"\s*\?\s*"PJ全体"\s*:\s*"外部共有"/, "folder一覧のworkspace_sharedバッジはPJ全体と表示する");
 assert.match(source.room, /href=\{workspaceDocumentViewHref\(item\)\}\s*target="_blank"/s, "資料名は外部ブラウザの別タブで開く");
+assert.match(source.room, /application\/x-amd-workspace-document/, "一覧entryは資料移動用のdrag payloadを持つ");
+assert.match(source.room, /onDrop=\{\(event\) => finishBreadcrumbDrop\(event, ""\)\}/, "資料直下のパンくずをdrop先にできる");
+assert.match(source.room, /onDrop=\{\(event\) => finishBreadcrumbDrop\(event, path\)\}/, "上位folderのパンくずをdrop先にできる");
+assert.match(source.room, /action: "organize"[\s\S]*?folderPath: destinationPath[\s\S]*?visibility: item\.visibility/s, "パンくずdropも既存の整理APIと共有範囲を通して移動する");
+assert.match(source.room, /資料をパンくずのフォルダへドラッグすると移動できる。タッチ操作とキーボードでは各資料の整理から移動先を選ぶ。/, "dragできない操作系にも既存整理dialogの移動導線を案内する");
+assert.match(source.room, /role="status"/, "移動成功は資料室内のstatus通知で分かる");
+assert.match(source.mutate, /row\.folder_path === folderPath[\s\S]*?return json\(\{ ok: true, document: publicWorkspaceDocument\(row\) \}\);/s, "同じfolderへの移動はserverでもno-opにする");
 
 assert.match(
   source.nextConfig,

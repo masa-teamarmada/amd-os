@@ -164,6 +164,17 @@
   background: #eef6ff;
 }
 
+.breadcrumbDropActive {
+  background: #dbeafe;
+  box-shadow: inset 0 0 0 1px var(--room-blue);
+  color: var(--room-blue-strong);
+}
+
+.fileRowDragging {
+  background: #eef6ff;
+  opacity: 0.62;
+}
+
 .dangerAction {
   color: var(--room-danger);
 }

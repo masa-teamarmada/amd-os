@@ -20,6 +20,7 @@ import {
   Folder,
   FolderOpen,
   FolderPlus,
+  GripVertical,
   Link2,
   Loader2,
   MoreHorizontal,
@@ -51,6 +52,7 @@ import {
 import {
   isWorkspaceDocumentHtml,
   isWorkspaceDocumentMarkdown,
+  documentBaseName,
   WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES,
   workspaceDocumentFinderCopyName,
   workspaceDocumentHtmlSourceByteLength,
@@ -225,7 +227,10 @@ export function WorkspaceDocumentRoom({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null);
+  const [breadcrumbDropPath, setBreadcrumbDropPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogKind>(null);
   const [selected, setSelected] = useState<DocumentItem | null>(null);
   const [draftName, setDraftName] = useState("");
@@ -325,6 +330,85 @@ export function WorkspaceDocumentRoom({
     setDraftFolderPath(item?.folderPath ?? currentFolder);
     setDraftVisibility(item?.visibility ?? "workspace_shared");
     setError(null);
+    setNotice(null);
+  }
+
+  async function moveEntryToFolder(item: DocumentItem, destinationPath: string) {
+    if (!permissions?.canManage || busy) return;
+    if (item.folderPath === destinationPath) {
+      setNotice(`${item.displayName} はすでにこの場所にあるよ。`);
+      return;
+    }
+    if (item.entryKind === "folder" && !eligibleMoveTarget(destinationPath)) {
+      setError("フォルダは自分自身または配下へ移動できないよ。");
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const response = await fetch(
+        `/api/workspace-documents/${encodeURIComponent(item.documentId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "organize",
+            displayName: item.displayName,
+            folderPath: destinationPath,
+            visibility: item.visibility,
+          }),
+        },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+      };
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error || "資料を移動できなかったよ。");
+      }
+      setNotice(
+        destinationPath
+          ? `${item.displayName} を「${documentBaseName(destinationPath)}」へ移動したよ。`
+          : `${item.displayName} を資料直下へ移動したよ。`,
+      );
+      await loadDocuments();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "資料を移動できなかったよ。");
+    } finally {
+      setBusy(false);
+      setDraggedDocumentId(null);
+      setBreadcrumbDropPath(null);
+    }
+  }
+
+  function startEntryDrag(event: DragEvent<HTMLElement>, item: DocumentItem) {
+    if (!permissions?.canManage || busy) {
+      event.preventDefault();
+      return;
+    }
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("application/x-amd-workspace-document", item.documentId);
+    event.dataTransfer.setData("text/plain", item.displayName);
+    setDraggedDocumentId(item.documentId);
+    setError(null);
+    setNotice(null);
+  }
+
+  function allowBreadcrumbDrop(event: DragEvent<HTMLElement>, destinationPath: string) {
+    if (!permissions?.canManage || !draggedDocumentId || busy) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setBreadcrumbDropPath(destinationPath);
+  }
+
+  function finishBreadcrumbDrop(event: DragEvent<HTMLElement>, destinationPath: string) {
+    event.preventDefault();
+    const documentId = event.dataTransfer.getData("application/x-amd-workspace-document") || draggedDocumentId;
+    const item = documents.find((candidate) => candidate.documentId === documentId);
+    setBreadcrumbDropPath(null);
+    if (item) void moveEntryToFolder(item, destinationPath);
   }
 
   async function openHtmlEditor(item: DocumentItem) {
@@ -790,7 +874,14 @@ export function WorkspaceDocumentRoom({
                 setCurrentFolder("");
                 setQuery("");
               }}
-              className="min-h-11 shrink-0 rounded px-1.5 font-semibold hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 sm:min-h-8"
+              onDragOver={(event) => allowBreadcrumbDrop(event, "")}
+              onDragLeave={() => setBreadcrumbDropPath((path) => path === "" ? null : path)}
+              onDrop={(event) => finishBreadcrumbDrop(event, "")}
+              className={cn(
+                "min-h-11 shrink-0 rounded px-1.5 font-semibold hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 sm:min-h-8",
+                breadcrumbDropPath === "" && styles.breadcrumbDropActive,
+              )}
+              aria-describedby={draggedDocumentId ? "workspace-document-move-hint" : undefined}
             >
               資料
             </button>
@@ -805,7 +896,14 @@ export function WorkspaceDocumentRoom({
                       setCurrentFolder(path);
                       setQuery("");
                     }}
-                    className="min-h-11 max-w-[16ch] truncate rounded px-1.5 font-medium hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 sm:min-h-8"
+                    onDragOver={(event) => allowBreadcrumbDrop(event, path)}
+                    onDragLeave={() => setBreadcrumbDropPath((activePath) => activePath === path ? null : activePath)}
+                    onDrop={(event) => finishBreadcrumbDrop(event, path)}
+                    className={cn(
+                      "min-h-11 max-w-[16ch] truncate rounded px-1.5 font-medium hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 sm:min-h-8",
+                      breadcrumbDropPath === path && styles.breadcrumbDropActive,
+                    )}
+                    aria-describedby={draggedDocumentId ? "workspace-document-move-hint" : undefined}
                   >
                     {segment}
                   </button>
@@ -818,6 +916,11 @@ export function WorkspaceDocumentRoom({
               </span>
             )}
           </nav>
+          {permissions?.canManage && currentFolder && (
+            <p id="workspace-document-move-hint" className="sr-only">
+              資料をパンくずのフォルダへドラッグすると移動できる。タッチ操作とキーボードでは各資料の整理から移動先を選ぶ。
+            </p>
+          )}
           <div className="flex shrink-0 items-center gap-2 text-[11px] text-slate-600">
             <span
               className={cn(
@@ -953,6 +1056,14 @@ export function WorkspaceDocumentRoom({
               {error}
             </div>
           )}
+          {notice && (
+            <div
+              role="status"
+              className="border-t border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 sm:px-5"
+            >
+              {notice}
+            </div>
+          )}
 
           {permissions?.canUpload && !query && (
             <div
@@ -1008,12 +1119,28 @@ export function WorkspaceDocumentRoom({
               visibleDocuments.map((item) => (
                 <article
                   key={item.documentId}
+                  draggable={permissions?.canManage && !busy}
+                  onDragStart={(event) => startEntryDrag(event, item)}
+                  onDragEnd={() => {
+                    setDraggedDocumentId(null);
+                    setBreadcrumbDropPath(null);
+                  }}
                   className={cn(
                     styles.fileRow,
+                    draggedDocumentId === item.documentId && styles.fileRowDragging,
                     "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 xl:grid-cols-[minmax(0,1fr)_120px_120px_360px] xl:gap-4 xl:px-5 xl:py-2",
                   )}
                 >
-                  <div className="col-span-2 flex min-w-0 items-center gap-3 xl:col-span-1">
+                  <div className="col-span-2 flex min-w-0 items-center gap-2 xl:col-span-1">
+                    {permissions?.canManage && (
+                      <span
+                        className="hidden shrink-0 text-slate-400 xl:inline"
+                        title="パンくずへドラッグして移動"
+                        aria-hidden
+                      >
+                        <GripVertical className="h-4 w-4" />
+                      </span>
+                    )}
                     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-slate-100 xl:h-9 xl:w-9">
                       <EntryIcon item={item} />
                     </span>
@@ -1118,7 +1245,8 @@ export function WorkspaceDocumentRoom({
                         type="button"
                         onClick={() => openDialog("organize", item)}
                         className="grid h-11 w-11 place-items-center rounded-md text-slate-600 hover:bg-slate-100 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 xl:h-9 xl:w-9"
-                        aria-label={`${item.displayName}を整理`}
+                        aria-label={`${item.displayName}を整理・移動`}
+                        title="資料を整理・移動"
                       >
                         <MoreHorizontal className="h-4 w-4" aria-hidden />
                       </button>

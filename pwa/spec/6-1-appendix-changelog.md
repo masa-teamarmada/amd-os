@@ -1,6 +1,6 @@
 # 附則（設計書変更履歴）
 
-| 2026-08-19 JST | 3-7 Notifications / L2 Data | SPS再評価の追加 | build v3.81.10 / migration 292〜295。最新版6項目tuple、sanitized source event、semantic dedupe、q/P差分整合、二段review、candidate UUID通知、採否RPC、append-only/CAS、stale置換、source・candidate・apply共通seed lockを仕様化。現行36件は凍結行を更新せず完全版組へappendし、算術不整合1件はq×Pで決定的に補正 | ソース追記だけでSPSを変えず、候補化・まさの採否・正本反映を分離しながら継続的な再評価を可能にするため | まさ・えいみ |
+| 2026-08-19 JST | 3-7 Notifications / L2 Data | SPS再評価の追加 | build v3.82.1 / migration 292〜295。最新版6項目tuple、sanitized source event、semantic dedupe、q/P差分整合、二段review、candidate UUID通知、採否RPC、append-only/CAS、stale置換、source・candidate・apply共通seed lockを仕様化。現行36件は凍結行を更新せず完全版組へappendし、算術不整合1件はq×Pで決定的に補正 | ソース追記だけでSPSを変えず、候補化・まさの採否・正本反映を分離しながら継続的な再評価を可能にするため | まさ・えいみ |
 
 | 2026-08-19 JST | FEATURE_REGISTRY (資料室) | 機能修正 | build v3.81.9。Google Drive許可リンク型HTMLも、既存の`loadWorkspaceDocumentText`によるallowlist・server側認証・metadata/実byte上限を通してPDF化できるようにした。UI/APIのfile/link条件を静的contractで固定し、HTML編集は保存file限定のまま | 資料の保管形式によるPDF化可否の差をなくし、外部URL取得の権限境界を広げないため | まさ・えいみ |
 | 2026-08-19 JST | FEATURE_REGISTRY (資料室) | 操作性修正 | build v3.81.8。folder一覧の`workspace_shared`バッジも`PJ全体`へ揃え、資料名クリックはHTML安全プレビューとMarkdown MD Readerを外部ブラウザ別タブで開く静的contractを追加 | 共有範囲の表示を一貫させ、HTML/Markdownの開き先が資料室内へ戻らないことを回帰テストで固定するため | まさ・えいみ |
@@ -607,3 +607,4 @@
 | 2026-08-18 | 3-3 Meeting Flow / H-1 Notion metadata | 修正 | LaunchAgent runnerを平日09:00-21:59 JSTへ是正し、candidate gateへCalendar非依存のbounded Notion metadata laneを追加。親data source schema解決、blank-only patch、member relation union、JST日付、4項目readback、prepared/applied/verified分離を契約化。fixture contract testを追加 | Calendar候補だけでは孤立した空欄pageが候補にならず、page fetchが省略した空propertyをschema不存在と誤認していたため | まさ・えいみ |
 | 2026-08-18 | 3-3 Meeting Flow / H-1 historical cursor | 修正 | Notion議事録data source全履歴を対象に、run間でpagination cursorとcycleをsanitized local stateへ保存する。1run最大25空欄候補・最大8page、EOFでcursorをnullへ戻し、失敗時は進めない | 一意照合できない先頭候補が残ると後半の過去pageへ到達できないstarvationを防ぐため | まさ・えいみ |
 | 2026-08-19 JST | 5-9 管理カレンダー / Google Calendar投影 | 仕様訂正 | build v3.81.4。`admin-schedule-calendar-sync`の投影を終日・空き時間扱いからJST時刻付き・予定ありへ変更。書類作成・月次報告・ガバナンス120分、税務90分、その他60分。同日分は09:00から昼休みを避けて配置する | 実務の時間を確保し、別予定を重ねないため | まさ・えいみ |
+| 2026-08-19 | 3-8 PJコックピット / 資料室 | 追加 | build v3.82.0。`WorkspaceDocumentRoom`のfolder内entryは、管理権限があればパンくずの任意の上位pathまたはrootへdrag-and-dropで移動できる。clientは既存`organize` PATCHへ元の名称・共有範囲・destination pathを渡すだけで、serverのfolder存在・可視性・folder自己/子孫移動の検証を維持する。同一folder destinationはAPIもno-op。非drag環境では既存整理dialogのselectを使う。契約テストを追加。migrationなし | 資料を上位folderへ戻す操作を、可視の階層と同じパンくず上で完結させるため | まさ・えいみ |
