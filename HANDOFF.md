@@ -1,46 +1,42 @@
 # HANDOFF
 
 最終更新: 2026-08-19 JST
-対象: Admin管理カレンダーとGoogle Calendar実務時間枠
+対象: SE（p10）経営ハイライトの他PJ混入是正と原因診断
 
 ## 今回の到達点
 
-- Adminトップを `/admin/schedule` にし、毎月自動で進む12か月表示へ変更した。
-- 月表示は「いつ何をするか」を読める情報量へ修正した。
-- 日付確定・当日以降・未完了の予定を、会社所有の共有カレンダー `AMD 管理カレンダー` へ毎日同期する。
-- active adminのまさ・きよへ共有し、終日ではなく60/90/120分の「予定あり」時間枠として確保する。
-- 既存48件を同じイベントIDのまま時刻付きへ更新し、再同期は `unchanged 48` のno-opを確認した。
+- SE cockpit の `project_strategy_signals` を監査し、NIMS由来4件・CryoX由来1件、計5件の誤登録candidateを `archived` へ移した。削除はしていない。
+- 本番 `https://amd-os-pwa.vercel.app/project/p10/cockpit` をログイン状態で再読込みし、経営ハイライトが `0件`・`まだシグナルなし。` と表示されることを確認した。
+- 表示クエリの横断取得ではなく、2026年5月の上流データ汚染を経営ハイライト候補として保存した過去データが原因だった。
+- 既知のp10/202604月報は `invalid` で、現行D-6は入力から除外する。一方、outbox applierは候補の `project_id` と根拠内容の意味的なPJ帰属を照合しないため、同型の新規誤登録を完全には防げていない。
 
-## 正本と履歴
+## 正本と教訓
 
-- 詳細仕様: `pwa/spec/5-9-admin-operating-calendar-current-spec.md`
-- 機能索引: `pwa/design/FEATURE_REGISTRY.md`
-- 利用者向け運用: `pwa/manual/2-6-admin-ops.md`
-- 実装履歴: `pwa/design_log/sessions_2026-08.md`
-- バグと教訓: `pwa/BUGS.md`
-- 実装: `ios/supabase/functions/admin-schedule-calendar-sync/`、`pwa/src/app/api/cron/company-schedule/route.ts`
+- D-6仕様: `pwa/spec/3-6-strategy-signals-current-spec.md`
+- 現行抽出契約: `pwa/scheduled-tasks/amd-os-l9-strategy-signal-extract/SKILL.md`
+- 事故記録: `pwa/BUGS.md` の `SE経営ハイライトに他PJ内容が混入` 節
 
-## Repo / deploy状態
+## Repo / production状態
 
-- 実装commit: `f0dec491`、時間枠訂正commit: `cd64820e`（いずれもmain履歴内）
-- Supabase Edge Function: production deploy済み
-- PWA: build `v3.82.2`、product bundle `45a3bd15` をmainへpushし、production `/api/build-info`でReadyを確認済み
-- 確認済み: `npm run test:admin-schedule`、`npx tsc --noEmit`、対象eslint、`npm run build`
+- 本番データ是正そのものは既存API経由で行い、コード・migrationは変更していない。
+- この引き継ぎ・事故記録は `c4f57343` で `main` へpush済み。PWAの自動production deployはReadyで、`/api/build-info` は同commitを返した。
+- PWA本番の確認時バージョン: `v3.82.4`。
 
 ## 今回と無関係なdirty
 
-以下は別作業のため触っていない。
+別作業としてindexに残っているため、触らず保全した。
 
+- `docs/corporate/` の社内資料と生成スクリプト
 - `pwa/manual/4-3-amd-score-spec.md`
 - `pwa/spec/4-2-amd-score-current-spec.md`
-- `docs/corporate/`
 - `pwa/scripts/diagnose-cash-inflow.mts`
 - `pwa/scripts/refresh-live-monthly-pl.mts`
 
 ## 未解決
 
-管理カレンダー機能としてはなし。上記dirtyの処置は各所有作業で判断する。
+- まさ判断: 今は混入防止の実装を保留する。
+- 実装する場合は、候補の根拠PJ IDを必須にし、outbox作成時・applier時の両方で対象PJとの一致を検証する。p10にCryoX/NIMSが入るfixtureを回帰テストにする。
 
 ## 次の最初の行動
 
-新しい依頼から開始する。管理カレンダーを変更する場合は、先に5-9仕様と2-6 adminオペを読み、Google Calendar同期後は2回目がno-opになることまで確認する。
+新しい依頼から開始する。SE経営ハイライトの再生成や防止策の実装を求められたときだけ、上記D-6仕様・SKILL・BUGSを先に読み、既存候補を推測で復元しない。

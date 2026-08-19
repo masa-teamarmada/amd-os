@@ -4401,3 +4401,10 @@
 - **原因**: 初期投影を終日・空き時間扱いで作っていた。さらに終日イベントへ `PATCH` で `dateTime` を足すと既存の `date` が残り、Google Calendar API上で開始形式が競合した。Google側は既定値の `opaque` をレスポンスから省略するため、未正規化の比較も差分を誤検知した。
 - **対応内容**: 種別別に60分・90分・120分のJST時刻付き `opaque` 予定へ変更し、同日分は09:00から昼休みを避けて配置した。投影所有イベントは `PUT` による完全更新へ変更し、省略された `transparency` は `opaque` として比較するよう正規化した。既存48件は同一IDのまま更新し、再同期で `created 0 / updated 0 / deleted 0 / unchanged 48` を確認した。
 - **再発防止策**: Calendar投影は `dateTime`、`opaque`、種別別の所要時間、同日配置、2回目同期のno-opをテストする。終日と時刻付きの型をまたぐ更新で入れ子オブジェクトの部分更新を使わず、外部APIが省略する既定値は比較前に正規化する。
+
+## [D-6/data] SE経営ハイライトにNIMS/CryoX内容が混入した（2026-08-19、データ是正済み・防止実装は保留）
+
+- **症状**: SE（p10）cockpitの経営ハイライトに、NIMS由来4件とCryoX由来1件が表示された。Cockpitの表示取得は`project_id=p10`で絞れていたため、横断表示の不具合ではなかった。
+- **原因**: 2026年5月のD-6実行が、過去にp10へ誤紐付けされた月報・source cache・member activity由来の内容を、p10のcandidateとして保存した。既知のp10/202604月報はCryoX内容のため`invalid`化済みだが、`project_strategy_signals`に保存済みのcandidateは残っていた。現行outbox applierは必須列・値域を検査する一方、候補`project_id`と根拠内容のPJ帰属を意味的に照合しない。
+- **対応内容**: 本番の既存`/api/strategy-signals`更新経路で5件すべてを`archived`にした。削除や別PJへの再紐付けは、根拠IDだけで移管先を確定できないため行っていない。本番SE cockpitを再読込みし、経営ハイライトが0件であることを確認した。
+- **再発防止策（未実装・まさ判断で保留）**: D-6候補の各根拠へ由来PJ IDを持たせ、outbox作成時とapplier時に対象`project_id`との一致を必須検証する。PJ固有aliasがなく他PJの強いaliasだけがある根拠はcandidateにしない。p10にCryoX/NIMS由来の入力があるfixtureを追加し、候補0件を回帰テストにする。候補0件は正常で、空outboxを作らない。

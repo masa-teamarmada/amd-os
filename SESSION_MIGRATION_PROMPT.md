@@ -10,35 +10,30 @@
 4. `/Users/masa/projects/AMD/amd-os/CLAUDE.md`
 5. `/Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md`
 6. `/Users/masa/projects/AMD/amd-os/HANDOFF.md`
-7. `/Users/masa/projects/AMD/amd-os/pwa/spec/5-9-admin-operating-calendar-current-spec.md`
-8. `/Users/masa/projects/AMD/amd-os/pwa/manual/2-6-admin-ops.md`
-9. `/Users/masa/projects/AMD/amd-os/pwa/design/FEATURE_REGISTRY.md`
-10. `/Users/masa/projects/AMD/amd-os/pwa/BUGS.md`
+7. `/Users/masa/projects/AMD/amd-os/pwa/spec/3-6-strategy-signals-current-spec.md`
+8. `/Users/masa/projects/AMD/amd-os/pwa/scheduled-tasks/amd-os-l9-strategy-signal-extract/SKILL.md`
+9. `/Users/masa/projects/AMD/amd-os/pwa/BUGS.md`
 
-読む前後に `git status -sb --untracked-files=all`、`git rev-parse HEAD`、`git rev-parse origin/main`、`git worktree list` を実行し、現在地をチャットの記憶より優先する。
+読む前後に `git fetch --all --prune`、`git status -sb --untracked-files=all`、`git rev-parse HEAD`、`git rev-parse origin/main`、`git worktree list` を実行し、現在地をチャットの記憶より優先する。
 
 ## 状態スナップショット
 
-- Adminトップは `/admin/schedule`。管理カレンダーは実行月に応じて毎月1か月ずつ進む12か月表示。
-- 日付確定・当日以降・未完了の予定は、会社所有の共有Google Calendar `AMD 管理カレンダー` へ毎日同期する。
-- active adminのまさ・きよへ共有済み。イベントは終日ではなく `opaque` の実務時間枠で、書類作成・月次報告・ガバナンス120分、税務90分、その他60分。同日分は09:00から昼休みを避けて並べる。
-- production readbackは48件を時刻付きへ更新後、再同期で `created 0 / updated 0 / deleted 0 / unchanged 48`。
-- 実装commit `f0dec491`、訂正commit `cd64820e` はmain履歴内。現在のHEAD・build・production SHAは必ずその場で再確認する。
-- 実装場所は `ios/supabase/functions/admin-schedule-calendar-sync/` と `pwa/src/app/api/cron/company-schedule/route.ts`。
-- 詳細仕様、運用マニュアル、実装履歴、BUGSは上記の正本へ同期済み。
-- 別作業のdirtyとして `pwa/manual/4-3-amd-score-spec.md`、`pwa/spec/4-2-amd-score-current-spec.md`、`docs/corporate/`、`pwa/scripts/diagnose-cash-inflow.mts`、`pwa/scripts/refresh-live-monthly-pl.mts` が残りうる。所有者確認なしに編集・削除・stashしない。
+- SE（p10）の経営ハイライトは、2026-08-19に他PJ由来のcandidate 5件を `archived` にしている。NIMS由来4件、CryoX由来1件で、削除はしていない。
+- 本番 `https://amd-os-pwa.vercel.app/project/p10/cockpit` は再読込み済みで、経営ハイライトは `0件`。正しいSE根拠を推測で候補化・復元しない。
+- 原因はUIではなく、2026年5月のp10上流データ汚染がD-6候補へ残ったこと。既知のp10/202604月報は `invalid` で現行D-6の入力対象外。
+- 現行D-6はPJごとの入力を読むが、outbox applierは候補の `project_id` と根拠内容のPJ帰属を意味的に照合しない。新規の同型混入は完全には防げていない。
+- まさ判断で、防止策の実装は現時点で保留。求められた場合だけ、根拠PJ ID必須化、outbox/applier二重照合、p10×CryoX/NIMS fixtureの回帰テストを1 bundleで実装する。
+- `main` と `origin/main` は確認時点で同期済み。今回のデータ是正は既存本番API経由で、コード変更・migration・deployはない。
+- 共有checkoutには別作業のstaged差分がある。`docs/corporate/`、`pwa/manual/4-3-amd-score-spec.md`、`pwa/spec/4-2-amd-score-current-spec.md`、`pwa/scripts/diagnose-cash-inflow.mts`、`pwa/scripts/refresh-live-monthly-pl.mts`を所有者確認なしに編集・stage変更・削除・stashしない。
 
 ## 次のタスク
 
-管理カレンダー機能に未解決作業はない。まさの次の依頼から開始する。もし管理カレンダーの追加修正なら、ユーザーが画面を見て「いつ何をすべきか分かるか」「実務時間を本当に押さえているか」を完成条件にし、コードやbuild番号だけで完了扱いにしない。
+まさの新しい依頼から開始する。SE経営ハイライトの防止策を実装する依頼なら、対象を「表示の隠蔽」ではなく「誤ったPJ候補を保存前に止めること」とする。LLMの直接DB書込みを作らず、現行outboxと非LLM applierの境界を守る。候補0件は正常で、空outboxを作らない。
 
 ## 確立済みの運用ルール
 
-- SupabaseがDB正本。LLMから直接DBを書かず、既存API・Edge Function・GASの権限境界を守る。
-- Google Calendar同期はAMD OS側が正本。投影イベントをCalendar上で直さず、元データを直して再生成する。
-- 終日と時刻付きの型をまたぐ更新は、投影所有イベントを完全更新する。Google側が省略する既定値は比較前に正規化する。
-- 同期検証は `dateTime`、`opaque`、種別別所要時間、同日配置、2回目同期のno-opまで見る。
-- UI変更は実画面で視認性・操作性を確認する。build/versionだけで完了にしない。
-- PWAはmain pushがVercel production deploy。対象変更を束ね、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を使い、Ready後に `/api/build-info` のSHAをreadbackする。
+- SupabaseがDB正本。D-6はCodex automation → outbox → 非LLM applierの経路を守る。
+- `project_strategy_signals` のcandidate/confirmedはPJ cockpitに表示されるため、`project_id` と根拠の帰属を別物として扱わない。根拠不足なら候補を作らない。
+- UI変更は本番の実画面で確認する。build/versionだけで完了扱いにしない。
+- PWAのコード変更はmain pushがVercel production deploy。対象変更を束ね、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` でReadyと `/api/build-info` を確認する。
 - dirtyな共有checkoutでは今回対象だけを明示stage/commitし、他作業ファイルを巻き込まない。`git add .`、破壊的cleanup、無断stashは禁止。
-- 機能変更時は仕様正本、利用者マニュアル、design log、必要ならBUGS、HANDOFFを役割分離して同じbundleで更新する。
