@@ -1065,7 +1065,7 @@ export function WorkspaceDocumentRoom({
                     </p>
                   </div>
                   <div className="col-span-2 flex min-h-11 flex-wrap items-center justify-start gap-1.5 xl:col-span-1 xl:min-h-0 xl:justify-end">
-                    {item.entryKind === "file" && isWorkspaceDocumentHtml(item.mimeType, item.displayName) ? (
+                    {(item.entryKind === "file" || item.entryKind === "link") && isWorkspaceDocumentHtml(item.mimeType, item.displayName) ? (
                       <button
                         type="button"
                         onClick={() => void downloadHtmlAsPdf(item)}

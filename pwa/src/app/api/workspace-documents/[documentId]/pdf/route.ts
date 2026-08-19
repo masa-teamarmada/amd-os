@@ -6,6 +6,7 @@ import {
   WORKSPACE_DOCUMENT_HTML_PDF_MAX_OUTPUT_BYTES,
   workspaceDocumentPdfDownloadName,
 } from "@/lib/workspace-documents-core";
+import { loadWorkspaceDocumentText } from "@/lib/workspace-document-text";
 import {
   resolveDocumentRowAccess,
   WORKSPACE_DOCUMENT_FIELDS,
@@ -50,9 +51,7 @@ export async function GET(
     return json({ ok: false, error: "Not found" }, 404);
   }
   if (
-    row.entry_kind !== "file"
-    || !row.storage_bucket
-    || !row.storage_path
+    (row.entry_kind !== "file" && row.entry_kind !== "link")
     || !isWorkspaceDocumentHtml(row.mime_type, row.display_name)
   ) {
     return json({ ok: false, error: "HTML資料ではないよ。" }, 400);
@@ -61,20 +60,12 @@ export async function GET(
     return json({ ok: false, error: "HTML資料は8MBまでPDF化できるよ。" }, 413);
   }
 
-  const { data: file, error: downloadError } = await db.storage
-    .from(row.storage_bucket)
-    .download(row.storage_path);
-  if (downloadError || !file) {
-    console.error("[workspace-documents] pdf download failed:", downloadError?.message);
-    return json({ ok: false, error: "資料を開けなかったよ。" }, 500);
-  }
-  if (file.size > WORKSPACE_DOCUMENT_HTML_PDF_MAX_INPUT_BYTES) {
-    return json({ ok: false, error: "HTML資料は8MBまでPDF化できるよ。" }, 413);
-  }
+  const loaded = await loadWorkspaceDocumentText(db, row, WORKSPACE_DOCUMENT_HTML_PDF_MAX_INPUT_BYTES);
+  if (!loaded.ok) return json({ ok: false, error: loaded.error }, loaded.status);
 
   let pdf: Buffer;
   try {
-    pdf = await renderWorkspaceDocumentHtmlToPdf(await file.text());
+    pdf = await renderWorkspaceDocumentHtmlToPdf(loaded.text);
   } catch (conversionError) {
     console.error("[workspace-documents] pdf conversion failed:", conversionError);
     return json({ ok: false, error: "PDFを生成できなかったよ。時間をおいてもう一度試してね。" }, 502);
