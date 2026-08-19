@@ -1,31 +1,30 @@
 # HANDOFF
 
-最終更新: 2026-08-19 JST
-対象: PJ資料室のHTML→PDF紙面品質修正
+最終更新: 2026-08-20 JST
+対象: SX外部資料共有のAMD OS統合・旧Project Share退役
 
 ## 今回の到達点
 
-- HTMLをPDF化すると横組みが縦積みになる問題を、実測レイアウトで通常A4とワイド紙面に選び分ける方式で修正した（v3.83.3）。
-- PDF用にサイドナビだけでなく親gridの空列も除外し、全ページへ共通余白を付けた（v3.83.5）。改ページが必要な資料でも後続ページが紙端から始まらない。
-- 本番は `2b391f4f` / `v3.83.5`。`/api/build-info`の読戻しと代表HTMLの実PDF画像確認を済ませた。
+- SXの外部関係者は `/project/p21/workspace` の同じ入口から、PJ名と `workspace_shared` の資料室だけを利用する。内部の週次・ガント・関係先・論点・資金・管理画面は返さない。
+- 外部の `contributor` は資料の閲覧に加え、file / folder / link の追加とHTML本文編集を行える。整理・共有範囲の変更は管理権限へ限定する。
+- p21の外部利用者7件を、アカウント・愛媛機関ワークスペース所属・p21 contributorの3層で招待登録し、PJリストの関係先メールアドレスにも重複なく統合した。メール送信はしていない。
+- 旧SX Project Shareのアプリ・Blob Store・専用ドメインを退役した。旧Blobに移行対象は無く、専用ドメインは404を確認済み。
+- 資料室内でFinder / Explorerからファイルを落としても、空状態の追加先以外ではブラウザが開く・ダウンロードする既定動作を止める。既存の空状態drop、競合確認、権限確認を共通で使う。
 
-## 正本と教訓
+## 正本
 
-- 詳細仕様: `pwa/design/institution_seed_project_model.md`、`pwa/design/FEATURE_REGISTRY.md`
-- OSマニュアル: `pwa/manual/2-3-pj-cockpit.md`、`pwa/manual/9-3-appendix-changelog.md`
-- 事故記録: `pwa/BUGS.md` の `[workspace-documents/PDF]` 節
-- 実装履歴: `pwa/design_log/sessions_2026-08.md`
+- 権限・外部面の設計: `pwa/design/institution_seed_project_model.md` §6、`pwa/design/FEATURE_REGISTRY.md` の「外部ワークスペースアクセス」
+- 画面・資料室運用: `pwa/manual/2-3-pj-cockpit.md`、`pwa/manual/9-3-appendix-changelog.md`
+- route契約: `pwa/spec/2-1-pwa-runtime-routes.md`、`pwa/spec/6-1-appendix-changelog.md`
+- SXの長期索引: `/Users/masa/projects/knowledge/sx.md`
+- 実装判断の履歴: `pwa/design_log/sessions_2026-08.md`
 
-## Repo / production状態
+## 運用上の残り
 
-- PWAの本番反映は `2b391f4f` / `v3.83.5` で完了している。本引き継ぎと事故記録は `3e364456` にcommit・push済みで、`/api/build-info`も同じSHAを返した。
-- `pwa/manual/2-3-pj-cockpit.md`の未コミット差分は今回と別作業の段落順入替で、所有者未確認のため触らない。
-
-## 未解決
-
-- コード上の未解決はない。まさが次にPDF出力を試した時、対象HTMLの実画面と生成PDFを見比べる受入確認だけが残る。
-- `pwa/manual/2-3-pj-cockpit.md`の1行入替は所有者がcommitまたは戻すまで保全する。
+- 招待済みの7アカウントは、各人がメールリンクで初回認証を終えるまで `invited` のまま。送信は本人への案内を出すと決めた時だけ行う。
+- 初回問い合わせでは、メール本文を共有せず、アカウント・機関所属・p21アクセスの3層とcallback後のactive化だけを読戻す。
+- 外部面に新しい項目を足す時は、safe DTOとroute isolationを先に検査し、内部管理情報を流用しない。
 
 ## 次の最初の行動
 
-新しい依頼から開始する。PDF品質の追加指摘なら、まず上記BUGS・仕様・実装履歴を読み、代表HTMLを実PDF化して1ページ目と後続ページの両方を確認する。既存の未コミットmanual差分を巻き込まず、今回のhandoff文書だけを明示stageする。
+新しい依頼から開始する。SXの外部利用で問題が出た場合は、上記正本と `npm run test:workspace-access-scope`、`npm run test:workspace-documents-contract` を読み、外部sessionで `/project/p21/workspace` の表示と資料追加だけを確認する。

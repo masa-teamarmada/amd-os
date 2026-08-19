@@ -301,3 +301,11 @@ automation作成後の最初の自然な平日09:00実行は未観測。2026-08-
 
 - `node --experimental-strip-types scripts/check_workspace_documents_core.mts`、`node scripts/check_workspace_documents_contract.mjs`、`npx tsc --noEmit -p tsconfig.json`、`npm run build`を完了した。
 - `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`でmainへ反映し、productionの`/api/build-info`が`v3.83.5` / `2b391f4fb9279d5e1c16d804d227bd8edae171ec`を返すことを確認した。
+
+## 2026-08-20 — SXの外部資料共有をAMD OSへ統合
+
+- 旧SX Project Shareを正本から外し、外部関係者は `/project/p21/workspace` の同じ入口で、PJ名と `workspace_shared` の資料室だけを見る設計へ統合した。外部DTO・routeは内部の週次、ガント、関係先、論点、資金、管理画面を返さない。
+- 外部 `contributor` は資料の閲覧、file / folder / link追加、HTML本文編集まで可能にし、名称変更・移動・共有範囲変更は管理権限へ残した。認可はアカウント、機関所属、PJ個別アクセスの明示3層だけで行う。
+- p21の外部利用者7件を招待登録し、PJリストの関係先メールアドレスへ重複なく統合した。メール送信は行わず、初回認証後にactive化する。
+- 旧Project Shareのアプリ・Blob Store・専用ドメインを退役した。旧Blobの移行対象が無いことと、専用ドメインが404になることを確認した。
+- `test:workspace-access-scope`、`test:workspace-access-session`、`test:workspace-capabilities`、`test:workspace-documents-core`、`test:workspace-documents-contract`、`test:project-workspace-route`、`test:workspace-next-path`、`test:workspace-email-start-contract`、`test:workspace-access-admin`、`test:critical-ui`を通した。Finder / Explorerから資料室内へ落としたfileは、空folderの空状態以外でブラウザ既定動作を止め、既存のupload処理へだけ渡す。
