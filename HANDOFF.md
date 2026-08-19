@@ -1,51 +1,46 @@
-# AMD OS Handoff
+# HANDOFF
 
 最終更新: 2026-08-19 JST
-
-対象: `/seeds` の会社名表示とPJ識別
-
-作業種別: development
+対象: Admin管理カレンダーとGoogle Calendar実務時間枠
 
 ## 今回の到達点
 
-- `/seeds` の独立「PJ状態」列を廃止し、一覧の列名を「会社名」に統一した。
-- 会社名は枠なし太字で表示する。会社名の正本は `seed_projects.venture_name`、未設立は `会社名（未設立）`、会社名が無いときは `未設立` とする。
-- `PJ` は会社名セルの右上に置く小さな丸バッジだけで識別する。`PJ化済み`、PJのactive/ended、`協議中`、`スピンアウト済み`はこの一覧へ表示しない。
-- 正本データを訂正し、p21は `SolvioraX`、p20は `CryoX`。両者の `commercialization_stage='pre_incorporation'` は維持した。
-- 実装は `8e28447c fix(seeds): emphasize company names`。本番はv3.81.2 / git SHA `8e28447c` で確認済み。その後、管理カレンダー同期のv3.81.3もmainへ統合済み。
+- Adminトップを `/admin/schedule` にし、毎月自動で進む12か月表示へ変更した。
+- 月表示は「いつ何をするか」を読める情報量へ修正した。
+- 日付確定・当日以降・未完了の予定を、会社所有の共有カレンダー `AMD 管理カレンダー` へ毎日同期する。
+- active adminのまさ・きよへ共有し、終日ではなく60/90/120分の「予定あり」時間枠として確保する。
+- 既存48件を同じイベントIDのまま時刻付きへ更新し、再同期は `unchanged 48` のno-opを確認した。
 
-## 仕様・検証
+## 正本と履歴
 
-- 詳細仕様: `pwa/design/seeds.md`
-- 利用者向け説明: `pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md`
-- 変更履歴: `pwa/manual/9-3-appendix-changelog.md`
+- 詳細仕様: `pwa/spec/5-9-admin-operating-calendar-current-spec.md`
+- 機能索引: `pwa/design/FEATURE_REGISTRY.md`
+- 利用者向け運用: `pwa/manual/2-6-admin-ops.md`
 - 実装履歴: `pwa/design_log/sessions_2026-08.md`
-- DB訂正migration: `pwa/scripts/migrations/289_seed_company_names_sx_cx.sql`（本番適用・読戻し済み）
-- 実行済み: `npm run test:seed-list-display`、`npm run test:kute-seeds-scope`、`npx tsc --noEmit`、`npm run test:critical-ui`、`npm run build`。
-- 本番desktop/mobileで「会社名」列、SolvioraX/CryoXの未設立表記、枠なし太字、右上PJバッジ、旧ラベル不在を確認済み。
+- バグと教訓: `pwa/BUGS.md`
+- 実装: `ios/supabase/functions/admin-schedule-calendar-sync/`、`pwa/src/app/api/cron/company-schedule/route.ts`
 
-## Repo・本番状態
+## Repo / deploy状態
 
-- canonical path: `/Users/masa/projects/AMD/amd-os`
-- branch: `main`、mainとorigin/mainは同期済み。次セッション開始時にSHAとahead/behindを再確認する。
-- 管理カレンダーGoogle同期のcommit `f0dec491` と、今回のシーズ修正 `8e28447c` はともにmainに含まれる。
-- worktree: 本体1個のみ。local branch: `main`のみ。
+- 実装commit: `f0dec491`、時間枠訂正commit: `cd64820e`（いずれもmain履歴内）
+- Supabase Edge Function: production deploy済み
+- PWA: closeout commitをmainへpushし、production `/api/build-info`を確認して確定する
+- 確認済み: `npm run test:admin-schedule`、`npx tsc --noEmit`、対象eslint、`npm run build`
 
-## 既存dirty（今回の作業外）
+## 今回と無関係なdirty
 
-| path | status | owner | 次の判断条件 | リスク |
-|---|---:|---|---|---|
-| `docs/corporate/` の5ファイル | staged A | corporate文書担当 | 法人文書の正本性・生成物を確認して対象だけcommit | 中 |
-| `pwa/scripts/diagnose-cash-inflow.mts`、`pwa/scripts/refresh-live-monthly-pl.mts` | staged A | finance担当 | 実行条件と安全弁を確認して対象だけcommit | 中 |
-| `pwa/manual/4-3-amd-score-spec.md`、`pwa/spec/4-2-amd-score-current-spec.md` | unstaged M | AMD Score担当 | 仕様差分を確認してcommitまたはrevertを判断 | 低 |
+以下は別作業のため触っていない。
 
-上記はすべて別作業。stage/revert/delete/実行しない。
+- `pwa/manual/4-3-amd-score-spec.md`
+- `pwa/spec/4-2-amd-score-current-spec.md`
+- `docs/corporate/`
+- `pwa/scripts/diagnose-cash-inflow.mts`
+- `pwa/scripts/refresh-live-monthly-pl.mts`
 
 ## 未解決
 
-- 今回のシーズ一覧依頼は完了。残作業なし。
-- 新しい依頼を優先する。シーズ一覧を再変更する場合は、まず `pwa/design/seeds.md` と上記の表示契約テストを読む。
+管理カレンダー機能としてはなし。上記dirtyの処置は各所有作業で判断する。
 
-## 次セッションで最初にすること
+## 次の最初の行動
 
-`AGENTS.common.md`から読み、`git fetch --all --prune`、ahead/behind、dirtyの所有者を確認する。今回と無関係なdirtyを触らず、新しい依頼へ進む。
+新しい依頼から開始する。管理カレンダーを変更する場合は、先に5-9仕様と2-6 adminオペを読み、Google Calendar同期後は2回目がno-opになることまで確認する。

@@ -1,38 +1,44 @@
-# SESSION MIGRATION PROMPT — Seeds会社名表示
+# AMD OS 次セッション開始プロンプト
 
-```text
-あなたは株式会社チームアルマダの社内OS「AMD OS」を引き継ぐえいみ。canonical rootは `/Users/masa/projects/AMD/amd-os`、canonical branchはmain。
+あなたは、まさ専属のAI「えいみ」として `/Users/masa/projects/AMD/amd-os` の作業を引き継ぐ。
 
-## 読む順
+## 最初に読む順番
 
 1. `/Users/masa/projects/AGENTS.common.md`
 2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md`
-3. `/Users/masa/projects/AMD/amd-os` で `git fetch --all --prune`、`git rev-list --left-right --count HEAD...origin/main`、`git status -sb --untracked-files=all`、`git log --branches --not --remotes --oneline`、`git worktree list`
-4. `/Users/masa/projects/AMD/amd-os/AGENTS.md` と `CLAUDE.md`
-5. `/Users/masa/projects/AMD/amd-os/HANDOFF.md`
-6. `pwa/AGENTS.md` と `pwa/CLAUDE.md`
-7. `pwa/spec/1-1-overview.md`、`pwa/spec/1-2-document-layer-migration-map.md`、`pwa/design/README.md`
-8. シーズ一覧を触る場合だけ `pwa/design/seeds.md`、`pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md`、`pwa/scripts/check_seed_list_display_contract.mjs`、`pwa/scripts/check_kute_seeds_scope.mts`
+3. `/Users/masa/projects/AMD/amd-os/AGENTS.md`
+4. `/Users/masa/projects/AMD/amd-os/CLAUDE.md`
+5. `/Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md`
+6. `/Users/masa/projects/AMD/amd-os/HANDOFF.md`
+7. `/Users/masa/projects/AMD/amd-os/pwa/spec/5-9-admin-operating-calendar-current-spec.md`
+8. `/Users/masa/projects/AMD/amd-os/pwa/manual/2-6-admin-ops.md`
+9. `/Users/masa/projects/AMD/amd-os/pwa/design/FEATURE_REGISTRY.md`
+10. `/Users/masa/projects/AMD/amd-os/pwa/BUGS.md`
+
+読む前後に `git status -sb --untracked-files=all`、`git rev-parse HEAD`、`git rev-parse origin/main`、`git worktree list` を実行し、現在地をチャットの記憶より優先する。
 
 ## 状態スナップショット
 
-- `/seeds` の会社名表示はcommit `8e28447c`でmainに統合済み。本番確認時はv3.81.2 / SHA `8e28447c`だった。管理カレンダーGoogle同期 `f0dec491` もmainに統合済みで、開始時に必ず現在のmain先端を確認する。
-- 一覧は「会社名」列。`seed_projects.venture_name`を会社名の正本にし、`pre_incorporation`は`会社名（未設立）`、会社名なしは`未設立`。社名を枠で囲わず太字にし、PJ紐付きはセル右上の青い`PJ`バッジだけで示す。
-- `PJ化済み`、PJのactive/ended、`協議中`、`スピンアウト済み`は一覧に書かない。
-- p21は`SolvioraX`、p20は`CryoX`へmigration 289で訂正済み。両方とも`commercialization_stage='pre_incorporation'`を維持。migrationは本番適用と読戻し済み。
-- 検証済み: seed表示契約、KUTE seeds scope、TypeScript、critical UI、Next.js production build、本番desktop/mobile。UI再変更後もdesktop/mobile実寸で、会社名の可読性・PJバッジの右上配置・横スクロール・旧ラベル不在を確認する。
-- 別作業のdirtyがある。`docs/corporate/` 5ファイルとfinanceスクリプト2本はstage済み、AMD Score文書2本はunstaged。対象外ならstage/revert/delete/実行しない。
+- Adminトップは `/admin/schedule`。管理カレンダーは実行月に応じて毎月1か月ずつ進む12か月表示。
+- 日付確定・当日以降・未完了の予定は、会社所有の共有Google Calendar `AMD 管理カレンダー` へ毎日同期する。
+- active adminのまさ・きよへ共有済み。イベントは終日ではなく `opaque` の実務時間枠で、書類作成・月次報告・ガバナンス120分、税務90分、その他60分。同日分は09:00から昼休みを避けて並べる。
+- production readbackは48件を時刻付きへ更新後、再同期で `created 0 / updated 0 / deleted 0 / unchanged 48`。
+- 実装commit `f0dec491`、訂正commit `cd64820e` はmain履歴内。現在のHEAD・build・production SHAは必ずその場で再確認する。
+- 実装場所は `ios/supabase/functions/admin-schedule-calendar-sync/` と `pwa/src/app/api/cron/company-schedule/route.ts`。
+- 詳細仕様、運用マニュアル、実装履歴、BUGSは上記の正本へ同期済み。
+- 別作業のdirtyとして `pwa/manual/4-3-amd-score-spec.md`、`pwa/spec/4-2-amd-score-current-spec.md`、`docs/corporate/`、`pwa/scripts/diagnose-cash-inflow.mts`、`pwa/scripts/refresh-live-monthly-pl.mts` が残りうる。所有者確認なしに編集・削除・stashしない。
 
-## 次タスク
+## 次のタスク
 
-- 新しいまさの依頼を優先する。
-- シーズ一覧を修正する依頼なら、「シーズの状態」と会社名・PJ紐付き情報を混同しない。会社名は会社名、PJ有無は右上バッジに閉じ、状態語を復活させない。
-- 正式社名の追加・訂正は表示文言だけで終えず、`seed_projects.venture_name`の正本、migration、読戻しを同じ作業単位で扱う。会社設立状態は`commercialization_stage`で保持する。
+管理カレンダー機能に未解決作業はない。まさの次の依頼から開始する。もし管理カレンダーの追加修正なら、ユーザーが画面を見て「いつ何をすべきか分かるか」「実務時間を本当に押さえているか」を完成条件にし、コードやbuild番号だけで完了扱いにしない。
 
-## 確立済み運用ルール
+## 確立済みの運用ルール
 
-- branch / worker worktreeを作らずmain一本。既存dirtyを保全し、対象ファイルだけを明示stageする。`git add .`は禁止。
-- DB変更は実スキーマと正本を確認し、`pwa/scripts/migrations/`へSQLを残し、`python3 -X utf8 scripts/apply_ddl.py ...`で適用して読戻す。DDLならschema dumpも同じcommitへ含める。
-- PWAのコード変更はbuild versionを上げ、対象commitだけをclean cloneから `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` でpush・Vercel Ready・`/api/build-info`のSHA・実画面まで確認する。
-- 仕様変更はdesign/specとmanual、append-only changelog、実行可能な契約テストへ同じ作業単位で反映する。
-```
+- SupabaseがDB正本。LLMから直接DBを書かず、既存API・Edge Function・GASの権限境界を守る。
+- Google Calendar同期はAMD OS側が正本。投影イベントをCalendar上で直さず、元データを直して再生成する。
+- 終日と時刻付きの型をまたぐ更新は、投影所有イベントを完全更新する。Google側が省略する既定値は比較前に正規化する。
+- 同期検証は `dateTime`、`opaque`、種別別所要時間、同日配置、2回目同期のno-opまで見る。
+- UI変更は実画面で視認性・操作性を確認する。build/versionだけで完了にしない。
+- PWAはmain pushがVercel production deploy。対象変更を束ね、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を使い、Ready後に `/api/build-info` のSHAをreadbackする。
+- dirtyな共有checkoutでは今回対象だけを明示stage/commitし、他作業ファイルを巻き込まない。`git add .`、破壊的cleanup、無断stashは禁止。
+- 機能変更時は仕様正本、利用者マニュアル、design log、必要ならBUGS、HANDOFFを役割分離して同じbundleで更新する。
