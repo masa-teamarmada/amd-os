@@ -10,30 +10,28 @@
 4. `/Users/masa/projects/AMD/amd-os/CLAUDE.md`
 5. `/Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md`
 6. `/Users/masa/projects/AMD/amd-os/HANDOFF.md`
-7. `/Users/masa/projects/AMD/amd-os/pwa/spec/3-6-strategy-signals-current-spec.md`
-8. `/Users/masa/projects/AMD/amd-os/pwa/scheduled-tasks/amd-os-l9-strategy-signal-extract/SKILL.md`
+7. `/Users/masa/projects/AMD/amd-os/pwa/design/institution_seed_project_model.md`
+8. `/Users/masa/projects/AMD/amd-os/pwa/design/FEATURE_REGISTRY.md`
 9. `/Users/masa/projects/AMD/amd-os/pwa/BUGS.md`
+10. `/Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-08.md`
 
 読む前後に `git fetch --all --prune`、`git status -sb --untracked-files=all`、`git rev-parse HEAD`、`git rev-parse origin/main`、`git worktree list` を実行し、現在地をチャットの記憶より優先する。
 
 ## 状態スナップショット
 
-- SE（p10）の経営ハイライトは、2026-08-19に他PJ由来のcandidate 5件を `archived` にしている。NIMS由来4件、CryoX由来1件で、削除はしていない。
-- 本番 `https://amd-os-pwa.vercel.app/project/p10/cockpit` は再読込み済みで、経営ハイライトは `0件`。正しいSE根拠を推測で候補化・復元しない。
-- 原因はUIではなく、2026年5月のp10上流データ汚染がD-6候補へ残ったこと。既知のp10/202604月報は `invalid` で現行D-6の入力対象外。
-- 現行D-6はPJごとの入力を読むが、outbox applierは候補の `project_id` と根拠内容のPJ帰属を意味的に照合しない。新規の同型混入は完全には防げていない。
-- まさ判断で、防止策の実装は現時点で保留。求められた場合だけ、根拠PJ ID必須化、outbox/applier二重照合、p10×CryoX/NIMS fixtureの回帰テストを1 bundleで実装する。
-- `main` と `origin/main` は確認時点で同期済み。今回のデータ是正は既存本番API経由で、コード変更・migration・deployはない。
-- 共有checkoutには別作業のstaged差分がある。`docs/corporate/`、`pwa/manual/4-3-amd-score-spec.md`、`pwa/spec/4-2-amd-score-current-spec.md`、`pwa/scripts/diagnose-cash-inflow.mts`、`pwa/scripts/refresh-live-monthly-pl.mts`を所有者確認なしに編集・stage変更・削除・stashしない。
+- PJ資料室のHTML→PDFは本番 `v3.83.5` / commit `2b391f4fb9279d5e1c16d804d227bd8edae171ec` まで反映済み。`/api/build-info`で読戻し済み。
+- v3.83.3は、A4幅で横組みが縦積みになる資料だけを実測してワイド紙面へ切り替える。通常文書はA4のまま。見出し・比較カード・表などページ内に収まる論理ブロックは途中で割らない。
+- v3.83.5は、PDF専用CSSでサイドナビと親gridの空列を外し、`page.pdf()`の全辺に0.35in余白を付ける。改ページ後も紙端から本文が始まらない。
+- 代表HTMLを実PDF化して画像確認済み。1ページ目はナビ跡なし、後続ページは余白ありで確認した。入力上限は8MB、PDF出力はprivate Storage経由で16MBまで配布する。
+- `pwa/manual/2-3-pj-cockpit.md`に別作業の未コミット1行入替がある。所有者未確認。編集・stage変更・削除・stashをしない。
 
 ## 次のタスク
 
-まさの新しい依頼から開始する。SE経営ハイライトの防止策を実装する依頼なら、対象を「表示の隠蔽」ではなく「誤ったPJ候補を保存前に止めること」とする。LLMの直接DB書込みを作らず、現行outboxと非LLM applierの境界を守る。候補0件は正常で、空outboxを作らない。
+まさの新しい依頼から開始する。PDF品質の追加指摘なら、ユーザーが示した元HTMLと生成PDFを同じ倍率で比較し、1ページ目だけでなく改ページ直後も必ず確認する。横組みの崩れなら紙面幅選択、ナビ跡なら親レイアウト、紙端開始ならPDF共通余白を最初に調べる。不要な固定改ページは追加しない。
 
 ## 確立済みの運用ルール
 
-- SupabaseがDB正本。D-6はCodex automation → outbox → 非LLM applierの経路を守る。
-- `project_strategy_signals` のcandidate/confirmedはPJ cockpitに表示されるため、`project_id` と根拠の帰属を別物として扱わない。根拠不足なら候補を作らない。
-- UI変更は本番の実画面で確認する。build/versionだけで完了扱いにしない。
-- PWAのコード変更はmain pushがVercel production deploy。対象変更を束ね、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` でReadyと `/api/build-info` を確認する。
+- HTML変換ではscript・外部通信を止め、資料と同じprivate Storage・再認可・60秒署名URLの境界を守る。任意外部URLの取得・変換はしない。
+- UI変更はbuild/versionだけで完了扱いにせず、実PDFを画像化してレイアウトを確認する。
+- PWA本番反映はmain push。対象変更を束ね、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`でReadyと`/api/build-info`を確認する。
 - dirtyな共有checkoutでは今回対象だけを明示stage/commitし、他作業ファイルを巻き込まない。`git add .`、破壊的cleanup、無断stashは禁止。

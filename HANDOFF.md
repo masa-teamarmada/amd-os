@@ -1,42 +1,31 @@
 # HANDOFF
 
 最終更新: 2026-08-19 JST
-対象: SE（p10）経営ハイライトの他PJ混入是正と原因診断
+対象: PJ資料室のHTML→PDF紙面品質修正
 
 ## 今回の到達点
 
-- SE cockpit の `project_strategy_signals` を監査し、NIMS由来4件・CryoX由来1件、計5件の誤登録candidateを `archived` へ移した。削除はしていない。
-- 本番 `https://amd-os-pwa.vercel.app/project/p10/cockpit` をログイン状態で再読込みし、経営ハイライトが `0件`・`まだシグナルなし。` と表示されることを確認した。
-- 表示クエリの横断取得ではなく、2026年5月の上流データ汚染を経営ハイライト候補として保存した過去データが原因だった。
-- 既知のp10/202604月報は `invalid` で、現行D-6は入力から除外する。一方、outbox applierは候補の `project_id` と根拠内容の意味的なPJ帰属を照合しないため、同型の新規誤登録を完全には防げていない。
+- HTMLをPDF化すると横組みが縦積みになる問題を、実測レイアウトで通常A4とワイド紙面に選び分ける方式で修正した（v3.83.3）。
+- PDF用にサイドナビだけでなく親gridの空列も除外し、全ページへ共通余白を付けた（v3.83.5）。改ページが必要な資料でも後続ページが紙端から始まらない。
+- 本番は `2b391f4f` / `v3.83.5`。`/api/build-info`の読戻しと代表HTMLの実PDF画像確認を済ませた。
 
 ## 正本と教訓
 
-- D-6仕様: `pwa/spec/3-6-strategy-signals-current-spec.md`
-- 現行抽出契約: `pwa/scheduled-tasks/amd-os-l9-strategy-signal-extract/SKILL.md`
-- 事故記録: `pwa/BUGS.md` の `SE経営ハイライトに他PJ内容が混入` 節
+- 詳細仕様: `pwa/design/institution_seed_project_model.md`、`pwa/design/FEATURE_REGISTRY.md`
+- OSマニュアル: `pwa/manual/2-3-pj-cockpit.md`、`pwa/manual/9-3-appendix-changelog.md`
+- 事故記録: `pwa/BUGS.md` の `[workspace-documents/PDF]` 節
+- 実装履歴: `pwa/design_log/sessions_2026-08.md`
 
 ## Repo / production状態
 
-- 本番データ是正そのものは既存API経由で行い、コード・migrationは変更していない。
-- この引き継ぎ・事故記録は `c710ce72` で `main` へpush済み。PWAの自動production deployはReadyで、`/api/build-info` は直前の同内容commitを返した。次の文書commitの反映はcloseout時に確認する。
-- PWA本番の確認時バージョン: `v3.82.4`。
-
-## 今回と無関係なdirty
-
-別作業としてindexに残っているため、触らず保全した。
-
-- `docs/corporate/` の社内資料と生成スクリプト
-- `pwa/manual/4-3-amd-score-spec.md`
-- `pwa/spec/4-2-amd-score-current-spec.md`
-- `pwa/scripts/diagnose-cash-inflow.mts`
-- `pwa/scripts/refresh-live-monthly-pl.mts`
+- PWAの本番反映は `2b391f4f` / `v3.83.5` で完了している。本引き継ぎと事故記録は `a7964074` にcommit済みで、push前の状態。
+- `pwa/manual/2-3-pj-cockpit.md`の未コミット差分は今回と別作業の段落順入替で、所有者未確認のため触らない。
 
 ## 未解決
 
-- まさ判断: 今は混入防止の実装を保留する。
-- 実装する場合は、候補の根拠PJ IDを必須にし、outbox作成時・applier時の両方で対象PJとの一致を検証する。p10にCryoX/NIMSが入るfixtureを回帰テストにする。
+- コード上の未解決はない。まさが次にPDF出力を試した時、対象HTMLの実画面と生成PDFを見比べる受入確認だけが残る。
+- `pwa/manual/2-3-pj-cockpit.md`の1行入替は所有者がcommitまたは戻すまで保全する。
 
 ## 次の最初の行動
 
-新しい依頼から開始する。SE経営ハイライトの再生成や防止策の実装を求められたときだけ、上記D-6仕様・SKILL・BUGSを先に読み、既存候補を推測で復元しない。
+新しい依頼から開始する。PDF品質の追加指摘なら、まず上記BUGS・仕様・実装履歴を読み、代表HTMLを実PDF化して1ページ目と後続ページの両方を確認する。既存の未コミットmanual差分を巻き込まず、今回のhandoff文書だけを明示stageする。

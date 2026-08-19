@@ -289,3 +289,15 @@ automation作成後の最初の自然な平日09:00実行は未観測。2026-08-
 - v3.81.3の終日・transparent投影では月表示上部へ出るだけで、実務時間を確保できなかった。
 - Google Calendar投影をJSTの時刻付き・opaqueへ変更。書類作成・月次報告・ガバナンスは120分、税務は90分、その他は60分。同日分は09:00から並べ、12:00〜13:00を避ける。
 - 既存の48件は同じ`occurrence_key`のまま更新し、別予定として複製しない。
+## 2026-08-19 — 資料室HTMLのPDF紙面保持を修正（v3.83.3 / v3.83.5）
+
+### 実装
+
+- HTMLをPDF化する前にデスクトップ幅とA4幅の実レイアウトを比較し、A4幅で横組みのgrid/flexが縦積みになる資料だけは元のデスクトップ幅を保つ紙面へ切り替えた。通常文書はA4のままとし、見出し・比較カード・表などページ内に収まる論理ブロックだけを分割回避した。
+- PDF専用CSSでサイドナビとnavigation roleを除外するだけでなく、親`.layout`を1列へ畳んだ。`page.pdf()`の全辺へ0.35inの余白を与え、改ページ後も本文が紙端から始まらないようにした。
+- `check_workspace_documents_contract.mjs`へresponsive判定、ナビ除外、親grid解除、全ページ余白の契約を追加した。実PDFを画像化して、横組み資料の1ページ目と後続ページを確認した。
+
+### 検証と反映
+
+- `node --experimental-strip-types scripts/check_workspace_documents_core.mts`、`node scripts/check_workspace_documents_contract.mjs`、`npx tsc --noEmit -p tsconfig.json`、`npm run build`を完了した。
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`でmainへ反映し、productionの`/api/build-info`が`v3.83.5` / `2b391f4fb9279d5e1c16d804d227bd8edae171ec`を返すことを確認した。
