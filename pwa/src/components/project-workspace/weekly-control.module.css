@@ -43,7 +43,7 @@
 .readinessStamp span, .readinessStamp small { display: block; color: var(--muted); font-size: 10px; }
 .readinessStamp strong { display: block; margin: 4px 0; font-size: 18px; }
 .sectionNav { display: flex; align-items: center; gap: 26px; overflow-x: auto; scrollbar-width: none; }
-.sectionNav button { flex: 0 0 auto; padding: 8px 0 7px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); font-size: 11px; font-weight: 750; cursor: pointer; }
+.sectionNav button { flex: 0 0 auto; min-height: 44px; padding: 8px 0 7px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); font-size: 11px; font-weight: 750; cursor: pointer; }
 .sectionNav button:hover { color: var(--green); border-color: #a7b9ad; }
 .sectionNav button[aria-selected="true"] { color: var(--green); border-color: var(--green); }
 
@@ -562,7 +562,7 @@ button.issueRowTitleButton:hover, button.issueRowTitleButton:focus-visible { bor
   .headerActions { width: 100%; }
   .headerActions a, .headerActions button { flex: 1; justify-content: center; }
   .titleRow { padding: 14px 0 10px; }
-  .titleRow h1 { font-size: 26px; line-height: 1.1; }
+  .titleRow h1 { font-size: 24px; line-height: 1.1; }
   .sectionNav { gap: 20px; }
   .workloadBand { grid-template-columns: repeat(2, 1fr); }
   .workloadBand > button:nth-child(odd) { border-right: 1px solid var(--line); }
