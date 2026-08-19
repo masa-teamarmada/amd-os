@@ -20,6 +20,11 @@ import {
   normalizeHttpUrl,
   workspaceDocumentStoragePath,
 } from "../src/lib/workspace-documents-core.ts";
+import {
+  choosePdfContentWidthPx,
+  detectResponsiveCollapse,
+  pdfHeightPxForWidth,
+} from "../src/lib/workspace-document-html-pdf.ts";
 
 assert.equal(normalizeDocumentName("  月次報告.pdf "), "月次報告.pdf");
 assert.equal(normalizeDocumentName("../secret"), null);
@@ -96,6 +101,19 @@ assert.equal(
 // 出力上限はFunctionのbody上限(4.5MB)より十分大きく、Storage直配信前提であることを確認する。
 assert.equal(WORKSPACE_DOCUMENT_HTML_PDF_MAX_OUTPUT_BYTES, 16 * 1024 * 1024);
 assert.equal(WORKSPACE_DOCUMENT_PDF_DOWNLOAD_URL_TTL_SECONDS, 60);
+assert.equal(detectResponsiveCollapse({
+  desktopScrollHeightPx: 1000,
+  a4ScrollHeightPx: 1450,
+  desktopScrollWidthPx: 1280,
+}), true);
+assert.equal(detectResponsiveCollapse({
+  desktopScrollHeightPx: 1000,
+  a4ScrollHeightPx: 1150,
+  desktopScrollWidthPx: 1280,
+}), false);
+assert.equal(choosePdfContentWidthPx({ collapsed: false, desktopScrollWidthPx: 1280 }), 794);
+assert.equal(choosePdfContentWidthPx({ collapsed: true, desktopScrollWidthPx: 1280 }), 1280);
+assert.equal(pdfHeightPxForWidth(1280), 1810);
 assert.equal(
   workspaceDocumentPdfCacheStoragePath("project", "p21", documentId),
   `project/p21/${documentId}.pdf`,

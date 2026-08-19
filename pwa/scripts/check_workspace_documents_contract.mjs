@@ -79,7 +79,14 @@ assert.doesNotMatch(source.pdf, /Content-Type": "application\/pdf"/, "PDF本体�
 assert.match(source.htmlPdf, /page\.setJavaScriptEnabled\(false\)/, "HTML PDF化ではscriptを実行しない");
 assert.match(source.htmlPdf, /page\.setRequestInterception\(true\)/, "HTML PDF化では外部通信を遮断する");
 assert.match(source.htmlPdf, /request\.url\(\)\.startsWith\("data:"\)/, "HTML PDF化は埋込dataだけを許可する");
-assert.match(source.htmlPdf, /format: "A4"/, "HTML PDF化はA4で組版する");
+assert.match(source.htmlPdf, /detectResponsiveCollapse/, "HTML PDF化は狭い紙面でのレスポンシブ崩れを実測する");
+assert.match(source.htmlPdf, /choosePdfContentWidthPx/, "横組みが崩れるHTMLだけは元のデスクトップ幅をPDF紙面へ使う");
+assert.match(source.htmlPdf, /page\.setViewport\(\{ width: DESKTOP_PROBE_WIDTH_PX/, "PDF化前にデスクトップ幅で資料を測る");
+assert.match(source.htmlPdf, /page\.setViewport\(\{ width: A4_WIDTH_PX/, "PDF化前にA4幅でも資料を測る");
+assert.match(source.htmlPdf, /breakInside = "avoid"/, "比較カード・表など小さな論理ブロックをページ途中で割らない");
+assert.match(source.htmlPdf, /h1, h2, h3, h4, h5, h6/, "見出しだけをページ末尾へ残さない");
+assert.match(source.htmlPdf, /width: pxToInches\(pdfWidthPx\)/, "PDF紙面幅は実測した資料幅から決める");
+assert.match(source.htmlPdf, /preferCSSPageSize: false/, "HTML内の固定@page指定で実測紙面幅を上書きしない");
 assert.match(source.htmlPdf, /process\.cwd\(\), "node_modules", "@sparticuz", "chromium", "bin"/, "HTML PDF化はFunctionのproject rootからChromium binを確定する");
 assert.match(source.htmlPdf, /chromium\.executablePath\(CHROMIUM_BIN_PATH\)/, "HTML PDF化はTurbopack上で__filenameとrequire.resolveに依存せずChromium binを渡す");
 assert.match(source.htmlPdf, /process\.cwd\(\), "node_modules", "@fontsource-variable", "noto-sans-jp", "wght\.css"/, "HTML PDF化はFunctionのproject rootからNotoフォントCSSを確定する");
