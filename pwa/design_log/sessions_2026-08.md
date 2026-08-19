@@ -309,3 +309,10 @@ automation作成後の最初の自然な平日09:00実行は未観測。2026-08-
 - p21の外部利用者7件を招待登録し、PJリストの関係先メールアドレスへ重複なく統合した。メール送信は行わず、初回認証後にactive化する。
 - 旧Project Shareのアプリ・Blob Store・専用ドメインを退役した。旧Blobの移行対象が無いことと、専用ドメインが404になることを確認した。
 - `test:workspace-access-scope`、`test:workspace-access-session`、`test:workspace-capabilities`、`test:workspace-documents-core`、`test:workspace-documents-contract`、`test:project-workspace-route`、`test:workspace-next-path`、`test:workspace-email-start-contract`、`test:workspace-access-admin`、`test:critical-ui`を通した。Finder / Explorerから資料室内へ落としたfileは、空folderの空状態以外でブラウザ既定動作を止め、既存のupload処理へだけ渡す。
+
+## 2026-08-20 — 資料室の一覧全体へFinderファイルを追加（v3.83.7）
+
+- v3.83.6は資料室内でのbrowser open/downloadを止めたが、upload handlerが空状態だけに付いていたため、資料が並ぶfolderへFinder fileを落としても何も起きなかった。
+- `WorkspaceDocumentRoom`の現在folder一覧全体（空状態を含む）を、追加権限あり・検索中でない場合の外部file drop targetにした。外部fileだけを既存のupload・同名確認・権限処理へ渡し、資料行からパンくずへ移動する内部dragは`Files`判定に通さない。
+- 常設の細いdrop帯は復活させず、外部fileを重ねた瞬間だけ一覧を薄青と破線で示す。検索結果はdrop targetにしない。
+- `test:workspace-documents-contract`、`test:workspace-documents-core`、対象ESLint、TypeScript、`test:critical-ui`を通した。ローカルbuildは型検査完了後にSupabase環境変数不足でページ事前生成が停止したが、`deploy.sh`経由のproduction buildはReadyとなり、`/api/build-info`でv3.83.7 / `70024d1a0650e55a837aafcb4d77047bffea629e`を確認した。commit `70024d1a`。

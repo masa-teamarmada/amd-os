@@ -5,6 +5,16 @@
 
 ---
 
+### [workspace-documents/drop] 資料があるfolderへのFinder dropが追加されなかった (2026-08-20)
+
+- **状態**: クローズ (2026-08-20 — build `v3.83.7` / commit `70024d1a`)
+- **症状**: v3.83.6でFinder / Explorer dropによるブラウザ既定のopen/downloadは止まったが、資料が並んでいる一覧へfileを落としても追加・確認表示とも起きなかった。
+- **原因**: 外部file dropの抑止は資料室全体に付けた一方、既存`uploadFiles`へ渡すbubble phase handlerは空folderの空状態だけに付けていた。結果として一覧行上のdropは既定動作を止めるだけで、upload処理へ届かなかった。
+- **対応内容**: 追加権限があり検索中でない現在folderの資料一覧全体（空状態を含む）をdrop targetへ移した。`Files`を持つ外部dragだけを既存upload・同名確認・権限処理へ渡し、内部資料のパンくず移動dragは従来どおり分離した。
+- **再発防止策**: 外部dropの既定動作抑止と、実際にuploadを起動するdrop targetを別々に確認する。資料室のdrag/drop変更では、空folder、資料ありfolder、検索結果、内部資料移動を`check_workspace_documents_contract.mjs`で同時に固定する。
+
+---
+
 ### [workspace-documents/PDF] HTML資料のPDFでナビ跡の空列と改ページ直後の余白欠落が出た (2026-08-19)
 
 - **状態**: クローズ (2026-08-19 — build `v3.83.5` / commit `2b391f4f`)

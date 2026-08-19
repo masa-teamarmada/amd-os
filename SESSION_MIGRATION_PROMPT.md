@@ -10,11 +10,11 @@
 4. `/Users/masa/projects/AMD/amd-os/CLAUDE.md`
 5. `/Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md`
 6. `/Users/masa/projects/AMD/amd-os/HANDOFF.md`
-7. `/Users/masa/projects/AMD/amd-os/pwa/design/institution_seed_project_model.md`
-8. `/Users/masa/projects/AMD/amd-os/pwa/design/FEATURE_REGISTRY.md`
-9. `/Users/masa/projects/AMD/amd-os/pwa/manual/2-3-pj-cockpit.md`
-10. `/Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-08.md`
-11. `/Users/masa/projects/knowledge/sx.md`
+7. `/Users/masa/projects/AMD/amd-os/pwa/manual/2-3-pj-cockpit.md`
+8. `/Users/masa/projects/AMD/amd-os/pwa/spec/2-1-pwa-runtime-routes.md`
+9. `/Users/masa/projects/AMD/amd-os/pwa/design/FEATURE_REGISTRY.md`
+10. `/Users/masa/projects/AMD/amd-os/pwa/BUGS.md`
+11. `/Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-08.md`
 
 読む前後に `git fetch --all --prune`、`git status -sb --untracked-files=all`、`git rev-parse HEAD`、`git rev-parse origin/main`、`git worktree list` を実行し、現在地をこの文書より優先する。
 
@@ -24,11 +24,12 @@
 - 外部 `contributor` は資料の閲覧、file / folder / link追加、HTML本文編集が可能。整理と共有範囲変更は管理権限に残す。
 - p21の外部利用者7件は、`workspace_user_accounts`、`institution_workspace_memberships`、`project_access_memberships` の3層を招待登録済み。PJリストの関係先メールアドレスも統合済み。メールは未送信で、初回認証後にactive化する。
 - 旧SX Project Shareのアプリ・Blob Store・専用ドメインは退役済み。専用ドメインは404、移行対象Blobなしを確認済み。
-- 資料室のFinder / Explorer dropは、空folderの空状態以外でブラウザ既定動作を起こさず、空状態の既存upload処理だけが追加を行う。
+- 資料室は、追加権限があり検索中でない場合、現在folderの資料一覧全体（空状態を含む）をFinder / Explorerのfile drop先にする。外部fileだけを既存upload・同名確認・権限処理へ渡し、資料行をパンくずへ移動する内部dragと混同しない。資料室内でのブラウザ既定のopen/downloadも止める。
+- 修正commitは`70024d1a`（build v3.83.7）。現在のmainは後続2件を含む`82d22b6d`（build v3.83.8）で、資料室修正を含む。productionの版・SHAは開始時に`/api/build-info`で再確認する。
 
 ## 最初にやること
 
-新規依頼を受けてから対象を決める。外部アクセスの不具合なら、まずDB読戻しで招待3層とproject `report_emails`を確認し、次に外部sessionで `/project/p21/workspace` の表示と資料追加を確認する。メール送信、他PJへの付与、内部情報の共有は、まさの明示指示なしに行わない。
+新規依頼を受けてから対象を決める。資料室の追加不具合なら、まず`WorkspaceDocumentRoom.tsx`の外部file判別、一覧drop target、検索中の除外、パンくず移動dragを確認し、`npm run test:workspace-documents-contract`と`npm run test:workspace-documents-core`を実行する。その後、ログイン済み本番で資料があるfolderの一覧へFinder fileを落として既存upload・同名確認まで到達することを確認する。メール送信、他PJへの付与、内部情報の共有は、まさの明示指示なしに行わない。
 
 ## 守ること
 
