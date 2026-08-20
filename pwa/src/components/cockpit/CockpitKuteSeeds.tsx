@@ -73,7 +73,7 @@ function SeedDomainIcon({ domain }: { domain: SeedDomainLane | null }) {
       aria-label={label}
       title={label}
       data-seed-domain={domain ?? "other"}
-      className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border ${visual.className}`}
+      className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border align-middle ${visual.className}`}
     >
       <Icon className="h-3 w-3" aria-hidden="true" />
     </span>
@@ -528,11 +528,11 @@ function SeedRow({
       tabIndex={0}
     >
       <td className={`sticky left-0 z-10 w-[160px] min-w-[160px] max-w-[160px] border-b border-r px-3 py-2 align-top group-hover:bg-sky-50/60 group-focus-visible:bg-sky-50/60 sm:w-[220px] sm:min-w-[220px] sm:max-w-[220px] ${realized ? "border-indigo-200 bg-indigo-50" : considering ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}>
-        <div className="flex items-start gap-1">
+        <div className="whitespace-normal break-words font-semibold leading-snug text-slate-950">
           <SeedDomainIcon domain={seed.domain_lane} />
-          <div className="min-w-0 whitespace-normal break-words font-semibold leading-snug text-slate-950">
+          <span className="ml-1">
             {seed.title}
-          </div>
+          </span>
         </div>
         {seed.discovery_status === "discovered" && (
           <span className="mt-1.5 inline-flex whitespace-normal rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-amber-800">
