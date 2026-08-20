@@ -18,6 +18,14 @@ assert.match(cockpit, /: "未設立"/);
 assert.doesNotMatch(cockpit, />PJ状態<\/th>/);
 assert.match(cockpit, /absolute right-2 top-2[^`]*rounded-full[^`]*bg-indigo-600/);
 assert.match(cockpit, /text-\[13px\] font-bold/);
+// シーズ名の左には、faviconではなくdomain_laneの意味を持つLucideアイコンを表示する。
+assert.match(cockpit, /const SEED_DOMAIN_VISUAL: Record<SeedDomainLane/);
+for (const domain of ["gx_energy", "gx_circular", "life", "materials", "robo", "ict", "other"]) {
+  assert.match(cockpit, new RegExp(`${domain}: \\{ Icon:`));
+}
+assert.match(cockpit, /<SeedDomainIcon domain=\{seed\.domain_lane\} \/>/);
+assert.match(cockpit, /aria-label=\{label\}/);
+assert.match(cockpit, /data-seed-domain=\{domain \?\? "other"\}/);
 assert.doesNotMatch(cockpit, /\{realized \? "PJ化済み"/);
 assert.doesNotMatch(cockpit, /\{projectLink\.project_name\} · \{projectLink\.project_status\}/);
 assert.match(seedDetail, /href=\{`\/project\/\$\{encodeURIComponent\(project\.project_id\)\}\/cockpit`\}/);

@@ -1,13 +1,30 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, FileText, Loader2, Plus, RotateCcw } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Atom,
+  Bot,
+  Cpu,
+  Dna,
+  FileText,
+  FlaskConical,
+  Loader2,
+  Plus,
+  Recycle,
+  RotateCcw,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 import { KuteSeedDetailModal } from "@/components/seeds/KuteSeedDetailModal";
 import { SeedDetailModal } from "@/components/seeds/SeedDetailModal";
 import {
   fetchResearchInstitutionSeedsForProject,
   fetchInstitutionIdForProject,
   fetchAllResearchInstitutionSeeds,
+  SEED_DOMAIN_LANE_LABEL,
   SEED_COMMERCIALIZATION_TYPE_LABEL,
   SEED_KUTE_MARKET_CONFIDENCE_LABEL,
   SEED_EVIDENCE_LEVEL_LABEL,
@@ -22,7 +39,7 @@ import {
   seedListPriority,
 } from "@/lib/seeds-data";
 import { projectStatusLifecycle } from "@/lib/institution-projects";
-import type { SeedPublicView, SeedScreeningBandSummary } from "@/types/seeds";
+import type { SeedDomainLane, SeedPublicView, SeedScreeningBandSummary } from "@/types/seeds";
 
 type SortKey = "spsBand";
 type StatusFilter = "all" | "assessed" | "unassessed";
@@ -30,6 +47,38 @@ type StatusFilter = "all" | "assessed" | "unassessed";
 const SORT_LABEL: Record<SortKey, string> = {
   spsBand: "SPS(中央値)",
 };
+
+const SEED_DOMAIN_VISUAL: Record<SeedDomainLane, {
+  Icon: LucideIcon;
+  className: string;
+}> = {
+  gx_energy: { Icon: Zap, className: "border-amber-200 bg-amber-50 text-amber-700" },
+  gx_circular: { Icon: Recycle, className: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+  life: { Icon: Dna, className: "border-rose-200 bg-rose-50 text-rose-700" },
+  materials: { Icon: Atom, className: "border-violet-200 bg-violet-50 text-violet-700" },
+  robo: { Icon: Bot, className: "border-cyan-200 bg-cyan-50 text-cyan-700" },
+  ict: { Icon: Cpu, className: "border-sky-200 bg-sky-50 text-sky-700" },
+  other: { Icon: FlaskConical, className: "border-slate-200 bg-slate-50 text-slate-600" },
+};
+
+function SeedDomainIcon({ domain }: { domain: SeedDomainLane | null }) {
+  const domainKey = domain ?? "other";
+  const visual = SEED_DOMAIN_VISUAL[domainKey];
+  const Icon = visual.Icon;
+  const label = `技術領域: ${domain ? SEED_DOMAIN_LANE_LABEL[domainKey] : "未分類"}`;
+
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      title={label}
+      data-seed-domain={domain ?? "other"}
+      className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border ${visual.className}`}
+    >
+      <Icon className="h-3 w-3" aria-hidden="true" />
+    </span>
+  );
+}
 
 /**
  * SPS列の列ソート値 = 帯の中央値 (下限+上限)/2。仮置き実装 (まさ裁定 2026-08-15:
@@ -479,8 +528,11 @@ function SeedRow({
       tabIndex={0}
     >
       <td className={`sticky left-0 z-10 w-[160px] min-w-[160px] max-w-[160px] border-b border-r px-3 py-2 align-top group-hover:bg-sky-50/60 group-focus-visible:bg-sky-50/60 sm:w-[220px] sm:min-w-[220px] sm:max-w-[220px] ${realized ? "border-indigo-200 bg-indigo-50" : considering ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}>
-        <div className="whitespace-normal break-words font-semibold leading-snug text-slate-950">
-          {seed.title}
+        <div className="flex items-start gap-1">
+          <SeedDomainIcon domain={seed.domain_lane} />
+          <div className="min-w-0 whitespace-normal break-words font-semibold leading-snug text-slate-950">
+            {seed.title}
+          </div>
         </div>
         {seed.discovery_status === "discovered" && (
           <span className="mt-1.5 inline-flex whitespace-normal rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-amber-800">
