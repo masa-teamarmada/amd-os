@@ -320,8 +320,8 @@ export function SeedDetailModal({
                     {data.project_links.map((project) => (
                       <Link
                         key={project.project_id}
-                        href={`/project/${encodeURIComponent(project.project_id)}/workspace`}
-                        title="このPJのワークスペース (コックピット) を開く"
+                        href={`/project/${encodeURIComponent(project.project_id)}/cockpit`}
+                        title="このPJのコックピットを開く"
                         className="inline-flex items-center gap-0.5 text-[10px] text-violet-600 underline-offset-2 hover:underline dark:text-violet-300"
                       >
                         AMD PJ: {project.project_name} ({project.project_status})

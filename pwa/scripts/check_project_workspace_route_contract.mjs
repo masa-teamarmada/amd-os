@@ -28,13 +28,15 @@ assert.doesNotMatch(workspacePage, /if \(access\.principal === "workspace_accoun
 assert.match(legacyWeeklyPage, /redirect\(`\/project\/\$\{encodeURIComponent\(projectId\)\}\/workspace`\)/);
 assert.doesNotMatch(legacyWeeklyPage, /SxWeeklyControlDashboard|getProjectWorkspaceBundle|getCurrentMemberAccess/);
 
-assert.match(sxWorkspaceDashboard, /const supportsDrive = bundle\.project\.projectId === "p21"/);
-assert.match(sxWorkspaceDashboard, /key: "drive"; label: string/);
-assert.match(sxWorkspaceDashboard, /label: "ドライブ"/);
+assert.doesNotMatch(sxWorkspaceDashboard, /supportsDrive/);
+assert.match(sxWorkspaceDashboard, /PROJECT_WORKSPACE_TABS/);
+assert.match(sxWorkspaceDashboard, /\{ key: "drive", label: "ドライブ" \}/);
 assert.match(
   sxWorkspaceDashboard,
   /<WorkspaceDocumentRoom[\s\S]*scopeKind="project"[\s\S]*scopeId=\{bundle\.project\.projectId\}[\s\S]*presentation="modal"/,
-  "SX drive must reuse the project document room instead of creating a second document surface",
+  "all project drives must reuse the project document room instead of creating a second document surface",
 );
+assert.match(sxWorkspaceDashboard, /surface="workspace"/);
+assert.match(sxWorkspaceDashboard, /aria-label="PJドライブ"/);
 
 console.log("project workspace route contract: ok");

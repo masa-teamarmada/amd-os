@@ -570,3 +570,9 @@ portfolio/adminは共有台帳を更新できる。PJ限定メンバーは自PJ�
 ### RSCデータ最小化
 
 この画面は `getProjectWorkspaceBundle` の全量をブラウザへ渡さない。サーバー側で画面専用の最小データ（`SxNavigationViewModelV2`）だけを組み立てる。メンバーの連絡先、工数の内訳、契約・報酬、source URLなど、この画面で表示しない情報はネットワーク上にも流さない。
+## 2026-08-20 追補: Seed → Cockpit → Workspace の入口と共通ワークスペース
+
+- シーズ詳細モーダルの接続PJリンクは `/project/{project_id}/cockpit`（PJコックピット）だけを開く。モーダルからワークスペースへ直接リンクしない。
+- PJワークスペースへは、コックピットヘッダーの「共有ワークスペースへ」から入る。
+- `/project/{project_id}/workspace` はSX（p21）で最初に確立した `SxWeeklyControlDashboard` の画面仕様を全PJで共有する。タブは `週次差分 / ガント / 関係先 / 論点・仮説 / ドライブ`、ドライブは `WorkspaceDocumentRoom` を `scopeKind='project'` / `scopeId={project_id}` / `surface='workspace'` で再利用する。
+- 共通化するのはタブ、配置、操作、資料室の仕様だけ。PJ名、管理柱・表示レーン、PJ固有の実データ、外部workspace accountの権限絞り込みは各PJの値を保持する。p30などの既存の柱を3レーンへ潰すDB変更は行わない。

@@ -123,12 +123,12 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 ### `SeedDetailModal` (AMD社内用の完全版詳細)
 
 - **詳細モード**: `/seeds` と研究機関PJコックピットの行クリックでは同じ内部向け詳細を開き、4 セクション (シーズ概要 / 機関・研究者 / AMD 評価 / 関連・ソース) + 一次選別スクリーニング帯 + サブセクション 3 つ (補助金 / 接触履歴 / ニュース) を表示する。研究機関側は一覧だけ対象機関へ絞り、詳細は省略しない
-- **PJ化の有無で中身を変えない** (まさ確定 2026-08-20): `seed_projects` の接続有無でモーダルの構成・レイアウト・表示セクションを切り替えない。PJ化済みでも未PJ化と同じ読み取りビューとサブセクションを出す。PJへの導線はヘッダーのPJバッジ (`/project/{project_id}/workspace` へのリンク) だけに置く。まさ「PJ化しても元通りのコンテンツにしておいた方がいい。中途半端なコックピットみたいになっちゃってる。コックピットはPJ化される、または事業化検討開始で生成されてるようになってるし、モーダルは変える必要がない」
+- **PJ化の有無で中身を変えない** (まさ確定 2026-08-20): `seed_projects` の接続有無でモーダルの構成・レイアウト・表示セクションを切り替えない。PJ化済みでも未PJ化と同じ読み取りビューとサブセクションを出す。接続PJの入口はヘッダーのPJバッジから `/project/{project_id}/cockpit` だけを開き、workspaceへの直リンクは置かない。まさ「PJ化しても元通りのコンテンツにしておいた方がいい。中途半端なコックピットみたいになっちゃってる。コックピットはPJ化される、または事業化検討開始で生成されてるようになってるし、モーダルは変える必要がない」
 - **一次選別スクリーニング帯セクション** (2026-08-20 追加、`seed_screening_bands` に `measure_version='sps-ind-v1'` の帯がある場合のみ表示): 段階仮説 (stage_lower〜stage_upper + stage_tag 和訳) / q帯 (q_lower_pct〜q_upper_pct % + 主要因) / 「P^ind帯 (判断層)」(p_class) / P帯 (億円) / SPS (億円、中央値 (下限〜上限)。中央値は仮置きの算術中点) + 根拠Lvバッジ / 評価者・評価日時 / 版 (`measure_version` + `ruleset_version` + 凍結表示) / 固定注記「この帯は接触と調査の優先順位づけの下書き。上限は楽観シナリオの包絡であり評価額ではない。投資判断・対外表示には使わない」。判断根拠は共通UI [`SpsBandRationale`](../src/components/sps/SpsBandRationale.tsx) が描画し、`notes` を「総合判断」段落で常時表示、`q_evidence` 11要因を折りたたみで出す。詳細DTOは `/api/seeds/screening-bands?seedId=` から取得 (member認証、`seed_screening_bands` はRLSポリシー無しのservice_role専用テーブルのため直読みしない)。取得に失敗してもシーズ詳細本体の表示は落とさない
 - **編集モード**: 編集ボタンで全フィールド inline form に切替。保存 / キャンセル
 - **サブセクション CRUD**: 補助金・接触履歴・ニュースは「+ 追加」ボタン → 軽量 form。接触履歴はメール、電話、Slack、Teams、MTG/面談、イベント、紹介、訪問、その他を記録できる。削除は ✕ ボタン
 - **事業化検討の開始** (2026-08-19): 接触済み・協議中への状態変更だけではPJを自動作成しない。詳細画面の「事業化検討を開始」から、member認証済みの `/api/seeds/[seedId]/commercialization` を呼び、DB RPC `activate_seed_commercialization` がseed行をロックしたうえで `projects.status='draft'`、`seed_projects`、実行者の `project_members` を同一transactionで作成する。機関所属や外部共有権限は自動付与しない。既に複数PJ接続がある場合はstatus優先で表示PJを選べる。
-- **事業化ワークベンチ (2026-08-19 導入 → 2026-08-20 廃止)**: `seed_projects` 接続後にモーダルを全画面型へ切り替え、固定ヘッダー・判断レール (根拠→仮説→次の検証→判断→行動)・判断 / 推進 / 記録の3領域を出していた `CommercializationWorkbench` は削除した。PJ化したシーズだけモーダルの中身が別物になり、補助金・接触履歴・ニュースまで消えていたため。事業化検討開始とPJ化で本物のPJコックピットが生成される以上、モーダル内に簡易コックピットを二重実装しない。MTG・資料室・判断記録はPJワークスペース側で見る。`check_pwa_critical_ui.cjs` に `CommercializationWorkbench` の `expectNotIncludes` を置いて再導入を止めている。
+- **事業化ワークベンチ (2026-08-19 導入 → 2026-08-20 廃止)**: `seed_projects` 接続後にモーダルを全画面型へ切り替え、固定ヘッダー・判断レール (根拠→仮説→次の検証→判断→行動)・判断 / 推進 / 記録の3領域を出していた `CommercializationWorkbench` は削除した。PJ化したシーズだけモーダルの中身が別物になり、補助金・接触履歴・ニュースまで消えていたため。事業化検討開始とPJ化で本物のPJコックピットが生成される以上、モーダル内に簡易コックピットを二重実装しない。MTGカード・AMD内部資料・内部判断記録はPJコックピット、週次差分・ガント・関係先・論点仮説・共有資料はそこから開くPJワークスペースで扱う。`check_pwa_critical_ui.cjs` に `CommercializationWorkbench` の `expectNotIncludes` を置いて再導入を止めている。
 
 ## 実装メモ
 
@@ -203,3 +203,8 @@ SPS はシーズ有望度スコア。KUTE / p25 に限らず **全国のすべ�
 - **Venture Map との連動**: 旧 seeds は Venture Map のグラフ予兆 / レーン別 seedScore に使われていた。新 seeds は意味が違う (AMD 視点の事業化候補) ので Venture Map からは切り離した。将来「AMD が手がけそうなレーン」を Venture Map に再投入したくなったら、新 seeds から `domain_lane` × `amd_rating>=4` を集計して再接続できる
 - **`milestone_responsibility` のような複数担当**: 現状 1 シーズ = 1 AMD owner。Phase 2 で `seed_owners` 表を切るか検討
 - **PJ化済み/検討中シーズ**: `seed_projects` の実行・履歴がある行は最上段、商談・契約検討はその次へ上げる。カタログから別リストへ移動・複製・非表示にしない
+### Seed詳細からのPJ入口 (2026-08-20 追補)
+
+`SeedDetailModal` の接続PJリンクは `/project/{project_id}/cockpit` のみとする。ワークスペースはコックピットの「共有ワークスペースへ」から入る。これにより、シーズを確認した後に社内の判断面（cockpit）を経由してPJ実行面（workspace）へ進む。
+
+PJワークスペースは、SX (p21) が最初に作った `SxWeeklyControlDashboard` を全PJ共通仕様として使う。全PJに `週次差分 / ガント / 関係先 / 論点・仮説 / ドライブ` のタブを表示し、ドライブは `WorkspaceDocumentRoom` を `scopeKind='project'` / `scopeId=当該PJ` / `surface='workspace'` で再利用する。共通化はタブ、配置、操作、資料室の仕様だけで、PJ固有の `project_name`、管理柱・レーン、実データ、外部workspace accountの権限絞り込みは維持する。p30の6領域など既存のDB分類を3レーンへ変換しない。

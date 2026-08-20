@@ -398,3 +398,9 @@ v3.63.1 の再指摘対応: (10) 名前・バーのボタンはワークスペ�
 - 共通基盤は `src/lib/sx-management-optimistic.ts`。`sxApplyOptimisticManagementPatch` / `sxInsertOptimisticManagementRecord` / `sxRemoveOptimisticManagementRecord` / `sxReplaceOptimisticManagementId` / `sxNewOptimisticId` / `sxIsOptimisticId` が正本で、契約テストは `scripts/test_sx_management_optimistic.mjs`。DBが決める値（`version`・派生ステータス・`sortOrder`）は仮の初期値で埋め、次にDBから読み直したときに揃う。新しい編集経路を足すときは、この基盤を通す（各editorが独自の楽観表現を発明しない）。
 - **空文字IDの正規化（build v3.58.20 の欠陥修正）**: タスク作成フォームは未選択の `parent_task_id` を空文字で送り、API route が null へ正規化して保存する。楽観挿入 `optimisticTask()` も同じ正規化を行う（`parentTaskId` / `track` の空文字→null）。v3.58.19 では空文字のまま挿入され、ガントのトップレベル判定 `parentTaskId == null` から外れて「作成した瞬間だけ行が出ない・再読込では出る」欠陥だった（本番実UI検証で検出）。回帰テストは `scripts/test_sx_management_optimistic.mjs`。作成トーストは `${definition.title}を追加したよ` が「事業開発にタスクを追加を追加したよ」と二重になっていたため「タスク／MSを追加したよ。DBへ同期中」へ変更。
 - **担当プルダウンの候補から状態記述を落とす**（`SxPartnerPipeline` の `ROSTER_STATUS_PHRASE_RE = /(待ち|未確認|要確認|未定)/` を `isSelectableRosterName` に追加）。「紹介接続待ち」「先方回答待ち」「担当者未確認」は人名ではないので候補に載せない。**すでに保存済みの値は選択中として先頭に残る**ので、表示が消えるわけではない（まさ 2026-08-07「Bで。」＝ 自動除外案の承認）。
+## 2026-08-20 仕様追補: 全PJ共通のSXワークスペース面
+
+- `/project/[projectId]/workspace` は、p21で先行実装した `SxWeeklyControlDashboard` を全PJへ適用する共通の操作面とする。タブ構成は `週次差分 / ガント / 関係先 / 論点・仮説 / ドライブ` を固定する。
+- `ドライブ` は `WorkspaceDocumentRoom` を `scopeKind="project"`、`scopeId={bundle.project.projectId}`、`surface="workspace"`、`presentation="modal"` で開く。PJごとに別資料室、別テーブル、別一覧を作らない。
+- 共通化の対象はタブ、配置、操作、資料室の仕様であり、`project_name`、管理柱・表示レーン、実データ、`externalWorkspaceRoleCapabilityLabel` と共有PJアクセスによる絞り込みはbundle/accessの正本を使う。PJ固有の柱を3レーンへ統合するDB変更はしない。
+- 導線は Seed詳細モーダル → `/project/{projectId}/cockpit` → `/project/{projectId}/workspace` の一方向とする。Seed詳細モーダルからworkspaceへ直接リンクしない。
