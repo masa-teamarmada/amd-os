@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+| 2026-08-20 JST | 4-2 AMD Score | 初回SPS評価・第2便 | migration 304。公的一次資料7行をexact seed guard付きで保存し、最新source fingerprintから独立レビュー済み4候補を作成。submit/apply双方のCASとseed別lockを通して凍結行へappendし、current frozen 44・未評価134、今回candidate由来FK一致4・不一致0（累計8・0）を本番readback。用途不一致1件と別研究者資料を除外した | 薄い根拠を初回評価へ横滑りさせず、公開根拠と候補provenanceが一致するseedだけを安全に追加するため | えいみ |
+
 | 2026-08-20 JST | 4-2 AMD Score | 初回SPS評価の追加・初回適用 | migration 301–303。未評価seedを正本prompt本文と安全化・決定順source factsから候補化し、proposalからfacts/hashを除外。submit/apply双方でprompt/model/full source stateを同seed lockでCASし、candidate不変、原子的・冪等submit、初回candidate FK付きappend-only公開を固定。公的一次資料を独立レビューした4件を公開し、candidate由来FK一致4・不一致0をreadback | 初回評価を再評価器のbaseなし例外にせず、任意hash、根拠更新競合、部分成功、候補改竄で凍結値が公開されることを防ぐため | えいみ |
 
 | 2026-08-20 JST | 2-1 PWA Runtime / FEATURE_REGISTRY（資料室） | Finderドロップ修正 | build v3.83.7。追加権限があり検索中でないとき、現在folderの資料一覧全体（空状態を含む）を外部file drop先にし、既存upload・同名確認・権限処理へ渡す。内部資料行のパンくず移動dragは外部file dragとして扱わない | 資料があるfolderへのFinder追加を実際のuploadへ接続するため | まさ・えいみ |
