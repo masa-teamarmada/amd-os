@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+| 2026-08-20 JST | 4-2 AMD Score | 初回SPS評価・第3便 | migration 305。ワイヤレス給電2社（SolaNika・エイターリンク）のシーズ行と公開一次情報8行を追加し、PJ化済み未評価7件・工学院3件・愛媛大劉先生・慶應牧先生と合わせた14件を `sps_initial_assessment_tool.mjs` の prepare→validate→submit→apply で凍結行へappend。tupleは `sps-ind-tier0-v1` / `sps-ind-v1` / `q-eval-v2` / `rubric-v1.1` / `p-ind-v1` / `rubric-v1.1+ind-v1` の完全版組。全14件 `frozen=true` をDB直読で確認。判断記録の正本は [bzm/SPS_IND_SPUNOFF_AND_TARGETED_2026-08-20.md](../bzm/SPS_IND_SPUNOFF_AND_TARGETED_2026-08-20.md)。同日の第1便・第2便と区別する抽出キーは `evaluator='amie'` |
+
 | 2026-08-20 JST | 4-2 AMD Score | 初回SPS評価・第2便 | migration 304。公的一次資料7行をexact seed guard付きで保存し、最新source fingerprintから独立レビュー済み4候補を作成。submit/apply双方のCASとseed別lockを通して凍結行へappendし、current frozen 44・未評価134、今回candidate由来FK一致4・不一致0（累計8・0）を本番readback。用途不一致1件と別研究者資料を除外した | 薄い根拠を初回評価へ横滑りさせず、公開根拠と候補provenanceが一致するseedだけを安全に追加するため | えいみ |
 
 | 2026-08-20 JST | 4-2 AMD Score | 初回SPS評価の追加・初回適用 | migration 301–303。未評価seedを正本prompt本文と安全化・決定順source factsから候補化し、proposalからfacts/hashを除外。submit/apply双方でprompt/model/full source stateを同seed lockでCASし、candidate不変、原子的・冪等submit、初回candidate FK付きappend-only公開を固定。公的一次資料を独立レビューした4件を公開し、candidate由来FK一致4・不一致0をreadback | 初回評価を再評価器のbaseなし例外にせず、任意hash、根拠更新競合、部分成功、候補改竄で凍結値が公開されることを防ぐため | えいみ |
