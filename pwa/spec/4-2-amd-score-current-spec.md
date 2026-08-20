@@ -17,6 +17,8 @@
 
 更新設計は`source update -> canonical event -> dedupe -> q/P^ind impact classification -> reassessment candidate -> independent review -> append-only publish`。情報の発生時刻、OS認識時刻、評価の情報締切、評価時刻、公開時刻を分ける。ソース追加をトリガーにした自動再計算はしない。同一契約がMTG・関係先・月次PLへ現れても一事象として扱う。月次行数から根拠Lv3を機械付与せず、verified actualを計画値と分離できる正規化証跡ができるまでLv3は留保する。
 
+初回評価は完全tuple未保持のseed専用で、再評価のbaseなし例外ではない。正本prompt本文と、seed基本情報・確定系補助金・確認済みニュース（短い安全化要約）・接触日/方法・PJ有無を含むDB再現可能なsource factsをpreparedへ凍結する。URL、メール、認証情報はDBで除去し、factsの順序はsource row ID等で決定する。LLM proposalはfactsや各hashを転記せず、非LLM submitterがpreparedから注入する。候補保存時とapply時は同一seed lock下でDBが情報締切時点のfactsとfull source state fingerprint、current prompt/modelを再計算してCASする。候補はpending中も採否後も内容不変で、採否RPCだけが監査状態を遷移する。初回候補は11要因、方向語彙、段階順序、情報締切、`round(P^ind*q/100)`を通過してもreview-onlyであり、service_role RPCだけが`source_initial_candidate_id`付きfrozen行をappendする。
+
 BZM 2.2は別の暫定パイロットであり、J/P/Q/Sを現行SPSへ代入・合算しない。
 
 ---

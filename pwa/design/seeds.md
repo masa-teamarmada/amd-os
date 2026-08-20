@@ -46,6 +46,13 @@ migration: [024_seeds_overhaul.sql](../scripts/migrations/024_seeds_overhaul.sql
 | `seed_projects` | 個別シーズを対象にするAMD契約PJ。`projects` と1対1、`seeds` と多対1 |
 | `seed_status_transitions` | `seeds.status` の遷移履歴 (旧状態/新状態/時刻/変更者)。migration 280 のトリガが自動記録。観測開始 2026-08-15、過去遷移は復元しない。一次選別 (Tier 0) の遷移率検証の前提インフラ |
 | `seed_screening_bands` | 現行SPSの凍結評価ストア。`measure_version='sps-ind-v1' AND ruleset_version='rubric-v1.1+ind-v1' AND frozen=true`の完全一致だけをactive pathが読む。frozen行はDB triggerで更新・削除不可、再評価はappend-only。旧評価テーブルは監査履歴として退役。RLSポリシーなし = service_role専用 |
+| `sps_initial_assessment_candidates` | 未評価シーズ専用の初回SPS候補。候補作成と凍結行公開を分離し、同一seed lock・完全版組の未存在・11要因根拠・情報締切・数式をDBで検証する。既存完全tupleがあれば再評価導線だけを使う |
+
+### 初回SPS評価の運用（2026-08-20）
+
+未評価とは、`seed_screening_bands` に current tuple（`sps-ind-tier0-v1` / `sps-ind-v1` / `q-eval-v2` / `rubric-v1.1` / `p-ind-v1` / `rubric-v1.1+ind-v1`）の凍結行がない状態だけを指す。旧評価をfallbackにしない。
+
+`npm run sps:initial:prepare -- --output /private/tmp/sps-initial-prepared.json` は正本prompt本文と、基本情報・確定系補助金・確認済みニュース短縮要約・接触日/方法・PJ有無の安全化source factsを決定順で出す。Codex automation は評価値だけを候補JSONにし、facts・prompt/model/prepared hashは非LLM submitterがpreparedから注入する。`validate` はprepared自己hash、prompt/model hash、P×qの端点丸め・11要因・段階順序・情報締切を検証し、`submit` と `apply` はDB再計算のfacts/full source fingerprint CASを同一seed lock下で通す。pending候補と採否済み監査履歴は内容変更不可。公開は別操作の `apply --candidate-id <UUID> --actor <識別子>` だけで、DB RPC が既存評価の不在を確認してから初回candidate FK付き凍結行をappendする。候補ゼロと同一candidateの冪等submitは正常で、batchは全件成功か全件rollbackになる。
 
 議事録、Slack、Teams等からシーズ情報を取り込むときは、本文要約や `internal_notes` だけで完了扱いにしない。助成金・採択は `seed_funding`、接触は `seed_contact_log`、ニュース・論文・特許は `seed_news`、PJ化は `seed_projects` または `institution_projects` へそれぞれ構造化して保存する。採択年度・金額・実施期間など根拠にない値は `null` のままにし、確認済み事実だけを登録する。
 

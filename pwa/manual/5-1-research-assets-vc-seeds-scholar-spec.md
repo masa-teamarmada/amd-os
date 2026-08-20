@@ -57,6 +57,10 @@ candidate (候補)
 | `seed_news` | 関連ニュース / プレス / 論文 | UNIQUE `(seed_id, source_url)`、 `kind` / `title` / `body` / `occurred_on` / `verified` / `dismissed` |
 | `seed_contact_log` | AMD メンバー × シーズの接触履歴 | `seed_id` + `contacted_on` / `method` / `amd_member_id` / `note` / `next_action` |
 
+### 初回SPS評価
+
+完全な現行SPS tupleをまだ持たないシーズだけを、初回評価の対象にできる。自動化は評価値の候補JSONを出すところまでで、source factsと監査hashは非LLM処理がpreparedから固定する。`prepare → validate → submit → apply` の順に進め、最後の`apply`だけがサービスロールRPCで凍結評価を追記する。候補後に根拠、prompt、modelが変わった場合は再prepareが必要。既に現行tupleがあるシーズは再評価導線を使う。候補ゼロ、同一候補の再submitは正常で、URL・メール・認証情報、11要因不足、数式不一致、情報締切外は検証で止まる。
+
 ### UI
 
 | パス | 役割 |
