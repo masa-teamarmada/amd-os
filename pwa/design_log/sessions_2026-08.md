@@ -316,3 +316,10 @@ automation作成後の最初の自然な平日09:00実行は未観測。2026-08-
 - `WorkspaceDocumentRoom`の現在folder一覧全体（空状態を含む）を、追加権限あり・検索中でない場合の外部file drop targetにした。外部fileだけを既存のupload・同名確認・権限処理へ渡し、資料行からパンくずへ移動する内部dragは`Files`判定に通さない。
 - 常設の細いdrop帯は復活させず、外部fileを重ねた瞬間だけ一覧を薄青と破線で示す。検索結果はdrop targetにしない。
 - `test:workspace-documents-contract`、`test:workspace-documents-core`、対象ESLint、TypeScript、`test:critical-ui`を通した。ローカルbuildは型検査完了後にSupabase環境変数不足でページ事前生成が停止したが、`deploy.sh`経由のproduction buildはReadyとなり、`/api/build-info`でv3.83.7 / `70024d1a0650e55a837aafcb4d77047bffea629e`を確認した。commit `70024d1a`。
+
+## 2026-08-20 — ホームのアクティブPJを二段フライアウト化（v3.83.12）
+
+- 左ナビ「ホーム」のhoverで開くアクティブPJ一覧について、PJ行を直接コックピットへ遷移するリンクから、Chromeのブックマークフォルダと同じ二段メニューへ変更した。PJ行hover/focusで右側にPJ名・「コックピット」・「ワークスペース」を表示し、目的の面を選んで遷移する。
+- `GlobalNav.tsx` は親子menuの間のポインタ移動で閉じないclose timer、focus遷移、viewport内への位置clampを持つ。子メニューのrouteは `/project/:projectId/cockpit` と `/project/:projectId/workspace`。PJ行自身は遷移しない。
+- `FEATURE_REGISTRY.md`、`spec/2-2-pwa-surface-inventory-current-spec.md`、`manual/2-1-member-quick-start.md` と両appendix changelogを同じ変更で同期。`test:critical-ui`、`test:portfolio-home-contract`、対象ESLint、TypeScript、production buildを通した。
+- commit `f7745b99`。`deploy.sh`でmainへ反映し、Vercel Ready後に本番 `/api/build-info` が `v3.83.12` / `f7745b99c138ca8874c3f561c694aa0dcee90d03` を返すことを確認した。ログイン済み外部Chromeで子メニュー表示とp00の両遷移を実操作し、コンソールエラーなしを確認した。
