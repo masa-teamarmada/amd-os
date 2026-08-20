@@ -1908,11 +1908,24 @@ expectIncludes("src/components/seeds/KuteSeedDetailModal.tsx", [
 // 現在どこからも表示されない。帯の導線をこちらから消すと OS 画面から根拠が読めなくなる。
 expectIncludes("src/components/seeds/SeedDetailModal.tsx", [
   "一次選別スクリーニング帯",
+  "SpsFormulaPanel",
   "SpsBandRationale",
   "band.notes",
   "band.q_evidence",
   "/api/seeds/screening-bands?seedId=",
   "投資判断・対外表示には使わない",
+]);
+// シーズ詳細モーダルの帯は、PJコックピットの「スコア詳細」タブと同じ情報量にする (まさ確定 2026-08-20)。
+// 数式は LaTeX (Tex/KaTeX) で書き、式の各パラメータの実値をこのシーズの値で併記する。
+// 数式は現行 SPS = 産業創出価値版 (sps-ind-v1) のみ。旧9軸 Cobb-Douglas と旧 sps-eq-v0 は退役済みなので持ち込まない。
+expectIncludes("src/components/sps/SpsFormulaPanel.tsx", [
+  'data-testid="sps-formula-panel"',
+  "@/components/venture-map/Tex",
+  "Q_FACTORS",
+  "STAGE_STEPS",
+  "SEED_EVIDENCE_LEVEL_DESCRIPTION",
+  "係数を発明しない",
+  "閉じた式が存在しない",
 ]);
 // PJ化の有無でシーズ詳細モーダルの中身を変えない (まさ確定 2026-08-20)。
 // 簡易コックピット (判断レール / 判断・推進・記録タブ) をモーダルへ戻さない。

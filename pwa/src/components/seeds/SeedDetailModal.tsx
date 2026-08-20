@@ -24,10 +24,6 @@ import {
   SEED_FUNDING_STATUS_LABEL,
   SEED_NEWS_KIND_LABEL,
   SEED_CONTACT_METHOD_LABEL,
-  SEED_EVIDENCE_LEVEL_LABEL,
-  SEED_EVIDENCE_LEVEL_DESCRIPTION,
-  formatOkuYen,
-  formatSpsBandWithMedian,
 } from "@/lib/seeds-data";
 import type {
   Seed,
@@ -44,6 +40,7 @@ import type {
 import { createClient } from "@/lib/supabase/client";
 import { SeedMarkdownPreviewModal } from "@/components/seeds/SeedMarkdownPreviewModal";
 import { SpsBandRationale } from "@/components/sps/SpsBandRationale";
+import { SpsFormulaPanel } from "@/components/sps/SpsFormulaPanel";
 
 interface MemberLite {
   member_id: string;
@@ -571,73 +568,16 @@ function SeedReadView({
 
 // 一次選別スクリーニング帯 (SPS = 産業創出価値, sps-ind-v1)。
 // 帯そのものは接触・調査の優先順位づけ用の下書きで、評価額ではない。
-const SEED_STAGE_TAG_LABEL: Record<string, string> = {
-  stage_document: "文書根拠",
-  stage_funding: "資金情報",
-  stage_inferred: "推定",
-  stage_unknown: "材料なし",
-};
-
-function stageTagLabel(tag: string | null): string | null {
-  if (!tag) return null;
-  return tag
-    .split("+")
-    .map((part) => SEED_STAGE_TAG_LABEL[part.trim()] ?? part.trim())
-    .join(" + ");
-}
-
+// 中身は PJ コックピットの「スコア詳細」タブと同じ情報量にする (まさ確定 2026-08-20)。
+// 数式は LaTeX (SpsFormulaPanel) で書き、式の各パラメータの実値を併記する。
 function SeedScreeningBandSection({ band }: { band: SeedScreeningBandDetail }) {
-  const stageText =
-    band.stage_lower || band.stage_upper
-      ? `${band.stage_lower ?? "—"} 〜 ${band.stage_upper ?? "—"}`
-      : "—";
-  const stageTag = stageTagLabel(band.stage_tag);
-  const qText =
-    band.q_lower_pct != null || band.q_upper_pct != null
-      ? `${band.q_lower_pct ?? "—"}% 〜 ${band.q_upper_pct ?? "—"}%`
-      : "—";
-  const pText =
-    band.p_lower_yen != null || band.p_upper_yen != null
-      ? `${formatOkuYen(band.p_lower_yen)} 〜 ${formatOkuYen(band.p_upper_yen)}`
-      : "—";
-  const spsText =
-    band.sps_lower_yen != null || band.sps_upper_yen != null
-      ? formatSpsBandWithMedian(band.sps_lower_yen, band.sps_upper_yen)
-      : "未確定";
-
   return (
     <div className="space-y-2">
-      <Section title="一次選別スクリーニング帯 (SPS = 産業創出価値)">
-        <KV label="段階仮説">
-          {stageText}
-          {stageTag && <span className="ml-1 text-muted-foreground">({stageTag})</span>}
-        </KV>
-        <KV label="q帯 (資本自立)">
-          {qText}
-          {band.q_main_factor && (
-            <span className="ml-1 text-muted-foreground">主要因: {band.q_main_factor}</span>
-          )}
-        </KV>
-        <KV label="P^ind帯 (判断層)">{band.p_class ?? "—"}</KV>
-        <KV label="P帯 (億円)">{pText}</KV>
-        <KV label="SPS (億円)">
-          <span title="中央値 (下限〜上限)。中央値は仮置きの算術中点。">{spsText}</span>
-          <span
-            title={SEED_EVIDENCE_LEVEL_DESCRIPTION[band.evidence_level]}
-            className="ml-2 inline-block rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
-          >
-            {SEED_EVIDENCE_LEVEL_LABEL[band.evidence_level]}
-          </span>
-        </KV>
-        <KV label="評価者 / 評価日時">
-          {band.evaluator} / {band.assessed_at ? band.assessed_at.slice(0, 16).replace("T", " ") : "—"}
-        </KV>
-        <KV label="版">
-          {band.measure_version}
-          {band.ruleset_version && <span className="ml-1 text-muted-foreground">/ {band.ruleset_version}</span>}
-          {band.frozen && <span className="ml-2 text-amber-700 dark:text-amber-300">凍結済み</span>}
-        </KV>
-      </Section>
+      <h3 className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
+        一次選別スクリーニング帯 (SPS = 産業創出価値)
+      </h3>
+
+      <SpsFormulaPanel band={band} />
 
       <p className="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-900 dark:text-amber-200">
         この帯は接触と調査の優先順位づけの下書き。上限は楽観シナリオの包絡であり評価額ではない。投資判断・対外表示には使わない。
