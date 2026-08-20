@@ -22,7 +22,9 @@ const DISPOSITIONS = new Set(["no_change", "needs_source", "propose"]);
 const IMPACTS = new Set(["q", "p_ind", "q_and_p_ind"]);
 const EVIDENCE_RANK = Object.freeze({ soft: 1, mixed: 2, hard: 3 });
 const MAX_EVENTS = 200;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+// seedsの15件はmigration 209由来でRFC 4122のversion/variantに従わない。Postgresのuuid型は受け付けるため、
+// ここでUUID版数まで縛ると当該seedが再評価経路から構造的に締め出される。形だけ検査する。
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const HASH_RE = /^[0-9a-f]{64}$/;
 const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 const URL_RE = /https?:\/\/|www\./i;

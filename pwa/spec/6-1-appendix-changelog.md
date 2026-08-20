@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+| 2026-08-20 JST | 4-2 AMD Score | 再評価経路のUUID制約修正と#12の再評価候補 | `scripts/sps_reassessment_tool.mjs` の `UUID_RE` がRFC 4122のversion/variant（`[1-5]` / `[89ab]`）まで検査しており、`semanticFingerprint()` がそこで例外を投げるため、migration 209由来の15/180 seedがproposalを作れず再評価経路から構造的に締め出されていた。Postgresの `uuid` 型は当該値を正規に保持しているため、形（8-4-4-4-12のhex）のみの検査へ緩和。あわせて `sps_reassessment_source_events` が空だった原因を特定（triggerは5テーブル全てに導入・有効。no-op UPDATEはtrigger冒頭で早期returnするため「触るだけ」ではイベントが立たない＝実ソース書き込みが無かっただけ）。p10の実在 `project_meeting_summaries` 5行からtriggerと同一のhash式でイベントをbackfillし、prepare→validate→apply を通して候補 `bdd3dd43-…` をpending作成＋通知1件。**凍結行は不変で、まさの承認RPCを通るまで公開されない** | 凍結行の書き換え不能性を保ったまま、根拠追加をSPSへ反映する唯一の正規経路を実際に通すため | えいみ |
+
 | 2026-08-20 JST | 4-2 AMD Score | 初回SPS評価・第3便 | migration 305。ワイヤレス給電2社（SolaNika・エイターリンク）のシーズ行と公開一次情報8行を追加し、PJ化済み未評価7件・工学院3件・愛媛大劉先生・慶應牧先生と合わせた14件を `sps_initial_assessment_tool.mjs` の prepare→validate→submit→apply で凍結行へappend。tupleは `sps-ind-tier0-v1` / `sps-ind-v1` / `q-eval-v2` / `rubric-v1.1` / `p-ind-v1` / `rubric-v1.1+ind-v1` の完全版組。全14件 `frozen=true` をDB直読で確認。判断記録の正本は [bzm/SPS_IND_SPUNOFF_AND_TARGETED_2026-08-20.md](../bzm/SPS_IND_SPUNOFF_AND_TARGETED_2026-08-20.md)。同日の第1便・第2便と区別する抽出キーは `evaluator='amie'` |
 
 | 2026-08-20 JST | 4-2 AMD Score | 初回SPS評価・第2便 | migration 304。公的一次資料7行をexact seed guard付きで保存し、最新source fingerprintから独立レビュー済み4候補を作成。submit/apply双方のCASとseed別lockを通して凍結行へappendし、current frozen 44・未評価134、今回candidate由来FK一致4・不一致0（累計8・0）を本番readback。用途不一致1件と別研究者資料を除外した | 薄い根拠を初回評価へ横滑りさせず、公開根拠と候補provenanceが一致するseedだけを安全に追加するため | えいみ |
