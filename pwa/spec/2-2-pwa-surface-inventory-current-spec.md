@@ -7,7 +7,7 @@
 | route group | route | 役割 | authority |
 |---|---|---|---|
 | auth | `/auth/login`, `/auth/callback` | Supabase Google OAuth login / callback | `pwa/src/app/auth/*` |
-| home | `/dashboard` | PJ一覧、抽出状況、Atlas / Venture Map / MyPage / Admin 入口 | `dashboard/page.tsx` |
+| home | `/dashboard` | PJ一覧、抽出状況、Atlas / Venture Map / MyPage / Admin 入口。GlobalNavの「ホーム」ホバーではactive PJ一覧を開き、PJへ重ねるとコックピットとワークスペースを選ぶ2段目メニューを右側へ開く | `dashboard/page.tsx`, `components/nav/GlobalNav.tsx` |
 | cockpit | `/project/[projectId]/cockpit` | PJ status、AMD Score、MS、経営ハイライト、月次カード/モーダル、MTGサマリ、kanban | `project/[projectId]/cockpit/page.tsx`, `CockpitView.tsx` |
 | PJ workspace | `/project/[projectId]/workspace` | 週次差分・担当負荷・ガント・関係先・論点/仮説を、完成済みの4タブ式PJ管制で統合表示 | `project/[projectId]/workspace/page.tsx`, `SxWeeklyControlDashboard.tsx` |
 | weekly control compatibility | `/project/[projectId]/weekly-control` | 正規PJ workspaceへredirectする旧URL互換。独立surfaceは持たない | `project/[projectId]/weekly-control/page.tsx` |
