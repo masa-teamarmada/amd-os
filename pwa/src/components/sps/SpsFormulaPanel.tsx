@@ -284,7 +284,7 @@ export function SpsFormulaPanel({ band }: { band: SeedScreeningBandDetail }) {
             <ParamRow symbol="SPS_min 〜 SPS_max" label="帯の端点">
               {sLo != null || sHi != null ? `${sLo ?? "—"} 〜 ${sHi ?? "—"} 億円` : "—"}
             </ParamRow>
-            <ParamRow symbol="SPS~" label="中央値 (一覧の主表示)">
+            <ParamRow symbol="SPS_median" label="中央値 (一覧の主表示)">
               {sMid != null ? `${sMid} 億円` : "—"}
             </ParamRow>
             <ParamRow symbol="stage" label="段階仮説">
