@@ -323,3 +323,12 @@ automation作成後の最初の自然な平日09:00実行は未観測。2026-08-
 - `GlobalNav.tsx` は親子menuの間のポインタ移動で閉じないclose timer、focus遷移、viewport内への位置clampを持つ。子メニューのrouteは `/project/:projectId/cockpit` と `/project/:projectId/workspace`。PJ行自身は遷移しない。
 - `FEATURE_REGISTRY.md`、`spec/2-2-pwa-surface-inventory-current-spec.md`、`manual/2-1-member-quick-start.md` と両appendix changelogを同じ変更で同期。`test:critical-ui`、`test:portfolio-home-contract`、対象ESLint、TypeScript、production buildを通した。
 - commit `f7745b99`。`deploy.sh`でmainへ反映し、Vercel Ready後に本番 `/api/build-info` が `v3.83.12` / `f7745b99c138ca8874c3f561c694aa0dcee90d03` を返すことを確認した。ログイン済み外部Chromeで子メニュー表示とp00の両遷移を実操作し、コンソールエラーなしを確認した。
+
+## 2026-08-20 — Seed→Cockpit導線と全PJのSXワークスペース統一（v3.83.11）
+
+- まさ確定: Seed詳細モーダルからはcockpitだけへ進み、workspaceはcockpitから開く。PJ化してもSeed詳細自体は通常モーダルの読み取り面を維持し、簡易cockpitを重複実装しない。
+- `SeedDetailModal` の接続PJリンクを `/project/{projectId}/cockpit` へ変更し、workspace直リンクと「ワークスペース（コックピット）」の混同表記を削除した。
+- SX先行の `SxWeeklyControlDashboard` を全PJの内部workspace共通仕様とした。全PJで `週次差分 / ガント / 関係先 / 論点・仮説 / ドライブ` を出し、ドライブは `WorkspaceDocumentRoom(scopeKind="project", scopeId=当該PJ, surface="workspace", presentation="modal")` を再利用する。
+- 共通化は画面・操作・資料室に限定し、PJ名、管理柱・レーン、実データ、外部workspace access、DB分類は変更していない。
+- `test:seed-list-display`、`test:project-workspace-route`、`test:workspace-documents-contract`、`test:critical-ui`、対象ESLint、TypeScript、production buildを通した。ログイン済み本番でSXと桑折先生PJの5タブ一致、桑折先生PJドライブ、Seedモーダルのcockpitリンク1件/workspaceリンク0件、cockpitのworkspace導線を確認した。
+- 実装commit `a108b4c7` を `deploy.sh` でmainへ反映し、build `v3.83.11` / SHA `a108b4c74683de5466053635861220f95260ccff` をreadbackした。後続 `f7745b99`（v3.83.12）にも祖先として含まれる。

@@ -1,33 +1,38 @@
 # HANDOFF
 
 最終更新: 2026-08-20 JST
-対象: 資料室のFinder / Explorer追加導線
+対象: Seed → Cockpit導線と全PJのSXワークスペース仕様統一
 
 ## 今回の到達点
 
-- SXの外部関係者は `/project/p21/workspace` の同じ入口から、PJ名と `workspace_shared` の資料室だけを利用する。内部の週次・ガント・関係先・論点・資金・管理画面は返さない。
-- 外部の `contributor` は資料の閲覧に加え、file / folder / link の追加とHTML本文編集を行える。整理・共有範囲の変更は管理権限へ限定する。
-- p21の外部利用者7件を、アカウント・愛媛機関ワークスペース所属・p21 contributorの3層で招待登録し、PJリストの関係先メールアドレスにも重複なく統合した。メール送信はしていない。
-- 旧SX Project Shareのアプリ・Blob Store・専用ドメインを退役した。旧Blobに移行対象は無く、専用ドメインは404を確認済み。
-- 資料室は、追加権限があり検索中でない場合、現在folderの資料一覧全体（空状態を含む）をFinder / Explorerのfile drop先にする。既存のupload・同名確認・権限処理を使い、資料行からパンくずへの内部移動dragとは混同しない。
-- 修正はcommit `70024d1a`（build v3.83.7）でmainへ反映済み。このhandoff自体は`70c622fd`（build v3.83.8）までの正本へ反映済み。次セッションは開始時にmainと`/api/build-info`を再確認する。
+- `SeedDetailModal` の接続PJ導線は `/project/{projectId}/cockpit` だけ。モーダル内のworkspace直リンクは0件。
+- workspaceはコックピットの「共有ワークスペースへ」から開く。
+- 全PJの内部workspaceはSX先行の `SxWeeklyControlDashboard` を共通利用し、`週次差分 / ガント / 関係先 / 論点・仮説 / ドライブ` の5タブを持つ。
+- ドライブは当該PJ scopeの既存 `WorkspaceDocumentRoom` を再利用する。PJ固有の名称・柱・レーン・実データ・外部権限は維持し、DB分類は変更していない。
+- 実装commitは `a108b4c7 feat(pwa): unify project workspaces with SX`。後続の `f7745b99`（左ナビPJ二段フライアウト）にも祖先として含まれ、main・本番へ反映済み。
+- 本番でSXと桑折先生PJの5タブ一致、桑折先生PJドライブ、Seedモーダルのcockpitリンク1件/workspaceリンク0件を確認した。
 
 ## 正本
 
-- 権限・外部面の設計: `pwa/design/institution_seed_project_model.md` §6、`pwa/design/FEATURE_REGISTRY.md` の「外部ワークスペースアクセス」
-- 画面・資料室運用: `pwa/manual/2-3-pj-cockpit.md`、`pwa/manual/9-3-appendix-changelog.md`
-- route契約: `pwa/spec/2-1-pwa-runtime-routes.md`、`pwa/spec/6-1-appendix-changelog.md`
-- SXの長期索引: `/Users/masa/projects/knowledge/sx.md`
-- 実装判断の履歴: `pwa/design_log/sessions_2026-08.md`
-- バグ記録: `pwa/BUGS.md` の `workspace-documents/drop`
+- UI契約: `pwa/design/FEATURE_REGISTRY.md`、`pwa/design/seeds.md`
+- workspace仕様: `pwa/spec/3-16-project-weekly-control-current-spec.md`
+- 利用者向け導線: `pwa/manual/2-3-pj-cockpit.md`
+- 変更履歴: `pwa/spec/6-1-appendix-changelog.md`、`pwa/manual/9-3-appendix-changelog.md`
+- 開発履歴: `pwa/design_log/sessions_2026-08.md`
+- バグ記録: `pwa/BUGS.md` の `workspace/sx-parity`
 
-## 運用上の残り
+## Repo状態
 
-- BZM作業のseeds / cockpit / sps関連と`build-info.ts`の差分は`28381053`（build v3.83.9、SPS帯の判断根拠をOS画面へ出す）でcommit済み。待ち合わせは解消したので、次担当は通常どおり扱ってよい。
-- 招待済みの7アカウントは、各人がメールリンクで初回認証を終えるまで `invited` のまま。送信は本人への案内を出すと決めた時だけ行う。
-- 初回問い合わせでは、メール本文を共有せず、アカウント・機関所属・p21アクセスの3層とcallback後のactive化だけを読戻す。
-- 外部面に新しい項目を足す時は、safe DTOとroute isolationを先に検査し、内部管理情報を流用しない。
+- canonical checkout: `/Users/masa/projects/AMD/amd-os`、branchは`main`のみ。
+- handoff着手時のHEAD/origin/main: `fdecd77a`。次セッション開始時は必ずlive stateを再取得する。
+- 今回の実装・仕様・テストはcommit済み／push済み。今回由来の未commit差分はない。
+- 別作業の未commit: SPS初期評価フロー一式（`pwa/bzm/9-5-appendix-changelog.md`、`pwa/design/seeds.md`、`pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md`、`pwa/manual/9-3-appendix-changelog.md`、`pwa/package.json`、`pwa/supabase/.temp/cli-latest`、`pwa/scripts/migrations/301_sps_initial_assessment_review_flow.sql`、`pwa/scripts/sps_initial_assessment_tool.mjs`、`pwa/scripts/test_sps_initial_assessment_flow.mjs`）。本セッションでは変更・stage・破棄していない。
+
+## 未解決
+
+- 今回の機能に未解決なし。
+- 上記SPS初期評価フロー9パスはowner側でcommitまたは破棄判断が必要。解消前はrepo全体のarchive不可。
 
 ## 次の最初の行動
 
-新しい依頼から開始する。資料室の追加に不具合が出た場合は、上記正本と `npm run test:workspace-documents-contract`、`npm run test:workspace-documents-core` を実行し、ログイン済み本番で「資料があるfolderの一覧へFinder fileを落とす」操作を確認する。検索結果へは追加させず、内部資料行のパンくず移動を壊さない。
+新しい依頼から開始する。workspace関連の追加変更では、SXだけに分岐を足さず全PJ共通componentへ反映し、`test:project-workspace-route`、`test:seed-list-display`、TypeScript/build、本番のSX・非SX双方を確認する。

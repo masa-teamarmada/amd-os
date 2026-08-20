@@ -5,6 +5,16 @@
 
 ---
 
+### [workspace/sx-parity] PJ化済みSeedの入口と非SX workspaceの仕様が分かれて見えた (2026-08-20)
+
+- **状態**: クローズ (2026-08-20 — build `v3.83.11` / commit `a108b4c7`。後続mainにも包含)
+- **症状**: PJ化済みシーズの詳細が大型化したモーダルに見え、別にコックピットとworkspaceが存在する関係が分かりにくかった。桑折先生PJのworkspaceはSXと同じcomponentを使っていたが、SXだけにドライブタブがあり、全PJ共通仕様として完成していなかった。
+- **原因**: Seed詳細・cockpit・workspaceの役割境界を導線契約で固定せず、資料室表示を `projectId === "p21"` のPJ固有条件にしていた。見た目の共通componentだけで「SXと同仕様」と扱い、タブ・資料室まで横断確認していなかった。
+- **対応内容**: Seedモーダルの接続PJリンクをcockpitだけへ変更し、workspaceはコックピットから開く。全PJの `SxWeeklyControlDashboard` に同じ5タブを出し、ドライブは当該PJ scopeの既存資料室を再利用した。PJ固有データ・権限・DB分類は変更していない。
+- **再発防止策**: workspace変更はSXだけで完了扱いにせず、SXと非SXの実画面でタブ・資料室・権限を比較する。`test:seed-list-display`でモーダルのcockpit-only、`test:project-workspace-route`で全PJドライブとSX限定条件の不在を固定する。
+
+---
+
 ### [workspace-documents/drop] 資料があるfolderへのFinder dropが追加されなかった (2026-08-20)
 
 - **状態**: クローズ (2026-08-20 — build `v3.83.7` / commit `70024d1a`)
