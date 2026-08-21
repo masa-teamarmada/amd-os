@@ -496,7 +496,6 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → 手動 `/v
 ├── [B1]  CockpitStrategySignals      経営ハイライト
 ├── [B2]  CockpitNextPeriodSetup
 ├── [B3]  過去の期間
-├── [C]   資料室 (`WorkspaceDocumentLauncher` / `WorkspaceDocumentRoom`)
 ├── [C1]  経営ハイライト / ガバナンス / 助成金
 ├── [G/E] CockpitMonthlyList + CockpitMeetingSummary
 └── [Right] Status badges (必要な時だけ)

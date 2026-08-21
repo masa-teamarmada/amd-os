@@ -195,24 +195,6 @@
   color: var(--room-danger);
 }
 
-.launcher {
-  min-height: 48px;
-  border: 1px solid #005ab7;
-  background: var(--room-blue);
-  color: white;
-  box-shadow: 0 8px 22px rgba(0, 102, 204, 0.16);
-}
-
-.launcher:hover {
-  border-color: var(--room-blue-strong);
-  background: var(--room-blue-strong);
-}
-
-.launcher:focus-visible {
-  outline: 3px solid rgba(0, 166, 230, 0.34);
-  outline-offset: 2px;
-}
-
 @media (max-width: 639px) {
   .fileRow {
     border: 1px solid var(--room-line);

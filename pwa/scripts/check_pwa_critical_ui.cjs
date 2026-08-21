@@ -2926,11 +2926,13 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'key: "company", label: "会社概要"',
   'aria-label="会社概要"',
 ]);
-// 資料室タブ (2026-08-21 まさ確定): コックピットの独立タブ。既存のモーダル launcher も残す。
+// 資料室タブ (2026-08-21 まさ確定): コックピットの独立タブ。進捗管理タブ側の launcher は廃止。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'key: "documents", label: "資料室"',
   'aria-label="資料室"',
   "WorkspaceDocumentRoom",
+]);
+expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
   "WorkspaceDocumentLauncher",
 ]);
 expectIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
