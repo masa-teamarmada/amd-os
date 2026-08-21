@@ -232,7 +232,11 @@ export async function POST(req: NextRequest) {
   const timestamp = req.headers.get("x-slack-request-timestamp") || "";
 
   if (!verifySlackSignature(raw, signature, timestamp)) {
-    return new NextResponse("invalid signature", { status: 401 });
+    // secret の個数だけ返す (値は出さない)。複数アプリぶんの secret が本番へ
+    // 届いているかを、押下テストなしで切り分けるための診断。
+    return new NextResponse(`invalid signature (secrets=${signingSecrets().length})`, {
+      status: 401,
+    });
   }
 
   const payloadStr = new URLSearchParams(raw).get("payload") || "";
