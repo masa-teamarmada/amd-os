@@ -168,7 +168,14 @@ assert.match(source.mutate, /body\.action === "complete_replace"[\s\S]*?row\.upl
 assert.match(source.mutate, /content_sha256: null[\s\S]*?source_updated_at: null/, "手動置き換え後は移行時hash・更新根拠を残さない");
 assert.match(source.mutate, /action: "replace_file"/, "置き換え完了は本文を含まない監査eventを残す");
 assert.match(source.mutate, /workspaceDocumentDestinationStatus/, "整理時に保存先folderと共有境界を検証する");
-assert.match(source.mutate, /workspaceDocumentFolderHasSharedDescendants/, "共有資料を含むfolderの内部化を一括露出変更なしで止める");
+// 2026-08-21: workspaceDocumentFolderHasSharedDescendants(真偽)は
+// countWorkspaceDocumentSharedDescendants(件数)へ拡張し、確認同意(cascadeVisibility)
+// があれば配下ごと一括で内部化できるようにした。真偽判定はその戻り値 > 0 に置き換え済み。
+assert.match(source.mutate, /countWorkspaceDocumentSharedDescendants\(db, row\)/, "共有資料を含むfolderの内部化は影響件数を数えてから判定する");
+assert.match(source.mutate, /code: "shared_descendants",\s*affected: cascadeAffected,/, "確認同意なしの内部化409は機械可読なcodeと件数を返す");
+assert.match(source.mutate, /!cascadeVisibility[\s\S]{0,500}?workspace_set_folder_visibility_cascade/, "確認同意(cascadeVisibility)がなければ配下一括変更RPCを呼ばない");
+assert.match(source.mutate, /action: "organize_cascade"/, "配下一括変更は専用の監査actionを残す");
+assert.match(source.mutate, /if \(access\.principal === "workspace_account"\) visibility = "workspace_shared";/, "外部アカウントはvisibilityをworkspace_shared固定のまま(cascade経路でも内部化を選べない)");
 assert.match(source.institutionPage, /resolveInstitutionDocumentAccess\(slug\)/, "機関資料pageはslug accessを再検証する");
 assert.match(source.projectPage, /resolveProjectDocumentAccess\(projectId\)/, "PJ資料pageはproject accessを再検証する");
 assert.match(source.projectPage, /access\.principal === "internal_member"[\s\S]*\/cockpit/, "内部メンバーは資料室からcockpitへ戻る");
@@ -204,6 +211,20 @@ assert.match(source.room, /item\.visibility === "amd_internal"\s*\?\s*styles\.in
 assert.match(source.room, /dialog === "create_folder" \? "PJ全体" : "外部共有"/, "folder作成dialogのworkspace_sharedラベルはPJ全体にする");
 assert.match(source.room, /selected\?\.entryKind === "folder" \? "PJ全体" : "外部共有"/, "folder整理dialogのworkspace_sharedラベルはPJ全体にする");
 assert.match(source.room, /entryKind === "folder"\s*\?\s*"PJ全体"\s*:\s*"外部共有"/, "folder一覧のworkspace_sharedバッジはPJ全体と表示する");
+// 2026-08-21: PJ全体(workspace_shared)はfolder/file/linkのiconを既存オレンジ系色で揃える。
+assert.match(source.room, /shared\s*\?\s*styles\.sharedEntryIcon/, "workspace_sharedのiconは種別を問わず専用オレンジ色classへ揃える");
+// 2026-08-21: 一覧の「共有範囲」独立カラムを廃止し、バッジを資料名の直後へ移した。
+assert.doesNotMatch(source.room, /<span>共有範囲<\/span>/, "共有範囲の独立列見出しは復活させない");
+assert.match(source.room, /grid-cols-\[minmax\(0,1fr\)_120px_360px\]/, "一覧headerは名称\/更新\/操作の3列にする");
+assert.match(source.room, /xl:grid-cols-\[minmax\(0,1fr\)_120px_360px\]/, "一覧行も同じ3列gridに揃える");
+assert.match(source.room, /shrink-0 items-center rounded-full/, "資料名の直後に置くバッジは長い名前の省略で潰れない");
+// 2026-08-21: フォルダ内部化がconfirmなしの409で止まったら、件数つきの確認dialogへ差し替える。
+assert.match(source.room, /payload\.code === "shared_descendants"[\s\S]{0,500}?setDialog\("cascade_visibility"\)/, "409(shared_descendants)はその場のエラー表示でなく確認dialogを出す");
+assert.match(source.room, /DialogTitle>フォルダの中の資料も一緒に変わります</, "確認dialogの見出しは指示書の文面を使う");
+assert.match(source.room, /このフォルダには外部共有の資料が\{pendingCascade\?\.affected \?\? 0\}件あります/, "確認dialogの本文は実際の影響件数を埋め込む");
+assert.match(source.room, /中の資料もまとめてAMD内部にする/, "確認dialogの承諾buttonは指示書の文面を使う");
+assert.match(source.room, /cascadeVisibility: true/, "承諾後は同じPATCHをcascadeVisibility付きで再送する");
+assert.match(source.room, /フォルダと中の資料 \$\{affected\} 件をAMD内部にしたよ。/, "cascade成功後は既存noticeの仕組みで件数入りの完了通知を出す");
 assert.match(source.room, /href=\{workspaceDocumentViewHref\(item\)\}\s*target="_blank"/s, "資料名は外部ブラウザの別タブで開く");
 assert.match(source.room, /application\/x-amd-workspace-document/, "一覧entryは資料移動用のdrag payloadを持つ");
 assert.match(source.room, /onDrop=\{\(event\) => finishBreadcrumbDrop\(event, ""\)\}/, "資料直下のパンくずをdrop先にできる");

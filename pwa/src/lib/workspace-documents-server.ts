@@ -161,11 +161,17 @@ export async function workspaceDocumentDestinationStatus(
   return "ok";
 }
 
-export async function workspaceDocumentFolderHasSharedDescendants(
+/**
+ * 配下（自分自身は含まない）で visibility='workspace_shared' かつ upload_status='active'
+ * の件数。0件ならfolderをamd_internalへ変えても外部共有中の資料を巻き込まない。
+ * 409の確認文面と、確認後の一括変更(workspace_set_folder_visibility_cascade RPC)の
+ * どちらもこの件数を根拠にする。
+ */
+export async function countWorkspaceDocumentSharedDescendants(
   db: SupabaseClient,
   row: WorkspaceDocumentRow,
-): Promise<boolean> {
-  if (row.entry_kind !== "folder") return false;
+): Promise<number> {
+  if (row.entry_kind !== "folder") return 0;
   const fullPath = row.folder_path ? `${row.folder_path}/${row.display_name}` : row.display_name;
   let query = db
     .from("workspace_documents")
@@ -179,9 +185,9 @@ export async function workspaceDocumentFolderHasSharedDescendants(
     : query.eq("institution_workspace_id", row.institution_workspace_id);
   const { data, error } = await query;
   if (error) throw new Error(`workspace document descendant lookup: ${error.message}`);
-  return (data ?? []).some((candidate) => (
+  return (data ?? []).filter((candidate) => (
     candidate.folder_path === fullPath || candidate.folder_path.startsWith(`${fullPath}/`)
-  ));
+  )).length;
 }
 
 export function publicWorkspaceDocument(row: WorkspaceDocumentRow) {

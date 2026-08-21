@@ -9,7 +9,7 @@ import {
   publicWorkspaceDocument,
   resolveDocumentRowAccess,
   workspaceDocumentDestinationStatus,
-  workspaceDocumentFolderHasSharedDescendants,
+  countWorkspaceDocumentSharedDescendants,
   WORKSPACE_DOCUMENT_FIELDS,
   type WorkspaceDocumentRow,
 } from "@/lib/workspace-documents-server";
@@ -193,6 +193,9 @@ export async function PATCH(
     return json({ ok: false, error: "資料名・移動先・共有範囲を確認してね。" }, 400);
   }
   if (access.principal === "workspace_account") visibility = "workspace_shared";
+  // externalアカウントは常にworkspace_sharedへ固定されるため、この時点でvisibilityが
+  // amd_internalになり得るのはinternal_memberだけ。cascade分岐もこの前提の上に乗る。
+  const cascadeVisibility = body.cascadeVisibility === true;
 
   if (
     row.folder_path === folderPath
@@ -209,12 +212,42 @@ export async function PATCH(
   if (destinationStatus === "internal_parent") {
     return json({ ok: false, error: "AMD内部フォルダには外部共有資料を置けないよ。" }, 409);
   }
-  if (
-    row.entry_kind === "folder"
-    && visibility === "amd_internal"
-    && await workspaceDocumentFolderHasSharedDescendants(db, row)
-  ) {
-    return json({ ok: false, error: "外部共有中の資料が入ってるため、先に中身の共有範囲を変えてね。" }, 409);
+
+  let cascadeAffected = 0;
+  if (row.entry_kind === "folder" && visibility === "amd_internal") {
+    cascadeAffected = await countWorkspaceDocumentSharedDescendants(db, row);
+    if (cascadeAffected > 0) {
+      if (!cascadeVisibility) {
+        return json({
+          ok: false,
+          error: "外部共有中の資料が入ってるため、先に中身の共有範囲を変えてね。",
+          code: "shared_descendants",
+          affected: cascadeAffected,
+        }, 409);
+      }
+
+      // 配下ごとの一括内部化は既存rename/move経路と分け、専用RPCで1トランザクションにする。
+      // workspace_sharedへの一括変更はここでは呼ばない(内部化専用)。
+      const { error: cascadeError } = await db.rpc("workspace_set_folder_visibility_cascade", {
+        p_document_id: documentId,
+        p_visibility: visibility,
+      });
+      if (cascadeError) return mutationError(cascadeError);
+
+      await recordWorkspaceAuditEvent(db, {
+        eventType: "workspace_document_mutated",
+        userAccountId: access.accountId,
+        email: access.accountId ? access.email : null,
+        workspaceId: access.workspaceId,
+        projectId: access.projectId,
+        detail: {
+          document_id: documentId,
+          entry_kind: row.entry_kind,
+          action: "organize_cascade",
+          affected: cascadeAffected,
+        },
+      });
+    }
   }
 
   const { error: organizeError } = await db.rpc("workspace_move_document", {
@@ -240,5 +273,9 @@ export async function PATCH(
     projectId: access.projectId,
     detail: { document_id: documentId, entry_kind: row.entry_kind, action: "organize", visibility },
   });
-  return json({ ok: true, document: publicWorkspaceDocument(updated as unknown as WorkspaceDocumentRow) });
+  return json({
+    ok: true,
+    document: publicWorkspaceDocument(updated as unknown as WorkspaceDocumentRow),
+    ...(cascadeAffected > 0 ? { affected: cascadeAffected } : {}),
+  });
 }

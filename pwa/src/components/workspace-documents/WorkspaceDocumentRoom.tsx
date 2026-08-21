@@ -105,6 +105,7 @@ type DialogKind =
   | "edit_html"
   | "html_revisions"
   | "organize"
+  | "cascade_visibility"
   | "archive"
   | "upload_conflict"
   | null;
@@ -199,25 +200,50 @@ function permissionRoleLabel(role: string) {
 }
 
 function EntryIcon({ item }: { item: DocumentItem }) {
+  // PJ全体(workspace_shared)はfolder/file/linkを問わずオレンジで揃え、種別ごとの
+  // 固定色より優先する。amd_internal folderのnavyは現状どおり維持する。
+  const shared = item.visibility === "workspace_shared";
   if (item.entryKind === "folder")
     return (
       <Folder
         className={cn(
           "h-5 w-5",
-          item.visibility === "amd_internal"
-            ? styles.internalFolderIcon
-            : "text-blue-700",
+          shared
+            ? styles.sharedEntryIcon
+            : item.visibility === "amd_internal"
+              ? styles.internalFolderIcon
+              : "text-blue-700",
         )}
         aria-hidden
       />
     );
   if (item.entryKind === "link")
-    return <Link2 className="h-5 w-5 text-cyan-700" aria-hidden />;
+    return (
+      <Link2
+        className={cn("h-5 w-5", shared ? styles.sharedEntryIcon : "text-cyan-700")}
+        aria-hidden
+      />
+    );
   if (item.mimeType.startsWith("image/"))
-    return <FileImage className="h-5 w-5 text-sky-700" aria-hidden />;
+    return (
+      <FileImage
+        className={cn("h-5 w-5", shared ? styles.sharedEntryIcon : "text-sky-700")}
+        aria-hidden
+      />
+    );
   if (item.mimeType.includes("pdf") || item.mimeType.startsWith("text/"))
-    return <FileText className="h-5 w-5 text-blue-900" aria-hidden />;
-  return <File className="h-5 w-5 text-slate-600" aria-hidden />;
+    return (
+      <FileText
+        className={cn("h-5 w-5", shared ? styles.sharedEntryIcon : "text-blue-900")}
+        aria-hidden
+      />
+    );
+  return (
+    <File
+      className={cn("h-5 w-5", shared ? styles.sharedEntryIcon : "text-slate-600")}
+      aria-hidden
+    />
+  );
 }
 
 function VisibilityBadge({
@@ -230,7 +256,7 @@ function VisibilityBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
+        "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
         visibility === "workspace_shared"
           ? styles.sharedBadge
           : styles.internalBadge,
@@ -290,6 +316,15 @@ export function WorkspaceDocumentRoom({
   const [draftFolderPath, setDraftFolderPath] = useState("");
   const [draftVisibility, setDraftVisibility] =
     useState<WorkspaceDocumentVisibility>("workspace_shared");
+  /**
+   * 整理保存が409(shared_descendants)で止まったときの再送内容。
+   * 確認dialogで「中の資料もまとめてAMD内部にする」が押されたらこれを使ってcascade再送する。
+   */
+  const [pendingCascade, setPendingCascade] = useState<{
+    target: DocumentItem;
+    next: { displayName: string; folderPath: string; visibility: WorkspaceDocumentVisibility };
+    affected: number;
+  } | null>(null);
   const [draftHtmlSource, setDraftHtmlSource] = useState("");
   const [htmlSourceLoading, setHtmlSourceLoading] = useState(false);
   // 編集を開いた時点の現物sha256。保存時にこれを送り、別セッションの変更を黙って踏まない。
@@ -381,6 +416,25 @@ export function WorkspaceDocumentRoom({
         entry.documentId === target.documentId ? { ...entry, ...next } : entry,
       );
     });
+  }
+
+  /**
+   * サーバのworkspace_set_folder_visibility_cascade RPCと同じ範囲(folder自身は含まない
+   * 配下すべて)で、画面側の共有範囲も合わせる。referencePathはrename後の正しいfull
+   * pathを渡すこと(applyLocalOrganizeの後に呼べば、renameで書き換わった配下の
+   * folderPathとも一致する)。
+   */
+  function applyLocalVisibilityCascade(
+    referencePath: string,
+    visibility: WorkspaceDocumentVisibility,
+  ) {
+    setDocuments((current) =>
+      current.map((entry) =>
+        entry.folderPath === referencePath || entry.folderPath.startsWith(`${referencePath}/`)
+          ? { ...entry, visibility }
+          : entry,
+      ),
+    );
   }
 
   /** archiveはRPCがフォルダ配下も畳むので、画面側も配下ごと消す。 */
@@ -960,15 +1014,32 @@ export function WorkspaceDocumentRoom({
   async function organizeEntry(event: FormEvent) {
     event.preventDefault();
     if (!selected) return;
-    const target = selected;
-    const snapshot = documents;
-    const next = {
+    await submitOrganize(selected, {
       displayName: draftName,
       folderPath: draftFolderPath,
       visibility: draftVisibility,
-    };
+    });
+  }
+
+  /**
+   * 整理保存の本体。organizeEntry(通常保存)と confirmCascadeVisibility(確認後の
+   * 再送)の両方から呼ぶ。cascadeVisibility=trueのときだけ、409の代わりに配下ごと
+   * 一括でamd_internalへ変える専用RPCを先に通す。
+   */
+  async function submitOrganize(
+    target: DocumentItem,
+    next: { displayName: string; folderPath: string; visibility: WorkspaceDocumentVisibility },
+    options: { cascadeVisibility?: boolean } = {},
+  ) {
+    const snapshot = documents;
     // 先に閉じて画面へ反映し、サーバの確定は背景で待つ。
     applyLocalOrganize(target, next);
+    if (options.cascadeVisibility) {
+      const referencePath = next.folderPath
+        ? `${next.folderPath}/${next.displayName}`
+        : next.displayName;
+      applyLocalVisibilityCascade(referencePath, next.visibility);
+    }
     setDialog(null);
     setError(null);
     try {
@@ -977,15 +1048,39 @@ export function WorkspaceDocumentRoom({
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "organize", ...next }),
+          body: JSON.stringify({
+            action: "organize",
+            ...next,
+            ...(options.cascadeVisibility ? { cascadeVisibility: true } : {}),
+          }),
         },
       );
       const payload = (await response.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
+        code?: string;
+        affected?: number;
       };
-      if (!response.ok || !payload.ok)
+      if (!response.ok || !payload.ok) {
+        if (
+          response.status === 409
+          && payload.code === "shared_descendants"
+          && !options.cascadeVisibility
+          && typeof payload.affected === "number"
+        ) {
+          // その場のエラー表示にせず、件数つきの確認dialogへ差し替える。
+          // 画面はいったん申請前の状態へ戻し、承諾を待つ。
+          setDocuments(snapshot);
+          setPendingCascade({ target, next, affected: payload.affected });
+          setDialog("cascade_visibility");
+          return;
+        }
         throw new Error(payload.error || "資料を整理できなかったよ。");
+      }
+      if (options.cascadeVisibility) {
+        const affected = typeof payload.affected === "number" ? payload.affected : 0;
+        setNotice(`フォルダと中の資料 ${affected} 件をAMD内部にしたよ。`);
+      }
       void refreshDocuments();
     } catch (cause) {
       setDocuments(snapshot);
@@ -995,6 +1090,29 @@ export function WorkspaceDocumentRoom({
         cause instanceof Error ? cause.message : "資料を整理できなかったよ。",
       );
     }
+  }
+
+  /** 確認dialogの「やめる」。cascadeせず整理dialogへ戻し、選び直せるようにする。 */
+  function cancelCascadeVisibility() {
+    const pending = pendingCascade;
+    setPendingCascade(null);
+    if (!pending) {
+      setDialog(null);
+      return;
+    }
+    setSelected(pending.target);
+    setDraftName(pending.next.displayName);
+    setDraftFolderPath(pending.next.folderPath);
+    setDraftVisibility(pending.next.visibility);
+    setDialog("organize");
+  }
+
+  /** 確認dialogの「中の資料もまとめてAMD内部にする」。同じ整理内容をcascade付きで再送する。 */
+  async function confirmCascadeVisibility() {
+    const pending = pendingCascade;
+    if (!pending) return;
+    setPendingCascade(null);
+    await submitOrganize(pending.target, pending.next, { cascadeVisibility: true });
   }
 
   /**
@@ -1549,9 +1667,8 @@ export function WorkspaceDocumentRoom({
             </div>
           )}
 
-          <div className="hidden grid-cols-[minmax(0,1fr)_120px_120px_360px] gap-4 border-t border-slate-200 bg-slate-100 px-5 py-1.5 text-[10px] font-semibold tracking-[0.08em] text-slate-600 xl:grid">
+          <div className="hidden grid-cols-[minmax(0,1fr)_120px_360px] gap-4 border-t border-slate-200 bg-slate-100 px-5 py-1.5 text-[10px] font-semibold tracking-[0.08em] text-slate-600 xl:grid">
             <span>名称</span>
-            <span>共有範囲</span>
             <span>更新</span>
             <span className="text-right">操作</span>
           </div>
@@ -1612,7 +1729,7 @@ export function WorkspaceDocumentRoom({
                     styles.fileRow,
                     draggedDocumentId === item.documentId && styles.fileRowDragging,
                     folderDropPath === fullPath(item) && styles.folderDropActive,
-                    "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 xl:grid-cols-[minmax(0,1fr)_120px_120px_360px] xl:gap-4 xl:px-5 xl:py-2",
+                    "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 xl:grid-cols-[minmax(0,1fr)_120px_360px] xl:gap-4 xl:px-5 xl:py-2",
                   )}
                 >
                   <div className="col-span-2 flex min-w-0 items-center gap-2 xl:col-span-1">
@@ -1629,29 +1746,35 @@ export function WorkspaceDocumentRoom({
                       <EntryIcon item={item} />
                     </span>
                     <div className="min-w-0">
-                      {item.entryKind === "folder" ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCurrentFolder(fullPath(item));
-                            setQuery("");
-                          }}
-                          className="block min-h-11 max-w-full truncate py-2 text-left text-sm font-semibold hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 xl:min-h-0 xl:py-0.5"
-                          title={item.displayName}
-                        >
-                          {item.displayName}
-                        </button>
-                      ) : (
-                        <a
-                          href={workspaceDocumentViewHref(item)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block min-h-11 max-w-full truncate py-2 text-sm font-semibold hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 xl:min-h-0 xl:py-0.5"
-                          title={item.displayName}
-                        >
-                          {item.displayName}
-                        </a>
-                      )}
+                      <div className="flex min-w-0 items-center gap-2">
+                        {item.entryKind === "folder" ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCurrentFolder(fullPath(item));
+                              setQuery("");
+                            }}
+                            className="min-h-11 min-w-0 flex-1 truncate py-2 text-left text-sm font-semibold hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 xl:min-h-0 xl:py-0.5"
+                            title={item.displayName}
+                          >
+                            {item.displayName}
+                          </button>
+                        ) : (
+                          <a
+                            href={workspaceDocumentViewHref(item)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="min-h-11 min-w-0 flex-1 truncate py-2 text-sm font-semibold hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 xl:min-h-0 xl:py-0.5"
+                            title={item.displayName}
+                          >
+                            {item.displayName}
+                          </a>
+                        )}
+                        <VisibilityBadge
+                          visibility={item.visibility}
+                          entryKind={item.entryKind}
+                        />
+                      </div>
                       <p className="truncate text-[10px] text-slate-500">
                         {query && item.folderPath
                           ? `${item.folderPath} ・ `
@@ -1665,12 +1788,6 @@ export function WorkspaceDocumentRoom({
                     </div>
                   </div>
                   <div className="flex min-w-0 flex-wrap items-center gap-2 xl:contents">
-                    <div>
-                      <VisibilityBadge
-                        visibility={item.visibility}
-                        entryKind={item.entryKind}
-                      />
-                    </div>
                     <p className="text-xs text-slate-500">
                       {formatDate(item.updatedAt)}
                     </p>
@@ -2236,6 +2353,37 @@ export function WorkspaceDocumentRoom({
               </div>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={dialog === "cascade_visibility"}
+        onOpenChange={(open) => !open && cancelCascadeVisibility()}
+      >
+        <DialogContent className="w-[calc(100vw-32px)] max-w-md bg-white text-slate-950">
+          <DialogHeader>
+            <DialogTitle>フォルダの中の資料も一緒に変わります</DialogTitle>
+            <DialogDescription>
+              このフォルダには外部共有の資料が{pendingCascade?.affected ?? 0}件あります。フォルダをAMD内部にすると、中の資料もすべてAMD内部になり、社外のメンバーからは見えなくなります。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11"
+              onClick={cancelCascadeVisibility}
+            >
+              やめる
+            </Button>
+            <Button
+              type="button"
+              className="h-11 bg-[#0066cc] hover:bg-[#004f9e]"
+              onClick={() => void confirmCascadeVisibility()}
+            >
+              中の資料もまとめてAMD内部にする
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

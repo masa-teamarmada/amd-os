@@ -12,6 +12,8 @@
   --room-blue-strong: #004f9e;
   --room-cyan: #00a6e6;
   --room-danger: #b42318;
+  /* コックピット上部の「社外役員/顧問」バッジ等、既存UIのamber-700系オレンジを踏襲 */
+  --room-orange: #b45309;
 
   color: var(--room-ink);
 }
@@ -172,6 +174,10 @@
 
 .internalFolderIcon {
   color: var(--room-navy);
+}
+
+.sharedEntryIcon {
+  color: var(--room-orange);
 }
 
 .dropActive {
