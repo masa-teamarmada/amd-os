@@ -4438,3 +4438,10 @@
 - **原因**: 2026年5月のD-6実行が、過去にp10へ誤紐付けされた月報・source cache・member activity由来の内容を、p10のcandidateとして保存した。既知のp10/202604月報はCryoX内容のため`invalid`化済みだが、`project_strategy_signals`に保存済みのcandidateは残っていた。現行outbox applierは必須列・値域を検査する一方、候補`project_id`と根拠内容のPJ帰属を意味的に照合しない。
 - **対応内容**: 本番の既存`/api/strategy-signals`更新経路で5件すべてを`archived`にした。削除や別PJへの再紐付けは、根拠IDだけで移管先を確定できないため行っていない。本番SE cockpitを再読込みし、経営ハイライトが0件であることを確認した。
 - **再発防止策（未実装・まさ判断で保留）**: D-6候補の各根拠へ由来PJ IDを持たせ、outbox作成時とapplier時に対象`project_id`との一致を必須検証する。PJ固有aliasがなく他PJの強いaliasだけがある根拠はcandidateにしない。p10にCryoX/NIMS由来の入力があるfixtureを追加し、候補0件を回帰テストにする。候補0件は正常で、空outboxを作らない。
+
+## [slack/interactive-multi-app-signature] つくよみの承認ボタンが401で弾かれた (2026-08-21)
+
+- **症状**: `POST /api/slack/interactive` をGASからPWA直結へ切り替えた直後、実際に投稿された立替承認カード（つくよみbot投稿）のボタンを押すと`ステータスコード 401`で拒否された。env設定を1回入れ直しても再現した。
+- **原因**: Slackのインタラクションpayloadは「そのメッセージを投稿したアプリ」のsigning secretで署名される。立替カードは「つくよみ」(`A0A5Z2UETQD`)が投稿するが、本番`SLACK_SIGNING_SECRET`には「えいみ」(`A0AC419BPGE`)ぶんのsecretしか入っておらず、HMACが一致しなかった。env変数の追記自体は現行buildへ即反映されないため、追記→再deployが必要な点も見落としやすい。
+- **対応内容**: `SLACK_SIGNING_SECRET`をカンマ区切りで複数保持できるよう`signingSecrets()`を追加し、`verifySlackSignature()`はどれか1つとtiming-safe一致すれば通す実装へ変更した(`pwa/src/app/api/slack/interactive/route.ts`)。値を見せずに切り分けるため、401応答のbodyへ`secrets=${count}`のみ返す診断コードを一時追加し、本番へ2件届いていることを確認してから外した。まさの実押下でDB `status`が`submitted`→`pmApproved`へ遷移することまで確認した。
+- **再発防止策**: 複数Slackアプリが同じroute（同じRequest URL）へメッセージを投稿する構成では、投稿元アプリごとのsigning secretを漏れなくカンマ区切りへ入れる。新しいSlackアプリからの投稿を追加するたびに、このrouteのsecretリストも同時に増やす。env変更後は「保存した」で終えず、実際にbuildへ反映されたか（再deployしたか）まで確認する。

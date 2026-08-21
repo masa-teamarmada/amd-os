@@ -1,38 +1,32 @@
 # HANDOFF
 
-最終更新: 2026-08-20 JST
-対象: Seed → Cockpit導線と全PJのSXワークスペース仕様統一
+最終更新: 2026-08-21 JST
+対象: Slack Interactive署名検証を複数アプリ対応にした（つくよみ承認ボタンの401修正）
 
 ## 今回の到達点
 
-- `SeedDetailModal` の接続PJ導線は `/project/{projectId}/cockpit` だけ。モーダル内のworkspace直リンクは0件。
-- workspaceはコックピットの「共有ワークスペースへ」から開く。
-- 全PJの内部workspaceはSX先行の `SxWeeklyControlDashboard` を共通利用し、`週次差分 / ガント / 関係先 / 論点・仮説 / ドライブ` の5タブを持つ。
-- ドライブは当該PJ scopeの既存 `WorkspaceDocumentRoom` を再利用する。PJ固有の名称・柱・レーン・実データ・外部権限は維持し、DB分類は変更していない。
-- 実装commitは `a108b4c7 feat(pwa): unify project workspaces with SX`。後続の `f7745b99`（左ナビPJ二段フライアウト）にも祖先として含まれ、main・本番へ反映済み。
-- 本番でSXと桑折先生PJの5タブ一致、桑折先生PJドライブ、Seedモーダルのcockpitリンク1件/workspaceリンク0件を確認した。
+- `POST /api/slack/interactive` の署名検証が単一 `SLACK_SIGNING_SECRET` 前提だったため、立替カードを投稿する「つくよみ」(`A0A5Z2UETQD`) からの押下が401で弾かれていた（カードは「えいみ」(`A0AC419BPGE`) とは別アプリで署名が異なる）。
+- `signingSecrets()` を追加し、`SLACK_SIGNING_SECRET` をカンマ区切りで複数保持、どれか1つとtiming-safe一致すれば通す実装へ変更（`pwa/src/app/api/slack/interactive/route.ts`）。
+- 本番envへつくよみぶんのsecretを追加・再deploy済み。まさの実押下で `status` が `submitted` → `pmApproved` へ遷移することを確認した。
+- 反映済み: `pwa/spec/2-1-pwa-runtime-routes.md`、`pwa/spec/6-1-appendix-changelog.md`、`pwa/manual/9-3-appendix-changelog.md`（利用者向け）、`pwa/BUGS.md`（`[slack/interactive-multi-app-signature]`）。
 
 ## 正本
 
-- UI契約: `pwa/design/FEATURE_REGISTRY.md`、`pwa/design/seeds.md`
-- workspace仕様: `pwa/spec/3-16-project-weekly-control-current-spec.md`
-- 利用者向け導線: `pwa/manual/2-3-pj-cockpit.md`
+- 仕様: `pwa/spec/2-1-pwa-runtime-routes.md`
 - 変更履歴: `pwa/spec/6-1-appendix-changelog.md`、`pwa/manual/9-3-appendix-changelog.md`
-- 開発履歴: `pwa/design_log/sessions_2026-08.md`
-- バグ記録: `pwa/BUGS.md` の `workspace/sx-parity`
+- バグ記録: `pwa/BUGS.md` の `[slack/interactive-multi-app-signature]`
 
 ## Repo状態
 
 - canonical checkout: `/Users/masa/projects/AMD/amd-os`、branchは`main`のみ。
-- handoff着手時のHEAD/origin/main: `fdecd77a`。次セッション開始時は必ずlive stateを再取得する。
-- 今回の実装・仕様・テストはcommit済み／push済み。今回由来の未commit差分はない。
-- 別作業の未commit: SPS初期評価フロー一式（`pwa/bzm/9-5-appendix-changelog.md`、`pwa/design/seeds.md`、`pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md`、`pwa/manual/9-3-appendix-changelog.md`、`pwa/package.json`、`pwa/supabase/.temp/cli-latest`、`pwa/scripts/migrations/301_sps_initial_assessment_review_flow.sql`、`pwa/scripts/sps_initial_assessment_tool.mjs`、`pwa/scripts/test_sps_initial_assessment_flow.mjs`）。本セッションでは変更・stage・破棄していない。
+- 本セッションのcommit: `df27b2b6 fix(slack): accept signing secrets from multiple Slack apps`、`97cdf99e chore(slack): expose signing-secret count on 401 for diagnosis`（診断コードは特定後に撤去済み）。push・本番反映済み。
+- **注意**: 上記commitの後、別セッションによりSE union design関連など11件以上のcommitがmainへ積まれている（現HEAD: `6568ca3c`）。このHANDOFFはSlack署名検証セッションの内容のみを記録している。次セッション開始時は必ず `git log --oneline -15` で最新HEADとその後の作業内容を確認すること。
+- 旧HANDOFF記載の「Seed→Cockpit導線 / SXワークスペース統一」「SPS初期評価フロー未commit差分」は、現在の`git status`がclean（本ファイル更新分のみ）であることから、別セッションで解消済みと判断。詳細が必要な場合は `pwa/design_log/sessions_2026-08.md` を参照。
 
 ## 未解決
 
-- 今回の機能に未解決なし。
-- 上記SPS初期評価フロー9パスはowner側でcommitまたは破棄判断が必要。解消前はrepo全体のarchive不可。
+- 今回の機能（Slack署名検証）に未解決なし。
 
 ## 次の最初の行動
 
-新しい依頼から開始する。workspace関連の追加変更では、SXだけに分岐を足さず全PJ共通componentへ反映し、`test:project-workspace-route`、`test:seed-list-display`、TypeScript/build、本番のSX・非SX双方を確認する。
+新しい依頼から開始する。HANDOFF記載時点よりHEADが進んでいる可能性が高い共有checkoutのため、着手前に `git log --oneline -15` と `git status -sb` で現在地を再確認してから読み進める。
