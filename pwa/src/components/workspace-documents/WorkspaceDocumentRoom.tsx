@@ -272,6 +272,7 @@ export function WorkspaceDocumentRoom({
   const [dragActive, setDragActive] = useState(false);
   const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null);
   const [breadcrumbDropPath, setBreadcrumbDropPath] = useState<string | null>(null);
+  const [folderDropPath, setFolderDropPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogKind>(null);
@@ -370,10 +371,14 @@ export function WorkspaceDocumentRoom({
   const breadcrumbs = currentFolder ? currentFolder.split("/") : [];
   const ownerTrail = scopeTrail?.length ? scopeTrail : [scopeName];
 
+  function eligibleMoveTargetFor(item: DocumentItem | null, path: string) {
+    if (!item || item.entryKind !== "folder") return true;
+    const itemPath = fullPath(item);
+    return path !== itemPath && !path.startsWith(`${itemPath}/`);
+  }
+
   function eligibleMoveTarget(path: string) {
-    if (!selected || selected.entryKind !== "folder") return true;
-    const selectedPath = fullPath(selected);
-    return path !== selectedPath && !path.startsWith(`${selectedPath}/`);
+    return eligibleMoveTargetFor(selected, path);
   }
 
   function openDialog(
@@ -396,7 +401,7 @@ export function WorkspaceDocumentRoom({
       setNotice(`${item.displayName} はすでにこの場所にあるよ。`);
       return;
     }
-    if (item.entryKind === "folder" && !eligibleMoveTarget(destinationPath)) {
+    if (item.entryKind === "folder" && !eligibleMoveTargetFor(item, destinationPath)) {
       setError("フォルダは自分自身または配下へ移動できないよ。");
       return;
     }
@@ -437,6 +442,7 @@ export function WorkspaceDocumentRoom({
       setBusy(false);
       setDraggedDocumentId(null);
       setBreadcrumbDropPath(null);
+      setFolderDropPath(null);
     }
   }
 
@@ -466,6 +472,45 @@ export function WorkspaceDocumentRoom({
     const item = documents.find((candidate) => candidate.documentId === documentId);
     setBreadcrumbDropPath(null);
     if (item) void moveEntryToFolder(item, destinationPath);
+  }
+
+  /**
+   * 一覧のfolder行そのものをdrop先にする。まさがFinderと同じ感覚で「folderの上へ落とす」
+   * 操作を使うため、パンくずだけでなくfolder行でも同じ移動APIへ流す。
+   */
+  function draggedEntry() {
+    if (!draggedDocumentId) return null;
+    return documents.find((candidate) => candidate.documentId === draggedDocumentId) ?? null;
+  }
+
+  function canDropIntoFolder(folder: DocumentItem) {
+    if (!permissions?.canManage || !draggedDocumentId || busy) return false;
+    if (folder.entryKind !== "folder") return false;
+    if (folder.documentId === draggedDocumentId) return false;
+    const item = draggedEntry();
+    const destinationPath = fullPath(folder);
+    if (item && item.folderPath === destinationPath) return false;
+    return eligibleMoveTargetFor(item, destinationPath);
+  }
+
+  function allowFolderDrop(event: DragEvent<HTMLElement>, folder: DocumentItem) {
+    if (!canDropIntoFolder(folder)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "move";
+    setFolderDropPath(fullPath(folder));
+  }
+
+  function finishFolderDrop(event: DragEvent<HTMLElement>, folder: DocumentItem) {
+    if (!canDropIntoFolder(folder)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const documentId =
+      event.dataTransfer.getData("application/x-amd-workspace-document") || draggedDocumentId;
+    const item = documents.find((candidate) => candidate.documentId === documentId);
+    setFolderDropPath(null);
+    setBreadcrumbDropPath(null);
+    if (item) void moveEntryToFolder(item, fullPath(folder));
   }
 
   /**
@@ -1185,9 +1230,9 @@ export function WorkspaceDocumentRoom({
               </span>
             )}
           </nav>
-          {permissions?.canManage && currentFolder && (
+          {permissions?.canManage && (
             <p id="workspace-document-move-hint" className="sr-only">
-              資料をパンくずのフォルダへドラッグすると移動できる。タッチ操作とキーボードでは各資料の整理から移動先を選ぶ。
+              資料を一覧のフォルダ行か、パンくずのフォルダへドラッグすると移動できる。タッチ操作とキーボードでは各資料の整理から移動先を選ぶ。
             </p>
           )}
           <div className="flex shrink-0 items-center gap-2 text-[11px] text-slate-600">
@@ -1385,10 +1430,18 @@ export function WorkspaceDocumentRoom({
                   onDragEnd={() => {
                     setDraggedDocumentId(null);
                     setBreadcrumbDropPath(null);
+                    setFolderDropPath(null);
                   }}
+                  onDragOver={(event) => allowFolderDrop(event, item)}
+                  onDragLeave={(event) => {
+                    if (event.currentTarget.contains(event.relatedTarget as Node)) return;
+                    setFolderDropPath((path) => (path === fullPath(item) ? null : path));
+                  }}
+                  onDrop={(event) => finishFolderDrop(event, item)}
                   className={cn(
                     styles.fileRow,
                     draggedDocumentId === item.documentId && styles.fileRowDragging,
+                    folderDropPath === fullPath(item) && styles.folderDropActive,
                     "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 xl:grid-cols-[minmax(0,1fr)_120px_120px_360px] xl:gap-4 xl:px-5 xl:py-2",
                   )}
                 >
@@ -1396,7 +1449,7 @@ export function WorkspaceDocumentRoom({
                     {permissions?.canManage && (
                       <span
                         className="hidden shrink-0 text-slate-400 xl:inline"
-                        title="パンくずへドラッグして移動"
+                        title="フォルダかパンくずへドラッグして移動"
                         aria-hidden
                       >
                         <GripVertical className="h-4 w-4" />

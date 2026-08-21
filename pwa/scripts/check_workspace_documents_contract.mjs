@@ -209,7 +209,11 @@ assert.match(source.room, /application\/x-amd-workspace-document/, "一覧entry�
 assert.match(source.room, /onDrop=\{\(event\) => finishBreadcrumbDrop\(event, ""\)\}/, "資料直下のパンくずをdrop先にできる");
 assert.match(source.room, /onDrop=\{\(event\) => finishBreadcrumbDrop\(event, path\)\}/, "上位folderのパンくずをdrop先にできる");
 assert.match(source.room, /action: "organize"[\s\S]*?folderPath: destinationPath[\s\S]*?visibility: item\.visibility/s, "パンくずdropも既存の整理APIと共有範囲を通して移動する");
-assert.match(source.room, /資料をパンくずのフォルダへドラッグすると移動できる。タッチ操作とキーボードでは各資料の整理から移動先を選ぶ。/, "dragできない操作系にも既存整理dialogの移動導線を案内する");
+assert.match(source.room, /onDrop=\{\(event\) => finishFolderDrop\(event, item\)\}/, "一覧のフォルダ行そのものをdrop先にできる");
+assert.match(source.room, /onDragOver=\{\(event\) => allowFolderDrop\(event, item\)\}/, "フォルダ行の上でdropを許可する");
+assert.match(source.room, /function canDropIntoFolder\(folder: DocumentItem\)[\s\S]*?folder\.entryKind !== "folder"[\s\S]*?eligibleMoveTargetFor\(item, destinationPath\)/, "自分自身・配下・ファイル行へはdropさせない");
+assert.match(source.room, /if \(item\.entryKind === "folder" && !eligibleMoveTargetFor\(item, destinationPath\)\)/, "移動の自己参照checkはdialogのselectedではなくdrag中のentryで判定する");
+assert.match(source.room, /資料を一覧のフォルダ行か、パンくずのフォルダへドラッグすると移動できる。タッチ操作とキーボードでは各資料の整理から移動先を選ぶ。/, "dragできない操作系にも既存整理dialogの移動導線を案内する");
 assert.match(source.room, /role="status"/, "移動成功は資料室内のstatus通知で分かる");
 assert.match(source.mutate, /row\.folder_path === folderPath[\s\S]*?return json\(\{ ok: true, document: publicWorkspaceDocument\(row\) \}\);/s, "同じfolderへの移動はserverでもno-opにする");
 

@@ -186,6 +186,11 @@
   color: var(--room-blue-strong);
 }
 
+.folderDropActive {
+  background: #dbeafe;
+  box-shadow: inset 0 0 0 2px var(--room-blue);
+}
+
 .fileRowDragging {
   background: #eef6ff;
   opacity: 0.62;
