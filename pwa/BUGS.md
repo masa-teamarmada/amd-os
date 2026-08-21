@@ -5,6 +5,26 @@
 
 ---
 
+### [workspace-documents/room] 移動・削除・追加のたびに一覧が5〜7秒空白になった (2026-08-21)
+
+- **状態**: クローズ (2026-08-21 — build `v3.87.2` / commit `5ee97811`。本番 `v3.87.3` に包含)
+- **症状**: 資料室でファイルを移動・削除・追加するたび、一覧がspinnerに変わって5〜7秒待たされた。操作そのものは成功しているのに、結果が見えるまで手が止まった。
+- **原因**: 各mutationがPATCH/POSTの完了を待ったあと、続けて `await loadDocuments()` で全件を再取得していた。`loadDocuments()` は先頭で `setLoading(true)` して一覧を空にするため、サーバ書き込み時間と再取得時間が直列で足し算になり、その間ずっと空白のspinnerだった。失敗時は `setDocuments([])` で一覧が消えた。
+- **対応内容**: 読み取りを2系統に分けた。spinner付きの `loadDocuments()` は初回マウント専用にし、mutation後の同期は `refreshDocuments()`（spinnerなし・失敗しても表示を壊さない）だけにする。移動・削除・整理・追加は先に `snapshot` を取って画面へローカル反映し、dialogを閉じてからリクエストを投げ、失敗時に `setDocuments(snapshot)` で戻してエラーを出す。フォルダの移動・削除はmigration 217のRPCと同じく配下ごと書き換える／消す。
+- **再発防止策**: `scripts/check_workspace_documents_contract.mjs` に10本の契約テストを追加し、`await loadDocuments()` の復活、背景同期でのspinner切り替えと空配列化、snapshot戻しの欠落を機械的に落とす。リンク追加だけは開くURLが `documentId` 由来なので楽観行を作らない（`pending:` idは404になる）。
+
+---
+
+### [workspace-documents/room] 一覧に見えているフォルダ行の上へドロップしても移動できなかった (2026-08-21)
+
+- **状態**: クローズ (2026-08-21 — build `v3.86.2` / commit `a6cd3d7d`)
+- **症状**: 資料室で資料をフォルダ行の上へドラッグしても何も起きなかった。移動先として機能していたのは上部のパンくずだけだった。
+- **原因**: drop handlerをパンくずにしか付けていなかった。加えて、移動先の自己・子孫判定が整理dialogの `selected` に依存していたため、drag経路では判定の基準が誤ったentryになり得た。
+- **対応内容**: folder行に `onDragOver` / `onDragLeave` / `onDrop` を付けて既存の `moveEntryToFolder()` へ流す。`canDropIntoFolder()` がentryKind・drag中のentry自身・同一folder・自己/子孫を弾き、`stopPropagation()` で一覧全体のFinder file dropゾーンと競合させない。自己/子孫判定は `eligibleMoveTargetFor(item, path)` へ切り出した。
+- **再発防止策**: 移動先の妥当性判定はdialogのstateではなく、対象entryを引数に取る純関数に置く。契約テストでfolder行のdrop handlerと `canDropIntoFolder` の存在を固定する。
+
+---
+
 ### [workspace-documents/download] 日本語のPDFファイル名が二重URLエンコードで文字化けした (2026-08-21)
 
 - **状態**: クローズ (2026-08-21 — build `v3.87.1`)

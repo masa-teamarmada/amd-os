@@ -359,3 +359,32 @@ automation作成後の最初の自然な平日09:00実行は未観測。2026-08-
 - `npx tsc --noEmit`、対象3ファイルのESLint、`npm run build` を通した。
 - `deploy.sh` は他セッション所有のtracked dirtyでhard stopしたため、対象8ファイルだけをstageして `git push origin main` を直接実行した。同時に別セッションの未push commit `229edcfc`（v3.87.0 / PJ知財台帳の列追加）も一緒に上がっている。
 - 本番 `/api/build-info` は `v3.87.1` / `ab7cde4ae7c184c9b9d50bea3b569a6f4168813e` / `deployed_at 2026-08-21T09:34:33.921Z` を返した。
+
+---
+
+## 2026-08-21 — 資料室のフォルダ行dropと、移動・削除・追加の即時反映（v3.86.2 / v3.87.2）
+
+### フォルダ行そのものをドロップ先にする（`a6cd3d7d` / v3.86.2）
+
+- まさの申告は「フォルダの上へ持っていっても移動できない」。実装を読むと、drop handlerは上部パンくずにしか付いておらず、一覧に並ぶfolder行は最初から受け口になっていなかった。
+- `WorkspaceDocumentRoom.tsx` のfolder行に `onDragOver` / `onDragLeave` / `onDrop` を追加し、既存の `moveEntryToFolder()`（organize PATCH）へ流す。サーバ側の検証経路は変えていない。
+- `canDropIntoFolder()` が entryKind・drag中のentry自身・同一folder・folder自己/子孫を弾く。`stopPropagation()` で一覧全体のFinder file dropゾーンと競合させない。
+- 自己/子孫判定を整理dialogの `selected` 依存から `eligibleMoveTargetFor(item, path)` へ切り出した。drag経路で誤ったentryを基準に判定していた不具合も同時に消えた。
+
+### 移動・削除・追加を先に画面へ反映する（`5ee97811` / v3.87.2）
+
+- まさの申告は「移動・削除・追加のたびに5〜7秒待たされる。フロントだけでも先に処理して」。
+- 原因は、各mutationがPATCH/POSTを待ったあと直列で `await loadDocuments()` を呼び、その先頭の `setLoading(true)` が一覧を空のspinnerに落としていたこと。失敗時は `setDocuments([])` で一覧が消えた。
+- 読み取りを2系統に分割。`loadDocuments()`（spinnerあり・失敗で空配列）は初回マウント専用。mutation後は `refreshDocuments()`（spinnerなし・失敗しても表示を壊さない）で背景同期する。
+- 移動・削除・整理・追加はいずれも `const snapshot = documents;` → ローカル反映 → dialogを閉じる → リクエスト。成功で `void refreshDocuments()`、失敗で `setDocuments(snapshot)` + dialog/選択の復元 + エラー表示。
+- ローカル反映はmigration 217のRPC（`workspace_move_document` / `workspace_archive_document`）の**カスケードを鏡写しにする**。folder移動は配下の `folderPath` を接頭辞置換し、folder削除は配下ごと消す。ここがずれると背景同期が戻ってきた瞬間に画面が飛ぶ。
+- リンク追加（`create_link`）だけは楽観行を作らない。開くURLが `documentId` 由来で、`pending:` idの行は404になるため。
+- `moveEntryToFolder` から `busy` 拘束を外し、連続ドラッグができるようにした。
+
+### 検証と反映
+
+- `node scripts/check_workspace_documents_contract.mjs` → ok。楽観UI用に10本の契約テストを追加（`await loadDocuments()` の復活、背景同期でのspinner/空配列化、snapshot戻しの欠落を落とす）。
+- 途中、別セッションの `ab7cde4a` が `pdf/route.ts` を `downloadUrl` 経由に変えており、契約テストの既存2本（line 108 / 110）が古い正規表現のまま落ちていた。今回同じ単位で `downloadUrl` へ揃えた。
+- `npx tsc --noEmit` はリポジトリ全体でエラー0。
+- 対象7ファイルだけをstageして `git push origin main`。本番 `/api/build-info` は `v3.87.3` / `6ff519dbab9e8b8185f576356bf428638e261bae` を返し、`git merge-base --is-ancestor 5ee97811 6ff519db` で本番包含を確認した。
+- BUILD_VERSIONは別セッションが v3.87.0 / v3.87.1 を先に使っていたため v3.87.2 を採った。

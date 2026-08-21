@@ -1,46 +1,40 @@
-# 次セッション用 移行プロンプト（AMD OS PWA / 2026-08-21）
+# 次セッション引き継ぎプロンプト（2026-08-21 資料室UI セッションから）
 
-## 0. 最初に読む順
+## 読む順
 
 1. `/Users/masa/projects/AGENTS.common.md`（えいみ共通ルール正本）
-2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md`（AMD階層の記憶索引）
-3. `/Users/masa/projects/AMD/amd-os/CLAUDE.md`（モノレポ運用・main一本・commit即push）
-4. `/Users/masa/projects/AMD/amd-os/pwa/AGENTS.md` と `pwa/CLAUDE.md`（PWA固有・deploy方針）
-5. `/Users/masa/projects/AMD/amd-os/pwa/HANDOFF_pwa_rebuild.md`（直近セッション状態）
-6. `/Users/masa/projects/AMD/amd-os/pwa/spec/1-1-overview.md` → 該当領域の `pwa/spec/*.md`
-7. `/Users/masa/projects/AMD/amd-os/pwa/BUGS.md`（少なくとも冒頭の直近エントリ）
+2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md`（AMD level memory）
+3. `/Users/masa/projects/AMD/amd-os/CLAUDE.md`（モノレポ全体ルール。main一本・branch全面禁止・commit即push）
+4. `/Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md`（PWA固有: deploy.sh・BUILD_VERSION bump・DDL適用）
+5. `/Users/masa/projects/AMD/amd-os/pwa/HANDOFF_pwa_rebuild.md`（現在地・次の一手）
+6. `/Users/masa/projects/AMD/amd-os/pwa/spec/3-8-cockpit-current-spec.md`（資料室の現行仕様。触る前に必読）
+7. `/Users/masa/projects/AMD/amd-os/pwa/BUGS.md`（`[workspace-documents/room]` の2件が今回分）
 
-cwd は `/Users/masa/projects/AMD/amd-os`。
+## 状態スナップショット
 
-## 1. 状態スナップショット（2026-08-21 時点）
+- cwd: `/Users/masa/projects/AMD/amd-os`。branch `main`、ahead 0 / behind 0（2026-08-21 時点）。
+- 本番: `https://amd-os-pwa.vercel.app`。`/api/build-info` は `v3.87.3` / SHA `6ff519dbab9e8b8185f576356bf428638e261bae`。
+- このセッションの成果は `a6cd3d7d`（v3.86.2 フォルダ行drop）と `5ee97811`（v3.87.2 移動・削除・追加の即時反映）。どちらも本番に包含済み。
+- 作業ツリーに残る dirty・未追跡は**別セッション所有**（資料室のHTML編集／デッキエディタ）。`pwa/package.json`、`pwa/src/app/api/workspace-documents/[documentId]/source/route.ts`、`pwa/src/lib/workspace-document-editing.ts`、`pwa/scripts/check_workspace_document_edit_frame.mts`、`check_workspace_document_html_editing.mts`、`pwa/src/app/api/workspace-documents/[documentId]/edit-frame/`、`pwa/src/components/workspace-documents/WorkspaceDocumentDeckEditor.tsx`、`pwa/src/lib/workspace-document-edit-agent.ts`、`pwa/src/lib/workspace-document-html-editing.ts`。**commit・revert・削除しない。**
+- このセッションで作った branch / worktree: none。
 
-- ブランチ: `main` 一本。behind 0 / ahead 0 で `origin/main` と一致。今セッションで作ったbranch・worktreeは無い。
-- 直近commit: `ab7cde4a fix(workspace-documents): keep Japanese file names in signed download URLs`
-- 本番: `https://amd-os-pwa.vercel.app` / `/api/build-info` は `v3.87.1` / `ab7cde4ae7c184c9b9d50bea3b569a6f4168813e` / `deployed_at 2026-08-21T09:34:33.921Z`。
-- 別セッション所有のdirtyが作業ツリーに残っている（資料室のHTML編集まわり: `pwa/src/lib/workspace-document-editing.ts`、`api/workspace-documents/[documentId]/source/route.ts`、`pwa/package.json`、未追跡の `WorkspaceDocumentDeckEditor.tsx` / `workspace-document-html-editing.ts` / `edit-frame/` など）。**触らない・commitしない・消さない。**
-- 別セッションの `229edcfc`（v3.87.0 / PJ知財台帳の列追加）は今回のpushで一緒にorigin/mainへ上がっている。
+## 次タスク
 
-## 2. 今セッションでやったこと（背景）
+まさから追加依頼は出ていない。資料室を続けて触る場合の必達条件は以下。
 
-資料室のHTML資料をPDF化したときの不具合3件を、まさの実ファイルで潰した。
+- 資料室の一覧UI（`pwa/src/components/workspace-documents/WorkspaceDocumentRoom.tsx`）を変える前に、`pwa/spec/3-8-cockpit-current-spec.md` の資料室段落を読む。
+- 守る契約3つ:
+  1. mutation後に `await loadDocuments()` を復活させない。これがまさの言った「移動・削除・追加のたびに5〜7秒待たされる」の直接原因。背景同期は spinner を出さない `refreshDocuments()` のみ。
+  2. ローカル反映は migration 217 の RPC（`workspace_move_document` / `workspace_archive_document`）のカスケードを鏡写しにする。folder移動は配下の `folderPath` を接頭辞置換、folder削除は配下ごと除去。ずれると背景同期の到着時に画面が飛ぶ。
+  3. 失敗時は `setDocuments(snapshot)` で戻す。`create_link` だけは楽観行を作らない（開くURLが `documentId` 由来で `pending:` idは404）。
+- 変更後は `node pwa/scripts/check_workspace_documents_contract.mjs` を必ず通す。
 
-1. **左右に巨大な余白** — 資料HTML側の `@page` がPDF生成側のスタイルを上書きしていた。PDF専用CSSで元HTMLの `@page` を無効化（`ca2e7c0f`）。
-2. **中途半端な改ページ** — 見出しだけが前ページ末尾に残る／最終ページが空白。見出しと直後の本文ブロックを同ページへ保ち、末尾の空ページを落とした（`daecf9c3` / v3.86.1）。まさから「うん、いい感じになった」と確認済み。
-3. **日本語ファイル名の文字化け** — `SE_%25E6%258A%2580….pdf` になる。supabase-jsの `createSignedUrl(path, ttl, { download })` が名前を `encodeURIComponent` してクエリへ載せる一方、Storageはクエリの生値をデコードせずそのまま `Content-Disposition` の `filename` / `filename*` に入れるため二重エンコードになる。`withWorkspaceDownloadFileName(signedUrl, fileName)` を `pwa/src/lib/workspace-documents-core.ts` に追加し、`download=` を自前で1回だけエンコードして付ける方式へ変更（`ab7cde4a` / v3.87.1）。
+## このPJで確立済みの運用ルール
 
-**踏んではいけない罠**: ダウンロード名を付けるときに supabase-js の `{ download }` オプションへ戻さない。必ず `withWorkspaceDownloadFileName()` を経由する。`encodeURIComponent` が残す `'` `(` `)` `*` はRFC 5987のattr-char外なので追加でパーセント化する処理も、この関数の中にある。
-
-## 3. 次のタスク
-
-まさからの新しい指示待ち。未解決の宿題は無い。資料室のPDF周りを再度触るなら、`pwa/src/lib/workspace-document-html-pdf.ts` / `workspace-documents-core.ts` / `api/workspace-documents/[documentId]/pdf/route.ts` / `.../open/route.ts` を先に読む。
-
-## 4. このPJで確立済みの運用ルール
-
-- **branch作成は全面禁止。** main で直接 commit & push。worktree も作らない。dirty はbranchを作る理由にならない。
-- **commitしたら即push。** 1機能=1commit。push直前に `git fetch origin main` して他セッションの更新を見る。
-- **push = Vercel自動production deploy。** `npx vercel` 直接実行は禁止。原則ノンストップ・事後報告。
-- 標準手順: 実装 → `npx tsc --noEmit` → 対象ファイルのESLint → `npm run build` → 対象ファイルだけ `git add`（`git add .` は禁止）→ commit → `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`。
-- `deploy.sh` は tracked dirty があると hard stop する。他セッション所有のdirtyが原因なら、それには触らず `git push origin main` を直接実行し、`/api/build-info` をpollingしてbuild versionとSHAをreadbackする。**コマンド成功だけで完了と呼ばない。**
-- 仕様変更は同じcommitで正本へ反映する: 使い方 → `pwa/manual/`、確定実装仕様 → `pwa/spec/`、未移行領域 → `pwa/design/`。変更した層の附則（`manual/9-3`、`spec/6-1`）に日時つきで追記する。
-- バグ・事故は `pwa/BUGS.md` に 症状／原因／対応内容／再発防止策 の形で残す。
-- 開発履歴は `pwa/design_log/sessions_YYYY-MM.md` へ追記する。戦略・MTG準備など非開発作業はここへ入れない。
+- **main一本。branch / worktree を作らない。** `spawn_task` で次セッションを起票しない（チップの起動導線が worktree を作る）。
+- `git add .` は禁止。**今回触った対象ファイルだけを名前指定で stage** する。他セッションの dirty は戻さない。
+- deploy に出す前に `pwa/src/lib/build-info.ts` の `BUILD_VERSION` を bump。**HEAD の実値を読んでから採る**（複数セッションが並行 bump しており、v3.87.0 / v3.87.1 は先取りされていた）。迷ったら patch。
+- 本番反映は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`。他セッション所有の tracked dirty があると hard stop するので、その場合は対象ファイルだけを stage / commit して `git push origin main` を直接実行し、除外した差分を事後報告する。事前承認で止めない。
+- 反映後は `/api/build-info` を readback し、`git merge-base --is-ancestor <自分のcommit> <本番SHA>` で本番包含を確認する。`vercel ls` のポーリングループは10分でタイムアウトするので回さない。
+- 仕様を変えたら同じ作業単位で `pwa/manual/*.md`（使い方）と `pwa/spec/*.md`（実装仕様）を更新し、`pwa/manual/9-3-appendix-changelog.md` と `pwa/spec/6-1-appendix-changelog.md` の両方に追記する。
+- 資料室の回帰は `pwa/scripts/check_workspace_documents_contract.mjs` がコード本文への正規表現検査で押さえている。他セッションが同じファイルを触ると既存 assertion が黙って落ちることがあるので、実行してから着手する。
