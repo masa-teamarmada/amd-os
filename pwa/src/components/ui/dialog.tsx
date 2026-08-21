@@ -47,13 +47,23 @@ function DialogContent({
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
 }) {
+  // 呼び出し側が max-w-* を渡していたら、既定の sm:max-w-sm は付けない。
+  // tailwind-merge は `sm:max-w-sm` (variant あり) と `max-w-[1400px]` (variant なし) を
+  // 別グループとして両方残すため、既定を無条件に置くと sm: 以上の画面で常に 384px が勝ち、
+  // 呼び出し側の幅指定が丸ごと無視される。
+  // 左右 1rem の余白は max-w ではなく w- 側で確保して、max-w グループを呼び出し側へ明け渡す。
+  // (2026-08-21 資料室「見たまま編集」が 1400px 指定なのに 384px で開く事象で発覚。
+  //  同じ理由で max-w-2xl / max-w-3xl / max-w-5xl 等を渡していた 30 箇所が全部潰れていた)
+  const hasCallerMaxWidth =
+    typeof className === "string" && /(?:^|[\s:])max-w-/.test(className)
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          hasCallerMaxWidth ? null : "sm:max-w-sm",
           className
         )}
         {...props}
