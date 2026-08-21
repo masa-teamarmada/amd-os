@@ -68,6 +68,14 @@ Research-institution ecosystem work is represented as an ECR institution card fi
 
 This route is read-only during load. It does not create a duplicate project or write production DB rows. If MS plan data is missing, the embedded normal cockpit shows the existing MS setup banner / monthly note fallback. MTG tree must not be the first visible block after the institution header; research institution cockpit uses the same high-level information architecture as PJ cockpit: summary first, progress tab for operational state, score detail tab for score evidence.
 
+### SU関連規程台帳
+
+全研究機関共通の比較表は、10種類の学内規程・運用文書に「外部助成・起業後支援ルール」を加えた11種別を表示する。JST等の外部制度は大学の学内規程と同じ種類へ混ぜず、`external_program_support` として分離する。
+
+愛媛大学 (`inst_ehime`) は、2026-08-21に確認できた大学発ベンチャー認定、兼業・労働時間内兼業・クロスアポイントメント、利益相反、知的財産、共同研究等、大学発ベンチャー支援制度の公式規程・案内を正本リンク付きで保持する。共有機器利用と支援細則は支援制度の存在までは確認済みだが、利用条件・料金・安全管理・責任分界が未確認なので `review` とする。設立後の愛媛大学×SolvioraX共同研究は既存制度の存在とは分け、石原先生から出た提案段階・実施未合意として記録する。
+
+JST「起業後支援の手引き」は外部制度欄に置く。PSI事務局回答で研究開発期間中の起業自体は可能、起業のみなら事前申請不要だが起業日前日でGAPファンド支援終了、大学側継続支援またはSU直接支援はPF審査・JST確認等が必要という現在地を記録する。12/18設立は固定日ではなく目安であり、審査日程に合わせて後ろ倒しできる前提を崩さない。
+
 ## Initial Modal Rules
 
 | query | behavior |

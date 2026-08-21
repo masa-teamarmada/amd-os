@@ -16,6 +16,17 @@ expect("scripts/migrations/282_institution_regulation_ledger.sql", [
   "is_admin()",
   "regver_ehime_recognition_current",
 ]);
+expect("scripts/migrations/316_ehime_regulation_ledger_enrichment.sql", [
+  "external_program_support",
+  "reg_ehime_side_job",
+  "reg_ehime_coi",
+  "reg_ehime_joint_research",
+  "reg_ehime_venture_support",
+  "reg_ehime_jst_post_startup_support",
+  "('inst_ehime', 'shared_equipment', 'reg_ehime_venture_support', 'review'",
+  "共同研究は石原先生から出た提案段階で、実施は未合意",
+  "12/18設立は目安",
+]);
 expect("src/lib/institution-regulations.ts", [
   "currentVersion",
   "?.externalUrl ||",
