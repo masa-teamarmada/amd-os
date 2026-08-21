@@ -32,6 +32,8 @@ import CapitalPlanWorkspace from "./CapitalPlanWorkspace";
 interface CockpitBusinessPlanProps {
   projectId: string;
   projectName: string;
+  /** SX (p21) 固有のフェーズ表・年次試算表を出すか。他PJは資本政策プランだけを表示する。 */
+  showSxDetail?: boolean;
 }
 
 interface LaneMeta {
@@ -463,7 +465,7 @@ function AnnualProjectionTable() {
   );
 }
 
-export function CockpitBusinessPlan({ projectId, projectName }: CockpitBusinessPlanProps) {
+export function CockpitBusinessPlan({ projectId, projectName, showSxDetail = false }: CockpitBusinessPlanProps) {
   const [companyData, setCompanyData] = useState<CompanyOverviewData>();
   const [companyDataError, setCompanyDataError] = useState("");
 
@@ -483,7 +485,7 @@ export function CockpitBusinessPlan({ projectId, projectName }: CockpitBusinessP
 
   return (
     <div className="space-y-5">
-      <PhaseMatrix projectName={projectName} />
+      {showSxDetail && <PhaseMatrix projectName={projectName} />}
 
       <div>
         <div className="mb-3 px-1">
@@ -497,7 +499,7 @@ export function CockpitBusinessPlan({ projectId, projectName }: CockpitBusinessP
         <CapitalPlanWorkspace projectId={projectId} projectName={projectName} companyOverviewData={companyData} />
       </div>
 
-      <AnnualProjectionTable />
+      {showSxDetail && <AnnualProjectionTable />}
     </div>
   );
 }

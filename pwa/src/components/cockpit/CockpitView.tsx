@@ -272,7 +272,9 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
 
   const { project, currentYm, billingCycles, planCycle, milestones, progress, reports, members, subItems, responsibilities, memberMap, pastPlanCycles, msActivities, memberActivities, seasonFinance, msChangeHistory, strategySignals } = cockpit;
   const usesMsProgress = usesMsProgressCategory(project.projectCategory);
-  const hasBusinessPlanTab = project.projectId === "p21";
+  // 事業計画タブは全PJ常設 (2026-08-21 まさ依頼)。資本政策プランは会社概要ではなくこのタブが正本。
+  // フェーズ表と年次試算表はSX (p21) 固有データなので、SXのときだけ足す。
+  const hasSxBusinessPlanDetail = project.projectId === "p21";
   const hasKuteRegulationsTab = project.projectId === "p25";
 
   const currentProgress = mergeProgress(progress, progressPatches);
@@ -317,7 +319,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   const tabs: { key: CockpitTab; label: string }[] = [
     { key: "progress", label: "進捗管理" },
     ...(hasScoreDetailTab ? [{ key: "score-detail" as const, label: "スコア詳細" }] : []),
-    ...(hasBusinessPlanTab ? [{ key: "business-plan" as const, label: "事業計画" }] : []),
+    { key: "business-plan", label: "事業計画" },
     ...(hasKuteRegulationsTab ? [{ key: "regulations" as const, label: "規程・内規" }] : []),
     { key: "ip", label: "知財" },
     { key: "documents", label: "資料室" },
@@ -550,14 +552,10 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
         </section>
       )}
 
-      {hasBusinessPlanTab && (
-        <section
-          role="tabpanel"
-          aria-label="事業計画"
-          hidden={activeTab !== "business-plan"}
-          className={activeTab === "business-plan" ? "min-w-0" : "hidden"}
-        >
-          <CockpitBusinessPlan projectId={project.projectId} projectName={project.projectName} />
+      {/* 事業計画タブ。CapitalPlanWorkspace が自前で fetch するので、開いた時だけマウントする。 */}
+      {activeTab === "business-plan" && (
+        <section role="tabpanel" aria-label="事業計画" className="min-w-0">
+          <CockpitBusinessPlan projectId={project.projectId} projectName={project.projectName} showSxDetail={hasSxBusinessPlanDetail} />
         </section>
       )}
 
@@ -599,7 +597,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
         hidden={activeTab !== "company"}
         className={activeTab === "company" ? "min-w-0" : "hidden"}
       >
-        <CockpitCompanyOverview projectId={project.projectId} projectName={project.projectName} showCapitalPlan={!hasBusinessPlanTab} />
+        <CockpitCompanyOverview projectId={project.projectId} projectName={project.projectName} />
       </section>
 
       {/* ===== Monthly Modal ===== */}
