@@ -55,22 +55,37 @@ function isDuplicate(key: string): boolean {
   return false;
 }
 
+/**
+ * 署名検証に使う secret 一覧。
+ *
+ * ボタンを押したときの payload は「そのメッセージを投稿したアプリ」の signing secret で
+ * 署名される。AMD OS では立替カードを「つくよみ」アプリが、他の通知を「えいみ」アプリが
+ * 投稿しており、両方の Interactivity をこの受け口へ向けているため、secret は複数持てる
+ * ようにしてある。`SLACK_SIGNING_SECRET` にカンマ区切りで並べる (2026-08-21)。
+ */
+function signingSecrets(): string[] {
+  return (process.env.SLACK_SIGNING_SECRET || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 /** Slack の署名検証。secret 未設定なら常に不許可 (無防備な受け口を作らない)。 */
 function verifySlackSignature(raw: string, signature: string, timestamp: string): boolean {
-  const secret = process.env.SLACK_SIGNING_SECRET;
-  if (!secret || !signature || !timestamp) return false;
+  const secrets = signingSecrets();
+  if (secrets.length === 0 || !signature || !timestamp) return false;
 
   const ts = Number(timestamp);
   if (!Number.isFinite(ts)) return false;
   if (Math.abs(Date.now() / 1000 - ts) > 60 * 5) return false;
 
-  const expected = `v0=${crypto
-    .createHmac("sha256", secret)
-    .update(`v0:${timestamp}:${raw}`)
-    .digest("hex")}`;
-  const a = Buffer.from(expected);
-  const b = Buffer.from(signature);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+  const given = Buffer.from(signature);
+  return secrets.some((secret) => {
+    const expected = Buffer.from(
+      `v0=${crypto.createHmac("sha256", secret).update(`v0:${timestamp}:${raw}`).digest("hex")}`
+    );
+    return expected.length === given.length && crypto.timingSafeEqual(expected, given);
+  });
 }
 
 function slackClient(): WebClient | null {
