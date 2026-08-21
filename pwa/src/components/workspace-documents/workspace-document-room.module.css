@@ -14,6 +14,8 @@
   --room-danger: #b42318;
   /* コックピット上部の「社外役員/顧問」バッジ等、既存UIのamber-700系オレンジを踏襲 */
   --room-orange: #b45309;
+  --room-orange-tile: #fdeedd;
+  --room-navy-tile: #e2e8f0;
 
   color: var(--room-ink);
 }
@@ -178,6 +180,15 @@
 
 .sharedEntryIcon {
   color: var(--room-orange);
+}
+
+/* アイコンの台座も共有範囲で塗り分ける。PJ全体=オレンジ、AMD内部=navy。 */
+.sharedEntryIconTile {
+  background: var(--room-orange-tile);
+}
+
+.internalEntryIconTile {
+  background: var(--room-navy-tile);
 }
 
 .dropActive {

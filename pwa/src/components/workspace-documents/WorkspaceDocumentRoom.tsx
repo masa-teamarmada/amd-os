@@ -1742,7 +1742,14 @@ export function WorkspaceDocumentRoom({
                         <GripVertical className="h-4 w-4" />
                       </span>
                     )}
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-slate-100 xl:h-9 xl:w-9">
+                    <span
+                      className={cn(
+                        "grid h-10 w-10 shrink-0 place-items-center rounded-md xl:h-9 xl:w-9",
+                        item.visibility === "workspace_shared"
+                          ? styles.sharedEntryIconTile
+                          : styles.internalEntryIconTile,
+                      )}
+                    >
                       <EntryIcon item={item} />
                     </span>
                     <div className="min-w-0">
