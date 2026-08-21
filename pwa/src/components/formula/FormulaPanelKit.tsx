@@ -13,10 +13,10 @@
  * に溶け込ませ、そこだけ別世界にしない。
  *
  * 現在の利用者:
- * - /seeds シーズ詳細モーダル「一次選別スクリーニング帯」 … SpsFormulaPanel
- *
- * 適用対象外: PJ コックピット「スコア詳細」タブ (CockpitAmdScoreDetailTab →
- * CurrentSpsAssessmentCard / Bzm22ProvisionalObservatory)。台帳向けの密度重視レイアウト。
+ * - SpsFormulaPanel … SPS帯 (産業創出価値, sps-ind-v1) の定義式とパラメータ実値。
+ *   SpsScreeningBandSection 経由で /seeds シーズ詳細モーダルと PJ コックピット
+ *   「スコア詳細」タブの両方が同じものを出す (まさ確定 2026-08-21「これ統一してほしい」)。
+ * - Bzm22ProvisionalObservatory … BZM 2.2 暫定パイロット (SPS とは別モデル)。
  */
 
 import { ChevronDown } from "lucide-react";

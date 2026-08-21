@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CurrentSpsAssessmentCard } from "@/components/sps/CurrentSpsAssessmentCard";
 import type { CurrentSpsProjectAssessment } from "@/lib/current-sps-model";
+import type { ProjectPlanValueCheck } from "@/types/project-plan-value";
 import type { SeedScreeningBandDetail } from "@/types/seeds";
 import { Bzm22ProvisionalObservatory } from "./Bzm22ProvisionalObservatory";
 
@@ -16,12 +17,25 @@ export function CockpitAmdScoreDetailTab({ projectId, active = true }: { project
   // 判断根拠 (q帯・q要因11項目・P^ind帯・総合判断) は seed_screening_bands の詳細行にしか無い。
   // 一覧系に積むとペイロードが膨らむため、根拠を出すこの画面だけが seedId 指定で追加取得する。
   const [band, setBand] = useState<SeedScreeningBandDetail | null>(null);
+  // この PJ の月次試算表から作った年度別付加価値。P^ind をここから作り直すためではなく、
+  // P^ind 下限が PJ 単体の計画ピーク年度の何年分にあたるかを併記して、下限の妥当性を
+  // 読み手が判断できるようにするため。正本: pwa/bzm/SPS_IND_PLAN_VALUE_CHECK_2026-08-21.md
+  const [planCheck, setPlanCheck] = useState<ProjectPlanValueCheck | null>(null);
 
   useEffect(() => {
     if (!active) return;
     const controller = new AbortController();
     setState({ status: "loading" });
     setBand(null);
+    setPlanCheck(null);
+    fetch(`/api/project/${encodeURIComponent(projectId)}/plan-value-check`, { cache: "no-store", signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: ProjectPlanValueCheck | null) => {
+        if (payload) setPlanCheck(payload);
+      })
+      .catch(() => {
+        /* 検算は補助表示。取得に失敗しても現行SPS本体の表示は続ける。 */
+      });
     fetch(`/api/project/${encodeURIComponent(projectId)}/sps-current`, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const payload = await response.json().catch(() => null);
@@ -51,7 +65,7 @@ export function CockpitAmdScoreDetailTab({ projectId, active = true }: { project
       ) : state.status === "error" ? (
         <div className="border border-red-200 bg-red-50 px-3 py-3 text-[10px] text-red-800">{state.message}</div>
       ) : (
-        <CurrentSpsAssessmentCard assessment={state.assessment} band={band} />
+        <CurrentSpsAssessmentCard assessment={state.assessment} band={band} planCheck={planCheck} />
       )}
 
       <section aria-labelledby="bzm22-separate-model-title" className="min-w-0 border-t border-slate-300 pt-3">

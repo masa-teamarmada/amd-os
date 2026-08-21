@@ -1883,12 +1883,29 @@ expectIncludes("src/components/sps/CurrentSpsAssessmentCard.tsx", [
   "最新版未評価",
   "assessment.assessment_id",
   "assessment.model.measureVersion",
-  // 判断根拠の展開 (compact表示では出さない)
-  "SpsBandRationale",
+  // 判断根拠の展開 (compact表示では出さない)。帯の中身そのものは SpsScreeningBandSection が正本なので、
+  // ここには「共通セクションを呼んでいること」だけを釘として打つ (説明文を二重に持たせない)。
+  "SpsScreeningBandSection",
   "showRationale",
-  "q帯",
-  "P^ind帯",
+]);
+// PJコックピットの「スコア詳細」タブと /seeds のシーズ詳細モーダルは、同じ sps-ind-v1 の帯を
+// この共通セクション経由で出す (まさ確定 2026-08-21「コックピットでのスコア詳細タブの中身と
+// シーズリストのスコア詳細のところが全然違うね…。これ統一してほしい」)。
+// 表示コンポーネントを再び 2 系統に割ると、片方だけ育って片方が取り残される事故に戻る。
+expectIncludes("src/components/sps/SpsScreeningBandSection.tsx", [
+  'data-testid="sps-screening-band-section"',
+  "SpsFormulaPanel",
+  "SpsBandRationale",
+  "band.notes",
+  "band.q_evidence",
   "投資判断・対外表示には使わない",
+]);
+expectNotIncludes("src/components/sps/SpsScreeningBandSection.tsx", [
+  "text-cyan-",
+  "border-cyan-",
+  "bg-slate-950",
+  "text-pink-",
+  "font-black",
 ]);
 // 判断根拠の共通UI。シーズ詳細モーダルとPJコックピットのスコア詳細から同じ根拠を読む。
 // mdだけに根拠を置かないための導線なので、どちらかの画面から消さない。
@@ -1908,12 +1925,13 @@ expectIncludes("src/components/seeds/KuteSeedDetailModal.tsx", [
 // 現在どこからも表示されない。帯の導線をこちらから消すと OS 画面から根拠が読めなくなる。
 expectIncludes("src/components/seeds/SeedDetailModal.tsx", [
   "一次選別スクリーニング帯",
-  "SpsFormulaPanel",
-  "SpsBandRationale",
-  "band.notes",
-  "band.q_evidence",
+  "SpsScreeningBandSection",
   "/api/seeds/screening-bands?seedId=",
-  "投資判断・対外表示には使わない",
+  // 対応 PJ に月次試算表があるときの検算。判定は seed_projects (project_links) が正本で、
+  // seeds.spun_off_project_id は deprecated (実データ 180 件中 1 件しか入っておらず、
+  // これを見ると検算が永久に出ない)。seeds-data.ts の fetchSeedProjectLinks 注記に従う。
+  "project_links?.[0]?.project_id",
+  "/plan-value-check",
 ]);
 // シーズ詳細モーダルの帯は、PJコックピットの「スコア詳細」タブと同じ情報量にする (まさ確定 2026-08-20)。
 // 数式は LaTeX (Tex/KaTeX) で書き、式の各パラメータの実値をこのシーズの値で併記する。
@@ -1927,6 +1945,10 @@ expectIncludes("src/components/sps/SpsFormulaPanel.tsx", [
   "SEED_EVIDENCE_LEVEL_DESCRIPTION",
   "係数を発明しない",
   "閉じた式が存在しない",
+  // q帯・P^ind帯のパラメータ行。旧 CurrentSpsAssessmentCard が持っていた
+  // 「q帯」「P^ind帯」の見出しは、一本化でこの 2 行に集約された。
+  "到達見込みの帯",
+  "産業創出価値の帯",
 ]);
 // 数式パネルの見た目は共通キットに一本化する。画面ごとに padding / font-size / 装飾を刻み直すと
 // デザインが分岐し、まさが本番画面で即座に気づく差になる。

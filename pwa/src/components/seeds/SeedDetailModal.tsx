@@ -25,6 +25,7 @@ import {
   SEED_NEWS_KIND_LABEL,
   SEED_CONTACT_METHOD_LABEL,
 } from "@/lib/seeds-data";
+import type { ProjectPlanValueCheck } from "@/types/project-plan-value";
 import type {
   Seed,
   SeedDetail,
@@ -39,8 +40,7 @@ import type {
 } from "@/types/seeds";
 import { createClient } from "@/lib/supabase/client";
 import { SeedMarkdownPreviewModal } from "@/components/seeds/SeedMarkdownPreviewModal";
-import { SpsBandRationale } from "@/components/sps/SpsBandRationale";
-import { SpsFormulaPanel } from "@/components/sps/SpsFormulaPanel";
+import { SpsScreeningBandSection } from "@/components/sps/SpsScreeningBandSection";
 
 interface MemberLite {
   member_id: string;
@@ -88,6 +88,7 @@ export function SeedDetailModal({
   const [activationOpen, setActivationOpen] = useState(false);
   const [activationBusy, setActivationBusy] = useState(false);
   const [screeningBand, setScreeningBand] = useState<SeedScreeningBandDetail | null>(null);
+  const [planCheck, setPlanCheck] = useState<ProjectPlanValueCheck | null>(null);
 
   // メンバー + PJ 一覧を読む (lookup 用)
   useEffect(() => {
@@ -161,6 +162,36 @@ export function SeedDetailModal({
       cancelled = true;
     };
   }, [seedId, createMode]);
+
+  // PJ 化済みシーズは、対応 PJ の月次試算表から年度別付加価値を読む。
+  // P^ind をここから作り直すためではなく、P^ind 下限が PJ 単体の計画ピーク年度の
+  // 何年分にあたるかを併記して、下限の妥当性を読み手が判断できるようにするため。
+  // 正本: pwa/bzm/SPS_IND_PLAN_VALUE_CHECK_2026-08-21.md
+  //
+  // 対応 PJ の判定は seed_projects (= data.project_links) を正本にする。
+  // seeds.spun_off_project_id は deprecated で実データ 1 件にしか入っておらず
+  // (2026-08-21 実測: 月次試算表を持つ p21/p20/p09/p24 のいずれもヒットしない)、
+  // これを条件にすると検算が常に出ない。seeds-data.ts:614 の
+  // 「seeds.status/spun_off_project_id は関係判定に使わない」に従う。
+  const planProjectId = data?.project_links?.[0]?.project_id ?? null;
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- シーズ切替時に前の PJ の集計を残さないための同期リセット
+    setPlanCheck(null);
+    if (!planProjectId) return;
+    let cancelled = false;
+    fetch(`/api/project/${encodeURIComponent(planProjectId)}/plan-value-check`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json: ProjectPlanValueCheck | null) => {
+        if (cancelled || !json) return;
+        setPlanCheck(json);
+      })
+      .catch(() => {
+        /* 検算は補助表示。取得に失敗しても帯の表示は続ける。 */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [planProjectId]);
 
   // ESC で閉じる
   useEffect(() => {
@@ -412,6 +443,7 @@ export function SeedDetailModal({
                 <SeedReadView
                   data={data}
                   screeningBand={screeningBand}
+                  planCheck={planCheck}
                   onOpenDeepDive={() => setDeepDiveOpen(true)}
                 />
               )
@@ -464,10 +496,12 @@ function RatingDots({ r }: { r: number | null }) {
 function SeedReadView({
   data,
   screeningBand,
+  planCheck,
   onOpenDeepDive,
 }: {
   data: SeedDetail;
   screeningBand: SeedScreeningBandDetail | null;
+  planCheck: ProjectPlanValueCheck | null;
   onOpenDeepDive: () => void;
 }) {
   const s = data.seed;
@@ -561,32 +595,17 @@ function SeedReadView({
         </Section>
       </div>
 
-      {screeningBand && <SeedScreeningBandSection band={screeningBand} />}
+      {screeningBand && (
+        <SpsScreeningBandSection
+          band={screeningBand}
+          planCheck={planCheck}
+          heading="一次選別スクリーニング帯 (SPS = 産業創出価値)"
+        />
+      )}
     </div>
   );
 }
 
-// 一次選別スクリーニング帯 (SPS = 産業創出価値, sps-ind-v1)。
-// 帯そのものは接触・調査の優先順位づけ用の下書きで、評価額ではない。
-// 中身は PJ コックピットの「スコア詳細」タブと同じ情報量にする (まさ確定 2026-08-20)。
-// 数式は LaTeX (SpsFormulaPanel) で書き、式の各パラメータの実値を併記する。
-function SeedScreeningBandSection({ band }: { band: SeedScreeningBandDetail }) {
-  return (
-    <div className="space-y-2">
-      <h3 className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
-        一次選別スクリーニング帯 (SPS = 産業創出価値)
-      </h3>
-
-      <SpsFormulaPanel band={band} />
-
-      <p className="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-900 dark:text-amber-200">
-        この帯は接触と調査の優先順位づけの下書き。上限は楽観シナリオの包絡であり評価額ではない。投資判断・対外表示には使わない。
-      </p>
-
-      <SpsBandRationale notes={band.notes} qEvidence={band.q_evidence} />
-    </div>
-  );
-}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
