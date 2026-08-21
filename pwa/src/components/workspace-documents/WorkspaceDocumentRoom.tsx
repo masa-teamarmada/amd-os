@@ -10,6 +10,7 @@ import {
   type FormEvent,
 } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   ChevronRight,
   Download,
@@ -21,13 +22,10 @@ import {
   FolderOpen,
   FolderPlus,
   GripVertical,
-  History,
   Link2,
   Loader2,
   MoreHorizontal,
-  MousePointerClick,
   PencilLine,
-  RotateCcw,
   Search,
   ShieldCheck,
   Trash2,
@@ -46,7 +44,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
   externalWorkspaceRoleCapabilityLabel,
@@ -56,9 +53,7 @@ import {
   isWorkspaceDocumentHtml,
   isWorkspaceDocumentMarkdown,
   documentBaseName,
-  WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES,
   workspaceDocumentFinderCopyName,
-  workspaceDocumentHtmlSourceByteLength,
   workspaceDocumentNameKey,
   workspaceDocumentPdfDownloadName,
 } from "@/lib/workspace-documents-core";
@@ -67,8 +62,9 @@ import type {
   WorkspaceDocumentScopeKind,
   WorkspaceDocumentVisibility,
 } from "@/lib/workspace-documents-core";
-import { WorkspaceDocumentDeckEditor } from "./WorkspaceDocumentDeckEditor";
+import { formatBytes, formatDate } from "./workspace-document-format";
 import styles from "./workspace-document-room.module.css";
+import { subscribeWorkspaceDocumentUpdates } from "./workspace-document-sync";
 
 type DocumentItem = {
   documentId: string;
@@ -101,9 +97,6 @@ type ListResponse = {
 type DialogKind =
   | "create_folder"
   | "create_link"
-  | "deck_editor"
-  | "edit_html"
-  | "html_revisions"
   | "organize"
   | "cascade_visibility"
   | "archive"
@@ -115,18 +108,6 @@ type UploadQueueItem = {
   displayName: string;
   conflict: DocumentItem | "queued" | null;
   replaceDocumentId: string | null;
-};
-
-/** 上書き前に退避した過去版。bucket/pathはサーバ側に留め、ここへは来ない。 */
-type DocumentRevision = {
-  revisionId: string;
-  revisionNo: number;
-  kind: "deck_model" | "html_source";
-  contentSha256: string;
-  byteSize: number;
-  note: string | null;
-  pinned: boolean;
-  createdAt: string;
 };
 
 const kindOrder: Record<WorkspaceDocumentEntryKind, number> = {
@@ -162,34 +143,13 @@ function workspaceDocumentViewHref(item: DocumentItem) {
   return `/api/workspace-documents/${encodedId}/open?download=0`;
 }
 
-function formatBytes(bytes: number) {
-  if (!bytes) return "—";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
-}
-
-function formatDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "更新日不明";
-  return new Intl.DateTimeFormat("ja-JP", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  }).format(date);
-}
-
-/** 版履歴は同じ日に何度も積むので、日付だけでは版を見分けられない。 */
-function formatDateTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "日時不明";
-  return new Intl.DateTimeFormat("ja-JP", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+/**
+ * 編集は資料室のモーダルではなく、別タブの専用ページで開く。
+ * 戻り先には今いる画面をそのまま渡し、編集を閉じたときに元の場所へ帰れるようにする。
+ */
+function documentEditorHref(documentId: string, backHref: string) {
+  const base = `/workspace-document/${encodeURIComponent(documentId)}/edit`;
+  return backHref ? `${base}?from=${encodeURIComponent(backHref)}` : base;
 }
 
 function permissionRoleLabel(role: string) {
@@ -305,11 +265,8 @@ export function WorkspaceDocumentRoom({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogKind>(null);
-  const [deckSessionKey, setDeckSessionKey] = useState(0);
-  const [deckDirty, setDeckDirty] = useState(false);
-  const [revisionsReturnTo, setRevisionsReturnTo] = useState<"edit_html" | "deck_editor">("edit_html");
-  /** ソース編集を開いたときの本文。見たまま編集へ移る前に、未保存かどうかを見るために控える。 */
-  const loadedHtmlSourceRef = useRef("");
+  // 編集タブから戻る先。資料室はPJ配下でも共有画面でも使われるので、決め打ちにしない。
+  const pathname = usePathname();
   const [selected, setSelected] = useState<DocumentItem | null>(null);
   const [draftName, setDraftName] = useState("");
   const [draftUrl, setDraftUrl] = useState("");
@@ -325,18 +282,6 @@ export function WorkspaceDocumentRoom({
     next: { displayName: string; folderPath: string; visibility: WorkspaceDocumentVisibility };
     affected: number;
   } | null>(null);
-  const [draftHtmlSource, setDraftHtmlSource] = useState("");
-  const [htmlSourceLoading, setHtmlSourceLoading] = useState(false);
-  // 編集を開いた時点の現物sha256。保存時にこれを送り、別セッションの変更を黙って踏まない。
-  const [htmlSourceSha256, setHtmlSourceSha256] = useState<string | null>(null);
-  // 409で返ってきた現物のsha256。ここに値がある間は競合バーを出す。
-  const [htmlConflictSha256, setHtmlConflictSha256] = useState<string | null>(null);
-  const [revisions, setRevisions] = useState<DocumentRevision[]>([]);
-  const [revisionsLoading, setRevisionsLoading] = useState(false);
-  const [revisionsCurrentSha256, setRevisionsCurrentSha256] = useState<string | null>(null);
-  const [revisionPreviewNo, setRevisionPreviewNo] = useState<number | null>(null);
-  const [revisionPreviewSource, setRevisionPreviewSource] = useState("");
-  const [revisionPreviewLoading, setRevisionPreviewLoading] = useState(false);
   const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[] | null>(null);
   const [uploadConflictIndex, setUploadConflictIndex] = useState<number | null>(null);
 
@@ -381,6 +326,15 @@ export function WorkspaceDocumentRoom({
       // 背景同期の失敗は表示を壊さない。次の操作か再読込で揃う。
     }
   }, [scopeId, scopeKind, surface]);
+
+  /**
+   * 別タブの編集ページが保存したときの取り込み。本文は運ばず「更新されたよ」とだけ受けて、
+   * 自分でサーバへ取り直す。同じ資料を複数タブで開いていても、サイズと更新日が揃う。
+   */
+  useEffect(
+    () => subscribeWorkspaceDocumentUpdates(() => void refreshDocuments()),
+    [refreshDocuments],
+  );
 
   /**
    * 画面側だけ先に動かす。フォルダなら配下のfolderPathも書き換える
@@ -492,10 +446,6 @@ export function WorkspaceDocumentRoom({
         .length,
     }),
     [documents],
-  );
-  const draftHtmlByteLength = useMemo(
-    () => workspaceDocumentHtmlSourceByteLength(draftHtmlSource),
-    [draftHtmlSource],
   );
 
   const breadcrumbs = currentFolder ? currentFolder.split("/") : [];
@@ -647,84 +597,6 @@ export function WorkspaceDocumentRoom({
     setFolderDropPath(null);
     setBreadcrumbDropPath(null);
     if (item) void moveEntryToFolder(item, fullPath(folder));
-  }
-
-  /**
-   * 現物のHTMLとそのsha256を取り直す。編集を開くときと、競合したあとの読み直しで共有する。
-   * shaを一緒に持ち帰るのは、保存時に「読んだ時点の内容」を主張して競合を検知するため。
-   */
-  async function loadHtmlSourceInto(documentId: string) {
-    setHtmlSourceLoading(true);
-    try {
-      const response = await fetch(
-        `/api/workspace-documents/${encodeURIComponent(documentId)}/source`,
-        { cache: "no-store" },
-      );
-      const payload = (await response.json().catch(() => ({}))) as {
-        ok?: boolean;
-        source?: string;
-        sha256?: string;
-        error?: string;
-      };
-      if (!response.ok || !payload.ok || typeof payload.source !== "string") {
-        throw new Error(payload.error || "HTML資料を読み込めなかったよ。");
-      }
-      setDraftHtmlSource(payload.source);
-      loadedHtmlSourceRef.current = payload.source;
-      setHtmlSourceSha256(typeof payload.sha256 === "string" ? payload.sha256 : null);
-      setHtmlConflictSha256(null);
-      return true;
-    } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : "HTML資料を読み込めなかったよ。",
-      );
-      return false;
-    } finally {
-      setHtmlSourceLoading(false);
-    }
-  }
-
-  /**
-   * 見たまま編集を開く。本文は編集フレーム側が自分で読むので、ここは対象を決めるだけ。
-   * セッションキーを進めてフレームを作り直し、前に開いたときのDOMを引きずらないようにする。
-   */
-  function openDeckEditor(item: DocumentItem) {
-    if (busy) return;
-    setSelected(item);
-    setError(null);
-    setDeckDirty(false);
-    setDeckSessionKey((value) => value + 1);
-    setDialog("deck_editor");
-  }
-
-  /**
-   * 見たまま編集から離れる前の確認。Base UI の Dialog には外側クリック閉じを止める prop が
-   * 無いので、未保存があるときは自前で確認する。
-   */
-  function confirmLeaveDeck() {
-    if (!deckDirty) return true;
-    const ok = window.confirm("見たまま編集に、保存していない変更があるよ。閉じると失われるけどいい？");
-    if (ok) setDeckDirty(false);
-    return ok;
-  }
-
-  async function openHtmlEditor(item: DocumentItem) {
-    if (busy) return;
-    setSelected(item);
-    setDraftHtmlSource("");
-    setHtmlSourceSha256(null);
-    setHtmlConflictSha256(null);
-    setDialog("edit_html");
-    setError(null);
-    const loaded = await loadHtmlSourceInto(item.documentId);
-    if (!loaded) setDialog(null);
-  }
-
-  /** 競合バーの「最新を読み込み直す」。編集中の下書きは捨てて現物へ揃える。 */
-  async function reloadHtmlSource() {
-    if (!selected || dialog !== "edit_html") return;
-    setError(null);
-    await loadHtmlSourceInto(selected.documentId);
   }
 
   async function createEntry(event: FormEvent) {
@@ -1113,218 +985,6 @@ export function WorkspaceDocumentRoom({
     if (!pending) return;
     setPendingCascade(null);
     await submitOrganize(pending.target, pending.next, { cascadeVisibility: true });
-  }
-
-  /**
-   * 保存は必ず「開いた時点のsha256」を添えて送る。現物が変わっていたら409で止まり、
-   * 下書きは捨てずに競合バーへ切り替える。上書きを選べるのは、上書きされる側が
-   * サーバ側で版履歴へ退避されてから差し替わる = あとから戻せるから。
-   */
-  async function saveHtmlSource(event: FormEvent) {
-    event.preventDefault();
-    await submitHtmlSource(htmlSourceSha256);
-  }
-
-  async function submitHtmlSource(expectedSha256: string | null) {
-    if (!selected || dialog !== "edit_html") return;
-    if (!expectedSha256) {
-      setError("編集前の内容を確認できていないよ。いったん閉じて開き直してね。");
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const response = await fetch(
-        `/api/workspace-documents/${encodeURIComponent(selected.documentId)}/source`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ source: draftHtmlSource, expectedSha256 }),
-        },
-      );
-      const payload = (await response.json().catch(() => ({}))) as {
-        ok?: boolean;
-        unchanged?: boolean;
-        sha256?: string;
-        revisionNo?: number | null;
-        conflict?: boolean;
-        currentSha256?: string;
-        error?: string;
-      };
-      if (response.status === 409 && payload.conflict) {
-        setHtmlConflictSha256(
-          typeof payload.currentSha256 === "string" ? payload.currentSha256 : null,
-        );
-        throw new Error(
-          payload.error || "別のセッションがこの資料を更新しているよ。",
-        );
-      }
-      if (!response.ok || !payload.ok) {
-        throw new Error(payload.error || "HTML資料を保存できなかったよ。");
-      }
-      if (typeof payload.sha256 === "string") setHtmlSourceSha256(payload.sha256);
-      setHtmlConflictSha256(null);
-      setDialog(null);
-      setNotice(
-        payload.unchanged
-          ? "内容が変わっていないから、そのままにしたよ。"
-          : payload.revisionNo
-            ? `保存したよ。上書き前の内容は版履歴 v${payload.revisionNo} に残したよ。`
-            : "保存したよ。",
-      );
-      await refreshDocuments();
-    } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : "HTML資料を保存できなかったよ。",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  /**
-   * 版履歴の「編集に戻る」。見たまま編集から来たならフレームを作り直してから戻す。
-   * 版を戻した直後は本文が入れ替わっているので、開いたままのフレームを再利用すると
-   * 古いDOMを保存してしまう。
-   */
-  function returnFromRevisions() {
-    if (revisionsReturnTo === "deck_editor") {
-      setDeckDirty(false);
-      setDeckSessionKey((value) => value + 1);
-      setDialog("deck_editor");
-      return;
-    }
-    setDialog("edit_html");
-  }
-
-  async function openHtmlRevisions() {
-    if (!selected) return;
-    setRevisionsReturnTo(dialog === "deck_editor" ? "deck_editor" : "edit_html");
-    setDialog("html_revisions");
-    setError(null);
-    setRevisions([]);
-    setRevisionsCurrentSha256(null);
-    setRevisionPreviewNo(null);
-    setRevisionPreviewSource("");
-    setRevisionsLoading(true);
-    try {
-      const response = await fetch(
-        `/api/workspace-documents/${encodeURIComponent(selected.documentId)}/revisions`,
-        { cache: "no-store" },
-      );
-      const payload = (await response.json().catch(() => ({}))) as {
-        ok?: boolean;
-        currentSha256?: string;
-        revisions?: DocumentRevision[];
-        error?: string;
-      };
-      if (!response.ok || !payload.ok) {
-        throw new Error(payload.error || "版履歴を読み込めなかったよ。");
-      }
-      setRevisions(Array.isArray(payload.revisions) ? payload.revisions : []);
-      setRevisionsCurrentSha256(
-        typeof payload.currentSha256 === "string" ? payload.currentSha256 : null,
-      );
-    } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : "版履歴を読み込めなかったよ。",
-      );
-    } finally {
-      setRevisionsLoading(false);
-    }
-  }
-
-  async function previewRevision(revisionNo: number) {
-    if (!selected) return;
-    if (revisionPreviewNo === revisionNo) {
-      setRevisionPreviewNo(null);
-      setRevisionPreviewSource("");
-      return;
-    }
-    setRevisionPreviewNo(revisionNo);
-    setRevisionPreviewSource("");
-    setRevisionPreviewLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(
-        `/api/workspace-documents/${encodeURIComponent(selected.documentId)}/revisions/${revisionNo}`,
-        { cache: "no-store" },
-      );
-      const payload = (await response.json().catch(() => ({}))) as {
-        ok?: boolean;
-        source?: string;
-        error?: string;
-      };
-      if (!response.ok || !payload.ok || typeof payload.source !== "string") {
-        throw new Error(payload.error || "この版を読み込めなかったよ。");
-      }
-      setRevisionPreviewSource(payload.source);
-    } catch (cause) {
-      setRevisionPreviewNo(null);
-      setError(
-        cause instanceof Error ? cause.message : "この版を読み込めなかったよ。",
-      );
-    } finally {
-      setRevisionPreviewLoading(false);
-    }
-  }
-
-  /**
-   * 復元は「その版を新しい保存としてやり直す」だけ。いまの内容は復元の直前に版へ退避されるので、
-   * 戻しすぎても取り返せる。楽観ロックには一覧が返した現物shaを使う。
-   */
-  async function restoreRevision(revisionNo: number) {
-    if (!selected) return;
-    if (!revisionsCurrentSha256) {
-      setError("いまの内容を確認できていないよ。版履歴を開き直してね。");
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const response = await fetch(
-        `/api/workspace-documents/${encodeURIComponent(selected.documentId)}/revisions/${revisionNo}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ expectedSha256: revisionsCurrentSha256 }),
-        },
-      );
-      const payload = (await response.json().catch(() => ({}))) as {
-        ok?: boolean;
-        unchanged?: boolean;
-        revisionNo?: number | null;
-        conflict?: boolean;
-        currentSha256?: string;
-        error?: string;
-      };
-      if (response.status === 409 && payload.conflict) {
-        setRevisionsCurrentSha256(
-          typeof payload.currentSha256 === "string" ? payload.currentSha256 : null,
-        );
-        throw new Error(
-          payload.error || "別のセッションがこの資料を更新しているよ。もう一度試してね。",
-        );
-      }
-      if (!response.ok || !payload.ok) {
-        throw new Error(payload.error || "この版に戻せなかったよ。");
-      }
-      setDialog(null);
-      setNotice(
-        payload.unchanged
-          ? `v${revisionNo} はいまの内容と同じだったよ。`
-          : payload.revisionNo
-            ? `v${revisionNo} の内容に戻したよ。戻す前の内容は版履歴 v${payload.revisionNo} に残したよ。`
-            : `v${revisionNo} の内容に戻したよ。`,
-      );
-      await refreshDocuments();
-    } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : "この版に戻せなかったよ。",
-      );
-    } finally {
-      setBusy(false);
-    }
   }
 
   async function archiveEntry() {
@@ -1833,20 +1493,20 @@ export function WorkspaceDocumentRoom({
                       </a>
                     ) : null}
                     {permissions?.canUpload && item.entryKind === "file" && isWorkspaceDocumentHtml(item.mimeType, item.displayName) && (
-                      <button
-                        type="button"
-                        onClick={() => openDeckEditor(item)}
-                        disabled={busy}
+                      <a
+                        href={documentEditorHref(item.documentId, pathname)}
+                        target="_blank"
+                        rel="noreferrer"
                         className={cn(
                           styles.secondaryAction,
-                          "inline-flex h-11 items-center gap-2 rounded-md px-3 text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-60 xl:h-9 xl:px-2.5",
+                          "inline-flex h-11 items-center gap-2 rounded-md px-3 text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 xl:h-9 xl:px-2.5",
                         )}
-                        title="資料を編集"
-                        aria-label={`${item.displayName}を編集`}
+                        title="資料を別タブで編集"
+                        aria-label={`${item.displayName}を別タブで編集`}
                       >
                         <PencilLine className="h-4 w-4" aria-hidden />
                         編集
-                      </button>
+                      </a>
                     )}
                     {permissions?.canManage && (
                       <button
@@ -2012,264 +1672,6 @@ export function WorkspaceDocumentRoom({
               </Button>
             </DialogFooter>
           </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={dialog === "deck_editor"}
-        onOpenChange={(open) => {
-          if (open) return;
-          if (!confirmLeaveDeck()) return;
-          setDialog(null);
-        }}
-      >
-        <DialogContent className="flex h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-[1400px] flex-col overflow-hidden bg-white p-0 text-slate-950">
-          {selected && dialog === "deck_editor" && (
-            <WorkspaceDocumentDeckEditor
-              key={`${selected.documentId}:${deckSessionKey}`}
-              documentId={selected.documentId}
-              displayName={selected.displayName}
-              onDirtyChange={setDeckDirty}
-              onOpenSource={() => {
-                if (!confirmLeaveDeck()) return;
-                void openHtmlEditor(selected);
-              }}
-              onOpenRevisions={() => {
-                if (!confirmLeaveDeck()) return;
-                void openHtmlRevisions();
-              }}
-              onClose={() => {
-                if (!confirmLeaveDeck()) return;
-                setDialog(null);
-              }}
-              onSaved={(message) => {
-                setNotice(message);
-                void refreshDocuments();
-              }}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={dialog === "edit_html"}
-        onOpenChange={(open) => !open && setDialog(null)}
-      >
-        <DialogContent className="flex max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-4xl flex-col overflow-hidden bg-white p-0 text-slate-950">
-          <form className="flex min-h-0 flex-1 flex-col" onSubmit={(event) => void saveHtmlSource(event)}>
-            <DialogHeader className="shrink-0 border-b-4 border-[#0066cc] bg-[#081b2b] px-5 py-4 text-white">
-              <DialogTitle className="text-base text-white sm:text-lg">HTMLを編集</DialogTitle>
-              <DialogDescription className="mt-1 text-xs leading-5 text-cyan-100">
-                {selected?.displayName}。ここはHTMLソースだけを編集する欄で、入力中のコードは実行しないよ。
-              </DialogDescription>
-            </DialogHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
-              {error && (
-                <div
-                  role="alert"
-                  className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs leading-5 text-red-800"
-                >
-                  {error}
-                </div>
-              )}
-              {htmlConflictSha256 && (
-                <div className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-900">
-                  <p className="font-semibold">別のセッションがこの資料を更新したよ。</p>
-                  <p className="mt-1">
-                    書いた内容は消してないよ。読み込み直すと下書きは現物の内容に入れ替わる。このまま上書きしても、
-                    上書きされる側は版履歴へ残るからあとで戻せるよ。
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-9 border-amber-400 bg-white px-3 text-xs text-amber-900 hover:bg-amber-100"
-                      disabled={busy || htmlSourceLoading}
-                      onClick={() => void reloadHtmlSource()}
-                    >
-                      最新を読み込み直す
-                    </Button>
-                    <Button
-                      type="button"
-                      className="h-9 bg-amber-600 px-3 text-xs hover:bg-amber-700"
-                      disabled={busy || htmlSourceLoading}
-                      onClick={() => void submitHtmlSource(htmlConflictSha256)}
-                    >
-                      {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
-                      このまま上書き保存
-                    </Button>
-                  </div>
-                </div>
-              )}
-              {htmlSourceLoading ? (
-                <div className="flex min-h-56 items-center justify-center gap-2 text-sm text-slate-500">
-                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-                  HTMLソースを読み込み中
-                </div>
-              ) : (
-                <label className="block text-xs font-semibold text-slate-700">
-                  HTMLソース
-                  <Textarea
-                    value={draftHtmlSource}
-                    onChange={(event) => setDraftHtmlSource(event.target.value)}
-                    className="mt-2 min-h-[min(52dvh,520px)] resize-y rounded-md border-slate-300 bg-white font-mono text-xs leading-5 text-slate-950 focus-visible:border-blue-700 focus-visible:ring-blue-700/20"
-                    spellCheck={false}
-                    autoFocus
-                    aria-describedby="workspace-document-html-editor-note"
-                  />
-                </label>
-              )}
-              <p id="workspace-document-html-editor-note" className="mt-3 text-xs leading-5 text-slate-500">
-                {formatBytes(draftHtmlByteLength)} / {formatBytes(WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES)}。保存後は資料名から安全な別タブ表示で確認できる。
-              </p>
-            </div>
-            <DialogFooter className="shrink-0 border-t border-slate-200 px-4 py-3 sm:px-5">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 sm:mr-auto"
-                disabled={busy || htmlSourceLoading || !selected}
-                onClick={() => {
-                  if (!selected) return;
-                  if (
-                    draftHtmlSource !== loadedHtmlSourceRef.current &&
-                    !window.confirm("HTMLソースに、保存していない変更があるよ。見たまま編集へ移ると失われるけどいい？")
-                  ) {
-                    return;
-                  }
-                  openDeckEditor(selected);
-                }}
-              >
-                <MousePointerClick className="h-4 w-4" aria-hidden />
-                見たまま編集
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11"
-                disabled={busy || htmlSourceLoading}
-                onClick={() => void openHtmlRevisions()}
-              >
-                <History className="h-4 w-4" aria-hidden />
-                版履歴
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11"
-                onClick={() => setDialog(null)}
-              >
-                キャンセル
-              </Button>
-              <Button
-                type="submit"
-                className="h-11 bg-[#0066cc] hover:bg-[#004f9e]"
-                disabled={busy || htmlSourceLoading || !draftHtmlSource.trim() || draftHtmlByteLength > WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES}
-              >
-                {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-                HTMLを保存
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={dialog === "html_revisions"}
-        onOpenChange={(open) => !open && returnFromRevisions()}
-      >
-        <DialogContent className="flex max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-3xl flex-col overflow-hidden bg-white p-0 text-slate-950">
-          <DialogHeader className="shrink-0 border-b-4 border-[#0066cc] bg-[#081b2b] px-5 py-4 text-white">
-            <DialogTitle className="text-base text-white sm:text-lg">版履歴</DialogTitle>
-            <DialogDescription className="mt-1 text-xs leading-5 text-cyan-100">
-              {selected?.displayName}。保存のたびに、上書きされる前の内容をここへ積んでいるよ。戻す操作も新しい保存として積まれるから、戻しすぎても取り返せる。
-            </DialogDescription>
-          </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
-            {error && (
-              <div
-                role="alert"
-                className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs leading-5 text-red-800"
-              >
-                {error}
-              </div>
-            )}
-            {revisionsLoading ? (
-              <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-slate-500">
-                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-                版履歴を読み込み中
-              </div>
-            ) : revisions.length === 0 ? (
-              <p className="py-10 text-center text-sm leading-6 text-slate-500">
-                まだ版が無いよ。次にこの資料を保存したときから、上書き前の内容がここへ残るよ。
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-3">
-                {revisions.map((revision) => (
-                  <li
-                    key={revision.revisionId}
-                    className="rounded-md border border-slate-200 bg-slate-50 p-3"
-                  >
-                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                      <span className="text-sm font-semibold text-slate-900">v{revision.revisionNo}</span>
-                      <span className="text-xs text-slate-600">{formatDateTime(revision.createdAt)}</span>
-                      <span className="text-xs text-slate-500">{formatBytes(revision.byteSize)}</span>
-                      {revision.pinned && (
-                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-800">
-                          常に保持
-                        </span>
-                      )}
-                    </div>
-                    {revision.note && (
-                      <p className="mt-1 text-xs leading-5 text-slate-600">{revision.note}</p>
-                    )}
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-9 px-3 text-xs"
-                        disabled={revisionPreviewLoading}
-                        onClick={() => void previewRevision(revision.revisionNo)}
-                      >
-                        {revisionPreviewNo === revision.revisionNo ? "中身を閉じる" : "中身を見る"}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-9 px-3 text-xs"
-                        disabled={busy || !revisionsCurrentSha256}
-                        onClick={() => void restoreRevision(revision.revisionNo)}
-                      >
-                        <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-                        この版に戻す
-                      </Button>
-                    </div>
-                    {revisionPreviewNo === revision.revisionNo &&
-                      (revisionPreviewLoading ? (
-                        <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-                          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                          本文を読み込み中
-                        </div>
-                      ) : (
-                        <pre className="mt-2 max-h-64 overflow-auto rounded-md bg-slate-950 p-3 font-mono text-[11px] leading-5 text-slate-100">
-                          {revisionPreviewSource}
-                        </pre>
-                      ))}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <DialogFooter className="shrink-0 border-t border-slate-200 px-4 py-3 sm:px-5">
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11"
-              onClick={returnFromRevisions}
-            >
-              編集に戻る
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

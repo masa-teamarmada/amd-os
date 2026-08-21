@@ -180,30 +180,44 @@ assert.match(migration, /content_sha256 ~ '\^\[0-9a-f\]\{64\}\$'/);
 assert.doesNotMatch(migration, /signed_url|public_url/);
 
 // ---------------------------------------------------------------------------
-// 6. 資料室UI — 楽観ロックと版履歴の導線
+// 6. 編集ページUI — 楽観ロックと版履歴の導線
 // ---------------------------------------------------------------------------
 
-const room = read("src/components/workspace-documents/WorkspaceDocumentRoom.tsx");
+// 編集は資料室のモーダルではなく、別タブの専用ページで開く (2026-08-21)。
+// 楽観ロックと版履歴の実装はこのworkbenchに一本化する。
+const workbench = read(
+  "src/components/workspace-documents/WorkspaceDocumentEditorWorkbench.tsx",
+);
 
 // 読んだ時のshaを保存へ持ち込む。持ち込まなければ競合は永久に検知されない。
-assert.match(room, /body: JSON\.stringify\(\{ source: draftHtmlSource, expectedSha256 \}\)/);
-assert.match(room, /body: JSON\.stringify\(\{ expectedSha256: revisionsCurrentSha256 \}\)/);
+assert.match(workbench, /body: JSON\.stringify\(\{ source: draftHtmlSource, expectedSha256 \}\)/);
+assert.match(workbench, /body: JSON\.stringify\(\{ expectedSha256: revisionsCurrentSha256 \}\)/);
 // 409を握り潰さない。ユーザーが読み直すか上書きするかを選べる状態にする。
-assert.match(room, /response\.status === 409 && payload\.conflict[\s\S]{0,200}setHtmlConflictSha256/);
 assert.match(
-  room,
+  workbench,
+  /response\.status === 409 && payload\.conflict[\s\S]{0,200}setHtmlConflictSha256/,
+);
+assert.match(
+  workbench,
   /response\.status === 409 && payload\.conflict[\s\S]{0,200}setRevisionsCurrentSha256/,
 );
-assert.match(room, /最新を読み込み直す/);
-assert.match(room, /このまま上書き保存/);
+assert.match(workbench, /最新を読み込み直す/);
+assert.match(workbench, /このまま上書き保存/);
 // 版履歴への導線と、版ごとの操作。
-assert.match(room, /dialog === "html_revisions"/);
-assert.match(room, /void openHtmlRevisions\(\)/);
-assert.match(room, /void previewRevision\(revision\.revisionNo\)/);
-assert.match(room, /void restoreRevision\(revision\.revisionNo\)/);
+assert.match(workbench, /overlay === "revisions"/);
+assert.match(workbench, /void openHtmlRevisions\(/);
+assert.match(workbench, /void previewRevision\(revision\.revisionNo\)/);
+assert.match(workbench, /void restoreRevision\(revision\.revisionNo\)/);
 // 復元前のshaが無いまま復元させない。
-assert.match(room, /disabled=\{busy \|\| !revisionsCurrentSha256\}/);
+assert.match(workbench, /disabled=\{busy \|\| !revisionsCurrentSha256\}/);
 // 現物のshaは必ずサーバが返したものを使う。クライアントで作らない。
-assert.doesNotMatch(room, /createHash|crypto\.subtle/);
+assert.doesNotMatch(workbench, /createHash|crypto\.subtle/);
+// 保存し終えたら、開きっぱなしの資料室タブにも知らせる。本文は運ばずdocumentIdだけ配る。
+assert.match(workbench, /broadcastWorkspaceDocumentUpdated\(documentId\)/);
+
+// 資料室側は編集UIを持たない。持たせると同じ楽観ロックが二重実装になり、
+// 片方だけ直して競合検知が抜ける事故になる。
+const room = read("src/components/workspace-documents/WorkspaceDocumentRoom.tsx");
+assert.doesNotMatch(room, /expectedSha256|revisionsCurrentSha256|htmlConflictSha256/);
 
 console.log("workspace document revisions: ok");

@@ -21,12 +21,6 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type {
   WorkspaceDocumentEditSelection,
@@ -37,11 +31,14 @@ import type {
 type Props = {
   documentId: string;
   displayName: string;
-  /** 「HTMLソースで編集」。親が edit_html ダイアログへ切り替える。 */
+  /** 「HTMLソースで編集」。親がソース編集へ切り替える。 */
   onOpenSource: () => void;
-  /** 「版履歴」。親が html_revisions ダイアログへ切り替える。 */
+  /** 「版履歴」。親が版履歴へ切り替える。 */
   onOpenRevisions: () => void;
-  onClose: () => void;
+  /** ヘッダーに出す戻り導線。別タブで開く編集ページでは、開いた資料室のパスが入る。 */
+  backHref?: string;
+  /** 閉じるボタン。渡さなければボタンごと出さない (別タブ運用ではタブを閉じれば済む)。 */
+  onClose?: () => void;
   /** 保存が通ったとき。親が notice を出して一覧を読み直す。 */
   onSaved: (message: string) => void;
   /** 未保存の変更があるか。親はこれを見て、外側クリックで黙って閉じないようにする。 */
@@ -70,6 +67,7 @@ export function WorkspaceDocumentDeckEditor({
   displayName,
   onOpenSource,
   onOpenRevisions,
+  backHref,
   onClose,
   onSaved,
   onDirtyChange,
@@ -322,13 +320,23 @@ export function WorkspaceDocumentDeckEditor({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <DialogHeader className="shrink-0 border-b-4 border-[#0066cc] bg-[#081b2b] px-5 py-3 text-white">
-        <DialogTitle className="text-base text-white sm:text-lg">見たまま編集</DialogTitle>
-        <DialogDescription className="mt-1 text-xs leading-5 text-cyan-100">
+      <header className="shrink-0 border-b-4 border-[#0066cc] bg-[#081b2b] px-5 py-3 text-white">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h1 className="text-base font-semibold text-white sm:text-lg">見たまま編集</h1>
+          {backHref && (
+            <a
+              href={backHref}
+              className="text-xs font-semibold text-cyan-200 underline-offset-2 hover:underline"
+            >
+              資料室へ戻る
+            </a>
+          )}
+        </div>
+        <p className="mt-1 text-xs leading-5 text-cyan-100">
           {displayName}。1回クリックで要素を選び、ダブルクリックで文字を直せるよ。資料のスクリプトは動かしていないから、
           アニメーションや自動ページ送りは編集中だけ止まって見えるよ。
-        </DialogDescription>
-      </DialogHeader>
+        </p>
+      </header>
 
       {(error || conflict) && (
         <div className="shrink-0 border-b border-slate-200 px-4 py-3 sm:px-5">
@@ -645,7 +653,7 @@ export function WorkspaceDocumentDeckEditor({
         </aside>
       </div>
 
-      <DialogFooter className="shrink-0 flex-wrap gap-2 border-t border-slate-200 px-4 py-3 sm:px-5">
+      <footer className="flex shrink-0 flex-col-reverse flex-wrap gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:justify-end sm:px-5">
         <div className="flex flex-1 flex-wrap items-center gap-2">
           <Button
             type="button"
@@ -677,9 +685,11 @@ export function WorkspaceDocumentDeckEditor({
                   : "変更なし"}
           </span>
         </div>
-        <Button type="button" variant="outline" className="h-11" disabled={saving} onClick={onClose}>
-          閉じる
-        </Button>
+        {onClose && (
+          <Button type="button" variant="outline" className="h-11" disabled={saving} onClick={onClose}>
+            閉じる
+          </Button>
+        )}
         <Button
           type="button"
           className="h-11 bg-[#0066cc] hover:bg-[#004f9e]"
@@ -693,7 +703,7 @@ export function WorkspaceDocumentDeckEditor({
           )}
           保存
         </Button>
-      </DialogFooter>
+      </footer>
     </div>
   );
 }

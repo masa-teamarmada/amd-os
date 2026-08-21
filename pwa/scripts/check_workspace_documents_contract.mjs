@@ -23,6 +23,8 @@ const files = {
   projectPage: new URL("../src/app/(shared-workspace)/project/[projectId]/workspace/files/page.tsx", import.meta.url),
   sxWorkspace: new URL("../src/components/project-workspace/SxWeeklyControlDashboard.tsx", import.meta.url),
   room: new URL("../src/components/workspace-documents/WorkspaceDocumentRoom.tsx", import.meta.url),
+  editorPage: new URL("../src/app/workspace-document/[documentId]/edit/page.tsx", import.meta.url),
+  editorWorkbench: new URL("../src/components/workspace-documents/WorkspaceDocumentEditorWorkbench.tsx", import.meta.url),
   cockpit: new URL("../src/components/cockpit/CockpitView.tsx", import.meta.url),
   nextConfig: new URL("../next.config.ts", import.meta.url),
 };
@@ -136,8 +138,17 @@ assert.match(source.room, /\/pdf\?delivery=json`/, "新クライアントは明�
 assert.match(source.room, /!response\.ok \|\| !payload\.ok \|\| !payload\.downloadUrl/, "PDF化ダウンロードはJSON応答のok/downloadUrlを見る");
 assert.doesNotMatch(source.room, /downloadHtmlAsPdf[\s\S]{0,600}response\.blob\(\)/, "PDF化ダウンロードはFunction responseをblob化しない(署名URLへ直接遷移する)");
 assert.match(source.room, /item\.entryKind === "file" \|\| item\.entryKind === "link"[\s\S]*?isWorkspaceDocumentHtml/, "HTML fileとDrive linkの両方にPDF化操作を出す");
-assert.match(source.room, /HTMLを編集/, "HTMLの右端操作は本文編集を明示する");
-assert.match(source.room, /permissions\?\.canUpload && item\.entryKind === "file" && isWorkspaceDocumentHtml[\s\S]*?openHtmlEditor/, "HTML本文編集はcanUploadで表示する");
+assert.match(source.room, /permissions\?\.canUpload && item\.entryKind === "file" && isWorkspaceDocumentHtml[\s\S]*?documentEditorHref/, "HTML編集導線はcanUploadで表示する");
+assert.match(source.room, /function documentEditorHref[\s\S]*?\/workspace-document\/\$\{encodeURIComponent\(documentId\)\}\/edit/, "編集は資料室のモーダルではなく専用ページを開く");
+assert.match(source.room, /href=\{documentEditorHref\(item\.documentId, pathname\)\}[\s\S]{0,120}target="_blank"/, "編集は別タブで開き、資料室の一覧を閉じない");
+assert.doesNotMatch(source.room, /dialog === "deck_editor"|dialog === "edit_html"|dialog === "html_revisions"/, "編集UIを資料室モーダルへ戻さない(幅が潰れて使えない)");
+assert.match(source.room, /subscribeWorkspaceDocumentUpdates\(\(\) => void refreshDocuments\(\)\)/, "別タブの保存を資料室一覧へ取り込む");
+assert.match(source.editorPage, /loadEditableWorkspaceHtmlDocument\(/, "編集ページは表示前に編集権限を確かめる");
+assert.match(source.editorPage, /recordWorkspaceAuditEvent[\s\S]{0,400}"open_editor"/, "編集ページを開いた事実を監査ログへ残す");
+assert.match(source.editorPage, /function safeBackHref[\s\S]*?startsWith\("\/\/"\)/, "戻り先クエリで外部サイトへ飛ばさない");
+assert.match(source.editorWorkbench, /HTMLを編集/, "編集ページはソース編集も持つ");
+assert.match(source.editorWorkbench, /<WorkspaceDocumentDeckEditor/, "編集ページの既定は見たまま編集");
+assert.match(source.editorWorkbench, /beforeunload/, "未保存のままタブを閉じさせない");
 assert.match(source.room, /permissions\?\.canUpload && \([\s\S]*?資料室から削除/, "資料室からの削除はcanUploadで表示する");
 assert.match(source.room, /資料室の通常一覧と共有画面から外す[\s\S]*?保護された保管領域に残り/, "削除確認は非破壊保管と公開停止を明示する");
 assert.match(source.room, /open\?download=1/, "非HTMLの右端操作はダウンロードlinkのまま");
