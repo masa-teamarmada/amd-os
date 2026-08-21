@@ -5,7 +5,7 @@
  *
  * スコープは AMD 自社知財だけでなく、その技術領域の IP 全体マップ (before zero の定石):
  * 自社 / 大学基本特許 / 共同出願 / 他社の障害特許 / ウォッチ を同じ台帳に載せる。
- * 構成: サマリ帯 → ⏰期限 → 🗺️特許マップ → 立場別リスト → 詳細モーダル。
+ * 構成: サマリ帯 → ⏰期限 → 🗺️特許マップ → 立場別テーブル → 詳細モーダル。
  * read = ログイン済みメンバー、write = admin (API 側で判定し canEdit で返る)。
  * API: /api/project-ip / migration: scripts/migrations/308_project_ip_ledger.sql
  */
@@ -138,9 +138,15 @@ export function CockpitIpPortfolio({ projectId }: { projectId: string }) {
       {/* 特許マップ */}
       <PatentMap assets={assets} onSelect={(a) => setSelectedId(a.ip_asset_id)} />
 
-      {/* 立場別リスト */}
+      {/* 立場別テーブル */}
       {GROUPS.map((g) => {
-        const list = assets.filter((a) => g.relations.includes(a.relation));
+        const list = assets
+          .filter((a) => g.relations.includes(a.relation))
+          .slice()
+          .sort((x, y) =>
+            RELATION_ORDER.indexOf(x.relation) - RELATION_ORDER.indexOf(y.relation) ||
+            y.importance - x.importance ||
+            String(y.application_number ?? "").localeCompare(String(x.application_number ?? "")));
         if (list.length === 0) return null;
         return (
           <section key={g.key} className="rounded-lg border border-border bg-background">
@@ -149,30 +155,68 @@ export function CockpitIpPortfolio({ projectId }: { projectId: string }) {
               <span className="text-[10px] text-muted-foreground">{g.hint}</span>
               <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">{list.length}件</span>
             </div>
-            <div className="divide-y divide-border text-[11px]">
-              {list.map((a) => {
-                const dl = openDeadlines.filter((d) => d.ip_asset_id === a.ip_asset_id);
-                const threat = a.threat_level ? THREAT_LABEL[a.threat_level] : null;
-                return (
-                  <button
-                    key={a.ip_asset_id}
-                    type="button"
-                    onClick={() => setSelectedId(a.ip_asset_id)}
-                    className="flex w-full flex-wrap items-center gap-x-2 gap-y-0.5 px-3 py-2 text-left hover:bg-muted/40"
-                  >
-                    <span className={`rounded border px-1.5 py-0.5 text-[10px] ${RELATION_META[a.relation].cls}`}>{RELATION_META[a.relation].short}</span>
-                    <span className="font-medium">{a.title}</span>
-                    <span className="rounded border border-border bg-muted/30 px-1 py-0 text-[9px] text-muted-foreground">
-                      {IP_KIND_LABEL[a.ip_kind] ?? a.ip_kind}/{a.jurisdiction}
-                    </span>
-                    <span className="text-muted-foreground">{IP_STATUS_LABEL[a.status] ?? a.status}</span>
-                    {a.application_number && <span className="tabular-nums text-[10px] text-muted-foreground">{a.application_number}</span>}
-                    {a.applicants?.[0] && <span className="text-[10px] text-muted-foreground">{a.applicants.join(" / ")}</span>}
-                    {threat && <span className={`rounded border px-1 py-0 text-[9px] ${threat.cls}`}>{threat.txt}</span>}
-                    {dl.length > 0 && <span className="rounded border border-amber-200 bg-amber-50 px-1 py-0 text-[9px] text-amber-700">期限{dl.length}</span>}
-                  </button>
-                );
-              })}
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[880px] border-collapse text-[11px]">
+                <thead>
+                  <tr className="border-b border-border bg-muted/40 text-[10px] text-muted-foreground">
+                    <th className="px-2 py-1.5 text-left font-medium">立場</th>
+                    <th className="px-2 py-1.5 text-left font-medium">名称</th>
+                    <th className="px-2 py-1.5 text-left font-medium">技術区分</th>
+                    <th className="px-2 py-1.5 text-left font-medium">状態</th>
+                    <th className="px-2 py-1.5 text-left font-medium">出願番号</th>
+                    <th className="px-2 py-1.5 text-left font-medium">公開番号</th>
+                    <th className="px-2 py-1.5 text-left font-medium">登録番号</th>
+                    <th className="px-2 py-1.5 text-left font-medium">出願人</th>
+                    <th className="px-2 py-1.5 text-right font-medium" title="権利範囲の広さ 1-5 (5=上位概念で広い)">範囲</th>
+                    <th className="px-2 py-1.5 text-right font-medium" title="重要度 1-5">重要</th>
+                    <th className="px-2 py-1.5 text-left font-medium">注意</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {list.map((a) => {
+                    const dl = openDeadlines.filter((d) => d.ip_asset_id === a.ip_asset_id);
+                    const threat = a.threat_level ? THREAT_LABEL[a.threat_level] : null;
+                    return (
+                      <tr
+                        key={a.ip_asset_id}
+                        onClick={() => setSelectedId(a.ip_asset_id)}
+                        className="cursor-pointer align-top hover:bg-muted/40"
+                      >
+                        <td className="whitespace-nowrap px-2 py-1.5">
+                          <span className={`rounded border px-1.5 py-0.5 text-[10px] ${RELATION_META[a.relation].cls}`}>
+                            {RELATION_META[a.relation].short}
+                          </span>
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <span className="font-medium">{a.title}</span>
+                          <span className="ml-1.5 whitespace-nowrap text-[9px] text-muted-foreground">
+                            {IP_KIND_LABEL[a.ip_kind] ?? a.ip_kind}/{a.jurisdiction}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-2 py-1.5 text-muted-foreground">{a.tech_domain ?? "—"}</td>
+                        <td className="whitespace-nowrap px-2 py-1.5">{IP_STATUS_LABEL[a.status] ?? a.status}</td>
+                        <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-muted-foreground">{a.application_number ?? "—"}</td>
+                        <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-muted-foreground">{a.publication_number ?? "—"}</td>
+                        <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-muted-foreground">{a.registration_number ?? "—"}</td>
+                        <td className="px-2 py-1.5 text-muted-foreground">{a.applicants?.length ? a.applicants.join(" / ") : "—"}</td>
+                        <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums" title={a.claim_breadth ? CLAIM_BREADTH_LABEL[a.claim_breadth] : undefined}>
+                          {a.claim_breadth ?? "—"}
+                        </td>
+                        <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">{a.importance}</td>
+                        <td className="whitespace-nowrap px-2 py-1.5">
+                          <span className="flex flex-wrap items-center gap-1">
+                            {threat && <span className={`rounded border px-1 py-0 text-[9px] ${threat.cls}`}>{threat.txt}</span>}
+                            {dl.length > 0 && (
+                              <span className="rounded border border-amber-200 bg-amber-50 px-1 py-0 text-[9px] text-amber-700">期限{dl.length}</span>
+                            )}
+                            {!threat && dl.length === 0 && <span className="text-muted-foreground">—</span>}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </section>
         );
