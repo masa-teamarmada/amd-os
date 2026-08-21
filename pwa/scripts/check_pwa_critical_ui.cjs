@@ -1927,11 +1927,6 @@ expectIncludes("src/components/seeds/SeedDetailModal.tsx", [
   "一次選別スクリーニング帯",
   "SpsScreeningBandSection",
   "/api/seeds/screening-bands?seedId=",
-  // 対応 PJ に月次試算表があるときの検算。判定は seed_projects (project_links) が正本で、
-  // seeds.spun_off_project_id は deprecated (実データ 180 件中 1 件しか入っておらず、
-  // これを見ると検算が永久に出ない)。seeds-data.ts の fetchSeedProjectLinks 注記に従う。
-  "project_links?.[0]?.project_id",
-  "/plan-value-check",
 ]);
 // シーズ詳細モーダルの帯は、PJコックピットの「スコア詳細」タブと同じ情報量にする (まさ確定 2026-08-20)。
 // 数式は LaTeX (Tex/KaTeX) で書き、式の各パラメータの実値をこのシーズの値で併記する。

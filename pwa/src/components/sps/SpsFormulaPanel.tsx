@@ -38,7 +38,6 @@ import {
 } from "@/components/formula/FormulaPanelKit";
 import { Tex } from "@/components/venture-map/Tex";
 import { SEED_EVIDENCE_LEVEL_DESCRIPTION, seedScreeningBandMedianYen } from "@/lib/seeds-data";
-import type { ProjectPlanValueCheck } from "@/types/project-plan-value";
 import type { SeedScreeningBandDetail } from "@/types/seeds";
 
 
@@ -191,128 +190,7 @@ function stageIndex(code: string | null): number {
   return STAGE_STEPS.findIndex((s) => s.code === code.trim().toUpperCase());
 }
 
-/**
- * 事業計画がある PJ で、P^ind の下限が「その PJ 単体の年次付加価値の何年分」にあたるかを出す。
- *
- * これは P^ind の算出ではない。P^ind は産業全体スコープ・実績限定なので、計画値から作ってはいけない。
- * 使えるのは 1 点だけ — 1 社は産業の部分集合なので P^ind >= P^firm が必ず成り立つ。よって
- * 下限を PJ 単体の年次付加価値で割れば、その下限が何年分に相当するかが出て、下限が低すぎないかを
- * 読み手が自分で判定できる。年数 T を仮定せず割り算だけで出すので、恣意的なパラメータを増やさない。
- * 正本: bzm/SPS_IND_PLAN_VALUE_CHECK_2026-08-21.md
- */
-function PlanValueCrosscheck({
-  planCheck,
-  pLowerYen,
-}: {
-  planCheck: ProjectPlanValueCheck;
-  pLowerYen: number | null;
-}) {
-  const years = planCheck.years;
-  if (years.length === 0) return null;
-
-  const peak = planCheck.peak;
-  const peakVaOku = peak != null ? peak.value_added_yen / 100_000_000 : null;
-  const usable = peakVaOku != null && peakVaOku > 0 && pLowerYen != null && !planCheck.revenue_all_zero;
-  const pLowerOku = pLowerYen != null ? pLowerYen / 100_000_000 : null;
-  const impliedYears = usable && peakVaOku ? (pLowerOku as number) / peakVaOku : null;
-
-  const vaTex = String.raw`VA^{\text{PJ}}_{\mathrm{FY}} \;=\; \underbrace{\bigl(\text{売上}-\text{原価}-\text{人件費}-\text{研究開発}-\text{販促}-\text{その他}\bigr)}_{\text{営業利益}} \;+\; \text{人件費}`;
-  const impliedTex =
-    impliedYears != null
-      ? String.raw`T_{\text{含意}} \;=\; \frac{P^{\mathrm{ind}}_{\min}}{\max_{\mathrm{FY}} VA^{\text{PJ}}_{\mathrm{FY}}} \;=\; \frac{${fmtOku(pLowerOku)}}{${fmtOku(peakVaOku)}} \;\approx\; ${Math.round((impliedYears as number) * 10) / 10}\ \text{年分}`
-      : String.raw`T_{\text{含意}} \;=\; \frac{P^{\mathrm{ind}}_{\min}}{\max_{\mathrm{FY}} VA^{\text{PJ}}_{\mathrm{FY}}}`;
-
-  return (
-    <DetailStep n={6} title="事業計画の数字と突き合わせる (この PJ には月次試算表がある)">
-      <span className="block">
-        <span className="font-medium text-foreground">この突き合わせで P^ind を作り直してはいない。</span>
-        P^ind は産業全体の付加価値で、規律として実績だけを根拠にする。事業計画は 1 社ぶんの、まだ起きていない数字。
-        使えるのは「1 社は産業の部分集合だから <Tex tex={String.raw`P^{\mathrm{ind}} \ge P^{\text{PJ}}`} /> が必ず成り立つ」という 1 点だけで、
-        置いた下限が低すぎないかの検算に使う。
-      </span>
-      <DetailFormula>
-        <Tex tex={vaTex} display />
-      </DetailFormula>
-      <span className="mt-1 block">
-        月次試算表に減価償却と租税公課の列が無いので、この <Tex tex={String.raw`VA^{\text{PJ}}`} /> は真の付加価値より小さめに出る
-        (= 下の年数は長めに出る、つまり下限に甘い側の検算)。
-      </span>
-
-      <div className="mt-2 overflow-x-auto">
-        <table className="w-full min-w-[22rem] border-collapse text-[10px]">
-          <thead>
-            <tr className="border-b border-border text-muted-foreground">
-              <th className="py-1 pr-2 text-left font-medium">年度</th>
-              <th className="py-1 pr-2 text-left font-medium">区分</th>
-              <th className="py-1 pr-2 text-right font-medium">売上</th>
-              <th className="py-1 text-right font-medium">付加価値</th>
-            </tr>
-          </thead>
-          <tbody>
-            {years.map((y) => {
-              const isPeak = peak != null && y.fy === peak.fy;
-              return (
-                <tr key={y.fy} className={isPeak ? "border-b border-border/60 bg-muted/60" : "border-b border-border/40"}>
-                  <td className="py-1 pr-2 text-foreground">
-                    {y.fy_label}
-                    {y.months !== 12 ? <span className="ml-1 text-muted-foreground">({y.months}ヶ月)</span> : null}
-                  </td>
-                  <td className="py-1 pr-2 text-muted-foreground">
-                    {y.kind === "actual" ? "実績" : y.kind === "plan" ? "計画" : "実績+計画"}
-                  </td>
-                  <td className="py-1 pr-2 text-right tabular-nums text-foreground">{fmtOku(y.revenue_yen / 100_000_000)}</td>
-                  <td
-                    className={`py-1 text-right tabular-nums ${y.value_added_yen > 0 ? "font-medium text-foreground" : "text-muted-foreground"}`}
-                  >
-                    {fmtOku(y.value_added_yen / 100_000_000)}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        <div className="mt-1 text-[9px] text-muted-foreground">単位は億円。網掛けは 12 ヶ月揃った年度のうち付加価値が最大の年度。</div>
-      </div>
-
-      {usable ? (
-        <>
-          <DetailFormula>
-            <Tex tex={impliedTex} display />
-          </DetailFormula>
-          <span className="mt-1 block">
-            置いた下限 {fmtOku(pLowerOku)} 億円は、この PJ 単体の計画上のピーク年度の付加価値
-            {fmtOku(peakVaOku)} 億円で {Math.round((impliedYears as number) * 10) / 10} 年分にあたる。
-            産業には参入他社・部材サプライヤー・装置メーカー・雇用も乗るので実際の年数はこれより短くなる。
-            この年数が事業の続く期間として不自然に長いなら、下限を置き直す材料になる。
-          </span>
-        </>
-      ) : planCheck.revenue_all_zero ? (
-        <DetailNote tone="caution">
-          この PJ の月次試算表は全期間で売上がゼロ (費用だけが入っている)。突き合わせる付加価値が作れないので、
-          年数は出していない。これは P^ind の問題ではなく、事業計画の入力が埋まっていないことの表示。
-        </DetailNote>
-      ) : peak == null ? (
-        <DetailNote tone="caution">
-          12 ヶ月揃った年度がまだ無いので、年あたりの付加価値を取れない。月が揃った時点で自動で年数が出る。
-        </DetailNote>
-      ) : (
-        <DetailNote tone="caution">
-          計画期間中に付加価値がプラスになる年度がまだ無い (ピーク年度でも {fmtOku(peakVaOku)} 億円)。
-          立ち上げ期だけの計画なので割り算が成立しない。定常期が計画に入った時点で年数が出る。
-        </DetailNote>
-      )}
-    </DetailStep>
-  );
-}
-
-export function SpsFormulaPanel({
-  band,
-  planCheck = null,
-}: {
-  band: SeedScreeningBandDetail;
-  /** 対応 PJ の月次試算表から作った年度別付加価値。渡すと P^ind の算出過程に検算ステップが増える。 */
-  planCheck?: ProjectPlanValueCheck | null;
-}) {
+export function SpsFormulaPanel({ band }: { band: SeedScreeningBandDetail }) {
   const qLo = band.q_lower_pct;
   const qHi = band.q_upper_pct;
   const pLo = okuNum(band.p_lower_yen);
@@ -589,9 +467,6 @@ export function SpsFormulaPanel({
                     ) : null}
                   </div>
                 </DetailStep>
-                {planCheck?.has_data ? (
-                  <PlanValueCrosscheck planCheck={planCheck} pLowerYen={band.p_lower_yen} />
-                ) : null}
                 {pRationale ? null : (
                   <DetailNote tone="caution">
                     この行には、桁をここに置いた一行の理由が記録されていない。

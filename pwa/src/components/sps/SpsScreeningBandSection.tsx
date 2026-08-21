@@ -23,18 +23,14 @@
 import { SpsBandRationale } from "@/components/sps/SpsBandRationale";
 import { SpsFormulaPanel } from "@/components/sps/SpsFormulaPanel";
 
-import type { ProjectPlanValueCheck } from "@/types/project-plan-value";
 import type { SeedScreeningBandDetail } from "@/types/seeds";
 
 export function SpsScreeningBandSection({
   band,
-  planCheck = null,
   heading = null,
   className = "",
 }: {
   band: SeedScreeningBandDetail;
-  /** 対応 PJ の月次試算表から作った年度別付加価値。渡すと P^ind の算出過程に検算ステップが増える。 */
-  planCheck?: ProjectPlanValueCheck | null;
   /** 見出しを出す場合の文字列。呼び出し側に別のヘッダがあるなら null のまま。 */
   heading?: string | null;
   className?: string;
@@ -44,7 +40,7 @@ export function SpsScreeningBandSection({
       {heading ? (
         <h3 className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">{heading}</h3>
       ) : null}
-      <SpsFormulaPanel band={band} planCheck={planCheck} />
+      <SpsFormulaPanel band={band} />
       <p className="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-900 dark:text-amber-200">
         この帯は接触と調査の優先順位づけの下書き。上限は楽観シナリオの包絡であり評価額ではない。投資判断・対外表示には使わない。
       </p>

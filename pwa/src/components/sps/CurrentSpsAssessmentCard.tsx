@@ -16,7 +16,6 @@
 import { SpsScreeningBandSection } from "@/components/sps/SpsScreeningBandSection";
 
 import type { CurrentSpsProjectAssessment } from "@/lib/current-sps-model";
-import type { ProjectPlanValueCheck } from "@/types/project-plan-value";
 import type { SeedScreeningBandDetail } from "@/types/seeds";
 
 function formatOkuYen(value: number | null) {
@@ -44,14 +43,11 @@ function HeadCell({ label, children }: { label: string; children: React.ReactNod
 export function CurrentSpsAssessmentCard({
   assessment,
   band = null,
-  planCheck = null,
   compact = false,
 }: {
   assessment: CurrentSpsProjectAssessment;
   /** 対応シーズの帯。渡すと定義式・算出過程・総合判断・q 要因まで展開する (compact 時は非表示)。 */
   band?: SeedScreeningBandDetail | null;
-  /** 対応 PJ の月次試算表から作った年度別付加価値。P^ind 下限の含意年数の検算に使う。 */
-  planCheck?: ProjectPlanValueCheck | null;
   compact?: boolean;
 }) {
   const assessed = assessment.status === "assessed";
@@ -104,7 +100,7 @@ export function CurrentSpsAssessmentCard({
 
       {showRationale ? (
         <div className="border-t border-border px-3 py-3">
-          <SpsScreeningBandSection band={band!} planCheck={planCheck} />
+          <SpsScreeningBandSection band={band!} />
         </div>
       ) : null}
 
