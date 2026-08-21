@@ -388,3 +388,41 @@ automation作成後の最初の自然な平日09:00実行は未観測。2026-08-
 - `npx tsc --noEmit` はリポジトリ全体でエラー0。
 - 対象7ファイルだけをstageして `git push origin main`。本番 `/api/build-info` は `v3.87.3` / `6ff519dbab9e8b8185f576356bf428638e261bae` を返し、`git merge-base --is-ancestor 5ee97811 6ff519db` で本番包含を確認した。
 - BUILD_VERSIONは別セッションが v3.87.0 / v3.87.1 を先に使っていたため v3.87.2 を採った。
+
+---
+
+## 2026-08-21 — PJ知財タブの新設からタブUIの押下アフォーダンスまで（v3.84.x〜v3.88.2）
+
+### 知財タブの新設（`823f145e` → `229edcfc`）
+
+- まさの依頼は「各PJのコックピットに特許情報をまとめておくタブ」。設計討議でスコープをBefore Zero起点（自社出願だけでなく周辺の他社特許まで）に確定し、4テーブル台帳（`project_ip_assets` / `project_ip_deadlines` / `project_ip_rights` / `project_ip_events`）で作った。
+- `823f145e` で `CockpitIpPortfolio.tsx` と `/api/project-ip` を新設。GETは `requireAuth`（メンバー）、書き込みは `requireAdmin`。同じcommitで資料室も独立タブへ出し、進捗タブ側の資料室モーダル導線は後続で削除した。
+- 最初の実装はカード羅列で、まさから「これじゃただ情報が並んでるだけじゃん。表形式にしてよ」。`18188551` で立場別の実テーブルへ作り替えた。
+- 続けて「年金の支払状況とかPCTの状況とか、他にも列として追加すべき項目あるんじゃない？」→ ライフサイクル列を洗い出し、migration `311` で追加。まさ「全部足すで全然問題ないよ。先頭列先頭行固定で横スクロールさせればいいし」に従い、28列＋先頭列・先頭行固定の横スクロール表にした。
+- 初期データはSE（p10）。まさが直前に掘り起こした特許情報を載せるための急ぎ作業という背景。
+
+### ワークスペース側への展開とタブUI統一（`de33ef6f` / v3.87.4）
+
+- まさ「このタブはワークスペース側にも表示して。ワークスペース側のタブUIがコックピットと違って雑だから、コックピット側に合わせて」。
+- `SxWeeklyControlDashboard.tsx` に `ip` viewを追加（hash `project-ip`）。タブ列の正本は `PROJECT_WORKSPACE_TABS` 配列で、nav の `gridTemplateColumns` はその長さから生成するので、次にタブを足してもCSSを触らなくていい。
+- 外部漏れの確認: `SxWeeklyControlDashboard` は `principal: "member"` のときしか描画されず、`workspace_account` は最小の資料室ページへ行く。`/api/project-ip` のGETもメンバー認証。よってワークスペース側の知財タブから外部アカウントへ台帳が出ることはない。
+- ワークスペースskinの `min-height: 44px` 強制が知財台帳の密なボタンを崩すため、既存の `sx-gantt-dependency-port` 例外と同じ形で `.sx-management-workspace .sx-ip-portfolio button { min-height: 0; min-width: 0; }` を足した。広域上書きにしない。
+
+### 特許マップの縮小（`da23c76d` / v3.87.5）
+
+- まさ「知財マップがやたら大きすぎて見にくい」。原因は `viewBox` を持つSVGに `w-full` を当てていたこと。幅がコンテナいっぱいまで拡大し、高さもアスペクト比ぶん膨らむ。
+- 修正は intrinsic な `width` / `height` 属性＋ `h-auto max-w-full`。これで**拡大せず、狭いときだけ縮む**。基準寸法も W 720→560、rowH 42/34→26/22、余白と文字10→9px、点半径 `4+imp*1.6`→`2.5+imp*0.9` へ詰めた。出願人マトリクスも `min-w-[480px] w-full` → `w-auto`、セル余白 `px-2 py-1` → `px-1.5 py-0.5`。
+
+### タブの押下アフォーダンス（`32c09720` / v3.88.2）
+
+- まさ「タブにマウスオーバーしたときにマウスのUIが変わらないのがUX的にイケてない。押せることが分かるように。あとタブも少しだけ浮き上がるとUX爆上がりする」。
+- カーソルが変わらない原因は**Tailwind v4のpreflightが `button { cursor: default }` を当てている**こと。個別対応せず `globals.css` の `@layer base` で `button:not(:disabled), [role="tab"]:not([aria-disabled="true"]), summary { cursor: pointer }` と `button:disabled { cursor: not-allowed }` を戻した。OS全体のボタンに効く。
+- 浮き上がりは、コックピット（`CockpitView.tsx`）とワークスペース（`weekly-control.module.css` の `.sectionNav`）を同じ寸法で揃えた。`overflow-hidden` ＋ `border-l` 区切りの帯をやめ、`gap-1 p-1` の角丸ボタン列にして、hoverで `-translate-y-2px` ＋ `0 6px 14px -6px rgba(15,23,42,.4)` の影、`:active` で沈む。選択中の白地＋ `inset 0 -2px 0 #0f172a` は維持し、hover時だけ外側の影を重ねる。`prefers-reduced-motion` では動かさない。
+- `overflow-hidden` を外したのは影と浮き上がりが切れるため。区切り線を落としたので `tabs.map` の `index` 引数も削除した。
+
+### 検証と反映
+
+- `npx tsc --noEmit` は自分の変更ぶんエラー0（別セッション未コミットの `AmdScoreFormulaPanel.tsx` の既存エラーのみ除外して確認）。
+- `npm run test:critical-ui` → ok。deployは全件 `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash scripts/deploy.sh` 経由。
+- 本番確認: v3.87.4 `50f88448` / v3.87.5 `da23c76d` / v3.88.2 `32c09720` をいずれも `/api/build-info` の `git_sha` 一致で確認した。
+- ブラウザでの実操作確認は未実施（`未確認`）。

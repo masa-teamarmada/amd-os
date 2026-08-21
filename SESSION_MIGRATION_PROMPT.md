@@ -1,40 +1,54 @@
-# 次セッション引き継ぎプロンプト（2026-08-21 資料室UI セッションから）
+# 次セッション移行プロンプト（2026-08-21 handoff、AMD OS PWA）
 
-## 読む順
+## 0. 読む順（この順で、読み終わるまで実装しない）
 
-1. `/Users/masa/projects/AGENTS.common.md`（えいみ共通ルール正本）
-2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md`（AMD level memory）
-3. `/Users/masa/projects/AMD/amd-os/CLAUDE.md`（モノレポ全体ルール。main一本・branch全面禁止・commit即push）
-4. `/Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md`（PWA固有: deploy.sh・BUILD_VERSION bump・DDL適用）
-5. `/Users/masa/projects/AMD/amd-os/pwa/HANDOFF_pwa_rebuild.md`（現在地・次の一手）
-6. `/Users/masa/projects/AMD/amd-os/pwa/spec/3-8-cockpit-current-spec.md`（資料室の現行仕様。触る前に必読）
-7. `/Users/masa/projects/AMD/amd-os/pwa/BUGS.md`（`[workspace-documents/room]` の2件が今回分）
+1. `/Users/masa/projects/AGENTS.common.md` — えいみ共通ルール正本
+2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md` — AMD階層の記憶
+3. `/Users/masa/projects/AMD/amd-os/CLAUDE.md` — モノレポ大原則（main一本 / commit即push / セッション開始時のfetch4ステップ）
+4. `/Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md` — PWA固有（deploy.sh経由のみ / BUILD_VERSION bump / DDL手順 / db_schema.md先読み）
+5. `/Users/masa/projects/AMD/amd-os/pwa/HANDOFF_pwa_rebuild.md` — 現在地と次の一手
+6. `/Users/masa/projects/AMD/amd-os/pwa/spec/3-19-project-ip-current-spec.md` — 知財台帳の現行仕様（今回の主対象）
+7. `/Users/masa/projects/AMD/amd-os/pwa/BUGS.md` — 直近2件（critical-ui anchor / Tailwind v4 preflight）を最低限読む
 
-## 状態スナップショット
+作業ディレクトリ: `/Users/masa/projects/AMD/amd-os/pwa`
 
-- cwd: `/Users/masa/projects/AMD/amd-os`。branch `main`、ahead 0 / behind 0（2026-08-21 時点）。
-- 本番: `https://amd-os-pwa.vercel.app`。`/api/build-info` は `v3.87.3` / SHA `6ff519dbab9e8b8185f576356bf428638e261bae`。
-- このセッションの成果は `a6cd3d7d`（v3.86.2 フォルダ行drop）と `5ee97811`（v3.87.2 移動・削除・追加の即時反映）。どちらも本番に包含済み。
-- 作業ツリーに残る dirty・未追跡は**別セッション所有**（資料室のHTML編集／デッキエディタ）。`pwa/package.json`、`pwa/src/app/api/workspace-documents/[documentId]/source/route.ts`、`pwa/src/lib/workspace-document-editing.ts`、`pwa/scripts/check_workspace_document_edit_frame.mts`、`check_workspace_document_html_editing.mts`、`pwa/src/app/api/workspace-documents/[documentId]/edit-frame/`、`pwa/src/components/workspace-documents/WorkspaceDocumentDeckEditor.tsx`、`pwa/src/lib/workspace-document-edit-agent.ts`、`pwa/src/lib/workspace-document-html-editing.ts`。**commit・revert・削除しない。**
-- このセッションで作った branch / worktree: none。
+## 1. 状態スナップショット（2026-08-21 handoff 時点）
 
-## 次タスク
+- HEAD = `32c09720`（main）。本番 BUILD_VERSION = **v3.88.2**。`/api/build-info` の `git_sha` が `32c09720…` であることを確認済み。
+- 正規checkout: ahead 0 / behind 0。**このセッションで作ったbranch・worktree: none。**
+- このセッションの成果（すべて本番反映済み）
+  - PJコックピットに**知財タブ**を新設。4テーブル台帳（`project_ip_assets` / `_deadlines` / `_rights` / `_events`）、`/api/project-ip`、28列テーブル（先頭列・先頭行固定の横スクロール）、特許マップ3種、資料室の独立タブ化。migration `311`。初期データはSE（p10）。
+  - 知財タブをPJワークスペースにも展開し、ワークスペースのタブ列をコックピットと同じ見た目へ統一。
+  - 特許マップの拡大を修正して縮小。
+  - タブに押下アフォーダンス（pointerカーソル＋2px浮き上がり）。カーソル既定は `globals.css` の `@layer base` でOS全体のボタンに効く。
+- **他セッション所有の未コミット差分（触らない）**
+  - `pwa/src/components/workspace-documents/WorkspaceDocumentRoom.tsx`
+  - `pwa/src/components/workspace-documents/workspace-document-room.module.css`
+  - 未追跡migrationが2本とも `312_` で番号衝突（`312_seed_screening_bands_p_ind_rationale.sql` / `312_workspace_folder_visibility_cascade.sql`）。**先に適用する側が `313_` へ採番し直す。** 自分の作業でないなら報告だけ。
+- 素材の所在: 知財UIは `src/components/cockpit/CockpitIpPortfolio.tsx` と `PatentMap.tsx`、APIは `src/app/api/project-ip/route.ts`、ワークスペース側は `src/components/project-workspace/SxWeeklyControlDashboard.tsx` と `weekly-control.module.css`。
 
-まさから追加依頼は出ていない。資料室を続けて触る場合の必達条件は以下。
+## 2. 次のタスク（優先順）
 
-- 資料室の一覧UI（`pwa/src/components/workspace-documents/WorkspaceDocumentRoom.tsx`）を変える前に、`pwa/spec/3-8-cockpit-current-spec.md` の資料室段落を読む。
-- 守る契約3つ:
-  1. mutation後に `await loadDocuments()` を復活させない。これがまさの言った「移動・削除・追加のたびに5〜7秒待たされる」の直接原因。背景同期は spinner を出さない `refreshDocuments()` のみ。
-  2. ローカル反映は migration 217 の RPC（`workspace_move_document` / `workspace_archive_document`）のカスケードを鏡写しにする。folder移動は配下の `folderPath` を接頭辞置換、folder削除は配下ごと除去。ずれると背景同期の到着時に画面が飛ぶ。
-  3. 失敗時は `setDocuments(snapshot)` で戻す。`create_link` だけは楽観行を作らない（開くURLが `documentId` 由来で `pending:` idは404）。
-- 変更後は `node pwa/scripts/check_workspace_documents_contract.mjs` を必ず通す。
+**A. 知財台帳の外部同期（`spec/3-19` §5 の未接続3点）**
 
-## このPJで確立済みの運用ルール
+1. 特許庁「特許情報取得API」と EPO OPS の**利用者登録**。まさの指示は「外部サービス登録は申請内容をまさへ見せてから出す」。フォーム項目を埋めた状態でチャットに提示し、まさのOKを取ってから送信する。勝手に登録しない。
+2. `project_ip_deadlines` を `app_notifications` / `proactive_todos` へ配線する。年金納付期限とPCT移行期限が近づいたらOSの通知に出る状態がゴール。`l2_kind` は PWA feedback route の `allowedKinds` が正本なので、野良の種別を作らない。
+3. `/admin/ip` の静的 `IP_REPORT_MD` をp00資産として台帳へ統合し、静的mdの二重管理をやめる。
 
-- **main一本。branch / worktree を作らない。** `spawn_task` で次セッションを起票しない（チップの起動導線が worktree を作る）。
-- `git add .` は禁止。**今回触った対象ファイルだけを名前指定で stage** する。他セッションの dirty は戻さない。
-- deploy に出す前に `pwa/src/lib/build-info.ts` の `BUILD_VERSION` を bump。**HEAD の実値を読んでから採る**（複数セッションが並行 bump しており、v3.87.0 / v3.87.1 は先取りされていた）。迷ったら patch。
-- 本番反映は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`。他セッション所有の tracked dirty があると hard stop するので、その場合は対象ファイルだけを stage / commit して `git push origin main` を直接実行し、除外した差分を事後報告する。事前承認で止めない。
-- 反映後は `/api/build-info` を readback し、`git merge-base --is-ancestor <自分のcommit> <本番SHA>` で本番包含を確認する。`vercel ls` のポーリングループは10分でタイムアウトするので回さない。
-- 仕様を変えたら同じ作業単位で `pwa/manual/*.md`（使い方）と `pwa/spec/*.md`（実装仕様）を更新し、`pwa/manual/9-3-appendix-changelog.md` と `pwa/spec/6-1-appendix-changelog.md` の両方に追記する。
-- 資料室の回帰は `pwa/scripts/check_workspace_documents_contract.mjs` がコード本文への正規表現検査で押さえている。他セッションが同じファイルを触ると既存 assertion が黙って落ちることがあるので、実行してから着手する。
+**B. まさから来る可能性が高い追随依頼**
+
+- 知財タブは今SEにしか実データが無い。他PJへ広げるなら「どの生データから抽出するか」を先に決める（手動入力前提の機能を作らない、はAMD OSの原則）。
+- タブUIは2箇所（Tailwind版とCSS module版）で同じ数値を手書きしている。片方だけ直すとズレるので必ず両方直す。
+
+## 3. このPJで確立済みの運用ルール（守る）
+
+- **branch・worktreeを作らない。main直commit。`spawn_task` で次セッションを起票しない。**
+- `git add .` 禁止。**commitは必ずパス指定形式**（`git commit -m … -- <paths>`）。他セッションのdirtyはstash・revert・commitしない。
+- 編集したら即commit・即push。push直前に `git fetch origin main`。
+- 本番反映は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` のみ。`npx vercel deploy` / `--prod` は禁止。deployは原則ノンストップ・事後報告。事前承認が要るのは既存業務導線(FEATURE_REGISTRY)の削除・置き換えと、まさが「確認してから」と言った作業だけ。**DDL・本番データ書き込みは事前承認不要。**
+- deploy前に `src/lib/build-info.ts` の `BUILD_VERSION` をbump。**採る前に必ずHEADの値を読む**（複数セッションが並行でbumpする）。新機能=minor、修正/UI/データ=patch、迷ったらpatch。
+- DDLは `python3 -X utf8 scripts/apply_ddl.py scripts/migrations/NNN_name.sql`。migrationファイルは残す。列名は想像で書かず `design/db_schema.md` をgrepしてから書く。適用後は `python3 -X utf8 scripts/dump_schema.py` を同じcommitに含める。
+- 検証は `npx tsc --noEmit` と `npm run -s test:critical-ui`。deploy.shがcritical-ui anchorで落ちたら、まず `git show origin/main:<path> | grep -c` で「自分の変更のせいか、origin/mainで既に壊れていたか」を切り分ける（2026-08-21に後者で全セッションのdeployが止まった実例あり）。
+- SVGに `w-full` を単独で当てない。`width`/`height` 属性＋ `h-auto max-w-full` が既定形。横スクロールさせたい表だけ `min-w-[N] w-full`。
+- 秘密値は表示・復唱・保存しない。`***` で伏せる。
+- 日本語のヒアドキュメントをpythonの `<<'PY'` で流すとUTF-8エラーになる。スクリプトはscratchpadへ書いて `python3 -X utf8 <file>` で実行する。

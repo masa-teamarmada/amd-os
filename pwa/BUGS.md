@@ -4495,3 +4495,17 @@
 - **原因**: Slackのインタラクションpayloadは「そのメッセージを投稿したアプリ」のsigning secretで署名される。立替カードは「つくよみ」(`A0A5Z2UETQD`)が投稿するが、本番`SLACK_SIGNING_SECRET`には「えいみ」(`A0AC419BPGE`)ぶんのsecretしか入っておらず、HMACが一致しなかった。env変数の追記自体は現行buildへ即反映されないため、追記→再deployが必要な点も見落としやすい。
 - **対応内容**: `SLACK_SIGNING_SECRET`をカンマ区切りで複数保持できるよう`signingSecrets()`を追加し、`verifySlackSignature()`はどれか1つとtiming-safe一致すれば通す実装へ変更した(`pwa/src/app/api/slack/interactive/route.ts`)。値を見せずに切り分けるため、401応答のbodyへ`secrets=${count}`のみ返す診断コードを一時追加し、本番へ2件届いていることを確認してから外した。まさの実押下でDB `status`が`submitted`→`pmApproved`へ遷移することまで確認した。
 - **再発防止策**: 複数Slackアプリが同じroute（同じRequest URL）へメッセージを投稿する構成では、投稿元アプリごとのsigning secretを漏れなくカンマ区切りへ入れる。新しいSlackアプリからの投稿を追加するたびに、このrouteのsecretリストも同時に増やす。env変更後は「保存した」で終えず、実際にbuildへ反映されたか（再deployしたか）まで確認する。
+
+## [test/critical-ui] 古くなったanchorが全セッションのdeployを止めた (2026-08-21)
+
+- **症状**: `deploy.sh` が `Error: src/components/cockpit/CockpitCompanyOverview.tsx missing critical UI anchors: import CapitalPlanWorkspace ... , <CapitalPlanWorkspace` で hard-stop し、自分の変更と無関係にpushできなくなった。
+- **原因**: `a92d4510`「事業計画タブを全PJへ」で資本政策UIの結線元が `CockpitCompanyOverview.tsx` から `CockpitBusinessPlan.tsx` へ移ったのに、`check_pwa_critical_ui.cjs` のanchorが旧ファイルを指したままだった。導線自体は生きていて、検査だけが現実とずれていた。`git show origin/main:...CockpitCompanyOverview.tsx | grep -c CapitalPlanWorkspace` が0で、origin/main時点で既に壊れており、**その時点以降の全セッションのdeployを止めていた**。
+- **対応内容**: anchorを現在の結線元 `CockpitBusinessPlan.tsx` へ張り替え、日付つきの経緯コメントを添えた（`50f88448`）。旧UIが復活しないことを見る `expectNotIncludes` はそのまま残した。`npm run -s test:critical-ui` → ok を確認してからdeployした。
+- **再発防止策**: 重要UIを別componentへ移す変更では、同じcommitで `check_pwa_critical_ui.cjs` のanchorも移す。anchorが落ちたときは検査を消さず、導線が生きているかを `grep -rn` で先に確かめ、生きているならanchorを現在地へ張り替える。deployのhard-stopが自分の変更由来か他commit由来かは、`git show origin/main:<path>` で切り分ける。
+
+## [ui/tailwind-v4] ボタンでカーソルが変わらず、SVGマップが画面幅いっぱいに膨らんだ (2026-08-21)
+
+- **症状**: (1) コックピット／ワークスペースのタブにマウスを重ねてもカーソルが矢印のままで、押せることが分からなかった。(2) 知財タブの特許マップが「やたら大きすぎて見にくい」状態になった。
+- **原因**: (1) Tailwind v4のpreflightが `button { cursor: default }` を当てており、v3までの既定 `cursor: pointer` が消えていた。個別componentのCSSを読んでも原因が見えない。(2) `viewBox` を持つSVGに `className="w-full"` を当てていた。SVGはコンテナ幅まで**拡大**し、高さもアスペクト比ぶん一緒に膨らむ。テーブルの `min-w-[...] w-full` も同じ理由で横に伸びていた。
+- **対応内容**: (1) `globals.css` の `@layer base` に `button:not(:disabled), [role="tab"]:not([aria-disabled="true"]), summary { cursor: pointer }` と `button:disabled { cursor: not-allowed }` を追加（`32c09720`）。(2) SVGへ intrinsic な `width` / `height` 属性を持たせ、`className` は `h-auto max-w-full` にした。これで拡大せず、狭いときだけ比率を保って縮む（`da23c76d`）。
+- **再発防止策**: Tailwind v4では、v3で当たり前だった preflight の既定値（button cursor など）が変わっている前提で疑う。図やチャートのSVGに `w-full` を単独で当てない。「拡大させない」なら `width`/`height` 属性＋ `h-auto max-w-full` が既定形。`min-w-[N] w-full` は横スクロール前提の表にだけ使う。
