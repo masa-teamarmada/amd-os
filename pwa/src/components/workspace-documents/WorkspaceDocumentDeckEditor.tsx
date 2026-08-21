@@ -51,6 +51,15 @@ function slideSelectorStorageKey(documentId: string) {
 }
 
 /**
+ * フレームが「準備できたよ」を返すまで待つ上限。
+ *
+ * これを超えたらローディングを回し続けず、理由と出口を出す。回し続けると、
+ * 開けていないのか重いだけなのかが利用者に分からず、何分でも待たせてしまう
+ * (2026-08-22 まさを10分待たせた。pwa/BUGS.md 参照)。
+ */
+const FRAME_READY_TIMEOUT_MS = 20000;
+
+/**
  * HTML資料を見たまま編集する画面。
  *
  * 中身は `edit-frame` ルートが返すiframeで、そこは `allow-same-origin` を持たない
@@ -84,15 +93,28 @@ export function WorkspaceDocumentDeckEditor({
   } | null>(null);
 
   // 開くたびに1回だけ発行する。フレームのURLにも載るので、hex32だけで作る。
-  const [token] = useState(() =>
-    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID().replace(/-/g, "")
-      : Array.from({ length: 32 }, () => "0123456789abcdef"[Math.floor(Math.random() * 16)]).join(""),
-  );
+  //
+  // 🚨 レンダー中 (useState の initializer や useMemo) で作ってはいけない。
+  // initializer はサーバの描画で1回、ブラウザのhydrationでもう1回走るので、
+  // 乱数を引くと必ず違う2つの値ができる。iframeのsrc属性はサーバ側の値のままDOMに残り、
+  // 親が照合に使うのはhydration側の値になるため、フレームが正しく送ったreadyを
+  // 親が永久に捨て続ける (= 「資料を読み込み中」から一生進まない)。
+  // マウント後に一度だけ決めて、決まるまでiframe自体を描かない。
+  // (2026-08-22 まさ「10分たっても資料がローディングのまま」で発覚。pwa/BUGS.md 参照)
+  const [token, setToken] = useState<string | null>(null);
+  useEffect(() => {
+    setToken(
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID().replace(/-/g, "")
+        : Array.from({ length: 32 }, () => "0123456789abcdef"[Math.floor(Math.random() * 16)]).join(""),
+    );
+  }, []);
   // 読み込み直しはフレームを作り直す。同じsrcのreloadだと編集済みDOMが残ることがある。
   const [frameKey, setFrameKey] = useState(0);
 
   const [ready, setReady] = useState(false);
+  // readyが来ないまま止まったときだけ立てる。沈黙のローディングを作らないための出口。
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
   const [candidates, setCandidates] = useState<WorkspaceDocumentSlideCandidate[]>([]);
   const [slideSelector, setSlideSelector] = useState("");
   const [slides, setSlides] = useState<WorkspaceDocumentSlideSummary[]>([]);
@@ -106,16 +128,20 @@ export function WorkspaceDocumentDeckEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 合言葉が決まる前は null。srcの無いiframeを先に描くと、後からsrcを足したときに
+  // 空ドキュメントとの二重ロードになるので、フレームごと描かない。
   const frameSrc = useMemo(
     () =>
-      `/api/workspace-documents/${encodeURIComponent(documentId)}/edit-frame?token=${encodeURIComponent(token)}`,
+      token === null
+        ? null
+        : `/api/workspace-documents/${encodeURIComponent(documentId)}/edit-frame?token=${encodeURIComponent(token)}`,
     [documentId, token],
   );
 
   const postToFrame = useCallback(
     (payload: Record<string, unknown>) => {
       const target = frameRef.current?.contentWindow;
-      if (!target) return;
+      if (!target || token === null) return;
       // フレームは不透明オリジンなので targetOrigin を絞れない。守りはtokenの照合だけ。
       target.postMessage({ ...payload, amd: token }, "*");
     },
@@ -162,6 +188,9 @@ export function WorkspaceDocumentDeckEditor({
 
   // フレームからの受信。origin では守れないので、送信元windowとtokenの二重で照合する。
   useEffect(() => {
+    // 合言葉が決まる前は照合できない。フレームもまだ無いので、聞く相手がいない。
+    if (token === null) return;
+
     function onMessage(event: MessageEvent) {
       if (event.source !== frameRef.current?.contentWindow) return;
       const data = event.data as Record<string, unknown> | null;
@@ -222,6 +251,15 @@ export function WorkspaceDocumentDeckEditor({
     };
   }, [documentId, postToFrame, token]);
 
+  // 準備完了が来ないまま止まったら、回し続けずに理由と出口を出す。
+  // フレームを作り直すたび (frameKey) に測り直す。
+  useEffect(() => {
+    if (token === null || ready) return;
+    setLoadTimedOut(false);
+    const timer = setTimeout(() => setLoadTimedOut(true), FRAME_READY_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [token, ready, frameKey]);
+
   function chooseSlideSelector(selector: string) {
     setSlideSelector(selector);
     if (typeof window !== "undefined") {
@@ -235,6 +273,7 @@ export function WorkspaceDocumentDeckEditor({
   /** 競合したときの唯一の出口。編集内容は捨てて現物へ揃える。 */
   function reloadFrame() {
     setReady(false);
+    setLoadTimedOut(false);
     setDirty(false);
     setConflict(false);
     setSelection(null);
@@ -506,19 +545,36 @@ export function WorkspaceDocumentDeckEditor({
         {/* 中 — 資料そのもの。 */}
         <div className="relative min-h-0 bg-slate-200">
           {!ready && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 bg-slate-100 text-sm text-slate-600">
-              <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-              資料を読み込み中
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-slate-100 px-6 text-center text-sm text-slate-600">
+              {loadTimedOut ? (
+                <>
+                  <p className="font-medium text-slate-700">資料を読み込めなかったよ。</p>
+                  <p className="max-w-md text-xs leading-5 text-slate-500">
+                    通信が途切れたか、資料が大きすぎて開けなかったのかも。
+                    読み込み直してもだめなら、下の「HTMLソースで編集」からなら開けるよ。
+                  </p>
+                  <Button type="button" variant="outline" size="sm" onClick={reloadFrame}>
+                    読み込み直す
+                  </Button>
+                </>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                  資料を読み込み中
+                </span>
+              )}
             </div>
           )}
-          <iframe
-            key={frameKey}
-            ref={frameRef}
-            src={frameSrc}
-            title={`${displayName}の編集`}
-            sandbox="allow-scripts"
-            className="h-full w-full border-0 bg-white"
-          />
+          {frameSrc !== null && (
+            <iframe
+              key={frameKey}
+              ref={frameRef}
+              src={frameSrc}
+              title={`${displayName}の編集`}
+              sandbox="allow-scripts"
+              className="h-full w-full border-0 bg-white"
+            />
+          )}
         </div>
 
         {/* 右 — 書式。選んでいる要素にだけ効く。 */}

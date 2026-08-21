@@ -206,4 +206,40 @@ const sizeIndex = editingLib.indexOf("WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES",
 assert.ok(sizeIndex > transformIndex, "組み直したあとにサイズを検査していない");
 assert.match(editingLib.slice(sizeIndex, sizeIndex + 200), /status: 413/);
 
+// ---------------------------------------------------------------------------
+// 5. 親側 — 合言葉の作り方と、ローディングの出口
+// ---------------------------------------------------------------------------
+
+const deck = read("src/components/workspace-documents/WorkspaceDocumentDeckEditor.tsx");
+
+// 合言葉をレンダー中に作らない。useState の initializer と useMemo はサーバ描画と
+// ブラウザの hydration で2回走るので、乱数を引くと iframe の src に載る値と
+// 親が照合する値がずれる。フレームが正しく送った ready を親が永久に捨て、
+// 画面は「資料を読み込み中」から一生進まない (2026-08-22 の永久ローディング事故)。
+assert.doesNotMatch(
+  deck,
+  /useState\(\s*\(\) =>[\s\S]{0,240}?randomUUID/,
+  "合言葉をuseStateのinitializerで作っている (SSRとhydrationで値がずれる)",
+);
+assert.doesNotMatch(
+  deck,
+  /useMemo\(\s*\(\) =>[\s\S]{0,240}?randomUUID/,
+  "合言葉をuseMemoで作っている (SSRとhydrationで値がずれる)",
+);
+assert.match(deck, /const \[token, setToken\] = useState<string \| null>\(null\)/);
+assert.match(deck, /useEffect\(\(\) => \{\s*setToken\(/, "合言葉はマウント後に一度だけ決める");
+
+// 合言葉が決まるまでフレームを描かない。srcの無いiframeを先に描くと二重ロードになる。
+assert.match(deck, /token === null\s*\?\s*null\s*:\s*`\/api\/workspace-documents\//);
+assert.match(deck, /\{frameSrc !== null && \(\s*<iframe/, "合言葉が決まる前にiframeを描いている");
+
+// 準備完了が来ないまま黙って回り続けない。理由と、作り直す出口を必ず出す。
+assert.match(deck, /const FRAME_READY_TIMEOUT_MS = \d+/);
+assert.match(deck, /setTimeout\(\(\) => setLoadTimedOut\(true\), FRAME_READY_TIMEOUT_MS\)/);
+assert.match(
+  deck,
+  /loadTimedOut \?[\s\S]{0,800}?onClick=\{reloadFrame\}/,
+  "読み込めなかったときに作り直す出口が無い",
+);
+
 console.log("workspace document edit frame: ok");

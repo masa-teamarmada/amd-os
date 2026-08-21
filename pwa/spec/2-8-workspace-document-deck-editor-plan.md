@@ -330,6 +330,8 @@ textareaのソース編集は「詳細」の中に残す（緊急脱出用）。
 | 編集ページは**見たまま編集を常時下敷き**にし、ソース編集（`max-w-4xl`）と版履歴（`max-w-3xl`）だけを重ねる。資料室側からは3つのダイアログとその state を**削除**する | 両方に置くと同じ楽観ロックが二重実装になり、片方だけ直して競合検知が抜ける。契約テストで `source.room` に `expectedSha256` 系が残らないことを機械検査する |
 | 保存後の元タブ同期は **BroadcastChannel**（`amd-os-workspace-documents`）で `{type:"document-updated", documentId}` だけを配り、受け側が自分で `refreshDocuments()` する | 本文は最大5MBあり、チャネルへ載せると同一オリジンの全タブへ毎回コピーが飛ぶ。「更新されたよ」だけ配れば、受け側は既存の権限チェックを通った一覧APIで取り直せる |
 | 編集ページの認可は `loadEditableWorkspaceHtmlDocument()` で**表示前**に確かめ、`recordWorkspaceAuditEvent` に `open_editor` を残す。`?from=` は `/` 始まりかつ `//`・`/\` 非始まりだけ通す | URLを直接叩けるページになったので、資料室UIの表示条件（`permissions?.canUpload`）はもう防御にならない。戻り先クエリは無検証だと外部サイトへのオープンリダイレクトになる |
+| **フレームとの合言葉はレンダー中に作らない**。`useState<string \| null>(null)` +マウント後の `useEffect` で一度だけ決め、決まるまで `<iframe>` 自体を描かない（2026-08-22 修正） | `useState` の initializer はSSRで1回、hydrationでもう1回走る。乱数を引くと `iframe` の `src` 属性（=SSR値）と親が照合する state（=hydration値）が食い違い、フレームが正しく送った `ready` を親が**無言で捨て続ける**。オーバーレイが剥がれず「資料を読み込み中」から一生進まない。詳細は `pwa/BUGS.md` |
+| フレームの準備完了を **20秒**（`FRAME_READY_TIMEOUT_MS`）で見切り、理由・「読み込み直す」・ソース編集への逃げ道を出す（2026-08-22 追加） | 沈黙のローディングは「壊れている」と「重い」を利用者が区別できない。まさを10分待たせた |
 | フレーム内エージェントは文字列テンプレートではなく **TS関数 + `Function.prototype.toString()`** で埋め込み、設定は `JSON.stringify(config)` を引数で渡す | 型検査が効く。ただしtranspileヘルパーが注入されると埋め込み先で黙って死ぬので、エージェント内で spread / async-await / for...of / optional chaining を使わない（契約テストで機械検査する） |
 | 版履歴から「編集に戻る」とき、見たまま編集から来た場合はフレームを作り直す | 版を戻した直後は本文が入れ替わっている。開いたままのフレームを再利用すると古いDOMを保存してしまう |
 
@@ -403,3 +405,4 @@ textareaのソース編集は「詳細」の中に残す（緊急脱出用）。
 - 2026-08-21: Phase 0 実装（build v3.86.0 / commit `70d41bf2`）。migration 310 適用済み。§8 Phase 0 に実装差分を追記。
 - 2026-08-21: Phase 1 実装（build v3.88.0）。§8 Phase 1 に決定表、§9 に契約テストの実体を追記。
 - 2026-08-21: 編集UIを資料室モーダルから**別タブの専用ページ**へ移設（build v3.89.0）。まさの実使用で「モーダルちっさ」。§8 Phase 1 の決定表へ別タブ化5件を追記。併せて `DialogContent` の既定 `sm:max-w-sm` が tailwind-merge のグループ分離で呼び出し側の `max-w-*` を無効化していた不具合を修正（OS全体17ファイル32箇所のうち30箇所が384pxに潰れていた）。詳細は `pwa/BUGS.md`。
+- 2026-08-22: 見たまま編集の**永久ローディング**を修正（build v3.89.3）。フレームとの合言葉をSSR/hydrationで二重生成していたため `ready` が親に届かなかった。§8 Phase 1 の決定表へ2件（合言葉の作り方・読み込みタイムアウト）を追記し、契約テスト `check_workspace_document_edit_frame.mts` に §5「親側 — 合言葉の作り方と、ローディングの出口」を追加。詳細は `pwa/BUGS.md`。
