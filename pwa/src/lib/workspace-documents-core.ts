@@ -10,6 +10,12 @@ export const WORKSPACE_DOCUMENT_HTML_PDF_MAX_INPUT_BYTES = 8 * 1024 * 1024;
 export const WORKSPACE_DOCUMENT_HTML_PDF_MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
 export const WORKSPACE_DOCUMENT_PDF_DOWNLOAD_URL_TTL_SECONDS = 60;
 
+// 版履歴 (workspace_document_revisions)。
+// 1資料あたりこの件数までを自動保持し、超過分は古い順に消す。pinned=true は対象外。
+export const WORKSPACE_DOCUMENT_REVISION_KEEP_COUNT = 50;
+export const WORKSPACE_DOCUMENT_REVISION_LIST_LIMIT = 100;
+export const WORKSPACE_DOCUMENT_REVISION_NOTE_MAX_LENGTH = 200;
+
 export type WorkspaceDocumentScopeKind = "institution" | "project";
 export type WorkspaceDocumentVisibility = "amd_internal" | "workspace_shared";
 export type WorkspaceDocumentEntryKind = "file" | "link" | "folder";
@@ -162,6 +168,47 @@ export function workspaceDocumentPdfCacheStoragePath(
   documentId: string,
 ): string {
   return `${workspaceDocumentStoragePath(scopeKind, scopeId, documentId)}.pdf`;
+}
+
+/**
+ * 版履歴で退避したHTMLソースの置き場。現物のstorage_pathを上書きする前に、
+ * 直前の内容をここへコピーしてから差し替える。revision_no は追記のみで再利用しないので、
+ * このpathは一度書いたら二度と別の内容にならない。
+ */
+export function workspaceDocumentRevisionStoragePath(
+  scopeKind: WorkspaceDocumentScopeKind,
+  scopeId: string,
+  documentId: string,
+  revisionNo: number,
+): string {
+  return workspaceDocumentRevisionStoragePathFromBase(
+    workspaceDocumentStoragePath(scopeKind, scopeId, documentId),
+    revisionNo,
+  );
+}
+
+/**
+ * 実行時はDBのstorage_pathをそのまま基点にする。過去のuploadが別の形式で作られていても、
+ * 退避先が現物の隣に並ぶことを保証できる。
+ */
+export function workspaceDocumentRevisionStoragePathFromBase(
+  basePath: string,
+  revisionNo: number,
+): string {
+  if (!Number.isInteger(revisionNo) || revisionNo < 1) throw new Error("invalid revision number");
+  if (!basePath || basePath.includes("..")) throw new Error("invalid document storage path");
+  return `${basePath}.rev${revisionNo}.html`;
+}
+
+export function normalizeWorkspaceDocumentRevisionNote(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed || CONTROL_CHARACTERS.test(trimmed)) return null;
+  return trimmed.slice(0, WORKSPACE_DOCUMENT_REVISION_NOTE_MAX_LENGTH);
+}
+
+export function isWorkspaceDocumentSha256(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
 }
 
 export function workspaceDocumentScopeLabel(kind: WorkspaceDocumentScopeKind) {

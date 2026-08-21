@@ -11,7 +11,10 @@ const files = {
   textLoader: new URL("../src/lib/workspace-document-text.ts", import.meta.url),
   markdownPage: new URL("../src/app/workspace-document/[documentId]/page.tsx", import.meta.url),
   markdownReader: new URL("../src/components/workspace-documents/WorkspaceMarkdownReader.tsx", import.meta.url),
+  htmlEditingGate: new URL("../src/lib/workspace-document-editing.ts", import.meta.url),
   htmlSource: new URL("../src/app/api/workspace-documents/[documentId]/source/route.ts", import.meta.url),
+  htmlRevisionList: new URL("../src/app/api/workspace-documents/[documentId]/revisions/route.ts", import.meta.url),
+  htmlRevisionItem: new URL("../src/app/api/workspace-documents/[documentId]/revisions/[revisionNo]/route.ts", import.meta.url),
   pdf: new URL("../src/app/api/workspace-documents/[documentId]/pdf/route.ts", import.meta.url),
   htmlPdf: new URL("../src/lib/workspace-document-html-pdf.ts", import.meta.url),
   serializer: new URL("../src/lib/workspace-documents-server.ts", import.meta.url),
@@ -48,17 +51,48 @@ assert.match(source.render, /row\.entry_kind !== "file" && row\.entry_kind !== "
 assert.match(source.render, /loadWorkspaceDocumentText\(db, row, WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES\)/, "HTML表示は共通の上限付き本文loaderを通す");
 assert.match(source.render, /default-src 'none';[\s\S]*sandbox/, "HTML表示はscriptを許可しないsandbox CSPを返す");
 assert.match(source.render, /Content-Type": "text\/html; charset=utf-8"/, "HTML表示は正しいMIMEで返す");
-assert.match(source.htmlSource, /resolveDocumentRowAccess\(db, row\)/, "HTML編集も資料ごとの権限を再確認する");
-assert.match(source.htmlSource, /row\.visibility === "amd_internal" && !access\.canReadInternal/, "HTML編集も内部資料を404にする");
-assert.match(source.htmlSource, /!access\.canUpload/, "HTML本文の読込・保存は追加権限を必須にする");
-assert.match(source.htmlSource, /isWorkspaceDocumentHtml\(row\.mime_type, row\.display_name\)/, "HTMLだけを本文編集できる");
+// HTML編集系routeの認可は共有gate (workspace-document-editing.ts) に集約する。
+// 本文読込・保存・版履歴・復元が同じ条件を各自で書き写すと、片方だけ緩む事故が起きる。
+assert.match(source.htmlEditingGate, /resolveDocumentRowAccess\(db, row\)/, "HTML編集gateは資料ごとの権限を再確認する");
+assert.match(source.htmlEditingGate, /row\.visibility === "amd_internal" && !access\.canReadInternal/, "HTML編集gateは内部資料を404にする");
+assert.match(source.htmlEditingGate, /!access\.canUpload/, "HTML本文の読込・保存は追加権限を必須にする");
+assert.match(source.htmlEditingGate, /isWorkspaceDocumentHtml\(row\.mime_type, row\.display_name\)/, "HTML編集gateはHTMLだけを通す");
+assert.match(source.htmlEditingGate, /upload_status", "active"/, "HTML編集gateは削除済み資料を通さない");
+assert.match(source.htmlEditingGate, /!row\.storage_bucket \|\| !row\.storage_path/, "HTML編集gateは実体を触れない資料を通さない");
+assert.match(source.htmlSource, /loadEditableWorkspaceHtmlDocument\(documentId\)/, "HTML本文routeは共有gateで認可する");
 assert.match(source.htmlSource, /normalizeWorkspaceDocumentHtmlSource/, "HTML本文は空欄・byte上限をserverで検証する");
-assert.match(source.htmlSource, /const storagePath = row\.storage_path[\s\S]*?\.upload\(storagePath, sourceBytes/, "HTML本文は既存private Storage objectへ上書きする");
-assert.match(source.htmlSource, /file_size_bytes: sourceBytes\.byteLength/, "HTML保存後にサイズmetadataを更新する");
-assert.match(source.htmlSource, /mime_type: mimeType/, "HTML保存後にMIME metadataを更新する");
-assert.match(source.htmlSource, /updated_at: new Date\(\)\.toISOString\(\)/, "HTML保存後に更新日時を更新する");
-assert.match(source.htmlSource, /action: "replace_html"/, "HTML本文の差し替えは本文なしの監査eventを残す");
+assert.match(source.htmlSource, /isWorkspaceDocumentSha256\(body\.expectedSha256\)/, "HTML保存は編集前の版のsha256を必須にする");
+assert.match(source.htmlSource, /replaceWorkspaceHtmlSource\(\{[\s\S]*?auditAction: "replace_html"/, "HTML本文の保存は共有の書き込み経路を通る");
+assert.match(source.htmlSource, /isSameOriginWorkspaceMutation\(request\)/, "HTML保存は同一originからの操作だけ受け付ける");
 assert.doesNotMatch(source.htmlSource, /createSignedUrl|signedUrl/, "HTML編集用APIは署名URLを返さない");
+
+// 現物の差し替えは replaceWorkspaceHtmlSource 1本に集約する。本文保存と版復元が別々に
+// 上書き手順を持つと、片方だけ「退避せずに上書き」へ退化しても誰も気づけない。
+assert.doesNotMatch(source.htmlSource, /\.upload\(storagePath/, "HTML本文routeはStorageを直接上書きしない");
+assert.doesNotMatch(source.htmlRevisionItem, /\.upload\(storagePath/, "版復元routeはStorageを直接上書きしない");
+assert.match(source.htmlEditingGate, /currentSha256 !== expectedSha256[\s\S]*?conflict: true/, "現物と食い違う保存は409で止める");
+assert.match(source.htmlEditingGate, /status: 409/, "競合はHTTP 409で返す");
+assert.match(source.htmlEditingGate, /nextSha256 === currentSha256[\s\S]*?unchanged: true/, "内容が変わらない保存で版を増やさない");
+assert.match(source.htmlEditingGate, /archiveHtmlSourceRevision\(db, \{[\s\S]*?\}\);/, "上書き前に旧版を版履歴へ退避する");
+assert.match(source.htmlEditingGate, /catch[\s\S]*?html revision archive failed[\s\S]*?return \{ ok: false/, "旧版を退避できなければ上書きせず中断する");
+assert.match(source.htmlEditingGate, /\.upload\(storagePath, sourceBytes/, "HTML本文は既存private Storage objectへ上書きする");
+assert.match(source.htmlEditingGate, /file_size_bytes: sourceBytes\.byteLength/, "HTML保存後にサイズmetadataを更新する");
+assert.match(source.htmlEditingGate, /mime_type: mimeType/, "HTML保存後にMIME metadataを更新する");
+assert.match(source.htmlEditingGate, /updated_at: new Date\(\)\.toISOString\(\)/, "HTML保存後に更新日時を更新する");
+assert.match(source.htmlEditingGate, /pruneWorkspaceDocumentRevisions\(db, row\.document_id\)/, "保存のたびに保持件数を超えた版を掃除する");
+assert.match(source.htmlEditingGate, /action: auditAction/, "本文差し替えは本文なしの監査eventを残す");
+
+// 版履歴route。読込と同じgateを通さないと、編集できない人が過去版を読めてしまう。
+assert.match(source.htmlRevisionList, /loadEditableWorkspaceHtmlDocument\(documentId\)/, "版一覧は共有gateで認可する");
+assert.match(source.htmlRevisionList, /publicWorkspaceDocumentRevision/, "版一覧はstorage実体のpathを外へ出さない");
+assert.match(source.htmlRevisionList, /currentSha256/, "版一覧は復元用に現物のsha256を返す");
+assert.doesNotMatch(source.htmlRevisionList, /createSignedUrl|signedUrl/, "版一覧は署名URLを返さない");
+assert.match(source.htmlRevisionItem, /loadEditableWorkspaceHtmlDocument\(documentId\)/, "版の本文取得・復元は共有gateで認可する");
+assert.match(source.htmlRevisionItem, /isSameOriginWorkspaceMutation\(request\)/, "版復元は同一originからの操作だけ受け付ける");
+assert.match(source.htmlRevisionItem, /isWorkspaceDocumentSha256\(body\.expectedSha256\)/, "版復元も復元前のsha256を必須にする");
+assert.match(source.htmlRevisionItem, /replaceWorkspaceHtmlSource\(\{[\s\S]*?auditAction: "restore_revision"/, "版復元は新しい保存として現物を差し替える");
+assert.doesNotMatch(source.htmlRevisionItem, /\.delete\(\)|\.remove\(/, "版復元は既存の版を消さない");
+assert.doesNotMatch(source.htmlRevisionItem, /createSignedUrl|signedUrl/, "版の本文取得は署名URLを返さない");
 assert.match(source.pdf, /resolveDocumentRowAccess\(db, row\)/, "HTML PDF化も資料ごとの権限を再確認する");
 assert.match(source.pdf, /row\.visibility === "amd_internal" && !access\.canReadInternal/, "HTML PDF化も内部資料を404にする");
 assert.match(source.pdf, /row\.entry_kind !== "file" && row\.entry_kind !== "link"/, "HTML PDF化は保存fileとDrive linkの両方を扱う");

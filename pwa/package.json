@@ -147,6 +147,7 @@
     "sps:initial:reject": "node scripts/sps_initial_assessment_tool.mjs reject",
     "test:workspace-documents-core": "node --experimental-strip-types scripts/check_workspace_documents_core.mts",
     "test:workspace-documents-contract": "node scripts/check_workspace_documents_contract.mjs",
+    "test:workspace-document-revisions": "node --experimental-strip-types scripts/check_workspace_document_revisions.mts",
     "test:workspace-fact-origin-contract": "node scripts/check_workspace_fact_and_origin_contract.mjs",
     "test:workspace-security-migration-contract": "node scripts/check_workspace_security_migration_contract.mjs",
     "test:surface-catalog-contract": "node scripts/check_surface_catalog_contract.mjs",

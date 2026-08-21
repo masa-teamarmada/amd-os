@@ -21,10 +21,12 @@ import {
   FolderOpen,
   FolderPlus,
   GripVertical,
+  History,
   Link2,
   Loader2,
   MoreHorizontal,
   PencilLine,
+  RotateCcw,
   Search,
   ShieldCheck,
   Trash2,
@@ -95,13 +97,32 @@ type ListResponse = {
 };
 
 type DialogKind =
-  "create_folder" | "create_link" | "edit_html" | "organize" | "archive" | "upload_conflict" | null;
+  | "create_folder"
+  | "create_link"
+  | "edit_html"
+  | "html_revisions"
+  | "organize"
+  | "archive"
+  | "upload_conflict"
+  | null;
 
 type UploadQueueItem = {
   file: File;
   displayName: string;
   conflict: DocumentItem | "queued" | null;
   replaceDocumentId: string | null;
+};
+
+/** 上書き前に退避した過去版。bucket/pathはサーバ側に留め、ここへは来ない。 */
+type DocumentRevision = {
+  revisionId: string;
+  revisionNo: number;
+  kind: "deck_model" | "html_source";
+  contentSha256: string;
+  byteSize: number;
+  note: string | null;
+  pinned: boolean;
+  createdAt: string;
 };
 
 const kindOrder: Record<WorkspaceDocumentEntryKind, number> = {
@@ -151,6 +172,19 @@ function formatDate(value: string) {
     year: "numeric",
     month: "short",
     day: "numeric",
+  }).format(date);
+}
+
+/** 版履歴は同じ日に何度も積むので、日付だけでは版を見分けられない。 */
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "日時不明";
+  return new Intl.DateTimeFormat("ja-JP", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(date);
 }
 
@@ -249,6 +283,16 @@ export function WorkspaceDocumentRoom({
     useState<WorkspaceDocumentVisibility>("workspace_shared");
   const [draftHtmlSource, setDraftHtmlSource] = useState("");
   const [htmlSourceLoading, setHtmlSourceLoading] = useState(false);
+  // 編集を開いた時点の現物sha256。保存時にこれを送り、別セッションの変更を黙って踏まない。
+  const [htmlSourceSha256, setHtmlSourceSha256] = useState<string | null>(null);
+  // 409で返ってきた現物のsha256。ここに値がある間は競合バーを出す。
+  const [htmlConflictSha256, setHtmlConflictSha256] = useState<string | null>(null);
+  const [revisions, setRevisions] = useState<DocumentRevision[]>([]);
+  const [revisionsLoading, setRevisionsLoading] = useState(false);
+  const [revisionsCurrentSha256, setRevisionsCurrentSha256] = useState<string | null>(null);
+  const [revisionPreviewNo, setRevisionPreviewNo] = useState<number | null>(null);
+  const [revisionPreviewSource, setRevisionPreviewSource] = useState("");
+  const [revisionPreviewLoading, setRevisionPreviewLoading] = useState(false);
   const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[] | null>(null);
   const [uploadConflictIndex, setUploadConflictIndex] = useState<number | null>(null);
 
@@ -424,35 +468,57 @@ export function WorkspaceDocumentRoom({
     if (item) void moveEntryToFolder(item, destinationPath);
   }
 
-  async function openHtmlEditor(item: DocumentItem) {
-    if (busy) return;
-    setSelected(item);
-    setDraftHtmlSource("");
-    setDialog("edit_html");
-    setError(null);
+  /**
+   * 現物のHTMLとそのsha256を取り直す。編集を開くときと、競合したあとの読み直しで共有する。
+   * shaを一緒に持ち帰るのは、保存時に「読んだ時点の内容」を主張して競合を検知するため。
+   */
+  async function loadHtmlSourceInto(documentId: string) {
     setHtmlSourceLoading(true);
     try {
       const response = await fetch(
-        `/api/workspace-documents/${encodeURIComponent(item.documentId)}/source`,
+        `/api/workspace-documents/${encodeURIComponent(documentId)}/source`,
         { cache: "no-store" },
       );
       const payload = (await response.json().catch(() => ({}))) as {
         ok?: boolean;
         source?: string;
+        sha256?: string;
         error?: string;
       };
       if (!response.ok || !payload.ok || typeof payload.source !== "string") {
         throw new Error(payload.error || "HTML資料を読み込めなかったよ。");
       }
       setDraftHtmlSource(payload.source);
+      setHtmlSourceSha256(typeof payload.sha256 === "string" ? payload.sha256 : null);
+      setHtmlConflictSha256(null);
+      return true;
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "HTML資料を読み込めなかったよ。",
       );
-      setDialog(null);
+      return false;
     } finally {
       setHtmlSourceLoading(false);
     }
+  }
+
+  async function openHtmlEditor(item: DocumentItem) {
+    if (busy) return;
+    setSelected(item);
+    setDraftHtmlSource("");
+    setHtmlSourceSha256(null);
+    setHtmlConflictSha256(null);
+    setDialog("edit_html");
+    setError(null);
+    const loaded = await loadHtmlSourceInto(item.documentId);
+    if (!loaded) setDialog(null);
+  }
+
+  /** 競合バーの「最新を読み込み直す」。編集中の下書きは捨てて現物へ揃える。 */
+  async function reloadHtmlSource() {
+    if (!selected || dialog !== "edit_html") return;
+    setError(null);
+    await loadHtmlSourceInto(selected.documentId);
   }
 
   async function createEntry(event: FormEvent) {
@@ -736,9 +802,22 @@ export function WorkspaceDocumentRoom({
     }
   }
 
+  /**
+   * 保存は必ず「開いた時点のsha256」を添えて送る。現物が変わっていたら409で止まり、
+   * 下書きは捨てずに競合バーへ切り替える。上書きを選べるのは、上書きされる側が
+   * サーバ側で版履歴へ退避されてから差し替わる = あとから戻せるから。
+   */
   async function saveHtmlSource(event: FormEvent) {
     event.preventDefault();
+    await submitHtmlSource(htmlSourceSha256);
+  }
+
+  async function submitHtmlSource(expectedSha256: string | null) {
     if (!selected || dialog !== "edit_html") return;
+    if (!expectedSha256) {
+      setError("編集前の内容を確認できていないよ。いったん閉じて開き直してね。");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -746,22 +825,173 @@ export function WorkspaceDocumentRoom({
         `/api/workspace-documents/${encodeURIComponent(selected.documentId)}/source`,
         {
           method: "PUT",
-          headers: { "Content-Type": "text/plain; charset=utf-8" },
-          body: draftHtmlSource,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ source: draftHtmlSource, expectedSha256 }),
         },
       );
       const payload = (await response.json().catch(() => ({}))) as {
         ok?: boolean;
+        unchanged?: boolean;
+        sha256?: string;
+        revisionNo?: number | null;
+        conflict?: boolean;
+        currentSha256?: string;
         error?: string;
       };
+      if (response.status === 409 && payload.conflict) {
+        setHtmlConflictSha256(
+          typeof payload.currentSha256 === "string" ? payload.currentSha256 : null,
+        );
+        throw new Error(
+          payload.error || "別のセッションがこの資料を更新しているよ。",
+        );
+      }
       if (!response.ok || !payload.ok) {
         throw new Error(payload.error || "HTML資料を保存できなかったよ。");
       }
+      if (typeof payload.sha256 === "string") setHtmlSourceSha256(payload.sha256);
+      setHtmlConflictSha256(null);
       setDialog(null);
+      setNotice(
+        payload.unchanged
+          ? "内容が変わっていないから、そのままにしたよ。"
+          : payload.revisionNo
+            ? `保存したよ。上書き前の内容は版履歴 v${payload.revisionNo} に残したよ。`
+            : "保存したよ。",
+      );
       await loadDocuments();
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "HTML資料を保存できなかったよ。",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function openHtmlRevisions() {
+    if (!selected) return;
+    setDialog("html_revisions");
+    setError(null);
+    setRevisions([]);
+    setRevisionsCurrentSha256(null);
+    setRevisionPreviewNo(null);
+    setRevisionPreviewSource("");
+    setRevisionsLoading(true);
+    try {
+      const response = await fetch(
+        `/api/workspace-documents/${encodeURIComponent(selected.documentId)}/revisions`,
+        { cache: "no-store" },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        currentSha256?: string;
+        revisions?: DocumentRevision[];
+        error?: string;
+      };
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error || "版履歴を読み込めなかったよ。");
+      }
+      setRevisions(Array.isArray(payload.revisions) ? payload.revisions : []);
+      setRevisionsCurrentSha256(
+        typeof payload.currentSha256 === "string" ? payload.currentSha256 : null,
+      );
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "版履歴を読み込めなかったよ。",
+      );
+    } finally {
+      setRevisionsLoading(false);
+    }
+  }
+
+  async function previewRevision(revisionNo: number) {
+    if (!selected) return;
+    if (revisionPreviewNo === revisionNo) {
+      setRevisionPreviewNo(null);
+      setRevisionPreviewSource("");
+      return;
+    }
+    setRevisionPreviewNo(revisionNo);
+    setRevisionPreviewSource("");
+    setRevisionPreviewLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/workspace-documents/${encodeURIComponent(selected.documentId)}/revisions/${revisionNo}`,
+        { cache: "no-store" },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        source?: string;
+        error?: string;
+      };
+      if (!response.ok || !payload.ok || typeof payload.source !== "string") {
+        throw new Error(payload.error || "この版を読み込めなかったよ。");
+      }
+      setRevisionPreviewSource(payload.source);
+    } catch (cause) {
+      setRevisionPreviewNo(null);
+      setError(
+        cause instanceof Error ? cause.message : "この版を読み込めなかったよ。",
+      );
+    } finally {
+      setRevisionPreviewLoading(false);
+    }
+  }
+
+  /**
+   * 復元は「その版を新しい保存としてやり直す」だけ。いまの内容は復元の直前に版へ退避されるので、
+   * 戻しすぎても取り返せる。楽観ロックには一覧が返した現物shaを使う。
+   */
+  async function restoreRevision(revisionNo: number) {
+    if (!selected) return;
+    if (!revisionsCurrentSha256) {
+      setError("いまの内容を確認できていないよ。版履歴を開き直してね。");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/workspace-documents/${encodeURIComponent(selected.documentId)}/revisions/${revisionNo}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ expectedSha256: revisionsCurrentSha256 }),
+        },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        unchanged?: boolean;
+        revisionNo?: number | null;
+        conflict?: boolean;
+        currentSha256?: string;
+        error?: string;
+      };
+      if (response.status === 409 && payload.conflict) {
+        setRevisionsCurrentSha256(
+          typeof payload.currentSha256 === "string" ? payload.currentSha256 : null,
+        );
+        throw new Error(
+          payload.error || "別のセッションがこの資料を更新しているよ。もう一度試してね。",
+        );
+      }
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error || "この版に戻せなかったよ。");
+      }
+      setDialog(null);
+      setNotice(
+        payload.unchanged
+          ? `v${revisionNo} はいまの内容と同じだったよ。`
+          : payload.revisionNo
+            ? `v${revisionNo} の内容に戻したよ。戻す前の内容は版履歴 v${payload.revisionNo} に残したよ。`
+            : `v${revisionNo} の内容に戻したよ。`,
+      );
+      await loadDocuments();
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "この版に戻せなかったよ。",
       );
     } finally {
       setBusy(false);
@@ -1451,6 +1681,43 @@ export function WorkspaceDocumentRoom({
               </DialogDescription>
             </DialogHeader>
             <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+              {error && (
+                <div
+                  role="alert"
+                  className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs leading-5 text-red-800"
+                >
+                  {error}
+                </div>
+              )}
+              {htmlConflictSha256 && (
+                <div className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-900">
+                  <p className="font-semibold">別のセッションがこの資料を更新したよ。</p>
+                  <p className="mt-1">
+                    書いた内容は消してないよ。読み込み直すと下書きは現物の内容に入れ替わる。このまま上書きしても、
+                    上書きされる側は版履歴へ残るからあとで戻せるよ。
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-9 border-amber-400 bg-white px-3 text-xs text-amber-900 hover:bg-amber-100"
+                      disabled={busy || htmlSourceLoading}
+                      onClick={() => void reloadHtmlSource()}
+                    >
+                      最新を読み込み直す
+                    </Button>
+                    <Button
+                      type="button"
+                      className="h-9 bg-amber-600 px-3 text-xs hover:bg-amber-700"
+                      disabled={busy || htmlSourceLoading}
+                      onClick={() => void submitHtmlSource(htmlConflictSha256)}
+                    >
+                      {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
+                      このまま上書き保存
+                    </Button>
+                  </div>
+                </div>
+              )}
               {htmlSourceLoading ? (
                 <div className="flex min-h-56 items-center justify-center gap-2 text-sm text-slate-500">
                   <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
@@ -1477,6 +1744,16 @@ export function WorkspaceDocumentRoom({
               <Button
                 type="button"
                 variant="outline"
+                className="h-11 sm:mr-auto"
+                disabled={busy || htmlSourceLoading}
+                onClick={() => void openHtmlRevisions()}
+              >
+                <History className="h-4 w-4" aria-hidden />
+                版履歴
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
                 className="h-11"
                 onClick={() => setDialog(null)}
               >
@@ -1492,6 +1769,105 @@ export function WorkspaceDocumentRoom({
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={dialog === "html_revisions"}
+        onOpenChange={(open) => !open && setDialog("edit_html")}
+      >
+        <DialogContent className="flex max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-3xl flex-col overflow-hidden bg-white p-0 text-slate-950">
+          <DialogHeader className="shrink-0 border-b-4 border-[#0066cc] bg-[#081b2b] px-5 py-4 text-white">
+            <DialogTitle className="text-base text-white sm:text-lg">版履歴</DialogTitle>
+            <DialogDescription className="mt-1 text-xs leading-5 text-cyan-100">
+              {selected?.displayName}。保存のたびに、上書きされる前の内容をここへ積んでいるよ。戻す操作も新しい保存として積まれるから、戻しすぎても取り返せる。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+            {error && (
+              <div
+                role="alert"
+                className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs leading-5 text-red-800"
+              >
+                {error}
+              </div>
+            )}
+            {revisionsLoading ? (
+              <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-slate-500">
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                版履歴を読み込み中
+              </div>
+            ) : revisions.length === 0 ? (
+              <p className="py-10 text-center text-sm leading-6 text-slate-500">
+                まだ版が無いよ。次にこの資料を保存したときから、上書き前の内容がここへ残るよ。
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-3">
+                {revisions.map((revision) => (
+                  <li
+                    key={revision.revisionId}
+                    className="rounded-md border border-slate-200 bg-slate-50 p-3"
+                  >
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <span className="text-sm font-semibold text-slate-900">v{revision.revisionNo}</span>
+                      <span className="text-xs text-slate-600">{formatDateTime(revision.createdAt)}</span>
+                      <span className="text-xs text-slate-500">{formatBytes(revision.byteSize)}</span>
+                      {revision.pinned && (
+                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-800">
+                          常に保持
+                        </span>
+                      )}
+                    </div>
+                    {revision.note && (
+                      <p className="mt-1 text-xs leading-5 text-slate-600">{revision.note}</p>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-9 px-3 text-xs"
+                        disabled={revisionPreviewLoading}
+                        onClick={() => void previewRevision(revision.revisionNo)}
+                      >
+                        {revisionPreviewNo === revision.revisionNo ? "中身を閉じる" : "中身を見る"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-9 px-3 text-xs"
+                        disabled={busy || !revisionsCurrentSha256}
+                        onClick={() => void restoreRevision(revision.revisionNo)}
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+                        この版に戻す
+                      </Button>
+                    </div>
+                    {revisionPreviewNo === revision.revisionNo &&
+                      (revisionPreviewLoading ? (
+                        <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                          本文を読み込み中
+                        </div>
+                      ) : (
+                        <pre className="mt-2 max-h-64 overflow-auto rounded-md bg-slate-950 p-3 font-mono text-[11px] leading-5 text-slate-100">
+                          {revisionPreviewSource}
+                        </pre>
+                      ))}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <DialogFooter className="shrink-0 border-t border-slate-200 px-4 py-3 sm:px-5">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11"
+              onClick={() => setDialog("edit_html")}
+            >
+              編集に戻る
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
