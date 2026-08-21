@@ -321,6 +321,74 @@ export function WorkspaceDocumentRoom({
     }
   }, [scopeId, scopeKind, surface]);
 
+  /**
+   * 背景の突き合わせ。loadDocumentsと違い、スピナーへ切り替えず、失敗しても一覧を空にしない。
+   * 画面を先に動かしたあと、サーバの確定結果へ静かに揃えるために使う。
+   */
+  const refreshDocuments = useCallback(async () => {
+    try {
+      const response = await fetch(apiUrl(scopeKind, scopeId, surface), {
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => ({}))) as ListResponse;
+      if (!response.ok || !payload.ok) return;
+      setDocuments(payload.documents ?? []);
+      setPermissions(payload.permissions ?? null);
+    } catch {
+      // 背景同期の失敗は表示を壊さない。次の操作か再読込で揃う。
+    }
+  }, [scopeId, scopeKind, surface]);
+
+  /**
+   * 画面側だけ先に動かす。フォルダなら配下のfolderPathも書き換える
+   * (サーバのworkspace_move_documentが同じ範囲を1トランザクションで動かすため)。
+   */
+  function applyLocalOrganize(
+    target: DocumentItem,
+    next: {
+      displayName: string;
+      folderPath: string;
+      visibility: WorkspaceDocumentVisibility;
+    },
+  ) {
+    const oldPath = fullPath(target);
+    const newPath = next.folderPath
+      ? `${next.folderPath}/${next.displayName}`
+      : next.displayName;
+    setDocuments((current) => {
+      const rewritten =
+        target.entryKind === "folder" && oldPath !== newPath
+          ? current.map((entry) =>
+              entry.documentId !== target.documentId &&
+              (entry.folderPath === oldPath ||
+                entry.folderPath.startsWith(`${oldPath}/`))
+                ? {
+                    ...entry,
+                    folderPath: `${newPath}${entry.folderPath.slice(oldPath.length)}`,
+                  }
+                : entry,
+            )
+          : current;
+      return rewritten.map((entry) =>
+        entry.documentId === target.documentId ? { ...entry, ...next } : entry,
+      );
+    });
+  }
+
+  /** archiveはRPCがフォルダ配下も畳むので、画面側も配下ごと消す。 */
+  function applyLocalArchive(target: DocumentItem) {
+    const path = fullPath(target);
+    setDocuments((current) =>
+      current.filter((entry) => {
+        if (entry.documentId === target.documentId) return false;
+        if (target.entryKind !== "folder") return true;
+        return !(
+          entry.folderPath === path || entry.folderPath.startsWith(`${path}/`)
+        );
+      }),
+    );
+  }
+
   // workspace面は、内部memberであっても公開済みのPJ共有資料だけを扱う。
   // cockpit面だけがAMD内部の共有範囲を管理できる。
   const canManageVisibility = surface === "cockpit" && Boolean(permissions?.canReadInternal);
@@ -396,7 +464,7 @@ export function WorkspaceDocumentRoom({
   }
 
   async function moveEntryToFolder(item: DocumentItem, destinationPath: string) {
-    if (!permissions?.canManage || busy) return;
+    if (!permissions?.canManage) return;
     if (item.folderPath === destinationPath) {
       setNotice(`${item.displayName} はすでにこの場所にあるよ。`);
       return;
@@ -406,9 +474,23 @@ export function WorkspaceDocumentRoom({
       return;
     }
 
-    setBusy(true);
+    // 先に画面を動かす。サーバのPATCHは背景で走らせ、失敗したときだけ元へ戻す。
+    const snapshot = documents;
+    applyLocalOrganize(item, {
+      displayName: item.displayName,
+      folderPath: destinationPath,
+      visibility: item.visibility,
+    });
     setError(null);
-    setNotice(null);
+    setNotice(
+      destinationPath
+        ? `${item.displayName} を「${documentBaseName(destinationPath)}」へ移動したよ。`
+        : `${item.displayName} を資料直下へ移動したよ。`,
+    );
+    setDraggedDocumentId(null);
+    setBreadcrumbDropPath(null);
+    setFolderDropPath(null);
+
     try {
       const response = await fetch(
         `/api/workspace-documents/${encodeURIComponent(item.documentId)}`,
@@ -430,19 +512,11 @@ export function WorkspaceDocumentRoom({
       if (!response.ok || !payload.ok) {
         throw new Error(payload.error || "資料を移動できなかったよ。");
       }
-      setNotice(
-        destinationPath
-          ? `${item.displayName} を「${documentBaseName(destinationPath)}」へ移動したよ。`
-          : `${item.displayName} を資料直下へ移動したよ。`,
-      );
-      await loadDocuments();
+      void refreshDocuments();
     } catch (cause) {
+      setDocuments(snapshot);
+      setNotice(null);
       setError(cause instanceof Error ? cause.message : "資料を移動できなかったよ。");
-    } finally {
-      setBusy(false);
-      setDraggedDocumentId(null);
-      setBreadcrumbDropPath(null);
-      setFolderDropPath(null);
     }
   }
 
@@ -569,32 +643,71 @@ export function WorkspaceDocumentRoom({
   async function createEntry(event: FormEvent) {
     event.preventDefault();
     if (dialog !== "create_folder" && dialog !== "create_link") return;
-    setBusy(true);
+    const kind = dialog;
+    const snapshot = documents;
+    const displayName = draftName;
+    const folderPath = currentFolder;
+    const visibility = draftVisibility;
+    const externalUrl = draftUrl;
+    // フォルダは先に画面へ出す。リンクは開く導線が本物のdocumentIdを要るので、
+    // ダイアログだけ先に閉じ、行はサーバの返した1件を入れる。
+    const temporaryId = `pending:${folderPath}/${displayName}`;
+    if (kind === "create_folder") {
+      const stampedAt = new Date().toISOString();
+      setDocuments((current) => [
+        ...current,
+        {
+          documentId: temporaryId,
+          entryKind: "folder",
+          visibility,
+          folderPath,
+          displayName,
+          mimeType: "",
+          fileSizeBytes: 0,
+          sourceKind: "manual",
+          createdAt: stampedAt,
+          updatedAt: stampedAt,
+        },
+      ]);
+    }
+    setDialog(null);
     setError(null);
     try {
       const response = await fetch(apiUrl(scopeKind, scopeId, surface), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: dialog,
-          displayName: draftName,
-          folderPath: currentFolder,
-          visibility: draftVisibility,
-          ...(dialog === "create_link" ? { externalUrl: draftUrl } : {}),
+          action: kind,
+          displayName,
+          folderPath,
+          visibility,
+          ...(kind === "create_link" ? { externalUrl } : {}),
         }),
       });
       const payload = (await response.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
+        document?: DocumentItem;
       };
       if (!response.ok || !payload.ok)
         throw new Error(payload.error || `HTTP ${response.status}`);
-      setDialog(null);
-      await loadDocuments();
+      const created = payload.document;
+      setDocuments((current) => {
+        const withoutTemporary = current.filter(
+          (entry) => entry.documentId !== temporaryId,
+        );
+        if (!created) return withoutTemporary;
+        return withoutTemporary.some(
+          (entry) => entry.documentId === created.documentId,
+        )
+          ? withoutTemporary
+          : [...withoutTemporary, created];
+      });
+      void refreshDocuments();
     } catch (cause) {
+      setDocuments(snapshot);
+      setDialog(kind);
       setError(cause instanceof Error ? cause.message : "追加できなかったよ。");
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -719,7 +832,7 @@ export function WorkspaceDocumentRoom({
           );
       }
       if (inputRef.current) inputRef.current.value = "";
-      await loadDocuments();
+      await refreshDocuments();
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "アップロードできなかったよ。",
@@ -814,20 +927,24 @@ export function WorkspaceDocumentRoom({
   async function organizeEntry(event: FormEvent) {
     event.preventDefault();
     if (!selected) return;
-    setBusy(true);
+    const target = selected;
+    const snapshot = documents;
+    const next = {
+      displayName: draftName,
+      folderPath: draftFolderPath,
+      visibility: draftVisibility,
+    };
+    // 先に閉じて画面へ反映し、サーバの確定は背景で待つ。
+    applyLocalOrganize(target, next);
+    setDialog(null);
     setError(null);
     try {
       const response = await fetch(
-        `/api/workspace-documents/${encodeURIComponent(selected.documentId)}`,
+        `/api/workspace-documents/${encodeURIComponent(target.documentId)}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "organize",
-            displayName: draftName,
-            folderPath: draftFolderPath,
-            visibility: draftVisibility,
-          }),
+          body: JSON.stringify({ action: "organize", ...next }),
         },
       );
       const payload = (await response.json().catch(() => ({}))) as {
@@ -836,14 +953,14 @@ export function WorkspaceDocumentRoom({
       };
       if (!response.ok || !payload.ok)
         throw new Error(payload.error || "資料を整理できなかったよ。");
-      setDialog(null);
-      await loadDocuments();
+      void refreshDocuments();
     } catch (cause) {
+      setDocuments(snapshot);
+      setSelected(target);
+      setDialog("organize");
       setError(
         cause instanceof Error ? cause.message : "資料を整理できなかったよ。",
       );
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -904,7 +1021,7 @@ export function WorkspaceDocumentRoom({
             ? `保存したよ。上書き前の内容は版履歴 v${payload.revisionNo} に残したよ。`
             : "保存したよ。",
       );
-      await loadDocuments();
+      await refreshDocuments();
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "HTML資料を保存できなかったよ。",
@@ -1033,7 +1150,7 @@ export function WorkspaceDocumentRoom({
             ? `v${revisionNo} の内容に戻したよ。戻す前の内容は版履歴 v${payload.revisionNo} に残したよ。`
             : `v${revisionNo} の内容に戻したよ。`,
       );
-      await loadDocuments();
+      await refreshDocuments();
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "この版に戻せなかったよ。",
@@ -1045,11 +1162,15 @@ export function WorkspaceDocumentRoom({
 
   async function archiveEntry() {
     if (!selected) return;
-    setBusy(true);
+    const target = selected;
+    const snapshot = documents;
+    // 先に消して閉じる。フォルダなら配下も一緒に消える (サーバのRPCと同じ範囲)。
+    applyLocalArchive(target);
+    setDialog(null);
     setError(null);
     try {
       const response = await fetch(
-        `/api/workspace-documents/${encodeURIComponent(selected.documentId)}`,
+        `/api/workspace-documents/${encodeURIComponent(target.documentId)}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -1062,16 +1183,16 @@ export function WorkspaceDocumentRoom({
       };
       if (!response.ok || !payload.ok)
         throw new Error(payload.error || "資料室から削除できなかったよ。");
-      setDialog(null);
-      await loadDocuments();
+      void refreshDocuments();
     } catch (cause) {
+      setDocuments(snapshot);
+      setSelected(target);
+      setDialog("archive");
       setError(
           cause instanceof Error
             ? cause.message
             : "資料室から削除できなかったよ。",
       );
-    } finally {
-      setBusy(false);
     }
   }
 

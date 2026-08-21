@@ -105,9 +105,9 @@ assert.match(source.pdf, /workspaceDocumentPdfCacheStoragePath\(access\.scopeKin
 assert.match(source.pdf, /\.storage\s*\n?\s*\.from\(row\.storage_bucket[\s\S]*?\.upload\(pdfStoragePath, pdf/, "生成したPDFは既存のprivate Storageへ保存する");
 assert.match(source.pdf, /createSignedUrl\(pdfStoragePath, WORKSPACE_DOCUMENT_PDF_DOWNLOAD_URL_TTL_SECONDS/, "PDF DLは短命の署名URLだけを発行する");
 assert.match(source.pdf, /delivery["']?\)\s*===\s*"json"/, "PDF化routeは明示クエリでだけJSON配信を選べる");
-assert.match(source.pdf, /if \(!wantsJson\) return redirectToSignedPdf\(signed\.signedUrl\)/, "既定(クエリなし)は旧クライアント互換のため署名URLへredirectする");
+assert.match(source.pdf, /if \(!wantsJson\) return redirectToSignedPdf\(downloadUrl\)/, "既定(クエリなし)は旧クライアント互換のため署名URLへredirectする");
 assert.match(source.pdf, /NextResponse\.redirect\(signedUrl, \{ status: 302, headers: \{ "Cache-Control": "no-store" \} \}\)/, "旧クライアント向けredirectはno-storeを維持する");
-assert.match(source.pdf, /downloadUrl: signed\.signedUrl/, "delivery=json指定時はJSONで署名URLを返す");
+assert.match(source.pdf, /downloadUrl,/, "delivery=json指定時はJSONで署名URLを返す");
 assert.doesNotMatch(source.pdf, /new NextResponse\(responseBytes/, "Vercel Function responseへPDF本体を直接載せない(4.5MB body上限を避ける)");
 assert.doesNotMatch(source.pdf, /Content-Type": "application\/pdf"/, "PDF本体のContent-TypeはFunction responseでなくStorage署名URLが設定する");
 assert.match(source.htmlPdf, /page\.setJavaScriptEnabled\(false\)/, "HTML PDF化ではscriptを実行しない");
@@ -216,6 +216,19 @@ assert.match(source.room, /if \(item\.entryKind === "folder" && !eligibleMoveTar
 assert.match(source.room, /資料を一覧のフォルダ行か、パンくずのフォルダへドラッグすると移動できる。タッチ操作とキーボードでは各資料の整理から移動先を選ぶ。/, "dragできない操作系にも既存整理dialogの移動導線を案内する");
 assert.match(source.room, /role="status"/, "移動成功は資料室内のstatus通知で分かる");
 assert.match(source.mutate, /row\.folder_path === folderPath[\s\S]*?return json\(\{ ok: true, document: publicWorkspaceDocument\(row\) \}\);/s, "同じfolderへの移動はserverでもno-opにする");
+
+// 移動・削除・追加は、まず画面へ反映してからサーバ確定を背景で待つ (5-7秒の全件再読込で止めない)。
+const refreshBlock = source.room.match(/const refreshDocuments = useCallback\(async \(\) => \{[\s\S]*?\n  \}, \[/)?.[0] ?? "";
+assert.ok(refreshBlock, "mutation後の同期は背景専用のrefreshDocumentsで行う");
+assert.ok(!refreshBlock.includes("setLoading("), "背景同期はspinnerへ切り替えない");
+assert.ok(!refreshBlock.includes("setDocuments([])"), "背景同期の失敗で一覧を空にしない");
+assert.doesNotMatch(source.room, /await loadDocuments\(\)/, "mutation後にspinner付きの全件再読込へ戻さない");
+assert.match(source.room, /applyLocalOrganize\(item, \{[\s\S]*?\}\);[\s\S]{0,900}?await fetch\(/, "移動は先に画面へ反映してからPATCHを投げる");
+assert.match(source.room, /applyLocalArchive\(target\);\s*\n\s*setDialog\(null\);[\s\S]{0,600}?await fetch\(/, "削除は先に画面から消してdialogを閉じてからPATCHを投げる");
+assert.match(source.room, /function applyLocalArchive[\s\S]*?entry\.folderPath === path \|\| entry\.folderPath\.startsWith\(/, "フォルダ削除はRPCと同じく配下ごと画面から消す");
+assert.match(source.room, /function applyLocalOrganize[\s\S]*?entry\.folderPath\.slice\(oldPath\.length\)/, "フォルダ移動はRPCと同じく配下のfolderPathも書き換える");
+assert.match(source.room, /setDialog\(null\);[\s\S]{0,400}?await fetch\(apiUrl/, "追加はdialogを閉じてからPOSTを投げる");
+assert.ok((source.room.match(/setDocuments\(snapshot\);/g) ?? []).length >= 4, "失敗時はsnapshotへ戻す (移動・追加・整理・削除の4系統)");
 
 assert.match(
   source.nextConfig,
