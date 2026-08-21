@@ -1609,6 +1609,12 @@ async function upsertStrategySignals(items) {
       impact_level: validImpacts.has(impact) ? impact : "medium",
       decision_state: validStates.has(state) ? state : "observed",
       status: ["candidate", "confirmed", "rejected", "archived"].includes(rawStatus) ? rawStatus : "candidate",
+      polarity: ["breakthrough", "forward", "pivot", "risk"].includes(String(item.polarity || "").trim())
+        ? String(item.polarity).trim()
+        : null,
+      score_impact_summary: item.score_impact_summary || item.scoreImpactSummary
+        ? String(item.score_impact_summary || item.scoreImpactSummary).slice(0, 500)
+        : null,
       source_refs_json: refs,
       source_hash: item.source_hash || item.sourceHash || stableHash({ refs, title: item.title, summary: item.summary }),
       origin_kind: originKind,
