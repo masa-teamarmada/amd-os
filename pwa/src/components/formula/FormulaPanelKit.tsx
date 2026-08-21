@@ -19,6 +19,7 @@
  * CurrentSpsAssessmentCard / Bzm22ProvisionalObservatory)。台帳向けの密度重視レイアウト。
  */
 
+import { ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 
 /** 外枠 + 見出し + KaTeX 調整。全数式パネル共通のシェル。 */
@@ -120,17 +121,88 @@ export function FormulaLine({ label, children }: { label: string; children: Reac
   );
 }
 
-/** 記号 + 意味 + このケースでの実値。 */
-export function ParamRow({ symbol, label, children }: { symbol: string; label: string; children: ReactNode }) {
-  return (
-    <div className="rounded border border-border bg-muted/30 px-3 py-2">
+/**
+ * 記号 + 意味 + このケースでの実値。
+ *
+ * symbol は ReactNode。数式に出てくる記号は必ず <Tex> を渡して LaTeX で出す
+ * (まさ指摘 2026-08-21:「ここがまだLaTeX担ってない」)。
+ *
+ * detail を渡すとカード全体がクリックで開き、その数字がどう出てきたかを見せる
+ * (まさ指示 2026-08-21:「そのカードをクリックしたら、その数字が算出されたプロセスが
+ * 分かるようにしてほしい。そのパラメータが別の数式で表されてるなら、その数式もそこに表示して」)。
+ */
+export function ParamRow({
+  symbol,
+  label,
+  children,
+  detail,
+}: {
+  symbol: ReactNode;
+  label: string;
+  children: ReactNode;
+  /** クリックで開く算出過程。省略するとただのカード (開かない) */
+  detail?: ReactNode;
+}) {
+  const head = (
+    <>
       <div className="flex flex-wrap items-baseline gap-2">
-        <span className="font-mono text-[12px] font-semibold text-foreground">{symbol}</span>
+        <span className="text-[12px] font-semibold text-foreground">{symbol}</span>
         <span className="text-[11px] text-muted-foreground">{label}</span>
       </div>
       <div className="mt-1 text-[13px] font-medium text-foreground">{children}</div>
+    </>
+  );
+
+  if (!detail) {
+    return <div className="rounded border border-border bg-muted/30 px-3 py-2">{head}</div>;
+  }
+
+  return (
+    <details className="group h-fit rounded border border-border bg-muted/30 open:bg-muted/50">
+      <summary className="flex cursor-pointer list-none items-start gap-2 px-3 py-2 hover:bg-muted/60 [&::-webkit-details-marker]:hidden">
+        <div className="min-w-0 flex-1">{head}</div>
+        <span className="mt-0.5 flex shrink-0 items-center gap-1 whitespace-nowrap text-[10px] text-muted-foreground">
+          <span className="group-open:hidden">算出過程</span>
+          <span className="hidden group-open:inline">閉じる</span>
+          <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" aria-hidden />
+        </span>
+      </summary>
+      <div className="space-y-2 border-t border-border px-3 py-2.5">{detail}</div>
+    </details>
+  );
+}
+
+/** ParamRow の展開内で使う、番号つきの算出ステップ 1 段。 */
+export function DetailStep({ n, title, children }: { n: number | string; title: string; children: ReactNode }) {
+  return (
+    <div className="flex gap-2">
+      <span className="mt-[2px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-border bg-background text-[9px] font-semibold text-muted-foreground">
+        {n}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="text-[11px] font-semibold text-foreground">{title}</div>
+        <div className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{children}</div>
+      </div>
     </div>
   );
+}
+
+/** ParamRow の展開内で数式を 1 本置く。横に長い式は自前でスクロールさせる。 */
+export function DetailFormula({ children }: { children: ReactNode }) {
+  return (
+    <div className="overflow-x-auto rounded border border-border bg-background/70 px-2.5 py-2 text-[12px]">
+      {children}
+    </div>
+  );
+}
+
+/** ParamRow の展開内の注記 (出典・規律・未記録の断り)。 */
+export function DetailNote({ tone = "muted", children }: { tone?: "muted" | "caution"; children: ReactNode }) {
+  const cls =
+    tone === "caution"
+      ? "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200"
+      : "border-border bg-muted/40 text-muted-foreground";
+  return <div className={`rounded border px-2.5 py-2 text-[11px] leading-relaxed ${cls}`}>{children}</div>;
 }
 
 /** ブロック末尾の出典。 */

@@ -190,6 +190,12 @@ export interface SeedScreeningBandDetail extends SeedScreeningBandSummary {
   p_class: string | null;
   p_lower_yen: number | null;
   p_upper_yen: number | null;
+  /** P^ind 帯をその桁に置いた判断理由 (一行)。判断層方式には閉じた式が無いので、これが唯一の算出根拠 */
+  p_rationale: string | null;
+  /** 外需 (国外へ出る度合い) の属性。'高' | '中' | '低' | 'なし' */
+  p_external_demand: string | null;
+  /** 判断を記録した bzm の md ファイル名 */
+  p_basis_doc: string | null;
   notes: string | null;
 }
 

@@ -140,7 +140,7 @@ export async function fetchSeedScreeningBandDetail(seedId: string): Promise<Seed
       .from("seed_screening_bands")
       // measure_version='sps-ind-v1' 限定 (上の fetchSeedScreeningBandSummaries と同じ理由)。
       .select(
-        "id, seed_id, ruleset_version, evaluator, assessed_at, measure_version, frozen, stage_lower, stage_upper, stage_tag, q_lower_pct, q_upper_pct, q_main_factor, q_evidence, p_class, p_lower_yen, p_upper_yen, sps_lower_yen, sps_upper_yen, notes",
+        "id, seed_id, ruleset_version, evaluator, assessed_at, measure_version, frozen, stage_lower, stage_upper, stage_tag, q_lower_pct, q_upper_pct, q_main_factor, q_evidence, p_class, p_lower_yen, p_upper_yen, p_rationale, p_external_demand, p_basis_doc, sps_lower_yen, sps_upper_yen, notes",
       )
       .eq("seed_id", seedId)
       .eq("measure_version", CURRENT_SPS_MODEL.measureVersion)
@@ -177,6 +177,9 @@ export async function fetchSeedScreeningBandDetail(seedId: string): Promise<Seed
     p_class: string | null;
     p_lower_yen: number | string | null;
     p_upper_yen: number | string | null;
+    p_rationale: string | null;
+    p_external_demand: string | null;
+    p_basis_doc: string | null;
     sps_lower_yen: number | string | null;
     sps_upper_yen: number | string | null;
     notes: string | null;
@@ -200,6 +203,9 @@ export async function fetchSeedScreeningBandDetail(seedId: string): Promise<Seed
     p_class: row.p_class,
     p_lower_yen: toNullableNumber(row.p_lower_yen),
     p_upper_yen: toNullableNumber(row.p_upper_yen),
+    p_rationale: row.p_rationale,
+    p_external_demand: row.p_external_demand,
+    p_basis_doc: row.p_basis_doc,
     sps_lower_yen: toNullableNumber(row.sps_lower_yen),
     sps_upper_yen: toNullableNumber(row.sps_upper_yen),
     notes: row.notes,
