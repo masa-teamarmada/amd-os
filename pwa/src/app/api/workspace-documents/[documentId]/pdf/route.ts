@@ -7,6 +7,7 @@ import {
   WORKSPACE_DOCUMENT_PDF_DOWNLOAD_URL_TTL_SECONDS,
   workspaceDocumentPdfCacheStoragePath,
   workspaceDocumentPdfDownloadName,
+  withWorkspaceDownloadFileName,
 } from "@/lib/workspace-documents-core";
 import { loadWorkspaceDocumentText } from "@/lib/workspace-document-text";
 import {
@@ -101,7 +102,7 @@ export async function GET(
   const downloadName = workspaceDocumentPdfDownloadName(row.display_name);
   const { data: signed, error: signedError } = await db.storage
     .from(row.storage_bucket ?? "workspace-files")
-    .createSignedUrl(pdfStoragePath, WORKSPACE_DOCUMENT_PDF_DOWNLOAD_URL_TTL_SECONDS, { download: downloadName });
+    .createSignedUrl(pdfStoragePath, WORKSPACE_DOCUMENT_PDF_DOWNLOAD_URL_TTL_SECONDS);
   if (signedError || !signed?.signedUrl) {
     console.error("[workspace-documents] pdf signed url failed:", signedError?.message);
     return json({ ok: false, error: "PDFのダウンロードURLを発行できなかったよ。" }, 500);
@@ -116,11 +117,12 @@ export async function GET(
     detail: { document_id: documentId, entry_kind: row.entry_kind, action: "download_html_as_pdf" },
   });
 
-  if (!wantsJson) return redirectToSignedPdf(signed.signedUrl);
+  const downloadUrl = withWorkspaceDownloadFileName(signed.signedUrl, downloadName);
+  if (!wantsJson) return redirectToSignedPdf(downloadUrl);
 
   return json({
     ok: true,
-    downloadUrl: signed.signedUrl,
+    downloadUrl,
     fileName: downloadName,
     byteLength: pdf.byteLength,
     expiresInSeconds: WORKSPACE_DOCUMENT_PDF_DOWNLOAD_URL_TTL_SECONDS,

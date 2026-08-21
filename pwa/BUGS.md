@@ -5,6 +5,16 @@
 
 ---
 
+### [workspace-documents/download] 日本語のPDFファイル名が二重URLエンコードで文字化けした (2026-08-21)
+
+- **状態**: クローズ (2026-08-21 — build `v3.87.1`)
+- **症状**: 資料室のHTML資料をPDF化してダウンロードすると、保存されるファイル名が `SE_%25E6%258A%2580%25E8%25A1%2593…_20260821.pdf` になり、日本語が読めなかった。
+- **原因**: supabase-js の `createSignedUrl(path, ttl, { download: name })` が名前を encodeURIComponent して `download=` クエリへ載せる一方、Supabase Storage 側は**そのクエリの生値をデコードせずに** Content-Disposition の `filename` / `filename*` へ入れる。結果、`%E6%8A%80` が `%25E6%258A%2580` として届き、ブラウザがそれを1回だけデコードして `%E6%8A%80` という文字列のファイル名にした。
+- **対応内容**: `download` オプションを使わず、`withWorkspaceDownloadFileName(signedUrl, fileName)` で `download=` を自前で1回だけエンコードして付ける（`workspace-documents-core.ts`）。PDF経路（`pdf/route.ts`）とファイルダウンロード経路（`open/route.ts`）の両方を切り替えた。
+- **再発防止策**: 署名URLへダウンロード名を付けるときは supabase-js の `download` オプションを使わず、必ずこのヘルパを通す。クライアント側の `<a download>` はクロスオリジンの署名URLでは無視されるため、名前はサーバ側の Content-Disposition だけが決める。
+
+---
+
 ### [workspace/sx-parity] PJ化済みSeedの入口と非SX workspaceの仕様が分かれて見えた (2026-08-20)
 
 - **状態**: クローズ (2026-08-20 — build `v3.83.11` / commit `a108b4c7`。後続mainにも包含)

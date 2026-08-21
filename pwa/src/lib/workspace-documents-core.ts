@@ -61,6 +61,24 @@ export function workspaceDocumentPdfDownloadName(displayName: string): string {
 }
 
 /**
+ * 署名URLへダウンロード名を付ける。
+ *
+ * supabase-jsの`createSignedUrl(..., { download })`は使わない。渡した名前をライブラリ側が
+ * URLエンコードし、Storageがそのクエリ生値をそのままContent-Dispositionへ入れるため、
+ * 日本語名が `SE_%25E6%258A%2580….pdf` と二重エンコードで保存される (2026-08-21)。
+ * こちらで1回だけエンコードして付けると `filename*=UTF-8''%E6%8A%80…` になり、
+ * ブラウザは日本語名のまま保存する。
+ */
+export function withWorkspaceDownloadFileName(signedUrl: string, fileName: string): string {
+  // RFC 5987のattr-charに含まれない ' ( ) * も逃がす。Storageはクエリの値をそのまま
+  // filename*へ入れるため、ここで残すとヘッダの区切りとして誤読される余地がある。
+  const encoded = encodeURIComponent(fileName)
+    .replace(/['()*]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
+  const separator = signedUrl.includes("?") ? "&" : "?";
+  return `${signedUrl}${separator}download=${encoded}`;
+}
+
+/**
  * 資料室の名前衝突判定は、DBのlower(display_name) unique indexと同じく
  * 表示名の前後空白を除いた大小文字非区別の比較に固定する。
  */

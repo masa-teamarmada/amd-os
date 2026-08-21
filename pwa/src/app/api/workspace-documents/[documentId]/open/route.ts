@@ -9,6 +9,7 @@ import { recordWorkspaceAuditEvent } from "@/lib/workspace-access-audit";
 import {
   isWorkspaceDocumentHtml,
   isWorkspaceDocumentMarkdown,
+  withWorkspaceDownloadFileName,
 } from "@/lib/workspace-documents-core";
 
 export const runtime = "nodejs";
@@ -62,12 +63,15 @@ export async function GET(
   } else if (row.storage_bucket && row.storage_path) {
     const { data: signed, error: signedError } = await db.storage
       .from(row.storage_bucket)
-      .createSignedUrl(row.storage_path, 60, { download: download ? row.display_name : false });
+      .createSignedUrl(row.storage_path, 60);
     if (signedError) {
       console.error("[workspace-documents] signed read failed:", signedError.message);
       return json({ ok: false, error: "資料を開けなかったよ。" }, 500);
     }
-    destination = signed?.signedUrl ?? null;
+    // ダウンロード名は署名URLへ自前で付ける (supabase-jsの`download`は日本語名を二重エンコードする)。
+    destination = signed?.signedUrl
+      ? (download ? withWorkspaceDownloadFileName(signed.signedUrl, row.display_name) : signed.signedUrl)
+      : null;
   }
   if (!destination) return json({ ok: false, error: "資料の保存先を確認できなかったよ。" }, 500);
 
