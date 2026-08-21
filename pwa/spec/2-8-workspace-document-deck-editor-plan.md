@@ -294,6 +294,16 @@ textareaのソース編集は「詳細」の中に残す（緊急脱出用）。
 
 これだけで**いまのソース編集が安全になる**。`1-4` の既知欠落が1つ埋まる。
 
+**2026-08-21 実装済み（build v3.86.0 / commit `70d41bf2`）。** 計画からの変更点:
+
+- 版の本文はDB行に持たず private Storage の `<basePath>.rev<N>.html` へ退避する。
+- 退避は **DB insert を先に済ませてから Storage へ upload** する。逆順だと `revision_no`
+  競合時に、別版の内容で同じobjectを潰す。`23505` は番号を進めて再試行し、upload失敗時は
+  挿入済み行を削除して本文の無い版行を残さない。
+- 認可は `loadEditableWorkspaceHtmlDocument()`、書き込みは `replaceWorkspaceHtmlSource()` の
+  各1箇所へ集約した。以後の新しい編集経路もこの2つを通す（後述のPhase 1もそうしている）。
+- `row.content_sha256` は未編集資料でNULL・移行資料で古いので、shaは毎回**現物のdownloadから**取る。
+
 ### Phase 1 — 直接操作エディタ（案B）
 
 - `edit-frame` ルート＋nonce script＋script退避／復元
@@ -303,6 +313,21 @@ textareaのソース編集は「詳細」の中に残す（緊急脱出用）。
 - 保存はPhase 0の経路
 
 **この時点で既存の全デッキがパワポ的に編集できる。** まさの当面の要望はここで満たす。
+
+**2026-08-21 実装済み（build v3.88.0）。** 計画からの変更点と、そう決めた理由:
+
+| 決めたこと | 理由 |
+|---|---|
+| デッキ保存は別ルートを作らず `PUT /source` に `mode:"deck"` を足す | 別ルートにすると認可と楽観ロックの配管が二重化するだけで、守る不変条件は同じ |
+| `replaceWorkspaceHtmlSource()` に `transformNextSource?: (currentSource) => string` フックを足し、sha照合を通った直後・`nextSha256` 算出の前に走らせる | ①現物のdownloadが1回で済む ②**shaが一致した現物からしかscript退避を作らない**ので、`edit-frame` が配ったtokenと必ず同じ値になる。transform後にサイズを再検査して413 |
+| script退避／復元と本文差し替えを `workspace-document-html-editing.ts` の**純粋関数**（`workspaceDocumentDeckSaveSource(currentSource, framedHtml)` ほか）へ切り出す | ルート直書きだと `server-only` の壁で文字列assertしか書けない。純粋関数なら振る舞いテストが書ける |
+| `auditAction` は `replace_html` のまま固定し、デッキ編集の区別は `auditDetail: { editor: "deck" \| "source" }` へ逃がす | `check_workspace_documents_contract.mjs` がこのリテラルを要求している。audit名を増やすと契約側の意味が薄まる |
+| **見たまま編集には「このまま上書き保存」を出さない**（競合時は「最新を読み込み直す」のみ） | 退避番号は現物のscript並びに紐づく。別セッションがscriptを足す／消すと、①scriptが失われて目印コメントが本文に残る ②別のscriptが黙って別位置に入る、が起きる。**保存後のHTMLを見ても壊れたと分からない**種類の破損なので、選ばせない。ソース編集側は従来どおり強制上書きを残す |
+| スライド区切りセレクタは `localStorage` の `amd-deck-slide-selector:<documentId>` に覚える | 計画は「`workspace_documents` の付随メタとして覚える」だったが、Phase 1でDB列を足すとPhase 2/3のモデル置き場（`workspace_document_decks`）と意味が混ざる。端末ごとの記憶に留める代わり、スキーマを汚さない |
+| 未保存のまま閉じる操作は `onDirtyChange` で親へ伝え、`window.confirm` で止める | Base UI の `Dialog.Root` に外側クリック閉じを封じる prop が無い（`modal` はあるが `dismissible` は無い）。controlled な `open` を変えないことで閉じるのを止める |
+| 一覧行のボタンは**「編集」1つ**にして見たまま編集を開く。ソース編集へは見たまま編集フッタの「HTMLソースで編集」、逆はソース編集フッタの「見たまま編集」 | 行にはすでにPDF化／整理／削除があり、1440幅でこれ以上増やせない。**導線自体は双方向に残す** |
+| フレーム内エージェントは文字列テンプレートではなく **TS関数 + `Function.prototype.toString()`** で埋め込み、設定は `JSON.stringify(config)` を引数で渡す | 型検査が効く。ただしtranspileヘルパーが注入されると埋め込み先で黙って死ぬので、エージェント内で spread / async-await / for...of / optional chaining を使わない（契約テストで機械検査する） |
+| 版履歴から「編集に戻る」とき、見たまま編集から来た場合はフレームを作り直す | 版を戻した直後は本文が入れ替わっている。開いたままのフレームを再利用すると古いDOMを保存してしまう |
 
 ### Phase 2 — モデルとレンダラ
 
@@ -342,11 +367,18 @@ textareaのソース編集は「詳細」の中に残す（緊急脱出用）。
 |---|---|
 | `check_workspace_deck_model.mts` | schema v1 のvalidator：必須スロット、未知type拒否、`freeCanvas`はfixedのみ、モデル上限バイト |
 | `check_workspace_deck_render.mts` | 代表モデル → publish HTML のスナップショット。外部参照ゼロ、`script`混入ゼロ、5MB以内 |
-| `check_workspace_document_editing.mts` | script退避→復元の往復一致、サニタイズ、区切り検出候補の抽出 |
-| `check_workspace_document_revisions.mjs` | 版番号の単調増加、409の発火条件、保持50件＋pinnedの削除規則 |
+| `check_workspace_document_html_editing.mts` ✅ | script退避→復元の往復一致、本文差し替えの純粋関数、**退避番号ずれの検出**（4-a: scriptが消えて目印コメントが本文に残る／4-b: 先頭追加で番号がずれ別scriptが別位置へ） |
+| `check_workspace_document_edit_frame.mts` ✅ | `allow-same-origin` を付けないこと（ヘッダ値だけを切り出して検査。JSDocの日本語説明に語が入るので本文全体をgrepしない）、nonce付き `script-src`、token照合、埋め込みagentがtranspileヘルパーを要する構文を使わないこと |
+| `check_workspace_document_revisions.mts` ✅ | insert先行のrevision採番、追記のみ、退避失敗時に上書きしないこと、sha算出の統一、保持50件＋pinnedの除外 |
 
 既存の `check_workspace_documents_core.mts` / `check_workspace_documents_contract.mjs` は
 新定数・新ルートを含むよう更新する。
+
+**実装上の制約**: `server-only` を import する lib は素のNodeから読めない（依存が入っていない）。
+そのため lib 側の検査は source 文字列 assert になる。**振る舞いを検査したい規則は純粋関数へ
+切り出す**（Phase 1 の `workspace-document-html-editing.ts` がその形）。
+文字列 assert を書くときは検査範囲を狭く取る。過去に `.storage.from(` の否定assertが同じ
+ファイルのGETハンドラの正当なdownloadに誤反応した。
 
 ---
 
@@ -364,3 +396,5 @@ textareaのソース編集は「詳細」の中に残す（緊急脱出用）。
 ## 附則
 
 - 2026-08-21: 初版。まさ承認（正本反転／コンポーネント＋スロット／併用・既定16:9／自動変換なし）。
+- 2026-08-21: Phase 0 実装（build v3.86.0 / commit `70d41bf2`）。migration 310 適用済み。§8 Phase 0 に実装差分を追記。
+- 2026-08-21: Phase 1 実装（build v3.88.0）。§8 Phase 1 に決定表、§9 に契約テストの実体を追記。

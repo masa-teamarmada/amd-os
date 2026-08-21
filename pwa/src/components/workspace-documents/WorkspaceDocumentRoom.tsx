@@ -25,6 +25,7 @@ import {
   Link2,
   Loader2,
   MoreHorizontal,
+  MousePointerClick,
   PencilLine,
   RotateCcw,
   Search,
@@ -66,6 +67,7 @@ import type {
   WorkspaceDocumentScopeKind,
   WorkspaceDocumentVisibility,
 } from "@/lib/workspace-documents-core";
+import { WorkspaceDocumentDeckEditor } from "./WorkspaceDocumentDeckEditor";
 import styles from "./workspace-document-room.module.css";
 
 type DocumentItem = {
@@ -99,6 +101,7 @@ type ListResponse = {
 type DialogKind =
   | "create_folder"
   | "create_link"
+  | "deck_editor"
   | "edit_html"
   | "html_revisions"
   | "organize"
@@ -276,6 +279,11 @@ export function WorkspaceDocumentRoom({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogKind>(null);
+  const [deckSessionKey, setDeckSessionKey] = useState(0);
+  const [deckDirty, setDeckDirty] = useState(false);
+  const [revisionsReturnTo, setRevisionsReturnTo] = useState<"edit_html" | "deck_editor">("edit_html");
+  /** ソース編集を開いたときの本文。見たまま編集へ移る前に、未保存かどうかを見るために控える。 */
+  const loadedHtmlSourceRef = useRef("");
   const [selected, setSelected] = useState<DocumentItem | null>(null);
   const [draftName, setDraftName] = useState("");
   const [draftUrl, setDraftUrl] = useState("");
@@ -608,6 +616,7 @@ export function WorkspaceDocumentRoom({
         throw new Error(payload.error || "HTML資料を読み込めなかったよ。");
       }
       setDraftHtmlSource(payload.source);
+      loadedHtmlSourceRef.current = payload.source;
       setHtmlSourceSha256(typeof payload.sha256 === "string" ? payload.sha256 : null);
       setHtmlConflictSha256(null);
       return true;
@@ -619,6 +628,30 @@ export function WorkspaceDocumentRoom({
     } finally {
       setHtmlSourceLoading(false);
     }
+  }
+
+  /**
+   * 見たまま編集を開く。本文は編集フレーム側が自分で読むので、ここは対象を決めるだけ。
+   * セッションキーを進めてフレームを作り直し、前に開いたときのDOMを引きずらないようにする。
+   */
+  function openDeckEditor(item: DocumentItem) {
+    if (busy) return;
+    setSelected(item);
+    setError(null);
+    setDeckDirty(false);
+    setDeckSessionKey((value) => value + 1);
+    setDialog("deck_editor");
+  }
+
+  /**
+   * 見たまま編集から離れる前の確認。Base UI の Dialog には外側クリック閉じを止める prop が
+   * 無いので、未保存があるときは自前で確認する。
+   */
+  function confirmLeaveDeck() {
+    if (!deckDirty) return true;
+    const ok = window.confirm("見たまま編集に、保存していない変更があるよ。閉じると失われるけどいい？");
+    if (ok) setDeckDirty(false);
+    return ok;
   }
 
   async function openHtmlEditor(item: DocumentItem) {
@@ -1031,8 +1064,24 @@ export function WorkspaceDocumentRoom({
     }
   }
 
+  /**
+   * 版履歴の「編集に戻る」。見たまま編集から来たならフレームを作り直してから戻す。
+   * 版を戻した直後は本文が入れ替わっているので、開いたままのフレームを再利用すると
+   * 古いDOMを保存してしまう。
+   */
+  function returnFromRevisions() {
+    if (revisionsReturnTo === "deck_editor") {
+      setDeckDirty(false);
+      setDeckSessionKey((value) => value + 1);
+      setDialog("deck_editor");
+      return;
+    }
+    setDialog("edit_html");
+  }
+
   async function openHtmlRevisions() {
     if (!selected) return;
+    setRevisionsReturnTo(dialog === "deck_editor" ? "deck_editor" : "edit_html");
     setDialog("html_revisions");
     setError(null);
     setRevisions([]);
@@ -1662,17 +1711,17 @@ export function WorkspaceDocumentRoom({
                     {permissions?.canUpload && item.entryKind === "file" && isWorkspaceDocumentHtml(item.mimeType, item.displayName) && (
                       <button
                         type="button"
-                        onClick={() => void openHtmlEditor(item)}
+                        onClick={() => openDeckEditor(item)}
                         disabled={busy}
                         className={cn(
                           styles.secondaryAction,
                           "inline-flex h-11 items-center gap-2 rounded-md px-3 text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-60 xl:h-9 xl:px-2.5",
                         )}
-                        title="HTMLを編集"
-                        aria-label={`${item.displayName}をHTMLで編集`}
+                        title="資料を編集"
+                        aria-label={`${item.displayName}を編集`}
                       >
                         <PencilLine className="h-4 w-4" aria-hidden />
-                        HTMLを編集
+                        編集
                       </button>
                     )}
                     {permissions?.canManage && (
@@ -1843,6 +1892,42 @@ export function WorkspaceDocumentRoom({
       </Dialog>
 
       <Dialog
+        open={dialog === "deck_editor"}
+        onOpenChange={(open) => {
+          if (open) return;
+          if (!confirmLeaveDeck()) return;
+          setDialog(null);
+        }}
+      >
+        <DialogContent className="flex h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-[1400px] flex-col overflow-hidden bg-white p-0 text-slate-950">
+          {selected && dialog === "deck_editor" && (
+            <WorkspaceDocumentDeckEditor
+              key={`${selected.documentId}:${deckSessionKey}`}
+              documentId={selected.documentId}
+              displayName={selected.displayName}
+              onDirtyChange={setDeckDirty}
+              onOpenSource={() => {
+                if (!confirmLeaveDeck()) return;
+                void openHtmlEditor(selected);
+              }}
+              onOpenRevisions={() => {
+                if (!confirmLeaveDeck()) return;
+                void openHtmlRevisions();
+              }}
+              onClose={() => {
+                if (!confirmLeaveDeck()) return;
+                setDialog(null);
+              }}
+              onSaved={(message) => {
+                setNotice(message);
+                void refreshDocuments();
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
         open={dialog === "edit_html"}
         onOpenChange={(open) => !open && setDialog(null)}
       >
@@ -1919,6 +2004,25 @@ export function WorkspaceDocumentRoom({
                 type="button"
                 variant="outline"
                 className="h-11 sm:mr-auto"
+                disabled={busy || htmlSourceLoading || !selected}
+                onClick={() => {
+                  if (!selected) return;
+                  if (
+                    draftHtmlSource !== loadedHtmlSourceRef.current &&
+                    !window.confirm("HTMLソースに、保存していない変更があるよ。見たまま編集へ移ると失われるけどいい？")
+                  ) {
+                    return;
+                  }
+                  openDeckEditor(selected);
+                }}
+              >
+                <MousePointerClick className="h-4 w-4" aria-hidden />
+                見たまま編集
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11"
                 disabled={busy || htmlSourceLoading}
                 onClick={() => void openHtmlRevisions()}
               >
@@ -1948,7 +2052,7 @@ export function WorkspaceDocumentRoom({
 
       <Dialog
         open={dialog === "html_revisions"}
-        onOpenChange={(open) => !open && setDialog("edit_html")}
+        onOpenChange={(open) => !open && returnFromRevisions()}
       >
         <DialogContent className="flex max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-3xl flex-col overflow-hidden bg-white p-0 text-slate-950">
           <DialogHeader className="shrink-0 border-b-4 border-[#0066cc] bg-[#081b2b] px-5 py-4 text-white">
@@ -2037,7 +2141,7 @@ export function WorkspaceDocumentRoom({
               type="button"
               variant="outline"
               className="h-11"
-              onClick={() => setDialog("edit_html")}
+              onClick={returnFromRevisions}
             >
               編集に戻る
             </Button>

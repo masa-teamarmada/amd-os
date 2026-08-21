@@ -9,6 +9,7 @@ import {
   loadEditableWorkspaceHtmlDocument,
   replaceWorkspaceHtmlSource,
 } from "@/lib/workspace-document-editing";
+import { workspaceDocumentDeckSaveSource } from "@/lib/workspace-document-html-editing";
 import { publicWorkspaceDocument } from "@/lib/workspace-documents-server";
 import { workspaceDocumentContentSha256 } from "@/lib/workspace-document-revisions";
 import { isSameOriginWorkspaceMutation } from "@/lib/workspace-mutation-origin";
@@ -64,7 +65,7 @@ export async function PUT(
   if (!loaded.ok) return json({ ok: false, error: loaded.error }, loaded.status);
 
   const body = (await request.json().catch(() => null)) as
-    | { source?: unknown; expectedSha256?: unknown; note?: unknown }
+    | { source?: unknown; expectedSha256?: unknown; note?: unknown; mode?: unknown }
     | null;
   if (!body || typeof body !== "object") {
     return json({ ok: false, error: "保存の形式が古いよ。画面を再読み込みしてね。" }, 400);
@@ -73,6 +74,9 @@ export async function PUT(
   if (!normalized) {
     return json({ ok: false, error: "HTML編集は空欄にできず、本文は5MBまでだよ。" }, 400);
   }
+  // deck = 直接操作エディタ。フレームは資料のscriptとDOCTYPEを持たないので、
+  // 受け取ったHTMLをそのまま現物にすると資料のJSが消える。保存本文は現物から組み直す。
+  const deckMode = body.mode === "deck";
   // 楽観ロックのキーはクライアント任せにしない。GETで渡した形式のsha256でなければ受け付けない。
   if (!isWorkspaceDocumentSha256(body.expectedSha256)) {
     return json({ ok: false, error: "編集前の版を確認できないよ。画面を再読み込みしてね。" }, 400);
@@ -87,7 +91,14 @@ export async function PUT(
     nextSource: normalized.source,
     expectedSha256: body.expectedSha256,
     note: normalizeWorkspaceDocumentRevisionNote(body.note),
+    // 「HTMLを差し替えた」事実はどちらのエディタでも同じ。どこから来たかはdetailへ置く。
     auditAction: "replace_html",
+    auditDetail: { editor: deckMode ? "deck" : "source" },
+    // 組み直しはsha256照合を通った現物に対してだけ走る。
+    // 退避トークンは本文から決まるので、競合していない限りフレームへ配ったものと必ず一致する。
+    transformNextSource: deckMode
+      ? (currentSource: string) => workspaceDocumentDeckSaveSource(currentSource, normalized.source)
+      : undefined,
   });
   if (!replaced.ok) {
     return json({

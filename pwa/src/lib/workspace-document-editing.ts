@@ -3,7 +3,10 @@ import "server-only";
 import { Buffer } from "node:buffer";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isWorkspaceDocumentHtml } from "@/lib/workspace-documents-core";
+import {
+  isWorkspaceDocumentHtml,
+  WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES,
+} from "@/lib/workspace-documents-core";
 import type { WorkspaceDocumentAccess } from "@/lib/workspace-document-access";
 import {
   resolveDocumentRowAccess,
@@ -81,6 +84,15 @@ export type ReplaceWorkspaceHtmlSourceInput = {
   nextSource: string;
   /** クライアントが編集を始めた時点のsha256。現物と食い違えば競合として止める。 */
   expectedSha256: string;
+  /**
+   * 楽観ロックを通った現物から、保存する本文を組み立て直したいときの差し込み口。
+   *
+   * 直接操作エディタは資料のscriptとDOCTYPEをフレームへ渡していないので、
+   * 現物を見ないと保存できる本文にならない。現物のダウンロードはここで一度きりなので、
+   * routeが自前でもう一度ダウンロードして「読んだ現物」を二重に持たないためにここへ置く。
+   * 呼ばれるのはsha256が一致したあとだけ。競合中の現物を材料にしない。
+   */
+  transformNextSource?: (currentSource: string) => string;
   note: string | null;
   /** 監査ログのaction。本文保存と版復元を区別する。 */
   auditAction: "replace_html" | "restore_revision";
@@ -97,15 +109,16 @@ export type ReplaceWorkspaceHtmlSourceResult =
  * 本文保存も版復元も同じ不変条件で動かすためにここへ集約する。
  * 1. 現物をダウンロードしてsha256を取る (row.content_sha256 は未編集資料でNULL、移行資料で古い)
  * 2. expectedSha256 と食い違えば409。別セッションの変更を黙って踏まない
- * 3. 内容が同じなら何もしない。中身の変わらない版で履歴を埋めない
- * 4. 旧版の退避に失敗したら上書きせず中断する。履歴の無い差し替えを作らない
+ * 3. transformNextSource があれば、ここで現物から保存本文を組み立て直す
+ * 4. 内容が同じなら何もしない。中身の変わらない版で履歴を埋めない
+ * 5. 旧版の退避に失敗したら上書きせず中断する。履歴の無い差し替えを作らない
  */
 export async function replaceWorkspaceHtmlSource(
   input: ReplaceWorkspaceHtmlSourceInput,
 ): Promise<ReplaceWorkspaceHtmlSourceResult> {
   const {
     db, row, access, storageBucket, storagePath,
-    nextSource, expectedSha256, note, auditAction, auditDetail,
+    nextSource, expectedSha256, note, auditAction, auditDetail, transformNextSource,
   } = input;
 
   const { data: currentFile, error: currentError } = await db.storage
@@ -127,7 +140,15 @@ export async function replaceWorkspaceHtmlSource(
     };
   }
 
-  const nextSha256 = workspaceDocumentContentSha256(nextSource);
+  // 現物と照合が済んだこの位置でだけ組み立て直す。競合していたら既に409で返している。
+  const finalSource = transformNextSource ? transformNextSource(currentSource) : nextSource;
+  const sourceBytes = Buffer.from(finalSource, "utf8");
+  // 組み立て直しで本文は伸びる (退避したscriptが戻る)。受信時の検査は上限を保証しない。
+  if (sourceBytes.byteLength > WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES) {
+    return { ok: false, status: 413, error: "保存できるHTMLは5MBまでだよ。" };
+  }
+
+  const nextSha256 = workspaceDocumentContentSha256(finalSource);
   if (nextSha256 === currentSha256) {
     return { ok: true, unchanged: true, sha256: nextSha256, revisionNo: null, row };
   }
@@ -147,7 +168,6 @@ export async function replaceWorkspaceHtmlSource(
     return { ok: false, status: 500, error: "上書き前の版を保存できなかったから、変更を中断したよ。" };
   }
 
-  const sourceBytes = Buffer.from(nextSource, "utf8");
   const mimeType = "text/html";
   const { error: uploadError } = await db.storage
     .from(storageBucket)
