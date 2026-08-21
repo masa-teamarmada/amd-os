@@ -2923,9 +2923,20 @@ require("./check_payout_notice_pdf_golden.cjs");
 // 会社概要タブ (2026-07-16 まさ確定): 全PJ常設・全AMDメンバー閲覧編集。旧 CockpitGovernance を統合廃止。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "CockpitCompanyOverview",
-  '"company" as const, label: "会社概要"',
+  'key: "company", label: "会社概要"',
   'aria-label="会社概要"',
 ]);
+// 資料室タブ (2026-08-21 まさ確定): コックピットの独立タブ。既存のモーダル launcher も残す。
+expectIncludes("src/components/cockpit/CockpitView.tsx", [
+  'key: "documents", label: "資料室"',
+  'aria-label="資料室"',
+  "WorkspaceDocumentRoom",
+  "WorkspaceDocumentLauncher",
+]);
+expectIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
+  '"documents"',
+]);
+
 expectFileMissing("src/components/cockpit/CockpitGovernance.tsx");
 expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
   "CockpitGovernance",
