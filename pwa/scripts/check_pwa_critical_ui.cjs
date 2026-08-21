@@ -3065,9 +3065,11 @@ expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
 
 // 保存型複数ラウンド資本政策 (2026-07-17): 旧cap-table-history-matrix / next-round-simulator /
 // CapitalPolicyWorkspace (CockpitCompanyOverview.tsx埋め込み) は CapitalPlanWorkspace/CapitalPlanMatrix
-// への移行済み。CockpitCompanyOverview.tsxからの結線と、旧UIが復活しないことを保証する。
-expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
-  'import CapitalPlanWorkspace from "@/components/cockpit/CapitalPlanWorkspace";',
+// への移行済み。結線と、旧UIが復活しないことを保証する。
+// 2026-08-21: a92d4510「事業計画タブを全PJへ」で結線元が CockpitCompanyOverview.tsx から
+// CockpitBusinessPlan.tsx へ移った。anchor を現在の結線元へ張り替える (導線自体は健在)。
+expectIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
+  'import CapitalPlanWorkspace from "./CapitalPlanWorkspace";',
   "<CapitalPlanWorkspace",
 ]);
 expectNotIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
