@@ -158,7 +158,9 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 - ✅ **`cron/seeds-ingest` route**: web_search 自動発見の実装はあるが、2026-05-22 以降は自動 schedule 停止 (下記参照)
 - ✅ **GlobalNav バッジ**: Seeds に sky 色の未確認件数バッジ
 - ✅ **AMD関与シーズPJの移行**: migration 209で個別シーズ型19PJを `seed_projects` へ補完。p21/p26は既存seedを再利用し、p00/p12/p14/p19/p23/p25/p28/p30は個別シーズへ潰していない
-- ⬜ **HSFC 残り 23 件 / さきがけ 175件** の収集
+- ✅ **HSFC GAPファンド 4年度分の収集**: 2021/2022/2024/2025年度の86件を投入 (重複除外後ユニーク70件、migration 314)
+- ✅ **JST さきがけ 2024年度の収集**: 公開PDF 15研究領域から175件を機械抽出し、国内機関所属の166件を投入 (migration 315)。海外機関所属9件は国内シーズ台帳の趣旨から対象外。採択金額・実施期間はPDFに記載が無いため `null` のまま
+- ⬜ **さきがけ 2023 / 2025年度** の収集
 
 ### Phase 3
 
