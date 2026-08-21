@@ -409,12 +409,12 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       ) : null)}
 
       <div
-        className="grid overflow-hidden rounded-xl border border-[#d6d6da] bg-[#f5f5f7]"
+        className="grid gap-1 rounded-xl border border-[#d6d6da] bg-[#f5f5f7] p-1"
         style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
         role="tablist"
         aria-label="コックピット表示切り替え"
       >
-          {tabs.map((tab, index) => {
+          {tabs.map((tab) => {
             const selected = activeTab === tab.key;
             return (
               <button
@@ -423,12 +423,10 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
                 role="tab"
                 aria-selected={selected}
                 onClick={() => selectTab(tab.key)}
-                className={`relative min-h-11 w-full px-1 text-center text-[12px] font-semibold sm:px-3 sm:text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 ${
-                  index > 0 ? "border-l border-[#d6d6da]" : ""
-                } ${
+                className={`relative min-h-11 w-full cursor-pointer rounded-lg px-1 text-center text-[12px] font-semibold sm:px-3 sm:text-[13px] transition-[background-color,color,transform,box-shadow] duration-150 ease-out hover:-translate-y-[2px] active:translate-y-0 active:duration-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 motion-reduce:transform-none motion-reduce:transition-none ${
                   selected
-                    ? "bg-white text-slate-950 shadow-[inset_0_-2px_0_#0f172a]"
-                    : "text-slate-500 hover:bg-white/70 hover:text-slate-900"
+                    ? "bg-white text-slate-950 shadow-[inset_0_-2px_0_#0f172a] hover:shadow-[inset_0_-2px_0_#0f172a,0_6px_14px_-6px_rgba(15,23,42,0.45)]"
+                    : "text-slate-500 hover:bg-white/80 hover:text-slate-900 hover:shadow-[0_6px_14px_-6px_rgba(15,23,42,0.4)]"
                 }`}
               >
                 {tab.label}

@@ -183,6 +183,16 @@
   html {
     @apply font-sans;
   }
+  /* Tailwind v4 の preflight は button の cursor を default に戻すため、
+     「押せる」ことが見て分かるよう OS 全体で pointer に戻す (2026-08-21 まさ指摘) */
+  button:not(:disabled),
+  [role="tab"]:not([aria-disabled="true"]),
+  summary {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
 }
 
 /* VC edit form shorthand: compact text input */
