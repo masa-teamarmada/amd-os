@@ -1928,31 +1928,41 @@ expectIncludes("src/components/sps/SpsFormulaPanel.tsx", [
   "係数を発明しない",
   "閉じた式が存在しない",
 ]);
-// 数式パネルの見た目は共通キットに一本化する (まさ指摘 2026-08-21「なんでここだけデザインコード変えたの?」)。
-// 画面ごとに padding / font-size / 装飾を刻み直すとデザインが分岐し、まさが本番画面で即座に気づく差になる。
-// HUD の SVG コーナーフレームは CSS で代替しない (design/cyber_hud_design_code.md の Graphic fidelity rule)。
-// 正本: pwa/design/cyber_hud_design_code.md「Shared panel kits」
+// 数式パネルの見た目は共通キットに一本化する。画面ごとに padding / font-size / 装飾を刻み直すと
+// デザインが分岐し、まさが本番画面で即座に気づく差になる。
 expectIncludes("src/components/formula/FormulaPanelKit.tsx", [
   "export function FormulaPanelShell",
   "data-testid={testId}",
-  'viewBox="0 0 1000 720"',
-  "M2 12H954L998 64V708H42L2 664Z",
-  ".formula-hud-panel .katex",
   "export function FormulaBlock",
   "export function MeaningChip",
   "export function FormulaLine",
   "export function ParamRow",
   "export function Citation",
 ]);
-// AmdScoreFormulaPanel は 2026-08-21 時点で route から到達不能 (import 元の AmdScoreView /
-// AmdScoreRetrofit がどこからも import されておらず、/venture-map/amd-score/retrofit と
-// /hud/venture-map/amd-score/retrofit は redirect のみ)。復活時にデザインが再分岐しないようキットに載せたまま固定する。
-// 生きている PJコックピット「スコア詳細」タブは CockpitAmdScoreDetailTab → CurrentSpsAssessmentCard /
-// Bzm22ProvisionalObservatory で、台帳向けの密度重視レイアウト。HUD 数式パネルキットの適用対象ではない。
-expectIncludes("src/components/venture-map/AmdScoreFormulaPanel.tsx", [
-  "@/components/formula/FormulaPanelKit",
-  "FormulaPanelShell",
-  "SPS シーズ有望度 (M·P·R·S) PRIMARY FORMULA",
+// 🚫 数式パネルに cyber HUD デザインコードを持ち込まない (まさ確定 2026-08-21:
+// 「HUDデザインコードを混ぜないでくれればいいだけ」)。数式パネルはシーズ詳細モーダルの中に置かれ、
+// 周囲は border-border / bg-card / text-muted-foreground のテーマ準拠デザイン。そこに黒背景+ネオン発光の
+// HUD パネルを 1 枚だけ差し込むと、その 1 枚だけ別世界になる。
+// 履歴: v3.83.17 でえいみが「HUD の SVG コーナーフレームが欠けている」と真逆に解釈して HUD を
+// 復活させ、差し戻された。同じ誤りを二度やらないための機械的な釘。
+// 正本: pwa/design/cyber_hud_design_code.md「適用対象外」節。
+expectNotIncludes("src/components/formula/FormulaPanelKit.tsx", [
+  "formula-hud-panel",
+  "viewBox=",
+  "bg-slate-950",
+  "text-cyan-",
+  "border-cyan-",
+  "text-pink-",
+  "drop-shadow-",
+  "text-shadow",
+  "uppercase tracking-",
+]);
+expectNotIncludes("src/components/sps/SpsFormulaPanel.tsx", [
+  "text-cyan-",
+  "border-cyan-",
+  "bg-slate-950",
+  "text-pink-",
+  "font-black",
 ]);
 // PJ化の有無でシーズ詳細モーダルの中身を変えない (まさ確定 2026-08-20)。
 // 簡易コックピット (判断レール / 判断・推進・記録タブ) をモーダルへ戻さない。
@@ -2143,13 +2153,11 @@ expectIncludes("src/app/api/project/[projectId]/amd-score-detail/route.ts", [
   '"Sunset":',
   "rel=successor-version",
 ]);
-expectIncludes("src/components/venture-map/AmdScoreView.tsx", [
-  "XrlChecklistPanel",
-]);
-expectPattern("src/components/venture-map/AmdScoreView.tsx", [
-  /if \(embedded && primarySnapshot[\s\S]*?<XrlChecklistPanel[\s\S]*?if \(!result/,
-  /<FrlAlqPanel[\s\S]*?compact[\s\S]*?<XrlChecklistPanel/,
-]);
+// AmdScoreView.tsx / AmdScoreRetrofit.tsx は 2026-08-21 に削除 (まさ確定「1と2は古いモデルの計算なので
+// 削除でいいよ」)。旧 7 軸 Cobb-Douglas 時代の個別 PJ ビューと重み調整画面で、2026-07-16 / 2026-08-18 に
+// route が redirect 化されて以降どこからも import されていなかった。
+// 現行の PJ コックピット「スコア詳細」タブは CockpitAmdScoreDetailTab → CurrentSpsAssessmentCard /
+// Bzm22ProvisionalObservatory。XRL チェックリストの導線はそちらの anchor で守る。
 expectIncludes("src/lib/amd-score-routes.ts", [
   "amdScoreDetailHref",
   "?tab=score-detail",
@@ -2217,13 +2225,6 @@ expectIncludes("src/components/cockpit/CockpitVentureStatus.tsx", [
   "Chart 1 + Chart 2",
   "overflow-x-auto",
   "min-w-[600px] xl:min-w-0",
-]);
-expectIncludes("src/components/venture-map/AmdScoreView.tsx", [
-  '<div className="min-w-0 text-slate-900">',
-  '<section className="min-w-0 grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">',
-  '<div className="min-w-0 flex flex-col gap-3">',
-  'className="min-w-0 border p-4 shadow-',
-  '<div className="overflow-x-auto">',
 ]);
 
 // p00 (= AMD 会社全体) は Management Score Hero に切り替わる

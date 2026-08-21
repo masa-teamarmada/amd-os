@@ -7,9 +7,13 @@
  * (まさ確定 2026-08-20)。数式はすべて LaTeX (Tex) で表示し、
  * 式に出てくるパラメータが「このシーズで実際にいくつか」を必ず併記する。
  *
- * 見た目 (外枠・HUD フレーム・ブロック・チップ) は数式パネル共通キット
- * @/components/formula/FormulaPanelKit に一本化している。ここで padding や
- * font-size を上書きしない (2026-08-21 まさ指摘: モーダル側だけ寸法が縮んでいた)。
+ * 見た目 (外枠・ブロック・チップ) は数式パネル共通キット
+ * @/components/formula/FormulaPanelKit に一本化している。
+ *
+ * 🚫 cyber HUD デザインコード (黒背景 / ネオン発光 / SVG コーナーフレーム / 英大文字見出し) は
+ * 使わない。まさ確定 2026-08-21:「HUDデザインコードを混ぜないでくれればいいだけ」。
+ * このパネルはシーズ詳細モーダルの中に置かれるので、モーダルの他セクション
+ * (border-border / bg-card / text-muted-foreground) と同じ見た目に溶け込ませる。
  *
  * 数式は現行 SPS = 産業創出価値版 (measure_version = sps-ind-v1) のみを書く。
  * 旧 9 軸 Cobb-Douglas と旧 sps-eq-v0 (持分価値版) は OS から退役済みのため持ち込まない。
@@ -50,10 +54,10 @@ const Q_DIRECTION_LABEL: Record<string, string> = {
 };
 
 const Q_DIRECTION_TONE: Record<string, string> = {
-  up: "border-emerald-300/48 bg-emerald-400/12 text-emerald-100",
-  down: "border-rose-300/48 bg-rose-400/12 text-rose-100",
-  widen: "border-amber-300/48 bg-amber-400/12 text-amber-100",
-  neutral: "border-cyan-300/34 bg-cyan-400/8 text-cyan-100",
+  up: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  down: "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+  widen: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  neutral: "border-border bg-muted/60 text-muted-foreground",
 };
 
 /** q_main_factor は日本語短縮語と英語スラッグが混在するため、スラッグだけ要因名へ寄せる */
@@ -166,23 +170,23 @@ export function SpsFormulaPanel({ band }: { band: SeedScreeningBandDetail }) {
   return (
     <FormulaPanelShell
       testId="sps-formula-panel"
-      title="PRIMARY SCREENING FORMULA"
+      title="一次選別スクリーニングの計算式"
       badge={
         <>
           {band.measure_version}
-          <div className="mt-1 text-[10px] tracking-[0.08em] text-pink-100/72">{band.ruleset_version ?? "—"}</div>
+          <div className="mt-1 text-[10px]">{band.ruleset_version ?? "—"}</div>
         </>
       }
       lead={
         <>
-            一次選別の SPS は、<strong className="text-cyan-200">その経路が資本自立まで届く見込み q</strong> と、
-            <strong className="text-emerald-200">届いたときに国内へ生まれる付加価値の桁 P^ind</strong> の掛け算。
-            当てにいく数字ではなく、<strong className="text-amber-200">どのシーズに先に会いに行くかを決めるための下書き</strong>。
+            一次選別の SPS は、<strong className="font-semibold text-foreground">その経路が資本自立まで届く見込み q</strong> と、
+            <strong className="font-semibold text-foreground">届いたときに国内へ生まれる付加価値の桁 P^ind</strong> の掛け算。
+            当てにいく数字ではなく、<strong className="font-semibold text-foreground">どのシーズに先に会いに行くかを決めるための下書き</strong>。
             上限は楽観シナリオの包絡であって、評価額ではない。
         </>
       }
     >
-      <FormulaBlock title="SPS — 定義式" accent="cyan" subtitle="産業創出価値版 / 経路の期待値の和">
+      <FormulaBlock title="SPS の定義式" accent="primary" subtitle="産業創出価値版 / 経路の期待値の和">
         <div className="grid gap-2">
           <FormulaLine label="一般形 (複数経路)">
             <Tex tex={String.raw`\mathrm{SPS} \;=\; \sum_{o \in \mathcal{O}} q_{o}\, P^{\mathrm{ind}}_{o}`} />
@@ -208,7 +212,7 @@ export function SpsFormulaPanel({ band }: { band: SeedScreeningBandDetail }) {
             body="同じ技術から分岐する事業の道筋。現行データは主経路 1 本だけを置いているので、和は 1 項に縮退する。"
           />
         </div>
-        <div className="rounded border border-cyan-300/24 bg-cyan-300/7 px-3 py-2 text-[12px] leading-relaxed text-cyan-50/82">
+        <div className="rounded border border-border bg-muted/40 px-3 py-2 text-[12px] leading-relaxed text-muted-foreground">
           q は割合、P^ind は金額。掛けると「その経路から期待できる産業創出価値」になる。
           どちらか一方が大きくても、もう一方が小さければ SPS は伸びない。
           届く見込みが薄い巨大構想と、確実だが小さい話が、同じ物差しの上に並ぶ。
@@ -219,7 +223,7 @@ export function SpsFormulaPanel({ band }: { band: SeedScreeningBandDetail }) {
         </Citation>
       </FormulaBlock>
 
-      <FormulaBlock title="BAND ENDPOINTS — 帯の端点" accent="sky" subtitle="このシーズの実値を代入 / 単位は億円">
+      <FormulaBlock title="帯の端点" accent="info" subtitle="このシーズの実値を代入 / 単位は億円">
         <div className="grid gap-2">
           <FormulaLine label="下限 (億円)">
             <Tex tex={lowerTex} />
@@ -228,9 +232,9 @@ export function SpsFormulaPanel({ band }: { band: SeedScreeningBandDetail }) {
             <Tex tex={upperTex} />
           </FormulaLine>
         </div>
-        <div className="rounded border border-sky-300/24 bg-sky-300/7 px-3 py-2 text-[12px] leading-relaxed text-cyan-50/82">
-          積は q についても P^ind についても単調に増えるので、<strong className="text-sky-200">全部の下端を掛けたものが厳密な最小</strong>、
-          <strong className="text-sky-200">全部の上端を掛けたものが厳密な最大</strong>になる。
+        <div className="rounded border border-border bg-muted/40 px-3 py-2 text-[12px] leading-relaxed text-muted-foreground">
+          積は q についても P^ind についても単調に増えるので、<strong className="font-semibold text-foreground">全部の下端を掛けたものが厳密な最小</strong>、
+          <strong className="font-semibold text-foreground">全部の上端を掛けたものが厳密な最大</strong>になる。
           中の組み合わせを別々に走らせる必要はない。数式内の億円は表示用に丸めてある。
         </div>
         <Citation>
@@ -238,12 +242,12 @@ export function SpsFormulaPanel({ band }: { band: SeedScreeningBandDetail }) {
         </Citation>
       </FormulaBlock>
 
-      <FormulaBlock title="REPRESENTATIVE VALUE — 一覧の主表示" accent="sky" subtitle="中央値 / 既定ソートキー">
+      <FormulaBlock title="一覧の主表示 (代表値)" accent="info" subtitle="中央値 / 既定ソートキー">
         <FormulaLine label="中央値 (億円)">
           <Tex tex={medianTex} />
         </FormulaLine>
-        <div className="rounded border border-sky-300/24 bg-sky-300/7 px-3 py-2 text-[12px] leading-relaxed text-cyan-50/82">
-          シーズ一覧は、この<strong className="text-sky-200">算術中点を主表示にして降順に並べる</strong>。括弧内に帯を併記する。
+        <div className="rounded border border-border bg-muted/40 px-3 py-2 text-[12px] leading-relaxed text-muted-foreground">
+          シーズ一覧は、この<strong className="font-semibold text-foreground">算術中点を主表示にして降順に並べる</strong>。括弧内に帯を併記する。
           算術中点は仮置き (まさ裁定 2026-08-15)。桁で効く量なので幾何中点 <Tex tex={String.raw`\sqrt{\mathrm{SPS}_{\min}\mathrm{SPS}_{\max}}`} /> を採る案もあるが、
           現行は採用していない。
         </div>
@@ -252,7 +256,7 @@ export function SpsFormulaPanel({ band }: { band: SeedScreeningBandDetail }) {
         </Citation>
       </FormulaBlock>
 
-      <FormulaBlock title="PARAMETER VECTOR — このシーズの実値" accent="cyan" subtitle="式に出てくる記号がそれぞれ何番か">
+      <FormulaBlock title="このシーズの実値" accent="primary" subtitle="式に出てくる記号がそれぞれ何番か">
         <div className="grid gap-2 md:grid-cols-2">
           <ParamRow symbol="q_min 〜 q_max" label="到達見込みの帯">
             {qLo != null || qHi != null ? `${qLo ?? "—"}% 〜 ${qHi ?? "—"}%` : "—"}
@@ -268,7 +272,7 @@ export function SpsFormulaPanel({ band }: { band: SeedScreeningBandDetail }) {
           </ParamRow>
           <ParamRow symbol="stage" label="段階仮説">
             {band.stage_lower || band.stage_upper ? `${band.stage_lower ?? "—"} 〜 ${band.stage_upper ?? "—"}` : "—"}
-            {stageTag ? <span className="ml-2 text-[11px] text-cyan-100/58">根拠: {stageTag}</span> : null}
+            {stageTag ? <span className="ml-2 text-[11px] text-muted-foreground">根拠: {stageTag}</span> : null}
           </ParamRow>
           <ParamRow symbol="q main factor" label="q を一番動かした要因">
             {mainFactor ?? "—"}
@@ -284,46 +288,46 @@ export function SpsFormulaPanel({ band }: { band: SeedScreeningBandDetail }) {
           </ParamRow>
           <ParamRow symbol="measure / ruleset" label="版">
             {band.measure_version} / {band.ruleset_version ?? "—"}
-            {band.frozen ? <span className="ml-2 text-[11px] text-amber-200">凍結済み (追記のみ)</span> : null}
+            {band.frozen ? <span className="ml-2 text-[11px] text-amber-700 dark:text-amber-300">凍結済み (追記のみ)</span> : null}
           </ParamRow>
         </div>
       </FormulaBlock>
 
-      <FormulaBlock title="Q JUDGMENT LAYER — q はどう決まるか" accent="rose" subtitle="11 要因ルーブリック / 閉じた式を作らない">
+      <FormulaBlock title="q はどう決まるか" accent="caution" subtitle="11 要因ルーブリック / 閉じた式を作らない">
         <FormulaLine label="やらないこと">
           <Tex tex={String.raw`q \;\neq\; \sum_{i=1}^{11} w_i x_i, \qquad w \in \mathbb{R}^{11}`} />
         </FormulaLine>
-        <div className="rounded border border-rose-300/28 bg-rose-400/8 px-3 py-2 text-[12px] leading-relaxed text-cyan-50/82">
-          11 要因は<strong className="text-rose-200">同じ観点で全件を見たことを担保するための点検表</strong>であって、
+        <div className="rounded border border-border bg-muted/40 px-3 py-2 text-[12px] leading-relaxed text-muted-foreground">
+          11 要因は<strong className="font-semibold text-foreground">同じ観点で全件を見たことを担保するための点検表</strong>であって、
           点数を合成して q を吐く関数ではない。要因から帯への機械的な変換式は作らない (係数を発明しない)。
           q はあくまで人の判断で <Tex tex={String.raw`[q_{\min}, q_{\max}]`} /> という幅として置き、その根拠を要因ごとに書き残す。
           だから q には閉じた式が存在しない — これは手抜きではなく、意図した設計。
         </div>
-        <div className="flex flex-wrap gap-2 text-[11px] font-black">
-          <span className="border border-emerald-300/48 bg-emerald-400/12 px-2 py-1 text-emerald-100">上振れ {directionCount.up}</span>
-          <span className="border border-rose-300/48 bg-rose-400/12 px-2 py-1 text-rose-100">下押し {directionCount.down}</span>
-          <span className="border border-amber-300/48 bg-amber-400/12 px-2 py-1 text-amber-100">帯を広げる {directionCount.widen}</span>
-          <span className="border border-cyan-300/34 bg-cyan-400/8 px-2 py-1 text-cyan-100">中立 {directionCount.neutral}</span>
-          <span className="border border-slate-400/34 bg-slate-400/8 px-2 py-1 text-slate-200">
+        <div className="flex flex-wrap gap-2 text-[11px] font-medium">
+          <span className={`rounded border px-2 py-1 ${Q_DIRECTION_TONE.up}`}>上振れ {directionCount.up}</span>
+          <span className={`rounded border px-2 py-1 ${Q_DIRECTION_TONE.down}`}>下押し {directionCount.down}</span>
+          <span className={`rounded border px-2 py-1 ${Q_DIRECTION_TONE.widen}`}>帯を広げる {directionCount.widen}</span>
+          <span className={`rounded border px-2 py-1 ${Q_DIRECTION_TONE.neutral}`}>中立 {directionCount.neutral}</span>
+          <span className="rounded border border-border bg-muted/60 px-2 py-1 text-muted-foreground">
             評価済み {evidenceById.size} / {Q_FACTORS.length}
           </span>
         </div>
         <div className="grid gap-1">
           {Q_FACTORS.map((factor) => {
             const hit = evidenceById.get(factor.id);
-            const tone = hit ? (Q_DIRECTION_TONE[hit.direction] ?? Q_DIRECTION_TONE.neutral) : "border-slate-500/28 bg-slate-800/24 text-slate-400";
+            const tone = hit ? (Q_DIRECTION_TONE[hit.direction] ?? Q_DIRECTION_TONE.neutral) : "border-border bg-muted/30 text-muted-foreground";
             const label = hit ? (Q_DIRECTION_LABEL[hit.direction] ?? hit.direction) : "未評価";
             return (
               <div
                 key={factor.id}
-                className="grid gap-1 border border-cyan-300/14 bg-cyan-300/4 px-3 py-2 md:grid-cols-[26px_1fr_92px] md:items-center"
+                className="grid gap-1 rounded border border-border bg-muted/20 px-3 py-2 md:grid-cols-[26px_1fr_92px] md:items-center"
               >
-                <div className="font-mono text-[12px] font-black text-cyan-100/64">{factor.id}</div>
+                <div className="font-mono text-[12px] font-semibold text-muted-foreground">{factor.id}</div>
                 <div className="min-w-0">
-                  <div className="text-[12px] font-bold text-cyan-50">{factor.name}</div>
-                  <div className="text-[11px] leading-relaxed text-cyan-100/54">{factor.note}</div>
+                  <div className="text-[12px] font-semibold text-foreground">{factor.name}</div>
+                  <div className="text-[11px] leading-relaxed text-muted-foreground">{factor.note}</div>
                 </div>
-                <div className={`justify-self-start border px-2 py-1 text-center text-[11px] font-black md:justify-self-end ${tone}`}>
+                <div className={`justify-self-start rounded border px-2 py-1 text-center text-[11px] font-medium md:justify-self-end ${tone}`}>
                   {label}
                 </div>
               </div>
@@ -336,44 +340,48 @@ export function SpsFormulaPanel({ band }: { band: SeedScreeningBandDetail }) {
         </Citation>
       </FormulaBlock>
 
-      <FormulaBlock title="STAGE HYPOTHESIS — 段階仮説" accent="sky" subtitle="S0〜S5 / 幅で置く">
+      <FormulaBlock title="段階仮説" accent="info" subtitle="S0〜S5 / 幅で置く">
         <div className="grid gap-1">
           {STAGE_STEPS.map((step, idx) => {
             const inRange = loIdx >= 0 && hiIdx >= 0 && idx >= Math.min(loIdx, hiIdx) && idx <= Math.max(loIdx, hiIdx);
             return (
               <div
                 key={step.code}
-                className={`grid gap-1 border px-3 py-2 md:grid-cols-[44px_1fr] md:items-center ${
-                    inRange ? "border-sky-300/54 bg-sky-400/12 text-cyan-50" : "border-cyan-300/12 bg-slate-950/40 text-cyan-100/40"
+                className={`grid gap-1 rounded border px-3 py-2 md:grid-cols-[44px_1fr] md:items-center ${
+                    inRange
+                      ? "border-sky-500/45 bg-sky-500/10 text-foreground"
+                      : "border-border bg-muted/20 text-muted-foreground"
                   }`}
               >
-                <div className="font-mono text-[13px] font-black">{step.code}</div>
+                <div className="font-mono text-[13px] font-semibold">{step.code}</div>
                 <div className="min-w-0">
-                  <div className="text-[12px] font-bold">{step.name}</div>
-                  <div className="text-[11px] leading-relaxed opacity-72">{step.note}</div>
+                  <div className="text-[12px] font-semibold">{step.name}</div>
+                  <div className="text-[11px] leading-relaxed opacity-80">{step.note}</div>
                 </div>
               </div>
             );
           })}
         </div>
-        <div className="rounded border border-sky-300/24 bg-sky-300/7 px-3 py-2 text-[12px] leading-relaxed text-cyan-50/82">
+        <div className="rounded border border-border bg-muted/40 px-3 py-2 text-[12px] leading-relaxed text-muted-foreground">
           段階は 1 点に決めず幅で置く。根拠が強ければ幅 1、弱ければ幅 2、材料がゼロなら S0〜S2 まで広げる。
-          {stageTag ? <> このシーズの根拠は <strong className="text-sky-200">{stageTag}</strong>。</> : null}
+          {stageTag ? <> このシーズの根拠は <strong className="font-semibold text-foreground">{stageTag}</strong>。</> : null}
         </div>
         <Citation>
           正本: <code>bzm/SEED_STAGE_AXIS_TEMPLATE_2026-08-15.md</code> §1 (6 段の定義)・§2 (根拠タグ)。
         </Citation>
       </FormulaBlock>
 
-      <FormulaBlock title="EVIDENCE LEVEL — 根拠の成熟度" accent="rose" subtitle="Lv0〜Lv3 / DB から機械導出">
+      <FormulaBlock title="根拠の成熟度" accent="caution" subtitle="Lv0〜Lv3 / DB から機械導出">
         <div className="grid gap-1">
           {EVIDENCE_LEVELS.map((lv) => {
             const active = lv === band.evidence_level;
             return (
               <div
                 key={lv}
-                className={`border px-3 py-2 text-[12px] ${
-                    active ? "border-rose-300/54 bg-rose-400/12 font-bold text-cyan-50" : "border-cyan-300/12 bg-slate-950/40 text-cyan-100/40"
+                className={`rounded border px-3 py-2 text-[12px] ${
+                    active
+                      ? "border-rose-500/45 bg-rose-500/10 font-semibold text-foreground"
+                      : "border-border bg-muted/20 text-muted-foreground"
                   }`}
               >
                 {SEED_EVIDENCE_LEVEL_DESCRIPTION[lv]}
@@ -381,7 +389,7 @@ export function SpsFormulaPanel({ band }: { band: SeedScreeningBandDetail }) {
             );
           })}
         </div>
-        <div className="rounded border border-rose-300/28 bg-rose-400/8 px-3 py-2 text-[12px] leading-relaxed text-cyan-50/82">
+        <div className="rounded border border-border bg-muted/40 px-3 py-2 text-[12px] leading-relaxed text-muted-foreground">
           根拠 Lv は人が付けるラベルではなく、OS に何が溜まっているかから機械的に決まる。
           Lv が上がるほど帯の幅は本来狭くなるべきで、狭まっていない帯は「まだ見に行っていない」という信号として読む。
         </div>

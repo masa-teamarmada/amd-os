@@ -1,16 +1,17 @@
 "use client";
 
 /**
- * SPS (シーズ有望度) primary + legacy AMD comparison モデル説明パネル。
+ * 旧 SPS (M·P·R·S) + legacy AMD (M×X×F) モデル説明パネル。
  *
- * PJ cockpit のスコア詳細タブと
- * Retrofit ページ (/venture-map/amd-score/retrofit) の両方で同一のモデル構造を表示。
+ * ⚠️ 2026-08-21 時点でどの画面からも表示されない (孤児)。
+ * 唯一の import 元だった AmdScoreView.tsx / AmdScoreRetrofit.tsx を同日に削除したため。
  *
- * 数式はすべて LaTeX (Tex) で表示。各引用文献を要素ごとに併記。
+ * ⚠️ 混同注意: /seeds のシーズ詳細モーダルでまさが見ている数式パネルは
+ * src/components/sps/SpsFormulaPanel.tsx (現行 SPS = 産業創出価値版 sps-ind-v1) であって、
+ * このファイルではない。こちらは旧モデル (7 軸 Cobb-Douglas 時代) の説明パネル。
  *
- * 見た目 (外枠・HUD フレーム・ブロック・チップ) は数式パネル共通キット
- * @/components/formula/FormulaPanelKit に一本化している。ここで padding や
- * font-size を上書きしない (2026-08-21 まさ指摘: 画面ごとにデザインが分岐していた)。
+ * 残置理由: 旧モデルの数式と出典をコード上の記録として保持している。
+ * 復活させる場合も、共通キット @/components/formula/FormulaPanelKit に載せたまま使う。
  *
  * 仕様: pwa/design/amd_score.md「Triple Helix 観測モデル」+ before-zero/theory/state_space_model.md §4.1
  */
@@ -27,17 +28,17 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
       lead={
         <>
             主表示は{" "}
-            <strong className="text-cyan-200">Macrotrend M (マクロ追い風)</strong> ×{" "}
-            <strong className="text-emerald-200">Potential P</strong> ×{" "}
-            <strong className="text-sky-300">Reach R</strong> ×{" "}
-            <strong className="text-pink-200">Survival S (自走力)</strong>。2026-07-16 に σ_SU を S から分離して独立項 M へ
+            <strong className="font-semibold text-foreground">Macrotrend M (マクロ追い風)</strong> ×{" "}
+            <strong className="font-semibold text-foreground">Potential P</strong> ×{" "}
+            <strong className="font-semibold text-foreground">Reach R</strong> ×{" "}
+            <strong className="font-semibold text-foreground">Survival S (自走力)</strong>。2026-07-16 に σ_SU を S から分離して独立項 M へ
             (フラット Cobb-Douglas の結合則によりスコア数値は完全不変)。旧{" "}
-            <strong className="text-cyan-200">M × X × F</strong> は下段に comparison layer として残す。呼称は{" "}
-            <strong className="text-cyan-200">SPS = Seed Prospect Score (シーズ有望度)</strong> — 和名の略であって成分の頭字ではないため、4因子化しても名前は壊れない (旧 PRS は 2026-07-11 まさ確定で廃止、terminology_glossary §1.5)。
+            <strong className="font-semibold text-foreground">M × X × F</strong> は下段に comparison layer として残す。呼称は{" "}
+            <strong className="font-semibold text-foreground">SPS = Seed Prospect Score (シーズ有望度)</strong> — 和名の略であって成分の頭字ではないため、4因子化しても名前は壊れない (旧 PRS は 2026-07-11 まさ確定で廃止、terminology_glossary §1.5)。
         </>
       }
     >
-      <FormulaBlock title="PRIMARY OVERALL SCORE" accent="cyan" subtitle="主表示の SPS score。compact と expanded を両方表示">
+      <FormulaBlock title="PRIMARY OVERALL SCORE" accent="primary" subtitle="主表示の SPS score。compact と expanded を両方表示">
         <div className="grid gap-2">
           <FormulaLine label="compact">
             <Tex tex={String.raw`\mathrm{Score}_{\mathrm{SPS}} \;=\; k \cdot M \cdot P \cdot R \cdot S`} />
@@ -55,8 +56,8 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
         </Citation>
       </FormulaBlock>
 
-      <FormulaBlock title="K / M / P / R / S INTUITION" accent="cyan" subtitle="式を経営判断として読むためのざっくり意味">
-        <div className="grid gap-2 text-[12px] text-cyan-50/82">
+      <FormulaBlock title="K / M / P / R / S INTUITION" accent="primary" subtitle="式を経営判断として読むためのざっくり意味">
+        <div className="grid gap-2 text-[12px] text-muted-foreground">
           <div className="grid gap-2 md:grid-cols-5">
             <MeaningChip label="K" title="Calibration" body="全active axisが9点の時に100,000へ合わせる倍率。価値入力ではなく物差し。" />
             <MeaningChip label="M" title="マクロ追い風" body="いま、この分野に吹いている風。σ_SU (Triple Helix)。案件の属性ではなく時変の環境状態。" />
@@ -64,7 +65,7 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
             <MeaningChip label="R" title="Reach" body="そこへ届く準備。TRL/BRL/GRL/SRL/HRL の会社側 readiness。" />
             <MeaningChip label="S" title="自走力" body="外の資金が止まっても自分の力で走り続けられる体質。FRL × R_net。" />
           </div>
-          <div className="rounded border border-cyan-300/24 bg-cyan-300/7 px-3 py-2 leading-relaxed">
+          <div className="rounded border border-border bg-muted/40 px-3 py-2 leading-relaxed">
             SPS は足し算の加点表ではなく、立ち上がるための必要条件を同時に見るモデル。
             P が大きくても R が低ければ届かない。M が吹いていても S (自走力) が低ければ環境で延命しているだけ。
             積にすると、どれか1つが弱い時に score が自然に抑えられ、4つが同時に揃った時だけ大きく伸びる。
@@ -73,7 +74,7 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
         </div>
       </FormulaBlock>
 
-      <FormulaBlock title="MACROTREND M — マクロ追い風" accent="cyan" subtitle="環境の状態・タイミングの変数 / Triple Helix 観測モデル">
+      <FormulaBlock title="MACROTREND M — マクロ追い風" accent="primary" subtitle="環境の状態・タイミングの変数 / Triple Helix 観測モデル">
         <div className="grid gap-2">
           <FormulaLine label="M (Macrotrend)">
           <Tex tex={String.raw`M \;=\; (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}`} />
@@ -86,7 +87,7 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
           </FormulaLine>
           <FormulaLine label="ỹ_p (観測値正規化)">
           <Tex tex={String.raw`\tilde{y}_p \;=\; 9 \, \frac{y_p - \min_t y_p}{\max_t y_p - \min_t y_p}`} />
-            <span className="ml-2 text-[11px] text-cyan-100/58">(過去 16 quarter で min-max)</span>
+            <span className="ml-2 text-[11px] text-muted-foreground">(過去 16 quarter で min-max)</span>
           </FormulaLine>
         </div>
         <Citation>
@@ -104,14 +105,14 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
         </Citation>
       </FormulaBlock>
 
-      <FormulaBlock title="POTENTIAL P" accent="rose" subtitle="目標成功規模の ceiling。review 入力の P をそのまま使う">
+      <FormulaBlock title="POTENTIAL P" accent="caution" subtitle="目標成功規模の ceiling。review 入力の P をそのまま使う">
         <Tex display tex={String.raw`P \;=\; (P_{\mathrm{input}}+1)^{\alpha_P}`} />
         <Citation>
           いまの P は review queue で決める事業ポテンシャル入力。未入力なら SPS を出さず、legacy AMD へ silent fallback しない。
         </Citation>
       </FormulaBlock>
 
-      <FormulaBlock title="REACH R" accent="sky" subtitle="会社に帰属する 5 軸 readiness の到達可能性">
+      <FormulaBlock title="REACH R" accent="info" subtitle="会社に帰属する 5 軸 readiness の到達可能性">
         <Tex
           display
           tex={String.raw`R \;=\; \prod_{x \in \{\mathrm{TRL},\, \mathrm{BRL},\, \mathrm{GRL},\, \mathrm{SRL},\, \mathrm{HRL}\}} (x+1)^{\alpha_x}`}
@@ -121,7 +122,7 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
         </Citation>
       </FormulaBlock>
 
-      <FormulaBlock title="SURVIVAL S — 自走力" accent="cyan" subtitle="founder readiness × 純残存力。外の資金が止まっても走り続けられる体質">
+      <FormulaBlock title="SURVIVAL S — 自走力" accent="primary" subtitle="founder readiness × 純残存力。外の資金が止まっても走り続けられる体質">
         <Tex
           display
           tex={String.raw`S \;=\; (\mathrm{FRL}+1)^{\alpha_F} \cdot (R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}`}
@@ -133,14 +134,14 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
         </Citation>
       </FormulaBlock>
 
-      <FormulaBlock title="LEGACY AMD OVERALL SCORE" accent="cyan" subtitle="比較用に残している旧 M × X × F モデル">
+      <FormulaBlock title="LEGACY AMD OVERALL SCORE" accent="primary" subtitle="比較用に残している旧 M × X × F モデル">
         <Tex display tex={String.raw`S_{\mathrm{legacy}} \;=\; k \cdot M \cdot X \cdot F, \qquad k \;=\; \frac{100{,}000}{10^{\sum_x \alpha_x}}`} />
         <Citation>
           comparison layer。過去比較と evidence 用に残している旧 AMD/MXF の式で、主表示としては読まない。M は上の MACROTREND M と同一の <Tex tex={String.raw`(\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}`} />。
         </Citation>
       </FormulaBlock>
 
-      <FormulaBlock title="X XRL VECTOR" accent="sky" subtitle="会社に帰属する 5 軸 readiness、内閣府 SIP 互換">
+      <FormulaBlock title="X XRL VECTOR" accent="info" subtitle="会社に帰属する 5 軸 readiness、内閣府 SIP 互換">
       <Tex
         display
         tex={String.raw`X \;=\; \prod_{x \in \{\mathrm{TRL},\, \mathrm{BRL},\, \mathrm{GRL},\, \mathrm{SRL},\, \mathrm{HRL}\}} (x+1)^{\alpha_x}`}
@@ -159,7 +160,7 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
         </Citation>
       </FormulaBlock>
 
-      <FormulaBlock title="F FRL VECTOR" accent="rose" subtitle="CEO / founder readiness、6 因子 = ALQ 4 + Grit + Resilience">
+      <FormulaBlock title="F FRL VECTOR" accent="caution" subtitle="CEO / founder readiness、6 因子 = ALQ 4 + Grit + Resilience">
       <Tex display tex={String.raw`F \;=\; (\mathrm{FRL}+1)^{\alpha_F}, \quad \mathrm{FRL} \;=\; 0.6 \cdot \overline{\mathrm{ALQ}_4} + 0.2 \cdot \mathrm{Grit} + 0.2 \cdot \mathrm{Resilience}`} />
         <Citation>
         <div>
@@ -185,18 +186,18 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
         </Citation>
       </FormulaBlock>
 
-      <div className="relative overflow-hidden border border-cyan-300/28 bg-cyan-300/7 px-4 py-3 text-[12px] font-semibold text-cyan-100/78 shadow-[inset_0_0_22px_rgba(34,211,238,.08)]">
-        <div className="absolute left-0 top-0 h-full w-1 bg-cyan-200 shadow-[0_0_16px_rgba(103,232,249,.9)]" />
-        <div className="font-mono text-[13px] font-black uppercase tracking-[0.12em] text-cyan-100">
+      <div className="relative overflow-hidden border border-border bg-muted/40 px-4 py-3 text-[12px] font-semibold text-muted-foreground shadow-[inset_0_0_22px_rgba(34,211,238,.08)]">
+        <div className="absolute left-0 top-0 h-full w-1 bg-muted/40 shadow-[0_0_16px_rgba(103,232,249,.9)]" />
+        <div className="font-mono text-[13px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
           SPS α WEIGHT ARRAY
         </div>
         <div className="mt-2">
           α_F=<span className="font-mono text-rose-200">{PRS_ALPHA_DEFAULT.FRL}</span> &gt;
-          α_σ=<span className="font-mono text-cyan-200">{PRS_ALPHA_DEFAULT.sigma_SU}</span> &gt;
+          α_σ=<span className="font-mono text-muted-foreground">{PRS_ALPHA_DEFAULT.sigma_SU}</span> &gt;
           α_HRL=<span className="font-mono text-sky-200">{PRS_ALPHA_DEFAULT.HRL}</span> &gt;
           α_P=<span className="font-mono text-emerald-200">{PRS_ALPHA_DEFAULT.P}</span> =
           α_TRL=<span className="font-mono text-sky-200">{PRS_ALPHA_DEFAULT.TRL}</span> &gt;
-          α_Rnet=<span className="font-mono text-cyan-200">{PRS_ALPHA_DEFAULT.R_net}</span> &gt;
+          α_Rnet=<span className="font-mono text-muted-foreground">{PRS_ALPHA_DEFAULT.R_net}</span> &gt;
           α_BRL=<span className="font-mono text-sky-200">{PRS_ALPHA_DEFAULT.BRL}</span> &gt;
           α_GRL=<span className="font-mono text-sky-200">{PRS_ALPHA_DEFAULT.GRL}</span> &gt;
           α_SRL=<span className="font-mono text-sky-200">{PRS_ALPHA_DEFAULT.SRL}</span>
@@ -209,13 +210,13 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
 
       <div className="relative overflow-hidden border border-amber-300/48 bg-amber-300/8 px-4 py-3 text-[13px] text-amber-50 shadow-[0_0_24px_rgba(251,191,36,.12),inset_0_0_22px_rgba(251,191,36,.08)]">
         <div className="absolute inset-x-0 top-0 h-px bg-amber-200 shadow-[0_0_14px_rgba(251,191,36,.75)]" />
-        <div className="mb-2 font-mono text-[14px] font-black uppercase tracking-[0.15em] text-amber-100 drop-shadow-[0_0_12px_rgba(251,191,36,.58)]">
+        <div className="mb-2 font-mono text-[14px] font-semibold uppercase tracking-[0.15em] text-amber-100 drop-shadow-[0_0_12px_rgba(251,191,36,.58)]">
           SPS RATE-LIMITING AXIS
         </div>
         <div className="mb-2 font-semibold text-amber-50/82">
           「1 段階上げたとき SPS score が最も大きく増える軸」を律速とする。Cobb-Douglas の偏微分から:
         </div>
-        <div className="overflow-x-auto border border-amber-200/24 bg-slate-950/82 px-3 py-2">
+        <div className="overflow-x-auto border border-amber-200/24 bg-muted/40 px-3 py-2">
           <Tex
             display
             tex={String.raw`\frac{\partial \mathrm{Score}_{\mathrm{SPS}}}{\partial Z_i} \;=\; \frac{\alpha_i \cdot \mathrm{Score}_{\mathrm{SPS}}}{Z_i + 1} \quad\Rightarrow\quad \mathrm{bottleneck}_{SPS} \;=\; \arg\max_i \frac{\alpha_i}{Z_i + 1}, \qquad Z_i \in \mathcal{A}_{SPS}`}
@@ -229,14 +230,14 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
         </Citation>
       </div>
 
-      <div className="relative overflow-hidden border border-cyan-300/28 bg-cyan-300/7 px-4 py-3 text-[12px] font-semibold text-cyan-100/78 shadow-[inset_0_0_22px_rgba(34,211,238,.08)]">
-        <div className="absolute left-0 top-0 h-full w-1 bg-cyan-200 shadow-[0_0_16px_rgba(103,232,249,.9)]" />
-        <div className="font-mono text-[13px] font-black uppercase tracking-[0.12em] text-cyan-100">
+      <div className="relative overflow-hidden border border-border bg-muted/40 px-4 py-3 text-[12px] font-semibold text-muted-foreground shadow-[inset_0_0_22px_rgba(34,211,238,.08)]">
+        <div className="absolute left-0 top-0 h-full w-1 bg-muted/40 shadow-[0_0_16px_rgba(103,232,249,.9)]" />
+        <div className="font-mono text-[13px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
           LEGACY AMD α WEIGHT ARRAY
         </div>
         <div className="mt-2">
           α_F=<span className="font-mono text-rose-200">{alpha.FRL}</span> &gt;
-          α_σ=<span className="font-mono text-cyan-200">{alpha.sigma_SU}</span> &gt;
+          α_σ=<span className="font-mono text-muted-foreground">{alpha.sigma_SU}</span> &gt;
           α_HRL=<span className="font-mono text-sky-200">{alpha.HRL}</span> &gt;
           α_TRL=<span className="font-mono text-sky-200">{alpha.TRL}</span> &gt;
           α_BRL=<span className="font-mono text-sky-200">{alpha.BRL}</span> &gt;
@@ -250,13 +251,13 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
 
       <div className="relative overflow-hidden border border-amber-300/48 bg-amber-300/8 px-4 py-3 text-[13px] text-amber-50 shadow-[0_0_24px_rgba(251,191,36,.12),inset_0_0_22px_rgba(251,191,36,.08)]">
         <div className="absolute inset-x-0 top-0 h-px bg-amber-200 shadow-[0_0_14px_rgba(251,191,36,.75)]" />
-        <div className="mb-2 font-mono text-[14px] font-black uppercase tracking-[0.15em] text-amber-100 drop-shadow-[0_0_12px_rgba(251,191,36,.58)]">
+        <div className="mb-2 font-mono text-[14px] font-semibold uppercase tracking-[0.15em] text-amber-100 drop-shadow-[0_0_12px_rgba(251,191,36,.58)]">
           LEGACY RATE-LIMITING AXIS
         </div>
         <div className="mb-2 font-semibold text-amber-50/82">
           comparison layer の旧 AMD で「1 段階上げたとき legacy score が最も大きく増える軸」を律速とする。
         </div>
-        <div className="overflow-x-auto border border-amber-200/24 bg-slate-950/82 px-3 py-2">
+        <div className="overflow-x-auto border border-amber-200/24 bg-muted/40 px-3 py-2">
           <Tex
             display
             tex={String.raw`\frac{\partial S_{\mathrm{legacy}}}{\partial X_i} \;=\; \frac{\alpha_i \cdot S_{\mathrm{legacy}}}{X_i + 1} \quad\Rightarrow\quad \mathrm{bottleneck}_{legacy} \;=\; \arg\max_i \frac{\alpha_i}{X_i + 1}`}

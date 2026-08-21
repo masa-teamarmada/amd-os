@@ -110,6 +110,7 @@ HUDパネルは `three.js` のmesh/lineを正本にする。
 - KPIリングやバーをCSS gradientだけで作り続ける。
 - 「いけそう」で数時間粘る。30分で品質が出なければ、three.js geometry / texture / generated asset へ切り替える。
 - 同じ役目のパネルを画面ごとに書き写し、置き場所に合わせて padding / font-size / 装飾を一段ずつ刻み直す。
+- HUD 画面の外 (通常のOS画面・モーダル) に、黒背景 / ネオン発光 / SVGコーナーフレーム / 英大文字トラッキング見出しを持ち込む。そこだけ別世界になり、まさが即座に気づく。
 
 ## Shared panel kits
 
@@ -122,17 +123,29 @@ HUDパネルは `three.js` のmesh/lineを正本にする。
 
 数式パネルキットの規律:
 
-- 外枠・HUDフレーム(SVG)・背景ドット・グリッド・KaTeX発光は `FormulaPanelShell` が持つ。呼び出し側は `title` / `lead` / `badge` / 中身だけ渡す。
-- 呼び出し側で `px-` / `py-` / `text-[Npx]` / 背景gradientを上書きしない。狭い場所に置くからという理由で縮めない (モーダルは `max-w-[1200px]` あり、コックピットのタブより狭くない)。
+- **このキットは HUD 適用対象外**。まさ確定 2026-08-21:「HUDデザインコードを混ぜないでくれればいいだけ」。
+  数式パネルは、それが置かれる画面の通常デザイン (`border-border` / `bg-card` / `text-muted-foreground`) に溶け込ませる。
+  黒背景 (`bg-slate-950`)、ネオン発光 (`shadow-[0_0_..._rgba(34,211,238,..)]` / `drop-shadow-` / KaTeX の `text-shadow`)、
+  SVGコーナーフレーム、`uppercase tracking-[0.2em]` の英大文字見出し、`font-black` を**持ち込まない**。
+- 外枠・区切り・KaTeX のサイズ調整は `FormulaPanelShell` が持つ。呼び出し側は `title` / `lead` / `badge` / 中身だけ渡す。
+- 呼び出し側で `px-` / `py-` / `text-[Npx]` / 背景gradientを上書きしない。同じ役目のパネルが画面ごとに違う寸法へ分岐するのを防ぐため。
+- 見出しは日本語で書く。`accent` は色名ではなく意味 (`primary` / `info` / `caution`) で指定する。色名で指定させると、次に配色を変えるときに全呼び出し側を触ることになる。
 - 新しい行の型が要るなら、その画面にローカル定義せず**キット側へ足す**。
-- 現在の live 利用者は `/seeds` シーズ詳細モーダル (`SpsFormulaPanel`) だけ。`AmdScoreFormulaPanel` もキットに載せてあるが、2026-08-21 時点で route から到達不能 (`AmdScoreView` / `AmdScoreRetrofit` がどこからも import されておらず、`/venture-map/amd-score/retrofit` と `/hud/venture-map/amd-score/retrofit` は redirect のみ)。復活時に寸法が再分岐しないよう、キットに載せたまま critical UI anchor で固定する。
-- **適用対象外**: PJコックピット「スコア詳細」タブ (`CockpitAmdScoreDetailTab` → `CurrentSpsAssessmentCard` / `Bzm22ProvisionalObservatory`)。あちらは `text-[9px]` 級の台帳向け密度重視レイアウトで、HUD 数式パネルとは役目が違う。密度側を HUD 寸法へ引き上げると1画面に載る根拠量が落ちる。
+- 現在の live 利用者は `/seeds` シーズ詳細モーダル (`SpsFormulaPanel`) だけ。`AmdScoreFormulaPanel` は旧モデル (M·X·F / M·P·R·S) 用で、2026-08-21 に `AmdScoreView` / `AmdScoreRetrofit` を削除したため到達不能。
+- 機械的な釘: `scripts/check_pwa_critical_ui.cjs` の `expectNotIncludes` が、キットと `SpsFormulaPanel` への HUD 語彙の再混入を CI で落とす。
 
-事故 (2026-08-21): `SpsFormulaPanel` を `AmdScoreFormulaPanel` から書き写して作った際、HUDのSVGコーナーフレームを省き、padding / 見出し / KaTeX / ラベル幅を一段ずつ縮小した。
-まさが本番画面で「なんでここだけデザインコード変えたの?」と即座に指摘。SVG省略はこのファイルの Graphic fidelity rule 違反でもあった。共通キット化で再発を止めた。
+事故 (2026-08-21 #1): `SpsFormulaPanel` を `AmdScoreFormulaPanel` から書き写して作った際、padding / 見出し / KaTeX / ラベル幅を一段ずつ縮小した。
+まさが本番画面で「なんでここだけデザインコード変えたの?」と指摘。共通キット化で寸法分岐を止めた。
 
-事故の後日訂正 (2026-08-21 同日): 「コックピットのスコア詳細タブと寸法を揃えた」と説明したが、比較対象にした `AmdScoreFormulaPanel` は既に route から到達不能だった。
-揃えるべき根拠は「今どこかの画面で見えている寸法」ではなく、このファイル (HUD デザインコード正本) 側にある。生きている画面と突き合わせただけで正本を読まないと、退役済みの見た目を新しい正解として固定してしまう。
+事故 (2026-08-21 #2 — 上の指摘を真逆に実装した): えいみは #1 の指摘を「HUD の SVG コーナーフレームが欠けているから揃えろ」と読み、
+`/seeds` モーダルへ HUD を**復活させた**。まさの真意は逆で「HUDデザインコードを混ぜるな」だった。
+さらに報告を「コックピットのスコア詳細タブと寸法を揃えた根拠が誤りだった」と寸法軸で書き、まさから「なんで寸法の話をしてるの? 寸法なんて何も気にしてないよ」と再指摘された。
+
+この2件から取る教訓:
+
+1. **「デザインコードを変えた」という指摘は、まず「持ち込んだ側が間違い」と読む。** 揃える方向 (HUD を足す) ではなく、剥がす方向を既定にする。HUD は `/hud` 配下の専用画面のものであって、通常のOS画面に染み出させない。
+2. **まさが問題にしているのは世界観の混在であって、寸法ではない。** 寸法・padding・font-size は共通キット化で機械的に解く内部事情にすぎず、指摘への回答軸にしない。
+3. 指摘の解釈が2通りありうるときは、実装して本番へ出す前に、どちらの読みで動いたかを1行で先に述べる。
 
 ## Design Signature
 
