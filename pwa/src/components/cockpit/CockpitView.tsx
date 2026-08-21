@@ -8,6 +8,7 @@ import { CockpitGoalsCompact } from "./CockpitGoalsCompact";
 import { CockpitStrategySignals } from "./CockpitStrategySignals";
 import { CockpitGrants } from "./CockpitGrants";
 import { WorkspaceDocumentRoom } from "@/components/workspace-documents/WorkspaceDocumentRoom";
+import { CockpitIpPortfolio } from "@/components/cockpit/CockpitIpPortfolio";
 import { CockpitKuteAnnualRoadmap } from "./CockpitKuteAnnualRoadmap";
 import { CockpitKuteRegulations } from "./CockpitKuteRegulations";
 import { ProjectInstitutionSeeds } from "./CockpitKuteSeeds";
@@ -244,7 +245,7 @@ function usesMsProgressCategory(category: string | null | undefined) {
   return ["dtsu", "ecosystem", "new_business"].includes(String(category || "dtsu").toLowerCase());
 }
 
-export type CockpitTab = "progress" | "score-detail" | "business-plan" | "regulations" | "documents" | "company";
+export type CockpitTab = "progress" | "score-detail" | "business-plan" | "regulations" | "ip" | "documents" | "company";
 
 export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab, onTabChange }: CockpitViewProps) {
   const [localActiveTab, setLocalActiveTab] = useState<CockpitTab>("progress");
@@ -318,6 +319,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     ...(hasScoreDetailTab ? [{ key: "score-detail" as const, label: "スコア詳細" }] : []),
     ...(hasBusinessPlanTab ? [{ key: "business-plan" as const, label: "事業計画" }] : []),
     ...(hasKuteRegulationsTab ? [{ key: "regulations" as const, label: "規程・内規" }] : []),
+    { key: "ip", label: "知財" },
     { key: "documents", label: "資料室" },
     { key: "company", label: "会社概要" },
   ];
@@ -567,6 +569,14 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           className={activeTab === "regulations" ? "min-w-0" : "hidden"}
         >
           <CockpitKuteRegulations />
+        </section>
+      )}
+
+      {/* 知財タブ (2026-08-21 まさ依頼)。自社/大学/共同/障害/ウォッチを同じ台帳で見る。
+          CockpitIpPortfolio は自前で fetch するので、開いた時だけマウントする。 */}
+      {activeTab === "ip" && (
+        <section role="tabpanel" aria-label="知財" className="min-w-0">
+          <CockpitIpPortfolio projectId={project.projectId} />
         </section>
       )}
 

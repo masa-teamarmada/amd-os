@@ -2937,6 +2937,21 @@ expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
 ]);
 expectIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
   '"documents"',
+  '"ip"',
+]);
+// 知財タブ (2026-08-21 まさ依頼): 自社/大学/共同/障害/ウォッチを同じ台帳で見る独立タブ。特許マップ必須。
+expectIncludes("src/components/cockpit/CockpitView.tsx", [
+  'key: "ip", label: "知財"',
+  'aria-label="知財"',
+  "CockpitIpPortfolio",
+]);
+expectIncludes("src/components/cockpit/CockpitIpPortfolio.tsx", [
+  'data-testid="cockpit-ip-tab"',
+  "PatentMap",
+  "/api/project-ip",
+]);
+expectIncludes("src/components/cockpit/PatentMap.tsx", [
+  'data-testid="cockpit-ip-patent-map"',
 ]);
 
 expectFileMissing("src/components/cockpit/CockpitGovernance.tsx");

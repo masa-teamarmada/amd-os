@@ -806,3 +806,18 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - `npm run test:seed-list-display` はSeedDetailModalのcockpit-onlyリンクと混同ラベル禁止を検査する。
 - `npm run test:project-workspace-route` は全PJ向けドライブタブ、workspace面の資料室scope、SX限定条件の不在を検査する。
 - `npm run test:critical-ui` はコックピットの資料室タブ（`key: "documents"` / `aria-label="資料室"` / `WorkspaceDocumentRoom` 埋め込み）を検査し、`WorkspaceDocumentLauncher` が復活していないことも検査する。
+
+## /project/[projectId]/cockpit — 知財タブ (2026-08-21 追加、build v3.85.0、migration 308)
+
+必須機能:
+
+- コックピットの独立タブ `知財`（`?tab=ip`）は全PJに常設し、`CockpitIpPortfolio` を activeTab のときだけマウントする。進捗管理タブ本文へ知財の一覧を展開し直さない。
+- 台帳のスコープはB（技術領域の権利地図全体）。`relation` は `own` / `joint` / `university` / `blocking` / `watch` の5種で、自社出願だけの台帳に縮小しない。AMDはbefore zeroから入るため、大学の基本特許と他社の障害特許が参入判断の本体になる。
+- 画面は サマリ帯 → ⏰期限 → 🗺️特許マップ → 立場別リスト（自社・共同 / 大学 / 障害・ウォッチ） → 詳細モーダル の順。**特許マップは必須コンテンツ**（まさ確定 2026-08-21）。
+- 特許マップ `PatentMap` は `project_ip_assets` の既存列だけで描く（X=`tech_domain`、Y=`claim_breadth`、色=`relation`、大きさ=`importance`、行=`applicants[0]`）。マップ専用の別データモデル・別テーブルを作らない。3ビュー（権利範囲 / 時系列 / 出願人マトリクス）を保つ。
+- データは `project_ip_assets` / `project_ip_deadlines` / `project_ip_rights` / `project_ip_events` の4テーブル。`/api/project-ip` の GET は member read で `canEdit` を返し、POST/PATCH/DELETE は admin 限定。cockpit側にadmin判定hookを持たせず、必ずサーバの `canEdit` に従う。
+- 外部リンクは JP=J-PlatPat、その他=Espacenet を `externalSearchUrl()` で組む。外部API同期（特許庁 / EPO OPS）、期限通知、`/admin/ip` 統合は未接続。未接続項目を「実装済み」と書き換えない。
+
+回帰防止:
+
+- `npm run test:critical-ui` はコックピットの知財タブ（`key: "ip", label: "知財"` / `aria-label="知財"` / `CockpitIpPortfolio` 埋め込み）、`CockpitIpPortfolio` の `data-testid="cockpit-ip-tab"` と `PatentMap` / `/api/project-ip` 参照、`PatentMap` の `data-testid="cockpit-ip-patent-map"` を検査する。
