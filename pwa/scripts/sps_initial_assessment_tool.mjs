@@ -31,15 +31,13 @@ async function snapshot(c, seedId, cutoff) { const { data, error } = await c.rpc
 const preparedHash = (p) => { const { prepared_hash: _, ...body } = p; return stableHash(body); };
 function latestFactTime(facts) { const dates = [...(facts?.news ?? []).map((x) => x.occurred_on), ...(facts?.contacts ?? []).map((x) => x.contacted_on)].filter(Boolean).map((x) => Date.parse(`${x}T00:00:00.000Z`)).filter(Number.isFinite); return dates.length ? Math.max(...dates) : 0; }
 
+async function seedIdList(c, only) { const out = []; for (let from = 0; ; from += 1000) { let q = c.from("seeds").select("id").order("created_at", { ascending: true }).range(from, from + 999); if (only) q = q.eq("id", only); const { data, error } = await q; if (error) throw new Error(error.message); for (const x of data ?? []) out.push(x.id); if (!data || data.length < 1000) return out; } }
+async function assessedSeedIds(c, ids) { const out = new Set(); for (let i = 0; i < ids.length; i += 200) { const { data, error } = await c.from("seed_screening_bands").select("seed_id").in("seed_id", ids.slice(i, i + 200)).eq("frozen", true).eq("model_version", CURRENT_SPS_TUPLE.model_version).eq("measure_version", CURRENT_SPS_TUPLE.measure_version).eq("q_model_version", CURRENT_SPS_TUPLE.q_model_version).eq("q_ruleset_version", CURRENT_SPS_TUPLE.q_ruleset_version).eq("p_model_version", CURRENT_SPS_TUPLE.p_model_version).eq("ruleset_version", CURRENT_SPS_TUPLE.assessment_ruleset_version); if (error) throw new Error(error.message); for (const x of data ?? []) out.add(x.seed_id); } return out; }
 async function prepare(a) {
   const c = await db(), n = Number(a.limit ?? 25), limit = Math.max(1, Math.min(100, Number.isFinite(n) ? Math.floor(n) : 25));
-  let query = c.from("seeds").select("id").order("created_at", { ascending: true }).limit(1000);
-  if (a["seed-id"] && a["seed-id"] !== true) query = query.eq("id", String(a["seed-id"]));
-  const [{ data: seeds, error }, currentModel, currentPrompt] = await Promise.all([query, model(c), prompt(c)]); if (error) throw new Error(error.message);
-  const ids = (seeds ?? []).map((x) => x.id);
-  const bands = ids.length ? await c.from("seed_screening_bands").select("seed_id").in("seed_id", ids).eq("frozen", true).eq("model_version", CURRENT_SPS_TUPLE.model_version).eq("measure_version", CURRENT_SPS_TUPLE.measure_version).eq("q_model_version", CURRENT_SPS_TUPLE.q_model_version).eq("q_ruleset_version", CURRENT_SPS_TUPLE.q_ruleset_version).eq("p_model_version", CURRENT_SPS_TUPLE.p_model_version).eq("ruleset_version", CURRENT_SPS_TUPLE.assessment_ruleset_version) : { data: [], error: null };
-  if (bands.error) throw new Error(bands.error.message);
-  const assessed = new Set((bands.data ?? []).map((x) => x.seed_id)), seedIds = ids.filter((id) => !assessed.has(id)).slice(0, limit), generatedAt = new Date().toISOString();
+  const [ids, currentModel, currentPrompt] = await Promise.all([seedIdList(c, a["seed-id"] && a["seed-id"] !== true ? String(a["seed-id"]) : null), model(c), prompt(c)]);
+  const assessed = await assessedSeedIds(c, ids);
+  const seedIds = ids.filter((id) => !assessed.has(id)).slice(0, limit), generatedAt = new Date().toISOString();
   const snapshots = await Promise.all(seedIds.map((id) => snapshot(c, id, generatedAt)));
   const inputs = seedIds.map((seed_id, i) => ({ seed_id, source_fingerprint: snapshots[i].fingerprint, source_facts: snapshots[i].facts }));
   const out = { version: 1, contract: CONTRACT, generated_at: generatedAt, prompt: currentPrompt, model: currentModel, q_factor_ids: Q_FACTORS, inputs }; out.prepared_hash = stableHash(out);
