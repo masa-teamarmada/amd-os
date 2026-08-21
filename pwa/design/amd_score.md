@@ -177,10 +177,10 @@ $$
 |---|---|
 | [`src/lib/amd-score.ts`](../src/lib/amd-score.ts) | `calculateAmdScore` / `computeSigmaSU` / `computeK` / `classifyPhase` / `ALPHA_DEFAULT` |
 | [`src/lib/amd-score-data.ts`](../src/lib/amd-score-data.ts) | `fetchAllAmdScoreInputs` / `fetchAmdScoreInputs(pj)` / `upsertAmdScoreInput` / `fetchActiveAlpha` / `saveNewAlpha` |
-| [`src/components/venture-map/AmdScoreView.tsx`](../src/components/venture-map/AmdScoreView.tsx) | 個別 PJ ビュー (hero / radar / 寄与表 / 経時 / 入力編集 / α サイドバー) |
-| [`src/components/venture-map/AmdScoreList.tsx`](../src/components/venture-map/AmdScoreList.tsx) | 全 SU PJ 一覧 (score 降順 / phase filter) |
-| [`src/app/(app)/venture-map/amd-score/page.tsx`](../src/app/(app)/venture-map/amd-score/page.tsx) | List ページ (server) |
-| [`src/components/cockpit/CockpitAmdScoreDetailTab.tsx`](../src/components/cockpit/CockpitAmdScoreDetailTab.tsx) | cockpit 内の正規個別 view。`AmdScoreView embedded` を表示 |
+| [`src/components/venture-map/AmdScoreView.tsx`](../src/components/venture-map/AmdScoreView.tsx) | **退役 (2026-07-16)**。旧 `/venture-map/amd-score/[projectId]` の個別 PJ ビュー (hero / 寄与表 / 経時 / FRL radar)。現在どの route からも到達不能 |
+| [`src/components/venture-map/AmdScoreList.tsx`](../src/components/venture-map/AmdScoreList.tsx) | **退役 (2026-08-18)**。旧 legacy score の全 SU PJ 一覧。現在どの route からも到達不能 |
+| [`src/app/(app)/venture-map/amd-score/page.tsx`](../src/app/(app)/venture-map/amd-score/page.tsx) | List ページ (server)。現行は [`CurrentSpsProjectList`](../src/components/sps/CurrentSpsProjectList.tsx) を描画 |
+| [`src/components/cockpit/CockpitAmdScoreDetailTab.tsx`](../src/components/cockpit/CockpitAmdScoreDetailTab.tsx) | cockpit 内の正規個別 view。**現行は [`CurrentSpsAssessmentCard`](../src/components/sps/CurrentSpsAssessmentCard.tsx) + [`Bzm22ProvisionalObservatory`](../src/components/cockpit/Bzm22ProvisionalObservatory.tsx)**。`AmdScoreView` は embed していない (2026-08-21 訂正) |
 | [`src/app/(app)/venture-map/amd-score/[projectId]/page.tsx`](../src/app/(app)/venture-map/amd-score/[projectId]/page.tsx) | 旧個別URLから cockpit score detail への redirect (`p99` デモを除く) |
 
 ### Cockpit 連携
@@ -220,14 +220,19 @@ amd_score_alpha (alpha jsonb, effective_from / effective_to)
 
 まさフィードバック「XRL / μ / FRL の値の根拠が UI で見たい」に対応:
 
-- **入力 (cockpit スコア詳細)**: `AmdScoreView.tsx` の `AxisSliderWithNote` で各軸スライダーの直下に textarea で根拠を入力
+- **入力 (旧 AMD Score 詳細ページ、退役済み)**: `AmdScoreView.tsx` の `AxisSliderWithNote` で各軸スライダーの直下に textarea で根拠を入力
 - **読み取り (cockpit スコア詳細)**: `Factor3Breakdown` の 3 要素カード内で各軸ラベル直下に italic で根拠表示 (リアルタイム反映)
 - **読み取り (Cockpit モーダル)**: `CockpitAmdScoreBreakdownModal.tsx` の `FactorRow` の `subtitle` で同じく italic で根拠表示
 - **Tsukuyomi 統合**: `update_amd_score_input` tool に `mu_notes_a/i/g` `xrl_notes_trl/brl/grl/srl/hrl` パラメータ追加。LLM がスコアを更新するときに**値だけでなく必ず根拠も書く**運用
 
-### cockpit スコア詳細のレイアウト (2026-05-09 改修 後期)
+### 旧 AMD Score 詳細ページのレイアウト (2026-05-09 改修 後期 / 2026-07-16 退役)
 
-現行レイアウト:
+> **2026-08-21 訂正**: この節はもともと「cockpit スコア詳細のレイアウト」という見出しで、下のレイアウトを cockpit の現行として書いていた。
+> 実体は `/venture-map/amd-score/[projectId]` (= `AmdScoreView`) のレイアウトで、2026-07-16 `1bb11009` で cockpit へ集約したときに退役済み。
+> **現行の cockpit「スコア詳細」タブは `CockpitAmdScoreDetailTab` → `CurrentSpsAssessmentCard` (現行SPS｜産業創出価値: SPS帯 / 根拠レベル / q帯 / P^ind帯 / 段階仮説 / 総合判断) + `Bzm22ProvisionalObservatory` (BZM 2.2 暫定パイロット)**。
+> 古い記述を残したまま「生きている cockpit の見た目」として参照した事故が実際に起きた (2026-08-21、`design/cyber_hud_design_code.md` の事故後日訂正を参照)。
+
+退役時レイアウト (= `AmdScoreView`。現在どの route からも到達不能):
 ```
 ヘッダ (← 一覧 / コックピットリンク / α retrofit へのリンク)
 案内バー (値の修正は Tsukuyomi 経由)
@@ -413,7 +418,10 @@ M = (σ_SU+1)^α_σ                                          ← 数式 M-1
 
 state_space_model.md §4.5 に従い、BVAR Kalman filter で μ_A(t)/μ_I(t)/μ_G(t) を観測量から逆推定。観測モデル C は `triple_helix_loading` を prior、Bayesian update でデータから学習。
 
-### Retrofit ページ (α 重み調整) — 2026-05-09 追加
+### Retrofit ページ (α 重み調整) — 2026-05-09 追加 / 2026-08-18 退役
+
+> **退役 (2026-08-18 `f92f1598`)**: まさ「古いバージョンのスコアリングなんて一切使わない。全部最新バージョンにして」で現行SPS一本化。
+> `/venture-map/amd-score/retrofit` と `/hud/venture-map/amd-score/retrofit` は `/venture-map/amd-score` への redirect のみになり、`AmdScoreRetrofit.tsx` はどの route からも到達不能。以下は退役時の仕様。
 
 Path: `/venture-map/amd-score/retrofit` (タブバーには出さない、cockpit スコア詳細からのリンクのみ)
 
@@ -439,7 +447,7 @@ SPS (`P x R x S`) を主表示へ切り替え、legacy 7軸 AMD Score は compar
 
 ### FRL 6 因子拡張 (2026-05-09 追加)
 
-`theory/amd_score.md` §3.F.5 で正式化。`pwa/src/components/venture-map/AmdScoreView.tsx` の `deriveFrl` で計算:
+`theory/amd_score.md` §3.F.5 で正式化。`pwa/src/components/venture-map/AmdScoreView.tsx` (退役済み) の `deriveFrl` で計算:
 
 ```
 FRL = 0.6 · ALQ_4_avg + 0.2 · Grit + 0.2 · Resilience
@@ -495,7 +503,7 @@ Shallow Tech (jc) は K = 1.0 (TRL 抜き) で校正されるため数値スケ�
 - `alq_internalized_moral` (内在化された道徳観 0-9)
 - `frl_notes` (自由備考)
 
-UI: AmdScoreView の `FrlAlqPanel` で:
+UI: AmdScoreView (退役済み) の `FrlAlqPanel` で:
 - ALQ 4 軸ミニレーダー + スライダー
 - 「ALQ 平均から FRL を自動算出する」チェック (デフォルト ON)
 - 自由備考テキストエリア (ALQ で拾えない要素を補う)
