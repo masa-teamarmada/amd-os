@@ -59,7 +59,7 @@ candidate (候補)
 
 ### 初回SPS評価
 
-完全な現行SPS tupleをまだ持たないシーズだけを、初回評価の対象にできる。自動化は評価値の候補JSONを出すところまでで、source factsと監査hashは非LLM処理がpreparedから固定する。`prepare → validate → submit → apply` の順に進め、最後の`apply`だけがサービスロールRPCで凍結評価を追記する。候補後に根拠、prompt、modelが変わった場合は再prepareが必要。既に現行tupleがあるシーズは再評価導線を使う。候補ゼロ、同一候補の再submitは正常で、URL・メール・認証情報、11要因不足、数式不一致、情報締切外は検証で止まる。
+完全な現行SPS tupleをまだ持たないシーズだけを、初回評価の対象にできる。自動化は評価値の候補JSONを出すところまでで、source factsと監査hashは非LLM処理がpreparedから固定する。`prepare → validate → submit → apply` の順に進め、最後の`apply`だけがサービスロールRPCで凍結評価を追記する。候補後に根拠、prompt、modelが変わった場合は再prepareが必要。既に現行tupleがあるシーズは再評価導線を使う。候補ゼロ、同一候補の再submitは正常で、URL・メール・認証情報、11要因不足、数式不一致、情報締切外は検証で止まる。未評価の残数は`status`で数える（`prepare --limit`は100件が上限なので残数の確認には使えない）。帯を置くときの較正（段階仮説を資金制度から割り当てる既定値、q帯の水準、型別の要因の向き、要因10で引用してよい政策文書）は`pwa/bzm/SPS_INITIAL_ASSESSMENT_PLAYBOOK.md`、20件ずつ組むときの手順と検査スクリプトは`pwa/scripts/sps_batch/README.md`に置いてある。
 
 ### UI
 
