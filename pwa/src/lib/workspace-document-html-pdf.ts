@@ -47,6 +47,11 @@ const PDF_LAYOUT_NORMALIZE_CSS = `
   .layout > :not(.side) {
     min-width: 0 !important;
   }
+  /* 末尾の余白は、数十pxでも紙1枚分の空ページを生む。PDFでは落とす。 */
+  body, main, .main, .content, .doc {
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+  }
 `;
 
 /**
@@ -65,6 +70,51 @@ function resetSidebarGutters(gutterMinPx: number) {
     for (const side of ["marginLeft", "marginRight", "paddingLeft", "paddingRight"] as const) {
       if (Number.parseFloat(style[side]) >= gutterMinPx) element.style[side] = "0px";
     }
+  }
+}
+
+/**
+ * 見出しがページ末尾に単独で取り残されるのを防ぐ。
+ *
+ * CSSの `h1-h6 { break-after: avoid }` だけでは、`<p class="eyebrow">10 / 機関と議決</p>`
+ * のように見出しタグを使わない前置き行が本文と切り離され、行だけが前ページに残って
+ * 大きな空白ができる (2026-08-21 SE技術研究組合 設計書)。見出しの直前にある短い行へ
+ * avoid を連鎖させ、見出しの直後にも `break-before: avoid` を張って塊の両端を閉じる。
+ */
+function keepHeadingBlocksTogether(pageHeightPx: number) {
+  // 定数は関数内に置く。page.evaluate は関数本体を文字列化して送るため、
+  // module scope の値はブラウザ側から参照できない。
+  const leadMaxPx = pageHeightPx * 0.15;
+  const groupMaxPx = pageHeightPx * 0.3;
+  for (const heading of document.body?.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6") ?? []) {
+    heading.style.breakAfter = "avoid";
+    heading.style.pageBreakAfter = "avoid";
+    heading.style.breakInside = "avoid";
+
+    let accumulatedPx = heading.getBoundingClientRect().height;
+    let lead = heading.previousElementSibling;
+    while (lead instanceof HTMLElement) {
+      const height = lead.getBoundingClientRect().height;
+      // 高いブロックは本文なので連鎖を止める。止めないと本文ごと次ページへ送られ、
+      // 空白を減らすどころか増やす。
+      if (height <= 0 || height > leadMaxPx || accumulatedPx + height > groupMaxPx) break;
+      lead.style.breakAfter = "avoid";
+      lead.style.pageBreakAfter = "avoid";
+      lead.style.breakInside = "avoid";
+      accumulatedPx += height;
+      lead = lead.previousElementSibling;
+    }
+
+    const body = heading.nextElementSibling;
+    if (body instanceof HTMLElement) {
+      body.style.breakBefore = "avoid";
+      body.style.pageBreakBefore = "avoid";
+    }
+  }
+  // 段落や箇条書きが1行だけ千切れて次ページへ飛ぶのを防ぐ。
+  for (const flowText of document.body?.querySelectorAll<HTMLElement>("p, li, blockquote") ?? []) {
+    flowText.style.orphans = "2";
+    flowText.style.widows = "2";
   }
 }
 
@@ -196,6 +246,7 @@ export async function renderWorkspaceDocumentHtmlToPdf(
         }
       `,
     });
+    await page.evaluate(keepHeadingBlocksTogether, pdfHeightPx);
     await page.evaluate((pageHeightPx: number) => {
       const logicalDisplays = new Set(["flex", "inline-flex", "grid", "inline-grid", "table", "table-row"]);
       for (const element of document.body?.querySelectorAll<HTMLElement>("*") ?? []) {
