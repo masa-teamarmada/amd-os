@@ -250,6 +250,13 @@ body:has(.amd-workspace-page-skin) {
   min-width: 44px;
 }
 
+/* 知財タブの台帳 (CockpitIpPortfolio) は PJ コックピットと同じ密度の UI を共有するため、
+   ワークスペース側の 44px タッチターゲット強制をこの部分木だけ除外する (2026-08-21)。 */
+.sx-management-workspace .sx-ip-portfolio button {
+  min-height: 0;
+  min-width: 0;
+}
+
 /* ガントの依存線ポート (+) は 44px 幅を取るとバーから離れて見えるため例外。
    高さは 44px を保つのでタッチターゲットは縦方向で確保される。 */
 .sx-management-workspace button.sx-gantt-dependency-port {

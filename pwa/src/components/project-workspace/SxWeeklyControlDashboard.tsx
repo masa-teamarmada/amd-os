@@ -89,6 +89,7 @@ import {
 } from "@/lib/sx-display-lanes";
 import { SxPartnerPipeline } from "./SxPartnerPipeline";
 import { WorkspaceDocumentRoom } from "@/components/workspace-documents/WorkspaceDocumentRoom";
+import { CockpitIpPortfolio } from "@/components/cockpit/CockpitIpPortfolio";
 import styles from "./weekly-control.module.css";
 
 type StageKey = SxWeeklyIssueStage;
@@ -285,13 +286,14 @@ const STAGE_LABEL: Record<StageKey, string> = Object.fromEntries(
 // すべてのPJで、PJ資料室と同じ正本を開く「ドライブ」を加える。既存のアンカー名
 // (#weekly-change / #project-gantt / #partner-ledger / #issue-hypothesis / #input-readiness)
 // は他画面からのリンク互換のためhashとしてそのまま残す。
-type SxWeeklyControlView = "weekly" | "gantt" | "partners" | "issues" | "drive";
+type SxWeeklyControlView = "weekly" | "gantt" | "partners" | "issues" | "ip" | "drive";
 const SX_WEEKLY_VIEW_STORAGE_KEY = "sx-weekly-control-view-v1";
 const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   weekly: "weekly-change",
   gantt: "project-gantt",
   partners: "partner-ledger",
   issues: "issue-hypothesis",
+  ip: "project-ip",
   drive: "project-drive",
 };
 // projects.project_name が内部コード名で、利用者に見せる名前と違うPJだけをここへ置く。
@@ -305,6 +307,7 @@ const PROJECT_WORKSPACE_TABS: Array<{ key: SxWeeklyControlView; label: string }>
   { key: "gantt", label: "ガント" },
   { key: "partners", label: "関係先" },
   { key: "issues", label: "論点・仮説" },
+  { key: "ip", label: "知財" },
   { key: "drive", label: "ドライブ" },
 ];
 function viewForHash(hash: string): SxWeeklyControlView | null {
@@ -313,6 +316,7 @@ function viewForHash(hash: string): SxWeeklyControlView | null {
   if (normalized === "project-gantt") return "gantt";
   if (normalized === "partner-ledger") return "partners";
   if (normalized === "issue-hypothesis") return "issues";
+  if (normalized === "project-ip") return "ip";
   if (normalized === "project-drive") return "drive";
   if (normalized === "weekly-change" || normalized === "input-readiness")
     return "weekly";
@@ -5401,7 +5405,14 @@ export function SxWeeklyControlDashboard({
               <h1>{WORKSPACE_TITLE_OVERRIDES[bundle.project.projectId] ?? `${bundle.project.projectName} PJワークスペース`}</h1>
             </div>
           </div>
-          <nav className={styles.sectionNav} aria-label="週次管制ナビ" role="tablist">
+          {/* タブのUIは PJ コックピット (CockpitView) と揃える (2026-08-21 まさ指示)。
+              列数はタブ件数から出すので、タブを増やしても CSS を直す必要はない。 */}
+          <nav
+            className={styles.sectionNav}
+            style={{ gridTemplateColumns: `repeat(${PROJECT_WORKSPACE_TABS.length}, minmax(0, 1fr))` }}
+            aria-label="週次管制ナビ"
+            role="tablist"
+          >
             {PROJECT_WORKSPACE_TABS.map((tab) => (
               <button
                 key={tab.key}
@@ -5976,6 +5987,17 @@ export function SxWeeklyControlDashboard({
             )}
           </div>
         </section>
+        )}
+
+        {activeView === "ip" && (
+          <section
+            id="project-ip"
+            className={`${styles.section} sx-ip-portfolio`}
+            role="tabpanel"
+            aria-label="知財"
+          >
+            <CockpitIpPortfolio projectId={bundle.project.projectId} />
+          </section>
         )}
 
         {activeView === "drive" && (

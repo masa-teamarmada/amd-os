@@ -73,6 +73,10 @@ RLS は3ポリシー規約どおり (`_member_read` = `amd_os_is_member()` / `_a
 
 - 実体: [`src/components/cockpit/CockpitIpPortfolio.tsx`](../src/components/cockpit/CockpitIpPortfolio.tsx) / 特許マップは [`PatentMap.tsx`](../src/components/cockpit/PatentMap.tsx) / 型とラベルは [`src/lib/project-ip.ts`](../src/lib/project-ip.ts)
 - タブ配線: `CockpitView.tsx` の `CockpitTab` union と `tabs` 配列 (= 正本)、URL同期は `cockpit/page.tsx` の `NON_DEFAULT_TABS`。URLは `?tab=ip`
+- **表示面は2つ。同じ `CockpitIpPortfolio` を共有し、知財タブの実装を面ごとに分岐させない**。
+  - PJコックピット: `CockpitView.tsx` の `CockpitTab` union と `tabs` 配列 (= タブ配線の正本)、URLは `?tab=ip`
+  - PJワークスペース (`/project/[projectId]/workspace`): `SxWeeklyControlDashboard.tsx` の `PROJECT_WORKSPACE_TABS` に `{ key: "ip", label: "知財" }`、URL hashは `#project-ip`。ワークスペース面は `.sx-management-workspace button { min-height/min-width: 44px }` でタッチターゲットを強制するため、パネル外箱に `sx-ip-portfolio` クラスを付け、`globals.css` の `.sx-management-workspace .sx-ip-portfolio button` でこの部分木だけ除外してコックピットと同じ密度を保つ
+  - 外部ワークスペースアカウント (`principal: "workspace_account"`) は `SxWeeklyControlDashboard` 自体をレンダリングせず資料室ページへ分岐するので、この追加で社外へ知財が露出することはない。`GET /api/project-ip` も `requireAuth` (ログイン済みメンバー) のまま
 - 構成: サマリ帯 (立場別件数 + admin の「＋追加」) → ⏰期限 → 🗺️特許マップ → 立場別テーブル (自社・共同 / 大学 / 障害・ウォッチ) → 詳細モーダル
 - 立場別テーブルの列は左から `名称 (固定列) / 状態 / 年金 / 年金納付済 / 審査請求 / 外国 / PCT番号 / 鮮度 / 技術区分 / 出願番号 / 公開番号 / 登録番号 / 優先日 / 出願日 / 登録日 / 満了日 / 出願人 / 現権利者 / 実施 / 年間費用 / 担当 / 代理人 / ファミリー / ファミリー数 / 被引用 / 範囲 (claim_breadth) / 重要 (importance) / 注意 (脅威・期限)` の28列 (まさ確定 2026-08-21「全部足すで全然問題ないよ。先頭列先頭行固定で横スクロールさせればいいし」)。並びは 立場 → 重要度降順 → 出願番号降順。行クリックで詳細モーダル
 - **列数が多いので、先頭列 (名称) と見出し行を固定して両軸スクロールさせる**。実装上の制約が2つある:
