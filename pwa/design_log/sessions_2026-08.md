@@ -332,3 +332,30 @@ automation作成後の最初の自然な平日09:00実行は未観測。2026-08-
 - 共通化は画面・操作・資料室に限定し、PJ名、管理柱・レーン、実データ、外部workspace access、DB分類は変更していない。
 - `test:seed-list-display`、`test:project-workspace-route`、`test:workspace-documents-contract`、`test:critical-ui`、対象ESLint、TypeScript、production buildを通した。ログイン済み本番でSXと桑折先生PJの5タブ一致、桑折先生PJドライブ、Seedモーダルのcockpitリンク1件/workspaceリンク0件、cockpitのworkspace導線を確認した。
 - 実装commit `a108b4c7` を `deploy.sh` でmainへ反映し、build `v3.83.11` / SHA `a108b4c74683de5466053635861220f95260ccff` をreadbackした。後続 `f7745b99`（v3.83.12）にも祖先として含まれる。
+
+## 2026-08-21 — 資料室HTML→PDFの紙面・改ページ・ファイル名を修正（v3.86.1 / v3.87.1）
+
+### 左右の巨大余白（`ca2e7c0f`）
+
+- 資料HTML側が持つ `@page` 指定を、PDF生成時のスタイルが上書きしきれず、A4の中央に縮んだ紙面が載って左右へ大きな余白が出ていた。
+- PDF専用CSSで元HTMLの `@page` を無効化し、変換側の用紙・余白定義だけを効かせる。以後は資料側の印刷指定に紙面が引きずられない。
+
+### 中途半端な改ページ（`daecf9c3` / v3.86.1）
+
+- 見出しだけが前ページ末尾に残る、最終ページが空白になる、の2件を修正。
+- 見出しと直後の本文ブロックを同じページへ保つ改ページ制御を入れ、末尾の空ページを落とした。まさの実資料で確認済み。
+
+### 日本語ファイル名の二重URLエンコード（`ab7cde4a` / v3.87.1）
+
+- 症状: PDFを保存すると `SE_%25E6%258A%2580…_20260821.pdf` になる。
+- 原因: supabase-jsの `createSignedUrl(path, ttl, { download })` は渡した名前を `encodeURIComponent` してクエリへ載せるが、Storageはクエリの生値をデコードせずそのまま `Content-Disposition` の `filename` / `filename*` へ入れる。結果 `%E6%8A%80` が `%25E6%258A%2580` になる。
+- 対応: `withWorkspaceDownloadFileName(signedUrl, fileName)` を `lib/workspace-documents-core.ts` に追加し、`download=` を自前で1回だけエンコードして付ける。`encodeURIComponent` が残す `'` `(` `)` `*` はRFC 5987のattr-char外なので追加でパーセント化する。`{ download }` オプションは使わない。
+- 適用先は `api/workspace-documents/[documentId]/pdf/route.ts`（PDF化）と `.../open/route.ts`（資料そのもののダウンロード）の2箇所。
+- 他の `Content-Disposition` 生成箇所（`meeting-assets/file/[assetId]`、`business-cards/[cardId]/image`、`governance/company-overview-export`、`workspace-documents/[documentId]/render`）は自前で `filename*=UTF-8''${encodeURIComponent(...)}` を組んでおり、同じ不具合は無いことを確認した。
+
+### 検証と反映
+
+- Storageへ実ファイルをuploadし、署名URLをfetchして `Content-Disposition` を実測。`SE_技術研究組合_設計書_20260821.pdf` と `KUTE β事業計画書 (最終) .pdf` の両方で `filename*` のデコード結果が元名と一致することを確認し、検証ファイルは削除した。
+- `npx tsc --noEmit`、対象3ファイルのESLint、`npm run build` を通した。
+- `deploy.sh` は他セッション所有のtracked dirtyでhard stopしたため、対象8ファイルだけをstageして `git push origin main` を直接実行した。同時に別セッションの未push commit `229edcfc`（v3.87.0 / PJ知財台帳の列追加）も一緒に上がっている。
+- 本番 `/api/build-info` は `v3.87.1` / `ab7cde4ae7c184c9b9d50bea3b569a6f4168813e` / `deployed_at 2026-08-21T09:34:33.921Z` を返した。
