@@ -109,6 +109,26 @@ HUDパネルは `three.js` のmesh/lineを正本にする。
 - 参考画像級のHUDフレームをCSS borderだけで再現し続ける。
 - KPIリングやバーをCSS gradientだけで作り続ける。
 - 「いけそう」で数時間粘る。30分で品質が出なければ、three.js geometry / texture / generated asset へ切り替える。
+- 同じ役目のパネルを画面ごとに書き写し、置き場所に合わせて padding / font-size / 装飾を一段ずつ刻み直す。
+
+## Shared panel kits
+
+同じ役目のUIを2画面以上に置くときは、**先に共通キットを作ってから両方がそれをimportする**。
+片方をコピーして寸法だけ調整する運用を禁じる。置き場所ごとに数値がズレて、まさが画面を見た瞬間に気づく差になる。
+
+| キット | 実装 | 使う場面 |
+|---|---|---|
+| 数式パネル | [`src/components/formula/FormulaPanelKit.tsx`](../src/components/formula/FormulaPanelKit.tsx) | 数式 + パラメータ実値 + 出典を出すパネル全部。`FormulaPanelShell` / `FormulaBlock` / `MeaningChip` / `FormulaLine` / `ParamRow` / `Citation` |
+
+数式パネルキットの規律:
+
+- 外枠・HUDフレーム(SVG)・背景ドット・グリッド・KaTeX発光は `FormulaPanelShell` が持つ。呼び出し側は `title` / `lead` / `badge` / 中身だけ渡す。
+- 呼び出し側で `px-` / `py-` / `text-[Npx]` / 背景gradientを上書きしない。狭い場所に置くからという理由で縮めない (モーダルは `max-w-[1200px]` あり、コックピットのタブより狭くない)。
+- 新しい行の型が要るなら、その画面にローカル定義せず**キット側へ足す**。
+- 現在の利用者: PJコックピット「スコア詳細」タブ / `/venture-map/amd-score/retrofit` (`AmdScoreFormulaPanel`)、`/seeds` シーズ詳細モーダル (`SpsFormulaPanel`)。
+
+事故 (2026-08-21): `SpsFormulaPanel` を `AmdScoreFormulaPanel` から書き写して作った際、HUDのSVGコーナーフレームを省き、padding / 見出し / KaTeX / ラベル幅を一段ずつ縮小した。
+まさが本番画面で「なんでここだけデザインコード変えたの?」と即座に指摘。SVG省略はこのファイルの Graphic fidelity rule 違反でもあった。共通キット化で再発を止めた。
 
 ## Design Signature
 

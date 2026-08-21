@@ -1919,13 +1919,36 @@ expectIncludes("src/components/seeds/SeedDetailModal.tsx", [
 // 数式は LaTeX (Tex/KaTeX) で書き、式の各パラメータの実値をこのシーズの値で併記する。
 // 数式は現行 SPS = 産業創出価値版 (sps-ind-v1) のみ。旧9軸 Cobb-Douglas と旧 sps-eq-v0 は退役済みなので持ち込まない。
 expectIncludes("src/components/sps/SpsFormulaPanel.tsx", [
-  'data-testid="sps-formula-panel"',
+  'testId="sps-formula-panel"',
+  "@/components/formula/FormulaPanelKit",
   "@/components/venture-map/Tex",
   "Q_FACTORS",
   "STAGE_STEPS",
   "SEED_EVIDENCE_LEVEL_DESCRIPTION",
   "係数を発明しない",
   "閉じた式が存在しない",
+]);
+// 数式パネルの見た目は共通キットに一本化する (まさ指摘 2026-08-21「なんでここだけデザインコード変えたの?」)。
+// 画面ごとに padding / font-size / 装飾を刻み直すとデザインが分岐し、まさが本番画面で即座に気づく差になる。
+// HUD の SVG コーナーフレームは CSS で代替しない (design/cyber_hud_design_code.md の Graphic fidelity rule)。
+// 正本: pwa/design/cyber_hud_design_code.md「Shared panel kits」
+expectIncludes("src/components/formula/FormulaPanelKit.tsx", [
+  "export function FormulaPanelShell",
+  "data-testid={testId}",
+  'viewBox="0 0 1000 720"',
+  "M2 12H954L998 64V708H42L2 664Z",
+  ".formula-hud-panel .katex",
+  "export function FormulaBlock",
+  "export function MeaningChip",
+  "export function FormulaLine",
+  "export function ParamRow",
+  "export function Citation",
+]);
+// PJコックピット「スコア詳細」タブ / retrofit ページの数式パネルも同じキットに載せる。
+expectIncludes("src/components/venture-map/AmdScoreFormulaPanel.tsx", [
+  "@/components/formula/FormulaPanelKit",
+  "FormulaPanelShell",
+  "SPS シーズ有望度 (M·P·R·S) PRIMARY FORMULA",
 ]);
 // PJ化の有無でシーズ詳細モーダルの中身を変えない (まさ確定 2026-08-20)。
 // 簡易コックピット (判断レール / 判断・推進・記録タブ) をモーダルへ戻さない。
