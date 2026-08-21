@@ -16,7 +16,8 @@ import {
   AGREEMENT_LABEL, CLAIM_BREADTH_LABEL, DEADLINE_KIND_LABEL, EVENT_KIND_LABEL,
   HOLDER_KIND_LABEL, IP_KIND_LABEL, IP_STATUS_LABEL, LICENSE_LABEL,
   RELATION_META, RELATION_ORDER, THREAT_LABEL,
-  daysUntil, externalSearchUrl,
+  ANNUITY_LABEL, PCT_LABEL, PRACTICE_LABEL,
+  daysUntil, externalSearchUrl, verifyFreshness,
   type IpAsset, type IpDeadline, type IpEvent, type IpRelation, type IpRight,
 } from "@/lib/project-ip";
 
@@ -33,6 +34,57 @@ const GROUPS: { key: string; title: string; relations: IpRelation[]; hint: strin
   { key: "university", title: "🏛 大学の基本特許", relations: ["university"], hint: "実施許諾・不実施補償の交渉対象になる大学側の権利" },
   { key: "blocking", title: "⚠️ 障害特許・ウォッチ", relations: ["blocking", "watch"], hint: "他社が押さえていて回避 or ライセンスが要る権利" },
 ];
+
+/**
+ * 立場別テーブルの見出し。名称列 (先頭固定) 以外をこの順で並べる。
+ * tbody 側の <Cell> の並びと 1:1 で対応するので、片方だけ足さないこと。
+ */
+const HEAD: { txt: string; title?: string; right?: boolean }[] = [
+  { txt: "状態" },
+  { txt: "年金", title: "特許料 (年金) の納付状況。不納だと権利が消滅する" },
+  { txt: "年金納付済", title: "何年分まで納付済みか = その日までは権利が生きている" },
+  { txt: "審査請求", title: "審査請求日。未請求のまま出願から3年で取下げ擬制になる" },
+  { txt: "外国", title: "PCT・外国出願の現況" },
+  { txt: "PCT番号" },
+  { txt: "鮮度", title: "最後に現況を確認した日。1年以上前なら要再調査" },
+  { txt: "技術区分" },
+  { txt: "出願番号" },
+  { txt: "公開番号" },
+  { txt: "登録番号" },
+  { txt: "優先日", title: "存続期間20年 / PCT30ヶ月 / 優先権12ヶ月の起点" },
+  { txt: "出願日" },
+  { txt: "登録日" },
+  { txt: "満了日" },
+  { txt: "出願人" },
+  { txt: "現権利者", title: "移転があると出願人と一致しない" },
+  { txt: "実施", title: "自社事業での実施状況" },
+  { txt: "年間費用", right: true, title: "年間の維持コスト (円)" },
+  { txt: "担当" },
+  { txt: "代理人" },
+  { txt: "ファミリー" },
+  { txt: "ファミリー数", right: true, title: "同一発明の他国出願数 (外部API同期で埋まる)" },
+  { txt: "被引用", right: true, title: "被引用数 (外部API同期で埋まる)" },
+  { txt: "範囲", right: true, title: "権利範囲の広さ 1-5 (5=上位概念で広い)" },
+  { txt: "重要", right: true, title: "重要度 1-5" },
+  { txt: "注意" },
+];
+
+function Cell({ children, dim, right, wrap, title }: {
+  children: React.ReactNode; dim?: boolean; right?: boolean; wrap?: boolean; title?: string;
+}) {
+  return (
+    <td
+      title={title}
+      className={`px-2 py-1.5 ${wrap ? "" : "whitespace-nowrap"} ${right ? "text-right tabular-nums" : ""} ${dim ? "text-muted-foreground" : ""}`}
+    >
+      {children}
+    </td>
+  );
+}
+
+function Chip({ meta }: { meta: { txt: string; cls: string } }) {
+  return <span className={`rounded border px-1 py-0 text-[9px] ${meta.cls}`}>{meta.txt}</span>;
+}
 
 export function CockpitIpPortfolio({ projectId }: { projectId: string }) {
   const [data, setData] = useState<Bundle | null>(null);
@@ -155,55 +207,77 @@ export function CockpitIpPortfolio({ projectId }: { projectId: string }) {
               <span className="text-[10px] text-muted-foreground">{g.hint}</span>
               <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">{list.length}件</span>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[880px] border-collapse text-[11px]">
+            {/* 列が多いので、先頭列 (名称) と見出し行を固定して横スクロールさせる (まさ指示 2026-08-21)。
+                overflow-x-auto だけだと overflow-y が auto になって sticky が効かないため、両軸スクロールの箱にする。 */}
+            <div className="max-h-[70vh] overflow-auto">
+              <table className="w-max min-w-full border-collapse text-[11px]">
                 <thead>
-                  <tr className="border-b border-border bg-muted/40 text-[10px] text-muted-foreground">
-                    <th className="px-2 py-1.5 text-left font-medium">立場</th>
-                    <th className="px-2 py-1.5 text-left font-medium">名称</th>
-                    <th className="px-2 py-1.5 text-left font-medium">技術区分</th>
-                    <th className="px-2 py-1.5 text-left font-medium">状態</th>
-                    <th className="px-2 py-1.5 text-left font-medium">出願番号</th>
-                    <th className="px-2 py-1.5 text-left font-medium">公開番号</th>
-                    <th className="px-2 py-1.5 text-left font-medium">登録番号</th>
-                    <th className="px-2 py-1.5 text-left font-medium">出願人</th>
-                    <th className="px-2 py-1.5 text-right font-medium" title="権利範囲の広さ 1-5 (5=上位概念で広い)">範囲</th>
-                    <th className="px-2 py-1.5 text-right font-medium" title="重要度 1-5">重要</th>
-                    <th className="px-2 py-1.5 text-left font-medium">注意</th>
+                  <tr className="text-[10px] text-muted-foreground">
+                    <th className="sticky left-0 top-0 z-30 min-w-[220px] border-b border-r border-border bg-muted px-2 py-1.5 text-left font-medium">名称</th>
+                    {HEAD.map((h) => (
+                      <th
+                        key={h.txt}
+                        title={h.title}
+                        className={`sticky top-0 z-20 whitespace-nowrap border-b border-border bg-muted px-2 py-1.5 font-medium ${h.right ? "text-right" : "text-left"}`}
+                      >
+                        {h.txt}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {list.map((a) => {
                     const dl = openDeadlines.filter((d) => d.ip_asset_id === a.ip_asset_id);
                     const threat = a.threat_level ? THREAT_LABEL[a.threat_level] : null;
+                    const annuity = ANNUITY_LABEL[a.annuity_status] ?? ANNUITY_LABEL.unknown;
+                    const pct = PCT_LABEL[a.pct_status] ?? PCT_LABEL.unknown;
+                    const fresh = verifyFreshness(a.last_verified_on);
                     return (
                       <tr
                         key={a.ip_asset_id}
                         onClick={() => setSelectedId(a.ip_asset_id)}
-                        className="cursor-pointer align-top hover:bg-muted/40"
+                        className="group cursor-pointer align-top hover:bg-muted"
                       >
-                        <td className="whitespace-nowrap px-2 py-1.5">
-                          <span className={`rounded border px-1.5 py-0.5 text-[10px] ${RELATION_META[a.relation].cls}`}>
+                        <td className="sticky left-0 z-10 border-r border-border bg-background px-2 py-1.5 group-hover:bg-muted">
+                          <span className={`mr-1.5 rounded border px-1 py-0 text-[9px] ${RELATION_META[a.relation].cls}`}>
                             {RELATION_META[a.relation].short}
                           </span>
-                        </td>
-                        <td className="px-2 py-1.5">
                           <span className="font-medium">{a.title}</span>
                           <span className="ml-1.5 whitespace-nowrap text-[9px] text-muted-foreground">
                             {IP_KIND_LABEL[a.ip_kind] ?? a.ip_kind}/{a.jurisdiction}
                           </span>
                         </td>
-                        <td className="whitespace-nowrap px-2 py-1.5 text-muted-foreground">{a.tech_domain ?? "—"}</td>
-                        <td className="whitespace-nowrap px-2 py-1.5">{IP_STATUS_LABEL[a.status] ?? a.status}</td>
-                        <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-muted-foreground">{a.application_number ?? "—"}</td>
-                        <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-muted-foreground">{a.publication_number ?? "—"}</td>
-                        <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-muted-foreground">{a.registration_number ?? "—"}</td>
-                        <td className="px-2 py-1.5 text-muted-foreground">{a.applicants?.length ? a.applicants.join(" / ") : "—"}</td>
-                        <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums" title={a.claim_breadth ? CLAIM_BREADTH_LABEL[a.claim_breadth] : undefined}>
+                        <Cell>{IP_STATUS_LABEL[a.status] ?? a.status}</Cell>
+                        <Cell><Chip meta={annuity} /></Cell>
+                        <Cell dim>{a.annuity_paid_through_on ?? "—"}</Cell>
+                        <Cell>{a.examination_requested_on ?? <span className="text-muted-foreground">未請求</span>}</Cell>
+                        <Cell><Chip meta={pct} /></Cell>
+                        <Cell dim>{a.pct_number ?? "—"}</Cell>
+                        <Cell>
+                          <span className={`rounded border px-1 py-0 text-[9px] ${fresh.cls}`}>{fresh.txt}</span>
+                        </Cell>
+                        <Cell dim>{a.tech_domain ?? "—"}</Cell>
+                        <Cell dim>{a.application_number ?? "—"}</Cell>
+                        <Cell dim>{a.publication_number ?? "—"}</Cell>
+                        <Cell dim>{a.registration_number ?? "—"}</Cell>
+                        <Cell dim>{a.priority_date ?? "—"}</Cell>
+                        <Cell dim>{a.application_date ?? "—"}</Cell>
+                        <Cell dim>{a.registration_date ?? "—"}</Cell>
+                        <Cell dim>{a.expiry_date ?? "—"}</Cell>
+                        <Cell dim wrap>{a.applicants?.length ? a.applicants.join(" / ") : "—"}</Cell>
+                        <Cell dim wrap>{a.current_assignee?.length ? a.current_assignee.join(" / ") : "—"}</Cell>
+                        <Cell>{PRACTICE_LABEL[a.practice_status] ?? a.practice_status}</Cell>
+                        <Cell right>{a.annual_cost_yen != null ? `¥${Number(a.annual_cost_yen).toLocaleString("ja-JP")}` : "—"}</Cell>
+                        <Cell dim>{a.owner_member_id ?? "—"}</Cell>
+                        <Cell dim wrap>{a.attorney_firm ?? "—"}</Cell>
+                        <Cell dim>{a.family_key ?? "—"}</Cell>
+                        <Cell right>{a.family_size ?? "—"}</Cell>
+                        <Cell right>{a.citation_count ?? "—"}</Cell>
+                        <Cell right title={a.claim_breadth ? CLAIM_BREADTH_LABEL[a.claim_breadth] : undefined}>
                           {a.claim_breadth ?? "—"}
-                        </td>
-                        <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">{a.importance}</td>
-                        <td className="whitespace-nowrap px-2 py-1.5">
+                        </Cell>
+                        <Cell right>{a.importance}</Cell>
+                        <Cell>
                           <span className="flex flex-wrap items-center gap-1">
                             {threat && <span className={`rounded border px-1 py-0 text-[9px] ${threat.cls}`}>{threat.txt}</span>}
                             {dl.length > 0 && (
@@ -211,7 +285,7 @@ export function CockpitIpPortfolio({ projectId }: { projectId: string }) {
                             )}
                             {!threat && dl.length === 0 && <span className="text-muted-foreground">—</span>}
                           </span>
-                        </td>
+                        </Cell>
                       </tr>
                     );
                   })}
@@ -310,7 +384,12 @@ function AssetDetail({
           <Row label="公開日">{asset.publication_date}</Row>
           <Row label="登録日">{asset.registration_date}</Row>
           <Row label="満了日">{asset.expiry_date}</Row>
+          <Row label="優先日">{asset.priority_date}</Row>
+          <Row label="審査請求日">{asset.examination_requested_on ?? "未請求"}</Row>
+          <Row label="年金">{`${ANNUITY_LABEL[asset.annuity_status]?.txt ?? asset.annuity_status}${asset.annuity_paid_through_on ? ` (${asset.annuity_paid_through_on} まで納付済)` : ""}`}</Row>
+          <Row label="外国 (PCT)">{`${PCT_LABEL[asset.pct_status]?.txt ?? asset.pct_status}${asset.pct_number ? ` / ${asset.pct_number}` : ""}`}</Row>
           <Row label="出願人">{asset.applicants?.join(" / ")}</Row>
+          <Row label="現権利者">{asset.current_assignee?.join(" / ")}</Row>
           <Row label="発明者">{asset.inventors?.join(" / ")}</Row>
           <Row label="技術区分">{asset.tech_domain}</Row>
           <Row label="IPC / CPC">{[...(asset.ipc_codes ?? []), ...(asset.cpc_codes ?? [])].join(" / ")}</Row>
@@ -319,6 +398,11 @@ function AssetDetail({
           <Row label="脅威度">{asset.threat_level ? (THREAT_LABEL[asset.threat_level]?.txt ?? asset.threat_level) : null}</Row>
           <Row label="要約">{asset.abstract_text}</Row>
           <Row label="メモ">{asset.note_md}</Row>
+          <Row label="実施状況">{PRACTICE_LABEL[asset.practice_status] ?? asset.practice_status}</Row>
+          <Row label="年間維持費">{asset.annual_cost_yen != null ? `¥${Number(asset.annual_cost_yen).toLocaleString("ja-JP")}` : null}</Row>
+          <Row label="担当 / 代理人">{[asset.owner_member_id, asset.attorney_firm].filter(Boolean).join(" / ")}</Row>
+          <Row label="ファミリー数 / 被引用">{asset.family_size != null || asset.citation_count != null ? `${asset.family_size ?? "—"} / ${asset.citation_count ?? "—"}` : null}</Row>
+          <Row label="最終確認日">{verifyFreshness(asset.last_verified_on).txt}</Row>
           <Row label="出典">{`${asset.source_kind}${asset.external_sync_at ? ` (同期 ${asset.external_sync_at.slice(0, 10)})` : ""}`}</Row>
           {link && (
             <Row label="外部">
@@ -397,12 +481,25 @@ const TEXT_FIELDS: { key: keyof IpAsset; label: string; placeholder?: string }[]
   { key: "tech_domain", label: "技術区分", placeholder: "特許マップのX軸になる" },
   { key: "family_key", label: "ファミリー" },
   { key: "external_url", label: "外部URL" },
+  { key: "pct_number", label: "PCT番号", placeholder: "PCT/JP2025/000000" },
+  { key: "owner_member_id", label: "社内担当", placeholder: "ID001" },
+  { key: "attorney_firm", label: "代理人事務所" },
 ];
 const DATE_FIELDS: { key: keyof IpAsset; label: string }[] = [
   { key: "application_date", label: "出願日" },
   { key: "publication_date", label: "公開日" },
   { key: "registration_date", label: "登録日" },
   { key: "expiry_date", label: "満了日" },
+  { key: "priority_date", label: "優先日" },
+  { key: "examination_requested_on", label: "審査請求日" },
+  { key: "annuity_paid_through_on", label: "年金納付済" },
+  { key: "last_verified_on", label: "最終確認日" },
+];
+/** 数値列。空文字は null に落とす (0 と未入力を区別する)。 */
+const NUM_FIELDS: { key: keyof IpAsset; label: string }[] = [
+  { key: "annual_cost_yen", label: "年間維持費 (円)" },
+  { key: "family_size", label: "ファミリー数" },
+  { key: "citation_count", label: "被引用数" },
 ];
 
 function AssetForm({
@@ -422,6 +519,11 @@ function AssetForm({
     applicants: (asset?.applicants ?? []).join(", "),
     inventors: (asset?.inventors ?? []).join(", "),
     ipc_codes: (asset?.ipc_codes ?? []).join(", "),
+    current_assignee: (asset?.current_assignee ?? []).join(", "),
+    annuity_status: asset?.annuity_status ?? "unknown",
+    pct_status: asset?.pct_status ?? "unknown",
+    practice_status: asset?.practice_status ?? "unknown",
+    ...Object.fromEntries(NUM_FIELDS.map((f) => [f.key, asset?.[f.key] != null ? String(asset[f.key]) : ""])),
     ...Object.fromEntries(TEXT_FIELDS.map((f) => [f.key, (asset?.[f.key] as string | null) ?? ""])),
     ...Object.fromEntries(DATE_FIELDS.map((f) => [f.key, (asset?.[f.key] as string | null) ?? ""])),
   }));
@@ -450,7 +552,15 @@ function AssetForm({
       applicants: list(form.applicants),
       inventors: list(form.inventors),
       ipc_codes: list(form.ipc_codes),
+      current_assignee: list(form.current_assignee),
+      annuity_status: form.annuity_status,
+      pct_status: form.pct_status,
+      practice_status: form.practice_status,
     };
+    for (const f of NUM_FIELDS) {
+      const v = String(form[f.key as string] ?? "").trim();
+      row[f.key as string] = v === "" ? null : Number(v);
+    }
     for (const f of [...TEXT_FIELDS, ...DATE_FIELDS]) {
       row[f.key as string] = String(form[f.key as string] || "") || null;
     }
@@ -550,7 +660,41 @@ function AssetForm({
           </label>
         </div>
 
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <label className="block">
+            <span className="text-[10px] text-muted-foreground">年金 (特許料)</span>
+            <select className={input} value={String(form.annuity_status)} onChange={(e) => set("annuity_status", e.target.value)}>
+              {Object.entries(ANNUITY_LABEL).map(([k, v]) => <option key={k} value={k}>{v.txt}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-[10px] text-muted-foreground">外国 (PCT)</span>
+            <select className={input} value={String(form.pct_status)} onChange={(e) => set("pct_status", e.target.value)}>
+              {Object.entries(PCT_LABEL).map(([k, v]) => <option key={k} value={k}>{v.txt}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-[10px] text-muted-foreground">実施状況</span>
+            <select className={input} value={String(form.practice_status)} onChange={(e) => set("practice_status", e.target.value)}>
+              {Object.entries(PRACTICE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          {NUM_FIELDS.map((f) => (
+            <label key={String(f.key)} className="block">
+              <span className="text-[10px] text-muted-foreground">{f.label}</span>
+              <input type="number" className={input} value={String(form[f.key as string] ?? "")} onChange={(e) => set(f.key as string, e.target.value)} />
+            </label>
+          ))}
+        </div>
+
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <label className="block">
+            <span className="text-[10px] text-muted-foreground">現権利者 (カンマ区切り)</span>
+            <input className={input} value={String(form.current_assignee)} onChange={(e) => set("current_assignee", e.target.value)} />
+          </label>
           <label className="block">
             <span className="text-[10px] text-muted-foreground">出願人 (カンマ区切り)</span>
             <input className={input} value={String(form.applicants)} onChange={(e) => set("applicants", e.target.value)} />

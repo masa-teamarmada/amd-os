@@ -22,9 +22,19 @@ URL = env['NEXT_PUBLIC_SUPABASE_URL']
 KEY = env['SUPABASE_SERVICE_ROLE_KEY']
 
 SRC = '出典: Drive「SE_240521」特許棚卸しシート（2024年5月時点）'
+# 棚卸し基準日。1年以上前なので、知財タブでは全件が「要再調査」表示になる (それが正しい状態)。
+VERIFIED_ON = '2024-05-31'
 
 def A(sid, relation, title, appno, pubno, regno, applicants, status, domain, breadth, importance,
-      threat=None, url=None, note=''):
+      threat=None, url=None, note='', assignee=None):
+    # 年金 (特許料) は棚卸しシートに納付状況の記載が無い。分かるのは「年金不納で消滅した2件」だけ。
+    # 未登録の出願は年金の対象外 (na)、登録済みは納付状況が不明 (unknown) として区別する。
+    if status == 'expired':
+        annuity = 'lapsed'
+    elif status == 'granted':
+        annuity = 'unknown'
+    else:
+        annuity = 'na'
     return {
         'ip_asset_id': f'ipa_se_{sid}',
         'project_id': 'p10',
@@ -44,6 +54,11 @@ def A(sid, relation, title, appno, pubno, regno, applicants, status, domain, bre
         'confidentiality': 'internal',
         'external_url': url,
         'source_kind': 'manual',
+        'annuity_status': annuity,
+        'pct_status': 'unknown',
+        'practice_status': 'unknown',
+        'current_assignee': assignee or [],
+        'last_verified_on': VERIFIED_ON,
         'note_md': note + '\n\n' + SRC,
     }
 
@@ -57,7 +72,8 @@ assets = [
  A('2015024130','watch','レクテナ装置及びレクテナ装置の故障検出方法','2015-024130','2016-149824',None,['IHIエアロスペース'],'abandoned','レクテナ',3,2,'none',
    None,'棚卸し時のステータス: 審査未請求。公開のみで権利化されていない。'),
  A('2015140999','joint','無線電力供給システム','2015-140999','2017-022949','特許6666663',['京都大学','Space Power Technologies','菊池製作所','玉置電子工業'],'granted','システム・応用',4,4,None,
-   None,'棚卸し時のステータス: 有効（権利移転）。4者共同出願。ライセンス条件は棚卸し時点で未確認（シート上「？」）。'),
+   None,'棚卸し時のステータス: 有効（権利移転）。4者共同出願。ライセンス条件は棚卸し時点で未確認（シート上「？」）。',
+   ['京都大学','Space Power Technologies']),
  A('2015192484','watch','レクテナ','2015-192484','2014-066404',None,['IHIエアロスペース'],'rejected','レクテナ',3,1,'none',
    None,'棚卸し時のステータス: 却下・拒絶（出願の拒絶・却下）。'),
  A('2018105942','joint','計測装置、受電装置、送電装置、および飛行システム','2018-105942','2019-211272','特許7144801',['京都大学','Space Power Technologies'],'granted','システム・応用',3,4,None,

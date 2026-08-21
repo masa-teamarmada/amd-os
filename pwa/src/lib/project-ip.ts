@@ -38,6 +38,21 @@ export type IpAsset = {
   external_url: string | null;
   source_kind: string;
   external_sync_at: string | null;
+  // 311_project_ip_assets_lifecycle_columns.sql: 権利が生きているかの現況。
+  priority_date: string | null;
+  examination_requested_on: string | null;
+  annuity_status: string;
+  annuity_paid_through_on: string | null;
+  pct_status: string;
+  pct_number: string | null;
+  current_assignee: string[] | null;
+  practice_status: string;
+  annual_cost_yen: number | null;
+  owner_member_id: string | null;
+  attorney_firm: string | null;
+  last_verified_on: string | null;
+  family_size: number | null;
+  citation_count: number | null;
 };
 
 export type IpDeadline = {
@@ -136,6 +151,38 @@ export const THREAT_LABEL: Record<string, { txt: string; cls: string }> = {
   medium: { txt: "脅威 中",  cls: "border-amber-200 bg-amber-50 text-amber-700" },
   high:   { txt: "脅威 高",  cls: "border-rose-200 bg-rose-50 text-rose-700" },
 };
+
+export const ANNUITY_LABEL: Record<string, { txt: string; cls: string }> = {
+  na:      { txt: "対象外",   cls: "border-border bg-muted/40 text-muted-foreground" },
+  paid:    { txt: "納付済",   cls: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+  grace:   { txt: "追納中",   cls: "border-amber-200 bg-amber-50 text-amber-700" },
+  lapsed:  { txt: "不納・消滅", cls: "border-rose-200 bg-rose-50 text-rose-700" },
+  unknown: { txt: "未確認",   cls: "border-border bg-muted/40 text-muted-foreground" },
+};
+
+export const PCT_LABEL: Record<string, { txt: string; cls: string }> = {
+  none:           { txt: "JPのみ",   cls: "border-border bg-muted/40 text-muted-foreground" },
+  pct_filed:      { txt: "PCT出願済", cls: "border-sky-200 bg-sky-50 text-sky-700" },
+  national_phase: { txt: "各国移行済", cls: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+  lapsed:         { txt: "期限徒過",  cls: "border-rose-200 bg-rose-50 text-rose-700" },
+  unknown:        { txt: "未確認",   cls: "border-border bg-muted/40 text-muted-foreground" },
+};
+
+export const PRACTICE_LABEL: Record<string, string> = {
+  practicing: "実施中", planned: "実施予定", not_practicing: "不実施",
+  defensive: "防衛目的", unknown: "未確認",
+};
+
+/**
+ * 棚卸しの鮮度。last_verified_on が 1 年以上前 / 未記録なら「要再調査」を出す。
+ * 特許は年金・審査請求・移転で状態が勝手に変わるため、台帳の値そのものが古くなる。
+ */
+export function verifyFreshness(lastVerifiedOn: string | null): { txt: string; cls: string; stale: boolean } {
+  if (!lastVerifiedOn) return { txt: "未調査", cls: "border-amber-200 bg-amber-50 text-amber-700", stale: true };
+  const days = -daysUntil(lastVerifiedOn);
+  if (days > 365) return { txt: `要再調査 (${Math.floor(days / 365)}年前)`, cls: "border-amber-200 bg-amber-50 text-amber-700", stale: true };
+  return { txt: lastVerifiedOn, cls: "border-border bg-muted/40 text-muted-foreground", stale: false };
+}
 
 /** 権利範囲の広さ (claim_breadth) = 特許マップの Y 軸。 */
 export const CLAIM_BREADTH_LABEL: Record<number, string> = {

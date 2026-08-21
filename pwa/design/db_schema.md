@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-21 16:40 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-21 18:22 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -4223,6 +4223,20 @@ PRIMARY KEY: `ip_asset_id`
 | 32 | `updated_by` | `text` | NULL | `` |
 | 33 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 34 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 35 | `priority_date` | `date` | NULL | `` |
+| 36 | `examination_requested_on` | `date` | NULL | `` |
+| 37 | `annuity_status` | `text` | NOT NULL | `'unknown'::text` |
+| 38 | `annuity_paid_through_on` | `date` | NULL | `` |
+| 39 | `pct_status` | `text` | NOT NULL | `'unknown'::text` |
+| 40 | `pct_number` | `text` | NULL | `` |
+| 41 | `current_assignee` | `_text` | NOT NULL | `ARRAY[]::text[]` |
+| 42 | `practice_status` | `text` | NOT NULL | `'unknown'::text` |
+| 43 | `annual_cost_yen` | `numeric` | NULL | `` |
+| 44 | `owner_member_id` | `text` | NULL | `` |
+| 45 | `attorney_firm` | `text` | NULL | `` |
+| 46 | `last_verified_on` | `date` | NULL | `` |
+| 47 | `family_size` | `int4` | NULL | `` |
+| 48 | `citation_count` | `int4` | NULL | `` |
 
 ## project_ip_deadlines
 

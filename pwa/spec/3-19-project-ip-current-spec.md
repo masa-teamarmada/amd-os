@@ -31,6 +31,14 @@ AMDはbefore zeroから入るので、知財の見方は「自社が何を出願
 | `project_ip_rights` | `ip_right_id` (`ipr_*`) | 権利者・持分・実施許諾状態・契約状態・不実施補償。`contract_id` で `contracts` に接続 |
 | `project_ip_events` | `ip_event_id` (`ipe_*`) | 出願/公開/拒絶理由/応答/登録/譲渡/年金納付などの経緯 |
 
+`project_ip_assets` は migration 311 で権利の現況列を追加した (まさ確定 2026-08-21)。
+`priority_date` / `examination_requested_on` / `annuity_status` / `annuity_paid_through_on` /
+`pct_status` / `pct_number` / `current_assignee` (text[]) / `practice_status` / `annual_cost_yen` /
+`owner_member_id` / `attorney_firm` / `last_verified_on` / `family_size` / `citation_count`。
+`annuity_status` / `pct_status` / `practice_status` は CHECK 制約つきで既定 `unknown`。
+`(project_id, annuity_status)` の部分 index を `grace` / `lapsed` に張って、消滅しかけの権利を横断で拾えるようにしてある。
+**「次にいつ払うか」のような期日は資産テーブルに持たせず `project_ip_deadlines` に置く** (二重の正本を作らないため)。
+
 特許マップ用の軸に使う列 (別データモデルを作らず assets から描く):
 
 | 用途 | 列 |
@@ -66,8 +74,17 @@ RLS は3ポリシー規約どおり (`_member_read` = `amd_os_is_member()` / `_a
 - 実体: [`src/components/cockpit/CockpitIpPortfolio.tsx`](../src/components/cockpit/CockpitIpPortfolio.tsx) / 特許マップは [`PatentMap.tsx`](../src/components/cockpit/PatentMap.tsx) / 型とラベルは [`src/lib/project-ip.ts`](../src/lib/project-ip.ts)
 - タブ配線: `CockpitView.tsx` の `CockpitTab` union と `tabs` 配列 (= 正本)、URL同期は `cockpit/page.tsx` の `NON_DEFAULT_TABS`。URLは `?tab=ip`
 - 構成: サマリ帯 (立場別件数 + admin の「＋追加」) → ⏰期限 → 🗺️特許マップ → 立場別テーブル (自社・共同 / 大学 / 障害・ウォッチ) → 詳細モーダル
-- 立場別テーブルの列は `立場 / 名称 / 技術区分 / 状態 / 出願番号 / 公開番号 / 登録番号 / 出願人 / 範囲 (claim_breadth) / 重要 (importance) / 注意 (脅威・期限)`。並びは 立場 → 重要度降順 → 出願番号降順。行クリックで詳細モーダル。狭い画面では表だけ横スクロールする (`min-w-[880px]` + `overflow-x-auto`)
+- 立場別テーブルの列は左から `名称 (固定列) / 状態 / 年金 / 年金納付済 / 審査請求 / 外国 / PCT番号 / 鮮度 / 技術区分 / 出願番号 / 公開番号 / 登録番号 / 優先日 / 出願日 / 登録日 / 満了日 / 出願人 / 現権利者 / 実施 / 年間費用 / 担当 / 代理人 / ファミリー / ファミリー数 / 被引用 / 範囲 (claim_breadth) / 重要 (importance) / 注意 (脅威・期限)` の28列 (まさ確定 2026-08-21「全部足すで全然問題ないよ。先頭列先頭行固定で横スクロールさせればいいし」)。並びは 立場 → 重要度降順 → 出願番号降順。行クリックで詳細モーダル
+- **列数が多いので、先頭列 (名称) と見出し行を固定して両軸スクロールさせる**。実装上の制約が2つある:
+  - `overflow-x-auto` だけの箱では `overflow-y` が `auto` に計算され、`sticky top-0` が効かない。したがって外箱は `max-h-[70vh] overflow-auto` (両軸スクロール) にする。見出しは `sticky top-0 z-20 bg-muted`、先頭列は `sticky left-0 z-10 bg-background`、左上の角セルは `sticky left-0 top-0 z-30`
+  - 固定セルの背景は**不透明**でないと、スクロールした行が透けて重なる。行 hover は `hover:bg-muted` (半透明の `bg-muted/40` は不可) とし、先頭列セルへ `group-hover:bg-muted` を張って hover 色を合わせる
+- **列見出しの配列 `HEAD` と `<tbody>` の `<Cell>` の並びは 1:1**。片方だけに列を足すと全行がずれるので、追加時は必ず両方を同じ位置に入れる (コード内にも同趣旨のコメントを置いた)
+- 状態を表す3列は `project-ip.ts` のラベル表を通す: 年金 = `ANNUITY_LABEL` (`na` 対象外 / `paid` 納付済 / `grace` 追納中 / `lapsed` 不納・消滅 / `unknown` 未確認)、外国 = `PCT_LABEL` (`none` JPのみ / `pct_filed` PCT出願済 / `national_phase` 各国移行済 / `lapsed` 期限徒過 / `unknown` 未確認)、実施 = `PRACTICE_LABEL` (`practicing` / `planned` / `not_practicing` / `defensive` / `unknown`)
+- 鮮度列は `verifyFreshness(last_verified_on)`。未入力は「未調査」、1年超は「要再調査 (N年前)」、それ以外は確認日をそのまま出す。台帳が古いまま放置されている状態を一覧で見つけるための列
+- **実際の期日は `project_ip_deadlines` が正本**。資産テーブルが持つのは状態 (年金の納付状況・PCTの段階) と、その状態の根拠になる確定日 (`annuity_paid_through_on` / `examination_requested_on`) だけ。次に来る期限を二重に持たない
 - 期限の色: 超過と30日以内は赤、90日以内は琥珀、それ以外は灰
+- 詳細モーダルは表の全列に加えて、優先日 / 審査請求日 (未入力は「未請求」) / 年金 (状態 + 「YYYY-MM-DD まで納付済」) / 外国 (PCT) / 現権利者 / 実施状況 / 年間維持費 (`¥` + 3桁区切り) / 担当 / 代理人 / ファミリー数 / 被引用 / 最終確認日 を出す
+- 編集フォームは文字列 (`pct_number` / `owner_member_id` / `attorney_firm`)、日付 (`priority_date` / `examination_requested_on` / `annuity_paid_through_on` / `last_verified_on`)、数値 (`annual_cost_yen` / `family_size` / `citation_count`、空文字は `null` に落として 0 と未入力を区別)、3つの状態 select、現権利者 (カンマ区切り) を持つ
 - 詳細モーダル: 全項目 + 期限 (adminは「完了にする」) + 権利者・ライセンス + 経緯 + 外部リンク。JPは J-PlatPat、他国は Espacenet を番号で検索 (`externalSearchUrl()`)
 - 編集フォームは `canEdit` の時だけ出る。一般メンバーは読み取りのみ
 
@@ -111,6 +128,10 @@ SE の13件の内訳:
 
 - **日付列 (`application_date` / `publication_date` / `registration_date` / `expiry_date`) は全件 NULL のまま**。棚卸しシートは番号だけを持ち、年しか導出できないため。日付を捏造せず、外部API同期 (§5) で埋める前提にした。
 - **`project_ip_deadlines` は0件**。同じ理由で審査請求期限 (出願から3年) の起算日が確定しないため。期限が近い可能性のある 2021-209635 / 2022-065070 は `note_md` に「審査請求期限（出願から3年）の現況を要確認」と明記した。
+- **`last_verified_on` は全件 `2024-05-31`** (棚卸し基準日)。1年以上前なので知財タブでは全件が「要再調査」表示になる。これは表示バグではなく、台帳が2024年5月で止まっているという正しい状態の可視化。
+- **`annuity_status` は状態から導出**。`expired` (年金不納で消滅) の2件は `lapsed`、登録済み (`granted`) は納付状況の記載が無いので `unknown`、未登録の出願は年金の対象外なので `na`。棚卸しシートに納付記録が無い以上、`paid` は付けない。
+- **`pct_status` / `practice_status` は全件 `unknown`**。原本が外国出願と自社実施の有無を持たないため。`annual_cost_yen` / `family_size` / `citation_count` / `owner_member_id` / `attorney_firm` も全件 NULL。
+- `current_assignee` は権利移転が明記されていた 2015-140999 (無線電力供給システム) のみ `['京都大学', 'Space Power Technologies']`。他は空配列 = 出願人と同じとみなす。
 - `external_url` は J-PlatPat の直リンクが棚卸しシートにあった特許7041859・特許7289437 の2件だけ。他は `externalSearchUrl()` の番号検索にフォールバックする。
 - `ip_asset_id` は `ipa_se_<出願番号の数字>`、`ip_right_id` は `ipr_se_<出願番号の数字>_<権利者略号>` の固定キー。シード再実行は upsert なので行が増えない。原本が更新されたらスクリプトを直して再実行する。
 
