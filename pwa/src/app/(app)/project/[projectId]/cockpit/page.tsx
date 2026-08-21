@@ -5,6 +5,13 @@ import { useParams, usePathname, useRouter, useSearchParams } from "next/navigat
 import { CockpitView, type CockpitTab } from "@/components/cockpit/CockpitView";
 import { fetchCockpitFromSupabase, type CockpitData } from "@/lib/supabase-data";
 
+// "progress" は既定タブなので ?tab= を付けない。それ以外は URL に残して共有・再読込で復元する。
+const NON_DEFAULT_TABS = ["score-detail", "business-plan", "regulations", "documents", "company"] as const;
+
+function isNonDefaultTab(value: string | null): value is Exclude<CockpitTab, "progress"> {
+  return (NON_DEFAULT_TABS as readonly string[]).includes(value ?? "");
+}
+
 interface CockpitLoadState {
   projectId: string;
   cockpit: CockpitData | null;
@@ -78,12 +85,12 @@ export default function CockpitPage() {
   const ymParam = searchParams.get("ym");
   const meetingParam = searchParams.get("meeting");
   const tabParam = searchParams.get("tab");
-  const activeTab: CockpitTab = tabParam === "score-detail" || tabParam === "business-plan" || tabParam === "regulations" || tabParam === "company" ? tabParam : "progress";
+  const activeTab: CockpitTab = isNonDefaultTab(tabParam) ? tabParam : "progress";
   // ?meeting= がある場合は MTG詳細モーダルを優先し、月次モーダルとの二重起動を避ける。
 
   function handleTabChange(tab: CockpitTab) {
     const nextParams = new URLSearchParams(searchParams.toString());
-    if (tab === "score-detail" || tab === "business-plan" || tab === "regulations" || tab === "company") {
+    if (isNonDefaultTab(tab)) {
       nextParams.set("tab", tab);
     } else {
       nextParams.delete("tab");

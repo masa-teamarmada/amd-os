@@ -7,7 +7,7 @@ import { CockpitManagementScoreHero } from "./CockpitManagementScoreHero";
 import { CockpitGoalsCompact } from "./CockpitGoalsCompact";
 import { CockpitStrategySignals } from "./CockpitStrategySignals";
 import { CockpitGrants } from "./CockpitGrants";
-import { WorkspaceDocumentLauncher } from "@/components/workspace-documents/WorkspaceDocumentRoom";
+import { WorkspaceDocumentLauncher, WorkspaceDocumentRoom } from "@/components/workspace-documents/WorkspaceDocumentRoom";
 import { CockpitKuteAnnualRoadmap } from "./CockpitKuteAnnualRoadmap";
 import { CockpitKuteRegulations } from "./CockpitKuteRegulations";
 import { ProjectInstitutionSeeds } from "./CockpitKuteSeeds";
@@ -244,7 +244,7 @@ function usesMsProgressCategory(category: string | null | undefined) {
   return ["dtsu", "ecosystem", "new_business"].includes(String(category || "dtsu").toLowerCase());
 }
 
-export type CockpitTab = "progress" | "score-detail" | "business-plan" | "regulations" | "company";
+export type CockpitTab = "progress" | "score-detail" | "business-plan" | "regulations" | "documents" | "company";
 
 export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab, onTabChange }: CockpitViewProps) {
   const [localActiveTab, setLocalActiveTab] = useState<CockpitTab>("progress");
@@ -311,6 +311,16 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   const showLiveOperations = isLiveOperationalProject(project, currentYm);
   const showAmdScore = (project.projectCategory || "dtsu") !== "ecosystem";
   const hasScoreDetailTab = project.projectId !== "p00" && showAmdScore;
+
+  // タブ構成はここが正本。列数は tabs.length から出すので、追加時に grid の計算を直す必要はない。
+  const tabs: { key: CockpitTab; label: string }[] = [
+    { key: "progress", label: "進捗管理" },
+    ...(hasScoreDetailTab ? [{ key: "score-detail" as const, label: "スコア詳細" }] : []),
+    ...(hasBusinessPlanTab ? [{ key: "business-plan" as const, label: "事業計画" }] : []),
+    ...(hasKuteRegulationsTab ? [{ key: "regulations" as const, label: "規程・内規" }] : []),
+    { key: "documents", label: "資料室" },
+    { key: "company", label: "会社概要" },
+  ];
 
   // [B2] MS設定バナー / 直接編集 ロジックを案Cの col1 内で使うため関数化。
   const renderMsSetupBanner = () => {
@@ -396,17 +406,11 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
 
       <div
         className="grid overflow-hidden rounded-xl border border-[#d6d6da] bg-[#f5f5f7]"
-        style={{ gridTemplateColumns: `repeat(${2 + Number(hasScoreDetailTab) + Number(hasBusinessPlanTab) + Number(hasKuteRegulationsTab)}, minmax(0, 1fr))` }}
+        style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
         role="tablist"
         aria-label="コックピット表示切り替え"
       >
-          {[
-            { key: "progress" as const, label: "進捗管理" },
-            ...(hasScoreDetailTab ? [{ key: "score-detail" as const, label: "スコア詳細" }] : []),
-            ...(hasBusinessPlanTab ? [{ key: "business-plan" as const, label: "事業計画" }] : []),
-            ...(hasKuteRegulationsTab ? [{ key: "regulations" as const, label: "規程・内規" }] : []),
-            { key: "company" as const, label: "会社概要" },
-          ].map((tab, index) => {
+          {tabs.map((tab, index) => {
             const selected = activeTab === tab.key;
             return (
               <button
@@ -415,7 +419,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
                 role="tab"
                 aria-selected={selected}
                 onClick={() => selectTab(tab.key)}
-                className={`relative min-h-11 w-full px-3 text-center text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 ${
+                className={`relative min-h-11 w-full px-1 text-center text-[12px] font-semibold sm:px-3 sm:text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 ${
                   index > 0 ? "border-l border-[#d6d6da]" : ""
                 } ${
                   selected
@@ -563,6 +567,19 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           className={activeTab === "regulations" ? "min-w-0" : "hidden"}
         >
           <CockpitKuteRegulations />
+        </section>
+      )}
+
+      {/* 資料室タブ。WorkspaceDocumentRoom は自前で fetch するので、開いた時だけマウントする。 */}
+      {activeTab === "documents" && (
+        <section role="tabpanel" aria-label="資料室" className="min-w-0">
+          <WorkspaceDocumentRoom
+            scopeKind="project"
+            scopeId={project.projectId}
+            scopeName={project.projectName}
+            scopeTrail={[project.projectName]}
+            presentation="modal"
+          />
         </section>
       )}
 
