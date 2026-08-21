@@ -129,13 +129,25 @@ export async function notifyApplicantOnReimbursementSubmitted(
     const target = await loadMemberTarget(db, applicantEmail);
     if (!target) return EMPTY_RESULT;
 
+    // 申請者本人が admin だと admin 宛て DM の宛先から外れるため、承認ボタンが誰にも届かなくなる。
+    // 本人向け DM にボタンを載せて、Slack だけで完結できるようにする。
+    const applicantIsAdmin = await isActiveAdmin(db, applicantEmail);
+
     const text = `立替申請を受け付けた: ${input.projectName} / ${fmtYen(input.amount)}`;
     const lines = [
       `*立替申請を受け付けたよ* — ${input.projectName}`,
       ...detailLines(input),
-      "承認されるまで、admin へは 24 時間ごとにリマインドが飛ぶ。",
+      applicantIsAdmin
+        ? "自分が admin なので、このカードのボタンでそのまま承認できる。"
+        : "承認されるまで、admin へは 24 時間ごとにリマインドが飛ぶ。",
     ];
-    return await dmMany(client, [target], text, lines);
+    return await dmMany(
+      client,
+      [target],
+      text,
+      lines,
+      applicantIsAdmin ? { ...input, status: input.status || "submitted" } : undefined
+    );
   } catch (e) {
     return { ...EMPTY_RESULT, error: e instanceof Error ? e.message : String(e) };
   }
@@ -225,14 +237,24 @@ export async function sendReimbursementApprovalReminders(db: Db, now = new Date(
       if (adminResult.error) result.errors.push(`${summary.reimbursementId} admin: ${adminResult.error}`);
 
       if (applicantTarget) {
+        // 申請者本人が admin のときは admin 宛てから外れているので、本人向けにボタンを載せる。
+        const applicantIsAdmin = admins.some((t) => t.slackId === applicantTarget.slackId);
         const applicantText = `立替がまだ承認されてない: ${summary.projectName} / ${fmtYen(summary.amount)}`;
         const applicantLines = [
           `*申請した立替がまだ承認されてないよ* — ${summary.projectName}`,
           `状態: ${statusLabel} / 申請から ${waitingDays} 日`,
           ...detailLines(summary),
-          "admin にもリマインドを送った。",
+          applicantIsAdmin
+            ? "自分が admin なので、このカードのボタンでそのまま承認できる。"
+            : "admin にもリマインドを送った。",
         ];
-        const applicantResult = await dmMany(client, [applicantTarget], applicantText, applicantLines);
+        const applicantResult = await dmMany(
+          client,
+          [applicantTarget],
+          applicantText,
+          applicantLines,
+          applicantIsAdmin ? summary : undefined
+        );
         result.applicantSent += applicantResult.sent;
         if (applicantResult.error) result.errors.push(`${summary.reimbursementId} applicant: ${applicantResult.error}`);
       }
@@ -330,6 +352,17 @@ async function loadAdminTargets(db: Db, excludeEmail: string | null): Promise<Sl
     .filter((m) => m.slack_id)
     .filter((m) => !excludeEmail || String(m.email ?? "").toLowerCase() !== excludeEmail)
     .map((m) => ({ slackId: String(m.slack_id), label: String(m.code_name || m.member_id) }));
+}
+
+/** active な admin かどうか。申請者本人にも承認ボタンを出すかの判定に使う。 */
+async function isActiveAdmin(db: Db, email: string): Promise<boolean> {
+  if (!email) return false;
+  const { data } = await db
+    .from("members")
+    .select("is_admin, status")
+    .eq("email", email)
+    .maybeSingle();
+  return Boolean(data?.is_admin) && String(data?.status ?? "") === "active";
 }
 
 async function loadMemberTarget(db: Db, email: string): Promise<SlackTarget | null> {
