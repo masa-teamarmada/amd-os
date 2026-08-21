@@ -426,3 +426,30 @@ automation作成後の最初の自然な平日09:00実行は未観測。2026-08-
 - `npm run test:critical-ui` → ok。deployは全件 `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash scripts/deploy.sh` 経由。
 - 本番確認: v3.87.4 `50f88448` / v3.87.5 `da23c76d` / v3.88.2 `32c09720` をいずれも `/api/build-info` の `git_sha` 一致で確認した。
 - ブラウザでの実操作確認は未実施（`未確認`）。
+
+## 2026-08-21 — 資料室のフォルダ内部化cascadeと、共有範囲の視認性（v3.88.3 / `dee0915f` `bb88f6fb` `adcba9d5`）
+
+SE(p10)でまさが `old` フォルダをAMD内部へ変えようとして「外部共有中の資料が入ってるため、先に中身の共有範囲を変えてね」で止まり、中身を1件ずつ手で変える必要があった。3点の依頼。
+
+### フォルダ内部化の確認＋一括cascade
+
+- 従来はPATCHが409で拒否するだけで、配下ごと変える経路が無かった（`workspace_move_document` RPCは単一行のみ更新）。
+- `workspaceDocumentFolderHasSharedDescendants`（真偽）→ `countWorkspaceDocumentSharedDescendants`（件数）へ拡張。409レスポンスに `code:"shared_descendants"` と `affected`（件数）を足した。
+- UIは409+`shared_descendants`を受けたらエラー表示にせず確認ダイアログを出し、承諾で同じPATCHを `cascadeVisibility:true` で再送する。文面は「このフォルダには外部共有の資料が N 件あります。フォルダをAMD内部にすると、中の資料もすべてAMD内部になり、社外のメンバーからは見えなくなります」。
+- 一括更新は専用RPC `workspace_set_folder_visibility_cascade`（migration 313）で1トランザクション。migration 217と同じ権限設計（REVOKE ALL → service_roleのみGRANT）。監査ログは `action:"organize_cascade"` ＋ `affected`。
+- **内部化専用**にした。`workspace_shared` への一括変更はAPIから呼ばず、RPC側でも `p_visibility <> 'amd_internal'` を例外で拒否する。誤って社外へ開く事故のほうが重いため。将来「一括で外部共有へ戻す」が要るなら、このガードを外す必要がある。
+- 外部アカウントは既存の `if (access.principal === "workspace_account") visibility = "workspace_shared";`（195行）で `amd_internal` に到達できないため、cascade分岐に入らない。この前提はコメントで明示した。
+- migration番号は指示の312が作業中に別セッション（`312_seed_screening_bands_p_ind_rationale.sql`）と衝突し、313へ採番し直した。
+
+### 共有範囲の視認性
+
+- バッジを独立カラムから資料名の直後へ移した。グリッドは4列→3列（`grid-cols-[minmax(0,1fr)_120px_360px]`）、バッジは `shrink-0`、名前側は `min-w-0 truncate` で、長い名前でもバッジが潰れない。
+- `workspace_shared` のアイコンをオレンジ `--room-orange: #b45309`（既存の「社外役員/顧問」バッジの系統）にした。folder/file/link全種別に適用し、種別ごとの固定色より優先する。
+- アイコン本体だけ色を変えても、周りの台座が `bg-slate-100` のままで区別が付かなかった（まさ指摘）。台座も `--room-orange-tile: #fdeedd` / `--room-navy-tile: #e2e8f0` で塗り分けた。台座は薄い色にとどめる（濃くすると一覧がうるさく、名前の可読性が落ちる）。
+
+### 検証
+
+- `npx tsc --noEmit` エラー0、`npm run build` 成功、`check_workspace_documents_contract.mjs` ok（旧関数名のアサーションを新関数名＋新挙動へ更新）。
+- DB層のcascadeは、p10配下に使い捨てUUIDでフォルダ＋子3件（active+shared / archived+shared / active+internal）を作って実行し、activeなsharedだけが変わること・archivedが対象外なこと・非folderと `workspace_shared` 指定が例外で弾かれることを確認。直後にHARD DELETEし残存0を確認した。**p10の既存資料には触れていない**。
+- 本番反映は `/api/build-info` の `git_sha` 一致で確認（`dee0915f` → `bb88f6fb` → `adcba9d5`）。
+- ログイン済みChromeでコックピット資料室を開き、`getComputedStyle` でアイコン `rgb(180,83,9)` / 台座 `rgb(253,238,221)`、AMD内部は `rgb(8,27,43)` / `rgb(226,232,240)` を実測。**確認ダイアログの実クリック検証だけは未実施（`未確認`）** — 現状のp10は `old` も中身もAMD内部で、試すと状態が変わるため。
