@@ -114,6 +114,8 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 |---|---|---|
 | Gmail | message一覧の全page | message IDをdedupeし、thread IDはlineageに残す。thread単位の上位結果だけで終えない |
 | Drive | My Drive、共有Drive、共有された可視scopeのfile一覧 | folder ancestryと同一内容の複数locatorを残す。root検索だけにしない |
+
+PJごとのDrive探索は、資料保存先の`projects.drive_folder_id`に加え、追加の読み取り専用rootである`projects.drive_source_folder_ids[]`も読む。両方に同じrootがあればIDで一度だけ処理する。追加rootは会議資料や提出物の保存先には使わない。
 | Calendar | 可視calendarごとのevent instance一覧 | recurring seriesとinstanceを分け、各calendarのpageをEOFまで読む |
 | Slack | 可視shared/private channelのhistoryと各thread replies | shared/privateを別scopeにし、reply cursorもEOFまで読む。非認可privateはlimitationsへ出す |
 | Notion | 宣言root配下のchild page、child block、database item | 各branchを再帰し、各branchのcursorをEOFまで読む。任意link、relation、backlinkは無制限に追わない |
@@ -258,7 +260,7 @@ node --experimental-strip-types scripts/check_five_source_population_contract.mt
 - `title` が `+` / `＋` 始まり、全日予定、start datetime の無い予定は除外する。
 - PWA route は `project_id` が渡された場合は強制紐付け、無い場合は `projects.project_name` / `project_id` / `client_name` でPJ判定する。
 - `calendar-sync` は直近24時間以内に開始済みの予定も更新対象にする。これにより、会議開始後にDrive資料を見つけたケースでもカードを補強できる。
-- `projects.drive_folder_id` があるPJでは、root直下だけでなく、会議日 token (`YYMMDD` / `YYYYMMDD` / `YYYY-MM-DD`) と title token (`取締役会` / `board` / `キックオフ` / `MTG` 等) で1階層サブフォルダを探す。
+- `projects.drive_folder_id` と `projects.drive_source_folder_ids[]` の重複排除済みrootごとに、root直下だけでなく、会議日 token (`YYMMDD` / `YYYYMMDD` / `YYYY-MM-DD`) と title token (`取締役会` / `board` / `キックオフ` / `MTG` 等) で1階層サブフォルダを探す。追加rootは読み取りだけに使う。
 - Docs / Slides / Sheets / PDF / Office files を最大8件 `{title,url,mime_type,modified_time,snippet}` に正規化し、`drive_files` として `calendar-sync` に渡す。route自体はDriveを読みに行かない。
 - Drive資料は `narrative_md` の `関連Drive資料` と `summary_short` / `progress` / `risks` に反映するが、Drive資料だけで `decided` に「決定済み」とは書かない。
 

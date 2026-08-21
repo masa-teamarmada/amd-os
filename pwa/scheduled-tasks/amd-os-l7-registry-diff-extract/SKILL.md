@@ -34,7 +34,7 @@ SUPABASE_URL=$(grep '^NEXT_PUBLIC_SUPABASE_URL=' "$ENV" | cut -d= -f2-)
 SRK=$(grep '^SUPABASE_SERVICE_ROLE_KEY=' "$ENV" | cut -d= -f2-)
 ```
 
-- `projects?status=eq.active&select=project_id,project_name,slack_channel_id,drive_folder_id,report_emails`
+- `projects?status=eq.active&select=project_id,project_name,slack_channel_id,drive_folder_id,drive_source_folder_ids,report_emails`
 - ymList = [当月 (JST), 前月]
 - 1 回の実行で max 5 PJ × 1 ym = 5 targets まで
 
@@ -60,7 +60,7 @@ Phase A: 5 生データ収集 (= 各 PJ ごと)
 - **Slack** `mcp__833b660c-3bc6-43e7-923e-68e2bd3b6695__slack_read_channel` (= projects.slack_channel_id):
   - 当月内メッセージから PJ メンバー候補 (= AMD members で project_members 未登録のもの)
 - **Drive** `mcp__66e633f8-4f3e-495d-aa3c-4733ce09335f__search_files`:
-  - drive_folder_id 配下の更新ファイルから関係先 / 担当者抽出
+  - `drive_folder_id` と `drive_source_folder_ids[]` の重複排除済みroot配下の更新ファイルから関係先 / 担当者を抽出。追加rootは読み取りだけに使う
 
 ### A-3: alias map + members 全件取得
 - L5 と同様、`members?select=member_id,code_name,email,status` で alias map 構築

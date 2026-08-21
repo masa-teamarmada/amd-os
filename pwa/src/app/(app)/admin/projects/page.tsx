@@ -81,6 +81,7 @@ export default async function AdminProjectsPage() {
 	      slack_channel_id: p.slack_channel_id ?? null,
       slack_channel_not_required: !!p.slack_channel_not_required,
       drive_folder_id: p.drive_folder_id ?? null,
+      drive_source_folder_ids: Array.isArray(p.drive_source_folder_ids) ? p.drive_source_folder_ids : [],
       freee_partner_id: p.freee_partner_id ?? null,
       report_emails: p.report_emails ?? null,
       governance_watch_shareholder_meetings: !!p.governance_watch_shareholder_meetings,

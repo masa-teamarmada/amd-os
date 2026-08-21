@@ -40,7 +40,7 @@ SUPABASE_URL=$(grep '^NEXT_PUBLIC_SUPABASE_URL=' "$ENV" | cut -d= -f2-)
 SRK=$(grep '^SUPABASE_SERVICE_ROLE_KEY=' "$ENV" | cut -d= -f2-)
 ```
 
-- `projects?status=eq.active&select=project_id,project_name,slack_channel_id,drive_folder_id,report_emails,project_category`
+- `projects?status=eq.active&select=project_id,project_name,slack_channel_id,drive_folder_id,drive_source_folder_ids,report_emails,project_category`
 - 全 active PJ + 会社全体 p00 (= AMD 全体経営判断、別扱い)
 - ymList = [当月 (JST), 前月]
 - 1 回 max 5 PJ (= 残りは翌日)
@@ -68,7 +68,7 @@ Phase A: 5 生データ + OS snapshot 収集
 - routeが取れない場合は5生データのレビューを続け、p21だけ`workspace_context_unavailable`をrun summaryへ残す。内部値を推測で補わない。
 
 ### A-2: 5 生データ補強 (= 必要に応じて MCP 直叩き)
-- Gmail / Notion / Calendar / Slack / Drive で当月の関連 events / messages
+- Gmail / Notion / Calendar / Slack / Drive で当月の関連 events / messages。Driveは`drive_folder_id`と`drive_source_folder_ids[]`の重複排除済みrootを読む。追加rootは保存先へ使わない。
 
 ### A-3: 既存 signals (= 重複防止)
 - `project_strategy_signals?project_id=eq.<projectId>&ym=eq.<ym>&status=in.(candidate,confirmed)&select=signal_id,signal_type,title,source_hash`

@@ -32,7 +32,10 @@ export interface Project {
   client_name: string | null;
   status: ProjectStatus;
   slack_channel_id: string | null;
+  /** 資料保存先。生データ抽出rootとは分けて保持する。 */
   drive_folder_id: string | null;
+  /** 追加の読み取り専用Drive生データ抽出root。 */
+  drive_source_folder_ids: string[];
   freee_partner_id: string | null;
   start_ym: string | null;
   end_ym: string | null;

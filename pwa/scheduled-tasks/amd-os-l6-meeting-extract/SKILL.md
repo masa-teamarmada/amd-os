@@ -157,7 +157,7 @@ Phase A: Calendar events 取得 → filter → PJ 判定 (= GAS 153 移植)
      - **CFG_PJAlias**: `alias | pjCode | priority | matchType | note`
    - active PJ 一覧も fetch (pjCode→project_id 解決用):
      ```bash
-     curl -s "$SUPABASE_URL/rest/v1/projects?select=project_id,project_name,client_name,status,slack_channel_id,drive_folder_id,report_emails&status=in.(active,sales)" \
+     curl -s "$SUPABASE_URL/rest/v1/projects?select=project_id,project_name,client_name,status,slack_channel_id,drive_folder_id,drive_source_folder_ids,report_emails&status=in.(active,sales)" \
        -H "apikey: $SRK" -H "Authorization: Bearer $SRK"
      ```
 
@@ -210,7 +210,7 @@ Phase A: Calendar events 取得 → filter → PJ 判定 (= GAS 153 移植)
    - weekly recurring は `recurringEventId` / `recurring_event_id` が取れる場合はその series id、取れない場合は PJ + title + 曜日 + 開始時刻で series を推定する。
    - 6〜8日間隔で続く weekly series は **次回1件だけ** `calendar-sync` に渡す。複数の weekly がある場合は series ごとに1件ずつ残す。
 2. 各 event について、PJ が解決できる場合は **Drive 関連資料も先に探す** (= LLM 不要、準備カード用 metadata):
-   - `projects.drive_folder_id` があれば folder root を Drive MCP で list し、event 日付 token (`YYMMDD` / `YYYYMMDD` / `YYYY-MM-DD`) と title token (`取締役会` / `board` / `月次` / `報告会` / `キックオフ` / PJ名 / client_name) でサブフォルダを探す。
+   - `projects.drive_folder_id` と `projects.drive_source_folder_ids[]` をIDで重複排除した各rootをDrive MCPでlistし、event 日付 token (`YYMMDD` / `YYYYMMDD` / `YYYY-MM-DD`) と title token (`取締役会` / `board` / `月次` / `報告会` / `キックオフ` / PJ名 / client_name) でサブフォルダを探す。追加rootは読み取り専用で、会議資料保存先には使わない。
    - 日付フォルダが見つかったら、その直下の Docs / Slides / Sheets / PDF / Office files を最大 8 件採用。例: CLG `260527_取締役会` folder の招集通知 PDF・予算xlsx・報告xlsx。
    - 日付フォルダが無い場合だけ、folder root 直下と Drive search で title/date/PJ token を検索する。
    - 各 file は `{title,url,mime_type,modified_time,snippet}` に正規化する。本文 fetch は重ければ不要、snippet はタイトルだけでもよい。raw 本文全文は渡さない。
@@ -342,9 +342,9 @@ npm run h1:local-notion-fallback -- \
 
 ### B-4: Drive 関連資料取得 (= 会議資料・議事録・招集通知・予実表を拾う)
 
-22. PJ の `drive_folder_id` がある場合のみ実行。`drive_folder_id` が空の場合は、Drive を「生データなし」とは扱わず、run summary に `drive_folder_id missing` として残す。
+22. PJ の`drive_folder_id`と`drive_source_folder_ids[]`をIDで重複排除したrootが1件以上ある場合に実行。両方が空の場合は、Drive を「生データなし」とは扱わず、run summary に `drive roots missing` として残す。
 23. **候補 folder 探索**:
-    - Drive MCP `list_folder` で root folder (`https://drive.google.com/drive/folders/<drive_folder_id>`) を最大 50 件 list。
+    - 各rootを Drive MCP `list_folder` で最大50件listする。`drive_folder_id`は保存先でもあり、`drive_source_folder_ids[]`は抽出だけに使う。
     - event 日付 token を作る: `YYMMDD` (= 260527), `YYYYMMDD`, `YYYY-MM-DD`, `M月D日`。
     - title / PJ token を作る: event title から `CLG` / `チャレナジー` / `取締役会` / `board` / `月次` / `報告会` / `キックオフ` / `MTG` / `定例` / `議案` / `資料` などを抽出。
     - folder title が日付 token または title token を含む場合、まずその folder を候補にする。例: CLG root の `260527_取締役会`。
@@ -352,7 +352,7 @@ npm run h1:local-notion-fallback -- \
     - 必要なら 1 階層だけ再帰してよい。深掘りしすぎて無関係資料を混ぜない。
 24. **Drive search fallback** (= folder list だけで拾えない場合):
     - `query` は短く分割する。例: `CLG 取締役会`, `チャレナジー 取締役会`, `260527 取締役会`, `<project_name> <YYMMDD>`。
-    - `special_filter_query_str` が使える場合は `'<drive_folder_id>' in parents and mimeType != 'application/vnd.google-apps.folder'` を基本に、`modifiedTime` は **会議日前後だけに狭めすぎない**。招集通知や取締役会資料は 1 週間以上前に作成されることがある。
+    - `special_filter_query_str` が使える場合は各rootに対する `'<root_id>' in parents and mimeType != 'application/vnd.google-apps.folder'` を基本に、`modifiedTime` は **会議日前後だけに狭めすぎない**。招集通知や取締役会資料は 1 週間以上前に作成されることがある。
 25. **採用する file 種別**:
     - Google Docs / Slides / Sheets
     - PDF

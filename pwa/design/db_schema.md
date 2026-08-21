@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-20 13:23 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-21 12:00 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -118,7 +118,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 2,263
+行数 (概算): 2,287
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -1416,7 +1416,7 @@ UNIQUE: `(obligation_id,recipient_slack_id,schedule_key,stage)` (constraint: `co
 
 ## company_payment_obligations
 
-行数 (概算): 316
+行数 (概算): 317
 PRIMARY KEY: `id`
 UNIQUE: `(source_key)` (constraint: `company_payment_obligations_source_key_key`)
 
@@ -1518,7 +1518,7 @@ UNIQUE: `(occurrence_id,recipient_slack_id,schedule_key,stage)` (constraint: `co
 
 ## company_schedule_occurrences
 
-行数 (概算): 1,655
+行数 (概算): 1,687
 PRIMARY KEY: `occurrence_id`
 UNIQUE: `(occurrence_key,source_hash)` (constraint: `company_schedule_occurrences_source_uniq`)
 
@@ -1661,7 +1661,7 @@ UNIQUE: `(source_kind,source_table,source_id,signal_type)` (constraint: `contrac
 
 ## contract_terms
 
-行数 (概算): 52
+行数 (概算): 53
 PRIMARY KEY: `term_id`
 UNIQUE: `(source_kind,source_table,source_id,source_term_hash)` (constraint: `contract_terms_source_kind_source_table_source_id_source_te_key`)
 
@@ -4204,7 +4204,7 @@ UNIQUE: `(project_id,killer_factor_id)` (constraint: `project_killer_factor_stat
 
 ## project_knowledge
 
-行数 (概算): 2,743
+行数 (概算): 2,751
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -5672,6 +5672,7 @@ UNIQUE: `(project_id)` (constraint: `projects_project_id_key`)
 | 34 | `report_extra_allow_terms` | `_text` | NOT NULL | `ARRAY[]::text[]` |
 | 35 | `monthly_report_scope` | `text` | NOT NULL | `'none'::text` |
 | 36 | `slack_channel_not_required` | `bool` | NOT NULL | `false` |
+| 37 | `drive_source_folder_ids` | `_text` | NOT NULL | `ARRAY[]::text[]` |
 
 ## protocol_examples
 
@@ -5882,7 +5883,7 @@ PRIMARY KEY: `project_id`
 
 ## seed_screening_bands
 
-行数 (概算): 96
+行数 (概算): 118
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -6252,7 +6253,7 @@ UNIQUE: `(task_id)` (constraint: `tasks_task_id_key`)
 
 ## textbook_insight_candidates
 
-行数 (概算): 19
+行数 (概算): 29
 PRIMARY KEY: `candidate_id`
 
 | # | column | type | nullable | default |

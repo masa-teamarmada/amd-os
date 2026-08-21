@@ -54,6 +54,15 @@ L2 抽出は必ず次の 5 種類を対象にする。
 
 `source_cache` は旧 L1 正本ではなく、source refs / short snippet / hash の証跡キャッシュ。メール全文・議事録全文・Slack全文を L2 row に保存しない。
 
+### PJ別 Drive 抽出root
+
+`projects.drive_folder_id` は会議資料・提出物の**保存先**であり、既存の書込み経路の正本として維持する。Drive生データの抽出対象は、各PJで次をID単位に重複排除した集合とする。
+
+- `projects.drive_folder_id`（設定済みの場合）
+- `projects.drive_source_folder_ids[]`（追加の読み取り専用root）
+
+追加rootは保存先へ昇格させず、抽出時だけ読み取る。共有ドライブルートも登録できるが、他PJ資料の混入を避けるため、PJ関連性を本文・folder lineage・aliasで確認してから根拠化する。root未設定や列挙未完は「生データなし」ではなく、`limitations` に残す。
+
 ### 可視母集団の全列挙契約
 
 5生データ抽出は検索上位から始めず、`観測枠固定 -> page EOF全列挙 -> source固有ID重複排除 -> 12 PJ暫定routing -> 全unique item内容抽出 -> canonical event統合`の順で行う。

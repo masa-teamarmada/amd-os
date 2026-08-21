@@ -69,7 +69,7 @@ M-1 `monthly_reports` は、MS 進捗、PJ ナレッジ、XRL 根拠、月次FIX
 gap check で見る 5 生データ:
 
 - Gmail: report_emails / 関係先ドメイン / PJ 名 / PJ コード / 既知固有語 / Gemini notes
-- Drive: PJ folder、月次・議事録・提案・契約・実験・試算表・発表資料
+- Drive: `drive_folder_id`（保存先）と`drive_source_folder_ids[]`（追加の読み取り専用root）をIDで重複排除して読む。月次・議事録・提案・契約・実験・試算表・発表資料を確認し、追加rootを保存先には使わない。
 - Calendar: 対象月の MTG event、attendees、description、Notion/Drive URL
 - Slack: PJ channel、関連 thread、資料共有、進捗報告
 - Notion: 議事録 DB、PJ page、設計 docs、会議ページ

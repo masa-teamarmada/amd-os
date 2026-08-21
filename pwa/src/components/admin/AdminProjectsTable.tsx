@@ -25,7 +25,10 @@ export interface ProjectRow {
   slack_channel_id: string | null;
   /** trueならSlackを使わない意図的な未設定。 */
   slack_channel_not_required: boolean;
+  /** 資料保存先。抽出rootとは別管理する。 */
   drive_folder_id: string | null;
+  /** 追加の読み取り専用Drive生データ抽出root。 */
+  drive_source_folder_ids: string[];
   freee_partner_id: string | null;
   report_emails: string | null;
   governance_watch_shareholder_meetings: boolean;
@@ -299,6 +302,7 @@ type EditVals = {
   freee_partner_id: string;
   slack_channel_id: string;
   drive_folder_id: string;
+  drive_source_folder_ids: string;
   report_emails: string;
   start_ym: string;
   end_ym: string;
@@ -383,6 +387,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       freee_partner_id: p.freee_partner_id ?? "",
       slack_channel_id: p.slack_channel_id ?? "",
       drive_folder_id: p.drive_folder_id ?? "",
+      drive_source_folder_ids: (p.drive_source_folder_ids ?? []).join(", "),
       report_emails: p.report_emails ?? "",
       start_ym: p.start_ym ?? "",
       end_ym: p.end_ym ?? "",
@@ -554,6 +559,14 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       case "freee_partner_id": patch.freee_partner_id = (editVals.freee_partner_id as string) || null; break;
       case "slack_channel_id": patch.slack_channel_id = (editVals.slack_channel_id as string) || null; break;
       case "drive_folder_id": patch.drive_folder_id = (editVals.drive_folder_id as string) || null; break;
+      case "drive_source_folder_ids": {
+        const raw = (editVals.drive_source_folder_ids as string) || "";
+        patch.drive_source_folder_ids = raw
+          .split(/[\n,、]/)
+          .map((value) => value.trim())
+          .filter((value) => value.length > 0);
+        break;
+      }
       case "report_emails": patch.report_emails = (editVals.report_emails as string) || null; break;
       case "start_ym": patch.start_ym = (editVals.start_ym as string) || null; break;
       case "end_ym": patch.end_ym = (editVals.end_ym as string) || null; break;
@@ -722,7 +735,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
 
       {/* Table */}
       <div className="max-h-[calc(100vh-9rem)] overflow-auto border border-border rounded-lg">
-        <table className="text-[12px] border-collapse" style={{ minWidth: "2620px" }}>
+        <table className="text-[12px] border-collapse" style={{ minWidth: "2840px" }}>
           <thead className="sticky top-0 z-30">
             <tr className="bg-muted text-muted-foreground">
               <th className="text-left px-3 py-2 font-medium sticky left-0 z-40 bg-muted w-14">PJID</th>
@@ -752,7 +765,8 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium w-52">ニュースサーチクエリ</th>
               <th className="text-left px-3 py-2 font-medium w-36">freee取引先</th>
               <th className="text-left px-3 py-2 font-medium w-32">Slack CH</th>
-              <th className="text-left px-3 py-2 font-medium w-40">Drive Folder</th>
+              <th className="text-left px-3 py-2 font-medium w-40" title="会議資料・提出物の保存先。生データ抽出元とは別管理。">Drive保存先</th>
+              <th className="text-left px-3 py-2 font-medium w-52" title="追加の読み取り専用Drive生データ抽出root。カンマまたは改行で複数登録。">Drive生データ抽出元</th>
             </tr>
           </thead>
           <tbody>
@@ -1545,6 +1559,28 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                         {cellActions("drive_folder_id")}
                       </div>
                     ) : <span className="font-mono text-muted-foreground text-[11px] truncate block max-w-[150px]">{p.drive_folder_id || "—"}</span>}
+                  </td>
+
+                  {/* drive_source_folder_ids */}
+                  <td className={cellCls("drive_source_folder_ids")} onClick={enterCell("drive_source_folder_ids")}>
+                    {isEditingField(p, "drive_source_folder_ids") ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <textarea
+                          value={editVals.drive_source_folder_ids as string}
+                          autoFocus
+                          rows={3}
+                          placeholder="追加のDrive folder IDをカンマまたは改行で入力"
+                          onChange={(e) => setEditVals((v) => ({ ...v, drive_source_folder_ids: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Escape") cancelEdit(); }}
+                          className="border border-border rounded px-1.5 py-0.5 text-[12px] w-52 bg-background font-mono"
+                        />
+                        {cellActions("drive_source_folder_ids")}
+                      </div>
+                    ) : (
+                      <span className="font-mono text-muted-foreground text-[11px] whitespace-pre-wrap break-all block max-w-[220px]">
+                        {p.drive_source_folder_ids?.length ? p.drive_source_folder_ids.join("\n") : "—"}
+                      </span>
+                    )}
                   </td>
                 </tr>
               );

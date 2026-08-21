@@ -27,6 +27,18 @@ interface PatchBody {
   venturesPatch?: Record<string, unknown>;
 }
 
+function normalizeDriveSourceFolderIds(value: unknown, canonicalFolderId: string | null) {
+  if (!Array.isArray(value)) return { ok: false as const, error: "drive_source_folder_ids must be an array" };
+  if (value.length > 20) return { ok: false as const, error: "drive_source_folder_ids accepts at most 20 roots" };
+
+  const ids = Array.from(new Set(value.map((item) => typeof item === "string" ? item.trim() : "")))
+    .filter(Boolean);
+  if (ids.some((id) => id.length > 220 || !/^[A-Za-z0-9_-]+$/.test(id))) {
+    return { ok: false as const, error: "drive_source_folder_ids contains an invalid Drive ID" };
+  }
+  return { ok: true as const, ids: ids.filter((id) => id !== canonicalFolderId) };
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.errorResponse;
@@ -55,7 +67,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // projects.id → project_id 解決 (= venturesPatch を使う場合に必要)
   const { data: pRow, error: pSelErr } = await db
     .from("projects")
-    .select("project_id")
+    .select("project_id,drive_folder_id")
     .eq("id", id)
     .maybeSingle();
   if (pSelErr) {
@@ -64,14 +76,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!pRow) {
     return NextResponse.json({ ok: false, error: "project not found" }, { status: 404 });
   }
-  const projectId = (pRow as { project_id: string }).project_id;
+  const project = pRow as { project_id: string; drive_folder_id: string | null };
+  const projectId = project.project_id;
 
   const result: Record<string, unknown> = {};
 
   if (hasProjectsPatch) {
+    const projectsPatch = { ...body.projectsPatch };
+    if (Object.prototype.hasOwnProperty.call(projectsPatch, "drive_source_folder_ids")) {
+      const normalized = normalizeDriveSourceFolderIds(projectsPatch.drive_source_folder_ids, project.drive_folder_id);
+      if (!normalized.ok) return NextResponse.json({ ok: false, error: normalized.error }, { status: 400 });
+      projectsPatch.drive_source_folder_ids = normalized.ids;
+    }
     const { error } = await db
       .from("projects")
-      .update({ ...body.projectsPatch, updated_at: updatedAt })
+      .update({ ...projectsPatch, updated_at: updatedAt })
       .eq("id", id);
     if (error) {
       return NextResponse.json(
