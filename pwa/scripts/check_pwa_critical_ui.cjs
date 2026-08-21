@@ -2005,9 +2005,21 @@ expectIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   "実行可能性と経営判断",
   "条件判定月シミュレーション",
   "時期だけを変更・保存なし",
-  "Bzm22TimeLedger",
   "formatBzm22RegisteredValue",
   'data-testid="bzm22-registered-value"',
+]);
+// イベントと月次試算表 / 年度別の事業・資金推移は 2026-08-21 に事業計画タブへ移設した。
+expectIncludes("src/components/cockpit/Bzm22TimeLedgerSection.tsx", [
+  "Bzm22TimeLedger",
+  "loadBzm22Pilot",
+  'data-testid="bzm22-time-ledger-section"',
+]);
+expectIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
+  "Bzm22TimeLedgerSection",
+  "showTimeLedger",
+]);
+expectIncludes("src/components/cockpit/CockpitView.tsx", [
+  "showTimeLedger={hasScoreDetailTab}",
 ]);
 expectNotIncludes("src/components/cockpit/Bzm22ProvisionalObservatory.tsx", [
   "BZM 2.2 暫定主表示",

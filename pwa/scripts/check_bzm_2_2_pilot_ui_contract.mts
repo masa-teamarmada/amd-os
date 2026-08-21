@@ -32,6 +32,8 @@ const loaderPath = path.join(root, "src/lib/bzm-2-2-pilot-ui.server.ts");
 const componentPath = path.join(root, "src/components/cockpit/Bzm22ProvisionalObservatory.tsx");
 const displayValuePath = path.join(root, "src/lib/bzm-2-2-display-value.ts");
 const timeLedgerPath = path.join(root, "src/components/cockpit/Bzm22TimeLedger.tsx");
+const timeLedgerSectionPath = path.join(root, "src/components/cockpit/Bzm22TimeLedgerSection.tsx");
+const businessPlanPath = path.join(root, "src/components/cockpit/CockpitBusinessPlan.tsx");
 const sxMonthlyBackfillPath = path.join(root, "scripts/backfill_sx_phase_monthly_pl.mts");
 const scoreDetailPath = path.join(root, "src/components/cockpit/CockpitAmdScoreDetailTab.tsx");
 const cockpitSummaryPath = path.join(root, "src/components/cockpit/Bzm22CockpitSummary.tsx");
@@ -497,7 +499,6 @@ requireIncludes(componentSource, [
   "catalog.formulaConnection",
   "catalog.formulaRefs.map",
   "FormulaRelation",
-  "Bzm22TimeLedger",
   "評価日固定の方針比較",
   "元の前提に戻す",
   "この項目を表す記号",
@@ -529,6 +530,18 @@ requireIncludes(componentSource, [
   "条件判定月シミュレーション",
   "時期だけを変更・保存なし",
 ], "BZM 2.2 observatory UI");
+
+// 2026-08-21: 月次試算表と年度別推移はスコア詳細タブから事業計画タブへ移した。
+requireIncludes(requireText(timeLedgerSectionPath), [
+  "Bzm22TimeLedger",
+  "loadBzm22Pilot",
+  'data-testid="bzm22-time-ledger-section"',
+  "Bzm22PilotNotFoundError",
+], "BZM 2.2 time ledger section");
+requireIncludes(requireText(businessPlanPath), [
+  "Bzm22TimeLedgerSection",
+  "showTimeLedger",
+], "BZM 2.2 time ledger host = business plan tab");
 
 const timeLedgerSource = requireText(timeLedgerPath);
 requireIncludes(timeLedgerSource, [

@@ -28,12 +28,15 @@ import {
 } from "@/lib/sx-business-plan";
 import { downloadSxBusinessPlanPhaseMatrixXlsx } from "@/lib/sx-business-plan-xlsx";
 import CapitalPlanWorkspace from "./CapitalPlanWorkspace";
+import { Bzm22TimeLedgerSection } from "./Bzm22TimeLedgerSection";
 
 interface CockpitBusinessPlanProps {
   projectId: string;
   projectName: string;
   /** SX (p21) 固有のフェーズ表・年次試算表を出すか。他PJは資本政策プランだけを表示する。 */
   showSxDetail?: boolean;
+  /** BZM 2.2 pilot がある PJ で、イベントと月次試算表・年度別の事業・資金推移を出すか。 */
+  showTimeLedger?: boolean;
 }
 
 interface LaneMeta {
@@ -465,7 +468,7 @@ function AnnualProjectionTable() {
   );
 }
 
-export function CockpitBusinessPlan({ projectId, projectName, showSxDetail = false }: CockpitBusinessPlanProps) {
+export function CockpitBusinessPlan({ projectId, projectName, showSxDetail = false, showTimeLedger = false }: CockpitBusinessPlanProps) {
   const [companyData, setCompanyData] = useState<CompanyOverviewData>();
   const [companyDataError, setCompanyDataError] = useState("");
 
@@ -487,6 +490,10 @@ export function CockpitBusinessPlan({ projectId, projectName, showSxDetail = fal
     <div className="space-y-5">
       {showSxDetail && <PhaseMatrix projectName={projectName} />}
 
+      {showTimeLedger && <Bzm22TimeLedgerSection projectId={projectId} />}
+
+      {showSxDetail && <AnnualProjectionTable />}
+
       <div>
         <div className="mb-3 px-1">
           <h2 className="text-lg font-bold tracking-tight text-slate-950">株主構成・資本政策</h2>
@@ -498,8 +505,6 @@ export function CockpitBusinessPlan({ projectId, projectName, showSxDetail = fal
         )}
         <CapitalPlanWorkspace projectId={projectId} projectName={projectName} companyOverviewData={companyData} />
       </div>
-
-      {showSxDetail && <AnnualProjectionTable />}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { Tex } from "@/components/venture-map/Tex";
 import { Bzm22AcquisitionLedger } from "./Bzm22AcquisitionLedger";
-import { Bzm22TimeLedger } from "./Bzm22TimeLedger";
+import { getCachedBzm22Pilot, loadBzm22Pilot } from "./bzm-2-2-pilot-client";
 import {
   BZM22_FORMULA_SYMBOLS,
   BZM22_FIXED_POLICY,
@@ -12,7 +12,6 @@ import {
   buildBzm22FormulaTrace,
   calculateBzm22TimingOnlyJ,
   formatMillionJpy,
-  type Bzm22PilotApiPayload,
   type Bzm22PilotParameter,
   type Bzm22PilotParameterGroup,
   type Bzm22PilotProject,
@@ -33,7 +32,6 @@ type LoadState =
 type ParameterFilter = "all" | "formula" | "assumption";
 type ProjectValueContext = Pick<Bzm22PilotProject, "projectId" | "projectName">;
 
-const PILOT_CACHE = new Map<string, Bzm22PilotProject>();
 const UNCERTAIN_STATUS = /missing|estimated|partial|imputed|conditional|hearing|unknown|incomplete/i;
 
 const STATUS_META = [
@@ -486,21 +484,17 @@ function CalculationConditions({ pilot }: { pilot: Bzm22PilotProject }) {
 function PilotPanel({ pilot }: { pilot: Bzm22PilotProject }) {
   const [gateMonths, setGateMonths] = useState<Record<string, number>>(() =>
     Object.fromEntries(pilot.calculationTrace.inputs.gates.map((gate) => [gate.id, gate.month])));
-  return <section data-testid="bzm22-provisional-primary" data-density="compact-score" aria-labelledby="bzm22-title" className="min-w-0 overflow-hidden border border-[#7898a5] bg-[#f6f8f8]"><header className="border-b border-[#365865] bg-[#162f3a] px-3 py-2 text-white sm:px-4"><div className="flex items-end justify-between gap-2"><h2 id="bzm22-title" className="text-[15px] font-semibold">BZM 2.2</h2><div className="text-right text-[8px] text-slate-300">価値基準日 {formatDate(pilot.valuationDate)}</div></div></header><div className="grid gap-px border-b border-[#b9cbd1] bg-[#c9d5d9] sm:grid-cols-2 xl:grid-cols-4"><ScenarioMetric symbol="J" value={pilot.summary.jValueMillionJpy} kind="million" /><ScenarioMetric symbol="P" value={pilot.summary.conditionalSuccessValueMillionJpy} kind="million" /><ScenarioMetric symbol="Q" value={pilot.summary.qGateProductProxy} kind="probability" /><ScenarioMetric symbol="S" value={pilot.summary.qStressProxy} kind="probability" /></div><CalculationConditions pilot={pilot} /><CalculationTrace pilot={pilot} /><BrowserSimulator pilot={pilot} gateMonths={gateMonths} setGateMonths={setGateMonths} /><Bzm22TimeLedger pilot={pilot} gateMonths={gateMonths} /><Bzm22AcquisitionLedger projectId={pilot.projectId} /><ParameterLedger groups={pilot.groups} project={pilot} /></section>;
+  return <section data-testid="bzm22-provisional-primary" data-density="compact-score" aria-labelledby="bzm22-title" className="min-w-0 overflow-hidden border border-[#7898a5] bg-[#f6f8f8]"><header className="border-b border-[#365865] bg-[#162f3a] px-3 py-2 text-white sm:px-4"><div className="flex items-end justify-between gap-2"><h2 id="bzm22-title" className="text-[15px] font-semibold">BZM 2.2</h2><div className="text-right text-[8px] text-slate-300">価値基準日 {formatDate(pilot.valuationDate)}</div></div></header><div className="grid gap-px border-b border-[#b9cbd1] bg-[#c9d5d9] sm:grid-cols-2 xl:grid-cols-4"><ScenarioMetric symbol="J" value={pilot.summary.jValueMillionJpy} kind="million" /><ScenarioMetric symbol="P" value={pilot.summary.conditionalSuccessValueMillionJpy} kind="million" /><ScenarioMetric symbol="Q" value={pilot.summary.qGateProductProxy} kind="probability" /><ScenarioMetric symbol="S" value={pilot.summary.qStressProxy} kind="probability" /></div><CalculationConditions pilot={pilot} /><CalculationTrace pilot={pilot} /><BrowserSimulator pilot={pilot} gateMonths={gateMonths} setGateMonths={setGateMonths} /><Bzm22AcquisitionLedger projectId={pilot.projectId} /><ParameterLedger groups={pilot.groups} project={pilot} /></section>;
 }
 
 export function Bzm22ProvisionalObservatory({ projectId, active = true }: { projectId: string; active?: boolean }) {
-  const [state, setState] = useState<LoadState>(() => PILOT_CACHE.has(projectId) ? { status: "ready", projectId, pilot: PILOT_CACHE.get(projectId)! } : { status: "idle", projectId });
+  const [state, setState] = useState<LoadState>(() => { const cached = getCachedBzm22Pilot(projectId); return cached ? { status: "ready", projectId, pilot: cached } : { status: "idle", projectId }; });
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
-    const cached = PILOT_CACHE.get(projectId);
-    const request = cached ? Promise.resolve<Bzm22PilotApiPayload>({ pilot: cached }) : fetch(`/api/project/${encodeURIComponent(projectId)}/bzm-2-2-pilot`, { cache: "no-store" }).then(async (response) => {
-      const json = await response.json().catch(() => null) as Bzm22PilotApiPayload | { error?: string } | null;
-      if (!response.ok || !json || !("pilot" in json)) throw new Error(json && "error" in json && json.error ? json.error : "BZM 2.2の取得に失敗");
-      return json;
-    });
-    request.then((json) => { PILOT_CACHE.set(projectId, json.pilot); if (!cancelled) setState({ status: "ready", projectId, pilot: json.pilot }); }).catch((error) => { if (!cancelled) setState({ status: "error", projectId, error: error instanceof Error ? error.message : "BZM 2.2の取得に失敗" }); });
+    loadBzm22Pilot(projectId)
+      .then((pilot) => { if (!cancelled) setState({ status: "ready", projectId, pilot }); })
+      .catch((error) => { if (!cancelled) setState({ status: "error", projectId, error: error instanceof Error ? error.message : "BZM 2.2の取得に失敗" }); });
     return () => { cancelled = true; };
   }, [active, projectId]);
   if (state.projectId !== projectId) return <div data-testid="bzm22-provisional-primary" className="grid min-h-32 place-items-center border border-[#aac1ca] bg-[#f6f8f8] text-[11px] text-slate-500">BZM 2.2を切り替え中…</div>;

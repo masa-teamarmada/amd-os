@@ -61,7 +61,7 @@ CockpitHeader は `projects.contract_terms_json.currentContracts[]` を優先し
                                                 タブ再表示時に TTL 超過なら表示済み内容を保ったまま背景再取得する。
                                                 「事業計画」は全PJ常設 (2026-08-21 まさ依頼)。SX固有のフェーズ表・年次試算表だけを p21 で足す。
 
-                                                事業計画 (全PJ) = 100%株主構成 → 資本政策表。事業計画 (SX) = 4開発レーン×5フェーズ表 → 100%株主構成 → 資本政策表 → 年次試算表。共通の枠は直接的な表題・項目名だけで構成し、PJ固有の仮説はフェーズのセルと計画データに置く。フェーズ表の直下には、表示中の4レーン×全フェーズだけをブラウザ内で `.xlsx` 化する「Excel出力」を置く。出力は期間・フェーズ予算・調達ラウンド・資金源・到達XRL・固定費バーン上限と、各セルの費用・活動・出口条件・関連XRLを1枚の横長シートに出し、先頭2行と開発レーン列を固定する。保存API・DB更新は持たない。
+                                                事業計画 (全PJ) = 100%株主構成 → 資本政策表。BZM 2.2 pilot 対象PJはその前にイベントと月次試算表・年度別の事業・資金推移 (`Bzm22TimeLedgerSection`) を挟む。事業計画 (SX) = 4開発レーン×5フェーズ表 → 月次試算表・年度別推移 → 年次試算表 → 100%株主構成 → 資本政策表。共通の枠は直接的な表題・項目名だけで構成し、PJ固有の仮説はフェーズのセルと計画データに置く。フェーズ表の直下には、表示中の4レーン×全フェーズだけをブラウザ内で `.xlsx` 化する「Excel出力」を置く。出力は期間・フェーズ予算・調達ラウンド・資金源・到達XRL・固定費バーン上限と、各セルの費用・活動・出口条件・関連XRLを1枚の横長シートに出し、先頭2行と開発レーン列を固定する。保存API・DB更新は持たない。
                                                 CapitalPlanWorkspaceは全PJで会社概要から事業計画へ移す。会社概要側は確定済みの会社情報・株式イベント・年度決算だけを持つ。
                                                 2026-07-28: 投資判断面は白・slate・indigoの表現へ統一し、色は状態と株主識別に限定する。GRLはSIPのGovernance Readiness Level（制度・規制・標準・ガイドライン、1〜8）で、組織内の採用・役割・統制とはHRLとして分離する。CapitalPlanMatrixは横スクロールのみ、株主ごとのFD比率サマリーを初期表示し詳細4行を個別展開する。年次試算は百万円の詳細PL・設備投資・株式調達・助成金の会計/資金繰りを別行で示す。表の直下には初期閉じの「前提パラメータ」を置き、年度別の売上・原価・助成金・人員・人単価（役員/社員それぞれの報酬・旅費・消耗品費）・工場以外の設備投資・IPO以外の調達、4段階の自社工場投資、IPO年度・公募額を手動変更できる。変更はブラウザ内の年次試算にだけ反映し、保存済みの資本政策・会社情報は書き換えない。
 
@@ -197,7 +197,7 @@ MSは報酬配分の最小単位でもある。`milestone_responsibility.share` 
 | CockpitMembersModal              | 👥 メンバー                              | project_venture_members 編集 (member_kind: amd_internal / su_internal / support_org) |
 | CockpitFoundingMembersModal      | 🧑‍🤝‍🧑 関連メンバー                         | project_founding_members 表示。**関連メンバー (HRL評価のベース)** として運用。対象は `category in ('amd','startup','university')` (= AMD伴走 / 該当SU 社員・創業候補 / 大学キーパーソン)。VC / 顧客 / 行政 / 産業パートナーは HRL根拠外として `status='invalid'` 化する。AMDメンバーは `members.code_name` で記録 (フルネーム / 姓のみ表記は重複として invalid)。つくよみ修正依頼UIから追加・修正・invalid化を依頼できる。HRL 簡易推定 (ルールベース 0-9、`amd`+`startup`+`university` で算出) を末尾表示。詳細は [`xrl_evidence.md`](xrl_evidence.md) / [`../manual/4-4-frl-related-members-score-spec.md`](../manual/4-4-frl-related-members-score-spec.md) |
 | CockpitPartnersModal             | 🤝 事業会社                              | project_partners (collab / customer)                                 |
-| Bzm22TimeLedger                  | スコア詳細「イベントと月次試算」         | BZM 2.2の一本の月軸にイベントとproject_pl_monthly縦横表を揃え、直接入力する |
+| Bzm22TimeLedger                  | 事業計画「イベントと月次試算」(2026-08-21 スコア詳細から移設) | BZM 2.2の一本の月軸にイベントとproject_pl_monthly縦横表を揃え、直接入力する |
 | CockpitPlHearingModal            | イベントと月次試算内「つくよみと試算を作る」 | Sonnet が質問→回答→月次 PL 36ヶ月生成 → upsert                    |
 | CockpitDescriptionDetailModal    | short_description タップ                 | long_description 編集 + 自由文追記 + Sonnet マージ                   |
 | CockpitNarrativeModal            | 📜 沿革                                  | リスト形式 (年月+一行+詳細)、行 ✏ で修正依頼                          |

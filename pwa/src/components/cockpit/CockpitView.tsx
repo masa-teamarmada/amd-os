@@ -553,7 +553,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       {/* 事業計画タブ。CapitalPlanWorkspace が自前で fetch するので、開いた時だけマウントする。 */}
       {activeTab === "business-plan" && (
         <section role="tabpanel" aria-label="事業計画" className="min-w-0">
-          <CockpitBusinessPlan projectId={project.projectId} projectName={project.projectName} showSxDetail={hasSxBusinessPlanDetail} />
+          <CockpitBusinessPlan projectId={project.projectId} projectName={project.projectName} showSxDetail={hasSxBusinessPlanDetail} showTimeLedger={hasScoreDetailTab} />
         </section>
       )}
 
