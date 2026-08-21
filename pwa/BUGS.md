@@ -25,6 +25,16 @@
 
 ---
 
+### [workspace-documents/PDF] 資料HTMLの`@page`指定でPDFが縮小され左右に巨大な余白が出た (2026-08-21)
+
+- **状態**: クローズ (2026-08-21 — build `v3.85.2`)
+- **症状**: 資料室のHTMLをPDF化すると、本文が紙の中央で細い帯（紙幅の約11%）になり、左右へ極端な余白が出た。SE技術研究組合の設計書HTMLで発生し、出力は1ページだけだった。
+- **原因**: 資料HTML側に「全体を1枚の連続ページにする」意図の `@page { size: 1200px 15900px; margin: 0 }` があり、Chromeは高さ15900pxの論理ページを1枚組んでから、rendererが指定した用紙へ丸ごと縮小した（1123/15900≒0.071倍）。`preferCSSPageSize: false` は用紙寸法の採用を止めるだけで、この縮小は止まらない。副次要因として `page.emulateMediaType("screen")` により資料の `@media print { main { margin-left: 0 } }` が効かず、固定ナビ用の292pxの溝が残って高さ計測とcollapse判定も歪めていた。
+- **対応内容**: `PDF_LAYOUT_NORMALIZE_CSS` に `@page { size: auto; margin: 0 }` を追加して用紙寸法をrenderer側へ一本化し、既存のナビ非表示・`.layout`正規化もここへ集約した。`resetSidebarGutters()` で120px以上の左右margin/paddingを0にし、幅計測の**前**と最終幅確定後の2回適用する。同資料はA4 17ページで正常組版。回帰確認としてKUTE（960幅7p→A4 11p、3列グリッド維持）、CryoX（5p→4p）、BZSF（5p→5p）、SX SIER NewCo（978幅6p→960幅6p、横組み維持）を目視した。
+- **再発防止策**: PDF変換では、資料HTMLが持つ `@page` / `zoom` / `transform: scale()` など**紙面そのものを動かす指定**を、レイアウト正規化CSSで必ず打ち消す。レイアウト正規化は幅計測より前に適用する（計測後だと誤った紙面幅を選ぶ）。検証は生成PDFのページ数と`/MediaBox`を確認し、1ページに縮んでいないかを機械的に見る。
+
+---
+
 ### [workspace-documents/PDF] HTML資料のPDFでナビ跡の空列と改ページ直後の余白欠落が出た (2026-08-19)
 
 - **状態**: クローズ (2026-08-19 — build `v3.83.5` / commit `2b391f4f`)

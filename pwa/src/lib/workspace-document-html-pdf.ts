@@ -23,6 +23,50 @@ const DESKTOP_PROBE_WIDTH_PX = 1280;
 const MAX_CONTENT_WIDTH_PX = 1800;
 const COLLAPSE_HEIGHT_RATIO_THRESHOLD = 1.4;
 const PDF_PAGE_MARGIN = "0.35in";
+/** 固定サイドナビを消したあとに残る「空の溝」とみなす、要素の左右余白の下限。 */
+const SIDEBAR_GUTTER_MIN_PX = 120;
+
+/**
+ * PDF組版の前に、資料側のレイアウト前提を打ち消すCSS。
+ *
+ * `@page` の上書きが要点。資料HTMLが `@page { size: 1200px 15900px }` のような
+ * 巨大な独自ページを宣言していると、Chromeはその論理ページを丸ごとPDFの用紙へ
+ * 縮小して収める。結果、本文が中央の細い帯になり左右へ極端な余白が出る
+ * (2026-08-21 SE技術研究組合 設計書で発生)。用紙寸法は常に本renderer側が決める。
+ */
+const PDF_LAYOUT_NORMALIZE_CSS = `
+  @page { size: auto; margin: 0; }
+  /* 元資料のサイドナビはPDFに不要。nav本体だけでなく、その親gridの列も消す。 */
+  .side, .sidebar, aside, nav, [role="navigation"] {
+    display: none !important;
+  }
+  .layout {
+    display: block !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .layout > :not(.side) {
+    min-width: 0 !important;
+  }
+`;
+
+/**
+ * 固定サイドナビ用に空けられた左右の溝を詰める。
+ * `main { margin-left: 292px }` のような指定は、ナビを消しても残って本文を片寄せし、
+ * 画面幅の判定も歪めるため、PDFでは0にする。
+ */
+function resetSidebarGutters(gutterMinPx: number) {
+  const targets = new Set<HTMLElement>();
+  for (const element of document.querySelectorAll<HTMLElement>("body, body > *, main, .main, .content")) {
+    targets.add(element);
+  }
+  for (const element of targets) {
+    if (getComputedStyle(element).display === "none") continue;
+    const style = getComputedStyle(element);
+    for (const side of ["marginLeft", "marginRight", "paddingLeft", "paddingRight"] as const) {
+      if (Number.parseFloat(style[side]) >= gutterMinPx) element.style[side] = "0px";
+    }
+  }
+}
 
 /** A4幅で横組みが縦積みに崩れた資料だけ、元のデスクトップ幅を使う。 */
 export function choosePdfContentWidthPx(params: {
@@ -120,6 +164,8 @@ export async function renderWorkspaceDocumentHtmlToPdf(
       await document.fonts.ready;
     });
     await page.emulateMediaType("screen");
+    await page.addStyleTag({ content: PDF_LAYOUT_NORMALIZE_CSS });
+    await page.evaluate(resetSidebarGutters, SIDEBAR_GUTTER_MIN_PX);
     const desktopMetrics = await page.evaluate(() => ({
       scrollWidth: Math.ceil(Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0)),
       scrollHeight: Math.ceil(Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0)),
@@ -140,19 +186,10 @@ export async function renderWorkspaceDocumentHtmlToPdf(
     const pdfHeightPx = pdfHeightPxForWidth(pdfWidthPx);
 
     await page.setViewport({ width: pdfWidthPx, height: 1600, deviceScaleFactor: 1 });
+    // 幅を変えるとメディアクエリで溝が復活し得るので、最終幅でもう一度詰める。
+    await page.evaluate(resetSidebarGutters, SIDEBAR_GUTTER_MIN_PX);
     await page.addStyleTag({
       content: `
-        /* 元資料のサイドナビはPDFに不要。nav本体だけでなく、その親gridの列も消す。 */
-        .side, .sidebar, aside, nav, [role="navigation"] {
-          display: none !important;
-        }
-        .layout {
-          display: block !important;
-          grid-template-columns: minmax(0, 1fr) !important;
-        }
-        .layout > :not(.side) {
-          min-width: 0 !important;
-        }
         h1, h2, h3, h4, h5, h6 {
           break-after: avoid-page !important;
           page-break-after: avoid !important;
