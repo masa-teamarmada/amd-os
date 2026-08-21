@@ -157,6 +157,15 @@ for (const marker of ["STYLE_ID", "data-amd-agent", "SELECTED_ATTR", "SLIDE_ATTR
   assert.ok(serializeBody.includes(marker), `保存用HTMLから ${marker} を落としていない`);
 }
 
+// 文字を打ったら右のパネルへ選択情報を送り直す。dirty だけ送ると、
+// パネルに出ている要素の文言や大きさが打つ前のまま固まる (2026-08-22 修正)。
+assert.match(agentBody, /document\.addEventListener\("input", markTyping, true\)/);
+assert.match(
+  agentBody,
+  /function markTyping\(\)[\s\S]{0,320}?publishSelection\(\)/,
+  "入力後に選択情報を送り直していない",
+);
+
 // 全メッセージに token を載せる経路が1本しかない。
 assert.equal(agentBody.split("parent.postMessage").length - 1, 1, "postMessage の呼び口を増やさない");
 assert.match(agentBody, /payload\.amd = TOKEN;/);

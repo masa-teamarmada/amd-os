@@ -194,6 +194,23 @@ function agent(config: WorkspaceDocumentEditAgentConfig) {
   }
 
   /**
+   * 文字を打っている最中の後始末。
+   *
+   * dirty だけ送ると、右のパネルに出ている要素の文言や大きさが打つ前のまま固まる。
+   * かといって打鍵ごとに選択情報を送ると、変換中の1文字ごとに親との往復が増える。
+   * 手が止まってから1回だけ送り直す。
+   */
+  var typingTimer = 0;
+  function markTyping() {
+    markDirty();
+    if (typingTimer) window.clearTimeout(typingTimer);
+    typingTimer = window.setTimeout(function () {
+      typingTimer = 0;
+      publishSelection();
+    }, 150);
+  }
+
+  /**
    * 書式を当てる。
    *
    * 文字の一部を選んでいるならその範囲だけ、選んでいないなら要素まるごと。
@@ -327,7 +344,7 @@ function agent(config: WorkspaceDocumentEditAgentConfig) {
     true,
   );
 
-  document.addEventListener("input", markDirty, true);
+  document.addEventListener("input", markTyping, true);
 
   // 資料のリンクでフレームごと別ページへ飛ばれると、編集内容が消える。
   document.addEventListener(
