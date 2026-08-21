@@ -1944,7 +1944,11 @@ expectIncludes("src/components/formula/FormulaPanelKit.tsx", [
   "export function ParamRow",
   "export function Citation",
 ]);
-// PJコックピット「スコア詳細」タブ / retrofit ページの数式パネルも同じキットに載せる。
+// AmdScoreFormulaPanel は 2026-08-21 時点で route から到達不能 (import 元の AmdScoreView /
+// AmdScoreRetrofit がどこからも import されておらず、/venture-map/amd-score/retrofit と
+// /hud/venture-map/amd-score/retrofit は redirect のみ)。復活時にデザインが再分岐しないようキットに載せたまま固定する。
+// 生きている PJコックピット「スコア詳細」タブは CockpitAmdScoreDetailTab → CurrentSpsAssessmentCard /
+// Bzm22ProvisionalObservatory で、台帳向けの密度重視レイアウト。HUD 数式パネルキットの適用対象ではない。
 expectIncludes("src/components/venture-map/AmdScoreFormulaPanel.tsx", [
   "@/components/formula/FormulaPanelKit",
   "FormulaPanelShell",

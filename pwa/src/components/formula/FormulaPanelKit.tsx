@@ -8,8 +8,12 @@
  * 刻み直さない (2026-08-21 まさ指摘: シーズモーダルだけ寸法が縮んでいた)。
  *
  * 現在の利用者:
- * - PJ コックピット「スコア詳細」タブ / retrofit ページ … AmdScoreFormulaPanel
- * - /seeds シーズ詳細モーダル「一次選別スクリーニング帯」 … SpsFormulaPanel
+ * - /seeds シーズ詳細モーダル「一次選別スクリーニング帯」 … SpsFormulaPanel (唯一の live 利用者)
+ * - AmdScoreFormulaPanel … 2026-08-21 時点で route から到達不能 (AmdScoreView / AmdScoreRetrofit が
+ *   どこからも import されていない)。復活時に寸法が再分岐しないようキットへ載せてある。
+ *
+ * 適用対象外: PJ コックピット「スコア詳細」タブ (CockpitAmdScoreDetailTab → CurrentSpsAssessmentCard /
+ * Bzm22ProvisionalObservatory)。あちらは台帳向けの密度重視レイアウトで、HUD パネルとは役目が違う。
  *
  * 正本: pwa/design/cyber_hud_design_code.md (HUD フレームの主形状は SVG で作る)
  */

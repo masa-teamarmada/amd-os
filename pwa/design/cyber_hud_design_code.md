@@ -125,10 +125,14 @@ HUDパネルは `three.js` のmesh/lineを正本にする。
 - 外枠・HUDフレーム(SVG)・背景ドット・グリッド・KaTeX発光は `FormulaPanelShell` が持つ。呼び出し側は `title` / `lead` / `badge` / 中身だけ渡す。
 - 呼び出し側で `px-` / `py-` / `text-[Npx]` / 背景gradientを上書きしない。狭い場所に置くからという理由で縮めない (モーダルは `max-w-[1200px]` あり、コックピットのタブより狭くない)。
 - 新しい行の型が要るなら、その画面にローカル定義せず**キット側へ足す**。
-- 現在の利用者: PJコックピット「スコア詳細」タブ / `/venture-map/amd-score/retrofit` (`AmdScoreFormulaPanel`)、`/seeds` シーズ詳細モーダル (`SpsFormulaPanel`)。
+- 現在の live 利用者は `/seeds` シーズ詳細モーダル (`SpsFormulaPanel`) だけ。`AmdScoreFormulaPanel` もキットに載せてあるが、2026-08-21 時点で route から到達不能 (`AmdScoreView` / `AmdScoreRetrofit` がどこからも import されておらず、`/venture-map/amd-score/retrofit` と `/hud/venture-map/amd-score/retrofit` は redirect のみ)。復活時に寸法が再分岐しないよう、キットに載せたまま critical UI anchor で固定する。
+- **適用対象外**: PJコックピット「スコア詳細」タブ (`CockpitAmdScoreDetailTab` → `CurrentSpsAssessmentCard` / `Bzm22ProvisionalObservatory`)。あちらは `text-[9px]` 級の台帳向け密度重視レイアウトで、HUD 数式パネルとは役目が違う。密度側を HUD 寸法へ引き上げると1画面に載る根拠量が落ちる。
 
 事故 (2026-08-21): `SpsFormulaPanel` を `AmdScoreFormulaPanel` から書き写して作った際、HUDのSVGコーナーフレームを省き、padding / 見出し / KaTeX / ラベル幅を一段ずつ縮小した。
 まさが本番画面で「なんでここだけデザインコード変えたの?」と即座に指摘。SVG省略はこのファイルの Graphic fidelity rule 違反でもあった。共通キット化で再発を止めた。
+
+事故の後日訂正 (2026-08-21 同日): 「コックピットのスコア詳細タブと寸法を揃えた」と説明したが、比較対象にした `AmdScoreFormulaPanel` は既に route から到達不能だった。
+揃えるべき根拠は「今どこかの画面で見えている寸法」ではなく、このファイル (HUD デザインコード正本) 側にある。生きている画面と突き合わせただけで正本を読まないと、退役済みの見た目を新しい正解として固定してしまう。
 
 ## Design Signature
 
