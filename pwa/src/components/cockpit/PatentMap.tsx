@@ -130,11 +130,11 @@ function Scatter({
   onHover: (a: IpAsset | null) => void;
   hover: IpAsset | null;
 }) {
-  const W = 720;
-  const padL = 112;
-  const padR = 16;
-  const padT = 14;
-  const padB = 42;
+  const W = 560;
+  const padL = 84;
+  const padR = 12;
+  const padT = 10;
+  const padB = 30;
 
   const years = assets.map(yearOf).filter((y): y is number => y != null);
   const minYear = years.length ? Math.min(...years) : new Date().getFullYear() - 5;
@@ -145,7 +145,7 @@ function Scatter({
   // timeline: X=出願年(数値)   / Y=技術区分(カテゴリ)
   const yCats = view === "breadth" ? [5, 4, 3, 2, 1].map(String) : domains;
   const xCats = view === "breadth" ? domains : null;
-  const rowH = view === "breadth" ? 42 : 34;
+  const rowH = view === "breadth" ? 26 : 22;
   const H = padT + padB + Math.max(1, yCats.length) * rowH;
 
   const plotW = W - padL - padR;
@@ -153,20 +153,20 @@ function Scatter({
     if (xCats) {
       const i = Math.max(0, xCats.indexOf(domainOf(a)));
       const band = plotW / xCats.length;
-      return padL + band * (i + 0.5) + ((idxInCell % 5) - 2) * 7;
+      return padL + band * (i + 0.5) + ((idxInCell % 5) - 2) * 5;
     }
     const y = yearOf(a);
     if (y == null) return padL + 10;
-    return padL + ((y - minYear) / yearSpan) * (plotW - 24) + 12 + ((idxInCell % 5) - 2) * 5;
+    return padL + ((y - minYear) / yearSpan) * (plotW - 20) + 10 + ((idxInCell % 5) - 2) * 4;
   };
   const yOf = (a: IpAsset, idxInCell: number) => {
     if (view === "breadth") {
       const b = a.claim_breadth ?? 3;
       const i = [5, 4, 3, 2, 1].indexOf(b);
-      return padT + rowH * ((i < 0 ? 2 : i) + 0.5) + (Math.floor(idxInCell / 5) % 3 - 1) * 8;
+      return padT + rowH * ((i < 0 ? 2 : i) + 0.5) + (Math.floor(idxInCell / 5) % 3 - 1) * 5;
     }
     const i = Math.max(0, domains.indexOf(domainOf(a)));
-    return padT + rowH * (i + 0.5) + (Math.floor(idxInCell / 5) % 3 - 1) * 7;
+    return padT + rowH * (i + 0.5) + (Math.floor(idxInCell / 5) % 3 - 1) * 4;
   };
 
   // 同じセルに落ちる点を数えてジッタさせる
@@ -183,16 +183,23 @@ function Scatter({
     : Array.from({ length: Math.min(yearSpan + 1, 12) }, (_, i) => {
         const step = yearSpan / Math.max(1, Math.min(yearSpan, 11));
         const y = Math.round(minYear + step * i);
-        return { label: String(y), x: padL + ((y - minYear) / yearSpan) * (plotW - 24) + 12 };
+        return { label: String(y), x: padL + ((y - minYear) / yearSpan) * (plotW - 20) + 10 };
       });
 
   return (
     <div className="relative overflow-x-auto">
-      <svg viewBox={`0 0 ${W} ${H}`} className="min-w-[560px] w-full" role="img" aria-label="特許マップ">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        width={W}
+        height={H}
+        className="h-auto max-w-full"
+        role="img"
+        aria-label="特許マップ"
+      >
         {yCats.map((c, i) => (
           <g key={`row-${c}`}>
             <line x1={padL} x2={W - padR} y1={padT + rowH * (i + 1)} y2={padT + rowH * (i + 1)} stroke="currentColor" className="text-border" strokeWidth={1} />
-            <text x={padL - 8} y={padT + rowH * (i + 0.5) + 4} textAnchor="end" className="fill-muted-foreground" fontSize={10}>
+            <text x={padL - 6} y={padT + rowH * (i + 0.5) + 3} textAnchor="end" className="fill-muted-foreground" fontSize={9}>
               {view === "breadth" ? `${c} ${["", "極狭", "狭い", "中", "広い", "極広"][Number(c)]}` : clip(c, 12)}
             </text>
           </g>
@@ -200,9 +207,9 @@ function Scatter({
         <line x1={padL} x2={W - padR} y1={padT} y2={padT} stroke="currentColor" className="text-border" />
         <line x1={padL} x2={padL} y1={padT} y2={padT + rowH * yCats.length} stroke="currentColor" className="text-border" />
         {xTicks.map((t) => (
-          <text key={`x-${t.label}-${t.x}`} x={t.x} y={padT + rowH * yCats.length + 16} textAnchor="middle" className="fill-muted-foreground" fontSize={10}>{t.label}</text>
+          <text key={`x-${t.label}-${t.x}`} x={t.x} y={padT + rowH * yCats.length + 13} textAnchor="middle" className="fill-muted-foreground" fontSize={9}>{t.label}</text>
         ))}
-        <text x={padL} y={H - 8} className="fill-muted-foreground" fontSize={10}>
+        <text x={padL} y={H - 6} className="fill-muted-foreground" fontSize={9}>
           {view === "breadth" ? "X: 技術区分 / Y: 権利範囲の広さ" : "X: 出願年 / Y: 技術区分"}
         </text>
 
@@ -211,11 +218,11 @@ function Scatter({
             key={a.ip_asset_id}
             cx={cx}
             cy={cy}
-            r={4 + (a.importance ?? 3) * 1.6}
+            r={2.5 + (a.importance ?? 3) * 0.9}
             fill={RELATION_META[a.relation].hex}
             fillOpacity={hover && hover.ip_asset_id !== a.ip_asset_id ? 0.25 : 0.72}
             stroke={RELATION_META[a.relation].hex}
-            strokeWidth={1.2}
+            strokeWidth={1}
             className="cursor-pointer"
             onMouseEnter={() => onHover(a)}
             onMouseLeave={() => onHover(null)}
@@ -249,26 +256,26 @@ function ApplicantMatrix({
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-[480px] w-full border-collapse text-[10px]">
+      <table className="w-auto border-collapse text-[10px]">
         <thead>
           <tr>
-            <th className="border border-border bg-muted/30 px-2 py-1 text-left font-medium">出願人 \ 技術区分</th>
+            <th className="border border-border bg-muted/30 px-1.5 py-0.5 text-left font-medium">出願人 \ 技術区分</th>
             {domains.map((d) => (
-              <th key={d} className="border border-border bg-muted/30 px-2 py-1 font-medium">{clip(d, 8)}</th>
+              <th key={d} className="border border-border bg-muted/30 px-1.5 py-0.5 font-medium">{clip(d, 8)}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {applicants.map((ap) => (
             <tr key={ap}>
-              <th className="border border-border bg-muted/10 px-2 py-1 text-left font-medium">{clip(ap, 14)}</th>
+              <th className="border border-border bg-muted/10 px-1.5 py-0.5 text-left font-medium">{clip(ap, 14)}</th>
               {domains.map((d) => {
                 const list = cell(ap, d);
                 const hex = list.length ? RELATION_META[list[0].relation].hex : null;
                 return (
                   <td
                     key={d}
-                    className={`border border-border px-2 py-1 text-center tabular-nums ${list.length ? "cursor-pointer" : "text-muted-foreground/40"}`}
+                    className={`border border-border px-1.5 py-0.5 text-center tabular-nums ${list.length ? "cursor-pointer" : "text-muted-foreground/40"}`}
                     style={hex ? { background: `${hex}${Math.round(24 + (list.length / max) * 96).toString(16).padStart(2, "0")}` } : undefined}
                     onClick={() => list.length && onSelect(list[0])}
                     title={list.map((a) => a.title).join(" / ")}
