@@ -89,3 +89,32 @@ RLS は3ポリシー規約どおり (`_member_read` = `amd_os_is_member()` / `_a
 | EPO OPS v3.2 同期 | 未接続。OAuth2 Consumer Key/Secret の登録が必要 (無料枠 ~4M req/月、書誌 + worldwide legal status + INPADOCファミリ) |
 | 期限通知 | 未接続。`project_ip_deadlines` を `app_notifications` / `proactive_todos` へ配線する |
 | `/admin/ip` の AMD 自社知財統合 | 未着手。`src/app/(app)/admin/ip/ip-report.ts` の静的レポートを p00 の資産として台帳へ載せる (まさ確定「載せる」) |
+
+## 6. 投入済みデータ (2026-08-21 時点)
+
+| PJ | 件数 | 出典 | 投入経路 |
+|---|---|---|---|
+| p10 (SE) | 資産13件 / 権利者5件 | Google Drive「SE_240521」特許棚卸しシート (2024年5月時点) | `scripts/seed_project_ip_p10_se.py` |
+
+SE の13件の内訳:
+
+| relation | 件数 | 中身 |
+|---|---|---|
+| own | 4 | Space Power Technologies 単独出願 (レクテナ装置2件が登録済、受電回路・レクテナアレイが係属) |
+| joint | 4 | 京都大学・菊池製作所・玉置電子工業・シーディーエヌ・拓和との共同出願 |
+| university | 1 | 京都大学「無線電力受電アダプタ」(2007-202305、満了) |
+| blocking | 1 | IHIエアロスペース「レクテナ及びこれを用いた受電システム」(特許5998501)。SEが非独占の実施許諾を締結済で、特許自体は年金不納により消滅 |
+| watch | 3 | IHIエアロスペースのレクテナ系 (放棄2件・拒絶1件) |
+
+投入時の判断:
+
+- **日付列 (`application_date` / `publication_date` / `registration_date` / `expiry_date`) は全件 NULL のまま**。棚卸しシートは番号だけを持ち、年しか導出できないため。日付を捏造せず、外部API同期 (§5) で埋める前提にした。
+- **`project_ip_deadlines` は0件**。同じ理由で審査請求期限 (出願から3年) の起算日が確定しないため。期限が近い可能性のある 2021-209635 / 2022-065070 は `note_md` に「審査請求期限（出願から3年）の現況を要確認」と明記した。
+- `external_url` は J-PlatPat の直リンクが棚卸しシートにあった特許7041859・特許7289437 の2件だけ。他は `externalSearchUrl()` の番号検索にフォールバックする。
+- `ip_asset_id` は `ipa_se_<出願番号の数字>`、`ip_right_id` は `ipr_se_<出願番号の数字>_<権利者略号>` の固定キー。シード再実行は upsert なので行が増えない。原本が更新されたらスクリプトを直して再実行する。
+
+```bash
+cd pwa && python3 -X utf8 scripts/seed_project_ip_p10_se.py
+```
+
+同じ棚卸しシートにある**周波数×電力の星取表 (24GHz/5.75GHz/2.45GHz/920MHz × 微小〜大電力)** と**競合28社リスト**は、この台帳のスキーマに乗らないため未投入。技術ポジションの正本をどこに置くかは別途決める。
