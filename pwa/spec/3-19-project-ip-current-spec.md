@@ -65,7 +65,8 @@ RLS は3ポリシー規約どおり (`_member_read` = `amd_os_is_member()` / `_a
 
 - 実体: [`src/components/cockpit/CockpitIpPortfolio.tsx`](../src/components/cockpit/CockpitIpPortfolio.tsx) / 特許マップは [`PatentMap.tsx`](../src/components/cockpit/PatentMap.tsx) / 型とラベルは [`src/lib/project-ip.ts`](../src/lib/project-ip.ts)
 - タブ配線: `CockpitView.tsx` の `CockpitTab` union と `tabs` 配列 (= 正本)、URL同期は `cockpit/page.tsx` の `NON_DEFAULT_TABS`。URLは `?tab=ip`
-- 構成: サマリ帯 (立場別件数 + admin の「＋追加」) → ⏰期限 → 🗺️特許マップ → 立場別リスト (自社・共同 / 大学 / 障害・ウォッチ) → 詳細モーダル
+- 構成: サマリ帯 (立場別件数 + admin の「＋追加」) → ⏰期限 → 🗺️特許マップ → 立場別テーブル (自社・共同 / 大学 / 障害・ウォッチ) → 詳細モーダル
+- 立場別テーブルの列は `立場 / 名称 / 技術区分 / 状態 / 出願番号 / 公開番号 / 登録番号 / 出願人 / 範囲 (claim_breadth) / 重要 (importance) / 注意 (脅威・期限)`。並びは 立場 → 重要度降順 → 出願番号降順。行クリックで詳細モーダル。狭い画面では表だけ横スクロールする (`min-w-[880px]` + `overflow-x-auto`)
 - 期限の色: 超過と30日以内は赤、90日以内は琥珀、それ以外は灰
 - 詳細モーダル: 全項目 + 期限 (adminは「完了にする」) + 権利者・ライセンス + 経緯 + 外部リンク。JPは J-PlatPat、他国は Espacenet を番号で検索 (`externalSearchUrl()`)
 - 編集フォームは `canEdit` の時だけ出る。一般メンバーは読み取りのみ
