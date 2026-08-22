@@ -9,8 +9,13 @@ import {
   normalizeDocumentFolderPath,
   normalizeDocumentName,
   normalizeDocumentVisibility,
+  WORKSPACE_DOCUMENT_ASSET_MAX_BYTES,
+  WORKSPACE_DOCUMENT_ASSET_MAX_EDGE_PX,
+  WORKSPACE_DOCUMENT_DECK_MODEL_MAX_BYTES,
+  WORKSPACE_DOCUMENT_DECK_SCHEMA_VERSION,
   WORKSPACE_DOCUMENT_HTML_EDITOR_MAX_BYTES,
   WORKSPACE_DOCUMENT_HTML_PDF_MAX_OUTPUT_BYTES,
+  workspaceDocumentAssetStoragePathFromBase,
   WORKSPACE_DOCUMENT_PDF_DOWNLOAD_URL_TTL_SECONDS,
   workspaceDocumentFinderCopyName,
   workspaceDocumentHtmlSourceByteLength,
@@ -125,6 +130,21 @@ assert.equal(
 assert.equal(
   workspaceDocumentPdfCacheStoragePath("project", "p21", documentId),
   `${workspaceDocumentStoragePath("project", "p21", documentId)}.pdf`,
+);
+
+// デッキ (spec/2-8 §3.3)。値そのものが仕様なので、変えるなら計画側の記述も一緒に直す。
+assert.equal(WORKSPACE_DOCUMENT_DECK_SCHEMA_VERSION, 1);
+assert.equal(WORKSPACE_DOCUMENT_DECK_MODEL_MAX_BYTES, 2 * 1024 * 1024);
+assert.equal(WORKSPACE_DOCUMENT_ASSET_MAX_BYTES, 10 * 1024 * 1024);
+assert.equal(WORKSPACE_DOCUMENT_ASSET_MAX_EDGE_PX, 1920);
+// 画像は資料の現物の隣へ置く。過去版 (.revN.html) と同じく、pathを見れば持ち主が分かる。
+assert.equal(
+  workspaceDocumentAssetStoragePathFromBase(
+    workspaceDocumentStoragePath("project", "p21", documentId),
+    "8e5c0a26-1111-4222-8333-444455556666",
+    "png",
+  ),
+  `project/p21/${documentId}.asset.8e5c0a26-1111-4222-8333-444455556666.png`,
 );
 
 console.log("workspace documents core: ok");

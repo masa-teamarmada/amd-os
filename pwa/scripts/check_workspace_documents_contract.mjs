@@ -15,6 +15,12 @@ const files = {
   htmlSource: new URL("../src/app/api/workspace-documents/[documentId]/source/route.ts", import.meta.url),
   htmlRevisionList: new URL("../src/app/api/workspace-documents/[documentId]/revisions/route.ts", import.meta.url),
   htmlRevisionItem: new URL("../src/app/api/workspace-documents/[documentId]/revisions/[revisionNo]/route.ts", import.meta.url),
+  deckGate: new URL("../src/lib/workspace-document-decks.ts", import.meta.url),
+  deck: new URL("../src/app/api/workspace-documents/[documentId]/deck/route.ts", import.meta.url),
+  deckPublish: new URL("../src/app/api/workspace-documents/[documentId]/deck/publish/route.ts", import.meta.url),
+  deckAssets: new URL("../src/app/api/workspace-documents/[documentId]/assets/route.ts", import.meta.url),
+  deckModel: new URL("../src/lib/workspace-deck-model.ts", import.meta.url),
+  deckRender: new URL("../src/lib/workspace-deck-render.ts", import.meta.url),
   pdf: new URL("../src/app/api/workspace-documents/[documentId]/pdf/route.ts", import.meta.url),
   htmlPdf: new URL("../src/lib/workspace-document-html-pdf.ts", import.meta.url),
   serializer: new URL("../src/lib/workspace-documents-server.ts", import.meta.url),
@@ -95,6 +101,50 @@ assert.match(source.htmlRevisionItem, /isWorkspaceDocumentSha256\(body\.expected
 assert.match(source.htmlRevisionItem, /replaceWorkspaceHtmlSource\(\{[\s\S]*?auditAction: "restore_revision"/, "版復元は新しい保存として現物を差し替える");
 assert.doesNotMatch(source.htmlRevisionItem, /\.delete\(\)|\.remove\(/, "版復元は既存の版を消さない");
 assert.doesNotMatch(source.htmlRevisionItem, /createSignedUrl|signedUrl/, "版の本文取得は署名URLを返さない");
+// デッキ (spec/2-8 Phase 2)。モデルが正本で、HTMLはそこからの生成物。
+// 認可・現物の差し替え・版の退避は、Phase 0/1 で作った1本の経路をそのまま通す。
+assert.match(source.deck, /loadEditableWorkspaceHtmlDocument\(documentId\)/, "デッキ取得・保存は本文編集と同じgateで認可する");
+assert.match(source.deck, /isSameOriginWorkspaceMutation\(request\)/, "デッキ保存は同一originからの操作だけ受け付ける");
+assert.match(source.deck, /normalizeWorkspaceDeck\(body\.deck/, "受け取ったモデルはserverで検査してから保存する");
+assert.match(source.deck, /isWorkspaceDocumentSha256\(body\.expectedSha256\)/, "デッキ保存も編集前の版のsha256を検査する");
+assert.doesNotMatch(source.deck, /createSignedUrl|signedUrl/, "デッキAPIは署名URLを返さない");
+assert.doesNotMatch(source.deck, /\.upload\(|\.from\("workspace_document_decks"\)/, "route直書きでモデルを書き込まない (共有経路を通す)");
+
+assert.match(source.deckPublish, /loadEditableWorkspaceHtmlDocument\(documentId\)/, "publishも同じgateで認可する");
+assert.match(source.deckPublish, /isSameOriginWorkspaceMutation\(request\)/, "publishは同一originからの操作だけ受け付ける");
+assert.match(source.deckPublish, /isWorkspaceDocumentSha256\(body\.expectedSha256\)/, "publishは公開するモデルの版を必須にする");
+assert.match(source.deckPublish, /deckRow\.model_sha256 !== body\.expectedSha256[\s\S]*?409/, "見ていたモデルと違うものを公開しない");
+assert.match(source.deckPublish, /publishWorkspaceDeck\(\{/, "publishは共有の生成・差し替え経路を通る");
+assert.doesNotMatch(source.deckPublish, /\.upload\(|createSignedUrl/, "publish routeはStorageを直接触らない");
+
+assert.match(source.deckGate, /replaceWorkspaceHtmlSource\(\{/, "publishの書き込みは既存の現物差し替え経路を通る");
+assert.match(source.deckGate, /auditAction: "replace_html"/, "publishもHTML差し替えとして監査に残す");
+assert.match(source.deckGate, /deck_action: "publish_deck"/, "何のための差し替えかをdetailへ残す");
+assert.match(source.deckGate, /current\.model_sha256 !== expectedSha256[\s\S]*?status: 409/, "モデルの競合は409で止める");
+assert.match(source.deckGate, /current\.model_sha256 === nextSha256[\s\S]*?unchanged: true/, "中身の変わらない保存で版を増やさない");
+assert.match(source.deckGate, /archiveDeckModelRevision\(db, \{/, "上書き前のモデルを版履歴へ退避する");
+assert.match(source.deckGate, /catch \(archiveError\)[\s\S]*?return \{ ok: false/, "旧版を退避できなければ上書きせず中断する");
+assert.match(source.deckGate, /published_sha256: deckRow\.model_sha256/, "公開済みの印は公開したモデルのshaで持つ");
+assert.match(source.deckGate, /probeWorkspaceDeckImage\(bytes\)/, "画像は名乗られたMIMEでなくバイト列で判定する");
+assert.match(source.deckGate, /workspaceDeckImageExceedsMaxEdge\(probe\)/, "長辺の上限を超える画像を受け付けない");
+assert.match(source.deckGate, /workspaceDeckAssetDataUri\(asset\.mime_type/, "publishの画像はdata URIで埋め込む");
+assert.doesNotMatch(source.deckGate, /createSignedUrl/, "publish出力に期限付きURLを混ぜない (外部参照ゼロ)");
+assert.match(source.deckGate, /missing\.length[\s\S]*?ok: false/, "参照している画像を読めないまま公開しない");
+assert.match(source.deckGate, /byteLength > WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES/, "プレビュー上限を超える公開HTMLを作らない");
+
+assert.match(source.deckAssets, /loadEditableWorkspaceHtmlDocument\(documentId\)/, "画像APIも同じgateで認可する");
+assert.match(source.deckAssets, /isSameOriginWorkspaceMutation\(request\)/, "画像追加は同一originからの操作だけ受け付ける");
+assert.match(source.deckAssets, /createWorkspaceDeckAsset\(\{/, "画像の登録は共有経路を通る");
+assert.match(source.deckAssets, /ASSET_PREVIEW_URL_TTL_SECONDS = 60/, "編集用プレビューURLは短命にする");
+assert.match(source.deckAssets, /publicWorkspaceDeckAsset\(/, "画像一覧はstorage実体のpathを外へ出さない");
+
+// モデルとレンダラは素のNodeから読める形を保つ (契約テストが振る舞いを検査するため)。
+assert.doesNotMatch(source.deckModel, /import "server-only"/, "モデルにserver-onlyを入れない");
+assert.doesNotMatch(source.deckRender, /import "server-only"/, "レンダラにserver-onlyを入れない");
+assert.doesNotMatch(source.deckRender, /className: "(?!deck)/, "デッキのclassはdeck接頭辞で閉じる (publish先にTailwindは無い)");
+assert.match(source.deckRender, /sanitizeWorkspaceDeckRawHtml\(block\.slots\.html\)/, "rawHtmlは描画時にもサニタイズする");
+assert.doesNotMatch(source.deckRender, /slide\.notes/, "発表者メモをpublish出力へ描かない");
+
 assert.match(source.pdf, /resolveDocumentRowAccess\(db, row\)/, "HTML PDF化も資料ごとの権限を再確認する");
 assert.match(source.pdf, /row\.visibility === "amd_internal" && !access\.canReadInternal/, "HTML PDF化も内部資料を404にする");
 assert.match(source.pdf, /row\.entry_kind !== "file" && row\.entry_kind !== "link"/, "HTML PDF化は保存fileとDrive linkの両方を扱う");

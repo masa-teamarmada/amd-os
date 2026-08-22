@@ -150,6 +150,8 @@
     "test:workspace-document-revisions": "node --experimental-strip-types scripts/check_workspace_document_revisions.mts",
     "test:workspace-document-html-editing": "node --experimental-strip-types scripts/check_workspace_document_html_editing.mts",
     "test:workspace-document-edit-frame": "node --experimental-strip-types scripts/check_workspace_document_edit_frame.mts",
+    "test:workspace-deck-model": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_workspace_deck_model.mts",
+    "test:workspace-deck-render": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_workspace_deck_render.mts",
     "test:workspace-fact-origin-contract": "node scripts/check_workspace_fact_and_origin_contract.mjs",
     "test:workspace-security-migration-contract": "node scripts/check_workspace_security_migration_contract.mjs",
     "test:surface-catalog-contract": "node scripts/check_surface_catalog_contract.mjs",
