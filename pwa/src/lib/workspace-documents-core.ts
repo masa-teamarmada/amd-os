@@ -16,6 +16,14 @@ export const WORKSPACE_DOCUMENT_REVISION_KEEP_COUNT = 50;
 export const WORKSPACE_DOCUMENT_REVISION_LIST_LIMIT = 100;
 export const WORKSPACE_DOCUMENT_REVISION_NOTE_MAX_LENGTH = 200;
 
+// デッキモデル (workspace_document_decks)。モデルJSONが正本で、HTML/PDFはそこからの生成物。
+export const WORKSPACE_DOCUMENT_DECK_SCHEMA_VERSION = 1;
+export const WORKSPACE_DOCUMENT_DECK_MODEL_MAX_BYTES = 2 * 1024 * 1024;
+// デッキが参照する画像 (workspace_document_assets)。
+// publish後のHTMLは5MB上限で、base64は約1.33倍に膨らむ。画像実バイトの合計は約3.5MBが天井。
+export const WORKSPACE_DOCUMENT_ASSET_MAX_BYTES = 10 * 1024 * 1024;
+export const WORKSPACE_DOCUMENT_ASSET_MAX_EDGE_PX = 1920;
+
 export type WorkspaceDocumentScopeKind = "institution" | "project";
 export type WorkspaceDocumentVisibility = "amd_internal" | "workspace_shared";
 export type WorkspaceDocumentEntryKind = "file" | "link" | "folder";
@@ -216,6 +224,24 @@ export function workspaceDocumentRevisionStoragePathFromBase(
   if (!Number.isInteger(revisionNo) || revisionNo < 1) throw new Error("invalid revision number");
   if (!basePath || basePath.includes("..")) throw new Error("invalid document storage path");
   return `${basePath}.rev${revisionNo}.html`;
+}
+
+/**
+ * デッキが参照する画像の置き場。版の退避と同じく現物のstorage_pathを基点にして、
+ * 資料の実体・過去版・アセットが同じprivate bucketの隣同士に並ぶようにする。
+ *
+ * asset_id はDBが払い出すuuidなので、このpathは一度書いたら別の画像で上書きされない。
+ * (`workspace_document_assets` の (storage_bucket, storage_path) unique制約と対で効く)
+ */
+export function workspaceDocumentAssetStoragePathFromBase(
+  basePath: string,
+  assetId: string,
+  extension: string,
+): string {
+  if (!basePath || basePath.includes("..")) throw new Error("invalid document storage path");
+  if (!/^[0-9a-f-]{36}$/i.test(assetId)) throw new Error("invalid asset identity");
+  if (!/^[a-z0-9]{1,8}$/.test(extension)) throw new Error("invalid asset extension");
+  return `${basePath}.asset.${assetId}.${extension}`;
 }
 
 export function normalizeWorkspaceDocumentRevisionNote(value: unknown): string | null {
