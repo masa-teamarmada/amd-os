@@ -208,3 +208,56 @@ node scripts/sps_batch/audit.mjs --seed <uuid>                      # seed_id �
   `a newer band was appended after this remediation candidate` で止まる。
   その場合は prepare からやり直す。
 - 残数は `status` の `defective` で見る。`remaining` は未評価（0 のまま）。
+
+### 是正ラウンドの回し方（実証済み）
+
+**1ラウンド = `prepare --remediate --limit 100` を親が1回だけ → 5エージェント × 20件。**
+
+`--limit` は 100 でクランプされるので 200 は取れない。そして
+**pending の除外は submit された後にしか効かない**ため、走っているエージェントが submit する前に
+もう一度 `prepare` を叩くと**まったく同じ100件が返る**。ラウンドを重ねる時は、
+全員の `applied ok=N ng=M` が揃ってから次の `prepare` を叩く。
+
+投入後は `node scripts/sps_batch/audit_remediation.mjs --since <ISO時刻>` で構造監査する。
+端点の再計算一致・11因子の順序と欠落・意味づけの充足と長さ・署名・意味づけ一行の使い回し・
+11因子が丸ごと一致する組・段階と帯の分布が出る。
+
+#### エージェントへ渡す文言（ひな型）
+
+担当範囲 `A:B` と作業ファイル名だけ差し替えて使う。
+
+```
+SPS初回評価の「意味づけ欠落」是正ラウンド。担当は prepared の index A:B（20件）。
+
+【cwd】/Users/masa/projects/AMD/amd-os（モノレポのルート）。pwa/ を cwd にしない。
+各コマンドは先頭で `cd /Users/masa/projects/AMD/amd-os/pwa` する。
+
+【最初に読む】
+1. pwa/scripts/sps_batch/README.md（末尾の「是正ラウンド」節が正本）
+2. pwa/scripts/sps_batch/sample_remediation.py（水準の見本。同じ粒度・同じ文体で書く）
+3. pwa/scripts/sps_batch/header.py（FN / ORDER / E / add / SIG の定義）
+
+【今回直すもの】既存 band は evidence は入っているが assessment（意味づけの一行）が全部空。
+同じ版タプルで新しい band を追記して差し替える。11因子すべてに空でない assessment を書く。
+
+【使うファイル】prepared（絶対に加工しない。読むだけ）/ 自分の gen / payload / submit 出力
+
+【手順】
+1. header.py をコピーし、末尾に是正用 SIG を書いて上書きし、その下に add(...) を20個書く。
+2. `python3 scripts/sps_batch/show.py <prepared> <index>` で1件ずつ読む。
+   同時に複数シーズを絶対に読まない。1件表示 → 1件 add() → 次の1件。
+3. `python3 scripts/sps_batch/check.py <gen> <prepared> A:B` が RESULT: OK になるまで直す。
+4. `cat <gen> scripts/sps_batch/tail.py > /tmp/fullN.py && python3 -X utf8 /tmp/fullN.py <prepared> <payload>`
+5. `node scripts/sps_initial_assessment_tool.mjs submit --file <payload> --prepared <prepared> > <submit出力> 2>&1`
+6. `sh scripts/sps_batch/apply.sh <submit出力> eimi-claude`
+
+【評価の規律】根拠のない値は null のまま。採択年度・金額・実施期間を推測で埋めない。
+P は億円単位の整数で pl/pu、q は % の小数で ql/qu。SPS は tail.py が計算する。
+assessment は短い断定の一行。evidence は事実、assessment はそこから何が言えるか。
+ev は ORDER の順で11個。日本語だけ。
+
+【規律】git 操作は一切しない。prepared は加工しない。RESULT: OK になるまで submit しない。
+診断用スクリプトを作ったら直後に消す。
+
+【返すもの】`applied ok=N ng=M` の1行と、NG があればその candidate_id だけ。評価本文は返さない。
+```
