@@ -13,22 +13,19 @@ import {
   sortBzmSlugs,
 } from "../bzm-chapters";
 import { isBzmChapterFile, normalizeBzmMarkdownSource } from "../bzm-data";
+import { bzmContentDir } from "@/lib/bzm-content-dir";
 
 /**
  * /bzm/[slug] — 教科書の各章
  *
- * pwa/bzm/{slug}.md を fs で読み、BzmMarkdown (= 数式対応 renderer) で描画。
+ * bzm/{slug}.md を fs で読み、BzmMarkdown (= 数式対応 renderer) で描画。
  * h1 に part-chapter 番号 (= "5-1" 等) を動的注入する。
  * md が存在しない slug (= 未着手章) は entry のメタ情報 (title/summary/status) を
  * 「執筆待機中」stub として表示する。
  */
 
-function bzmDir() {
-  return path.join(process.cwd(), "bzm");
-}
-
 export async function generateStaticParams() {
-  const dir = bzmDir();
+  const dir = bzmContentDir();
   const fileSlug = fs.existsSync(dir)
     ? fs.readdirSync(dir).filter(isBzmChapterFile).map((f) => f.replace(/\.md$/, ""))
     : [];
@@ -40,7 +37,7 @@ export async function generateStaticParams() {
 export default async function BzmChapterPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const decoded = decodeURIComponent(slug);
-  const filePath = path.join(bzmDir(), `${decoded}.md`);
+  const filePath = path.join(bzmContentDir(), `${decoded}.md`);
   const fileExists = fs.existsSync(filePath);
   const chapterEntry = getBzmChapter(decoded);
   const chapterStatus = getBzmChapterStatus(decoded);
@@ -75,16 +72,16 @@ export default async function BzmChapterPage({ params }: { params: Promise<{ slu
       "",
       "## 参照",
       "",
-      "- L1 (不変項): [`pwa/bzm/BOOK_MASTER_PLAN.md`](/bzm) — 中核命題 / Tier 階層分離 / 確定モデル / 章構成 / 書き順 / ケース割当て / 章間 dependency / page budget / publishing path",
-      "- L2 (判決台帳): `pwa/bzm/BOOK_DECISIONS.md` — D-001..D-055 active + R-1..R-5 + P-001..P-011 pending",
-      "- L3 (章単位): `pwa/bzm/CHAPTER_<n>_PROGRESS.md` (該当章の skeleton / 段落 outline / draft / 査読履歴)",
+      "- L1 (不変項): [`bzm/BOOK_MASTER_PLAN.md`](/bzm) — 中核命題 / Tier 階層分離 / 確定モデル / 章構成 / 書き順 / ケース割当て / 章間 dependency / page budget / publishing path",
+      "- L2 (判決台帳): `bzm/BOOK_DECISIONS.md` — D-001..D-055 active + R-1..R-5 + P-001..P-011 pending",
+      "- L3 (章単位): `bzm/CHAPTER_<n>_PROGRESS.md` (該当章の skeleton / 段落 outline / draft / 査読履歴)",
       "",
     ].join("\n");
   }
 
   // すべての BZM_CHAPTERS slug から sort (= md なしの未着手 entry も nav に含める)
   const allEntrySlugs = BZM_CHAPTERS.map((c) => c.slug);
-  const fileSlugs = fs.readdirSync(bzmDir()).filter(isBzmChapterFile).map((f) => f.replace(/\.md$/, ""));
+  const fileSlugs = fs.readdirSync(bzmContentDir()).filter(isBzmChapterFile).map((f) => f.replace(/\.md$/, ""));
   const all = Array.from(new Set([...allEntrySlugs, ...fileSlugs]));
   const sorted = sortBzmSlugs(all);
   const idx = sorted.indexOf(decoded);

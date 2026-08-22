@@ -99,7 +99,7 @@ export const IPO_TARGET = 100_000;
 //   FRL + 1 = [ a·(F_char+1)^ρ + (1-a)·(F_cap+1)^ρ ]^(1/ρ)
 //   ρ→0   で Cobb-Douglas (代替的・甘い)
 //   ρ→-∞ で min (完全ゲート)
-// 正本: knowledge/before_zero_theory.md「FRL を F_char × F_cap に分離」/ pwa/bzm/4-1 §4.3
+// 正本: knowledge/before_zero_theory.md「FRL を F_char × F_cap に分離」/ bzm/4-1 §4.3
 
 /** CES 資質側重み a の既定値 (資質をやや重く)。 */
 export const FRL_CES_A_DEFAULT = 0.6;
@@ -349,7 +349,7 @@ export function normalizeAlpha(raw: unknown): AlphaWeights {
 // ============================================================
 // SPS = Seed Prospect Score (シーズ有望度) — M x P x R x S primary layer
 //
-// 呼称: 旧 PRS は 2026-07-11 まさ確定で廃止 (pwa/bzm/terminology_glossary.md §1.5)。
+// 呼称: 旧 PRS は 2026-07-11 まさ確定で廃止 (bzm/terminology_glossary.md §1.5)。
 // SPS は和名の略で成分頭字ではないため 4 因子化でも名称不変、MPRS 改称は不要。
 // このファイルの Prs* / PRS_* 識別子と DB 列 prs_* は glossary の張り替え規律
 // (「コード変数・DB 列は内部識別子として不変、表示テキストのみ改称」) で据え置き。

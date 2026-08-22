@@ -3,15 +3,15 @@
  *
  * 2026-06-13 全面改編 (まさ確定): 「章頭ストーリー型教科書」へ差し替え。
  *  - 章型 = 冒頭ストーリー → 解説 (数式・図を章内で出す) → 匿名化実例 → 章末の問い。
- *    詳細は `pwa/bzm/textbook/PUBLICATION_STRATEGY.md` §0。
- *  - 旧テキストブック (0-1〜9-4 の 24 章) は `pwa/bzm/legacy/` へ退避 (git 保全、表示はしない)。
+ *    詳細は `bzm/textbook/PUBLICATION_STRATEGY.md` §0。
+ *  - 旧テキストブック (0-1〜9-4 の 24 章) は `bzm/legacy/` へ退避 (git 保全、表示はしない)。
  *    旧ナラティブ版 public-manuscript は `/bzm/public` でそのまま閲覧できる。
  *  - **slug は stable id**。part-chapter 番号を含めない (再配置に耐えるため)。
  *    表示番号は `applyBzmBookNumbering()` が BZM_PARTS の順に振る。
  *  - 章 md を追加したら、このファイルの BZM_PARTS / BZM_CHAPTERS に同じ commit で登録する。
  *    未登録の md は左ナビに出ない (prev/next 末尾には出る)。
  *
- * 内容正本は `pwa/bzm/{slug}.md` (= git 管理)。理論正本は
+ * 内容正本は `bzm/{slug}.md` (= git 管理)。理論正本は
  * `BZSF/before_zero_theory.md` / `BZSF/SPS_STRATEGIC_SLACK_OVERVIEW_20260612.html`。
  */
 
@@ -92,7 +92,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
 
   // ============================================================
   // Book A 教科書『ディープテック起業の経営学』(仮題、PF-012 で 2026-07-03 起草開始)
-  // — 15章 = 数式全部入り (PF-001)。L1 = pwa/bzm/BOOK_A_MASTER_PLAN.md。
+  // — 15章 = 数式全部入り (PF-001)。L1 = bzm/BOOK_A_MASTER_PLAN.md。
   //   まさ指示 2026-07-03「Book A の最初の章から順に書いていく。OS の教科書ページから
   //   見れるようにして」により、起草中の主戦場として先頭配置 (モノグラフはその下)。
   //   2026-07-12: 新章「CEOという難問」(仮) 挿入で 15章→16章化 (TOC v2、PF-014 改定)。

@@ -2,7 +2,7 @@
 
 // SPS帯 (産業創出価値) の判断根拠を表示する共通UI。
 // シーズ詳細モーダル (/seeds) と PJコックピットのスコア詳細タブの両方から使う。
-// 判断記録の md (pwa/bzm/SPS_IND_RETROFIT_EXISTING_PJ_2026-08-17.md 等) と同じ根拠を
+// 判断記録の md (bzm/SPS_IND_RETROFIT_EXISTING_PJ_2026-08-17.md 等) と同じ根拠を
 // OS画面から読めるようにするのが目的。md だけに正本を置かない。
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";

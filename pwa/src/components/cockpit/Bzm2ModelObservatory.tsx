@@ -657,7 +657,7 @@ function ExtractionRuleLedger() {
         </div>
         <p className="mt-1.5 text-[8px] leading-3.5 text-[#756f65]">
           詳細正本:
-          pwa/bzm/BZM_2_0_PARAMETER_EXTRACTION_REGISTER.md。参照クラスも機械的規則も無い推測は、数字を発明せず欠測にする。
+          bzm/BZM_2_0_PARAMETER_EXTRACTION_REGISTER.md。参照クラスも機械的規則も無い推測は、数字を発明せず欠測にする。
         </p>
       </details>
     </section>

@@ -3,7 +3,7 @@
  * Local applier for D-7 Textbook Insights.
  *
  * This script is intentionally local-only: it reads approved candidates from
- * Supabase and appends them to git-managed pwa/bzm/*.md files. Vercel runtime
+ * Supabase and appends them to git-managed bzm/*.md files. Vercel runtime
  * never edits repository files or commits.
  */
 import fs from "node:fs";
@@ -19,7 +19,7 @@ loadEnv(path.join(process.cwd(), "pwa", ".env.local"));
 
 const SUPABASE_URL = requiredEnv("NEXT_PUBLIC_SUPABASE_URL");
 const SERVICE_KEY = requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
-const BZM_DIR = path.join(ROOT, "bzm");
+const BZM_DIR = path.join(ROOT, "..", "bzm"); // bzm はモノレポのルート直下 (pwa の外)
 const APPLIER = process.env.TEXTBOOK_INSIGHT_APPLIER || "local_textbook_applier";
 const VALID_CONFIDENTIALITY = new Set(["internal_only", "sanitized", "publishable"]);
 const VALID_BZM_REVIEW_STATUS = new Set(["not_required", "pending", "approved", "changes_requested", "rejected"]);
@@ -91,7 +91,7 @@ function slugToFile(slug) {
   }
   const file = path.join(BZM_DIR, `${clean}.md`);
   if (fs.existsSync(file)) return file;
-  // 2026-06-13 教科書差し替え: 旧章 (8-1〜8-5, 6-1 等) は pwa/bzm/legacy/ へ退避済み。
+  // 2026-06-13 教科書差し替え: 旧章 (8-1〜8-5, 6-1 等) は bzm/legacy/ へ退避済み。
   // 既存 D-7 routing target が legacy にある場合はそちらへ追記する (新教科書の受け皿が
   // 整うまでの暫定。受け皿再設計は textbook 司令塔台帳の残課題)。
   const legacyFile = path.join(BZM_DIR, "legacy", `${clean}.md`);

@@ -38,7 +38,7 @@
         "章間 supply / receive 一覧 (Ch 5/5.5/6/7/9 から受け、Ch 10.5/11/25/26b/Book III/Book IV へ渡す) を冒頭で明示"
       ],
       "new_writing_required": "章頭フック 1.5p (匿名化機能性材料ケースを strategic-slack.md から圧縮再構成)、4 類型プレビュー 0.5p、Tier A 規律宣言 + 章間 supply 表 0.5p、章マップ 0.5p",
-      "existing_reuse": "pwa/bzm/strategic-slack.md 冒頭の機能性材料ケース叙述を約 60% 流用 (匿名化徹底)、図 f6 (slack plane) → g8.0.1、図 f7 (sawtooth) → g8.0.2 として継承 (注釈は章頭用に書き直し)",
+      "existing_reuse": "bzm/strategic-slack.md 冒頭の機能性材料ケース叙述を約 60% 流用 (匿名化徹底)、図 f6 (slack plane) → g8.0.1、図 f7 (sawtooth) → g8.0.2 として継承 (注釈は章頭用に書き直し)",
       "upstream_dependencies": [
         "Ch 1 序章 (BZM 全体マップ)",
         "Ch 5 σ_SU MS-SSM (λ_x intensity の起源)",
@@ -53,7 +53,7 @@
         "§8.5 機能性材料案件の Θ_zombie 境界事例再分類"
       ],
       "references": [
-        "pwa/bzm/strategic-slack.md (機能性材料ケース、鋸歯グラフ、4 類型予告)",
+        "bzm/strategic-slack.md (機能性材料ケース、鋸歯グラフ、4 類型予告)",
         "Lundberg (1903) — ruin probability の起源として注に置く",
         "BOOK_DECISIONS.md D-024 / D-025 / D-031 / D-035 / D-047 / D-051",
         "Book II Ch 0 章型定義 (L1 §11)"
@@ -367,7 +367,7 @@
       ],
       "references": [
         "Book III Ch 12 (CTB) / Ch 13 (YD) / Ch 14 (TIEM) / Ch 15 or 16 (BWE) ドラフト",
-        "pwa/bzm/strategic-slack.md 機能性材料ケース",
+        "bzm/strategic-slack.md 機能性材料ケース",
         "BOOK_DECISIONS.md D-024 / D-025 / D-031 / D-035 / D-047 / D-051",
         "Ch 5.5 GO ゲート / T_review、Ch 7 F-CES、Ch 9 ECR、Ch 10.5 Klepper、Ch 11 BVAR、Ch 25 層間結合、Ch 26b 事前登録"
       ],

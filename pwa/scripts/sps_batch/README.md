@@ -1,7 +1,7 @@
 # sps_batch — SPS 初回評価バッチの補助資材
 
 `scripts/sps_initial_assessment_tool.mjs` へ渡す payload を、20 件ずつ手作業で組むための最小資材。
-判断の基準（q 帯・P 帯の較正、型別の書き分け）は `pwa/bzm/SPS_INITIAL_ASSESSMENT_PLAYBOOK.md` が正本。
+判断の基準（q 帯・P 帯の較正、型別の書き分け）は `bzm/SPS_INITIAL_ASSESSMENT_PLAYBOOK.md` が正本。
 ここには手順と検査だけを置く。
 
 ## ファイル

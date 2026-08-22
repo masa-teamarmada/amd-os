@@ -37,7 +37,7 @@
         "[¶0h] Series B 2024Q3 と執筆時点 2026-06-27 のギャップ — 体制安定期 2024-2026 のうち 2026Q2-Q4 は未観測、§13.2/§13.4 で「2026Q1 時点までの観測 + 残り 2 四半期は Ch 26b post-2026 検証に分離」境界を明示",
         "[¶0i] hindsight bias 自己点検予告 — D-026 で BWE が健全型主要参照昇格していることが事前確定 → 軌跡 4 期分割 + posterior 推定が hindsight bias を含む懸念、§13.4 prior sensitivity 3 設定 robustness + Ch 26a 客観評価で緩和、§13.6 自己点検チェックリストで構造強制",
         "[¶0j] 章ロードマップと 22p 配分 — §13.0=2.5 / §13.1=3.5 / §13.2=4.5 / §13.3=3.5 / §13.4=3.5 / §13.5=2.5 / §13.6=2.0 = 22.0p、各節の役割を 1 行ずつ要約",
-        "[¶0k] s-survival.md 連結予告 — pwa/bzm/s-survival.md「替えのきかない核」直観 + 二つの相談実例の一つ (補完で F が立ち上がった案件 = BWE) を §13.4 ¶4k で本章 Tier 3 主要参照へと学術化昇格する流れを予告、案 B/C ではなく案 A の明示連結強度を採用",
+        "[¶0k] s-survival.md 連結予告 — bzm/s-survival.md「替えのきかない核」直観 + 二つの相談実例の一つ (補完で F が立ち上がった案件 = BWE) を §13.4 ¶4k で本章 Tier 3 主要参照へと学術化昇格する流れを予告、案 B/C ではなく案 A の明示連結強度を採用",
         "[¶0l] 章末問い予告 (§13.6 末尾 3 問) — (i) 校正閾値 ε (Ch 10.5 統合ハザード判定 + Θ_healthy 4 条件閾値) の感度はどこまで頑健か、(ii) FRL 一時低下からの Contingent Reward 軸再構築は他健全型事例で汎化可能か、(iii) U-G-P 三層分離は他領域 (バイオ / 介護 / メンタルヘルス) に転移可能か"
       ],
       "new_writing_required": "2018 春の設立シーン情景描写 + 盲検後付け校正手続き宣言 + Book III 中核問い 3 段分解 + 命題番号化スタイル宣言 + Tier A 規律 (D-031/D-033) 本章宣言 + D-034 機関匿名化運用注 (年丸め + 領域内詳細非開示) + Ch 26a/26b/11/25/37 Tier 分離宣言 + Series B timeline ギャップ境界 + hindsight bias 自己点検予告 + 22p 配分提示 + s-survival.md 連結予告 + 章末問い 3 件予告 は全文新規。",
@@ -46,7 +46,7 @@
         "Ch 1 BZM 全体像",
         "Ch 1.0 章頭規律",
         "Ch 7 §7.5 BWE illustrative 比較",
-        "pwa/bzm/s-survival.md F_char × F_cap 補完成功直観",
+        "bzm/s-survival.md F_char × F_cap 補完成功直観",
         "BOOK_DECISIONS.md D-026 / D-031 / D-033 / D-034 / D-038 / D-051",
         "L1 §11 章型テンプレート"
       ],
@@ -63,7 +63,7 @@
         "Wasserman 2012 Founder Dilemma",
         "Roberts 1991, 2004 / Beckman 2006 / Eesley-Roberts 2012",
         "BZM Ch 1 / Ch 1.0 / Ch 7 §7.5",
-        "pwa/bzm/s-survival.md",
+        "bzm/s-survival.md",
         "BOOK_DECISIONS.md D-026/D-031/D-033/D-034/D-038/D-051"
       ],
       "source_drafts": [
@@ -189,7 +189,7 @@
         "Ch 10.5 統合ハザード",
         "Ch 10.7 η_jt VAR(1)",
         "Klepper (1996, 2002) shakeout",
-        "pwa/bzm/retrofit-verification.md",
+        "bzm/retrofit-verification.md",
         "BOOK_DECISIONS.md D-026 (健全型主要参照昇格)"
       ],
       "source_drafts": [
@@ -284,7 +284,7 @@
         "[¶4h] BWE 4 期別 posterior 推移 — 萌芽期 / 拡張期 / 移譲過渡期 / 体制安定期で α, ρ posterior の推移 (Tier A illustrative、Bayesian updating chain 表示)、移譲過渡期で ρ posterior 不確実性が拡大する経緯を Ch 7 §7.2 委譲 operator D 試行と関連付け",
         "[¶4i] Ch 10.3 への引き渡し — BWE 個別 posterior の ρ < 0 集中は補完性 (委譲不可能性) と整合する illustrative 確認事例として Ch 10.3 §10.3.x ρ Kmenta 識別 (D-038) に引き渡し、8 PJ 集合 posterior + Heckman 補正 + Hsieh-Klenow robustness は Ch 10.3 / Ch 11 / Ch 26b の領域",
         "[¶4j] Tier A 自己点検 — 本節 posterior 報告で「ρ < 0 が BWE で証明された」「BWE が補完性仮説を validation した」と読まれうる叙述がないかを §13.6 自己点検チェックリストに繰り上げ、illustrative 性を文末 1 段落で再強調",
-        "[¶4k] s-survival.md 連結確認 (主要参照昇格の明示宣言) — pwa/bzm/s-survival.md F_char × F_cap 補完成功事例 (a=0.6, ρ=-2 illustrative) を本章 §13.4 posterior (α=0.6, ρ=-2 illustrative) で Tier 3 学術化、s-survival.md「二つの相談実例の一つ」(補完で F が立ち上がった案件 = BWE) を Book III 主要参照へと明示的に昇格する流れを宣言"
+        "[¶4k] s-survival.md 連結確認 (主要参照昇格の明示宣言) — bzm/s-survival.md F_char × F_cap 補完成功事例 (a=0.6, ρ=-2 illustrative) を本章 §13.4 posterior (α=0.6, ρ=-2 illustrative) で Tier 3 学術化、s-survival.md「二つの相談実例の一つ」(補完で F が立ち上がった案件 = BWE) を Book III 主要参照へと明示的に昇格する流れを宣言"
       ],
       "new_writing_required": "BWE 個別 F-CES posterior 推定 (α, ρ illustrative posterior + 95% CI) + Kmenta 二次モーメント近似の BWE 4 期パネル適用 + horse-race 4 model 評価 (WAIC + LOO + Bayes 因子) + prior sensitivity 3 設定 robustness + 4 期別 posterior 推移 + Stan/NUTS 健全性 4 種報告 + Ch 10.3 ρ Kmenta 引き渡し + Tier A 自己点検 + s-survival.md 主要参照昇格宣言 + N=1 個別 posterior 正当化 (領域判定として読む叙述) は全文新規。",
       "existing_reuse": "Ch 7 §7.3 F-CES posterior 校正手続き (proxy 構築 + Stan/NUTS 健全性 + 4 系統 horse-race 評価)、Ch 7 §7.5 BWE illustrative 比較、Ch 10.3 ρ Kmenta 識別 + Klump et al. (2007) 正規化 + Heckman 補正手続き、Bernstein 2017 RCT α > 0.5 弱情報事前、s-survival.md F_char × F_cap 補完成功事例 (a=0.6, ρ=-2) を再掲・連結。",
@@ -295,7 +295,7 @@
         "Ch 7 §7.3 F-CES posterior 校正",
         "Ch 7 §7.5 BWE illustrative 比較",
         "Ch 10.3 ρ Kmenta 識別",
-        "pwa/bzm/s-survival.md F_char × F_cap 直観"
+        "bzm/s-survival.md F_char × F_cap 直観"
       ],
       "downstream_dependencies": [
         "§13.6 (TIEM 対比表の ρ posterior 列 + Tier A 自己点検)",
@@ -316,7 +316,7 @@
         "Korteweg-Laws 2024",
         "Roberts-Eesley 2011",
         "BZM Ch 7 §7.3/§7.5 / Ch 10.3",
-        "pwa/bzm/s-survival.md",
+        "bzm/s-survival.md",
         "BOOK_DECISIONS.md D-031/D-033/D-038"
       ],
       "source_drafts": [
@@ -399,16 +399,16 @@
         "[¶6d] Tier A 自己点検チェックリスト 4 種違反点検 (§13.0-§13.5 各節横断) — (i) validation / (ii) 証明 / (iii) 識別主張 / (iv) 点推定有意性 を全節点検、違反候補リスト + 本文修正提案、違反なし時「Tier A 違反 0 件、D-031/D-033 規律遵守」明示、違反 1 件以上時は章完成保留 (FC-13-9 自己強制)",
         "[¶6e] 章末問い 3 件 + 各問への暫定回答方向 — (i) ε 感度: Ch 26a 校正 plot で検証、本章は ε = 0.2 illustrative 仮置き、(ii) FRL Contingent Reward 軸再構築の汎化: Ch 26b 事前登録、Antonakis 2016 charisma 過度依存批判への組織応答という解釈が他健全型に転移可能か、(iii) U-G-P 三層分離の他領域転移: Ch 37 4 framework 比較で バイオ/介護/メンタルヘルスへの拡張可能性を検討、本章は再現可能類型主張せず Tier A 後付け校正に留まる",
         "[¶6f] 章間 supply chain 引き渡し表 — Ch 25 / Ch 26a / Ch 26b / Ch 11 / Ch 37 への引き渡しを箇条で明示、Series B 2024Q3 と執筆時点 2026-06-27 ギャップ (2026Q2-Q4 未観測) は Ch 26b post-2026 検証に分離する境界再確認",
-        "[¶6g] s-survival.md / retrofit-verification.md retour — pwa/bzm/s-survival.md F_char × F_cap 補完成功事例 + retrofit-verification.md「鋸歯型ではない、徐々に補強」を本章 Book III 主要参照として Tier 3 学術化した経路を 1 段落で振り返り、Book I/II/III 内の BWE 言及の一貫性確認、後付け校正命題 13.1-13.7 の formal 番号化スタイルが §13.0 ¶0d 宣言と対をなして章を閉じることを再確認"
+        "[¶6g] s-survival.md / retrofit-verification.md retour — bzm/s-survival.md F_char × F_cap 補完成功事例 + retrofit-verification.md「鋸歯型ではない、徐々に補強」を本章 Book III 主要参照として Tier 3 学術化した経路を 1 段落で振り返り、Book I/II/III 内の BWE 言及の一貫性確認、後付け校正命題 13.1-13.7 の formal 番号化スタイルが §13.0 ¶0d 宣言と対をなして章を閉じることを再確認"
       ],
       "new_writing_required": "Book II 8 装置総合読み直し summary table + BWE vs TIEM 対比表 + 命題 13.7 補完性 ρ < 0 両刃性解釈 + Tier A 自己点検チェックリスト 4 種違反点検 + 章末問い 3 件 + 各問暫定回答方向 + 章間 supply chain 引き渡し表 + Series B timeline ギャップ Ch 26b 分離再確認 + s-survival.md / retrofit-verification.md retour + 命題番号化スタイル §13.0 との対応再確認 は全文新規。",
-      "existing_reuse": "Ch 5/5.5/6/7/8/9/10.3/10.5/10.7 各装置形式、Ch 12 TIEM 後付け校正結果 (Ch 12 skeleton から往復参照、起草中)、pwa/bzm/s-survival.md F_char × F_cap 補完成功事例、pwa/bzm/retrofit-verification.md 健全型軌跡記述 を再掲・連結。",
+      "existing_reuse": "Ch 5/5.5/6/7/8/9/10.3/10.5/10.7 各装置形式、Ch 12 TIEM 後付け校正結果 (Ch 12 skeleton から往復参照、起草中)、bzm/s-survival.md F_char × F_cap 補完成功事例、bzm/retrofit-verification.md 健全型軌跡記述 を再掲・連結。",
       "upstream_dependencies": [
         "§13.1-§13.5 全節",
         "Ch 12 TIEM 後付け校正 (対比対象、Ch 12 skeleton 起草中 → Phase 5-Ch12 完了後 re-sync gate 必要)",
         "Ch 5/5.5/6/7/8/9/10.3/10.5/10.7 装置形式",
-        "pwa/bzm/s-survival.md",
-        "pwa/bzm/retrofit-verification.md"
+        "bzm/s-survival.md",
+        "bzm/retrofit-verification.md"
       ],
       "downstream_dependencies": [
         "Ch 25 機関 ECR Granger 検定",
@@ -420,8 +420,8 @@
       ],
       "references": [
         "BZM Ch 5 / Ch 5.5 / Ch 6 / Ch 7 / Ch 8 / Ch 9 / Ch 10.3 / Ch 10.5 / Ch 10.7 / Ch 12 (skeleton 起草中)",
-        "pwa/bzm/s-survival.md",
-        "pwa/bzm/retrofit-verification.md",
+        "bzm/s-survival.md",
+        "bzm/retrofit-verification.md",
         "Antonakis 2016 charisma 批判 (FRL Contingent Reward 軸組み換え汎化への接続)",
         "BOOK_DECISIONS.md D-026/D-031/D-033/D-034/D-038"
       ],
@@ -570,7 +570,7 @@
     "[H-4] §13.3 FRL Contingent Reward + Individualized Consideration 軸組み換えという案 C 由来の解釈 (Antonakis 2016 charisma 過度依存批判への組織的応答) を強く打ち出すか、案 A の F_char 高位委譲不可能コア + F_cap 後発補完というシンプルな解釈に留めるか。前者は ALQ controversy defense として強力だが、後者は load-bearing が増えるリスク",
     "[H-5] §13.6 BWE vs TIEM 対比表の Ch 12 skeleton 起草完了待ち vs 暫定執筆 — Phase 5-Ch12 完了を待つと本章執筆が遅れる、暫定で出すと re-sync 修正コスト。Book III 全体の章順序進行計画でまさが決める",
     "[H-6] D-034 機関匿名化の丸め基準 — 設立年 ±1 年 + Series B 年 ±1 年 + 女性ヘルスケア領域内詳細 (月経/更年期/産後) 非開示 + 創業者年代「30 代」のみ。創業者本人への公開範囲合意取得を §13.0 執筆前に行うか、本章 publishable 後に確認するか",
-    "[H-7] s-survival.md 二つの相談実例の片方 (補完で F が立ち上がった案件 = BWE) を本章で主要参照に明示昇格する案 A 路線か、s-survival.md は直観源泉として参照のみで Tier 3 主要参照昇格は §13.4 ¶4k に留めるか案 C 路線か。pwa/bzm/ 配下既存ドラフトと Book III 本章の関係性を Book 全体でどう叙述するかでまさが決める",
+    "[H-7] s-survival.md 二つの相談実例の片方 (補完で F が立ち上がった案件 = BWE) を本章で主要参照に明示昇格する案 A 路線か、s-survival.md は直観源泉として参照のみで Tier 3 主要参照昇格は §13.4 ¶4k に留めるか案 C 路線か。bzm/ 配下既存ドラフトと Book III 本章の関係性を Book 全体でどう叙述するかでまさが決める",
     "[H-8] §13.5 U-G-P 三層構造の formal 化レベルを本章で完結させるか Ch 14 CX に分離するか。本章記述的 + Ch 14 formal 化 (案 A の OI-13-8 推奨) が章間負荷配分として妥当だが、女性ヘルスケア固有性をどこまで本章で formal に詰めるかでまさが決める"
   ]
 }

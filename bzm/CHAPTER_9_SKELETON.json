@@ -36,7 +36,7 @@
         "§9.0.10 加重和診断装置のメタファーで読者の入口を閉じ、§9.1 公理化への bridge"
       ],
       "new_writing_required": "URA 三案件会議シーン (type A/B/C と ECR 78/62/0 + SPS 0.71/0.48/0.34 の具体数値) は新規執筆。type 名は匿名化、L1 §11 章型ストーリー準拠。加重和診断装置の比喩は本章固有の新規メタファー。約 2.5p。",
-      "existing_reuse": "pwa/bzm/nursery-ers.md L140-156 の『掛け算ではなく加重和』論の温度感を新規シーンに翻案。Tier 3 学術化文体に書き換え。",
+      "existing_reuse": "bzm/nursery-ers.md L140-156 の『掛け算ではなく加重和』論の温度感を新規シーンに翻案。Tier 3 学術化文体に書き換え。",
       "upstream_dependencies": [
         "Ch 3 ECR 概念体系 (8 軸定義と Lv0-4 ルーブリック)",
         "Ch 5 σ_SU MS-SSM (層分離の必然性、補助)",
@@ -48,7 +48,7 @@
         "§9.4 (SPS × ECR 二重計上禁止の問いの入口)"
       ],
       "references": [
-        "pwa/bzm/nursery-ers.md L140-156",
+        "bzm/nursery-ers.md L140-156",
         "Ch 3 ECR 8 軸ルーブリック",
         "Ch 10.4 Theorem 3 prefigure",
         "L1 §11 章型ストーリー指針"
@@ -90,7 +90,7 @@
         "§9.1.15 §9.2 表現定理への bridge"
       ],
       "new_writing_required": "4 公理 A1-A4 の formal 定式化 4p、A2 強形/弱形境界 0.5p、Bergson-Samuelson / Sen / Atkinson / Alkire-Foster との対応定理 1p、Bergson cardinality vs Arrow ordinal 緊張の末尾注 0.5p、独立性反例表 0.5p。",
-      "existing_reuse": "pwa/bzm/score-and-bottleneck.md の三方式比較表を §9.1.12-9.1.13 の formal 反例表として再利用、Tier 3 学術化",
+      "existing_reuse": "bzm/score-and-bottleneck.md の三方式比較表を §9.1.12-9.1.13 の formal 反例表として再利用、Tier 3 学術化",
       "upstream_dependencies": [
         "§9.0 章頭問い",
         "Ch 3 ECR 8 軸の semantic foundation",
@@ -159,7 +159,7 @@
         "§9.2.19 §9.3 異質構造への bridge — A2 弱形 (CES σ < ∞) で線形化が崩れ、軸固有弾力性 λ_k が導入される"
       ],
       "new_writing_required": "Theorem 9.1 / 9.2 の statement と証明スケッチ 5p、結合測定理論 (Thomsen + 二重キャンセル + Archimedean + solvability) の formal 列挙 1.5p、重み identification 議論と HDI equal weighting 移植 0.5p。BZM 既存ドラフトには測定理論パートが無いため Tier 3 学術化の中核新規論点。",
-      "existing_reuse": "Ch 3 ルーブリックの間隔尺度性を §9.2.16 で参照、pwa/bzm/score-and-bottleneck.md の対数変換論を §9.2.17 比較に再利用",
+      "existing_reuse": "Ch 3 ルーブリックの間隔尺度性を §9.2.16 で参照、bzm/score-and-bottleneck.md の対数変換論を §9.2.17 比較に再利用",
       "upstream_dependencies": [
         "§9.1 4 公理 A1-A4",
         "Ch 3 ルーブリックの間隔尺度設計",
@@ -220,7 +220,7 @@
         "§9.3.14 §9.4 三方式比較 + 二重計上禁止への bridge"
       ],
       "new_writing_required": "precondition gate g の formal 定式化 1p、CES on remaining 7 axes の formal 化 1.5p、退化定理の証明 1p、軸固有弾力性 λ_k = ルーブリック設計者の局所制御変数の明示 1p、Bozeman + Alkire-Foster 二重根拠 1p、識別性議論 0.5p、階段 vs sigmoid の FGT α 対応 0.5p",
-      "existing_reuse": "pwa/bzm/nursery-ers.md L83-110 の 8 軸ルーブリックを軸 7 precondition と λ_k 設計例として参照、Tier 3 学術化",
+      "existing_reuse": "bzm/nursery-ers.md L83-110 の 8 軸ルーブリックを軸 7 precondition と λ_k 設計例として参照、Tier 3 学術化",
       "upstream_dependencies": [
         "§9.2 Theorem 9.1 (加重和形)",
         "§9.1 A2 (強形 → 加重和 / 弱形 → CES の境界)",
@@ -263,7 +263,7 @@
         "層が変われば数式形状が変わるのは恣意ではなく、各層の公理系 (案件 = 共起要請 / 機関 = 補償可能性) が構造的に異なることの必然的帰結であり、Krantz-Luce-Suppes-Tversky 表現定理から帰結する"
       ],
       "paragraph_outline": [
-        "§9.4.1 四方式比較表 (formal version) — 加重和 (ρ=1) / Cobb-Douglas (ρ=0) / Leontief min (ρ=-∞) / 一般 CES の公理 A1-A4 充足を 4×4 行列で並べる (pwa/bzm/score-and-bottleneck.md の formal 化)",
+        "§9.4.1 四方式比較表 (formal version) — 加重和 (ρ=1) / Cobb-Douglas (ρ=0) / Leontief min (ρ=-∞) / 一般 CES の公理 A1-A4 充足を 4×4 行列で並べる (bzm/score-and-bottleneck.md の formal 化)",
         "§9.4.2 案件 SPS の数式構造の概観 — SPS = Π_j SPS_j^β_j 型の乗法構造 / min 型が支配する根拠は Ch 8 を引用、機関集約とは別公理系であることを明示",
         "§9.4.3 数式形状の必然的差異 — 機関 = 補償可能 (A2) なので加重和、案件 = 補償不能 (一軸 0 で案件失敗) なので乗法、という双対構造を『層が変われば数式形状が変わる』スローガンに代数的根拠付け",
         "§9.4.4 log SPS = Σ log A_k による additive 化と A_k = 0 発散 — Cobb-Douglas は形式的に additive separable だが domain 端で発散、機関 ECR 加重和の有限性との対比",
@@ -278,7 +278,7 @@
         "§9.4.13 Ch 10.4 Theorem 3 (二層非可換性の Arrow 不可能性) への bridge — 本章の 4 公理 A1-A4 + Theorem 9.1 + Theorem 9.4 を Arrow 骨格の前提として明示的に渡す"
       ],
       "new_writing_required": "Theorem 9.4 (二重計上禁止) の双線形展開証明スケッチ 2.5p、四方式比較表の formal 化 1p、層間結合許容形 (corollary 9.4.1) の整理 1p、Sen Liberal Paradox との対応 0.5p、Bergson cardinality vs Arrow ordinal 再掲 0.5p",
-      "existing_reuse": "pwa/bzm/score-and-bottleneck.md の三方式比較表を §9.4.1 の formal 分類表として全面引用・Tier 3 学術化、pwa/bzm/nursery-ers.md L160-170 の二重計上禁止論を §9.4.5-9.4.8 の証明骨格に発展",
+      "existing_reuse": "bzm/score-and-bottleneck.md の三方式比較表を §9.4.1 の formal 分類表として全面引用・Tier 3 学術化、bzm/nursery-ers.md L160-170 の二重計上禁止論を §9.4.5-9.4.8 の証明骨格に発展",
       "upstream_dependencies": [
         "§9.1 A1 可分性公理",
         "§9.2 Theorem 9.1 / 9.2 (additive representation)",
@@ -300,8 +300,8 @@
         "Leontief 1936 REStat 18(3) / 1941",
         "Arrow-Chenery-Minhas-Solow 1961",
         "Bozeman 2000 Research Policy",
-        "pwa/bzm/score-and-bottleneck.md",
-        "pwa/bzm/nursery-ers.md L160-170"
+        "bzm/score-and-bottleneck.md",
+        "bzm/nursery-ers.md L160-170"
       ],
       "source_drafts": [
         "B §9.4 (Theorem 9.4 双線形展開証明、Sen Liberal Paradox 接続、層間結合許容形整理)",
@@ -336,7 +336,7 @@
         "§9.5.11 Ch 10.4 Theorem 3 への引き渡し — 4 公理 A1-A4 + Theorem 9.1 + Theorem 9.2 + Proposition 9.3 + Theorem 9.4 を Arrow 骨格の前提として渡す宣言 sentence で章を閉じる"
       ],
       "new_writing_required": "K_obs 縮約と 0 値挿入の代数差の数値例 1p、観測等価類の formal 定義 0.5p、章末問い 3 件 1.5p、Ch 10.4 への引き渡し sentence 0.5p",
-      "existing_reuse": "pwa/bzm/nursery-ers.md L184-191 (unknown vs not_started) を Ch 3.5 semantic の要約として参照のみ、本章では再記述しない (D-022 オーナーシップ尊重)",
+      "existing_reuse": "bzm/nursery-ers.md L184-191 (unknown vs not_started) を Ch 3.5 semantic の要約として参照のみ、本章では再記述しない (D-022 オーナーシップ尊重)",
       "upstream_dependencies": [
         "§9.1 A3 欠損可視性公理",
         "§9.2 Theorem 9.1 (K_obs 縮約処理)",
@@ -353,7 +353,7 @@
       ],
       "references": [
         "Ch 3.5 (D-022 正準オーナー)",
-        "pwa/bzm/nursery-ers.md L184-191",
+        "bzm/nursery-ers.md L184-191",
         "Little & Rubin 2019 Statistical Analysis with Missing Data (MAR/MCAR/MNAR 区別)",
         "Rubin 1976 Inference and missing data"
       ],

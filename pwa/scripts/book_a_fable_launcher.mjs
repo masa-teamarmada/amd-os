@@ -27,28 +27,28 @@ export const REPO_ROOT = path.resolve(path.dirname(SCRIPT_PATH), "../..");
 
 // 現行15章だけを許可する。旧book-a-ch-4.md / book-a-ch-5.mdは履歴資料なので対象外。
 export const CHAPTER_ALLOWLIST = Object.freeze({
-  ch1: "pwa/bzm/book-a-ch-1.md",
-  ch2: "pwa/bzm/book-a-ch-2.md",
-  ch3: "pwa/bzm/book-a-ch-3.md",
-  ch4: "pwa/bzm/book-a-ch-4-5.md",
-  ch5: "pwa/bzm/book-a-ch-6.md",
-  ch6: "pwa/bzm/book-a-ch-7.md",
-  ch7: "pwa/bzm/book-a-ch-8.md",
-  ch8: "pwa/bzm/book-a-ch-9.md",
-  ch9: "pwa/bzm/book-a-ch-10.md",
-  ch10: "pwa/bzm/book-a-ch-11.md",
-  ch11: "pwa/bzm/book-a-ch-12.md",
-  ch12: "pwa/bzm/book-a-ch-13.md",
-  ch13: "pwa/bzm/book-a-ch-13-5.md",
-  ch14: "pwa/bzm/book-a-ch-14.md",
-  ch15: "pwa/bzm/book-a-ch-15.md",
+  ch1: "bzm/book-a-ch-1.md",
+  ch2: "bzm/book-a-ch-2.md",
+  ch3: "bzm/book-a-ch-3.md",
+  ch4: "bzm/book-a-ch-4-5.md",
+  ch5: "bzm/book-a-ch-6.md",
+  ch6: "bzm/book-a-ch-7.md",
+  ch7: "bzm/book-a-ch-8.md",
+  ch8: "bzm/book-a-ch-9.md",
+  ch9: "bzm/book-a-ch-10.md",
+  ch10: "bzm/book-a-ch-11.md",
+  ch11: "bzm/book-a-ch-12.md",
+  ch12: "bzm/book-a-ch-13.md",
+  ch13: "bzm/book-a-ch-13-5.md",
+  ch14: "bzm/book-a-ch-14.md",
+  ch15: "bzm/book-a-ch-15.md",
 });
 
 const BASELINE_CONTEXT_PATHS = Object.freeze([
-  "pwa/bzm/BOOK_A_SCENARIO_DRAFT_3.md",
-  "pwa/bzm/BOOK_A_CHARACTER_BIBLE.md",
-  "pwa/bzm/BOOK_A_INDEPENDENT_AGENCY.md",
-  "pwa/bzm/BOOK_A_MASTER_PLAN.md",
+  "bzm/BOOK_A_SCENARIO_DRAFT_3.md",
+  "bzm/BOOK_A_CHARACTER_BIBLE.md",
+  "bzm/BOOK_A_INDEPENDENT_AGENCY.md",
+  "bzm/BOOK_A_MASTER_PLAN.md",
 ]);
 
 function fail(message) {

@@ -7,15 +7,12 @@ import {
   type BzmChapterConfig,
   type BzmNumberedChapter,
 } from "./bzm-chapters";
+import { bzmContentDir } from "@/lib/bzm-content-dir";
 
 /**
- * 教科書の内容正本は `pwa/bzm/{slug}.md` に置く (= manual と同じ思想)。
+ * 教科書の内容正本は `bzm/{slug}.md` に置く (= manual と同じ思想)。
  * このローダーが fs で読み、章番号を動的注入する。
  */
-
-function bzmDir() {
-  return path.join(process.cwd(), "bzm");
-}
 
 /** 台帳・運用md (大文字始まり、例: COMMANDER_TASKS.md) は章として扱わない */
 export function isBzmChapterFile(name: string) {
@@ -23,13 +20,13 @@ export function isBzmChapterFile(name: string) {
 }
 
 export function getBzmMarkdownSlugs() {
-  const dir = bzmDir();
+  const dir = bzmContentDir();
   if (!fs.existsSync(dir)) return [];
   return sortBzmSlugs(fs.readdirSync(dir).filter(isBzmChapterFile).map((f) => f.replace(/\.md$/, "")));
 }
 
 export function getBzmMarkdownSource(slug: string) {
-  const filePath = path.join(bzmDir(), `${slug}.md`);
+  const filePath = path.join(bzmContentDir(), `${slug}.md`);
   if (!fs.existsSync(filePath)) return null;
   return fs.readFileSync(filePath, "utf8");
 }

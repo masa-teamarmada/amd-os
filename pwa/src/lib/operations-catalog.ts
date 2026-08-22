@@ -183,7 +183,7 @@ export const l2Datasets: L2Dataset[] = [
     table: "textbook_insight_candidates",
     source: "Codex automation/local worker amd-os-l10-textbook-insight-extract / approved後local BZM applier",
     cadence: "TBD / manual start",
-    purpose: "Before Zero / 教科書へ追記すべき実務知見候補。通知承認後に pwa/bzm へ追記する。",
+    purpose: "Before Zero / 教科書へ追記すべき実務知見候補。通知承認後に bzm へ追記する。",
   },
   {
     id: "atlas_signals",
@@ -849,7 +849,7 @@ export const cronOperations: CronOperation[] = [
     layer: "Codex",
     cadence: "TBD / manual start",
     trigger: "amd-os-l10-textbook-insight-extract (local worker)",
-    defaultParams: "(SKILL.md に従う、承認前に pwa/bzm へ追記しない)",
+    defaultParams: "(SKILL.md に従う、承認前に bzm へ追記しない)",
     input: "Supabase 内の既存 L2 / OS データ (monthly_reports / meeting_summaries / strategy_signals / protocols / XRL evidence ほか)",
     output: "textbook_insight_candidates (candidate) / l2_notifications。approved後は local BZM applier",
     run: { type: "manual", reason: CODEX_WRITER_MANUAL_REASON },

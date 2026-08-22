@@ -41,7 +41,7 @@
         "P10: 章頭の問い設定 — σ_SU 高位 (Triple Helix 全レーン同期追い風) + R_internal ほぼゼロ (研究室外再現失敗) という不整合状態でなぜ GO が通り、なぜ 10 年かけて緩慢に枯渇したのか、を本章で後付け校正により読み解く"
       ],
       "new_writing_required": "完全新規。段ボール 2 箱の章頭ストーリーの Tier 3 学術化、弱盲検プロトコル定義と限界開示、盲検性混入チェック手順、Tier A 規律宣言、D-010 / D-034 多階層匿名化の読者向け説明はすべて本章独自",
-      "existing_reuse": "pwa/bzm/retrofit-verification.md の段ボール 2 箱物語と TIEM 後付け校正プロトコル節を、当事者一人称から研究者三人称へ変換し Tier A 言語で学術化",
+      "existing_reuse": "bzm/retrofit-verification.md の段ボール 2 箱物語と TIEM 後付け校正プロトコル節を、当事者一人称から研究者三人称へ変換し Tier A 言語で学術化",
       "upstream_dependencies": [
         "Ch 1 BZM 公理 (盲検後付け校正の認識論的位置づけ)",
         "Ch 4 ケースカタログ TIEM 予備提示 (D-010)",
@@ -54,8 +54,8 @@
         "Ch 26b 予測登録簿 (TIEM は predicted but not registered の retrospective example)"
       ],
       "references": [
-        "pwa/bzm/retrofit-verification.md (TIEM 後付け校正プロトコル節)",
-        "pwa/bzm/BOOK_DECISIONS.md (D-010 / D-033 / D-034 / D-047 / D-051)",
+        "bzm/retrofit-verification.md (TIEM 後付け校正プロトコル節)",
+        "bzm/BOOK_DECISIONS.md (D-010 / D-033 / D-034 / D-047 / D-051)",
         "Branscomb & Auerswald (2002) Between Invention and Innovation",
         "Aldrich & Ruef (2006) Organizations Evolving"
       ],
@@ -95,7 +95,7 @@
         "P14: §12.1 まとめ — 設立時すでに退化失敗の種が植えられていた (不整合プロファイル + GO ゲート overshoot)、Tier A illustrative 規律内での記述に留める"
       ],
       "new_writing_required": "完全新規。状態ベクトル 4 成分の後付け校正方法論、Triple Helix 三同期の構成要素分解、Ch 5.5 GO ゲート overshoot の構造的説明、不整合 summary 表 (表 1)、Ch 6 SPS 期待値分解の TIEM 文脈適用",
-      "existing_reuse": "pwa/bzm/retrofit-verification.md の TIEM 設立期記述 (技術シーズ / 創業チーム / 初期調達) を Ch 5/5.5/6/7 記号体系で再構成し Tier 3 学術化",
+      "existing_reuse": "bzm/retrofit-verification.md の TIEM 設立期記述 (技術シーズ / 創業チーム / 初期調達) を Ch 5/5.5/6/7 記号体系で再構成し Tier 3 学術化",
       "upstream_dependencies": [
         "Ch 5 σ_SU MS-SSM (K=S₂ 三位一体追い風 + スケール規約)",
         "Ch 5.5 GO ゲート θ_σ* 閾値定義",
@@ -155,7 +155,7 @@
         "P14: §12.2 まとめ — TIEM は Ch 8 Θ_zombie 軌跡 + Ch 10.5 Δ log h<0 燃え尽き型の illustrative 典型例として後付け校正される、Tier A 規律内で観測等価類論一般化は Ch 8 に委ねる"
       ],
       "new_writing_required": "完全新規。4 期分割の境界基準 (機械的 + 質的判断の併用)、各期の Ch 8 変数 (μ_x, μ_y, J_x) 表記的事後分布要約、Ch 10.5 Δ log h<0 概念プロット (図 1)、Θ_zombie 同定論理、4 期パラメータ summary 表 (表 2)",
-      "existing_reuse": "pwa/bzm/retrofit-verification.md と pwa/bzm/legacy/ の TIEM 履歴情報 (年表 / 月次 P/L / 技術マイルストン / 資金調達履歴) を Ch 8 / Ch 10.5 記号体系で 4 期分割形式に再構成",
+      "existing_reuse": "bzm/retrofit-verification.md と bzm/legacy/ の TIEM 履歴情報 (年表 / 月次 P/L / 技術マイルストン / 資金調達履歴) を Ch 8 / Ch 10.5 記号体系で 4 期分割形式に再構成",
       "upstream_dependencies": [
         "§12.1 設立時状態 (2012 起点)",
         "Ch 8 jump-diffusion 4 類型 (Θ_zombie 定義)",
@@ -209,7 +209,7 @@
         "P11: §12.3 まとめ — Y-001 は σ_SU 高位 × F_cap ほぼゼロ × 命名強迫観念の三項複合、Tier A illustrative 規律内で記述、付録 C で完全展開を参照"
       ],
       "new_writing_required": "完全新規。Y-001 メカニズムの BZM 数理装置 (σ_SU / GO ゲート / F_cap) への接続、TIEM 2013 シリーズA命名時意思決定再構成、Cardon + Ries + Branscomb-Auerswald 三文献装置の統合",
-      "existing_reuse": "pwa/bzm/legacy/ の TIEM 調達履歴 + 付録 C Y-001 ドラフト (D-013 確定) を本章用に illustrative summary として要約引用、詳細は付録 C へ参照",
+      "existing_reuse": "bzm/legacy/ の TIEM 調達履歴 + 付録 C Y-001 ドラフト (D-013 確定) を本章用に illustrative summary として要約引用、詳細は付録 C へ参照",
       "upstream_dependencies": [
         "§12.1 設立時 F_cap ほぼゼロ + σ_SU 高位",
         "§12.2 第1期 2012-2014 シリーズA命名期",
@@ -265,7 +265,7 @@
         "P12: §12.4 まとめ — Y-004 は R_internal 低位 × σ_SU 高位 × F_cap ほぼゼロの三項複合、Y-001 と複合して Θ_zombie 軌跡と Δ log h<0 燃え尽きを形成、Tier A illustrative 規律内"
       ],
       "new_writing_required": "完全新規。Y-004 メカニズムの BZM 数理装置 (R_internal / F_cap / ρ posterior) への接続、TIEM 2015-2016 量産投資意思決定再構成、CFO 候補 3 件失敗表 (D-034 多階層匿名化 Finance-Pro-Type-A/B/C)、Eisenmann + Pisano + Brown-Eisenhardt 三接続、Y-001 + Y-004 複合事故段階連鎖",
-      "existing_reuse": "pwa/bzm/legacy/ の TIEM 量産設備投資履歴 + 月次 P/L + 付録 C Y-004 ドラフト (D-013 確定) を本章用に illustrative summary として要約引用",
+      "existing_reuse": "bzm/legacy/ の TIEM 量産設備投資履歴 + 月次 P/L + 付録 C Y-004 ドラフト (D-013 確定) を本章用に illustrative summary として要約引用",
       "upstream_dependencies": [
         "§12.1 設立時 R_internal ほぼゼロ + F_cap ほぼゼロ",
         "§12.2 第2期 2015-2017 量産投資期 + 第3期 2018-2020 補完試行期",

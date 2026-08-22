@@ -1,7 +1,7 @@
 // 一次選別スクリーニング帯 (Tier 0) の service_role 読み取り層。
 // テーブル seed_screening_bands / 参照する seed_projects・seed_contact_log・seeds は
 // db_schema.md から列名をコピーする。design/seeds.md の「seed_screening_bands」節と
-// pwa/bzm/BZM_SEED_TIER0_SCREENING_DESIGN_2026-08-15.md §6 確定13 が正本。
+// bzm/BZM_SEED_TIER0_SCREENING_DESIGN_2026-08-15.md §6 確定13 が正本。
 //
 // seed_screening_bands は RLS ポリシーが一切無いテーブル (service_role 専用)。
 // このファイルは "server-only" とし、API route (/api/seeds/screening-bands) からのみ呼ぶ。

@@ -23,6 +23,7 @@ import {
   type TheoryNodeStatus,
   type TheoryRelationType,
 } from "@/lib/bzm-theory-graph";
+import { bzmContentDir } from "./bzm-content-dir";
 
 export type TheoryMapStorageMode = "db" | "unavailable";
 
@@ -80,10 +81,6 @@ const NODES_TABLE = "bzm_theory_nodes";
 const EDGES_TABLE = "bzm_theory_edges";
 const MEMOS_TABLE = "bzm_theory_node_memos";
 
-function bzmDir() {
-  return path.join(process.cwd(), "bzm");
-}
-
 const SOURCE_REF_PATTERN = /([A-Za-z0-9_./-]+\.md)(#[-\w]+)?/;
 
 export function resolveSourceHref(sourceRef: string): string | null {
@@ -93,7 +90,7 @@ export function resolveSourceHref(sourceRef: string): string | null {
   const fileName = mdPath.split("/").pop() ?? mdPath;
   if (!fileName.endsWith(".md")) return null;
   const slug = fileName.replace(/\.md$/, "");
-  const filePath = path.join(bzmDir(), `${slug}.md`);
+  const filePath = path.join(bzmContentDir(), `${slug}.md`);
   if (!fs.existsSync(filePath)) return null;
   // BzmMarkdown does not currently emit stable heading ids, so source links
   // intentionally open the document rather than a misleading fragment URL.

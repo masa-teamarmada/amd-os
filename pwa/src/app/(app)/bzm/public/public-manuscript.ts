@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { bzmPublicManuscriptDir } from "@/lib/bzm-content-dir";
 
 export interface PublicManuscriptChapter {
   slug: string;
@@ -104,7 +105,7 @@ export const PUBLIC_MANUSCRIPT_PARTS: PublicManuscriptPart[] = [
 export const PUBLIC_MANUSCRIPT_CHAPTERS = PUBLIC_MANUSCRIPT_PARTS.flatMap((part) => part.chapters);
 
 export function publicManuscriptDir() {
-  return path.join(process.cwd(), "bzm", "public-manuscript");
+  return bzmPublicManuscriptDir();
 }
 
 export function getPublicManuscriptChapter(slug: string) {

@@ -1,6 +1,6 @@
 /**
  * ECR — Ecosystem Construction Rate (エコシステム構築率)
- * 旧称 ERS (Ecosystem Readiness Score) は 2026-07-11 廃止 (pwa/bzm/terminology_glossary.md §1.5)。
+ * 旧称 ERS (Ecosystem Readiness Score) は 2026-07-11 廃止 (bzm/terminology_glossary.md §1.5)。
  * ファイル名・型名・関数名の ers/Ers は内部識別子として据え置き。
  *
  * 設計正本: pwa/design/institution_readiness.md

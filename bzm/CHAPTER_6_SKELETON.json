@@ -38,7 +38,7 @@
         "Tier A 規律確認 (0.2p): SPS は単一スコア順位付け道具ではなく整理ツール、validation は Book III に委ねる (D-031)、本節と §6.1/§6.2/§6.4/§6.6 末で 5 回 reinforcement する宣言"
       ],
       "new_writing_required": "高 (URA/EIR 3 案件 + 評価者 A vs B 対立シーンは全文新規執筆、A 案の 3 案件並列と C 案の評価者 A vs B 対立を融合)",
-      "existing_reuse": "pwa/bzm/model-overview.md の「SPS 概念導入」「案件と機関の分離」の語彙を踏襲、ただし会議シーンは新規",
+      "existing_reuse": "bzm/model-overview.md の「SPS 概念導入」「案件と機関の分離」の語彙を踏襲、ただし会議シーンは新規",
       "upstream_dependencies": [
         "Book 0/I で導入された P/R/S 用語の最小限の前提",
         "Book I Ch 2 SPS 概念導入",
@@ -54,7 +54,7 @@
       "references": [
         "BOOK_DECISIONS.md D-043 / D-031 / D-051",
         "L1 §11 章型",
-        "pwa/bzm/model-overview.md (素材参照)"
+        "bzm/model-overview.md (素材参照)"
       ],
       "source_drafts": [
         "A §6.0 (3 案件 5 軸シーン)",
@@ -86,7 +86,7 @@
         "Tier A reinforcement (0.1p): 本節は standard decomposition の翻訳であり「妥当性検証された」とは主張しない (D-031)"
       ],
       "new_writing_required": "高 (三系譜合流点表は新規作成、命題 6.1/6.2 の確率論的厳密化は新規、real options 視点での Ch 5.5 GO ゲート再解釈は新規、Savage 公理系の付録委譲分担は新規)",
-      "existing_reuse": "pwa/bzm/model-overview.md の「SPS = P × R × S」一行命題と pwa/bzm/p-potential.md の TAM/SAM/SOM 三層を P = E[V | reach] の解釈に流用",
+      "existing_reuse": "bzm/model-overview.md の「SPS = P × R × S」一行命題と bzm/p-potential.md の TAM/SAM/SOM 三層を P = E[V | reach] の解釈に流用",
       "upstream_dependencies": [
         "§6.0 章頭ストーリー",
         "Ch 5.5 GO ゲート (imminence threshold ↔ exercise boundary 対応)",
@@ -148,7 +148,7 @@
         "Tier A reinforcement (0.1p): D-031 規律確認"
       ],
       "new_writing_required": "中〜高 (Liebig 最小律 + Leontief + CES の三系譜統合 motivation、ρ → -∞ で min 縮約証明スケッチ、5 行比較表、重み w_i の機関タイプ依存性は新規)",
-      "existing_reuse": "pwa/bzm/r-readiness.md の 5 軸 readiness 定義、pwa/bzm/score-and-bottleneck.md の Cobb-Douglas vs 加法 vs min vs CES 比較表を大幅再利用",
+      "existing_reuse": "bzm/r-readiness.md の 5 軸 readiness 定義、bzm/score-and-bottleneck.md の Cobb-Douglas vs 加法 vs min vs CES 比較表を大幅再利用",
       "upstream_dependencies": [
         "§6.1 R を「readiness ゲート通過確率」として解釈",
         "Book 0/I の 5 軸 readiness 定義",
@@ -168,8 +168,8 @@
         "Arrow, Chenery, Minhas & Solow (1961) Review of Economics and Statistics 43(3) — CES",
         "Cobb & Douglas (1928) AER 18 — Cobb-Douglas",
         "Mankins (1995) NASA TRL White Paper",
-        "pwa/bzm/r-readiness.md (素材)",
-        "pwa/bzm/score-and-bottleneck.md (素材)",
+        "bzm/r-readiness.md (素材)",
+        "bzm/score-and-bottleneck.md (素材)",
         "BOOK_DECISIONS.md D-051 / D-031 / D-047"
       ],
       "source_drafts": [
@@ -200,7 +200,7 @@
         "本節の役割確認 (0.2p): Ch 5/7/8/9 supply の章内集約と SPS 全体への投入、新規導出最小限、Ch 11 BVAR α/β/γ 同時推定への前方参照、Tier A reinforcement (D-031)"
       ],
       "new_writing_required": "中 (Cobb-Douglas 外殻と F 内側 CES の二層非対称性 honest justification、R の bundle-min との集約形差の motivation は新規執筆、Ch 5/7/8/9 supply の統合は再記述による章内自立性確保が中心)",
-      "existing_reuse": "pwa/bzm/s-survival.md の S = σ_SU × R_net × F 三要素分解と Cobb-Douglas 型代替性を base layer として大幅再利用",
+      "existing_reuse": "bzm/s-survival.md の S = σ_SU × R_net × F 三要素分解と Cobb-Douglas 型代替性を base layer として大幅再利用",
       "upstream_dependencies": [
         "§6.1 期待値分解 (S を「通過後 survival 確率」として解釈)",
         "Ch 5 σ_SU MS-SSM (S 内側の SU 状態軸)",
@@ -217,8 +217,8 @@
       "references": [
         "Cobb & Douglas (1928) AER 18 — Cobb-Douglas",
         "Brealey-Myers-Allen (2020) Ch.10-11 (多要素 DCF scenario)",
-        "pwa/bzm/s-survival.md (素材)",
-        "pwa/bzm/p-potential.md (素材、S が時間軸で展開する文脈)",
+        "bzm/s-survival.md (素材)",
+        "bzm/p-potential.md (素材、S が時間軸で展開する文脈)",
         "BOOK_DECISIONS.md D-051"
       ],
       "source_drafts": [
@@ -253,7 +253,7 @@
         "Tier A reinforcement (0.1p): D-031 規律確認、validation 主張せず構造的整理のみ"
       ],
       "new_writing_required": "高 (Alvarez-Barney honest 中立 + creation view Bayesian reduction risk notice + Sarasvathy operational choice 留保 + 命題 6.3 相関補正の formal 提示 + 観測等価類/識別不能性は全て新規執筆)",
-      "existing_reuse": "pwa/bzm/p-potential.md の Alvarez-Barney 論争 paragraph と TAM/SAM/SOM 三層を流用、Bayesian update 形式と命題 6.3 は新規",
+      "existing_reuse": "bzm/p-potential.md の Alvarez-Barney 論争 paragraph と TAM/SAM/SOM 三層を流用、Bayesian update 形式と命題 6.3 は新規",
       "upstream_dependencies": [
         "§6.1 期待値分解 (P = E[V | reach] の解釈)",
         "§6.2 R 集約",
@@ -276,7 +276,7 @@
         "Damodaran (2002) Ch.27 real options",
         "Eppen-Martin (1988) scenario analysis",
         "Jensen (1906) Sur les fonctions convexes",
-        "pwa/bzm/p-potential.md (素材)",
+        "bzm/p-potential.md (素材)",
         "BOOK_DECISIONS.md D-031 Tier A 規律 / D-051"
       ],
       "source_drafts": [
@@ -310,7 +310,7 @@
         "Tier A reinforcement (0.1p): 二層分離は validation でなく整理ツールの構造的選択 (D-031)、本節は motivation のみ"
       ],
       "new_writing_required": "高 (二層融合失敗ケース対照提示 + SPS × ECR 三重禁忌 honest 導出 + 順序非可換性 motivation + Theorem 3 ステートメント引用は本書 unique contribution、全文新規執筆)",
-      "existing_reuse": "BOOK_DECISIONS.md D-039 (Theorem 3) の前置 motivation、pwa/bzm/model-overview.md の二層概念を踏襲",
+      "existing_reuse": "BOOK_DECISIONS.md D-039 (Theorem 3) の前置 motivation、bzm/model-overview.md の二層概念を踏襲",
       "upstream_dependencies": [
         "§6.1-§6.4 SPS 乗法構造の honest 導出",
         "Ch 5.5 GO ゲート (案件判定の場)",
@@ -333,7 +333,7 @@
         "Malerba (2002) Research Policy 31(2) 247-264",
         "Murmann (2003) Knowledge and Competitive Advantage, Cambridge UP",
         "BOOK_DECISIONS.md D-039 (Theorem 3) / D-043 / D-047 / D-051",
-        "pwa/bzm/model-overview.md (素材)",
+        "bzm/model-overview.md (素材)",
         "本書 Ch 9, Ch 10.4 前方参照"
       ],
       "source_drafts": [

@@ -39,7 +39,7 @@
         "パラグラフ 10: 章頭フックの締め — 「替えのきく能力」と「替えのきかない核」の切り分け語彙を本章が CES 集約 + 三層境界画定 + Bayesian posterior という三つの形式装置で提供することを宣言する。"
       ],
       "new_writing_required": "全面新規執筆 2.5p。s-survival.md の「F の二層」直観を Tier 3 学術化トーンに書き換えつつ、分離膜審査会の二択投資判断 (C 案の生々しさ) を新規描写する。",
-      "existing_reuse": "pwa/bzm/s-survival.md §「S を支える三要素」+「F の二層 — F_char + F_cap」+「合成は両方ないと成立しない CES」の motivation 部分を 0.7p 圧縮再利用 (数値は §7.5 まで遅延)。",
+      "existing_reuse": "bzm/s-survival.md §「S を支える三要素」+「F の二層 — F_char + F_cap」+「合成は両方ないと成立しない CES」の motivation 部分を 0.7p 圧縮再利用 (数値は §7.5 まで遅延)。",
       "upstream_dependencies": [
         "Ch 2 SPS = P × R × S の S 定義",
         "Ch 5 σ_SU 形式",
@@ -92,7 +92,7 @@
         "パラグラフ 15: 本章の数値校正 (a=0.6, ρ=-2) は §7.5 illustrative 出力としてのみ登場することを再確認 (D-006 規律)。Ch 10.3 Kmenta 識別後の posterior 数値が最終確定値を更新する分担を明示する。"
       ],
       "new_writing_required": "全面新規執筆 6p。F-CES 公理化 + 二階因子 CFA + Markov 構造 + Inada コーナー命題は本書初出。",
-      "existing_reuse": "pwa/bzm/s-survival.md「両方ないと成立しない CES」の直観を命題 7.1 + スケッチ証明として公理化 + 形式化 (0.5p 再利用)。",
+      "existing_reuse": "bzm/s-survival.md「両方ないと成立しない CES」の直観を命題 7.1 + スケッチ証明として公理化 + 形式化 (0.5p 再利用)。",
       "upstream_dependencies": [
         "§7.0 章頭フック (境界画定動機)",
         "Ch 5 σ_SU 形式"
@@ -153,7 +153,7 @@
         "パラグラフ 16: 三層境界画定のまとめ — 公理 (D 不変性) + 操作 (三基準) + identification (残された経験順序補題) の三層が §7.3 校正手続き + §7.4 心理測定 defense + §7.5 後付け校正に supply される構造を再確認。"
       ],
       "new_writing_required": "全面新規執筆 6p。delegation operator D 公理化 + 三基準操作化 + 残された経験順序補題の三層統合は本書初出。",
-      "existing_reuse": "pwa/bzm/s-survival.md「替えのきかない核」の直観を delegation operator D 公理 + 三基準操作化の二層で形式化 (0.5p 再利用)。",
+      "existing_reuse": "bzm/s-survival.md「替えのきかない核」の直観を delegation operator D 公理 + 三基準操作化の二層で形式化 (0.5p 再利用)。",
       "upstream_dependencies": [
         "§7.1 F-CES 形式定義 + 内側 CFA/Markov",
         "Ch 2 SPS = P×R×S",
@@ -274,7 +274,7 @@
         "パラグラフ 14: 本節の射程限界 — psychometric debate そのものの決着は本書の射程外、本書は工学的に F_char を運用可能にする条件を示すに留める。Tier B 感度分析 (一階四因子 vs 二階一因子 horse-race) は Ch 26b に commission する余地を open_issue として残す。"
       ],
       "new_writing_required": "全面新規執筆 5.5p。三層 defense + Grit 二因子分離 + 二階因子モデル + ω_h 閾値の統合は本書初出。",
-      "existing_reuse": "pwa/bzm/s-survival.md「F_char の難測定性」言及を学術論争コンテキストで Tier 3 拡張 (0.3p 再利用)。",
+      "existing_reuse": "bzm/s-survival.md「F_char の難測定性」言及を学術論争コンテキストで Tier 3 拡張 (0.3p 再利用)。",
       "upstream_dependencies": [
         "§7.1 内側 CFA 二階因子モデル",
         "§7.2 三基準操作化 (共起観測)",
@@ -331,7 +331,7 @@
         "パラグラフ 13: Book III への引き渡し — Ch 13 BWE 健全型 / Ch 12 TIEM / Ch 16 CTB への往復参照リンクを表形式で明示。本章 §7.5 は形式 + posterior illustrative、本格校正は Book III に分担。"
       ],
       "new_writing_required": "全面新規執筆 5.5p。3 ケース横断比較表 + posterior predictive check + Eesley-Roberts 2012 補完性統合解釈は本書初出。",
-      "existing_reuse": "pwa/bzm/s-survival.md の BWE / TIEM 直観言及 (1p) を 3 ケース posterior 比較として Tier 3 再構築。",
+      "existing_reuse": "bzm/s-survival.md の BWE / TIEM 直観言及 (1p) を 3 ケース posterior 比較として Tier 3 再構築。",
       "upstream_dependencies": [
         "§7.3 校正手続き + Bayesian posterior + horse-race",
         "§7.4 心理測定 defense"

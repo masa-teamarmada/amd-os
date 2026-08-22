@@ -17,7 +17,7 @@
 | 未評価（残り） | 0 |
 
 **2026-08-22 に未評価は 0 件になった。** 最後の 193 件はサブエージェント並列で 5 ラウンド（40/40/40/40/33）、
-ok 193 / ng 0 で投入した（手順は `scripts/sps_batch/README.md` の「並列運用」）。
+ok 193 / ng 0 で投入した（手順は `pwa/scripts/sps_batch/README.md` の「並列運用」）。
 以後は `seeds` が増えたぶんだけ残数が復活する。残数は
 `node scripts/sps_initial_assessment_tool.mjs status` で確認する。
 

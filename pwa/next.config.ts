@@ -123,6 +123,12 @@ const nextConfig: NextConfig = {
   // 2026-05-12 まさ要望「雛形そのまま」で /api/admin/pj-introduction-html が
   // src/lib/exec_summary/*.{html,css} を readFileSync するため、Vercel build 時に
   // bundle に含めるよう明示する。これが無いと "ENOENT" で route が落ちる。
+  // BZM の md は pwa の外 (= amd-os/bzm/) にあるので、tracing root を pwa から
+  // リポジトリルートへ上げる。上げないと `../bzm/**` が root の外になり、
+  // outputFileTracingIncludes に書いても bundle へ入らない。
+  // Vercel 側は Root Directory=pwa だが sourceFilesOutsideRootDirectory が有効なので、
+  // ビルド環境にはリポジトリ全体が入っている。
+  outputFileTracingRoot: path.join(PWA_ROOT, ".."),
   outputFileTracingIncludes: {
     "/api/admin/pj-introduction-html/route": [
       "./src/lib/exec_summary/template_section.html",
@@ -142,7 +148,7 @@ const nextConfig: NextConfig = {
     "/api/macos/document/route": [
       "./manual/**/*.md",
       "./spec/**/*.md",
-      "./bzm/**/*.md",
+      "../bzm/**/*.md",
     ],
     // 資料室のHTML→PDF変換は、日本語を含む既存の共有HTMLをA4 PDFとして渡すため、
     // Fontsourceのfont本体をVercel Functionへ明示同梱する。動的なrequire.resolveだけでは

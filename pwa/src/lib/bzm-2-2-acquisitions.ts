@@ -1,7 +1,7 @@
 /**
  * BZM 2.2 獲得台帳 (「これまでのPJ活動のなかで得てきたもの」) の型とラベル。
  *
- * 正本: pwa/bzm/bzm-2-2-strategic-slack-and-propulsion.md
+ * 正本: bzm/bzm-2-2-strategic-slack-and-propulsion.md
  *       pwa/spec/4-6-bzm-22-acquisition-ledger-current-spec.md
  *
  * 1行 = 1正規化事象 (§3)。三点セット = 閉じた条件 / 消費 / 開いた・閉じた行動。

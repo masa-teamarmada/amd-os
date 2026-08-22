@@ -751,7 +751,7 @@ export const SEED_CONTACT_METHOD_LABEL: Record<string, string> = {
 };
 
 // 一次選別スクリーニング帯の根拠Lv (スコア成熟度)。
-// 正本: pwa/bzm/BZM_SEED_TIER0_SCREENING_DESIGN_2026-08-15.md §6 確定13
+// 正本: bzm/BZM_SEED_TIER0_SCREENING_DESIGN_2026-08-15.md §6 確定13
 export const SEED_EVIDENCE_LEVEL_LABEL: Record<0 | 1 | 2 | 3, string> = {
   0: "Lv0",
   1: "Lv1",

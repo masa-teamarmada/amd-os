@@ -14,6 +14,7 @@ import {
 } from "@/app/(app)/bzm/public/public-manuscript";
 import { getSpecBookChapters, getSpecChapters, normalizeSpecMarkdownSource } from "@/app/(app)/spec/spec-data";
 import { SPEC_SECTIONS } from "@/app/(app)/spec/spec-chapters";
+import { bzmContentDir, bzmPublicManuscriptDir } from "@/lib/bzm-content-dir";
 import { requireAuth } from "@/lib/supabase/api-auth";
 
 type DocumentKind = "manual" | "spec" | "bzm" | "bzm-public";
@@ -31,12 +32,15 @@ type NativeDocumentChapter = {
   available: boolean;
 };
 
-const DIRECTORY_BY_KIND: Record<DocumentKind, string> = {
-  manual: "manual",
-  spec: "spec",
-  bzm: "bzm",
-  "bzm-public": path.join("bzm", "public-manuscript"),
-};
+/**
+ * manual / spec は pwa 配下、bzm はモノレポのルート直下 (`amd-os/bzm/`)。
+ * bzm の位置は @/lib/bzm-content-dir が唯一の正解を持つ。
+ */
+function documentDirectory(kind: DocumentKind): string {
+  if (kind === "bzm") return bzmContentDir();
+  if (kind === "bzm-public") return bzmPublicManuscriptDir();
+  return path.join(process.cwd(), kind);
+}
 
 function isKind(value: string | null): value is DocumentKind {
   return value === "manual" || value === "spec" || value === "bzm" || value === "bzm-public";
@@ -165,7 +169,7 @@ export async function GET(req: NextRequest) {
     if (!member?.is_admin) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
   }
 
-  const directory = path.join(process.cwd(), DIRECTORY_BY_KIND[kindParam]);
+  const directory = documentDirectory(kindParam);
   if (!fs.existsSync(directory)) {
     return NextResponse.json({ ok: true, kind: kindParam, chapters: [] });
   }

@@ -1,5 +1,5 @@
 /**
- * Parser and types for pwa/bzm/theory-graph/*.md — one-node-per-Markdown-file
+ * Parser and types for bzm/theory-graph/*.md — one-node-per-Markdown-file
  * theory graph nodes for BZM 2.0 (see BZM_2_0_REVISION_REQUIREMENTS.md,
  * BOOK_DECISIONS.md D-062, book-a-ch-12.md). No external dependencies.
  */

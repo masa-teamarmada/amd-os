@@ -53,7 +53,7 @@
       ],
       "references": [
         "pwa/design/amd_score.md (SX retrofit 8 評価点)",
-        "pwa/bzm/r-readiness.md (GRL 定義)",
+        "bzm/r-readiness.md (GRL 定義)",
         "桑折 KUTE MTG 議事録 (背景)"
       ],
       "source_drafts": [
@@ -86,7 +86,7 @@
         "本節の illustrative 範囲と Book III 三因子 (σ_SU / R_net / GRL) への対応付け宣言、§15.2 軌跡分析への接続"
       ],
       "new_writing_required": "設立計画の構造記述 (匿名化)、後付け校正方法論の節用展開、Research-Org-Type 産学連携集約型 sub-type の SX マッピング、桑折 KUTE 7 論点の章間配分 declared scope 表、Mazzucato / Mowery-Steinmueller 政策起業文脈の節用記述",
-      "existing_reuse": "Ch 1 後付け校正方法論、Ch 2.3 R-bundle min 定義の短い再掲、Ch 9 ECR Research-Org-Type 分類、pwa/design/amd_score.md SX 8 評価点を timeline 表として整理、pwa/bzm/r-readiness.md GRL 定義の予告参照",
+      "existing_reuse": "Ch 1 後付け校正方法論、Ch 2.3 R-bundle min 定義の短い再掲、Ch 9 ECR Research-Org-Type 分類、pwa/design/amd_score.md SX 8 評価点を timeline 表として整理、bzm/r-readiness.md GRL 定義の予告参照",
       "upstream_dependencies": [
         "Ch 1 後付け校正フレーム",
         "Ch 2.3 R-bundle min",
@@ -105,7 +105,7 @@
         "Mazzucato (2013) Entrepreneurial State",
         "Mowery-Steinmueller (1994) Path to Cyberspace",
         "pwa/design/amd_score.md",
-        "pwa/bzm/r-readiness.md"
+        "bzm/r-readiness.md"
       ],
       "source_drafts": [
         "B §15.1 (declared scope 宣言と Tier 規律明示を中核骨格として採用)",
@@ -236,7 +236,7 @@
         "Mowery (2009) 半導体史 cumulative innovation × 標準化 bottleneck と現代 SX GRL 律速は構造同型である"
       ],
       "paragraph_outline": [
-        "R-bundle min 復習 (D-027): 5 軸 readiness の Liebig 律 (bundle-min) と GRL の運用定義 (pwa/bzm/r-readiness.md)",
+        "R-bundle min 復習 (D-027): 5 軸 readiness の Liebig 律 (bundle-min) と GRL の運用定義 (bzm/r-readiness.md)",
         "5 軸 readiness (TRL / MRL / CRL / IRL / GRL) の SX 評価表 (ordinal 比較に留め cardinal スコアは出さない規律)",
         "D-027 R-bundle min の SX 適用: R_min = GRL = min{TRL, MRL, CRL, IRL, GRL} を formal 表記",
         "μ_x = f(R_min) = f(GRL) の formal 記述、GRL 律速下での μ_x 上限制約構造",
@@ -252,14 +252,14 @@
         "§15.5 への橋渡し: GRL 律速下では情報設計事故 (Y-002) と COI 兼業株式が μ_x に与える相対的影響が拡大する"
       ],
       "new_writing_required": "GRL サブ要素分解 4 種 (SEMI / 輸出規制 / 環境規制 / 安全規格)、D-027 R-bundle min の SX formal 記述、μ_G ⊥ GRL 別軸テーゼの falsifiable 化、Mowery (2009) 半導体史アナロジー、5 軸ベクトル ordinal 評価表 (cardinal 回避規律)、Kelchtermans-Veugelers SX 適用",
-      "existing_reuse": "Ch 2.3 R-bundle min 装置、Ch 8 Θ_healthy + μ_x 制約、D-027 設置済み定義、pwa/bzm/r-readiness.md GRL 定義、Ch 5 MS-SSM σ_SU 再参照",
+      "existing_reuse": "Ch 2.3 R-bundle min 装置、Ch 8 Θ_healthy + μ_x 制約、D-027 設置済み定義、bzm/r-readiness.md GRL 定義、Ch 5 MS-SSM σ_SU 再参照",
       "upstream_dependencies": [
         "Ch 2.3 R-bundle min D-027",
         "Ch 8 Θ_healthy + μ_x 制約",
         "Ch 10.6 Malerba w_6",
         "§15.2 μ_G ジャンプ",
         "§15.3 σ_SU + R_net 同時発火",
-        "pwa/bzm/r-readiness.md"
+        "bzm/r-readiness.md"
       ],
       "downstream_dependencies": [
         "§15.5 Y-002 + COI pointer",
@@ -273,7 +273,7 @@
         "Kelchtermans-Veugelers (2013) RP regulatory readiness",
         "Mowery (2009) RP semiconductor",
         "Malerba (2002) sectoral innovation system",
-        "pwa/bzm/r-readiness.md",
+        "bzm/r-readiness.md",
         "Ch 2.3"
       ],
       "source_drafts": [
@@ -395,7 +395,7 @@
       "recommendation": "案 a: §15.5 は 2.5p で Aghion-Tirole 概念導入のみ、formal model 詳細は付録 C 委譲。Lens C 現場読者の章リズムを守りつつ、付録 C で Research Policy reviewer 向けの formal apparatus を確保する分業が三 lens 最適"
     },
     {
-      "issue": "GRL = Government Readiness Level の定義 (pwa/bzm/r-readiness.md 出典) を Ch 2.3 R-bundle min で先出しする粒度と、§15.4 SX で SEMI / 輸出規制 / 環境規制 / 安全規格 サブ要素分解する粒度の分担",
+      "issue": "GRL = Government Readiness Level の定義 (bzm/r-readiness.md 出典) を Ch 2.3 R-bundle min で先出しする粒度と、§15.4 SX で SEMI / 輸出規制 / 環境規制 / 安全規格 サブ要素分解する粒度の分担",
       "why_masa_decides": "Book I (Ch 2.3) と Book III (Ch 15) の章間境界の決定であり、5 軸 readiness 全般を Book I で先出しすると Ch 15 の独自性が薄れ、Ch 15 初出にすると Ch 2.3 R-bundle min D-027 主要事例宣言の根拠が宙づりになる — 編集設計のまさ判断",
       "options": [
         "案 a: Ch 2.3 で 5 軸定義と GRL 一般定義のみ先出し、Ch 15 §15.4 で SX 固有サブ要素 4 種分解を初出 (本案採用)",
@@ -419,7 +419,7 @@
       "why_masa_decides": "Tier A 規律 (validation 主張禁止) と falsifiable claim としての観測可能性のトレードオフは、本書全体の Tier A 厳格度の判断であり、Research Policy 論文化 (reviewer 2 が cardinal スコアを必ず突く) と Cambridge UP 単行本 (cardinal 容認可) で出版経路により判断が変わる — まさの出版戦略決定に属する",
       "options": [
         "案 a: ordinal 比較のみ (例: GRL < TRL ≤ MRL ≤ CRL ≤ IRL)、cardinal スコア回避 (本案採用、Research Policy 論文版併存を想定)",
-        "案 b: cardinal スコア (1-9 段階) で提示し pwa/bzm/r-readiness.md の運用と整合させる (Cambridge UP 単行本特化)",
+        "案 b: cardinal スコア (1-9 段階) で提示し bzm/r-readiness.md の運用と整合させる (Cambridge UP 単行本特化)",
         "案 c: 本文は ordinal、付録 C で cardinal スコアと illustrative 留保を併記"
       ],
       "recommendation": "案 a: ordinal 比較のみで §15.4 を構成し、Tier A 規律と Research Policy reviewer 対応を両立。amd_score.md の数値は背景情報として参照するが本書本文には cardinal で出さない"

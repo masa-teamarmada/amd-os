@@ -30,7 +30,7 @@
         "第4段落: 章の問い 3 点を提示 — (i) σ_SU 高位と R_net 負号の同時並立の機構、(ii) μ_I 単独 dominance の起源、(iii) Book II 6 装置での読み直し — と §14.1-14.5 の道筋"
       ],
       "new_writing_required": "章頭物語 (carbon ライン提案会議シーン、本業 vs 新規共食い懸念の描写)、Ch 14 の問い宣言、節構成案内。全段落新規。AMD 内部情報依存を避け、公開情報範囲で一般化された描写に抑える。",
-      "existing_reuse": "pwa/design/amd_score.md の CX retrofit 8 評価点メタデータを物語的に薄く参照 (具体数値は §14.1 以降)。pwa/bzm/r-readiness.md と s-survival.md の R_net 負号概念定義を 1 段落で要約。",
+      "existing_reuse": "pwa/design/amd_score.md の CX retrofit 8 評価点メタデータを物語的に薄く参照 (具体数値は §14.1 以降)。bzm/r-readiness.md と s-survival.md の R_net 負号概念定義を 1 段落で要約。",
       "upstream_dependencies": [
         "D-027 (CX = R_net 負号観測の主要参照)",
         "Ch 1 序章 (BZM 全体構図と Book III の位置)",
@@ -122,7 +122,7 @@
         "Markard-Raven-Truffer (2012) sustainability transitions の『軌道安定性 vs ニッチ侵食』対比の導入、§14.3 (機構) と §14.4 (Christensen 対比) への橋渡し"
       ],
       "new_writing_required": "2024-2026 軌跡の σ_SU 推移グラフ案 1 枚、R_net 期待値分解の項別表 1 枚、Θ_healthy 軌跡上の CX 位置プロット案 1 枚、本業 vs 新規 carbon 売上時系列表、rocket outcome 二面性の概念整理。全段落新規。",
-      "existing_reuse": "pwa/design/amd_score.md の CX retrofit 2024-2026 評価点 8 つを軌跡時系列として Tier A 学術化、pwa/bzm/r-readiness.md と s-survival.md の R_net 負号定義を本章 notation に翻訳。",
+      "existing_reuse": "pwa/design/amd_score.md の CX retrofit 2024-2026 評価点 8 つを軌跡時系列として Tier A 学術化、bzm/r-readiness.md と s-survival.md の R_net 負号定義を本章 notation に翻訳。",
       "upstream_dependencies": [
         "Ch 5 σ_SU MS-SSM (S₂ regime 持続)",
         "Ch 5.5 GO ゲート",
@@ -217,7 +217,7 @@
         "self-cannibalization が σ_SU 高位 (μ_I dominance による) と同時並立する経済学的解釈、§14.5 Book II 装置統合への接続"
       ],
       "new_writing_required": "Christensen 古典 disruption vs CX self-cannibalization の比較表 1 枚 (古典 / Bower-Christensen / CX の三列構成)、本業共食い項の構造分解図 1 枚、Adner demand-side 解釈の論述。全段落新規。",
-      "existing_reuse": "Ch 6 SPS R_net 期待値分解定義、Ch 10.6 Malerba SSI Material lane 符号制約 w_8 の定義、pwa/bzm/r-readiness.md と s-survival.md の R_net 負号定義を Christensen 対比で精緻化。",
+      "existing_reuse": "Ch 6 SPS R_net 期待値分解定義、Ch 10.6 Malerba SSI Material lane 符号制約 w_8 の定義、bzm/r-readiness.md と s-survival.md の R_net 負号定義を Christensen 対比で精緻化。",
       "upstream_dependencies": [
         "§14.2 軌跡 (R_net 負号観測)",
         "§14.3 Triple Helix 不均衡 (μ_I dominant)",
@@ -265,7 +265,7 @@
         "結語段落: CX 後付け校正の Tier A illustrative 価値、本書中最高 σ_SU と Triple Helix 不均衡の同時観測が観測モデル運用に与える示唆"
       ],
       "new_writing_required": "Book II 6 装置統合適用の手順表 1 枚、CTB/SX/CX 三 SU 横並び対比表 1 枚、章末問い 3 点の整理、結語段落。全段落新規。",
-      "existing_reuse": "Ch 5/5.5/6/8/9/10.6 の装置定義、pwa/design/amd_score.md の CX 全体評価、pwa/bzm/r-readiness.md と s-survival.md の R_net 概念、Ch 13 (CTB) と Ch 11/12 (SX 系) の後付け校正データ要約を本節横並び表で引用。",
+      "existing_reuse": "Ch 5/5.5/6/8/9/10.6 の装置定義、pwa/design/amd_score.md の CX 全体評価、bzm/r-readiness.md と s-survival.md の R_net 概念、Ch 13 (CTB) と Ch 11/12 (SX 系) の後付け校正データ要約を本節横並び表で引用。",
       "upstream_dependencies": [
         "§14.1 設立時",
         "§14.2 軌跡",

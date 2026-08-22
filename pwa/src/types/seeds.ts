@@ -145,7 +145,7 @@ export interface SeedPublicSpsAssessment {
 
 // 一次選別のスクリーニング帯 (Tier 0) — seed_sps_assessments (本測定系) とは別テーブル。
 // migration: scripts/migrations/280_seed_screening_infrastructure.sql
-// 設計正本: pwa/bzm/BZM_SEED_TIER0_SCREENING_DESIGN_2026-08-15.md
+// 設計正本: bzm/BZM_SEED_TIER0_SCREENING_DESIGN_2026-08-15.md
 // テーブル seed_screening_bands は RLS ポリシーなし = service_role 専用。
 // このファイルの型は API route (/api/seeds/screening-bands) 経由の DTO 用で、
 // クライアントコンポーネントから直接テーブルへは触れない。
