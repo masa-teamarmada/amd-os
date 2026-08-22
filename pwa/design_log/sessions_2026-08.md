@@ -484,3 +484,57 @@ SE(p10)でまさが `old` フォルダをAMD内部へ変えようとして「外
 - `npm run test:critical-ui` / `npm run test:bzm-2-2-pilot-ui` → ok。`npm run build` 成功。
 - 本番確認: `/api/build-info` が v3.88.3 / `f8effee8` になったのを確認したうえで、ログイン済みChromeで **p21 の事業計画タブ（2表あり）／p21 のスコア詳細タブ（2表が消えている）／p10 の事業計画タブ（2表が出ない・エラーも出ない）** の3面を実操作で確認した。
 - push は他セッションの dirty があるため `deploy.sh`（clean tree hard-stop）を避けて素の `git push origin main`。対象ファイルのみ列挙して stage、`git add .` は不使用。
+
+## 2026-08-22 — bzm原稿をpwaの外へ移設、iOS試作リーダーを削除（`c9779118` / `5368911b` / `61e385cf` / `76643bbf`）
+
+まさから「bzmディレクトリがpwaの中にあるのはおかしい、pwaとbzmは全く関係ないのに」。
+「AMD OS上で原稿を表示してるけど、それはOS側で特定のフォルダにあるmdを読みに行く仕様にしておけばいい話で、bzmがnext.jsを意識する必要はない」。
+あわせて「iOSの試作テキストブックリーダーは削除してOK」。
+
+### 置き場所の決定
+
+- まさの原案は `~/projects` 直下。ただしそこは amd-os リポの外でVercelのビルド環境に存在しないため、本番が404になる。反証して **`amd-os/bzm/`（モノレポのルート直下）** で合意した。
+- 成立の根拠はVercelの `sourceFilesOutsideRootDirectory`。公式ドキュメントに記述が無かったのでAPI v9を直接叩いて `True` を実測した。Root Directoryが `pwa` でもビルド環境にはリポジトリ全体が入る。
+
+### `c9779118` — iOS試作リーダーの削除
+
+- `SettingsView.swift` の設定→資料「教科書」導線と `TextbookReaderView` 一式、`Resources/BZM/` のmd 32本を削除。
+- mdはアプリバンドル同梱で同期スクリプトが無く、11本が古いまま乖離していた。BZMはPWAの `/bzm` で読めるので二重管理をやめた。
+- L2通知の「BZM追記候補」承認UI (`isTextbookInsight` 系) は別機能なので残した。
+
+### `5368911b` — 移設本体
+
+- `pwa/bzm/` → `bzm/`（md 363本）。ディレクトリ解決は `src/lib/bzm-content-dir.ts` 1箇所へ集約した。従来5箇所に散っていて、散らしたままだと次の移設で同じ漏れが起きる。
+- `next.config.ts` の `outputFileTracingRoot` をリポジトリルートへ上げ、`../bzm/**/*.md` を明示bundle。上げないと `../bzm/**` がtracing rootの外になりincludeが効かず、実行時ENOENT → notFound() → 本番だけ404（2026-05-29の新章9-3と同じ失敗モード）。
+- 適用済みmigration SQLと履歴md内の `pwa/bzm` 表記は当時の記録として正しいので書き換えない。
+
+### `61e385cf` — 移設で壊れたnode script 7本
+
+**今回の反省点。** 移設の検証を「`pwa/bzm` という文字列のgrepで残存ゼロ」で終わらせてpushした。並列セッション `amd-os-b5` がnpm scriptを実際に走らせて破損2本を検出し、洗い直したら計7本壊れていた。
+
+見逃した理由は2つ。
+
+1. `path.join(__dirname, "..", "bzm")` のような**組み立て形は旧パス文字列のgrepに映らない**。基準ディレクトリが変わると壊れるのに、文字列としては旧パスを含まない。
+2. `.nft.json` の確認はNextのトレース範囲だけ。standaloneのnode script (`scripts/*.mts`, `*.cjs`) と `package.json` のscripts内パスは最初から範囲外だった。
+
+直したもの: `check_bzm_theory_graph.cjs` / `check_bzm_2_2_pilot_ui_contract.mts` / `test_sps_2_1_estimated_seed.mts` / `generate_sps_2_1_estimated_seed.mts` / `build_sps_2_1_estimated_v0_1.mts` / `package.json` の `check:bzm-2-2-all-pj-pilot` / `bzm/pilot/bzm-2-2-all-pj-provisional-v0-1.mts:197`（bzm側から `../../src/generated/` でpwaを指していた唯一の逆方向依存）。
+
+### `76643bbf` — 2.1政策モデルの点検を現行仕様へ
+
+- 全体テストで `test:bzm-2-1-policy-model` が落ちた。切り分けたところ**移設とは無関係**で、2026-08-18の `f92f1598`「最新の産業価値モデルのみ強制」でrouteと `CockpitAmdScoreDetailTab` から2.1政策モデル台帳とアーカイブ表示を外したときの取り残しだった。一括実行にもCIにも入っていないため誰も踏んでいなかった。
+- 最初は「テストごと削除」で片付けるつもりだったが、中を見ると198 assertのうち約100が実際の計算を検算していて、その `buildBzm21PolicyModelLedger` は `generate_sps_2_1_estimated_seed` が今も使う現役だった。丸ごと消すと生きた見張りを失う。
+- **実際に走らせて落ちるassertだけを外す**方式へ変更。外れたのは構造assert 8本のみで残り190は無傷。いずれもアーカイブ表示全廃の帰結で、現物の側が正しい。
+- `bzm-2-1-policy-model-data.ts` と `Bzm21DynamicPolicyObservatory.tsx` は現在どこからも呼ばれていないが、2.1を画面へ戻すときの資産として残した。経緯はテストファイル内にコメントで書いた。
+
+### 検証
+
+- `npm run build` 成功。mdをfsで読む全route（`/bzm/[slug]`, `/bzm/map`, `/bzm/public/[slug]`, `/api/bzm/theory-map`, `/api/macos/document`）の `.nft.json` にbzmのmd 362本が入ることを実物で確認。`/bzm` と `/bzm/public` はredirectのみでmdを読まないためnft 0件で正常。
+- bzmに触るnpm script 8本すべてPASS。`tsc --noEmit` 通過。
+- 本番確認: `amd-os-pwa.vercel.app/bzm/public/{00-prologue, 01-research-results-are-not-companies, 02-different-clocks}` が全部200で、本文長が章ごとに違う（別のmdを読めている）。
+- iOSは `xcodegen generate` → `xcodebuild` でBUILD SUCCEEDED、`.app` 内のmd 0本まで確認。
+
+### 並列セッションとの衝突回避
+
+- 着手時 `amd-os-b5` が `pwa/bzm/` 配下でSPS初回評価の残193件を処理中だった。順序を入れ替えてiOS削除を先に完遂し、b5が `7d554e55` で完了させてから `git mv` した。移設前に予告を送り、承諾を得てから動かしている。
+- b5依頼の相互参照2箇所（`sps_batch/README.md:4` と `SPS_INITIAL_ASSESSMENT_PLAYBOOK.md:20`）も同じcommitに入れた。
+- 作業中、別セッションが `model/` まわりと `pwa/AGENTS.md` を大きく触っていたので一切触れていない。`git add .` は不使用。
