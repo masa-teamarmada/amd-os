@@ -169,3 +169,42 @@ node scripts/sps_batch/audit.mjs --seed <uuid>                      # seed_id �
 自分の件数と一致する窓を取ればよい（2026-08-22 は 04:36–05:24 が別セッションの 108 件、
 06:17–06:42 が当セッションの 193 件で、合計 301 件だった）。
 
+
+---
+
+## 是正ラウンド（意味づけ欠落の直し）
+
+2026-08-22 までに投入した band のうち 370 件は、11 因子すべての `assessment`
+（意味づけの一行）が空のまま入っている。原因は初期の検証関数が `evidence` だけを
+必須にしていたこと。migration 318 で穴を塞ぎ、同時に「追記で直す」経路を開いた。
+
+`seed_screening_bands` は凍結・追記専用のため既存行は書き換えられない。直し方は
+**同じ版タプルで新しい band を追記して、表示上の最新を差し替える**（表示は
+`assessed_at DESC, id DESC` の最新1行を読む）。
+
+### 手順（通常ラウンドとの差分だけ）
+
+1. `prepare` に `--remediate` を付ける。対象は「最新 band の assessment が全空」かつ
+   「pending 候補が無い」シーズだけが返る。出力に `mode: "remediation"` と、各 input に
+   `supersedes_assessment_id` が入る。
+
+   ```
+   node scripts/sps_initial_assessment_tool.mjs prepare --remediate --limit 100 --out /tmp/pR1.json
+   ```
+
+2. gen 側の `SIG` を是正用に上書きする（末尾に `/ 意味づけ欠落の是正再評価` を足す）。
+
+3. **11 因子すべてに空でない `assessment` を書く。** 是正モードでは1つでも空だと
+   `check` ではなく DB 側の検証関数が弾く（`quality remediation requires a non-empty
+   assessment on all 11 factors`）。通常ラウンドは「1つ以上」で通るが、是正は全件必須。
+
+4. あとは通常どおり `check.py` → `tail.py` → `submit` → `apply.sh`。
+
+### 落とし穴（是正ラウンド固有）
+
+- `supersedes_assessment_id` は prepared の中にある。**gen 側に書かない。**
+  tool が prepared から拾って候補行に載せる。
+- 追記の間に別の band が入ると `apply` が
+  `a newer band was appended after this remediation candidate` で止まる。
+  その場合は prepare からやり直す。
+- 残数は `status` の `defective` で見る。`remaining` は未評価（0 のまま）。
