@@ -17,7 +17,12 @@
 **セッションの cwd は `/Users/masa/projects/AMD/amd-os`（モノレポのルート）にする。`pwa/` を cwd にしない。**
 `pwa/CLAUDE.md` は `@AGENTS.md` を展開し、その `pwa/AGENTS.md` の先頭には `next dev` が書き戻す
 「This is NOT the Next.js you know」ブロックが入る。pwa を cwd にすると毎セッションこれを読み込む。
-このツール群のコマンドは相対パスが pwa 基準なので、各コマンドの中で `cd .../pwa` を書いて入る。
+各コマンドの中で `cd .../pwa` を書いて入るが、これは相対パスのためではない。
+**このツール群がディレクトリ位置に依存するのは 1 点だけ**で、`@supabase/supabase-js` が
+`pwa/node_modules` にしかないこと（repo ルートに `node_modules` は無い）。`node` をそこで起動するために入る。
+ツール本体の `ROOT` は自分の位置から解決し（`sps_initial_assessment_tool.mjs:9`）、`.env` はルート直下と
+`pwa/` の両方を探す。`check.py` / `tail.py` は引数でパスを受けるだけ。
+つまり `pwa/` ごと移設・改名しても、`node_modules` が同じ階層に来ていれば SPS 作業は壊れない。
 
 ## 手順（1 バッチ = 20 件）
 
