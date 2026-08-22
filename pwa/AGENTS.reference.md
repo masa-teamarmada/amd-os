@@ -1,14 +1,14 @@
-@AGENTS.md
-
 > **⚠️ セッションの cwd を `pwa/` にしない。モノレポのルート `/Users/masa/projects/AMD/amd-os` を cwd にする。**
-> `pwa/` を cwd にすると、上の `@AGENTS.md` 展開を通じて Next.js が自動生成したブロック
+> `pwa/` を cwd にすると、`pwa/AGENTS.md` の Next.js 自動生成ブロック
 > （`BEGIN:nextjs-agent-rules`、「This is NOT the Next.js you know」）が毎セッション読み込まれる。
 > これは AMD OS のルールではない。詳細は `pwa/AGENTS.md` の同ブロック直後の注記。
 > pwa 基準の相対パスで動くコマンド（`node scripts/*.mjs` 等）は、各コマンドの中で `cd .../pwa` して入る。
 
-# CLAUDE.md — AMD OS PWA 固有ルール
+# AGENTS.reference.md — AMD OS PWA 固有ルール
 
-> **共通運用ルールは `~/.claude/CLAUDE.md` を参照。**
+> このファイルは **該当する作業のときだけ読む** 詳細。Claude Code の自動読み込み対象ではない。
+> 共通ルールは `/Users/masa/projects/AGENTS.common.md`（起動時に自動で読まれる）、
+> モノレポ全体は `../AGENTS.md`、amd-os の詳細手順は `../AGENTS.reference.md` を見る。
 > このファイルには AMD OS PWA 固有の技術仕様だけを書く。
 
 ---
@@ -29,7 +29,7 @@ Next.js 16 + React 19 + Tailwind CSS v4
 - **PWA の本番反映 = `origin/main` への push**。Vercel が main push を自動 production build する。**「まさが画面で見る OS = origin/main」が常に成立する**ことがこの方式の目的。
 - **Vercel CLI による直接 deploy (`npx vercel --prod` / `npx vercel deploy`) は全面廃止**。push 状態と無関係な worktree から本番が作られると、正本巻き戻り事故 (2026-06-12 L2 リネーム幽閉事故) が再発するため。
 - **main 以外の branch は build されない** (`pwa/vercel.json` の `ignoreCommand`)。preview deploy は運用しない。
-- **ブランチ作成は全面禁止** (root `CLAUDE.md` 参照)。main に無いものは本番に存在できない。
+- **ブランチ作成は全面禁止** (`AGENTS.common.md` / root `AGENTS.md` 参照)。main に無いものは本番に存在できない。
 - 本番反映は必ず `bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` 経由 (= main/clean/origin 整合検査 + rollback guard + push + build 監視 + macOS 通知)。
 - `git remote -v`: `https://github.com/masa-teamarmada/amd-os.git`
 - `git branch --show-current`: `main` (これ以外なら作業開始前に直す)

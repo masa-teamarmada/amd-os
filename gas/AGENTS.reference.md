@@ -1,8 +1,9 @@
-@../../CLAUDE.md
+# AGENTS.reference.md — AMD OS GAS 固有ルール
 
-# CLAUDE.md — AMD OS 開発コンテキスト
+> このファイルは **該当する作業のときだけ読む** 詳細。Claude Code の自動読み込み対象ではない。
+> 共通ルールは `/Users/masa/projects/AGENTS.common.md`（起動時に自動で読まれる）、
+> モノレポ全体は `../AGENTS.md`、amd-os の詳細手順は `../AGENTS.reference.md` を見る。
 
-共通の人格・作業姿勢・ハンドオフ・記憶管理は `/Users/masa/projects/CLAUDE.md` と `/Users/masa/projects/AGENTS.common.md` に従う。
 
 ## プロジェクト概要
 

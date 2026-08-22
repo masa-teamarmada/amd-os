@@ -1,10 +1,9 @@
-@../../CLAUDE.md
+# AGENTS.reference.md — AMD OS iOS (Swift / SwiftUI) 固有ルール
 
-# CLAUDE.md — AMD OS iOS (Swift / SwiftUI)
+> このファイルは **該当する作業のときだけ読む** 詳細。Claude Code の自動読み込み対象ではない。
+> 共通ルールは `/Users/masa/projects/AGENTS.common.md`（起動時に自動で読まれる）、
+> モノレポ全体は `../AGENTS.md`、amd-os の詳細手順は `../AGENTS.reference.md` を見る。
 
-このリポジトリで作業する Claude (Mac 側) が **必ず守る** ルール。
-
-共通の人格・作業姿勢・ハンドオフ・記憶管理は `/Users/masa/projects/CLAUDE.md` と `/Users/masa/projects/AGENTS.common.md` に従う。
 
 ---
 
@@ -102,7 +101,7 @@ git push origin --tags  # TestFlight タグを切った場合
 
 セッション開始時、以下を **この順** で読む。**全て GitHub 管理下、Drive ではない。**
 
-1. **`CLAUDE.md`** ← ここ。ルール・運用フロー・落とし穴
+1. **`AGENTS.reference.md`** ← ここ。ルール・運用フロー・落とし穴
 2. **`AGENTS.md`** — エージェント運用メモ（必読リストの要約）
 3. **`DESIGN.md`** ⭐ — **全画面・全機能の正本仕様。何が在るべきかはここ**
 4. **`HANDOFF.md`** — TestFlight 配布、ブランチ運用、現時点の作業状態
@@ -113,7 +112,7 @@ git push origin --tags  # TestFlight タグを切った場合
 9. **`TESTFLIGHT_WORKFLOW.md`** — TestFlight 配布手順
 10. **`project.yml`** — XcodeGen 設定
 
-各 md は `CLAUDE.md` から辿れる構造。新規 md を作ったら必ずここに追記する。
+各 md は `AGENTS.md` / `AGENTS.reference.md` から辿れる構造。新規 md を作ったら必ずここに追記する。
 
 ---
 

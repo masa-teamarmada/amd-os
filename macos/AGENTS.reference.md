@@ -1,10 +1,15 @@
-# AMD OS macOS
+# AGENTS.reference.md — AMD OS macOS 固有ルール
+
+> このファイルは **該当する作業のときだけ読む** 詳細。Claude Code の自動読み込み対象ではない。
+> 共通ルールは `/Users/masa/projects/AGENTS.common.md`（起動時に自動で読まれる）、
+> モノレポ全体は `../AGENTS.md`、amd-os の詳細手順は `../AGENTS.reference.md` を見る。
+
 
 macOS版はPWAをWKWebViewで包むものではなく、`NavigationSplitView`を使う独立したSwiftUIクライアント。
 
 ## 正本と構成
 
-- 全体方針: ルート `CLAUDE.md` / `AGENTS.md`
+- 全体方針: ルート `AGENTS.md` / `AGENTS.reference.md`
 - iOS共通画面・業務仕様: `../ios/DESIGN.md`
 - PWA route/API/重要導線: `../pwa/spec/` と `../pwa/design/FEATURE_REGISTRY.md`
 - macOS画面仕様: `DESIGN.md`

@@ -1,10 +1,11 @@
-まず必ず以下の共通ルールを読む。
-
-@/Users/masa/projects/AGENTS.common.md
-
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know
+
+> 共通ルール（`/Users/masa/projects/AGENTS.common.md`）は `~/.claude/CLAUDE.md` 経由で
+> どの cwd でも自動で読まれる。ここで再importしない。
+> このディレクトリの詳細ルールは `AGENTS.reference.md`（該当作業のときだけ読む）。
+
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
 
@@ -16,7 +17,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 > `next dev` が `node_modules/next/dist/server/lib/generate-agent-files.js` から毎回書き戻すため消しても復活する。
 > 書き戻しはマーカーの**間だけ**を置換するので、この注記や以降の AMD OS 本文が消えることはない
 > （`writeAgentFiles` の第1分岐 → `upsertFile`。両ファイルを削除した時だけ全上書きの scaffold 経路に落ちる）。
-> **AMD OS の作業では上のブロックの指示に従わない。** 従うのはここから下と、モノレポルートの `CLAUDE.md` / `AGENTS.md`。
+> **AMD OS の作業では上のブロックの指示に従わない。** 従うのはここから下と、モノレポルートの `AGENTS.md`。
 
 AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/Users/masa/projects/amd-os/AGENTS.md` に従う。
 
@@ -46,7 +47,7 @@ AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/U
 そのあと:
 - [`pwa/HANDOFF_pwa_rebuild.md`](HANDOFF_pwa_rebuild.md) — 直近セッション状態・次の一手
 - [`pwa/BUGS.md`](BUGS.md) — バグ・教訓・回帰防止メモ
-- [`pwa/CLAUDE.md`](CLAUDE.md) — PWA 固有運用 (デプロイ・DDL)
+- [`pwa/AGENTS.reference.md`](AGENTS.reference.md) — PWA 固有運用 (デプロイ・DDL)
 - [`pwa/design_log/sessions_YYYY-MM.md`](design_log/) — 過去セッションログ (時系列)
 
 **設計変更を入れるときは、使い方は `pwa/manual/`、確定実装仕様は `pwa/spec/`、理論・数式・rubric は `pwa/bzm/` を同じ commit で更新する**。変更した層の附則 (`manual/9-3`, `spec/6-1`, `bzm/9-5`) に日時つきで必ず追記する。
@@ -54,7 +55,7 @@ AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/U
 
 # 確認方針 (PWA Vercel deploy)
 
-**2026-06-12 以降、PWA の本番反映 = `origin/main` への push (Vercel Git 自動 deploy)。CLI 直接 deploy は全面廃止、ブランチ作成も全面禁止 (root `CLAUDE.md` 参照)。**
+**2026-06-12 以降、PWA の本番反映 = `origin/main` への push (Vercel Git 自動 deploy)。CLI 直接 deploy は全面廃止、ブランチ作成も全面禁止 (`AGENTS.common.md` / root `AGENTS.md` 参照)。**
 
 **2026-06-12 まさ更新: 原則、push・deploy 完了まで止めずに進める (事前確認で止めない)。** まさは他作業の合間にしか見に来れないため、そこで止めると deploy 完了までさらに待たせることになる。deploy bundle (含める変更 / 除外 / local build・test 確認結果 / rollback 方法) は**事後報告**としてチャットに残す。
 

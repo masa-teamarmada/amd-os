@@ -17,7 +17,7 @@
 ## セッションの cwd
 
 **セッションの cwd は `/Users/masa/projects/AMD/amd-os`（モノレポのルート）にする。`pwa/` を cwd にしない。**
-`pwa/CLAUDE.md` は `@AGENTS.md` を展開し、その `pwa/AGENTS.md` の先頭には `next dev` が書き戻す
+`pwa/AGENTS.md` の先頭には `next dev` が書き戻す
 「This is NOT the Next.js you know」ブロックが入る。pwa を cwd にすると毎セッションこれを読み込む。
 各コマンドの中で `cd .../pwa` を書いて入るが、これは相対パスのためではない。
 **このツール群がディレクトリ位置に依存するのは 1 点だけ**で、`@supabase/supabase-js` が

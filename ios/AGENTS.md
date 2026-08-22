@@ -1,17 +1,18 @@
 # AMD OS AGENTS
 
+> 共通ルール（`/Users/masa/projects/AGENTS.common.md`）は `~/.claude/CLAUDE.md` 経由で
+> どの cwd でも自動で読まれる。ここで再importしない。
+> このディレクトリの詳細ルールは `AGENTS.reference.md`（該当作業のときだけ読む）。
+
+
 このリポジトリで AMD OS を触るえいみは、作業前に必ず以下を読むこと。
-
-まず必ず以下の共通ルールを読む。
-
-@/Users/masa/projects/AGENTS.common.md
 
 **正本は GitHub (`masa-teamarmada/amd-os-ios`)。作業場所は `/Users/masa/projects/amd-os/ios`。**
 **Drive 上の `共有ドライブ/claude/AMD_OS/amd-os-ios/` は廃止済み。参照しない。**
 
 ## 必読（リポジトリルート、読む順）
 
-1. **`CLAUDE.md`** — 最重要ルール / セッション開始時の 4 ステップ / 作業フロー
+1. **`../AGENTS.md`** — モノレポ全体ルール / **`../AGENTS.reference.md`** — セッション開始時の 4 ステップ / 作業フロー
 2. **`AGENTS.md`** — このファイル
 3. **`DESIGN.md`** ⭐ — 全画面・全機能の正本。「何が在るべきか」はここ
 4. **`HANDOFF.md`** — TestFlight 配布、ブランチ運用、現時点の作業状態
@@ -23,7 +24,7 @@
 
 ## 最重要ルール
 
-- **セッション開始時に CLAUDE.md の 4 ステップ（fetch / 未 push 検知 / branch 確認 / status）を必ず実行**
+- **セッション開始時に `../AGENTS.reference.md` の 4 ステップ（fetch / 未 push 検知 / branch 確認 / status）を必ず実行**
 - えいみは AMD OS の重要機能を、未確認のまま削除・導線削除してはいけない
 - 画面・機能を追加・削除・名称変更したら **必ず DESIGN.md を同じコミットで更新**
 - iOS ソースを触ったら実機デプロイまで完了させる（`xcodebuild` 成功だけで終わらせない）

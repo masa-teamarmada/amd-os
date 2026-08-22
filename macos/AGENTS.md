@@ -1,6 +1,11 @@
 # AMD OS macOS AGENTS
 
-作業前に `/Users/masa/projects/AGENTS.common.md`、ルート `AGENTS.md` / `CLAUDE.md`、`macos/DESIGN.md`、`macos/PARITY.md`、`ios/DESIGN.md`、`pwa/spec/1-1-overview.md`、`pwa/spec/1-2-document-layer-migration-map.md`、`pwa/spec/1-3-reconstruction-coverage-audit.md`、`pwa/spec/2-1-pwa-runtime-routes.md`、`pwa/spec/2-2-pwa-surface-inventory-current-spec.md`、`pwa/design/README.md`、`pwa/design/FEATURE_REGISTRY.md` を読む。
+> 共通ルール（`/Users/masa/projects/AGENTS.common.md`）は `~/.claude/CLAUDE.md` 経由で
+> どの cwd でも自動で読まれる。ここで再importしない。
+> このディレクトリの詳細ルールは `AGENTS.reference.md`（該当作業のときだけ読む）。
+
+
+作業前に `/Users/masa/projects/AGENTS.common.md`、ルート `AGENTS.md`、`macos/DESIGN.md`、`macos/PARITY.md`、`ios/DESIGN.md`、`pwa/spec/1-1-overview.md`、`pwa/spec/1-2-document-layer-migration-map.md`、`pwa/spec/1-3-reconstruction-coverage-audit.md`、`pwa/spec/2-1-pwa-runtime-routes.md`、`pwa/spec/2-2-pwa-surface-inventory-current-spec.md`、`pwa/design/README.md`、`pwa/design/FEATURE_REGISTRY.md` を読む。
 
 - Macアプリは独立SwiftUIクライアント。WKWebView全面移植は禁止。
 - ナビゲーションは「仕事 / 探索 / 管理 / 設定」。iOSの5タブをそのまま横展開しない。
