@@ -65,7 +65,7 @@ type Artifact = {
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ARTIFACT = path.resolve(
   SCRIPT_DIR,
-  "../bzm/pilot/sps-2-1-estimated-v0-1.json",
+  "../../bzm/pilot/sps-2-1-estimated-v0-1.json",
 );
 const DEFAULT_OUTPUT = path.resolve(
   SCRIPT_DIR,
@@ -297,7 +297,7 @@ function buildProjectRows(
     information_cutoff: model.informationCutoff,
     forward_validation_count: 0,
     revision_reason: "12PJ共通の低精度推定v0.1。欠測は共通決定規則で補完し、観測と混同せず資源配分を禁止",
-    source_ref: "pwa/bzm/pilot/sps-2-1-estimated-v0-1.json",
+    source_ref: "bzm/pilot/sps-2-1-estimated-v0-1.json",
     created_at: CREATED_AT,
   };
 

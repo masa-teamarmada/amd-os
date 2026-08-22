@@ -72,7 +72,7 @@ const DEFAULT_COHORT_A = "/tmp/bzm21-extraction/cohort-a.json";
 const DEFAULT_COHORT_B = "/tmp/bzm21-extraction/cohort-b.json";
 const DEFAULT_OUTPUT = path.resolve(
   SCRIPT_DIR,
-  "../bzm/pilot/sps-2-1-estimated-v0-1.json",
+  "../../bzm/pilot/sps-2-1-estimated-v0-1.json",
 );
 
 const INFORMATION_CUTOFF = "2026-08-11T14:59:59Z";

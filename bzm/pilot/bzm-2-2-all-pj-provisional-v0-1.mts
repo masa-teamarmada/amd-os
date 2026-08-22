@@ -194,7 +194,7 @@ const markdownOutput = path.resolve(positional[2] ?? (checkMode
   ? path.join(scriptDirectory, "..", "BZM_2_2_ALL_PJ_PARAMETER_LEDGER_2026-08-12.md")
   : path.join(outputDirectory, "BZM_2_2_ALL_PJ_PARAMETER_LEDGER_2026-08-12.md")));
 const auditOutput = path.resolve(positional[3] ?? path.join(outputDirectory, "bzm-2-2-all-pj-provisional-v0-1.audit.json"));
-const uiProjectionOutputDirectory = path.resolve(scriptDirectory, "../../src/generated/bzm-2-2-pilot");
+const uiProjectionOutputDirectory = path.resolve(scriptDirectory, "../../pwa/src/generated/bzm-2-2-pilot");
 
 const raw = fs.readFileSync(inputPath);
 const source = JSON.parse(raw.toString("utf8"));

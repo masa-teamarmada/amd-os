@@ -23,7 +23,7 @@ import {
 import { formatBzm22RegisteredValue } from "../src/lib/bzm-2-2-display-value.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
-const artifactPath = path.join(root, "bzm/pilot/bzm-2-2-all-pj-provisional-v0-1.json");
+const artifactPath = path.join(root, "..", "bzm/pilot/bzm-2-2-all-pj-provisional-v0-1.json");
 const generatedDirectory = path.join(root, "src/generated/bzm-2-2-pilot");
 const manifestPath = path.join(generatedDirectory, "manifest.json");
 const apiPath = path.join(root, "src/app/api/project/[projectId]/bzm-2-2-pilot/route.ts");

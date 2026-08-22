@@ -11,8 +11,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const assert = require("node:assert/strict");
 
-const GRAPH_DIR = path.join(__dirname, "..", "bzm", "theory-graph");
-const BZM_DIR = path.join(__dirname, "..", "bzm");
+const GRAPH_DIR = path.join(__dirname, "..", "..", "bzm", "theory-graph");
+const BZM_DIR = path.join(__dirname, "..", "..", "bzm");
 
 const NODE_KINDS = ["concept", "claim", "measure", "decision", "source", "question"];
 const NODE_LAYERS = [

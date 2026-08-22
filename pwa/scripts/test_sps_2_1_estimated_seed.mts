@@ -10,7 +10,7 @@ const GENERATOR = path.join(SCRIPT_DIR, "generate_sps_2_1_estimated_seed.mts");
 const MIGRATION = path.join(SCRIPT_DIR, "migrations/263_sps_2_1_estimated_v0_1.sql");
 const ARTIFACT = path.resolve(
   SCRIPT_DIR,
-  "../bzm/pilot/sps-2-1-estimated-v0-1.json",
+  "../../bzm/pilot/sps-2-1-estimated-v0-1.json",
 );
 const PROJECT_IDS = [
   "p03", "p04", "p06", "p07", "p09", "p11",

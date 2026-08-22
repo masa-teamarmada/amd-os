@@ -110,7 +110,7 @@
     "test:bzm-2-1-dynamic-policy": "node --experimental-strip-types scripts/test_bzm_2_1_dynamic_policy.mts",
     "build:sps-2-1-estimated": "node --experimental-strip-types scripts/build_sps_2_1_estimated_v0_1.mts",
     "check:sps-2-1-estimated": "node --experimental-strip-types scripts/build_sps_2_1_estimated_v0_1.mts --check",
-    "check:bzm-2-2-all-pj-pilot": "node --experimental-strip-types bzm/pilot/bzm-2-2-all-pj-provisional-v0-1.mts --check",
+    "check:bzm-2-2-all-pj-pilot": "node --experimental-strip-types ../bzm/pilot/bzm-2-2-all-pj-provisional-v0-1.mts --check",
     "test:bzm-2-2-pilot-ui": "node --experimental-strip-types scripts/check_bzm_2_2_pilot_ui_contract.mts",
     "test:bzm-2-2-acquisition-from-evidence": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_bzm_2_2_acquisition_from_evidence.mts",
     "generate:sps-2-1-seed": "node --experimental-strip-types scripts/generate_sps_2_1_estimated_seed.mts",
