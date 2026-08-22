@@ -11,6 +11,8 @@
 | `header.py` | `genNN.py` の先頭 8 行。要因名・要因順・`SIG`（評価者と日付）・`add()` の定義 |
 | `tail.py` | `genNN.py` の末尾。帯の計算・全項目の長さ検査・prepare 出力との突合・payload 書き出し |
 | `check.py` | 構文検査＋非日本語文字の混入検査＋`seed_id` の実 UUID への突合と自動修正 |
+| `show.py` | prepare 出力の **1 件だけ** を表示する。並列運用の必須手順（下の「1 件だけ表示する」参照） |
+| `apply.sh` | `submit` 出力の `candidate_ids` を 1 件ずつ `apply` し、`applied ok=N ng=M` を出す |
 
 ## セッションの cwd
 
@@ -61,12 +63,7 @@ python3 "$SP/gen$N.py" "$SP/p$N.json" "$SP/payload$N.json"
 
 # 6. 投入
 node scripts/sps_initial_assessment_tool.mjs submit --file "$SP/payload$N.json" --prepared "$SP/p$N.json" > "$SP/submit$N.json" 2>&1
-ok=0; ng=0
-for id in $(python3 -c "import json;print(' '.join(json.load(open('$SP/submit$N.json'))['candidate_ids']))"); do
-  r=$(node scripts/sps_initial_assessment_tool.mjs apply --candidate-id $id --actor eimi-claude 2>&1)
-  if echo "$r" | grep -q '"applied":true'; then ok=$((ok+1)); else ng=$((ng+1)); echo "NG $id"; fi
-done
-echo "applied ok=$ok ng=$ng"
+sh scripts/sps_batch/apply.sh "$SP/submit$N.json"   # -> applied ok=N ng=M
 ```
 
 ## 落とし穴（実際に踏んだもの）
@@ -117,15 +114,11 @@ echo "applied ok=$ok ng=$ng"
 - `check.py` が `RESULT: OK` になるまで submit しない。
 - KPI は**残シーズ数を減らすこと**。判断に迷ったら PLAYBOOK の帯の範囲内で置き、根拠のない値は null のまま残す。
 
-### 1 件だけ表示するコマンド
+### 1 件だけ表示する
 
 ```sh
-python3 -c "
-import json,io,os,re
-d=json.load(io.open(os.environ['SP']+'/p$N.json',encoding='utf-8'))
-s=d['inputs'][$I]['source_facts']['seed']
-print(d['inputs'][$I]['seed_id'])
-print(s.get('domain_lane'),'|',s.get('org_name'),'|',s.get('title'))
-print((s.get('summary') or '')[:400])
-"
+python3 scripts/sps_batch/show.py "$SP/p$N.json" $I
 ```
+
+`seed` の全項目に加えて `funding` / `news` / `projects` も出す。採択制度と年度は `funding` に入っているので、
+段階仮説（PLAYBOOK §3）はここを見て決める。`amount_jpy` が `null` なら金額は推測せず `null` のまま残す。
