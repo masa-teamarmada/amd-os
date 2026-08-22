@@ -12,6 +12,13 @@
 | `tail.py` | `genNN.py` の末尾。帯の計算・全項目の長さ検査・prepare 出力との突合・payload 書き出し |
 | `check.py` | 構文検査＋非日本語文字の混入検査＋`seed_id` の実 UUID への突合と自動修正 |
 
+## セッションの cwd
+
+**セッションの cwd は `/Users/masa/projects/AMD/amd-os`（モノレポのルート）にする。`pwa/` を cwd にしない。**
+`pwa/CLAUDE.md` は `@AGENTS.md` を展開し、その `pwa/AGENTS.md` の先頭には `next dev` が書き戻す
+「This is NOT the Next.js you know」ブロックが入る。pwa を cwd にすると毎セッションこれを読み込む。
+このツール群のコマンドは相対パスが pwa 基準なので、各コマンドの中で `cd .../pwa` を書いて入る。
+
 ## 手順（1 バッチ = 20 件）
 
 ```sh
