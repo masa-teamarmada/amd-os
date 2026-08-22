@@ -11,6 +11,7 @@ import {
 import { publicWorkspaceDocument } from "@/lib/workspace-documents-server";
 import {
   findWorkspaceDocumentRevision,
+  loadWorkspaceDocumentRevisionModel,
   loadWorkspaceDocumentRevisionSource,
   publicWorkspaceDocumentRevision,
 } from "@/lib/workspace-document-revisions";
@@ -28,7 +29,10 @@ function parseRevisionNo(value: string): number | null {
   return Number(value);
 }
 
-/** 1つの版の本文。プレビューと差分表示のためだけに返す。署名URLは発行しない。 */
+/**
+ * 1つの版の本文。プレビューと差分表示のためだけに返す。署名URLは発行しない。
+ * デッキモデルの版 (`kind='deck_model'`) はHTMLを持たないので、モデルJSONの側を返す。
+ */
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ documentId: string; revisionNo: string }> },
@@ -49,6 +53,12 @@ export async function GET(
     return json({ ok: false, error: "版を読み込めなかったよ。" }, 500);
   }
   if (!revision) return json({ ok: false, error: "Not found" }, 404);
+
+  if (revision.kind === "deck_model") {
+    const model = await loadWorkspaceDocumentRevisionModel(db, revision);
+    if (model == null) return json({ ok: false, error: "版のモデルを読み込めなかったよ。" }, 500);
+    return json({ ok: true, revision: publicWorkspaceDocumentRevision(revision), model });
+  }
 
   const source = await loadWorkspaceDocumentRevisionSource(db, revision);
   if (source == null) return json({ ok: false, error: "版の本文を読み込めなかったよ。" }, 500);
@@ -93,6 +103,16 @@ export async function POST(
     return json({ ok: false, error: "版を読み込めなかったよ。" }, 500);
   }
   if (!revision) return json({ ok: false, error: "Not found" }, 404);
+
+  // デッキモデルの版はHTMLの現物ではなくモデル正本を差し替える話なので、この経路では戻さない。
+  // GETでモデルを取り、デッキ保存 (PUT /deck) として積み直す。履歴はどちらでも壊れない。
+  if (revision.kind === "deck_model") {
+    return json({
+      ok: false,
+      error: "これはデッキの版だよ。編集画面でデッキとして戻してね。",
+      kind: revision.kind,
+    }, 400);
+  }
 
   const source = await loadWorkspaceDocumentRevisionSource(db, revision);
   if (source == null) return json({ ok: false, error: "版の本文を読み込めなかったよ。" }, 500);

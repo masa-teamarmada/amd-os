@@ -147,6 +147,54 @@ export async function archiveHtmlSourceRevision(
   throw new Error("workspace_document_revision_number_conflict");
 }
 
+export type ArchiveDeckModelRevisionInput = {
+  documentId: string;
+  /** 退避するモデル = 上書きされる直前の正本。保存後の新しいモデルではない。 */
+  model: unknown;
+  contentSha256: string;
+  byteSize: number;
+  note: string | null;
+  accountId: string | null;
+};
+
+/**
+ * デッキモデルを上書きする前に、その直前の内容を版として積む。
+ *
+ * HTMLの版と違って本文はDB行 (`model` jsonb) に入る。Storageへの退避が無いので、
+ * insertが通った時点で版として完結する。番号の採り方と追記のみの性質はHTML版と同じ。
+ */
+export async function archiveDeckModelRevision(
+  db: SupabaseClient,
+  input: ArchiveDeckModelRevisionInput,
+): Promise<{ revisionNo: number } | null> {
+  const { documentId, model, contentSha256, byteSize, note, accountId } = input;
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const revisionNo = (await latestRevisionNo(db, documentId)) + 1 + attempt;
+    const { error: insertError } = await db
+      .from("workspace_document_revisions")
+      .insert({
+        document_id: documentId,
+        revision_no: revisionNo,
+        kind: "deck_model",
+        model,
+        content_sha256: contentSha256,
+        byte_size: byteSize,
+        note,
+        created_by_account_id: accountId,
+      });
+    if (insertError) {
+      // 23505 = 別セッションが同じrevision_noを先に取った。番号を進めて取り直す。
+      if (insertError.code === "23505") continue;
+      console.error("[workspace-document-revisions] deck revision insert failed:", insertError.message);
+      throw new Error("workspace_document_deck_revision_insert_failed");
+    }
+    return { revisionNo };
+  }
+
+  throw new Error("workspace_document_revision_number_conflict");
+}
+
 /**
  * 保持件数を超えた古い版を落とす。pinned=true は対象外。
  * 掃除の失敗で保存そのものを失敗させない (呼び出し側はawaitするがthrowしない)。
@@ -235,6 +283,28 @@ export async function findWorkspaceDocumentRevision(
     throw new Error("workspace_document_revision_fetch_failed");
   }
   return (data as unknown as WorkspaceDocumentRevisionRow) || null;
+}
+
+/**
+ * 退避済みデッキモデルの本文。
+ * 一覧の `WORKSPACE_DOCUMENT_REVISION_FIELDS` に `model` を含めないのは、
+ * 版一覧のたびに全版のJSONを引くと重いから。1件を開くときだけここで取りに行く。
+ */
+export async function loadWorkspaceDocumentRevisionModel(
+  db: SupabaseClient,
+  revision: WorkspaceDocumentRevisionRow,
+): Promise<unknown | null> {
+  if (revision.kind !== "deck_model") return null;
+  const { data, error } = await db
+    .from("workspace_document_revisions")
+    .select("model")
+    .eq("revision_id", revision.revision_id)
+    .maybeSingle();
+  if (error) {
+    console.error("[workspace-document-revisions] deck revision fetch failed:", error.message);
+    return null;
+  }
+  return (data as { model?: unknown } | null)?.model ?? null;
 }
 
 /** 退避済みHTMLの本文。署名URLを発行せず、再認可済みのserver内でだけ読む。 */
