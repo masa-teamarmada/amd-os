@@ -4551,3 +4551,10 @@
 - **原因**: 移設元のスコア詳細タブは pilot 対象PJでしか出ないタブなので、`/api/project/{id}/bzm-2-2-pilot` の 404 は起こり得ず、fetch失敗は素直にエラー表示でよかった。移設先の事業計画タブは全PJ常設なので、**同じ404が「異常」ではなく「このPJには無い」の正常系**に変わる。タブの出現条件が変わると、同じAPIの同じレスポンスの意味が変わる。
 - **対応内容**: 専用の `Bzm22PilotNotFoundError` を `bzm-2-2-pilot-client.ts` に置き、404だけをこれで投げ分けた。ホストの `Bzm22TimeLedgerSection` は受け取ったら `outOfScope` にして `return null` する。エラーカードも空表も出さず、セクションごと消える。
 - **再発防止策**: PJ固有データを扱うUIを、より広い条件で出るタブ／画面へ移すときは、**移設先で起こり得るようになったエラーを先に洗う**。特に404は「異常」と「非表示」のどちらかを移設先ごとに決め直す。あわせて、UIを別コンポーネントへ移したら `check_pwa_critical_ui.cjs` などの契約テストのアンカーは**消さずに新ホストへ付け替える**（消すだけにすると業務導線の消失を検知できなくなる）。
+
+## [workspace-deck] `react-dom/server` の静的importが本番ビルドを6連続で止めた (2026-08-22)
+
+- **症状**: `1f0090d6` 以降、Vercelのproduction buildが6回連続 ERROR。`ea6c32fa` 以降の8commit（別セッションのmodel正本まわりを含む）が本番へ出ないまま積み上がった。ローカルの `npx tsc --noEmit` は通っていたので、型検査だけを見ていた側からは何も壊れて見えなかった。
+- **原因**: `workspace-deck-render.ts` の `import { renderToStaticMarkup } from "react-dom/server"`。App Routerは、routeから到達できるモジュールが `react-dom/server` を**静的import**していると「You're importing a component that imports react-dom/server」でビルドを止める。型検査もテストもこの制約を見ない。しかもimport traceは自分の触っていない別routeまで巻き込むので、原因commitが一目では分からない。
+- **対応内容**: `renderWorkspaceDeckDocument()` を `async` にして `await import("react-dom/server")` の動的importへ変えた。描く木 (`WorkspaceDeckView`) は1本のままで、レンダラは増やしていない。`a76356a2` / build v3.90.0。
+- **再発防止策**: **新しいlibを足したcommitを積む前に `npm run build` を通す。** `tsc --noEmit` と契約テストはApp Routerの制約（`react-dom/server`、`server-only`、動的fsアクセスのtracing）を検査しない。並列セッションが同じ `main` へ push する運用では、ビルドを割ったcommitが他人の作業を丸ごと止める。
