@@ -1,0 +1,301 @@
+#!/usr/bin/env node
+"use strict";
+
+/**
+ * モデル正本ロック (model/LOCK.json) の検査・再生成ツール。
+ *
+ * 背景: AMD OS の BZM / SPS モデルはまさの承認なしに変更されてはならない正本。
+ * model/LOCK.json に列挙したファイルの sha256 と、コード側の凍結版タプル
+ * (pwa/src/lib/current-sps-model.ts の CURRENT_SPS_MODEL) が一致することを
+ * 機械的に検査する。不一致は「まさの承認を経ない変更が正本へ入った」ことを意味する。
+ *
+ * サブコマンド:
+ *   check                        … LOCK.json と実ファイルの sha256、コード側の版タプルを照合 (既定)
+ *   relock --approval <id>       … model/APPROVALS.md の該当エントリを検証してから LOCK.json を再生成
+ *   init --approval <id> [--files <path>...] … 初回生成
+ *
+ * 引数なし (他スクリプトから require された場合も含む) では check が走る。
+ * これにより pwa/scripts/check_pwa_critical_ui.cjs から require するだけで
+ * 通常のビルド・テスト導線に組み込める (check_payout_notice_pdf_golden.cjs と同じ設計)。
+ */
+
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+
+const ROOT = path.resolve(__dirname, "..", "..");
+const MODEL_DIR = path.join(ROOT, "model");
+const LOCK_PATH = path.join(MODEL_DIR, "LOCK.json");
+const APPROVALS_PATH = path.join(MODEL_DIR, "APPROVALS.md");
+const CURRENT_SPS_MODEL_PATH = path.join(
+  ROOT,
+  "pwa/src/lib/current-sps-model.ts",
+);
+
+function fail(msg) {
+  console.error(`✗ model lock: ${msg}`);
+  process.exit(1);
+}
+
+function ok(msg) {
+  console.log(msg);
+}
+
+function sha256File(absPath) {
+  const buf = fs.readFileSync(absPath);
+  return crypto.createHash("sha256").update(buf).digest("hex");
+}
+
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function jstTimestamp() {
+  const now = new Date();
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return jst.toISOString().replace("Z", "+09:00");
+}
+
+function readLock() {
+  if (!fs.existsSync(LOCK_PATH)) {
+    fail(
+      "model/LOCK.json が存在しません。node pwa/scripts/model_lock.cjs init --approval <id> " +
+        "で初期生成してください。",
+    );
+  }
+  let data;
+  try {
+    data = JSON.parse(fs.readFileSync(LOCK_PATH, "utf8"));
+  } catch (e) {
+    fail(`model/LOCK.json のJSON解析に失敗しました: ${e.message}`);
+  }
+  if (!Array.isArray(data.files)) {
+    fail("model/LOCK.json の files が配列ではありません。");
+  }
+  return data;
+}
+
+// pwa/src/lib/current-sps-model.ts の CURRENT_SPS_MODEL から、コード側が
+// 現行として採用している版タプルを抜き出す。TypeScript コンパイルはせず、
+// 単純な正規表現で該当行の文字列リテラルを拾うだけに留める。
+function extractCodeFrozenVersions() {
+  if (!fs.existsSync(CURRENT_SPS_MODEL_PATH)) {
+    fail(
+      `凍結版タプルの参照先 ${path.relative(ROOT, CURRENT_SPS_MODEL_PATH)} が見つかりません。`,
+    );
+  }
+  const text = fs.readFileSync(CURRENT_SPS_MODEL_PATH, "utf8");
+  const grab = (key) => {
+    const m = text.match(new RegExp(`${key}:\\s*"([^"]+)"`));
+    return m ? m[1] : null;
+  };
+  return {
+    model_version: grab("modelVersion"),
+    measure_version: grab("measureVersion"),
+    q_model_version: grab("qModelVersion"),
+    q_ruleset_version: grab("qRulesetVersion"),
+    p_model_version: grab("pModelVersion"),
+  };
+}
+
+function runCheck() {
+  const lock = readLock();
+  const problems = [];
+
+  for (const entry of lock.files) {
+    const rel = entry.path;
+    const abs = path.join(ROOT, rel);
+    if (!fs.existsSync(abs)) {
+      problems.push(
+        `モデル正本 ${rel} が存在しません（削除または移動されています）。` +
+          "提案は model/proposals/ に置き、承認後に model/APPROVALS.md へ記録してから " +
+          "node pwa/scripts/model_lock.cjs relock --approval <id> を実行してください。",
+      );
+      continue;
+    }
+    const actual = sha256File(abs);
+    if (actual !== entry.sha256) {
+      problems.push(
+        `モデル正本 ${rel} がまさの承認なしに変更されています。` +
+          "提案は model/proposals/ に置き、承認後に model/APPROVALS.md へ記録してから " +
+          "node pwa/scripts/model_lock.cjs relock --approval <id> を実行してください。",
+      );
+    }
+  }
+
+  if (lock.frozen_versions) {
+    const code = extractCodeFrozenVersions();
+    for (const [key, expected] of Object.entries(lock.frozen_versions)) {
+      const actual = code[key];
+      if (actual !== expected) {
+        problems.push(
+          `凍結版タプル ${key} が不一致です (model/LOCK.json = ${expected} / ` +
+            `pwa/src/lib/current-sps-model.ts = ${actual ?? "(見つからず)"})。` +
+            "提案中の版がコードへ入っています。",
+        );
+      }
+    }
+  }
+
+  if (problems.length > 0) {
+    console.error("✗ モデル正本ロック違反:");
+    for (const p of problems) {
+      console.error(`  - ${p}`);
+    }
+    process.exit(1);
+  }
+
+  ok(`model lock ok (${lock.files.length} files)`);
+}
+
+function readApprovalEntry(approvalId) {
+  if (!fs.existsSync(APPROVALS_PATH)) {
+    fail(`model/APPROVALS.md が存在しません。`);
+  }
+  const text = fs.readFileSync(APPROVALS_PATH, "utf8");
+  const headingRe = new RegExp(`^##\\s+${escapeRegExp(approvalId)}\\s*$`, "m");
+  const m = headingRe.exec(text);
+  if (!m) {
+    fail(
+      `model/APPROVALS.md に "## ${approvalId}" の見出しが見つかりません。` +
+        "先にまさの承認を APPROVALS.md へ記録してください。",
+    );
+  }
+  const start = m.index + m[0].length;
+  const rest = text.slice(start);
+  const nextHeadingIdx = rest.search(/^##\s+/m);
+  return nextHeadingIdx === -1 ? rest : rest.slice(0, nextHeadingIdx);
+}
+
+// 承認エントリ本文から「対象ファイル」として列挙された repo 相対パスを拾う。
+// 拡張子付きのトークン (.md / .json / .ts / .tsx / .cjs / .mjs / .js) だけを対象にする。
+function extractPathsFromApprovalBody(body) {
+  const re = /[A-Za-z0-9_.\-/]+\.(?:md|json|ts|tsx|cjs|mjs|js)\b/g;
+  const found = new Set();
+  let mm;
+  while ((mm = re.exec(body))) {
+    found.add(mm[0].replace(/^\.\//, ""));
+  }
+  return Array.from(found);
+}
+
+function parseApprovalArg(args) {
+  const idx = args.indexOf("--approval");
+  if (idx === -1 || !args[idx + 1]) {
+    fail("--approval <id> を指定してください。");
+  }
+  return args[idx + 1];
+}
+
+function parseFilesArg(args) {
+  const idx = args.indexOf("--files");
+  if (idx === -1) return null;
+  const files = [];
+  for (let i = idx + 1; i < args.length; i++) {
+    if (args[i].startsWith("--")) break;
+    files.push(args[i]);
+  }
+  return files;
+}
+
+function writeLock(lock) {
+  fs.mkdirSync(MODEL_DIR, { recursive: true });
+  fs.writeFileSync(LOCK_PATH, JSON.stringify(lock, null, 2) + "\n");
+}
+
+function runRelock(args) {
+  const approvalId = parseApprovalArg(args);
+  const body = readApprovalEntry(approvalId);
+  const approvalPaths = extractPathsFromApprovalBody(body);
+  if (approvalPaths.length === 0) {
+    fail(`model/APPROVALS.md の "## ${approvalId}" に対象ファイルのパスが見つかりません。`);
+  }
+
+  const missingFromApproval = approvalPaths.filter(
+    (p) => !fs.existsSync(path.join(ROOT, p)),
+  );
+
+  let existing = { files: [] };
+  if (fs.existsSync(LOCK_PATH)) {
+    try {
+      existing = JSON.parse(fs.readFileSync(LOCK_PATH, "utf8"));
+    } catch (e) {
+      fail(`既存の model/LOCK.json の解析に失敗しました: ${e.message}`);
+    }
+  }
+  const existingPaths = (existing.files || []).map((f) => f.path);
+  const unionPaths = Array.from(new Set([...existingPaths, ...approvalPaths]))
+    .filter((p) => fs.existsSync(path.join(ROOT, p)))
+    .sort();
+  if (unionPaths.length === 0) {
+    fail("relock対象のファイルが1つも存在しません。");
+  }
+
+  const lock = {
+    approval_ref: approvalId,
+    locked_at: jstTimestamp(),
+    frozen_versions: existing.frozen_versions || extractCodeFrozenVersions(),
+    files: unionPaths.map((p) => ({
+      path: p,
+      sha256: sha256File(path.join(ROOT, p)),
+    })),
+  };
+
+  writeLock(lock);
+  ok(`model lock relocked (${lock.files.length} files, approval_ref=${approvalId})`);
+  if (missingFromApproval.length > 0) {
+    console.log(
+      `  (承認エントリに列挙されているが未作成のため含めず: ${missingFromApproval.join(", ")})`,
+    );
+  }
+}
+
+function runInit(args) {
+  const approvalId = parseApprovalArg(args);
+  // init も relock と同じ規律で、まさの承認エントリの存在を先に検証する。
+  const body = readApprovalEntry(approvalId);
+
+  let files = parseFilesArg(args);
+  if (!files) {
+    files = extractPathsFromApprovalBody(body);
+  }
+  if (!files || files.length === 0) {
+    fail(
+      "init対象ファイルが特定できません。--files で指定するか、" +
+        "model/APPROVALS.md の当該エントリにパスを列挙してください。",
+    );
+  }
+
+  const present = files.filter((p) => fs.existsSync(path.join(ROOT, p)));
+  const missing = files.filter((p) => !fs.existsSync(path.join(ROOT, p)));
+  if (present.length === 0) {
+    fail(`init対象ファイルが1つも存在しません: ${files.join(", ")}`);
+  }
+
+  const lock = {
+    approval_ref: approvalId,
+    locked_at: jstTimestamp(),
+    frozen_versions: extractCodeFrozenVersions(),
+    files: present
+      .slice()
+      .sort()
+      .map((p) => ({ path: p, sha256: sha256File(path.join(ROOT, p)) })),
+  };
+
+  writeLock(lock);
+  ok(`model lock initialized (${present.length} files, approval_ref=${approvalId})`);
+  if (missing.length > 0) {
+    console.log(`  (承認エントリに列挙されているが未作成のため含めず: ${missing.join(", ")})`);
+  }
+}
+
+const args = process.argv.slice(2);
+const cmd = args[0];
+
+if (cmd === "relock") {
+  runRelock(args.slice(1));
+} else if (cmd === "init") {
+  runInit(args.slice(1));
+} else {
+  runCheck();
+}

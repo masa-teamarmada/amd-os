@@ -1,0 +1,61 @@
+{
+  "approval_ref": "2026-08-22-1",
+  "locked_at": "2026-08-22T17:47:27.765+09:00",
+  "frozen_versions": {
+    "model_version": "sps-ind-tier0-v1",
+    "measure_version": "sps-ind-v1",
+    "q_model_version": "q-eval-v2",
+    "q_ruleset_version": "rubric-v1.1",
+    "p_model_version": "p-ind-v1"
+  },
+  "files": [
+    {
+      "path": "bzm/BZM_2_0_DIAGNOSTIC_SCORE_SPEC.md",
+      "sha256": "a4e65bb222202eab8e03ba3f311d12877d9f04a0f81daafbf19839d1f8ecf4ba"
+    },
+    {
+      "path": "bzm/SEED_Q_RUBRIC_2026-08-15.md",
+      "sha256": "07d889ba6d5bb9bbca0517f704620d5ce9a0058f844f7346f5fb1d0cd10c993d"
+    },
+    {
+      "path": "bzm/SPS_NAT_VALUE_MEASURE_PROPOSAL_2026-08-16.md",
+      "sha256": "461d8d7d29b86b836b59e48008c73cae7d1acc0a4377a2ffc8ec04ff98f952c9"
+    },
+    {
+      "path": "bzm/bzm-1-0-to-2-1-evolution-guide.md",
+      "sha256": "40afafc27de03178fcfeba0dc398975bfd26586ab27deeeb3088e8ed24f9c023"
+    },
+    {
+      "path": "bzm/bzm-2-1-dynamic-business-value-model.md",
+      "sha256": "dbb73cc8b767e343af62f467421186c252e2e9779d7edcacaaae9acb0c81d65e"
+    },
+    {
+      "path": "bzm/bzm-2-2-strategic-slack-and-propulsion.md",
+      "sha256": "c227e876acceb3084d7684588ef51a4654e8c39084a2215a72bbf23071412bb7"
+    },
+    {
+      "path": "bzm/sps-2-0-domain-definition.md",
+      "sha256": "9322402b6db0fdd055271a2a993fba8cadc7060b1dc29bd0898d34c3c9d07219"
+    },
+    {
+      "path": "bzm/sps-2-0-measurability-gate.md",
+      "sha256": "d48a0b2f503dd042aec39d6109847383b5090d2d741e7b1661d48658ad50c57c"
+    },
+    {
+      "path": "bzm/sps-2-0-reachability-model.md",
+      "sha256": "5b966597c847d63e3d7dc7ebd9802ab64b1ecb3900cf4851c6bafc8bd1e4a350"
+    },
+    {
+      "path": "bzm/terminology_glossary.md",
+      "sha256": "1018af3dc102dc05c8ff05aded1208b91684f974fbab1cb6033ac30a3fa678ab"
+    },
+    {
+      "path": "model/CURRENT.json",
+      "sha256": "6f7ba1a77c7f7e86f073fcf64e2840d254617dce0f64799ddaddead291227369"
+    },
+    {
+      "path": "model/MODEL_VERSION_LEDGER.md",
+      "sha256": "478387ec3b3303dbf4816b9eb1e654326ac7f31b2045afbaeed3a68baad4eed4"
+    }
+  ]
+}

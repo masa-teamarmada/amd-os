@@ -2950,6 +2950,10 @@ expectIncludes("manual/5-1-research-assets-vc-seeds-scholar-spec.md", [
 
 require("./check_payout_notice_pdf_golden.cjs");
 
+// モデル正本ロック (model/LOCK.json): まさの承認なしに BZM/SPS モデルの正本 md や
+// 凍結版タプルが変更されていないかを検査する。詳細は model/README.md。
+require("./model_lock.cjs");
+
 // 会社概要タブ (2026-07-16 まさ確定): 全PJ常設・全AMDメンバー閲覧編集。旧 CockpitGovernance を統合廃止。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "CockpitCompanyOverview",
@@ -3696,3 +3700,16 @@ expectIncludes("scripts/migrations/248_project_management_issue_discussions.sql"
 expectIncludes("scripts/migrations/250_project_management_issue_background.sql", [
   "ADD COLUMN IF NOT EXISTS background text",
 ]);
+
+// /model — モデル正本の層 (2026-08-22 まさ確定「教科書は本の原稿が書かれるべきところ、モデルは別の場所に記録」)。
+// 式の各変数→台帳アンカーへのリンクと、BZM 2.2 の投資判断禁止文、GlobalNav の導線は消えてはいけない。
+// 正本そのもののロックは model_lock.cjs (上で require 済み) が担う。
+expectIncludes("src/app/(app)/model/page.tsx", [
+  'data-testid="model-index"',
+  "BZM 2.2 は前向き検証0件の pilot。投資判断・対外表示には使わない。",
+]);
+expectIncludes("src/components/model/ModelFormula.tsx", [
+  "href={`/model/${encodeURIComponent(ledgerSlug)}#${part.anchor}`}",
+]);
+expectIncludes("src/components/nav/GlobalNav.tsx", ['href: "/model"']);
+expectIncludes("next.config.ts", ['"/model/[slug]/page"', '"../model/**/*.json"']);

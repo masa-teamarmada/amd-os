@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# モデル正本 (model/ 配下、または model/LOCK.json に列挙されたファイル) が
+# staged に含まれる場合、node pwa/scripts/model_lock.cjs check を通してから
+# commit を許可する。迂回用の環境変数は用意しない。
+#
+# 詳細: model/README.md
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+LOCK_JSON="$REPO_ROOT/model/LOCK.json"
+
+staged_files="$(git diff --cached --name-only --diff-filter=ACMR || true)"
+
+touches_model=0
+
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  case "$f" in
+    model/*)
+      touches_model=1
+      ;;
+  esac
+done <<< "$staged_files"
+
+if [ "$touches_model" -eq 0 ] && [ -f "$LOCK_JSON" ]; then
+  # LOCK.json に列挙されたファイル (bzm/*.md など model/ 配下以外) も対象にする。
+  locked_paths="$(node -e '
+    const fs = require("fs");
+    const data = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    for (const f of (data.files || [])) console.log(f.path);
+  ' "$LOCK_JSON" 2>/dev/null || true)"
+
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    if grep -Fxq "$f" <<< "$staged_files"; then
+      touches_model=1
+      break
+    fi
+  done <<< "$locked_paths"
+fi
+
+if [ "$touches_model" -eq 1 ]; then
+  node "$REPO_ROOT/pwa/scripts/model_lock.cjs" check
+fi
+
+exit 0

@@ -145,6 +145,10 @@ const nextConfig: NextConfig = {
     // Native macOS の文書readerもPWAの git 管理Markdownを正本として返す。
     // route内の readdir/readFileSync は自動トレースに乗らないため、ここで本文を
     // 明示しないと本番だけ `document not found` になる。
+    // モデル正本 (amd-os/model/) は教科書と同じくリポジトリルート直下。/model は admin 限定 layout で
+    // 動的レンダリングになり実行時に fs 読みするため、明示 bundle しないと本番だけ ENOENT になる。
+    "/model/[slug]/page": ["../model/**/*.md", "../model/**/*.json", "../bzm/**/*.md"],
+    "/model/page": ["../model/**/*.md", "../model/**/*.json"],
     "/api/macos/document/route": [
       "./manual/**/*.md",
       "./spec/**/*.md",

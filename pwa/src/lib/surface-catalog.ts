@@ -61,6 +61,7 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
   { id: "knowledge-map", title: "AMD Materials", primaryPath: "/knowledge-map", domain: "knowledge_documents", lens: "knowledge", status: "canonical", prefixes: ["/knowledge-map"] },
   { id: "bzm-map", title: "BZM 理論マップ", domain: "knowledge_documents", lens: "knowledge", status: "canonical", exact: ["/bzm/map"] },
   { id: "bzm", title: "BZM 2.0", primaryPath: "/bzm", domain: "knowledge_documents", lens: "knowledge", status: "canonical", prefixes: ["/bzm"] },
+  { id: "model", title: "モデル", primaryPath: "/model", domain: "platform", lens: "knowledge", status: "canonical", prefixes: ["/model"] },
   { id: "spec", title: "設計書", primaryPath: "/spec", domain: "platform", lens: "knowledge", status: "canonical", prefixes: ["/spec"] },
   { id: "manual", title: "マニュアル", primaryPath: "/manual", domain: "platform", lens: "knowledge", status: "canonical", prefixes: ["/manual"] },
   { id: "business-cards", title: "名刺", primaryPath: "/business-cards", domain: "knowledge_documents", lens: "amd_operations", status: "canonical", prefixes: ["/business-cards", "/native/business-cards"] },

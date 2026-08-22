@@ -1,0 +1,117 @@
+{
+  "updated": "2026-08-22",
+  "ledger_slug": "MODEL_VERSION_LEDGER",
+  "series": [
+    {
+      "key": "sps",
+      "title": "SPS — シーズ一次選別",
+      "status": { "label": "まさ確定 2026-08-16", "tone": "ok" },
+      "formula": {
+        "display": "SPS = q × P^ind",
+        "parts": [
+          { "type": "var", "symbol": "SPS", "anchor": "var-sps" },
+          { "type": "op", "text": " = " },
+          { "type": "var", "symbol": "q", "anchor": "var-q" },
+          { "type": "op", "text": " × " },
+          { "type": "var", "symbol": "P", "sup": "ind", "anchor": "var-p-ind" }
+        ]
+      },
+      "summary": "到達見込み × 産業創出価値の桁。ページの式は Tier 0 の単一経路への縮退形で、正式は全経路の和 Σ_o q_o P^ind_o（台帳 #var-sps）。単一系譜、版はタグで管理",
+      "versions": {
+        "model_version": "sps-ind-tier0-v1",
+        "measure_version": "sps-ind-v1",
+        "q_model_version": "q-eval-v2",
+        "q_ruleset_version": "rubric-v1.1",
+        "p_model_version": "p-ind-v1"
+      },
+      "canonical": [
+        { "slug": "sps-2-0-reachability-model", "title": "到達見込みモデル（式とqの正本）", "path": "bzm/sps-2-0-reachability-model.md", "status": "theory-fixed v1.4" },
+        { "slug": "SPS_NAT_VALUE_MEASURE_PROPOSAL_2026-08-16", "title": "SPS価値項の産業創出価値への差し替え（P^indの定義）", "path": "bzm/SPS_NAT_VALUE_MEASURE_PROPOSAL_2026-08-16.md", "status": "v0.3 / dual-audited / masa-agreed" },
+        { "slug": "SEED_Q_RUBRIC_2026-08-15", "title": "シーズq帯 評価ルーブリック（11要因）", "path": "bzm/SEED_Q_RUBRIC_2026-08-15.md", "status": "rubric v1 / masa-agreed / frozen（§5にv1.1運用指針）" },
+        { "slug": "SEED_P_IND_JUDGMENT_2026-08-16", "title": "P^ind帯 判断記録（24件の較正）", "path": "bzm/SEED_P_IND_JUDGMENT_2026-08-16.md", "status": "judgment v1" },
+        { "slug": "sps-2-0-domain-definition", "title": "領域定義 — Before Zero で診断し、ゼロの先で検証する", "path": "bzm/sps-2-0-domain-definition.md", "status": "domain-fixed v1.0" },
+        { "slug": "sps-2-0-measurability-gate", "title": "測定可能性ゲート — 数字を出してよい条件", "path": "bzm/sps-2-0-measurability-gate.md", "status": "questions-fixed v1.1" },
+        { "slug": "SEED_Q_EVAL_V2_AND_SPS_IND_LEDGER_2026-08-16", "title": "q帯v2評価台帳 + SPS産業創出価値版一覧（latest-only統治）", "path": "bzm/SEED_Q_EVAL_V2_AND_SPS_IND_LEDGER_2026-08-16.md", "status": "q-eval v2 frozen + sps-ind v1.0" },
+        { "slug": "SPS_INITIAL_ASSESSMENT_PLAYBOOK", "title": "SPS初回評価プレイブック（版タプルと運用）", "path": "bzm/SPS_INITIAL_ASSESSMENT_PLAYBOOK.md", "status": "playbook v1" }
+      ],
+      "timeline": [
+        { "date": "〜2026-08-15", "title": "旧9軸", "formula": "K·Π(X_i+1)^α_i（四群へ括るとM×P×R×S）", "note": "退役。まさ裁定 2026-08-15で表示・計算・選別から外した", "anchor": "lineage-sps" },
+        { "date": "2026-08-04〜08-11", "title": "SPS 2.0 世代", "formula": "SPS_all,τ(H_econ) = Σ_o q_o P_o（持分価値）", "note": "単一の順序尺度から、経路別の確率×条件付き正味現在価値へ。単位が円になった", "anchor": "lineage-sps" },
+        { "date": "2026-08-15", "title": "版番号を廃止し単一系譜へ", "formula": "SPS_all = Σ_o q_o P_o", "note": "「SPSはひとつしかない」。到達見込みモデル章の式を現行と確定。V_all/V_Gへの改名案は撤回", "anchor": "lineage-sps" },
+        { "date": "2026-08-16", "title": "産業創出価値版（現行）", "formula": "SPS = Σ_o q_o P^ind_o", "note": "式の形と次元は不変のまま、P_oの中身を持分価値から産業創出価値へ差し替え", "anchor": "lineage-sps" },
+        { "date": "2026-08-18", "title": "latest-only 統治", "formula": "SPS = Σ_o q_o P^ind_o", "note": "active版を凍結tuple完全一致に固定。旧版は表示・sort・API・writerから退役", "anchor": "lineage-sps" }
+      ]
+    },
+    {
+      "key": "bzm",
+      "title": "BZM 2.2 — 事業価値の動学",
+      "status": { "label": "pilot・前向き検証0件", "tone": "warn" },
+      "formula": {
+        "display": "八層状態 / J・P・Q・S",
+        "parts": [
+          { "type": "var", "symbol": "状態", "anchor": "bzm-state" },
+          { "type": "op", "text": " / " },
+          { "type": "var", "symbol": "J", "anchor": "bzm-j" },
+          { "type": "op", "text": "・" },
+          { "type": "var", "symbol": "P", "anchor": "bzm-p" },
+          { "type": "op", "text": "・" },
+          { "type": "var", "symbol": "Q", "anchor": "bzm-q" },
+          { "type": "op", "text": "・" },
+          { "type": "var", "symbol": "S", "anchor": "bzm-s" }
+        ]
+      },
+      "summary": "支出が何を前進させ、ショック後にも勝ち筋を残せるかを、状態・制約・遷移で解く。本実装前（pilot画面は内部shadow試算）・未検証で、PJ間比較・投資判断・資源配分に使わない",
+      "versions": {
+        "model_version": "bzm-2.2 provisional-pilot-v0.1"
+      },
+      "canonical": [
+        { "slug": "bzm-2-2-strategic-slack-and-propulsion", "title": "BZM 2.2 — 戦略余力と推進力の動学", "path": "bzm/bzm-2-2-strategic-slack-and-propulsion.md", "status": "provisional-pilot-v0.1 / unvalidated" },
+        { "slug": "bzm-2-1-dynamic-business-value-model", "title": "BZM 2.1 — 動的な事業価値モデル", "path": "bzm/bzm-2-1-dynamic-business-value-model.md", "status": "theory-open v2.1 / implementation-prototype" },
+        { "slug": "BZM_2_0_DIAGNOSTIC_SCORE_SPEC", "title": "BZM 2.0 診断スコア暫定仕様", "path": "bzm/BZM_2_0_DIAGNOSTIC_SCORE_SPEC.md", "status": "draft v0.7" },
+        { "slug": "BZM_2_0_REVISION_REQUIREMENTS", "title": "BZM 2.0 改訂要求書（主張境界と測定分離）", "path": "bzm/BZM_2_0_REVISION_REQUIREMENTS.md", "status": "2026-08-11 学際模擬監査P0 反映中" },
+        { "slug": "BZM_2_0_FROZEN_SNAPSHOT_2026-08-11", "title": "BZM 2.0 凍結スナップショット", "path": "bzm/BZM_2_0_FROZEN_SNAPSHOT_2026-08-11.md", "status": "frozen-snapshot v2.0 / audit-p0-open-v1.4" },
+        { "slug": "bzm-1-0-to-2-1-evolution-guide", "title": "BZM 1.0から2.2へ「動的」の意味（系譜解説）", "path": "bzm/bzm-1-0-to-2-1-evolution-guide.md", "status": "concept-guide v1.1" },
+        { "slug": "score-and-bottleneck", "title": "計算式と律速診断（旧9軸の式・退役済み）", "path": "bzm/score-and-bottleneck.md", "status": "旧9軸の式の参照元。現行の計算には使わない" }
+      ],
+      "timeline": [
+        { "date": "BZM 1.x", "title": "動的観測モデル", "formula": "統合スコア = K·Π(X_i+1)^α_i", "note": "観測値と診断スコアが動く。9軸スコアは2026-08-15に退役", "anchor": "lineage-bzm" },
+        { "date": "BZM 2.0", "title": "動的到達予測モデル", "formula": "q_plan,τ(H_v) = Pr(T_C<T_Y, T_C≤H_v | I_τ)", "note": "固定した計画の到達経路と到達見込みが動く。theory-fixed v1.4、前向き検証0件", "anchor": "lineage-bzm" },
+        { "date": "BZM 2.1", "title": "動的事業価値モデル", "formula": "V*(n) = max_a J*(n,a)", "note": "行動選択、次の状態、到達見込み、正味価値が動く。theory-open v2.1、前向き検証0件", "anchor": "lineage-bzm" },
+        { "date": "BZM 2.2", "title": "戦略余力と推進力の動学（現行）", "formula": "八層状態 s_t / T_Y^2.2 / J・P・Q・S", "note": "provisional-pilot-v0.1 / unvalidated。本実装前（pilot画面は内部shadow試算）、前向き検証0件、測定済みのqまたはq_rob、PJ間比較、投資判断、資源配分に使わない", "anchor": "lineage-bzm" }
+      ]
+    }
+  ],
+  "documents": {
+    "canonical": [
+      { "slug": "sps-2-0-reachability-model", "title": "到達見込みモデル — 資金の崖が締切を作る", "path": "bzm/sps-2-0-reachability-model.md", "series": "sps", "locked": true },
+      { "slug": "SPS_NAT_VALUE_MEASURE_PROPOSAL_2026-08-16", "title": "SPS価値項の産業創出価値への差し替え", "path": "bzm/SPS_NAT_VALUE_MEASURE_PROPOSAL_2026-08-16.md", "series": "sps", "locked": true },
+      { "slug": "SEED_Q_RUBRIC_2026-08-15", "title": "シーズq帯 評価ルーブリック v1", "path": "bzm/SEED_Q_RUBRIC_2026-08-15.md", "series": "sps", "locked": true },
+      { "slug": "SEED_P_IND_JUDGMENT_2026-08-16", "title": "P^ind帯（産業創出価値）判断記録", "path": "bzm/SEED_P_IND_JUDGMENT_2026-08-16.md", "series": "sps", "locked": false },
+      { "slug": "sps-2-0-domain-definition", "title": "領域定義 — Before Zero で診断し、ゼロの先で検証する", "path": "bzm/sps-2-0-domain-definition.md", "series": "sps", "locked": true },
+      { "slug": "sps-2-0-measurability-gate", "title": "測定可能性ゲート — 数字を出してよい条件", "path": "bzm/sps-2-0-measurability-gate.md", "series": "sps", "locked": true },
+      { "slug": "SEED_Q_EVAL_V2_AND_SPS_IND_LEDGER_2026-08-16", "title": "シーズq帯 評価台帳 第2回 + SPS産業創出価値版一覧", "path": "bzm/SEED_Q_EVAL_V2_AND_SPS_IND_LEDGER_2026-08-16.md", "series": "sps", "locked": false },
+      { "slug": "SPS_INITIAL_ASSESSMENT_PLAYBOOK", "title": "SPS初回評価プレイブック", "path": "bzm/SPS_INITIAL_ASSESSMENT_PLAYBOOK.md", "series": "sps", "locked": false },
+      { "slug": "SPS_IND_RETROFIT_EXISTING_PJ_2026-08-17", "title": "既存PJ12件のSPS産業創出価値版retrofit", "path": "bzm/SPS_IND_RETROFIT_EXISTING_PJ_2026-08-17.md", "series": "sps", "locked": false },
+      { "slug": "SPS_IND_SPUNOFF_AND_TARGETED_2026-08-20", "title": "初回SPS評価 第3便（凍結tupleの記載元）", "path": "bzm/SPS_IND_SPUNOFF_AND_TARGETED_2026-08-20.md", "series": "sps", "locked": false },
+      { "slug": "bzm-2-2-strategic-slack-and-propulsion", "title": "BZM 2.2 — 戦略余力と推進力の動学", "path": "bzm/bzm-2-2-strategic-slack-and-propulsion.md", "series": "bzm", "locked": true },
+      { "slug": "bzm-2-1-dynamic-business-value-model", "title": "BZM 2.1 — 動的な事業価値モデル", "path": "bzm/bzm-2-1-dynamic-business-value-model.md", "series": "bzm", "locked": true },
+      { "slug": "BZM_2_0_DIAGNOSTIC_SCORE_SPEC", "title": "BZM 2.0 診断スコア暫定仕様", "path": "bzm/BZM_2_0_DIAGNOSTIC_SCORE_SPEC.md", "series": "bzm", "locked": true },
+      { "slug": "BZM_2_0_REVISION_REQUIREMENTS", "title": "BZM 2.0 改訂要求書", "path": "bzm/BZM_2_0_REVISION_REQUIREMENTS.md", "series": "bzm", "locked": false },
+      { "slug": "BZM_2_0_FROZEN_SNAPSHOT_2026-08-11", "title": "BZM 2.0 凍結スナップショット", "path": "bzm/BZM_2_0_FROZEN_SNAPSHOT_2026-08-11.md", "series": "bzm", "locked": false },
+      { "slug": "bzm-1-0-to-2-1-evolution-guide", "title": "BZM 1.0から2.2へ 「動的」の意味", "path": "bzm/bzm-1-0-to-2-1-evolution-guide.md", "series": "bzm", "locked": true },
+      { "slug": "score-and-bottleneck", "title": "計算式と律速診断（旧9軸の式・退役済み）", "path": "bzm/score-and-bottleneck.md", "series": "bzm", "locked": false },
+      { "slug": "terminology_glossary", "title": "用語・記号・記法の共通正本（§1.7にSPS単一系譜）", "path": "bzm/terminology_glossary.md", "series": "common", "locked": true },
+      { "slug": "9-5-appendix-changelog", "title": "附則（テキストブック変更履歴・append-only）", "path": "bzm/9-5-appendix-changelog.md", "series": "common", "locked": false }
+    ],
+    "proposals": [],
+    "withdrawn": [
+      {
+        "slug": "SPS_IND_PLAN_VALUE_CHECK_2026-08-21",
+        "title": "含意年数チェック",
+        "path": "bzm/SPS_IND_PLAN_VALUE_CHECK_2026-08-21.md",
+        "date": "2026-08-22",
+        "reason": "まさ指摘で撤回。(1)判断層方式の規律に触れる新しい導出量を二重批判監査なしに本番表示した、(2)割引現在価値を無割引の単年フロー（しかも計画値）で割った商で「年数」として整合しない、(3)「事業計画からP^indは計算できない」という結論自体が短絡。PWAからはv3.89.2で全撤去"
+      }
+    ]
+  }
+}

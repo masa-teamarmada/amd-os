@@ -119,16 +119,59 @@ export function BzmMathText({ source }: Props) {
   );
 }
 
+// 見出し末尾の `{#some-id}` を抽出し、id 属性へ回して表示テキストからは除去する。
+// 台帳 (model/MODEL_VERSION_LEDGER.md) が変数説明の見出しにこの記法を使い、
+// 他ページからその変数へ直接リンクできるようにするため (2026-08-22)。
+// 記法が無い見出しは従来通り (id なし)。
+const HEADING_ID_RE = /\s*\{#([a-zA-Z0-9_-]+)\}\s*$/;
+
+function extractHeadingId(children: ReactNode): { id: string | undefined; children: ReactNode } {
+  const arr = Array.isArray(children) ? children : [children];
+  if (arr.length === 0) return { id: undefined, children };
+  const lastIndex = arr.length - 1;
+  const last = arr[lastIndex];
+  if (typeof last === "string") {
+    const match = last.match(HEADING_ID_RE);
+    if (match) {
+      const id = match[1];
+      const stripped = last.slice(0, match.index);
+      const newArr = [...arr];
+      if (stripped.length > 0) {
+        newArr[lastIndex] = stripped;
+      } else {
+        newArr.splice(lastIndex, 1);
+      }
+      return { id, children: newArr.length === 1 ? newArr[0] : newArr };
+    }
+  }
+  return { id: undefined, children };
+}
+
 const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
-  h1: ({ children }) => (
-    <h1 className="text-[#1d1d1f] text-[24px] font-bold mt-6 mb-3 pb-2 border-b-2 border-[#1d1d1f]">{withInlineMath(children)}</h1>
-  ),
-  h2: ({ children }) => (
-    <h2 className="text-[#1d1d1f] text-[18px] font-bold mt-7 mb-2.5 pb-1 border-b border-[#d2d2d7]">{withInlineMath(children)}</h2>
-  ),
-  h3: ({ children }) => (
-    <h3 className="text-[#1d1d1f] text-[15px] font-bold mt-5 mb-1.5 pl-2 border-l-[3px] border-blue-400">{withInlineMath(children)}</h3>
-  ),
+  h1: ({ children }) => {
+    const { id, children: cleaned } = extractHeadingId(children);
+    return (
+      <h1 id={id} className="text-[#1d1d1f] text-[24px] font-bold mt-6 mb-3 pb-2 border-b-2 border-[#1d1d1f] scroll-mt-24">
+        {withInlineMath(cleaned)}
+      </h1>
+    );
+  },
+  h2: ({ children }) => {
+    const { id, children: cleaned } = extractHeadingId(children);
+    return (
+      <h2 id={id} className="text-[#1d1d1f] text-[18px] font-bold mt-7 mb-2.5 pb-1 border-b border-[#d2d2d7] scroll-mt-24">
+        {withInlineMath(cleaned)}
+      </h2>
+    );
+  },
+  h3: ({ children }) => {
+    const { id, children: cleaned } = extractHeadingId(children);
+    return (
+      <h3 id={id} className="text-[#1d1d1f] text-[15px] font-bold mt-5 mb-1.5 pl-2 border-l-[3px] border-blue-400 scroll-mt-24">
+        {withInlineMath(cleaned)}
+      </h3>
+    );
+  },
   h4: ({ children }) => <h4 className="text-[#1d1d1f] text-[13px] font-bold mt-3 mb-1">{withInlineMath(children)}</h4>,
   p: ({ children }) => <p className="my-2.5 leading-[1.85] break-words">{withInlineMath(children)}</p>,
   ul: ({ children, className }) => {

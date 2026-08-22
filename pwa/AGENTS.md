@@ -53,6 +53,8 @@ AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/U
 **設計変更を入れるときは、使い方は `pwa/manual/`、確定実装仕様は `pwa/spec/`、理論・数式・rubric は `pwa/bzm/` を同じ commit で更新する**。変更した層の附則 (`manual/9-3`, `spec/6-1`, `bzm/9-5`) に日時つきで必ず追記する。
 新規の設計 md を `design_log/` に作らない (見落とされる)。
 
+**モデル（理論の正本）の入口は `amd-os/model/`（2026-08-22 まさ確定、教科書 `amd-os/bzm/` とは別の層）。** えいみの評価・表示・会話は `model/LOCK.json` に載った確定文書だけを前提にする。新しい概念・パラメータ・数式は `model/proposals/` に提案として書き、まさの承認を `model/APPROVALS.md` に記録して relock するまで正本に入れない（2026-08-21 の含意年数、会話内の P^PJ のような「勝手な持ち出し」の再発防止）。ロックは critical-ui guard / `.githooks/pre-commit` / Claude Code hook の3層で機械的に止める。運用規約は `model/README.md`、版数台帳は `model/MODEL_VERSION_LEDGER.md`、OS 表示は `/model`。
+
 # 確認方針 (PWA Vercel deploy)
 
 **2026-06-12 以降、PWA の本番反映 = `origin/main` への push (Vercel Git 自動 deploy)。CLI 直接 deploy は全面廃止、ブランチ作成も全面禁止 (`AGENTS.common.md` / root `AGENTS.md` 参照)。**

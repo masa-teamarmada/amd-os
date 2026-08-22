@@ -17,6 +17,7 @@ import {
   Database,
   FileText,
   FlaskConical,
+  FunctionSquare,
   GraduationCap,
   Handshake,
   LayoutDashboard,
@@ -294,6 +295,7 @@ export function GlobalNav({
       {
         label: "資料",
         items: [
+          { label: "モデル", href: "/model", icon: FunctionSquare, adminOnly: true },
           { label: "教科書", href: "/bzm", icon: BookMarked },
           { label: "マニュアル", href: "/manual", icon: BookOpen },
         ],
