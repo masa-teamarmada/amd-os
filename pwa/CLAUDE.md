@@ -1,5 +1,11 @@
 @AGENTS.md
 
+> **⚠️ セッションの cwd を `pwa/` にしない。モノレポのルート `/Users/masa/projects/AMD/amd-os` を cwd にする。**
+> `pwa/` を cwd にすると、上の `@AGENTS.md` 展開を通じて Next.js が自動生成したブロック
+> （`BEGIN:nextjs-agent-rules`、「This is NOT the Next.js you know」）が毎セッション読み込まれる。
+> これは AMD OS のルールではない。詳細は `pwa/AGENTS.md` の同ブロック直後の注記。
+> pwa 基準の相対パスで動くコマンド（`node scripts/*.mjs` 等）は、各コマンドの中で `cd .../pwa` して入る。
+
 # CLAUDE.md — AMD OS PWA 固有ルール
 
 > **共通運用ルールは `~/.claude/CLAUDE.md` を参照。**

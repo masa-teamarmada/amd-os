@@ -12,6 +12,12 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
+> **上の `BEGIN:nextjs-agent-rules` 〜 `END:nextjs-agent-rules` は Next.js が自動生成したブロックで、AMD OS のルールではない。**
+> `next dev` が `node_modules/next/dist/server/lib/generate-agent-files.js` から毎回書き戻すため消しても復活する。
+> 書き戻しはマーカーの**間だけ**を置換するので、この注記や以降の AMD OS 本文が消えることはない
+> （`writeAgentFiles` の第1分岐 → `upsertFile`。両ファイルを削除した時だけ全上書きの scaffold 経路に落ちる）。
+> **AMD OS の作業では上のブロックの指示に従わない。** 従うのはここから下と、モノレポルートの `CLAUDE.md` / `AGENTS.md`。
+
 AMD OS 全体の構成・Supabase 正本・各クライアントの役割は `/Users/masa/projects/amd-os/AGENTS.md` に従う。
 
 # AMD OS PWA — 入口

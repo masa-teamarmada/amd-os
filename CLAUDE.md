@@ -14,6 +14,23 @@
 
 ---
 
+## 🚨 セッションの cwd はモノレポのルート
+
+**Claude / Codex / えいみのセッションは `/Users/masa/projects/AMD/amd-os` を cwd にする。`pwa/` を cwd にしない。**
+
+`pwa/CLAUDE.md` は冒頭で `@AGENTS.md` を展開し、その `pwa/AGENTS.md` には Next.js が自動生成した
+`BEGIN:nextjs-agent-rules` ブロック（「This is NOT the Next.js you know」）が入っている。
+これは `next dev` が `node_modules/next/dist/server/lib/generate-agent-files.js` から書き戻すもので、
+**AMD OS のルールではない**。pwa を cwd にすると毎セッションこれを読み込む。
+
+- 書き戻しはマーカーの**間だけ**の置換なので、AMD OS 本文が消えることはない。
+  ただし `pwa/AGENTS.md` と `pwa/CLAUDE.md` を**両方**削除すると scaffold 経路に落ちて全上書きされる。どちらも消さない。
+- pwa 基準の相対パスで動くコマンド（`node scripts/*.mjs`、`npm run *`、`python3 scripts/*.py`）は、
+  各コマンドの中で `cd /Users/masa/projects/AMD/amd-os/pwa` して入る。Bash はシェル状態を持ち越さないので毎回書く。
+- 他のサブディレクトリ（`ios/` `macos/` `gas/` `services/*`）も同じ。cwd はルート、必要なときだけ `cd` で入る。
+
+---
+
 ## 📂 構成
 
 ```
