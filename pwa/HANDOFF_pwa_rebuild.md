@@ -1,53 +1,78 @@
 # HANDOFF - AMD OS PWA
 
 - 更新: 2026-08-22 JST
-- セッション: 事業計画タブの全PJ常設化 → 月次試算表・年次計画の移設
+- セッション: 資料室 HTML資料の「見たまま編集」— 設計 → Phase 0 / Phase 1 本番稼働
 - 作業種別: development
 
 ## 現在地
 
-- このセッションの実装は2commitとも `main` に載り、本番反映まで完了している。
-  1. `a92d4510` — 事業計画タブを**全PJ常設**に変更。フェーズ表と年次試算表は p21 固有なのでSXのときだけ足す。資本政策プラン (`CapitalPlanWorkspace`) の正本を会社概要タブから事業計画タブへ移動。
-  2. `f8effee8` / v3.88.3 — スコア詳細タブにあった「イベントと月次試算表」と「年度別の事業・資金推移」を事業計画タブへ移設（`Bzm22TimeLedger` 丸ごと）。pilot payload は `bzm-2-2-pilot-client.ts` の共有キャッシュで両タブが1回だけ取得する。
-- 前提の訂正: 事業計画タブは 2026-07-28 に **SX (p21) 専用**として作られたもので、全PJに存在したことは一度もない。まさの「消えた」は記憶違いで、実質の要望として全PJ常設化を実装した。
-- BZM 2.2 暫定試算の**対象外PJでは表そのものを出さない**。`Bzm22PilotNotFoundError` → `outOfScope` → `return null`。エラーカードも空表も出さないのが仕様。
-- 本番確認は `/api/build-info` の一致に加えて、p21 事業計画／p21 スコア詳細／p10 事業計画の3面をログイン済みChromeで実操作確認済み。
-- BUILD_VERSION は複数セッションが並行 bump する。採る前に必ず `src/lib/build-info.ts` の HEAD 値を読む（handoff 時点で他セッションが既に v3.89.1 まで進めている）。
+- まさの依頼「資料室のHTML編集がソースコード編集で全く使えない。パワポと同じように編集できるUIを」に対し、設計から起こして
+  **`pwa/spec/2-8-workspace-document-deck-editor-plan.md` を正本**にした。全5フェーズのうち **Phase 0 と Phase 1 が本番稼働中**。
+- **Phase 0（版履歴と競合検知）**: `workspace_document_revisions` / `workspace_document_decks` / `workspace_document_assets` の3表を
+  `scripts/migrations/310_workspace_document_decks.sql` で**適用済み**。`content_sha256` の楽観ロック（不一致で409）と、
+  上書き前の内容を残す追記のみの版履歴。
+- **Phase 1（見たまま編集 = 案B）**: 別タブ `/workspace-document/{documentId}/edit` の3ペイン。
+  レンダリング済みHTMLを不透明オリジンのiframeへ載せ、`contenteditable` で直接触る。build **v3.89.4** で本番反映済み。
+- 本番の実資料（293101B、p10 SE）で全経路を実操作確認済み — スライド送り／要素選択／書式パネル／文字編集／保存往復／版履歴。
+- **Phase 2 以降は未着手**（コードは1行も書いていない）。まさから着手の承認は得ている。
 
-## 検証
+## 確定している設計の芯（Phase 2 以降で守る）
 
-- `npx tsc --noEmit` → 自分の変更ぶんエラー0。`src/components/ui/dialog.tsx(57,54)` の TS2345 は別セッションの未コミット差分由来（main上のファイルは健全、Vercel build成功で裏取り）。
-- `npm run test:critical-ui` / `npm run test:bzm-2-2-pilot-ui` → ok。`npm run build` 成功。
-- push は他セッション dirty があるため `deploy.sh`（clean tree hard-stop）ではなく素の `git push origin main`。対象ファイルのみ列挙して stage、`git add .` は不使用。
+1. **正本を反転する**。いまはHTMLが正本だが、Phase 2 以降は **`workspace_document_decks.model`（JSON）が正本**で、
+   HTML / PDF / 将来のPPTX はそこからの**生成物**。生成物からモデルへ逆流させない。
+2. **座標(x,y,w,h)モデルは採らない**。コンポーネント＋スロット方式。自由度の脱出口は `freeCanvas`（固定16:9のみ）と `rawHtml` の2つだけ。
+3. **レンダラは1本だけ**（`workspace-deck-render.tsx`）。エディタのキャンバス・publish・PDF が同じ関数を通る。
+   CSSは `workspace-deck-css.ts` の文字列1本。**デッキ内でTailwindのユーティリティを使わない**（publish先にTailwindが無く必ずズレる）。
+4. **既存資料を自動でモデルへ変換しない**。任意HTMLの逆パースは代償が大きい。生HTML資料はPhase 1の案Bのまま使い続ける。
+5. 編集フレームに **`allow-same-origin` を付けない**。親との通信はリクエストごとに発行した合言葉で照合する。
 
 ## 未解決
 
-- 前セッションから継続の知財台帳の外部同期3件（`pwa/spec/3-19-project-ip-current-spec.md` §5）。①特許庁 特許情報取得API と EPO OPS の利用者登録（申請内容は提出前にまさへ見せる）②`project_ip_deadlines` を `app_notifications` / `proactive_todos` へ配線 ③`/admin/ip` の静的 `IP_REPORT_MD` をp00資産として台帳へ統合。
-- 今回の作業由来のブロッカーは無し。このセッションで作った branch / worktree: **none**。
+- **Phase 2 が丸ごと残っている**（下記「次の最初の行動」）。
+- 前セッションから継続の知財台帳の外部同期3件（`pwa/spec/3-19-project-ip-current-spec.md` §5）。
+  ①特許庁 特許情報取得API と EPO OPS の利用者登録（申請内容は提出前にまさへ見せる）
+  ②`project_ip_deadlines` を `app_notifications` / `proactive_todos` へ配線
+  ③`/admin/ip` の静的 `IP_REPORT_MD` をp00資産として台帳へ統合。
+- このセッションで作った branch / worktree: **none**。作業ツリーはクリーン（dirty・未push commit ともに無し）。
 
-## 作業ツリーの状態（2026-08-22 handoff 時点、他セッション所有）
+## 次の最初の行動 — Phase 2（モデルとレンダラ）
 
-- staged deletion: `pwa/src/app/api/project/[projectId]/plan-value-check/route.ts` / `pwa/src/lib/project-plan-value.ts` / `pwa/src/types/project-plan-value.ts`
-- tracked dirty: `CockpitAmdScoreDetailTab.tsx` / `SeedDetailModal.tsx` / `CurrentSpsAssessmentCard.tsx` / `SpsFormulaPanel.tsx` / `SpsScreeningBandSection.tsx`
-- いずれもSPS・シーズ台帳系の別セッション所有。commit・revert・削除しない。
-- 未push commit: なし（`git log --branches --not --remotes` 空）。
+`pwa/spec/2-8-workspace-document-deck-editor-plan.md` の §3.2 / §3.3 / §4 / §6 / §8 を読んでから着手する。作るもの:
 
-## 次の最初の行動
+- `src/lib/workspace-deck-model.ts` — schema v1 + validator + normalizer（**ここから書く**）
+- `src/lib/workspace-deck-render.tsx` / `src/lib/workspace-deck-css.ts`
+- API 3本: `.../[documentId]/deck` (GET/PUT) / `.../[documentId]/deck/publish` (POST) / `.../[documentId]/assets` (GET/POST)
+- ブロック第1弾8種: `heading` / `bullets` / `table` / `twoCol` / `callout` / `image` / `kpiRow` / `rawHtml`
+- 契約テスト2本: `scripts/check_workspace_deck_model.mts` / `scripts/check_workspace_deck_render.mts`
+- publish → 既存の render / pdf / project-share がそのまま動くことを確認
 
-コックピットのタブ構成をまた触るなら、`CockpitView.tsx` を読む前に `pwa/spec/3-8-cockpit-current-spec.md` を読む。守る契約は3つ。
+着手前に踏まないための杭:
 
-1. **全PJ常設のタブに、特定PJだけが持つデータを無条件で置かない。** BZM 2.2 pilot は404が正常系なので、404は「異常」ではなく「非表示」として扱う（`Bzm22PilotNotFoundError`）。同じ形の追加をするときはこのパターンに合わせる。
-2. **契約テストのアンカーは消さずに移す。** UIを別コンポーネントへ移設したら `check_pwa_critical_ui.cjs` と該当の `check_*_contract.mts` の `expectIncludes` / `requireIncludes` を新しいホストへ付け替える。消すだけにすると導線の消失を検知できなくなる。
-3. **資本政策プランの編集導線は事業計画タブが唯一の正本。** 会社概要タブへ戻さない。
+1. **migration は不要**。3表とも適用済み。`310_workspace_document_decks.sql` を再適用しない。
+2. **列名は `pwa/design/db_schema.md` の3表からコピーする**。spec §3.1 のDDL記述は実体とズレている
+   （`assets.storage_bucket` / `assets.content_sha256` / `decks.published_at` / `decks.created_at` / `revisions.storage_bucket` が
+   spec側に無い）。
+3. `workspace-deck-model.ts` は **`server-only` を import しない**。契約テストが素のNodeから読んで振る舞いを検査するため。
+4. **zod は入っていない**。validator は手書き。sha256 の形式検査は既存の `isWorkspaceDocumentSha256()` を再利用する
+   （DBの CHECK `model_sha256 ~ '^[0-9a-f]{64}$'` と一致する）。
+5. `workspace-documents-core.ts` へ足す定数は **4件**（`..._DECK_SCHEMA_VERSION` / `..._DECK_MODEL_MAX_BYTES` /
+   `..._ASSET_MAX_BYTES` / `..._ASSET_MAX_EDGE_PX`）。spec §3.3 は5件書いてあるが `..._REVISION_KEEP_COUNT` は既存。
+6. publish の書き込みは既存の `replaceWorkspaceHtmlSource()` を通す。`auditAction` はリテラルunionなので
+   `"replace_html"` + `auditDetail: { editor: "deck" }` で通す。
+7. publish出力は**自己完結HTML**（画像はdata URI、外部参照ゼロ）。既存 render route の `default-src 'none'; img-src data:` を通すため。
+   5MB上限があり base64 は約1.33倍なので、画像実バイト合計 約3.5MB が事実上の天井。
+8. deploy 時の `BUILD_VERSION` は **v3.90.0**（新APIルート3本＋新lib3本なので minor）。採る前に必ずHEAD値を読む。
 
 ## 参照先
 
-- 事業計画タブ: `pwa/src/components/cockpit/CockpitBusinessPlan.tsx` / `CockpitView.tsx`
-- 移設した表: `pwa/src/components/cockpit/Bzm22TimeLedgerSection.tsx`（ホスト） / `Bzm22TimeLedger.tsx`（本体） / `bzm-2-2-pilot-client.ts`（共有キャッシュ）
-- スコア詳細タブ: `pwa/src/components/cockpit/Bzm22ProvisionalObservatory.tsx`
-- 契約テスト: `pwa/scripts/check_pwa_critical_ui.cjs` / `pwa/scripts/check_bzm_2_2_pilot_ui_contract.mts`
-- 設計書: `pwa/spec/3-8-cockpit-current-spec.md` / `pwa/spec/4-2-amd-score-current-spec.md` / `pwa/design/cockpit.md` / `pwa/design/FEATURE_REGISTRY.md` / 変更履歴 `pwa/spec/6-1-appendix-changelog.md`
-- 利用者マニュアル: `pwa/manual/2-3-pj-cockpit.md` / 変更履歴 `pwa/manual/9-3-appendix-changelog.md`
-- 知財（前セッションの継続課題）: `pwa/spec/3-19-project-ip-current-spec.md` / `pwa/src/components/cockpit/CockpitIpPortfolio.tsx`
+- 実装計画の正本: `pwa/spec/2-8-workspace-document-deck-editor-plan.md`（§8 にフェーズ定義と決定表、§9 に契約テスト一覧）
+- 利用者マニュアル: `pwa/manual/2-3-pj-cockpit.md` の資料室セクション / 変更履歴 `pwa/manual/9-3-appendix-changelog.md`
+- 設計変更履歴: `pwa/spec/6-1-appendix-changelog.md`
+- DB実列名: `pwa/design/db_schema.md`（`workspace_documents` / `_revisions` / `_decks` / `_assets`）
+- 適用済みmigration: `pwa/scripts/migrations/310_workspace_document_decks.sql`（冒頭コメントに不変条件5点）
+- 主要実装: `src/components/workspace-documents/WorkspaceDocumentDeckEditor.tsx` / `WorkspaceDocumentEditorWorkbench.tsx` /
+  `src/lib/workspace-document-edit-agent.ts` / `workspace-document-html-editing.ts` / `workspace-document-editing.ts`
+- 契約テスト: `pwa/scripts/check_workspace_document_edit_frame.mts` / `check_workspace_document_html_editing.mts` /
+  `check_workspace_document_revisions.mts`
+- バグ・教訓: `pwa/BUGS.md`（`[workspace-documents/deck-editor]` の永久ローディング事故、`[ui/dialog]` の幅潰れ）
 - 開発履歴: `pwa/design_log/sessions_2026-08.md`
-- バグ・教訓: `pwa/BUGS.md`
