@@ -453,7 +453,7 @@ export async function publishWorkspaceDeck(input: {
     };
   }
 
-  const html = renderWorkspaceDeckDocument(deck, sources);
+  const html = await renderWorkspaceDeckDocument(deck, sources);
   const byteLength = Buffer.byteLength(html, "utf8");
   if (byteLength > WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES) {
     return {

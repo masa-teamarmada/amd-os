@@ -16,7 +16,6 @@
  */
 
 import { createElement, type ReactElement, type ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 
 import { WORKSPACE_DECK_CSS, workspaceDeckLogoCss, workspaceDeckThemeCss } from "@/lib/workspace-deck-css";
 import {
@@ -302,10 +301,17 @@ export function buildWorkspaceDeckDocument(deck: WorkspaceDeck, bodyMarkup: stri
   ].join("\n");
 }
 
-/** モデル → 配布できるHTML。publishもPDFも契約テストもこの1本を呼ぶ。 */
-export function renderWorkspaceDeckDocument(
+/**
+ * モデル → 配布できるHTML。publishもPDFも契約テストもこの1本を呼ぶ。
+ *
+ * `react-dom/server` を動的importにしているのは、静的importするとApp Routerのビルドが
+ * 「react-dom/server を読むコンポーネントを import している」と言って止まるため。
+ * 描く木は `WorkspaceDeckView` 1本のままで、エディタはこの木を直接マウントする。
+ */
+export async function renderWorkspaceDeckDocument(
   deck: WorkspaceDeck,
   assets: WorkspaceDeckAssetSources = {},
-): string {
+): Promise<string> {
+  const { renderToStaticMarkup } = await import("react-dom/server");
   return buildWorkspaceDeckDocument(deck, renderToStaticMarkup(WorkspaceDeckView({ deck, assets })));
 }

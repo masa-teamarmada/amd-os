@@ -66,7 +66,7 @@ const validation = normalizeWorkspaceDeck({
 assert.ok(validation.ok, `代表モデルが検査を通らない: ${validation.ok ? "" : `${validation.path} ${validation.error}`}`);
 const deck: WorkspaceDeck = validation.deck;
 
-const html = renderWorkspaceDeckDocument(deck, { [ASSET_ID]: PIXEL_DATA_URI });
+const html = await renderWorkspaceDeckDocument(deck, { [ASSET_ID]: PIXEL_DATA_URI });
 
 // ---------------------------------------------------------------------------
 // 1. 自己完結HTMLの形
@@ -76,7 +76,7 @@ assert.match(html, /^<!DOCTYPE html>\n<html lang="ja">/, "DOCTYPEとlangが無�
 assert.match(html, new RegExp(`<meta name="generator" content="${WORKSPACE_DECK_GENERATOR}">`), "生成物の印が無い");
 assert.match(html, /<title>SE 事業計画 &lt;2026&gt;<\/title>/, "titleがエスケープされていない");
 assert.match(html, /<body class="deck-body">/);
-assert.equal(html, renderWorkspaceDeckDocument(deck, { [ASSET_ID]: PIXEL_DATA_URI }), "同じモデルから違うHTMLが出た");
+assert.equal(html, await renderWorkspaceDeckDocument(deck, { [ASSET_ID]: PIXEL_DATA_URI }), "同じモデルから違うHTMLが出た");
 
 // ---------------------------------------------------------------------------
 // 2. script混入ゼロ
@@ -134,7 +134,7 @@ assert.match(html, /<p class="note">持ち込みの<b>マークアップ<\/b><\/
 assert.match(html, /data-block-id="p2"/, "編集UIが要素を選ぶための取っ手が無い");
 
 // 画像が見つからないときに黙って詰めない。抜けたまま配ったことに気づけなくなる。
-const missing = renderWorkspaceDeckDocument(deck, {});
+const missing = await renderWorkspaceDeckDocument(deck, {});
 assert.match(missing, /画像が見つからないよ/);
 assert.doesNotMatch(missing, /<img /, "srcの無いimgを出さない");
 
@@ -150,7 +150,7 @@ assert.equal(taintedBlock.type, "rawHtml");
 if (taintedBlock.type === "rawHtml") {
   taintedBlock.slots.html = '<p onmouseover="steal()">罠</p><script>alert(1)</script><img src="https://evil.example/x.png">';
 }
-const taintedHtml = renderWorkspaceDeckDocument(tainted, {});
+const taintedHtml = await renderWorkspaceDeckDocument(tainted, {});
 assert.doesNotMatch(taintedHtml, /<script|onmouseover|evil\.example/i, "描画時のサニタイズが効いていない");
 assert.match(taintedHtml, /罠/, "本文まで消した");
 
@@ -199,7 +199,7 @@ assert.ok(coverSectionTitleSize > sectionTitleSize, "表紙の資料タイトル
 
 // 固定16:9はコンテナ単位、フローはpx。この2行が寸法モデルの本体。
 assert.match(WORKSPACE_DECK_CSS, /\.deck-slide--fixed \{[^}]*container-type: inline-size;[^}]*--deck-u: 1cqw;/);
-assert.match(WORKSPACE_DECK_CSS, /:root \{[^}]*--deck-u: 12\.8px;/s);
+assert.match(WORKSPACE_DECK_CSS, /:root \{[^}]*--deck-u: 12\.8px;/);
 assert.match(WORKSPACE_DECK_CSS, /@media print \{[\s\S]*break-after: page/, "印刷でスライドごとに改ページしない");
 
 // ---------------------------------------------------------------------------

@@ -197,9 +197,11 @@ body.deck-body {
 .deck-callout__title { margin: 0 0 calc(var(--deck-u) * 0.3); font-weight: 800; font-size: calc(var(--deck-u) * 1.25); }
 .deck-callout__body { margin: 0; }
 
-.deck-figure { margin: 0; display: flex; flex-direction: column; gap: calc(var(--deck-u) * 0.5); min-height: 0; }
-.deck-figure__image { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
-.deck-figure--bleed { flex: 1; }
+/* align-items を伸ばさない。小さい画像が列幅いっぱいに引き伸ばされて粗くなる。 */
+.deck-figure { margin: 0; display: flex; flex-direction: column; align-items: flex-start; gap: calc(var(--deck-u) * 0.5); min-height: 0; }
+.deck-figure--align-center, .deck-block--align-center.deck-figure { align-items: center; }
+.deck-figure__image { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; }
+.deck-figure--bleed { flex: 1; align-self: stretch; }
 .deck-figure--bleed .deck-figure__image { width: 100%; height: 100%; }
 .deck-figure__caption { color: var(--deck-muted); font-size: calc(var(--deck-u) * 1); }
 .deck-figure__missing {
