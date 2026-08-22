@@ -13,6 +13,7 @@
 | `check.py` | 構文検査＋非日本語文字の混入検査＋`seed_id` の実 UUID への突合と自動修正 |
 | `show.py` | prepare 出力の **1 件だけ** を表示する。並列運用の必須手順（下の「1 件だけ表示する」参照） |
 | `apply.sh` | `submit` 出力の `candidate_ids` を 1 件ずつ `apply` し、`applied ok=N ng=M` を出す |
+| `audit.mjs` | 投入済みの評価を **1 件ずつ読み返す** 監査ビュー（下の「投入後の監査」参照） |
 
 ## セッションの cwd
 
@@ -76,11 +77,22 @@ sh scripts/sps_batch/apply.sh "$SP/submit$N.json"   # -> applied ok=N ng=M
 - **prepare 出力の seed 情報は `source_facts.seed` の下**にある。`x['title']` では取れない。
 - **`Math.round` と `round()` の丸めが違う**。`tail.py` が `math.floor(x + 0.5)` を使っているのはそのため。触らない。
 - **`scratchpad` から `@supabase/supabase-js` は import できない**。診断は `scripts/_diag_tmp.mjs` に置いて実行し、直後に消す。
+- **億円は整数か .5 刻みだけ**。`tail.py` が `pl * OKU` で円へ直すので、`2.3` のような値は
+  `Math.round` 側と桁が合わず `p_lower_yen` が安全整数から外れる。`0.5` 刻みに丸めて置く。
+- **列名は 2 つのテーブルで違う**。`sps_initial_assessment_candidates`（staging）は
+  `assessment_ruleset_version` / `proposal_summary` / `semantic_fingerprint` を持つ。
+  `seed_screening_bands`（台帳）は同じものが **`ruleset_version`** で、
+  `proposal_summary` と `semantic_fingerprint` は **無い**。SQL を書く前にどちらを見ているか確かめる。
+- **`.env` は last-wins**。`pwa/.env.production.local` → `pwa/.env.local` → ルートの
+  `.env.production.local` → `.env.local` の順に読み、**後から読んだ方で上書きする**
+  （`sps_initial_assessment_tool.mjs` の `env()` が正本）。first-wins で書くと URL と key が
+  別ファイル由来になって `Invalid API key` になる。
 
 ## 並列運用（サブエージェントで分担する場合）
 
 1 ラウンドで 20〜100 件を複数エージェントへ分担させるときの取り決め。
 2026-08-22 に実地で確認した（prepared を共有し、8/20 件だけの payload を submit → apply まで完走）。
+**同日に残り 193 件をこの型で 5 ラウンド流し、ok 193 / ng 0 で未評価を 0 にした。**
 
 ### 親（司令塔）がやること
 
@@ -122,3 +134,38 @@ python3 scripts/sps_batch/show.py "$SP/p$N.json" $I
 
 `seed` の全項目に加えて `funding` / `news` / `projects` も出す。採択制度と年度は `funding` に入っているので、
 段階仮説（PLAYBOOK §3）はここを見て決める。`amount_jpy` が `null` なら金額は推測せず `null` のまま残す。
+
+### 実証済みのラウンド構成（Workflow で回す場合）
+
+**1 ラウンド = prepare 40 件 → 4 エージェント × 10 件。** 2026-08-22 に 193 件をこれで完走させた
+（40/40/40/40/33 の 5 ラウンド、エージェント 27 体、エラー 0、ok 193 / ng 0、約 30 分）。
+
+Workflow スクリプトの本体からは Bash が叩けないので、**`prepare` はラウンド先頭に
+「prepare 専用エージェント」を 1 体だけ順次実行させて叩かせる**。返させるのは
+`prepared のパス` と `inputs の件数` と `実行前の remaining` の 3 つだけ。
+そのあと担当 index を `0:10 / 10:20 / 20:30 / 30:40` で割って 4 体を `parallel` で走らせ、
+**全員の `applied ok=N ng=M` が揃ってから**次のラウンドの `prepare` へ進む。
+
+- 端数のラウンドは `Math.floor((n*i)/4)` 〜 `Math.floor((n*(i+1))/4)` で割る（33 件なら `0:8 / 8:16 / 16:24 / 24:33`）。
+- `prepare` が 0 件を返したらループを終える。`ok` の合計が 0 のラウンドが出たら、そこで止めて原因を見る。
+- 各エージェントへ渡す文言は上の「エージェントへの指示に必ず入れる文言」をそのまま入れる。
+  加えて **PLAYBOOK と この README を最初に全文読ませる**（帯の較正が読まれないと水準がばらつく）。
+- 帯の水準は毎ラウンド同じ PLAYBOOK から引かせる。ラウンドを跨いだ引き継ぎメモは作らない
+  （前ラウンドの値へ寄せると台帳全体が緩やかに漂流する）。
+
+### 投入後の監査
+
+```sh
+node scripts/sps_batch/audit.mjs --since 2026-08-22T06:00 --list   # 一覧（index / 段階 / q / P / 所属 / 題目）
+node scripts/sps_batch/audit.mjs --since 2026-08-22T06:00 --index 7  # 1 件の全文（seed の生情報 + 評価 + 11 要因）
+node scripts/sps_batch/audit.mjs --seed <uuid>                      # seed_id 直指定
+```
+
+読むのは `sps_initial_assessment_candidates` の `status='applied'` 行。**1 件ずつ表示する**
+（並列運用と同じ理由で、まとめてダンプすると読み落とす）。
+
+`--since` は**必ず自分のバッチの開始時刻へ切る**。同じ日に別セッションが走っていることがあり、
+日付だけで切ると他人の行が混ざる。切り分けは `created_at` を分単位で数えて、
+自分の件数と一致する窓を取ればよい（2026-08-22 は 04:36–05:24 が別セッションの 108 件、
+06:17–06:42 が当セッションの 193 件で、合計 301 件だった）。
+
