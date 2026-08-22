@@ -1736,26 +1736,16 @@ assert.equal(
   packageJson.scripts?.["test:bzm-2-1-dynamic-policy"],
   "node --experimental-strip-types scripts/test_bzm_2_1_dynamic_policy.mts",
 );
-assert.match(
-  apiRouteSource,
-  /fetchBzm21PolicyModelLedger\(\s*projectId,\s*spsPrimary\.switchStatus === "active"/,
-);
-assert.match(apiRouteSource, /spsPrimary\.activeBzm21RevisionId/);
-assert.match(apiRouteSource, /\bbzm21,\s*\n/);
-assert.match(scoreDetailSource, /bzm21:\s*Bzm21PolicyModelLedger/);
-assert.match(
-  scoreDetailSource,
-  /<Bzm21DynamicPolicyObservatory model=\{payload\.bzm21\} displayMode="archive" \/>/,
-);
-assert.match(
-  scoreDetailSource,
-  /<Bzm22ProvisionalObservatory[\s\S]*data-testid="score-model-archives"/,
-);
-assert.match(
-  scoreDetailSource,
-  /if \(!active \|\| archiveRequestedProjectId !== projectId\) return;/,
-);
-assert.match(scoreDetailSource, /\{open \? <div[\s\S]*\{children\}[\s\S]*: null\}/);
+
+// 2026-08-18 の f92f1598「最新の産業価値モデルのみ強制」で、amd-score-detail route と
+// CockpitAmdScoreDetailTab から 2.1 政策モデル台帳とアーカイブ表示の一式を外した。
+// そこを見張っていた構造 assert 8 本は、方針変更の帰結として不要になったので 2026-08-22 に削除した
+// (fetchBzm21PolicyModelLedger 呼び出し / bzm21 payload / <Bzm21DynamicPolicyObservatory> の埋め込み /
+//  score-model-archives / archiveRequestedProjectId / 折りたたみ UI)。
+// 台帳を組み立てる計算ロジックと migration の検算は現役なので、そちらは全部残してある
+// (buildBzm21PolicyModelLedger は generate_sps_2_1_estimated_seed が今も使う)。
+// src/lib/bzm-2-1-policy-model-data.ts と Bzm21DynamicPolicyObservatory.tsx は現在どこからも
+// 呼ばれていないが、2.1 を画面へ戻すときの資産として残している。以下はその中身の検算。
 assert.match(observatorySource, /BZM21_OBJECTIVE_KINDS\.flatMap/);
 assert.match(observatorySource, /\["fixed_baseline", "optimized"\]/);
 assert.match(observatorySource, /value === null \|\| value === undefined \|\| !Number\.isFinite\(value\)\) return "欠測"/);
