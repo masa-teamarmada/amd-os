@@ -12,23 +12,14 @@
 		01AFAC786AE82F67480AE014 /* CockpitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6ECCC8F3269182700137A3A8 /* CockpitView.swift */; };
 		054A1DA3AE605B252242E78A /* ReimburseListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFF0C8409AF3AE2681671C95 /* ReimburseListView.swift */; };
 		0565F7814AD4206F077BA603 /* InvoiceStepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7355DC6E8A8FD82F97F129D1 /* InvoiceStepView.swift */; };
-		07086B81D80627D89982BD17 /* book-a-ch-2.md in Resources */ = {isa = PBXBuildFile; fileRef = 509D6250BD036C8775897932 /* book-a-ch-2.md */; };
-		097FFDC52D1BBCA41F7473B1 /* new-book1-ch-1-section-0.md in Resources */ = {isa = PBXBuildFile; fileRef = C2B73ECE1640F6C21A190D13 /* new-book1-ch-1-section-0.md */; };
 		09F13F4B216FC894F43899FF /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14F40003562F102A26959BE /* AuthService.swift */; };
 		0B3D5108164948BF2030405E /* CockpitModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10B069E6BF199D5703A040CD /* CockpitModels.swift */; };
 		0EC249CB72458443BFF6D32B /* ProposalInboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5991876808A3A6BC1B27E238 /* ProposalInboxView.swift */; };
 		170C6D65B4FACB39A664B8DE /* BudgetStepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A854FCA12F62F88B9AE1A3A4 /* BudgetStepView.swift */; };
-		17250B6057131640E71B5C0D /* nursery-ers.md in Resources */ = {isa = PBXBuildFile; fileRef = 7B25648977659A54841F2739 /* nursery-ers.md */; };
 		1BBFBFDE6870D19D6D3BDFE2 /* CacheService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53C5A1FCB096582CC5B256E7 /* CacheService.swift */; };
-		1FCD77FE63A4B14872B4859E /* retrofit-verification.md in Resources */ = {isa = PBXBuildFile; fileRef = 598CDB59CF497D3E7F2E53DA /* retrofit-verification.md */; };
 		228BA8F352883D69048423E9 /* MyPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3207593D6E1FA76E323E94F /* MyPageView.swift */; };
 		262313EBE327F7F478DDD536 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 69E970BE6BEC7BAFBE006403 /* GoogleSignIn */; };
 		27A6352B22D153D5EC6BEFFC /* ProjectListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 732E2F1382E5F1148C4CA968 /* ProjectListView.swift */; };
-		28B28B41A788D0CB65B5585D /* field-clocks.md in Resources */ = {isa = PBXBuildFile; fileRef = 58517FE02B256E062357DE88 /* field-clocks.md */; };
-		2C629ACC483508DE23FE9FE4 /* new-book1-ch-1-section-0-2.md in Resources */ = {isa = PBXBuildFile; fileRef = 48B3819F338C4E5A723D65F9 /* new-book1-ch-1-section-0-2.md */; };
-		2CF067AD2AFD9A0853F7CBC7 /* score-and-bottleneck.md in Resources */ = {isa = PBXBuildFile; fileRef = 50B8820182A365F6EFB729CF /* score-and-bottleneck.md */; };
-		2E733A1BE2AEA3530AF23AAB /* book-a-ch-3.md in Resources */ = {isa = PBXBuildFile; fileRef = E8F0482E9620394BF386E3B5 /* book-a-ch-3.md */; };
-		32BAA394996F1968E6653BD5 /* new-book1-ch-1-section-0-1.md in Resources */ = {isa = PBXBuildFile; fileRef = 149B02CD5EC22261F7ACF12B /* new-book1-ch-1-section-0-1.md */; };
 		33F4CB30EB266FD3B3F57CE3 /* ScoreDetailWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38B587013441139A27FF5443 /* ScoreDetailWebView.swift */; };
 		3E1F881878B430DBD3D0081A /* TsukuyomiView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA8F7E1D065B13C0AEF43D97 /* TsukuyomiView.swift */; };
 		3EBAE0E568653DBA3DD49CC7 /* ProposalModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2956502B79FEB5A3F3332225 /* ProposalModels.swift */; };
@@ -36,109 +27,65 @@
 		437BB0D7AB2F8EBA49C2257E /* RoutineFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 243C21DD809C5A6EF5242694 /* RoutineFlowView.swift */; };
 		4541B66A10E70A8692C39297 /* ProjectRewardCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96A81649CC544AA39FF51E1E /* ProjectRewardCard.swift */; };
 		4B2C9A0AA74B1A4F776E03F8 /* ProposalThreadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAA8EB921DBCE3978EF3D744 /* ProposalThreadView.swift */; };
-		4CCE50C73546C30E527EB408 /* 9-5-appendix-changelog.md in Resources */ = {isa = PBXBuildFile; fileRef = 6E74EDB19FA23D0476AB5ACF /* 9-5-appendix-changelog.md */; };
 		4EE97ED57B3EEB9CF534914C /* RevisionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4DADBFAEEE322648B4F4259 /* RevisionModels.swift */; };
-		4F4C4B4C0AE76FB415E92329 /* ethics-and-authorship.md in Resources */ = {isa = PBXBuildFile; fileRef = 08CAB4C10C9D30A0648F8E7D /* ethics-and-authorship.md */; };
 		5360EE8F0DD15105DFEBB52F /* BudgetApprovalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6F23CC7E31D94E8D3CA77F7 /* BudgetApprovalView.swift */; };
-		599B5D55080A24389DB62C17 /* field-who-carries.md in Resources */ = {isa = PBXBuildFile; fileRef = 9FBF2F0DC14659BC0CCDD327 /* field-who-carries.md */; };
 		61109DAF038340AA9739B821 /* AdminTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1747E464F65752741A3C86A0 /* AdminTabView.swift */; };
-		62414E62CD10665A0B8A423E /* p-potential.md in Resources */ = {isa = PBXBuildFile; fileRef = 0731B43FE30045F5A1F5AEEB /* p-potential.md */; };
 		6CEEDDE03F8C784BB743AD30 /* ReportFixStepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17691299FE41227DAAA74740 /* ReportFixStepView.swift */; };
 		719416077A8ACD105C0C069D /* TsukuyomiLearningsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B1E94D02C055C87FA59F561 /* TsukuyomiLearningsView.swift */; };
-		7290FC8F76E8AFFD85AAEE85 /* field-gates.md in Resources */ = {isa = PBXBuildFile; fileRef = 33663200F877ABD57E815189 /* field-gates.md */; };
 		78564D51CAFCD6856CD9D26C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6F245C4BEEA9893B420C56FF /* Assets.xcassets */; };
 		7B1F83F82662B04105017F25 /* BillingMatrixView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9A62C4F0159E59C0041B34 /* BillingMatrixView.swift */; };
-		7F60DB15A3F9B88193B50FBD /* model-overview.md in Resources */ = {isa = PBXBuildFile; fileRef = 2490B1DA2948C4E3913BFD93 /* model-overview.md */; };
 		80683503FEB66611D4F9C683 /* GoogleSignInHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 814861AFA887103EA6308CB2 /* GoogleSignInHandler.swift */; };
 		80DA397B7632379BB22FB788 /* ReimburseFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A77774A56AAE57AFC0DAB33E /* ReimburseFormView.swift */; };
-		8ED2959FD17F905696966E2F /* new-book1-ch-1-section-0-3.md in Resources */ = {isa = PBXBuildFile; fileRef = 089D890324065B0FEEF24766 /* new-book1-ch-1-section-0-3.md */; };
 		8F2C573F139F1DDA182A23DF /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 288148AB1627B1D3FFF3E9A8 /* ContentView.swift */; };
 		8F64A3EFCF743038955231E3 /* ReimburseModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAA6CD36CDB0FEACDF89E17B /* ReimburseModels.swift */; };
 		8F6665F9402FF6471DD08138 /* RoutineModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07B5D29F618E7BDDD2F4C941 /* RoutineModels.swift */; };
 		91F9E9784A0F3634F9309A75 /* SupabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51AB49E739CD1F1E525E2D4B /* SupabaseService.swift */; };
-		934C7F5C63A20A0F5163C8EB /* preface.md in Resources */ = {isa = PBXBuildFile; fileRef = E7D325486C163FAE5C822CDB /* preface.md */; };
-		95F7B29839EEF2E1B65712A8 /* field-toolkit.md in Resources */ = {isa = PBXBuildFile; fileRef = 336434D2F252236D404D14A8 /* field-toolkit.md */; };
 		97061AA63C4667DDB25B86C0 /* MilestoneManagementSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5795FA89450D87FC2B3EE415 /* MilestoneManagementSheet.swift */; };
 		972F8655A3CCBFB5A0E592D6 /* CockpitHUDView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A04B40C7295AA7DD23860FE3 /* CockpitHUDView.swift */; };
-		981901649A30DF59CA0D4222 /* 2026-06-25_mapping_existing_to_new.md in Resources */ = {isa = PBXBuildFile; fileRef = 89E7BE70D53CAB92372E6EEB /* 2026-06-25_mapping_existing_to_new.md */; };
 		9DC4E04B1AD120F6F497EB09 /* MyPageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E107E118826DE68EAE329E3 /* MyPageModels.swift */; };
 		A008650CC3E761AE1707088B /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 326FB30E4B4C25B8778D51D8 /* DesignSystem.swift */; };
 		A98B86D3008DDC2E9518AFFA /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB600E9E4CBF01382876593 /* SettingsView.swift */; };
-		A9CF2A9A0185C5277FEF9A0B /* new-book2-ch-5-section-0-1.md in Resources */ = {isa = PBXBuildFile; fileRef = D61F20385DAA9EB3288DF481 /* new-book2-ch-5-section-0-1.md */; };
-		AC8885FD6788B52391A2E39B /* 2026-06-25_book2_evol_econ_major_revision.md in Resources */ = {isa = PBXBuildFile; fileRef = 0039624A772ED54EC12180C5 /* 2026-06-25_book2_evol_econ_major_revision.md */; };
-		AFFD4C685A66DD4B2DE970CF /* r-readiness.md in Resources */ = {isa = PBXBuildFile; fileRef = 8ACD04DF5C147DAACCB66D84 /* r-readiness.md */; };
 		B09073C04552BE567DB6BAA5 /* MemberListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA5B8E5896A2CF59F7901F5 /* MemberListView.swift */; };
 		B6F1F8A8B1BCF79FD858F2AC /* MsRevisionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 624E5E50F9A1729C297DECED /* MsRevisionViews.swift */; };
-		B8407B325D5EB61A33400941 /* field-before-zero.md in Resources */ = {isa = PBXBuildFile; fileRef = F8841750D5DB54BE6EE41B7A /* field-before-zero.md */; };
 		B8A7E239D3A266B0349B9FB1 /* AdminModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FA4937A6E037A12CEFABD92 /* AdminModels.swift */; };
 		BD5E37215C5C86DA4B1A775E /* ProposalComposeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 204312933B91C5173ABDF7B3 /* ProposalComposeSheet.swift */; };
 		C1E31BCB8BA098E7693F1AD2 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B85C803FA053B5AA314ABFB /* MainTabView.swift */; };
-		C332E85C2624402167B1AE44 /* new-book1-ch-1-section-0-4.md in Resources */ = {isa = PBXBuildFile; fileRef = 2F0A974FD376463FEF3EF793 /* new-book1-ch-1-section-0-4.md */; };
 		C9EE9FA911A71AEDEE1656D6 /* PayoutNoticePerMemberView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A23680BC4AD742E2A3D84DC7 /* PayoutNoticePerMemberView.swift */; };
-		CD3E7FBB3FFF1981FB5B8E65 /* book-a-ch-4.md in Resources */ = {isa = PBXBuildFile; fileRef = 399D7423F62083EDFD7C1F8B /* book-a-ch-4.md */; };
 		D057F4EE7CEEDFF8C37E47F9 /* CockpitDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BC9AC9A893CB5D5FAFE2EF3 /* CockpitDetailView.swift */; };
-		D1009CDF7901B859AC5709C2 /* book-a-ch-1.md in Resources */ = {isa = PBXBuildFile; fileRef = 2CDA552F4E99866E95B9C815 /* book-a-ch-1.md */; };
 		D1025A035A3D8E47636516EB /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42C2A6ADC9E56C3FDAEA9CA0 /* LoginView.swift */; };
 		DABDF3945F8F711D961F8CFB /* BusinessCardsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7598240917E7ECD3C23C9CA1 /* BusinessCardsView.swift */; };
 		DAED1A26D193A9104003A37B /* MsProgressEditSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 755F97B38BFBE330C1C8D007 /* MsProgressEditSheet.swift */; };
 		DCBE3CF9439D6EF85A26E858 /* TasksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDE10C462184FC20E1D120F3 /* TasksView.swift */; };
 		E3700918AFFED08526F39D81 /* Project.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F74D57A0928261D83B0F763 /* Project.swift */; };
-		E6BC6C57CFC3F4C448DD0962 /* 2026-06-25_book2_evol_econ_surgery.md in Resources */ = {isa = PBXBuildFile; fileRef = 5A3E3A19B5BE5769BBC09B7B /* 2026-06-25_book2_evol_econ_surgery.md */; };
 		E700E29473D3ED62508CC4BC /* AMDOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF8E72635776CB47EEB2FE79 /* AMDOSApp.swift */; };
-		ED2F76C670525061E8F5D8D7 /* 2026-06-25_proposal_book0_vi.md in Resources */ = {isa = PBXBuildFile; fileRef = 76212AA33F6EF1EC0479B55F /* 2026-06-25_proposal_book0_vi.md */; };
 		ED4FCDC0BFD18F0963DBEC75 /* MonthlyModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEED249ABC7816254023EDB7 /* MonthlyModal.swift */; };
-		ED79108BE276B757CFDBDF66 /* strategic-slack.md in Resources */ = {isa = PBXBuildFile; fileRef = A05B1F397C5777907F7475E9 /* strategic-slack.md */; };
-		F09D8E81C37205D98C11FAEA /* model-critiques.md in Resources */ = {isa = PBXBuildFile; fileRef = 2BD3B55EFC7DEB0FD8C518D5 /* model-critiques.md */; };
-		F128628CFC7C9A2856B94006 /* s-survival.md in Resources */ = {isa = PBXBuildFile; fileRef = 49AF6BD343A0B46CFD6C85F9 /* s-survival.md */; };
 		F21DB2347EA1365472C66993 /* MeetingStepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BB0A412920B82851FD413F5 /* MeetingStepView.swift */; };
 		F467B1D7CA1402CDADFF32A2 /* Task.swift in Sources */ = {isa = PBXBuildFile; fileRef = 711ED274D0F038A2F82A3DA7 /* Task.swift */; };
-		FA35967AC3429BE5EFB7175C /* why-valuation-fails.md in Resources */ = {isa = PBXBuildFile; fileRef = 389B11720A25987DD1EE9A55 /* why-valuation-fails.md */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		0039624A772ED54EC12180C5 /* 2026-06-25_book2_evol_econ_major_revision.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "2026-06-25_book2_evol_econ_major_revision.md"; sourceTree = "<group>"; };
-		0731B43FE30045F5A1F5AEEB /* p-potential.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "p-potential.md"; sourceTree = "<group>"; };
 		07B5D29F618E7BDDD2F4C941 /* RoutineModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineModels.swift; sourceTree = "<group>"; };
-		089D890324065B0FEEF24766 /* new-book1-ch-1-section-0-3.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "new-book1-ch-1-section-0-3.md"; sourceTree = "<group>"; };
-		08CAB4C10C9D30A0648F8E7D /* ethics-and-authorship.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "ethics-and-authorship.md"; sourceTree = "<group>"; };
 		0A131762F3238755DFB49915 /* AMDOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AMDOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0A863561F0A2006049014CE5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		0BB0A412920B82851FD413F5 /* MeetingStepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingStepView.swift; sourceTree = "<group>"; };
 		10B069E6BF199D5703A040CD /* CockpitModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitModels.swift; sourceTree = "<group>"; };
-		149B02CD5EC22261F7ACF12B /* new-book1-ch-1-section-0-1.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "new-book1-ch-1-section-0-1.md"; sourceTree = "<group>"; };
 		1747E464F65752741A3C86A0 /* AdminTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminTabView.swift; sourceTree = "<group>"; };
 		17691299FE41227DAAA74740 /* ReportFixStepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportFixStepView.swift; sourceTree = "<group>"; };
 		1FA4937A6E037A12CEFABD92 /* AdminModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminModels.swift; sourceTree = "<group>"; };
 		204312933B91C5173ABDF7B3 /* ProposalComposeSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProposalComposeSheet.swift; sourceTree = "<group>"; };
 		243C21DD809C5A6EF5242694 /* RoutineFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineFlowView.swift; sourceTree = "<group>"; };
-		2490B1DA2948C4E3913BFD93 /* model-overview.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "model-overview.md"; sourceTree = "<group>"; };
 		288148AB1627B1D3FFF3E9A8 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		2956502B79FEB5A3F3332225 /* ProposalModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProposalModels.swift; sourceTree = "<group>"; };
-		2BD3B55EFC7DEB0FD8C518D5 /* model-critiques.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "model-critiques.md"; sourceTree = "<group>"; };
-		2CDA552F4E99866E95B9C815 /* book-a-ch-1.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "book-a-ch-1.md"; sourceTree = "<group>"; };
-		2F0A974FD376463FEF3EF793 /* new-book1-ch-1-section-0-4.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "new-book1-ch-1-section-0-4.md"; sourceTree = "<group>"; };
 		326FB30E4B4C25B8778D51D8 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
-		336434D2F252236D404D14A8 /* field-toolkit.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "field-toolkit.md"; sourceTree = "<group>"; };
-		33663200F877ABD57E815189 /* field-gates.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "field-gates.md"; sourceTree = "<group>"; };
-		389B11720A25987DD1EE9A55 /* why-valuation-fails.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "why-valuation-fails.md"; sourceTree = "<group>"; };
 		38B587013441139A27FF5443 /* ScoreDetailWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoreDetailWebView.swift; sourceTree = "<group>"; };
-		399D7423F62083EDFD7C1F8B /* book-a-ch-4.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "book-a-ch-4.md"; sourceTree = "<group>"; };
 		42C2A6ADC9E56C3FDAEA9CA0 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
-		48B3819F338C4E5A723D65F9 /* new-book1-ch-1-section-0-2.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "new-book1-ch-1-section-0-2.md"; sourceTree = "<group>"; };
-		49AF6BD343A0B46CFD6C85F9 /* s-survival.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "s-survival.md"; sourceTree = "<group>"; };
-		509D6250BD036C8775897932 /* book-a-ch-2.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "book-a-ch-2.md"; sourceTree = "<group>"; };
-		50B8820182A365F6EFB729CF /* score-and-bottleneck.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "score-and-bottleneck.md"; sourceTree = "<group>"; };
 		51AB49E739CD1F1E525E2D4B /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
 		53C5A1FCB096582CC5B256E7 /* CacheService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheService.swift; sourceTree = "<group>"; };
 		5795FA89450D87FC2B3EE415 /* MilestoneManagementSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MilestoneManagementSheet.swift; sourceTree = "<group>"; };
-		58517FE02B256E062357DE88 /* field-clocks.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "field-clocks.md"; sourceTree = "<group>"; };
-		598CDB59CF497D3E7F2E53DA /* retrofit-verification.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "retrofit-verification.md"; sourceTree = "<group>"; };
 		5991876808A3A6BC1B27E238 /* ProposalInboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProposalInboxView.swift; sourceTree = "<group>"; };
-		5A3E3A19B5BE5769BBC09B7B /* 2026-06-25_book2_evol_econ_surgery.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "2026-06-25_book2_evol_econ_surgery.md"; sourceTree = "<group>"; };
 		5F74D57A0928261D83B0F763 /* Project.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Project.swift; sourceTree = "<group>"; };
 		624E5E50F9A1729C297DECED /* MsRevisionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MsRevisionViews.swift; sourceTree = "<group>"; };
 		6BC9AC9A893CB5D5FAFE2EF3 /* CockpitDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitDetailView.swift; sourceTree = "<group>"; };
-		6E74EDB19FA23D0476AB5ACF /* 9-5-appendix-changelog.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "9-5-appendix-changelog.md"; sourceTree = "<group>"; };
 		6ECCC8F3269182700137A3A8 /* CockpitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitView.swift; sourceTree = "<group>"; };
 		6F245C4BEEA9893B420C56FF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		711ED274D0F038A2F82A3DA7 /* Task.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Task.swift; sourceTree = "<group>"; };
@@ -146,40 +93,29 @@
 		7355DC6E8A8FD82F97F129D1 /* InvoiceStepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvoiceStepView.swift; sourceTree = "<group>"; };
 		755F97B38BFBE330C1C8D007 /* MsProgressEditSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MsProgressEditSheet.swift; sourceTree = "<group>"; };
 		7598240917E7ECD3C23C9CA1 /* BusinessCardsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessCardsView.swift; sourceTree = "<group>"; };
-		76212AA33F6EF1EC0479B55F /* 2026-06-25_proposal_book0_vi.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "2026-06-25_proposal_book0_vi.md"; sourceTree = "<group>"; };
-		7B25648977659A54841F2739 /* nursery-ers.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "nursery-ers.md"; sourceTree = "<group>"; };
 		7B85C803FA053B5AA314ABFB /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		814861AFA887103EA6308CB2 /* GoogleSignInHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleSignInHandler.swift; sourceTree = "<group>"; };
-		89E7BE70D53CAB92372E6EEB /* 2026-06-25_mapping_existing_to_new.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "2026-06-25_mapping_existing_to_new.md"; sourceTree = "<group>"; };
-		8ACD04DF5C147DAACCB66D84 /* r-readiness.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "r-readiness.md"; sourceTree = "<group>"; };
 		8B1E94D02C055C87FA59F561 /* TsukuyomiLearningsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TsukuyomiLearningsView.swift; sourceTree = "<group>"; };
 		8D9A62C4F0159E59C0041B34 /* BillingMatrixView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BillingMatrixView.swift; sourceTree = "<group>"; };
 		8E107E118826DE68EAE329E3 /* MyPageModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyPageModels.swift; sourceTree = "<group>"; };
 		96A81649CC544AA39FF51E1E /* ProjectRewardCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectRewardCard.swift; sourceTree = "<group>"; };
-		9FBF2F0DC14659BC0CCDD327 /* field-who-carries.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "field-who-carries.md"; sourceTree = "<group>"; };
 		A04B40C7295AA7DD23860FE3 /* CockpitHUDView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitHUDView.swift; sourceTree = "<group>"; };
-		A05B1F397C5777907F7475E9 /* strategic-slack.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "strategic-slack.md"; sourceTree = "<group>"; };
 		A14F40003562F102A26959BE /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		A23680BC4AD742E2A3D84DC7 /* PayoutNoticePerMemberView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PayoutNoticePerMemberView.swift; sourceTree = "<group>"; };
 		A77774A56AAE57AFC0DAB33E /* ReimburseFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReimburseFormView.swift; sourceTree = "<group>"; };
 		A854FCA12F62F88B9AE1A3A4 /* BudgetStepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetStepView.swift; sourceTree = "<group>"; };
 		AEED249ABC7816254023EDB7 /* MonthlyModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthlyModal.swift; sourceTree = "<group>"; };
 		AFA5B8E5896A2CF59F7901F5 /* MemberListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemberListView.swift; sourceTree = "<group>"; };
-		C2B73ECE1640F6C21A190D13 /* new-book1-ch-1-section-0.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "new-book1-ch-1-section-0.md"; sourceTree = "<group>"; };
 		CA06F580A2AFA0FD392A7B7C /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		CAA6CD36CDB0FEACDF89E17B /* ReimburseModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReimburseModels.swift; sourceTree = "<group>"; };
 		CAA8EB921DBCE3978EF3D744 /* ProposalThreadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProposalThreadView.swift; sourceTree = "<group>"; };
 		CDE10C462184FC20E1D120F3 /* TasksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasksView.swift; sourceTree = "<group>"; };
 		D3207593D6E1FA76E323E94F /* MyPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyPageView.swift; sourceTree = "<group>"; };
 		D4DADBFAEEE322648B4F4259 /* RevisionModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RevisionModels.swift; sourceTree = "<group>"; };
-		D61F20385DAA9EB3288DF481 /* new-book2-ch-5-section-0-1.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "new-book2-ch-5-section-0-1.md"; sourceTree = "<group>"; };
 		DF8E72635776CB47EEB2FE79 /* AMDOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMDOSApp.swift; sourceTree = "<group>"; };
 		DFF0C8409AF3AE2681671C95 /* ReimburseListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReimburseListView.swift; sourceTree = "<group>"; };
-		E7D325486C163FAE5C822CDB /* preface.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = preface.md; sourceTree = "<group>"; };
-		E8F0482E9620394BF386E3B5 /* book-a-ch-3.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "book-a-ch-3.md"; sourceTree = "<group>"; };
 		EA8F7E1D065B13C0AEF43D97 /* TsukuyomiView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TsukuyomiView.swift; sourceTree = "<group>"; };
 		F6F23CC7E31D94E8D3CA77F7 /* BudgetApprovalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudgetApprovalView.swift; sourceTree = "<group>"; };
-		F8841750D5DB54BE6EE41B7A /* field-before-zero.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "field-before-zero.md"; sourceTree = "<group>"; };
 		FC7DBBD4512716CA8ACF6489 /* AMDOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AMDOS.entitlements; sourceTree = "<group>"; };
 		FFB600E9E4CBF01382876593 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -314,45 +250,6 @@
 			path = Routine;
 			sourceTree = "<group>";
 		};
-		893229A1210ECFB8F7146709 /* BZM */ = {
-			isa = PBXGroup;
-			children = (
-				6E74EDB19FA23D0476AB5ACF /* 9-5-appendix-changelog.md */,
-				0039624A772ED54EC12180C5 /* 2026-06-25_book2_evol_econ_major_revision.md */,
-				5A3E3A19B5BE5769BBC09B7B /* 2026-06-25_book2_evol_econ_surgery.md */,
-				89E7BE70D53CAB92372E6EEB /* 2026-06-25_mapping_existing_to_new.md */,
-				76212AA33F6EF1EC0479B55F /* 2026-06-25_proposal_book0_vi.md */,
-				2CDA552F4E99866E95B9C815 /* book-a-ch-1.md */,
-				509D6250BD036C8775897932 /* book-a-ch-2.md */,
-				E8F0482E9620394BF386E3B5 /* book-a-ch-3.md */,
-				399D7423F62083EDFD7C1F8B /* book-a-ch-4.md */,
-				08CAB4C10C9D30A0648F8E7D /* ethics-and-authorship.md */,
-				F8841750D5DB54BE6EE41B7A /* field-before-zero.md */,
-				58517FE02B256E062357DE88 /* field-clocks.md */,
-				33663200F877ABD57E815189 /* field-gates.md */,
-				336434D2F252236D404D14A8 /* field-toolkit.md */,
-				9FBF2F0DC14659BC0CCDD327 /* field-who-carries.md */,
-				2BD3B55EFC7DEB0FD8C518D5 /* model-critiques.md */,
-				2490B1DA2948C4E3913BFD93 /* model-overview.md */,
-				149B02CD5EC22261F7ACF12B /* new-book1-ch-1-section-0-1.md */,
-				48B3819F338C4E5A723D65F9 /* new-book1-ch-1-section-0-2.md */,
-				089D890324065B0FEEF24766 /* new-book1-ch-1-section-0-3.md */,
-				2F0A974FD376463FEF3EF793 /* new-book1-ch-1-section-0-4.md */,
-				C2B73ECE1640F6C21A190D13 /* new-book1-ch-1-section-0.md */,
-				D61F20385DAA9EB3288DF481 /* new-book2-ch-5-section-0-1.md */,
-				7B25648977659A54841F2739 /* nursery-ers.md */,
-				0731B43FE30045F5A1F5AEEB /* p-potential.md */,
-				E7D325486C163FAE5C822CDB /* preface.md */,
-				8ACD04DF5C147DAACCB66D84 /* r-readiness.md */,
-				598CDB59CF497D3E7F2E53DA /* retrofit-verification.md */,
-				49AF6BD343A0B46CFD6C85F9 /* s-survival.md */,
-				50B8820182A365F6EFB729CF /* score-and-bottleneck.md */,
-				A05B1F397C5777907F7475E9 /* strategic-slack.md */,
-				389B11720A25987DD1EE9A55 /* why-valuation-fails.md */,
-			);
-			path = BZM;
-			sourceTree = "<group>";
-		};
 		8AE9D1DF5BCC4DC1AD7D7588 /* Cockpit */ = {
 			isa = PBXGroup;
 			children = (
@@ -412,7 +309,6 @@
 			isa = PBXGroup;
 			children = (
 				6F245C4BEEA9893B420C56FF /* Assets.xcassets */,
-				893229A1210ECFB8F7146709 /* BZM */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -518,39 +414,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AC8885FD6788B52391A2E39B /* 2026-06-25_book2_evol_econ_major_revision.md in Resources */,
-				E6BC6C57CFC3F4C448DD0962 /* 2026-06-25_book2_evol_econ_surgery.md in Resources */,
-				981901649A30DF59CA0D4222 /* 2026-06-25_mapping_existing_to_new.md in Resources */,
-				ED2F76C670525061E8F5D8D7 /* 2026-06-25_proposal_book0_vi.md in Resources */,
-				4CCE50C73546C30E527EB408 /* 9-5-appendix-changelog.md in Resources */,
 				78564D51CAFCD6856CD9D26C /* Assets.xcassets in Resources */,
-				D1009CDF7901B859AC5709C2 /* book-a-ch-1.md in Resources */,
-				07086B81D80627D89982BD17 /* book-a-ch-2.md in Resources */,
-				2E733A1BE2AEA3530AF23AAB /* book-a-ch-3.md in Resources */,
-				CD3E7FBB3FFF1981FB5B8E65 /* book-a-ch-4.md in Resources */,
-				4F4C4B4C0AE76FB415E92329 /* ethics-and-authorship.md in Resources */,
-				B8407B325D5EB61A33400941 /* field-before-zero.md in Resources */,
-				28B28B41A788D0CB65B5585D /* field-clocks.md in Resources */,
-				7290FC8F76E8AFFD85AAEE85 /* field-gates.md in Resources */,
-				95F7B29839EEF2E1B65712A8 /* field-toolkit.md in Resources */,
-				599B5D55080A24389DB62C17 /* field-who-carries.md in Resources */,
-				F09D8E81C37205D98C11FAEA /* model-critiques.md in Resources */,
-				7F60DB15A3F9B88193B50FBD /* model-overview.md in Resources */,
-				32BAA394996F1968E6653BD5 /* new-book1-ch-1-section-0-1.md in Resources */,
-				2C629ACC483508DE23FE9FE4 /* new-book1-ch-1-section-0-2.md in Resources */,
-				8ED2959FD17F905696966E2F /* new-book1-ch-1-section-0-3.md in Resources */,
-				C332E85C2624402167B1AE44 /* new-book1-ch-1-section-0-4.md in Resources */,
-				097FFDC52D1BBCA41F7473B1 /* new-book1-ch-1-section-0.md in Resources */,
-				A9CF2A9A0185C5277FEF9A0B /* new-book2-ch-5-section-0-1.md in Resources */,
-				17250B6057131640E71B5C0D /* nursery-ers.md in Resources */,
-				62414E62CD10665A0B8A423E /* p-potential.md in Resources */,
-				934C7F5C63A20A0F5163C8EB /* preface.md in Resources */,
-				AFFD4C685A66DD4B2DE970CF /* r-readiness.md in Resources */,
-				1FCD77FE63A4B14872B4859E /* retrofit-verification.md in Resources */,
-				F128628CFC7C9A2856B94006 /* s-survival.md in Resources */,
-				2CF067AD2AFD9A0853F7CBC7 /* score-and-bottleneck.md in Resources */,
-				ED79108BE276B757CFDBDF66 /* strategic-slack.md in Resources */,
-				FA35967AC3429BE5EFB7175C /* why-valuation-fails.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
