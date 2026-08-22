@@ -1,8 +1,9 @@
 # 2-8 資料室 スライドエディタ 実装計画
 
-> **状態**: 計画（2026-08-21 まさ承認）。実装はこれから。
-> 本章は「これから作るもの」の設計正本。フェーズが完了するたびに該当節を現行仕様の記述へ書き換え、
+> **状態**: Phase 0 / 1 / 2 が本番稼働（2026-08-22 時点、build v3.90.0）。Phase 3 以降は計画。
+> 本章は資料室スライドエディタの設計正本。フェーズが完了するたびに該当節を現行仕様の記述へ書き換え、
 > ユーザー向けの使い方は `pwa/manual/` の資料室章へ落とす。
+> Phase 2 まではUIを持たない配管とレンダラなので、利用者から見える変化はまだ無い（導線はPhase 3）。
 
 ---
 
@@ -71,62 +72,34 @@ CSS Grid、レスポンシブ、任意のマークアップ）を自分で捨て
 
 ### 3.1 新規テーブル
 
-`pwa/scripts/migrations/310_workspace_document_decks.sql`
+`pwa/scripts/migrations/310_workspace_document_decks.sql` で **2026-08-21 適用済み**。
+3表とも `workspace_documents` の `document_id` で ON DELETE CASCADE する。
 
-```sql
--- 現行版のモデル（1資料1行）
-create table workspace_document_decks (
-  document_id      uuid primary key references workspace_documents(document_id) on delete cascade,
-  schema_version   int  not null,
-  model            jsonb not null,
-  model_sha256     text not null,
-  published_sha256 text,                    -- 最後に publish したHTMLのsha。null=未公開/差分あり
-  updated_at       timestamptz not null default now(),
-  updated_by_account_id uuid
-);
+| 表 | 役割 | 押さえどころ |
+|---|---|---|
+| `workspace_document_decks` | 1資料1モデルの正本 | `model_sha256` が編集の楽観ロック鍵。`published_sha256` は **最後に公開したモデルのsha256** で、`model_sha256` と違えば未公開の変更がある（migrationの部分index `WHERE published_sha256 IS DISTINCT FROM model_sha256` がこの意味で張ってある） |
+| `workspace_document_revisions` | 版履歴（追記のみ） | `kind='deck_model'` はモデルをDB行に、`kind='html_source'` は本文をStorageへ退避する。CHECK制約でどちらか一方だけを持つ |
+| `workspace_document_assets` | デッキが参照する画像 | `(storage_bucket, storage_path)` がunique。同じpathが別の画像で埋まらない |
 
--- 版履歴（モデル資料・生HTML資料の両方）
-create table workspace_document_revisions (
-  revision_id   uuid primary key default gen_random_uuid(),
-  document_id   uuid not null references workspace_documents(document_id) on delete cascade,
-  revision_no   int  not null,              -- 資料内で1始まりの連番
-  kind          text not null,              -- 'deck_model' | 'html_source'
-  model         jsonb,                      -- kind='deck_model'
-  storage_path  text,                       -- kind='html_source' の退避先
-  content_sha256 text not null,
-  byte_size     int  not null,
-  note          text,                       -- 差し替え理由
-  pinned        boolean not null default false,
-  created_by_account_id uuid,
-  created_at    timestamptz not null default now(),
-  unique (document_id, revision_no)
-);
-
--- 資料内アセット（画像など）
-create table workspace_document_assets (
-  asset_id     uuid primary key default gen_random_uuid(),
-  document_id  uuid not null references workspace_documents(document_id) on delete cascade,
-  storage_path text not null,
-  mime_type    text not null,
-  byte_size    int  not null,
-  width        int,
-  height       int,
-  created_at   timestamptz not null default now()
-);
-```
+**列名は [`pwa/design/db_schema.md`](../design/db_schema.md) を見る。**
+本節の初版に書いたDDLは実体とズレていた（`assets.storage_bucket` / `assets.content_sha256` /
+`decks.published_at` / `decks.created_at` / `revisions.storage_bucket` が抜けていた）ので、
+実体を持つmigrationとdb_schema.mdを正本にし、DDLの転記はここへ残さない。
 
 保持: 各資料の直近50版 + `pinned=true` は無期限。超過分は古い順に削除し、
 `html_source` はStorageの実体も消す。
 
 ### 3.2 デッキモデル schema v1
 
-`pwa/src/lib/workspace-deck-model.ts`（手書きvalidator。このリポにzodは無い）
+[`workspace-deck-model.ts`](../src/lib/workspace-deck-model.ts)（手書きvalidator。このリポにzodは無い）。
+schemaと検証と正規化を1つの関数 `normalizeWorkspaceDeck()` に閉じ、
+**戻り値の `deck` だけを保存・描画に使う**。「検査は通ったが保存された形は別」を作らないため。
 
 ```ts
 type Deck = {
   schemaVersion: 1;
   meta:   { title: string; docType: "deck" | "doc"; updatedAt: string };
-  theme:  { preset: "amd"; tokens?: Partial<DeckTokens>; logo: "amd_horizontal" | "amd_mark" | "none" };
+  theme:  { preset: "amd"; tokens: Partial<DeckTokens>; logo: "amd_horizontal" | "amd_mark" | "none" };
   defaults: { slideMode: "fixed16x9" | "flow"; contentWidthPx: number };
   slides: Slide[];
 };
@@ -136,62 +109,115 @@ type Slide = {
   mode: "fixed16x9" | "flow";
   layout: "cover" | "section" | "standard" | "full";
   sectionTitle?: string;     // 全ページ共通の「章タイトル」。AMD_SLIDE_DESIGN_CODE の必須要素
-  notes?: string;            // 発表者メモ。本文と分ける（対外資料ルール）
+  notes?: string;            // 発表者メモ。本文と分ける（対外資料ルール）。publish出力には出さない
   blocks: Block[];
 };
 
+// 正規化後は variant が必ず入る（レンダラ側で既定値を持たない）
 type Block = { id: string; style?: BlockStyle } & (
-  | { type: "heading";    slots: { eyebrow?: string; title: string; lead?: string } }
-  | { type: "bullets";    slots: { items: RichText[] }; variant?: "plain" | "check" | "number" }
-  | { type: "twoCol";     slots: { left: Block[]; right: Block[] }; variant?: "even" | "wideLeft" | "wideRight" }
-  | { type: "table";      slots: { head: RichText[]; rows: RichText[][] }; variant?: "plain" | "compare" }
-  | { type: "kpiRow";     slots: { items: { label: string; value: string; unit?: string; note?: string }[] } }
-  | { type: "timeline";   slots: { items: { when: string; title: string; body?: RichText }[] } }
-  | { type: "funnel";     slots: { steps: { title: string; body?: RichText; metric?: string }[] } }
-  | { type: "callout";    slots: { title?: string; body: RichText }; variant?: "info" | "warn" | "accent" }
-  | { type: "quote";      slots: { body: RichText; source?: string } }
-  | { type: "image";      slots: { assetId: string; caption?: string }; variant?: "inline" | "bleed" }
-  | { type: "spacer";     slots: { size: "sm" | "md" | "lg" } }
-  | { type: "freeCanvas"; slots: { items: { x: number; y: number; w: number; h: number; rot?: number; block: Block }[] } }
-  | { type: "rawHtml";    slots: { html: string } }
+  | { type: "heading";  slots: { eyebrow?: string; title: string; lead?: string } }
+  | { type: "bullets";  variant: "plain" | "check" | "number";     slots: { items: RichText[] } }
+  | { type: "table";    variant: "plain" | "compare";              slots: { head: RichText[]; rows: RichText[][] } }
+  | { type: "twoCol";   variant: "even" | "wideLeft" | "wideRight"; slots: { left: Block[]; right: Block[] } }
+  | { type: "callout";  variant: "info" | "warn" | "accent";       slots: { title?: string; body: RichText } }
+  | { type: "image";    variant: "inline" | "bleed";               slots: { assetId: string; caption?: string } }
+  | { type: "kpiRow";   slots: { items: { label: string; value: string; unit?: string; note?: string }[] } }
+  | { type: "rawHtml";  slots: { html: string } }
 );
+
+// 段落構造はブロック側が持つ。素の文字列がそのまま本文テキスト
+type RichNode = string
+  | { t: "strong" | "em" | "code"; c: RichNode[] }
+  | { t: "a"; href: string; c: RichNode[] }
+  | { t: "br" };
+type RichText = RichNode[];
+
+type BlockStyle = {           // 生CSSは受け取らない。閉じた列挙だけ
+  align?: "left" | "center" | "right";
+  space?: "none" | "sm" | "md" | "lg";
+  tone?:  "default" | "muted" | "accent";
+};
+type DeckTokens = Record<"accent" | "ink" | "muted" | "surface" | "line" | "canvas", string>;  // #rrggbb のみ
 ```
 
-- `RichText` は**インライン限定の最小サブセット**（`strong` / `em` / `br` / `a` / `code`）。
-  段落構造はブロック側が持つ。任意HTMLを文字列に混ぜない。
-- `freeCanvas` は `mode: "fixed16x9"` のスライドでのみ許可。座標は 1280×720 基準の実数。
-- `rawHtml` は publish時にサニタイズ（`script` / `iframe` / `on*` / `javascript:` を除去）。
+- **語彙は13種、実装は8種**。`timeline` / `funnel` / `quote` / `spacer` / `freeCanvas` は
+  `WORKSPACE_DECK_BLOCK_SPECS` に `implemented: false` で載せてあり、保存の時点で断る。
+  語彙から消さないのは、保存だけ通ってpublishで黙って消える事故を防ぐため。
+- `freeCanvas` は `fixedOnly: true`。フローのスライドへ置くと、未実装よりも先に
+  「固定16:9のスライドでだけ置けるよ」で断る（寸法モードの規則を先に伝える）。
+- `RichText` は**インライン限定**（`strong` / `em` / `code` / `a` / `br`）。
+  リンクは `http` / `https` / `mailto` だけ。`{ t: "text", v }` は素の文字列へ畳んで正規形を1つに保つ。
+- `rawHtml` は**保存時と描画時の両方**でサニタイズする（`script` / `iframe` / 入力欄 / `on*` /
+  `javascript:` / data URI以外の読み込み属性 / `@import` を除去）。保存時にも通すのは、
+  エディタのプレビューと publish出力を同じ本文にするため。**サニタイズは冪等**でなければならない。
+- 表の行は列数が見出しと違えば拒否する。足し引きで揃えると、抜けた数字に気づけない。
 - モデルJSONは 2MB 上限（`WORKSPACE_DOCUMENT_DECK_MODEL_MAX_BYTES`）。画像はアセット参照で、
   モデルにbase64を埋めない。
 
+**sha256は必ず `serializeWorkspaceDeck(normalizeWorkspaceDeck(...).deck)` に対して取る。**
+Postgresのjsonbはキー順を保存しないので、DBから読み直したJSONをそのまま直列化すると
+同じ内容でも別のsha256になり、楽観ロックが誤検知する。正規化は毎回同じ順でオブジェクトを
+組み直すので、経路がどこであれ「同じ内容 → 同じsha256」が成り立つ。
+`meta.updatedAt` もモデルの一部なので、serverで毎回 `now()` を入れない
+（入れると中身の変わらない保存を見分けられなくなる）。
+
 ### 3.3 定数の追加先
 
-[`workspace-documents-core.ts`](../src/lib/workspace-documents-core.ts) に追記:
+[`workspace-documents-core.ts`](../src/lib/workspace-documents-core.ts) に追記した4件。
+`WORKSPACE_DOCUMENT_REVISION_KEEP_COUNT` は Phase 0 で既にある。
 
 ```ts
 export const WORKSPACE_DOCUMENT_DECK_SCHEMA_VERSION = 1;
 export const WORKSPACE_DOCUMENT_DECK_MODEL_MAX_BYTES = 2 * 1024 * 1024;
 export const WORKSPACE_DOCUMENT_ASSET_MAX_BYTES = 10 * 1024 * 1024;
 export const WORKSPACE_DOCUMENT_ASSET_MAX_EDGE_PX = 1920;
-export const WORKSPACE_DOCUMENT_REVISION_KEEP_COUNT = 50;
 ```
+
+保存先pathも同じファイルへ置く（`workspaceDocumentAssetStoragePathFromBase()`）。
+`<資料のstorage_path>.asset.<asset_id>.<ext>` で、過去版の `.rev<N>.html` と同じく
+現物の隣に並ぶ。
 
 ---
 
 ## 4. レンダラは1本だけ
 
-`pwa/src/lib/workspace-deck-render.tsx` に **Reactコンポーネントとして1回だけ**書き、
-3箇所で使い回す。
+[`workspace-deck-render.ts`](../src/lib/workspace-deck-render.ts) に **Reactコンポーネントとして
+1回だけ**書き、3箇所で使い回す。
 
 | 用途 | 呼び方 |
 |---|---|
-| エディタのキャンバス | クライアントで直接マウント |
-| publish（HTML書き出し） | `renderToStaticMarkup()` でサーバ生成 |
+| エディタのキャンバス | `WorkspaceDeckView` をクライアントで直接マウント |
+| publish（HTML書き出し） | `renderWorkspaceDeckDocument()`（内部で `renderToStaticMarkup()`） |
 | PDF | publish済みHTMLを既存の [`workspace-document-html-pdf.ts`](../src/lib/workspace-document-html-pdf.ts) へ通す |
 
-CSSは `pwa/src/lib/workspace-deck-css.ts` が `export const DECK_CSS = \`...\`` の**文字列1本**で持つ。
+**拡張子が `.tsx` ではなく `.ts` で、JSXを書かずに `createElement` で組んでいる。**
+契約テストが素のNode（`node --experimental-strip-types`）からこのファイルを読み、実際に描かせて
+「scriptが混ざらない」「外部参照がゼロ」を検査するため。Nodeの型除去は `.tsx` を読めないので、
+JSXで書くと publish出力の安全性を文字列assertでしか確かめられなくなる（§9の「振る舞いを検査したい
+規則は純粋関数へ切り出す」と同じ判断）。文字のエスケープはReactに任せ、手書きのHTML連結でスロットを埋めない。
+
+`react-dom/server` は **動的import**にする。静的importするとApp Routerのビルドが
+「react-dom/server を読むコンポーネントを import している」と言って止まる。
+そのため `renderWorkspaceDeckDocument()` は `async`。
+
+CSSは [`workspace-deck-css.ts`](../src/lib/workspace-deck-css.ts) が `WORKSPACE_DECK_CSS` の**文字列1本**で持つ。
 エディタはこれをiframeへ注入し、publishは `<style>` へ直接埋める。
 Tailwindのユーティリティをデッキ内で使わない（publish先にTailwindが無いため、必ずズレる）。
+
+**寸法は `--deck-u` 1本**。固定16:9のスライドは自分をコンテナにして `--deck-u: 1cqw`、
+フローは `--deck-u: 12.8px`（1280px幅の固定スライドと同じ実寸）。
+表示routeのCSPがscriptを一切許さないので、拡大縮小をJSでやる道は無い。コンテナ単位なら
+画面幅が変わっても中身ごと拡大縮小して16:9を保てる。コンテナ単位はコンテナ自身の指定には
+効かないので、余白は内側の `.deck-slide__inner` で取る。
+
+**章タイトルをページ内で最大に保つ**（`AMD_SLIDE_DESIGN_CODE.md` 基本ルール6）。
+`.deck-slide__section-title` のfont-sizeが、アイキャッチ（`.deck-heading__title`）を含む
+どのブロックよりも大きいことを契約テストで機械検査する。
+
+ロゴはCSS規則1つの中でだけbase64を持つ（[`workspace-deck-logo.ts`](../src/lib/workspace-deck-logo.ts)）。
+スライドごとに `<img>` で貼ると同じbase64が枚数分だけ複製され、5MB上限を無駄に食う。
+`public/` はCDN配信でVercel Functionのファイルシステムに在る保証が無いため、正本画像を
+埋め込み用に縮小した定数として持つ（コードでロゴを描き起こしてはいない）。
 
 publish出力は**自己完結HTML**: 画像はdata URI、フォントはシステムフォントスタック、外部参照ゼロ。
 これで既存の [`render/route.ts`](../src/app/api/workspace-documents/[documentId]/render/route.ts) の
@@ -199,8 +225,10 @@ publish出力は**自己完結HTML**: 画像はdata URI、フォントはシス�
 
 **サイズ制約**: publish後のHTMLは `WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES`（5MB）以内でないと
 プレビューが拒否される。base64は約1.33倍になるので画像の実バイト合計は約3.5MBが上限。
-アセットアップロード時に長辺1920pxへ自動縮小し、エディタは推定publishサイズを常時表示して
-4MBを超えたら警告する。
+**縮小はブラウザ側でやる**。このリポに画像処理ライブラリ（sharp等）は無く、Vercelのnode functionへ
+ネイティブ依存を足すのは割に合わない。アセットAPIは長辺1920pxを超える画像を**断る**側に倒し、
+縮小はエディタ（canvas）の責任にする。黙って原寸を通すと publish後のHTMLが5MBを超え、
+資料ごとプレビューできなくなる。エディタは推定publishサイズを常時表示して4MBを超えたら警告する（Phase 3）。
 
 ---
 
@@ -239,13 +267,27 @@ Content-Security-Policy:
 | `.../[documentId]/source` | PUT | **改修**: `expected_sha256` 必須。不一致なら409。保存前に旧版を revision へ退避 |
 | `.../[documentId]/revisions` | GET | 版一覧（no / kind / sha / bytes / note / pinned / 作成者 / 日時） |
 | `.../[documentId]/revisions/[no]` | GET / POST | 取得 / 復元（復元も新しい版として積む＝履歴を破壊しない） |
-| `.../[documentId]/deck` | GET / PUT | モデルの取得・保存（`expected_sha256` 同様） |
-| `.../[documentId]/deck/publish` | POST | モデル→HTML生成→Storage上書き→`published_sha256` 更新 |
-| `.../[documentId]/assets` | GET / POST | アセット一覧・アップロード（縮小＋WebP化） |
+| `.../[documentId]/deck` | GET / PUT | モデルの取得・保存（`expectedSha256` は **モデル** のsha256。初回だけ省略可） |
+| `.../[documentId]/deck/publish` | POST | モデル→HTML生成→現物を差し替え→`published_sha256` 更新 |
+| `.../[documentId]/assets` | GET / POST | 画像一覧・追加（POSTはbodyをそのままバイト列で受ける） |
 | `.../[documentId]/edit-frame` | GET | 編集用フレーム（nonce script、sandbox） |
 
 すべて既存の `resolveDocumentRowAccess` / `access.canUpload` / `isSameOriginWorkspaceMutation` を通す。
-監査は既存 `recordWorkspaceAuditEvent` に `edit_deck` / `publish_deck` / `restore_revision` を追加。
+デッキ3本の認可は本文編集と同じ `loadEditableWorkspaceHtmlDocument()` 1本で、routeへ条件を書き写さない。
+モデルの読み書きとpublishの手順は [`workspace-document-decks.ts`](../src/lib/workspace-document-decks.ts) に集約する。
+
+監査は既存 `recordWorkspaceAuditEvent` の `workspace_document_mutated` を使い、
+`detail.action` に `edit_deck` / `add_deck_asset` を足す。**publishは `action: "replace_html"` のまま**で、
+`detail.deck_action = "publish_deck"` を添える（「HTMLを差し替えた」事実は同じで、
+audit action名を増やすと `check_workspace_documents_contract.mjs` が要求するリテラルの意味が薄まる）。
+
+**publishの楽観ロックはモデル側にだけ張る。** HTMLは生成物なので、HTML側を直接直した内容は
+モデルに存在せず、再生成で消えるのが正しい。消える分は `replaceWorkspaceHtmlSource()` が
+版として退避するので取り戻せる。逆に、いま画面で見ているモデルと違うものを公開しないよう、
+publishは `expectedSha256`（モデルのsha256）を必須にして、食い違えば409で止める。
+
+`GET /assets` は編集中の表示のために**60秒の署名URL**を付ける。publish出力では署名URLを使わない
+（期限切れで資料の画像が消え、外部参照ゼロも崩れる）。この2つを混ぜない。
 
 ---
 
@@ -340,10 +382,26 @@ textareaのソース編集は「詳細」の中に残す（緊急脱出用）。
 ### Phase 2 — モデルとレンダラ
 
 - `workspace-deck-model.ts`（schema + validator + normalizer）
-- `workspace-deck-render.tsx` / `workspace-deck-css.ts`
-- `deck` / `deck/publish` / `assets` API
+- `workspace-deck-render.ts` / `workspace-deck-css.ts` / `workspace-deck-logo.ts` / `workspace-deck-assets.ts`
+- `deck` / `deck/publish` / `assets` API と、3本が共有する `workspace-document-decks.ts`
 - ブロック第1弾: `heading` / `bullets` / `table` / `twoCol` / `callout` / `image` / `kpiRow` / `rawHtml`
 - publish → 既存の render / pdf / project-share がそのまま動くことを確認
+
+**2026-08-22 実装済み（build v3.90.0）。** UIはまだ無く、ここまでは配管とレンダラだけ。
+計画からの変更点と、そう決めた理由:
+
+| 決めたこと | 理由 |
+|---|---|
+| レンダラは `.tsx` ではなく **`.ts` にしてJSXを書かない**（`createElement` で組む） | 契約テストが素のNodeからレンダラを読んで実際に描かせ、「scriptが混ざらない」「外部参照ゼロ」を検査する。Nodeの型除去は `.tsx` を読めないので、JSXにすると publish出力の安全性を文字列assertでしか確かめられない。ここは資料を配る経路そのものなので、検査できる形を優先した |
+| `react-dom/server` は**動的import**にし、`renderWorkspaceDeckDocument()` を `async` にした | 静的importするとApp Routerのビルドが「react-dom/server を読むコンポーネントを import している」で止まる。描く木は `WorkspaceDeckView` 1本のままで、Phase 3のエディタはこの木を直接マウントする（文字列を毎回 innerHTML で差し替えるとcaretが飛ぶ） |
+| 寸法は **`--deck-u` 1本**にして、固定16:9はコンテナ単位（`1cqw`）、フローは `12.8px` へ切り替える | 表示routeのCSPがscriptを許さないので、拡大縮小をJSでやる道が無い。コンテナ単位なら画面幅が変わっても中身ごと拡大縮小して16:9を保てる。2系統のCSSを書かずに済む |
+| **画像の縮小はサーバでやらず、長辺1920px超を断る** | このリポにsharpは無く、Vercelのnode functionへネイティブ依存を足すのは割に合わない。黙って原寸を通すと publish後のHTMLが5MBを超えて資料ごとプレビューできなくなるので、断る側に倒した。縮小はPhase 3のエディタ（canvas）の責任 |
+| 画像のMIMEは**ヘッダを信じず、バイト列を読んで決める**（`workspace-deck-assets.ts`） | publishでdata URIとしてHTMLへ焼き込むので、「画像だと言われた別の何か」を資料へ入れない。ついでに寸法も取れて上限判定に使える。SVGは受け付けない（サニタイズが要るのに、図はブロックで組めるので得るものが無い） |
+| ロゴは**縮小した正本画像のbase64定数**を持ち、CSS規則1つの中で使う | publish出力は外部参照ゼロでなければ表示routeのCSPを通らない。`public/` はCDN配信でFunctionのファイルシステムに在る保証が無く、自分のoriginへHTTPで取りに行くのは落ちる可能性を足すだけ。スライドごとに `<img>` で貼ると同じbase64が枚数分だけ複製される |
+| `rawHtml` は**保存時と描画時の両方**でサニタイズし、冪等性を契約テストで固定した | 保存時に通すのはエディタのプレビューと publish出力を同じ本文にするため。冪等でないとモデルのsha256が保存のたびに動き、楽観ロックが誤検知する |
+| 語彙は13種のまま持ち、未実装の5種は**保存の時点で断る** | 語彙から消すと「保存はできたのにpublishで消えた」が起きる。未知のtypeと未対応のtypeで別のメッセージを返せるようにもなる |
+| デッキの版は `kind='deck_model'` として同じ `workspace_document_revisions` へ積む。既存の版履歴routeは、デッキの版のGETでモデルJSONを返し、**HTML復元経路では戻さない**（400で案内） | 履歴を2箇所に分けない。一方でHTMLの復元とモデルの復元は別物で、同じPOSTに乗せると「HTMLへ戻したつもりがモデルは古いまま」になる。モデルの復元はGETで取って `PUT /deck` として積み直す（履歴は壊れない） |
+| publishは現物のsha256をその場で読んで渡し、**HTML側の楽観ロックは張らない** | HTMLは生成物。モデルに無い手編集は再生成で消えるのが正しく、消える分は版へ退避される。二重ダウンロードになるが、`replaceWorkspaceHtmlSource()` の契約を緩めるより安い |
 
 ### Phase 3 — デッキエディタ（案A本体）
 
@@ -373,14 +431,14 @@ textareaのソース編集は「詳細」の中に残す（緊急脱出用）。
 
 | script | 検査内容 |
 |---|---|
-| `check_workspace_deck_model.mts` | schema v1 のvalidator：必須スロット、未知type拒否、`freeCanvas`はfixedのみ、モデル上限バイト |
-| `check_workspace_deck_render.mts` | 代表モデル → publish HTML のスナップショット。外部参照ゼロ、`script`混入ゼロ、5MB以内 |
+| `check_workspace_deck_model.mts` ✅ | schema v1 のvalidator：必須スロット、未知type拒否、未対応typeの拒否、`freeCanvas`はfixedのみ、RichTextのインライン限定、`rawHtml`サニタイズの**冪等**、モデル上限バイト、id採番と重複、**jsonbのキー順が変わっても直列化が変わらないこと**（sha256の安定）、画像のバイト判定と長辺上限 |
+| `check_workspace_deck_render.mts` ✅ | 代表モデル → publish HTML を実際に描かせる。`script`混入ゼロ、外部参照ゼロ（読み込み属性と `url()` を全走査）、5MB以内、発表者メモが漏れないこと、描画時のサニタイズ、**章タイトル > 他の全ブロック**のfont-size、classがすべて `deck` 接頭辞（Tailwind不使用の機械検査）、同じモデルから同じバイトが出ること |
 | `check_workspace_document_html_editing.mts` ✅ | script退避→復元の往復一致、本文差し替えの純粋関数、**退避番号ずれの検出**（4-a: scriptが消えて目印コメントが本文に残る／4-b: 先頭追加で番号がずれ別scriptが別位置へ） |
 | `check_workspace_document_edit_frame.mts` ✅ | `allow-same-origin` を付けないこと（ヘッダ値だけを切り出して検査。JSDocの日本語説明に語が入るので本文全体をgrepしない）、nonce付き `script-src`、token照合、埋め込みagentがtranspileヘルパーを要する構文を使わないこと |
 | `check_workspace_document_revisions.mts` ✅ | insert先行のrevision採番、追記のみ、退避失敗時に上書きしないこと、sha算出の統一、保持50件＋pinnedの除外 |
 
 既存の `check_workspace_documents_core.mts` / `check_workspace_documents_contract.mjs` は
-新定数・新ルートを含むよう更新する。
+新定数・新ルートを含むよう更新済み。
 
 **実装上の制約**: `server-only` を import する lib は素のNodeから読めない（依存が入っていない）。
 そのため lib 側の検査は source 文字列 assert になる。**振る舞いを検査したい規則は純粋関数へ
@@ -409,3 +467,6 @@ textareaのソース編集は「詳細」の中に残す（緊急脱出用）。
 - 2026-08-21: 編集UIを資料室モーダルから**別タブの専用ページ**へ移設（build v3.89.0）。まさの実使用で「モーダルちっさ」。§8 Phase 1 の決定表へ別タブ化5件を追記。併せて `DialogContent` の既定 `sm:max-w-sm` が tailwind-merge のグループ分離で呼び出し側の `max-w-*` を無効化していた不具合を修正（OS全体17ファイル32箇所のうち30箇所が384pxに潰れていた）。詳細は `pwa/BUGS.md`。
 - 2026-08-22: 見たまま編集の**永久ローディング**を修正（build v3.89.3）。フレームとの合言葉をSSR/hydrationで二重生成していたため `ready` が親に届かなかった。§8 Phase 1 の決定表へ2件（合言葉の作り方・読み込みタイムアウト）を追記し、契約テスト `check_workspace_document_edit_frame.mts` に §5「親側 — 合言葉の作り方と、ローディングの出口」を追加。詳細は `pwa/BUGS.md`。
 - 2026-08-22: 見たまま編集の全経路を**本番の実資料で実操作して確認**（スライド送り／要素選択／書式パネル／文字編集／保存往復／版履歴）。その過程で見つけた2件を §8 Phase 1 の決定表へ追記。(1) 入力中に選択情報を送り直していなかったため右パネルの要素プレビューが古いまま固まる不具合を修正（build v3.89.4）、(2) 保存が再シリアライズであり元HTMLとバイト一致しないことを仕様として明文化。
+- 2026-08-22: Phase 2 実装（build v3.90.0）。モデル schema v1 + レンダラ1本 + API 3本 + 契約テスト2本。
+  §3.1 のDDL転記を実体（migration / db_schema.md）への参照へ置き換え、§3.2 / §3.3 / §4 / §6 を実装後の記述へ更新。
+  §8 Phase 2 に決定表を追記。UIはPhase 3。

@@ -538,3 +538,87 @@ SE(p10)でまさが `old` フォルダをAMD内部へ変えようとして「外
 - 着手時 `amd-os-b5` が `pwa/bzm/` 配下でSPS初回評価の残193件を処理中だった。順序を入れ替えてiOS削除を先に完遂し、b5が `7d554e55` で完了させてから `git mv` した。移設前に予告を送り、承諾を得てから動かしている。
 - b5依頼の相互参照2箇所（`sps_batch/README.md:4` と `SPS_INITIAL_ASSESSMENT_PLAYBOOK.md:20`）も同じcommitに入れた。
 - 作業中、別セッションが `model/` まわりと `pwa/AGENTS.md` を大きく触っていたので一切触れていない。`git add .` は不使用。
+
+## 2026-08-22 — 資料室スライドエディタ Phase 2、モデルとレンダラ（v3.90.0）
+
+Phase 0（版履歴と競合検知）とPhase 1（見たまま編集）が本番で動いている状態からの続き。
+`spec/2-8` の Phase 2 は「モデルJSONを正本にして、HTML・PDF・将来のPPTXをそこからの生成物にする」配管づくりで、UIはまだ作らない。
+
+### 何を作ったか
+
+- `workspace-deck-model.ts` — schema v1、手書きvalidator、正規化。ブロックは第1弾8種。
+- `workspace-deck-render.ts` / `workspace-deck-css.ts` / `workspace-deck-logo.ts` / `workspace-deck-assets.ts`
+- API 3本（`deck` GET/PUT、`deck/publish` POST、`assets` GET/POST）と、3本が共有する `workspace-document-decks.ts`
+- 契約テスト2本（`check_workspace_deck_model.mts` / `check_workspace_deck_render.mts`）
+
+### レンダラを `.tsx` にしなかった
+
+計画では `workspace-deck-render.tsx` にReactコンポーネントで書くことになっていた。
+書き始める前に、契約テストがそれを読めるかを先に確かめたら読めなかった。
+Nodeの `--experimental-strip-types` は `.tsx` を「Unknown file extension」で拒否する。
+
+publish出力に対して本当に確かめたいのは「scriptが混ざらない」「外部参照がゼロ」の2つで、これはレンダラを実際に走らせないと確かめられない。
+`.tsx` にすると source の文字列assertしか書けなくなる。
+そこで拡張子を `.ts` にして、JSXを使わず `createElement` で組んだ。
+描く木は1本のままなので「レンダラは1本だけ」は守れている。
+文字のエスケープはReactに任せられるので、手書きのHTML連結より安全でもある。
+
+`react-dom/server` の静的importはApp Routerのビルドが止める（「react-dom/server を読むコンポーネントを import している」）。
+動的importへ変えて `renderWorkspaceDeckDocument()` を `async` にしたら通った。
+
+### 拡大縮小をJSでやる道が無い
+
+固定16:9のスライドを画面幅に合わせて縮めるとき、普通ならJSで倍率を測って `transform: scale()` する。
+publish出力を表示する `render` routeのCSPは `default-src 'none'` で `script-src` を一切許さないので、その道は最初から無い。
+
+代わりに寸法の基準を `--deck-u` 1本にして、固定16:9のスライドは自分をコンテナにし `--deck-u: 1cqw`（コンテナ幅の1%）、フローは `--deck-u: 12.8px`（1280px幅の固定スライドと同じ実寸）を入れた。
+中の指定は全部 `calc(var(--deck-u) * n)` なので、CSSは1系統で済み、画面幅が変わっても中身ごと拡大縮小して16:9を保つ。
+コンテナ単位はコンテナ自身の指定には効かないので、余白は内側の `.deck-slide__inner` で取っている。
+
+### sha256が動かない形にする
+
+モデルの楽観ロックは `workspace_document_decks.model_sha256` で見る。
+ここで踏みかけたのが **Postgresのjsonbはキー順を保存しない** という性質で、DBから読み直したJSONをそのまま直列化すると、中身が同じでも別のsha256になる。
+保存のたびに「別のセッションが更新しています」を出す壊れ方で、画面からは原因が見えない。
+
+正規化が毎回同じ順でオブジェクトを組み直すので、sha256は必ず正規化後の直列化に対して取ると決めた。
+契約テストでキー順を逆順にしたJSONを食わせて、直列化が一致することを固定してある。
+同じ理由で `rawHtml` のサニタイズも冪等性を検査している。冪等でないと保存のたびに本文が変わる。
+`meta.updatedAt` をserverで毎回 `now()` にしないのも同じ話で、入れると「中身の変わらない保存」を見分けられなくなる。
+
+### 画像は縮小せず断る
+
+計画は「アップロード時に長辺1920pxへ自動縮小」だった。
+このリポにsharpは無く、Vercelのnode functionへネイティブ依存を足すのは割に合わない。
+断る側に倒して、縮小はPhase 3のエディタ（canvas）の責任にした。
+黙って原寸を通すと publish後のHTMLが5MBのプレビュー上限を超え、資料ごと開けなくなる。
+
+MIMEはヘッダを信じず、PNG / JPEG / WebP / GIF のバイト列を自分で読んで形式と寸法を決めている。
+publishでdata URIとしてHTMLへ焼き込む以上、「画像だと言われた別の何か」を資料へ入れたくない。
+SVGは受け付けない。サニタイズが要るのに、図はブロックで組めるので得るものが無い。
+
+### ロゴをどこから読むか
+
+publish出力は外部参照ゼロでなければCSPを通らないので、ロゴもHTMLの中に入れるしかない。
+`public/AMD_logo_mark.png` を実行時に読む案は、`public/` がCDN配信でVercel Functionのファイルシステムに在る保証が無いので却下した。
+正本画像を埋め込み用に縮小（mark 70x72 / logotype 320x40）してbase64定数にし、CSS規則1つの中で使っている。
+スライドごとに `<img>` で貼ると同じbase64が枚数分だけ複製されるので、背景画像2枚重ねで「シンボル + ロゴタイプ」を組んだ。
+表紙だけ左上、それ以外は右下（`AMD_SLIDE_DESIGN_CODE.md` 基本ルール3）。
+
+### 章タイトルの階層を機械検査にした
+
+「セクションタイトルをアイキャッチより必ず大きくする」はデザインコードで毎回指摘されている項目なので、CSSの font-size を契約テストで比較している。
+章タイトル以外のどのブロックも章タイトルを超えないことまで見る。
+KPIの数字を大きくしたくなるが、数字だけが巨大なスライドは資料のどこを見ているのか分からなくなる。
+
+### 版履歴にデッキの版を混ぜた
+
+`workspace_document_revisions` は Phase 0 から `kind` を持っていて、`deck_model` はモデルをDB行に、`html_source` は本文をStorageへ退避する。
+履歴を2箇所に分けたくないので同じ表へ積んだ。
+既存の版履歴routeはデッキの版のGETでモデルJSONを返し、HTMLの復元経路では戻さず400で案内する。
+HTMLの復元とモデルの復元は別物で、同じPOSTに乗せると「HTMLへ戻したつもりがモデルは古いまま」になる。
+
+### 残っていること
+
+UIはPhase 3。いまはAPIとレンダラだけで、資料室からデッキを作る導線はまだ無い。
+publishした資料が既存の `render` / `pdf` / PJ共有でそのまま開けることは、生成HTMLの形（自己完結・5MB以内・script混入ゼロ）で担保していて、本番の実資料での実操作確認はPhase 3の導線と一緒に行う。
