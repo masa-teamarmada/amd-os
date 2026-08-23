@@ -1,6 +1,6 @@
 {
-  "approval_ref": "2026-08-22-3",
-  "locked_at": "2026-08-23T13:41:08.551+09:00",
+  "approval_ref": "2026-08-23-1",
+  "locked_at": "2026-08-23T14:26:25.673+09:00",
   "frozen_versions": {
     "model_version": "sps-ind-tier0-v1",
     "measure_version": "sps-ind-v1",
@@ -31,7 +31,7 @@
     },
     {
       "path": "bzm/bzm-2-2-strategic-slack-and-propulsion.md",
-      "sha256": "edfbc4cadf860516c2b71fa3fc17565fc68e5e6504a2690f9845d14769f69152"
+      "sha256": "0cb37b2ef85a116e101bbdb8ba0ab272fcbbd9ebf3cc4b4b2a33e89cdd0cd1fa"
     },
     {
       "path": "bzm/sps-current-domain-definition.md",

@@ -1269,7 +1269,7 @@ $$
 画面上の方針比較は、評価に用いた登録方針と計算bundleが揃う未登録shadow案を丸ごと切り替え、同じscenarioの$J/P/Q/S$を表示する。未登録shadow案を登録候補、将来判断候補または実行推奨と呼ばない。
 
 $$
-\Delta_{mathrm{sim}}J=J(\bar z_{mathrm{sim}})-J(\bar z_{mathrm{reg}})
+\Delta_{\mathrm{sim}}J=J(\bar z_{\mathrm{sim}})-J(\bar z_{\mathrm{reg}})
 $$
 
 同様に$P/Q/S$も差分を表示するが、これは会社の決定、最適方針または因果効果ではない。
