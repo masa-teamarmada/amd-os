@@ -44,6 +44,12 @@ const REFERENCE_DATA_ENDPOINTS = [
     routeFile: "src/app/api/project/[projectId]/amd-contributions/route.ts",
     clientModule: "src/lib/amd-contributions-client.ts",
   },
+  {
+    endpoint: "/api/project-cost-model",
+    label: "コスト試算 (PJコックピット / PJワークスペース)",
+    routeFile: "src/app/api/project-cost-model/route.ts",
+    clientModule: "src/lib/project-cost-model-client.ts",
+  },
 ];
 
 // ---------------------------------------------------------------------------

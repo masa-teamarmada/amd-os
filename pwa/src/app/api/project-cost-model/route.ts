@@ -120,10 +120,16 @@ export async function GET(req: NextRequest) {
     .eq("email", auth.user.email.toLowerCase())
     .maybeSingle();
 
-  const bundle = await loadCostModelBundle(projectId);
-  if (!bundle) return NextResponse.json({ ok: true, canEdit: !!member?.is_admin, bundle: null });
+  // 参照系。前提と明細はMTG前後にadminがまとめて直すだけなので、短時間の再利用を許す。
+  // 書き込み側は project-cost-model-client 側でキャッシュを捨てる。
+  const headers = { "Cache-Control": "private, max-age=60, stale-while-revalidate=300" };
 
-  return NextResponse.json({ ok: true, canEdit: !!member?.is_admin, bundle });
+  const bundle = await loadCostModelBundle(projectId);
+  if (!bundle) {
+    return NextResponse.json({ ok: true, canEdit: !!member?.is_admin, bundle: null }, { headers });
+  }
+
+  return NextResponse.json({ ok: true, canEdit: !!member?.is_admin, bundle }, { headers });
 }
 
 const ASSUMPTION_FIELDS = new Set(["value", "value_text", "confidence", "source_kind", "owner", "note", "is_key", "visibility"]);

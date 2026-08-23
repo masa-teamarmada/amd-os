@@ -7,6 +7,11 @@ import {
   type CostItem,
   type CostModelBundle,
 } from "@/lib/project-cost-model";
+import {
+  loadProjectCostModel,
+  peekProjectCostModel,
+  saveCostAssumptionValue,
+} from "@/lib/project-cost-model-client";
 
 // PJコックピット / PJワークスペース「コスト試算」タブ。
 // 正本は project_cost_* (migration 320)。前提を1つ動かすと4シナリオが即座に再計算される。
@@ -42,21 +47,23 @@ interface Props {
 }
 
 export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
-  const [bundle, setBundle] = useState<CostModelBundle | null>(null);
-  const [canEdit, setCanEdit] = useState(false);
-  const [state, setState] = useState<"loading" | "ready" | "empty" | "error">("loading");
+  // 参照系なのでモジュールキャッシュを通す。温まっていればタブを開いた瞬間に描画する。
+  const cached = peekProjectCostModel(projectId);
+  const [bundle, setBundle] = useState<CostModelBundle | null>(cached?.bundle ?? null);
+  const [canEdit, setCanEdit] = useState(!!cached?.canEdit && allowEdit);
+  const [state, setState] = useState<"loading" | "ready" | "empty" | "error">(
+    cached ? (cached.bundle ? "ready" : "empty") : "loading"
+  );
   const [error, setError] = useState<string | null>(null);
   const [showItems, setShowItems] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (force = false) => {
     try {
-      const res = await fetch(`/api/project-cost-model?projectId=${encodeURIComponent(projectId)}`);
-      const json = await res.json();
-      if (!json.ok) throw new Error(json.error || "読み込みに失敗");
-      setCanEdit(!!json.canEdit && allowEdit);
-      if (!json.bundle) return setState("empty");
-      setBundle(json.bundle as CostModelBundle);
+      const res = await loadProjectCostModel(projectId, { force });
+      setCanEdit(res.canEdit && allowEdit);
+      if (!res.bundle) return setState("empty");
+      setBundle(res.bundle);
       setState("ready");
     } catch (e) {
       setError(e instanceof Error ? e.message : "読み込みに失敗");
@@ -79,15 +86,10 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
     });
     setSaving(id);
     try {
-      const res = await fetch("/api/project-cost-model", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entity: "assumption", id, patch: { value } }),
-      });
-      const json = await res.json();
-      if (!json.ok) throw new Error(json.error);
+      await saveCostAssumptionValue(projectId, id, value);
     } catch {
-      await load();
+      // 保存できなかったら楽観更新を捨てて読み直す。
+      await load(true);
     } finally {
       setSaving(null);
     }

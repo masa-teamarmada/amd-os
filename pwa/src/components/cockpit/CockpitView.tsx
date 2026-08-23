@@ -26,6 +26,7 @@ import { CockpitBusinessPlan } from "./CockpitBusinessPlan";
 import type { CockpitSeasonFinance as CockpitSeasonFinanceData, MilestoneChangeHistory } from "@/lib/supabase-data";
 import type { ProjectContractTerms } from "@/lib/project-contract-terms";
 import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
+import { prefetchProjectCostModel } from "@/lib/project-cost-model-client";
 
 interface PlanCycleShape {
   planCycleId: string; status: string; budgetYen: number; extraDesignBudgetYen?: number; totalPoints: number;
@@ -324,11 +325,14 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   const hasScoreDetailTab = project.projectId !== "p00" && showAmdScore;
 
   // タブ構成はここが正本。列数は tabs.length から出すので、追加時に grid の計算を直す必要はない。
-  const tabs: { key: CockpitTab; label: string }[] = [
+  const tabs: { key: CockpitTab; label: string; onHover?: () => void }[] = [
     { key: "progress", label: "進捗管理" },
     ...(hasScoreDetailTab ? [{ key: "score-detail" as const, label: "スコア詳細" }] : []),
     { key: "business-plan", label: "事業計画" },
-    ...(hasCostModelTab ? [{ key: "cost-model" as const, label: "コスト試算" }] : []),
+    // hover で先読みしておき、クリック時には手元にある状態にする (参照系データの体感速度)。
+    ...(hasCostModelTab
+      ? [{ key: "cost-model" as const, label: "コスト試算", onHover: () => prefetchProjectCostModel(project.projectId) }]
+      : []),
     ...(hasKuteRegulationsTab ? [{ key: "regulations" as const, label: "規程・内規" }] : []),
     { key: "ip", label: "知財" },
     { key: "documents", label: "資料室" },
@@ -432,6 +436,8 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
                 role="tab"
                 aria-selected={selected}
                 onClick={() => selectTab(tab.key)}
+                onMouseEnter={tab.onHover}
+                onFocus={tab.onHover}
                 className={`relative min-h-11 w-full cursor-pointer rounded-lg px-1 text-center text-[12px] font-semibold sm:px-3 sm:text-[13px] transition-[background-color,color,transform,box-shadow] duration-150 ease-out hover:-translate-y-[2px] active:translate-y-0 active:duration-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 motion-reduce:transform-none motion-reduce:transition-none ${
                   selected
                     ? "bg-white text-slate-950 shadow-[inset_0_-2px_0_#0f172a] hover:shadow-[inset_0_-2px_0_#0f172a,0_6px_14px_-6px_rgba(15,23,42,0.45)]"
