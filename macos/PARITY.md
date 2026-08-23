@@ -89,7 +89,7 @@ PWAロゴ正本をプロジェクト内へ同期し、AppIconの各サイズは�
 | `/dashboard` | `today` | proactive badge、ECR list、company shelf、旧routine非復活 |
 | `/tasks (deprecated)` | `today` | route/nav/helperを復活させない |
 | `/project/[projectId]/cockpit` | `projectCockpit` | PWA同一APIのMS/月次/MTG/資料、`document` deep link、資料Markdown更新、助成金台帳への管理導線、戦略シグナルの対話型修正依頼と履歴 |
-| `/project/[projectId]/cockpit?tab=cost-model`, `/project/[projectId]/workspace#cost-model` | 未割当 | コスト試算タブ (2026-08-23追加)。`project_cost_models` / `_assumptions` / `_items` / `_questions` を読み、前提から4シナリオをクライアントで再計算する。PWA/ワークスペース共通コンポーネント。macOS Native未移植 |
+| `/project/[projectId]/cockpit?tab=cost-model`, `/project/[projectId]/workspace#cost-model` | 未割当 | コスト試算タブ (2026-08-23追加、全PJ常設)。`project_cost_models` / `_assumptions` / `_items` / `_questions` を読み、前提から4シナリオをクライアントで再計算する。想定系・CAPEX/OPEX内訳・成立ライン・確度別内訳を1画面で出す。PWA/ワークスペース共通コンポーネント。macOS Native未移植 |
 | `株主・ガバナンス + 要対応` | `adminGovernance` | 会社概要タブ、cap table、action items、全member権限 |
 | `/admin/schedule` | `adminSchedule` | 年間レール、元正本再生成、手入力禁止 |
 

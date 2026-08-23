@@ -26,6 +26,17 @@ export function mapBundle(model: any, assumptions: any[], items: any[], question
       sourceUrl: model.source_url ?? null,
       sourceNote: model.source_note ?? null,
       summaryMd: model.summary_md ?? null,
+      systemScopeMd: model.system_scope_md ?? null,
+      targetTotalCostPerUnit:
+        model.target_total_cost_per_m3 === null || model.target_total_cost_per_m3 === undefined
+          ? null
+          : NUM(model.target_total_cost_per_m3),
+      targetMarginRate:
+        model.target_margin_rate === null || model.target_margin_rate === undefined
+          ? null
+          : NUM(model.target_margin_rate),
+      targetNote: model.target_note ?? null,
+      unitBasisLabel: model.unit_basis_label || "m³",
       visibility: model.visibility,
       updatedAt: model.updated_at ?? null,
     },

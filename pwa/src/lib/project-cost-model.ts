@@ -82,6 +82,14 @@ export interface CostModel {
   sourceUrl: string | null;
   sourceNote: string | null;
   summaryMd: string | null;
+  /** どういう系を想定した試算か。タブの最初に読ませる。 */
+  systemScopeMd: string | null;
+  /** 成立ラインとして置いている総コスト目標 (円/単位)。null なら損益分岐だけを出す。 */
+  targetTotalCostPerUnit: number | null;
+  targetMarginRate: number | null;
+  targetNote: string | null;
+  /** 単位あたり指標の分母。SXは m³、PJによって kg / 台 / 件 など。 */
+  unitBasisLabel: string;
   visibility: CostVisibility;
   updatedAt: string | null;
 }
@@ -111,32 +119,108 @@ export interface CostDerived {
   reuseCount: number;
 }
 
+export interface CostConfidenceSlice {
+  grade: CostConfidence | "未設定";
+  perUnit: number;
+  share: number;
+}
+
+export interface CostUncertainItem {
+  costItemId: string;
+  label: string;
+  scenario: string;
+  costType: string;
+  perUnit: number;
+  confidence: CostConfidence | null;
+  sourceKind: string | null;
+  owner: string | null;
+}
+
 export interface CostScenarioResult {
   key: string;
   method: CostMethod;
   tankMode: CostTankMode;
   label: string;
-  siteOpexPerM3: number;
-  siteCapexPerM3: number;
-  tankPerM3: number;
-  siteTotalPerM3: number;
-  centralCapexPerM3: number;
-  centralOpexPerM3: number;
-  centralTotalPerM3: number;
-  totalPerM3: number;
-  profitPerM3: number;
-  marginRate: number;
+
+  // --- 現場設備 ---
+  siteOpexAnnual: number;
+  siteOpexPerUnit: number;
+  siteCapexAnnual: number;
+  siteCapexPerUnit: number;
+  tankAnnual: number;
+  tankPerUnit: number;
+  siteTotalPerUnit: number;
+  /** 初期投資 (顧客工場1拠点あたり、槽込み)。 */
   siteCapexTotal: number;
-  /** 人件費は総コストに含めない前提 (無人運転)。判断のため参考値だけ持つ。 */
-  referenceLaborPerM3: number;
-  totalWithLaborPerM3: number;
-  profitWithLaborPerM3: number;
+
+  // --- 中央培養拠点 ---
+  centralCapexAnnual: number;
+  centralOpexAnnual: number;
+  centralCapexPerUnit: number;
+  centralOpexPerUnit: number;
+  centralTotalPerUnit: number;
+
+  // --- CAPEX / OPEX の総計 (まさ指摘: それぞれいくらか分かること) ---
+  opexTotalAnnual: number;
+  opexTotalPerUnit: number;
+  capexTotalAnnual: number;
+  capexTotalPerUnit: number;
+
+  totalAnnual: number;
+  totalPerUnit: number;
+  revenueAnnual: number;
+  profitPerUnit: number;
+  profitAnnual: number;
+  marginRate: number;
+
+  // --- 成立ライン ---
+  /** 現行コストのままなら、この売価が要る (利益0)。 */
+  breakEvenPricePerUnit: number;
+  /** 目標利益率を置いた場合に要る売価。目標未設定なら損益分岐と同じ。 */
+  requiredPricePerUnit: number;
+  /** 現行の売価で成立させるために許される総コスト上限。 */
+  allowedTotalCostPerUnit: number;
+  /** 許容上限 − 実績。負なら「あとこれだけ下げないと成立しない」。 */
+  gapToAllowedPerUnit: number;
+  /** 総コスト目標 (target_total_cost) との差。目標未設定なら null。 */
+  gapToTargetPerUnit: number | null;
+
+  // --- 人件費 (総コストに含めない前提。判断のため併記する) ---
+  referenceLaborPerUnit: number;
+  totalWithLaborPerUnit: number;
+  profitWithLaborPerUnit: number;
+
+  // --- 精度 ---
+  confidenceBreakdown: CostConfidenceSlice[];
+  topUncertain: CostUncertainItem[];
 }
 
 export interface CostComputation {
   derived: CostDerived;
   scenarios: CostScenarioResult[];
 }
+
+/**
+ * 明細行の表示名。原典スプレッドシートは行によって「中項目」と「小項目」の
+ * どちらが具体名かが入れ替わっている (CAPEXは中項目が具体名、OPEXは小項目が具体名)。
+ * 片方だけ拾うと「分離設備」「交換部品」のような分類名だけが並ぶので、両方を出す。
+ */
+export function costItemLabel(item: Pick<CostItem, "groupLabel" | "midLabel" | "leafLabel">): string {
+  const parts = [item.midLabel, item.leafLabel].filter((v): v is string => !!v && v.trim() !== "");
+  const unique = [...new Set(parts)];
+  return unique.length > 0 ? unique.join(" / ") : item.groupLabel || "(名称なし)";
+}
+
+const CONFIDENCE_ORDER: Array<CostConfidence | "未設定"> = ["S", "A", "B", "C", "H", "未設定"];
+
+export const CONFIDENCE_LABEL: Record<string, string> = {
+  S: "S 確定",
+  A: "A 概算",
+  B: "B 見積前",
+  C: "C 仮置き",
+  H: "H 仮説",
+  未設定: "未設定",
+};
 
 function roleValue(assumptions: CostAssumption[], roleKey: string, fallback: number): number {
   const hit = assumptions.find((a) => a.roleKey === roleKey);
@@ -239,20 +323,24 @@ export function annualAmount(
 const METHODS: CostMethod[] = ["循環", "投入"];
 const TANK_MODES: CostTankMode[] = ["既設", "新設"];
 
-export function computeCostModel(bundle: Pick<CostModelBundle, "assumptions" | "items">): CostComputation {
+export function computeCostModel(
+  bundle: Pick<CostModelBundle, "assumptions" | "items"> & { model?: Partial<CostModel> }
+): CostComputation {
   const { assumptions, items } = bundle;
+  const targetTotal = bundle.model?.targetTotalCostPerUnit ?? null;
+  const targetMargin = bundle.model?.targetMarginRate ?? null;
+
   const derived = deriveCostBasis(assumptions);
   const volume = derived.annualVolume;
-  const perM3 = (annual: number) => safeDiv(annual, volume);
+  const perUnit = (annual: number) => safeDiv(annual, volume);
 
   const live = items.filter((i) => !i.isBreakdown && i.basis !== "内訳");
   const amount = (i: CostItem) => annualAmount(i, assumptions, derived);
 
+  const supplySites = Math.max(roleValue(assumptions, "supply_sites", 1), 1);
   const centralCapexAnnual =
-    live
-      .filter((i) => i.scenario === "中央培養" && i.costType === "CAPEX")
-      .reduce((s, i) => s + amount(i), 0) /
-    Math.max(roleValue(assumptions, "supply_sites", 1), 1);
+    live.filter((i) => i.scenario === "中央培養" && i.costType === "CAPEX").reduce((s, i) => s + amount(i), 0) /
+    supplySites;
   const centralOpexAnnual = live
     .filter((i) => i.scenario === "中央培養" && i.costType === "OPEX")
     .reduce((s, i) => s + amount(i), 0);
@@ -263,44 +351,124 @@ export function computeCostModel(bundle: Pick<CostModelBundle, "assumptions" | "
   const scenarios: CostScenarioResult[] = [];
   for (const method of METHODS) {
     const own = live.filter((i) => i.scenario === method || i.scenario === "共通");
-    const siteOpexAnnual = own
-      .filter((i) => i.costType === "OPEX")
-      .reduce((s, i) => s + amount(i), 0);
-    const siteCapexAnnual = own
-      .filter((i) => i.costType === "CAPEX")
-      .reduce((s, i) => s + amount(i), 0);
-    const siteCapexTotalBase = items
+    const central = live.filter((i) => i.scenario === "中央培養");
+    const siteOpexAnnual = own.filter((i) => i.costType === "OPEX").reduce((s, i) => s + amount(i), 0);
+    const siteCapexAnnual = own.filter((i) => i.costType === "CAPEX").reduce((s, i) => s + amount(i), 0);
+    const siteCapexBase = items
       .filter((i) => (i.scenario === method || i.scenario === "共通") && i.costType === "CAPEX" && !i.isBreakdown)
       .reduce((s, i) => s + i.quantity * i.unitPrice, 0);
-    const laborAnnual = own
-      .filter((i) => i.costType === "参考")
-      .reduce((s, i) => s + amount(i), 0);
+    const laborAnnual = own.filter((i) => i.costType === "参考").reduce((s, i) => s + amount(i), 0);
+
+    // 確度別の内訳と、精度を落としている項目。中央培養は供給拠点数で割った後の負担で見る。
+    const contributing: Array<{ item: CostItem; annual: number }> = [
+      ...own.filter((i) => i.costType !== "参考").map((i) => ({ item: i, annual: amount(i) })),
+      ...central.map((i) => ({ item: i, annual: amount(i) / supplySites })),
+    ];
 
     for (const tankMode of TANK_MODES) {
       const tankAnnual = tankMode === "新設" ? safeDiv(newTankCapex, tankLife) : 0;
-      const siteTotal = perM3(siteOpexAnnual) + perM3(siteCapexAnnual) + perM3(tankAnnual);
-      const centralTotal = perM3(centralCapexAnnual) + perM3(centralOpexAnnual);
-      const total = siteTotal + centralTotal;
-      const labor = perM3(laborAnnual);
+      const opexTotalAnnual = siteOpexAnnual + centralOpexAnnual;
+      const capexTotalAnnual = siteCapexAnnual + tankAnnual + centralCapexAnnual;
+      const totalAnnual = opexTotalAnnual + capexTotalAnnual;
+      const totalPerUnit = perUnit(totalAnnual);
+      const price = derived.salePrice;
+
+      const rows = [
+        ...contributing,
+        ...(tankMode === "新設"
+          ? [{
+              item: {
+                costItemId: `${method}-tank`,
+                scenario: "共通",
+                costType: "CAPEX",
+                leafLabel: "新設槽（コンクリート地下タンク）",
+                midLabel: null,
+                groupLabel: "槽",
+                confidence: "B" as CostConfidence,
+                sourceKind: "先生回答",
+                owner: "ダイキアクシス",
+              } as unknown as CostItem,
+              annual: tankAnnual,
+            }]
+          : []),
+      ];
+
+      const byGrade = new Map<CostConfidence | "未設定", number>();
+      for (const r of rows) {
+        const g = (r.item.confidence ?? "未設定") as CostConfidence | "未設定";
+        byGrade.set(g, (byGrade.get(g) ?? 0) + r.annual);
+      }
+      const confidenceBreakdown: CostConfidenceSlice[] = CONFIDENCE_ORDER
+        .filter((g) => (byGrade.get(g) ?? 0) !== 0)
+        .map((g) => ({
+          grade: g,
+          perUnit: perUnit(byGrade.get(g) ?? 0),
+          share: safeDiv(byGrade.get(g) ?? 0, totalAnnual),
+        }));
+
+      const topUncertain: CostUncertainItem[] = rows
+        .filter((r) => r.item.confidence === "H" || r.item.confidence === "C")
+        .map((r) => ({
+          costItemId: r.item.costItemId,
+          label: costItemLabel(r.item),
+          scenario: r.item.scenario,
+          costType: r.item.costType,
+          perUnit: perUnit(r.annual),
+          confidence: r.item.confidence,
+          sourceKind: r.item.sourceKind,
+          owner: r.item.owner,
+        }))
+        .sort((a, b) => b.perUnit - a.perUnit)
+        .slice(0, 8);
+
+      const marginForRequired = targetMargin ?? 0;
+      const allowedTotalCostPerUnit = price * (1 - marginForRequired);
+
       scenarios.push({
         key: `${method}-${tankMode}`,
         method,
         tankMode,
         label: `${method === "循環" ? "A:循環" : "B:投入"}／${tankMode}`,
-        siteOpexPerM3: perM3(siteOpexAnnual),
-        siteCapexPerM3: perM3(siteCapexAnnual) + perM3(tankAnnual),
-        tankPerM3: perM3(tankAnnual),
-        siteTotalPerM3: siteTotal,
-        centralCapexPerM3: perM3(centralCapexAnnual),
-        centralOpexPerM3: perM3(centralOpexAnnual),
-        centralTotalPerM3: centralTotal,
-        totalPerM3: total,
-        profitPerM3: derived.salePrice - total,
-        marginRate: safeDiv(derived.salePrice - total, derived.salePrice),
-        siteCapexTotal: siteCapexTotalBase + (tankMode === "新設" ? newTankCapex : 0),
-        referenceLaborPerM3: labor,
-        totalWithLaborPerM3: total + labor,
-        profitWithLaborPerM3: derived.salePrice - total - labor,
+
+        siteOpexAnnual,
+        siteOpexPerUnit: perUnit(siteOpexAnnual),
+        siteCapexAnnual: siteCapexAnnual + tankAnnual,
+        siteCapexPerUnit: perUnit(siteCapexAnnual + tankAnnual),
+        tankAnnual,
+        tankPerUnit: perUnit(tankAnnual),
+        siteTotalPerUnit: perUnit(siteOpexAnnual + siteCapexAnnual + tankAnnual),
+        siteCapexTotal: siteCapexBase + (tankMode === "新設" ? newTankCapex : 0),
+
+        centralCapexAnnual,
+        centralOpexAnnual,
+        centralCapexPerUnit: perUnit(centralCapexAnnual),
+        centralOpexPerUnit: perUnit(centralOpexAnnual),
+        centralTotalPerUnit: perUnit(centralCapexAnnual + centralOpexAnnual),
+
+        opexTotalAnnual,
+        opexTotalPerUnit: perUnit(opexTotalAnnual),
+        capexTotalAnnual,
+        capexTotalPerUnit: perUnit(capexTotalAnnual),
+
+        totalAnnual,
+        totalPerUnit,
+        revenueAnnual: price * volume,
+        profitPerUnit: price - totalPerUnit,
+        profitAnnual: (price - totalPerUnit) * volume,
+        marginRate: safeDiv(price - totalPerUnit, price),
+
+        breakEvenPricePerUnit: totalPerUnit,
+        requiredPricePerUnit: safeDiv(totalPerUnit, 1 - marginForRequired),
+        allowedTotalCostPerUnit,
+        gapToAllowedPerUnit: allowedTotalCostPerUnit - totalPerUnit,
+        gapToTargetPerUnit: targetTotal === null ? null : targetTotal - totalPerUnit,
+
+        referenceLaborPerUnit: perUnit(laborAnnual),
+        totalWithLaborPerUnit: totalPerUnit + perUnit(laborAnnual),
+        profitWithLaborPerUnit: price - totalPerUnit - perUnit(laborAnnual),
+
+        confidenceBreakdown,
+        topUncertain,
       });
     }
   }

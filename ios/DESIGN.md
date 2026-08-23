@@ -32,8 +32,10 @@ PWAの全route・重要UI・iOS画面の対応状況は `../macos/PARITY.md` を
 主要 Supabase テーブル: `projects` / `project_members` / `members` / `billing_cycles` / `payout_notices` / `reimbursements` / `knowledge_sessions` / `ms_*` (マイルストーン) / `tsukuyomi_*` / `proposals` / `app_notifications` / `l2_notifications` / `meeting_notifications` / `l2_feedbacks` / `project_cost_models` / `project_cost_assumptions` / `project_cost_items` / `project_cost_questions` ほか。
 
 > **PWA専用画面（Native未移植）**: PJコックピット `?tab=cost-model` とPJワークスペース `#cost-model` の
-> 「コスト試算」タブ（2026-08-23追加）。前提（変数）と費用明細をDBに持ち、前提を1つ動かすと
+> 「コスト試算」タブ（2026-08-23追加、**全PJ常設**）。前提（変数）と費用明細をDBに持ち、前提を1つ動かすと
 > 4シナリオ（循環/投入 × 既設/新設）をクライアントで再計算する。計算結果は保存せず常に導出する。
+> 1画面で「想定している系 / CAPEX・OPEXの内訳（円/単位と円/年）/ 成立ライン（許容上限・損益分岐売価・目標との差）/
+> 確度別の内訳と精度を下げている項目」が読めることを要件にしている。未登録PJは空状態を出す。
 > 実装: `pwa/src/lib/project-cost-model.ts`（純関数）/ `pwa/src/components/cockpit/CockpitCostModel.tsx`。
 > 行ごとに `visibility`（`amd_internal` / `workspace_shared`）を持ち、外部公開する行を選べる。
 

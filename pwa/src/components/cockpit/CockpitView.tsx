@@ -245,8 +245,6 @@ function isLiveOperationalProject(project: { status: string; freezeFromYm?: stri
   return baseActive && !frozenNow && !waitingRestart;
 }
 
-const COST_MODEL_PROJECT_IDS = ["p21"];
-
 function usesMsProgressCategory(category: string | null | undefined) {
   return ["dtsu", "ecosystem", "new_business"].includes(String(category || "dtsu").toLowerCase());
 }
@@ -281,9 +279,6 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   // 事業計画タブは全PJ常設 (2026-08-21 まさ依頼)。資本政策プランは会社概要ではなくこのタブが正本。
   // フェーズ表と年次試算表はSX (p21) 固有データなので、SXのときだけ足す。
   const hasSxBusinessPlanDetail = project.projectId === "p21";
-  // コスト試算タブ (2026-08-23 まさ依頼)。正本は project_cost_* (migration 320)。
-  // テーブルはPJ横断で使える形なので、試算を登録したPJを COST_MODEL_PROJECT_IDS へ足すだけでタブが出る。
-  const hasCostModelTab = COST_MODEL_PROJECT_IDS.includes(project.projectId);
   const hasKuteRegulationsTab = project.projectId === "p25";
 
   const currentProgress = mergeProgress(progress, progressPatches);
@@ -329,10 +324,10 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     { key: "progress", label: "進捗管理" },
     ...(hasScoreDetailTab ? [{ key: "score-detail" as const, label: "スコア詳細" }] : []),
     { key: "business-plan", label: "事業計画" },
+    // コスト試算は全PJ常設 (2026-08-23 まさ確定。SX専用ではなく雛形として全PJへ)。
+    // 未登録のPJでは、何を登録する面なのかを説明する空状態が出る。
     // hover で先読みしておき、クリック時には手元にある状態にする (参照系データの体感速度)。
-    ...(hasCostModelTab
-      ? [{ key: "cost-model" as const, label: "コスト試算", onHover: () => prefetchProjectCostModel(project.projectId) }]
-      : []),
+    { key: "cost-model", label: "コスト試算", onHover: () => prefetchProjectCostModel(project.projectId) },
     ...(hasKuteRegulationsTab ? [{ key: "regulations" as const, label: "規程・内規" }] : []),
     { key: "ip", label: "知財" },
     { key: "documents", label: "資料室" },
