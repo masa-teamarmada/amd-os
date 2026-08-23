@@ -47,7 +47,15 @@ export default async function ModelIndexPage() {
       </div>
 
       <section className="mb-10">
-        <h2 className="mb-3 text-base font-bold text-foreground">現在の正式版</h2>
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h2 className="text-base font-bold text-foreground">現在の正式版</h2>
+          <Link
+            href="/model/formulas"
+            className="shrink-0 text-xs font-semibold text-indigo-600 underline hover:opacity-80"
+          >
+            BZM 2.2 の式を全部見る →
+          </Link>
+        </div>
         <div className="grid gap-4 md:grid-cols-2">
           {current.series.map((series) => (
             <SeriesCard key={series.key} series={series} ledgerSlug={current.ledger_slug} />

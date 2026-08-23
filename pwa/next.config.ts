@@ -149,6 +149,8 @@ const nextConfig: NextConfig = {
     // 動的レンダリングになり実行時に fs 読みするため、明示 bundle しないと本番だけ ENOENT になる。
     "/model/[slug]/page": ["../model/**/*.md", "../model/**/*.json", "../bzm/**/*.md"],
     "/model/page": ["../model/**/*.md", "../model/**/*.json"],
+    // /model/formulas は正本 bzm md から式を実行時に抽出するので bzm も要る。
+    "/model/formulas/page": ["../model/**/*.md", "../model/**/*.json", "../bzm/**/*.md"],
     "/api/macos/document/route": [
       "./manual/**/*.md",
       "./spec/**/*.md",

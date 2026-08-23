@@ -5,6 +5,7 @@ import "katex/dist/katex.min.css";
 import { Fragment, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { headingAnchorId } from "@/lib/heading-anchor";
 
 /**
  * BzmMarkdown — 教科書専用の Markdown レンダラー。
@@ -122,8 +123,17 @@ export function BzmMathText({ source }: Props) {
 // 見出し末尾の `{#some-id}` を抽出し、id 属性へ回して表示テキストからは除去する。
 // 台帳 (model/MODEL_VERSION_LEDGER.md) が変数説明の見出しにこの記法を使い、
 // 他ページからその変数へ直接リンクできるようにするため (2026-08-22)。
-// 記法が無い見出しは従来通り (id なし)。
 const HEADING_ID_RE = /\s*\{#([a-zA-Z0-9_-]+)\}\s*$/;
+
+// `{#id}` 記法が無い見出しにも、見出しテキストから決まる id を必ず振る。
+// id の作り方は @/lib/heading-anchor と共有する (/model/formulas のリンク生成側と
+// 同じ関数を使わないと、id が静かにずれてリンクが死ぬ)。
+function plainText(children: ReactNode): string {
+  if (typeof children === "string") return children;
+  if (typeof children === "number") return String(children);
+  if (Array.isArray(children)) return children.map(plainText).join("");
+  return "";
+}
 
 function extractHeadingId(children: ReactNode): { id: string | undefined; children: ReactNode } {
   const arr = Array.isArray(children) ? children : [children];
@@ -144,7 +154,8 @@ function extractHeadingId(children: ReactNode): { id: string | undefined; childr
       return { id, children: newArr.length === 1 ? newArr[0] : newArr };
     }
   }
-  return { id: undefined, children };
+  const text = plainText(children).trim();
+  return { id: text ? headingAnchorId(text) : undefined, children };
 }
 
 const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {

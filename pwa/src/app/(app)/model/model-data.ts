@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { bzmContentDir } from "@/lib/bzm-content-dir";
-import { modelContentDir } from "@/lib/model-content-dir";
+import { readModelCanonFile } from "@/lib/model-canon-source";
 
 /**
  * /model — モデル版数台帳セクションのデータ層。
@@ -89,13 +88,20 @@ export interface ModelCurrent {
  */
 export function loadModelCurrent(): ModelCurrent | null {
   const overridePath = process.env.MODEL_CURRENT_JSON_PATH;
-  const filePath = overridePath && overridePath.trim().length > 0
-    ? overridePath
-    : path.join(modelContentDir(), "CURRENT.json");
+  const useOverride = Boolean(overridePath && overridePath.trim().length > 0);
 
-  if (!fs.existsSync(filePath)) return null;
+  // 既定パスは参照系スナップショット (プロセス内キャッシュ) を通す。
+  // 上書きパスは検証用なので毎回素で読む。
+  let raw: string | null;
+  if (useOverride) {
+    const filePath = overridePath as string;
+    raw = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : null;
+  } else {
+    raw = readModelCanonFile("model", "CURRENT.json");
+  }
+
+  if (raw === null) return null;
   try {
-    const raw = fs.readFileSync(filePath, "utf8");
     return JSON.parse(raw) as ModelCurrent;
   } catch (err) {
     console.error("[model] CURRENT.json の読み込みに失敗しました:", err);
@@ -123,12 +129,10 @@ const MODEL_MD_SUBDIRS = ["", "proposals", "withdrawn"];
 export function getModelMarkdownSource(slug: string): string | null {
   if (!SAFE_SLUG_RE.test(slug)) return null;
 
-  const dir = modelContentDir();
   for (const sub of MODEL_MD_SUBDIRS) {
-    const filePath = path.join(dir, sub, `${slug}.md`);
-    if (fs.existsSync(filePath)) {
-      return fs.readFileSync(filePath, "utf8");
-    }
+    const relPath = sub ? path.join(sub, `${slug}.md`) : `${slug}.md`;
+    const source = readModelCanonFile("model", relPath);
+    if (source !== null) return source;
   }
 
   const current = loadModelCurrent();
@@ -137,10 +141,7 @@ export function getModelMarkdownSource(slug: string): string | null {
     (doc) => doc.slug === slug && doc.path === bzmRelPath,
   );
   if (isListedBzmDoc) {
-    const bzmPath = path.join(bzmContentDir(), `${slug}.md`);
-    if (fs.existsSync(bzmPath)) {
-      return fs.readFileSync(bzmPath, "utf8");
-    }
+    return readModelCanonFile("bzm", `${slug}.md`);
   }
 
   return null;
@@ -167,6 +168,9 @@ export function buildModelSideNavGroups(current: ModelCurrent): ModelSideNavGrou
       key: "ledger",
       label: "台帳",
       items: [
+        // /model/formulas は [slug] より優先される静的 route (= 現行の式の一覧)。
+        // 台帳の先頭に置くのは、モデルへ来る用のほとんどが「いまの式はどれか」だから。
+        { slug: "formulas", title: "現行の式（BZM 2.2）" },
         { slug: current.ledger_slug, title: "版数台帳（MODEL_VERSION_LEDGER）" },
         { slug: "APPROVALS", title: "承認台帳（APPROVALS）" },
         { slug: "README", title: "運用規約（README）" },
