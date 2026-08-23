@@ -107,7 +107,10 @@ TeX と記号の説明は表示のたびに md から読む。
 - 画面上部に版と用途境界を出す。
   「前向き検証0件、本実装前（pilot 画面は内部 shadow 試算）。測定済みの $q$ または $q_{\mathrm{rob}}$、PJ間比較、投資判断、資源配分に使わない。」
 - 第6層の導入文で、$J$・$P$・$Q$・$S$ が理論式そのものではなく画面用の射影であることを明示する。$S$ を単独で「戦略余力」と呼ばない。
-- SPS の $P^{\mathrm{ind}}$・$q$ と BZM の $P$・$Q$ は別量である。同じ文字でも読み替えない。
+- SPS の $P^{\mathrm{ind}}$・$q$ と pilot 表示の $P$・$Q$ は別量である。同じ文字でも読み替えない。
+  ただし **SPS を BZM の外にある別モデルとして書かない**。SPS は同じ BZM から出る別の出力であり、
+  合算しない規律は「同じモデルから出る別々の出力を同じ数値として扱うな」という運用規律である
+  （まさ指摘 2026-08-22、[版数台帳](../../model/MODEL_VERSION_LEDGER.md) §1 の訂正と §5 の構造図）。
 - 各式に正本の見出しと行番号を添え、`/model/[slug]#<anchor>` でその節へ跳べるようにする。
 - 数式と表は各自の `overflow-x-auto` の中で横スクロールさせる。ページ本体は横スクロールさせない。
 
@@ -146,7 +149,7 @@ id の生成は `pwa/src/lib/heading-anchor.ts` の `headingAnchorId` 1本に集
 
 ## 未実装・未確認
 
-- SPS 系列の式の一覧はこの画面に無い。現行式は [版数台帳](../../model/MODEL_VERSION_LEDGER.md) §2 にある。
+- SPS の式の一覧はこの画面に無い。現行式は [版数台帳](../../model/MODEL_VERSION_LEDGER.md) §2、BZM の中での位置は同 §5 にある。
 - 正本 `bzm/bzm-2-2-strategic-slack-and-propulsion.md` :1272 に LaTeX の誤記がある
   （`\Delta_{mathrm{sim}}J=J(\bar z_{mathrm{sim}})-J(\bar z_{mathrm{reg}})` の `\mathrm` のバックスラッシュ3箇所欠落）。
   ロック対象ファイルなので、まさの承認と relock を経るまで直していない。当該式は収録範囲外のためこの画面には出ない。

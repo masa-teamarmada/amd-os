@@ -118,8 +118,23 @@ export default async function ModelFormulasPage() {
                   この一覧は正本 <code className="rounded bg-muted px-1">{canon.canon_path}</code>{" "}
                   の §4・§5・§6・§7・§9・§15・§16 に置かれた式を対象にしています。
                 </p>
+                <p className="mb-1">
+                  一次選別で使う SPS（
+                  <BzmMathText source={"$\\mathrm{SPS}=\\sum_o q_o P^{\\mathrm{ind}}_o$"} />
+                  ）は、BZM の外にある別のモデルではなく、同じ BZM から出る別の出力です。
+                  2.2 が置き換えた戦略余力の中身は、到達見込み{" "}
+                  <BzmMathText source={"$q$"} /> の定義を通して SPS の入力にも及びます。
+                  その構造と SPS の現行式は{" "}
+                  <Link
+                    href="/model/MODEL_VERSION_LEDGER#lineage-relation"
+                    className="text-indigo-600 underline hover:opacity-80"
+                  >
+                    版数台帳 §5
+                  </Link>
+                  にあります。
+                </p>
                 <p>
-                  版の系譜（1.x → 2.0 → 2.1 → 2.2）と、SPS 側の現行式は{" "}
+                  版の系譜（1.x → 2.0 → 2.1 → 2.2）も{" "}
                   <Link
                     href="/model/MODEL_VERSION_LEDGER"
                     className="text-indigo-600 underline hover:opacity-80"
