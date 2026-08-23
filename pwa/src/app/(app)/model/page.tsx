@@ -30,7 +30,7 @@ export default async function ModelIndexPage() {
   const current = loadModelCurrent();
 
   return (
-    <div data-testid="model-index" className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+    <div data-testid="model-index" className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
       <div className="mb-6">
         <p className="text-sm leading-relaxed text-muted-foreground">
           教科書 (<Link href="/bzm" className="text-indigo-600 underline hover:opacity-80">/bzm</Link>) は本の原稿、
