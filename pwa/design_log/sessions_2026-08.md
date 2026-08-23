@@ -671,3 +671,111 @@ publishした資料が既存の `render` / `pdf` / PJ共有でそのまま開け
 - `d3df67ff` fix(seeds): シーズリスト全体が「Bad Request」で表示できない障害を直す
 
 いずれもpush済み・本番反映済み（build v3.90.4〜v3.90.5）・Chrome MCPで実画面確認済み。branch/worktreeは作っていない。
+
+
+---
+
+## 2026-08-23 — SPS第3便の後追い（#12撤回・p10スコープ混入の補修・ドライブ通読）
+
+作業種別: mixed（開発=migration 306 + ツール修正 / 非開発PJ作業=SPS判断記録とドライブ通読）。判断記録の正本は `pwa/bzm/SPS_IND_SPUNOFF_AND_TARGETED_2026-08-20.md`。
+
+### 実装したもの
+
+1. `pwa/scripts/sps_reassessment_tool.mjs` の `UUID_RE` を形状のみの検査へ緩和（commit `0db15a41`）。RFC 4122のversion/variantまで縛っていたため、migration 209由来の非準拠IDを持つシーズ15件（180件中）が再評価経路から構造的に締め出されていた。Postgresの `uuid` 型は当該値を正規に保持するので、版数まで検査する必要がない。
+2. `pwa/scripts/migrations/306_fix_p10_se_scope_and_seed_link.sql` を作成・適用（commit `909a3792`）。全文UPDATE、DELETEなし。
+   - シーズ `f18b5a65…` の `spun_off_project_id` に `'p10'` を補完（`status=spun_off` なのに逆リンクが空だった）
+   - CryoX／磁気冷凍／ADR／NIMS共同研究由来の `project_knowledge` 12行を p10 → p20
+   - 同由来の `project_strategy_signals` 5行を p10 → p20
+   - 実測: p10 knowledge 51→39行、p20 348→360行 / p10 signals 5→0行、p20 18→23行
+   - 移送先をp20にした根拠は、p20が既にCryoX・磁気冷凍・ADR・NIMS共同研究の実体を348行持つこと。p11はSIP/Blue Water系、p28はOS導入パイロット4行で受け皿にならない。
+3. ドライブ `p10_se` フォルダ通読の成果を `project_knowledge` へ8行 insert（`source=drive:p10_se_archive_20260820`、カテゴリ org/tech/ip/strategy）。住所・電話・メール・URL・VC担当者名は転記していない。
+4. 正本 md と3つの changelog を更新（commit `af259127`）。
+
+### 技術判断
+
+- **再評価の `evidence_strength` は `source_table` から機械導出される**。`structuredSourceEvidence()` の対象は `project_pl_monthly`(soft) / `project_meeting_summaries`(soft固定) / `project_management_partners`(agreedかつexecutingのみmixed) / `project_management_partner_interactions`(mixed) / `seed_contact_log`(soft) の5つのみで、**どれも `hard` を返さない**。Googleドライブは対象外。`validateReassessmentPayload` が上限超えを拒否するため、ドライブをいくら読んでも候補の強度は上がらない。ドライブを証拠源に加えるのは凍結契約の変更＝まさの承認事項で、今回は実施していない。#12の候補は `soft` 据え置き。
+- **migration 306はデータのみの補修で、抽出側のガードは入れていない**。混入源は2026-03〜04の `eimi-daily` ナレッジ抽出と2026-05の `codex_automation` シグナル抽出。同じ経路で再発しうる。`BUGS.md` の `[extract/pj-scope-contamination]` 参照。
+
+### DB状態（この時点の実測）
+
+`sps_reassessment_candidates` の `bdd3dd43-908a-4742-b331-9b5f99a37fb0`（seed `f18b5a65…` / `status=pending` / `impact_classification=q_and_p_ind` / `evidence_strength=soft` / `confidence=0.88`）が**まさの承認待ちのまま残っている**。凍結行は1行も書き換えていない。
+
+### commit
+
+- `0db15a41` fix(sps): 再評価経路のUUID検査を形状のみへ緩和し、#12の再評価候補を作成
+- `909a3792` fix(p10): シーズ逆リンク補完とCryoX由来データのp20移送（migration 306）
+- `af259127` docs(sps): p10スコープ補修とドライブ p10_se 通読を正本へ反映
+
+いずれもpush済み。PWAのコード変更を含まないためVercel deployは走らせていない（BUILD_VERSIONのbumpも対象外）。branch/worktreeは作っていない。
+
+
+---
+
+## 2026-08-22〜23 モデル層 `/model` の新設と、目的・要件の再構築
+
+### やったこと（開発）
+
+**1. モデル正本の層を新設（`amd-os/model/`）**
+
+教科書 `/bzm` は本の原稿、設計書 `/spec` は実装仕様、モデルそのものは別の場所、というまさの指示
+（2026-08-22「AMD OS内の今の『教科書』は、本の原稿が書かれるべきところであって、モデルについては
+別の場所に記録されていくべき」）でリポジトリルート直下に `model/` を新設した。
+
+- `model/MODEL_VERSION_LEDGER.md` — モデルページ本体。目的と要件だけを置く
+- `model/CURRENT.json` — 機械可読サマリ
+- `model/APPROVALS.md` — まさの承認記録（発言の引用つき）
+- `model/LOCK.json` — 正本12件の sha256 と凍結版タプル
+- `model/README.md` — 運用規約
+- `model/proposals/`、`model/withdrawn/`
+
+**2. `/model` 画面（admin 限定）**
+
+`pwa/src/app/(app)/model/` に layout / page / [slug] / model-data.ts、`pwa/src/components/model/` に
+ModelSideNav / ModelFormula。`BzmMarkdown` を拡張して見出し末尾の `{#id}` を id 属性へ変換
+（既存の見出しは非破壊）。GlobalNav の「資料」と `surface-catalog.ts` に導線を追加。
+`next.config.ts` の outputFileTracingIncludes に `../model/**` を明示（bzm と同じく pwa の外にあるため）。
+
+最終的にページは台帳 md をそのまま描画する形へ畳んだ（下記4）。式と記号の一覧は別セッションが
+`/model/formulas` として実装したものを残している。
+
+**3. 承認ロック（3層）**
+
+`pwa/scripts/model_lock.cjs`（check / relock / init）を新設し、次の3か所から呼ぶ。
+
+- `check_pwa_critical_ui.cjs` の末尾（= `npm run test:critical-ui`）
+- `.githooks/pre-commit`（staged にモデル正本が含まれるときだけ検査）
+- `~/.claude/hooks/guard_model_canon.py`（Claude Code の PreToolUse）
+
+`relock --approval <id>` は `model/APPROVALS.md` の該当エントリを検証してから LOCK.json を再生成する。
+「対象ファイル:」節と「削除パス:」節をパースする。凍結版タプルは `pwa/src/lib/current-sps-model.ts` の
+`CURRENT_SPS_MODEL` と照合する。
+
+**4. SPS 現行正本3本の改名**
+
+`bzm/sps-2-0-{reachability-model,domain-definition,measurability-gate}.md` →
+`bzm/sps-current-*.md`。ファイル名の世代名「2-0」が「古い版なのでは」という誤解を生んでいたため
+（まさ 2026-08-22「モデル2.0だよね？いまは2.3じゃなかった？だから古いのでは？」）。
+旧 slug は `BZM_SLUG_ALIASES` で `/bzm`・`/model` からリダイレクト。凍結記録（事前登録・監査・
+変更履歴の過去行）は当時の名前のまま残す。
+
+### 技術的な判断
+
+- **画面で要約せず、正本 md をそのまま描画する。** 当初は CURRENT.json から系列カード・系譜・
+  文書棚を組み立てていたが、まさから「現状モデルページに書いてあるすべての内容は、一度削除した方が
+  いい。合意したものだけを書こう」（2026-08-22）と指示され、台帳 md を `BzmMarkdown` でそのまま
+  出す形へ変更した。画面側で組み立て直すと、えいみが構成した表示物が合意を経ずに正本の顔で並ぶ。
+- **CURRENT.json に要約を二重に持たない。** 目的の要約を CURRENT.json 側にも置きかけたが、正本が
+  動いたとき片方だけ古くなるため撤去し、画面は formula-canon が正本テキストを直接引く方式へ一本化した。
+- **フックは `deny` であって `ask` ではない**（BUGS 参照）。
+
+### commit
+
+`2245fec6`（model 層の新設）/ `5ed2d509`・`1aae0483` ほか。詳細と巻き込みの経緯は
+`model/APPROVALS.md` と `bzm/9-5-appendix-changelog.md` にある。
+`68535f38` と `e20f2380` は別セッションの commit にこちらの変更が巻き込まれたもの（BUGS 3）。
+
+### 検証
+
+`npx tsc --noEmit` / `npm run test:critical-ui` / `npm run test:model-formula-canon` / `npx eslint` は
+いずれも通過。本番 `/model`・`/model/formulas`・旧 slug のリダイレクトは admin 限定 layout の 307
+（ログインへ）を確認。ログイン後の画面は未確認。

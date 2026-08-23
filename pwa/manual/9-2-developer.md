@@ -9,7 +9,8 @@
 | 知りたいこと | 正本 |
 |---|---|
 | 設計書だけで OS を再構築できるか | [/spec/1-3-reconstruction-coverage-audit](/spec/1-3-reconstruction-coverage-audit) |
-| manual / spec / bzm の責務分離と附則ルール | [/spec/5-1-document-governance-current-spec](/spec/5-1-document-governance-current-spec) |
+| manual / spec / bzm / model の責務分離と附則ルール | [/spec/5-1-document-governance-current-spec](/spec/5-1-document-governance-current-spec) |
+| モデル（BZM / SPS）の目的・要件・承認済みの内容 | [/model](/model) |
 | repo / deploy / build version / DDL / GAS deploy | [/spec/5-2-development-operations-current-spec](/spec/5-2-development-operations-current-spec) |
 | L2 automation / cron / outbox / 停止済み旧経路 | [/spec/5-3-automation-responsibility-current-spec](/spec/5-3-automation-responsibility-current-spec) |
 | 過去判断と事故から来た実装制約 | [/spec/5-4-decision-history-current-spec](/spec/5-4-decision-history-current-spec) |
@@ -18,7 +19,9 @@
 
 ## 変更時の最低ルール
 
-- 使い方は `/manual`、実装仕様は `/spec`、理論・数式・rubric は `/bzm` に置く。
+- 使い方は `/manual`、実装仕様は `/spec`、教科書（本の原稿）は `/bzm`、**モデルそのもの（目的・要件・式）は `/model`** に置く（2026-08-22 新設）。
+- **`/model` にはまさが合意した内容だけを書く。** 正本 md から抽出した内容であっても、合意を経ていないものは置かない。表示物を足すときは、先に `model/APPROVALS.md` へまさの合意を記録する。
+- **モデル正本（`model/LOCK.json` の12件）は、まさの承認記録なしに変更できない。** 変更したい内容は `model/proposals/` に提案として書き、まさの承認を `model/APPROVALS.md` へ引用つきで記録し、`node pwa/scripts/model_lock.cjs relock --approval <id>` を通す。迂回フラグは用意していない。ロックは critical-ui guard / `.githooks/pre-commit` / Claude Code の PreToolUse hook の3層で検査する。
 - どれかを変更したら、対応する附則に日時つきで追記する。
 - 画面導線や章 metadata を触ったら `npx tsc --noEmit` と `npm run build` を通す。
 - **本番反映 = main への push** (2026-06-12〜、Vercel Git 自動 deploy)。CLI 直接 deploy は廃止、ブランチ作成は全面禁止。本番反映するなら build version を bump し、原則 deploy 前の事前確認で止めない。
