@@ -11,7 +11,7 @@
 > - えいみ（Win側 Android担当）が「これ知らない画面なんだけど…」となったら必ずここを参照する
 > - えいみがここを見て知らない画面があるならアラート → 即同期する
 >
-> 最終更新: 2026-07-24 (通知 action contract / 開催履歴候補の採用経路を追加)
+> 最終更新: 2026-08-23 (PWA PJコックピット/PJワークスペースに「コスト試算」タブを追加)
 
 ---
 
@@ -29,7 +29,13 @@
 macOSはiOSの5タブを横展開せず、`仕事 / 探索 / 管理 / 設定` の常設ナビを使う。
 PWAの全route・重要UI・iOS画面の対応状況は `../macos/PARITY.md` を正本とし、実装済みだけを完了扱いにする。
 
-主要 Supabase テーブル: `projects` / `project_members` / `members` / `billing_cycles` / `payout_notices` / `reimbursements` / `knowledge_sessions` / `ms_*` (マイルストーン) / `tsukuyomi_*` / `proposals` / `app_notifications` / `l2_notifications` / `meeting_notifications` / `l2_feedbacks` ほか。
+主要 Supabase テーブル: `projects` / `project_members` / `members` / `billing_cycles` / `payout_notices` / `reimbursements` / `knowledge_sessions` / `ms_*` (マイルストーン) / `tsukuyomi_*` / `proposals` / `app_notifications` / `l2_notifications` / `meeting_notifications` / `l2_feedbacks` / `project_cost_models` / `project_cost_assumptions` / `project_cost_items` / `project_cost_questions` ほか。
+
+> **PWA専用画面（Native未移植）**: PJコックピット `?tab=cost-model` とPJワークスペース `#cost-model` の
+> 「コスト試算」タブ（2026-08-23追加）。前提（変数）と費用明細をDBに持ち、前提を1つ動かすと
+> 4シナリオ（循環/投入 × 既設/新設）をクライアントで再計算する。計算結果は保存せず常に導出する。
+> 実装: `pwa/src/lib/project-cost-model.ts`（純関数）/ `pwa/src/components/cockpit/CockpitCostModel.tsx`。
+> 行ごとに `visibility`（`amd_internal` / `workspace_shared`）を持ち、外部公開する行を選べる。
 
 ---
 

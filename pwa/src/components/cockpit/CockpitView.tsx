@@ -25,6 +25,7 @@ import { CockpitCompanyOverview } from "./CockpitCompanyOverview";
 import { CockpitBusinessPlan } from "./CockpitBusinessPlan";
 import type { CockpitSeasonFinance as CockpitSeasonFinanceData, MilestoneChangeHistory } from "@/lib/supabase-data";
 import type { ProjectContractTerms } from "@/lib/project-contract-terms";
+import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
 
 interface PlanCycleShape {
   planCycleId: string; status: string; budgetYen: number; extraDesignBudgetYen?: number; totalPoints: number;
@@ -243,11 +244,13 @@ function isLiveOperationalProject(project: { status: string; freezeFromYm?: stri
   return baseActive && !frozenNow && !waitingRestart;
 }
 
+const COST_MODEL_PROJECT_IDS = ["p21"];
+
 function usesMsProgressCategory(category: string | null | undefined) {
   return ["dtsu", "ecosystem", "new_business"].includes(String(category || "dtsu").toLowerCase());
 }
 
-export type CockpitTab = "progress" | "score-detail" | "business-plan" | "regulations" | "ip" | "documents" | "company";
+export type CockpitTab = "progress" | "score-detail" | "business-plan" | "cost-model" | "regulations" | "ip" | "documents" | "company";
 
 export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab, onTabChange }: CockpitViewProps) {
   const [localActiveTab, setLocalActiveTab] = useState<CockpitTab>("progress");
@@ -277,6 +280,9 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   // 事業計画タブは全PJ常設 (2026-08-21 まさ依頼)。資本政策プランは会社概要ではなくこのタブが正本。
   // フェーズ表と年次試算表はSX (p21) 固有データなので、SXのときだけ足す。
   const hasSxBusinessPlanDetail = project.projectId === "p21";
+  // コスト試算タブ (2026-08-23 まさ依頼)。正本は project_cost_* (migration 320)。
+  // テーブルはPJ横断で使える形なので、試算を登録したPJを COST_MODEL_PROJECT_IDS へ足すだけでタブが出る。
+  const hasCostModelTab = COST_MODEL_PROJECT_IDS.includes(project.projectId);
   const hasKuteRegulationsTab = project.projectId === "p25";
 
   const currentProgress = mergeProgress(progress, progressPatches);
@@ -322,6 +328,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     { key: "progress", label: "進捗管理" },
     ...(hasScoreDetailTab ? [{ key: "score-detail" as const, label: "スコア詳細" }] : []),
     { key: "business-plan", label: "事業計画" },
+    ...(hasCostModelTab ? [{ key: "cost-model" as const, label: "コスト試算" }] : []),
     ...(hasKuteRegulationsTab ? [{ key: "regulations" as const, label: "規程・内規" }] : []),
     { key: "ip", label: "知財" },
     { key: "documents", label: "資料室" },
@@ -562,6 +569,14 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       {activeTab === "business-plan" && (
         <section role="tabpanel" aria-label="事業計画" className="min-w-0">
           <CockpitBusinessPlan projectId={project.projectId} projectName={project.projectName} showSxDetail={hasSxBusinessPlanDetail} showTimeLedger={hasScoreDetailTab} />
+        </section>
+      )}
+
+      {/* コスト試算タブ (2026-08-23 まさ依頼)。前提を1つ動かすと4シナリオが再計算される。
+          正本は project_cost_* で、Google Sheets からDBへ移した。自前で fetch するので開いた時だけマウントする。 */}
+      {activeTab === "cost-model" && (
+        <section role="tabpanel" aria-label="コスト試算" className="min-w-0">
+          <CockpitCostModel projectId={project.projectId} />
         </section>
       )}
 

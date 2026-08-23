@@ -88,6 +88,7 @@ import {
   type SxLaneFold,
 } from "@/lib/sx-display-lanes";
 import { SxPartnerPipeline } from "./SxPartnerPipeline";
+import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
 import { WorkspaceDocumentRoom } from "@/components/workspace-documents/WorkspaceDocumentRoom";
 import { CockpitIpPortfolio } from "@/components/cockpit/CockpitIpPortfolio";
 import styles from "./weekly-control.module.css";
@@ -286,13 +287,14 @@ const STAGE_LABEL: Record<StageKey, string> = Object.fromEntries(
 // すべてのPJで、PJ資料室と同じ正本を開く「ドライブ」を加える。既存のアンカー名
 // (#weekly-change / #project-gantt / #partner-ledger / #issue-hypothesis / #input-readiness)
 // は他画面からのリンク互換のためhashとしてそのまま残す。
-type SxWeeklyControlView = "weekly" | "gantt" | "partners" | "issues" | "ip" | "drive";
+type SxWeeklyControlView = "weekly" | "gantt" | "partners" | "issues" | "cost" | "ip" | "drive";
 const SX_WEEKLY_VIEW_STORAGE_KEY = "sx-weekly-control-view-v1";
 const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   weekly: "weekly-change",
   gantt: "project-gantt",
   partners: "partner-ledger",
   issues: "issue-hypothesis",
+  cost: "cost-model",
   ip: "project-ip",
   drive: "project-drive",
 };
@@ -307,6 +309,9 @@ const PROJECT_WORKSPACE_TABS: Array<{ key: SxWeeklyControlView; label: string }>
   { key: "gantt", label: "ガント" },
   { key: "partners", label: "関係先" },
   { key: "issues", label: "論点・仮説" },
+  // コスト試算はPJコックピットと同じコンポーネントを共有する (2026-08-23 まさ依頼)。
+  // ワークスペース側は閲覧専用。前提の書き換えはコックピット側 (admin) だけ。
+  { key: "cost", label: "コスト試算" },
   { key: "ip", label: "知財" },
   { key: "drive", label: "ドライブ" },
 ];
@@ -315,6 +320,7 @@ function viewForHash(hash: string): SxWeeklyControlView | null {
   if (!normalized) return null;
   if (normalized === "project-gantt") return "gantt";
   if (normalized === "partner-ledger") return "partners";
+  if (normalized === "cost-model") return "cost";
   if (normalized === "issue-hypothesis") return "issues";
   if (normalized === "project-ip") return "ip";
   if (normalized === "project-drive") return "drive";
@@ -5997,6 +6003,12 @@ export function SxWeeklyControlDashboard({
             aria-label="知財"
           >
             <CockpitIpPortfolio projectId={bundle.project.projectId} />
+          </section>
+        )}
+
+        {activeView === "cost" && (
+          <section id="cost-model" className={styles.section} role="tabpanel" aria-label="コスト試算">
+            <CockpitCostModel projectId={bundle.project.projectId} allowEdit={false} />
           </section>
         )}
 
