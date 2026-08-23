@@ -37,18 +37,6 @@ assert.ok(canon, "正本 bzm/bzm-2-2-strategic-slack-and-propulsion.md を読め
 const problems: string[] = [];
 let total = 0;
 
-// 「何のためのモデルか」も、画面で要約せず領域定義から引く決まりにしてある
-// (2026-08-22、目的が画面に出ていなかったせいで、えいみが目的を実務から推定して
-// 設計を進める事故が起きた)。引けなくなると画面に赤字が出るだけで誰も気づかないので、
-// 式のポインタと同じようにここで落とす。
-for (const q of canon.purpose) {
-  if (!q.text) {
-    problems.push(
-      `[何のためのモデルか] 引用を正本から取り出せません（「${q.section}」の「${q.match}」）`,
-    );
-  }
-}
-
 for (const layer of canon.layers) {
   // 層が何を決めているかを述べる文は、画面で書かず正本から引く決まりにしてある
   // (2026-08-23、画面側で要約したら正本より強い主張が混ざった)。引けなくなったら落とす。

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ModelFormulaLayers, ModelPurpose, ModelSymbolIndex } from "@/components/model/ModelCanonSections";
+import { ModelFormulaLayers, ModelSymbolIndex } from "@/components/model/ModelCanonSections";
 import { BzmMarkdown } from "@/components/bzm/BzmMarkdown";
 import { loadBzmFormulaCanon } from "./formula-canon";
 import { getModelMarkdownSource, loadModelCurrent } from "./model-data";
@@ -21,6 +21,10 @@ import { getModelMarkdownSource, loadModelCurrent } from "./model-data";
  * 式と記号は残す。こちらは正本 bzm md から抽出したものを出しており、
  * まさ確定 2026-08-23「正本は UI 上のものを指してる」「UI 上にないとだめ」に基づく。
  * えいみが構成した表示物ではない。
+ *
+ * 「何のためのモデルか」（領域定義からの引用7文）は 2026-08-23 に外した。えいみが選んだ
+ * 抜粋であり、台帳 §1 目的（まさ合意の3件）と重複していた（まさ「はずして！」
+ * → model/APPROVALS.md #2026-08-23-6）。目的は台帳 §1 だけが正本。
  *
  * 表示物を足すときは、先に model/APPROVALS.md へまさの合意を記録すること。
  */
@@ -51,7 +55,6 @@ export default async function ModelIndexPage() {
 
       {canon ? (
         <>
-          <ModelPurpose purpose={canon.purpose} />
           <ModelFormulaLayers canon={canon} />
           <ModelSymbolIndex symbols={canon.symbols} />
         </>
