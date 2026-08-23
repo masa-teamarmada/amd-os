@@ -178,7 +178,7 @@ BZM にとっての含意（**推奨**）：4.7節の $U(t)$ は現状「見え�
 
 **出典**（事実）
 
-- Leontief, W. (1936) "Quantitative Input and Output Relations in the Economic System of the United States," *The Review of Economics and Statistics*, 18, pp. 105–125.
+- Leontief, W. (1936) "Quantitative Input and Output Relations in the Economic Systems of the United States," *The Review of Economics and Statistics*, 18(3), pp. 105–125.（題名の Systems は複数形。監査 2026-08-23 で訂正）
   JSTOR: [https://www.jstor.org/stable/1927837](https://www.jstor.org/stable/1927837)
   **未確認**：号数は確認していない（誌名・巻・頁・年は確認済み）。
 - 総務省「産業連関表」— 産業連関分析について。
@@ -261,9 +261,7 @@ Alvarez & Barney 2007 は**土台ではなく立場の宣言**として使う。
 
 - Horngren, C. T., Datar, S. M. & Rajan, M. V. *Horngren's Cost Accounting: A Managerial Emphasis*, Pearson.（初版1962年、Horngren 単独。現行は第17版・Datar & Rajan）
   出版社ページ：[https://www.pearson.com/nl/en\_NL/higher-education/subject-catalogue/accounting-and-taxation/Horngrens-Cost-Accounting-Datar-Rajan-17e.html](https://www.pearson.com/nl/en_NL/higher-education/subject-catalogue/accounting-and-taxation/Horngrens-Cost-Accounting-Datar-Rajan-17e.html)
-- 損益分岐点図表の起源：Walter Rautenstrauch（1880–1951、コロンビア大学）が1930年に計画手法として定式化し、"break-even point" の語を作った（C. E. Knoeppel との共同）。
-  [https://en.wikipedia.org/wiki/Walter\_Rautenstrauch](https://en.wikipedia.org/wiki/Walter_Rautenstrauch)
-  **未確認**：Rautenstrauch の原典（書籍）そのものは書誌を確認していない。二次情報である。
+- 損益分岐点図表の起源（Rautenstrauch, 1930 頃）は、査読文書の出典になる一次・二次文献を確認できていないため、ここでは引かない。CVP の土台は Horngren で足りる。（監査 2026-08-23: Wikipedia を出典にしていた段落を差し替え）
 
 **何を与えるか**（事実）
 
