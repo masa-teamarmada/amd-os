@@ -1855,6 +1855,9 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px]",
   "lg:sticky lg:top-12",
   "renderMsSetupBanner",
+  // 進捗タブ末尾の2枠 (2026-08-14 まさ確定)。スコア詳細へ戻さない
+  "Bzm22AcquisitionLedger",
+  "CockpitAmdContributions",
   "CockpitAmdScoreDetailTab",
   "onOpenScoreDetail",
   "score-detail",

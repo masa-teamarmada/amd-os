@@ -114,6 +114,7 @@
     "check:bzm-2-2-all-pj-pilot": "node --experimental-strip-types ../bzm/pilot/bzm-2-2-all-pj-provisional-v0-1.mts --check",
     "test:bzm-2-2-pilot-ui": "node --experimental-strip-types scripts/check_bzm_2_2_pilot_ui_contract.mts",
     "test:model-formula-canon": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_model_formula_canon.mts",
+    "test:amd-contributions": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_amd_contributions.mts",
     "test:bzm-2-2-acquisition-from-evidence": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_bzm_2_2_acquisition_from_evidence.mts",
     "generate:sps-2-1-seed": "node --experimental-strip-types scripts/generate_sps_2_1_estimated_seed.mts",
     "test:sps-2-1-seed": "node --experimental-strip-types scripts/test_sps_2_1_estimated_seed.mts",

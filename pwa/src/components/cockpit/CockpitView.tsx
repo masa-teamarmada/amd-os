@@ -6,6 +6,8 @@ import { CockpitVentureStatus } from "./CockpitVentureStatus";
 import { CockpitManagementScoreHero } from "./CockpitManagementScoreHero";
 import { CockpitGoalsCompact } from "./CockpitGoalsCompact";
 import { CockpitStrategySignals } from "./CockpitStrategySignals";
+import { Bzm22AcquisitionLedger } from "./Bzm22AcquisitionLedger";
+import { CockpitAmdContributions } from "./CockpitAmdContributions";
 import { CockpitGrants } from "./CockpitGrants";
 import { WorkspaceDocumentRoom } from "@/components/workspace-documents/WorkspaceDocumentRoom";
 import { CockpitIpPortfolio } from "@/components/cockpit/CockpitIpPortfolio";
@@ -535,6 +537,12 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           </div>
         )}
       </div>
+
+      {/* 進捗タブ末尾 (2026-08-14 まさ確定):
+            「得てきたもの」= 獲得台帳 (旧スコア詳細から移設)
+            「行ってきたこと」= AMD側の活動。PJが得たものと、AMDが投じたものを並べて読む。 */}
+      {hasScoreDetailTab && <Bzm22AcquisitionLedger projectId={project.projectId} />}
+      <CockpitAmdContributions projectId={project.projectId} />
 
         </>
       )}

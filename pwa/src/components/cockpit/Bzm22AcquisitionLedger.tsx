@@ -182,12 +182,16 @@ export function Bzm22AcquisitionLedger({ projectId, active = true }: { projectId
   }, [active, projectId]);
 
   return (
-    <details data-testid="bzm22-acquisition-ledger" className="border-t border-[#b9cbd1] bg-white">
-      <summary className="cursor-pointer list-none px-3 py-2 text-[9px] font-semibold text-[#376274] marker:content-none sm:px-4">
+    <details
+      data-testid="bzm22-acquisition-ledger"
+      className="overflow-hidden rounded-xl border border-[#e5e5e7] bg-white"
+      open
+    >
+      <summary className="cursor-pointer list-none px-4 py-3 text-[13px] font-semibold text-[#1d1d1f] marker:content-none hover:bg-[#fafafa]">
         これまでに得てきたもの（獲得台帳）
       </summary>
 
-      <div className="border-t border-slate-200 bg-[#f8fafb] px-3 py-2 text-[9px] leading-4 text-slate-600 sm:px-4">
+      <div className="border-t border-slate-200 bg-[#f8fafb] px-4 py-2 text-[10px] leading-4 text-slate-600">
         1行 = 1つの正規化事象。閉じた条件 / 消費 / 行動の増減を同じ行で読む。
         {payload && !payload.displayOnly ? null : (
           <>

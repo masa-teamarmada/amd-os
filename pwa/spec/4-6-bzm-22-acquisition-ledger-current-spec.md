@@ -1,8 +1,8 @@
 # 4-6 BZM 2.2 獲得台帳 現行仕様
 
-PJコックピット `スコア詳細` タブに置く「これまでのPJ活動のなかで得てきたもの」の台帳。
+PJコックピット `進捗管理` タブの最下部に置く「これまでのPJ活動のなかで得てきたもの」の台帳。
 理論正本は [`pwa/bzm/bzm-2-2-strategic-slack-and-propulsion.md`](../bzm/bzm-2-2-strategic-slack-and-propulsion.md)。
-表示契約は [`4-2 AMD Score`](4-2-amd-score-current-spec.md) の「Score detail 表示契約」に登録する。
+隣に「AMDがこのPJへ行ってきたこと」([`4-7`](4-7-amd-contributions-current-spec.md)) を置き、投じたものと得たものを同じ画面で読む。
 
 ## 1. 何のための台帳か
 
@@ -163,7 +163,13 @@ API 応答の `message` に失敗した旨だけを足す（獲得台帳は重�
 ## 7. UI
 
 `Bzm22AcquisitionLedger`（`src/components/cockpit/Bzm22AcquisitionLedger.tsx`）を
-`Bzm22ProvisionalObservatory` の中に置く。
+`CockpitView` の `進捗管理` タブ最下部に置く。
+
+**2026-08-14 にスコア詳細から進捗管理へ移した。** まさ指摘「どっちかっていうと進捗タブにあるべきじゃないの？」。
+この台帳は第1段では表示専用で、読み手にとっては数式の内訳ではなくPJの歩みそのものなので、
+数式を読む場所（スコア詳細）ではなく歩みを読む場所（進捗管理）に置く。
+第2段で `numeric_binding='bound'` を使い始めたら、スコア詳細側に
+「この値の根拠は進捗管理タブの獲得台帳」と分かる導線を足す（§8 変更ゲート）。
 
 守ること:
 
@@ -175,6 +181,7 @@ API 応答の `message` に失敗した旨だけを足す（獲得台帳は重�
 
 ## 8. 変更ゲート
 
-- この台帳の表示項目を増やすときは、[`4-2`](4-2-amd-score-current-spec.md) の「Score detail 表示契約」にも行を足す
+- この台帳の表示項目を増やすときは、[`design/FEATURE_REGISTRY.md`](../design/FEATURE_REGISTRY.md) の該当節も更新する
+- `numeric_binding='bound'` を初めて使うときは、スコア詳細から獲得台帳への導線を同じ作業単位で足す（根拠が別タブにあることを読み手が辿れなくなるため）
 - 列を足すときは migration + `python3 -X utf8 scripts/dump_schema.py` を同じ作業単位に含める
 - `numeric_binding='bound'` を初めて使うときは、本章 §2 に写像規則を追記してからにする
