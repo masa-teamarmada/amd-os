@@ -238,4 +238,8 @@ bzm/sps-current-domain-definition.md §1・§3・§4・§5・§6。台帳に §0
 - model/MODEL_VERSION_LEDGER.md
 - model/CURRENT.json
 
-反映commit: (未反映)
+反映commit: e20f2380（別セッションの commit へ巻き込まれて入った。commit メッセージは
+「docs: 参照系キャッシュ移行セッションのhandoffを記録」で、台帳 §0 の新設と目的の正本化を
+説明していない。68535f38 に続いて2回目。push 済みのため amend せず記録を残す。
+再発防止として、以後は stage と commit を1コマンドにまとめ、staged のまま guard を
+回さない）
