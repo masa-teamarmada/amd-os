@@ -25,12 +25,12 @@
         "p_model_version": "p-ind-v1"
       },
       "canonical": [
-        { "slug": "sps-2-0-reachability-model", "title": "到達見込みモデル（式とqの正本）", "path": "bzm/sps-2-0-reachability-model.md", "status": "theory-fixed v1.4" },
+        { "slug": "sps-current-reachability-model", "title": "到達見込みモデル（式とqの正本）", "path": "bzm/sps-current-reachability-model.md", "status": "theory-fixed v1.4" },
         { "slug": "SPS_NAT_VALUE_MEASURE_PROPOSAL_2026-08-16", "title": "SPS価値項の産業創出価値への差し替え（P^indの定義）", "path": "bzm/SPS_NAT_VALUE_MEASURE_PROPOSAL_2026-08-16.md", "status": "v0.3 / dual-audited / masa-agreed" },
         { "slug": "SEED_Q_RUBRIC_2026-08-15", "title": "シーズq帯 評価ルーブリック（11要因）", "path": "bzm/SEED_Q_RUBRIC_2026-08-15.md", "status": "rubric v1 / masa-agreed / frozen（§5にv1.1運用指針）" },
         { "slug": "SEED_P_IND_JUDGMENT_2026-08-16", "title": "P^ind帯 判断記録（24件の較正）", "path": "bzm/SEED_P_IND_JUDGMENT_2026-08-16.md", "status": "judgment v1" },
-        { "slug": "sps-2-0-domain-definition", "title": "領域定義 — Before Zero で診断し、ゼロの先で検証する", "path": "bzm/sps-2-0-domain-definition.md", "status": "domain-fixed v1.0" },
-        { "slug": "sps-2-0-measurability-gate", "title": "測定可能性ゲート — 数字を出してよい条件", "path": "bzm/sps-2-0-measurability-gate.md", "status": "questions-fixed v1.1" },
+        { "slug": "sps-current-domain-definition", "title": "領域定義 — Before Zero で診断し、ゼロの先で検証する", "path": "bzm/sps-current-domain-definition.md", "status": "domain-fixed v1.0" },
+        { "slug": "sps-current-measurability-gate", "title": "測定可能性ゲート — 数字を出してよい条件", "path": "bzm/sps-current-measurability-gate.md", "status": "questions-fixed v1.1" },
         { "slug": "SEED_Q_EVAL_V2_AND_SPS_IND_LEDGER_2026-08-16", "title": "q帯v2評価台帳 + SPS産業創出価値版一覧（latest-only統治）", "path": "bzm/SEED_Q_EVAL_V2_AND_SPS_IND_LEDGER_2026-08-16.md", "status": "q-eval v2 frozen + sps-ind v1.0" },
         { "slug": "SPS_INITIAL_ASSESSMENT_PLAYBOOK", "title": "SPS初回評価プレイブック（版タプルと運用）", "path": "bzm/SPS_INITIAL_ASSESSMENT_PLAYBOOK.md", "status": "playbook v1" }
       ],
@@ -83,12 +83,12 @@
   ],
   "documents": {
     "canonical": [
-      { "slug": "sps-2-0-reachability-model", "title": "到達見込みモデル — 資金の崖が締切を作る", "path": "bzm/sps-2-0-reachability-model.md", "series": "sps", "locked": true },
+      { "slug": "sps-current-reachability-model", "title": "到達見込みモデル — 資金の崖が締切を作る", "path": "bzm/sps-current-reachability-model.md", "series": "sps", "locked": true },
       { "slug": "SPS_NAT_VALUE_MEASURE_PROPOSAL_2026-08-16", "title": "SPS価値項の産業創出価値への差し替え", "path": "bzm/SPS_NAT_VALUE_MEASURE_PROPOSAL_2026-08-16.md", "series": "sps", "locked": true },
       { "slug": "SEED_Q_RUBRIC_2026-08-15", "title": "シーズq帯 評価ルーブリック v1", "path": "bzm/SEED_Q_RUBRIC_2026-08-15.md", "series": "sps", "locked": true },
       { "slug": "SEED_P_IND_JUDGMENT_2026-08-16", "title": "P^ind帯（産業創出価値）判断記録", "path": "bzm/SEED_P_IND_JUDGMENT_2026-08-16.md", "series": "sps", "locked": false },
-      { "slug": "sps-2-0-domain-definition", "title": "領域定義 — Before Zero で診断し、ゼロの先で検証する", "path": "bzm/sps-2-0-domain-definition.md", "series": "sps", "locked": true },
-      { "slug": "sps-2-0-measurability-gate", "title": "測定可能性ゲート — 数字を出してよい条件", "path": "bzm/sps-2-0-measurability-gate.md", "series": "sps", "locked": true },
+      { "slug": "sps-current-domain-definition", "title": "領域定義 — Before Zero で診断し、ゼロの先で検証する", "path": "bzm/sps-current-domain-definition.md", "series": "sps", "locked": true },
+      { "slug": "sps-current-measurability-gate", "title": "測定可能性ゲート — 数字を出してよい条件", "path": "bzm/sps-current-measurability-gate.md", "series": "sps", "locked": true },
       { "slug": "SEED_Q_EVAL_V2_AND_SPS_IND_LEDGER_2026-08-16", "title": "シーズq帯 評価台帳 第2回 + SPS産業創出価値版一覧", "path": "bzm/SEED_Q_EVAL_V2_AND_SPS_IND_LEDGER_2026-08-16.md", "series": "sps", "locked": false },
       { "slug": "SPS_INITIAL_ASSESSMENT_PLAYBOOK", "title": "SPS初回評価プレイブック", "path": "bzm/SPS_INITIAL_ASSESSMENT_PLAYBOOK.md", "series": "sps", "locked": false },
       { "slug": "SPS_IND_RETROFIT_EXISTING_PJ_2026-08-17", "title": "既存PJ12件のSPS産業創出価値版retrofit", "path": "bzm/SPS_IND_RETROFIT_EXISTING_PJ_2026-08-17.md", "series": "sps", "locked": false },
