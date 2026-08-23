@@ -147,4 +147,7 @@
 対象ファイル:
 - model/MODEL_VERSION_LEDGER.md
 
-反映commit: (未反映)
+反映commit: 68535f38（別セッションの commit に巻き込まれて入った。commit メッセージは
+「docs(bzm): 改名済み正本3件への参照リンクを張り替える」で、この台帳の構造訂正と
+model/proposals/2026-08-22_sps-propulsion-and-slack.md の起票を説明していない。
+push 済みのため amend せず、ここと bzm/9-5-appendix-changelog.md に記録を残す）
