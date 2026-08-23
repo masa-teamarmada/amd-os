@@ -779,3 +779,79 @@ ModelSideNav / ModelFormula。`BzmMarkdown` を拡張して見出し末尾の `{
 `npx tsc --noEmit` / `npm run test:critical-ui` / `npm run test:model-formula-canon` / `npx eslint` は
 いずれも通過。本番 `/model`・`/model/formulas`・旧 slug のリダイレクトは admin 限定 layout の 307
 （ログインへ）を確認。ログイン後の画面は未確認。
+
+
+---
+
+## 2026-08-22〜23 SPS初回評価「意味づけ欠落」372件の是正経路を開き、170件まで実行
+
+### 経緯
+
+735件の初回評価が全件済んだ直後の全数点検（前セッション）で、**11因子すべての `assessment`（q根拠が
+どちらへどれだけ動くかの意味づけ）が空のまま入っている行が372件**見つかった。原因は
+`validate_sps_initial_assessment_candidate_insert()` が `evidence` は1〜500文字必須にしていたのに
+`assessment` は240文字上限しか見ておらず、空文字が素通りしていたこと。まさ指示「版タプルって何かわからんけど、
+ちゃんとすべてスコアリングができないとダメなのでなんとかして」を受けて着手。
+
+### やったこと（開発）
+
+**1. migration 318 — 是正経路を開く（`ea6c32fa`）**
+
+`seed_screening_bands` は migration 312 の `guard_frozen_seed_screening_band()` により凍結25列の
+UPDATE/DELETE が拒否されるため、既存行は書き換えられない。**版タプルは変更せず**、同じタプルの band を
+追記して差し替える経路を新設した。
+
+- `sps_initial_assessment_candidates` に `supersedes_assessment_id`（`seed_screening_bands` への FK）
+  と pending/applied 限定の一意 index を追加
+- `validate_sps_initial_assessment_candidate_insert()` を分岐拡張。通常投入は従来どおり「現行タプルの
+  band が既にあれば拒否」。是正投入は「差し替え対象が当該シーズの最新かつ凍結かつ現行タプルで、
+  意味づけが1件も入っていない」ことを要求し、**11因子すべてに空でない assessment** を求める
+  （通常は1件以上でよい）
+- `apply_sps_initial_assessment_candidate()` に「候補作成後に新しい band が入っていたら拒否」の
+  競合検査を追加
+- `submit_sps_initial_assessment_candidates()` が `supersedes_assessment_id` を落とさないよう
+  INSERT列を追加
+- 対象を引く `sps_initial_assessment_remediation_targets()` を新設（SECURITY DEFINER、
+  `public/anon/authenticated` から REVOKE）
+- 3関数とも migration 303 の意図（`search_path` 固定）を維持: `SET search_path = public, extensions, pg_temp`
+
+`sps_initial_assessment_tool.mjs` に `prepare --remediate`（pending中のシーズを除外して対象と
+差し替え先idを配る）、`status` の `defective` 表示、是正モードのpayload検証、`semantic_fingerprint`
+への `supersedes_assessment_id` 混ぜ込み（同じ意味キーの applied 候補が既にあるため、混ぜないと
+submit が既存候補を返して無反応になる）を追加。
+
+2件で経路を実証（ok 2 / ng 0）してから並列実行へ進んだ。
+
+**2. サブエージェント並列で372件のうち202件を投入**
+
+`prepare --remediate --limit 100`（親が1回だけ叩く）→ 5体 × 20件担当で `check.py <gen> <prepared> A:B`
+の担当範囲モードを使い、`show.py` で1件ずつ読んで `add()`、`RESULT: OK` → `submit`/`apply`。
+2ラウンドで ok 202 / ng 0。**残り170件**（`node scripts/sps_initial_assessment_tool.mjs status` の
+`defective`）。
+
+**3. 投入後の構造監査（`1cb620e6`）**
+
+`scripts/sps_batch/audit_remediation.mjs`（新設、読み取り専用）で、投入済みの是正band全件を
+`supersedes_assessment_id` から逆引きし、端点の再計算一致・11因子の順序と欠落・意味づけの充足と
+長さ・署名・意味づけ一行の使い回し・11因子が丸ごと一致する組・段階とP/q帯の分布を検査。
+異常0件を確認（使い回された定型文はあるが、それ自体は評価の型として許容範囲）。
+
+### 事故2件（詳細は `pwa/BUGS.md` 該当節）
+
+- セッションを閉じている間にサブエージェント2体が失敗し、直前の「動いてる」という報告が実測に基づいて
+  いなかったため23時間気づけなかった。1体は scratchpad に書きかけの gen ファイル（20件中19件）が
+  残っていたので拾って完走させた。
+- `bzm/9-5-appendix-changelog.md` への追記commit（`ef9abe58`）が、共有checkoutの他セッションの
+  未push差分を巻き込んだ。内容自体は正しいため revert せず、経緯だけ次のcommitに記録した。
+
+### commit
+
+`ea6c32fa` / `3cb6bfa5` / `864ca0a4` / `ef9abe58`（巻き込み、内容は別セッション分） / `6b6c8d29` /
+`1cb620e6` / `791818af` / `2dcbd2f6` / `docs(bugs)`（是正ラウンドの教訓） / `docs(changelog)`（実行結果）。
+いずれもpush済み。branch/worktreeは作っていない。PWAのコード変更は含むが（tool.mjs）、Vercel deployが
+必要な画面変更ではないため今回は走らせていない。
+
+### 残作業
+
+意味づけ欠落170件。手順は `pwa/scripts/sps_batch/README.md`「是正ラウンド」節、件数は
+`bzm/SPS_INITIAL_ASSESSMENT_PLAYBOOK.md` §1、再開手順も同ファイルに記載済み。
