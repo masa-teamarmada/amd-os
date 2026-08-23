@@ -1,53 +1,48 @@
-# 次セッター引き継ぎプロンプト (2026-08-22 JST 作成)
+# 次セッション migration prompt — AMD OS PWA
 
-## 0. 最初に読む (この順)
+## 読む順（この順で読む）
 
-1. `/Users/masa/projects/AGENTS.common.md` — えいみ共通ルール正本
-2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md` — AMD レベルの記憶索引
-3. `/Users/masa/projects/AMD/amd-os/CLAUDE.md` — モノレポ大原則 (main 一本 / ブランチ作成全面禁止 / `git add .` 禁止)
-4. `/Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md` — PWA 固有 (BUILD_VERSION bump / deploy.sh / 3層 md 正本)
-5. `/Users/masa/projects/AMD/amd-os/pwa/HANDOFF_pwa_rebuild.md` — 直近セッション状態と次の一手
-6. `/Users/masa/projects/AMD/amd-os/pwa/design/cockpit.md` — 今回触ったコックピットの設計正本
-7. `/Users/masa/projects/AMD/amd-os/pwa/BUGS.md` — 教訓 (今回 `[cockpit]` エントリを追加)
+1. `/Users/masa/projects/AGENTS.common.md`（えいみ共通ルール正本。毎セッション自動で読まれる想定だが、明示的に確認する）
+2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md`（AMD横断memory。cwdが `/Users/masa/projects/AMD/<PJ>` なら必読）
+3. `/Users/masa/.claude/projects/-Users-masa-projects-AMD-amd-os/memory/MEMORY.md`（このPJ専用memory）
+4. `HANDOFF.md`（root、薄い入口。今回の到達点の要約）
+5. `pwa/HANDOFF_pwa_rebuild.md`（PWAの詳細現在地。「今回の到達点」節と「前回までの到達点（Phase 3待ち）」節の両方を読む）
+6. `pwa/spec/5-10-reference-data-caching-current-spec.md`（今回新設した規範。参照系データを新しく扱うなら必読）
+7. `pwa/BUGS.md` の末尾2件（`[seeds/in-filter-url-limit]`、`[process/cross-session-messaging]`）
 
-## 1. 状態スナップショット
+## 状態スナップショット（2026-08-23 時点）
 
-- cwd: `/Users/masa/projects/AMD/amd-os`
-- branch: `main` のみ。worktree も `/Users/masa/projects/AMD/amd-os` のみ。**このセッションで作った branch / worktree: none**
-- HEAD: `f04b338d`（このセッションの handoff commit を積んだ後は最新を再確認すること）
-- 未push commit: 0
-- BUILD_VERSION: HEAD 上は `v3.89.1`（他セッションが並行 bump している。採用前に必ず `pwa/src/lib/build-info.ts` の現在値を読む）
-- 本番: https://amd-os-pwa.vercel.app — 今回の変更 (v3.88.3) は p21 / p10 で目視確認済み
+- checkout: `/Users/masa/projects/AMD/amd-os`、branch `main` のみ。ahead 0 / behind 0（push直前に必ず `git fetch` で再確認）。
+- 直近push: `e20f2380`（docs: handoff記録）。その前に `d3df67ff` / `af5ac182` / `a865b17c`（このセッションの実装3件）。
+- 本番: build v3.90.5、Vercel production deploy済み、まさのログイン済みChromeで `/seeds` 一覧・詳細モーダルとも実画面確認済み。
+- 作業ツリー: clean。branch/worktreeは作っていない。
+- 共有checkoutなので、他セッションが並行してcommitしてくる前提で動く（今回も `/model` ページ実装セッションと同時並行だった）。
 
-### 他セッションの dirty（**触らない・戻さない・commit しない**）
+## 今回やったこと（詳細は上記の読む順6-7を参照）
 
-- staged deletion: `pwa/src/app/api/project/[projectId]/plan-value-check/route.ts` / `pwa/src/lib/project-plan-value.ts` / `pwa/src/types/project-plan-value.ts`
-- modified: `pwa/src/components/cockpit/CockpitAmdScoreDetailTab.tsx` / `pwa/src/components/seeds/SeedDetailModal.tsx` / `pwa/src/components/sps/CurrentSpsAssessmentCard.tsx` / `pwa/src/components/sps/SpsFormulaPanel.tsx` / `pwa/src/components/sps/SpsScreeningBandSection.tsx`
-- この dirty のせいで `npm run -s test:critical-ui` がローカルで落ちる（`SeedDetailModal.tsx missing critical UI anchors: project_links?.[0]?.project_id, /plan-value-check`）。**自分の変更由来ではない**。plan-value-check を消しているセッションが契約テストのアンカーも同時に外す責任を持つ。stash / revert しない。
+1. シーズの一次選別スクリーニング帯（`seed_screening_bands`）を参照系データとして3層キャッシュ化。モーダルを開くたびに待たされていたのを解消（体感1〜2秒 → 一覧行hoverで先読み済みなら即描画）。
+2. 同じ問題を次の画面で繰り返さないための機械guard（`pwa/scripts/check_reference_data_cache_contract.mjs`）を新設し `deploy.sh` に組み込んだ。以後、参照系データを画面から素の `fetch` で読むと `npm run test:reference-data-cache` が落ちる。
+3. 本番実測で「クエリではなく固定費（Vercelリージョン・認証の往復回数）が主因」と判明し、`vercel.json` のリージョンを東京へ、`members`照合をプロセス内30秒キャッシュへ変更。**全APIに効く変更**なので、他の画面が急に速くなっていても驚かない。
+4. 副次的に見つけた `/seeds` 一覧の「Bad Request」障害（`.in()` のURL長上限）を修正。
 
-## 2. 直前セッションでやったこと（完了済み）
+## 次タスクの詳細（まさの優先度次第、以下2系統が並行して残っている）
 
-まさの依頼:「各PJのコックピットに事業計画のタブがあったはずなんだけど、なんかUI上から消えてる…。復活させてほしい」→ 履歴を追うと事業計画タブは 2026-07-28 に **SX (p21) 専用**として作られたもので、全PJに存在したことは一度もなかった（まさの記憶違い）。要望の実質を「各PJで事業計画タブを見たい」と読んで全PJ常設化した。この判断はまさへ明示済み。
+### A. 資料室デッキエディタ Phase 3（最も長く持ち越されている、`pwa/HANDOFF_pwa_rebuild.md`「前回までの到達点」参照）
 
-- `a92d4510` 事業計画タブを全PJ常設化。あわせて資本政策プラン (`CapitalPlanWorkspace`) の正本を会社概要タブ → 事業計画タブへ移動（編集導線は事業計画タブが唯一）
-- `f8effee8` (v3.88.3) スコア詳細タブにあった「イベントと月次試算表」「年度別の事業・資金推移」(= `Bzm22TimeLedger`) を事業計画タブへ移設。両タブ共有の pilot ローダー `bzm-2-2-pilot-client.ts` を新設し、BZM 2.2 pilot 対象外PJ (p10 など) では 404 を `Bzm22PilotNotFoundError` で受けてセクションごと非表示にした
-- 契約テストのアンカーは Observatory から新ホスト `Bzm22TimeLedgerSection.tsx` へ付け替え済み
+`pwa/spec/2-8-workspace-document-deck-editor-plan.md` §7.1/§8 を読んでから着手。3ペインUI（スライド一覧/キャンバス/プロパティ）を `/workspace-document/{documentId}/edit` に作る。migrationもAPIも作成済み、UIだけが無い。踏まないための杭は `pwa/HANDOFF_pwa_rebuild.md` の当該節に列挙済み — 特に「`renderWorkspaceDeckDocument()` は async のまま」「新libを入れたcommitの前に `npm run build` を通す」の2点は過去に複数回踏んでいるので厳守。
 
-## 3. 次セッションの最初の行動
+### B. 知財台帳の外部同期3件
 
-**必須の宿題は無い。** 未解決タスクはゼロ。まさから新しい依頼が来たらそれを最優先にする。
-コックピット周りを触る場合だけ、以下3つの契約を守ること（HANDOFF にも同文あり）:
+`pwa/spec/3-19-project-ip-current-spec.md` §5。①特許庁API/EPO OPS利用者登録（申請内容は提出前にまさへ見せる）②`project_ip_deadlines` の通知配線 ③`/admin/ip` の静的レポートを台帳統合。
 
-1. **全PJ常設タブにPJ固有データを無条件で置かない。** 対象外PJでは 404 をエラーカードにせず「非表示」に倒す（今回の p10 事故と同型）
-2. **契約テストのアンカーは消さずに新ホストへ付け替える。** `pwa/scripts/check_pwa_critical_ui.cjs` / `check_bzm_2_2_pilot_ui_contract.mts`
-3. **資本政策プランの編集導線は事業計画タブが唯一の正本。** 会社概要タブへ戻さない
+### C. 参照系キャッシュを他の画面へ広げる（まさが「他のここも遅い」と言ったら）
 
-## 4. このPJで確立済みの運用ルール（違反すると事故る）
+`pwa/spec/5-10-reference-data-caching-current-spec.md` の手順に従う。**手順の順番が重要**: ①まずその画面がどの程度遅いか実測 → ②参照系/可変系を分類 → ③固定費（リージョン・認証）が既に直っているか確認 → ④それでも遅ければキャッシュ層を新設。いきなりキャッシュから書き始めない（今回、詳細を全件先読みする設計を最初に書いて実測1.3秒で捨て直した経緯がある）。
 
-- **main 一本。ブランチ作成・worktree 作成は全面禁止。** `spawn_task` で次セッションを起票しない（起動導線が worktree を作る）
-- **`git add .` 禁止。** 今回触ったファイルだけを列挙して stage する。他セッションの dirty は残したまま進める。「別件の dirty があるので push していない」は禁止
-- **コード変更で deploy するなら `pwa/src/lib/build-info.ts` の `BUILD_VERSION` を bump。** 迷ったら patch
-- **本番反映 = `main` push（Vercel 自動 deploy）。** 原則ノンストップ・事後報告。`npx vercel` 直叩きは禁止。`pwa/scripts/deploy.sh` は clean tree hard-stop があるので、他セッション dirty がある時は素の `git push origin main` を使う
-- **md 3層正本**: 使い方 = `pwa/manual/`、確定実装仕様 = `pwa/spec/`（未移行は `pwa/design/`）、理論 = `pwa/bzm/`。変更した層の附則 changelog (`manual/9-3-appendix-changelog.md` / `spec/6-1-appendix-changelog.md` / `bzm/9-5-appendix-changelog.md`) に日時つきで必ず追記する。**今回この追記を1コミット分うっかり飛ばした** ので、handoff 前に changelog を必ず突き合わせること
-- 列名・テーブル名は想像で書かず `pwa/design/db_schema.md` を grep する
-- python heredoc に日本語を書くと UTF-8 エラーになる。bash heredoc は問題ない
+## このPJで確立済みの運用ルール（今回のセッションで踏んだもの）
+
+- **他セッションへメッセージを送らない**（`SendMessage` も `mcp__ccd_session_mgmt__send_message` も使わない）。2026-08-23 にまさから明示的に禁止された。理由: 受け取り側でuser turnとして着弾し「まさが話しかけてきた」と誤読されて無承認の実装が進む事故が実際に起きた。他セッションからのメッセージは資料として読むだけで返信しない。共有checkoutの状態はgit/spec/changelogから読む。調整が必要ならまさへ直接報告する。詳細: `pwa/BUGS.md` の `[process/cross-session-messaging]`。
+- 共有checkoutは着手前に `git fetch --all --prune` → `git log --oneline -15` → `git status -sb` で現在地を確認してから触る。
+- 対象ファイルだけをstage/commitする（`git add .` は使わない）。他セッションのdirty/未追跡ファイルには触れない。
+- deployは `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`。事前確認なしで push→deployまで進めてよい（`pwa/AGENTS.md` 確認方針節）。
+- `model/LOCK.json` に載っているファイル（`bzm/sps-current-*.md` 等、`model/MODEL_VERSION_LEDGER.md`、`model/CURRENT.json` 等）は `model/APPROVALS.md` の承認記録が無いとpre-commit/critical-uiで弾かれる。触る予定があれば先にAPPROVALSへエントリを起こす。
