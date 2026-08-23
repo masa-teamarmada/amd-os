@@ -51,10 +51,14 @@ export function CockpitAmdScoreDetailTab({ projectId, active = true }: { project
         <CurrentSpsAssessmentCard assessment={state.assessment} band={band} />
       )}
 
-      <section aria-labelledby="bzm22-separate-model-title" className="min-w-0 border-t border-slate-300 pt-3">
+      {/* SPS は BZM の外にある別モデルではなく、同じ BZM から出る別の出力である
+          (まさ指摘 2026-08-22「SPSとBZM2.2が別系列にされてる時点で全く認識があってない。
+          BZM2.2で定量化しているパラメータがSPSだよ」、model/MODEL_VERSION_LEDGER.md §1 の訂正と §5)。
+          合算しない規律はそのまま有効なので、文言はそこだけを言う。 */}
+      <section aria-labelledby="bzm22-other-output-title" className="min-w-0 border-t border-slate-300 pt-3">
         <div className="mb-2 px-1">
-          <h2 id="bzm22-separate-model-title" className="text-[11px] font-semibold text-slate-700">BZM 2.2 暫定パイロット（SPSとは別モデル）</h2>
-          <p className="text-[8px] text-slate-500">J / P / Q / S はSPSへ合算せず、独立した検証モデルとして表示する。</p>
+          <h2 id="bzm22-other-output-title" className="text-[11px] font-semibold text-slate-700">BZM 2.2 暫定パイロット（同じBZMから出る別の出力）</h2>
+          <p className="text-[8px] text-slate-500">J / P / Q / S はSPSへ合算せず、別の出力として分けて表示する。</p>
         </div>
         <Bzm22ProvisionalObservatory projectId={projectId} active={active} />
       </section>

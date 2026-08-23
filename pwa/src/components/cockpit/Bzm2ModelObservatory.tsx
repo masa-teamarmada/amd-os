@@ -944,7 +944,7 @@ export function Bzm2ModelObservatory({ model }: { model: Bzm2Observatory }) {
               全経路価値と到達診断の現在値
             </h2>
             <p className="mt-0.5 max-w-3xl text-[10px] leading-4 text-[#c9d6d9]">
-              現行運用SPSとは別の検証中モデル。値、欠測、出所、版の変化を同じ場所で追う。
+              現行運用SPSと同じBZMから出る、別の検証中の出力。値、欠測、出所、版の変化を同じ場所で追う。
             </p>
           </div>
           <div className="flex flex-wrap gap-1.5 text-[9px]">

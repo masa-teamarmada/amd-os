@@ -551,7 +551,7 @@ export function CockpitVentureStatus({
 
       {currentSps ? <div className={`mx-2 ${compact ? "mt-1" : "mt-2"}`}><CurrentSpsAssessmentCard assessment={currentSps} compact /></div> : null}
 
-      {/* BZM 2.2はSPSとは別の暫定パイロットとして表示する。 */}
+      {/* BZM 2.2はSPSと同じBZMから出る別の出力で、暫定パイロットとして分けて表示する（合算しない）。 */}
       {/* Chart 1 + Chart 2 — xl breakpoint (>=1280px) 以上で横並び。
           案C レイアウト (上 hero に AMD Score + XRL を並べる) のため。
           それ未満は従来通り縦並び。 */}

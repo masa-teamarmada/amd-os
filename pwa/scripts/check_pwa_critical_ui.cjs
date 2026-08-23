@@ -1865,7 +1865,9 @@ expectIncludes("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
   "CurrentSpsAssessmentCard",
   "/sps-current",
   "現行SPSを読み込み中",
-  "BZM 2.2 暫定パイロット（SPSとは別モデル）",
+  // SPS は BZM の外の別モデルではなく同じ BZM から出る別の出力 (まさ指摘 2026-08-22、
+  // model/MODEL_VERSION_LEDGER.md §1 の訂正と §5)。合算しない規律だけを言う文言に保つ。
+  "BZM 2.2 暫定パイロット（同じBZMから出る別の出力）",
   "J / P / Q / S はSPSへ合算せず",
   'data-density="compact-score-page"',
 ]);
@@ -2173,7 +2175,8 @@ expectIncludes("src/components/cockpit/Bzm2ModelObservatory.tsx", [
   "全経路のモデル価値",
   "全パラメータの抽出規則",
   "パラメータ台帳",
-  "現行運用SPSとは別の検証中モデル",
+  // 「別モデル」ではなく「同じBZMから出る別の出力」(まさ指摘 2026-08-22、台帳 §1 訂正・§5)。
+  "現行運用SPSと同じBZMから出る、別の検証中の出力",
 ]);
 expectNotIncludes("src/components/cockpit/Bzm2ModelObservatory.tsx", [
   "条件付き理論時価総額",

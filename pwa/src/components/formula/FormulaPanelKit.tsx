@@ -16,7 +16,8 @@
  * - SpsFormulaPanel … SPS帯 (産業創出価値, sps-ind-v1) の定義式とパラメータ実値。
  *   SpsScreeningBandSection 経由で /seeds シーズ詳細モーダルと PJ コックピット
  *   「スコア詳細」タブの両方が同じものを出す (まさ確定 2026-08-21「これ統一してほしい」)。
- * - Bzm22ProvisionalObservatory … BZM 2.2 暫定パイロット (SPS とは別モデル)。
+ * - Bzm22ProvisionalObservatory … BZM 2.2 暫定パイロット (SPS と同じ BZM から出る別の出力。
+ *   合算はしないが、別モデルではない。model/MODEL_VERSION_LEDGER.md §1 の訂正と §5)。
  */
 
 import { ChevronDown } from "lucide-react";
