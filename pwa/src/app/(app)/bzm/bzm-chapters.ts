@@ -76,10 +76,10 @@ export const BZM_PARTS: BzmPartConfig[] = [
     description:
       "計画期限内の資本自立診断 q_plan(H_v)、共通期間比較 Q(h)、期限後を含む q_G の定義。共通到達目標、戦略余力、資金の崖、測定可能性ゲート、SX 1件の実測記録を扱う。全経路価値と前向き検証は未測定。",
     slugs: [
-      "sps-2-0-reachability-model",
-      "sps-2-0-measurability-gate",
+      "sps-current-reachability-model",
+      "sps-current-measurability-gate",
       "sps-2-0-sx-measurement-log",
-      "sps-2-0-domain-definition",
+      "sps-current-domain-definition",
     ],
   },
 
@@ -349,14 +349,14 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
 
   // --- SPS 2.0 到達見込み (2026-08-08、BZM 2.0 講座セッションで確定) ---
   {
-    slug: "sps-2-0-reachability-model",
+    slug: "sps-current-reachability-model",
     title: "到達見込みモデル — 資金の崖が締切を作る",
     summary:
       "固定方針下の計画達成診断 q_plan を、到達時間 T_C と戦略余力 T_Y の競争として定義する。共通到達目標 G_self(12m) の二段判定、T_Y の5成分と資金成分のみの部分実装、計画期限と資金の崖の区別。",
     status: "completed",
   },
   {
-    slug: "sps-2-0-measurability-gate",
+    slug: "sps-current-measurability-gate",
     title: "測定可能性ゲート — 数字を出してよい条件",
     summary:
       "撤回された v0.1 の反省から置いた7問。必要支出と反復可能な対価の範囲、二段判定、独立二名判定、欠測時の入力序列と出所タグ、根拠源対応表、事前登録5項目。",
@@ -370,7 +370,7 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
     status: "completed",
   },
   {
-    slug: "sps-2-0-domain-definition",
+    slug: "sps-current-domain-definition",
     title: "領域定義 — Before Zero で診断し、ゼロの先で検証する",
     summary:
       "「単年度黒字化まで含めてまだ Before Zero の理論なのか」への答え。診断ドメインと予測地平の分離、設立をゴールにできない三つの理由、投資判定の二階建て (BZM + BZSF投資層)、設立後診断アドオンの三条件、設立前出資とセカンダリ市場の構想、早期設立圧力という誤指摘の撤回記録。",
@@ -708,3 +708,17 @@ export function applyBzmBookNumbering(chapters: BzmChapterConfig[]): BzmNumbered
 export function getBzmChapter(slug: string) {
   return chapterBySlug.get(slug) ?? null;
 }
+
+/**
+ * 旧 slug → 新 slug のリダイレクト表。
+ *
+ * 2026-08-22、SPS現行正本3本のファイル名から世代名 2-0 を外した
+ * （まさ「2.0だよね？古いのでは？」という誤解を生んだため。承認 model/APPROVALS.md #2026-08-22-2）。
+ * SPS_2_0_PREREGISTRATION_*.md や BZM_2_0_*.md などの凍結記録には旧ファイル名のリンクが
+ * 当時の記録のまま残っているので、書き換えずにこの表で /bzm・/model の両方から生かす。
+ */
+export const BZM_SLUG_ALIASES: Record<string, string> = {
+  "sps-2-0-reachability-model": "sps-current-reachability-model",
+  "sps-2-0-domain-definition": "sps-current-domain-definition",
+  "sps-2-0-measurability-gate": "sps-current-measurability-gate",
+};

@@ -1,13 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { BzmMarkdown } from "@/components/bzm/BzmMarkdown";
 import { BzmSideNav, type BzmSideNavGroup } from "@/components/bzm/BzmSideNav";
 import {
   applyBzmBookNumbering,
   BZM_CHAPTERS,
   BZM_PARTS,
+  BZM_SLUG_ALIASES,
   getBzmChapter,
   getBzmChapterStatus,
   sortBzmSlugs,
@@ -37,6 +38,12 @@ export async function generateStaticParams() {
 export default async function BzmChapterPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const decoded = decodeURIComponent(slug);
+
+  const aliasTarget = BZM_SLUG_ALIASES[decoded];
+  if (aliasTarget) {
+    redirect(`/bzm/${aliasTarget}`);
+  }
+
   const filePath = path.join(bzmContentDir(), `${decoded}.md`);
   const fileExists = fs.existsSync(filePath);
   const chapterEntry = getBzmChapter(decoded);
