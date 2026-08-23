@@ -3710,14 +3710,22 @@ expectIncludes("scripts/migrations/250_project_management_issue_background.sql",
 ]);
 
 // /model — モデル正本の層 (2026-08-22 まさ確定「教科書は本の原稿が書かれるべきところ、モデルは別の場所に記録」)。
-// 式の各変数→台帳アンカーへのリンクと、BZM 2.2 の投資判断禁止文、GlobalNav の導線は消えてはいけない。
 // 正本そのもののロックは model_lock.cjs (上で require 済み) が担う。
+//
+// このページは「まさが合意した内容だけを出す」画面である (まさ指示 2026-08-22
+// 「現状モデルページに書いてあるすべての内容は、一度削除した方がいい。合意したものだけを書こう」
+// → model/APPROVALS.md #2026-08-22-7)。本文は model/MODEL_VERSION_LEDGER.md を
+// そのまま描画し、画面側で要約・再構成しない。ここを画面側の組み立てへ戻すと、
+// えいみが正本から抽出して構成した表示物が、合意を経ずに正本の顔で並ぶ状態に戻る。
+//
+// 旧釘「BZM 2.2 は前向き検証0件の pilot。投資判断・対外表示には使わない。」は外した。
+// この文はえいみが構成した系列カードの中にあり、カードごと削除したため。
+// 用途境界そのものは正本 (bzm-2-2 §9・§15) と /model/formulas の層の説明に残る。
 expectIncludes("src/app/(app)/model/page.tsx", [
   'data-testid="model-index"',
-  "BZM 2.2 は前向き検証0件の pilot。投資判断・対外表示には使わない。",
-]);
-expectIncludes("src/components/model/ModelFormula.tsx", [
-  "href={`/model/${encodeURIComponent(ledgerSlug)}#${part.anchor}`}",
+  // 台帳をそのまま描画していること (画面側で組み立て直していないこと)。
+  'getModelMarkdownSource("MODEL_VERSION_LEDGER")',
+  "<BzmMarkdown source={source} />",
 ]);
 expectIncludes("src/components/nav/GlobalNav.tsx", ['href: "/model"']);
 expectIncludes("next.config.ts", ['"/model/[slug]/page"', '"../model/**/*.json"']);
