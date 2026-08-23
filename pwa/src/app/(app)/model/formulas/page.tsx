@@ -166,7 +166,24 @@ function LayerBlock({ layer, canonSlug }: { layer: ResolvedLayer; canonSlug: str
       <h2 className="mb-1 border-b border-border pb-1.5 text-base font-bold text-foreground">
         {layer.title}
       </h2>
-      <p className="mb-4 text-xs leading-relaxed text-muted-foreground">{layer.intro}</p>
+      {/* この層が何を決めているかは、画面で要約せず正本の一文をそのまま引く。
+          画面用に書き直すと、正本にない限定や正本より強い主張が静かに混ざる
+          (2026-08-23 まさ指摘)。引用であることが読み手にも分かる体裁にする。 */}
+      {layer.quote_text ? (
+        <blockquote className="mb-4 border-l-2 border-slate-300 pl-3 text-xs leading-relaxed text-muted-foreground">
+          <BzmMathText source={layer.quote_text} />
+          <Link
+            href={`/model/${encodeURIComponent(canonSlug)}#${layer.quote_anchor}`}
+            className="ml-1.5 whitespace-nowrap text-[10.5px] text-indigo-600 underline hover:opacity-80"
+          >
+            正本 §{layer.quote.section}
+          </Link>
+        </blockquote>
+      ) : (
+        <p className="mb-4 rounded-md bg-rose-50 px-2.5 py-2 text-xs leading-relaxed text-rose-900 ring-1 ring-rose-200">
+          正本の「{layer.quote.section}」から引用文（{layer.quote.match}）を取り出せませんでした。
+        </p>
+      )}
       <div className="space-y-5">
         {layer.entries.map((entry) => (
           <FormulaCard key={entry.id} entry={entry} canonSlug={canonSlug} />

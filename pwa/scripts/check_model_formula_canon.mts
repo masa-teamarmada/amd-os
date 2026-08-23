@@ -38,6 +38,13 @@ const problems: string[] = [];
 let total = 0;
 
 for (const layer of canon.layers) {
+  // 層が何を決めているかを述べる文は、画面で書かず正本から引く決まりにしてある
+  // (2026-08-23、画面側で要約したら正本より強い主張が混ざった)。引けなくなったら落とす。
+  if (!layer.quote_text) {
+    problems.push(
+      `[${layer.title}] 導入の引用を正本から取り出せません（「${layer.quote.section}」の「${layer.quote.match}」）`,
+    );
+  }
   for (const entry of layer.entries) {
     total += 1;
     if (!entry.resolved) {

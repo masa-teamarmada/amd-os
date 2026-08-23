@@ -1,4 +1,5 @@
 import {
+  findCanonSentence,
   parseCanonSections,
   takeParagraphs,
   type CanonSection,
@@ -47,25 +48,40 @@ export interface FormulaPointer {
   tail?: number;
 }
 
+/**
+ * 層の導入文を、正本のどの一文から引くかを指すポインタ。
+ *
+ * ここを「画面用に書いた要約」にすると、正本より強い主張や正本にない限定が
+ * 静かに混ざる。実際に一度混ぜた（$Q$ と $S$ についての「未校正」「画面用の射影」を
+ * $J$・$P$ まで広げて書いた、2026-08-23 まさ指摘）。
+ * それ以降、層の導入文はモデルについて画面が言うのをやめ、正本の一文をそのまま引く。
+ */
+export interface LayerQuote {
+  /** 正本 md の見出しテキスト（`##` / `###` を外したもの）。 */
+  section: string;
+  /** 引きたい一文に必ず含まれる文字列。ここから文全体を復元する。 */
+  match: string;
+}
+
 export interface FormulaLayer {
   key: string;
-  /** 層の名前。 */
+  /** 層の名前。見出しであって、モデルについて何も主張しない。 */
   title: string;
-  /** その層が何を決めているか。 */
-  intro: string;
+  /** その層が何を決めているかを述べた、正本の一文への参照。 */
+  quote: LayerQuote;
   entries: FormulaPointer[];
 }
 
 /**
  * 現行 BZM 2.2 の式の並び。正本の §4→§5→§6→§7→§9→§15/§16 の順をそのまま層にした。
- * 層の見出しと intro は画面の道案内であり、モデル定義ではない。
+ * 層の見出し (title) は道案内のラベルで、モデルについて何も主張しない。
+ * その層が何を決めているかを述べる文は、画面で書かずに正本の一文を quote で引く。
  */
 export const BZM_2_2_FORMULA_LAYERS: FormulaLayer[] = [
   {
     key: "state",
     title: "1. 状態",
-    intro:
-      "評価時点の情報を八つの型へ分けて持つ。異なる単位を足して一つの点数にしないための土台で、資源の棚卸しではない。",
+    quote: { section: "八層状態は資源の棚卸しではない", match: "八つの型へ分けて保持する" },
     entries: [
       {
         id: "state-eight-layer",
@@ -88,8 +104,7 @@ export const BZM_2_2_FORMULA_LAYERS: FormulaLayer[] = [
   {
     key: "action",
     title: "2. 行動と制約",
-    intro:
-      "行動だけでなく投入束も意思決定に含める。制約は満たす・違反・不明の三値で持ち、確認済みだけを最適化へ入れる。",
+    quote: { section: "5. 行動ごとの制約を置く", match: "投入する現金、工数、設備、権利の束" },
     entries: [
       {
         id: "action-control",
@@ -152,8 +167,7 @@ export const BZM_2_2_FORMULA_LAYERS: FormulaLayer[] = [
   {
     key: "transition",
     title: "3. 遷移と推進力",
-    intro:
-      "支出はキャッシュフローでは負のまま、同じ投入が買った状態変化を物理遷移として別に置く。費用を正の便益へ言い換えて二度数えない。",
+    quote: { section: "16. OS画面を使って式を読む", match: "同じ支出を「費用」と「能力向上の価値」として二度足すことがない" },
     entries: [
       {
         id: "transition-kernel",
@@ -177,8 +191,7 @@ export const BZM_2_2_FORMULA_LAYERS: FormulaLayer[] = [
   {
     key: "slack",
     title: "4. 戦略余力",
-    intro:
-      "戦略余力は固定成分の合計でも最小時計でもない。最悪の登録ショックの下でも目標へ届く方針を保てるか、その保てなくなる時点として定める。",
+    quote: { section: "2.2で改めるもの", match: "固定成分の合計または最小時計としない" },
     entries: [
       {
         id: "slack-tau",
@@ -242,8 +255,7 @@ export const BZM_2_2_FORMULA_LAYERS: FormulaLayer[] = [
   {
     key: "value",
     title: "5. 価値評価（BZM 2.1へ接続）",
-    intro:
-      "2.2は価値式を別物へ置き換えない。変えるのは遷移、制御、実行可能集合の作り方で、Bellman評価は2.1の構造を保つ。",
+    quote: { section: "9. 2.1の価値評価へ接続する", match: "2.2は価値式を別物へ置き換えない" },
     entries: [
       {
         id: "value-terminal",
@@ -292,8 +304,11 @@ export const BZM_2_2_FORMULA_LAYERS: FormulaLayer[] = [
   {
     key: "pilot",
     title: "6. pilot画面の四記号（表示契約）",
-    intro:
-      "画面に出る J・P・Q・S は、上の理論式そのものではなく、固定した登録方針の一経路を画面用に射影した値である。未校正であり、確率とも戦略余力とも呼ばない。",
+    // 正本が「未校正」「画面用の射影」と限定しているのは Q と S だけである（§15、
+    // 台帳 #bzm-q「現pilotでは未校正であり、確率と呼ばない」、#bzm-s「この S は
+    // 戦略余力そのものではない」）。J と P は登録方針の下で計算した現在価値で、
+    // 未校正とは書かれていない。4記号すべてへ広げると正本より強い主張になるので広げない。
+    quote: { section: "pilot画面の四指標", match: "UI用のpilot記号であり" },
     entries: [
       {
         id: "pilot-discount",
@@ -395,6 +410,10 @@ export interface ResolvedFormula extends FormulaPointer {
 
 export interface ResolvedLayer extends Omit<FormulaLayer, "entries"> {
   entries: ResolvedFormula[];
+  /** 正本から引いた導入の一文。引けなければ null (画面は欠落を出し、検査が落ちる)。 */
+  quote_text: string | null;
+  /** 引用元の節見出しへ跳ぶアンカー。 */
+  quote_anchor: string;
 }
 
 export interface FormulaCanon {
@@ -479,10 +498,15 @@ export function loadBzmFormulaCanon(): FormulaCanon | null {
   if (!markdown) return null;
 
   const sections = parseCanonSections(markdown);
-  const layers: ResolvedLayer[] = BZM_2_2_FORMULA_LAYERS.map((layer) => ({
-    ...layer,
-    entries: dedupeAdjacentProse(layer.entries.map((pointer) => resolveOne(sections, pointer))),
-  }));
+  const layers: ResolvedLayer[] = BZM_2_2_FORMULA_LAYERS.map((layer) => {
+    const found = findCanonSentence(sections, layer.quote.section, layer.quote.match);
+    return {
+      ...layer,
+      entries: dedupeAdjacentProse(layer.entries.map((pointer) => resolveOne(sections, pointer))),
+      quote_text: found?.text ?? null,
+      quote_anchor: headingAnchorId(layer.quote.section),
+    };
+  });
 
   const covered = new Set(
     BZM_2_2_FORMULA_LAYERS.flatMap((layer) =>
@@ -507,7 +531,10 @@ export function loadBzmFormulaCanon(): FormulaCanon | null {
     canon_path: `bzm/${BZM_2_2_CANON_FILE}`,
     layers,
     unresolved: layers.reduce(
-      (sum, layer) => sum + layer.entries.filter((entry) => !entry.resolved).length,
+      (sum, layer) =>
+        sum +
+        layer.entries.filter((entry) => !entry.resolved).length +
+        (layer.quote_text === null ? 1 : 0),
       0,
     ),
     uncovered,
