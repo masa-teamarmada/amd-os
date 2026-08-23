@@ -54,3 +54,65 @@
 - model/CURRENT.json
 
 反映commit: (司令塔が追記)
+
+---
+
+## 2026-08-22-2
+
+日付: 2026-08-22
+
+引用:
+> C.
+> 改名して
+
+引用の文脈（えいみの提案文。引用とは区別する）:
+提案（えいみ）: 「C. `sps-2-0-reachability-model.md` の改名 — 今回は別セッションが `bzm/` を移動中だったので見送った。改名するならロック対象パスの更新込みで次に入れる。」
+
+変更の性質: ファイル名とリンク文字列の置換のみ。式・定義・数値・日付は1文字も変えない。domain-definition・measurability-gate は同じ名前構造で同じ誤解を生むため司令塔判断で同時に改名（事後報告）。
+
+対象ファイル:
+- bzm/sps-current-reachability-model.md
+- bzm/sps-current-domain-definition.md
+- bzm/sps-current-measurability-gate.md
+- bzm/terminology_glossary.md
+- bzm/bzm-2-2-strategic-slack-and-propulsion.md
+- bzm/bzm-1-0-to-2-1-evolution-guide.md
+- model/MODEL_VERSION_LEDGER.md
+- model/CURRENT.json
+
+削除パス:
+- bzm/sps-2-0-reachability-model.md
+- bzm/sps-2-0-domain-definition.md
+- bzm/sps-2-0-measurability-gate.md
+
+反映commit: (未反映)
+
+---
+
+## 2026-08-22-3
+
+日付: 2026-08-22
+
+引用:
+> １．
+> 修正して
+>
+> ２．
+> 修正して（ロック対象外なら判断不要なのでは？）
+
+引用の文脈（えいみの報告文。引用とは区別する）:
+報告（えいみ）: 「理論正本 `bzm-2-2-strategic-slack-and-propulsion.md` 1301行が『現行SPSの9軸診断指数』のまま（8/15掃除の漏れ）。ロック対象なので承認経路が要る」「`pwa/spec/4-2` の2.2 pilot節『出力と用途の境界』と `pwa/manual/4-3` 211行・265行にも同じ残存。こちらはロック対象外で、8/15起票のworker残タスク」。まさの指摘「ロック対象外なら判断不要なのでは？」は正しく、ロック対象外の spec / manual は承認を要さない作業だった。
+
+変更の性質: 2026-08-15（9軸集約スコアの退役）と 2026-08-16（価値項を持分価値→産業創出価値 $P^{\mathrm{ind}}$）の**まさ確定済み内容の反映漏れの掃除**であり、新しい理論主張・数式・定義は導入しない。具体的には (1) 2.2 §9 と 2.1 §3 の訂正注記が $\sum_o q_oP_o$ のままだったのを $P^{\mathrm{ind}}$ 版へ、(2) 2.2 §15「現行SPSの9軸診断指数」→ 現行SPSの式、(3) 2.1 §3 表の「混ぜないもの＝現行運用SPSの9軸スコア」→「現行SPSの円建て価値量」、(4) 進化ガイド冒頭「現行の9軸診断SPS」と §6「現行運用SPSは9軸の診断指数として維持する」→ 集約スコアは退役・軸は状態記述子として入力側に残る。(4) は `model/MODEL_VERSION_LEDGER.md` が「正本間の未解決不整合／まさ判断待ち」として注記していた2件のうちの1件（進化ガイド §6 対 用語集 §1.7）にあたる。既確定内容への追随のため二重批判監査は実施していない（BZM研究規律の二重批判監査ゲートは、理論・数式・分類・判断規則の新設または変更が対象）。
+
+対象ファイル:
+- bzm/bzm-2-2-strategic-slack-and-propulsion.md
+- bzm/bzm-2-1-dynamic-business-value-model.md
+- bzm/bzm-1-0-to-2-1-evolution-guide.md
+
+削除パス:
+- bzm/sps-2-0-reachability-model.md
+- bzm/sps-2-0-domain-definition.md
+- bzm/sps-2-0-measurability-gate.md
+
+反映commit: (未反映)

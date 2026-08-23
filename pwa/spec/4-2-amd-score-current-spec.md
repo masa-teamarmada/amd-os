@@ -29,7 +29,9 @@ SXの設立前月次表示では、個別の売上・売上原価・粗利・人
 
 > **この章は何か**: AMD Score の PWA 実装、DB、route、計算境界の確定仕様。理論導出は `/bzm`、詳細履歴は `pwa/design/amd_score.md` にも残す。
 
-> **2026-07-29 主張境界**: この章が確定するのは現行PWAの計算・表示契約であり、SPSの予測妥当性または因果妥当性ではない。現行SPSは9軸の診断指数で、企業価値、期待事業価値、成功確率、生存確率を表す検証済みモデルではない。点数差・点数比と`alpha`を経済的な間隔または弾力性として解釈しない。SPS順位とbottleneckだけでGO、NO_GO、投資額、投入人月を決めない。BZM 2.0の改訂要件は [`BZM_2_0_REVISION_REQUIREMENTS.md`](../bzm/BZM_2_0_REVISION_REQUIREMENTS.md) を参照する。
+> **2026-07-29 主張境界（当時の運用版＝旧9軸SPSについての記録）**: この章が確定するのは現行PWAの計算・表示契約であり、SPSの予測妥当性または因果妥当性ではない。当時の運用版SPSは9軸の診断指数で、企業価値、期待事業価値、成功確率、生存確率を表す検証済みモデルではない。点数差・点数比と`alpha`を経済的な間隔または弾力性として解釈しない。SPS順位とbottleneckだけでGO、NO_GO、投資額、投入人月を決めない。BZM 2.0の改訂要件は [`BZM_2_0_REVISION_REQUIREMENTS.md`](../bzm/BZM_2_0_REVISION_REQUIREMENTS.md) を参照する。
+>
+> 9軸の集約スコアは2026-08-15 まさ確定で退役し、現行SPSは`SPS = Σ q_o P^ind_o`（冒頭の現行実装契約）。予測妥当性を主張しない点と、順位・GO/NO_GO・投資額・資源配分へ単独利用しない点は現行版でも変わらない。
 
 ## 定義
 
@@ -97,7 +99,7 @@ PJコックピットのスコア詳細は、BZM 2.0観測画面を最下部の�
 
 二つのモデルは式、尺度、検証状態が異なるため、同じスコアとして合算または置換しない。
 
-観測画面の式は、理論正本`pwa/bzm/sps-2-0-reachability-model.md`に従う。
+観測画面の式は、理論正本`pwa/bzm/sps-current-reachability-model.md`に従う。
 
 $$
 \mathrm{SPS}_{\mathrm{all},\tau}(H_{\mathrm{econ}})
@@ -372,7 +374,7 @@ legacy key `expected_cumulative_funding`には、無資金残高の最小補填�
 
 ### 出力と用途の境界
 
-$P$は成功条件付き価値、$J$は失敗を含む全経路の動的正味PJ価値、現行SPSは9軸診断指数である。
+$P$は成功条件付き価値、$J$は失敗を含む全経路の動的正味PJ価値、現行SPSは産業創出価値版の$\sum_o q_oP^{\mathrm{ind}}_o$である。
 
 三つの出力は合算または相互変換しない。
 
@@ -419,7 +421,7 @@ FRL は XRL に飲み込まない。AMD Studio の哲学上、FRL と `sigma_SU`
 | `pwa/src/lib/bzm-2-1-policy-model-data.ts` | BZM 2.1台帳のserver-side read。取得不能時はBZM 2.1だけを欠測payloadにする |
 | `pwa/src/lib/bzm-2-1-policy-engine-adapter.ts` | BZM 2.1台帳の状態、行動、遷移、単一CF eventを計算エンジン入力へ変換し、欠測・符号・時点・親子関係の契約違反を計算前に止める |
 | `pwa/src/components/cockpit/Bzm21DynamicPolicyObservatory.tsx` | 固定方針と選択方針、三視点の同一方針評価、欠測・停止理由、折りたたみ判断台帳を高密度表示 |
-| `pwa/src/components/venture-map/AmdScoreView.tsx` | 下段のSPS 1.0 / Legacy AMDアーカイブで、9軸SPS、R_net、FRL、XRL evidenceとlegacy M-X-F comparisonを残す |
+| `pwa/src/components/venture-map/AmdScoreView.tsx` | 下段のSPS 1.0 / Legacy AMDアーカイブで、旧9軸SPS、R_net、FRL、XRL evidenceとlegacy M-X-F comparisonを残す |
 | `pwa/src/components/venture-map/AmdScoreList.tsx` | 一覧。SPS primary を主表示し、legacy AMD は比較列 |
 | `pwa/src/components/cockpit/*AmdScore*` | cockpit chip / breakdown modal。SPS status を主語にする |
 

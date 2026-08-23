@@ -1,6 +1,6 @@
 {
-  "approval_ref": "2026-08-22-1",
-  "locked_at": "2026-08-22T17:47:27.765+09:00",
+  "approval_ref": "2026-08-22-3",
+  "locked_at": "2026-08-23T13:17:40.151+09:00",
   "frozen_versions": {
     "model_version": "sps-ind-tier0-v1",
     "measure_version": "sps-ind-v1",
@@ -23,39 +23,39 @@
     },
     {
       "path": "bzm/bzm-1-0-to-2-1-evolution-guide.md",
-      "sha256": "40afafc27de03178fcfeba0dc398975bfd26586ab27deeeb3088e8ed24f9c023"
+      "sha256": "c2c22b02369c2651aee5aa076d883d077220baa2fb5d858d1e4cf4643444ebaf"
     },
     {
       "path": "bzm/bzm-2-1-dynamic-business-value-model.md",
-      "sha256": "dbb73cc8b767e343af62f467421186c252e2e9779d7edcacaaae9acb0c81d65e"
+      "sha256": "8d00edbd364b426d9b2eb66936b5cf2f5c08a4a713070110591e701c7f7c5479"
     },
     {
       "path": "bzm/bzm-2-2-strategic-slack-and-propulsion.md",
-      "sha256": "c227e876acceb3084d7684588ef51a4654e8c39084a2215a72bbf23071412bb7"
+      "sha256": "edfbc4cadf860516c2b71fa3fc17565fc68e5e6504a2690f9845d14769f69152"
     },
     {
-      "path": "bzm/sps-2-0-domain-definition.md",
-      "sha256": "9322402b6db0fdd055271a2a993fba8cadc7060b1dc29bd0898d34c3c9d07219"
+      "path": "bzm/sps-current-domain-definition.md",
+      "sha256": "ce8a5ca5b675c8cf699d28d111f7c6838a727cea0f84df4626db060ae731fc45"
     },
     {
-      "path": "bzm/sps-2-0-measurability-gate.md",
-      "sha256": "d48a0b2f503dd042aec39d6109847383b5090d2d741e7b1661d48658ad50c57c"
+      "path": "bzm/sps-current-measurability-gate.md",
+      "sha256": "b797234d08fe8cb95c797a0bcc9604e9700c0a2363c67c3151711fc051f6d95d"
     },
     {
-      "path": "bzm/sps-2-0-reachability-model.md",
-      "sha256": "5b966597c847d63e3d7dc7ebd9802ab64b1ecb3900cf4851c6bafc8bd1e4a350"
+      "path": "bzm/sps-current-reachability-model.md",
+      "sha256": "ec970b65121b00670c8f5aec99154a23738882c7e7ef3bf987d204e546b8c283"
     },
     {
       "path": "bzm/terminology_glossary.md",
-      "sha256": "1018af3dc102dc05c8ff05aded1208b91684f974fbab1cb6033ac30a3fa678ab"
+      "sha256": "fb6cdc36e660bf99d286578efefd79fa221893b2a4586d9623829002becbc7c6"
     },
     {
       "path": "model/CURRENT.json",
-      "sha256": "6f7ba1a77c7f7e86f073fcf64e2840d254617dce0f64799ddaddead291227369"
+      "sha256": "5a867c7b1078906a8484ca5db72b08a92363b426ce9caf802268b702edd376be"
     },
     {
       "path": "model/MODEL_VERSION_LEDGER.md",
-      "sha256": "478387ec3b3303dbf4816b9eb1e654326ac7f31b2045afbaeed3a68baad4eed4"
+      "sha256": "d95d75b2ac8f3fe884e50de9e614bf19248a5ec247da97e20c67ca465a3a33d7"
     }
   ]
 }

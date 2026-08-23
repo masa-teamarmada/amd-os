@@ -816,7 +816,7 @@ $C_r^{\mathrm{now}}$、$CF_r^{\mathrm{PV}}$、$M_r$は、2.1で定めた視点�
 | 戦略余力 | ショック後も目標到達方針を保持できるか | $\Gamma_{\mathrm{exec}}^{\mathrm{reg}}$と$\mathcal K_{\mathcal T}^{-}$ |
 | 動的正味PJ価値 | その動学の下で方針が生む将来正味価値はいくらか | Bellman価値$V_r$ |
 
-（2026-08-15 まさ確定による訂正）9軸の診断指数は旧版として退役した。SPSの現行版は$\sum_o q_oP_o$（`terminology_glossary.md` §1.7）。
+（2026-08-15 まさ確定による訂正）9軸の診断指数は旧版として退役した。SPSの現行版は$\sum_o q_oP^{\mathrm{ind}}_o$であり、価値項$P^{\mathrm{ind}}_o$は2026-08-16 まさ確定で持分価値から産業創出価値へ差し替えた（`terminology_glossary.md` §1.7）。
 
 BZM 2.0の固定方針SPSと、2.1以降の動的正味PJ価値も同じ出力名へ潰さない。
 
@@ -1298,7 +1298,7 @@ $$
 
 希薄化、負債と証券別請求は、会社PJの$J$とは別の持分評価層で扱う。
 
-成功条件付き価値$P$、全経路の動的正味PJ価値$J$、現行SPSの9軸診断指数は、定義と尺度が異なるため合算または相互変換しない。
+成功条件付き価値$P$、全経路の動的正味PJ価値$J$、現行SPS $\sum_o q_oP^{\mathrm{ind}}_o$は、定義と尺度が異なるため合算または相互変換しない。
 
 既存の固定方針を測定していないPJでは$q_{\mathrm{plan}}^{\pi_0}$を`not_applicable`とし、shadow現在方針の代理値で埋めない。
 
@@ -1574,6 +1574,6 @@ Nohria and Gulatiの実証対象は二つの多国籍企業に属する264の機
 
 - [BZM 1.0から2.2への進化](./bzm-1-0-to-2-1-evolution-guide)：各版で何が動的になったか。
 - [BZM 2.1 — 動的な事業価値モデル](./bzm-2-1-dynamic-business-value-model)：2.2の状態と遷移を受ける価値評価層。
-- [到達見込みモデル](./sps-2-0-reachability-model)：固定方針下の$T_C$と旧$T_Y$の履歴版。
+- [到達見込みモデル](./sps-current-reachability-model)：固定方針下の$T_C$と旧$T_Y$の履歴版。
 - [戦略余力 — 主導権を保って走り切る](./strategic-slack)：固定五成分で説明した旧入門章。
-- [測定可能性ゲート](./sps-2-0-measurability-gate)：数字を出してよい条件。
+- [測定可能性ゲート](./sps-current-measurability-gate)：数字を出してよい条件。
