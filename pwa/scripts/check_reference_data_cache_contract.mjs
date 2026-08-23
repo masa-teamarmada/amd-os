@@ -38,6 +38,12 @@ const REFERENCE_DATA_ENDPOINTS = [
     routeFile: "src/app/api/seeds/screening-bands/route.ts",
     clientModule: "src/lib/seed-screening-bands-client.ts",
   },
+  {
+    endpoint: "/api/project/:p/amd-contributions",
+    label: "AMDの貢献記録 (進捗タブ末尾)",
+    routeFile: "src/app/api/project/[projectId]/amd-contributions/route.ts",
+    clientModule: "src/lib/amd-contributions-client.ts",
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -121,10 +127,20 @@ for (const [file, endpoints] of Object.entries(baseline.allowed)) {
   for (const endpoint of endpoints) allowed.add(`${file} ${endpoint}`);
 }
 
+// 登録済み参照系の client 層は、その endpoint を実際に fetch するのが役目なので除く。
+// (除かないと「キャッシュ層を作れ」と言われて作った層自身が違反になる)
+const registeredClientFetches = new Set(
+  REFERENCE_DATA_ENDPOINTS.map((entry) => `${entry.clientModule} ${entry.endpoint}`),
+);
+
 const current = new Set();
 for (const file of scanned) {
   if (!file.isClient) continue;
-  for (const endpoint of file.apiFetches) current.add(`${file.rel} ${endpoint}`);
+  for (const endpoint of file.apiFetches) {
+    const key = `${file.rel} ${endpoint}`;
+    if (registeredClientFetches.has(key)) continue;
+    current.add(key);
+  }
 }
 
 const added = [...current].filter((key) => !allowed.has(key)).sort();

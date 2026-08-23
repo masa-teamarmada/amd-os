@@ -14,8 +14,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { AmdContributionItem, AmdContributionsPayload } from "@/lib/amd-contributions";
-
-const CACHE = new Map<string, AmdContributionsPayload>();
+import { loadAmdContributions, peekAmdContributions } from "@/lib/amd-contributions-client";
 
 /** 初期に開いておく月数。それ以前は畳む (長いPJでも進捗タブの末尾が伸びきらないように)。 */
 const OPEN_MONTHS = 2;
@@ -80,29 +79,18 @@ function MonthBlock({ ym, items }: { ym: string; items: AmdContributionItem[] })
 }
 
 export function CockpitAmdContributions({ projectId }: { projectId: string }) {
-  const [payload, setPayload] = useState<AmdContributionsPayload | null>(() => CACHE.get(projectId) ?? null);
+  const [payload, setPayload] = useState<AmdContributionsPayload | null>(
+    () => peekAmdContributions(projectId) ?? null,
+  );
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    const cached = CACHE.get(projectId);
-    if (cached) {
-      setPayload(cached);
-      setError(null);
-      return;
-    }
-    setPayload(null);
+    const cached = peekAmdContributions(projectId);
+    setPayload(cached ?? null);
     setError(null);
-    fetch(`/api/project/${encodeURIComponent(projectId)}/amd-contributions`, { cache: "no-store" })
-      .then(async (response) => {
-        const json = (await response.json().catch(() => null)) as AmdContributionsPayload | { error?: string } | null;
-        if (!response.ok || !json || !("items" in json)) {
-          throw new Error(json && "error" in json && json.error ? json.error : "AMDの活動記録の取得に失敗");
-        }
-        return json;
-      })
+    loadAmdContributions(projectId)
       .then((json) => {
-        CACHE.set(projectId, json);
         if (!cancelled) setPayload(json);
       })
       .catch((err) => {

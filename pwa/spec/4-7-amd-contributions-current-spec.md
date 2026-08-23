@@ -51,6 +51,11 @@ AMD OSは生データからの自動構築を原則にしており、手入力�
 
 正規化は `src/lib/amd-contributions.ts`。日付が採れない行は捨てる（日付を捏造しない）。
 
+画面からこの API を素の `fetch` で読まない。読み取り専用で更新が日〜週単位の参照系なので、
+`src/lib/amd-contributions-client.ts`（`reference-data-cache` 経由）を通す。
+[`5-10 参照系データのキャッシュ`](5-10-reference-data-caching-current-spec.md) の登録済みエンドポイントとして
+`scripts/check_reference_data_cache_contract.mjs` が検査する。
+
 契約テストは `npm run test:amd-contributions`。
 
 ## 5. 変更ゲート
