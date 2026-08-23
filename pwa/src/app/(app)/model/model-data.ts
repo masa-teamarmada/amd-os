@@ -85,6 +85,14 @@ export interface ModelStructure {
   corrected?: string;
 }
 
+/**
+ * 「この理論は何のためにあるか」はここに持たない。
+ *
+ * 目的は領域定義 (bzm/sps-current-domain-definition.md §1・§3・§4・§5・§6) が正本で、
+ * 画面へは formula-canon.ts の MODEL_PURPOSE が正本テキストを直接引いて出す。
+ * ここに要約を別に持つと、正本が動いたとき片方だけ古くなる。
+ * 人が読む要約は版数台帳 §0 (MODEL_VERSION_LEDGER.md #purpose) に置いた。
+ */
 export interface ModelCurrent {
   updated: string;
   ledger_slug: string;

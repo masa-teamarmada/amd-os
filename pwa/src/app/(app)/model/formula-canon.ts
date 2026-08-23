@@ -127,6 +127,26 @@ export const MODEL_PURPOSE: LayerQuote[] = [
   },
   {
     doc: "domain",
+    section: "4. 三分法 — 領域・モデル・地平",
+    match: "研究成果が世に出てから法人化に至るまでの時間",
+  },
+  {
+    doc: "domain",
+    section: "3. 設立をゴールにできない三つの理由",
+    match: "Before Zero 理論の中心命題のひとつは",
+  },
+  {
+    doc: "domain",
+    section: "3. 設立をゴールにできない三つの理由",
+    match: "この「見えない失敗」の存在こそ",
+  },
+  {
+    doc: "domain",
+    section: "6. 設立後診断はアドオン — ただし三条件",
+    match: "BZM 理論としての自前の新規性主張は",
+  },
+  {
+    doc: "domain",
     section: "5. 投資判定は二階建て",
     match: "そこで投資判定は",
   },

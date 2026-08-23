@@ -622,3 +622,52 @@ HTMLの復元とモデルの復元は別物で、同じPOSTに乗せると「HTM
 
 UIはPhase 3。いまはAPIとレンダラだけで、資料室からデッキを作る導線はまだ無い。
 publishした資料が既存の `render` / `pdf` / PJ共有でそのまま開けることは、生成HTMLの形（自己完結・5MB以内・script混入ゼロ）で担保していて、本番の実資料での実操作確認はPhase 3の導線と一緒に行う。
+
+## 2026-08-23 参照系データのキャッシュ既定化 + シーズリスト障害修正
+
+### やったこと
+
+まさの依頼「シーズリストのモーダルを開いたとき、一次選別スクリーニング帯以下が出るまで遅い。頻繁に変更される内容じゃないから最初から設計上そうすべき。全アプリで繰り返し言ってるので、同じことを繰り返さない仕組みも作って」への対応。
+
+1. **帯データの3層キャッシュ**（`a865b17c`）
+   - サーバ: `seed_screening_bands` のサマリ帯＋根拠Lv用3テーブルを並列1回で読み、プロセス内に5分保持。詳細行（`q_evidence`込み）はシーズ単位で引いて別途貯める。
+     - **最初は詳細も全件先読みする設計にしたが、実測で約3MB・1.3秒かかると分かり捨てた**（最初の1人が必ずその待ちを食う形になるだけ）。サマリ184ms・詳細1件39ms・根拠Lv40msの内訳を測ってから2段構えに直した。
+   - route: `Cache-Control: private, max-age=60, stale-while-revalidate=600` + `?fresh=1` バイパス。
+   - クライアント: `src/lib/reference-data-cache.ts`（peek/load/prefetch/invalidateの土台、全画面共通）+ `src/lib/seed-screening-bands-client.ts`。一覧行の `onMouseEnter`/`onFocus` で詳細を先読みし、モーダルを開いた時点で同期 `peek` が当たるようにした。未取得中はスケルトン表示。
+   - `SeedDetailModal` / `KuteSeedDetailModal` / `CockpitKuteSeeds` / `CockpitSoilSeeds` / `CockpitAmdScoreDetailTab` を全部キャッシュ層経由へ統一。
+2. **再発防止の guard**（`a865b17c`）
+   - `scripts/check_reference_data_cache_contract.mjs` を新設し `deploy.sh` の本番反映前に組み込んだ。登録済み参照系はキャッシュ層経由でしか `fetch` できない／route は `Cache-Control` 必須／クライアントの素の `/api` fetch は `scripts/reference_data_cache_baseline.json` のラチェットで新規増加を検知して落とす。
+   - `check_pwa_critical_ui.cjs` の該当anchor3箇所（`CockpitAmdScoreDetailTab.tsx`・`SeedDetailModal.tsx`・`CockpitSoilSeeds.tsx`）を、直fetchのパターンから新しいキャッシュ層の呼び出しへ張り替えた。
+   - 規範を `spec/5-10-reference-data-caching-current-spec.md` に新設し、`AGENTS.common.md`「UIと文書」+ `AGENTS.common.reference.md`「参照系データの体感速度」へ全PJ共通ルールとして追加した。
+3. **本番実測で分かった固定費の問題**（`af5ac182`）
+   - キャッシュ導入後にまさのログイン済みChromeで本番を実測したら、DB往復ゼロ（キャッシュ齢が20→25秒と増える状態）でも詳細1件に1081〜2126msかかっていた。
+   - 主因はクエリではなく2つの固定費: ①`vercel.json` に `regions` 指定が無く既定の米国東海岸で稼働（まさの端末→米国東海岸→東京Supabase の往復）→ `"regions": ["hnd1"]` を追加。②`requireMember`/`requireAdmin` が `auth.getUser()` と `members` 照合で毎回2往復 → `members` 照合結果をプロセス内に30秒キャッシュ（`lookupMember`/`invalidateMemberLookupCache`、`src/lib/supabase/api-auth.ts`）。JWT検証自体はキャッシュしていない（ログアウト即時性のため）。
+   - 対応後の実測: 詳細1件 305〜543ms（同一シーズの2回目以降は1〜4ms）。
+   - この教訓（クエリだけ見て直すと外す、固定費を先に疑う）を `spec/5-10` 冒頭「0. 先に固定費を疑う」に明文化。
+4. **`/seeds` 全体が「Bad Request」になっていた障害を発見・修正**（`d3df67ff`）
+   - 本番画面を実際に開いて確認する過程で発見。`fetchSeedProjectLinks`（`src/lib/seeds-data.ts`）が全シーズID（735件・約27KB）を `.in()` へ一度に渡し、PostgRESTのURL長上限で HTTP 400 になっていた。200件チャンクへ分割して並列取得するよう修正し復旧。
+
+### 実測値（`spec/5-10` に記録済み）
+
+| 測ったもの | 値 |
+|---|---|
+| 旧: モーダル1回ぶん（帯1行＋根拠Lv3本を直列） | 138ms |
+| 帯 詳細1件だけ | 39ms |
+| 根拠Lv 3テーブル全件（並列） | 40ms |
+| 帯 サマリ全件（735行） | 184ms |
+| （不採用）帯 詳細全件（約3MB） | 1333ms |
+| 本番: 対応前の詳細1件（DBキャッシュ命中中） | 1081〜2126ms |
+| 本番: 対応後の詳細1件 | 305〜543ms |
+| 本番: 同一URL2回目以降（HTTPキャッシュ命中） | 1〜4ms |
+
+### 副次的に踏んだ運用事故（教訓化済み、`BUGS.md` 参照）
+
+並行セッションとのやり取りの中で、`mcp__ccd_session_mgmt__send_message` が相手側で user turn として着弾する構造を使い、別セッションが「まさから指示が来た」と誤読して大きな設計変更（`/model` の作り直し）を無承認のまま進めた。まさから「絶対にこういうことはしないで」と明示され、以後セッション間メッセージ送信を全面禁止にした。詳細は `BUGS.md` の `[process/cross-session-messaging]`。
+
+### commit
+
+- `a865b17c` perf(seeds): 一次選別スクリーニング帯を参照系キャッシュへ載せ、同型の遅さを機械で止める
+- `af5ac182` perf(pwa): Vercel関数を東京リージョンへ、members照合を短期キャッシュへ
+- `d3df67ff` fix(seeds): シーズリスト全体が「Bad Request」で表示できない障害を直す
+
+いずれもpush済み・本番反映済み（build v3.90.4〜v3.90.5）・Chrome MCPで実画面確認済み。branch/worktreeは作っていない。
