@@ -92,7 +92,7 @@
 |---|---|---|
 | 領域としての Before Zero | 研究成果が世に出てから法人化に至るまでの時間。診断・介入の主戦場。AMD のコアコンピタンスと BZM の新規性主張はここに固有の測定に限定 | `field-before-zero.md` |
 | モデルとしての BZM | Before Zero で観測・診断を始め、到達見込み $q$ の更新は共通到達目標への到達または停止まで続けるゼロ横断の測定体系。法人設立はゴールでも成功結果でもない | `BZM_2_0_REVISION_REQUIREMENTS.md` §3.5 / §4.8 |
-| 予測地平 | $q$ が評価する到達事象の地平。第一地平は $G_{\mathrm{self}}(12\mathrm{m})$。回収・出口・投資収益は地平外で、BZSF 投資層 (`/Users/masa/projects/AMD/BZSF/` 配下で別版管理) の管轄 | `sps-2-0-reachability-model.md` §2 |
+| 予測地平 | $q$ が評価する到達事象の地平。第一地平は $G_{\mathrm{self}}(12\mathrm{m})$。回収・出口・投資収益は地平外で、BZSF 投資層 (`/Users/masa/projects/AMD/BZSF/` 配下で別版管理) の管轄 | `sps-current-reachability-model.md` §2 |
 
 - 誤読防止: 「Before Zero Model」は「Before Zero で完結するモデル」ではなく「Before Zero という領域で観測・診断・介入し、ゼロ後の到達で検証するモデル」と読む。
 - 投資判定は BZM 出力 ($q$、$\mathbf P$) + BZSF 投資層の**二階建て**。BZM 単体で GO、投資額、投入人月を決めない (診断スコア仕様の主張境界と同じ)。

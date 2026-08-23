@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { BzmMarkdown } from "@/components/bzm/BzmMarkdown";
 import { ModelSideNav, type ModelSideNavGroup } from "@/components/model/ModelSideNav";
+import { BZM_SLUG_ALIASES } from "../../bzm/bzm-chapters";
 import { buildModelSideNavGroups, getModelMarkdownSource, loadModelCurrent } from "../model-data";
 
 /**
@@ -14,6 +15,11 @@ import { buildModelSideNavGroups, getModelMarkdownSource, loadModelCurrent } fro
 export default async function ModelDocPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const decoded = decodeURIComponent(slug);
+
+  const aliasTarget = BZM_SLUG_ALIASES[decoded];
+  if (aliasTarget) {
+    redirect(`/model/${aliasTarget}`);
+  }
 
   const source = getModelMarkdownSource(decoded);
   if (!source) {

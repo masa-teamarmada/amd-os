@@ -43,7 +43,7 @@
 
 前回の宿題だった**戦略余力$T_Y$の非資金成分**に決着をつけ、続けて**2件目のPJ（LST）の事前登録**を骨格確定・入力待ちの段階まで進めた。
 
-- **非資金成分は「時計としては欠測のまま」で確定した**。顧客信用やチームの余力を「あと何か月分」へ翻訳する再現可能な手続きが書けないため、独立ノードとして足すと出所タグが`assumption`になり、v0.1と同じ失格条件に触れる。工程にも資金にも割り当てられない止まり方は、時計ではなく**キラー要素カタログ＋発生駆動の再測定**で扱う。理論正本は [到達見込みモデル](./sps-2-0-reachability-model) 3.4節。
+- **非資金成分は「時計としては欠測のまま」で確定した**。顧客信用やチームの余力を「あと何か月分」へ翻訳する再現可能な手続きが書けないため、独立ノードとして足すと出所タグが`assumption`になり、v0.1と同じ失格条件に触れる。工程にも資金にも割り当てられない止まり方は、時計ではなく**キラー要素カタログ＋発生駆動の再測定**で扱う。理論正本は [到達見込みモデル](./sps-current-reachability-model) 3.4節。
 - **キラー要素カタログを新設した**。工程失敗でも資金切れでもないのに事業化見込みを削る事象の追記型台帳で、初版は7型（経営整合／ガバナンス／管理体制／金銭感覚／経営チーム／社会的信用／出自機関）。**機械的な減点係数表は作らない**。発生したら影響工程の確率を構造化ヒアリングで聞き直して版を上げる。発生判定の証拠は記録・文書に限り、CEO本人の自己申告を使わない。まさの指示で、全DTSU PJ共通の雛形としてPJコックピット会社概要タブへ実装する作業は**別セッションへ分離済み**（下のRepo状態を参照）。
 - **LST（p07 / LiSTie株式会社）の事前登録を開いた**。台帳は `pwa/bzm/SPS_2_0_PREREGISTRATION_LST_2026-08-09.md`（`preregistration-open v0.1`、$q_{\mathrm{plan}}(H_v)$は未計算）。第一目的は**分解能の点検**で、事前見立て「LST > SX」を計算前に凍結してある。$H_v$は2031-03-31（SXと同一日）。骨格は4フェーズ×3レーン、資金の崖は**FY2027前後の大型調達1か所**。
 - 条件付き確信度を**8ノード分、条件付き形式で取得**した（80/90/70/60/65/60/50/85%）。**単純積は使わない**と明記済み。#7は停止ノードではなく**遅延型**（46億ライン到達時刻の混合分布、計画傾き50%／下振れ傾き50%）と訂正した。
@@ -64,8 +64,8 @@ Session 0とSession 1の講義資料は`live-reviewed v1.0`。
 | 教科書章 | `bzm-2-1-dynamic-business-value-model.md` | BZM 2.1の状態、行動束、遷移、方針、三視点、価値、到達見込み、計算ゲートの正式な理論・計算契約 |
 | 運用台帳 | `BZM_2_1_PARAMETER_EXTRACTION_REGISTER.md` | BZM 2.1の全入力と派生出力の抽出元、欠測、証拠、更新契機 |
 | 運用台帳 | `BZM_2_1_MULTIDISCIPLINARY_AUDIT_2026-08-11.md` | 経済学、経営学、経営実務、産学連携、VCのAI模擬監査と用途別ゲート。人間専門家の署名ではない |
-| 教科書章（PWAの`/bzm`に表示） | `sps-2-0-reachability-model.md` | 計画診断、共通期間比較、資本自立経路、全価値実現経路の定義。`theory-fixed v1.4` |
-| 教科書章 | `sps-2-0-measurability-gate.md` | 数字を出してよい条件（7問）。`questions-fixed v1.1` |
+| 教科書章（PWAの`/bzm`に表示） | `sps-current-reachability-model.md` | 計画診断、共通期間比較、資本自立経路、全価値実現経路の定義。`theory-fixed v1.4` |
+| 教科書章 | `sps-current-measurability-gate.md` | 数字を出してよい条件（7問）。`questions-fixed v1.1` |
 | 教科書章 | `sps-2-0-sx-measurement-log.md` | SX実測の版推移と感度。`measurement-log v0.5` |
 | 運用台帳（教科書に出ない） | `BZM_2_0_MEASURABILITY_GATE.md` | 確定文・証拠パッケージ表・変更履歴の正本 |
 | 運用台帳 | `SPS_2_0_PREREGISTRATION_SX_2026-08-07.md` | SX事前登録。5.4〜5.5節に設計変更、9〜16章に各版の実行記録。17章に非資金成分の決着 |
@@ -168,8 +168,8 @@ BZM 2.1の優先未解決は次のとおり。
 4. `/Users/masa/projects/AMD/amd-os/pwa/AGENTS.md`
 5. `/Users/masa/projects/AMD/amd-os/pwa/bzm/AGENTS.md`（BZM構築セッションの研究規律）
 6. このHANDOFF
-7. [`sps-2-0-reachability-model.md`](./sps-2-0-reachability-model.md)（到達見込みモデル正本）
-8. [`sps-2-0-measurability-gate.md`](./sps-2-0-measurability-gate.md)（測定可能性ゲート）
+7. [`sps-current-reachability-model.md`](./sps-current-reachability-model.md)（到達見込みモデル正本）
+8. [`sps-current-measurability-gate.md`](./sps-current-measurability-gate.md)（測定可能性ゲート）
 9. [`sps-2-0-sx-measurement-log.md`](./sps-2-0-sx-measurement-log.md)（SX実測記録）
 10. `pwa/bzm/SPS_2_0_PREREGISTRATION_LST_2026-08-09.md`（**LST事前登録。4.12節の入力取得手順が次の一手**）
 11. `pwa/bzm/SPS_2_0_PREREGISTRATION_SX_2026-08-07.md`（SX事前登録。5.4〜5.5節、9〜16章、17章）

@@ -8,7 +8,7 @@ $q$（到達見込み）を計算して人に見せてよいのはどういう�
 >
 > **運用台帳**：`pwa/bzm/BZM_2_0_MEASURABILITY_GATE.md`（確定文・証拠パッケージ表・変更履歴の正本）
 >
-> **関連**：[到達見込みモデル](./sps-2-0-reachability-model)、[SX 実測記録](./sps-2-0-sx-measurement-log)
+> **関連**：[到達見込みモデル](./sps-current-reachability-model)、[SX 実測記録](./sps-2-0-sx-measurement-log)
 
 ---
 

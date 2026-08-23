@@ -74,8 +74,8 @@
 
 到達見込み側は、2026-08-07〜08の測定設計セッションで独立した章立てを持った。上の全16回とは別系統で、計画診断$q_{\mathrm{plan}}(H_v)$、共通期間比較$Q(h)$、期限後を含む資本自立確率$q_G(H_{\mathrm{econ}})$を扱う。会社全体の価値評価は、これらのうち一つへ単純に$P$を掛けるのではなく、相互排他的な全経路へ分ける。
 
-- [到達見込みモデル — 資金の崖が締切を作る](./sps-2-0-reachability-model)（`theory-fixed v1.4`）
-- [測定可能性ゲート — 数字を出してよい条件](./sps-2-0-measurability-gate)（`questions-fixed v1.0`）
+- [到達見込みモデル — 資金の崖が締切を作る](./sps-current-reachability-model)（`theory-fixed v1.4`）
+- [測定可能性ゲート — 数字を出してよい条件](./sps-current-measurability-gate)（`questions-fixed v1.0`）
 - [SX実測記録 — 版を追って$q$がどう動いたか](./sps-2-0-sx-measurement-log)（`measurement-log v0.5`）
 
 診断スコアの暫定仕様と、ゲートおよび事前登録の運用台帳は、教科書章ではなく`pwa/bzm/`直下の大文字始まりファイル（`BZM_2_0_DIAGNOSTIC_SCORE_SPEC.md`、`BZM_2_0_MEASURABILITY_GATE.md`、`SPS_2_0_PREREGISTRATION_SX_2026-08-07.md`）に置いてある。これらはPWAの教科書目次には現れない。

@@ -6,7 +6,7 @@
 >
 > **主張の地位**：`design-choice`（設計上の選択）。§7 の設立前出資とセカンダリ市場は `concept`（構想）であり、確定仕様ではない。
 >
-> **関連**：[到達見込みモデル](./sps-2-0-reachability-model)、[測定可能性ゲート](./sps-2-0-measurability-gate)、運用正本 `pwa/bzm/BZM_2_0_REVISION_REQUIREMENTS.md` §3.5 / `terminology_glossary.md` §6、BZSF 投資層キックオフ `/Users/masa/projects/AMD/BZSF/BZSF_INVESTMENT_LAYER_KICKOFF_20260809.md`
+> **関連**：[到達見込みモデル](./sps-current-reachability-model)、[測定可能性ゲート](./sps-current-measurability-gate)、運用正本 `pwa/bzm/BZM_2_0_REVISION_REQUIREMENTS.md` §3.5 / `terminology_glossary.md` §6、BZSF 投資層キックオフ `/Users/masa/projects/AMD/BZSF/BZSF_INVESTMENT_LAYER_KICKOFF_20260809.md`
 
 ---
 

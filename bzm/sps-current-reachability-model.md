@@ -6,7 +6,7 @@
 >
 > **主張の地位**：`design-choice`（設計上の選択）＋一部 `hypothesis`（未検証の仮説）。予測が当たるかどうかの答え合わせ（前向き検証）はまだしていない。この章の定義から出た数値を、投資判断や GO 判定に使わない。
 >
-> **関連**：[測定可能性ゲート](./sps-2-0-measurability-gate)（計画達成診断値と累積到達曲線を計算してよい条件）、[SX 実測記録](./sps-2-0-sx-measurement-log)（この定義を1PJに当てた記録）、運用台帳 `pwa/bzm/BZM_2_0_PARAMETER_EXTRACTION_REGISTER.md` / `pwa/bzm/BZM_2_0_MEASURABILITY_GATE.md` / `pwa/bzm/SPS_2_0_PREREGISTRATION_SX_2026-08-07.md`
+> **関連**：[測定可能性ゲート](./sps-current-measurability-gate)（計画達成診断値と累積到達曲線を計算してよい条件）、[SX 実測記録](./sps-2-0-sx-measurement-log)（この定義を1PJに当てた記録）、運用台帳 `pwa/bzm/BZM_2_0_PARAMETER_EXTRACTION_REGISTER.md` / `pwa/bzm/BZM_2_0_MEASURABILITY_GATE.md` / `pwa/bzm/SPS_2_0_PREREGISTRATION_SX_2026-08-07.md`
 
 > **SPSの現行版（2026-08-15 まさ確定）**：本章の$\mathrm{SPS}_{\mathrm{all}}$／$\mathrm{SPS}_{G}$が**現行のSPS**である。9軸Cobb-Douglas型の旧スコアは旧版であり、SPSとして表示・計算に使わない（`terminology_glossary.md` §1.7）。同日早い時刻に一時記録した「V_all／V_Gへの改名」は取り違えであり撤回済み。
 >
@@ -337,7 +337,7 @@ $$
 その経路を資本自立と認めれば、$\mathrm{SPS}_{G,\tau}$は「価値をあきらめた経路の到達率」と「あきらめたはずの価値」を掛けることになる。
 ゾンビ化した経路は、資本自立の到達確率を下げる側に数えなくてはいけない。
 
-各定義の確定文と採用理由は[測定可能性ゲート](./sps-2-0-measurability-gate)にある。
+各定義の確定文と採用理由は[測定可能性ゲート](./sps-current-measurability-gate)にある。
 
 ---
 

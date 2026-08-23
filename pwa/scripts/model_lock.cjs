@@ -179,6 +179,24 @@ function extractPathsFromApprovalBody(body) {
   return Array.from(found);
 }
 
+// 承認エントリ本文のうち「削除パス:」見出し以下、次の見出し行（末尾がコロンの行、または
+// 空行を挟んだ新セクション）までの範囲だけからパスを拾う。改名・移動でロック対象から
+// 外すべき旧パスを、対象ファイル一覧と明確に区別して申告するためのセクション。
+// 「対象ファイル:」節と同じ抽出関数 (extractPathsFromApprovalBody) を、
+// セクションで絞った部分文字列に適用するだけの構造にしてある。
+function extractRemovedPathsFromApprovalBody(body) {
+  const headingRe = /^削除パス:\s*$/m;
+  const m = headingRe.exec(body);
+  if (!m) return [];
+  const start = m.index + m[0].length;
+  const rest = body.slice(start);
+  // 次の既知の見出し行（対象ファイル: / 反映commit: / 次の承認エントリの ## 見出し）で打ち切る。
+  const nextHeadingRe = /^(?:対象ファイル|反映commit|##\s)/m;
+  const nextIdx = nextHeadingRe.exec(rest);
+  const section = nextIdx ? rest.slice(0, nextIdx.index) : rest;
+  return extractPathsFromApprovalBody(section);
+}
+
 function parseApprovalArg(args) {
   const idx = args.indexOf("--approval");
   if (idx === -1 || !args[idx + 1]) {
@@ -210,8 +228,12 @@ function runRelock(args) {
   if (approvalPaths.length === 0) {
     fail(`model/APPROVALS.md の "## ${approvalId}" に対象ファイルのパスが見つかりません。`);
   }
+  // 改名・移動などで承認エントリが明示的に「削除パス:」として申告した旧パスは、
+  // 対象ファイル一覧やこれまでの LOCK.json に残っていてもロック対象から除く。
+  const removedPaths = new Set(extractRemovedPathsFromApprovalBody(body));
+  const keptApprovalPaths = approvalPaths.filter((p) => !removedPaths.has(p));
 
-  const missingFromApproval = approvalPaths.filter(
+  const missingFromApproval = keptApprovalPaths.filter(
     (p) => !fs.existsSync(path.join(ROOT, p)),
   );
 
@@ -224,7 +246,8 @@ function runRelock(args) {
     }
   }
   const existingPaths = (existing.files || []).map((f) => f.path);
-  const unionPaths = Array.from(new Set([...existingPaths, ...approvalPaths]))
+  const unionPaths = Array.from(new Set([...existingPaths, ...keptApprovalPaths]))
+    .filter((p) => !removedPaths.has(p))
     .filter((p) => fs.existsSync(path.join(ROOT, p)))
     .sort();
   if (unionPaths.length === 0) {

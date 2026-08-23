@@ -10,7 +10,7 @@
 >
 > **依頼**：まさ 2026-08-15。「PJ化したもの以外のシーズリストに載ってる案件をスコアリングしていこうよ。でもそれらは情報が圧倒的に不足しているから、そういうものに対してどうデータを補完するかもモデルとして大事な要素になると思う」
 >
-> **関連正本**：[到達見込みモデル](./sps-2-0-reachability-model.md)（5.1節：確率入力の地位）、[測定可能性ゲート](./BZM_2_0_MEASURABILITY_GATE.md)、`pwa/design/seeds.md`、`pwa/design/institution_seed_project_model.md`
+> **関連正本**：[到達見込みモデル](./sps-current-reachability-model.md)（5.1節：確率入力の地位）、[測定可能性ゲート](./BZM_2_0_MEASURABILITY_GATE.md)、`pwa/design/seeds.md`、`pwa/design/institution_seed_project_model.md`
 
 ---
 
