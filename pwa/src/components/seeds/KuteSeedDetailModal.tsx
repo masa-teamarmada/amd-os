@@ -18,6 +18,10 @@ import {
   formatOkuYen,
   formatSpsBandWithMedian,
 } from "@/lib/seeds-data";
+import {
+  loadSeedScreeningBandDetail,
+  peekSeedScreeningBandDetail,
+} from "@/lib/seed-screening-bands-client";
 import type { SeedPublicView, SeedScreeningBandDetail } from "@/types/seeds";
 
 const STAGE_TAG_LABEL: Record<string, string> = {
@@ -72,16 +76,18 @@ export function KuteSeedDetailModal({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [screeningBand, setScreeningBand] = useState<SeedScreeningBandDetail | null>(null);
 
+  // 帯は参照系。lib/seed-screening-bands-client.ts のキャッシュを通し、
+  // 一覧の hover 先読みが効いていればモーダルを開いた瞬間に描画する。
   useEffect(() => {
+    const seedId = open && seed ? seed.id : null;
+    const cached = seedId ? peekSeedScreeningBandDetail(seedId) : undefined;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- seed/open 切替時に前回シーズの帯を残さないための同期リセット
-    setScreeningBand(null);
-    if (!open || !seed) return;
+    setScreeningBand(cached ?? null);
+    if (!seedId || cached !== undefined) return;
     let cancelled = false;
-    fetch(`/api/seeds/screening-bands?seedId=${encodeURIComponent(seed.id)}`)
-      .then((res) => res.json())
-      .then((json: { ok: boolean; band?: SeedScreeningBandDetail | null }) => {
-        if (cancelled || !json.ok) return;
-        setScreeningBand(json.band ?? null);
+    loadSeedScreeningBandDetail(seedId)
+      .then((band) => {
+        if (!cancelled) setScreeningBand(band);
       })
       .catch(() => {
         // スクリーニング帯は補助表示。取得失敗してもシーズ詳細本体は表示を続ける。

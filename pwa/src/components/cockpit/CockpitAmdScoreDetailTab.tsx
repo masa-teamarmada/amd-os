@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CurrentSpsAssessmentCard } from "@/components/sps/CurrentSpsAssessmentCard";
 import type { CurrentSpsProjectAssessment } from "@/lib/current-sps-model";
+import { loadSeedScreeningBandDetail } from "@/lib/seed-screening-bands-client";
 import type { SeedScreeningBandDetail } from "@/types/seeds";
 import { Bzm22ProvisionalObservatory } from "./Bzm22ProvisionalObservatory";
 
@@ -28,13 +29,10 @@ export function CockpitAmdScoreDetailTab({ projectId, active = true }: { project
         const assessment = payload as CurrentSpsProjectAssessment;
         setState({ status: "ready", assessment });
         if (!assessment.seed_id) return;
-        const bandResponse = await fetch(
-          `/api/seeds/screening-bands?seedId=${encodeURIComponent(assessment.seed_id)}`,
-          { cache: "no-store", signal: controller.signal },
-        );
-        const bandPayload = await bandResponse.json().catch(() => null);
+        // 帯は参照系。キャッシュ経由で読み、タブを行き来しても取り直さない。
+        const nextBand = await loadSeedScreeningBandDetail(assessment.seed_id).catch(() => null);
         // 根拠が取れなくても現行SPS本体の表示は落とさない
-        if (bandResponse.ok && bandPayload?.ok) setBand((bandPayload.band as SeedScreeningBandDetail | null) ?? null);
+        if (!controller.signal.aborted) setBand(nextBand);
       })
       .catch((error) => {
         if (controller.signal.aborted) return;

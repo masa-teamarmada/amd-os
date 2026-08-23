@@ -15,6 +15,8 @@
 # 動作:
 #   1. main checkout / clean tree / origin/main との整合を検査
 #   2. critical UI / spec rollback guard (test:critical-ui)
+#   2-b. 参照系データのキャッシュ契約 (test:reference-data-cache)
+#   2-c. /model/formulas の正本ポインタ (test:model-formula-canon)
 #   3. rollback guard (deploy-version-guard.cjs)
 #   4. git push origin main → Vercel 自動 build 発火
 #   5. 新しい production deployment が Ready になるまで polling (最大 15 分)
@@ -100,8 +102,10 @@ fi
 
 echo "Running critical UI / spec rollback guard ..."
 (cd "$REPO_ROOT/pwa" && npm run test:critical-ui)
+(cd "$REPO_ROOT/pwa" && npm run test:reference-data-cache)
 (cd "$REPO_ROOT/pwa" && npm run test:three-party-project-view)
 (cd "$REPO_ROOT/pwa" && npm run test:sx-shared-control-migration)
+(cd "$REPO_ROOT/pwa" && npm run test:model-formula-canon)
 
 echo "Running deploy rollback guard ..."
 node "$SCRIPT_DIR/deploy-version-guard.cjs" --target production --app-url "$APP_URL" --repo-root "$REPO_ROOT"

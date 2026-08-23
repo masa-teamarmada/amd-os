@@ -1,0 +1,312 @@
+{
+  "_README": [
+    "クライアントコンポーネントから素の fetch で読んでいる /api エンドポイントの既存分 (ラチェットの基準線)。",
+    "guard: pwa/scripts/check_reference_data_cache_contract.mjs / 規範: pwa/spec/5-10-reference-data-caching-current-spec.md",
+    "新しく増やすときは、まず参照系か可変系かを決める。",
+    "参照系 (マスタ・確定済み評価・ルーブリック・設定値のように、めったに変わらない読み取り専用データ) は",
+    "src/lib/reference-data-cache.ts 経由のクライアント層を作り、ここには足さない。",
+    "可変系 (残高・進行中タスク・通知・編集中の下書き) だけ、reasons に理由を書いてここへ足す。",
+    "既存分は 2026-08-23 時点の実態をそのまま基準線にしたもので、参照系として直す価値があるものが混ざっている。"
+  ],
+  "generatedAt": "2026-08-23",
+  "reasons": {},
+  "allowed": {
+    "src/app/(app)/admin/monthly-work-agreements/page.tsx": [
+      "/api/admin/monthly-work-agreements",
+      "/api/admin/monthly-work-agreements/amount-change-reasons"
+    ],
+    "src/app/(app)/atlas/admin/themes/page.tsx": [
+      "/api/atlas/themes/apply",
+      "/api/atlas/themes/cluster",
+      "/api/atlas/themes/list"
+    ],
+    "src/app/(app)/atlas/inbox/submit/page.tsx": [
+      "/api/atlas/auto-tag"
+    ],
+    "src/app/(app)/dashboard/page.tsx": [
+      "/api/sps/current"
+    ],
+    "src/app/(app)/hud/dashboard/page.tsx": [
+      "/api/sps/current"
+    ],
+    "src/app/(app)/institutions/assess/page.tsx": [
+      "/api/institutions/assess",
+      "/api/institutions/policies"
+    ],
+    "src/app/(app)/manual/ManualTsukuyomiFloat.tsx": [
+      "/api/manual/tsukuyomi/ask"
+    ],
+    "src/app/(app)/mypage/page.tsx": [
+      "/api/monthly-work-agreement",
+      "/api/mypage/weekly-activities/refresh",
+      "/api/mypage/weekly-tasks"
+    ],
+    "src/app/(app)/project/[projectId]/report/[ym]/print/monthly-report-history-panel.tsx": [
+      "/api/monthly-report/history"
+    ],
+    "src/app/(app)/project/[projectId]/report/[ym]/print/print-client.tsx": [
+      "/api/report/fix"
+    ],
+    "src/app/(app)/reimburse/page.tsx": [
+      "/api/reimbursements",
+      "/api/reimbursements/decision"
+    ],
+    "src/app/(app)/settings/calendar-feeds/page.tsx": [
+      "/api/calendar-feeds"
+    ],
+    "src/app/(app)/settings/microsoft/page.tsx": [
+      "/api/ms/calendar"
+    ],
+    "src/app/auth/login/page.tsx": [
+      "/api/auth/email-start"
+    ],
+    "src/app/payment-confirm/PaymentConfirmClient.tsx": [
+      "/api/admin/payment-confirm"
+    ],
+    "src/components/admin/AdminFinanceClient.tsx": [
+      "/api/admin/finance/receipts",
+      "/api/admin/finance/recurring"
+    ],
+    "src/components/admin/AdminGovernanceClient.tsx": [
+      "/api/action-items",
+      "/api/governance",
+      "/api/grants"
+    ],
+    "src/components/admin/AdminInvoiceIssueQueue.tsx": [
+      "/api/admin/invoices/freee-partner",
+      "/api/admin/invoices/invoice-ym",
+      "/api/reimbursements/decision"
+    ],
+    "src/components/admin/AdminManagementKnowledgeClient.tsx": [
+      "/api/admin/management-knowledge"
+    ],
+    "src/components/admin/AdminMembersTable.tsx": [
+      "/api/admin/members"
+    ],
+    "src/components/admin/AdminMsOverviewClient.tsx": [
+      "/api/admin/ms-overview",
+      "/api/admin/ms-overview/:p"
+    ],
+    "src/components/admin/AdminPayoutsClient.tsx": [
+      "/api/admin/payouts",
+      "/api/cron/payment-confirm-nudges"
+    ],
+    "src/components/admin/AdminPrivateWikiClient.tsx": [
+      "/api/admin/private-wiki"
+    ],
+    "src/components/admin/AdminProjectsTable.tsx": [
+      "/api/admin/lane-suggestions/:p",
+      "/api/admin/projects/:p"
+    ],
+    "src/components/admin/AdminPromptsClient.tsx": [
+      "/api/admin/prompts/:p"
+    ],
+    "src/components/admin/AdminScheduleClient.tsx": [
+      "/api/admin/schedule/actions",
+      "/api/admin/schedule/rebuild"
+    ],
+    "src/components/admin/AdminSeasonPlClient.tsx": [
+      "/api/admin/season-pl"
+    ],
+    "src/components/admin/AdminTsukuyomiClient.tsx": [
+      "/api/tsukuyomi/post"
+    ],
+    "src/components/admin/AdminWeeklyMatrix.tsx": [
+      "/api/admin/weekly"
+    ],
+    "src/components/admin/FreeePartnerPicker.tsx": [
+      "/api/admin/freee-partners"
+    ],
+    "src/components/admin/FreeeReconciliationRail.tsx": [
+      "/api/admin/finance/reconciliation"
+    ],
+    "src/components/admin/PaymentObligationsPanel.tsx": [
+      "/api/admin/finance/obligations"
+    ],
+    "src/components/admin/ProjectMemberAccountForm.tsx": [
+      "/api/admin/members"
+    ],
+    "src/components/admin/WorkspaceAccessAdminPanel.tsx": [
+      "/api/admin/workspace-access"
+    ],
+    "src/components/business-cards/BusinessCardsClient.tsx": [
+      "/api/business-cards",
+      "/api/business-cards/:p"
+    ],
+    "src/components/cockpit/bzm-2-2-pilot-client.ts": [
+      "/api/project/:p/bzm-2-2-pilot"
+    ],
+    "src/components/cockpit/Bzm22AcquisitionLedger.tsx": [
+      "/api/project/:p/bzm-2-2-acquisitions"
+    ],
+    "src/components/cockpit/Bzm22CockpitSummary.tsx": [
+      "/api/project/:p/bzm-2-2-pilot"
+    ],
+    "src/components/cockpit/Bzm22TimeLedger.tsx": [
+      "/api/governance/capital-plans",
+      "/api/grants",
+      "/api/project/:p/sx-funding-timing"
+    ],
+    "src/components/cockpit/CapitalPlanWorkspace.tsx": [
+      "/api/governance/capital-plans"
+    ],
+    "src/components/cockpit/CockpitAmdScoreDetailTab.tsx": [
+      "/api/project/:p/sps-current"
+    ],
+    "src/components/cockpit/CockpitBusinessPlan.tsx": [
+      "/api/governance"
+    ],
+    "src/components/cockpit/CockpitCompanyOverview.tsx": [
+      "/api/governance"
+    ],
+    "src/components/cockpit/CockpitGoalsCompact.tsx": [
+      "/api/progress/ms-schedule"
+    ],
+    "src/components/cockpit/CockpitGrants.tsx": [
+      "/api/grants"
+    ],
+    "src/components/cockpit/CockpitIpPortfolio.tsx": [
+      "/api/project-ip"
+    ],
+    "src/components/cockpit/CockpitKillerFactorCatalog.tsx": [
+      "/api/governance/killer-factors"
+    ],
+    "src/components/cockpit/CockpitMeetingDetailModal.tsx": [
+      "/api/meeting-assets",
+      "/api/meeting-prep",
+      "/api/meeting-summary/manual-update"
+    ],
+    "src/components/cockpit/CockpitMembersModal.tsx": [
+      "/api/founding-members/revise"
+    ],
+    "src/components/cockpit/CockpitMonthlyModal.tsx": [
+      "/api/progress/batch-save",
+      "/api/progress/confirm",
+      "/api/progress/estimate",
+      "/api/progress/events",
+      "/api/progress/ms-schedule",
+      "/api/progress/reimbursement",
+      "/api/progress/revisions",
+      "/api/progress/unconfirmed",
+      "/api/project/monthly-note",
+      "/api/rewards/sync"
+    ],
+    "src/components/cockpit/CockpitStrategySignals.tsx": [
+      "/api/notifications/feedback",
+      "/api/notifications/feedback/dialog/confirm",
+      "/api/notifications/feedback/dialog/refine",
+      "/api/notifications/feedback/dialog/start"
+    ],
+    "src/components/cockpit/CockpitVentureStatus.tsx": [
+      "/api/project/:p/sps-current"
+    ],
+    "src/components/cockpit/CockpitXrlDetailModal.tsx": [
+      "/api/project-ventures/:p/xrl-revise"
+    ],
+    "src/components/cockpit/MeetingAssetsPanel.tsx": [
+      "/api/meeting-assets",
+      "/api/meeting-assets/insert-markdown"
+    ],
+    "src/components/contracts/ContractsClient.tsx": [
+      "/api/admin/projects/:p",
+      "/api/contracts",
+      "/api/contracts/:p",
+      "/api/contracts/documents",
+      "/api/contracts/nudges/dry-run:p",
+      "/api/contracts/signal-dry-run:p"
+    ],
+    "src/components/dashboard/AllPjIntroductionModal.tsx": [
+      "/api/admin/pj-introduction-html"
+    ],
+    "src/components/dashboard/CompanyContentShelf.tsx": [
+      "/api/admin/company-media/asset-crop",
+      "/api/admin/company-media/group-cover",
+      "/api/admin/company-members/photo"
+    ],
+    "src/components/dashboard/ExtractionStatusCard.tsx": [
+      "/api/dashboard/extraction-status"
+    ],
+    "src/components/dashboard/FreeeConnectionStatusCard.tsx": [
+      "/api/dashboard/freee-connection-status"
+    ],
+    "src/components/dashboard/FundingStatsCard.tsx": [
+      "/api/funding-stats"
+    ],
+    "src/components/dashboard/PortfolioPulse.tsx": [
+      "/api/dashboard/portfolio-pulse"
+    ],
+    "src/components/governance/ActionItemsPanel.tsx": [
+      "/api/action-items"
+    ],
+    "src/components/hud/HudCockpitGoalsCompact.tsx": [
+      "/api/progress/ms-schedule"
+    ],
+    "src/components/hud/HudCockpitVentureStatus.tsx": [
+      "/api/project/:p/sps-current"
+    ],
+    "src/components/institutions/InstitutionRegulations.tsx": [
+      "/api/institution-regulations"
+    ],
+    "src/components/management-score/GasMonthlySimulationPanel.tsx": [
+      "/api/management-score/finance/simulate"
+    ],
+    "src/components/monthly-agreement/MonthlyAgreementExperience.tsx": [
+      "/api/monthly-work-agreement",
+      "/api/monthly-work-agreement/agree",
+      "/api/monthly-work-agreement/request-revision"
+    ],
+    "src/components/nav/AppShell.tsx": [
+      "/api/monthly-work-agreement"
+    ],
+    "src/components/notifications/NotificationsClient.tsx": [
+      "/api/notifications/feedback"
+    ],
+    "src/components/proactive-todo/ProactiveTodoBoard.tsx": [
+      "/api/proactive-todos/:p/resolve"
+    ],
+    "src/components/project-members/ProjectMembersEditor.tsx": [
+      "/api/admin/project-members/:p",
+      "/api/admin/project-members/bulk"
+    ],
+    "src/components/project-navigation/ManagementEditor.tsx": [
+      "/api/project-workspace/:p/management"
+    ],
+    "src/components/project-workspace/EffortEntryForm.tsx": [
+      "/api/project-workspace/:p/effort"
+    ],
+    "src/components/project-workspace/SxPartnerPipeline.tsx": [
+      "/api/project-workspace/:p/management"
+    ],
+    "src/components/project-workspace/SxUnifiedTimeline.tsx": [
+      "/api/project-workspace/:p/management"
+    ],
+    "src/components/project-workspace/SxWeeklyControlDashboard.tsx": [
+      "/api/project-workspace/:p/management"
+    ],
+    "src/components/seeds/SeedDetailModal.tsx": [
+      "/api/seeds/:p/commercialization"
+    ],
+    "src/components/seeds/SeedMarkdownPreviewModal.tsx": [
+      "/api/seeds/:p/deep-dive"
+    ],
+    "src/components/settings/OperationsSettingsClient.tsx": [
+      "/api/settings/cron-run"
+    ],
+    "src/components/tsukuyomi/TsukuyomiChatDrawer.tsx": [
+      "/api/tsukuyomi/chat"
+    ],
+    "src/components/workspace-documents/WorkspaceDocumentDeckEditor.tsx": [
+      "/api/workspace-documents/:p/revisions",
+      "/api/workspace-documents/:p/source"
+    ],
+    "src/components/workspace-documents/WorkspaceDocumentEditorWorkbench.tsx": [
+      "/api/workspace-documents/:p/revisions",
+      "/api/workspace-documents/:p/revisions/:p",
+      "/api/workspace-documents/:p/source"
+    ],
+    "src/components/workspace-documents/WorkspaceDocumentRoom.tsx": [
+      "/api/workspace-documents/:p",
+      "/api/workspace-documents/:p/pdf"
+    ]
+  }
+}

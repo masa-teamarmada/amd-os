@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Loader2, RotateCcw } from "lucide-react";
 import { computeErs, type ErsAssessment, type ErsAxis, type ErsCriterion, type ErsResult } from "@/lib/ers";
 import { fetchSeedsForInstitution, formatOkuYen, seedScreeningBandMedianYen } from "@/lib/seeds-data";
+import { loadSeedScreeningBandSummaries } from "@/lib/seed-screening-bands-client";
 import type { SeedPublicView, SeedScreeningBandSummary } from "@/types/seeds";
 
 export function CockpitSoilSeeds({
@@ -34,13 +35,13 @@ export function CockpitSoilSeeds({
     let cancelled = false;
     Promise.all([
       fetchSeedsForInstitution(institutionId),
-      fetch("/api/seeds/screening-bands", { cache: "no-store" }).then((response) => response.json()),
+      // 帯は参照系。キャッシュ経由で読み、画面を行き来しても取り直さない。
+      loadSeedScreeningBandSummaries().catch(() => new Map<string, SeedScreeningBandSummary>()),
     ])
-      .then(([nextSeeds, payload]) => {
+      .then(([nextSeeds, bandMap]) => {
         if (cancelled) return;
         setSeeds(nextSeeds);
-        const rows = payload?.ok && Array.isArray(payload.bands) ? payload.bands as SeedScreeningBandSummary[] : [];
-        setBands(new Map(rows.map((band) => [band.seed_id, band])));
+        setBands(bandMap);
       })
       .catch((cause) => {
         if (!cancelled) setError(cause instanceof Error ? cause.message : "土壌とシーズを読み込めなかった");

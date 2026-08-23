@@ -1874,7 +1874,9 @@ expectPattern("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
   /fetch\(`\/api\/project\/\$\{encodeURIComponent\(projectId\)\}\/sps-current`/,
   // 判断根拠 (q帯・q要因11項目・P^ind帯・総合判断) をこの画面から読めること。
   // 根拠はseed_screening_bandsの詳細行にしか無いので、seedId指定の追加取得が導線そのもの。
-  /\/api\/seeds\/screening-bands\?seedId=\$\{encodeURIComponent\(assessment\.seed_id\)\}/,
+  // 2026-08-23: 素のfetchから参照系キャッシュ層 (lib/seed-screening-bands-client.ts) 経由へ変更。
+  // 直fetchへ戻すと check_reference_data_cache_contract.mjs 側で落ちる。
+  /loadSeedScreeningBandDetail\(assessment\.seed_id\)/,
   /<CurrentSpsAssessmentCard\b[^>]*band=\{band\}/,
 ]);
 expectIncludes("src/components/sps/CurrentSpsAssessmentCard.tsx", [
@@ -1923,10 +1925,12 @@ expectIncludes("src/components/seeds/KuteSeedDetailModal.tsx", [
 // /seeds が開く本命の詳細モーダル (internal面)。まさが帯・総合判断を読む唯一の画面。
 // public面 (KuteSeedDetailModal) は detailSurface="public" の呼び出し元がリポジトリに無く、
 // 現在どこからも表示されない。帯の導線をこちらから消すと OS 画面から根拠が読めなくなる。
+// 2026-08-23: 帯の取得は参照系キャッシュ層 (lib/seed-screening-bands-client.ts) 経由。
+// 素の /api/seeds/screening-bands 直fetchへ戻すと check_reference_data_cache_contract.mjs で落ちる。
 expectIncludes("src/components/seeds/SeedDetailModal.tsx", [
   "一次選別スクリーニング帯",
   "SpsScreeningBandSection",
-  "/api/seeds/screening-bands?seedId=",
+  "loadSeedScreeningBandDetail",
 ]);
 // シーズ詳細モーダルの帯は、PJコックピットの「スコア詳細」タブと同じ情報量にする (まさ確定 2026-08-20)。
 // 数式は LaTeX (Tex/KaTeX) で書き、式の各パラメータの実値をこのシーズの値で併記する。
@@ -3554,7 +3558,8 @@ expectIncludes("src/app/(app)/institutions/[institutionId]/cockpit/page.tsx", [
 ]);
 expectIncludes("src/components/cockpit/CockpitSoilSeeds.tsx", [
   "fetchSeedsForInstitution",
-  "/api/seeds/screening-bands",
+  // 2026-08-23: 帯は参照系キャッシュ層経由 (直fetchへ戻すと参照系キャッシュ契約で落ちる)
+  "loadSeedScreeningBandSummaries",
   "seedScreeningBandMedianYen",
   "土壌 × シーズ — ECRと現行SPS",
   "現行SPS｜産業創出価値",
@@ -3713,3 +3718,22 @@ expectIncludes("src/components/model/ModelFormula.tsx", [
 ]);
 expectIncludes("src/components/nav/GlobalNav.tsx", ['href: "/model"']);
 expectIncludes("next.config.ts", ['"/model/[slug]/page"', '"../model/**/*.json"']);
+
+// /model/formulas — BZM 2.2 の現行の式の一覧 (2026-08-23)。
+// この画面は式を持たず、正本 bzm md から抽出したものだけを出す。式を TS/JSON へ
+// 書き写す実装へ後退すると、model/LOCK.json で凍結した正本と画面が別々に動きうる
+// (model/README.md (e) の二重管理禁止)。抽出経路と導線が消えていないかを見る。
+expectIncludes("src/app/(app)/model/formulas/page.tsx", [
+  'data-testid="model-formulas"',
+  "loadBzmFormulaCanon",
+  "測定済みの q または q_rob、PJ間比較、投資判断、資源配分に使わない。",
+]);
+expectIncludes("src/app/(app)/model/formula-canon.ts", [
+  "readModelCanonFile",
+  "bzm-2-2-strategic-slack-and-propulsion",
+  "expect:",
+]);
+expectIncludes("src/app/(app)/model/model-data.ts", ['{ slug: "formulas"']);
+expectIncludes("src/app/(app)/model/page.tsx", ['href="/model/formulas"']);
+expectIncludes("next.config.ts", ['"/model/formulas/page"']);
+expectIncludes("scripts/deploy.sh", ["npm run test:model-formula-canon"]);

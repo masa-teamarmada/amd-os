@@ -39,6 +39,10 @@ import {
   seedListPriority,
 } from "@/lib/seeds-data";
 import { projectStatusLifecycle } from "@/lib/institution-projects";
+import {
+  loadSeedScreeningBandSummaries,
+  prefetchSeedScreeningBandDetail,
+} from "@/lib/seed-screening-bands-client";
 import type { SeedDomainLane, SeedPublicView, SeedScreeningBandSummary } from "@/types/seeds";
 
 type SortKey = "spsBand";
@@ -159,13 +163,13 @@ export function CockpitKuteSeeds({
     };
   }, [projectId, scope, requestKey]);
 
+  // 帯は参照系。lib/seed-screening-bands-client.ts のキャッシュを通し、
+  // 一覧 → 詳細 → 一覧 と行き来しても読み直さない。
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/seeds/screening-bands")
-      .then((res) => res.json())
-      .then((json: { ok: boolean; bands?: SeedScreeningBandSummary[] }) => {
-        if (cancelled || !json.ok || !json.bands) return;
-        setBandsBySeedId(new Map(json.bands.map((band) => [band.seed_id, band])));
+    loadSeedScreeningBandSummaries({ force: requestKey > 0 })
+      .then((bands) => {
+        if (!cancelled) setBandsBySeedId(bands);
       })
       .catch(() => {
         // スクリーニング帯は補助表示。取得失敗しても一覧本体は表示を続ける。
@@ -517,6 +521,10 @@ function SeedRow({
   return (
     <tr
       onClick={onOpen}
+      // クリックより先に詳細帯を温める。マウスが行に乗ってからクリックが届くまでの
+      // 数百ミリ秒で取得が終わるので、モーダルは開いた時点で帯を持っている。
+      onMouseEnter={() => prefetchSeedScreeningBandDetail(seed.id)}
+      onFocus={() => prefetchSeedScreeningBandDetail(seed.id)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();

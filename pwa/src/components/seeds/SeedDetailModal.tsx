@@ -40,6 +40,10 @@ import type {
 import { createClient } from "@/lib/supabase/client";
 import { SeedMarkdownPreviewModal } from "@/components/seeds/SeedMarkdownPreviewModal";
 import { SpsScreeningBandSection } from "@/components/sps/SpsScreeningBandSection";
+import {
+  loadSeedScreeningBandDetail,
+  peekSeedScreeningBandDetail,
+} from "@/lib/seed-screening-bands-client";
 
 interface MemberLite {
   member_id: string;
@@ -87,6 +91,7 @@ export function SeedDetailModal({
   const [activationOpen, setActivationOpen] = useState(false);
   const [activationBusy, setActivationBusy] = useState(false);
   const [screeningBand, setScreeningBand] = useState<SeedScreeningBandDetail | null>(null);
+  const [bandLoading, setBandLoading] = useState(false);
 
   // メンバー + PJ 一覧を読む (lookup 用)
   useEffect(() => {
@@ -142,19 +147,33 @@ export function SeedDetailModal({
   // 一次選別スクリーニング帯 (SPS帯) を読む。
   // seed_screening_bands は service_role 専用 (RLS ポリシー無し) のため、
   // クライアントからは member 認証の API route 経由でのみ取得する。
+  // 帯は参照系なので lib/seed-screening-bands-client.ts のキャッシュを通す。
+  // 一覧の hover で先読み済み、または一度開いたシーズなら peek が当たり、待ち時間ゼロで描画する。
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- シーズ切替時に前のシーズの帯を残さないための同期リセット
-    setScreeningBand(null);
-    if (!seedId || createMode) return;
+    if (!seedId || createMode) {
+      // 新規作成時に前のシーズの帯を残さないための同期リセット
+      setScreeningBand(null);
+      setBandLoading(false);
+      return;
+    }
+    const cached = peekSeedScreeningBandDetail(seedId);
+    // シーズ切替時に前のシーズの帯を残さない。キャッシュ命中なら同期で帯が入り、待ちが出ない。
+    setScreeningBand(cached ?? null);
+    // キャッシュ命中時はスケルトンを出さない
+    setBandLoading(cached === undefined);
+    if (cached !== undefined) return;
+
     let cancelled = false;
-    fetch(`/api/seeds/screening-bands?seedId=${encodeURIComponent(seedId)}`)
-      .then((res) => res.json())
-      .then((json: { ok: boolean; band?: SeedScreeningBandDetail | null }) => {
-        if (cancelled || !json.ok) return;
-        setScreeningBand(json.band ?? null);
+    loadSeedScreeningBandDetail(seedId)
+      .then((band) => {
+        if (cancelled) return;
+        setScreeningBand(band);
       })
       .catch(() => {
         /* 帯は補助表示。取得に失敗してもシーズ詳細本体の表示は続ける。 */
+      })
+      .finally(() => {
+        if (!cancelled) setBandLoading(false);
       });
     return () => {
       cancelled = true;
@@ -411,6 +430,7 @@ export function SeedDetailModal({
                 <SeedReadView
                   data={data}
                   screeningBand={screeningBand}
+                  bandLoading={bandLoading}
                   onOpenDeepDive={() => setDeepDiveOpen(true)}
                 />
               )
@@ -463,10 +483,12 @@ function RatingDots({ r }: { r: number | null }) {
 function SeedReadView({
   data,
   screeningBand,
+  bandLoading,
   onOpenDeepDive,
 }: {
   data: SeedDetail;
   screeningBand: SeedScreeningBandDetail | null;
+  bandLoading: boolean;
   onOpenDeepDive: () => void;
 }) {
   const s = data.seed;
@@ -560,16 +582,34 @@ function SeedReadView({
         </Section>
       </div>
 
-      {screeningBand && (
+      {screeningBand ? (
         <SpsScreeningBandSection
           band={screeningBand}
           heading="一次選別スクリーニング帯 (SPS = 産業創出価値)"
         />
-      )}
+      ) : bandLoading ? (
+        <ScreeningBandSkeleton />
+      ) : null}
     </div>
   );
 }
 
+
+/** 帯が未取得のあいだ、節が「あとから生えてくる」感を消すための場所取り。 */
+function ScreeningBandSkeleton() {
+  return (
+    <div className="border border-border rounded p-3" aria-busy="true">
+      <h3 className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2 font-medium">
+        一次選別スクリーニング帯 (SPS = 産業創出価値)
+      </h3>
+      <div className="space-y-2">
+        <div className="h-3 w-2/5 animate-pulse rounded bg-muted" />
+        <div className="h-3 w-3/5 animate-pulse rounded bg-muted" />
+        <div className="h-3 w-1/3 animate-pulse rounded bg-muted" />
+      </div>
+    </div>
+  );
+}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
