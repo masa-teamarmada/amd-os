@@ -40,6 +40,14 @@
   guard を回している間に他セッションの commit へ巻き込まれた（`68535f38`、`e20f2380`）。
   **stage と commit は1コマンドにまとめ、staged のまま待たない。**
 - **他セッションへメッセージを送らない**（まさ明示。届くたびにまさの画面にログが流れる）。調整は repo 内の記録で行う。
+  実際に一度、実務連絡を受け取った側が「まさから指示が来た」と誤読して `/model` の無承認の大規模作り直しを
+  始める事故が起きた（`pwa/BUGS.md` `[process/cross-session-messaging]`）。
+- **2026-08-23 時点、他セッションの未コミット差分が残っている**（このHANDOFFを書いたセッションの作業ではない）。
+  `pwa/spec/4-7-amd-contributions-current-spec.md`（新規）/ `pwa/src/lib/amd-contributions.ts`（新規）/
+  `pwa/src/components/cockpit/CockpitAmdContributions.tsx`（新規）/ `pwa/src/app/api/project/[projectId]/amd-contributions/`（新規）/
+  `Bzm22AcquisitionLedger.tsx`・`Bzm22ProvisionalObservatory.tsx`・`CockpitView.tsx`・`check_pwa_critical_ui.cjs`（変更）。
+  「AMD の貢献度の測定」は上の「未解決 3」で要件から明示的に外した領域（別の理論として構築）と同じ名前なので、
+  次セッションは**この dirty がモデル層の要件と同じものだと早合点しない**こと。中身は未確認。
 
 ## 未解決
 
