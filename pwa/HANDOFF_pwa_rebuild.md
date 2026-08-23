@@ -46,3 +46,37 @@
 - 主要実装（資料室デッキ、Phase 0-2）: `src/lib/workspace-deck-model.ts` / `workspace-deck-render.ts` / `workspace-deck-css.ts` /
   `workspace-document-decks.ts` / `src/components/workspace-documents/WorkspaceDocumentDeckEditor.tsx` /
   `WorkspaceDocumentEditorWorkbench.tsx` / `src/lib/workspace-document-edit-agent.ts`
+
+
+---
+
+# 別セッション追記 — 2026-08-23 JST / SPS第3便の後追い
+
+- 作業種別: mixed（開発=migration 306 + ツール修正 / 非開発PJ作業=SPS判断記録とドライブ通読）
+- 上の「参照系データのキャッシュ既定化」セッションとは**別セッション・別領域**。互いに触ったファイルは重なっていない。
+
+## 今回の到達点
+
+まさの3つの指示への対応。判断記録の正本は `pwa/bzm/SPS_IND_SPUNOFF_AND_TARGETED_2026-08-20.md`、実装履歴は `pwa/design_log/sessions_2026-08.md`（2026-08-23節）。
+
+1. **#12（RF/DC WPT）の「情報薄」判定を撤回**（`0db15a41`）。まさの指摘どおり実体は株式会社翔エンジニアリング＝p10。p10のMTGサマリに国交省本格研究の日程・規模・座組が揃っていた。再評価候補 `bdd3dd43-908a-4742-b331-9b5f99a37fb0` を pending で作成（SPS中央値 2.26億→12.07億）。副産物として `sps_reassessment_tool.mjs` の `UUID_RE` がmigration 209由来の15/180 seedを再評価経路から締め出していた欠陥を修正。
+2. **p10のデータ衛生を補修**（`909a3792` / migration 306、全文UPDATE）。シーズ逆リンク補完1件、CryoX由来の `project_knowledge` 12行と `project_strategy_signals` 5行をp20へ移送。
+3. **ドライブ `p10_se` を通読**（`af259127`）。無線給電24年継続、2020年北見工大の8m電池レス実証、特許13件、競合28社（エイターリンクの実データ含む）、事業計画シミュレータ、資金戦略比較。`project_knowledge` へ8行保存（`source=drive:p10_se_archive_20260820`）。
+
+3コミットともpush済み。**PWAのコード変更を含まないためVercel deployは走らせていない**（BUILD_VERSION bumpも対象外）。branch/worktreeは作っていない。
+
+## 未解決（この領域）
+
+- **まさの承認待ち**: 再評価候補 `bdd3dd43-908a-4742-b331-9b5f99a37fb0` が `status=pending` のまま。通知で「はい」と答えるまで凍結行にならない。**えいみが代わりに承認してはいけない**。
+- **抽出側のガードが未実装**: migration 306はデータのみの補修。混入源（`eimi-daily` ナレッジ抽出 / `codex_automation` シグナル抽出）にPJ整合の検査が無く、同じ経路で再発しうる。`BUGS.md` の `[extract/pj-scope-contamination]`。
+- **ドライブ未読分**: 業務委託システム台帳（11万字超でツール上限オーバー）、契約PDF、captable、株式譲渡、BO、SMS助成金、2026年2〜7月の月次進捗スライド群（OS由来の派生データ）、MTG関連3フォルダ（ドライブAPIの親フォルダ検索が使えず未展開）。
+- **依頼範囲外で未算出**: 愛媛大3件・慶應3件のシーズ。
+
+## 次の最初の行動
+
+まさが通知で `bdd3dd43-…` を承認するかどうかの確認。承認されたら承認RPC経由で凍結行がappendされる（えいみ側の追加作業なし）。承認と独立に進められるのは、抽出側のPJ整合ガードの設計。
+
+## 参照先（この領域）
+
+- 判断記録の正本: `pwa/bzm/SPS_IND_SPUNOFF_AND_TARGETED_2026-08-20.md`（§6 再評価候補 / §7 migration 306 / §8 ドライブ通読）
+- 教訓: `pwa/BUGS.md` の `[extract/pj-scope-contamination]` と `[sps/reassessment-evidence-ceiling]`
