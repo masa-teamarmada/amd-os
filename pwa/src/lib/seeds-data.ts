@@ -611,6 +611,21 @@ export async function fetchAllResearchInstitutionSeeds(
   }));
 }
 
+/**
+ * .in() へ渡すIDの一括上限。
+ * PostgREST は条件をURLのクエリ文字列へ載せるため、IDを一度に渡しすぎるとURL長の上限に当たり
+ * HTTP 400 (Bad Request) になる。UUIDは1件あたり約37バイトなので、200件で約7.4KB に収まる。
+ * 2026-08-23: シーズが735件へ増え、全件を一度に渡してシーズリスト全体が
+ * 「Bad Request」で表示できなくなっていたのを修正した。
+ */
+const IN_FILTER_CHUNK_SIZE = 200;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
 /** seed_projects をAMD契約レイヤーとして取得する。seeds.status/spun_off_project_id は関係判定に使わない。 */
 async function fetchSeedProjectLinks(
   seedIds: string[],
@@ -618,15 +633,23 @@ async function fetchSeedProjectLinks(
 ): Promise<Map<string, SeedProjectLink[]>> {
   const result = new Map<string, SeedProjectLink[]>();
   if (seedIds.length === 0) return result;
-  const { data, error } = await readClient
-    .from("seed_projects")
-    .select(
-      "seed_id,project_id,commercialization_stage,commercialization_route,venture_name,target_market,projects(project_name,status)",
-    )
-    .in("seed_id", seedIds);
-  if (error) throw new Error(error.message);
+  const pages = await Promise.all(
+    chunk(seedIds, IN_FILTER_CHUNK_SIZE).map((ids) =>
+      readClient
+        .from("seed_projects")
+        .select(
+          "seed_id,project_id,commercialization_stage,commercialization_route,venture_name,target_market,projects(project_name,status)",
+        )
+        .in("seed_id", ids),
+    ),
+  );
+  const data = [];
+  for (const page of pages) {
+    if (page.error) throw new Error(page.error.message);
+    data.push(...(page.data ?? []));
+  }
 
-  for (const row of data ?? []) {
+  for (const row of data) {
     const project = Array.isArray(row.projects)
       ? row.projects[0]
       : row.projects;
