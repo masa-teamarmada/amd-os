@@ -198,7 +198,22 @@ const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
   },
   strong: ({ children }) => <strong className="font-bold text-[#0a0a0c]">{withInlineMath(children)}</strong>,
   em: ({ children }) => <em className="italic text-[#1d1d1f]">{withInlineMath(children)}</em>,
-  a: ({ href, children }) => {
+  a: ({ href, title, children }) => {
+    // 根拠のマウスオーバー表示。md 側は `[根拠](#evidence "まさ 2026-08-23「…」")` と書く。
+    // まさ 2026-08-24「根拠となるおれの発言は、文章の中にそのまま入れるのはやめて。ものすごく読みにくい。
+    // マウスオーバーしたら出るとかにしてよ」。本文には印だけを出し、引用はマウスを載せたときに出す。
+    if (href === "#evidence" && title) {
+      return (
+        <span
+          title={title}
+          tabIndex={0}
+          aria-label={title}
+          className="ml-1 inline-block cursor-help select-none rounded border border-[#d2d2d7] bg-[#f5f5f7] px-1 align-baseline text-[10px] leading-4 text-[#6e6e73] hover:bg-[#e8e8ed] hover:text-[#1d1d1f]"
+        >
+          {children}
+        </span>
+      );
+    }
     const isExternal = href ? /^https?:\/\//.test(href) : false;
     return (
       <a
