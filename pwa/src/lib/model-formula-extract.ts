@@ -23,8 +23,10 @@ export interface CanonMathGroup {
 }
 
 export interface CanonSection {
-  /** `##` / `###` の見出しテキスト (`#` と前後の空白を除いたもの)。 */
+  /** `##` / `###` の見出しテキスト (`#`、前後の空白、末尾の `{#id}` を除いたもの)。 */
   heading: string;
+  /** 見出しが `{#id}` を持つ場合の id。台帳はこれで変数へ直リンクできるようにしている。 */
+  explicitId: string | null;
   /** 見出しの行番号 (1 始まり)。正本へのリンクに添える。 */
   line: number;
   groups: CanonMathGroup[];
@@ -89,13 +91,20 @@ function toGroups(chunks: Chunk[]): CanonMathGroup[] {
 /** md 全文を `##` / `###` の節へ割り、各節の数式グループまで解決する。 */
 export function parseCanonSections(markdown: string): CanonSection[] {
   const lines = markdown.split("\n");
-  const sections: { heading: string; line: number; body: string[] }[] = [];
-  let current: { heading: string; line: number; body: string[] } | null = null;
+  type Raw = { heading: string; explicitId: string | null; line: number; body: string[] };
+  const sections: Raw[] = [];
+  let current: Raw | null = null;
 
   lines.forEach((line, index) => {
     const match = /^(#{2,3})\s+(.+?)\s*$/.exec(line);
     if (match) {
-      current = { heading: match[2].trim(), line: index + 1, body: [] };
+      const withId = /^(.*?)\s*\{#([\w-]+)\}$/.exec(match[2].trim());
+      current = {
+        heading: (withId ? withId[1] : match[2]).trim(),
+        explicitId: withId ? withId[2] : null,
+        line: index + 1,
+        body: [],
+      };
       sections.push(current);
       return;
     }
@@ -104,6 +113,7 @@ export function parseCanonSections(markdown: string): CanonSection[] {
 
   return sections.map((section) => ({
     heading: section.heading,
+    explicitId: section.explicitId,
     line: section.line,
     groups: toGroups(toChunks(section.body)),
     rawBody: section.body,

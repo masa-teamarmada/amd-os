@@ -148,8 +148,8 @@ const nextConfig: NextConfig = {
     // モデル正本 (amd-os/model/) は教科書と同じくリポジトリルート直下。/model は admin 限定 layout で
     // 動的レンダリングになり実行時に fs 読みするため、明示 bundle しないと本番だけ ENOENT になる。
     "/model/[slug]/page": ["../model/**/*.md", "../model/**/*.json", "../bzm/**/*.md"],
-    "/model/page": ["../model/**/*.md", "../model/**/*.json"],
-    // /model/formulas は正本 bzm md から式を実行時に抽出するので bzm も要る。
+    "/model/page": ["../model/**/*.md", "../model/**/*.json", "../bzm/**/*.md"],
+    // モデルページは正本 bzm md から式と記号を実行時に抽出するので bzm も要る。
     "/model/formulas/page": ["../model/**/*.md", "../model/**/*.json", "../bzm/**/*.md"],
     "/api/macos/document/route": [
       "./manual/**/*.md",

@@ -187,9 +187,6 @@ export function buildModelSideNavGroups(current: ModelCurrent): ModelSideNavGrou
       key: "ledger",
       label: "台帳",
       items: [
-        // /model/formulas は [slug] より優先される静的 route (= 現行の式の一覧)。
-        // 台帳の先頭に置くのは、モデルへ来る用のほとんどが「いまの式はどれか」だから。
-        { slug: "formulas", title: "現行の式（BZM 2.2）" },
         { slug: current.ledger_slug, title: "版数台帳（MODEL_VERSION_LEDGER）" },
         { slug: "APPROVALS", title: "承認台帳（APPROVALS）" },
         { slug: "README", title: "運用規約（README）" },

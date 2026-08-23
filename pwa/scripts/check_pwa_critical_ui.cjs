@@ -3726,17 +3726,25 @@ expectIncludes("next.config.ts", ['"/model/[slug]/page"', '"../model/**/*.json"'
 // この画面は式を持たず、正本 bzm md から抽出したものだけを出す。式を TS/JSON へ
 // 書き写す実装へ後退すると、model/LOCK.json で凍結した正本と画面が別々に動きうる
 // (model/README.md (e) の二重管理禁止)。抽出経路と導線が消えていないかを見る。
-expectIncludes("src/app/(app)/model/formulas/page.tsx", [
-  'data-testid="model-formulas"',
+// すべての式とすべての記号は、1クリック先ではなくモデルページ本体に出す
+// (まさ確定 2026-08-23「正本は UI 上のものを指してる」「UI 上にないとだめ」)。
+expectIncludes("src/app/(app)/model/page.tsx", [
   "loadBzmFormulaCanon",
-  "測定済みの q または q_rob、PJ間比較、投資判断、資源配分に使わない。",
+  "<ModelFormulaLayers canon={canon} />",
+  "<ModelSymbolIndex symbols={canon.symbols} />",
+]);
+expectIncludes("src/components/model/ModelCanonSections.tsx", [
+  'id="formulas"',
+  'id="symbols"',
+  "すべての式（",
+  "すべての記号（",
+  // 層の説明は画面で要約せず正本の一文を引く (要約は正本より強い主張が混ざる)。
+  "layer.quote_text",
 ]);
 expectIncludes("src/app/(app)/model/formula-canon.ts", [
   "readModelCanonFile",
   "bzm-2-2-strategic-slack-and-propulsion",
   "expect:",
 ]);
-expectIncludes("src/app/(app)/model/model-data.ts", ['{ slug: "formulas"']);
-expectIncludes("src/app/(app)/model/page.tsx", ['href="/model/formulas"']);
-expectIncludes("next.config.ts", ['"/model/formulas/page"']);
+expectIncludes("next.config.ts", ['"/model/page"']);
 expectIncludes("scripts/deploy.sh", ["npm run test:model-formula-canon"]);

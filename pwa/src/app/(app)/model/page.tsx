@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { ModelFormula } from "@/components/model/ModelFormula";
+import { ModelFormulaLayers, ModelSymbolIndex } from "@/components/model/ModelCanonSections";
+import { loadBzmFormulaCanon } from "./formula-canon";
 import {
   loadModelCurrent,
   type ModelSeries,
@@ -22,6 +24,7 @@ const TONE_CLASSES: Record<ModelStatusTone, string> = {
 
 export default async function ModelIndexPage() {
   const current = loadModelCurrent();
+  const canon = loadBzmFormulaCanon();
 
   if (!current) {
     return (
@@ -35,7 +38,7 @@ export default async function ModelIndexPage() {
   }
 
   return (
-    <div data-testid="model-index" className="mx-auto max-w-5xl px-6 py-8">
+    <div data-testid="model-index" className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
       <div className="mb-8">
         <h1 className="mb-2 text-2xl font-bold">AMD OS — モデル</h1>
         <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
@@ -49,12 +52,12 @@ export default async function ModelIndexPage() {
       <section className="mb-10">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <h2 className="text-base font-bold text-foreground">現在の正式版</h2>
-          <Link
-            href="/model/formulas"
+          <a
+            href="#formulas"
             className="shrink-0 text-xs font-semibold text-indigo-600 underline hover:opacity-80"
           >
-            BZM 2.2 の式を全部見る →
-          </Link>
+            すべての式と記号へ ↓
+          </a>
         </div>
         {current.structure ? (
           <div className="mb-4 rounded-md border border-indigo-200 bg-indigo-50 px-4 py-3">
@@ -81,6 +84,17 @@ export default async function ModelIndexPage() {
           ))}
         </div>
       </section>
+
+      {canon ? (
+        <>
+          <ModelFormulaLayers canon={canon} />
+          <ModelSymbolIndex symbols={canon.symbols} />
+        </>
+      ) : (
+        <div className="mb-10 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-muted-foreground">
+          式と記号を正本から読み込めませんでした。
+        </div>
+      )}
 
       <section className="mb-10">
         <h2 className="mb-3 text-base font-bold text-foreground">版の系譜</h2>
