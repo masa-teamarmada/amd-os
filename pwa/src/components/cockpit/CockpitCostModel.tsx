@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CONFIDENCE_LABEL,
   annualAmount as annualAmountImpl,
@@ -97,11 +97,9 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
   );
 
   // 初回だけ読む。キャッシュが温まっていれば即描画され、裏で最新を確認する。
-  const [started, setStarted] = useState(false);
-  if (!started) {
-    setStarted(true);
+  useEffect(() => {
     void load();
-  }
+  }, [load]);
 
   const computed = useMemo(
     () => (bundle ? computeCostModel({ ...bundle, model: bundle.model }) : null),
@@ -141,9 +139,22 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
   const openQuestions = questions.filter((q) => q.status === "open");
 
   // 中央培養コストが菌体1kgあたりいくらに相当するか。文献値と突き合わせる共通単位。
+  // 中央培養コストは方式・槽によらず同額なので、どのシナリオから取っても同じ。
   const biomassKgPerUnit = derived.biomassWithLossPerM3 / derived.reuseCount / 1000;
   const impliedBiomassCost =
     biomassKgPerUnit > 0 ? scenarios[0].centralTotalPerUnit / biomassKgPerUnit : 0;
+
+  // 精度を下げている項目は方式ごとに違うので、両方式の既設ケースを混ぜて金額順に出す。
+  const uncertainAcrossMethods = (() => {
+    const seen = new Map<string, (typeof scenarios)[number]["topUncertain"][number]>();
+    for (const s of scenarios.filter((x) => x.tankMode === "既設")) {
+      for (const u of s.topUncertain) {
+        const prev = seen.get(u.costItemId);
+        if (!prev || u.perUnit > prev.perUnit) seen.set(u.costItemId, u);
+      }
+    }
+    return [...seen.values()].sort((a, b) => b.perUnit - a.perUnit).slice(0, 10);
+  })();
 
   const byAddressee = openQuestions.reduce<Record<string, typeof openQuestions>>((acc, q) => {
     (acc[q.addressee] ||= []).push(q);
@@ -379,14 +390,7 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
               </tr>
             </thead>
             <tbody className="tabular-nums">
-              {scenarios[0].topUncertain.concat(
-                scenarios[2].topUncertain.filter(
-                  (u) => !scenarios[0].topUncertain.some((x) => x.costItemId === u.costItemId)
-                )
-              )
-                .sort((a, b) => b.perUnit - a.perUnit)
-                .slice(0, 10)
-                .map((u) => (
+              {uncertainAcrossMethods.map((u) => (
                   <tr key={u.costItemId} className="border-b border-[#f6f6f7]">
                     <td className="py-1.5 pr-2 text-[#1d1d1f]">{u.label}</td>
                     <td className="px-2 py-1.5 text-[#86868b]">{u.scenario}</td>
@@ -395,7 +399,7 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
                     <td className="px-2 py-1.5 text-[#86868b]">{u.sourceKind}</td>
                     <td className="py-1.5 pl-2 text-[#86868b]">{u.owner}</td>
                   </tr>
-                ))}
+              ))}
             </tbody>
           </table>
         </div>
