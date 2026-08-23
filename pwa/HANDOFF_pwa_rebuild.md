@@ -80,3 +80,59 @@
 
 - 判断記録の正本: `pwa/bzm/SPS_IND_SPUNOFF_AND_TARGETED_2026-08-20.md`（§6 再評価候補 / §7 migration 306 / §8 ドライブ通読）
 - 教訓: `pwa/BUGS.md` の `[extract/pj-scope-contamination]` と `[sps/reassessment-evidence-ceiling]`
+
+
+---
+
+# 別セッション追記 — 2026-08-23 JST / SPS初回評価「意味づけ欠落」是正ラウンド
+
+- 作業種別: 開発（DB migration + CLI ツール改修 + データ投入）
+- 上の「SPS第3便の後追い」（再評価候補・p10データ衛生）とも「モデル層」（`HANDOFF.md`）とも別領域。
+  SPS領域の中でも**初回評価（`seed_screening_bands` の11因子ルーブリック）の品質**に特化した話で、
+  再評価（`sps_reassessment_candidates`）とは別のテーブル・別のツール系統。
+
+## 今回の到達点
+
+735件の初回評価が全件完了した直後の全数点検で見つかった、**11因子すべての `assessment`（q根拠の
+意味づけ）が空のまま入っている372件**を修理した。詳細は
+`SPS_INITIAL_ASSESSMENT_PLAYBOOK.md` §1 と `pwa/design_log/sessions_2026-08.md` の該当節。
+
+- migration 318（`ea6c32fa`）で、凍結行を書き換えずに「同じ版タプルで追記して最新を差し替える」
+  是正経路を新設。`sps_initial_assessment_tool.mjs` に `prepare --remediate` を追加。
+- サブエージェント並列で372件のうち **202件を投入（ok 202 / ng 0）、残170件**。
+- 投入分は `audit_remediation.mjs`（新設）で構造監査し、異常0件を確認。
+- 実行中に2つの事故を踏み、`pwa/BUGS.md`（2026-08-22〜23節）に記録済み: (1) セッションを閉じている
+  間にサブエージェント2体が死に、直前の未実測の「動いてる」報告のせいで23時間気づけなかった、
+  (2) changelogへの追記commitが共有checkoutの他セッションのdirtyを巻き込んだ（`ef9abe58`、
+  内容は正しいためrevertせず経緯のみ記録）。
+
+## 未解決（この領域）
+
+- **意味づけ欠落170件が残っている。** 再開手順は `SPS_INITIAL_ASSESSMENT_PLAYBOOK.md` §1
+  「再開の仕方」と `pwa/scripts/sps_batch/README.md`「是正ラウンド」節にすべて書いてある。
+  `prepare --remediate --limit 100` から素直に始めてよい（pending候補は0件、途中状態は残っていない）。
+- **サブエージェントは親セッションが閉じると死ぬ。** 起動して放置はできない。1ラウンド100件で
+  おおよそ10分、まさが画面を見ていられる間に完走させる。
+
+## このセッション終了時点の共有checkout状態（自分の変更ではない）
+
+`git status -sb` で以下が dirty のまま残っている。**このセッションの変更ではないので触っていない**:
+
+- `model/APPROVALS.md`（変更、+48行）
+- `pwa/scripts/migrations/319_sps_reassessment_pgcrypto_resolution.sql`（新規、未追跡）
+
+次セッションが SPS領域や model領域に触るなら、まず `git log` でこれが誰の作業か（別の並行セッションが
+今も書いている途中か）を確認してから扱う。
+
+## 次の最初の行動
+
+`node scripts/sps_initial_assessment_tool.mjs status` で `defective` を確認し、170件を
+`prepare --remediate --limit 100` から続ける。
+
+## 参照先（この領域）
+
+- 状態と件数の正本: `bzm/SPS_INITIAL_ASSESSMENT_PLAYBOOK.md` §1
+- 手順の正本: `pwa/scripts/sps_batch/README.md`「是正ラウンド」節
+- 実装履歴: `pwa/design_log/sessions_2026-08.md`（2026-08-22〜23節「SPS初回評価『意味づけ欠落』…」）
+- 教訓: `pwa/BUGS.md`（2026-08-22〜23節「SPS意味づけ欠落の是正ラウンドで…」）
+- 変更履歴: `bzm/9-5-appendix-changelog.md`（248行目 migration 318、末尾付近に実行結果）
