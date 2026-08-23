@@ -62,14 +62,33 @@ export interface ModelSeries {
   status: { label: string; tone: ModelStatusTone };
   formula: ModelFormula;
   summary: string;
+  /** モデル本体か、その中の出力か。系列を横に並べても「別モデル」に読ませないための札。 */
+  role?: string;
   versions: Record<string, string>;
   canonical: ModelCanonicalDoc[];
   timeline: ModelTimelineEntry[];
 }
 
+/**
+ * SPS と BZM の関係。
+ *
+ * 版数台帳の初版はこの2つを「別系列」と書いたが誤りで、SPS は BZM の中の出力である
+ * (まさ指摘 2026-08-22)。系列カードを2枚横に並べるだけだと同じ誤解を画面が作るので、
+ * カードの上にこの構造を必ず出す。
+ */
+export interface ModelStructure {
+  headline: string;
+  body: string;
+  anchor?: string;
+  open_issue?: string;
+  open_issue_anchor?: string;
+  corrected?: string;
+}
+
 export interface ModelCurrent {
   updated: string;
   ledger_slug: string;
+  structure?: ModelStructure;
   series: ModelSeries[];
   documents: {
     canonical: ModelCanonicalDoc[];

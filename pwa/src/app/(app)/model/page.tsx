@@ -56,6 +56,25 @@ export default async function ModelIndexPage() {
             BZM 2.2 の式を全部見る →
           </Link>
         </div>
+        {current.structure ? (
+          <div className="mb-4 rounded-md border border-indigo-200 bg-indigo-50 px-4 py-3">
+            <p className="text-sm font-bold text-indigo-950">{current.structure.headline}</p>
+            <p className="mt-1 text-xs leading-relaxed text-indigo-900">{current.structure.body}</p>
+            {current.structure.open_issue ? (
+              <p className="mt-2 border-t border-indigo-200 pt-2 text-xs leading-relaxed text-indigo-900">
+                {current.structure.open_issue}
+              </p>
+            ) : null}
+            {current.structure.anchor ? (
+              <Link
+                href={`/model/${encodeURIComponent(current.ledger_slug)}#${current.structure.anchor}`}
+                className="mt-2 inline-block text-xs font-semibold text-indigo-700 underline hover:opacity-80"
+              >
+                構造図と正本の根拠を見る →
+              </Link>
+            ) : null}
+          </div>
+        ) : null}
         <div className="grid gap-4 md:grid-cols-2">
           {current.series.map((series) => (
             <SeriesCard key={series.key} series={series} ledgerSlug={current.ledger_slug} />
@@ -159,6 +178,9 @@ function SeriesCard({ series, ledgerSlug }: { series: ModelSeries; ledgerSlug: s
           {series.status.label}
         </span>
       </div>
+
+      {/* モデル本体か、その中の出力か。横に2枚並ぶだけだと「別モデル」に読めるので札を出す。 */}
+      {series.role ? <p className="mb-2 text-[11px] text-muted-foreground">{series.role}</p> : null}
 
       <div className="mb-2">
         <ModelFormula formula={series.formula} ledgerSlug={ledgerSlug} />

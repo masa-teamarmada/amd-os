@@ -197,6 +197,25 @@ function extractRemovedPathsFromApprovalBody(body) {
   return extractPathsFromApprovalBody(section);
 }
 
+// 「対象ファイル:」節に列挙されたパスだけを拾う。
+//
+// 本文全体へ正規表現をかけると、経緯や変更の性質を説明する散文に出てくるファイル名まで
+// 対象パスとして拾ってしまう（2026-08-22: 説明文中の "CURRENT.json" を repo 相対パスと
+// 誤認し、relock が「未作成のため含めず」と誤報した）。承認エントリは人が読む文書なので、
+// 本文で正本のファイル名に言及するのは普通のこと。節で区切って拾う。
+//
+// 「対象ファイル:」節を持たない古い形式のエントリは、後方互換のため本文全体から拾う。
+function extractTargetPathsFromApprovalBody(body) {
+  const headingRe = /^対象ファイル:\s*$/m;
+  const m = headingRe.exec(body);
+  if (!m) return extractPathsFromApprovalBody(body);
+  const rest = body.slice(m.index + m[0].length);
+  const nextHeadingRe = /^(?:削除パス|反映commit|変更の性質|引用|##\s)/m;
+  const nextIdx = nextHeadingRe.exec(rest);
+  const section = nextIdx ? rest.slice(0, nextIdx.index) : rest;
+  return extractPathsFromApprovalBody(section);
+}
+
 function parseApprovalArg(args) {
   const idx = args.indexOf("--approval");
   if (idx === -1 || !args[idx + 1]) {
@@ -224,7 +243,7 @@ function writeLock(lock) {
 function runRelock(args) {
   const approvalId = parseApprovalArg(args);
   const body = readApprovalEntry(approvalId);
-  const approvalPaths = extractPathsFromApprovalBody(body);
+  const approvalPaths = extractTargetPathsFromApprovalBody(body);
   if (approvalPaths.length === 0) {
     fail(`model/APPROVALS.md の "## ${approvalId}" に対象ファイルのパスが見つかりません。`);
   }
@@ -280,7 +299,7 @@ function runInit(args) {
 
   let files = parseFilesArg(args);
   if (!files) {
-    files = extractPathsFromApprovalBody(body);
+    files = extractTargetPathsFromApprovalBody(body);
   }
   if (!files || files.length === 0) {
     fail(

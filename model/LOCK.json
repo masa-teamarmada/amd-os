@@ -1,6 +1,6 @@
 {
-  "approval_ref": "2026-08-23-1",
-  "locked_at": "2026-08-23T14:26:25.673+09:00",
+  "approval_ref": "2026-08-22-5",
+  "locked_at": "2026-08-23T14:34:09.636+09:00",
   "frozen_versions": {
     "model_version": "sps-ind-tier0-v1",
     "measure_version": "sps-ind-v1",
@@ -51,7 +51,7 @@
     },
     {
       "path": "model/CURRENT.json",
-      "sha256": "5a867c7b1078906a8484ca5db72b08a92363b426ce9caf802268b702edd376be"
+      "sha256": "4cf01a1fe7b41445b7e4226f02d0f1b022c0ecd22b148bb633ab20cfe1df47cb"
     },
     {
       "path": "model/MODEL_VERSION_LEDGER.md",
