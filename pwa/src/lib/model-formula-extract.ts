@@ -133,16 +133,36 @@ export function findCanonSentence(
 ): { text: string; line: number } | null {
   const section = sections.find((s) => s.heading === sectionHeading);
   if (!section) return null;
-  for (const line of section.rawBody) {
-    if (!line.includes(match)) continue;
-    // 箇条書きの `- ` と強調記号を外し、句点で区切って該当の一文だけにする。
-    const cleaned = line.replace(/^\s*[-*]\s+/, "").trim();
-    const sentence = cleaned
-      .split("。")
-      .map((s) => s.trim())
-      .find((s) => s.includes(match));
-    if (!sentence) continue;
-    return { text: `${sentence}。`, line: section.line };
+
+  for (const raw of section.rawBody) {
+    const line = raw.replace(/^\s*[-*]\s+/, "").trim();
+    const at = line.indexOf(match);
+    if (at === -1) continue;
+
+    // 一文の範囲を元の文字列の位置で取る。切って貼り直すと句点や強調記号が重複する。
+    const from = line.lastIndexOf("。", at) + 1;
+    let to = line.indexOf("。", at + match.length);
+    if (to === -1) to = line.length - 1;
+
+    // 強調 (`**…**`) が一文をまたぐ場合、記号が閉じるまで次の句点へ伸ばす。
+    const isOpen = (end: number) =>
+      ((line.slice(from, end + 1).match(/\*\*/g) ?? []).length % 2) === 1;
+    while (isOpen(to)) {
+      const next = line.indexOf("。", to + 1);
+      if (next === -1) {
+        to = line.length - 1;
+        break;
+      }
+      to = next;
+    }
+
+    // 句点の直後に閉じ記号 (`**` 等) が続くなら、そこまで含める。
+    let end = to + 1;
+    while (end < line.length && /[*_`]/.test(line[end])) end += 1;
+
+    const text = line.slice(from, end).trim();
+    if (!text) continue;
+    return { text, line: section.line };
   }
   return null;
 }

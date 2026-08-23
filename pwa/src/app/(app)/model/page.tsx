@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ModelFormula } from "@/components/model/ModelFormula";
-import { ModelFormulaLayers, ModelSymbolIndex } from "@/components/model/ModelCanonSections";
+import { ModelFormulaLayers, ModelPurpose, ModelSymbolIndex } from "@/components/model/ModelCanonSections";
 import { loadBzmFormulaCanon } from "./formula-canon";
 import {
   loadModelCurrent,
@@ -48,6 +48,8 @@ export default async function ModelIndexPage() {
           その式の中身は誰がいつ承認したかをここで確定します。admin 限定。
         </p>
       </div>
+
+      {canon ? <ModelPurpose purpose={canon.purpose} /> : null}
 
       <section className="mb-10">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">

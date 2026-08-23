@@ -61,7 +61,14 @@ export const CANON_DOCS = {
     file: "bzm-2-1-dynamic-business-value-model.md",
     title: "BZM 2.1 — 動的な事業価値モデル",
   },
+  domain: {
+    root: "bzm" as const,
+    slug: "sps-current-domain-definition",
+    file: "sps-current-domain-definition.md",
+    title: "領域定義 — Before Zero で診断し、ゼロの先で検証する",
+  },
 } as const;
+
 
 export type CanonDocKey = keyof typeof CANON_DOCS;
 
@@ -102,6 +109,38 @@ export interface LayerQuote {
   /** 引きたい一文に必ず含まれる文字列。ここから文全体を復元する。 */
   match: string;
 }
+
+/**
+ * このモデルを何のために作っているか。
+ *
+ * まさ指示 2026-08-23「このモデルを構築している目的も冒頭に書いておいてほしい。
+ * 文章で長々とかくのではなく、箇条書きで」。
+ *
+ * 目的はモデルについての主張なので、ここでも画面で書き起こさず正本の一文を引く。
+ * 引用元は領域定義 — 目的そのものはまさの発言として正本に記録されている。
+ */
+export const MODEL_PURPOSE: LayerQuote[] = [
+  {
+    doc: "domain",
+    section: "1. きっかけ — 「これはまだ Before Zero の理論なのか」",
+    match: "目的は BZSF での投資先の判定で使うことと",
+  },
+  {
+    doc: "domain",
+    section: "5. 投資判定は二階建て",
+    match: "そこで投資判定は",
+  },
+  {
+    doc: "domain",
+    section: "5. 投資判定は二階建て",
+    match: "BZM 単体で投資判定を成立させようとしてはいけない",
+  },
+  {
+    doc: "ledger",
+    section: "1. いまの正式版",
+    match: "SPS は BZM から独立した別系列ではない",
+  },
+];
 
 export interface FormulaLayer {
   key: string;
@@ -621,7 +660,17 @@ function buildSymbolIndex(): ModelSymbol[] {
   return Array.from(merged.values());
 }
 
+export interface ResolvedQuote {
+  text: string | null;
+  doc: CanonDocKey;
+  section: string;
+  anchor: string;
+  match: string;
+}
+
 export interface FormulaCanon {
+  /** このモデルを何のために作っているか（正本からの引用）。 */
+  purpose: ResolvedQuote[];
   canon_slug: string;
   canon_path: string;
   layers: ResolvedLayer[];
@@ -775,12 +824,29 @@ export function loadBzmFormulaCanon(): FormulaCanon | null {
     });
   }
 
+  const resolveQuote = (q: LayerQuote, fallbackDoc: CanonDocKey): ResolvedQuote => {
+    const docKey = q.doc ?? fallbackDoc;
+    const secs = parsed[docKey] ?? [];
+    const found = findCanonSentence(secs, q.section, q.match);
+    const sec = secs.find((x) => x.heading === q.section);
+    return {
+      text: found?.text ?? null,
+      doc: docKey,
+      section: q.section,
+      anchor: sec?.explicitId ?? headingAnchorId(q.section),
+      match: q.match,
+    };
+  };
+
   return {
+    purpose: MODEL_PURPOSE.map((q) => resolveQuote(q, "domain")),
     canon_slug: CANON_DOCS.bzm22.slug,
     canon_path: `bzm/${CANON_DOCS.bzm22.file}`,
     layers,
     symbols: buildSymbolIndex(),
-    unresolved: layers.reduce(
+    unresolved:
+      MODEL_PURPOSE.filter((q) => resolveQuote(q, "domain").text === null).length +
+      layers.reduce(
       (sum, layer) =>
         sum +
         layer.entries.filter((entry) => !entry.resolved).length +

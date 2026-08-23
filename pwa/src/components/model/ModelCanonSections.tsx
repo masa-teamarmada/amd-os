@@ -5,6 +5,7 @@ import {
   type CanonDocKey,
   type FormulaCanon,
   type ModelSymbol,
+  type ResolvedQuote,
   type ResolvedFormula,
   type ResolvedLayer,
 } from "@/app/(app)/model/formula-canon";
@@ -36,6 +37,45 @@ function CanonProse({ source, className }: { source: string; className?: string 
     <span className={`[&_p]:my-0 [&_p]:leading-relaxed [&_ul]:my-0 ${className ?? ""}`}>
       <BzmMarkdown source={source} compact />
     </span>
+  );
+}
+
+/**
+ * モデルページ冒頭 — このモデルを何のために作っているか。
+ *
+ * まさ指示 2026-08-23「このモデルを構築している目的も冒頭に書いておいてほしい。
+ * 文章で長々とかくのではなく、箇条書きで」。
+ * 目的もモデルについての主張なので、画面では書かず正本の一文を引く。
+ */
+export function ModelPurpose({ purpose }: { purpose: ResolvedQuote[] }) {
+  return (
+    <section id="purpose" className="mb-8 scroll-mt-20">
+      <h2 className="mb-2 text-base font-bold text-foreground">何のためのモデルか</h2>
+      <ul className="space-y-1.5">
+        {purpose.map((q, i) => (
+          <li key={i} className="flex gap-2 text-xs leading-relaxed">
+            <span aria-hidden="true" className="mt-[7px] size-1.5 shrink-0 rounded-full bg-slate-400" />
+            <span className="min-w-0 text-slate-800">
+              {q.text ? (
+                <>
+                  <CanonProse source={q.text} className="[&_p]:inline" />
+                  <Link
+                    href={docHref(q.doc, q.anchor)}
+                    className="ml-1.5 whitespace-nowrap text-[10.5px] text-indigo-600 underline hover:opacity-80"
+                  >
+                    {CANON_DOCS[q.doc].title}
+                  </Link>
+                </>
+              ) : (
+                <span className="text-rose-800">
+                  正本の「{q.section}」から引用文（{q.match}）を取り出せませんでした。
+                </span>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
