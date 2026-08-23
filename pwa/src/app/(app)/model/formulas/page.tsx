@@ -122,9 +122,17 @@ export default async function ModelFormulasPage() {
                   一次選別で使う SPS（
                   <BzmMathText source={"$\\mathrm{SPS}=\\sum_o q_o P^{\\mathrm{ind}}_o$"} />
                   ）は、BZM の外にある別のモデルではなく、同じ BZM から出る別の出力です。
-                  2.2 が置き換えた戦略余力の中身は、到達見込み{" "}
+                  理論の上では、2.2 が置き換えた戦略余力が到達見込み{" "}
                   <BzmMathText source={"$q$"} /> の定義を通して SPS の入力にも及びます。
-                  その構造と SPS の現行式は{" "}
+                </p>
+                <p className="mb-1 rounded-md bg-slate-100 px-2.5 py-2 ring-1 ring-slate-200">
+                  <span className="font-bold">ただし、この接続はいま働いていません。</span>
+                  <BzmMathText source={"$T_Y$"} /> は実運用では計算しておらず、735件の{" "}
+                  <BzmMathText source={"$q$"} />{" "}
+                  は11要因ルーブリックの判断帯で、BZM 2.2 の状態から導いた値ではありません。
+                  このページの上に並ぶ推進力と戦略余力も、現行の SPS の式には記号として現れません。
+                  つまり四つの版が一つのモデルだというのは、こう繋がる設計だという意味であって、
+                  いま画面で動いている計算のことではありません。確認した事実と未解決は{" "}
                   <Link
                     href="/model/MODEL_VERSION_LEDGER#lineage-relation"
                     className="text-indigo-600 underline hover:opacity-80"
