@@ -51,7 +51,8 @@ function toChunks(body: string[]): Chunk[] {
   };
 
   for (const line of body) {
-    if (line.trim() === MATH_FENCE) {
+    const trimmed = line.trim();
+    if (trimmed === MATH_FENCE) {
       if (!inMath) {
         flushText();
         inMath = true;
@@ -60,6 +61,20 @@ function toChunks(body: string[]): Chunk[] {
         buffer = [];
         inMath = false;
       }
+      continue;
+    }
+    // 1行に収めた `$$ … $$` も数式として採る (SPS価値項の差し替え提案 §2.2 がこの書き方)。
+    if (
+      !inMath &&
+      trimmed.length > MATH_FENCE.length * 2 &&
+      trimmed.startsWith(MATH_FENCE) &&
+      trimmed.endsWith(MATH_FENCE)
+    ) {
+      flushText();
+      chunks.push({
+        type: "math",
+        value: trimmed.slice(MATH_FENCE.length, -MATH_FENCE.length).trim(),
+      });
       continue;
     }
     buffer.push(line);

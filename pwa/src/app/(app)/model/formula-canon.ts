@@ -43,12 +43,6 @@ export const CANON_DOCS = {
     file: "bzm-2-2-strategic-slack-and-propulsion.md",
     title: "BZM 2.2 — 戦略余力と推進力の動学",
   },
-  ledger: {
-    root: "model" as const,
-    slug: "MODEL_VERSION_LEDGER",
-    file: "MODEL_VERSION_LEDGER.md",
-    title: "版数台帳",
-  },
   reach: {
     root: "bzm" as const,
     slug: "sps-current-reachability-model",
@@ -66,6 +60,12 @@ export const CANON_DOCS = {
     slug: "sps-current-domain-definition",
     file: "sps-current-domain-definition.md",
     title: "領域定義 — Before Zero で診断し、ゼロの先で検証する",
+  },
+  natvalue: {
+    root: "bzm" as const,
+    slug: "SPS_NAT_VALUE_MEASURE_PROPOSAL_2026-08-16",
+    file: "SPS_NAT_VALUE_MEASURE_PROPOSAL_2026-08-16.md",
+    title: "SPS価値項の産業創出価値への差し替え（v0.3 / masa-agreed 2026-08-16）",
   },
 } as const;
 
@@ -155,11 +155,6 @@ export const MODEL_PURPOSE: LayerQuote[] = [
     section: "5. 投資判定は二階建て",
     match: "BZM 単体で投資判定を成立させようとしてはいけない",
   },
-  {
-    doc: "ledger",
-    section: "1. いまの正式版",
-    match: "SPS は BZM から独立した別系列ではない",
-  },
 ];
 
 export interface FormulaLayer {
@@ -182,59 +177,65 @@ export const MODEL_FORMULA_LAYERS: FormulaLayer[] = [
   {
     key: "output",
     title: "0. 出力 — 一次選別に使う SPS",
-    doc: "ledger",
-    quote: { section: "2. 現行の式と記号", match: "価値実現経路ごとの到達確率と条件付き価値の積" },
+    doc: "natvalue",
+    quote: {
+      section: "2.2 SPS（次版）と持分価値量 $V^{\\mathrm{eq}}$",
+      match: "SPSの名は産業創出価値版が継承する",
+    },
     entries: [
       {
         id: "sps-full",
-        label: "SPS（正式・全経路の和）",
-        doc: "ledger",
-        section: "2. 現行の式と記号",
+        label: "SPS（現行版・全経路の和）",
+        doc: "natvalue",
+        section: "2.2 SPS（次版）と持分価値量 $V^{\\mathrm{eq}}$",
         group: 1,
-        expect: ["\\mathrm{SPS}=\\sum_{o\\in\\mathcal O}", "P^{\\mathrm{ind}}_o"],
-        tail: 2,
-      },
-      {
-        id: "sps-tier0",
-        label: "SPS（Tier 0 の単一経路への縮退形）",
-        doc: "ledger",
-        section: "2. 現行の式と記号",
-        group: 2,
-        expect: ["\\mathrm{SPS}=P^{\\mathrm{ind}}\\times"],
-        tail: 1,
+        expect: ["\\mathrm{SPS} = \\sum_o q_o P^{\\mathrm{ind}}_o"],
+        tail: 3,
       },
     ],
   },
   {
     key: "reach",
     title: "0-b. 到達見込み q（BZM 2.0）",
-    doc: "ledger",
-    quote: { section: "q — 到達見込み", match: "計画期限内かつ戦略余力を失う前に資本自立へ着く確率" },
+    doc: "reach",
+    quote: {
+      section: "1. なぜ到達見込みという量が要るのか",
+      match: "計画期限内かつ戦略余力を失う前に着く事象",
+    },
     entries: [
       {
         id: "q-plan",
         label: "計画達成診断 q",
-        doc: "ledger",
-        section: "q — 到達見込み",
-        group: 1,
+        doc: "reach",
+        section: "1. なぜ到達見込みという量が要るのか",
+        group: 2,
         expect: ["q_{\\mathrm{plan},\\tau}(H_v)", "T_C<T_Y"],
         tail: 2,
       },
       {
         id: "q-self",
-        label: "資本自立の到達目標（二条件）",
-        doc: "ledger",
-        section: "q — 到達見込み",
-        group: 2,
+        label: "資本自立の到達目標（主要件: フロー自給）",
+        doc: "reach",
+        section: "2. 資本自立の共通到達目標 $G_{\\mathrm{self}}(12\\mathrm{m})$",
+        group: 1,
         expect: ["R_{\\mathrm{rep}}", "E_{\\mathrm{req}}"],
+        tail: 1,
+      },
+      {
+        id: "q-self-monthly",
+        label: "資本自立の到達目標（副次要件: 月次の資金繰り）",
+        doc: "reach",
+        section: "2. 資本自立の共通到達目標 $G_{\\mathrm{self}}(12\\mathrm{m})$",
+        group: 2,
+        expect: ["C_{0} + R_{\\mathrm{rep}}[t,\\ s] - E_{\\mathrm{req}}[t,\\ s]"],
         tail: 2,
       },
       {
         id: "q-horizon",
-        label: "共通期間比較と評価地平",
-        doc: "ledger",
-        section: "H_econ — 共通経済評価地平",
-        group: 2,
+        label: "累積到達曲線（共通期間比較）",
+        doc: "reach",
+        section: "1. なぜ到達見込みという量が要るのか",
+        group: 3,
         expect: ["Q_\\tau(h)"],
         lead: 1,
         tail: 2,
@@ -558,37 +559,22 @@ export const MODEL_FORMULA_LAYERS: FormulaLayer[] = [
   {
     key: "bzm21",
     title: "7. BZM 2.1 の行動価値（この上の遷移を受け取る側）",
-    doc: "ledger",
-    quote: { section: "正本間の未解決不整合（まさ判断待ち）— 1.x の9軸", match: "行動 $a$ を一度だけ選び" },
+    doc: "bzm21",
+    quote: { section: "6. 方針評価とBellman後退", match: "行動$a$を一度だけ選び" },
     entries: [
       {
         id: "bzm21-action-value",
         label: "行動価値（2.1）",
-        doc: "ledger",
-        section: "正本間の未解決不整合（まさ判断待ち）— 1.x の9軸",
+        doc: "bzm21",
+        section: "6. 方針評価とBellman後退",
         group: 1,
         expect: ["J^{\\pi}_{r,\\tau}(n,a)", "w_{r,\\tau}(n,a,n')"],
         tail: 2,
       },
     ],
   },
-  {
-    key: "retired",
-    title: "8. 退役した式（参照専用・計算に使わない）",
-    doc: "ledger",
-    quote: { section: "旧9軸の式（退役済み・参照専用）", match: "退役" },
-    entries: [
-      {
-        id: "retired-9axis",
-        label: "旧9軸の統合スコア（2026-08-15 退役）",
-        doc: "ledger",
-        section: "旧9軸の式（退役済み・参照専用）",
-        group: 1,
-        expect: ["\\text{統合スコア}", "\\prod_{i=1}^{9}"],
-        tail: 2,
-      },
-    ],
-  },
+  // 旧9軸の式 (2026-08-15 退役) は出さない。用語集 §1.7 の5「旧バージョンはOSに表示しない
+  // （持分価値版の帯・旧9軸表示とも）」(まさ確定 2026-08-16)。
 ];
 
 export interface ResolvedFormula extends FormulaPointer {
@@ -639,7 +625,7 @@ export interface ModelSymbol {
  * 主にし、残りを「別の正本での説明」として併記する。どちらかを消して1つに丸めない。
  */
 function buildSymbolIndex(): ModelSymbol[] {
-  const DOC_PRIORITY: CanonDocKey[] = ["ledger", "bzm22", "reach", "bzm21"];
+  const DOC_PRIORITY: CanonDocKey[] = ["bzm22", "reach", "bzm21", "natvalue"];
   const merged = new Map<string, ModelSymbol>();
 
   for (const docKey of DOC_PRIORITY) {
