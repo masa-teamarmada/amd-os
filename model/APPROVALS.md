@@ -887,4 +887,4 @@ $V = \int \mathbb{E}[\Pi(\omega) \mid \theta]\, dB_0(\theta)$ について、条
 - model/MODEL_VERSION_LEDGER.md
 - model/CURRENT.json
 
-反映commit: (未反映)
+反映commit: bbdf2edc（本文へ改訂9点・運用一式 approved・relock 14ファイル・changelog）
