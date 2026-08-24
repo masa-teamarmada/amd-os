@@ -880,6 +880,13 @@ $V = \int \mathbb{E}[\Pi(\omega) \mid \theta]\, dB_0(\theta)$ について、条
 3. モデルページ §0 の BZM 3.0 の節へ、運用一式の採用と値3つを追記。
 4. CURRENT.json の確定文書へ運用一式を追加。
 5. 改訂提案1（amendment-1）は反映済みの記録として applied 状態で保持（ロック対象にはしない）。
+6. **追補（同日、まさの点検指示「ptadvとかηtの式って、正本にまだ書かれてなくない？ ここまでの確定事項がすべて正本に書かれているか、再度確認して」を受けて）**:
+   モデルページ本体の二段目の式が改訂前のまま（$\alpha_u$・$C(x_T)$）だったのを改訂後（$\alpha_u(t)$・$C(x_T,\theta)$）へ更新し、
+   稼働用途の記号の意味を参入（採用決定・量産契約）・稼働度・二種の離脱へ書き換えた。あわせて**三段目の式**——
+   関門を越える確率 $p^{\mathrm{adv}}$、担い手の充足係数 $\eta_t$、燃料の増減——を、承認済みの BZM 3.0 本文 §2・§4 から
+   モデルページ本体へ転記した（記号の意味表つき。**新しい主張は導入していない**）。
+   さらに、モデルページ下部の式の一覧が旧 BZM 2.2 系列であることを、台帳の注記と画面の札の両方で明示した
+   （現行の顔で旧版が並ぶ状態を解消。抽出経路は変えない。一覧の入れ替えは実装移行と同じ段）。
 
 対象ファイル:
 - model/proposals/2026-08-24_step4_scoring-model-v3.md
@@ -887,4 +894,6 @@ $V = \int \mathbb{E}[\Pi(\omega) \mid \theta]\, dB_0(\theta)$ について、条
 - model/MODEL_VERSION_LEDGER.md
 - model/CURRENT.json
 
-反映commit: bbdf2edc（本文へ改訂9点・運用一式 approved・relock 14ファイル・changelog）
+（画面側の札は pwa/src/components/model の表示変更で、ロック対象の正本ではない）
+
+反映commit: bbdf2edc（本文へ改訂9点・運用一式 approved・relock 14ファイル・changelog）、追補は次の commit（台帳への式の転記・旧系列の明示）

@@ -45,10 +45,26 @@ export function ModelFormulaLayers({ canon }: { canon: FormulaCanon }) {
   return (
     <section id="formulas" className="mb-12 scroll-mt-20">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 className="text-base font-bold text-foreground">すべての式（{total}本）</h2>
+        <h2 className="text-base font-bold text-foreground">
+          すべての式（{total}本）<span className="ml-2 text-xs font-normal text-muted-foreground">旧 BZM 2.2 系列</span>
+        </h2>
         <a href="#symbols" className="text-xs text-indigo-600 underline hover:opacity-80">
           記号の一覧へ ↓
         </a>
+      </div>
+
+      {/* 2026-08-24: BZM 3.0 の採用で、この一覧が抽出している bzm/ の正本は旧系列になった
+          (APPROVALS #2026-08-24-10・#2026-08-24-11)。抽出経路はそのまま残し、版だけを明示する。
+          「現行の式」の顔で旧版が並ぶ状態を画面に作らないための札であって、内容は正本のまま。
+          一覧の入れ替えは 735件の評価を盤面へ移す実装移行と同じ段で行う。 */}
+      <div className="mb-4 rounded-md bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-900 ring-1 ring-amber-200">
+        <span className="font-bold">この一覧は旧 BZM 2.2 系列の式です。</span>
+        2026-08-24 に BZM 3.0 を採用したため退役しました。現行 BZM 3.0 の式（スコア・道筋の価値・関門を越える確率・
+        担い手の充足係数・燃料の増減）は、このページ上部の「手順4 の成果 — BZM 3.0」と、
+        <Link href="/model/2026-08-24_step4_scoring-model-v3" className="mx-1 text-indigo-700 underline hover:opacity-80">
+          BZM 3.0 本文
+        </Link>
+        にあります。一覧の入れ替えは実装移行と同じ段で行います。
       </div>
 
       {canon.unresolved > 0 ? (
