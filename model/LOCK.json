@@ -1,6 +1,6 @@
 {
-  "approval_ref": "2026-08-24-9",
-  "locked_at": "2026-08-24T19:58:09.533+09:00",
+  "approval_ref": "2026-08-24-10",
+  "locked_at": "2026-08-24T21:22:33.192+09:00",
   "frozen_versions": {
     "model_version": "sps-ind-tier0-v1",
     "measure_version": "sps-ind-v1",
@@ -51,11 +51,15 @@
     },
     {
       "path": "model/CURRENT.json",
-      "sha256": "4cf01a1fe7b41445b7e4226f02d0f1b022c0ecd22b148bb633ab20cfe1df47cb"
+      "sha256": "feb338d9c169136e9aaac7c55b6dd584555147f8a6d63c51134ec0ab917840a1"
     },
     {
       "path": "model/MODEL_VERSION_LEDGER.md",
-      "sha256": "8a0b0513c11288ce8dd951025620269c4b3ae1637e4c689331a80dc6db440c11"
+      "sha256": "4e4a2493d94e1f0ee7cb0b99950fda1fa18c561a9e82a48e24072314eb2f32a0"
+    },
+    {
+      "path": "model/proposals/2026-08-24_step4_scoring-model-v3.md",
+      "sha256": "718590e713a396644705139b0568fee1c693ff1f80f979b223f5496bb04e9267"
     }
   ]
 }

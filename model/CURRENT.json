@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-22",
+  "updated": "2026-08-24",
   "ledger_slug": "MODEL_VERSION_LEDGER",
   "series": [
     {
@@ -137,62 +137,45 @@
     },
     {
       "key": "bzm",
-      "title": "BZM 2.2 — 事業価値の動学",
+      "title": "BZM — 事業価値の動学（現行 3.0）",
       "status": {
-        "label": "pilot・前向き検証0件",
+        "label": "3.0 承認 2026-08-24・実装移行前",
         "tone": "warn"
       },
       "formula": {
-        "display": "八層状態 / J・P・Q・S",
+        "display": "V = ∫ E[Π(ω)|θ] dB₀(θ)",
         "parts": [
           {
             "type": "var",
-            "symbol": "状態",
-            "anchor": "bzm-state"
+            "symbol": "V",
+            "anchor": "bzm30"
           },
           {
             "type": "op",
-            "text": " / "
+            "text": " = ∫ "
           },
           {
             "type": "var",
-            "symbol": "J",
-            "anchor": "bzm-j"
+            "symbol": "E[Π(ω)|θ]",
+            "anchor": "bzm30"
           },
           {
             "type": "op",
-            "text": "・"
-          },
-          {
-            "type": "var",
-            "symbol": "P",
-            "anchor": "bzm-p"
-          },
-          {
-            "type": "op",
-            "text": "・"
-          },
-          {
-            "type": "var",
-            "symbol": "Q",
-            "anchor": "bzm-q"
-          },
-          {
-            "type": "op",
-            "text": "・"
-          },
-          {
-            "type": "var",
-            "symbol": "S",
-            "anchor": "bzm-s"
+            "text": " dB₀(θ)"
           }
         ]
       },
-      "summary": "支出が何を前進させ、ショック後にも勝ち筋を残せるかを、状態・制約・遷移で解く。本実装前（pilot画面は内部shadow試算）・未検証で、PJ間比較・投資判断・資源配分に使わない",
+      "summary": "一件の案件を月ごとに進む盤面として表し、登録された計画の規則の下で道筋を畳み込み、国内付加価値の純増の現在価値（円建ての帯）を出す。2026-08-24 に BZM 3.0 として承認（旧 2.2 の式は引き継がない）。735件の評価の移行・様式・分野別初期値・較正は次の段",
       "versions": {
-        "model_version": "bzm-2.2 provisional-pilot-v0.1"
+        "model_version": "bzm-3.0 theory-approved-2026-08-24"
       },
       "canonical": [
+        {
+          "slug": "2026-08-24_step4_scoring-model-v3",
+          "title": "BZM 3.0 — スコアリング模型（2026-08-24 承認）",
+          "path": "model/proposals/2026-08-24_step4_scoring-model-v3.md",
+          "status": "approved 2026-08-24 / APPROVALS #2026-08-24-10"
+        },
         {
           "slug": "bzm-2-2-strategic-slack-and-propulsion",
           "title": "BZM 2.2 — 戦略余力と推進力の動学",
@@ -260,9 +243,16 @@
         },
         {
           "date": "BZM 2.2",
-          "title": "戦略余力と推進力の動学（現行）",
+          "title": "戦略余力と推進力の動学",
           "formula": "八層状態 s_t / T_Y^2.2 / J・P・Q・S",
-          "note": "provisional-pilot-v0.1 / unvalidated。本実装前（pilot画面は内部shadow試算）、前向き検証0件、測定済みのqまたはq_rob、PJ間比較、投資判断、資源配分に使わない",
+          "note": "provisional-pilot-v0.1 / unvalidated。2026-08-24 の BZM 3.0 採用で旧版（式は 3.0 に引き継がれない）",
+          "anchor": "lineage-bzm"
+        },
+        {
+          "date": "BZM 3.0",
+          "title": "スコアリング模型（現行）",
+          "formula": "V = ∫ E[Π(ω)|θ] dB₀(θ)",
+          "note": "盤面（関門・二勘定の燃料・権利・会社化・受託・稼働用途・履歴）×体質の帯×登録された計画の規則で道筋を畳み込み、国内付加価値の純増（置き換えと反実仮想を控除）の現在価値を出す。2026-08-24 まさ承認（APPROVALS #2026-08-24-10）。735件の評価の移行は次の段",
           "anchor": "lineage-bzm"
         }
       ],
@@ -271,6 +261,13 @@
   ],
   "documents": {
     "canonical": [
+      {
+        "slug": "2026-08-24_step4_scoring-model-v3",
+        "title": "BZM 3.0 — スコアリング模型（2026-08-24 承認）",
+        "path": "model/proposals/2026-08-24_step4_scoring-model-v3.md",
+        "series": "bzm",
+        "locked": true
+      },
       {
         "slug": "sps-current-reachability-model",
         "title": "到達見込みモデル — 資金の崖が締切を作る",
@@ -408,6 +405,13 @@
     "proposals": [],
     "withdrawn": [
       {
+        "slug": "2026-08-22_sps-propulsion-and-slack",
+        "title": "SPS改訂案 — 到達確率を「天井 × 一巡の到達率 × 有効試行回数」へ分解する",
+        "path": "model/withdrawn/2026-08-22_sps-propulsion-and-slack.md",
+        "date": "2026-08-24",
+        "reason": "BZM 3.0（盤面模型）の採用で役目を失ったため取り下げ。この案が旧 SPS 式へ足そうとした変換能力と戦略余力は、3.0 では体質 c と燃料の二勘定・吸収壁として式に入った"
+      },
+      {
         "slug": "SPS_IND_PLAN_VALUE_CHECK_2026-08-21",
         "title": "含意年数チェック",
         "path": "bzm/SPS_IND_PLAN_VALUE_CHECK_2026-08-21.md",
@@ -420,7 +424,7 @@
     "headline": "SPS は BZM から独立した別系列ではなく、BZM の中の出力である。",
     "body": "SPS の式を定める到達見込みモデルは、正本自身が「固定方針下の到達見込みを定めた BZM 2.0 の履歴版」と位置づけている。到達見込み q の定義に入る T_Y（戦略余力が尽きる時点）は、BZM 2.2 が BZM 2.0 の定義を置き換えて供給する。正本の「合算しない・相互変換しない」は、同じモデルから出る別々の出力（推進力・戦略余力・動的正味PJ価値 J・成功条件付き価値 P・SPS）を同じ数値として扱うな、という運用規律であって、構造として無関係だという意味ではない。",
     "anchor": "lineage-relation",
-    "open_issue": "ただしこの接続はいま働いていない。推進力（変換能力）と戦略余力は SPS の式に記号として入っておらず、735件の q は11要因ルーブリックの判断帯で、BZM 2.2 の状態からは計算していない。改訂案を model/proposals/2026-08-22_sps-propulsion-and-slack.md に起票済み（未承認）。",
+    "open_issue": "この接続は移行中。2026-08-24 に BZM 3.0（盤面模型）が承認され、変換能力は体質 c、戦略余力は燃料の二勘定と吸収壁として式に入った。ただし735件の q は11要因ルーブリックの判断帯のままで、3.0 の盤面からは計算していない。移行手順は次の段（BZM 3.0 本文 §12）。旧 SPS 式へ推進力・余力を足す改訂案（2026-08-22）は取り下げた（model/withdrawn/）。",
     "open_issue_anchor": "lineage-relation",
     "corrected": "2026-08-22"
   }
