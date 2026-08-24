@@ -180,7 +180,9 @@ export function ModelSymbolIndex({ symbols }: { symbols: ModelSymbol[] }) {
   return (
     <section id="symbols" className="mb-12 scroll-mt-20">
       <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 className="text-base font-bold text-foreground">すべての記号（{symbols.length}個）</h2>
+        <h2 className="text-base font-bold text-foreground">
+          すべての記号（{symbols.length}個）<span className="ml-2 text-xs font-normal text-muted-foreground">旧 BZM 2.2 系列</span>
+        </h2>
         <a href="#formulas" className="text-xs text-indigo-600 underline hover:opacity-80">
           式の一覧へ ↑
         </a>
