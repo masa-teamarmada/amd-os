@@ -828,4 +828,4 @@ $V = \int \mathbb{E}[\Pi(\omega) \mid \theta]\, dB_0(\theta)$ について、条
 - model/CURRENT.json
 - model/proposals/2026-08-24_step4_scoring-model-v3.md
 
-反映commit: (未反映)
+反映commit: 734f681f（補訂2＝V^eq 削除）、ae13b800（採用・BZM 3.0・relock 13ファイル）
