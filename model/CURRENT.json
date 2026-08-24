@@ -174,7 +174,13 @@
           "slug": "2026-08-24_step4_scoring-model-v3",
           "title": "BZM 3.0 — スコアリング模型（2026-08-24 承認）",
           "path": "model/proposals/2026-08-24_step4_scoring-model-v3.md",
-          "status": "approved 2026-08-24 / APPROVALS #2026-08-24-10"
+          "status": "approved 2026-08-24 / 改訂1 反映済み / APPROVALS #2026-08-24-10・11"
+        },
+        {
+          "slug": "2026-08-24_bzm30-operating-kit-v2",
+          "title": "BZM 3.0 運用一式 第一便 — 様式4点と値3つ（2026-08-24 承認）",
+          "path": "model/proposals/2026-08-24_bzm30-operating-kit-v2.md",
+          "status": "approved 2026-08-24 / APPROVALS #2026-08-24-11"
         },
         {
           "slug": "bzm-2-2-strategic-slack-and-propulsion",
@@ -265,6 +271,13 @@
         "slug": "2026-08-24_step4_scoring-model-v3",
         "title": "BZM 3.0 — スコアリング模型（2026-08-24 承認）",
         "path": "model/proposals/2026-08-24_step4_scoring-model-v3.md",
+        "series": "bzm",
+        "locked": true
+      },
+      {
+        "slug": "2026-08-24_bzm30-operating-kit-v2",
+        "title": "BZM 3.0 運用一式 第一便 — 様式4点と値3つ（2026-08-24 承認）",
+        "path": "model/proposals/2026-08-24_bzm30-operating-kit-v2.md",
         "series": "bzm",
         "locked": true
       },
