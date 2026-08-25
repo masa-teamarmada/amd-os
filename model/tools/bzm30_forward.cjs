@@ -5,7 +5,7 @@
  *
  * 目的: 係数の分野別初期値 v2 を、紙の上の表ではなく計算で検査する。
  *   (a) 縮退検査: 工程の型4 × 規制属性3 で、評価期間内に M4 へ到達する確率と9区分の分布
- *   (b) 絶対水準の検算: 到達したシナリオに条件づけた M4 到達月数の中央値
+ *   (b) 絶対水準の検算: 到達したシナリオに条件づけた M4 到達月数の平均
  *   (c) 感度: 悲観束・楽観束と、係数ごとの弾力性
  *   (d) 単調性: 全係数の数値微分で符号を実測する
  *
@@ -20,14 +20,13 @@
  *   A6 天井を1に正規化する。出力の価値は「年額の国内純増1円あたりの現在価値」
  *
  * 担い手の充足は評価日からの経過月だけで決まる（AMD の供給過程・探索過程）ので状態に持たず、
- * 空席パターン32通りの厳密な期待値として毎月・ゲートごとに前計算する（近似ではない）。
+ * 空席パターン64通りの厳密な期待値として毎月・ゲートごとに前計算する（近似ではない）。
  */
 
-// ─────────────────────────────────────────────────────────── 係数（v2 の初期値）
+// ─────────────────────────────────────────────────────────── 係数（v3 の初期値）
 
 const CFG = {
   T: 240,                    // 評価期間（月）
-  S: 144,                    // 資金の格子の節点数（収束検査で決めた。sens/degen 共通）
   qLic: 0.60,                // 申し出で決着したとき、承継者が残りの市場ゲートを越える確率（根拠レベル C）
   d: 0.020,                  // 社会的割引率（年・実質）
   planDeadline: 60,          // 計画期限（月）。期限内／期限後の資本自立を分ける
@@ -75,7 +74,7 @@ const CFG = {
   nuLic: 0.0030, nuIps: 0.0010, nuMA: 0.0008,
   mgOffer: [0.20, 0.35, 0.50, 1.00, 1.60, 2.20, 2.50],
   nuC: 0.05,                 // 受託の申し出（型によらず一本）
-  rRef: 80,                  // 万円／月（4型の r 既定の幾何平均）
+  rRef: 69.3,                // 万円／月（4型の r 既定 {60,60,80,80} の幾何平均）
   mgNuC: [0.5, 0.5, 0.8, 0.8, 1.3, 1.3, 1.3],
   contractExit: 1 / 12,      // 受託契約の満了ハザード
 
@@ -179,19 +178,20 @@ function buildPositions(type, reg, cfg) {
     const g = seq[gi];
     gateStart.push(pos.length);
     const rg = REG_GATES[g];
-    let M, kind, mainKey, pass = 1.0;
+    let M, kind, mainKey, pass = 1.0, Mnom;
     if (rg) {
-      M = rg.M * cfg.scale; kind = rg.kind; mainKey = rg.main; pass = rg.pass;
+      Mnom = rg.M; M = rg.M * cfg.scale; kind = rg.kind; mainKey = rg.main; pass = rg.pass;
     } else {
-      M = cfg.Mg[type][g] * cfg.scale;
+      Mnom = cfg.Mg[type][g]; M = cfg.Mg[type][g] * cfg.scale;
       kind = (g[0] === 'T') ? 'tech' : 'market';
       mainKey = g;
     }
-    // M が小さいゲートは2段構成を適用しない（下限処理で規約が破れる）
-    const mmin = (M <= 2) ? 0 : Math.max(1, Math.round(M * cfg.minShare));
-    const mres = Math.max(1, M - mmin);
+    // 名目 M が小さいゲートは待ち時間を持たせない（準備＋審査だけにする）。判定は scale を掛ける前で行う
+    const tiny = (Mnom <= 2);
+    const mmin = tiny ? Math.max(1, Math.round(M)) : Math.max(1, Math.round(M * cfg.minShare));
+    const mres = tiny ? 0 : Math.max(1, M - mmin);
     for (let k = 0; k < mmin; k++) pos.push({ gi, gate: g, role: 'prep', mainKey, kind });
-    pos.push({ gi, gate: g, role: 'hazard', mainKey, kind, kres: 1 / mres, pass: (kind === 'tech' && rg) ? pass : 1.0 });
+    if (mres > 0) pos.push({ gi, gate: g, role: 'hazard', mainKey, kind, kres: 1 / mres, pass: (kind === 'tech' && rg) ? pass : 1.0 });
     if (rg && rg.review) {
       for (let k = 0; k < rg.review; k++) pos.push({ gi, gate: g, role: 'review', mainKey, kind });
       pos[pos.length - 1].reviewEnd = true;
@@ -319,7 +319,7 @@ function runOne(type, reg, cfg, theta) {
   let i0 = 1; while (i0 < S - 1 && grid[i0 + 1] <= s0) i0++;
   cur[i0 * st_s + cfg.R0 * st_R] = 1;
 
-  const O = { indep_in: 0, indep_out: 0, lic: 0, ma: 0, ips: 0, pivot: 0, exit: 0, liq: 0, cont: 0 };
+  const O = { indep_in: 0, indep_out: 0, indep_m4: 0, indep_rev: 0, lic: 0, ma: 0, ips: 0, pivot: 0, exit: 0, liq: 0, cont: 0 };
   let vAcc = 0, vIn = 0, m4mass = 0, m4monthSum = 0;
 
   // 前計算: 月 × 位置の前進確率、担い手乗数
@@ -385,7 +385,7 @@ function runOne(type, reg, cfg, theta) {
       const pLic = 1 - Math.exp(-cfg.nuLic * moBase);
       const pIps = 1 - Math.exp(-cfg.nuIps * moBase);
       const pMA = 1 - Math.exp(-cfg.nuMA * moBase);
-      const phiEff = Math.min(0.70, cfg.phiBase * sgPhi * cfg.mgPhi[stage] * pm);
+      const phiEff = Math.min(0.70, Math.max(0.03, cfg.phiBase * sgPhi * cfg.mgPhi[stage] * pm));
       const pAward = cfg.oppRate * phiEff;
       const pEqBase = 1 - Math.exp(-cfg.nuEq * cfg.mgPhi[stage] * sgPhi * nm);
       const zEqV = cfg.zEq[reg];
@@ -453,7 +453,7 @@ function runOne(type, reg, cfg, theta) {
 
                 if (reached) {
                   m4mass += wP; m4monthSum += wP * t;
-                  vAcc += wP * tail; vIn += wP * tailIn;
+                  vAcc += wP * tail; vIn += wP * tailIn; O.indep_m4 += wP;
                   if (t <= cfg.planDeadline) O.indep_in += wP; else O.indep_out += wP;
                   continue;
                 }
@@ -470,6 +470,7 @@ function runOne(type, reg, cfg, theta) {
 
                 // 6. 資本自立（反復可能な稼ぎが必要支出を賄う）
                 if (income >= mu) {
+                  O.indep_rev += wP;
                   if (t <= cfg.planDeadline) O.indep_in += wP; else O.indep_out += wP;
                   vAcc += wP * tail * 0.35; vIn += wP * tailIn * 0.35;
                   continue;
@@ -541,15 +542,15 @@ if (require.main === module) {
 
   if (mode === 'degen') {
     console.log('# 縮退検査 — 工程の型 × 規制属性（Tier 0 既定、天井=1 に正規化）\n');
-    console.log('| 型 | 規制 | ゲート数 | M4到達 | 到達月数の平均 | 資本自立 | ライセンス | 知財売却 | M&A | 撤退 | 清算 | 未決着 | V(10%) | V(中央) | V(90%) | 継続価値の比率 |');
-    console.log('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+    console.log('| 型 | 規制 | ゲート数 | M4到達 | 到達月数の平均 | 資本自立 | うちM4由来 | うち反復収入由来 | ライセンス | 知財売却 | M&A | 撤退 | 清算 | 未決着 | V(10%) | V(中央) | V(90%) | 継続価値の比率 |');
+    console.log('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
     for (const type of ['F1','F2','F3','F4']) {
       for (const reg of ['REG0','REG1','REG2']) {
         const t0 = Date.now();
         const r = runTheta(type, reg, CFG);
         const o = r.outcome;
         const pc = (x) => (100 * (x || 0)).toFixed(1) + '%';
-        console.log(`| ${type} | ${reg} | ${r.seq.length} | ${pc(r.pM4)} | ${r.m4mean ? r.m4mean.toFixed(0) + 'か月' : '—'} | ${pc((o.indep_in||0)+(o.indep_out||0))} | ${pc(o.lic)} | ${pc(o.ips)} | ${pc(o.ma)} | ${pc(o.exit)} | ${pc(o.liq)} | ${pc(o.cont)} | ${r.v10.toFixed(3)} | ${r.v50.toFixed(3)} | ${r.v90.toFixed(3)} | ${r.cRatio!==null?pc(r.cRatio):'—'} |`);
+        console.log(`| ${type} | ${reg} | ${r.seq.length} | ${pc(r.pM4)} | ${r.m4mean ? r.m4mean.toFixed(0) + 'か月' : '—'} | ${pc((o.indep_in||0)+(o.indep_out||0))} | ${pc(o.indep_m4)} | ${pc(o.indep_rev)} | ${pc(o.lic)} | ${pc(o.ips)} | ${pc(o.ma)} | ${pc(o.exit)} | ${pc(o.liq)} | ${pc(o.cont)} | ${r.v10.toFixed(3)} | ${r.v50.toFixed(3)} | ${r.v90.toFixed(3)} | ${r.cRatio!==null?pc(r.cRatio):'—'} |`);
       }
     }
   }
@@ -605,6 +606,18 @@ if (require.main === module) {
       // 割引率の感度
       for (const dd of [0.01, 0.04]) { const cc = clone(base); cc.d = dd; process.stdout.write(`d=${dd}: ${runOne(type,reg,cc,th).v.toFixed(4)}  `); }
       console.log('');
+    }
+  }
+
+  if (mode === 'conv') {
+    console.log('# 格子の収束検査（θ は中央値の1点。刻み＝会社化前バーンレートの 1/n）\n');
+    console.log('| 組 | 1/1 | 1/2（採用） | 1/4 | 1/8 | 1/2 対 1/4 | 1/2 対 1/8 |');
+    console.log('|---|---|---|---|---|---|---|');
+    for (const [type, reg] of [['F1','REG0'],['F2','REG0'],['F3','REG0'],['F4','REG0'],['F1','REG2']]) {
+      const th = { c: 1.0, psi: CFG.psiByStage[0], sigma: 0, e: CFG.eMed, r: CFG.rDef[type] * (1 - CFG.rZeroProb) };
+      const vs = [1,2,4,8].map(gf => { const cc = clone(CFG); cc.gridFine = gf; return runOne(type, reg, cc, th).v; });
+      const pc = (a,b) => (100 * Math.abs(a - b) / b).toFixed(2) + '%';
+      console.log(`| ${type}×${reg} | ${vs[0].toFixed(4)} | ${vs[1].toFixed(4)} | ${vs[2].toFixed(4)} | ${vs[3].toFixed(4)} | ${pc(vs[2],vs[1])} | ${pc(vs[3],vs[1])} |`);
     }
   }
 
