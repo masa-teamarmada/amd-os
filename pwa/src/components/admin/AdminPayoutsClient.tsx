@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CockpitMonthlyModal } from "@/components/cockpit/CockpitMonthlyModal";
+import { MemberPayoutBreakdownModal } from "@/components/admin/MemberPayoutBreakdownModal";
 import { fetchCockpitFromSupabase, type CockpitData } from "@/lib/supabase-data";
 import { expandExtraRevenueCash, type ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 import { basePayoutCapYen, contractBackedClientAmount } from "@/lib/contract-money";
@@ -1430,6 +1431,9 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
   const [loading, setLoading] = useState(false);
   const [hint, setHint] = useState(() => initialPayload ? payoutDataHint(initialPayload.ym, initialPayload, Boolean(initialPayload.refreshedRewards)) : "");
   const [modalTarget, setModalTarget] = useState<ModalTarget | null>(null);
+  const [breakdownTarget, setBreakdownTarget] = useState<
+    { projectId: string; ym: string; memberId: string; label: string } | null
+  >(null);
   const [noticeSavingMemberId, setNoticeSavingMemberId] = useState<string | null>(null);
   const [noticeMailModal, setNoticeMailModal] = useState<NoticeMailModalState | null>(null);
   const [noticeMailLoading, setNoticeMailLoading] = useState(false);
@@ -2537,7 +2541,14 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                             <button
                               type="button"
                               key={entryKey(entry)}
-                              onClick={() => openMonthlyModal(entry.projectId, entry.ym, `${project?.project_name ?? entry.projectId} ${fmtYm(entry.ym)}`)}
+                              onClick={() =>
+                                setBreakdownTarget({
+                                  projectId: entry.projectId,
+                                  ym: entry.ym,
+                                  memberId: entry.memberId,
+                                  label: `${row.memberName} / ${project?.project_name ?? entry.projectId} / ${fmtYm(entry.ym)} 稼働分`,
+                                })
+                              }
                               className="flex w-full flex-wrap items-center gap-x-2 gap-y-0.5 rounded px-1 py-0.5 text-left text-[11px] hover:bg-muted/60 focus:outline-none focus:ring-1 focus:ring-foreground/20"
                             >
                               <span className="font-medium">{project?.project_name ?? entry.projectId}</span>
@@ -2762,6 +2773,26 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           cockpit={cockpitCache[modalTarget.projectId]}
           ym={modalTarget.ym}
           onClose={closeMonthlyModal}
+        />
+      )}
+
+      {breakdownTarget && (
+        <MemberPayoutBreakdownModal
+          key={`${breakdownTarget.projectId}:${breakdownTarget.ym}:${breakdownTarget.memberId}`}
+          projectId={breakdownTarget.projectId}
+          ym={breakdownTarget.ym}
+          memberId={breakdownTarget.memberId}
+          fallbackLabel={breakdownTarget.label}
+          onClose={() => setBreakdownTarget(null)}
+          onOpenMsProgress={() => {
+            const target = breakdownTarget;
+            setBreakdownTarget(null);
+            void openMonthlyModal(
+              target.projectId,
+              target.ym,
+              `${projectMap.get(target.projectId)?.project_name ?? target.projectId} ${fmtYm(target.ym)}`
+            );
+          }}
         />
       )}
 
