@@ -45,6 +45,13 @@ function isAuthorized(req: NextRequest): boolean {
   return bearer === secret || req.nextUrl.searchParams.get("secret") === secret;
 }
 
+function addMonthsYm(ym: string, delta: number): string {
+  const year = Number(ym.slice(0, 4));
+  const month = Number(ym.slice(4, 6));
+  const date = new Date(Date.UTC(year, month - 1 + delta, 1));
+  return `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 function ymStart(ym: string): string {
   return `${ym.slice(0, 4)}-${ym.slice(4, 6)}-01`;
 }
@@ -231,12 +238,23 @@ export async function GET(req: NextRequest) {
   const db = createAdminClient();
 
   try {
-    const [groups, deals, walletTxns, paymentKeywords] = await Promise.all([
-      loadPaymentConfirmationGroups(db, paymentYm, { includeConfirmed }),
+    // 入金は推定した支払月より早く着くことがある (請求書を実際に送った日が台帳に無いと、
+    // 支払月の推定は保守的に後ろへずれる)。当月の入金明細で、先2か月ぶんの請求も照合する。
+    const groupYms = [paymentYm, addMonthsYm(paymentYm, 1), addMonthsYm(paymentYm, 2)];
+    const [groupSets, deals, walletTxns, paymentKeywords] = await Promise.all([
+      Promise.all(groupYms.map((ym) => loadPaymentConfirmationGroups(db, ym, { includeConfirmed }))),
       fetchIncomeDeals(paymentYm),
       fetchIncomeWalletTxns(paymentYm),
       loadPaymentMatchKeywords(db),
     ]);
+
+    const groupByKey = new Map<string, (typeof groupSets)[number][number]>();
+    for (const set of groupSets) {
+      for (const group of set) {
+        if (!groupByKey.has(group.key)) groupByKey.set(group.key, group);
+      }
+    }
+    const groups = [...groupByKey.values()];
 
     const results: Array<{
       projectId: string;
@@ -285,6 +303,10 @@ export async function GET(req: NextRequest) {
           exp: Date.now() + 60_000,
         }, {
           amountYen,
+          receivedOn:
+            (match ? (match.payments ?? []).map((payment) => payment.date).filter(Boolean)[0] : null) ||
+            walletMatch?.date ||
+            null,
           source: match ? "freee_deal" : "freee_wallet_txn",
           actor: "freee:auto",
           note: match ? "freee paid income deal matched" : "freee income wallet transaction matched",

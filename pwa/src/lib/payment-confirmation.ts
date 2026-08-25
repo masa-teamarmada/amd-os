@@ -64,6 +64,8 @@ export async function confirmPaymentGroup(
     actor: string;
     note?: string | null;
     freeePayload?: Record<string, unknown> | null;
+    /** 実際の入金日 (freee の取引日)。分かるときは確認時刻ではなくこちらを残す */
+    receivedOn?: string | null;
   }
 ): Promise<{ updated: number; alreadyConfirmed: number }> {
   const sourceYms = [...new Set(payload.sourceYms)].filter((ym) => /^\d{6}$/.test(ym));
@@ -78,11 +80,14 @@ export async function confirmPaymentGroup(
   if (!cycles?.length) throw new Error("target billing cycles not found");
 
   const now = new Date().toISOString();
+  const receivedAt = /^\d{4}-\d{2}-\d{2}$/.test(String(input.receivedOn ?? ""))
+    ? `${input.receivedOn}T00:00:00.000Z`
+    : now;
   const alreadyConfirmed = cycles.filter((cycle) => cycle.payment_confirmed_at).length;
   const { error: updateError } = await db
     .from("billing_cycles")
     .update({
-      payment_confirmed_at: now,
+      payment_confirmed_at: receivedAt,
       payment_confirmed_by: input.actor,
       status: "payment_confirmed",
       updated_at: now,
