@@ -1105,4 +1105,4 @@ $V = \int \mathbb{E}[\Pi(\omega) \mid \theta]\, dB_0(\theta)$ について、条
 対象ファイル:
 - （正本 md の変更なし。ロックの対象は変わらない）
 
-反映commit: (未反映)
+反映commit: b05ec620
