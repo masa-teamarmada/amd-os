@@ -1075,4 +1075,4 @@ $V = \int \mathbb{E}[\Pi(\omega) \mid \theta]\, dB_0(\theta)$ について、条
 対象ファイル:
 - model/MODEL_VERSION_LEDGER.md
 
-反映commit: (未反映)
+反映commit: dd459a82
