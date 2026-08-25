@@ -928,6 +928,9 @@ $V = \int \mathbb{E}[\Pi(\omega) \mid \theta]\, dB_0(\theta)$ について、条
    統合前の全文は git 履歴に残る。監査報告と改訂の記録は経緯の文書として別に残す。
 3. ロック対象から `model/proposals/` 配下を外す（承認済みの定義が提案中の置き場に居る状態を解消）。
 4. 機械の防波堤: ロック一覧に `model/proposals/` 配下が入っていたら検査を落とす（同じ事故の再発防止）。
+5. 統合に伴う文言の整え（**定義・式・値は変えない**）: 別文書だった頃の「第2案に無かった部分」「第1案の局所化は撤回」
+   のような草案どうしの差分の説明を、正本の文としての言い方へ直した。「この文書」「本文」という自己参照を
+   §5・§6 の節番号へ置き換えた。監査の記録の節（5.13・6.H）はそのまま残す。
 
 対象ファイル:
 - model/MODEL_VERSION_LEDGER.md
@@ -937,4 +940,4 @@ $V = \int \mathbb{E}[\Pi(\omega) \mid \theta]\, dB_0(\theta)$ について、条
 - model/proposals/2026-08-24_step4_scoring-model-v3.md
 - model/proposals/2026-08-24_bzm30-operating-kit-v2.md
 
-反映commit: (未反映)
+反映commit: 7c8c6671（統合・スタブ化・ロック12件・guard 追加）、および次の commit（文言の整え）
