@@ -132,6 +132,7 @@
     "test:workspace-email-start-contract": "node scripts/check_workspace_email_start_contract.mjs",
     "test:workspace-next-path": "node --experimental-strip-types scripts/check_workspace_next_path.mts",
     "test:project-workspace-route": "node scripts/check_project_workspace_route_contract.mjs",
+    "test:zmp-workspace-themes": "node scripts/check_zmp_workspace_themes.mjs",
     "test:sx-shared-control-migration": "node scripts/check_sx_shared_control_migration_contract.mjs",
     "test:shared-project-control-core": "node --experimental-strip-types scripts/check_shared_project_control_core.mts",
     "test:three-lens-project-control": "node scripts/check_three_lens_project_control_runtime.mjs",

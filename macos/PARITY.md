@@ -1,6 +1,6 @@
 # AMD OS macOS 開発用対応台帳
 
-最終更新: 2026-08-19
+最終更新: 2026-08-26
 
 > **現行SPS override（2026-08-18）**: `amdScore` / `amdScoreDetail` / HUD / dashboard / cyberspaceのactive routeは`/api/hud/dashboard`の現行SPS DTOだけを読む。完全版組は`sps-ind-tier0-v1 / sps-ind-v1 / q-eval-v2 / rubric-v1.1 / p-ind-v1 / rubric-v1.1+ind-v1`。旧スコアrouteは退役表示へ収束し、`AMDOSRESTClient`が旧3テーブルの読取・更新・追加・upsert・削除を拒否する。下表の旧AMD Score記述は履歴であり非規範。
 
@@ -25,7 +25,7 @@ PWAロゴ正本をプロジェクト内へ同期し、AppIconの各サイズは�
 |---|---|---|---|---|---|
 | `/auth/login`, `/auth/callback` | `account` | Supabase Auth + 透過 `AMDLogoMark.imageset` | Supabase OAuth PKCE + PWA共有workspace access DTO | 本人 / PJ限定member | 実装済み。AppIconと同じAMDロゴmarkを白背景に表示。Google callbackはASWebAuthenticationSessionとSwiftUI `onOpenURL`の両方からPKCE sessionへ戻す。PWAと同じAMDメンバー / PJ限定の二入口を持ち、PJ限定時は通常OSではなくworkspaceだけを開く。実認証は未確認 |
 | `/dashboard`, `/mypage` | `today`, `projects` | `projects`, iOS MyPage、認可済み通知配送結果 | 既存PJ安全API | member | 実装済み。PJ一覧と今日の確認件数。通知の直接テーブル取得はしない |
-| `/my-projects`, `/project/[projectId]/workspace` | `myProjects`, `projectWorkspace` | PWA共有 `getCurrentMemberAccess` / `getProjectWorkspaceBundle` DTO | `POST /api/project-workspace/[projectId]/effort` | PJ限定member / portfolio member | **P0 Native 実装済み**。参加設定済みPJのみの一覧、週次の予定/実績入力、メンバー別配分、MS、活動件数・source集計、6週推移をSwiftUIで実装。PJ限定ユーザーは通常のSupabase table readを使わず共有DTOだけを読む。PWA実データでの確認・書込みは未実施 |
+| `/my-projects`, `/project/[projectId]/workspace` | `myProjects`, `projectWorkspace` | PWA共有 `getCurrentMemberAccess` / `getProjectWorkspaceBundle` DTO | `POST /api/project-workspace/[projectId]/effort` | PJ限定member / portfolio member | **P0 Native 実装済み（テーマ進捗は未移植）**。参加設定済みPJのみの一覧、週次の予定/実績入力、メンバー別配分、MS、活動件数・source集計、6週推移をSwiftUIで実装。2026-08-26にPWAへ追加したp19の3テーマ（OkuDoor / 葛飾水素循環 / KR経営改革）、9成果目標の3/2/4接続、予定進行と確定進捗の区別、AMD内部のホーム/コックピット導線はNative未移植。PJ限定ユーザーは通常のSupabase table readを使わず共有DTOだけを読む。PWA実データでの確認・書込みは未実施 |
 | `/project/[projectId]/cockpit`, `/project/[projectId]/config`, `/project/[projectId]/report/[ym]/print` | `projectCockpit`, `projectConfig`, `projectReportPrint` | Cockpit / `projects`, `ms_*`, `billing_cycles`, `project_meeting_summaries`、提出用月次集約 | PWA既存の進捗・月次ノート・報酬同期・MS修正・資料・会議・レポートAPI | member / APIごとの権限 | Native実装。`ym`/`tab`/`meeting`/`document` deep link (`tab=cost-model` = コスト試算)、PJ資料のDrive導線とMarkdown本文のPWA同一PATCH、助成金台帳への既存管理導線、戦略シグナルの修正履歴と `dialog/start → refine → confirm`、会議履歴の再読込・全件表示、`monthly-report-print`集約値をA4標準印刷で全章出力する。実認証・実書込み・実印刷は未確認 |
 | `/notifications` | `notifications` | Codex審査済みかつまさ本人のaction contractが完全な`app_notifications`（直接再認証だけ例外）、`l2_notifications`の`attention_state='approved' AND requires_masa_decision=true`、各通知のPWA正本行、要対応API | `read_at` / `dismissed_at` のPWA同一RLS更新、`/api/action-items`、`/api/notifications/feedback` | admin | 実装済み。writerの宣言だけではOS通知へ出さず、L2もCodex審査済みのまさ判断だけ。`meeting_notifications`は会議記録として保持し、通知・未読数・判断キューへ混ぜない |
 | `/reimburse` | `reimbursements` | `reimbursements`、active PJ、member role、private receipt Storage | `/api/reimbursements` の本人作成・更新・削除、PWA同一RLSのPM/admin承認 | member / PM / admin | 実装済み。submitted → PM承認 → admin承認、差戻し/却下、既存領収書の1時間署名URL、編集・削除確認を実装 |

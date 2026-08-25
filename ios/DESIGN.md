@@ -11,7 +11,7 @@
 > - えいみ（Win側 Android担当）が「これ知らない画面なんだけど…」となったら必ずここを参照する
 > - えいみがここを見て知らない画面があるならアラート → 即同期する
 >
-> 最終更新: 2026-08-23 (PWA PJコックピット/PJワークスペースに「コスト試算」タブを追加)
+> 最終更新: 2026-08-26 (PWA p19 PJワークスペースに「テーマ進捗」を追加)
 
 ---
 
@@ -38,6 +38,11 @@ PWAの全route・重要UI・iOS画面の対応状況は `../macos/PARITY.md` を
 > 確度別の内訳と精度を下げている項目」が読めることを要件にしている。未登録PJは空状態を出す。
 > 実装: `pwa/src/lib/project-cost-model.ts`（純関数）/ `pwa/src/components/cockpit/CockpitCostModel.tsx`。
 > 行ごとに `visibility`（`amd_internal` / `workspace_shared`）を持ち、外部公開する行を選べる。
+
+> **PWA専用機能（Native未移植）**: p19 PJワークスペース `#theme-progress` の「テーマ進捗」
+> （2026-08-26追加）。`OkuDoor` / `葛飾水素循環` / `KR経営改革` の3テーマへ既存9 value milestoneを
+> 3/2/4件で接続し、各成果目標の進捗・根拠種別・更新日・目標月を表示する。テーマ平均は作らず、
+> `routine_auto` は確定実績と区別して「予定進行」と表示する。macOS/iOS Nativeへの移植は未着手。
 
 ---
 

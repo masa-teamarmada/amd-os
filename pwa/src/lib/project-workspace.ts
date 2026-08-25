@@ -87,6 +87,26 @@ export type ProjectWorkspaceBundle = {
     progressPct: number;
     progressYm: string | null;
     targetYm: string | null;
+    progressSource: string | null;
+    progressConfirmedAt: string | null;
+    progressRecordedAt: string | null;
+  }>;
+  themes: Array<{
+    themeKey: string;
+    label: string;
+    shortLabel: string;
+    accent: string;
+    sortOrder: number;
+    milestones: Array<{
+      milestoneId: string;
+      title: string;
+      progressPct: number;
+      progressYm: string | null;
+      targetYm: string | null;
+      progressSource: string | null;
+      progressConfirmedAt: string | null;
+      progressRecordedAt: string | null;
+    }>;
   }>;
   evidenceByMonth: Array<{ ym: string; count: number }>;
   evidenceBySource: Array<{ source: string; count: number; lastObservedAt: string | null; scope: "member" | "project" }>;
@@ -287,13 +307,15 @@ export async function getProjectWorkspaceBundle(
   // waterfall made a reload pay both costs. Start it in the same fan-out and
   // make the response wait only for the slowest branch.
   const canManage = access.scope === "portfolio" || access.isAdmin;
-  const [identity, { data: activityRows, error: activityError }, { data: effortRows, error: effortError }, { data: tallyRows, error: tallyError }, { data: planCycleRows, error: planError }, { data: sourceCacheRows, error: sourceCacheError }, sxManagement] = await Promise.all([
+  const [identity, { data: activityRows, error: activityError }, { data: effortRows, error: effortError }, { data: tallyRows, error: tallyError }, { data: planCycleRows, error: planError }, { data: sourceCacheRows, error: sourceCacheError }, { data: trackRows, error: trackError }, { data: vmRows, error: vmError }, sxManagement] = await Promise.all([
     getWorkspaceIdentityCached(projectId),
     db.from("member_activities").select("member_id,ym,source,item_date,raw_metadata").eq("project_id", projectId).gte("ym", months[0]).limit(5000),
     db.from("project_weekly_effort_entries").select("member_id,week_start,work_category,planned_hours,actual_hours,source_kind,management_track,management_milestone_id,deliverable_label").eq("project_id", projectId).gte("week_start", weeks[0]).limit(5000),
     db.from("tally_weekly_effort_entries").select("week_start,development_hours,meeting_hours,synced_at").eq("project_id", projectId).eq("member_id", "ID001").gte("week_start", weeks[0]).limit(100),
     db.from("value_plan_cycles").select("plan_cycle_id,status,period_start_ym,period_end_ym").eq("project_id", projectId).order("created_at", { ascending: false }).limit(20),
     db.from("source_cache").select("source,item_id,item_date").eq("project_id", projectId).gte("item_date", sixMonthStartIso).in("source", ["slack", "drive"]).limit(5000),
+    db.from("project_management_tracks").select("track_key,label,short_label,accent,sort_order").eq("project_id", projectId).order("sort_order"),
+    db.from("project_management_track_value_milestones").select("milestone_id,track_key,sort_order").eq("project_id", projectId).order("sort_order").limit(40),
     getSxManagementBundle(projectId, canManage),
   ]);
 
@@ -303,6 +325,8 @@ export async function getProjectWorkspaceBundle(
   if (tallyError) throw new Error(`project workspace tally effort: ${tallyError.message}`);
   if (planError) throw new Error(`project workspace plan: ${planError.message}`);
   if (sourceCacheError) throw new Error(`project workspace source cache: ${sourceCacheError.message}`);
+  if (trackError) throw new Error(`project workspace tracks: ${trackError.message}`);
+  if (vmError) throw new Error(`project workspace track milestones: ${vmError.message}`);
 
   const { project, membershipRows, memberNames: memberNameRows } = identity;
   const memberDisplayNames = new Map(
@@ -380,6 +404,8 @@ export async function getProjectWorkspaceBundle(
 
   const currentPlan = (planCycleRows ?? []).find((row) => row.status === "active") ?? (planCycleRows ?? [])[0] ?? null;
   let milestones: ProjectWorkspaceBundle["milestones"] = [];
+  let themes: ProjectWorkspaceBundle["themes"] = [];
+
   if (currentPlan?.plan_cycle_id) {
     const { data: milestoneRows, error: milestoneError } = await db
       .from("value_milestones")
@@ -389,12 +415,13 @@ export async function getProjectWorkspaceBundle(
       .order("sort_order")
       .limit(40);
     if (milestoneError) throw new Error(`project workspace milestones: ${milestoneError.message}`);
+
     const milestoneIds = (milestoneRows ?? []).map((row) => String(row.milestone_id));
-    let progressRows: Array<{ milestone_key: string; ym: string; progress_pct: number }> = [];
+    let progressRows: Array<{ milestone_key: string; ym: string; progress_pct: number; source: string | null; confirmed_at: string | null; created_at: string | null }> = [];
     if (milestoneIds.length > 0) {
       const { data, error } = await db
         .from("milestone_monthly_progress")
-        .select("milestone_key,ym,progress_pct")
+        .select("milestone_key,ym,progress_pct,source,confirmed_at,created_at")
         .in("milestone_key", milestoneIds)
         .order("ym", { ascending: false });
       if (error) throw new Error(`project workspace progress: ${error.message}`);
@@ -402,9 +429,13 @@ export async function getProjectWorkspaceBundle(
         milestone_key: String(row.milestone_key),
         ym: String(row.ym),
         progress_pct: Number(row.progress_pct || 0),
+        source: row.source ? String(row.source) : null,
+        confirmed_at: row.confirmed_at ? String(row.confirmed_at) : null,
+        created_at: row.created_at ? String(row.created_at) : null,
       }));
     }
-    milestones = (milestoneRows ?? []).slice(0, 8).map((row) => {
+
+    milestones = (milestoneRows ?? []).map((row) => {
       const progress = progressRows.find((item) => item.milestone_key === String(row.milestone_id));
       return {
         milestoneId: String(row.milestone_id),
@@ -412,8 +443,68 @@ export async function getProjectWorkspaceBundle(
         progressPct: Math.max(0, Math.min(100, Number(progress?.progress_pct || 0))),
         progressYm: progress?.ym ?? null,
         targetYm: row.target_ym ? String(row.target_ym) : null,
+        progressSource: progress?.source ?? null,
+        progressConfirmedAt: progress?.confirmed_at ?? null,
+        progressRecordedAt: progress?.created_at ?? null,
       };
     });
+
+    // Bridge track milestones to themes
+    const milestoneById = new Map(
+      milestones.map((m) => [m.milestoneId, m]),
+    );
+
+    const tracksByKey = new Map<string, { label: string; shortLabel: string; accent: string; sortOrder: number }>();
+    for (const track of trackRows ?? []) {
+      const trackKey = track.track_key ? String(track.track_key) : null;
+      if (!trackKey) continue;
+      tracksByKey.set(trackKey, {
+        label: String(track.label || ""),
+        shortLabel: String(track.short_label || ""),
+        accent: String(track.accent || ""),
+        sortOrder: Number(track.sort_order || 0),
+      });
+    }
+
+    themes = (vmRows ?? [])
+      .filter((vm) => {
+        const trackKey = vm.track_key ? String(vm.track_key) : null;
+        return trackKey && tracksByKey.has(trackKey);
+      })
+      .reduce(
+        (acc, vm) => {
+          const trackKey = String(vm.track_key);
+          const milestoneId = String(vm.milestone_id);
+          const milestone = milestoneById.get(milestoneId);
+          if (!milestone) return acc;
+
+          let theme = acc.find((t) => t.themeKey === trackKey);
+          if (!theme) {
+            const trackInfo = tracksByKey.get(trackKey);
+            if (!trackInfo) return acc;
+            theme = {
+              themeKey: trackKey,
+              label: trackInfo.label,
+              shortLabel: trackInfo.shortLabel,
+              accent: trackInfo.accent,
+              sortOrder: trackInfo.sortOrder,
+              milestones: [],
+            };
+            acc.push(theme);
+          }
+          theme.milestones.push(milestone);
+          return acc;
+        },
+        [] as Array<{
+          themeKey: string;
+          label: string;
+          shortLabel: string;
+          accent: string;
+          sortOrder: number;
+          milestones: (typeof milestones)[0][];
+        }>,
+      )
+      .sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder));
   }
 
   const evidenceByMonth = months.map((ym) => ({
@@ -519,6 +610,7 @@ export async function getProjectWorkspaceBundle(
     },
     members,
     milestones,
+    themes,
     evidenceByMonth,
     evidenceBySource,
     weeklyTrend,

@@ -1,7 +1,7 @@
 # SPEC.md — Project Share 恒久仕様
 
 正本。PJ別インスタンスの実装詳細は各インスタンスの `README.md`（[`vsx/README.md`](vsx/README.md)、
-[`cx/README.md`](cx/README.md)、[`se/README.md`](se/README.md)、[`zmp/README.md`](zmp/README.md)、
+[`cx/README.md`](cx/README.md)、[`se/README.md`](se/README.md)、
 [`kute/README.md`](kute/README.md)）を見る。ここには、インスタンス横断で守るべき
 恒久仕様だけを置く。
 
@@ -109,3 +109,7 @@ Vercelプロジェクトとし、AMD OS PWA 本体の認証・データとは分
   ようにした。エラーメッセージはメールアドレスの存在有無を漏らさない共通表示に統一した。
 - 2026-08-19: SXをProject Shareから退役。旧Vercelプロジェクト・サブドメイン・Blobは廃止し、
   外部資料共有はAMD OSの明示的なPJ権限と`workspace_documents`へ統合した。
+- 2026-08-26: ZMPをProject Shareから退役。旧Blob 28件をAMD OSのZMPワークスペースへ移行したうえで、
+  旧Vercelプロジェクト・ドメイン関連付け・Blob store・`services/project-share/zmp`実装を廃止した。
+  外部資料共有とテーマ進捗の正本は`/project/p19/workspace`と`workspace_documents`へ統合した。
+  GMOお名前.comに残るDNS Aレコードは管理画面での削除確認後に退役完了とする。

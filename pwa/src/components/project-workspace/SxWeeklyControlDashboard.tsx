@@ -11,7 +11,9 @@ import {
   FileSearch,
   FlaskConical,
   GitBranch,
+  House,
   Mail,
+  PanelsTopLeft,
   Plus,
   RefreshCw,
   Search,
@@ -91,6 +93,7 @@ import { SxPartnerPipeline } from "./SxPartnerPipeline";
 import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
 import { WorkspaceDocumentRoom } from "@/components/workspace-documents/WorkspaceDocumentRoom";
 import { CockpitIpPortfolio } from "@/components/cockpit/CockpitIpPortfolio";
+import { ProjectThemeRoutes } from "./ProjectThemeRoutes";
 import styles from "./weekly-control.module.css";
 
 type StageKey = SxWeeklyIssueStage;
@@ -287,7 +290,8 @@ const STAGE_LABEL: Record<StageKey, string> = Object.fromEntries(
 // すべてのPJで、PJ資料室と同じ正本を開く「ドライブ」を加える。既存のアンカー名
 // (#weekly-change / #project-gantt / #partner-ledger / #issue-hypothesis / #input-readiness)
 // は他画面からのリンク互換のためhashとしてそのまま残す。
-type SxWeeklyControlView = "weekly" | "gantt" | "partners" | "issues" | "cost" | "ip" | "drive";
+// themes タブは bundle.themes.length > 0 のPJだけ動的に先頭に追加される。
+type SxWeeklyControlView = "weekly" | "gantt" | "partners" | "issues" | "cost" | "ip" | "drive" | "themes";
 const SX_WEEKLY_VIEW_STORAGE_KEY = "sx-weekly-control-view-v1";
 const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   weekly: "weekly-change",
@@ -297,6 +301,7 @@ const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   cost: "cost-model",
   ip: "project-ip",
   drive: "project-drive",
+  themes: "theme-progress",
 };
 // projects.project_name が内部コード名で、利用者に見せる名前と違うPJだけをここへ置く。
 const WORKSPACE_TITLE_OVERRIDES: Record<string, string> = {
@@ -304,7 +309,7 @@ const WORKSPACE_TITLE_OVERRIDES: Record<string, string> = {
   p30: "愛媛大学 産学連携ポートフォリオ",
 };
 
-const PROJECT_WORKSPACE_TABS: Array<{ key: SxWeeklyControlView; label: string }> = [
+const PROJECT_WORKSPACE_TABS_BASE: Array<{ key: SxWeeklyControlView; label: string }> = [
   { key: "weekly", label: "週次差分" },
   { key: "gantt", label: "ガント" },
   { key: "partners", label: "関係先" },
@@ -324,6 +329,7 @@ function viewForHash(hash: string): SxWeeklyControlView | null {
   if (normalized === "issue-hypothesis") return "issues";
   if (normalized === "project-ip") return "ip";
   if (normalized === "project-drive") return "drive";
+  if (normalized === "theme-progress") return "themes";
   if (normalized === "weekly-change" || normalized === "input-readiness")
     return "weekly";
   return null;
@@ -4687,25 +4693,55 @@ export function SxWeeklyControlDashboard({
   const [workloadFilter, setWorkloadFilter] =
     useState<WorkloadBucketKey | null>(null);
   // タブ化 (2026-08-08 まさ指示 #11)。週次差分・ガント・関係先・論点仮説の4タブ、
-  // データ接続は週次差分タブへ内包する。既定は"weekly"、hash付きリンク→localStorageの順で復元する。
-  const [activeView, setActiveView] = useState<SxWeeklyControlView>("weekly");
+  // データ接続は週次差分タブへ内包する。テーマ接続済みPJはテーマ進捗を既定にし、
+  // 明示hashがある場合だけその表示を優先する。テーマ未接続PJは従来どおりlocalStorageを復元する。
+  const dynamicTabs = useMemo(() => {
+    const tabs = [...PROJECT_WORKSPACE_TABS_BASE];
+    if (bundle.themes.length > 0) {
+      tabs.unshift({ key: "themes", label: "テーマ進捗" });
+    }
+    return tabs;
+  }, [bundle.themes.length]);
+
+  const hasThemes = bundle.themes.length > 0;
+  const [activeView, setActiveView] = useState<SxWeeklyControlView>(
+    () => (hasThemes ? "themes" : "weekly"),
+  );
   useEffect(() => {
     const fromHash = viewForHash(window.location.hash);
     if (fromHash) {
+      if (fromHash === "themes" && !hasThemes) {
+        setActiveView("weekly");
+        return;
+      }
       setActiveView(fromHash);
       return;
     }
     const stored = window.localStorage.getItem(SX_WEEKLY_VIEW_STORAGE_KEY);
-    if (
-      stored === "weekly" ||
-      stored === "gantt" ||
-      stored === "partners" ||
-      stored === "issues" ||
-      stored === "drive"
-    ) {
-      setActiveView(stored);
+    const isValidView = (value: unknown): value is SxWeeklyControlView => {
+      return (
+        value === "weekly" ||
+        value === "gantt" ||
+        value === "partners" ||
+        value === "issues" ||
+        value === "cost" ||
+        value === "ip" ||
+        value === "drive" ||
+        value === "themes"
+      );
+    };
+
+    if (hasThemes) {
+      setActiveView("themes");
+      return;
     }
-  }, []);
+
+    if (isValidView(stored) && stored !== "themes") {
+      setActiveView(stored);
+      return;
+    }
+    setActiveView("weekly");
+  }, [hasThemes]);
 
   function selectView(view: SxWeeklyControlView) {
     setActiveView(view);
@@ -5410,16 +5446,29 @@ export function SxWeeklyControlDashboard({
                   他PJはproject_nameをそのまま出す。 */}
               <h1>{WORKSPACE_TITLE_OVERRIDES[bundle.project.projectId] ?? `${bundle.project.projectName} PJワークスペース`}</h1>
             </div>
+            {(access.scope === "portfolio" || access.isAdmin) && (
+              <div className={styles.headerActions}>
+                <Link href="/dashboard">
+                  <House aria-hidden="true" />
+                  AMD OSホーム
+                </Link>
+                <Link href={`/project/${encodeURIComponent(bundle.project.projectId)}/cockpit`}>
+                  <PanelsTopLeft aria-hidden="true" />
+                  PJコックピット
+                </Link>
+              </div>
+            )}
           </div>
           {/* タブのUIは PJ コックピット (CockpitView) と揃える (2026-08-21 まさ指示)。
-              列数はタブ件数から出すので、タブを増やしても CSS を直す必要はない。 */}
+              列数はタブ件数から出すので、タブを増やしても CSS を直す必要はない。
+              mobile 640px以下ではsectionNavを横スクロール可能なflex rowにする。 */}
           <nav
             className={styles.sectionNav}
-            style={{ gridTemplateColumns: `repeat(${PROJECT_WORKSPACE_TABS.length}, minmax(0, 1fr))` }}
+            style={{ gridTemplateColumns: `repeat(${dynamicTabs.length}, minmax(0, 1fr))` }}
             aria-label="週次管制ナビ"
             role="tablist"
           >
-            {PROJECT_WORKSPACE_TABS.map((tab) => (
+            {dynamicTabs.map((tab) => (
               <button
                 key={tab.key}
                 type="button"
@@ -5993,6 +6042,17 @@ export function SxWeeklyControlDashboard({
             )}
           </div>
         </section>
+        )}
+
+        {activeView === "themes" && (
+          <section
+            id="theme-progress"
+            className={styles.section}
+            role="tabpanel"
+            aria-label="テーマ進捗"
+          >
+            <ProjectThemeRoutes themes={bundle.themes} />
+          </section>
         )}
 
         {activeView === "ip" && (

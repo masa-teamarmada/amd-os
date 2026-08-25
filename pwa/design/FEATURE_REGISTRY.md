@@ -46,6 +46,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - safe DTO: 共有面はPJ名、表示名、役割、週次時間、5区分、MS、抽出済み活動の件数・種別・最終日だけ。raw本文、URL、email、報酬、契約、内部戦略を含めない。
 - effort write: `project_weekly_effort_entries` はPJ / member / week / categoryで一意。PJ限定ユーザーは自分だけ、portfolio/adminはactive PJ memberを更新できる。
 - admin onboarding: `/admin/members` でPJ限定Googleアカウントを事前登録し、既存のPJメンバー編集で対象PJへ紐付ける。作成時は支払通知対象外。
+- p19 theme progress: ZMPは`OkuDoor` / `葛飾水素循環` / `KR経営改革`の3テーマへ既存9 value milestoneを3/2/4件で接続する。接続があるPJだけ`#theme-progress`を先頭・既定タブにし、テーマ平均は出さない。`routine_auto`は予定進行、PM lockedだけ確定進捗。AMD内部portfolio/adminだけに`/dashboard`と`/project/p19/cockpit`の戻り導線を出し、外部workspace accountとPJ限定memberには出さない。回帰防止は`npm run test:zmp-workspace-themes`。
 
 ## /portfolio-preview — 研究ポートフォリオ構造プレビュー (2026-08-02 /dashboard へ統合済み・退役)
 

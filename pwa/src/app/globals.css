@@ -634,7 +634,7 @@ body:has(.amd-hud-page-skin) {
 .amd-hud-page-skin [class*="rounded-xl"],
 .amd-hud-page-skin [class*="rounded-lg"],
 .amd-hud-page-skin [class*="rounded-md"],
-.amd-hud-page-skin [class*="rounded "] {
+.amd-hud-page-skin [class~="rounded"] {
   border-radius: 0 !important;
 }
 

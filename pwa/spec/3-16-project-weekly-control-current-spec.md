@@ -8,7 +8,7 @@
 - 旧 `/project/[projectId]/weekly-control` は正規workspaceへredirectする互換URL。独立画面・独立状態は持たない。
 - 新画面はUIを先に固定する。週次差分の自動抽出が未接続の項目は、0件・変化なしと断定せず `抽出接続待ち` と表示する。
 - ガントと関係先はこの画面から手動修正でき、手動で確認・保存した現在値を正本とする。将来の自動抽出は既存値を直接上書きせず、差分候補として人の確認へ回す。
-- H1見出しは `SolvioraX PJワークスペース` の固定文言。プロジェクト名を動的に埋め込まない。
+- H1見出しは p21 だけ `SolvioraX PJワークスペース` に固定し、それ以外はPJ名を使う。p30は `愛媛大学 産学連携ポートフォリオ` の表示名へ上書きする。
 
 ## 2026-08-04 現行ガント契約（本文中の旧工程表記より優先）
 
@@ -24,10 +24,18 @@
 |---|---|
 | page | `src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx` |
 | view | `SxWeeklyControlDashboard` |
-| auth | `resolveSharedWorkspaceAccess(projectId)`で内部memberの当該PJ accessを確認する。外部workspace account向け簡易代替面は出さない |
+| auth | `resolveSharedWorkspaceAccess(projectId)`で当該PJ accessを確認する。内部memberだけが本体dashboardへ進み、外部workspace accountはPJ名と共有資料室だけの別面へ分岐する |
 | PJ境界 | `getProjectWorkspaceBundle(projectId, access)` と `projectScopedPathAllowed()`。PJ限定ユーザーは所属PJだけ閲覧可 |
 | shell | 共有ワークスペースshell。月初合意overlayの対象外 |
 | write | portfolio/adminだけ。既存 `/api/project-workspace/[projectId]/management` を使い、clientからDBへ直接書かない |
+
+## ZMPテーマ進捗（p19、2026-08-26追加）
+
+- p19は9本のvalue milestoneを最上位テーマとして横並びにせず、`OkuDoor`（3件）/ `葛飾水素循環`（2件）/ `KR経営改革`（4件）の3テーマへ束ねる。MSは削除・複製せず、テーマ内の「成果目標」としてそのまま残す。
+- 所属正本は `project_management_tracks` と `project_management_track_value_milestones`。同一PJの1成果目標は1テーマだけに所属し、bridgeの`project_id`とvalue milestoneのplan cycleのPJ一致をDBで強制する。
+- テーマ接続が1件以上あるPJだけ、タブ列の先頭へ`テーマ進捗`（`#theme-progress`）を動的に追加する。hash指定が無いp19の初期表示はこのタブ。明示hashは初期表示より優先し、別PJで保存したlocalStorageはp19の初期表示を上書きしない。
+- テーマの進捗率を平均してPJ進捗に見せない。各成果目標について累積進捗、目標月、更新時刻、sourceを個別表示する。`routine_auto`は人が確定した実績ではなく`予定進行`として破線表示し、PM locked sourceだけを`確定進捗`とする。
+- AMD内部のportfolio/adminにはヘッダーへ`AMD OSホーム`（`/dashboard`）と`PJコックピット`（`/project/p19/cockpit`）を出す。PJ限定memberはroute isolationにより両routeへ移動できないため表示しない。外部workspace accountは本体dashboard自体を描画しないので、この2導線も出ない。
 
 ## 画面構造
 
