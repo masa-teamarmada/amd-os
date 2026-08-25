@@ -170,6 +170,23 @@ sequenceDiagram
   PWA->>DB: payout_notices.sent_at = now()
 ```
 
+### 立替精算の合算 (まさ依頼 2026-08-26)
+
+**承認済みの立替精算は、報酬と合算して同じ支払通知書で払う。** マニュアル 2-2 章は以前からそう書いていたが、GAS から PWA へ移したときに支払側の実装が落ちていて、承認済みの立替がどの支払月にも乗らないまま溜まっていた。
+
+- 対象: `reimbursements.status='approved'` (admin 承認済み) かつ `billed_ym` が空、承認がその支払月の月末までに済んでいるもの。PM 承認どまり・却下・0円は乗せない
+- 申請者とメンバーの対応は `reimbursements.created_by` (メールアドレス) と `members.email` で取る
+- 立替は **実費** として扱う。消費税を上乗せせず、報酬の月次支払上限 (65% cap) でも削らない (原資が違うため)
+- 支払通知書PDF (`gas/064_PayoutFreeeNotice.js`) は、明細に立替の行を出し、右下の内訳を `小計（税抜）` / `消費税（10%）` / `立替精算（実費）` / `合計（税込）` の4段にする。「お支払金額」は報酬の税込額 + 立替の実費
+- 通知書を発行した時点で `reimbursements.billed_ym` にその支払月を刻む。ここが二重払いの防波堤で、以後その立替は他の月に拾われない
+- `payout_notices.reimbursement_yen` / `reimbursement_ids` に合算した内容を残す。`total_yen` は従来どおり報酬の税抜額
+- 立替の額が変われば通知書は再生成対象になる (`shouldRegenerateNotice` が `reimbursement_yen` の差分も見る)
+- PDF テンプレート (GAS) が旧版のままだと、画面には立替が出ているのに PDF の合計だけ立替抜けになる。これを避けるため、立替を送ったのに GAS が `reimbursementYen` を返さない場合は発行を失敗させる
+
+報酬が 0 円で立替だけの月も、その立替のために支払通知書を出す。
+
+回帰検査は `npm run test:payout-reimbursements` (`scripts/check_payout_reimbursements.mts`)。deploy 前の rollback guard に入れてある。
+
 ### 4. 実際に振り込んだかの確認 (自動)
 
 **支払済みかどうかを人に聞かない。** 会計 (freee) の出金を毎日読み、支払通知書と突き合わせて OS 側で確定する (まさ指摘 2026-08-26「自動的にその情報がOSに入ってないなら、その時点でOSの設計が間違ってる」)。それまでの OS は、通知書を送った記録 (`payout_notices.sent_at`) と手で押す報酬支払済み印 (`billing_cycles.reward_paid_at`) しか持たず、実際の振込はどこにも入っていなかった。

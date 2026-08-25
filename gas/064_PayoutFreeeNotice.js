@@ -88,13 +88,18 @@ function payoutCreatePwaNoticePdf(payload){
   const ym = String(payload.ym || "").trim();
   const noticeNo = String(payload.noticeNo || "").trim();
   const totalYen = Number(payload.totalYen || 0);
+  // 立替精算は実費 (税込)。報酬とは別枠で合算し、消費税を上乗せしない
+  const reimbursementYen = Math.round(Number(payload.reimbursementYen || 0));
   const issuedAtJst = String(payload.issuedAtJst || payload.issuedAt || payoutNowJstIso()).trim();
   const breakdownText = payoutPwaNoticeBreakdownText_(payload.breakdown, payload.breakdownText);
+  const reimbursementText = payoutPwaNoticeBreakdownText_(payload.reimbursements, payload.reimbursementText);
 
   if (!memberId) throw new Error("memberId empty");
   if (!/^\d{6}$/.test(ym)) throw new Error("ym invalid（yyyymm）");
   if (!noticeNo) throw new Error("noticeNo empty");
-  if (!isFinite(totalYen) || totalYen <= 0) throw new Error("totalYen invalid");
+  if (!isFinite(totalYen) || totalYen < 0) throw new Error("totalYen invalid");
+  if (!isFinite(reimbursementYen) || reimbursementYen < 0) throw new Error("reimbursementYen invalid");
+  if (totalYen + reimbursementYen <= 0) throw new Error("totalYen invalid");
 
   let payeeName = String(payload.payeeName || "").trim();
   let payeeAddress = String(payload.payeeAddress || "").trim();
@@ -122,7 +127,9 @@ function payoutCreatePwaNoticePdf(payload){
     invoiceRegistrationNumber,
     bankInfo,
     totalYen,
+    reimbursementYen,
     breakdownText,
+    reimbursementText,
     issuedAtJst,
     noticeNo
   });
@@ -138,7 +145,8 @@ function payoutCreatePwaNoticePdf(payload){
     pdfUrl: file.getUrl(),
     fileId: file.getId(),
     issuedAtJst,
-    totalYen: Math.round(totalYen)
+    totalYen: Math.round(totalYen),
+    reimbursementYen: Math.round(reimbursementYen)
   };
 }
 
@@ -187,12 +195,15 @@ function payoutBuildNoticePdfBlob_(p){
   const issuedAtJst = String(p.issuedAtJst || "").trim();
   const noticeNo = String(p.noticeNo || "").trim();
   const totalYen = Number(p.totalYen || 0);
+  const reimbursementYen = Math.round(Number(p.reimbursementYen || 0));
   const breakdownText = String(p.breakdownText || "").trim();
+  const reimbursementText = String(p.reimbursementText || "").trim();
 
   if (!/^\d{6}$/.test(ym)) throw new Error("ym invalid（yyyymm）");
   if (!memberId) throw new Error("memberId empty");
   if (!noticeNo) throw new Error("noticeNo empty");
-  if (!isFinite(totalYen) || totalYen <= 0) throw new Error("totalYen invalid");
+  if (!isFinite(totalYen) || totalYen < 0) throw new Error("totalYen invalid");
+  if (totalYen + reimbursementYen <= 0) throw new Error("totalYen invalid");
 
   const fmtYen = (n) => Math.round(Number(n||0)).toLocaleString("ja-JP") + "円";
   const fmtNum = (n) => Math.round(Number(n||0)).toLocaleString("ja-JP");
@@ -245,7 +256,14 @@ function payoutBuildNoticePdfBlob_(p){
   // /admin/payouts の支払額は税抜。支払通知書で消費税10%を上乗せする。
   const tax = taxBreakdownFromTaxExcludedYen(totalYen);
   const details = splitBreakdown(breakdownText);
-  if (details.length === 0) details.push({ desc: "業務委託料", yen: tax.net });
+  if (details.length === 0 && tax.net > 0) details.push({ desc: "業務委託料", yen: tax.net });
+  // 立替精算は実費なので明細には出すが、消費税の対象にしない
+  const reimbursementDetails = splitBreakdown(reimbursementText);
+  if (reimbursementYen > 0 && reimbursementDetails.length === 0){
+    reimbursementDetails.push({ desc: "立替精算（実費）", yen: reimbursementYen });
+  }
+  const allDetails = details.concat(reimbursementDetails);
+  const grandTotalYen = tax.gross + reimbursementYen;
 
   const COMPANY_NAME = "株式会社チームアルマダ";
   const COMPANY_ADDR = "〒305-0031 茨城県つくば市吾妻1-10-1";
@@ -355,7 +373,7 @@ function payoutBuildNoticePdfBlob_(p){
 
   // ====== サマリ ======
   sh.getRange("A12:L13").merge()
-    .setValue(`お支払金額　　　${fmtYen(tax.gross)}（税込）`)
+    .setValue(`お支払金額　　　${fmtYen(grandTotalYen)}（税込）`)
     .setFontSize(22)
     .setFontWeight("bold")
     .setHorizontalAlignment("center")
@@ -368,7 +386,7 @@ function payoutBuildNoticePdfBlob_(p){
 
   // ====== 明細表 ======
   const startRow = 17;
-  const maxLines = Math.max(2, details.length);
+  const maxLines = Math.max(2, allDetails.length);
   const endRow = startRow + maxLines;
 
   sh.getRange(`A${startRow}:F${startRow}`).merge().setValue("摘要").setBackground(BLUE).setFontColor("#ffffff").setFontWeight("bold");
@@ -379,7 +397,7 @@ function payoutBuildNoticePdfBlob_(p){
 
   for (let i = 0; i < maxLines; i++){
     const r = startRow + 1 + i;
-    const d = details[i] || { desc:"", yen:0 };
+    const d = allDetails[i] || { desc:"", yen:0 };
 
     sh.setRowHeight(r, 30);
     sh.getRange(`A${r}:L${r}`).setBackground(i === 0 ? "#ffffff" : PALE);
@@ -394,17 +412,21 @@ function payoutBuildNoticePdfBlob_(p){
   const totalRows = [
     ["小計（税抜）", fmtYen(tax.net), false],
     ["消費税（10%）", fmtYen(tax.tax), false],
-    ["合計（税込）", fmtYen(tax.gross), true],
   ];
+  if (reimbursementYen > 0){
+    totalRows.push(["立替精算（実費）", fmtYen(reimbursementYen), false]);
+  }
+  totalRows.push(["合計（税込）", fmtYen(grandTotalYen), true]);
   totalRows.forEach((row, idx) => {
     const r = taxBoxTop + idx;
     sh.getRange(`H${r}:J${r}`).merge().setValue(row[0]).setFontColor(row[2] ? TEXT : MUTED).setFontWeight(row[2] ? "bold" : "normal").setHorizontalAlignment("right");
     sh.getRange(`K${r}:L${r}`).merge().setValue(row[1]).setFontSize(row[2] ? 17 : 14).setFontWeight(row[2] ? "bold" : "normal").setHorizontalAlignment("right");
   });
-  sh.getRange(`G${taxBoxTop+2}:L${taxBoxTop+2}`).setBorder(false, false, true, false, false, false, BLUE, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  const totalRowsBottom = taxBoxTop + totalRows.length - 1;
+  sh.getRange(`G${totalRowsBottom}:L${totalRowsBottom}`).setBorder(false, false, true, false, false, false, BLUE, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
   // ====== 左下：支払予定/方法 ======
-  const payTop = taxBoxTop + 5;
+  const payTop = totalRowsBottom + 3;
   sh.getRange(`A${payTop}:B${payTop}`).merge().setValue("支払予定日").setFontSize(14).setFontColor(MUTED).setFontWeight("bold");
   sh.getRange(`C${payTop}:F${payTop}`).merge().setValue(formatDateJa(payDate)).setFontSize(15).setFontWeight("bold").setHorizontalAlignment("left");
   sh.getRange(`A${payTop+2}:B${payTop+2}`).merge().setValue("支払方法").setFontSize(14).setFontColor(MUTED).setFontWeight("bold");

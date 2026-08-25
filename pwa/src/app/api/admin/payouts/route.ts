@@ -15,6 +15,13 @@ import {
   type PayoutAgreementGateTargetAction,
 } from "@/lib/monthly-work-agreement-payout-gate";
 import { syncRewardSummariesForBillingCycles } from "@/lib/reward-summary";
+import {
+  loadPayableReimbursements,
+  markReimbursementsBilled,
+  reimbursementLabel,
+  reimbursementTotalYen,
+  type PayableReimbursement,
+} from "@/lib/finance/payout-reimbursements";
 import type { ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 import {
   applyLegacyPayoutAmountOverridesToCycles,
@@ -205,6 +212,7 @@ type PayoutNoticeRow = {
   notice_no?: string | null;
   pdf_url?: string | null;
   total_yen?: number | string | null;
+  reimbursement_yen?: number | string | null;
   last_generated_at?: string | null;
 };
 
@@ -231,6 +239,8 @@ export type GenerateNoticeResult = {
   noticeNo?: string;
   pdfUrl?: string;
   totalYen?: number;
+  /** 合算した立替精算の実費 (税込) */
+  reimbursementYen?: number;
   lastGeneratedAt?: string;
   error?: string;
 };
@@ -813,7 +823,12 @@ function noticeSourceProfileIsStale(existing: PayoutNoticeRow, sourceUpdatedAt: 
 export function shouldRegenerateNotice(
   existing: PayoutNoticeRow | null,
   expectedTotalYen: number,
-  options: { previewOnly?: boolean; force?: boolean; sourceUpdatedAt?: string | null } = {}
+  options: {
+    previewOnly?: boolean;
+    force?: boolean;
+    sourceUpdatedAt?: string | null;
+    expectedReimbursementYen?: number;
+  } = {}
 ): { regenerate: boolean; reason: GenerateNoticeResult["reason"] } {
   if (existing && !options.previewOnly && textValue(existing.sent_at)) {
     return { regenerate: false, reason: "sent_protected" };
@@ -824,6 +839,12 @@ export function shouldRegenerateNotice(
   if (!textValue(existing.pdf_url)) return { regenerate: true, reason: "no_pdf_url" };
   if (noticeNoIsPreview(existing.notice_no)) return { regenerate: true, reason: "preview_notice_no" };
   if (yenValue(existing.total_yen) !== Math.round(expectedTotalYen)) {
+    return { regenerate: true, reason: "total_yen_changed" };
+  }
+  if (
+    options.expectedReimbursementYen !== undefined &&
+    yenValue(existing.reimbursement_yen) !== Math.round(options.expectedReimbursementYen)
+  ) {
     return { regenerate: true, reason: "total_yen_changed" };
   }
   if (noticeSourceProfileIsStale(existing, options.sourceUpdatedAt)) {
@@ -865,13 +886,16 @@ export async function generateNoticePdfForMember(
 
   const entries = expectedNoticeEntriesForMember(memberId, data);
   const totalYen = entries.reduce((sum, entry) => sum + entry.total_pay, 0);
-  if (entries.length === 0 || totalYen <= 0) {
+  // 立替精算は実費 (税込)。報酬が 0 円でも立替だけで通知書を出す月がある
+  const reimbursements: PayableReimbursement[] = (data.reimbursements ?? {})[memberId] ?? [];
+  const reimbursementYen = reimbursementTotalYen(reimbursements);
+  if ((entries.length === 0 || totalYen <= 0) && reimbursementYen <= 0) {
     return { memberId, status: "skipped", reason: "no_entries" };
   }
 
   const { data: existingRaw, error: existingError } = await db
     .from("payout_notices")
-    .select("member_id, ym, sent_at, notice_no, pdf_url, total_yen, last_generated_at")
+    .select("member_id, ym, sent_at, notice_no, pdf_url, total_yen, last_generated_at, reimbursement_yen")
     .eq("member_id", memberId)
     .eq("ym", ym)
     .maybeSingle();
@@ -889,6 +913,7 @@ export async function generateNoticePdfForMember(
     previewOnly,
     force,
     sourceUpdatedAt: member.updated_at,
+    expectedReimbursementYen: reimbursementYen,
   });
   if (!decision.regenerate && existing) {
     return {
@@ -940,6 +965,12 @@ export async function generateNoticePdfForMember(
       payeeEmail: textValue(member.email),
       bankInfo: textValue(member.bank_info),
       totalYen,
+      reimbursementYen,
+      reimbursements: reimbursements.map((row) => ({
+        reimbursementId: row.reimbursementId,
+        description: reimbursementLabel(row),
+        amountYen: row.amountYen,
+      })),
       issuedAt,
       breakdown: entries.map((entry) => ({
         projectId: entry.project_id,
@@ -958,6 +989,18 @@ export async function generateNoticePdfForMember(
       status: "failed",
       reason: "gas_error",
       error: err instanceof Error ? err.message : String(err),
+    };
+  }
+
+  // 立替を送ったのに GAS 側が返さない = 支払通知書テンプレートが旧版。
+  // そのまま進むと画面には立替が出ているのに PDF の合計だけ立替抜けになるので、ここで止める。
+  if (reimbursementYen > 0 && yenValue(gasResult.reimbursementYen) !== Math.round(reimbursementYen)) {
+    return {
+      memberId,
+      status: "failed",
+      reason: "gas_error",
+      error:
+        "支払通知書テンプレート (GAS 064_PayoutFreeeNotice) が立替精算に未対応。clasp push で更新してから再発行する",
     };
   }
 
@@ -984,6 +1027,8 @@ export async function generateNoticePdfForMember(
           notice_no: actualNoticeNo,
           pdf_url: pdfUrl,
           total_yen: Math.round(totalYen),
+          reimbursement_yen: Math.round(reimbursementYen),
+          reimbursement_ids: reimbursements.map((row) => row.reimbursementId),
           last_generated_at: generatedAt,
         },
         { onConflict: "member_id,ym" }
@@ -998,12 +1043,22 @@ export async function generateNoticePdfForMember(
     }
   }
 
+  if (!previewOnly && reimbursements.length > 0) {
+    // 通知書へ乗せた立替に支払月を刻む。ここを通さないと翌月も同じ立替を拾って二重払いになる
+    await markReimbursementsBilled(
+      db,
+      reimbursements.map((row) => row.reimbursementId),
+      ym
+    );
+  }
+
   return {
     memberId,
     status: "generated",
     noticeNo: actualNoticeNo,
     pdfUrl,
     totalYen: Math.round(totalYen),
+    reimbursementYen: Math.round(reimbursementYen),
     lastGeneratedAt: generatedAt,
   };
 }
@@ -1258,6 +1313,8 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
   );
 
   const expectedEntries = buildPayoutEntries(cycles, payoutExcludedMemberIds);
+  // 承認済みの立替精算は報酬とは別原資の実費。cap では削らず、その月の通知書へ合算する
+  const reimbursementsByMember = await loadPayableReimbursements(db, ym);
   const payoutAgreementGate = options.includeAgreementGate === false
     ? null
     : await buildPayoutAgreementGateSummary(db, {
@@ -1283,6 +1340,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
     payouts: payoutsRes.data ?? [],
     notices: noticesRes.data ?? [],
     expectedEntries,
+    reimbursements: Object.fromEntries(reimbursementsByMember),
     payoutAmountOverrides,
     payoutAgreementGate,
     refreshedRewards: Boolean(options.refreshRewards),

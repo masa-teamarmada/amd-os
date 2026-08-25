@@ -175,6 +175,7 @@ type PayoutNotice = {
   notice_no: string | null;
   pdf_url: string | null;
   total_yen: number | null;
+  reimbursement_yen?: number | null;
   last_generated_at?: string | null;
   /** freee の出金から自動で確認した実際の振込日と金額 (/api/cron/freee-member-payout-sync) */
   paid_on?: string | null;
@@ -200,6 +201,19 @@ type BulkNoticeSummary = {
   results: BulkNoticeResultEntry[];
 };
 
+export type PayableReimbursementRow = {
+  reimbursementId: string;
+  memberId: string;
+  projectId: string | null;
+  projectName: string | null;
+  date: string | null;
+  category: string | null;
+  description: string | null;
+  amountYen: number;
+  approvedAt: string | null;
+  billedYm: string | null;
+};
+
 export type PayoutData = {
   ym: string;
   members: Member[];
@@ -215,6 +229,8 @@ export type PayoutData = {
   notices: PayoutNotice[];
   extraRevenueRows?: ExtraRevenueSourceRow[];
   expectedEntries?: unknown[];
+  /** 承認済みで、この支払月の通知書へ合算する立替精算 (メンバーID -> 明細) */
+  reimbursements?: Record<string, PayableReimbursementRow[]>;
   payoutAgreementGate?: PayoutAgreementGateSummary | null;
   refreshedRewards?: boolean;
 };
@@ -434,6 +450,9 @@ type MemberPayoutRow = {
   carryInYen: number;
   stockYen: number;
   entries: PayoutEntry[];
+  /** この支払月の通知書へ合算する立替精算 (実費・税込) */
+  reimbursements: PayableReimbursementRow[];
+  reimbursementYen: number;
   isSaved: boolean;
 };
 
@@ -1795,6 +1814,8 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     [data?.cycles, expectedEntries, projectMap]
   );
 
+  const reimbursementsByMember = useMemo(() => data?.reimbursements ?? {}, [data?.reimbursements]);
+
   const memberRows = useMemo<MemberPayoutRow[]>(() => {
     const byMember = new Map<string, MemberPayoutRow>();
     for (const entry of expectedEntries) {
@@ -1816,6 +1837,8 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           carryInYen: 0,
           stockYen: 0,
           entries: [],
+          reimbursements: [],
+          reimbursementYen: 0,
           isSaved: true,
         };
 
@@ -1833,8 +1856,40 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
       byMember.set(entry.memberId, row);
     }
 
-    return [...byMember.values()].sort((a, b) => b.totalPay - a.totalPay);
-  }, [expectedEntries, memberRecordMap, payoutExcludedMemberIds, noticeMap, payoutMap]);
+    // 立替精算は報酬と別原資。報酬が 0 円の月でも、立替だけで支払対象になる
+    for (const [memberId, rows] of Object.entries(reimbursementsByMember)) {
+      if (rows.length === 0) continue;
+      const existing = byMember.get(memberId);
+      const target =
+        existing ??
+        {
+          memberId,
+          memberName: memberMap.get(memberId) ?? memberId,
+          noticeExcluded: payoutExcludedMemberIds.has(memberId),
+          notice: noticeMap.get(memberId) ?? null,
+          noticeProfileStale: noticeIsOlderThanMemberProfile(noticeMap.get(memberId) ?? null, memberRecordMap.get(memberId)),
+          totalPay: 0,
+          savedTotal: 0,
+          regularBasePay: 0,
+          extraBasePay: 0,
+          regularPaidYen: 0,
+          extraPaidYen: 0,
+          carryInYen: 0,
+          stockYen: 0,
+          entries: [],
+          reimbursements: [],
+          reimbursementYen: 0,
+          isSaved: true,
+        };
+      target.reimbursements = rows;
+      target.reimbursementYen = rows.reduce((sum, row) => sum + Math.round(numberValue(row.amountYen)), 0);
+      byMember.set(memberId, target);
+    }
+
+    return [...byMember.values()].sort(
+      (a, b) => b.totalPay + b.reimbursementYen - (a.totalPay + a.reimbursementYen)
+    );
+  }, [expectedEntries, memberMap, memberRecordMap, payoutExcludedMemberIds, noticeMap, payoutMap, reimbursementsByMember]);
 
   const grandTotal = memberRows.reduce((sum, row) => sum + row.totalPay, 0);
   const regularBaseTotal = memberRows.reduce((sum, row) => sum + row.regularBasePay, 0);
@@ -2529,6 +2584,18 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                               {row.extraBasePay > 0 && <span className="rounded bg-indigo-100 px-1 text-indigo-800">別財布 {fmtYen(row.extraBasePay)}</span>}
                             </div>
                           )}
+                        {row.reimbursementYen > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
+                            <span
+                              className="rounded bg-violet-100 px-1 text-violet-800"
+                              title={row.reimbursements
+                                .map((item) => `${item.date ?? ""} ${item.projectName ?? item.projectId ?? ""} ${fmtFlowYen(item.amountYen)}`)
+                                .join("\n")}
+                            >
+                              立替 {fmtYen(row.reimbursementYen)}
+                            </span>
+                          </div>
+                        )}
                         {(row.stockYen > 0 || row.carryInYen > 0) && (
                             <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
                             {row.carryInYen > 0 && <span className="rounded bg-sky-100 px-1 text-sky-800">繰越入 {fmtYen(row.carryInYen)}</span>}
@@ -2538,6 +2605,18 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                       </td>
                     <td className="px-3 py-2">
                       <div className="space-y-1">
+                        {row.reimbursements.map((item) => (
+                          <div
+                            key={item.reimbursementId}
+                            className="flex w-full flex-wrap items-center gap-x-2 gap-y-0.5 rounded px-1 py-0.5 text-[11px] text-violet-800"
+                          >
+                            <span className="rounded bg-violet-100 px-1 text-[10px]">立替精算</span>
+                            <span className="font-medium">{item.projectName ?? item.projectId ?? "-"}</span>
+                            <span className="font-mono text-muted-foreground">{item.date ?? ""}</span>
+                            <span className="text-muted-foreground">{(item.description ?? item.category ?? "").slice(0, 28)}</span>
+                            <span className="font-medium">実費 {fmtYen(item.amountYen)}</span>
+                          </div>
+                        ))}
                         {row.entries.map((entry) => {
                           const project = projectMap.get(entry.projectId);
                           return (
@@ -2600,6 +2679,14 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                     <td className="px-3 py-2 text-right">
                       <div className="font-semibold">税抜 {fmtYen(row.totalPay)}</div>
                       <div className="text-[10px] text-muted-foreground">税込 {fmtTaxIncludedYen(row.totalPay)}</div>
+                      {row.reimbursementYen > 0 && (
+                        <>
+                          <div className="text-[10px] text-violet-700">＋立替 {fmtYen(row.reimbursementYen)}</div>
+                          <div className="text-[11px] font-semibold">
+                            支払 {fmtFlowYen(Math.round(row.totalPay * 1.1) + row.reimbursementYen)}
+                          </div>
+                        </>
+                      )}
                     </td>
                     <td className="px-3 py-2">
                       <NoticeBadge
