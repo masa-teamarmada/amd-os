@@ -85,7 +85,7 @@
 - bzm/sps-2-0-domain-definition.md
 - bzm/sps-2-0-measurability-gate.md
 
-反映commit: (未反映)
+反映commit: 90b6f46c
 
 ---
 
@@ -988,7 +988,7 @@ $V = \int \mathbb{E}[\Pi(\omega) \mid \theta]\, dB_0(\theta)$ について、条
 対象ファイル:
 - model/MODEL_VERSION_LEDGER.md
 
-反映commit: (未反映)
+反映commit: eb1a1961（用語と表現の精査）、および 650927b8（続き）
 
 ---
 
@@ -1040,4 +1040,4 @@ $V = \int \mathbb{E}[\Pi(\omega) \mid \theta]\, dB_0(\theta)$ について、条
 4. **「効く」と「どれだけ効く」を分けることを明記**。文献が支えるのは構造（どの量がどこに効くか、関数の形）で、
    係数の水準に裏づけがあるのは制度の審査期間と臨床開発の相別成功率だけである。
 
-反映commit: (未反映)
+反映commit: 90b6f46c（正本への文献番号と参考文献の追加）
