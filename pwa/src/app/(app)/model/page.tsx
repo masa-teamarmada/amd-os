@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ModelFormulaLayers, ModelSymbolIndex } from "@/components/model/ModelCanonSections";
 import { BzmMarkdown } from "@/components/bzm/BzmMarkdown";
 import { loadBzmFormulaCanon } from "./formula-canon";
+import { loadCurrentFormulas } from "./current-formulas";
+import { ModelCurrentFormulas } from "@/components/model/ModelCurrentFormulas";
 import { getModelMarkdownSource, loadModelCurrent } from "./model-data";
 
 /**
@@ -31,6 +33,7 @@ import { getModelMarkdownSource, loadModelCurrent } from "./model-data";
 export default async function ModelIndexPage() {
   const source = getModelMarkdownSource("MODEL_VERSION_LEDGER");
   const canon = loadBzmFormulaCanon();
+  const currentFormulas = loadCurrentFormulas();
   const current = loadModelCurrent();
 
   return (
@@ -42,6 +45,11 @@ export default async function ModelIndexPage() {
           ここはモデルの正本です。admin 限定。
         </p>
       </div>
+
+      {/* まさ 2026-08-25「正本の式が一番下に置かれていて読みにくいので、これを一番上にもってきてほしい」。
+          ページ下部の「すべての式」は旧 BZM 2.2 系列（退役済み）なので、そのまま上げると退役した式が
+          先頭に出る。現行の式は台帳 §5・§6 にあるので、そこから出現順に拾って冒頭へ置く。 */}
+      <ModelCurrentFormulas formulas={currentFormulas} />
 
       {source ? (
         <article className="mb-10">

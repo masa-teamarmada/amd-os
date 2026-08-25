@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { loadReferenceData } from "@/lib/reference-data-cache";
 import {
   Bell,
   BookMarked,
@@ -395,6 +396,12 @@ function NavLink({
     );
   }
 
+  // まさ 2026-08-25「左ナビの『モデル』にマウスオーバーしたら、セクションリストが出てくるように
+  // してほしい。『ホーム』にマウスオーバーしたときにPJリストが出るみたいに」。
+  if (item.href === "/model") {
+    return <ModelNavLink item={item} active={active} />;
+  }
+
   const Icon = item.icon;
   const count = badgeText(item.badge);
   const tooltip = item.title ? `${item.label} - ${item.title}` : item.label;
@@ -425,6 +432,186 @@ function NavLink({
         </span>
       )}
     </Link>
+  );
+}
+
+type ModelSectionNavItem = { id: string; label: string };
+
+/**
+ * 左ナビの「モデル」— マウスを載せるとモデルページの節の一覧が出る。
+ *
+ * まさ 2026-08-25「左ナビの『モデル』にマウスオーバーしたら、セクションリストが出てくるように
+ * してほしい。『ホーム』にマウスオーバーしたときにPJリストが出るみたいに」。
+ *
+ * 節の一覧は正本 md の見出しから作っている（`/api/model/sections`）ので、正本に節が増えれば
+ * ここは何もしなくても追随する。**参照系データ**なので `loadReferenceData` のモジュールキャッシュを通し、
+ * 開くたびにネットワーク往復を払わない。
+ */
+function ModelNavLink({ item, active }: { item: NavItem; active: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
+  const [sections, setSections] = useState<ModelSectionNavItem[]>([]);
+  const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const anchorRef = useRef<HTMLDivElement | null>(null);
+  const flyoutRef = useRef<HTMLDivElement | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const Icon = item.icon;
+
+  const clearCloseTimer = useCallback(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, []);
+
+  const updatePosition = useCallback(() => {
+    const rect = anchorRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = Math.min(320, Math.max(200, window.innerWidth - 96));
+    const gutter = 8;
+    const left = Math.min(
+      rect.right + gutter,
+      Math.max(gutter, window.innerWidth - width - gutter),
+    );
+    const top = Math.max(gutter, Math.min(rect.top, window.innerHeight - 48));
+    const maxHeight = Math.max(120, window.innerHeight - top - gutter);
+    setPosition({ top, left, width, maxHeight });
+  }, []);
+
+  const loadSections = useCallback(() => {
+    if (status === "ready" || status === "loading") return;
+    setStatus("loading");
+    loadReferenceData<ModelSectionNavItem[]>("model:sections", async () => {
+      const res = await fetch("/api/model/sections");
+      if (!res.ok) throw new Error("model sections");
+      const json = (await res.json()) as { sections?: ModelSectionNavItem[] };
+      return json.sections ?? [];
+    })
+      .then((list) => {
+        setSections(list);
+        setStatus("ready");
+      })
+      .catch(() => setStatus("error"));
+  }, [status]);
+
+  const openFlyout = useCallback(() => {
+    clearCloseTimer();
+    updatePosition();
+    loadSections();
+    setOpen(true);
+  }, [clearCloseTimer, loadSections, updatePosition]);
+
+  const scheduleClose = useCallback(() => {
+    clearCloseTimer();
+    closeTimerRef.current = setTimeout(() => setOpen(false), 120);
+  }, [clearCloseTimer]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onChange = () => updatePosition();
+    window.addEventListener("resize", onChange);
+    window.addEventListener("scroll", onChange, true);
+    return () => {
+      window.removeEventListener("resize", onChange);
+      window.removeEventListener("scroll", onChange, true);
+    };
+  }, [open, updatePosition]);
+
+  useEffect(() => () => clearCloseTimer(), [clearCloseTimer]);
+
+  const flyout =
+    open && position
+      ? createPortal(
+          <div
+            ref={flyoutRef}
+            data-testid="model-nav-flyout"
+            className="fixed z-[60] flex flex-col overflow-hidden rounded-lg border border-border/80 bg-popover p-2 text-popover-foreground shadow-lg"
+            style={{
+              left: position.left,
+              top: position.top,
+              width: position.width,
+              maxHeight: position.maxHeight,
+            }}
+            onMouseEnter={openFlyout}
+            onMouseLeave={scheduleClose}
+          >
+            <div className="flex items-center justify-between gap-3 px-2 py-1.5">
+              <span className="text-xs font-semibold text-foreground">モデルの節</span>
+              {status === "ready" && (
+                <span className="text-[11px] text-muted-foreground">{sections.length}件</span>
+              )}
+            </div>
+            {status === "loading" && (
+              <p className="px-2 py-3 text-xs text-muted-foreground">読み込み中…</p>
+            )}
+            {status === "error" && (
+              <p className="px-2 py-3 text-xs text-muted-foreground">節の一覧を読み込めませんでした</p>
+            )}
+            {status === "ready" && (
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <Link
+                  href="/model#current-formulas"
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                  onClick={() => setOpen(false)}
+                >
+                  現行モデルの式
+                </Link>
+                {sections.map((section) => (
+                  <Link
+                    key={section.id}
+                    href={`/model#${section.id}`}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    onClick={() => setOpen(false)}
+                  >
+                    <span className="min-w-0 truncate">{section.label}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>,
+          document.body,
+        )
+      : null;
+
+  return (
+    <div
+      ref={anchorRef}
+      className="relative"
+      onMouseEnter={openFlyout}
+      onMouseLeave={scheduleClose}
+      onFocus={openFlyout}
+      onBlur={(event) => {
+        const next = event.relatedTarget;
+        if (
+          !(next instanceof Node) ||
+          (!event.currentTarget.contains(next) && !flyoutRef.current?.contains(next))
+        ) {
+          scheduleClose();
+        }
+      }}
+    >
+      <Link
+        href={item.href}
+        title={item.label}
+        aria-haspopup="true"
+        aria-expanded={open}
+        className={cn(
+          "relative flex h-8 items-center justify-center gap-3 rounded-md px-2 text-sm font-medium transition-colors lg:justify-start lg:px-3",
+          active
+            ? "bg-blue-600 text-white shadow-sm"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+        )}
+      >
+        <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <span className="hidden min-w-0 flex-1 truncate lg:inline">{item.label}</span>
+      </Link>
+      {flyout}
+    </div>
   );
 }
 
