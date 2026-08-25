@@ -9,7 +9,9 @@
     "既存分は 2026-08-23 時点の実態をそのまま基準線にしたもので、参照系として直す価値があるものが混ざっている。"
   ],
   "generatedAt": "2026-08-23",
-  "reasons": {},
+  "reasons": {
+    "src/components/admin/MemberPayoutBreakdownModal.tsx": "可変系。支払額・繰越・未払い残は報酬キャッシュ再計算や合意ゲートの操作で当日中に変わる残高で、開くたびに最新を読む必要がある (古い値を出すと支払判断を誤らせる)。"
+  },
   "allowed": {
     "src/app/(app)/admin/monthly-work-agreements/page.tsx": [
       "/api/admin/monthly-work-agreements",
@@ -119,6 +121,9 @@
     ],
     "src/components/admin/FreeeReconciliationRail.tsx": [
       "/api/admin/finance/reconciliation"
+    ],
+    "src/components/admin/MemberPayoutBreakdownModal.tsx": [
+      "/api/admin/payouts/member-breakdown"
     ],
     "src/components/admin/PaymentObligationsPanel.tsx": [
       "/api/admin/finance/obligations"
