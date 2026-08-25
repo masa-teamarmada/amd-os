@@ -7023,3 +7023,31 @@ PRIMARY KEY: `id`
 | 7 | `applied_at` | `timestamptz` | NULL | `` |
 | 8 | `applied_note` | `text` | NULL | `` |
 | 9 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+## tally_project_syncs
+
+PRIMARY KEY: `(project_id, member_id)`
+
+| column | type | nullable | meaning |
+|---|---|---|---|
+| `project_id` | text | NO | AMD OSの正規PJ |
+| `member_id` | text | NO | 同期したメンバー |
+| `display_name` | text | NO | Tally上の表示名 |
+| `meeting_search_terms` | jsonb | NO | MTG帰属用の検索語 |
+| `last_synced_at` | timestamptz | NO | 最終同期時刻 |
+
+Macのフォルダ絶対パス、会議題名、Google認証情報は保存しない。
+
+## tally_weekly_effort_entries
+
+PRIMARY KEY: `(project_id, member_id, week_start)`
+
+| column | type | nullable | meaning |
+|---|---|---|---|
+| `project_id` | text | NO | AMD OSの正規PJ |
+| `member_id` | text | NO | 同期したメンバー |
+| `week_start` | date | NO | JST週の開始日 |
+| `development_hours` | numeric(6,2) | NO | Tally推定の作業時間 |
+| `meeting_hours` | numeric(6,2) | NO | Tally集計のMTG時間 |
+| `synced_at` | timestamptz | NO | この週の最終同期時刻 |
+
+`project_weekly_effort_entries`とは別出所であり、合算・上書きしない。

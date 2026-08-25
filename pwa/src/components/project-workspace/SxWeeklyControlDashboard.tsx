@@ -6063,6 +6063,17 @@ export function SxWeeklyControlDashboard({
               </div>
             </article>
             <article>
+              <CalendarClock aria-hidden="true" />
+              <div>
+                <span>Tally集計</span>
+                <strong>{bundle.effort.tallyTotalHours.toFixed(1)}h</strong>
+                <small>
+                  作業 {bundle.effort.tallyDevelopmentHours.toFixed(1)}h · MTG {bundle.effort.tallyMeetingHours.toFixed(1)}h
+                  {bundle.effort.tallySyncedAt ? " · 同期済み" : " · 未同期"}
+                </small>
+              </div>
+            </article>
+            <article>
               <Mail aria-hidden="true" />
               <div>
                 <span>メール接点</span>
