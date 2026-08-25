@@ -53,6 +53,8 @@ PJ限定ログインはGoogle OAuthで本人確認した直後に通常のSupaba
 
 共有ダッシュボードが返す範囲は、PJ名、参加メンバーの表示名 / 役割、週次予定・実績時間、5区分の配分、MS名 / 進捗、抽出済み活動の件数 / source種別 / 最終日。raw本文、source URL、email、契約、請求、報酬、経営ハイライト、会社概要、他PJ情報はDTOへ含めない。PJ限定メンバーのwriteは自分の `project_weekly_effort_entries` だけ、portfolio/adminは当該PJのactive member分を更新できる。
 
+Tallyは別クライアントから、正規PJへ完全一致で紐づいた週別の作業時間・MTG時間を `tally_weekly_effort_entries` へ同期する。既存の `project_weekly_effort_entries` を上書き・合算しない。ワークスペースの「Tally集計」は同週の作業・MTG・合計を出所付きで表示し、Tally同期設定にはPJ表示名とMTG検索語だけを保存する。フォルダ絶対パス、会議題名、Google認証情報は保存しない。書込みは `tally-sync` Edge Function が専用キー・PJ/メンバー実在・値域・重複週を検証して行い、直近365日の範囲だけを置換する。
+
 月次 routine 専用の `canEditRoutine` 判定は廃止。`/project/[projectId]/cockpit` / `/hud/project/[projectId]/cockpit` / `/institutions/[institutionId]/cockpit` の page route は PM/admin 判定を持たず、`CockpitView` / `HudCockpitView` に `canEditRoutine` を渡さない。
 
 月次・報酬・資料・MTG の write 権限は、それぞれの API / RLS / admin route が判定する。cockpit 本体は authenticated read と各モーダル/APIへの導線を担当する。

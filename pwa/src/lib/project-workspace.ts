@@ -53,6 +53,10 @@ export type ProjectWorkspaceBundle = {
     actualHours: number;
     calendarHours: number;
     enteredHours: number;
+    tallyDevelopmentHours: number;
+    tallyMeetingHours: number;
+    tallyTotalHours: number;
+    tallySyncedAt: string | null;
     categories: Record<EffortCategory, number>;
     hasEntries: boolean;
     links: Array<{
@@ -283,10 +287,11 @@ export async function getProjectWorkspaceBundle(
   // waterfall made a reload pay both costs. Start it in the same fan-out and
   // make the response wait only for the slowest branch.
   const canManage = access.scope === "portfolio" || access.isAdmin;
-  const [identity, { data: activityRows, error: activityError }, { data: effortRows, error: effortError }, { data: planCycleRows, error: planError }, { data: sourceCacheRows, error: sourceCacheError }, sxManagement] = await Promise.all([
+  const [identity, { data: activityRows, error: activityError }, { data: effortRows, error: effortError }, { data: tallyRows, error: tallyError }, { data: planCycleRows, error: planError }, { data: sourceCacheRows, error: sourceCacheError }, sxManagement] = await Promise.all([
     getWorkspaceIdentityCached(projectId),
     db.from("member_activities").select("member_id,ym,source,item_date,raw_metadata").eq("project_id", projectId).gte("ym", months[0]).limit(5000),
     db.from("project_weekly_effort_entries").select("member_id,week_start,work_category,planned_hours,actual_hours,source_kind,management_track,management_milestone_id,deliverable_label").eq("project_id", projectId).gte("week_start", weeks[0]).limit(5000),
+    db.from("tally_weekly_effort_entries").select("week_start,development_hours,meeting_hours,synced_at").eq("project_id", projectId).eq("member_id", "ID001").gte("week_start", weeks[0]).limit(100),
     db.from("value_plan_cycles").select("plan_cycle_id,status,period_start_ym,period_end_ym").eq("project_id", projectId).order("created_at", { ascending: false }).limit(20),
     db.from("source_cache").select("source,item_id,item_date").eq("project_id", projectId).gte("item_date", sixMonthStartIso).in("source", ["slack", "drive"]).limit(5000),
     getSxManagementBundle(projectId, canManage),
@@ -295,6 +300,7 @@ export async function getProjectWorkspaceBundle(
   if (!identity) return null;
   if (activityError) throw new Error(`project workspace activities: ${activityError.message}`);
   if (effortError) throw new Error(`project workspace effort: ${effortError.message}`);
+  if (tallyError) throw new Error(`project workspace tally effort: ${tallyError.message}`);
   if (planError) throw new Error(`project workspace plan: ${planError.message}`);
   if (sourceCacheError) throw new Error(`project workspace source cache: ${sourceCacheError.message}`);
 
@@ -309,6 +315,10 @@ export async function getProjectWorkspaceBundle(
   let totalActual = 0;
   let totalCalendarHours = 0;
   let totalEnteredHours = 0;
+  const currentTallyRows = (tallyRows ?? []).filter((row) => String(row.week_start) === currentWeekStart);
+  const tallyDevelopmentHours = currentTallyRows.reduce((sum, row) => sum + Number(row.development_hours || 0), 0);
+  const tallyMeetingHours = currentTallyRows.reduce((sum, row) => sum + Number(row.meeting_hours || 0), 0);
+  const tallySyncedAt = currentTallyRows.map((row) => row.synced_at ? String(row.synced_at) : null).filter((value): value is string => Boolean(value)).sort().at(-1) ?? null;
   const effortLinkMap = new Map<string, { track: string | null; milestoneId: string | null; deliverableLabel: string | null; plannedHours: number; actualHours: number }>();
   for (const row of currentEffortRows) {
     totalPlanned += Number(row.planned_hours || 0);
@@ -492,6 +502,10 @@ export async function getProjectWorkspaceBundle(
       actualHours: roundHours(totalActual),
       calendarHours: roundHours(totalCalendarHours),
       enteredHours: roundHours(totalEnteredHours),
+      tallyDevelopmentHours: roundHours(tallyDevelopmentHours),
+      tallyMeetingHours: roundHours(tallyMeetingHours),
+      tallyTotalHours: roundHours(tallyDevelopmentHours + tallyMeetingHours),
+      tallySyncedAt,
       categories: totalCategories,
       hasEntries: currentEffortRows.length > 0,
       links: Array.from(effortLinkMap.values()).map((link) => {
