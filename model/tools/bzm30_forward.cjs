@@ -97,13 +97,13 @@ const CFG = {
   kIP: 0.55,
   sigmaNodes: [[-1, 0.25], [0, 0.50], [1, 0.25]],
   eMed: 0.50,
-  rDef: { F1: 60, F2: 60, F3: 80, F4: 120 },   // 万円／月（間接経費控除後）
+  rDef: { F1: 60, F2: 60, F3: 80, F4: 80 },    // 万円／月（間接経費控除後）
   rZeroProb: 0.25,
   rhoMax: { F1: 0.3, F2: 0.3, F3: 0.3, F4: 0.5 },
 
   // バーンレート（案件が自ら調達した資金で賄う支出だけ。万円／月）
   muPre:  { F1: 110, F2: 95, F3: 60, F4: 50 },
-  muPost: { F1: 400, F2: 360, F3: 300, F4: 260 },
+  muPost: { F1: 400, F2: 360, F3: 310, F4: 300 },
   restrictedWaste: 0.15,     // 使途制限で充当できない割合（A1 の控除）
 
   // 価値の側
@@ -132,12 +132,12 @@ const REG_GATES = {
   'T4souden':   { kind: 'prep+review', M: 6,  review: 2,  pass: 0.95, main: 'T4prep' },
   'T4kikaku':   { kind: 'prep+review', M: 9,  review: 3,  pass: 0.85, main: 'T4prep' },
   'T4trial1':   { kind: 'tech',        M: 24, pass: 0.60, main: 'T4trial' },
-  'T4trial2':   { kind: 'tech',        M: 36, pass: 0.35, main: 'T4trial' },
-  'T4trial3':   { kind: 'tech',        M: 48, pass: 0.60, main: 'T4trial' },
+  'T4trial2':   { kind: 'tech',        M: 36, pass: 0.33, main: 'T4trial' },
+  'T4trial3':   { kind: 'tech',        M: 48, pass: 0.55, main: 'T4trial' },
   'T4trialMD':  { kind: 'tech',        M: 24, pass: 0.70, main: 'T4trial' },
-  'T4shonin':   { kind: 'prep+review', M: 12, review: 12, pass: 0.90, main: 'T4prep' },
-  'T4shoninMD': { kind: 'prep+review', M: 9,  review: 13, pass: 0.90, main: 'T4prep' },
-  'T4hoken':    { kind: 'prep+review', M: 1,  review: 3,  pass: 0.95, main: 'T4prep' },
+  'T4shonin':   { kind: 'prep+review', M: 12, review: 11, pass: 0.90, main: 'T4prep' },
+  'T4shoninMD': { kind: 'prep+review', M: 9,  review: 12, pass: 0.90, main: 'T4prep' },
+  'T4hoken':    { kind: 'prep+review', M: 2,  review: 3,  pass: 0.95, main: 'T4prep' },
 };
 
 function gateSequence(type, reg) {
@@ -187,7 +187,8 @@ function buildPositions(type, reg, cfg) {
       kind = (g[0] === 'T') ? 'tech' : 'market';
       mainKey = g;
     }
-    const mmin = Math.max(1, Math.round(M * cfg.minShare));
+    // M が小さいゲートは2段構成を適用しない（下限処理で規約が破れる）
+    const mmin = (M <= 2) ? 0 : Math.max(1, Math.round(M * cfg.minShare));
     const mres = Math.max(1, M - mmin);
     for (let k = 0; k < mmin; k++) pos.push({ gi, gate: g, role: 'prep', mainKey, kind });
     pos.push({ gi, gate: g, role: 'hazard', mainKey, kind, kres: 1 / mres, pass: (kind === 'tech' && rg) ? pass : 1.0 });
@@ -558,18 +559,20 @@ if (require.main === module) {
     // 全係数を同じ定義（水準の ×1.1 / ÷1.1）で振る。確率型は 0.999 で切る。
     const PROB = new Set(['alphaLoc','alphaNow','phiBase','restrictedWaste','rZeroProb','stallShare','dOther','qLic']);
     const bump = (base, k, f) => {
+      // 控除率は 1 に近いので、意味を持つ量（貢献として残る割合 1-α）の側を振る
+      if (k === 'alphaLoc' || k === 'alphaNow') return Math.max(0.001, 1 - (1 - base[k]) * f);
       const v = base[k] * f;
       return PROB.has(k) ? Math.min(0.999, v) : v;
     };
     const knobs = [
-      ['alphaLoc', '立地差の控除率'], ['scale', 'M_g 共通倍率'], ['phiBase', 'φ 基準採択率'],
+      ['alphaLoc', '貢献として残る割合 1-α'], ['scale', 'M_g 共通倍率'], ['phiBase', 'φ 基準採択率'],
       ['oppRate', '機会の到来率'], ['nuLic', 'ライセンス到来率'], ['betaBar', '承認の解決率'],
       ['lamComp', '競合の消失率'], ['lamDem', '需要の消失率'], ['lamObs', '陳腐化'],
       ['kSup', '機能の供給速度'], ['kEva', 'エバンジェリスト探索'], ['nuC', '受託の到来率'],
       ['nuEq', '民間調達の到来率'], ['stallShare', '滞留の分岐'], ['phiU0', 'φ_u 切片'],
       ['phiU1', 'φ_u 傾き'], ['Lu', '前倒し期間'], ['rZeroProb', '自走力ゼロの確率'],
       ['restrictedWaste', '充当できない割合'], ['dOther', '主担当でない空席'],
-      ['qLic', '承継者の到達確率'], ['kIP', '専有可能性'], ['betaBar', '承認の解決率'],
+      ['qLic', '承継者の到達確率'], ['kIP', '専有可能性'],
     ];
     for (const [type, reg] of [['F1','REG0'],['F3','REG0'],['F1','REG2']]) {
       console.log(`\n## ${type} × ${reg}（θ は中央値の1点）\n`);
