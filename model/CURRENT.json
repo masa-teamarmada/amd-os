@@ -165,23 +165,11 @@
           }
         ]
       },
-      "summary": "一件の案件を月ごとに進む盤面として表し、登録された計画の規則の下で道筋を畳み込み、国内付加価値の純増の現在価値（円建ての帯）を出す。2026-08-24 に BZM 3.0 として承認（旧 2.2 の式は引き継がない）。735件の評価の移行・様式・分野別初期値・較正は次の段",
+      "summary": "一件の案件を月ごとに進む盤面として表し、登録された計画の規則の下で道筋を畳み込み、国内付加価値の純増の現在価値（円建ての帯）を出す。2026-08-24 に BZM 3.0 として承認（旧 2.2 の式は引き継がない）。定義の全文はモデルページ本体の §5、様式と値は §6。735件の評価の移行・様式・分野別初期値・較正は次の段",
       "versions": {
         "model_version": "bzm-3.0 theory-approved-2026-08-24"
       },
       "canonical": [
-        {
-          "slug": "2026-08-24_step4_scoring-model-v3",
-          "title": "BZM 3.0 — スコアリング模型（2026-08-24 承認）",
-          "path": "model/proposals/2026-08-24_step4_scoring-model-v3.md",
-          "status": "approved 2026-08-24 / 改訂1 反映済み / APPROVALS #2026-08-24-10・11"
-        },
-        {
-          "slug": "2026-08-24_bzm30-operating-kit-v2",
-          "title": "BZM 3.0 運用一式 第一便 — 様式4点と値3つ（2026-08-24 承認）",
-          "path": "model/proposals/2026-08-24_bzm30-operating-kit-v2.md",
-          "status": "approved 2026-08-24 / APPROVALS #2026-08-24-11"
-        },
         {
           "slug": "bzm-2-2-strategic-slack-and-propulsion",
           "title": "BZM 2.2 — 戦略余力と推進力の動学",
@@ -267,20 +255,6 @@
   ],
   "documents": {
     "canonical": [
-      {
-        "slug": "2026-08-24_step4_scoring-model-v3",
-        "title": "BZM 3.0 — スコアリング模型（2026-08-24 承認）",
-        "path": "model/proposals/2026-08-24_step4_scoring-model-v3.md",
-        "series": "bzm",
-        "locked": true
-      },
-      {
-        "slug": "2026-08-24_bzm30-operating-kit-v2",
-        "title": "BZM 3.0 運用一式 第一便 — 様式4点と値3つ（2026-08-24 承認）",
-        "path": "model/proposals/2026-08-24_bzm30-operating-kit-v2.md",
-        "series": "bzm",
-        "locked": true
-      },
       {
         "slug": "sps-current-reachability-model",
         "title": "到達見込みモデル — 資金の崖が締切を作る",

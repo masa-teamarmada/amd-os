@@ -123,6 +123,21 @@ function runCheck() {
     }
   }
 
+  // 承認済みの正本が model/proposals/ (提案中の置き場) に居座ると、モデルページ本体より
+  // 先に更新される場所が生まれる。2026-08-24 に実際に起きた: 改訂9点がリンク先の文書だけに
+  // 入り、モデルページ本体が6時間半のあいだ古い式のままになった (まさ指摘「本文はこのモデル
+  // ページだよ。ここより先に更新されている場所があってはならない」→ APPROVALS #2026-08-24-12)。
+  // 正本はモデルページ (model/MODEL_VERSION_LEDGER.md) に一本化し、提案中の文書はロックしない。
+  for (const entry of lock.files) {
+    if (entry.path.startsWith("model/proposals/")) {
+      problems.push(
+        `ロック対象に提案中の置き場のファイルが入っています: ${entry.path}。` +
+          "承認済みの定義はモデルページ (model/MODEL_VERSION_LEDGER.md) 本体へ統合し、" +
+          "model/proposals/ には提案中のものだけを置いてください（同じ定義を二か所に置かない）。",
+      );
+    }
+  }
+
   if (lock.frozen_versions) {
     const code = extractCodeFrozenVersions();
     for (const [key, expected] of Object.entries(lock.frozen_versions)) {

@@ -1,6 +1,6 @@
 {
-  "approval_ref": "2026-08-24-11",
-  "locked_at": "2026-08-25T08:17:02.715+09:00",
+  "approval_ref": "2026-08-24-12",
+  "locked_at": "2026-08-25T09:35:43.925+09:00",
   "frozen_versions": {
     "model_version": "sps-ind-tier0-v1",
     "measure_version": "sps-ind-v1",
@@ -51,19 +51,11 @@
     },
     {
       "path": "model/CURRENT.json",
-      "sha256": "e6e35ac83947d3fd06c00b2916ac861ca7c57c42fe49f260ad18a1aaa6be4c50"
+      "sha256": "a983547de84adefdca60dab4a7d72ee93a3b8fc669344d3629a59713d0965118"
     },
     {
       "path": "model/MODEL_VERSION_LEDGER.md",
-      "sha256": "156f1fe58f8766b104dfa0da353cc3b7402d24311c522b4da6fc463e2ab1deee"
-    },
-    {
-      "path": "model/proposals/2026-08-24_bzm30-operating-kit-v2.md",
-      "sha256": "e174fc8470c4c3817fd0d45654c07cd05587caeb5fcface9ed27b965a981f446"
-    },
-    {
-      "path": "model/proposals/2026-08-24_step4_scoring-model-v3.md",
-      "sha256": "4f591d425ecd9af85cb5bc34bb3706ce41d828d0997d85c8a57fc1a330db0239"
+      "sha256": "f2d2d0aa27780efb981f0d8fbf405d97676c46a1dbfd35db29a91779e838ea85"
     }
   ]
 }
