@@ -82,7 +82,7 @@ AMD 目線の要素は、この理論の目的のためには除外する。AMD 
 
 | 主張 | 採らない理由 |
 |---|---|
-| 戦略余力は多すぎてもよくない（逆U字） | この理論の対象（Before Zero。資金不足が常態）には、余力が多すぎる領域の観測が無い。逆U字の実証は既存企業のもの（同じ会社の部門比較で、余力過多が革新を下げる証拠はある）。若い非公開企業では関係はむしろ正で、投資家が付くとさらに正。余力が多い組織で行動の質が落ちる機構は、余力そのものではなく組織の問題として現れる。設立後まで追跡する段になったら再検討する [根拠](#evidence "まさ 2026-08-23「戦略余力が多すぎてもよくない、というのは、違う要素の話を混ぜてるだけ」→ 2026-08-24 文献検証（Nohria & Gulati 1996 逆U字・264部門の同一企業内比較／Tan & Peng 2003 中国1,532社で逆U字／George 2005 非公開900社では正／Vanacker ら 2013 VC付きで正）を経て理由を書き換え。まさ 2026-08-24「その方向でいい」→ APPROVALS #2026-08-24-6") |
+| 戦略余力は多すぎてもよくない（逆U字） | この理論の対象（Before Zero。資金不足が常態）には、余力が多すぎる領域の観測が無い。逆U字の実証は既存企業のもの[1](#ref-1 "Nohria, N. & Gulati, R. (1996) Is Slack Good or Bad for Innovation?")[2](#ref-2 "Tan, J. & Peng, M. W. (2003) Organizational slack and firm performance during economic transitions")（同じ会社の部門比較で、余力過多が革新を下げる証拠はある）。若い非公開企業では関係はむしろ正[3](#ref-3 "George, G. (2005) Slack Resources and the Performance of Privately Held Firms")で、投資家が付くとさらに正[4](#ref-4 "Vanacker, T., Collewaert, V. & Paeleman, I. (2013) The Relationship between Slack Resources and the Performance of Entrepreneurial Firms")。余力が多い組織で行動の質が落ちる機構は、余力そのものではなく組織の問題として現れる。設立後まで追跡する段になったら再検討する [根拠](#evidence "まさ 2026-08-23「戦略余力が多すぎてもよくない、というのは、違う要素の話を混ぜてるだけ」→ 2026-08-24 文献検証（Nohria & Gulati 1996 逆U字・264部門の同一企業内比較／Tan & Peng 2003 中国1,532社で逆U字／George 2005 非公開900社では正／Vanacker ら 2013 VC付きで正）を経て理由を書き換え。まさ 2026-08-24「その方向でいい」→ APPROVALS #2026-08-24-6") |
 
 ### 検討して、要件にしないと決めたもの
 
@@ -94,7 +94,7 @@ AMD 目線の要素は、この理論の目的のためには除外する。AMD 
 | 未校正の主観確率を何段も掛けない | 未校正でも、それしかないなら計算に使うしかない。使うなら較正と幅を付ける——設計で扱う [根拠](#evidence "まさ 2026-08-23「未校正でもそれしかないなら計算に使うしかないでしょ」") |
 | 稀な事象を有限試行で推定しない | 要件ではなく計算法の論点。到達見込みは「起こりうる全部のシナリオを、それぞれの起こりやすさで重ね合わせたもの」として定義する（遅いルートも確率分だけ足す）。計算は、状態が少数のうちは格子上の数値計算を既定にし、乱数の試行（モンテカルロ）は用いない——入力が幅のある判断の段階では、乱数のばらつきが数字に根拠を与えないため [根拠](#evidence "まさ 2026-08-23「そもそも有限試行という手法自体用いないのでは？」→ 2026-08-24 まさ「遅らせると戦略余力は減るけど、それでもそのルートを通ることだってあるわけで、様々なケースについて有限試行して重ね合わせることも意味があるのかもしれない」→ えいみ: 重ね合わせは定義として採る。手段としての乱数試行は、幅のある入力の段階では根拠を与えない（2026-08-04 の 1万回中2回の撤回）ため格子の数値計算を既定にする。まさ「その方向でいい」→ APPROVALS #2026-08-24-6") |
 | 知財と公開の順序 | 出願前に発表したら特許にならないのは当たり前のことで、不確実性とは関係がない [根拠](#evidence "まさ 2026-08-23「当たり前のことを言ってるだけでは？ 不確実性と何も関係がないように感じる」") |
-| 見えない失敗（会社になる前に立ち消えたシーズは記録に残らない） | スコアで考慮する要素ではない（その案件の状態ではない）。ただし理論の主張（領域定義 §3: 遅すぎた失敗は記録に残らないから、予測の対象期間を設立の先まで延ばす）と、検証の設計（会社の記録だけで検証すると「待った方が安全」に偏る。標本の偏りの補正が要る）では中心として扱う [根拠](#evidence "まさ 2026-08-23「before zeroの研究があまり進んでいないことの理由でしかない」→ 2026-08-24 まさ「『見えない失敗』の意味をおれがちゃんと理解できてないかも」→ えいみが説明（早すぎた失敗は記録に残り、遅すぎた失敗は残らないため、会社の記録だけではデータが片側に偏る。Yang & Aldrich 2012）→ まさ「その方向でいい」→ APPROVALS #2026-08-24-6") |
+| 見えない失敗（会社になる前に立ち消えたシーズは記録に残らない） | スコアで考慮する要素ではない（その案件の状態ではない）。ただし理論の主張（領域定義 §3: 遅すぎた失敗は記録に残らないから、予測の対象期間を設立の先まで延ばす）と、検証の設計（会社の記録だけで検証すると「待った方が安全」に偏る。標本の偏りの補正が要る[5](#ref-5 "Yang, T. & Aldrich, H. E. (2012) Out of sight but not out of mind: Why failure to account for left truncation biases research on failure rates")）では中心として扱う [根拠](#evidence "まさ 2026-08-23「before zeroの研究があまり進んでいないことの理由でしかない」→ 2026-08-24 まさ「『見えない失敗』の意味をおれがちゃんと理解できてないかも」→ えいみが説明（早すぎた失敗は記録に残り、遅すぎた失敗は残らないため、会社の記録だけではデータが片側に偏る。Yang & Aldrich 2012）→ まさ「その方向でいい」→ APPROVALS #2026-08-24-6") |
 | 不可逆点（開示順序・会社化タイミング・CEO機能の早すぎる要求） | 不可逆点はいくらでもある。モデルとの関係が示されていない。選択肢が減ることは要件2（戦略余力）で扱う [根拠](#evidence "まさ 2026-08-23「不可逆点はいっぱいあるよね。それがモデルとどう関係してるの？」") |
 | 先行 PJ からの引き継ぎ（失敗した PJ が残した人材・知識・取引関係を、受け取る側の PJ で考慮する） | 受け取る側の PJ が持つ人材・知識・取引関係は、担い手・変換能力の入力「技術」・戦略余力の入力として既に評価に入る。書かなくても新しい PJ の試算で自動的にそうなる [根拠](#evidence "まさ 2026-08-23「別にそれを書かなかったとしても、新しいPJのスコアを試算するときに自動的にそうなるのでは？ もしそうなら入れる意味がないと思う」") |
 | 権利の帰属（技術を事業に使う権利が誰にあり整理されているか）を単独の要件にする | 計算に加えるべき要素ではあるが、それだけを取り出すと、創業者間 SHA の締結、CEO が VC に支配されていないか、など同じ粒度の項目がいくらでもある。要件の粒度ではなく、計算に加える測定項目としてモデル化の段で扱う [根拠](#evidence "まさ 2026-08-23「それは当然のように計算に加えるべき要素だけど、それだけをピックアップしていることに違和感がある。それを言ったら、創業者間SHAが締結できているかとか、経営会議においてCEOがVCにコントロールされてないか？とか、ユニットエコノミクスが成立しているか？とか色々ある」") |
@@ -134,22 +134,22 @@ AMD 目線の要素は、この理論の目的のためには除外する。AMD 
 
 | # | 要件 | 土台にする既存理論（何を与えるか） | 既存理論に無いので手順4で作るもの |
 |---|---|---|---|
-| 1 | 変換能力 | Penrose 1959（資源と、資源が生む働きは別物）＋ Teece 2007（感知・捕捉・再構成に分解）＋ Vohora ら 2004（会社前の局面の実証） | 変換能力を「量」として定義し、売上ゼロで測る手続き |
-| 2 | 戦略余力 | Bourgeois 1981・Mount ら 2024（余力を「すぐ使えるか×転用できるか」で並べる）＋ Levinthal 1991（ゼロに触れたら死ぬ確率過程） | 財務諸表の無い主体の余力の測定。現金以外の成分を「月」に換算する規則 |
-| 3 | 自走力 | Winborg & Landström 2001（外部資金に頼らない行動の類型）＋ Myers & Majluf 1984（自走が交渉力を守る理由）＋ Higgins 1977（外部資金なしで保てる成長速度） | 売上ゼロの段階で「これから稼げるか」を先に測る手続き |
-| 4 | タイミングの窓 | McDonald & Siegel 1986（早すぎる不可逆の代償と、待つ間に機会が消える確率）＋ Weeds 2002（競合の先取り）＋ Grenadier & Malenko 2010（待つ間に学ぶ価値）＋ Elfenbein 2007（会社前の案件が消える速さの実測） | 「案件が消える速さ」と「学ぶ速さ」を、公募の締切・異動・定年・競合の出願から推定する手続き |
-| 5 | 産官学モメンタム | Etzkowitz & Leydesdorff 2000（学・産・官の三軸）＋ Van de Ven 1993（産業インフラの三成分）＋ Aldrich & Fiol 1994（新産業の正統性は二種類） | 分野の追い風を案件一件へ降ろす手続き。「無風＝0」の校正 |
-| 6 | 出力は金額 | 決定分析 Raiffa 1968・Howard 1966（投下費用と比べ、足して配分するには円が要る）＋ Damodaran 2009（失敗確率を別立てにして現在価値を出す）。尺度理論は検査用 | 幅のある値どうしを掛けるときの不確実性の扱い。誰の割引率か |
-| 7 | 現場の状況をすべて吸い上げる | Cooke 1991・IDEA・SHELF（専門家判断を確率に写す手順）＋ Fairfield & Charman 2017（文書証拠をベイズで扱う）＋ Howard 1966・Oskamp 1965（集めすぎは自信だけ上がる） | 既存の手順を LLM 評価者と出所タグ付き証拠に合わせる |
-| 8 | EXIT 形態に依らない | Brandenburger & Stuart 1996（作った価値と取った価値は別）＋ 国民経済計算 SNA／TiVA（国内付加価値の定義）＋ Bloom ら 2013・Myers & Lanahan 2022（波及と事業奪取、国内に残る割合）＋ Link & Scott 2011・Gupta ら 2023（事前の付加価値算定） | 既存の手続き（プログラム評価用）を案件選別用に移す。既存事業からの置換をどう引くか |
-| 9 | 担い手 | Morgeson ら 2010（リーダーシップを15機能に分解）＋ Wasserman 2003（創業者CEOの交代は資金ラウンドで起きる）＋ Lazear 2005（万能型仮説＝分解の限界）＋ チャンピオン論 | 移せる機能／移せない機能の線。七機能の充足・空席を点数に効かせる形。担い手未定のまま評価する手続き |
-| 10 | 天井 | SNA／TiVA（単位＝国内付加価値）＋ Adner & Levinthal 2001・Levinthal 1998（用途が広がる機構）＋ Lindner ら 2012・Gupta ら 2023（表に無い産業を置く手続き） | 数十件に同じ深さで当てられる簡略版。用途を増やす主張の証拠規律 |
-| 11 | ユニットエコノミクス | 価格−原価（CVP）＋ Wright 1936・Lafond ら 2018（量産で下がる関数と誤差の幅）＋ Gutowski 2009・米DOE（熱力学から決まる原価の下限）＋ AACE 18R-97（試算の精緻さの等級） | 工程が未確定でも原価の下限を桁で見積もる簡略手続き。精緻さの等級を根拠レベルに写す |
-| 12 | 資本集約度 | Powell ら 2015（量の型）＋ Roberts & Weitzman 1981・Bergemann & Hege 2005（段階投資で途中停止する確率）＋ Audretsch & Mahmood 1995（効くのは必要額と手持ちの差） | 公的資金のゲートと BZSF の無期限資金へ移す。戦略余力との差（不足額）で効かせる |
+| 1 | 変換能力 | Penrose 1959[6](#ref-6 "Penrose, E. T. (1959) The Theory of the Growth of the Firm")（資源と、資源が生む働きは別物）＋ Teece 2007[8](#ref-8 "Teece, D. J. (2007) Explicating dynamic capabilities: the nature and microfoundations of (sustainable) enterprise performance")（感知・捕捉・再構成に分解。原型は Teece ら 1997[7](#ref-7 "Teece, D. J., Pisano, G. & Shuen, A. (1997) Dynamic Capabilities and Strategic Management")）＋ Vohora ら 2004[10](#ref-10 "Vohora, A., Wright, M. & Lockett, A. (2004) Critical junctures in the development of university high-tech spinout companies")（会社前の局面の実証） | 変換能力を「量」として定義し、売上ゼロで測る手続き |
+| 2 | 戦略余力 | Bourgeois 1981[11](#ref-11 "Bourgeois, L. J. (1981) On the Measurement of Organizational Slack")・Mount ら 2024（余力を「すぐ使えるか×転用できるか」で並べる）＋ Levinthal 1991[12](#ref-12 "Levinthal, D. A. (1991) Random Walks and Organizational Mortality")（ゼロに触れたら死ぬ確率過程） | 財務諸表の無い主体の余力の測定。現金以外の成分を「月」に換算する規則 |
+| 3 | 自走力 | Winborg & Landström 2001[13](#ref-13 "Winborg, J. & Landström, H. (2001) Financial bootstrapping in small businesses")（外部資金に頼らない行動の類型）＋ Myers & Majluf 1984[14](#ref-14 "Myers, S. C. & Majluf, N. S. (1984) Corporate financing and investment decisions when firms have information that investors do not have")（自走が交渉力を守る理由）＋ Higgins 1977[15](#ref-15 "Higgins, R. C. (1977) How Much Growth Can a Firm Afford?")（外部資金なしで保てる成長速度） | 売上ゼロの段階で「これから稼げるか」を先に測る手続き |
+| 4 | タイミングの窓 | McDonald & Siegel 1986[16](#ref-16 "McDonald, R. & Siegel, D. (1986) The Value of Waiting to Invest")（早すぎる不可逆の代償と、待つ間に機会が消える確率）＋ Weeds 2002[17](#ref-17 "Weeds, H. (2002) Strategic Delay in a Real Options Model of R&D Competition")（競合の先取り）＋ Grenadier & Malenko 2010[18](#ref-18 "Grenadier, S. R. & Malenko, A. (2010) A Bayesian Approach to Real Options")（待つ間に学ぶ価値）＋ Elfenbein 2007[19](#ref-19 "Elfenbein, D. W. (2007) Publications, patents, and the market for university inventions")・Gans ら 2008[20](#ref-20 "Gans, J., Hsu, D. & Stern, S. (2008) The Impact of Uncertain Intellectual Property Rights on the Market for Ideas")（会社前の案件が消える速さの実測） | 「案件が消える速さ」と「学ぶ速さ」を、公募の締切・異動・定年・競合の出願から推定する手続き |
+| 5 | 産官学モメンタム | Etzkowitz & Leydesdorff 2000[21](#ref-21 "Etzkowitz, H. & Leydesdorff, L. (2000) The dynamics of innovation: from National Systems and Mode 2 to a Triple Helix")（学・産・官の三軸）＋ Van de Ven 1993[22](#ref-22 "Van de Ven, A. H. (1993) The development of an infrastructure for entrepreneurship")（産業インフラの三成分）＋ Aldrich & Fiol 1994[23](#ref-23 "Aldrich, H. E. & Fiol, C. M. (1994) Fools Rush in? The Institutional Context of Industry Creation")（新産業の正統性は二種類）＋ Bergek ら 2008[24](#ref-24 "Bergek, A., Jacobsson, S., Carlsson, B., Lindmark, S. & Rickne, A. (2008) Analyzing the functional dynamics of technological innovation systems")（技術革新システムの機能） | 分野の追い風を案件一件へ降ろす手続き。「無風＝0」の校正 |
+| 6 | 出力は金額 | 決定分析 Raiffa 1968[26](#ref-26 "Raiffa, H. (1968) Decision Analysis: Introductory Lectures on Choices under Uncertainty")・Howard 1966[27](#ref-27 "Howard, R. A. (1966) Information Value Theory")（投下費用と比べ、足して配分するには円が要る）＋ Damodaran 2009[28](#ref-28 "Damodaran, A. (2009) Valuing Young, Start-up and Growth Companies")（失敗確率を別立てにして現在価値を出す）。尺度理論は検査用 | 幅のある値どうしを掛けるときの不確実性の扱い。誰の割引率か |
+| 7 | 現場の状況をすべて吸い上げる | Cooke 1991[29](#ref-29 "Cooke, R. M. (1991) Experts in Uncertainty: Opinion and Subjective Probability in Science")・IDEA・SHELF（専門家判断を確率に写す手順。交差検証は Colson & Cooke 2017[30](#ref-30 "Colson, A. R. & Cooke, R. M. (2017) Cross validation for the classical model of structured expert judgment")）＋ Fairfield & Charman 2017[31](#ref-31 "Fairfield, T. & Charman, A. E. (2017) Explicit Bayesian Analysis for Process Tracing")（文書証拠をベイズで扱う）＋ Howard 1966[27](#ref-27 "Howard, R. A. (1966) Information Value Theory")・Oskamp 1965[32](#ref-32 "Oskamp, S. (1965) Overconfidence in case-study judgments")（集めすぎは自信だけ上がる） | 既存の手順を LLM 評価者と出所タグ付き証拠に合わせる |
+| 8 | EXIT 形態に依らない | Brandenburger & Stuart 1996[33](#ref-33 "Brandenburger, A. M. & Stuart, H. W. (1996) Value-based Business Strategy")（作った価値と取った価値は別）＋ 国民経済計算 SNA／TiVA・産業連関[38](#ref-38 "Miller, R. E. & Blair, P. D. (2022) Input-Output Analysis: Foundations and Extensions, 3rd edn.")（国内付加価値の定義）＋ Bloom ら 2013[34](#ref-34 "Bloom, N., Schankerman, M. & Van Reenen, J. (2013) Identifying Technology Spillovers and Product Market Rivalry")・Myers & Lanahan 2022[35](#ref-35 "Myers, K. R. & Lanahan, L. (2022) Estimating Spillovers from Publicly Funded R&D")（波及と事業奪取、国内に残る割合）＋ Link & Scott 2011[36](#ref-36 "Link, A. N. & Scott, J. T. (2011) Public Goods, Public Gains: Calculating the Social Benefits of Public R&D")・Gupta ら 2023[37](#ref-37 "Gupta, R. et al. (2023) (産業の付加価値を事前に置く手続きの実例)")（事前の付加価値算定） | 既存の手続き（プログラム評価用）を案件選別用に移す。既存事業からの置換をどう引くか |
+| 9 | 担い手 | Morgeson ら 2010[41](#ref-41 "Morgeson, F. P., DeRue, D. S. & Karam, E. P. (2010) Leadership in Teams: A Functional Approach")（リーダーシップを15機能に分解）＋ Wasserman 2003[42](#ref-42 "Wasserman, N. (2003) Founder-CEO Succession and the Paradox of Entrepreneurial Success")（創業者CEOの交代は資金ラウンドで起きる）＋ Lazear 2005[43](#ref-43 "Lazear, E. P. (2005) Entrepreneurship")（万能型仮説＝分解の限界）＋ Shane & Stuart 2002[44](#ref-44 "Shane, S. & Stuart, T. (2002) Organizational Endowments and the Performance of University Start-ups")・Beckman ら 2007[45](#ref-45 "Beckman, C. M., Burton, M. D. & O'Reilly, C. (2007) Early teams: The impact of team demography on VC financing and going public")（担い手の構成が資金調達の成否に効く）＋ チャンピオン論 | 移せる機能／移せない機能の線。七機能の充足・空席を点数に効かせる形。担い手未定のまま評価する手続き |
+| 10 | 天井 | SNA／TiVA・産業連関[38](#ref-38 "Miller, R. E. & Blair, P. D. (2022) Input-Output Analysis: Foundations and Extensions, 3rd edn.")（単位＝国内付加価値）＋ Adner & Levinthal 2001・Adner 2002[39](#ref-39 "Adner, R. (2002) When are technologies disruptive? A demand-based view")（用途が広がる機構）＋ Lindner ら 2012[40](#ref-40 "Lindner, S., Legault, J. & Guan, D. (2012) Disaggregating Input-Output Tables in Time")・Gupta ら 2023[37](#ref-37 "Gupta, R. et al. (2023) (産業の付加価値を事前に置く手続きの実例)")（表に無い産業を置く手続き） | 数十件に同じ深さで当てられる簡略版。用途を増やす主張の証拠規律 |
+| 11 | ユニットエコノミクス | 価格−原価（CVP）＋ Wright 1936[46](#ref-46 "Wright, T. P. (1936) Factors Affecting the Cost of Airplanes")・Lafond ら 2018[47](#ref-47 "Lafond, F. et al. (2018) How well do experience curves predict technological progress?")（量産で下がる関数と誤差の幅）＋ Gutowski ら 2009[48](#ref-48 "Gutowski, T. G. et al. (2009) Thermodynamic Analysis of Resources Used in Manufacturing Processes")・米DOE（熱力学から決まる原価の下限）＋ AACE 18R-97（試算の精緻さの等級） | 工程が未確定でも原価の下限を桁で見積もる簡略手続き。精緻さの等級を根拠レベルに写す |
+| 12 | 資本集約度 | Powell ら 2015[49](#ref-49 "Powell, D. M. et al. (2015) The capital intensity of photovoltaics manufacturing")（量の型）＋ Roberts & Weitzman 1981[50](#ref-50 "Roberts, K. & Weitzman, M. L. (1981) Funding Criteria for Research, Development, and Exploration Projects")・Bergemann & Hege 2005[51](#ref-51 "Bergemann, D. & Hege, U. (2005) The Financing of Innovation: Learning and Stopping")（段階投資で途中停止する確率）＋ Audretsch & Mahmood 1995[52](#ref-52 "Audretsch, D. B. & Mahmood, T. (1995) New Firm Survival: New Results Using a Hazard Function")（効くのは必要額と手持ちの差） | 公的資金のゲートと BZSF の無期限資金へ移す。戦略余力との差（不足額）で効かせる |
 
 横断の結論: 既存理論はどれも「会社がある・財務諸表がある・担い手が決まっている・標本に残っている」ところから始まる。Before Zero にはどれも無いので、使えるのは概念の区分と関数の形で、測定の手続きは作る必要がある。手順4 は、まずこの共通の穴（Before Zero 固有の観測単位）を定義してから、個別の式へ降りる。
 
-要件は独立ではない。外部の実証で相関が確認できている組は 要件11⇄12（学習によるコスト低下は累積投資の関数でもある）と 要件9⇄12（担い手の交代は資金ラウンドで起きる）。構造上、要件2⇄12（いま持っている資金と、要る資金の総量）と 要件1⇄2（変換能力を余力の増分で測ると同じ量）は二重計上になりうる。相関のある組を独立と仮定して掛け算しない。
+要件は独立ではない。外部の実証で相関が確認できている組は 要件11⇄12[46](#ref-46 "Wright, T. P. (1936) Factors Affecting the Cost of Airplanes")（学習によるコスト低下は累積投資の関数でもある）と 要件9⇄12[42](#ref-42 "Wasserman, N. (2003) Founder-CEO Succession and the Paradox of Entrepreneurial Success")（担い手の交代は資金ラウンドで起きる）。構造上、要件2⇄12（いま持っている資金と、要る資金の総量）と 要件1⇄2（変換能力を余力の増分で測ると同じ量）は二重計上になりうる。相関のある組を独立と仮定して掛け算しない。
 
 ---
 
@@ -251,7 +251,7 @@ $$
 | $\ell_t$ | 年度末の期限による使途制限資金の失効（繰越できない分） |
 
 **吸収（資金切れ）**: $s^{\mathrm{f}}_t < 0$ になり、充当可能な $s^{\mathrm{r}}_t$ でも埋められない月に、シナリオは終わる（撤退または清算へ分類）。
-残高が状態なので、「いつ尽きるか」は履歴に依存する（ゼロ到達＝資金枯渇による終了）。
+残高が状態なので、「いつ尽きるか」は履歴に依存する（ゼロ到達＝資金枯渇による終了）。この形は、組織の蓄積をランダムウォークとして置きゼロ到達を吸収とする死亡モデル[12](#ref-12 "Levinthal, D. A. (1991) Random Walks and Organizational Mortality")に対応する。
 
 ---
 
@@ -263,13 +263,13 @@ $$
 
 | 記号 | 意味と、評価日時点での推定のしかた |
 |---|---|
-| $c$ | 変換能力。投入資源あたりに前進を生む速さの乗数。**履歴から推定する**: これまでに投入した資金と月数に対して越えたゲートの数の比を、分野の基準値（§5.4 の $\kappa_g$）と比べる |
-| $e$ | エバンジェリスト機能（機能1。技術の意義と到達点を説明して、需要家・投資家・審査側の判断を動かす機能）が、この案件で埋まる見込み。専任の担当者を指す量ではなく、**機能が誰かによって担われるかどうか**を表す。**測定手続き**: 関係者の棚卸し（研究室出身者・長期の共同研究者・初期からの伴走者・共同出願者を列挙し、接触実績を確認）。**未探索なら広い範囲（中立）**に置き、探索して担い手が見つからないと分かったときだけ下げる。更新は実働の記録（会議・意思決定・対外説明）のみ。肩書・名義・研究者本人の起業意思は入力にしない |
-| $\sigma$ | 産官学モメンタム。**観測手続き**: 分野別に (i) 公的公募の採択率と予算額の変化、(ii) 民間投資額の変化、(iii) 正統性の二種（認知的＝規格・標準・審議会での位置づけ、社会政治的＝規制整備・業界団体の形成）を記録し、採択関数 $\phi$ と申し出到来率 $\nu$ の乗数に写像する |
+| $c$ | 変換能力。投入資源あたりに前進を生む速さの乗数。資源そのものと資源が生む働きを分ける[6](#ref-6 "Penrose, E. T. (1959) The Theory of the Growth of the Firm")、その働きを感知・捕捉・再構成へ分解する[8](#ref-8 "Teece, D. J. (2007) Explicating dynamic capabilities: the nature and microfoundations of (sustainable) enterprise performance")系譜に対応する。**履歴から推定する**: これまでに投入した資金と月数に対して越えたゲートの数の比を、分野の基準値（§5.4 の $\kappa_g$）と比べる |
+| $e$ | エバンジェリスト機能（機能1。技術の意義と到達点を説明して、需要家・投資家・審査側の判断を動かす機能）が、この案件で埋まる見込み。機能への分解は[41](#ref-41 "Morgeson, F. P., DeRue, D. S. & Karam, E. P. (2010) Leadership in Teams: A Functional Approach")、担い手の構成が資金調達の成否に効くことの実証は[44](#ref-44 "Shane, S. & Stuart, T. (2002) Organizational Endowments and the Performance of University Start-ups")[45](#ref-45 "Beckman, C. M., Burton, M. D. & O'Reilly, C. (2007) Early teams: The impact of team demography on VC financing and going public")。専任の担当者を指す量ではなく、**機能が誰かによって担われるかどうか**を表す。**測定手続き**: 関係者の棚卸し（研究室出身者・長期の共同研究者・初期からの伴走者・共同出願者を列挙し、接触実績を確認）。**未探索なら広い範囲（中立）**に置き、探索して担い手が見つからないと分かったときだけ下げる。更新は実働の記録（会議・意思決定・対外説明）のみ。肩書・名義・研究者本人の起業意思は入力にしない |
+| $\sigma$ | 産官学モメンタム[21](#ref-21 "Etzkowitz, H. & Leydesdorff, L. (2000) The dynamics of innovation: from National Systems and Mode 2 to a Triple Helix")[22](#ref-22 "Van de Ven, A. H. (1993) The development of an infrastructure for entrepreneurship")。**観測手続き**: 分野別に (i) 公的公募の採択率と予算額の変化[25](#ref-25 "Howell, S. T. (2017) Financing Innovation: Evidence from R&D Grants")、(ii) 民間投資額の変化、(iii) 正統性の二種[23](#ref-23 "Aldrich, H. E. & Fiol, C. M. (1994) Fools Rush in? The Institutional Context of Industry Creation")（認知的＝規格・標準・審議会での位置づけ、社会政治的＝規制整備・業界団体の形成）を記録し、採択関数 $\phi$ と申し出到来率 $\nu$ の乗数に写像する |
 | $\tau_{\mathrm{proc}}$ | 工程の型（プロセス型／組立型、特殊インフラ依存）。**必要支出列 $\mu_t$ をここから導き、量産原価の下限 $\underline{c}_u$ の事前分布もここから引く**（同源の共有は事前を型から引くことで保つ） |
-| $\underline{c}_u$ | 用途 $u$ の量産原価の下限。工程の型を事前分布とし、観測（原価実測・設備見積・歩留まり）で更新される案件パラメータ成分（改訂1-7） |
+| $\underline{c}_u$ | 用途 $u$ の量産原価の下限[48](#ref-48 "Gutowski, T. G. et al. (2009) Thermodynamic Analysis of Resources Used in Manufacturing Processes")。工程の型を事前分布とし、観測（原価実測・設備見積・歩留まり）で更新される案件パラメータ成分（改訂1-7） |
 | $\psi$ | 技術の核の成立（再現性・スケール時の性能）。**使用先は二つ**: 技術系のステージゲートの前進確率の乗数（§4）と、そのゲートを通らない限りどの用途も $A_t$ に入れないという共有の前提。技術が立たない案件パラメータでは全用途が同時に立たない |
-| $\kappa_{\mathrm{IP}}$ | 専有可能性。請求範囲の広さ・他者特許との抵触（FTO）・代替経路の塞がり具合から推定する。効き先は三つ: 国内で発生させられる割合 $\phi_u$、競合消失率 $\lambda^{\mathrm{comp}}$、申し出到来率 $\nu$ |
+| $\kappa_{\mathrm{IP}}$ | 専有可能性[53](#ref-53 "Teece, D. J. (1986) Profiting from technological innovation")。請求範囲の広さ・他者特許との抵触（FTO）・代替経路の塞がり具合から推定する。権利の不確かさが技術の取引の成否と速さに効くことの実証は[20](#ref-20 "Gans, J., Hsu, D. & Stern, S. (2008) The Impact of Uncertain Intellectual Property Rights on the Market for Ideas")。効き先は三つ: 国内で発生させられる割合 $\phi_u$、競合消失率 $\lambda^{\mathrm{comp}}$、申し出到来率 $\nu$ |
 | $w_u$ | 用途 $u$ の支払上限。**証拠の階級つき**（関心／有償PoCの支払い／量産条件の提示／量産契約）。有償PoCの支払いだけでは量産の階級に上げない |
 | $\bar P_u$ | 用途 $u$ で国内で発生しうる産業の付加価値（年額の桁） |
 | $\delta_u$ | うち国内の既存事業からの置き換え分 |
@@ -285,7 +285,7 @@ $$
 
 ### 5.4 過程 — ゲート・資金調達・申し出・受託
 
-**標準ゲート表**（ゲートの切り方の規律）: ステージゲートは分野別の標準表から選ぶ。ゲートは**外部から検証可能なイベント**
+**標準ゲート表**（ゲートの切り方の規律）: ステージゲートは分野別の標準表から選ぶ。段階を臨界点として置く形は大学発スピンアウトの実証[10](#ref-10 "Vohora, A., Wright, M. & Lockett, A. (2004) Critical junctures in the development of university high-tech spinout companies")に対応する。**分野ごとに基準の速さを別に持ち、案件ごとの要因を共通の掛け算で効かせる**構造は、生存時間解析の層別ベースラインハザード[54](#ref-54 "Cox, D. R. (1972) Regression Models and Life-Tables")と同じ形である。ゲートは**外部から検証可能なイベント**
 （第三者の再現、規格試験の通過、有償PoCの完了、量産条件の合意）だけで定義し、細切れにして通過確率を稼ぐ操作は
 標準表からの逸脱として表示する。
 
@@ -297,7 +297,7 @@ $$
 
 | 記号 | 意味 |
 |---|---|
-| $\kappa_{g_t}$ | ゲート $g_t$ の基準速度（分野×ゲートの種類の初期値表。工程の型 $\tau_{\mathrm{proc}}$ から引く） |
+| $\kappa_{g_t}$ | ゲート $g_t$ の基準速度（分野×ゲートの種類の初期値表。工程の型 $\tau_{\mathrm{proc}}$ から引く）。分野別に基準の速さを実測して公表する例に、疾患領域別の臨床開発の成功率[55](#ref-55 "BIO, Informa Pharma Intelligence & QLS Advisors Clinical Development Success Rates 2011–2020（疾患領域別。第I相からの承認確率は全体 7.9%、血液 最高・腫瘍 最低）")がある |
 | $\psi_{g_t}$ | 技術系のゲートでは $\psi$（技術の核）、それ以外のゲートでは 1 |
 | $\eta_t$ | 担い手の充足係数（下で定義） |
 | $\gamma$ | 受託がゲート通過を遅らせる度合い。**受託の本業との近さの区分別**——同源（本業技術の検証を兼ねる。初期値 0＝食わない。成果データは別の事象として証拠側へ）≦ 隣接 ≦ 無関係（較正パラメータ。改訂1-9） |
@@ -310,7 +310,7 @@ $$
 
 | 記号 | 意味 |
 |---|---|
-| $\mathcal F$ | 経営チームが持つべき機能の分解表（要件9。CEO・COO・CTO の機能をすべて列挙） |
+| $\mathcal F$ | 経営チームが持つべき機能の分解表（要件9。CEO・COO・CTO の機能をすべて列挙）[41](#ref-41 "Morgeson, F. P., DeRue, D. S. & Karam, E. P. (2010) Leadership in Teams: A Functional Approach")[43](#ref-43 "Lazear, E. P. (2005) Entrepreneurship") |
 | $d_f$ | 機能 $f$ の空席がもたらす遅延係数（0〜1）。エバンジェリスト機能の $d_e$ が最大。**較正**: 空席期間とゲート通過の遅れの観測から推定し、予測した遅れと実測を突き合わせて反証できる |
 | $\mathbb 1[\cdot]$ | 中身が真なら1、偽なら0 |
 
@@ -327,7 +327,7 @@ $$
 
 | 記号 | 意味 |
 |---|---|
-| $\phi$ | 採択関数。追い風と、それまでの成否の履歴・ゲートの位置（＝審査側から見える証拠水準）で決まる。採択は補給であって前進ではない |
+| $\phi$ | 採択関数[25](#ref-25 "Howell, S. T. (2017) Financing Innovation: Evidence from R&D Grants")。追い風と、それまでの成否の履歴・ゲートの位置（＝審査側から見える証拠水準）で決まる。採択は補給であって前進ではない |
 
 **実現の申し出**（ライセンス・M&A・知財売却が起きる過程）:
 
@@ -338,7 +338,7 @@ $$
 | 記号 | 意味 |
 |---|---|
 | $p^{\mathrm{offer}}_{k,t}$ | その月に形 $k$ の申し出（引き合いの成立）が来る確率 |
-| $\nu_k$ | 申し出の到来率。専有可能性・越えたゲート（証拠水準）・追い風で決まる。受けるかどうかは計画の規則（§6）が決める |
+| $\nu_k$ | 申し出の到来率[19](#ref-19 "Elfenbein, D. W. (2007) Publications, patents, and the market for university inventions")[20](#ref-20 "Gans, J., Hsu, D. & Stern, S. (2008) The Impact of Uncertain Intellectual Property Rights on the Market for Ideas")。専有可能性・越えたゲート（証拠水準）・追い風で決まる。受けるかどうかは計画の規則（§6）が決める |
 
 **受託契約（入口・拘束・出口）**: 受託の話は申し出として到来する——
 
@@ -375,7 +375,7 @@ $$
 
 1. **確定した期限**: その月に来た期限を適用（最終公募・定年・任期・権利期限・年度末の失効 $\ell_t$）。
 2. **確率的な消失**: $\lambda_t = \lambda^{\mathrm{comp}}(\kappa_{\mathrm{IP}}, \sigma) + \lambda^{\mathrm{dem}}$ で外からの死
-   （競合の先取り・需要側の消失。真に確率的なものだけ）。
+   （競合の先取り[17](#ref-17 "Weeds, H. (2002) Strategic Delay in a Real Options Model of R&D Competition")・需要側の消失。真に確率的なものだけ）。会社前の案件が消える速さの実測は[19](#ref-19 "Elfenbein, D. W. (2007) Publications, patents, and the market for university inventions")[20](#ref-20 "Gans, J., Hsu, D. & Stern, S. (2008) The Impact of Uncertain Intellectual Property Rights on the Market for Ideas")。
 3. **過程の判定**: ステージゲートの前進、資金調達の採択、申し出の到来、権利・承認の解決、受託契約の開始・満了。
 4. **規則の適用**（§6）: 計画の規則が、次の行動（会社化する／申し出を受ける／ピボットする／撤退する／続ける）を決める。
 5. **資金の更新**: §2 の遷移式。
@@ -420,16 +420,16 @@ $$
 | 記号 | 意味 |
 |---|---|
 | $\Pi(\omega)$ | シナリオ $\omega$ の価値（円）。**遅く実現したシナリオは自動的に軽くなる**（割引がシナリオの中にあるため） |
-| $d$ | 社会的割引率（一本。公共投資の社会的割引率の系譜から較正。リスクの上乗せをしない——失敗はシナリオの確率で数えている） |
+| $d$ | 社会的割引率（一本。公共投資の社会的割引率の系譜から較正。リスクの上乗せをしない——失敗はシナリオの確率で数えている[28](#ref-28 "Damodaran, A. (2009) Valuing Young, Start-up and Growth Companies")） |
 | $A_t(\omega)$ | その月に稼働している用途の集合（観測状態の状態 §2。参入は市場ゲート・稼働度の立ち上がり・二種の離脱——事象と陳腐化——を含む。実現の形——自社・ライセンス先・買収後の主体——を問わず、国内で発生する分を数える） |
 | $\frac{\bar P_u - \delta_u}{12}$ | 年額の純増を**月額**に直した量（月次の和と単位を揃える。閉包検証で年額のまま12倍になっていた誤りを訂正） |
-| $\phi_u$ | 用途 $u$ の年額のうち、この案件系（承継者を含む）が国内で発生させられる割合（専有可能性 $\kappa_{\mathrm{IP}}$ に依存） |
-| $\bar P_u - \delta_u$ | 年額の天井から国内の既存事業の置き換え分を引いた純増 |
+| $\phi_u$ | 用途 $u$ の年額のうち、この案件系（承継者を含む）が国内で発生させられる割合（専有可能性 $\kappa_{\mathrm{IP}}$ に依存）。作った価値と取った価値を分ける[33](#ref-33 "Brandenburger, A. M. & Stuart, H. W. (1996) Value-based Business Strategy")、専有可能性と補完資産で取り分が決まる[53](#ref-53 "Teece, D. J. (1986) Profiting from technological innovation") |
+| $\bar P_u - \delta_u$ | 年額の天井から国内の既存事業の置き換え分を引いた純増。既存事業の置き換え（事業奪取）を波及と分けて測る枠は[34](#ref-34 "Bloom, N., Schankerman, M. & Van Reenen, J. (2013) Identifying Technology Spillovers and Product Market Rivalry")[35](#ref-35 "Myers, K. R. & Lanahan, L. (2022) Estimating Spillovers from Publicly Funded R&D")、国内付加価値の定義は産業連関・SNA／TiVA[38](#ref-38 "Miller, R. E. & Blair, P. D. (2022) Input-Output Analysis: Foundations and Extensions, 3rd edn.")、事前の算定手続きは[36](#ref-36 "Link, A. N. & Scott, J. T. (2011) Public Goods, Public Gains: Calculating the Social Benefits of Public R&D")[37](#ref-37 "Gupta, R. et al. (2023) (産業の付加価値を事前に置く手続きの実例)") |
 | $1 - \alpha_u(t)$ | 反実仮想の控除（時間形。§3・改訂1-6）。前倒し期間 $L_u$ までは評価日の控除率、それ以降は国内立地差だけを貢献に数える（目的3 の帰属。査読で最初に突かれる箇所への先回り） |
 | $C(x_T, \theta)$ | **継続価値関数**: 評価期間 $T$ の終端観測状態（決着・未決着を問わない）に置く価値。終端の観測状態と案件パラメータの関数として定義し、版管理する（改訂1-4）。後ろ向き帰納の終端条件でもある |
 
 **単位採算のゲート（要件11）**: 案件パラメータ $\theta$ を固定すれば $m_u(\theta) = w_u - \underline{c}_u$ は一つの数で、
-計画の規則は $m_u(\theta) > 0$ の用途だけを $A_t$ に入れる。全用途で $m_u(\theta) \le 0$ の案件パラメータでは価値が立たない。
+計画の規則は $m_u(\theta) > 0$ の用途だけを $A_t$ に入れる。量産で下がる原価の関数形は[46](#ref-46 "Wright, T. P. (1936) Factors Affecting the Cost of Airplanes")[47](#ref-47 "Lafond, F. et al. (2018) How well do experience curves predict technological progress?")、原理から決まる下限は[48](#ref-48 "Gutowski, T. G. et al. (2009) Thermodynamic Analysis of Resources Used in Manufacturing Processes")。全用途で $m_u(\theta) \le 0$ の案件パラメータでは価値が立たない。
 スコアの上下の幅は、この判定が案件パラメータの事前分布 $B_0$ の上で混ざった結果として現れる——採算が成り立つ用途が一つも見えていない案件は、
 スコアの下限が下がる。**このゲートはモデルの中の規則**であり、GO／NO_GO の判定（二階の仕事）とは別物。
 
@@ -455,7 +455,7 @@ $$
 | $v(\theta)$ | 案件パラメータが $\theta$ だったときの、シナリオの確率で重ねた価値の期待値。観測状態（$A_t$ を含む）の上の前向きの積み上げ計算で計算する。状態の数が粗い離散化で収まらない場合は、状態の束ね方（資金の刻み・$A_t$ の代表集合）を明示して近似し、近似誤差を表示する |
 | $V$ | スコアの中心値。案件パラメータの事前分布で重ねた期待値（確率と価値の相関は $v(\theta)$ の中で保存される） |
 
-**スコアの報告**: スコアは三つの数で報告する——
+**スコアの報告**[26](#ref-26 "Raiffa, H. (1968) Decision Analysis: Introductory Lectures on Choices under Uncertainty")[27](#ref-27 "Howard, R. A. (1966) Information Value Theory"): スコアは三つの数で報告する——
 $B_0$ の下で $v(\theta)$ が取る値の下側（10%点）・中央（50%点）・上側（90%点）。中心値 $V$ は参考に併記。
 この上下の幅は、案件パラメータがまだ分かっていないことから生じる、どの案件パラメータを絞り込むと幅が最も縮むか（＝次に集めるべき情報）を
 同時に出す（要件7 の運用）。
@@ -472,14 +472,14 @@ $B_0$ の下で $v(\theta)$ が取る値の下側（10%点）・中央（50%点�
 
 ### 5.9 測り方・較正・ゲーム耐性
 
-- **観測→状態の登録簿**: 一つの出来事は事象一件で記録し、効き先（状態・案件パラメータ成分・資金調達の機会の一覧・確定した期限）を型で宣言。
+- **観測→状態の登録簿**[29](#ref-29 "Cooke, R. M. (1991) Experts in Uncertainty: Opinion and Subjective Probability in Science")[31](#ref-31 "Fairfield, T. & Charman, A. E. (2017) Explicit Bayesian Analysis for Process Tracing"): 一つの出来事は事象一件で記録し、効き先（状態・案件パラメータ成分・資金調達の機会の一覧・確定した期限）を型で宣言。
   同じ一件で事前分布を二回更新しない。棚卸しの8共有観測が登録簿の初期形。
 - **十分統計量の規約**: 集めた情報はすべて、案件パラメータの推定値・観測状態・資金調達の機会の一覧・規則のどれかを動かす形で入る。
   どこにも入らない重要情報は、状態表の拡張手続き（提案→承認）で受ける。
 - **版**: 証拠が増えたら $B_0$・資金調達の機会の一覧・規則を更新して**新しい版として再計算**する。版の列に対して時間整合性
   （一方向に流れ続けないか）を検査する。
 - **較正**: $\kappa_g$（ゲートの基準速度）・$\phi$（採択関数）・$\nu$（申し出到来率）・$\beta$（承認解決率）・$\lambda$（消失率）・
-  $d_f$（空席の遅延）は、AMD の接触台帳（会社になる前からの記録。左側切断を補正）と公開情報（採択率・出願公開）で較正する。
+  $d_f$（空席の遅延）は、AMD の接触台帳（会社になる前からの記録。左側切断を補正[5](#ref-5 "Yang, T. & Aldrich, H. E. (2012) Out of sight but not out of mind: Why failure to account for left truncation biases research on failure rates")）と公開情報（採択率・出願公開）で較正する。交差検証の手続きは[30](#ref-30 "Colson, A. R. & Cooke, R. M. (2017) Cross validation for the classical model of structured expert judgment")。
 - **ゲーム耐性**: ゲートは標準表の外部検証可能イベントのみ（細切れ操作は逸脱として表示）。支払上限は証拠階級で頭打ち。
   必要支出列は工程の型から独立に引き直して申告値と突き合わせる。担い手の充足は実働記録のみ。
   用途の追加には三点の証拠（第三者データ・単位採算・天井への経路）を要求する。
@@ -585,13 +585,13 @@ $V^{\mathrm{eq}}$ の形ごとの脚（§8）、記号の閉包表の訂正（§
 | T1 | 原理実証 | 主張する機能が、統制された条件で成立したことが、第三者に検証可能な記録（査読論文・公開データ・日付のある実験記録）になっている | 事前に定めた検証計画1件の完了 | 2 | $g_t$ 前進・$\psi$ の推定値 |
 | T2 | 再現性 | 手順書化され、実験者または装置を変えて再現が確認されている。第三者再現が最上位の証拠 | 実験者・装置・機関を替えた再現の試み1回 | 2 | $g_t$ 前進・$\psi$ の推定値 |
 | T3 | 実環境・実規模の検証 | 実使用条件（現場・連続運転・実試料）または規模を上げた条件（ベンチ・パイロット）で性能が確認されている | 実環境・実規模の試験1期の完了 | 2 | $g_t$ 前進・$\psi$ の推定値（**価値はまだ立たない**） |
-| T4-* | 規制・認証のゲート | 監督官庁・認証機関の**制度が定める区分ごと**に1ゲートとして置く（例: T4-相談、T4-治験(相ごと)、T4-承認申請、T4-承認、T4-保険収載。規格認証なら T4-規格試験）。制度の区分に沿った分割は細切れではない | 制度上の申請・審査1回 | 6・2 | $g_t$ 前進。保険収載・認証は $w_u$ の証拠階級にも効く |
+| T4-* | 規制・認証のゲート[56](#ref-56 "医薬産業政策研究所 (2023) 日本で承認された新医薬品とその審査期間（2022年承認実績。通常審査品目の総審査期間 10.8 か月）")[57](#ref-57 "医薬品医療機器総合機構 (2025) 医療機器にかかる PMDA の取組（新医療機器 通常品目の総審査期間 2023年度 11.4 か月・2024年度 11.7 か月）") | 監督官庁・認証機関の**制度が定める区分ごと**に1ゲートとして置く（例: T4-相談、T4-治験(相ごと)、T4-承認申請、T4-承認、T4-保険収載。規格認証なら T4-規格試験）。制度の区分に沿った分割は細切れではない | 制度上の申請・審査1回 | 6・2 | $g_t$ 前進。保険収載・認証は $w_u$ の証拠階級にも効く |
 
 市場系（$\psi$ は乗らない。記号は用途×需要家で付ける——例: M2α-X ＝ 用途αを需要家Xが有償PoC）:
 
 | 記号 | ゲート | 通過の定義 | 試行の単位 | 主担当機能 | 通過が動かすもの |
 |---|---|---|---|---|---|
-| M2 | 有償PoCの完了 | 需要家が**独立の当事者として、重要性のある対価**を払って評価を完了した（請求と入金の記録）。重要性の基準: 対価が評価の実費の過半、または案件の年間バーンレートの 5% 以上。関連当事者・相殺・還流による名目的な支払いは対価と数えない（関係の開示を記録に添える） | 需要家1社との有償PoC1件の完了 | 3・1 | $g_t$ 前進。$w_u$ の階級「有償PoC」へ。**通過後18か月、次の階級への動きが無ければ確信度を下げ、24か月無進捗で階級を「関心」へ引き戻す**（種類12） |
+| M2 | 有償PoCの完了[33](#ref-33 "Brandenburger, A. M. & Stuart, H. W. (1996) Value-based Business Strategy") | 需要家が**独立の当事者として、重要性のある対価**を払って評価を完了した（請求と入金の記録）。重要性の基準: 対価が評価の実費の過半、または案件の年間バーンレートの 5% 以上。関連当事者・相殺・還流による名目的な支払いは対価と数えない（関係の開示を記録に添える） | 需要家1社との有償PoC1件の完了 | 3・1 | $g_t$ 前進。$w_u$ の階級「有償PoC」へ。**通過後18か月、次の階級への動きが無ければ確信度を下げ、24か月無進捗で階級を「関心」へ引き戻す**（種類12） |
 | M3 | 量産条件の提示 | 需要家から量産時の価格・数量・品質の条件が、**権限者の署名と有効期限のある文書**（条件シート・基本合意）で出た。拘束力の無い口頭・社内資料は階級「関心」のまま | 需要家1社との条件交渉1巡 | 3・6 | $g_t$ 前進。$w_u$ の階級「量産条件」へ。**12か月進捗が無ければ失効**（種類12で記録し階級を引き戻す） |
 | M4 | 採用決定・量産契約 | 量産契約の締結、または発注番号・権限者署名のある採用決定。撤回条項の有無を記録 | 需要家1社との契約交渉1巡 | 6・4 | $g_t$ 前進。$w_u$ の階級最上位。**入口用途が $A_t$ に入る（価値の発生。稼働度の立ち上がり・離脱は改訂1-2）** |
 
@@ -607,7 +607,7 @@ $V^{\mathrm{eq}}$ の形ごとの脚（§8）、記号の閉包表の訂正（§
 
 | 型 | 名前 | 特徴 | 重いゲート |
 |---|---|---|---|
-| F1 | プロセス型 | 素材・化学・バイオ生産。規模を上げると挙動が非線形に変わる。特殊設備・プラント依存 | T3（スケール） |
+| F1 | プロセス型 | 素材・化学・バイオ生産。規模を上げると挙動が非線形に変わる。特殊設備・プラント依存[49](#ref-49 "Powell, D. M. et al. (2015) The capital intensity of photovoltaics manufacturing")[48](#ref-48 "Gutowski, T. G. et al. (2009) Thermodynamic Analysis of Resources Used in Manufacturing Processes") | T3（スケール） |
 | F2 | 組立・デバイス型 | 部品統合と歩留まり。試作から量産設計へ移る段階が難所 | T3（量産試作）・M3 |
 | F3 | ソフトウェア・データ型 | 軽資本で検証が速い。技術ゲートより市場ゲートが律速 | M2〜M4 |
 | F4 | サービス・手法型 | 計測・解析・受託の型。受託の稼ぎと一体で立ち上がる | M2（早期に来る） |
@@ -632,14 +632,14 @@ $V^{\mathrm{eq}}$ の形ごとの脚（§8）、記号の閉包表の訂正（§
 
 #### 6.B-1 八機能
 
-教科書 第5章 表5-4（CEO・CTO という肩書の七機能分解）を**出発点**とし、市場側の機能を1つ加えた**八機能の拡張**として $\mathcal F$ を定義する
+教科書 第5章 表5-4（CEO・CTO という肩書の七機能分解）を**出発点**とし、市場側の機能を1つ加えた**八機能の拡張**として $\mathcal F$ を定義する（機能への分解の先行研究は[41](#ref-41 "Morgeson, F. P., DeRue, D. S. & Karam, E. P. (2010) Leadership in Teams: A Functional Approach")、分解の限界を突く万能型仮説は[43](#ref-43 "Lazear, E. P. (2005) Entrepreneurship")）
 （表5-4 は「七つまで割り切る」と宣言された簡略化であり網羅の主張ではないため、モデル用の $\mathcal F$ はここで独立に定義する。
 COO 相当の中核は機能7 に置く。量産段階で機能が増える場合は拡張手続きで受ける）。
 
 | # | 機能 $f$ | 中身 | 移せるか | 空席の埋まり方 |
 |---|---|---|---|---|
 | 1 | エバンジェリスト機能 | 技術の意義と到達点を説明して、需要家・投資家・審査側の判断を動かす。**機能であって職名ではない**——誰が担ってもよく、他の機能と兼ねてよい | 移せない | 探索過程（成功確率は案件パラメータ $e$） |
-| 2 | 技術の核 | どこまで確かで、どこから先が未知か。再現条件の感覚 | 移せない | 原則、研究者本人。**恒久喪失（異動・定年で戻らない場合）は遅延ではなく、確定した期限・消失の側で扱う**（第二便で消失率へ接続） |
+| 2 | 技術の核 | どこまで確かで、どこから先が未知か。再現条件の感覚（書き出せない経験に根ざすため移せない[9](#ref-9 "Kogut, B. & Zander, U. (1992) Knowledge of the Firm, Combinative Capabilities, and the Replication of Technology")） | 移せない | 原則、研究者本人。**恒久喪失（異動・定年で戻らない場合）は遅延ではなく、確定した期限・消失の側で扱う**（第二便で消失率へ接続） |
 | 3 | 用途と需要家の開拓 | 用途仮説の設計、需要家の選定と開拓、単位採算と価格条件の判断 | 移せる | AMD の供給過程 |
 | 4 | 最終意思決定と説明責任 | 進む・待つ・止めるを決め、結果を引き受ける | 移せる | AMD の供給過程 |
 | 5 | 資金調達の実行 | 資料を作り、面談を回し、条件を詰める | 移せる | AMD の供給過程 |
@@ -649,7 +649,7 @@ COO 相当の中核は機能7 に置く。量産段階で機能が増える場�
 
 - **粒度の固定**: 充足係数 $\eta_t$ は空席機能にわたる積なので、分解の粒度そのものが値を動かす。$\mathcal F$ の粒度はこの表で固定し、細分・統合は係数の再較正を伴う版の更新として行う。**粒度の違う版のスコアを比較しない。**
 - 空席の遅延 $d_f$ は、**エバンジェリストの $d_e$ が最大**（§5.4 の確定）だけを制約とし、他の機能の順位は第二便の較正の**出力**とする（事前に順位を固定すると、順位の誤りが順序制約の下で検出できなくなるため）。
-- Morgeson ら 2010（チームのリーダーシップの15機能）は**参照した先行研究**であり、八機能との対応表は第二便で精査する（対応表の完成前に「束ねたもの」とは主張しない）。移せる／移せないの線は教科書 5.5節（言葉にして渡せるか）を採る。
+- Morgeson ら 2010[41](#ref-41 "Morgeson, F. P., DeRue, D. S. & Karam, E. P. (2010) Leadership in Teams: A Functional Approach")（チームのリーダーシップの15機能）は**参照した先行研究**であり、八機能との対応表は第二便で精査する（対応表の完成前に「束ねたもの」とは主張しない）。移せる／移せないの線は教科書 5.5節（言葉にして渡せるか）を採る。
 
 #### 6.B-2 充足の判定 — 直近性・証拠の下限・失効
 
@@ -690,7 +690,7 @@ COO 相当の中核は機能7 に置く。量産段階で機能が増える場�
 | 1 | 公的資金の採択 | 補給 $z^{\mathrm{r}}$・履歴 $n_t$ |
 | 2 | 公的資金の不採択 | 履歴 $n_t$（$\phi$ の較正入力） |
 | 3 | 公的資金の中間評価による減額・打ち切り | 補給の停止・履歴 $n_t$ |
-| 4 | 資金調達の機会の一覧の更新（公募要領の公示・改廃、**非公募の学内配分**（GAP ファンド・学長裁量枠）の判明を含む） | 資金調達の機会の一覧 |
+| 4 | 資金調達の機会の一覧の更新（公募要領の公示・改廃[58](#ref-58 "科学技術振興機構 研究成果最適展開支援プログラム A-STEP 公募実施状況（2025年度 産学共同ステージⅠ・Ⅱ 応募651件・採択58件）")[59](#ref-59 "新エネルギー・産業技術総合開発機構 (2025) 先導研究プログラム 実施体制の決定（新技術先導研究 応募84件・採択20件）")、**非公募の学内配分**（GAP ファンド・学長裁量枠）の判明を含む） | 資金調達の機会の一覧 |
 | 5 | 民間調達の成立 | 補給 $z^{\mathrm{f}}$・履歴 $n_t$ |
 
 権利・承認（大学の時計）:
@@ -798,7 +798,7 @@ $$
 | $d$ | 合成: 0.8〜3.0%（中央はおよそ 1.7%）。**2.0% を採る**——中央よりやや高め、つまり将来を強めに割り引いてスコアを控えめに出す側の丸め |
 
 補足:
-- BZM 3.0 の $d$ は「失敗の可能性を含まない、社会の時間選好」である（§5.7: リスクの上乗せをしない——失敗はシナリオの確率で数えている）。リスクを含む資本コスト（VC の期待収益率など）を使ってはならない。
+- BZM 3.0 の $d$ は「失敗の可能性を含まない、社会の時間選好」である[28](#ref-28 "Damodaran, A. (2009) Valuing Young, Start-up and Growth Companies")（§5.7: リスクの上乗せをしない——失敗はシナリオの確率で数えている）。リスクを含む資本コスト（VC の期待収益率など）を使ってはならない。
 - 参照（いずれも構成が違う量なので、根拠ではなく参照）: 日本の公共事業評価の運用は 4%（長期国債の実質利回りを参考に設定されて以来据え置き。設定当時と金利実勢が乖離しており、見直しの検討が報じられている）。英国は 3.5%（ラムゼー式によるが、内訳に社会の存続に関する危険率 約1% を含む——リスクを別立てにする BZM 3.0 とは構成が違う）。オランダは 2.25%（2020年の割引率作業部会の勧告。リスクフリー率にリスクの上乗せを重ねる構成で、これも BZM 3.0 とは構成が違う）。米国は連邦の指針（規制影響分析 Circular A-4・投資評価 Circular A-94）が 2023年に約 2% へ改定されたが、**2025年に撤回された経緯があり、現行の参照点にはしない**。
 - 4.0% の感度は日本の現行運用との突き合わせ、1.0% は長期の産業価値を重く見る立場との突き合わせ。30年超を見る評価なので、長期で逓減する割引スケジュール（英国型）は第二便の検討項目とする（逓減も「一本」であり§5.7 に反しない）。
 
@@ -930,6 +930,81 @@ $$
 
 ---
 
+## 9. 参考文献 {#references}
+
+本文中の上付きの番号は、この一覧の項目を指す。**番号にマウスを載せると書誌が出て、押すと該当項目へ飛ぶ。** [根拠](#evidence "まさ 2026-08-25「一般的な論文を書くときには、かならず括弧つき数字で文献番号つけて引用文献添えるじゃん、あれをやってほしい」「モデル正本全体に言えることだけど、根拠が全然書かれてないから、全体的に根拠を埋めておいてほしい」")
+
+三つの規律を置く。
+
+1. **まさの発言の根拠と、文献の根拠を混ぜない。** まさが決めたこと（目的・要件・価値基準）の根拠は「根拠」の印でマウスオーバー表示する。この一覧は**外部の文献**だけを載せる。
+2. **自著と外部文献の地位を分ける。** 「文献が示している」と書けるのは外部の査読文献だけで、教科書（BZM 自身の主張）は本文でそう明記する。
+3. **書誌は実在を確認したものだけを載せる。** URL（DOI か出版社・公式ページ）を付ける。確認が取れていないものは「書誌のみ・URL 未取得」と記し、それを根拠の柱にしない。
+
+**「効く」と「どれだけ効く」を分ける。** この一覧が支えるのは、モデルの**構造**（どの量がどこに効くか、関数の形）である。
+係数の**水準**（何%か、何か月か）に文献の裏づけがあるのは、制度の審査期間と臨床開発の相別成功率だけで、
+残りは較正で埋める前提の初期値である（第二便）。
+
+1. [1](#refdef-1) Nohria, N. & Gulati, R. (1996) "Is Slack Good or Bad for Innovation?", *Academy of Management Journal 39(5): 1245–1264*. <https://journals.aom.org/doi/abs/10.5465/256998>
+2. [2](#refdef-2) Tan, J. & Peng, M. W. (2003) "Organizational slack and firm performance during economic transitions", *Strategic Management Journal 24(13): 1249–1263*. （書誌のみ・URL 未取得）
+3. [3](#refdef-3) George, G. (2005) "Slack Resources and the Performance of Privately Held Firms", *Academy of Management Journal 48(4): 661–676*. <https://journals.aom.org/doi/10.5465/amj.2005.17843944>
+4. [4](#refdef-4) Vanacker, T., Collewaert, V. & Paeleman, I. (2013) "The Relationship between Slack Resources and the Performance of Entrepreneurial Firms", *Journal of Management Studies 50(6): 1070–1096*. <https://onlinelibrary.wiley.com/doi/10.1111/joms.12026>
+5. [5](#refdef-5) Yang, T. & Aldrich, H. E. (2012) "Out of sight but not out of mind: Why failure to account for left truncation biases research on failure rates", *Journal of Business Venturing 27(4): 477–492*. <https://doi.org/10.1016/j.jbusvent.2012.01.002>
+6. [6](#refdef-6) Penrose, E. T. (1959) "The Theory of the Growth of the Firm", *Oxford University Press*. <https://global.oup.com/academic/product/the-theory-of-the-growth-of-the-firm-9780199573844>
+7. [7](#refdef-7) Teece, D. J., Pisano, G. & Shuen, A. (1997) "Dynamic Capabilities and Strategic Management", *Strategic Management Journal 18(7): 509–533*. <https://sms.onlinelibrary.wiley.com/doi/abs/10.1002/(SICI)1097-0266(199708)18:7%3C509::AID-SMJ882%3E3.0.CO;2-Z>
+8. [8](#refdef-8) Teece, D. J. (2007) "Explicating dynamic capabilities: the nature and microfoundations of (sustainable) enterprise performance", *Strategic Management Journal 28(13): 1319–1350*. <https://doi.org/10.1002/smj.640>
+9. [9](#refdef-9) Kogut, B. & Zander, U. (1992) "Knowledge of the Firm, Combinative Capabilities, and the Replication of Technology", *Organization Science 3(3): 383–397*. <https://pubsonline.informs.org/doi/10.1287/orsc.3.3.383>
+10. [10](#refdef-10) Vohora, A., Wright, M. & Lockett, A. (2004) "Critical junctures in the development of university high-tech spinout companies", *Research Policy 33(1): 147–175*. <https://doi.org/10.1016/S0048-7333(03)00107-0>
+11. [11](#refdef-11) Bourgeois, L. J. (1981) "On the Measurement of Organizational Slack", *Academy of Management Review 6(1): 29–39*. <https://journals.aom.org/doi/abs/10.5465/amr.1981.4287985>
+12. [12](#refdef-12) Levinthal, D. A. (1991) "Random Walks and Organizational Mortality", *Administrative Science Quarterly 36(3): 397–420*. <https://www.researchgate.net/publication/271761018_Random_Walks_and_Organizational_Mortality>
+13. [13](#refdef-13) Winborg, J. & Landström, H. (2001) "Financial bootstrapping in small businesses", *Journal of Business Venturing 16(3): 235–254*. <https://doi.org/10.1016/S0883-9026(99)00055-5>
+14. [14](#refdef-14) Myers, S. C. & Majluf, N. S. (1984) "Corporate financing and investment decisions when firms have information that investors do not have", *Journal of Financial Economics 13(2): 187–221*. <https://doi.org/10.1016/0304-405X(84)90023-0>
+15. [15](#refdef-15) Higgins, R. C. (1977) "How Much Growth Can a Firm Afford?", *Financial Management 6(3): 7–16*. <https://www.semanticscholar.org/paper/c07640ec9fd066d949dc7edd7eb3614dd1407ece>
+16. [16](#refdef-16) McDonald, R. & Siegel, D. (1986) "The Value of Waiting to Invest", *Quarterly Journal of Economics 101(4): 707–727*. <https://doi.org/10.2307/1884175>
+17. [17](#refdef-17) Weeds, H. (2002) "Strategic Delay in a Real Options Model of R&D Competition", *Review of Economic Studies 69(3): 729–747*. <https://doi.org/10.1111/1467-937X.t01-1-00029>
+18. [18](#refdef-18) Grenadier, S. R. & Malenko, A. (2010) "A Bayesian Approach to Real Options", *Journal of Finance 65(5): 1949–1986*. <https://doi.org/10.1111/j.1540-6261.2010.01599.x>
+19. [19](#refdef-19) Elfenbein, D. W. (2007) "Publications, patents, and the market for university inventions", *Journal of Economic Behavior & Organization 63(4): 688–715*. <https://doi.org/10.1016/j.jebo.2006.05.010>
+20. [20](#refdef-20) Gans, J., Hsu, D. & Stern, S. (2008) "The Impact of Uncertain Intellectual Property Rights on the Market for Ideas", *Management Science 54(5): 982–997*. <https://doi.org/10.1287/mnsc.1070.0814>
+21. [21](#refdef-21) Etzkowitz, H. & Leydesdorff, L. (2000) "The dynamics of innovation: from National Systems and Mode 2 to a Triple Helix", *Research Policy 29(2): 109–123*. <https://www.sciencedirect.com/science/article/abs/pii/S0048733399000554>
+22. [22](#refdef-22) Van de Ven, A. H. (1993) "The development of an infrastructure for entrepreneurship", *Journal of Business Venturing 8(3): 211–230*. <https://www.sciencedirect.com/science/article/abs/pii/0883902693900284>
+23. [23](#refdef-23) Aldrich, H. E. & Fiol, C. M. (1994) "Fools Rush in? The Institutional Context of Industry Creation", *Academy of Management Review 19(4): 645–670*. <https://journals.aom.org/doi/10.5465/amr.1994.9412190214>
+24. [24](#refdef-24) Bergek, A., Jacobsson, S., Carlsson, B., Lindmark, S. & Rickne, A. (2008) "Analyzing the functional dynamics of technological innovation systems", *Research Policy 37(3): 407–429*. <https://doi.org/10.1016/j.respol.2007.12.003>
+25. [25](#refdef-25) Howell, S. T. (2017) "Financing Innovation: Evidence from R&D Grants", *American Economic Review 107(4): 1136–1164*. <https://doi.org/10.1257/aer.20150808>
+26. [26](#refdef-26) Raiffa, H. (1968) "Decision Analysis: Introductory Lectures on Choices under Uncertainty", *Addison-Wesley*. <https://archive.org/details/decisionanalysis00raif>
+27. [27](#refdef-27) Howard, R. A. (1966) "Information Value Theory", *IEEE Transactions on Systems Science and Cybernetics 2(1): 22–26*. <https://doi.org/10.1109/TSSC.1966.300074>
+28. [28](#refdef-28) Damodaran, A. (2009) "Valuing Young, Start-up and Growth Companies", *SSRN Working Paper 1418687*. <https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1418687>
+29. [29](#refdef-29) Cooke, R. M. (1991) "Experts in Uncertainty: Opinion and Subjective Probability in Science", *Oxford University Press*. <https://archive.org/details/expertsinuncerta0000cook>
+30. [30](#refdef-30) Colson, A. R. & Cooke, R. M. (2017) "Cross validation for the classical model of structured expert judgment", *Reliability Engineering & System Safety 163: 109–120*. <https://doi.org/10.1016/j.ress.2017.02.003>
+31. [31](#refdef-31) Fairfield, T. & Charman, A. E. (2017) "Explicit Bayesian Analysis for Process Tracing", *Political Analysis 25(3): 363–380*. <https://doi.org/10.1017/pan.2017.14>
+32. [32](#refdef-32) Oskamp, S. (1965) "Overconfidence in case-study judgments", *Journal of Consulting Psychology 29(3): 261–265*. <https://doi.org/10.1037/h0022125>
+33. [33](#refdef-33) Brandenburger, A. M. & Stuart, H. W. (1996) "Value-based Business Strategy", *Journal of Economics & Management Strategy 5(1): 5–24*. <https://doi.org/10.1111/j.1430-9134.1996.00005.x>
+34. [34](#refdef-34) Bloom, N., Schankerman, M. & Van Reenen, J. (2013) "Identifying Technology Spillovers and Product Market Rivalry", *Econometrica 81(4): 1347–1393*. <https://doi.org/10.3982/ECTA9466>
+35. [35](#refdef-35) Myers, K. R. & Lanahan, L. (2022) "Estimating Spillovers from Publicly Funded R&D", *American Economic Review 112(7): 2393–2423*. <https://doi.org/10.1257/aer.20210678>
+36. [36](#refdef-36) Link, A. N. & Scott, J. T. (2011) "Public Goods, Public Gains: Calculating the Social Benefits of Public R&D", *Oxford University Press*. <https://academic.oup.com/book/7441>
+37. [37](#refdef-37) Gupta, R. et al. (2023) "(産業の付加価値を事前に置く手続きの実例)", *Energy Policy 181: 113768*. <https://doi.org/10.1016/j.enpol.2023.113768>
+38. [38](#refdef-38) Miller, R. E. & Blair, P. D. (2022) "Input-Output Analysis: Foundations and Extensions, 3rd edn.", *Cambridge University Press*. <https://doi.org/10.1017/9781108676212>
+39. [39](#refdef-39) Adner, R. (2002) "When are technologies disruptive? A demand-based view", *Strategic Management Journal 23(8): 667–688*. <https://doi.org/10.1002/smj.246>
+40. [40](#refdef-40) Lindner, S., Legault, J. & Guan, D. (2012) "Disaggregating Input-Output Tables in Time", *Economic Systems Research 24(4): 329–347*. <https://doi.org/10.1080/09535314.2012.689954>
+41. [41](#refdef-41) Morgeson, F. P., DeRue, D. S. & Karam, E. P. (2010) "Leadership in Teams: A Functional Approach", *Journal of Management 36(1): 5–39*. <https://doi.org/10.1177/0149206309347376>
+42. [42](#refdef-42) Wasserman, N. (2003) "Founder-CEO Succession and the Paradox of Entrepreneurial Success", *Organization Science 14(2): 149–172*. <https://pubsonline.informs.org/doi/10.1287/orsc.14.2.149.14995>
+43. [43](#refdef-43) Lazear, E. P. (2005) "Entrepreneurship", *Journal of Labor Economics 23(4): 649–680*. <https://www.journals.uchicago.edu/doi/abs/10.1086/491605>
+44. [44](#refdef-44) Shane, S. & Stuart, T. (2002) "Organizational Endowments and the Performance of University Start-ups", *Management Science 48(1): 154–170*. <https://pubsonline.informs.org/doi/abs/10.1287/mnsc.48.1.154.14280>
+45. [45](#refdef-45) Beckman, C. M., Burton, M. D. & O'Reilly, C. (2007) "Early teams: The impact of team demography on VC financing and going public", *Journal of Business Venturing 22(2): 147–173*. <https://doi.org/10.1016/j.jbusvent.2006.02.001>
+46. [46](#refdef-46) Wright, T. P. (1936) "Factors Affecting the Cost of Airplanes", *Journal of the Aeronautical Sciences 3(4): 122–128*. <https://doi.org/10.2514/8.155>
+47. [47](#refdef-47) Lafond, F. et al. (2018) "How well do experience curves predict technological progress?", *Technological Forecasting and Social Change 128: 104–117*. <https://doi.org/10.1016/j.techfore.2017.11.001>
+48. [48](#refdef-48) Gutowski, T. G. et al. (2009) "Thermodynamic Analysis of Resources Used in Manufacturing Processes", *Environmental Science & Technology 43(5): 1584–1590*. <https://pubs.acs.org/doi/10.1021/es8016655>
+49. [49](#refdef-49) Powell, D. M. et al. (2015) "The capital intensity of photovoltaics manufacturing", *Energy & Environmental Science 8(12): 3395–3408*. <https://pubs.rsc.org/en/content/articlelanding/2015/ee/c5ee01509j>
+50. [50](#refdef-50) Roberts, K. & Weitzman, M. L. (1981) "Funding Criteria for Research, Development, and Exploration Projects", *Econometrica 49(5): 1261–1288*. <https://doi.org/10.2307/1912756>
+51. [51](#refdef-51) Bergemann, D. & Hege, U. (2005) "The Financing of Innovation: Learning and Stopping", *RAND Journal of Economics 36(4): 719–752*. <https://www.tse-fr.eu/articles/financing-innovation-learning-and-stopping>
+52. [52](#refdef-52) Audretsch, D. B. & Mahmood, T. (1995) "New Firm Survival: New Results Using a Hazard Function", *Review of Economics and Statistics 77(1): 97–103*. <https://doi.org/10.2307/2109995>
+53. [53](#refdef-53) Teece, D. J. (1986) "Profiting from technological innovation", *Research Policy 15(6): 285–305*. <https://doi.org/10.1016/0048-7333(86)90027-2>
+54. [54](#refdef-54) Cox, D. R. (1972) "Regression Models and Life-Tables", *Journal of the Royal Statistical Society Series B 34(2): 187–202*. <https://doi.org/10.1111/j.2517-6161.1972.tb00899.x>
+55. [55](#refdef-55) BIO, Informa Pharma Intelligence & QLS Advisors "Clinical Development Success Rates 2011–2020（疾患領域別。第I相からの承認確率は全体 7.9%、血液 最高・腫瘍 最低）", *業界標準の実測表*. <https://go.bio.org/clinicaldevelopment>
+56. [56](#refdef-56) 医薬産業政策研究所 (2023) "日本で承認された新医薬品とその審査期間（2022年承認実績。通常審査品目の総審査期間 10.8 か月）", *政策研ニュース 68*. <https://www.jpma.or.jp/opir/news/068/13.html>
+57. [57](#refdef-57) 医薬品医療機器総合機構 (2025) "医療機器にかかる PMDA の取組（新医療機器 通常品目の総審査期間 2023年度 11.4 か月・2024年度 11.7 か月）", *医療機器・ヘルスケア開発協議会 資料3-2*. <https://www.meti.go.jp/shingikai/mono_info_service/medical_equipment_healthcare/pdf/007_03_02.pdf>
+58. [58](#refdef-58) 科学技術振興機構 "研究成果最適展開支援プログラム A-STEP 公募実施状況（2025年度 産学共同ステージⅠ・Ⅱ 応募651件・採択58件）", *制度の公表資料*. <https://www.jst.go.jp/a-step/koubo/index.html>
+59. [59](#refdef-59) 新エネルギー・産業技術総合開発機構 (2025) "先導研究プログラム 実施体制の決定（新技術先導研究 応募84件・採択20件）", *制度の公表資料*. <https://www.nedo.go.jp/koubo/SM3_100001_00084.html>
+
+---
 ## 変更履歴
 
 | 日付 | 変更 | 承認 |

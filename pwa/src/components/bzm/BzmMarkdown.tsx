@@ -214,6 +214,31 @@ const mdComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
         </span>
       );
     }
+    // 文献の引用番号。md 側は `[12](#ref-12 "Wasserman 2003 …")` と書く。
+    // まさ 2026-08-25「一般的な論文を書くときには、かならず括弧つき数字で文献番号つけて
+    // 引用文献添えるじゃん、あれをやってほしい」。本文には上付きの番号だけを出し、
+    // 書誌はマウスを載せたときに出す。番号を押すと文献一覧の該当項目へ飛ぶ。
+    if (href && /^#ref-\d+$/.test(href)) {
+      return (
+        <a
+          href={href}
+          title={title ?? undefined}
+          aria-label={title ?? undefined}
+          className="ml-0.5 align-super text-[10px] leading-none text-[#007aff] no-underline hover:underline cursor-help"
+        >
+          [{children}]
+        </a>
+      );
+    }
+    // 文献一覧の側の目印。md 側は `[12](#refdef-12) 著者 (年) …` と書く。
+    if (href && /^#refdef-\d+$/.test(href)) {
+      const n = href.replace("#refdef-", "");
+      return (
+        <span id={`ref-${n}`} className="font-semibold text-[#1d1d1f] scroll-mt-24">
+          [{children}]
+        </span>
+      );
+    }
     const isExternal = href ? /^https?:\/\//.test(href) : false;
     return (
       <a
