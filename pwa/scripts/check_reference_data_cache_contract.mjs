@@ -50,6 +50,12 @@ const REFERENCE_DATA_ENDPOINTS = [
     routeFile: "src/app/api/project-cost-model/route.ts",
     clientModule: "src/lib/project-cost-model-client.ts",
   },
+  {
+    endpoint: "/api/model/sections",
+    label: "モデル正本の節一覧 (左ナビ)",
+    routeFile: "src/app/api/model/sections/route.ts",
+    clientModule: "src/lib/model-sections-client.ts",
+  },
 ];
 
 // ---------------------------------------------------------------------------

@@ -4,7 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { loadReferenceData } from "@/lib/reference-data-cache";
+import {
+  loadModelSections,
+  type ModelSectionNavItem,
+} from "@/lib/model-sections-client";
 import {
   Bell,
   BookMarked,
@@ -435,8 +438,6 @@ function NavLink({
   );
 }
 
-type ModelSectionNavItem = { id: string; label: string };
-
 /**
  * 左ナビの「モデル」— マウスを載せるとモデルページの節の一覧が出る。
  *
@@ -444,7 +445,7 @@ type ModelSectionNavItem = { id: string; label: string };
  * してほしい。『ホーム』にマウスオーバーしたときにPJリストが出るみたいに」。
  *
  * 節の一覧は正本 md の見出しから作っている（`/api/model/sections`）ので、正本に節が増えれば
- * ここは何もしなくても追随する。**参照系データ**なので `loadReferenceData` のモジュールキャッシュを通し、
+ * ここは何もしなくても追随する。**参照系データ**なので専用のクライアントキャッシュを通し、
  * 開くたびにネットワーク往復を払わない。
  */
 function ModelNavLink({ item, active }: { item: NavItem; active: boolean }) {
@@ -486,12 +487,7 @@ function ModelNavLink({ item, active }: { item: NavItem; active: boolean }) {
   const loadSections = useCallback(() => {
     if (status === "ready" || status === "loading") return;
     setStatus("loading");
-    loadReferenceData<ModelSectionNavItem[]>("model:sections", async () => {
-      const res = await fetch("/api/model/sections");
-      if (!res.ok) throw new Error("model sections");
-      const json = (await res.json()) as { sections?: ModelSectionNavItem[] };
-      return json.sections ?? [];
-    })
+    loadModelSections()
       .then((list) => {
         setSections(list);
         setStatus("ready");
