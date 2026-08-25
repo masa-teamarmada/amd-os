@@ -71,7 +71,16 @@ const CFG = {
   incStage: { REG0: 4, REG1: 4, REG2: 3 },          // R3 会社化の需要の証拠の段階（REG-2 は有償PoC が列に無いため T3・治験I 相当）
 
   // I-5 申し出
-  nuLic: 0.0030, nuIps: 0.0010, nuMA: 0.0008,
+  // 出口の到来率は分野で構造が違う。創薬・医療機器は導出（ライセンス）と M&A が主経路で、
+  // 量産契約（M4）へ自力で到達する経路はほとんど通らない（まさ 2026-08-25）
+  nuK: {
+    REG0: { lic: 0.0030, ma: 0.0015, ips: 0.0010 },
+    REG1: { lic: 0.0030, ma: 0.0018, ips: 0.0010 },
+    REG2: { lic: 0.0060, ma: 0.0050, ips: 0.0012 },
+  },
+  nuKSoft: { lic: 0.0025, ma: 0.0025, ips: 0.0008 },   // F3・F4（ソフト・サービス型）は M&A が主
+  // 承継者が残りの市場ゲートを越える確率。買収側は資源と継続の意思を持つので高い
+  qExit: { lic: 0.60, ma: 0.75, ips: 0.45 },
   mgOffer: [0.20, 0.35, 0.50, 1.00, 1.60, 2.20, 2.50],
   nuC: 0.05,                 // 受託の申し出（型によらず一本）
   rRef: 69.3,                // 万円／月（4型の r 既定 {60,60,80,80} の幾何平均）
@@ -96,13 +105,21 @@ const CFG = {
   kIP: 0.55,
   sigmaNodes: [[-1, 0.25], [0, 0.50], [1, 0.25]],
   eMed: 0.50,
-  rDef: { F1: 60, F2: 60, F3: 80, F4: 80 },    // 万円／月（間接経費控除後）
+  // 自走力 r は「工数を全部割いたときに案件へ残る額（直接費を引いた後の粗利）」。売上ではない。
+  // 売上のまま扱うと、受託の遂行に要る工数が支出側に現れず、資本自立が自明に成立してしまう。
+  rDef: { F1: 60, F2: 60, F3: 90, F4: 130 },   // 万円／月（会社化前・間接経費控除後の粗利）
+  rPostMult: 4.0,            // 会社化後の自走力の倍率（会社として受託・サンプル販売ができる）
+  rHighMult: 2.5,            // 事前分布の上側の点（対数正規の裾。中央値の何倍か）
+  // 量産契約より前に立つ売上（有償PoC・サンプル販売・初期出荷）。会社化前バーンレートに対する割合
+  yByStage: [0, 0, 0, 0.10, 0.35, 0.80, 1.00],
+  yPostMult: 2.0,            // 会社化後の倍率
+  qSelf: 0.35,               // 受託・サービスで資本自立したときに立つ産業の、天井に対する割合（要件3）
   rZeroProb: 0.25,
   rhoMax: { F1: 0.3, F2: 0.3, F3: 0.3, F4: 0.5 },
 
   // バーンレート（案件が自ら調達した資金で賄う支出だけ。万円／月）
-  muPre:  { F1: 110, F2: 95, F3: 60, F4: 50 },
-  muPost: { F1: 400, F2: 360, F3: 310, F4: 300 },
+  muPre:  { F1: 150, F2: 130, F3: 100, F4: 90 },
+  muPost: { F1: 450, F2: 400, F3: 350, F4: 330 },
   restrictedWaste: 0.15,     // 使途制限で充当できない割合（A1 の控除）
 
   // 価値の側
@@ -382,9 +399,10 @@ function runOne(type, reg, cfg, theta) {
       const stage = posStage[p], role = posRole[p];
       const advBase = advC[t * P + p], advBaseX = advCx[t * P + p];
       const moBase = cfg.mgOffer[stage] * ipFac * sgOffer * nm;
-      const pLic = 1 - Math.exp(-cfg.nuLic * moBase);
-      const pIps = 1 - Math.exp(-cfg.nuIps * moBase);
-      const pMA = 1 - Math.exp(-cfg.nuMA * moBase);
+      const nk = (reg === 'REG0' && (type === 'F3' || type === 'F4')) ? cfg.nuKSoft : cfg.nuK[reg];
+      const pLic = 1 - Math.exp(-nk.lic * moBase);
+      const pIps = 1 - Math.exp(-nk.ips * moBase);
+      const pMA = 1 - Math.exp(-nk.ma * moBase);
       const phiEff = Math.min(0.70, Math.max(0.03, cfg.phiBase * sgPhi * cfg.mgPhi[stage] * pm));
       const pAward = cfg.oppRate * phiEff;
       const pEqBase = 1 - Math.exp(-cfg.nuEq * cfg.mgPhi[stage] * sgPhi * nm);
@@ -395,7 +413,7 @@ function runOne(type, reg, cfg, theta) {
       const offerOK = (stage >= gStar);
       // 申し出で決着しても、承継者が残りの市場ゲートを越えなければ国内付加価値は立たない（6.A-2）
       const offIdx = Math.min(cfg.T, t + Math.round(remM[p]));
-      const offTail = cfg.qLic * TAIL[offIdx], offTailIn = cfg.qLic * TAIL_IN[offIdx];
+      const tl = TAIL[offIdx], tlIn = TAIL_IN[offIdx];
       for (let si = 1; si < S; si++) {
         const sVal = grid[si];
         const bs = p * st_p + si * st_s;
@@ -411,7 +429,8 @@ function runOne(type, reg, cfg, theta) {
             const pa = (I === 1) ? pMA : 0;
             const wl = w * pLic, wi = w * (1 - pLic) * pIps, wm = w * (1 - pLic) * (1 - pIps) * pa;
             O.lic += wl; O.ips += wi; O.ma += wm;
-            vAcc += (wl + wi + wm) * offTail; vIn += (wl + wi + wm) * offTailIn;
+            const qw = wl * cfg.qExit.lic + wi * cfg.qExit.ips + wm * cfg.qExit.ma;
+            vAcc += qw * tl; vIn += qw * tlIn;
             w -= (wl + wi + wm);
             if (w < 1e-15) continue;
           }
@@ -464,7 +483,9 @@ function runOne(type, reg, cfg, theta) {
 
                 // 5. 資金
                 const mu = (In === 1 ? muPost : muPre) * (1 + cfg.restrictedWaste);
-                const income = (Xn === 1 ? rhoMax * r : 0);
+                const rEff = r * (In === 1 ? cfg.rPostMult : 1);
+                const yEff = cfg.yByStage[stage] * muPre * (In === 1 ? cfg.yPostMult : 1);
+                const income = (Xn === 1 ? rhoMax * rEff : 0) + yEff;
                 const base = sVal - mu + income;
                 const pEq = (In === 1) ? pEqBase : 0;
 
@@ -472,7 +493,7 @@ function runOne(type, reg, cfg, theta) {
                 if (income >= mu) {
                   O.indep_rev += wP;
                   if (t <= cfg.planDeadline) O.indep_in += wP; else O.indep_out += wP;
-                  vAcc += wP * tail * 0.35; vIn += wP * tailIn * 0.35;
+                  vAcc += wP * tail * cfg.qSelf; vIn += wP * tailIn * cfg.qSelf;
                   continue;
                 }
 
@@ -514,7 +535,7 @@ function runTheta(type, reg, cfg) {
       const psi = Math.min(0.98, Math.max(0.05, psiMed + dp * cfg.psiSpread));
       const wp = dp === 0 ? 0.5 : 0.25;
       for (const [sigma, ws] of cfg.sigmaNodes) {
-        for (const [r, wr] of [[0, cfg.rZeroProb], [cfg.rDef[type], 1 - cfg.rZeroProb]]) {
+        for (const [r, wr] of [[0, cfg.rZeroProb], [cfg.rDef[type], 0.55], [cfg.rDef[type] * cfg.rHighMult, 0.20]]) {
           const w = wc * wp * ws * wr;
           const res = runOne(type, reg, cfg, { c, psi, sigma, e: cfg.eMed, r });
           for (const k of Object.keys(res.outcome)) agg.outcome[k] = (agg.outcome[k] || 0) + w * res.outcome[k];
