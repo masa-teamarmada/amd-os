@@ -10,6 +10,7 @@
     "test:deploy-version-guard": "node scripts/check_deploy_version_guard.cjs",
     "test:textbook-destination-contract": "node scripts/test_textbook_destination_contract.mjs",
     "test:meeting-calendar-upsert-plan": "node --experimental-strip-types scripts/check_meeting_calendar_upsert_plan.mts --fixture scripts/__fixtures__/meeting_calendar_upsert_plan.json",
+    "test:member-payout-matching": "node --experimental-strip-types scripts/check_member_payout_matching.mts",
     "test:governance-candidate-gate": "node --experimental-strip-types scripts/check_governance_candidate_gate.mts",
     "test:important-document-extraction": "node --experimental-strip-types scripts/check_important_document_extraction.mts",
     "test:important-evidence-extraction": "npm run test:important-document-extraction",

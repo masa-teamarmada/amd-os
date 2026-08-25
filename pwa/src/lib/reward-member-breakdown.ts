@@ -40,6 +40,24 @@ export type MemberBreakdownMonthRow = {
   remainingFromThisMonthYen: number;
 };
 
+export type MemberActualPaymentRow = {
+  paidOn: string;
+  amountYen: number;
+  noticeYm: string | null;
+  matchMethod: string | null;
+  matchReason: string | null;
+  confidence: string;
+};
+
+export type MemberNoticeStatusRow = {
+  ym: string;
+  noticeNo: string | null;
+  totalYen: number;
+  sentAt: string | null;
+  paidOn: string | null;
+  paidAmountYen: number | null;
+};
+
 export type MemberPayoutBreakdown = {
   projectId: string;
   projectName: string;
@@ -74,6 +92,10 @@ export type MemberPayoutBreakdown = {
   };
   breakdown: MemberBreakdownMsRow[];
   months: MemberBreakdownMonthRow[];
+  /** freee の出金から自動で確認した、このメンバーへの実際の振込 (新しい順) */
+  actualPayments: MemberActualPaymentRow[];
+  /** このメンバーの支払通知書と、その振込確認の状態 (新しい順) */
+  noticeStatuses: MemberNoticeStatusRow[];
   /** 当月の繰越額のうち、月次履歴から発生月を特定できなかった額 (キャッシュ欠損時のみ 0 以外) */
   carryUnexplainedYen: number;
   cacheGeneratedAt: string | null;
@@ -169,7 +191,7 @@ export async function loadMemberPayoutBreakdown(
 ): Promise<MemberPayoutBreakdown | null> {
   const { projectId, ym, memberId } = params;
 
-  const [projectRes, memberRes, planCyclesRes] = await Promise.all([
+  const [projectRes, memberRes, planCyclesRes, settlementsRes, noticesRes] = await Promise.all([
     db.from("projects").select("project_id, project_name").eq("project_id", projectId).maybeSingle(),
     db.from("members").select("member_id, code_name, member_name").eq("member_id", memberId).maybeSingle(),
     db
@@ -178,10 +200,24 @@ export async function loadMemberPayoutBreakdown(
       .eq("project_id", projectId)
       .in("status", ACTIVE_PLAN_STATUSES)
       .order("period_start_ym", { ascending: false }),
+    db
+      .from("member_payout_settlements")
+      .select("paid_on, amount_yen, notice_ym, member_match_method, member_match_reason, confidence")
+      .eq("member_id", memberId)
+      .order("paid_on", { ascending: false })
+      .limit(24),
+    db
+      .from("payout_notices")
+      .select("ym, notice_no, total_yen, sent_at, paid_on, paid_amount_yen")
+      .eq("member_id", memberId)
+      .order("ym", { ascending: false })
+      .limit(24),
   ]);
   if (projectRes.error) throw projectRes.error;
   if (memberRes.error) throw memberRes.error;
   if (planCyclesRes.error) throw planCyclesRes.error;
+  if (settlementsRes.error) throw settlementsRes.error;
+  if (noticesRes.error) throw noticesRes.error;
 
   const planCycle =
     ((planCyclesRes.data ?? []) as PlanCycleRow[]).find(
@@ -302,6 +338,22 @@ export async function loadMemberPayoutBreakdown(
     },
     breakdown: toBreakdownRows(targetMember),
     months,
+    actualPayments: ((settlementsRes.data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+      paidOn: String(row.paid_on ?? ""),
+      amountYen: Math.round(numberValue(row.amount_yen)),
+      noticeYm: row.notice_ym == null ? null : String(row.notice_ym),
+      matchMethod: row.member_match_method == null ? null : String(row.member_match_method),
+      matchReason: row.member_match_reason == null ? null : String(row.member_match_reason),
+      confidence: String(row.confidence ?? "low"),
+    })),
+    noticeStatuses: ((noticesRes.data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+      ym: String(row.ym ?? ""),
+      noticeNo: row.notice_no == null ? null : String(row.notice_no),
+      totalYen: Math.round(numberValue(row.total_yen)),
+      sentAt: row.sent_at == null ? null : String(row.sent_at),
+      paidOn: row.paid_on == null ? null : String(row.paid_on),
+      paidAmountYen: row.paid_amount_yen == null ? null : Math.round(numberValue(row.paid_amount_yen)),
+    })),
     carryUnexplainedYen: Math.round(currentCarryInYen - attributedCarryYen),
     cacheGeneratedAt:
       asRecord(targetSummary?.meta)?.generatedAt == null

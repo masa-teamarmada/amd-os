@@ -338,6 +338,75 @@ export function MemberPayoutBreakdownView({
                 )}
               </section>
 
+              <section className="space-y-2">
+                <h3 className="text-[12px] font-semibold">実際の振込 (freeeの出金から自動確認)</h3>
+                {data.noticeStatuses.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground">このメンバー宛の支払通知書がまだない。</p>
+                ) : (
+                  <div className="overflow-x-auto rounded-md border border-border">
+                    <table className="w-full min-w-[560px] text-[11px]">
+                      <thead className="border-b border-border bg-muted/40">
+                        <tr>
+                          <th className="px-2 py-1.5 text-left font-medium">支払月</th>
+                          <th className="px-2 py-1.5 text-right font-medium">通知書の額 (税抜)</th>
+                          <th className="px-2 py-1.5 text-left font-medium">送付</th>
+                          <th className="px-2 py-1.5 text-left font-medium">振込</th>
+                          <th className="px-2 py-1.5 text-right font-medium">振込額 (税込)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {data.noticeStatuses.map((notice) => (
+                          <tr key={notice.ym}>
+                            <td className="px-2 py-1.5 font-mono">{fmtYm(notice.ym)}</td>
+                            <td className="px-2 py-1.5 text-right">{fmtYen(notice.totalYen)}</td>
+                            <td className="px-2 py-1.5">
+                              {notice.sentAt ? (
+                                <span className="text-emerald-700">送付済</span>
+                              ) : (
+                                <span className="text-muted-foreground">未送付</span>
+                              )}
+                            </td>
+                            <td className="px-2 py-1.5">
+                              {notice.paidOn ? (
+                                <span className="text-emerald-700">{notice.paidOn}</span>
+                              ) : (
+                                <span className="text-amber-700">確認できていない</span>
+                              )}
+                            </td>
+                            <td className="px-2 py-1.5 text-right">
+                              {notice.paidAmountYen ? fmtYen(notice.paidAmountYen) : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {data.actualPayments.length > 0 && (
+                  <details className="rounded-md border border-border px-2 py-1.5">
+                    <summary className="cursor-pointer text-[11px] text-muted-foreground">
+                      このメンバーへの振込の明細 ({data.actualPayments.length}件)
+                    </summary>
+                    <ul className="mt-1 space-y-0.5 text-[11px]">
+                      {data.actualPayments.map((payment) => (
+                        <li key={`${payment.paidOn}:${payment.amountYen}`} className="flex flex-wrap gap-x-2">
+                          <span className="font-mono">{payment.paidOn}</span>
+                          <span className="font-medium">{fmtYen(payment.amountYen)}</span>
+                          <span className="text-muted-foreground">
+                            {payment.noticeYm ? `${fmtYm(payment.noticeYm)} 支払分` : "支払通知書と未対応"}
+                          </span>
+                          <span className="text-muted-foreground">{payment.matchReason}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+                <p className="text-[11px] text-muted-foreground">
+                  会計 (freee) の出金を毎日読み込み、支払通知書の税込額と一致する振込を自動で結び付けている。
+                  「確認できていない」は、freeeの出金にその振込が見つかっていないという意味。
+                </p>
+              </section>
+
               {data.cacheGeneratedAt && (
                 <p className="text-[10px] text-muted-foreground">
                   表示している金額は保存済みの報酬計算 ({fmtDateTime(data.cacheGeneratedAt)} 時点) の値で、一覧の金額と同じ。

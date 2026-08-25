@@ -176,6 +176,9 @@ type PayoutNotice = {
   pdf_url: string | null;
   total_yen: number | null;
   last_generated_at?: string | null;
+  /** freee の出金から自動で確認した実際の振込日と金額 (/api/cron/freee-member-payout-sync) */
+  paid_on?: string | null;
+  paid_amount_yen?: number | null;
 };
 
 type BulkNoticeResultEntry = {
@@ -4178,6 +4181,26 @@ function SummaryBox({ label, value, sub }: { label: string; value: string; sub: 
   );
 }
 
+/**
+ * freee の出金から自動で確認した「実際に振り込んだ」状態。
+ * 送付済みなのに振込が見つからない通知書は、未振込としてここで分かるようにする。
+ */
+function PaidBadge({ notice }: { notice: PayoutNotice }) {
+  if (notice.paid_on) {
+    const label = `${notice.paid_on.slice(5, 7)}/${notice.paid_on.slice(8, 10)}`;
+    return (
+      <div className="text-[10px] text-emerald-700" title={`freeeの出金と一致: ${notice.paid_on} / ${fmtFlowYen(notice.paid_amount_yen)} (税込)`}>
+        振込済 {label} {fmtFlowYen(notice.paid_amount_yen)}
+      </div>
+    );
+  }
+  return (
+    <div className="text-[10px] text-amber-700" title="freeeの出金に、この通知書の税込額と一致する振込が見つかっていない">
+      振込未確認
+    </div>
+  );
+}
+
 function NoticeBadge({
   notice,
   expectedTotal,
@@ -4204,6 +4227,7 @@ function NoticeBadge({
         <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-800">送付済</span>
         {notice.notice_no && <div className="font-mono text-[10px] text-muted-foreground">{notice.notice_no}</div>}
         <div className="text-[10px] text-muted-foreground">{fmtYen(savedTotal)}</div>
+        <PaidBadge notice={notice} />
         {notice.pdf_url && (
           <a href={notice.pdf_url} target="_blank" rel="noreferrer" className="text-[10px] text-blue-700 underline underline-offset-2">
             PDF

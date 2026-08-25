@@ -170,6 +170,44 @@ sequenceDiagram
   PWA->>DB: payout_notices.sent_at = now()
 ```
 
+### 4. 実際に振り込んだかの確認 (自動)
+
+**支払済みかどうかを人に聞かない。** 会計 (freee) の出金を毎日読み、支払通知書と突き合わせて OS 側で確定する (まさ指摘 2026-08-26「自動的にその情報がOSに入ってないなら、その時点でOSの設計が間違ってる」)。それまでの OS は、通知書を送った記録 (`payout_notices.sent_at`) と手で押す報酬支払済み印 (`billing_cycles.reward_paid_at`) しか持たず、実際の振込はどこにも入っていなかった。
+
+- 経路: `GET /api/cron/freee-member-payout-sync` (毎日 09:12 JST / `vercel.json`)。クライアント入金側の `freee-payment-sync` と対になる出金側
+- 実装: `pwa/src/lib/finance/member-payout-matching.ts` (照合規則・純粋関数) + `pwa/src/lib/finance/member-payout-settlements.ts` (freee取得と保存)
+- 台帳: `member_payout_settlements` (出金1件=1行) / `member_bank_transfer_aliases` (振込名義とメンバーの対応) / `payout_notices.paid_on` `paid_amount_yen`
+
+#### 何を支払いとして数えるか
+
+freee には経費の立替やカード決済も、メンバー本人の名前で載る。報酬の支払いとして数えるのは次の2つだけ。
+
+1. 口座からの **振込** (口座明細の摘要が `振込 …`。`振込手数料` は除く)
+2. 支払通知書の **税込額と1円単位で一致する支出**
+
+摘要に本人の名前が出るだけのカード決済は数えない (これを数えると喫茶店の3,440円まで「支払った」ことになる)。
+
+#### 誰宛かの決め方 (上から順に強い)
+
+| 手がかり | 内容 |
+|---|---|
+| `partner_name` | freee の取引に付いた取引先名 (漢字)。旧字体を吸収して氏名・契約者名と照合する (輕部/軽部、宮﨑/宮崎) |
+| `transfer_alias` | 口座明細の振込名義 (カタカナ)。過去に確定した振込から学習済みのもの |
+| `notice_amount` | 支払通知書の税込額と一致する振込。ここで確定したら振込名義を学習し、次からは金額が違っても拾える |
+
+同じ日に同じ金額の振込が複数あっても、口座明細は id 単位で必ず1行ずつ残す。同じ支出が取引と口座明細の両方にある場合は、口座明細を実体として1件にまとめ、取引側からは取引先名だけを補う。
+
+#### 画面での見え方
+
+- メンバー行の通知欄: 送付済みの通知書に `振込済 5/29 ¥804,914` または `振込未確認` を出す
+- 支払額の内訳モーダル: 「実際の振込」欄に、支払月ごとの `通知書の額 / 送付 / 振込 / 振込額` と、そのメンバーへの振込明細を出す
+
+#### 境界
+
+ここは検知と台帳化だけを行う。報酬計算 (`reward_summary_json`) の未払い残や、報酬債務の控除 (`reward_member_liability_offsets`) を自動では書き換えない。計算上の未払い残と実際の振込がずれている場合は画面で分かるようにし、報酬側への反映はまさの承認を経る。
+
+回帰検査は `npm run test:member-payout-matching` (`scripts/check_member_payout_matching.mts`)。deploy 前の rollback guard に入れてある。
+
 ### 「送付」ボタンのメール送信仕様 (まさ要件 2026-05-28 確定)
 
 - 送信元: `keiri@team-armada.jp` (Gmail send-as エイリアス必須)

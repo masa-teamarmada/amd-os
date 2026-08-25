@@ -17,6 +17,10 @@
       "schedule": "10 0 * * *"
     },
     {
+      "path": "/api/cron/freee-member-payout-sync",
+      "schedule": "12 0 * * *"
+    },
+    {
       "path": "/api/cron/payment-obligations",
       "schedule": "20 0 * * *"
     },

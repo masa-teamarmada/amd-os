@@ -133,6 +133,7 @@ recurring automation としてこの後段を既存 health check に組み込む
 | cron | 役割 | LLM |
 |---|---|---|
 | `freee-payment-sync` | freee API → Supabase 入金同期 | no |
+| `freee-member-payout-sync` | freee API → メンバーへの実支払 (出金) 同期 | no |
 | `payment-confirm-nudges` | 入金確認通知 | no |
 | `payout-reward-cache-refresh` | 報酬 cache 再計算 | no |
 | `papers-quarterly-ingest` | 論文 ingest | no |

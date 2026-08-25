@@ -12,6 +12,7 @@ AMD の請求 → 入金確認 → 会計反映までの finance 系オペレー
 | `/payment-confirm?token=XXX` | SU 側担当が「予定通り入金しました」を 1 クリックで申告する公開ページ | signed token で認可 |
 | `POST /api/admin/payment-confirm` | confirm 申告を受けて `billing_cycles.payment_confirmed_at` を更新。`mode=expected` は入金予定額のまま Slack action から確定、通常 POST は実額入力フォームから確定 | signed token verify |
 | `GET /api/cron/freee-payment-sync` | freee 会計の income deals を読み、 該当する `billing_cycles` を payment_confirmed に上げる | `CRON_SECRET` |
+| `GET /api/cron/freee-member-payout-sync` | freee 会計の出金 (口座振込・支払取引) を読み、 メンバーへの実支払を `member_payout_settlements` へ台帳化し、 一致した `payout_notices` に `paid_on` / `paid_amount_yen` を書く | `CRON_SECRET` |
 | `GET /api/cron/payment-confirm-nudges` | 入金日当日の cycle だけを抽出し、admin に Slack DM を送る | `CRON_SECRET` |
 
 ## signed token (= `payment-confirmation` token)
