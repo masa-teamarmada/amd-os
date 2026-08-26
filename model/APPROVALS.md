@@ -1315,4 +1315,4 @@ $m_\theta$ は 0.4〜2.5 で切る。すべて根拠レベル C。
 削除パス:
 - model/proposals/2026-08-27_bzm30-exit-paths-and-economics.md
 
-反映commit: （反映後に記入）
+反映commit: 10f1fa48（§5.4 の m_θ の定義式・§6.I-4-1 の φ への乗算と係数表・§6.I-11-2 の再計算／参照実装の N1・N2／シーズ詳細の BZM 3.0 スコアパネル）
