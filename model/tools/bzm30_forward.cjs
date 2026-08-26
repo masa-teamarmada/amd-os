@@ -327,11 +327,14 @@ function tailValue(tM4, cfg, kip) { return tailSplit(tM4, cfg, kip).total; }
 
 // 撤退の四経路（改訂 N1）。到達した質量 wF を四つへ分け、②③④は終端して価値を積む。
 // 戻り値は ①用途転換へ回す質量（呼び出し側が位置を戻して継続させる）。
-function exitPaths(wF, stage, inc, uLeft, cfg, O, tl, tlIn) {
+function exitPaths(wF, stage, inc, uLeft, cfg, O, tl, tlIn, mEcon) {
   const E = cfg.exitPath;
   let pUse = (uLeft > 0 && stage >= 1) ? E.pUse * uLeft : 0;
-  let pLicF = (stage >= E.gLic) ? E.pLic : 0;
-  let pCls  = (stage >= E.gCls && inc === 1) ? E.pCls : 0;
+  // 天井が大きい案件は、自走が続かなくなっても引き受け手が見つかりやすい（改訂 N2 の四経路への適用）。
+  // 証拠水準の閾値は据え置く——見せる証拠が無ければ市場が大きくても相手は現れない。
+  const me = (mEcon === undefined) ? 1 : mEcon;
+  let pLicF = (stage >= E.gLic) ? E.pLic * me : 0;
+  let pCls  = (stage >= E.gCls && inc === 1) ? E.pCls * me : 0;
   const sum = pUse + pLicF + pCls;
   if (sum > 1) { pUse /= sum; pLicF /= sum; pCls /= sum; }
   const pRet = Math.max(0, 1 - (pUse + pLicF + pCls));
@@ -550,7 +553,7 @@ function runOne(type, reg, cfg, theta, init) {
                 if (wP < 1e-15) continue;
                 const Nn = N + dn;
                 if (Nn >= cfg.kExit) {
-                  const ep = exitPaths(wP, stage, I, uLeft, cfg, O, tl, tlIn);
+                  const ep = exitPaths(wP, stage, I, uLeft, cfg, O, tl, tlIn, mEconEq);
                   vAcc += ep.v; vIn += ep.vIn;
                   if (ep.use > 1e-15 && posMarketHead >= 0)
                     put(nxt, posMarketHead, sVal, R, I, X, 0, ep.use);   // 履歴の不成立回数は 0 へ戻す
@@ -592,7 +595,7 @@ function runOne(type, reg, cfg, theta, init) {
                   if (wF < 1e-15) continue;
                   if (sn <= 0) {
                     // 資金切れ。会社化済みは法人の清算手続きが要るぶん①②③へ回れる質量が減る
-                    const ep = exitPaths(wF, stage, In, uLeft, cfg, O, tl, tlIn);
+                    const ep = exitPaths(wF, stage, In, uLeft, cfg, O, tl, tlIn, mEconEq);
                     vAcc += ep.v; vIn += ep.vIn;
                     if (In === 1) { O.liq += ep.use; O.pivot -= ep.use; }   // 会社は畳む。用途転換はできない
                     else if (ep.use > 1e-15 && posMarketHead >= 0) put(nxt, posMarketHead, grid[1], Rb, In, Xn, 0, ep.use);
@@ -600,7 +603,7 @@ function runOne(type, reg, cfg, theta, init) {
                   }
                   const hLeft = sn / mu;
                   if (hLeft < cfg.hUnder && pAward * hLeft < 0.30) {
-                    const ep = exitPaths(wF, stage, In, uLeft, cfg, O, tl, tlIn);
+                    const ep = exitPaths(wF, stage, In, uLeft, cfg, O, tl, tlIn, mEconEq);
                     vAcc += ep.v; vIn += ep.vIn;
                     if (ep.use > 1e-15 && posMarketHead >= 0) put(nxt, posMarketHead, sn, Rb, In, Xn, 0, ep.use);
                     continue;

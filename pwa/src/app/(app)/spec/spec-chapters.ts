@@ -88,6 +88,8 @@ export const SPEC_SECTIONS: SpecSectionConfig[] = [
       "4-4-management-score-company-vital-scope-plan",
       "4-5-management-score-rebuild-plan",
       "4-6-bzm-22-acquisition-ledger-current-spec",
+      "4-7-amd-contributions-current-spec",
+      "4-8-bzm30-seed-score-panel-current-spec",
     ],
   },
   {
@@ -150,6 +152,8 @@ export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "4-4-management-score-company-vital-scope-plan", title: "Management Score 会社バイタル分類 本修正案", summary: "Management Score材料を会社バイタル/PJ個別へ分けるDB分類、L2抽出validator、backfill、snapshot再計算の未適用設計案。" },
   { slug: "4-5-management-score-rebuild-plan", title: "Management Score 再設計案", summary: "スコア対象・表示対象・未同期/未実装・根拠impactを分け、P0/P1/P2点検で経営スコアを監査する設計案。" },
   { slug: "4-6-bzm-22-acquisition-ledger-current-spec", title: "BZM 2.2 獲得台帳", summary: "PJが得てきたものを1行=1正規化事象で並べ、閉じた条件/消費/行動の増減を状態8層と証拠段階つきで保持する台帳。第1段は表示専用。" },
+  { slug: "4-7-amd-contributions-current-spec", title: "AMDの貢献記録", summary: "PJコックピット進捗管理タブ最下部の「AMDがこのPJへ行ってきたこと」。獲得台帳と対になる記録欄。" },
+  { slug: "4-8-bzm30-seed-score-panel-current-spec", title: "BZM 3.0 スコアパネル", summary: "シーズ詳細に置く産業創出価値 V の算出パネル。式・記号・係数73件・計算結果を正本と参照実装から出し、案件ごとの入力の充足状況を並べる。" },
   { slug: "5-1-document-governance-current-spec", title: "ドキュメント統制仕様", summary: "manual / spec / bzm の責務分離、附則更新ゲート、再構築要件。" },
   { slug: "5-2-development-operations-current-spec", title: "開発 / デプロイ運用仕様", summary: "repo、PWA技術スタック、deploy、build version、Supabase DDL、GAS deploy、検証 gate。" },
   { slug: "5-3-automation-responsibility-current-spec", title: "Automation 責務分担仕様", summary: "M/W/D/H L2 writer、停止済み LLM cron、allowed cron、outbox applier、再発防止。" },

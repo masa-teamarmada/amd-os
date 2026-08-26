@@ -40,6 +40,7 @@ import type {
 import { createClient } from "@/lib/supabase/client";
 import { SeedMarkdownPreviewModal } from "@/components/seeds/SeedMarkdownPreviewModal";
 import { SpsScreeningBandSection } from "@/components/sps/SpsScreeningBandSection";
+import { Bzm30ScorePanel } from "@/components/bzm30/Bzm30ScorePanel";
 import {
   loadSeedScreeningBandDetail,
   peekSeedScreeningBandDetail,
@@ -582,11 +583,32 @@ function SeedReadView({
         </Section>
       </div>
 
+      {/*
+        スコアの本体は BZM 3.0（モデルページ §5・§6）。
+        旧の一次選別の帯は、モデルページ §5.9 改訂 M2 で「V と同じ次元の量で、到達確率を掛ける前の V
+        ＝全部うまくいったときの上限」と位置づけ直された。破棄せず、V の検算の基準として畳んで残す。
+      */}
+      <Bzm30ScorePanel seed={s} detail={data} band={screeningBand} />
+
       {screeningBand ? (
-        <SpsScreeningBandSection
-          band={screeningBand}
-          heading="一次選別スクリーニング帯 (SPS = 産業創出価値)"
-        />
+        <details className="group rounded border border-border bg-muted/10">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 hover:bg-muted/30 [&::-webkit-details-marker]:hidden">
+            <span className="flex-1 text-[12px] font-semibold text-foreground">
+              （参考）2026-08 の一次選別の帯 — BZM 3.0 の V の上限としての検算基準
+            </span>
+            <span className="whitespace-nowrap font-mono text-[10px] text-muted-foreground">退役した測り方</span>
+          </summary>
+          <div className="border-t border-border px-3 py-2.5">
+            <p className="mb-2 rounded border border-border bg-muted/40 px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground">
+              この帯は 2026-08-16〜22 に 998 件へ入れたもので、
+              <strong className="text-foreground">現行のスコアの算出には使っていない</strong>。
+              帯そのものは到達確率を掛ける前の V にあたるので、BZM 3.0 で算出した V がこれを超えていないかの
+              <strong className="text-foreground">検算の基準</strong>として残している。超えた場合は入力か実装のどちらかが誤っている。
+              この帯から天井を割り戻すことはしない（式から出てきた値を式の入力に戻す向きになるため。モデルページ §5.9 改訂 M2）。
+            </p>
+            <SpsScreeningBandSection band={screeningBand} />
+          </div>
+        </details>
       ) : bandLoading ? (
         <ScreeningBandSkeleton />
       ) : null}
@@ -600,7 +622,7 @@ function ScreeningBandSkeleton() {
   return (
     <div className="border border-border rounded p-3" aria-busy="true">
       <h3 className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2 font-medium">
-        一次選別スクリーニング帯 (SPS = 産業創出価値)
+        （参考）2026-08 の一次選別の帯
       </h3>
       <div className="space-y-2">
         <div className="h-3 w-2/5 animate-pulse rounded bg-muted" />

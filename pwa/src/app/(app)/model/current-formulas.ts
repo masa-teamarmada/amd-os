@@ -89,7 +89,11 @@ function leadParagraph(lines: string[], formulaStart: number): string {
 }
 
 /** 直後の記号表（`| $x$ | 意味 |`）を拾う。 */
-function symbolTable(lines: string[], formulaEnd: number): { symbol: string; meaning: string }[] {
+function symbolTable(
+  lines: string[],
+  formulaEnd: number,
+  meaningMaxLen: number,
+): { symbol: string; meaning: string }[] {
   const out: { symbol: string; meaning: string }[] = [];
   let i = formulaEnd + 1;
   while (i < lines.length && !lines[i].trim()) i += 1;
@@ -102,12 +106,13 @@ function symbolTable(lines: string[], formulaEnd: number): { symbol: string; mea
     if (cells.length < 2) continue;
     const symbol = cells[0].trim();
     if (!symbol || /^-+$/.test(symbol) || symbol === "記号") continue;
-    out.push({ symbol, meaning: tidy(cells[1], 30) });
+    out.push({ symbol, meaning: tidy(cells[1], meaningMaxLen) });
   }
   return out;
 }
 
-export function loadCurrentFormulas(): CurrentFormula[] {
+export function loadCurrentFormulas(options?: { meaningMaxLen?: number }): CurrentFormula[] {
+  const meaningMaxLen = options?.meaningMaxLen ?? 30;
   const source = getModelMarkdownSource("MODEL_VERSION_LEDGER");
   if (!source) return [];
 
@@ -150,7 +155,7 @@ export function loadCurrentFormulas(): CurrentFormula[] {
       sectionShort: tidy(head.text.split(/\s*—\s*/)[0], 20),
       anchor: head.anchor,
       label: leadParagraph(lines, start),
-      symbols: symbolTable(lines, j),
+      symbols: symbolTable(lines, j, meaningMaxLen),
     });
   }
 

@@ -43,6 +43,7 @@ import {
   loadSeedScreeningBandSummaries,
   prefetchSeedScreeningBandDetail,
 } from "@/lib/seed-screening-bands-client";
+import { prefetchBzm30Model } from "@/lib/bzm30-model-client";
 import type { SeedDomainLane, SeedPublicView, SeedScreeningBandSummary } from "@/types/seeds";
 
 type SortKey = "spsBand";
@@ -523,8 +524,9 @@ function SeedRow({
       onClick={onOpen}
       // クリックより先に詳細帯を温める。マウスが行に乗ってからクリックが届くまでの
       // 数百ミリ秒で取得が終わるので、モーダルは開いた時点で帯を持っている。
-      onMouseEnter={() => prefetchSeedScreeningBandDetail(seed.id)}
-      onFocus={() => prefetchSeedScreeningBandDetail(seed.id)}
+      // BZM 3.0 のモデル定義は全シーズ共通なので、最初の hover の1回だけ取りに行く。
+      onMouseEnter={() => { prefetchSeedScreeningBandDetail(seed.id); prefetchBzm30Model(); }}
+      onFocus={() => { prefetchSeedScreeningBandDetail(seed.id); prefetchBzm30Model(); }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();

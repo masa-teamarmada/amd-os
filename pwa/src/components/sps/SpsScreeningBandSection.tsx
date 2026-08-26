@@ -20,6 +20,7 @@
  *    は使わない。通常の OS 画面のトークンで書く。まさ確定 2026-08-21。
  */
 
+import Link from "next/link";
 import { SpsBandRationale } from "@/components/sps/SpsBandRationale";
 import { SpsFormulaPanel } from "@/components/sps/SpsFormulaPanel";
 
@@ -40,6 +41,14 @@ export function SpsScreeningBandSection({
       {heading ? (
         <h3 className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">{heading}</h3>
       ) : null}
+      <p className="rounded border border-border bg-muted/40 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+        <strong className="text-foreground">この測り方は退役している。</strong>
+        現行のスコアは BZM 3.0 の産業創出価値 <span className="font-mono">V</span>（
+        <Link href="/model#bzm30" className="text-indigo-600 underline hover:opacity-80">モデルページ §5</Link>）で、
+        この帯は算出に使っていない。帯そのものは到達確率を掛ける前の <span className="font-mono">V</span> にあたるので、
+        <strong className="text-foreground">算出した V がこれを超えていないかの検算の基準</strong>として残している
+        （モデルページ §5.9 改訂 M2）。この帯から天井を割り戻すことはしない。
+      </p>
       <SpsFormulaPanel band={band} />
       <p className="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-900 dark:text-amber-200">
         この帯は接触と調査の優先順位づけの下書き。上限は楽観シナリオの包絡であり評価額ではない。投資判断・対外表示には使わない。

@@ -40,7 +40,7 @@ export function FormulaPanelShell({
   return (
     <div
       data-testid={testId}
-      className="formula-panel rounded border border-border bg-card px-4 py-4 text-[13px] leading-relaxed text-foreground"
+      className="formula-panel min-w-0 rounded border border-border bg-card px-4 py-4 text-[13px] leading-relaxed text-foreground"
     >
       <style jsx global>{`
         .formula-panel .katex {
@@ -67,7 +67,7 @@ export function FormulaPanelShell({
         </div>
       </div>
 
-      <div className="flex flex-col gap-3">{children}</div>
+      <div className="flex min-w-0 flex-col gap-3">{children}</div>
     </div>
   );
 }
