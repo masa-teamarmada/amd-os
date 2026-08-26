@@ -552,19 +552,29 @@ function runOne(type, reg, cfg, theta, init) {
 }
 
 // θ の格子で重ねる
+// 案件パラメータのうち、案件ごとに観測・判定して置ける成分は init で固定できる。
+// 固定しなかった成分は、これまでどおり事前分布の格子で重ねる。
+//   init.sigma … 産官学モメンタム（-1 逆風 / 0 無風 / +1 追い風）。§6.I-1-4 の手続きで判定した値
+//   init.e     … エバンジェリスト機能が埋まる見込み（0〜1）
+//   init.kIP   … 専有可能性（0〜1）。取り分 φ_u と競合の消失率に効く
+//   init.rMan  … 自走力の実額（万円／月）。改訂 M3
 function runTheta(type, reg, cfg, init) {
   const seq = gateSequence(type, reg);
   const agg = { outcome: {}, v: 0, vIn: 0, m4mass: 0, m4meanW: 0 };
   const vs = [];
   const psiMed = cfg.psiByStage[0];
-  for (const [c, wc] of cfg.cNodes) {
+  const cfgL = (init && init.kIP !== undefined) ? Object.assign(JSON.parse(JSON.stringify(cfg)), { kIP: init.kIP }) : cfg;
+  const sigmaNodes = (init && init.sigma !== undefined) ? [[init.sigma, 1.0]] : cfgL.sigmaNodes;
+  const eVal = (init && init.e !== undefined) ? init.e : cfgL.eMed;
+  const rBase = (init && init.rMan !== undefined) ? init.rMan : cfgL.rDef[type];
+  for (const [c, wc] of cfgL.cNodes) {
     for (const dp of [-1, 0, 1]) {
-      const psi = Math.min(0.98, Math.max(0.05, psiMed + dp * cfg.psiSpread));
+      const psi = Math.min(0.98, Math.max(0.05, psiMed + dp * cfgL.psiSpread));
       const wp = dp === 0 ? 0.5 : 0.25;
-      for (const [sigma, ws] of cfg.sigmaNodes) {
-        for (const [r, wr] of [[0, cfg.rZeroProb], [cfg.rDef[type], 0.55], [cfg.rDef[type] * cfg.rHighMult, 0.20]]) {
+      for (const [sigma, ws] of sigmaNodes) {
+        for (const [r, wr] of [[0, cfgL.rZeroProb], [rBase, 0.55], [rBase * cfgL.rHighMult, 0.20]]) {
           const w = wc * wp * ws * wr;
-          const res = runOne(type, reg, cfg, { c, psi, sigma, e: cfg.eMed, r }, init);
+          const res = runOne(type, reg, cfgL, { c, psi, sigma, e: eVal, r }, init);
           for (const k of Object.keys(res.outcome)) agg.outcome[k] = (agg.outcome[k] || 0) + w * res.outcome[k];
           agg.v += w * res.v; agg.vIn += w * res.vIn; agg.m4mass += w * res.m4mass;
           if (res.m4mean !== null) agg.m4meanW += w * res.m4mass * res.m4mean;
