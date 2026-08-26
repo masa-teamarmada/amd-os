@@ -81,6 +81,24 @@ const CFG = {
   nuKSoft: { lic: 0.0025, ma: 0.0025, ips: 0.0008 },   // F3・F4（ソフト・サービス型）は M&A が主
   // 承継者が残りの市場ゲートを越える確率。買収側は資源と継続の意思を持つので高い
   qExit: { lic: 0.60, ma: 0.75, ips: 0.45 },
+
+  // 撤退の四経路（改訂 N1。#2026-08-27-1）。資金切れ・不成立の先を単一の終端にしない
+  exitPath: {
+    pUse: 0.35,      // ①用途転換（未着手の用途が残り、技術系ゲートを越えているとき）
+    pLic: 0.30,      // ③ライセンスへの畳み込み（証拠水準 gLic 以上）
+    pCls: 0.20,      // ②出口クラスの転換（会社化済み・証拠水準 gCls 以上）
+    gLic: 3,         // ③が立つ証拠水準（T3・治験I相 以上）
+    gCls: 4,         // ②が立つ証拠水準（M2・治験II相・規格試験 以上）
+    licDisc: 0.70,   // 自走をあきらめた状態のライセンスは条件が悪い分の割引
+  },
+  qRet: 0.05,        // ④研究への返却。後に誰かの手で用途へ届く確率（ゼロにしない）
+  uLeftDef: 0,       // 未着手の用途がどれだけ残るか（0〜1）。用途1本の Tier 0 では 0
+
+  // 経済性の乗数（改訂 N2。#2026-08-27-1）。「筋がいいから金が付く」を式に入れる
+  pRef: 300,         // 基準の天井（億円／年の純増）。ここで乗数が 1 になる
+  betaP: { pub: 0.25, eq: 0.45 },  // 天井の効き。公的採択は抑え、民間調達は強く
+  betaM: 0.40,       // 単位採算が黒字で立つ用途が一つでもあることの上乗せ
+  mEconClamp: [0.4, 2.5],
   mgOffer: [0.20, 0.35, 0.50, 1.00, 1.60, 2.20, 2.50],
   nuC: 0.05,                 // 受託の申し出（型によらず一本）
   rRef: 69.3,                // 万円／月（4型の r 既定 {60,60,80,80} の幾何平均）
@@ -307,6 +325,25 @@ function tailSplit(tM4, cfg, kip) {
 }
 function tailValue(tM4, cfg, kip) { return tailSplit(tM4, cfg, kip).total; }
 
+// 撤退の四経路（改訂 N1）。到達した質量 wF を四つへ分け、②③④は終端して価値を積む。
+// 戻り値は ①用途転換へ回す質量（呼び出し側が位置を戻して継続させる）。
+function exitPaths(wF, stage, inc, uLeft, cfg, O, tl, tlIn) {
+  const E = cfg.exitPath;
+  let pUse = (uLeft > 0 && stage >= 1) ? E.pUse * uLeft : 0;
+  let pLicF = (stage >= E.gLic) ? E.pLic : 0;
+  let pCls  = (stage >= E.gCls && inc === 1) ? E.pCls : 0;
+  const sum = pUse + pLicF + pCls;
+  if (sum > 1) { pUse /= sum; pLicF /= sum; pCls /= sum; }
+  const pRet = Math.max(0, 1 - (pUse + pLicF + pCls));
+  // 9区分への割当: ③→ライセンス、②→M&A、④→撤退（価値はゼロにしない）、①→ピボット
+  O.lic += wF * pLicF;
+  O.ma  += wF * pCls;
+  O.exit += wF * pRet;
+  O.pivot += wF * pUse;
+  const q = pLicF * cfg.qExit.lic * E.licDisc + pCls * cfg.qExit.ma + pRet * cfg.qRet;
+  return { use: wF * pUse, v: wF * q * tl, vIn: wF * q * tlIn };
+}
+
 // ─────────────────────────────────────────────────────────── 本体
 
 // init（省略可）で案件ごとの観測状態を与える。省略時は Tier 0 の代表案件の前提（先頭ゲート・
@@ -360,6 +397,18 @@ function runOne(type, reg, cfg, theta, init) {
     }
     if (init.underContract) x0 = 1;
   }
+  // ①用途転換に回れる余地（改訂 N1）と、経済性の乗数（改訂 N2）
+  const uLeft = (init && init.uLeft !== undefined) ? init.uLeft : cfg.uLeftDef;
+  const mPos = (init && init.unitMarginPositive !== undefined) ? init.unitMarginPositive : true;
+  const pNetOku = (init && init.pNetOku !== undefined) ? init.pNetOku : cfg.pRef;
+  // 基準化: 天井が pRef で、単位採算が黒字で立つ用途があるとき 1 になる（φ_base の基準の案件と一致させる）。
+  // 基準化しないと、採択率の基準値そのものを二重に持ち上げてしまう。
+  const mEcon = (bp) => {
+    const v = Math.pow(Math.max(1e-6, pNetOku) / cfg.pRef, bp)
+            * (1 + cfg.betaM * (mPos ? 1 : 0)) / (1 + cfg.betaM);
+    return Math.min(cfg.mEconClamp[1], Math.max(cfg.mEconClamp[0], v));
+  };
+  const mEconPub = mEcon(cfg.betaP.pub), mEconEq = mEcon(cfg.betaP.eq);
   let i0 = 1; while (i0 < S - 1 && grid[i0 + 1] <= s0) i0++;
   cur[p0 * st_p + i0 * st_s + R0 * st_R + inc0 * st_i + x0 * st_x] = 1;
 
@@ -384,6 +433,10 @@ function runOne(type, reg, cfg, theta, init) {
                                          cfg.dMain[q.mainKey] || {}, pv, cfg.dOther);
     }
   }
+  // ①用途転換の戻り先: 市場系ゲートの先頭（技術系の到達は保つ）
+  let posMarketHead = -1;
+  for (let q0 = 0; q0 < P; q0++) if (B.pos[q0].kind === 'market') { posMarketHead = q0; break; }
+
   // 位置ごとの M4 までの残り月数（申し出の価値づけに使う）
   const remM = new Float64Array(P);
   { let acc = 0; for (let p = P - 1; p >= 0; p--) { remM[p] = acc; acc += 1; } }
@@ -431,8 +484,9 @@ function runOne(type, reg, cfg, theta, init) {
       const pIps = 1 - Math.exp(-nk.ips * moBase);
       const pMA = 1 - Math.exp(-nk.ma * moBase);
       const phiEff = Math.min(0.70, Math.max(0.03, cfg.phiBase * sgPhi * cfg.mgPhi[stage] * pm));
-      const pAward = cfg.oppRate * phiEff;
-      const pEqBase = 1 - Math.exp(-cfg.nuEq * cfg.mgPhi[stage] * sgPhi * nm);
+      // 改訂 N2: 天井の純増と単位採算が、採択率と民間調達の到来率に効く
+      const pAward = Math.min(0.999, cfg.oppRate * phiEff * mEconPub);
+      const pEqBase = 1 - Math.exp(-cfg.nuEq * cfg.mgPhi[stage] * sgPhi * nm * mEconEq);
       const zEqV = cfg.zEq[reg];
       const incTh = cfg.incStage[reg];
       const mc = Math.pow(Math.max(r, 1) / cfg.rRef, 0.5) * sgNuC * cfg.mgNuC[stage];
@@ -495,7 +549,13 @@ function runOne(type, reg, cfg, theta, init) {
                 }
                 if (wP < 1e-15) continue;
                 const Nn = N + dn;
-                if (Nn >= cfg.kExit) { O.exit += wP; continue; }
+                if (Nn >= cfg.kExit) {
+                  const ep = exitPaths(wP, stage, I, uLeft, cfg, O, tl, tlIn);
+                  vAcc += ep.v; vIn += ep.vIn;
+                  if (ep.use > 1e-15 && posMarketHead >= 0)
+                    put(nxt, posMarketHead, sVal, R, I, X, 0, ep.use);   // 履歴の不成立回数は 0 へ戻す
+                  continue;
+                }
 
                 if (reached) {
                   m4mass += wP; m4monthSum += wP * t;
@@ -530,9 +590,21 @@ function runOne(type, reg, cfg, theta, init) {
                   else if (fb === 1) { sn = base + zEqV; wF = wP * (1 - pAward) * pEq; }
                   else { sn = base; wF = wP * (1 - pAward) * (1 - pEq); }
                   if (wF < 1e-15) continue;
-                  if (sn <= 0) { if (In === 1) O.liq += wF; else O.exit += wF; continue; }
+                  if (sn <= 0) {
+                    // 資金切れ。会社化済みは法人の清算手続きが要るぶん①②③へ回れる質量が減る
+                    const ep = exitPaths(wF, stage, In, uLeft, cfg, O, tl, tlIn);
+                    vAcc += ep.v; vIn += ep.vIn;
+                    if (In === 1) { O.liq += ep.use; O.pivot -= ep.use; }   // 会社は畳む。用途転換はできない
+                    else if (ep.use > 1e-15 && posMarketHead >= 0) put(nxt, posMarketHead, grid[1], Rb, In, Xn, 0, ep.use);
+                    continue;
+                  }
                   const hLeft = sn / mu;
-                  if (hLeft < cfg.hUnder && pAward * hLeft < 0.30) { O.exit += wF; continue; }
+                  if (hLeft < cfg.hUnder && pAward * hLeft < 0.30) {
+                    const ep = exitPaths(wF, stage, In, uLeft, cfg, O, tl, tlIn);
+                    vAcc += ep.v; vIn += ep.vIn;
+                    if (ep.use > 1e-15 && posMarketHead >= 0) put(nxt, posMarketHead, sn, Rb, In, Xn, 0, ep.use);
+                    continue;
+                  }
                   put(nxt, pn, sn, Rb, In, Xn, Nn, wF);
                 }
               }
