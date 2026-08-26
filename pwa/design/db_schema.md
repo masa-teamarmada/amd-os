@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-26 01:58 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-26 13:56 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -97,7 +97,7 @@ UNIQUE: `(comment_id,participant_id,reaction_type)` (constraint: `amd_deck_react
 
 ## amd_management_score_evidence
 
-行数 (概算): 242
+行数 (概算): 243
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -118,7 +118,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 2,341
+行数 (概算): 2,363
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -6489,7 +6489,7 @@ PRIMARY KEY: `id`
 
 ## sps_reassessment_source_events
 
-行数 (概算): 63
+行数 (概算): 83
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
