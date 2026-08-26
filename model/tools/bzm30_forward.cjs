@@ -309,7 +309,15 @@ function tailValue(tM4, cfg, kip) { return tailSplit(tM4, cfg, kip).total; }
 
 // ─────────────────────────────────────────────────────────── 本体
 
-function runOne(type, reg, cfg, theta) {
+// init（省略可）で案件ごとの観測状態を与える。省略時は Tier 0 の代表案件の前提（先頭ゲート・
+// 会社化前・バーンレート18か月分の資金・権利残件 R0）で、従来と同じ結果になる。
+//   init = { gate: 'T3', cashMan: 15000, rightsOpen: 1, incorporated: true, underContract: false }
+//   gate       … 次に越えるゲートの名前（その型・規制の列にあるもの）。位置はそのゲートの先頭に置く
+//   cashMan    … 自由資金の残高（万円）。省略時はバーンレート18か月分
+//   rightsOpen … 権利・承認の未解決の残件数（0〜cfg.R0）
+//   incorporated … 会社化済みか
+//   underContract … 受託契約中か
+function runOne(type, reg, cfg, theta, init) {
   const { c, psi, sigma, e, r } = theta;
   const B = buildPositions(type, reg, cfg);
   const P = B.nPos;
@@ -332,9 +340,28 @@ function runOne(type, reg, cfg, theta) {
   const TAIL = new Float64Array(cfg.T + 2), TAIL_IN = new Float64Array(cfg.T + 2);
   for (let t = 0; t <= cfg.T + 1; t++) { const sp = tailSplit(t, cfg, cfg.kIP); TAIL[t] = sp.total; TAIL_IN[t] = sp.inT; }
 
-  const s0 = muPre * 18;
+  let p0 = 0, R0 = cfg.R0, inc0 = 0, x0 = 0;
+  let s0 = muPre * 18;
+  if (init) {
+    if (init.gate !== undefined) {
+      const gi = B.seq.indexOf(init.gate);
+      if (gi < 0) throw new Error(`未知のゲート ${init.gate}。${type}×${reg} の列: ${B.seq.join(', ')}`);
+      p0 = B.gateStart[gi];
+    }
+    if (init.incorporated) { inc0 = 1; s0 = muPost * 18; }
+    if (init.cashMan !== undefined) {
+      if (!(init.cashMan >= 0)) throw new Error('cashMan は 0 以上の数（万円）');
+      s0 = init.cashMan;
+    }
+    if (init.rightsOpen !== undefined) {
+      if (!Number.isInteger(init.rightsOpen) || init.rightsOpen < 0 || init.rightsOpen > cfg.R0)
+        throw new Error(`rightsOpen は 0〜${cfg.R0} の整数`);
+      R0 = init.rightsOpen;
+    }
+    if (init.underContract) x0 = 1;
+  }
   let i0 = 1; while (i0 < S - 1 && grid[i0 + 1] <= s0) i0++;
-  cur[i0 * st_s + cfg.R0 * st_R] = 1;
+  cur[p0 * st_p + i0 * st_s + R0 * st_R + inc0 * st_i + x0 * st_x] = 1;
 
   const O = { indep_in: 0, indep_out: 0, indep_m4: 0, indep_rev: 0, lic: 0, ma: 0, ips: 0, pivot: 0, exit: 0, liq: 0, cont: 0 };
   let vAcc = 0, vIn = 0, m4mass = 0, m4monthSum = 0;
@@ -525,7 +552,7 @@ function runOne(type, reg, cfg, theta) {
 }
 
 // θ の格子で重ねる
-function runTheta(type, reg, cfg) {
+function runTheta(type, reg, cfg, init) {
   const seq = gateSequence(type, reg);
   const agg = { outcome: {}, v: 0, vIn: 0, m4mass: 0, m4meanW: 0 };
   const vs = [];
@@ -537,7 +564,7 @@ function runTheta(type, reg, cfg) {
       for (const [sigma, ws] of cfg.sigmaNodes) {
         for (const [r, wr] of [[0, cfg.rZeroProb], [cfg.rDef[type], 0.55], [cfg.rDef[type] * cfg.rHighMult, 0.20]]) {
           const w = wc * wp * ws * wr;
-          const res = runOne(type, reg, cfg, { c, psi, sigma, e: cfg.eMed, r });
+          const res = runOne(type, reg, cfg, { c, psi, sigma, e: cfg.eMed, r }, init);
           for (const k of Object.keys(res.outcome)) agg.outcome[k] = (agg.outcome[k] || 0) + w * res.outcome[k];
           agg.v += w * res.v; agg.vIn += w * res.vIn; agg.m4mass += w * res.m4mass;
           if (res.m4mean !== null) agg.m4meanW += w * res.m4mass * res.m4mean;
