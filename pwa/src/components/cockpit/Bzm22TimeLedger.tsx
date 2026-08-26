@@ -11,8 +11,10 @@ import {
 } from "@/lib/bzm-2-2-pilot-ui";
 import {
   deletePlMonthly,
+  fetchMonthlyCashflow,
   fetchPlMonthly,
   upsertPlMonthly,
+  type ProjectMonthlyCashflow,
   type ProjectPlMonthly,
 } from "@/lib/venture-status-data";
 import {
@@ -164,6 +166,25 @@ const SX_CASH_ROWS: Array<{
   { key: "grantReceiptYen", label: "助成金等入金", kind: "flow" },
   { key: "netCashFlowYen", label: "月次純C/F", kind: "flow", emphasis: true },
   { key: "closingCashYen", label: "月末資金残高", kind: "balance", emphasis: true },
+];
+
+const LST_CASH_ROWS: Array<{
+  key: keyof Pick<ProjectMonthlyCashflow, "cash_inflow_yen" | "sbir_payment_yen" | "nedo_payment_yen" | "working_capital_payment_yen" | "free_cash_flow_yen" | "financing_cash_flow_yen" | "net_cash_flow_yen" | "opening_cash_yen" | "closing_cash_yen" | "sbir_account_balance_yen" | "working_capital_balance_yen" | "bank_borrowing_balance_yen">;
+  label: string;
+  emphasis?: boolean;
+}> = [
+  { key: "cash_inflow_yen", label: "収入計" },
+  { key: "sbir_payment_yen", label: "SBIR支払（税抜）" },
+  { key: "nedo_payment_yen", label: "NEDO支払（税抜）" },
+  { key: "working_capital_payment_yen", label: "運転資金支払＋消費税" },
+  { key: "free_cash_flow_yen", label: "FCF", emphasis: true },
+  { key: "financing_cash_flow_yen", label: "財務CF" },
+  { key: "net_cash_flow_yen", label: "増減額", emphasis: true },
+  { key: "opening_cash_yen", label: "月初預金残高" },
+  { key: "closing_cash_yen", label: "月末預金残高（推定）", emphasis: true },
+  { key: "sbir_account_balance_yen", label: "SBIR口座残高" },
+  { key: "working_capital_balance_yen", label: "運転資金残高" },
+  { key: "bank_borrowing_balance_yen", label: "借入残高" },
 ];
 
 function emptyPlRow(projectId: string, ym: string): ProjectPlMonthly {
@@ -600,6 +621,7 @@ export function Bzm22TimeLedger({
   );
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [rows, setRows] = useState<ProjectPlMonthly[]>([]);
+  const [monthlyCashflows, setMonthlyCashflows] = useState<ProjectMonthlyCashflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -615,7 +637,9 @@ export function Bzm22TimeLedger({
 
   const reload = async () => {
     setLoading(true);
-    setRows(await fetchPlMonthly(pilot.projectId));
+    const [plRows, cashflowRows] = await Promise.all([fetchPlMonthly(pilot.projectId), fetchMonthlyCashflow(pilot.projectId)]);
+    setRows(plRows);
+    setMonthlyCashflows(cashflowRows);
     setLoading(false);
   };
 
@@ -778,6 +802,7 @@ export function Bzm22TimeLedger({
   }, [axis, cxEquityEvents, pilot.monthlyFinancePlan, pilot.projectId, rowByMonth]);
   const cashLedger = pilot.projectId === "p21" ? sxCashLedger : cxCashLedger;
   const cashByMonth = useMemo(() => new Map(cashLedger.map((row) => [row.ym, row])), [cashLedger]);
+  const lstCashByMonth = useMemo(() => new Map(monthlyCashflows.map((row) => [row.ym, row])), [monthlyCashflows]);
   const annualFinanceRows = useMemo(() => {
     const annual = new Map<number, AnnualFinanceSummaryRow>();
     for (const month of axis) {
@@ -1174,6 +1199,29 @@ export function Bzm22TimeLedger({
                         </span>
                       </MonthCellFrame>
                     );
+                  })}
+                </div>
+              ))}
+            </>
+          ) : null}
+
+          {pilot.projectId === "p07" && monthlyCashflows.length > 0 ? (
+            <>
+              <div className="contents">
+                <div className="sticky left-0 z-30 border-b border-r border-slate-300 bg-[#365865] px-2 py-0.5 text-[10px] font-semibold leading-4 text-white">取締役会資料 C/F・資金繰り <span className="text-[8px] font-normal">2026/4–7実績・8–3見込</span></div>
+                {axis.map((month) => <MonthCellFrame key={`lst-cf-section-${month.ym}`} month={month} className="bg-[#365865]" />)}
+              </div>
+              {LST_CASH_ROWS.map((metric) => (
+                <div key={metric.key} className="contents">
+                  <div className={`sticky left-0 z-30 border-b border-r border-slate-300 px-2 py-0.5 ${metric.emphasis ? "bg-[#edf3f5]" : "bg-white"}`}>
+                    <div className={`truncate text-[10px] leading-4 ${metric.emphasis ? "font-semibold text-[#173f51]" : "text-slate-700"}`}>{metric.label}</div>
+                  </div>
+                  {axis.map((month) => {
+                    const row = lstCashByMonth.get(month.ym);
+                    const value = row?.[metric.key] ?? null;
+                    return <MonthCellFrame key={`${metric.key}-${month.ym}`} month={month} className={`px-1.5 py-0.5 text-right ${metric.emphasis ? "bg-slate-50" : "bg-white"}`}>
+                      <span className={`font-mono text-[11px] leading-4 tabular-nums ${typeof value === "number" && value < 0 ? "text-rose-700" : "text-slate-700"}`} title={row?.source_note ?? undefined}>{value === null ? "—" : formatMillionFromYen(value)}</span>
+                    </MonthCellFrame>;
                   })}
                 </div>
               ))}

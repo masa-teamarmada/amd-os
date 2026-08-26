@@ -432,6 +432,41 @@ export async function deletePlMonthly(projectId: string, id: string): Promise<bo
   return !error;
 }
 
+// ---- monthly cash flow --------------------------------------------------
+
+export interface ProjectMonthlyCashflow {
+  id: string;
+  project_id: string;
+  ym: string;
+  source_status: "actual" | "forecast" | "estimated";
+  cash_inflow_yen: number;
+  sbir_payment_yen: number;
+  nedo_payment_yen: number;
+  working_capital_payment_yen: number;
+  free_cash_flow_yen: number;
+  financing_cash_flow_yen: number;
+  net_cash_flow_yen: number;
+  opening_cash_yen: number | null;
+  closing_cash_yen: number | null;
+  sbir_account_balance_yen: number | null;
+  working_capital_balance_yen: number | null;
+  bank_borrowing_balance_yen: number | null;
+  source_note: string | null;
+}
+
+export async function fetchMonthlyCashflow(projectId: string): Promise<ProjectMonthlyCashflow[]> {
+  const { data, error } = await supabase
+    .from("project_monthly_cashflow")
+    .select("id, project_id, ym, source_status, cash_inflow_yen, sbir_payment_yen, nedo_payment_yen, working_capital_payment_yen, free_cash_flow_yen, financing_cash_flow_yen, net_cash_flow_yen, opening_cash_yen, closing_cash_yen, sbir_account_balance_yen, working_capital_balance_yen, bank_borrowing_balance_yen, source_note")
+    .eq("project_id", projectId)
+    .order("ym", { ascending: true });
+  if (error) {
+    console.error("[fetchMonthlyCashflow]", error);
+    return [];
+  }
+  return (data as ProjectMonthlyCashflow[]) ?? [];
+}
+
 // ---- helpers --------------------------------------------------
 
 async function invalidateNarrative(projectId: string) {
