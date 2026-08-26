@@ -1216,8 +1216,12 @@ $e$（エバンジェリスト機能が埋まる見込み）は §5.3 で「専�
 統合し、提案ファイルはスタブ化する。§7.1 の「まだ確定していないパラメータ」から「確定している値」へ移し、
 §7.2 の変更履歴に1行ずつ足す。**ただし I-9 の自走力 $r$ は M3 により初期値の地位へ降格する。**
 
+削除パス:
+- model/proposals/2026-08-25_bzm30-coefficients-v3.md
+
 対象ファイル:
 - model/MODEL_VERSION_LEDGER.md
-- model/proposals/2026-08-25_bzm30-coefficients-v3.md（統合後スタブ化）
+
+（`model/proposals/2026-08-25_bzm30-coefficients-v3.md` は統合後にスタブ化する。README (a-2) によりロックの対象には入れない——承認済みの定義が提案の置き場に居座る状態を作らないため。）
 
 反映commit: （反映後に記入）
