@@ -20,6 +20,8 @@ AMD OSの問題は、画面数が多いこと自体ではない。
 
 本番環境の認証設定、外部アカウントの実利用状態、Project Share各instanceの現行認証状態は、この監査だけでは確定していない。
 
+> **現行override（2026-08-26）:** 本文のProject Share並存・未退役という記述は2026-08-11時点の監査履歴。SX / ZMP / VSX / CX / SE / KUTEは移行readback後に全廃し、資料共有の正本は`workspace_documents`とprivate Storage `workspace-files`へ統一した。旧入口、Vercel project、Blob store、共有パスワード方式は復元・再利用しない。
+
 コードに存在することと、本番で安全に運用できていることを分けて扱う。
 
 最近再設計したホームは、本収束作業の再設計対象から外す。
@@ -193,7 +195,7 @@ SX p21では、PJ固有の別writerを増やさず、PJ横断で再利用する`
 | `/admin/*` | AMD経営・会社運営 | 権限、契約、財務、報酬、データ運用の職務別グループへ再編する |
 | `/workspaces` | 外部利用者の組織・PJ切替 | 取得失敗と参加先0件を分離し、organization文脈を選べるようにする |
 | `/workspace/[slug]` | 研究機関workspace | 大学の機関全体面を維持し、大学メンバー向けPJレンズをここから接続する。内部cockpitや簡易PJ代替面は流用しない |
-| 旧Project Share各instance | 共同PJ workspace | 内容と権限を移行し、read-only期間を経て入口を閉じる |
+| 旧Project Share各instance | 共同PJ workspace | 2026-08-26までに移行readbackと入口閉鎖を完了 |
 | HUDと実験画面 | canonical画面のmirrorまたは検証用 | 独立writerを持たせず、surface catalogで状態を明示する |
 
 URLを直ちに減らすことを目的にしない。
@@ -283,7 +285,7 @@ Storage objectの同一key上書きを正規編集経路にしない。
 
 外部workspaceへAMD内部bundleをそのまま追加しない。
 
-旧Project Shareを本番認証と移行readbackなしに閉じない。
+旧Project Shareは移行readbackを完了して2026-08-26に全廃した。以後は復元しない。
 
 未確認の本番状態を完了として記録しない。
 
@@ -303,7 +305,7 @@ Storage objectの同一key上書きを正規編集経路にしない。
 
 各画面はsurface catalog上でcanonical、mirror、移行中、deprecatedのいずれかを持つ。
 
-旧Project Shareは内容、権限、監査履歴の移行readback後にread-only化され、利用者通知後に入口を閉じる。
+旧Project Shareは内容の移行readback後に入口を閉じ、2026-08-26に全インスタンスの退役を完了した。
 
 仕様、migration、コード、契約テスト、本番build-info、本番権限readbackが同じ変更単位で一致する。
 
@@ -329,4 +331,4 @@ AMD内部の評価、採算、経営判断は`/project/[id]/cockpit`が所有す
 
 migration 259は人物、外部organization、grant、publicationを自動作成しない。p21の初期grantと最初の公開版は、大学・SU向けの正式面と実利用者・公開対象を明示確認してから別migrationまたは承認操作で作成する。
 
-共通作業・判断の状態遷移、SUと研究機関が自組織データを確定するwriter、資料revision、他PJへのgrant展開、旧Project Share退役は未実装である。
+共通作業・判断の状態遷移、SUと研究機関が自組織データを確定するwriter、資料revision、他PJへのgrant展開は未実装である。旧Project Share退役は2026-08-26に完了した。

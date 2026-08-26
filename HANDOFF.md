@@ -34,8 +34,8 @@
 
 ## Repo 状態
 
-- HEAD `750c7fe3`、origin と同期。未コミットは他セッションの `pwa/scheduled-tasks/.../SKILL.md` と
-  `pwa/scripts/migrate_project_share_to_workspace_documents.mjs` の削除（触っていない）
+- HEADはmain / originと同期。Project Share全廃の実装削除は2026-08-26に反映済み。未コミットの
+  `pwa/scheduled-tasks/.../SKILL.md` は別セッションの変更なので触らない。
 - ロック12件、`model_lock.cjs check` 緑
 - `750c7fe3 fix(nav): モデル節一覧を参照キャッシュへ統一` は**別セッション**が、今回入れた左ナビのホバーを
   専用のクライアントキャッシュ（`pwa/src/lib/model-sections-client.ts`）へ寄せ、参照系キャッシュの契約 guard に登録したもの

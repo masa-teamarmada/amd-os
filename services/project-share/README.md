@@ -1,66 +1,36 @@
-# services/project-share/ — Project Share
+# services/project-share/ — 退役記録
 
-PJ関係者・社外協力者へ、許可メールアドレスとPJ別パスワードで資料・ファイルを共有するための機能群。
-恒久仕様は [`SPEC.md`](SPEC.md) を正本にする。
+Project Shareは2026-08-26に全インスタンスを退役した。このディレクトリには再デプロイ可能な実装を置かず、退役判断と移行readbackだけを残す。
 
-## 正本と引き継ぎ
+## 現行の正本
 
-- いま動いている機能・認証・ストレージ・PDF化の仕様: [`SPEC.md`](SPEC.md)
-- Vercel上のPDF化で判明した実装上の注意: [`DEBUG.md`](DEBUG.md)
-- 次回の作業開始位置: [`HANDOFF.md`](HANDOFF.md)
-- 新しいセッションへ渡すそのまま使える依頼文: [`SESSION_MIGRATION_PROMPT.md`](SESSION_MIGRATION_PROMPT.md)
+- PJ資料室: `/project/<projectId>/workspace` とPJコックピットの資料室タブ
+- メタデータ: Supabase `workspace_documents`
+- ファイル: private Storage `workspace-files`
+- 認可: AMD OSの内部member、PJ限定member、workspace accountの明示的なmembership / grant
 
-## 汎用機能とPJ別インスタンスの境界
+旧Project Shareの共有パスワード、許可メール一覧、Vercel Blob、独立Vercel projectは使わない。
 
-- **汎用機能**: メールアドレス許可リスト照合 + PJ別パスワード認証 + HMAC署名Cookie（30日）、
-  Vercel Blob（private store）を使ったファイル一覧・アップロード・名前変更・フォルダ移動・
-  署名付きダウンロード・インライン閲覧、という「認証付きファイル共有ポータル」の実装パターン。
-  これは他PJにも展開できる形にしてある。
-- **PJ別インスタンス**: 実際にVercelへデプロイする単位。1インスタンス = 1 Vercelプロジェクト
-  = 1 Blob store = 1 セットの環境変数（パスワード・署名鍵・許可メール一覧）= 1 固有ドメイン。
-  ある1つのPJの固定資料・ロゴ・写真などのcontent snapshotは、そのインスタンスディレクトリ
-  配下の `content/` にだけ置く。
+## 退役済みインスタンス
 
-現在のインスタンス:
-
-| dir | PJ | 公開URL |
+| PJ | 旧ホスト名 | 状態 |
 |---|---|---|
-| `vsx/` | VSX（香川大学 / AgVenture Lab） | `https://vsx.team-armada.jp` |
-| `cx/` | CX | `https://cx.team-armada.jp` |
-| `se/` | SE | `https://se.team-armada.jp` |
-| `kute/` | KUTE（工学院大学） | `https://kute.team-armada.jp` |
+| SX | `sx.team-armada.jp` | 退役済み |
+| ZMP | `zmp.team-armada.jp` | 退役済み |
+| VSX | `vsx.team-armada.jp` | 退役済み |
+| CX | `cx.team-armada.jp` | 退役済み |
+| SE | `se.team-armada.jp` | 退役済み |
+| KUTE | `kute.team-armada.jp` | 退役済み |
 
-## 新しいPJへ展開する場合
+これらのホスト名とProject Share方式は再利用しない。
 
-汎用ロジック（`server/lib/` の認証・パス検証・セキュリティヘッダー、`server/routes/` の
-ルートハンドラー）を無理に共通パッケージへ切り出さず、既存インスタンス（`vsx/`）を
-まるごとコピーして新しいディレクトリ（例: `services/project-share/<pj>/`）を作る。
+## 2026-08-26 readback
 
-理由: インスタンスごとの環境変数・Blob prefix・ドメイン・contentを明示的に分離し、
-PJ固有要件を混ぜないため。CX/SE/KUTEは汎用ポータルのみを持ち、VSX固有の資料・外部rewrite・
-固定表示行はコピー後に削除する。
+- ZMP: 旧Blob 28件をp19へ移行済み。
+- VSX: 旧Blob 4 object（3 file + folder marker）と、p26の移行済み3 file + 1 folderを照合済み。
+- CX: 旧Blob 0 object。p20の現行`workspace_documents` 14件を確認済み。
+- SE: 旧Blob 0 object。p10の現行`workspace_documents` 7件を確認済み。
+- KUTE: 旧Blob 6 object（4 file + 2 folder marker）と、p25の移行済み4 file + 2 folderを照合済み。
+- VSX / CX / SE / KUTEのVercel projectとBlob storeは削除済み。各旧URLが404を返すことを確認済み。
 
-コピー後にPJ別に変える必要があるもの:
-
-- `content/` 配下の資料・ロゴ・写真
-- `vercel.json` の rewrite（PJ固有の外部プロキシがあれば）
-- Vercelプロジェクト名・ドメイン・Blob store・環境変数（パスワード・署名鍵・許可メール一覧）
-
-変えないもの:
-
-- `server/lib/` の認証・パス検証・セキュリティヘッダーのロジック
-- `api/index.mjs` のルーター構造
-
-### CX / SE / KUTE インスタンス
-
-`cx/`、`se/`、`kute/` はファイル共有ポータル専用の初期空箱。各PJのパスワード・
-署名鍵・許可メール一覧はVercel環境変数にだけ設定し、リポジトリ、URL、HANDOFF、チャットへ記録しない。
-各インスタンスのREADMEを本番運用の入口にする。
-
-SXは2026-08-19にProject Shareから退役した。外部共有はAMD OSのSXワークスペースと
-`workspace_documents`を使い、旧サブドメイン・旧Vercelプロジェクト・旧Blobには新規資料を置かない。
-
-ZMPは2026-08-26にProject Shareから退役した。旧Blobの28件はAMD OSのZMPワークスペース
-`/project/p19/workspace`に移行済みで、外部共有とテーマ進捗は同ワークスペースを正本にする。
-旧Vercelプロジェクト・ドメイン関連付け・Blob store・このリポジトリ内の`zmp/`実装は廃止した。
-GMOお名前.comに残る`zmp.team-armada.jp`のDNS Aレコードは、管理画面での削除確認をもって退役完了とする。
+DNSの最終readbackは[`HANDOFF.md`](HANDOFF.md)に残す。過去の設計はGit履歴にあり、現行仕様として復元しない。

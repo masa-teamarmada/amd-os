@@ -192,7 +192,7 @@ EHM OS設計たたき台（2026-08-13 まさ承認）の論点11-A。機関側�
 - AMD内部のPJコックピットは資料名・件数・最新資料を進捗管理タブへ展開せず、資料室を独立タブ（`?tab=documents`）として `WorkspaceDocumentRoom(presentation='modal')` を埋め込む。タブを開いた時だけマウントする。旧 `WorkspaceDocumentLauncher` のモーダル導線は2026-08-21に廃止（まさ確定）。独立routeは直接URL・外部共有面・復旧用に残す。
 - 資料室の視覚トークンは白、graphite、deep navy、AMD blue、cyanを基調にし、旧Project Share由来のivory / green / amberの全面配色を使わない。赤はarchiveなど破壊性を伴う意味だけに限定する。
 - migration 216〜219は2026-08-02に本番適用済み。VSX/CX/SE/SX/ZMP/KUTEの旧Project Shareはproject scopeへ非破壊コピーし、既存 `project_documents` は `AMD内部/Drive資料` の内部限定linkとして併記した。内容ハッシュを保存し、file全件を移行先から再取得して一致検証する。
-- 旧Project Shareと旧Drive行は削除・上書きしない。外部メールアカウントとPJ個別grantを登録し、対象者の到達を確認するまで旧入口を閉じない。切替失敗時は新規導線を止めて旧入口を継続できる。
+- 移行済みの旧Project Share由来行と旧Drive行は削除・上書きしない。旧Project Shareの入口自体は移行readback後の2026-08-26に全廃済みで、復元しない。外部アクセスはworkspace accountとPJ個別grantだけを使う。
 - cookie認証付きの資料変更はsame-origin guardを必須とする。`Origin`があればrequest URLのoriginと完全一致させ、無い場合は`Sec-Fetch-Site='same-origin'`、さらに無ければ同一originの`Referer`を要求する。三つとも無いrequestは閉じる。
 - account、機関grant、PJ grant、資料metadataはDB triggerでrow変更と監査insertを同じtransactionにする。監査にはtable、操作、row idだけを置き、email、本文、URL、Storage pathは置かない。workspaceまたはPJの削除で資料metadataをcascade削除せず、Storage orphanを作り得る削除をRESTRICTする。
 

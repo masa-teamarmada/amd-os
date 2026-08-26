@@ -1,42 +1,29 @@
-# Project Share Handoff
+# Project Share 退役Handoff
 
 Last updated: 2026-08-26 JST
 
-Topic: ZMP退役後のProject Share現在地
+## 完了済み
 
-## Latest Session Summary
+- SX / ZMP / VSX / CX / SE / KUTEのProject Shareを全廃。
+- VSX / CX / SE / KUTEのVercel projectとprivate Blob storeを削除。
+- 旧URL `vsx` / `cx` / `se` / `kute` / `zmp` がVercel上で404を返すことを確認。
+- 移行readback: VSX 4 object、CX 0 object、SE 0 object、KUTE 6 object。移行対象fileはすべて`workspace_documents`とprivate Storageに存在。
+- repo内の全Project Share実装、移行helper、旧debug / session promptを削除。
 
-- 現役のProject ShareはVSX / CX / SE / KUTEの4インスタンス。SXとZMPはAMD OSの各PJワークスペースへ統合済みで、Project Shareへ戻さない。
-- ZMP旧Blobの28件は、AMD OSのZMPワークスペース`/project/p19/workspace`に移行済み。退役時点で同ワークスペースの`workspace_documents`は30件あり、旧Blobにだけ残る資料がないことを照合した。
-- ZMPのVercelプロジェクト`zmp-project-share`、全デプロイ、ドメイン関連付け、専用Blob storeは削除済み。`https://zmp.team-armada.jp`はVercel上で404を返す。
-- `services/project-share/zmp`の実装も削除し、現行一覧・SPEC・次回用プロンプトを現役4インスタンスへ更新した。
-- GMOお名前.comのDNSには`zmp.team-armada.jp`のAレコードが残っている。管理画面ログイン後、この1レコードを削除し、外部DNSから消えたreadbackをもって完全退役とする。
+## 残る最終確認
 
-## Repo / Production State
+GMOお名前.comのDNSから、次のAレコードだけを削除し、公開DNSで消失をreadbackする。
 
-- ZMPの外部資料共有とテーマ進捗の正本はAMD OSのZMPワークスペースとSupabase。
-- ZMP旧Vercelプロジェクトと旧Blob storeは存在しない。復元・再デプロイ・同じサブドメインの再利用はしない。
-- 現役4インスタンスはAMD OS PWAとは別サービス。main pushだけで反映されたと判断せず、変更対象のREADMEにある手順で個別に反映する。
-- 現役4インスタンスのログイン方式の本番反映状況は、この退役作業では再確認していない。認証変更を行う場合は各インスタンスのREADMEと本番をfreshに確認する。
+| host | type | TTL | value |
+|---|---|---:|---|
+| `vsx.team-armada.jp` | A | 600 | `76.76.21.21` |
+| `cx.team-armada.jp` | A | 600 | `76.76.21.21` |
+| `se.team-armada.jp` | A | 600 | `76.76.21.21` |
+| `kute.team-armada.jp` | A | 600 | `76.76.21.21` |
+| `zmp.team-armada.jp` | A | 600 | `76.76.21.21` |
 
-## Unresolved Tasks
+親domain、`www`、`sx`、`tsukuyomi`など他のDNS recordは触らない。TTL中にrecursive resolverが旧値を返す場合は、未削除と混同せずauthoritative DNSも確認する。
 
-- **ZMP DNSの最終削除**: GMOお名前.comで`zmp.team-armada.jp`のAレコードだけを削除する。親ドメイン`team-armada.jp`や他のサブドメインは触らない。削除直前に対象行をreadbackし、実行確認を取る。
-- 削除後、公開DNSで`zmp.team-armada.jp`が解決しないことを確認する。TTL経過中は旧値が返る可能性を残して報告する。
+## 正本
 
-## First Next Action
-
-Chromeのお名前.com管理画面へログインし、`zmp.team-armada.jp`のAレコード1件だけを特定する。対象行のホスト名・種別・値を確認後、まさの削除確認を受けて削除し、公開DNSをreadbackする。
-
-## Pointers
-
-- 恒久仕様: [`SPEC.md`](SPEC.md)
-- 全体の運用・PJ境界: [`README.md`](README.md)
-- PDF化の低レベルな注意: [`DEBUG.md`](DEBUG.md)
-- ZMPの現行ワークスペース: `/project/p19/workspace`
-- 次回用の依頼文: [`SESSION_MIGRATION_PROMPT.md`](SESSION_MIGRATION_PROMPT.md)
-
-## OS Manual Gate
-
-- ZMPの現行ワークスペース側の画面・利用者マニュアルはAMD OS PWAの変更として別途更新する。
-- Project Share退役そのものは`services/`配下の独立Vercelサービス削除であり、現役4インスタンスの画面仕様は変更しない。
+現行の資料共有はAMD OSのPJワークスペース、`workspace_documents`、private Storage `workspace-files`。旧ホスト名とProject Share方式は再利用しない。
