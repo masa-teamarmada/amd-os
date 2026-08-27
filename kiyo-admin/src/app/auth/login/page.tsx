@@ -33,7 +33,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-6 text-center">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">◈ きよ専用 AMD OS</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">◈ きよあどみ</h1>
           <p className="text-sm text-slate-500">Team ARMADA 管理業務</p>
         </div>
         {error === "domain_not_allowed" && (

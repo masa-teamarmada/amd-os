@@ -22,7 +22,7 @@ import { PayoutNoticeClient } from "@/components/PayoutNoticeClient";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "きよ専用 AMD OS",
+  title: "きよあどみ",
 };
 
 const KIYO_TASKS = [
@@ -82,7 +82,7 @@ export default async function Home({
     <main className="mx-auto w-full max-w-[1600px] px-4 py-5">
       <header className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">◈ きよ専用 AMD OS</h1>
+          <h1 className="text-xl font-semibold tracking-tight">◈ きよあどみ</h1>
           <p className="mt-0.5 text-xs text-slate-500">
             月次経理をここで確認して承認する。金額は本体が確定させたものをそのまま出している。
           </p>
