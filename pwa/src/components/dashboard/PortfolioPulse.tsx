@@ -19,7 +19,7 @@
  */
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ArrowRight, Building2, Sprout, type LucideIcon } from "lucide-react";
+import { ArrowRight, Briefcase, Building2, Sprout, type LucideIcon } from "lucide-react";
 import type { ErsBundle } from "@/lib/ers-data";
 import { seedProjectLifecycle } from "@/lib/kute-seeds-scoring";
 import {
@@ -132,18 +132,20 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
       (seed.project_links ?? []).some((link) => link.project_status === "active") ||
       seedProjectLifecycle(seed) === "considering",
   );
-  const activeSeedProjectNames = (seed: SeedPublicView) =>
-    (seed.project_links ?? [])
-      .filter((link) => link.project_status === "active")
-      .map((link) => link.project_name)
-      .join(" / ");
+  const activeSeedLinks = (seed: SeedPublicView) =>
+    (seed.project_links ?? []).filter((link) => link.project_status === "active");
+  // 研究機関にもシーズにも紐づかない稼働中PJ (= 事業会社が相手のPJ)。
+  // ここが無いと ZMP のようなPJがホームのどのリストにも出ない。
+  const companyPjRows = model.projectRows.filter(
+    (row) => row.needsClassification && row.project.status === "active",
+  );
 
   return (
     <section className="dashboard-desk-section" data-testid="portfolio-pulse">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="dashboard-desk-section-title !mb-0">PJポートフォリオ — 今日動かす対象</h2>
         <p className="text-[11px] text-[var(--desk-muted)]">
-          稼働中のPJとPJ化検討中の候補を、研究機関から来たものとシーズから来たものに分けて出す。
+          稼働中のPJとPJ化検討中の候補を、研究機関・シーズ・事業会社のどこから来たかで分けて出す。
         </p>
       </div>
 
@@ -151,7 +153,7 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
 
       {/* items-start にしないと、件数の少ないパネルが多い方の高さまで引き伸ばされて
           下に大きな空白ができる。高さは中身に合わせる。 */}
-      <div className="mt-2 grid grid-cols-1 items-start gap-2 lg:grid-cols-2">
+      <div className="mt-2 grid grid-cols-1 items-start gap-2 lg:grid-cols-3">
         <QueuePanel
           title="研究機関PJ"
           count={institutionPjRows.length}
@@ -169,9 +171,10 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
                 <CandidateRow
                   key={row.institutionId}
                   icon={Building2}
-                  label={row.name}
-                  meta={[running ? row.projectLink?.projectLabel : null, `所属シーズ ${row.seedCount}件`].filter(Boolean).join(" ・ ")}
-                  badge={running ? "PJ稼働中" : "検討中"}
+                  prefix={running ? row.projectLink?.projectId : null}
+                  label={running ? row.projectLink?.projectLabel ?? row.name : row.name}
+                  meta={[running ? row.name : null, `所属シーズ ${row.seedCount}件`].filter(Boolean).join(" ・ ")}
+                  badge={running ? "稼働中" : "検討中"}
                   href={
                     row.projectLink
                       ? `/institutions/${encodeURIComponent(row.institutionId)}/cockpit`
@@ -197,20 +200,47 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
         >
           {seedPjRows.length ? (
             seedPjRows.map((seed) => {
-              const runningPjs = activeSeedProjectNames(seed);
+              const running = activeSeedLinks(seed);
+              const primary = running[0];
               return (
                 <CandidateRow
                   key={seed.id}
                   icon={Sprout}
-                  label={seed.title}
-                  meta={[seed.org_name, runningPjs || seed.researcher_name || "PI未登録"].filter(Boolean).join(" ・ ")}
-                  badge={runningPjs ? "PJ稼働中" : "検討中"}
+                  prefix={primary?.project_id ?? null}
+                  label={primary ? running.map((link) => link.project_name).join(" / ") : seed.title}
+                  meta={primary ? (primary.client_name || seed.org_name) : [seed.org_name, seed.researcher_name || "PI未登録"].filter(Boolean).join(" ・ ")}
+                  badge={primary ? "稼働中" : "検討中"}
                   href={`/seeds/${encodeURIComponent(seed.id)}`}
                 />
               );
             })
           ) : (
             <EmptyQueue label="稼働中・検討中のシーズPJはない" />
+          )}
+        </QueuePanel>
+
+        <QueuePanel
+          title="事業会社PJ"
+          count={companyPjRows.length}
+          actionLabel="PJ運用を開く"
+          actionHref="#pj-operations"
+          icon={Briefcase}
+          tone="blue"
+        >
+          {companyPjRows.length ? (
+            companyPjRows.map((row) => (
+              <CandidateRow
+                key={row.project.projectId}
+                icon={Briefcase}
+                prefix={row.project.projectId}
+                label={row.project.projectName}
+                meta={row.project.clientName || "相手先の登録なし"}
+                badge="稼働中"
+                href={`/project/${encodeURIComponent(row.project.projectId)}/cockpit`}
+              />
+            ))
+          ) : (
+            <EmptyQueue label="研究機関・シーズに紐づかない稼働中PJはない" />
           )}
         </QueuePanel>
 
@@ -311,12 +341,14 @@ function QueuePanel({
 
 function CandidateRow({
   icon: Icon,
+  prefix,
   label,
   meta,
   badge,
   href,
 }: {
   icon: LucideIcon;
+  prefix?: string | null;
   label: string;
   meta: string;
   badge: string;
@@ -329,7 +361,10 @@ function CandidateRow({
     >
       <Icon className="h-4 w-4 shrink-0 text-[var(--desk-muted)]" aria-hidden="true" />
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-medium text-[var(--desk-ink)]">{label}</span>
+        <span className="block truncate font-medium text-[var(--desk-ink)]">
+          {prefix ? <span className="mr-1.5 font-mono text-[10px] font-normal text-[var(--desk-muted)]">{prefix}</span> : null}
+          {label}
+        </span>
         <span className="block truncate text-[11px] text-[var(--desk-muted)]">{meta}</span>
       </span>
       <span className="shrink-0 rounded border border-[var(--desk-line)] px-1 py-0.5 text-[11px] text-[var(--desk-muted)]">

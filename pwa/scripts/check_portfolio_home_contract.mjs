@@ -73,6 +73,7 @@ assert.match(pulseRoute, /fetchAllResearchInstitutionSeeds\(readClient\)/);
 //    統計stripの「PJ運用」セルに同じものが出ていて三重になっていたため。復活させない。
 assert.match(pulseComponent, /title="研究機関PJ"/);
 assert.match(pulseComponent, /title="シーズPJ"/);
+assert.match(pulseComponent, /title="事業会社PJ"/);
 assert.doesNotMatch(pulseComponent, /PJ運用 — 稼働中/);
 assert.match(pulseComponent, /actionHref="\/institutions"/);
 assert.match(pulseComponent, /actionHref="\/seeds"/);
@@ -80,6 +81,13 @@ assert.ok(
   pulseComponent.indexOf('title="研究機関PJ"') < pulseComponent.indexOf('title="シーズPJ"'),
   "研究機関PJパネルはシーズPJパネルより先に描画される必要がある",
 );
+assert.ok(
+  pulseComponent.indexOf('title="シーズPJ"') < pulseComponent.indexOf('title="事業会社PJ"'),
+  "シーズPJパネルは事業会社PJパネルより先に描画される必要がある",
+);
+// 事業会社PJ = 研究機関にもシーズにも紐づかない稼働中PJ。
+// このパネルが無いと ZMP のようなPJがホームのどのリストにも出ない (2026-08-27 まさ指摘)。
+assert.match(pulseComponent, /row\.needsClassification && row\.project\.status === "active"/);
 // 両パネルはPJ化済み (= 稼働中PJに紐づく) と PJ化検討中の両方を出す (まさ確定 2026-08-27)。
 // "considering" だけに絞ると、正式にPJ化した研究機関 (KUTE/NIMS/EHM) が1件も出なくなる。
 assert.match(pulseComponent, /row\.projectLink\?\.projectStatus === "active" \|\| row\.lifecycle === "considering"/);

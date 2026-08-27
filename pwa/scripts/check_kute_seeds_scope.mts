@@ -257,19 +257,19 @@ function readSrc(relPath: string): string {
 
   // 9-0. シーズ自体のstatusではなく seed_projects の契約レイヤーで並び順を決める
   assert.equal(
-    seedProjectPriority(makeSeed({ status: "candidate", project_links: [{ project_id: "p1", project_name: "PJ", project_status: "active", commercialization_stage: null, commercialization_route: null, venture_name: null, target_market: null }] })),
+    seedProjectPriority(makeSeed({ status: "candidate", project_links: [{ project_id: "p1", project_name: "PJ", project_status: "active", client_name: null, commercialization_stage: null, commercialization_route: null, venture_name: null, target_market: null }] })),
     0,
   );
   for (const projectStatus of ["ended", "frozen"]) {
     assert.equal(
-      seedProjectPriority(makeSeed({ project_links: [{ project_id: "p1", project_name: "PJ", project_status: projectStatus, commercialization_stage: null, commercialization_route: null, venture_name: null, target_market: null }] })),
+      seedProjectPriority(makeSeed({ project_links: [{ project_id: "p1", project_name: "PJ", project_status: projectStatus, client_name: null, commercialization_stage: null, commercialization_route: null, venture_name: null, target_market: null }] })),
       0,
       `${projectStatus} はPJ化済みとして先頭グループであるべきです`,
     );
   }
   for (const projectStatus of ["sales", "draft"]) {
     assert.equal(
-      seedProjectPriority(makeSeed({ project_links: [{ project_id: "p1", project_name: "PJ", project_status: projectStatus, commercialization_stage: null, commercialization_route: null, venture_name: null, target_market: null }] })),
+      seedProjectPriority(makeSeed({ project_links: [{ project_id: "p1", project_name: "PJ", project_status: projectStatus, client_name: null, commercialization_stage: null, commercialization_route: null, venture_name: null, target_market: null }] })),
       1,
       `${projectStatus} はPJ化検討中であるべきです`,
     );
@@ -296,7 +296,7 @@ function readSrc(relPath: string): string {
   // 9-7. /seeds 全機関横断リストの優先度 (seedListPriority):
   //      PJ化済み=0、PJ化検討中=1、PJなし=3。旧SPS/ECRは関与しない
   assert.equal(
-    seedListPriority(makeSeed({ status: "candidate", project_links: [{ project_id: "p1", project_name: "PJ", project_status: "active", commercialization_stage: null, commercialization_route: null, venture_name: null, target_market: null }] })),
+    seedListPriority(makeSeed({ status: "candidate", project_links: [{ project_id: "p1", project_name: "PJ", project_status: "active", client_name: null, commercialization_stage: null, commercialization_route: null, venture_name: null, target_market: null }] })),
     0,
     "PJ化済みは優先度0であるべきです",
   );

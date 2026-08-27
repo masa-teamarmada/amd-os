@@ -263,6 +263,8 @@ export interface SeedProjectLink {
   project_id: string;
   project_name: string;
   project_status: string;
+  /** PJの相手先 (事業会社・研究機関)。ホームのPJリストでPJ名の下に小さく出す。 */
+  client_name: string | null;
   commercialization_stage: string | null;
   commercialization_route: string | null;
   venture_name: string | null;

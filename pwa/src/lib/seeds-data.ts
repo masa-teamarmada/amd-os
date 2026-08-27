@@ -638,7 +638,7 @@ async function fetchSeedProjectLinks(
       readClient
         .from("seed_projects")
         .select(
-          "seed_id,project_id,commercialization_stage,commercialization_route,venture_name,target_market,projects(project_name,status)",
+          "seed_id,project_id,commercialization_stage,commercialization_route,venture_name,target_market,projects(project_name,status,client_name)",
         )
         .in("seed_id", ids),
     ),
@@ -657,6 +657,7 @@ async function fetchSeedProjectLinks(
       project_id: String(row.project_id),
       project_name: project?.project_name || String(row.project_id),
       project_status: project?.status || "unknown",
+      client_name: project?.client_name ?? null,
       commercialization_stage: row.commercialization_stage ?? null,
       commercialization_route: row.commercialization_route ?? null,
       venture_name: row.venture_name ?? null,
