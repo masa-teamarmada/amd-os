@@ -42,7 +42,14 @@ GET /api/cron/management-score-raw-data?includeFreee=1&ym=YYYYMM
 Authorization: Bearer $CRON_SECRET
 ```
 
-取り込み後、`company_actual_monthly` の `category='fixed_cost'` に対象月の `役員報酬` `法定福利費` が入ったことをSQLで確認する。入っていなければ Phase 1 が効いていないので、報告して止まる。
+あわせて取引先別の売上も取り込む。これが無いと、きよ「お金の流れ」の「売上（どこから）」が空になる。
+
+```
+GET /api/cron/freee-revenue-by-partner?ym=YYYYMM
+Authorization: Bearer $CRON_SECRET
+```
+
+取り込み後、`company_actual_monthly` の `category='fixed_cost'` に対象月の `役員報酬` `法定福利費` が入ったことをSQLで確認する。入っていなければ Phase 1 が効いていないので、報告して止まる。`category='revenue_partner'` に取引先名が並ぶことも確認する。`取引先未設定` が出ていたら、その取引に取引先を入れると相手先が出るようになる。
 
 ## Phase 3: 給与振込の消込
 
