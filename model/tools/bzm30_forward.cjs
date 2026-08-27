@@ -95,6 +95,11 @@ const CFG = {
                      // （まさ 2026-08-27「再起するとしたら、もうそのときは別PJとして認識すればいいだけ」）
   uLeftDef: 0,       // 未着手の用途がどれだけ残るか（0〜1）。用途1本の Tier 0 では 0
 
+  // 会社化前の資金切れは案件の死ではない（提案 2026-08-27 休眠。未承認）。
+  // 研究室は大学の基盤で存続し、次の公的資金を待つ。前進は大きく遅れ、証拠は陳腐化していく。
+  dormAdvMult: 0.35,   // 休眠中（会社化前・残高が最低格子）の前進の遅さ
+  dormBurnMult: 0,     // 休眠中は支出を引かない（研究室の維持は大学の基盤で回る）
+
   // 経済性の乗数（改訂 N2。#2026-08-27-1）。「筋がいいから金が付く」を式に入れる
   pRef: 300,         // 基準の天井（億円／年の純増）。ここで乗数が 1 になる
   betaP: { pub: 0.25, eq: 0.45 },  // 天井の効き。公的採択は抑え、民間調達は強く
@@ -467,7 +472,7 @@ function runOne(type, reg, cfg, theta, init) {
     if (sVal >= gLast) { arr[baseIdx + (S - 1) * st_s] += w; return; }
     let lo = 1, hi = S - 1;
     while (lo + 1 < hi) { const mid = (lo + hi) >> 1; if (grid[mid] <= sVal) lo = mid; else hi = mid; }
-    const f = (sVal - grid[lo]) / (grid[lo + 1] - grid[lo]);
+    const f = Math.max(0, Math.min(1, (sVal - grid[lo]) / (grid[lo + 1] - grid[lo])));
     arr[baseIdx + lo * st_s] += w * (1 - f);
     arr[baseIdx + (lo + 1) * st_s] += w * f;
   }
@@ -537,6 +542,7 @@ function runOne(type, reg, cfg, theta, init) {
                 let pn, wP, dn, reached = false;
                 if (role === 1) {
                   let pa2 = (X === 1) ? advBaseX : advBase;
+                  if (si === 1 && I === 0) pa2 *= cfg.dormAdvMult;   // 休眠（会社化前・残高最低）
                   if (posIsM4[p] === 1 && Rb > 0) pa2 = 0;
                   const pass = posPass[p], pStall = cfg.stallShare * pa2;
                   if (pb === 0) { pn = posNext[p]; wP = wX * pa2 * pass; dn = 0; reached = pn >= P; }
@@ -573,7 +579,8 @@ function runOne(type, reg, cfg, theta, init) {
                 if (I === 0 && Rb === 0 && stage >= incTh && (Xn === 1 || sVal > muPost * 6)) In = 1;
 
                 // 5. 資金
-                const mu = (In === 1 ? muPost : muPre) * (1 + cfg.restrictedWaste);
+                const muFull = (In === 1 ? muPost : muPre) * (1 + cfg.restrictedWaste);
+                const mu = (si === 1 && In === 0) ? muFull * cfg.dormBurnMult : muFull;   // 休眠中は支出を引かない
                 const rEff = r * (In === 1 ? cfg.rPostMult : 1);
                 const yEff = cfg.yByStage[stage] * muPre * (In === 1 ? cfg.yPostMult : 1);
                 const income = (Xn === 1 ? rhoMax * rEff : 0) + yEff;
@@ -581,7 +588,7 @@ function runOne(type, reg, cfg, theta, init) {
                 const pEq = (In === 1) ? pEqBase : 0;
 
                 // 6. 資本自立（反復可能な稼ぎが必要支出を賄う）
-                if (income >= mu) {
+                if (income >= muFull) {
                   O.indep_rev += wP;
                   if (t <= cfg.planDeadline) O.indep_in += wP; else O.indep_out += wP;
                   vAcc += wP * tail * cfg.qSelf; vIn += wP * tailIn * cfg.qSelf;
@@ -595,15 +602,15 @@ function runOne(type, reg, cfg, theta, init) {
                   else { sn = base; wF = wP * (1 - pAward) * (1 - pEq); }
                   if (wF < 1e-15) continue;
                   if (sn <= 0) {
-                    // 資金切れ。会社化済みは法人の清算手続きが要るぶん①②③へ回れる質量が減る
+                    if (In === 0) { put(nxt, pn, grid[1], Rb, In, Xn, Nn, wF); continue; }  // 会社化前: 休眠へ（死なない）
+                    // 会社化後: 清算。四経路のうち②③だけが立ちうる（①用途転換は法人を畳むのでできない）
                     const ep = exitPaths(wF, stage, In, uLeft, cfg, O, tl, tlIn, mEconEq);
                     vAcc += ep.v; vIn += ep.vIn;
-                    if (In === 1) { O.liq += ep.use; O.pivot -= ep.use; }   // 会社は畳む。用途転換はできない
-                    else if (ep.use > 1e-15 && posMarketHead >= 0) put(nxt, posMarketHead, grid[1], Rb, In, Xn, 0, ep.use);
+                    O.liq += ep.use; O.pivot -= ep.use;
                     continue;
                   }
                   const hLeft = sn / mu;
-                  if (hLeft < cfg.hUnder && pAward * hLeft < 0.30) {
+                  if (In === 1 && hLeft < cfg.hUnder && pAward * hLeft < 0.30) {   // R6 は会社の判断。会社化前には無い
                     const ep = exitPaths(wF, stage, In, uLeft, cfg, O, tl, tlIn, mEconEq);
                     vAcc += ep.v; vIn += ep.vIn;
                     if (ep.use > 1e-15 && posMarketHead >= 0) put(nxt, posMarketHead, sn, Rb, In, Xn, 0, ep.use);
