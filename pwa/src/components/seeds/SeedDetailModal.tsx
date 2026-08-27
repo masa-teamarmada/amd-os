@@ -35,16 +35,10 @@ import type {
   SeedContactLog,
   SeedContactMethod,
   SeedProjectLink,
-  SeedScreeningBandDetail,
 } from "@/types/seeds";
 import { createClient } from "@/lib/supabase/client";
 import { SeedMarkdownPreviewModal } from "@/components/seeds/SeedMarkdownPreviewModal";
-import { SpsScreeningBandSection } from "@/components/sps/SpsScreeningBandSection";
 import { Bzm30ScorePanel } from "@/components/bzm30/Bzm30ScorePanel";
-import {
-  loadSeedScreeningBandDetail,
-  peekSeedScreeningBandDetail,
-} from "@/lib/seed-screening-bands-client";
 
 interface MemberLite {
   member_id: string;
@@ -91,8 +85,6 @@ export function SeedDetailModal({
   const [deepDiveOpen, setDeepDiveOpen] = useState(false);
   const [activationOpen, setActivationOpen] = useState(false);
   const [activationBusy, setActivationBusy] = useState(false);
-  const [screeningBand, setScreeningBand] = useState<SeedScreeningBandDetail | null>(null);
-  const [bandLoading, setBandLoading] = useState(false);
 
   // メンバー + PJ 一覧を読む (lookup 用)
   useEffect(() => {
@@ -143,42 +135,6 @@ export function SeedDetailModal({
         }
       })
       .finally(() => setLoading(false));
-  }, [seedId, createMode]);
-
-  // 一次選別スクリーニング帯 (SPS帯) を読む。
-  // seed_screening_bands は service_role 専用 (RLS ポリシー無し) のため、
-  // クライアントからは member 認証の API route 経由でのみ取得する。
-  // 帯は参照系なので lib/seed-screening-bands-client.ts のキャッシュを通す。
-  // 一覧の hover で先読み済み、または一度開いたシーズなら peek が当たり、待ち時間ゼロで描画する。
-  useEffect(() => {
-    if (!seedId || createMode) {
-      // 新規作成時に前のシーズの帯を残さないための同期リセット
-      setScreeningBand(null);
-      setBandLoading(false);
-      return;
-    }
-    const cached = peekSeedScreeningBandDetail(seedId);
-    // シーズ切替時に前のシーズの帯を残さない。キャッシュ命中なら同期で帯が入り、待ちが出ない。
-    setScreeningBand(cached ?? null);
-    // キャッシュ命中時はスケルトンを出さない
-    setBandLoading(cached === undefined);
-    if (cached !== undefined) return;
-
-    let cancelled = false;
-    loadSeedScreeningBandDetail(seedId)
-      .then((band) => {
-        if (cancelled) return;
-        setScreeningBand(band);
-      })
-      .catch(() => {
-        /* 帯は補助表示。取得に失敗してもシーズ詳細本体の表示は続ける。 */
-      })
-      .finally(() => {
-        if (!cancelled) setBandLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
   }, [seedId, createMode]);
 
   // ESC で閉じる
@@ -430,8 +386,6 @@ export function SeedDetailModal({
               data && (
                 <SeedReadView
                   data={data}
-                  screeningBand={screeningBand}
-                  bandLoading={bandLoading}
                   onOpenDeepDive={() => setDeepDiveOpen(true)}
                 />
               )
@@ -483,13 +437,9 @@ function RatingDots({ r }: { r: number | null }) {
 
 function SeedReadView({
   data,
-  screeningBand,
-  bandLoading,
   onOpenDeepDive,
 }: {
   data: SeedDetail;
-  screeningBand: SeedScreeningBandDetail | null;
-  bandLoading: boolean;
   onOpenDeepDive: () => void;
 }) {
   const s = data.seed;
@@ -584,54 +534,15 @@ function SeedReadView({
       </div>
 
       {/*
-        スコアの本体は BZM 3.0（モデルページ §5・§6）。
-        旧の一次選別の帯は、モデルページ §5.9 改訂 M2 で「V と同じ次元の量で、到達確率を掛ける前の V
-        ＝全部うまくいったときの上限」と位置づけ直された。破棄せず、V の検算の基準として畳んで残す。
+        スコアは BZM 3.0（モデルページ §5・§6）だけを出す。
+        2026-08 までの一次選別の帯は、まさ 2026-08-27「古いモデルの試算結果は、混乱の元になるのですべて削除してほしい」で
+        画面から外した。テーブル seed_screening_bands は残っているが、どの画面からも読まない。
       */}
-      <Bzm30ScorePanel seed={s} detail={data} band={screeningBand} />
-
-      {screeningBand ? (
-        <details className="group rounded border border-border bg-muted/10">
-          <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 hover:bg-muted/30 [&::-webkit-details-marker]:hidden">
-            <span className="flex-1 text-[12px] font-semibold text-foreground">
-              （参考）2026-08 の一次選別の帯 — BZM 3.0 の V の上限としての検算基準
-            </span>
-            <span className="whitespace-nowrap font-mono text-[10px] text-muted-foreground">退役した測り方</span>
-          </summary>
-          <div className="border-t border-border px-3 py-2.5">
-            <p className="mb-2 rounded border border-border bg-muted/40 px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground">
-              この帯は 2026-08-16〜22 に 998 件へ入れたもので、
-              <strong className="text-foreground">現行のスコアの算出には使っていない</strong>。
-              帯そのものは到達確率を掛ける前の V にあたるので、BZM 3.0 で算出した V がこれを超えていないかの
-              <strong className="text-foreground">検算の基準</strong>として残している。超えた場合は入力か実装のどちらかが誤っている。
-              この帯から天井を割り戻すことはしない（式から出てきた値を式の入力に戻す向きになるため。モデルページ §5.9 改訂 M2）。
-            </p>
-            <SpsScreeningBandSection band={screeningBand} />
-          </div>
-        </details>
-      ) : bandLoading ? (
-        <ScreeningBandSkeleton />
-      ) : null}
+      <Bzm30ScorePanel seed={s} detail={data} band={null} />
     </div>
   );
 }
 
-
-/** 帯が未取得のあいだ、節が「あとから生えてくる」感を消すための場所取り。 */
-function ScreeningBandSkeleton() {
-  return (
-    <div className="border border-border rounded p-3" aria-busy="true">
-      <h3 className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2 font-medium">
-        （参考）2026-08 の一次選別の帯
-      </h3>
-      <div className="space-y-2">
-        <div className="h-3 w-2/5 animate-pulse rounded bg-muted" />
-        <div className="h-3 w-3/5 animate-pulse rounded bg-muted" />
-        <div className="h-3 w-1/3 animate-pulse rounded bg-muted" />
-      </div>
-    </div>
-  );
-}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

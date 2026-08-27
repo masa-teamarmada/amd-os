@@ -27,10 +27,7 @@ import {
   SEED_DOMAIN_LANE_LABEL,
   SEED_COMMERCIALIZATION_TYPE_LABEL,
   SEED_KUTE_MARKET_CONFIDENCE_LABEL,
-  SEED_EVIDENCE_LEVEL_LABEL,
-  SEED_EVIDENCE_LEVEL_DESCRIPTION,
   formatOkuYen,
-  seedScreeningBandMedianYen,
   compareSeedSortValues,
   countDistinctResearchers,
   countDistinctInstitutions,
@@ -39,19 +36,17 @@ import {
   seedListPriority,
 } from "@/lib/seeds-data";
 import { projectStatusLifecycle } from "@/lib/institution-projects";
-import {
-  loadSeedScreeningBandSummaries,
-  prefetchSeedScreeningBandDetail,
-} from "@/lib/seed-screening-bands-client";
 import { prefetchBzm30Model } from "@/lib/bzm30-model-client";
-import { prefetchSeedBzm30 } from "@/lib/bzm30-seed-client";
-import type { SeedDomainLane, SeedPublicView, SeedScreeningBandSummary } from "@/types/seeds";
+import { prefetchSeedBzm30, loadSeedBzm30Summaries } from "@/lib/bzm30-seed-client";
+import type { SeedBzm30Summary } from "@/lib/bzm30/seed-score";
+import { STAGE_LABEL } from "@/lib/bzm30/seed-inputs";
+import type { SeedDomainLane, SeedPublicView } from "@/types/seeds";
 
 type SortKey = "spsBand";
 type StatusFilter = "all" | "assessed" | "unassessed";
 
 const SORT_LABEL: Record<SortKey, string> = {
-  spsBand: "SPS(中央値)",
+  spsBand: "産業創出価値(中央値)",
 };
 
 const SEED_DOMAIN_VISUAL: Record<SeedDomainLane, {
@@ -87,17 +82,16 @@ function SeedDomainIcon({ domain }: { domain: SeedDomainLane | null }) {
 }
 
 /**
- * SPS列の列ソート値 = 帯の中央値 (下限+上限)/2。仮置き実装 (まさ裁定 2026-08-15:
- * 「帯にしちゃってるからソーティングがきかない。一旦仮置きで中央値をSPSとして」「中央値でソーティング」)。
- * 帯が無い、または上限・下限どちらかが欠けているシーズは常に末尾。
+ * 産業創出価値の列ソート値 = BZM 3.0 の中央値（50%点）。
+ * まだ算出していないシーズと、天井が未調査で金額が出ないシーズは常に末尾。
  */
-function screeningBandSortValue(
+function bzm30SortValue(
   seed: SeedPublicView,
-  bandsBySeedId: Map<string, SeedScreeningBandSummary>,
+  scoresBySeedId: Map<string, SeedBzm30Summary>,
 ): number | null {
-  const band = bandsBySeedId.get(seed.id);
-  if (!band) return null;
-  return seedScreeningBandMedianYen(band.sps_lower_yen, band.sps_upper_yen);
+  const score = scoresBySeedId.get(seed.id);
+  if (!score || score.score_median_yen === null) return null;
+  return score.score_median_yen;
 }
 
 /** 通常PJコックピットで、institution_projects に属するPJだけ比較表を出す。 */
@@ -147,8 +141,8 @@ export function CockpitKuteSeeds({
   const [sortKey, setSortKey] = useState<SortKey>("spsBand");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  // 全scope共通: 現行SPSの完全一致・凍結評価だけをAPIから読む。
-  const [bandsBySeedId, setBandsBySeedId] = useState<Map<string, SeedScreeningBandSummary>>(new Map());
+  // 全scope共通: BZM 3.0 の算出済みスコアをまとめて読む。
+  const [scoresBySeedId, setScoresBySeedId] = useState<Map<string, SeedBzm30Summary>>(new Map());
 
   useEffect(() => {
     let cancelled = false;
@@ -165,16 +159,16 @@ export function CockpitKuteSeeds({
     };
   }, [projectId, scope, requestKey]);
 
-  // 帯は参照系。lib/seed-screening-bands-client.ts のキャッシュを通し、
+  // スコアは参照系。lib/bzm30-seed-client.ts のキャッシュを通し、
   // 一覧 → 詳細 → 一覧 と行き来しても読み直さない。
   useEffect(() => {
     let cancelled = false;
-    loadSeedScreeningBandSummaries({ force: requestKey > 0 })
-      .then((bands) => {
-        if (!cancelled) setBandsBySeedId(bands);
+    loadSeedBzm30Summaries({ force: requestKey > 0 })
+      .then((scores) => {
+        if (!cancelled) setScoresBySeedId(scores);
       })
       .catch(() => {
-        // スクリーニング帯は補助表示。取得失敗しても一覧本体は表示を続ける。
+        // スコアは補助表示。取得失敗しても一覧本体は表示を続ける。
       });
     return () => {
       cancelled = true;
@@ -187,7 +181,7 @@ export function CockpitKuteSeeds({
   }, [seeds]);
 
   const materialCount = scopedSeeds.filter((seed) => seed.deep_dive_material_url).length;
-  const scoredCount = scopedSeeds.filter((seed) => bandsBySeedId.get(seed.id)?.assessment_id).length;
+  const scoredCount = scopedSeeds.filter((seed) => scoresBySeedId.has(seed.id)).length;
   const researcherCount = countDistinctResearchers(scopedSeeds);
   const institutionCount = countDistinctInstitutions(scopedSeeds);
   const realizedProjectSeedCount = scopedSeeds.filter((seed) => seedProjectPriority(seed) === 0).length;
@@ -196,11 +190,11 @@ export function CockpitKuteSeeds({
 
   const filteredSeeds = useMemo(() => {
     return scopedSeeds.filter((seed) => {
-      const evaluationStatus = bandsBySeedId.get(seed.id)?.assessment_id ? "assessed" : "unassessed";
+      const evaluationStatus = scoresBySeedId.has(seed.id) ? "assessed" : "unassessed";
       if (statusFilter !== "all" && evaluationStatus !== statusFilter) return false;
       return true;
     });
-  }, [bandsBySeedId, scopedSeeds, statusFilter]);
+  }, [scoresBySeedId, scopedSeeds, statusFilter]);
 
   const dir = sortDir === "asc" ? 1 : -1;
 
@@ -209,13 +203,13 @@ export function CockpitKuteSeeds({
       // SPS(スクリーニング帯)ソート時はPJ優先4段を外してリスト全体をフラットに並べる
       // (まさ裁定 2026-08-15「全然ソーティングされない」への対応。他キーは従来どおり区分内ソート)
       const byScore = compareSeedSortValues(
-        screeningBandSortValue(a, bandsBySeedId),
-        screeningBandSortValue(b, bandsBySeedId),
+        bzm30SortValue(a, scoresBySeedId),
+        bzm30SortValue(b, scoresBySeedId),
         dir,
       );
       return byScore || a.title.localeCompare(b.title, "ja");
     });
-  }, [filteredSeeds, dir, bandsBySeedId]);
+  }, [filteredSeeds, dir, scoresBySeedId]);
 
   const isEmptyResult = flatSeeds.length === 0;
 
@@ -336,8 +330,8 @@ export function CockpitKuteSeeds({
                   <th className="min-w-[180px] border-b border-slate-200 px-3 py-2">会社名</th>
                   <th className="min-w-[140px] border-b border-slate-200 px-3 py-2">研究機関</th>
                   <th className="min-w-[130px] border-b border-slate-200 px-3 py-2">研究者 / PI</th>
-                  <SortableTh label="現行SPS(億円)" sortKey="spsBand" activeKey={sortKey} dir={sortDir} onSort={toggleSort} hint="sps-ind-v1 / q-eval-v2 / rubric-v1.1 / p-ind-v1。完全一致した凍結評価のみ" widthClass="min-w-[190px]" />
-                  <th className="min-w-[70px] border-b border-slate-200 px-2 py-2">根拠Lv</th>
+                  <SortableTh label="産業創出価値(億円)" sortKey="spsBand" activeKey={sortKey} dir={sortDir} onSort={toggleSort} hint="BZM 3.0。中央値でソートする。天井が未調査の案件は金額が出ないので末尾" widthClass="min-w-[190px]" />
+                  <th className="min-w-[150px] border-b border-slate-200 px-2 py-2">現在地・型</th>
                   <th className="min-w-[52px] border-b border-slate-200 px-2 py-2">TRL</th>
                   <th className="min-w-[52px] border-b border-slate-200 px-2 py-2">BRL</th>
                   <th className="min-w-[52px] border-b border-slate-200 px-2 py-2">HRL</th>
@@ -357,7 +351,7 @@ export function CockpitKuteSeeds({
                     key={seed.id}
                     seed={seed}
                     onOpen={() => setSelected(seed)}
-                    screeningBand={bandsBySeedId.get(seed.id) ?? null}
+                    bzm30={scoresBySeedId.get(seed.id) ?? null}
                   />
                 ))}
               </tbody>
@@ -472,33 +466,14 @@ function AxisCell({ value }: { value: number | null | undefined }) {
   );
 }
 
-const EVIDENCE_LEVEL_BADGE_CLASS: Record<0 | 1 | 2 | 3, string> = {
-  0: "border-slate-300 bg-slate-50 text-slate-500",
-  1: "border-sky-300 bg-sky-50 text-sky-700",
-  2: "border-amber-300 bg-amber-50 text-amber-800",
-  3: "border-emerald-300 bg-emerald-50 text-emerald-800",
-};
-
-/** 根拠Lv (スコア成熟度) バッジ。§6 確定13: 判定はDBから機械導出、上位が勝つ。 */
-function EvidenceLevelBadge({ level }: { level: 0 | 1 | 2 | 3 }) {
-  return (
-    <span
-      title={SEED_EVIDENCE_LEVEL_DESCRIPTION[level]}
-      className={`inline-flex border px-1.5 py-0.5 text-[10px] font-bold ${EVIDENCE_LEVEL_BADGE_CLASS[level]}`}
-    >
-      {SEED_EVIDENCE_LEVEL_LABEL[level]}
-    </span>
-  );
-}
-
 function SeedRow({
   seed,
   onOpen,
-  screeningBand,
+  bzm30,
 }: {
   seed: SeedPublicView;
   onOpen: () => void;
-  screeningBand: SeedScreeningBandSummary | null;
+  bzm30: SeedBzm30Summary | null;
 }) {
   const commercializationTypes = [
     seed.primary_commercialization_type,
@@ -526,8 +501,8 @@ function SeedRow({
       // クリックより先に詳細帯を温める。マウスが行に乗ってからクリックが届くまでの
       // 数百ミリ秒で取得が終わるので、モーダルは開いた時点で帯を持っている。
       // BZM 3.0 のモデル定義は全シーズ共通なので、最初の hover の1回だけ取りに行く。
-      onMouseEnter={() => { prefetchSeedScreeningBandDetail(seed.id); prefetchBzm30Model(); prefetchSeedBzm30(seed.id); }}
-      onFocus={() => { prefetchSeedScreeningBandDetail(seed.id); prefetchBzm30Model(); prefetchSeedBzm30(seed.id); }}
+      onMouseEnter={() => { prefetchBzm30Model(); prefetchSeedBzm30(seed.id); }}
+      onFocus={() => { prefetchBzm30Model(); prefetchSeedBzm30(seed.id); }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -572,21 +547,35 @@ function SeedRow({
         widthClass="max-w-[130px]"
       />
       <td className="border-b border-slate-100 px-3 py-2 align-top font-mono">
-          {screeningBand && (screeningBand.sps_lower_yen != null || screeningBand.sps_upper_yen != null) ? (
+          {bzm30 && bzm30.score_median_yen !== null ? (
             <span className="whitespace-nowrap">
-              <span className="font-semibold text-slate-950">
-                {formatOkuYen(seedScreeningBandMedianYen(screeningBand.sps_lower_yen, screeningBand.sps_upper_yen))}
-              </span>
+              <span className="font-semibold text-slate-950">{formatOkuYen(bzm30.score_median_yen)}</span>
               <span className="ml-1 text-[10px] text-slate-500">
-                ({formatOkuYen(screeningBand.sps_lower_yen)}〜{formatOkuYen(screeningBand.sps_upper_yen)})
+                ({formatOkuYen(bzm30.score_lower_yen)}〜{formatOkuYen(bzm30.score_upper_yen)})
               </span>
             </span>
+          ) : bzm30 ? (
+            <span className="whitespace-nowrap text-[11px] text-amber-700">
+              天井が未調査
+              <span className="ml-1 text-[10px] text-slate-500">(天井1円あたり {bzm30.v_median.toFixed(3)})</span>
+            </span>
           ) : (
-            <span className="text-amber-700">最新版未評価</span>
+            <span className="text-[11px] text-slate-400">未算出</span>
           )}
       </td>
-      <td className="border-b border-slate-100 px-2 py-2 align-top">
-          <EvidenceLevelBadge level={screeningBand?.evidence_level ?? 0} />
+      <td className="border-b border-slate-100 px-2 py-2 align-top text-[10px] leading-tight">
+          {bzm30 ? (
+            <>
+              <div className="text-slate-700">
+                {bzm30.evidence_stage === null ? "現在地 未入力" : (STAGE_LABEL[bzm30.evidence_stage] ?? `段階${bzm30.evidence_stage}`)}
+              </div>
+              <div className="font-mono text-slate-500">
+                {bzm30.process_type ?? "—"}×{(bzm30.reg_class ?? "").replace("REG", "REG-")}
+              </div>
+            </>
+          ) : (
+            <span className="text-slate-400">—</span>
+          )}
       </td>
       <AxisCell value={seed.trl} />
       <AxisCell value={seed.brl} />

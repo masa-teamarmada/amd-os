@@ -8,7 +8,7 @@
 // `?fresh=1` で 1 を強制再読込する（算出バッチの直後の確認用）。
 import { NextResponse } from "next/server";
 import { requireMember } from "@/lib/supabase/api-auth";
-import { fetchSeedBzm30 } from "@/lib/bzm30/seed-score";
+import { fetchSeedBzm30, fetchSeedBzm30Summaries } from "@/lib/bzm30/seed-score";
 
 export const runtime = "nodejs";
 
@@ -20,12 +20,17 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const seedId = searchParams.get("seedId");
-  if (!seedId) {
-    return NextResponse.json({ ok: false, error: "seedId is required" }, { status: 400 });
-  }
   const force = searchParams.get("fresh") === "1";
 
   try {
+    // seedId 無しは一覧向けのサマリ（全シーズの最新スコアを1回で読む）
+    if (!seedId) {
+      const summaries = await fetchSeedBzm30Summaries({ force });
+      return NextResponse.json(
+        { ok: true as const, summaries: Array.from(summaries.values()) },
+        { headers: { "Cache-Control": force ? "no-store" : CACHE_CONTROL } },
+      );
+    }
     const dto = await fetchSeedBzm30(seedId, { force });
     return NextResponse.json(
       { ok: true as const, bzm30: dto },
