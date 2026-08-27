@@ -334,11 +334,24 @@ export function GlobalNav({
       </Link>
 
       <nav
-        className="min-h-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden pr-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         aria-label="Primary navigation"
       >
-        {visibleGroups.map((group) => (
-          <div key={group.label} className="space-y-0.5">
+        {/*
+          まさ 2026-08-27「OSの左側のメニューが見づらい。項目ごとに線を入れて
+          どこからどこがその項目なのかをわかりやすく区切ってほしい」。
+          グループ間を余白だけで分けていたので、境界に区切り線を敷いた。
+          折りたたみ幅 (w-[76px]) ではグループ見出しが hidden になるため、
+          この線がグループ境界を示す唯一の手掛かりになる。
+        */}
+        {visibleGroups.map((group, index) => (
+          <div
+            key={group.label}
+            className={cn(
+              "space-y-0.5 py-2",
+              index === 0 ? "pt-0" : "border-t border-border/60",
+            )}
+          >
             <div className="hidden px-3 pb-0.5 text-[11px] font-semibold text-muted-foreground/65 lg:block">
               {group.label}
             </div>

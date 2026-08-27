@@ -83,8 +83,12 @@ export function AdminSidebar() {
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
-        {ADMIN_NAV_GROUPS.map((group) => (
-          <div key={group.label} className="pb-2">
+        {/* GlobalNav と同じく、グループ境界を余白ではなく区切り線で示す (まさ 2026-08-27)。 */}
+        {ADMIN_NAV_GROUPS.map((group, index) => (
+          <div
+            key={group.label}
+            className={cn("pb-2", index > 0 && "border-t border-border/60 pt-2")}
+          >
             <h2 className="px-3 py-1.5 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">
               {group.label}
             </h2>
