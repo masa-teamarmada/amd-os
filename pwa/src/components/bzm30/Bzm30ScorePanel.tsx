@@ -35,6 +35,7 @@ import {
   PROCESS_TYPE_LABEL,
   REG_CLASS_LABEL,
   type Bzm30SeedInput,
+  BZM30_SCORES_PUBLISHED,
   type ProcessType,
   type RegClass,
 } from "@/lib/bzm30/seed-inputs";
@@ -192,6 +193,28 @@ const okuYen = (yen: number | null | undefined) =>
   yen === null || yen === undefined ? "—" : `${Math.round(yen / 1e8).toLocaleString("ja-JP")} 億円`;
 
 function ScoreHeadlineBlock({ score }: { score: SeedBzm30Dto["score"] }) {
+  if (!BZM30_SCORES_PUBLISHED) {
+    return (
+      <section className="min-w-0 rounded border border-amber-500/40 bg-amber-500/10 p-3">
+        <h4 className="text-[13px] font-semibold text-foreground">このシーズの産業創出価値 — いまは伏せている</h4>
+        <p className="mt-1.5 text-[11px] leading-relaxed text-amber-900 dark:text-amber-200">
+          2026-08-27 に一度算出したが、<strong className="font-semibold">OS にある資金繰り・議事録・契約・知財・創業メンバーを読まずに、
+          XRL と月報1か月分だけで入力を決めていた</strong>。実データと突き合わせたら大きくずれていたので、
+          埋め直すまで金額を出さない。
+        </p>
+        <ul className="mt-2 space-y-0.5 text-[10px] leading-relaxed text-amber-900 dark:text-amber-200">
+          <li>・手元資金を実額で入れていなかった（ある会社は入れた値 1.5億に対して、資金繰り表の実績が 2.24億）</li>
+          <li>・毎月の支出に既定値を使っていた（実績は既定値の2〜3倍だった会社が複数）</li>
+          <li>・資金が尽きるまでの月数を見ていなかった（取締役会で判断期限が議論されている会社がある）</li>
+          <li>・資金の入り方を見ていなかった（民間からの出資が事実上来ない前提で動いている会社を、来る前提で計算していた）</li>
+        </ul>
+        <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+          下の表は<strong className="text-foreground">いま何が埋まっていて何が空か</strong>を出したもので、これは伏せていない。
+          式と係数もそのまま読める。
+        </p>
+      </section>
+    );
+  }
   if (!score) {
     return (
       <section className="min-w-0 rounded border border-border bg-muted/20 p-3">
