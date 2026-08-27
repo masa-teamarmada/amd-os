@@ -18,7 +18,14 @@ for (const line of require('node:fs').readFileSync(path.join(__dirname, '..', '.
   if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^['"]|['"]$/g, '');
 }
 
-const oku = (yen) => (yen === null || yen === undefined ? '—' : `${Math.round(Number(yen) / 1e8).toLocaleString('ja-JP')}億`);
+// 1億円未満は万円で出す。億へ丸めると、天井を SOM で絞ったあとの小さい額が
+// すべて「0億」に潰れて、案件どうしの差が読めなくなる（BUGS.md 2026-08-27）。
+const oku = (yen) => {
+  if (yen === null || yen === undefined) return '—';
+  const v = Number(yen);
+  if (Math.abs(v) >= 1e8) return `${(v / 1e8).toLocaleString('ja-JP', { maximumFractionDigits: 1 })}億`;
+  return `${Math.round(v / 1e4).toLocaleString('ja-JP')}万`;
+};
 
 async function main() {
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
