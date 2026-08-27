@@ -1,302 +1,219 @@
 "use client";
 
-import { useState } from "react";
+/**
+ * きよ「00 お金の流れ」の内訳表。左=売上がどこから、右=何に使ったか、別枠で口座のお金。
+ * 情報密度を落とさないため、カードのグリッドではなく密な行リストで出す。
+ */
 import { cn } from "@/lib/utils";
 import type {
-  KiyoMoneyFlowInflowProject,
-  KiyoMoneyFlowOutflowCategory,
-  KiyoMoneyFlowMemberRow,
+  KiyoMoneyFlowCostGroup,
+  KiyoMoneyFlowMonthRow,
+  KiyoMoneyFlowRevenueRow,
 } from "@/lib/finance/kiyo-money-flow-types";
 import { formatManYen, formatYen, formatYmLabel } from "./format";
 
-function Bar({ ratio, tone }: { ratio: number; tone: "in" | "out" | "gap" }) {
+function Bar({ ratio, tone }: { ratio: number; tone: "in" | "out" }) {
   return (
     <div className="h-1.5 w-full rounded-none bg-muted">
       <div
-        className={cn("h-1.5 rounded-none", tone === "in" && "bg-emerald-500", tone === "out" && "bg-amber-500", tone === "gap" && "bg-muted-foreground/45")}
+        className={cn("h-1.5 rounded-none", tone === "in" ? "bg-emerald-500" : "bg-amber-500")}
         style={{ width: `${ratio <= 0 ? 0 : Math.max(2, Math.min(100, ratio * 100))}%` }}
       />
     </div>
   );
 }
 
-function SectionHeader({ step, label, totalYen, tone }: { step: string; label: string; totalYen: number; tone: "in" | "out" | "wallet" }) {
+function SectionHeader({ label, totalYen, tone, suffix }: { label: string; totalYen: number; tone: "in" | "out" | "wallet"; suffix?: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-2 border-b border-border pb-1.5">
-      <h3 className="text-xs font-semibold tracking-wide text-muted-foreground">
-        {step} {label}
-      </h3>
+    <div className="mb-1.5 flex items-baseline justify-between gap-2 border-b border-border pb-1">
+      <span className="text-[13px] font-semibold text-foreground">{label}</span>
       <span
         className={cn(
-          "text-sm font-semibold tabular-nums",
+          "text-base font-semibold tabular-nums",
           tone === "in" && "text-emerald-700 dark:text-emerald-400",
           tone === "out" && "text-amber-700 dark:text-amber-400",
           tone === "wallet" && "text-sky-700 dark:text-sky-400",
         )}
       >
         {formatManYen(totalYen)}
+        {suffix ? <span className="ml-1 text-[11px] font-normal text-muted-foreground">{suffix}</span> : null}
       </span>
     </div>
   );
 }
 
-function MemberDrilldown({ row }: { row: KiyoMoneyFlowMemberRow }) {
-  const [open, setOpen] = useState(false);
+export function KiyoMoneyFlowRevenueCard({
+  revenueByPartner,
+  revenueTotalYen,
+  otherIncomeYen,
+}: {
+  revenueByPartner: KiyoMoneyFlowRevenueRow[];
+  revenueTotalYen: number;
+  otherIncomeYen: number;
+}) {
+  const max = revenueByPartner.reduce((m, row) => Math.max(m, row.amountYen), 0);
   return (
-    <div className="border-t border-border/60">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-2 py-1 text-left text-xs hover:bg-muted/40"
-      >
-        <span className="text-foreground">{row.memberName}</span>
-        <span className="tabular-nums text-muted-foreground">{formatYen(row.amountYen)}</span>
-      </button>
-      {open ? (
-        <div className="space-y-0.5 pb-1 pl-3 text-[11px] text-muted-foreground">
-          {row.projectBreakdown.length === 0 ? (
-            <p>この期間の発生ベース内訳データが無い。</p>
-          ) : (
-            row.projectBreakdown.map((p, i) => (
-              <div key={`${p.projectId}-${p.ym}-${i}`} className="flex justify-between">
-                <span>
-                  {formatYmLabel(p.ym)} {p.projectName}
-                </span>
-                <span className="tabular-nums">{formatYen(p.totalPayYen)}（めやす）</span>
-              </div>
-            ))
-          )}
+    <section className="rounded-none border border-border bg-background p-2.5">
+      <SectionHeader label="売上（どこから）" totalYen={revenueTotalYen + otherIncomeYen} tone="in" />
+      {revenueByPartner.length === 0 ? (
+        <p className="py-3 text-xs text-muted-foreground">この期間、freee会計に計上された売上がまだ無い。請求書を発行すると立つ。</p>
+      ) : (
+        revenueByPartner.map((row) => (
+          <div key={row.name} className="border-t border-border/60 py-1.5 first:border-t-0">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="min-w-0 truncate text-[13px] text-foreground">{row.name}</span>
+              <span className="shrink-0 text-[13px] tabular-nums text-emerald-700 dark:text-emerald-400">{formatManYen(row.amountYen)}</span>
+            </div>
+            <Bar ratio={max > 0 ? row.amountYen / max : 0} tone="in" />
+          </div>
+        ))
+      )}
+      {otherIncomeYen > 0 ? (
+        <div className="flex justify-between border-t border-border/60 py-1 text-xs text-muted-foreground">
+          <span>受取利息・雑収入</span>
+          <span className="tabular-nums">{formatYen(otherIncomeYen)}</span>
         </div>
       ) : null}
-    </div>
-  );
-}
-
-function CategoryDrilldown({ category }: { category: KiyoMoneyFlowOutflowCategory }) {
-  if (category.key === "member_reward") {
-    return (
-      <div className="mt-1">
-        {category.rows.length === 0 ? <p className="text-xs text-muted-foreground">この期間の実振込記録が無い。</p> : null}
-        {category.rows.map((row) => (
-          <MemberDrilldown key={row.memberId} row={row} />
-        ))}
-      </div>
-    );
-  }
-  if (category.key === "executive_pay") {
-    return (
-      <div className="mt-1 text-xs">
-        {category.rows.map((row) => (
-          <div key={row.ym} className="flex justify-between border-t border-border/60 py-1">
-            <span className="text-muted-foreground">{formatYmLabel(row.ym)}</span>
-            <span className="tabular-nums">{formatYen(row.amountYen)}</span>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  if (category.key === "social_insurance_tax") {
-    return (
-      <div className="mt-1 text-xs">
-        {category.rows.map((row, i) => (
-          <div key={`${row.title}-${i}`} className="flex justify-between gap-2 border-t border-border/60 py-1">
-            <span className="min-w-0 truncate text-muted-foreground">
-              {row.title}
-              {row.date ? `（${row.date}）` : ""}
-            </span>
-            <span className="shrink-0 tabular-nums">{formatYen(row.amountYen)}</span>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  if (category.key === "opex") {
-    return (
-      <div className="mt-1 text-xs">
-        {category.rows.map((row) => (
-          <div key={row.accountName} className="flex justify-between border-t border-border/60 py-1">
-            <span className="text-muted-foreground">{row.accountName}</span>
-            <span className="tabular-nums">{formatYen(row.amountYen)}</span>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  return (
-    <div className="mt-1 text-xs">
-      {category.rows.map((row, i) => (
-        <div key={`${row.label}-${i}`} className="flex justify-between gap-2 border-t border-border/60 py-1">
-          <span className="min-w-0">
-            {row.occurredOn ? <span className="mr-1.5 tabular-nums text-muted-foreground">{row.occurredOn.slice(5).replace("-", "/")}</span> : null}
-            <span className="text-foreground">{row.label}</span>
-            <span className="ml-1.5 text-muted-foreground">{row.detail}</span>
-          </span>
-          {row.amountYen != null ? <span className="shrink-0 tabular-nums">{formatYen(row.amountYen)}</span> : null}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-export function KiyoMoneyFlowInflowCard({
-  inflowProjects,
-  anchoredToBank,
-  expanded,
-  onToggle,
-}: {
-  inflowProjects: KiyoMoneyFlowInflowProject[];
-  anchoredToBank: boolean;
-  expanded: Set<string>;
-  onToggle: (id: string) => void;
-}) {
-  const maxInflow = inflowProjects.reduce((max, p) => Math.max(max, p.totalYen), 0);
-  const totalYen = inflowProjects.reduce((sum, p) => sum + p.totalYen, 0);
-  return (
-    <section className="rounded-none border border-border bg-background p-2.5">
-      <SectionHeader step="1" label="入ってきたお金" totalYen={totalYen} tone="in" />
-      {inflowProjects.length === 0 ? (
-        <p className="py-3 text-xs text-muted-foreground">この期間の入金確認済みデータが無い。</p>
-      ) : (
-        inflowProjects.map((project) => {
-          const isOpen = expanded.has(`in-${project.projectId}`);
-          return (
-            <div id={`mf-row-in-${project.projectId}`} key={project.projectId} className="border-t border-border/60 py-1.5 first:border-t-0">
-              <button type="button" onClick={() => onToggle(`in-${project.projectId}`)} className="flex w-full flex-col gap-1 text-left">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className={cn("min-w-0 truncate text-[13px] font-medium", project.unclassified ? "text-muted-foreground" : "text-foreground")}>
-                    {project.projectName}
-                    {project.clientName ? <span className="ml-1 text-[11px] font-normal text-muted-foreground">（{project.clientName}）</span> : null}
-                  </span>
-                  <span className={cn("shrink-0 text-[13px] tabular-nums", project.unclassified ? "text-muted-foreground" : "text-emerald-700 dark:text-emerald-400")}>{formatManYen(project.totalYen)}</span>
-                </div>
-                <Bar ratio={maxInflow > 0 ? project.totalYen / maxInflow : 0} tone={project.unclassified ? "gap" : "in"} />
-              </button>
-              {isOpen ? (
-                <div className="mt-1 text-xs">
-                  {project.unclassified ? (
-                    <p className="border-t border-border/60 py-1 text-muted-foreground">
-                      口座には入っているが、OSでまだ入金確認が済んでいないぶん。請求書タブで入金確認を入れると、この分がPJ別に振り分けられる。
-                    </p>
-                  ) : null}
-                  {project.months.map((m, i) => (
-                    <div key={`${m.ym}-${m.kind}-${i}`} className="flex justify-between gap-2 border-t border-border/60 py-1">
-                      <span className="min-w-0 text-muted-foreground">
-                        {formatYmLabel(m.ym)}分{m.kind === "extra" ? "（別財布）" : ""}
-                        {m.confirmedAt ? `・入金確認 ${m.confirmedAt.slice(0, 10)}` : ""}
-                      </span>
-                      <span className="shrink-0 tabular-nums">{formatYen(m.amountYen)}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          );
-        })
-      )}
-      <p className="mt-1 border-t border-border/60 pt-1 text-[11px] text-muted-foreground">
-        {anchoredToBank
-          ? "PJ別は請求書の入金確認から。口座に入ったのに入金確認がまだの分は「まだ分類できていない」に入れてある。"
-          : "請求書のうち入金を確認できたものだけを数えている。"}
-      </p>
+      <p className="mt-1 border-t border-border/60 pt-1 text-[11px] text-muted-foreground">税抜。freee会計の収入取引を取引先ごとに集計している。</p>
     </section>
   );
 }
 
-export function KiyoMoneyFlowWalletCard({
-  walletBalanceYen,
-  walletBalanceYm,
-  inflowTotalYen,
-  outflowTotalYen,
-  netChangeYen,
-  anchoredToBank,
-  loanRemainingYen,
-}: {
-  walletBalanceYen: number | null;
-  walletBalanceYm: string | null;
-  inflowTotalYen: number;
-  outflowTotalYen: number;
-  netChangeYen: number;
-  anchoredToBank: boolean;
-  loanRemainingYen: number | null;
-}) {
-  const shortfallYen = Math.max(0, -netChangeYen);
-  return (
-    <section className="rounded-none border border-border bg-background p-2.5">
-      <SectionHeader step="2" label="AMDの財布" totalYen={walletBalanceYen ?? 0} tone="wallet" />
-      <dl className="text-xs">
-        <div className="flex justify-between border-t border-border/60 py-1 first:border-t-0">
-          <dt className="text-muted-foreground">いまの残高</dt>
-          <dd className="tabular-nums">{walletBalanceYen != null ? `${formatManYen(walletBalanceYen)}（${formatYmLabel(walletBalanceYm)}時点）` : "freee同期待ち"}</dd>
-        </div>
-        <div className="flex justify-between border-t border-border/60 py-1">
-          <dt className="text-muted-foreground">この期間に入ったお金</dt>
-          <dd className="tabular-nums text-emerald-700 dark:text-emerald-400">{formatManYen(inflowTotalYen)}</dd>
-        </div>
-        <div className="flex justify-between border-t border-border/60 py-1">
-          <dt className="text-muted-foreground">この期間に使ったお金</dt>
-          <dd className="tabular-nums text-amber-700 dark:text-amber-400">{formatManYen(outflowTotalYen)}</dd>
-        </div>
-        <div className="flex justify-between border-t border-border/60 py-1">
-          <dt className="text-muted-foreground">差引</dt>
-          <dd className={cn("tabular-nums", netChangeYen >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400")}>
-            {netChangeYen >= 0 ? "+" : "▲"}
-            {formatManYen(Math.abs(netChangeYen))}
-            {shortfallYen > 0 ? "（財布の残りから出した分）" : ""}
-          </dd>
-        </div>
-        <div className="border-t border-border/60 py-1 text-[11px] leading-snug text-muted-foreground">
-          {anchoredToBank
-            ? "入り・出の合計は口座の実際の動きに合わせている。内訳で説明できない分は「まだ分類できていない」に入れてある。"
-            : "口座の実際の動きと突き合わせできる月がそろっていないため、内訳で拾えている分だけの合計。"}
-        </div>
-        {loanRemainingYen != null ? (
-          <div className="flex justify-between border-t border-border/60 py-1">
-            <dt className="text-muted-foreground">借りているお金の残り</dt>
-            <dd className="tabular-nums">{formatManYen(loanRemainingYen)}</dd>
-          </div>
-        ) : null}
-      </dl>
-    </section>
-  );
-}
-
-export function KiyoMoneyFlowOutflowCard({
-  outflowCategories,
+export function KiyoMoneyFlowCostCard({
+  costGroups,
+  costTotalYen,
   expanded,
   onToggle,
 }: {
-  outflowCategories: KiyoMoneyFlowOutflowCategory[];
+  costGroups: KiyoMoneyFlowCostGroup[];
+  costTotalYen: number;
   expanded: Set<string>;
   onToggle: (id: string) => void;
 }) {
-  const maxOutflow = outflowCategories.reduce((max, c) => Math.max(max, c.totalYen), 0);
-  const totalYen = outflowCategories.reduce((sum, c) => sum + c.totalYen, 0);
+  const max = costGroups.reduce((m, group) => Math.max(m, group.amountYen), 0);
   return (
     <section className="rounded-none border border-border bg-background p-2.5">
-      <SectionHeader step="3" label="使ったお金" totalYen={totalYen} tone="out" />
-      {outflowCategories.map((category) => {
-        const isOpen = expanded.has(`out-${category.key}`);
+      <SectionHeader label="費用（何に使ったか）" totalYen={costTotalYen} tone="out" />
+      {costGroups.map((group) => {
+        const isOpen = expanded.has(`cost-${group.key}`);
         return (
-          <div id={`mf-row-out-${category.key}`} key={category.key} className="border-t border-border/60 py-1.5 first:border-t-0">
-            <button type="button" onClick={() => onToggle(`out-${category.key}`)} className="flex w-full flex-col gap-1 text-left">
+          <div id={`mf-row-cost-${group.key}`} key={group.key} className="border-t border-border/60 py-1.5 first:border-t-0">
+            <button type="button" onClick={() => onToggle(`cost-${group.key}`)} className="flex w-full flex-col gap-1 text-left">
               <div className="flex items-baseline justify-between gap-2">
-                <span className={cn("min-w-0 truncate text-[13px] font-medium", category.key === "unclassified" ? "text-muted-foreground" : "text-foreground")}>{category.label}</span>
-                <span className={cn("shrink-0 text-[13px] tabular-nums", category.key === "unclassified" ? "text-muted-foreground" : "text-amber-700 dark:text-amber-400")}>{formatManYen(category.totalYen)}</span>
+                <span className="min-w-0 truncate text-[13px] font-medium text-foreground">{group.label}</span>
+                <span className="shrink-0 text-[13px] tabular-nums text-amber-700 dark:text-amber-400">{formatManYen(group.amountYen)}</span>
               </div>
-              <Bar ratio={maxOutflow > 0 ? category.totalYen / maxOutflow : 0} tone={category.key === "unclassified" ? "gap" : "out"} />
+              <Bar ratio={max > 0 ? group.amountYen / max : 0} tone="out" />
             </button>
             {isOpen ? (
-              <>
-                <p className="mt-1 text-[11px] text-muted-foreground">{category.note}</p>
-                <CategoryDrilldown category={category} />
-              </>
+              <div className="mt-1 text-xs">
+                <p className="text-[11px] text-muted-foreground">{group.note}</p>
+                {group.rows.map((row) => (
+                  <div key={row.name} className="flex justify-between border-t border-border/60 py-1">
+                    <span className="text-muted-foreground">{row.name}</span>
+                    <span className="tabular-nums">{formatYen(row.amountYen)}</span>
+                  </div>
+                ))}
+              </div>
             ) : null}
           </div>
         );
       })}
-      <p className="mt-1 border-t border-border/60 pt-1 text-[11px] text-muted-foreground">
-        銀行から実際に出たお金・支払いを確認できた記録・freeeの仕訳から数えている。
+      <p className="mt-1 border-t border-border/60 pt-1 text-[11px] text-muted-foreground">freee会計の試算表。法人税の納付や借入の返済は費用ではないのでここには入らない。</p>
+    </section>
+  );
+}
+
+export function KiyoMoneyFlowCashCard({
+  inflowYen,
+  outflowYen,
+  netYen,
+  balanceYen,
+  balanceYm,
+  profitYen,
+  complete,
+}: {
+  inflowYen: number;
+  outflowYen: number;
+  netYen: number;
+  balanceYen: number | null;
+  balanceYm: string | null;
+  profitYen: number;
+  complete: boolean;
+}) {
+  return (
+    <section className="rounded-none border border-border bg-background p-2.5">
+      <SectionHeader label="口座のお金（もうけとは別）" totalYen={balanceYen ?? 0} tone="wallet" suffix={balanceYm ? `${formatYmLabel(balanceYm)}末の残高` : undefined} />
+      <dl className="text-xs">
+        <div className="flex justify-between border-t border-border/60 py-1 first:border-t-0">
+          <dt className="text-muted-foreground">口座に入ったお金</dt>
+          <dd className="tabular-nums text-emerald-700 dark:text-emerald-400">{formatManYen(inflowYen)}</dd>
+        </div>
+        <div className="flex justify-between border-t border-border/60 py-1">
+          <dt className="text-muted-foreground">口座から出たお金</dt>
+          <dd className="tabular-nums text-amber-700 dark:text-amber-400">{formatManYen(outflowYen)}</dd>
+        </div>
+        <div className="flex justify-between border-t border-border/60 py-1">
+          <dt className="font-medium text-foreground">口座の増減</dt>
+          <dd className={cn("font-medium tabular-nums", netYen >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400")}>
+            {netYen >= 0 ? "+" : "▲"}
+            {formatManYen(Math.abs(netYen))}
+          </dd>
+        </div>
+        <div className="flex justify-between border-t border-border/60 py-1">
+          <dt className="text-muted-foreground">事業のもうけ（参考）</dt>
+          <dd className={cn("tabular-nums", profitYen >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400")}>
+            {profitYen >= 0 ? "+" : "▲"}
+            {formatManYen(Math.abs(profitYen))}
+          </dd>
+        </div>
+      </dl>
+      <p className="mt-1 border-t border-border/60 pt-1 text-[11px] leading-snug text-muted-foreground">
+        もうけと口座の増減がずれるのは、入金が後から来る／口座から出るが費用でないもの（前年の税金・立替の返済・カードの引き落とし）がある／費用だがまだ出ていないもの（翌月25日払いの役員報酬）があるため。
+        {complete ? "" : " この期間は取引履歴がそろっていない月がある。"}
       </p>
+    </section>
+  );
+}
+
+export function KiyoMoneyFlowMonthlyTable({ monthly }: { monthly: KiyoMoneyFlowMonthRow[] }) {
+  if (monthly.length === 0) return null;
+  return (
+    <section className="rounded-none border border-border bg-background p-2.5">
+      <div className="mb-1.5 border-b border-border pb-1 text-[13px] font-semibold text-foreground">月ごとの推移</div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs tabular-nums">
+          <thead>
+            <tr className="text-[11px] text-muted-foreground">
+              <th className="py-1 text-left font-normal">月</th>
+              <th className="py-1 text-right font-normal">売上</th>
+              <th className="py-1 text-right font-normal">費用</th>
+              <th className="py-1 text-right font-normal">もうけ</th>
+              <th className="py-1 text-right font-normal">口座の増減</th>
+            </tr>
+          </thead>
+          <tbody>
+            {monthly.map((row) => (
+              <tr key={row.ym} className="border-t border-border/60">
+                <td className="py-1 text-left">
+                  {formatYmLabel(row.ym)}
+                  {row.officerPayMissing ? <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400">役員報酬未計上</span> : null}
+                </td>
+                <td className="py-1 text-right text-emerald-700 dark:text-emerald-400">{formatManYen(row.revenueYen)}</td>
+                <td className="py-1 text-right text-amber-700 dark:text-amber-400">{formatManYen(row.costYen)}</td>
+                <td className={cn("py-1 text-right font-medium", row.profitYen >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400")}>
+                  {row.profitYen >= 0 ? "+" : "▲"}
+                  {formatManYen(Math.abs(row.profitYen))}
+                </td>
+                <td className={cn("py-1 text-right", row.cashNetYen >= 0 ? "text-muted-foreground" : "text-muted-foreground")}>
+                  {row.cashNetYen >= 0 ? "+" : "▲"}
+                  {formatManYen(Math.abs(row.cashNetYen))}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

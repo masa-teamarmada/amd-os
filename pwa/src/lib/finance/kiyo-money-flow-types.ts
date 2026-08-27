@@ -2,87 +2,76 @@
  * きよ「00 お金の流れ」タブの型定義 (server / client 共有)。
  * server 側の実装は kiyo-money-flow.ts ("server-only")、ここは型だけなので
  * クライアントコンポーネントから直接 import してよい。
+ *
+ * 【この画面が答える2つの問い】
+ * - 事業として儲かっているか = 損益 (pl)。freee会計の試算表と取引先別売上から作る
+ * - 口座のお金は足りているか = 現金 (cash)。freee取引履歴の入出金と残高から作る
+ * 同じ月でも両者は一致しない (入金の遅れ、費用でない出金、まだ出ていない費用)。
  */
 
-export type KiyoMoneyFlowPeriod = "month" | "season" | "all";
-
-/** 口座には動きがあるのに内訳へ結び付けられていない分を表す擬似PJのID */
-export const UNCLASSIFIED_PROJECT_ID = "__unclassified__";
+export type KiyoMoneyFlowPeriodKind = "month" | "season" | "all";
 
 export type KiyoMoneyFlowRange = {
-  kind: KiyoMoneyFlowPeriod;
+  kind: KiyoMoneyFlowPeriodKind;
   label: string;
   startYm: string | null;
   endYm: string | null;
+  /** 集計対象の月。実データがある月だけ */
+  months: string[];
   seasonSource: "amd_plan_cycle" | "fallback_month" | null;
 };
 
-export type KiyoMoneyFlowInflowMonth = {
-  /** 請求の対象月 (billing_cycles.ym)。UIは「◯年◯月分」と表示する。期間の絞り込みは入金確認月で別途行う */
-  ym: string;
-  amountYen: number;
-  kind: "contract" | "extra";
-  confirmedAt: string | null;
-};
+/** 売上の相手先 (freee取引の取引先)。PJ名ではなく請求先の名前 */
+export type KiyoMoneyFlowRevenueRow = { name: string; amountYen: number; partnerId: string | null };
 
-export type KiyoMoneyFlowInflowProject = {
-  projectId: string;
-  projectName: string;
-  clientName: string | null;
-  /** 口座には入っているが、OS側で入金確認が済んでおらず、どのPJか特定できていない分 */
-  unclassified?: boolean;
-  contractYen: number;
-  extraYen: number;
-  totalYen: number;
-  months: KiyoMoneyFlowInflowMonth[];
-};
+export type KiyoMoneyFlowCostRow = { name: string; amountYen: number };
 
-export type KiyoMoneyFlowMemberRow = {
-  memberId: string;
-  memberName: string;
-  amountYen: number;
-  projectBreakdown: Array<{ projectId: string; projectName: string; ym: string; totalPayYen: number }>;
-};
+export type KiyoMoneyFlowCostGroupKey = "officer" | "member" | "opex" | "tax";
 
-export type KiyoMoneyFlowMonthlyRow = { ym: string; amountYen: number };
-
-export type KiyoMoneyFlowObligationRow = { title: string; date: string | null; amountYen: number; source: "obligation" | "tax_fixed_cost" };
-
-export type KiyoMoneyFlowOpexRow = { accountName: string; amountYen: number };
-
-/** 口座から出ているのに内訳へ分類できていない分の、既知の理由 / freeeで未処理の実明細 */
-export type KiyoMoneyFlowGapRow = {
+export type KiyoMoneyFlowCostGroup = {
+  key: KiyoMoneyFlowCostGroupKey;
   label: string;
-  detail: string;
-  /** freee未処理明細のとき: 発生日と金額 */
-  occurredOn?: string | null;
-  amountYen?: number;
+  amountYen: number;
+  rows: KiyoMoneyFlowCostRow[];
+  note: string;
 };
 
-export type KiyoMoneyFlowOutflowCategory =
-  | { key: "member_reward"; label: string; totalYen: number; rows: KiyoMoneyFlowMemberRow[]; note: string }
-  | { key: "executive_pay"; label: string; totalYen: number; rows: KiyoMoneyFlowMonthlyRow[]; note: string }
-  | { key: "social_insurance_tax"; label: string; totalYen: number; rows: KiyoMoneyFlowObligationRow[]; note: string }
-  | { key: "opex"; label: string; totalYen: number; rows: KiyoMoneyFlowOpexRow[]; note: string }
-  | { key: "unclassified"; label: string; totalYen: number; rows: KiyoMoneyFlowGapRow[]; note: string };
+export type KiyoMoneyFlowMonthRow = {
+  ym: string;
+  revenueYen: number;
+  costYen: number;
+  profitYen: number;
+  cashInYen: number;
+  cashOutYen: number;
+  cashNetYen: number;
+  /** その月の給与仕訳が会計に入っていない (翌月25日払いの給与が未確定) */
+  officerPayMissing: boolean;
+};
 
 export type KiyoMoneyFlowResult = {
   range: KiyoMoneyFlowRange;
-  wallet: {
+  /** 事業のもうけ。freee会計に計上済みの売上と費用 */
+  pl: {
+    revenueTotalYen: number;
+    revenueByPartner: KiyoMoneyFlowRevenueRow[];
+    /** 営業外収益 (受取利息・雑収入)。どこから来たかには混ぜず、合計にだけ足す */
+    otherIncomeYen: number;
+    costTotalYen: number;
+    costGroups: KiyoMoneyFlowCostGroup[];
+    profitYen: number;
+  };
+  /** 口座のお金。損益とは別物 */
+  cash: {
+    inflowYen: number;
+    outflowYen: number;
+    netYen: number;
     balanceYen: number | null;
     balanceYm: string | null;
-    /** 口座の実際の増減 (anchoredToBank=true のとき)。false のときは内訳で拾えている分の差 */
-    netChangeYen: number;
-    /**
-     * true = 期間内の全経過月でfreee取引履歴の集計が揃っており、入り/出の合計を
-     * 口座の実際の動きに一致させている (差額は「まだ分類できていない」へ入る)。
-     * false = 突き合わせできる月が足りないので、内訳で拾えている分だけの合計。
-     */
-    anchoredToBank: boolean;
-    loanRemainingYen: number | null;
+    /** 期間の全月ぶんの取引履歴が揃っているか */
+    complete: boolean;
   };
-  inflow: { totalYen: number; byProject: KiyoMoneyFlowInflowProject[] };
-  outflow: { totalYen: number; categories: KiyoMoneyFlowOutflowCategory[] };
+  /** 月ごとの推移。期間が2か月以上のときだけ中身が入る */
+  monthly: KiyoMoneyFlowMonthRow[];
   summaryText: string;
   note: string;
   warnings: string[];
