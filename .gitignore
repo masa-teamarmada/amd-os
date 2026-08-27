@@ -16,7 +16,16 @@ tmp/
 *.tmp
 .env
 .env.local
-.claude/
+# .claude/ は原則 ignore だが、web セッション用の SessionStart hook だけは
+# リポで共有する必要がある (main に入って初めて次回以降のセッションに効くため)。
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+.claude/hooks/*
+!.claude/hooks/session-start.sh
+!.claude/hooks/git/
+.claude/hooks/git/*
+!.claude/hooks/git/pre-commit
 .jez/
 pwa/.jez/
 _external_gas/

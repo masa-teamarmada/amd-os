@@ -21,6 +21,32 @@ pwa を cwd にすると毎セッションこれを読み込む。
   各コマンドの中で `cd /Users/masa/projects/AMD/amd-os/pwa` して入る。Bash はシェル状態を持ち越さないので毎回書く。
 - 他のサブディレクトリ（`ios/` `macos/` `gas/` `services/*`）も同じ。cwd はルート、必要なときだけ `cd` で入る。
 
+## Claude Code on the web（クラウドセッション）の前提
+
+**web セッションはまさの Mac ではない。** claude.ai / スマホ / GitHub Action から起動したセッションは
+使い捨ての Linux コンテナで動く。`/Users/masa/projects/AMD/amd-os` は**存在しない**（cwd は `/home/user/amd-os` 等）。
+`osascript` / `afplay` / Vercel CLI 認証も無い。このファイルや `pwa/AGENTS.reference.md` に
+絶対パスで書かれた手順は、web セッションにはそのまま当てはまらない。
+
+- **セットアップは自動**。`.claude/hooks/session-start.sh`（SessionStart hook、`.claude/settings.json` で登録）が
+  `pwa/` の `npm install` と model lock の pre-commit 有効化まで済ませてからセッションが始まる。
+  `CLAUDE_CODE_REMOTE=true` のときだけ動くので、まさの Mac 側の設定は一切触らない。
+- **web セッションで検証できること**: `npx eslint <file>` / `npx tsc --noEmit` /
+  `npm run test:*`（130 本）/ `pwa/scripts/deploy.sh` が回す guard 7 本。
+  **「node_modules が無いので未検証」は web セッションでは通らない**。
+- **`npm run build` は最後まで通らない。これは正常**。compile と TypeScript は通り
+  （2026-08-27 実測: Compiled 67s / TypeScript 78s / static 586 ページ中 439 まで生成）、
+  その先の `/` の prerender が `SUPABASE_SERVICE_ROLE_KEY` と `NEXT_PUBLIC_SUPABASE_URL` を要求して落ちる。
+  秘密値はコンテナに置かない方針なので、**この失敗をコードの不具合として追いかけない**。
+  型と構文の担保は `npx tsc --noEmit` で取る。本番相当の build 検証はまさの Mac か Vercel 側で行う。
+- **web セッションから本番 deploy はできない**。`pwa/scripts/deploy.sh` は macOS 通知と
+  `npx vercel` 認証に依存していて、コンテナでは完走しない。web セッションの完了地点は
+  自分の `claude/*` branch への push まで。main への取り込みと deploy はまさの Mac で行う。
+- **`scripts/install-main-only-git-hook.sh` を web セッションで実行しない**。
+  `.githooks/reference-transaction` が `refs/heads/main` 以外の branch 作成を拒否するため、
+  web セッションに割り当てられる `claude/*` branch が作れず、セッションごと壊れる（2026-08-27 実測）。
+  model lock だけは `.claude/hooks/git/pre-commit` 経由で効かせてある。
+
 ## リポジトリ
 
 - **正本**: `github.com/masa-teamarmada/amd-os` （**唯一のリモート**）

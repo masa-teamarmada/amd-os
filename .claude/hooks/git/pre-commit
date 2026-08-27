@@ -1,0 +1,14 @@
+#!/bin/bash
+# web セッション用 pre-commit。
+#
+# 正本は .githooks/pre-commit (model/ 配下と LOCK.json 収録ファイルの model lock 検査)。
+# ここは薄い委譲だけにして、正本が変わったら自動で追随させる。
+#
+# .githooks を core.hooksPath に直接指定しない理由は
+# .claude/hooks/session-start.sh のコメントを参照 (branch 作成禁止フックが同居していて、
+# web セッションの claude/* branch を壊すため)。
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+exec "$REPO_ROOT/.githooks/pre-commit" "$@"

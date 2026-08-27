@@ -141,6 +141,11 @@ AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts
 
 **直接 `npx vercel` を叩かない (CLI deploy 全面廃止)**。生 `git push origin main` も、PWA 本番に影響する変更では使わずこのスクリプトを通す (検査と通知が飛ぶため)。
 
+**このスクリプトは web セッション (Claude Code on the web) では完走しない。** macOS 通知 (`osascript` / `afplay`) と
+`npx vercel` の認証に依存していて、クラウドの Linux コンテナにはどちらも無い。web セッションの完了地点は
+自分の `claude/*` branch への push まで。main への取り込みと deploy はまさの Mac で行う。詳細はルート `AGENTS.md` の
+「Claude Code on the web（クラウドセッション）の前提」。
+
 **main 以外の branch push は build されない** (`pwa/vercel.json` の `ignoreCommand: [ "$VERCEL_GIT_COMMIT_REF" != "main" ]`)。誤って branch を push しても本番・preview とも作られないが、そもそもブランチ作成自体が全面禁止。
 
 ロールバック方法（緊急時のみ CLI 使用可）:
