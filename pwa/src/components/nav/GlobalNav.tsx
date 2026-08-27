@@ -352,7 +352,13 @@ export function GlobalNav({
               index === 0 ? "pt-0" : "border-t border-border/60",
             )}
           >
-            <div className="hidden px-3 pb-0.5 text-[11px] font-semibold text-muted-foreground/65 lg:block">
+            {/*
+              グループ見出しは muted-foreground/65 (白背景で 2.49:1) で、11px には
+              コントラストが足りていなかった (WCAG AA = 4.5:1)。foreground/70 = 7.57:1 に上げ、
+              AdminSidebar と同じ tracking を入れて「押せる項目」ではなく見出しとして読ませる
+              (まさ 2026-08-27「もう少しコントラストを上げて」)。
+            */}
+            <div className="hidden px-3 pb-0.5 text-[11px] font-semibold tracking-[0.08em] text-foreground/70 lg:block">
               {group.label}
             </div>
             {group.items.map((item) => (

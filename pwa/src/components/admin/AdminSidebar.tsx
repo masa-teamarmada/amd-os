@@ -89,7 +89,8 @@ export function AdminSidebar() {
             key={group.label}
             className={cn("pb-2", index > 0 && "border-t border-border/60 pt-2")}
           >
-            <h2 className="px-3 py-1.5 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">
+            {/* 見出しのコントラストは GlobalNav と揃える (muted-foreground 4.74:1 → foreground/70 7.57:1)。 */}
+            <h2 className="px-3 py-1.5 text-[11px] font-semibold tracking-[0.08em] text-foreground/70">
               {group.label}
             </h2>
             {group.items.map((tab) => (
