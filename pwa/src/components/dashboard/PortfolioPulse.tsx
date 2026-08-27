@@ -121,15 +121,29 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
     );
   }
 
-  const institutionCandidates = model.institutionRows.filter((row) => row.lifecycle === "considering").slice(0, 6);
-  const seedConsidering = model.seedRows.filter((seed) => seedProjectLifecycle(seed) === "considering");
+  // PJ化済み (= 稼働中PJに紐づく) と PJ化検討中の両方を出す (まさ確定 2026-08-27)。
+  // lifecycle の "realized" は終了・停止PJも含むので、そのままだと終わったPJが
+  // 「今日動かす対象」に並ぶ。稼働中かどうかは紐づくPJの status で見る。
+  const institutionPjRows = model.institutionRows.filter(
+    (row) => row.projectLink?.projectStatus === "active" || row.lifecycle === "considering",
+  );
+  const seedPjRows = model.seedRows.filter(
+    (seed) =>
+      (seed.project_links ?? []).some((link) => link.project_status === "active") ||
+      seedProjectLifecycle(seed) === "considering",
+  );
+  const activeSeedProjectNames = (seed: SeedPublicView) =>
+    (seed.project_links ?? [])
+      .filter((link) => link.project_status === "active")
+      .map((link) => link.project_name)
+      .join(" / ");
 
   return (
     <section className="dashboard-desk-section" data-testid="portfolio-pulse">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="dashboard-desk-section-title !mb-0">PJポートフォリオ — 今日動かす対象</h2>
         <p className="text-[11px] text-[var(--desk-muted)]">
-          PJになる前の候補を、研究機関から来たものとシーズから来たものに分けて出す。稼働中のPJは下のPJ運用。
+          稼働中のPJとPJ化検討中の候補を、研究機関から来たものとシーズから来たものに分けて出す。
         </p>
       </div>
 
@@ -139,8 +153,8 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
           下に大きな空白ができる。高さは中身に合わせる。 */}
       <div className="mt-2 grid grid-cols-1 items-start gap-2 lg:grid-cols-2">
         <QueuePanel
-          title="研究機関PJ — PJ化検討中"
-          count={model.counts.institutionConsidering}
+          title="研究機関PJ"
+          count={institutionPjRows.length}
           actionLabel="研究機関を開く"
           actionHref="/institutions"
           icon={Building2}
@@ -148,29 +162,32 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
           errored={state.institutionError}
           errorLabel="研究機関を読み込めなかった"
         >
-          {institutionCandidates.length ? (
-            institutionCandidates.map((row) => (
-              <CandidateRow
-                key={row.institutionId}
-                icon={Building2}
-                label={row.name}
-                meta={`所属シーズ ${row.seedCount}件`}
-                badge="機関"
-                href={
-                  row.projectLink
-                    ? `/institutions/${encodeURIComponent(row.institutionId)}/cockpit`
-                    : `/institutions/${encodeURIComponent(row.institutionId)}`
-                }
-              />
-            ))
+          {institutionPjRows.length ? (
+            institutionPjRows.map((row) => {
+              const running = row.projectLink?.projectStatus === "active";
+              return (
+                <CandidateRow
+                  key={row.institutionId}
+                  icon={Building2}
+                  label={row.name}
+                  meta={[running ? row.projectLink?.projectLabel : null, `所属シーズ ${row.seedCount}件`].filter(Boolean).join(" ・ ")}
+                  badge={running ? "PJ稼働中" : "検討中"}
+                  href={
+                    row.projectLink
+                      ? `/institutions/${encodeURIComponent(row.institutionId)}/cockpit`
+                      : `/institutions/${encodeURIComponent(row.institutionId)}`
+                  }
+                />
+              );
+            })
           ) : (
-            <EmptyQueue label="検討中の研究機関はない" />
+            <EmptyQueue label="稼働中・検討中の研究機関PJはない" />
           )}
         </QueuePanel>
 
         <QueuePanel
-          title="シーズPJ — PJ化検討中"
-          count={model.counts.seedConsidering}
+          title="シーズPJ"
+          count={seedPjRows.length}
           actionLabel="シーズを開く"
           actionHref="/seeds"
           icon={Sprout}
@@ -178,19 +195,22 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
           errored={state.seedsError}
           errorLabel="シーズを読み込めなかった"
         >
-          {seedConsidering.length ? (
-            seedConsidering.slice(0, 6).map((seed) => (
-              <CandidateRow
-                key={seed.id}
-                icon={Sprout}
-                label={seed.title}
-                meta={`${seed.org_name} ・ ${seed.researcher_name || "PI未登録"}`}
-                badge="検討中"
-                href={`/seeds/${encodeURIComponent(seed.id)}`}
-              />
-            ))
+          {seedPjRows.length ? (
+            seedPjRows.map((seed) => {
+              const runningPjs = activeSeedProjectNames(seed);
+              return (
+                <CandidateRow
+                  key={seed.id}
+                  icon={Sprout}
+                  label={seed.title}
+                  meta={[seed.org_name, runningPjs || seed.researcher_name || "PI未登録"].filter(Boolean).join(" ・ ")}
+                  badge={runningPjs ? "PJ稼働中" : "検討中"}
+                  href={`/seeds/${encodeURIComponent(seed.id)}`}
+                />
+              );
+            })
           ) : (
-            <EmptyQueue label="PJ化を検討中のシーズはない" />
+            <EmptyQueue label="稼働中・検討中のシーズPJはない" />
           )}
         </QueuePanel>
 
@@ -283,7 +303,8 @@ function QueuePanel({
           {errorLabel || "読み込めなかった"}
         </p>
       ) : null}
-      <div className="space-y-1">{children}</div>
+      {/* 件数が増えても節が縦に伸び続けないよう、中だけスクロールさせる。 */}
+      <div className="max-h-[440px] space-y-1 overflow-y-auto pr-0.5">{children}</div>
     </div>
   );
 }

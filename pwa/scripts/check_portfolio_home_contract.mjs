@@ -71,15 +71,19 @@ assert.match(pulseRoute, /fetchAllResearchInstitutionSeeds\(readClient\)/);
 //    実routeへ接続する (表示だけの偽ボタン禁止)。研究機関が先。
 //    稼働中PJの再掲パネルは 2026-08-27 まさ確定で撤去した — すぐ下のPJ一覧と
 //    統計stripの「PJ運用」セルに同じものが出ていて三重になっていたため。復活させない。
-assert.match(pulseComponent, /研究機関PJ — PJ化検討中/);
-assert.match(pulseComponent, /シーズPJ — PJ化検討中/);
+assert.match(pulseComponent, /title="研究機関PJ"/);
+assert.match(pulseComponent, /title="シーズPJ"/);
 assert.doesNotMatch(pulseComponent, /PJ運用 — 稼働中/);
 assert.match(pulseComponent, /actionHref="\/institutions"/);
 assert.match(pulseComponent, /actionHref="\/seeds"/);
 assert.ok(
-  pulseComponent.indexOf("研究機関PJ — PJ化検討中") < pulseComponent.indexOf("シーズPJ — PJ化検討中"),
+  pulseComponent.indexOf('title="研究機関PJ"') < pulseComponent.indexOf('title="シーズPJ"'),
   "研究機関PJパネルはシーズPJパネルより先に描画される必要がある",
 );
+// 両パネルはPJ化済み (= 稼働中PJに紐づく) と PJ化検討中の両方を出す (まさ確定 2026-08-27)。
+// "considering" だけに絞ると、正式にPJ化した研究機関 (KUTE/NIMS/EHM) が1件も出なくなる。
+assert.match(pulseComponent, /row\.projectLink\?\.projectStatus === "active" \|\| row\.lifecycle === "considering"/);
+assert.match(pulseComponent, /link\.project_status === "active"/);
 // 統計stripの「PJ運用」セルは #pj-operations への実接続を保つ (パネル撤去後の唯一の入口)。
 assert.match(pulseComponent, /label: "PJ運用", value: model\.counts\.projects, href: "#pj-operations"/);
 
