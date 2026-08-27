@@ -1,125 +1,88 @@
-cd /Users/masa/projects/AMD/amd-os
+# 次セッションへの引っ越しプロンプト
 
-（このファイルはモデル層専用。並行セッションが使う `services/project-share/SESSION_MIGRATION_PROMPT.md` などとは別物なので上書きしないこと）
+cwd: `/Users/masa/projects/AMD/amd-os`
 
-## 読む順
+---
+
+AMD OS の作業を続けて。**シーズの産業創出価値（BZM 3.0）の入力を、OS にある全データから埋め直す**のが今回のタスク。
+
+## 読む順（この順で全部読む）
 
 1. `/Users/masa/projects/AGENTS.common.md` — えいみ共通ルールの正本
-2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md` — AMD 横断 memory
-3. `/Users/masa/.claude/projects/-Users-masa-projects-AMD-amd-os/memory/MEMORY.md` — このPJ専用 memory
-4. `HANDOFF.md` — 現在地と次の一手（**「いま算出できるか」の表を必ず読む**）
-5. OS のモデルページ `/model`（正本）。読み込み元は `model/MODEL_VERSION_LEDGER.md`。
-   §5 が BZM 3.0 の全定義、§6 が運用一式、**§7 が較正パラメータの台帳**、§10 が参考文献。まさには「モデルページ」と呼ぶ
-6. `model/proposals/2026-08-25_bzm30-coefficients-v3.md` — **今回の承認対象**（係数の初期値。未承認）
-7. `model/APPROVALS.md` — まさの承認記録（#2026-08-25-3 まで）
-8. `model/README.md` — 変更の運用規約。(b) が「提案中の値を承認前に使わない」規律
-9. `pwa/design_log/sessions_2026-08.md` の 2026-08-25 節 — 経緯と教訓
+2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md` — AMD 配下の記憶
+3. `HANDOFF.md` — 現在地・止まっているところ・未解決
+4. `BUGS.md` — 今回の事故2件（guard の消し忘れ / OSのデータを読まずに算出した件）。**同じことを繰り返さない**
+5. `pwa/spec/4-8-bzm30-seed-score-panel-current-spec.md` — 画面とテーブルの仕様
+6. `model/README.md` の (g)(h) — 参照実装と算出ツールの使い方
+7. `model/cases/SCORES.md` — 伏せた金額と、ずれの一覧
 
 ## 状態
 
-- branch は `main` のみ、origin と同期。HEAD は `750c7fe3`。ロック12件（`model_lock.cjs check` が緑）
-- 共有 checkout に常時5〜10セッション並行。着手前に `git fetch --all --prune` → `git log --oneline -15` → `git status -sb`。
-  衝突したら rebase ではなく **merge**（他セッションの未保存ファイルを stash しないため）
-- 未コミットは他セッションのもの（`pwa/scheduled-tasks/.../SKILL.md` ほか）。触らない
-- `/model` は admin 限定で本番稼働中。配信版は `https://amd-os-pwa.vercel.app/api/build-info` の `git_sha` で確認する
-- 参照実装 `model/tools/bzm30_forward.cjs` は動く（`degen` / `conv` / `calib` / `sens`）。`degen` は約20分かかる
+- git: `main` 一本、origin と同期済み（HEAD は「産業創出価値の金額を画面から伏せる」）
+- 本番: `https://amd-os-pwa.vercel.app`。push すれば Vercel が自動デプロイ
+- 画面: シーズ一覧の金額は「入力を埋め直し中」、シーズ詳細のスコアは伏せた状態で本番に出ている。
+  **入力の充足の表・式17本・係数73件は伏せていない**
+- DB: 21件分の入力が `seed_bzm30_inputs` / `seed_value_ceilings` に入っている。
+  算出結果は `seed_bzm30_scores`（伏せているだけで消していない）
+- **`pwa/src` を触った commit は `check_pwa_critical_ui.cjs` が pre-commit で強制的に走る**（迂回不可）
 
-## 次のタスク
+## タスク
 
-まさの指示（2026-08-25）:
-> そろそろ次セッションに引っ越そう。次セッションでは、具体的に各案件のSPS算出がもうできる状態なのかの
-> 最終確認をしたうえで、問題がなければ現行PJから算出を開始したい。
+**21件の PJ について、OS にある全データを読んで BZM 3.0 の入力を埋め直し、再計算する。**
 
-### まず最終確認を出す（最初の行動）
+前のセッションは `project_xrl_log` と `monthly_reports` 1か月分しか読まずに入力を決めて、まさに指摘された:
 
-`HANDOFF.md` の「いま算出できるか」の表を、**まさに分かる言葉で**提示する。結論は **いまは出せない**で、足りないのは3つ。
+> OSのそのPJのすべての情報を見てって言ったはず。
+> そうしないと、そもそも全パラメータの数値を決めるとか無理じゃないの？
+> 全部見てって言ったのに一部しか見てない理由が分からん。
 
-1. **承認2件** — 係数の初期値 v3（Q1〜Q27）と、モデル本体の**改訂8点 K1〜K8**。
-   `model/README.md` (b) により、承認まで評価にも本番表示にも使えない
-2. **案件ごとの調査** — 参照実装は**天井を1に正規化**しているので、出力は「天井の年額1円あたりの現在価値」。
-   **円建てにするには案件ごとに $\bar P_u$（天井）が要る**。$w_u$・$\delta_u$・$\underline c_u$・$\alpha_u$ も案件ごと。**現時点で1件も無い**。
-   旧 SPS は円建ての下限〜上限なので、**置き換えるには天井の調査が必須**
-3. **実装** — 参照実装は Tier 0（型と規制属性を選ぶだけ）しか受け取れない。案件ごとの**観測状態**
-   （ゲート位置・資金残高・権利残件・会社化の有無・受託契約）を入れる口が無い。$\pi^{*}$（会社化の早すぎ・遅すぎの診断）も未実装
+`project_id` を持つテーブルは **165ある**。実データと突き合わせたら、使っていた値は大きくずれていた:
 
-**段階的にできること**も同時に示す: 承認さえ下りれば Tier 0 で「天井1円あたりの倍率」と9区分の分布は出せる。
-天井を1件でも調べれば、その案件は円建てで出せる。
+- LiSTie の手元資金: 入れた値 1.5億 / 資金繰り表の実績 2.24億
+- CLG のバーンレート: 使った既定値 月400万 / 実績 月800〜1,200万
+- CLG のランウェイ: 見ていなかった / 取締役会で「入金がなければ12月末、判断期限は11月末」。人員削減の交渉中
+- JOYCLE のバーンレート: 既定値 月400万 / 実績 月866万
+- SE の資金の経路: 既定は民間調達あり / 議事録では「民間投資だけでは立ち上がらない。国費を原資とする」
 
-### まさの判断を取る（3件）
+### 手順
 
-1. **改訂8点（K1〜K8）の承認。** 最大は **K1** ——§6.B-1 がエバンジェリスト機能を「投資家・審査側の判断を動かす」と
-   定義しているのに、$\eta_t$ は前進確率にしか乗らず、その空席が採択率にも申し出到来率にも効いていない。
-   **AMD が担い手を供給する価値がスコアに乗っていない。** まさは 2026-08-25 に「だからこそAMDが入ったらスコアが上がるんじゃないの？」
-   と述べ、文献の裏づけ（Shane & Stuart 2002 の MIT 帰属発明134社、Beckman・Burton・O'Reilly 2007）も #2026-08-25-1 に記録済み。
-   残る K2〜K8 は審査の残り月数の状態化、R7 応募方針、登録簿の種類6種追加、T4 の準備と審査の分離、
-   R2 の滞留の目安、$d_e$ 最大の読み替え、計画期限60か月
-2. **係数の初期値 v3 の承認。** 根拠の8割が暫定（C）。まさは 2026-08-25 に
-   「置き換えて。精度が低いのは承知の上。それをあげていけばいいだけ。旧スコアのままじゃ、そもそも理論が間違ってるので
-   評価が正しくできない」と述べている
-3. **受託だけで自立する経路の扱い。** 補訂2 で計算に乗ったが、そのとき立つ産業の大きさ $q_{\mathrm{self}} = 0.35$（天井に対する割合）に
-   案件ごとの裏づけが無い
+1. **まずデータの棚卸し。** `information_schema.columns` で `project_id` を持つテーブルを列挙し、
+   PJ × テーブルの件数表を出す。読むテーブルを決めてから着手する。読まないと決めたものは、その理由を残す
+2. PJ ごとに、次の8つを判定して `seed_bzm30_inputs` へ入れる。**根拠を1件ずつ `*_reason` / `note` に残す**
+   - 手元資金 / バーンレート / 担い手 / 専有可能性 / 自走力 / 追い風 / 権利残件 / 単位採算
+   - どこに何があるかは `HANDOFF.md` の表
+3. `node model/tools/bzm30_score_seeds.cjs <seed_id> --impl <承認済みの版>` で再計算（1件2〜3分。並列5〜6で回す）
+   - **承認済みの版**: `git show 40aebfe9:model/tools/bzm30_forward.cjs > /tmp/bzm30_forward_approved.cjs`
+   - 休眠（会社化前の資金切れでは死なない）が未承認のまま既定に入っているので、それを避けるため
+4. `pwa/src/lib/bzm30/seed-inputs.ts` の `BZM30_SCORES_PUBLISHED` を `true` に戻す
+5. `node model/tools/bzm30_scores_md.cjs` の出力で `model/cases/SCORES.md` の表を貼り替える
+6. commit → push → 本番で確認
 
-### 承認が下りたら
+### まさへの確認が要るもの（勝手に決めない）
 
-1. v3 の内容をモデルページ §6 へ **6.I** として統合し、提案ファイルを「統合済み・書き戻し禁止」のスタブにする
-   （**同じ定義を二か所に書かない**。2026-08-24 の事故: リンク先だけが新しくなり本体が6時間半古いままになった）
-2. `model/APPROVALS.md` へまさの発言を**引用のまま**記録 → `node pwa/scripts/model_lock.cjs relock --approval <id>` →
-   同じ commit で `bzm/9-5-appendix-changelog.md` に1行
-3. **§7.2 の変更履歴に、承認した値ごとに1行足す**（日付・パラメータ・変更前→変更後・理由・承認ID）。これは §7 の運用規則
-4. 各 PJ の**工程の型 × 規制属性**を確定する。下見の見立て（**要確認**）:
-   p07 LST・p21 SX は F1×REG-0、p06 CTB は F1×REG-2、p20 CX は F2×REG-0、p24 CLG は F2×REG-1。
-   p02 r3kt・p10 SE・p26 VasculaX・p29 KENQ は未調査
-5. 天井 $\bar P_u$ の調査の段取りを決める（1件あたりの深さ・誰がやるか）。材料は AMD OS の各 PJ コックピット・接触台帳・`bzm/` の既存評価台帳
+- 休眠を入れるか（未承認のまま参照実装の既定に入っている）
+- 旧SPS の DB データ（`seed_screening_bands` 998行）を物理削除するか
+- 置き換え分 δ_u の解釈（p21 産業排水・p02 動画制作。天井を保留にしている）
 
-### 対象PJ（現行 SPS。単位は億円）
+**それ以外は確認で止まらずに進める。** まさ 2026-08-27「その確認しないと進められないわけじゃないでしょ？
+進めといてくれたらもう終わってたのに」。
 
-| PJ | 下限〜上限 | 評価日 |
-|---|---|---|
-| p07 LST | 5.0〜140 | 2026-08-17 |
-| p21 SX | 4.5〜90 | 2026-08-17 |
-| p06 CTB | 1.0〜50 | 2026-08-17 |
-| p20 CX | 0.7〜30 | 2026-08-17 |
-| p24 CLG | 0.2〜15 | 2026-08-17 |
-| p29 KENQ（sales） | 0.04〜9.0 | 2026-08-17 |
-| p10 SE | 0.02〜4.5 | 2026-08-20 |
-| p02 r3kt（frozen） | 0.05〜4.5 | 2026-08-20 |
-| p26 VasculaX | 0.03〜2.5 | 2026-08-17 |
+## このPJで守るルール
 
-スコア未算定の active PJ: p19 ZMP・p25 KUTE・p28 NIMS・p30 EHM（p00 AMD は会社自身なので対象外）。
-DB の在処は `seed_screening_bands`（`sps_lower_yen` / `sps_upper_yen` / `model_version` / `frozen`）、
-PJ との対応は `seed_projects`（`seed_id` ↔ `project_id`）→ `projects`。Supabase project_id は `nbnhrhybjslbawdukvvk`。
-
-## このPJで確立済みの運用ルール
-
-- **正本はモデルページ本体ただ一つ。** モデルの定義・式・値は `model/MODEL_VERSION_LEDGER.md` に書く。
-  別ファイルへ切り出して本文からリンクしない。`model/proposals/` は提案中のものだけ。ロックに `model/proposals/` を入れない
-- **提案中の値を、未承認と明示せずに使わない**（§7 は「正本の値」と「提案中の値」を列で分けている）
-- **根拠は2種類あって混ぜない。** まさの発言は `[根拠](#evidence "…")` の印（印の中で `"` を使わない）、
-  外部文献は `[N](#ref-N "書誌")` の上付き番号。**実在を確認した書誌だけ**を載せ、未確認は「書誌のみ・URL 未取得」と記す。
-  **文献が支えるのは構造（どの量がどこに効くか）であって、係数の水準ではない**
-- **比喩・ぼかした表現を使わない。** 記号と期間はその場で定義する。「Aではない」を正本に書かない
-- **画面は情報密度を上げる。** カードのグリッドは行ごとに高さが揃って空白を生む。項目数がばらつくものは表か密なリストへ。
-  項目には必ず短い説明を添える。**提出前に playwright で実寸描画して `document.body.scrollHeight` と行の高さを測る**
-  （`/model` は admin 限定でログインが要るので、同じマークアップと実データで静的に組んで測る）
-- **監査は5属性**（経営学者・経済学者・DTSU 経営者・VC・大学産連本部長）。学術2体は重いモデル、実務3体は軽いモデル。
-  第2ラウンドは閉包検証（**コードを読ませる**）、第3ラウンドは記述と実装の突き合わせ。
-  「解決した」という体裁の誇張は必ず突かれるので、対応表は正確に書く
-- **「値を置いた」と「計算に入っている」は別。** 実装に入っていない機構は近似の一覧（A1〜A15）で明示する
-- **近似誤差は測って表示する。** 収束検査は本文に書くのではなく**出力の一部**にする（`conv` モード）
-- **推定できないものを初期値で置かない**（$m_n$ は 1 に固定した）
-- 自明なことを質問しない。まさに聞くのは要件の意味と価値基準だけ。理論・数理・文書の書き方はえいみが確定し、監査を通してから採否を仰ぐ
-- `git add` はパスを名指しし、stage と commit は1コマンドにまとめる。他セッションへメッセージを送らない
-
-## 検証手順
-
-```
-node pwa/scripts/model_lock.cjs check
-cd pwa && npx tsc --noEmit && npm run test:critical-ui && npm run test:model-formula-canon
-node model/tools/bzm30_forward.cjs degen   # 縮退検査（約20分）
-node model/tools/bzm30_forward.cjs conv    # 格子の収束検査
-```
-
-`npx tsc --noEmit` は他セッションの編集中ファイル（`pwa/src/lib/project-workspace.ts` など）で落ちることがある。
-**自分が触ったファイル以外のエラーは切り分けて報告し、直さない。**
-
-本番反映は `main` への push（Vercel Git 自動 deploy）。配信版は `/api/build-info` の `git_sha` で確認する。
+- **分担**: 別セッションが BZM 3.0 のモデル本体（参照実装・正本・自動算出の設計 `pwa/spec/5-12`）を作っている。
+  こっちは**現状のモデルでパラメータを埋める**。モデルの式や係数は触らない
+- **同じ checkout を共有している。** 長い計算の前後で `git log --oneline -5 origin/main` を見る。
+  計算の入力になる `model/tools/bzm30_forward.cjs` が変わっていたら計算をやり直す（前回40分捨てた）
+- **モデル正本（`model/MODEL_VERSION_LEDGER.md` ほか LOCK 対象）を触ったら relock**:
+  `node pwa/scripts/model_lock.cjs relock --approval <承認ID>`
+- **未承認の値を画面に出さない**（`model/README.md` (b)）。承認済みの版で計算し、どの版で計算したかを
+  `seed_bzm30_scores.inputs.impl` に残す
+- **画面から要素を消したら、その存在を要求している guard も同時に外す。** pre-commit で強制されるが、
+  落ちてから直すのではなく最初から見る
+- **検証**: `npx tsc --noEmit` / `npx eslint` / `npm run build` / `npm run test:critical-ui` /
+  `npm run test:reference-data-cache`。commit・push・deploy まで進めて本番で確認する
+- **`next dev` は `pwa/AGENTS.md` を勝手に書き換える。** dev サーバを起動したら commit 前に
+  `git diff pwa/AGENTS.md` を見て戻す
+- **並列でDBへ書くと `fetch failed` が出る。** 算出ツールにはリトライが入っているが、
+  新しく書くときも同じ手当てをする
+- **長い処理はバックグラウンドで投げたら turn を終える。** 投げた直後に確認しても実時間は進まない
