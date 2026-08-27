@@ -153,6 +153,22 @@ async function loadPaymentMatchKeywords(
   return map;
 }
 
+/**
+ * 摘要が一致しても金額が請求と合わない入金は当てない。
+ * 摘要一致だけで確定すると、2か月分をまとめて払った入金を1か月分の請求へ当ててしまい、
+ * 金額も対象月も両方ずれる (2026-08-27 のdry-runで工学院大学144万が72万の月に当たった)。
+ * 振込手数料が引かれた入金は拾いたいので、摘要が一致する場合だけ許容差を手数料相当まで広げる。
+ */
+const TRANSFER_FEE_TOLERANCE_YEN = 1100;
+
+function amountNear(amount: number, expectedGross: number, expectedNet: number, tolerance: number): boolean {
+  if (amount <= 0) return false;
+  return (
+    (expectedGross > 0 && Math.abs(amount - expectedGross) <= tolerance) ||
+    (expectedNet > 0 && Math.abs(amount - expectedNet) <= tolerance)
+  );
+}
+
 function walletTxnMatches(
   txn: FreeeWalletTxn,
   group: { projectName: string; clientName: string | null; expectedGrossAmountYen: number; expectedNetAmountYen: number },
@@ -169,7 +185,8 @@ function walletTxnMatches(
     .map(normalizeMatchText)
     .filter((value) => value.length >= 4);
   const keywords = [...new Set([...baseKeywords, ...extraKeywords])];
-  return keywords.some((keyword) => desc.includes(keyword));
+  if (!keywords.some((keyword) => desc.includes(keyword))) return false;
+  return amountNear(amount, group.expectedGrossAmountYen, group.expectedNetAmountYen, TRANSFER_FEE_TOLERANCE_YEN);
 }
 
 async function notifyFreeeSyncFailure(db: ReturnType<typeof createAdminClient>, paymentYm: string, message: string) {
@@ -265,9 +282,17 @@ export async function GET(req: NextRequest) {
   const db = createAdminClient();
 
   try {
-    // 入金は推定した支払月より早く着くことがある (請求書を実際に送った日が台帳に無いと、
-    // 支払月の推定は保守的に後ろへずれる)。当月の入金明細で、先2か月ぶんの請求も照合する。
-    const groupYms = [paymentYm, addMonthsYm(paymentYm, 1), addMonthsYm(paymentYm, 2)];
+    // 入金は推定した支払月より早く着くことも遅れて着くこともある (請求書を実際に送った日が
+    // 台帳に無いと、支払月の推定は保守的に後ろへずれる)。当月の入金明細で、前後2か月ぶんの
+    // 請求も照合する。後ろだけ見ていると、請求月より後に入金された請求が永久に未確認のまま
+    // 残る (2026-08-27 に工学院大学の6月請求が7/31入金で未確認だった)。
+    const groupYms = [
+      addMonthsYm(paymentYm, -2),
+      addMonthsYm(paymentYm, -1),
+      paymentYm,
+      addMonthsYm(paymentYm, 1),
+      addMonthsYm(paymentYm, 2),
+    ];
     const [groupSets, deals, walletTxns, paymentKeywords, alreadyUsed] = await Promise.all([
       Promise.all(groupYms.map((ym) => loadPaymentConfirmationGroups(db, ym, { includeConfirmed }))),
       fetchIncomeDeals(paymentYm),
