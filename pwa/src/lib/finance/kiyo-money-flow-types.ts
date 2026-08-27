@@ -15,6 +15,7 @@ export type KiyoMoneyFlowRange = {
 };
 
 export type KiyoMoneyFlowInflowMonth = {
+  /** 請求の対象月 (billing_cycles.ym)。UIは「◯年◯月分」と表示する。期間の絞り込みは入金確認月で別途行う */
   ym: string;
   amountYen: number;
   kind: "contract" | "extra";

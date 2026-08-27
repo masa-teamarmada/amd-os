@@ -242,7 +242,7 @@ async function computeInternal(period: KiyoMoneyFlowPeriod): Promise<KiyoMoneyFl
     if (amount <= 0) continue;
     const bucket = ensureProjectInflow(row.project_id);
     bucket.contractYen += amount;
-    bucket.months.push({ ym: confirmedYm, amountYen: amount, kind: "contract", confirmedAt: row.payment_confirmed_at });
+    bucket.months.push({ ym: row.ym, amountYen: amount, kind: "contract", confirmedAt: row.payment_confirmed_at });
   }
 
   const extraRevenueSourceRows = billingRows
