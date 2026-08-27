@@ -132,6 +132,14 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
       (seed.project_links ?? []).some((link) => link.project_status === "active") ||
       seedProjectLifecycle(seed) === "considering",
   );
+  // 行の主役は「紐づくPJ」。稼働中PJがあればそれ、無ければ検討中PJ (sales/draft)。
+  // どちらも無い行だけシーズ名を主役にする (= まだPJになっていないシーズ)。
+  const primarySeedLink = (seed: SeedPublicView) => {
+    const links = seed.project_links ?? [];
+    return links.find((link) => link.project_status === "active")
+      ?? links.find((link) => link.project_status === "sales" || link.project_status === "draft")
+      ?? null;
+  };
   const activeSeedLinks = (seed: SeedPublicView) =>
     (seed.project_links ?? []).filter((link) => link.project_status === "active");
   // 研究機関にもシーズにも紐づかない稼働中PJ (= 事業会社が相手のPJ)。
@@ -201,15 +209,19 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
           {seedPjRows.length ? (
             seedPjRows.map((seed) => {
               const running = activeSeedLinks(seed);
-              const primary = running[0];
+              const primary = primarySeedLink(seed);
               return (
                 <CandidateRow
                   key={seed.id}
                   icon={Sprout}
                   prefix={primary?.project_id ?? null}
-                  label={primary ? running.map((link) => link.project_name).join(" / ") : seed.title}
+                  label={
+                    running.length
+                      ? running.map((link) => link.project_name).join(" / ")
+                      : primary?.project_name ?? seed.title
+                  }
                   meta={primary ? (primary.client_name || seed.org_name) : [seed.org_name, seed.researcher_name || "PI未登録"].filter(Boolean).join(" ・ ")}
-                  badge={primary ? "稼働中" : "検討中"}
+                  badge={running.length ? "稼働中" : "検討中"}
                   href={`/seeds/${encodeURIComponent(seed.id)}`}
                 />
               );
