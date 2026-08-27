@@ -126,6 +126,11 @@ export default function AdminMonthlyWorkAgreementsPage() {
           <p className="mt-1 text-xs text-muted-foreground">
             {formatYm(ym)}の遂行内容/予定報酬について、メンバー別の合意状態と更新有無を確認する。
           </p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            金額は3つの意味が違う。<span className="font-medium text-foreground">月初計画</span>はこの稼働月の見込み、
+            <span className="font-medium text-foreground">今月支払</span>はこの月の支払通知書に載る額 (支払通知書ページと同じ計算)、
+            <span className="font-medium text-foreground">未払い残</span>は月末時点の残高。
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <label className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-background px-2 text-sm">
@@ -192,6 +197,7 @@ export default function AdminMonthlyWorkAgreementsPage() {
             <SummaryCard label="条件更新あり" value={`${data.totals.needsReagreement}`} tone={data.totals.needsReagreement > 0 ? "warn" : "plain"} />
             <SummaryCard label="修正要望" value={`${data.totals.revisionRequests}`} tone={data.totals.revisionRequests > 0 ? "warn" : "plain"} />
             <SummaryCard label="今月支払" value={formatYen(data.totals.payoutYen)} tone={data.totals.payoutYen > 0 ? "good" : "plain"} />
+            <SummaryCard label="立替精算" value={formatYen(data.totals.reimbursementYen)} tone={data.totals.reimbursementYen > 0 ? "good" : "plain"} />
             <SummaryCard label="未払いストック残" value={formatYen(data.totals.stockYen)} tone={data.totals.stockYen > 0 ? "warn" : "plain"} />
           </section>
 
@@ -235,8 +241,11 @@ export default function AdminMonthlyWorkAgreementsPage() {
                       <p className={`font-semibold ${row.payoutYen > 0 ? "text-emerald-700" : "text-foreground"}`}>
                         {formatYen(row.payoutYen)}
                       </p>
+                      {row.reimbursementYen > 0 && (
+                        <p className="mt-0.5 text-[10px] text-violet-700">＋立替 {formatYen(row.reimbursementYen)}</p>
+                      )}
                       <p className="mt-0.5 text-[10px] text-muted-foreground">
-                        予定 {formatYen(row.expectedRewardYen)}
+                        月初計画 {formatYen(row.expectedRewardYen)}
                       </p>
                     </div>
                     <div className="text-right tabular-nums">

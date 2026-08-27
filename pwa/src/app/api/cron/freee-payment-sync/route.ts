@@ -37,6 +37,33 @@ type FreeeWalletTxn = {
   walletable_id?: number | string | null;
 };
 
+/**
+ * すでに入金確認へ使った freee の口座明細 / 取引の id を集める。
+ * 同じ振込を別の請求月へ二度当てないための土台。
+ */
+async function loadUsedFreeeReferences(
+  db: ReturnType<typeof createAdminClient>
+): Promise<{ walletTxnIds: string[]; dealIds: string[] }> {
+  const { data, error } = await db
+    .from("billing_log")
+    .select("detail")
+    .eq("action", "payment_confirmed")
+    .order("created_at", { ascending: false })
+    .limit(2000);
+  if (error) throw error;
+
+  const walletTxnIds: string[] = [];
+  const dealIds: string[] = [];
+  for (const row of (data ?? []) as Array<{ detail?: unknown }>) {
+    const detail = row.detail as { freee?: { wallet_txn_id?: unknown; deal_id?: unknown } } | null;
+    const freee = detail?.freee;
+    if (!freee) continue;
+    if (freee.wallet_txn_id != null) walletTxnIds.push(String(freee.wallet_txn_id));
+    if (freee.deal_id != null) dealIds.push(String(freee.deal_id));
+  }
+  return { walletTxnIds, dealIds };
+}
+
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;
@@ -241,11 +268,12 @@ export async function GET(req: NextRequest) {
     // 入金は推定した支払月より早く着くことがある (請求書を実際に送った日が台帳に無いと、
     // 支払月の推定は保守的に後ろへずれる)。当月の入金明細で、先2か月ぶんの請求も照合する。
     const groupYms = [paymentYm, addMonthsYm(paymentYm, 1), addMonthsYm(paymentYm, 2)];
-    const [groupSets, deals, walletTxns, paymentKeywords] = await Promise.all([
+    const [groupSets, deals, walletTxns, paymentKeywords, alreadyUsed] = await Promise.all([
       Promise.all(groupYms.map((ym) => loadPaymentConfirmationGroups(db, ym, { includeConfirmed }))),
       fetchIncomeDeals(paymentYm),
       fetchIncomeWalletTxns(paymentYm),
       loadPaymentMatchKeywords(db),
+      loadUsedFreeeReferences(db),
     ]);
 
     const groupByKey = new Map<string, (typeof groupSets)[number][number]>();
@@ -255,6 +283,11 @@ export async function GET(req: NextRequest) {
       }
     }
     const groups = [...groupByKey.values()];
+
+    // 同じ入金を二度使わない。1件の振込を複数の請求月へ当ててしまうと、
+    // 実際には1か月ぶんしか入っていないのに複数月が入金済みになる (2026-08-26 に実際に起きた)。
+    const usedWalletTxnIdsAcrossRuns = new Set(alreadyUsed.walletTxnIds);
+    const usedDealIdsAcrossRuns = new Set(alreadyUsed.dealIds);
 
     const results: Array<{
       projectId: string;
@@ -267,14 +300,18 @@ export async function GET(req: NextRequest) {
       source?: "deal" | "wallet_txn";
       reason?: string;
     }> = [];
-    const usedWalletTxnIds = new Set<string>();
+    const usedWalletTxnIds = new Set<string>(usedWalletTxnIdsAcrossRuns);
 
     for (const group of groups) {
       if (!group.freeePartnerId) {
         results.push({ projectId: group.projectId, invoiceYm: group.invoiceYm, matched: false, reason: "freee_partner_id missing" });
         continue;
       }
-      const partnerDeals = deals.filter((deal) => String(deal.partner_id ?? "") === String(group.freeePartnerId));
+      const partnerDeals = deals.filter(
+        (deal) =>
+          String(deal.partner_id ?? "") === String(group.freeePartnerId) &&
+          !usedDealIdsAcrossRuns.has(String(deal.id ?? ""))
+      );
       const match = partnerDeals.find(
         (deal) =>
           isPaidDeal(deal) &&
@@ -293,6 +330,7 @@ export async function GET(req: NextRequest) {
 
       const amountYen = match ? (paymentTotal(match) || yen(match.amount)) : yen(walletMatch?.amount);
       if (walletMatch?.id != null) usedWalletTxnIds.add(String(walletMatch.id));
+      if (match?.id != null) usedDealIdsAcrossRuns.add(String(match.id));
       if (!dryRun) {
         await confirmPaymentGroup(db, {
           projectId: group.projectId,

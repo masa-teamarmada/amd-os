@@ -90,7 +90,7 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
   { id: "admin-kiyo", title: "きよ", navLabel: "きよ", primaryPath: "/admin/kiyo", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/kiyo"] },
   { id: "admin-invoices", title: "請求書発行", navLabel: "請求書発行", primaryPath: "/admin/invoices", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/invoices"] },
   { id: "admin-billing", title: "請求書発行", navLabel: "旧請求入口", primaryPath: "/admin/billing", domain: "finance_contracts", lens: "amd_operations", status: "mirror", exact: ["/admin/billing"] },
-  { id: "admin-payouts", title: "Admin 報酬", navLabel: "報酬", primaryPath: "/admin/payouts", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/payouts"] },
+  { id: "admin-payouts", title: "支払通知書", navLabel: "支払通知書", primaryPath: "/admin/payouts", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/payouts"] },
   { id: "admin-monthly-agreements", title: "Admin 月初合意", navLabel: "月初合意", primaryPath: "/admin/monthly-work-agreements", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/monthly-work-agreements"] },
   { id: "admin-season-pl", title: "シーズン予実", navLabel: "シーズン予実", primaryPath: "/admin/season-pl", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/season-pl"] },
   { id: "admin-finance", title: "Admin Finance", navLabel: "財務", primaryPath: "/admin/finance", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/finance"] },

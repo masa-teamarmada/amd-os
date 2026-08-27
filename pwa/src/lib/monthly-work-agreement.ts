@@ -8,7 +8,7 @@ import {
 } from "@/lib/ms-schedule-shared";
 import {
   candidateSourceYmsForPaymentYm,
-  effectivePaymentYmForCycle,
+  effectiveMemberPayoutYmForCycle,
 } from "@/lib/payment-groups";
 import type {
   MonthlyAgreementAmountChangeReason,
@@ -225,6 +225,8 @@ function paymentRuleCycle(cycle: JsonRecord, fallbackYm: string) {
     invoice_ym: cleanYm(cycle.invoice_ym),
     invoice_sent_at: typeof cycle.invoice_sent_at === "string" ? cycle.invoice_sent_at : null,
     invoice_issued_at: typeof cycle.invoice_issued_at === "string" ? cycle.invoice_issued_at : null,
+    payment_confirmed_at: typeof cycle.payment_confirmed_at === "string" ? cycle.payment_confirmed_at : null,
+    reward_paid_at: typeof cycle.reward_paid_at === "string" ? cycle.reward_paid_at : null,
   };
 }
 
@@ -238,8 +240,13 @@ function rewardPaymentRuleCycle(cycle: JsonRecord, fallbackYm: string) {
   };
 }
 
+/**
+ * メンバーへの支払月。`/admin/payouts` (支払通知書) と同じ関数を使う。
+ * ここが別実装だと、同じ稼働月なのに月初合意と支払通知書で金額が食い違う
+ * (まさ指摘 2026-08-26)。判定は `effectiveMemberPayoutYmForCycle` 一本に寄せる。
+ */
 function effectiveRewardPaymentYmForCycle(cycle: JsonRecord, project: JsonRecord, fallbackYm: string): string {
-  return effectivePaymentYmForCycle(rewardPaymentRuleCycle(cycle, fallbackYm), paymentRuleProject(project));
+  return effectiveMemberPayoutYmForCycle(rewardPaymentRuleCycle(cycle, fallbackYm), paymentRuleProject(project));
 }
 
 function payoutSnapshotKey(projectId: string, ym: string): string {

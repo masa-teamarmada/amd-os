@@ -181,6 +181,8 @@ export interface AdminMonthlyWorkAgreementRow {
   reviewRequiredCount: number;
   expectedRewardYen: number;
   payoutYen: number;
+  /** 支払通知書へ合算する立替精算 (実費・税込)。報酬とは別原資 */
+  reimbursementYen: number;
   stockYen: number;
   grossDueYen: number;
   carryInYen: number;
@@ -200,6 +202,7 @@ export interface AdminMonthlyWorkAgreementResponse {
     revisionRequests: number;
     expectedRewardYen: number;
     payoutYen: number;
+    reimbursementYen: number;
     stockYen: number;
   };
   rows: AdminMonthlyWorkAgreementRow[];

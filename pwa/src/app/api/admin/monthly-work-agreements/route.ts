@@ -7,6 +7,7 @@ import {
   listActiveAgreementMemberIds,
 } from "@/lib/monthly-work-agreement";
 import type { AdminMonthlyWorkAgreementResponse } from "@/lib/monthly-work-agreement-types";
+import { loadPayableReimbursements, reimbursementTotalYen } from "@/lib/finance/payout-reimbursements";
 
 function validYm(value: string | null): string {
   const ym = value || currentYmJst();
@@ -29,6 +30,8 @@ export async function GET(req: NextRequest) {
   try {
     const admin = createAdminClient();
     const memberIds = await listActiveAgreementMemberIds(admin, ym);
+    // 支払通知書と同じ立替を出す。同じ月なのに2画面で支払額が違って見えるのを避ける
+    const reimbursementsByMember = await loadPayableReimbursements(admin, ym);
     const bundles = await Promise.all(
       memberIds.map((memberId) => buildMonthlyWorkAgreementBundle(admin, { ym, memberId })),
     );
@@ -46,6 +49,7 @@ export async function GET(req: NextRequest) {
       expectedRewardYen: bundle.snapshot.totals.expectedRewardYen,
       payoutYen: bundle.snapshot.projects.reduce((sum, project) => sum + (project.payoutYen ?? 0), 0),
       stockYen: bundle.snapshot.totals.stockYen,
+      reimbursementYen: reimbursementTotalYen(reimbursementsByMember.get(bundle.member.memberId)),
       grossDueYen: bundle.snapshot.projects.reduce((sum, project) => sum + (project.grossDueYen ?? 0), 0),
       carryInYen: bundle.snapshot.projects.reduce((sum, project) => sum + (project.carryInYen ?? 0), 0),
       projectNames: bundle.snapshot.projects.map((project) => project.projectName),
@@ -81,6 +85,7 @@ export async function GET(req: NextRequest) {
         revisionRequests: rows.reduce((sum, row) => sum + row.revisionRequestCount, 0),
         expectedRewardYen: rows.reduce((sum, row) => sum + row.expectedRewardYen, 0),
         payoutYen: rows.reduce((sum, row) => sum + row.payoutYen, 0),
+        reimbursementYen: rows.reduce((sum, row) => sum + row.reimbursementYen, 0),
         stockYen: rows.reduce((sum, row) => sum + row.stockYen, 0),
       },
       rows,

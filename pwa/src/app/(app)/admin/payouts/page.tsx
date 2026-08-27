@@ -35,8 +35,8 @@ export default async function AdminPayoutsPage({ embedded = false }: { embedded?
       ) : (
         <>
           <div className="flex items-baseline gap-3 mb-1">
-            <h1 className="text-lg font-semibold">Payouts</h1>
-            <span className="text-sm text-muted-foreground">支払管理 — {currentYm}</span>
+            <h1 className="text-lg font-semibold">支払通知書</h1>
+            <span className="text-sm text-muted-foreground">支払月 {currentYm}</span>
           </div>
           <p className="text-xs text-muted-foreground mb-4">
             支払月ベースで報酬確定済みcycleを集約し、支払明細とメンバー別通知額を保存する。
