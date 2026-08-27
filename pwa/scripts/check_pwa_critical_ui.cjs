@@ -1863,26 +1863,25 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "score-detail",
 ]);
 
+// 2026-08-27: 旧SPS (sps-ind-v1 の帯) と BZM 2.2 暫定パイロットの表示をこのタブから外し、
+// 現行の BZM 3.0 (産業創出価値 V) だけを出す形へ変えた
+// (まさ「古いモデルの試算結果は、混乱の元になるのですべて削除してほしい」)。
+// 釘は「シーズ詳細と同じパネルを使っていること」に打ち直す——同じ PJ を PJ 側から見ても
+// シーズ側から見ても同じ数字・同じ根拠が出る、が守りたい性質。
 expectIncludes("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
-  "Bzm22ProvisionalObservatory",
-  "CurrentSpsAssessmentCard",
-  "/sps-current",
-  "現行SPSを読み込み中",
-  // SPS は BZM の外の別モデルではなく同じ BZM から出る別の出力 (まさ指摘 2026-08-22、
-  // model/MODEL_VERSION_LEDGER.md §1 の訂正と §5)。合算しない規律だけを言う文言に保つ。
-  "BZM 2.2 暫定パイロット（同じBZMから出る別の出力）",
-  "J / P / Q / S はSPSへ合算せず",
+  "Bzm30ScorePanel",
+  "seed_projects",
   'data-density="compact-score-page"',
 ]);
 expectPattern("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
-  /<CurrentSpsAssessmentCard\b[^>]*assessment=\{state\.assessment\}[\s\S]*?<Bzm22ProvisionalObservatory/,
-  /fetch\(`\/api\/project\/\$\{encodeURIComponent\(projectId\)\}\/sps-current`/,
-  // 判断根拠 (q帯・q要因11項目・P^ind帯・総合判断) をこの画面から読めること。
-  // 根拠はseed_screening_bandsの詳細行にしか無いので、seedId指定の追加取得が導線そのもの。
-  // 2026-08-23: 素のfetchから参照系キャッシュ層 (lib/seed-screening-bands-client.ts) 経由へ変更。
-  // 直fetchへ戻すと check_reference_data_cache_contract.mjs 側で落ちる。
-  /loadSeedScreeningBandDetail\(assessment\.seed_id\)/,
-  /<CurrentSpsAssessmentCard\b[^>]*band=\{band\}/,
+  /<Bzm30ScorePanel\b[^>]*seed=\{state\.detail\.seed\}/,
+  // シーズが紐づいていない PJ で黙って空にしない（何をすれば算出できるかを出す）
+  /status: "no-seed"/,
+]);
+expectNotIncludes("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
+  "CurrentSpsAssessmentCard",
+  "Bzm22ProvisionalObservatory",
+  "/sps-current",
 ]);
 expectIncludes("src/components/sps/CurrentSpsAssessmentCard.tsx", [
   'data-testid="current-sps-assessment"',
@@ -1927,12 +1926,14 @@ expectIncludes("src/components/seeds/KuteSeedDetailModal.tsx", [
   "screeningBand.notes",
   "screeningBand.q_evidence",
 ]);
-// /seeds が開く本命の詳細モーダル (internal面)。まさが帯・総合判断を読む唯一の画面。
-// public面 (KuteSeedDetailModal) は detailSurface="public" の呼び出し元がリポジトリに無く、
-// 現在どこからも表示されない。帯の導線をこちらから消すと OS 画面から根拠が読めなくなる。
-// 2026-08-23: 帯の取得は参照系キャッシュ層 (lib/seed-screening-bands-client.ts) 経由。
-// 素の /api/seeds/screening-bands 直fetchへ戻すと check_reference_data_cache_contract.mjs で落ちる。
+// /seeds が開く本命の詳細モーダル (internal面)。まさがスコアと根拠を読む唯一の画面。
+// 2026-08-27: 旧SPS (一次選別スクリーニング帯) をここから外し、現行の BZM 3.0 だけを出す
+// (まさ「古いモデルの試算結果は、混乱の元になるのですべて削除してほしい」)。
+// 釘は「BZM 3.0 のパネルがあること」と「旧SPSが戻ってこないこと」の両方に打つ。
 expectIncludes("src/components/seeds/SeedDetailModal.tsx", [
+  "Bzm30ScorePanel",
+]);
+expectNotIncludes("src/components/seeds/SeedDetailModal.tsx", [
   "一次選別スクリーニング帯",
   "SpsScreeningBandSection",
   "loadSeedScreeningBandDetail",

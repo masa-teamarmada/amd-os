@@ -159,9 +159,6 @@
     "src/components/cockpit/CapitalPlanWorkspace.tsx": [
       "/api/governance/capital-plans"
     ],
-    "src/components/cockpit/CockpitAmdScoreDetailTab.tsx": [
-      "/api/project/:p/sps-current"
-    ],
     "src/components/cockpit/CockpitBusinessPlan.tsx": [
       "/api/governance"
     ],
