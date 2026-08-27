@@ -146,6 +146,7 @@ export function KiyoMoneyFlowPanel() {
                 inflowTotalYen={data.inflow.totalYen}
                 outflowTotalYen={data.outflow.totalYen}
                 netChangeYen={data.wallet.netChangeYen}
+                anchoredToBank={data.wallet.anchoredToBank}
                 loanRemainingYen={data.wallet.loanRemainingYen}
               />
               <p className="text-[11px] leading-relaxed text-muted-foreground">{data.summaryText}</p>
@@ -159,7 +160,7 @@ export function KiyoMoneyFlowPanel() {
           </div>
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <KiyoMoneyFlowInflowCard inflowProjects={data.inflow.byProject} expanded={expanded} onToggle={toggle} />
+            <KiyoMoneyFlowInflowCard inflowProjects={data.inflow.byProject} anchoredToBank={data.wallet.anchoredToBank} expanded={expanded} onToggle={toggle} />
             <KiyoMoneyFlowOutflowCard outflowCategories={data.outflow.categories} expanded={expanded} onToggle={toggle} />
           </div>
         </>

@@ -81,3 +81,22 @@ export function linkStrokeWidth(value: number, nodeValue: number, nodeHeight: nu
   if (nodeValue <= 0) return 0;
   return Math.max(1.5, (value / nodeValue) * nodeHeight);
 }
+
+/**
+ * ラベルの縦位置。ノード中心を基準にしつつ、隣のラベルと minGap 未満なら押し下げる。
+ * 金額が極端に小さいノードが連続すると、ノード中心のままではラベルが重なるため。
+ */
+export function spreadLabelYs(nodes: SankeyNodeLayout[], minGap: number, bottomLimit: number): number[] {
+  const ys = nodes.map((n) => n.y + n.height / 2);
+  for (let i = 1; i < ys.length; i += 1) {
+    if (ys[i] - ys[i - 1] < minGap) ys[i] = ys[i - 1] + minGap;
+  }
+  const overflow = ys.length > 0 ? ys[ys.length - 1] - bottomLimit : 0;
+  if (overflow > 0) {
+    for (let i = ys.length - 1; i >= 0; i -= 1) {
+      ys[i] -= overflow;
+      if (i > 0 && ys[i] - ys[i - 1] >= minGap) break;
+    }
+  }
+  return ys;
+}
