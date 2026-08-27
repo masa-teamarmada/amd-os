@@ -72,7 +72,7 @@ AMD OS 本体の「きよ」ページ（`/admin/kiyo`）を、きよ専用の単
 cd kiyo-admin
 npm install
 cp .env.example .env.local   # 値は pwa/.env.local と同じものを入れる
-npm run dev                  # http://localhost:3100
+npm run dev                  # http://localhost:3000（3100 にすると Supabase のログイン許可リストから外れて本体へ飛ばされる）
 ```
 
 | 変数 | 用途 |
