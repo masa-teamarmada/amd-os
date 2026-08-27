@@ -50,36 +50,42 @@ export function KiyoMoneyFlowSankey({
   const outflowTotal = outflowCategories.reduce((sum, c) => sum + c.totalYen, 0);
 
   const layout = useMemo(() => {
+    // 全列共通の縮尺: 大きい側の合計が COLUMN_HEIGHT に収まる。帯幅=ノード高さが厳密に一致する。
+    const scaleTotal = Math.max(inflowTotal, outflowTotal, 1);
     const leftNodes = layoutColumn(
       inflowProjects.map((p) => ({ id: `in-${p.projectId}`, label: p.clientName ? `${p.projectName}（${p.clientName}）` : p.projectName, value: p.totalYen })),
       LEFT_NODE_X,
       COLUMN_HEIGHT,
+      scaleTotal,
     );
     const rightNodes = layoutColumn(
       outflowCategories.map((c) => ({ id: `out-${c.key}`, label: c.label, value: Math.max(c.totalYen, 1) })),
       RIGHT_NODE_X,
       COLUMN_HEIGHT,
+      scaleTotal,
     );
     const columnBottom = (nodes: SankeyNodeLayout[]) => nodes.reduce((max, n) => Math.max(max, n.y + n.height), 0);
+    // 財布は総量ノード (高さ = scaleTotal ぶん)。入りが出より少ない期間は、財布下部に
+    // 入り帯の无い領域が残る = 財布の残りから出した分が視覚的に見える。
+    const walletNode: SankeyNodeLayout = { id: "wallet", label: "AMDの財布", value: scaleTotal, x: WALLET_X, y: 0, height: COLUMN_HEIGHT };
     const contentHeight = Math.max(columnBottom(leftNodes), columnBottom(rightNodes), COLUMN_HEIGHT);
-    const walletNode: SankeyNodeLayout = { id: "wallet", label: "AMDの財布", value: Math.max(inflowTotal, outflowTotal, 1), x: WALLET_X, y: 0, height: contentHeight };
 
-    const inAllocator = makePortAllocator([{ ...walletNode, value: inflowTotal || 1 }]);
-    const outAllocator = makePortAllocator([{ ...walletNode, value: outflowTotal || 1 }]);
+    const inAllocator = makePortAllocator([walletNode]);
+    const outAllocator = makePortAllocator([{ ...walletNode }]);
 
     const inflowLinks = inflowProjects
       .filter((p) => p.totalYen > 0)
       .map((p) => {
         const sourceNode = leftNodes.find((n) => n.id === `in-${p.projectId}`);
         if (!sourceNode) return null;
-        const targetY = inAllocator("wallet", p.totalYen, inflowTotal || 1, contentHeight);
+        const targetY = inAllocator("wallet", p.totalYen, scaleTotal, COLUMN_HEIGHT);
         return {
           id: `in-${p.projectId}`,
           sourceX: sourceNode.x + SANKEY_NODE_WIDTH,
           sourceY: sourceNode.y + sourceNode.height / 2,
           targetX: WALLET_X,
           targetY,
-          width: linkStrokeWidth(p.totalYen, inflowTotal || 1, contentHeight),
+          width: linkStrokeWidth(p.totalYen, scaleTotal, COLUMN_HEIGHT),
           projectId: p.projectId,
         };
       })
@@ -90,14 +96,14 @@ export function KiyoMoneyFlowSankey({
       .map((c) => {
         const targetNode = rightNodes.find((n) => n.id === `out-${c.key}`);
         if (!targetNode) return null;
-        const sourceY = outAllocator("wallet", c.totalYen, outflowTotal || 1, contentHeight);
+        const sourceY = outAllocator("wallet", c.totalYen, scaleTotal, COLUMN_HEIGHT);
         return {
           id: `out-${c.key}`,
           sourceX: WALLET_X + WALLET_W,
           sourceY,
           targetX: targetNode.x,
           targetY: targetNode.y + targetNode.height / 2,
-          width: linkStrokeWidth(c.totalYen, outflowTotal || 1, contentHeight),
+          width: linkStrokeWidth(c.totalYen, scaleTotal, COLUMN_HEIGHT),
           key: c.key,
         };
       })

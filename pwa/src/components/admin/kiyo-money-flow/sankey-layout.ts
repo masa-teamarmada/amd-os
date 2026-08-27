@@ -13,7 +13,7 @@
 export const SANKEY_VIEW_WIDTH = 720;
 export const SANKEY_NODE_WIDTH = 16;
 export const SANKEY_GAP = 5;
-export const SANKEY_MIN_NODE_HEIGHT = 14;
+export const SANKEY_MIN_NODE_HEIGHT = 2;
 
 export type SankeyNodeInput = { id: string; label: string; value: number };
 
@@ -36,16 +36,18 @@ export type SankeyLinkLayout = {
   height: number;
 };
 
-/** 1列のノードを縦に積む。値0は積まない (呼び出し側で除く想定)。 */
-export function layoutColumn(nodes: SankeyNodeInput[], x: number, totalHeight: number): SankeyNodeLayout[] {
+/**
+ * 1列のノードを縦に積む。値0は積まない (呼び出し側で除く想定)。
+ * 高さは (value / scaleTotal) × scaleHeight — 全列で同じ縮尺 (円→px) を使い、
+ * 帯の太さ (linkStrokeWidth) と厳密に一致させる。列ごとの正規化はしない
+ * (列内正規化にすると帯幅の基準とズレて、帯がノードからはみ出す)。
+ */
+export function layoutColumn(nodes: SankeyNodeInput[], x: number, scaleHeight: number, scaleTotal: number): SankeyNodeLayout[] {
   const filtered = nodes.filter((n) => n.value > 0);
-  const total = filtered.reduce((sum, n) => sum + n.value, 0);
-  const gapTotal = SANKEY_GAP * Math.max(0, filtered.length - 1);
-  const usable = Math.max(0, totalHeight - gapTotal);
   let y = 0;
   const out: SankeyNodeLayout[] = [];
   for (const node of filtered) {
-    const raw = total > 0 ? (node.value / total) * usable : 0;
+    const raw = scaleTotal > 0 ? (node.value / scaleTotal) * scaleHeight : 0;
     const height = Math.max(SANKEY_MIN_NODE_HEIGHT, raw);
     out.push({ id: node.id, label: node.label, value: node.value, x, y, height });
     y += height + SANKEY_GAP;
