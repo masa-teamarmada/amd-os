@@ -17,6 +17,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { currentYmJst } from "@/lib/finance/cash-anchor";
 import { expandExtraRevenueCash, type ExtraRevenueEntry } from "@/lib/finance/extra-revenue";
+import { UNCLASSIFIED_PROJECT_ID } from "@/lib/finance/kiyo-money-flow-types";
 import type {
   KiyoMoneyFlowPeriod,
   KiyoMoneyFlowRange,
@@ -25,7 +26,6 @@ import type {
   KiyoMoneyFlowMonthlyRow,
   KiyoMoneyFlowObligationRow,
   KiyoMoneyFlowOpexRow,
-  KiyoMoneyFlowLoanRow,
   KiyoMoneyFlowOutflowCategory,
   KiyoMoneyFlowResult,
 } from "@/lib/finance/kiyo-money-flow-types";
@@ -39,7 +39,7 @@ export type {
   KiyoMoneyFlowMonthlyRow,
   KiyoMoneyFlowObligationRow,
   KiyoMoneyFlowOpexRow,
-  KiyoMoneyFlowLoanRow,
+  KiyoMoneyFlowGapRow,
   KiyoMoneyFlowOutflowCategory,
   KiyoMoneyFlowResult,
 } from "@/lib/finance/kiyo-money-flow-types";
@@ -150,6 +150,29 @@ const NOTE_TEXT =
   "この画面はお金の流れを掴むためのざっくり全体図。数字は万円で丸めていて、1円単位の正確な帳簿はfreeeで見る。";
 
 const OPEX_EXCLUDED_ACCOUNTS = new Set(["役員報酬", "法定福利費", "租税公課"]);
+
+/** freee取引履歴 (現金ベース) の入金側 / 出金側カテゴリ。company_actual_monthly.category */
+const CASH_IN_CATEGORIES = new Set(["cash_inflow", "spot_income", "loan_disbursement"]);
+const CASH_OUT_CATEGORIES = new Set([
+  "cash_outflow",
+  "spot_expense",
+  "loan_payment",
+  "loan_interest",
+  "tax_payment_consumption",
+  "tax_payment_corporate",
+  "social_insurance",
+]);
+
+/** startYm〜endYm を1か月ずつ並べる。 */
+function enumerateYms(startYm: string, endYm: string): string[] {
+  const out: string[] = [];
+  let cur = startYm;
+  for (let i = 0; i < 600 && cur <= endYm; i += 1) {
+    out.push(cur);
+    cur = addMonthsYm(cur, 1);
+  }
+  return out;
+}
 
 /** 元利均等返済の残高。k回払い終えた後の残債務。 */
 function equalPaymentRemainingBalance(principal: number, annualRate: number, totalPayments: number, paymentsMade: number): number {
@@ -266,7 +289,7 @@ async function computeInternal(period: KiyoMoneyFlowPeriod): Promise<KiyoMoneyFl
   const inflowProjects = [...inflowByProject.values()]
     .filter((row) => row.totalYen > 0)
     .sort((a, b) => b.totalYen - a.totalYen);
-  const inflowTotalYen = inflowProjects.reduce((sum, row) => sum + row.totalYen, 0);
+  const capturedInflowYen = inflowProjects.reduce((sum, row) => sum + row.totalYen, 0);
 
   // ---- 使ったお金: メンバーへの報酬 (実振込) ----
   const settlementsInRange = settlementRows.filter((row) => {
@@ -325,6 +348,10 @@ async function computeInternal(period: KiyoMoneyFlowPeriod): Promise<KiyoMoneyFl
     .map(([ym, amountYen]) => ({ ym, amountYen }))
     .sort((a, b) => a.ym.localeCompare(b.ym));
   const executiveTotalYen = executiveRows.reduce((sum, row) => sum + row.amountYen, 0);
+  // freee試算表の行自体はあるのに役員報酬の科目だけ無い月 = freeeへ給与仕訳が未計上。
+  // 0円を「払っていない」と読ませないため、欠測月を拾って注記に出す。
+  const fixedCostYms = new Set(fixedCostInRange.map((row) => row.ym));
+  const executiveMissingYms = [...fixedCostYms].filter((v) => !executiveByYm.has(v)).sort();
 
   // 租税公課 (社会保険・税金の一部)
   const taxRows: KiyoMoneyFlowObligationRow[] = [];
@@ -361,7 +388,10 @@ async function computeInternal(period: KiyoMoneyFlowPeriod): Promise<KiyoMoneyFl
   taxRows.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
   const socialInsuranceTaxTotalYen = taxRows.reduce((sum, row) => sum + row.amountYen, 0);
 
-  // ---- 借入の返済: company_finance_recurring_items (loan_payment) ----
+  // ---- 借入の返済 ----
+  // 予定 (recurring master の月額 × 経過月数) を実績として出さない。実際の返済は
+  // freee取引履歴の loan_payment カテゴリに入るが現状0件のため、口座から出ている分は
+  // 下の「まだ分類できていない」に含まれる。予定額は理由行として添えるだけにする。
   type RecurringRow = {
     id: string;
     item_kind: string | null;
@@ -374,28 +404,13 @@ async function computeInternal(period: KiyoMoneyFlowPeriod): Promise<KiyoMoneyFl
     end_ym: string | null;
   };
   const recurringItems = (recurringRes.data ?? []) as RecurringRow[];
-  const loanRows: KiyoMoneyFlowLoanRow[] = [];
-  for (const item of recurringItems) {
-    const isLoan = item.item_kind === "loan" || item.category === "loan_payment";
-    if (!isLoan) continue;
-    const monthlyAmountYen = num(item.amount_yen);
-    if (monthlyAmountYen <= 0) continue;
-    const itemStart = ym(item.start_ym);
-    const itemEnd = ym(item.end_ym);
-    const windowStart = range.startYm && itemStart ? (range.startYm > itemStart ? range.startYm : itemStart) : range.startYm ?? itemStart;
-    const windowEnd = [range.endYm, itemEnd, nowYm].filter((v): v is string => Boolean(v)).sort().shift() ?? nowYm;
-    if (!windowStart || windowStart > windowEnd) continue;
-    const monthsCounted = monthsBetweenInclusive(windowStart, windowEnd);
-    if (monthsCounted <= 0) continue;
-    const amountYen = monthlyAmountYen * monthsCounted;
-    loanRows.push({
+  const loanPlans = recurringItems
+    .filter((item) => item.item_kind === "loan" || item.category === "loan_payment")
+    .map((item) => ({
       vendorName: item.vendor_name || item.display_name || "借入先未設定",
-      monthlyAmountYen,
-      monthsCounted,
-      amountYen,
-    });
-  }
-  const loanPaymentTotalYen = loanRows.reduce((sum, row) => sum + row.amountYen, 0);
+      monthlyAmountYen: num(item.amount_yen),
+    }))
+    .filter((item) => item.monthlyAmountYen > 0);
 
   const outflowCategories: KiyoMoneyFlowOutflowCategory[] = [
     {
@@ -410,7 +425,9 @@ async function computeInternal(period: KiyoMoneyFlowPeriod): Promise<KiyoMoneyFl
       label: "役員報酬",
       totalYen: executiveTotalYen,
       rows: executiveRows,
-      note: "freee仕訳の役員報酬 (発生ベース)。",
+      note: executiveMissingYms.length > 0
+        ? `freee仕訳の役員報酬。${executiveMissingYms.map((v) => `${v.slice(4, 6)}月`).join("・")}分はfreeeにまだ計上されていないため、この金額には入っていない（口座からは出ている可能性があり、その分は「まだ分類できていない」に含まれる）。`
+        : "freee仕訳の役員報酬 (発生ベース)。",
     },
     {
       key: "social_insurance_tax",
@@ -426,15 +443,80 @@ async function computeInternal(period: KiyoMoneyFlowPeriod): Promise<KiyoMoneyFl
       rows: opexRows,
       note: "freee仕訳の固定費 (発生ベース)。役員報酬・法定福利費・租税公課は他の分類で数えるため除く。",
     },
-    {
-      key: "loan_payment",
-      label: "借入の返済",
-      totalYen: loanPaymentTotalYen,
-      rows: loanRows,
-      note: "月額の返済予定 × 期間内の経過月数。",
-    },
   ];
-  const outflowTotalYen = outflowCategories.reduce((sum, category) => sum + category.totalYen, 0);
+  const capturedOutflowYen = outflowCategories.reduce((sum, category) => sum + category.totalYen, 0);
+
+  // ---- 口座の実際の動きへ合わせる (アンカリング) ----
+  // 内訳は請求台帳・銀行明細・freee仕訳の3系統から作っており、口座の実際の動きより少なくなる。
+  // 期間内の経過月すべてでfreee取引履歴の集計が揃っているときは、合計を口座の実額に合わせ、
+  // 説明できない差額を「まだ分類できていない」として明示する (差額を隠さないため)。
+  const rangeEndForElapsed = range.endYm && range.endYm < nowYm ? range.endYm : nowYm;
+  const cashRowsInRange = actualMonthly.filter(
+    (row) => (CASH_IN_CATEGORIES.has(row.category ?? "") || CASH_OUT_CATEGORIES.has(row.category ?? "")) && inRange(row.ym, range.startYm, range.endYm),
+  );
+  const cashCoverageYms = new Set(cashRowsInRange.map((row) => row.ym));
+  const elapsedYms = range.startYm ? enumerateYms(range.startYm, rangeEndForElapsed) : [];
+  const anchoredToBank = elapsedYms.length > 0 && elapsedYms.every((v) => cashCoverageYms.has(v));
+
+  const bankInflowYen = cashRowsInRange
+    .filter((row) => CASH_IN_CATEGORIES.has(row.category ?? ""))
+    .reduce((sum, row) => sum + num(row.actual_amount_yen), 0);
+  const bankOutflowYen = cashRowsInRange
+    .filter((row) => CASH_OUT_CATEGORIES.has(row.category ?? ""))
+    .reduce((sum, row) => sum + num(row.actual_amount_yen), 0);
+
+  let inflowTotalYen = capturedInflowYen;
+  let outflowTotalYen = capturedOutflowYen;
+
+  if (anchoredToBank) {
+    const inflowGapYen = Math.max(0, Math.round(bankInflowYen - capturedInflowYen));
+    const outflowGapYen = Math.max(0, Math.round(bankOutflowYen - capturedOutflowYen));
+
+    if (inflowGapYen > 0) {
+      inflowProjects.push({
+        projectId: UNCLASSIFIED_PROJECT_ID,
+        projectName: "まだ分類できていない",
+        clientName: null,
+        unclassified: true,
+        contractYen: 0,
+        extraYen: inflowGapYen,
+        totalYen: inflowGapYen,
+        months: [],
+      });
+    }
+    if (outflowGapYen > 0) {
+      const gapRows = [
+        ...(executiveMissingYms.length > 0
+          ? [{
+              label: "役員報酬（freeeに仕訳がまだ）",
+              detail: `${executiveMissingYms.map((v) => `${v.slice(4, 6)}月`).join("・")}分がfreeeに未計上。計上されれば自動で役員報酬へ移る`,
+            }]
+          : []),
+        ...loanPlans.map((plan) => ({
+          label: `借入の返済（${plan.vendorName}）`,
+          detail: `毎月${Math.round(plan.monthlyAmountYen / 10000)}万円の予定。口座の記録から自動で見分けられないため、予定額では数えない`,
+        })),
+        {
+          label: "そのほか",
+          detail: "口座から出ているが、上のどの分類にも結び付けられていない分",
+        },
+      ];
+      outflowCategories.push({
+        key: "unclassified",
+        label: "まだ分類できていない",
+        totalYen: outflowGapYen,
+        rows: gapRows,
+        note: "口座から実際に出た合計と、上の内訳の差。ここが小さいほど、お金の使い道を説明できている。",
+      });
+    }
+    inflowTotalYen = Math.max(capturedInflowYen, Math.round(bankInflowYen));
+    outflowTotalYen = Math.max(capturedOutflowYen, Math.round(bankOutflowYen));
+    inflowProjects.sort((a, b) => b.totalYen - a.totalYen);
+  } else if (elapsedYms.length > 0 || range.kind === "all") {
+    warnings.push(
+      "口座の実際の動きと突き合わせできる月がそろっていないため、この期間は内訳で拾えている分だけの合計を出しています。",
+    );
+  }
 
   // ---- AMDの財布 ----
   const cashBalanceRows = actualMonthly.filter((row) => row.category === "cash_balance").sort((a, b) => b.ym.localeCompare(a.ym));
@@ -469,6 +551,7 @@ async function computeInternal(period: KiyoMoneyFlowPeriod): Promise<KiyoMoneyFl
       balanceYen,
       balanceYm,
       netChangeYen: inflowTotalYen - outflowTotalYen,
+      anchoredToBank,
       loanRemainingYen,
     },
     inflow: { totalYen: inflowTotalYen, byProject: inflowProjects },

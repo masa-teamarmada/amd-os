@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import type { KiyoMoneyFlowInflowProject, KiyoMoneyFlowOutflowCategory } from "@/lib/finance/kiyo-money-flow-types";
+import { UNCLASSIFIED_PROJECT_ID, type KiyoMoneyFlowInflowProject, type KiyoMoneyFlowOutflowCategory } from "@/lib/finance/kiyo-money-flow-types";
+import { cn } from "@/lib/utils";
 import { formatManYen } from "./format";
 import {
   SANKEY_VIEW_WIDTH,
@@ -10,6 +11,7 @@ import {
   makePortAllocator,
   linkPath,
   linkStrokeWidth,
+  spreadLabelYs,
   type SankeyNodeLayout,
 } from "./sankey-layout";
 
@@ -59,14 +61,14 @@ export function KiyoMoneyFlowSankey({
       scaleTotal,
     );
     const rightNodes = layoutColumn(
-      outflowCategories.map((c) => ({ id: `out-${c.key}`, label: c.label, value: Math.max(c.totalYen, 1) })),
+      outflowCategories.map((c) => ({ id: `out-${c.key}`, label: c.label, value: c.totalYen })),
       RIGHT_NODE_X,
       COLUMN_HEIGHT,
       scaleTotal,
     );
     const columnBottom = (nodes: SankeyNodeLayout[]) => nodes.reduce((max, n) => Math.max(max, n.y + n.height), 0);
     // 財布は総量ノード (高さ = scaleTotal ぶん)。入りが出より少ない期間は、財布下部に
-    // 入り帯の无い領域が残る = 財布の残りから出した分が視覚的に見える。
+    // 入り帯の無い領域が残る = 財布の残りから出した分が視覚的に見える。
     const walletNode: SankeyNodeLayout = { id: "wallet", label: "AMDの財布", value: scaleTotal, x: WALLET_X, y: 0, height: COLUMN_HEIGHT };
     const contentHeight = Math.max(columnBottom(leftNodes), columnBottom(rightNodes), COLUMN_HEIGHT);
 
@@ -109,7 +111,9 @@ export function KiyoMoneyFlowSankey({
       })
       .filter((v): v is NonNullable<typeof v> => v !== null);
 
-    return { leftNodes, rightNodes, walletNode, inflowLinks, outflowLinks, contentHeight };
+    const leftLabelYs = spreadLabelYs(leftNodes, 13, COLUMN_HEIGHT);
+    const rightLabelYs = spreadLabelYs(rightNodes, 13, COLUMN_HEIGHT);
+    return { leftNodes, rightNodes, walletNode, inflowLinks, outflowLinks, contentHeight, leftLabelYs, rightLabelYs };
   }, [inflowProjects, outflowCategories, inflowTotal, outflowTotal]);
 
   const viewHeight = COLUMN_TOP + layout.contentHeight + BOTTOM_PAD;
@@ -129,7 +133,12 @@ export function KiyoMoneyFlowSankey({
             key={link.id}
             d={linkPath(link.sourceX, link.sourceY, link.targetX, link.targetY)}
             stroke="currentColor"
-            className="cursor-pointer text-emerald-500/35 hover:text-emerald-500/60 dark:text-emerald-400/30 dark:hover:text-emerald-400/55"
+            className={cn(
+              "cursor-pointer",
+              link.projectId === UNCLASSIFIED_PROJECT_ID
+                ? "text-muted-foreground/25 hover:text-muted-foreground/45"
+                : "text-emerald-500/35 hover:text-emerald-500/60 dark:text-emerald-400/30 dark:hover:text-emerald-400/55",
+            )}
             strokeWidth={link.width}
             fill="none"
             onClick={() => onSelectProject(link.projectId)}
@@ -140,26 +149,37 @@ export function KiyoMoneyFlowSankey({
             key={link.id}
             d={linkPath(link.sourceX, link.sourceY, link.targetX, link.targetY)}
             stroke="currentColor"
-            className="cursor-pointer text-amber-500/35 hover:text-amber-500/60 dark:text-amber-400/30 dark:hover:text-amber-400/55"
+            className={cn(
+              "cursor-pointer",
+              link.key === "unclassified"
+                ? "text-muted-foreground/25 hover:text-muted-foreground/45"
+                : "text-amber-500/35 hover:text-amber-500/60 dark:text-amber-400/30 dark:hover:text-amber-400/55",
+            )}
             strokeWidth={link.width}
             fill="none"
             onClick={() => onSelectCategory(link.key)}
           />
         ))}
 
-        {layout.leftNodes.map((node, index) => (
-          <g
-            key={node.id}
-            className="cursor-pointer"
-            onClick={() => onSelectProject(inflowProjects[index]?.projectId ?? node.id.replace("in-", ""))}
-          >
-            <rect x={node.x} y={node.y} width={SANKEY_NODE_WIDTH} height={node.height} className="fill-emerald-600/85 dark:fill-emerald-500/85" rx={1.5} />
-            <text x={LEFT_LABEL_RIGHT} y={node.y + node.height / 2} textAnchor="end" dominantBaseline="central" className="fill-foreground text-[11px]">
+        {layout.leftNodes.map((node, index) => {
+          const projectId = node.id.replace("in-", "");
+          return (
+          <g key={node.id} className="cursor-pointer" onClick={() => onSelectProject(projectId)}>
+            <rect
+              x={node.x}
+              y={node.y}
+              width={SANKEY_NODE_WIDTH}
+              height={node.height}
+              className={cn(projectId === UNCLASSIFIED_PROJECT_ID ? "fill-muted-foreground/45" : "fill-emerald-600/85 dark:fill-emerald-500/85")}
+              rx={1.5}
+            />
+            <text x={LEFT_LABEL_RIGHT} y={layout.leftLabelYs[index]} textAnchor="end" dominantBaseline="central" className="fill-foreground text-[11px]">
               <tspan className="fill-muted-foreground">{truncateName(node.label)}</tspan>
               <tspan className="font-semibold tabular-nums" dx={5}>{formatManYen(node.value)}</tspan>
             </text>
           </g>
-        ))}
+          );
+        })}
 
         <g>
           <rect x={layout.walletNode.x} y={layout.walletNode.y} width={WALLET_W} height={layout.walletNode.height} className="fill-sky-600/85 dark:fill-sky-500/85" rx={2} />
@@ -171,19 +191,25 @@ export function KiyoMoneyFlowSankey({
           </text>
         </g>
 
-        {layout.rightNodes.map((node, index) => (
-          <g
-            key={node.id}
-            className="cursor-pointer"
-            onClick={() => onSelectCategory(outflowCategories[index]?.key ?? node.id.replace("out-", ""))}
-          >
-            <rect x={node.x} y={node.y} width={SANKEY_NODE_WIDTH} height={node.height} className="fill-amber-600/85 dark:fill-amber-500/85" rx={1.5} />
-            <text x={RIGHT_LABEL_LEFT} y={node.y + node.height / 2} textAnchor="start" dominantBaseline="central" className="fill-foreground text-[11px]">
+        {layout.rightNodes.map((node, index) => {
+          const categoryKey = node.id.replace("out-", "");
+          return (
+          <g key={node.id} className="cursor-pointer" onClick={() => onSelectCategory(categoryKey)}>
+            <rect
+              x={node.x}
+              y={node.y}
+              width={SANKEY_NODE_WIDTH}
+              height={node.height}
+              className={cn(categoryKey === "unclassified" ? "fill-muted-foreground/45" : "fill-amber-600/85 dark:fill-amber-500/85")}
+              rx={1.5}
+            />
+            <text x={RIGHT_LABEL_LEFT} y={layout.rightLabelYs[index]} textAnchor="start" dominantBaseline="central" className="fill-foreground text-[11px]">
               <tspan className="fill-muted-foreground">{truncateName(node.label)}</tspan>
               <tspan className="font-semibold tabular-nums" dx={5}>{formatManYen(node.value)}</tspan>
             </text>
           </g>
-        ))}
+          );
+        })}
       </g>
     </svg>
   );
