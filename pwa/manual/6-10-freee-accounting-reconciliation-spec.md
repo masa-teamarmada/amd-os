@@ -37,6 +37,30 @@ RLSは`amd_os_current_user_is_admin()`（admin全操作）+ service_role bypass�
   - `internal_transfer_candidate`: 別口座間で同額・許容日差（既定1日）以内・1対1の未紐付けexpense/incomeペアが一意に決まる場合のみ。
 - 曖昧・分割・手数料混在・同額複数候補・残高差の直接補正・勘定科目の推測は、findingの型を問わず常に`eligibleForAutoApply=false`（`balance_delta`/`sync_stale`/`unprocessed_entry`/`anomalous_journal`は型として自動反映対象に一切含めない）。
 
+## 毎月の給与仕訳は freee人事労務の「会計連携」を押すまで会計に入らない
+
+**freee人事労務で給与を確定しただけでは、freee会計に給与仕訳は作られない。** 給与明細一覧の「会計連携」ボタンを押して初めて `役員報酬` / `法定福利費` / `預り金` の複合仕訳が会計へ送られる。押し忘れると試算表にその月の役員報酬が載らず、AMD OSの実績（`company_actual_monthly` の `fixed_cost`）も0円のままになる。
+
+| 見分け方 | 状態 |
+|---|---|
+| ボタンが `会計連携` | **未実行**。その月の給与仕訳は会計に無い |
+| ボタンが `会計連携の取消し` | 実行済み |
+
+- 場所: freee人事労務 → 給与 → 給与明細一覧 → 対象月タブ（`https://p.secure.freee.co.jp/payroll_statements`）
+- 仕訳の発生月は**支給月ではなく賃金計算期間の末日**。8月25日支給（7月勤務分）は `202607` に載る。
+- 実行は取り消せる（`会計連携の取消し`）。
+- 実行後、AMD OS へ取り込むには `GET /api/cron/management-score-raw-data?includeFreee=1&ym=YYYYMM` を対象月ぶん叩く。`includeFreee=1` が無いと試算表は同期されない。
+
+**検知**: きよ「00 お金の流れ」（`6-11`）の役員報酬は、freee試算表の行はあるのに `役員報酬` 科目だけ無い月を欠測として注記に出す。ここに月が並んでいたら会計連携の押し忘れを疑う。
+
+### 口座明細の消込は一覧画面からは見えない
+
+振込明細を給与仕訳の `未払金` と突き合わせるのは、`自動で経理` の一覧に出ている「取引登録」ではなく、**明細の詳細を開いて「未決済取引の消込」タブ**で行う。一覧の「登録」を押すと新規に費用を立ててしまい、給与仕訳と二重になる。役員報酬の振込が複数人ぶんに分かれている場合は、1件の未決済取引（例: 830,783円 = まさ548,762 + きよ282,021）に対して `今回決済金額` を入れて部分消込する。
+
+### 履歴
+
+- 2026-08-27: 7月分・8月分の会計連携が未実行のまま放置され、`202606` `202607` の役員報酬・法定福利費が会計にもAMD OSにも載っていなかった。えいみがブラウザで両月の会計連携を実行し、`?includeFreee=1` で再同期。`202606` 役員報酬 1,040,000 / 法定福利費 153,842、`202607` 同額を確認。
+
 ## 役員報酬期待額の正本（`company_finance_recurring_items`。`billing_cycles.reward_summary_json`は使わない）
 
 `billing_cycles.reward_summary_json`はPJ報酬reserve（`/admin/finance`の「AMD運営費へ残る役員除外分」= 既存`officer-compensation.ts`の`loadOfficerReserve`が使う別用途の正本）であり、役員報酬そのもののSOTではない。会計照合が使うのは`pwa/manual/4-5-management-score-and-finance-simulation-spec.md`が定める契約どおり、`company_finance_recurring_items`の`item_kind='salary'`または`category='executive'`の明示分類だけ（`freee-reconciliation-client.ts`の`loadOfficerRecurringMappings`）。
