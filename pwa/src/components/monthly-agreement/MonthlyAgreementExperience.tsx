@@ -11,6 +11,7 @@ import {
   Loader2,
   RefreshCw,
   Send,
+  X,
 } from "lucide-react";
 import { Hint } from "@/components/ui/Hint";
 import type {
@@ -99,6 +100,7 @@ type MonthlyAgreementExperienceProps = {
   initialMemberId?: string;
   initialBundle?: MonthlyWorkAgreementBundle | null;
   onResolved?: () => void;
+  onDismiss?: () => void;
 };
 
 export function MonthlyAgreementLoading({
@@ -124,6 +126,7 @@ export function MonthlyAgreementExperience({
   initialMemberId = "",
   initialBundle = null,
   onResolved,
+  onDismiss,
 }: MonthlyAgreementExperienceProps) {
   const ym = initialBundle?.ym || initialYm || currentYmJst();
   const memberId = initialBundle?.member.memberId || initialMemberId;
@@ -289,15 +292,27 @@ export function MonthlyAgreementExperience({
   const metricCount =
     4 + (unverifiedPaidYen > 0 ? 1 : 0) + (totalStockYen > 0 ? 1 : 0);
   const summaryCols = metricCount >= 5 ? "lg:grid-cols-3" : "lg:grid-cols-4";
-  const contentWidth = isModal ? "max-w-[960px]" : "max-w-5xl";
+  const contentWidth = isModal ? "max-w-4xl" : "max-w-5xl";
 
   return (
     <div
-      className={`${isModal ? "h-full min-h-0 overflow-y-auto" : "min-h-screen pb-12"} bg-[#f5f5f7]`}
+      className={`${isModal ? "min-h-0 overflow-y-auto" : "min-h-screen pb-12"} bg-[#f5f5f7]`}
     >
       <div
-        className={`${isModal ? "sticky top-0 z-10 px-3 py-3" : "px-4 py-5"} border-b border-[#e5e5e7] bg-white`}
+        className={`${isModal ? "sticky top-0 z-10 px-3 py-3 pr-14" : "px-4 py-5"} border-b border-[#e5e5e7] bg-white`}
       >
+        {isModal && onDismiss && (
+          <button
+            type="button"
+            data-testid="monthly-agreement-modal-close"
+            onClick={onDismiss}
+            aria-label="閉じる"
+            title="閉じる（合意はまだ保存されません）"
+            className="absolute right-2 top-2 inline-flex size-10 items-center justify-center rounded-md border border-[#d1d1d6] bg-white text-[#3c3c43] transition-colors hover:bg-[#f5f5f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007aff]"
+          >
+            <X className="size-4" />
+          </button>
+        )}
         <div
           className={`mx-auto flex ${contentWidth} flex-col gap-3 sm:flex-row sm:items-end sm:justify-between`}
         >
@@ -308,7 +323,7 @@ export function MonthlyAgreementExperience({
               月初合意
             </p>
             <h1
-              className={`${isModal ? "text-[20px]" : "text-[22px]"} mt-1 font-semibold text-[#1d1d1f]`}
+              className={`${isModal ? "text-[17px] sm:text-[20px]" : "text-[22px]"} mt-1 font-semibold text-[#1d1d1f]`}
             >
               {formatYm(bundle.ym)}の担当内容と予定額
             </h1>
@@ -317,8 +332,8 @@ export function MonthlyAgreementExperience({
             </p>
           </div>
           {isModal ? (
-            <p className="max-w-sm text-[13px] leading-[20px] text-[#6e6e73]">
-              確認して合意すると、この画面は自動で閉じます。
+            <p className="max-w-xs text-[12px] leading-[18px] text-[#6e6e73]">
+              右上の × か背景のクリックで閉じます（合意は保存されません）。
             </p>
           ) : (
             <Link

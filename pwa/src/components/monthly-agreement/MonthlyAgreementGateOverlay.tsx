@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useState, type MouseEvent } from "react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import type { MonthlyWorkAgreementBundle } from "@/lib/monthly-work-agreement-types";
@@ -20,6 +20,7 @@ export function MonthlyAgreementGateOverlay({ bundle }: MonthlyAgreementGateOver
   const gateKey = `${pathname}:${bundle.ym}:${bundle.currentHash}`;
   const [closedGateKey, setClosedGateKey] = useState<string | null>(null);
   const open = closedGateKey !== gateKey;
+  const close = useCallback(() => setClosedGateKey(gateKey), [gateKey]);
 
   useEffect(() => {
     if (!open) return;
@@ -30,27 +31,37 @@ export function MonthlyAgreementGateOverlay({ bundle }: MonthlyAgreementGateOver
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, close]);
+
   const onBackdropClick = (event: MouseEvent<HTMLDivElement>) => {
     if (event.target !== event.currentTarget) return;
-    setClosedGateKey(gateKey);
+    close();
   };
 
   if (!open) return null;
 
   return (
     <div
-      className="fixed inset-0 z-[80] bg-black/45 p-1.5 backdrop-blur-[2px] sm:p-3"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px] sm:p-8 lg:p-12"
       role="dialog"
       aria-modal="true"
       aria-label="月初合意"
       onClick={onBackdropClick}
     >
-      <div className="mx-auto flex h-full max-w-7xl flex-col overflow-hidden rounded-lg border border-[#d1d1d6] bg-[#f5f5f7] shadow-2xl">
+      <div className="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-[#d1d1d6] bg-[#f5f5f7] shadow-2xl">
         <MonthlyAgreementExperience
           mode="modal"
           initialBundle={bundle}
+          onDismiss={close}
           onResolved={() => {
-            setClosedGateKey(gateKey);
+            close();
             router.refresh();
           }}
         />
