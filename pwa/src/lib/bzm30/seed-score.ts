@@ -48,6 +48,23 @@ export interface SeedBzm30InputRow {
   unit_margin_positive: boolean | null;
   use_case_left: number | null;
   note: string | null;
+  // 案件ごとに調べた根拠（migration 332）。画面の「入力の充足」の表の5列目に1件ずつ出す
+  free_cash_reason: string | null;
+  /**
+   * 案件の実績または計画のバーンレート（円／月）。
+   * **前向き計算には入らない** — 参照実装は案件ごとのバーンレートを受け取らず、
+   * 工程の型と会社化の有無から引く既定値（モデルページ §6.I-9-2）で計算する。
+   * 実績と既定値のずれを画面に出すためだけに持つ。
+   */
+  burn_rate_yen_month: number | null;
+  burn_rate_reason: string | null;
+  rights_open_reason: string | null;
+  under_contract_reason: string | null;
+  kappa_ip_reason: string | null;
+  sigma_reason: string | null;
+  evangelist_e_reason: string | null;
+  unit_margin_reason: string | null;
+  incorporated_reason: string | null;
 }
 
 export interface SeedBzm30ScoreRow {

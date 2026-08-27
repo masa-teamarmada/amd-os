@@ -163,8 +163,20 @@ mobile（375px）で `documentElement.scrollWidth === clientWidth` になるこ�
 | テーブル | 何を持つか | 書き込む人 |
 |---|---|---|
 | `seed_value_ceilings` | 用途ごとの天井 $\bar P_u$（国内の年額の付加価値）と置き換え分 $\delta_u$、売上ベースの市場規模、付加価値率、出典、確度 | 調査（人） |
-| `seed_bzm30_inputs` | 工程の型 × 規制属性、評価日の証拠水準、観測状態（会社化・自由資金・権利残件・受託契約）、案件パラメータ（$\sigma$・$e$・$\kappa_{\mathrm{IP}}$・自走力・単位採算・未着手の用途） | 調査（人） |
+| `seed_bzm30_inputs` | 工程の型 × 規制属性、評価日の証拠水準、観測状態（会社化・自由資金・権利残件・受託契約）、案件パラメータ（$\sigma$・$e$・$\kappa_{\mathrm{IP}}$・自走力・単位採算・未着手の用途）と、**パラメータ1件ずつの根拠**（migration 332） | 調査（人） |
 | `seed_bzm30_scores` | 天井1円あたりの現在価値 $v$（10%点・中央・90%点）、天井を掛けた金額、9区分の確率、量産到達確率と到達月数、計算に使った入力の写し | 算出バッチ |
+
+**根拠は1件ずつの欄に置く**（`free_cash_reason`・`rights_open_reason`・`under_contract_reason`・
+`kappa_ip_reason`・`sigma_reason`・`evangelist_e_reason`・`unit_margin_reason`・`incorporated_reason`・
+`burn_rate_reason` と、既存の `classification_reason`・`evidence_stage_reason`・`self_revenue_note`）。
+§2.1 の表の5列目はこの欄をそのまま出す。案件ぜんぶを1つの `note` にまとめると、
+どの値の根拠なのかが読み手に割り当てられず、必ず片方だけ古くなる（`model/README.md` (a-2) と同じ理由）。
+
+**バーンレート `burn_rate_yen_month` は記録するが、前向き計算には入らない。**
+参照実装は案件ごとのバーンレートを受け取らず、工程の型と会社化の有無から引く既定値
+（モデルページ §6.I-9-2）で計算する。それでも表に出すのは、既定値が実績と何倍ずれているかが見えないと
+資金の残り月数を読み違えるためで、出どころは**琥珀（承認待ち）**として出す
+——OS側にデータはあるが、入力へ写す経路がモデル側に無い、という状態そのものが §2.1 の琥珀の定義に当たる。
 
 RLS は `seeds` と同じ（member の SELECT、admin の全操作、service_role の bypass）。
 

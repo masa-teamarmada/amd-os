@@ -84,19 +84,21 @@ export const STAGE_ASSIGNMENT: Record<string, { stage: number; reason: string }>
 /**
  * 算出済みの金額を画面に出してよいか。
  *
- * **いまは false。** 2026-08-27 の算出は、OS にある資金繰り・議事録・契約・知財・
- * 創業メンバーを一度も読まずに、XRL と月報1か月分だけで入力を決めていた。
- * 実データと突き合わせたら大きくずれていた——
- *   - LiSTie の手元資金: 入れた値 1.5億 / 資金繰り表の実績 2.24億
- *   - CLG のバーンレート: 使った既定値 月400万 / 実績 月800〜1,200万
- *   - CLG のランウェイ: 未入力 / 取締役会の記録では「入金がなければ12月末、判断期限は11月末」
- *   - SE の資金の経路: 既定は民間調達あり / 議事録では「民間投資だけでは立ち上がらない。国費が主」
+ * **2026-08-27 に true へ戻した。** 一度 false にしたのは、その日の午前の算出が
+ * OS にある資金繰り・議事録・契約・知財・創業メンバーを一度も読まずに、
+ * XRL と月報1か月分だけで入力を決めていたためだった（まさ「一旦隠しておいて」）。
  *
- * 資金繰りも体制も見ていない金額を画面に出すと、順位を誤って読ませる
- * （まさ 2026-08-27「一旦隠しておいて」）。入力を埋め直して再計算したら true に戻す。
- * v（天井1円あたりの現在価値）と9区分の確率も同じ入力から出ているので、あわせて伏せる。
+ * 同じ日の午後に、`project_id` を持つ165テーブルの棚卸しから始めて入力を埋め直した。
+ * 何をどこまで読んだかは [model/cases/INVENTORY.md](../../../../model/cases/INVENTORY.md)、
+ * 案件ごとの根拠は `seed_bzm30_inputs` の各 `*_reason` 欄にあり、
+ * シーズ詳細の「入力の充足」の表の5列目にそのまま出る。
+ *
+ * **まだ埋まっていないものが残っている。** 出どころの色（観測 / Tier 0 既定 / 未調査 /
+ * 承認待ち）と、その列の根拠の文がそれを見せる。とくに:
+ *   - 産官学モメンタム σ は21件すべて未記入（区分ごとの産業統計がOSに無い）
+ *   - バーンレートは記録しても**計算に入らない**（参照実装が案件ごとの値を受け取らない）
  */
-export const BZM30_SCORES_PUBLISHED = false;
+export const BZM30_SCORES_PUBLISHED = true;
 
 // ───────────────────────────────── 入力の一覧
 
@@ -281,17 +283,42 @@ export function buildSeedInputs(
     key: "iota", symbol: "\\iota_0", name: "会社化",
     value: incKnown ? (rec.incorporated ? "済み" : "未") : inc ? (inc.yes ? "済み" : "未") : "未（Tier 0 既定）",
     filled: incKnown || Boolean(inc), origin: incKnown || inc ? "観測" : "Tier 0 既定",
-    source: inc ? `AMD PJ ${inc.via} から` : incKnown ? "案件ごとに確認した値" : "シーズに紐づく AMD PJ が無いので、会社化していないものとして計算する",
+    source: rec?.incorporated_reason
+      ?? (inc ? `AMD PJ ${inc.via} から` : incKnown ? "案件ごとに確認した値" : "シーズに紐づく AMD PJ が無いので、会社化していないものとして計算する"),
   });
 
   const cashKnown = rec?.free_cash_yen !== null && rec?.free_cash_yen !== undefined;
   out.push({
     key: "cash", symbol: "s^{\\mathrm{f}}_0", name: "評価日の自由資金",
-    value: cashKnown ? `${oku(rec.free_cash_yen as number)}` : "会社化前バーンレートの18か月分（Tier 0 既定）",
+    value: cashKnown ? `${oku(rec.free_cash_yen as number)}${rec.free_cash_as_of ? `（${rec.free_cash_as_of} 時点）` : ""}` : "会社化前バーンレートの18か月分（Tier 0 既定）",
     filled: cashKnown, origin: cashKnown ? "観測" : "Tier 0 既定",
-    source: cashKnown
-      ? `実額${rec.free_cash_as_of ? `（${rec.free_cash_as_of} 時点）` : ""}。撤退の確率を直接動かす`
-      : "実額が入ると撤退の確率が大きく動く。手元資金の残高の確認が要る",
+    source: rec?.free_cash_reason
+      ?? (cashKnown
+        ? `実額${rec.free_cash_as_of ? `（${rec.free_cash_as_of} 時点）` : ""}。撤退の確率を直接動かす`
+        : "実額が入ると撤退の確率が大きく動く。手元資金の残高の確認が要る"),
+  });
+
+  // バーンレートは**前向き計算に入らない**（参照実装は工程の型と会社化の有無から既定値を引く）。
+  // それでも表に出すのは、既定値が実績と何倍ずれているかが見えないと、
+  // 資金の残り月数を読み違えるため（BUGS.md 2026-08-27 の2件目）。
+  const burnKnown = rec?.burn_rate_yen_month !== null && rec?.burn_rate_yen_month !== undefined;
+  out.push({
+    key: "burn", symbol: "\\mu_t", name: "バーンレート（参考・計算には入らない）",
+    value: burnKnown
+      ? `${((rec.burn_rate_yen_month as number) / 1e4).toLocaleString("ja-JP", { maximumFractionDigits: 0 })} 万円／月`
+      : "工程の型と会社化の有無から引く既定値（Tier 0 既定）",
+    filled: false, origin: burnKnown ? "承認待ち" : "Tier 0 既定",
+    source: rec?.burn_rate_reason
+      ?? "参照実装は案件ごとのバーンレートを受け取らず、モデルページ §6.I-9-2 の型別の既定値で計算する。実績を入れる経路がまだ無い",
+  });
+
+  const ucKnown = rec?.under_contract !== null && rec?.under_contract !== undefined;
+  out.push({
+    key: "x0", symbol: "x_0", name: "評価日に受託契約中か",
+    value: ucKnown ? (rec.under_contract ? "受託契約中" : "受託契約なし") : "受託契約なし（Tier 0 既定）",
+    filled: ucKnown, origin: ucKnown ? "観測" : "Tier 0 既定",
+    source: rec?.under_contract_reason
+      ?? "受託中は工数の一部が受託へ向くのでゲートの前進が遅くなる一方、稼ぎが入って資金が延びる",
   });
 
   const rightsKnown = rec?.rights_open !== null && rec?.rights_open !== undefined;
@@ -301,7 +328,8 @@ export function buildSeedInputs(
       ? `${rec.rights_open} 件`
       : seed.ip_status ? `2件（Tier 0 既定）／登録の記載: ${seed.ip_status}` : "2件（Tier 0 既定）",
     filled: rightsKnown, origin: rightsKnown ? "観測" : "Tier 0 既定",
-    source: "職務発明の帰属・共同出願の同意・ライセンス条件・利益相反の承認の4種を数える",
+    source: rec?.rights_open_reason
+      ?? "職務発明の帰属・共同出願の同意・ライセンス条件・利益相反の承認の4種を数える",
   });
 
   // ── 案件パラメータ
@@ -310,7 +338,7 @@ export function buildSeedInputs(
     key: "kIP", symbol: "\\kappa_{\\mathrm{IP}}", name: "専有可能性",
     value: kipKnown ? `${Number(rec.kappa_ip).toFixed(2)}` : "0.55（単独出願済みの想定。Tier 0 既定）",
     filled: kipKnown, origin: kipKnown ? "観測" : "Tier 0 既定",
-    source: "請求範囲の広さ・他者特許との抵触・代替経路の塞がり具合から推定する",
+    source: rec?.kappa_ip_reason ?? "請求範囲の広さ・他者特許との抵触・代替経路の塞がり具合から推定する",
   });
 
   const sigmaKnown = rec?.sigma !== null && rec?.sigma !== undefined;
@@ -320,7 +348,8 @@ export function buildSeedInputs(
       ? ((rec.sigma as number) > 0 ? "追い風" : (rec.sigma as number) < 0 ? "逆風" : "無風")
       : "逆風／無風／追い風を 25 / 50 / 25% で重ねる（Tier 0 既定）",
     filled: sigmaKnown, origin: sigmaKnown ? "観測" : "Tier 0 既定",
-    source: "直近24か月と その前の24か月を比べ、公的公募の採択率・予算額、民間投資額、正統性の事象の3項目で判定する",
+    source: rec?.sigma_reason
+      ?? "直近24か月と その前の24か月を比べ、公的公募の採択率・予算額、民間投資額、正統性の事象の3項目で判定する",
   });
 
   const eKnown = rec?.evangelist_e !== null && rec?.evangelist_e !== undefined;
@@ -328,7 +357,8 @@ export function buildSeedInputs(
     key: "e", symbol: "e", name: "エバンジェリスト機能が埋まる見込み",
     value: eKnown ? `${Number(rec.evangelist_e).toFixed(2)}` : "0.50（未探索は中立。Tier 0 既定）",
     filled: eKnown, origin: eKnown ? "観測" : "Tier 0 既定",
-    source: "関係者の棚卸し（研究室出身者・長期の共同研究者・共同出願者）。探索して見つからないと分かったときだけ下げる",
+    source: rec?.evangelist_e_reason
+      ?? "関係者の棚卸し（研究室出身者・長期の共同研究者・共同出願者）。探索して見つからないと分かったときだけ下げる",
   });
 
   const rKnown = rec?.self_revenue_yen_month !== null && rec?.self_revenue_yen_month !== undefined;
@@ -347,7 +377,8 @@ export function buildSeedInputs(
       ? (rec.unit_margin_positive ? "黒字で立つ用途がある" : "黒字で立つ用途がまだ無い")
       : seed.first_customer_candidate ? `未調査（顧客候補: ${seed.first_customer_candidate}）` : "未調査",
     filled: marginKnown, origin: marginKnown ? "観測" : "未調査",
-    source: "この差が黒字で立つ用途が一つも無いと、経済性の乗数が下がり資金が付かなくなる",
+    source: rec?.unit_margin_reason
+      ?? "この差が黒字で立つ用途が一つも無いと、経済性の乗数が下がり資金が付かなくなる",
   });
 
   if (total !== null) {
