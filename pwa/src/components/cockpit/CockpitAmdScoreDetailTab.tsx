@@ -8,14 +8,21 @@
  * **現行の BZM 3.0（産業創出価値 V）だけ**を出す。シーズ詳細と同じパネルを使うので、
  * 同じ PJ を PJ 側から見ても シーズ側から見ても同じ数字・同じ根拠が出る。
  *
+ * 最上段の「現行SPS｜産業創出価値」カードは 2026-08-28 まさ依頼でコックピット上部から移した。
+ * 置くのは評価の状態（評価済みか / SPS帯 / 根拠レベル / 評価日 / 対応シーズ）だけで、
+ * 帯の定義式・算出過程・q要因までは戻さない（8-27 で外した「古いモデルの試算結果」がそれ）。
+ *
  * 仕様は pwa/spec の「4-8 BZM 3.0 スコアパネル」。
  */
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bzm30ScorePanel } from "@/components/bzm30/Bzm30ScorePanel";
+import { CurrentSpsAssessmentCard } from "@/components/sps/CurrentSpsAssessmentCard";
+import { loadCurrentSpsAssessment, peekCurrentSpsAssessment } from "@/lib/current-sps-client";
 import { fetchSeedDetail } from "@/lib/seeds-data";
 import { createClient } from "@/lib/supabase/client";
+import type { CurrentSpsProjectAssessment } from "@/lib/current-sps-model";
 import type { SeedDetail } from "@/types/seeds";
 
 type LoadState =
@@ -26,6 +33,10 @@ type LoadState =
 
 export function CockpitAmdScoreDetailTab({ projectId, active = true }: { projectId: string; active?: boolean }) {
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  // 参照系キャッシュに載っていればタブを開いた瞬間に出す。無ければ下の effect が読む。
+  const [currentSps, setCurrentSps] = useState<CurrentSpsProjectAssessment | null>(
+    () => peekCurrentSpsAssessment(projectId) ?? null,
+  );
 
   useEffect(() => {
     if (!active) return;
@@ -62,6 +73,28 @@ export function CockpitAmdScoreDetailTab({ projectId, active = true }: { project
     };
   }, [active, projectId]);
 
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    loadCurrentSpsAssessment(projectId)
+      .then((assessment) => {
+        if (!cancelled) setCurrentSps(assessment);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [active, projectId]);
+
+  return (
+    <div className="min-w-0 space-y-3" data-density="compact-score-page">
+      {currentSps ? <CurrentSpsAssessmentCard assessment={currentSps} /> : null}
+      <Bzm30Section state={state} />
+    </div>
+  );
+}
+
+function Bzm30Section({ state }: { state: LoadState }) {
   if (state.status === "loading") {
     return (
       <div className="grid min-h-24 place-items-center border border-slate-200 bg-white text-[10px] text-slate-500">
@@ -83,10 +116,5 @@ export function CockpitAmdScoreDetailTab({ projectId, active = true }: { project
       </div>
     );
   }
-
-  return (
-    <div className="min-w-0 space-y-3" data-density="compact-score-page">
-      <Bzm30ScorePanel seed={state.detail.seed} detail={state.detail} band={null} />
-    </div>
-  );
+  return <Bzm30ScorePanel seed={state.detail.seed} detail={state.detail} band={null} />;
 }

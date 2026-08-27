@@ -69,6 +69,12 @@ const REFERENCE_DATA_ENDPOINTS = [
     clientModule: "src/lib/bzm30-seed-client.ts",
   },
   {
+    endpoint: "/api/project/:p/sps-current",
+    label: "現行SPS｜産業創出価値の凍結評価 (PJコックピット)",
+    routeFile: "src/app/api/project/[projectId]/sps-current/route.ts",
+    clientModule: "src/lib/current-sps-client.ts",
+  },
+  {
     endpoint: "/api/dashboard/company-content",
     label: "会社の記録 (ホーム下段のメンバー / 沿革 / メディア掲載 / 写真)",
     routeFile: "src/app/api/dashboard/company-content/route.ts",

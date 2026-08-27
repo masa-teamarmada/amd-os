@@ -46,6 +46,7 @@ import { CockpitDescriptionDetailModal } from "../cockpit/CockpitDescriptionDeta
 import { CockpitAmdScoreBreakdownModal } from "../cockpit/CockpitAmdScoreBreakdownModal";
 import { CockpitXrlDetailModal } from "../cockpit/CockpitXrlDetailModal";
 import { CurrentSpsAssessmentCard } from "@/components/sps/CurrentSpsAssessmentCard";
+import { loadCurrentSpsAssessment } from "@/lib/current-sps-client";
 import type { CurrentSpsProjectAssessment } from "@/lib/current-sps-model";
 
 const LANE_LABELS: Record<string, string> = {
@@ -166,7 +167,7 @@ export function HudCockpitVentureStatus({ projectId, projectName }: { projectId:
     const supabase = createClient();
     Promise.all([
       fetchVentureStatus(projectId === AAA_PROJECT_ID ? "p21" : projectId),
-      fetch(`/api/project/${encodeURIComponent(projectId)}/sps-current`, { cache: "no-store" }).then((response) => response.ok ? response.json() as Promise<CurrentSpsProjectAssessment> : null),
+      loadCurrentSpsAssessment(projectId),
       // PL/PM/クローザー の codeName を取得 (#15)
       (async () => {
         const { data: pm } = await supabase
@@ -209,7 +210,7 @@ export function HudCockpitVentureStatus({ projectId, projectName }: { projectId:
     const sourceProjectId = projectId === AAA_PROJECT_ID ? "p21" : projectId;
     const [b, assessment] = await Promise.all([
       fetchVentureStatus(sourceProjectId),
-      fetch(`/api/project/${encodeURIComponent(projectId)}/sps-current`, { cache: "no-store" }).then((response) => response.ok ? response.json() as Promise<CurrentSpsProjectAssessment> : null),
+      loadCurrentSpsAssessment(projectId, { force: true }),
     ]);
     setBundle(projectId === AAA_PROJECT_ID ? buildAaaVentureStatusBundle(b) : b);
     setAmdInputs([]);

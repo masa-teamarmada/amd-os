@@ -203,9 +203,6 @@
       "/api/notifications/feedback/dialog/refine",
       "/api/notifications/feedback/dialog/start"
     ],
-    "src/components/cockpit/CockpitVentureStatus.tsx": [
-      "/api/project/:p/sps-current"
-    ],
     "src/components/cockpit/CockpitXrlDetailModal.tsx": [
       "/api/project-ventures/:p/xrl-revise"
     ],
@@ -246,9 +243,6 @@
     ],
     "src/components/hud/HudCockpitGoalsCompact.tsx": [
       "/api/progress/ms-schedule"
-    ],
-    "src/components/hud/HudCockpitVentureStatus.tsx": [
-      "/api/project/:p/sps-current"
     ],
     "src/components/institutions/InstitutionRegulations.tsx": [
       "/api/institution-regulations"

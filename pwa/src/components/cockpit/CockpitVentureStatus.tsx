@@ -40,7 +40,7 @@ import { CockpitDescriptionDetailModal } from "./CockpitDescriptionDetailModal";
 import { CockpitAmdScoreBreakdownModal } from "./CockpitAmdScoreBreakdownModal";
 import { CockpitXrlDetailModal } from "./CockpitXrlDetailModal";
 import { Bzm22CockpitSummary } from "./Bzm22CockpitSummary";
-import { CurrentSpsAssessmentCard } from "@/components/sps/CurrentSpsAssessmentCard";
+import { loadCurrentSpsAssessment } from "@/lib/current-sps-client";
 import type { CurrentSpsProjectAssessment } from "@/lib/current-sps-model";
 
 const LANE_LABELS: Record<string, string> = {
@@ -193,7 +193,7 @@ export function CockpitVentureStatus({
     const supabase = createClient();
     Promise.all([
       fetchVentureStatus(projectId),
-      fetch(`/api/project/${encodeURIComponent(projectId)}/sps-current`, { cache: "no-store" }).then((response) => response.ok ? response.json() as Promise<CurrentSpsProjectAssessment> : null),
+      loadCurrentSpsAssessment(projectId),
       // PL/PM/クローザー の codeName を取得 (#15)
       (async () => {
         const { data: pm } = await supabase
@@ -235,7 +235,7 @@ export function CockpitVentureStatus({
   const reload = async () => {
     const [b, assessment] = await Promise.all([
       fetchVentureStatus(projectId),
-      fetch(`/api/project/${encodeURIComponent(projectId)}/sps-current`, { cache: "no-store" }).then((response) => response.ok ? response.json() as Promise<CurrentSpsProjectAssessment> : null),
+      loadCurrentSpsAssessment(projectId, { force: true }),
     ]);
     setBundle(b);
     setAmdInputs([]);
@@ -549,7 +549,8 @@ export function CockpitVentureStatus({
         )}
       </button>
 
-      {currentSps ? <div className={`mx-2 ${compact ? "mt-1" : "mt-2"}`}><CurrentSpsAssessmentCard assessment={currentSps} compact /></div> : null}
+      {/* 現行SPS｜産業創出価値のカードは 2026-08-28 まさ依頼で「スコア詳細」タブの最上段へ移した
+          (`CockpitAmdScoreDetailTab`)。ここでは未評価バッジの判定にだけ使う。 */}
 
       {/* BZM 2.2はSPSと同じBZMから出る別の出力で、暫定パイロットとして分けて表示する（合算しない）。 */}
       {/* Chart 1 + Chart 2 — xl breakpoint (>=1280px) 以上で横並び。

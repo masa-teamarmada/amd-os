@@ -329,6 +329,7 @@ export async function fetchSeedScreeningBandDetail(
  */
 export async function fetchCurrentSpsProjectAssessments(
   projectIds?: string[],
+  options?: { force?: boolean },
 ): Promise<Map<string, CurrentSpsProjectAssessment>> {
   const service = createAdminClient();
   if (projectIds && projectIds.length === 0) return new Map();
@@ -354,7 +355,7 @@ export async function fetchCurrentSpsProjectAssessments(
   const links = (linkData ?? []) as { project_id: string; seed_id: string }[];
   const seedIds = Array.from(new Set(links.map((row) => row.seed_id)));
   const [bands, seedResult] = await Promise.all([
-    fetchSeedScreeningBandSummaries(seedIds),
+    fetchSeedScreeningBandSummaries(seedIds, options),
     seedIds.length > 0
       ? service.from("seeds").select("id, title").in("id", seedIds)
       : Promise.resolve({ data: [], error: null }),

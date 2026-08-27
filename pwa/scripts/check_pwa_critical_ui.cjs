@@ -580,7 +580,9 @@ expectIncludes("src/components/contracts/ContractsClient.tsx", [
   "sourceRef: latestSelectedDocument?.web_view_link || textTerm(existingTerms.sourceRef)",
 ]);
 
-expectIncludes("src/components/cockpit/CockpitHeader.tsx", [
+// 契約上の実行条件は 2026-08-28 にコックピット最上段から「PJ概要」タブへ移した。
+// 最上段のヘッダには「今どのPJを見ているか」だけを残す。
+expectIncludes("src/components/cockpit/CockpitProjectOverview.tsx", [
   "契約上の実行条件",
   "currentContracts",
   "契約期間",
@@ -592,10 +594,25 @@ expectIncludes("src/components/cockpit/CockpitHeader.tsx", [
   "terms.cockpitSummary",
 ]);
 
-expectNotIncludes("src/components/cockpit/CockpitHeader.tsx", [
+expectNotIncludes("src/components/cockpit/CockpitProjectOverview.tsx", [
   'label: "知財・利用"',
   'label: "秘密保持・制限"',
   'label: "解除・責任"',
+]);
+
+expectNotIncludes("src/components/cockpit/CockpitHeader.tsx", [
+  "契約上の実行条件",
+  "currentContracts",
+]);
+
+// 「PJ概要」タブ本体。契約条件の置き場所がここであることと、URL で復元できることを固定する。
+expectIncludes("src/components/cockpit/CockpitView.tsx", [
+  'CockpitProjectOverview',
+  '{ key: "overview", label: "PJ概要" }',
+  'aria-label="PJ概要"',
+]);
+expectIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
+  '"overview"',
 ]);
 
 expectIncludes("src/lib/contracts-ledger.ts", [
@@ -1868,19 +1885,26 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
 // (まさ「古いモデルの試算結果は、混乱の元になるのですべて削除してほしい」)。
 // 釘は「シーズ詳細と同じパネルを使っていること」に打ち直す——同じ PJ を PJ 側から見ても
 // シーズ側から見ても同じ数字・同じ根拠が出る、が守りたい性質。
+// 2026-08-28 まさ依頼で「現行SPS｜産業創出価値」のカードをこのタブの最上段へ移した
+// (旧: コックピット上部の hero 内)。8-27 に外したのは帯の中身 (定義式・算出過程・q要因) と
+// BZM 2.2 暫定パイロットで、最上段に置くのは評価の状態だけ。band を渡さない形をここで固定する。
 expectIncludes("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
   "Bzm30ScorePanel",
   "seed_projects",
   'data-density="compact-score-page"',
+  "CurrentSpsAssessmentCard",
+  "loadCurrentSpsAssessment",
 ]);
 expectPattern("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
   /<Bzm30ScorePanel\b[^>]*seed=\{state\.detail\.seed\}/,
   // シーズが紐づいていない PJ で黙って空にしない（何をすれば算出できるかを出す）
   /status: "no-seed"/,
+  // 最上段のカードは評価の状態だけ。band を渡すと帯の内訳まで展開されて 8-27 の判断へ戻る
+  /<CurrentSpsAssessmentCard\s+assessment=\{currentSps\}\s*\/>/,
 ]);
 expectNotIncludes("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
-  "CurrentSpsAssessmentCard",
   "Bzm22ProvisionalObservatory",
+  // 参照系キャッシュ (lib/current-sps-client.ts) 経由で読む。素の fetch へ戻さない
   "/sps-current",
 ]);
 expectIncludes("src/components/sps/CurrentSpsAssessmentCard.tsx", [
@@ -2099,8 +2123,8 @@ expectIncludes("src/components/cockpit/Bzm22CockpitSummary.tsx", [
 ]);
 expectIncludes("src/components/cockpit/CockpitVentureStatus.tsx", [
   "Bzm22CockpitSummary",
-  "CurrentSpsAssessmentCard",
-  "/sps-current",
+  // 現行SPSは「最新版未評価」バッジの判定に使うだけ。カード本体はスコア詳細タブへ移した (2026-08-28)
+  "loadCurrentSpsAssessment",
   'data-testid="cockpit-bzm22-xrl-overview"',
   'data-testid="cockpit-xrl-panel"',
   'data-testid="cockpit-xrl-plot"',
@@ -2111,6 +2135,8 @@ expectIncludes("src/components/cockpit/CockpitVentureStatus.tsx", [
 ]);
 expectNotIncludes("src/components/cockpit/CockpitVentureStatus.tsx", [
   "XRLの自動判定は停止中。既存値・手動提案はドットから確認できる",
+  // 現行SPSカードはスコア詳細タブが唯一の置き場所 (2026-08-28 まさ依頼)。上部 hero へ戻さない
+  "CurrentSpsAssessmentCard",
 ]);
 expectNotIncludes("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
   "OS運用レジストリの版",

@@ -121,6 +121,7 @@
 |---|---|---|---|
 | 一次選別スクリーニング帯（SPS） | `/api/seeds/screening-bands` | `src/lib/seed-screening-bands.ts` | `src/lib/seed-screening-bands-client.ts` |
 | 会社の記録（ホーム下段のメンバー / 沿革 / メディア掲載 / 写真） | `/api/dashboard/company-content` | `src/lib/company-content.ts` | `src/lib/company-content-client.ts` |
+| 現行SPS｜産業創出価値の凍結評価（PJコックピット） | `/api/project/[projectId]/sps-current` | `src/lib/seed-screening-bands.ts` | `src/lib/current-sps-client.ts` |
 
 > 登録の全量は `pwa/scripts/check_reference_data_cache_contract.mjs` の `REFERENCE_DATA_ENDPOINTS`。
 > 上の表は、この章で経緯を書いたものだけを載せている。

@@ -22,6 +22,7 @@ import { CockpitMeetingSummary } from "./CockpitMeetingSummary";
 import { CockpitFreezeBackfill } from "./CockpitFreezeBackfill";
 import { CockpitAmdScoreDetailTab } from "./CockpitAmdScoreDetailTab";
 import { CockpitCompanyOverview } from "./CockpitCompanyOverview";
+import { CockpitProjectOverview } from "./CockpitProjectOverview";
 import { CockpitBusinessPlan } from "./CockpitBusinessPlan";
 import type { CockpitSeasonFinance as CockpitSeasonFinanceData, MilestoneChangeHistory } from "@/lib/supabase-data";
 import type { ProjectContractTerms } from "@/lib/project-contract-terms";
@@ -249,7 +250,7 @@ function usesMsProgressCategory(category: string | null | undefined) {
   return ["dtsu", "ecosystem", "new_business"].includes(String(category || "dtsu").toLowerCase());
 }
 
-export type CockpitTab = "progress" | "score-detail" | "business-plan" | "cost-model" | "regulations" | "ip" | "documents" | "company";
+export type CockpitTab = "progress" | "score-detail" | "business-plan" | "cost-model" | "regulations" | "ip" | "documents" | "overview" | "company";
 
 export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab, onTabChange }: CockpitViewProps) {
   const [localActiveTab, setLocalActiveTab] = useState<CockpitTab>("progress");
@@ -331,6 +332,9 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     ...(hasKuteRegulationsTab ? [{ key: "regulations" as const, label: "規程・内規" }] : []),
     { key: "ip", label: "知財" },
     { key: "documents", label: "資料室" },
+    // PJ概要 = 契約上の実行条件の置き場所 (2026-08-28 まさ依頼で最上段から移設)。
+    // SU側の登記・株主を見る会社概要と隣に置き、月単位で変わらない前提をまとめて開けるようにする。
+    { key: "overview", label: "PJ概要" },
     { key: "company", label: "会社概要" },
   ];
 
@@ -610,6 +614,13 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
             scopeTrail={[project.projectName]}
             presentation="modal"
           />
+        </section>
+      )}
+
+      {/* PJ概要タブ。契約条件は cockpit bundle に載っているので、開いた時だけ組み立てる。 */}
+      {activeTab === "overview" && (
+        <section role="tabpanel" aria-label="PJ概要" className="min-w-0">
+          <CockpitProjectOverview project={project} />
         </section>
       )}
 
