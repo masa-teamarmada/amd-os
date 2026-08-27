@@ -130,9 +130,13 @@ function CategoryDrilldown({ category }: { category: KiyoMoneyFlowOutflowCategor
   return (
     <div className="mt-1 text-xs">
       {category.rows.map((row, i) => (
-        <div key={`${row.label}-${i}`} className="border-t border-border/60 py-1">
-          <span className="text-foreground">{row.label}</span>
-          <span className="ml-1.5 text-muted-foreground">{row.detail}</span>
+        <div key={`${row.label}-${i}`} className="flex justify-between gap-2 border-t border-border/60 py-1">
+          <span className="min-w-0">
+            {row.occurredOn ? <span className="mr-1.5 tabular-nums text-muted-foreground">{row.occurredOn.slice(5).replace("-", "/")}</span> : null}
+            <span className="text-foreground">{row.label}</span>
+            <span className="ml-1.5 text-muted-foreground">{row.detail}</span>
+          </span>
+          {row.amountYen != null ? <span className="shrink-0 tabular-nums">{formatYen(row.amountYen)}</span> : null}
         </div>
       ))}
     </div>
