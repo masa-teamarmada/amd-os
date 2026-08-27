@@ -12,7 +12,7 @@ import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { KiyoMoneyFlowPeriod, KiyoMoneyFlowResult } from "@/lib/finance/kiyo-money-flow-types";
 import { KiyoMoneyFlowSankey } from "./KiyoMoneyFlowSankey";
-import { KiyoMoneyFlowSteps } from "./KiyoMoneyFlowSteps";
+import { KiyoMoneyFlowInflowCard, KiyoMoneyFlowWalletCard, KiyoMoneyFlowOutflowCard } from "./KiyoMoneyFlowSteps";
 
 const PERIODS: Array<{ id: KiyoMoneyFlowPeriod; label: string }> = [
   { id: "month", label: "今月" },
@@ -21,14 +21,14 @@ const PERIODS: Array<{ id: KiyoMoneyFlowPeriod; label: string }> = [
 ];
 
 function SankeySkeleton() {
-  return <div className="h-[300px] w-full animate-pulse rounded-none bg-muted/40" />;
+  return <div className="h-[220px] w-full animate-pulse rounded-none bg-muted/40" />;
 }
 
 function StepsSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-      {[0, 1, 2].map((i) => (
-        <div key={i} className="h-[220px] rounded-none border border-border bg-muted/20 p-3" />
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      {[0, 1].map((i) => (
+        <div key={i} className="h-[180px] rounded-none border border-border bg-muted/20 p-3" />
       ))}
     </div>
   );
@@ -124,36 +124,39 @@ export function KiyoMoneyFlowPanel() {
         </>
       ) : (
         <>
-          <div className="rounded-none border border-border bg-background p-3">
-            <KiyoMoneyFlowSankey
-              inflowProjects={data.inflow.byProject}
-              outflowCategories={data.outflow.categories}
-              walletBalanceYen={data.wallet.balanceYen}
-              walletBalanceYm={data.wallet.balanceYm}
-              netChangeYen={data.wallet.netChangeYen}
-              onSelectProject={(id) => expandAndScrollTo(`in-${id}`)}
-              onSelectCategory={(key) => expandAndScrollTo(`out-${key}`)}
-            />
+          <div className="flex flex-col gap-3 xl:flex-row">
+            <div className="min-w-0 overflow-x-auto rounded-none border border-border bg-background p-2 xl:shrink-0">
+              <KiyoMoneyFlowSankey
+                inflowProjects={data.inflow.byProject}
+                outflowCategories={data.outflow.categories}
+                walletBalanceYen={data.wallet.balanceYen}
+                onSelectProject={(id) => expandAndScrollTo(`in-${id}`)}
+                onSelectCategory={(key) => expandAndScrollTo(`out-${key}`)}
+              />
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <KiyoMoneyFlowWalletCard
+                walletBalanceYen={data.wallet.balanceYen}
+                walletBalanceYm={data.wallet.balanceYm}
+                inflowTotalYen={data.inflow.totalYen}
+                outflowTotalYen={data.outflow.totalYen}
+                netChangeYen={data.wallet.netChangeYen}
+                loanRemainingYen={data.wallet.loanRemainingYen}
+              />
+              <p className="text-[11px] leading-relaxed text-muted-foreground">{data.summaryText}</p>
+              <p className="text-[11px] leading-relaxed text-muted-foreground">{data.note}</p>
+              {data.warnings.map((warning, i) => (
+                <p key={i} className="text-[11px] leading-relaxed text-amber-600 dark:text-amber-400">
+                  {warning}
+                </p>
+              ))}
+            </div>
           </div>
 
-          <KiyoMoneyFlowSteps
-            inflowProjects={data.inflow.byProject}
-            outflowCategories={data.outflow.categories}
-            walletBalanceYen={data.wallet.balanceYen}
-            walletBalanceYm={data.wallet.balanceYm}
-            netChangeYen={data.wallet.netChangeYen}
-            loanRemainingYen={data.wallet.loanRemainingYen}
-            expanded={expanded}
-            onToggle={toggle}
-          />
-
-          <div className="rounded-none border border-border bg-muted/20 p-3 text-xs leading-relaxed text-foreground">{data.summaryText}</div>
-          <p className="text-[11px] leading-relaxed text-muted-foreground">{data.note}</p>
-          {data.warnings.map((warning, i) => (
-            <p key={i} className="text-[11px] leading-relaxed text-amber-600 dark:text-amber-400">
-              {warning}
-            </p>
-          ))}
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <KiyoMoneyFlowInflowCard inflowProjects={data.inflow.byProject} expanded={expanded} onToggle={toggle} />
+            <KiyoMoneyFlowOutflowCard outflowCategories={data.outflow.categories} expanded={expanded} onToggle={toggle} />
+          </div>
         </>
       )}
     </div>

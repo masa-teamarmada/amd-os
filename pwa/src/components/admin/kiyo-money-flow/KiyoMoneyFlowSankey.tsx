@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { cn } from "@/lib/utils";
 import type { KiyoMoneyFlowInflowProject, KiyoMoneyFlowOutflowCategory } from "@/lib/finance/kiyo-money-flow-types";
 import { formatManYen } from "./format";
 import {
@@ -14,48 +13,56 @@ import {
   type SankeyNodeLayout,
 } from "./sankey-layout";
 
-const VIEW_HEIGHT = 460;
-const COLUMN_HEIGHT = 400;
-const COLUMN_TOP = 20;
-const LEFT_X = 8;
-const CENTER_X = (SANKEY_VIEW_WIDTH - SANKEY_NODE_WIDTH) / 2;
-const RIGHT_X = SANKEY_VIEW_WIDTH - SANKEY_NODE_WIDTH - 8;
+/**
+ * 実寸固定のコンパクトな流れ図。ウィンドウを広げても図は拡大せず、
+ * 余った幅は隣の財布パネルと下の内訳表が使う (情報密度ルール)。
+ * ノードは細い棒 (16px)、ラベルは棒の外側横に「名前 金額」1行で置く。
+ */
+const COLUMN_HEIGHT = 190;
+const COLUMN_TOP = 8;
+const BOTTOM_PAD = 8;
+const LEFT_LABEL_RIGHT = 196;
+const LEFT_NODE_X = 200;
+const WALLET_W = 90;
+const WALLET_X = (SANKEY_VIEW_WIDTH - WALLET_W) / 2;
+const RIGHT_NODE_X = WALLET_X + WALLET_W + 99;
+const RIGHT_LABEL_LEFT = RIGHT_NODE_X + SANKEY_NODE_WIDTH + 6;
+const NAME_MAX_CHARS = 13;
 
-const yen0k = formatManYen;
+function truncateName(name: string): string {
+  return name.length > NAME_MAX_CHARS ? `${name.slice(0, NAME_MAX_CHARS - 1)}…` : name;
+}
 
 export function KiyoMoneyFlowSankey({
   inflowProjects,
   outflowCategories,
   walletBalanceYen,
-  walletBalanceYm,
-  netChangeYen,
   onSelectProject,
   onSelectCategory,
 }: {
   inflowProjects: KiyoMoneyFlowInflowProject[];
   outflowCategories: KiyoMoneyFlowOutflowCategory[];
   walletBalanceYen: number | null;
-  walletBalanceYm: string | null;
-  netChangeYen: number;
   onSelectProject: (projectId: string) => void;
   onSelectCategory: (key: string) => void;
 }) {
   const inflowTotal = inflowProjects.reduce((sum, p) => sum + p.totalYen, 0);
   const outflowTotal = outflowCategories.reduce((sum, c) => sum + c.totalYen, 0);
-  const shortfallYen = Math.max(0, outflowTotal - inflowTotal);
 
   const layout = useMemo(() => {
     const leftNodes = layoutColumn(
       inflowProjects.map((p) => ({ id: `in-${p.projectId}`, label: p.clientName ? `${p.projectName}（${p.clientName}）` : p.projectName, value: p.totalYen })),
-      LEFT_X,
+      LEFT_NODE_X,
       COLUMN_HEIGHT,
     );
     const rightNodes = layoutColumn(
       outflowCategories.map((c) => ({ id: `out-${c.key}`, label: c.label, value: Math.max(c.totalYen, 1) })),
-      RIGHT_X,
+      RIGHT_NODE_X,
       COLUMN_HEIGHT,
     );
-    const walletNode: SankeyNodeLayout = { id: "wallet", label: "AMDの財布", value: Math.max(inflowTotal, outflowTotal, 1), x: CENTER_X, y: 0, height: COLUMN_HEIGHT };
+    const columnBottom = (nodes: SankeyNodeLayout[]) => nodes.reduce((max, n) => Math.max(max, n.y + n.height), 0);
+    const contentHeight = Math.max(columnBottom(leftNodes), columnBottom(rightNodes), COLUMN_HEIGHT);
+    const walletNode: SankeyNodeLayout = { id: "wallet", label: "AMDの財布", value: Math.max(inflowTotal, outflowTotal, 1), x: WALLET_X, y: 0, height: contentHeight };
 
     const inAllocator = makePortAllocator([{ ...walletNode, value: inflowTotal || 1 }]);
     const outAllocator = makePortAllocator([{ ...walletNode, value: outflowTotal || 1 }]);
@@ -65,14 +72,14 @@ export function KiyoMoneyFlowSankey({
       .map((p) => {
         const sourceNode = leftNodes.find((n) => n.id === `in-${p.projectId}`);
         if (!sourceNode) return null;
-        const targetY = inAllocator("wallet", p.totalYen, inflowTotal || 1, COLUMN_HEIGHT);
+        const targetY = inAllocator("wallet", p.totalYen, inflowTotal || 1, contentHeight);
         return {
           id: `in-${p.projectId}`,
           sourceX: sourceNode.x + SANKEY_NODE_WIDTH,
           sourceY: sourceNode.y + sourceNode.height / 2,
-          targetX: CENTER_X,
+          targetX: WALLET_X,
           targetY,
-          width: linkStrokeWidth(p.totalYen, inflowTotal || 1, COLUMN_HEIGHT),
+          width: linkStrokeWidth(p.totalYen, inflowTotal || 1, contentHeight),
           projectId: p.projectId,
         };
       })
@@ -83,122 +90,95 @@ export function KiyoMoneyFlowSankey({
       .map((c) => {
         const targetNode = rightNodes.find((n) => n.id === `out-${c.key}`);
         if (!targetNode) return null;
-        const sourceY = outAllocator("wallet", c.totalYen, outflowTotal || 1, COLUMN_HEIGHT);
+        const sourceY = outAllocator("wallet", c.totalYen, outflowTotal || 1, contentHeight);
         return {
           id: `out-${c.key}`,
-          sourceX: CENTER_X + SANKEY_NODE_WIDTH,
+          sourceX: WALLET_X + WALLET_W,
           sourceY,
           targetX: targetNode.x,
           targetY: targetNode.y + targetNode.height / 2,
-          width: linkStrokeWidth(c.totalYen, outflowTotal || 1, COLUMN_HEIGHT),
+          width: linkStrokeWidth(c.totalYen, outflowTotal || 1, contentHeight),
           key: c.key,
         };
       })
       .filter((v): v is NonNullable<typeof v> => v !== null);
 
-    return { leftNodes, rightNodes, walletNode, inflowLinks, outflowLinks };
+    return { leftNodes, rightNodes, walletNode, inflowLinks, outflowLinks, contentHeight };
   }, [inflowProjects, outflowCategories, inflowTotal, outflowTotal]);
 
+  const viewHeight = COLUMN_TOP + layout.contentHeight + BOTTOM_PAD;
+
   return (
-    <div className="w-full overflow-x-auto">
-      <svg
-        viewBox={`0 0 ${SANKEY_VIEW_WIDTH} ${VIEW_HEIGHT}`}
-        className="w-full min-w-[720px]"
-        style={{ height: "auto" }}
-        role="img"
-        aria-label="お金の流れ図"
-      >
-        <g transform={`translate(0, ${COLUMN_TOP})`}>
-          {layout.inflowLinks.map((link) => (
-            <path
-              key={link.id}
-              d={linkPath(link.sourceX, link.sourceY, link.targetX, link.targetY)}
-              stroke="currentColor"
-              className="cursor-pointer text-emerald-500/35 hover:text-emerald-500/60 dark:text-emerald-400/30 dark:hover:text-emerald-400/55"
-              strokeWidth={link.width}
-              fill="none"
-              onClick={() => onSelectProject(link.projectId)}
-            />
-          ))}
-          {layout.outflowLinks.map((link) => (
-            <path
-              key={link.id}
-              d={linkPath(link.sourceX, link.sourceY, link.targetX, link.targetY)}
-              stroke="currentColor"
-              className="cursor-pointer text-amber-500/35 hover:text-amber-500/60 dark:text-amber-400/30 dark:hover:text-amber-400/55"
-              strokeWidth={link.width}
-              fill="none"
-              onClick={() => onSelectCategory(link.key)}
-            />
-          ))}
+    <svg
+      viewBox={`0 0 ${SANKEY_VIEW_WIDTH} ${viewHeight}`}
+      width={SANKEY_VIEW_WIDTH}
+      height={viewHeight}
+      className="shrink-0"
+      role="img"
+      aria-label="お金の流れ図"
+    >
+      <g transform={`translate(0, ${COLUMN_TOP})`}>
+        {layout.inflowLinks.map((link) => (
+          <path
+            key={link.id}
+            d={linkPath(link.sourceX, link.sourceY, link.targetX, link.targetY)}
+            stroke="currentColor"
+            className="cursor-pointer text-emerald-500/35 hover:text-emerald-500/60 dark:text-emerald-400/30 dark:hover:text-emerald-400/55"
+            strokeWidth={link.width}
+            fill="none"
+            onClick={() => onSelectProject(link.projectId)}
+          />
+        ))}
+        {layout.outflowLinks.map((link) => (
+          <path
+            key={link.id}
+            d={linkPath(link.sourceX, link.sourceY, link.targetX, link.targetY)}
+            stroke="currentColor"
+            className="cursor-pointer text-amber-500/35 hover:text-amber-500/60 dark:text-amber-400/30 dark:hover:text-amber-400/55"
+            strokeWidth={link.width}
+            fill="none"
+            onClick={() => onSelectCategory(link.key)}
+          />
+        ))}
 
-          {layout.leftNodes.map((node, index) => (
-            <g
-              key={node.id}
-              className="cursor-pointer"
-              onClick={() => onSelectProject(inflowProjects[index]?.projectId ?? node.id.replace("in-", ""))}
-            >
-              <rect x={node.x} y={node.y} width={SANKEY_NODE_WIDTH} height={node.height} className="fill-emerald-600/80 dark:fill-emerald-500/80" rx={2} />
-              <text x={node.x} y={node.y - 4} className="fill-foreground text-[10px] font-medium">
-                <tspan>{node.label.length > 16 ? `${node.label.slice(0, 15)}…` : node.label}</tspan>
-              </text>
-              <text x={node.x} y={node.y + node.height / 2 + 3} className="fill-white text-[10px] font-semibold" textAnchor="start" dx={4}>
-                {node.height >= 18 ? yen0k(node.value) : ""}
-              </text>
-            </g>
-          ))}
-
-          <g>
-            <rect x={layout.walletNode.x} y={layout.walletNode.y} width={SANKEY_NODE_WIDTH} height={layout.walletNode.height} className="fill-sky-600/80 dark:fill-sky-500/80" rx={2} />
-            <text x={layout.walletNode.x + SANKEY_NODE_WIDTH / 2} y={layout.walletNode.y + layout.walletNode.height / 2 - 10} textAnchor="middle" className="fill-white text-[11px] font-semibold">
-              AMDの財布
-            </text>
-            <text x={layout.walletNode.x + SANKEY_NODE_WIDTH / 2} y={layout.walletNode.y + layout.walletNode.height / 2 + 8} textAnchor="middle" className="fill-white text-[13px] font-bold">
-              {walletBalanceYen != null ? yen0k(walletBalanceYen) : "同期待ち"}
-            </text>
-            <text x={layout.walletNode.x + SANKEY_NODE_WIDTH / 2} y={layout.walletNode.y + layout.walletNode.height / 2 + 22} textAnchor="middle" className="fill-white/80 text-[9px]">
-              {walletBalanceYm ? `${walletBalanceYm.slice(0, 4)}年${walletBalanceYm.slice(4, 6)}月時点` : ""}
+        {layout.leftNodes.map((node, index) => (
+          <g
+            key={node.id}
+            className="cursor-pointer"
+            onClick={() => onSelectProject(inflowProjects[index]?.projectId ?? node.id.replace("in-", ""))}
+          >
+            <rect x={node.x} y={node.y} width={SANKEY_NODE_WIDTH} height={node.height} className="fill-emerald-600/85 dark:fill-emerald-500/85" rx={1.5} />
+            <text x={LEFT_LABEL_RIGHT} y={node.y + node.height / 2} textAnchor="end" dominantBaseline="central" className="fill-foreground text-[11px]">
+              <tspan className="fill-muted-foreground">{truncateName(node.label)}</tspan>
+              <tspan className="font-semibold tabular-nums" dx={5}>{formatManYen(node.value)}</tspan>
             </text>
           </g>
+        ))}
 
-          {layout.rightNodes.map((node, index) => (
-            <g
-              key={node.id}
-              className="cursor-pointer"
-              onClick={() => onSelectCategory(outflowCategories[index]?.key ?? node.id.replace("out-", ""))}
-            >
-              <rect x={node.x} y={node.y} width={SANKEY_NODE_WIDTH} height={node.height} className="fill-amber-600/80 dark:fill-amber-500/80" rx={2} />
-              <text x={node.x} y={node.y - 4} className="fill-foreground text-[10px] font-medium">
-                {node.label}
-              </text>
-              <text x={node.x} y={node.y + node.height / 2 + 3} className="fill-white text-[10px] font-semibold" textAnchor="start" dx={4}>
-                {node.height >= 18 ? yen0k(node.value) : ""}
-              </text>
-            </g>
-          ))}
-
-          {shortfallYen > 0 ? (
-            <g transform={`translate(${CENTER_X}, ${COLUMN_HEIGHT + 16})`}>
-              <rect
-                x={0}
-                y={0}
-                width={SANKEY_NODE_WIDTH}
-                height={28}
-                className="fill-transparent stroke-amber-500 dark:stroke-amber-400"
-                strokeDasharray="4 3"
-                rx={2}
-              />
-              <text x={SANKEY_NODE_WIDTH / 2} y={18} textAnchor="middle" className="fill-amber-600 dark:fill-amber-400 text-[9px]">
-                {yen0k(shortfallYen)}は財布の残りから
-              </text>
-            </g>
-          ) : null}
+        <g>
+          <rect x={layout.walletNode.x} y={layout.walletNode.y} width={WALLET_W} height={layout.walletNode.height} className="fill-sky-600/85 dark:fill-sky-500/85" rx={2} />
+          <text x={layout.walletNode.x + WALLET_W / 2} y={layout.walletNode.y + layout.walletNode.height / 2 - 8} textAnchor="middle" className="fill-white text-[11px] font-medium">
+            AMDの財布
+          </text>
+          <text x={layout.walletNode.x + WALLET_W / 2} y={layout.walletNode.y + layout.walletNode.height / 2 + 8} textAnchor="middle" className="fill-white text-[13px] font-bold tabular-nums">
+            {walletBalanceYen != null ? formatManYen(walletBalanceYen) : "同期待ち"}
+          </text>
         </g>
-      </svg>
-      <p className={cn("mt-1 text-[10px] text-muted-foreground", netChangeYen < 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400")}>
-        この期間の増減: {netChangeYen >= 0 ? "+" : ""}
-        {yen0k(netChangeYen)}
-      </p>
-    </div>
+
+        {layout.rightNodes.map((node, index) => (
+          <g
+            key={node.id}
+            className="cursor-pointer"
+            onClick={() => onSelectCategory(outflowCategories[index]?.key ?? node.id.replace("out-", ""))}
+          >
+            <rect x={node.x} y={node.y} width={SANKEY_NODE_WIDTH} height={node.height} className="fill-amber-600/85 dark:fill-amber-500/85" rx={1.5} />
+            <text x={RIGHT_LABEL_LEFT} y={node.y + node.height / 2} textAnchor="start" dominantBaseline="central" className="fill-foreground text-[11px]">
+              <tspan className="fill-muted-foreground">{truncateName(node.label)}</tspan>
+              <tspan className="font-semibold tabular-nums" dx={5}>{formatManYen(node.value)}</tspan>
+            </text>
+          </g>
+        ))}
+      </g>
+    </svg>
   );
 }

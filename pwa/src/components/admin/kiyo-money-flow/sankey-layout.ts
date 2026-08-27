@@ -5,10 +5,15 @@
  * 2段構成にする (財布ノードを経由する典型的なサンキー形)。
  */
 
-export const SANKEY_VIEW_WIDTH = 960;
-export const SANKEY_NODE_WIDTH = 132;
-export const SANKEY_GAP = 6;
-export const SANKEY_MIN_NODE_HEIGHT = 16;
+/**
+ * 実寸表示が前提 (SVG は width 実寸固定・拡大禁止)。幅いっぱいに伸ばすと
+ * 文字と余白だけが膨らんで情報密度が落ちるため、コンテナ側で max-w-full 縮小のみ許す。
+ * ノードは細い棒、ラベルは棒の外側横 (d3-sankey 標準形)。
+ */
+export const SANKEY_VIEW_WIDTH = 720;
+export const SANKEY_NODE_WIDTH = 16;
+export const SANKEY_GAP = 5;
+export const SANKEY_MIN_NODE_HEIGHT = 14;
 
 export type SankeyNodeInput = { id: string; label: string; value: number };
 
