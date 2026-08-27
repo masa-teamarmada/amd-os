@@ -113,7 +113,15 @@ export interface Bzm30SeedInput {
   source: string;
 }
 
-const oku = (yen: number) => `${(yen / 1e8).toLocaleString("ja-JP", { maximumFractionDigits: 0 })} 億円`;
+/**
+ * 円を読める単位へ。**1億円未満は万円で出す。**
+ * 億円へ丸めると、手元資金 2,500万円（チャレナジー）や 7,800万円（SolvioraX）が
+ * 「0 億円」になって、資金が尽きている案件と資金が入っていない案件の区別がつかなくなる。
+ */
+const oku = (yen: number) =>
+  Math.abs(yen) >= 1e8
+    ? `${(yen / 1e8).toLocaleString("ja-JP", { maximumFractionDigits: 1 })} 億円`
+    : `${(yen / 1e4).toLocaleString("ja-JP", { maximumFractionDigits: 0 })} 万円`;
 
 const CONFIDENCE_LABEL: Record<string, string> = { high: "確度 高", medium: "確度 中", low: "確度 低" };
 

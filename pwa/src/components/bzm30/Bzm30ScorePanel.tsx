@@ -189,8 +189,12 @@ export function Bzm30ScorePanel({
 
 // ───────────────────────────────── このシーズの産業創出価値
 
-const okuYen = (yen: number | null | undefined) =>
-  yen === null || yen === undefined ? "—" : `${Math.round(yen / 1e8).toLocaleString("ja-JP")} 億円`;
+/** 1億円未満は万円で出す（億へ丸めると小さい額が「0 億円」に潰れて読めなくなる）。 */
+const okuYen = (yen: number | null | undefined) => {
+  if (yen === null || yen === undefined) return "—";
+  if (Math.abs(yen) >= 1e8) return `${(yen / 1e8).toLocaleString("ja-JP", { maximumFractionDigits: 0 })} 億円`;
+  return `${(yen / 1e4).toLocaleString("ja-JP", { maximumFractionDigits: 0 })} 万円`;
+};
 
 function ScoreHeadlineBlock({ score }: { score: SeedBzm30Dto["score"] }) {
   if (!BZM30_SCORES_PUBLISHED) {
