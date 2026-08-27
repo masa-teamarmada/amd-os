@@ -183,12 +183,11 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
         action={photoItems.length > PHOTO_PREVIEW_COUNT ? (
           <ShelfMoreButton
             expanded={showAllPhotos}
-            total={photoItems.length}
             onClick={() => setShowAllPhotos((value) => !value)}
           />
         ) : null}
       >
-        <div className={`grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 ${showAllPhotos ? "max-h-[520px] overflow-y-auto pr-1" : ""}`}>
+        <div className={`grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 ${showAllPhotos ? "max-h-[360px] overflow-y-auto pr-1 lg:max-h-[520px]" : ""}`}>
           {visiblePhotos.map((photo) => (
             <button
               key={photo.id}
@@ -226,7 +225,8 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
           title="メンバー"
           countLabel={`${memberItems.length}人`}
         >
-          <div className="grid max-h-[420px] grid-cols-3 gap-2 overflow-y-auto pr-1 sm:grid-cols-4 lg:grid-cols-3">
+          {/* 4列にすると9人が420px以内に3行で収まり、スクロールせずに全員が見える。 */}
+          <div className="grid max-h-[320px] lg:max-h-[420px] grid-cols-3 gap-2 overflow-y-auto pr-1 sm:grid-cols-4">
             {memberItems.map((member) => {
               return (
                 <button
@@ -235,7 +235,7 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
                   onClick={() => setSelectedMember(member)}
                   className="group grid overflow-hidden rounded-md border border-border/70 bg-white text-left transition-colors hover:bg-muted/30"
                 >
-                  <span className="grid aspect-[4/5] w-full place-items-center overflow-hidden bg-sky-50 text-sm font-semibold text-sky-800">
+                  <span className="grid aspect-square w-full place-items-center overflow-hidden bg-sky-50 text-sm font-semibold text-sky-800">
                     {member.imageUrl ? (
                       <MediaPreview src={withFileVariant(member.imageUrl, "thumb")} kind="photo" crop={member.photoCrop} />
                     ) : (
@@ -261,12 +261,11 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
           action={history.length > LIST_PREVIEW_COUNT ? (
             <ShelfMoreButton
               expanded={showAllHistory}
-              total={history.length}
               onClick={() => setShowAllHistory((value) => !value)}
             />
           ) : null}
         >
-          <ul className="max-h-[420px] divide-y divide-border/60 overflow-y-auto pr-1">
+          <ul className="max-h-[320px] lg:max-h-[420px] divide-y divide-border/60 overflow-y-auto pr-1">
             {visibleHistory.map((event) => (
               <li key={event.id} className="flex items-baseline gap-2 py-1.5">
                 <span className="w-[68px] shrink-0 font-mono text-[11px] text-muted-foreground">
@@ -295,12 +294,11 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
           action={mediaMentions.length > LIST_PREVIEW_COUNT ? (
             <ShelfMoreButton
               expanded={showAllMentions}
-              total={mediaMentions.length}
               onClick={() => setShowAllMentions((value) => !value)}
             />
           ) : null}
         >
-          <ul className="max-h-[420px] divide-y divide-border/60 overflow-y-auto pr-1">
+          <ul className="max-h-[320px] lg:max-h-[420px] divide-y divide-border/60 overflow-y-auto pr-1">
             {visibleMentions.map((item) => (
               <li key={item.id} className="py-1.5">
                 <div className="flex items-baseline gap-2">
@@ -865,15 +863,15 @@ function ShelfColumn({
   );
 }
 
-/** 既定は直近だけ出し、押すと全件へ切り替える。件数を出して「まだ先がある」ことを見せる。 */
-function ShelfMoreButton({ expanded, total, onClick }: { expanded: boolean; total: number; onClick: () => void }) {
+/** 既定は直近だけ出し、押すと全件へ切り替える。総件数は見出しのバッジが持つので繰り返さない。 */
+function ShelfMoreButton({ expanded, onClick }: { expanded: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className="inline-flex items-center gap-1 rounded border border-border bg-white px-2 py-0.5 text-[11px] font-medium text-[var(--desk-blue)] hover:bg-muted/40"
     >
-      {expanded ? "直近だけ" : `全${total}件`}
+      {expanded ? "直近だけ" : "全部見る"}
       {expanded ? <ChevronUp className="h-3 w-3" aria-hidden="true" /> : <ChevronDown className="h-3 w-3" aria-hidden="true" />}
     </button>
   );
