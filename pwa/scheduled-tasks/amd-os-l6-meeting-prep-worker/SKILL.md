@@ -13,6 +13,7 @@ description: AMD OS W-Prep が visible thread として起動する 1 MTG 専属
 - **過去同類 MTG だけでなく、契約範囲・PJ横断の直近MTG・未完了action・保留事項・直近のチーム内検討を照合する**。着地点は「過去の流れを踏まえて」推定し、今回扱わない論点も owner と再確認時期を残す。
 - **session 終了しない**。Phase 1-10 完遂後も codex session は idle で待機。まさが codex desktop で SESSION_ID から開いてきたら、`prep_draft_md` を文脈に対話継続。
 - **初回は相談から始める**。共有Drive資料と通常Notion draftは自動生成しない。まさが「資料に入れて」「HTMLを作って」等の write intent を出した後だけ、Drive の `PJfolder/YYMMDD_MTG名_prep/` に新規作成する。ただし **Notion AI Meeting Notes の自動生成ページへ、会議開始前 context を append-only で入れることは初回必須タスク**。これは既存議事録の編集ではなく、文字起こし精度を上げるための pre-meeting context 注入として扱う。
+- **opening prep brief は成果物ではなく検査後の表示**。5見出しが揃っていても、Phase 5.4 の7ソース照合と未完了論点台帳が完了していない場合は出さない。launcherや復旧promptから渡された短い要約、過去threadの記憶、fork元の履歴だけを根拠に opening prep brief を作らない。
 - **claude code は使わない** (= まさ確定で codex 一本化)。
 - **定額外トークン課金経路を使わない** (= worker は codex session 内で動くため自動的にサブスク枠)。
 
@@ -163,6 +164,17 @@ Phase 5: 着地点 / 想定質問 / 持参物 draft 生成
 - opening prep brief の末尾に定型句を強制しない。特に「これであってる？どうする？」を毎回の返答末尾に付けない。必要な時だけ、具体的な選択肢や確認質問を1つ置く。
 - まさとの対話中は、定型の締め文ではなく、まさの質問・修正・追加依頼に合わせて自然に続ける。
 - 長い演説や断定的な会議冒頭トークだけを置かない。
+
+**opening prep brief の品質ゲート**:
+- brief は `prep_draft_md` と Phase 5.4 の `source_checks` / `topics[]` から作る。launcher prompt に書かれた「内容: ...」や、復旧時に渡された短い要約を正本にしてはいけない
+- 復旧task / same-directory fork / 置き換えtaskでは、fork元の会議履歴を今回MTGの根拠にしない。まず現在の `meeting_id` のDB行、Calendar event、PJ文脈、直近入力を読み直す
+- `contract_scope` / `same_series_history` / `project_wide_history` / `active_actions_and_deferrals` / `project_knowledge` / `recent_team_inputs` / `current_prep` の7つがすべて `checked=true` で、source側IDと論点台帳の相互包含が成立するまで、最後の応答を opening prep brief にしない
+- 過去経緯の根拠が不足している場合は、5見出しの薄いbriefを出すのではなく、`まだprep未完了: {不足source}` を短く出して `prep_worker_status='preparing'` のまま読む
+- `前回までの流れ` は「前回から持ち越し」だけで済ませない。少なくとも、直近同シリーズ、PJ横断の直近入力、未完了action/保留、外部sourceの新規差分のうち今回に関係するものを統合する
+- `今回の論点` は、古い論点をそのまま並べない。直近入力で優先順位が変わった場合は、何が上位に来たかを明示する
+- 最後の応答は `## 前回までの流れ` / `## 今回の論点` / `## 推定着地` / `## まさがやること` / `## 相談入口` のMarkdown見出しで分ける。長い1段落に潰さない。各見出しは箇条書きまたは短い段落にし、まさが画面を開いた直後に論点をスキャンできる形にする
+- opening prep brief の冒頭に、必要な場合だけ `根拠確認` として「読んだsource種別、期間、不足source」を短く置く。これはURLやraw本文ではなく、品質確認用の短い状態表示に留める
+- brief本文にはraw本文、URL、secretを入れない。ただし内部検査用には source count、日付範囲、未完了topic数、blocked有無を `prep_readiness_reasons.opening_prep_brief` に保存する
 
 ═══════════════════════════════════════════════════
 Phase 5.4: 論点継続性 / 全体範囲 gate
