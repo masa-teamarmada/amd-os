@@ -50,8 +50,14 @@ export type KiyoMoneyFlowObligationRow = { title: string; date: string | null; a
 
 export type KiyoMoneyFlowOpexRow = { accountName: string; amountYen: number };
 
-/** 口座から出ているのに内訳へ分類できていない分の、既知の理由 */
-export type KiyoMoneyFlowGapRow = { label: string; detail: string };
+/** 口座から出ているのに内訳へ分類できていない分の、既知の理由 / freeeで未処理の実明細 */
+export type KiyoMoneyFlowGapRow = {
+  label: string;
+  detail: string;
+  /** freee未処理明細のとき: 発生日と金額 */
+  occurredOn?: string | null;
+  amountYen?: number;
+};
 
 export type KiyoMoneyFlowOutflowCategory =
   | { key: "member_reward"; label: string; totalYen: number; rows: KiyoMoneyFlowMemberRow[]; note: string }

@@ -446,6 +446,33 @@ async function computeInternal(period: KiyoMoneyFlowPeriod): Promise<KiyoMoneyFl
   ];
   const capturedOutflowYen = outflowCategories.reduce((sum, category) => sum + category.totalYen, 0);
 
+  // ---- freeeで未処理のままの口座明細 ----
+  // 「まだ分類できていない」の中身はほぼこれ。件名と金額まで出して、freee側で
+  // 登録すべき実物の作業リストにする (会計照合cronが毎週書いている findings を読むだけ)。
+  const { data: latestRunRows } = await db
+    .from("freee_reconciliation_runs")
+    .select("id")
+    .order("started_at", { ascending: false })
+    .limit(1);
+  const latestRunId = (latestRunRows?.[0] as { id?: string } | undefined)?.id ?? null;
+  type UnprocessedFinding = { occurred_on: string | null; amount_yen: number | string | null; summary_ja: string | null; walletable_name: string | null };
+  let unprocessedRows: UnprocessedFinding[] = [];
+  if (latestRunId) {
+    const { data } = await db
+      .from("freee_reconciliation_findings")
+      .select("occurred_on, amount_yen, summary_ja, walletable_name")
+      .eq("run_id", latestRunId)
+      .eq("finding_type", "unprocessed_entry")
+      .order("amount_yen", { ascending: false })
+      .limit(200);
+    unprocessedRows = (data ?? []) as UnprocessedFinding[];
+  }
+  /** summary_ja の「…円「摘要」がdeal/振替どちらにも未紐付け。」から摘要だけ取り出す。 */
+  function describeUnprocessed(row: UnprocessedFinding): string {
+    const match = String(row.summary_ja ?? "").match(/「([^」]+)」/);
+    return match ? match[1] : String(row.summary_ja ?? "").slice(0, 40);
+  }
+
   // ---- 口座の実際の動きへ合わせる (アンカリング) ----
   // 内訳は請求台帳・銀行明細・freee仕訳の3系統から作っており、口座の実際の動きより少なくなる。
   // 期間内の経過月すべてでfreee取引履歴の集計が揃っているときは、合計を口座の実額に合わせ、
@@ -496,17 +523,24 @@ async function computeInternal(period: KiyoMoneyFlowPeriod): Promise<KiyoMoneyFl
           label: `借入の返済（${plan.vendorName}）`,
           detail: `毎月${Math.round(plan.monthlyAmountYen / 10000)}万円の予定。口座の記録から自動で見分けられないため、予定額では数えない`,
         })),
-        {
-          label: "そのほか",
-          detail: "口座から出ているが、上のどの分類にも結び付けられていない分",
-        },
+        ...unprocessedRows
+          .filter((row) => {
+            const rowYm = ymFromDateText(row.occurred_on);
+            return rowYm ? inRange(rowYm, range.startYm, range.endYm) : false;
+          })
+          .map((row) => ({
+            label: describeUnprocessed(row),
+            detail: `${row.walletable_name ?? "口座"}・freeeで未処理`,
+            occurredOn: row.occurred_on,
+            amountYen: Math.round(num(row.amount_yen)),
+          })),
       ];
       outflowCategories.push({
         key: "unclassified",
         label: "まだ分類できていない",
         totalYen: outflowGapYen,
         rows: gapRows,
-        note: "口座から実際に出た合計と、上の内訳の差。ここが小さいほど、お金の使い道を説明できている。",
+        note: "口座から実際に出た合計と、上の内訳の差。中身はfreeeの「自動で経理」に未処理のまま残っている明細。freeeで登録するとこの帯が縮む。",
       });
     }
     inflowTotalYen = Math.max(capturedInflowYen, Math.round(bankInflowYen));
