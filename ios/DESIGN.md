@@ -346,6 +346,16 @@ admin がアクション必要なものを集約する。
 - `billing_cycles.status = "reported"` の行を一覧
 - 各行で配賦額の最終調整 → 承認 → `status = "allocation_confirmed"`
 
+#### 2.6.4.5 きよ お金の流れ（PWA専用 `/admin/kiyo?task=money-flow`、iOS未移植）
+
+**目的**: きよが月次経理（立替精算・請求書・メンバー支払）に入る前に、AMDに「どこからいくらお金が入り、何に使われたか」の全体像を会計知識なしで理解できるようにする。B/Sや試算表の再現ではなく、ざっくり全体図（画面上にも明記）。設計正本: `pwa/manual/6-11-kiyo-money-flow-spec.md`。
+
+- `/admin/kiyo` タブの先頭「00 お金の流れ」。既定タブは引き続き「01 立替精算」
+- 期間切替: 今月 / 今シーズン（AMD自身 `project_id="p00"` の value_plan_cycles active 期間）/ ぜんぶ
+- A: 自作SVGサンキー風の流れ図（左=PJ別の入り、中央=AMDの財布、右=使い道5分類）。ノード/帯クリックで下のB該当行へスクロール＋展開
+- B: 「1 入ってきたお金 / 2 AMDの財布 / 3 使ったお金」の3ステップ縦カード。行クリックでドリルダウン（人別・月別・科目別など）
+- 集計 API: `GET /api/admin/kiyo/money-flow?period=month|season|all`（server層 `src/lib/finance/kiyo-money-flow.ts`、プロセス内TTL5分）。admin専用（人別報酬を含むため member へ露出しない）
+
 #### 2.6.5 支払通知書作成（PayoutNoticeAdminListView → PayoutNoticePerMemberView）
 
 **🚨 重要：表示ロジック**

@@ -6,7 +6,7 @@ import { MemberPayoutBreakdownModal } from "@/components/admin/MemberPayoutBreak
 import { fetchCockpitFromSupabase, type CockpitData } from "@/lib/supabase-data";
 import { expandExtraRevenueCash, type ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 import { basePayoutCapYen, contractBackedClientAmount } from "@/lib/contract-money";
-import { effectiveMemberPayoutYmForCycle } from "@/lib/payment-groups";
+import { memberPayoutYmForCycle } from "@/lib/payment-groups";
 import type { AppliedPayoutAmountOverride } from "@/lib/payout-amount-overrides";
 
 type Member = {
@@ -787,7 +787,7 @@ function buildEntries(
     const summary = asRewardSummary(cycle.reward_summary_json);
     const project = options.projectMap?.get(cycle.project_id);
     const invoiceYm = options.projectMap
-      ? effectiveMemberPayoutYmForCycle(cycle, project)
+      ? memberPayoutYmForCycle(cycle, project)
       : cycle.invoice_ym || cycle.ym;
     for (const member of summary?.members ?? []) {
       const memberId = memberIdOf(member);

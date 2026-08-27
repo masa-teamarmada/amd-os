@@ -43,3 +43,21 @@ export function prefetchSeedBzm30(seedId: string): void {
 export function invalidateSeedBzm30Client(): void {
   invalidateReferenceData(KEY_PREFIX);
 }
+
+// ─────────────────────────────────────────── 一覧向けのサマリ
+
+import type { SeedBzm30Summary } from "@/lib/bzm30/seed-score";
+
+const SUMMARY_KEY = `${KEY_PREFIX}summaries`;
+
+async function requestSummaries(): Promise<Map<string, SeedBzm30Summary>> {
+  const response = await fetch(ENDPOINT);
+  const payload = (await response.json()) as { ok: boolean; summaries?: SeedBzm30Summary[] };
+  if (!response.ok || !payload.ok || !payload.summaries) throw new Error("seed bzm30 summaries failed");
+  return new Map(payload.summaries.map((s) => [s.seed_id, s]));
+}
+
+/** 一覧向け: 全シーズの最新スコア。ページを跨いでも再取得しない。 */
+export function loadSeedBzm30Summaries(options?: { force?: boolean }) {
+  return loadReferenceData(SUMMARY_KEY, requestSummaries, options);
+}

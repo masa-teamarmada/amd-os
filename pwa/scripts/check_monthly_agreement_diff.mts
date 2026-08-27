@@ -74,6 +74,7 @@ function project(overrides: Partial<MonthlyWorkAgreementProject> = {}): MonthlyW
     billingStatus: null,
     allocationStatus: "active",
     expectedRewardYen: 100000,
+    currentMonthAccrualYen: 100000,
     payoutYen: null,
     currentCyclePayoutYen: null,
     paymentYm: null,
@@ -99,6 +100,8 @@ function snapshot(projects: MonthlyWorkAgreementProject[]): MonthlyWorkAgreement
     projects,
     totals: {
       expectedRewardYen: projects.reduce((sum, p) => sum + (p.expectedRewardYen ?? 0), 0),
+      currentMonthAccrualYen: projects.reduce((sum, p) => sum + (p.currentMonthAccrualYen ?? 0), 0),
+      carryInYen: 0,
       stockYen: 0,
       paidActualYen: 0,
       unverifiedPaidYen: 0,

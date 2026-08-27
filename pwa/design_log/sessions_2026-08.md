@@ -1144,3 +1144,30 @@ submit が既存候補を返して無反応になる）を追加。
    完了通知が来てから次を判断する。
 9. **並列でDBへ書くと fetch failed が出る。** 2〜3分の計算のあとに書き込みが落ちると、その計算が丸ごと消える。
    リトライを入れる（今回は5回・指数バックオフで失敗ゼロになった）。
+
+## 2026-08-27 きよ「00 お金の流れ」タブ新設 — どこから入り何に使ったかの全体図
+
+> Claude Code 司令塔 + Sonnet背景worker (kiyo-money-flow) のセッションログ。
+
+### コンテキスト
+
+- まさから「adminのきよページに、AMDへどこからいくらお金が入り何に使われたかをビジュアルで分かりやすく。きっちりB/Sにするときよが理解できなくなるので、めちゃくちゃ分かりやすく」。設計相談から開始。
+- モック2案（A: サンキー流れ図 / B: 3ステップ縦カード）を実データ概算で提示 → まさ確定「A+B。行クリックでさらに分解される仕様」。
+
+### 実装
+
+- 仕様正本: [6-11-kiyo-money-flow-spec.md](../manual/6-11-kiyo-money-flow-spec.md) 新設、`/manual` の Admin/Finance 章へ登録。核心は分類×出どころの定義表と、二重計上の防波堤（freee固定費の「法定福利費」は社保納付と重なるため**どの分類にも入れない**）。
+- 集計: [kiyo-money-flow.ts](../src/lib/finance/kiyo-money-flow.ts)。入り=`billing_cycles`入金確認済み+別財布、報酬=`member_payout_settlements`（銀行実績・人別→PJ別）、役員報酬・運営費=`company_actual_monthly`（freee仕訳・科目別）、社保税=`company_payment_obligations` paid+租税公課、借入返済=recurringマスタ×経過月数。残高=`cash_balance`最新月。
+- UI: `/admin/kiyo` タブ先頭に「00 お金の流れ」（既定タブは立替精算のまま）。自作SVGサンキー+3ステップ縦カード+アコーディオン内訳、帯クリック→B行展開スクロール連動。期間3択（今月/今シーズン/ぜんぶ）。
+- API: `/api/admin/kiyo/money-flow`（requireAdmin、プロセス内TTL5分、ドリルダウン明細同梱でクリック時の追加fetchなし）。
+
+### 設計判断（次のえいみ向け）
+
+- 会社全体の「今シーズン」の既存定義はOSに無かった（value_plan_cyclesはPJ単位で期間バラバラ）。**p00（AMD自身）のactiveシーズン**（現在202606〜202612）を会社の「今シーズン」として採用、無ければ今月へフォールバック+warning表示。
+- 出どころが3系統（請求台帳/銀行明細/freee仕訳）なので合計は1円単位で一致しない。「ざっくり全体図、1円単位の帳簿はfreee」と画面に明記する割り切り。
+- 司令塔検品で1件修正: 入金ドリルダウンの「◯月分」がworker実装では入金確認月になっていた → 請求対象月（billing_cycles.ym）へ修正（a0669a2c）。
+
+### Verified
+
+- 本番: `/api/build-info` = a0669a2c 配信確認。`/admin/kiyo` 307（認証リダイレクト）、API 401（ガード動作）で正常。
+- `npm run test:critical-ui` は**今回と無関係に落ちている**: 32a9a309（seeds）が `CockpitAmdScoreDetailTab.tsx` から BZM2.2/SPS 系アンカー群を外したが、ガード側 `check_pwa_critical_ui.cjs` の期待値が未更新。`deploy.sh` が全セッションで止まるため、seeds側での期待値更新が必要（今回のセッションは管轄外として報告のみ、pushはガードと同等の検査を通した上で直接実施）。

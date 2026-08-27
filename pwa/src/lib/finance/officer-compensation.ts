@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { candidateSourceYmsForPaymentYm, effectivePaymentYmForCycle, type PaymentProjectRow } from "@/lib/payment-groups";
+import { candidateSourceYmsForPaymentYm, memberPayoutYmForCycle, type PaymentProjectRow } from "@/lib/payment-groups";
 
 export type FinanceOfficerReserve = {
   ym: string;
@@ -61,7 +61,9 @@ export async function loadOfficerReserve(
   paymentYm: string
 ): Promise<FinanceOfficerReserve> {
   const candidateYms = candidateSourceYmsForPaymentYm(paymentYm);
-  const [membersRes, projectsRes, explicitCyclesRes, unsetCyclesRes] = await Promise.all([
+  // 役員 (支払対象外メンバー) への配賦も、報酬と同じ「メンバーへ払う月」で集計する。
+  // クライアント請求月 (invoice_ym) で拾うと、支払通知書と別の月に載る。
+  const [membersRes, projectsRes, cyclesRes] = await Promise.all([
     supabase
       .from("members")
       .select("member_id, code_name, is_officer")
@@ -72,16 +74,11 @@ export async function loadOfficerReserve(
       .select("project_id, project_name, client_name, status, freee_partner_id, payment_due_rule, payment_due_day, invoice_send_deadline_rule"),
     supabase
       .from("billing_cycles")
-      .select("project_id, ym, invoice_ym, invoice_issued_at, invoice_sent_at, reward_summary_json")
-      .eq("invoice_ym", paymentYm),
-    supabase
-      .from("billing_cycles")
-      .select("project_id, ym, invoice_ym, invoice_issued_at, invoice_sent_at, reward_summary_json")
-      .in("ym", candidateYms)
-      .is("invoice_ym", null),
+      .select("project_id, ym, invoice_ym, invoice_issued_at, invoice_sent_at, payment_confirmed_at, reward_paid_at, reward_summary_json")
+      .in("ym", candidateYms),
   ]);
 
-  if (membersRes.error || projectsRes.error || explicitCyclesRes.error || unsetCyclesRes.error) {
+  if (membersRes.error || projectsRes.error || cyclesRes.error) {
     return { ym: paymentYm, totalYen: 0, entries: [] };
   }
 
@@ -100,17 +97,15 @@ export async function loadOfficerReserve(
     invoice_ym: string | null;
     invoice_issued_at?: string | null;
     invoice_sent_at?: string | null;
+    payment_confirmed_at?: string | null;
+    reward_paid_at?: string | null;
     reward_summary_json: unknown;
   };
   const cycleMap = new Map<string, Cycle>();
-  for (const cycle of (explicitCyclesRes.data ?? []) as Cycle[]) {
-    cycleMap.set(`${cycle.project_id}:${cycle.ym}`, cycle);
-  }
-  for (const cycle of (unsetCyclesRes.data ?? []) as Cycle[]) {
+  for (const cycle of (cyclesRes.data ?? []) as Cycle[]) {
     const project = projectMap.get(cycle.project_id);
-    if (effectivePaymentYmForCycle(cycle, project) === paymentYm) {
-      cycleMap.set(`${cycle.project_id}:${cycle.ym}`, { ...cycle, invoice_ym: paymentYm });
-    }
+    if (memberPayoutYmForCycle(cycle, project) !== paymentYm) continue;
+    cycleMap.set(`${cycle.project_id}:${cycle.ym}`, { ...cycle, invoice_ym: paymentYm });
   }
 
   const entries: FinanceOfficerReserve["entries"] = [];

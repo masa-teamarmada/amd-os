@@ -3,12 +3,19 @@ import Link from "next/link";
 import AdminInvoicesPage from "@/app/(app)/admin/invoices/page";
 import AdminPayoutsPage from "@/app/(app)/admin/payouts/page";
 import { ReimburseWorkspace } from "@/app/(app)/reimburse/page";
+import { KiyoMoneyFlowPanel } from "@/components/admin/kiyo-money-flow/KiyoMoneyFlowPanel";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: { absolute: "きよ - AMD OS" } };
 
 const KIYO_TASKS = [
+  {
+    id: "money-flow",
+    step: "00",
+    label: "お金の流れ",
+    description: "どこから入り何に使ったか",
+  },
   {
     id: "reimbursements",
     step: "01",
@@ -57,7 +64,7 @@ export default async function AdminKiyoPage({
         <div
           role="tablist"
           aria-label="きよの月次経理"
-          className="flex overflow-x-auto sm:grid sm:grid-cols-3 sm:overflow-visible"
+          className="flex overflow-x-auto sm:grid sm:grid-cols-4 sm:overflow-visible"
         >
           {KIYO_TASKS.map((task, index) => {
             const selected = task.id === activeTask;
@@ -96,6 +103,7 @@ export default async function AdminKiyoPage({
           aria-labelledby={`kiyo-tab-${activeTask}`}
           className="rounded-none border border-border bg-background p-3"
         >
+          {activeTask === "money-flow" ? <KiyoMoneyFlowPanel /> : null}
           {activeTask === "reimbursements" ? <ReimburseWorkspace embedded /> : null}
           {activeTask === "invoices" ? <AdminInvoicesPage embedded /> : null}
           {activeTask === "payouts" ? <AdminPayoutsPage embedded /> : null}

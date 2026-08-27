@@ -161,8 +161,8 @@ export const UI_HINTS: Record<string, UiHint> = {
   },
   "monthly-agreement.expected-reward": {
     id: "monthly-agreement.expected-reward",
-    title: "もらえる予定額",
-    body: "今月やる仕事に対して、今の計画で見込んでいる金額。実際に支払う金額や、前の月から残っている金額とは別に見る。",
+    title: "次にもらえる金額",
+    body: "この月について合意する、次に支払われる金額。今月やる仕事の分に加えて、これまで支払いを待ってもらっている分の返済も含む。支払通知書と同じ計算なので、通知書の金額と一致する。",
     docHref: "/spec/3-14-monthly-work-agreement-current-spec#calculation-contract",
   },
   "monthly-agreement.payout": {

@@ -146,7 +146,15 @@ function paymentRuleReferenceDate(
   return deadlineDay ? isoForYmDay(addMonths(cycle.ym, 1), deadlineDay) : null;
 }
 
-export function effectivePaymentYmForCycle(
+/**
+ * **クライアントからAMDへ入金される月**。売上・入金予定・資金繰りに使う。
+ *
+ * メンバーへ払う月とは別物なので、報酬・配賦・支払通知書の集計にこれを使ってはいけない
+ * (`memberPayoutYmForCycle` を使う)。取り違えると、同じ月を開いているのに画面ごとに
+ * 金額が違う状態になる (2026-08-26 に月初合意・役員配賦・経営スコアの3か所で発生)。
+ * 機械の防波堤は `scripts/check_payment_month_usage.mts`。
+ */
+export function clientReceiptYmForCycle(
   cycle: Pick<PaymentCycleRow, "invoice_ym" | "ym"> & Partial<Pick<PaymentCycleRow, "invoice_sent_at" | "invoice_issued_at">>,
   project: Pick<PaymentProjectRow, "payment_due_rule" | "payment_due_day" | "invoice_send_deadline_rule"> | undefined
 ): string {
@@ -161,7 +169,7 @@ export function effectivePaymentYmForCycle(
 }
 
 /**
- * メンバーへの支払月。
+ * **AMDからメンバーへ払う月**。報酬・配賦・支払通知書の集計はすべてこれを使う。
  *
  * 既定は PJ の支払条件からの推定だが、**クライアントからの入金が確認できている稼働月は、
  * 推定より早ければ入金月をそのまま支払月にする**。
@@ -172,7 +180,7 @@ export function effectivePaymentYmForCycle(
  *
  * すでにメンバーへ支払った月 (`reward_paid_at`) は動かさない。
  */
-export function effectiveMemberPayoutYmForCycle(
+export function memberPayoutYmForCycle(
   cycle: Pick<PaymentCycleRow, "invoice_ym" | "ym"> &
     Partial<Pick<PaymentCycleRow, "invoice_sent_at" | "invoice_issued_at" | "payment_confirmed_at">> & {
       reward_paid_at?: string | null;
@@ -240,7 +248,7 @@ export async function loadPaymentConfirmationGroups(
   }
   for (const cycle of ((unsetRes.data ?? []) as unknown as PaymentCycleRow[])) {
     const project = projectMap.get(cycle.project_id);
-    if (effectivePaymentYmForCycle(cycle, project) === targetYm) {
+    if (clientReceiptYmForCycle(cycle, project) === targetYm) {
       cycles.set(`${cycle.project_id}:${cycle.ym}`, cycle);
     }
   }
@@ -252,7 +260,7 @@ export async function loadPaymentConfirmationGroups(
     if (!project) continue;
     if ((project.status ?? "").toLowerCase() === "lost") continue;
 
-    const invoiceYm = effectivePaymentYmForCycle(cycle, project);
+    const invoiceYm = clientReceiptYmForCycle(cycle, project);
     if (invoiceYm !== targetYm) continue;
     const key = `${cycle.project_id}:${invoiceYm}`;
     const referenceDate = paymentRuleReferenceDate(cycle, project);
