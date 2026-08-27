@@ -46,13 +46,31 @@ AMD OS 本体の「きよ」ページ（`/admin/kiyo`）を、きよ専用の単
 
 金額に関わる機能が必要になったら、**本体側に足して、こちらは表示するだけにする。**
 
+### 例外：「見せ方」だけの部品はコピーしてよい
+
+`src/components/kiyo-money-flow/` と `src/lib/finance/kiyo-money-flow-types.ts`、
+`src/lib/utils.ts` は本体からのコピー。これらは**描画専用**で、金額の計算は一切していない
+（数字は本体の API が返した値をそのまま描いているだけ）。
+
+| こちら | 正本 |
+|---|---|
+| `src/components/kiyo-money-flow/*` | `pwa/src/components/admin/kiyo-money-flow/*` |
+| `src/lib/finance/kiyo-money-flow-types.ts` | `pwa/src/lib/finance/kiyo-money-flow-types.ts` |
+| `src/lib/utils.ts` | `pwa/src/lib/utils.ts` |
+
+唯一の変更は `KiyoMoneyFlowPanel.tsx` の取得先を
+`/api/admin/kiyo/money-flow` から `/api/kiyo/money-flow` にしたところだけ。
+
+ズレても**金額事故にはならない**（図の見た目が本体と食い違うだけ）。
+本体側を直したら、こちらへコピーし直して、取得先とコピー注記を戻す。
+
 ## 画面（本体の `/admin/kiyo` と同じ4タブ）
 
-`/kiyo?task=...`
+トップ（`/`）を開くと **00 お金の流れ** が出る。タブ切替は `/?task=...`。
 
 | タブ | できること | データ元 |
 |---|---|---|
-| **00 お金の流れ** | どこから入り何に使ったか。期間は今月／今シーズン／全期間 | 本体 `/api/admin/kiyo/money-flow` を中継（集計は本体） |
+| **00 お金の流れ** | どこから入り何に使ったか。期間は今月／今シーズン／全期間 | 本体 `/api/admin/kiyo/money-flow` を中継。図（流れ図）は本体の描画部品をそのまま使う |
 | **01 立替精算** | 申請を確認して **PM承認 / admin承認 / 却下** | 一覧は `reimbursements` を読むだけ。承認は本体 `/api/reimbursements/decision` へ中継 |
 | **02 請求書** | 発行・送付・入金の状態を確認 | `billing_cycles` を読むだけ。**発行操作は無い**（freee に本物を作るので本体でやる） |
 | **03 メンバー支払** | 確定した通知書とPDFを見て **送付済みにする / 取り消す** | `payout_notices` を読むだけ。書くのは `sent_at` だけ |

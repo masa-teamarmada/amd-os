@@ -1,44 +1,51 @@
+/**
+ * きよあどみのトップ。開いた瞬間に「00 お金の流れ」が出る。
+ * AMD OS 本体の /admin/kiyo と同じ4タブ構成。
+ *
+ * 【原則】どのタブも計算しない。本体が確定させた結果を表示して、承認するだけ。
+ *   00 お金の流れ  本体の集計APIをそのまま表示（中継のみ）
+ *   01 立替精算    一覧を読む＋承認を本体へ取り次ぐ
+ *   02 請求書      状態の確認だけ（発行は本体。freee に本物を作る操作なので）
+ *   03 メンバー支払 本体が確定させた通知書を見て、送付済みにする
+ */
+
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { currentYmJst } from "@/lib/ym";
+import { KiyoMoneyFlowPanel } from "@/components/kiyo-money-flow/KiyoMoneyFlowPanel";
+import { ReimbursementsClient } from "@/components/ReimbursementsClient";
+import { InvoicesClient } from "@/components/InvoicesClient";
+import { PayoutNoticeClient } from "@/components/PayoutNoticeClient";
 
 export const dynamic = "force-dynamic";
 
-/**
- * きよ専用 AMD OS のトップ（ハブ）。
- * 機能を足すときは FEATURES に1行足して、対応するページを作る。
- *
- * 【原則】このアプリは金額を計算しない。AMD OS 本体が確定させた結果を
- * 表示して承認するだけ。計算やコピーを持ち込むと本体とズレて金額事故になる。
- */
-const FEATURES = [
-  {
-    href: "/kiyo?task=money-flow",
-    title: "00 お金の流れ",
-    description: "どこから入って何に使ったか。本体の集計をそのまま表示する",
-    status: "ready" as const,
-  },
-  {
-    href: "/kiyo?task=reimbursements",
-    title: "01 立替精算",
-    description: "申請された立替を確認して、承認・却下する",
-    status: "ready" as const,
-  },
-  {
-    href: "/kiyo?task=invoices",
-    title: "02 請求書",
-    description: "発行・送付・入金の状態を確認する（発行操作は本体）",
-    status: "ready" as const,
-  },
-  {
-    href: "/kiyo?task=payouts",
-    title: "03 メンバー支払",
-    description: "確定した支払通知書を見て、送付済みにする",
-    status: "ready" as const,
-  },
-];
+export const metadata: Metadata = {
+  title: "きよ専用 AMD OS",
+};
 
-export default async function Home() {
+const KIYO_TASKS = [
+  { id: "money-flow", step: "00", label: "お金の流れ", description: "どこから入り何に使ったか" },
+  { id: "reimbursements", step: "01", label: "立替精算", description: "確認して承認する" },
+  { id: "invoices", step: "02", label: "請求書", description: "発行・送付・入金の状態" },
+  { id: "payouts", step: "03", label: "メンバー支払", description: "通知書を見て送付する" },
+] as const;
+
+type KiyoTask = (typeof KIYO_TASKS)[number]["id"];
+
+function resolveTask(value: string | string[] | undefined): KiyoTask {
+  const candidate = Array.isArray(value) ? value[0] : value;
+  return KIYO_TASKS.some((task) => task.id === candidate)
+    ? (candidate as KiyoTask)
+    : "money-flow";
+}
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ task?: string | string[] }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -66,35 +73,70 @@ export default async function Home() {
     );
   }
 
+  const params = await searchParams;
+  const activeTask = resolveTask(params.task);
   const displayName = member.member_name || member.code_name || user.email;
+  const ym = currentYmJst();
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10">
-      <header className="border-b border-slate-200 pb-5">
-        <h1 className="text-2xl font-semibold tracking-tight">◈ きよ専用 AMD OS</h1>
-        <p className="mt-1 text-sm text-slate-500">Team ARMADA 管理業務 / {displayName}</p>
+    <main className="mx-auto w-full max-w-[1600px] px-4 py-5">
+      <header className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">◈ きよ専用 AMD OS</h1>
+          <p className="mt-0.5 text-xs text-slate-500">
+            月次経理をここで確認して承認する。金額は本体が確定させたものをそのまま出している。
+          </p>
+        </div>
+        <span className="text-xs text-slate-500">{displayName}</span>
       </header>
 
-      <section className="mt-6 grid gap-3 sm:grid-cols-2">
-        {FEATURES.map((feature) => (
-          <Link
-            key={feature.href}
-            href={feature.href}
-            className="group rounded-lg border border-slate-200 bg-white p-4 transition-colors hover:border-slate-400 hover:bg-slate-50"
-          >
-            <div className="text-base font-semibold group-hover:underline">{feature.title}</div>
-            <p className="mt-1 text-xs leading-relaxed text-slate-500">{feature.description}</p>
-          </Link>
-        ))}
-      </section>
+      <div
+        role="tablist"
+        aria-label="きよの月次経理"
+        className="flex overflow-x-auto sm:grid sm:grid-cols-4 sm:overflow-visible"
+      >
+        {KIYO_TASKS.map((task, index) => {
+          const selected = task.id === activeTask;
+          return (
+            <Link
+              key={task.id}
+              id={`kiyo-tab-${task.id}`}
+              href={task.id === "money-flow" ? "/" : `/?task=${task.id}`}
+              role="tab"
+              aria-selected={selected}
+              aria-current={selected ? "page" : undefined}
+              aria-controls={`kiyo-panel-${task.id}`}
+              className={[
+                "flex min-h-11 w-[168px] shrink-0 flex-col justify-center gap-0.5 border border-slate-200 px-3 py-2 sm:w-full",
+                index > 0 ? "-ml-px" : "",
+                selected
+                  ? "relative z-10 -mb-px border-t-2 border-t-slate-900 border-b-white bg-white"
+                  : "bg-slate-50 text-slate-500 hover:bg-slate-100",
+              ].join(" ")}
+            >
+              <span className="flex items-baseline gap-2">
+                <span className="font-mono text-[11px] text-slate-500">{task.step}</span>
+                <span className={selected ? "text-sm font-semibold text-slate-900" : "text-sm font-medium"}>
+                  {task.label}
+                </span>
+              </span>
+              <span className="truncate text-[11px] text-slate-500">{task.description}</span>
+            </Link>
+          );
+        })}
+      </div>
 
-      <p className="mt-8 text-[11px] leading-relaxed text-slate-500">
-        このアプリは<strong>見て承認するための道具</strong>で、金額の計算はしない。
-        出ている数字はすべて AMD OS 本体が確定させたもので、報酬もPDFも本体が毎晩つくる。
-        金額を決める操作・請求書の発行・PJ別収支や予算確定は、本家 AMD OS の
-        <code className="mx-1">/admin/kiyo</code>
-        側でやる。
-      </p>
+      <section
+        id={`kiyo-panel-${activeTask}`}
+        role="tabpanel"
+        aria-labelledby={`kiyo-tab-${activeTask}`}
+        className="border border-slate-200 bg-white p-3"
+      >
+        {activeTask === "money-flow" ? <KiyoMoneyFlowPanel /> : null}
+        {activeTask === "reimbursements" ? <ReimbursementsClient /> : null}
+        {activeTask === "invoices" ? <InvoicesClient initialYm={ym} /> : null}
+        {activeTask === "payouts" ? <PayoutNoticeClient initialYm={ym} embedded /> : null}
+      </section>
     </main>
   );
 }
