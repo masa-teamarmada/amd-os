@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 import {
   candidateSourceYmsForPaymentYm,
-  effectiveMemberPayoutYmForCycle,
+  memberPayoutYmForCycle,
   type PaymentProjectRow,
 } from "@/lib/payment-groups";
 import {
@@ -1214,7 +1214,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
   const cycleMap = new Map<string, BillingCycleRow>();
   for (const row of (paymentCandidateCyclesRes.data ?? []) as BillingCycleRow[]) {
     const project = projectMap.get(row.project_id);
-    const effectiveYm = effectiveMemberPayoutYmForCycle(row, project);
+    const effectiveYm = memberPayoutYmForCycle(row, project);
     if (effectiveYm === ym) {
       cycleMap.set(cycleKey(row), { ...row, invoice_ym: effectiveYm });
     }
@@ -1224,7 +1224,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
   const forecastPaymentCycleMap = new Map<string, BillingCycleRow>();
   for (const row of (forecastPaymentCandidateCyclesRes.data ?? []) as BillingCycleRow[]) {
     const project = projectMap.get(row.project_id);
-    const effectiveYm = effectiveMemberPayoutYmForCycle(row, project);
+    const effectiveYm = memberPayoutYmForCycle(row, project);
     if (forecastMonths.includes(effectiveYm)) {
       forecastPaymentCycleMap.set(cycleKey(row), { ...row, invoice_ym: effectiveYm });
     }

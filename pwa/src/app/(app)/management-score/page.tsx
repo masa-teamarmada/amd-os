@@ -15,7 +15,7 @@ import { buildLiveMonthlyPlInputs } from "@/lib/finance/live-monthly-pl-inputs";
 import { buildLongRangeProjection, type LongRangeTarget } from "@/lib/finance/longrange-projection";
 import { LIVE_MONTHLY_PL_VERSION } from "@/lib/finance/live-monthly-pl-budget";
 import { expandExtraRevenueCash, type ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
-import { effectivePaymentYmForCycle } from "@/lib/payment-groups";
+import { clientReceiptYmForCycle, memberPayoutYmForCycle } from "@/lib/payment-groups";
 import { computeForwardCappedMemberCosts } from "@/lib/reward-summary";
 import { contractBackedClientAmount, isWithinContractPeriod } from "@/lib/contract-money";
 import {
@@ -1346,7 +1346,7 @@ function buildMonthlyActualSummaries(
   for (const cycle of cycles) {
     if (!cycle.payment_confirmed_at) continue;
     const project = projectMap.get(cycle.project_id);
-    const paymentYm = effectivePaymentYmForCycle(cycle, project);
+    const paymentYm = clientReceiptYmForCycle(cycle, project);
     const summary = ensure(paymentYm);
     summary.confirmedDepositsGross += Math.round(expectedNetForCycle(cycle, project) * 1.1);
     summary.hasActualData = true;
@@ -1401,7 +1401,7 @@ function buildExpectedReceiptsByPaymentYm(cycles: BillingCycleActualRow[], proje
   for (const cycle of cycles) {
     if (cycle.payment_confirmed_at) continue;
     const project = projectMap.get(cycle.project_id);
-    const paymentYm = effectivePaymentYmForCycle(cycle, project);
+    const paymentYm = clientReceiptYmForCycle(cycle, project);
     const net = expectedNetForCycle(cycle, project);
     if (net <= 0) continue;
     const gross = Math.round(net * 1.1);
@@ -2378,11 +2378,11 @@ export default async function ManagementScorePage() {
   const highConfidenceReceiptTotal = outlookMonths.reduce((sum, ym) => sum + (expectedReceiptsByYm.get(ym)?.highConfidenceGross ?? 0), 0);
   const paidCycleCount = billingCycles.filter((cycle) => {
     const project = paymentProjects.find((item) => item.project_id === cycle.project_id);
-    return effectivePaymentYmForCycle(cycle, project) === pastActualYm && Boolean(cycle.reward_paid_at);
+    return memberPayoutYmForCycle(cycle, project) === pastActualYm && Boolean(cycle.reward_paid_at);
   }).length;
   const paymentNoticeUploadedMissing = billingCycles.filter((cycle) => {
     const project = paymentProjects.find((item) => item.project_id === cycle.project_id);
-    return effectivePaymentYmForCycle(cycle, project) === pastActualYm && cycle.reward_paid_at && !cycle.payout_notice_uploaded_at;
+    return memberPayoutYmForCycle(cycle, project) === pastActualYm && cycle.reward_paid_at && !cycle.payout_notice_uploaded_at;
   }).length;
   const financeAlerts = [
     pastActual.confirmedDepositsGross === 0 ? `${pastActualYm} の入金確認がまだ0円。billing/paymentログの取り込み確認が必要。` : null,

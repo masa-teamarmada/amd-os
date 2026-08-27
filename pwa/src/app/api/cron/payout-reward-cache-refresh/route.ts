@@ -4,7 +4,7 @@ import {
   candidateSourceYmsForPaymentYm,
   cleanYm,
   currentYmJst,
-  effectiveMemberPayoutYmForCycle,
+  memberPayoutYmForCycle,
   type PaymentProjectRow,
 } from "@/lib/payment-groups";
 import { syncRewardSummariesForBillingCycles } from "@/lib/reward-summary";
@@ -86,7 +86,7 @@ async function refreshPayoutRewardCache(paymentYms: string[], cycleYms: string[]
   }
   for (const row of (paymentCandidateCyclesRes.data ?? []) as BillingCycleRow[]) {
     const project = projectMap.get(row.project_id);
-    const effectiveYm = effectiveMemberPayoutYmForCycle(row, project);
+    const effectiveYm = memberPayoutYmForCycle(row, project);
     if (paymentYms.includes(effectiveYm)) {
       cycleMap.set(`${row.project_id}:${row.ym}`, { ...row, invoice_ym: effectiveYm });
     }

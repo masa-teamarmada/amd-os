@@ -8,7 +8,7 @@ import {
 } from "@/lib/ms-schedule-shared";
 import {
   candidateSourceYmsForPaymentYm,
-  effectiveMemberPayoutYmForCycle,
+  memberPayoutYmForCycle,
 } from "@/lib/payment-groups";
 import type {
   MonthlyAgreementAmountChangeReason,
@@ -243,10 +243,10 @@ function rewardPaymentRuleCycle(cycle: JsonRecord, fallbackYm: string) {
 /**
  * メンバーへの支払月。`/admin/payouts` (支払通知書) と同じ関数を使う。
  * ここが別実装だと、同じ稼働月なのに月初合意と支払通知書で金額が食い違う
- * (まさ指摘 2026-08-26)。判定は `effectiveMemberPayoutYmForCycle` 一本に寄せる。
+ * (まさ指摘 2026-08-26)。判定は `memberPayoutYmForCycle` 一本に寄せる。
  */
 function effectiveRewardPaymentYmForCycle(cycle: JsonRecord, project: JsonRecord, fallbackYm: string): string {
-  return effectiveMemberPayoutYmForCycle(rewardPaymentRuleCycle(cycle, fallbackYm), paymentRuleProject(project));
+  return memberPayoutYmForCycle(rewardPaymentRuleCycle(cycle, fallbackYm), paymentRuleProject(project));
 }
 
 function payoutSnapshotKey(projectId: string, ym: string): string {
