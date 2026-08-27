@@ -5,6 +5,26 @@
 
 ---
 
+### [ops/shared-checkout] 検証前の編集中ファイルを、別セッションが先に commit した / deploy script が他セッションの dirty で止まった (2026-08-27)
+
+- **状態**: 実害なし。共有 checkout の構造的な性質として記録
+- **症状**: (1) 月初合意モーダルを直している最中、`MonthlyAgreementExperience.tsx` / `MonthlyAgreementGateOverlay.tsx` を**別セッションが `1be0484d` として commit した**（20:20:54）。commit メッセージまで自動で書かれていた。(2) その後 `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を実行すると「tracked ファイルに未コミット変更がある」で停止した。dirty は自分のものではなく、別セッションが作業中の kiyo-money-flow の3ファイル。
+- **原因**: (1) `main` 一本・単一 checkout を複数セッションが共有しているため、**編集中のファイルは常に他セッションの `git add` の射程に入っている**。「検証が終わるまで手元に置く」という運用がそもそも成立しない。(2) `deploy.sh` の dirty guard は `git status --porcelain --untracked-files=no` を無条件に見るので、**誰の dirty かを区別しない**。回避用の環境変数も無い。
+- **対応内容**: (1) commit された内容を最終形と突き合わせて一致を確認した（`text-[17px]` / `max-w-4xl` / `max-h-full` / `sm:p-8 lg:p-12` / `Escape` / `monthly-agreement-modal-close` の全アンカーが入っていた）ので、そのまま活かして残り（spec・manual・guard）を `315c27b1` で積んだ。(2) 他セッションの dirty には触らず、`deploy.sh` が push 前に走らせる検査を**手で全部実行**してから `git push origin main` した — critical-ui / reference-data-cache / three-party-project-view / sx-shared-control-migration / model-formula-canon / member-payout-matching / payout-reimbursements / payment-month-usage の8種、`deploy-version-guard.cjs --target production`、`git merge-base --is-ancestor origin/main HEAD`。反映は `/api/build-info` の `git_sha` で確認した。
+- **再発防止策**: **論理単位ごとに自分で早く commit する**（memory [[feedback_commit_immediately_after_edit]] と同じ結論だが、理由が「巻き戻り防止」だけでなく「他セッションに中間状態を commit されないため」でもある）。**`deploy.sh` が他セッションの dirty で止まったとき、dirty を commit も stash もしない**（AGENTS.common「別セッションのdirty、競合、未判断ファイルを勝手に消さない」）。自分の commit が全部済んでいるなら、script が走らせる guard を手で全て実行したうえで `git push origin main` する。**guard を飛ばして push しない** — script を迂回してよいのは dirty guard だけで、rollback guard 群は迂回対象ではない。
+
+---
+
+### [ui/modal-dismiss] 月初合意モーダルが画面いっぱいで、背景クリック領域が 12px しか無く閉じられなかった (2026-08-27)
+
+- **状態**: クローズ (2026-08-27 — commit `1be0484d` + `315c27b1`、本番の `/api/build-info` で反映確認済み)
+- **症状**: まさ「月初合意モーダルが大きすぎてしんどい。ブラウザウィンドウをかなり大きくしないとモーダル外クリックができなくて詰む」。未合意のままOS内の画面を開くと前面に出るモーダルが、閉じられない。
+- **原因**: 背景が `p-1.5 sm:p-3`、本体が `mx-auto h-full max-w-7xl`。本体の幅は `min(viewport - 24px, 1280px)`、高さは `viewport - 24px` になるため、**ウィンドウ幅が 1304px を超えるまで背景クリックできる領域は四辺の 12px しか無い**（1280×800 の実測で本体 1256×776、帯は上下左右とも 12px）。閉じるボタンも `Escape` も無く、閉じる手段が**その 12px の帯だけ**だった。仕様 (spec 3-14) は「背景クリックでその表示だけ一時的に閉じられる」と書いていたが、**背景の寸法を書いていなかった**ので、余白 0 の実装でも仕様どおりに見えていた。
+- **対応内容**: (1) 背景を `flex items-center justify-center` + `p-4 sm:p-8 lg:p-12` にし、どのウィンドウ幅でも上下左右へ最低 16px（`sm:` 32px、`lg:` 48px）を残す。(2) 本体を `h-full max-w-7xl` → `max-h-full w-full max-w-4xl`（1280×800 で 1256×776 → 896×704）。(3) ヘッダー右上に閉じるボタン (`monthly-agreement-modal-close`) と `Escape`。ヘッダーは `sticky` なので位置指定の親になり `absolute right-2 top-2` がそのまま効く。(4) sticky ヘッダーが常時食う高さを削るため、モーダル時の表題を `text-[17px] sm:text-[20px]`、補助文を 1 行に（モバイルで 220px → 141px）。(5) `pwa/spec/3-14` と `pwa/manual/2-2` に外枠寸法と閉じる3経路を明記。
+- **再発防止策**: **「背景クリックで閉じられる」と仕様に書くなら、その背景の寸法まで書く。** 余白を書かない仕様は、余白 0 の実装でも合格になる。さらに、閉じる導線を背景クリック**だけ**に依存させない（ボタンと `Escape` を必ず併設する）。`check_pwa_critical_ui.cjs` に `max-h-full w-full max-w-4xl` / `sm:p-8 lg:p-12` / `onDismiss={close}` / `event.key === "Escape"` / `monthly-agreement-modal-close` をアンカーとして追加し、**寸法と閉じる導線の退行を機械で止める**（幅と余白は「見た目の好み」に見えるので次の改修で気軽に戻される）。なお `[ui/dialog]` (2026-08-21、既定幅が呼び出し側の `max-w-*` を打ち消して30箇所が384pxに潰れた) と同じく、**モーダルの寸法は実測しないと分からない**類の不具合。class を読むだけでなく、複数のウィンドウ幅で本体と余白を実測する。
+
+---
+
 ### [extract/pj-scope-contamination] 別PJの内容が p10 配下の project_knowledge / strategy_signals へ書かれていた (2026-08-23)
 
 - **状態**: データは補修済み (migration 306)、**抽出側のガードは未実装＝再発しうる**

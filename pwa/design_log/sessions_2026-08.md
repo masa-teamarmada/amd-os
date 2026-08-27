@@ -1229,3 +1229,88 @@ commit 前に走らせていたのは tsc・lint・build・reference-data-cache�
 15. **「重いから一部で済ませる」は依頼の縮小。** 重いなら重いと言って進め方を相談する。黙って範囲を狭めない。
 16. **確認で止まる前に、止まらずに進められる部分がないかを見る。**
     まさ「その確認しないと進められないわけじゃないでしょ？ 進めといてくれたらもう終わってたのに」。
+
+---
+
+## 2026-08-27 月初合意モーダルが閉じられない — 外枠の余白と閉じる導線
+
+まさ「月初合意モーダルが大きすぎてしんどい。ブラウザウィンドウをかなり大きくしないとモーダル外クリックができなくて詰む」。
+
+### 何が起きていたか
+
+`MonthlyAgreementGateOverlay` の背景が `p-1.5 sm:p-3`、本体が `mx-auto h-full max-w-7xl`。
+本体の幅は `min(viewport - 24px, 1280px)`、高さは `viewport - 24px` なので、
+**ウィンドウ幅が 1304px を超えるまで、背景クリックできる領域は四辺の 12px しかない**。
+1280×800 の実測で本体 1256×776、帯は上下左右とも 12px。
+
+閉じるボタンも Escape も無く、その 12px の帯を狙う以外に閉じる手段が無かった。
+仕様（spec 3-14）は「背景クリックで一時的に閉じられる」と書いてあるが、
+**その背景が実質存在しない**という、仕様と実装の乖離ではなく仕様の書き漏れだった。
+
+### 直したこと
+
+- 背景を `flex items-center justify-center` + `p-4 sm:p-8 lg:p-12` にし、
+  どのウィンドウ幅でも上下左右へ最低 16px（`sm:` 32px、`lg:` 48px）の背景クリック領域を残す
+- 本体を `h-full max-w-7xl` → `max-h-full w-full max-w-4xl` に。
+  `h-full` を外したので内容が短ければ本体も短くなる。中身側（`MonthlyAgreementExperience`）の
+  モーダル根も `h-full min-h-0 overflow-y-auto` → `min-h-0 overflow-y-auto` に合わせた
+  （`max-h-full` の親に対して flex item の既定 `flex: 0 1 auto` で content-height → 上限で縮んでスクロール）
+- モーダル本体の内容幅 `max-w-[960px]` → `max-w-4xl`（本体幅と一致させ、両側の死んだ余白を消す）
+- ヘッダー右上に閉じるボタン（`data-testid="monthly-agreement-modal-close"`、`size-10`）。
+  ヘッダーは `sticky` なので**位置指定の親になり**、`absolute right-2 top-2` がそのまま効く。
+  ヘッダー側に `pr-14` を足して表題が潜らないようにした
+- `Escape` で閉じる（`document.addEventListener("keydown")`、`open` の間だけ）
+- `onDismiss?: () => void` を `MonthlyAgreementExperience` の prop に追加。
+  `mode="page"` では渡さないのでボタンは出ない（`/monthly-agreement` の直リンクは閉じる先が無いため）
+- sticky ヘッダーが常時占める高さを削るため、モーダル時の表題を `text-[17px] sm:text-[20px]`、
+  補助文を `text-[12px]` の1行（`右上の × か背景のクリックで閉じます（合意は保存されません）。`）に
+
+### 実測（Tailwind の class をそのまま写した複製ページをブラウザで計測）
+
+| viewport | 本体 | 背景クリック領域 左右 / 上下 |
+|---|---|---|
+| 1440×900 | 896×804 | 272 / 48 |
+| 1280×800 | 896×704 | 192 / 48 |
+| 1024×700 | 896×604 | 64 / 48 |
+| 900×650 | 836×586 | 32 / 32 |
+| 768×700 | 704×636 | 32 / 32 |
+| 1440×560（短い窓） | 896×464 | 272 / 48（スクロール可） |
+| 375×812（実寸） | 343×780 | 16 / 16 |
+
+修正前は全サイズで 12px（1304px 超で初めて左右に余白）。
+モバイルの sticky ヘッダーは 220px → 141px（本体の 28% → 18%）。
+下端までスクロールして `確認して合意` に到達できること、ヘッダーと × が貼りついたままであることも確認。
+
+`npx tsc --noEmit` / `eslint` / `npm run build` / deploy rollback guard 8種 / deploy-version-guard、いずれも通過。
+
+### 正本への反映
+
+- `pwa/spec/3-14-monthly-work-agreement-current-spec.md` — 外枠寸法、閉じる3経路、sticky ヘッダーの高さ抑制
+- `pwa/manual/2-2-member-workflows-quick-start.md` — 閉じ方が3通りになったこと
+- `pwa/scripts/check_pwa_critical_ui.cjs` — アンカーを `max-w-[960px]` → `max-w-4xl` へ付け替え、
+  `monthly-agreement-modal-close` を追加。gate overlay 側に `onDismiss={close}` / `event.key === "Escape"` /
+  `sm:p-8 lg:p-12` / `max-h-full w-full max-w-4xl` を追加し、**余白と閉じる導線の退行を機械で止める**
+
+commit `1be0484d`（実装）+ `315c27b1`（正本と guard）。本番の `/api/build-info` の `git_sha` が
+`315c27b1…` になったのを確認して反映完了。
+
+### 同日の事故
+
+1. **別セッションが、編集中のファイルを先に commit した**（`1be0484d`、20:20:54）。
+   内容は最終形と一致していたので実害は無かったが、検証前の中間状態が commit される可能性があった。
+2. **`deploy.sh` が「tracked に未コミット変更がある」で止まった**。dirty は別セッションの kiyo-money-flow。
+   自分の分は全部 commit 済みだったので、script が push 前に走らせる rollback guard
+   （critical-ui / reference-data-cache / three-party-project-view / sx-shared-control-migration /
+   model-formula-canon / member-payout-matching / payout-reimbursements / payment-month-usage /
+   deploy-version-guard / `origin/main` が HEAD の祖先か）を**手で全部実行**してから `git push origin main` した。
+   他セッションの dirty には触っていない。
+
+### 教訓（追加）
+
+17. **「背景クリックで閉じられる」と仕様に書くなら、その背景の寸法まで書く。**
+    余白を書かない仕様は、実装が余白 0 でも仕様どおりになる。閉じる導線を背景クリック**だけ**に
+    依存させない（ボタンと Escape を必ず併設する）のが構造的な答え。
+18. **モーダルの寸法は guard のアンカーに入れる。** 幅・余白は「見た目の好み」に見えるので
+    次の改修で気軽に戻される。`max-h-full w-full max-w-4xl` と `sm:p-8 lg:p-12` を釘にした。
+19. **共有 checkout では、自分の作業ファイルが他セッションに commit されうる。**
+    検証が終わるまで手元に置く運用は成立しない。論理単位ごとに自分で早く commit する方が安全。
