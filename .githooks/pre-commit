@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
-# モデル正本 (model/ 配下、または model/LOCK.json に列挙されたファイル) が
-# staged に含まれる場合、node pwa/scripts/model_lock.cjs check を通してから
-# commit を許可する。迂回用の環境変数は用意しない。
+# commit の前に2つを検査する。迂回用の環境変数は用意しない。
 #
-# 詳細: model/README.md
+# 1. モデル正本 (model/ 配下、または model/LOCK.json に列挙されたファイル) が staged なら
+#    node pwa/scripts/model_lock.cjs check（詳細: model/README.md）
+# 2. pwa/src 配下が staged なら node pwa/scripts/check_pwa_critical_ui.cjs
+#
+# 2 を足した理由（2026-08-27）: 画面から旧SPSの表示を消したとき、
+# 「その表示が存在すること」を要求する critical-ui の assertion を消し忘れ、
+# main が赤いまま push して他セッションの作業を止めた。
+# **画面の要素を消す変更は、その存在を要求している釘も同時に外さないと通らない**、を機械で守る。
+# critical-ui は数秒で終わるので、commit のたびに走らせても待ちにならない。
 
 set -euo pipefail
 
@@ -42,6 +48,22 @@ fi
 
 if [ "$touches_model" -eq 1 ]; then
   node "$REPO_ROOT/pwa/scripts/model_lock.cjs" check
+fi
+
+# --- 2. 画面の釘 ---------------------------------------------------------------
+touches_pwa_src=0
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  case "$f" in
+    pwa/src/*)
+      touches_pwa_src=1
+      break
+      ;;
+  esac
+done <<< "$staged_files"
+
+if [ "$touches_pwa_src" -eq 1 ]; then
+  node "$REPO_ROOT/pwa/scripts/check_pwa_critical_ui.cjs"
 fi
 
 exit 0
