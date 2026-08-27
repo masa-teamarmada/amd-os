@@ -114,20 +114,36 @@ export default function DashboardPage() {
       }).catch(() => undefined);
       return () => { cancelled = true; };
     }
+    let started = false;
+    const start = () => {
+      if (started) return;
+      started = true;
+      observer.disconnect();
+      window.clearTimeout(fallback);
+      setCompanyLoading(true);
+      loadCompanyContent()
+        .then((value) => setCompanyContent(value))
+        .catch(() => setCompanyContent({ members: [], history: [], photos: [], mediaMentions: [] }))
+        .finally(() => setCompanyLoading(false));
+    };
+
     const observer = new IntersectionObserver(
       (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) return;
-        observer.disconnect();
-        setCompanyLoading(true);
-        loadCompanyContent()
-          .then((value) => setCompanyContent(value))
-          .catch(() => setCompanyContent({ members: [], history: [], photos: [], mediaMentions: [] }))
-          .finally(() => setCompanyLoading(false));
+        if (entries.some((entry) => entry.isIntersecting)) start();
       },
       { rootMargin: "600px 0px" },
     );
     observer.observe(node);
-    return () => observer.disconnect();
+
+    // 画面下まで来なくても、少し待ったら読み始める。
+    // 交差の監視だけに任せると、月初合意の画面が出ていてスクロールできないときや
+    // 背面タブで開いたときに「読み込み中…」のまま残る (交差の監視は非表示のタブでは動かない)。
+    const fallback = window.setTimeout(start, 2500);
+
+    return () => {
+      observer.disconnect();
+      window.clearTimeout(fallback);
+    };
   }, [loading, companyContent, companyLoading]);
 
   const projectLabels = useMemo(() => {
