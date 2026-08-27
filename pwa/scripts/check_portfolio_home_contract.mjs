@@ -101,9 +101,25 @@ for (const [, value] of shadowDeclarations) {
 }
 
 // 8. 右マイページは約380pxに留め、左の研究ポートフォリオ判断領域を主役にする。
-assert.match(dashboard, /xl:grid-cols-\[minmax\(620px,1fr\)_minmax\(360px,400px\)\]/);
+//    左trackの最小値は 600px。ナビ256px + 外周padding32px + gap16px を足すと 1264px で、
+//    xl (1280px) の発火幅に収まる。620px にすると 1280〜1283px で親を4px溢れ、
+//    body に横スクロールが出て sticky の左ナビが流れる (2026-08-27 実測)。
+assert.match(dashboard, /xl:grid-cols-\[minmax\(600px,1fr\)_minmax\(360px,400px\)\]/);
 assert.match(dashboard, /xl:sticky/);
 assert.match(dashboard, /xl:max-h-\[calc\(100vh-1\.5rem\)\]/);
 assert.match(dashboard, /xl:overflow-y-auto/);
+
+// 9. 右マイページの sticky 可動域は「自分の行」ではなく grid コンテナ全体になる。
+//    2カラム grid の中へ全幅要素 (col-span-2) を置くと、右カラムがその要素の右側を
+//    最後まで覆い隠す。2026-08-27 に会社の記録の写真列が読めなくなった事故の再発防止。
+//    全幅で敷きたい節は grid の外に兄弟として置く。
+assert.doesNotMatch(dashboard, /col-span-2/);
+assert.match(dashboard, /id="company-content"/);
+
+// 10. 会社の記録 (名簿・沿革・メディア掲載・写真) は参照系。ブラウザから素のクエリを
+//     投げ直さず、キャッシュ層 (lib/company-content-client.ts) 経由で読む。
+assert.doesNotMatch(dashboard, /from\("media_assets"\)/);
+assert.doesNotMatch(dashboard, /from\("company_history_events"\)/);
+assert.match(dashboard, /loadCompanyContent/);
 
 console.log("portfolio home contract: ok");

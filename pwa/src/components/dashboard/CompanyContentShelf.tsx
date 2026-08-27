@@ -1,83 +1,33 @@
 "use client";
 
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
-import { History, ImageIcon, Minus, Newspaper, Plus, RotateCcw, ShieldCheck, Upload, Users, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import Link from "next/link";
+import { useModalContainment } from "@/components/project-workspace/useModalContainment";
+import { ArrowRight, ChevronDown, ChevronUp, History, ImageIcon, Minus, Newspaper, Plus, RotateCcw, ShieldCheck, Upload, Users, X } from "lucide-react";
+import type {
+  CompanyHistoryPreview,
+  CompanyImageCrop,
+  CompanyMediaMentionPreview,
+  CompanyMemberPreview,
+  CompanyPhotoAssetPreview,
+  CompanyPhotoPreview,
+} from "@/types/company-content";
 
-export interface CompanyImageCrop {
-  x: number;
-  y: number;
-  zoom: number;
-}
+export type {
+  CompanyImageCrop,
+  CompanyMemberPreview,
+  CompanyPhotoAssetPreview,
+  CompanyHistoryPreview,
+  CompanyPhotoPreview,
+  CompanyMediaMentionPreview,
+  CompanyContentPreview,
+} from "@/types/company-content";
 
-export interface CompanyMemberPreview {
-  memberProfileId: string | null;
-  memberId: string | null;
-  codeName: string;
-  displayName: string;
-  fullName: string | null;
-  role: string | null;
-  status: string;
-  projectCount: number;
-  joinedOn: string | null;
-  effort: number | null;
-  bio: string | null;
-  joinContext: string | null;
-  originLabel: string | null;
-  residenceLabel: string | null;
-  offTimeNote: string | null;
-  favoriteFood: string | null;
-  bucketList: string | null;
-  mbtiTags: string[];
-  imageUrl: string | null;
-  photoAssetId: string | null;
-  photoCrop: CompanyImageCrop;
-  lastLoginAt: string | null;
-}
-
-export interface CompanyPhotoAssetPreview {
-  assetId: string;
-  title: string;
-  imageUrl: string | null;
-  kind: string;
-  capturedAt: string | null;
-  isCover: boolean;
-  coverPosition?: string;
-  crop: CompanyImageCrop;
-}
-
-export interface CompanyHistoryPreview {
-  id: string;
-  projectId: string | null;
-  occurredOn: string | null;
-  title: string;
-  kind: string | null;
-}
-
-export interface CompanyPhotoPreview {
-  id: string;
-  title: string;
-  meta: string;
-  status: "unknown" | "internal_ok" | "public_ok";
-  imageUrl: string | null;
-  kind: string;
-  itemCount?: number;
-  occurredOn?: string | null;
-  coverAssetId?: string | null;
-  coverPosition?: string;
-  crop?: CompanyImageCrop;
-  assets?: CompanyPhotoAssetPreview[];
-}
-
-export interface CompanyMediaMentionPreview {
-  id: string;
-  projectId: string;
-  projectName: string;
-  occurredOn: string;
-  title: string;
-  mediaName: string;
-  kind: string;
-  sourceUrl: string | null;
-}
+/** 写真は最新のできごとが一目で分かればよいので、既定は直近だけ出す。 */
+const PHOTO_PREVIEW_COUNT = 12;
+/** 沿革・メディア掲載は数百件あるので、既定は直近だけ出して全件は展開に回す。 */
+const LIST_PREVIEW_COUNT = 20;
 
 interface Props {
   members: CompanyMemberPreview[];
@@ -97,6 +47,9 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
   const [coverError, setCoverError] = useState<string | null>(null);
   const [memberPhotoError, setMemberPhotoError] = useState<string | null>(null);
   const [memberUploadError, setMemberUploadError] = useState<string | null>(null);
+  const [showAllPhotos, setShowAllPhotos] = useState(false);
+  const [showAllHistory, setShowAllHistory] = useState(false);
+  const [showAllMentions, setShowAllMentions] = useState(false);
 
   useEffect(() => setMemberItems(members), [members]);
   useEffect(() => setPhotoItems(photos), [photos]);
@@ -199,50 +152,104 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
     }
   }
 
+  const visiblePhotos = showAllPhotos ? photoItems : photoItems.slice(0, PHOTO_PREVIEW_COUNT);
+  const visibleHistory = showAllHistory ? history : history.slice(0, LIST_PREVIEW_COUNT);
+  const visibleMentions = showAllMentions ? mediaMentions : mediaMentions.slice(0, LIST_PREVIEW_COUNT);
+
   return (
     <section className="space-y-3">
-      <div className="flex items-end justify-between gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">
-            Company Content
+          <p className="text-[11px] font-semibold tracking-[0.16em] text-muted-foreground">
+            会社の記録
           </p>
-          <h2 className="text-base font-semibold text-foreground">Team / History / Media / Photo</h2>
+          <h2 className="text-base font-semibold text-foreground">メンバー・沿革・メディア掲載・写真</h2>
         </div>
-        <span className="hidden rounded-md border border-border bg-white px-3 py-1.5 text-xs font-medium text-muted-foreground sm:inline-flex">
-          Admin draft
-        </span>
+        <Link
+          href="/company"
+          className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-border bg-white px-3 text-xs font-medium text-[var(--desk-blue)] hover:bg-muted/40"
+        >
+          会社情報をまとめて見る
+          <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </Link>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
+      {/* 写真は「最近あったこと」が一目で分かる唯一の面なので、他の列と横並びにせず先頭へ全幅で置く。
+          旧4カラムでは右端に押し込まれ、右カラム (マイページ) に覆われて読めなかった。 */}
+      <ShelfColumn
+        icon={<ImageIcon className="h-4 w-4" />}
+        title="写真"
+        countLabel={`${photoItems.length}件`}
+        action={photoItems.length > PHOTO_PREVIEW_COUNT ? (
+          <ShelfMoreButton
+            expanded={showAllPhotos}
+            total={photoItems.length}
+            onClick={() => setShowAllPhotos((value) => !value)}
+          />
+        ) : null}
+      >
+        <div className={`grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 ${showAllPhotos ? "max-h-[520px] overflow-y-auto pr-1" : ""}`}>
+          {visiblePhotos.map((photo) => (
+            <button
+              key={photo.id}
+              type="button"
+              onClick={() => {
+                setCoverError(null);
+                setSelectedPhoto(photo);
+              }}
+              className="block w-full overflow-hidden rounded-md border border-border/70 bg-white text-left transition-colors hover:bg-muted/30"
+            >
+              <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-[linear-gradient(135deg,#f8fafc,#eef6ff_48%,#f7f3ea)]">
+                {photo.imageUrl ? (
+                  <MediaPreview src={withFileVariant(photo.imageUrl, "thumb")} kind={photo.kind} crop={photo.crop} objectPosition={photo.coverPosition} />
+                ) : (
+                  <ImageIcon className="h-5 w-5 text-slate-500/70" />
+                )}
+              </div>
+              <div className="px-2 py-1.5">
+                <p className="truncate text-[13px] font-medium leading-tight text-foreground">{photo.title}</p>
+                <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                  {[formatDayLabel(photo.occurredOn), photo.itemCount ? `${photo.itemCount}枚` : null].filter(Boolean).join(" / ")}
+                </p>
+              </div>
+            </button>
+          ))}
+          {photoItems.length === 0 && <EmptyLine text="まだ登録がありません" />}
+        </div>
+      </ShelfColumn>
+
+      {/* メンバー / 沿革 / メディア掲載は件数が大きく違うので、3列とも同じ高さで内部スクロールさせる。
+          高さを揃えないと、一番長い列にあわせて他の列の下に数千pxの空白が出る。 */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         <ShelfColumn
           icon={<Users className="h-4 w-4" />}
           title="メンバー"
-          countLabel={`${memberItems.length} active`}
+          countLabel={`${memberItems.length}人`}
         >
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
+          <div className="grid max-h-[420px] grid-cols-3 gap-2 overflow-y-auto pr-1 sm:grid-cols-4 lg:grid-cols-3">
             {memberItems.map((member) => {
               return (
                 <button
                   key={member.memberId ?? `unresolved-${member.codeName}`}
                   type="button"
                   onClick={() => setSelectedMember(member)}
-                  className="group grid h-[174px] grid-rows-[136px_38px] overflow-hidden rounded-md border border-border/70 bg-white text-left transition-colors hover:bg-muted/30"
+                  className="group grid overflow-hidden rounded-md border border-border/70 bg-white text-left transition-colors hover:bg-muted/30"
                 >
-                  <span className="grid h-[136px] w-full place-items-center overflow-hidden bg-sky-50 text-sm font-semibold text-sky-800">
+                  <span className="grid aspect-[4/5] w-full place-items-center overflow-hidden bg-sky-50 text-sm font-semibold text-sky-800">
                     {member.imageUrl ? (
                       <MediaPreview src={withFileVariant(member.imageUrl, "thumb")} kind="photo" crop={member.photoCrop} />
                     ) : (
                       <Users className="h-5 w-5 text-sky-700/55" />
                     )}
                   </span>
-                  <span className="block min-w-0 px-2 py-2">
-                    <span className="block truncate text-center text-sm font-semibold text-foreground">{member.codeName}</span>
+                  <span className="block min-w-0 px-2 py-1.5">
+                    <span className="block truncate text-center text-[13px] font-semibold text-foreground">{member.codeName}</span>
                   </span>
                 </button>
               );
             })}
             {memberItems.length === 0 && (
-              <EmptyLine text="active member profile はまだ読み込めていません" />
+              <EmptyLine text="まだ登録がありません" />
             )}
           </div>
         </ShelfColumn>
@@ -250,104 +257,84 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
         <ShelfColumn
           icon={<History className="h-4 w-4" />}
           title="沿革"
-          countLabel={`${history.length} events`}
+          countLabel={`${history.length}件`}
+          action={history.length > LIST_PREVIEW_COUNT ? (
+            <ShelfMoreButton
+              expanded={showAllHistory}
+              total={history.length}
+              onClick={() => setShowAllHistory((value) => !value)}
+            />
+          ) : null}
         >
-          <div className="space-y-2">
-            {history.map((event) => (
-              <div key={event.id} className="rounded-md border border-border/70 bg-white px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-[10px] text-muted-foreground">
-                    {event.occurredOn ? event.occurredOn.replaceAll("-", ".") : "date tbd"}
+          <ul className="max-h-[420px] divide-y divide-border/60 overflow-y-auto pr-1">
+            {visibleHistory.map((event) => (
+              <li key={event.id} className="flex items-baseline gap-2 py-1.5">
+                <span className="w-[68px] shrink-0 font-mono text-[11px] text-muted-foreground">
+                  {event.occurredOn ? event.occurredOn.replaceAll("-", ".") : "日付未定"}
+                </span>
+                {event.projectId && (
+                  <span className="shrink-0 rounded border border-border bg-muted/30 px-1 py-px font-mono text-[10px] text-muted-foreground">
+                    {event.projectId}
                   </span>
-                  {event.projectId && (
-                    <span className="rounded border border-border bg-muted/30 px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">
-                      {event.projectId}
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 line-clamp-2 text-sm font-medium leading-snug text-foreground">{event.title}</p>
-                {event.kind && <p className="mt-1 text-[11px] text-muted-foreground">{event.kind}</p>}
-              </div>
+                )}
+                <span className="min-w-0 flex-1 truncate text-[13px] leading-snug text-foreground" title={event.title}>
+                  {event.title}
+                </span>
+              </li>
             ))}
             {history.length === 0 && (
-              <EmptyLine text="history は Notion 移植レビュー後に増やします" />
+              <EmptyLine text="まだ登録がありません" />
             )}
-          </div>
+          </ul>
         </ShelfColumn>
 
         <ShelfColumn
           icon={<Newspaper className="h-4 w-4" />}
           title="メディア掲載"
-          countLabel={`${mediaMentions.length} items`}
+          countLabel={`${mediaMentions.length}件`}
+          action={mediaMentions.length > LIST_PREVIEW_COUNT ? (
+            <ShelfMoreButton
+              expanded={showAllMentions}
+              total={mediaMentions.length}
+              onClick={() => setShowAllMentions((value) => !value)}
+            />
+          ) : null}
         >
-          <div className="space-y-2">
-            {mediaMentions.map((item) => (
-              <div key={item.id} className="rounded-md border border-border/70 bg-white px-3 py-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600">
+          <ul className="max-h-[420px] divide-y divide-border/60 overflow-y-auto pr-1">
+            {visibleMentions.map((item) => (
+              <li key={item.id} className="py-1.5">
+                <div className="flex items-baseline gap-2">
+                  <span className="w-[68px] shrink-0 font-mono text-[11px] text-muted-foreground">
+                    {item.occurredOn.replaceAll("-", ".")}
+                  </span>
+                  <span className="shrink-0 rounded border border-slate-200 bg-slate-100 px-1 py-px text-[10px] font-semibold text-slate-600">
                     {item.projectName}
                   </span>
                   <KindBadge kind={item.kind} />
-                  <span className="font-mono text-[10px] text-muted-foreground ml-auto">
-                    {item.occurredOn.replaceAll("-", ".")}
-                  </span>
                 </div>
                 {item.sourceUrl ? (
                   <a
                     href={item.sourceUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-1 line-clamp-2 block text-sm font-medium leading-snug text-foreground hover:underline"
+                    className="mt-0.5 block truncate text-[13px] leading-snug text-foreground hover:underline"
+                    title={`${item.title} — ${item.mediaName}`}
                   >
                     {item.title}
+                    <span className="ml-1.5 text-[11px] text-muted-foreground">{item.mediaName}</span>
                   </a>
                 ) : (
-                  <p className="mt-1 line-clamp-2 text-sm font-medium leading-snug text-foreground">{item.title}</p>
+                  <p className="mt-0.5 truncate text-[13px] leading-snug text-foreground" title={`${item.title} — ${item.mediaName}`}>
+                    {item.title}
+                    <span className="ml-1.5 text-[11px] text-muted-foreground">{item.mediaName}</span>
+                  </p>
                 )}
-                <p className="mt-1 text-[11px] text-muted-foreground">{item.mediaName}</p>
-              </div>
+              </li>
             ))}
             {mediaMentions.length === 0 && (
-              <EmptyLine text="メディア掲載記録はまだありません" />
+              <EmptyLine text="まだ登録がありません" />
             )}
-          </div>
-        </ShelfColumn>
-
-        <ShelfColumn
-          icon={<ImageIcon className="h-4 w-4" />}
-          title="photo"
-          countLabel={`${photos.length} groups`}
-        >
-          <div className="space-y-2">
-            {photoItems.map((photo) => (
-              <button
-                key={photo.id}
-                type="button"
-                onClick={() => {
-                  setCoverError(null);
-                  setSelectedPhoto(photo);
-                }}
-                className="block w-full overflow-hidden rounded-md border border-border/70 bg-white text-left transition-colors hover:bg-muted/30 [content-visibility:auto] [contain-intrinsic-size:232px]"
-              >
-                <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-[linear-gradient(135deg,#f8fafc,#eef6ff_48%,#f7f3ea)]">
-                  {photo.imageUrl ? (
-                    <MediaPreview src={withFileVariant(photo.imageUrl, "thumb")} kind={photo.kind} crop={photo.crop} objectPosition={photo.coverPosition} />
-                  ) : (
-                    <ImageIcon className="h-5 w-5 text-slate-500/70" />
-                  )}
-                </div>
-                <div className="px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{photo.title}</p>
-                    <PermissionBadge status={photo.status} />
-                  </div>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    {[photo.itemCount ? `${photo.itemCount} items` : null, photo.occurredOn, photo.kind, photo.meta].filter(Boolean).join(" / ")}
-                  </p>
-                </div>
-              </button>
-            ))}
-          </div>
+          </ul>
         </ShelfColumn>
       </div>
 
@@ -427,7 +414,7 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
               </div>
               <div className="flex flex-wrap items-center gap-2 bg-white px-3 py-2 text-xs text-muted-foreground">
                 <PermissionBadge status={selectedPhoto.status} />
-                <span>{[selectedPhoto.itemCount ? `${selectedPhoto.itemCount} items` : null, selectedPhoto.occurredOn, selectedPhoto.meta].filter(Boolean).join(" / ")}</span>
+                <span>{[selectedPhoto.itemCount ? `${selectedPhoto.itemCount}枚` : null, formatDayLabel(selectedPhoto.occurredOn), selectedPhoto.meta].filter(Boolean).join(" / ")}</span>
               </div>
             </div>
 
@@ -473,7 +460,7 @@ export function CompanyContentShelf({ members, history, photos, mediaMentions }:
               ))}
             </div>
             {coverError && <p className="text-xs text-red-600">{coverError}</p>}
-            {(selectedPhoto.assets ?? []).length === 0 && <EmptyLine text="このグループの画像一覧を読み込めていません" />}
+            {(selectedPhoto.assets ?? []).length === 0 && <EmptyLine text="この写真グループの一覧を読み込めていません" />}
           </div>
         </Modal>
       )}
@@ -852,27 +839,51 @@ function ShelfColumn({
   icon,
   title,
   countLabel,
+  action,
   children,
 }: {
   icon: ReactNode;
   title: string;
   countLabel: string;
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <div className="rounded-lg border border-border bg-card p-3">
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-2 flex items-center gap-2">
         <span className="grid h-7 w-7 place-items-center rounded-md border border-border/70 bg-muted/30 text-muted-foreground">
           {icon}
         </span>
         <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-        <span className="ml-auto rounded border border-border bg-muted/30 px-2 py-0.5 text-[10px] text-muted-foreground">
+        <span className="rounded border border-border bg-muted/30 px-2 py-0.5 text-[10px] text-muted-foreground">
           {countLabel}
         </span>
+        {action && <span className="ml-auto">{action}</span>}
       </div>
       {children}
     </div>
   );
+}
+
+/** 既定は直近だけ出し、押すと全件へ切り替える。件数を出して「まだ先がある」ことを見せる。 */
+function ShelfMoreButton({ expanded, total, onClick }: { expanded: boolean; total: number; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-1 rounded border border-border bg-white px-2 py-0.5 text-[11px] font-medium text-[var(--desk-blue)] hover:bg-muted/40"
+    >
+      {expanded ? "直近だけ" : `全${total}件`}
+      {expanded ? <ChevronUp className="h-3 w-3" aria-hidden="true" /> : <ChevronDown className="h-3 w-3" aria-hidden="true" />}
+    </button>
+  );
+}
+
+/** 2026.08.26 形式。日付が無い写真グループは日付欄ごと出さない。 */
+function formatDayLabel(value?: string | null) {
+  if (!value) return null;
+  const text = String(value).slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text.replaceAll("-", ".") : text;
 }
 
 function KindBadge({ kind }: { kind: string }) {
@@ -895,20 +906,20 @@ function PermissionBadge({ status }: { status: CompanyPhotoPreview["status"] }) 
     return (
       <span className="inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
         <ShieldCheck className="h-3 w-3" />
-        public
+        社外可
       </span>
     );
   }
   if (status === "internal_ok") {
     return (
       <span className="rounded border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">
-        internal
+        社内のみ
       </span>
     );
   }
   return (
     <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
-      review
+      未確認
     </span>
   );
 }
@@ -931,24 +942,49 @@ function DetailLine({ label, value }: { label: string; value: string | null }) {
   );
 }
 
+/**
+ * body 直下へ portal し、Escape・背景クリック・背面スクロール抑止・フォーカストラップを持たせる。
+ * 旧実装は shelf の中にそのまま描いていたため、閉じる手段が右上の × だけで、
+ * 開いている間も裏のホームがスクロールし続けていた。
+ * z は ナビ(50) / ナビのフライアウト(60,61) より上、月初合意ゲート(80) より下に置く。
+ */
 function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 p-4" role="dialog" aria-modal="true">
-      <div className="max-h-[86vh] w-full max-w-3xl overflow-auto rounded-lg border border-border bg-card shadow-xl">
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  useModalContainment({ dialogRef, initialFocusRef: closeButtonRef, onClose });
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[70] grid place-items-center bg-black/35 p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="max-h-[86vh] w-full max-w-3xl overflow-auto rounded-lg border border-border bg-card shadow-xl"
+      >
         <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-card px-4 py-3">
           <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">{title}</h3>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={onClose}
             className="grid h-8 w-8 place-items-center rounded-md border border-border bg-white text-muted-foreground hover:bg-muted/40"
-            aria-label="close"
+            aria-label="閉じる"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
         <div className="p-4">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

@@ -10,18 +10,11 @@
  *    2. AMD Management Score (= total + 5 軸 + sparkline)
  *    3. いまやること (= 明示された actionItems のみ)
  *
+ * 2026-08-27: 1 は右マイページへ、3 は上段の「要対応」へ寄せ、本 component は 2 だけを持つ。
+ *
  *  UI テイストは通常版維持 (= cyber は HUD だけ、通常 dashboard は素朴な card)。
  */
 import Link from "next/link";
-
-export type DashboardActionItem = {
-  title: string;
-  meta: string;
-  periodLabel: string;
-  projectInitials: string;
-  projectId: string;
-  tone: "amber" | "cyan" | "red";
-};
 
 export type DashboardManagementScoreSnapshot = {
   ym: string | null;
@@ -40,28 +33,17 @@ export type DashboardNotificationsSummary = {
   recentTitles: string[];
 };
 
-const TONE_CLASS: Record<DashboardActionItem["tone"], string> = {
-  amber: "border-amber-300 bg-amber-50 text-amber-900",
-  cyan: "border-sky-300 bg-sky-50 text-sky-900",
-  red: "border-rose-300 bg-rose-50 text-rose-900",
-};
-
 export function DashboardScoreOverview({
   managementScore,
   managementHistory,
-  actionItems,
 }: {
   managementScore: DashboardManagementScoreSnapshot | null;
   managementHistory: DashboardManagementScoreSnapshot[];
-  actionItems: DashboardActionItem[];
 }) {
-  // 2026-05-25 #71 v3 まさ確定: 通知センター削除 (= 右マイページに含まれる)、上部 2 列に
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-      <ManagementScoreCard score={managementScore} history={managementHistory} />
-      <MonthlyActionsCard items={actionItems} />
-    </div>
-  );
+  // 2026-05-25 #71 v3 まさ確定: 通知センター削除 (= 右マイページに含まれる)。
+  // 2026-08-27: 併置していた「いまやること」は常に空の箱だった (呼び出し側が固定の空配列を
+  // 渡しており、中身が入る経路が無い) ため撤去。期日付きの仕事は上段の「要対応」が正本。
+  return <ManagementScoreCard score={managementScore} history={managementHistory} />;
 }
 
 function ManagementScoreCard({ score, history }: { score: DashboardManagementScoreSnapshot | null; history: DashboardManagementScoreSnapshot[] }) {
@@ -81,7 +63,7 @@ function ManagementScoreCard({ score, history }: { score: DashboardManagementSco
         </Link>
       </div>
       {!score ? (
-        <p className="relative z-0 text-xs text-muted-foreground my-auto text-center">snapshot なし</p>
+        <p className="relative z-0 text-xs text-muted-foreground my-auto text-center">今月の記録はまだありません</p>
       ) : (
         <div className="relative z-0 flex flex-1 flex-col gap-1.5">
           <div className="flex items-baseline gap-2">
@@ -89,7 +71,7 @@ function ManagementScoreCard({ score, history }: { score: DashboardManagementSco
             <ScoreTrendIcon current={score.total_score} previous={prevScore(history, "total_score")} size="lg" />
             <div className="text-[10px] text-muted-foreground">{score.ym}</div>
             {typeof score.confidence === "number" && (
-              <div className="text-[10px] text-muted-foreground ml-auto">conf={score.confidence.toFixed(2)}</div>
+              <div className="ml-auto text-[10px] text-muted-foreground" title="この評価をどれだけ確からしいと見ているか (0〜1)">確からしさ {score.confidence.toFixed(2)}</div>
             )}
           </div>
           <SparklineWithAxes values={history.map((h) => h.total_score ?? 0)} labels={history.map((h) => h.ym ?? "")} className="h-20 w-full" />
@@ -180,41 +162,13 @@ function formatYmLabel(ym: string): string {
   return `${ym.slice(0, 4)}.${ym.slice(4, 6)}`;
 }
 
-function MonthlyActionsCard({ items }: { items: DashboardActionItem[] }) {
-  return (
-    <section className="rounded-lg border border-border bg-card p-3 flex flex-col gap-1.5 min-h-[120px]">
-      <div className="flex items-baseline gap-2">
-        <h2 className="text-sm font-semibold">いまやること</h2>
-        <span className="text-[10px] text-muted-foreground ml-auto">{items.length} 件</span>
-      </div>
-      {items.length === 0 ? (
-        <p className="text-xs text-muted-foreground my-auto text-center">表示対象なし</p>
-      ) : (
-        <ul className="space-y-1">
-          {items.map((it, i) => (
-            <li key={i}>
-              <Link
-                href={`/project/${it.projectId}/cockpit`}
-                className={`flex items-center gap-2 rounded border px-2 py-1 text-[11px] hover:brightness-95 transition-all ${TONE_CLASS[it.tone]}`}
-              >
-                <span className="font-mono text-[9px] font-bold rounded bg-white/70 px-1 py-0.5">{it.projectInitials}</span>
-                <span className="font-medium truncate">{it.title}</span>
-                <span className="text-[9px] opacity-70 ml-auto whitespace-nowrap">{it.periodLabel}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
 function ScoreAxis({ label, value, previous }: { label: string; value: number | null; previous: number | null }) {
   return (
     <div className="rounded border border-border/60 bg-background/60 px-1 py-1 text-center">
-      <div className="text-[8px] text-muted-foreground leading-tight">{label}</div>
+      {/* 8px は実機で読めない。5軸ラベルは10px以上を下限にする。 */}
+      <div className="text-[10px] leading-tight text-muted-foreground">{label}</div>
       <div className="flex items-baseline justify-center gap-0.5 leading-tight">
-        <span className="text-[11px] font-semibold">{value == null ? "—" : value.toFixed(1)}</span>
+        <span className="text-[13px] font-semibold">{value == null ? "—" : value.toFixed(1)}</span>
         <ScoreTrendIcon current={value} previous={previous} size="sm" />
       </div>
     </div>

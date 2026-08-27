@@ -68,6 +68,12 @@ const REFERENCE_DATA_ENDPOINTS = [
     routeFile: "src/app/api/seeds/bzm30/route.ts",
     clientModule: "src/lib/bzm30-seed-client.ts",
   },
+  {
+    endpoint: "/api/dashboard/company-content",
+    label: "会社の記録 (ホーム下段のメンバー / 沿革 / メディア掲載 / 写真)",
+    routeFile: "src/app/api/dashboard/company-content/route.ts",
+    clientModule: "src/lib/company-content-client.ts",
+  },
 ];
 
 // ---------------------------------------------------------------------------

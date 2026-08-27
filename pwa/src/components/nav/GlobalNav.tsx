@@ -302,6 +302,9 @@ export function GlobalNav({
           { label: "モデル", href: "/model", icon: FunctionSquare, adminOnly: true },
           { label: "教科書", href: "/bzm", icon: BookMarked },
           { label: "マニュアル", href: "/manual", icon: BookOpen },
+          // 会社の記録 (メンバー / 沿革 / メディア掲載 / 写真) の全件面。
+          // ホームには直近だけを出し、全部見るときはここへ来る。
+          { label: "会社の記録", href: "/company", icon: Building2 },
         ],
       },
     ],

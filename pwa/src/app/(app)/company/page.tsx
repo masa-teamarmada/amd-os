@@ -41,7 +41,8 @@ export default async function CompanyPage() {
       .from("media_assets")
       .select("asset_id,title,asset_kind,captured_at,usage_permission,consent_status,member_ids,visibility,status,storage_bucket,storage_path,thumbnail_path,tags")
       .in("asset_kind", ["photo", "video"])
-      .eq("source_ref", "notion:team-armada-photo-db")
+      // 取り込み経路は Notion 写真DB と共有Drive の2本。片方だけを見ると新しい写真が消える。
+      .in("source_ref", ["notion:team-armada-photo-db", "drive:armada-company-photo"])
       .eq("visibility", "admin_only")
       .eq("status", "needs_review")
       .order("captured_at", { ascending: false, nullsFirst: false })

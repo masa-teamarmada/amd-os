@@ -6,13 +6,8 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { DashboardGrid } from "@/components/dashboard/DashboardGrid";
 import { PortfolioPulse } from "@/components/dashboard/PortfolioPulse";
-import type {
-  CompanyHistoryPreview,
-  CompanyImageCrop,
-  CompanyMediaMentionPreview,
-  CompanyMemberPreview,
-  CompanyPhotoPreview,
-} from "@/components/dashboard/CompanyContentShelf";
+import type { CompanyContentPreview } from "@/types/company-content";
+import { loadCompanyContent, peekCompanyContent } from "@/lib/company-content-client";
 import {
   DashboardScoreOverview,
   type DashboardManagementScoreSnapshot,
@@ -46,7 +41,7 @@ const CompanyContentShelf = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="text-sm text-muted-foreground py-8 text-center">会社コンテンツ読み込み中…</div>
+      <div className="text-sm text-muted-foreground py-8 text-center">会社の記録を読み込み中…</div>
     ),
   },
 );
@@ -103,17 +98,30 @@ export default function DashboardPage() {
     }).catch(() => setLoading(false));
   }, []);
 
+  // 会社の記録 (名簿・沿革・メディア掲載・写真) は参照系なので、一度読んだらキャッシュから配る。
+  // 同じセッションで2回目以降にホームを開いたときは待ち時間ゼロで節が埋まる。
   useEffect(() => {
+    if (companyContent || companyLoading) return;
     const node = companyAnchorRef.current;
-    if (!node || companyContent || companyLoading) return;
+    if (!node) return;
+
+    // 同じセッションで読み込み済みなら、画面下まで来るのを待たずにそのまま描く。
+    // loadCompanyContent はキャッシュ済みなら往復せずに解決する。
+    if (peekCompanyContent()) {
+      let cancelled = false;
+      loadCompanyContent().then((value) => {
+        if (!cancelled) setCompanyContent(value);
+      }).catch(() => undefined);
+      return () => { cancelled = true; };
+    }
     const observer = new IntersectionObserver(
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return;
         observer.disconnect();
         setCompanyLoading(true);
-        fetchCompanyContentPreview(createClient())
+        loadCompanyContent()
           .then((value) => setCompanyContent(value))
-          .catch(() => setCompanyContent({ members: [], history: [], photos: DASHBOARD_PHOTO_PREVIEW, mediaMentions: [] }))
+          .catch(() => setCompanyContent({ members: [], history: [], photos: [], mediaMentions: [] }))
           .finally(() => setCompanyLoading(false));
       },
       { rootMargin: "600px 0px" },
@@ -148,9 +156,13 @@ export default function DashboardPage() {
 
   return (
     <div className="amd-home-page-skin p-3 sm:p-4">
-      <div className="max-w-[1700px] mx-auto">
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(620px,1fr)_minmax(360px,400px)]">
-          <main className="space-y-4 min-w-0">
+      <div className="max-w-[1700px] mx-auto space-y-4">
+        {/* この grid の高さが、右カラム (マイページ) の sticky 追従が止まる位置になる。
+            sticky の可動域は「自分の行」ではなく grid コンテナ全体なので、全幅で敷きたい節を
+            この grid の中へ入れてはいけない。入れた瞬間、右カラムがその節の右側を覆い隠す
+            (2026-08-27: 会社の記録の写真列が読めなくなっていた不具合の原因)。 */}
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(600px,1fr)_minmax(360px,400px)]">
+          <div className="space-y-4 min-w-0">
             <ProactiveTodoBadge />
             {/* 研究ポートフォリオ優先キュー (= 研究機関・シーズが母集団、PJは契約成立後の運用レイヤー)。
                 旧 /portfolio-preview を2026-08-02にホームへ正式採用 (まさ確定)。 */}
@@ -182,18 +194,18 @@ export default function DashboardPage() {
               <summary className="dashboard-desk-section-title cursor-pointer">
                 経営指標・接続状況
               </summary>
-              <div className="mt-2 space-y-4">
+              {/* 縦積みだと1枚あたり幅900px超を捨てて空白になるので2列で敷く。 */}
+              <div className="mt-2 grid grid-cols-1 gap-3 lg:grid-cols-2">
                 <DashboardScoreOverview
                   managementScore={managementScore}
                   managementHistory={managementHistory}
-                  actionItems={[]}
                 />
                 <FundingStatsCard />
                 <ExtractionStatusCard />
                 <FreeeConnectionStatusCard />
               </div>
             </details>
-          </main>
+          </div>
           {/* /mypage の中身そっくり embed (= まさ #71 v3 確定、MyPageContent を再利用)。
               desktopはsticky + 独立scroll、mobile/tabletは明示カードで /mypage へ導線を出す
               (2026-08-02 まさ追加監査反映: mobileで消さない)。 */}
@@ -209,7 +221,8 @@ export default function DashboardPage() {
               <MyPageContent embedded showMonthlyProjects={false} />
             </div>
           </aside>
-          <div id="company-content" ref={companyAnchorRef} className="xl:col-span-2">
+        </div>
+        <div id="company-content" ref={companyAnchorRef} className="scroll-mt-4">
             {companyContent ? (
               <CompanyContentShelf
                 members={companyContent.members}
@@ -218,60 +231,12 @@ export default function DashboardPage() {
                 mediaMentions={companyContent.mediaMentions}
               />
             ) : (
-              <div className="text-sm text-muted-foreground py-8 text-center">会社コンテンツ読み込み中…</div>
+              <div className="text-sm text-muted-foreground py-8 text-center">会社の記録を読み込み中…</div>
             )}
-          </div>
         </div>
       </div>
     </div>
   );
-}
-
-interface CompanyContentPreview {
-  members: CompanyMemberPreview[];
-  history: CompanyHistoryPreview[];
-  photos: CompanyPhotoPreview[];
-  mediaMentions: CompanyMediaMentionPreview[];
-}
-
-const DASHBOARD_PHOTO_PREVIEW: CompanyPhotoPreview[] = [
-  {
-    id: "member-profile",
-    title: "Member profile",
-    meta: "Notion member photos / consent required",
-    status: "unknown",
-    imageUrl: null,
-    kind: "photo",
-  },
-  {
-    id: "project-scenes",
-    title: "Project scenes",
-    meta: "PJ / event tags before public use",
-    status: "unknown",
-    imageUrl: null,
-    kind: "photo",
-  },
-  {
-    id: "company-assets",
-    title: "Company assets",
-    meta: "Logo / deck / gallery candidates",
-    status: "internal_ok",
-    imageUrl: null,
-    kind: "photo",
-  },
-];
-
-interface CompanyMediaAssetRow {
-  asset_id: unknown;
-  title: unknown;
-  asset_kind: unknown;
-  captured_at?: unknown;
-  usage_permission: unknown;
-  consent_status: unknown;
-  status?: unknown;
-  storage_path: unknown;
-  thumbnail_path: unknown;
-  tags?: unknown;
 }
 
 async function fetchManagementScoreHistory(supabase: ReturnType<typeof createClient>): Promise<DashboardManagementScoreSnapshot[]> {
@@ -295,347 +260,6 @@ async function fetchManagementScoreHistory(supabase: ReturnType<typeof createCli
     });
   }
   return Array.from(latestByYm.values()).filter((row) => row.ym);
-}
-
-async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClient>): Promise<CompanyContentPreview> {
-  const [
-    membersRes,
-    projectMembersRes,
-    memberProfilesRes,
-    companyHistoryRes,
-    mediaAssetsRes,
-    mediaReviewRes,
-    eventsRes,
-    venturesRes,
-    mediaMentionsRes,
-  ] = await Promise.all([
-    supabase
-      .from("members")
-      .select("member_id,code_name,member_name,role,status,is_officer,join_ym,last_login_at")
-      .eq("status", "active")
-      .order("is_officer", { ascending: false })
-      .order("join_ym", { ascending: true, nullsFirst: false })
-      .order("code_name", { ascending: true })
-      .limit(24),
-    supabase
-      .from("project_members")
-      .select("member_id,project_id")
-      .eq("is_active", true),
-    supabase
-      .from("member_profiles")
-      .select("member_profile_id,member_id,display_name,full_name,public_title,internal_title,notion_status,joined_on,effort,bio_short,join_context,origin_label,residence_label,off_time_note,favorite_food,bucket_list,mbti_tags,visibility,status,photo_asset_id,media_assets:photo_asset_id(asset_id,storage_path,thumbnail_path,tags)")
-      .in("visibility", ["internal", "public_candidate"])
-      .in("status", ["approved_internal", "approved_public"])
-      .order("display_name", { ascending: true })
-      .limit(80),
-    supabase
-      .from("company_history_events")
-      .select("event_id,project_id,occurred_on,title,event_type,importance,visibility,status")
-      .in("visibility", ["internal", "public_candidate"])
-      .in("status", ["approved_internal", "approved_public"])
-      .order("occurred_on", { ascending: false, nullsFirst: false })
-      .limit(500),
-    supabase
-      .from("media_assets")
-      .select("asset_id,title,asset_kind,captured_at,usage_permission,consent_status,project_ids,member_ids,visibility,status,storage_bucket,storage_path,thumbnail_path")
-      .in("visibility", ["internal", "public_candidate"])
-      .in("status", ["approved_internal", "approved_public"])
-      .in("usage_permission", ["internal_ok", "public_ok"])
-      .in("consent_status", ["granted", "not_needed"])
-      .order("captured_at", { ascending: false, nullsFirst: false })
-      .limit(6),
-    supabase
-      .from("media_assets")
-      .select("asset_id,title,asset_kind,captured_at,usage_permission,consent_status,member_ids,visibility,status,storage_bucket,storage_path,thumbnail_path,tags")
-      .in("asset_kind", ["photo", "video"])
-      .eq("source_ref", "notion:team-armada-photo-db")
-      .eq("visibility", "admin_only")
-      .eq("status", "needs_review")
-      .order("captured_at", { ascending: false, nullsFirst: false })
-      .order("storage_path", { ascending: false, nullsFirst: false })
-      .limit(500),
-    supabase
-      .from("project_events")
-      .select("id,project_id,occurred_on,kind,label")
-      .order("occurred_on", { ascending: false })
-      .limit(10),
-    supabase
-      .from("project_ventures")
-      .select("project_id,founded_at,amd_support_started_at,projects(project_name,client_name)")
-      .order("amd_support_started_at", { ascending: false, nullsFirst: false })
-      .limit(10),
-    supabase
-      .from("project_media_mentions")
-      .select("id,project_id,occurred_on,title,media_name,kind,source_url,projects(project_name)")
-      .eq("dismissed", false)
-      .eq("verified", true)
-      .order("occurred_on", { ascending: false })
-      .limit(200),
-  ]);
-
-  const projectCounts = new Map<string, number>();
-  for (const row of projectMembersRes.data ?? []) {
-    const memberId = String(row.member_id ?? "");
-    if (!memberId) continue;
-    projectCounts.set(memberId, (projectCounts.get(memberId) ?? 0) + 1);
-  }
-
-  const memberRows = membersRes.data ?? [];
-  const membersById = new Map(memberRows.map((row) => [String(row.member_id), row]));
-  const membersFromProfiles: CompanyMemberPreview[] = (memberProfilesRes.data ?? []).flatMap((row) => {
-    const memberId = row.member_id ? String(row.member_id) : null;
-    const member = memberId ? membersById.get(memberId) : null;
-    if (!member || String(member.status || "") !== "active") return [];
-    const photoAsset = Array.isArray(row.media_assets) ? row.media_assets[0] ?? null : row.media_assets ?? null;
-    return [{
-      memberProfileId: row.member_profile_id ? String(row.member_profile_id) : null,
-      memberId,
-      codeName: String(member?.code_name || row.display_name || "unresolved"),
-      displayName: String(row.display_name || member?.code_name || member?.member_name || "Unresolved member"),
-      fullName: row.full_name ? String(row.full_name) : null,
-      role: row.public_title || row.internal_title ? String(row.public_title || row.internal_title) : null,
-      status: String(row.notion_status || row.status || "approved_internal"),
-      projectCount: memberId ? projectCounts.get(memberId) ?? 0 : 0,
-      joinedOn: row.joined_on ? String(row.joined_on) : null,
-      effort: row.effort == null ? null : Number(row.effort),
-      bio: row.bio_short ? String(row.bio_short) : null,
-      joinContext: row.join_context ? String(row.join_context) : null,
-      originLabel: row.origin_label ? String(row.origin_label) : null,
-      residenceLabel: row.residence_label ? String(row.residence_label) : null,
-      offTimeNote: row.off_time_note ? String(row.off_time_note) : null,
-      favoriteFood: row.favorite_food ? String(row.favorite_food) : null,
-      bucketList: row.bucket_list ? String(row.bucket_list) : null,
-      mbtiTags: Array.isArray(row.mbti_tags) ? row.mbti_tags.map(String) : [],
-      imageUrl: photoAsset?.thumbnail_path || photoAsset?.storage_path ? `/api/company-media/file/${photoAsset.asset_id}` : null,
-      photoAssetId: photoAsset?.asset_id ? String(photoAsset.asset_id) : null,
-      photoCrop: cropFromTags(photoAsset?.tags) ?? DEFAULT_IMAGE_CROP,
-      lastLoginAt: member?.last_login_at ? String(member.last_login_at) : null,
-    }];
-  }).sort(compareMembersByLastLogin);
-
-  const membersFallback: CompanyMemberPreview[] = memberRows.map((row) => ({
-    memberProfileId: null,
-    memberId: String(row.member_id),
-    codeName: String(row.code_name || row.member_id),
-    displayName: String(row.code_name || row.member_name || row.member_id),
-    fullName: row.member_name ? String(row.member_name) : null,
-    role: row.role ? String(row.role) : null,
-    status: String(row.status || "active"),
-    projectCount: projectCounts.get(String(row.member_id)) ?? 0,
-    joinedOn: row.join_ym ? String(row.join_ym) : null,
-    effort: null,
-    bio: null,
-    joinContext: null,
-    originLabel: null,
-    residenceLabel: null,
-    offTimeNote: null,
-    favoriteFood: null,
-    bucketList: null,
-    mbtiTags: [],
-    imageUrl: null,
-    photoAssetId: null,
-    photoCrop: DEFAULT_IMAGE_CROP,
-    lastLoginAt: row.last_login_at ? String(row.last_login_at) : null,
-  })).sort(compareMembersByLastLogin);
-
-  const historyFromCompany: CompanyHistoryPreview[] = (companyHistoryRes.data ?? []).map((row) => ({
-    id: String(row.event_id),
-    projectId: row.project_id ? String(row.project_id) : null,
-    occurredOn: row.occurred_on ? String(row.occurred_on) : null,
-    title: String(row.title || "History event"),
-    kind: row.event_type ? String(row.event_type) : null,
-  }));
-
-  const historyFromEvents: CompanyHistoryPreview[] = (eventsRes.data ?? []).map((row) => ({
-    id: String(row.id),
-    projectId: row.project_id ? String(row.project_id) : null,
-    occurredOn: row.occurred_on ? String(row.occurred_on) : null,
-    title: String(row.label || row.kind || "History event"),
-    kind: row.kind ? String(row.kind) : null,
-  }));
-
-  const historyFallback: CompanyHistoryPreview[] = (venturesRes.data ?? [])
-    .map((row) => {
-      const projects = row.projects as
-        | { project_name?: string | null; client_name?: string | null }
-        | { project_name?: string | null; client_name?: string | null }[]
-        | null;
-      const project = Array.isArray(projects) ? projects[0] ?? null : projects ?? null;
-      const projectId = row.project_id ? String(row.project_id) : null;
-      const title = project?.project_name || project?.client_name || projectId || "Venture";
-      return {
-        id: `venture-${row.project_id}`,
-        projectId,
-        occurredOn: row.amd_support_started_at || row.founded_at ? String(row.amd_support_started_at || row.founded_at) : null,
-        title,
-        kind: row.amd_support_started_at ? "support_started" : "venture",
-      };
-    })
-    .filter((row) => row.occurredOn);
-
-  const mediaMentions: CompanyMediaMentionPreview[] = (mediaMentionsRes.data ?? []).map((row) => ({
-    id: String(row.id),
-    projectId: String(row.project_id),
-    projectName: String((row.projects as { project_name?: string } | null)?.project_name ?? row.project_id),
-    occurredOn: String(row.occurred_on),
-    title: String(row.title),
-    mediaName: String(row.media_name),
-    kind: String(row.kind),
-    sourceUrl: row.source_url ? String(row.source_url) : null,
-  }));
-
-  const photosFromAssets = groupCompanyPhotos(mediaAssetsRes.data ?? [], "approved");
-  const photosInReview = groupCompanyPhotos(mediaReviewRes.data ?? [], "review");
-
-  return {
-    members: membersFromProfiles.length > 0 ? membersFromProfiles : membersFallback,
-    history: historyFromCompany.length > 0 ? historyFromCompany : (historyFromEvents.length > 0 ? historyFromEvents : historyFallback),
-    photos: photosFromAssets.length > 0 ? photosFromAssets : (photosInReview.length > 0 ? photosInReview : DASHBOARD_PHOTO_PREVIEW),
-    mediaMentions,
-  };
-}
-
-function photoStatusFromPermission(permission: string): CompanyPhotoPreview["status"] {
-  if (permission === "public_ok") return "public_ok";
-  if (permission === "internal_ok") return "internal_ok";
-  return "unknown";
-}
-
-function groupCompanyPhotos(rows: CompanyMediaAssetRow[], mode: "approved" | "review"): CompanyPhotoPreview[] {
-  const groups = new Map<string, { rows: CompanyMediaAssetRow[]; title: string }>();
-  for (const row of rows) {
-    const key = parentKeyFromStorage(row) || String(row.asset_id);
-    const current = groups.get(key) ?? { rows: [], title: photoGroupTitle(row) };
-    current.rows.push(row);
-    groups.set(key, current);
-  }
-
-  return Array.from(groups.entries()).map(([key, group]) => {
-    const sortedRows = group.rows.slice().sort(compareMediaRowsByDate);
-    const taggedCover = sortedRows.find((row) => hasTag(row.tags, "company_photo_group_cover"));
-    const cover = taggedCover ?? sortedRows.find((row) => row.thumbnail_path || row.storage_path) ?? sortedRows[0];
-    const coverPosition = coverPositionFromTags(cover?.tags);
-    const coverCrop = cropFromTags(cover?.tags) ?? cropFromCoverPosition(coverPosition);
-    const hasVideo = group.rows.some((row) => String(row.asset_kind || "") === "video");
-    const permission = String(cover?.usage_permission || "unknown");
-    const consent = String(cover?.consent_status || "unknown");
-    const occurredOn = maxDateString(group.rows.map((row) => row.captured_at));
-    const assets = sortedRows.map((row) => ({
-      assetId: String(row.asset_id),
-      title: String(row.title || group.title),
-      imageUrl: row.thumbnail_path || row.storage_path ? `/api/company-media/file/${row.asset_id}` : null,
-      kind: String(row.asset_kind || "photo"),
-      capturedAt: row.captured_at ? String(row.captured_at) : null,
-      isCover: String(row.asset_id) === String(cover?.asset_id),
-      coverPosition: coverPositionFromTags(row.tags),
-      crop: cropFromTags(row.tags) ?? cropFromCoverPosition(coverPositionFromTags(row.tags)),
-    }));
-    return {
-      id: `photo-group-${key}`,
-      title: group.title,
-      meta: mode === "approved"
-        ? [hasVideo ? "includes video" : null, `consent:${consent}`].filter(Boolean).join(" / ")
-        : ["needs_review", `usage:${permission}`, `consent:${consent}`].join(" / "),
-      status: mode === "approved" ? photoStatusFromPermission(permission) : "unknown",
-      imageUrl: cover && (cover.thumbnail_path || cover.storage_path) ? `/api/company-media/file/${cover.asset_id}` : null,
-      kind: String(cover?.asset_kind || "photo"),
-      itemCount: group.rows.length,
-      occurredOn,
-      coverAssetId: cover?.asset_id ? String(cover.asset_id) : null,
-      coverPosition,
-      crop: coverCrop,
-      assets,
-    };
-  }).sort((a, b) => compareNullableDateDesc(a.occurredOn, b.occurredOn) || a.title.localeCompare(b.title, "ja"));
-}
-
-function parentKeyFromStorage(row: CompanyMediaAssetRow) {
-  const path = String(row.storage_path || row.thumbnail_path || "");
-  const parts = path.split("/");
-  return parts.length >= 3 ? parts[1] : null;
-}
-
-function photoGroupTitle(row: CompanyMediaAssetRow) {
-  return String(row.title || "Photo review")
-    .replace(/^(Photo|Video|Media) review: /, "")
-    .replace(/ #\d+$/, "");
-}
-
-function compareMembersByLastLogin(a: CompanyMemberPreview, b: CompanyMemberPreview) {
-  return compareNullableDateDesc(a.lastLoginAt, b.lastLoginAt) || a.codeName.localeCompare(b.codeName, "ja");
-}
-
-function compareMediaRowsByDate(a: CompanyMediaAssetRow, b: CompanyMediaAssetRow) {
-  return compareNullableDateDesc(a.captured_at ? String(a.captured_at) : null, b.captured_at ? String(b.captured_at) : null)
-    || String(a.title || "").localeCompare(String(b.title || ""), "ja");
-}
-
-function compareNullableDateDesc(a: string | null | undefined, b: string | null | undefined) {
-  const at = a ? Date.parse(a) : NaN;
-  const bt = b ? Date.parse(b) : NaN;
-  const av = Number.isFinite(at) ? at : -Infinity;
-  const bv = Number.isFinite(bt) ? bt : -Infinity;
-  return bv - av;
-}
-
-function maxDateString(values: unknown[]) {
-  let best: string | null = null;
-  let bestTime = -Infinity;
-  for (const value of values) {
-    if (!value) continue;
-    const text = String(value);
-    const time = Date.parse(text);
-    if (Number.isFinite(time) && time > bestTime) {
-      best = text;
-      bestTime = time;
-    }
-  }
-  return best;
-}
-
-function hasTag(value: unknown, tag: string) {
-  return Array.isArray(value) && value.map(String).includes(tag);
-}
-
-const DEFAULT_IMAGE_CROP: CompanyImageCrop = { x: 0, y: 0, zoom: 1 };
-
-function cropFromTags(value: unknown): CompanyImageCrop | null {
-  if (!Array.isArray(value)) return null;
-  const tag = value.map(String).find((item) => item.startsWith("company_media_crop:"));
-  if (!tag) return null;
-  const [x, y, zoom] = tag.replace("company_media_crop:", "").split(",").map(Number);
-  if (![x, y, zoom].every(Number.isFinite)) return null;
-  return {
-    x: clampNumber(x, -100, 100, DEFAULT_IMAGE_CROP.x),
-    y: clampNumber(y, -100, 100, DEFAULT_IMAGE_CROP.y),
-    zoom: clampNumber(zoom, 1, 4, DEFAULT_IMAGE_CROP.zoom),
-  };
-}
-
-function cropFromCoverPosition(value: string): CompanyImageCrop {
-  const map: Record<string, CompanyImageCrop> = {
-    "top-left": { x: -35, y: -35, zoom: 1 },
-    top: { x: 0, y: -35, zoom: 1 },
-    "top-right": { x: 35, y: -35, zoom: 1 },
-    left: { x: -35, y: 0, zoom: 1 },
-    center: DEFAULT_IMAGE_CROP,
-    right: { x: 35, y: 0, zoom: 1 },
-    "bottom-left": { x: -35, y: 35, zoom: 1 },
-    bottom: { x: 0, y: 35, zoom: 1 },
-    "bottom-right": { x: 35, y: 35, zoom: 1 },
-  };
-  return map[value] ?? DEFAULT_IMAGE_CROP;
-}
-
-function clampNumber(value: number, min: number, max: number, fallback: number) {
-  if (!Number.isFinite(value)) return fallback;
-  return Math.min(max, Math.max(min, value));
-}
-
-function coverPositionFromTags(value: unknown) {
-  if (!Array.isArray(value)) return "center";
-  const tag = value.map(String).find((item) => item.startsWith("company_photo_cover_position:"));
-  return tag?.split(":")[1] || "center";
 }
 
 /** 自分が参画してる active PJ id Set (= ProjectStripe ソート優先用、軽量 fetch) */

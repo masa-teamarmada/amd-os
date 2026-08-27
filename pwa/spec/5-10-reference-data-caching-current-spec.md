@@ -120,6 +120,27 @@
 | データ | エンドポイント | サーバ層 | クライアント層 |
 |---|---|---|---|
 | 一次選別スクリーニング帯（SPS） | `/api/seeds/screening-bands` | `src/lib/seed-screening-bands.ts` | `src/lib/seed-screening-bands-client.ts` |
+| 会社の記録（ホーム下段のメンバー / 沿革 / メディア掲載 / 写真） | `/api/dashboard/company-content` | `src/lib/company-content.ts` | `src/lib/company-content-client.ts` |
+
+> 登録の全量は `pwa/scripts/check_reference_data_cache_contract.mjs` の `REFERENCE_DATA_ENDPOINTS`。
+> 上の表は、この章で経緯を書いたものだけを載せている。
+
+## 適用例: 会社の記録（ホーム下段）
+
+**直す前**: ホームの client component が、名簿・沿革・メディア掲載・写真台帳を含む
+**9本のクエリをブラウザから `Promise.all` で投げ**、全部そろうまで節を描かなかった。
+キャッシュは3層とも無し。画面を開くたびに払うので、下までスクロールしても
+「会社コンテンツ読み込み中…」が残ることがあった（2026-08-27 に本番で再現を確認）。
+どれも日〜週単位でしか変わらない参照系で、毎回読み直す理由が無かった。
+
+**直した後**:
+
+- サーバ: 9本を service client で並列に読み、組み立て済みの表示用データをプロセス内に5分持つ
+  （同時アクセスは1本へ束ねる）。`invalidateCompanyContentCache()` を写真の書き込み経路から呼べる
+- route: `requireMember()` + `portfolio` scope gate の後に service client を作り、
+  `Cache-Control: private, max-age=60, stale-while-revalidate=600`
+- クライアント: ホームは `company-content-client.ts` 経由。同じセッションで読み込み済みなら
+  画面下まで来るのを待たずにそのまま描く（初回だけ従来どおり `IntersectionObserver` で遅延）
 
 ## 適用例: 一次選別スクリーニング帯
 
