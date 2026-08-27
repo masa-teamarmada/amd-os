@@ -1171,3 +1171,29 @@ submit が既存候補を返して無反応になる）を追加。
 
 - 本番: `/api/build-info` = a0669a2c 配信確認。`/admin/kiyo` 307（認証リダイレクト）、API 401（ガード動作）で正常。
 - `npm run test:critical-ui` は**今回と無関係に落ちている**: 32a9a309（seeds）が `CockpitAmdScoreDetailTab.tsx` から BZM2.2/SPS 系アンカー群を外したが、ガード側 `check_pwa_critical_ui.cjs` の期待値が未更新。`deploy.sh` が全セッションで止まるため、seeds側での期待値更新が必要（今回のセッションは管轄外として報告のみ、pushはガードと同等の検査を通した上で直接実施）。
+
+### 同日 事故 — 画面から消したものを、guard がまだ要求していた
+
+旧SPSの表示をシーズ詳細・PJコックピットから外した commit（`32a9a309`）で、
+`check_pwa_critical_ui.cjs` 側の「その表示が存在すること」という assertion を消し忘れた。
+**guard が、まさが消せと言ったものの存在を要求する状態**になり、main が赤いまま push された。
+他セッションが自分の変更を疑って origin/main を単独のワークツリーで検証するところまで行った。
+
+commit 前に走らせていたのは tsc・lint・build・reference-data-cache。**critical-ui だけ走らせていなかった。**
+
+対処:
+- `CockpitAmdScoreDetailTab` の釘を `Bzm22ProvisionalObservatory` / `CurrentSpsAssessmentCard` / `sps-current` から、
+  `Bzm30ScorePanel` と「シーズが紐づいていない PJ で黙って空にしない」へ打ち直した
+- `SeedDetailModal` も同様。両方に `expectNotIncludes` を足し、**旧SPSが戻ってこないこと**も釘にした
+- **`.githooks/pre-commit` に、`pwa/src` を触った commit で `check_pwa_critical_ui.cjs` を強制的に通す段を足した**
+
+### 教訓（追加）
+
+10. **画面から要素を消す変更は、その存在を要求している guard も同時に外さないと通らない。**
+    走らせ忘れを習慣で防がない。`pre-commit` に入れて機械で止める。
+    「消す」作業は「足す」作業より危ない——足したものは誰も要求していないが、消したものは誰かが要求している。
+11. **main を赤くしたまま push すると、他セッションの時間を奪う。** 今回は相手が origin/main を
+    単独のワークツリーに取り出して検証するところまで行った。commit 前の検査は自分のためではなく、
+    同じ checkout を共有している相手のためにある。
+12. **`next dev` は `pwa/AGENTS.md` を勝手に書き換える。** dev サーバを起動したら、
+    commit 前に `git diff pwa/AGENTS.md` を見て戻す（共通ルールへの参照が消される）。
