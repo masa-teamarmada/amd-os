@@ -2879,6 +2879,11 @@ expectIncludes(
     "closedGateKey",
     "bundle.currentHash",
     "router.refresh()",
+    // モーダル外クリックの余白と、閉じる導線 (× ボタン / Escape) を退行させない
+    "onDismiss={close}",
+    'event.key === "Escape"',
+    "sm:p-8 lg:p-12",
+    "max-h-full w-full max-w-4xl",
   ],
 );
 expectIncludes("src/components/nav/AppShell.tsx", [
