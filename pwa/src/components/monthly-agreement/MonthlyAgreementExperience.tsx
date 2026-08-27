@@ -590,10 +590,14 @@ export function MonthlyAgreementExperience({
                 hintId="monthly-agreement.project-count"
               />
               <MetricCard
-                label="もらえる予定額"
+                label="次にもらえる金額"
                 value={formatYen(bundle.snapshot.totals.expectedRewardYen)}
                 hintId="monthly-agreement.expected-reward"
-                description="今月やる仕事に対して、今の計画で見込んでいる金額"
+                description={
+                  bundle.snapshot.totals.carryInYen > 0
+                    ? `今月やる仕事の分に、これまで支払いを待ってもらっている分の返済を足した金額。今月やる仕事の分は ${formatYen(bundle.snapshot.totals.currentMonthAccrualYen)}`
+                    : "今月やる仕事に対して支払う金額"
+                }
               />
               <MetricCard
                 label="支払い済み"

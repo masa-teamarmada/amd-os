@@ -127,9 +127,11 @@ export default function AdminMonthlyWorkAgreementsPage() {
             {formatYm(ym)}の遂行内容/予定報酬について、メンバー別の合意状態と更新有無を確認する。
           </p>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            金額は3つの意味が違う。<span className="font-medium text-foreground">月初計画</span>はこの稼働月の見込み、
-            <span className="font-medium text-foreground">今月支払</span>はこの月の支払通知書に載る額 (支払通知書ページと同じ計算)、
-            <span className="font-medium text-foreground">未払い残</span>は月末時点の残高。
+            <span className="font-medium text-foreground">合意額</span>は、この稼働月について合意する「次に払う額」。
+            当月のMS消化から発生する分に加えて、過去の未払いの返済分も含み、月次の支払枠を通した後の額。
+            支払通知書とまったく同じ計算を使うので、両画面で必ず一致する。
+            <span className="font-medium text-foreground">今月の支払通知書</span>は、この暦月に実際に発行される通知書の額
+            (支払条件によって対象の稼働月がずれる)。
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -196,7 +198,8 @@ export default function AdminMonthlyWorkAgreementsPage() {
             <SummaryCard label="未合意" value={`${data.totals.pending}`} tone={data.totals.pending > 0 ? "warn" : "plain"} />
             <SummaryCard label="条件更新あり" value={`${data.totals.needsReagreement}`} tone={data.totals.needsReagreement > 0 ? "warn" : "plain"} />
             <SummaryCard label="修正要望" value={`${data.totals.revisionRequests}`} tone={data.totals.revisionRequests > 0 ? "warn" : "plain"} />
-            <SummaryCard label="今月支払" value={formatYen(data.totals.payoutYen)} tone={data.totals.payoutYen > 0 ? "good" : "plain"} />
+            <SummaryCard label="合意額 (次に払う額)" value={formatYen(data.totals.expectedRewardYen)} tone={data.totals.expectedRewardYen > 0 ? "good" : "plain"} />
+            <SummaryCard label="今月の支払通知書" value={formatYen(data.totals.payoutYen)} tone={data.totals.payoutYen > 0 ? "good" : "plain"} />
             <SummaryCard label="立替精算" value={formatYen(data.totals.reimbursementYen)} tone={data.totals.reimbursementYen > 0 ? "good" : "plain"} />
             <SummaryCard label="未払いストック残" value={formatYen(data.totals.stockYen)} tone={data.totals.stockYen > 0 ? "warn" : "plain"} />
           </section>
@@ -216,7 +219,7 @@ export default function AdminMonthlyWorkAgreementsPage() {
               <span>Member</span>
               <span>Status</span>
               <span className="text-right">PJ</span>
-              <span className="text-right">今月支払</span>
+              <span className="text-right">合意額</span>
               <span className="text-right">未払い残</span>
               <span>PJ / 確認事項 / 修正要望</span>
               <span className="text-right">Detail</span>
@@ -238,14 +241,17 @@ export default function AdminMonthlyWorkAgreementsPage() {
                     </span>
                     <span className="text-right tabular-nums">{row.projectCount}</span>
                     <div className="text-right tabular-nums">
-                      <p className={`font-semibold ${row.payoutYen > 0 ? "text-emerald-700" : "text-foreground"}`}>
-                        {formatYen(row.payoutYen)}
+                      <p className={`font-semibold ${row.expectedRewardYen > 0 ? "text-emerald-700" : "text-foreground"}`}>
+                        {formatYen(row.expectedRewardYen)}
                       </p>
                       {row.reimbursementYen > 0 && (
                         <p className="mt-0.5 text-[10px] text-violet-700">＋立替 {formatYen(row.reimbursementYen)}</p>
                       )}
                       <p className="mt-0.5 text-[10px] text-muted-foreground">
-                        月初計画 {formatYen(row.expectedRewardYen)}
+                        当月発生 {formatYen(row.currentMonthAccrualYen)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        今月の通知書 {formatYen(row.payoutYen)}
                       </p>
                     </div>
                     <div className="text-right tabular-nums">

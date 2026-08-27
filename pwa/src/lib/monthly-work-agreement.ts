@@ -540,6 +540,8 @@ export async function buildMonthlyWorkAgreementBundle(
       projects: [],
       totals: {
         expectedRewardYen: 0,
+        currentMonthAccrualYen: 0,
+        carryInYen: 0,
         stockYen: 0,
         paidActualYen: 0,
         unverifiedPaidYen: 0,
@@ -575,6 +577,8 @@ export async function buildMonthlyWorkAgreementBundle(
       projects: [],
       totals: {
         expectedRewardYen: 0,
+        currentMonthAccrualYen: 0,
+        carryInYen: 0,
         stockYen: 0,
         paidActualYen: 0,
         unverifiedPaidYen: 0,
@@ -892,9 +896,15 @@ export async function buildMonthlyWorkAgreementBundle(
       }
 
       const sortedMilestones = roleMilestones.sort((a, b) => a.milestoneId.localeCompare(b.milestoneId));
-      const expectedRewardYen = sortedMilestones.some((ms) => ms.expectedRewardYen == null)
+      // 当月のMS消化から発生する額。合意額そのものではなく、内訳として見せる数字。
+      const currentMonthAccrualYen = sortedMilestones.some((ms) => ms.expectedRewardYen == null)
         ? null
         : sortedMilestones.reduce((sum, ms) => sum + (ms.expectedRewardYen ?? 0), 0);
+      // 合意する額 = この稼働月として実際に払う額。過去の未払いの返済分を含み、月次の支払枠を通した後の値。
+      // 支払通知書とまったく同じ計算 (billing_cycles.reward_summary_json の totalPay) を使う。
+      // 別計算にすると、合意した額と実際に払う額が食い違う (まさ確定 2026-08-27
+      // 「次回払う金額が月初合意の段階で計算されてないといけない」)。
+      const expectedRewardYen = currentCyclePayoutYen;
       const payoutSchedule = payoutScheduleByProject.get(projectId) ?? [];
       const hasDisplayableReward =
         (expectedRewardYen ?? 0) > 0 ||
@@ -928,6 +938,7 @@ export async function buildMonthlyWorkAgreementBundle(
         billingStatus: typeof cycle?.status === "string" ? cycle.status : null,
         allocationStatus: cycle?.budget_confirmed_at ? "confirmed" : cycle?.budget_reported_at ? "reported" : "not_set",
         expectedRewardYen,
+        currentMonthAccrualYen,
         payoutYen,
         currentCyclePayoutYen,
         paymentYm,
@@ -953,6 +964,8 @@ export async function buildMonthlyWorkAgreementBundle(
     projects: snapshotProjects,
     totals: {
       expectedRewardYen: snapshotProjects.reduce((sum, project) => sum + (project.expectedRewardYen ?? 0), 0),
+      currentMonthAccrualYen: snapshotProjects.reduce((sum, project) => sum + (project.currentMonthAccrualYen ?? 0), 0),
+      carryInYen: snapshotProjects.reduce((sum, project) => sum + (project.carryInYen ?? 0), 0),
       stockYen: snapshotProjects.reduce((sum, project) => sum + (project.stockYen ?? 0), 0),
       paidActualYen: snapshotProjects.reduce(
         (sum, project) =>

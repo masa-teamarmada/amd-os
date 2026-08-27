@@ -74,7 +74,10 @@ export interface MonthlyWorkAgreementProject {
   isPl: boolean;
   billingStatus: string | null;
   allocationStatus: string;
+  /** 合意する額 = この稼働月として実際に払う額 (過去の未払いの返済分を含む、支払枠を通した後) */
   expectedRewardYen: number | null;
+  /** うち当月のMS消化から発生する分。内訳表示用 */
+  currentMonthAccrualYen: number | null;
   payoutYen: number | null;
   currentCyclePayoutYen: number | null;
   paymentYm: string | null;
@@ -97,6 +100,8 @@ export interface MonthlyWorkAgreementSnapshot {
   projects: MonthlyWorkAgreementProject[];
   totals: {
     expectedRewardYen: number;
+    currentMonthAccrualYen: number;
+    carryInYen: number;
     stockYen: number;
     paidActualYen?: number;
     unverifiedPaidYen?: number;
@@ -179,7 +184,10 @@ export interface AdminMonthlyWorkAgreementRow {
   latestRevisionRequestAt: string | null;
   projectCount: number;
   reviewRequiredCount: number;
+  /** 合意額 = この稼働月として払う額 (過去の未払いの返済分を含む) */
   expectedRewardYen: number;
+  /** うち当月のMS消化から発生する分 */
+  currentMonthAccrualYen: number;
   payoutYen: number;
   /** 支払通知書へ合算する立替精算 (実費・税込)。報酬とは別原資 */
   reimbursementYen: number;
@@ -201,6 +209,7 @@ export interface AdminMonthlyWorkAgreementResponse {
     reviewRequired: number;
     revisionRequests: number;
     expectedRewardYen: number;
+    currentMonthAccrualYen: number;
     payoutYen: number;
     reimbursementYen: number;
     stockYen: number;
