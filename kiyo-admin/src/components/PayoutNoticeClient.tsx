@@ -136,7 +136,7 @@ export function PayoutNoticeClient({
         {!embedded && (
           <div>
             <Link href="/" className="text-xs text-slate-500 hover:underline">
-              ← きよ専用 AMD OS
+              ← きよあどみ
             </Link>
             <h1 className="text-xl font-semibold">支払通知書</h1>
             <p className="text-xs text-slate-500">{userLabel}</p>
