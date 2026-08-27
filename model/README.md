@@ -116,3 +116,19 @@ node model/tools/bzm30_export.cjs --grid    # 計算結果も（1件2〜3分 × 
   片方だけ更新すると画面と正本がずれる。
 - 根拠レベルと正本の節の対応は `bzm30_export.cjs` の `buildParams` にある。§6.I の表からの転記なので、
   §6.I を変えたらここも直す。
+
+## (h) 案件ごとのスコアの算出
+
+`model/tools/bzm30_score_seeds.cjs` が、OS の DB に入れた案件ごとの入力（用途ごとの天井 `seed_value_ceilings`、
+工程の型・規制属性・証拠水準・観測状態 `seed_bzm30_inputs`）を読んで前向き計算を走らせ、結果を `seed_bzm30_scores` へ書く。
+シーズ詳細の BZM 3.0 スコアパネルはそれを読む。設計は `pwa/spec` の「4-8 BZM 3.0 スコアパネル」§7。
+
+```
+node model/tools/bzm30_score_seeds.cjs --list | xargs -P 6 -I{} node model/tools/bzm30_score_seeds.cjs {}
+node model/tools/bzm30_scores_md.cjs        # 算出済みのスコアを md の表として出す
+```
+
+- **1件あたり2〜3分**かかる。画面のリクエストの中では走らせない。
+- **係数か入力を変えたら計算し直す。** `seed_bzm30_scores` は append-only で、画面は最新の1件だけを読む。
+- スコアの数字を md へ手で書かない。`model/cases/SCORES.md` の表は `bzm30_scores_md.cjs` の出力を貼るもので、
+  手で直すと DB・画面・md の三つがそれぞれ違う数字を持つことになる。

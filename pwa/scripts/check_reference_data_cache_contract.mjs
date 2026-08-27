@@ -62,6 +62,12 @@ const REFERENCE_DATA_ENDPOINTS = [
     routeFile: "src/app/api/model/bzm30/route.ts",
     clientModule: "src/lib/bzm30-model-client.ts",
   },
+  {
+    endpoint: "/api/seeds/bzm30",
+    label: "シーズごとの BZM 3.0 の入力とスコア",
+    routeFile: "src/app/api/seeds/bzm30/route.ts",
+    clientModule: "src/lib/bzm30-seed-client.ts",
+  },
 ];
 
 // ---------------------------------------------------------------------------

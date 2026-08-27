@@ -27,6 +27,8 @@ import { Tex } from "@/components/venture-map/Tex";
 import { BzmMathText } from "@/components/bzm/BzmMarkdown";
 import { FormulaPanelShell } from "@/components/formula/FormulaPanelKit";
 import { loadBzm30Model, peekBzm30Model, type Bzm30Model } from "@/lib/bzm30-model-client";
+import { loadSeedBzm30, peekSeedBzm30 } from "@/lib/bzm30-seed-client";
+import type { SeedBzm30Dto } from "@/lib/bzm30/seed-score";
 import {
   buildSeedInputs,
   inputSummary,
@@ -88,15 +90,22 @@ export function Bzm30ScorePanel({
   detail,
   band,
   model: modelProp,
+  bzm30: bzm30Prop,
 }: {
   seed: Seed;
   detail: SeedDetail | null;
   band: SeedScreeningBandDetail | null;
   /** サーバコンポーネントから渡す場合。省略時はクライアントの参照系キャッシュから読む。 */
   model?: Bzm30Model;
+  /** 案件ごとの入力とスコア。省略時はクライアントの参照系キャッシュから読む。 */
+  bzm30?: SeedBzm30Dto | null;
 }) {
   const [fetched, setFetched] = useState<Bzm30Model | undefined>(() => modelProp ?? peekBzm30Model());
   const model = modelProp ?? fetched;
+  const [seedFetched, setSeedFetched] = useState<SeedBzm30Dto | null | undefined>(
+    () => (bzm30Prop !== undefined ? bzm30Prop : peekSeedBzm30(seed.id)),
+  );
+  const bzm30 = bzm30Prop !== undefined ? bzm30Prop : seedFetched;
 
   useEffect(() => {
     if (model) return;
@@ -113,7 +122,22 @@ export function Bzm30ScorePanel({
     };
   }, [model]);
 
-  const inputs = buildSeedInputs(seed, detail, band);
+  useEffect(() => {
+    if (bzm30Prop !== undefined || seedFetched !== undefined || !seed.id) return;
+    let cancelled = false;
+    loadSeedBzm30(seed.id)
+      .then((d) => {
+        if (!cancelled) setSeedFetched(d);
+      })
+      .catch(() => {
+        if (!cancelled) setSeedFetched(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [bzm30Prop, seedFetched, seed.id]);
+
+  const inputs = buildSeedInputs(seed, detail, band, bzm30);
   const summary = inputSummary(inputs);
 
   if (!model) {
@@ -150,6 +174,7 @@ export function Bzm30ScorePanel({
         </>
       }
     >
+      <ScoreHeadlineBlock score={bzm30?.score ?? null} />
       <SeedInputBlock inputs={inputs} summary={summary} />
       <ScoreDefinitionBlock model={model} inputs={inputs} />
       <GridBlock model={model} />
@@ -157,6 +182,112 @@ export function Bzm30ScorePanel({
       <ParamListBlock model={model} />
       <ApproximationBlock model={model} />
     </FormulaPanelShell>
+  );
+}
+
+
+// ───────────────────────────────── このシーズの産業創出価値
+
+const okuYen = (yen: number | null | undefined) =>
+  yen === null || yen === undefined ? "—" : `${Math.round(yen / 1e8).toLocaleString("ja-JP")} 億円`;
+
+function ScoreHeadlineBlock({ score }: { score: SeedBzm30Dto["score"] }) {
+  if (!score) {
+    return (
+      <section className="min-w-0 rounded border border-border bg-muted/20 p-3">
+        <h4 className="text-[13px] font-semibold text-foreground">このシーズの産業創出価値</h4>
+        <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+          まだ算出していない。工程の型・規制属性を入れてから
+          <code className="mx-1 break-all rounded bg-muted px-1 font-mono text-[10px]">
+            node model/tools/bzm30_score_seeds.cjs &lt;seed_id&gt;
+          </code>
+          で計算する。天井が未調査でも、天井1円あたりの現在価値までは出る。
+        </p>
+      </section>
+    );
+  }
+
+  const hasYen = score.score_median_yen !== null;
+  const ratio = score.v_lower > 0 ? score.v_upper / score.v_lower : null;
+  const o = score.outcome ?? {};
+  const independent = (o.indep_in ?? 0) + (o.indep_out ?? 0);
+
+  return (
+    <section className="min-w-0 rounded border border-emerald-500/30 bg-emerald-500/5 p-3">
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h4 className="text-[13px] font-semibold text-foreground">このシーズの産業創出価値</h4>
+        <span className="font-mono text-[10px] text-muted-foreground">
+          {score.model_version} / 承認 #{score.approval_ref} / {score.computed_at.slice(0, 10)} 算出
+        </span>
+      </div>
+
+      {hasYen ? (
+        <div className="mb-2 flex flex-wrap items-end gap-x-4 gap-y-1">
+          <div>
+            <div className="text-[10px] text-muted-foreground">中央（50%点）</div>
+            <div className="text-[26px] font-bold leading-tight tabular-nums text-foreground">
+              {okuYen(score.score_median_yen)}
+            </div>
+          </div>
+          <div className="text-[12px] text-muted-foreground">
+            <div className="tabular-nums">
+              下限 {okuYen(score.score_lower_yen)} 〜 上限 {okuYen(score.score_upper_yen)}
+            </div>
+            {ratio ? (
+              <div className="tabular-nums">
+                幅の倍率 <strong className="text-foreground">{ratio.toFixed(1)}倍</strong>
+                <span className="pl-1 text-[10px]">＝この案件についてまだ分かっていないことの大きさ</span>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : (
+        <p className="mb-2 rounded border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-amber-800 dark:text-amber-200">
+          <strong className="font-semibold">金額はまだ出せない。</strong>{" "}
+          天井（用途ごとの国内の年額の付加価値）が未調査のため。到達と取り分の計算は済んでいて、
+          天井1円あたりの現在価値は <strong className="font-mono">{score.v_median.toFixed(3)}</strong>
+          （下限 {score.v_lower.toFixed(3)} 〜 上限 {score.v_upper.toFixed(3)}）。天井が入れば金額になる。
+        </p>
+      )}
+
+      {hasYen ? (
+        <div className="mb-2 overflow-x-auto rounded border border-border bg-background/60 px-3 py-2">
+          <div className="mb-1 text-[10px] text-muted-foreground">この金額の出どころ</div>
+          <div className="whitespace-nowrap text-[12px] tabular-nums text-foreground">
+            <span className="text-muted-foreground">年額の純増</span> {okuYen(score.ceiling_total_yen)}／年
+            <span className="px-1.5 text-muted-foreground">×</span>
+            <span className="text-muted-foreground">天井1円あたりの現在価値</span> {score.v_median.toFixed(3)}
+            <span className="px-1.5 text-muted-foreground">＝</span>
+            <strong>{okuYen(score.score_median_yen)}</strong>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] sm:grid-cols-4">
+        <Stat label="量産へ届く確率" value={pc(score.p_reach_m4)} />
+        <Stat label="届いた場合の到達月数" value={score.months_to_m4 ? `${Math.round(score.months_to_m4)} か月` : "—"} />
+        <Stat label="資本自立" value={pc(independent)} />
+        <Stat label="ライセンス / M&A" value={`${pc(o.lic)} / ${pc(o.ma)}`} />
+        <Stat label="知財売却" value={pc(o.ips)} />
+        <Stat label="用途転換" value={pc(o.pivot)} />
+        <Stat label="評価期間の先が占める比率" value={pc(score.continuation_ratio)} />
+        <Stat label="天井1円あたりの現在価値" value={score.v_median.toFixed(3)} />
+      </div>
+      <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+        スコアは下限・中央・上限の三つで読む（モデルページ §5.8）。9区分の確率は導出量で、
+        <strong className="text-foreground">SPS は産業創出価値を測るものであって、倒産の確率を測るものではない</strong>。
+        自走が続かなくなった案件は、用途転換・出口クラスの転換・ライセンスへの畳み込み・研究への返却の四経路へ分かれる。
+      </p>
+    </section>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-[10px] text-muted-foreground">{label}</div>
+      <div className="font-medium tabular-nums text-foreground">{value}</div>
+    </div>
   );
 }
 
