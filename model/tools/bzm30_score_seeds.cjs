@@ -21,7 +21,11 @@
 
 const path = require('node:path');
 const { createClient } = require(path.join(__dirname, '..', '..', 'pwa', 'node_modules', '@supabase/supabase-js'));
-const { CFG, runTheta } = require('./bzm30_forward.cjs');
+// 参照実装は --impl で差し替えられる。**未承認の改訂が既定に入っているあいだ、承認済みの版で計算するため**
+// （model/README.md (b): 提案中の概念・値は承認まで評価にも本番表示にも使わない）。
+const implArg = process.argv.indexOf('--impl');
+const IMPL_PATH = implArg >= 0 ? path.resolve(process.argv[implArg + 1]) : path.join(__dirname, 'bzm30_forward.cjs');
+const { CFG, runTheta } = require(IMPL_PATH);
 const { gateForStage } = require('./bzm30_export.cjs');
 
 // dotenv は pwa 側に入っていないので、KEY=VALUE を自前で読む（値のクォートだけ外す）。
@@ -103,7 +107,8 @@ async function main() {
     return;
   }
 
-  const seedId = args.find((a) => !a.startsWith('--'));
+  const implIdx = args.indexOf('--impl');
+  const seedId = args.find((a, i) => !a.startsWith('--') && i !== implIdx + 1);
   if (!seedId) throw new Error('seed_id を渡す（--list で一覧）');
   const dry = args.includes('--dry');
 
@@ -138,7 +143,7 @@ async function main() {
     months_to_m4: r.m4mean,
     continuation_ratio: r.cRatio,
     outcome: r.outcome,
-    inputs: { type: spec.type, reg: spec.reg, ...spec.init },
+    inputs: { type: spec.type, reg: spec.reg, ...spec.init, impl: path.basename(IMPL_PATH) },
   };
 
   const oku = (v) => (v === null ? '—' : `${(v / 1e8).toFixed(0)}億`);

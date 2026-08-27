@@ -211,6 +211,7 @@ function ScoreHeadlineBlock({ score }: { score: SeedBzm30Dto["score"] }) {
   const ratio = score.v_lower > 0 ? score.v_upper / score.v_lower : null;
   const o = score.outcome ?? {};
   const independent = (o.indep_in ?? 0) + (o.indep_out ?? 0);
+  const valuePaths = independent + (o.lic ?? 0) + (o.ma ?? 0) + (o.ips ?? 0);
 
   return (
     <section className="min-w-0 rounded border border-emerald-500/30 bg-emerald-500/5 p-3">
@@ -263,20 +264,31 @@ function ScoreHeadlineBlock({ score }: { score: SeedBzm30Dto["score"] }) {
         </div>
       ) : null}
 
+      <div className="mb-2 rounded border border-border bg-background/60 px-3 py-2">
+        <div className="mb-1 flex items-baseline justify-between text-[10px] text-muted-foreground">
+          <span>価値が立つ経路に落ちる確率</span>
+          <span>
+            合計 <strong className="text-[13px] tabular-nums text-foreground">{pc(valuePaths)}</strong>
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] sm:grid-cols-4">
+          <Stat label="自走（資本自立）" value={pc(independent)} />
+          <Stat label="ライセンス" value={pc(o.lic)} />
+          <Stat label="M&A" value={pc(o.ma)} />
+          <Stat label="知財売却" value={pc(o.ips)} />
+        </div>
+      </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] sm:grid-cols-4">
         <Stat label="量産へ届く確率" value={pc(score.p_reach_m4)} />
         <Stat label="届いた場合の到達月数" value={score.months_to_m4 ? `${Math.round(score.months_to_m4)} か月` : "—"} />
-        <Stat label="資本自立" value={pc(independent)} />
-        <Stat label="ライセンス / M&A" value={`${pc(o.lic)} / ${pc(o.ma)}`} />
-        <Stat label="知財売却" value={pc(o.ips)} />
-        <Stat label="用途転換" value={pc(o.pivot)} />
         <Stat label="評価期間の先が占める比率" value={pc(score.continuation_ratio)} />
         <Stat label="天井1円あたりの現在価値" value={score.v_median.toFixed(3)} />
       </div>
       <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
-        スコアは下限・中央・上限の三つで読む（モデルページ §5.8）。9区分の確率は導出量で、
-        <strong className="text-foreground">SPS は産業創出価値を測るものであって、倒産の確率を測るものではない</strong>。
-        自走が続かなくなった案件は、用途転換・出口クラスの転換・ライセンスへの畳み込み・研究への返却の四経路へ分かれる。
+        スコアは下限・中央・上限の三つで読む（モデルページ §5.8）。
+        <strong className="text-foreground">出すのは価値が立つ経路の確率だけ</strong>——価値がゼロの経路は「残り」であって指標ではない
+        （まさ 2026-08-27、承認 #2026-08-27-1 の追補）。
+        <strong className="text-foreground">SPS は産業創出価値を測るものであって、倒産の確率を測るものではない。</strong>
       </p>
     </section>
   );
@@ -485,7 +497,8 @@ function GridBlock({ model }: { model: Bzm30Model }) {
               <th className="px-1.5 py-1 text-right font-medium">資本自立</th>
               <th className="px-1.5 py-1 text-right font-medium">ライセンス</th>
               <th className="px-1.5 py-1 text-right font-medium">M&A</th>
-              <th className="px-1.5 py-1 text-right font-medium">用途転換</th>
+              <th className="px-1.5 py-1 text-right font-medium">知財売却</th>
+              <th className="px-1.5 py-1 text-right font-medium">価値が立つ経路の計</th>
             </tr>
           </thead>
           <tbody>
@@ -511,7 +524,10 @@ function GridBlock({ model }: { model: Bzm30Model }) {
                     </td>
                     <td className="px-1.5 py-1 text-right tabular-nums text-muted-foreground">{pc(r.outcome.lic)}</td>
                     <td className="px-1.5 py-1 text-right tabular-nums text-muted-foreground">{pc(r.outcome.ma)}</td>
-                    <td className="px-1.5 py-1 text-right tabular-nums text-muted-foreground">{pc(r.outcome.pivot)}</td>
+                    <td className="px-1.5 py-1 text-right tabular-nums text-muted-foreground">{pc(r.outcome.ips)}</td>
+                    <td className="px-1.5 py-1 text-right font-medium tabular-nums text-foreground">
+                      {pc((r.outcome.indep_in ?? 0) + (r.outcome.indep_out ?? 0) + (r.outcome.lic ?? 0) + (r.outcome.ma ?? 0) + (r.outcome.ips ?? 0))}
+                    </td>
                   </tr>
                 )),
             )}
@@ -526,10 +542,10 @@ function GridBlock({ model }: { model: Bzm30Model }) {
           規制: {(Object.keys(REG_CLASS_LABEL) as RegClass[]).map((k) => REG_CLASS_LABEL[k]).join(" ／ ")}
         </div>
         <div>
-          9区分のうち撤退・清算・未決着は列を省いている。
-          <strong className="text-foreground">SPS は産業創出価値を測るものであって、倒産の確率を測るものではない</strong>
-          （まさ 2026-08-27、承認 #{model.approval_ref}）。自走が続かなくなった案件は、用途転換・出口クラスの転換・
-          ライセンスへの畳み込み・研究への返却の四経路へ分かれる。
+          <strong className="text-foreground">出すのは価値が立つ経路の確率だけ</strong>——自走・ライセンス・M&A・知財売却と、その合計。
+          価値がゼロの経路（撤退・清算・未決着）は「残り」であって指標ではない
+          （まさ 2026-08-27、承認 #{model.approval_ref} の追補）。
+          <strong className="text-foreground">SPS は産業創出価値を測るものであって、倒産の確率を測るものではない。</strong>
         </div>
       </div>
     </Foldable>
