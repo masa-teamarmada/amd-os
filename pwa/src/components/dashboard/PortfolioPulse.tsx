@@ -142,6 +142,10 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
   };
   const activeSeedLinks = (seed: SeedPublicView) =>
     (seed.project_links ?? []).filter((link) => link.project_status === "active");
+  // PJ番号は台帳の `p12` 形式のものだけ前に出す。シーズから自動生成された
+  // `seed-xxxxxxxx-xxxxxxxx` のような長い仮IDを出すと、行の名前を押しつぶす。
+  const shortProjectId = (projectId: string | null | undefined) =>
+    projectId && /^p\d+$/.test(projectId) ? projectId : null;
   // 研究機関にもシーズにも紐づかない稼働中PJ (= 事業会社が相手のPJ)。
   // ここが無いと ZMP のようなPJがホームのどのリストにも出ない。
   const companyPjRows = model.projectRows.filter(
@@ -179,7 +183,7 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
                 <CandidateRow
                   key={row.institutionId}
                   icon={Building2}
-                  prefix={running ? row.projectLink?.projectId : null}
+                  prefix={running ? shortProjectId(row.projectLink?.projectId) : null}
                   label={running ? row.projectLink?.projectLabel ?? row.name : row.name}
                   meta={[running ? row.name : null, `所属シーズ ${row.seedCount}件`].filter(Boolean).join(" ・ ")}
                   badge={running ? "稼働中" : "検討中"}
@@ -214,7 +218,7 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
                 <CandidateRow
                   key={seed.id}
                   icon={Sprout}
-                  prefix={primary?.project_id ?? null}
+                  prefix={shortProjectId(primary?.project_id)}
                   label={
                     running.length
                       ? running.map((link) => link.project_name).join(" / ")
@@ -244,7 +248,7 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
               <CandidateRow
                 key={row.project.projectId}
                 icon={Briefcase}
-                prefix={row.project.projectId}
+                prefix={shortProjectId(row.project.projectId)}
                 label={row.project.projectName}
                 meta={row.project.clientName || "相手先の登録なし"}
                 badge="稼働中"
