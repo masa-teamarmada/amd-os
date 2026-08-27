@@ -135,7 +135,9 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
 
       <StatStrip model={model} />
 
-      <div className="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">
+      {/* items-start にしないと、件数の少ないパネルが多い方の高さまで引き伸ばされて
+          下に大きな空白ができる。高さは中身に合わせる。 */}
+      <div className="mt-2 grid grid-cols-1 items-start gap-2 lg:grid-cols-2">
         <QueuePanel
           title="研究機関PJ — PJ化検討中"
           count={model.counts.institutionConsidering}
