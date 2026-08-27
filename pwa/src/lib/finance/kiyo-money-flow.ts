@@ -447,8 +447,10 @@ async function computeInternal(period: KiyoMoneyFlowPeriod): Promise<KiyoMoneyFl
   const capturedOutflowYen = outflowCategories.reduce((sum, category) => sum + category.totalYen, 0);
 
   // ---- freeeで未処理のままの口座明細 ----
-  // 「まだ分類できていない」の中身はほぼこれ。件名と金額まで出して、freee側で
-  // 登録すべき実物の作業リストにする (会計照合cronが毎週書いている findings を読むだけ)。
+  // 「まだ分類できていない」の中身はほぼこれ。件名と金額まで出して、何が記帳待ちなのかを
+  // 見えるようにする (会計照合cronが毎週書いている findings を読むだけ)。
+  // 記帳そのものはAMD OSから行わない。口座明細を単純な費用として登録すると、たとえば
+  // 役員報酬は手取り額だけが費用計上され、源泉所得税・社会保険料の預り金が落ちて決算が狂う。
   const { data: latestRunRows } = await db
     .from("freee_reconciliation_runs")
     .select("id")
@@ -540,7 +542,7 @@ async function computeInternal(period: KiyoMoneyFlowPeriod): Promise<KiyoMoneyFl
         label: "まだ分類できていない",
         totalYen: outflowGapYen,
         rows: gapRows,
-        note: "口座から実際に出た合計と、上の内訳の差。中身はfreeeの「自動で経理」に未処理のまま残っている明細。freeeで登録するとこの帯が縮む。",
+        note: "口座から実際に出た合計と、上の内訳の差。中身はfreeeの「自動で経理」に未処理のまま残っている明細で、記帳が済むとこの帯が縮む。記帳は勘定科目や預り金の扱いで決算が変わるため、AMD OSからは書き込まない。",
       });
     }
     inflowTotalYen = Math.max(capturedInflowYen, Math.round(bankInflowYen));
