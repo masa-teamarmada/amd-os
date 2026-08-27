@@ -564,7 +564,6 @@ export async function buildLiveMonthlyPlInputs(
   // reward cache が無い PJ/月は「支払予定なし」として 0 円を明示し、自動原価に戻さない。
   const forwardMemberCostByPjYm = new Map<string, number>();
   const payoutCostByPjYm = new Map<string, PayoutCost>();
-  const plannedPayoutYms = new Set<string>();
   const payoutProjectIds = projectsList.map((project) => project.projectId);
   if (payoutProjectIds.length > 0) {
     const payoutRes = await supabase
@@ -579,32 +578,16 @@ export async function buildLiveMonthlyPlInputs(
       const cost = payoutCostFromRewardSummary(row.reward_summary_json, memberById);
       if (!cost) continue;
       payoutCostByPjYm.set(`${row.project_id}_${row.ym}`, cost);
-      // reward cache は plan cycle が無い月にも空 (planCycleId="") で残る。
-      // 「支払予定 0 円」と「そもそもプランが無い」を区別するため、プラン実在月だけ控える。
-      const planCycleId = String(asRecord(asRecord(row.reward_summary_json)?.meta)?.planCycleId ?? "").trim();
-      if (planCycleId) plannedPayoutYms.add(`${row.project_id}_${row.ym}`);
     }
   }
 
-  // ---- 報酬プラン切れの将来月は直近実績を横引き ----
-  // 契約が続く PJ でも報酬プラン (value_plan_cycles) は期末までしか作られていないことが多い。
-  // プランが無い月の原価をゼロのままにすると、売上だけ立って原価が消え、試算表が楽観側に振れる。
-  // 「エフォートは今のまま続く」前提で、直近3ヶ月の外部支払の中央値を横引きする。
-  // 中央値にするのは、別財布スポット (ext_extra) が乗った単月に引きずられないため。
-  // 契約終了済み PJ には isProjectBudgetActive のガードが効くので横引きされない。
-  const carryForwardExternalByPj = new Map<string, number>();
-  for (const project of projectsList) {
-    const known = ymRange(startYmStr, endYmStr)
-      .filter((ym) => plannedPayoutYms.has(`${project.projectId}_${ym}`))
-      .map((ym) => payoutCostByPjYm.get(`${project.projectId}_${ym}`))
-      .filter((cost): cost is PayoutCost => Boolean(cost))
-      .map((cost) => cost.externalYen);
-    if (known.length === 0) continue;
-    const tail = known.slice(-3).sort((a, b) => a - b);
-    const median = tail[Math.floor(tail.length / 2)];
-    if (median > 0) carryForwardExternalByPj.set(project.projectId, median);
-  }
-  const carriedProjectIds = new Set<string>();
+  // ---- 売上原価は台帳に入っている値だけを使う (横引きは 2026-08-27 まさ確定で廃止) ----
+  // 旧実装は「契約が続くのに報酬プランが無い月」に直近3ヶ月の外部支払中央値を伸ばしていた。
+  // 契約期間を1か月延ばしただけで将来の原価が勝手に生えるため、PJの統合や契約更新のたびに
+  // 試算表が動いてしまう。将来月の外部支払は `billing_cycles.reward_summary_json` へ
+  // 明示的に入れる (見込みなら見込み額を、支払わないなら 0 を) 運用へ切り替えた。
+  // まさ指示 2026-08-27: 「この仕組みをやめたらいいんじゃないかな。やめて額が変わっちゃう
+  // ところは、個別でデータを入れて変わらないようにすればいい」
 
   // projectRevenues に原価 override をマージ (既存行があれば上書き、無ければ新規行)
   const revenueIndex = new Map<string, MonthlyPlProjectRevenue>();
@@ -615,16 +598,8 @@ export async function buildLiveMonthlyPlInputs(
       if (!isProjectBudgetActive(sourceProject, ym)) continue;
       const key = `${project.projectId}_${ym}`;
       const cost = payoutCostByPjYm.get(key);
-      let externalMemberCost = cost?.externalYen ?? 0;
-      let costMemo = "member cost from /admin/payouts capped external payout";
-      if (!plannedPayoutYms.has(key)) {
-        const carried = carryForwardExternalByPj.get(project.projectId) ?? 0;
-        if (carried > 0) {
-          externalMemberCost = carried;
-          costMemo = "報酬プラン未作成月: 直近3ヶ月の外部支払中央値を横引き";
-          carriedProjectIds.add(project.projectId);
-        }
-      }
+      const externalMemberCost = cost?.externalYen ?? 0;
+      const costMemo = "member cost from /admin/payouts capped external payout";
       forwardMemberCostByPjYm.set(key, externalMemberCost);
       const existing = revenueIndex.get(key);
       if (existing) {
@@ -644,13 +619,6 @@ export async function buildLiveMonthlyPlInputs(
       }
     }
   }
-  for (const projectId of carriedProjectIds) {
-    const amount = carryForwardExternalByPj.get(projectId) ?? 0;
-    warnings.push(
-      `${projectId}: 報酬プランが将来月まで作られていないため、外部支払 ${amount.toLocaleString("ja-JP")}円/月 を横引きしています`
-    );
-  }
-
   const inputs: MonthlyPlInputs = {
     params: {
       ...fallbackParams,
