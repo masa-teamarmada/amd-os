@@ -18,9 +18,9 @@ const pulseRoute = read("../src/app/api/dashboard/portfolio-pulse/route.ts");
 assert.match(redirectPage, /redirect\("\/dashboard"\)/);
 assert.doesNotMatch(redirectPage, /getCurrentMemberAccess/);
 
-// 2. GlobalNav は研究ポートフォリオ (ホーム/研究機関/シーズ/PJ運用) を最上位グループに持ち、
+// 2. GlobalNav は PJポートフォリオ (ホーム/研究機関/シーズ/PJ運用) を最上位グループに持ち、
 //    既存の探索・自分・Admin・資料導線は落とさない。
-assert.match(globalNav, /label: "研究ポートフォリオ"/);
+assert.match(globalNav, /label: "PJポートフォリオ"/);
 assert.match(globalNav, /label: "ホーム"[\s\S]*?href: "\/dashboard"/);
 assert.match(globalNav, /label: "研究機関"[\s\S]*?href: "\/institutions"/);
 assert.match(globalNav, /label: "シーズ"[\s\S]*?href: "\/seeds"/);
@@ -67,22 +67,21 @@ assert.match(pulseRoute, /Promise\.allSettled/);
 assert.match(pulseRoute, /fetchErsBundle\(readClient\)/);
 assert.match(pulseRoute, /fetchAllResearchInstitutionSeeds\(readClient\)/);
 
-// 5. 研究機関・シーズを母集団、PJを契約後の運用レイヤーとして表す。実routeへ接続する
-//    (表示だけの偽ボタン禁止)。PJパネルは3番目 (研究機関・シーズという母集団を先に見せる)。
-assert.match(pulseComponent, /研究機関 — PJ化検討中/);
-assert.match(pulseComponent, /シーズ — 検討中・SPS評価済み/);
-assert.match(pulseComponent, /PJ運用 — 稼働中/);
+// 5. PJになる前の候補を、研究機関から来たものとシーズから来たものの2枚で表す。
+//    実routeへ接続する (表示だけの偽ボタン禁止)。研究機関が先。
+//    稼働中PJの再掲パネルは 2026-08-27 まさ確定で撤去した — すぐ下のPJ一覧と
+//    統計stripの「PJ運用」セルに同じものが出ていて三重になっていたため。復活させない。
+assert.match(pulseComponent, /研究機関PJ — PJ化検討中/);
+assert.match(pulseComponent, /シーズPJ — PJ化検討中/);
+assert.doesNotMatch(pulseComponent, /PJ運用 — 稼働中/);
 assert.match(pulseComponent, /actionHref="\/institutions"/);
 assert.match(pulseComponent, /actionHref="\/seeds"/);
-assert.match(pulseComponent, /\/project\/\$\{encodeURIComponent\(row\.project\.projectId\)\}\/cockpit/);
 assert.ok(
-  pulseComponent.indexOf("研究機関 — PJ化検討中") < pulseComponent.indexOf("PJ運用 — 稼働中"),
-  "研究機関パネルはPJ運用パネルより先に描画される必要がある",
+  pulseComponent.indexOf("研究機関PJ — PJ化検討中") < pulseComponent.indexOf("シーズPJ — PJ化検討中"),
+  "研究機関PJパネルはシーズPJパネルより先に描画される必要がある",
 );
-assert.ok(
-  pulseComponent.indexOf("シーズ — 検討中・SPS評価済み") < pulseComponent.indexOf("PJ運用 — 稼働中"),
-  "シーズパネルはPJ運用パネルより先に描画される必要がある",
-);
+// 統計stripの「PJ運用」セルは #pj-operations への実接続を保つ (パネル撤去後の唯一の入口)。
+assert.match(pulseComponent, /label: "PJ運用", value: model\.counts\.projects, href: "#pj-operations"/);
 
 // 6. ECRとSPSは別系列のまま扱い、既存の優先順位関数を再利用する。
 assert.match(pulseLib, /institutionEcrReady/);

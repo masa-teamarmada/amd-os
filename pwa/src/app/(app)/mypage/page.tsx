@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { LinkedMemberText } from "@/components/members/LinkedMemberText";
 import { createClient } from "@/lib/supabase/client";
@@ -736,6 +736,10 @@ export function MyPageContent({
       </div>
 
       <div className={`${embedded ? "px-3 mt-4" : "max-w-4xl mx-auto px-4 mt-6"} flex flex-col gap-5`}>
+        {/* ホーム右カラム (embedded) では報酬と月初合意を畳んでおき、
+            常に見えている一等地を「今週やったこと / 来週やること」に譲る。
+            /mypage 単体では従来どおり開いたまま出す。 */}
+        <CollapsibleOnHome collapsed={embedded} label="今月の報酬・業務合意">
         <section className="bg-white rounded-2xl border border-[#e5e5e7] p-4 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -770,6 +774,7 @@ export function MyPageContent({
         </section>
 
         <MonthlyAgreementCard memberId={data.member.memberId} />
+        </CollapsibleOnHome>
 
         <WeeklyTaskPlanner
           activities={data.weeklyActivities}
@@ -827,6 +832,24 @@ export function MyPageContent({
         })}
       </div>
     </div>
+  );
+}
+
+/**
+ * ホーム右カラムに埋め込むときだけ、中身を折り畳みに包む。
+ * /mypage を単体で開いたときは何も包まずそのまま出す。
+ */
+function CollapsibleOnHome({ collapsed, label, children }: { collapsed: boolean; label: string; children: ReactNode }) {
+  if (!collapsed) return <>{children}</>;
+  return (
+    <details className="group rounded-2xl border border-[#e5e5e7] bg-white shadow-sm">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-[13px] font-semibold text-[#1d1d1f] [&::-webkit-details-marker]:hidden">
+        <span className="flex-1">{label}</span>
+        <span className="text-[11px] font-normal text-[#86868b] group-open:hidden">開く</span>
+        <span className="hidden text-[11px] font-normal text-[#86868b] group-open:inline">閉じる</span>
+      </summary>
+      <div className="flex flex-col gap-5 border-t border-[#e5e5e7] px-4 py-4">{children}</div>
+    </details>
   );
 }
 

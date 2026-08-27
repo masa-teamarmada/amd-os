@@ -7,7 +7,9 @@
  * (旧 /portfolio-preview を2026-08-02にホームへ正式採用)。研究機関・シーズの全件は
  * 出さず (`/institutions` / `/seeds` が正本一覧)、今日判断・着手できる上位候補だけを
  * 密度高く並べる。ECR (研究機関環境) と SPS (個別シーズ) は別集計のまま合算しない。
- * PJは3番目 — 研究機関・シーズという母集団を先に見せ、PJは契約成立後の運用レイヤーとして
+ * 2026-08-27: パネルは2枚 (研究機関PJ / シーズPJ)。稼働中PJの再掲は、すぐ下のPJ一覧と
+ * 統計stripの「PJ運用」セルに同じものが出ていて三重になっていたので外した。
+ * 旧コメント: PJは3番目 — 研究機関・シーズという母集団を先に見せ、PJは契約成立後の運用レイヤーとして
  * その下に置く (2026-08-02 まさ追加監査反映)。
  *
  * データは server-side service client 経由の /api/dashboard/portfolio-pulse から取る。
@@ -17,13 +19,12 @@
  */
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ArrowRight, Building2, FlaskConical, Sprout, type LucideIcon } from "lucide-react";
+import { ArrowRight, Building2, Sprout, type LucideIcon } from "lucide-react";
 import type { ErsBundle } from "@/lib/ers-data";
-import { seedListPriority, seedProjectLifecycle } from "@/lib/kute-seeds-scoring";
+import { seedProjectLifecycle } from "@/lib/kute-seeds-scoring";
 import {
   buildPortfolioPulseModel,
   type PortfolioPulseModel,
-  type ProjectRow,
 } from "@/lib/portfolio-pulse";
 import type { DashProject } from "@/lib/supabase-data";
 import type { SeedPublicView, SeedScreeningBandSummary } from "@/types/seeds";
@@ -107,7 +108,7 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
   if (state.status === "error") {
     return (
       <section className="dashboard-desk-section px-3 py-3 text-[13px] text-[var(--desk-muted)]">
-        研究ポートフォリオを読み込めなかった。再読み込みしてね。
+        PJポートフォリオを読み込めなかった。再読み込みしてね。
       </section>
     );
   }
@@ -115,31 +116,28 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
   if (state.status === "loading" || !model) {
     return (
       <section className="dashboard-desk-section px-3 py-4 text-center text-[13px] text-[var(--desk-muted)]">
-        研究ポートフォリオを読み込み中…
+        PJポートフォリオを読み込み中…
       </section>
     );
   }
 
-  const institutionCandidates = model.institutionRows.filter((row) => row.lifecycle === "considering").slice(0, 4);
+  const institutionCandidates = model.institutionRows.filter((row) => row.lifecycle === "considering").slice(0, 6);
   const seedConsidering = model.seedRows.filter((seed) => seedProjectLifecycle(seed) === "considering");
-  const bandBySeed = new Map((state.screeningBands ?? []).map((band) => [band.seed_id, band]));
-  const seedScored = model.seedRows.filter((seed) => seedProjectLifecycle(seed) === "none" && Boolean(bandBySeed.get(seed.id)?.assessment_id));
-  const activeProjects = model.projectRows.filter((row) => row.project.status === "active").slice(0, 6);
 
   return (
     <section className="dashboard-desk-section" data-testid="portfolio-pulse">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="dashboard-desk-section-title !mb-0">研究ポートフォリオ — 今日動かす対象</h2>
+        <h2 className="dashboard-desk-section-title !mb-0">PJポートフォリオ — 今日動かす対象</h2>
         <p className="text-[11px] text-[var(--desk-muted)]">
-          研究機関・シーズが母集団、PJは契約成立後の運用レイヤー。PJ化済み→PJ化検討中→評価済みの順を保つ。
+          PJになる前の候補を、研究機関から来たものとシーズから来たものに分けて出す。稼働中のPJは下のPJ運用。
         </p>
       </div>
 
       <StatStrip model={model} />
 
-      <div className="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-3">
+      <div className="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">
         <QueuePanel
-          title="研究機関 — PJ化検討中"
+          title="研究機関PJ — PJ化検討中"
           count={model.counts.institutionConsidering}
           actionLabel="研究機関を開く"
           actionHref="/institutions"
@@ -169,8 +167,8 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
         </QueuePanel>
 
         <QueuePanel
-          title="シーズ — 検討中・SPS評価済み"
-          count={model.counts.seedConsidering + model.counts.seedScoredWithoutProject}
+          title="シーズPJ — PJ化検討中"
+          count={model.counts.seedConsidering}
           actionLabel="シーズを開く"
           actionHref="/seeds"
           icon={Sprout}
@@ -178,43 +176,22 @@ export function PortfolioPulse({ projects }: { projects: DashProject[] }) {
           errored={state.seedsError}
           errorLabel="シーズを読み込めなかった"
         >
-          {seedConsidering.slice(0, 3).map((seed) => (
-            <CandidateRow
-              key={seed.id}
-              icon={Sprout}
-              label={seed.title}
-              meta={`${seed.org_name} ・ ${seed.researcher_name || "PI未登録"}`}
-              badge="検討中"
-              href={`/seeds/${encodeURIComponent(seed.id)}`}
-            />
-          ))}
-          {seedScored.slice(0, Math.max(0, 4 - seedConsidering.length)).map((seed) => (
-            <CandidateRow
-              key={seed.id}
-              icon={Sprout}
-              label={seed.title}
-              meta={`${seed.org_name} ・ 現行SPS ${formatBand(bandBySeed.get(seed.id))}`}
-              badge="評価済み"
-              href={`/seeds/${encodeURIComponent(seed.id)}`}
-            />
-          ))}
-          {!seedConsidering.length && !seedScored.length ? <EmptyQueue label="該当するシーズはない" /> : null}
-        </QueuePanel>
-
-        <QueuePanel
-          title="PJ運用 — 稼働中"
-          count={model.counts.activeProjects}
-          actionLabel="PJ運用を開く"
-          actionHref="#pj-operations"
-          icon={FlaskConical}
-          tone="blue"
-        >
-          {activeProjects.length ? (
-            activeProjects.map((row) => <ProjectQueueRow key={row.project.projectId} row={row} />)
+          {seedConsidering.length ? (
+            seedConsidering.slice(0, 6).map((seed) => (
+              <CandidateRow
+                key={seed.id}
+                icon={Sprout}
+                label={seed.title}
+                meta={`${seed.org_name} ・ ${seed.researcher_name || "PI未登録"}`}
+                badge="検討中"
+                href={`/seeds/${encodeURIComponent(seed.id)}`}
+              />
+            ))
           ) : (
-            <EmptyQueue label="稼働中PJはない" />
+            <EmptyQueue label="PJ化を検討中のシーズはない" />
           )}
         </QueuePanel>
+
       </div>
     </section>
   );
@@ -309,18 +286,6 @@ function QueuePanel({
   );
 }
 
-function ProjectQueueRow({ row }: { row: ProjectRow }) {
-  return (
-    <Link
-      href={`/project/${encodeURIComponent(row.project.projectId)}/cockpit`}
-      className="flex items-center justify-between gap-2 rounded border border-[var(--desk-line)] px-2 py-2 text-[13px] hover:bg-[var(--desk-blue-soft)]"
-    >
-      <span className="min-w-0 truncate font-medium text-[var(--desk-ink)]">{row.project.projectName}</span>
-      <ArrowRight className="h-3 w-3 shrink-0 text-[var(--desk-muted)]" aria-hidden="true" />
-    </Link>
-  );
-}
-
 function CandidateRow({
   icon: Icon,
   label,
@@ -355,8 +320,3 @@ function EmptyQueue({ label }: { label: string }) {
   return <p className="px-1 py-2 text-[13px] text-[var(--desk-muted)]">{label}</p>;
 }
 
-function formatBand(band: SeedScreeningBandSummary | undefined) {
-  if (!band?.assessment_id || band.sps_lower_yen == null || band.sps_upper_yen == null) return "最新版未評価";
-  const format = (value: number) => `${new Intl.NumberFormat("ja-JP", { maximumFractionDigits: value < 1_000_000_000 ? 1 : 0 }).format(value / 100_000_000)}億円`;
-  return `${format(band.sps_lower_yen)}〜${format(band.sps_upper_yen)}`;
-}

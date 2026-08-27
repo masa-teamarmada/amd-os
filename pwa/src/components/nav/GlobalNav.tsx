@@ -187,7 +187,7 @@ export function GlobalNav({
   const groups = useMemo<NavGroup[]>(
     () => [
       {
-        label: "研究ポートフォリオ",
+        label: "PJポートフォリオ",
         items: [
           {
             label: "ホーム",
