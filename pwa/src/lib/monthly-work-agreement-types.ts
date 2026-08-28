@@ -258,6 +258,11 @@ export interface MonthlyWorkAgreementBundle {
   currentHash: string;
   /** 全PJを集約した状態。1つでも未合意なら pending、1つでも条件更新ありなら needs_reagreement */
   status: MonthlyAgreementStatus;
+  /**
+   * この稼働月の合意をPJ単位で成立させるか。202609 稼働分から true。
+   * false の月は、PJ単位化する前と同じく member 全体の1件が合意の単位。
+   */
+  projectScopedAgreement: boolean;
   /** PJごとの合意状態。合意はここを単位に成立する */
   projectAgreements: MonthlyWorkAgreementProjectAgreement[];
   latestAgreement: MonthlyWorkAgreementRecord | null;

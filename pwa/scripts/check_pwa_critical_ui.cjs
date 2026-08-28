@@ -3465,6 +3465,20 @@ expectIncludes("src/lib/monthly-work-agreement-diff.ts", [
   "export function diffMonthlyAgreementTerms(",
   "export function agreedPayYen(",
 ]);
+// PJ単位の合意は 202609 稼働分から (まさ確定 2026-08-28「PJ単位での合意は9月から。
+// いままさに発行しようとしている分には影響が出ないようにして」)。
+// 移行月の境とは別の定数で持ち、発行中の月の合意単位を巻き添えで変えない。
+expectIncludes("src/lib/monthly-work-agreement.ts", [
+  'export const MONTHLY_WORK_AGREEMENT_PROJECT_SCOPE_START_YM = "202609";',
+  "export function isProjectScopedMonthlyAgreementYm(",
+  "const projectScoped = isProjectScopedMonthlyAgreementYm(ym);",
+]);
+expectIncludes("src/lib/monthly-work-agreement-payout-gate.ts", [
+  "bundle.projectScopedAgreement",
+]);
+expectIncludes("src/app/api/monthly-work-agreement/agree/route.ts", [
+  "!bundle.projectScopedAgreement || bundle.projectAgreements.length === 0",
+]);
 // 合意はPJごとに成立させ、判定は「担当する仕事」と「受け取る額」の terms hash で行う。
 // snapshot 全体の hash で見ると、請求ステータスなど内部の状態が動くたび再合意が立つ。
 expectIncludes("src/lib/monthly-work-agreement.ts", [

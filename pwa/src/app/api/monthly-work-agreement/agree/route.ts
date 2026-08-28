@@ -39,8 +39,12 @@ function buildInserts(
   targetProjectId: string | null,
   agreedBy: string,
 ): { inserts: AgreementInsert[]; error: string | null } {
-  if (bundle.projectAgreements.length === 0) {
-    if (targetProjectId) return { inserts: [], error: `対象PJが見つかりません: ${targetProjectId}` };
+  // PJ単位化 (202609 稼働分〜) より前の稼働月は、発行中の支払に影響を出さないため
+  // 従来どおり member 全体の1行として保存する
+  if (!bundle.projectScopedAgreement || bundle.projectAgreements.length === 0) {
+    if (!bundle.canAgree) {
+      return { inserts: [], error: bundle.exclusionReason || "月初合意を保存できません" };
+    }
     return {
       inserts: [
         {

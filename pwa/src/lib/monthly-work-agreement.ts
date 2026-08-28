@@ -66,6 +66,23 @@ const SNAPSHOT_VERSION = "monthly_work_agreement.v2" as const;
  */
 export const MONTHLY_WORK_AGREEMENT_PAYOUT_GATE_START_YM = "202609";
 
+/**
+ * この稼働月から、合意をPJ単位で成立させる。
+ *
+ * まさ確定 2026-08-28「このPJ単位での合意は9月からにしてね。いままさに発行しようとしている分には
+ * 影響が出ないようにして」。これより前の稼働月は、PJ単位化する前と同じく member 全体の1件を
+ * 合意の単位として判定・保存する。
+ *
+ * 移行月の境 (MONTHLY_WORK_AGREEMENT_PAYOUT_GATE_START_YM) とは別に持つ。あちらは
+ * 「未合意で支払を止めるか」の境で、運用の都合で何度か後ろへ動いている。動かされたときに
+ * 合意の単位まで一緒に動くと、発行中の月の挙動が巻き添えで変わる。
+ */
+export const MONTHLY_WORK_AGREEMENT_PROJECT_SCOPE_START_YM = "202609";
+
+export function isProjectScopedMonthlyAgreementYm(ym: string): boolean {
+  return /^\d{6}$/.test(ym) && ym >= MONTHLY_WORK_AGREEMENT_PROJECT_SCOPE_START_YM;
+}
+
 export function isMonthlyWorkAgreementPayoutGateMigrationYm(ym: string): boolean {
   return /^\d{6}$/.test(ym) && ym < MONTHLY_WORK_AGREEMENT_PAYOUT_GATE_START_YM;
 }
@@ -770,6 +787,7 @@ export async function buildMonthlyWorkAgreementBundle(
       snapshot,
       currentHash: hashMonthlyAgreementSnapshot(snapshot),
       status: "not_required",
+      projectScopedAgreement: isProjectScopedMonthlyAgreementYm(ym),
       projectAgreements: [],
       latestAgreement: null,
       revisionRequests: [],
@@ -809,6 +827,7 @@ export async function buildMonthlyWorkAgreementBundle(
       snapshot,
       currentHash: hashMonthlyAgreementSnapshot(snapshot),
       status: "not_required",
+      projectScopedAgreement: isProjectScopedMonthlyAgreementYm(ym),
       projectAgreements: [],
       latestAgreement: null,
       revisionRequests: [],
@@ -1312,13 +1331,28 @@ export async function buildMonthlyWorkAgreementBundle(
       .map((item) => item.projectId),
   );
 
+  // 参加PJが無い月と、PJ単位化より前の稼働月で使う member 単位の合意状態
+  const currentTermsHash = hashMonthlyAgreementTerms(snapshot);
+  const legacyMemberStatus: MonthlyAgreementStatus =
+    latestAgreement?.status === "agreed" &&
+    (latestAgreement.snapshotHash === currentHash ||
+      (isV2Snapshot(latestAgreement.snapshotJson) &&
+        hashMonthlyAgreementTerms(latestAgreement.snapshotJson) === currentTermsHash))
+      ? "agreed"
+      : latestAgreement?.status === "agreed"
+        ? "needs_reagreement"
+        : "pending";
+
   // 合意はPJごとに成立させる。あるPJの条件が動いても、他のPJの合意はそのまま生かす。
   // 「担当する仕事」と「受け取る額」が変わっていなければ、内部の状態が動いても再合意は求めない。
+  // ただし PJ単位化 (202609 稼働分〜) より前の月は、発行中の支払に影響を出さないため
+  // 従来どおり member 全体の1件で判定する。
+  const projectScoped = isProjectScopedMonthlyAgreementYm(ym);
   const projectResolutions = snapshotProjects.map((project) => {
     const scoped = projectScopedSnapshot(snapshot, project.projectId)!;
     const scopedHash = hashMonthlyAgreementSnapshot(scoped);
     const scopedTermsHash = hashMonthlyAgreementTerms(scoped);
-    const record = agreedRecordByProject.get(project.projectId) ?? null;
+    const record = projectScoped ? agreedRecordByProject.get(project.projectId) ?? null : null;
     // PJ単位の合意が無いPJは、PJ単位化する前の member 全体合意から当該PJ分だけを抜き出して比べる
     const legacyScoped =
       record == null && isV2Snapshot(legacyAgreedRecord?.snapshotJson)
@@ -1332,7 +1366,10 @@ export async function buildMonthlyWorkAgreementBundle(
     const previousTermsHash = previousScoped ? hashMonthlyAgreementTerms(previousScoped) : null;
 
     let status: MonthlyAgreementStatus;
-    if (record) {
+    if (!projectScoped) {
+      // PJ単位化より前の稼働月。合意の単位は member 全体なので、状態も member 全体のものを配る
+      status = legacyMemberStatus;
+    } else if (record) {
       status =
         record.snapshotHash === scopedHash || (previousTermsHash != null && previousTermsHash === scopedTermsHash)
           ? "agreed"
@@ -1388,19 +1425,9 @@ export async function buildMonthlyWorkAgreementBundle(
     .filter((item) => item.reasonMissing)
     .map((item) => item.agreement.projectId);
 
-  // 参加PJが無い月は、PJ単位で判定できないので従来どおり member 単位の合意状態を使う
-  const currentTermsHash = hashMonthlyAgreementTerms(snapshot);
-  const legacyMemberStatus: MonthlyAgreementStatus =
-    latestAgreement?.status === "agreed" &&
-    (latestAgreement.snapshotHash === currentHash ||
-      (isV2Snapshot(latestAgreement.snapshotJson) &&
-        hashMonthlyAgreementTerms(latestAgreement.snapshotJson) === currentTermsHash))
-      ? "agreed"
-      : latestAgreement?.status === "agreed"
-        ? "needs_reagreement"
-        : "pending";
+  // 参加PJが無い月と、PJ単位化より前の稼働月は member 単位の合意状態をそのまま使う
   const status: MonthlyAgreementStatus =
-    projectAgreements.length === 0
+    !projectScoped || projectAgreements.length === 0
       ? legacyMemberStatus
       : projectAgreements.some((item) => item.status === "pending")
         ? "pending"
@@ -1419,12 +1446,15 @@ export async function buildMonthlyWorkAgreementBundle(
     snapshot,
     currentHash,
     status,
+    projectScopedAgreement: projectScoped,
     projectAgreements,
     latestAgreement,
     revisionRequests,
     tableReady,
     canRequestRevision,
-    canAgree: canRequestRevision && projectAgreements.some((item) => item.canAgree && item.status !== "agreed"),
+    canAgree: projectScoped
+      ? canRequestRevision && projectAgreements.some((item) => item.canAgree && item.status !== "agreed")
+      : canRequestRevision && missingAmountChangeReasonProjectIds.length === 0,
     exclusionReason: reasonWaitMessage,
     // メンバーへ見せる変更点は合意の対象だけ。内部の状態が動いただけの差分は出さない
     changeSummary: mergeChangeSummaries(projectAgreements.map((item) => item.changeSummary)),

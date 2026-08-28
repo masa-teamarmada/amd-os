@@ -309,22 +309,30 @@ export async function buildPayoutAgreementGateSummary(
       continue;
     }
 
-    if (!projectAgreement || projectAgreement.status === "pending") {
+    // PJ単位化 (202609 稼働分〜) より前の稼働月は、従来どおり member 全体の合意状態で判定する。
+    // 発行中の支払月の gate 判定を、PJ単位化の巻き添えで変えない。
+    const effectiveStatus = bundle.projectScopedAgreement
+      ? projectAgreement?.status ?? "pending"
+      : bundle.status;
+
+    if (effectiveStatus === "pending") {
       rows.push({
         ...agreementBase,
         required: true,
         status: "pending",
-        reason: "このPJの月初合意が未完了",
+        reason: bundle.projectScopedAgreement ? "このPJの月初合意が未完了" : "本人の月初合意が未完了",
       });
       continue;
     }
 
-    if (projectAgreement.status === "needs_reagreement") {
+    if (effectiveStatus === "needs_reagreement") {
       rows.push({
         ...agreementBase,
         required: true,
         status: "stale",
-        reason: "合意後にこのPJの担当内容か受け取る額が変わった",
+        reason: bundle.projectScopedAgreement
+          ? "合意後にこのPJの担当内容か受け取る額が変わった"
+          : "合意後に月初条件 snapshot hash が更新された",
       });
       continue;
     }
