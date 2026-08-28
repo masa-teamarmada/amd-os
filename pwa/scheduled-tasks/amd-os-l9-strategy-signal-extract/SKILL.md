@@ -13,7 +13,7 @@ description: AMD OS D-6 経営ハイライト抽出の repo 正本。現行 writ
 - **signal_type**: management_decision / business_progress / strategic_pivot / commercial_progress / partnership / funding / ip_regulatory / tech_progress / risk / next_move (= 10 種)
 - **impact_level**: low / medium / high / critical
 - **polarity** (= まさ #29 2026-05-24、migration 090 適用後): breakthrough (🎉) / forward (✨) / pivot (🔄) / risk (⚠️) (= 🌐 中立廃止)
-- **score_impact_summary** (= まさ #31 2026-05-24、migration 090 適用後): 「📊 影響: TRL 4→5、X 軸 +40pt」短文
+- **score_impact_summary** (= まさ #31 2026-05-24、migration 090 適用後): 「TRL 4→5、X 軸 +40pt」のような短文。**画面側が「📊 影響:」を先頭に付けるので、この接頭辞をデータへ入れない** (2026-08-28 に二重表示を確認)
 - **company vital scope** (= migration 118): `signal_scope` / `applies_to_company_score` / `pipeline_status` / `pipeline_probability` / `expected_amount_yen` / `expected_contract_ym` / `company_score_axis` / `scope_reason`。PJ cockpit表示と Management Score 採用可否を分ける
 - 修正依頼は対話型 (= 経営ハイライト UI で 「⚠️ つくよみに修正依頼」 → /api/notifications/feedback/dialog/start → 提案 → 適用) で運用、本 routine では `l2_feedbacks` 読み込んで prompt に反映
 
@@ -90,7 +90,7 @@ Phase B: LLM 抽出 (= 私自身、done のみ / polarity 必須)
   - 外部環境: `ip_regulatory` (他国規制動向) / `risk` (重要リスク、ただし発生済 = done)
 - **impact_level**: low / medium / high / critical
 - **polarity** (= migration 090 後): breakthrough (🎉) / forward (✨) / pivot (🔄) / risk (⚠️) (= 必ず set)
-- **score_impact_summary**: 「📊 影響: TRL 4→5、X 軸 +40pt」のような 1 行 (= null OK だが書ける時は書く)
+- **score_impact_summary**: 「TRL 4→5、X 軸 +40pt」のような 1 行 (= null OK だが書ける時は書く)。**「📊 影響:」は画面側が付けるので書かない**
 - title 30-50 chars、summary 80-200 chars
 - source_refs_json は short snippet (200 chars) + source_url + hash のみ (= 全文禁止)
 - source_hash = sha256(JSON.stringify(source_refs + title))
