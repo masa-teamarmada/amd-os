@@ -2156,7 +2156,8 @@ export async function fetchCockpitFromSupabase(
       .in("status", ["candidate", "confirmed"])
       .order("signal_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
-      .limit(8),
+      // 「重要な動き」棚の表示上限。8件だと数か月前の出来事がコックピットから消えるため、採用リサーチ棚と同じ20件に揃える (2026-08-28)
+      .limit(20),
     supabase
       .from("project_strategy_signals")
       .select("*")

@@ -101,6 +101,8 @@ candidate も表示してよいが、未確認 chip を必ず付ける。
 - `重要な動き`: `origin_kind='internal'` の candidate / confirmed。従来表示を維持する。
 - `採用リサーチ`: `origin_kind='external_research' AND status='confirmed'` だけ。業界・市場 / 助成金 / 協業候補の分類を出す。
 
+どちらの棚も `signal_date` の新しい順に最大20件を読む。「重要な動き」だけ8件だった間は、数か月前の出来事がコックピットから消えていた（2026-08-28に20件へ統一）。
+
 外部リサーチの candidate は cockpit に出さず `/notifications` だけに置く。
 
 ## 採否
