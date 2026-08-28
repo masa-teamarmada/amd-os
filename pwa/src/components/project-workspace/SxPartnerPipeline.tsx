@@ -5,7 +5,6 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type MutableRefObject,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
@@ -269,28 +268,28 @@ function PartnerStageRail({
 }
 
 const BALL_SIDE_TONE: Record<string, string> = {
-  sx: "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]",
+  sx: "border-[#7dd3fc] bg-[#f0f9ff] text-[#0284c7]",
   partner: "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]",
-  shared: "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]",
+  shared: "border-[#7dd3fc] bg-[#f0f9ff] text-[#0284c7]",
   none: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
-  unknown: "border-[#3D99E3] bg-[#E8F3FC] text-[#0267B2]",
+  unknown: "border-[#3D99E3] bg-[#f0f9ff] text-[#0369a1]",
 };
 
 /** 最左の評価カラムの配色。S だけ塗りつぶして、上から潰す順番が一目で分かるようにする。 */
 const GRADE_TONE: Record<string, string> = {
   s: "border-[#047857] bg-[#047857] text-[#f5f5f7]",
   a: "border-[#059669] bg-[#ecfdf5] text-[#065f46]",
-  b: "border-[#0267B2] bg-[#E8F3FC] text-[#0267B2]",
+  b: "border-[#0369a1] bg-[#f0f9ff] text-[#0369a1]",
   x: "border-[#94a3b8] bg-[#f1f5f9] text-[#3c3c43]",
   unrated: "border-dashed border-[#cbd5e1] bg-[#f8fafc] text-[#86868b]",
 };
 
 const HOLDING_STATUS_TONE: Record<string, string> = {
   open: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
-  in_progress: "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]",
+  in_progress: "border-[#7dd3fc] bg-[#f0f9ff] text-[#0284c7]",
   waiting: "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]",
   blocked: "border-[#ef4444] bg-[#fee2e2] text-[#dc2626]",
-  on_hold: "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]",
+  on_hold: "border-[#7dd3fc] bg-[#f0f9ff] text-[#0284c7]",
   completed: "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]",
   cancelled: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
 };
@@ -299,10 +298,10 @@ const HOLDING_STATUS_TONE: Record<string, string> = {
  * shared-ruled row + left status line (spec C: 保有事項は角丸カードをやめ、共有罫線/左ステータス線の高密度行にする). */
 const HOLDING_STATUS_LINE: Record<string, string> = {
   open: "#94a3b8",
-  in_progress: "#027FDC",
+  in_progress: "#0284c7",
   waiting: "#d97706",
   blocked: "#ef4444",
-  on_hold: "#027FDC",
+  on_hold: "#0284c7",
   completed: "#059669",
   cancelled: "#cbd5e1",
 };
@@ -319,12 +318,12 @@ const HOLDING_STATUS_LABEL: Record<string, string> = {
 };
 
 const INTERACTION_KIND_TONE: Record<string, string> = {
-  meeting: "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]",
+  meeting: "border-[#7dd3fc] bg-[#f0f9ff] text-[#0284c7]",
   email: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
   agreement: "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]",
   deliverable: "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]",
   handoff: "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]",
-  status_update: "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]",
+  status_update: "border-[#7dd3fc] bg-[#f0f9ff] text-[#0284c7]",
   note: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
 };
 
@@ -420,39 +419,22 @@ const INLINE_COMMITMENT_STATUS_OPTIONS = INLINE_WORK_STATUS_OPTIONS.filter(
   (option) => option.value !== "waiting" && option.value !== "on_hold",
 );
 
-const INLINE_REPLAY_TARGET_SELECTOR =
-  '[data-testid^="sx-partner-stage-rail-"], [data-inline-edit-trigger], [data-partner-filter-trigger]';
-
 /**
- * blur自動保存中にpointer起点の次操作が旧editor lockで捨てられた場合だけ、
- * 保存成功後に1回再実行する。Tab移動はpointerdownを伴わないため対象外。
+ * 開いている編集を閉じるためのクリックが、そのまま次の編集を開かないようにする
+ * (2026-08-28 まさ「モーダル外をクリックして閉じるとき、そのクリックの場所のモーダルが
+ * 開いちゃうのがUX的にイケてない」)。pointerdown で閉じたあとに続く click を1回だけ捨てる。
+ *
+ * 旧実装は逆に、閉じたクリックの対象を保存成功後へ再生 (replay) していた。
+ * 1操作で「閉じる」と「次を開く」が同時に起きるため、意図せず別の編集が開く。
  */
-function useInlinePointerReplayTarget(active: boolean) {
-  const targetRef = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    targetRef.current = null;
-    if (!active) return;
-    const capture = (event: PointerEvent) => {
-      targetRef.current =
-        event.target instanceof Element
-          ? event.target.closest<HTMLElement>(INLINE_REPLAY_TARGET_SELECTOR)
-          : null;
-    };
-    document.addEventListener("pointerdown", capture, true);
-    return () => document.removeEventListener("pointerdown", capture, true);
-  }, [active]);
-  return targetRef;
-}
-
-function replayInlinePointerTarget(
-  targetRef: MutableRefObject<HTMLElement | null>,
-) {
-  const target = targetRef.current;
-  targetRef.current = null;
-  if (!target) return;
-  requestAnimationFrame(() => {
-    if (document.contains(target)) target.click();
-  });
+function swallowNextClick() {
+  const swallow = (event: MouseEvent) => {
+    event.stopPropagation();
+    event.preventDefault();
+  };
+  document.addEventListener("click", swallow, true);
+  // click が来ないまま終わる操作 (ドラッグ・右クリック等) でも listener を残さない
+  window.setTimeout(() => document.removeEventListener("click", swallow, true), 400);
 }
 
 function changedPatch(
@@ -546,6 +528,7 @@ function InlineCellEditor({
       if (!node) return;
       if (event.target instanceof Node && node.contains(event.target)) return;
       if (savingRef.current) return;
+      swallowNextClick();
       if (dirtyRef.current) void saveRef.current();
       else onFinish();
     };
@@ -560,7 +543,7 @@ function InlineCellEditor({
     return (
       <button
         type="button"
-        className={`w-full min-w-0 text-left hover:bg-[#E8F3FC] ${FOCUS_RING} ${viewClassName}`}
+        className={`w-full min-w-0 text-left hover:bg-[#f0f9ff] ${FOCUS_RING} ${viewClassName}`}
         onClick={begin}
         aria-label={`${label}を直接修正`}
         data-inline-edit-trigger={editorKey}
@@ -912,7 +895,6 @@ function InlineConnectionOriginEditor({
   const editorRef = useRef<HTMLDivElement>(null);
   const finishingRef = useRef(false);
   const cancelingRef = useRef(false);
-  const pointerReplayTargetRef = useInlinePointerReplayTarget(active);
 
   useEffect(() => {
     if (!active) return;
@@ -966,7 +948,7 @@ function InlineConnectionOriginEditor({
       <button
         ref={triggerRef}
         type="button"
-        className={`min-h-11 w-full min-w-0 text-left hover:bg-[#E8F3FC] ${FOCUS_RING}`}
+        className={`min-h-11 w-full min-w-0 text-left hover:bg-[#f0f9ff] ${FOCUS_RING}`}
         onClick={() => {
           if (!onRequestEdit(editorKey)) return;
           setDraftContext(context);
@@ -1005,14 +987,7 @@ function InlineConnectionOriginEditor({
         const changed =
           draftContext.trim() !== context ||
           draftIntroducer.trim() !== introducer;
-        void save(false).then((saved) => {
-          if (!saved) {
-            pointerReplayTargetRef.current = null;
-            return;
-          }
-          if (!changed) return;
-          replayInlinePointerTarget(pointerReplayTargetRef);
-        });
+        void save(false);
       }}
       onKeyDown={(event) => {
         if (event.nativeEvent.isComposing) return;
@@ -1098,7 +1073,6 @@ function InlineCurrentBallEditor({
   const editorRef = useRef<HTMLDivElement>(null);
   const finishingRef = useRef(false);
   const cancelingRef = useRef(false);
-  const pointerReplayTargetRef = useInlinePointerReplayTarget(active);
   const sideLabel =
     options.find((option) => option.value === side)?.label || side;
 
@@ -1152,7 +1126,7 @@ function InlineCurrentBallEditor({
       <button
         ref={triggerRef}
         type="button"
-        className={`flex min-h-11 w-full min-w-0 items-center text-left hover:bg-[#E8F3FC] ${FOCUS_RING}`}
+        className={`flex min-h-11 w-full min-w-0 items-center text-left hover:bg-[#f0f9ff] ${FOCUS_RING}`}
         onClick={() => {
           if (!onRequestEdit(editorKey)) return;
           setDraftSide(side);
@@ -1189,14 +1163,7 @@ function InlineCurrentBallEditor({
           return;
         }
         const changed = draftSide !== side || draftOwner !== owner;
-        void save(false).then((saved) => {
-          if (!saved) {
-            pointerReplayTargetRef.current = null;
-            return;
-          }
-          if (!changed) return;
-          replayInlinePointerTarget(pointerReplayTargetRef);
-        });
+        void save(false);
       }}
       onKeyDown={(event) => {
         if (event.nativeEvent.isComposing) return;
@@ -1279,7 +1246,7 @@ function pocFacetChipsView(partner: SxManagementPartner) {
     partner.activityState === "stalled" || partner.activityState === "dropped";
   const chip = (facet: string, value: string, tone: string) => (
     <span
-      className={`inline-flex max-w-full items-baseline gap-0.5 border px-1 py-px text-[10px] font-semibold leading-3 ${tone}`}
+      className={`inline-flex max-w-full items-baseline gap-0.5 rounded-full border px-2 py-px text-[10px] font-semibold leading-4 ${tone}`}
     >
       <span className="shrink-0 font-normal opacity-70">{facet}</span>
       <span className="min-w-0 [overflow-wrap:anywhere]">
@@ -1312,7 +1279,7 @@ function pocFacetChipsView(partner: SxManagementPartner) {
         "確度",
         sxPartnerConfidenceLabel(confidence),
         confidence === "high"
-          ? "border-[#0267B2] bg-[#E8F3FC] text-[#0267B2]"
+          ? "border-[#0369a1] bg-[#f0f9ff] text-[#0369a1]"
           : confidence === "medium"
             ? "border-[#cbd5e1] bg-[#f1f5f9] text-[#1d1d1f]"
             : "border-[#d97706] bg-[#fef3c7] text-[#92400e]",
@@ -1439,7 +1406,7 @@ function InlinePocFacetEditor({
       <button
         ref={triggerRef}
         type="button"
-        className={`w-full min-w-0 text-left hover:bg-[#E8F3FC] ${FOCUS_RING}`}
+        className={`w-full min-w-0 text-left hover:bg-[#f0f9ff] ${FOCUS_RING}`}
         onClick={() => {
           if (!onRequestEdit(editorKey)) return;
           setDraft(initial);
@@ -1666,7 +1633,7 @@ function gateAndProofForItem(
 function navChipClass(active: boolean) {
   return `inline-flex min-h-11 shrink-0 items-center gap-1 whitespace-nowrap border-b-2 border-x-0 border-t-0 px-2.5 py-1.5 text-[10px] font-semibold ${FOCUS_RING} ${
     active
-      ? "border-b-[#027FDC] bg-[#E8F3FC] text-[#027FDC]"
+      ? "border-b-[#0284c7] bg-[#f0f9ff] text-[#0284c7]"
       : "border-b-transparent bg-transparent text-[#3c3c43] hover:border-b-[#cbd5e1] hover:bg-[#f5f5f7]"
   }`;
 }
@@ -1741,7 +1708,7 @@ function ControlBandRow({
 }
 
 const NEUTRAL_TONE = "border-[#cbd5e1] bg-white text-[#3c3c43]";
-const FLAG_TONE = "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]";
+const FLAG_TONE = "border-[#7dd3fc] bg-[#f0f9ff] text-[#0284c7]";
 const ALERT_TONE = "border-[#ef4444] bg-[#fee2e2] text-[#dc2626]";
 const WARN_TONE = "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]";
 /** Control band — split into 3 groups (spec P1: 緊急→ボール→母数の順、2026-07-24 P0で緊急を先頭へ
@@ -2180,7 +2147,7 @@ function HoldingRow({
       <p className="mt-0.5 text-[10px] leading-4 text-[#3c3c43]">
         関連工程: {gateTitle || "工程未接続"}
         {proofLabels.length > 0 && (
-          <span className="text-[#027FDC]">
+          <span className="text-[#0284c7]">
             {" "}
             ・ 証明: {proofLabels.join(" / ")}
           </span>
@@ -2778,7 +2745,7 @@ function PartnerProgressFlow({
       ? "border-[#ef4444] bg-[#fee2e2] text-[#dc2626]"
       : partner.currentBallSide === "partner"
         ? "border-[#d97706] bg-[#fef3c7] text-[#92400e]"
-        : "border-[#3D99E3] bg-[#E8F3FC] text-[#0267B2]";
+        : "border-[#3D99E3] bg-[#f0f9ff] text-[#0369a1]";
   return (
     <div
       className="min-w-0 overflow-hidden"
@@ -2915,7 +2882,7 @@ function PartnerProgressFlow({
                   : step.phase === "now"
                     ? `border-2 ${nowTone}`
                     : step.phase === "goal"
-                      ? "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]"
+                      ? "border-[#7dd3fc] bg-[#f0f9ff] text-[#0284c7]"
                       : "border-dashed border-[#cbd5e1] bg-[#ffffff] text-[#3c3c43]"
               }`}
             >
@@ -3037,7 +3004,7 @@ function PartnerSampleRow({
       <li>
         <button
           type="button"
-          className={`block w-full text-left hover:bg-[#E8F3FC] ${FOCUS_RING}`}
+          className={`block w-full text-left hover:bg-[#f0f9ff] ${FOCUS_RING}`}
           onClick={startEdit}
           aria-label={`試料「${sample.label}」を直接修正`}
           data-sample-row={sample.id}
@@ -3476,7 +3443,7 @@ function PartnerProgressHistoryModal({
                       type="button"
                       onClick={() => setActiveFacetKey(facet.key)}
                       aria-label={`${facet.label} ${facet.options.find((option) => option.value === facet.value)?.label || "未評価"}をこの場で修正`}
-                      className={`!min-h-0 inline-flex items-baseline gap-0.5 border border-[#cbd5e1] bg-[#f1f5f9] px-1.5 py-1 text-[10px] font-semibold leading-3 text-[#1d1d1f] hover:bg-[#E8F3FC] ${FOCUS_RING}`}
+                      className={`!min-h-0 inline-flex items-baseline gap-0.5 rounded-full border border-[#d6d6da] bg-[#f5f5f7] px-2 py-1 text-[10px] font-semibold leading-4 text-[#1d1d1f] hover:bg-[#ececef] ${FOCUS_RING}`}
                     >
                       <span className="font-normal opacity-70">
                         {facet.label}
@@ -3863,50 +3830,29 @@ function PartnerInlineRow({
     : partner.effluentComponents
       ? [partner.effluentComponents]
       : [];
+  // 表に置くのは成分名だけ (2026-08-28 まさ「表の中ではもっとシンプルに成分名だけを
+  // 記載してほしい。文章で書くのやめて」)。年間量・処理費・検査結果と、
+  // 成分へ整理されていない旧作文は、セルを押して開く詳細の中で読む。
+  const effluentHasDetail = Boolean(
+    effluentFreeTexts.length > 0 ||
+      partner.effluentVolumeAnnual ||
+      partner.effluentCostAnnual ||
+      partner.effluentTestResult,
+  );
   const effluentView = (
-    <span className="grid min-h-11 min-w-0 content-center gap-0.5">
-      {effluentBadgeTokens.length > 0 ? (
-        <span className="flex min-w-0 flex-wrap gap-1">
-          {effluentBadgeTokens.map((token) => (
-            <span
-              key={token}
-              data-effluent-component={token}
-              className="inline-flex border border-[#0267B2] bg-[#E8F3FC] px-1 py-px text-[10px] font-semibold leading-4 text-[#0267B2]"
-            >
-              {token}
-            </span>
-          ))}
-        </span>
-      ) : null}
-      {effluentFreeTexts.map((text) => (
+    <span className="flex min-h-11 min-w-0 flex-wrap content-center items-center gap-1">
+      {effluentBadgeTokens.map((token) => (
         <span
-          key={text.slice(0, 24)}
-          className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#1d1d1f]"
-          title={text}
+          key={token}
+          data-effluent-component={token}
+          className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold leading-4 text-sky-800"
         >
-          {text}
+          {token}
         </span>
       ))}
-      {(partner.effluentVolumeAnnual || partner.effluentCostAnnual) && (
-        <span className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#3c3c43]">
-          {[
-            partner.effluentVolumeAnnual
-              ? `年間 ${partner.effluentVolumeAnnual}`
-              : null,
-            partner.effluentCostAnnual
-              ? `処理費 ${partner.effluentCostAnnual}`
-              : null,
-          ]
-            .filter(Boolean)
-            .join(" ・ ")}
-        </span>
-      )}
-      {partner.effluentTestResult && (
-        <span
-          className="[overflow-wrap:anywhere] text-[10px] leading-4 text-[#3c3c43]"
-          title={partner.effluentTestResult}
-        >
-          結果 {partner.effluentTestResult}
+      {effluentBadgeTokens.length === 0 && effluentHasDetail && (
+        <span className="inline-flex rounded-full border border-[#d6d6da] bg-[#f5f5f7] px-2 py-0.5 text-[10px] font-medium leading-4 text-[#6e6e73]">
+          成分 未整理
         </span>
       )}
     </span>
@@ -3937,7 +3883,7 @@ function PartnerInlineRow({
       {/* 着地点はその面談で何を取りに行くかなので、形式や準備物より上へ出す (2026-08-07 まさ)。 */}
       {partner.nextMeetingGoal && (
         <span
-          className="[overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#027FDC]"
+          className="[overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#0284c7]"
           title={`着地点 ${partner.nextMeetingGoal}`}
         >
           着地点 {partner.nextMeetingGoal}
@@ -4008,7 +3954,7 @@ function PartnerInlineRow({
           });
         }}
         aria-label={`${display.name}の排液調達を${procurementChecked ? "未調達に戻す" : "調達済みにする"}`}
-        className="h-4 w-4 cursor-pointer accent-[#027FDC] disabled:cursor-not-allowed disabled:opacity-50"
+        className="h-4 w-4 cursor-pointer accent-[#0284c7] disabled:cursor-not-allowed disabled:opacity-50"
       />
     </div>
   );
@@ -4116,7 +4062,7 @@ function PartnerInlineRow({
                   {partner.currentBallSide === "sx" && (
                     <span
                       data-partner-sx-ball={partner.id}
-                      className="mt-px shrink-0 border border-[#d97706] bg-[#fef3c7] px-1 py-px text-[10px] font-semibold leading-3 text-[#92400e]"
+                      className="mt-px shrink-0 rounded-full border border-amber-300 bg-amber-50 px-2 py-px text-[10px] font-semibold leading-4 text-amber-800"
                     >
                       SX側保有
                     </span>
@@ -4614,7 +4560,7 @@ function PartnerInlineRow({
                                     }
                                     aria-label={`成分 ${token} を外す`}
                                     title={token}
-                                    className={`inline-flex max-w-full items-center gap-0.5 border border-[#0267B2] bg-[#E8F3FC] px-1 py-px text-[10px] font-semibold leading-4 text-[#0267B2] hover:bg-[#cfe6f8] ${FOCUS_RING}`}
+                                    className={`inline-flex max-w-full items-center gap-0.5 rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold leading-4 text-sky-800 hover:bg-sky-100 ${FOCUS_RING}`}
                                   >
                                     <span className="max-w-[180px] truncate">
                                       {token}
@@ -5544,7 +5490,7 @@ function InteractionFullRow({
           {sxNormalizePublicName(interaction.outcomeSummary)}
         </p>
       )}
-      <p className="mt-0.5 text-[10px] leading-4 text-[#027FDC]">
+      <p className="mt-0.5 text-[10px] leading-4 text-[#0284c7]">
         ボール: {ballText}
       </p>
       {/* 議事録の本文。共有リンク（plaud等）は失効するので、全文をここに保存して読めるようにする
