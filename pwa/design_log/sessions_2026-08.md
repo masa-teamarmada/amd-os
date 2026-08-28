@@ -1632,3 +1632,53 @@ KUTE 202703 に支払対象外メンバー分 85,041円、CX に丸め誤差 4�
 - 参照系キャッシュ (`src/lib/season-budget-client.ts`) を通し、サーバ側もプロセス内5分保持。
   `computeSeasonPl` は plan cycle 全期間を月次で回すので、素の fetch だとタブを開くたびに数秒待つ。
   `check_reference_data_cache_contract.mjs` の登録エンドポイントへ追加。
+
+## 2026-08-28 OptQC の外部ニュースを PJ コックピットへ — 経営ハイライト24件と沿革28項目
+
+まさ「gmailにgoogleアラートでoptqcのニュースがこれまでたくさん届いてるから、その内容をPJコックピットに入れておいてほしい」から始まり、
+同じセッション内で「古いものもトグルを開いたらすべて表示されるようにして」「これよりも古い情報もネットには落ちてる」
+「露出系は経営ハイライトじゃなくて沿革の方に入れたほうがいい。両方に入れるべきものは両方に」と指示が足された。
+
+### 触ったもの
+
+| 種別 | 対象 | 内容 |
+|---|---|---|
+| DB | `project_strategy_signals` (p22) | 経営ハイライト27行。`confirmed` 24 + `archived` 3。`origin_kind='internal'` / `created_by='amie'`。source_hash は `optqc-alert-*`（Googleアラート由来15件）と `optqc-pr-*`（PR TIMES由来12件）。反映は outbox JSON → `ms_progress_review_tool.mjs apply-outbox` |
+| DB | `project_ventures` (p22) | 行が無く**沿革を置く場所自体が無かった**ので新規作成。`narrative_text` に28項目の年表、`lane='quantum'`、`founded_at=2024-09-02`、**`is_public=false`**（沿革再生成 cron と XRL 更新 cron の対象から外し、手で入れた年表が上書きされないようにする） |
+| DB | `project_grants` (p22) | JSTムーンショット目標6 と 東京都 SusHi Tech Global 第1期 を追加（NEDOポスト5G 2件は既存） |
+| UI | [CockpitStrategySignals.tsx](../src/components/cockpit/CockpitStrategySignals.tsx) | 初期8件表示 + 末尾「▼ 古い動きも表示」で取得済み全件へ広げる。棚を切り替えると畳み直す |
+| UI | [CockpitVentureStatus.tsx](../src/components/cockpit/CockpitVentureStatus.tsx) | `LANE_LABELS` / `LANE_COLORS` に `quantum`（量子 / 光量子）を追加 |
+| 取得 | [supabase-data.ts](../src/lib/supabase-data.ts) | internal signals の `.limit(8)` → `.limit(200)`（external_research は既に20） |
+| 仕様 | `pwa/spec/3-6-strategy-signals-current-spec.md` | Cockpit 表示節に「初期8件 + 全件トグル」と取得上限を明記 |
+| 抽出 | `pwa/scheduled-tasks/amd-os-l9-strategy-signal-extract/SKILL.md` | `score_impact_summary` に「📊 影響:」を書かないよう修正（画面側が付ける） |
+| doc | `pwa/design/oqc.md` | 資金調達・提携・ロードマップ・経営体制を現況へ。**AMDの契約期間 2025年9月〜2025年12月**を明記（まさ確認） |
+| 正本 | `model/cases/p22_optqc.md` | 観測状態をエクイティ累計91.5億円 / 公的資金は個別非公表 / 会社発表の累計200億円超 へ分けた。自由資金 70億円 は据え置き |
+
+### 出所
+
+- Gmail の Google アラート `optqc` 45通（2025-11-19〜2026-08-28着）
+- PR TIMES の OptQC 企業ページ（company_id 148901）の全26件。
+  **アラートは2025年11月からしか無く、設立〜2025年10月が丸ごと抜けていた。**
+  企業ページの本文は WebFetch で取れない（JS描画）。Chrome で開いて DOM から記事番号・日付・見出しを一括で取ると速い。
+
+### 踏んだ罠
+
+- **`.limit(8)` が仕様書に無い実装値だった。** 15件入れても8件しか出ず、原因を画面側で探して時間を使った。
+  表示件数が合わないときは、まず取得のクエリを読む。
+- **画面が「📊 影響:」を付けているのに、抽出SKILLが同じ接頭辞をデータへ書けと指示していた。**
+  二重表示になる。他PJの既存データにも混在している。
+- **修正のために第1弾の outbox を再適用したら、第2弾で `archived` にした3件が `confirmed` に戻った。**
+  upsert は同じキーの行を丸ごと上書きする。**outbox を再適用するときは、後から変えた status がそのファイルにも入っているか確認する。**
+- **`project_ventures` 行が無いと、PJ概要タブの identity ごと出ない**（`if (!venture) return null`）。沿革ボタンも出ない。
+
+### 検証
+
+- `select status, count(*) from project_strategy_signals where project_id='p22' group by status` → confirmed 24 / archived 3
+- 沿革28項目、2024-09-02 設立 〜 2026-08-25 シリーズA2
+- production で `/project/p22/cockpit` のトグルを開いて2024/10まで出ること、`?tab=overview` の「📜 沿革」で28項目が並ぶことを Chrome で確認
+- `npx tsc --noEmit` / `npm run build` 成功。`9fb0b885` / `3dddd4e5` / `fe403f5c` で反映
+
+### 並行セッションとの衝突
+
+- 同じ checkout で別セッションが `CockpitAmdScoreDetailTab.tsx` / `CockpitView.tsx` / `pwa/src/app/api/project/[projectId]/org/` を編集中だった。
+  `deploy.sh` は未コミット変更があると止まるので、**最後の doc commit だけ `git push origin main` を直接叩いた**。相手の作業ツリーには触っていない。
