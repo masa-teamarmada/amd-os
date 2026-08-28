@@ -3382,6 +3382,23 @@ expectIncludes("src/app/api/admin/payouts/route.ts", [
   "const entries = allEntries.filter((entry) => !agreementBlockedMemberIdSet.has(entry.member_id));",
   "const allowedMemberIds = targetMemberIds.filter((memberId) => !agreementBlockedMemberIds.has(memberId));",
 ]);
+// PJコックピットの「PJ概要」タブに、シーズンの予算配分と消化を出す (まさ依頼 2026-08-28)。
+// 数字は /admin/season-pl と同じ computeSeasonPl から読み、この画面で別計算しない。
+expectIncludes("src/components/cockpit/CockpitSeasonBudget.tsx", [
+  "cockpit-season-budget",
+  "シーズン予算と消化",
+  "クライアント請求",
+  "メンバー原資",
+  "未消化",
+]);
+expectIncludes("src/components/cockpit/CockpitProjectOverview.tsx", [
+  "<CockpitSeasonBudget projectId={projectId} />",
+]);
+expectIncludes("src/app/api/project/[projectId]/season-budget/route.ts", [
+  "computeForPlanCycle",
+  "membersVisible",
+]);
+
 // 再合意を求めるのは、担当する仕事と受け取る額が変わったときだけ。
 // snapshot 全体の hash で判定していた頃は、請求ステータスや入金確認が動くたびに
 // 「条件更新あり」が立ち、ID001 は 2026年7月だけで6回再合意になっていた。

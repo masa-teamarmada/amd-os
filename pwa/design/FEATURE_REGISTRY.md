@@ -406,6 +406,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/season-pl` の一覧・詳細・検算 anchor (`シーズン予実表` / `closes` / `unassignedPt` / `budgetMatchesMonthlyCaps` / `officerStockConverges`) と、`computeSeasonPl` / `buffer_breakdown_json` の集計 anchor を検査する。
 - AdminSidebar の `シーズン予実` 導線、`/admin/season-pl` route、`/api/admin/season-pl` を消す変更は、`FEATURE_REGISTRY.md` と `pwa/design/season_budget_actual.md` を同時に更新する。
 - 「未割当pt」は `Σ(earnedPt) < total_points` ではなく `total_points − Σ(MS points)` で見る (= 期中は消化が total 未満で正常。MS で裏打ちされない pt 単価分母の穴だけを検出する)。この判定を earnedPt 比較へ戻さない。
+- **PJコックピット「PJ概要」タブへの複製 (まさ依頼 2026-08-28)**: 同じ `computeSeasonPl` の結果を `GET /api/project/[projectId]/season-budget` で返し、`CockpitSeasonBudget` が「クライアント請求の内訳 (バッファ / メンバー原資65% / AMD35%)」と「メンバー原資の消化 (支払済み / 社内配賦 / 未払い残 / 未消化)」を積み上げ棒で出す。**コックピット側で別計算をしない**。メンバー別の内訳は admin にだけ返す (`membersVisible`)。参照系キャッシュ (`src/lib/season-budget-client.ts`) を通し、サーバ側もプロセス内 5 分保持。
 
 ## /admin/ms-overview
 

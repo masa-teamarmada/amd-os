@@ -18,6 +18,7 @@ import {
   type ProjectCurrentContract,
 } from "@/lib/project-contract-terms";
 import { paymentDueRuleLabel } from "@/lib/payment-rules";
+import { CockpitSeasonBudget } from "./CockpitSeasonBudget";
 
 export interface CockpitOverviewProject {
   projectId: string;
@@ -206,8 +207,10 @@ function CurrentContractTerms({ contract, project }: { contract: ProjectCurrentC
 
 export function CockpitProjectOverview({ project }: { project: CockpitOverviewProject }) {
   const contracts = currentContracts(project);
+  const projectId = project.projectId;
   return (
     <div className="min-w-0 space-y-3">
+      {projectId && <CockpitSeasonBudget projectId={projectId} />}
       <section className="overflow-hidden rounded-md border border-[#d6d6da] bg-white shadow-sm" aria-label="契約上の実行条件">
         <div className="flex items-center justify-between gap-3 border-b border-[#e5e5ea] px-3 py-2">
           <div className="min-w-0">

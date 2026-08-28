@@ -38,7 +38,7 @@ type ResponsibilityRow = ResponsibilityInput;
 type MemberRow = MemberInput;
 
 /** active plan cycle を全件、または 1 件だけ読む。 */
-async function loadPlanCycles(
+export async function loadPlanCycles(
   db: SupabaseClient,
   planCycleId: string | null
 ): Promise<PlanCycleRow[]> {
@@ -53,7 +53,7 @@ async function loadPlanCycles(
  * 1 plan cycle 分のシーズン予実表を計算するために必要な周辺データを読んで computeSeasonPl を呼ぶ。
  * 一覧でも詳細でも同じ計算をするので共通化する (一覧は toListRow で軽量化して返す)。
  */
-async function computeForPlanCycle(db: SupabaseClient, planCycle: PlanCycleRow): Promise<SeasonPl | null> {
+export async function computeForPlanCycle(db: SupabaseClient, planCycle: PlanCycleRow): Promise<SeasonPl | null> {
   const projectId = planCycle.project_id;
 
   const [projectRes, billingRes, milestoneRes, membersRes, projectMembersRes] = await Promise.all([

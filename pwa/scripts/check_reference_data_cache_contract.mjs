@@ -39,6 +39,12 @@ const REFERENCE_DATA_ENDPOINTS = [
     clientModule: "src/lib/seed-screening-bands-client.ts",
   },
   {
+    endpoint: "/api/project/:p/season-budget",
+    label: "シーズン予算と消化 (PJコックピット PJ概要)",
+    routeFile: "src/app/api/project/[projectId]/season-budget/route.ts",
+    clientModule: "src/lib/season-budget-client.ts",
+  },
+  {
     endpoint: "/api/project/:p/amd-contributions",
     label: "AMDの貢献記録 (進捗タブ末尾)",
     routeFile: "src/app/api/project/[projectId]/amd-contributions/route.ts",
