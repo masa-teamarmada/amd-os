@@ -108,7 +108,9 @@ async function main() {
   }
 
   const implIdx = args.indexOf('--impl');
-  const seedId = args.find((a, i) => !a.startsWith('--') && i !== implIdx + 1);
+  // --impl を渡していないとき implIdx は -1 なので、implIdx + 1 = 0 になり
+  // 第1引数（= seed_id を素直に渡した場合の位置）が常に除外されていた。
+  const seedId = args.find((a, i) => !a.startsWith('--') && (implIdx < 0 || i !== implIdx + 1));
   if (!seedId) throw new Error('seed_id を渡す（--list で一覧）');
   const dry = args.includes('--dry');
 

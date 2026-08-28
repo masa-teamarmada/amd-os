@@ -256,7 +256,19 @@ async function extractForProject(
     .slice(0, 60)
     .map((d, i) => `--- doc[${i}] type=${d.type} id=${d.id} date=${d.ymOrDate} ---\n${d.text.slice(0, 4000)}`)
     .join("\n\n");
-  const existingNames = Array.from(existingByName.keys()).join(", ") || "(なし)";
+  // SU側の登録（project_venture_members）の表記も既知として渡す。
+  // ここを渡さないと、同じ人が「石原」と「石原 裕香」のように別行で増える
+  // （2026-08-28 まさ「同一人物なので揃えて」で実際に起きていた）。
+  const { data: ventureRows } = await db
+    .from("project_venture_members")
+    .select("full_name")
+    .eq("project_id", projectId)
+    .is("ended_at", null);
+  const knownNames = new Set<string>(existingByName.keys());
+  for (const row of (ventureRows ?? []) as { full_name: string }[]) {
+    if (row.full_name) knownNames.add(row.full_name);
+  }
+  const existingNames = Array.from(knownNames).join(", ") || "(なし)";
   const amdCodeNames = amdMembers.map((m) => m.code_name).filter(Boolean).join(" / ");
   const amdAliasLines = amdMembers
     .map((m) => `  - ${m.code_name}${m.member_name ? ` (本名: ${m.member_name})` : ""}`)
@@ -317,6 +329,7 @@ AMD code_name (${amdCodeNames}) と一致した person は **category="amd"** �
 - origin_org: ${project.origin_org ?? "(不明)"}
 - origin_pi: ${project.origin_pi ?? "(不明)"}
 - 既知メンバー (このリストに無い人物が見つかったら新規追加、ある人物は同じ person_name で返す): ${existingNames}
+- **表記を揃える**: 生データに姓だけ (「石原先生」) で出てきても、既知メンバーに同一人物のフルネーム (「石原 裕香」) があるならフルネームで返す。同じ人を姓だけとフルネームで二重に作らない
 
 # ソースドキュメント (${docs.length} 件)
 ${docsBlock.slice(0, 60000)}

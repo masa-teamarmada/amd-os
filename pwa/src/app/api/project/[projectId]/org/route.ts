@@ -111,7 +111,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ project
     byName.set(member.name, {
       ...existing,
       affiliation: existing.affiliation ?? member.affiliation,
-      role: existing.role ?? member.role,
+      // 同じ人が別の役割で2か所に登録されていることがある（SU側の登録と議事録からの抽出）。
+      // 先勝ちで片方を捨てると、どちらか一方の担当が画面から消える。
+      role:
+        existing.role && member.role && existing.role !== member.role
+          ? `${existing.role}／${member.role}`
+          : (existing.role ?? member.role),
       note: existing.note ?? member.note,
       lastSeen:
         existing.lastSeen && member.lastSeen
