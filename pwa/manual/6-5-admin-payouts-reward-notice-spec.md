@@ -110,7 +110,7 @@ MSそのものの進捗を見たい場合は、モーダル右上の `MSの進�
 
 支払通知書の正式発行に使う税抜支払額は、最新の報酬キャッシュへ旧制度月の事前合意額eventを支払レイヤーで適用してから、`monthly_reward_payout` と `payout_notices.total_yen` に同期する。画面を開いただけでは保存せず、夜間の `payout-notice-prebuild` cron、正式PDF発行、一括発行のタイミングで同期する。同期時点ではメール送信しない。金額が変わった未送付 PDF は `pdf_url` / `last_generated_at` をクリアし、次の一括発行・cron prebuild で再生成対象へ戻す。金額が変わっていなくても、未送付PDFの `last_generated_at` より `members.updated_at` が新しい場合は、メンバー台帳の住所・宛名・登録番号が変わった可能性があるため再生成対象にする。送付操作はPDF生成を行わず、保存済み正式PDFが最新DBと一致しているかだけを照合してから確認モーダルを開く。
 
-UI では通常の同期差分をバッジ表示しない。差分があっても画面表示中に自動POSTはしない。開きっぱなしのタブでは 60 秒ごとに read-only 再取得し、夜間 cron や別操作で同期済みになった状態へ追随する。正式な個別発行・全員分PDF一括発行・強制再発行は、サーバー側で最新計算額を同期し、その後に DB から `members` / `monthly_reward_payout` / `payout_notices` を読み直してから実行する。金額が変わっていなくても、`/admin/members` で更新した `contractor_name` / `member_address` / `invoice_registration_number` は再発行PDFへ反映する。送付確認は再生成せず、保存済みPDFの `total_yen` / `last_generated_at` / `notice_no` / `pdf_url` と最新DBを照合する。古いPDF・未発行PDF・確認用PDF・金額不一致PDFは送付できず、先に `支払通知書発行` または `強制再発行` で正式PDFを作り直す。運用者が先に保存ボタンを押す必要はない。本契約cap blocker がある場合だけ `同期できない` を表示して同期を止め、blocker 解消を待つ。月初合意 blocker は発行ボタンを止めず、押したときの確認モーダルで admin override として通す。
+UI では通常の同期差分をバッジ表示しない。差分があっても画面表示中に自動POSTはしない。開きっぱなしのタブでは 60 秒ごとに read-only 再取得し、夜間 cron や別操作で同期済みになった状態へ追随する。正式な個別発行・全員分PDF一括発行・強制再発行は、サーバー側で最新計算額を同期し、その後に DB から `members` / `monthly_reward_payout` / `payout_notices` を読み直してから実行する。金額が変わっていなくても、`/admin/members` で更新した `contractor_name` / `member_address` / `invoice_registration_number` は再発行PDFへ反映する。送付確認は再生成せず、保存済みPDFの `total_yen` / `last_generated_at` / `notice_no` / `pdf_url` と最新DBを照合する。古いPDF・未発行PDF・確認用PDF・金額不一致PDFは送付できず、先に `支払通知書発行` または `強制再発行` で正式PDFを作り直す。運用者が先に保存ボタンを押す必要はない。本契約cap blocker がある場合だけ `同期できない` を表示して同期を止め、blocker 解消を待つ。月初合意 blocker は発行・送付ボタンを止めず、押したときの確認モーダルで admin override として通す。
 
 ### 月初合意ステータスとの境界
 
@@ -128,7 +128,7 @@ admin一覧では合意用の予定報酬とは別に、`reward_summary_json.mem
 
 | state | UI表示 | server behavior |
 |---|---|---|
-| 未合意 | `pending` | そのメンバーの支払データ同期 / PDF生成 / 送付 / 送付済み確定を止める。発行系だけ確認モーダルの admin override で通せる |
+| 未合意 | `pending` | そのメンバーの支払データ同期 / PDF生成 / 送付 / 送付済み確定を止める。発行と送付は確認モーダルの admin override で通せる |
 | 移行月合意済扱い | `agreed` | `source_ym <= 202606` は導入前/移行月として allow |
 | 条件更新あり | `stale` | latest agreed snapshot hash と current hash が違うため stop |
 | 修正要望中 | `revision_requested` | open request が member全体または当該PJにあるため stop |
@@ -146,14 +146,17 @@ admin一覧では合意用の予定報酬とは別に、`reward_summary_json.mem
 
 admin override は 8 文字以上の理由が必要。server は `member_monthly_work_agreement_payout_overrides` に、action、理由、actor email、支払月、稼働月、member、PJ、blocker status、snapshot hash/current hash、request id を append-only で残す。
 
-**発行系のボタンは blocker があっても押せる (2026-08-28)。**
-行の `支払通知書発行`、`全員分PDF一括発行`、`強制再発行 (全員)`、`確認用PDF生成` は、未合意でも `disabled` にしない。
-押すと `月初合意してないけど、ほんとに発行する？` の確認モーダルが開き、未合意の member / PJ / 稼働月 / status / 理由 / 支払額を一覧で見せる。
-`はい、発行する` を押した時だけ admin override として実行し、監査ログを残す。
-理由メモはモーダル内の任意入力で、空のままなら `月初合意が未完了のまま、admin確認ダイアログで発行を承認した` を理由として記録する。
-どうしても発行しなければならない月があるので、押せないボタンで運用者を止めるのではなく、確認して記録に残す形にする。
+**発行も送付も、blocker があっても押せる (2026-08-28)。**
+行の `支払通知書発行` と `送付`、上部の `全員分PDF一括発行` / `強制再発行 (全員)` / `確認用PDF生成` は、未合意でも `disabled` にしない。
+押すと確認モーダルが開き、未合意の member / PJ / 稼働月 / status / 理由 / 支払額を一覧で見せる。
+文言はアクションで変え、発行系は `月初合意してないけど、ほんとに発行する？` / `はい、発行する`、送付は `月初合意してないけど、ほんとに送る？` / `はい、送信画面へ進む` を出す。
+押した時だけ admin override として実行し、監査ログを残す。
+理由メモはモーダル内の任意入力で、空のままなら `月初合意が未完了のまま、admin確認ダイアログで実行を承認した` を理由として記録する。
+gate パネルの `admin override reason` は必須入力ではなくなり、確認モーダルの理由メモの初期値として使う。
+どうしても発行・送付しなければならない月があるので、押せないボタンで運用者を止めるのではなく、確認して記録に残す形にする。
 
-確認モーダルの対象は発行系だけ。実メール送信の `送付` は従来どおり、gate パネルの `admin override reason` を 8 文字以上入れないと押せない。
+送付は確認モーダルで `はい、送信画面へ進む` を押すと、これまでどおり保存済み正式PDFとメール本文の確認モーダルが開く。実メール送信はそこで `送信` を押した時だけ走る。
+override 理由は本文確認モーダルへ持ち回り、`preview_notice_email` と `send_notice_email` の両方へ同じ理由を載せる。
 
 契約上は OS 月次合意を毎月の個別発注 / SOW / 条件確認として扱う設計。ただし hard guard の本番運用は、業務委託契約の改定・メンバー同意・法務レビューを前提にする。この manual は運用仕様であり、法的助言として断定しない。
 

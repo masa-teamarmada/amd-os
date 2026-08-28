@@ -292,12 +292,27 @@ type PayoutAgreementGateRow = {
 };
 
 type AgreementOverrideConfirmState = {
+  title: string;
+  note: string;
+  confirmLabel: string;
   actionLabel: string;
   blockers: PayoutAgreementGateRow[];
   run: (overrideReason: string) => void;
 };
 
-const DEFAULT_AGREEMENT_OVERRIDE_REASON = "月初合意が未完了のまま、admin確認ダイアログで発行を承認した";
+const DEFAULT_AGREEMENT_OVERRIDE_REASON = "月初合意が未完了のまま、admin確認ダイアログで実行を承認した";
+
+const ISSUE_AGREEMENT_CONFIRM = {
+  title: "月初合意してないけど、ほんとに発行する？",
+  confirmLabel: "はい、発行する",
+  note: "下のメンバーは月初合意が済んでいない。「はい、発行する」を押すと admin override として発行し、誰がいつどの理由で通したかを監査ログへ残す。合意そのものは作られないので、あとから本人の合意を取る運用は別に必要。",
+};
+
+const SEND_AGREEMENT_CONFIRM = {
+  title: "月初合意してないけど、ほんとに送る？",
+  confirmLabel: "はい、送信画面へ進む",
+  note: "下のメンバーは月初合意が済んでいない。「はい、送信画面へ進む」を押すと admin override として扱い、誰がいつどの理由で通したかを監査ログへ残す。このあとメール本文の確認画面が出るので、実際に送るかはそこで決める。",
+};
 
 type PayoutAgreementGateSummary = {
   paymentYm: string;
@@ -527,6 +542,7 @@ type NoticeMailModalState = {
   preview: NoticeMailPreview;
   editedBody: string;
   editing: boolean;
+  overrideReason: string;
 };
 
 interface Props {
@@ -1664,10 +1680,9 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
   const agreementBlockedMemberIds = new Set(agreementBlockers.map((row) => row.memberId));
   const hasAgreementBlocker = agreementBlockers.length > 0;
   const agreementOverrideReasonTrimmed = agreementOverrideReason.trim();
-  const canUseAgreementOverride = !hasAgreementBlocker || agreementOverrideReasonTrimmed.length >= 8;
-  // 発行系 (個別発行 / 一括発行 / 強制再発行 / 確認用PDF) は blocker があっても押せる。
+  // 発行系 (個別発行 / 一括発行 / 強制再発行 / 確認用PDF) も送付も、blocker があっても押せる。
   // 押した時点で確認モーダルを出し、「はい」を押したら override 理由つきで実行して監査ログに残す。
-  // 実メール送信の「送付」だけは従来どおり gate パネルの override 理由入力を必須にする。
+  // 送付は確認モーダルの後にメール本文の確認モーダルが出るので、実送信はそこで決める。
   const agreementConfirmTitle = hasAgreementBlocker
     ? "月初合意が未完了のメンバーがいる。押すと確認ダイアログが出る"
     : undefined;
@@ -2084,6 +2099,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
       return;
     }
     requestAgreementConfirm({
+      ...ISSUE_AGREEMENT_CONFIRM,
       actionLabel: `${row.memberName} の支払通知書を発行`,
       blockers: agreementBlockers.filter((blocker) => blocker.memberId === row.memberId),
       run: (overrideReason) => void runIssueNoticePdf(row, overrideReason),
@@ -2161,7 +2177,16 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     }
   }
 
-  async function openNoticeMailModal(row: MemberPayoutRow) {
+  function openNoticeMailModal(row: MemberPayoutRow) {
+    requestAgreementConfirm({
+      ...SEND_AGREEMENT_CONFIRM,
+      actionLabel: `${row.memberName} へ支払通知メールを送る`,
+      blockers: agreementBlockers.filter((blocker) => blocker.memberId === row.memberId),
+      run: (overrideReason) => void runOpenNoticeMailModal(row, overrideReason),
+    });
+  }
+
+  async function runOpenNoticeMailModal(row: MemberPayoutRow, overrideReason: string) {
     setNoticeMailLoading(true);
     setNoticeMailLoadingMemberId(row.memberId);
     setNoticeMailError(null);
@@ -2175,7 +2200,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           ym,
           memberId: row.memberId,
           totalYen: row.totalPay,
-          agreementOverrideReason: agreementOverrideReasonTrimmed || undefined,
+          agreementOverrideReason: overrideReason || undefined,
         }),
       });
       const payload = (await res.json()) as PayoutData & { ok?: boolean; error?: string; preview?: NoticeMailPreview };
@@ -2190,6 +2215,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
         preview: payload.preview,
         editedBody: payload.preview.body,
         editing: false,
+        overrideReason,
       });
       setHint("");
     } catch (err) {
@@ -2208,13 +2234,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
 
   async function sendNoticeMailNow() {
     if (!noticeMailModal) return;
-    if (agreementBlockedMemberIds.has(noticeMailModal.row.memberId) && !canUseAgreementOverride) {
-      const message = "月初合意が未完了。画面下の「月初合意支払ゲート」に override 理由を8文字以上入れてから送信してね";
-      setNoticeMailError(message);
-      setHint(message);
-      return;
-    }
-    const { row, preview, editedBody } = noticeMailModal;
+    const { row, preview, editedBody, overrideReason } = noticeMailModal;
     setNoticeMailSending(true);
     setNoticeMailError(null);
     setHint(`${preview.memberName} にメール送信中...`);
@@ -2228,7 +2248,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           memberId: row.memberId,
           totalYen: row.totalPay,
           body: editedBody,
-          agreementOverrideReason: agreementOverrideReasonTrimmed || undefined,
+          agreementOverrideReason: overrideReason || undefined,
         }),
       });
       const payload = (await res.json()) as PayoutData & {
@@ -2286,6 +2306,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
       return;
     }
     requestAgreementConfirm({
+      ...ISSUE_AGREEMENT_CONFIRM,
       actionLabel: previewOnly
         ? "全員分の確認用PDFを生成"
         : options.force === true
@@ -2830,9 +2851,6 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                           hasBudgetBlocker
                         }
                         agreementBlocked={agreementBlockedMemberIds.has(row.memberId)}
-                        sendBlockedByAgreement={
-                          agreementBlockedMemberIds.has(row.memberId) && !canUseAgreementOverride
-                        }
                         issuing={noticeSavingMemberId === row.memberId}
                         sendPreparing={noticeMailLoadingMemberId === row.memberId}
                         onIssueNoticePdf={issueNoticePdf}
@@ -3147,7 +3165,7 @@ function PayoutAgreementGatePanel({
 
       {blocked && (
         <label className="mt-3 block space-y-1">
-          <span className="text-[11px] font-medium text-red-950">admin override reason</span>
+          <span className="text-[11px] font-medium text-red-950">admin override reason (任意)</span>
           <textarea
             value={overrideReason}
             onChange={(event) => onOverrideReasonChange(event.target.value)}
@@ -3156,7 +3174,7 @@ function PayoutAgreementGatePanel({
             className="w-full rounded-md border border-red-200 bg-background px-2 py-1.5 text-[12px] outline-none focus:border-red-400"
           />
           <span className="block text-[10px] text-red-900/70">
-            override は server-side で actor / reason / member / PJ / 支払月 / 稼働月を監査ログに残す。
+            発行・送付ボタンを押したときの確認ダイアログに、この理由が初期値として入る。空のままでも確認ダイアログから実行でき、その場合は既定の文言で残る。override は server-side で actor / reason / member / PJ / 支払月 / 稼働月を監査ログに残す。
           </span>
         </label>
       )}
@@ -3186,7 +3204,7 @@ function AgreementOverrideConfirmModal({
       <div className="w-full max-w-2xl rounded-lg border border-red-300 bg-background shadow-xl">
         <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div>
-            <div className="text-sm font-semibold text-red-900">月初合意してないけど、ほんとに発行する？</div>
+            <div className="text-sm font-semibold text-red-900">{state.title}</div>
             <div className="mt-0.5 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
               <span>{state.actionLabel}</span>
               <span>未合意 {blockers.length}件</span>
@@ -3204,7 +3222,7 @@ function AgreementOverrideConfirmModal({
 
         <div className="max-h-[70vh] space-y-3 overflow-y-auto px-4 py-3 text-[12px]">
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] leading-relaxed text-red-900">
-            下のメンバーは月初合意が済んでいない。「はい、発行する」を押すと admin override として発行し、誰がいつどの理由で通したかを監査ログへ残す。合意そのものは作られないので、あとから本人の合意を取る運用は別に必要。
+            {state.note}
           </div>
 
           <div className="overflow-hidden rounded-md border border-border">
@@ -3280,7 +3298,7 @@ function AgreementOverrideConfirmModal({
             onClick={onAccept}
             className="rounded-md bg-red-600 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-red-700"
           >
-            はい、発行する
+            {state.confirmLabel}
           </button>
         </div>
       </div>
@@ -4225,7 +4243,6 @@ function PayoutNoticeActions({
   row,
   disabled,
   agreementBlocked,
-  sendBlockedByAgreement,
   issuing,
   sendPreparing,
   onIssueNoticePdf,
@@ -4236,7 +4253,6 @@ function PayoutNoticeActions({
   row: MemberPayoutRow;
   disabled: boolean;
   agreementBlocked: boolean;
-  sendBlockedByAgreement: boolean;
   issuing: boolean;
   sendPreparing: boolean;
   onIssueNoticePdf: (row: MemberPayoutRow, options?: { forceReissue?: boolean }) => void;
@@ -4257,8 +4273,7 @@ function PayoutNoticeActions({
   const totalMismatch = savedNoticeTotal > 0 && savedNoticeTotal !== Math.round(row.totalPay);
   const hasPdf = Boolean(row.notice?.pdf_url) && row.isSaved && !totalMismatch && !String(row.notice?.notice_no || "").startsWith("PREVIEW-");
   const canConfirmPdf = canPreviewPdf && hasPdf && !row.noticeProfileStale;
-  const canOpenSendModal =
-    !blocked && !sendBlockedByAgreement && row.totalPay > 0 && !isSent && hasPdf && !row.noticeProfileStale;
+  const canOpenSendModal = !blocked && row.totalPay > 0 && !isSent && hasPdf && !row.noticeProfileStale;
   const issueTitle = agreementBlocked
     ? "このメンバーは月初合意が未完了。押すと確認ダイアログが出て、はいを押したら発行する"
     : row.isSaved
@@ -4273,8 +4288,8 @@ function PayoutNoticeActions({
       : "生成済みPDFがありません。先に支払通知書発行を実行してください";
   const sentTitle = isSent
     ? "送付済みを取り消して未送付に戻す (メールは取り消されない)"
-    : sendBlockedByAgreement
-    ? "月初合意が未完了。画面下の「月初合意支払ゲート」に override 理由を8文字以上入れると送付できる"
+    : agreementBlocked
+    ? "このメンバーは月初合意が未完了。押すと確認ダイアログが出て、はいを押したらメール本文の確認画面へ進む"
     : row.noticeProfileStale
       ? "メンバー台帳がPDF生成後に更新されています。先に支払通知書発行で正式PDFを作り直してください"
       : totalMismatch

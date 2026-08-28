@@ -66,12 +66,12 @@ gate は `/admin/payouts` の server action で実行する。UI の警告だけ
 
 admin override は `agreementOverrideReason` が 8 文字以上かつ actor email がある場合だけ有効。override は `member_monthly_work_agreement_payout_overrides` に append-only で保存し、対象 action、理由、actor、支払月、稼働月、member、project、blocker status、snapshot hash / current hash、request id を残す。override は報酬計算や合意 row を変更しない。
 
-**admin UI は発行系ボタンを blocker で `disabled` にしない** (2026-08-28)。
-`AdminPayoutsClient` の行 `支払通知書発行` と、`全員分PDF一括発行` / `強制再発行 (全員)` / `確認用PDF生成` は blocker があっても押せる。
-押すと確認モーダル (`AgreementOverrideConfirmModal`) が開き、`はい、発行する` を押した時だけ `agreementOverrideReason` を載せて上の server action を呼ぶ。
-モーダルの理由メモが空なら既定文言 `月初合意が未完了のまま、admin確認ダイアログで発行を承認した` を送る。
+**admin UI は blocker でボタンを `disabled` にしない** (2026-08-28)。
+`AdminPayoutsClient` の行 `支払通知書発行` / `送付` と、`全員分PDF一括発行` / `強制再発行 (全員)` / `確認用PDF生成` は blocker があっても押せる。
+押すと確認モーダル (`AgreementOverrideConfirmModal`) が開き、`はい` を押した時だけ `agreementOverrideReason` を載せて上の server action を呼ぶ。
+モーダルの理由メモが空なら既定文言 `月初合意が未完了のまま、admin確認ダイアログで実行を承認した` を送る。
+送付は確認モーダルの後に既存のメール本文確認モーダルが開き、実送信はそこで決める。override 理由は本文確認モーダルへ持ち回り、`preview_notice_email` と `send_notice_email` の両方へ同じ理由を載せる。
 gate 判定・8文字要件・監査ログ・cron の挙動は server 側のまま変えていない。
-`send_notice_email` のボタンだけは従来どおり、gate パネルの override 理由入力が 8 文字以上ないと押せない。
 
 `/admin/payouts` は gate と同じ画面で、報酬債務台帳を表示する。`stockYen` を単独の支払予定として見せず、`member × PJ × 稼働月` ごとに `carryInYen + (grossDueYen - carryInYen) - totalPay = stockYen` を表示し、原因を `契約前発生` / `繰越+今月発生` / `繰越のみ` / `cap不足` に分類する。先12か月表は `キャッシュ支払` / `会社留保` / `報酬債務` / `cap超過チェック` の4表に分け、会社留保を支出扱いしない。報酬債務は月末残高なので、12か月合計ではなく各月残・ピーク・最終月残で読む。すべての plan cycle は終了月に `stockYen = 0` へ閉じることが必須だが、報酬計算側で最終月に自動精算枠を足してゼロに見せることは禁止する。最終月に `stockYen > 0` が残る場合、または `PJ予算 > (クライアント支払 - バッファ) × 65%` の原資超過がある場合は、`/admin/ms-overview` の保存前検算でクライアント支払額・バッファ・原資上限・PJ予算・メンバー支払額・不足額を表示し、MS編集保存を `blocked` にする。`/admin/ms-overview` は閲覧モードで cycle を開いた時点でも現行 MS 案を検算し、既存状態が `blocked` なら MS 一覧の上に赤い `MS編集停止中` 表示を出す。
 
