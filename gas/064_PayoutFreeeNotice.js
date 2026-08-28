@@ -436,24 +436,28 @@ function payoutBuildNoticePdfBlob_(p){
   sh.getRange(`C${payTop+2}:F${payTop+2}`).merge().setValue(PAYMENT_METHOD).setFontSize(15).setHorizontalAlignment("left");
 
   // ====== 備考 ======
+  // noteText が空の月は備考ごと出さない (空の枠だけが残らないように)。
   const noteTop = payTop + 5;
-  sh.getRange(`A${noteTop}:B${noteTop}`).merge().setValue("備考").setFontSize(14).setFontColor(MUTED).setFontWeight("bold");
-  sh.getRange(`A${noteTop+1}:L${noteTop+3}`).merge()
-    .setValue(noteText)
-    .setFontSize(12)
-    .setFontColor(TEXT)
-    .setWrap(true)
-    .setVerticalAlignment("top")
-    .setHorizontalAlignment("left")
-    .setBackground(PALE)
-    .setBorder(true, true, true, true, false, false, LINE, SpreadsheetApp.BorderStyle.SOLID);
+  const hasNote = noteText.length > 0;
+  if (hasNote) {
+    sh.getRange(`A${noteTop}:B${noteTop}`).merge().setValue("備考").setFontSize(14).setFontColor(MUTED).setFontWeight("bold");
+    sh.getRange(`A${noteTop+1}:L${noteTop+3}`).merge()
+      .setValue(noteText)
+      .setFontSize(12)
+      .setFontColor(TEXT)
+      .setWrap(true)
+      .setVerticalAlignment("top")
+      .setHorizontalAlignment("left")
+      .setBackground(PALE)
+      .setBorder(true, true, true, true, false, false, LINE, SpreadsheetApp.BorderStyle.SOLID);
+  }
 
   // ====== flush & export ======
   SpreadsheetApp.flush();
   Utilities.sleep(800);
 
   const gid = sh.getSheetId();
-  const printLastRow = noteTop + 3;
+  const printLastRow = hasNote ? noteTop + 3 : payTop + 2;
 
   const url = [
     `https://docs.google.com/spreadsheets/d/${ssId}/export?format=pdf`,

@@ -756,10 +756,6 @@ function aggregateNotices(ym: string, entries: PayoutEntry[], members: MemberRow
     .filter((notice) => notice.total_yen > 0);
 }
 
-function yenText(value: number): string {
-  return `¥${Math.round(value).toLocaleString("ja-JP")}`;
-}
-
 function ymShortLabel(ym: string): string {
   return YM_RE.test(ym) ? `${Number(ym.slice(4, 6))}月稼働分` : ym;
 }
@@ -1121,16 +1117,7 @@ export async function generateNoticePdfForMember(
         amountYen: row.amountYen,
       })),
       issuedAt,
-      // 繰越があるPJは、その期間に発生した額と今回のお支払いの差を備考へ書く。
-      // 「4〜6月稼働分 145,575円」だけだと、3か月分がそれだけに見える。
-      noteText: entries
-        .filter((entry) => entry.source_span && entry.source_span.grossDueYen > entry.total_pay)
-        .map((entry) => {
-          const span = entry.source_span as PayoutSourceSpan;
-          const period = ymSpanLabel(span.startYm, span.endYm).replace(/稼働分$/, "の稼働");
-          return `${entry.project_name}：${period}で発生した ${yenText(span.grossDueYen)}（税抜）のうち、今回のお支払いは ${yenText(entry.total_pay)}（税抜）です。残り ${yenText(span.stockYen)} は翌月以降の支払枠で順にお支払いします。`;
-        })
-        .join("\n"),
+      noteText: "",
       breakdown: entries.map((entry) => ({
         projectId: entry.project_id,
         projectName: entry.project_name,

@@ -3433,7 +3433,6 @@ expectIncludes("src/lib/payment-groups.ts", [
 expectIncludes("src/app/api/admin/payouts/route.ts", [
   "function ymSpanLabel(",
   "async function loadPayoutSourceSpans(",
-  "noteText: entries",
 ]);
 expectIncludes("../gas/064_PayoutFreeeNotice.js", [
   "noteText",
