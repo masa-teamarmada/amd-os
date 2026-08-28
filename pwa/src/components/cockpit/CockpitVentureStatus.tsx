@@ -145,11 +145,19 @@ export function CockpitVentureStatus({
   projectName,
   onOpenScoreDetail,
   compact = false,
+  sections = "all",
 }: {
   projectId: string;
   projectName: string;
   onOpenScoreDetail: () => void;
   compact?: boolean;
+  /**
+   * どの部分を出すか (2026-08-28 まさ「XRLの移動先がPJ概要の方になっちゃってる。ちゃんとスコアの方に」)。
+   * - "identity": PJの見出し行 / 担当 / 事業概要 → PJ概要タブ
+   * - "xrl": XRL進捗グラフ → スコア詳細タブ
+   * - "all": 両方 (単体で使うとき)
+   */
+  sections?: "identity" | "xrl" | "all";
 }) {
   const [bundle, setBundle] = useState<VentureStatusBundle | null>(null);
   const [amdInputs, setAmdInputs] = useState<AmdScoreInputRow[]>([]);
@@ -171,6 +179,8 @@ export function CockpitVentureStatus({
   const xrlPlotRef = useRef<HTMLDivElement>(null);
   const [xrlPlotSize, setXrlPlotSize] = useState({ width: SVG_W, height: SVG_H });
   const legacyScoreHistoryOpen = false;
+  const showIdentity = sections !== "xrl";
+  const showXrl = sections !== "identity";
 
   useEffect(() => {
     const plot = xrlPlotRef.current;
@@ -419,8 +429,9 @@ export function CockpitVentureStatus({
   const yearTicks = Array.from({ length: Math.max(0, tickYearEnd - tickYearStart + 1) }, (_, i) => tickYearStart + i);
 
   return (
-    <section className="rounded-xl border border-[#e5e5e7] bg-white" data-density={compact ? "compact-score-hero" : undefined}>
+    <section className={showIdentity ? "rounded-xl border border-[#e5e5e7] bg-white" : "min-w-0"} data-density={compact ? "compact-score-hero" : undefined}>
       {/* Header (各要素クリックで編集) */}
+      {showIdentity && (
       <div className={`border-b border-[#e5e5e7] flex flex-wrap items-center gap-2 ${compact ? "px-3 py-2" : "px-4 py-3"}`}>
         <button
           onClick={() => setMetaEditing("outcome")}
@@ -512,9 +523,10 @@ export function CockpitVentureStatus({
           </button>
         )}
       </div>
+      )}
 
       {/* PL / PM / クローザー / AMD 契約期間 / SU 設立年月日 (#15) */}
-      {(roles.pls.length > 0 || roles.pms.length > 0 || roles.closers.length > 0 || venture.amd_support_started_at || venture.founded_at) && (
+      {showIdentity && (roles.pls.length > 0 || roles.pms.length > 0 || roles.closers.length > 0 || venture.amd_support_started_at || venture.founded_at) && (
         <div className={`${compact ? "px-3 pt-0.5" : "px-4 pt-1"} flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground`}>
           {roles.pls.length > 0 && (
             <span><b className="text-blue-700">PL</b> {roles.pls.join(", ")}</span>
@@ -537,6 +549,7 @@ export function CockpitVentureStatus({
         </div>
       )}
 
+      {showIdentity && (
       <button
         onClick={() => setDescOpen(true)}
         className={`block w-full text-left text-[12px] text-slate-700 hover:underline decoration-dotted ${compact ? "px-3 pt-1" : "px-4 pt-3"}`}
@@ -547,6 +560,7 @@ export function CockpitVentureStatus({
           <span className="ml-1 text-[10px] text-muted-foreground">[詳細あり]</span>
         )}
       </button>
+      )}
 
       {/* 現行SPS｜産業創出価値のカードは 2026-08-28 まさ依頼で「スコア詳細」タブの最上段へ移した
           (`CockpitAmdScoreDetailTab`)。ここでは未評価バッジの判定にだけ使う。 */}
@@ -556,7 +570,8 @@ export function CockpitVentureStatus({
           スコア詳細タブから外したのと同じもので、上段にだけ残っていた。
           コンポーネントと `?view=summary` の単体画面は残すが、コックピットからは出さない。
           上段に残すのはXRL進捗だけ。 */}
-      <div data-testid="cockpit-xrl-overview" className={`mx-2 overflow-hidden border border-[#7898a5] bg-white ${compact ? "mt-1" : "mt-2"}`}>
+      {showXrl && (
+      <div data-testid="cockpit-xrl-overview" className={`overflow-hidden border border-[#7898a5] bg-white ${showIdentity ? (compact ? "mx-2 mt-1" : "mx-2 mt-2") : "rounded-xl"}`}>
       <div className={`h-full min-h-0 min-w-0 ${legacyScoreHistoryOpen ? "flex flex-col gap-2 xl:flex-row" : "flex"}`}>
       {legacyScoreHistoryOpen ? (
       <>
@@ -975,6 +990,7 @@ export function CockpitVentureStatus({
       </div>
       </div>
       </div>
+      )}
 
       {(editingEvent || creatingAt) && (
         <CockpitVentureStatusEditModal

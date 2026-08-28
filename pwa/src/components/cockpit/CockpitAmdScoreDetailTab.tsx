@@ -8,6 +8,9 @@
  * **現行の BZM 3.0（産業創出価値 V）だけ**を出す。シーズ詳細と同じパネルを使うので、
  * 同じ PJ を PJ 側から見ても シーズ側から見ても同じ数字・同じ根拠が出る。
  *
+ * XRL進捗グラフも同じ 2026-08-28 にここへ移した（まさ「XRLの移動先がPJ概要の方になっちゃってる。
+ * ちゃんとスコアの方に移動して」）。PJの見出し・担当・事業概要はPJ概要タブに残る。
+ *
  * 最上段の「現行SPS｜産業創出価値」カードは 2026-08-28 まさ依頼でコックピット上部から移した。
  * 置くのは評価の状態（評価済みか / SPS帯 / 根拠レベル / 評価日 / 対応シーズ）だけで、
  * 帯の定義式・算出過程・q要因までは戻さない（8-27 で外した「古いモデルの試算結果」がそれ）。
@@ -19,6 +22,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bzm30ScorePanel } from "@/components/bzm30/Bzm30ScorePanel";
 import { CurrentSpsAssessmentCard } from "@/components/sps/CurrentSpsAssessmentCard";
+import { CockpitVentureStatus } from "./CockpitVentureStatus";
 import { loadCurrentSpsAssessment, peekCurrentSpsAssessment } from "@/lib/current-sps-client";
 import { fetchSeedDetail } from "@/lib/seeds-data";
 import { createClient } from "@/lib/supabase/client";
@@ -89,6 +93,13 @@ export function CockpitAmdScoreDetailTab({ projectId, active = true }: { project
   return (
     <div className="min-w-0 space-y-3" data-density="compact-score-page">
       {currentSps ? <CurrentSpsAssessmentCard assessment={currentSps} /> : null}
+      {/* XRL進捗。PJの見出し・担当・事業概要はPJ概要タブ側 (sections="identity")。 */}
+      <CockpitVentureStatus
+        projectId={projectId}
+        projectName=""
+        onOpenScoreDetail={() => {}}
+        sections="xrl"
+      />
       <Bzm30Section state={state} />
     </div>
   );

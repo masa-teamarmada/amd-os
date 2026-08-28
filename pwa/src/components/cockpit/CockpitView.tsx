@@ -669,7 +669,8 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
 
       {/* PJ概要タブ (2026-08-28 まさ依頼)。このPJがどういうものかを1枚で読む面。
             - p00 (= AMD 会社全体) は AMD Management Score の時系列折れ線 + 最新値カード
-            - SU 系 PJ は CockpitVentureStatus (見出し・レーン・担当・事業概要・XRL進捗)
+            - SU 系 PJ は CockpitVentureStatus の見出し・レーン・担当・事業概要
+              (XRL進捗は 2026-08-28 まさ指摘でスコア詳細タブへ)
             - ecosystem PJ は AMD Score 対象外なので出さない
           その下に契約上の実行条件。どちらも開いた時だけマウントする。 */}
       {activeTab === "overview" && (
@@ -681,6 +682,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
               projectId={project.projectId}
               projectName={project.projectName}
               onOpenScoreDetail={() => selectTab("score-detail")}
+              sections="identity"
             />
           ) : null}
           <CockpitProjectOverview project={project} />

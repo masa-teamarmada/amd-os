@@ -29,12 +29,27 @@ function ymLabel(ym: string) {
 
 type BarPart = { label: string; value: number; className: string; note?: string };
 
-/** 横一本の積み上げ棒。合計に対する各部分の割合をそのまま幅にする。 */
-function StackedBar({ parts, total }: { parts: BarPart[]; total: number }) {
-  const shown = parts.filter((part) => part.value > 0);
+/**
+ * 消化と未消化を1本で見せる棒 (2026-08-28 まさ「棒グラフ２本もいらないよ。1本で、
+ * ここまで消化してる、ここからは未消化、ってのがわかるようにして」)。
+ * 消化した分だけを左から塗り、未消化は棒の地色のまま残す。境目に白い区切りを置く。
+ */
+function ConsumptionBar({ consumed, remainingYen, total }: { consumed: BarPart[]; remainingYen: number; total: number }) {
+  const consumedYen = consumed.reduce((sum, part) => sum + part.value, 0);
+  const shown = consumed.filter((part) => part.value > 0);
   return (
     <div className="mt-2">
-      <div className="flex h-7 w-full overflow-hidden rounded border border-[#d6d6da] bg-[#f2f2f5]">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <span className="text-[13px] font-semibold text-[#1d1d1f]">
+          消化 {fmtYen(consumedYen)}
+          <span className="ml-1.5 tabular-nums text-[#047857]">{fmtPct(consumedYen, total)}</span>
+        </span>
+        <span className="text-[13px] font-semibold text-[#8e8e93]">
+          未消化 {fmtYen(remainingYen)}
+          <span className="ml-1.5 tabular-nums">{fmtPct(remainingYen, total)}</span>
+        </span>
+      </div>
+      <div className="mt-1.5 flex h-9 w-full overflow-hidden rounded-md border border-[#d6d6da] bg-[#ececef]">
         {shown.map((part) => (
           <div
             key={part.label}
@@ -43,17 +58,24 @@ function StackedBar({ parts, total }: { parts: BarPart[]; total: number }) {
             title={`${part.label} ${fmtYen(part.value)}`}
           />
         ))}
+        {consumedYen > 0 && remainingYen > 0 && (
+          <div className="h-full w-[3px] shrink-0 bg-white" aria-hidden />
+        )}
       </div>
       <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
-        {parts.map((part) => (
+        {consumed.map((part) => (
           <span key={part.label} className="inline-flex items-baseline gap-1.5 text-[11px]">
             <span className={`inline-block size-2.5 shrink-0 rounded-sm ${part.className}`} aria-hidden />
             <span className="font-medium text-[#1d1d1f]">{part.label}</span>
             <span className="tabular-nums text-[#3c3c43]">{fmtYen(part.value)}</span>
-            <span className="tabular-nums text-[#8e8e93]">{fmtPct(part.value, total)}</span>
             {part.note && <span className="text-[#8e8e93]">{part.note}</span>}
           </span>
         ))}
+        <span className="inline-flex items-baseline gap-1.5 text-[11px]">
+          <span className="inline-block size-2.5 shrink-0 rounded-sm border border-[#d6d6da] bg-[#ececef]" aria-hidden />
+          <span className="font-medium text-[#1d1d1f]">未消化</span>
+          <span className="tabular-nums text-[#3c3c43]">{fmtYen(remainingYen)}</span>
+        </span>
       </div>
     </div>
   );
@@ -89,14 +111,7 @@ function Metric({ label, value, note }: { label: string; value: string; note?: s
 
 function SeasonCard({ season }: { season: SeasonBudgetSeason }) {
   const checks = season.checks;
-  // ① クライアント請求が何に分かれるか。バッファ + メンバー原資(65%) + AMD(35%) = 請求額。
-  const revenueParts: BarPart[] = [
-    { label: "バッファ", value: season.bufferTotalYen, className: "bg-amber-300", note: season.bufferBreakdownSet ? "" : "内訳未設定・逆算" },
-    { label: "メンバー原資", value: season.memberBudgetYen, className: "bg-sky-400" },
-    { label: "AMD", value: season.amdMarginYen, className: "bg-emerald-400" },
-  ];
-
-  // ② メンバー原資をどこまで使ったか。
+  // メンバー原資をどこまで使ったか。
   // 支払済み = 現金で出た分、社内配賦 = 支払対象外メンバーへ割り当てた分 (現金は出ない)、
   // 未払い残 = 発生済みでまだ払えていない分、未消化 = まだ誰の取り分にもなっていない残り。
   const paidToMembersYen = season.members
@@ -109,17 +124,16 @@ function SeasonCard({ season }: { season: SeasonBudgetSeason }) {
   const consumedYen = season.paidSumYen;
   const stockYen = season.finalStockSumYen;
   const remainingYen = Math.max(0, season.memberBudgetYen - consumedYen - stockYen);
-  const allocationParts: BarPart[] = season.membersVisible
+  // 棒に塗るのは消化した分だけ。未消化は棒の地色のまま残す。
+  const consumedParts: BarPart[] = season.membersVisible
     ? [
-        { label: "支払済み", value: paidToMembersYen, className: "bg-emerald-500" },
-        { label: "社内配賦", value: reserveYen, className: "bg-slate-400", note: "現金は出ない" },
-        { label: "未払い残", value: stockYen, className: "bg-amber-400" },
-        { label: "未消化", value: remainingYen, className: "bg-[#e5e5ea]" },
+        { label: "支払済み", value: paidToMembersYen, className: "bg-emerald-600" },
+        { label: "社内配賦", value: reserveYen, className: "bg-emerald-400", note: "現金は出ない" },
+        { label: "未払い残", value: stockYen, className: "bg-amber-400", note: "翌月へ繰越" },
       ]
     : [
-        { label: "消化済み", value: consumedYen, className: "bg-emerald-500" },
-        { label: "未払い残", value: stockYen, className: "bg-amber-400" },
-        { label: "未消化", value: remainingYen, className: "bg-[#e5e5ea]" },
+        { label: "消化済み", value: consumedYen, className: "bg-emerald-600" },
+        { label: "未払い残", value: stockYen, className: "bg-amber-400", note: "翌月へ繰越" },
       ];
 
   return (
@@ -141,24 +155,24 @@ function SeasonCard({ season }: { season: SeasonBudgetSeason }) {
         </div>
       </div>
 
-      <div className="mt-3">
-        <p className="text-[12px] font-semibold text-[#1d1d1f]">
-          クライアント請求 {fmtYen(season.invoiceTotalYen)} の内訳
-        </p>
-        <p className="mt-0.5 text-[11px] text-[#8e8e93]">
-          先にバッファ（営業費用・旅費など）を引き、残りの65%がメンバーへ配れる原資、35%がAMDの取り分。
-        </p>
-        <StackedBar parts={revenueParts} total={season.invoiceTotalYen} />
-      </div>
+      {/* 請求の内訳は棒にしない (2026-08-28 まさ「棒グラフ２本もいらない」)。
+          読みたいのは消化の進み具合なので、棒は下の1本だけにして、内訳は数字で添える。 */}
+      <p className="mt-3 text-[11px] leading-5 text-[#3c3c43]">
+        クライアント請求 <span className="font-semibold tabular-nums text-[#1d1d1f]">{fmtYen(season.invoiceTotalYen)}</span>
+        {" = "}バッファ <span className="tabular-nums">{fmtYen(season.bufferTotalYen)}</span>
+        {season.bufferBreakdownSet ? "" : "（内訳未設定・逆算）"}
+        {" + "}メンバー原資 <span className="tabular-nums">{fmtYen(season.memberBudgetYen)}</span>
+        {" + "}AMD <span className="tabular-nums">{fmtYen(season.amdMarginYen)}</span>
+      </p>
 
-      <div className="mt-4">
+      <div className="mt-3">
         <p className="text-[12px] font-semibold text-[#1d1d1f]">
           メンバー原資 {fmtYen(season.memberBudgetYen)} の消化
         </p>
         <p className="mt-0.5 text-[11px] text-[#8e8e93]">
           MSの消化ptに応じて各メンバーの取り分が決まる。月々の支払枠に収まらない分は未払い残として翌月へ回る。
         </p>
-        <StackedBar parts={allocationParts} total={season.memberBudgetYen} />
+        <ConsumptionBar consumed={consumedParts} remainingYen={remainingYen} total={season.memberBudgetYen} />
       </div>
 
       <div className="mt-4 flex flex-wrap gap-y-3 border-t border-[#e5e5e7] pt-3">
