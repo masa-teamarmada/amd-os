@@ -1314,3 +1314,79 @@ commit `1be0484d`（実装）+ `315c27b1`（正本と guard）。本番の `/api
     次の改修で気軽に戻される。`max-h-full w-full max-w-4xl` と `sm:p-8 lg:p-12` を釘にした。
 19. **共有 checkout では、自分の作業ファイルが他セッションに commit されうる。**
     検証が終わるまで手元に置く運用は成立しない。論理単位ごとに自分で早く commit する方が安全。
+
+---
+
+## 2026-08-28 支払通知書が発行できない — 月初合意ゲートが支払月全体を止めていた
+
+### 症状（まさ報告）
+
+「支払通知書が作成できない。ボタンを押すと別タブが開くけど、しばらくするとそれが閉じてそれっきり止まる」。
+続けて「ZMPと無関係なかるちゃんすら発行できないよ？」。
+まさの仮説は「きよが試しに合意せず修正依頼をかけたので、月初合意 blocker が立ったのでは。
+でもその修正依頼がどこにも来ていないので blocker を解除できない」。
+
+### 原因
+
+`savePayoutDataSnapshot`（支払データ同期）が、支払月の**全対象**をまとめて gate 判定し、
+blocker が1件でもあれば 409 を返していた。個別発行 `issue_notice_pdf` は最初にこれを呼ぶため、
+対象メンバー本人が合意済みでも、同じ支払月の他人の未合意で止まっていた。
+
+支払月 202608 の実データ（`loadTargetData` をローカルで実行して確認）:
+
+| member | PJ | 稼働月 | status |
+|---|---|---|---|
+| 輕部 琢真 / ID003 | SX / p21 | 202606 | agreed（移行月扱い） |
+| 株式会社chiko / ID007 | SX / p21 | 202606 | agreed（移行月扱い） |
+| 福田 航一 / ID004 | ZMP / p19 | 202607 | pending |
+| 安孫子 芽生 / ID009 | ZMP / p19 | 202607 | pending |
+| うめちよプロダクション / ID008 | ZMP / p19 | 202607 | stale（20,985 → 8,190） |
+| 岡安 真司 / ID026 | ZMP / p19 | 202607 | stale（8,100 → 23,205） |
+
+ZMP の4件が blocker になり、SX の2人も発行できなかった。
+`payout-notice-prebuild` cron も同じ関数を先頭で呼ぶため毎晩空振りし、202608 の `payout_notices` は0件だった
+（202607 は3件生成済み）。cron 側は blocker member を除外する実装が既に入っていたのに、
+その手前の同期で 409 に落ちていて一度も到達していなかった。
+
+**きよ（ID002）の修正依頼は原因ではない。** `is_officer=true` かつ `exclude_from_payout_notice=true` なので、
+gate では `not_required` になり判定対象に入らない。
+
+### まさに見えなかった2つのこと
+
+1. **止まった理由**。`issueNoticePdf` は PDF 用の空タブを先に開き、409 を受けると `closePdfPlaceholder` で閉じる。
+   理由は `setHint` でツールバー右端に `text-muted-foreground` の小さい文字が出るだけだった。
+2. **修正要望の中身と解決手段**。`member_monthly_work_agreement_requests` に insert する経路しか存在せず、
+   管理画面は件数と最新日時だけ表示。本文も読めず `status` を `resolved` にする API も UI も無かった。
+   open は `revision_requested` blocker なので、要望が来た稼働月は**構造的に復旧不能**だった。
+
+### 直したもの
+
+- `savePayoutDataSnapshot`: blocker のいるメンバーの支払行だけ同期対象から外し、残りを保存する。
+  そのメンバーの既存 `payout_notices` 行も消さない（`staleNoticeRowsToDelete` から除外）。
+- `bulk_issue_notice_pdf` / `bulk_preview_notice_pdf`: blocker を `agreement_gate` の skip として返し、残りを発行。
+  全員 blocker のときだけ 409。cron prebuild と同じ扱いに揃えた。
+- `/admin/payouts`: 止まった理由を赤いバナー（`data-testid="admin-payouts-action-error"`）で表示。
+  合意画面へのリンクを添える。一括発行で見送った人も別枠で出す。
+- `GET/PATCH /api/admin/monthly-work-agreements/revision-requests` を追加。
+- `/admin/monthly-work-agreements`: 要望の本文・対応済み/対応しない/未対応へ戻す・対応メモを表示。
+- 正本更新: `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`、`pwa/spec/3-14-monthly-work-agreement-current-spec.md`。
+  「未合意なら 409 stop」としか書いておらず、全体を止める実装がそのまま仕様として通っていた。
+- `check_pwa_critical_ui.cjs` にアンカー追加（deploy guard で毎回走る）。
+
+### 残っている業務側の状態（システムの問題ではない）
+
+- ID008 / ID026 は `canAgree=false`。「予定額が変更された理由を管理側で確認中です」で本人が合意できない。
+  管理者が `/admin/monthly-work-agreements?ym=202607` で ZMP の変更理由を8文字以上入れるまで進まない。
+- ID004 / ID009 は 202607 の合意 row が一度も無い。
+- 支払月 202609（202608 稼働）は4人とも blocker、うち ID009 は open 修正要望が理由。
+- 支払月 202610（202607 稼働）は SX の ID003 / ID007 も未合意。
+
+### 教訓（追加）
+
+20. **gate は守る単位で止める。** 「支払が発生する行」を守る gate なのに、
+    保存処理が月全体をまとめて 409 にしていたため、下流のメンバー単位の除外が一度も発火しなかった。
+    仕様に「409 stop」とだけ書くと、止める範囲が実装の都合で決まる。**範囲を仕様に書く。**
+21. **要望を受け取る経路を作ったら、閉じる経路も同じ作業単位で作る。**
+    open が業務を止める設計なら、閉じる手段の欠落は機能の欠落ではなく詰みを作る。
+22. **止まった理由は、止めた場所と同じ大きさで出す。** 発行を止めておいて理由が小さい灰色文字では、
+    利用者からは「押しても何も起きない」に見える。
