@@ -130,6 +130,7 @@ function payoutCreatePwaNoticePdf(payload){
     reimbursementYen,
     breakdownText,
     reimbursementText,
+    noteText: String(payload.noteText || "").trim(),
     issuedAtJst,
     noticeNo
   });
@@ -198,6 +199,8 @@ function payoutBuildNoticePdfBlob_(p){
   const reimbursementYen = Math.round(Number(p.reimbursementYen || 0));
   const breakdownText = String(p.breakdownText || "").trim();
   const reimbursementText = String(p.reimbursementText || "").trim();
+  // 繰越があるとき、その期間の発生額と今回のお支払いの差を書いた文面 (PWA が組み立てる)
+  const noteText = String(p.noteText || "").trim();
 
   if (!/^\d{6}$/.test(ym)) throw new Error("ym invalid（yyyymm）");
   if (!memberId) throw new Error("memberId empty");
@@ -436,6 +439,12 @@ function payoutBuildNoticePdfBlob_(p){
   const noteTop = payTop + 5;
   sh.getRange(`A${noteTop}:B${noteTop}`).merge().setValue("備考").setFontSize(14).setFontColor(MUTED).setFontWeight("bold");
   sh.getRange(`A${noteTop+1}:L${noteTop+3}`).merge()
+    .setValue(noteText)
+    .setFontSize(12)
+    .setFontColor(TEXT)
+    .setWrap(true)
+    .setVerticalAlignment("top")
+    .setHorizontalAlignment("left")
     .setBackground(PALE)
     .setBorder(true, true, true, true, false, false, LINE, SpreadsheetApp.BorderStyle.SOLID);
 

@@ -756,8 +756,129 @@ function aggregateNotices(ym: string, entries: PayoutEntry[], members: MemberRow
     .filter((notice) => notice.total_yen > 0);
 }
 
+function yenText(value: number): string {
+  return `¥${Math.round(value).toLocaleString("ja-JP")}`;
+}
+
 function ymShortLabel(ym: string): string {
   return YM_RE.test(ym) ? `${Number(ym.slice(4, 6))}月稼働分` : ym;
+}
+
+/**
+ * 支払通知書の明細に出す稼働月の表記。
+ *
+ * 繰越があると、その支払には当月の発生分だけでなく過去月の未払い分も乗る。
+ * 当月だけを「6月稼働分」と書くと、実際には4月から積み上がった分を払っているのに
+ * 6月の1か月分に見える (まさ指摘 2026-08-28: かるの 2026年8月支払は 4〜6月の発生分)。
+ */
+function ymSpanLabel(startYm: string, endYm: string): string {
+  if (!YM_RE.test(startYm) || !YM_RE.test(endYm) || startYm === endYm) return ymShortLabel(endYm);
+  const startYear = startYm.slice(0, 4);
+  const endYear = endYm.slice(0, 4);
+  const startMonth = Number(startYm.slice(4, 6));
+  const endMonth = Number(endYm.slice(4, 6));
+  if (startYear === endYear) return `${startMonth}〜${endMonth}月稼働分`;
+  return `${startYear}年${startMonth}月〜${endYear}年${endMonth}月稼働分`;
+}
+
+type PayoutSourceSpan = {
+  startYm: string;
+  endYm: string;
+  /** その範囲で発生した支払対象額 (当月発生 + 繰越) */
+  grossDueYen: number;
+  /** 今回払ったあとに残る未払い */
+  stockYen: number;
+};
+
+/**
+ * 繰越の鎖を遡って、この支払に含まれる稼働月の範囲を求める。
+ *
+ * `carryInYen` が 0 の月まで戻ったところが範囲の先頭。plan cycle をまたぐと繰越の鎖は
+ * 切れるので、遡る範囲は同じ plan cycle 内に限る (manual/6-5 の割り戻しと同じ扱い)。
+ */
+async function loadPayoutSourceSpans(
+  db: SupabaseClient,
+  targets: Array<{ projectId: string; sourceYm: string; memberId: string }>
+): Promise<Map<string, PayoutSourceSpan>> {
+  const spans = new Map<string, PayoutSourceSpan>();
+  if (targets.length === 0) return spans;
+
+  const projectIds = [...new Set(targets.map((target) => target.projectId))];
+  const [planCyclesRes, cyclesRes] = await Promise.all([
+    db
+      .from("value_plan_cycles")
+      .select("project_id, period_start_ym, period_end_ym")
+      .in("project_id", projectIds),
+    db
+      .from("billing_cycles")
+      .select("project_id, ym, reward_summary_json")
+      .in("project_id", projectIds)
+      .order("ym", { ascending: true }),
+  ]);
+  if (planCyclesRes.error) throw planCyclesRes.error;
+  if (cyclesRes.error) throw cyclesRes.error;
+
+  const planRows = (planCyclesRes.data ?? []) as Array<{
+    project_id: string;
+    period_start_ym: string | null;
+    period_end_ym: string | null;
+  }>;
+  const cycleRows = (cyclesRes.data ?? []) as BillingCycleRow[];
+
+  for (const target of targets) {
+    const key = `${target.projectId}:${target.sourceYm}:${target.memberId}`;
+    // その稼働月を含む plan cycle。無ければ遡りの下限を置かない
+    const plan = planRows.find(
+      (row) =>
+        row.project_id === target.projectId &&
+        (!row.period_start_ym || row.period_start_ym <= target.sourceYm) &&
+        (!row.period_end_ym || row.period_end_ym >= target.sourceYm)
+    );
+    const floorYm = plan?.period_start_ym ?? null;
+
+    const byYm = new Map<string, { carryIn: number; grossDue: number; stock: number }>();
+    for (const cycle of cycleRows) {
+      if (cycle.project_id !== target.projectId) continue;
+      const summary = asRewardSummary(cycle.reward_summary_json);
+      const member = (summary?.members ?? []).find(
+        (row) => textValue(row.memberId) === target.memberId || textValue(row.member_id) === target.memberId
+      );
+      if (!member) continue;
+      byYm.set(cycle.ym, {
+        carryIn: yenValue(member.carryInYen ?? member.carry_in_yen),
+        grossDue: yenValue(member.grossDueYen ?? member.gross_due_yen),
+        stock: yenValue(member.stockYen ?? member.stock_yen),
+      });
+    }
+
+    const current = byYm.get(target.sourceYm);
+    if (!current) {
+      spans.set(key, { startYm: target.sourceYm, endYm: target.sourceYm, grossDueYen: 0, stockYen: 0 });
+      continue;
+    }
+
+    // carryIn が 0 になるまで遡る。0 の月がその繰越の起点。
+    let startYm = target.sourceYm;
+    let guard = 0;
+    while (guard < 60) {
+      guard += 1;
+      const row = byYm.get(startYm);
+      if (!row || row.carryIn <= 0) break;
+      const previousYm = addMonths(startYm, -1);
+      if (floorYm && previousYm < floorYm) break;
+      if (!byYm.has(previousYm)) break;
+      startYm = previousYm;
+    }
+
+    spans.set(key, {
+      startYm,
+      endYm: target.sourceYm,
+      grossDueYen: current.grossDue,
+      stockYen: current.stock,
+    });
+  }
+
+  return spans;
 }
 
 function projectLabel(project: PaymentProjectRow | undefined, projectId: string): string {
@@ -893,7 +1014,22 @@ export async function generateNoticePdfForMember(
     };
   }
 
-  const entries = expectedNoticeEntriesForMember(memberId, data);
+  const baseEntries = expectedNoticeEntriesForMember(memberId, data);
+  // 明細の稼働月は、繰越の鎖を遡った範囲で書く。当月だけを書くと、4月から積み上がった分を
+  // 払っているのに「6月稼働分」に見える (まさ指摘 2026-08-28)。
+  const sourceSpans = await loadPayoutSourceSpans(
+    db,
+    baseEntries.map((entry) => ({ projectId: entry.project_id, sourceYm: entry.ym, memberId })),
+  );
+  const entries = baseEntries.map((entry) => {
+    const span = sourceSpans.get(`${entry.project_id}:${entry.ym}:${memberId}`);
+    if (!span) return { ...entry, source_span: null as PayoutSourceSpan | null };
+    return {
+      ...entry,
+      description: `${entry.project_name} ${ymSpanLabel(span.startYm, span.endYm)}`,
+      source_span: span,
+    };
+  });
   const totalYen = entries.reduce((sum, entry) => sum + entry.total_pay, 0);
   // 立替精算は実費 (税込)。報酬が 0 円でも立替だけで通知書を出す月がある
   const reimbursements: PayableReimbursement[] = (data.reimbursements ?? {})[memberId] ?? [];
@@ -985,10 +1121,27 @@ export async function generateNoticePdfForMember(
         amountYen: row.amountYen,
       })),
       issuedAt,
+      // 繰越があるPJは、その期間に発生した額と今回のお支払いの差を備考へ書く。
+      // 「4〜6月稼働分 145,575円」だけだと、3か月分がそれだけに見える。
+      noteText: entries
+        .filter((entry) => entry.source_span && entry.source_span.grossDueYen > entry.total_pay)
+        .map((entry) => {
+          const span = entry.source_span as PayoutSourceSpan;
+          const period = ymSpanLabel(span.startYm, span.endYm).replace(/稼働分$/, "の稼働");
+          return `${entry.project_name}：${period}で発生した ${yenText(span.grossDueYen)}（税抜）のうち、今回のお支払いは ${yenText(entry.total_pay)}（税抜）です。残り ${yenText(span.stockYen)} は翌月以降の支払枠で順にお支払いします。`;
+        })
+        .join("\n"),
       breakdown: entries.map((entry) => ({
         projectId: entry.project_id,
         projectName: entry.project_name,
         sourceYm: entry.ym,
+        // 繰越を含む稼働月の範囲。PDFの明細と備考はこれで書く
+        sourceStartYm: entry.source_span?.startYm ?? entry.ym,
+        sourceEndYm: entry.source_span?.endYm ?? entry.ym,
+        /** その範囲で発生した支払対象額 (当月発生 + 繰越)。今回の支払はこの一部のことがある */
+        grossDueYen: entry.source_span?.grossDueYen ?? entry.total_pay,
+        /** 今回のお支払いのあとに残る未払い */
+        carryOverYen: entry.source_span?.stockYen ?? 0,
         description: entry.description,
         earnedPt: entry.earned_pt,
         basePay: entry.base_pay,

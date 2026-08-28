@@ -3382,6 +3382,17 @@ expectIncludes("src/app/api/admin/payouts/route.ts", [
   "const entries = allEntries.filter((entry) => !agreementBlockedMemberIdSet.has(entry.member_id));",
   "const allowedMemberIds = targetMemberIds.filter((memberId) => !agreementBlockedMemberIds.has(memberId));",
 ]);
+// 支払通知書の明細の稼働月は、繰越の鎖を遡った範囲で書く。当月だけを「6月稼働分」と書かない
+// (まさ指摘 2026-08-28: かるの2026年8月支払は4〜6月の発生分)。
+expectIncludes("src/app/api/admin/payouts/route.ts", [
+  "function ymSpanLabel(",
+  "async function loadPayoutSourceSpans(",
+  "noteText: entries",
+]);
+expectIncludes("../gas/064_PayoutFreeeNotice.js", [
+  "noteText",
+]);
+
 // PJコックピットの「PJ概要」タブに、シーズンの予算配分と消化を出す (まさ依頼 2026-08-28)。
 // 数字は /admin/season-pl と同じ computeSeasonPl から読み、この画面で別計算しない。
 expectIncludes("src/components/cockpit/CockpitSeasonBudget.tsx", [
