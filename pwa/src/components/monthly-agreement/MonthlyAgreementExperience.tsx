@@ -1102,6 +1102,9 @@ function ProjectAgreementBlock({
       .join(" / ") || null;
   const carryInYen = project.carryInYen ?? 0;
   const stockYen = project.stockYen ?? 0;
+  // 発生額は配分表の自分の行と同じ数字を出す。同じ画面で2つの定義の「今月発生する額」を出さない
+  const selfAccrualYen =
+    project.memberAllocations.find((row) => row.isSelf)?.accrualYen ?? project.currentMonthAccrualYen;
 
   return (
     <section
@@ -1173,7 +1176,7 @@ function ProjectAgreementBlock({
             {formatYen(project.expectedRewardYen)}
           </p>
           <p className="mt-1 text-[13px] leading-[20px] text-sky-900">
-            今月の担当分から発生する額は {formatYen(project.currentMonthAccrualYen)}
+            今月の担当分から発生する額は {formatYen(selfAccrualYen)}
             {carryInYen > 0 ? `、これまで支払いを待ってもらっている分の返済を含みます` : ""}
             {stockYen > 0 ? `。今月末に残る未払い分は ${formatYen(stockYen)}` : ""}
           </p>
@@ -1196,7 +1199,7 @@ function ProjectAgreementBlock({
           </h4>
         </div>
         <p className="mt-2 text-[13px] leading-[20px] text-[#6e6e73]">
-          同じプロジェクトの全員が、今月それぞれいくら受け取るかです。発生する額は、このプロジェクトの今月の原資を、担当した仕事のptの比で分けたものなので、誰かの取り分を増やすと他の人の取り分が減ります。
+          同じプロジェクトの全員が、今月それぞれいくら受け取るかです。発生する額は、担当した仕事の消化ptとMSごとの単価から決まります。全員で同じ原資を分け合うので、誰かの取り分を増やすと他の人の取り分が減ります。
         </p>
         <ProjectAllocationTable project={project} />
       </div>
@@ -1262,6 +1265,18 @@ function ProjectAgreementBlock({
   );
 }
 
+function allocationShareText(share: number | null) {
+  if (share == null) return "—";
+  const pct = share * 100;
+  return `${pct >= 1 ? Math.round(pct) : Math.round(pct * 10) / 10}%`;
+}
+
+/**
+ * PJの当月配分。全メンバー分を並べる。
+ *
+ * 狭い画面では表を出さず密なリストにする。表を横スクロールさせると、
+ * モバイルでは肝心の金額が初期表示の外へ出る。
+ */
 function ProjectAllocationTable({ project }: { project: MonthlyWorkAgreementProject }) {
   const rows = project.memberAllocations;
   if (rows.length === 0) {
@@ -1273,27 +1288,68 @@ function ProjectAllocationTable({ project }: { project: MonthlyWorkAgreementProj
   }
   const totals = project.allocationTotals;
   const hasExcluded = rows.some((row) => row.payoutExcluded);
+
   return (
-    <>
-      <div
-        data-testid="monthly-agreement-allocation-table"
-        className="mt-2 w-full max-w-full overflow-x-auto rounded-md border border-[#e5e5e7]"
-      >
+    <div data-testid="monthly-agreement-allocation-table" className="mt-2 w-full max-w-full">
+      <ul className="divide-y divide-[#f0f0f2] rounded-md border border-[#e5e5e7] sm:hidden">
+        {rows.map((row) => (
+          <li key={row.memberId} className={`px-3 py-2.5 ${row.isSelf ? "bg-sky-50" : ""}`}>
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="min-w-0 break-words text-[14px] font-semibold text-[#1d1d1f]">
+                {row.codeName}
+                {row.isSelf && <span className="ml-1 text-[12px] text-sky-800">（あなた）</span>}
+              </p>
+              <p className="shrink-0 text-[15px] font-semibold tabular-nums text-[#1d1d1f]">
+                {row.payoutExcluded ? (
+                  <span className="text-[12px] text-[#86868b]">現金支払なし</span>
+                ) : (
+                  formatYen(row.payYen)
+                )}
+              </p>
+            </div>
+            <p className="mt-0.5 text-[12px] text-[#6e6e73]">
+              今月発生 <span className="font-semibold tabular-nums text-[#3c3c43]">{formatYen(row.accrualYen)}</span>
+              <span className="mx-1.5">・</span>取り分{" "}
+              <span className="font-semibold tabular-nums text-[#3c3c43]">{allocationShareText(row.accrualShare)}</span>
+              <span className="mx-1.5">・</span>
+              <span className="tabular-nums">{formatPt(row.earnedPt)}</span>
+              {(row.isPm || row.isPl || row.roleLabel) && (
+                <span className="ml-1.5">
+                  ・{[row.roleLabel, row.isPm ? "PM" : null, row.isPl ? "PL" : null].filter(Boolean).join(" / ")}
+                </span>
+              )}
+            </p>
+            {row.taskSummaries.length > 0 && (
+              <p className="mt-1 line-clamp-3 break-words text-[12px] leading-[18px] text-[#3c3c43]">
+                {row.taskSummaries.join(" / ")}
+              </p>
+            )}
+          </li>
+        ))}
+        <li className="flex items-baseline justify-between gap-2 bg-[#f5f5f7] px-3 py-2.5">
+          <p className="whitespace-nowrap text-[13px] font-semibold text-[#1d1d1f]">{totals.memberCount}人 合計</p>
+          <p className="whitespace-nowrap text-[13px] font-semibold tabular-nums text-[#1d1d1f]">
+            発生 {formatYen(totals.accrualYen)} / 支払 {formatYen(totals.payYen)}
+          </p>
+        </li>
+      </ul>
+
+      <div className="hidden w-full max-w-full overflow-x-auto rounded-md border border-[#e5e5e7] sm:block">
         <table className="w-full min-w-[620px] border-collapse text-[13px]">
           <thead>
             <tr className="border-b border-[#e5e5e7] bg-[#f5f5f7] text-left text-[12px] text-[#6e6e73]">
-              <th className="px-3 py-2 font-semibold">メンバー</th>
+              <th className="whitespace-nowrap px-3 py-2 font-semibold">メンバー</th>
               <th className="px-3 py-2 font-semibold">今月の担当</th>
-              <th className="px-3 py-2 text-right font-semibold">今月のpt</th>
-              <th className="px-3 py-2 text-right font-semibold">取り分</th>
-              <th className="px-3 py-2 text-right font-semibold">今月発生する額</th>
-              <th className="px-3 py-2 text-right font-semibold">今月受け取る額</th>
+              <th className="whitespace-nowrap px-3 py-2 text-right font-semibold">今月のpt</th>
+              <th className="whitespace-nowrap px-3 py-2 text-right font-semibold">取り分</th>
+              <th className="whitespace-nowrap px-3 py-2 text-right font-semibold">今月発生する額</th>
+              <th className="whitespace-nowrap px-3 py-2 text-right font-semibold">今月受け取る額</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#f0f0f2]">
             {rows.map((row) => (
               <tr key={row.memberId} className={row.isSelf ? "bg-sky-50" : undefined}>
-                <td className="px-3 py-2 align-top">
+                <td className="whitespace-nowrap px-3 py-2 align-top">
                   <span className="font-semibold text-[#1d1d1f]">{row.codeName}</span>
                   {row.isSelf && <span className="ml-1 text-[12px] text-sky-800">（あなた）</span>}
                   {(row.isPm || row.isPl || row.roleLabel) && (
@@ -1307,16 +1363,16 @@ function ProjectAllocationTable({ project }: { project: MonthlyWorkAgreementProj
                 <td className="px-3 py-2 align-top text-[13px] leading-[19px] text-[#3c3c43]">
                   {row.taskSummaries.length > 0 ? row.taskSummaries.join(" / ") : "—"}
                 </td>
-                <td className="px-3 py-2 text-right align-top tabular-nums text-[#3c3c43]">
+                <td className="whitespace-nowrap px-3 py-2 text-right align-top tabular-nums text-[#3c3c43]">
                   {formatPt(row.earnedPt)}
                 </td>
                 <td className="px-3 py-2 text-right align-top tabular-nums text-[#3c3c43]">
-                  {row.ptShare == null ? "—" : `${Math.round(row.ptShare * 100)}%`}
+                  {allocationShareText(row.accrualShare)}
                 </td>
-                <td className="px-3 py-2 text-right align-top font-semibold tabular-nums text-[#1d1d1f]">
+                <td className="whitespace-nowrap px-3 py-2 text-right align-top font-semibold tabular-nums text-[#1d1d1f]">
                   {formatYen(row.accrualYen)}
                 </td>
-                <td className="px-3 py-2 text-right align-top font-semibold tabular-nums text-[#1d1d1f]">
+                <td className="whitespace-nowrap px-3 py-2 text-right align-top font-semibold tabular-nums text-[#1d1d1f]">
                   {row.payoutExcluded ? (
                     <span className="text-[12px] font-semibold text-[#86868b]">現金支払なし</span>
                   ) : (
@@ -1344,12 +1400,13 @@ function ProjectAllocationTable({ project }: { project: MonthlyWorkAgreementProj
           </tfoot>
         </table>
       </div>
+
       {hasExcluded && (
         <p className="mt-2 text-[12px] leading-[18px] text-[#6e6e73]">
           「現金支払なし」の人は、担当分が会社の内部配賦として扱われ、本人へは支払われません。原資を分け合っている点は同じなので、配分としてこの表に出しています。
         </p>
       )}
-    </>
+    </div>
   );
 }
 

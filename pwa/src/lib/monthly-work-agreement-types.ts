@@ -111,8 +111,13 @@ export interface MonthlyWorkAgreementProjectAllocation {
   payoutExcluded: boolean;
   /** 今月このPJで消化したpt */
   earnedPt: number | null;
-  /** PJ全体の当月消化ptに対する取り分 (0-1)。誰かを上げれば誰かが下がる関係を示す */
-  ptShare: number | null;
+  /**
+   * PJ全体の今月発生する額に対する取り分 (0-1)。誰かを上げれば誰かが下がる関係を示す。
+   *
+   * pt の比ではなく額の比で出す。MSごとにptの単価が違う (通常枠と別契約枠で単価が異なる) ため、
+   * ptの比を「取り分」と書くと、同じ表の金額列と合わない数字が並ぶ。
+   */
+  accrualShare: number | null;
   /** 今月の担当分から発生する額 (支払枠を通す前) */
   accrualYen: number | null;
   /** この稼働月として実際に払う額 */

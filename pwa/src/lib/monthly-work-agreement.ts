@@ -611,7 +611,7 @@ function buildProjectAllocations(args: {
       payoutExcluded:
         memberRow?.exclude_from_payout_notice === true || rewardMember?.payoutExcluded === true,
       earnedPt,
-      ptShare: null,
+      accrualShare: null,
       accrualYen,
       payYen,
       stockYen,
@@ -619,9 +619,12 @@ function buildProjectAllocations(args: {
     };
   });
 
-  const totalEarnedPt = rows.reduce((sum, row) => sum + (row.earnedPt ?? 0), 0);
+  const totalAccrualYen = rows.reduce((sum, row) => sum + (row.accrualYen ?? 0), 0);
   for (const row of rows) {
-    row.ptShare = totalEarnedPt > 0 && row.earnedPt != null ? Math.round((row.earnedPt / totalEarnedPt) * 10000) / 10000 : null;
+    row.accrualShare =
+      totalAccrualYen > 0 && row.accrualYen != null
+        ? Math.round((row.accrualYen / totalAccrualYen) * 10000) / 10000
+        : null;
   }
 
   // 当月まったく関わりのない (pt も額も無い) 行は表から落とす。表を読む目的は配分の比較なので、
