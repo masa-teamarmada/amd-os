@@ -2121,14 +2121,14 @@ expectIncludes("src/components/cockpit/Bzm22CockpitSummary.tsx", [
   "?view=summary",
   "103パラメータと計算",
 ]);
+// コックピット上段に残すのはXRL進捗だけ (2026-08-28 まさ指摘)。
+// BZM 2.2 の J/P/Q/S は 8-27 に「古いモデルの試算結果」としてスコア詳細から外したものと同じで、
+// 上段にだけ残っていた。現行SPSは「最新版未評価」バッジの判定に使うだけで、カードはスコア詳細タブ。
 expectIncludes("src/components/cockpit/CockpitVentureStatus.tsx", [
-  "Bzm22CockpitSummary",
-  // 現行SPSは「最新版未評価」バッジの判定に使うだけ。カード本体はスコア詳細タブへ移した (2026-08-28)
   "loadCurrentSpsAssessment",
-  'data-testid="cockpit-bzm22-xrl-overview"',
+  'data-testid="cockpit-xrl-overview"',
   'data-testid="cockpit-xrl-panel"',
   'data-testid="cockpit-xrl-plot"',
-  "xl:grid-cols-[minmax(340px,24vw)_minmax(0,1fr)]",
   "ResizeObserver",
   "xrlPlotWidth",
   "xrlPlotHeight",
@@ -2137,6 +2137,8 @@ expectNotIncludes("src/components/cockpit/CockpitVentureStatus.tsx", [
   "XRLの自動判定は停止中。既存値・手動提案はドットから確認できる",
   // 現行SPSカードはスコア詳細タブが唯一の置き場所 (2026-08-28 まさ依頼)。上部 hero へ戻さない
   "CurrentSpsAssessmentCard",
+  // BZM 2.2 の J/P/Q/S も上段へ戻さない (2026-08-28 まさ「これがまだトップに残ってるよ」)
+  "Bzm22CockpitSummary",
 ]);
 expectNotIncludes("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
   "OS運用レジストリの版",
@@ -2286,9 +2288,10 @@ expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
   "max-w-[720px] min-w-0 flex flex-col gap-3",
 ]);
 
+// 「Chart 1 + Chart 2」の横並びは、BZM 2.2 を上段から外した 2026-08-28 に解消した。
+// XRL は単独で全幅を使い、狭い画面では横スクロールする。
 expectIncludes("src/components/cockpit/CockpitVentureStatus.tsx", [
   "xl:flex-row",
-  "Chart 1 + Chart 2",
   "overflow-x-auto",
   "min-w-[600px] xl:min-w-0",
 ]);

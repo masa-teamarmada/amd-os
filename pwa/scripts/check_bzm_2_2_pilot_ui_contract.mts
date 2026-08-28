@@ -607,13 +607,19 @@ requireIncludes(sxMonthlyBackfillSource, [
   "設立前PJ支出の会計主体注記が欠けている",
 ], "SX monthly PL accounting-entity notes");
 requireIncludes(componentSource, ['data-density="compact-score"'], "BZM 2.2 compact score density");
+// 2026-08-27 まさ「古いモデルの試算結果は、混乱の元になるのですべて削除してほしい」で
+// スコア詳細タブから BZM 2.2 暫定パイロットを外した。残るのは現行SPSカードと BZM 3.0 パネル。
 requireIncludes(scoreDetailSource, [
   'data-density="compact-score-page"',
   "space-y-3",
   "CurrentSpsAssessmentCard",
-  "BZM 2.2 暫定パイロット（SPSとは別モデル）",
-  "J / P / Q / S はSPSへ合算せず",
-], "score detail current SPS and separate BZM density");
+  "Bzm30ScorePanel",
+], "score detail current SPS + BZM 3.0 density");
+for (const forbidden of ["Bzm22ProvisionalObservatory", "BZM 2.2 暫定パイロット（SPSとは別モデル）"]) {
+  if (scoreDetailSource.includes(forbidden)) {
+    throw new Error(`score detail tab must not bring BZM 2.2 back: ${forbidden}`);
+  }
+}
 if (timeLedgerSource.includes('`${value < 0 ? "-" : ""}¥${rounded.toLocaleString("ja-JP")}M`')) {
   throw new Error("BZM 2.2 monthly ledger must put the million-yen unit outside data cells");
 }
@@ -692,19 +698,24 @@ requireIncludes(cockpitSummarySource, [
 if (cockpitSummarySource.includes("`${symbol}(a)`")) {
   throw new Error("cockpit BZM 2.2 primary metric heading must stay exactly J/P/Q/S");
 }
+// 2026-08-28 まさ「これがまだトップに残ってるよ」で、コックピット上段からも BZM 2.2 の
+// J/P/Q/S を外した。上段に残るのはXRL進捗だけ。単体画面 (?view=summary) と
+// Bzm22CockpitSummary コンポーネント自体は残す (下の cockpitSummarySource 検査が正本)。
 const cockpitVentureSource = requireText(cockpitVenturePath);
 requireIncludes(cockpitVentureSource, [
-  "Bzm22CockpitSummary",
-  "CurrentSpsAssessmentCard",
-  "/sps-current",
-  'data-testid="cockpit-bzm22-xrl-overview"',
+  "loadCurrentSpsAssessment",
+  'data-testid="cockpit-xrl-overview"',
   'data-testid="cockpit-xrl-panel"',
   'data-testid="cockpit-xrl-plot"',
-  "xl:grid-cols-[minmax(340px,24vw)_minmax(0,1fr)]",
   "ResizeObserver",
   "xrlPlotWidth",
   "xrlPlotHeight",
-], "cockpit BZM 2.2 primary ordering");
+], "cockpit XRL-only overview");
+for (const forbidden of ["Bzm22CockpitSummary", "CurrentSpsAssessmentCard"]) {
+  if (cockpitVentureSource.includes(forbidden)) {
+    throw new Error(`cockpit hero must stay XRL-only: ${forbidden}`);
+  }
+}
 for (const forbidden of ["XRLの自動判定は停止中。既存値・手動提案はドットから確認できる"]) {
   if (cockpitVentureSource.includes(forbidden)) throw new Error(`cockpit XRL still exposes explanatory copy: ${forbidden}`);
 }
@@ -722,16 +733,16 @@ if (hudVentureSource.includes("CockpitPlMonthlyModal") || hudVentureSource.inclu
   throw new Error("HUD cockpit header must not keep the detached monthly P&L button/modal");
 }
 
+// 上から「現行SPSの評価カード」→「BZM 3.0 のスコアパネル」。
+// 2026-08-27 に BZM 2.2 暫定パイロットを外し、2026-08-28 に現行SPSカードを最上段へ移した。
 requireIncludes(scoreDetailSource, [
-  "Bzm22ProvisionalObservatory",
   "CurrentSpsAssessmentCard",
-  "/sps-current",
-  "BZM 2.2 暫定パイロット（SPSとは別モデル）",
+  "Bzm30ScorePanel",
 ], "score-detail model ordering");
 const currentSpsIndex = scoreDetailSource.indexOf("<CurrentSpsAssessmentCard");
-const bzm22Index = scoreDetailSource.indexOf("<Bzm22ProvisionalObservatory");
-if (!(currentSpsIndex >= 0 && currentSpsIndex < bzm22Index)) {
-  throw new Error("score-detail model order must be current SPS -> separate BZM 2.2 pilot");
+const bzm30Index = scoreDetailSource.indexOf("<Bzm30ScorePanel");
+if (!(currentSpsIndex >= 0 && bzm30Index >= 0 && currentSpsIndex < bzm30Index)) {
+  throw new Error("score-detail model order must be current SPS -> BZM 3.0 panel");
 }
 for (const forbidden of ["OS運用レジストリの版", "過去理論のモデル観測台帳", "履歴・根拠確認のため凍結保持"]) {
   if (scoreDetailSource.includes(forbidden)) throw new Error(`score-detail archive still exposes explanatory copy: ${forbidden}`);

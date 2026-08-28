@@ -39,7 +39,6 @@ import { CockpitPartnersModal } from "./CockpitPartnersModal";
 import { CockpitDescriptionDetailModal } from "./CockpitDescriptionDetailModal";
 import { CockpitAmdScoreBreakdownModal } from "./CockpitAmdScoreBreakdownModal";
 import { CockpitXrlDetailModal } from "./CockpitXrlDetailModal";
-import { Bzm22CockpitSummary } from "./Bzm22CockpitSummary";
 import { loadCurrentSpsAssessment } from "@/lib/current-sps-client";
 import type { CurrentSpsProjectAssessment } from "@/lib/current-sps-model";
 
@@ -552,13 +551,13 @@ export function CockpitVentureStatus({
       {/* 現行SPS｜産業創出価値のカードは 2026-08-28 まさ依頼で「スコア詳細」タブの最上段へ移した
           (`CockpitAmdScoreDetailTab`)。ここでは未評価バッジの判定にだけ使う。 */}
 
-      {/* BZM 2.2はSPSと同じBZMから出る別の出力で、暫定パイロットとして分けて表示する（合算しない）。 */}
-      {/* Chart 1 + Chart 2 — xl breakpoint (>=1280px) 以上で横並び。
-          案C レイアウト (上 hero に AMD Score + XRL を並べる) のため。
-          それ未満は従来通り縦並び。 */}
-      <div data-testid="cockpit-bzm22-xrl-overview" className={`mx-2 overflow-hidden border border-[#7898a5] bg-white ${compact ? "mt-1" : "mt-2"} xl:grid xl:grid-cols-[minmax(340px,24vw)_minmax(0,1fr)]`}>
-      <Bzm22CockpitSummary projectId={projectId} onOpenScoreDetail={onOpenScoreDetail} compact={compact} embedded />
-      <div className={`h-full min-h-0 min-w-0 ${legacyScoreHistoryOpen ? "flex flex-col gap-2 xl:col-span-2 xl:flex-row" : "flex"}`}>
+      {/* BZM 2.2 の J/P/Q/S は 2026-08-28 まさ指摘でこの上段から外した。
+          2026-08-27「古いモデルの試算結果は、混乱の元になるのですべて削除してほしい」で
+          スコア詳細タブから外したのと同じもので、上段にだけ残っていた。
+          コンポーネントと `?view=summary` の単体画面は残すが、コックピットからは出さない。
+          上段に残すのはXRL進捗だけ。 */}
+      <div data-testid="cockpit-xrl-overview" className={`mx-2 overflow-hidden border border-[#7898a5] bg-white ${compact ? "mt-1" : "mt-2"}`}>
+      <div className={`h-full min-h-0 min-w-0 ${legacyScoreHistoryOpen ? "flex flex-col gap-2 xl:flex-row" : "flex"}`}>
       {legacyScoreHistoryOpen ? (
       <>
       {/* Chart 1: SPS history */}
@@ -838,7 +837,7 @@ export function CockpitVentureStatus({
       ) : null}
 
       {/* Chart 2: XRL */}
-      <div data-testid="cockpit-xrl-panel" className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-x-auto border-t border-[#7898a5] px-2 pb-1 pt-1.5 xl:border-l xl:border-t-0">
+      <div data-testid="cockpit-xrl-panel" className={`flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-x-auto px-2 pb-1 pt-1.5 ${legacyScoreHistoryOpen ? "border-t border-[#7898a5] xl:border-l xl:border-t-0" : ""}`}>
         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-1">
           <h3 className="text-[12px] font-semibold">XRL 進捗 (TRL / BRL / GRL / SRL / HRL)</h3>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9px]">
