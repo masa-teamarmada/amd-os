@@ -3372,6 +3372,32 @@ expectIncludes("../ios/AMDOS/Core/Services/SupabaseService.swift", [
   "isSuppressedContractAction",
 ]);
 
+// 月初合意ゲートは member 単位で止める。1人の未合意で支払月全体を止めない (2026-08-28)。
+// 支払月の全対象をまとめて 409 にしていたため、ZMP の未合意4件で SX のメンバーの
+// 支払通知書も夜間 cron も丸ごと止まり、まさが支払通知書を作れなくなっていた。
+// 正本: pwa/manual/6-5-admin-payouts-reward-notice-spec.md / pwa/spec/3-14-monthly-work-agreement-current-spec.md
+expectIncludes("src/app/api/admin/payouts/route.ts", [
+  "agreementBlockedMemberIdSet",
+  "const entries = allEntries.filter((entry) => !agreementBlockedMemberIdSet.has(entry.member_id));",
+  "const allowedMemberIds = targetMemberIds.filter((memberId) => !agreementBlockedMemberIds.has(memberId));",
+]);
+// 修正要望を管理側で閉じられること。open は支払ゲートの blocker なので、
+// 件数だけ表示して解決経路が無い状態へ戻すと、要望が来た月の支払が復旧できなくなる。
+expectIncludes("src/app/api/admin/monthly-work-agreements/revision-requests/route.ts", [
+  "resolution_note",
+  "resolved_by",
+]);
+expectIncludes("src/app/(app)/admin/monthly-work-agreements/page.tsx", [
+  "admin-monthly-agreement-revision-requests",
+  "対応済みにする",
+  "未対応に戻す",
+]);
+// 発行が止まった理由を画面で読めること (右上の小さい hint だけに戻さない)
+expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
+  "admin-payouts-action-error",
+  "操作が止まった",
+]);
+
 console.log("critical PWA UI anchors ok");
 
 // Round 23 (2026-07-30): 関係先リストは1面に統合。メール専用の別リストは廃止し、
