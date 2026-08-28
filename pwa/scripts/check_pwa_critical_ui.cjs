@@ -3382,6 +3382,15 @@ expectIncludes("src/app/api/admin/payouts/route.ts", [
   "const entries = allEntries.filter((entry) => !agreementBlockedMemberIdSet.has(entry.member_id));",
   "const allowedMemberIds = targetMemberIds.filter((memberId) => !agreementBlockedMemberIds.has(memberId));",
 ]);
+// 支払月は月初合意で確定する。入金が早く着いても前倒ししない (まさ確定 2026-08-28)。
+// payment_confirmed_at で推定より早い月へ動かす実装へ戻ったら落とす。
+expectNotIncludes("src/lib/payment-groups.ts", [
+  "return confirmedYm < estimated ? confirmedYm : estimated;",
+]);
+expectIncludes("src/lib/payment-groups.ts", [
+  "入金が早く着いても、支払月を前倒ししない",
+]);
+
 // 支払通知書の明細の稼働月は、繰越の鎖を遡った範囲で書く。当月だけを「6月稼働分」と書かない
 // (まさ指摘 2026-08-28: かるの2026年8月支払は4〜6月の発生分)。
 expectIncludes("src/app/api/admin/payouts/route.ts", [

@@ -173,12 +173,18 @@ export function clientReceiptYmForCycle(
  *
  * 既定は PJ の支払条件からの推定だが、**クライアントからの入金が確認できている稼働月は、
  * 推定より早ければ入金月をそのまま支払月にする**。
- * 「請求書受領後60日」のような条件は、請求書を実際にいつ送ったかが台帳に無いと
- * 「翌月◯日に送る」という保守的な推定になり、実際にはもう入金があるのに支払月が
- * 1か月後ろへずれる (SX 2026年6月分で発生。まさ指摘 2026-08-26)。入金という
- * 事実がある以上、推定より事実を優先する。
+ * **入金が早く着いても、支払月を前倒ししない** (まさ確定 2026-08-28)。
+ * 支払月は稼働月の月初合意の時点で本人へ示して合意している。あとから入金が早まったことを
+ * 理由に前倒しすると、合意した内容と違う月に払うことになる。
+ * まさ「月初合意では8月の報酬は元々0円になってた。急に振り込まれたからって、
+ * 月初合意をやぶって早めに支払うってのはルールに反する」。
  *
- * すでにメンバーへ支払った月 (`reward_paid_at`) は動かさない。
+ * 実測でも合意 snapshot と推定は一致する: SX の 2026年6月稼働分は合意時点で支払月 202609、
+ * ZMP の 2026年7月稼働分は 202608。どちらも下の推定と同じ値になる。
+ *
+ * 2026-08-26 から 2026-08-28 まで `payment_confirmed_at` があれば推定より早い月へ前倒し
+ * していたため、SX 6月稼働分 (かる 145,575円 / ちこ 87,185円) が合意の 9月から 8月へ
+ * 1か月早く出ていた。この前倒しを戻さない。
  */
 export function memberPayoutYmForCycle(
   cycle: Pick<PaymentCycleRow, "invoice_ym" | "ym"> &
@@ -195,10 +201,7 @@ export function memberPayoutYmForCycle(
     paymentRuleReferenceDate(cycle, project)
   );
 
-  if (cycle.reward_paid_at) return estimated;
-  const confirmedYm = cleanYm(String(cycle.payment_confirmed_at ?? "").slice(0, 7).replace("-", ""));
-  if (!confirmedYm) return estimated;
-  return confirmedYm < estimated ? confirmedYm : estimated;
+  return estimated;
 }
 
 export async function loadPaymentConfirmationGroups(
