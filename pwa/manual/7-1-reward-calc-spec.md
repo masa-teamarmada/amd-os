@@ -65,7 +65,7 @@ consumedPt[ms]    = ms.maxPt × thisMonthPct / 100
 monthlyConsumedPt = Σ_ms consumedPt[ms]
 
 # 個人配分
-earnedPt[member]  = Σ_ms (consumedPt[ms] × share[member, ms]) # share は実績配分優先
+earnedPt[member]  = Σ_ms (round(consumedPt[ms] × share[member, ms], 2))  # MS ごとに小数2桁へ丸める
 basePay[member]   = round(earnedPt[member] × ptUnit)
 totalPay[member]  = basePay[member] + bonusPt[member]        # bonusPt は現状 0
 
@@ -100,6 +100,11 @@ paid[nonCashMember] = 0
 > **2026-07-03 まさ確定 — シーズン終了時 stock ゼロ必須 / 自動上乗せ禁止 / 2026-07-29 分類根拠訂正**: すべての plan cycle は `period_end_ym` の計算後に、支払対象メンバーへの未払残を 0 円で閉じることを絶対条件にする。ただし、報酬計算側が最終月に自動で cap を足してゼロに見せることは禁止。`buildRewardSummary` は月次 cap と未使用 cap 繰越だけで計算し、それでも最終月に支払対象メンバー分の `stockYen` が残る場合は不足額としてそのまま出す。raw の `carryOverYen` には支払対象外メンバーの非現金配賦未充当分も含まれうるため、`/admin/ms-overview` / PJ cockpit の `期末未払残` は支払対象メンバー分だけを最終月に一度だけ読み、対象外メンバーの繰越は内部収束チェックとして扱う。`stockYen` は残高スナップショットなので複数月を合計しない。`/admin/ms-overview` の編集モードは保存前検算でクライアント支払額、バッファ、原資上限、PJ予算、メンバー支払額、対象外配賦、期末未払残を表示し、外部向け期末未払残、PJ予算不足、または PJ予算の原資上限超過が 1 円でもある場合は `blocked` として保存を止める。AMD運営側が認識していないところでバッファ/運営費が勝手に削られてゼロ着地に見える設計は禁止。
 
 > **pt単価の原資定義 (まさ正本)**: `PJ予算 = (請求額 − バッファ) × 65%`、`本契約pt単価 = PJ予算 ÷ (シーズン期間の月数 × 10pt)`。バッファ (= 営業費用・旅費等、AMD が請求額から先取りする PJ コスト枠) は **pt単価の計算に必ず反映**する。現行実装の `deriveRewardBudgetForPt` は `value_plan_cycles.budget_yen` をそのまま原資に使うため、**`value_plan_cycles.budget_yen` にバッファ反映後の額 `(請求額 − バッファ) × 65%` を入れる**ことで正しい pt単価になる (SX は 2026-06-19 に 6,812,000 → 5,642,000 へ是正済み)。通常 MS の配分 pt 合計が増減しても、本契約 pt単価は変動させない。バッファを第一級入力にしてロジック側で自動控除する恒久実装は別タスク。
+
+> **支払額の刻み (2026-08-29)**: `earnedPt` は MS ごとに小数2桁へ丸めてから `ptUnit` を掛けるため、
+> **支払額は `0.01pt × ptUnit` 刻み**になる。pt単価 19,500円 の PJ なら 195円刻みで、
+> 「ちょうど40,000円」のような金額は作れない。金額を指定して MS・share を逆算するときは、
+> 刻みの上下どちらに寄せるかを決めて依頼者に伝える。
 
 ---
 
