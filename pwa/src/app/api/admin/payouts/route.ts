@@ -36,7 +36,7 @@ const YM_RE = /^[0-9]{6}$/;
 // 一括PDF生成時の並列度。GAS payoutCreatePwaNoticePdf のスループットに配慮して 3 で固定。
 // 上げすぎると Apps Script 側の同時実行制限 (project あたり 30) や freee 連携待ちで詰まる。
 const BULK_NOTICE_CONCURRENCY = 3;
-const PAYOUT_NOTICE_PDF_TEMPLATE_UPDATED_AT = "2026-06-29T04:50:00.000Z";
+const PAYOUT_NOTICE_PDF_TEMPLATE_UPDATED_AT = "2026-08-28T09:50:00.000Z";
 
 type BillingCycleRow = {
   project_id: string;
@@ -766,6 +766,10 @@ function ymShortLabel(ym: string): string {
  * 繰越があると、その支払には当月の発生分だけでなく過去月の未払い分も乗る。
  * 当月だけを「6月稼働分」と書くと、実際には4月から積み上がった分を払っているのに
  * 6月の1か月分に見える (まさ指摘 2026-08-28: かるの 2026年8月支払は 4〜6月の発生分)。
+ *
+ * 範囲に入れるのは**本契約 (regular) の繰越だけ**。別財布 (cap_extra) の積立は
+ * 支払条件が別なので混ぜない (まさ指摘 2026-08-28: ZMP は本契約を毎月満額払っているのに
+ * OkuDoor 開発の積立で「5〜7月稼働分」になっていた)。
  */
 function ymSpanLabel(startYm: string, endYm: string): string {
   if (!YM_RE.test(startYm) || !YM_RE.test(endYm) || startYm === endYm) return ymShortLabel(endYm);
@@ -780,16 +784,47 @@ function ymSpanLabel(startYm: string, endYm: string): string {
 type PayoutSourceSpan = {
   startYm: string;
   endYm: string;
-  /** その範囲で発生した支払対象額 (当月発生 + 繰越) */
+  /** その範囲で発生した本契約 (regular) の支払対象額 (当月発生 + 繰越)。別財布は含まない */
   grossDueYen: number;
-  /** 今回払ったあとに残る未払い */
+  /** 今回払ったあとに残る本契約 (regular) の未払い。別財布は含まない */
   stockYen: number;
 };
 
 /**
+ * 本契約プール (regular) の繰越・発生・未払い。
+ *
+ * `carryInYen` / `grossDueYen` / `stockYen` は regular と別財布 (cap_extra) の**混在値**。
+ * 別財布は支払条件が本契約と別 (ZMP の OkuDoor 開発は完了月に一括: manual/7-1 の別財布節) なので、
+ * 稼働月の範囲と備考には regular だけを使う。混在値で遡ると、本契約を毎月満額払っていても
+ * 別財布の積立のせいで「5〜7月稼働分・残りは翌月以降」と書いてしまう (まさ指摘 2026-08-28)。
+ */
+function regularPoolAmounts(member: RewardMemberRow): { carryIn: number; grossDue: number; stock: number } {
+  // regular 値を持たない古い snapshot は、混在値から extra を引いて代用する
+  const pick = (regular: unknown, mixed: unknown, extra: unknown): number =>
+    regular != null ? yenValue(regular) : Math.max(0, yenValue(mixed) - yenValue(extra));
+  return {
+    carryIn: pick(
+      member.regularCarryInYen ?? member.regular_carry_in_yen,
+      member.carryInYen ?? member.carry_in_yen,
+      member.extraCarryInYen ?? member.extra_carry_in_yen
+    ),
+    grossDue: pick(
+      member.regularGrossDueYen ?? member.regular_gross_due_yen,
+      member.grossDueYen ?? member.gross_due_yen,
+      member.extraGrossDueYen ?? member.extra_gross_due_yen
+    ),
+    stock: pick(
+      member.regularStockYen ?? member.regular_stock_yen,
+      member.stockYen ?? member.stock_yen,
+      member.extraStockYen ?? member.extra_stock_yen
+    ),
+  };
+}
+
+/**
  * 繰越の鎖を遡って、この支払に含まれる稼働月の範囲を求める。
  *
- * `carryInYen` が 0 の月まで戻ったところが範囲の先頭。plan cycle をまたぐと繰越の鎖は
+ * 本契約 (regular) の繰越が 0 の月まで戻ったところが範囲の先頭。plan cycle をまたぐと繰越の鎖は
  * 切れるので、遡る範囲は同じ plan cycle 内に限る (manual/6-5 の割り戻しと同じ扱い)。
  */
 async function loadPayoutSourceSpans(
@@ -840,11 +875,7 @@ async function loadPayoutSourceSpans(
         (row) => textValue(row.memberId) === target.memberId || textValue(row.member_id) === target.memberId
       );
       if (!member) continue;
-      byYm.set(cycle.ym, {
-        carryIn: yenValue(member.carryInYen ?? member.carry_in_yen),
-        grossDue: yenValue(member.grossDueYen ?? member.gross_due_yen),
-        stock: yenValue(member.stockYen ?? member.stock_yen),
-      });
+      byYm.set(cycle.ym, regularPoolAmounts(member));
     }
 
     const current = byYm.get(target.sourceYm);
