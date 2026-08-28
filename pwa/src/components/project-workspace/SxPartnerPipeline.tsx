@@ -2215,7 +2215,10 @@ function HoldingRow({
 // (2026-08-07 まさ「カラムの順番もドラッグアンドドロップで手動で入れ替えられるように」)。
 // DOM は書いた順のままで、CSS の order プロパティだけを動かす。
 //
-// 幅は 1248px に詰め込まず、本文を「…」で切らずに読める既定幅を持つ
+// 列の既定幅は本文を「…」で切らずに読める幅を持つ。一覧に収まらない分は横スクロールで読む
+// (2026-08-28 まさ「別に横スクロールを許容してるんだから何も問題ないのでは？」。
+//  それまでは一覧幅1248px未満で1社ずつ縦に積む表示へ落ちていたが、
+//  左メニューのあるコックピットへ関係先を載せると常に縦積みになってしまう)
 // (2026-08-06 まさ「各カラムの情報は「…」で省略せずに表示して。カラムの幅はもっと太くしてもいいよ。
 // 基本、横スクロールは許容する前提で」)。合計幅がコンテナを超える分は一覧を横スクロールさせる。
 // 幅も順番も localStorage に残る (端末ごとの見え方の好みなので DB へは持たせない)。
@@ -2478,17 +2481,17 @@ function partnerLedgerGridStyle(
 }
 
 const PARTNER_CONTROL_INNER_GRID =
-  "@min-[1248px]:[grid-template-columns:var(--sx-pl-inner)]";
+  "@min-[480px]:[grid-template-columns:var(--sx-pl-inner)]";
 const PARTNER_CONTROL_ROW_GRID =
-  "@min-[1248px]:[grid-template-columns:var(--sx-pl-row)]";
+  "@min-[480px]:[grid-template-columns:var(--sx-pl-row)]";
 /** 横スクロール枠の中身は列幅の合計まで広げる。これで見出しと行の左端が揃う。 */
-const PARTNER_LEDGER_MIN_WIDTH = "@min-[1248px]:[min-width:var(--sx-pl-total)]";
+const PARTNER_LEDGER_MIN_WIDTH = "@min-[480px]:[min-width:var(--sx-pl-total)]";
 /** 先頭列 (評価) を横スクロールに対して固定する。 */
 const PARTNER_LEDGER_STICKY_LEFT =
-  "@min-[1248px]:sticky @min-[1248px]:left-0 @min-[1248px]:z-20";
+  "@min-[480px]:sticky @min-[480px]:left-0 @min-[480px]:z-20";
 /** 2列目 (関係先) は評価の右隣で止める。評価より内側なので z は一段下げる。 */
 const PARTNER_LEDGER_STICKY_NAME =
-  "@min-[1248px]:sticky @min-[1248px]:left-[var(--sx-pl-name-left)] @min-[1248px]:z-10";
+  "@min-[480px]:sticky @min-[480px]:left-[var(--sx-pl-name-left)] @min-[480px]:z-10";
 
 function PartnerLedgerHeaderCell({
   column,
@@ -2544,7 +2547,7 @@ function PartnerLedgerHeaderCell({
     sticky === "grade"
       ? `${PARTNER_LEDGER_STICKY_LEFT} bg-[#f5f5f7]`
       : sticky === "name"
-        ? `${PARTNER_LEDGER_STICKY_NAME} bg-[#f5f5f7] @min-[1248px]:pl-2`
+        ? `${PARTNER_LEDGER_STICKY_NAME} bg-[#f5f5f7] @min-[480px]:pl-2`
         : "";
 
   return (
@@ -4091,7 +4094,7 @@ function PartnerInlineRow({
               (2026-08-07 まさ)。横に 68px の別列で並べていたレールを名前の下へ入れ、
               1社の識別に必要なものだけがこの固定列に収まるようにした。 */}
           <div
-            className={`flex min-w-0 flex-col justify-center gap-0 self-stretch bg-[#ffffff] @min-[1248px]:pl-2 md:col-span-2 @min-[1248px]:col-span-1 ${PARTNER_LEDGER_STICKY_NAME}`}
+            className={`flex min-w-0 flex-col justify-center gap-0 self-stretch bg-[#ffffff] @min-[480px]:pl-2 md:col-span-2 @min-[480px]:col-span-1 ${PARTNER_LEDGER_STICKY_NAME}`}
             style={{ order: 0 }}
             data-partner-name-cell={partner.id}
           >
@@ -4141,9 +4144,9 @@ function PartnerInlineRow({
 
           <PartnerRowCell
             order={cellOrder("goal")}
-            className="md:col-span-2 @min-[1248px]:col-span-1"
+            className="md:col-span-2 @min-[480px]:col-span-1"
           >
-            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[1248px]:hidden">
+            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[480px]:hidden">
               ゴール
             </p>
             {canManage ? (
@@ -4190,7 +4193,7 @@ function PartnerInlineRow({
               食うだけだった。工程との接続は保有事項の詳細モーダル側に残っている。 */}
 
           <PartnerRowCell order={cellOrder("action")}>
-            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[1248px]:hidden">
+            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[480px]:hidden">
               次にやること
             </p>
             {canManage && target ? (
@@ -4319,7 +4322,7 @@ function PartnerInlineRow({
           </PartnerRowCell>
 
           <PartnerRowCell order={cellOrder("meeting")}>
-            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[1248px]:hidden">
+            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[480px]:hidden">
               次回面談
             </p>
             {canManage ? (
@@ -4462,7 +4465,7 @@ function PartnerInlineRow({
           </PartnerRowCell>
 
           <PartnerRowCell order={cellOrder("owner")}>
-            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[1248px]:hidden">
+            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[480px]:hidden">
               期限
             </p>
             {/* 担当名と当方/先方バッジは 2026-08-08 に削除 (まさ「シンプルに期限だけに」)。
@@ -4543,9 +4546,9 @@ function PartnerInlineRow({
 
           <PartnerRowCell
             order={cellOrder("effluent")}
-            className="md:col-span-2 @min-[1248px]:col-span-1"
+            className="md:col-span-2 @min-[480px]:col-span-1"
           >
-            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[1248px]:hidden">
+            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[480px]:hidden">
               排液
             </p>
             {canManage ? (
@@ -4736,9 +4739,9 @@ function PartnerInlineRow({
 
           <PartnerRowCell
             order={cellOrder("origin")}
-            className="md:col-span-2 @min-[1248px]:col-span-1"
+            className="md:col-span-2 @min-[480px]:col-span-1"
           >
-            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[1248px]:hidden">
+            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[480px]:hidden">
               接点の経緯
             </p>
             {canManage ? (
@@ -4774,9 +4777,9 @@ function PartnerInlineRow({
 
           <PartnerRowCell
             order={cellOrder("procurement")}
-            className="md:col-span-2 @min-[1248px]:col-span-1"
+            className="md:col-span-2 @min-[480px]:col-span-1"
           >
-            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[1248px]:hidden">
+            <p className="text-[10px] font-semibold text-[#3c3c43] @min-[480px]:hidden">
               排液調達
             </p>
             {procurementView}
@@ -5085,10 +5088,10 @@ export function SxPartnerPipeline({
       {/* 先頭行 (見出し) の固定。横スクロール枠の外に出し、scrollLeft だけ body から転記する。 */}
       <div
         ref={ledgerHeaderRef}
-        className={`${comparisonOnly ? "sticky top-0 z-30 shadow-[0_1px_0_#cbd5e1]" : ""} hidden overflow-hidden border-b border-[#d2d2d7] bg-[#f5f5f7] @min-[1248px]:block`}
+        className={`${comparisonOnly ? "sticky top-0 z-30 shadow-[0_1px_0_#cbd5e1]" : ""} hidden overflow-hidden border-b border-[#d2d2d7] bg-[#f5f5f7] @min-[480px]:block`}
       >
         <div
-          className={`grid gap-2 px-2 py-1 text-[10px] font-semibold text-[#3c3c43] @min-[1248px]:[grid-template-columns:var(--sx-pl-header)] ${PARTNER_LEDGER_MIN_WIDTH}`}
+          className={`grid gap-2 px-2 py-1 text-[10px] font-semibold text-[#3c3c43] @min-[480px]:[grid-template-columns:var(--sx-pl-header)] ${PARTNER_LEDGER_MIN_WIDTH}`}
         >
           {(
             [
@@ -5128,7 +5131,7 @@ export function SxPartnerPipeline({
           あるため、3つの表示先すべて（active groups + deferred + ended）を合算してから空判定する
           （groups.length === 0 だけを見ると「該当なし」を誤表示してしまう）。 */}
       <div
-        className="@min-[1248px]:overflow-x-auto @min-[1248px]:pb-72"
+        className="@min-[480px]:overflow-x-auto @min-[480px]:pb-72"
         onScroll={(event) =>
           syncLedgerHeaderScroll(event.currentTarget.scrollLeft)
         }
@@ -5154,7 +5157,7 @@ export function SxPartnerPipeline({
                   {/* spec P1: 分類見出しh4は11-12px+左罫線で本文行と視覚的に区切る。in_progress/established
                     は同じ複合ラベル("XX先")になるため、unclassified以外は状態を（）で必ず明示して見出し
                     だけでも区別できるようにする。 */}
-                  <h4 className="w-fit text-[11px] font-semibold text-[#059669] @min-[1248px]:sticky @min-[1248px]:left-3">
+                  <h4 className="w-fit text-[11px] font-semibold text-[#059669] @min-[480px]:sticky @min-[480px]:left-3">
                     {group.label}
                     {group.roleKind !== "unclassified" && (
                       <span className="text-[#3c3c43]">
@@ -5181,7 +5184,7 @@ export function SxPartnerPipeline({
               <summary
                 className={`flex min-h-11 cursor-pointer select-none items-center px-3 py-2 text-[10px] font-semibold text-[#3c3c43] ${FOCUS_RING}`}
               >
-                <span className="w-fit @min-[1248px]:sticky @min-[1248px]:left-3">
+                <span className="w-fit @min-[480px]:sticky @min-[480px]:left-3">
                   保留・低優先（重要経路外・{deferredPartners.length}件）
                 </span>
               </summary>
@@ -5204,7 +5207,7 @@ export function SxPartnerPipeline({
               <summary
                 className={`flex min-h-11 cursor-pointer select-none items-center px-3 py-2 text-[10px] font-semibold text-[#3c3c43] ${FOCUS_RING}`}
               >
-                <span className="w-fit @min-[1248px]:sticky @min-[1248px]:left-3">
+                <span className="w-fit @min-[480px]:sticky @min-[480px]:left-3">
                   終了（対応中から除外・{endedPartners.length}件）
                 </span>
               </summary>

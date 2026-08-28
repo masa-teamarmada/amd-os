@@ -320,7 +320,10 @@ export function GlobalNav({
     .filter((group) => group.items.length > 0);
 
   return (
-    <aside className="sticky top-0 z-50 flex h-screen w-[76px] shrink-0 flex-col border-r border-border/60 bg-background/95 px-2 py-3 shadow-[1px_0_0_rgba(0,0,0,0.02)] backdrop-blur lg:w-64 lg:px-4">
+    // 幅は「ラベルが省略されない最小」に置く (2026-08-28 まさ「左メニューは幅が大きすぎるので、最低限に狭めてほしい」)。
+    // 192px = 最長ラベル (AMD Protocol / Management) が truncate されない実測の下限。
+    // これ以上狭めると英字メニューから「…」で欠け始める。
+    <aside className="sticky top-0 z-50 flex h-screen w-[76px] shrink-0 flex-col border-r border-border/60 bg-background/95 px-2 py-3 shadow-[1px_0_0_rgba(0,0,0,0.02)] backdrop-blur lg:w-48 lg:px-3">
       <Link
         href="/dashboard"
         className="mb-2 flex h-10 shrink-0 items-center justify-center gap-3 rounded-md px-2 text-foreground transition-colors hover:bg-muted lg:justify-start"
