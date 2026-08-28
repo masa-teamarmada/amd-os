@@ -12,6 +12,7 @@
 | member API | `GET /api/monthly-work-agreement?ym=YYYYMM&memberId=IDxxx` |
 | agree API | `POST /api/monthly-work-agreement/agree` |
 | revision request API | `POST /api/monthly-work-agreement/request-revision` |
+| revision request 管理API | `GET/PATCH /api/admin/monthly-work-agreements/revision-requests` |
 | admin API | `GET /api/admin/monthly-work-agreements?ym=YYYYMM` |
 | app entry gate | 未合意 / 条件更新ありで表示対象PJがある場合、開いた画面を背景に残したまま月初合意モーダルを前面表示。ヘッダー右上の閉じるボタン (`data-testid="monthly-agreement-modal-close"`)、`Escape` キー、背景クリックのいずれでもその表示だけ一時的に閉じられるが、合意状態は保存されない。未合意のまま同じ entry を開き直すと再表示され、合意完了後だけ gate が解決済みになる。gate 判定は `(app)/layout.tsx` の SSR では計算せず (2026-07-17 v3.44.8 以前は SSR で `buildMonthlyWorkAgreementBundle` を毎 route 実行し全 authenticated route の初回表示をブロックしていた)、`AppShell` mount 後に既存の member API `GET /api/monthly-work-agreement` を client fetch して判定する。判定ロジック (`tableReady && projectCount>0 && status in (pending, needs_reagreement)`) 自体は不変。ユーザーから見える gate 発火条件・表示内容は変わらない |
 | DB | `member_monthly_work_agreements`, `member_monthly_work_agreement_requests`, `member_monthly_work_agreement_amount_change_reasons`, `member_monthly_work_agreement_payout_overrides` |
@@ -52,12 +53,16 @@
 
 gate は `/admin/payouts` の server action で実行する。UI の警告だけにはしない。
 
-- `POST /api/admin/payouts` (`支払データ同期`)
-- `PATCH /api/admin/payouts` の `issue_notice_pdf` / `preview_notice_pdf`
-- `PATCH /api/admin/payouts` の `bulk_issue_notice_pdf` / `bulk_preview_notice_pdf`
+- `POST /api/admin/payouts` (`支払データ同期`) は blocker 付き member の支払行だけ同期対象から外し、残りを保存する。既存の `payout_notices` 行も消さない
+- `PATCH /api/admin/payouts` の `issue_notice_pdf` / `preview_notice_pdf` は対象 member 自身が blocker のときだけ 409
+- `PATCH /api/admin/payouts` の `bulk_issue_notice_pdf` / `bulk_preview_notice_pdf` は blocker 付き member を対象から外し、`agreement_gate` の skip として返す。全員 blocker のときだけ 409
 - `PATCH /api/admin/payouts` の `send_notice_email`
 - `PATCH /api/admin/payouts` の `update_notice` のうち `markSent=true`
 - `POST/GET /api/cron/payout-notice-prebuild` は blocker 付き member を PDF 生成対象から外し、`agreement_gate` failure として返す
+
+**gate は member 単位で止める。1人の blocker で支払月全体を止めない** (2026-08-28 修正)。
+それ以前は `savePayoutDataSnapshot` が支払月の全対象をまとめて判定して 409 を返していたため、
+上の member 単位の除外がどれも発火せず、無関係なPJのメンバーの支払通知書も cron prebuild も丸ごと止まっていた。
 
 admin override は `agreementOverrideReason` が 8 文字以上かつ actor email がある場合だけ有効。override は `member_monthly_work_agreement_payout_overrides` に append-only で保存し、対象 action、理由、actor、支払月、稼働月、member、project、blocker status、snapshot hash / current hash、request id を残す。override は報酬計算や合意 row を変更しない。
 
@@ -220,6 +225,10 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 - member / PJ / status で検索できる。
 - 各行は `予定報酬` だけでなく `今月支払` と `未払い残` を分けて表示し、stock が今月支払対象ではないことを admin 一覧でも判別できるようにする。`今月支払` は支払条件から見た現金支払月で集計し、`invoice_ym` は請求書発行月として扱う。
 - 各行に open 修正要望数と最新要望時刻を表示する。
+- 各行の下に修正要望の**本文**を出し、`対応済みにする` / `対応しない` / `未対応に戻す` で `status` を動かせる。対応メモは `resolution_note` に保存する (管理者だけが読む)。
+  open の要望はその稼働月の支払 gate の blocker なので、閉じる手段がないと支払通知書を出せないまま復旧できなくなる。
+  件数だけ表示して本文も解決経路も無かった 2026-08-28 以前の状態へ戻さない。
+  ステータスを閉じても snapshot と金額は動かない。条件そのものを直すときは先にPJ側の金額・役割を直す (hash が変わり本人へ再合意が出る)。
 - `条件更新あり` の行で予定額が変わったPJには、管理側がメンバー向け変更理由を入力・更新する欄を表示する。現在snapshotに紐付く理由だけを保存し、未入力ならメンバー側の再合意を止める。
 - 各行から `/monthly-agreement?memberId=...&ym=...` と `/mypage?memberId=...` へ遷移できる。
 
@@ -233,7 +242,7 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 | admin が他人の合意保存を試す | 403 |
 | 本人以外が修正要望を送る | 403 |
 | snapshot hash changed | `needs_reagreement` |
-| payout gate blockerあり | `/api/admin/payouts` は 409 で stop。cron prebuild は該当 member を `agreement_gate` failure として skip |
+| payout gate blockerあり | blocker の member だけ止める。個別発行はその member のとき 409、一括発行と cron prebuild は該当 member を `agreement_gate` として skip し残りを生成、支払データ同期は該当 member の行を書かずに残りを保存 |
 | admin override 監査テーブル未適用 | override できない。通常 blocker は引き続き stop |
 
 ## Validation

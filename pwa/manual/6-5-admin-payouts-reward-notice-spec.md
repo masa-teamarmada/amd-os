@@ -128,12 +128,21 @@ admin一覧では合意用の予定報酬とは別に、`reward_summary_json.mem
 
 | state | UI表示 | server behavior |
 |---|---|---|
-| 未合意 | `pending` | 支払データ同期 / PDF生成 / 送付 / 送付済み確定を 409 stop |
+| 未合意 | `pending` | そのメンバーの支払データ同期 / PDF生成 / 送付 / 送付済み確定を止める |
 | 移行月合意済扱い | `agreed` | `source_ym <= 202606` は導入前/移行月として allow |
 | 条件更新あり | `stale` | latest agreed snapshot hash と current hash が違うため stop |
 | 修正要望中 | `revision_requested` | open request が member全体または当該PJにあるため stop |
 | 対象外 | `not_required` | frozen/lost/active期間外PJ、支払額0、非adminの通知対象外は gate 外 |
 | admin override | `admin_override` | 理由つきで例外実行し、監査ログを保存 |
+
+**gate は blocker のいるメンバーだけを止める。1人の未合意でその支払月を全部止めない。**
+支払 gate が守るのは「支払が発生する `member × 稼働月 × PJ`」なので、合意が済んでいる他メンバーの支払通知書は通常どおり発行できる。
+個別発行は対象メンバー自身が blocker のときだけ 409 で止まり、一括発行と `payout-notice-prebuild` cron は blocker のメンバーを対象から外して残りを生成する。
+支払データ同期 (`savePayoutDataSnapshot`) も blocker のメンバーの `monthly_reward_payout` / `payout_notices` を書き換えず、既存行も消さずに残す。
+
+2026-08-28 以前は同期側が支払月の全対象をまとめて判定し、1件でも blocker があると 409 を返していた。
+そのため ZMP の4人が2026年7月分を未合意/再合意待ちにしていた間、無関係な SX のメンバーの支払通知書も発行できず、夜間 cron も毎晩空振りしていた。
+1人の合意漏れでその月の支払業務全体が止まる作りにしない。
 
 admin override は 8 文字以上の理由が必要。server は `member_monthly_work_agreement_payout_overrides` に、action、理由、actor email、支払月、稼働月、member、PJ、blocker status、snapshot hash/current hash、request id を append-only で残す。
 
