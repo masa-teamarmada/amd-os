@@ -235,10 +235,29 @@ export default function AdminMonthlyWorkAgreementsPage() {
           )}
 
           <section className="grid gap-3 md:grid-cols-4 xl:grid-cols-7">
-            <SummaryCard label="対象メンバー" value={`${data.totals.members}`} />
-            <SummaryCard label="合意済み" value={`${data.totals.agreed}`} tone="good" />
-            <SummaryCard label="未合意" value={`${data.totals.pending}`} tone={data.totals.pending > 0 ? "warn" : "plain"} />
-            <SummaryCard label="条件更新あり" value={`${data.totals.needsReagreement}`} tone={data.totals.needsReagreement > 0 ? "warn" : "plain"} />
+            <SummaryCard
+              label="対象メンバー"
+              value={`${data.totals.members}`}
+              note={`合意の単位は ${data.totals.projectAgreements} 件 (メンバー×PJ)`}
+            />
+            <SummaryCard
+              label="合意済み"
+              value={`${data.totals.projectAgreed}`}
+              tone="good"
+              note={`全PJ合意のメンバー ${data.totals.agreed}人`}
+            />
+            <SummaryCard
+              label="未合意"
+              value={`${data.totals.projectPending}`}
+              tone={data.totals.projectPending > 0 ? "warn" : "plain"}
+              note={`メンバー×PJ / 該当メンバー ${data.totals.pending}人`}
+            />
+            <SummaryCard
+              label="条件更新あり"
+              value={`${data.totals.projectNeedsReagreement}`}
+              tone={data.totals.projectNeedsReagreement > 0 ? "warn" : "plain"}
+              note={`メンバー×PJ / 該当メンバー ${data.totals.needsReagreement}人`}
+            />
             <SummaryCard label="修正要望" value={`${data.totals.revisionRequests}`} tone={data.totals.revisionRequests > 0 ? "warn" : "plain"} />
             <SummaryCard label="合意額 (次に払う額)" value={formatYen(data.totals.expectedRewardYen)} tone={data.totals.expectedRewardYen > 0 ? "good" : "plain"} />
             <SummaryCard label="今月の支払通知書" value={formatYen(data.totals.payoutYen)} tone={data.totals.payoutYen > 0 ? "good" : "plain"} />
@@ -307,7 +326,24 @@ export default function AdminMonthlyWorkAgreementsPage() {
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate text-[12px] text-foreground">{row.projectNames.join(" / ") || "参加PJなし"}</p>
+                      {row.projects.length === 0 ? (
+                        <p className="truncate text-[12px] text-foreground">参加PJなし</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {row.projects.map((project) => (
+                            <span
+                              key={project.projectId}
+                              title={`${project.projectName}: ${statusLabel(project.status)}${
+                                project.fromLegacyMemberAgreement ? " (PJ単位化前の一括合意)" : ""
+                              } / ${formatYen(project.expectedRewardYen ?? 0)} / 配分${project.allocationMemberCount}人`}
+                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClass(project.status)}`}
+                            >
+                              {project.projectName}
+                              <span className="font-normal">{statusLabel(project.status)}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       <p className={`mt-0.5 text-[11px] ${row.reviewRequiredCount > 0 ? "text-amber-700" : "text-muted-foreground"}`}>
                         確認事項 {row.reviewRequiredCount} / 修正要望 {row.revisionRequestCount} / hash {row.currentHash.slice(0, 10)}
                       </p>
@@ -371,12 +407,23 @@ export default function AdminMonthlyWorkAgreementsPage() {
   );
 }
 
-function SummaryCard({ label, value, tone = "plain" }: { label: string; value: string; tone?: "plain" | "good" | "warn" }) {
+function SummaryCard({
+  label,
+  value,
+  tone = "plain",
+  note,
+}: {
+  label: string;
+  value: string;
+  tone?: "plain" | "good" | "warn";
+  note?: string;
+}) {
   const valueClass = tone === "good" ? "text-emerald-700" : tone === "warn" ? "text-amber-700" : "text-foreground";
   return (
     <div className="rounded-md border border-border bg-background p-3">
       <p className="text-[11px] font-semibold text-muted-foreground">{label}</p>
       <p className={`mt-2 text-2xl font-semibold tabular-nums ${valueClass}`}>{value}</p>
+      {note && <p className="mt-1 text-[11px] text-muted-foreground">{note}</p>}
     </div>
   );
 }

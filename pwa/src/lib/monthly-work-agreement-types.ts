@@ -89,6 +89,48 @@ export interface ExpectedRewardChangeExplanation {
   explained: boolean;
 }
 
+/**
+ * PJ内の1人分の当月配分。同じPJの全員分を並べて本人に見せる。
+ *
+ * 自分の額が妥当かどうかは、同じ原資を分け合う他の人の額を見ないと判断できない
+ * (まさ確定 2026-08-28「自分の金額が正当かどうかって、他のメンバーにいくら支払われてるかも
+ * 見ないと判断ができない」「増額の要望を抑えるためにも、そのPJの全員分が見えてるのがいい」)。
+ *
+ * 支払通知対象外のメンバーも隠さず出す。隠すと残りの配分先が見えなくなり、
+ * 合計と内訳が合わない表になって透明化の意味を失う。
+ */
+export interface MonthlyWorkAgreementProjectAllocation {
+  memberId: string;
+  codeName: string;
+  roleLabel: string | null;
+  isPm: boolean;
+  isPl: boolean;
+  /** 表示している本人の行か */
+  isSelf: boolean;
+  /** 現金では支払わず、会社の内部配賦として扱うメンバー */
+  payoutExcluded: boolean;
+  /** 今月このPJで消化したpt */
+  earnedPt: number | null;
+  /** PJ全体の当月消化ptに対する取り分 (0-1)。誰かを上げれば誰かが下がる関係を示す */
+  ptShare: number | null;
+  /** 今月の担当分から発生する額 (支払枠を通す前) */
+  accrualYen: number | null;
+  /** この稼働月として実際に払う額 */
+  payYen: number | null;
+  /** 今月末時点の未払い残 */
+  stockYen: number | null;
+  /** この人が今月担当している仕事 */
+  taskSummaries: string[];
+}
+
+/** PJ配分表の合計。各人の額が全体のどれだけかを読むために出す */
+export interface MonthlyWorkAgreementProjectAllocationTotals {
+  memberCount: number;
+  earnedPt: number;
+  accrualYen: number;
+  payYen: number;
+}
+
 export interface MonthlyWorkAgreementProject {
   projectId: string;
   projectName: string;
@@ -115,6 +157,39 @@ export interface MonthlyWorkAgreementProject {
   milestones: MonthlyWorkAgreementMilestone[];
   payoutSchedule: MonthlyWorkAgreementPayoutScheduleEntry[];
   routineExpectations: string[];
+  /** このPJの当月配分。本人を含む全メンバー分 */
+  memberAllocations: MonthlyWorkAgreementProjectAllocation[];
+  /** 配分表の合計 */
+  allocationTotals: MonthlyWorkAgreementProjectAllocationTotals;
+}
+
+/**
+ * PJ単位の合意状態。
+ *
+ * 2026-08-28 まで合意は member × 月 の1件で、全PJをまとめて1回押す形だった。
+ * PJごとに分けたのは、そのPJの配分表を見た上でそのPJだけに合意するため。
+ *
+ * snapshot 側ではなく bundle 側に置く。snapshot に入れると、合意した事実が snapshot hash を
+ * 変えてしまい、合意した直後に「条件更新あり」へ落ちる。
+ */
+export interface MonthlyWorkAgreementProjectAgreement {
+  projectId: string;
+  projectName: string;
+  status: MonthlyAgreementStatus;
+  agreedAt: string | null;
+  agreedBy: string | null;
+  /** 合意時に本人が見ていた、このPJ分の hash */
+  agreedSnapshotHash: string | null;
+  /** 現在のこのPJ分の hash */
+  currentHash: string;
+  /** project_id を持たない旧レコード (member全体の合意) で成立している */
+  fromLegacyMemberAgreement: boolean;
+  /** 本人がこのPJに合意できるか */
+  canAgree: boolean;
+  /** 合意できないときの理由 */
+  blockedReason: string | null;
+  /** 前回合意からの変更点。needs_reagreement のときだけ入る */
+  changeSummary: MonthlyAgreementSnapshotDiff | null;
 }
 
 export interface MonthlyWorkAgreementSnapshot {
@@ -139,6 +214,8 @@ export interface MonthlyWorkAgreementRecord {
   id: string;
   ym: string;
   memberId: string;
+  /** 合意したPJ。null は project_id 導入前の、member 全体をまとめた合意 */
+  projectId: string | null;
   status: string;
   agreedAt: string | null;
   agreedBy: string | null;
@@ -174,7 +251,10 @@ export interface MonthlyWorkAgreementBundle {
   member: MonthlyWorkAgreementMember;
   snapshot: MonthlyWorkAgreementSnapshot;
   currentHash: string;
+  /** 全PJを集約した状態。1つでも未合意なら pending、1つでも条件更新ありなら needs_reagreement */
   status: MonthlyAgreementStatus;
+  /** PJごとの合意状態。合意はここを単位に成立する */
+  projectAgreements: MonthlyWorkAgreementProjectAgreement[];
   latestAgreement: MonthlyWorkAgreementRecord | null;
   revisionRequests: MonthlyWorkAgreementRevisionRequest[];
   tableReady: boolean;
@@ -205,9 +285,24 @@ export interface MonthlyAgreementAmountChangeReasonRequirement {
   autoExplanationDetails: string[];
 }
 
+/** member × PJ の合意状態。合意はPJごとに成立するので、管理側もPJ単位で未合意を追う */
+export interface AdminMonthlyWorkAgreementProjectRow {
+  projectId: string;
+  projectName: string;
+  status: MonthlyAgreementStatus;
+  agreedAt: string | null;
+  /** project_id を持たない旧レコードで成立している合意 */
+  fromLegacyMemberAgreement: boolean;
+  expectedRewardYen: number | null;
+  /** そのPJで当月配分を受けている人数 */
+  allocationMemberCount: number;
+}
+
 export interface AdminMonthlyWorkAgreementRow {
   member: MonthlyWorkAgreementMember;
   status: MonthlyAgreementStatus;
+  /** PJごとの合意状態 */
+  projects: AdminMonthlyWorkAgreementProjectRow[];
   currentHash: string;
   latestAgreement: MonthlyWorkAgreementRecord | null;
   revisionRequestCount: number;
@@ -242,6 +337,11 @@ export interface AdminMonthlyWorkAgreementResponse {
     agreed: number;
     pending: number;
     needsReagreement: number;
+    /** member×PJ 単位の件数。合意はPJごとに成立するので、こちらが実際の残件数 */
+    projectAgreements: number;
+    projectAgreed: number;
+    projectPending: number;
+    projectNeedsReagreement: number;
     reviewRequired: number;
     revisionRequests: number;
     expectedRewardYen: number;

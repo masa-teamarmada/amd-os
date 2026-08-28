@@ -81,6 +81,8 @@ interface MonthlyAgreementMiniBundle {
   tableReady: boolean;
   currentHash: string;
   latestAgreement: { agreedAt: string | null; snapshotHash: string } | null;
+  /** 合意はPJごとに成立する。残件はここで数える */
+  projectAgreements?: { projectId: string; projectName: string; status: string }[];
   exclusionReason?: string | null;
   snapshot: {
     totals: {
@@ -905,6 +907,11 @@ function MonthlyAgreementCard({ memberId }: { memberId: string }) {
           ? "bg-zinc-50 text-zinc-600 border-zinc-200"
           : "bg-sky-50 text-sky-800 border-sky-200";
   const isNotRequired = bundle.status === "not_required";
+  const projectAgreements = bundle.projectAgreements ?? [];
+  const agreedProjectCount = projectAgreements.filter((item) => item.status === "agreed").length;
+  const openProjectNames = projectAgreements
+    .filter((item) => item.status !== "agreed")
+    .map((item) => item.projectName);
   return (
     <section className="bg-white rounded-2xl border border-[#e5e5e7] p-4 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -920,8 +927,16 @@ function MonthlyAgreementCard({ memberId }: { memberId: string }) {
                 : `${formatYm(bundle.ym)} / 月初合意は不要`
               : `${formatYm(bundle.ym)} / ${bundle.snapshot.totals.projectCount} PJ / 予定 ${formatYen(bundle.snapshot.totals.expectedRewardYen)}`}
           </p>
+          {!isNotRequired && projectAgreements.length > 0 && (
+            <p className="mt-1 text-[12px] text-[#3c3c43]">
+              合意はPJごと / 合意済み {agreedProjectCount} / {projectAgreements.length}
+              {openProjectNames.length > 0 && ` / 残り ${openProjectNames.join("・")}`}
+            </p>
+          )}
           {bundle.status === "needs_reagreement" && (
-            <p className="mt-1 text-[11px] text-amber-700">前回合意後に snapshot hash が変わっています。</p>
+            <p className="mt-1 text-[11px] text-amber-700">
+              合意した後に、担当内容か受け取る額が変わったPJがあります。
+            </p>
           )}
           {isNotRequired && (
             <p className="mt-1 text-[11px] text-zinc-500">{bundle.exclusionReason || "支払通知対象外メンバーのため、月初合意は不要です。"}</p>

@@ -267,12 +267,14 @@ export async function buildPayoutAgreementGateSummary(
     }
 
     const snapshotProject = bundle.snapshot.projects.find((item) => item.projectId === entry.project_id);
+    // 合意はPJごとに成立する。他のPJが未合意でも、このPJが合意済みなら支払いは進める
+    const projectAgreement = bundle.projectAgreements.find((item) => item.projectId === entry.project_id) ?? null;
     const request = openRevisionRequest(bundle, entry.project_id);
     const agreementBase = {
       ...base,
-      latestAgreedAt: bundle.latestAgreement?.agreedAt ?? null,
-      snapshotHash: bundle.latestAgreement?.snapshotHash ?? null,
-      currentHash: bundle.currentHash,
+      latestAgreedAt: projectAgreement?.agreedAt ?? bundle.latestAgreement?.agreedAt ?? null,
+      snapshotHash: projectAgreement?.agreedSnapshotHash ?? bundle.latestAgreement?.snapshotHash ?? null,
+      currentHash: projectAgreement?.currentHash ?? bundle.currentHash,
       requestId: request?.id ?? null,
       requestCreatedAt: request?.createdAt ?? null,
     };
@@ -307,22 +309,22 @@ export async function buildPayoutAgreementGateSummary(
       continue;
     }
 
-    if (bundle.status === "pending") {
+    if (!projectAgreement || projectAgreement.status === "pending") {
       rows.push({
         ...agreementBase,
         required: true,
         status: "pending",
-        reason: "本人の月初合意が未完了",
+        reason: "このPJの月初合意が未完了",
       });
       continue;
     }
 
-    if (bundle.status === "needs_reagreement") {
+    if (projectAgreement.status === "needs_reagreement") {
       rows.push({
         ...agreementBase,
         required: true,
         status: "stale",
-        reason: "合意後に月初条件 snapshot hash が更新された",
+        reason: "合意後にこのPJの担当内容か受け取る額が変わった",
       });
       continue;
     }

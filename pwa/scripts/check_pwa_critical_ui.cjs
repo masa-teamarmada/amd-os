@@ -2885,13 +2885,18 @@ expectIncludes(
     "この月は対象外",
     "合意状態：",
     "確認して合意する内容",
+    "合意はプロジェクトごとです。",
     "担当する仕事",
-    "その対価としての予定額",
-    "予定額合計",
-    "上の「担当する仕事」と「その対価としての予定額」を確認したうえで合意してください。未合意または条件更新ありの場合は、合意が完了するまでこの月の支払いには進めません。",
+    "その対価としてあなたが受け取る額",
+    "今月受け取る額の合計",
+    "このプロジェクトの今月の配分",
+    "誰かの取り分を増やすと他の人の取り分が減ります",
+    "今月発生する額",
+    "現金支払なし",
+    "上の3点を確認したうえで、このプロジェクトの内容に合意してください。合意が終わるまで、このプロジェクトの今月分の支払いには進めません。",
     "確認して合意",
     "修正要望",
-    "内容が違う場合は修正要望",
+    "このPJの内容が違う",
     "参考情報",
     "PJごとの支払い状況",
     "monthly-agreement-status",
@@ -2904,13 +2909,17 @@ expectIncludes(
     "monthly-agreement-auto-change-explanation",
     "今回の変更点",
     "monthly-agreement-required-checks",
-    "monthly-agreement-scope-section",
-    "monthly-agreement-reward-section",
+    "monthly-agreement-project-block",
+    "monthly-agreement-project-status",
+    "monthly-agreement-allocation-table",
+    "monthly-agreement-agreed-project-count",
     "monthly-agreement-section-number-01",
     "monthly-agreement-section-number-02",
+    "monthly-agreement-section-number-03",
     "monthly-agreement-check-scope",
     "monthly-agreement-check-reward",
     "monthly-agreement-agree-button",
+    "monthly-agreement-project-revision-button",
     "monthly-agreement-revision-button",
     "monthly-agreement-revision-panel",
     "monthly-agreement-payment-details",
@@ -2953,10 +2962,16 @@ expectNotIncludes(
 expectPattern(
   "src/components/monthly-agreement/MonthlyAgreementExperience.tsx",
   [
-    /onClick=\{handleAgree\}[\s\S]{0,3500}内容が違う場合は修正要望/,
-    /data-testid="monthly-agreement-status"[\s\S]{0,2000}<RequiredChecksSection[\s\S]{0,2000}data-testid="monthly-agreement-agree-button"[\s\S]{0,9000}参考情報/,
-    /data-testid="monthly-agreement-status"[\s\S]{0,1500}<ChangeSummarySection[\s\S]{0,1500}<RequiredChecksSection/,
-    /data-testid="monthly-agreement-required-checks"[\s\S]{0,2000}data-testid="monthly-agreement-scope-section"[\s\S]{0,3000}data-testid="monthly-agreement-reward-section"/,
+    // 合意ボタンの隣にPJ単位の修正要望を置く
+    /onClick=\{\(\) => onAgree\(project\.projectId\)\}[\s\S]{0,3500}このPJの内容が違う/,
+    // 状態 → PJ単位の必須確認 → 参考情報 の順
+    /data-testid="monthly-agreement-status"[\s\S]{0,3000}<RequiredChecksSection[\s\S]{0,12000}参考情報/,
+    // PJブロックの中は 担当する仕事(01) → 受け取る額(02) → PJ全員の配分(03) の順
+    /data-testid="monthly-agreement-project-block"[\s\S]{0,3000}<SectionNumberBadge number="01"[\s\S]{0,3000}<SectionNumberBadge number="02"[\s\S]{0,3000}<SectionNumberBadge number="03"[\s\S]{0,1500}<ProjectAllocationTable[\s\S]{0,4000}data-testid="monthly-agreement-agree-button"/,
+    // 変更点はそのPJの合意ボタンより前に出す
+    /<ChangeSummarySection[\s\S]{0,4000}data-testid="monthly-agreement-agree-button"/,
+    // 必須確認はPJ単位のブロックで構成する
+    /data-testid="monthly-agreement-required-checks"[\s\S]{0,4000}<ProjectAgreementBlock/,
   ],
 );
 expectIncludes(
@@ -3450,10 +3465,14 @@ expectIncludes("src/lib/monthly-work-agreement-diff.ts", [
   "export function diffMonthlyAgreementTerms(",
   "export function agreedPayYen(",
 ]);
+// 合意はPJごとに成立させ、判定は「担当する仕事」と「受け取る額」の terms hash で行う。
+// snapshot 全体の hash で見ると、請求ステータスなど内部の状態が動くたび再合意が立つ。
 expectIncludes("src/lib/monthly-work-agreement.ts", [
   "hashMonthlyAgreementTerms",
-  "const agreedTermsUnchanged =",
-  "diffMonthlyAgreementTerms(latestAgreement?.snapshotJson, snapshot)",
+  "export function projectScopedSnapshot(",
+  "const previousTermsHash = previousScoped ? hashMonthlyAgreementTerms(previousScoped) : null;",
+  "diffMonthlyAgreementTerms(previousScoped, scoped)",
+  "buildProjectAllocations",
 ]);
 // 支払通知書の対象外メンバーに「翌月以降お支払いします」と書かない。
 // 会社の内部配賦であって外部への未払い債務ではない (manual/7-1)。
@@ -3473,8 +3492,8 @@ expectIncludes("src/lib/monthly-work-agreement-diff.ts", [
   "isExpectedRewardDefinitionMigration",
 ]);
 expectIncludes("src/lib/monthly-work-agreement.ts", [
-  "const autoExplainedProjectIds = new Set(",
-  "!reasonProjectIds.has(projectId) && !autoExplainedProjectIds.has(projectId)",
+  "const reasonMissing =",
+  "!reasonProjectIds.has(project.projectId) && !explanation?.explained",
 ]);
 // 通知書番号は一括生成の前にまとめて予約する。各生成が既存件数+1を個別に読むと、
 // 並列実行で同じ番号の通知書が複数できる (2026-08-28 まで実際に重複していた)。

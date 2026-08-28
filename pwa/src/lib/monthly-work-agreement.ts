@@ -11,7 +11,9 @@ import {
   memberPayoutYmForCycle,
 } from "@/lib/payment-groups";
 import type {
+  ExpectedRewardChangeExplanation,
   MonthlyAgreementAmountChangeReason,
+  MonthlyAgreementSnapshotDiff,
   MonthlyAgreementStatus,
   MonthlyWorkAgreementRevisionRequest,
   MonthlyWorkAgreementBundle,
@@ -19,6 +21,8 @@ import type {
   MonthlyWorkAgreementMilestone,
   MonthlyWorkAgreementPayoutScheduleEntry,
   MonthlyWorkAgreementProject,
+  MonthlyWorkAgreementProjectAgreement,
+  MonthlyWorkAgreementProjectAllocation,
   MonthlyWorkAgreementRecord,
   MonthlyWorkAgreementSnapshot,
 } from "@/lib/monthly-work-agreement-types";
@@ -443,11 +447,193 @@ function normalizeActiveShares(rows: JsonRecord[], activeMemberIds: Set<string>)
   return shares;
 }
 
+function snapshotTotals(projects: MonthlyWorkAgreementProject[]): MonthlyWorkAgreementSnapshot["totals"] {
+  const scheduleSum = (
+    filter: (entry: MonthlyWorkAgreementPayoutScheduleEntry) => boolean,
+  ) =>
+    projects.reduce(
+      (sum, project) =>
+        sum +
+        project.payoutSchedule
+          .filter(filter)
+          .reduce((projectSum, entry) => projectSum + entry.totalPayTaxIncludedYen, 0),
+      0,
+    );
+  return {
+    expectedRewardYen: projects.reduce((sum, project) => sum + (project.expectedRewardYen ?? 0), 0),
+    currentMonthAccrualYen: projects.reduce((sum, project) => sum + (project.currentMonthAccrualYen ?? 0), 0),
+    carryInYen: projects.reduce((sum, project) => sum + (project.carryInYen ?? 0), 0),
+    stockYen: projects.reduce((sum, project) => sum + (project.stockYen ?? 0), 0),
+    paidActualYen: scheduleSum((entry) => entry.isActualPaid),
+    unverifiedPaidYen: scheduleSum((entry) => entry.amountSource === "unverified_paid"),
+    futurePayoutYen: scheduleSum((entry) => !entry.isActualPaid && entry.amountSource !== "unverified_paid"),
+    projectCount: projects.length,
+    reviewRequiredCount: projects.filter((project) => project.conditionState === "review_required").length,
+  };
+}
+
+/**
+ * snapshot から1つのPJだけを抜き出した部分snapshot。PJ単位の合意で保存し、hash する。
+ *
+ * 形は snapshot と同じにしてあるので、既存の terms / diff / 説明生成の関数がそのまま通る。
+ */
+export function projectScopedSnapshot(
+  snapshot: MonthlyWorkAgreementSnapshot,
+  projectId: string,
+): MonthlyWorkAgreementSnapshot | null {
+  const project = snapshot.projects.find((item) => item.projectId === projectId);
+  if (!project) return null;
+  return {
+    schemaVersion: snapshot.schemaVersion,
+    ym: snapshot.ym,
+    member: snapshot.member,
+    projects: [project],
+    totals: snapshotTotals([project]),
+  };
+}
+
+/** PJごとの変更点を1つにまとめる。PJ単位の合意になっても、画面全体の件数表示は保つ */
+function mergeChangeSummaries(
+  items: (MonthlyAgreementSnapshotDiff | null)[],
+): MonthlyAgreementSnapshotDiff | null {
+  const present = items.filter((item): item is MonthlyAgreementSnapshotDiff => item != null);
+  if (present.length === 0) return null;
+  const notes = Array.from(new Set(present.map((item) => item.note).filter((note): note is string => Boolean(note))));
+  return {
+    comparable: present.some((item) => item.comparable),
+    count: present.reduce((sum, item) => sum + item.count, 0),
+    groups: present.flatMap((item) => item.groups),
+    note: notes.length > 0 ? notes.join(" / ") : null,
+  };
+}
+
+function rewardSummaryMemberIds(cycle: JsonRecord | undefined): string[] {
+  const summary = asRecord(cycle?.reward_summary_json);
+  return recordArray(summary?.members)
+    .map((member) => String(member.memberId ?? member.member_id ?? ""))
+    .filter(Boolean);
+}
+
+/**
+ * そのPJの当月配分を、本人を含む全メンバー分そろえる。
+ *
+ * 額の主ソースは支払通知書と同じ `reward_summary_json.members[]`。
+ * 保存済み明細 (`monthly_reward_payout`) があればそれを優先し、どちらも無いPJだけ
+ * 月初合意側のMS計算 (当月予算 × 消化pt × 正規化share) で埋める。
+ */
+function buildProjectAllocations(args: {
+  projectId: string;
+  selfMemberId: string;
+  activeProjectMemberIds: Set<string>;
+  planMilestones: JsonRecord[];
+  responsibilitiesByMs: Map<string, JsonRecord[]>;
+  monthlyConsumedByMs: Map<string, { consumedPt: number }>;
+  normalizedSharesByMs: Map<string, Map<string, number>>;
+  agreementBudgetYen: number | null;
+  cycle: JsonRecord | undefined;
+  memberById: Map<string, JsonRecord>;
+  payoutByKey: Map<string, MonthlyRewardPayoutSnapshotRow>;
+  membershipByKey: Map<string, JsonRecord>;
+}): MonthlyWorkAgreementProjectAllocation[] {
+  const earnedPtByMember = new Map<string, number>();
+  const tasksByMember = new Map<string, string[]>();
+  for (const ms of args.planMilestones) {
+    const milestoneId = ms.milestone_id as string;
+    const consumedPt = args.monthlyConsumedByMs.get(milestoneId)?.consumedPt ?? 0;
+    const shares = args.normalizedSharesByMs.get(milestoneId);
+    if (!shares) continue;
+    for (const [memberId, share] of shares.entries()) {
+      if (share <= 0) continue;
+      earnedPtByMember.set(
+        memberId,
+        Math.round(((earnedPtByMember.get(memberId) ?? 0) + consumedPt * share) * 100) / 100,
+      );
+      const respRows = (args.responsibilitiesByMs.get(milestoneId) ?? []).filter((row) => row.member_id === memberId);
+      const label =
+        respRows.map((row) => String(row.task_description ?? "").trim()).filter(Boolean).join(" / ") ||
+        String(ms.title ?? milestoneId);
+      const list = tasksByMember.get(memberId) ?? [];
+      if (!list.includes(label)) list.push(label);
+      tasksByMember.set(memberId, list);
+    }
+  }
+  const msProjectEarnedPt = Array.from(earnedPtByMember.values()).reduce((sum, value) => sum + value, 0);
+  const hasRewardSummary = rewardSummaryReady(args.cycle);
+
+  const memberIds = new Set<string>(args.activeProjectMemberIds);
+  for (const memberId of rewardSummaryMemberIds(args.cycle)) memberIds.add(memberId);
+  for (const memberId of earnedPtByMember.keys()) memberIds.add(memberId);
+
+  const rows = Array.from(memberIds).map((memberId): MonthlyWorkAgreementProjectAllocation => {
+    const rewardMember = rewardSummaryMember(args.cycle, memberId);
+    const payoutRow = (args.payoutByKey.get(`${args.projectId}:${memberId}`) ?? null) as JsonRecord | null;
+    const membership = args.membershipByKey.get(`${args.projectId}:${memberId}`);
+    const memberRow = args.memberById.get(memberId);
+    const msEarnedPt = earnedPtByMember.get(memberId) ?? 0;
+    const earnedPt =
+      toNumber(payoutRow?.earned_pt) ??
+      toNumber(rewardMember?.earnedPt ?? rewardMember?.earned_pt) ??
+      (msEarnedPt > 0 ? msEarnedPt : null);
+    const msAccrualYen =
+      args.agreementBudgetYen == null || msProjectEarnedPt <= 0
+        ? null
+        : Math.round((args.agreementBudgetYen * msEarnedPt) / msProjectEarnedPt);
+    const accrualYen =
+      yenFromRecord(payoutRow, ["base_pay"]) ??
+      splitBasePayFromRecord(rewardMember) ??
+      yenFromRecord(rewardMember, ["basePay", "base_pay"]) ??
+      msAccrualYen;
+    const payYen =
+      yenFromRecord(payoutRow, ["total_pay"]) ??
+      yenFromRecord(rewardMember, ["totalPay", "total_pay"]) ??
+      (hasRewardSummary ? 0 : null);
+    const stockYen =
+      yenFromRecord(rewardMember, ["stockYen", "stock_yen", "deferredYen", "deferred_yen"]) ??
+      (hasRewardSummary ? 0 : null);
+    return {
+      memberId,
+      codeName:
+        String(memberRow?.code_name ?? "").trim() ||
+        String(rewardMember?.memberName ?? "").trim() ||
+        memberId,
+      roleLabel: String(membership?.role_label ?? membership?.role ?? "").trim() || null,
+      isPm: membership?.is_pm === true,
+      isPl: membership?.is_pl === true,
+      isSelf: memberId === args.selfMemberId,
+      payoutExcluded:
+        memberRow?.exclude_from_payout_notice === true || rewardMember?.payoutExcluded === true,
+      earnedPt,
+      ptShare: null,
+      accrualYen,
+      payYen,
+      stockYen,
+      taskSummaries: tasksByMember.get(memberId) ?? [],
+    };
+  });
+
+  const totalEarnedPt = rows.reduce((sum, row) => sum + (row.earnedPt ?? 0), 0);
+  for (const row of rows) {
+    row.ptShare = totalEarnedPt > 0 && row.earnedPt != null ? Math.round((row.earnedPt / totalEarnedPt) * 10000) / 10000 : null;
+  }
+
+  // 当月まったく関わりのない (pt も額も無い) 行は表から落とす。表を読む目的は配分の比較なので、
+  // 0円の行が並ぶと肝心の配分が読みにくくなる。
+  return rows
+    .filter((row) => row.isSelf || (row.earnedPt ?? 0) > 0 || (row.accrualYen ?? 0) > 0 || (row.payYen ?? 0) > 0)
+    .sort(
+      (a, b) =>
+        (b.accrualYen ?? 0) - (a.accrualYen ?? 0) ||
+        (b.payYen ?? 0) - (a.payYen ?? 0) ||
+        a.memberId.localeCompare(b.memberId),
+    );
+}
+
 function toAgreementRecord(row: JsonRecord): MonthlyWorkAgreementRecord {
   return {
     id: String(row.id ?? ""),
     ym: String(row.ym ?? ""),
     memberId: String(row.member_id ?? ""),
+    projectId: typeof row.project_id === "string" && row.project_id ? row.project_id : null,
     status: String(row.status ?? ""),
     agreedAt: typeof row.agreed_at === "string" ? row.agreed_at : null,
     agreedBy: typeof row.agreed_by === "string" ? row.agreed_by : null,
@@ -573,6 +759,7 @@ export async function buildMonthlyWorkAgreementBundle(
       snapshot,
       currentHash: hashMonthlyAgreementSnapshot(snapshot),
       status: "not_required",
+      projectAgreements: [],
       latestAgreement: null,
       revisionRequests: [],
       tableReady: true,
@@ -611,6 +798,7 @@ export async function buildMonthlyWorkAgreementBundle(
       snapshot,
       currentHash: hashMonthlyAgreementSnapshot(snapshot),
       status: "not_required",
+      projectAgreements: [],
       latestAgreement: null,
       revisionRequests: [],
       tableReady: true,
@@ -789,7 +977,7 @@ export async function buildMonthlyWorkAgreementBundle(
     projectIds.length
       ? supabase
           .from("project_members")
-          .select("project_id, member_id, is_active, join_ym, leave_ym")
+          .select("project_id, member_id, is_active, join_ym, leave_ym, role, role_label, is_pm, is_pl")
           .in("project_id", projectIds)
           .eq("is_active", true)
       : Promise.resolve({ data: [], error: null }),
@@ -819,12 +1007,50 @@ export async function buildMonthlyWorkAgreementBundle(
     milestonesByPlan.set(ms.plan_cycle_id as string, list);
   }
   const activeMemberIdsByProject = new Map<string, Set<string>>();
+  const projectMembershipByKey = new Map<string, JsonRecord>();
   for (const row of (projectActiveMembersRes.data ?? []) as Array<JsonRecord>) {
     if (!inYmRange(ym, { join_ym: row.join_ym as string | null, leave_ym: row.leave_ym as string | null })) continue;
     const projectId = row.project_id as string;
     const set = activeMemberIdsByProject.get(projectId) ?? new Set<string>();
     set.add(row.member_id as string);
     activeMemberIdsByProject.set(projectId, set);
+    projectMembershipByKey.set(`${projectId}:${row.member_id as string}`, row);
+  }
+
+  // PJ配分表 (全メンバー分) のための追加取得。
+  // 自分の額が妥当かは、同じ原資を分け合う他の人の額を並べないと判断できない (まさ確定 2026-08-28)。
+  const allocationMemberIds = new Set<string>();
+  for (const set of activeMemberIdsByProject.values()) {
+    for (const id of set) allocationMemberIds.add(id);
+  }
+  const [allocationMembersRes, allocationPayoutRes] = await Promise.all([
+    allocationMemberIds.size
+      ? supabase
+          .from("members")
+          .select("member_id, code_name, exclude_from_payout_notice")
+          .in("member_id", Array.from(allocationMemberIds))
+      : Promise.resolve({ data: [], error: null }),
+    projectIds.length
+      ? supabase
+          .from("monthly_reward_payout")
+          .select("project_id, ym, member_id, earned_pt, base_pay, total_pay, created_at")
+          .in("project_id", projectIds)
+          .eq("ym", ym)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (allocationMembersRes.error) throw allocationMembersRes.error;
+  if (allocationPayoutRes.error) throw allocationPayoutRes.error;
+
+  const allocationMemberById = new Map(
+    ((allocationMembersRes.data ?? []) as Array<JsonRecord>).map((row) => [row.member_id as string, row]),
+  );
+  const allocationPayoutByKey = new Map<string, MonthlyRewardPayoutSnapshotRow>();
+  for (const row of (allocationPayoutRes.data ?? []) as MonthlyRewardPayoutSnapshotRow[]) {
+    const key = `${row.project_id}:${row.member_id}`;
+    const current = allocationPayoutByKey.get(key);
+    if (!current || String(row.created_at ?? "") > String(current.created_at ?? "")) {
+      allocationPayoutByKey.set(key, row);
+    }
   }
 
   const snapshotProjects: MonthlyWorkAgreementProject[] = activeMemberships
@@ -914,6 +1140,27 @@ export async function buildMonthlyWorkAgreementBundle(
         });
       }
 
+      const memberAllocations = buildProjectAllocations({
+        projectId,
+        selfMemberId: params.memberId,
+        activeProjectMemberIds,
+        planMilestones,
+        responsibilitiesByMs,
+        monthlyConsumedByMs,
+        normalizedSharesByMs,
+        agreementBudgetYen,
+        cycle,
+        memberById: allocationMemberById,
+        payoutByKey: allocationPayoutByKey,
+        membershipByKey: projectMembershipByKey,
+      });
+      const allocationTotals = {
+        memberCount: memberAllocations.length,
+        earnedPt: Math.round(memberAllocations.reduce((sum, row) => sum + (row.earnedPt ?? 0), 0) * 100) / 100,
+        accrualYen: memberAllocations.reduce((sum, row) => sum + (row.accrualYen ?? 0), 0),
+        payYen: memberAllocations.reduce((sum, row) => sum + (row.payYen ?? 0), 0),
+      };
+
       const sortedMilestones = roleMilestones.sort((a, b) => a.milestoneId.localeCompare(b.milestoneId));
       // 当月のMS消化から発生する額。合意額そのものではなく、内訳として見せる数字。
       const currentMonthAccrualYen = sortedMilestones.some((ms) => ms.expectedRewardYen == null)
@@ -971,6 +1218,8 @@ export async function buildMonthlyWorkAgreementBundle(
         milestones: sortedMilestones,
         payoutSchedule,
         routineExpectations: routineExpectations(membership),
+        memberAllocations,
+        allocationTotals,
       };
     })
     .filter((project): project is MonthlyWorkAgreementProject => project != null)
@@ -981,56 +1230,41 @@ export async function buildMonthlyWorkAgreementBundle(
     ym,
     member: snapshotMember,
     projects: snapshotProjects,
-    totals: {
-      expectedRewardYen: snapshotProjects.reduce((sum, project) => sum + (project.expectedRewardYen ?? 0), 0),
-      currentMonthAccrualYen: snapshotProjects.reduce((sum, project) => sum + (project.currentMonthAccrualYen ?? 0), 0),
-      carryInYen: snapshotProjects.reduce((sum, project) => sum + (project.carryInYen ?? 0), 0),
-      stockYen: snapshotProjects.reduce((sum, project) => sum + (project.stockYen ?? 0), 0),
-      paidActualYen: snapshotProjects.reduce(
-        (sum, project) =>
-          sum + project.payoutSchedule
-            .filter((entry) => entry.isActualPaid)
-            .reduce((projectSum, entry) => projectSum + entry.totalPayTaxIncludedYen, 0),
-        0,
-      ),
-      unverifiedPaidYen: snapshotProjects.reduce(
-        (sum, project) =>
-          sum + project.payoutSchedule
-            .filter((entry) => entry.amountSource === "unverified_paid")
-            .reduce((projectSum, entry) => projectSum + entry.totalPayTaxIncludedYen, 0),
-        0,
-      ),
-      futurePayoutYen: snapshotProjects.reduce(
-        (sum, project) =>
-          sum + project.payoutSchedule
-            .filter((entry) => !entry.isActualPaid && entry.amountSource !== "unverified_paid")
-            .reduce((projectSum, entry) => projectSum + entry.totalPayTaxIncludedYen, 0),
-        0,
-      ),
-      projectCount: snapshotProjects.length,
-      reviewRequiredCount: snapshotProjects.filter((project) => project.conditionState === "review_required").length,
-    },
+    totals: snapshotTotals(snapshotProjects),
   };
   const currentHash = hashMonthlyAgreementSnapshot(snapshot);
 
   let latestAgreement: MonthlyWorkAgreementRecord | null = null;
+  let agreementRecords: MonthlyWorkAgreementRecord[] = [];
   let tableReady = true;
   const { data: agreementData, error: agreementError } = await supabase
     .from("member_monthly_work_agreements")
-    .select("id, ym, member_id, status, agreed_at, agreed_by, snapshot_json, snapshot_hash, current_hash, invalidated_at, invalidation_reason")
+    .select("id, ym, member_id, project_id, status, agreed_at, agreed_by, snapshot_json, snapshot_hash, current_hash, invalidated_at, invalidation_reason")
     .eq("ym", ym)
     .eq("member_id", params.memberId)
     .in("status", ["agreed", "superseded", "revoked"])
     .order("agreed_at", { ascending: false, nullsFirst: false })
-    .limit(1);
+    .limit(120);
   if (agreementError) {
     if (isMissingMonthlyAgreementTableError(agreementError)) {
       tableReady = false;
     } else {
       throw agreementError;
     }
-  } else if (agreementData?.[0]) {
-    latestAgreement = toAgreementRecord(agreementData[0] as JsonRecord);
+  } else {
+    agreementRecords = ((agreementData ?? []) as Array<JsonRecord>).map(toAgreementRecord);
+    // PJ単位化する前の member 全体合意。PJ別の合意が無いPJは、まだこの行で合意が生きている
+    const legacyRecord =
+      agreementRecords.find((record) => record.status === "agreed" && record.projectId == null) ?? null;
+    latestAgreement =
+      legacyRecord ?? agreementRecords.find((record) => record.status === "agreed") ?? agreementRecords[0] ?? null;
+  }
+  const legacyAgreedRecord =
+    agreementRecords.find((record) => record.status === "agreed" && record.projectId == null) ?? null;
+  const agreedRecordByProject = new Map<string, MonthlyWorkAgreementRecord>();
+  for (const record of agreementRecords) {
+    if (record.status !== "agreed" || !record.projectId) continue;
+    if (!agreedRecordByProject.has(record.projectId)) agreedRecordByProject.set(record.projectId, record);
   }
 
   let revisionRequests: MonthlyWorkAgreementRevisionRequest[] = [];
@@ -1060,44 +1294,109 @@ export async function buildMonthlyWorkAgreementBundle(
     amountChangeReasons = ((reasonData ?? []) as Array<JsonRecord>).map(toAmountChangeReason);
   }
 
-  // 合意した「担当する仕事」と「受け取る額」が変わっていなければ、内部の状態が動いても再合意を求めない。
-  // snapshot 全体の hash だけで見ていた頃は、請求ステータスや入金確認が動くたびに条件更新ありが立っていた。
-  const agreedTermsHash = isV2Snapshot(latestAgreement?.snapshotJson)
-    ? hashMonthlyAgreementTerms(latestAgreement.snapshotJson)
-    : null;
-  const currentTermsHash = hashMonthlyAgreementTerms(snapshot);
-  const agreedTermsUnchanged = agreedTermsHash != null && agreedTermsHash === currentTermsHash;
-  const agreementStatus: MonthlyAgreementStatus =
-    latestAgreement?.status === "agreed" &&
-    (latestAgreement.snapshotHash === currentHash || agreedTermsUnchanged)
-      ? "agreed"
-      : latestAgreement?.status === "agreed"
-        ? "needs_reagreement"
-        : "pending";
-  const status: MonthlyAgreementStatus = agreementStatus;
-  const amountChangeReasonRequiredProjectIds =
-    agreementStatus === "needs_reagreement"
-      ? projectIdsWithExpectedRewardChange(latestAgreement?.snapshotJson, snapshot)
-      : [];
+  const canRequestRevision = tableReady && (!params.viewerMemberId || params.viewerMemberId === params.memberId);
   const reasonProjectIds = new Set(
     amountChangeReasons
       .filter((item) => item.reason.trim().length >= 8)
       .map((item) => item.projectId),
   );
-  // 予定額はMS消化pt・繰越・支払枠から自動計算されるので、変わるたびに人間の理由入力を
-  // 必須にすると、書ける人がいないまま合意が止まり、支払通知書も出せなくなる。
-  // OSが要因を数値で示せたPJは、管理側の理由入力なしで合意できるようにする (2026-08-28)。
-  const expectedRewardChangeExplanations =
-    agreementStatus === "needs_reagreement"
-      ? explainExpectedRewardChanges(latestAgreement?.snapshotJson, snapshot)
-      : [];
-  const autoExplainedProjectIds = new Set(
-    expectedRewardChangeExplanations.filter((item) => item.explained).map((item) => item.projectId),
-  );
-  const missingAmountChangeReasonProjectIds = amountChangeReasonRequiredProjectIds.filter(
-    (projectId) => !reasonProjectIds.has(projectId) && !autoExplainedProjectIds.has(projectId),
-  );
-  const canRequestRevision = tableReady && (!params.viewerMemberId || params.viewerMemberId === params.memberId);
+
+  // 合意はPJごとに成立させる。あるPJの条件が動いても、他のPJの合意はそのまま生かす。
+  // 「担当する仕事」と「受け取る額」が変わっていなければ、内部の状態が動いても再合意は求めない。
+  const projectResolutions = snapshotProjects.map((project) => {
+    const scoped = projectScopedSnapshot(snapshot, project.projectId)!;
+    const scopedHash = hashMonthlyAgreementSnapshot(scoped);
+    const scopedTermsHash = hashMonthlyAgreementTerms(scoped);
+    const record = agreedRecordByProject.get(project.projectId) ?? null;
+    // PJ単位の合意が無いPJは、PJ単位化する前の member 全体合意から当該PJ分だけを抜き出して比べる
+    const legacyScoped =
+      record == null && isV2Snapshot(legacyAgreedRecord?.snapshotJson)
+        ? projectScopedSnapshot(legacyAgreedRecord.snapshotJson, project.projectId)
+        : null;
+    const previousScoped: MonthlyWorkAgreementSnapshot | null = record
+      ? isV2Snapshot(record.snapshotJson)
+        ? record.snapshotJson
+        : null
+      : legacyScoped;
+    const previousTermsHash = previousScoped ? hashMonthlyAgreementTerms(previousScoped) : null;
+
+    let status: MonthlyAgreementStatus;
+    if (record) {
+      status =
+        record.snapshotHash === scopedHash || (previousTermsHash != null && previousTermsHash === scopedTermsHash)
+          ? "agreed"
+          : "needs_reagreement";
+    } else if (legacyScoped) {
+      // 旧行の snapshot_hash は全PJ分の hash なので、PJ単位では terms でしか比べられない
+      status = previousTermsHash === scopedTermsHash ? "agreed" : "needs_reagreement";
+    } else {
+      status = "pending";
+    }
+
+    const changedExpectedReward =
+      status === "needs_reagreement"
+        ? projectIdsWithExpectedRewardChange(previousScoped, scoped).includes(project.projectId)
+        : false;
+    const explanation =
+      status === "needs_reagreement"
+        ? explainExpectedRewardChanges(previousScoped, scoped).find((item) => item.projectId === project.projectId) ?? null
+        : null;
+    const reasonMissing =
+      changedExpectedReward && !reasonProjectIds.has(project.projectId) && !explanation?.explained;
+    const changeSummary =
+      status === "needs_reagreement" ? diffMonthlyAgreementTerms(previousScoped, scoped) : null;
+
+    const agreement: MonthlyWorkAgreementProjectAgreement = {
+      projectId: project.projectId,
+      projectName: project.projectName,
+      status,
+      agreedAt: record?.agreedAt ?? (legacyScoped ? legacyAgreedRecord?.agreedAt ?? null : null),
+      agreedBy: record?.agreedBy ?? (legacyScoped ? legacyAgreedRecord?.agreedBy ?? null : null),
+      agreedSnapshotHash: record?.snapshotHash ?? null,
+      currentHash: scopedHash,
+      fromLegacyMemberAgreement: record == null && legacyScoped != null,
+      canAgree: canRequestRevision && !reasonMissing,
+      blockedReason: reasonMissing
+        ? "予定額が変更された理由を管理側で確認中です。理由の確認後に合意できます。"
+        : canRequestRevision
+          ? null
+          : "本人だけが合意できます",
+      changeSummary,
+    };
+    return { agreement, changedExpectedReward, explanation, reasonMissing };
+  });
+
+  const projectAgreements = projectResolutions.map((item) => item.agreement);
+  const amountChangeReasonRequiredProjectIds = projectResolutions
+    .filter((item) => item.changedExpectedReward)
+    .map((item) => item.agreement.projectId);
+  const expectedRewardChangeExplanations = projectResolutions
+    .map((item) => item.explanation)
+    .filter((item): item is ExpectedRewardChangeExplanation => item != null);
+  const missingAmountChangeReasonProjectIds = projectResolutions
+    .filter((item) => item.reasonMissing)
+    .map((item) => item.agreement.projectId);
+
+  // 参加PJが無い月は、PJ単位で判定できないので従来どおり member 単位の合意状態を使う
+  const currentTermsHash = hashMonthlyAgreementTerms(snapshot);
+  const legacyMemberStatus: MonthlyAgreementStatus =
+    latestAgreement?.status === "agreed" &&
+    (latestAgreement.snapshotHash === currentHash ||
+      (isV2Snapshot(latestAgreement.snapshotJson) &&
+        hashMonthlyAgreementTerms(latestAgreement.snapshotJson) === currentTermsHash))
+      ? "agreed"
+      : latestAgreement?.status === "agreed"
+        ? "needs_reagreement"
+        : "pending";
+  const status: MonthlyAgreementStatus =
+    projectAgreements.length === 0
+      ? legacyMemberStatus
+      : projectAgreements.some((item) => item.status === "pending")
+        ? "pending"
+        : projectAgreements.some((item) => item.status === "needs_reagreement")
+          ? "needs_reagreement"
+          : "agreed";
+
   const reasonWaitMessage =
     missingAmountChangeReasonProjectIds.length > 0
       ? "予定額が変更された理由を管理側で確認中です。理由の確認後に合意できます。"
@@ -1109,17 +1408,15 @@ export async function buildMonthlyWorkAgreementBundle(
     snapshot,
     currentHash,
     status,
+    projectAgreements,
     latestAgreement,
     revisionRequests,
     tableReady,
     canRequestRevision,
-    canAgree: canRequestRevision && missingAmountChangeReasonProjectIds.length === 0,
+    canAgree: canRequestRevision && projectAgreements.some((item) => item.canAgree && item.status !== "agreed"),
     exclusionReason: reasonWaitMessage,
     // メンバーへ見せる変更点は合意の対象だけ。内部の状態が動いただけの差分は出さない
-    changeSummary:
-      agreementStatus === "needs_reagreement"
-        ? diffMonthlyAgreementTerms(latestAgreement?.snapshotJson, snapshot)
-        : null,
+    changeSummary: mergeChangeSummaries(projectAgreements.map((item) => item.changeSummary)),
     amountChangeReasons,
     amountChangeReasonRequiredProjectIds,
     missingAmountChangeReasonProjectIds,

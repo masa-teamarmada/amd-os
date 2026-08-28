@@ -38,6 +38,19 @@ export async function GET(req: NextRequest) {
     const rows = bundles.map((bundle) => ({
       member: bundle.member,
       status: bundle.status,
+      // 合意はPJごとに成立する。管理側は member ではなく member×PJ で未合意を追う
+      projects: bundle.projectAgreements.map((agreement) => {
+        const project = bundle.snapshot.projects.find((item) => item.projectId === agreement.projectId);
+        return {
+          projectId: agreement.projectId,
+          projectName: agreement.projectName,
+          status: agreement.status,
+          agreedAt: agreement.agreedAt,
+          fromLegacyMemberAgreement: agreement.fromLegacyMemberAgreement,
+          expectedRewardYen: project?.expectedRewardYen ?? null,
+          allocationMemberCount: project?.allocationTotals.memberCount ?? 0,
+        };
+      }),
       currentHash: bundle.currentHash,
       latestAgreement: bundle.latestAgreement
         ? { ...bundle.latestAgreement, snapshotJson: undefined }
@@ -90,6 +103,19 @@ export async function GET(req: NextRequest) {
         agreed: rows.filter((row) => row.status === "agreed").length,
         pending: rows.filter((row) => row.status === "pending").length,
         needsReagreement: rows.filter((row) => row.status === "needs_reagreement").length,
+        projectAgreements: rows.reduce((sum, row) => sum + row.projects.length, 0),
+        projectAgreed: rows.reduce(
+          (sum, row) => sum + row.projects.filter((project) => project.status === "agreed").length,
+          0,
+        ),
+        projectPending: rows.reduce(
+          (sum, row) => sum + row.projects.filter((project) => project.status === "pending").length,
+          0,
+        ),
+        projectNeedsReagreement: rows.reduce(
+          (sum, row) => sum + row.projects.filter((project) => project.status === "needs_reagreement").length,
+          0,
+        ),
         reviewRequired: rows.filter((row) => row.reviewRequiredCount > 0).length,
         revisionRequests: rows.reduce((sum, row) => sum + row.revisionRequestCount, 0),
         expectedRewardYen: rows.reduce((sum, row) => sum + row.expectedRewardYen, 0),

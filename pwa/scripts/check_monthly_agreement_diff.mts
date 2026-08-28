@@ -90,6 +90,8 @@ function project(overrides: Partial<MonthlyWorkAgreementProject> = {}): MonthlyW
     milestones: [milestone()],
     payoutSchedule: [payoutEntry()],
     routineExpectations: [],
+    memberAllocations: [],
+    allocationTotals: { memberCount: 0, earnedPt: 0, accrualYen: 0, payYen: 0 },
     ...overrides,
   };
 }

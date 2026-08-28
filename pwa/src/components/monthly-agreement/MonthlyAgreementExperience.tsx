@@ -18,8 +18,10 @@ import type {
   ExpectedRewardChangeExplanation,
   MonthlyAgreementAmountChangeReason,
   MonthlyAgreementSnapshotDiff,
+  MonthlyAgreementStatus,
   MonthlyWorkAgreementBundle,
   MonthlyWorkAgreementProject,
+  MonthlyWorkAgreementProjectAgreement,
 } from "@/lib/monthly-work-agreement-types";
 
 export function currentYmJst() {
@@ -135,7 +137,7 @@ export function MonthlyAgreementExperience({
     initialBundle,
   );
   const [loading, setLoading] = useState(!initialBundle);
-  const [saving, setSaving] = useState(false);
+  const [savingProjectId, setSavingProjectId] = useState<string | null>(null);
   const [requestSaving, setRequestSaving] = useState(false);
   const [requestBody, setRequestBody] = useState("");
   const [requestProjectId, setRequestProjectId] = useState("");
@@ -193,9 +195,10 @@ export function MonthlyAgreementExperience({
     return () => window.clearInterval(timer);
   }, [load, missingReasonKey]);
 
-  const handleAgree = async () => {
-    if (!bundle || saving || !bundle.canAgree) return;
-    setSaving(true);
+  // 合意はPJごとに保存する。押されたPJの分だけを送り、他のPJの合意状態は動かさない
+  const handleAgree = async (projectId: string | null) => {
+    if (!bundle || savingProjectId) return;
+    setSavingProjectId(projectId ?? "__all__");
     setError(null);
     try {
       const res = await fetch("/api/monthly-work-agreement/agree", {
@@ -204,6 +207,7 @@ export function MonthlyAgreementExperience({
         body: JSON.stringify({
           ym: bundle.ym,
           memberId: bundle.member.memberId,
+          projectId,
         }),
       });
       const payload = (await res.json().catch(() => ({}))) as {
@@ -224,7 +228,7 @@ export function MonthlyAgreementExperience({
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setSaving(false);
+      setSavingProjectId(null);
     }
   };
 
@@ -378,74 +382,55 @@ export function MonthlyAgreementExperience({
           )}
         </section>
 
-        {bundle.status === "needs_reagreement" && bundle.changeSummary && (
-          <ChangeSummarySection
-            changeSummary={bundle.changeSummary}
-            projects={bundle.snapshot.projects}
-            amountChangeReasons={bundle.amountChangeReasons}
-            requiredProjectIds={bundle.amountChangeReasonRequiredProjectIds}
-            missingProjectIds={bundle.missingAmountChangeReasonProjectIds}
-            explanations={bundle.expectedRewardChangeExplanations}
-            canRequestRevision={bundle.canRequestRevision}
-            onRequestRevision={(projectId) => {
-              setRequestProjectId(projectId);
-              setRequestType("reward");
-              setRequestMessage(null);
-              setRevisionOpen(true);
-            }}
-          />
-        )}
-
         <RequiredChecksSection
           compact={isModal}
           projects={bundle.snapshot.projects}
+          agreements={bundle.projectAgreements}
           totalExpectedRewardYen={bundle.snapshot.totals.expectedRewardYen}
           payoutExcluded={Boolean(bundle.snapshot.member.excludeFromPayoutNotice)}
+          amountChangeReasons={bundle.amountChangeReasons}
+          requiredProjectIds={bundle.amountChangeReasonRequiredProjectIds}
+          missingProjectIds={bundle.missingAmountChangeReasonProjectIds}
+          explanations={bundle.expectedRewardChangeExplanations}
+          canRequestRevision={bundle.canRequestRevision}
+          savingProjectId={savingProjectId}
+          onAgree={(projectId) => void handleAgree(projectId)}
+          onRequestRevision={(projectId, type) => {
+            setRequestProjectId(projectId);
+            setRequestType(type);
+            setRequestMessage(null);
+            setRevisionOpen(true);
+          }}
         />
 
         <section className="w-full rounded-lg border border-[#e5e5e7] bg-white p-4">
-          {bundle.status !== "agreed" && bundle.status !== "not_required" && (
-            <p className="mb-3 text-[13px] leading-[20px] text-[#3c3c43]">
-              上の「担当する仕事」と「その対価としての予定額」を確認したうえで合意してください。未合意または条件更新ありの場合は、合意が完了するまでこの月の支払いには進めません。
-            </p>
-          )}
-          {bundle.missingAmountChangeReasonProjectIds.length > 0 && (
-            <p
-              data-testid="monthly-agreement-missing-change-reason"
-              className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] leading-[20px] text-amber-900"
-            >
-              予定額が変更された理由を管理側で確認中です。理由が表示されるまで、この内容には合意できません。
-            </p>
+          {bundle.snapshot.projects.length === 0 && bundle.status !== "not_required" && (
+            <div className="mb-3">
+              <p className="text-[13px] leading-[20px] text-[#3c3c43]">
+                {formatYm(bundle.ym)}に参加中のプロジェクトはありません。
+              </p>
+              <button
+                type="button"
+                data-testid="monthly-agreement-agree-button"
+                onClick={() => void handleAgree(null)}
+                disabled={
+                  savingProjectId != null ||
+                  bundle.status === "agreed" ||
+                  !bundle.tableReady ||
+                  !bundle.canRequestRevision
+                }
+                className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[#007aff] px-4 text-[15px] font-semibold text-white transition-colors hover:bg-[#006edb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007aff] disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:w-auto sm:px-4 sm:text-[14px]"
+              >
+                {savingProjectId ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <FileCheck2 className="size-4" />
+                )}
+                {bundle.status === "agreed" ? "確認済み" : "確認した"}
+              </button>
+            </div>
           )}
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
-            <button
-              type="button"
-              data-testid="monthly-agreement-agree-button"
-              onClick={handleAgree}
-              disabled={
-                saving ||
-                bundle.status === "agreed" ||
-                !bundle.tableReady ||
-                !bundle.canAgree
-              }
-              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[#007aff] px-4 text-[15px] font-semibold text-white transition-colors hover:bg-[#006edb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007aff] disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:w-auto sm:px-4 sm:text-[14px]"
-              title={
-                !bundle.canAgree
-                  ? bundle.exclusionReason || "本人だけが合意できます"
-                  : "担当内容と予定額を確認して合意"
-              }
-            >
-              {saving ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <FileCheck2 className="size-4" />
-              )}
-              {bundle.status === "agreed"
-                ? "合意済み"
-                : bundle.status === "not_required"
-                  ? "対象外"
-                  : "確認して合意"}
-            </button>
             <button
               type="button"
               data-testid="monthly-agreement-revision-button"
@@ -969,14 +954,35 @@ function ChangeSummarySection({
 function RequiredChecksSection({
   compact = false,
   projects,
+  agreements,
   totalExpectedRewardYen,
   payoutExcluded = false,
+  amountChangeReasons,
+  requiredProjectIds,
+  missingProjectIds,
+  explanations,
+  canRequestRevision,
+  savingProjectId,
+  onAgree,
+  onRequestRevision,
 }: {
   compact?: boolean;
   projects: MonthlyWorkAgreementProject[];
+  agreements: MonthlyWorkAgreementProjectAgreement[];
   payoutExcluded?: boolean;
   totalExpectedRewardYen: number | null | undefined;
+  amountChangeReasons: MonthlyAgreementAmountChangeReason[];
+  requiredProjectIds: string[];
+  missingProjectIds: string[];
+  explanations: ExpectedRewardChangeExplanation[];
+  canRequestRevision: boolean;
+  savingProjectId: string | null;
+  onAgree: (projectId: string) => void;
+  onRequestRevision: (projectId: string, requestType: string) => void;
 }) {
+  const agreementByProjectId = new Map(agreements.map((item) => [item.projectId, item]));
+  const agreedCount = agreements.filter((item) => item.status === "agreed").length;
+
   return (
     <section
       data-testid="monthly-agreement-required-checks"
@@ -989,27 +995,372 @@ function RequiredChecksSection({
             <Hint id="monthly-agreement.flow" />
           </span>
         </h2>
-        <p className="mt-1 text-[13px] text-[#6e6e73]">
-          このページでは、まず担当する仕事を確認し、次にその対価としての予定額を確認します。問題がなければ合意してください。
+        <p className="mt-1 text-[13px] leading-[20px] text-[#6e6e73]">
+          合意はプロジェクトごとです。あなたが担当する仕事と受け取る額に加えて、同じプロジェクトの全員が今月いくら受け取るかを見たうえで、プロジェクトごとに合意してください。
         </p>
+        {projects.length > 0 && (
+          <div className="mt-2 flex flex-wrap items-baseline gap-x-5 gap-y-1">
+            <p className="text-[14px] text-[#3c3c43]">
+              合意済み{" "}
+              <span
+                data-testid="monthly-agreement-agreed-project-count"
+                className="text-[18px] font-semibold tabular-nums text-[#1d1d1f]"
+              >
+                {agreedCount} / {agreements.length}
+              </span>{" "}
+              件
+            </p>
+            <p className="text-[14px] text-[#3c3c43]">
+              {payoutExcluded ? "今月お支払いする額" : "今月受け取る額の合計"}{" "}
+              <span className="text-[20px] font-semibold tabular-nums text-[#1d1d1f]">
+                {formatYen(totalExpectedRewardYen)}
+              </span>
+            </p>
+          </div>
+        )}
       </div>
 
-      <ScopeSection compact={compact} projects={projects} />
-      <RewardSection
-        payoutExcluded={payoutExcluded}
-        compact={compact}
-        projects={projects}
-        totalExpectedRewardYen={totalExpectedRewardYen}
-      />
+      {projects.length === 0 ? (
+        <section className="w-full rounded-lg border border-[#e5e5e7] bg-white p-4">
+          <p className="text-[14px] text-[#6e6e73]">対象のプロジェクトはありません</p>
+        </section>
+      ) : (
+        projects.map((project) => (
+          <ProjectAgreementBlock
+            key={project.projectId}
+            compact={compact}
+            project={project}
+            agreement={agreementByProjectId.get(project.projectId) ?? null}
+            payoutExcluded={payoutExcluded}
+            amountChangeReasons={amountChangeReasons.filter((item) => item.projectId === project.projectId)}
+            requiredProjectIds={requiredProjectIds.filter((id) => id === project.projectId)}
+            missingProjectIds={missingProjectIds.filter((id) => id === project.projectId)}
+            explanations={explanations.filter((item) => item.projectId === project.projectId)}
+            canRequestRevision={canRequestRevision}
+            saving={savingProjectId === project.projectId}
+            savingOther={savingProjectId != null && savingProjectId !== project.projectId}
+            onAgree={onAgree}
+            onRequestRevision={onRequestRevision}
+          />
+        ))
+      )}
     </section>
   );
 }
 
-function SectionNumberBadge({ number }: { number: "01" | "02" }) {
+function projectAgreementStatusStyle(status: MonthlyAgreementStatus | undefined) {
+  if (status === "agreed") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  if (status === "needs_reagreement") return "border-amber-200 bg-amber-50 text-amber-900";
+  return "border-[#d1d1d6] bg-[#f5f5f7] text-[#3c3c43]";
+}
+
+function projectAgreementStatusLabel(status: MonthlyAgreementStatus | undefined) {
+  if (status === "agreed") return "合意済み";
+  if (status === "needs_reagreement") return "条件更新あり";
+  return "未合意";
+}
+
+/**
+ * PJ1件分の合意ブロック。担当する仕事 → 自分が受け取る額 → PJ全員の配分 → 合意 の順に置く。
+ *
+ * 配分表を必須確認に入れているのは、自分の額が妥当かどうかは同じ原資を分け合う他の人の額を
+ * 見ないと判断できないから (まさ確定 2026-08-28)。
+ */
+function ProjectAgreementBlock({
+  compact,
+  project,
+  agreement,
+  payoutExcluded,
+  amountChangeReasons,
+  requiredProjectIds,
+  missingProjectIds,
+  explanations,
+  canRequestRevision,
+  saving,
+  savingOther,
+  onAgree,
+  onRequestRevision,
+}: {
+  compact: boolean;
+  project: MonthlyWorkAgreementProject;
+  agreement: MonthlyWorkAgreementProjectAgreement | null;
+  payoutExcluded: boolean;
+  amountChangeReasons: MonthlyAgreementAmountChangeReason[];
+  requiredProjectIds: string[];
+  missingProjectIds: string[];
+  explanations: ExpectedRewardChangeExplanation[];
+  canRequestRevision: boolean;
+  saving: boolean;
+  savingOther: boolean;
+  onAgree: (projectId: string) => void;
+  onRequestRevision: (projectId: string, requestType: string) => void;
+}) {
+  const status = agreement?.status;
+  const roleText =
+    [project.roleLabel, project.isPm ? "PM" : null, project.isPl ? "PL" : null]
+      .filter(Boolean)
+      .join(" / ") || null;
+  const carryInYen = project.carryInYen ?? 0;
+  const stockYen = project.stockYen ?? 0;
+
+  return (
+    <section
+      data-testid="monthly-agreement-project-block"
+      data-project-id={project.projectId}
+      className={`w-full max-w-full rounded-lg border border-[#e5e5e7] bg-white ${compact ? "p-4" : "p-4 sm:p-6"}`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="break-words text-[18px] font-semibold text-[#1d1d1f] sm:text-[20px]">
+            {project.projectName}
+          </h3>
+          {roleText && <p className="mt-0.5 text-[13px] text-[#6e6e73]">{roleText}</p>}
+        </div>
+        <span
+          data-testid="monthly-agreement-project-status"
+          className={`shrink-0 rounded-full border px-3 py-1 text-[13px] font-semibold ${projectAgreementStatusStyle(status)}`}
+        >
+          {projectAgreementStatusLabel(status)}
+        </span>
+      </div>
+
+      <div className="mt-4">
+        <div className="flex items-center gap-2">
+          <SectionNumberBadge number="01" />
+          <h4 className="text-[16px] font-semibold text-[#1d1d1f] sm:text-[18px]">
+            あなたが担当する仕事
+          </h4>
+        </div>
+        {project.milestones.length === 0 ? (
+          <p className="mt-2 text-[14px] text-amber-700">担当内容が未登録です</p>
+        ) : (
+          <ul className="mt-2 space-y-1">
+            {project.milestones.map((milestone) => (
+              <li
+                key={milestone.milestoneId}
+                data-testid="monthly-agreement-check-scope"
+                className="flex min-w-0 items-start gap-1.5 text-[14px] leading-[22px] text-[#3c3c43]"
+              >
+                <span aria-hidden="true" className="text-[#86868b]">
+                  ・
+                </span>
+                <span className="min-w-0 break-words">
+                  {milestone.taskDescription || milestone.title}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {project.routineExpectations.length > 0 && (
+          <p className="mt-2 text-[13px] leading-[20px] text-[#6e6e73]">
+            定常業務: {project.routineExpectations.join(" / ")}
+          </p>
+        )}
+      </div>
+
+      <div className="mt-5">
+        <div className="flex items-center gap-2">
+          <SectionNumberBadge number="02" />
+          <h4 className="text-[16px] font-semibold text-[#1d1d1f] sm:text-[18px]">
+            その対価としてあなたが受け取る額
+          </h4>
+        </div>
+        <div className="mt-2 rounded-lg border border-[#dbeafe] bg-sky-50 px-4 py-3">
+          <p
+            data-testid="monthly-agreement-check-reward"
+            className="text-[26px] font-bold tabular-nums text-sky-950 sm:text-[28px]"
+          >
+            {formatYen(project.expectedRewardYen)}
+          </p>
+          <p className="mt-1 text-[13px] leading-[20px] text-sky-900">
+            今月の担当分から発生する額は {formatYen(project.currentMonthAccrualYen)}
+            {carryInYen > 0 ? `、これまで支払いを待ってもらっている分の返済を含みます` : ""}
+            {stockYen > 0 ? `。今月末に残る未払い分は ${formatYen(stockYen)}` : ""}
+          </p>
+          {payoutExcluded && (
+            <p
+              data-testid="monthly-agreement-payout-excluded-note"
+              className="mt-2 text-[13px] leading-[20px] text-sky-900"
+            >
+              あなたは支払通知書の対象外です。担当分から発生する額は現金ではお支払いせず、会社の内部配賦として扱います。
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-5">
+        <div className="flex items-center gap-2">
+          <SectionNumberBadge number="03" />
+          <h4 className="text-[16px] font-semibold text-[#1d1d1f] sm:text-[18px]">
+            このプロジェクトの今月の配分
+          </h4>
+        </div>
+        <p className="mt-2 text-[13px] leading-[20px] text-[#6e6e73]">
+          同じプロジェクトの全員が、今月それぞれいくら受け取るかです。発生する額は、このプロジェクトの今月の原資を、担当した仕事のptの比で分けたものなので、誰かの取り分を増やすと他の人の取り分が減ります。
+        </p>
+        <ProjectAllocationTable project={project} />
+      </div>
+
+      {status === "needs_reagreement" && agreement?.changeSummary && (
+        <div className="mt-5">
+          <ChangeSummarySection
+            changeSummary={agreement.changeSummary}
+            projects={[project]}
+            amountChangeReasons={amountChangeReasons}
+            requiredProjectIds={requiredProjectIds}
+            missingProjectIds={missingProjectIds}
+            explanations={explanations}
+            canRequestRevision={canRequestRevision}
+            onRequestRevision={(projectId) => onRequestRevision(projectId, "reward")}
+          />
+        </div>
+      )}
+
+      <div className="mt-5 border-t border-[#e5e5e7] pt-4">
+        {agreement && !agreement.canAgree && agreement.blockedReason && (
+          <p
+            data-testid="monthly-agreement-missing-change-reason"
+            className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] leading-[20px] text-amber-900"
+          >
+            {agreement.blockedReason}
+          </p>
+        )}
+        {status !== "agreed" && (
+          <p className="mb-3 text-[13px] leading-[20px] text-[#3c3c43]">
+            上の3点を確認したうえで、このプロジェクトの内容に合意してください。合意が終わるまで、このプロジェクトの今月分の支払いには進めません。
+          </p>
+        )}
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+          <button
+            type="button"
+            data-testid="monthly-agreement-agree-button"
+            onClick={() => onAgree(project.projectId)}
+            disabled={saving || savingOther || status === "agreed" || !agreement?.canAgree}
+            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[#007aff] px-4 text-[15px] font-semibold text-white transition-colors hover:bg-[#006edb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007aff] disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:w-auto sm:px-4 sm:text-[14px]"
+            title={
+              agreement && !agreement.canAgree
+                ? agreement.blockedReason || "本人だけが合意できます"
+                : `${project.projectName} の担当内容と配分を確認して合意`
+            }
+          >
+            {saving ? <Loader2 className="size-4 animate-spin" /> : <FileCheck2 className="size-4" />}
+            {status === "agreed" ? "合意済み" : `${project.projectName} に合意する`}
+          </button>
+          <button
+            type="button"
+            data-testid="monthly-agreement-project-revision-button"
+            onClick={() => onRequestRevision(project.projectId, "reward")}
+            disabled={!canRequestRevision}
+            className="inline-flex h-11 w-full items-center justify-center gap-1 rounded-md border border-[#d1d1d6] bg-transparent px-3 text-[13px] font-semibold text-[#3c3c43] opacity-80 transition-opacity hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007aff] disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:w-auto sm:px-3 sm:text-[13px]"
+          >
+            <Send className="size-3" />
+            このPJの内容が違う
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProjectAllocationTable({ project }: { project: MonthlyWorkAgreementProject }) {
+  const rows = project.memberAllocations;
+  if (rows.length === 0) {
+    return (
+      <p className="mt-2 text-[13px] text-[#6e6e73]">
+        このプロジェクトの今月の配分はまだ確定していません。
+      </p>
+    );
+  }
+  const totals = project.allocationTotals;
+  const hasExcluded = rows.some((row) => row.payoutExcluded);
+  return (
+    <>
+      <div
+        data-testid="monthly-agreement-allocation-table"
+        className="mt-2 w-full max-w-full overflow-x-auto rounded-md border border-[#e5e5e7]"
+      >
+        <table className="w-full min-w-[620px] border-collapse text-[13px]">
+          <thead>
+            <tr className="border-b border-[#e5e5e7] bg-[#f5f5f7] text-left text-[12px] text-[#6e6e73]">
+              <th className="px-3 py-2 font-semibold">メンバー</th>
+              <th className="px-3 py-2 font-semibold">今月の担当</th>
+              <th className="px-3 py-2 text-right font-semibold">今月のpt</th>
+              <th className="px-3 py-2 text-right font-semibold">取り分</th>
+              <th className="px-3 py-2 text-right font-semibold">今月発生する額</th>
+              <th className="px-3 py-2 text-right font-semibold">今月受け取る額</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#f0f0f2]">
+            {rows.map((row) => (
+              <tr key={row.memberId} className={row.isSelf ? "bg-sky-50" : undefined}>
+                <td className="px-3 py-2 align-top">
+                  <span className="font-semibold text-[#1d1d1f]">{row.codeName}</span>
+                  {row.isSelf && <span className="ml-1 text-[12px] text-sky-800">（あなた）</span>}
+                  {(row.isPm || row.isPl || row.roleLabel) && (
+                    <span className="mt-0.5 block text-[12px] text-[#86868b]">
+                      {[row.roleLabel, row.isPm ? "PM" : null, row.isPl ? "PL" : null]
+                        .filter(Boolean)
+                        .join(" / ")}
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 py-2 align-top text-[13px] leading-[19px] text-[#3c3c43]">
+                  {row.taskSummaries.length > 0 ? row.taskSummaries.join(" / ") : "—"}
+                </td>
+                <td className="px-3 py-2 text-right align-top tabular-nums text-[#3c3c43]">
+                  {formatPt(row.earnedPt)}
+                </td>
+                <td className="px-3 py-2 text-right align-top tabular-nums text-[#3c3c43]">
+                  {row.ptShare == null ? "—" : `${Math.round(row.ptShare * 100)}%`}
+                </td>
+                <td className="px-3 py-2 text-right align-top font-semibold tabular-nums text-[#1d1d1f]">
+                  {formatYen(row.accrualYen)}
+                </td>
+                <td className="px-3 py-2 text-right align-top font-semibold tabular-nums text-[#1d1d1f]">
+                  {row.payoutExcluded ? (
+                    <span className="text-[12px] font-semibold text-[#86868b]">現金支払なし</span>
+                  ) : (
+                    formatYen(row.payYen)
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t border-[#e5e5e7] bg-[#f5f5f7] text-[13px]">
+              <td className="px-3 py-2 font-semibold text-[#1d1d1f]">合計</td>
+              <td className="px-3 py-2 text-[12px] text-[#6e6e73]">{totals.memberCount}人</td>
+              <td className="px-3 py-2 text-right font-semibold tabular-nums text-[#1d1d1f]">
+                {formatPt(totals.earnedPt)}
+              </td>
+              <td className="px-3 py-2 text-right font-semibold tabular-nums text-[#1d1d1f]">100%</td>
+              <td className="px-3 py-2 text-right font-semibold tabular-nums text-[#1d1d1f]">
+                {formatYen(totals.accrualYen)}
+              </td>
+              <td className="px-3 py-2 text-right font-semibold tabular-nums text-[#1d1d1f]">
+                {formatYen(totals.payYen)}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      {hasExcluded && (
+        <p className="mt-2 text-[12px] leading-[18px] text-[#6e6e73]">
+          「現金支払なし」の人は、担当分が会社の内部配賦として扱われ、本人へは支払われません。原資を分け合っている点は同じなので、配分としてこの表に出しています。
+        </p>
+      )}
+    </>
+  );
+}
+
+function SectionNumberBadge({ number }: { number: "01" | "02" | "03" }) {
+  // 静的な文字列で書く。テンプレートで組むと critical UI guard が testid を追えない
   const testId =
     number === "01"
       ? "monthly-agreement-section-number-01"
-      : "monthly-agreement-section-number-02";
+      : number === "02"
+        ? "monthly-agreement-section-number-02"
+        : "monthly-agreement-section-number-03";
   return (
     <span
       data-testid={testId}
@@ -1017,135 +1368,6 @@ function SectionNumberBadge({ number }: { number: "01" | "02" }) {
     >
       {number}
     </span>
-  );
-}
-
-function ScopeSection({
-  compact,
-  projects,
-}: {
-  compact: boolean;
-  projects: MonthlyWorkAgreementProject[];
-}) {
-  return (
-    <section
-      data-testid="monthly-agreement-scope-section"
-      className={`w-full max-w-full rounded-lg border border-[#e5e5e7] bg-white ${compact ? "p-4" : "p-4 sm:p-6"}`}
-    >
-      <div className="flex items-center gap-2">
-        <SectionNumberBadge number="01" />
-        <h3 className="text-[18px] font-semibold text-[#1d1d1f] sm:text-[20px]">
-          担当する仕事
-        </h3>
-      </div>
-      <p className="mt-2 text-[13px] leading-relaxed text-[#6e6e73]">
-        今月あなたが担当するプロジェクトと、その中の具体的な仕事内容です。
-      </p>
-
-      {projects.length === 0 ? (
-        <p className="mt-3 text-[13px] text-[#6e6e73]">対象PJはありません</p>
-      ) : (
-        <div className="mt-3 max-w-full divide-y divide-[#e5e5e7] border-t border-[#e5e5e7]">
-          {projects.map((project) => (
-            <div
-              key={project.projectId}
-              data-testid="monthly-agreement-check-scope"
-              className="min-w-0 max-w-full py-3"
-            >
-              <p className="text-[14px] font-semibold text-[#1d1d1f]">
-                {project.projectName}
-              </p>
-              {project.milestones.length === 0 ? (
-                <p className="mt-1 text-[13px] text-amber-700">
-                  担当内容が未登録です
-                </p>
-              ) : (
-                <ul className="mt-1.5 space-y-1">
-                  {project.milestones.map((milestone) => (
-                    <li
-                      key={milestone.milestoneId}
-                      className="flex min-w-0 items-start gap-1.5 text-[14px] leading-[22px] text-[#3c3c43]"
-                    >
-                      <span aria-hidden="true" className="text-[#86868b]">
-                        ・
-                      </span>
-                      <span className="min-w-0 break-words">
-                        {milestone.taskDescription || milestone.title}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function RewardSection({
-  compact,
-  projects,
-  totalExpectedRewardYen,
-  payoutExcluded,
-}: {
-  compact: boolean;
-  projects: MonthlyWorkAgreementProject[];
-  totalExpectedRewardYen: number | null | undefined;
-  payoutExcluded: boolean;
-}) {
-  return (
-    <section
-      data-testid="monthly-agreement-reward-section"
-      className={`w-full max-w-full rounded-lg border border-[#e5e5e7] bg-white ${compact ? "p-4" : "p-4 sm:p-6"}`}
-    >
-      <div className="flex items-center gap-2">
-        <SectionNumberBadge number="02" />
-        <h3 className="text-[18px] font-semibold text-[#1d1d1f] sm:text-[20px]">
-          その対価としての予定額
-        </h3>
-      </div>
-
-      <div className="mt-3 rounded-lg border border-[#dbeafe] bg-sky-50 px-4 py-3">
-        <p className="text-[13px] font-semibold text-sky-800">
-          {payoutExcluded ? "今月お支払いする額" : "予定額合計"}
-        </p>
-        <p className="mt-1 text-[26px] font-bold tabular-nums text-sky-950 sm:text-[28px]">
-          {formatYen(totalExpectedRewardYen)}
-        </p>
-        {payoutExcluded && (
-          <p
-            data-testid="monthly-agreement-payout-excluded-note"
-            className="mt-2 text-[12px] leading-[18px] text-sky-900"
-          >
-            あなたは支払通知書の対象外です。担当分から発生する額は現金ではお支払いせず、会社の内部配賦として扱います。
-            画面に出る「未払い残」は会社の内部配賦の未充当分で、あなたへの未払いではありません。
-          </p>
-        )}
-      </div>
-
-      {projects.length === 0 ? (
-        <p className="mt-3 text-[13px] text-[#6e6e73]">対象PJはありません</p>
-      ) : (
-        <div className="mt-3 max-w-full divide-y divide-[#e5e5e7] border-t border-[#e5e5e7]">
-          {projects.map((project) => (
-            <div
-              key={project.projectId}
-              data-testid="monthly-agreement-check-reward"
-              className="grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-3 py-3"
-            >
-              <p className="min-w-0 break-words text-[14px] font-semibold leading-[22px] text-[#1d1d1f]">
-                {project.projectName}
-              </p>
-              <p className="shrink-0 text-[16px] font-semibold tabular-nums text-[#1d1d1f]">
-                {formatYen(project.expectedRewardYen)}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
   );
 }
 
