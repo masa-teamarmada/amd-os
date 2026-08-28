@@ -870,7 +870,13 @@ export function shouldRegenerateNotice(
 export async function generateNoticePdfForMember(
   db: SupabaseClient,
   data: Awaited<ReturnType<typeof loadTargetData>>,
-  options: { memberId: string; previewOnly?: boolean; force?: boolean }
+  options: {
+    memberId: string;
+    previewOnly?: boolean;
+    force?: boolean;
+    /** 一括生成で事前に予約した通知書番号。並列採番の重複を避けるために使う */
+    noticeNoOverride?: string;
+  }
 ): Promise<GenerateNoticeResult> {
   const { memberId } = options;
   const previewOnly = Boolean(options.previewOnly);
@@ -935,6 +941,10 @@ export async function generateNoticePdfForMember(
     noticeNo = `PREVIEW-${ym}-${memberId}`;
   } else if (existing?.notice_no && !noticeNoIsPreview(existing.notice_no)) {
     noticeNo = textValue(existing.notice_no);
+  } else if (options.noticeNoOverride) {
+    // 一括生成が事前に予約した番号。下の件数カウントは並列だと全員が同じ値を読むため、
+    // 同じ月に同じ通知書番号が複数ぶら下がる (2026-08 以前の 202604/202605/202607 で実際に発生)
+    noticeNo = options.noticeNoOverride;
   } else {
     const { count, error: countError } = await db
       .from("payout_notices")
@@ -1070,6 +1080,46 @@ export async function generateNoticePdfForMember(
  * 与えられたメンバーリストに対して、concurrency 制限付きで並列に PDF 生成を実行する。
  * cron の payout-notice-prebuild と、admin/payouts の bulk_*_notice_pdf action の共通実装。
  */
+/**
+ * 一括生成の前に、まだ通知書番号を持たないメンバーへ連番を予約する。
+ *
+ * 番号は「その月に既に振られた件数 + 1」で決めるが、一括生成は並列で走るので
+ * 各ワーカーが同じ件数を読み、同じ番号を持った通知書が複数できていた
+ * (202604-001 が3人、202605-001 が3人、202607-001 が2人、202608-001 が2人)。
+ * 採番はDB書き込みまで時間が空くほど衝突するので、生成に入る前にまとめて決める。
+ * 既に番号を持っている行は動かさない (送付済みの書類番号を変えない)。
+ */
+async function reserveNoticeNos(
+  db: SupabaseClient,
+  ym: string,
+  memberIds: string[],
+  previewOnly: boolean
+): Promise<Map<string, string>> {
+  const reserved = new Map<string, string>();
+  if (previewOnly || memberIds.length === 0) return reserved;
+
+  const { data, error } = await db.from("payout_notices").select("member_id, notice_no").eq("ym", ym);
+  if (error) throw error;
+
+  const alreadyNumbered = new Set<string>();
+  let maxSequence = 0;
+  for (const row of (data ?? []) as Array<{ member_id: string; notice_no: string | null }>) {
+    const noticeNo = textValue(row.notice_no);
+    if (!noticeNo || noticeNoIsPreview(noticeNo)) continue;
+    alreadyNumbered.add(row.member_id);
+    const matched = noticeNo.match(/-(\d+)$/);
+    if (matched) maxSequence = Math.max(maxSequence, Number(matched[1]));
+  }
+
+  let nextSequence = maxSequence;
+  for (const memberId of [...memberIds].sort((a, b) => a.localeCompare(b))) {
+    if (alreadyNumbered.has(memberId)) continue;
+    nextSequence += 1;
+    reserved.set(memberId, generatedNoticeNo(ym, nextSequence));
+  }
+  return reserved;
+}
+
 export async function generateNoticePdfBulk(
   db: SupabaseClient,
   data: Awaited<ReturnType<typeof loadTargetData>>,
@@ -1083,6 +1133,7 @@ export async function generateNoticePdfBulk(
   const concurrency = Math.max(1, Math.min(8, options.concurrency ?? BULK_NOTICE_CONCURRENCY));
   const queue = [...options.memberIds];
   const results: GenerateNoticeResult[] = [];
+  const reservedNoticeNos = await reserveNoticeNos(db, data.ym, options.memberIds, Boolean(options.previewOnly));
 
   async function worker() {
     while (queue.length > 0) {
@@ -1092,6 +1143,7 @@ export async function generateNoticePdfBulk(
         memberId,
         previewOnly: options.previewOnly,
         force: options.force,
+        noticeNoOverride: reservedNoticeNos.get(memberId),
       });
       results.push(result);
     }

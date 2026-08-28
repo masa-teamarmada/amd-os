@@ -3381,6 +3381,12 @@ expectIncludes("src/app/api/admin/payouts/route.ts", [
   "const entries = allEntries.filter((entry) => !agreementBlockedMemberIdSet.has(entry.member_id));",
   "const allowedMemberIds = targetMemberIds.filter((memberId) => !agreementBlockedMemberIds.has(memberId));",
 ]);
+// 通知書番号は一括生成の前にまとめて予約する。各生成が既存件数+1を個別に読むと、
+// 並列実行で同じ番号の通知書が複数できる (2026-08-28 まで実際に重複していた)。
+expectIncludes("src/app/api/admin/payouts/route.ts", [
+  "async function reserveNoticeNos(",
+  "noticeNoOverride: reservedNoticeNos.get(memberId)",
+]);
 // 修正要望を管理側で閉じられること。open は支払ゲートの blocker なので、
 // 件数だけ表示して解決経路が無い状態へ戻すと、要望が来た月の支払が復旧できなくなる。
 expectIncludes("src/app/api/admin/monthly-work-agreements/revision-requests/route.ts", [

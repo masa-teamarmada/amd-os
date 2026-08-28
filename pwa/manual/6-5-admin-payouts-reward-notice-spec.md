@@ -341,7 +341,7 @@ freee には経費の立替やカード決済も、メンバー本人の名前�
 |---|---|
 | `member_id` / `ym` | composite PK |
 | `sent_at` | 送付済化時刻 (= NULL なら未送付) |
-| `notice_no` | `PN-YYYYMM-NNN` (= 月内 seq)。preview PDF は `PREVIEW-YYYYMM-{memberId}` |
+| `notice_no` | `PN{YYYYMM}-{NNN}` (= 月内 seq)。preview PDF は `PREVIEW-{YYYYMM}-{memberId}`。**採番は一括生成に入る前にまとめて予約する** (`reserveNoticeNos`)。既存件数+1を各生成が個別に読むと、並列実行で同じ番号が複数のメンバーに付く (2026-08-28 まで 202604 / 202605 / 202607 / 202608 で実際に重複していた)。既に番号を持つ行の番号は変えない |
 | `pdf_url` | Drive / Storage PDF URL |
 | `total_yen` | 当月支払総額 (= 内訳ではなく集計値、税抜)。支払通知書PDFではこの金額に消費税10%を上乗せして `合計（税込）` を表示する |
 | `last_generated_at` | 最終 PDF 生成時刻。cron prebuild / 一括発行 / 個別発行で更新 (= 差分検出 + UI 表示用) |
