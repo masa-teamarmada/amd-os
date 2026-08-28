@@ -44,6 +44,11 @@ export async function GET(req: NextRequest) {
         : null,
       revisionRequestCount: bundle.revisionRequests.filter((request) => request.status === "open").length,
       latestRevisionRequestAt: bundle.revisionRequests[0]?.createdAt ?? null,
+      // open を先頭に出す。管理者はここから本文を読んで対応済みにする
+      revisionRequests: [...bundle.revisionRequests].sort((a, b) => {
+        const openRank = (status: string) => (status === "open" ? 0 : 1);
+        return openRank(a.status) - openRank(b.status) || b.createdAt.localeCompare(a.createdAt);
+      }),
       projectCount: bundle.snapshot.totals.projectCount,
       reviewRequiredCount: bundle.snapshot.totals.reviewRequiredCount,
       expectedRewardYen: bundle.snapshot.totals.expectedRewardYen,

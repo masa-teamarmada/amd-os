@@ -7,7 +7,24 @@ import type {
   AdminMonthlyWorkAgreementResponse,
   MonthlyAgreementAmountChangeReasonRequirement,
   MonthlyAgreementStatus,
+  MonthlyWorkAgreementRevisionRequest,
 } from "@/lib/monthly-work-agreement-types";
+
+const REQUEST_TYPE_LABEL: Record<string, string> = {
+  scope_or_goal: "担当内容",
+  reward: "予定額",
+  other: "その他",
+};
+
+function requestTypeLabel(requestType: string) {
+  return REQUEST_TYPE_LABEL[requestType] ?? requestType;
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("ja-JP");
+}
 
 function currentYmJst() {
   const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
@@ -114,6 +131,31 @@ export default function AdminMonthlyWorkAgreementsPage() {
                 ),
               },
         ),
+      };
+    });
+  }, []);
+
+  const handleRevisionRequestUpdated = useCallback((updated: MonthlyWorkAgreementRevisionRequest) => {
+    setData((current) => {
+      if (!current) return current;
+      const rows = current.rows.map((row) => {
+        if (row.member.memberId !== updated.memberId) return row;
+        const revisionRequests = row.revisionRequests.map((request) =>
+          request.id === updated.id ? updated : request,
+        );
+        return {
+          ...row,
+          revisionRequests,
+          revisionRequestCount: revisionRequests.filter((request) => request.status === "open").length,
+        };
+      });
+      return {
+        ...current,
+        rows,
+        totals: {
+          ...current.totals,
+          revisionRequests: rows.reduce((sum, row) => sum + row.revisionRequestCount, 0),
+        },
       };
     });
   }, []);
@@ -290,6 +332,12 @@ export default function AdminMonthlyWorkAgreementsPage() {
                       </Link>
                     </div>
                     </div>
+                    {row.revisionRequests.length > 0 && (
+                      <RevisionRequestsPanel
+                        requests={row.revisionRequests}
+                        onUpdated={handleRevisionRequestUpdated}
+                      />
+                    )}
                     {row.amountChangeReasonRequirements.length > 0 && (
                       <div className="border-t border-amber-200 bg-amber-50/60 px-3 py-3">
                         <div className="ml-[316px] max-w-3xl">
@@ -328,6 +376,167 @@ function SummaryCard({ label, value, tone = "plain" }: { label: string; value: s
     <div className="rounded-md border border-border bg-background p-3">
       <p className="text-[11px] font-semibold text-muted-foreground">{label}</p>
       <p className={`mt-2 text-2xl font-semibold tabular-nums ${valueClass}`}>{value}</p>
+    </div>
+  );
+}
+
+/**
+ * メンバーが出した修正要望を管理者が読んで閉じるパネル。
+ *
+ * open のあいだ、この稼働月の支払通知書は誰も発行できない (支払ゲートの blocker)。
+ * 件数だけ出していた頃は本文が読めず閉じる手段も無かったので、要望が1件でも来ると
+ * 支払業務が止まって復旧できなかった (2026-08-28 修正)。
+ */
+function RevisionRequestsPanel({
+  requests,
+  onUpdated,
+}: {
+  requests: MonthlyWorkAgreementRevisionRequest[];
+  onUpdated: (updated: MonthlyWorkAgreementRevisionRequest) => void;
+}) {
+  const openRequests = requests.filter((request) => request.status === "open");
+  const closedRequests = requests.filter((request) => request.status !== "open");
+  return (
+    <div
+      data-testid="admin-monthly-agreement-revision-requests"
+      className={`border-t px-3 py-3 ${openRequests.length > 0 ? "border-red-200 bg-red-50/60" : "border-border bg-muted/20"}`}
+    >
+      <div className="ml-[316px] max-w-3xl">
+        <p className={`text-xs font-semibold ${openRequests.length > 0 ? "text-red-900" : "text-muted-foreground"}`}>
+          メンバーからの修正要望
+          {openRequests.length > 0 && `（未対応 ${openRequests.length}件 — この稼働月の支払通知書が発行できない状態）`}
+        </p>
+        <div className="mt-2 grid gap-2">
+          {openRequests.map((request) => (
+            <RevisionRequestCard key={request.id} request={request} onUpdated={onUpdated} />
+          ))}
+          {closedRequests.map((request) => (
+            <RevisionRequestCard key={request.id} request={request} onUpdated={onUpdated} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RevisionRequestCard({
+  request,
+  onUpdated,
+}: {
+  request: MonthlyWorkAgreementRevisionRequest;
+  onUpdated: (updated: MonthlyWorkAgreementRevisionRequest) => void;
+}) {
+  const [note, setNote] = useState(request.resolutionNote ?? "");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const isOpen = request.status === "open";
+
+  const patch = async (status: "resolved" | "rejected" | "open") => {
+    setSaving(true);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/admin/monthly-work-agreements/revision-requests", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId: request.id, status, note: note.trim() }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        data?: MonthlyWorkAgreementRevisionRequest;
+        error?: string;
+      };
+      if (!response.ok || payload.ok === false || !payload.data) {
+        throw new Error(payload.error || "更新できませんでした");
+      }
+      onUpdated(payload.data);
+      setMessage(status === "open" ? "未対応に戻した。" : "閉じた。支払ゲートのこの blocker は外れる。");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className={`rounded-md border p-3 ${isOpen ? "border-red-200 bg-white" : "border-border bg-background"}`}>
+      <div className="flex flex-wrap items-baseline gap-2 text-[11px]">
+        <span
+          className={`rounded-full border px-2 py-0.5 font-semibold ${
+            isOpen
+              ? "border-red-200 bg-red-50 text-red-800"
+              : request.status === "rejected"
+                ? "border-zinc-200 bg-zinc-50 text-zinc-600"
+                : "border-emerald-200 bg-emerald-50 text-emerald-700"
+          }`}
+        >
+          {isOpen ? "未対応" : request.status === "rejected" ? "対応しない" : "対応済み"}
+        </span>
+        <span className="font-semibold text-foreground">{requestTypeLabel(request.requestType)}</span>
+        <span className="text-muted-foreground">{request.projectId ?? "全体"}</span>
+        <span className="text-muted-foreground">{formatDateTime(request.createdAt)}</span>
+        {!isOpen && request.resolvedAt && (
+          <span className="text-muted-foreground">
+            → {formatDateTime(request.resolvedAt)} {request.resolvedBy ?? ""}
+          </span>
+        )}
+      </div>
+      <p className="mt-1.5 whitespace-pre-wrap text-sm text-foreground">{request.body}</p>
+      <label className="mt-2 block">
+        <span className="text-[11px] font-semibold text-muted-foreground">対応メモ（任意・メンバーには出さない）</span>
+        <textarea
+          value={note}
+          onChange={(event) => {
+            setNote(event.target.value);
+            setMessage(null);
+          }}
+          rows={2}
+          className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-[#007aff]"
+          placeholder="例: 予定額を見直して再合意を出した。"
+        />
+      </label>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[11px] text-muted-foreground">
+          {isOpen
+            ? "閉じても金額は動かない。条件を直したいときは先にPJ側の金額・役割を直す。"
+            : "未対応に戻すと、この稼働月の支払通知書はまた止まる。"}
+        </p>
+        <div className="flex shrink-0 gap-2">
+          {isOpen ? (
+            <>
+              <button
+                type="button"
+                onClick={() => void patch("rejected")}
+                disabled={saving}
+                className="inline-flex min-h-9 items-center rounded-md border border-border px-3 text-xs font-semibold disabled:opacity-50"
+              >
+                対応しない
+              </button>
+              <button
+                type="button"
+                onClick={() => void patch("resolved")}
+                disabled={saving}
+                className="inline-flex min-h-9 items-center rounded-md bg-[#007aff] px-3 text-xs font-semibold text-white disabled:opacity-50"
+              >
+                {saving ? "更新中…" : "対応済みにする"}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void patch("open")}
+              disabled={saving}
+              className="inline-flex min-h-9 items-center rounded-md border border-border px-3 text-xs font-semibold disabled:opacity-50"
+            >
+              {saving ? "更新中…" : "未対応に戻す"}
+            </button>
+          )}
+        </div>
+      </div>
+      {message && (
+        <p className={`mt-2 text-xs ${message.includes("外れる") || message.includes("戻した") ? "text-emerald-700" : "text-red-700"}`}>
+          {message}
+        </p>
+      )}
     </div>
   );
 }

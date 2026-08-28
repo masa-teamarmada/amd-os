@@ -258,6 +258,9 @@ type SavePayoutSnapshotResult =
       savedNoticeRows: number;
       clearedStaleNoticePdfs: number;
       deletedStaleNoticeRows: number;
+      /** 月初合意が未完了で、支払データの同期を見送ったメンバー */
+      agreementBlockedMemberIds: string[];
+      gate?: PayoutAgreementGateSummary;
     }
   | {
       ok: false;
@@ -1419,11 +1422,11 @@ export async function savePayoutDataSnapshot(
   options: { overrideReason?: string | null; actorEmail?: string | null } = {}
 ): Promise<SavePayoutSnapshotResult> {
   const before = await loadTargetData(ym, { refreshRewards: true });
-  const entries = before.expectedEntries;
+  const allEntries = before.expectedEntries;
   const payoutExcludedMemberIds = ((before.members ?? []) as MemberRow[])
     .filter((member) => member.is_officer || member.exclude_from_payout_notice)
     .map((member) => member.member_id);
-  const missingBudgetCycles = findMissingBudgetCycles(before.cycles as BillingCycleRow[], entries);
+  const missingBudgetCycles = findMissingBudgetCycles(before.cycles as BillingCycleRow[], allEntries);
   if (missingBudgetCycles.length > 0) {
     return {
       ok: false,
@@ -1440,15 +1443,14 @@ export async function savePayoutDataSnapshot(
     overrideReason: options.overrideReason,
     actorEmail: options.actorEmail,
   });
-  if (!gate.allowed) {
-    return {
-      ok: false,
-      status: 409,
-      error: payoutAgreementGateErrorMessage(gate),
-      data: before,
-      gate,
-    };
-  }
+  // 月初合意が未完了なメンバーの支払行だけ同期対象から外す。既存の行も消さない。
+  // 支払 gate は「支払が発生する member × 稼働月 × PJ」を守る仕組みなので、
+  // 1人の未合意で月全体の保存を 409 で止めると、無関係なPJのメンバーの支払通知書まで
+  // 発行できなくなる (2026-08-28: SXのメンバーが ZMP の未合意で道連れになっていた)。
+  // 仕様正本: pwa/manual/6-5-admin-payouts-reward-notice-spec.md「合意した額を払う」。
+  const agreementBlockedMemberIds = [...new Set(gate.blockers.map((row) => row.memberId))];
+  const agreementBlockedMemberIdSet = new Set(agreementBlockedMemberIds);
+  const entries = allEntries.filter((entry) => !agreementBlockedMemberIdSet.has(entry.member_id));
 
   const notices = aggregateNotices(ym, entries, before.members as MemberRow[]);
   const targetProjectIds = [...new Set((before.cycles as BillingCycleRow[]).map((cycle) => cycle.project_id))];
@@ -1505,6 +1507,9 @@ export async function savePayoutDataSnapshot(
   const staleNoticeRowsToDelete = ((before.notices ?? []) as PayoutNoticeRow[])
     .filter((notice) => {
       if (textValue(notice.sent_at)) return false;
+      // 合意待ちで同期対象から外したメンバーは「支払対象から消えた」わけではないので、
+      // 既存の通知書行を消さない
+      if (agreementBlockedMemberIdSet.has(notice.member_id)) return false;
       return !activeNoticeMemberIds.has(notice.member_id);
     })
     .map((notice) => notice.member_id);
@@ -1537,6 +1542,8 @@ export async function savePayoutDataSnapshot(
     savedNoticeRows: noticesToUpsert.length,
     clearedStaleNoticePdfs,
     deletedStaleNoticeRows,
+    agreementBlockedMemberIds,
+    gate,
   };
 }
 
@@ -1957,26 +1964,49 @@ export async function PATCH(req: NextRequest) {
         overrideReason: textValue(body.agreementOverrideReason),
         actorEmail: auth.user.email,
       });
-      if (!gate.allowed) return agreementGateBlockedResponse(data, gate);
+      // 合意待ちのメンバーだけ発行対象から外し、残りは発行する。
+      // 全員止めると、無関係なPJのメンバーの支払通知書まで出せなくなる (2026-08-28)。
+      // cron prebuild と同じ扱い: 仕様 pwa/spec/3-14-monthly-work-agreement-current-spec.md。
+      const agreementBlockedMemberIds = new Set(gate.blockers.map((row) => row.memberId));
+      const allowedMemberIds = targetMemberIds.filter((memberId) => !agreementBlockedMemberIds.has(memberId));
+      if (allowedMemberIds.length === 0) return agreementGateBlockedResponse(data, gate);
 
-      const results = await generateNoticePdfBulk(db, data, {
-        memberIds: targetMemberIds,
+      const generatedResults = await generateNoticePdfBulk(db, data, {
+        memberIds: allowedMemberIds,
         previewOnly,
         force,
         concurrency: BULK_NOTICE_CONCURRENCY,
       });
+      const agreementBlockedResults: GenerateNoticeResult[] = [...agreementBlockedMemberIds]
+        .filter((memberId) => targetMemberIds.includes(memberId))
+        .map((memberId) => ({
+          memberId,
+          status: "skipped",
+          reason: "agreement_gate",
+          error: payoutAgreementGateErrorMessage({
+            ...gate,
+            blockers: gate.blockers.filter((row) => row.memberId === memberId),
+            blockedCount: gate.blockers.filter((row) => row.memberId === memberId).length,
+          }),
+        }));
+      const results = [...generatedResults, ...agreementBlockedResults].sort((a, b) =>
+        a.memberId.localeCompare(b.memberId)
+      );
 
       const summary = {
         targetCount: targetMemberIds.length,
         generated: results.filter((r) => r.status === "generated").length,
         skipped: results.filter((r) => r.status === "skipped").length,
         failed: results.filter((r) => r.status === "failed").length,
+        agreementBlocked: agreementBlockedResults.length,
         results,
       };
 
       const after = await loadTargetData(ym);
       const unexpectedSkips = force && !previewOnly
-        ? results.filter((r) => r.status === "skipped" && r.reason !== "sent_protected")
+        ? results.filter(
+            (r) => r.status === "skipped" && r.reason !== "sent_protected" && r.reason !== "agreement_gate"
+          )
         : [];
       if (summary.failed > 0 || unexpectedSkips.length > 0) {
         console.error("[admin payouts PATCH bulk_notice_pdf] partial failure", {

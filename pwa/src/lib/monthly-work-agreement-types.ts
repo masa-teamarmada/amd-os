@@ -63,6 +63,10 @@ export interface MonthlyWorkAgreementRevisionRequest {
   snapshotHash: string | null;
   createdAt: string;
   resolvedAt: string | null;
+  /** 対応した管理者の member_id。open のあいだは null */
+  resolvedBy: string | null;
+  /** 管理者が書いた対応メモ。メンバー側の合意画面にも出す */
+  resolutionNote: string | null;
 }
 
 export interface MonthlyWorkAgreementProject {
@@ -182,6 +186,12 @@ export interface AdminMonthlyWorkAgreementRow {
   latestAgreement: MonthlyWorkAgreementRecord | null;
   revisionRequestCount: number;
   latestRevisionRequestAt: string | null;
+  /**
+   * メンバーが出した修正要望そのもの。open を先頭にした新しい順。
+   * 件数だけ返していると、管理者は本文を読めず open を閉じられないので支払ゲートを解除できない
+   * (2026-08-28: 支払通知書が発行できない原因調査で判明)。
+   */
+  revisionRequests: MonthlyWorkAgreementRevisionRequest[];
   projectCount: number;
   reviewRequiredCount: number;
   /** 合意額 = この稼働月として払う額 (過去の未払いの返済分を含む) */

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CockpitMonthlyModal } from "@/components/cockpit/CockpitMonthlyModal";
 import { MemberPayoutBreakdownModal } from "@/components/admin/MemberPayoutBreakdownModal";
@@ -198,6 +199,8 @@ type BulkNoticeSummary = {
   generated: number;
   skipped: number;
   failed: number;
+  /** 月初合意が未完了で発行を見送った人数。失敗ではない */
+  agreementBlocked?: number;
   results: BulkNoticeResultEntry[];
 };
 
@@ -1465,6 +1468,11 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
   const [paymentNudgeSending, setPaymentNudgeSending] = useState(false);
   const [bulkPdfMode, setBulkPdfMode] = useState<"issue" | "preview" | null>(null);
   const [bulkPdfResult, setBulkPdfResult] = useState<BulkNoticeSummary | null>(null);
+  /**
+   * 発行・送付が止まった理由。ツールバー右端の hint は小さすぎて気づけず、
+   * 「PDFタブが開いて閉じただけで何も起きない」ように見えていたので赤バナーで出す (2026-08-28)。
+   */
+  const [actionError, setActionError] = useState<string | null>(null);
   const [agreementOverrideReason, setAgreementOverrideReason] = useState("");
   const [selectedMemberMonthlyPayout, setSelectedMemberMonthlyPayout] = useState<SelectedMemberMonthlyPayoutCell | null>(null);
   const [cockpitCache, setCockpitCache] = useState<Record<string, CockpitData>>({});
@@ -2049,6 +2057,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
 
     const pdfWindow = openPdfPlaceholderWindow();
     setNoticeSavingMemberId(row.memberId);
+    setActionError(null);
     setHint("支払通知書PDFを発行中...");
     try {
       const res = await fetch("/api/admin/payouts", {
@@ -2065,6 +2074,8 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
         PayoutData & { ok?: boolean; error?: string; issuedNotice?: { pdfUrl?: string } }
       );
       if (!res.ok || payload.ok === false) {
+        // 止まった理由が gate なら、返ってきた blocker 明細で画面のゲートパネルも更新する
+        if (Array.isArray(payload.members) && payload.ym === ym) setData(payload);
         throw new Error(payload.error || `notice pdf failed (${res.status})`);
       }
       setData(payload);
@@ -2075,7 +2086,9 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
       setHint(`${row.memberName} の支払通知書PDFを発行した`);
     } catch (err) {
       closePdfPlaceholder(pdfWindow);
-      setHint(err instanceof Error ? err.message : "支払通知書PDFの発行エラー");
+      const message = err instanceof Error ? err.message : "支払通知書PDFの発行エラー";
+      setHint(message);
+      setActionError(`${row.memberName} の支払通知書PDFを発行できなかった: ${message}`);
     } finally {
       setNoticeSavingMemberId(null);
     }
@@ -2239,6 +2252,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     const mode = previewOnly ? "preview" : "issue";
     setBulkPdfMode(mode);
     setBulkPdfResult(null);
+    setActionError(null);
     setHint(
       `全員分の${previewOnly ? "確認用" : "本番"}PDFを生成中... (最大 ${memberRows.length} 人, 数分かかることあり)`
     );
@@ -2269,14 +2283,19 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
       if (payload.bulkResult) setBulkPdfResult(payload.bulkResult);
       const summary = payload.bulkResult;
       if (summary) {
+        const blockedSuffix = summary.agreementBlocked
+          ? ` / 合意待ちで見送り ${summary.agreementBlocked}`
+          : "";
         setHint(
-          `${previewOnly ? "確認用" : "本番"}PDF生成完了: 対象 ${summary.targetCount}人 / 生成 ${summary.generated} / 既存利用 ${summary.skipped} / 失敗 ${summary.failed}`
+          `${previewOnly ? "確認用" : "本番"}PDF生成完了: 対象 ${summary.targetCount}人 / 生成 ${summary.generated} / 既存利用 ${summary.skipped} / 失敗 ${summary.failed}${blockedSuffix}`
         );
       } else {
         setHint("一括PDF生成完了");
       }
     } catch (err) {
-      setHint(err instanceof Error ? err.message : "一括PDF生成エラー");
+      const message = err instanceof Error ? err.message : "一括PDF生成エラー";
+      setHint(message);
+      setActionError(`全員分の支払通知書PDFを生成できなかった: ${message}`);
     } finally {
       setBulkPdfMode(null);
     }
@@ -2450,6 +2469,60 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           <span className="font-semibold">合計 {fmtYen(grandTotal)}</span>
         </div>
       </div>
+
+      {actionError && (
+        <div
+          data-testid="admin-payouts-action-error"
+          className="flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2.5 text-[12px] text-red-900"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold">操作が止まった</div>
+            <p className="mt-0.5 whitespace-pre-wrap leading-relaxed">{actionError}</p>
+            {hasAgreementBlocker && (
+              <p className="mt-1 text-[11px]">
+                月初合意が理由なら{" "}
+                <Link
+                  href={`/admin/monthly-work-agreements?ym=${encodeURIComponent(ym)}`}
+                  className="font-semibold underline"
+                >
+                  月初タスク・報酬合意
+                </Link>{" "}
+                で本人の合意状況と修正要望を確認する。急ぐときは下の gate パネルで override 理由を入れる。
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionError(null)}
+            className="shrink-0 rounded border border-red-300 px-2 py-1 text-[11px] font-semibold hover:bg-red-100"
+          >
+            閉じる
+          </button>
+        </div>
+      )}
+
+      {bulkPdfResult && (bulkPdfResult.agreementBlocked ?? 0) > 0 && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+          <div className="font-semibold">
+            月初合意が済んでいないので発行を見送った ({bulkPdfResult.agreementBlocked}件) — 他のメンバーは発行済み
+          </div>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5">
+            {bulkPdfResult.results
+              .filter((r) => r.reason === "agreement_gate")
+              .slice(0, 8)
+              .map((r) => {
+                const member = data?.members.find((m) => m.member_id === r.memberId);
+                const name = member?.code_name || member?.member_name || r.memberId;
+                return (
+                  <li key={`agreement-blocked-${r.memberId}`}>
+                    <span className="font-medium">{name}</span>{" "}
+                    <span className="text-amber-800/70">{r.error}</span>
+                  </li>
+                );
+              })}
+          </ul>
+        </div>
+      )}
 
       {bulkPdfResult && bulkPdfResult.failed > 0 && (
         <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-[11px] text-red-900">

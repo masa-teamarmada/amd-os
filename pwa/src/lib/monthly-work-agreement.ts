@@ -486,6 +486,8 @@ function toRevisionRequest(row: JsonRecord): MonthlyWorkAgreementRevisionRequest
     snapshotHash: typeof row.snapshot_hash === "string" ? row.snapshot_hash : null,
     createdAt: String(row.created_at ?? ""),
     resolvedAt: typeof row.resolved_at === "string" ? row.resolved_at : null,
+    resolvedBy: typeof row.resolved_by === "string" ? row.resolved_by : null,
+    resolutionNote: typeof row.resolution_note === "string" ? row.resolution_note : null,
   };
 }
 
@@ -1017,7 +1019,7 @@ export async function buildMonthlyWorkAgreementBundle(
   let revisionRequests: MonthlyWorkAgreementRevisionRequest[] = [];
   const { data: requestData, error: requestError } = await supabase
     .from("member_monthly_work_agreement_requests")
-    .select("id, ym, member_id, project_id, request_type, body, status, snapshot_hash, created_at, resolved_at")
+    .select("id, ym, member_id, project_id, request_type, body, status, snapshot_hash, created_at, resolved_at, resolved_by, resolution_note")
     .eq("ym", ym)
     .eq("member_id", params.memberId)
     .order("created_at", { ascending: false })
