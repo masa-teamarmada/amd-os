@@ -15,8 +15,24 @@
 | revision request 管理API | `GET/PATCH /api/admin/monthly-work-agreements/revision-requests` |
 | admin API | `GET /api/admin/monthly-work-agreements?ym=YYYYMM` |
 | app entry gate | 未合意 / 条件更新ありで表示対象PJがある場合、開いた画面を背景に残したまま月初合意モーダルを前面表示。ヘッダー右上の閉じるボタン (`data-testid="monthly-agreement-modal-close"`)、`Escape` キー、背景クリックのいずれでもその表示だけ一時的に閉じられるが、合意状態は保存されない。未合意のまま同じ entry を開き直すと再表示され、合意完了後だけ gate が解決済みになる。gate 判定は `(app)/layout.tsx` の SSR では計算せず (2026-07-17 v3.44.8 以前は SSR で `buildMonthlyWorkAgreementBundle` を毎 route 実行し全 authenticated route の初回表示をブロックしていた)、`AppShell` mount 後に既存の member API `GET /api/monthly-work-agreement` を client fetch して判定する。判定ロジック (`tableReady && projectCount>0 && status in (pending, needs_reagreement)`) 自体は不変。ユーザーから見える gate 発火条件・表示内容は変わらない |
+| 合意の単位 | **`member × ym × project`**。2026年9月稼働分 (`MONTHLY_WORK_AGREEMENT_PROJECT_SCOPE_START_YM = "202609"`) から。202608 以前は `member × ym` の1件 |
 | DB | `member_monthly_work_agreements`, `member_monthly_work_agreement_requests`, `member_monthly_work_agreement_amount_change_reasons`, `member_monthly_work_agreement_payout_overrides` |
-| migration | `pwa/scripts/migrations/139_member_monthly_work_agreements.sql`, `140_member_monthly_work_agreement_requests.sql`, `145_member_monthly_work_agreement_payout_overrides.sql`, `197_member_monthly_work_agreement_amount_change_reasons.sql` |
+| migration | `pwa/scripts/migrations/139_member_monthly_work_agreements.sql`, `140_member_monthly_work_agreement_requests.sql`, `145_member_monthly_work_agreement_payout_overrides.sql`, `197_member_monthly_work_agreement_amount_change_reasons.sql`, `335_member_monthly_work_agreements_project_scope.sql` |
+
+## 合意の単位
+
+**合意はPJごとに成立する** (まさ確定 2026-08-28「1人1人が自分の額だけ合意するのではなく、PJごとに合意をするようにしたい」)。
+
+自分の額が妥当かどうかは、同じ原資を分け合う他の人の額を並べないと判断できない。増額の要望が出たときに、誰かを下げないと成り立たないことが本人にも見えている必要がある。
+そのため本人向け画面は、PJごとに **そのPJの全メンバーの当月配分** を出したうえで、そのPJ単位で合意させる。
+
+- 適用は **2026年9月稼働分から** (`MONTHLY_WORK_AGREEMENT_PROJECT_SCOPE_START_YM = "202609"`)。まさ確定 2026-08-28「PJ単位での合意は9月から。いままさに発行しようとしている分には影響が出ないようにして」。
+- この定数は移行月の境 (`MONTHLY_WORK_AGREEMENT_PAYOUT_GATE_START_YM`) と**別に持つ**。移行月の境は「未合意で支払を止めるか」の判断で、運用の都合で何度か後ろへ動いている。動かされたときに合意の単位まで一緒に動くと、発行中の月の挙動が巻き添えで変わる。
+- 202608 以前の稼働月は、判定・保存・支払gateのすべてで従来どおり `member × ym` の1件を単位にする。本人画面の合意ボタンも画面下の1つだけ。
+- 配分表の表示だけは全月で出す。表示は支払や合意状態を変えないため、開始月で切らない。
+- `member_monthly_work_agreements.project_id` が NULL の行は、PJ単位化する前の member 全体合意。無効化せず、PJ単位の合意が無いPJの合意根拠として生かす (そのPJ分を抜き出した terms hash で判定)。既存の合意を理由に全員へ再合意を求めることはしない。
+- PJ単位の合意状態は `MonthlyWorkAgreementBundle.projectAgreements[]` に入れる。snapshot 側には入れない。snapshot に入れると、合意した事実が snapshot hash を変えて、合意した直後に「条件更新あり」へ落ちる。
+- bundle 全体の `status` は集約値。1つでも `pending` なら `pending`、1つでも `needs_reagreement` ならそれ。全PJ `agreed` で `agreed`。
 
 ## Scope
 
@@ -32,6 +48,9 @@
 - 報酬キャッシュを再計算しない。通常 GET は読むだけ。
 - cap、carry-over、条件/前提、未確定・要確認などの精算/確認内部情報は本人向け月初合意画面に出さない。例外として、`reward_summary_json.members[].stockYen > 0` の場合だけ、当月支払とは分けて翌月以降へ繰り越される残額が本人に伝わるよう `今月末未払い残（今月は支払われない）` を read-only 表示する。月初合意は「どのPJのどのMSへコミットし、当月どこまで到達すべきか」と「その対価としての予定報酬」を示す。
 - 当月報酬も担当MSもないPJは、月初合意の「何をすればいくら」に答えないため本人画面から非表示にする。
+- PJごとに、そのPJの当月配分を全メンバー分そろえる (`projects[].memberAllocations`)。額の主ソースは支払通知書と同じ `reward_summary_json.members[]`。保存済み明細 (`monthly_reward_payout`) があればそれを優先し、どちらも無いPJだけ月初合意側のMS計算 (当月予算 × 消化pt × 正規化share) で埋める。
+- 配分表には `exclude_from_payout_notice=true` のメンバーも出す。「現金支払なし」と明記し、会社の内部配賦であることを添える。隠すと残りの配分先が見えなくなり、合計と内訳が合わない表になって透明化の目的を失う。
+- 配分表の「取り分」は**額の比** (`accrualShare = 自分の発生額 / PJ全員の発生額合計`)。ptの比では出さない。MSごとにptの単価が違う (通常枠と別契約枠) ため、ptの比を取り分と書くと同じ表の金額列と合わない数字が並ぶ。
 
 ## Payout Gate
 
@@ -51,13 +70,15 @@
 
 移行月扱いの行だけで blocker が無い場合、`/admin/payouts` の gate panel は個別メンバー一覧を出さず、対象支払行数と「移行月スキップ」の summary だけを表示する。支払 gate の対象はあくまで「支払が発生する `member × source_ym × project`」なので、支払行が無い他メンバーを「合意済み一覧」に混ぜて見せない。
 
+gate が読む合意状態は稼働月で変わる。**202609 稼働分からは `member × ym × project` のPJ単位の合意状態**、202608 以前は従来どおり member 全体の合意状態 (`bundle.status`)。判定の分岐は `bundle.projectScopedAgreement` で行う。
+
 | status | meaning | payout behavior |
 |---|---|---|
 | `not_required` | 支払額 0、非adminの通知対象外、`frozen` / `lost` / `freeze_from_ym` 到達後 / active期間外PJなど | gate 対象外 |
-| `pending` | 支払対象だが本人の active `agreed` row が無い、または支払対象PJが snapshot に無い | block |
-| `agreed` | latest active `agreed.snapshot_hash === currentHash` | allow |
+| `pending` | 支払対象だがそのPJの active `agreed` row が無い、または支払対象PJが snapshot に無い | block |
+| `agreed` | そのPJの latest active `agreed` が現在の hash か terms hash と一致 | allow |
 | `agreed` (移行月扱い) | `source_ym <= 202606` | allow。導入前/移行月なので合意済み扱い |
-| `stale` | latest active `agreed` はあるが `snapshot_hash !== currentHash` | block (`条件更新あり`) |
+| `stale` | そのPJの latest active `agreed` はあるが、担当内容か受け取る額が変わっている | block (`条件更新あり`) |
 | `revision_requested` | `member_monthly_work_agreement_requests.status='open'` が member全体または当該PJにある | block |
 | `admin_override` | admin が理由を入れて server-side action を例外実行し、監査ログが残った | allow for that action |
 
@@ -120,6 +141,8 @@ projectPlannedRewardYen = Σ msPlannedRewardYen
 | `projects[].expectedRewardYen` | 月初合意用の予定報酬 (= 当月月次予算 × 当月予定MS消化pt × share) |
 | `projects[].payoutYen` / `stockYen` / `grossDueYen` / `carryInYen` | 表示専用の今月支払額 / 今月末未払い残 / 支払対象額 / 前月繰越。支払額は `monthly_reward_payout` の保存済み明細を優先し、無ければ `reward_summary_json.members[]` を読む。予定報酬計算や合意 gate 判定には使わない。支払月はメンバー支払条件から計算し、クライアント請求月である `billing_cycles.invoice_ym` では上書きしない |
 | `projects[].payoutSchedule[]` | 稼働月ごとの `新規発生` / `支払対象` / `支払額` / `支払後残`。各行は税抜の `totalPayYen` と、freee銀行出金と照合する税込 `totalPayTaxIncludedYen` を持つ。`amountSource` (`actual_paid` / `unverified_paid` / `payout_snapshot` / `protected_reward_cache` / `reward_cache`) で、支払済み実績・実績未照合・保存済み・保護済み・予定を区別する |
+| `projects[].memberAllocations[]` | そのPJの当月配分。**本人を含む全メンバー分**。`memberId` / `codeName` / `roleLabel` / `isPm` / `isPl` / `isSelf` / `payoutExcluded` / `earnedPt` / `accrualShare` (額の比) / `accrualYen` (今月発生する額) / `payYen` (今月受け取る額) / `stockYen` / `taskSummaries[]`。terms hash には含めない (他人の額が動いただけで本人へ再合意を求めない) |
+| `projects[].allocationTotals` | 配分表の合計。`memberCount` / `earnedPt` / `accrualYen` / `payYen` |
 | `projects[].reviewReasons[]` | 月次予算未設定、value plan未設定、MS/share未設定など admin 向け確認事項 |
 | `totals` | PJ数、予定報酬合計、支払済み実績合計、これから支払予定合計、今月末未払い残合計、admin向け確認事項数 |
 
@@ -188,7 +211,7 @@ projectPlannedRewardYen = Σ msPlannedRewardYen
 
 | column | contract |
 |---|---|
-| `ym` / `member_id` | 合意対象 |
+| `ym` / `member_id` / `project_id` | 合意対象。`project_id` は 2026-08-28 追加。NULL は PJ単位化する前の member 全体合意 |
 | `status` | `agreed` / `superseded` / `revoked` |
 | `agreed_at` / `agreed_by` | 合意時刻と actor email |
 | `snapshot_json` | 合意時表示内容 |
@@ -196,7 +219,9 @@ projectPlannedRewardYen = Σ msPlannedRewardYen
 | `current_hash` | supersede 時などに保持する現在 hash |
 | `invalidated_at` / `invalidation_reason` | `superseded` / `revoked` の理由 |
 
-同一 `ym, member_id` の active `agreed` は 1 件だけ。再合意時は旧 `agreed` を `superseded` に更新してから新 snapshot を `agreed` で insert する。
+同一 `ym, member_id, coalesce(project_id, '*')` の active `agreed` は 1 件だけ (部分ユニークインデックス `member_monthly_work_agreements_one_active_agreed`)。再合意時は**同じPJの**旧 `agreed` だけを `superseded` に更新してから新 snapshot を `agreed` で insert する。他のPJの合意は動かさない。
+
+PJ単位の行の `snapshot_json` は、`projectScopedSnapshot()` でそのPJだけを抜き出した部分snapshot (形は snapshot と同じなので、既存の terms / diff / 説明生成の関数がそのまま通る)。`snapshot_hash` もその部分snapshotの hash。
 
 `member_monthly_work_agreement_requests`:
 
@@ -245,7 +270,15 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 - `exclude_from_payout_notice=true` でも `is_admin=true` のメンバーは、テスト確認のため通常メンバーと同じく合意保存・修正要望保存を有効にする。本人以外の代理合意は禁止のまま。
 - `/monthly-agreement` ページと強制表示モーダルは同じ `MonthlyAgreementExperience` を使い、表示内容・合意保存・修正要望を分岐させない。
 - ヘッダー直下に横幅いっぱいの状態欄を置き、`合意状態：未合意` / `合意状態：条件更新あり` / `合意状態：合意済み` / `合意状態：対象外` のいずれかを、理由の一文と一緒に表示する。状態値だけの `未確認` や、何の確認か分からない `確認不要` は使わない。
-- 状態欄の直下に `確認して合意する内容` を置き、必須確認事項を独立した全幅の2セクションとして、`01 担当する仕事` → `02 その対価としての予定額` の順に表示する。`01` は全PJの `milestones[].taskDescription`（無い場合はMS名）を一覧し、`02` は予定額合計を先に強調したうえで、`01` と同じPJ順の予定額を一覧する。`milestones[].title` はMS名であり、月次の到達目標は現在の snapshot に無いため、目標として表示しない。現在 snapshot に独立した発注条件値はなく、抽象的な `必須2点` やPJ単位の横並び表へ戻さない。必須確認領域では番号を14px・見出しを18px以上・PJ名と担当内容を14px以上・PJ別予定額を16px以上・合計額を26px以上とし、補助文を含め12px未満の文字を使わない。未合意 / 条件更新ありでは、2セクションを読んだ後に `確認して合意` を置き、この操作まで当該稼働月の支払いに進めないことを明示する。
+- 状態欄の直下に `確認して合意する内容` を置き、その下に **PJごとのブロック** (`data-testid="monthly-agreement-project-block"`) を縦に並べる。各ブロックの中は `01 あなたが担当する仕事` → `02 その対価としてあなたが受け取る額` → `03 このプロジェクトの今月の配分` → 合意ボタンの順。全PJを横断する `01`/`02` の2セクションへ戻さない。
+- `01` はそのPJの `milestones[].taskDescription`（無い場合はMS名）を一覧する。`milestones[].title` はMS名であり、月次の到達目標は現在の snapshot に無いため、目標として表示しない。
+- `02` はそのPJの `expectedRewardYen` を強調し、内訳として今月の担当分から発生する額と今月末に残る未払い分を添える。ここに出す発生額は **配分表の自分の行と同じ数字** (`memberAllocations[isSelf].accrualYen`) を使う。月初合意側のMS計算値 (`currentMonthAccrualYen`) と支払明細では定義が違うので、同じ画面に2つの発生額を出さない。
+- `03` はそのPJの全メンバーの配分。列は `メンバー` / `今月の担当` / `今月のpt` / `取り分` / `今月発生する額` / `今月受け取る額`、末尾に人数と合計。自分の行は背景で強調する。支払通知対象外の人は受け取る額を `現金支払なし` と表示し、表の下に会社の内部配賦である旨を添える。
+- `03` の直前に「発生する額は担当した仕事の消化ptとMSごとの単価から決まる。全員で同じ原資を分け合うので、誰かの取り分を増やすと他の人の取り分が減る」ことを書く。配分表を見せる目的がこの一文なので落とさない。
+- **狭い画面では配分表を表にしない**。`sm:` 未満は1人1ブロックの密なリスト (1行目に名前と今月受け取る額、2行目に発生額・取り分・pt、3行目に担当) にし、`sm:` 以上で表へ切り替える。表を横スクロールさせると、モバイルでは肝心の金額が初期表示の外へ出る。
+- 必須確認領域では番号を14px・見出しを16px以上・PJ名を18px以上・担当内容を14px以上・自分の予定額を26px以上とし、配分表の本文は13px以上、補助文を含め12px未満の文字を使わない。
+- 未合意 / 条件更新ありでは、各PJブロックの末尾に `{PJ名} に合意する` を置き、この操作まで当該PJの当該稼働月の支払いに進めないことを明示する。合意ボタンの隣にそのPJ向けの修正要望 (`このPJの内容が違う`) を置く。
+- 202608 以前の稼働月と、参加PJが0件の月は、PJブロックに合意ボタンと状態バッジを出さず、画面下の `確認して合意` 1つで従来どおり合意する。
 - 強制表示モーダルでは、参加PJ数、支払済み実績(税込)、実績未照合(税込)、これから支払予定(税込)、今月末未払い残合計を `参考情報: 支払い状況と対象PJ` の初期閉じの折りたたみへまとめる。開いたときだけ、PJごとの請求状態・今月支払・当該稼働月の支払予定・未払残を同じ領域に並べる。各PJの担当割合と今月のptは `参考情報: 予定額の根拠` にまとめる。支払い予定・未払残・予定額の根拠は、合意する担当内容や予定額そのものではなく、判断を助ける参考情報として扱う。支払済み実績は `reward_paid_at` ではなく、`monthly_reward_payout` の保存済み明細と `freee_wallet_txn_verified:` 証跡がそろった行だけを、税込額 (`round(total_pay × 1.1)`) で集計する。`reward_paid_at` はあるが実支払証跡とPJ別明細額が一致していない行は `実績未照合` へ分け、実績にも「これから支払予定」にも混ぜない。
 - 強制表示モーダルの外枠は、背景を確実にクリックできる余白を残す。背景は `p-4 sm:p-8 lg:p-12` + `flex items-center justify-center`、本体は `max-h-full w-full max-w-4xl` とし、ウィンドウ幅にかかわらず上下左右へ最低16px (`sm:` 以上で32px、`lg:` 以上で48px) の背景クリック領域を残す。本体を `h-full` や `max-w-7xl` にして画面いっぱいに広げない。ヘッダーは `sticky` のまま、右上に常時見える閉じるボタンを置き、`Escape` キーでも閉じられるようにする。閉じる導線を背景クリックだけに依存させない。
 - モーダルのヘッダーは sticky で常時表示されるため高さを抑える。表題は `text-[17px] sm:text-[20px]`、補助文は `text-[12px]` の1〜2行に収め、閉じ方 (`右上の × か背景のクリックで閉じます（合意は保存されません）。`) を書く。
@@ -266,7 +299,8 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 
 ### `/admin/monthly-work-agreements`
 
-- 対象月、対象メンバー数、合意済み、未合意、条件更新あり、修正要望数、今月支払合計、今月末未払い残合計を表示する。
+- 対象月、対象メンバー数、合意済み、未合意、条件更新あり、修正要望数、今月支払合計、今月末未払い残合計を表示する。合意済み / 未合意 / 条件更新ありの主数値は **member×PJ 単位の件数** で出し、該当メンバー数を補足に添える。合意はPJごとに成立するので、残件は member 数では追えない。
+- 各行に、その member のPJ別合意状態をバッジで並べる (`{PJ名} 合意済み / 未合意 / 条件更新あり`)。PJ名の羅列だけに戻さない。どのPJが未合意かが分からないと、支払が止まっている原因にたどり着けない。
 - 対象月は日本語表記のプルダウンから選ぶ。2026年6月以前を選んだときは、月初合意の導入前・移行月であり、合意保存も未合意による支払い停止も不要だと一覧上部に明示する。
 - member / PJ / status で検索できる。
 - 各行は `予定報酬` だけでなく `今月支払` と `未払い残` を分けて表示し、stock が今月支払対象ではないことを admin 一覧でも判別できるようにする。`今月支払` は支払条件から見た現金支払月で集計し、`invoice_ym` は請求書発行月として扱う。
@@ -293,10 +327,12 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 
 ## Validation
 
-- migration SQL check: `pwa/scripts/migrations/139_member_monthly_work_agreements.sql`, `140_member_monthly_work_agreement_requests.sql`, `145_member_monthly_work_agreement_payout_overrides.sql`
+- migration SQL check: `pwa/scripts/migrations/139_member_monthly_work_agreements.sql`, `140_member_monthly_work_agreement_requests.sql`, `145_member_monthly_work_agreement_payout_overrides.sql`, `335_member_monthly_work_agreements_project_scope.sql`
 - `npm run lint`
 - `npm run build`
+- `node scripts/check_pwa_critical_ui.cjs` (PJ単位の画面構成と開始月の定数をここで固定している)
 - local browser: `/monthly-agreement`, `/mypage`, `/admin/monthly-work-agreements`
+- local browser (実寸): PJ単位が有効な稼働月 (`?ym=202609`) と、それより前の稼働月 (`?ym=202608`) の両方を desktop 1440 / mobile 375 で確認する。モバイルでは `documentElement.scrollWidth === clientWidth` を併せて見る (配分表の合計行で横スクロールを出した実績あり)
 - intact smoke: `/dashboard`, `/admin/payouts`, `/admin/weekly`, `/spec/3-0-l2-data-list-current-spec`, `/project/p25/cockpit`
 
 ## 報酬計算との境界
