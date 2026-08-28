@@ -291,7 +291,7 @@ const STAGE_LABEL: Record<StageKey, string> = Object.fromEntries(
 // (#weekly-change / #project-gantt / #partner-ledger / #issue-hypothesis / #input-readiness)
 // は他画面からのリンク互換のためhashとしてそのまま残す。
 // themes タブは bundle.themes.length > 0 のPJだけ動的に先頭に追加される。
-type SxWeeklyControlView = "weekly" | "gantt" | "partners" | "issues" | "cost" | "ip" | "drive" | "themes";
+export type SxWeeklyControlView = "weekly" | "gantt" | "partners" | "issues" | "cost" | "ip" | "drive" | "themes";
 const SX_WEEKLY_VIEW_STORAGE_KEY = "sx-weekly-control-view-v1";
 const SX_WEEKLY_VIEW_HASH: Record<SxWeeklyControlView, string> = {
   weekly: "weekly-change",
@@ -4651,9 +4651,18 @@ const ROW_PLAN_STATUS: Record<SxManagementMilestone["manualStatus"], string> = {
 export function SxWeeklyControlDashboard({
   bundle,
   access,
+  view,
+  embedded = false,
+  onViewChange,
 }: {
   bundle: ProjectWorkspaceBundle;
   access: CurrentMemberAccess;
+  /** PJコックピットへ埋め込むとき、表示するタブを外 (CockpitView のタブ列) が決める。 */
+  view?: SxWeeklyControlView;
+  /** true のとき自前のタイトル行・タブ列・ページ枠を出さない (2026-08-28 コックピット統合)。 */
+  embedded?: boolean;
+  /** 画面内の導線 (「ガントで見る」等) が別タブへ飛ぶとき、外側のタブ列へ知らせる。 */
+  onViewChange?: (view: SxWeeklyControlView) => void;
 }) {
   const [management, setManagement] = useState(bundle.sxManagement);
   const [trackFilter, setTrackFilter] = useState<SxTrackKey | "all">("all");
@@ -4704,10 +4713,13 @@ export function SxWeeklyControlDashboard({
   }, [bundle.themes.length]);
 
   const hasThemes = bundle.themes.length > 0;
-  const [activeView, setActiveView] = useState<SxWeeklyControlView>(
+  const [internalView, setActiveView] = useState<SxWeeklyControlView>(
     () => (hasThemes ? "themes" : "weekly"),
   );
+  // 埋め込み時は外から渡された view が正。単体ページのときだけ hash / localStorage を見る。
+  const activeView = embedded && view ? view : internalView;
   useEffect(() => {
+    if (embedded) return;
     const fromHash = viewForHash(window.location.hash);
     if (fromHash) {
       if (fromHash === "themes" && !hasThemes) {
@@ -4741,12 +4753,14 @@ export function SxWeeklyControlDashboard({
       return;
     }
     setActiveView("weekly");
-  }, [hasThemes]);
+  }, [embedded, hasThemes]);
 
-  function selectView(view: SxWeeklyControlView) {
-    setActiveView(view);
-    window.localStorage.setItem(SX_WEEKLY_VIEW_STORAGE_KEY, view);
-    window.history.replaceState(null, "", `#${SX_WEEKLY_VIEW_HASH[view]}`);
+  function selectView(next: SxWeeklyControlView) {
+    setActiveView(next);
+    onViewChange?.(next);
+    if (embedded) return;
+    window.localStorage.setItem(SX_WEEKLY_VIEW_STORAGE_KEY, next);
+    window.history.replaceState(null, "", `#${SX_WEEKLY_VIEW_HASH[next]}`);
   }
 
   function showNotice(message: string) {
@@ -5432,10 +5446,17 @@ export function SxWeeklyControlDashboard({
   }, [allWorkUnits]);
 
   return (
-    <main className={`${styles.page} amd-workspace-page-skin sx-management-workspace`}>
+    // 埋め込み時 (PJコックピット) はページの背景・余白・最小高さを外す。
+    // CSS変数 (--paper / --ink / --line ...) は styles.page が持っているのでクラス自体は外せない。
+    <main
+      className={embedded ? `${styles.page} sx-management-workspace` : `${styles.page} amd-workspace-page-skin sx-management-workspace`}
+      data-embedded={embedded || undefined}
+    >
       <div className={styles.shell}>
         {/* バッジ行・既存ワークスペースリンク・週レンジ・運用準備中スタンプは
-            2026-08-08 まさ指示 #10 で削除。タイトルとナビだけを残す。 */}
+            2026-08-08 まさ指示 #10 で削除。タイトルとナビだけを残す。
+            埋め込み時はコックピット側のヘッダ・タブ列を使うので、この header ごと出さない。 */}
+        {!embedded && (
         <header className={styles.header}>
           <div className={styles.titleRow}>
             <div>
@@ -5482,6 +5503,7 @@ export function SxWeeklyControlDashboard({
             ))}
           </nav>
         </header>
+        )}
 
         {/* 管制帯は週次差分タブ専用 (2026-08-09 まさ #11「週次差分以外のタブに管制のやつ入れないで」)。 */}
         {activeView === "weekly" && (

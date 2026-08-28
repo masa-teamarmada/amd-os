@@ -23,6 +23,11 @@
   padding: 14px 16px 28px;
 }
 
+/* PJコックピットへ埋め込むとき (2026-08-28): CSS変数は .page が持っているのでクラスは残し、
+   ページとしての枠 (全画面の高さ・方眼背景・外周余白) だけ外す。 */
+.page[data-embedded] { min-height: 0; padding: 0; background: none; overflow-x: visible; }
+.page[data-embedded] .shell { max-width: none; }
+
 .shell { max-width: 1560px; margin: 0 auto; }
 .header { border-bottom: 1px solid #d2d2d7; }
 .headerTop, .titleRow, .issueHeading, .sectionHeading, .editorHeader, .editorFooter, .pageFooter { display: flex; align-items: center; justify-content: space-between; gap: 20px; }

@@ -23,6 +23,8 @@ import { CockpitFreezeBackfill } from "./CockpitFreezeBackfill";
 import { CockpitAmdScoreDetailTab } from "./CockpitAmdScoreDetailTab";
 import { CockpitCompanyOverview } from "./CockpitCompanyOverview";
 import { CockpitProjectOverview } from "./CockpitProjectOverview";
+import { CockpitProjectControl } from "./CockpitProjectControl";
+import type { SxWeeklyControlView } from "@/components/project-workspace/SxWeeklyControlDashboard";
 import { CockpitBusinessPlan } from "./CockpitBusinessPlan";
 import type { CockpitSeasonFinance as CockpitSeasonFinanceData, MilestoneChangeHistory } from "@/lib/supabase-data";
 import type { ProjectContractTerms } from "@/lib/project-contract-terms";
@@ -250,7 +252,43 @@ function usesMsProgressCategory(category: string | null | undefined) {
   return ["dtsu", "ecosystem", "new_business"].includes(String(category || "dtsu").toLowerCase());
 }
 
-export type CockpitTab = "progress" | "score-detail" | "business-plan" | "cost-model" | "regulations" | "ip" | "documents" | "overview" | "company";
+export type CockpitTab =
+  | "progress"
+  | "weekly"
+  | "gantt"
+  | "partners"
+  | "issues"
+  | "score-detail"
+  | "business-plan"
+  | "cost-model"
+  | "regulations"
+  | "ip"
+  | "documents"
+  | "overview"
+  | "company";
+
+/**
+ * PJワークスペースの管制タブをコックピットのタブへ対応づける (2026-08-28 まさ確定)。
+ * ここに載っているタブは同じ `CockpitProjectControl` を共有するので、
+ * 4タブを行き来しても束を読み直さない。
+ */
+const WORKSPACE_VIEW_BY_TAB: Partial<Record<CockpitTab, SxWeeklyControlView>> = {
+  weekly: "weekly",
+  gantt: "gantt",
+  partners: "partners",
+  issues: "issues",
+};
+
+/** 管制画面の中の導線 (「ガントで見る」等) が飛ぶ先を、コックピットのタブへ戻す。 */
+const TAB_BY_WORKSPACE_VIEW: Partial<Record<SxWeeklyControlView, CockpitTab>> = {
+  weekly: "weekly",
+  gantt: "gantt",
+  partners: "partners",
+  issues: "issues",
+  cost: "cost-model",
+  ip: "ip",
+  drive: "documents",
+};
 
 export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab, onTabChange }: CockpitViewProps) {
   const [localActiveTab, setLocalActiveTab] = useState<CockpitTab>("progress");
@@ -316,6 +354,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   const modalResponsibilities = !usesMsProgress || isReportOnlyMonth ? [] : (modalBundle?.responsibilities || responsibilities || []);
   const modalMsActivities = !usesMsProgress || isReportOnlyMonth ? [] : (modalBundle?.msActivities || msActivities || []);
   const modalMemberActivities = isReportOnlyMonth ? [] : (modalBundle?.memberActivities || memberActivities || []);
+  const workspaceView = WORKSPACE_VIEW_BY_TAB[activeTab];
   const showLiveOperations = isLiveOperationalProject(project, currentYm);
   const showAmdScore = (project.projectCategory || "dtsu") !== "ecosystem";
   const hasScoreDetailTab = project.projectId !== "p00" && showAmdScore;
@@ -323,6 +362,13 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   // タブ構成はここが正本。列数は tabs.length から出すので、追加時に grid の計算を直す必要はない。
   const tabs: { key: CockpitTab; label: string; onHover?: () => void }[] = [
     { key: "progress", label: "進捗管理" },
+    // PJワークスペースの管制4タブ (2026-08-28 まさ「コックピット側を12タブにしよう」)。
+    // 実装・データは `/project/[projectId]/workspace` と同じものを共有する。
+    // 外向けのワークスペースは別ルートのまま残す (認可の境界をルートで持つため)。
+    { key: "weekly", label: "週次差分" },
+    { key: "gantt", label: "ガント" },
+    { key: "partners", label: "関係先" },
+    { key: "issues", label: "論点・仮説" },
     ...(hasScoreDetailTab ? [{ key: "score-detail" as const, label: "スコア詳細" }] : []),
     { key: "business-plan", label: "事業計画" },
     // コスト試算は全PJ常設 (2026-08-23 まさ確定。SX専用ではなく雛形として全PJへ)。
@@ -602,6 +648,21 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
             scopeName={project.projectName}
             scopeTrail={[project.projectName]}
             presentation="modal"
+          />
+        </section>
+      )}
+
+      {/* 管制4タブ (週次差分 / ガント / 関係先 / 論点・仮説)。
+          4タブで1つのマウントを共有するので、行き来しても束を読み直さない。 */}
+      {workspaceView && (
+        <section role="tabpanel" aria-label="PJ管制" className="min-w-0">
+          <CockpitProjectControl
+            projectId={project.projectId}
+            view={workspaceView}
+            onViewChange={(next) => {
+              const tab = TAB_BY_WORKSPACE_VIEW[next];
+              if (tab) selectTab(tab);
+            }}
           />
         </section>
       )}

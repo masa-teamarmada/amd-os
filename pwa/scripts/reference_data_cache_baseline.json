@@ -11,6 +11,7 @@
   "generatedAt": "2026-08-23",
   "reasons": {
     "src/components/admin/MemberPayoutBreakdownModal.tsx": "可変系。支払額・繰越・未払い残は報酬キャッシュ再計算や合意ゲートの操作で当日中に変わる残高で、開くたびに最新を読む必要がある (古い値を出すと支払判断を誤らせる)。",
+    "src/components/cockpit/CockpitProjectControl.tsx": "可変系。週次差分・ガント・関係先・論点仮説はこの画面から直接編集し、他メンバーの更新も当日中に反映される必要がある。PJコックピットの管制4タブとPJワークスペース (/project/[projectId]/workspace) が同じ束を読む (2026-08-28 統合)。4タブは1マウントを共有するのでタブ移動では読み直さない。",
     "src/components/admin/kiyo-money-flow/KiyoMoneyFlowPanel.tsx": "可変系。入金確認・支払記録で当日中に増える集計 (manual/6-11-kiyo-money-flow-spec.md)。サーバ側 (src/lib/finance/kiyo-money-flow.ts) がプロセス内TTL5分で持つのでクライアントは素のfetchでよい。"
   },
   "allowed": {
@@ -196,6 +197,9 @@
       "/api/progress/unconfirmed",
       "/api/project/monthly-note",
       "/api/rewards/sync"
+    ],
+    "src/components/cockpit/CockpitProjectControl.tsx": [
+      "/api/project/:p/workspace-bundle"
     ],
     "src/components/cockpit/CockpitStrategySignals.tsx": [
       "/api/notifications/feedback",

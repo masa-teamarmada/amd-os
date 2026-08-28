@@ -6,7 +6,7 @@ import { CockpitView, type CockpitTab } from "@/components/cockpit/CockpitView";
 import { fetchCockpitFromSupabase, type CockpitData } from "@/lib/supabase-data";
 
 // "progress" は既定タブなので ?tab= を付けない。それ以外は URL に残して共有・再読込で復元する。
-const NON_DEFAULT_TABS = ["score-detail", "business-plan", "cost-model", "regulations", "ip", "documents", "overview", "company"] as const;
+const NON_DEFAULT_TABS = ["weekly", "gantt", "partners", "issues", "score-detail", "business-plan", "cost-model", "regulations", "ip", "documents", "overview", "company"] as const;
 
 function isNonDefaultTab(value: string | null): value is Exclude<CockpitTab, "progress"> {
   return (NON_DEFAULT_TABS as readonly string[]).includes(value ?? "");

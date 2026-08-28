@@ -622,6 +622,43 @@ expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
   // 進捗管理・スコア詳細の上へ Hero を戻さない (タブより上は CockpitHeader だけ)
   '(activeTab === "progress" || activeTab === "score-detail")',
 ]);
+
+// PJワークスペースの管制4タブをコックピットへ取り込んだ
+// (2026-08-28 まさ「コックピットとワークスペースを統合できそうじゃない？」→「コックピット側を12タブにしよう」)。
+// 実装は同じ SxWeeklyControlDashboard を埋め込みモードで共有し、二重実装を作らない。
+expectIncludes("src/components/cockpit/CockpitView.tsx", [
+  "CockpitProjectControl",
+  '{ key: "weekly", label: "週次差分" }',
+  '{ key: "gantt", label: "ガント" }',
+  '{ key: "partners", label: "関係先" }',
+  '{ key: "issues", label: "論点・仮説" }',
+]);
+expectIncludes("src/components/cockpit/CockpitProjectControl.tsx", [
+  "SxWeeklyControlDashboard",
+  "embedded",
+  "/workspace-bundle",
+]);
+expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
+  // 埋め込み時は外 (CockpitView のタブ列) が表示タブを決め、自前のヘッダ・タブ列は出さない
+  "embedded",
+  "onViewChange",
+]);
+// 【最重要】取り込み先は AMD メンバー専用の (app) 配下。この route へ外部 principal の
+// 認可経路を持ち込むと、内部前提で組み立てたコックピットの面が大学・SU アカウントへ開く。
+expectIncludes("src/app/api/project/[projectId]/workspace-bundle/route.ts", [
+  "getCurrentMemberAccess",
+  "getProjectWorkspaceBundle",
+]);
+expectNotIncludes("src/app/api/project/[projectId]/workspace-bundle/route.ts", [
+  "resolveSharedWorkspaceAccess",
+  "resolveWorkspaceAccess",
+  "workspace_account",
+]);
+// 外向けの共有ワークスペースは別ルートのまま残す (統合したのは AMD 側だけ)。
+expectIncludes("src/app/(shared-workspace)/project/[projectId]/workspace/page.tsx", [
+  "resolveSharedWorkspaceAccess",
+  "SxWeeklyControlDashboard",
+]);
 expectIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
   '"overview"',
 ]);
