@@ -149,6 +149,9 @@ const CATEGORY_META: Record<CategoryKey, {
 
 type SignalShelf = "important" | "research";
 
+/** 経営ハイライトの初期表示件数。これより古いものは「古い動きも表示」で開く。 */
+const INITIAL_VISIBLE_SIGNALS = 8;
+
 const RESEARCH_CATEGORY_META: Record<NonNullable<ProjectStrategySignal["researchCategory"]>, {
   label: string;
   emoji: string;
@@ -216,10 +219,15 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
     signal.originKind === "external_research" && signal.status === "confirmed"
   );
   const [activeShelf, setActiveShelf] = useState<SignalShelf>("important");
+  // 初期は直近だけ出し、「古い動きも表示」で全件へ広げる (2026-08-28 まさ依頼)。
+  // 件数を絞ったまま隠すと、数か月前の資金調達・提携がコックピットから消えて追えなくなる。
+  const [showAllSignals, setShowAllSignals] = useState(false);
   const visibleSignals = activeShelf === "important" ? internalSignals : adoptedResearch;
   const sorted = [...visibleSignals].sort((a, b) =>
     (b.signalDate || "").localeCompare(a.signalDate || "")
   );
+  const displayed = showAllSignals ? sorted : sorted.slice(0, INITIAL_VISIBLE_SIGNALS);
+  const hiddenCount = sorted.length - displayed.length;
 
   // まさ #34 短期 2026-05-25: 過去のつくよみ修正依頼を 1 回 fetch
   // #34 対話型 2026-05-25 #71: confirm 後にも refetch するため tick state を増やす
@@ -276,7 +284,7 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
             role="tab"
             aria-selected={activeShelf === key}
             aria-controls={`strategy-shelf-${key}`}
-            onClick={() => setActiveShelf(key)}
+            onClick={() => { setActiveShelf(key); setShowAllSignals(false); }}
             className={`min-h-11 border-b-2 px-2 py-1.5 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
               activeShelf === key
                 ? "border-foreground text-foreground"
@@ -333,7 +341,7 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
         </div>
       ) : (
         <div id={`strategy-shelf-${activeShelf}`} role="tabpanel" className="divide-y divide-border">
-          {sorted.map((signal) => {
+          {displayed.map((signal) => {
             const researchMeta = signal.researchCategory ? RESEARCH_CATEGORY_META[signal.researchCategory] : null;
             const cat = CATEGORY_OF_TYPE[signal.signalType] ?? "business";
             const meta = researchMeta ?? CATEGORY_META[cat];
@@ -350,6 +358,18 @@ export function CockpitStrategySignals({ signals, projectId }: { signals: Projec
               />
             );
           })}
+          {sorted.length > INITIAL_VISIBLE_SIGNALS && (
+            <button
+              type="button"
+              onClick={() => setShowAllSignals((v) => !v)}
+              aria-expanded={showAllSignals}
+              className="flex min-h-11 w-full items-center justify-center gap-1 px-3 py-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+            >
+              {showAllSignals
+                ? `▲ 直近${INITIAL_VISIBLE_SIGNALS}件だけ表示`
+                : `▼ 古い動きも表示（あと${hiddenCount}件・${sorted[sorted.length - 1]?.signalDate?.slice(0, 7).replace("-", "/") ?? ""}まで）`}
+            </button>
+          )}
         </div>
       )}
     </section>

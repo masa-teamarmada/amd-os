@@ -48,6 +48,7 @@ const LANE_LABELS: Record<string, string> = {
   materials: "素材 / ナノマテリアル",
   life: "ライフ / 医療",
   robo: "ロボ / 農・モビリティ",
+  quantum: "量子 / 光量子",
 };
 
 const LANE_COLORS: Record<string, string> = {
@@ -56,6 +57,7 @@ const LANE_COLORS: Record<string, string> = {
   materials: "#a16207",
   life: "#be185d",
   robo: "#7c3aed",
+  quantum: "#4338ca",
 };
 
 const OUTCOME_LABELS: Record<string, { emoji: string; label: string; color: string }> = {
