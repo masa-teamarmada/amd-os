@@ -3,8 +3,10 @@ import {
   HOLDER_LABELS,
   TRANSACTION_LABELS,
   buildCapTableSnapshots,
+  buildCapitalPolicyTable,
   convertibleScenario,
   latestCapTable,
+  type CapitalPolicyCell,
   type CompanyOverviewData,
 } from "./company-overview.ts";
 
@@ -167,98 +169,77 @@ function timelineSheet(projectName: string, data: CompanyOverviewData): Sheet {
   return { name: "資本構成推移", rows, widths: [13, 28, 17, 21, ...holderNames.map(() => 18)], freezeRow: 2, autoFilter: `A2:${colName(3 + holderNames.length)}${Math.max(2, rows.length)}` };
 }
 
-function formatShareText(shares: number) {
-  const rounded = Math.round((shares + Number.EPSILON) * 100) / 100;
-  const isInt = Number.isInteger(rounded);
-  return rounded.toLocaleString("ja-JP", { maximumFractionDigits: isInt ? 0 : 2, minimumFractionDigits: 0 });
-}
-
-function formatPercentText(pct: number) {
-  return `${pct.toFixed(2)}%`;
-}
-
 /**
- * ラウンド別 cap table 履歴（横持ち）。confirmed スナップショットを列に、
- * 項目・株主別内訳を行に並べる。roundId が data.rounds に紐づく場合は
- * ラウンド名・pre/post-money もヘッダー行から参照できるようにする。
+ * 正式な資本政策表（横持ち）。画面の `CapitalPolicyTable` と同じ項目構成で、
+ * ラウンドを列（1ラウンド = 7項目）、株主を行に並べる。
+ * まさが実務で使っている cap table 雛形と読み方をそろえるためのシート。
  */
-function capTableHistorySheet(projectName: string, data: CompanyOverviewData): Sheet {
-  const snapshots = buildCapTableSnapshots(data);
-  const roundsById = new Map(data.rounds.map((round) => [round.id, round] as const));
-  const holderOrder: string[] = [];
-  const seenHolders = new Set<string>();
-  for (const snapshot of snapshots) {
-    for (const row of snapshot.rows) {
-      if (!seenHolders.has(row.holderName)) {
-        seenHolders.add(row.holderName);
-        holderOrder.push(row.holderName);
-      }
-    }
-  }
+function capitalPolicySheet(projectName: string, data: CompanyOverviewData): Sheet {
+  const table = buildCapitalPolicyTable(data);
+  const metrics: { key: keyof CapitalPolicyCell; label: string; style: number }[] = [
+    { key: "newShares", label: "新規割当分", style: 3 },
+    { key: "shares", label: "発行済株数", style: 3 },
+    { key: "paidInYen", label: "払込金額", style: 4 },
+    { key: "ownershipPct", label: "顕在株比率", style: 5 },
+    { key: "newOptions", label: "新規発行SO", style: 3 },
+    { key: "options", label: "発行済SO", style: 3 },
+    { key: "dilutedPct", label: "潜在込比率", style: 5 },
+  ];
+  const span = metrics.length;
+  const width = 1 + table.columns.length * span;
 
-  const columns = Math.max(1, snapshots.length);
-  const headerRow: Cell[] = [c("項目", 2), ...snapshots.map((snapshot) => {
-    const round = snapshot.roundId ? roundsById.get(snapshot.roundId) : null;
-    return c(round?.round_name || snapshot.label, 2);
-  })];
-  const dateRow: Cell[] = [c("効力日"), ...snapshots.map((snapshot) => c(snapshot.effectiveOn))];
-  const eventRow: Cell[] = [c("イベント"), ...snapshots.map((snapshot) => c(snapshot.label))];
-  const outstandingRow: Cell[] = [c("発行済株式数（累計）"), ...snapshots.map((snapshot) => c(snapshot.outstandingShares, 3))];
-  const newIssuedRow: Cell[] = [c("新規発行株式数"), ...snapshots.map((snapshot) => c(snapshot.outstandingDelta, 3))];
-  const paidInRow: Cell[] = [c("払込・調達額"), ...snapshots.map((snapshot) => c(snapshot.paidInYenDelta, 4))];
-  const issuePriceRow: Cell[] = [c("発行価格（概算）"), ...snapshots.map((snapshot) => {
-    if (snapshot.outstandingDelta <= 0.000001) return c(null, 4);
-    return c(Math.round((snapshot.paidInYenDelta / snapshot.outstandingDelta) * 100) / 100, 4);
-  })];
-  const preMoneyRow: Cell[] = [c("pre-money（連携ラウンド）"), ...snapshots.map((snapshot) => {
-    const round = snapshot.roundId ? roundsById.get(snapshot.roundId) : null;
-    return c(round?.pre_money_yen ?? null, 4);
-  })];
-  const postMoneyRow: Cell[] = [c("post-money（連携ラウンド）"), ...snapshots.map((snapshot) => {
-    const round = snapshot.roundId ? roundsById.get(snapshot.roundId) : null;
-    return c(round?.post_money_yen ?? null, 4);
-  })];
-  const holderSectionRow: Cell[] = [c("株主別 発行済株式・持株比率", 2), ...snapshots.map(() => c("", 2))];
-  const holderRows: Cell[][] = holderOrder.map((holderName) => {
-    const cells: Cell[] = [c(holderName)];
-    for (const snapshot of snapshots) {
-      let shares = 0;
-      let found = false;
-      for (const row of snapshot.rows) {
-        if (row.holderName === holderName) {
-          shares += row.outstandingShares;
-          found = true;
-        }
-      }
-      if (!found) {
-        cells.push(c("－"));
-        continue;
-      }
-      const pct = snapshot.outstandingShares > 0 ? (shares / snapshot.outstandingShares) * 100 : 0;
-      cells.push(c(`${formatShareText(shares)}株 / ${formatPercentText(pct)}`));
-    }
-    return cells;
-  });
+  const cellFor = (cell: CapitalPolicyCell | undefined, metric: (typeof metrics)[number], headerStyle = false) => {
+    if (!cell || !cell.present) return c("－");
+    const raw = Number(cell[metric.key] ?? 0);
+    const value = metric.style === 5 ? raw / 100 : raw;
+    if (!headerStyle) return c(value, metric.style);
+    return c(value, metric.style === 5 ? 7 : metric.style === 4 ? 8 : 6);
+  };
+  const groupRow = (label: string, values: (column: (typeof table.columns)[number]) => CellValue, style: number): Cell[] => [
+    c(label),
+    ...table.columns.flatMap((column) => [c(values(column), style), ...Array.from({ length: span - 1 }, () => c(""))]),
+  ];
 
   const rows: Cell[][] = [
-    titleRow(`${projectName}｜ラウンド別 cap table 履歴`, columns + 1),
-    headerRow,
-    dateRow,
-    eventRow,
-    outstandingRow,
-    newIssuedRow,
-    paidInRow,
-    issuePriceRow,
-    preMoneyRow,
-    postMoneyRow,
-    holderSectionRow,
-    ...holderRows,
+    titleRow(`${projectName}｜資本政策表`, width),
+    [c("ラウンド", 2), ...table.columns.flatMap((column) => [c(column.roundLabel, 2), ...Array.from({ length: span - 1 }, () => c("", 2))])],
+    [c("効力日 / 証券種別", 2), ...table.columns.flatMap((column) => [
+      c([column.effectiveOn, column.shareClasses.join("・")].filter(Boolean).join(" / "), 2),
+      ...Array.from({ length: span - 1 }, () => c("", 2)),
+    ])],
+    [c("株主", 2), ...table.columns.flatMap(() => metrics.map((metric) => c(metric.label, 2)))],
   ];
+
+  for (const group of table.groups) {
+    rows.push([c(group.label, 2), ...table.columns.flatMap(() => metrics.map(() => c("", 2)))]);
+    for (const holderName of group.holderNames) {
+      rows.push([
+        c(holderName),
+        ...table.columns.flatMap((column) => metrics.map((metric) => cellFor(column.cells[holderName], metric))),
+      ]);
+    }
+    rows.push([
+      c(`${group.label} 小計`, 2),
+      ...table.columns.flatMap((column, columnIndex) => metrics.map((metric) => cellFor(group.subtotals[columnIndex], metric, true))),
+    ]);
+  }
+
+  rows.push([
+    c("合計", 2),
+    ...table.columns.flatMap((column) => metrics.map((metric) => cellFor(column.total, metric, true))),
+  ]);
+  rows.push(groupRow("発行価額", (column) => column.pricePerShareYen, 4));
+  rows.push(groupRow("調達金額", (column) => column.raisedYen, 4));
+  rows.push(groupRow("累計調達金額", (column) => column.cumulativeRaisedYen, 4));
+  rows.push(groupRow("プレ時価総額（顕在）", (column) => column.preMoneyYen, 4));
+  rows.push(groupRow("ポスト時価総額（顕在）", (column) => column.postMoneyYen, 4));
+  rows.push(groupRow("ポスト時価総額（潜在込）", (column) => column.postMoneyDilutedYen, 4));
+
   return {
-    name: "ラウンド別cap table",
+    name: "資本政策表",
     rows,
-    widths: [30, ...snapshots.map(() => 22)],
-    freezeRow: 2,
+    widths: [30, ...table.columns.flatMap(() => metrics.map(() => 15))],
+    freezeRow: 4,
   };
 }
 
@@ -308,7 +289,7 @@ export function createCompanyOverviewXlsx(projectName: string, data: CompanyOver
     capTableSheet(projectName, data),
     transactionSheet(projectName, data),
     timelineSheet(projectName, data),
-    capTableHistorySheet(projectName, data),
+    capitalPolicySheet(projectName, data),
     financingSheet(projectName, data),
     financialSheet(projectName, data),
   ];

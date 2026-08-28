@@ -233,7 +233,7 @@ function PartnerStageRail({
       >
         <span
           data-progress-bar={partnerId}
-          className="block h-full rounded-full bg-[#48484a]"
+          className="block h-full rounded-full bg-[#027FDC]"
           style={{ width: `${pct ?? 0}%` }}
         />
       </span>
@@ -269,11 +269,11 @@ function PartnerStageRail({
 }
 
 const BALL_SIDE_TONE: Record<string, string> = {
-  sx: "border-[#7dd3fc] bg-[#f0f9ff] text-[#0284c7]",
+  sx: "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]",
   partner: "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]",
-  shared: "border-[#7dd3fc] bg-[#f0f9ff] text-[#0284c7]",
+  shared: "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]",
   none: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
-  unknown: "border-[#3D99E3] bg-[#f0f9ff] text-[#0369a1]",
+  unknown: "border-[#3D99E3] bg-[#E8F3FC] text-[#0267B2]",
 };
 
 /**
@@ -282,19 +282,19 @@ const BALL_SIDE_TONE: Record<string, string> = {
  * (2026-08-28 まさ「全然まだ緑色が残ってるじゃん」/ spec 2-7 の意味色は状態にだけ使う)。
  */
 const GRADE_TONE: Record<string, string> = {
-  s: "border-[#1d1d1f] bg-[#1d1d1f] text-white",
-  a: "border-[#c7c7cc] bg-[#f5f5f7] text-[#1d1d1f]",
-  b: "border-[#e5e5ea] bg-white text-[#6e6e73]",
+  s: "border-[#027FDC] bg-[#027FDC] text-white",
+  a: "border-[#7CBCEB] bg-[#E8F3FC] text-[#0267B2]",
+  b: "border-[#d6d6da] bg-white text-[#6e6e73]",
   x: "border-[#e5e5ea] bg-white text-[#a1a1a6]",
   unrated: "border-dashed border-[#d6d6da] bg-white text-[#a1a1a6]",
 };
 
 const HOLDING_STATUS_TONE: Record<string, string> = {
   open: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
-  in_progress: "border-[#7dd3fc] bg-[#f0f9ff] text-[#0284c7]",
+  in_progress: "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]",
   waiting: "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]",
   blocked: "border-[#ef4444] bg-[#fee2e2] text-[#dc2626]",
-  on_hold: "border-[#7dd3fc] bg-[#f0f9ff] text-[#0284c7]",
+  on_hold: "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]",
   completed: "border-emerald-300 bg-emerald-50 text-emerald-700",
   cancelled: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
 };
@@ -303,10 +303,10 @@ const HOLDING_STATUS_TONE: Record<string, string> = {
  * shared-ruled row + left status line (spec C: 保有事項は角丸カードをやめ、共有罫線/左ステータス線の高密度行にする). */
 const HOLDING_STATUS_LINE: Record<string, string> = {
   open: "#94a3b8",
-  in_progress: "#0284c7",
+  in_progress: "#027FDC",
   waiting: "#d97706",
   blocked: "#ef4444",
-  on_hold: "#0284c7",
+  on_hold: "#027FDC",
   completed: "#059669",
   cancelled: "#cbd5e1",
 };
@@ -323,17 +323,17 @@ const HOLDING_STATUS_LABEL: Record<string, string> = {
 };
 
 const INTERACTION_KIND_TONE: Record<string, string> = {
-  meeting: "border-[#7dd3fc] bg-[#f0f9ff] text-[#0284c7]",
+  meeting: "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]",
   email: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
   agreement: "border-emerald-300 bg-emerald-50 text-emerald-700",
   deliverable: "border-emerald-300 bg-emerald-50 text-emerald-700",
   handoff: "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]",
-  status_update: "border-[#7dd3fc] bg-[#f0f9ff] text-[#0284c7]",
+  status_update: "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]",
   note: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
 };
 
 const FOCUS_RING =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0f172a]";
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]";
 
 type PartnerInlineResource =
   | "partner"
@@ -548,7 +548,7 @@ function InlineCellEditor({
     return (
       <button
         type="button"
-        className={`w-full min-w-0 text-left hover:bg-[#f0f9ff] ${FOCUS_RING} ${viewClassName}`}
+        className={`w-full min-w-0 text-left hover:bg-[#E8F3FC] ${FOCUS_RING} ${viewClassName}`}
         onClick={begin}
         aria-label={`${label}を直接修正`}
         data-inline-edit-trigger={editorKey}
@@ -599,7 +599,7 @@ function InlineCellEditor({
           </button>
           <button
             type="button"
-            className={`${INLINE_ACTION_CLASS} border-[#1d1d1f] bg-[#1d1d1f] text-white disabled:opacity-60`}
+            className={`${INLINE_ACTION_CLASS} border-[#027FDC] bg-[#027FDC] text-white disabled:opacity-60`}
             onClick={save}
             disabled={saving}
             aria-label={`${label}を保存`}
@@ -953,7 +953,7 @@ function InlineConnectionOriginEditor({
       <button
         ref={triggerRef}
         type="button"
-        className={`min-h-11 w-full min-w-0 text-left hover:bg-[#f0f9ff] ${FOCUS_RING}`}
+        className={`min-h-11 w-full min-w-0 text-left hover:bg-[#E8F3FC] ${FOCUS_RING}`}
         onClick={() => {
           if (!onRequestEdit(editorKey)) return;
           setDraftContext(context);
@@ -1131,7 +1131,7 @@ function InlineCurrentBallEditor({
       <button
         ref={triggerRef}
         type="button"
-        className={`flex min-h-11 w-full min-w-0 items-center text-left hover:bg-[#f0f9ff] ${FOCUS_RING}`}
+        className={`flex min-h-11 w-full min-w-0 items-center text-left hover:bg-[#E8F3FC] ${FOCUS_RING}`}
         onClick={() => {
           if (!onRequestEdit(editorKey)) return;
           setDraftSide(side);
@@ -1284,7 +1284,7 @@ function pocFacetChipsView(partner: SxManagementPartner) {
         "確度",
         sxPartnerConfidenceLabel(confidence),
         confidence === "high"
-          ? "border-[#0369a1] bg-[#f0f9ff] text-[#0369a1]"
+          ? "border-[#0267B2] bg-[#E8F3FC] text-[#0267B2]"
           : confidence === "medium"
             ? "border-[#cbd5e1] bg-[#f1f5f9] text-[#1d1d1f]"
             : "border-[#d97706] bg-[#fef3c7] text-[#92400e]",
@@ -1411,7 +1411,7 @@ function InlinePocFacetEditor({
       <button
         ref={triggerRef}
         type="button"
-        className={`w-full min-w-0 text-left hover:bg-[#f0f9ff] ${FOCUS_RING}`}
+        className={`w-full min-w-0 text-left hover:bg-[#E8F3FC] ${FOCUS_RING}`}
         onClick={() => {
           if (!onRequestEdit(editorKey)) return;
           setDraft(initial);
@@ -1638,7 +1638,7 @@ function gateAndProofForItem(
 function navChipClass(active: boolean) {
   return `inline-flex min-h-11 shrink-0 items-center gap-1 whitespace-nowrap border-b-2 border-x-0 border-t-0 px-2.5 py-1.5 text-[10px] font-semibold ${FOCUS_RING} ${
     active
-      ? "border-b-[#0284c7] bg-[#f0f9ff] text-[#0284c7]"
+      ? "border-b-[#027FDC] bg-[#E8F3FC] text-[#027FDC]"
       : "border-b-transparent bg-transparent text-[#3c3c43] hover:border-b-[#cbd5e1] hover:bg-[#f5f5f7]"
   }`;
 }
@@ -1713,7 +1713,7 @@ function ControlBandRow({
 }
 
 const NEUTRAL_TONE = "border-[#cbd5e1] bg-white text-[#3c3c43]";
-const FLAG_TONE = "border-[#7dd3fc] bg-[#f0f9ff] text-[#0284c7]";
+const FLAG_TONE = "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]";
 const ALERT_TONE = "border-[#ef4444] bg-[#fee2e2] text-[#dc2626]";
 const WARN_TONE = "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]";
 /** Control band — split into 3 groups (spec P1: 緊急→ボール→母数の順、2026-07-24 P0で緊急を先頭へ
@@ -1974,7 +1974,7 @@ function HoldingRow({
   );
   return (
     <li
-      className={`border-b border-[#e2e8f0] py-1.5 pl-2 last:border-0 ${(canManage && onEdit) || inlineEditable ? "cursor-pointer hover:bg-[#f5f5f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0f172a]" : ""}`}
+      className={`border-b border-[#e2e8f0] py-1.5 pl-2 last:border-0 ${(canManage && onEdit) || inlineEditable ? "cursor-pointer hover:bg-[#f5f5f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]" : ""}`}
       role={(canManage && onEdit) || inlineEditable ? "button" : undefined}
       tabIndex={(canManage && onEdit) || inlineEditable ? 0 : undefined}
       aria-label={
@@ -2152,7 +2152,7 @@ function HoldingRow({
       <p className="mt-0.5 text-[10px] leading-4 text-[#3c3c43]">
         関連工程: {gateTitle || "工程未接続"}
         {proofLabels.length > 0 && (
-          <span className="text-[#0284c7]">
+          <span className="text-[#027FDC]">
             {" "}
             ・ 証明: {proofLabels.join(" / ")}
           </span>
@@ -2750,7 +2750,7 @@ function PartnerProgressFlow({
       ? "border-[#ef4444] bg-[#fee2e2] text-[#dc2626]"
       : partner.currentBallSide === "partner"
         ? "border-[#d97706] bg-[#fef3c7] text-[#92400e]"
-        : "border-[#3D99E3] bg-[#f0f9ff] text-[#0369a1]";
+        : "border-[#3D99E3] bg-[#E8F3FC] text-[#0267B2]";
   return (
     <div
       className="min-w-0 overflow-hidden"
@@ -2887,7 +2887,7 @@ function PartnerProgressFlow({
                   : step.phase === "now"
                     ? `border-2 ${nowTone}`
                     : step.phase === "goal"
-                      ? "border-[#7dd3fc] bg-[#f0f9ff] text-[#0284c7]"
+                      ? "border-[#7CBCEB] bg-[#E8F3FC] text-[#027FDC]"
                       : "border-dashed border-[#cbd5e1] bg-[#ffffff] text-[#3c3c43]"
               }`}
             >
@@ -3009,7 +3009,7 @@ function PartnerSampleRow({
       <li>
         <button
           type="button"
-          className={`block w-full text-left hover:bg-[#f0f9ff] ${FOCUS_RING}`}
+          className={`block w-full text-left hover:bg-[#E8F3FC] ${FOCUS_RING}`}
           onClick={startEdit}
           aria-label={`試料「${sample.label}」を直接修正`}
           data-sample-row={sample.id}
@@ -3092,7 +3092,7 @@ function PartnerSampleRow({
           type="button"
           onClick={() => void save()}
           disabled={saving}
-          className={`border border-[#1d1d1f] bg-[#1d1d1f] px-2.5 py-1 text-[10px] font-semibold text-[#ffffff] disabled:opacity-50 ${FOCUS_RING}`}
+          className={`border border-[#027FDC] bg-[#027FDC] px-2.5 py-1 text-[10px] font-semibold text-[#ffffff] disabled:opacity-50 ${FOCUS_RING}`}
         >
           保存
         </button>
@@ -3184,7 +3184,7 @@ function PartnerSampleAddForm({
           type="button"
           onClick={() => void submit()}
           disabled={saving || !label.trim()}
-          className={`border border-[#1d1d1f] bg-[#1d1d1f] px-3 py-1.5 text-[10px] font-semibold text-[#ffffff] disabled:opacity-50 ${FOCUS_RING}`}
+          className={`border border-[#027FDC] bg-[#027FDC] px-3 py-1.5 text-[10px] font-semibold text-[#ffffff] disabled:opacity-50 ${FOCUS_RING}`}
         >
           追加
         </button>
@@ -3267,7 +3267,7 @@ function PartnerProgressHistoryModal({
       >
         <header className="flex min-h-[68px] items-start justify-between gap-4 border-b border-[#d2d2d7]/70 px-4 py-3.5 sm:px-[22px] sm:pb-3.5 sm:pt-4">
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-extrabold text-[#6e6e73]">
+            <p className="text-[11px] font-extrabold text-[#027FDC]">
               進捗・履歴
             </p>
             <h4
@@ -3295,7 +3295,7 @@ function PartnerProgressHistoryModal({
             aria-label={`${display.name}の分類（複数選択可）`}
             className="mb-4 border-b border-[#d2d2d7] pb-4"
           >
-            <p className="text-[10px] font-semibold tracking-[0.14em] text-[#6e6e73]">
+            <p className="text-[10px] font-semibold tracking-[0.14em] text-[#027FDC]">
               分類
             </p>
             <div
@@ -3317,7 +3317,7 @@ function PartnerProgressHistoryModal({
                   >
                     <input
                       type="checkbox"
-                      className="h-3.5 w-3.5 accent-[#1d1d1f]"
+                      className="h-3.5 w-3.5 accent-[#027FDC]"
                       checked={checked}
                       disabled={!canManage}
                       onChange={(event) => {
@@ -3467,7 +3467,7 @@ function PartnerProgressHistoryModal({
               <div>
                 <p
                   id={`${titleId}-flow`}
-                  className="text-[10px] font-semibold tracking-[0.14em] text-[#6e6e73]"
+                  className="text-[10px] font-semibold tracking-[0.14em] text-[#027FDC]"
                 >
                   進行状況
                 </p>
@@ -3496,7 +3496,7 @@ function PartnerProgressHistoryModal({
           >
             <p
               id={`${titleId}-holdings`}
-              className="text-[10px] font-semibold tracking-[0.14em] text-[#6e6e73]"
+              className="text-[10px] font-semibold tracking-[0.14em] text-[#027FDC]"
             >
               未完了の保有事項・約束 {openHoldings.length}件
             </p>
@@ -3534,7 +3534,7 @@ function PartnerProgressHistoryModal({
             >
               <p
                 id={`${titleId}-samples`}
-                className="text-[10px] font-semibold tracking-[0.14em] text-[#6e6e73]"
+                className="text-[10px] font-semibold tracking-[0.14em] text-[#027FDC]"
               >
                 試料台帳 {partner.samples.length}件
               </p>
@@ -3582,7 +3582,7 @@ function PartnerProgressHistoryModal({
             <div className="flex items-end justify-between gap-2">
               <p
                 id={`${titleId}-interactions`}
-                className="text-[10px] font-semibold tracking-[0.14em] text-[#6e6e73]"
+                className="text-[10px] font-semibold tracking-[0.14em] text-[#027FDC]"
               >
                 やり取り履歴（全{interactions.length}件）
               </p>
@@ -3857,7 +3857,7 @@ function PartnerInlineRow({
         <span
           key={token}
           data-effluent-component={token}
-          className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold leading-4 text-sky-800"
+          className="inline-flex rounded-full border border-[#7CBCEB] bg-[#E8F3FC] px-2 py-0.5 text-[10px] font-semibold leading-4 text-[#0267B2]"
         >
           {token}
         </span>
@@ -3868,7 +3868,7 @@ function PartnerInlineRow({
           data-effluent-component={token}
           data-effluent-source="text"
           title="本文から拾った成分。選び直すと確定する"
-          className="inline-flex rounded-full border border-dashed border-sky-300 bg-sky-50/60 px-2 py-0.5 text-[10px] font-semibold leading-4 text-sky-700"
+          className="inline-flex rounded-full border border-dashed border-[#7CBCEB] bg-[#E8F3FC]/60 px-2 py-0.5 text-[10px] font-semibold leading-4 text-[#0267B2]"
         >
           {token}
         </span>
@@ -3906,7 +3906,7 @@ function PartnerInlineRow({
       {/* 着地点はその面談で何を取りに行くかなので、形式や準備物より上へ出す (2026-08-07 まさ)。 */}
       {partner.nextMeetingGoal && (
         <span
-          className="[overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#0284c7]"
+          className="[overflow-wrap:anywhere] text-[10px] font-semibold leading-4 text-[#027FDC]"
           title={`着地点 ${partner.nextMeetingGoal}`}
         >
           着地点 {partner.nextMeetingGoal}
@@ -3977,7 +3977,7 @@ function PartnerInlineRow({
           });
         }}
         aria-label={`${display.name}の排液調達を${procurementChecked ? "未調達に戻す" : "調達済みにする"}`}
-        className="h-4 w-4 cursor-pointer accent-[#0284c7] disabled:cursor-not-allowed disabled:opacity-50"
+        className="h-4 w-4 cursor-pointer accent-[#027FDC] disabled:cursor-not-allowed disabled:opacity-50"
       />
     </div>
   );
@@ -4583,7 +4583,7 @@ function PartnerInlineRow({
                                     }
                                     aria-label={`成分 ${token} を外す`}
                                     title={token}
-                                    className={`inline-flex max-w-full items-center gap-0.5 rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold leading-4 text-sky-800 hover:bg-sky-100 ${FOCUS_RING}`}
+                                    className={`inline-flex max-w-full items-center gap-0.5 rounded-full border border-[#7CBCEB] bg-[#E8F3FC] px-2 py-0.5 text-[10px] font-semibold leading-4 text-[#0267B2] hover:bg-[#cfe6f8] ${FOCUS_RING}`}
                                   >
                                     <span className="max-w-[180px] truncate">
                                       {token}
@@ -5122,7 +5122,7 @@ export function SxPartnerPipeline({
           {!comparisonOnly &&
             groups.map((group) => (
               <div key={group.key}>
-                <div className="border-b border-l-4 border-[#d2d2d7] border-l-[#1d1d1f] bg-[#ffffff] px-3 py-1.5">
+                <div className="border-b border-l-4 border-[#d2d2d7] border-l-[#027FDC] bg-[#ffffff] px-3 py-1.5">
                   {/* spec P1: 分類見出しh4は11-12px+左罫線で本文行と視覚的に区切る。in_progress/established
                     は同じ複合ラベル("XX先")になるため、unclassified以外は状態を（）で必ず明示して見出し
                     だけでも区別できるようにする。 */}
@@ -5459,7 +5459,7 @@ function InteractionFullRow({
             type="button"
             onClick={() => void save()}
             disabled={saving}
-            className={`min-h-9 rounded border border-[#1d1d1f] bg-[#1d1d1f] px-2.5 text-[10px] font-semibold text-[#ffffff] hover:bg-[#3c3c43] ${FOCUS_RING}`}
+            className={`min-h-9 rounded border border-[#027FDC] bg-[#027FDC] px-2.5 text-[10px] font-semibold text-[#ffffff] hover:bg-[#3c3c43] ${FOCUS_RING}`}
           >
             保存
           </button>
@@ -5469,7 +5469,7 @@ function InteractionFullRow({
   }
   return (
     <li
-      className={`p-2.5 text-[11px] leading-5 ${editable ? "cursor-pointer hover:bg-[#f5f5f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0f172a]" : ""}`}
+      className={`p-2.5 text-[11px] leading-5 ${editable ? "cursor-pointer hover:bg-[#f5f5f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#027FDC]" : ""}`}
       role={editable ? "button" : undefined}
       tabIndex={editable ? 0 : undefined}
       aria-label={
@@ -5513,7 +5513,7 @@ function InteractionFullRow({
           {sxNormalizePublicName(interaction.outcomeSummary)}
         </p>
       )}
-      <p className="mt-0.5 text-[10px] leading-4 text-[#0284c7]">
+      <p className="mt-0.5 text-[10px] leading-4 text-[#027FDC]">
         ボール: {ballText}
       </p>
       {/* 議事録の本文。共有リンク（plaud等）は失効するので、全文をここに保存して読めるようにする

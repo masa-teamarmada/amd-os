@@ -14,7 +14,6 @@ import {
   BookOpen,
   Building2,
   ChartNoAxesCombined,
-  ChevronRight,
   CircleDollarSign,
   CircleUserRound,
   ContactRound,
@@ -635,16 +634,8 @@ function BoardNavLink({
     width: number;
     maxHeight: number;
   } | null>(null);
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
-  const [projectFlyoutPosition, setProjectFlyoutPosition] = useState<{
-    top: number;
-    left: number;
-    width: number;
-  } | null>(null);
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const flyoutRef = useRef<HTMLDivElement | null>(null);
-  const projectTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const projectFlyoutRef = useRef<HTMLDivElement | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const Icon = item.icon;
   const tooltip = item.title ? `${item.label} - ${item.title}` : item.label;
@@ -672,44 +663,16 @@ function BoardNavLink({
     setFlyoutPosition({ top, left, width, maxHeight });
   }, []);
 
-  const updateProjectFlyoutPosition = useCallback((trigger?: HTMLElement | null) => {
-    const rect = (trigger ?? projectTriggerRef.current)?.getBoundingClientRect();
-    if (!rect) return;
-
-    const gutter = 8;
-    const width = Math.min(232, Math.max(196, window.innerWidth - gutter * 2));
-    const rightSideLeft = rect.right + gutter;
-    const left =
-      rightSideLeft + width <= window.innerWidth - gutter
-        ? rightSideLeft
-        : Math.max(gutter, Math.min(rect.left, window.innerWidth - width - gutter));
-    const top = Math.max(gutter, Math.min(rect.top, window.innerHeight - 128));
-
-    setProjectFlyoutPosition({ top, left, width });
-  }, []);
-
   const openFlyout = useCallback(() => {
     clearCloseTimer();
     updateFlyoutPosition();
     setOpen(true);
   }, [clearCloseTimer, updateFlyoutPosition]);
 
-  const openProjectFlyout = useCallback(
-    (projectId: string, trigger: HTMLButtonElement) => {
-      clearCloseTimer();
-      projectTriggerRef.current = trigger;
-      updateProjectFlyoutPosition(trigger);
-      setActiveProjectId(projectId);
-    },
-    [clearCloseTimer, updateProjectFlyoutPosition],
-  );
-
   const scheduleClose = useCallback(() => {
     clearCloseTimer();
     closeTimerRef.current = setTimeout(() => {
       setOpen(false);
-      setActiveProjectId(null);
-      setProjectFlyoutPosition(null);
     }, 120);
   }, [clearCloseTimer]);
 
@@ -718,7 +681,6 @@ function BoardNavLink({
 
     const handleViewportChange = () => {
       updateFlyoutPosition();
-      if (activeProjectId) updateProjectFlyoutPosition();
     };
     window.addEventListener("resize", handleViewportChange);
     window.addEventListener("scroll", handleViewportChange, true);
@@ -726,17 +688,13 @@ function BoardNavLink({
       window.removeEventListener("resize", handleViewportChange);
       window.removeEventListener("scroll", handleViewportChange, true);
     };
-  }, [activeProjectId, open, updateFlyoutPosition, updateProjectFlyoutPosition]);
+  }, [open, updateFlyoutPosition]);
 
   useEffect(() => {
     return () => {
       clearCloseTimer();
     };
   }, [clearCloseTimer]);
-
-  const activeProject = activeProjectId
-    ? activeProjects.find((project) => project.projectId === activeProjectId) ?? null
-    : null;
 
   const flyout =
     open && flyoutPosition
@@ -795,23 +753,12 @@ function BoardNavLink({
             {activeProjectsStatus === "ready" && activeProjects.length > 0 && (
               <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto pr-0.5">
                 {activeProjects.map((project) => (
-                  <button
-                    type="button"
+                  <Link
                     key={project.projectId}
-                    aria-haspopup="menu"
-                    aria-controls={`board-nav-project-submenu-${project.projectId}`}
-                    aria-expanded={activeProjectId === project.projectId}
+                    href={`/project/${encodeURIComponent(project.projectId)}/cockpit`}
+                    prefetch={false}
                     data-testid="board-nav-project-trigger"
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                      activeProjectId === project.projectId && "bg-muted",
-                    )}
-                    onMouseEnter={(event) =>
-                      openProjectFlyout(project.projectId, event.currentTarget)
-                    }
-                    onFocus={(event) =>
-                      openProjectFlyout(project.projectId, event.currentTarget)
-                    }
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   >
                     <span className="min-w-0 flex-1 truncate">
                       {project.projectName}
@@ -819,8 +766,7 @@ function BoardNavLink({
                     <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
                       {project.projectId}
                     </span>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  </button>
+                  </Link>
                 ))}
               </div>
             )}
@@ -829,63 +775,6 @@ function BoardNavLink({
         )
       : null;
 
-  const projectFlyout =
-    open && activeProject && projectFlyoutPosition
-      ? createPortal(
-          <div
-            ref={projectFlyoutRef}
-            id={`board-nav-project-submenu-${activeProject.projectId}`}
-            data-testid="board-nav-project-submenu"
-            role="menu"
-            aria-label={`${activeProject.projectName} の移動先`}
-            className="fixed z-[61] overflow-hidden rounded-lg border border-border/80 bg-popover p-1.5 text-popover-foreground shadow-lg"
-            style={{
-              left: projectFlyoutPosition.left,
-              top: projectFlyoutPosition.top,
-              width: projectFlyoutPosition.width,
-            }}
-            onMouseEnter={openFlyout}
-            onMouseLeave={scheduleClose}
-            onFocus={openFlyout}
-            onBlur={(event) => {
-              const nextTarget = event.relatedTarget;
-              if (
-                !(nextTarget instanceof Node) ||
-                (!anchorRef.current?.contains(nextTarget) &&
-                  !flyoutRef.current?.contains(nextTarget) &&
-                  !projectFlyoutRef.current?.contains(nextTarget))
-              ) {
-                scheduleClose();
-              }
-            }}
-          >
-            <p className="truncate px-2 py-1.5 text-[11px] font-semibold text-muted-foreground">
-              {activeProject.projectName}
-            </p>
-            <Link
-              href={`/project/${encodeURIComponent(activeProject.projectId)}/cockpit`}
-              prefetch={false}
-              role="menuitem"
-              data-testid="board-nav-project-cockpit"
-              className="flex min-h-9 items-center gap-2 rounded-md px-2 text-sm font-medium text-foreground transition-colors hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              <LayoutDashboard className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-              コックピット
-            </Link>
-            <Link
-              href={`/project/${encodeURIComponent(activeProject.projectId)}/workspace`}
-              prefetch={false}
-              role="menuitem"
-              data-testid="board-nav-project-workspace"
-              className="flex min-h-9 items-center gap-2 rounded-md px-2 text-sm font-medium text-foreground transition-colors hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              <Network className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-              ワークスペース
-            </Link>
-          </div>,
-          document.body,
-        )
-      : null;
 
   return (
     <div
@@ -899,8 +788,7 @@ function BoardNavLink({
         if (
           !(nextTarget instanceof Node) ||
           (!event.currentTarget.contains(nextTarget) &&
-            !flyoutRef.current?.contains(nextTarget) &&
-            !projectFlyoutRef.current?.contains(nextTarget))
+            !flyoutRef.current?.contains(nextTarget))
         ) {
           scheduleClose();
         }
@@ -924,7 +812,6 @@ function BoardNavLink({
         </span>
       </Link>
       {flyout}
-      {projectFlyout}
     </div>
   );
 }

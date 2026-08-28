@@ -15,6 +15,7 @@
     "test:payout-source-span": "node --experimental-strip-types scripts/check_payout_source_span.mts",
     "test:payment-month-usage": "node --experimental-strip-types scripts/check_payment_month_usage.mts",
     "test:governance-candidate-gate": "node --experimental-strip-types scripts/check_governance_candidate_gate.mts",
+    "test:capital-policy-table": "node --experimental-strip-types scripts/check_capital_policy_table.mts",
     "test:important-document-extraction": "node --experimental-strip-types scripts/check_important_document_extraction.mts",
     "test:important-evidence-extraction": "npm run test:important-document-extraction",
     "test:member-weekly-calendar-duration": "node --experimental-strip-types scripts/check_member_weekly_calendar_duration.mts",

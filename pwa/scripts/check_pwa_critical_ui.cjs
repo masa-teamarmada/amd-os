@@ -1507,11 +1507,11 @@ expectIncludes("src/components/nav/GlobalNav.tsx", [
   "名刺",
   "アクティブPJ",
   "board-nav-flyout",
-  "board-nav-project-submenu",
-  "board-nav-project-cockpit",
-  "board-nav-project-workspace",
-  "/project/${encodeURIComponent(activeProject.projectId)}/cockpit",
-  "/project/${encodeURIComponent(activeProject.projectId)}/workspace",
+  // 2026-08-28 まさ「コックピットとワークスペースを選ぶのを廃止して、PJ名をクリックしたら
+  // コックピットに飛ぶ仕様に戻してほしい。もうAMDメンバーがワークスペースに行く意味がなくなったので」。
+  // ワークスペースの管制4タブをコックピットへ取り込んだので、左メニューからは1手でコックピットへ。
+  "board-nav-project-trigger",
+  "/project/${encodeURIComponent(project.projectId)}/cockpit",
   "createPortal",
   "fetchActiveProjectsForNav",
   "Materials",
@@ -1571,6 +1571,9 @@ expectIncludes("src/lib/materials-data.ts", [
 ]);
 
 expectNotIncludes("src/components/nav/GlobalNav.tsx", [
+  // PJごとの「コックピット / ワークスペース」選択サブメニューは 2026-08-28 に廃止 (まさ確定)。
+  "board-nav-project-submenu",
+  "board-nav-project-workspace",
   "日本文化",
   "/admin/japanese-culture-map",
   "/japanese-culture-map",

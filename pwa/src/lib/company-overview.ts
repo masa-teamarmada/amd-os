@@ -623,3 +623,232 @@ export function capTableTieOut(data: CompanyOverviewData) {
     difference,
   };
 }
+
+
+// ============================================================
+// 正式な資本政策表（ラウンド列 × 株主行）
+//
+// 添付の cap table 雛形（captable_240819.xlsx）と同じ項目構成にそろえる。
+// 1ラウンド = 7項目（新規割当分 / 発行済株数 / 払込金額 / 顕在株比率 /
+// 新規発行SO / 発行済SO / 潜在込比率）で、下段に発行価額・調達金額・
+// 累計調達金額・プレ/ポスト時価総額を置く。
+//
+// 入力は confirmed の株式イベント台帳（project_equity_transactions）と
+// ラウンド情報（project_valuation_rounds）だけ。planned は含めない。
+// SO（新株予約権）は「完全希薄化後 - 顕在」で算出するので、証券種別の
+// 名前づけに依存しない。
+// ============================================================
+
+export type CapitalPolicyCell = {
+  /** 当該ラウンドでの顕在株の増減 */
+  newShares: number;
+  /** 当該ラウンド終了時点の顕在株数（累計） */
+  shares: number;
+  /** 当該ラウンドでの払込金額 */
+  paidInYen: number;
+  /** 顕在株比率 */
+  ownershipPct: number;
+  /** 当該ラウンドでのSOの増減 */
+  newOptions: number;
+  /** 当該ラウンド終了時点のSO数（累計） */
+  options: number;
+  /** 潜在込比率 */
+  dilutedPct: number;
+  /** その時点で株主として登場済みか。未登場の列は「－」で表示する */
+  present: boolean;
+};
+
+export type CapitalPolicyColumn = {
+  id: string;
+  /** 列見出し。連携ラウンド名を優先し、無ければイベント名 */
+  roundLabel: string;
+  eventLabel: string;
+  effectiveOn: string;
+  /** 当該ラウンドで新規発行された証券種別 */
+  shareClasses: string[];
+  cells: Record<string, CapitalPolicyCell>;
+  total: CapitalPolicyCell;
+  pricePerShareYen: number | null;
+  raisedYen: number;
+  cumulativeRaisedYen: number;
+  preMoneyYen: number | null;
+  postMoneyYen: number | null;
+  postMoneyDilutedYen: number | null;
+};
+
+export type CapitalPolicyGroup = {
+  holderType: string;
+  label: string;
+  color: string;
+  holderNames: string[];
+  subtotals: CapitalPolicyCell[];
+};
+
+export type CapitalPolicyTable = {
+  columns: CapitalPolicyColumn[];
+  groups: CapitalPolicyGroup[];
+};
+
+/** 資本政策表の株主区分の並び。雛形の 経営陣 → 投資家 → 従業員/SO の順に合わせる。 */
+const CAPITAL_POLICY_HOLDER_TYPE_ORDER = ["founder", "amd", "masa", "vc", "angel", "corporate", "employee", "other"];
+
+function emptyCapitalPolicyCell(present = false): CapitalPolicyCell {
+  return { newShares: 0, shares: 0, paidInYen: 0, ownershipPct: 0, newOptions: 0, options: 0, dilutedPct: 0, present };
+}
+
+function addCapitalPolicyCell(target: CapitalPolicyCell, source: CapitalPolicyCell): CapitalPolicyCell {
+  return {
+    newShares: target.newShares + source.newShares,
+    shares: target.shares + source.shares,
+    paidInYen: target.paidInYen + source.paidInYen,
+    ownershipPct: target.ownershipPct + source.ownershipPct,
+    newOptions: target.newOptions + source.newOptions,
+    options: target.options + source.options,
+    dilutedPct: target.dilutedPct + source.dilutedPct,
+    present: target.present || source.present,
+  };
+}
+
+export function buildCapitalPolicyTable(data: CompanyOverviewData): CapitalPolicyTable {
+  const transactions = data.transactions
+    .filter((transaction) => transaction.status === "confirmed")
+    .sort((a, b) => a.effective_on.localeCompare(b.effective_on) || a.id.localeCompare(b.id));
+  if (transactions.length === 0) return { columns: [], groups: [] };
+
+  const roundsById = new Map(data.rounds.map((round) => [round.id, round] as const));
+  const holderOrder: string[] = [];
+  const holderSeen = new Set<string>();
+  const holderTypeByName = new Map<string, string>();
+  const firstColumnByHolder = new Map<string, number>();
+  const shares = new Map<string, number>();
+  const diluted = new Map<string, number>();
+  const columns: CapitalPolicyColumn[] = [];
+  let cumulativeRaisedYen = 0;
+  let previousOutstanding = 0;
+
+  transactions.forEach((transaction, columnIndex) => {
+    const entries = transaction.project_equity_entries || [];
+    const newShares = new Map<string, number>();
+    const newDiluted = new Map<string, number>();
+    const paidIn = new Map<string, number>();
+    const shareClasses: string[] = [];
+
+    for (const entry of entries) {
+      const holderName = entry.holder_name;
+      if (!holderSeen.has(holderName)) {
+        holderSeen.add(holderName);
+        holderOrder.push(holderName);
+        firstColumnByHolder.set(holderName, columnIndex);
+      }
+      if (entry.holder_type) holderTypeByName.set(holderName, entry.holder_type);
+      else if (!holderTypeByName.has(holderName)) holderTypeByName.set(holderName, "other");
+
+      const outstandingDelta = finiteNumber(entry.outstanding_delta);
+      const dilutedDelta = finiteNumber(entry.diluted_delta);
+      const paidInDelta = finiteNumber(entry.paid_in_yen_delta);
+      newShares.set(holderName, (newShares.get(holderName) || 0) + outstandingDelta);
+      newDiluted.set(holderName, (newDiluted.get(holderName) || 0) + dilutedDelta);
+      paidIn.set(holderName, (paidIn.get(holderName) || 0) + paidInDelta);
+      shares.set(holderName, (shares.get(holderName) || 0) + outstandingDelta);
+      diluted.set(holderName, (diluted.get(holderName) || 0) + dilutedDelta);
+
+      const securityClass = entry.security_class || "普通株式";
+      if (outstandingDelta > 0 && !shareClasses.includes(securityClass)) shareClasses.push(securityClass);
+    }
+
+    const totalShares = [...shares.values()].reduce((sum, value) => sum + value, 0);
+    const totalDiluted = [...diluted.values()].reduce((sum, value) => sum + value, 0);
+    const totalNewShares = [...newShares.values()].reduce((sum, value) => sum + value, 0);
+    const totalNewDiluted = [...newDiluted.values()].reduce((sum, value) => sum + value, 0);
+    const totalPaidIn = [...paidIn.values()].reduce((sum, value) => sum + value, 0);
+
+    const cells: Record<string, CapitalPolicyCell> = {};
+    for (const holderName of holderOrder) {
+      const firstColumn = firstColumnByHolder.get(holderName);
+      const holderShares = roundShare(shares.get(holderName) || 0);
+      const holderDiluted = roundShare(diluted.get(holderName) || 0);
+      const holderNewShares = roundShare(newShares.get(holderName) || 0);
+      const holderNewDiluted = roundShare(newDiluted.get(holderName) || 0);
+      cells[holderName] = {
+        newShares: holderNewShares,
+        shares: holderShares,
+        paidInYen: paidIn.get(holderName) || 0,
+        ownershipPct: totalShares > 0 ? (holderShares / totalShares) * 100 : 0,
+        newOptions: roundShare(holderNewDiluted - holderNewShares),
+        options: roundShare(holderDiluted - holderShares),
+        dilutedPct: totalDiluted > 0 ? (holderDiluted / totalDiluted) * 100 : 0,
+        present: firstColumn != null && firstColumn <= columnIndex,
+      };
+    }
+
+    const round = transaction.round_id ? roundsById.get(transaction.round_id) : null;
+    const roundPrice = round?.price_per_share_yen == null ? null : finiteNumber(round.price_per_share_yen);
+    const derivedPrice = totalNewShares > 0.000001 && totalPaidIn > 0
+      ? Math.round((totalPaidIn / totalNewShares) * 100) / 100
+      : null;
+    const pricePerShareYen = roundPrice && roundPrice > 0 ? roundPrice : derivedPrice;
+    const roundRaised = round?.raised_yen == null ? 0 : finiteNumber(round.raised_yen);
+    const raisedYen = totalPaidIn !== 0 ? totalPaidIn : roundRaised;
+    cumulativeRaisedYen += raisedYen;
+
+    const roundPre = round?.pre_money_yen == null ? null : finiteNumber(round.pre_money_yen);
+    const roundPost = round?.post_money_yen == null ? null : finiteNumber(round.post_money_yen);
+
+    columns.push({
+      id: transaction.id,
+      roundLabel: round?.round_name || transactionLabel(transaction),
+      eventLabel: transactionLabel(transaction),
+      effectiveOn: transaction.effective_on,
+      shareClasses,
+      cells,
+      total: {
+        newShares: roundShare(totalNewShares),
+        shares: roundShare(totalShares),
+        paidInYen: totalPaidIn,
+        ownershipPct: totalShares > 0 ? 100 : 0,
+        newOptions: roundShare(totalNewDiluted - totalNewShares),
+        options: roundShare(totalDiluted - totalShares),
+        dilutedPct: totalDiluted > 0 ? 100 : 0,
+        present: true,
+      },
+      pricePerShareYen,
+      raisedYen,
+      cumulativeRaisedYen,
+      preMoneyYen: roundPre ?? (columnIndex === 0 || pricePerShareYen == null ? null : previousOutstanding * pricePerShareYen),
+      postMoneyYen: roundPost ?? (pricePerShareYen == null ? null : totalShares * pricePerShareYen),
+      postMoneyDilutedYen: pricePerShareYen == null ? null : totalDiluted * pricePerShareYen,
+    });
+
+    previousOutstanding = totalShares;
+  });
+
+  const groupedNames = new Map<string, string[]>();
+  for (const holderName of holderOrder) {
+    const holderType = holderTypeByName.get(holderName) || "other";
+    const bucket = groupedNames.get(holderType);
+    if (bucket) bucket.push(holderName);
+    else groupedNames.set(holderType, [holderName]);
+  }
+
+  const groups: CapitalPolicyGroup[] = [...groupedNames.entries()]
+    .sort((a, b) => {
+      const orderA = CAPITAL_POLICY_HOLDER_TYPE_ORDER.indexOf(a[0]);
+      const orderB = CAPITAL_POLICY_HOLDER_TYPE_ORDER.indexOf(b[0]);
+      return (orderA < 0 ? CAPITAL_POLICY_HOLDER_TYPE_ORDER.length : orderA)
+        - (orderB < 0 ? CAPITAL_POLICY_HOLDER_TYPE_ORDER.length : orderB);
+    })
+    .map(([holderType, holderNames]) => ({
+      holderType,
+      label: HOLDER_LABELS[holderType] || holderType,
+      color: HOLDER_COLORS[holderType] || HOLDER_COLORS.other,
+      holderNames,
+      subtotals: columns.map((column) =>
+        holderNames.reduce(
+          (sum, holderName) => addCapitalPolicyCell(sum, column.cells[holderName] || emptyCapitalPolicyCell()),
+          emptyCapitalPolicyCell(),
+        ),
+      ),
+    }));
+
+  return { columns, groups };
+}
