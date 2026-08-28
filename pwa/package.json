@@ -18,6 +18,7 @@
     "test:capital-policy-table": "node --experimental-strip-types scripts/check_capital_policy_table.mts",
     "test:important-document-extraction": "node --experimental-strip-types scripts/check_important_document_extraction.mts",
     "test:important-evidence-extraction": "npm run test:important-document-extraction",
+    "test:calendar-pj-color": "node --experimental-strip-types scripts/check_calendar_pj_color.mts",
     "test:member-weekly-calendar-duration": "node --experimental-strip-types scripts/check_member_weekly_calendar_duration.mts",
     "test:member-weekly-effort-plan": "node --experimental-strip-types scripts/check_member_weekly_effort_plan.mts",
     "test:member-weekly-source-attribution": "node --experimental-strip-types scripts/check_member_weekly_source_attribution.mts",

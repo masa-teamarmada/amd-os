@@ -30,6 +30,9 @@ const plans = buildTaskCalendarSchedulePlans(
 const sx = plans.find((plan) => plan.task_id === "meeting-action-001");
 assert.equal(sx?.action, "schedule_candidate");
 assert.equal(sx?.title, "+SX mail 杉浦先生");
+// ＋枠は PJ コードを必ずタイトルに持ち、その PJ の色で書く (manual 3-2 §PJ → カレンダー色)
+assert.equal(sx?.color_id, "4");
+assert.ok(sx?.calendar_writes.every((write) => write.colorId === "4"));
 assert.equal(sx?.start, "2026-06-10T01:00:00.000Z");
 assert.equal(sx?.end, "2026-06-10T01:30:00.000Z");
 assert.equal(sx?.calendar_writes.length, 2);
@@ -52,6 +55,8 @@ assert.equal(slack?.slack_nudge_candidates.length, 0);
 
 const kute = plans.find((plan) => plan.task_id === "meeting-action-002");
 assert.equal(kute?.action, "hold");
+assert.equal(kute?.title, "+KUTE 訪問資料 draft");
+assert.equal(kute?.color_id, "11");
 assert.ok(kute?.review_reasons.includes("missing_task_owner_calendar"));
 
 console.log(JSON.stringify({

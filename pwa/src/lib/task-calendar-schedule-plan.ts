@@ -1,3 +1,5 @@
+import { normalizePjCode, resolveColorIdForProject } from "./calendar-pj-color.ts";
+
 export type TaskCalendarSource = {
   task_id: string;
   project_id: string;
@@ -48,6 +50,8 @@ export type TaskCalendarSchedulePlan = {
   project_id: string;
   action: "schedule_candidate" | "review_required" | "hold" | "already_scheduled";
   title: string;
+  /** その PJ に割り当たっている Google Calendar の event colorId。色を持たない PJ は null */
+  color_id: string | null;
   start: string | null;
   end: string | null;
   timezone: "Asia/Tokyo";
@@ -57,6 +61,7 @@ export type TaskCalendarSchedulePlan = {
   calendar_writes: Array<{
     calendar_id: string;
     title: string;
+    colorId: string | null;
     start: string;
     end: string;
     description: string;
@@ -119,7 +124,8 @@ function clampEstimatedMinutes(task: TaskCalendarSource): number {
 }
 
 function projectCode(task: TaskCalendarSource): string {
-  return String(task.project_code || task.project_id || "AMD").trim().replace(/^\+/, "") || "AMD";
+  const raw = String(task.project_code || "").trim().replace(/^\+/, "");
+  return normalizePjCode(raw || task.project_id) || "AMD";
 }
 
 function taskTitle(task: TaskCalendarSource): string {
@@ -290,6 +296,7 @@ export function buildTaskCalendarSchedulePlan(
 
   const estimated = clampEstimatedMinutes(task);
   const title = taskTitle(task);
+  const colorId = resolveColorIdForProject(task.project_code || task.project_id, now);
   const existingMatches = existingTaskEventMatches(task, title, existingEvents);
   const alreadyScheduled = existingMatches.length > 0;
   const blockingBeforeSlot = reviewReasons.some((reason) => [
@@ -308,6 +315,7 @@ export function buildTaskCalendarSchedulePlan(
     ? calendars.map((calendarId) => ({
         calendar_id: calendarId,
         title,
+        colorId,
         start: slot.start,
         end: slot.end,
         description: descriptionForTask(task),
@@ -326,6 +334,7 @@ export function buildTaskCalendarSchedulePlan(
     project_id: task.project_id,
     action,
     title,
+    color_id: colorId,
     start: slot?.start ?? null,
     end: slot?.end ?? null,
     timezone: "Asia/Tokyo",

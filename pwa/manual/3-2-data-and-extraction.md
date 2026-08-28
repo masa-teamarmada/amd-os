@@ -266,6 +266,23 @@ Calendar event に Gemini / Google Meet notes Doc 添付がある、Notion の `
 
 `CFG_ColorPJHistory` に**履歴行を1行足すだけ**。例「今日から JC の色 (colorId 6) を VSX に」→ `6 | <今日> | VSX | note` を追加。過去の予定は影響を受けない。実装正本は [8-3 章 L2 Extraction Routines](8-3-l2-extraction-routines-spec.md) の H-1 と、ランナー SKILL の Phase A PJ 判定。
 
+
+### 🎨 PJ → カレンダー色 (= OS が予定を書くとき・恒久仕様・削除禁止)
+
+> 🚨 上の「色 → PJ」と同じ表を**逆から**使う。AMD OS が見つけたタスクをまさのカレンダーへ入れるとき、**タイトルに PJ コードを必ず入れ、その PJ の色で書く**。まさのカレンダーは PJ ごとに塗り分けられているので、無色・PJ 名なしの枠は「どの PJ の予定か分からない予定」になり、H-1 の色 → PJ 判定でも拾えない。2026-08-29 まさ指摘で恒久仕様化。
+
+**タイトル**: `＋<PJコード> <タスク名>`
+- 先頭の `＋` (または `+`) = 「動かしてよい作業枠」の印。MTG 実施の記録としては扱わない (H-1 は `+` / `＋` 始まりを skip する)。
+- PJ コードは `CFG_ColorPJHistory` の `pjCode` (例 `SX` / `KUTE` / `CX` / `CLG` / `VSX`)。`p21` のような内部 ID や、PJ が分かっているのに `AMD` を書かない。
+- 例: `＋SX JSTのSU設立審査依頼を開始` / `＋KUTE 月次報告書作成`
+
+**色**: その日時点でその PJ に割り当たっている `colorId` を event に付ける
+- 解決は「色 → PJ」と同じ履歴方式の逆引き。`startDate <= 予定日` のうち startDate 最大の行で `pjCode` が一致する `colorId` を使う。
+- 2026-08-29 時点: `1=LST` / `3=ZMP` / `4=SX` / `5=UST` / `6=VSX` / `7=CLG` / `9=CX` / `10=SE` / `11=KUTE`。
+- **色が割り当たっていない PJ (AMD、NIMS、KENQ、EHM など) は色なしで書く**。空いている色を代用しない (代用すると色 → PJ 判定が別 PJ として読む)。`CFG_ColorPJHistory` の `colorId 21` はカレンダー単位の色で、予定には付けられない。
+
+**実装正本**: `pwa/src/lib/calendar-pj-color.ts` (`resolveColorIdForProject` / `resolveProjectForColorId`、`CFG_ColorPJHistory` のスナップショット)。＋枠を作る側は `pwa/src/lib/task-calendar-schedule-plan.ts` が `color_id` と各 `calendar_writes[].colorId` を返す。guard は `npm run test:calendar-pj-color`。
+
 ---
 
 ## 抽出パイプライン

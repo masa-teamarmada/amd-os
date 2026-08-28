@@ -305,7 +305,7 @@ node --experimental-strip-types scripts/check_five_source_population_contract.mt
 
 1. 24時間以内の upcoming MTG を抽出 (`source_kinds LIKE '%upcoming%'`、`projects.status IN ('active','sales')`、`prep_worker_status IS NULL OR 'failed'`)
 2. **timing 判定**: post-MTG 即時主義で「前回 MTG 翌日 〜 今回 MTG 24時間前」の間でまさカレンダー空き枠を探す
-3. **カレンダー＋枠作成**: 空き枠に `＋ <PJコード> MTG準備: <MTGタイトル>` を作成 (= 動かせるタスク、ドラッグ可)。event ID を `prep_calendar_event_id` に保存
+3. **カレンダー＋枠作成**: 空き枠に `＋ <PJコード> MTG準備: <MTGタイトル>` を作成 (= 動かせるタスク、ドラッグ可)。event ID を `prep_calendar_event_id` に保存。色はその PJ の `colorId` を付ける (= [3-2 章 PJ → カレンダー色](3-2-data-and-extraction.md)、色が無い PJ は色なし)
 4. **spawn 判定**: 現在時刻が prep 枠開始時刻に達してたら spawn 実行
 5. **codex exec で新規 session spawn** (subprocess):
    ```bash
