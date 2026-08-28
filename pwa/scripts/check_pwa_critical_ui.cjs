@@ -939,9 +939,10 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "SCROLL_HINT_CLASS",
   "ALWAYS_SCROLL_HINT_CLASS",
   // v3.66.0: AMD標準カラートーン刷新でborder-[#c5bba5]→#d2d2d7, border-l-[#38745d]→#059669 に置換
-  // グループ見出しの左線は 2026-08-28 に緑から墨へ。
+  // グループ見出しの左線は 2026-08-28 に緑から AMD Blue へ。
   // 装飾としての緑を全廃し、緑は状態 (完了・合意・確度high・充足) だけに残す。
-  "border-l-4 border-[#d2d2d7] border-l-[#1d1d1f]",
+  // 見出しアクセント・強調線・選択状態は AMD Blue #027FDC (AMD_SLIDE_DESIGN_CODE.md の正本)。
+  "border-l-4 border-[#d2d2d7] border-l-[#027FDC]",
   // spec P0-10: 登録率(対応中N先中)。
   "登録率",
   "停止",
@@ -2894,7 +2895,6 @@ expectIncludes(
     "このプロジェクトの今月の配分",
     "誰かの取り分を増やすと他の人の取り分が減ります",
     "今月発生する額",
-    "現金支払なし",
     "上の3点を確認したうえで、このプロジェクトの内容に合意してください。合意が終わるまで、このプロジェクトの今月分の支払いには進めません。",
     "確認して合意",
     "修正要望",
@@ -2915,6 +2915,7 @@ expectIncludes(
     "monthly-agreement-project-status",
     "monthly-agreement-allocation-table",
     "monthly-agreement-agreed-project-count",
+    "monthly-agreement-project-focus",
     "monthly-agreement-section-number-01",
     "monthly-agreement-section-number-02",
     "monthly-agreement-section-number-03",
@@ -3483,6 +3484,15 @@ expectIncludes("src/lib/reward-summary.ts", [
   "export function isRewardPayoutRoundingYm(",
   "const roundPayoutThisYm = isRewardPayoutRoundingYm(sourceYm) && !isCycleFinalYm;",
   "shouldRoundPayout",
+]);
+// 管理側は月初合意ページから、メンバー×PJ ごとに本人が見ている画面を開ける。
+// 実際の画面を確認する手段が無いと、未合意の原因を追えない (まさ 2026-08-29)。
+expectIncludes("src/app/(app)/admin/monthly-work-agreements/page.tsx", [
+  "&projectId=${encodeURIComponent(project.projectId)}",
+  "の合意画面を開く",
+]);
+expectIncludes("src/app/(app)/monthly-agreement/page.tsx", [
+  'focusProjectId={searchParams.get("projectId") || ""}',
 ]);
 // PJ単位の合意は 202609 稼働分から (まさ確定 2026-08-28「PJ単位での合意は9月から。
 // いままさに発行しようとしている分には影響が出ないようにして」)。

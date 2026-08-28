@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, Search } from "lucide-react";
 import type {
   AdminMonthlyWorkAgreementResponse,
@@ -75,7 +76,25 @@ function statusClass(status: MonthlyAgreementStatus) {
 }
 
 export default function AdminMonthlyWorkAgreementsPage() {
-  const [ym, setYm] = useState(currentYmJst());
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-8 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" />
+          読み込み中
+        </div>
+      }
+    >
+      <AdminMonthlyWorkAgreementsContent />
+    </Suspense>
+  );
+}
+
+function AdminMonthlyWorkAgreementsContent() {
+  const searchParams = useSearchParams();
+  // 月初合意ページから戻ってきたときに同じ月を開けるよう、URL の ym を初期値にする
+  const initialYm = searchParams.get("ym");
+  const [ym, setYm] = useState(initialYm && /^\d{6}$/.test(initialYm) ? initialYm : currentYmJst());
   const [data, setData] = useState<AdminMonthlyWorkAgreementResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -330,17 +349,19 @@ export default function AdminMonthlyWorkAgreementsPage() {
                         <p className="truncate text-[12px] text-foreground">参加PJなし</p>
                       ) : (
                         <div className="flex flex-wrap gap-1">
+                          {/* 押すと、その人がそのPJで実際に見ている合意画面をそのまま開く */}
                           {row.projects.map((project) => (
-                            <span
+                            <Link
                               key={project.projectId}
-                              title={`${project.projectName}: ${statusLabel(project.status)}${
+                              href={`/monthly-agreement?ym=${encodeURIComponent(ym)}&memberId=${encodeURIComponent(row.member.memberId)}&projectId=${encodeURIComponent(project.projectId)}`}
+                              title={`${project.projectName} の合意画面を開く: ${statusLabel(project.status)}${
                                 project.fromLegacyMemberAgreement ? " (PJ単位化前の一括合意)" : ""
                               } / ${formatYen(project.expectedRewardYen ?? 0)} / 配分${project.allocationMemberCount}人`}
-                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClass(project.status)}`}
+                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold hover:opacity-80 ${statusClass(project.status)}`}
                             >
                               {project.projectName}
                               <span className="font-normal">{statusLabel(project.status)}</span>
-                            </span>
+                            </Link>
                           ))}
                         </div>
                       )}

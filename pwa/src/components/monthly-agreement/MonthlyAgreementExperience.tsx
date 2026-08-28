@@ -101,6 +101,11 @@ type MonthlyAgreementExperienceProps = {
   mode?: MonthlyAgreementMode;
   initialYm?: string;
   initialMemberId?: string;
+  /**
+   * 1つのPJだけを表示する。管理側が `/admin/monthly-work-agreements` から
+   * 「そのメンバーがそのPJで実際に見ている画面」を確認するために使う。
+   */
+  focusProjectId?: string;
   initialBundle?: MonthlyWorkAgreementBundle | null;
   onResolved?: () => void;
   onDismiss?: () => void;
@@ -127,6 +132,7 @@ export function MonthlyAgreementExperience({
   mode = "page",
   initialYm,
   initialMemberId = "",
+  focusProjectId = "",
   initialBundle = null,
   onResolved,
   onDismiss,
@@ -290,6 +296,14 @@ export function MonthlyAgreementExperience({
     );
   }
 
+  // 管理側がPJを指定して開いたときは、そのPJのブロックだけを出す。
+  // メンバーが実際に見る画面と同じ表示のまま、確認したいPJへ絞る
+  const focusedProject = focusProjectId
+    ? bundle.snapshot.projects.find((project) => project.projectId === focusProjectId) ?? null
+    : null;
+  const visibleProjects = focusedProject ? [focusedProject] : bundle.snapshot.projects;
+  const focusMissing = Boolean(focusProjectId) && focusedProject == null;
+
   const totalStockYen = bundle.snapshot.totals.stockYen ?? 0;
   const paidActualYen = bundle.snapshot.totals.paidActualYen ?? 0;
   const unverifiedPaidYen = bundle.snapshot.totals.unverifiedPaidYen ?? 0;
@@ -382,11 +396,36 @@ export function MonthlyAgreementExperience({
           )}
         </section>
 
+        {focusProjectId && (
+          <section
+            data-testid="monthly-agreement-project-focus"
+            className="w-full rounded-lg border border-[#d1d1d6] bg-white px-4 py-3"
+          >
+            <p className="text-[13px] leading-[20px] text-[#3c3c43]">
+              {focusMissing
+                ? `${bundle.member.codeName} さんの ${formatYm(bundle.ym)} に、指定されたPJはありません。`
+                : `${bundle.member.codeName} さんが ${focusedProject?.projectName} で見ている画面です。`}
+            </p>
+            <Link
+              href={`/monthly-agreement?ym=${encodeURIComponent(bundle.ym)}&memberId=${encodeURIComponent(bundle.member.memberId)}`}
+              className="mt-1 inline-block text-[13px] font-semibold text-[#007aff]"
+            >
+              この人の全PJを見る
+            </Link>
+          </section>
+        )}
+
         <RequiredChecksSection
           compact={isModal}
-          projects={bundle.snapshot.projects}
-          agreements={bundle.projectAgreements}
-          totalExpectedRewardYen={bundle.snapshot.totals.expectedRewardYen}
+          projects={visibleProjects}
+          agreements={
+            focusedProject
+              ? bundle.projectAgreements.filter((item) => item.projectId === focusedProject.projectId)
+              : bundle.projectAgreements
+          }
+          totalExpectedRewardYen={
+            focusedProject ? focusedProject.expectedRewardYen : bundle.snapshot.totals.expectedRewardYen
+          }
           payoutExcluded={Boolean(bundle.snapshot.member.excludeFromPayoutNotice)}
           amountChangeReasons={bundle.amountChangeReasons}
           requiredProjectIds={bundle.amountChangeReasonRequiredProjectIds}
@@ -1323,7 +1362,6 @@ function ProjectAllocationTable({ project }: { project: MonthlyWorkAgreementProj
     );
   }
   const totals = project.allocationTotals;
-  const hasExcluded = rows.some((row) => row.payoutExcluded);
 
   return (
     <div data-testid="monthly-agreement-allocation-table" className="mt-2 w-full max-w-full">
@@ -1336,11 +1374,7 @@ function ProjectAllocationTable({ project }: { project: MonthlyWorkAgreementProj
                 {row.isSelf && <span className="ml-1 text-[12px] text-sky-800">（あなた）</span>}
               </p>
               <p className="shrink-0 text-[15px] font-semibold tabular-nums text-[#1d1d1f]">
-                {row.payoutExcluded ? (
-                  <span className="text-[12px] text-[#86868b]">現金支払なし</span>
-                ) : (
-                  formatYen(row.payYen)
-                )}
+                {formatYen(row.payYen)}
               </p>
             </div>
             <p className="mt-0.5 text-[12px] text-[#6e6e73]">
@@ -1417,11 +1451,7 @@ function ProjectAllocationTable({ project }: { project: MonthlyWorkAgreementProj
                   {formatYen(row.accrualYen)}
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 text-right align-top font-semibold tabular-nums text-[#1d1d1f]">
-                  {row.payoutExcluded ? (
-                    <span className="text-[12px] font-semibold text-[#86868b]">現金支払なし</span>
-                  ) : (
-                    formatYen(row.payYen)
-                  )}
+                  {formatYen(row.payYen)}
                 </td>
               </tr>
             ))}
@@ -1445,11 +1475,6 @@ function ProjectAllocationTable({ project }: { project: MonthlyWorkAgreementProj
         </table>
       </div>
 
-      {hasExcluded && (
-        <p className="mt-2 text-[12px] leading-[18px] text-[#6e6e73]">
-          「現金支払なし」の人は、担当分が会社の内部配賦として扱われ、本人へは支払われません。原資を分け合っている点は同じなので、配分としてこの表に出しています。
-        </p>
-      )}
     </div>
   );
 }

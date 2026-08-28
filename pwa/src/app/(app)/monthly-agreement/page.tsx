@@ -23,6 +23,7 @@ function MonthlyAgreementPageContent() {
       mode="page"
       initialYm={searchParams.get("ym") || currentYmJst()}
       initialMemberId={searchParams.get("memberId") || ""}
+      focusProjectId={searchParams.get("projectId") || ""}
     />
   );
 }
