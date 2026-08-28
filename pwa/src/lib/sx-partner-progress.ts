@@ -185,6 +185,51 @@ export function sxParseEffluentComponents(value: string | null): string[] {
 }
 
 /**
+ * 保存値が成分として整理されていない作文のとき、本文に書かれている成分名だけを拾う
+ * (2026-08-28 まさ「表の中ではもっとシンプルに成分名だけを記載してほしい。文章で書くのやめて」
+ *  → 表示を成分バッジだけにしたら、作文しか無い行が全部「未整理」になり情報が消えた。
+ *  作文を隠すのではなく、作文の中の成分名を表へ出す)。
+ *
+ * 拾うのは本文に明示された語だけで、含意や推測はしない。
+ * 「重金属」は "重金属はほとんど検出されなかった" のような否定文脈が多いので拾わない。
+ * 長い語から順に消しながら走査する (亜鉛 を 鉛 と取り違えないため)。
+ */
+const EFFLUENT_TEXT_PATTERNS: Array<{ token: string; pattern: RegExp }> = [
+  { token: "Zn", pattern: /亜鉛|\bZn\b/g },
+  { token: "Al", pattern: /アルミニウム|アルミ|\bAl\b/g },
+  { token: "Ni", pattern: /ニッケル|\bNi\b/g },
+  { token: "Pb", pattern: /鉛|\bPb\b/g },
+  { token: "Cr", pattern: /クロム|\bCr\b/g },
+  { token: "Mn", pattern: /マンガン|\bMn\b/g },
+  { token: "Cu", pattern: /銅|\bCu\b/g },
+  { token: "Nd", pattern: /ネオジム|\bNd\b/g },
+  { token: "Dy", pattern: /ジスプロシウム|\bDy\b/g },
+  { token: "COD", pattern: /\bCOD\b/g },
+  { token: "BOD", pattern: /\bBOD\b/g },
+  { token: "SS", pattern: /\bSS\b/g },
+  { token: "リン", pattern: /リン(?!ス)/g },
+  { token: "窒素", pattern: /窒素/g },
+  { token: "油分", pattern: /油分/g },
+  { token: "塩分", pattern: /塩分/g },
+  { token: "色度", pattern: /色度/g },
+  { token: "糖分", pattern: /糖分/g },
+];
+
+export function sxExtractEffluentComponentsFromText(text: string | null): string[] {
+  if (!text) return [];
+  let scan = text;
+  const found: string[] = [];
+  for (const { token, pattern } of EFFLUENT_TEXT_PATTERNS) {
+    pattern.lastIndex = 0;
+    if (!pattern.test(scan)) continue;
+    found.push(token);
+    pattern.lastIndex = 0;
+    scan = scan.replace(pattern, " ");
+  }
+  return found;
+}
+
+/**
  * 分類タブの判定。'poc_candidate' と 'vc' は保存前の旧データも拾う後方互換判定を通す。
  * 一覧のタブとタイトル行の分類ボタンが同じ判定を共有する。
  */

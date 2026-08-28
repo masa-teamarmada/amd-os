@@ -166,7 +166,8 @@
     "test:surface-catalog-contract": "node scripts/check_surface_catalog_contract.mjs",
     "test:admin-kiyo": "node --experimental-strip-types scripts/check_admin_kiyo.mts && node --experimental-strip-types scripts/check_invoice_expense_rule.mts",
     "test:workspace-capabilities": "node --experimental-strip-types scripts/check_workspace_capabilities.mts",
-    "test:reward-payout-rounding": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_reward_payout_rounding.mts"
+    "test:reward-payout-rounding": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_reward_payout_rounding.mts",
+    "test:effluent-extraction": "node --experimental-strip-types scripts/check_effluent_component_extraction.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",

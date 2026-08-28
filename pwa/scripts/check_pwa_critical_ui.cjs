@@ -939,7 +939,9 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "SCROLL_HINT_CLASS",
   "ALWAYS_SCROLL_HINT_CLASS",
   // v3.66.0: AMD標準カラートーン刷新でborder-[#c5bba5]→#d2d2d7, border-l-[#38745d]→#059669 に置換
-  "border-l-4 border-[#d2d2d7] border-l-[#059669]",
+  // グループ見出しの左線は 2026-08-28 に緑から墨へ。
+  // 装飾としての緑を全廃し、緑は状態 (完了・合意・確度high・充足) だけに残す。
+  "border-l-4 border-[#d2d2d7] border-l-[#1d1d1f]",
   // spec P0-10: 登録率(対応中N先中)。
   "登録率",
   "停止",

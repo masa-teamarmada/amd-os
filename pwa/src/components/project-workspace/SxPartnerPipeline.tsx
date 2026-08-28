@@ -64,6 +64,7 @@ import {
   sxPartnerClassificationLabel,
   sxPartnerHasClassification,
   SX_EFFLUENT_COMPONENT_CHOICES,
+  sxExtractEffluentComponentsFromText,
   sxParseEffluentComponents,
   sxPocCategoryLabel,
   sxPocLikelihoodLabel,
@@ -232,7 +233,7 @@ function PartnerStageRail({
       >
         <span
           data-progress-bar={partnerId}
-          className="block h-full rounded-full bg-[#059669]"
+          className="block h-full rounded-full bg-[#48484a]"
           style={{ width: `${pct ?? 0}%` }}
         />
       </span>
@@ -260,7 +261,7 @@ function PartnerStageRail({
       aria-expanded={expanded}
       aria-controls={`sx-partner-history-${partnerId}`}
       aria-label={`進捗${pct == null ? "保留" : `${pct}%`}。進捗と履歴を開く`}
-      className={`!min-h-0 block w-full min-w-0 text-left hover:bg-[#ecfdf5] ${FOCUS_RING}`}
+      className={`!min-h-0 block w-full min-w-0 text-left hover:bg-[#f5f5f7] ${FOCUS_RING}`}
     >
       {content}
     </button>
@@ -275,13 +276,17 @@ const BALL_SIDE_TONE: Record<string, string> = {
   unknown: "border-[#3D99E3] bg-[#f0f9ff] text-[#0369a1]",
 };
 
-/** 最左の評価カラムの配色。S だけ塗りつぶして、上から潰す順番が一目で分かるようにする。 */
+/**
+ * 最左の評価カラムの配色。S だけ塗りつぶして、上から潰す順番が一目で分かるようにする。
+ * 優先度は「重大 / 悪化 / 要観察 / 安全」の状態軸ではなく順位なので、意味色は使わず濃淡で示す
+ * (2026-08-28 まさ「全然まだ緑色が残ってるじゃん」/ spec 2-7 の意味色は状態にだけ使う)。
+ */
 const GRADE_TONE: Record<string, string> = {
-  s: "border-[#047857] bg-[#047857] text-[#f5f5f7]",
-  a: "border-[#059669] bg-[#ecfdf5] text-[#065f46]",
-  b: "border-[#0369a1] bg-[#f0f9ff] text-[#0369a1]",
-  x: "border-[#94a3b8] bg-[#f1f5f9] text-[#3c3c43]",
-  unrated: "border-dashed border-[#cbd5e1] bg-[#f8fafc] text-[#86868b]",
+  s: "border-[#1d1d1f] bg-[#1d1d1f] text-white",
+  a: "border-[#c7c7cc] bg-[#f5f5f7] text-[#1d1d1f]",
+  b: "border-[#e5e5ea] bg-white text-[#6e6e73]",
+  x: "border-[#e5e5ea] bg-white text-[#a1a1a6]",
+  unrated: "border-dashed border-[#d6d6da] bg-white text-[#a1a1a6]",
 };
 
 const HOLDING_STATUS_TONE: Record<string, string> = {
@@ -290,7 +295,7 @@ const HOLDING_STATUS_TONE: Record<string, string> = {
   waiting: "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]",
   blocked: "border-[#ef4444] bg-[#fee2e2] text-[#dc2626]",
   on_hold: "border-[#7dd3fc] bg-[#f0f9ff] text-[#0284c7]",
-  completed: "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]",
+  completed: "border-emerald-300 bg-emerald-50 text-emerald-700",
   cancelled: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
 };
 
@@ -320,15 +325,15 @@ const HOLDING_STATUS_LABEL: Record<string, string> = {
 const INTERACTION_KIND_TONE: Record<string, string> = {
   meeting: "border-[#7dd3fc] bg-[#f0f9ff] text-[#0284c7]",
   email: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
-  agreement: "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]",
-  deliverable: "border-[#6ee7b7] bg-[#ecfdf5] text-[#047857]",
+  agreement: "border-emerald-300 bg-emerald-50 text-emerald-700",
+  deliverable: "border-emerald-300 bg-emerald-50 text-emerald-700",
   handoff: "border-[#fbbf24] bg-[#fef3c7] text-[#92400e]",
   status_update: "border-[#7dd3fc] bg-[#f0f9ff] text-[#0284c7]",
   note: "border-[#cbd5e1] bg-[#f5f5f7] text-[#3c3c43]",
 };
 
 const FOCUS_RING =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]";
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0f172a]";
 
 type PartnerInlineResource =
   | "partner"
@@ -594,7 +599,7 @@ function InlineCellEditor({
           </button>
           <button
             type="button"
-            className={`${INLINE_ACTION_CLASS} border-[#059669] bg-[#059669] text-white disabled:opacity-60`}
+            className={`${INLINE_ACTION_CLASS} border-[#1d1d1f] bg-[#1d1d1f] text-white disabled:opacity-60`}
             onClick={save}
             disabled={saving}
             aria-label={`${label}を保存`}
@@ -1263,7 +1268,7 @@ function pocFacetChipsView(partner: SxManagementPartner) {
       {chip(
         "段階",
         sxPartnerStageLabel(partner.relationshipStage),
-        "border-[#059669] bg-[#ecfdf5] text-[#065f46]",
+        "border-emerald-600 bg-emerald-50 text-emerald-800",
       )}
       {chip(
         "状態",
@@ -1309,7 +1314,7 @@ function pocFacetChipsView(partner: SxManagementPartner) {
 
 /** 実現可能性・顧客有望度の色。未評価だけは「入っていない」と分かる薄い枠にする。 */
 function judgmentTone(value: SxPocJudgment | null) {
-  if (value === "high") return "border-[#059669] bg-[#ecfdf5] text-[#065f46]";
+  if (value === "high") return "border-emerald-600 bg-emerald-50 text-emerald-800";
   if (value === "medium") return "border-[#cbd5e1] bg-[#f1f5f9] text-[#1d1d1f]";
   if (value === "low") return "border-[#ef4444] bg-[#fee2e2] text-[#991b1b]";
   return "border-dashed border-[#cbd5e1] bg-[#f8fafc] text-[#86868b]";
@@ -1969,7 +1974,7 @@ function HoldingRow({
   );
   return (
     <li
-      className={`border-b border-[#e2e8f0] py-1.5 pl-2 last:border-0 ${(canManage && onEdit) || inlineEditable ? "cursor-pointer hover:bg-[#ecfdf5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]" : ""}`}
+      className={`border-b border-[#e2e8f0] py-1.5 pl-2 last:border-0 ${(canManage && onEdit) || inlineEditable ? "cursor-pointer hover:bg-[#f5f5f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0f172a]" : ""}`}
       role={(canManage && onEdit) || inlineEditable ? "button" : undefined}
       tabIndex={(canManage && onEdit) || inlineEditable ? 0 : undefined}
       aria-label={
@@ -2129,17 +2134,17 @@ function HoldingRow({
         </p>
       )}
       {item.completedOn && (
-        <p className="mt-0.5 text-[10px] leading-4 text-[#047857]">
+        <p className="mt-0.5 text-[10px] leading-4 text-[#1d1d1f]">
           完了日: {sxFormatDate(item.completedOn)}
         </p>
       )}
       {item.completionEvidence && (
-        <p className="mt-0.5 text-[10px] leading-4 text-[#047857]">
+        <p className="mt-0.5 text-[10px] leading-4 text-[#1d1d1f]">
           完了の証拠: {sxNormalizePublicName(item.completionEvidence)}
         </p>
       )}
       {item.acceptedBy && (
-        <p className="mt-0.5 text-[10px] leading-4 text-[#047857]">
+        <p className="mt-0.5 text-[10px] leading-4 text-[#1d1d1f]">
           受領者: {sxNormalizePublicName(item.acceptedBy)}
           {item.acceptedOn ? ` ・ 受領日 ${sxFormatDate(item.acceptedOn)}` : ""}
         </p>
@@ -2773,7 +2778,7 @@ function PartnerProgressFlow({
                  blurで保存・Escで取消・Enterで保存、一覧のセル編集と同じ作法。 */
               <div
                 data-testid="sx-partner-step-editor"
-                className={`flex w-[220px] shrink-0 flex-col gap-1 rounded-md border-2 border-[#059669] bg-[#ecfdf5] px-2 py-1 text-[#1d1d1f]`}
+                className={`flex w-[220px] shrink-0 flex-col gap-1 rounded-md border-2 border-[#1d1d1f] bg-[#f5f5f7] px-2 py-1 text-[#1d1d1f]`}
                 aria-busy={stepSaving}
                 onBlur={(event) => {
                   if (
@@ -2795,7 +2800,7 @@ function PartnerProgressFlow({
                   }
                 }}
               >
-                <span className="text-[10px] font-semibold tracking-wide text-[#047857]">
+                <span className="text-[10px] font-semibold tracking-wide text-[#1d1d1f]">
                   {step.sub}
                 </span>
                 {step.key === "now" ? (
@@ -2878,7 +2883,7 @@ function PartnerProgressFlow({
                 editable ? "cursor-pointer hover:brightness-95" : ""
               } ${
                 step.phase === "done"
-                  ? "border-[#a7f3d0] bg-[#ecfdf5] text-[#047857]"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                   : step.phase === "now"
                     ? `border-2 ${nowTone}`
                     : step.phase === "goal"
@@ -3087,7 +3092,7 @@ function PartnerSampleRow({
           type="button"
           onClick={() => void save()}
           disabled={saving}
-          className={`border border-[#047857] bg-[#047857] px-2.5 py-1 text-[10px] font-semibold text-[#ffffff] disabled:opacity-50 ${FOCUS_RING}`}
+          className={`border border-[#1d1d1f] bg-[#1d1d1f] px-2.5 py-1 text-[10px] font-semibold text-[#ffffff] disabled:opacity-50 ${FOCUS_RING}`}
         >
           保存
         </button>
@@ -3143,7 +3148,7 @@ function PartnerSampleAddForm({
             setAdding(true);
           }}
           data-testid="sx-partner-sample-add"
-          className={`min-h-9 rounded border border-[#059669] bg-[#ffffff] px-2.5 text-[10px] font-semibold text-[#047857] hover:bg-[#ecfdf5] ${FOCUS_RING}`}
+          className={`min-h-9 rounded border border-[#c7c7cc] bg-[#ffffff] px-2.5 text-[10px] font-semibold text-[#1d1d1f] hover:bg-[#f5f5f7] ${FOCUS_RING}`}
         >
           ＋ 試料を追加
         </button>
@@ -3179,7 +3184,7 @@ function PartnerSampleAddForm({
           type="button"
           onClick={() => void submit()}
           disabled={saving || !label.trim()}
-          className={`border border-[#047857] bg-[#047857] px-3 py-1.5 text-[10px] font-semibold text-[#ffffff] disabled:opacity-50 ${FOCUS_RING}`}
+          className={`border border-[#1d1d1f] bg-[#1d1d1f] px-3 py-1.5 text-[10px] font-semibold text-[#ffffff] disabled:opacity-50 ${FOCUS_RING}`}
         >
           追加
         </button>
@@ -3262,7 +3267,7 @@ function PartnerProgressHistoryModal({
       >
         <header className="flex min-h-[68px] items-start justify-between gap-4 border-b border-[#d2d2d7]/70 px-4 py-3.5 sm:px-[22px] sm:pb-3.5 sm:pt-4">
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-extrabold text-[#047857]">
+            <p className="text-[11px] font-extrabold text-[#6e6e73]">
               進捗・履歴
             </p>
             <h4
@@ -3277,7 +3282,7 @@ function PartnerProgressHistoryModal({
             type="button"
             onClick={onClose}
             aria-label={`${display.name}の進捗と履歴を閉じる`}
-            className={`grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[#94a3b8] bg-[#ffffff] text-[#3c3c43] hover:border-[#047857] hover:bg-[#ecfdf5] hover:text-[#047857] ${FOCUS_RING}`}
+            className={`grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[#94a3b8] bg-[#ffffff] text-[#3c3c43] hover:border-[#1d1d1f] hover:bg-[#f5f5f7] hover:text-[#1d1d1f] ${FOCUS_RING}`}
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -3290,7 +3295,7 @@ function PartnerProgressHistoryModal({
             aria-label={`${display.name}の分類（複数選択可）`}
             className="mb-4 border-b border-[#d2d2d7] pb-4"
           >
-            <p className="text-[10px] font-semibold tracking-[0.14em] text-[#059669]">
+            <p className="text-[10px] font-semibold tracking-[0.14em] text-[#6e6e73]">
               分類
             </p>
             <div
@@ -3306,13 +3311,13 @@ function PartnerProgressHistoryModal({
                     key={classification}
                     className={`inline-flex min-h-8 cursor-pointer items-center gap-1 border px-2 py-0.5 text-[10px] font-semibold ${
                       checked
-                        ? "border-[#059669] bg-[#ecfdf5] text-[#065f46]"
+                        ? "border-emerald-600 bg-emerald-50 text-emerald-800"
                         : "border-[#cbd5e1] bg-[#ffffff] text-[#1d1d1f]"
                     }`}
                   >
                     <input
                       type="checkbox"
-                      className="h-3.5 w-3.5 accent-[#047857]"
+                      className="h-3.5 w-3.5 accent-[#1d1d1f]"
                       checked={checked}
                       disabled={!canManage}
                       onChange={(event) => {
@@ -3406,7 +3411,7 @@ function PartnerProgressHistoryModal({
                       </span>
                       <select
                         autoFocus
-                        className={`h-7 min-w-0 border border-[#059669] bg-[#ffffff] px-1 text-[11px] font-semibold text-[#1d1d1f] ${FOCUS_RING}`}
+                        className={`h-7 min-w-0 border border-[#c7c7cc] bg-[#ffffff] px-1 text-[11px] font-semibold text-[#1d1d1f] ${FOCUS_RING}`}
                         value={facet.value}
                         onBlur={() => setActiveFacetKey(null)}
                         onKeyDown={(event) => {
@@ -3462,7 +3467,7 @@ function PartnerProgressHistoryModal({
               <div>
                 <p
                   id={`${titleId}-flow`}
-                  className="text-[10px] font-semibold tracking-[0.14em] text-[#059669]"
+                  className="text-[10px] font-semibold tracking-[0.14em] text-[#6e6e73]"
                 >
                   進行状況
                 </p>
@@ -3491,7 +3496,7 @@ function PartnerProgressHistoryModal({
           >
             <p
               id={`${titleId}-holdings`}
-              className="text-[10px] font-semibold tracking-[0.14em] text-[#059669]"
+              className="text-[10px] font-semibold tracking-[0.14em] text-[#6e6e73]"
             >
               未完了の保有事項・約束 {openHoldings.length}件
             </p>
@@ -3529,7 +3534,7 @@ function PartnerProgressHistoryModal({
             >
               <p
                 id={`${titleId}-samples`}
-                className="text-[10px] font-semibold tracking-[0.14em] text-[#059669]"
+                className="text-[10px] font-semibold tracking-[0.14em] text-[#6e6e73]"
               >
                 試料台帳 {partner.samples.length}件
               </p>
@@ -3577,7 +3582,7 @@ function PartnerProgressHistoryModal({
             <div className="flex items-end justify-between gap-2">
               <p
                 id={`${titleId}-interactions`}
-                className="text-[10px] font-semibold tracking-[0.14em] text-[#059669]"
+                className="text-[10px] font-semibold tracking-[0.14em] text-[#6e6e73]"
               >
                 やり取り履歴（全{interactions.length}件）
               </p>
@@ -3588,7 +3593,7 @@ function PartnerProgressHistoryModal({
                   type="button"
                   data-testid="sx-partner-add-interaction"
                   onClick={() => onCreateInteraction(partner.id)}
-                  className={`min-h-9 shrink-0 rounded border border-[#059669] bg-[#ffffff] px-2.5 text-[10px] font-semibold text-[#047857] hover:bg-[#ecfdf5] ${FOCUS_RING}`}
+                  className={`min-h-9 shrink-0 rounded border border-[#c7c7cc] bg-[#ffffff] px-2.5 text-[10px] font-semibold text-[#1d1d1f] hover:bg-[#f5f5f7] ${FOCUS_RING}`}
                 >
                   ＋ 履歴を追加
                 </button>
@@ -3796,12 +3801,14 @@ function PartnerInlineRow({
   // 未評価は空欄にせず「未」と出し、判断がまだ入っていない行だと分かるようにする。
   const priorityTier = sxPocPriorityTier(partner);
   const gradeView = (
-    <span
-      className={`grid min-h-11 w-full place-items-center border text-[15px] font-semibold leading-none ${GRADE_TONE[priorityTier]}`}
-      data-poc-priority-tier={priorityTier}
-      title={sxPocPriorityTierDescription(priorityTier)}
-    >
-      {sxPocPriorityTierLabel(priorityTier)}
+    <span className="grid min-h-11 w-full place-items-center">
+      <span
+        className={`inline-grid size-6 place-items-center rounded-full border text-[11px] font-bold leading-none ${GRADE_TONE[priorityTier]}`}
+        data-poc-priority-tier={priorityTier}
+        title={sxPocPriorityTierDescription(priorityTier)}
+      >
+        {sxPocPriorityTierLabel(priorityTier)}
+      </span>
     </span>
   );
   const relationNameView = (
@@ -3830,6 +3837,11 @@ function PartnerInlineRow({
     : partner.effluentComponents
       ? [partner.effluentComponents]
       : [];
+  // 作文しか無い行でも、本文に書かれた成分名は表へ出す (2026-08-28)。
+  // 選び直された成分と区別できるよう、拾った側は点線の枠にする。
+  const effluentDerivedTokens = effluentIsStructured
+    ? []
+    : sxExtractEffluentComponentsFromText(partner.effluentComponents);
   // 表に置くのは成分名だけ (2026-08-28 まさ「表の中ではもっとシンプルに成分名だけを
   // 記載してほしい。文章で書くのやめて」)。年間量・処理費・検査結果と、
   // 成分へ整理されていない旧作文は、セルを押して開く詳細の中で読む。
@@ -3850,7 +3862,18 @@ function PartnerInlineRow({
           {token}
         </span>
       ))}
-      {effluentBadgeTokens.length === 0 && effluentHasDetail && (
+      {effluentDerivedTokens.map((token) => (
+        <span
+          key={token}
+          data-effluent-component={token}
+          data-effluent-source="text"
+          title="本文から拾った成分。選び直すと確定する"
+          className="inline-flex rounded-full border border-dashed border-sky-300 bg-sky-50/60 px-2 py-0.5 text-[10px] font-semibold leading-4 text-sky-700"
+        >
+          {token}
+        </span>
+      ))}
+      {effluentBadgeTokens.length === 0 && effluentDerivedTokens.length === 0 && effluentHasDetail && (
         <span className="inline-flex rounded-full border border-[#d6d6da] bg-[#f5f5f7] px-2 py-0.5 text-[10px] font-medium leading-4 text-[#6e6e73]">
           成分 未整理
         </span>
@@ -4054,7 +4077,7 @@ function PartnerInlineRow({
                 aria-controls={`sx-partner-history-${partner.id}`}
                 aria-label={`${display.name}の進捗と履歴を開く`}
                 data-partner-name-open={partner.id}
-                className={`!min-h-0 min-w-0 text-left hover:bg-[#ecfdf5] ${FOCUS_RING}`}
+                className={`!min-h-0 min-w-0 text-left hover:bg-[#f5f5f7] ${FOCUS_RING}`}
               >
                 <span className="flex min-w-0 items-start justify-between gap-1">
                   {relationNameView}
@@ -5099,11 +5122,11 @@ export function SxPartnerPipeline({
           {!comparisonOnly &&
             groups.map((group) => (
               <div key={group.key}>
-                <div className="border-b border-l-4 border-[#d2d2d7] border-l-[#059669] bg-[#ffffff] px-3 py-1.5">
+                <div className="border-b border-l-4 border-[#d2d2d7] border-l-[#1d1d1f] bg-[#ffffff] px-3 py-1.5">
                   {/* spec P1: 分類見出しh4は11-12px+左罫線で本文行と視覚的に区切る。in_progress/established
                     は同じ複合ラベル("XX先")になるため、unclassified以外は状態を（）で必ず明示して見出し
                     だけでも区別できるようにする。 */}
-                  <h4 className="w-fit text-[11px] font-semibold text-[#059669] @min-[480px]:sticky @min-[480px]:left-3">
+                  <h4 className="w-fit text-[11px] font-semibold text-[#1d1d1f] @min-[480px]:sticky @min-[480px]:left-3">
                     {group.label}
                     {group.roleKind !== "unclassified" && (
                       <span className="text-[#3c3c43]">
@@ -5325,7 +5348,7 @@ function InteractionFullRow({
         setDraft((current) => ({ ...current, [key]: event.target.value }));
     return (
       <li
-        className="bg-[#ecfdf5] p-2.5"
+        className="bg-[#f5f5f7] p-2.5"
         data-interaction-inline-editor={interaction.id}
         aria-busy={saving}
       >
@@ -5436,7 +5459,7 @@ function InteractionFullRow({
             type="button"
             onClick={() => void save()}
             disabled={saving}
-            className={`min-h-9 rounded border border-[#047857] bg-[#047857] px-2.5 text-[10px] font-semibold text-[#ffffff] hover:bg-[#065f46] ${FOCUS_RING}`}
+            className={`min-h-9 rounded border border-[#1d1d1f] bg-[#1d1d1f] px-2.5 text-[10px] font-semibold text-[#ffffff] hover:bg-[#3c3c43] ${FOCUS_RING}`}
           >
             保存
           </button>
@@ -5446,7 +5469,7 @@ function InteractionFullRow({
   }
   return (
     <li
-      className={`p-2.5 text-[11px] leading-5 ${editable ? "cursor-pointer hover:bg-[#ecfdf5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]" : ""}`}
+      className={`p-2.5 text-[11px] leading-5 ${editable ? "cursor-pointer hover:bg-[#f5f5f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0f172a]" : ""}`}
       role={editable ? "button" : undefined}
       tabIndex={editable ? 0 : undefined}
       aria-label={
@@ -5503,7 +5526,7 @@ function InteractionFullRow({
           onKeyDown={(event) => event.stopPropagation()}
         >
           <summary
-            className={`flex min-h-11 cursor-pointer items-center text-[10px] font-semibold text-[#059669] ${FOCUS_RING}`}
+            className={`flex min-h-11 cursor-pointer items-center text-[10px] font-semibold text-[#6e6e73] ${FOCUS_RING}`}
           >
             議事録の全文を読む
           </summary>
