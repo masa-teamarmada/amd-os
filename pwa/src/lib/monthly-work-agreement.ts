@@ -44,7 +44,15 @@ type MonthlyRewardPayoutSnapshotRow = JsonRecord & {
 };
 
 const SNAPSHOT_VERSION = "monthly_work_agreement.v2" as const;
-export const MONTHLY_WORK_AGREEMENT_PAYOUT_GATE_START_YM = "202607";
+/**
+ * この稼働月から、月初合意を支払の条件にする。これより前は導入前/移行月として合意済み扱い。
+ *
+ * 202607 まで移行月に含める (まさ確定 2026-08-28)。2026-08-28 まで、請求ステータスや進捗率の
+ * ような内部の状態が動くたびに再合意を求める実装だったため、7月稼働分の合意が成立しないまま
+ * 支払時期を迎えた。まさ「月初合意のシステムが整いきってなかったので、特別に残り3人にも
+ * 支払うことにした」。202608 稼働分から通常どおり合意を条件にする。
+ */
+export const MONTHLY_WORK_AGREEMENT_PAYOUT_GATE_START_YM = "202608";
 
 export function isMonthlyWorkAgreementPayoutGateMigrationYm(ym: string): boolean {
   return /^\d{6}$/.test(ym) && ym < MONTHLY_WORK_AGREEMENT_PAYOUT_GATE_START_YM;
