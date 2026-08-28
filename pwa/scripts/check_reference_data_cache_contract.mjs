@@ -51,6 +51,12 @@ const REFERENCE_DATA_ENDPOINTS = [
     clientModule: "src/lib/amd-contributions-client.ts",
   },
   {
+    endpoint: "/api/project/:p/org",
+    label: "組織 (スコア詳細タブの担い手・観測・メンバー)",
+    routeFile: "src/app/api/project/[projectId]/org/route.ts",
+    clientModule: "src/lib/project-org-client.ts",
+  },
+  {
     endpoint: "/api/project-cost-model",
     label: "コスト試算 (PJコックピット / PJワークスペース)",
     routeFile: "src/app/api/project-cost-model/route.ts",

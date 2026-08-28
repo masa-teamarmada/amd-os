@@ -15,6 +15,9 @@
  * 置くのは評価の状態（評価済みか / SPS帯 / 根拠レベル / 評価日 / 対応シーズ）だけで、
  * 帯の定義式・算出過程・q要因までは戻さない（8-27 で外した「古いモデルの試算結果」がそれ）。
  *
+ * 《組織》は 2026-08-28 まさ依頼で新設。経営チームの機能が誰かに担われているかは
+ * スコアの入力そのものなので、経営ハイライトではなくここへ置く。仕様は pwa/spec の「4-9 組織セクション」。
+ *
  * 仕様は pwa/spec の「4-8 BZM 3.0 スコアパネル」。
  */
 
@@ -22,6 +25,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bzm30ScorePanel } from "@/components/bzm30/Bzm30ScorePanel";
 import { CurrentSpsAssessmentCard } from "@/components/sps/CurrentSpsAssessmentCard";
+import { CockpitOrgSection } from "./CockpitOrgSection";
 import { CockpitVentureStatus } from "./CockpitVentureStatus";
 import { loadCurrentSpsAssessment, peekCurrentSpsAssessment } from "@/lib/current-sps-client";
 import { fetchSeedDetail } from "@/lib/seeds-data";
@@ -101,6 +105,8 @@ export function CockpitAmdScoreDetailTab({ projectId, active = true }: { project
         sections="xrl"
       />
       <Bzm30Section state={state} />
+      {/* 組織はスコアの入力の根拠。スコア本体を見たあとに「なぜこの値か」を人の側から追える位置に置く。 */}
+      <CockpitOrgSection projectId={projectId} active={active} />
     </div>
   );
 }

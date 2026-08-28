@@ -29,6 +29,7 @@ import { CockpitBusinessPlan } from "./CockpitBusinessPlan";
 import type { CockpitSeasonFinance as CockpitSeasonFinanceData, MilestoneChangeHistory } from "@/lib/supabase-data";
 import type { ProjectContractTerms } from "@/lib/project-contract-terms";
 import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
+import { prefetchProjectOrg } from "@/lib/project-org-client";
 import { prefetchProjectCostModel } from "@/lib/project-cost-model-client";
 
 interface PlanCycleShape {
@@ -369,7 +370,16 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     { key: "gantt", label: "ガント" },
     { key: "partners", label: "関係先" },
     { key: "issues", label: "論点・仮説" },
-    ...(hasScoreDetailTab ? [{ key: "score-detail" as const, label: "スコア詳細" }] : []),
+    ...(hasScoreDetailTab
+      ? [
+          {
+            key: "score-detail" as const,
+            label: "スコア詳細",
+            // 組織セクションは参照系。タブを押す前に温めておき、開いた瞬間に出す。
+            onHover: () => prefetchProjectOrg(project.projectId),
+          },
+        ]
+      : []),
     { key: "business-plan", label: "事業計画" },
     // コスト試算は全PJ常設 (2026-08-23 まさ確定。SX専用ではなく雛形として全PJへ)。
     // 未登録のPJでは、何を登録する面なのかを説明する空状態が出る。

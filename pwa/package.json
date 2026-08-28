@@ -114,6 +114,7 @@
     "test:bzm-2-1-dynamic-policy": "node --experimental-strip-types scripts/test_bzm_2_1_dynamic_policy.mts",
     "build:sps-2-1-estimated": "node --experimental-strip-types scripts/build_sps_2_1_estimated_v0_1.mts",
     "check:sps-2-1-estimated": "node --experimental-strip-types scripts/build_sps_2_1_estimated_v0_1.mts --check",
+    "check:team-function-contract": "node scripts/check_team_function_contract.mjs",
     "check:bzm-2-2-all-pj-pilot": "node --experimental-strip-types ../bzm/pilot/bzm-2-2-all-pj-provisional-v0-1.mts --check",
     "test:bzm-2-2-pilot-ui": "node --experimental-strip-types scripts/check_bzm_2_2_pilot_ui_contract.mts",
     "test:model-formula-canon": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs scripts/check_model_formula_canon.mts",

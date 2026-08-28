@@ -260,6 +260,7 @@ Google Calendar に月次MTG枠を作成、参加者に招待を飛ばす。`sch
   - **Project Signal Board**: active PJと現行SPSを`/api/hud/dashboard`から読む。現行版は`sps-ind-v1 / q-eval-v2 / rubric-v1.1 / p-ind-v1`だけで、欠測は「最新版未評価」。旧M/X/Fスコアや月次ルーティン進捗へfallbackしない。
   - **Next Action Queue**: `billing_cycles` 未完了から自動生成（PWA `buildMonthlyRoutineActions` 相当）
 - **PJカードをタップ → cockpit のスコア詳細**（`ScoreDetailWebView`）。iOS が開く互換URL `/venture-map/amd-score/{projectId}` は PWA `/project/{projectId}/cockpit?tab=score-detail`（PRS/R_net/XRL/FRL/ALQ radar/CES・計算式・XRLチェックリスト）へ自動転送する。iOS の Supabase セッションを `@supabase/ssr` 互換 cookie に変換して注入し、auth 必須ページを認証付きで開く。
+- **スコア詳細タブの《組織》** (2026-08-28 新設、PWA): 産業創出価値のパネルの下に、経営チームの八機能の充足状態・人と組織の観測ログ・メンバー一覧を置く。機能の一覧はモデル正本から実行時に読み、充足は実働の記録だけで判定する（肩書では判定しない）。個人の評価を含むため member 限定で、外部の共有ワークスペースからは読めない。iOS が `ScoreDetailWebView` で開くのは同じページなので、ここも WebView に出る。正本は [`pwa/spec/4-9`](../pwa/spec/4-9-project-org-section-current-spec.md)。
 - ローディング / エラーも HUD テイスト（UPLINK スピナー・`DATA LINK FAILED` + RETRY）。**表示専用**。アニメは `TimelineView(.animation)`（スキャンライン・パルス）。**計器目盛は静止**（無意味な常時回転は禁止）。
 
 ---
