@@ -15,6 +15,7 @@
 import assert from "node:assert/strict";
 import {
   diffMonthlyAgreementSnapshots,
+  diffMonthlyAgreementTerms,
   explainExpectedRewardChanges,
   projectIdsWithExpectedRewardChange,
 } from "../src/lib/monthly-work-agreement-diff.ts";
@@ -512,3 +513,76 @@ console.log("monthly-work-agreement-diff regression: ok");
 }
 
 console.log("expected-reward change explanation: ok");
+
+// ---------------------------------------------------------------------------
+// diffMonthlyAgreementTerms: メンバーへ見せるのは合意の対象だけ
+//
+// snapshot 全体を比べると内部の状態が動くたびに変更点が積み上がり (実測で1人71件)、
+// 担当も受け取る額も変わっていないのに再合意を求めることになる。
+// まさ確定 2026-08-28「支払額が変わってないなら、わざわざ変更があったことを
+// メンバーに伝えるのは、ただ混乱を招くだけだから止めたほうがいい」。
+// ---------------------------------------------------------------------------
+
+// 19. 請求ステータス・進捗率・繰越額・pt残が動いただけでは、変更点を出さない
+{
+  const prev = snapshot([
+    project({ billingStatus: "budget_confirmed", allocationStatus: "reported", stockYen: 0, carryInYen: 0, earnedPt: 1 }),
+  ]);
+  const cur = snapshot([
+    project({ billingStatus: "payment_confirmed", allocationStatus: "confirmed", stockYen: 50000, carryInYen: 10000, earnedPt: 9 }),
+  ]);
+  const result = diffMonthlyAgreementTerms(prev, cur);
+  assert.equal(result.comparable, true);
+  assert.equal(result.count, 0, "内部の状態が動いただけでメンバーへ変更点を出さない");
+}
+
+// 20. 今月受け取る額が変わったら出す
+{
+  const prev = snapshot([project({ payoutSchedule: [payoutEntry({ totalPayYen: 100000 })] })]);
+  const cur = snapshot([project({ payoutSchedule: [payoutEntry({ totalPayYen: 80000 })] })]);
+  const result = diffMonthlyAgreementTerms(prev, cur);
+  assert.equal(result.count, 1);
+  assert.equal(result.groups[0].changes[0].label, "今月受け取る額");
+}
+
+// 21. 合意額の定義変更 (expectedRewardYen の意味が変わっただけ) では変更点を出さない
+//     受け取る額は payoutSchedule の当月分で比べるので、定義変更の前後をまたいでも一致する
+{
+  const prev = snapshot([
+    project({ expectedRewardYen: 118448, currentMonthAccrualYen: null, payoutSchedule: [payoutEntry({ totalPayYen: 0 })] }),
+  ]);
+  const cur = snapshot([
+    project({ expectedRewardYen: 0, currentMonthAccrualYen: 118448, payoutSchedule: [payoutEntry({ totalPayYen: 0 })] }),
+  ]);
+  assert.equal(diffMonthlyAgreementTerms(prev, cur).count, 0, "定義が変わっただけで再合意を求めない");
+}
+
+// 22. 表示に出ない担当割合の差 (15.3846% → 15%) は変更点にしない
+{
+  const prev = snapshot([project({ milestones: [milestone({ plannedShare: 0.153846 })] })]);
+  const cur = snapshot([project({ milestones: [milestone({ plannedShare: 0.15 })] })]);
+  assert.equal(diffMonthlyAgreementTerms(prev, cur).count, 0, "「15% → 15%」を変更点として出さない");
+}
+
+// 23. 担当内容が変わったら出す
+{
+  const prev = snapshot([project({ milestones: [milestone({ taskDescription: "実装" })] })]);
+  const cur = snapshot([project({ milestones: [milestone({ taskDescription: "設計と実装" })] })]);
+  const result = diffMonthlyAgreementTerms(prev, cur);
+  assert.equal(result.count, 1);
+  assert.ok(result.groups[0].changes[0].label.includes("作業内容"));
+}
+
+// 24. 支払対象外メンバーには「翌月以降お支払いします」と書かない
+{
+  const prev = snapshot([project({ expectedRewardYen: 30000, currentMonthAccrualYen: null })]);
+  const cur = snapshot([project({ expectedRewardYen: 0, currentMonthAccrualYen: 118448, stockYen: 600300 })]);
+  cur.member = { ...cur.member, excludeFromPayoutNotice: true };
+  const explanations = explainExpectedRewardChanges(prev, cur);
+  const joined = explanations[0].details.join("\n");
+  assert.ok(joined.includes("現金ではお支払いしません"), "支払対象外であることを書く");
+  assert.ok(!joined.includes("翌月以降の支払枠で順にお支払いします"), "払わない額に払う約束を付けない");
+  assert.ok(joined.includes("あなたへの未払いではありません"), "未払い債務ではないと書く");
+}
+
+console.log("agreement terms diff: ok");

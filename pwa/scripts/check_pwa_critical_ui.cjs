@@ -3382,6 +3382,30 @@ expectIncludes("src/app/api/admin/payouts/route.ts", [
   "const entries = allEntries.filter((entry) => !agreementBlockedMemberIdSet.has(entry.member_id));",
   "const allowedMemberIds = targetMemberIds.filter((memberId) => !agreementBlockedMemberIds.has(memberId));",
 ]);
+// 再合意を求めるのは、担当する仕事と受け取る額が変わったときだけ。
+// snapshot 全体の hash で判定していた頃は、請求ステータスや入金確認が動くたびに
+// 「条件更新あり」が立ち、ID001 は 2026年7月だけで6回再合意になっていた。
+// メンバーへ見せる変更点も合意の対象だけ (内部の状態の差分は出さない)。
+expectIncludes("src/lib/monthly-work-agreement-diff.ts", [
+  "export function monthlyAgreementTerms(",
+  "export function diffMonthlyAgreementTerms(",
+  "export function agreedPayYen(",
+]);
+expectIncludes("src/lib/monthly-work-agreement.ts", [
+  "hashMonthlyAgreementTerms",
+  "const agreedTermsUnchanged =",
+  "diffMonthlyAgreementTerms(latestAgreement?.snapshotJson, snapshot)",
+]);
+// 支払通知書の対象外メンバーに「翌月以降お支払いします」と書かない。
+// 会社の内部配賦であって外部への未払い債務ではない (manual/7-1)。
+expectIncludes("src/components/monthly-agreement/MonthlyAgreementExperience.tsx", [
+  "monthly-agreement-payout-excluded-note",
+  "会社の内部配賦として扱います",
+]);
+expectIncludes("src/lib/monthly-work-agreement-diff.ts", [
+  "現金ではお支払いしません",
+  "あなたへの未払いではありません",
+]);
 // 予定額が変わった理由はOSが組み立てる。人間の理由入力を、支払を止める条件に戻さない。
 // 2026-08-27 の合意額の定義変更で全メンバーの hash が一斉に変わり、数十件の理由入力が
 // 同時に必要になって支払が止まった。同じ構造へ戻ったら deploy 前に落とす。

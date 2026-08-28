@@ -400,6 +400,7 @@ export function MonthlyAgreementExperience({
           compact={isModal}
           projects={bundle.snapshot.projects}
           totalExpectedRewardYen={bundle.snapshot.totals.expectedRewardYen}
+          payoutExcluded={Boolean(bundle.snapshot.member.excludeFromPayoutNotice)}
         />
 
         <section className="w-full rounded-lg border border-[#e5e5e7] bg-white p-4">
@@ -969,9 +970,11 @@ function RequiredChecksSection({
   compact = false,
   projects,
   totalExpectedRewardYen,
+  payoutExcluded = false,
 }: {
   compact?: boolean;
   projects: MonthlyWorkAgreementProject[];
+  payoutExcluded?: boolean;
   totalExpectedRewardYen: number | null | undefined;
 }) {
   return (
@@ -993,6 +996,7 @@ function RequiredChecksSection({
 
       <ScopeSection compact={compact} projects={projects} />
       <RewardSection
+        payoutExcluded={payoutExcluded}
         compact={compact}
         projects={projects}
         totalExpectedRewardYen={totalExpectedRewardYen}
@@ -1084,10 +1088,12 @@ function RewardSection({
   compact,
   projects,
   totalExpectedRewardYen,
+  payoutExcluded,
 }: {
   compact: boolean;
   projects: MonthlyWorkAgreementProject[];
   totalExpectedRewardYen: number | null | undefined;
+  payoutExcluded: boolean;
 }) {
   return (
     <section
@@ -1102,10 +1108,21 @@ function RewardSection({
       </div>
 
       <div className="mt-3 rounded-lg border border-[#dbeafe] bg-sky-50 px-4 py-3">
-        <p className="text-[13px] font-semibold text-sky-800">予定額合計</p>
+        <p className="text-[13px] font-semibold text-sky-800">
+          {payoutExcluded ? "今月お支払いする額" : "予定額合計"}
+        </p>
         <p className="mt-1 text-[26px] font-bold tabular-nums text-sky-950 sm:text-[28px]">
           {formatYen(totalExpectedRewardYen)}
         </p>
+        {payoutExcluded && (
+          <p
+            data-testid="monthly-agreement-payout-excluded-note"
+            className="mt-2 text-[12px] leading-[18px] text-sky-900"
+          >
+            あなたは支払通知書の対象外です。担当分から発生する額は現金ではお支払いせず、会社の内部配賦として扱います。
+            画面に出る「未払い残」は会社の内部配賦の未充当分で、あなたへの未払いではありません。
+          </p>
+        )}
       </div>
 
       {projects.length === 0 ? (

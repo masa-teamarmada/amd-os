@@ -125,6 +125,24 @@ projectPlannedRewardYen = Σ msPlannedRewardYen
   - 変更値は生の技術値 (`active` / `budget_confirmed` / `reward_cache` 等) をそのまま出さず、`monthly-work-agreement-diff.ts` の日本語ラベル関数 (project status / billing・payout status / allocation status / amountSource) で整形してから表示する
   - **生 JSON・生 hash 文字列は一切表示しない** (「参考情報」内の `記録ID {hash.slice(0,10)}` は既存仕様のまま変更なし)
 
+### 再合意を求める条件
+
+**合意の対象は「担当する仕事」と「その対価として受け取る額」の2つだけ。この2つが変わったときだけ再合意を求める** (まさ確定 2026-08-28「支払額が変わってないなら、わざわざ変更があったことをメンバーに伝えるのは、ただ混乱を招くだけだから止めたほうがいい」)。
+
+- 判定は `hashMonthlyAgreementTerms()` = `monthlyAgreementTerms()` で抜き出した項目の hash で行う。抜き出すのは PJ構成 / PJ名 / 役割 / PM・PL / 今月受け取る額 / 定常業務 / MSの名称・pt・担当割合・役割・作業内容。
+- 抜き出さない (= 変わっても再合意を求めない): 請求ステータス、入金確認、アロケーションステータス、進捗率、繰越額、ストック額、消化pt、確認状態、要確認理由、金額の根拠、過去月の payoutSchedule の内訳。
+- 「今月受け取る額」は `payoutSchedule` の当月分 `totalPayYen` を優先して見る (`agreedPayYen()`)。`expectedRewardYen` は 2026-08-27 に意味が変わった (当月発生分 → 実際に払う額) ので、その前後をまたぐと受け取る額が同じでも「変わった」と出る。
+- 担当割合は表示粒度 (1%) に丸めてから比べる。`0.153846 → 0.15` のような表示に出ない差で「15% → 15%」の変更点を出さない。
+- 既存の合意を壊さないため、snapshot 全体の hash が一致する場合も従来どおり `agreed` として扱う。どちらか一方が一致すれば合意は生きている。
+- メンバーへ見せる変更点も合意の対象だけ (`diffMonthlyAgreementTerms()`)。snapshot 全体の差分 (`diffMonthlyAgreementSnapshots()`) は監査用に残すが、メンバー画面には出さない。2026-08-28 以前は内部の状態の差分がそのまま並び、1人あたり71件出ていた。
+
+### 支払通知書の対象外メンバーの表示
+
+`members.exclude_from_payout_notice=true` のメンバーの割当は、65%枠の中の**非現金の内部配賦**であって外部への支払いではない (正本: `pwa/manual/7-1-reward-calc-spec.md`)。合意画面で「翌月以降の支払枠で順にお支払いします」「未払い残」と書かない。払われない額に払う約束を付けることになる。
+
+- 予定額の欄には、現金では支払わないこと・会社の内部配賦として扱うことを明記する (`monthly-agreement-payout-excluded-note`)。
+- 予定額が変わった理由の自動説明も、支払対象外なら「現金ではお支払いしません」「あなたへの未払いではありません」に切り替える。
+
 ### 予定額が変わった理由
 
 `needs_reagreement` のうち、前回合意snapshotと比べて `projects[].expectedRewardYen` が変わったPJには、変わった理由を本人へ提示する。

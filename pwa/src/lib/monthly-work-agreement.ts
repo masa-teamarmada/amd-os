@@ -23,8 +23,10 @@ import type {
   MonthlyWorkAgreementSnapshot,
 } from "@/lib/monthly-work-agreement-types";
 import {
-  diffMonthlyAgreementSnapshots,
+  diffMonthlyAgreementTerms,
   explainExpectedRewardChanges,
+  isV2Snapshot,
+  monthlyAgreementTerms,
   projectIdsWithExpectedRewardChange,
 } from "@/lib/monthly-work-agreement-diff";
 
@@ -69,6 +71,10 @@ function stableJson(value: unknown): string {
 
 export function hashMonthlyAgreementSnapshot(snapshot: MonthlyWorkAgreementSnapshot): string {
   return createHash("sha256").update(stableJson(snapshot)).digest("hex");
+}
+
+export function hashMonthlyAgreementTerms(snapshot: MonthlyWorkAgreementSnapshot): string {
+  return createHash("sha256").update(stableJson(monthlyAgreementTerms(snapshot))).digest("hex");
 }
 
 export function currentYmJst(): string {
@@ -1046,8 +1052,16 @@ export async function buildMonthlyWorkAgreementBundle(
     amountChangeReasons = ((reasonData ?? []) as Array<JsonRecord>).map(toAmountChangeReason);
   }
 
+  // 合意した「担当する仕事」と「受け取る額」が変わっていなければ、内部の状態が動いても再合意を求めない。
+  // snapshot 全体の hash だけで見ていた頃は、請求ステータスや入金確認が動くたびに条件更新ありが立っていた。
+  const agreedTermsHash = isV2Snapshot(latestAgreement?.snapshotJson)
+    ? hashMonthlyAgreementTerms(latestAgreement.snapshotJson)
+    : null;
+  const currentTermsHash = hashMonthlyAgreementTerms(snapshot);
+  const agreedTermsUnchanged = agreedTermsHash != null && agreedTermsHash === currentTermsHash;
   const agreementStatus: MonthlyAgreementStatus =
-    latestAgreement?.status === "agreed" && latestAgreement.snapshotHash === currentHash
+    latestAgreement?.status === "agreed" &&
+    (latestAgreement.snapshotHash === currentHash || agreedTermsUnchanged)
       ? "agreed"
       : latestAgreement?.status === "agreed"
         ? "needs_reagreement"
@@ -1093,9 +1107,10 @@ export async function buildMonthlyWorkAgreementBundle(
     canRequestRevision,
     canAgree: canRequestRevision && missingAmountChangeReasonProjectIds.length === 0,
     exclusionReason: reasonWaitMessage,
+    // メンバーへ見せる変更点は合意の対象だけ。内部の状態が動いただけの差分は出さない
     changeSummary:
       agreementStatus === "needs_reagreement"
-        ? diffMonthlyAgreementSnapshots(latestAgreement?.snapshotJson, snapshot)
+        ? diffMonthlyAgreementTerms(latestAgreement?.snapshotJson, snapshot)
         : null,
     amountChangeReasons,
     amountChangeReasonRequiredProjectIds,

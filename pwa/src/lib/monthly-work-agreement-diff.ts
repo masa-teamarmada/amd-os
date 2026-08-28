@@ -41,7 +41,7 @@ function isProjectLike(value: unknown): value is MonthlyWorkAgreementProject {
   return true;
 }
 
-function isV2Snapshot(value: unknown): value is MonthlyWorkAgreementSnapshot {
+export function isV2Snapshot(value: unknown): value is MonthlyWorkAgreementSnapshot {
   if (!isRecord(value)) return false;
   if (value.schemaVersion !== "monthly_work_agreement.v2") return false;
   if (!Array.isArray(value.projects) || !value.projects.every(isProjectLike)) return false;
@@ -490,6 +490,7 @@ function explainProjectPair(
   previous: MonthlyWorkAgreementProject | null,
   current: MonthlyWorkAgreementProject | null,
   projectId: string,
+  payoutExcluded: boolean,
 ): ExpectedRewardChangeExplanation {
   const projectName = current?.projectName ?? previous?.projectName ?? projectId;
   const beforeYen = numberOrNull(previous?.expectedRewardYen);
@@ -556,7 +557,14 @@ function explainProjectPair(
   if (accrualYen != null && payYen != null) {
     explained = true;
     const gap = payYen - accrualYen;
-    if (gap > 0) {
+    if (payoutExcluded) {
+      // 支払通知書の対象外メンバーの割当は、現金では出ていかない社内の配賦。
+      // 「翌月以降お支払いします」と書くと、払われない額に払う約束が付く
+      // (報酬計算の正本 manual/7-1: 支払対象外メンバーの残額は外部への未払い債務ではない)。
+      details.push(
+        `あなたは支払通知書の対象外なので、この額は現金ではお支払いしません。今月の稼働から発生する ${yenText(accrualYen)} は、会社の内部配賦として扱います。`,
+      );
+    } else if (gap > 0) {
       details.push(
         `内訳は、今月の稼働から発生する分 ${yenText(accrualYen)} ＋ 過去の未払いからの返済 ${yenText(gap)} ＝ 今月のお支払い ${yenText(payYen)} です。`,
       );
@@ -592,7 +600,11 @@ function explainProjectPair(
 
   const stockYen = numberOrNull(current.stockYen) ?? 0;
   if (stockYen > 0) {
-    details.push(`今月末の時点でまだお支払いできていない残りは ${yenText(stockYen)} です。翌月以降の支払枠で順にお支払いします。`);
+    details.push(
+      payoutExcluded
+        ? `会社の内部配賦としてまだ割り当てきれていない残りは ${yenText(stockYen)} です。あなたへの未払いではありません。`
+        : `今月末の時点でまだお支払いできていない残りは ${yenText(stockYen)} です。翌月以降の支払枠で順にお支払いします。`,
+    );
   }
 
   const headline = explained
@@ -630,7 +642,187 @@ export function explainExpectedRewardChanges(
 
   const prevProjects = new Map(previous.projects.map((project) => [project.projectId, project]));
   const curProjects = new Map(current.projects.map((project) => [project.projectId, project]));
+  const payoutExcluded = Boolean(current.member?.excludeFromPayoutNotice);
   return changedProjectIds.map((projectId) =>
-    explainProjectPair(prevProjects.get(projectId) ?? null, curProjects.get(projectId) ?? null, projectId),
+    explainProjectPair(
+      prevProjects.get(projectId) ?? null,
+      curProjects.get(projectId) ?? null,
+      projectId,
+      payoutExcluded,
+    ),
   );
+}
+
+// ---------------------------------------------------------------------------
+// 合意の対象だけを取り出して比べる
+//
+// 合意するのは「担当する仕事」と「その対価として受け取る額」の2つ。
+// snapshot 全体を比べると、請求ステータス・入金確認・進捗率・繰越額のような
+// 内部の状態が動くたびに変更点が積み上がり (実測で1人71件)、担当も受け取る額も
+// 変わっていないのに再合意を求めることになる。
+// まさ確定 2026-08-28「支払額が変わってないなら、わざわざ変更があったことを
+// メンバーに伝えるのは、ただ混乱を招くだけだから止めたほうがいい」。
+// ---------------------------------------------------------------------------
+
+/**
+ * 本人が今月受け取る額。
+ *
+ * `expectedRewardYen` は 2026-08-27 に意味が変わった (当月発生分 → 実際に払う額) ので、
+ * その前後をまたいで比べると、受け取る額が同じでも「変わった」と出る。
+ * `payoutSchedule` の当月分 `totalPayYen` は定義変更の前後で同じ「実際に払う額」なので優先する。
+ */
+export function agreedPayYen(project: MonthlyWorkAgreementProject): number | null {
+  const currentEntry = (project.payoutSchedule ?? []).find((entry) => entry.isCurrentYm);
+  if (currentEntry && typeof currentEntry.totalPayYen === "number") return currentEntry.totalPayYen;
+  return project.expectedRewardYen ?? null;
+}
+
+export type MonthlyAgreementTermsProject = {
+  projectId: string;
+  projectName: string;
+  roleLabel: string | null;
+  isPm: boolean;
+  isPl: boolean;
+  payYen: number | null;
+  routineExpectations: string[];
+  milestones: Array<{
+    milestoneId: string;
+    title: string;
+    role: string | null;
+    taskDescription: string | null;
+    plannedShare: number | null;
+    points: number;
+  }>;
+};
+
+export type MonthlyAgreementTerms = {
+  ym: string;
+  memberId: string;
+  projects: MonthlyAgreementTermsProject[];
+};
+
+/** 合意の対象になる項目だけを抜き出す。再合意の判定と、メンバーへ見せる変更点はこれで決める。 */
+export function monthlyAgreementTerms(snapshot: MonthlyWorkAgreementSnapshot): MonthlyAgreementTerms {
+  return {
+    ym: snapshot.ym,
+    memberId: snapshot.member.memberId,
+    projects: [...(snapshot.projects ?? [])]
+      .sort((a, b) => a.projectId.localeCompare(b.projectId))
+      .map((project) => ({
+        projectId: project.projectId,
+        projectName: project.projectName,
+        roleLabel: project.roleLabel ?? null,
+        isPm: Boolean(project.isPm),
+        isPl: Boolean(project.isPl),
+        payYen: agreedPayYen(project),
+        routineExpectations: [...(project.routineExpectations ?? [])].sort(),
+        milestones: [...(project.milestones ?? [])]
+          .sort((a, b) => a.milestoneId.localeCompare(b.milestoneId))
+          .map((milestone) => ({
+            milestoneId: milestone.milestoneId,
+            title: milestone.title,
+            role: milestone.role ?? null,
+            taskDescription: milestone.taskDescription ?? null,
+            // 合意で示しているのは「15%」という粒度。0.153846 → 0.15 のような表示に出ない差で
+            // 「15% → 15%」の変更点を出したり再合意を求めたりしない
+            plannedShare:
+              milestone.plannedShare == null ? null : Math.round(milestone.plannedShare * 100) / 100,
+            points: milestone.points,
+          })),
+      })),
+  };
+}
+
+function diffTermsProjectPair(
+  previous: MonthlyAgreementTermsProject | null,
+  current: MonthlyAgreementTermsProject | null,
+): MonthlyAgreementChangeItem[] {
+  const changes: MonthlyAgreementChangeItem[] = [];
+  if (!previous && current) {
+    changes.push({ label: "担当PJ", before: "担当外", after: "新しく担当" });
+    return changes;
+  }
+  if (previous && !current) {
+    changes.push({ label: "担当PJ", before: "担当中", after: "担当外" });
+    return changes;
+  }
+  if (!previous || !current) return changes;
+
+  pushIfDiffer(changes, "今月受け取る額", previous.payYen, current.payYen, yenText);
+  pushIfDiffer(changes, "PJ名", previous.projectName, current.projectName, (v) => v);
+  pushIfDiffer(changes, "役割", previous.roleLabel, current.roleLabel, textOrUnset);
+  pushIfDiffer(changes, "PM担当", previous.isPm, current.isPm, boolText);
+  pushIfDiffer(changes, "PL担当", previous.isPl, current.isPl, boolText);
+  pushIfArrayDiffer(changes, "定常業務", previous.routineExpectations, current.routineExpectations);
+
+  const prevMilestones = new Map(previous.milestones.map((milestone) => [milestone.milestoneId, milestone]));
+  const curMilestones = new Map(current.milestones.map((milestone) => [milestone.milestoneId, milestone]));
+  for (const milestoneId of [...new Set([...prevMilestones.keys(), ...curMilestones.keys()])].sort()) {
+    const prevMilestone = prevMilestones.get(milestoneId) ?? null;
+    const curMilestone = curMilestones.get(milestoneId) ?? null;
+    const title = curMilestone?.title ?? prevMilestone?.title ?? milestoneId;
+    if (!prevMilestone && curMilestone) {
+      changes.push({ label: `担当MS「${title}」`, before: "未担当", after: "新規担当" });
+      continue;
+    }
+    if (prevMilestone && !curMilestone) {
+      changes.push({ label: `担当MS「${title}」`, before: "担当中", after: "担当外" });
+      continue;
+    }
+    if (!prevMilestone || !curMilestone) continue;
+    pushIfDiffer(changes, `「${title}」の名称`, prevMilestone.title, curMilestone.title, (v) => v);
+    pushIfDiffer(changes, `「${title}」のポイント`, prevMilestone.points, curMilestone.points, (v) => `${v}pt`);
+    pushIfDiffer(changes, `「${title}」の担当割合`, prevMilestone.plannedShare, curMilestone.plannedShare, shareText);
+    pushIfDiffer(changes, `「${title}」の役割`, prevMilestone.role, curMilestone.role, textOrUnset);
+    pushIfDiffer(
+      changes,
+      `「${title}」の作業内容`,
+      prevMilestone.taskDescription,
+      curMilestone.taskDescription,
+      textOrUnset,
+    );
+  }
+  return changes;
+}
+
+/**
+ * 合意の対象だけの変更点。メンバーへ見せるのはこれ。
+ * 内部の状態 (請求ステータス・入金確認・進捗率・繰越額・pt・要確認理由) は出さない。
+ */
+export function diffMonthlyAgreementTerms(
+  previous: unknown,
+  current: MonthlyWorkAgreementSnapshot,
+): MonthlyAgreementSnapshotDiff {
+  if (!isV2Snapshot(previous)) {
+    return {
+      comparable: false,
+      count: 0,
+      groups: [],
+      note:
+        previous == null
+          ? "前回合意時の記録が見つからないため、変更点の詳細比較はできません。"
+          : "前回合意時の記録形式が古いため、変更点の詳細比較はできません。内容は更新されています。",
+    };
+  }
+
+  const previousTerms = monthlyAgreementTerms(previous);
+  const currentTerms = monthlyAgreementTerms(current);
+  const prevProjects = new Map(previousTerms.projects.map((project) => [project.projectId, project]));
+  const curProjects = new Map(currentTerms.projects.map((project) => [project.projectId, project]));
+
+  const groups: MonthlyAgreementChangeGroup[] = [];
+  for (const projectId of [...new Set([...prevProjects.keys(), ...curProjects.keys()])].sort()) {
+    const prev = prevProjects.get(projectId) ?? null;
+    const cur = curProjects.get(projectId) ?? null;
+    const changes = diffTermsProjectPair(prev, cur);
+    if (changes.length === 0) continue;
+    groups.push({
+      projectId,
+      projectName: cur?.projectName ?? prev?.projectName ?? projectId,
+      changes,
+    });
+  }
+
+  const count = groups.reduce((sum, group) => sum + group.changes.length, 0);
+  return { comparable: true, count, groups, note: null };
 }
