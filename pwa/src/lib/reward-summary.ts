@@ -818,11 +818,50 @@ type CapAllocation = {
   stockYen: number;
 };
 
+/**
+ * 現金支払額の丸め単位 (円)。100円未満は切り捨てる。
+ *
+ * まさ確定 2026-08-28「報酬額が1円単位になっていて細かすぎる。9,009円とかになっていて、
+ * お互いに面倒になってる。100円未満は切り捨てにしようよ」。
+ *
+ * 切り捨てた端数は捨てない。`stockYen` として翌月へ繰り越し、翌月の `carryIn` に入って
+ * 積み上がり、100円の塊になった時点で支払われる。端数を会社側で消すと、本人への債務を
+ * 勝手に削ることになる。
+ */
+export const REWARD_PAYOUT_ROUNDING_UNIT_YEN = 100;
+
+/**
+ * この稼働月から現金支払額を100円単位にする。PJ単位の月初合意と同じ 202609 から。
+ *
+ * まさ確定 2026-08-28「このPJ単位の合意にするのにあわせて」「いままさに発行しようとしている分には
+ * 影響が出ないようにして」。202608 以前の稼働月は1円単位のまま計算し、発行済み・発行中の
+ * 支払通知書の額を動かさない。
+ */
+export const REWARD_PAYOUT_ROUNDING_START_YM = "202609";
+
+export function isRewardPayoutRoundingYm(ym: string): boolean {
+  return /^\d{6}$/.test(ym) && ym >= REWARD_PAYOUT_ROUNDING_START_YM;
+}
+
+function floorToPayoutUnit(yen: number): number {
+  if (yen <= 0) return 0;
+  return Math.floor(yen / REWARD_PAYOUT_ROUNDING_UNIT_YEN) * REWARD_PAYOUT_ROUNDING_UNIT_YEN;
+}
+
 function allocateCap(
   inputs: CapAllocationInput[],
   capBudgetYen: number,
-  options: { payAllWhenCapMissing: boolean }
+  options: {
+    payAllWhenCapMissing: boolean;
+    /**
+     * 現金で受け取るメンバーの支払額を100円単位へ切り捨てるか。
+     * 切り捨てた端数は `stockYen` に残り、翌月の carryIn として戻る。
+     */
+    shouldRoundPayout?: (memberId: string) => boolean;
+  }
 ): Map<string, CapAllocation> {
+  const roundPayout = (memberId: string, yen: number) =>
+    options.shouldRoundPayout?.(memberId) ? floorToPayoutUnit(yen) : yen;
   const items = inputs
     .map((item) => ({
       memberId: item.memberId,
@@ -839,7 +878,9 @@ function allocateCap(
   const cap = Math.max(0, Math.round(capBudgetYen));
   if (cap <= 0) {
     for (const item of items) {
-      const paidYen = options.payAllWhenCapMissing ? item.grossDueYen : 0;
+      const paidYen = options.payAllWhenCapMissing
+        ? roundPayout(item.memberId, item.grossDueYen)
+        : 0;
       map.set(item.memberId, {
         basePay: item.basePay,
         carryInYen: item.carryInYen,
@@ -853,12 +894,13 @@ function allocateCap(
 
   if (totalGrossDue <= cap) {
     for (const item of items) {
+      const paidYen = roundPayout(item.memberId, item.grossDueYen);
       map.set(item.memberId, {
         basePay: item.basePay,
         carryInYen: item.carryInYen,
         grossDueYen: item.grossDueYen,
-        paidYen: item.grossDueYen,
-        stockYen: 0,
+        paidYen,
+        stockYen: Math.max(0, item.grossDueYen - paidYen),
       });
     }
     return map;
@@ -869,7 +911,9 @@ function allocateCap(
   items.forEach((item, index) => {
     const isLast = index === items.length - 1;
     const proportional = remainingGross > 0 ? Math.round((remainingCap * item.grossDueYen) / remainingGross) : 0;
-    const paidYen = Math.min(item.grossDueYen, Math.max(0, isLast ? remainingCap : proportional));
+    const rawPaidYen = Math.min(item.grossDueYen, Math.max(0, isLast ? remainingCap : proportional));
+    // 切り捨てた端数の cap は使わずに残す。翌月の未使用cap繰越と stock 返済で回収する
+    const paidYen = roundPayout(item.memberId, rawPaidYen);
     remainingCap -= paidYen;
     remainingGross -= item.grossDueYen;
     map.set(item.memberId, {
@@ -918,6 +962,10 @@ export function applyRewardCapsForMonth(
     payoutExcludedMemberIds?: Set<string>;
     regularLiabilityOffsetsByMember?: Map<string, number>;
     extraLiabilityOffsetsByMember?: Map<string, number>;
+    /** その稼働月。現金支払を100円単位へ切り捨てるかの判定に使う */
+    sourceYm?: string;
+    /** plan cycle の最終月。この月だけ切り捨てを外し、未払残 0 で閉じられるようにする */
+    cycleFinalYm?: string | null;
   } = {}
 ): RewardSummary {
   const companyReserveMemberIds = options.companyReserveMemberIds ?? new Set<string>();
@@ -1007,8 +1055,24 @@ export function applyRewardCapsForMonth(
   const regularFinalCapTopUpYen = 0;
   const extraFinalCapTopUpYen = 0;
 
-  const regularAllocations = allocateCap(regularInputs, effectiveRegularCapYen, { payAllWhenCapMissing: false });
-  const extraAllocations = allocateCap(extraInputs, effectiveExtraCapYen, { payAllWhenCapMissing: false });
+  // 現金支払は100円単位へ切り捨てる (202609 稼働分〜)。端数は stock に残して翌月へ回す。
+  // plan cycle の最終月だけ切り捨てを外す。シーズン終了時に支払対象メンバーの未払残を
+  // 0 で閉じる要件 (まさ確定 2026-07-03) を、端数で崩さないため。
+  const sourceYm = options.sourceYm ?? "";
+  const isCycleFinalYm = Boolean(options.cycleFinalYm) && options.cycleFinalYm === sourceYm;
+  const roundPayoutThisYm = isRewardPayoutRoundingYm(sourceYm) && !isCycleFinalYm;
+  // 支払対象外メンバーの配賦は現金として出ていかないので丸めない
+  const shouldRoundPayout = (memberId: string) =>
+    roundPayoutThisYm && !companyReserveMemberIds.has(memberId);
+
+  const regularAllocations = allocateCap(regularInputs, effectiveRegularCapYen, {
+    payAllWhenCapMissing: false,
+    shouldRoundPayout,
+  });
+  const extraAllocations = allocateCap(extraInputs, effectiveExtraCapYen, {
+    payAllWhenCapMissing: false,
+    shouldRoundPayout,
+  });
 
   const paidMembers = Array.from(memberIds)
     .map((memberId) => {
@@ -1431,6 +1495,8 @@ export function buildRewardSummary({
       payoutExcludedMemberIds,
       regularLiabilityOffsetsByMember: regularLiabilityOffsets,
       extraLiabilityOffsetsByMember: extraLiabilityOffsets,
+      sourceYm: month,
+      cycleFinalYm: planCycle?.period_end_ym ?? null,
     });
     regularUnusedCapCarryYen = Math.max(0, Math.round(capped.regularUnusedCapCarryOutYen ?? 0));
     extraUnusedCapCarryYen = baseCaps.extraCapYen == null

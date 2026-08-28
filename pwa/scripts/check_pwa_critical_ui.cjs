@@ -3465,6 +3465,16 @@ expectIncludes("src/lib/monthly-work-agreement-diff.ts", [
   "export function diffMonthlyAgreementTerms(",
   "export function agreedPayYen(",
 ]);
+// 現金支払は100円単位へ切り捨てる (202609 稼働分〜、まさ確定 2026-08-28)。
+// 端数は捨てず stockYen で翌月へ回す。202608 以前の額は動かさない。
+// 検査本体は npm run test:reward-payout-rounding。ここでは定数と分岐の存在だけ固定する。
+expectIncludes("src/lib/reward-summary.ts", [
+  "export const REWARD_PAYOUT_ROUNDING_UNIT_YEN = 100;",
+  'export const REWARD_PAYOUT_ROUNDING_START_YM = "202609";',
+  "export function isRewardPayoutRoundingYm(",
+  "const roundPayoutThisYm = isRewardPayoutRoundingYm(sourceYm) && !isCycleFinalYm;",
+  "shouldRoundPayout",
+]);
 // PJ単位の合意は 202609 稼働分から (まさ確定 2026-08-28「PJ単位での合意は9月から。
 // いままさに発行しようとしている分には影響が出ないようにして」)。
 // 移行月の境とは別の定数で持ち、発行中の月の合意単位を巻き添えで変えない。

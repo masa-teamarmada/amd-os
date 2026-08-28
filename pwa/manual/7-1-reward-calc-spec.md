@@ -83,8 +83,9 @@ if Σ grossDueForCap[all eligible] ≤ capBudgetYen:
 else:
     allocated[member] = round(capBudgetYen × grossDueForCap[member] / Σ grossDueForCap[all eligible])  # 按分
 
-paid[cashMember] = allocated[cashMember]
-stockYen[cashMember] = grossDue[cashMember] − paid[cashMember] # 翌月へ繰越
+# 現金支払は100円単位へ切り捨てる (202609 稼働分〜)
+paid[cashMember] = floor100(allocated[cashMember])            # 最終月だけ切り捨てない
+stockYen[cashMember] = grossDue[cashMember] − paid[cashMember] # 翌月へ繰越 (切り捨てた端数もここに残る)
 companyReserveYen[nonCashMember] = allocated[nonCashMember]     # 65%枠内の非現金配賦 (現金支払 0)
 # 支払対象外メンバーも cap 不足で配賦しきれなかった分は stock として翌月へ繰り越す。
 companyReserveUnfundedYen[nonCashMember] = grossDueForCap[nonCashMember] − allocated[nonCashMember]
@@ -341,7 +342,24 @@ for each member in members:                      # earnedPt 降順
     remainingGross -= grossDueForCap
 ```
 
-端数処理: 各メンバーで `round` がかかるので、 微小な端数誤差は **最後のメンバーに集約** する。 これで `Σ paid = cap` が保証される。
+端数処理: 各メンバーで `round` がかかるので、 微小な端数誤差は **最後のメンバーに集約** する。 100円単位の切り捨て (下記) が入る月は、切り捨てた分だけ `Σ paid < cap` になる。使わなかった cap は未使用 cap 繰越として翌月へ回る。
+
+### 現金支払額の100円単位切り捨て (2026-08-28 まさ確定)
+
+**現金で受け取るメンバーの支払額は100円未満を切り捨てる**。まさ「報酬額が1円単位になっていて細かすぎる。9,009円とかになっていて、お互いに面倒になってる。100円未満は切り捨てにしようよ」。
+
+| 項目 | 内容 |
+|---|---|
+| 単位 | `REWARD_PAYOUT_ROUNDING_UNIT_YEN = 100`。切り捨て (四捨五入ではない) |
+| 適用開始 | `REWARD_PAYOUT_ROUNDING_START_YM = "202609"` の稼働月から。PJ単位の月初合意と同じ月に合わせた (まさ「このPJ単位の合意にするのにあわせて」) |
+| 202608 以前 | 1円単位のまま計算する。発行済み・発行中の支払通知書の額を動かさない (まさ「いままさに発行しようとしている分には影響が出ないようにして」) |
+| 端数の行き先 | 捨てない。`stockYen` として翌月へ繰り越し、翌月の `carryIn` に入って積み上がる。100円の塊になった時点で支払われる |
+| 適用しない月 | plan cycle の `period_end_ym`。最終月は端数まで払い切り、支払対象メンバーの未払残 0 で閉じる要件 (2026-07-03 まさ確定) を守る。**この月だけ1円単位の支払額が出る** |
+| 適用しない相手 | `exclude_from_payout_notice=true` の非現金配賦 (`companyReserveYen`)。現金として出ていかないので丸めない |
+| 適用しない値 | `basePay` (当月発生額)、`grossDueYen` (支払対象額)、uncapped の理論値。丸めるのは実際に振り込む `totalPay` だけ |
+| cap との関係 | 切り捨てた分の cap は使わずに残る。未使用 cap 繰越 (`regularUnusedCapCarryOutYen`) と翌月の stock 返済で回収する |
+
+端数を会社側で消す設計は採らない。本人への債務を勝手に削ることになるため。実装は `allocateCap` の `shouldRoundPayout`、検査は `npm run test:reward-payout-rounding`。
 
 ### 前月繰越 (= carryIn)
 
@@ -507,7 +525,9 @@ snapshot hash が変わったときは「条件更新あり」として再合意
 | `pj_deductions` テーブル未作成 | `try/catch` で `deductionTotal = 0` にフォールバック |
 | MS に responsibility 未設定 | そのメンバーには配分されない (= 0 円)。 routine MS で起こりがち |
 | routine MS の前月補完 | 前月分の `routine_auto` も `allProgress` に push される。 ただし当月に pm_manual があれば自動補完は skip |
-| 端数誤差 | キャップ按分は最後のメンバーに `remainingCap` を全部押し込む → `Σ paid = cap` 保証 |
+| 端数誤差 | キャップ按分は最後のメンバーに `remainingCap` を全部押し込む → `Σ paid = cap` 保証。ただし100円切り捨てが入る月は `Σ paid < cap` になり、差は未使用 cap 繰越へ回る |
+| 100円未満の端数が毎月出る | 202609 稼働分から現金支払は100円単位。端数は `stockYen` で翌月へ回る。数十円の `stockYen` が毎月出るのは異常ではない |
+| シーズン最終月だけ1円単位 | 仕様。未払残 0 で閉じるため最終月は切り捨てない |
 | 当月 0 円なのに前月 stockYen 残 | carry-only 行として members に追加され、 前月分が今月支払われる |
 | MSなしPJ | admin が `/admin/payouts` の「MSなしPJ 強制報酬確定」から PJ × 稼働月 × メンバー × 支払額を手入力。 source = `admin_manual_payout`。 ([6-5 章](6-5-admin-payouts-reward-notice-spec.md#msなしpj-強制報酬確定)) |
 
