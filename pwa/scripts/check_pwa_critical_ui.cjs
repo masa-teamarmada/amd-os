@@ -3431,8 +3431,16 @@ expectIncludes("src/lib/payment-groups.ts", [
 // 支払通知書の明細の稼働月は、繰越の鎖を遡った範囲で書く。当月だけを「6月稼働分」と書かない
 // (まさ指摘 2026-08-28: かるの2026年8月支払は4〜6月の発生分)。
 expectIncludes("src/app/api/admin/payouts/route.ts", [
-  "function ymSpanLabel(",
   "async function loadPayoutSourceSpans(",
+  "resolvePayoutSourceSpan(byYm, target.sourceYm, floorYm)",
+]);
+// 範囲に入れるのは本契約 (regular) の繰越だけ。別財布 (cap_extra) は支払条件が別 (ZMP の
+// OkuDoor は完了月に一括で払う) なので混ぜない。混ぜると、本契約を毎月満額払っていても
+// 別財布の積立だけで「5〜7月稼働分」と書いてしまう (まさ指摘 2026-08-28)。
+expectIncludes("src/lib/payout-source-span.ts", [
+  "export function regularPoolAmounts(",
+  "export function resolvePayoutSourceSpan(",
+  "別財布 (cap_extra) は含まない",
 ]);
 expectIncludes("../gas/064_PayoutFreeeNotice.js", [
   "noteText",

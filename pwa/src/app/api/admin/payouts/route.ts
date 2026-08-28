@@ -28,6 +28,14 @@ import {
   type AppliedPayoutAmountOverride,
   type PayoutAmountOverrideEventRow,
 } from "@/lib/payout-amount-overrides";
+import {
+  regularPoolAmounts,
+  resolvePayoutSourceSpan,
+  ymShortLabel,
+  ymSpanLabel,
+  type PayoutSourceSpan,
+  type RegularPoolAmounts,
+} from "@/lib/payout-source-span";
 
 export const runtime = "nodejs";
 
@@ -756,71 +764,6 @@ function aggregateNotices(ym: string, entries: PayoutEntry[], members: MemberRow
     .filter((notice) => notice.total_yen > 0);
 }
 
-function ymShortLabel(ym: string): string {
-  return YM_RE.test(ym) ? `${Number(ym.slice(4, 6))}月稼働分` : ym;
-}
-
-/**
- * 支払通知書の明細に出す稼働月の表記。
- *
- * 繰越があると、その支払には当月の発生分だけでなく過去月の未払い分も乗る。
- * 当月だけを「6月稼働分」と書くと、実際には4月から積み上がった分を払っているのに
- * 6月の1か月分に見える (まさ指摘 2026-08-28: かるの 2026年8月支払は 4〜6月の発生分)。
- *
- * 範囲に入れるのは**本契約 (regular) の繰越だけ**。別財布 (cap_extra) の積立は
- * 支払条件が別なので混ぜない (まさ指摘 2026-08-28: ZMP は本契約を毎月満額払っているのに
- * OkuDoor 開発の積立で「5〜7月稼働分」になっていた)。
- */
-function ymSpanLabel(startYm: string, endYm: string): string {
-  if (!YM_RE.test(startYm) || !YM_RE.test(endYm) || startYm === endYm) return ymShortLabel(endYm);
-  const startYear = startYm.slice(0, 4);
-  const endYear = endYm.slice(0, 4);
-  const startMonth = Number(startYm.slice(4, 6));
-  const endMonth = Number(endYm.slice(4, 6));
-  if (startYear === endYear) return `${startMonth}〜${endMonth}月稼働分`;
-  return `${startYear}年${startMonth}月〜${endYear}年${endMonth}月稼働分`;
-}
-
-type PayoutSourceSpan = {
-  startYm: string;
-  endYm: string;
-  /** その範囲で発生した本契約 (regular) の支払対象額 (当月発生 + 繰越)。別財布は含まない */
-  grossDueYen: number;
-  /** 今回払ったあとに残る本契約 (regular) の未払い。別財布は含まない */
-  stockYen: number;
-};
-
-/**
- * 本契約プール (regular) の繰越・発生・未払い。
- *
- * `carryInYen` / `grossDueYen` / `stockYen` は regular と別財布 (cap_extra) の**混在値**。
- * 別財布は支払条件が本契約と別 (ZMP の OkuDoor 開発は完了月に一括: manual/7-1 の別財布節) なので、
- * 稼働月の範囲と備考には regular だけを使う。混在値で遡ると、本契約を毎月満額払っていても
- * 別財布の積立のせいで「5〜7月稼働分・残りは翌月以降」と書いてしまう (まさ指摘 2026-08-28)。
- */
-function regularPoolAmounts(member: RewardMemberRow): { carryIn: number; grossDue: number; stock: number } {
-  // regular 値を持たない古い snapshot は、混在値から extra を引いて代用する
-  const pick = (regular: unknown, mixed: unknown, extra: unknown): number =>
-    regular != null ? yenValue(regular) : Math.max(0, yenValue(mixed) - yenValue(extra));
-  return {
-    carryIn: pick(
-      member.regularCarryInYen ?? member.regular_carry_in_yen,
-      member.carryInYen ?? member.carry_in_yen,
-      member.extraCarryInYen ?? member.extra_carry_in_yen
-    ),
-    grossDue: pick(
-      member.regularGrossDueYen ?? member.regular_gross_due_yen,
-      member.grossDueYen ?? member.gross_due_yen,
-      member.extraGrossDueYen ?? member.extra_gross_due_yen
-    ),
-    stock: pick(
-      member.regularStockYen ?? member.regular_stock_yen,
-      member.stockYen ?? member.stock_yen,
-      member.extraStockYen ?? member.extra_stock_yen
-    ),
-  };
-}
-
 /**
  * 繰越の鎖を遡って、この支払に含まれる稼働月の範囲を求める。
  *
@@ -867,7 +810,7 @@ async function loadPayoutSourceSpans(
     );
     const floorYm = plan?.period_start_ym ?? null;
 
-    const byYm = new Map<string, { carryIn: number; grossDue: number; stock: number }>();
+    const byYm = new Map<string, RegularPoolAmounts>();
     for (const cycle of cycleRows) {
       if (cycle.project_id !== target.projectId) continue;
       const summary = asRewardSummary(cycle.reward_summary_json);
@@ -878,31 +821,7 @@ async function loadPayoutSourceSpans(
       byYm.set(cycle.ym, regularPoolAmounts(member));
     }
 
-    const current = byYm.get(target.sourceYm);
-    if (!current) {
-      spans.set(key, { startYm: target.sourceYm, endYm: target.sourceYm, grossDueYen: 0, stockYen: 0 });
-      continue;
-    }
-
-    // carryIn が 0 になるまで遡る。0 の月がその繰越の起点。
-    let startYm = target.sourceYm;
-    let guard = 0;
-    while (guard < 60) {
-      guard += 1;
-      const row = byYm.get(startYm);
-      if (!row || row.carryIn <= 0) break;
-      const previousYm = addMonths(startYm, -1);
-      if (floorYm && previousYm < floorYm) break;
-      if (!byYm.has(previousYm)) break;
-      startYm = previousYm;
-    }
-
-    spans.set(key, {
-      startYm,
-      endYm: target.sourceYm,
-      grossDueYen: current.grossDue,
-      stockYen: current.stock,
-    });
+    spans.set(key, resolvePayoutSourceSpan(byYm, target.sourceYm, floorYm));
   }
 
   return spans;
