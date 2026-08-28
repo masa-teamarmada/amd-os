@@ -291,6 +291,14 @@ type PayoutAgreementGateRow = {
   requestCreatedAt: string | null;
 };
 
+type AgreementOverrideConfirmState = {
+  actionLabel: string;
+  blockers: PayoutAgreementGateRow[];
+  run: (overrideReason: string) => void;
+};
+
+const DEFAULT_AGREEMENT_OVERRIDE_REASON = "月初合意が未完了のまま、admin確認ダイアログで発行を承認した";
+
 type PayoutAgreementGateSummary = {
   paymentYm: string;
   targetAction: string;
@@ -1474,6 +1482,8 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
    */
   const [actionError, setActionError] = useState<string | null>(null);
   const [agreementOverrideReason, setAgreementOverrideReason] = useState("");
+  const [agreementConfirm, setAgreementConfirm] = useState<AgreementOverrideConfirmState | null>(null);
+  const [agreementConfirmReason, setAgreementConfirmReason] = useState("");
   const [selectedMemberMonthlyPayout, setSelectedMemberMonthlyPayout] = useState<SelectedMemberMonthlyPayoutCell | null>(null);
   const [cockpitCache, setCockpitCache] = useState<Record<string, CockpitData>>({});
   const [modalLoading, setModalLoading] = useState(false);
@@ -1655,9 +1665,11 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
   const hasAgreementBlocker = agreementBlockers.length > 0;
   const agreementOverrideReasonTrimmed = agreementOverrideReason.trim();
   const canUseAgreementOverride = !hasAgreementBlocker || agreementOverrideReasonTrimmed.length >= 8;
-  const guardedActionDisabled = hasAgreementBlocker && !canUseAgreementOverride;
-  const guardedActionTitle = guardedActionDisabled
-    ? "月初合意blockerを解除するか、admin override理由を8文字以上入れてね"
+  // 発行系 (個別発行 / 一括発行 / 強制再発行 / 確認用PDF) は blocker があっても押せる。
+  // 押した時点で確認モーダルを出し、「はい」を押したら override 理由つきで実行して監査ログに残す。
+  // 実メール送信の「送付」だけは従来どおり gate パネルの override 理由入力を必須にする。
+  const agreementConfirmTitle = hasAgreementBlocker
+    ? "月初合意が未完了のメンバーがいる。押すと確認ダイアログが出る"
     : undefined;
 
   const projectFinanceGroups = useMemo<ProjectFinanceGroup[]>(() => {
@@ -1926,10 +1938,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     ? [...cycleStats.values()].reduce((sum, stats) => sum + Math.max(0, stats.expectedCount - stats.savedCount), 0)
     : 0;
   const rewardCycleCount = new Set(expectedEntries.map((entry) => `${entry.projectId}:${entry.ym}`)).size;
-  const snapshotSyncBlocked = snapshotSyncNeeded && (hasBudgetBlocker || guardedActionDisabled);
+  const snapshotSyncBlocked = snapshotSyncNeeded && hasBudgetBlocker;
   const snapshotSyncStatusTitle = hasBudgetBlocker
     ? "本契約cap未設定または超過があるため同期できない"
-    : guardedActionTitle ??
+    : agreementConfirmTitle ??
       (snapshotSyncNeeded
         ? `表示中のDBスナップショット差分: 報酬明細 ${unsyncedPayoutEntryCount}件 / 通知額 ${unsyncedNoticeCount}件。発行・送付時は同期してから進む。画面は読み取りだけで定期更新する`
         : "最新計算額が monthly_reward_payout と payout_notices.total_yen に同期済み");
@@ -1938,24 +1950,23 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     noticeSavingMemberId != null ||
     paymentNudgeSending ||
     bulkPdfMode != null ||
-    memberRows.length === 0 ||
-    guardedActionDisabled;
+    memberRows.length === 0;
   const bulkIssueDisabled = bulkPdfBaseDisabled || hasBudgetBlocker;
   const saveAndIssueDisabled = bulkIssueDisabled;
-  const bulkPreviewTitle = guardedActionTitle ?? "全員分の確認用PDFを並列生成 (DB保存なし・正式PDFは更新しない)";
-  const bulkIssueTitle = guardedActionTitle ??
+  const bulkPreviewTitle = agreementConfirmTitle ?? "全員分の確認用PDFを並列生成 (DB保存なし・正式PDFは更新しない)";
+  const bulkIssueTitle = agreementConfirmTitle ??
     (memberRows.length === 0
       ? "対象メンバーがいない"
       : snapshotSyncNeeded
         ? "最新計算額を同期してから全員分の支払通知書PDFを並列発行"
         : "全員分の支払通知書PDFを並列発行 (差分検出あり)");
-  const saveAndIssueTitle = guardedActionTitle ??
+  const saveAndIssueTitle = agreementConfirmTitle ??
     (memberRows.length === 0
       ? "対象メンバーがいない"
       : hasBudgetBlocker
         ? "本契約cap未設定または超過があるため発行できない"
         : "最新計算額を同期してから全員分の支払通知書PDFを一括発行する");
-  const forceBulkIssueTitle = guardedActionTitle ??
+  const forceBulkIssueTitle = agreementConfirmTitle ??
     (memberRows.length === 0
       ? "対象メンバーがいない"
       : hasBudgetBlocker
@@ -2049,12 +2060,37 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     }
   }
 
-  async function issueNoticePdf(row: MemberPayoutRow, options: { forceReissue?: boolean } = {}) {
+  // blocker があるときだけ確認モーダルを挟む。無ければそのまま実行する。
+  function requestAgreementConfirm(options: AgreementOverrideConfirmState) {
+    if (options.blockers.length === 0) {
+      options.run(agreementOverrideReasonTrimmed);
+      return;
+    }
+    setAgreementConfirmReason(agreementOverrideReasonTrimmed);
+    setAgreementConfirm(options);
+  }
+
+  function acceptAgreementConfirm() {
+    const pending = agreementConfirm;
+    if (!pending) return;
+    const reason = agreementConfirmReason.trim() || DEFAULT_AGREEMENT_OVERRIDE_REASON;
+    setAgreementConfirm(null);
+    pending.run(reason);
+  }
+
+  function issueNoticePdf(row: MemberPayoutRow, options: { forceReissue?: boolean } = {}) {
     if (row.notice?.pdf_url && !options.forceReissue) {
       openPdfUrl(row.notice.pdf_url);
       return;
     }
+    requestAgreementConfirm({
+      actionLabel: `${row.memberName} の支払通知書を発行`,
+      blockers: agreementBlockers.filter((blocker) => blocker.memberId === row.memberId),
+      run: (overrideReason) => void runIssueNoticePdf(row, overrideReason),
+    });
+  }
 
+  async function runIssueNoticePdf(row: MemberPayoutRow, overrideReason: string) {
     const pdfWindow = openPdfPlaceholderWindow();
     setNoticeSavingMemberId(row.memberId);
     setActionError(null);
@@ -2067,7 +2103,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           action: "issue_notice_pdf",
           ym,
           memberId: row.memberId,
-          agreementOverrideReason: agreementOverrideReasonTrimmed || undefined,
+          agreementOverrideReason: overrideReason || undefined,
         }),
       });
       const payload = (await res.json()) as (
@@ -2173,7 +2209,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
   async function sendNoticeMailNow() {
     if (!noticeMailModal) return;
     if (agreementBlockedMemberIds.has(noticeMailModal.row.memberId) && !canUseAgreementOverride) {
-      const message = guardedActionTitle ?? "月初合意blockerがあるため送信できない";
+      const message = "月初合意が未完了。画面下の「月初合意支払ゲート」に override 理由を8文字以上入れてから送信してね";
       setNoticeMailError(message);
       setHint(message);
       return;
@@ -2215,8 +2251,8 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     }
   }
 
-  async function saveThenRunBulkIssue(options: { force?: boolean } = {}) {
-    await runBulkPdf(false, options);
+  function saveThenRunBulkIssue(options: { force?: boolean } = {}) {
+    runBulkPdf(false, options);
   }
 
   async function sendPaymentNudges() {
@@ -2244,11 +2280,27 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     }
   }
 
-  async function runBulkPdf(previewOnly: boolean, options: { force?: boolean } = {}) {
+  function runBulkPdf(previewOnly: boolean, options: { force?: boolean } = {}) {
     if (memberRows.length === 0) {
       setHint("対象メンバーがいない");
       return;
     }
+    requestAgreementConfirm({
+      actionLabel: previewOnly
+        ? "全員分の確認用PDFを生成"
+        : options.force === true
+          ? "全員分の支払通知書PDFを強制再発行"
+          : "全員分の支払通知書PDFを一括発行",
+      blockers: agreementBlockers,
+      run: (overrideReason) => void runBulkPdfNow(previewOnly, options, overrideReason),
+    });
+  }
+
+  async function runBulkPdfNow(
+    previewOnly: boolean,
+    options: { force?: boolean },
+    overrideReason: string
+  ) {
     const mode = previewOnly ? "preview" : "issue";
     setBulkPdfMode(mode);
     setBulkPdfResult(null);
@@ -2264,7 +2316,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           action: previewOnly ? "bulk_preview_notice_pdf" : "bulk_issue_notice_pdf",
           ym,
           force: options.force === true,
-          agreementOverrideReason: agreementOverrideReasonTrimmed || undefined,
+          agreementOverrideReason: overrideReason || undefined,
         }),
       });
       const payload = (await res.json()) as PayoutData & {
@@ -2775,8 +2827,11 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                           loading ||
                           noticeSavingMemberId != null ||
                           noticeMailSending ||
-                          hasBudgetBlocker ||
-                          (agreementBlockedMemberIds.has(row.memberId) && !canUseAgreementOverride)
+                          hasBudgetBlocker
+                        }
+                        agreementBlocked={agreementBlockedMemberIds.has(row.memberId)}
+                        sendBlockedByAgreement={
+                          agreementBlockedMemberIds.has(row.memberId) && !canUseAgreementOverride
                         }
                         issuing={noticeSavingMemberId === row.memberId}
                         sendPreparing={noticeMailLoadingMemberId === row.memberId}
@@ -2959,6 +3014,16 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
         />
       )}
 
+      {agreementConfirm && (
+        <AgreementOverrideConfirmModal
+          state={agreementConfirm}
+          reason={agreementConfirmReason}
+          onReasonChange={setAgreementConfirmReason}
+          onCancel={() => setAgreementConfirm(null)}
+          onAccept={acceptAgreementConfirm}
+        />
+      )}
+
       {noticeMailModal && (
         <PayoutNoticeMailModal
           state={noticeMailModal}
@@ -3096,6 +3161,130 @@ function PayoutAgreementGatePanel({
         </label>
       )}
     </section>
+  );
+}
+
+function AgreementOverrideConfirmModal({
+  state,
+  reason,
+  onReasonChange,
+  onCancel,
+  onAccept,
+}: {
+  state: AgreementOverrideConfirmState;
+  reason: string;
+  onReasonChange: (value: string) => void;
+  onCancel: () => void;
+  onAccept: () => void;
+}) {
+  const blockers = state.blockers;
+  const blockedTotal = blockers.reduce((sum, row) => sum + row.totalPay, 0);
+  const shownBlockers = blockers.slice(0, 12);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-2xl rounded-lg border border-red-300 bg-background shadow-xl">
+        <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
+          <div>
+            <div className="text-sm font-semibold text-red-900">月初合意してないけど、ほんとに発行する？</div>
+            <div className="mt-0.5 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+              <span>{state.actionLabel}</span>
+              <span>未合意 {blockers.length}件</span>
+              <span>対象額 税抜 {fmtYen(blockedTotal)}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/40"
+          >
+            やめる
+          </button>
+        </div>
+
+        <div className="max-h-[70vh] space-y-3 overflow-y-auto px-4 py-3 text-[12px]">
+          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] leading-relaxed text-red-900">
+            下のメンバーは月初合意が済んでいない。「はい、発行する」を押すと admin override として発行し、誰がいつどの理由で通したかを監査ログへ残す。合意そのものは作られないので、あとから本人の合意を取る運用は別に必要。
+          </div>
+
+          <div className="overflow-hidden rounded-md border border-border">
+            <table className="w-full text-[11px]">
+              <thead className="border-b border-border/60 bg-muted/30">
+                <tr>
+                  <th className="px-2 py-1.5 text-left font-medium">member</th>
+                  <th className="px-2 py-1.5 text-left font-medium">PJ</th>
+                  <th className="px-2 py-1.5 text-left font-medium">稼働月</th>
+                  <th className="px-2 py-1.5 text-left font-medium">status</th>
+                  <th className="px-2 py-1.5 text-left font-medium">reason</th>
+                  <th className="px-2 py-1.5 text-right font-medium">
+                    <span className="block">支払額</span>
+                    <span className="block text-[10px] font-normal text-muted-foreground">税抜 / 税込</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {shownBlockers.map((row) => (
+                  <tr key={row.key}>
+                    <td className="px-2 py-1.5">
+                      <div className="font-medium">{row.memberName}</div>
+                      <div className="font-mono text-[10px] text-muted-foreground">{row.memberId}</div>
+                    </td>
+                    <td className="px-2 py-1.5">{row.projectName}</td>
+                    <td className="px-2 py-1.5 font-mono">{fmtYm(row.sourceYm)}</td>
+                    <td className="px-2 py-1.5">
+                      <span className={`rounded border px-1.5 py-0.5 text-[10px] ${PAYOUT_AGREEMENT_STATUS_CLASS[row.status]}`}>
+                        {PAYOUT_AGREEMENT_STATUS_LABEL[row.status]}
+                      </span>
+                    </td>
+                    <td className="px-2 py-1.5 text-muted-foreground">{row.reason}</td>
+                    <td className="px-2 py-1.5 text-right">
+                      <div className="font-medium">税抜 {fmtYen(row.totalPay)}</div>
+                      <div className="text-[10px] text-muted-foreground">税込 {fmtTaxIncludedYen(row.totalPay)}</div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {blockers.length > shownBlockers.length && (
+              <div className="border-t border-border/60 px-2 py-1.5 text-[11px] text-muted-foreground">
+                他 {blockers.length - shownBlockers.length} 件
+              </div>
+            )}
+          </div>
+
+          <label className="block space-y-1">
+            <span className="text-[11px] font-medium">理由メモ (任意)</span>
+            <textarea
+              value={reason}
+              onChange={(event) => onReasonChange(event.target.value)}
+              rows={2}
+              placeholder="例: 本人Slackで内容確認済み。合意ボタンは後日押してもらう。"
+              className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-[12px] outline-none focus:border-red-400"
+            />
+            <span className="block text-[10px] text-muted-foreground">
+              空のままなら「{DEFAULT_AGREEMENT_OVERRIDE_REASON}」として監査ログに残す。
+            </span>
+          </label>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-border px-4 py-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-md border border-border px-3 py-1.5 text-[12px] hover:bg-muted/40"
+          >
+            やめる
+          </button>
+          <button
+            type="button"
+            onClick={onAccept}
+            className="rounded-md bg-red-600 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-red-700"
+          >
+            はい、発行する
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -4035,6 +4224,8 @@ function MemberMonthlyPayoutMatrix({
 function PayoutNoticeActions({
   row,
   disabled,
+  agreementBlocked,
+  sendBlockedByAgreement,
   issuing,
   sendPreparing,
   onIssueNoticePdf,
@@ -4044,6 +4235,8 @@ function PayoutNoticeActions({
 }: {
   row: MemberPayoutRow;
   disabled: boolean;
+  agreementBlocked: boolean;
+  sendBlockedByAgreement: boolean;
   issuing: boolean;
   sendPreparing: boolean;
   onIssueNoticePdf: (row: MemberPayoutRow, options?: { forceReissue?: boolean }) => void;
@@ -4064,12 +4257,15 @@ function PayoutNoticeActions({
   const totalMismatch = savedNoticeTotal > 0 && savedNoticeTotal !== Math.round(row.totalPay);
   const hasPdf = Boolean(row.notice?.pdf_url) && row.isSaved && !totalMismatch && !String(row.notice?.notice_no || "").startsWith("PREVIEW-");
   const canConfirmPdf = canPreviewPdf && hasPdf && !row.noticeProfileStale;
-  const canOpenSendModal = !blocked && row.totalPay > 0 && !isSent && hasPdf && !row.noticeProfileStale;
-  const issueTitle = row.isSaved
-    ? hasPdf
-      ? "最新DBの住所・宛名・登録番号で支払通知書PDFを再発行する"
-      : "最新DBの住所・宛名・登録番号で支払通知書PDFを発行する"
-    : "最新計算額と最新DBのメンバー情報を同期してから支払通知書PDFを発行する";
+  const canOpenSendModal =
+    !blocked && !sendBlockedByAgreement && row.totalPay > 0 && !isSent && hasPdf && !row.noticeProfileStale;
+  const issueTitle = agreementBlocked
+    ? "このメンバーは月初合意が未完了。押すと確認ダイアログが出て、はいを押したら発行する"
+    : row.isSaved
+      ? hasPdf
+        ? "最新DBの住所・宛名・登録番号で支払通知書PDFを再発行する"
+        : "最新DBの住所・宛名・登録番号で支払通知書PDFを発行する"
+      : "最新計算額と最新DBのメンバー情報を同期してから支払通知書PDFを発行する";
   const pdfTitle = row.noticeProfileStale
     ? "メンバー台帳がPDF生成後に更新されています。支払通知書発行で再発行してください"
     : hasPdf
@@ -4077,6 +4273,8 @@ function PayoutNoticeActions({
       : "生成済みPDFがありません。先に支払通知書発行を実行してください";
   const sentTitle = isSent
     ? "送付済みを取り消して未送付に戻す (メールは取り消されない)"
+    : sendBlockedByAgreement
+    ? "月初合意が未完了。画面下の「月初合意支払ゲート」に override 理由を8文字以上入れると送付できる"
     : row.noticeProfileStale
       ? "メンバー台帳がPDF生成後に更新されています。先に支払通知書発行で正式PDFを作り直してください"
       : totalMismatch

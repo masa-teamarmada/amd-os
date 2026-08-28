@@ -1793,6 +1793,23 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "fmtFlowYen(entry.payoutAmountOverride.amountYen)",
 ]);
 
+// 月初合意 blocker があっても発行系ボタンは押せる。押した時に確認モーダルを出し、
+// 「はい、発行する」で override 理由つきの server action を呼ぶ (2026-08-28)。
+// 送付 (send_notice_email) だけは従来どおり gate パネルの override 理由入力が要る。
+expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
+  "AgreementOverrideConfirmModal",
+  "requestAgreementConfirm",
+  "acceptAgreementConfirm",
+  "DEFAULT_AGREEMENT_OVERRIDE_REASON",
+  "月初合意してないけど、ほんとに発行する？",
+  "はい、発行する",
+  "sendBlockedByAgreement",
+]);
+
+expectNotIncludes("src/components/admin/AdminPayoutsClient.tsx", [
+  "guardedActionDisabled",
+]);
+
 expectIncludes("src/app/api/cron/payout-notice-prebuild/route.ts", [
   "payout-notice-prebuild",
   "savePayoutDataSnapshot",
