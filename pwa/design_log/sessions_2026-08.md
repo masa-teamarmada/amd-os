@@ -1513,3 +1513,42 @@ MSの名称・pt・担当割合・役割・作業内容。
     比較の粒度は表示の粒度に合わせる。
 31. **払わない額に、払う約束の文言を付けない。** 会社の内部配賦と外部への未払い債務は
     財務上まったく別物なのに、画面が同じ言葉で書いていた。
+
+---
+
+## 2026-08-27〜28 BZM 3.0 の案件ごとの入力を埋め、天井を SAM で組み直す（実装の履歴）
+
+### 触ったもの
+
+| 種別 | 対象 | 内容 |
+|---|---|---|
+| migration | `pwa/scripts/migrations/332_seed_bzm30_input_reasons.sql` | パラメータ1件ずつの根拠の欄を9つ追加（`free_cash_reason`・`burn_rate_reason`・`rights_open_reason`・`under_contract_reason`・`kappa_ip_reason`・`sigma_reason`・`evangelist_e_reason`・`unit_margin_reason`・`incorporated_reason`）と、記録用の `burn_rate_yen_month` |
+| 型 | `pwa/src/lib/bzm30/seed-score.ts` | `SeedBzm30InputRow` に上の10列を追加。`select("*")` なので取得は自動 |
+| UI | `pwa/src/lib/bzm30/seed-inputs.ts` | ①各行の `source` を `rec.*_reason` 優先へ ②バーンレートの行を追加（`filled: false` / origin は琥珀＝承認待ち。計算に入らないため）③受託契約中 `x_0` の行を追加 ④`BZM30_SCORES_PUBLISHED` を true へ ⑤`oku()` を1億円未満は万円表示へ |
+| UI | `pwa/src/components/bzm30/Bzm30ScorePanel.tsx` | `okuYen()` を1億円未満は万円表示へ |
+| ツール | `model/tools/bzm30_scores_md.cjs` | `oku()` を1億円未満は万円表示へ（SAM で絞ったあとの小さい額が全部「0億」に潰れていた） |
+| 仕様 | `pwa/spec/4-8-bzm30-seed-score-panel-current-spec.md` | §7.1 に根拠の欄とバーンレートの扱いを追記 |
+| マニュアル | `pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md` | 「産業創出価値（BZM 3.0）」節を現況へ同期（金額を戻した／根拠の欄／SAM／空欄なし／万円表示） |
+| 正本 | `model/cases/README.md` | 天井の規約に「TAMではなくSAM」「保留にしない」を追加 |
+| 記録 | `model/cases/SCORES.md` / `model/cases/INVENTORY.md` | スコア一覧の全面書き直しと、165テーブルの棚卸しの記録（新規） |
+| 提案 | `model/proposals/2026-08-28_bzm30-organization-input.md` | 組織の入力の欠陥と、提案7件（未承認） |
+| プロンプト | `SESSION_PROMPT_MEETING_CAPTURE.md` | 会議カードが開催後に埋まらない穴を塞ぐ別セッション用（新規） |
+
+### 試したが捨てたやり方
+
+- **天井を SOM（工程の絞り × シェア）で置いた。** シェアはモデル側の取り分 φ_u が担うので二重計上になり、
+  まさの指摘で SAM（シェアを入れない）へ直した。**同じ罠を踏まないこと。**
+- **根拠が弱い天井を `NULL`（保留）にした。** 金額が出ず順位から消えて判断に使えなくなる。
+  暫定値＋導出＋確度＋感度で置く（BUGS.md 2026-08-28）。
+- **`xargs -P 6` に長い `--impl` パスと `sed` を渡した。** `command line cannot be assembled, too long` で落ちる。
+  `bash -c` で関数を `export -f` して渡す形にした（`/tmp/recall_all.sh`）。
+- **Supabase Management API を urllib の既定 User-Agent で叩いた。** Cloudflare が 403（code 1010）で弾く。
+  repo の `pwa/scripts/apply_ddl.py` / `dump_schema.py` は独自の User-Agent を付けているので影響なし。
+- **`project_strategy_signals.scope_key` を INSERT に含めた。** 生成列なので 400。`ym` だけ渡す。
+
+### 検証
+
+`npx tsc --noEmit` / `npx eslint <触ったファイル>` / `npm run build`（exit 0）/
+`npm run test:critical-ui` / `npm run test:reference-data-cache` /
+`npm run test:seed-list-display` / `test:current-sps-only` / `test:seed-screening-bands` — すべて通過。
+本番は `/api/build-info` の `git_sha` で反映を確認した。

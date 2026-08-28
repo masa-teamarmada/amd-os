@@ -89,12 +89,32 @@ candidate (候補)
 工程の型・規制属性・評価日の証拠水準・観測状態は `seed_bzm30_inputs`、算出結果は `seed_bzm30_scores`。
 算出は `model/tools/bzm30_score_seeds.cjs`（1件2〜3分かかるので画面のリクエストでは走らせない）。
 
-**2026-08-27 時点で金額は伏せている。** 一度算出したが、OS にある資金繰り・議事録・契約・知財・
-創業メンバーを読まずに XRL と月報1か月分だけで入力を決めていて、実データと大きくずれていたため
-（`pwa/src/lib/bzm30/seed-inputs.ts` の `BZM30_SCORES_PUBLISHED`）。入力を埋め直して再計算したら戻す。
-入力の充足の表・式・係数は伏せていない。
+**2026-08-28: 金額を画面へ戻した**（`pwa/src/lib/bzm30/seed-inputs.ts` の `BZM30_SCORES_PUBLISHED = true`）。
+一度伏せたのは、OS にある資金繰り・議事録・契約・知財・創業メンバーを読まずに入力を決めていたため。
+`project_id` を持つ165テーブルの棚卸しから埋め直し、まさからの聞き取りとネット調査も加えて再算出した。
+
+**入力の根拠は、パラメータ1件ずつの欄に持つ**（migration 332）。
+`free_cash_reason`・`burn_rate_reason`・`rights_open_reason`・`under_contract_reason`・`kappa_ip_reason`・
+`sigma_reason`・`evangelist_e_reason`・`unit_margin_reason`・`incorporated_reason` と、既存の
+`classification_reason`・`evidence_stage_reason`・`self_revenue_note`。
+「入力の充足」の表の5列目はこの欄をそのまま出す。まとめて1つの `note` に書かない
+（どの値の根拠か読み手に割り当てられず、必ず片方だけ古くなる）。
+
+**バーンレート `burn_rate_yen_month` は記録するが、前向き計算には入らない。**
+参照実装は案件ごとのバーンレートを受け取らず、工程の型と会社化の有無から引く既定値で計算する。
+それでも表に出すのは、既定値が実績と何倍ずれているかが見えないと資金の残り月数を読み違えるため。
+出どころは**琥珀（承認待ち）**として出す。
+
+**天井は TAM ではなく SAM で置く**（まさ 2026-08-26・08-28）。担う工程・方式・用途・代替手段があることで絞り、
+**シェアは天井に入れない**（モデル側の取り分 φ_u が担うので二重計上になる）。規約は `model/cases/README.md`。
+
+**空欄を作らない**（まさ 2026-08-28）。全21件・全12項目に値と根拠が入っている。
+残高が分からない案件は「初回ラウンドを次のラウンドまでで使い切ったとみてバーンを逆算し、直近ラウンドから引く」で推定する。
+
+金額は**1億円未満を万円で出す**。億へ丸めると小さい額が「0億」に潰れて案件どうしの差が読めなくなる。
 
 詳細仕様は `pwa/spec` の「4-8 BZM 3.0 スコアパネル」。
+算出結果の一覧と読み方は `model/cases/SCORES.md`、どのデータを読んだかは `model/cases/INVENTORY.md`。
 
 ### Phase 進捗
 
