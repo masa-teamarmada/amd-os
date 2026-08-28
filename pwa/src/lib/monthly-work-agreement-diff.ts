@@ -1,4 +1,5 @@
 import type {
+  ExpectedRewardChangeExplanation,
   MonthlyAgreementChangeGroup,
   MonthlyAgreementChangeItem,
   MonthlyAgreementSnapshotDiff,
@@ -444,4 +445,192 @@ export function diffMonthlyAgreementSnapshots(
   const count = groups.reduce((sum, group) => sum + group.changes.length, 0);
 
   return { comparable: true, count, groups, note: null };
+}
+
+// ---------------------------------------------------------------------------
+// 予定額が変わった理由を、OSが自分で説明する
+//
+// 予定額は「当月のMS消化pt × share × 予算」に繰越と支払枠を通した自動計算の結果で、
+// 人が意図して動かしたものではない月がほとんど。それでも 2026-08-28 までは
+// 「予定額が1円でも変わったPJは、管理側が8文字以上の理由を書くまで本人が合意できない」
+// 仕様になっていた。書く人は計算過程を知らないので誰も書けず、合意が止まり、
+// 合意が止まると支払通知書が発行できないまま復旧できなくなる。
+//
+// 実際、2026-08-27 に合意額の定義を「当月発生分」から「実際に払う額（過去の未払いの
+// 返済分を含む）」へ変えた時点で、全メンバー・全PJの hash が一斉に変わり、
+// 数十件の理由入力が同時に必要になって支払が止まった。
+//
+// 要因は snapshot の中に数値として全部ある。OSが説明できるものはOSが説明する。
+// ---------------------------------------------------------------------------
+
+function ptText(value: number | null | undefined): string {
+  if (value == null) return "未計算";
+  return `${Math.round(value * 100) / 100}pt`;
+}
+
+function numberOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * 「合意額」の意味が変わった移行かどうか。
+ *
+ * 前回の記録に `currentMonthAccrualYen` が無く、今回はある場合、前回の `expectedRewardYen` は
+ * 旧定義（当月のMS消化から発生する分）で、今回の `expectedRewardYen` は新定義（実際に払う額）。
+ * 同じ欄の数字が別のものを指しているだけで、その人の稼働条件は何も変わっていない。
+ */
+function isExpectedRewardDefinitionMigration(
+  previous: MonthlyWorkAgreementProject,
+  current: MonthlyWorkAgreementProject,
+): boolean {
+  return previous.currentMonthAccrualYen == null && current.currentMonthAccrualYen != null;
+}
+
+function explainProjectPair(
+  previous: MonthlyWorkAgreementProject | null,
+  current: MonthlyWorkAgreementProject | null,
+  projectId: string,
+): ExpectedRewardChangeExplanation {
+  const projectName = current?.projectName ?? previous?.projectName ?? projectId;
+  const beforeYen = numberOrNull(previous?.expectedRewardYen);
+  const afterYen = numberOrNull(current?.expectedRewardYen);
+
+  if (!previous && current) {
+    return {
+      projectId,
+      projectName,
+      beforeYen: null,
+      afterYen,
+      headline: `${projectName} が今回から合意の対象に入りました`,
+      details: [`このPJの予定額 ${yenText(afterYen)} が今回から加わっています。`],
+      explained: true,
+    };
+  }
+  if (previous && !current) {
+    return {
+      projectId,
+      projectName,
+      beforeYen,
+      afterYen: null,
+      headline: `${projectName} が今回の合意の対象から外れました`,
+      details: [`前回は ${yenText(beforeYen)} でしたが、今回はこのPJの予定額がありません。`],
+      explained: true,
+    };
+  }
+  if (!previous || !current) {
+    return {
+      projectId,
+      projectName,
+      beforeYen,
+      afterYen,
+      headline: `${projectName} の予定額が変わりました`,
+      details: [],
+      explained: false,
+    };
+  }
+
+  const details: string[] = [];
+  let explained = false;
+
+  if (isExpectedRewardDefinitionMigration(previous, current)) {
+    details.push(
+      "合意する金額の意味が変わりました。前回は「今月の稼働から発生する分」を出していましたが、いまは「今月あなたにお支払いする額」を出しています。あなたの稼働条件そのものが変わったわけではありません。",
+    );
+    explained = true;
+  }
+
+  const accrualYen = numberOrNull(current.currentMonthAccrualYen);
+  const payYen = numberOrNull(current.expectedRewardYen);
+  const previousAccrualYen = numberOrNull(previous.currentMonthAccrualYen);
+  if (previousAccrualYen != null && accrualYen != null && previousAccrualYen !== accrualYen) {
+    details.push(
+      `今月の稼働から発生する分が ${yenText(previousAccrualYen)} → ${yenText(accrualYen)} に変わりました。`,
+    );
+    explained = true;
+  }
+
+  // 今月払う額と、今月の稼働から発生する額の差がどこから来ているか。
+  // 差そのものが「過去の未払いの返済」か「支払枠に収まらない繰越」なので、内訳を出せた時点で
+  // 額の構成は説明できている。ここで explained を立てないと、pt も繰越も動いていないのに
+  // 支払枠だけで額が動いた月に、誰も書けない理由入力を待って支払が止まる。
+  if (accrualYen != null && payYen != null) {
+    explained = true;
+    const gap = payYen - accrualYen;
+    if (gap > 0) {
+      details.push(
+        `内訳は、今月の稼働から発生する分 ${yenText(accrualYen)} ＋ 過去の未払いからの返済 ${yenText(gap)} ＝ 今月のお支払い ${yenText(payYen)} です。`,
+      );
+    } else if (gap < 0) {
+      details.push(
+        `今月の稼働から発生する分 ${yenText(accrualYen)} のうち、月々の支払枠に収まる ${yenText(payYen)} を今月お支払いします。残り ${yenText(-gap)} は翌月以降の支払枠で順にお支払いします。`,
+      );
+    } else {
+      details.push(`今月の稼働から発生する分 ${yenText(accrualYen)} を、そのまま今月お支払いします。`);
+    }
+  }
+
+  if (previous.earnedPt !== current.earnedPt) {
+    details.push(`今月の消化ptが ${ptText(previous.earnedPt)} → ${ptText(current.earnedPt)} に変わりました。`);
+    explained = true;
+  }
+  if (previous.roleLabel !== current.roleLabel) {
+    details.push(`担当が「${textOrUnset(previous.roleLabel)}」から「${textOrUnset(current.roleLabel)}」に変わりました。`);
+    explained = true;
+  }
+  if (previous.carryInYen !== current.carryInYen) {
+    details.push(
+      `前月からの繰越（まだ払えていない分）が ${yenText(previous.carryInYen)} → ${yenText(current.carryInYen)} に変わりました。`,
+    );
+    explained = true;
+  }
+  if (previous.grossDueYen !== current.grossDueYen) {
+    details.push(
+      `今月の支払対象額（繰越＋当月発生）が ${yenText(previous.grossDueYen)} → ${yenText(current.grossDueYen)} に変わりました。`,
+    );
+    explained = true;
+  }
+
+  const stockYen = numberOrNull(current.stockYen) ?? 0;
+  if (stockYen > 0) {
+    details.push(`今月末の時点でまだお支払いできていない残りは ${yenText(stockYen)} です。翌月以降の支払枠で順にお支払いします。`);
+  }
+
+  const headline = explained
+    ? `${projectName} の予定額 ${yenText(beforeYen)} → ${yenText(afterYen)}`
+    : `${projectName} の予定額が ${yenText(beforeYen)} → ${yenText(afterYen)} に変わった理由を確認中です`;
+
+  return { projectId, projectName, beforeYen, afterYen, headline, details, explained };
+}
+
+/**
+ * 予定額が変わった全PJについて、OSが組み立てた説明を返す。
+ * 前回 snapshot が比較できない場合は、説明できない（= 管理側の理由入力が要る）扱いにする。
+ */
+export function explainExpectedRewardChanges(
+  previous: unknown,
+  current: MonthlyWorkAgreementSnapshot,
+): ExpectedRewardChangeExplanation[] {
+  const changedProjectIds = projectIdsWithExpectedRewardChange(previous, current);
+  if (changedProjectIds.length === 0) return [];
+
+  if (!isV2Snapshot(previous)) {
+    return changedProjectIds.map((projectId) => {
+      const project = current.projects.find((item) => item.projectId === projectId) ?? null;
+      return {
+        projectId,
+        projectName: project?.projectName ?? projectId,
+        beforeYen: null,
+        afterYen: numberOrNull(project?.expectedRewardYen),
+        headline: `${project?.projectName ?? projectId} の予定額を前回と比べられません`,
+        details: ["前回合意した時点の記録が残っていないか、記録の形式が古いため、変わった理由を出せません。"],
+        explained: false,
+      };
+    });
+  }
+
+  const prevProjects = new Map(previous.projects.map((project) => [project.projectId, project]));
+  const curProjects = new Map(current.projects.map((project) => [project.projectId, project]));
+  return changedProjectIds.map((projectId) =>
+    explainProjectPair(prevProjects.get(projectId) ?? null, curProjects.get(projectId) ?? null, projectId),
+  );
 }

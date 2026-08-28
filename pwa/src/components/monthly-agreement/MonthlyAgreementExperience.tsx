@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Hint } from "@/components/ui/Hint";
 import type {
+  ExpectedRewardChangeExplanation,
   MonthlyAgreementAmountChangeReason,
   MonthlyAgreementSnapshotDiff,
   MonthlyWorkAgreementBundle,
@@ -384,6 +385,7 @@ export function MonthlyAgreementExperience({
             amountChangeReasons={bundle.amountChangeReasons}
             requiredProjectIds={bundle.amountChangeReasonRequiredProjectIds}
             missingProjectIds={bundle.missingAmountChangeReasonProjectIds}
+            explanations={bundle.expectedRewardChangeExplanations}
             canRequestRevision={bundle.canRequestRevision}
             onRequestRevision={(projectId) => {
               setRequestProjectId(projectId);
@@ -804,6 +806,7 @@ function ChangeSummarySection({
   amountChangeReasons,
   requiredProjectIds,
   missingProjectIds,
+  explanations,
   canRequestRevision,
   onRequestRevision,
 }: {
@@ -812,12 +815,14 @@ function ChangeSummarySection({
   amountChangeReasons: MonthlyAgreementAmountChangeReason[];
   requiredProjectIds: string[];
   missingProjectIds: string[];
+  explanations: ExpectedRewardChangeExplanation[];
   canRequestRevision: boolean;
   onRequestRevision: (projectId: string) => void;
 }) {
   const reasonsByProjectId = new Map(
     amountChangeReasons.map((item) => [item.projectId, item.reason]),
   );
+  const explanationByProjectId = new Map(explanations.map((item) => [item.projectId, item]));
   const requiredProjects = requiredProjectIds.flatMap((projectId) => {
     const project = projects.find((item) => item.projectId === projectId);
     const previousProject = changeSummary.groups.find((item) => item.projectId === projectId);
@@ -844,12 +849,13 @@ function ChangeSummarySection({
       {requiredProjects.length > 0 && (
         <div className="mt-3 border-t border-amber-200 pt-3">
           <p className="text-[12px] font-semibold text-amber-900">
-            予定額を変更した理由
+            予定額が変わった理由
           </p>
           <div className="mt-2 flex flex-col gap-2">
             {requiredProjects.map((project) => {
               const missing = missingProjectIds.includes(project.projectId);
               const reason = reasonsByProjectId.get(project.projectId);
+              const explanation = explanationByProjectId.get(project.projectId);
               return (
                 <div
                   key={project.projectId}
@@ -877,9 +883,34 @@ function ChangeSummarySection({
                       </button>
                     </div>
                   ) : (
-                    <p className="mt-1 break-words text-[13px] leading-[20px] text-[#3c3c43]">
-                      {reason}
-                    </p>
+                    <div className="mt-1.5">
+                      {reason && (
+                        <p className="break-words text-[13px] leading-[20px] text-[#3c3c43]">{reason}</p>
+                      )}
+                      {explanation && explanation.details.length > 0 && (
+                        <ul
+                          data-testid="monthly-agreement-auto-change-explanation"
+                          className={`${reason ? "mt-2 border-t border-amber-100 pt-2" : ""} flex list-disc flex-col gap-1 pl-4`}
+                        >
+                          {explanation.details.map((detail, index) => (
+                            <li
+                              key={`${project.projectId}-detail-${index}`}
+                              className="break-words text-[13px] leading-[20px] text-[#3c3c43]"
+                            >
+                              {detail}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => onRequestRevision(project.projectId)}
+                        disabled={!canRequestRevision}
+                        className="mt-2 min-h-9 rounded-md border border-amber-300 bg-white px-3 text-[12px] font-semibold text-amber-900 hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007aff] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        この予定額について修正要望
+                      </button>
+                    </div>
                   )}
                 </div>
               );

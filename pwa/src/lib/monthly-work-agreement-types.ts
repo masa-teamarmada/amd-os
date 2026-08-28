@@ -69,6 +69,26 @@ export interface MonthlyWorkAgreementRevisionRequest {
   resolutionNote: string | null;
 }
 
+/**
+ * 予定額が前回合意から変わった理由を、OSが自分で組み立てた説明。
+ *
+ * 予定額はMS消化pt・繰越・支払枠から自動計算されるので、変わるたびに人間へ
+ * 理由を書かせると、書ける人がいないまま支払が止まる (2026-08-28)。
+ * 要因を数値で示せたものは `explained: true` にして、管理側の理由入力なしで合意できるようにする。
+ */
+export interface ExpectedRewardChangeExplanation {
+  projectId: string;
+  projectName: string;
+  beforeYen: number | null;
+  afterYen: number | null;
+  /** 一行の見出し。メンバー画面のPJ名の下に出す */
+  headline: string;
+  /** 内訳。メンバーがそのまま読む文 */
+  details: string[];
+  /** 要因を特定できたか。false のときだけ管理側の理由入力を必須にする */
+  explained: boolean;
+}
+
 export interface MonthlyWorkAgreementProject {
   projectId: string;
   projectName: string;
@@ -168,8 +188,10 @@ export interface MonthlyWorkAgreementBundle {
   amountChangeReasons: MonthlyAgreementAmountChangeReason[];
   /** 今回の予定額変更で、理由の記録が必要なPJ。 */
   amountChangeReasonRequiredProjectIds: string[];
-  /** 今回の予定額変更に対し、現在snapshotの理由がまだ無いPJ。 */
+  /** 今回の予定額変更に対し、現在snapshotの理由がまだ無いPJ。OSが要因を説明できたPJは含めない。 */
   missingAmountChangeReasonProjectIds: string[];
+  /** 予定額が変わった理由のOS自動説明。`explained` が true のPJは管理側の理由入力なしで合意できる。 */
+  expectedRewardChangeExplanations: ExpectedRewardChangeExplanation[];
 }
 
 export interface MonthlyAgreementAmountChangeReasonRequirement {
@@ -177,6 +199,10 @@ export interface MonthlyAgreementAmountChangeReasonRequirement {
   projectName: string;
   expectedRewardYen: number | null;
   reason: string | null;
+  /** OSが変わった理由を説明できたか。true なら管理側の理由入力なしで本人が合意できる */
+  autoExplained: boolean;
+  /** OSが組み立てた説明。管理側が補足を書くときの材料にもなる */
+  autoExplanationDetails: string[];
 }
 
 export interface AdminMonthlyWorkAgreementRow {

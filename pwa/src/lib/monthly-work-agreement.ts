@@ -24,6 +24,7 @@ import type {
 } from "@/lib/monthly-work-agreement-types";
 import {
   diffMonthlyAgreementSnapshots,
+  explainExpectedRewardChanges,
   projectIdsWithExpectedRewardChange,
 } from "@/lib/monthly-work-agreement-diff";
 
@@ -568,6 +569,7 @@ export async function buildMonthlyWorkAgreementBundle(
       amountChangeReasons: [],
       amountChangeReasonRequiredProjectIds: [],
       missingAmountChangeReasonProjectIds: [],
+      expectedRewardChangeExplanations: [],
     };
   }
 
@@ -605,6 +607,7 @@ export async function buildMonthlyWorkAgreementBundle(
       amountChangeReasons: [],
       amountChangeReasonRequiredProjectIds: [],
       missingAmountChangeReasonProjectIds: [],
+      expectedRewardChangeExplanations: [],
     };
   }
 
@@ -1059,8 +1062,18 @@ export async function buildMonthlyWorkAgreementBundle(
       .filter((item) => item.reason.trim().length >= 8)
       .map((item) => item.projectId),
   );
+  // 予定額はMS消化pt・繰越・支払枠から自動計算されるので、変わるたびに人間の理由入力を
+  // 必須にすると、書ける人がいないまま合意が止まり、支払通知書も出せなくなる。
+  // OSが要因を数値で示せたPJは、管理側の理由入力なしで合意できるようにする (2026-08-28)。
+  const expectedRewardChangeExplanations =
+    agreementStatus === "needs_reagreement"
+      ? explainExpectedRewardChanges(latestAgreement?.snapshotJson, snapshot)
+      : [];
+  const autoExplainedProjectIds = new Set(
+    expectedRewardChangeExplanations.filter((item) => item.explained).map((item) => item.projectId),
+  );
   const missingAmountChangeReasonProjectIds = amountChangeReasonRequiredProjectIds.filter(
-    (projectId) => !reasonProjectIds.has(projectId),
+    (projectId) => !reasonProjectIds.has(projectId) && !autoExplainedProjectIds.has(projectId),
   );
   const canRequestRevision = tableReady && (!params.viewerMemberId || params.viewerMemberId === params.memberId);
   const reasonWaitMessage =
@@ -1087,6 +1100,7 @@ export async function buildMonthlyWorkAgreementBundle(
     amountChangeReasons,
     amountChangeReasonRequiredProjectIds,
     missingAmountChangeReasonProjectIds,
+    expectedRewardChangeExplanations,
   };
 }
 

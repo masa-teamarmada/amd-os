@@ -341,9 +341,10 @@ export default function AdminMonthlyWorkAgreementsPage() {
                     {row.amountChangeReasonRequirements.length > 0 && (
                       <div className="border-t border-amber-200 bg-amber-50/60 px-3 py-3">
                         <div className="ml-[316px] max-w-3xl">
-                          <p className="text-xs font-semibold text-amber-900">予定額を変更した理由</p>
+                          <p className="text-xs font-semibold text-amber-900">予定額が変わった理由</p>
                           <p className="mt-0.5 text-[11px] text-amber-800">
-                            理由を保存すると、メンバーが再合意前に確認できる。理由がない間は合意できない。
+                            OSが要因を説明できたPJは、そのままメンバーが合意できる。ここに書くのは補足だけでいい。
+                            OSが説明できないPJだけ、理由を入れないとメンバーが合意できない。
                           </p>
                           <div className="mt-2 grid gap-2">
                             {row.amountChangeReasonRequirements.map((requirement) => (
@@ -605,8 +606,30 @@ function AmountChangeReasonEditor({
           今回の予定額 {requirement.expectedRewardYen == null ? "対象外" : formatYen(requirement.expectedRewardYen)}
         </p>
       </div>
+      <div
+        className={`mt-2 rounded-md border px-2.5 py-2 text-[11px] leading-relaxed ${
+          requirement.autoExplained
+            ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+            : "border-red-200 bg-red-50 text-red-900"
+        }`}
+      >
+        <p className="font-semibold">
+          {requirement.autoExplained
+            ? "OSが理由を説明済み — メンバーはこのまま合意できる"
+            : "OSが理由を説明できない — 理由を入れるまでメンバーは合意できない"}
+        </p>
+        {requirement.autoExplanationDetails.length > 0 && (
+          <ul className="mt-1 list-disc space-y-0.5 pl-4">
+            {requirement.autoExplanationDetails.map((detail, index) => (
+              <li key={`${requirement.projectId}-auto-${index}`}>{detail}</li>
+            ))}
+          </ul>
+        )}
+      </div>
       <label className="mt-2 block">
-        <span className="text-xs font-semibold text-muted-foreground">メンバーに伝える変更理由</span>
+        <span className="text-xs font-semibold text-muted-foreground">
+          メンバーに伝える補足{requirement.autoExplained ? "（任意）" : "（必須）"}
+        </span>
         <textarea
           value={reason}
           onChange={(event) => {
@@ -620,7 +643,11 @@ function AmountChangeReasonEditor({
       </label>
       <div className="mt-2 flex items-center justify-between gap-3">
         <p className={`text-xs ${trimmedReason.length >= 8 ? "text-muted-foreground" : "text-amber-800"}`}>
-          {trimmedReason.length >= 8 ? "保存すると、現在の予定額での再合意に使われる。" : "理由は8文字以上で入力してね。"}
+          {trimmedReason.length >= 8
+            ? "保存すると、OSの説明の上にこの補足が出る。"
+            : requirement.autoExplained
+              ? "書かなくていい。書くなら8文字以上。"
+              : "理由は8文字以上で入力してね。"}
         </p>
         <button
           type="button"

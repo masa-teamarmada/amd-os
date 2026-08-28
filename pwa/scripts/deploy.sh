@@ -109,6 +109,7 @@ echo "Running critical UI / spec rollback guard ..."
 (cd "$REPO_ROOT/pwa" && npm run test:member-payout-matching)
 (cd "$REPO_ROOT/pwa" && npm run test:payout-reimbursements)
 (cd "$REPO_ROOT/pwa" && npm run test:payment-month-usage)
+(cd "$REPO_ROOT/pwa" && npm run test:monthly-agreement-diff)
 
 echo "Running deploy rollback guard ..."
 node "$SCRIPT_DIR/deploy-version-guard.cjs" --target production --app-url "$APP_URL" --repo-root "$REPO_ROOT"

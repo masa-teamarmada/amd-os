@@ -125,13 +125,24 @@ projectPlannedRewardYen = Σ msPlannedRewardYen
   - 変更値は生の技術値 (`active` / `budget_confirmed` / `reward_cache` 等) をそのまま出さず、`monthly-work-agreement-diff.ts` の日本語ラベル関数 (project status / billing・payout status / allocation status / amountSource) で整形してから表示する
   - **生 JSON・生 hash 文字列は一切表示しない** (「参考情報」内の `記録ID {hash.slice(0,10)}` は既存仕様のまま変更なし)
 
-### 予定額変更理由
+### 予定額が変わった理由
 
-`needs_reagreement` のうち、前回合意snapshotと比べて `projects[].expectedRewardYen` が変わったPJには、管理者が本人向けの変更理由を入力する。理由は自動推測せず、8文字以上の人間が書いた説明だけを `member_monthly_work_agreement_amount_change_reasons` へ保存する。
+`needs_reagreement` のうち、前回合意snapshotと比べて `projects[].expectedRewardYen` が変わったPJには、変わった理由を本人へ提示する。
 
-- 1行は `ym × member_id × project_id × agreement_snapshot_hash` に一意に紐付け、`created_by` / `created_at` / `updated_by` / `updated_at` を監査用に残す。予定額を含むsnapshot hashが再び変われば、古い理由は再合意に使えず、新しい理由が必要になる。
-- メンバー画面では「今回の変更点」の中で、前回/今回の金額比較より先にPJ別の理由を表示する。理由がないPJは「変更理由を確認中」と表示し、修正要望は送れるが合意はできない。
-- `POST /api/monthly-work-agreement/agree` も同じ未入力判定を行う。表示だけを迂回しての合意保存はできない。一方、報酬計算・payout gateの算定値・非金額だけの再合意は変更しない。
+**理由はまずOSが組み立てる。人間の入力を、支払を止める条件にしない** (2026-08-28 修正)。
+予定額はMS消化pt・share・予算・繰越・支払枠から自動計算される値で、人が意図して動かした月ばかりではない。
+変わるたびに管理者の理由入力を必須にすると、計算過程を知らない人が書けないまま合意が止まり、
+合意が止まると支払通知書も発行できなくなる。
+実際、2026-08-27 に合意額の定義を「当月発生分」から「実際に払う額（過去の未払いの返済分を含む）」へ変えた時点で、
+全メンバー・全PJの hash が一斉に変わり、数十件の理由入力が同時に必要になって支払が止まった。この構造へ戻さない。
+
+- `explainExpectedRewardChanges()` が前回合意snapshotと現在snapshotから要因を数値で組み立てる。拾う要因は、合意額の定義変更 / 当月発生分の変化 / 消化ptの変化 / 担当の変化 / 前月繰越の変化 / 支払対象額の変化 / 過去の未払いからの返済分 / 支払枠に収まらず翌月へ繰り越す分 / 今月末の未払い残。
+- 要因を示せたPJ (`explained: true`) は、管理側の理由入力なしで本人が合意できる。`missingAmountChangeReasonProjectIds` に入れない。
+- 前回合意snapshotが比較できない場合だけ `explained: false` とし、管理者の理由入力を必須にする。
+- 管理者は補足を書ける。必須なのは `explained: false` のPJだけで、他は任意。書いた補足は8文字以上で `member_monthly_work_agreement_amount_change_reasons` へ保存し、メンバー画面ではOSの説明より上に出す。
+- 1行は `ym × member_id × project_id × agreement_snapshot_hash` に一意に紐付け、`created_by` / `created_at` / `updated_by` / `updated_at` を監査用に残す。予定額を含むsnapshot hashが再び変われば、古い補足は再合意に使えない。
+- メンバー画面では「今回の変更点」の中で、前回/今回の金額比較より先にPJ別の理由 (管理者の補足 → OSの説明の順) を表示する。どちらも無いPJだけ「変更理由を確認中」と表示し、修正要望は送れるが合意はできない。
+- `POST /api/monthly-work-agreement/agree` も同じ判定を行う。表示だけを迂回しての合意保存はできない。一方、報酬計算・payout gateの算定値・非金額だけの再合意は変更しない。
 - hash 計算式・`stableJson`・支払 gate ロジック (`monthly-work-agreement-payout-gate.ts`) には一切手を入れていない
 - admin 一覧 API (`GET /api/admin/monthly-work-agreements`) は `latestAgreement.snapshotJson` をレスポンスから除去 (`snapshotJson: undefined`) する。`changeCount` フィールドは admin 画面で未使用のため API レスポンス・`AdminMonthlyWorkAgreementRow` 型から削除済み (`needs_reagreement` の件数は本人画面の `ChangeSummarySection` 側で表示)
 - 単体テスト: `scripts/check_monthly_agreement_diff.mts` (`npm run test:monthly-agreement-diff`)。null/legacy previous のフォールバック、PJ/MS追加削除、各フィールド変更、完全一致、`snapshot`/`member`/`totals`/`project`/`milestone`/`payoutSchedule` 全フィールドの table-driven mutation coverage、壊れた nested v2 (member欠落・projects非配列・milestone欠損フィールド) の comparable:false フォールバック

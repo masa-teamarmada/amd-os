@@ -2877,8 +2877,9 @@ expectIncludes(
     "monthly-agreement-change-count",
     "monthly-agreement-change-reason",
     "monthly-agreement-missing-change-reason",
-    "予定額を変更した理由",
+    "予定額が変わった理由",
     "変更理由を確認中",
+    "monthly-agreement-auto-change-explanation",
     "今回の変更点",
     "monthly-agreement-required-checks",
     "monthly-agreement-scope-section",
@@ -2979,7 +2980,7 @@ expectIncludes("src/app/(app)/admin/monthly-work-agreements/page.tsx", [
   "monthly-agreement-migration-note",
   "月初合意の導入前・移行月",
   "admin-monthly-agreement-change-reason",
-  "メンバーに伝える変更理由",
+  "メンバーに伝える補足",
   "/api/admin/monthly-work-agreements/amount-change-reasons",
 ]);
 expectIncludes("src/lib/monthly-work-agreement.ts", [
@@ -3380,6 +3381,17 @@ expectIncludes("src/app/api/admin/payouts/route.ts", [
   "agreementBlockedMemberIdSet",
   "const entries = allEntries.filter((entry) => !agreementBlockedMemberIdSet.has(entry.member_id));",
   "const allowedMemberIds = targetMemberIds.filter((memberId) => !agreementBlockedMemberIds.has(memberId));",
+]);
+// 予定額が変わった理由はOSが組み立てる。人間の理由入力を、支払を止める条件に戻さない。
+// 2026-08-27 の合意額の定義変更で全メンバーの hash が一斉に変わり、数十件の理由入力が
+// 同時に必要になって支払が止まった。同じ構造へ戻ったら deploy 前に落とす。
+expectIncludes("src/lib/monthly-work-agreement-diff.ts", [
+  "export function explainExpectedRewardChanges(",
+  "isExpectedRewardDefinitionMigration",
+]);
+expectIncludes("src/lib/monthly-work-agreement.ts", [
+  "const autoExplainedProjectIds = new Set(",
+  "!reasonProjectIds.has(projectId) && !autoExplainedProjectIds.has(projectId)",
 ]);
 // 通知書番号は一括生成の前にまとめて予約する。各生成が既存件数+1を個別に読むと、
 // 並列実行で同じ番号の通知書が複数できる (2026-08-28 まで実際に重複していた)。

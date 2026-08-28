@@ -15,6 +15,7 @@
 import assert from "node:assert/strict";
 import {
   diffMonthlyAgreementSnapshots,
+  explainExpectedRewardChanges,
   projectIdsWithExpectedRewardChange,
 } from "../src/lib/monthly-work-agreement-diff.ts";
 import type {
@@ -449,3 +450,65 @@ function expectLabel(
 }
 
 console.log("monthly-work-agreement-diff regression: ok");
+
+// ---------------------------------------------------------------------------
+// explainExpectedRewardChanges: 予定額が変わった理由をOSが説明できるか
+//
+// 予定額はMS消化pt・繰越・支払枠から自動計算されるので、変わるたびに人間へ理由を
+// 書かせると誰も書けないまま合意が止まり、支払通知書も出せなくなる (2026-08-28)。
+// 要因を数値で示せたものは explained:true にして、管理側の理由入力なしで合意させる。
+// ---------------------------------------------------------------------------
+
+// 14. 合意額の定義変更 (currentMonthAccrualYen が後から入った) を、OSが説明できる
+{
+  const prev = snapshot([project({ expectedRewardYen: 20985, currentMonthAccrualYen: null })]);
+  const cur = snapshot([project({ expectedRewardYen: 8190, currentMonthAccrualYen: 25526 })]);
+  const explanations = explainExpectedRewardChanges(prev, cur);
+  assert.equal(explanations.length, 1, "予定額が変わったPJの説明が1件出る");
+  assert.equal(explanations[0].explained, true, "定義変更はOSが説明できる (人間の理由入力を要求しない)");
+  assert.ok(
+    explanations[0].details.some((detail) => detail.includes("合意する金額の意味が変わりました")),
+    "定義が変わったことを本文で説明する",
+  );
+}
+
+// 15. 支払枠に収まらない分は「翌月以降へ」と説明する
+{
+  const prev = snapshot([project({ expectedRewardYen: 30000, currentMonthAccrualYen: 30000 })]);
+  const cur = snapshot([project({ expectedRewardYen: 8190, currentMonthAccrualYen: 25526 })]);
+  const explanations = explainExpectedRewardChanges(prev, cur);
+  assert.equal(explanations[0].explained, true);
+  assert.ok(
+    explanations[0].details.some((detail) => detail.includes("翌月以降")),
+    "支払枠で今月払えない分の行き先を説明する",
+  );
+}
+
+// 16. 過去の未払いを返済して増えた月は、増えた理由を内訳で説明する
+{
+  const prev = snapshot([project({ expectedRewardYen: 8100, currentMonthAccrualYen: 8100 })]);
+  const cur = snapshot([project({ expectedRewardYen: 23205, currentMonthAccrualYen: 8100 })]);
+  const explanations = explainExpectedRewardChanges(prev, cur);
+  assert.equal(explanations[0].explained, true);
+  assert.ok(
+    explanations[0].details.some((detail) => detail.includes("過去の未払いからの返済")),
+    "増額分が過去の未払いの返済であることを説明する",
+  );
+}
+
+// 17. 前回 snapshot が比較不能なときだけ、人間の理由入力へ倒す
+{
+  const cur = snapshot([project({ expectedRewardYen: 8190, currentMonthAccrualYen: 25526 })]);
+  const explanations = explainExpectedRewardChanges(null, cur);
+  assert.equal(explanations.length, 1);
+  assert.equal(explanations[0].explained, false, "比較基準が無いときはOSが説明できない扱いにする");
+}
+
+// 18. 予定額が変わっていない月は説明を出さない
+{
+  const prev = snapshot([project({ expectedRewardYen: 8190, currentMonthAccrualYen: 25526 })]);
+  const cur = snapshot([project({ expectedRewardYen: 8190, currentMonthAccrualYen: 25526, roleLabel: "PM" })]);
+  assert.equal(explainExpectedRewardChanges(prev, cur).length, 0);
+}
+
+console.log("expected-reward change explanation: ok");

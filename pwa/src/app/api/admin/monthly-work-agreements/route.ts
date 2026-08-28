@@ -64,11 +64,14 @@ export async function GET(req: NextRequest) {
         const previousProject = bundle.changeSummary?.groups.find((item) => item.projectId === projectId);
         if (!project && !previousProject) return [];
         const savedReason = bundle.amountChangeReasons.find((item) => item.projectId === projectId);
+        const explanation = bundle.expectedRewardChangeExplanations.find((item) => item.projectId === projectId);
         return [{
           projectId,
           projectName: project?.projectName ?? previousProject?.projectName ?? projectId,
           expectedRewardYen: project?.expectedRewardYen ?? null,
           reason: savedReason?.reason ?? null,
+          autoExplained: Boolean(explanation?.explained),
+          autoExplanationDetails: explanation?.details ?? [],
         }];
       }),
     }));
