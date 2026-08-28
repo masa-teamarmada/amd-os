@@ -405,20 +405,9 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       {activeTab === "progress" && project.projectId === "p25" && <CockpitKuteAnnualRoadmap currentYm={currentYm} />}
       {activeTab === "progress" && <ProjectInstitutionSeeds projectId={project.projectId} />}
 
-      {/* [A2] Hero (案C: Header 直下の全幅セクション)
-            - p00 (= AMD 会社全体) は AMD Management Score の時系列折れ線 + 最新値カード
-            - SU 系 PJ は CockpitVentureStatus (AMD Score + XRL chart 横並び)
-            - ecosystem PJ は AMD Score 対象外なので Hero を出さない */}
-      {(activeTab === "progress" || activeTab === "score-detail") && (project.projectId === "p00" ? (
-        <CockpitManagementScoreHero />
-      ) : showAmdScore ? (
-        <CockpitVentureStatus
-          projectId={project.projectId}
-          projectName={project.projectName}
-          onOpenScoreDetail={() => selectTab("score-detail")}
-          compact={activeTab === "score-detail"}
-        />
-      ) : null)}
+      {/* 旧 [A2] Hero (PJの見出し・担当・事業概要・XRL進捗) は 2026-08-28 まさ依頼で
+          「PJ概要」タブへ丸ごと移した。上段に残すのは CockpitHeader だけで、
+          コックピットを開いた直後は進捗管理の中身がすぐ目に入る。 */}
 
       <div
         className="grid gap-1 rounded-xl border border-[#d6d6da] bg-[#f5f5f7] p-1"
@@ -617,9 +606,22 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
         </section>
       )}
 
-      {/* PJ概要タブ。契約条件は cockpit bundle に載っているので、開いた時だけ組み立てる。 */}
+      {/* PJ概要タブ (2026-08-28 まさ依頼)。このPJがどういうものかを1枚で読む面。
+            - p00 (= AMD 会社全体) は AMD Management Score の時系列折れ線 + 最新値カード
+            - SU 系 PJ は CockpitVentureStatus (見出し・レーン・担当・事業概要・XRL進捗)
+            - ecosystem PJ は AMD Score 対象外なので出さない
+          その下に契約上の実行条件。どちらも開いた時だけマウントする。 */}
       {activeTab === "overview" && (
-        <section role="tabpanel" aria-label="PJ概要" className="min-w-0">
+        <section role="tabpanel" aria-label="PJ概要" className="flex min-w-0 flex-col gap-3">
+          {project.projectId === "p00" ? (
+            <CockpitManagementScoreHero />
+          ) : showAmdScore ? (
+            <CockpitVentureStatus
+              projectId={project.projectId}
+              projectName={project.projectName}
+              onOpenScoreDetail={() => selectTab("score-detail")}
+            />
+          ) : null}
           <CockpitProjectOverview project={project} />
         </section>
       )}

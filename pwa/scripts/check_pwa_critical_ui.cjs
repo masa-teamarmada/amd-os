@@ -605,11 +605,22 @@ expectNotIncludes("src/components/cockpit/CockpitHeader.tsx", [
   "currentContracts",
 ]);
 
-// 「PJ概要」タブ本体。契約条件の置き場所がここであることと、URL で復元できることを固定する。
+// 「PJ概要」タブ本体。2026-08-28 まさ「さっき貼ったオブジェクト全部移動して」で、
+// PJの見出し・レーン・担当・事業概要・XRL進捗 (CockpitVentureStatus) と契約上の実行条件を
+// このタブへまとめた。コックピット上段に残すのは CockpitHeader だけ。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'CockpitProjectOverview',
   '{ key: "overview", label: "PJ概要" }',
   'aria-label="PJ概要"',
+]);
+expectPattern("src/components/cockpit/CockpitView.tsx", [
+  // PJ概要タブの中に PJ の姿 (or p00 の Management Score) と契約条件が並ぶ
+  /aria-label="PJ概要"[\s\S]{0,600}<CockpitVentureStatus/,
+  /aria-label="PJ概要"[\s\S]{0,900}<CockpitProjectOverview/,
+]);
+expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
+  // 進捗管理・スコア詳細の上へ Hero を戻さない (タブより上は CockpitHeader だけ)
+  '(activeTab === "progress" || activeTab === "score-detail")',
 ]);
 expectIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
   '"overview"',
