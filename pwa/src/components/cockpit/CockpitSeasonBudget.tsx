@@ -59,14 +59,20 @@ function StackedBar({ parts, total }: { parts: BarPart[]; total: number }) {
   );
 }
 
-function CheckBadge({ ok, label }: { ok: boolean; label: string }) {
+/**
+ * 検算バッジ。`tone="note"` は「異常ではないが見ておく値」。
+ * 未割当ptは将来MS用に意図して残すことがあるので赤にしない
+ * (SXは13ptを意図的に残す。pwa/design/season_budget_actual.md 2026-07-29 確定)。
+ */
+function CheckBadge({ ok, label, tone = "check" }: { ok: boolean; label: string; tone?: "check" | "note" }) {
+  const className = ok
+    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+    : tone === "note"
+      ? "border-[#d6d6da] bg-[#f5f5f7] text-[#3c3c43]"
+      : "border-red-200 bg-red-50 text-red-800";
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
-        ok ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-800"
-      }`}
-    >
-      {ok ? "✓" : "!"} {label}
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${className}`}>
+      {ok ? "✓" : tone === "note" ? "·" : "!"} {label}
     </span>
   );
 }
@@ -85,9 +91,9 @@ function SeasonCard({ season }: { season: SeasonBudgetSeason }) {
   const checks = season.checks;
   // ① クライアント請求が何に分かれるか。バッファ + メンバー原資(65%) + AMD(35%) = 請求額。
   const revenueParts: BarPart[] = [
-    { label: "バッファ", value: season.bufferTotalYen, className: "bg-amber-300", note: season.bufferBreakdownSet ? "" : "逆算" },
-    { label: "メンバー原資", value: season.memberBudgetYen, className: "bg-sky-400", note: "65%" },
-    { label: "AMD", value: season.amdMarginYen, className: "bg-emerald-400", note: "35%" },
+    { label: "バッファ", value: season.bufferTotalYen, className: "bg-amber-300", note: season.bufferBreakdownSet ? "" : "内訳未設定・逆算" },
+    { label: "メンバー原資", value: season.memberBudgetYen, className: "bg-sky-400" },
+    { label: "AMD", value: season.amdMarginYen, className: "bg-emerald-400" },
   ];
 
   // ② メンバー原資をどこまで使ったか。
@@ -126,7 +132,11 @@ function SeasonCard({ season }: { season: SeasonBudgetSeason }) {
         <div className="flex flex-wrap gap-1.5">
           <CheckBadge ok={checks.closes} label="請求額と内訳が一致" />
           <CheckBadge ok={checks.budgetMatchesMonthlyCaps} label="原資と月枠の合計が一致" />
-          <CheckBadge ok={checks.ptFullyAssigned} label={checks.ptFullyAssigned ? "pt割当済み" : `未割当 ${checks.unassignedPt}pt`} />
+          <CheckBadge
+            ok={checks.ptFullyAssigned}
+            tone="note"
+            label={checks.ptFullyAssigned ? "pt割当済み" : `未割当 ${checks.unassignedPt}pt`}
+          />
           <CheckBadge ok={checks.officerStockConverges} label="対象外メンバーの繰越が収束" />
         </div>
       </div>
@@ -253,9 +263,22 @@ export function CockpitSeasonBudget({ projectId }: { projectId: string }) {
             このPJには進行中のシーズン（plan cycle）がまだありません。
           </p>
         )}
-        {seasons?.map((season) => (
-          <SeasonCard key={season.planCycleId} season={season} />
-        ))}
+        {seasons && seasons.length > 0 && <SeasonCard season={seasons[0]} />}
+        {seasons && seasons.length > 1 && (
+          <details className="rounded-md border border-[#e5e5e7] bg-[#fafafa]">
+            <summary className="cursor-pointer list-none px-4 py-2.5 text-[12px] font-semibold text-[#1d1d1f]">
+              過去のシーズン {seasons.length - 1}件を見る
+              <span className="ml-2 font-normal text-[#8e8e93]">
+                {seasons.slice(1).map((season) => `${ymLabel(season.periodStartYm)}〜${ymLabel(season.periodEndYm)}`).join(" / ")}
+              </span>
+            </summary>
+            <div className="space-y-3 px-3 pb-3">
+              {seasons.slice(1).map((season) => (
+                <SeasonCard key={season.planCycleId} season={season} />
+              ))}
+            </div>
+          </details>
+        )}
       </div>
     </section>
   );
