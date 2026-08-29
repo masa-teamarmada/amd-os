@@ -13,7 +13,8 @@
     "src/components/admin/MemberPayoutBreakdownModal.tsx": "可変系。支払額・繰越・未払い残は報酬キャッシュ再計算や合意ゲートの操作で当日中に変わる残高で、開くたびに最新を読む必要がある (古い値を出すと支払判断を誤らせる)。",
     "src/components/cockpit/CockpitProjectControl.tsx": "可変系。週次差分・ガント・関係先・論点仮説はこの画面から直接編集し、他メンバーの更新も当日中に反映される必要がある。PJコックピットの管制4タブとPJワークスペース (/project/[projectId]/workspace) が同じ束を読む (2026-08-28 統合)。4タブは1マウントを共有するのでタブ移動では読み直さない。",
     "src/components/admin/kiyo-money-flow/KiyoMoneyFlowPanel.tsx": "可変系。入金確認・支払記録で当日中に増える集計 (manual/6-11-kiyo-money-flow-spec.md)。サーバ側 (src/lib/finance/kiyo-money-flow.ts) がプロセス内TTL5分で持つのでクライアントは素のfetchでよい。",
-    "src/app/(app)/admin/monthly-work-agreements/page.tsx#revision-requests": "可変系。修正要望のステータス更新 (PATCH) と、その直後の状態。open のあいだ支払通知書が発行できないので、古い状態を見せると支払判断を誤らせる (2026-08-28 追加)。"
+    "src/app/(app)/admin/monthly-work-agreements/page.tsx#revision-requests": "可変系。修正要望のステータス更新 (PATCH) と、その直後の状態。open のあいだ支払通知書が発行できないので、古い状態を見せると支払判断を誤らせる (2026-08-28 追加)。",
+    "src/lib/governance-client.ts": "参照系。会社概要タブと資本政策表タブが共有するキャッシュ層で、中身は @/lib/reference-data-cache を通している (素の fetch はこの1本だけ。画面側からは fetch しない)。REFERENCE_DATA_ENDPOINTS へ /api/governance を登録すると、guard が配下パスも同じ扱いにするため /api/governance/killer-factors (キラー要素カタログ) と /api/governance/capital-plans (資本政策プラン台帳) の別画面まで巻き込む。それらの移行は別作業なので、登録はせずここへ置く (2026-08-29 追加)。"
   },
   "allowed": {
     "src/app/(app)/admin/monthly-work-agreements/page.tsx": [
@@ -126,9 +127,6 @@
     "src/components/admin/FreeeReconciliationRail.tsx": [
       "/api/admin/finance/reconciliation"
     ],
-    "src/components/admin/kiyo-money-flow/KiyoMoneyFlowPanel.tsx": [
-      "/api/admin/kiyo/money-flow"
-    ],
     "src/components/admin/MemberPayoutBreakdownModal.tsx": [
       "/api/admin/payouts/member-breakdown"
     ],
@@ -141,12 +139,12 @@
     "src/components/admin/WorkspaceAccessAdminPanel.tsx": [
       "/api/admin/workspace-access"
     ],
+    "src/components/admin/kiyo-money-flow/KiyoMoneyFlowPanel.tsx": [
+      "/api/admin/kiyo/money-flow"
+    ],
     "src/components/business-cards/BusinessCardsClient.tsx": [
       "/api/business-cards",
       "/api/business-cards/:p"
-    ],
-    "src/components/cockpit/bzm-2-2-pilot-client.ts": [
-      "/api/project/:p/bzm-2-2-pilot"
     ],
     "src/components/cockpit/Bzm22AcquisitionLedger.tsx": [
       "/api/project/:p/bzm-2-2-acquisitions"
@@ -161,12 +159,6 @@
     ],
     "src/components/cockpit/CapitalPlanWorkspace.tsx": [
       "/api/governance/capital-plans"
-    ],
-    "src/components/cockpit/CockpitBusinessPlan.tsx": [
-      "/api/governance"
-    ],
-    "src/components/cockpit/CockpitCompanyOverview.tsx": [
-      "/api/governance"
     ],
     "src/components/cockpit/CockpitGoalsCompact.tsx": [
       "/api/progress/ms-schedule"
@@ -215,6 +207,9 @@
     "src/components/cockpit/MeetingAssetsPanel.tsx": [
       "/api/meeting-assets",
       "/api/meeting-assets/insert-markdown"
+    ],
+    "src/components/cockpit/bzm-2-2-pilot-client.ts": [
+      "/api/project/:p/bzm-2-2-pilot"
     ],
     "src/components/contracts/ContractsClient.tsx": [
       "/api/admin/projects/:p",
@@ -313,6 +308,9 @@
     "src/components/workspace-documents/WorkspaceDocumentRoom.tsx": [
       "/api/workspace-documents/:p",
       "/api/workspace-documents/:p/pdf"
+    ],
+    "src/lib/governance-client.ts": [
+      "/api/governance"
     ]
   }
 }

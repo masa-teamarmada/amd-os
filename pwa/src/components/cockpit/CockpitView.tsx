@@ -27,6 +27,7 @@ import { CockpitProjectControl } from "./CockpitProjectControl";
 import type { SxWeeklyControlView } from "@/components/project-workspace/SxWeeklyControlDashboard";
 import { CockpitBusinessPlan } from "./CockpitBusinessPlan";
 import { CockpitCapitalPolicy } from "./CockpitCapitalPolicy";
+import { prefetchGovernance } from "@/lib/governance-client";
 import type { CockpitSeasonFinance as CockpitSeasonFinanceData, MilestoneChangeHistory } from "@/lib/supabase-data";
 import type { ProjectContractTerms } from "@/lib/project-contract-terms";
 import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
@@ -395,8 +396,9 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     { key: "overview", label: "PJ概要" },
     // 資本政策表は 2026-08-29 に会社概要から独立させた (まさ「会社概要タブのコンテンツが
     // 増えすぎて見にくいので」)。会社概要 = 登記・総会・決算、資本政策表 = 資本構成の記録。
-    { key: "capital-policy", label: "資本政策表" },
-    { key: "company", label: "会社概要" },
+    // 参照系。タブ見出しの hover で先読みして、押した瞬間に表が出ている状態にする。
+    { key: "capital-policy", label: "資本政策表", onHover: () => prefetchGovernance(project.projectId) },
+    { key: "company", label: "会社概要", onHover: () => prefetchGovernance(project.projectId) },
   ];
 
   // [B2] MS設定バナー / 直接編集 ロジックを案Cの col1 内で使うため関数化。

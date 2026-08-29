@@ -13,6 +13,7 @@ import {
   type CompanyOverviewData,
 } from "@/lib/company-overview";
 import { CapitalPolicyTable, CapitalRoundsTable } from "@/components/cockpit/CapitalPolicyTable";
+import { loadGovernance, peekGovernance, saveGovernanceEntity } from "@/lib/governance-client";
 import {
   EmptyState,
   Field,
@@ -51,7 +52,7 @@ const TRANSACTION_TYPES = ["incorporation", "opening_balance", "new_issue", "tra
   .map((value) => ({ value, label: TRANSACTION_LABELS[value] }));
 
 export function CockpitCapitalPolicy({ projectId }: { projectId: string }) {
-  const [data, setData] = useState<CompanyOverviewData>(EMPTY_DATA);
+  const [data, setData] = useState<CompanyOverviewData>(() => peekGovernance(projectId) ?? EMPTY_DATA);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -62,10 +63,7 @@ export function CockpitCapitalPolicy({ projectId }: { projectId: string }) {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`/api/governance?projectId=${encodeURIComponent(projectId)}`);
-      const json = await response.json();
-      if (!response.ok || !json.ok) throw new Error(json.error || "資本政策を読み込めなかったよ");
-      setData(json);
+      setData(await loadGovernance(projectId));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "資本政策を読み込めなかったよ");
     } finally {
@@ -79,9 +77,7 @@ export function CockpitCapitalPolicy({ projectId }: { projectId: string }) {
   const conversion = convertibleScenario(data);
 
   async function post(entity: string, row: Record<string, unknown>) {
-    const response = await fetch("/api/governance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entity, row }) });
-    const json = await response.json();
-    if (!response.ok || !json.ok) throw new Error(json.error || "保存できなかったよ");
+    await saveGovernanceEntity(projectId, entity, row);
   }
 
   async function save(label: string, action: () => Promise<void>) {

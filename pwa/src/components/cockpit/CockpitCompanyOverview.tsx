@@ -28,6 +28,7 @@ import {
 } from "@/lib/company-overview";
 import { downloadCompanyOverviewXlsx } from "@/lib/company-overview-xlsx";
 import { CockpitKillerFactorCatalog } from "@/components/cockpit/CockpitKillerFactorCatalog";
+import { loadGovernance, peekGovernance, saveGovernanceEntity } from "@/lib/governance-client";
 import {
   EmptyState,
   Field,
@@ -83,7 +84,7 @@ function sourceHref(attachment: { url?: string; webViewLink?: string; web_view_l
 }
 
 export function CockpitCompanyOverview({ projectId, projectName }: { projectId: string; projectName: string }) {
-  const [data, setData] = useState<CompanyOverviewData>(EMPTY_DATA);
+  const [data, setData] = useState<CompanyOverviewData>(() => peekGovernance(projectId) ?? EMPTY_DATA);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -97,10 +98,7 @@ export function CockpitCompanyOverview({ projectId, projectName }: { projectId: 
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`/api/governance?projectId=${encodeURIComponent(projectId)}`);
-      const json = await response.json();
-      if (!response.ok || !json.ok) throw new Error(json.error || "会社概要を読み込めなかったよ");
-      setData(json);
+      setData(await loadGovernance(projectId));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "会社概要を読み込めなかったよ");
     } finally {
@@ -126,9 +124,7 @@ export function CockpitCompanyOverview({ projectId, projectName }: { projectId: 
   const profileCompleteness = [data.profile?.legal_name, data.profile?.head_office, data.profile?.business_purpose, data.profile?.capital_yen, data.profile?.board_structure, data.profile?.fiscal_year_end_month].filter((value) => value != null && value !== "").length;
 
   async function post(entity: string, row: Record<string, unknown>) {
-    const response = await fetch("/api/governance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entity, row }) });
-    const json = await response.json();
-    if (!response.ok || !json.ok) throw new Error(json.error || "保存できなかったよ");
+    await saveGovernanceEntity(projectId, entity, row);
   }
 
   async function save(label: string, action: () => Promise<void>) {

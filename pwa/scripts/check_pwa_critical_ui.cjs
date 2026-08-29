@@ -3260,7 +3260,7 @@ expectNotIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
 // 縦積み100%グラフ / ラウンド一覧 / 株式イベント追加導線を保護する。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   'import { CockpitCapitalPolicy } from "./CockpitCapitalPolicy";',
-  '{ key: "capital-policy", label: "資本政策表" },',
+  '{ key: "capital-policy", label: "資本政策表"',
   "<CockpitCapitalPolicy",
 ]);
 expectIncludes("src/components/cockpit/CockpitCapitalPolicy.tsx", [
