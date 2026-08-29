@@ -1,6 +1,6 @@
-# L2M-1 Monthly Reports 仕様 (v3 — 2026-07-31 まさ確定)
+# L2M-1 Monthly Reports 仕様 (v3.1 — 2026-08-29 まさ確定: 毎月25日発火)
 
-> **この章は何か**: `monthly_reports` / `monthly_reports_external` の writer、内部保存版 + 対外提出版の 2 段生成、月末最終日発火の Claude Code Routine、`llm_prompts` DB 管理化、旧 Codex `amd-os-l2` と旧ローカル Scheduled Task の廃止を固定する章。運用者向けの説明は `/manual/3-2-data-and-extraction` と `/manual/8-3-l2-extraction-routines-spec` にも残す。
+> **この章は何か**: `monthly_reports` / `monthly_reports_external` の writer、内部保存版 + 対外提出版の 2 段生成、毎月25日発火の Claude Code Routine、`llm_prompts` DB 管理化、旧 Codex `amd-os-l2` と旧ローカル Scheduled Task の廃止を固定する章。運用者向けの説明は `/manual/3-2-data-and-extraction` と `/manual/8-3-l2-extraction-routines-spec` にも残す。
 
 > **2026-07-31 current**: M-1単独のローカルScheduled Taskは廃止し、Claude Code Routinesの `amd-os-l2-monthend-evidence` にM-1〜M-3を統合する。モデルはFable 5固定で、`claude` CLI、従量課金API、別モデル、subagent/workflowへフォールバックしない。M-1はリポジトリ内の `pwa/scheduled-tasks/shared/kaku-report/SKILL.md` を必読とする。
 
@@ -10,7 +10,7 @@
 |---|---|---|
 | primary writer | Codex automation `amd-os-l2` (name="AMD OS M-1 月次報告抽出") | Claude Code Routine `amd-os-l2-monthend-evidence` のM-1 phase |
 | 実行環境 | Codex Desktop MMOマシン (gpt-5.5 + reasoning_effort=high) | `claude.ai/code/routines`、Fable 5固定、サブスク定額枠 |
-| schedule | daily 05:30 JST (毎日) | **月末候補日 16:00 JST** (cron UTC `0 7 28-31 * *` + Phase 0 で JST 最終日判定) |
+| schedule | daily 05:30 JST (毎日) | **毎月25日 16:00 JST** (cron UTC `0 7 25 * *` + Phase 0 で JST 25日判定。2026-08-29 まさ確定、旧: 月末候補日 `0 7 28-31 * *` + 最終日判定) |
 | 出力 | 内部保存版のみ (`monthly_reports.final_content`) | **内部保存版 + 対外提出版**の 2 段生成 (`monthly_reports.final_content` + `monthly_reports_external.body_md` + PDF) |
 | 対象判定 | 全 active/sales PJ (対外提出義務の概念なし) | `projects.monthly_report_scope IN ('internal_only','internal_and_external')` の 3 状態 enum |
 | プロンプト | SKILL.md / prompt に直書き | `llm_prompts` table 正本 (`prompt_key='l2m1.monthly_report.internal.v2'` / `'l2m1.monthly_report.external.v2'`)、admin UI で編集可能 |
@@ -47,7 +47,7 @@
 |---|---|
 | primary writer | Claude Code Routine `amd-os-l2-monthend-evidence` のM-1 phase |
 | routine表示名 | `AMD OS L2 月末抽出 (M-1月次レポート/M-2 XRL/M-3経営シグナル)` |
-| schedule | cron UTC `0 7 28-31 * *` (= 16:00 JST) + Phase 0 で「今日 == 当月最終日 JST」判定、非最終日は即 exit |
+| schedule | cron UTC `0 7 25 * *` (= 毎月25日 16:00 JST) + Phase 0 で「今日 == 25日 JST」判定、25日以外は即 exit。報告対象は当月1〜25日の証跡 (2026-08-29 まさ確定) |
 | repo 正本 SKILL | `pwa/scheduled-tasks/amd-os-l2-monthend-evidence/SKILL.md` + `pwa/scheduled-tasks/amd-os-l2m1-monthly-report/SKILL.md` + `pwa/scheduled-tasks/shared/kaku-report/SKILL.md` |
 | model / effort | Fable 5固定。別モデル、CLI、従量課金API、subagent/workflowへのfallback禁止 |
 | input | Gmail / Drive / Calendar / Slack / Notion 5 生データ + L2 スナップショット + contracts + members + AMD Score + XRL + MS 進捗 + action_items + grants + media + documents |
@@ -173,7 +173,7 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 | `GET /api/monthly-report/history?projectId=&ym=` | `requireAdmin`。`monthly_report_edit_history` の軽量一覧 (本文全文を含まない) を新しい順で返す。社内版・提出版を分けず両方まとめて返し、UIがタブで分ける |
 | `GET /api/monthly-report/history?projectId=&ym=&id=` | `requireAdmin`。指定した1行の `content_before` / `content_after` 全文を返す (詳細を開いた時だけ叩く) |
 
-画面上の編集・保存・確定は LLM を呼ばない。旧 `/api/report/generate` と `/api/monthly-report/edit-by-tsukuyomi` は従量課金事故を防ぐため 410 で停止する。自動生成は月末最終日の `amd-os-l2-monthend-evidence` Code RoutineのM-1 phaseに一本化する。
+画面上の編集・保存・確定は LLM を呼ばない。旧 `/api/report/generate` と `/api/monthly-report/edit-by-tsukuyomi` は従量課金事故を防ぐため 410 で停止する。自動生成は毎月25日の `amd-os-l2-monthend-evidence` Code RoutineのM-1 phaseに一本化する。
 
 ### 編集履歴 (v0.34.0 追加、社内版・提出版共通の校正台帳)
 
@@ -228,7 +228,7 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 
 ### 生成経路
 
-1. **Claude Code Routineが月末候補日16:00 JSTにFable 5で発火** (cron UTC `0 7 28-31 * *`、Phase 0でJST最終日判定)
+1. **Claude Code Routineが毎月25日16:00 JSTにFable 5で発火** (cron UTC `0 7 25 * *`、Phase 0でJST 25日判定)
 2. **Phase 2.3**: `monthly_reports.final_content` (内部保存版 markdown) を生成
 3. **Phase 2.4**: `scope='internal_and_external'` の PJ のみ、内部版 markdown、当月 source bundle、**同じPJの直前月実提出版**を入力に対外版 markdown を生成する。直前月版から構造だけを継承し、前月事実は当月へ転記しない。直前月版がない初回月は自動生成せず、人がseedを承認する
 4. **Phase 2.5**: 禁止語チェック (`scripts/strip_internal_jargon.py`)。hard_fail → PDF 生成停止、まさ DM 通知

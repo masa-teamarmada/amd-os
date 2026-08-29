@@ -31,7 +31,7 @@ Claude定額token/routineへ載せるL2について、`~/.claude/scheduled-tasks
 | runtime | 対象 (新ナンバリング) | cadence | completion evidence |
 |---|---|---|---|
 | Claude routine `amd-os-l2-consolidated-evidence` | **D-1〜D-11 / D-13** = daily LLM L2 | daily 08:00 JST (`0 8 * * *`)、平常日 run +1 | Claude Routines UI `ACTIVE / next run / last run`、初回 one-off dry run |
-| Claude routine `amd-os-l2-monthend-evidence` | **M-1〜M-3** = month-end L2 | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、最終日判定、17:00 完了 | UI 登録証跡 + run evidence |
+| Claude routine `amd-os-l2-monthend-evidence` | **M-1〜M-3** = monthly L2 | 毎月25日 16:00 JST 発火 (cron UTC `0 7 25 * *`)、25日判定、17:00 完了 | UI 登録証跡 + run evidence |
 | Claude routine `amd-os-l2-weekly-vc-funding-signals` | **W-1** = VC News / Funding Signals | weekly Saturday 09:00 JST (`0 9 * * 6`) | UI 登録証跡 + `vc_news` / review outbox evidence |
 | MMOマシン Codex実行系 | **H-1** = Meeting Flow | 毎時 09:00-21:00 JST | 2026-06-08時点の実稼働は Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher。manual Live run 成功と次回run時刻を証跡にする。Claude routine 化しない |
 | PWA non-LLM cron | **D-12** = Finance Ops Evidence / freee Transaction Actuals、D-9 の `macro_index_log` 集計など | D-12: `/api/cron/management-score-raw-data?includeFreee=1` daily / D-9 index: `/api/cron/macro-aggregate-indicators` monthly | code 上 LLM 非依存であること |

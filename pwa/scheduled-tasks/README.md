@@ -19,7 +19,7 @@
 |---|---|---|---|---|
 | D-1〜D-11 / D-13 | Claude routine | `amd-os-l2-consolidated-evidence` | daily 08:00 JST | daily LLM L2。個別 SKILL を Phase 詳細として参照 |
 | D-12 | PWA non-LLM cron + admin review | `/api/cron/management-score-raw-data?includeFreee=1` | daily | Finance Ops Evidence / freee Transaction Actuals |
-| M-1〜M-3 | Claude routine | `amd-os-l2-monthend-evidence` | 月末候補日 16:00 JST | M-1 Monthly Reports → M-2 XRL → M-3 Management Signal |
+| M-1〜M-3 | Claude routine | `amd-os-l2-monthend-evidence` | 毎月25日 16:00 JST | M-1 Monthly Reports → M-2 XRL → M-3 Management Signal |
 | W-1 | Claude routine | `amd-os-l2-weekly-vc-funding-signals` | weekly Saturday 09:00 JST | VC News / Funding Signals |
 | H-1 | Mac LaunchAgentの非可視Codex runner | `run-h1-background.sh` / SKILL `amd-os-l6-meeting-extract` | 平日09:00-21:59 JSTの毎時15分。DB候補gate後、Calendarを一度だけ確認。独立Notion空欄scanは毎run、本文抽出・横断探索は会議候補ありだけ | `project_meeting_summaries` / 予定MTGカード / Notion議事録メタデータ / Drive関連資料 |
 | W-Prep | Codex automation | `w-prep-launch` | weekly Wednesday 15:00 JST | 実行日から数えて7日後の23:59:59.999 JSTまでの確定 upcoming MTG を Calendar + DB で照合し、必要な visible prep thread をPJ workspaceに作成・改題・pin・DB保存する。厳密な `now()+7 days` で切らず、DBだけを見て完了扱いにしない。Calendar直読みでは `CFG_ColorPJHistory` を先に見て、`2025-06-01` 以降の `colorId=4` と `SolvioraX` alias は SX/p21 として扱う。重複防止は `calendar_event_id` exact identity と `upcoming:<calendar_event_id>` canonical を優先する |

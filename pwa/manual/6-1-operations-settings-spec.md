@@ -48,7 +48,7 @@ L2 Data は、Raw Data を OS が使える知識に変換したもの。
 この一覧は `operations-catalog.ts` の `l2Datasets` が正本。
 
 2026-07-27 時点の注意:
-- M-1 `monthly_reports` は OS の必須データなので生成対象。primary writer は Claude Code Scheduled Task `amd-os-l2m1-monthly-report` (= 月末最終日 03:00 JST) で、`amd-os-ms/outbox.monthlyReports` を非LLM helper が反映する。旧 Codex automation `AMD OS M-1 月次報告抽出` は PAUSED / 復活禁止。月次モーダルの `社内版` は非LLMの直接編集・保存・確定だけを扱い、`/api/report/generate` / `/api/monthly-report/edit-by-tsukuyomi` は 410 で停止する。R313 は未生成/差分あり時に Claude API を呼びうるため、`run_monthlyReportCron` / `run_L2CronDaily` trigger を置かない。
+- M-1 `monthly_reports` は OS の必須データなので生成対象。primary writer は Claude Code Routine `amd-os-l2-monthend-evidence` の M-1 phase (= 毎月25日 16:00 JST、Fable 5固定) で、validated outbox を非LLM helper が反映する。旧 Codex automation `AMD OS M-1 月次報告抽出` は PAUSED / 復活禁止。月次モーダルの `社内版` は非LLMの直接編集・保存・確定だけを扱い、`/api/report/generate` / `/api/monthly-report/edit-by-tsukuyomi` は 410 で停止する。R313 は未生成/差分あり時に Claude API を呼びうるため、`run_monthlyReportCron` / `run_L2CronDaily` trigger を置かない。
 - D-2 `milestone_monthly_progress` は **MMOマシン automation `amd-os-l3-ms-progress-extract`** が primary writer。GAS 154 -> PWA `/api/cron/hourly-estimate` は 2026-05-29 に再停止済み。Codex automation `amd-os-ms` は修正候補レビュー / OS 台帳差分 / XRL 根拠を outbox に出す。
 - D-1D-3D-4H-1 は旧 GAS LLM cron から subscription automation へ移管済み。D-1D-3D-4は **MMOマシン Codex Desktop automation** (`amd-os-l2-protocol-extract` / `amd-os-l4-project-knowledge-extract` / `amd-os-l5-member-knowledge-extract`)、H-1は **Windows MMO Codex Desktop automation `amd-os-l6-meeting-flow`**。D-7 Textbook Insights は approved 後に local BZM applier が `pwa/bzm/*.md` へ追記する。復旧時は [3-2 章](3-2-data-and-extraction.md) と [8-3 章](8-3-l2-extraction-routines-spec.md) の M/W/D/H L2 抽出ルート表を見る。
 

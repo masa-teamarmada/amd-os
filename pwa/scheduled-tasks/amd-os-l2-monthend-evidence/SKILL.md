@@ -1,15 +1,15 @@
 ---
 name: amd-os-l2-monthend-evidence
-description: Claude Code Routines の Fable 5 で動かす AMD OS 月末処理。JST 月末最終日のみ、M-1 月次報告書、M-2 XRL 根拠、M-3 経営月次シグナルを依存順に生成する。従量課金 API、claude CLI、別モデルへのフォールバック、ローカル Scheduled Tasks は使わない。
+description: Claude Code Routines の Fable 5 で動かす AMD OS 月次処理。JST 毎月25日のみ、M-1 月次報告書、M-2 XRL 根拠、M-3 経営月次シグナルを依存順に生成する。従量課金 API、claude CLI、別モデルへのフォールバック、ローカル Scheduled Tasks は使わない。
 ---
 
-# AMD OS Month-end L2 Evidence routine（M-1〜M-3）
+# AMD OS Monthly L2 Evidence routine（M-1〜M-3）
 
 ## 正本と実行経路
 
-- 登録先は `claude.ai/code/routines` の `AMD OS L2 月末抽出 (M-1月次レポート/M-2 XRL/M-3経営シグナル)`。
+- 登録先は `claude.ai/code/routines` の `AMD OS L2 月次抽出・毎月25日 (M-1月次レポート/M-2 XRL/M-3経営シグナル)`。
 - 実行モデルは **Fable 5 固定**。この Code Routine の定額枠だけで文章を生成する。
-- cron は `0 7 28-31 * *`（UTC。16:00 JST）。Phase 0 で JST 月末最終日を判定する。
+- cron は `0 7 25 * *`（UTC。毎月25日 16:00 JST）。Phase 0 で JST の日付が25日であることを判定する（2026-08-29 まさ確定。旧: 月末最終日発火）。
 - 旧 `/Users/masa/.claude/scheduled-tasks/amd-os-l2m1-monthly-report` は廃止済み。ローカル Scheduled Tasks に戻さない。
 - M-1〜M-3をこの1本に束ねる。M-1単独の別 routine を登録しない。
 
@@ -36,10 +36,10 @@ description: Claude Code Routines の Fable 5 で動かす AMD OS 月末処理�
 
 列名、status、保存経路は実装と current spec を正本にする。想像で補わない。
 
-## Phase 0: 月末・環境・書き込み経路の確認
+## Phase 0: 実行日・環境・書き込み経路の確認
 
-1. JST の今日が当月最終日か確認する。最終日でなければ、M-1〜M-3を一切実行せず短いスキップ要約だけで終了する。
-2. 対象月を当月 `YYYYMM` とする。提出版の `ym` は `YYYY-MM` に変換する。
+1. JST の今日が25日か確認する。25日でなければ、M-1〜M-3を一切実行せず短いスキップ要約だけで終了する。
+2. 対象月を当月 `YYYYMM` とする。提出版の `ym` は `YYYY-MM` に変換する。報告対象は当月1日から25日までに確認できた証跡で、26日以降の出来事を先回りして書かない。
 3. コネクターと環境変数を確認する。欠落を「データなし」と扱わない。
 4. DB write は承認済み非LLM helperと一時 outboxだけを使う。Supabase connector、SQL、RESTの直接 writeは禁止する。
 5. 一時 outbox は `mktemp -d` で作る。`/Users/masa/...` のローカル固定パスを前提にしない。

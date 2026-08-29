@@ -122,7 +122,7 @@ GAS `rv2_calcRewardSummary` が報酬計算時に `share` を掛けて per-membe
 
 ## 月次報告書 (= M-1、 `monthly_reports`)
 
-`monthly_reports` の primary writer は Claude Code Scheduled Task `amd-os-l2m1-monthly-report`。月末最終日に、5 生データと OS 内 L2 を材料として LLM がナラティブ本文を生成し、`amd-os-ms/outbox.monthlyReports` 経由で非 LLM applier が Supabase に反映する。旧 Codex automation `AMD OS M-1 月次報告抽出` (`amd-os-l2`) は **PAUSED** で、定期 writer として復活させない。
+`monthly_reports` の primary writer は Claude Code Routine `amd-os-l2-monthend-evidence` の M-1 phase。毎月25日に、5 生データと OS 内 L2 を材料として LLM がナラティブ本文を生成し、validated outbox 経由で非 LLM helper が Supabase に反映する。旧 Codex automation `AMD OS M-1 月次報告抽出` (`amd-os-l2`) は **PAUSED** で、定期 writer として復活させない。
 
 対外提出版は、外部関係者の個人別活動報告にしない。共同研究者・大学教員・協力先のフルネームを本文・表・打合せ名に置かず、PJの進展、研究チーム・関係機関との協議、共同で確認する条件として記述する。氏名が様式上必要な場合も本人・提出先と合意した表記または姓＋敬称・役職に留める。個人名＋敬称・役職、候補者ラベル、外部関係者を「巻き込む」「動かす」表現は、Fableの自己検査と保存前validatorの両方で拒否する。
 
@@ -289,7 +289,7 @@ PM routine step 行や `?step=` query からこのモーダルを開いてはい
 
 | operation | 役割 | cadence |
 |---|---|---|
-| `amd-os-l2m1-monthly-report` | M-1 Claude Code Scheduled Task (= primary、内部版→提出版→PDF) | 月末最終日 03:00 JST |
+| `amd-os-l2-monthend-evidence` M-1 phase | M-1 Claude Code Routine (= primary、内部版→提出版→PDF) | 毎月25日 16:00 JST |
 | `AMD OS M-1 月次報告抽出` (`amd-os-l2`) | 旧 Codex automation | **PAUSED / 復活禁止** |
 | `/api/cron/ms-schedule-progress` | D-2 デフォルト按分 writer (= Vercel cron、非LLM) | daily 02:30 JST |
 | `claude-l3-ms-progress-extract` | D-2 ズレ検知 → revision 提案 (= MMOマシン automation) | 毎時 0 分 |

@@ -6,7 +6,7 @@
 >
 > **2026-06-16 注記**: Claude routines 停止前提での Codex 移植 inventory / approval bundle / first execution unit は [/spec/5-8-l1-l3-codex-migration-current-spec](/spec/5-8-l1-l3-codex-migration-current-spec) を優先する。この章の `Claude routine target` 記述は、移植前の target writer と既存 contract を残している。
 
-> **2026-07-31 M系 current**: `AMD OS L2 月末抽出 (M-1月次レポート/M-2 XRL/M-3経営シグナル)` はClaude Code RoutinesでFable 5固定。M-1はkaku-report必須、旧ローカルScheduled Task・CLI・従量課金API・別モデル・subagent/workflowへのfallbackは禁止。cronはUTC `0 7 28-31 * *` (= 16:00 JST) で、JST月末最終日だけ本処理を行う。
+> **2026-08-29 M系 current**: `AMD OS L2 月次抽出・毎月25日 (M-1月次レポート/M-2 XRL/M-3経営シグナル)` はClaude Code RoutinesでFable 5固定。M-1はkaku-report必須、旧ローカルScheduled Task・CLI・従量課金API・別モデル・subagent/workflowへのfallbackは禁止。cronはUTC `0 7 25 * *` (= 毎月25日 16:00 JST) で、JSTの25日だけ本処理を行う (2026-08-29 まさ確定、旧: 月末最終日)。
 
 **2026-06-04 事故訂正**: 2026-05-25〜26 の Claude routine / Cloud routine 「登録完了」系の記述は、Claude Routines UI上の `ACTIVE / next run / last run` 証跡が無い限り current truth として扱わない。`~/.claude/scheduled-tasks/.../SKILL.md` はローカル手順・素材であり、Claude routine登録済みの証拠ではない。
 
@@ -15,7 +15,7 @@
 > **2026-08-18 現行**: H-1とH-1 reviewerは、Codex Desktopの可視taskを作る定期automationを停止した。MacのLaunchAgentが `codex exec --ephemeral` を起動し、H-1は平日09:00-21:59 JSTの毎時15分、reviewerは同45分に動く。候補gateは先に固定スクリプトでDBを確認し、Calendarは接続済みconnectorを1回だけ読む。Calendar/DB候補なしでもNotion議事録の全履歴からeventId/PJ/メンバー/日付空欄を本文なしで最大25件scanし、pagination cursorで後半の古いpageまで巡回する。空欄だけを補完して4項目をreadbackし、失敗時はcursorを進めない。本文抽出・横断探索は会議候補がある時だけ。人の判断が必要な時、処理が止まった時だけOS通知を作る。会議記録・予定・ノーションひも付けを更新しただけ（まさの判断や操作が不要）、既存カード確認だけ・対象なし・変更なしは通知しない。可視prep threadはW-Prep専任であり、H-1/reviewerは作らない。古い「MMO / Codex Desktop automation / archive watchdog」の記述は履歴で、この段落が優先する。
 
 - **Claude routine `amd-os-l2-consolidated-evidence`** = 表示名「**AMD OS L2 日次抽出 (D-1〜D-11+D-13 統合)**」(daily 08:00 JST、`0 8 * * *`): D-1〜D-11 + D-13。MS Progress、Member Activity Evidence、Media Mentions も daily 化してここに同居。
-- **Claude Code Routine `amd-os-l2-monthend-evidence`** = 表示名「**AMD OS L2 月末抽出 (M-1月次レポート/M-2 XRL/M-3経営シグナル)**」(Fable 5固定、月末候補日16:00 JST発火、cron UTC `0 7 28-31 * *`、Phase 0で最終日判定、17:00完了): M-1〜M-3を依存順に1本で実行する。M-3 (Management Signal) を18:00月次振り返りMTG前に出揃わせる。
+- **Claude Code Routine `amd-os-l2-monthend-evidence`** = 表示名「**AMD OS L2 月次抽出・毎月25日 (M-1月次レポート/M-2 XRL/M-3経営シグナル)**」(Fable 5固定、毎月25日16:00 JST発火、cron UTC `0 7 25 * *`、Phase 0で25日判定、17:00完了): M-1〜M-3を依存順に1本で実行する。M-3 (Management Signal) を月次振り返りMTG前に出揃わせる。
 - **Claude routine `amd-os-l2-weekly-vc-funding-signals`** = 表示名「**AMD OS L2 週次抽出 (W-1 VCニュース/資金調達)**」(weekly Saturday 09:00 JST、`0 9 * * 6`): W-1 = 旧 W-1 VC News / Funding Signals。weekly cadence なので D/M へ混ぜない。
 - **2026-06-12**: 上記 3 routine の claude.ai 表示名と起動 prompt を日本語化 (まさ指示「writer の名前は何をするやつか分かる日本語に。指示が英語なのもダメ」)。slug (= SKILL.md パス・識別子) は変更なし。起動 prompt は「最後に必ず日本語で報告」を明記。
 - **MMOマシン Codex Desktop automation 維持**: H-1 = 旧 H-1 MTGフロー (毎時 9-21 時)。Claude routine 化しない。
@@ -47,7 +47,7 @@
 | D-11 Media Mentions | `project_media_mentions` / `news_mention` notifications | メディア掲載・公開露出 | 旧通知ラベル / 手動候補 | Claude routine `amd-os-l2-consolidated-evidence` 登録対象 |
 | D-13 Contract Signals | `contract_signals` / `contract_terms` / `contracts` / `contract_documents` | 5生データからの契約締結予兆、契約条件候補、契約予定枠、契約書metadata | `/api/contracts/extract-l2` / 契約管理MVP | Claude routine `amd-os-l2-consolidated-evidence` Phase K-B 登録対象。新routineは作らない |
 | W-1 VC News / Funding Signals | `vc_news` / `vcs` / `vc_funds` / `vc_investments` / `project_vc_relations` | VCニュース、ファンド組成、投資活動、調達関連public signal | PWA `/api/cron/vc-discover` (停止中) / Codex automation候補 | Claude routine `amd-os-l2-weekly-vc-funding-signals` 登録対象。UI証跡までは暫定 Codex automationが差分 |
-| M-3 Management Monthly Signal Evaluation | `company_management_signal_reviews` | Management予実表から月末評価を作る | 専用Codexチャット/heartbeat案 | Claude routine別枠、月末最終日17:00 JST候補。UI証跡必須 |
+| M-3 Management Monthly Signal Evaluation | `company_management_signal_reviews` | Management予実表から月次評価を作る | 専用Codexチャット/heartbeat案 | Claude routine別枠、毎月25日17:00 JST。UI証跡必須 |
 | D-12 freee Transaction Actuals | freee `trial_pl` / `company_actual_monthly` / `amd_management_score_raw_signals` | freee取引履歴を月次試算表の実績値へ入れる | PWA cron `/api/cron/management-score-raw-data?includeFreee=1` | PWA non-LLM daily cron。Claude routine / Codex automation に混ぜない |
 
 M-1 monthly reports はこの章の対象。R313 と旧Codex automationは廃止済みで、定期 writer は Claude Code Routine `amd-os-l2-monthend-evidence` の Phase A (Fable 5固定) だけである。正本 SKILL は [`pwa/scheduled-tasks/amd-os-l2m1-monthly-report/SKILL.md`](../scheduled-tasks/amd-os-l2m1-monthly-report/SKILL.md)。提出版は、同じPJの直前月実提出版を構造正本として `validate-monthly-report-external` の `formatMatch=true` を必須にする。前月版がなければ `format_seed_required`、構造差があれば `format_change_required` として止め、KUTE等の他PJ書式で補完しない。
@@ -85,7 +85,7 @@ vs ローカル Mac scheduled task の問題:
 | 新 | target Claude routine | cadence | 対象 (旧番号) |
 |---|---|---|---|
 | D-1〜D-11 / D-13 | `amd-os-l2-consolidated-evidence` | daily 08:00 JST (`0 8 * * *`) | AMD Protocol / MS Progress / Project Knowledge / Member Knowledge / Registry Diff / Strategy Signals / Textbook Insights / Atlas Signals / Macrotrend / Member Activity Evidence / Media Mentions / Contract Signals |
-| M-1〜M-3 | `amd-os-l2-monthend-evidence` | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、最終日判定、17:00 完了 | M-1M-2M-3 |
+| M-1〜M-3 | `amd-os-l2-monthend-evidence` | 毎月25日 16:00 JST 発火 (cron UTC `0 7 25 * *`)、25日判定、17:00 完了 | M-1M-2M-3 |
 | W-1 | `amd-os-l2-weekly-vc-funding-signals` | weekly Saturday 09:00 JST (`0 9 * * 6`) | W-1 |
 | H-1 | Mac LaunchAgentの非可視Codex runner `amd-os-l6-meeting-flow` | 平日09:00-21:59 JST、毎時15分。Calendar/DB候補とは独立してNotion議事録メタデータ空欄を最大25件scanする。候補ゼロは正常no-op。開催済み候補がある時だけraw確認を行い、対象を間引かない。H-1はsanitized reportを毎回残し、人の判断、処理停止がある時だけOS通知を作る（記録・予定・ひも付けの更新だけでは通知しない）。reviewerは未集約reportがある時だけ日次まとめを扱う | H-1 |
 
@@ -163,7 +163,7 @@ node --experimental-strip-types scripts/check_five_source_population_contract.mt
 | D-12 | freee Transaction Actuals | PWA non-LLM cron `/api/cron/management-score-raw-data?includeFreee=1` | freee取引履歴 → `company_actual_monthly` / raw signals | daily | freee同期、月次試算表実績値 |
 | D-13 | D-13 Contract Signals | Codex automation `amd-os-d-13` + PWA route | `POST /api/contracts/extract-l2` | daily 03:35 JST | `contract_signals`、`contracts`、`contract_documents`、`l2_notifications(l2_kind='contract_signals')` |
 | W-1 | W-1 VC News / Funding Signals | Claude routine target / 暫定 Codex automation | `amd-os-l2-weekly-vc-funding-signals` / 暫定 `amd-os-l2-vc-news-funding-signals` | weekly Saturday 09:00 JST | `vc_news`、`vcs`、`vc_funds`、`vc_investments`、review outbox |
-| M-3 | M-3 Management Signal | (Claude routine target、新規) | M routine Phase C inline | 月末最終日 | `company_management_signal_reviews`、`/management-score` |
+| M-3 | M-3 Management Signal | (Claude routine target、新規) | M routine Phase C inline | 毎月25日 | `company_management_signal_reviews`、`/management-score` |
 | control | L2採否判断レビュー | 既存 Codex automation + non-LLM applier | `amd-os-proactive-heartbeat` | 10:15–20:15 JST の毎時15分 | 未審査 `l2_notifications` → 操作契約が揃ったapproved採否カード。candidate statusと正本は変更しない |
 
 ## 各 L2 の入出力仕様
