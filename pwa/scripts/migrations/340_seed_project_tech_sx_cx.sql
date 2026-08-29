@@ -1,4 +1,9 @@
 -- 340_seed_project_tech_sx_cx.sql
+--
+-- ⛔ 再実行しないこと。この版は project_knowledge の断片だけを見て作ったもので、
+--    培養条件を「未測定」、処理単価を2,500〜3,000円/m³ と誤って入れている。
+--    実測値は source_cache (文字起こし・Drive試算表) にあり、
+--    341 (SX) と 342 (CX) が全行を置き換え済み。履歴としてのみ残す。
 -- 技術タブ (migration 339) の初期データ。まず SX (p21) と CX (p20) から (まさ 2026-08-29)。
 --
 -- 値の出所は project_knowledge と project_meeting_summaries に既にある事実だけ。
