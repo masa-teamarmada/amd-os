@@ -16,6 +16,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # AMD OS PWA
 
+> 共通ルール（人格・権限境界・Git運用・破壊的操作など）は `/Users/masa/projects/AGENTS.common.md` が唯一の正本。
+> `~/.claude/CLAUDE.md` 経由でどの cwd でも自動で読まれるので、ここには書かない。
+
 PWA のルール・デプロイ手順・設計正本の読み順は、すべてモノレポルートの
 [`../AGENTS.md`](../AGENTS.md) にある。このファイルには何も足さない。
 

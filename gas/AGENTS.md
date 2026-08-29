@@ -2,6 +2,9 @@
 
 Google Apps Script。freee連携、Slack通知、外部サービス→Supabase 供給ハブ。
 
+> 共通ルール（人格・権限境界・Git運用・破壊的操作など）は `/Users/masa/projects/AGENTS.common.md` が唯一の正本。
+> `~/.claude/CLAUDE.md` 経由でどの cwd でも自動で読まれるので、ここには書かない。
+>
 > モノレポ全体の方針は `../AGENTS.md`。GAS 固有の実装規約・データ契約・運用手順はこのファイルに全部ある。
 
 - デプロイ: `clasp push`
