@@ -9,7 +9,7 @@ title: "The Before Zero Model: additionality-based valuation of university deep-
 
 **Masa Yamaji** — Team ARMADA Inc., Japan. *Author line provisional; declarations at end.*
 
-*Draft v3.2 (full working draft). Target: Journal of Technology Transfer. Word count (main text): ~9,900. The model version and its inputs are frozen (main commit 91385d77; approvals #2026-08-29-1 and #2026-08-29-2 plus the input-placement corrections of 29 Aug 2026 — recorded in SM-G). Five figures are computed at the frozen version; the coefficient elasticities of §7.6 are carried over from the preceding implementation and are labelled as such. No placeholders remain.*
+*Draft v3.3 (full working draft). Target: Journal of Technology Transfer. Word count (main text): ~9,900. The model version and its inputs are frozen (main commit 91385d77; approvals #2026-08-29-1 and #2026-08-29-2 plus the input-placement corrections of 29 Aug 2026 — recorded in SM-G). Five figures are computed at the frozen version; the coefficient elasticities of §7.6 are carried over from the preceding implementation and are labelled as such. No placeholders remain.*
 
 # Abstract {-}
 
@@ -241,7 +241,7 @@ The design holds where measurement pressure has historically broken evaluation s
 
 ## 6.5 Evaluator incentives
 
-In this deployment the builder is simultaneously operator, evaluator, and investor. The countermeasures are declared as design, not achieved fact: priors registered before scoring; estimation separated from the investment decision; and a prospective registry (§8.4) whose falsification conditions are stated before outcomes arrive. The conflict itself is disclosed in the declarations.
+In this deployment the same organization builds ventures, evaluates them, and — in the person of one individual — designs the instrument and furnishes the judgments it consumes. It does not invest in them; the exposure is to measurement independence, not to financial interest. The countermeasures are declared as design, not achieved fact: priors registered before scoring; the person estimating a project's parameters separated from the person approving its evaluation version; independent re-coding of elicited inputs by a second evaluator; and a prospective registry (§8.4) whose falsification conditions are stated before outcomes arrive. Only the first and last are in place at the frozen version. The dependence itself is disclosed in the declarations and in §7.2.
 
 ## 6.6 Calibration with identification constraints
 
@@ -259,7 +259,7 @@ The model was applied to the twenty-one projects on one venture builder's 2026 s
 
 ## 7.2 Dual scoring: what the database knows vs. what people know
 
-The central empirical exercise is deliberately simple. Each project is scored twice under the same model version: once with inputs drawn *only from the operational database* (grants, contracts, patents, meeting records, project knowledge tables), and once after *structured elicitation* — interviews with the principals that fill the same input schema. The quantity of interest is the ratio of the two scores and the reshuffling of ranks. Two design points make the comparison informative rather than tautological. First, both scorings run at the same frozen model version, so any difference is attributable to information alone — not to the aggregation formula, whose coefficients are identical in both passes. Second, the records-only pass is not a strawman: it uses everything the operating database holds — grant awards, contracts, patents re-verified at the national registry, stage assessments, project knowledge — and falls back to sector defaults only where the database is silent. It is, in other words, the score a well-run venture builder would produce from its own systems without picking up the telephone. Eleven of the twenty-one projects had at least one input that could only have come from asking; the other ten were scored identically under both passes by construction. Figure 3 reports the result.
+The central empirical exercise is deliberately simple. Each project is scored twice under the same model version: once with inputs drawn *only from the operational database* (grants, contracts, patents, meeting records, project knowledge tables), and once after *structured elicitation* — the same input schema completed from what the venture builder's own lead knows about each project from working with it. The informant is one person, and the same person designed the model and wrote this paper; the exercise therefore measures what an experienced evaluator's knowledge adds to an operating record, not what a project's own principals would report. Independent re-coding by a second evaluator is registered as a requirement of the next version (§8.4). The quantity of interest is the ratio of the two scores and the reshuffling of ranks. Two design points make the comparison informative rather than tautological. First, both scorings run at the same frozen model version, so any difference is attributable to information alone — not to the aggregation formula, whose coefficients are identical in both passes. Second, the records-only pass is not a strawman: it uses everything the operating database holds — grant awards, contracts, patents re-verified at the national registry, stage assessments, project knowledge — and falls back to sector defaults only where the database is silent. It is, in other words, the score a well-run venture builder would produce from its own systems without picking up the telephone. Eleven of the twenty-one projects had at least one input that could only have come from asking; the other ten were scored identically under both passes by construction. Figure 3 reports the result.
 
 ## 7.3 What the record does not hold
 
@@ -343,7 +343,9 @@ The application taught one lesson worth more than the score itself: rankings wer
 
 # Declarations {-}
 
-**Declaration of competing interest.** The author operates the venture builder whose screening ledger supplies the application in §7 and holds economic interests in vehicles that may invest in the projects scored. This dual role is intrinsic to the design science setting and is mitigated by the design measures of §6.5 (pre-registered priors, separation of estimation from investment decisions, prospective registry); it cannot be eliminated and is disclosed here rather than minimized.
+**Declaration of competing interest.** The author leads the venture builder whose screening ledger is the object of §7. The author holds no equity in, has made no investment in, and exercises no control over any of the projects scored; several are past engagements in which the author no longer has operational access, and in at least one the author's involvement was limited to administering a public grant. There is accordingly no financial interest that the scores could serve.
+
+What the setting does create is a limitation of measurement independence rather than of interest, and because it bears directly on §7 we state it there as well as here: the same person designed the model, selected the inputs, supplied the elicited facts, and wrote this paper. That limitation would be identical if the projects were unfamiliar ones the author had never worked with, since it concerns who furnishes and judges the information, not what the author stands to gain from it.
 
 **Funding.** This research received no external funding.
 
