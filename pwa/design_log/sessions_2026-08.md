@@ -1802,3 +1802,100 @@ KUTE 202703 に支払対象外メンバー分 85,041円、CX に丸め誤差 4�
     「ちょうど40,000円」のような依頼は満たせない。下回らない側を選ぶか、依頼者に幅を伝える。
 40. **「本人の要望に応えた」ことは、いまのOSでは本人に届かない。** BUGS.md 参照。
 41. **待ちループをバックグラウンドに投げたまま応答を返すと、そこで作業が止まる。** BUGS.md 参照。
+
+## 2026-08-28〜29 PJコックピットの情報配置を組み替える — PJ概要タブ新設、ワークスペースの管制4タブ取り込みで12タブ
+
+### 経緯
+
+まさから「PJ概要タブを作って、コックピット最上段の『契約上の実行条件』をそこへ。その下の『現行SPS』はスコア詳細のトップへ」。
+そこから連鎖で、コックピット上段に積まれていたものを全部どこかへ寄せる作業になった。指示は5回に分かれて出ていて、
+そのたびにこちらの読み違いを訂正されている（下の「差し戻された点」）。
+
+### 実装
+
+**タブ構成 (12タブ)**
+
+進捗管理 / 週次差分 / ガント / 関係先 / 論点・仮説 / スコア詳細 / 事業計画 / コスト試算 / 知財 / 資料室 / PJ概要 / 会社概要
+（KUTE は規程・内規が入って13）。左から「動かす → 測る → 調べる」。
+
+- **PJ概要タブ** (`?tab=overview`): `CockpitProjectOverview` 新規。契約上の実行条件（`CockpitHeader` から移設）と、
+  PJの見出し・レーン・担当・事業概要（`CockpitVentureStatus` の `sections="identity"`）。p00 は Management Score Hero。
+- **管制4タブ**: PJワークスペースの週次差分/ガント/関係先/論点・仮説を取り込んだ。
+  同じ `SxWeeklyControlDashboard` を `embedded` + `view` で共有し、二重実装を作らない。
+  束は `/api/project/[projectId]/workspace-bundle` (可変系・キャッシュしない)。4タブで1マウントを共有するので行き来では読み直さない。
+  **認可**: この route は `getCurrentMemberAccess()` だけで認可する AMD メンバー専用面。外部アカウントの認可解決を持ち込まない
+  （guard に禁止アンカー）。外向けの `/project/[projectId]/workspace` は `(shared-workspace)` 配下の別ルートのまま残し、
+  認可の境界をルートで持つ設計を変えていない。
+- **タブより上に残るもの**: `CockpitHeader`（PJ名・相手先・状態・分類・PJメンバー・共有ワークスペース導線）だけ。
+  開いた直後に進捗管理の中身が最初に目に入る。
+- **スコア詳細タブ**: 上から 現行SPSカード → XRL進捗 → BZM 3.0 パネル。
+  BZM 2.2 の J/P/Q/S は表示そのものをやめた（8-27 に「古いモデルの試算結果は全部消して」でスコア詳細から外したのと同じ表示が、
+  上段にだけ残っていた）。コンポーネントと `?view=summary` の単体画面は残っている。
+- **左メニュー**: PJ名クリックでコックピットへ直行。「コックピット / ワークスペース」の選択サブメニューは廃止
+  （管制4タブを取り込んだのでAMDメンバーがワークスペースへ行く理由が消えた）。幅は 256px → 192px
+  （最長ラベル AMD Protocol / Management が truncate されない実測の下限。176px 以下で欠け始める）。
+
+**関係先リスト**
+
+- 一覧幅1248px未満で1社ずつ縦積みへ落ちる条件を撤廃し、常に9列1行。収まらない分は枠の中で横スクロール
+  （まさ「別に横スクロールを許容してるんだから何も問題ないのでは？」/ 2026-08-06 にも同じ確定がある）。
+  左メニューのあるコックピットへ載せると1440px相当で常に縦積みになり、比較一覧として使えなかった。
+- 排液の列は成分名だけ。年間量・処理費・検査結果と元の全文はセルを押して開く詳細で読む。
+  作文しか無い行のために `sxExtractEffluentComponentsFromText` を足した（本文に明示された語だけを拾う。
+  「重金属はほとんど検出されなかった」のような否定文脈があるので「重金属」は語として拾わない）。
+  p21 実データ9件を固定した検査は `npm run test:effluent-extraction`。
+- 色は AMD Blue (`#027FDC` / 濃 `#0267B2` / 薄 `#7CBCEB` / 淡 `#E8F3FC`) へ統一。
+  装飾に使っていた緑（見出し・保存ボタン・進捗バー・hover・focus・グループ左線）は全廃し、
+  緑は状態（完了・合意・成果物・確度high・充足）だけに残して emerald トークンへ寄せた。
+- 評価カラムはセル幅いっぱいの色付き四角をやめ、24pxの丸。S=AMD Blue塗り / A=淡い青 / B以下=グレーの濃淡。
+  優先度は「重大 / 悪化 / 安全」の状態軸ではなく順位なので意味色を使わない。
+- 開いている編集を閉じたクリックが、そのまま次の編集を開かないようにした。
+  旧実装は逆に、閉じたクリックの対象を保存成功後へ再生（replay）していたので、1操作で「閉じる」と「別の編集を開く」が同時に起きていた。
+
+**シーズン予算と消化**（PJ概要タブ、別セッションが作った `CockpitSeasonBudget`）
+
+棒を1本に。塗るのは消化した分だけ（支払済み → 社内配賦 → 未払い残）で、未消化は棒の地色のまま残し、境目に白い区切り。
+棒の上に「消化 ¥X (n%)」「未消化 ¥Y (m%)」。クライアント請求の内訳は棒をやめて数字1行へ。
+
+**現行SPSの読み取り**
+
+`/api/project/[projectId]/sps-current` を参照系として登録し、`src/lib/current-sps-client.ts` を作った。
+上段 hero と HUD が素の fetch で二重に読んでいたのを1回にまとめ、API 側も no-store から
+`max-age=60, stale-while-revalidate=600` へ（`?fresh=1` で強制再読込）。
+
+### 差し戻された点（同じ罠を踏まないために）
+
+1. **「その下のオブジェクト全部移動して」を BZM 2.2 だけと読んだ。** XRL を「古いモデルではないから残す対象」と判断したが、
+   指示は「消す」ではなく「移す」だった。→ hero 全体を PJ概要へ移した。
+2. **今度は XRL まで PJ概要へ入れた。** まさ「XRLの移動先がPJ概要の方になっちゃってる。ちゃんとスコアの方に」。
+   → `CockpitVentureStatus` に `sections` prop を足し、identity と xrl を別のタブへ置けるようにした。
+3. **排液: 表示から文章を消しただけで、代わりに出す成分を作らなかった。** 本番では全行が「成分 未整理」になり情報が消えた。
+   まさ「もはや情報がひとつもないじゃん。どうしてこれで目的が達成されたと思ったの？」。
+   → 実データを見て、文章の中に成分名が明示されていることを確認し、抽出を足した。
+4. **色: `#027FDC` を「この画面だけの独自色」と誤認して sky へ潰した。** これは AMD Blue で、
+   `AMD_SLIDE_DESIGN_CODE.md` に「ベースカラーはロゴタイプの青 / AMD Blue: #027FDC」「見出しアクセント、強調線、選択状態 = AMD Blue」
+   と正本がある。緑を落とすときの置き換え先に墨まで持ち込んだ。まさ「黒は変だよ…。ちゃんと他のOSのページ見た？」→ 全部戻した。
+
+### 事故
+
+- **反映待ちのループが11時間空回りした。** 「本番の配信版が特定の sha になるまで待つ」方式にしていたところへ、
+  別セッションの反映が何度も挟まり、待っている sha が二度と現れなくなった。変更自体は前夜に反映済みだった。
+  → 判定を「自分の commit が本番 HEAD の祖先か」(`git merge-base --is-ancestor`) に変え、上限（15分）で打ち切るようにした。
+- **他セッションの staged を巻き込んで commit した。** `git add` した3ファイル以外に、別セッションが staged のまま置いていた
+  資本政策テーブル関連（`CapitalPolicyTable.tsx` / `check_capital_policy_table.mts` / `company-overview*.ts` /
+  `CockpitCompanyOverview.tsx` / manual / spec / package.json）が `9971b585` に入って push された。
+  中身はビルドと機械チェックが通る状態なので巻き戻していない。**commit 前に `git status` で staged を確認する。**
+
+### Verified
+
+- `npm run build` / `npx tsc --noEmit` / `test:critical-ui` / `test:bzm-2-2-pilot-ui` / `test:reference-data-cache` /
+  `test:sx-weekly-control` / `test:sx-partner-holdings` / `test:three-lens-project-control` / `test:effluent-extraction`
+- 本番画面 (Chrome) で 12タブ、PJ概要、スコア詳細の並び、関係先の9列1行と成分バッジ、シーズン予算の1本棒を確認
+- `check_bzm_2_2_pilot_ui_contract` は 8-27 の変更から落ちたまま放置されていた（deploy.sh はこのテストを呼ばない）。
+  現状（現行SPSカード → BZM 3.0）へ打ち直した。
+
+### 正本の更新
+
+`pwa/spec/3-8-cockpit-current-spec.md`（タブ構成・project control tabs・project overview tab・venture status・score detail tab）、
+`pwa/spec/4-2-amd-score-current-spec.md`、`pwa/spec/3-16-project-weekly-control-current-spec.md`（9列1行の条件）、
+`pwa/spec/5-10-reference-data-caching-current-spec.md`（現行SPSの登録）、`pwa/manual/2-3-pj-cockpit.md`。
