@@ -94,6 +94,7 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
   { id: "admin-monthly-agreements", title: "Admin 月初合意", navLabel: "月初合意", primaryPath: "/admin/monthly-work-agreements", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/monthly-work-agreements"] },
   { id: "admin-season-pl", title: "シーズン予実", navLabel: "シーズン予実", primaryPath: "/admin/season-pl", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/season-pl"] },
   { id: "admin-finance", title: "Admin Finance", navLabel: "財務", primaryPath: "/admin/finance", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/finance"] },
+  { id: "admin-project-profitability", title: "PJ別 利益構造", navLabel: "PJ別利益構造", primaryPath: "/admin/project-profitability", domain: "finance_contracts", lens: "amd_operations", status: "canonical", exact: ["/admin/project-profitability"] },
   { id: "admin-weekly", title: "週次活動", navLabel: "週次活動", primaryPath: "/admin/weekly", domain: "project_execution", lens: "amd_operations", status: "projection", exact: ["/admin/weekly"] },
   { id: "admin-protocols", title: "AMD Protocol", navLabel: "AMD Protocol", primaryPath: "/admin/protocols", domain: "decision_review", lens: "amd_operations", status: "canonical", exact: ["/admin/protocols"] },
   { id: "admin-ms-overview", title: "MS一覧", navLabel: "MS一覧", primaryPath: "/admin/ms-overview", domain: "project_execution", lens: "amd_operations", status: "projection", exact: ["/admin/ms-overview"] },
@@ -116,7 +117,7 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
 export const ADMIN_SURFACE_GROUPS = [
   { label: "カレンダー", surfaceIds: ["admin-schedule"] },
   { label: "組織・権限", surfaceIds: ["admin-projects", "admin-members", "admin-access", "admin-company", "admin-governance"] },
-  { label: "契約・お金", surfaceIds: ["admin-contracts", "admin-kiyo", "admin-invoices", "admin-payouts", "admin-monthly-agreements", "admin-season-pl", "admin-finance"] },
+  { label: "契約・お金", surfaceIds: ["admin-contracts", "admin-kiyo", "admin-invoices", "admin-payouts", "admin-monthly-agreements", "admin-season-pl", "admin-finance", "admin-project-profitability"] },
   { label: "PJ・実行", surfaceIds: ["management-score", "admin-weekly", "admin-protocols", "admin-ms-overview", "admin-coverage", "admin-ip"] },
   { label: "知識・AI", surfaceIds: ["admin-japanese-culture", "admin-contexts", "admin-management-knowledge", "admin-private-wiki", "admin-tsukuyomi", "admin-prompts"] },
   { label: "運用", surfaceIds: ["admin-settings"] },

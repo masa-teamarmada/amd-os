@@ -98,6 +98,12 @@ const REFERENCE_DATA_ENDPOINTS = [
     routeFile: "src/app/api/dashboard/company-content/route.ts",
     clientModule: "src/lib/company-content-client.ts",
   },
+  {
+    endpoint: "/api/admin/project-profitability",
+    label: "PJ別 利益構造ダッシュボード",
+    routeFile: "src/app/api/admin/project-profitability/route.ts",
+    clientModule: "src/lib/project-profitability-client.ts",
+  },
 ];
 
 // ---------------------------------------------------------------------------
