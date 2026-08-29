@@ -403,7 +403,9 @@ const INLINE_ACTION_CLASS = `grid h-9 min-w-9 place-items-center border text-[10
  * 触れている場所だけ AMD Blue で示す。
  */
 const FIELD_INPUT_CLASS = `w-full min-w-0 rounded-lg border border-[#d6d6da] bg-white px-2 py-1.5 text-[11px] leading-4 text-[#1d1d1f] transition-colors placeholder:text-[#b0b0b5] hover:border-[#b9b9be] focus:border-[#027FDC] ${FOCUS_RING}`;
-const FIELD_LABEL_CLASS = "text-[10px] font-semibold leading-4 text-[#6e6e73]";
+const FIELD_LABEL_CLASS = "text-[10px] font-semibold leading-4 text-[#8e8e93]";
+/** 項目群の見出し。5項目が等間隔で並ぶと、どこから読むかの手がかりが無くなる。 */
+const FIELD_GROUP_CLASS = "text-[11px] font-semibold leading-4 text-[#3c3c43]";
 const INLINE_BALL_SIDE_OPTIONS = [
   { value: "sx", label: "当方" },
   { value: "partner", label: "先方" },
@@ -534,9 +536,12 @@ function InlineCellEditor({
    * 入力欄だけを内側スクロールにして、見出しと保存・取消は必ず見える位置に残す。
    */
   const panelRef = useRef<HTMLDivElement>(null);
+  const fieldsRef = useRef<HTMLDivElement>(null);
+  const [scrollable, setScrollable] = useState(false);
   const [placement, setPlacement] = useState<{
     above: boolean;
     maxHeight: number;
+    shiftX: number;
   } | null>(null);
   useLayoutEffect(() => {
     if (!active) {
@@ -552,11 +557,40 @@ function InlineCellEditor({
     const roomAbove = rect.top - margin;
     const needed = panel.scrollHeight;
     const above = needed > roomBelow && roomAbove > roomBelow;
+    // 横も画面内へ収める。mobileでは cell の中央に開くと右端がはみ出す。
+    // cellの位置から目標の左端を出して clamp し、cell左端からのズレを left へ入れる
+    // (classの中央寄せは打ち消す)。panelの現在位置を基準にすると二重にずれる。
+    const edge = 8;
+    const width = panel.offsetWidth;
+    const wanted =
+      align === "center" ? rect.left + rect.width / 2 - width / 2 : rect.left;
+    const clamped = Math.min(
+      Math.max(wanted, edge),
+      Math.max(edge, window.innerWidth - edge - width),
+    );
     setPlacement({
       above,
-      maxHeight: Math.max(240, Math.round(above ? roomAbove : roomBelow)),
+      maxHeight: Math.max(320, Math.round(above ? roomAbove : roomBelow)),
+      shiftX: Math.round(clamped - rect.left),
     });
+    // 開いた直後のフォーカスは編集面そのものへ置く。個々の入力欄 (特にプルダウン) へ
+    // 当てると、何気なく打った1文字が先頭一致で拾われて値が黙って増える (2026-08-29 監査#2)。
+    panel.focus({ preventScroll: true });
   }, [active]);
+
+  // 入力欄が入りきらず内側スクロールになったことを、下端のぼかしで示す (監査#1)。
+  useEffect(() => {
+    const node = fieldsRef.current;
+    if (!active || !node) {
+      setScrollable(false);
+      return;
+    }
+    const update = () =>
+      setScrollable(node.scrollHeight - node.clientHeight - node.scrollTop > 4);
+    update();
+    node.addEventListener("scroll", update);
+    return () => node.removeEventListener("scroll", update);
+  }, [active, placement]);
 
   // 外側クリックで閉じる (2026-08-07 まさ「モーダル外をクリックしたら閉じる」)。
   // 台帳内の他エディタ (関係先名・現在地・接点の経緯) は blur で保存して閉じるので、
@@ -620,25 +654,55 @@ function InlineCellEditor({
       </div>
       <div
         ref={panelRef}
-        style={placement ? { maxHeight: placement.maxHeight } : undefined}
-        className={`absolute z-40 flex ${widthClass} flex-col rounded-xl border border-[#d6d6da] bg-[#ffffff] p-3 shadow-[0_16px_40px_rgba(29,29,31,0.20)] ${
+        tabIndex={-1}
+        style={
+          placement
+            ? {
+                maxHeight: placement.maxHeight,
+                left: placement.shiftX,
+              }
+            : undefined
+        }
+        className={`absolute z-40 flex ${widthClass} flex-col rounded-xl border border-[#d6d6da] bg-[#ffffff] p-3 shadow-[0_16px_40px_rgba(29,29,31,0.20)] focus:outline-none ${
           placement?.above ? "bottom-full mb-1" : "top-full mt-1"
-        } ${align === "start" ? "left-0" : "left-1/2 -translate-x-1/2"}`}
+        } ${
+          placement
+            ? ""
+            : align === "start"
+              ? "left-0"
+              : "left-1/2 -translate-x-1/2"
+        }`}
       >
         {title && (
           <p className="mb-2 shrink-0 border-b border-[#ececf0] pb-2 text-[11px] font-semibold leading-4 text-[#1d1d1f]">
             {title}
           </p>
         )}
-        <div className="grid min-w-0 gap-2 overflow-y-auto px-0.5">
-          {renderFields(values, setValue)}
+        {/* min-h-0 が無いと、入力欄の塊がpanelのmax-heightより縮まず、
+            保存・取消の帯がpanelの外へはみ出す。 */}
+        <div className="relative min-h-0 min-w-0 overflow-hidden">
+          <div
+            ref={fieldsRef}
+            className="grid h-full min-w-0 gap-2.5 overflow-y-auto px-0.5"
+            style={{ scrollbarGutter: "stable" }}
+          >
+            {renderFields(values, setValue)}
+          </div>
+          {scrollable && (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-white via-white/80 to-transparent"
+            />
+          )}
         </div>
         {error && (
           <p className="mt-1 text-[10px] leading-4 text-[#dc2626]" role="alert">
             {error}
           </p>
         )}
-        <div className="mt-2 flex shrink-0 justify-end gap-1.5">
+        <div
+          className={`mt-2 flex shrink-0 justify-end gap-1.5 ${title ? "border-t border-[#ececf0] pt-2" : ""}`}
+        >
           <button
             type="button"
             className={`${INLINE_ACTION_CLASS} rounded-lg border-[#d6d6da] bg-white text-[#3c3c43] hover:bg-[#f5f5f7]`}
@@ -650,7 +714,7 @@ function InlineCellEditor({
           </button>
           <button
             type="button"
-            className={`${INLINE_ACTION_CLASS} rounded-lg border-[#027FDC] bg-[#027FDC] text-white hover:bg-[#0267B2] disabled:opacity-60`}
+            className={`${INLINE_ACTION_CLASS} gap-1 rounded-lg border-[#027FDC] bg-[#027FDC] text-white hover:bg-[#0267B2] disabled:opacity-60 ${title ? "px-3" : ""}`}
             onClick={save}
             disabled={saving}
             aria-label={`${label}を保存`}
@@ -663,6 +727,8 @@ function InlineCellEditor({
             ) : (
               <Check className="h-3.5 w-3.5" aria-hidden="true" />
             )}
+            {/* 見出しを持つ大きい編集面だけ、チェック印が何を指すのか文字でも書く。 */}
+            {title && <span>保存</span>}
           </button>
         </div>
       </div>
@@ -4597,9 +4663,7 @@ function PartnerInlineRow({
                 renderFields={(values, setValue) => (
                   <>
                     <div className="grid gap-1">
-                      <span className={FIELD_LABEL_CLASS}>
-                        排液中の成分
-                      </span>
+                      <span className={FIELD_GROUP_CLASS}>排液中の成分</span>
                       {(() => {
                         const chosen = sxSplitEffluentComponents(
                           values.effluent_components,
@@ -4641,87 +4705,95 @@ function PartnerInlineRow({
                                 ))}
                               </span>
                             )}
-                            <select
-                              autoFocus
-                              className={FIELD_INPUT_CLASS}
-                              value=""
-                              disabled={remaining.length === 0}
-                              onChange={(event) => {
-                                const token = event.target.value;
-                                if (!token || chosen.includes(token)) return;
-                                commit([...chosen, token]);
-                              }}
-                              aria-label="成分を追加"
-                            >
-                              <option value="">
-                                {remaining.length === 0
-                                  ? "すべての成分を選択済み"
-                                  : "成分を追加…"}
-                              </option>
-                              {remaining.map((choice) => (
-                                <option
-                                  key={choice.value}
-                                  value={choice.value}
-                                >
-                                  {choice.label}
-                                </option>
-                              ))}
-                            </select>
-                            <span className="text-[10px] leading-4 text-[#8e8e93]">
-                              一覧に無い成分や補足はメモへ書く
-                            </span>
+                            {/* 選べる候補が無くなったら、空のプルダウンを残さない。 */}
+                            {remaining.length > 0 && (
+                              <select
+                                className={FIELD_INPUT_CLASS}
+                                value=""
+                                onChange={(event) => {
+                                  const token = event.target.value;
+                                  if (!token || chosen.includes(token)) return;
+                                  commit([...chosen, token]);
+                                }}
+                                aria-label="成分を追加"
+                              >
+                                <option value="">成分を追加…</option>
+                                {remaining.map((choice) => (
+                                  <option
+                                    key={choice.value}
+                                    value={choice.value}
+                                  >
+                                    {choice.label}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
                           </>
                         );
                       })()}
                     </div>
-                    <label className="grid gap-1">
-                      <span className={FIELD_LABEL_CLASS}>年間の排液量</span>
-                      <input
-                        className={FIELD_INPUT_CLASS}
-                        placeholder="例: 約3,600 t/年"
-                        value={values.effluent_volume_annual}
-                        onChange={(event) =>
-                          setValue("effluent_volume_annual", event.target.value)
-                        }
-                      />
-                    </label>
-                    <label className="grid gap-1">
-                      <span className={FIELD_LABEL_CLASS}>
-                        年間の排液処理コスト
+                    {/* 数量は「排液量」「処理コスト」と短くして横に並べる。先頭3文字が
+                        同じラベルが縦に続くと、拾い読みで取り違える (監査#4)。 */}
+                    <div className="grid gap-1">
+                      <span className={FIELD_GROUP_CLASS}>年間の実績</span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="grid min-w-0 gap-1">
+                          <span className={FIELD_LABEL_CLASS}>排液量</span>
+                          <input
+                            className={FIELD_INPUT_CLASS}
+                            placeholder="例: 約3,600 t/年"
+                            value={values.effluent_volume_annual}
+                            onChange={(event) =>
+                              setValue(
+                                "effluent_volume_annual",
+                                event.target.value,
+                              )
+                            }
+                          />
+                        </label>
+                        <label className="grid min-w-0 gap-1">
+                          <span className={FIELD_LABEL_CLASS}>処理コスト</span>
+                          <input
+                            className={FIELD_INPUT_CLASS}
+                            placeholder="例: 約276万円/年"
+                            value={values.effluent_cost_annual}
+                            onChange={(event) =>
+                              setValue(
+                                "effluent_cost_annual",
+                                event.target.value,
+                              )
+                            }
+                          />
+                        </label>
+                      </div>
+                    </div>
+                    <div className="grid gap-1">
+                      <span className={FIELD_GROUP_CLASS}>
+                        わかっていること
                       </span>
-                      <input
-                        className={FIELD_INPUT_CLASS}
-                        placeholder="例: 約276万円/年"
-                        value={values.effluent_cost_annual}
-                        onChange={(event) =>
-                          setValue("effluent_cost_annual", event.target.value)
-                        }
-                      />
-                    </label>
-                    <label className="grid gap-1">
-                      <span className={FIELD_LABEL_CLASS}>実験結果</span>
-                      <textarea
-                        rows={2}
-                        className={FIELD_INPUT_CLASS}
-                        placeholder="例: 受領済み排液の分析では重金属がほとんど検出されなかった"
-                        value={values.effluent_test_result}
-                        onChange={(event) =>
-                          setValue("effluent_test_result", event.target.value)
-                        }
-                      />
-                    </label>
-                    <label className="grid gap-1">
-                      <span className={FIELD_LABEL_CLASS}>メモ</span>
-                      <textarea
-                        rows={3}
-                        className={FIELD_INPUT_CLASS}
-                        placeholder="例: 固体製品工場はリン負荷、液体製品工場はBOD/CODと油分。薬剤でリンを凝集する運用"
-                        value={values.effluent_note}
-                        onChange={(event) =>
-                          setValue("effluent_note", event.target.value)
-                        }
-                      />
-                    </label>
+                      <label className="grid gap-1">
+                        <span className={FIELD_LABEL_CLASS}>実験結果</span>
+                        <textarea
+                          className={`${FIELD_INPUT_CLASS} min-h-[72px]`}
+                          placeholder="例: 受領済み排液の分析では重金属がほとんど検出されなかった"
+                          value={values.effluent_test_result}
+                          onChange={(event) =>
+                            setValue("effluent_test_result", event.target.value)
+                          }
+                        />
+                      </label>
+                      <label className="grid gap-1">
+                        <span className={FIELD_LABEL_CLASS}>メモ</span>
+                        <textarea
+                          className={`${FIELD_INPUT_CLASS} min-h-[72px]`}
+                          placeholder="一覧に無い成分や補足はここへ（例: 固体製品工場はリン負荷、液体製品工場はBOD/CODと油分）"
+                          value={values.effluent_note}
+                          onChange={(event) =>
+                            setValue("effluent_note", event.target.value)
+                          }
+                        />
+                      </label>
+                    </div>
                   </>
                 )}
               />
