@@ -12,6 +12,7 @@
  */
 
 import {
+  reimbursementApprovalCutoffIso,
   reimbursementTotalYen,
   selectPayableReimbursements,
   type ReimbursementRow,
@@ -116,6 +117,46 @@ const unknownMember = selectPayableReimbursements(
   "202608"
 );
 check("メンバー台帳に無い申請者は乗せない", unknownMember.size === 0);
+
+// --- 承認の締切 (支払月の前月末) ------------------------------------------
+check(
+  "締切は支払月の前月末",
+  reimbursementApprovalCutoffIso("202609").startsWith("2026-08-31"),
+  reimbursementApprovalCutoffIso("202609"),
+);
+check(
+  "締切ルールの適用前 (202608以前) は従来どおり支払月の月末",
+  reimbursementApprovalCutoffIso("202608").startsWith("2026-08-31"),
+  reimbursementApprovalCutoffIso("202608"),
+);
+
+const lateRows: ReimbursementRow[] = [
+  {
+    reimbursement_id: "late1",
+    date: "2026-08-20",
+    amount: 10_000,
+    status: "approved",
+    created_by: "taku@team-armada.jp",
+    // 9月分の締切 (8/31) を過ぎた承認
+    admin_approved_at: "2026-09-03T00:00:00.000Z",
+    billed_ym: null,
+  },
+  {
+    reimbursement_id: "intime1",
+    date: "2026-08-20",
+    amount: 20_000,
+    status: "approved",
+    created_by: "taku@team-armada.jp",
+    admin_approved_at: "2026-08-30T00:00:00.000Z",
+    billed_ym: null,
+  },
+];
+const sep = selectPayableReimbursements(lateRows, memberByEmail, "202609");
+check("締切に間に合った立替は当月の支払へ乗る", (sep.get("ID003") ?? []).some((row) => row.reimbursementId === "intime1"), sep.get("ID003"));
+check("締切を過ぎた立替は当月へ乗せない", !(sep.get("ID003") ?? []).some((row) => row.reimbursementId === "late1"), sep.get("ID003"));
+
+const oct = selectPayableReimbursements(lateRows, memberByEmail, "202610");
+check("締切を過ぎた立替は次の回へ回る", (oct.get("ID003") ?? []).some((row) => row.reimbursementId === "late1"), oct.get("ID003"));
 
 if (failures > 0) {
   console.error(`payout reimbursement contract: ${failures} 件 失敗`);

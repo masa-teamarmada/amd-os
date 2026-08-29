@@ -52,6 +52,14 @@ type MemberEmailRow = {
 /** admin 承認済みだけが支払対象。PM承認どまり・却下・下書きは乗せない */
 const PAYABLE_STATUS = "approved";
 
+/**
+ * 締切を適用しはじめる支払月。
+ *
+ * 締切 (前月末) を過去へ遡って当てると、すでに画面へ出ている立替が翌月送りになって
+ * 金額が黙って動く。ルールの適用はこの月の支払分から始める。
+ */
+const CUTOFF_RULE_FROM_PAYMENT_YM = "202609";
+
 function numberValue(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value ?? 0);
   return Number.isFinite(n) ? Math.round(n) : 0;
@@ -62,6 +70,25 @@ function ymEndIso(ym: string): string {
   const month = Number(ym.slice(4, 6));
   const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
   return `${ym.slice(0, 4)}-${ym.slice(4, 6)}-${String(lastDay).padStart(2, "0")}T23:59:59.999Z`;
+}
+
+function prevYm(ym: string): string {
+  const year = Number(ym.slice(0, 4));
+  const month = Number(ym.slice(4, 6));
+  const date = new Date(Date.UTC(year, month - 2, 1));
+  return `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
+ * その支払月に間に合う承認の締切。
+ *
+ * 支払は毎月7日。7日に振り込むには、その前に金額を確定して振込データを作る必要があるので、
+ * **支払月の前月末までに admin 承認が済んだ立替**をその回に乗せる。締切を過ぎた分は次の回。
+ * (まさ指摘 2026-08-29「6日の深夜に月初合意送られても振込する方は大変」)
+ */
+export function reimbursementApprovalCutoffIso(paymentYm: string): string {
+  if (paymentYm < CUTOFF_RULE_FROM_PAYMENT_YM) return ymEndIso(paymentYm);
+  return ymEndIso(prevYm(paymentYm));
 }
 
 export function reimbursementLabel(row: PayableReimbursement): string {
@@ -85,7 +112,7 @@ export function selectPayableReimbursements(
   memberByEmail: Map<string, string>,
   paymentYm: string
 ): ReimbursementsByMember {
-  const cutoff = ymEndIso(paymentYm);
+  const cutoff = reimbursementApprovalCutoffIso(paymentYm);
   const byMember: ReimbursementsByMember = new Map();
 
   for (const row of rows) {
