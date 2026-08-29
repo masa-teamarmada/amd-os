@@ -263,7 +263,7 @@ def fig3_dual_scoring():  # Figure 3 (§7.3)
     h, l = ax.get_legend_handles_labels()
     h = [Line2D([], [], marker="o", ms=5.2, mfc="white", mec=MUTED, mew=1.4, ls="none")] + h
     l = ["Records only (open marker)"] + l
-    ax.legend(h, l, frameon=False, loc="lower right", fontsize=9.0, handletextpad=0.6)
+    ax.legend(h, l, frameon=False, loc="upper left", fontsize=8.8, handletextpad=0.6)
     ax.set_title("Scoring the same projects twice: what the database holds, and what people know",
                  loc="left", pad=8)
     save(fig, "fig3_dual_scoring.png")

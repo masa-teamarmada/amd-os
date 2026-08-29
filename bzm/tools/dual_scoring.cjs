@@ -195,19 +195,32 @@ async function main() {
   const seedId = args.find((a, i) => !a.startsWith('--') && (modeIdx < 0 || i !== modeIdx + 1));
   if (!seedId) throw new Error('seed_id を渡す（--list で一覧）');
 
-  const info = CLASSIFICATION[seedId];
-  if (!info) throw new Error(`${seedId}: 分類表に無い（このツールの対象21件の外）`);
-  // --only <field>: その1項目だけをマスクする（寄与の分離＝leave-one-out 用）
+  // 凍結した分類（bzm/paper_p1_input_classification.json、CLASSIFICATION_FREEZE.md に sha256）を読む。
+  // c_items = 既定へ戻す項目、b_items = 記録が与える境界値で置き換える項目。
+  const FROZEN = JSON.parse(require('node:fs').readFileSync(
+    path.join(__dirname, '..', 'paper_p1_input_classification.json'), 'utf8'));
+  const info = FROZEN[seedId];
+  if (!info) throw new Error(`${seedId}: 凍結した分類表に無い（対象21件の外）`);
+  const cItems = info.c_items || [];
+  const bItems = info.b_items || {};
+
+  // --only <field>: その1項目だけを (c) 扱いにする（寄与の分離＝leave-one-out 用）
   const onlyIdx = args.indexOf('--only');
   const onlyField = onlyIdx >= 0 ? args[onlyIdx + 1] : null;
   const maskedFields = new Set(
-    onlyField ? (info.maskedB.includes(onlyField) ? [onlyField] : [])
-              : (mode === 'records' ? info.maskedB : []));
+    onlyField ? (cItems.includes(onlyField) ? [onlyField] : [])
+              : (mode === 'records' ? cItems : []));
+  // 境界値の置換は records 条件でのみ適用する（--only のときは対象の1項目だけ）
+  const boundOverrides = (mode === 'records')
+    ? (onlyField ? (bItems[onlyField] !== undefined ? { [onlyField]: bItems[onlyField] } : {}) : bItems)
+    : {};
 
   // 読むだけ。書き込みは一切行わない（このツールに insert/update 経路は無い）。
   const { data: inputRow, error: e1 } = await supabase
     .from('seed_bzm30_inputs').select('*').eq('seed_id', seedId).single();
   if (e1) throw e1;
+  // (b) 記録が与える境界値で置き換える（DB は書き換えない。メモリ上の行だけ）
+  for (const [f, v] of Object.entries(boundOverrides)) inputRow[f] = v;
 
   const { data: ceilings, error: e2 } = await supabase
     .from('seed_value_ceilings').select('*').eq('seed_id', seedId);
