@@ -6,7 +6,7 @@
 // めったに変わらない参照系データを、画面が開くたびに素の fetch で読み直していること。
 // 一度直しても、次の画面を作るときに同じ書き方が復活するので、機械で止める。
 //
-// 規範: /Users/masa/projects/AGENTS.common.reference.md「参照系データの体感速度」節
+// 規範: /Users/masa/projects/AGENTS.common.md「参照系データの体感速度」節
 // PWA での適用: pwa/spec/5-10-reference-data-caching-current-spec.md
 //
 // --- 契約 ---

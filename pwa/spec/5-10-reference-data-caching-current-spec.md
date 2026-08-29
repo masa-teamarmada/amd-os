@@ -2,7 +2,7 @@
 
 > **この章は何か**: 画面が「開くたびに待たされる」のを設計段階で潰すための contract。
 > どのデータをキャッシュし、どこに置き、どう捨て、何を機械で止めるかを決める。
-> 全PJ共通の規範は `/Users/masa/projects/AGENTS.common.reference.md`「参照系データの体感速度」節。
+> 全PJ共通の規範は `/Users/masa/projects/AGENTS.common.md`「参照系データの体感速度」節。
 
 ## なぜこの章があるか
 

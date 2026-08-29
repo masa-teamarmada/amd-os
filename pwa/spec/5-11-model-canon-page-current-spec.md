@@ -212,7 +212,7 @@ id の生成は `pwa/src/lib/heading-anchor.ts` の `headingAnchorId` 1本に集
 ## 参照系データとしての扱い
 
 モデル定義は読み取り専用で、更新はまさの承認を経た relock のときだけである。
-`AGENTS.common.reference.md`「参照系データの体感速度」と [5-10 参照系データのキャッシュ仕様](5-10-reference-data-caching-current-spec.md) の分類では**参照系**にあたる。
+`AGENTS.common.md`「参照系データの体感速度」と [5-10 参照系データのキャッシュ仕様](5-10-reference-data-caching-current-spec.md) の分類では**参照系**にあたる。
 
 `pwa/src/lib/model-canon-source.ts` が正本 md / json をプロセス内へ5分保持する（サーバのプロセス内スナップショット）。
 `model-data.ts` の `loadModelCurrent` / `getModelMarkdownSource` と `formula-canon.ts` は、この1本を通す。
