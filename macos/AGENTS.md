@@ -10,7 +10,6 @@
 - ナビゲーションは「仕事 / 探索 / 管理 / 設定」。iOSの5タブをそのまま横展開しない。
 - 共通層は `AMDOSCore`、表示トークンは `AMDOSDesign`。iOS依存 (`UIKit`) をmacOSへ持ち込まない。
 - 読み取り元・書込み先・権限・回帰確認は `PARITY.md` と画面実装を同じ作業単位で更新する。
-- `git add .`は禁止。共有checkoutのfull `git status`をcommit直前にも確認し、macOS対象だけをstageする。
 - 物理端末を使うiOSの実機確認はmacOSアプリの完了条件にしない。macOSはbuild・起動・画面状態を確認する。
 
 macOS版はPWAをWKWebViewで包むものではなく、`NavigationSplitView`を使う独立したSwiftUIクライアント。

@@ -26,7 +26,6 @@
 - 画面・機能を追加・削除・名称変更したら **必ず DESIGN.md を同じコミットで更新**
 - iOS ソースを触ったら実機デプロイまで完了させる（`xcodebuild` 成功だけで終わらせない）
 - main を更新したら必ず `HANDOFF_ios_to_android.md` を更新して GitHub に push する
-- **commit したら即 push**（エラー閉じ・別マシン作業による未 push commit を作らない）
 
 ## 完了条件
 

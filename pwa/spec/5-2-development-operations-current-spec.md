@@ -180,3 +180,48 @@ bash pwa/scripts/deploy.sh --dry-run
 - commit したら push する。
 - Codex の Local 子タスク / UI Handoff をこの repo で起動しない。
 - closeout は worktree 1、local branch `main` だけ、stash 0、ahead/behind `0 0` まで確認する。
+
+## LLM クライアントの経路封鎖 (2026-07-01 まさ確定)
+
+まさ確定 2026-07-01:「定額トークンが余ってるのに Anthropic API 従量課金を使う意味がない。背景抽出は Codex automation (定額枠) に一本化しろ」。
+
+- PWA/Vercel 側で `new Anthropic()` を**直接書かない**。必ず共通ファクトリ [`src/lib/anthropic-client.ts`](pwa/src/lib/anthropic-client.ts) 経由にする。
+  - `getBackgroundAnthropic(caller)` = cron / routine / 背景 lib 用。`ALLOW_PWA_LLM_CRONS !== "1"` のとき **throw** する (= デフォルト封鎖)。呼び出し側 (route) は `BackgroundAnthropicDisabledError` を catch して `{ ok:true, disabled:true }` を返す。
+  - `getInteractiveAnthropic()` = まさが能動操作する対話 UI 用 (つくよみチャット / 月報 narrate / PL hearing / report 生成 等)。封鎖しない。
+- 背景 L2 抽出の唯一経路は **Codex automation** (`~/.codex/automations`)。受け皿は D-6〜D-14 / W-1 / H-1 が ACTIVE 稼働済み。PWA cron route は封鎖されても抽出は死なない。
+- `ALLOW_PWA_LLM_CRONS=1` は Vercel 本番 env に**設定しない**。どうしても PWA 側で従量課金 LLM を使う必要が出たときだけ、owner (まさ) 承認の上で明示する。
+- 新しく LLM を使う route/lib を足すときも、背景実行系なら必ず `getBackgroundAnthropic()` 経由にする。`new Anthropic()` をベタ書きすると、うっかり課金経路が復活する。
+- 背景 cron を退避した履歴は [`vercel.disabled-crons.json`](pwa/vercel.disabled-crons.json)。vercel.json に LLM cron を戻さない (`pwa/design/L2_DATA.md` の「PWA/Vercel LLM cron 禁止」も参照)。
+
+---
+
+## メンバーコードネームリンク (admin-only)
+
+- OS内でAMDメンバーの `code_name` を文章・通知・カード・台帳セルに表示するときは、原則 `/mypage?memberId=<members.member_id>` にリンクする。
+- `<members.member_id>` は Supabase の `members.member_id` をそのまま使う。例: `ID001`。`001` のように `ID` prefix を落としたURLは禁止。
+- 他メンバーのマイページ閲覧は admin (`members.is_admin=true`) 専用。一般ユーザー向けの相互閲覧導線として扱わない。
+- 自由文は共通UI `LinkedMemberText` を使い、構造化されたメンバー台帳・一覧では行の `member_id` から明示的に `Link` を組む。
+- `/admin/members` の codeName セルはこの rule の基準UI。コードネームをクリックすると対象メンバーのマイページへ飛び、編集はセル内の編集ボタンから行う。
+
+---
+
+## 列名・テーブル名を想像で書かない
+
+新規 cron / API route / Edge Function / GAS 関数で Supabase テーブルを叩く前に、
+**[`design/db_schema.md`](pwa/design/db_schema.md) を必ず grep して実際の列名を確認**してから
+select / filter / insert / upsert を書くこと。
+
+過去事故: `member_activities` の列を `code_name` / `created_at` / `activity_text` / `kind` と
+想像で書いたら全部間違ってて (実体は `member_id` / `extracted_at` / `content_preview` /
+`source`)、PostgREST 42703 エラーで `actsRes.ok=false` → 入力ゼロで進行 → 他人の活動が
+本人のものとして LLM 抽出される事故 (BUGS.md `[GAS] member_knowledge 抽出で「きよ」に他人の活動が紐付くカオス` 参照)。
+
+**運用**:
+- DDL を変更したら同じ commit で `python3 -X utf8 scripts/dump_schema.py` を実行して `design/db_schema.md` を再生成 → commit に含める
+- 他の md (HANDOFF / 設計 md) で「テーブル X の列 Y」を書くときも、必ず `db_schema.md` から正しい列名をコピーする (= 二次情報を参照しない)
+- えいみが新セッション開始時に「列名を書く必要があるなら必ず先に `db_schema.md` を grep する」セルフルールを徹底
+
+`db_schema.md` は自動生成 (Supabase Management API → information_schema.columns)。
+手動編集禁止 (= 次回再生成で消える)。
+
+---
