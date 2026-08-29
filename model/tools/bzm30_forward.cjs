@@ -73,20 +73,25 @@ const CFG = {
   // I-5 申し出
   // 出口の到来率は分野で構造が違う。創薬・医療機器は導出（ライセンス）と M&A が主経路で、
   // 量産契約（M4）へ自力で到達する経路はほとんど通らない（まさ 2026-08-25）
+  // M&A の到来率は #2026-08-29-3 で REG0・REG1 を大きく下げた。DTSU の M&A は相当限定的で、
+  // あるのはポジティブな M&A ばかり（進んだ案件への申し出は m_g^offer が段階の分だけ残す）。
+  // REG2 は維持——創薬・医療機器は導出と M&A が業界の主経路。
   nuK: {
-    REG0: { lic: 0.0030, ma: 0.0015, ips: 0.0010 },
-    REG1: { lic: 0.0030, ma: 0.0018, ips: 0.0010 },
+    REG0: { lic: 0.0030, ma: 0.0004, ips: 0.0010 },
+    REG1: { lic: 0.0030, ma: 0.0004, ips: 0.0010 },
     REG2: { lic: 0.0060, ma: 0.0050, ips: 0.0012 },
   },
-  nuKSoft: { lic: 0.0025, ma: 0.0025, ips: 0.0008 },   // F3・F4（ソフト・サービス型）は M&A が主
+  nuKSoft: { lic: 0.0025, ma: 0.0010, ips: 0.0008 },   // F3・F4（ソフト・サービス型）は事業買収が実際に起きる分、素材・装置系より高め
   // 承継者が残りの市場ゲートを越える確率。買収側は資源と継続の意思を持つので高い
   qExit: { lic: 0.60, ma: 0.75, ips: 0.45 },
 
   // 撤退の四経路（改訂 N1。#2026-08-27-1）。資金切れ・不成立の先を単一の終端にしない
   exitPath: {
     pUse: 0.35,      // ①用途転換（未着手の用途が残り、技術系ゲートを越えているとき）
-    pLic: 0.30,      // ③ライセンスへの畳み込み（証拠水準 gLic 以上）
-    pCls: 0.20,      // ②出口クラスの転換（会社化済み・証拠水準 gCls 以上）
+    // ②③は #2026-08-29-3 で大幅に下げた。「R&Dの余力が尽きて仕方なく買ってもらう」M&A・ライセンスは
+    // 基本的に起きない。「よほど戦略余力が高い案件なら」の判別は m_q（無風期間の乗数）が担う
+    pLic: 0.05,      // ③ライセンスへの畳み込み（証拠水準 gLic 以上）
+    pCls: 0.02,      // ②出口クラスの転換（会社化済み・証拠水準 gCls 以上）
     gLic: 3,         // ③が立つ証拠水準（T3・治験I相 以上）
     gCls: 4,         // ②が立つ証拠水準（M2・治験II相・規格試験 以上）
     licDisc: 0.70,   // 自走をあきらめた状態のライセンスは条件が悪い分の割引
@@ -408,6 +413,13 @@ function runOne(type, reg, cfg, theta, init) {
     if (init.incorporated) muPost = init.burnMan;
     else { muPre = init.burnMan; muPost = Math.max(muPost, init.burnMan); }
   }
+  // 会社化後の計画バーン（#2026-08-29-3）。会社化前の案件が設立後の計画支出を渡す
+  // （スモールスタート計画を型の既定で上書きしない）。max(計画値, 評価日の観測) で
+  // 会社化時に支出が下がらない単調性だけを保つ。
+  if (init && !init.incorporated && init.burnPostMan !== undefined) {
+    if (!(init.burnPostMan > 0)) throw new Error('burnPostMan は正の数（万円／月）');
+    muPost = Math.max(init.burnPostMan, init.burnMan !== undefined ? init.burnMan : 0);
+  }
   const grid = moneyGrid(cfg, muPre * (1 + cfg.restrictedWaste), muPost * (1 + cfg.restrictedWaste));
   const S = grid.length;
   const NR = cfg.R0 + 1, NI = 2, NX = 2, NN = cfg.kExit + 1;
@@ -698,6 +710,8 @@ function runOne(type, reg, cfg, theta, init) {
 //                f3〜7 は「評価日に確率 f で充足済み、残りが供給過程で埋まる」。省略は既定の扱い
 //   init.burnMan … 案件ごとのバーンレート（万円／月。#2026-08-29-2）。評価日の会社化状態の側の μ を
 //                差し替える。会社化前の観測が会社化後の既定を上回る場合は会社化後もその値を下限にする
+//   init.burnPostMan … 会社化後の計画バーン（万円／月。#2026-08-29-3）。会社化前の案件だけが使える。
+//                設立後のスモールスタート計画を型の既定で上書きしないための口
 function runTheta(type, reg, cfg, init) {
   const seq = gateSequence(type, reg);
   const agg = { outcome: {}, v: 0, vIn: 0, m4mass: 0, m4meanW: 0 };

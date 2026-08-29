@@ -35,7 +35,7 @@ for (const line of require('node:fs').readFileSync(path.join(__dirname, '..', '.
 }
 
 const MODEL_VERSION = 'bzm-3.0';
-const APPROVAL_REF = '2026-08-29-1';
+const APPROVAL_REF = '2026-08-29-3';
 
 function db() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -99,6 +99,10 @@ function toInit(row, ceilingYen) {
   // 案件ごとのバーンレート（#2026-08-29-2）。円／月 → 万円／月
   if (row.burn_rate_yen_month !== null && row.burn_rate_yen_month !== undefined) {
     init.burnMan = Math.round(Number(row.burn_rate_yen_month) / 10000);
+  }
+  // 会社化後の計画バーン（#2026-08-29-3。会社化前の案件のみ）
+  if (!row.incorporated && row.burn_post_yen_month !== null && row.burn_post_yen_month !== undefined) {
+    init.burnPostMan = Math.round(Number(row.burn_post_yen_month) / 10000);
   }
   // 経済性の乗数は天井の純増（億円）で決まる。未調査なら既定（基準値＝乗数1）のまま
   if (ceilingYen !== null) init.pNetOku = ceilingYen / 1e8;
