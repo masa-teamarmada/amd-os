@@ -49,6 +49,7 @@ description: Claude Code Routines の Fable 5 で動かす AMD OS 月次処理�
 `pwa/scheduled-tasks/amd-os-l2m1-monthly-report/SKILL.md` をそのまま実行する。
 
 - 対象は `monthly_report_scope IN ('internal_only','internal_and_external')` かつ `status IN ('active','sales')`。
+- M-1 SKILLのPhase 1.5 (会議書き起こし本文の必須確認) を省略しない。`project_meeting_summaries` の要約層だけで本文を書くと、名称変更・申請断念のような単発の意思決定を落とす (2026-08 実例あり)。
 - `internal_only` は社内版 final まで、`internal_and_external` は社内版 final、提出版、禁止語検査、PDFまでを対象にする。
 - 既存 final が空なら新規生成する。既存 final がある場合は品質監査を行い、kaku-reportと決定論的 validatorの両方に合格したものは上書きしない。
 - 既存 final または提出版が不合格でも、この定期 routine から force 上書きしない。`repair_required` としてプロジェクト別に報告する。
