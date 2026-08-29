@@ -4,12 +4,12 @@
 
 このリポジトリで AMD OS を触るえいみは、作業前に必ず以下を読むこと。
 
-**正本は GitHub (`masa-teamarmada/amd-os-ios`)。作業場所は `/Users/masa/projects/amd-os/ios`。**
+**正本は GitHub (`masa-teamarmada/amd-os`) のモノレポ。作業場所は `/Users/masa/projects/AMD/amd-os/ios`。**
 **Drive 上の `共有ドライブ/claude/AMD_OS/amd-os-ios/` は廃止済み。参照しない。**
 
 ## 必読（リポジトリルート、読む順）
 
-1. **`../AGENTS.md`** — モノレポ全体ルール / セッション開始時の 4 ステップ / 作業フロー
+1. **`../AGENTS.md`** — モノレポ全体ルール（git同期・push運用などの共通ルールは `AGENTS.common.md` が正本で、起動時に自動で読まれる）
 2. **`AGENTS.md`** — このファイル
 3. **`DESIGN.md`** ⭐ — 全画面・全機能の正本。「何が在るべきか」はここ
 4. **`HANDOFF.md`** — TestFlight 配布、ブランチ運用、現時点の作業状態
@@ -21,7 +21,6 @@
 
 ## 最重要ルール
 
-- **セッション開始時に `../AGENTS.md` の同期 4 ステップ（fetch / 未 push 検知 / branch 確認 / status）を必ず実行**
 - えいみは AMD OS の重要機能を、未確認のまま削除・導線削除してはいけない
 - 画面・機能を追加・削除・名称変更したら **必ず DESIGN.md を同じコミットで更新**
 - iOS ソースを触ったら実機デプロイまで完了させる（`xcodebuild` 成功だけで終わらせない）
@@ -39,39 +38,13 @@
 
 ## 🚨 最重要: 正本は GitHub、Drive は廃止済み
 
-- **正本**: `github.com/masa-teamarmada/amd-os-ios`
+- **正本**: `github.com/masa-teamarmada/amd-os`（モノレポ。旧 `amd-os-ios` は archive 済で参照しない）
 - **Mac での作業場所**: `/Users/masa/projects/AMD/amd-os/ios`（Drive 外のローカルクローン）
 - **Drive 上の `共有ドライブ/claude/AMD_OS/amd-os-ios/` は廃止済み。**
   - 参照しない。書き込まない。同期トラブルで壊れる前提なので信用できない。
 
-すべての作業は `/Users/masa/projects/AMD/amd-os/ios`（または worktree）で行い、
-GitHub の `main` ブランチに push する。
-
----
-
-## 🚨 セッション開始時に必ず実行する 4 ステップ
-
-エラー閉じ・別マシン作業・別セッションの未 push commit を **最初に検知** するため、
-以下を毎セッション開始時に必ず行う:
-
-```sh
-cd /Users/masa/projects/AMD/amd-os/ios
-
-# 1. リモート状態を取り込む
-git fetch --all --prune
-
-# 2. ローカルにあって push されてない commit を検知
-git log --branches --not --remotes --oneline
-
-# 3. ローカル全ブランチの先端を確認
-git branch -a
-
-# 4. 作業ツリーが綺麗か
-git status -s
-```
-
-**(2) の出力が空でなければ、push されてない作業が必ずある**。
-内容を見てから main に取り込むこと。**「未 push commit を見つけたら勝手に消さない」**。
+すべての作業は `/Users/masa/projects/AMD/amd-os/ios` で行い、GitHub の `main` へ push する。
+branch と worktree は作らない（`AGENTS.common.md`）。
 
 ---
 
