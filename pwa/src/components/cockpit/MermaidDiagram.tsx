@@ -35,6 +35,11 @@ export function MermaidDiagram({ code, tone = "light" }: Props) {
           securityLevel: "strict",
           theme: tone === "hud" ? "dark" : "neutral",
           fontFamily: "inherit",
+          // 既定のままだと図が大きすぎて全体を追えない (まさ指摘 2026-08-29)。
+          // 文字とノード間隔を詰めて、1画面で流れを追える大きさにする。
+          themeVariables: { fontSize: "12px" },
+          flowchart: { nodeSpacing: 26, rankSpacing: 34, padding: 6, useMaxWidth: false },
+          sequence: { actorFontSize: 12, noteFontSize: 12, messageFontSize: 12 },
         });
         const { svg } = await mermaid.render(renderId, code);
         if (cancelled || !containerRef.current) return;
