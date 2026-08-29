@@ -37,6 +37,9 @@ export type TechTopic = {
   source_kind: TechSourceKind;
   source_ref: string | null;
   source_url: string | null;
+  /** 要確認。資料間で値が食い違う / 実測が無い / 根拠が弱い。 */
+  needs_check: boolean;
+  check_reason: string | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -61,6 +64,9 @@ export type TechEntry = {
   source_ref: string | null;
   source_url: string | null;
   note: string | null;
+  /** 要確認。資料間で値が食い違う / 実測が無い / 根拠が弱い。 */
+  needs_check: boolean;
+  check_reason: string | null;
   sort_order: number;
   created_by: string | null;
   updated_by: string | null;
@@ -172,4 +178,9 @@ export function matrixRows(entries: TechEntry[]): string[] {
     if (!rows.includes(e.row_label)) rows.push(e.row_label);
   }
   return rows;
+}
+
+/** 要確認の行数。トピック見出しと画面上部の集計に出す。 */
+export function countNeedsCheck(entries: TechEntry[]): number {
+  return entries.filter((e) => e.needs_check).length;
 }

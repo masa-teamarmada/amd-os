@@ -10,6 +10,7 @@ import {
   RATING_FULL_LABEL,
   RATING_LABEL,
   SOURCE_KIND_LABEL,
+  countNeedsCheck,
   formatTechValue,
   matrixColumns,
   matrixRows,
@@ -99,6 +100,13 @@ function textOrNull(v: string): string | null {
   return t ? t : null;
 }
 
+/** 要確認の理由。値の下に赤字で出し、何を確かめるのかを本文を読まずに分かるようにする。 */
+function CheckNote({ reason }: { reason: string | null }) {
+  return (
+    <div className="mt-0.5 text-[11px] leading-4 text-[#b71c1c]">⚠ 要確認{reason ? `: ${reason}` : ""}</div>
+  );
+}
+
 function Badge({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
     <span className={`inline-flex shrink-0 items-center whitespace-nowrap rounded border px-1.5 py-[1px] text-[10px] font-semibold ${className}`}>
@@ -151,11 +159,15 @@ function ConditionBlock({ entries }: { entries: TechEntry[] }) {
         </thead>
         <tbody>
           {entries.map((e) => (
-            <tr key={e.tech_entry_id} className="align-top hover:bg-[#fafafa]">
-              <td className="border-b border-[#f0f0f2] px-2 py-1.5 font-medium text-[#1d1d1f]">{e.row_label}</td>
+            <tr key={e.tech_entry_id} className={`align-top ${e.needs_check ? "bg-[#fffaf0] hover:bg-[#fff5e6]" : "hover:bg-[#fafafa]"}`}>
+              <td className="border-b border-[#f0f0f2] px-2 py-1.5 font-medium text-[#1d1d1f]">
+                {e.needs_check && <span className="mr-1 text-[#b71c1c]">⚠</span>}
+                {e.row_label}
+              </td>
               <td className="border-b border-[#f0f0f2] px-2 py-1.5 tabular-nums text-[#1d1d1f]">
                 {formatTechValue(e)}
                 {e.note && <div className="mt-0.5 text-[11px] leading-4 text-[#86868b]">{e.note}</div>}
+                {e.needs_check && <CheckNote reason={e.check_reason} />}
               </td>
               <td className="border-b border-[#f0f0f2] px-2 py-1.5 text-[#6e6e73]">{e.condition_text || "—"}</td>
               <td className="border-b border-[#f0f0f2] px-2 py-1.5 whitespace-nowrap text-[#6e6e73]">{e.observed_on || "—"}</td>
@@ -226,6 +238,7 @@ function MatrixBlock({ entries }: { entries: TechEntry[] }) {
                       <div className="mt-0.5 text-[11px] leading-4 tabular-nums text-[#1d1d1f]">{formatTechValue(e)}</div>
                     )}
                     {e.note && <div className="mt-0.5 text-[10px] leading-4 text-[#86868b]">{e.note}</div>}
+                    {e.needs_check && <CheckNote reason={e.check_reason} />}
                   </td>
                 );
               })}
@@ -268,11 +281,15 @@ function RecordBlock({ entries }: { entries: TechEntry[] }) {
           {[...grouped.entries()].map(([label, list]) => {
             const sorted = [...list].sort((a, b) => (a.observed_on || "").localeCompare(b.observed_on || ""));
             return sorted.map((e, i) => (
-              <tr key={e.tech_entry_id} className="align-top hover:bg-[#fafafa]">
+              <tr key={e.tech_entry_id} className={`align-top ${e.needs_check ? "bg-[#fffaf0] hover:bg-[#fff5e6]" : "hover:bg-[#fafafa]"}`}>
                 <td className="border-b border-[#f0f0f2] px-2 py-1.5 font-medium text-[#1d1d1f]">
+                  {e.needs_check && <span className="mr-1 text-[#b71c1c]">⚠</span>}
                   {i === 0 ? label : <span className="text-[#c7c7cc]">〃</span>}
                 </td>
-                <td className="border-b border-[#f0f0f2] px-2 py-1.5 tabular-nums text-[#1d1d1f]">{formatTechValue(e)}</td>
+                <td className="border-b border-[#f0f0f2] px-2 py-1.5 tabular-nums text-[#1d1d1f]">
+                  {formatTechValue(e)}
+                  {e.needs_check && <CheckNote reason={e.check_reason} />}
+                </td>
                 <td className="border-b border-[#f0f0f2] px-2 py-1.5 whitespace-nowrap text-[#6e6e73]">{e.observed_on || "—"}</td>
                 <td className="border-b border-[#f0f0f2] px-2 py-1.5 text-[#6e6e73]">
                   {[e.condition_text, e.note].filter(Boolean).join(" / ") || "—"}
@@ -327,6 +344,8 @@ function TopicForm({
   const [sourceRef, setSourceRef] = useState(initial?.source_ref ?? "");
   const [sourceUrl, setSourceUrl] = useState(initial?.source_url ?? "");
   const [order, setOrder] = useState(String(initial?.sort_order ?? 100));
+  const [needsCheck, setNeedsCheck] = useState(initial?.needs_check ?? false);
+  const [checkReason, setCheckReason] = useState(initial?.check_reason ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -348,6 +367,8 @@ function TopicForm({
         source_kind: sourceKind,
         source_ref: textOrNull(sourceRef),
         source_url: textOrNull(sourceUrl),
+        needs_check: needsCheck,
+        check_reason: needsCheck ? textOrNull(checkReason) : null,
         sort_order: numOrNull(order) ?? 100,
       });
     } catch (e) {
@@ -412,6 +433,15 @@ function TopicForm({
           <input className={INPUT} value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} />
         </Field>
       </div>
+      <div className="flex flex-col gap-1 rounded border border-[#ffcdd2] bg-[#fff8f8] p-2">
+        <label className="flex items-center gap-2 text-[11px] text-[#b71c1c]">
+          <input type="checkbox" checked={needsCheck} onChange={(e) => setNeedsCheck(e.target.checked)} />
+          ⚠ このトピック全体を要確認にする
+        </label>
+        {needsCheck && (
+          <input className={INPUT} value={checkReason} onChange={(e) => setCheckReason(e.target.value)} placeholder="何を確かめるか" />
+        )}
+      </div>
       {error && <p className="text-[11px] text-[#b71c1c]">{error}</p>}
       <div className="flex gap-2">
         <button
@@ -455,6 +485,8 @@ function EntryForm({
   const [sourceUrl, setSourceUrl] = useState(initial?.source_url ?? "");
   const [note, setNote] = useState(initial?.note ?? "");
   const [order, setOrder] = useState(String(initial?.sort_order ?? 100));
+  const [needsCheck, setNeedsCheck] = useState(initial?.needs_check ?? false);
+  const [checkReason, setCheckReason] = useState(initial?.check_reason ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -487,6 +519,8 @@ function EntryForm({
         source_ref: textOrNull(sourceRef),
         source_url: textOrNull(sourceUrl),
         note: textOrNull(note),
+        needs_check: needsCheck,
+        check_reason: needsCheck ? textOrNull(checkReason) : null,
         sort_order: numOrNull(order) ?? 100,
       });
     } catch (e) {
@@ -573,6 +607,20 @@ function EntryForm({
       <Field label="備考">
         <input className={INPUT} value={note} onChange={(e) => setNote(e.target.value)} />
       </Field>
+      <div className="flex flex-col gap-1 rounded border border-[#ffcdd2] bg-[#fff8f8] p-2">
+        <label className="flex items-center gap-2 text-[11px] text-[#b71c1c]">
+          <input type="checkbox" checked={needsCheck} onChange={(e) => setNeedsCheck(e.target.checked)} />
+          ⚠ 要確認にする (資料で値が食い違う / 実測が無い / 根拠が弱い)
+        </label>
+        {needsCheck && (
+          <input
+            className={INPUT}
+            value={checkReason}
+            onChange={(e) => setCheckReason(e.target.value)}
+            placeholder="何を、誰に確かめるか。例: 30と50のどちらを採るかを次のSX定例で確定"
+          />
+        )}
+      </div>
       {error && <p className="text-[11px] text-[#b71c1c]">{error}</p>}
       <div className="flex gap-2">
         <button
@@ -622,7 +670,15 @@ function TopicCard({
             <Badge className="border-[#d2d2d7] bg-[#f5f5f7] text-[#6e6e73]">{BLOCK_KIND_LABEL[topic.block_kind]}</Badge>
             <h4 className="text-[13px] font-semibold text-[#1d1d1f]">{topic.title}</h4>
             <Badge className={CONFIDENTIALITY_STYLE[topic.confidentiality]}>{CONFIDENTIALITY_LABEL[topic.confidentiality]}</Badge>
+            {(topic.needs_check || countNeedsCheck(entries) > 0) && (
+              <Badge className="border-[#ffcdd2] bg-[#ffebee] text-[#b71c1c]">
+                ⚠ 要確認 {countNeedsCheck(entries) || ""}
+              </Badge>
+            )}
           </div>
+          {topic.needs_check && topic.check_reason && (
+            <p className="mt-1 text-[11px] leading-5 text-[#b71c1c]">⚠ {topic.check_reason}</p>
+          )}
           {topic.summary && <p className="mt-1 text-[11px] leading-5 text-[#86868b]">{topic.summary}</p>}
         </div>
         {canEdit && (
@@ -920,6 +976,7 @@ export function CockpitTechnology({ projectId }: Props) {
 
   const visibleTopics = data.topics.filter((t) => domainFilter === "all" || (t.tech_domain || "未分類") === domainFilter);
   const countByKind = BLOCK_ORDER.map((k) => ({ kind: k, n: data.topics.filter((t) => t.block_kind === k).length }));
+  const needsCheckTotal = countNeedsCheck(data.entries) + data.topics.filter((t) => t.needs_check).length;
 
   return (
     <div className="space-y-4" data-testid="cockpit-technology-tab">
@@ -929,7 +986,7 @@ export function CockpitTechnology({ projectId }: Props) {
             <h3 className="text-[13px] font-semibold text-[#1d1d1f]">技術</h3>
             <p className="mt-1 text-[11px] leading-5 text-[#86868b]">
               この技術が「どの範囲で成立するか」「何がどう違うか」「競合とどこで差がつくか」「今どこまで行っているか」を貯める場所。
-              数値は出典と確度を必ず添える。
+              数値は出典と確度を必ず添える。資料によって値が食い違うものは<span className="text-[#b71c1c]">⚠ 要確認</span>を付け、両方の値を出典つきで残す。
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -938,6 +995,9 @@ export function CockpitTechnology({ projectId }: Props) {
                 {BLOCK_KIND_LABEL[kind]} {n}
               </Badge>
             ))}
+            {needsCheckTotal > 0 && (
+              <Badge className="border-[#ffcdd2] bg-[#ffebee] text-[#b71c1c]">⚠ 要確認 {needsCheckTotal}</Badge>
+            )}
             {domains.length > 1 && (
               <select className={INPUT} value={domainFilter} onChange={(e) => setDomainFilter(e.target.value)}>
                 <option value="all">全区分</option>
