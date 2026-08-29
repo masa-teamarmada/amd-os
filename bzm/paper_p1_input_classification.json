@@ -1,0 +1,81 @@
+{
+  "_meta": {
+    "purpose": "P1論文§7 二重採点の入力分類（記録のみ/聞き取り込み）のやり直し結果。計算はまだ行っていない。",
+    "generated_at": "2026-08-30",
+    "rules": {
+      "a": "記録が値を持つ。記録にある値をそのまま使う（このJSONには出てこない。c_items/b_itemsに無いフィールドは全て(a)として現在のDB値をそのまま使う）",
+      "b": "記録は境界だけ与える。b_itemsに列挙したフィールドは、現在のDB値の代わりにここに書いた境界値を使う",
+      "c": "記録が完全に沈黙している。c_itemsに列挙したフィールドは、参照実装の既定値（省略時のTier 0前提）へ戻す＝initオブジェクトに含めない"
+    },
+    "usage_note": "旧 bzm/tools/dual_scoring.cjs の CLASSIFICATION.maskedB は c_items にのみ相当する（マスク＝既定へ全戻し）。b_items はそのロジックに無い新概念で、toInit() 相当の関数で「maskedFields として省略」ではなく「該当列の値をここの数値で上書きしてから渡す」処理が別途必要。天井（seed_value_ceilings）はどの案件も分類対象外（records-only/with-elicitation共通）。",
+    "counts": { "b_items_total": 4, "c_items_total": 30, "seeds_with_any_non_a": 9, "seeds_total": 21 }
+  },
+  "6c1ced6c-33b0-130b-4ced-99c79fc68243": { "pj": "p22", "name": "OptQC", "c_items": [], "b_items": {} },
+  "8050097b-1d38-3a3b-c877-49f30794312c": { "pj": "p05", "name": "マテリアル・コンセプト", "c_items": [], "b_items": {} },
+  "25f814a6-c151-098e-651f-6f23288fd829": { "pj": "p20", "name": "CryoX", "c_items": ["conversion_c"], "b_items": {} },
+  "50fffaf7-8ab4-77fb-41c6-0e44d4ff890a": { "pj": "p07", "name": "LiSTie", "c_items": [], "b_items": {} },
+  "bebf442f-fa5b-cdc9-de31-0d3fdf3e140d": { "pj": "p29", "name": "KENQ", "c_items": [], "b_items": {} },
+  "3c5cdae2-cd9a-6c4c-b7e1-c381df4e1343": { "pj": "p09", "name": "JOYCLE", "c_items": [], "b_items": {} },
+  "8b2ec717-027c-4cb5-9760-190ccf30f71a": { "pj": "p26", "name": "VasculaX", "c_items": [], "b_items": {} },
+  "39585700-88a6-70f1-8e6a-fccb03641204": {
+    "pj": "p03", "name": "ティエムファクトリ",
+    "c_items": ["free_cash_yen", "burn_rate_yen_month", "unit_margin_positive", "evangelist_e", "self_revenue_yen_month"],
+    "b_items": {}
+  },
+  "00bb86dd-e1e3-9a69-4861-280b04424273": {
+    "pj": "p08", "name": "Carbon Cryo Capture",
+    "c_items": ["free_cash_yen", "burn_rate_yen_month"],
+    "b_items": {},
+    "note": "旧分類では全項目(a)。DBの値が本タスク期間中(2026-08-29)にまさの伝聞ベースへ更新されたため新規に(c)化。"
+  },
+  "091afcac-a7c8-1b04-1690-2af19ea85a2f": { "pj": "p01", "name": "OPTMASS", "c_items": [], "b_items": {} },
+  "f4f4e30e-35ff-4c95-b9b0-f5629237b28e": {
+    "pj": "p21", "name": "SolvioraX",
+    "c_items": [],
+    "b_items": { "evangelist_e": 0.65 },
+    "note": "現在値0.55。中立0.5+標準記録3件(JAFCO DD継続/PSI採択/CEO確定、いずれも本評価期間より前の日付)で+0.15=0.65。-0.10はまさの単独口頭観察のみで裏付けなし。"
+  },
+  "eeba1bfd-6020-225f-af8b-ed7717fc134e": { "pj": "p04", "name": "輝翠", "c_items": [], "b_items": {} },
+  "24c43617-8c3a-5b10-95e3-5fa16e4718fb": {
+    "pj": "p11", "name": "Blue Water Energy",
+    "c_items": ["free_cash_yen", "quiet_months"],
+    "b_items": {},
+    "note": "旧分類では全項目(a)。2026-07資金調達(みらい創造インベストメンツ,1.5億円)がproject_valuation_roundsに無く、Web検索でも確認できず新規に(c)化。burn_rate_yen_monthは役員報酬決定(2025-08経営会議、標準記録)ベースなので(a)のまま。evidence_stageは公開PoC記録が下限を独立に証明するため(a)のまま。"
+  },
+  "2d289848-9278-b741-3437-5856d8dce6ff": {
+    "pj": "p16", "name": "ORLIB",
+    "c_items": ["free_cash_yen", "burn_rate_yen_month", "unit_margin_positive", "evangelist_e", "self_revenue_yen_month", "funcs_f2"],
+    "b_items": { "kappa_ip": 0.55 },
+    "note": "kappa_ipの現在値は0.35。JST START(2017)・NEDO NEP(2020-2021)という標準記録だけで「単独出願済み」区分の0.55が独立に成立する。0.35への追加引き下げはまさの単独証言(タイの大学への売却試み)のみが根拠。evidence_stageは同じ標準記録がT3=段階3を独立に支えるため(a)のまま。"
+  },
+  "3c6c774d-4f8e-4d99-aa00-f149a75f98d5": { "pj": "p31", "name": "ゼオライトNa電池材料", "c_items": [], "b_items": {} },
+  "a1390f71-3d7d-4bbc-9016-ca25bc901c34": {
+    "pj": "seed-a1390f71", "name": "フレキシブル熱電",
+    "c_items": ["free_cash_yen", "evangelist_e"],
+    "b_items": {}
+  },
+  "01f2dfcb-5ed8-83e7-c560-1be48459c7fa": {
+    "pj": "p06", "name": "CrestecBio",
+    "c_items": ["burn_rate_yen_month"],
+    "b_items": {}
+  },
+  "9a077ec6-79b7-051b-7a2e-b47401511cf0": {
+    "pj": "p24", "name": "チャレナジー",
+    "c_items": [],
+    "b_items": { "free_cash_yen": 25000000, "evangelist_e": 0.4 },
+    "note": "free_cash_yen: 現在値1000万円はまさの「1か月以内に全社員解雇」という本評価期間中のみの発言に依存し裏付け文書なし。取締役会自身(2026-08-26)の「入金ゼロなら12月末に資金が尽きる」試算+6月取締役会資料+9月以降の圧縮計画(標準記録)から導出した2,500万円を境界値として使う。evangelist_e: 現在値0.4は据え置き。社員が「ピーク30名→実質5-6名」への縮小は2026-05-25付の標準的ガバナンスレビュー記録で独立に成立するため、まさの「1か月以内に解雇」という追加の緊急性なしでも組織崩壊の結論は支持できる。ただし0.70→0.4の下げ幅を記録寄与分とまさ証言寄与分に厳密に按分する式が無いため、現在値をそのまま境界として採用(確信度は他の(b)項目より低い)。unit_margin_positiveは同じ標準記録が「量産収益未確立」を明記しているため(a)。burn_rate_yen_month・kappa_ip・sigmaは実績財務データ・特許出願履歴・公開の業界動向(FIT改定,三菱商事/Equinor/BP撤退)に基づき(a)のまま。"
+  },
+  "f18b5a65-9bed-ade4-7ed7-59d3d08ab86a": {
+    "pj": "p10", "name": "翔エンジニアリング",
+    "c_items": ["free_cash_yen", "burn_rate_yen_month", "unit_margin_positive", "evangelist_e", "funcs_f4"],
+    "b_items": {},
+    "note": "evidence_stage(段階2)とkappa_ip(0.55、2026-08-27のJ-PlatPat公式照会)は(a)のまま。evangelist_eのreason自身が「当初0.70は対外的な動きの件数だけを見た誤り」と明記しており、records-onlyの素朴な読みが実際に誤りだったことをデータが自認している。"
+  },
+  "b7ece08e-24c9-fd7c-c841-8f37aab8673f": { "pj": "p18", "name": "Yellow Duck", "c_items": [], "b_items": {} },
+  "5a1f4784-414f-47e4-d716-4988aee6cd40": {
+    "pj": "p02", "name": "r3kt",
+    "c_items": ["free_cash_yen", "burn_rate_yen_month", "unit_margin_positive", "sigma", "evangelist_e", "self_revenue_yen_month"],
+    "b_items": {},
+    "note": "project_knowledgeの該当行が全てsource='masa_direct_20260826'等で機械的に確認できる。標準記録は2023年シードラウンド(3000万円)のみで、以降の状態は全てまさの聞き取りに依存。"
+  }
+}
