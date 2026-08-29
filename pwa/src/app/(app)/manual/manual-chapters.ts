@@ -172,7 +172,7 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
 
   { slug: "2-1-member-quick-start", title: "はじめて使う人向け", summary: "最初に見る画面と、ざっくりした使い方。", topics: ["start", "cockpit"], screens: ["/dashboard", "/project/{projectId}/cockpit", "/mypage"] },
   { slug: "2-2-member-workflows-quick-start", title: "メンバーの日常ワークフロー", summary: "マイページ、立替、週次活動、月初合意の日常導線。", topics: ["start", "monthly"], screens: ["/mypage", "/reimburse"] },
-  { slug: "2-3-pj-cockpit", title: "PJ コックピットの見方", summary: "PJ Status、MS 進捗、経営ハイライト、月次カード、スコア詳細タブの《組織》の読み方。", topics: ["cockpit", "decision", "monthly"], screens: ["/project/{projectId}/cockpit"] },
+  { slug: "2-3-pj-cockpit", title: "PJ コックピットの見方", summary: "PJ Status、MS 進捗、経営ハイライト、月次カード、コスト試算タブ、スコア詳細タブの《組織》の読み方。", topics: ["cockpit", "decision", "monthly"], screens: ["/project/{projectId}/cockpit"] },
   { slug: "2-4-amd-cockpit", title: "AMD 全体コックピットの見方", summary: "p00、Management Score、提案前の論点整理の使い方。", topics: ["start", "decision"], screens: ["/project/p00/cockpit"] },
   { slug: "2-5-research-assets-quick-start", title: "探索系アセットの使い方", summary: "Atlas、Seeds、PoC、VC、Scholar をまず触るための入口。", topics: ["discovery", "start"], screens: ["/atlas", "/seeds", "/poc", "/vcs", "/scholar"] },
   { slug: "2-6-admin-ops", title: "admin月次オペ早見表", summary: "支払、請求書発行、立替、報告書確認、入金確認、経営ノウハウ台帳の入口。", topics: ["monthly", "admin"], screens: ["/admin/invoices", "/admin/payouts", "/admin/management-knowledge"] },

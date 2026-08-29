@@ -1,5 +1,43 @@
 # 2026-08 PWA development sessions
 
+## 2026-08-29 — コスト試算タブの新設と、AGENTS.reference.md 層の全廃
+
+### 目的
+
+SXのコスト試算がGoogle Sheets正本のままで、「前提を1つ動かすとシナリオがどう動くか」をMTGの場で出せなかった。まさ依頼で、全PJで使える雛形としてコックピットへタブを新設する。
+
+### コスト試算タブ
+
+- migration `320` `324` `326`: `project_cost_models` / `_assumptions` / `_items` / `_questions` / `_notes`。RLSは `project_ip_*` と同形。行単位の `visibility`
+- migration `322`: 原典スプレッドシート ③詳細費用積上げ から変数27件・明細137件を取り込み。生成は `pwa/scripts/gen_sx_cost_seed.py`。原典と一致を確認（総コスト 582.4 / 642.4 / 349.7 / 409.7 円/m³、CAPEX年額・人件費参考値まで）
+- migration `323` `328`: 相手別の確認事項16件。`impact_low/high` は確定時に総コストが動く幅
+- migration `325` `327`: 想定系 / 総コスト目標300円/m³ / 注記13件（原典②シートの「見る意味」列、投資回収の保留理由、③シート注記行、外部ベンチマークと出典）
+- `pwa/src/lib/project-cost-model.ts`: 純関数の計算エンジン。**計算結果は保存せず常に導出する**
+- `CockpitCostModel.tsx` をコックピット（admin編集可）とPJワークスペース（閲覧専用）で共有。全PJ常設で未登録PJは空状態
+- 仕様は `pwa/spec/5-13-project-cost-model-current-spec.md`、マニュアルは `pwa/manual/2-3-pj-cockpit.md`
+
+### 途中で捨てた設計（次回同じ罠を避けるため）
+
+- **`pwa/AGENTS.md` へPWAのルールを集約しようとした** → まさから「pwaサブディレクトリは使わない方向に寄せている」と指摘され、ルートの `AGENTS.md` へ上げ直した。cwdがルートである以上、`pwa/` 配下に書いても読まれない
+- **参照系キャッシュを通さず素の fetch で実装した** → `deploy.sh` の `check_reference_data_cache_contract` が本番反映前に落とした。`project-cost-model-client.ts` を作り、読み書きとも通す形へ。guard は正しく機能している
+- **初回読み込みをレンダー中の副作用で書いた** → `useEffect` へ戻した。`AssumptionRow` の props 追従は effect ではなくレンダー中の調整（React公式のパターン）
+
+### AGENTS.reference.md 層の全廃
+
+- まさ確定「二段構えは作らない」。8ファイル・約103KBを仕分け、各 `AGENTS.md` へ統合するか、内容に応じて `AGENTS.common.md` / `pwa/spec/` / `pwa/design/` へ移した
+- そのあと「共通ルールを書いてよいmdは `AGENTS.common.md` だけ」と再指摘。`amd-os/AGENTS.md` へ持ち込んでいた共通ルール（git同期手順、push前fetch、画像生成の扱い）を common.md へ戻し、PWA運用詳細は `pwa/spec/5-2` へ移した。569行 → 195行
+- 全33枚の `AGENTS.md` を機械検査し、共通ルールの素書きを `ios` / `l2m` / `CX` / `amd-os-automation-sessions` から削除。common.md への導線が無かった4枚に1行追加
+
+### 検証
+
+- 原典スプレッドシートとの一致をSQLと計算エンジン実行の両方で確認
+- 本番画面を Chrome（実セッション）で実見。確度タグ149個の折返し0件、ページ横はみ出し0px、注記4セクションと markdown 表の描画を確認
+- 表示バグ3件（literal `\n` / `**強調**` 未レンダリング / タグ折返し）を実見で検出して修正
+
+### 事故
+
+`pwa/AGENTS.md` が永久 dirty で別セッションの deploy を止めていた件と、「認証が要るから確認できない」と誤報告した件を `pwa/BUGS.md` に記録した。
+
 ## 2026-08-12 — 資料室を高密度の資料棚へ再構成（v3.72.22〜v3.72.23）
 
 - `WorkspaceDocumentRoom`のモーダルを、所属・folder・共有範囲・権限を一段に置くscope rail、件数・検索・絞り込み・追加操作をまとめたtoolbar、短いdrop rail、密な一覧行へ組み替えた。資料の正本、認可、操作内容、独立routeは変えていない。

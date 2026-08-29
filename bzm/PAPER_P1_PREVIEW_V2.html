@@ -601,6 +601,22 @@ Fairfield and Charman, 2017), yielding the prior
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>B</mi><mn>0</mn></msub><mo stretchy="false" form="prefix">(</mo><mi>θ</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">B_0(\theta)</annotation></semantics></math>;
 correlated components share source variables rather than being elicited
 independently.</p>
+<p>Two of these deserve their measurement rules stated here. Conversion
+capacity
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>c</mi><annotation encoding="application/x-tex">c</annotation></semantics></math>
+is estimated per project as a recency-weighted moving average of the
+ratio of strategic-slack increments (funds won, gates passed, IP
+created, demand relationships, people retained) to the spending that
+produced them — with pre-incorporation grants credited not at face value
+but by how much of them became project assets; where spending records do
+not exist,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>c</mi><annotation encoding="application/x-tex">c</annotation></semantics></math>
+is approximated from the <em>quiet period</em>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>t</mi><mi>q</mi></msub><annotation encoding="application/x-tex">t_q</annotation></semantics></math>
+— the months since the last externally visible positive event — on a
+declared scale. The quiet period is itself an observable that damps
+offer-arrival hazards (§5.8): a project showing no outward motion
+attracts no suitors.</p>
 <p>One honesty clause governs
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>θ</mi><annotation encoding="application/x-tex">\theta</annotation></semantics></math>:
 it is held constant over the horizon <em>because its variation cannot be
@@ -671,11 +687,17 @@ does not fall into a single death state but splits across four routes —
 application pivot, exit-class conversion (M&amp;A), licensing fold-down,
 and return of the rights to the institution (value zero; any later
 revival is a new project) — with evidence-level asymmetries that prevent
-early-stage projects from claiming exit value they cannot show. Under
-the currently approved model version, cash-out before incorporation
-still routes into these four paths; a revision under review would go
-further and treat pre-incorporation cash-out purely as a speed change
-(§2.1; §8.4), which is the direction the fifth premise points.</p>
+early-stage projects from claiming exit value they cannot show. Before
+incorporation the process does not absorb at zero cash at all: when free
+funds cannot cover the burn, progress continues at a reduced rate (×0.35
+at initial values) with running expenses carried by the institutional
+base, and the project re-accelerates on the next award — the fifth
+premise of §2.1 implemented as a speed rule rather than a death state.
+After incorporation, cash-out routes into the four-path split above,
+because a company, unlike a laboratory, cannot pause. Removing the
+pre-incorporation absorbing wall also removed most of the scheme’s
+numerical stiffness (grid-convergence error fell from ≈2% to
+&lt;0.3%).</p>
 <h2 id="the-score-and-its-two-kinds-of-uncertainty">4.6 The score and
 its two kinds of uncertainty</h2>
 <p>For a fixed
@@ -845,14 +867,14 @@ not a committee judgment outside it.</p>
 in operation</h2>
 <p>Licensing, acquisition, and IP-sale offers arrive as hazards
 increasing in appropriability, evidence level, momentum, and carrier
-fill; whether an offer is taken is the plan’s decision, and the value
-that follows is the successor’s: the tail is scaled by the probability
-that a licensee (0.60), acquirer (0.75), or IP buyer (0.45) completes
-the remaining market gates — initial values, all awaiting calibration.
-Nothing in the scale privileges the IPO-track scenario: a service
-business that reaches self-sufficiency on repeated contract work books
-its (smaller) domestic value added on exactly the same ledger, which is
-DP8 kept honest.</p>
+fill, and damped by the quiet period (§4.3); whether an offer is taken
+is the plan’s decision, and the value that follows is the successor’s:
+the tail is scaled by the probability that a licensee (0.60), acquirer
+(0.75), or IP buyer (0.45) completes the remaining market gates —
+initial values, all awaiting calibration. Nothing in the scale
+privileges the IPO-track scenario: a service business that reaches
+self-sufficiency on repeated contract work books its (smaller) domestic
+value added on exactly the same ledger, which is DP8 kept honest.</p>
 <h2 id="two-numbers-not-one">5.9 Two numbers, not one</h2>
 <p>Finally, the measure decomposes into an acceleration wedge (value the
 world gets earlier — a genuine welfare-relevant gain) and a location
@@ -1149,11 +1171,12 @@ the claim that the observation system can be completed. (4)
 effects with interactions; significant interaction terms falsify the
 product form of
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>η</mi><mi>t</mi></msub><annotation encoding="application/x-tex">\eta_t</annotation></semantics></math>
-and force a bundle representation. (5) <em>Regime asymmetry</em>: under
-the pre-incorporation cash-as-speed revision now under review, the model
-predicts idea quality dominates before incorporation and cash dominates
-after; version-controlled outcome tracking that contradicts this
-asymmetry rejects the fifth-premise treatment itself.</p>
+and force a bundle representation. (5) <em>Regime asymmetry</em>:
+because the model treats pre-incorporation cash as a speed variable
+(§4.5), it predicts that idea quality dominates rankings before
+incorporation while cash dominates after; version-controlled outcome
+tracking that contradicts this asymmetry rejects the fifth-premise
+treatment itself.</p>
 <h2 id="the-external-validity-path">8.5 The external-validity path</h2>
 <p>A single further deployment decides more than any argument: if a
 second organization can run the gate table and registry unmodified, the
