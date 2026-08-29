@@ -1428,4 +1428,4 @@ $m_\theta$ は 0.4〜2.5 で切る。すべて根拠レベル C。
 （organization-input は提案1〜3・6 を統合済み化する。提案4・5・8 が未承認のまま残るためファイルは残置し、
 ロック対象には入れない——提案の置き場はロックしない。README (a-2)。）
 
-反映commit: (未反映)
+反映commit: 34aaa284（正本・縮退表・migration 338・値置き・21件再計算・SCORES.md・tier0.json。実装 forward.cjs / score_seeds.cjs・APPROVALS・提案スタブ化・画面・changelog は、共有 checkout の別セッションの commit 9e051cd2 に編集済みの状態で巻き込まれて入った——内容は本承認どおりで欠損なし。凍結版は 34aaa284 の tree）
