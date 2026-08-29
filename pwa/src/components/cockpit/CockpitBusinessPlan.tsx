@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   BriefcaseBusiness,
   ChevronDown,
-  CircleAlert,
   FileSpreadsheet,
   FlaskConical,
   Landmark,
@@ -14,7 +13,6 @@ import {
   UsersRound,
   type LucideIcon,
 } from "lucide-react";
-import type { CompanyOverviewData } from "@/lib/company-overview";
 import {
   SX_BUSINESS_PLAN_PHASES,
   SX_ANNUAL_PROJECTION_FISCAL_YEARS,
@@ -27,7 +25,6 @@ import {
   type SxXrlTarget,
 } from "@/lib/sx-business-plan";
 import { downloadSxBusinessPlanPhaseMatrixXlsx } from "@/lib/sx-business-plan-xlsx";
-import CapitalPlanWorkspace from "./CapitalPlanWorkspace";
 import { Bzm22TimeLedgerSection } from "./Bzm22TimeLedgerSection";
 
 interface CockpitBusinessPlanProps {
@@ -468,23 +465,20 @@ function AnnualProjectionTable() {
   );
 }
 
+/**
+ * 事業計画タブ。
+ * 2026-08-29 まさ「SXは事業計画タブに資本政策表を作っちゃってるから、これを削除しておいてほしい」で、
+ * ここにあった資本政策プラン台帳 (`CapitalPlanWorkspace`) の掲載をやめた。
+ * 資本構成は資本政策表タブ (`?tab=capital-policy`) を唯一の入口にする。
+ */
 export function CockpitBusinessPlan({ projectId, projectName, showSxDetail = false, showTimeLedger = false }: CockpitBusinessPlanProps) {
-  const [companyData, setCompanyData] = useState<CompanyOverviewData>();
-  const [companyDataError, setCompanyDataError] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/governance?projectId=${encodeURIComponent(projectId)}`)
-      .then(async (response) => {
-        const json = await response.json();
-        if (!response.ok || !json.ok) throw new Error(json.error || "会社情報を読み込めなかったよ");
-        if (!cancelled) setCompanyData(json);
-      })
-      .catch((cause) => {
-        if (!cancelled) setCompanyDataError(cause instanceof Error ? cause.message : "会社情報を読み込めなかったよ");
-      });
-    return () => { cancelled = true; };
-  }, [projectId]);
+  if (!showSxDetail && !showTimeLedger) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white px-5 py-8 text-center text-sm leading-6 text-slate-500">
+        このPJの事業計画はまだ登録されていないよ。株主構成と資本政策は「資本政策表」タブで見てね。
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -493,18 +487,6 @@ export function CockpitBusinessPlan({ projectId, projectName, showSxDetail = fal
       {showTimeLedger && <Bzm22TimeLedgerSection projectId={projectId} />}
 
       {showSxDetail && <AnnualProjectionTable />}
-
-      <div>
-        <div className="mb-3 px-1">
-          <h2 className="text-lg font-bold tracking-tight text-slate-950">株主構成・資本政策</h2>
-        </div>
-        {companyDataError && (
-          <div className="mb-3 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-            <CircleAlert className="size-4 shrink-0" /> 会社情報の取込だけ失敗したよ：{companyDataError}
-          </div>
-        )}
-        <CapitalPlanWorkspace projectId={projectId} projectName={projectName} companyOverviewData={companyData} />
-      </div>
     </div>
   );
 }

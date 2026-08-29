@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   AlertTriangle,
   Building2,
@@ -19,12 +19,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  HOLDER_LABELS,
-  TRANSACTION_LABELS,
   buildCapTableSnapshots,
   capTableTieOut,
   convertibleScenario,
@@ -32,9 +28,21 @@ import {
 } from "@/lib/company-overview";
 import { downloadCompanyOverviewXlsx } from "@/lib/company-overview-xlsx";
 import { CockpitKillerFactorCatalog } from "@/components/cockpit/CockpitKillerFactorCatalog";
-import { CapitalPolicyTable, CapitalRoundsTable } from "@/components/cockpit/CapitalPolicyTable";
+import {
+  EmptyState,
+  Field,
+  InfoCell,
+  NativeSelect,
+  Section,
+  formatDate,
+  formatNumber,
+  formatYen,
+  numberOrNull,
+  statusLabel,
+  textOrNull,
+} from "@/components/cockpit/company-overview-ui";
 
-type DialogKind = "profile" | "equity" | "round" | "convertible" | "financial" | "meeting" | null;
+type DialogKind = "profile" | "financial" | "meeting" | null;
 
 const EMPTY_DATA: CompanyOverviewData = {
   profile: null,
@@ -53,9 +61,6 @@ const LEGAL_STATUS = [
   { value: "liquidating", label: "清算中" },
   { value: "closed", label: "清算済み" },
 ];
-const HOLDER_TYPES = Object.entries(HOLDER_LABELS).map(([value, label]) => ({ value, label }));
-const TRANSACTION_TYPES = ["incorporation", "opening_balance", "new_issue", "transfer", "stock_option_grant", "stock_option_exercise", "in_kind_contribution", "cancellation", "correction"]
-  .map((value) => ({ value, label: TRANSACTION_LABELS[value] }));
 const MEETING_TYPES = [
   { value: "agm", label: "定時株主総会" },
   { value: "egm", label: "臨時株主総会" },
@@ -63,36 +68,6 @@ const MEETING_TYPES = [
   { value: "board_written", label: "取締役会（書面決議）" },
   { value: "shareholder_written", label: "株主総会（書面決議）" },
 ];
-
-function numberOrNull(value: FormDataEntryValue | null) {
-  const text = String(value || "").replaceAll(",", "").trim();
-  if (!text) return null;
-  const number = Number(text);
-  return Number.isFinite(number) ? number : null;
-}
-
-function textOrNull(value: FormDataEntryValue | null) {
-  const text = String(value || "").trim();
-  return text || null;
-}
-
-function formatNumber(value: number | null | undefined, digits = 0) {
-  if (value == null || !Number.isFinite(Number(value))) return "—";
-  return Number(value).toLocaleString("ja-JP", { maximumFractionDigits: digits });
-}
-
-function formatYen(value: number | null | undefined) {
-  if (value == null || !Number.isFinite(Number(value))) return "—";
-  const number = Number(value);
-  if (Math.abs(number) >= 100_000_000) return `${(number / 100_000_000).toLocaleString("ja-JP", { maximumFractionDigits: 2 })}億円`;
-  if (Math.abs(number) >= 10_000) return `${(number / 10_000).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万円`;
-  return `${number.toLocaleString("ja-JP")}円`;
-}
-
-function formatDate(value: string | null | undefined) {
-  if (!value) return "日付未入力";
-  return value.replaceAll("-", "/");
-}
 
 function compactCorporateNumber(value: string | null | undefined) {
   if (!value) return "未入力";
@@ -103,63 +78,8 @@ function meetingLabel(value: string | null | undefined) {
   return MEETING_TYPES.find((option) => option.value === value)?.label || value || "種別未入力";
 }
 
-function statusLabel(value: string | null | undefined) {
-  return ({ draft: "下書き", final: "確定", filed: "申告済み", planned: "計画", confirmed: "確定", void: "取消" } as Record<string, string>)[value || ""] || value || "未入力";
-}
-
 function sourceHref(attachment: { url?: string; webViewLink?: string; web_view_link?: string }) {
   return attachment.url || attachment.webViewLink || attachment.web_view_link || "";
-}
-
-function Section({ title, description, action, children, className = "" }: { title: string; description?: string; action?: ReactNode; children: ReactNode; className?: string }) {
-  return (
-    <section className={`overflow-hidden rounded-2xl border border-slate-200 bg-white ${className}`}>
-      <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 sm:flex-row sm:flex-wrap sm:items-start sm:px-5" data-section-header="mobile-stack-sm-row">
-        <div className="min-w-0 flex-1">
-          <h2 className="text-[15px] font-semibold tracking-tight text-slate-950">{title}</h2>
-          {description && <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>}
-        </div>
-        {action && <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0" data-html2canvas-ignore="true">{action}</div>}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function InfoCell({ label, value, wide = false }: { label: string; value: ReactNode; wide?: boolean }) {
-  return (
-    <div className={`min-w-0 border-b border-slate-100 px-4 py-3 last:border-b-0 sm:px-5 ${wide ? "sm:col-span-2" : ""}`}>
-      <div className="text-[11px] font-medium text-slate-500">{label}</div>
-      <div className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-5 text-slate-900">{value || <span className="text-slate-400">未入力</span>}</div>
-    </div>
-  );
-}
-
-function Field({ label, name, children, hint }: { label: string; name?: string; children: ReactNode; hint?: string }) {
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={name} className="text-xs text-slate-700">{label}</Label>
-      {children}
-      {hint && <p className="text-[11px] leading-4 text-slate-500">{hint}</p>}
-    </div>
-  );
-}
-
-function NativeSelect({ name, defaultValue, options, className = "" }: { name: string; defaultValue?: string; options: { value: string; label: string }[]; className?: string }) {
-  const [value, setValue] = useState(defaultValue || options[0]?.value || "");
-  return (
-    <>
-      <input type="hidden" name={name} value={value} />
-      <Select value={value} onValueChange={(next) => setValue(next || "")}>
-        <SelectTrigger className={`h-11 w-full bg-white ${className}`}><SelectValue /></SelectTrigger>
-        <SelectContent>{options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
-      </Select>
-    </>
-  );
-}
-
-function EmptyState({ children }: { children: ReactNode }) {
-  return <div className="px-5 py-8 text-center text-sm leading-6 text-slate-500">{children}</div>;
 }
 
 export function CockpitCompanyOverview({ projectId, projectName }: { projectId: string; projectName: string }) {
@@ -171,7 +91,6 @@ export function CockpitCompanyOverview({ projectId, projectName }: { projectId: 
   const [saving, setSaving] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [selectedSnapshotId, setSelectedSnapshotId] = useState("");
-  const [equityDefaultType, setEquityDefaultType] = useState("new_issue");
   const exportRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
@@ -198,7 +117,6 @@ export function CockpitCompanyOverview({ projectId, projectName }: { projectId: 
   }, [selectedSnapshotId, snapshots]);
   const selectedSnapshot = snapshots.find((snapshot) => snapshot.id === selectedSnapshotId) || snapshots.at(-1) || null;
   const latestSnapshot = snapshots.at(-1) || null;
-  const hasEquityLedger = data.transactions.some((transaction) => transaction.status === "confirmed");
   const tieOut = capTableTieOut(data);
   const conversion = convertibleScenario(data);
   const latestRound = data.rounds.find((round) => round.price_per_share_yen != null || round.post_money_yen != null) || data.rounds[0];
@@ -248,61 +166,8 @@ export function CockpitCompanyOverview({ projectId, projectName }: { projectId: 
     }));
   }
 
-  async function saveEquity(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const transactionType = String(form.get("transaction_type"));
-    const shares = Number(numberOrNull(form.get("shares")) || 0);
-    const paidIn = Number(numberOrNull(form.get("paid_in_yen")) || 0);
-    const holderType = String(form.get("holder_type") || "other");
-    const toHolder = String(form.get("to_holder") || "").trim();
-    const fromHolder = String(form.get("from_holder") || "").trim();
-    const securityClass = String(form.get("security_class") || "普通株式").trim();
-    if (!shares || shares < 0) { setError("株式数は0より大きい数で入力してね"); return; }
-    if (transactionType === "transfer" && (!fromHolder || !toHolder)) { setError("譲渡元と譲渡先を入力してね"); return; }
-    if (transactionType !== "transfer" && !toHolder) { setError("株主・付与先を入力してね"); return; }
 
-    const entry = (holderName: string, outstanding: number, diluted: number, paidInYen = 0, klass = securityClass) => ({ holder_type: holderType, holder_name: holderName, security_class: klass, outstanding_delta: outstanding, diluted_delta: diluted, paid_in_yen_delta: paidInYen });
-    let entries;
-    if (transactionType === "transfer") entries = [entry(fromHolder, -shares, -shares), entry(toHolder, shares, shares)];
-    else if (transactionType === "stock_option_grant") entries = [entry(toHolder, 0, shares, 0, securityClass || "新株予約権")];
-    else if (transactionType === "stock_option_exercise") entries = [entry(toHolder, 0, -shares, 0, securityClass || "新株予約権"), entry(toHolder, shares, shares, paidIn, "普通株式")];
-    else if (transactionType === "cancellation") entries = [entry(toHolder, -shares, -shares)];
-    else entries = [entry(toHolder, shares, shares, paidIn)];
 
-    const roundId = String(form.get("round_id") || "none");
-
-    await save("株式イベント", () => post("equity_transaction", {
-      project_id: projectId, round_id: roundId === "none" ? null : roundId, effective_on: form.get("effective_on"), transaction_type: transactionType,
-      description: textOrNull(form.get("description")), status: form.get("status"), source_ref: textOrNull(form.get("source_ref")),
-      notes: textOrNull(form.get("notes")), entries,
-    }));
-  }
-
-  async function saveRound(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    await save("調達ラウンド", () => post("round", {
-      project_id: projectId, round_name: textOrNull(form.get("round_name")), round_date: textOrNull(form.get("round_date")),
-      pre_money_yen: numberOrNull(form.get("pre_money_yen")), post_money_yen: numberOrNull(form.get("post_money_yen")),
-      raised_yen: numberOrNull(form.get("raised_yen")), price_per_share_yen: numberOrNull(form.get("price_per_share_yen")),
-      lead_investor: textOrNull(form.get("lead_investor")), source_ref: textOrNull(form.get("source_ref")), notes: textOrNull(form.get("notes")),
-    }));
-  }
-
-  async function saveConvertible(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const discount = numberOrNull(form.get("discount_rate_pct"));
-    await save("転換前証券", () => post("convertible", {
-      project_id: projectId, holder_name: textOrNull(form.get("holder_name")), instrument_type: form.get("instrument_type"),
-      issued_on: textOrNull(form.get("issued_on")), principal_yen: numberOrNull(form.get("principal_yen")),
-      valuation_cap_yen: numberOrNull(form.get("valuation_cap_yen")), discount_rate: discount == null ? null : Number(discount) / 100,
-      conversion_trigger: textOrNull(form.get("conversion_trigger")), maturity_on: textOrNull(form.get("maturity_on")),
-      estimated_conversion_price: numberOrNull(form.get("estimated_conversion_price")), estimated_conversion_shares: numberOrNull(form.get("estimated_conversion_shares")),
-      status: form.get("status"), source_ref: textOrNull(form.get("source_ref")), notes: textOrNull(form.get("notes")),
-    }));
-  }
 
   async function saveFinancial(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -409,13 +274,7 @@ export function CockpitCompanyOverview({ projectId, projectName }: { projectId: 
         <CockpitKillerFactorCatalog projectId={projectId} />
 
 
-        <Section title="資本政策表" description="確定済みの株式イベントとラウンドから作る正式な資本政策表。ラウンドを列・株主を行に置き、株数、持株比率、発行価額、時価総額の推移をそのまま追える。計画中のラウンドの編集は事業計画タブの資本政策プランで行う" action={<div className="flex flex-wrap gap-2"><Button variant="outline" className="h-11" onClick={() => setDialog("round")}><Plus />ラウンド</Button><Button variant="outline" className="h-11" onClick={() => setDialog("convertible")}><Plus />転換前証券</Button></div>}>
-          {!hasEquityLedger && data.rounds.length === 0 && data.convertibles.length === 0 ? <EmptyState>株式イベントや調達ラウンドを追加すると、ラウンド別の資本政策表になるよ。</EmptyState> : <div className="divide-y divide-slate-100">
-            <CapitalPolicyTable data={data} />
-            {data.rounds.length > 0 && <div><div className="px-4 pb-1 pt-4 text-[11px] font-semibold text-slate-500 sm:px-5">ラウンド一覧{hasEquityLedger ? "（計画中・株式イベント未登録のラウンドを含む全件）" : ""}</div><CapitalRoundsTable data={data} showLedgerHint={!hasEquityLedger} /></div>}
-            {data.convertibles.length > 0 && <div className="p-4 sm:p-5"><div className="mb-3 flex items-center justify-between text-[11px] font-semibold text-slate-500"><span>転換前証券</span><span>転換見込 {formatNumber(conversion.estimatedShares, 2)}株</span></div><div className="overflow-x-auto"><table className="w-full min-w-[720px] text-xs"><thead className="bg-slate-50 text-[11px] text-slate-500"><tr><th className="px-4 py-3 text-left font-medium">保有者</th><th className="px-3 py-3 text-left font-medium">種別 / 状態</th><th className="px-3 py-3 text-left font-medium">発行日 / 期限</th><th className="px-3 py-3 text-right font-medium">元本</th><th className="px-3 py-3 text-right font-medium">評価上限</th><th className="px-3 py-3 text-right font-medium">ディスカウント</th><th className="px-4 py-3 text-right font-medium">転換見込株式</th></tr></thead><tbody className="divide-y divide-slate-100">{data.convertibles.map((instrument) => <tr key={instrument.id}><td className="px-4 py-3 font-medium text-slate-900">{instrument.holder_name}</td><td className="px-3 py-3 text-slate-600">{instrument.instrument_type} / {statusLabel(instrument.status)}</td><td className="px-3 py-3 tabular-nums text-slate-600">{[formatDate(instrument.issued_on), formatDate(instrument.maturity_on)].filter(Boolean).join(" 〜 ") || "－"}</td><td className="px-3 py-3 text-right tabular-nums">{formatYen(instrument.principal_yen)}</td><td className="px-3 py-3 text-right tabular-nums">{formatYen(instrument.valuation_cap_yen)}</td><td className="px-3 py-3 text-right tabular-nums">{instrument.discount_rate == null ? "－" : `${(Number(instrument.discount_rate) * 100).toFixed(1)}%`}</td><td className="px-4 py-3 text-right tabular-nums">{formatNumber(instrument.estimated_conversion_shares, 2)}株</td></tr>)}</tbody></table></div><p className="mt-3 text-[11px] leading-5 text-slate-500">転換前証券は現在の持株比率には混ぜず、転換見込シナリオとして別に持つ。</p></div>}
-          </div>}
-        </Section>
+
 
         <div className="grid gap-4 xl:grid-cols-2">
           <Section title="総会・取締役会" description="決議、AMD対応、関連資料を開催履歴と一緒に保存" action={<Button variant="outline" className="h-11" onClick={() => setDialog("meeting")}><Plus />開催情報</Button>}>
@@ -453,38 +312,8 @@ export function CockpitCompanyOverview({ projectId, projectName }: { projectId: 
         <div className="sm:col-span-2"><Field label="メモ" name="notes"><Textarea id="notes" name="notes" defaultValue={data.profile?.notes || ""} /></Field></div>
       </div><DialogFooter><Button type="button" variant="outline" className="h-11" onClick={() => setDialog(null)}>閉じる</Button><Button type="submit" className="h-11" disabled={saving}>{saving && <Loader2 className="animate-spin" />}保存</Button></DialogFooter></form></DialogContent></Dialog>
 
-      <Dialog open={dialog === "equity"} onOpenChange={(open) => !open && setDialog(null)}><DialogContent className="max-h-[90vh] overflow-y-auto sm:!max-w-2xl"><form onSubmit={(event) => void saveEquity(event)}><DialogHeader><DialogTitle>株式イベントを追加</DialogTitle><DialogDescription>確定イベントだけが現在のcap tableに反映されるよ。譲渡は譲渡元と譲渡先を同時に記録する。</DialogDescription></DialogHeader><div className="my-5 grid gap-4 sm:grid-cols-2">
-        <Field label="イベント"><NativeSelect key={equityDefaultType} name="transaction_type" defaultValue={equityDefaultType} options={TRANSACTION_TYPES} /></Field>
-        <Field label="状態"><NativeSelect name="status" defaultValue="confirmed" options={[{ value: "planned", label: "計画" }, { value: "confirmed", label: "確定" }]} /></Field>
-        <Field label="効力日" name="effective_on" hint="YYYY-MM-DD"><Input id="effective_on" name="effective_on" required defaultValue={new Date().toISOString().slice(0, 10)} className="h-11" /></Field>
-        <Field label="株主区分"><NativeSelect name="holder_type" defaultValue="founder" options={HOLDER_TYPES} /></Field>
-        <Field label="関連ラウンド" hint="任意。ラウンドと株式イベントを紐付けたいときに選択"><NativeSelect name="round_id" defaultValue="none" options={[{ value: "none", label: "なし" }, ...data.rounds.map((round) => ({ value: round.id, label: round.round_name || formatDate(round.round_date || round.round_ym) }))]} /></Field>
-        <Field label="譲渡元（譲渡のとき）" name="from_holder"><Input id="from_holder" name="from_holder" className="h-11" /></Field>
-        <Field label="株主・譲渡先・付与先" name="to_holder"><Input id="to_holder" name="to_holder" className="h-11" /></Field>
-        <Field label="証券種別" name="security_class"><Input id="security_class" name="security_class" defaultValue="普通株式" className="h-11" /></Field>
-        <Field label="株式数 / 個数" name="shares"><Input id="shares" name="shares" inputMode="decimal" required className="h-11" /></Field>
-        <Field label="払込総額（円）" name="paid_in_yen" hint="譲渡なら会社への払込ではないので0"><Input id="paid_in_yen" name="paid_in_yen" inputMode="numeric" className="h-11" /></Field>
-        <Field label="説明" name="description"><Input id="description" name="description" placeholder="Seed増資、創業時発行など" className="h-11" /></Field>
-        <Field label="確認元" name="source_ref"><Input id="source_ref" name="source_ref" placeholder="株主名簿 / 払込証明 / 契約" className="h-11" /></Field>
-        <div className="sm:col-span-2"><Field label="メモ" name="notes"><Textarea id="notes" name="notes" /></Field></div>
-      </div><DialogFooter><Button type="button" variant="outline" className="h-11" onClick={() => setDialog(null)}>閉じる</Button><Button type="submit" className="h-11" disabled={saving}>{saving && <Loader2 className="animate-spin" />}追加</Button></DialogFooter></form></DialogContent></Dialog>
 
-      <Dialog open={dialog === "round"} onOpenChange={(open) => !open && setDialog(null)}><DialogContent className="max-h-[90vh] overflow-y-auto sm:!max-w-2xl"><form onSubmit={(event) => void saveRound(event)}><DialogHeader><DialogTitle>調達ラウンドを追加</DialogTitle><DialogDescription>株式イベントとラウンド情報を分けることで、持株計算とバリュエーションを混同しない。</DialogDescription></DialogHeader><div className="my-5 grid gap-4 sm:grid-cols-2">
-        <Field label="ラウンド名" name="round_name"><Input id="round_name" name="round_name" placeholder="Seed" required className="h-11" /></Field><Field label="実施日" name="round_date"><Input id="round_date" name="round_date" placeholder="2026-07-16" className="h-11" /></Field>
-        <Field label="pre-money（円）" name="pre_money_yen"><Input id="pre_money_yen" name="pre_money_yen" inputMode="numeric" className="h-11" /></Field><Field label="post-money（円）" name="post_money_yen"><Input id="post_money_yen" name="post_money_yen" inputMode="numeric" className="h-11" /></Field>
-        <Field label="調達額（円）" name="raised_yen"><Input id="raised_yen" name="raised_yen" inputMode="numeric" className="h-11" /></Field><Field label="1株単価（円）" name="price_per_share_yen"><Input id="price_per_share_yen" name="price_per_share_yen" inputMode="decimal" className="h-11" /></Field>
-        <Field label="リード投資家" name="lead_investor"><Input id="lead_investor" name="lead_investor" className="h-11" /></Field><Field label="確認元" name="source_ref"><Input id="source_ref" name="source_ref" className="h-11" /></Field>
-        <div className="sm:col-span-2"><Field label="メモ" name="notes"><Textarea id="notes" name="notes" /></Field></div>
-      </div><DialogFooter><Button type="button" variant="outline" className="h-11" onClick={() => setDialog(null)}>閉じる</Button><Button type="submit" className="h-11" disabled={saving}>追加</Button></DialogFooter></form></DialogContent></Dialog>
 
-      <Dialog open={dialog === "convertible"} onOpenChange={(open) => !open && setDialog(null)}><DialogContent className="max-h-[90vh] overflow-y-auto sm:!max-w-2xl"><form onSubmit={(event) => void saveConvertible(event)}><DialogHeader><DialogTitle>転換前証券を追加</DialogTitle><DialogDescription>現在の持株比率には入れず、転換見込シナリオとして別表示するよ。</DialogDescription></DialogHeader><div className="my-5 grid gap-4 sm:grid-cols-2">
-        <Field label="保有者" name="holder_name"><Input id="holder_name" name="holder_name" required className="h-11" /></Field><Field label="証券"><NativeSelect name="instrument_type" defaultValue="J-KISS" options={[{ value: "J-KISS", label: "J-KISS" }, { value: "SAFE", label: "SAFE" }, { value: "CB", label: "転換社債" }, { value: "other", label: "その他" }]} /></Field>
-        <Field label="発行日" name="issued_on"><Input id="issued_on" name="issued_on" placeholder="2026-07-16" className="h-11" /></Field><Field label="状態"><NativeSelect name="status" defaultValue="outstanding" options={[{ value: "outstanding", label: "転換前" }, { value: "converted", label: "転換済み" }, { value: "repaid", label: "償還済み" }, { value: "cancelled", label: "取消" }]} /></Field>
-        <Field label="元本（円）" name="principal_yen"><Input id="principal_yen" name="principal_yen" inputMode="numeric" className="h-11" /></Field><Field label="評価上限（円）" name="valuation_cap_yen"><Input id="valuation_cap_yen" name="valuation_cap_yen" inputMode="numeric" className="h-11" /></Field>
-        <Field label="割引率（%）" name="discount_rate_pct"><Input id="discount_rate_pct" name="discount_rate_pct" inputMode="decimal" placeholder="20" className="h-11" /></Field><Field label="満期日" name="maturity_on"><Input id="maturity_on" name="maturity_on" className="h-11" /></Field>
-        <Field label="転換見込単価（円）" name="estimated_conversion_price"><Input id="estimated_conversion_price" name="estimated_conversion_price" inputMode="decimal" className="h-11" /></Field><Field label="転換見込株式数" name="estimated_conversion_shares"><Input id="estimated_conversion_shares" name="estimated_conversion_shares" inputMode="decimal" className="h-11" /></Field>
-        <div className="sm:col-span-2"><Field label="転換条件" name="conversion_trigger"><Textarea id="conversion_trigger" name="conversion_trigger" /></Field></div><Field label="確認元" name="source_ref"><Input id="source_ref" name="source_ref" className="h-11" /></Field><Field label="メモ" name="notes"><Input id="notes" name="notes" className="h-11" /></Field>
-      </div><DialogFooter><Button type="button" variant="outline" className="h-11" onClick={() => setDialog(null)}>閉じる</Button><Button type="submit" className="h-11" disabled={saving}>追加</Button></DialogFooter></form></DialogContent></Dialog>
 
       <Dialog open={dialog === "financial"} onOpenChange={(open) => !open && setDialog(null)}><DialogContent className="max-h-[90vh] overflow-y-auto sm:!max-w-3xl"><form onSubmit={(event) => void saveFinancial(event)}><DialogHeader><DialogTitle>年度決算を追加・更新</DialogTitle><DialogDescription>同じ年度を保存すると、その年度の数値を更新するよ。</DialogDescription></DialogHeader><div className="my-5 grid gap-4 sm:grid-cols-3">
         <Field label="年度" name="fiscal_year"><Input id="fiscal_year" name="fiscal_year" required inputMode="numeric" defaultValue={new Date().getFullYear()} className="h-11" /></Field><Field label="状態"><NativeSelect name="statement_status" defaultValue="draft" options={[{ value: "draft", label: "下書き" }, { value: "final", label: "確定" }, { value: "filed", label: "申告済み" }]} /></Field><Field label="申告日" name="filed_on"><Input id="filed_on" name="filed_on" className="h-11" /></Field>

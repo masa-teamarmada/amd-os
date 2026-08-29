@@ -26,6 +26,7 @@ import { CockpitProjectOverview } from "./CockpitProjectOverview";
 import { CockpitProjectControl } from "./CockpitProjectControl";
 import type { SxWeeklyControlView } from "@/components/project-workspace/SxWeeklyControlDashboard";
 import { CockpitBusinessPlan } from "./CockpitBusinessPlan";
+import { CockpitCapitalPolicy } from "./CockpitCapitalPolicy";
 import type { CockpitSeasonFinance as CockpitSeasonFinanceData, MilestoneChangeHistory } from "@/lib/supabase-data";
 import type { ProjectContractTerms } from "@/lib/project-contract-terms";
 import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
@@ -266,6 +267,7 @@ export type CockpitTab =
   | "ip"
   | "documents"
   | "overview"
+  | "capital-policy"
   | "company";
 
 /**
@@ -391,6 +393,9 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
     // PJ概要 = 契約上の実行条件の置き場所 (2026-08-28 まさ依頼で最上段から移設)。
     // SU側の登記・株主を見る会社概要と隣に置き、月単位で変わらない前提をまとめて開けるようにする。
     { key: "overview", label: "PJ概要" },
+    // 資本政策表は 2026-08-29 に会社概要から独立させた (まさ「会社概要タブのコンテンツが
+    // 増えすぎて見にくいので」)。会社概要 = 登記・総会・決算、資本政策表 = 資本構成の記録。
+    { key: "capital-policy", label: "資本政策表" },
     { key: "company", label: "会社概要" },
   ];
 
@@ -696,6 +701,12 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
             />
           ) : null}
           <CockpitProjectOverview project={project} />
+        </section>
+      )}
+
+      {activeTab === "capital-policy" && (
+        <section role="tabpanel" aria-label="資本政策表" className="min-w-0">
+          <CockpitCapitalPolicy projectId={project.projectId} />
         </section>
       )}
 

@@ -39,6 +39,16 @@ PWAの全route・重要UI・iOS画面の対応状況は `../macos/PARITY.md` を
 > 実装: `pwa/src/lib/project-cost-model.ts`（純関数）/ `pwa/src/components/cockpit/CockpitCostModel.tsx`。
 > 行ごとに `visibility`（`amd_internal` / `workspace_shared`）を持ち、外部公開する行を選べる。
 
+> **PWA専用画面（Native未移植）**: PJコックピット `?tab=capital-policy` の「資本政策表」タブ
+> （2026-08-29追加、**全PJ常設**）。会社概要タブから独立させた資本構成の正本面で、ラウンドを列・株主を行に
+> 置き、1ラウンド = 新規割当分 / 発行済株数 / 払込金額 / 顕在株比率 / 新規発行SO / 発行済SO / 潜在込比率 と、
+> 列見出し直下のFD比率100%積み上げグラフ、最下段の発行価額・調達額・累計調達額・プレ/ポスト時価総額を出す。
+> 表になるのは `project_equity_transactions` の confirmed だけで、計画ラウンドは同じタブのラウンド一覧に並ぶ。
+> 実装: `pwa/src/lib/company-overview.ts` の `buildCapitalPolicyTable()`（純関数）/
+> `pwa/src/components/cockpit/CapitalPolicyTable.tsx` / `CockpitCapitalPolicy.tsx`。
+> 同日、事業計画タブに載せていた資本政策プラン台帳（`CapitalPlanWorkspace`）の掲載はやめた（まさ確定）。
+> 資本構成の入口はこのタブ一本。台帳のコンポーネント・API・DBは残してあるので、必要なら戻せる。
+
 > **PWA専用機能（Native未移植）**: p19 PJワークスペース `#theme-progress` の「テーマ進捗」
 > （2026-08-26追加）。`OkuDoor` / `葛飾水素循環` / `KR経営改革` の3テーマへ既存9 value milestoneを
 > 3/2/4件で接続し、各成果目標の進捗・根拠種別・更新日・目標月を表示する。テーマ平均は作らず、

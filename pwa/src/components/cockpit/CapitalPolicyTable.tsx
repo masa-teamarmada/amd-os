@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button";
 import {
   buildCapitalPolicyTable,
   type CapitalPolicyCell,
+  type CapitalPolicyColumn,
   type CompanyOverviewData,
 } from "@/lib/company-overview";
 
 /**
  * 正式な資本政策表。まさが実務で使っている cap table 雛形（captable_240819.xlsx）と
  * 同じ項目構成で、ラウンドを列・株主を行に並べる。
- * 表示するのは confirmed の株式イベントだけで、計画ラウンドは事業計画タブが正本。
+ * 表示するのは confirmed の株式イベントだけ。計画ラウンドはラウンド一覧側で扱う。
  */
 
 type MetricKind = "shares" | "yen" | "pct";
@@ -25,6 +26,22 @@ const METRICS: Metric[] = [
   { key: "newOptions", label: "新規発行SO", kind: "shares", compact: false },
   { key: "options", label: "発行済SO", kind: "shares", compact: false },
   { key: "dilutedPct", label: "潜在込比率", kind: "pct", compact: true },
+];
+
+/**
+ * 株主識別用のパレット。色は株主を見分けるためだけのもので、
+ * 成功・警告などの状態を意味しない (2026-07-31 の資本政策プラン台帳と同じ規律)。
+ * 色覚多様性に配慮した Okabe-Ito 系の並び。
+ */
+const HOLDER_PALETTE = [
+  "#0072B2",
+  "#D55E00",
+  "#009E73",
+  "#CC79A7",
+  "#E69F00",
+  "#56B4E9",
+  "#5E3C99",
+  "#8C564B",
 ];
 
 function formatShares(value: number) {
@@ -53,6 +70,44 @@ function formatDate(value: string | null | undefined) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value.replaceAll("-", "/");
   if (/^\d{6}$/.test(value)) return `${value.slice(0, 4)}/${value.slice(4)}`;
   return value;
+}
+
+/**
+ * ラウンド時点の完全希薄化後(FD)持株比率を、縦積み100%バーで出す。
+ * 事業計画タブの資本政策プラン台帳にあった見せ方を、確定済みの資本政策表へ持ってきたもの。
+ * 色は株主の識別だけに使い、状態の意味は持たせない。株主名の横のスウォッチが凡例になる。
+ */
+function FdOwnershipBar({
+  column,
+  holderOrder,
+  colorByHolder,
+}: {
+  column: CapitalPolicyColumn;
+  holderOrder: string[];
+  colorByHolder: Map<string, string>;
+}) {
+  const segments = holderOrder
+    .map((holderName) => ({ holderName, pct: column.cells[holderName]?.dilutedPct ?? 0 }))
+    .filter((segment) => segment.pct > 0);
+  if (segments.length === 0) {
+    return <div className="flex h-24 w-14 items-center justify-center text-[11px] text-slate-400">－</div>;
+  }
+  return (
+    <div
+      className="flex h-24 w-14 flex-col-reverse overflow-hidden rounded-[3px] border border-slate-200"
+      role="img"
+      aria-label={`${column.roundLabel} 完全希薄化後の持株比率`}
+    >
+      {segments.map((segment, index) => (
+        <div
+          key={segment.holderName}
+          style={{ height: `${segment.pct}%`, backgroundColor: colorByHolder.get(segment.holderName) }}
+          className={index < segments.length - 1 ? "border-t border-white/90" : undefined}
+          title={`${segment.holderName}: ${formatPct(segment.pct)}`}
+        />
+      ))}
+    </div>
+  );
 }
 
 function metricValue(cell: CapitalPolicyCell | undefined, metric: Metric) {
@@ -132,6 +187,8 @@ export function CapitalPolicyTable({ data }: { data: CompanyOverviewData }) {
   if (table.columns.length === 0) return null;
 
   const span = metrics.length;
+  const holderOrder = table.groups.flatMap((group) => group.holderNames);
+  const colorByHolder = new Map(holderOrder.map((holderName, index) => [holderName, HOLDER_PALETTE[index % HOLDER_PALETTE.length]]));
   const summaryRows: { label: string; value: (column: (typeof table.columns)[number]) => string; strong?: boolean }[] = [
     { label: "発行価額", value: (column) => formatYenOrDash(column.pricePerShareYen) },
     { label: "調達金額", value: (column) => formatYenOrDash(column.raisedYen) },
@@ -145,7 +202,7 @@ export function CapitalPolicyTable({ data }: { data: CompanyOverviewData }) {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 sm:px-5">
         <p className="text-[11px] leading-5 text-slate-500">
-          確定済みの株式イベントだけを時系列に積み上げた実績値。計画中のラウンドは事業計画タブの資本政策プランが正本。
+          確定済みの株式イベントだけを時系列に積み上げた実績値。株式イベントに紐づかない計画ラウンドは、下のラウンド一覧に出る。
         </p>
         <Button variant="outline" className="h-9 shrink-0 text-xs" onClick={() => setShowDeltas((value) => !value)}>
           {showDeltas ? "増減・払込の列を隠す" : "全項目を表示"}
@@ -157,16 +214,16 @@ export function CapitalPolicyTable({ data }: { data: CompanyOverviewData }) {
           <thead>
             <tr>
               <th
-                rowSpan={2}
-                className="sticky left-0 z-30 h-[74px] min-w-[150px] sm:min-w-[200px] border-b border-r border-slate-200 bg-slate-50 px-4 text-left align-bottom text-[11px] font-medium text-slate-500"
+                scope="row"
+                className="sticky left-0 z-30 min-w-[150px] border-b border-r border-slate-200 bg-slate-50 px-4 text-left align-middle text-[11px] font-medium text-slate-500 sm:min-w-[200px]"
               >
-                <span className="block pb-1.5">株主</span>
+                資本イベント
               </th>
               {table.columns.map((column) => (
                 <th
                   key={`round-${column.id}`}
                   colSpan={span}
-                  className="h-[46px] border-b border-r border-slate-200 bg-slate-100 px-3 text-center align-middle text-[11px] font-semibold text-slate-900"
+                  className="h-[46px] border-b border-r border-slate-200 bg-slate-100 px-3 text-left align-middle text-[11px] font-semibold text-slate-900"
                 >
                   <span className="block leading-4">{column.roundLabel}</span>
                   <span className="block text-[10px] font-normal leading-4 text-slate-500">
@@ -177,6 +234,29 @@ export function CapitalPolicyTable({ data }: { data: CompanyOverviewData }) {
               ))}
             </tr>
             <tr>
+              <th
+                scope="row"
+                className="sticky left-0 z-30 border-b border-r border-slate-200 bg-white px-4 text-left align-middle text-[11px] font-medium text-slate-500"
+              >
+                FD比率（完全希薄化後）
+              </th>
+              {table.columns.map((column) => (
+                <td
+                  key={`bar-${column.id}`}
+                  colSpan={span}
+                  className="border-b border-r border-slate-200 bg-white px-3 py-2 text-left"
+                >
+                  <FdOwnershipBar column={column} holderOrder={holderOrder} colorByHolder={colorByHolder} />
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <th
+                scope="row"
+                className="sticky left-0 z-30 h-[28px] border-b border-r border-slate-200 bg-slate-50 px-4 text-left align-middle text-[11px] font-medium text-slate-500"
+              >
+                株主
+              </th>
               {table.columns.map((column) =>
                 metrics.map((metric, index) => (
                   <th
@@ -211,6 +291,10 @@ export function CapitalPolicyTable({ data }: { data: CompanyOverviewData }) {
                       scope="row"
                       className="sticky left-0 z-10 border-b border-r border-slate-200 bg-white px-4 py-1.5 text-left text-[11px] font-normal text-slate-700"
                     >
+                      <span
+                        className="mr-2 inline-block size-2 rounded-[2px] align-middle ring-1 ring-inset ring-black/10"
+                        style={{ background: colorByHolder.get(holderName) }}
+                      />
                       {holderName}
                     </th>
                     {table.columns.map((column) =>

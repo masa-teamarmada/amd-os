@@ -3143,9 +3143,12 @@ expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
   "convertibleScenario",
   "登記株式数と一致",
   "登記との差",
-  "現在の持株比率には入れず",
   "downloadCompanyOverviewXlsx",
   "exportPdf",
+]);
+// 転換前証券の追加ダイアログは 2026-08-29 に資本政策表タブへ移した。
+expectIncludes("src/components/cockpit/CockpitCapitalPolicy.tsx", [
+  "現在の持株比率には入れず",
 ]);
 
 // キラー要素カタログ (2026-08-10 まさ確定): 二群同時表示 + 方式別4段階 + PJ全体判定。
@@ -3232,7 +3235,8 @@ expectIncludes(
 
 // 390px本番実測 (2026-07-16): Section headerがtitleをflex-1で潰し、
 // 「資金調達・潜在株式」の2ボタンが同一行を奪ってtitleが1文字縦積みになった不具合の再発防止。
-expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
+// 2026-08-29: Section を会社概要タブと資本政策表タブの共有プリミティブへ移したので、anchor も定義元へ張り替える。
+expectIncludes("src/components/cockpit/company-overview-ui.tsx", [
   'data-section-header="mobile-stack-sm-row"',
   "flex flex-col gap-3 border-b border-slate-200 px-4 py-4 sm:flex-row sm:flex-wrap sm:items-start sm:px-5",
   "flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0",
@@ -3243,9 +3247,39 @@ expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
 // への移行済み。結線と、旧UIが復活しないことを保証する。
 // 2026-08-21: a92d4510「事業計画タブを全PJへ」で結線元が CockpitCompanyOverview.tsx から
 // CockpitBusinessPlan.tsx へ移った。anchor を現在の結線元へ張り替える (導線自体は健在)。
-expectIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
+// 2026-08-29: まさ「SXは事業計画タブに資本政策表を作っちゃってるから、これを削除しておいてほしい」で
+// 事業計画タブからの結線を外した。資本構成の入口は資本政策表タブ (CockpitCapitalPolicy) 一本にする。
+// CapitalPlanWorkspace / CapitalPlanMatrix / capital-plan-xlsx.ts と API 自体はいつでも戻せるよう残して
+// あるので、下の内部 anchor の検査もそのまま残す。事業計画タブへ黙って復活しないことだけを保証する。
+expectNotIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
   'import CapitalPlanWorkspace from "./CapitalPlanWorkspace";',
   "<CapitalPlanWorkspace",
+]);
+
+// 資本政策表タブ (2026-08-29): 会社概要から独立させた資本政策表の結線と、
+// 縦積み100%グラフ / ラウンド一覧 / 株式イベント追加導線を保護する。
+expectIncludes("src/components/cockpit/CockpitView.tsx", [
+  'import { CockpitCapitalPolicy } from "./CockpitCapitalPolicy";',
+  '{ key: "capital-policy", label: "資本政策表" },',
+  "<CockpitCapitalPolicy",
+]);
+expectIncludes("src/components/cockpit/CockpitCapitalPolicy.tsx", [
+  "<CapitalPolicyTable",
+  "<CapitalRoundsTable",
+  'setDialog("equity")',
+  'setDialog("round")',
+  'setDialog("convertible")',
+]);
+expectIncludes("src/components/cockpit/CapitalPolicyTable.tsx", [
+  'data-testid="capital-policy-table"',
+  "function FdOwnershipBar(",
+  "FD比率（完全希薄化後）",
+  "overflow-x-auto",
+]);
+// 資本政策表は会社概要から独立した。会社概要へ埋め戻さない。
+expectNotIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
+  "<CapitalPolicyTable",
+  "<CapitalRoundsTable",
 ]);
 expectNotIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
   'data-testid="cap-table-history-matrix"',
