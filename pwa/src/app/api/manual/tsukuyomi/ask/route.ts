@@ -62,6 +62,20 @@ headings: ${doc.headings.slice(0, 12).join(" / ")}
 ${body}`;
 }
 
+/**
+ * 全章の索引。本文を渡せた章が 0 件でも、どの章を見ればよいかだけは答えられるように
+ * 常に渡す。マニュアル本文が英語表記の章 (例: Venture Map) を日本語で聞かれた場合も、
+ * 索引があれば章を案内できる。
+ */
+function chapterIndexBlock(docs: ManualSearchDocument[]) {
+  return docs
+    .map((doc) => {
+      const meta = [...doc.topics, ...doc.screens, ...doc.tables].filter(Boolean).join(" / ");
+      return `- ${doc.number} ${doc.title}: ${doc.summary || "-"}${meta ? ` [${meta}]` : ""}`;
+    })
+    .join("\n");
+}
+
 function sourceLinksBlock(docs: ManualSearchDocument[]) {
   const sources = docs.slice(0, 4);
   if (sources.length === 0) return "";
@@ -118,6 +132,7 @@ export async function POST(req: Request) {
     .join("\n");
 
   const context = selectedDocs.map(contextBlock).join("\n\n---\n\n");
+  const chapterIndex = chapterIndexBlock(docs);
   const prompt = `あなたは AMD OS のマニュアル案内役「つくよみ」。
 以下の OS マニュアル本文を根拠に、まさの質問へ日本語で答えて。
 
@@ -127,7 +142,8 @@ export async function POST(req: Request) {
 - まさに話す口調で、やわらかく、少しくだけて答える。例: 「ざっくり言うと」「ここを見ると早いよ」「まずここだけ押さえればOK」。
 - 高校生にも伝わるように、専門語をいきなり並べない。最初に一言でたとえ、その後に必要な用語を出す。
 - 回答の型は「ざっくり言うと」→「たとえると」→「もう少し正確に言うと」→「次に見るところ」。長くしすぎない。
-- 根拠が足りない場合は「マニュアル内では該当箇所を見つけきれなかった」と言う。内部の参照範囲を指す表現は使わない。
+- 本文が渡っていない場合でも、下の章の索引から該当しそうな章を探して「まずは 6-11 メンバー支払フロー を見て」のように必ず案内する。索引にも無いときだけ「マニュアル内では該当箇所を見つけきれなかった」と言う。内部の参照範囲を指す表現は使わない。
+- 索引の章タイトルが英語でも、質問の日本語と同じものを指していないか確かめる。例: 「ベンチャーマップ」は \`Venture Map\`。
 - 参照した章は「3-2 データと抽出」のように章番号 + タイトルで書く。
 - テーブル名・カラム名・ファイル名・パスは必ず backtick で囲む。例: \`monthly_reports\`
 - 「別の章を確認」だけで終えず、該当しそうな章名を具体的に示す。
@@ -140,8 +156,11 @@ ${history || "(なし)"}
 質問:
 ${question}
 
+章の索引 (全章):
+${chapterIndex}
+
 参照用マニュアル本文:
-${context || "(関連するマニュアル本文を特定できなかった)"}`;
+${context || "(質問に強く一致する章を特定できなかった。上の索引から案内して)"}`;
 
   try {
     const gen = new GoogleGenerativeAI(apiKey);

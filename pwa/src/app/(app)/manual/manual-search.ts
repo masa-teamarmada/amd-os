@@ -61,6 +61,25 @@ function significantTerms(value: string) {
     .filter((part) => part.length >= 2 && !stopwords.has(part));
 }
 
+/**
+ * 日本語の質問文は空白で区切られないため、ひらがな (助詞・語尾) を区切りにして
+ * 漢字・カタカナ・英数のかたまりを取り出す。「支払フローってどこにある？」なら
+ * 「支払フロー」「支払」「フロー」が検索語になる。これが無いと質問文がまるごと
+ * 1語になり、本文へ部分一致せず全章 0 ヒットになる (2026-08-29 に実測で確認)。
+ */
+function contentWordTerms(value: string) {
+  const terms: string[] = [];
+
+  for (const chunk of value.match(/[\p{Script=Han}\p{Script=Katakana}ーa-z0-9]{2,}/gu) ?? []) {
+    terms.push(chunk);
+    for (const sub of chunk.match(/[\p{Script=Han}]{2,}|[\p{Script=Katakana}ー]{2,}|[a-z0-9]{2,}/gu) ?? []) {
+      if (sub !== chunk) terms.push(sub);
+    }
+  }
+
+  return terms;
+}
+
 function queryTerms(query: string) {
   const normalized = normalizeSearchText(query);
   if (!normalized) return [];
@@ -71,7 +90,39 @@ function queryTerms(query: string) {
     .replace(/[はがをにでとへもやのか]/g, " ")
     .split(" ");
 
-  return Array.from(new Set([normalized, spaced, ...parts, ...significantTerms(japaneseParts.join(" "))]));
+  return Array.from(
+    new Set([
+      normalized,
+      spaced,
+      ...parts,
+      ...significantTerms(japaneseParts.join(" ")),
+      ...contentWordTerms(spaced),
+    ]),
+  );
+}
+
+/**
+ * 章タイトル・見出し・画面名・テーブル名を辞書にして、質問文へそのまま現れる語を
+ * 検索語に足す。「つくよみ」のようにひらがなだけの固有名は、ひらがなを区切りに
+ * する contentWordTerms では取り出せないため、辞書側から逆に引き当てる。
+ */
+function dictionaryTerms(docs: ManualSearchDocument[], normalizedQuery: string) {
+  const terms = new Set<string>();
+
+  for (const doc of docs) {
+    const sources = [doc.title, ...doc.headings, ...doc.topics, ...doc.screens, ...doc.tables];
+
+    for (const source of sources) {
+      for (const word of normalizeSearchText(source).split(/[\s\/・>-]+/)) {
+        if (word.length < 2 || word.length > 20) continue;
+        // ひらがなだけの 2 文字は「その」「この」のような一般語が混じるので除く。
+        if (word.length === 2 && /^[\p{Script=Hiragana}]+$/u.test(word)) continue;
+        if (normalizedQuery.includes(word)) terms.add(word);
+      }
+    }
+  }
+
+  return Array.from(terms);
 }
 
 function countMatches(haystack: string, needle: string) {
@@ -105,7 +156,9 @@ export function searchManualDocuments(
   query: string,
   limit = 10,
 ): ManualSearchResult[] {
-  const terms = queryTerms(query);
+  const terms = Array.from(
+    new Set([...queryTerms(query), ...dictionaryTerms(docs, normalizeSearchText(query))]),
+  );
   if (terms.length === 0) return [];
 
   return docs
