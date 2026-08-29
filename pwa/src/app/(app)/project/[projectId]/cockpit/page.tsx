@@ -2,14 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CockpitView, type CockpitTab } from "@/components/cockpit/CockpitView";
+import { CockpitView } from "@/components/cockpit/CockpitView";
+import { NON_DEFAULT_COCKPIT_TABS, type CockpitTab } from "@/lib/cockpit-tabs";
 import { fetchCockpitFromSupabase, type CockpitData } from "@/lib/supabase-data";
 
 // "progress" は既定タブなので ?tab= を付けない。それ以外は URL に残して共有・再読込で復元する。
-const NON_DEFAULT_TABS = ["weekly", "gantt", "partners", "issues", "score-detail", "technology", "business-plan", "cost-model", "regulations", "ip", "documents", "overview", "company"] as const;
+// 一覧の正本は src/lib/cockpit-tabs.ts。ここへ手で書き写すと、タブを足したときに
+// 入れ忘れて「押しても進捗管理へ戻る」になる (2026-08-29 に資本政策表タブで実際に起きた)。
+const NON_DEFAULT_TABS = NON_DEFAULT_COCKPIT_TABS;
 
 function isNonDefaultTab(value: string | null): value is Exclude<CockpitTab, "progress"> {
-  return (NON_DEFAULT_TABS as readonly string[]).includes(value ?? "");
+  return NON_DEFAULT_TABS.includes(value ?? "");
 }
 
 interface CockpitLoadState {

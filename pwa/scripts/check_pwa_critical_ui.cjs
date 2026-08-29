@@ -659,7 +659,9 @@ expectIncludes("src/app/(shared-workspace)/project/[projectId]/workspace/page.ts
   "resolveSharedWorkspaceAccess",
   "SxWeeklyControlDashboard",
 ]);
-expectIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
+// PJ概要タブの ?tab=overview は、2026-08-29 から COCKPIT_TABS 由来の一覧で受け付ける
+// (page.tsx にタブ名を書き写さない)。タブ一覧の正本に "overview" が残っていることを見る。
+expectIncludes("src/lib/cockpit-tabs.ts", [
   '"overview"',
 ]);
 
@@ -3111,7 +3113,9 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
 expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
   "WorkspaceDocumentLauncher",
 ]);
-expectIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
+// ?tab=documents / ?tab=ip も COCKPIT_TABS 由来の一覧で受け付ける (2026-08-29 に page.tsx の
+// 書き写しをやめた)。タブ一覧の正本にキーが残っていることを見る。
+expectIncludes("src/lib/cockpit-tabs.ts", [
   '"documents"',
   '"ip"',
 ]);
@@ -3144,7 +3148,8 @@ expectIncludes("src/components/cockpit/CockpitTechnology.tsx", [
   "RecordBlock",
   "loadProjectTech",
 ]);
-expectIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
+// ?tab=technology も COCKPIT_TABS 由来の一覧で受け付ける (2026-08-29 に page.tsx の書き写しをやめた)。
+expectIncludes("src/lib/cockpit-tabs.ts", [
   '"technology"',
 ]);
 
@@ -3272,6 +3277,22 @@ expectIncludes("src/components/cockpit/company-overview-ui.tsx", [
 expectNotIncludes("src/components/cockpit/CockpitBusinessPlan.tsx", [
   'import CapitalPlanWorkspace from "./CapitalPlanWorkspace";',
   "<CapitalPlanWorkspace",
+]);
+
+// タブ名の二重管理禁止 (2026-08-29): 資本政策表タブを足したとき、URLの `?tab=` 許可リストを
+// cockpit/page.tsx へ手で書き写していたため入れ忘れ、タブを押しても進捗管理へ戻る不具合を出した。
+// タブ一覧は COCKPIT_TABS 1本から作る。
+expectIncludes("src/lib/cockpit-tabs.ts", [
+  "export const COCKPIT_TABS = [",
+  '"capital-policy"',
+  "export type CockpitTab = (typeof COCKPIT_TABS)[number];",
+  "export const NON_DEFAULT_COCKPIT_TABS",
+]);
+expectIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
+  "const NON_DEFAULT_TABS = NON_DEFAULT_COCKPIT_TABS;",
+]);
+expectNotIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
+  '"business-plan", "cost-model"',
 ]);
 
 // 資本政策表タブ (2026-08-29): 会社概要から独立させた資本政策表の結線と、

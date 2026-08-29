@@ -28,6 +28,7 @@ import { CockpitProjectControl } from "./CockpitProjectControl";
 import type { SxWeeklyControlView } from "@/components/project-workspace/SxWeeklyControlDashboard";
 import { CockpitBusinessPlan } from "./CockpitBusinessPlan";
 import { CockpitCapitalPolicy } from "./CockpitCapitalPolicy";
+import type { CockpitTab } from "@/lib/cockpit-tabs";
 import { prefetchGovernance } from "@/lib/governance-client";
 import type { CockpitSeasonFinance as CockpitSeasonFinanceData, MilestoneChangeHistory } from "@/lib/supabase-data";
 import type { ProjectContractTerms } from "@/lib/project-contract-terms";
@@ -257,22 +258,9 @@ function usesMsProgressCategory(category: string | null | undefined) {
   return ["dtsu", "ecosystem", "new_business"].includes(String(category || "dtsu").toLowerCase());
 }
 
-export type CockpitTab =
-  | "progress"
-  | "weekly"
-  | "gantt"
-  | "partners"
-  | "issues"
-  | "score-detail"
-  | "technology"
-  | "business-plan"
-  | "cost-model"
-  | "regulations"
-  | "ip"
-  | "documents"
-  | "overview"
-  | "capital-policy"
-  | "company";
+// タブ一覧の正本は src/lib/cockpit-tabs.ts。ここでは再エクスポートだけする。
+export { COCKPIT_TABS } from "@/lib/cockpit-tabs";
+export type { CockpitTab } from "@/lib/cockpit-tabs";
 
 /**
  * PJワークスペースの管制タブをコックピットのタブへ対応づける (2026-08-28 まさ確定)。
