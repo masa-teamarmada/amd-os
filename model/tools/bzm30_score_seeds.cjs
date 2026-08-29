@@ -35,7 +35,7 @@ for (const line of require('node:fs').readFileSync(path.join(__dirname, '..', '.
 }
 
 const MODEL_VERSION = 'bzm-3.0';
-const APPROVAL_REF = '2026-08-27-1';
+const APPROVAL_REF = '2026-08-29-1';
 
 function db() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -86,6 +86,9 @@ function toInit(row, ceilingYen) {
     init.unitMarginPositive = row.unit_margin_positive;
   }
   if (row.use_case_left !== null && row.use_case_left !== undefined) init.uLeft = Number(row.use_case_left);
+  // 変換能力 c と無風期間（#2026-08-29-1）
+  if (row.conversion_c !== null && row.conversion_c !== undefined) init.c = Number(row.conversion_c);
+  if (row.quiet_months !== null && row.quiet_months !== undefined) init.quietMonths = Number(row.quiet_months);
   // 経済性の乗数は天井の純増（億円）で決まる。未調査なら既定（基準値＝乗数1）のまま
   if (ceilingYen !== null) init.pNetOku = ceilingYen / 1e8;
 

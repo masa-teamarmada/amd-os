@@ -65,6 +65,19 @@ export interface SeedBzm30InputRow {
   evangelist_e_reason: string | null;
   unit_margin_reason: string | null;
   incorporated_reason: string | null;
+  /**
+   * 変換能力 c（分野の基準 1.0 に対する倍率。#2026-08-29-1）。
+   * 入ると参照実装は事前分布の中心をこの値へ置き換える（幅 GSD 1.65 は保つ）。
+   */
+  conversion_c: number | null;
+  conversion_c_reason: string | null;
+  /**
+   * 無風期間（ポジティブな公開の動きが出ていない月数。#2026-08-29-1）。
+   * 実現の申し出の到来率と撤退の四経路②③に乗数 m_q が掛かる
+   * （目盛り: 12か月 0.5・24か月 0.1・36か月以上 0.05。区分線形）。
+   */
+  quiet_months: number | null;
+  quiet_months_reason: string | null;
 }
 
 export interface SeedBzm30ScoreRow {

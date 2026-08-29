@@ -95,10 +95,16 @@ const CFG = {
                      // （まさ 2026-08-27「再起するとしたら、もうそのときは別PJとして認識すればいいだけ」）
   uLeftDef: 0,       // 未着手の用途がどれだけ残るか（0〜1）。用途1本の Tier 0 では 0
 
-  // 会社化前の資金切れは案件の死ではない（提案 2026-08-27 休眠。未承認）。
-  // 研究室は大学の基盤で存続し、次の公的資金を待つ。前進は大きく遅れ、証拠は陳腐化していく。
-  dormAdvMult: 0.35,   // 休眠中（会社化前・残高が最低格子）の前進の遅さ
-  dormBurnMult: 0,     // 休眠中は支出を引かない（研究室の維持は大学の基盤で回る）
+  // 会社化前は、資金は前進の速度を変えるだけで、資金切れという終端を持たない（#2026-08-29-1）。
+  // 資金がほぼ無いあいだは前進が遅れ、支出は大学の基盤で回る。証拠の陳腐化と消失は効き続ける。
+  preIncAdvMult: 0.35,   // 会社化前・資金がほぼ無いあいだ（残高が最低格子）の前進の速さ
+  preIncBurnMult: 0,     // 同・支出は引かない（研究室の維持は大学の基盤で回る）
+
+  // 無風期間 t_q（外から見えるポジティブな動きが出ていない月数）→ 申し出到来率の乗数 m_q（#2026-08-29-1）。
+  // まさ 2026-08-29「12か月でc=0.5、24か月でc=0.1くらいになるように落としていってほしい。
+  // 2年間ニュースがないってもはや死んでるに近いよ。」あいだは区分線形、36か月以上は下限。
+  // c の概算（記録の無い案件）も同じ目盛りを使う（入力を作る側が引く。§6.I-9-1）。
+  quietAnchors: [[0, 1.0], [12, 0.5], [24, 0.1], [36, 0.05]],
 
   // 経済性の乗数（改訂 N2。#2026-08-27-1）。「筋がいいから金が付く」を式に入れる
   pRef: 300,         // 基準の天井（億円／年の純増）。ここで乗数が 1 になる
@@ -331,6 +337,20 @@ function tailSplit(tM4, cfg, kip) {
 }
 function tailValue(tM4, cfg, kip) { return tailSplit(tM4, cfg, kip).total; }
 
+// 無風期間 → 乗数 m_q（区分線形。#2026-08-29-1）。未観測（undefined/null）は 1。
+function quietMultOf(months, cfg) {
+  if (months === undefined || months === null) return 1;
+  const a = cfg.quietAnchors;
+  if (months <= a[0][0]) return a[0][1];
+  for (let i = 1; i < a.length; i++) {
+    if (months <= a[i][0]) {
+      const [x0, y0] = a[i - 1], [x1, y1] = a[i];
+      return y0 + (y1 - y0) * (months - x0) / (x1 - x0);
+    }
+  }
+  return a[a.length - 1][1];
+}
+
 // 撤退の四経路（改訂 N1）。到達した質量 wF を四つへ分け、②③④は終端して価値を積む。
 // 戻り値は ①用途転換へ回す質量（呼び出し側が位置を戻して継続させる）。
 function exitPaths(wF, stage, inc, uLeft, cfg, O, tl, tlIn, mEcon) {
@@ -408,6 +428,8 @@ function runOne(type, reg, cfg, theta, init) {
   }
   // ①用途転換に回れる余地（改訂 N1）と、経済性の乗数（改訂 N2）
   const uLeft = (init && init.uLeft !== undefined) ? init.uLeft : cfg.uLeftDef;
+  // 無風期間の乗数 m_q（#2026-08-29-1）。実現の申し出の到来率と、四経路の引き受け手の現れやすさ（②③）に掛かる
+  const mQuiet = quietMultOf(init && init.quietMonths, cfg);
   const mPos = (init && init.unitMarginPositive !== undefined) ? init.unitMarginPositive : true;
   const pNetOku = (init && init.pNetOku !== undefined) ? init.pNetOku : cfg.pRef;
   // 基準化: 天井が pRef で、単位採算が黒字で立つ用途があるとき 1 になる（φ_base の基準の案件と一致させる）。
@@ -487,7 +509,7 @@ function runOne(type, reg, cfg, theta, init) {
     for (let p = 0; p < P; p++) {
       const stage = posStage[p], role = posRole[p];
       const advBase = advC[t * P + p], advBaseX = advCx[t * P + p];
-      const moBase = cfg.mgOffer[stage] * ipFac * sgOffer * nm;
+      const moBase = cfg.mgOffer[stage] * ipFac * sgOffer * nm * mQuiet;
       const nk = (reg === 'REG0' && (type === 'F3' || type === 'F4')) ? cfg.nuKSoft : cfg.nuK[reg];
       const pLic = 1 - Math.exp(-nk.lic * moBase);
       const pIps = 1 - Math.exp(-nk.ips * moBase);
@@ -542,7 +564,7 @@ function runOne(type, reg, cfg, theta, init) {
                 let pn, wP, dn, reached = false;
                 if (role === 1) {
                   let pa2 = (X === 1) ? advBaseX : advBase;
-                  if (si === 1 && I === 0) pa2 *= cfg.dormAdvMult;   // 休眠（会社化前・残高最低）
+                  if (si === 1 && I === 0) pa2 *= cfg.preIncAdvMult;   // 会社化前・資金がほぼ無いあいだは前進が遅い
                   if (posIsM4[p] === 1 && Rb > 0) pa2 = 0;
                   const pass = posPass[p], pStall = cfg.stallShare * pa2;
                   if (pb === 0) { pn = posNext[p]; wP = wX * pa2 * pass; dn = 0; reached = pn >= P; }
@@ -560,7 +582,7 @@ function runOne(type, reg, cfg, theta, init) {
                 if (wP < 1e-15) continue;
                 const Nn = N + dn;
                 if (Nn >= cfg.kExit) {
-                  const ep = exitPaths(wP, stage, I, uLeft, cfg, O, tl, tlIn, mEconEq);
+                  const ep = exitPaths(wP, stage, I, uLeft, cfg, O, tl, tlIn, mEconEq * mQuiet);
                   vAcc += ep.v; vIn += ep.vIn;
                   if (ep.use > 1e-15 && posMarketHead >= 0)
                     put(nxt, posMarketHead, sVal, R, I, X, 0, ep.use);   // 履歴の不成立回数は 0 へ戻す
@@ -580,7 +602,7 @@ function runOne(type, reg, cfg, theta, init) {
 
                 // 5. 資金
                 const muFull = (In === 1 ? muPost : muPre) * (1 + cfg.restrictedWaste);
-                const mu = (si === 1 && In === 0) ? muFull * cfg.dormBurnMult : muFull;   // 休眠中は支出を引かない
+                const mu = (si === 1 && In === 0) ? muFull * cfg.preIncBurnMult : muFull;   // 資金がほぼ無いあいだは支出を引かない（大学の基盤）
                 const rEff = r * (In === 1 ? cfg.rPostMult : 1);
                 const yEff = cfg.yByStage[stage] * muPre * (In === 1 ? cfg.yPostMult : 1);
                 const income = (Xn === 1 ? rhoMax * rEff : 0) + yEff;
@@ -602,16 +624,16 @@ function runOne(type, reg, cfg, theta, init) {
                   else { sn = base; wF = wP * (1 - pAward) * (1 - pEq); }
                   if (wF < 1e-15) continue;
                   if (sn <= 0) {
-                    if (In === 0) { put(nxt, pn, grid[1], Rb, In, Xn, Nn, wF); continue; }  // 会社化前: 休眠へ（死なない）
+                    if (In === 0) { put(nxt, pn, grid[1], Rb, In, Xn, Nn, wF); continue; }  // 会社化前: 終端しない（最低格子に留まり、速度が落ちるだけ）
                     // 会社化後: 清算。四経路のうち②③だけが立ちうる（①用途転換は法人を畳むのでできない）
-                    const ep = exitPaths(wF, stage, In, uLeft, cfg, O, tl, tlIn, mEconEq);
+                    const ep = exitPaths(wF, stage, In, uLeft, cfg, O, tl, tlIn, mEconEq * mQuiet);
                     vAcc += ep.v; vIn += ep.vIn;
                     O.liq += ep.use; O.pivot -= ep.use;
                     continue;
                   }
                   const hLeft = sn / mu;
                   if (In === 1 && hLeft < cfg.hUnder && pAward * hLeft < 0.30) {   // R6 は会社の判断。会社化前には無い
-                    const ep = exitPaths(wF, stage, In, uLeft, cfg, O, tl, tlIn, mEconEq);
+                    const ep = exitPaths(wF, stage, In, uLeft, cfg, O, tl, tlIn, mEconEq * mQuiet);
                     vAcc += ep.v; vIn += ep.vIn;
                     if (ep.use > 1e-15 && posMarketHead >= 0) put(nxt, posMarketHead, sn, Rb, In, Xn, 0, ep.use);
                     continue;
@@ -641,6 +663,10 @@ function runOne(type, reg, cfg, theta, init) {
 //   init.e     … エバンジェリスト機能が埋まる見込み（0〜1）
 //   init.kIP   … 専有可能性（0〜1）。取り分 φ_u と競合の消失率に効く
 //   init.rMan  … 自走力の実額（万円／月）。改訂 M3
+//   init.c     … 変換能力の推定値（#2026-08-29-1）。渡すと cNodes の中心を c へ置き換える。
+//                幅は GSD 1.65 のまま（点推定にすると不確かさが消える）
+//   init.quietMonths … 無風期間（ポジティブな動きが出ていない月数。#2026-08-29-1）。
+//                申し出到来率と四経路②③に乗数 m_q が掛かる。未観測は渡さない（乗数 1）
 function runTheta(type, reg, cfg, init) {
   const seq = gateSequence(type, reg);
   const agg = { outcome: {}, v: 0, vIn: 0, m4mass: 0, m4meanW: 0 };
@@ -650,7 +676,12 @@ function runTheta(type, reg, cfg, init) {
   const sigmaNodes = (init && init.sigma !== undefined) ? [[init.sigma, 1.0]] : cfgL.sigmaNodes;
   const eVal = (init && init.e !== undefined) ? init.e : cfgL.eMed;
   const rBase = (init && init.rMan !== undefined) ? init.rMan : cfgL.rDef[type];
-  for (const [c, wc] of cfgL.cNodes) {
+  // 変換能力 c の案件ごとの推定（#2026-08-29-1）: 分布の中心を置き換え、幅（GSD 1.65）は保つ。
+  // 既定の cNodes は中央値 1.0 なので、各節点に c を掛けるだけでよい。
+  const cNodesEff = (init && init.c !== undefined)
+    ? cfgL.cNodes.map(([cv, w]) => [cv * init.c, w])
+    : cfgL.cNodes;
+  for (const [c, wc] of cNodesEff) {
     for (const dp of [-1, 0, 1]) {
       const psi = Math.min(0.98, Math.max(0.05, psiMed + dp * cfgL.psiSpread));
       const wp = dp === 0 ? 0.5 : 0.25;

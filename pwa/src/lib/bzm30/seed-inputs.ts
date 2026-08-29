@@ -341,6 +341,24 @@ export function buildSeedInputs(
   });
 
   // ── 案件パラメータ
+  const cKnown = rec?.conversion_c !== null && rec?.conversion_c !== undefined;
+  out.push({
+    key: "c", symbol: "c", name: "変換能力",
+    value: cKnown ? `${Number(rec.conversion_c).toFixed(2)}` : "1.00（分野の基準どおり。Tier 0 既定）",
+    filled: cKnown, origin: cKnown ? "観測" : "Tier 0 既定",
+    source: rec?.conversion_c_reason
+      ?? "アクションに掛かった費用と得られた戦略余力の増分の比率を、直近に重みを置いた移動平均で持つ。記録が無い案件は無風期間から概算する（モデルページ §5.3・§6.I-9-1）",
+  });
+
+  const quietKnown = rec?.quiet_months !== null && rec?.quiet_months !== undefined;
+  out.push({
+    key: "t_q", symbol: "t_q", name: "無風期間（ポジティブな動きが出ていない月数）",
+    value: quietKnown ? `${Number(rec.quiet_months).toFixed(0)} か月` : "未観測（乗数 1.0）",
+    filled: quietKnown, origin: quietKnown ? "観測" : "Tier 0 既定",
+    source: rec?.quiet_months_reason
+      ?? "資金調達の成立・製品化・提携・受賞・大型採択などの公開の動きが最後に観測されてからの月数。長いほどライセンス・M&A の引き合いが来にくくなる（12か月で0.5倍・24か月で0.1倍）",
+  });
+
   const kipKnown = rec?.kappa_ip !== null && rec?.kappa_ip !== undefined;
   out.push({
     key: "kIP", symbol: "\\kappa_{\\mathrm{IP}}", name: "専有可能性",

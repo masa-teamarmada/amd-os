@@ -235,7 +235,10 @@ function buildParams(cfg) {
   // ── 案件パラメータの事前分布
   out.push(P(G.THETA, 'cNodes', 'c', '変換能力の事前分布',
     cfg.cNodes.map(([v, w]) => `${v.toFixed(2)}（重み ${fmtPct(w)}）`).join(' / '), 'C', '6.I-9-1',
-    '投入した資源あたりどれだけ前進を生むかの乗数。対数正規（幾何標準偏差 1.65）を3点で表す', ['p^adv']));
+    '投入した資源あたりどれだけ前進を生むかの乗数。対数正規（幾何標準偏差 1.65）を3点で表す。案件ごとの推定（費用→戦略余力の増分の比率の移動平均、または無風期間からの概算）が入ったら中心をその値へ置き換える', ['p^adv']));
+  out.push(P(G.THETA, 'quietAnchors', 't_q', '無風期間の目盛り',
+    cfg.quietAnchors.map(([m, v]) => `${m}か月 ${v.toFixed(2)}`).join(' → '), 'C', '6.I-9-1',
+    'ポジティブな公開の動きが出ていない月数。長いほどライセンス・M&A の引き合いが来にくくなる（区分線形で補間）。記録の無い案件では変換能力の概算にも同じ目盛りを使う', ['ν_k']));
   out.push(P(G.THETA, 'psiByStage', '\\psi', '技術の核の成立の事前分布（証拠水準別）',
     cfg.psiByStage.map((v, i) => `段階${i} ${v.toFixed(2)}`).join(' / '), 'C', '6.I-9-1',
     '再現性とスケール時の性能。技術系ゲートの前進確率に乗り、これが立たないとどの用途も稼働に入らない', ['p^adv']));
@@ -259,6 +262,8 @@ function buildParams(cfg) {
     'ビジネス側1〜2名と家賃・社会保険・顧問料を含む。会社化がスコアを下げることがあるのはここが効くため', ['s^f']));
   out.push(P(G.CASH, 'restrictedWaste', null, '使途制限で充当できない割合', fmtPct(cfg.restrictedWaste), 'C', '6.I-9-2',
     '公的資金は充てられる支出が限定される。その充当できない分', ['s^r']));
+  out.push(P(G.CASH, 'preIncAdvMult', null, '会社化前・資金がほぼ無いあいだの前進の速さ', `${cfg.preIncAdvMult.toFixed(2)} 倍（支出は ${cfg.preIncBurnMult.toFixed(0)}）`, 'C', '5.2',
+    '会社化前は資金切れという終端を持たない。資金がほぼ無いあいだは前進が遅くなり、支出は大学の基盤で回る。公的資金が入れば元の速度に戻る', ['p^adv']));
   out.push(P(G.CASH, 'rDef', 'r', '自走力の既定', Object.entries(cfg.rDef).map(([t, v]) => `${t}: ${fmtMan(v)}／月`).join(' / '), 'C', '6.I-9-1',
     '工数を全部割いたときに案件へ残る額（直接費を引いた後の粗利）。売上ではない。案件ごとの調査が入ったら上書きする', ['s^f']));
   out.push(P(G.CASH, 'rPostMult', null, '会社化後の自走力の倍率', `${cfg.rPostMult.toFixed(1)} 倍`, 'C', '6.I-9-1',
@@ -340,7 +345,7 @@ function main() {
 
   const payload = {
     model_version: 'bzm-3.0',
-    approval_ref: '2026-08-27-1',
+    approval_ref: '2026-08-29-1',
     canon: 'model/MODEL_VERSION_LEDGER.md（モデルページ §5・§6）',
     reference_impl: 'model/tools/bzm30_forward.cjs',
     note: 'V は天井（用途ごとの国内の年額の付加価値、円）を 1 に正規化した現在価値。円のスコアは天井を掛けて出す。',
@@ -352,7 +357,7 @@ function main() {
       'A5 滞留の自動分岐を、ハザード位置での付加ハザードで近似する',
       'A6 天井を1に正規化する',
     ],
-    numeric_error: '格子の刻みを 1/2 と 1/8 で比べた差は 2.0〜2.5%。V は有効数字2桁で読む（§6.I-11-1）',
+    numeric_error: '格子の刻みを 1/2 と 1/8 で比べた差は 0.3% 未満（2026-08-29 改訂後）。V は有効数字2桁で読む（§6.I-11-1）',
     stages: STAGES,
     params: buildParams(CFG),
     grid: withGrid ? runGrid(fromDir) : (prev ? prev.grid : []),
