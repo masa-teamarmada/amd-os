@@ -125,7 +125,7 @@ def fig1_framework():  # Figure 1 (§4.1)
     arrow(85, 52, 85, 41)
     save(fig, "fig1_framework.png")
 
-def fig3_fifth_premise():  # Figure 3 (§7.5)
+def fig4_fifth_premise():  # Figure 4 (§7.5)
     fig, ax = plt.subplots(figsize=(7.4, 3.9))
     keys = [(t, r) for t in CELLS for r in REGS]
     x = np.arange(len(keys)); w = 0.38
@@ -145,10 +145,10 @@ def fig3_fifth_premise():  # Figure 3 (§7.5)
     ax.legend(frameon=False, loc="upper right", ncol=1)
     ax.set_title("Modelling pre-incorporation cash-out as death, versus as a change of speed",
                  loc="left", pad=8)
-    save(fig, "fig3_fifth_premise.png")
+    save(fig, "fig4_fifth_premise.png")
 
 # ---------------------------------------------------------------- Figure 3
-def fig4_exit_structure():  # Figure 4 (§7.5)
+def fig5_exit_structure():  # Figure 5 (§7.5)
     fig, ax = plt.subplots(figsize=(7.4, 4.0))
     keys = [(t, r) for t in CELLS for r in REGS]
     x = np.arange(len(keys)); w = 0.62
@@ -174,7 +174,7 @@ def fig4_exit_structure():  # Figure 4 (§7.5)
                  loc="left", pad=20)
     for i, t in enumerate(CELLS):
         ax.text(i*3 + 1, 104, CELL_NAMES[t], ha="center", fontsize=10, fontweight="bold", color=INK)
-    save(fig, "fig4_exit_structure.png")
+    save(fig, "fig5_exit_structure.png")
 
 
 # ---------------------------------------------------------------- Figure 4
@@ -226,6 +226,48 @@ def fig2_scores():  # Figure 2 (§7.1)
     ax.set_title("Twenty-one projects on one screening ledger, at the frozen model version", loc="left", pad=8)
     save(fig, "fig2_score_distribution.png")
 
+
+# ---------------------------------------------------------------- Figure 3 (dual scoring)
+import json as _json
+def fig3_dual_scoring():  # Figure 3 (§7.3)
+    d = _json.load(open("/tmp/dual_data.json"))
+    d = sorted(d, key=lambda x: -x["eli"])
+    fig, ax = plt.subplots(figsize=(7.4, 5.2))
+    LAYCOL = {"pre": "#1f4e79", "inc": "#7fb069", "ext": "#c47f4a"}
+    LAYLAB = {"pre": "Pre-incorporation (main sample)", "inc": "Incorporated spin-out",
+              "ext": "Outside the domain"}
+    seen = set()
+    for row, x in enumerate(d):
+        y = len(d) - 1 - row
+        rec, eli = x["rec"] / 1e9, x["eli"] / 1e9
+        col = LAYCOL[x["layer"]]
+        moved = x["ratio"] > 1.05
+        if moved:
+            ax.annotate("", xy=(eli, y), xytext=(rec, y),
+                        arrowprops=dict(arrowstyle="-|>", lw=1.5, color=col,
+                                        mutation_scale=11, shrinkA=2, shrinkB=1))
+        ax.plot([rec], [y], marker="o", ms=4.6, mfc="white", mec=col, mew=1.4, zorder=3)
+        ax.plot([eli], [y], marker="o", ms=5.0, color=col, zorder=4,
+                label=LAYLAB[x["layer"]] if x["layer"] not in seen else None)
+        seen.add("rec"); seen.add(x["layer"])
+        if moved:
+            ax.text(max(rec, eli) * 1.7, y, f"×{x['ratio']:.0f}" if x["ratio"] >= 10 else f"×{x['ratio']:.1f}",
+                    va="center", fontsize=8.2, color=col)
+    ax.set_yticks(range(len(d)))
+    ax.set_yticklabels([f'{x["anon"]}  {x["cell"]}' for x in reversed(d)], fontsize=9)
+    ax.set_xscale("log"); ax.set_xlim(3e-5, 4e2)
+    ax.set_xlabel("Industrial value creation, JPY billion (log scale)")
+    ax.xaxis.grid(True, color=RULE); ax.set_axisbelow(True)
+    ax.set_ylim(-0.9, len(d) - 0.1)
+    from matplotlib.lines import Line2D
+    h, l = ax.get_legend_handles_labels()
+    h = [Line2D([], [], marker="o", ms=5.2, mfc="white", mec=MUTED, mew=1.4, ls="none")] + h
+    l = ["Records only (open marker)"] + l
+    ax.legend(h, l, frameon=False, loc="lower right", fontsize=9.0, handletextpad=0.6)
+    ax.set_title("Scoring the same projects twice: what the database holds, and what people know",
+                 loc="left", pad=8)
+    save(fig, "fig3_dual_scoring.png")
+
 if __name__ == "__main__":
-    fig1_framework(); fig2_scores(); fig3_fifth_premise(); fig4_exit_structure()
+    fig1_framework(); fig2_scores(); fig3_dual_scoring(); fig4_fifth_premise(); fig5_exit_structure()
     print("done")
