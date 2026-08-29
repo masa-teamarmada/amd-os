@@ -9,6 +9,8 @@ import {
   type CostAssumption,
   type CostItem,
   type CostModelBundle,
+  type CostNote,
+  type CostNoteSection,
   type CostScenarioResult,
 } from "@/lib/project-cost-model";
 import {
@@ -139,7 +141,9 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
     return <LiSTiePartialCostModel bundle={bundle} />;
   }
 
-  const { model, assumptions, items, questions } = bundle;
+  const { model, assumptions, items, questions, notes } = bundle;
+  const notesOf = (section: CostNoteSection) =>
+    (notes ?? []).filter((n) => n.section === section).sort((a, b) => a.sortOrder - b.sortOrder);
   const { derived, scenarios } = computed;
   const unit = model.unitBasisLabel || "m³";
   const keyAssumptions = assumptions.filter((a) => a.isKey && a.value !== null);
@@ -211,6 +215,13 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
         </Card>
       )}
 
+      {/* 2b. 注意して読むところ。原典シートの注記行はここへ集める。 */}
+      {notesOf("caveat").length > 0 && (
+        <Card title="注意して読むところ" hint="この数字を読むときに、先に知っておかないと誤解する前提。">
+          <NoteList notes={notesOf("caveat")} />
+        </Card>
+      )}
+
       {/* 3. 成立ライン。表より先に「いくらならOKか」を出す。 */}
       <Card
         title="成立ライン"
@@ -272,6 +283,13 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
         </div>
       </Card>
 
+      {/* 3b. 外部ベンチマークと出典。置いた値が相場から外れていないかを突き合わせる。 */}
+      {notesOf("benchmark").length > 0 && (
+        <Card title="外部ベンチマークと出典" hint="モデルに置いた値を、外の相場や一次情報と突き合わせるための材料。">
+          <NoteList notes={notesOf("benchmark")} />
+        </Card>
+      )}
+
       {/* 4. CAPEX / OPEX を分けた損益。円/単位と円/年を併記する。 */}
       <Card
         title="事業成立サマリー"
@@ -331,6 +349,13 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
           投資回収年数は、現場設備の保有主体（顧客購入か SX 保有か）が決まっていないため保留。
         </p>
       </Card>
+
+      {/* 4b. この表の読み方。原典②シートの「見る意味」列と投資回収の保留理由。 */}
+      {notesOf("reading_guide").length > 0 && (
+        <Card title="この表の読み方" hint="各行が何を見るためのものか。投資回収を保留にしている理由もここ。">
+          <NoteList notes={notesOf("reading_guide")} />
+        </Card>
+      )}
 
       {/* 5. この数字の確からしさ */}
       <Card
@@ -486,6 +511,13 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
         </div>
       </Card>
 
+      {/* 8b. 版の履歴と、この試算が答えていないこと。 */}
+      {notesOf("history").length > 0 && (
+        <Card title="版の履歴と、この試算が答えていないこと" hint="前版との落差と、まだモデルに入っていない論点。">
+          <NoteList notes={notesOf("history")} />
+        </Card>
+      )}
+
       {/* 9. 費用明細 (既定で開く) */}
       <Card title="費用明細" hint={`計算に入っている全 ${items.filter((i) => !i.isBreakdown).length} 行。内訳行は親の小計に含まれるため金額を持たない。`}>
         <ItemTable items={items} assumptions={assumptions} unit={unit} />
@@ -540,6 +572,40 @@ function LiSTiePartialCostModel({ bundle }: { bundle: CostModelBundle }) {
           <Metric label="2028年目安" value={`${num(value("membrane_price_2028"), 0)} 千円/m²`} note="資料中の提示値。見積確定値ではない" />
         </div>
       </section>
+    </div>
+  );
+}
+
+function NoteList({ notes }: { notes: CostNote[] }) {
+  return (
+    <div className="flex flex-col gap-3">
+      {notes.map((n) => (
+        <div key={n.costNoteId} className="rounded-lg border border-[#e5e5e7] bg-[#fafafa] p-3">
+          <h4 className="text-[12px] font-semibold text-[#1d1d1f]">{n.title}</h4>
+          {n.bodyMd && (
+            <div className="mt-1.5">
+              <MiniMarkdown text={n.bodyMd} />
+            </div>
+          )}
+          {(n.sourceLabel || n.sourceUrl) && (
+            <p className="mt-2 text-[10px] text-[#86868b]">
+              出所:{" "}
+              {n.sourceUrl ? (
+                <a
+                  href={n.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[#0071e3] underline underline-offset-2"
+                >
+                  {n.sourceLabel || n.sourceUrl}
+                </a>
+              ) : (
+                n.sourceLabel
+              )}
+            </p>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -612,9 +678,11 @@ function Row({
   );
 }
 
-/** 見出し・箇条書き・**強調** だけの軽量レンダラ。系の説明にライブラリを足さない。 */
+/**
+ * 箇条書き・表・**強調** だけの軽量レンダラ。
+ * 説明文のためだけに markdown ライブラリを足さない。
+ */
 function MiniMarkdown({ text }: { text: string }) {
-  const blocks = text.split(/\n{2,}/);
   const inline = (line: string) =>
     line.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
       part.startsWith("**") && part.endsWith("**") ? (
@@ -623,10 +691,44 @@ function MiniMarkdown({ text }: { text: string }) {
         <span key={i}>{part}</span>
       )
     );
+
+  const cells = (row: string) =>
+    row.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+
   return (
     <div className="flex flex-col gap-2.5">
-      {blocks.map((block, bi) => {
-        const lines = block.split("\n");
+      {text.split(/\n{2,}/).map((block, bi) => {
+        const lines = block.split("\n").filter((l) => l.trim() !== "");
+        if (lines.length === 0) return null;
+
+        // markdown 表: 2行目が |---|---| の区切り行
+        if (lines.length >= 2 && lines[0].trim().startsWith("|") && /^\|[\s:|-]+\|$/.test(lines[1].trim())) {
+          const head = cells(lines[0]);
+          const body = lines.slice(2).map(cells);
+          return (
+            <div key={bi} className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+              <table className="w-full min-w-[360px] border-collapse text-[11px]">
+                <thead>
+                  <tr className="border-b border-[#d2d2d7] text-left text-[10px] text-[#86868b]">
+                    {head.map((h, i) => (
+                      <th key={i} className={`py-1.5 px-2 font-medium ${i > 0 ? "text-right" : ""}`}>{inline(h)}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="tabular-nums">
+                  {body.map((row, ri) => (
+                    <tr key={ri} className="border-b border-[#eaeaec]">
+                      {row.map((c, ci) => (
+                        <td key={ci} className={`py-1.5 px-2 text-[#1d1d1f] ${ci > 0 ? "text-right" : ""}`}>{inline(c)}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        }
+
         if (lines.every((l) => l.trim().startsWith("- "))) {
           return (
             <ul key={bi} className="ml-4 list-disc space-y-1">
@@ -636,6 +738,7 @@ function MiniMarkdown({ text }: { text: string }) {
             </ul>
           );
         }
+
         return (
           <p key={bi} className="text-[12px] leading-6 text-[#4b4b52]">
             {lines.map((l, li) => (

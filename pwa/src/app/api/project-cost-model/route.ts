@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 const NUM = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : Number(v) || 0);
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export function mapBundle(model: any, assumptions: any[], items: any[], questions: any[]): CostModelBundle {
+export function mapBundle(model: any, assumptions: any[], items: any[], questions: any[], notes: any[] = []): CostModelBundle {
   return {
     model: {
       costModelId: model.cost_model_id,
@@ -93,6 +93,16 @@ export function mapBundle(model: any, assumptions: any[], items: any[], question
       visibility: q.visibility,
       sortOrder: q.sort_order ?? 0,
     })),
+    notes: (notes || []).map((n) => ({
+      costNoteId: n.cost_note_id,
+      section: n.section,
+      title: n.title,
+      bodyMd: n.body_md ?? null,
+      sourceUrl: n.source_url ?? null,
+      sourceLabel: n.source_label ?? null,
+      visibility: n.visibility,
+      sortOrder: n.sort_order ?? 0,
+    })),
   };
 }
 
@@ -109,12 +119,13 @@ export async function loadCostModelBundle(projectId: string): Promise<CostModelB
     .maybeSingle();
   if (!model) return null;
 
-  const [a, i, q] = await Promise.all([
+  const [a, i, q, n] = await Promise.all([
     db.from("project_cost_assumptions").select("*").eq("cost_model_id", model.cost_model_id).order("sort_order"),
     db.from("project_cost_items").select("*").eq("cost_model_id", model.cost_model_id).order("sort_order"),
     db.from("project_cost_questions").select("*").eq("cost_model_id", model.cost_model_id).order("sort_order"),
+    db.from("project_cost_notes").select("*").eq("cost_model_id", model.cost_model_id).order("sort_order"),
   ]);
-  return mapBundle(model, a.data || [], i.data || [], q.data || []);
+  return mapBundle(model, a.data || [], i.data || [], q.data || [], n.data || []);
 }
 
 /** GET /api/project-cost-model?projectId=p21 */
@@ -145,6 +156,7 @@ export async function GET(req: NextRequest) {
 
 const ASSUMPTION_FIELDS = new Set(["value", "value_text", "confidence", "source_kind", "owner", "note", "is_key", "visibility"]);
 const QUESTION_FIELDS = new Set(["status", "answer", "answered_on", "visibility", "impact_low", "impact_high"]);
+const NOTE_FIELDS = new Set(["title", "body_md", "source_url", "source_label", "visibility", "sort_order"]);
 const ITEM_FIELDS = new Set(["unit_price", "quantity", "useful_life_years", "confidence", "source_kind", "owner", "note", "visibility"]);
 
 /**
@@ -168,16 +180,19 @@ export async function PATCH(req: NextRequest) {
     entity === "assumption" ? "project_cost_assumptions"
     : entity === "item" ? "project_cost_items"
     : entity === "question" ? "project_cost_questions"
+    : entity === "note" ? "project_cost_notes"
     : null;
   const pk =
     entity === "assumption" ? "cost_assumption_id"
     : entity === "item" ? "cost_item_id"
     : entity === "question" ? "cost_question_id"
+    : entity === "note" ? "cost_note_id"
     : null;
   const allowed =
     entity === "assumption" ? ASSUMPTION_FIELDS
     : entity === "item" ? ITEM_FIELDS
     : entity === "question" ? QUESTION_FIELDS
+    : entity === "note" ? NOTE_FIELDS
     : null;
   if (!table || !pk || !allowed) return NextResponse.json({ ok: false, error: "unknown entity" }, { status: 400 });
 

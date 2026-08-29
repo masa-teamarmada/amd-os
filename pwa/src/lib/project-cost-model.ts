@@ -71,6 +71,19 @@ export interface CostQuestion {
   sortOrder: number;
 }
 
+export type CostNoteSection = "caveat" | "benchmark" | "reading_guide" | "history";
+
+export interface CostNote {
+  costNoteId: string;
+  section: CostNoteSection;
+  title: string;
+  bodyMd: string | null;
+  sourceUrl: string | null;
+  sourceLabel: string | null;
+  visibility: CostVisibility;
+  sortOrder: number;
+}
+
 export interface CostModel {
   costModelId: string;
   projectId: string;
@@ -99,6 +112,7 @@ export interface CostModelBundle {
   assumptions: CostAssumption[];
   items: CostItem[];
   questions: CostQuestion[];
+  notes: CostNote[];
 }
 
 // 「使い捨て・50ppm・α=0.05・η=90%・5g/L」のときの値。原典シートの H15 / H16 の除数。
@@ -484,5 +498,6 @@ export function toSharedBundle(bundle: CostModelBundle): CostModelBundle | null 
     assumptions: bundle.assumptions.filter((a) => a.visibility === "workspace_shared"),
     items: bundle.items.filter((i) => i.visibility === "workspace_shared"),
     questions: bundle.questions.filter((q) => q.visibility === "workspace_shared"),
+    notes: bundle.notes.filter((n) => n.visibility === "workspace_shared"),
   };
 }
