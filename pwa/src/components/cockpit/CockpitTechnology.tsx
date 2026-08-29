@@ -922,7 +922,7 @@ export function CockpitTechnology({ projectId }: Props) {
   const countByKind = BLOCK_ORDER.map((k) => ({ kind: k, n: data.topics.filter((t) => t.block_kind === k).length }));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="cockpit-technology-tab">
       <section className="rounded-xl border border-[#e5e5e7] bg-white p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">

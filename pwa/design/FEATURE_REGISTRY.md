@@ -828,6 +828,25 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - `npm run test:project-workspace-route` は全PJ向けドライブタブ、workspace面の資料室scope、SX限定条件の不在を検査する。
 - `npm run test:critical-ui` はコックピットの資料室タブ（`key: "documents"` / `aria-label="資料室"` / `WorkspaceDocumentRoom` 埋め込み）を検査し、`WorkspaceDocumentLauncher` が復活していないことも検査する。
 
+## /project/[projectId]/cockpit — 技術タブ (2026-08-29 追加、build v3.100.0、migration 339/340)
+
+必須機能:
+
+- コックピットの独立タブ `技術`（`?tab=technology`）は全PJに常設し、`CockpitTechnology` を activeTab のときだけマウントする。
+- **PJごとにコンポーネントを分けない。** PJによって中身は違う（SXは培養条件、CXは磁気冷凍の解説と競合比較）が、形は `block_kind` の4種（`condition` 成立条件 / `article` 解説 / `matrix` 星取り表 / `record` 到達実績）だけで表す。PJ専用の技術タブ実装を足すことは、p25専用の規程・内規タブと同じ保守負債になるため禁止。
+- データは `project_tech_topics` / `project_tech_entries` の2テーブル。星取り表・成立条件・到達実績は同じ `entries` テーブルで持ち、形式ごとに別テーブルを作らない。
+- `/api/project-tech` の GET は member read で `canEdit` を返し、POST/PATCH/DELETE は admin 限定。cockpit側にadmin判定を持たせず、必ずサーバの `canEdit` に従う。
+- **参照系**。クライアントは `src/lib/project-tech-client.ts`（`reference-data-cache` 経由）だけを通し、画面から素の fetch をしない。タブ見出しの hover で `prefetchProjectTech()` を呼ぶ。`REFERENCE_DATA_ENDPOINTS` への登録を外さない。
+- **出典と確度は全行に持たせる**。値が無い行を空欄で放置せず「未測定」+ `unverified` を入れる。空欄のままだと、調べた結果なのか調べていないのかを読み手が区別できない。
+- タブ最下段の「まだ整理していない技術の断片」（`project_knowledge` の `tech` / `term` / `competitor`）を消さない。自動抽出が貯めた事実をPJ画面から読める唯一の導線で、これが無いと2,700件超が再びPJから見えなくなる。
+
+回帰防止:
+
+- `npm run test:critical-ui` はコックピットの技術タブ（`key: "technology", label: "技術"` / `aria-label="技術"` / `CockpitTechnology` 埋め込み）、`CockpitTechnology` の `data-testid="cockpit-technology-tab"` と4形式ブロック・`loadProjectTech` 参照、`cockpit/page.tsx` の `"technology"` を検査する。
+- `npm run test:reference-data-cache` は `/api/project-tech` が `Cache-Control` を明示し、クライアント層以外から直接 fetch されていないことを検査する。
+
+---
+
 ## /project/[projectId]/cockpit — 知財タブ (2026-08-21 追加、build v3.85.0、migration 308)
 
 必須機能:

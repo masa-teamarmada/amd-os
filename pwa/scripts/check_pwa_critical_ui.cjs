@@ -3130,6 +3130,24 @@ expectIncludes("src/components/cockpit/PatentMap.tsx", [
   'data-testid="cockpit-ip-patent-map"',
 ]);
 
+// 技術タブ (2026-08-29 まさ依頼): 技術の事実を成立条件/解説/星取り表/到達実績の4形式で貯める全PJ常設タブ。
+// PJごとに実装を分けない (block_kind の分岐だけで表現する) ことが設計の中心。
+expectIncludes("src/components/cockpit/CockpitView.tsx", [
+  'key: "technology", label: "技術"',
+  'aria-label="技術"',
+  "CockpitTechnology",
+]);
+expectIncludes("src/components/cockpit/CockpitTechnology.tsx", [
+  'data-testid="cockpit-technology-tab"',
+  "ConditionBlock",
+  "MatrixBlock",
+  "RecordBlock",
+  "loadProjectTech",
+]);
+expectIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
+  '"technology"',
+]);
+
 expectFileMissing("src/components/cockpit/CockpitGovernance.tsx");
 expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
   "CockpitGovernance",
