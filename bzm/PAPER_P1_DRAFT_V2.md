@@ -8,7 +8,7 @@ title: "The Before Zero Model: additionality-based valuation of university deep-
 
 **Masa Yamaji** — Team ARMADA Inc., Japan. *Author line provisional; declarations at end.*
 
-*Draft v2.4 (full working draft). Target: Journal of Technology Transfer. Word count (main text): ~8,900. The model version and its inputs are frozen (main commit 8a054516; approvals #2026-08-29-1 and #2026-08-29-2 plus the input-placement corrections of 29 Aug 2026 — recorded in SM-G). Four figures are computed at the frozen version; the remaining placeholder is the dual-scoring distribution.*
+*Draft v2.5 (full working draft). Target: Journal of Technology Transfer. Word count (main text): ~8,900. The model version and its inputs are frozen (main commit 91385d77; approvals #2026-08-29-1 and #2026-08-29-2 plus the input-placement corrections of 29 Aug 2026 — recorded in SM-G). Four figures are computed at the frozen version; the remaining placeholder is the dual-scoring distribution.*
 
 # Abstract {-}
 
