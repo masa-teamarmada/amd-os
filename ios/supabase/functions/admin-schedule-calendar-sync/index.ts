@@ -10,7 +10,7 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { buildTimedEventPlans, type TimedEventPlan } from "./schedule.ts";
+import { buildTimedEventPlans, calendarEventColorId, calendarEventTitle, type TimedEventPlan } from "./schedule.ts";
 
 const CAL_API = "https://www.googleapis.com/calendar/v3";
 const CALENDAR_SETTING_KEY = "admin_schedule_google_calendar_id";
@@ -21,6 +21,7 @@ type Row = Record<string, unknown>;
 type GoogleEvent = {
   id?: string;
   summary?: string;
+  colorId?: string;
   description?: string;
   start?: { date?: string; dateTime?: string };
   end?: { date?: string; dateTime?: string };
@@ -140,7 +141,7 @@ async function ensureAdminReaders(db: ReturnType<typeof createClient>, token: st
 
 async function desiredOccurrences(db: ReturnType<typeof createClient>, from: string, to: string) {
   const { data, error } = await db.from("company_schedule_occurrences")
-    .select("occurrence_id,occurrence_key,title,due_on,category,source_kind,lifecycle_status,date_precision")
+    .select("occurrence_id,occurrence_key,title,due_on,category,source_kind,project_id,lifecycle_status,date_precision")
     .eq("current_version", true)
     .eq("date_precision", "day")
     .gte("due_on", from)
@@ -167,7 +168,10 @@ async function desiredOccurrences(db: ReturnType<typeof createClient>, from: str
 function eventBody(row: TimedEventPlan) {
   const key = row.occurrence_key;
   return {
-    summary: row.title,
+    // AMD OS が入れた予定は「＋<PJコード> <本文>」で、その PJ の色で書く。
+    // 色が割り当たっていない PJ は色なし (Google は colorId 未設定として扱う)。
+    summary: calendarEventTitle(row),
+    colorId: calendarEventColorId(row) ?? undefined,
     description: [
       "AMD OS 管理カレンダーから自動同期",
       `区分: ${row.category}`,
@@ -184,6 +188,8 @@ function eventBody(row: TimedEventPlan) {
 
 function eventMatches(existing: GoogleEvent, desired: ReturnType<typeof eventBody>): boolean {
   return existing.summary === desired.summary
+    // Google omits colorId when the event uses the calendar's own color.
+    && (existing.colorId ?? undefined) === desired.colorId
     && existing.description === desired.description
     && existing.start?.dateTime === desired.start.dateTime
     && existing.end?.dateTime === desired.end.dateTime
@@ -230,6 +236,7 @@ Deno.serve(async (request) => {
       due_on: String(row.due_on),
       category: String(row.category),
       source_kind: String(row.source_kind),
+      project_id: row.project_id === null || row.project_id === undefined ? null : String(row.project_id),
     })));
     const existing = await listManagedEvents(token, calendarId, today, through);
     const desiredByKey = new Map(desired.map((row) => [String(row.occurrence_key), row]));

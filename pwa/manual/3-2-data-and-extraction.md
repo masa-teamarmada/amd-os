@@ -275,13 +275,19 @@ Calendar event に Gemini / Google Meet notes Doc 添付がある、Notion の `
 - 先頭の `＋` (または `+`) = 「動かしてよい作業枠」の印。MTG 実施の記録としては扱わない (H-1 は `+` / `＋` 始まりを skip する)。
 - PJ コードは `CFG_ColorPJHistory` の `pjCode` (例 `SX` / `KUTE` / `CX` / `CLG` / `VSX`)。`p21` のような内部 ID や、PJ が分かっているのに `AMD` を書かない。
 - 例: `＋SX JSTのSU設立審査依頼を開始` / `＋KUTE 月次報告書作成`
+- `【ZMP】…` のような角括弧の接頭辞は使わない。角括弧はまさや先方が付ける会議名の書式で、OS が入れた作業枠と混ざる。
 
 **色**: その日時点でその PJ に割り当たっている `colorId` を event に付ける
 - 解決は「色 → PJ」と同じ履歴方式の逆引き。`startDate <= 予定日` のうち startDate 最大の行で `pjCode` が一致する `colorId` を使う。
 - 2026-08-29 時点: `1=LST` / `3=ZMP` / `4=SX` / `5=UST` / `6=VSX` / `7=CLG` / `9=CX` / `10=SE` / `11=KUTE`。
 - **色が割り当たっていない PJ (AMD、NIMS、KENQ、EHM など) は色なしで書く**。空いている色を代用しない (代用すると色 → PJ 判定が別 PJ として読む)。`CFG_ColorPJHistory` の `colorId 21` はカレンダー単位の色で、予定には付けられない。
 
-**実装正本**: `pwa/src/lib/calendar-pj-color.ts` (`resolveColorIdForProject` / `resolveProjectForColorId`、`CFG_ColorPJHistory` のスナップショット)。＋枠を作る側は `pwa/src/lib/task-calendar-schedule-plan.ts` が `color_id` と各 `calendar_writes[].colorId` を返す。guard は `npm run test:calendar-pj-color`。
+**AMD 管理カレンダー (会社の期日を投影する共有カレンダー) も同じ書式**
+- `company_schedule_occurrences` の `CX / 月次報告提出（2026年8月分）` は、カレンダーへは `＋CX 月次報告提出（2026年8月分）` として出す。案件が紐づかない会社全体の予定 (社会保険料、消費税等、決算) は `＋AMD …`。
+- 実装は `ios/supabase/functions/admin-schedule-calendar-sync/schedule.ts` の `calendarEventTitle()` / `calendarEventColorId()`。色の割当表は同ディレクトリの `pj-color.ts` (Edge Function は `pwa/src` を import できないための同一コピー)。
+- 見出しと色は毎回の同期で照合するので、まさが手で書き換えても次の同期で正本の書式へ戻る。日付や内容を変えたいときは AMD OS の元データを直す。
+
+**実装正本**: `pwa/src/lib/calendar-pj-color.ts` (`resolveColorIdForProject` / `resolveProjectForColorId`、`CFG_ColorPJHistory` のスナップショット)。＋枠を作る側は `pwa/src/lib/task-calendar-schedule-plan.ts` が `color_id` と各 `calendar_writes[].colorId` を返す。guard は `npm run test:calendar-pj-color` と `npm run test:admin-schedule`。
 
 ---
 

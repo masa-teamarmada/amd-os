@@ -19,6 +19,7 @@ import {
   resolveColorIdForProject,
   resolveProjectForColorId,
 } from "../src/lib/calendar-pj-color.ts";
+import * as edgeColor from "../../ios/supabase/functions/admin-schedule-calendar-sync/pj-color.ts";
 import { buildTaskCalendarSchedulePlan } from "../src/lib/task-calendar-schedule-plan.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -100,6 +101,17 @@ assert.ok(
 );
 // project_code が無くても project_id から PJ コードへ落とす (「+p21」や「+AMD」に化けない)
 assert.ok(!plan.title.startsWith("+p21"), "project_id がそのままタイトルへ出ている");
+
+// --- Edge Function 用コピーが本体とずれていないこと ---
+assert.deepEqual(
+  edgeColor.COLOR_PJ_HISTORY,
+  COLOR_PJ_HISTORY,
+  "ios/.../pj-color.ts の割当表が pwa/src/lib/calendar-pj-color.ts とずれている",
+);
+for (const [project, expected] of EXPECTED_NOW) {
+  assert.equal(edgeColor.resolveColorIdForProject(project, TODAY), expected, `Edge 側の ${project} の色がずれている`);
+}
+assert.equal(edgeColor.normalizePjCode("p28"), normalizePjCode("p28"));
 
 // --- 正本 md から仕様が消えていないこと ---
 const manual = fs.readFileSync(path.join(root, "manual", "3-2-data-and-extraction.md"), "utf8");

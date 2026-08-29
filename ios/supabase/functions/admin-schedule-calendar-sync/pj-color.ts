@@ -10,12 +10,12 @@
  *   まさのカレンダーは PJ ごとに塗り分けられているので、OS が自分で入れる枠も
  *   同じ色でないと、まさから見て「どの PJ の予定か」が一目で分からなくなる。
  *
- * ここのスナップショットはランタイムに Drive を読めない経路 (dry-run planner /
- * guard / テスト) 用。値を変えるときはスプレッドシート側と必ず揃える。
+ * ここのスナップショットはランタイムに Drive を読めない経路 (Edge Function /
+ * dry-run planner / guard) 用。値を変えるときはスプレッドシート側と必ず揃える。
  *
- * Edge Function 用の同一コピーが
- * `ios/supabase/functions/admin-schedule-calendar-sync/pj-color.ts` にある。
- * 片方だけ直すと `npm run test:calendar-pj-color` が deep-equal で落ちる。
+ * このファイルは `pwa/src/lib/calendar-pj-color.ts` と同一内容の Deno 用コピー。
+ * Edge Function は pwa/src を import できないため二重に置いている。
+ * ずれは `npm run test:calendar-pj-color` (pwa) が deep-equal で落とす。
  */
 
 export type ColorPJHistoryRow = {

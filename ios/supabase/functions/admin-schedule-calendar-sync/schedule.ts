@@ -1,9 +1,13 @@
+import { normalizePjCode, resolveColorIdForProject } from "./pj-color.ts";
+
 export type CalendarScheduleRow = {
   occurrence_key: string;
   title: string;
   due_on: string;
   category: string;
   source_kind: string;
+  /** 案件の予定なら project_id、会社全体の予定なら null */
+  project_id?: string | null;
 };
 
 export type TimedEventPlan = CalendarScheduleRow & {
@@ -11,6 +15,31 @@ export type TimedEventPlan = CalendarScheduleRow & {
   end_time: string;
   duration_minutes: number;
 };
+
+/**
+ * カレンダーへ出す見出し。AMD OS が入れた予定は「＋<PJコード> <本文>」で揃える
+ * (manual 3-2 §PJ → カレンダー色)。元データの `CX / 月次報告提出` のような
+ * 「PJ / 」接頭辞は PJ コードへ畳み、会社全体の予定は AMD を付ける。
+ */
+export function calendarEventTitle(row: Pick<CalendarScheduleRow, "title" | "project_id">): string {
+  const pjCode = normalizePjCode(row.project_id) || "AMD";
+  let body = String(row.title || "").trim().replace(/^[+＋]\s*/, "");
+  // 元データの「CX / 月次報告提出」や、再同期で読み直した「＋CX 契約満了」から
+  // 先頭の PJ 名を外し、PJ コードを二重に並べない。
+  for (const separator of [" / ", " "]) {
+    const at = body.indexOf(separator);
+    if (at <= 0) continue;
+    if (normalizePjCode(body.slice(0, at).trim()) !== pjCode) continue;
+    body = body.slice(at + separator.length).trim();
+    break;
+  }
+  return `＋${pjCode} ${body}`.trim();
+}
+
+/** その PJ に割り当たっている event colorId。色を持たない PJ は null (色なしで書く) */
+export function calendarEventColorId(row: Pick<CalendarScheduleRow, "project_id" | "due_on">): string | null {
+  return resolveColorIdForProject(row.project_id, row.due_on || new Date());
+}
 
 const DAY_START_MINUTES = 9 * 60;
 const LUNCH_START_MINUTES = 12 * 60;
