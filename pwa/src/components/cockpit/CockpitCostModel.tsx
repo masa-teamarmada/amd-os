@@ -731,6 +731,27 @@ function MiniMarkdown({ text }: { text: string }) {
           );
         }
 
+        // 番号付きリスト。"1. 〜" が並ぶブロックを ol として描く。
+        const firstNumbered = lines.findIndex((l) => /^\s*\d+\.\s/.test(l));
+        if (firstNumbered >= 0 && lines.slice(firstNumbered).every((l) => /^\s*\d+\.\s/.test(l))) {
+          const lead = lines.slice(0, firstNumbered);
+          const numbered = lines.slice(firstNumbered);
+          return (
+            <div key={bi} className="flex flex-col gap-1">
+              {lead.map((l, li) => (
+                <p key={li} className="text-[12px] leading-6 text-[#4b4b52]">{inline(l)}</p>
+              ))}
+              <ol className="ml-5 list-decimal space-y-1">
+                {numbered.map((l, li) => (
+                  <li key={li} className="text-[12px] leading-6 text-[#4b4b52]">
+                    {inline(l.replace(/^\s*\d+\.\s/, ""))}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          );
+        }
+
         // 箇条書きを含むブロック。先頭に見出し的なリード行があっても拾えるようにする。
         const firstBullet = lines.findIndex((l) => l.trim().startsWith("- "));
         if (firstBullet >= 0 && lines.slice(firstBullet).every((l) => l.trim().startsWith("- "))) {
