@@ -197,7 +197,12 @@ async function main() {
 
   const info = CLASSIFICATION[seedId];
   if (!info) throw new Error(`${seedId}: 分類表に無い（このツールの対象21件の外）`);
-  const maskedFields = new Set(mode === 'records' ? info.maskedB : []);
+  // --only <field>: その1項目だけをマスクする（寄与の分離＝leave-one-out 用）
+  const onlyIdx = args.indexOf('--only');
+  const onlyField = onlyIdx >= 0 ? args[onlyIdx + 1] : null;
+  const maskedFields = new Set(
+    onlyField ? (info.maskedB.includes(onlyField) ? [onlyField] : [])
+              : (mode === 'records' ? info.maskedB : []));
 
   // 読むだけ。書き込みは一切行わない（このツールに insert/update 経路は無い）。
   const { data: inputRow, error: e1 } = await supabase
