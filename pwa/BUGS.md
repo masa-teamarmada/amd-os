@@ -33,6 +33,13 @@
 - **対応内容**: (1) commit された内容を最終形と突き合わせて一致を確認した（`text-[17px]` / `max-w-4xl` / `max-h-full` / `sm:p-8 lg:p-12` / `Escape` / `monthly-agreement-modal-close` の全アンカーが入っていた）ので、そのまま活かして残り（spec・manual・guard）を `315c27b1` で積んだ。(2) 他セッションの dirty には触らず、`deploy.sh` が push 前に走らせる検査を**手で全部実行**してから `git push origin main` した — critical-ui / reference-data-cache / three-party-project-view / sx-shared-control-migration / model-formula-canon / member-payout-matching / payout-reimbursements / payment-month-usage の8種、`deploy-version-guard.cjs --target production`、`git merge-base --is-ancestor origin/main HEAD`。反映は `/api/build-info` の `git_sha` で確認した。
 - **再発防止策**: **論理単位ごとに自分で早く commit する**（memory [[feedback_commit_immediately_after_edit]] と同じ結論だが、理由が「巻き戻り防止」だけでなく「他セッションに中間状態を commit されないため」でもある）。**`deploy.sh` が他セッションの dirty で止まったとき、dirty を commit も stash もしない**（AGENTS.common「別セッションのdirty、競合、未判断ファイルを勝手に消さない」）。自分の commit が全部済んでいるなら、script が走らせる guard を手で全て実行したうえで `git push origin main` する。**guard を飛ばして push しない** — script を迂回してよいのは dirty guard だけで、rollback guard 群は迂回対象ではない。
 
+#### 追加事例 (2026-08-29) — stage したまま待っていたら、別セッションの commit に丸ごと巻き込まれた
+
+- **症状**: コスト試算タブの仕様・マニュアル・BUGS・design_log の7ファイルを `git add` した直後、モデル正本ロックの pre-commit hook が **別セッションの `model/` 未コミット変更** を検知して commit を拒否した。解消待ちの間に、その別セッションが `git add -A` 相当で commit したため、こちらの7ファイルが `7fd29fe4 feat(bzm): 承認済み改訂...` という**まったく無関係な commit 名**の中に入って push された（9 files changed のうち7つがこちらの分）
+- **原因**: (1) モデル正本ロックは working tree 全体を見るので、**他セッションの dirty があると誰も commit できない**。(2) その間 index に自分のファイルを置いたままにすると、次に誰かが commit した瞬間に巻き込まれる。共有 checkout では **index も共有資源**
+- **対応内容**: 内容は無傷で origin/main に到達していることを検証（spec 5-13 が120行、manual/BUGS/design_log/manual-chapters の追記もすべて存在）。main は push 済みなので履歴の書き換えはしない
+- **再発防止策**: **commit できない事情があるときは stage したまま待たない。** hook や lock で commit が通らないなら、`git add` を実行せず、commit 可能になった瞬間にまとめて `add` → `commit` する。待機ジョブを仕掛ける場合も add はジョブ側で行う。あわせて、**共有 checkout では `git add -A` / `git commit -a` を使わない**（`AGENTS.common.md`「`git add .` は使わない」の理由がこれ）
+
 ---
 
 ### [ui/modal-dismiss] 月初合意モーダルが画面いっぱいで、背景クリック領域が 12px しか無く閉じられなかった (2026-08-27)
