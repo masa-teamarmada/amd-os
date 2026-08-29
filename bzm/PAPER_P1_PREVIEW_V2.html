@@ -1071,22 +1071,25 @@ SM-C) mark exactly where the reference implementation substitutes,
 collapses, or omits what the specification defines.</p>
 <h2 id="ceiling-sensitivity-as-a-property-of-the-object">7.7 Ceiling
 sensitivity as a property of the object</h2>
-<p>During input preparation the ceiling convention was revised twice in
-three days — from total addressable market to obtainable segment, then
-to the serviceable slice net of the share already carried by the model’s
-own take-rate — and individual project values moved by factors of ×289
-and ×1,600. We report this not as an embarrassment but as a finding
-about the object: since
+<p>Because
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>V</mi><annotation encoding="application/x-tex">V</annotation></semantics></math>
-is constructively proportional to the ceiling (A6), <em>ex-ante
-selection output is order-of-magnitude sensitive to how the market is
-sliced</em>, and any framework that hides this behind a stable-looking
-composite is not more robust, only less honest. Two governance
-consequences follow and are implemented: ceiling conventions are
-versioned with approval records, and the reported 10/50/90 bands are
-labeled as <strong>not</strong> propagating ceiling uncertainty (A7) —
-calling a band a confidence interval while its largest driver sits
-outside it would be the quiet lie this section exists to prevent.</p>
+is constructively proportional to the ceiling (A6), the single largest
+lever on any score is how the addressable market is sliced. Re-basing
+the same project’s ceiling across the standard market conventions — from
+total market to obtainable segment — moves its value by two to three
+orders of magnitude, dwarfing every coefficient elasticity in §7.6. We
+treat this as a property of the measurement object, not a defect to be
+smoothed: <em>ex-ante selection output is order-of-magnitude sensitive
+to market-slicing conventions</em>, and a framework that conceals this
+behind a stable-looking composite is not more robust, only less honest.
+Three governance rules follow and are implemented: the ceiling
+convention is fixed once — the obtainable slice, net of the share
+already carried by the model’s take-rate parameter, so the same
+uncertainty is never counted twice; per-project ceilings are versioned
+with approval records; and the reported 10/50/90 bands are labeled as
+<strong>not</strong> propagating ceiling uncertainty (A7) — calling a
+band a confidence interval while its largest driver sits outside it
+would be the quiet lie this section exists to prevent.</p>
 <h2 id="limits">7.8 Limits</h2>
 <p>Everything here is implementation verification plus retrospective
 application under judgment-quality inputs on one builder’s ledger, at
