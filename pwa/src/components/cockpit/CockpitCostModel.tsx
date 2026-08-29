@@ -50,7 +50,7 @@ function ConfidenceTag({ value }: { value: string | null }) {
   const cls = CONFIDENCE_STYLE[value];
   if (!cls) return null;
   return (
-    <span className={`inline-flex shrink-0 items-center rounded border px-1.5 py-[1px] text-[10px] font-semibold ${cls}`}>
+    <span className={`inline-flex shrink-0 items-center whitespace-nowrap rounded border px-1.5 py-[1px] text-[10px] font-semibold ${cls}`}>
       {CONFIDENCE_LABEL[value] ?? value}
     </span>
   );
@@ -203,7 +203,9 @@ export function CockpitCostModel({ projectId, allowEdit = true }: Props) {
           )}
         </div>
         {model.summaryMd && (
-          <p className="mt-3 whitespace-pre-wrap text-[12px] leading-6 text-[#4b4b52]">{model.summaryMd}</p>
+          <div className="mt-3">
+            <MiniMarkdown text={model.summaryMd} />
+          </div>
         )}
         {model.sourceNote && <p className="mt-2 text-[11px] text-[#86868b]">{model.sourceNote}</p>}
       </section>
@@ -729,13 +731,22 @@ function MiniMarkdown({ text }: { text: string }) {
           );
         }
 
-        if (lines.every((l) => l.trim().startsWith("- "))) {
+        // 箇条書きを含むブロック。先頭に見出し的なリード行があっても拾えるようにする。
+        const firstBullet = lines.findIndex((l) => l.trim().startsWith("- "));
+        if (firstBullet >= 0 && lines.slice(firstBullet).every((l) => l.trim().startsWith("- "))) {
+          const lead = lines.slice(0, firstBullet);
+          const bullets = lines.slice(firstBullet);
           return (
-            <ul key={bi} className="ml-4 list-disc space-y-1">
-              {lines.map((l, li) => (
-                <li key={li} className="text-[12px] leading-6 text-[#4b4b52]">{inline(l.replace(/^\s*-\s/, ""))}</li>
+            <div key={bi} className="flex flex-col gap-1">
+              {lead.map((l, li) => (
+                <p key={li} className="text-[12px] leading-6 text-[#4b4b52]">{inline(l)}</p>
               ))}
-            </ul>
+              <ul className="ml-4 list-disc space-y-1">
+                {bullets.map((l, li) => (
+                  <li key={li} className="text-[12px] leading-6 text-[#4b4b52]">{inline(l.replace(/^\s*-\s/, ""))}</li>
+                ))}
+              </ul>
+            </div>
           );
         }
 
