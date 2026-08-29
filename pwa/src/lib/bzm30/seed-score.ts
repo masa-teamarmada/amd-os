@@ -78,6 +78,23 @@ export interface SeedBzm30InputRow {
    */
   quiet_months: number | null;
   quiet_months_reason: string | null;
+  /**
+   * 八機能の充足（#2026-08-29-2）。評価日の充足 0〜1。機能1 は evangelist_e が別名。
+   * f2（技術の核）は失われた観測がある案件だけ指定でき、指定時は恒久喪失率を外す。
+   * f3〜7 は「評価日に確率 f で充足済み、残りが供給過程で埋まる」。省略した機能は既定の扱い。
+   */
+  funcs_f2: number | null;
+  funcs_f2_reason: string | null;
+  funcs_f3: number | null;
+  funcs_f3_reason: string | null;
+  funcs_f4: number | null;
+  funcs_f4_reason: string | null;
+  funcs_f5: number | null;
+  funcs_f5_reason: string | null;
+  funcs_f6: number | null;
+  funcs_f6_reason: string | null;
+  funcs_f7: number | null;
+  funcs_f7_reason: string | null;
 }
 
 export interface SeedBzm30ScoreRow {

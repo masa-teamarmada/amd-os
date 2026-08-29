@@ -89,6 +89,17 @@ function toInit(row, ceilingYen) {
   // 変換能力 c と無風期間（#2026-08-29-1）
   if (row.conversion_c !== null && row.conversion_c !== undefined) init.c = Number(row.conversion_c);
   if (row.quiet_months !== null && row.quiet_months !== undefined) init.quietMonths = Number(row.quiet_months);
+  // 八機能の充足（#2026-08-29-2）。指定がある機能だけ渡す（f1 は evangelist_e が別名なので列を持たない）
+  const funcs = {};
+  for (const n of [2, 3, 4, 5, 6, 7]) {
+    const v = row[`funcs_f${n}`];
+    if (v !== null && v !== undefined) funcs[`f${n}`] = Number(v);
+  }
+  if (Object.keys(funcs).length > 0) init.funcs = funcs;
+  // 案件ごとのバーンレート（#2026-08-29-2）。円／月 → 万円／月
+  if (row.burn_rate_yen_month !== null && row.burn_rate_yen_month !== undefined) {
+    init.burnMan = Math.round(Number(row.burn_rate_yen_month) / 10000);
+  }
   // 経済性の乗数は天井の純増（億円）で決まる。未調査なら既定（基準値＝乗数1）のまま
   if (ceilingYen !== null) init.pNetOku = ceilingYen / 1e8;
 

@@ -253,23 +253,34 @@ function buildPositions(type, reg, cfg) {
 
 // ─────────────────────────────────────────────────────────── 担い手の充足（厳密な期待値）
 
-// 機能1 は探索過程（e·kEva）、機能3〜7 は供給過程（kSup）。機能2 は充足。
-function vacancyProbs(t, e, cfg) {
+// 機能1 は探索過程（e·kEva）、機能3〜7 は供給過程（kSup）。機能2 は既定で充足。
+// funcs（#2026-08-29-2。init.funcs）: 評価日の充足 0〜1。
+//   f2 は「1 - 充足」が時間不変の空席確率（移せない機能なので供給過程では埋まらない）。
+//   f3〜7 は「評価日に確率 f で充足済み、残り (1-f) が供給過程で埋まる」。省略はいままでの扱い。
+function vacancyProbs(t, e, cfg, funcs) {
   const p = {};
   p[1] = Math.exp(-e * cfg.kEva * t);
-  p[2] = 0;
-  for (const f of [3,4,5,6,7]) p[f] = Math.exp(-cfg.kSup * t);
+  p[2] = (funcs && funcs.f2 !== undefined) ? Math.min(1, Math.max(0, 1 - funcs.f2)) : 0;
+  for (const f of [3,4,5,6,7]) {
+    const base = Math.exp(-cfg.kSup * t);
+    const f0 = funcs ? funcs['f' + f] : undefined;
+    p[f] = (f0 !== undefined) ? Math.min(1, Math.max(0, 1 - f0)) * base : base;
+  }
   return p;
 }
 
-// 空席パターンにわたる E[1 - exp(-K·η)] を厳密に計算する（機能1,3,4,5,6,7 の 64 通り）
+// 空席パターンにわたる E[1 - exp(-K·η)] を厳密に計算する。
+// 既定は機能 1,3,4,5,6,7 の 64 通り。機能2 の空席を指定した案件だけ 7 機能 128 通りへ広げる。
 const FUNCS = [1,3,4,5,6,7];
-function expectedAdvance(K, dmap, pv, dOther) {
+const FUNCS7 = [1,2,3,4,5,6,7];
+function expectedAdvance(K, dmap, pv, dOther, list) {
+  const L = list || FUNCS;
+  const n = L.length;
   let acc = 0;
-  for (let m = 0; m < 64; m++) {
+  for (let m = 0; m < (1 << n); m++) {
     let w = 1, eta = 1;
-    for (let b = 0; b < 6; b++) {
-      const f = FUNCS[b], vac = (m >> b) & 1;
+    for (let b = 0; b < n; b++) {
+      const f = L[b], vac = (m >> b) & 1;
       w *= vac ? pv[f] : (1 - pv[f]);
       if (w === 0) break;
       if (vac) eta *= (1 - (dmap[f] !== undefined ? dmap[f] : dOther));
@@ -280,12 +291,14 @@ function expectedAdvance(K, dmap, pv, dOther) {
   return acc;
 }
 // 乗数型（φ・ν）の担い手乗数の期待値
-function expectedMult(dmap, pv) {
+function expectedMult(dmap, pv, list) {
+  const L = list || FUNCS;
+  const n = L.length;
   let acc = 0;
-  for (let m = 0; m < 64; m++) {
+  for (let m = 0; m < (1 << n); m++) {
     let w = 1, mu = 1;
-    for (let b = 0; b < 6; b++) {
-      const f = FUNCS[b], vac = (m >> b) & 1;
+    for (let b = 0; b < n; b++) {
+      const f = L[b], vac = (m >> b) & 1;
       w *= vac ? pv[f] : (1 - pv[f]);
       if (w === 0) break;
       if (vac && dmap[f] !== undefined) mu *= (1 - dmap[f]);
@@ -387,7 +400,15 @@ function runOne(type, reg, cfg, theta, init) {
   const { c, psi, sigma, e, r } = theta;
   const B = buildPositions(type, reg, cfg);
   const P = B.nPos;
-  const grid = moneyGrid(cfg, cfg.muPre[type] * (1 + cfg.restrictedWaste), cfg.muPost[type] * (1 + cfg.restrictedWaste));
+  // 案件ごとのバーンレート（#2026-08-29-2）: 評価日の会社化状態の側の μ を差し替える。
+  // 会社化前の観測支出が会社化後の既定を上回る場合は、会社化後もその値を下限にする（会社化で支出は下がらない）。
+  let muPre = cfg.muPre[type], muPost = cfg.muPost[type];
+  if (init && init.burnMan !== undefined) {
+    if (!(init.burnMan > 0)) throw new Error('burnMan は正の数（万円／月）');
+    if (init.incorporated) muPost = init.burnMan;
+    else { muPre = init.burnMan; muPost = Math.max(muPost, init.burnMan); }
+  }
+  const grid = moneyGrid(cfg, muPre * (1 + cfg.restrictedWaste), muPost * (1 + cfg.restrictedWaste));
   const S = grid.length;
   const NR = cfg.R0 + 1, NI = 2, NX = 2, NN = cfg.kExit + 1;
   const st_x = NN, st_i = NN * NX, st_R = NN * NX * NI;
@@ -396,10 +417,15 @@ function runOne(type, reg, cfg, theta, init) {
   let cur = new Float64Array(SZ), nxt = new Float64Array(SZ);
 
   const gStar = cfg.gStar[reg];
-  const muPre = cfg.muPre[type], muPost = cfg.muPost[type];
   const rhoMax = cfg.rhoMax[type];
+  // 八機能の充足（#2026-08-29-2）。機能2 の空席を指定した案件は 7 機能 128 通りへ広げ、
+  // 恒久喪失率 λ^core を外す（同じ喪失を率と状態で二回数えない）
+  const funcs = init && init.funcs ? init.funcs : null;
+  const f2Vacant = Boolean(funcs && funcs.f2 !== undefined && funcs.f2 < 1);
+  const funcsList = f2Vacant ? FUNCS7 : FUNCS;
+  const lamCoreEff = f2Vacant ? 0 : cfg.lamCore;
   const lamMonth = (cfg.lamComp * (1.6 - 1.2 * cfg.kIP) * cfg.sigmaMult.lam[String(sigma)]
-                    + cfg.lamDem + cfg.lamCore) / 12;
+                    + cfg.lamDem + lamCoreEff) / 12;
   const surv1 = 1 - lamMonth;
 
   // 価値の裾を前計算する（状態に依らないので月ごとに一度だけ）
@@ -452,16 +478,16 @@ function runOne(type, reg, cfg, theta, init) {
   const gamNear = cfg.gamma.near;
   const phiM = new Float64Array(cfg.T + 1), nuM = new Float64Array(cfg.T + 1);
   for (let t = 0; t <= cfg.T; t++) {
-    const pv = vacancyProbs(t, e, cfg);
-    phiM[t] = expectedMult(cfg.dPhi, pv);
-    nuM[t] = expectedMult(cfg.dNu, pv);
+    const pv = vacancyProbs(t, e, cfg, funcs);
+    phiM[t] = expectedMult(cfg.dPhi, pv, funcsList);
+    nuM[t] = expectedMult(cfg.dNu, pv, funcsList);
     for (let p = 0; p < P; p++) {
       const q = B.pos[p];
       if (q.role !== 'hazard') continue;
       const Kbase = q.kres * ((q.kind === 'tech') ? psi : 1) * c;
-      advC[t * P + p] = expectedAdvance(Kbase, cfg.dMain[q.mainKey] || {}, pv, cfg.dOther);
+      advC[t * P + p] = expectedAdvance(Kbase, cfg.dMain[q.mainKey] || {}, pv, cfg.dOther, funcsList);
       advCx[t * P + p] = expectedAdvance(Kbase * Math.max(0, 1 - gamNear * rhoMax),
-                                         cfg.dMain[q.mainKey] || {}, pv, cfg.dOther);
+                                         cfg.dMain[q.mainKey] || {}, pv, cfg.dOther, funcsList);
     }
   }
   // ①用途転換の戻り先: 市場系ゲートの先頭（技術系の到達は保つ）
@@ -667,6 +693,11 @@ function runOne(type, reg, cfg, theta, init) {
 //                幅は GSD 1.65 のまま（点推定にすると不確かさが消える）
 //   init.quietMonths … 無風期間（ポジティブな動きが出ていない月数。#2026-08-29-1）。
 //                申し出到来率と四経路②③に乗数 m_q が掛かる。未観測は渡さない（乗数 1）
+//   init.funcs … 八機能の充足（#2026-08-29-2）。例 { f2: 0, f4: 0.3 }。0〜1。
+//                f2 < 1 を指定した案件は 7 機能 128 通りで計算し、λ^core を外す。
+//                f3〜7 は「評価日に確率 f で充足済み、残りが供給過程で埋まる」。省略は既定の扱い
+//   init.burnMan … 案件ごとのバーンレート（万円／月。#2026-08-29-2）。評価日の会社化状態の側の μ を
+//                差し替える。会社化前の観測が会社化後の既定を上回る場合は会社化後もその値を下限にする
 function runTheta(type, reg, cfg, init) {
   const seq = gateSequence(type, reg);
   const agg = { outcome: {}, v: 0, vIn: 0, m4mass: 0, m4meanW: 0 };

@@ -306,18 +306,18 @@ export function buildSeedInputs(
         : "実額が入ると撤退の確率が大きく動く。手元資金の残高の確認が要る"),
   });
 
-  // バーンレートは**前向き計算に入らない**（参照実装は工程の型と会社化の有無から既定値を引く）。
-  // それでも表に出すのは、既定値が実績と何倍ずれているかが見えないと、
-  // 資金の残り月数を読み違えるため（BUGS.md 2026-08-27 の2件目）。
+  // 案件ごとのバーンレート（#2026-08-29-2 で計算に入るようになった）。
+  // 評価日の会社化状態の側の支出を差し替える。会社化前の観測が会社化後の既定を上回る場合は
+  // 会社化後もその値を下限にする（会社化で支出は下がらない）。
   const burnKnown = rec?.burn_rate_yen_month !== null && rec?.burn_rate_yen_month !== undefined;
   out.push({
-    key: "burn", symbol: "\\mu_t", name: "バーンレート（参考・計算には入らない）",
+    key: "burn", symbol: "\\mu_t", name: "バーンレート",
     value: burnKnown
       ? `${((rec.burn_rate_yen_month as number) / 1e4).toLocaleString("ja-JP", { maximumFractionDigits: 0 })} 万円／月`
       : "工程の型と会社化の有無から引く既定値（Tier 0 既定）",
-    filled: false, origin: burnKnown ? "承認待ち" : "Tier 0 既定",
+    filled: burnKnown, origin: burnKnown ? "観測" : "Tier 0 既定",
     source: rec?.burn_rate_reason
-      ?? "参照実装は案件ごとのバーンレートを受け取らず、モデルページ §6.I-9-2 の型別の既定値で計算する。実績を入れる経路がまだ無い",
+      ?? "実績または直近の計画の月次支出。資金の残り月数＝撤退の確率を直接動かす",
   });
 
   const ucKnown = rec?.under_contract !== null && rec?.under_contract !== undefined;
@@ -386,6 +386,35 @@ export function buildSeedInputs(
     source: rec?.evangelist_e_reason
       ?? "関係者の棚卸し（研究室出身者・長期の共同研究者・共同出願者）。探索して見つからないと分かったときだけ下げる",
   });
+
+  // 八機能の充足（#2026-08-29-2）。指定がある機能だけ個別行で出し、無ければ既定の1行にまとめる
+  const FUNC_NAMES: Record<number, string> = {
+    2: "技術の核", 3: "用途と需要家", 4: "意思決定", 5: "資金調達", 6: "対外交渉", 7: "組織",
+  };
+  const funcNos = [2, 3, 4, 5, 6, 7] as const;
+  const specified = funcNos.filter((n) => {
+    const v = rec?.[`funcs_f${n}` as keyof typeof rec];
+    return v !== null && v !== undefined;
+  });
+  if (specified.length > 0) {
+    for (const n of specified) {
+      const v = Number(rec?.[`funcs_f${n}` as keyof typeof rec]);
+      const reason = rec?.[`funcs_f${n}_reason` as keyof typeof rec] as string | null | undefined;
+      out.push({
+        key: `f${n}`, symbol: `f_${n}`, name: `機能${n}（${FUNC_NAMES[n]}）の充足`,
+        value: v.toFixed(2),
+        filled: true, origin: "観測",
+        source: reason ?? "観測から指定した値",
+      });
+    }
+  } else {
+    out.push({
+      key: "funcs", symbol: null, name: "八機能の充足（機能2〜7）",
+      value: "指定なし（機能2は充足、機能3〜7は供給過程で埋まる既定）",
+      filled: false, origin: "Tier 0 既定",
+      source: "明確な観測（《組織》の記録・登録簿相当）がある案件・機能だけ指定する（モデルページ §6.I-9-1 の第一便の埋め方）",
+    });
+  }
 
   const rKnown = rec?.self_revenue_yen_month !== null && rec?.self_revenue_yen_month !== undefined;
   out.push({

@@ -1,6 +1,6 @@
 {
-  "approval_ref": "2026-08-29-1",
-  "locked_at": "2026-08-29T16:56:56.977+09:00",
+  "approval_ref": "2026-08-29-2",
+  "locked_at": "2026-08-29T17:49:24.824+09:00",
   "frozen_versions": {
     "model_version": "sps-ind-tier0-v1",
     "measure_version": "sps-ind-v1",
@@ -55,11 +55,11 @@
     },
     {
       "path": "model/MODEL_VERSION_LEDGER.md",
-      "sha256": "3ce276464f3cfa00121bc273cc86b04328dc193db6c6e76a97075d6327dba15c"
+      "sha256": "0b0db03cc53323c37ae7d77b1b43743ad9c6f0aed6820a8b65db60287152e592"
     },
     {
       "path": "model/tools/bzm30_forward.cjs",
-      "sha256": "882ddd25a7beedbbc5a7c2865a2f0fe5e664eb2a42b3fbe16e2f027d3c6fe1e1"
+      "sha256": "a3122d7e08a5fffcc1fb537ee117b66c8b7a492c8b7d981b5a153f4d734222e6"
     }
   ]
 }
