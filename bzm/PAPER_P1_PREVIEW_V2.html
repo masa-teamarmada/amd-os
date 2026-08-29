@@ -67,11 +67,13 @@ of university deep-tech projects before the firm exists</h1>
 <p><strong>Masa Yamaji</strong> — Team ARMADA Inc., Japan. <em>Author
 line provisional; declarations at end.</em></p>
 <p><em>Draft v3.1 (full working draft). Target: Journal of Technology
-Transfer. Word count (main text): ~8,900. The model version and its
+Transfer. Word count (main text): ~9,900. The model version and its
 inputs are frozen (main commit 91385d77; approvals #2026-08-29-1 and
 #2026-08-29-2 plus the input-placement corrections of 29 Aug 2026 —
-recorded in SM-G). Five figures are computed at the frozen version. No
-placeholders remain.</em></p>
+recorded in SM-G). Five figures are computed at the frozen version; the
+coefficient elasticities of §7.6 are carried over from the preceding
+implementation and are labelled as such. No placeholders
+remain.</em></p>
 <h1 class="unnumbered" id="abstract">Abstract</h1>
 <p>University deep-tech projects are screened, funded, and steered
 toward incorporation at a stage when no firm exists — yet the tools used
@@ -514,9 +516,9 @@ The framework therefore enforces a one-effect-one-entry discipline at
 the registry level (§6.3). Two families are excluded by design: the host
 institution’s readiness (a property of the nursery, not the seed — a
 separate theory), and the causal effect of builder intervention (§2.5).
-Folding either into the project score would re-create exactly the
-conflation the impossibility of which motivated this research
-program.</p>
+Folding either into the project score would conflate the readiness of
+the nursery, or the contribution of the builder, with the value of the
+project itself — three questions that need separate answers.</p>
 <h1 id="the-framework">4. The framework</h1>
 <h2 id="the-object-of-evaluation">4.1 The object of evaluation</h2>
 <p>The framework’s central move is to give the missing object a
@@ -652,18 +654,20 @@ is approximated from the <em>quiet period</em>
 — the months since the last externally visible positive event — on a
 declared scale. The quiet period is itself an observable that damps
 offer-arrival hazards (§5.8): a project showing no outward motion
-attracts no suitors. And the carrier’s eight functions enter as
-per-project fill observations
+attracts no suitors. And the carrier’s functions enter as per-project
+fill observations: seven of the eight decomposition slots are populated,
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>f</mi><mn>1</mn></msub><mo>,</mo><mi>…</mi><mo>,</mo><msub><mi>f</mi><mn>7</mn></msub><mo>∈</mo><mo stretchy="false" form="prefix">[</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo stretchy="false" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">f_1,\dots,f_7 \in [0,1]</annotation></semantics></math>
 (the evangelist prospect
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>e</mi><annotation encoding="application/x-tex">e</annotation></semantics></math>
 is
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>f</mi><mn>1</mn></msub><annotation encoding="application/x-tex">f_1</annotation></semantics></math>);
-the technical core may be marked vacant only on an observed loss, in
-which case the blanket loss hazard is switched off so the same fact is
-not counted twice. Projects without organizational observations keep the
-population defaults — observation where it exists, defaults where it
-does not, which is the model’s general pattern.</p>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>f</mi><mn>1</mn></msub><annotation encoding="application/x-tex">f_1</annotation></semantics></math>),
+the eighth being an extension slot reserved for volume-production
+functions and currently empty; the technical core may be marked vacant
+only on an observed loss, in which case the blanket loss hazard is
+switched off so the same fact is not counted twice. Projects without
+organizational observations keep the population defaults — observation
+where it exists, defaults where it does not, which is the model’s
+general pattern.</p>
 <p>One honesty clause governs
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>θ</mi><annotation encoding="application/x-tex">\theta</annotation></semantics></math>:
 it is held constant over the horizon <em>because its variation cannot be
@@ -893,13 +897,14 @@ any rank reversal under them flagged. Risk carries no premium in
 — failure lives in scenario probabilities and parameter ignorance lives
 in
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>B</mi><mn>0</mn></msub><annotation encoding="application/x-tex">B_0</annotation></semantics></math>
-(Damodaran<sup>[10]</sup>, makes the corresponding argument for
-survival-adjusted valuation) — and the risk-spreading logic of Arrow and
+— Damodaran<sup>[10]</sup> makes the corresponding argument for
+survival-adjusted valuation — and the risk-spreading logic of Arrow and
 Lind<sup>[60]</sup> covers the idiosyncratic component; what
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>d</mi><annotation encoding="application/x-tex">d</annotation></semantics></math>
 does not cover, and we flag as a limit, is aggregate covariance of
-sector momentum with the macroeconomy (Weitzman<sup>[61]</sup>;
-Gollier<sup>[62]</sup>, govern the long-horizon end).</p>
+sector momentum with the macroeconomy; the long-horizon end of the
+schedule is governed by the declining-rate results of
+Weitzman<sup>[61]</sup> and Gollier<sup>[62]</sup>.</p>
 <h2 id="continuation-value">5.6 Continuation value</h2>
 <p>Beyond the horizon, unresolved states are extended under default
 rules for 120 months and surviving applications receive a perpetuity
@@ -908,7 +913,7 @@ surviving applications’ tails. Because the same hazard runs during and
 after the horizon, the tail neither double-counts nor gaps. The
 continuation share of
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>V</mi><annotation encoding="application/x-tex">V</annotation></semantics></math>
-is reported per project — at current defaults it spans 31–68% across
+is reported per project — at current defaults it spans 33.5–75.1% across
 sector cells (§7.5) — and any project whose value is
 majority-continuation is review-flagged: the least verifiable assumption
 is not allowed to dominate a number silently.</p>
@@ -1067,7 +1072,7 @@ by median value; the bar spans the 10th to 90th percentile of
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>v</mi><mo stretchy="false" form="prefix">(</mo><mi>θ</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">v(\theta)</annotation></semantics></math>
 and the multiplier is their ratio. Values span four orders of magnitude,
 and the width of what remains unknown varies from a factor of 1.0 to
-11.5 — a project can be precisely small or imprecisely large, and the
+11.6 — a project can be precisely small or imprecisely large, and the
 reporting format is built to keep those distinguishable. Marker shape
 and colour give the sample layer of §7.1.</p>
 <h2 id="dual-scoring-what-the-database-knows-vs.-what-people-know">7.2
@@ -1124,7 +1129,7 @@ signature of §7.4’s limitation seen from the data side: the framework
 damps organizational information by construction, so the record’s
 silence about people is currently invisible to the score. A framework
 that represented carrier effects with the strength the founding-team
-literature reports<sup>[46,52]</sup> would show a second cluster of
+literature reports<sup>[64,65]</sup> would show a second cluster of
 movement that this one cannot.</p>
 <p><strong>What “records only” means had to be decided, and the decision
 matters.</strong> Constructing the records-only condition requires
@@ -1173,13 +1178,14 @@ full admissible range moved the score by only a few percent, and
 evaluators could represent organizational collapse only by re-assigning
 <em>evidence levels</em> — a workaround neither reproducible across
 evaluators nor reversible when the organization recovers. The frozen
-version closes the gap: all eight functions enter as per-project
-observations, the technical core may be marked vacant on an observed
-loss (§4.3), and an organizational-observation registry was added to the
-operating system to feed them. The episode is the §7.3 lesson read from
-the model’s side — the binding constraint is what the observation system
-can receive — and it is why the falsification registry (§8.4) treats
-observability, not functional form, as the first thing to test.</p>
+version closes most of the gap: the seven populated functions enter as
+per-project observations, the technical core may be marked vacant on an
+observed loss (§4.3), and an organizational-observation registry was
+added to the operating system to feed them. The eighth slot remains an
+unused reservation. The episode is the §7.3 lesson read from the model’s
+side — the binding constraint is what the observation system can receive
+— and it is why the falsification registry (§8.4) treats observability,
+not functional form, as the first thing to test.</p>
 <h2 id="internal-verification-kept-separate">7.5 Internal verification,
 kept separate</h2>
 <p>Synthetic checks verify the implementation, not the world, and are
@@ -1194,7 +1200,7 @@ self-sufficiency largely on repeated contract earnings (35.0 points of a
 visibly at work. Figure 4 isolates what the fifth premise (§2.1) is
 worth: holding coefficients, plan rules, and cells fixed and changing
 only the treatment of pre-incorporation cash-out, the mass ending in
-termination falls by 26 to 30 percentage points in every cell. A
+termination falls by 25 to 30 percentage points in every cell. A
 framework that imports absorption-at-zero from firm-stage survival
 modelling does not merely mis-state a detail; it condemns roughly a
 third of the pre-incorporation population to a death it does not
@@ -1233,18 +1239,22 @@ the binding limit.</p>
 <h2 id="elasticities-and-the-difference-between-placing-and-working">7.6
 Elasticities, and the difference between placing and working</h2>
 <p>Sweeping every coefficient by ±10% under one definition yields a
-consistent hierarchy: funding-access coefficients (base award rate,
-window arrival) rank first everywhere (elasticity ≈ +1.4), gate
-base-speeds and the counterfactual retention factor follow (≈ ±1.0),
-obsolescence and appropriability next (≈ 0.7); the rights-resolution
-rates that dominate practitioner discussion move the score not at all (≈
-−0.00), and the counterfactual’s <em>evaluation-date</em> deduction —
-the framework’s philosophical centerpiece — has measured elasticity
-0.000 at defaults, for the horizon reason disclosed in §5.4. The honesty
-rule this section enforces: <em>a coefficient placed is not a
-coefficient at work</em>, and sixteen declared approximations (A1–A16 in
-SM-C) mark exactly where the reference implementation substitutes,
-collapses, or omits what the specification defines.</p>
+consistent hierarchy (these elasticities were measured on the
+implementation preceding the pre-incorporation speed rule and are
+pending re-measurement at the frozen version; the ordering, not the
+exact magnitudes, is what we rely on): funding-access coefficients (base
+award rate, window arrival) rank first everywhere (elasticity ≈ +1.4),
+gate base-speeds and the counterfactual retention factor follow (≈
+±1.0), obsolescence and appropriability next (≈ 0.7); the
+rights-resolution rates that dominate practitioner discussion move the
+score not at all (≈ −0.00), and the counterfactual’s
+<em>evaluation-date</em> deduction — the framework’s philosophical
+centerpiece — has measured elasticity 0.000 at defaults, for the horizon
+reason disclosed in §5.4. The honesty rule this section enforces: <em>a
+coefficient placed is not a coefficient at work</em>, and sixteen
+declared approximations (A1–A16 in SM-C) mark exactly where the
+reference implementation substitutes, collapses, or omits what the
+specification defines.</p>
 <h2 id="ceiling-sensitivity-as-a-property-of-the-object">7.7 Ceiling
 sensitivity as a property of the object</h2>
 <p>Because
