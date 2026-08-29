@@ -479,9 +479,11 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           「PJ概要」タブへ丸ごと移した。上段に残すのは CockpitHeader だけで、
           コックピットを開いた直後は進捗管理の中身がすぐ目に入る。 */}
 
+      {/* タブは等分グリッドではなく flex。15枚を超えたあたりで等分だと1枚あたりが狭くなり、
+          「論点・仮説」「コスト試算」がラベルの途中で折り返して読めなくなる (2026-08-29)。
+          flex-1 + whitespace-nowrap にすると、余りは均等に配り、入らないときだけ行が増える。 */}
       <div
-        className="grid gap-1 rounded-xl border border-[#d6d6da] bg-[#f5f5f7] p-1"
-        style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
+        className="flex flex-wrap gap-1 rounded-xl border border-[#d6d6da] bg-[#f5f5f7] p-1"
         role="tablist"
         aria-label="コックピット表示切り替え"
       >
@@ -496,7 +498,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
                 onClick={() => selectTab(tab.key)}
                 onMouseEnter={tab.onHover}
                 onFocus={tab.onHover}
-                className={`relative min-h-11 w-full cursor-pointer rounded-lg px-1 text-center text-[12px] font-semibold sm:px-3 sm:text-[13px] transition-[background-color,color,transform,box-shadow] duration-150 ease-out hover:-translate-y-[2px] active:translate-y-0 active:duration-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 motion-reduce:transform-none motion-reduce:transition-none ${
+                className={`relative min-h-11 flex-1 basis-auto cursor-pointer whitespace-nowrap rounded-lg px-1.5 text-center text-[12px] font-semibold sm:px-3 sm:text-[13px] transition-[background-color,color,transform,box-shadow] duration-150 ease-out hover:-translate-y-[2px] active:translate-y-0 active:duration-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 motion-reduce:transform-none motion-reduce:transition-none ${
                   selected
                     ? "bg-white text-slate-950 shadow-[inset_0_-2px_0_#0f172a] hover:shadow-[inset_0_-2px_0_#0f172a,0_6px_14px_-6px_rgba(15,23,42,0.45)]"
                     : "text-slate-500 hover:bg-white/80 hover:text-slate-900 hover:shadow-[0_6px_14px_-6px_rgba(15,23,42,0.4)]"

@@ -183,7 +183,7 @@ function MatrixBlock({ entries }: { entries: TechEntry[] }) {
   const cell = (row: string, col: string) => entries.find((e) => e.row_label === row && e.col_label === col);
   return (
     <div className="max-h-[70vh] overflow-auto">
-      <table className="w-full min-w-[560px] border-collapse text-[12px]">
+      <table className="w-auto min-w-[520px] max-w-full border-collapse text-[12px]">
         <thead>
           <tr className="bg-[#f5f5f7] text-left text-[11px] text-[#6e6e73]">
             <th className="sticky left-0 top-0 z-30 border-b border-r border-[#e5e5e7] bg-[#f5f5f7] px-2 py-1.5 font-medium">
@@ -610,6 +610,7 @@ function TopicCard({
   const [editingTopic, setEditingTopic] = useState(false);
   const [addingEntry, setAddingEntry] = useState(false);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [rowPicker, setRowPicker] = useState(false);
 
   const editingEntry = entries.find((e) => e.tech_entry_id === editingEntryId);
 
@@ -677,6 +678,14 @@ function TopicCard({
       {canEdit && topic.block_kind !== "article" && (
         <div className="mt-3 space-y-2">
           {entries.length > 0 && (
+            <button
+              onClick={() => setRowPicker((v) => !v)}
+              className="rounded border border-[#d2d2d7] px-2 py-0.5 text-[11px] text-[#6e6e73] hover:bg-[#f5f5f7]"
+            >
+              {rowPicker ? "行の編集を閉じる" : `行を編集 (${entries.length})`}
+            </button>
+          )}
+          {entries.length > 0 && rowPicker && (
             <div className="flex flex-wrap gap-1">
               {entries.map((e) => (
                 <button
@@ -864,14 +873,21 @@ export function CockpitTechnology({ projectId }: Props) {
 
   const data = loaded.projectId === projectId ? loaded.data : peekProjectTech(projectId) ?? null;
 
+  // 区分の並びは五十音ではなく、その区分に入っているトピックの sort_order の小さい順。
+  // 「培養 → 排水処理」のように、PJが読ませたい順を data 側で決められるようにする。
   const domains = useMemo(() => {
     if (!data) return [];
-    const list: string[] = [];
+    const minOrder = new Map<string, number>();
     for (const t of data.topics) {
       const d = t.tech_domain || "未分類";
-      if (!list.includes(d)) list.push(d);
+      const cur = minOrder.get(d);
+      if (cur === undefined || t.sort_order < cur) minOrder.set(d, t.sort_order);
     }
-    return list.sort((a, b) => (a === "未分類" ? 1 : b === "未分類" ? -1 : a.localeCompare(b, "ja")));
+    return [...minOrder.keys()].sort((a, b) => {
+      if (a === "未分類") return 1;
+      if (b === "未分類") return -1;
+      return (minOrder.get(a) ?? 0) - (minOrder.get(b) ?? 0) || a.localeCompare(b, "ja");
+    });
   }, [data]);
 
   const entriesByTopic = useMemo(() => {
