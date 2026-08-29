@@ -2583,3 +2583,39 @@ desktop 1440×900 の実画面3枚とコードを渡して監査。8件のうち
 - **Notion裏取り経路**: `GET /api/internal/notion-context?q=` (CRON_SECRET Bearer) を新設し本番反映済み。NOTION_API_KEYはVercelのsensitive envでローカル取得不可のため、本番経由で読む。pageId指定の本文取得モードは `dc2c1d70` でcommit済みだが下記の理由で未デプロイ。
 - **⚠️ Vercelの本番反映が明日まで不可**: 無料枠の日次デプロイ上限 (100/日) を本日使い切った (複数セッションの高頻度push が原因)。**18:28以降のmain pushは自動buildされていない**。19:26に古いbuild (8a054516) が再デプロイされ本番が朝の状態へ巻き戻っていたため、APIの残り枠で main HEAD (5a0efd00) を本番化して回復した (今日のコックピット修正・月報ルート込み)。**上限リセットは 2026-08-30 20:05 JST。それまで push しても本番に出ない。**
 - l2m1 SKILLに **Phase 1.5 会議書き起こし本文の必須確認** を追加 (`e08c6662`)。9/25以降のroutineは要約層だけで書かず、Notion議事録・Gemini自動メモ・Drive会議資料の一次ソースで固有名詞の現在値 (名称・申請採否・日程・金額) を確認する。
+
+---
+
+## 2026-08-29 JC (p09) — こやさんFB投稿のMOU情報をコックピットへ登録
+
+まさから「JCのこやさんがこんな投稿してたからOSのコックピットに情報入れておいて」。
+小柳裕太郎氏 (JOYCLE) のFacebook投稿スクリーンショットのみが入力。コード変更なし、DBへの1行登録だけ。
+
+### 入れたもの
+
+`project_strategy_signals` に1行 (`signal_id=b9afb586-db98-41d5-80a1-b9f54b4c880e`)。
+`/project/p09/cockpit` の 経営ハイライト →「重要な動き」に出る。
+
+- `project_id=p09` / `ym=202608` / `signal_date=2026-08-28`
+- `polarity=breakthrough` / `signal_type=partnership` / `impact_level=high`
+- `status=confirmed` / `origin_kind=internal` / `confidence=0.70`
+- `signal_scope=project` / `applies_to_company_score=false` (JC個別の海外パートナーシップ。AMD全社MSには入れない)
+- `created_by=cowork-claude-manual` / `confirmed_by=まさ`
+- `score_impact_delta_json`: BRL +1 / SRL +1、watch は「MOU段階で拘束力・スコープ・収益コミットなし」
+
+内容: 2026-08-28、インドネシア共和国BRINのエネルギー研究所でBRIN・MCSCC・JOYCLEの3者MOU調印式。
+医療廃棄物およびスマートシティ分野での分散型インフラ共創PJ実現に向けた連携。
+
+### 判断のメモ
+
+- **`signal_date` は投稿日ではなく事象発生日**。投稿は「1日・前」表示かつ本文が「本日…調印式」なので 2026-08-28。
+  (`design/project_strategy_signals.md` の「観測日ではなく事象発生日」ルール)
+- **MCSCCの所属が投稿本文とスライドで食い違う**。本文は「インドネシア政府機関であるBRIN、MCSCC」と書くが、
+  会場スライドの表記は「一般社団法人サイバースマートシティ創造協議会」(日本の一般社団法人)。
+  断定せず `summary` に「所属は要確認」として残した。裏取りが取れたら summary を更新する。
+- **`status=confirmed` にした根拠は一次発信であること** (当事者本人の公開投稿)。ただしMOUの対象範囲・拘束力・
+  実証時期・金額はいずれも未確認なので `confidence=0.70` に留め、XRLの本反映は実証着手後とした。
+- `source_refs_json` は source/author/posted_at/snippet のみ。全文は入れていない (設計の全文保存禁止)。
+  **公開URLは未取得** — スクリーンショット経由のため。後で投稿URLが取れたら `source_refs_json[0].url` を足す。
+- p09は `status=ended` だが、`CockpitStrategySignals` の表示条件はPJ statusではなく
+  `originKind=internal` かつ `status not in (rejected, archived)` なので、コックピットには出る。
