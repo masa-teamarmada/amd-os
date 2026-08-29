@@ -2583,3 +2583,21 @@ desktop 1440×900 の実画面3枚とコードを渡して監査。8件のうち
 - **Notion裏取り経路**: `GET /api/internal/notion-context?q=` (CRON_SECRET Bearer) を新設し本番反映済み。NOTION_API_KEYはVercelのsensitive envでローカル取得不可のため、本番経由で読む。pageId指定の本文取得モードは `dc2c1d70` でcommit済みだが下記の理由で未デプロイ。
 - **⚠️ Vercelの本番反映が明日まで不可**: 無料枠の日次デプロイ上限 (100/日) を本日使い切った (複数セッションの高頻度push が原因)。**18:28以降のmain pushは自動buildされていない**。19:26に古いbuild (8a054516) が再デプロイされ本番が朝の状態へ巻き戻っていたため、APIの残り枠で main HEAD (5a0efd00) を本番化して回復した (今日のコックピット修正・月報ルート込み)。**上限リセットは 2026-08-30 20:05 JST。それまで push しても本番に出ない。**
 - l2m1 SKILLに **Phase 1.5 会議書き起こし本文の必須確認** を追加 (`e08c6662`)。9/25以降のroutineは要約層だけで書かず、Notion議事録・Gemini自動メモ・Drive会議資料の一次ソースで固有名詞の現在値 (名称・申請採否・日程・金額) を確認する。
+
+### 追記 (同日深夜): デプロイ枠枯渇の真因と構造対策、Notion議事録の読み方を正本化
+
+**誤報告2件の訂正**: ①「別セッションが古い版を再デプロイして本番が巻き戻った」は事実でない。19:26の `8a054516` はその時刻のcommitで、通常のpush起因build。②「git経由のbuildは生きている」も誤り。21:15が最後の1件で、以降はGitHubのcommit statusに `Deployment rate limited — retry in 24 hours.` が出て全て拒否されている。
+
+**真因**: Vercel Hobbyの上限は**100デプロイ/日・アカウント全体**（プロジェクト単位ではない）。かつ `masa-teamarmada/amd-os` に Vercel プロジェクトが**2つ**紐づいていた（`amd-os-pwa` rootDir=pwa / `kiyo-amd-os` rootDir=kiyo-admin）。両方とも無条件buildのため **main への1 pushが常に2デプロイを消費**。2026-08-29 の90 commit のうち kiyo-admin を触ったものは**0件**なのに、きよOS側は49回buildしていた（全部むだ打ち）。「細かいpushを禁止」という人間向けルールは AGENTS.md に既にあったが、この2倍消費は防げなかった。
+
+**構造対策（実施済み）**:
+- きよOSを独立リポジトリ `masa-teamarmada/kiyo-admin` へ分離し、Vercelの `kiyo-amd-os` の連携先を張り替えた。**amd-os への push でAMD OS以外がbuildされることは無くなった**（紐づくプロジェクトは `amd-os-pwa` の1件のみ）。amd-os 側の `kiyo-admin/` ディレクトリは履歴保持のため当面残す。
+- `pwa/vercel.json` の ignoreCommand をパス限定へ変更（`pwa` 配下、`pwa/design_log` 除く）。docs だけの変更ではbuildしない。
+- `pwa/scripts/check_deploy_quota.mjs` + `.githooks/pre-push` を追加。直近24時間のデプロイ数を数え、**50件超で警告、90件超で push をブロック**（`AMD_OS_DEPLOY_QUOTA_OVERRIDE=1` で解除）。`git config core.hooksPath .githooks` 済み。**新しいcheckoutでは同コマンドを1回実行して有効化する。**
+- 上限の実数・残枠の数え方・API deployの別枠を `AGENTS.md` のデプロイ節へ記載。
+
+**復旧見込み**: ローリング判定なら最古の1件が抜ける 8/30 03:30 頃から順次回復（APIの reset 値は 8/30 20:05）。
+
+**Notion議事録の読み方（毎回再発見していた問題）**: ローカルセッションは `npm run --silent h1:local-notion-fallback -- --title "<会議名>" --date "YYYY-MM-DD"` で Notionアプリのローカルsqlite (`~/Library/Application Support/Notion/notion.db`) から**文字起こし本文まで読める**。API不要・デプロイ不要。Notion AI の `transcription` ブロックは `blocks.children.list` では子が0件で返り、`transcription.children.summary_block_id` を叩き直す必要がある（元実装 `gas/074_MeetingSummaryRepo.js:893`）。この知識はH-1会議抽出の文脈にしか書かれておらず月報側から辿れなかったため、l2m1 SKILL の Phase 1.5 に手順ごと明記した。
+
+**KUTE 8月月報を議事録本文で書き直し**: 8/20の文字起こしを読み、GTIE 9月申請見送りの**理由**（想定用途と市場規模が審査の要だが事業として成立する規模の用途を特定できていない／制度が継続確定案件を重視／大学側は共同研究など他の資金源を優先したい意向）、用途10項目の市場評価、無線給電competitorとの棲み分け（高温・中温・低温を狙う）、9月の具体行動（PoC先探索・温泉での腐食試験・中温向け合金基板モジュール約100台の試作依頼）まで反映した。社内版・提出版・PDF・Drive を差し替え済み。
