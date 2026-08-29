@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Vercel デプロイ枠の枯渇を push の手前で止める。
+# 枠は Hobby プランで 100/日・アカウント全体。使い切ると全プロジェクトが最大24時間反映できない。
+# 解除: AMD_OS_DEPLOY_QUOTA_OVERRIDE=1 git push
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+[ -f "$REPO_ROOT/pwa/scripts/check_deploy_quota.mjs" ] || exit 0
+( cd "$REPO_ROOT" && node pwa/scripts/check_deploy_quota.mjs --gate ) || exit 1
+exit 0
