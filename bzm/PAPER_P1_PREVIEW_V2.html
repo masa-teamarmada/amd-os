@@ -66,7 +66,7 @@ of university deep-tech projects before the firm exists</h1>
      残る空欄は二重採点の全件分布のみ (計算中)。[verify at S6] タグ = 投稿前照合。著者行は暫定 (共著相談前)。 -->
 <p><strong>Masa Yamaji</strong> — Team ARMADA Inc., Japan. <em>Author
 line provisional; declarations at end.</em></p>
-<p><em>Draft v3.1 (full working draft). Target: Journal of Technology
+<p><em>Draft v3.2 (full working draft). Target: Journal of Technology
 Transfer. Word count (main text): ~9,900. The model version and its
 inputs are frozen (main commit 91385d77; approvals #2026-08-29-1 and
 #2026-08-29-2 plus the input-placement corrections of 29 Aug 2026 —
@@ -100,14 +100,16 @@ identification constraints. Scoring a venture builder’s twenty-one live
 projects twice — once from its operating database alone, once with facts
 obtained by asking — leaves ten scores unchanged and moves five by more
 than a factor of two, one by a factor of 86, with rank shifts of up to
-nine positions. The gaps that move rankings concern money rather than
-people, and none of the six pre-incorporation projects moved at all:
-what elicitation supplied there was organizational, and the framework
-damps organizational information by construction. The binding constraint
-on ex-ante selection is therefore the observation system together with
-the model’s sensitivity to what it observes, not the aggregation
-formula. A prospective registry with pre-stated falsification conditions
-is declared.</p>
+nine positions. Withholding inputs one at a time identifies the
+asymmetry: a project’s cash position moves its score by a median factor
+of 5.8, while the vacancy of the function that builds the product moves
+it by 3%. In the pre-incorporation sample the exercise had almost no
+power — only one of six projects had a financial input to withhold — so
+we report that limitation rather than a null result. The binding
+constraint on ex-ante selection is therefore the observation system
+together with the model’s sensitivity to what it observes, not the
+aggregation formula. A prospective registry with pre-stated
+falsification conditions is declared.</p>
 <p><strong>Keywords:</strong> university spin-outs; deep tech; ex-ante
 evaluation; additionality; technology transfer; design science</p>
 <h1 id="introduction">1. Introduction</h1>
@@ -1118,19 +1120,32 @@ ratio is a factor of 86. Rankings shift by up to nine positions. Missing
 information does not degrade this instrument gracefully; it leaves most
 estimates untouched and destroys a few.</p>
 <p><strong>The gaps that move rankings are financial, not
-organizational.</strong> Every project that moved by more than a factor
-of two was missing the same kind of fact: how much cash is genuinely its
-own to spend, what it actually burns, whether unit economics close, what
-evidence stage it has really reached. Projects whose only missing input
-concerned the carrier — whether the evangelist function is filled, how
-fast the team converts resources into progress — barely moved at all.
-That asymmetry is not evidence that people matter less. It is the
-signature of §7.4’s limitation seen from the data side: the framework
-damps organizational information by construction, so the record’s
-silence about people is currently invisible to the score. A framework
-that represented carrier effects with the strength the founding-team
-literature reports<sup>[64,65]</sup> would show a second cluster of
-movement that this one cannot.</p>
+organizational.</strong> In the paired comparison the affected projects
+were missing several inputs at once, so we identified the contributions
+by re-scoring each project with one input withheld at a time (33
+single-withholding runs; SM-D). The separation is unambiguous.
+Withholding what the project can actually spend moves the score by a
+median factor of 5.8 and a maximum of 24; its burn rate, by 1.6 and 26;
+its own earnings, up to 4.4; whether unit economics close, up to 4.0.
+Withholding organizational facts moves almost nothing: the evangelist
+function, missing in eight projects, has a median effect of 1.03 and a
+maximum of 1.27, and the vacancy of the technical core — the single fact
+that a project has nobody able to build the product — moves the score by
+3%.</p>
+<p>That asymmetry is not evidence that people matter less; it is §7.4’s
+limitation seen from the data side. The clearest case is a project whose
+recorded difficulty is entirely organizational: the only person able to
+build the product had left, and voting control prevented replacing the
+chief executive. The framework marks it down by a factor of eleven — but
+the withholding analysis attributes almost all of that to its cash
+position, and almost none to the organizational facts that a human
+evaluator would give as the reason. The score is right about the project
+and wrong about why. A framework that represented carrier effects with
+the strength the founding-team literature reports<sup>[64,65]</sup>
+would show a second cluster of movement that this one cannot, and until
+it does, the resistance of these scores to organizational evidence
+should be read as a property of the instrument rather than of the
+projects.</p>
 <p><strong>What “records only” means had to be decided, and the decision
 matters.</strong> Constructing the records-only condition requires
 saying what the database alone establishes. The natural implementation —
@@ -1146,20 +1161,23 @@ therefore classified as record-derived. The general rule we adopted, and
 recommend to anyone repeating this exercise, is that an input counts as
 elicited only when the record establishes neither its value nor a bound
 that constrains it.</p>
-<p><strong>The main sample did not move at all.</strong> None of the six
-pre-incorporation projects — the layer this framework exists for — moved
-by more than 3% under dual scoring. The reason follows from the two
-findings above: what elicitation added for those projects was
-organizational, and organizational information is damped; the financial
-facts that do move scores exist as <em>facts to be missed</em> mainly
-once operations are running and generating documents. The honest reading
-is therefore narrower than the one we set out to test: for projects
-before incorporation, on this ledger, <strong>elicitation moved nothing
-that the framework was able to register</strong>. That is a finding
-about where the effort should go — into representing carrier effects
-strongly enough that asking about people changes something, and into
-calibrating the pre-incorporation defaults that currently carry those
-scores — and it is registered as such in §8.4.</p>
+<p><strong>In the main sample the exercise had almost no power, and we
+report that rather than a null result.</strong> None of the six
+pre-incorporation projects moved by more than 3%. It would be convenient
+to read this as evidence that the record is adequate before
+incorporation, and we cannot: of those six, only four had any elicited
+input at all, and only one of the four included a financial input. The
+design therefore could not have detected in the main sample the effect
+it detected elsewhere. Two things follow. Substantively, the financial
+facts that move scores — a balance, a burn rate, a closing unit margin —
+largely come into existence as <em>documented facts capable of being
+missed</em> once operations run; before incorporation there is less of
+that kind of fact to lose, and what elicitation supplied instead was
+organizational, which the instrument damps. Methodologically, testing
+information sufficiency where this framework is meant to be used
+requires collecting financial elicitation for pre-incorporation projects
+deliberately rather than opportunistically, and that is registered as a
+design requirement of the prospective registry in §8.4.</p>
 <p>Full per-project results, the classification procedure that separated
 record-derived from elicited inputs, and its cross-check against the
 registry’s own source tags are in SM-D.</p>
@@ -1481,13 +1499,13 @@ impact of organizational practices on the relative productivity of
 university technology transfer offices: An exploratory study.
 <em>Research Policy</em>, 32(1), 27–48.</li>
 <li>Brest, P., &amp; Born, K. (2013). When can impact investing create
-real impact? <em>Stanford Social Innovation Review</em>, 11(4), 22–31.
-[verify at S6]</li>
+real impact? <em>Stanford Social Innovation Review</em>, 11(4),
+22–31.</li>
 <li>Churchill, G. A. (1979). A paradigm for developing better measures
 of marketing constructs. <em>Journal of Marketing Research</em>, 16(1),
 64–73.</li>
 <li>Penrose, E. T. (1959). <em>The Theory of the Growth of the
-Firm</em>. Oxford University Press.</li>
+Firm</em>. Basil Blackwell.</li>
 <li>Teece, D. J. (2007). Explicating dynamic capabilities: The nature
 and microfoundations of (sustainable) enterprise performance.
 <em>Strategic Management Journal</em>, 28(13), 1319–1350.</li>
@@ -1592,7 +1610,7 @@ technology spillovers and product market rivalry. <em>Econometrica</em>,
 publicly funded R&amp;D: Evidence from the US Department of Energy.
 <em>American Economic Review</em>, 112(7), 2393–2423.</li>
 <li>Manski, C. F. (2003). <em>Partial Identification of Probability
-Distributions</em>. Springer. [verify at S6]</li>
+Distributions</em>. Springer.</li>
 <li>Arrow, K. J., &amp; Lind, R. C. (1970). Uncertainty and the
 evaluation of public investment decisions. <em>American Economic
 Review</em>, 60(3), 364–378.</li>
@@ -1628,7 +1646,7 @@ Verification, validation, and confirmation of numerical models in the
 earth sciences. <em>Science</em>, 263(5147), 641–646.</li>
 <li>Mazzucato, M. (2018). Mission-oriented innovation policies:
 Challenges and opportunities. <em>Industrial and Corporate Change</em>,
-27(5), 803–815. [verify at S6]</li>
+27(5), 803–815.</li>
 <li>Van de Ven, A. H. (2007). <em>Engaged Scholarship: A Guide for
 Organizational and Social Research</em>. Oxford University Press.</li>
 </ol>
