@@ -1,26 +1,37 @@
 // PJ別 利益構造ダッシュボード — service_role 読み取り層。
 //
-// 「どのPJが儲かっていて、どのPJがまさの持ち出しで回っているか」を年単位で判定するための集計。
-// billing_cycles.reward_summary_json (月次報酬計算のスナップショット) をそのまま合算する。
-// season-pl.ts のような plan_cycle 単位の厳密な検算 (バッファ・pt単価・stock収束) はしない。
-// この画面の目的は「配分枠に対して需要が過剰か」「まさが自分の配分を放棄していないか」を
-// 年単位でざっくり見張ることで、シーズン内の厳密な整合性は /admin/season-pl の担当。
+// この画面が答える問い:
+//   「配分枠のうち、どれだけが外部への現金支払として出ていき、どれだけが会社に残ったか」
+//
+// 【報酬モデルの前提】正本 pwa/manual/7-1-reward-calc-spec.md
+//   - 請求額 × 65% が PJ メンバー配分枠 (= billing_cycles.budget_yen)。残り35%は
+//     AMD運営費30% + クローザー報酬5% の外枠で、reward_summary_json には入らない。
+//   - メンバーは MS のポイントを消化して稼働需要 (grossDueYen) を発生させ、配分枠を按分する。
+//   - `payoutExcluded` (= members.exclude_from_payout_notice) のメンバーへ按分された分は
+//     現金支払されず `companyReserveYen` として会社に残る。まさはこの区分。
+//   - つまり **まさがポイントを多く消化するほど、外部メンバーへ配る枠が減り、会社に残る額が増える**。
+//     まさの現金支払が0円なのは設計どおりで、放棄でも持ち出しでもない。
+//
+// 【この画面で使う列の対応】
+//   配分枠     = budget_yen + extra_budget_yen        (請求額そのものではない。65%後の額)
+//   実効枠     = effectiveCapBudgetYen                 (前月からの未使用枠繰越を含む、実際の按分上限)
+//   外部支払   = externalPayoutCapYen                  (支払対象メンバーへ実際に出た現金)
+//   会社に残る = companyReserveYen                     (支払対象外メンバーへの非現金配賦)
+//   稼働需要   = totalGrossDueYen                      (cap前の請求可能稼働の総額)
 //
 // 【参照系キャッシュ】billing_cycles は月次締め処理でしか更新されない参照系。
-// 年単位でテーブル全体をまとめて読み、プロセス内に5分持つ (同時アクセスは1本へ束ねる)。
+// 年単位でまとめて読み、プロセス内に5分持つ (同時アクセスは1本へ束ねる)。
 // 規範: pwa/spec/5-10-reference-data-caching-current-spec.md
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const MASA_MEMBER_ID = "ID001";
-/** メンバー原資の按分比率。season-pl.ts の MEMBER_SHARE_RATE と一致させる。 */
-const CAP_RATE = 0.65;
-/** 需要/枠 比率がこれを超えたら「配分枠に対して稼働が過剰」警報。 */
-const CAP_OVERAGE_THRESHOLD = 1.5;
-/** まさの grossDueYen>0 かつ totalPay=0 が何ヶ月連続したら持ち出し警報とするか。 */
-const PAYOUT_GAP_MIN_MONTHS = 3;
-/** billing_cycles を実績とみなす status。design/season_budget_actual.md 相当の未来枠は除く。 */
+/** 請求額のうちメンバー配分枠に回る比率。請求額を逆算するためだけに使う。 */
+const MEMBER_SHARE_RATE = 0.65;
+/** 稼働需要が実効枠のこの倍数を超えたら「枠に対して稼働が過剰」警報。 */
+const DEMAND_OVER_CAP_THRESHOLD = 1.5;
+/** billing_cycles を実績とみなさない status。未来の計画月を実績に混ぜない。 */
 const FUTURE_BILLING_STATUSES = new Set(["not_started"]);
 
 function numberValue(value: unknown): number {
@@ -63,20 +74,10 @@ type BillingRow = {
   payment_confirmed_at: string | null;
 };
 
-type ProjectRow = {
-  project_id: string;
-  project_name: string | null;
-};
-
-type MemberRow = {
-  member_id: string;
-  code_name: string | null;
-  member_name: string | null;
-};
-
+type ProjectRow = { project_id: string; project_name: string | null };
+type MemberRow = { member_id: string; code_name: string | null; member_name: string | null };
 type EffortRow = {
   project_id: string;
-  week_start: string;
   development_hours: number | string | null;
   meeting_hours: number | string | null;
 };
@@ -84,48 +85,49 @@ type EffortRow = {
 export type ProjectProfitabilityMember = {
   memberId: string;
   memberName: string;
-  /** シーズン累計の稼働需要額 (cap前の請求可能額、Σ grossDueYen) */
+  /** 支払対象外 (= 現金支払されず会社に残る区分)。まさはここ。 */
+  payoutExcluded: boolean;
+  /** 稼働需要額 (cap前にそのメンバーが本来もらえる額) */
   grossDueYen: number;
-  /** シーズン累計の実支払額 (Σ totalPay) */
+  /** 現金で支払われた額 */
   paidYen: number;
-  /** 差額 = 稼働需要 − 実支払。プラスが大きいほど「働いた分より少なくしか受け取っていない」 */
-  deltaYen: number;
+  /** 非現金配賦 = 会社に残った額 */
+  retainedYen: number;
 };
 
 export type ProjectProfitabilityWarnings = {
-  /** まさの grossDueYen>0 かつ totalPay=0 が3ヶ月以上連続 = 自分の配分を放棄してメンバー分を捻出している */
-  payoutGap: boolean;
-  /** 対象期間内で観測できた最長の連続月数 */
-  payoutGapMonths: number;
-  /** 需要/枠 比率が1.5倍を超えた = 配分枠に対して稼働が過剰 */
+  /** 稼働需要が実効枠の1.5倍を超えた = 枠に対して稼働が過剰 */
   capOverage: boolean;
+  /** 配分枠はあるのに稼働需要が0 = 報酬計算がまだ回っていない */
+  noRewardCalc: boolean;
 };
 
 export type ProjectProfitabilityRow = {
   projectId: string;
   projectName: string;
-  /** 売上 = Σ(budget_yen + extra_budget_yen)、実績月のみ */
-  billedYen: number;
-  /** 外部メンバー支払 = Σ members[].totalPay、実績月のみ */
+  /** 配分枠 = Σ(budget_yen + extra_budget_yen)。請求額の65%であって請求額ではない。 */
+  capBudgetYen: number;
+  /** 実効枠 = Σ effectiveCapBudgetYen。前月からの未使用枠繰越を含む実際の按分上限。 */
+  effectiveCapYen: number;
+  /** 請求額(推定) = 配分枠 ÷ 0.65。契約バッファがある月はやや過大に出る。 */
+  estimatedRevenueYen: number;
+  /** 外部メンバーへ現金で出た額 = Σ externalPayoutCapYen */
   externalPaidYen: number;
-  /** 会社・役員留保 = Σ companyReserveYen、実績月のみ */
-  officerReserveYen: number;
-  /** 稼働需要総額 = Σ totalGrossDueYen (cap前の請求可能稼働の総額)、実績月のみ */
+  /** 会社に残った配分 = Σ companyReserveYen (支払対象外メンバーへの非現金配賦) */
+  retainedYen: number;
+  /** 稼働需要総額 = Σ totalGrossDueYen */
   grossDueYen: number;
-  /** 粗利率 = (売上 − 外部メンバー支払) ÷ 売上。売上0ならnull */
-  grossMarginRate: number | null;
-  /** 需要/枠 比率 = 稼働需要総額 ÷ (売上 × 0.65)。売上0ならnull */
+  /** 会社に残った率 = 会社に残った配分 ÷ 配分枠。高いほど現金が出ていっていない。 */
+  retentionRate: number | null;
+  /** 需要/枠 比率 = 稼働需要総額 ÷ 実効枠。1.0を超えるほど枠に対し稼働が過剰。 */
   demandCapRatio: number | null;
-  /** まさ投下時間 (開発+MTG、tally_weekly_effort_entries) */
+  /** まさ投下時間 (開発+MTG) */
   masaHours: number;
-  /** まさ時間あたり売上 = 売上 ÷ まさ投下時間。0時間ならnull */
+  /** まさ時間あたり請求額(推定) */
   revenuePerMasaHour: number | null;
-  /** 実績として集計した月数 (reward_summary_json 有り かつ status が未来枠でない) */
   monthsActual: number;
-  /** 未来の計画月として除外した月数 */
   monthsPlanned: number;
   warnings: ProjectProfitabilityWarnings;
-  /** 年合計のメンバー別内訳 (行クリックの明細用) */
   members: ProjectProfitabilityMember[];
 };
 
@@ -135,20 +137,6 @@ export type ProjectProfitabilitySnapshot = {
   rows: ProjectProfitabilityRow[];
 };
 
-type MonthlyMasaState = { ym: string; grossDue: number; paid: number };
-
-function computePayoutGap(monthly: MonthlyMasaState[]): { payoutGap: boolean; payoutGapMonths: number } {
-  const sorted = [...monthly].sort((a, b) => a.ym.localeCompare(b.ym));
-  let longest = 0;
-  let current = 0;
-  for (const m of sorted) {
-    const isGapMonth = m.grossDue > 0 && m.paid === 0;
-    current = isGapMonth ? current + 1 : 0;
-    longest = Math.max(longest, current);
-  }
-  return { payoutGap: longest >= PAYOUT_GAP_MIN_MONTHS, payoutGapMonths: longest };
-}
-
 function computeRow(
   projectId: string,
   projectName: string,
@@ -156,14 +144,17 @@ function computeRow(
   memberMap: Map<string, string>,
   masaHours: number,
 ): ProjectProfitabilityRow {
-  let billedYen = 0;
+  let capBudgetYen = 0;
+  let effectiveCapYen = 0;
   let externalPaidYen = 0;
-  let officerReserveYen = 0;
+  let retainedYen = 0;
   let grossDueYen = 0;
   let monthsActual = 0;
   let monthsPlanned = 0;
-  const memberAgg = new Map<string, { grossDueYen: number; paidYen: number }>();
-  const masaMonthly: MonthlyMasaState[] = [];
+  const memberAgg = new Map<
+    string,
+    { grossDueYen: number; paidYen: number; retainedYen: number; payoutExcluded: boolean }
+  >();
 
   for (const billing of billings) {
     const isFutureStatus = FUTURE_BILLING_STATUSES.has(String(billing.status ?? "").trim());
@@ -173,65 +164,68 @@ function computeRow(
       continue;
     }
     monthsActual += 1;
-    billedYen += Math.max(0, numberValue(billing.budget_yen)) + Math.max(0, numberValue(billing.extra_budget_yen));
-    externalPaidYen += Math.max(0, numberValue(summary.totalPaySum));
-    officerReserveYen += Math.max(0, numberValue(summary.companyReserveYen));
+    capBudgetYen += Math.max(0, numberValue(billing.budget_yen)) + Math.max(0, numberValue(billing.extra_budget_yen));
+    effectiveCapYen += Math.max(0, numberValue(summary.effectiveCapBudgetYen));
+    externalPaidYen += Math.max(0, numberValue(summary.externalPayoutCapYen));
+    retainedYen += Math.max(0, numberValue(summary.companyReserveYen));
     grossDueYen += Math.max(0, numberValue(summary.totalGrossDueYen));
 
     const members = Array.isArray(summary.members) ? summary.members : [];
-    let masaGrossDueThisMonth = 0;
-    let masaPaidThisMonth = 0;
     for (const raw of members) {
       const member = asRecord(raw);
       if (!member) continue;
       const memberId = typeof member.memberId === "string" ? member.memberId : null;
       if (!memberId) continue;
-      const memberGrossDue = Math.max(0, numberValue(member.grossDueYen));
-      const memberPaid = Math.max(0, numberValue(member.totalPay));
-      const agg = memberAgg.get(memberId) ?? { grossDueYen: 0, paidYen: 0 };
-      agg.grossDueYen += memberGrossDue;
-      agg.paidYen += memberPaid;
+      const agg = memberAgg.get(memberId) ?? {
+        grossDueYen: 0,
+        paidYen: 0,
+        retainedYen: 0,
+        payoutExcluded: false,
+      };
+      agg.grossDueYen += Math.max(0, numberValue(member.grossDueYen));
+      agg.paidYen += Math.max(0, numberValue(member.totalPay));
+      agg.retainedYen += Math.max(0, numberValue(member.companyReserveYen));
+      if (member.payoutExcluded === true) agg.payoutExcluded = true;
       memberAgg.set(memberId, agg);
-      if (memberId === MASA_MEMBER_ID) {
-        masaGrossDueThisMonth = memberGrossDue;
-        masaPaidThisMonth = memberPaid;
-      }
     }
-    masaMonthly.push({ ym: billing.ym, grossDue: masaGrossDueThisMonth, paid: masaPaidThisMonth });
   }
 
   const members: ProjectProfitabilityMember[] = [...memberAgg.entries()]
     .map(([memberId, agg]) => ({
       memberId,
       memberName: memberMap.get(memberId) ?? memberId,
+      payoutExcluded: agg.payoutExcluded,
       grossDueYen: Math.round(agg.grossDueYen),
       paidYen: Math.round(agg.paidYen),
-      deltaYen: Math.round(agg.grossDueYen - agg.paidYen),
+      retainedYen: Math.round(agg.retainedYen),
     }))
+    .filter((m) => m.grossDueYen > 0 || m.paidYen > 0 || m.retainedYen > 0)
     .sort((a, b) => b.grossDueYen - a.grossDueYen);
 
-  const grossMarginRate = billedYen > 0 ? (billedYen - externalPaidYen) / billedYen : null;
-  const capBaseYen = billedYen * CAP_RATE;
-  const demandCapRatio = capBaseYen > 0 ? grossDueYen / capBaseYen : null;
-  const revenuePerMasaHour = masaHours > 0 ? billedYen / masaHours : null;
-
-  const { payoutGap, payoutGapMonths } = computePayoutGap(masaMonthly);
-  const capOverage = demandCapRatio !== null && demandCapRatio > CAP_OVERAGE_THRESHOLD;
+  const retentionRate = capBudgetYen > 0 ? retainedYen / capBudgetYen : null;
+  const demandCapRatio = effectiveCapYen > 0 ? grossDueYen / effectiveCapYen : null;
+  const estimatedRevenueYen = Math.round(capBudgetYen / MEMBER_SHARE_RATE);
+  const revenuePerMasaHour = masaHours > 0 ? estimatedRevenueYen / masaHours : null;
 
   return {
     projectId,
     projectName,
-    billedYen: Math.round(billedYen),
+    capBudgetYen: Math.round(capBudgetYen),
+    effectiveCapYen: Math.round(effectiveCapYen),
+    estimatedRevenueYen,
     externalPaidYen: Math.round(externalPaidYen),
-    officerReserveYen: Math.round(officerReserveYen),
+    retainedYen: Math.round(retainedYen),
     grossDueYen: Math.round(grossDueYen),
-    grossMarginRate,
+    retentionRate,
     demandCapRatio,
     masaHours: Math.round(masaHours * 100) / 100,
     revenuePerMasaHour,
     monthsActual,
     monthsPlanned,
-    warnings: { payoutGap, payoutGapMonths, capOverage },
+    warnings: {
+      capOverage: demandCapRatio !== null && demandCapRatio > DEMAND_OVER_CAP_THRESHOLD,
+      noRewardCalc: capBudgetYen > 0 && grossDueYen === 0,
+    },
     members,
   };
 }
@@ -240,16 +234,12 @@ async function loadSnapshotFromDb(year: number): Promise<ProjectProfitabilitySna
   const service: ServiceClient = createAdminClient();
   const ymFrom = `${year}01`;
   const ymTo = `${year}12`;
-  const dateFrom = `${year}-01-01`;
-  const dateTo = `${year}-12-31`;
 
   const [billingRows, projectRows, memberRows, effortRows] = await Promise.all([
     fetchAllRows<BillingRow>("billing_cycles", (from, to) =>
       service
         .from("billing_cycles")
-        .select(
-          "project_id, ym, status, budget_yen, extra_budget_yen, reward_summary_json, payment_confirmed_at",
-        )
+        .select("project_id, ym, status, budget_yen, extra_budget_yen, reward_summary_json, payment_confirmed_at")
         .gte("ym", ymFrom)
         .lte("ym", ymTo)
         .order("project_id", { ascending: true })
@@ -262,10 +252,10 @@ async function loadSnapshotFromDb(year: number): Promise<ProjectProfitabilitySna
     fetchAllRows<EffortRow>("tally_weekly_effort_entries", (from, to) =>
       service
         .from("tally_weekly_effort_entries")
-        .select("project_id, week_start, development_hours, meeting_hours")
+        .select("project_id, development_hours, meeting_hours")
         .eq("member_id", MASA_MEMBER_ID)
-        .gte("week_start", dateFrom)
-        .lte("week_start", dateTo)
+        .gte("week_start", `${year}-01-01`)
+        .lte("week_start", `${year}-12-31`)
         .range(from, to)),
   ]);
 
@@ -289,30 +279,28 @@ async function loadSnapshotFromDb(year: number): Promise<ProjectProfitabilitySna
     masaHoursByProject.set(row.project_id, (masaHoursByProject.get(row.project_id) ?? 0) + hours);
   }
 
-  // 対象年に billing_cycles が1行でもある PJ だけを行として出す (完全未稼働PJはノイズになる)。
-  const projectIds = [...billingsByProject.keys()].sort();
-  const rows = projectIds.map((projectId) =>
-    computeRow(
-      projectId,
-      projectNameMap.get(projectId) ?? projectId,
-      billingsByProject.get(projectId) ?? [],
-      memberMap,
-      masaHoursByProject.get(projectId) ?? 0,
-    ),
-  );
+  // 対象年に billing_cycles が1行でもある PJ だけを行にする (完全未稼働PJはノイズ)。
+  const rows = [...billingsByProject.keys()]
+    .sort()
+    .map((projectId) =>
+      computeRow(
+        projectId,
+        projectNameMap.get(projectId) ?? projectId,
+        billingsByProject.get(projectId) ?? [],
+        memberMap,
+        masaHoursByProject.get(projectId) ?? 0,
+      ),
+    )
+    // 配分枠も稼働需要も無い月だけの PJ は出さない。
+    .filter((row) => row.capBudgetYen > 0 || row.grossDueYen > 0);
 
-  // 警報ありを上、次に売上の大きい順。
-  rows.sort((a, b) => {
-    const aWarn = a.warnings.payoutGap || a.warnings.capOverage;
-    const bWarn = b.warnings.payoutGap || b.warnings.capOverage;
-    if (aWarn !== bWarn) return aWarn ? -1 : 1;
-    return b.billedYen - a.billedYen;
-  });
+  // 配分枠の大きい順。警報は色で出すので並び順には混ぜない。
+  rows.sort((a, b) => b.capBudgetYen - a.capBudgetYen);
 
   return { year, storedAt: Date.now(), rows };
 }
 
-/** 既定5分。日次締め処理の直後に確認したいときは環境変数で短縮する。 */
+/** 既定5分。月次締めの直後に確認したいときは環境変数で短縮する。 */
 export const PROJECT_PROFITABILITY_CACHE_TTL_MS = Number(
   process.env.PROJECT_PROFITABILITY_CACHE_TTL_MS ?? 5 * 60 * 1000,
 );
@@ -350,7 +338,7 @@ export function projectProfitabilityCacheAgeMs(year: number): number | null {
   return cached ? Date.now() - cached.storedAt : null;
 }
 
-/** 月次締め処理・報酬再計算の直後に呼ぶ。引数なしで全年度分。 */
+/** 月次締め・報酬再計算の直後に呼ぶ。引数なしで全年度分。 */
 export function invalidateProjectProfitabilityCache(year?: number): void {
   if (year === undefined) {
     snapshots.clear();
