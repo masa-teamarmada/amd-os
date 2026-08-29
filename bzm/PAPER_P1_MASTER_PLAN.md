@@ -1,124 +1,122 @@
-# PAPER_P1_MASTER_PLAN.md — Research Policy 論文 (P1) 抽出設計正本 (L1)
+# PAPER_P1_MASTER_PLAN.md — P1（1報目）設計正本 v2 (L1)
 
-> **旧計画・再設計中（2026-07-29）**：Book A版の旧二層非可換性定理の撤回を受け、本計画はD-062により投稿停止した。P1固有の追加条件を持つ定理は別命題として独立再検証する。以下は履歴と素材台帳として保存し、P1は診断・予測・判断・介入の分離と前向き検証を中核に再設計する。現行正本は`BZM_2_0_REVISION_REQUIREMENTS.md`。
-
-*位置づけ: PF-013 第1波 P1 = D-001 の執行。モノグラフ Ch 5/5.5/9/10.4 の load-bearing 定理を Research Policy (RP) 論文として抽出するための不変項 (節構成・word budget・スコープ境界・規律・パイプライン)。章単位の進捗は `PAPER_P1_PROGRESS.md` (L3、ステージ2着手時に新設)。変更は `BOOK_DECISIONS.md` (L2) への判例化を先行させる。*
-
-*初版: 2026-07-03 / source: PF-013 (Publication-first、2026年内投稿目標) + D-001/D-059 + Ch 5/5.5/9/10.4 skeleton 資産*
-
----
+> **v2（2026-08-29 確定）**: BZM 3.0 ベースで全面再設計。旗艦・節構成・投稿先は三監査
+> （経済学者・経営学者・投稿戦略、2026-08-28）とまさ判断4点（2026-08-29）を経て確定。
+> 監査の記録と判断の経緯 = `PAPER_P1_V2_PLAN_2026-08-28.md`（§10 統合・§0.1 判断・§11 モデル差分）、
+> 生レポート = `paper_p1_reviews/v2_audit_*.md`。
+> **v1（旧計画、Research Policy 向け・二層不可能性定理旗艦）は 2026-07-29 に D-062 で投稿停止。
+> 全文は git 履歴（c264fce5 以前）にある。** 旧稿本文 = `PAPER_P1_DRAFT.md`（撤回済み定理の上に建つ。素材としてのみ参照）。
 
 ## 1. ボトムライン
 
-- **ジョブ**: Before Zero Studies の**領域宣言マニフェスト**を兼ねた旗艦理論論文。モノグラフより先に published prior art を確立し、モノグラフの正統性を補強する (D-001)
-- **投稿先**: Research Policy、**通常投稿** (SI 待ちにしない、PF-013)
-- **分量**: **本文+脚注+文献+表内テキスト込みで 9,500 words 目標 / 10,000 上限** + Supplementary Material Online。✅ **D-060 で確定** (2026-07-03、D-001 の「約12k」を RP 規定 8-10k に実務修正)
-- **言語**: 英語 (起草はえいみ/Fable、PF-009 Q10 の LLM 英訳前提と同型)
-- **時期**: **2026年内投稿** (PF-013 年内投稿マップ)
-- **著者**: ✅ **石原先生 (愛媛大) 共著方針で確定** (D-061)。実質貢献ベース (CRediT 明記: 先行研究の位置づけ・機関側視点・査読対応)、gift authorship にしない。打診は Book A 共著打診と合流した1パッケージ。**執筆 (S2-S3) は打診と並行** — 共著確定を待たない
+- **ジョブ**: Before Zero Studies の領域宣言を兼ねた1報目。現行 BZM 3.0 の評価枠組みを design science research の作法で提示し、published prior art を確立する
+- **投稿先**: 第1候補 **Journal of Technology Transfer** / 第2 Research Evaluation / 第3 Science and Public Policy。**Research Policy は前向き登録簿が走った後の第2報へ温存**（まさ確定 2026-08-29）
+- **分量**: 本文+脚注+文献+表内テキスト 9,500 目標 / 10,000 上限 + SM（JOTT は語数寛容。RE へ回す場合に備え §6 全 SM 化の 7,500 語版へ組み替え可能な構造にしておく）
+- **言語**: 英語（起草はえいみ）
+- **著者**: 保留。石原先生共著（D-061）は**文案が仕上がってから相談**（まさ 2026-08-29）。単著想定で起草し CRediT は後決め
+- **時期**: 2026年内投稿（PF-013 の年内目標を維持）
 
-## 2. 論文のジョブ・新規性・ポジショニング
+## 2. 旗艦主張と新規性（確定）
 
-**主役 (D-061 framing)**: 本論文の主役は **Before Zero Model (BZM) の提案** — 法人設立前 (Before Zero) という未計測領域のための**二層測定理論・観測系**。案件は乗法 (PRS = P×R×S、1軸ゼロで全体ゼロ)、機関は加重和 (ERS、欠損が見える充足率) という**構造の異なる2つの台帳 (two ledgers)** で観測する。二層に分かれているのは設計趣味ではなく**数学的必然** — 両者を単一スコアに合成することは公理的に不可能 (Theorem 3) だから。GO 演算子 (実オプション最適停止による θ_σ* 内生化) は、この観測系の上に載る**運用帰結**として従属配置する (go/no-go 判定ツールが本質ではない、まさ 2026-07-03)。
+**旗艦**: 事後・プログラム単位で確立された**追加性（additionality）評価の作法**——純増・反実仮想控除・社会的割引——を、**法人がまだ存在しない案件単位の事前選別へ移す**。その要は、**評価対象を案件そのものから〈登録された計画〉へ置き換える観測系**（月次の観測状態＋観測できる出来事だけに条件づけた計画規則）である。
 
-**3つの定理貢献** (すべて学術初出 = P1 が正式初出、モノグラフは P1 を引用する):
+- 英語の一撃: *We bring the additionality logic of ex-post program evaluation to ex-ante, project-level selection in a domain where the firm does not yet exist — by shifting the object of evaluation from the venture itself to a registered plan over an observable state.*
+- **「最初」とは書かない**（3監査一致。CBA の伝統・SROI forecast・EVPI/EVSI が近傍に実在）。「移す」なら反証されない
+- **social value / welfare を名乗らない**（消費者余剰を測らない量。category error になる）。日本語=産業創出価値、英語= *industrial value creation / net domestic value added*。**厚生指標ではなく産業政策の目的関数**と自己規定。加速分（世界でも純増）と立地分（他国からの移転）を2数併記
+- **測る範囲の限定定義**（まさ確定 2026-08-29 判断2）: 案件系（承継者=ライセンス先・買収後の主体を含む）が国内に実現する付加価値の純増。**模倣者によるスピルオーバーは測らない**。φ_u 込み／抜きの両建て報告。**V は総便益**であり、資源制約下の割当（費用・担い手供給）は二階=ファンド層の仕事と宣言
+- **「選別」の限定**: このモデルは GO/NO-GO を決めない（二階建て）。旗艦の意味は「選別の**目的関数**を置き換える」に限定する1文を §1 に必ず置く
+- **genre 宣言**: design science research（van Aken 2004 / Romme 2003 / Gregor & Hevner 2013）。12要件は「設計命題」として提示、単一組織由来・較正前係数・当事者 COI を作法の内側に置く
+- EXIT 形態非依存（9区分を同じ物差し）は独立の貢献とせず「枠組みが可能にすること」として §8 の政策主役に置く（ユニコーン偏重への対案、Lerner & Nanda 2020 系譜の続き）
 
-1. **二層非可換性の不可能性定理 (flagship)** — Ch 10.4 Theorem 3: 公理 (A1) PRS 消滅 / (A2) ERS 単調性 / (A3) 因果チャネル制限 / (A4) 連続性 を満たす案件価値関数 f は、いかなる f = Φ(g(P,R,S), h(A)) 型の二層分離表現も持たない。三方向崩壊 (純乗法は A3 違反 / 純加法は A1 違反 / 一般単調合成は Thomsen 条件不成立) + 系 3.1 (Simpson 反転・四分位不安定性・Hausman 棄却 = 反証可能な経験的シグネチャ)
-2. **ERS 加重和の公理的一意導出** — Ch 9 Theorem 9.1/9.2: 4 公理 (可分性・外部性補償可能性・欠損可視性・単調性) + KLST 結合測定でERS 加重和形がアフィン同値を除き一意。Proposition 9.3 (軸7 precondition gate) + Theorem 9.4 (ERS×PRS 結合の二重計上禁止 = Theorem 3 への bridge)
-3. **GO 演算子の最適停止導出** — Ch 5.5 命題 5.5.1-5.5.4: GO(t,i) = 𝟙[σ_SU ≥ θ_σ*]·g_TRL(t) を value-matching + smooth-pasting から導出、θ_σ*(P,F,B,Π) の陰関数一意性と比較静学 (∂θ*/∂P<0、∂θ*/∂B>0、∂θ*/∂F<0)、g_TRL 直交分解
-
-**RP 読者へのフック (政策的含意)**: TTO・評価委員会・政策実務に蔓延する「機関補正済み総合スコア」(案件スコア × 機関係数のような合成) は**原理的に壊れている**という negative result。単一 readiness 総合指標 (composite indicator) への警告として、Arrow 不可能性の伝統をイノベーション評価実務に持ち込む。
-
-**先行研究ポジション**: readiness levels (TRL 系・composite indicators) × Triple Helix (Etzkowitz-Leydesdorff) × 実オプション参入タイミング (Dixit-Pindyck 系) × 社会選択・結合測定 (Arrow 1963, Debreu 1960, KLST 1971) の交差点。大学発ディープテック SU の pre-founding 段階という未計測領域 (Before Zero) を宣言する。
-
-## 3. スコープ境界 (入れない物 = 他 deliverable の血肉)
+## 3. スコープ境界（入れない物）
 
 | 入れない | 理由 / 行き先 |
 |---|---|
-| σ_SU の MS-SSM / BVAR 推定・identification | モノグラフ Ch 5/11。P1 では σ_SU は定義 + 所与の状態変数 |
-| F-CES の Kmenta 識別 (ρ 事後分布) | Ch 10.3。P1 では公理 A1 の正当化として1段落のみ (委譲不可能コア → min 極限) |
-| Klepper 入れ子 / Malerba 全射 / Murmann coupling | P4 (ICC、D-059) |
-| RT / CRL / ICT | P5 (R&D Mgmt or Technovation) |
-| ERS 機関実証 (7機関×84評価の本格分析) | P3 (JOTT)。P1 では illustrative 言及まで |
-| 出口ポートフォリオ論の展開 | P2 (研究技術計画) が主戦場。P1 は含意で1段落 |
-| 前向き検証・予測精度主張 | P6。P1 は Ch 26b 型登録簿の「宣言」のみ (research program として) |
-| 校正定数の値 (K、α群、閾値具体値) | PF-010。手続きの記述のみ |
+| GO/NO-GO 判定・投資額・ポートフォリオ配分 | 二階（BZSF 投資層）。§1 で1文宣言 |
+| 機関側スコア（ECR）・ラウンドテーブル | 別の理論（モデルページ §2）。§3 で「外した要件」として1行 |
+| 介入（AMD 支援）の因果効果の識別 | 別の理論。investor additionality との差は §2 で仮定として明示 |
+| 係数の較正値の主張 | 全て「較正前の初期値」。較正計画と停止規則を示すのみ |
+| 会社化タイミング診断の実演 | π* 未実装（A14）。設計のみ書き、実演は第2報の売りに温存 |
+| モデル本体の改訂（φ_u・費用項・η の形・組織入力提案ほか） | 論文は現行承認版を限定定義+近似宣言で書く。改訂は model/proposals の別軌道（§9 凍結規約） |
 
-## 4. 節構成 skeleton + word budget (S1 = 本ファイル、まさ確定待ち)
+## 4. 節構成 skeleton + word budget（監査反映版）
 
-| § | 節 | words | 中身 (抽出元) |
+| § | 節 | words | 中身 |
 |---|---|---|---|
-| 1 | Introduction | 1,150 | 単一スコア実務の破綻例 (composite 化した URA 会議の匿名 vignette) → Before Zero の定義 → 貢献3点 + 領域宣言 |
-| 2 | Two evaluation problems, one field | 1,050 | 先行研究: TRL/readiness・composite indicators 批判、Triple Helix、大学発SU評価、実オプション。gap = pre-founding 二層の測定理論不在 |
-| 3 | The two-layer observation system | 1,500 | PRS = P×R×S 定義 (乗法の経済的根拠 = Liebig/O-ring)、σ_SU 定義 (CD 幾何平均、Leydesdorff T(AIG) との概念的区別を1段落)、ERS 4公理 → **Theorem 1 (=9.1/9.2 統合 statement)** 加重和一意性、**Proposition 1 (=9.3)** precondition gate、**Theorem 2 (=9.4)** 二重計上禁止。証明→SM |
-| 4 | The impossibility theorem | 1,700 | 公理 A1-A4 (各公理の経済的意味づけ厚め) → **Theorem 3** + 三方向崩壊 + **Corollary 3.1** 反証可能シグネチャ。証明骨格は本文2段落 (Arrow 崩壊テンプレ × Thomsen 不成立)、完全証明→SM |
-| 5 | Operating on the two ledgers: the GO operator | 1,400 | **観測系の運用帰結として位置づけ (D-061、go/no-go を主役にしない)**。最適停止定式化 → value-matching/smooth-pasting → **Theorem 4 (=命題5.5.2)** θ_σ* 陰関数一意性 + **Proposition 2 (=5.5.3)** 比較静学 (政策レバー解釈: 補助金→P、GAP fund→F、バーン圧→B) + g_TRL 直交分解 statement。HJB 粘性解の技術→SM |
-| 6 | Retrospective calibration: eight projects | 1,000 | **Tier A 語彙のみ** (retrospective calibration / illustrative、validation 禁止)。8PJ 一覧表 (type 名・composite 宣言) + TIEM (σ_SU 高 ∧ TRL=0 → NO_GO 再現) / YD (P 律速) の2 vignette |
-| 7 | Policy implications and a research program | 700 | 単一スコア実務への warning、二台帳ガバナンス (機関整備と案件判定の分離)、前向き登録簿宣言 (falsification 条件付き research program = 領域宣言の作法) |
-| 8 | Conclusion | 300 | — |
-| — | References | ~1,400 | 主要引用 §2/§4/§5 に集中 (~55件想定) |
-| — | 表・図内テキスト | ~300 | 表2 (8PJ) + 図2-3点 |
-| **計** | | **9,500** | 超過時の cut 順: §6 vignette 圧縮 → §2 圧縮 → §5 比較静学の表化 |
+| 1 | Introduction | 900 | 選別実務は企業評価の道具を法人が無い段階に流用している → Before Zero 定義 → 旗艦（追加性の作法を移す＋評価対象を登録された計画へ）→ genre 宣言（design science）→「選別=目的関数の置き換え、GO は二階」の限定1文 → 貢献3点 |
+| 2 | The measurement problem | 1,200 | **この論文で最も査読耐性が高い節**。4つの不在（法人格・財務諸表・確定した経営チーム・生存標本=左側切断）＋**第5の破れ（資金切れ＝死は法人の前提。研究室は速度を落として待つ）**。既存手法の前提の破れ: DCF/VC法/実オプション、TRL/readiness、composite indicators、**事後・プログラム単位の追加性評価（CBA の伝統: Little–Mirrlees・UNIDO・世銀 / SROI forecast / Green Book・AIMM / EVPI・EVSI）**、段階モデル（Vohora 以降）と TTO トリアージ実務。**どの反実仮想か**（enterprise impact を測る宣言、investor additionality との差は仮定）。gap |
+| 3 | Design propositions | 900 | 12要件を設計命題として提示。導出手続きの開示（単一ベンチャービルダーの運用観測、確定の経緯）＋**棄却した要件候補の表**（正本の「採らない主張」「要件にしないと決めたもの」）＋ 要件間の非独立（二重計上リスク）＋ 外した要件（機関・介入=別理論） |
+| 4 | The framework | 1,200 | 観測状態 x_t（9成分）、案件パラメータ θ（**「変化を分離同定できないため期間中一定と置く近似」と宣言**。動的能力との緊張2文）、事前分布 B_0、計画規則 π^plan（観測可能情報のみに条件づけ。effectuation とは「方策 ≠ 予測固定計画」で切り、Camuffo 2020 を援用）、月次遷移、9区分、V=∫E[Π\|θ]dB_0、二段階の不確かさ、報告様式（10/50/90・上限÷下限・次に集める情報） |
+| 5 | Valuing industrial creation | 1,300 | Π の定義（稼働用途の国内純増を月次割引）。**限定定義**（案件系の実現分。φ_u 両建て報告）。δ_u と α_u の重複排除規約。**α_u は部分識別**（上下界＋順位が入れ替わる breakeven α。既定で定数倍＝順位に効かない事実も開示）。割引率（ラムゼー導出＋ニュメレール・Arrow–Lind の境界・リスクは B_0 とシナリオ確率が担う整理）。継続価値（比率 31.5〜67.8% の開示とレビュー規則）。単位採算ゲート。撤退の四経路と承継者到達確率（EXIT 非依存の実装） |
+| 6 | Operating the system | 700 | ゲート表（外部検証可能イベント・細切れの計算規則）、証拠階級と失効、機能分解（**空席=遅延。補償と閾値を排除する仮定と宣言**。供給制約を外した portfolio 非整合は scope condition）、登録簿、**ゲーム耐性: 守れている面（ゲート・証拠階級）と守れていない面（天井・α が較正外＝最大の可動レバー）の両方を自分から開示**、評価者の誘因（B_0 事前登録・推定者と投資判断者の分離・前向き登録簿）、較正計画と識別制約（c 中央値=1 規約・m_n=1・停止規則・**不採択0件**）。完全版は SM |
+| 7 | Application and evidence | 1,500 | **実証の芯=情報の十分性**。(i) 標本の層別: 未会社化◯件=Before Zero 適用例／会社化済み◯件=評価日を過去に固定した遡及評価（組めない場合は落とす）＋**入力の凍結日を明記**。(ii) **記録のみ vs 記録＋聞き取りの二重採点**（比の分布。p10 の 2位→19位を代表事例に全数字開示。e 感度の実測2例=構造由来の無感度も）。(iii) 天井の感度（TAM→SAM の置き直しで桁が動いた事実を「事前選別は市場の切り方に桁で敏感」という測定上の主張として提示。10/50/90 が天井の不確かさを含まないことを明示）。(iv) 内部検査: 縮退12組（会社化前後の非対称、型×規制の出口構造）・弾力性・格子収束（有効数字2桁）・9区分の全確率（撤退 55〜81% を含む）・未実装（ピボット 0.0%）・近似 A1〜A16 の宣言。verification / validation の語彙区別 |
+| 8 | Policy implications and research program | 700 | EXIT 非依存の政策含意（経済安保・ミッション志向・ARPA 型機関=制度として存在する読者）。大学・TTO への含意。タイミング診断は設計のみ。**反証条件つき前向き登録簿の宣言**（天井の安定性・breakeven α・二重採点比の収束・左側切断補正つき検証設計）。進行中のモデル改訂（組織入力・会社化前の資金の扱い）への言及 |
+| 9 | Conclusion | 250 | — |
+| — | References | ~1,100 | モデルページ§10 の59件を核に、監査で追加した系譜（additionality・SROI・design science・段階モデル・評価のゲーミング）を整理。全件 DOI/URL 照合 |
+| — | 表・図内テキスト | ~250 | Table 1（既存手法×前提の破れ）、Table 2（12設計命題×土台理論×**実装状態列**）、Fig 1（観測状態とシナリオ）、Fig 2（二重採点の比の分布）、Fig 3（縮退検査） |
+| **計** | | **10,000** | cut 順: §6 → SM 追加送り / §4 圧縮 / §2 の手法レビューを表化。RE 版 7,500 語は §6 全 SM 化＋§4-5 圧縮で作る |
 
-**Supplementary Material Online**: (SM-A) Theorem 1/2 完全証明 (KLST 表現定理の適用)、(SM-B) Theorem 3 完全証明 + 三方向崩壊の形式化、(SM-C) 最適停止の存在・一意性 (粘性解) + 数値例、(SM-D) ERS 8軸 rubric 概要 + 8PJ retrofit 表、(SM-E) 記号表。
+**SM**: (A) 記号表と式の完全形、(B) ゲート表・機能分解表・登録簿・計画規則テンプレート完全版、(C) 係数の分野別初期値と根拠レベル・弾力性全表、(D) 適用の詳細（層別・二重採点・感度）、(E) 5属性×3ラウンド監査プロセスの記録、(F) 較正計画・識別制約・反証条件の全表、(G) 凍結タグ（版 sha・APPROVALS ID・入力凍結日）。
 
-**図の計画**: Fig.1 二層観測系の概念図 (BZM 三項構造から RT を除いた二層版)、Fig.2 Theorem 3 の反例幾何 (Simpson 反転)、Fig.3 θ_σ* の比較静学 (レジーム別閾値)。
+## 5. 規律
 
-## 5. 章資産マッピング
+- **Tier A 語彙**: validation / identified / causal effect 禁止。§7 は retrospective application / illustrative。verification（実装検証）と validation を区別（Oreskes et al. 1994）
+- **正直開示を防御に使う**（三監査一致）: 撤退確率・未実装・継続価値比率・幅が含まない不確かさ・不採択0件・較正外の最大レバー——すべて自分から本文・SM で開示する
+- **数値開示**: 式の形は全公開。係数は「較正前の初期値」と明記。近似は A1〜A16 の作法で宣言
+- **匿名化**: 一度そのまま（type×規制属性＋方式記述）で書く。**S4 に特定可能性の再判定工程**を置き、明らかに特定できそうなら方式記述を落とすか同意を取る（まさ 2026-08-29 判断3）
+- **COI**: 著者=AMD 運営当事者を Declaration に明記。評価者の誘因設計（§6）とセット
+- **測定の分離**: 価値評価（V）・予測（q_o）・診断（計画と最適の差）・判断（GO=二階）・介入効果（別理論）を混ぜない
+- **禁止語**: 「最初の」「novel framework」型の優先権主張／social value・welfare／「Before Zero は研究されていない」型の記述（段階モデル・TTO 実務研究が実在）
 
-| 論文節 | 抽出元資産 | 変換 |
-|---|---|---|
-| §3 前半 (PRS/σ_SU) | `pwa/design/amd_score.md` + Ch 5 outline §5.1.7-5.1.13 | 定義と概念区別のみに圧縮 (SSM は落とす) |
-| §3 後半 (ERS) | `CHAPTER_9_SKELETON.json` §9.1-9.4 | Theorem 9.1/9.2 → Thm 1、Prop 9.3 → Prop 1、Thm 9.4 → Thm 2 に改番 |
-| §4 | `CHAPTER_10_4_SKELETON.json` 全節 | Theorem 3 番号は維持 (flagship)。10.4.3 の GMM 事前登録は「登録簿宣言」として §7 へ |
-| §5 | `CHAPTER_5_5_SKELETON.json` §5.5.1-5.5.4 | 命題 5.5.2 → Thm 4、5.5.3 → Prop 2。レジーム K=3 は言及に留め SM 詳細 |
-| §6 | `BZSF/before_zero_theory.md` retrofit 節 + `retrofit/su_timelines.ts` | type 名 + composite 宣言で再記述 |
-| 記号 | `terminology_glossary.md` §3 | 英語版 notation に変換 (SM-E) |
+## 6. 実証（§7）の設計
 
-## 6. 規律 (3冊 + 論文で共通)
+1. **標本の層別**: SCORES.md の21件を会社化フラグで分け、会社化済み分は「評価日を過去（会社化前時点）に固定し、入力を当時の情報だけに制限した遡及評価」として組み直す。組めない案件は落とし、件数を正直に書く
+2. **二重採点**: 各案件について「運用データベースの記録のみ」と「記録＋聞き取り」の2回採点し、スコア比の分布を報告。発見の主文=「案件の順位は、運用記録が記録していない情報に支配される」「記録は進んだことを記録し、進まない理由を記録しない」
+3. **入力凍結**: §7 の計算開始時に版・入力を凍結（§9）。天井の改定履歴（TAM→SOM→SAM）は感度の主結果として提示
+4. **内部検査**: 縮退12組・弾力性・収束は「合成の内部検査」として実データ適用と明確に分離
 
-- **Tier 規律**: P1 全体が Tier A。「validation」「identified」「causal effect」禁止。§6 は retrospective calibration / illustrative
-- **数値開示**: PF-010 準拠 — 式の形はすべて公開、校正定数 (K、α群、σ_SU 閾値の採用値) は非公開 (校正手続きの記述のみ)
-- **匿名化**: 機関 = type 名 (P-001 未解決のため)。PJ = composite 宣言 + type 名。実名化は P-001 確定後の校正で反映
-- **初出**: 定理・公理・導出は P1 が学術初出。モノグラフ該当章は「詳細は本書、初出は P1」の引用構造に (Ch 5.5/9/10.4 の PROGRESS に反映要)
-- **COI / データ宣言**: 著者 = AMD 運営当事者である旨を Declaration of Competing Interest に明記。データは proprietary operational records、匿名化 summary を SM で提供
-- **カニバリ**: P2 (研究技術計画) は P1 の定理を「結果として引用」し制度応用に振る。同一貢献の日本語先行出版はしない (PF-013)
+## 7. 執筆パイプライン（6ステージ、v1 と同型）
 
-## 7. 執筆パイプライン (モノグラフ D-014 と同型、6ステージ)
+1. **S1 骨格** = ✅ 完了（骨格→三監査→まさ判断4点→本ファイル v2。2026-08-29）
+2. **S2 段落 outline**（英語、para-level で主張・引用・数式の割付け）→ タイトル3案をまさへ提示 ← **次はここ**
+3. **S3 節 draft**（英語。§2 → §5 → §4 → §7 → §3 → §6 → §1 → §8 → §9 の順 = 査読耐性の高い節から）。§7 の計算は S3 後半で入力凍結してから
+4. **S4 組み上げ** + 語数刈り込み + SM 分離 + **匿名化の特定可能性再判定**
+5. **S5 persona 査読**（JOTT editor / additionality・プログラム評価専門家 / design science 方法論者 / TTO 実務家 / 創業チーム研究者の5人格 + 引用照合）→ 改稿
+6. **S6 まさ最終確定** → 石原先生共著の相談（文案を持って）→ 投稿パッケージ（cover letter に design science 宣言と Link & Scott 2011 の土台明示）
 
-1. **S1 節 skeleton** = 本ファイル §4 → **まさ確定** ← いまここ
-2. **S2 節ごと段落 outline** (英語、各節 para-level で主張・引用・数式を割付け) → `PAPER_P1_PROGRESS.md` 新設
-3. **S3 節ごと英語 draft** (§4→§3→§5→§6→§2→§1→§7→§8 の順 = flagship から書く)
-4. **S4 全体組み上げ** + word budget 刈り込み + SM 分離
-5. **S5 persona 査読** 5人 (RP editor / social choice 理論家 / real options 経済学者 / 経験的イノベーション研究者 / TTO 実務家) → 改稿
-6. **S6 まさ最終確定** → 投稿パッケージ (cover letter / highlights 5点 / abstract 150w / CRediT / declarations / SM 一式)
-
-## 8. リスクと対策
+## 8. リスク
 
 | リスク | 対策 |
 |---|---|
-| RP が「理論のみ」に厳しい | §6 の empirical grounding + §7 の政策含意を必須枠として死守。cover letter で「measurement theory for evaluation practice」と位置づけ |
-| 三定理で焦点が散る | Theorem 3 を flagship に固定。Thm 1/2 は「二層それぞれの正当化」、Thm 4 は「案件側の運用」として従属配置 (§4 が最長 budget) |
-| 12k→9.5k 刈り込み | 最初から SM 分離設計 (§4 の cut 順を pre-commit) |
-| デスクリジェクト (scope 外判定) | 投稿前に RP 掲載の近縁論文 (readiness / TTO evaluation / research commercialization) を §2 で明示的にアンカー |
-| P-001 未解決のまま投稿 | type 名 + composite で自己完結する設計 (実名はボーナス、P3 で効かせる) |
+| 「枠組みのみ」で desk reject | genre=design science 宣言 + §2/§7 へ重心（機構の攻撃面積を圧縮）+ JOTT は測定手続き論文への耐性が最も高い |
+| 近傍先行研究の著者が編集側にいる | 「最初」を書かず Link & Scott 2011 を明示的土台に。additionality の語彙で書く |
+| 単一組織+当事者 COI | design science の作法内に置く + 評価者の誘因設計を §6 で開示 + 外部妥当性は research program 側 |
+| 天井の再改定で §7 が陳腐化 | 入力凍結日を明記し、改定履歴自体を感度の主結果に転化 |
+| モデル改訂（dormancy・組織入力）の承認で数値が変わる | §9 凍結規約。凍結後の承認分は §8 言及のみ |
+| 特定可能性 | S4 再判定工程（まさ判断3） |
 
-## 9. 投稿パッケージ要件 (S6)
+## 9. モデル改訂との同期（凍結規約）
 
-Research Article / 単一 PDF + SM。Highlights (3-5 bullets)、abstract ≤ 150 words 推奨帯、CRediT authorship statement、Funding statement (該当なし or AMD 自己資金)、Declaration of Competing Interest (AMD 当事者性)、Data availability statement。参考: [RP Guide for Authors](https://www.sciencedirect.com/journal/research-policy/publish/guide-for-authors)
+- **理論記述**（§4-6）は執筆開始時点の**承認済みモデルページ**（`model/MODEL_VERSION_LEDGER.md` + APPROVALS 最新 ID）を参照する。提案中（`model/proposals/`）の内容は本文の前提にしない（モデル運用と同じ規律）
+- **§7 の数値**は S3 後半の計算開始時に「版の git sha + APPROVALS ID + 入力凍結日」で凍結し SM-G に記録する。**凍結時点までにまさが承認した改訂（例: 会社化前の資金の扱い、組織入力提案）は取り込んで計算する**——特に dormancy 案は §2 の「第5の破れ」と §7 の会社化前後の非対称を強くするので、承認されるなら取り込みたい
+- 凍結後の承認・改訂は本文へ入れず §8「進行中の改訂」で言及のみ
+- 論文が言及するモデル本体の課題（φ_u の位置・費用項・η の形・組織入力）は `model/proposals/` の軌道で扱い、論文は近似・限界として宣言する（まさ確定 2026-08-29 判断2）
 
-## 10. まさ判断点 — 2026-07-03 回答反映済み
+## 10. まさ判断の記録
 
-1. ✅ **著者構成 = 石原先生 (愛媛大) 共著方針で確定** (D-061)。実質貢献ベース・打診は Book A と合流1パッケージ・執筆は打診と並行
-2. ✅ **タイトル = (b) で確定** (まさ 2026-07-03「bがいい!」): *The Before Zero Model: measuring deep-tech ventures and their institutional nurseries before day zero*。字面の微調整は S4-S5 でのみ (方向・構造は不変)
-3. ✅ **9.5k + SM = D-060 判例化済み** (2026-07-03)
-
-*S1 skeleton = ✅ 確定 / S2 = ✅ 完了 (`PAPER_P1_OUTLINE.md`、58 paras) / → **S3 (節 draft、§4 から) 実行中**。進捗は `PAPER_P1_PROGRESS.md`。*
+| 日付 | 判断 |
+|---|---|
+| 2026-08-28 | 方針: B を旗艦にした A（枠組み論文、旗艦は社会的価値ベースの選別）。芯を変わらない層に置く。回顧的と明示 |
+| 2026-08-29 | 判断1: 旗艦の言い換え承認（「最初」→「移す」、重心 N2、social value を名乗らない） |
+| 2026-08-29 | 判断2: M-1 φ_u・M-2 費用項はモデルを変えず論文側で限定定義+両建て+総便益宣言（改訂は較正第二便へ） |
+| 2026-08-29 | 判断3: 匿名化は一度そのままで書き、文案で特定可能性を再判定 |
+| 2026-08-29 | 判断4: 投稿先 JOTT → RE → SPP。RP は第2報へ温存 |
+| 2026-08-29 | 石原先生共著は文案が仕上がってから相談 |
 
 ## Changelog
 
 | Date | What | By |
 |---|---|---|
-| 2026-07-03 | 初版。PF-013 P1 の抽出設計 (9.5k+SM、節構成、章資産マッピング、6ステージ、まさ判断3点) | えいみ |
-| 2026-07-03 | まさ回答反映: D-060 (9.5k+SM 確定) / D-061 (石原先生共著方針 + framing 修正 = 測定理論が主役・BZM タイトル明示)。§2 主役書き換え、§4-5 位置づけ修正、§10 新タイトル3案。S1 実質確定 → S2 着手可 | えいみ |
-| 2026-07-03 | タイトル (b) 確定。S2 完了 (`PAPER_P1_OUTLINE.md` 58 paras) + L3 `PAPER_P1_PROGRESS.md` 新設。S3 (§4 から) へ | えいみ |
+| 2026-07-03 | v1 初版（Research Policy 向け・二層不可能性定理旗艦・9.5k+SM） | えいみ |
+| 2026-07-29 | v1 投稿停止（D-062。定理撤回・BZM 2.0 改訂） | えいみ |
+| 2026-08-29 | **v2 全面改訂**。BZM 3.0 ベース・旗艦=追加性の作法を Before Zero の案件単位事前選別へ移す・genre=design science・投稿先 JOTT・三監査反映の節構成・凍結規約。経緯は `PAPER_P1_V2_PLAN_2026-08-28.md` | えいみ |
