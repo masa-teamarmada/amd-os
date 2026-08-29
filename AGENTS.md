@@ -62,6 +62,28 @@ pwa を cwd にすると毎セッションこれを読み込む。
 
 - **gas** → `clasp push`
 - **pwa** → **main への push = Vercel 自動 production deploy** (2026-06-12 まさ確定 A案)。原則、deploy前の事前確認で止めず、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` 経由で push・build監視まで進める。deploy bundle は事後報告として残す。CLI 直接 deploy (`npx vercel`) は全面廃止。main 以外の branch は `pwa/vercel.json` の ignoreCommand で build されない。微細変更ごとの単発 push は禁止、束ねて 1 回
+
+### デプロイ枠（2026-08-29 まさ指摘を受けて構造対策）
+
+Vercel は **Hobby プランで1日100デプロイ / アカウント全体**。プロジェクト単位ではない。枯渇すると全プロジェクトが反映できなくなる（2026-06-03、2026-08-29 に発生）。
+
+- **同じリポジトリに Vercel プロジェクトが2つ紐づいている**: `amd-os-pwa` (rootDir=`pwa`) と `kiyo-amd-os` (rootDir=`kiyo-admin`)。対策前は main への1 pushで**2デプロイ消費**していた（2026-08-29 は96件中、kiyo側49件がほぼ全部むだ打ち）。
+- 対策として両プロジェクトに **パス限定の build スキップ**を設定済み。`pwa` 配下（`pwa/design_log` を除く）に差分が無い push では `amd-os-pwa` は build されず、`kiyo-admin` 配下に差分が無い push では `kiyo-amd-os` は build されない。`pwa/vercel.json` の `ignoreCommand` とVercelプロジェクト設定の両方に入っている。**この設定を外さない。**
+- それでも `pwa/` を触る作業は1 push=1 build。**微細変更ごとの単発 push は禁止、束ねて1回**（既存ルール）。docs だけの変更は build されないので小刻みで良い。
+- 残枠の確認（枯渇が疑われる時）:
+
+```sh
+AUTH=$(cat ~/Library/"Application Support"/com.vercel.cli/auth.json); TOKEN=$(echo "$AUTH" | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+ORG=$(python3 -c "import json;print(json.load(open('pwa/.vercel/project.json'))['orgId'])")
+curl -s "https://api.vercel.com/v6/deployments?teamId=$ORG&limit=100" -H "Authorization: Bearer $TOKEN" | python3 -c "
+import sys,json,datetime,collections
+d=json.load(sys.stdin); today=datetime.date.today(); c=collections.Counter()
+for x in d.get('deployments',[]):
+    if datetime.datetime.fromtimestamp(x['created']/1000).date()==today: c[x.get('name')]+=1
+print('今日:', sum(c.values()), dict(c))"
+```
+
+- **API 経由の deploy 作成 (`POST /v13/deployments`) は別枠で上限が厳しい**（`api-deployments-free-per-day`）。復旧目的以外で使わない。通常の反映は main への push（＝Git 連携の自動 build）で行う。API 枠が尽きても push 経由の build は動く。
 - **ios** → `xcodebuild → devicectl install → process launch`、毎回
 - **android** → TBD
 - `services/` は PWA の main push 自動 deploy 対象では**ない**。各サービスの README に記載した方法で反映し、Git連携が未確認のサービスでは main push だけで反映されたと判断しない。PJ別の秘密値は各 Vercel プロジェクトの Environment Variables にのみ置き、リポジトリ内のどのファイルにも書かない
