@@ -2898,7 +2898,11 @@ expectIncludes(
     "このプロジェクトの今月の配分",
     "誰かの取り分を増やすと他の人の取り分が減ります",
     "今月発生する額",
-    "上の3点を確認したうえで、このプロジェクトの内容に合意してください。合意が終わるまで、このプロジェクトの今月分の支払いには進めません。",
+    "上の内容を確認したうえで、このプロジェクトの内容に合意してください。合意が終わるまで、このプロジェクトの今月分の支払いには進めません。",
+    "このシーズンの報酬の見通し",
+    "MSが始まる月から受け取る額が増えます",
+    "monthly-agreement-season-trend",
+    "monthly-agreement-section-number-04",
     "確認して合意",
     "修正要望",
     "このPJの内容が違う",
@@ -2973,7 +2977,7 @@ expectPattern(
     // 状態 → PJ単位の必須確認 → 参考情報 の順
     /data-testid="monthly-agreement-status"[\s\S]{0,3000}<RequiredChecksSection[\s\S]{0,12000}参考情報/,
     // PJブロックの中は 担当する仕事(01) → 受け取る額(02) → PJ全員の配分(03) の順
-    /data-testid="monthly-agreement-project-block"[\s\S]{0,3000}<SectionNumberBadge number="01"[\s\S]{0,3000}<SectionNumberBadge number="02"[\s\S]{0,3000}<SectionNumberBadge number="03"[\s\S]{0,1500}<ProjectAllocationTable[\s\S]{0,4000}data-testid="monthly-agreement-agree-button"/,
+    /data-testid="monthly-agreement-project-block"[\s\S]{0,3000}<SectionNumberBadge number="01"[\s\S]{0,3000}<SectionNumberBadge number="02"[\s\S]{0,3000}<SectionNumberBadge number="03"[\s\S]{0,1500}<ProjectAllocationTable[\s\S]{0,1500}<SeasonRewardTrend[\s\S]{0,4000}data-testid="monthly-agreement-agree-button"/,
     // 変更点はそのPJの合意ボタンより前に出す
     /<ChangeSummarySection[\s\S]{0,4000}data-testid="monthly-agreement-agree-button"/,
     // 必須確認はPJ単位のブロックで構成する

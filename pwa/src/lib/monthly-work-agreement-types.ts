@@ -11,6 +11,9 @@ export interface MonthlyWorkAgreementMember {
 export interface MonthlyWorkAgreementMilestone {
   milestoneId: string;
   title: string;
+  /** このMSを進める期間。シーズンのどこで報酬が立つかを本人が読めるように出す */
+  periodStartYm: string | null;
+  targetYm: string | null;
   points: number;
   plannedShare: number | null;
   role: string | null;
@@ -162,6 +165,9 @@ export interface MonthlyWorkAgreementProject {
   milestones: MonthlyWorkAgreementMilestone[];
   payoutSchedule: MonthlyWorkAgreementPayoutScheduleEntry[];
   routineExpectations: string[];
+  /** このPJのシーズン (plan cycle) の期間 */
+  seasonStartYm: string | null;
+  seasonEndYm: string | null;
   /** このPJの当月配分。本人を含む全メンバー分 */
   memberAllocations: MonthlyWorkAgreementProjectAllocation[];
   /** 配分表の合計 */

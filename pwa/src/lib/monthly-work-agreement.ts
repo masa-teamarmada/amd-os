@@ -854,8 +854,11 @@ export async function buildMonthlyWorkAgreementBundle(
     .filter((row) => typeof row.project_id === "string")
     .filter((row) => inYmRange(ym, { join_ym: row.join_ym as string | null, leave_ym: row.leave_ym as string | null }));
   const projectIds = Array.from(new Set(activeMemberships.map((row) => row.project_id as string)));
-  const scheduleStartYm = addMonths(ym, -6);
-  const scheduleEndYm = addMonths(ym, 12);
+  // シーズン (plan cycle) の全月をカバーする範囲で billing を読む。
+  // 本人画面でシーズン全体の報酬推移を出すため (まさ 2026-08-29「そのシーズンの全月の報酬推移が
+  // 見れるようにしてほしい」)。シーズンは通常12か月なので、当月から前後14か月あれば端まで届く。
+  const scheduleStartYm = addMonths(ym, -14);
+  const scheduleEndYm = addMonths(ym, 14);
   const paymentCandidateSourceYms = candidateSourceYmsForPaymentYm(ym);
 
   const [
@@ -1156,6 +1159,8 @@ export async function buildMonthlyWorkAgreementBundle(
         roleMilestones.push({
           milestoneId,
           title: String(ms.title ?? milestoneId),
+          periodStartYm: cleanYm(ms.period_start_ym),
+          targetYm: cleanYm(ms.target_ym),
           points: toNumber(ms.points) ?? 0,
           plannedShare: plannedShare > 0 ? plannedShare : null,
           role: respRows.map((row) => String(row.role ?? "")).filter(Boolean).join(" / ") || null,
@@ -1248,6 +1253,8 @@ export async function buildMonthlyWorkAgreementBundle(
         milestones: sortedMilestones,
         payoutSchedule,
         routineExpectations: routineExpectations(membership),
+        seasonStartYm: cleanYm(plan?.period_start_ym),
+        seasonEndYm: cleanYm(plan?.period_end_ym),
         memberAllocations,
         allocationTotals,
       };

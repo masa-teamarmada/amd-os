@@ -20,6 +20,7 @@ import type {
   MonthlyAgreementSnapshotDiff,
   MonthlyAgreementStatus,
   MonthlyWorkAgreementBundle,
+  MonthlyWorkAgreementMilestone,
   MonthlyWorkAgreementProject,
   MonthlyWorkAgreementProjectAgreement,
 } from "@/lib/monthly-work-agreement-types";
@@ -417,6 +418,7 @@ export function MonthlyAgreementExperience({
 
         <RequiredChecksSection
           compact={isModal}
+          ym={bundle.ym}
           projects={visibleProjects}
           agreements={
             focusedProject
@@ -1014,6 +1016,7 @@ function ChangeSummarySection({
 
 function RequiredChecksSection({
   compact = false,
+  ym,
   projects,
   agreements,
   totalExpectedRewardYen,
@@ -1029,6 +1032,7 @@ function RequiredChecksSection({
   onRequestRevision,
 }: {
   compact?: boolean;
+  ym: string;
   projects: MonthlyWorkAgreementProject[];
   agreements: MonthlyWorkAgreementProjectAgreement[];
   payoutExcluded?: boolean;
@@ -1097,6 +1101,7 @@ function RequiredChecksSection({
           <ProjectAgreementBlock
             key={project.projectId}
             compact={compact}
+            ym={ym}
             project={project}
             agreement={agreementByProjectId.get(project.projectId) ?? null}
             payoutExcluded={payoutExcluded}
@@ -1137,6 +1142,7 @@ function projectAgreementStatusLabel(status: MonthlyAgreementStatus | undefined)
  */
 function ProjectAgreementBlock({
   compact,
+  ym,
   project,
   agreement,
   payoutExcluded,
@@ -1152,6 +1158,7 @@ function ProjectAgreementBlock({
   onRequestRevision,
 }: {
   compact: boolean;
+  ym: string;
   project: MonthlyWorkAgreementProject;
   agreement: MonthlyWorkAgreementProjectAgreement | null;
   payoutExcluded: boolean;
@@ -1277,6 +1284,8 @@ function ProjectAgreementBlock({
         <ProjectAllocationTable project={project} />
       </div>
 
+      <SeasonRewardTrend project={project} ym={ym} />
+
       {status === "needs_reagreement" && agreement?.changeSummary && (
         <div className="mt-5">
           <ChangeSummarySection
@@ -1303,7 +1312,7 @@ function ProjectAgreementBlock({
         )}
         {projectScoped && status !== "agreed" && (
           <p className="mb-3 text-[13px] leading-[20px] text-[#3c3c43]">
-            上の3点を確認したうえで、このプロジェクトの内容に合意してください。合意が終わるまで、このプロジェクトの今月分の支払いには進めません。
+            上の内容を確認したうえで、このプロジェクトの内容に合意してください。合意が終わるまで、このプロジェクトの今月分の支払いには進めません。
           </p>
         )}
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
@@ -1479,14 +1488,241 @@ function ProjectAllocationTable({ project }: { project: MonthlyWorkAgreementProj
   );
 }
 
-function SectionNumberBadge({ number }: { number: "01" | "02" | "03" }) {
+function addYm(ym: string, delta: number) {
+  const year = Number(ym.slice(0, 4));
+  const month = Number(ym.slice(4, 6));
+  const date = new Date(Date.UTC(year, month - 1 + delta, 1));
+  return `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+/** MSの期間表記。同じ年の中なら年を省く */
+function periodLabel(fromYm: string, toYm: string) {
+  const fromMonth = Number(fromYm.slice(4, 6));
+  const toMonth = Number(toYm.slice(4, 6));
+  if (fromYm.slice(0, 4) === toYm.slice(0, 4)) {
+    return fromYm === toYm ? `${fromMonth}月` : `${fromMonth}月 〜 ${toMonth}月`;
+  }
+  return `${fromYm.slice(2, 4)}/${fromMonth} 〜 ${toYm.slice(2, 4)}/${toMonth}`;
+}
+
+/** 月軸の見出し。年が変わる月と先頭だけ年を出す */
+function axisMonthLabel(ym: string, previousYm: string | null) {
+  const month = Number(ym.slice(4, 6));
+  const showYear = previousYm == null || ym.slice(0, 4) !== previousYm.slice(0, 4);
+  return showYear ? `${ym.slice(2, 4)}/${month}` : `${month}月`;
+}
+
+/** シーズン (plan cycle) の全月。plan cycle が無いPJは支払予定のある月から組み立てる */
+function seasonMonths(project: MonthlyWorkAgreementProject): string[] {
+  const scheduleYms = project.payoutSchedule.map((entry) => entry.sourceYm).filter(Boolean);
+  const start =
+    project.seasonStartYm ?? (scheduleYms.length ? scheduleYms.reduce((a, b) => (a < b ? a : b)) : null);
+  const end = project.seasonEndYm ?? (scheduleYms.length ? scheduleYms.reduce((a, b) => (a > b ? a : b)) : null);
+  if (!start || !end || start > end) return [];
+  const months: string[] = [];
+  let cursor = start;
+  while (cursor <= end && months.length < 36) {
+    months.push(cursor);
+    cursor = addYm(cursor, 1);
+  }
+  return months;
+}
+
+/**
+ * シーズン全月の報酬推移と、担当MSがどの期間に割り当たっているか。
+ *
+ * 同じ月軸に棒とMSの期間を並べる。まさ 2026-08-29「各MSがどの期間に割り当てられているかも
+ * 矢印とかで表示してあげると、ああこのMSが始まるからここから報酬が高くなるんだ、とかも分かりやすい」。
+ */
+function SeasonRewardTrend({ project, ym }: { project: MonthlyWorkAgreementProject; ym: string }) {
+  const months = seasonMonths(project);
+  if (months.length === 0) return null;
+
+  const entryByYm = new Map(project.payoutSchedule.map((entry) => [entry.sourceYm, entry]));
+  const cells = months.map((month) => {
+    const entry = entryByYm.get(month) ?? null;
+    return {
+      ym: month,
+      payYen: entry?.totalPayYen ?? 0,
+      accrualYen: entry?.basePayYen ?? 0,
+      stockYen: entry?.stockYen ?? 0,
+      isCurrent: month === ym,
+      isPast: month < ym,
+      isPaid: Boolean(entry?.isActualPaid),
+      hasEntry: entry != null,
+    };
+  });
+  const maxYen = Math.max(1, ...cells.map((cell) => cell.payYen));
+  const seasonTotalYen = cells.reduce((sum, cell) => sum + cell.payYen, 0);
+  const paidTotalYen = cells.filter((cell) => cell.isPaid).reduce((sum, cell) => sum + cell.payYen, 0);
+  const remainingYen = Math.max(0, seasonTotalYen - paidTotalYen);
+
+  const milestoneBars = project.milestones
+    .map((milestone) => {
+      const startIndex = milestone.periodStartYm ? months.indexOf(milestone.periodStartYm) : -1;
+      const endIndex = milestone.targetYm ? months.indexOf(milestone.targetYm) : -1;
+      // シーズンの外へはみ出すMSは、見えている範囲へ寄せる
+      const from = startIndex >= 0 ? startIndex : milestone.periodStartYm && milestone.periodStartYm < months[0] ? 0 : -1;
+      const to =
+        endIndex >= 0
+          ? endIndex
+          : milestone.targetYm && milestone.targetYm > months[months.length - 1]
+            ? months.length - 1
+            : -1;
+      if (from < 0 || to < 0 || to < from) return null;
+      return { milestone, from, to };
+    })
+    .filter((bar): bar is { milestone: MonthlyWorkAgreementMilestone; from: number; to: number } => bar != null)
+    .sort((a, b) => a.from - b.from || a.to - b.to);
+
+  const gridTemplate = {
+    gridTemplateColumns: `128px repeat(${months.length}, minmax(66px, 1fr))`,
+    minWidth: `${128 + months.length * 66}px`,
+  };
+
+  return (
+    <div className="mt-5">
+      <div className="flex items-center gap-2">
+        <SectionNumberBadge number="04" />
+        <h4 className="text-[16px] font-semibold text-[#1d1d1f] sm:text-[18px]">
+          このシーズンの報酬の見通し
+        </h4>
+      </div>
+      <p className="mt-2 text-[13px] leading-[20px] text-[#6e6e73]">
+        {formatYm(months[0])}から{formatYm(months[months.length - 1])}まで、あなたがこのプロジェクトで月ごとにいくら受け取るかです。下の帯は、担当しているMSがどの期間に割り当たっているかを同じ月の並びで示しています。MSが始まる月から受け取る額が増えます。
+      </p>
+
+      <div className="mt-2 flex flex-wrap items-baseline gap-x-5 gap-y-1 text-[13px] text-[#3c3c43]">
+        <span>
+          シーズン合計{" "}
+          <span className="text-[16px] font-semibold tabular-nums text-[#1d1d1f]">{formatYen(seasonTotalYen)}</span>
+        </span>
+        <span>
+          受け取り済み{" "}
+          <span className="font-semibold tabular-nums text-emerald-700">{formatYen(paidTotalYen)}</span>
+        </span>
+        <span>
+          これから{" "}
+          <span className="font-semibold tabular-nums text-[#1d1d1f]">{formatYen(remainingYen)}</span>
+        </span>
+      </div>
+
+      <div
+        data-testid="monthly-agreement-season-trend"
+        className="mt-2 w-full max-w-full overflow-x-auto rounded-md border border-[#e5e5e7]"
+      >
+        <div className="min-w-fit">
+          {/* 金額を固定の行にして、その下に同じ基準の高さで棒を置く。
+              金額を棒の先端に付けると、額の小さい月で棒がつぶれて比較できなくなる */}
+          <div className="grid border-b border-[#f0f0f2]" style={gridTemplate}>
+            <div className="sticky left-0 z-10 row-span-2 border-r border-[#e5e5e7] bg-white px-3 py-2">
+              <p className="text-[12px] font-semibold text-[#6e6e73]">受け取る額</p>
+              <p className="mt-0.5 text-[12px] leading-[16px] text-[#86868b]">税抜・稼働した月ごと</p>
+            </div>
+            {cells.map((cell) => (
+              <div
+                key={`amount-${cell.ym}`}
+                className={`px-1 pt-2 text-center text-[12px] tabular-nums ${
+                  cell.isCurrent
+                    ? "bg-sky-50 font-semibold text-sky-900"
+                    : cell.payYen > 0
+                      ? "font-semibold text-[#1d1d1f]"
+                      : "text-[#c7c7cc]"
+                }`}
+              >
+                {cell.payYen > 0 ? formatYen(cell.payYen) : "—"}
+              </div>
+            ))}
+            {cells.map((cell) => (
+              <div
+                key={`bar-${cell.ym}`}
+                title={`${formatYm(cell.ym)}: 受け取る額 ${formatYen(cell.payYen)} / 発生する額 ${formatYen(cell.accrualYen)}${cell.stockYen > 0 ? ` / 月末に残る未払い ${formatYen(cell.stockYen)}` : ""}`}
+                className={`flex h-[88px] items-end px-1 pb-1 ${cell.isCurrent ? "bg-sky-50" : ""}`}
+              >
+                <div
+                  className={`w-full rounded-t-[3px] ${
+                    cell.isPaid ? "bg-emerald-500" : cell.isCurrent ? "bg-sky-600" : cell.isPast ? "bg-sky-300" : "bg-sky-400"
+                  }`}
+                  style={{ height: `${cell.payYen > 0 ? Math.max(6, (cell.payYen / maxYen) * 80) : 0}px` }}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* 月ラベル。当月を強調する */}
+          <div className="grid border-b border-[#e5e5e7] bg-[#f5f5f7]" style={gridTemplate}>
+            <div className="sticky left-0 z-10 border-r border-[#e5e5e7] bg-[#f5f5f7] px-3 py-1.5 text-[12px] font-semibold text-[#6e6e73]">
+              月
+            </div>
+            {cells.map((cell, index) => (
+              <div
+                key={cell.ym}
+                className={`px-1 py-1.5 text-center text-[12px] tabular-nums ${
+                  cell.isCurrent ? "bg-sky-100 font-semibold text-sky-900" : "text-[#6e6e73]"
+                }`}
+              >
+                {axisMonthLabel(cell.ym, index === 0 ? null : cells[index - 1].ym)}
+              </div>
+            ))}
+          </div>
+
+          {/* 担当MSの期間。棒グラフと同じ月の並びに合わせる */}
+          {milestoneBars.length === 0 ? (
+            <div className="px-3 py-2 text-[12px] text-[#6e6e73]">担当MSの期間が未登録です</div>
+          ) : (
+            milestoneBars.map(({ milestone, from, to }) => (
+              <div
+                key={milestone.milestoneId}
+                className="grid items-center border-b border-[#f0f0f2] last:border-b-0"
+                style={gridTemplate}
+              >
+                <div className="sticky left-0 z-10 h-full border-r border-[#e5e5e7] bg-white px-3 py-2">
+                  <p
+                    title={milestone.title}
+                    className="line-clamp-2 break-words text-[12px] font-semibold leading-[16px] text-[#1d1d1f]"
+                  >
+                    {milestone.title}
+                  </p>
+                  <p className="mt-0.5 text-[12px] leading-[16px] text-[#86868b]">
+                    {milestone.points}pt
+                    {milestone.plannedShare != null && `・担当 ${Math.round(milestone.plannedShare * 100)}%`}
+                  </p>
+                </div>
+                {/* バーは1つの grid セルとして描き、開始月から終了月までをまたぐ */}
+                <div
+                  className="px-1 py-2"
+                  style={{ gridColumn: `${from + 2} / ${to + 3}` }}
+                  title={`${milestone.title}: ${formatYm(months[from])} 〜 ${formatYm(months[to])}`}
+                >
+                  <div className="flex h-6 items-center rounded-full bg-indigo-100 px-2 text-[12px] font-semibold text-indigo-900">
+                    <span className="truncate">{periodLabel(months[from], months[to])}</span>
+                  </div>
+                </div>
+                {/* 残りの月は空セルで埋め、次の行の列がずれないようにする */}
+                {to + 1 < months.length && <div style={{ gridColumn: `${to + 3} / -1` }} />}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <p className="mt-2 text-[12px] leading-[18px] text-[#6e6e73]">
+        緑は受け取り済み、濃い青は今月、薄い青はこれから受け取る分です。金額は税抜で、実際の振込はこれに消費税を足した額になります。
+      </p>
+    </div>
+  );
+}
+
+function SectionNumberBadge({ number }: { number: "01" | "02" | "03" | "04" }) {
   // 静的な文字列で書く。テンプレートで組むと critical UI guard が testid を追えない
   const testId =
     number === "01"
       ? "monthly-agreement-section-number-01"
       : number === "02"
         ? "monthly-agreement-section-number-02"
-        : "monthly-agreement-section-number-03";
+        : number === "03"
+          ? "monthly-agreement-section-number-03"
+          : "monthly-agreement-section-number-04";
   return (
     <span
       data-testid={testId}

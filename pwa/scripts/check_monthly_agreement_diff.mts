@@ -30,6 +30,8 @@ function milestone(overrides: Partial<MonthlyWorkAgreementMilestone> = {}): Mont
   return {
     milestoneId: "ms1",
     title: "テストMS",
+    periodStartYm: "202601",
+    targetYm: "202612",
     points: 10,
     plannedShare: 0.5,
     role: "実装",
@@ -90,6 +92,8 @@ function project(overrides: Partial<MonthlyWorkAgreementProject> = {}): MonthlyW
     milestones: [milestone()],
     payoutSchedule: [payoutEntry()],
     routineExpectations: [],
+    seasonStartYm: "202601",
+    seasonEndYm: "202612",
     memberAllocations: [],
     allocationTotals: { memberCount: 0, earnedPt: 0, accrualYen: 0, payYen: 0 },
     ...overrides,

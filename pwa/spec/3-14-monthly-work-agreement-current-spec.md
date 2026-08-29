@@ -140,6 +140,8 @@ projectPlannedRewardYen = Σ msPlannedRewardYen
 | `projects[].milestones[]` | 担当MS、share、task description、progress、conditions |
 | `projects[].expectedRewardYen` | 月初合意用の予定報酬 (= 当月月次予算 × 当月予定MS消化pt × share) |
 | `projects[].payoutYen` / `stockYen` / `grossDueYen` / `carryInYen` | 表示専用の今月支払額 / 今月末未払い残 / 支払対象額 / 前月繰越。支払額は `monthly_reward_payout` の保存済み明細を優先し、無ければ `reward_summary_json.members[]` を読む。予定報酬計算や合意 gate 判定には使わない。支払月はメンバー支払条件から計算し、クライアント請求月である `billing_cycles.invoice_ym` では上書きしない |
+| `projects[].seasonStartYm` / `seasonEndYm` | このPJのシーズン (plan cycle) の期間。`04` の月軸に使う |
+| `projects[].milestones[].periodStartYm` / `targetYm` | そのMSを進める期間。`04` の期間バーに使う。terms hash には含めない |
 | `projects[].payoutSchedule[]` | 稼働月ごとの `新規発生` / `支払対象` / `支払額` / `支払後残`。各行は税抜の `totalPayYen` と、freee銀行出金と照合する税込 `totalPayTaxIncludedYen` を持つ。`amountSource` (`actual_paid` / `unverified_paid` / `payout_snapshot` / `protected_reward_cache` / `reward_cache`) で、支払済み実績・実績未照合・保存済み・保護済み・予定を区別する |
 | `projects[].memberAllocations[]` | そのPJの当月配分。**本人を含む全メンバー分**。`memberId` / `codeName` / `roleLabel` / `isPm` / `isPl` / `isSelf` / `payoutExcluded` / `earnedPt` / `accrualShare` (額の比) / `accrualYen` (今月発生する額) / `payYen` (今月受け取る額) / `stockYen` / `taskSummaries[]`。terms hash には含めない (他人の額が動いただけで本人へ再合意を求めない) |
 | `projects[].allocationTotals` | 配分表の合計。`memberCount` / `earnedPt` / `accrualYen` / `payYen` |
@@ -275,6 +277,12 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 - `02` はそのPJの `expectedRewardYen` を強調し、内訳として今月の担当分から発生する額と今月末に残る未払い分を添える。ここに出す発生額は **配分表の自分の行と同じ数字** (`memberAllocations[isSelf].accrualYen`) を使う。月初合意側のMS計算値 (`currentMonthAccrualYen`) と支払明細では定義が違うので、同じ画面に2つの発生額を出さない。
 - `03` はそのPJの全メンバーの配分。列は `メンバー` / `今月の担当` / `今月のpt` / `取り分` / `今月発生する額` / `今月受け取る額`、末尾に人数と合計。自分の行は背景で強調する。支払通知対象外の人の受け取る額は `¥0` とだけ出し、支払対象外であることは書かない。
 - `03` の直前に「発生する額は担当した仕事の消化ptとMSごとの単価から決まる。全員で同じ原資を分け合うので、誰かの取り分を増やすと他の人の取り分が減る」ことを書く。配分表を見せる目的がこの一文なので落とさない。
+- `04 このシーズンの報酬の見通し` (`data-testid="monthly-agreement-season-trend"`) を `03` の下に置く。plan cycle の全月を1本の月軸にして、上に **その月に受け取る額の棒グラフ**、下に **担当MSの期間バー** を同じ月軸で並べる。MSが始まる月から受け取る額が増える関係を、同じ並びで読めるようにする (まさ 2026-08-29「各MSがどの期間に割り当てられているかも矢印とかで表示してあげると、ああこのMSが始まるからここから報酬が高くなるんだ、とかも分かりやすい」)。
+  - 金額は棒の先端ではなく**固定行**に出す。棒の先端に付けると、額の小さい月で棒がつぶれて月どうしを比べられない。
+  - 棒の色は 受け取り済み=緑 / 当月=濃い青 / 過去=薄い青 / これから=青。当月の列は背景でも強調する。
+  - 左のラベル列は `sticky left-0`。狭い画面では月軸だけ横へスクロールし、ラベルは残す。
+  - 図の上に シーズン合計 / 受け取り済み / これから の3つを出す。MS行にはpt と担当割合を添える。
+  - 月軸はシーズン (plan cycle) 全体なので、`payoutSchedule` の取得範囲は当月から前後14か月とる。
 - **狭い画面では配分表を表にしない**。`sm:` 未満は1人1ブロックの密なリスト (1行目に名前と今月受け取る額、2行目に発生額・取り分・pt、3行目に担当) にし、`sm:` 以上で表へ切り替える。表を横スクロールさせると、モバイルでは肝心の金額が初期表示の外へ出る。
 - 必須確認領域では番号を14px・見出しを16px以上・PJ名を18px以上・担当内容を14px以上・自分の予定額を26px以上とし、配分表の本文は13px以上、補助文を含め12px未満の文字を使わない。
 - 未合意 / 条件更新ありでは、各PJブロックの末尾に `{PJ名} に合意する` を置き、この操作まで当該PJの当該稼働月の支払いに進めないことを明示する。合意ボタンの隣にそのPJ向けの修正要望 (`このPJの内容が違う`) を置く。
