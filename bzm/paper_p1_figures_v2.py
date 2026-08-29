@@ -69,58 +69,62 @@ def save(fig, name):
 
 # ---------------------------------------------------------------- Figure 1
 def fig1_framework():  # Figure 1 (§4.1)
-    fig, ax = plt.subplots(figsize=(7.4, 4.6))
-    ax.set_xlim(0, 100); ax.set_ylim(-2, 72); ax.axis("off")
+    fig, ax = plt.subplots(figsize=(7.4, 5.4))
+    ax.set_xlim(0, 100); ax.set_ylim(0, 100); ax.axis("off")
 
-    def box(x, y, w, h, title, body, fc="#ffffff", ec=INK, lw=1.0, fs=9.6):
-        ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.6,rounding_size=1.2",
+    def box(x, y, w, h, title, lines, fc="#ffffff", ec=INK, lw=1.1):
+        ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0,rounding_size=1.6",
                                     fc=fc, ec=ec, lw=lw, zorder=2))
-        ax.text(x + w/2, y + h - 3.1, title, ha="center", va="top",
-                fontsize=fs+0.7, fontweight="bold", color=INK, zorder=3)
-        if body:
-            ax.text(x + w/2, y + h - 7.4, body, ha="center", va="top",
-                    fontsize=fs, color=MUTED, linespacing=1.45, zorder=3)
+        ax.text(x + w/2, y + h - 4.2, title, ha="center", va="center",
+                fontsize=10.2, fontweight="bold", color=INK, zorder=3)
+        for i, ln in enumerate(lines):
+            ax.text(x + w/2, y + h - 10.0 - i*4.6, ln, ha="center", va="center",
+                    fontsize=8.2, color=MUTED, zorder=3)
 
-    def arrow(x1, y1, x2, y2, style="-|>", lw=1.0, color=INK, ls="-", rad=0.0):
-        ax.add_patch(FancyArrowPatch((x1, y1), (x2, y2), arrowstyle=style, lw=lw,
-                                     color=color, linestyle=ls, mutation_scale=11,
-                                     shrinkA=1, shrinkB=1, zorder=4,
-                                     connectionstyle=f"arc3,rad={rad}"))
+    def arrow(x1, y1, x2, y2, rad=0.0):
+        ax.add_patch(FancyArrowPatch((x1, y1), (x2, y2), arrowstyle="-|>", lw=1.2,
+                                     color=INK, mutation_scale=13, shrinkA=2, shrinkB=2,
+                                     zorder=4, connectionstyle=f"arc3,rad={rad}"))
 
-    # 入力側
-    box(0.5, 33, 27, 25, "Observable state  $x_t$",
-        "next gate · free / restricted cash\nunresolved rights · incorporation\ncontract lock-in · active uses\nhistory · review countdown", fc="#f7f5f1")
-    box(0.5, 3, 27, 25, "Project parameters  $\\theta$",
-        "conversion capacity · carrier fill\nmomentum · technical core\nappropriability · ceilings\ncounterfactual · self-propulsion", fc="#f7f5f1")
-    ax.text(16, 0.2, "estimated from evidence; prior $B_0(\\theta)$", ha="center",
-            va="bottom", fontsize=8.8, style="italic", color=MUTED)
+    # 見出しの式
+    ax.text(50, 96, "$V=\\int \\mathbb{E}[\\Pi(\\omega)\\mid\\theta]\\,dB_0(\\theta)$",
+            ha="center", va="center", fontsize=14, color=INK)
+    ax.text(50, 89.5, "inner: scenario branching (irreducible)    ·    outer: parameter ignorance (reducible)",
+            ha="center", va="center", fontsize=8.8, color=MUTED)
 
-    # 中央
-    box(35, 22, 27, 30, "Registered plan  $\\pi^{plan}$",
-        "gate order · failure branching\nincorporation condition\noffer response · contract policy\nstop rule\n\nconditioned on observables only\n— never on $\\theta$", fc="#eef3f7", ec="#1f4e79")
-    ax.text(48.5, 18.6, "monthly forward pass", ha="center", va="top",
-            fontsize=9.6, color=INK, fontweight="bold")
-    ax.text(48.5, 14.8, "deadlines · hazards · draws\nrules · cash · absorption", ha="center",
-            va="top", fontsize=8.8, color=MUTED, linespacing=1.4)
+    # 左列: 入力2つ
+    box(0, 48, 33, 33, "Observable state  $x_t$",
+        ["next gate · free and restricted cash", "unresolved rights · incorporation",
+         "contract lock-in · active uses", "history · review countdown"], fc="#f7f5f1")
+    box(0, 8, 33, 33, "Project parameters  $\\theta$",
+        ["conversion capacity · carrier fill", "momentum · technical core",
+         "appropriability · ceilings", "counterfactual · self-propulsion"], fc="#f7f5f1")
+    ax.text(16.5, 4.0, "estimated from evidence; prior $B_0(\\theta)$",
+            ha="center", va="center", fontsize=8.4, style="italic", color=MUTED)
 
-    # 出口
-    box(70, 30, 29.5, 22, "Nine terminal classes",
-        "self-sufficiency (in / after plan)\nlicensing · M&A · IP sale\npivot · withdrawal\nliquidation · undecided", fc="#f4f7f2", ec="#4a7c40")
-    box(70, 3, 29.5, 21, "Value  $V$  (JPY)",
-        "net domestic value added\n− displacement  − counterfactual\ndiscounted, all exits on one scale", fc="#fbf6ea", ec="#a8801f")
+    # 中列: 計画
+    box(37, 30, 29, 51, "Registered plan  $\\pi^{\\mathrm{plan}}$",
+        ["gate order", "failure branching", "incorporation condition", "offer response",
+         "contract policy", "stop rule", "", "conditioned on observables", "— never on $\\theta$"],
+        fc="#eef3f7", ec="#1f4e79")
+    ax.text(51.5, 25.0, "monthly forward pass", ha="center", va="center",
+            fontsize=9.6, fontweight="bold", color=INK)
+    ax.text(51.5, 20.0, "deadlines · hazards · draws", ha="center", va="center", fontsize=8.6, color=MUTED)
+    ax.text(51.5, 15.6, "rules · cash · absorption", ha="center", va="center", fontsize=8.6, color=MUTED)
 
-    arrow(27.5, 45, 35, 41); arrow(27.5, 15, 35, 30)
-    arrow(62, 41, 70, 41); arrow(84.7, 30, 84.7, 24.5)
-    ax.text(66, 44.0, "scenarios $\\omega$", ha="center", fontsize=8.4, color=MUTED, style="italic")
+    # 右列: 出口と価値
+    box(70, 52, 30, 29, "Nine terminal classes",
+        ["self-sufficiency (in / after plan)", "licensing · M&A · IP sale",
+         "pivot · withdrawal", "liquidation · undecided"], fc="#f4f7f2", ec="#4a7c40")
+    box(70, 12, 30, 29, "Value  $V$  (JPY)",
+        ["net domestic value added", "− displacement", "− counterfactual",
+         "all exits on one scale"], fc="#fbf6ea", ec="#a8801f")
 
-    # 二段階の期待
-    ax.text(50, 69.5, "$V=\\int \\mathbb{E}[\\Pi(\\omega)\\mid\\theta]\\,dB_0(\\theta)$",
-            ha="center", fontsize=13, color=INK)
-    ax.text(50, 64.5, "inner: scenario branching (irreducible)   ·   outer: parameter ignorance (reducible by investigation)",
-            ha="center", fontsize=8.6, color=MUTED, style="italic")
+    arrow(33, 64, 37, 61); arrow(33, 24, 37, 44)
+    arrow(66, 62, 70, 64)
+    arrow(85, 52, 85, 41)
     save(fig, "fig1_framework.png")
 
-# ---------------------------------------------------------------- Figure 2
 def fig3_fifth_premise():  # Figure 3 (§7.5)
     fig, ax = plt.subplots(figsize=(7.4, 3.9))
     keys = [(t, r) for t in CELLS for r in REGS]
