@@ -11,6 +11,7 @@ import { CockpitAmdContributions } from "./CockpitAmdContributions";
 import { CockpitGrants } from "./CockpitGrants";
 import { WorkspaceDocumentRoom } from "@/components/workspace-documents/WorkspaceDocumentRoom";
 import { CockpitIpPortfolio } from "@/components/cockpit/CockpitIpPortfolio";
+import { CockpitTechnology } from "@/components/cockpit/CockpitTechnology";
 import { CockpitKuteAnnualRoadmap } from "./CockpitKuteAnnualRoadmap";
 import { CockpitKuteRegulations } from "./CockpitKuteRegulations";
 import { ProjectInstitutionSeeds } from "./CockpitKuteSeeds";
@@ -33,6 +34,7 @@ import type { ProjectContractTerms } from "@/lib/project-contract-terms";
 import { CockpitCostModel } from "@/components/cockpit/CockpitCostModel";
 import { prefetchProjectOrg } from "@/lib/project-org-client";
 import { prefetchProjectCostModel } from "@/lib/project-cost-model-client";
+import { prefetchProjectTech } from "@/lib/project-tech-client";
 
 interface PlanCycleShape {
   planCycleId: string; status: string; budgetYen: number; extraDesignBudgetYen?: number; totalPoints: number;
@@ -262,6 +264,7 @@ export type CockpitTab =
   | "partners"
   | "issues"
   | "score-detail"
+  | "technology"
   | "business-plan"
   | "cost-model"
   | "regulations"
@@ -383,6 +386,10 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           },
         ]
       : []),
+    // 技術タブは全PJ常設 (2026-08-29 まさ依頼)。成立条件・解説・星取り表・到達実績の4形式で、
+    // PJごとに違うのは並べるトピックと項目名だけ。PJ専用の実装は作らない。
+    // 参照系。hover で先読みして、押した瞬間に出ている状態にする。
+    { key: "technology", label: "技術", onHover: () => prefetchProjectTech(project.projectId) },
     { key: "business-plan", label: "事業計画" },
     // コスト試算は全PJ常設 (2026-08-23 まさ確定。SX専用ではなく雛形として全PJへ)。
     // 未登録のPJでは、何を登録する面なのかを説明する空状態が出る。
@@ -645,6 +652,14 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           className={activeTab === "regulations" ? "min-w-0" : "hidden"}
         >
           <CockpitKuteRegulations />
+        </section>
+      )}
+
+      {/* 技術タブ (2026-08-29 まさ依頼)。この技術がどの範囲で成立し、競合とどこで差がつき、
+          今どこまで行っているかを貯める。自前で fetch するので開いた時だけマウントする。 */}
+      {activeTab === "technology" && (
+        <section role="tabpanel" aria-label="技術" className="min-w-0">
+          <CockpitTechnology projectId={project.projectId} />
         </section>
       )}
 

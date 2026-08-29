@@ -63,6 +63,12 @@ const REFERENCE_DATA_ENDPOINTS = [
     clientModule: "src/lib/project-cost-model-client.ts",
   },
   {
+    endpoint: "/api/project-tech",
+    label: "技術台帳 (PJコックピット 技術タブ)",
+    routeFile: "src/app/api/project-tech/route.ts",
+    clientModule: "src/lib/project-tech-client.ts",
+  },
+  {
     endpoint: "/api/model/sections",
     label: "モデル正本の節一覧 (左ナビ)",
     routeFile: "src/app/api/model/sections/route.ts",
