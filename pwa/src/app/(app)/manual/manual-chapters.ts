@@ -134,6 +134,7 @@ export const MANUAL_SECTIONS: ManualSectionConfig[] = [
       "6-8-admin-ms-overview-spec",
       "6-10-freee-accounting-reconciliation-spec",
       "6-11-kiyo-money-flow-spec",
+      "6-12-member-payout-flow",
     ],
   },
   {
@@ -204,6 +205,7 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
   { slug: "6-7-contracts-management-spec", title: "契約管理", summary: "契約予定枠、version history、押印版metadata、予兆dry-run、Slack nudge dry-run。", topics: ["admin-dev", "monthly"], screens: ["/admin/contracts"], tables: ["contracts", "contract_documents", "contract_signals", "contract_nudges"] },
   { slug: "6-8-admin-ms-overview-spec", title: "Admin / MS Overview", summary: "全PJ MS設計を 1 画面で並べて pt 配分・メンバー別 年計を見る設計レビュー。円額は MS ごとの pt 丸め順を報酬計算と揃える。", topics: ["admin-dev"], screens: ["/admin/ms-overview"], tables: ["value_plan_cycles", "value_milestones", "milestone_responsibility"] },
   { slug: "6-10-freee-accounting-reconciliation-spec", title: "freee週次会計照合 / 会計照合レール", summary: "毎週木曜10:00 JSTのfreee会計照合cron、4回review gate、5回目以降の役員報酬/内部振替allowlist、/admin/finance会計照合レールUI。", topics: ["monthly", "admin-dev"], screens: ["/admin/finance"], tables: ["freee_reconciliation_runs", "freee_reconciliation_findings", "freee_reconciliation_actions"] },
+  { slug: "6-12-member-payout-flow", title: "メンバー支払フロー", summary: "合意から振込までの全体像。金額は月初合意で確定し、入金と合意がそろった翌月7日までに払う。立替の合流、振込の自動確認、混同しやすい2つの月。", topics: ["monthly", "admin"], screens: ["/admin/payouts", "/admin/monthly-work-agreements", "/monthly-agreement"], tables: ["payout_notices", "member_monthly_work_agreements", "member_payout_settlements", "reimbursements"] },
   { slug: "6-11-kiyo-money-flow-spec", title: "きよ お金の流れ", summary: "きよページ「00 お金の流れ」タブ。どこから入り何に使われたかの流れ図+3ステップ+ドリルダウン。分類別の出どころ定義と二重計上の防波堤。", topics: ["monthly", "admin-dev"], screens: ["/admin/kiyo"], tables: ["billing_cycles", "member_payout_settlements", "company_actual_monthly", "company_payment_obligations", "company_finance_recurring_items"] },
 
   { slug: "7-1-reward-calc-spec", title: "報酬計算ロジック 詳細仕様", summary: "メンバー報酬がどう決まるか。 計算式、入力データ、進捗ソース優先度、月次キャップ、繰越制御の正本。", topics: ["monthly", "decision", "admin-dev"], screens: ["/mypage", "/admin/payouts"], tables: ["billing_cycles", "value_milestones", "value_plan_cycles", "milestone_monthly_progress", "milestone_responsibility", "sub_item_responsibility", "pj_deductions"] },
@@ -242,7 +244,7 @@ export const MANUAL_TOPIC_NODES: ManualTopicNodeConfig[] = [
     description: "月次 TODO、請求、入金確認、支払通知書、報酬の流れを追う。",
     icon: "calendar",
     color: "emerald",
-    chapterSlugs: ["2-6-admin-ops", "2-2-member-workflows-quick-start", "6-3-invoice-and-billing-routine-spec", "6-4-finance-payment-confirm-spec", "6-5-admin-payouts-reward-notice-spec", "6-6-member-billing-prompts-spec", "6-7-contracts-management-spec", "7-1-reward-calc-spec"],
+    chapterSlugs: ["2-6-admin-ops", "6-12-member-payout-flow", "2-2-member-workflows-quick-start", "6-3-invoice-and-billing-routine-spec", "6-4-finance-payment-confirm-spec", "6-5-admin-payouts-reward-notice-spec", "6-6-member-billing-prompts-spec", "6-7-contracts-management-spec", "7-1-reward-calc-spec"],
     relatedTopicKeys: ["admin", "cockpit", "system"],
   },
   {

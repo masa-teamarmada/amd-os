@@ -6,6 +6,7 @@ import { Children, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { LinkedMemberText } from "@/components/members/LinkedMemberText";
+import { MermaidDiagram } from "@/components/cockpit/MermaidDiagram";
 
 interface Props {
   source: string;
@@ -164,10 +165,19 @@ export function MarkdownView({ source, tone = "light", linkMode = "default", mem
           },
 
           // ===== Code =====
-          code: ({ children }) => <code className={codeClass}>{children}</code>,
-          pre: ({ children }) => (
-            <pre className={`my-2 overflow-x-auto rounded p-3 text-[11px] font-mono ${isHud ? "bg-slate-900/70 text-cyan-50" : "bg-[#f5f5f7] text-[#1d1d1f]"}`}>{children}</pre>
-          ),
+          // ```mermaid は図として描く。それ以外はコードのまま。
+          code: ({ className, children }) => {
+            if (typeof className === "string" && className.includes("language-mermaid")) {
+              return <MermaidDiagram code={plainText(children)} tone={tone} />;
+            }
+            return <code className={codeClass}>{children}</code>;
+          },
+          pre: ({ children }) => {
+            if (containsMermaid(children)) return <>{children}</>;
+            return (
+              <pre className={`my-2 overflow-x-auto rounded p-3 text-[11px] font-mono ${isHud ? "bg-slate-900/70 text-cyan-50" : "bg-[#f5f5f7] text-[#1d1d1f]"}`}>{children}</pre>
+            );
+          },
 
           // ===== Blockquote: 左ボーダー色 + 微妙な背景で callout 風 =====
           blockquote: ({ children }) => (
@@ -291,4 +301,25 @@ function normalizeHref(href: string | undefined, linkMode: Props["linkMode"]) {
   }
 
   return href;
+}
+
+/** ReactNode をそのままの文字列にする (mermaid の定義文をそのまま渡すため) */
+function plainText(node: ReactNode): string {
+  if (node == null || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(plainText).join("");
+  const element = node as { props?: { children?: ReactNode } };
+  if (element?.props?.children != null) return plainText(element.props.children);
+  return "";
+}
+
+/** <pre> の中身が mermaid の図かどうか。図なら <pre> の枠を外して図だけ出す */
+function containsMermaid(node: ReactNode): boolean {
+  let found = false;
+  Children.forEach(node, (child) => {
+    const element = child as { props?: { className?: unknown } };
+    const className = element?.props?.className;
+    if (typeof className === "string" && className.includes("language-mermaid")) found = true;
+  });
+  return found;
 }
