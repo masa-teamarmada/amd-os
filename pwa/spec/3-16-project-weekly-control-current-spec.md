@@ -213,6 +213,16 @@ point-MS追加フォームは`配置するグループ（複数選択可） / MS
 - root editor（IssueEditor）・工程/タスク詳細（PlanInspector）・関係先履歴は同じivory modal shellの視覚系を共有する: 不透明な生成り`#fffdf7`のdialog、1px暖色border、12px角丸、抑制されたshadow、rgba(36,35,31,.46)のoverlay + 4px backdrop blur、生成りのheader/body/footer。深緑は種別見出し・focus・主操作に限定し、琥珀/赤は注意・破棄だけに使う。root editorは約720px（工程・タスクは約840px）、詳細は約920px、いずれも`max-height: min(780px, 100dvh - 48px)`でheader/footerを固定し本文だけがscrollする。フォームは `接続先 → 内容 → 状態・担当 → 日程` の業務順、112pxの左見出しrailと2列入力でまとめ、巨大な一律textareaや入力欄のinset shadowを使わない。640px以下では3種すべて同じ画面下端bottom sheet（`max-height: 100dvh - 8px`、side/bottom borderなし、下側角直角）へ切り替え、全input/select/textareaを16pxにしてiOSのfocus zoomを防ぐ。embeddedフォームはbodyだけがscrollしfooterは常に固定表示のまま流れない。dirtyな状態で閉じようとすると、window.confirmや第二のdialog（`role=alertdialog`）ではなく、同じfooter内の`role=status`/`aria-live`領域（`aria-label`は本文の可視テキストと重複するため付けない）が「変更を破棄する？ / 戻る / 破棄」へその場で切り替わり、「戻る」ボタンへ自動でfocus・スクロールする。通常時のfooterには操作ボタンの位置を動かさない固定位置の「未保存」表示が出る。「戻る」で破棄をやめて編集を続けるときは、フォーカスは戻るボタンではなく編集中だったfieldへ戻る。PlanInspectorの編集可能な値（名称・内容/到達点・詰まり・完了条件/証跡・前提条件を含む全て）は編集中も常に固定サイズの表示ボタンのまま（フォームへその場で差し替わらない）で、実際の編集フォームはfacts行の下にある1つの共有trayだけに描画される。この共有trayの先頭には「編集中｜対象 / 項目」の文脈行が出るため、元の表示cellが画面外へスクロールしていても何を編集しているか常に分かる。保存・キャンセル・破棄確定のいずれでtrayが閉じても、フォーカスは編集の起点だった固定cellへ戻る。パンくずは現在の項目名を重複させず、タスクは柱＞親工程、工程/MSは柱だけを表示し、状態はfactsの「状態」セルに既に見えるためheaderにステータスチップを重複させない。root editorのheaderにもステータスチップは置かない。閉じるボタンは全modalで44×44・角丸8px・svgグリフ16pxに揃える。dialog roleの要素は常に1つだけで、工程/タスク詳細のインライン編集は本文グリッドの行高を動かさない専用trayへ描画される。一般MS（設立ゲート2件を除く`timeline_kind='milestone'`）はPlanInspector・root editorのどちらでも計画開始/計画完了の2fieldではなく単一の「予定日」fieldで編集し、保存時にplanned_start/planned_endの両方へ同じ値を書く。棄却（rejected）状態のバッジ色は決定済み/検証済み/完了と同じ成功系の色を共有せず、保留（on_hold）と同じ中立トーンにする。
 
 
+### 排液カラム: 成分は定型語彙だけ・メモ欄の新設・編集面の再設計 (migration 336、2026-08-29)
+
+- **成分バッジはプルダウンの語彙 (`SX_EFFLUENT_COMPONENT_CHOICES`) だけを出す**（まさ 2026-08-29「モーダルの中のバッジがプルダウン選択にないものになってるから、プルダウン選択のいずれかにして」）。それまで `effluent_components` には議事録の作文がそのまま入っており、読点で切られた文の断片がバッジになっていた。
+- 判定は `sxSplitEffluentComponents`（sx-partner-progress）が正本。保存値を読点・カンマで割り、語彙に一致するものだけを成分とし、残りを `leftover` として返す。`leftover` の本文からは `sxExtractEffluentComponentsFromText` と同じ判定で成分名を拾い直す。並びはプルダウンと同じ順に揃える（行ごとに並びが変わると読み比べができない）。
+- **自由入力の「＋ 新しい成分を追加」は廃止**した。語彙にない値を足すと、その行のバッジがまたプルダウンに無い値になる。語彙へ収まらない話は下記のメモ欄へ書く。語彙そのものを増やすときは `SX_EFFLUENT_COMPONENT_CHOICES` を編集する。
+- **メモ欄 `project_management_partners.effluent_note`（2000字）を新設**し、編集面の最下部に置いた。migration 336 は既存の作文を1文字も捨てずにこの列へ移し、`effluent_components` を語彙だけへ書き換える（メモが空の行にだけ書き込むので再実行しても二重にならない）。スプレッドシート書き出しにも「排液のメモ」列を足す。
+- 一覧のcellは成分バッジだけを出す方針を維持する（2026-08-28）。バッジが1つも無く、量・処理費・実験結果・メモのいずれかがある行は「成分 未選択」と出す。本文から成分を拾って点線バッジで出す表示は、成分列が語彙だけになったため廃止した。
+- 編集面（`InlineCellEditor`）に `title` と `widthClass` を足した。排液は幅380pxで見出し「◯◯の排液」を持ち、成分 / 年間の排液量 / 年間の排液処理コスト / 実験結果 / メモ の順に並べる。入力面は白地・角丸8px・淡い罫 `#d6d6da`、focusでAMD Blue `#027FDC`。成分バッジは `!min-h-0` でグローバルの44pxタッチターゲット強制から外す（44pxの丸い塊が並ぶと何を選んだのか読めない）。押して外す操作は補助操作で、保存・取消は44pxのまま残す。
+- 編集面は**画面の下端で開いても保存ボタンごと画面外へ出ない**。下に入りきらず上のほうが広ければ上向きに開き、それでも入らなければ入力欄だけを内側スクロールにして、見出しと保存・取消を必ず見える位置に残す。この配置はすべてのインライン編集面で共通。
+
 ### 関係先台帳の確度語彙・並び順・配色 (build v3.58.1、2026-08-06)
 
 - 確度は `sx-partner-progress.ts` の `SX_PARTNER_CONFIDENCE_ORDER = ["high","medium","low","unknown"]` を正本とし、表示語彙は `sxPartnerConfidenceLabel` で 確認済み / 推定 / 要確認 / 未確認 に対応させる。PoC候補先スプシの語彙をそのまま使い、`medium` を `high` へ丸めない。保存値が空・未知のときだけ `unknown` へ落とす。

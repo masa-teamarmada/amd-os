@@ -367,6 +367,7 @@ function patchFor(resource: Resource, raw: unknown): Record<string, unknown> {
     takeOptionalText("effluent_volume_annual", "effluent_volume_annual", 240);
     takeOptionalText("effluent_cost_annual", "effluent_cost_annual", 240);
     takeOptionalText("effluent_test_result", "effluent_test_result", 2000);
+    takeOptionalText("effluent_note", "effluent_note", 2000);
     takeBoolean("effluent_procured");
     // 次回面談。空文字でNULLへ戻せる。形式は未定(NULL)を既定にし、推測で埋めない。
     takeDate("next_meeting_on");

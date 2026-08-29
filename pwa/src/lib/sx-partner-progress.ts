@@ -161,6 +161,18 @@ export const SX_EFFLUENT_COMPONENT_CHOICES = [
   { value: "糖分", label: "糖分" },
 ] as const;
 
+/** 定型語彙の値の集合。バッジに出せるのはここにある成分だけ。 */
+const EFFLUENT_COMPONENT_ORDER = new Map<string, number>(
+  SX_EFFLUENT_COMPONENT_CHOICES.map(
+    (choice, index) => [choice.value, index] as [string, number],
+  ),
+);
+
+/** その成分がプルダウンの選択肢かどうか。 */
+export function sxIsEffluentComponentChoice(token: string): boolean {
+  return EFFLUENT_COMPONENT_ORDER.has(token);
+}
+
 /** 旧表記 (元素名) を元素記号へ寄せる。保存値のパース時だけ使い、DBは書き換えない。 */
 const EFFLUENT_COMPONENT_ALIASES: Record<string, string> = {
   "ニッケル": "Ni",
@@ -227,6 +239,42 @@ export function sxExtractEffluentComponentsFromText(text: string | null): string
     scan = scan.replace(pattern, " ");
   }
   return found;
+}
+
+/**
+ * 保存値を「定型語彙の成分」と「それ以外の本文」へ分ける (2026-08-29 まさ
+ * 「モーダルの中のバッジがプルダウン選択にないものになってるから、プルダウン選択の
+ *  いずれかにして」)。バッジに出るのはプルダウンにある成分だけで、語彙へ収まらない
+ * 作文は捨てずに `leftover` として返し、呼び出し側がメモ欄へ回す。
+ *
+ * 成分の並びはプルダウンと同じ順に揃える。行ごとに並びが変わると読み比べができない。
+ */
+export function sxSplitEffluentComponents(value: string | null): {
+  components: string[];
+  leftover: string;
+} {
+  const raw = (value || "").trim();
+  if (!raw) return { components: [], leftover: "" };
+  const components: string[] = [];
+  const rest: string[] = [];
+  for (const part of raw.split(/[,、]/).map((token) => token.trim()).filter(Boolean)) {
+    const token = EFFLUENT_COMPONENT_ALIASES[part] || part;
+    if (sxIsEffluentComponentChoice(token)) {
+      if (!components.includes(token)) components.push(token);
+    } else {
+      rest.push(part);
+    }
+  }
+  const leftover = rest.join("、");
+  for (const token of sxExtractEffluentComponentsFromText(leftover)) {
+    if (!components.includes(token)) components.push(token);
+  }
+  components.sort(
+    (left, right) =>
+      (EFFLUENT_COMPONENT_ORDER.get(left) ?? 0) -
+      (EFFLUENT_COMPONENT_ORDER.get(right) ?? 0),
+  );
+  return { components, leftover };
 }
 
 /**
