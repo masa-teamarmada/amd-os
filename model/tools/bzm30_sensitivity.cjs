@@ -152,10 +152,13 @@ async function main() {
     return;
   }
 
-  const seedId = args.find((a) => !a.startsWith('--') && a !== args[args.indexOf('--param') + 1]);
+  // `--param` を渡していないとき indexOf は -1 になり、-1+1=0 で第1引数（seed_id そのもの）を
+  // 除外してしまう。bzm30_score_seeds.cjs が同じ形で踏んだ罠なので、位置で明示的に除く。
+  const paramIdx = args.indexOf('--param');
+  const seedId = args.find((a, i) => !a.startsWith('--') && (paramIdx < 0 || i !== paramIdx + 1));
   if (!seedId) throw new Error('seed_id を渡す（--list で一覧）');
   const dry = args.includes('--dry');
-  const only = args.indexOf('--param') >= 0 ? args[args.indexOf('--param') + 1] : null;
+  const only = paramIdx >= 0 ? args[paramIdx + 1] : null;
 
   const { data: row, error: e1 } = await supabase
     .from('seed_bzm30_inputs').select('*').eq('seed_id', seedId).single();
