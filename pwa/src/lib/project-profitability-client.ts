@@ -15,11 +15,11 @@ import {
   peekReferenceData,
   prefetchReferenceData,
 } from "@/lib/reference-data-cache";
-import type { ProjectProfitabilityRow } from "@/lib/project-profitability";
+import type { ProjectProfitabilitySnapshot } from "@/lib/project-profitability";
 
 export type ProjectProfitabilityPayload = {
   ok: true;
-  rows: ProjectProfitabilityRow[];
+  snapshot: Omit<ProjectProfitabilitySnapshot, "storedAt">;
 };
 
 const KEY = "project-profitability";

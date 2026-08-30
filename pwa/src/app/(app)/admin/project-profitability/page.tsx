@@ -10,8 +10,8 @@ export default function AdminProjectProfitabilityPage() {
         <span className="text-sm text-muted-foreground">Project Profitability</span>
       </div>
       <p className="mb-4 text-xs text-muted-foreground">
-        PJのシーズンごとに、決まっている原資が外部への支払と会社に残る分へどう分かれたかを並べる。
-        シーズンで決まっている原資のうち、いくらが外部メンバーへの現金支払として出ていき、いくらが会社に残るか。どのPJが利益を残せているかを判定する画面。
+        どのPJが儲かっていて、どのPJがまさの稼働で回っているかを見る画面。
+        会社に残る現金から、まさが投じた時間の対価を引いた額で並べる。
       </p>
       <AdminProjectProfitabilityClient />
     </div>

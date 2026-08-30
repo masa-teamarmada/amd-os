@@ -24,9 +24,9 @@ export async function GET(req: NextRequest) {
   const force = new URL(req.url).searchParams.get("fresh") === "1";
 
   try {
-    const snapshot = await loadProjectProfitabilitySnapshot({ force });
+    const { storedAt: _storedAt, ...snapshot } = await loadProjectProfitabilitySnapshot({ force });
     return NextResponse.json(
-      { ok: true, rows: snapshot.rows },
+      { ok: true, snapshot },
       {
         headers: {
           "Cache-Control": force ? "no-store" : CACHE_CONTROL,
