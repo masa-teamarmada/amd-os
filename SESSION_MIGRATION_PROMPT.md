@@ -1,83 +1,70 @@
-# 次セッションへの引っ越しプロンプト
+# 次セッション用プロンプト（2026-08-30 時点）
 
 cwd: `/Users/masa/projects/AMD/amd-os`
 
-> 2026-08-29 更新: **BZM 3.0 のモデル本体は改訂5点まで入って、P1論文の数値も凍結済み**（`a149fc30`）。
-> 前回の課題（組織の評価・「これ以上ゲートを越えない」）はどちらも解決した。次の着手先は下記。
-
----
-
-AMD OS の作業を続けて。**BZM 3.0 の入力を、推定から一次資料の実データへ置き換えていく**のが次のタスク。
-モデル本体で未承認のまま残っているのは提案4（機能の補完性）と提案5（資本の種類）の2件。
-
-## 読む順（この順で全部読む）
+## 読む順
 
 1. `/Users/masa/projects/AGENTS.common.md` — えいみ共通ルールの正本
-2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md` — AMD 横断の記憶
-3. `/Users/masa/.claude/projects/-Users-masa-projects-AMD-amd-os/memory/MEMORY.md` — このPJの記憶
-4. `HANDOFF.md` の **B節**（P1論文の凍結情報・改訂5点・次のタスク）
-5. `model/cases/SCORES.md` — スコア一覧と「気をつけて読むところ」。**2026-08-29 の1〜5回目の節が全経緯**
-6. `model/cases/README.md` — **入力の置き方の規約**。とくに「残高と支出は同じ側で揃える」「天井は担える範囲で絞る」
-7. `model/MODEL_VERSION_LEDGER.md`（= モデルページ `/model` の正本）の
-   §5.2 / §5.3 / §5.4 / §6.I-3-1 / §6.I-5-1 / §6.I-9-1 / §6.I-9-2 / §7.1 / §7.2
-8. `model/README.md` — 変更の運用規約（提案→承認→APPROVALS 記録→反映→relock）
-9. `model/proposals/2026-08-28_bzm30-organization-input.md` — **未承認は提案4・5・8 だけ**（1〜3・6・7・9 は統合済み）
-10. `BUGS.md` と `pwa/BUGS.md` — 事故の記録
+2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md` — AMD横断 memory
+3. `/Users/masa/projects/AMD/amd-os/AGENTS.md` — AMD OS 固有のルール
+4. `HANDOFF.md` — 現在地（E がこのタスク）
+5. `SESSION_MIGRATION_PROMPT_PROJECT_PROFITABILITY_2026-08-30.md` — **このタスクの本体。禁止事項11点と確定した事実**
+6. `pwa/manual/7-1-reward-calc-spec.md` — **報酬計算の正本。全文を Read で通す（必須）**
+7. `pwa/spec/5-14-project-profitability-current-spec.md` — 現行仕様（作り直し対象）
+8. `pwa/spec/5-10-reference-data-caching-current-spec.md` — 参照系キャッシュ規範
+9. `pwa/BUGS.md` の 2026-08-30 節 — 今回の事故3件
 
-## 状態（2026-08-29 終了時点）
+## 状態スナップショット
 
-- git: `main` 一本、**origin と完全同期**（未 push なし）。凍結コミット `a149fc30`、最新 HEAD `a5004319`
-- 承認: `model/APPROVALS.md` の **#2026-08-29-1 / -2 / -3**（すべて反映・relock 済み）
-- DB: `seed_bzm30_scores` の最新行は `approval_ref='2026-08-29-3'`。21件すべてに金額あり
-- 本番: `https://amd-os-pwa.vercel.app`（凍結版が反映済み）。
-  **Vercel のデプロイ枠が 90/100 と逼迫**（アカウント全体・24時間ローリング）。docs だけの push は build されない
-- 共有 checkout に5〜10セッションが並行。**編集したら即コミット**（stage 放置は他セッションの commit に巻き込まれる）
+- `main` 一本。着手時に `git fetch` して behind を解消してから触る
+- 本番: `https://amd-os-pwa.vercel.app`。`/api/build-info` の `git_sha` で反映を確認する
+- 画面: `/admin/project-profitability`（左メニュー「契約・お金」＞「PJ別利益構造」、admin のみ）
+- **本番の現行画面には誤った表示が残っている**: 「需要 N×」警報、「未配分 ¥X」の金額表示
+- 実装ファイル: `pwa/src/lib/project-profitability.ts` / `project-profitability-client.ts` /
+  `pwa/src/app/api/admin/project-profitability/route.ts` /
+  `pwa/src/components/admin/AdminProjectProfitabilityClient.tsx` /
+  `pwa/src/app/(app)/admin/project-profitability/page.tsx`
+- 検査: `pwa/scripts/check_project_profitability.mts`（`npm run test:project-profitability`、deploy.sh に登録済み）。
+  **途中の設計を固定しているので、作り直しに合わせて書き直す**
+- ナビ登録済み: `pwa/src/lib/surface-catalog.ts` の `admin-project-profitability`
 
-## 今回入ったモデル改訂5点（すべて承認済み・再計算済み）
+## 次のタスク
 
-1. **会社化前は資金が前進の速度を変えるだけ**（#-1）。資金切れの終端を持たない。「休眠」という状態は作らない
-2. **変換能力 $c$ と無風期間 $t_q$**（#-1）。$c$ は「アクションの費用→戦略余力の増分の比率の移動平均」、
-   無風期間は戦略余力の鮮度（12か月0.5・24か月0.1・36か月以上0.05）
-3. **八機能の充足 $f_1$〜$f_7$**（#-2）。機能2は失われた観測がある案件だけ空席を指定できる条件つき規約
-4. **案件ごとのバーンレート**（#-2）。境界は「残高と支出は同じ側で揃える」
-5. **困窮時の出口の実態化**（#-3）。四経路②③を 0.02/0.05 へ、M&A 到来率 REG-0/1 を年0.5%へ（REG-2 は維持）、
-   会社化後の計画バーン `burnPostMan` を新設
+**PJ別 利益構造ダッシュボードを白紙から作り直す。** 現行実装を踏襲しない。
 
-## 次のタスク（優先順。HANDOFF.md B節と同じ）
+まさが知りたいのは「どのPJが儲かっていて、どのPJがまさの持ち出しで回っているか」。
+ここでの「儲かっている」は **まさ自身の稼働を織り込んだうえで**の話であり、
+現金が出ていかないだけの状態を利益と呼ばない（まさの労働の対価を会社に付け替えているだけ）。
 
-1. **過去分の取締役会資料からバーン・残高を実データ化する** — LiSTie で経路が確立した:
-   `meeting_assets`（drive_file_id）→ Drive マウント
-   `~/Library/CloudStorage/GoogleDrive-masa@team-armada.jp/共有ドライブ/ARMADA/<pjフォルダ>/<日付>_取締役会/`
-   → PDF をページ指定で Read。**「運転資金支払」行が自由資金側の支出**（公的資金の支払行は相殺するので数えない）。
-   p07_lst には5〜8月分が揃っている。他PJ（p09 JOYCLE・p24 CLG・p22 OptQC など）も同じ経路で置き換えられる
-2. **提案5（資本の種類: SHA未締結・支配権の集中）** — ORLIB・ティエムの M&A・知財売却の出口が実態より開いたまま。
-   実装は軽いが「残件か状態か」の設計判断が要る
-3. **提案4（機能の補完性）** — CryoX の一体感（《組織》に positive の観測あり）の入れ先。乗数から
-4. **絶対水準の較正の取り直し**（共通倍率 scale）と §6.I-11-4 弾力性の再測定 — 会社化前の死が消えて水準が上がった
-5. **OPTMASS の天井の点検** — 天井598.5億×0.008で4.8億。「支出を絞った延命×届かない天井」がティエムと同型の可能性
-6. 置き換え分の割合（p21 7割・p02 8割・p05 5割は暫定）／旧SPS の DB 物理削除（持ち越し）
+禁止事項11点の全文は `SESSION_MIGRATION_PROMPT_PROJECT_PROFITABILITY_2026-08-30.md` にある。要点:
 
-## このPJで守るルール
+- 「持ち出し」「枠超え」という語を使わない（意味が逆、または予算オーバーと誤読される）
+- 年で切らない。シーズン（`value_plan_cycles`）で見る。シーズンは年をまたぐ
+- 未払残（`stockYen`）を収益率に混ぜない
+- **ポイント（MS pt / `grossDueYen`）を収益率の指標にしない。** まさ「マイルストーンをどのように
+  設定しようが、原資を超える支出にならない設計じゃん」。「需要 N×」警報は無意味
+- **OSにデータが無いことをお金の状態として語らない。** まさ「報酬を渡すべき人には渡し終わってるよ。
+  計算ができてないだけ」
+- **`tally_weekly_effort_entries` はまさ専用。** まさ「tallyはおれの稼働だけをカウントするアプリだよ」。
+  他メンバーとの比較や「依存度」は作れない
 
-- **正本はモデルページ本体ただ一つ**（`model/MODEL_VERSION_LEDGER.md`）。定義・式・値はここに書き、別ファイルへ切り出さない
-- **提案→承認→`model/APPROVALS.md` へ引用のまま記録→反映→`node pwa/scripts/model_lock.cjs relock --approval <id>`**。
-  ロックを先に書き換えて後から承認を取る順序の逆転はしない
-- **未承認の値を画面に出さない**。いま未承認で残っているのは提案4・5・8 だけ
-- **空欄を作らない**。精度が低くても数値を置き、導出・確度・感度を書く
-- **入力を置いたら順位の上位下位をまさに見せて違和感を聞く**——今回の改訂5点のうち3点はこの往復から出た。
-  モデルの改訂そのものと同じ価値がある
-- **推定値には「何の推定か」を reason に書く**（相場からの置き／逆算／実データ）。今回、相場からの置きが
-  実データと10倍ずれた例が2件あった（CrestecBio 月1,500万→133万、LiSTie 月4,196万→1,538万）
-- 検証: `npx tsc --noEmit` / `npx eslint <対象>` / `npm run build` / `npm run test:critical-ui` /
-  `npm run test:reference-data-cache`
-- 算出: `node model/tools/bzm30_score_seeds.cjs --list | xargs -P 6 -I{} node model/tools/bzm30_score_seeds.cjs {}`
-  （1件0.5〜12分・並列6。**`--impl` は不要**——main の実装が承認済みそのもの）。
-  表の貼り替えは `node model/tools/bzm30_scores_md.cjs` の出力を `model/cases/SCORES.md` へ（手で数字を書かない）
-- モデル実装を触ったときの回帰: 入力未指定の F1×REG0（θ中央値）の v が **0.3969** と一致すること
-- **長い計算はバックグラウンドで投げて turn を終える**。投げた直後に確認しても実時間は進まない
-- **実装ファイルを編集する前に、それを require している並列ジョブを止める**（今回15セル分クラッシュした）
+**先に決めること（コードを書く前にまさへ提示して合意を取る）**
+1. まさの時間の価値をいくらと置くか（前セッションの暫定20,000円/時は**まさ未承認**）
+2. まさ以外の投下時間がOSに無いことを踏まえ、何を収益性の指標にするか
 
-## まさへの報告の書き方
+提示は抽象的なA/B/C案ではなく、**実データを入れた表**で見せる。
 
-ファイル名・テーブル名・関数名・commit番号を本文に並べない。**まさが開く画面で何がどう変わるか**、
-**それでまさが何をできるようになったか**で書く。判断してほしいことは選択肢を先に短く出す。
+## このPJで確立済みの運用ルール
+
+- **お金の集計を書く前に `pwa/manual/7-1-reward-calc-spec.md` を全文 Read。** grep や `sed -n` の
+  拾い読みは不可。守らないと PreToolUse hook（`~/.claude/hooks/guard_canon_read.py`）が deny する
+- 参照系データは3層キャッシュを最初から通す。`npm run test:reference-data-cache` に通す
+- 実装後は**本番相当の実データで desktop 実寸を確認**（PWAのスマホ幅は対象外）。
+  認証は service role で magiclink を発行し `sb-<ref>-auth-token` を **base64url** で cookie 注入して Playwright
+- 反映は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`。
+  ただし他セッションの未コミットがあると止まるので、その場合は個別 commit → `git push origin main`
+- **Vercel は1日100デプロイ/アカウント全体。** `pwa/scripts/check_deploy_quota.mjs` が90超で push を止める。
+  枯渇時は override せず枠が空くのを待つ（枠は1件ずつしか戻らない）
+- `pwa/vercel.json` の `ignoreCommand` を**パス限定に戻さない**（08-29〜08-30 に本番反映を丸1日止めた）
+- 指標や順位を出したら、**実態を知るまさに見せて違和感を聞く**。データが実態を持っているかは
+  データを見ても分からない

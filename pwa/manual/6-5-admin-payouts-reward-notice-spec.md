@@ -619,6 +619,32 @@ ZMP の通常固定費は 300,000 円 × 65% = 195,000 円が通常cap。OkuDoor
 | 旧フォーマット復活 | `npm run test:critical-ui` で `brandCell` / `setValue("team ARMADA")` を検出、 golden png 比較 |
 | PDFだけ税計算が古い | PWA側の金額ではなく GAS Web App deployment が古い可能性。`npx --yes @google/clasp@latest deployments` で本番 ID の version を確認し、`clasp deploy --deploymentId AKfycbwzA_sBg4iXhQH1dQjMKvgpeBShFcJ9_XmNdW0O0lptbCcTlApkJy7xArdAh4R7zl3G --description ...` 後に `payout-notice-prebuild` を `force:true` で再実行 |
 
+## PJ別 利益構造 (`/admin/project-profitability`)
+
+シーズン (plan cycle) ごとに、決まっている原資が「外部メンバーへの現金支払」と「会社に残る分」へ
+どう分かれたかを並べる画面。左メニューの「契約・お金」＞「PJ別利益構造」から開く。admin のみ。
+
+`/admin/season-pl` が plan_cycle 単位で pt単価・cap・stock収束まで厳密に検算するのに対し、
+こちらは `billing_cycles.reward_summary_json` をシーズン期間で合算するだけの軽量集計で、
+目的はシーズン間の収益率比較。
+
+読むときの前提 (詳細は [7-1 章](7-1-reward-calc-spec.md)):
+
+- シーズン原資の正本は `value_plan_cycles.budget_yen`。**月次 `billing_cycles.budget_yen` の合計ではない**
+- `billing_cycles.budget_yen` は請求額ではなく**請求額 × 65%** の配分原資
+- 配分が進んだシーズンでは **外部支払 + 会社留保 = シーズン原資** に一致する。総額は固定で、
+  変わるのは配分比だけ
+- まさ・きよなど `exclude_from_payout_notice=true` のメンバーへ按分された分は現金支払されず
+  `companyReserveYen` として会社に残る。**まさへの現金支払が0円なのは設計どおり**
+
+> **2026-08-30 時点: 指標を再設計中。** 初版はまさから11点の指摘を受けた
+> (65%の二重適用、意味が逆の「持ち出し」警報、無意味な「需要 N×」警報、
+> OSの計算欠落を「未配分」とお金の状態として表示、まさ専用の `tally_weekly_effort_entries` を
+> 他メンバーとの比較に使用)。本番の現行画面にはこのうち「需要 N×」と「未配分 ¥X」が残っている。
+> **画面上の指標を現行仕様として引用しない。** 再設計の要件は
+> [`SESSION_MIGRATION_PROMPT_PROJECT_PROFITABILITY_2026-08-30.md`](../../SESSION_MIGRATION_PROMPT_PROJECT_PROFITABILITY_2026-08-30.md)、
+> 仕様は [`pwa/spec/5-14`](../spec/5-14-project-profitability-current-spec.md)。
+
 ## 関連
 
 - 2-6 章 [admin オペ](2-6-admin-ops.md) (= 月次カード / admin請求早見表)
