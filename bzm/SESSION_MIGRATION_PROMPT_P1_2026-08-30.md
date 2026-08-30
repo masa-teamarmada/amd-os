@@ -19,16 +19,18 @@ P1論文（1報目）の続き。cwd は `/Users/masa/projects/AMD/amd-os/bzm`�
 ## 状態
 
 - 稿 = `PAPER_P1_DRAFT_V2.md` **v4.1**。読む用HTML = `PAPER_P1_PREVIEW_V2.html`（pandocで生成。`pandoc PAPER_P1_DRAFT_V2.md -o PAPER_P1_PREVIEW_V2.html --standalone --mathml --css=/tmp/paper_v2_style.css --embed-resources --resource-path=. --metadata lang=en`。CSSが消えていたら再作成が要る）
-- git は push 済み・未push 0件（`73fd5bae` まで）。Vercel のデプロイ枠は残り少ないので **docs以外のpushは束ねる**
+- git は push 済み・未push 0件（`8805ab9f` まで）。Vercel のデプロイ枠は残り少ないので **docs以外のpushは束ねる**
 - モデルのスコアの凍結版 = `a149fc30`。**モデル正本（`model/` 配下）は触らない**（別セッションの担当・ロックあり）
 - §7 の計算は凍結した分類（`CLASSIFICATION_FREEZE.md`、sha256記録）で再実行済み。結果は `paper_p1_dual_scoring.md`
 
 ## 残る作業（この順）
 
-1. **語数の刈り込み** 11,026 → 10,000。編集長の指摘どおり、**中身を削るのではなく置き場所を変える**。§4.2〜§4.5 の記法（状態ベクトルの成分列挙・月次遷移の順序）と §6 の運用一式の細部を補足資料（SM）へ移す。§2 と §7 は削らない（査読で最も評価された部分）
+1. **補足資料 SM-A〜SM-G を v2 で作る。** 本稿は21箇所から SM を参照しているのに、実体は v1 の `PAPER_P1_SM.md`（冒頭に「投稿資料として使用しない」と明記）しかない。**投稿の前提が欠けている。** 節ごとの供給元と作業の性質は `HANDOFF_P1_2026-08-30.md` の棚卸し表にある。旧SMは流用できない
 2. **まさの判断待ち2件**を片付ける（下記）
 
-（**図2の差し替えは完了** — commit `73fd5bae`。あわせて `bzm/tools/dual_scoring.cjs` の欠陥2件を修正した。詳細は `HANDOFF_P1_2026-08-30.md`）
+**語数の刈り込みは不要**（2026-08-30 に投稿規定を確認済み。JTT は本文の語数制限を設けていない。上限は要旨の 150〜250語だけで、要旨は 250語に収めてある）。
+
+（**図2・図5の版ずれの修正と稿の7件の修正は完了** — commit `73fd5bae` `8805ab9f`。詳細は `HANDOFF_P1_2026-08-30.md`）
 
 ## まさの判断待ち
 
