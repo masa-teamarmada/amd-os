@@ -2,7 +2,7 @@
   "regions": [
     "hnd1"
   ],
-  "ignoreCommand": "[ \"$VERCEL_GIT_COMMIT_REF\" != \"main\" ] || git diff --quiet \"${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}\" HEAD -- pwa ':(exclude)pwa/design_log' || exit 1",
+  "ignoreCommand": "[ \"$VERCEL_GIT_COMMIT_REF\" != \"main\" ] || { echo \"ignore-check prev=[$VERCEL_GIT_PREVIOUS_SHA] head=[$VERCEL_GIT_COMMIT_SHA]\"; git diff --quiet \"$VERCEL_GIT_PREVIOUS_SHA\" HEAD -- pwa ':(exclude)pwa/design_log'; } || exit 1",
   "crons": [
     {
       "path": "/api/cron/company-operating-facts",
