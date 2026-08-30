@@ -47,7 +47,8 @@
 | $\mu^{\mathrm{f}}_t,\ \mu^{\mathrm{r}}_t$ | burn on the free / restricted account | |
 | $y_t$ | sales | **参照実装に無い**（近似 A10）。稿 §4.2 が開示 |
 | $z^{\mathrm{f}}_t,\ z^{\mathrm{r}}_t$ | funding inflows to each account | |
-| $\ell_t$ | contract earnings | |
+| $\ell_t$ | fiscal-year expiry of use-restricted funds | 正本 §5.2 は $\ell_t$ を「年度末の期限による使途制限資金の失効（繰越できない分）」と定義し、遷移式でも $-\ell_t$ と引いている。稿 §4.2 も「fiscal-year expiry」が残高を減らす側だと書いている。**contract earnings は $\ell_t$ ではなく $\rho_t r$**（次行） |
+| $\rho_t\, r$ | contract earnings | 自由資金の遷移式の $+\rho_t r$。$\rho_t$ 単体は §2.3 の contract-work share |
 | $\lambda^{\mathrm{obs}}$ | obsolescence hazard | |
 
 ### 2.2 案件パラメータ $\theta$（13量。直接は測れず、期間中は変わらないと置く）
@@ -74,7 +75,7 @@
 | 記号 | 稿の英語 |
 |---|---|
 | $\kappa_g,\ \eta_t,\ d_{f,g},\ \mathcal F,\ \gamma,\ \rho_t$ | gate coefficients; carrier-fill factor; gate distance; the gate family; drag term; contract-work share |
-| $\phi,\ \nu^{\mathrm{win}},\ \nu_k,\ \nu_c,\ \beta_i,\ \psi_g$ | award rate; window-arrival rate; offer-arrival rates; contract-arrival rate; instrument loadings; gate-specific technical-core loading |
+| $\phi,\ \nu^{\mathrm{win}},\ \nu_k,\ \nu_c,\ \beta_i,\ \psi_g$ | award rate; window-arrival rate; offer-arrival rates; contract-arrival rate; rights-resolution rates; gate-specific technical-core loading |
 | $t_q,\ m_q$ | the quiet period and its multiplier |
 | $\lambda^{\mathrm{comp}},\ \lambda^{\mathrm{dem}}$ | competitor-preemption and demand-disappearance hazards |
 | $\pi^{\mathrm{plan}},\ \pi^{*}$ | the registered plan; the optimal policy |
