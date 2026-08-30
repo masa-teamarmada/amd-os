@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   ArrowDown,
   ArrowUp,
@@ -15,6 +16,7 @@ import {
   Plus,
   Recycle,
   RotateCcw,
+  SlidersHorizontal,
   Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -248,6 +250,16 @@ export function CockpitKuteSeeds({
           )}
         </div>
         <div className="flex shrink-0 items-start gap-3">
+          {scope === "all" && (
+            <Link
+              href="/seeds/sensitivity"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              title="入力を1つずつ振ったときに産業創出価値がどう動くかを、つまみを動かして見る"
+            >
+              <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+              入力を動かして見る
+            </Link>
+          )}
           {scope === "all" && (
             <button
               type="button"

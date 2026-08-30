@@ -87,6 +87,12 @@ const REFERENCE_DATA_ENDPOINTS = [
     clientModule: "src/lib/bzm30-seed-client.ts",
   },
   {
+    endpoint: "/api/seeds/bzm30-sensitivity",
+    label: "入力を動かして見る (BZM 3.0 の感応の曲線)",
+    routeFile: "src/app/api/seeds/bzm30-sensitivity/route.ts",
+    clientModule: "src/lib/bzm30-sensitivity-client.ts",
+  },
+  {
     endpoint: "/api/project/:p/sps-current",
     label: "現行SPS｜産業創出価値の凍結評価 (PJコックピット)",
     routeFile: "src/app/api/project/[projectId]/sps-current/route.ts",

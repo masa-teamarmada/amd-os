@@ -39,6 +39,7 @@ export const SURFACE_CATALOG: readonly SurfaceDefinition[] = [
   { id: "portfolio-home", title: "ダッシュボード", navLabel: "ホーム", primaryPath: "/dashboard", domain: "portfolio", lens: "amd_portfolio", status: "canonical", exact: ["/dashboard"] },
   { id: "institutions-detail", title: "研究機関 ECR 詳細", domain: "portfolio", lens: "amd_portfolio", status: "canonical", prefixes: ["/institutions/"] },
   { id: "institutions", title: "研究機関 ECR", navLabel: "研究機関", primaryPath: "/institutions", domain: "portfolio", lens: "amd_portfolio", status: "canonical", exact: ["/institutions"] },
+  { id: "seeds-sensitivity", title: "入力を動かして見る", domain: "portfolio", lens: "amd_portfolio", status: "canonical", exact: ["/seeds/sensitivity"] },
   { id: "seeds", title: "Seeds", navLabel: "シーズ", primaryPath: "/seeds", domain: "portfolio", lens: "amd_portfolio", status: "canonical", exact: ["/seeds"] },
   { id: "shared-project-files", title: "PJ 資料室", domain: "knowledge_documents", lens: "shared_project", status: "canonical", patterns: [/^\/project\/[^/]+\/workspace\/files\/?$/] },
   { id: "shared-project", title: "PJ ワークスペース", domain: "project_execution", lens: "shared_project", status: "canonical", patterns: [/^\/project\/[^/]+\/workspace\/?$/] },
