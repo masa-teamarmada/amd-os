@@ -5,4 +5,11 @@
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 [ -f "$REPO_ROOT/pwa/scripts/check_deploy_quota.mjs" ] || exit 0
 ( cd "$REPO_ROOT" && node pwa/scripts/check_deploy_quota.mjs --gate ) || exit 1
+
+# 画面に出る変更が含まれているのに、先頭の commit に [skip ci] が付いていたら止める。
+# commit 側の判定は「その commit だけ」を見ているので、下に積んである他セッションの
+# 画面変更を巻き込んで反映されないまま残るのを、ここで防ぐ。
+if [ -f "$REPO_ROOT/pwa/scripts/deploy_skip.mjs" ]; then
+  ( cd "$REPO_ROOT" && node pwa/scripts/deploy_skip.mjs --gate-push ) || exit 1
+fi
 exit 0

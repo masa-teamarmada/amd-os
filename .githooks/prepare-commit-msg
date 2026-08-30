@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# 画面に出ない変更だけの commit には [skip ci] を足して、本番の反映を1件消費しないようにする。
+# 判定は pwa/scripts/deploy_skip.mjs（画面に出ないと確かめた場所の一覧を持つ）。
+# 判定できないとき・一覧に無い場所を触ったときは何もしない＝必ず反映する（安全側）。
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+[ -f "$REPO_ROOT/pwa/scripts/deploy_skip.mjs" ] || exit 0
+# merge / squash / amend の途中では触らない
+case "$2" in merge|squash) exit 0;; esac
+( cd "$REPO_ROOT" && node pwa/scripts/deploy_skip.mjs --decide-commit "$1" ) || true
+exit 0
