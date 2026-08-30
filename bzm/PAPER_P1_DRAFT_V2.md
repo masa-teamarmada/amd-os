@@ -252,7 +252,7 @@ The freeze is a dated act, not a manner of speaking: model version, coefficient 
 
 ![](figures_v2/fig2_score_distribution.png)
 
-**Figure 2. Scores and what is not yet known about them.** Twenty-one projects at the frozen model version, ordered by median value; the bar spans the 10th to 90th percentile of $v(\theta)$ and the multiplier is their ratio. Values span four orders of magnitude, and the width of what remains unknown varies from a factor of 1.0 to 11.6 — a project can be precisely small or imprecisely large, and the reporting format is built to keep those distinguishable. Marker shape and colour give the sample layer of §7.1.
+**Figure 2. Scores and what is not yet known about them.** Twenty-one projects at the frozen model version, ordered by median value; the bar spans the 10th to 90th percentile of $v(\theta)$ and the multiplier is their ratio. Values span four orders of magnitude, and the width of what remains unknown varies from a factor of 1.0 to 11.8 — a project can be precisely small or imprecisely large, and the reporting format is built to keep those distinguishable. Marker shape and colour give the sample layer of §7.1.
 
 ## 7.2 Dual scoring: what the database knows vs. what people know
 

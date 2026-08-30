@@ -77,7 +77,7 @@ const CLASSIFICATION = {
   '25f814a6-c151-098e-651f-6f23288fd829': { anon: 'C', pj: 'p20', name: 'CryoX', maskedB: ['conversion_c'] },
   '50fffaf7-8ab4-77fb-41c6-0e44d4ff890a': { anon: 'D', pj: 'p07', name: 'LiSTie', maskedB: ['burn_rate_yen_month'] },
   'bebf442f-fa5b-cdc9-de31-0d3fdf3e140d': { anon: 'E', pj: 'p29', name: 'KENQ', maskedB: [] },
-  '3c5cdae2-cd9a-6c4c-b7e1-c381df4e1343': { anon: 'F', pj: 'p09', name: 'JOYCLE', maskedB: [] },
+  '3c5cdae2-cd9a-6c4c-b7e1-c381df4e1343': { anon: 'F', pj: 'p04', name: '輝翠', maskedB: [] },   // 修正 2026-08-30: p09/p04 が入れ替わっていた（DB seed_projects が正）
   '8b2ec717-027c-4cb5-9760-190ccf30f71a': { anon: 'G', pj: 'p26', name: 'VasculaX', maskedB: ['evangelist_e'] },
   '39585700-88a6-70f1-8e6a-fccb03641204': {
     anon: 'H', pj: 'p03', name: 'ティエムファクトリ',
@@ -86,7 +86,7 @@ const CLASSIFICATION = {
   '00bb86dd-e1e3-9a69-4861-280b04424273': { anon: 'I', pj: 'p08', name: 'Carbon Cryo Capture', maskedB: [] },
   '091afcac-a7c8-1b04-1690-2af19ea85a2f': { anon: 'J', pj: 'p01', name: 'OPTMASS', maskedB: [] },
   'f4f4e30e-35ff-4c95-b9b0-f5629237b28e': { anon: 'K', pj: 'p21', name: 'SolvioraX', maskedB: ['evangelist_e'] },
-  'eeba1bfd-6020-225f-af8b-ed7717fc134e': { anon: 'L', pj: 'p04', name: '輝翠', maskedB: [] },
+  'eeba1bfd-6020-225f-af8b-ed7717fc134e': { anon: 'L', pj: 'p09', name: 'JOYCLE', maskedB: [] },   // 同上
   '24c43617-8c3a-5b10-95e3-5fa16e4718fb': { anon: 'M', pj: 'p11', name: 'Blue Water Energy', maskedB: [] },
   '2d289848-9278-b741-3437-5856d8dce6ff': {
     anon: 'N', pj: 'p16', name: 'ORLIB',
@@ -167,6 +167,13 @@ function toInit(row, ceilingYen, maskedFields) {
   if (Object.keys(funcs).length > 0) init.funcs = funcs;
   if (!masked('burn_rate_yen_month') && row.burn_rate_yen_month !== null && row.burn_rate_yen_month !== undefined) {
     init.burnMan = Math.round(Number(row.burn_rate_yen_month) / 10000);
+  }
+  // 会社化後の計画バーン（#2026-08-29-3。会社化前の案件のみ）。
+  // 参照実装 model/tools/bzm30_score_seeds.cjs の toInit と揃える——これを落とすと
+  // burn_post_yen_month を持つ CryoX・SolvioraX で凍結版のスコアを再現できない。
+  if (!masked('burn_post_yen_month') && !row.incorporated
+      && row.burn_post_yen_month !== null && row.burn_post_yen_month !== undefined) {
+    init.burnPostMan = Math.round(Number(row.burn_post_yen_month) / 10000);
   }
   // 天井（pNetOku）はマスク対象外（上のコメント参照）。
   if (ceilingYen !== null) init.pNetOku = ceilingYen / 1e8;
