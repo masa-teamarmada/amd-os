@@ -70,15 +70,23 @@ const breakdown = Object.entries(perProject)
   .map(([n, c]) => `${n} ${c}`)
   .join(" / ");
 
+// 実際にビルドが走ったものと、走らずに終わったものを分けて出す。
+// ignoreCommand で飛ばした分は CANCELED になる（2026-08-30 に実測。62af786e）。
+// **飛ばした分が 100/日 の上限に数えられるかどうかは、ここからは確かめられない**ので、
+// 合計は安全側（全部数える）のまま止め、内訳だけを見せて学習できるようにする。
+const built = deployments.filter((d) => d.state === "READY" || d.state === "ERROR").length;
+const skipped = deployments.filter((d) => d.state === "CANCELED").length;
+const detail = skipped > 0 ? `／うち実ビルド ${built}・中止/スキップ ${skipped}` : "";
+
 if (total > BLOCK_AT) {
-  console.error(`\n🛑 Vercel デプロイ枠が残りわずか: 直近24時間で ${total}/${LIMIT} 件 (${breakdown})`);
+  console.error(`\n🛑 Vercel デプロイ枠が残りわずか: 直近24時間で ${total}/${LIMIT} 件 (${breakdown})${detail}`);
   console.error("   使い切ると全プロジェクトが最大24時間反映できなくなる。push をまとめるか、時間を空けて。");
   console.error("   どうしても今 push する必要があるなら AMD_OS_DEPLOY_QUOTA_OVERRIDE=1 を付ける。\n");
   if (gate && process.env.AMD_OS_DEPLOY_QUOTA_OVERRIDE !== "1") process.exit(1);
 } else if (total > WARN_AT) {
-  console.error(`\n⚠️  Vercel デプロイ枠 注意: 直近24時間で ${total}/${LIMIT} 件 (${breakdown})`);
+  console.error(`\n⚠️  Vercel デプロイ枠 注意: 直近24時間で ${total}/${LIMIT} 件 (${breakdown})${detail}`);
   console.error("   残りが少ない。commit は小刻みでよいが、push はまとめる。\n   画面に出ない場所だけの commit は件名へ [skip ci] が自動で付き、反映を飛ばす\n   （判定は pwa/scripts/deploy_skip.mjs。`node pwa/scripts/deploy_skip.mjs --explain` で今の push がどちらか分かる）。\n");
 } else if (!gate) {
-  console.log(`Vercel デプロイ: 直近24時間 ${total}/${LIMIT} 件 (${breakdown})`);
+  console.log(`Vercel デプロイ: 直近24時間 ${total}/${LIMIT} 件 (${breakdown})${detail}`);
 }
 process.exit(0);
