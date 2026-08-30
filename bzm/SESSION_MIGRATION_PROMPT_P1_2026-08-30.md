@@ -19,15 +19,16 @@ P1論文（1報目）の続き。cwd は `/Users/masa/projects/AMD/amd-os/bzm`�
 ## 状態
 
 - 稿 = `PAPER_P1_DRAFT_V2.md` **v4.1**。読む用HTML = `PAPER_P1_PREVIEW_V2.html`（pandocで生成。`pandoc PAPER_P1_DRAFT_V2.md -o PAPER_P1_PREVIEW_V2.html --standalone --mathml --css=/tmp/paper_v2_style.css --embed-resources --resource-path=. --metadata lang=en`。CSSが消えていたら再作成が要る）
-- git は push 済み・未push 0件。Vercel のデプロイ枠は残り少ないので **docs以外のpushは束ねる**
+- git は push 済み・未push 0件（`73fd5bae` まで）。Vercel のデプロイ枠は残り少ないので **docs以外のpushは束ねる**
 - モデルのスコアの凍結版 = `a149fc30`。**モデル正本（`model/` 配下）は触らない**（別セッションの担当・ロックあり）
 - §7 の計算は凍結した分類（`CLASSIFICATION_FREEZE.md`、sha256記録）で再実行済み。結果は `paper_p1_dual_scoring.md`
 
 ## 残る作業（この順）
 
-1. **図2の差し替え**。図2（スコア分布）だけが凍結版より前の数値。`model/cases/SCORES.md` の21件の 10%/50%/90% を `paper_p1_figures_v2.py` の `SCORES` リストへ転記し（単位は10億円＝億の値÷10）、`python3 paper_p1_figures_v2.py` で5点とも再生成 → pandocでHTML再生成。**図の中の文字が本文幅で読める大きさかを実描画で確認する**（Chromeヘッドレスで検証した経緯あり）
-2. **語数の刈り込み** 11,026 → 10,000。編集長の指摘どおり、**中身を削るのではなく置き場所を変える**。§4.2〜§4.5 の記法（状態ベクトルの成分列挙・月次遷移の順序）と §6 の運用一式の細部を補足資料（SM）へ移す。§2 と §7 は削らない（査読で最も評価された部分）
-3. **まさの判断待ち2件**を片付ける（下記）
+1. **語数の刈り込み** 11,026 → 10,000。編集長の指摘どおり、**中身を削るのではなく置き場所を変える**。§4.2〜§4.5 の記法（状態ベクトルの成分列挙・月次遷移の順序）と §6 の運用一式の細部を補足資料（SM）へ移す。§2 と §7 は削らない（査読で最も評価された部分）
+2. **まさの判断待ち2件**を片付ける（下記）
+
+（**図2の差し替えは完了** — commit `73fd5bae`。あわせて `bzm/tools/dual_scoring.cjs` の欠陥2件を修正した。詳細は `HANDOFF_P1_2026-08-30.md`）
 
 ## まさの判断待ち
 
