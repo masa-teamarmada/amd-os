@@ -71,12 +71,14 @@ const breakdown = Object.entries(perProject)
   .join(" / ");
 
 // 実際にビルドが走ったものと、走らずに終わったものを分けて出す。
-// ignoreCommand で飛ばした分は CANCELED になる（2026-08-30 に実測。62af786e）。
+// **CANCELED は2種類が混ざる**——ignoreCommand で飛ばした分（2026-08-30 に 62af786e で実測）と、
+// 後から来た押しに追い越されて自動で止まった分（同日 15:16 の 007f463e がこれ）。
+// API からは区別できないので、ラベルもそう書く。
 // **飛ばした分が 100/日 の上限に数えられるかどうかは、ここからは確かめられない**ので、
 // 合計は安全側（全部数える）のまま止め、内訳だけを見せて学習できるようにする。
 const built = deployments.filter((d) => d.state === "READY" || d.state === "ERROR").length;
 const skipped = deployments.filter((d) => d.state === "CANCELED").length;
-const detail = skipped > 0 ? `／うち実ビルド ${built}・中止/スキップ ${skipped}` : "";
+const detail = skipped > 0 ? `／うち実ビルド ${built}・中止 ${skipped}（飛ばした分と追い越された分）` : "";
 
 if (total > BLOCK_AT) {
   console.error(`\n🛑 Vercel デプロイ枠が残りわずか: 直近24時間で ${total}/${LIMIT} 件 (${breakdown})${detail}`);
