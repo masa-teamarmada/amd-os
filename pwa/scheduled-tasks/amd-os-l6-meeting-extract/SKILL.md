@@ -717,6 +717,23 @@ row 構造:
 - `@今日...` 除去
 - 空白整理
 
+### D-1b: Drive会議資料を MTGカードの添付として取り込む (= 毎run self-healing)
+
+D-1 で開催済み row を保存したら、**同じ run で必ず**この route を呼ぶ。B-4 で読んだ Drive 資料は narrative の材料にしただけで、`meeting_assets` の行にはならない。行が無いと PJ コックピットのMTGカードは「添付なし」のままになり、まさは Drive を自分で開くことになる。
+
+```bash
+curl -s -X POST "$APP_BASE_URL/api/meeting-assets/adopt-drive-folder" \
+  -H "Authorization: Bearer $WORKFLOW_SECRET" \
+  -H "Content-Type: application/json" \
+  --data '{"meeting_id":"<event.id>","dry_run":false}'
+```
+
+- `drive_folder_id` は省略してよい。route が `meeting_date` の `YYMMDD` で PJフォルダ直下を前方一致で探す。B-4 で候補 folder を特定できている場合だけ `"drive_folder_id":"<folder id>"` を足す。
+- 追加専用。既に `meeting_assets` にある `drive_file_id` はスキップされるので、毎 run 呼んでも重複しない。**one-time backfill script を作らず、この呼び出しで揃える。**
+- 末尾 `_prep` の folder は route 側で除外される。
+- `adopted` が 0 件でも失敗ではない。`driveFolders` が空なら「その日付のMTGフォルダがまだ無い」だけなので、run summary に件数だけ残して次へ進む。
+- 402/403/502 が返っても H-1 は止めない。`review_required` として run summary に残し、以降の Phase を続ける。
+
 ### D-2: meeting_notifications upsert (= iOS APNs 通知)
 
 ```bash

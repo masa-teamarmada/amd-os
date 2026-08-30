@@ -127,16 +127,37 @@ H-1 が該当 Notion 議事録ページを特定できた場合、本文取得�
 | output | 用途 |
 |---|---|
 | `project_meeting_summaries` | MTG narrative / decided / progress / next_actions / risks |
-| `meeting_assets` | 手動添付の一般ファイル / スクショ / PDF / 画面共有資料。新規実体はDriveの `PJフォルダ / YYMMDD_会議名`、旧実体はprivate Storage |
+| `meeting_assets` | MTGカードの添付。手動添付とDrive既存資料の取り込みの2経路。実体はDriveの `PJフォルダ / YYMMDD_会議名`、旧実体はprivate Storage |
 | `meeting_notifications` | 旧 iOS APNs / 通知互換 |
 | `tsukuyomi_nudge_queue` or cockpit TODO | TODO の cockpit 反映 |
 | Calendar event | `+<PJ>` prefix の作業枠 |
 | Drive file | automation が生成できる資料 draft |
 | Gmail draft | facilitator 名義 follow-up draft。本送信は禁止 |
 
+## MTGカード添付 (`meeting_assets`) の2経路
+
+添付には writer が2つある。片方しか無いと、Driveに資料が揃っているのにOSでは「添付なし」に見える。
+
+| 経路 | route | 使いどころ |
+|---|---|---|
+| 手動アップロード | `POST /api/meeting-assets` | ブラウザで選んだファイル / ペースト画像 / 画面キャプチャを Drive の `PJフォルダ / YYMMDD_会議名` へ上げて行を作る |
+| Drive既存資料の取り込み | `POST /api/meeting-assets/adopt-drive-folder` | すでに Drive にある資料を、上げ直さず `drive_file_id` で紐づけるだけ |
+
+取り込み route の約束:
+
+- 認証は `calendar-sync` と同じ。`Authorization: Bearer <WORKFLOW_SECRET or CRON_SECRET>`、または admin session。
+- `dry_run` は既定 `true`。実際に行を作るのは `"dry_run": false` を明示したときだけ。
+- フォルダは `meeting_date` の `YYMMDD` で PJフォルダ直下を前方一致で探す。**会議タイトルとフォルダ名の一致は要求しない** (`title=CLG 取締役会` / `folder=260729_取締役会` は普通に起きる)。`drive_folder_id` を渡せばそのフォルダを直接使う。
+- 末尾が `_prep` のフォルダは対象外。W-Prep worker の下書き置き場であり、本カードの添付にしない。
+- 追加専用。既存行の上書き・削除はしない。`drive_file_id` が既に `meeting_assets` にあればスキップし、別MTGが持っている場合は `owned_by:<meeting_id>` として報告する。
+- Docs / Sheets / Slides は `alt=media` で落とせないため、`/api/meeting-assets/file/<assetId>` は Drive の閲覧画面へ redirect する。
+
+L2H-1 は Phase B-4 で対象MTGの Drive フォルダをすでに list している。**開催済みMTGを保存したあと、同じ run でこの route を `dry_run:false` で呼ぶ**。one-time backfill を cron 化するのではなく、毎回の run 内で揃える (cron 内 self-healing)。
+
 ## 禁止事項
 
 - Gmail を本送信しない。draft 止まり。
+- Driveに資料があることを、OSに入っていることと同じ扱いにしない。`meeting_assets` に行が無ければ、まさの画面には出ていない。
 - Calendar 作業枠を `+<PJ>` prefix なしで作らない。
 - freebusy を見ずに重複枠を作らない (= MTG カード → Calendar 一次防御 / tasks→Calendar 枠側の制約)。**Phase P の prep 枠は freebusy 不在時の F2 deterministic fallback で作ってよい** (= 2026-06-24 まさ確定、Phase P 節 + SKILL Phase P-2 A 参照)。
 - 前提データが足りない資料を強引に生成しない。

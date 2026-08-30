@@ -38,6 +38,12 @@ export async function GET(_req: Request, context: RouteContext) {
 
   const driveFileId = typeof asset.drive_file_id === "string" ? asset.drive_file_id : "";
   if (driveFileId || asset.storage_bucket === DRIVE_BACKED_BUCKET) {
+    // Docs / Sheets / Slides は alt=media で落とせないので、Drive の閲覧画面へ送る。
+    const mediaTypeValue = String(asset.media_type || "");
+    const webViewLink = typeof asset.web_view_link === "string" ? asset.web_view_link : "";
+    if (mediaTypeValue.startsWith("application/vnd.google-apps.") && webViewLink) {
+      return NextResponse.redirect(webViewLink);
+    }
     const authClient = await getGoogleAuthAsync();
     if (!authClient) {
       return NextResponse.json({ ok: false, error: "Google Drive credential が未設定だよ" }, { status: 500 });

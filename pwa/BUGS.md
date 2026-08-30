@@ -5,6 +5,17 @@
 
 ---
 
+### [data/meeting-assets] Driveに揃っている会議資料が、OSのMTGカードに1件も出てこなかった (2026-08-30)
+
+- **状態**: クローズ (2026-08-30 — CLG(p24) の取締役会6回分・23件を `meeting_assets` へ投入し、恒久経路として `POST /api/meeting-assets/adopt-drive-folder` を追加)
+- **症状**: CLG は取締役会のたびに招集通知・議案資料・予実比較・月次株主報告を Drive の `p24_clg/YYMMDD_取締役会/` へ揃えている。それなのに PJ コックピットのMTGカードには「添付なし」と出続け、`meeting_assets` の p24 の行は **0件** だった。まさ「ちゃんと得られてるから、OSに入れられてないなら入れないといけない」
+- **原因**: `meeting_assets` の writer が **`POST /api/meeting-assets`（ブラウザからファイルを選んで Drive へ上げる手動アップロード）1本しか無かった**。L2H-1 (`amd-os-l6-meeting-flow`) は Phase B-4 で同じ Drive フォルダを list しているが、その結果を narrative 抽出のテキスト (`driveText`) と、予定カード本文の Drive リンク行にしか使っておらず、`meeting_assets` の行は作らない。つまり **人が直接 Drive へ置いた資料 / 先方から届いた資料は、構造上いつまでも OS に登録されない**。「Drive に入っている」と「OS に入っている」が別物だった
+- **副作用**: あわせて **2026-03-27 / 04-22 / 07-29 の開催済みMTGカード自体が無かった**。07-29 は `upcoming:` の準備カードだけが残り、開始時刻を過ぎた予定カードは「予定MTG / 準備中」から外れる一方、`upcoming` を含む行は開催済み欄にも出ないので、**どの欄からも見えない行**になっていた
+- **対応内容**: (1) 3回分の開催済みカードを Drive の一次資料から起こして投入（03-27 は署名押印済みの議事録があるので `decided` を入れ、04-22 / 07-29 は資料のみなので spec 3-3 の「Drive資料だけを根拠に決定済みと書かない」に従い `decided` を空にして `narrative_md` へ資料上の論点として書いた）。(2) 6回分・23件を `meeting_assets` へ投入（PDFは pypdf、xlsx は openpyxl でテキストを取り `extracted_text` に格納）。(3) 恒久経路として `POST /api/meeting-assets/adopt-drive-folder` を追加。既存の Drive ファイルをアップロードし直さず `drive_file_id` で紐づけるだけの追加専用 route で、認証は `calendar-sync` と同じ workflow secret / admin session、既定は dry-run
+- **再発防止策**: **「生データがある」と「OSに入っている」を同じことだと書かない。** 自動化がある領域でも、その自動化が実際に**どのテーブルへ行を作るか**をコードで確認する。read しているだけで write していない経路は珍しくない。L6 SKILL の Phase B-4 のあとに adopt route の呼び出しを入れ、cron 内 self-healing として毎回揃うようにした（one-time backfill を cron 化しない）。**Drive のファイルIDはマウント経由でも取れる** — `xattr -p 'com.google.drivefs.item-id#S' <path>`。日本語ファイル名は NFD で格納されているので `find -iname` は効かず、Python の `os.walk` + `unicodedata.normalize('NFC', name)` を使う
+
+---
+
 ### [docs/nextjs-scaffold] `pwa/AGENTS.md` が永久に dirty で、別セッションの deploy を止め続けていた (2026-08-29)
 
 - **状態**: クローズ (2026-08-29 — commit `fbdf8ce2` で AMD の注記を自動生成ブロックの外へ出した)
