@@ -54,6 +54,17 @@ for (const banned of ["payoutGap", "payoutGapMonths", "PAYOUT_GAP_MIN_MONTHS", "
 }
 assert.doesNotMatch(client, /持ち出し/, "「持ち出し」という表示を画面へ戻さない");
 
+// 「枠超え」は予算オーバーと誤読される (2026-08-30 まさ「そもそも枠ってなに？」)。
+// 配った額が上限を超えることはなく、超えるのは働いた分の請求権のほう。
+assert.doesNotMatch(client, /枠超え/, "「枠超え」という表示を戻さない。予算オーバーと誤読される");
+assert.match(client, /未払いが積み上がる/, "警報は実際に起きること (未払いが積み上がる) で呼ぶ");
+assert.match(client, /未払残/, "実際に残っている未払残を金額の列として出す");
+assert.match(
+  lib,
+  /unpaidExternalYen = monthUnpaidExternal;/,
+  "未払残は残高なので月をまたいで合計せず、最新の実績月の値で上書きする (7-1章)",
+);
+
 // --- 3. 列の出どころを固定する ---------------------------------------------------------
 assert.match(
   lib,

@@ -119,8 +119,14 @@ export type ProjectProfitabilityRow = {
   grossDueYen: number;
   /** 会社に残った率 = 会社に残った配分 ÷ 配分枠。高いほど現金が出ていっていない。 */
   retentionRate: number | null;
-  /** 需要/枠 比率 = 稼働需要総額 ÷ 実効枠。1.0を超えるほど枠に対し稼働が過剰。 */
+  /** 働いた分 ÷ 配れる額。1.0を超えるほど、配れる額に対して仕事が多い。 */
   demandCapRatio: number | null;
+  /**
+   * 外部メンバーへの未払残（最新の実績月の残高スナップショット）。
+   * 配れる上限に当たって今月配りきれなかった分が翌月へ送られる。7-1章のとおり
+   * stockYen は残高なので月をまたいで合計しない。最新の実績月の値だけを読む。
+   */
+  unpaidExternalYen: number;
   /** まさ投下時間 (開発+MTG) */
   masaHours: number;
   /** まさ時間あたり請求額(推定) */
@@ -151,6 +157,7 @@ function computeRow(
   let grossDueYen = 0;
   let monthsActual = 0;
   let monthsPlanned = 0;
+  let unpaidExternalYen = 0;
   const memberAgg = new Map<
     string,
     { grossDueYen: number; paidYen: number; retainedYen: number; payoutExcluded: boolean }
@@ -171,6 +178,8 @@ function computeRow(
     grossDueYen += Math.max(0, numberValue(summary.totalGrossDueYen));
 
     const members = Array.isArray(summary.members) ? summary.members : [];
+    // 残高なので加算しない。実績月を新しい順に上書きし、最後に残った値が最新月の未払残になる。
+    let monthUnpaidExternal = 0;
     for (const raw of members) {
       const member = asRecord(raw);
       if (!member) continue;
@@ -186,8 +195,10 @@ function computeRow(
       agg.paidYen += Math.max(0, numberValue(member.totalPay));
       agg.retainedYen += Math.max(0, numberValue(member.companyReserveYen));
       if (member.payoutExcluded === true) agg.payoutExcluded = true;
+      else monthUnpaidExternal += Math.max(0, numberValue(member.stockYen));
       memberAgg.set(memberId, agg);
     }
+    unpaidExternalYen = monthUnpaidExternal;
   }
 
   const members: ProjectProfitabilityMember[] = [...memberAgg.entries()]
@@ -218,6 +229,7 @@ function computeRow(
     grossDueYen: Math.round(grossDueYen),
     retentionRate,
     demandCapRatio,
+    unpaidExternalYen: Math.round(unpaidExternalYen),
     masaHours: Math.round(masaHours * 100) / 100,
     revenuePerMasaHour,
     monthsActual,

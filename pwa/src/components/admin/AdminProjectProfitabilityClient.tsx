@@ -90,7 +90,7 @@ function MemberDetailTable({ row }: { row: ProjectProfitabilityRow }) {
 
 // ---- 一覧 ------------------------------------------------------------------
 
-const COLS = 9;
+const COLS = 10;
 
 function ProfitabilityTable({
   rows,
@@ -106,7 +106,7 @@ function ProfitabilityTable({
   }
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="w-full min-w-[1040px] text-sm">
+      <table className="w-full min-w-[1180px] text-sm">
         <thead className="bg-muted/50 text-xs text-muted-foreground">
           <tr>
             <th className="px-3 py-2 text-left font-normal">PJ</th>
@@ -117,7 +117,10 @@ function ProfitabilityTable({
             <th className="px-3 py-2 text-right font-normal">外部へ支払</th>
             <th className="px-3 py-2 text-right font-normal">会社に残った</th>
             <th className="px-3 py-2 text-right font-normal">残った率</th>
-            <th className="px-3 py-2 text-right font-normal">需要/枠</th>
+            <th className="px-3 py-2 text-right font-normal">
+              働いた分<span className="mx-0.5 text-[10px]">÷</span>配れる額
+            </th>
+            <th className="px-3 py-2 text-right font-normal">未払残</th>
             <th className="px-3 py-2 text-right font-normal">まさ時間</th>
             <th className="px-3 py-2 text-right font-normal">まさ1時間あたり</th>
           </tr>
@@ -137,9 +140,9 @@ function ProfitabilityTable({
                       {row.warnings.capOverage ? (
                         <span
                           className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400"
-                          title="発生した稼働が、配れる枠の1.5倍を超えている"
+                          title="働いた分が、その月に配れる額の1.5倍を超えている。配りきれない分が翌月へ送られ続けている"
                         >
-                          稼働が枠超え
+                          未払いが積み上がる
                         </span>
                       ) : null}
                       {row.warnings.noRewardCalc ? (
@@ -173,6 +176,15 @@ function ProfitabilityTable({
                     >
                       {fmtRatio(row.demandCapRatio)}
                     </span>
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {row.unpaidExternalYen > 0 ? (
+                      <span className="font-medium text-amber-700 dark:text-amber-400">
+                        {fmtYen(row.unpaidExternalYen)}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmtHours(row.masaHours)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">
@@ -245,8 +257,17 @@ export function AdminProjectProfitabilityClient() {
           <span className="font-medium text-foreground">残った率が高いPJほど、現金が出ていっていない</span>。
         </p>
         <p className="mt-1.5">
-          <span className="font-medium text-amber-700 dark:text-amber-400">稼働が枠超え</span>
-          ：実際に発生した稼働が、配れる枠の1.5倍を超えている。誰かの分が翌月以降へ繰り越されている。
+          <span className="font-medium text-foreground">配れる額</span>
+          ＝その月に配分枠から実際に配れるお金の上限（前月の使い残しを含む）。
+          <span className="font-medium text-foreground">働いた分</span>
+          ＝メンバーがポイントを消化して発生した、本来もらえるはずの額の合計。
+          配った額がこの上限を超えることはない。超えるのは働いた分のほうで、
+          配りきれなかった差額は<span className="font-medium text-foreground">未払残</span>として翌月へ送られる。
+        </p>
+        <p className="mt-1.5">
+          <span className="font-medium text-amber-700 dark:text-amber-400">未払いが積み上がる</span>
+          ：働いた分が配れる額の1.5倍を超えている。売上に対して仕事が多すぎるか、
+          マイルストーンのポイント設定が実態より大きい。
         </p>
       </div>
 
