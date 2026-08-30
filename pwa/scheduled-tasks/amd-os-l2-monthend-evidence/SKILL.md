@@ -72,7 +72,16 @@ M-1・M-2と当月の予実を使い、`company_management_signal_reviews` の c
 - 入力は `company_budget_monthly`、`company_actual_monthly`、`company_budget_variance_notes`、当月M-1、当月M-2。
 - `summary`、`forecast_summary`、`cost_actions`、`pipeline_actions`、`variance_findings`、`risk_alerts`、`decision_signals`、短い `source_refs_json` を作る。
 - 根拠が不足する欄は未確認として残し、推測で埋めない。
-- 保存は current spec に記載された承認済み経路だけを使う。経路が不明なら `review_required` で止める。
+- 保存は承認済み helper だけを使う。
+
+```bash
+node pwa/scripts/ms_progress_review_tool.mjs upsert-management-signals --file "$M3_OUTBOX"
+```
+
+  outbox は `{"managementSignalReviews":[{ ym, status, summary, forecast_summary, cost_actions, pipeline_actions, variance_findings, risk_alerts, decision_signals, source_refs_json }]}`。`UNIQUE(ym,status)` なので既存月は `skipped_exists` になり、書き直すときだけ `force:true` を付ける。Supabase connector / SQL / REST で直接 write しない。
+- 予実は `company_budget_actual_monthly` の **`budget_version='os-live-current'`** を使う。`gas-2026-05-18-baseline` は別値 (Cash も runway も異なる) なので月末評価の根拠に混ぜない。
+- `billing_cycles.budget_yen` は**請求額ではなく月次の配分 cap** (`(請求額 − バッファ) × 65%` 由来、正本 `pwa/manual/7-1-reward-calc-spec.md`)。「未請求◯◯円」と書くときに請求額として扱わない。請求の進み具合は `invoice_sent_at` / `payment_confirmed_at` の有無で見る。
+- OS の `billing_cycles` は freee 上の実際の請求状況とは別。送付済みかどうかを OS の記録だけで断定しない。
 
 ## 完了条件
 

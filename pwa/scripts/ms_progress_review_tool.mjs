@@ -2092,6 +2092,58 @@ function validateMonthlyReportContent(content) {
   return { ok: errors.length === 0, errors, normalized };
 }
 
+// M-3 経営月次シグナル評価 (company_management_signal_reviews)。
+// 月次試算表の予実から作る経営判断メモ。UNIQUE(ym, status) なので同 status は上書き更新する。
+async function upsertManagementSignalReviews(items) {
+  const now = new Date().toISOString();
+  const validStatus = new Set(["auto_preview", "candidate", "confirmed", "archived"]);
+  const written = [];
+  for (const item of items) {
+    const ym = String(item.ym || "").trim();
+    if (!/^\d{6}$/.test(ym)) throw new Error(`managementSignalReviews requires ym=YYYYMM: ${JSON.stringify(item)}`);
+    const summary = String(item.summary || "").trim();
+    if (!summary) throw new Error(`managementSignalReviews requires summary for ${ym}`);
+    const status = validStatus.has(String(item.status || "candidate")) ? String(item.status || "candidate") : "candidate";
+    const arr = (v) => (Array.isArray(v) ? v : []);
+    const row = {
+      ym,
+      status,
+      summary,
+      forecast_summary: item.forecast_summary ?? item.forecastSummary ?? null,
+      cost_actions: arr(item.cost_actions ?? item.costActions),
+      pipeline_actions: arr(item.pipeline_actions ?? item.pipelineActions),
+      variance_findings: arr(item.variance_findings ?? item.varianceFindings),
+      risk_alerts: arr(item.risk_alerts ?? item.riskAlerts),
+      decision_signals: arr(item.decision_signals ?? item.decisionSignals),
+      source_refs_json: arr(item.source_refs_json ?? item.sourceRefs),
+      created_by: item.created_by || "eimi_month_end_review",
+      updated_at: now,
+    };
+    const existing = await get(
+      "company_management_signal_reviews",
+      `select=id&ym=eq.${enc(ym)}&status=eq.${enc(status)}&limit=1`,
+    );
+    if (existing?.length) {
+      if (item.force !== true) {
+        written.push({ action: "skipped_exists", ym, status });
+        continue;
+      }
+      const updated = await requestJson(
+        rest("company_management_signal_reviews", `id=eq.${enc(existing[0].id)}&select=id,ym,status`),
+        { method: "PATCH", headers: restHeaders({ prefer: "return=representation" }), body: row },
+      );
+      written.push({ action: "updated", row: updated?.[0] ?? { ym, status } });
+    } else {
+      const inserted = await requestJson(
+        rest("company_management_signal_reviews", "select=id,ym,status"),
+        { method: "POST", headers: restHeaders({ prefer: "return=representation" }), body: { ...row, created_at: now } },
+      );
+      written.push({ action: "inserted", row: inserted?.[0] ?? { ym, status } });
+    }
+  }
+  return { ok: true, writtenCount: written.length, written };
+}
+
 async function upsertMonthlyReports(items) {
   const now = new Date().toISOString();
   const written = [];
@@ -2636,6 +2688,10 @@ async function main() {
     });
   } else if (cmd === "upsert-source-cache") {
     result = await upsertSourceCache(readJson(args.file).sourceCache || readJson(args.file).items || []);
+  } else if (cmd === "upsert-management-signals") {
+    result = await upsertManagementSignalReviews(
+      readJson(args.file).managementSignalReviews || readJson(args.file).managementSignals || [],
+    );
   } else if (cmd === "upsert-monthly-reports") {
     result = await upsertMonthlyReports(readJson(args.file).monthlyReports || readJson(args.file).items || []);
   } else if (cmd === "upsert-monthly-reports-external") {
