@@ -1,12 +1,8 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import type { ProjectProfitabilityRow } from "@/lib/project-profitability";
-import {
-  loadProjectProfitability,
-  peekProjectProfitability,
-  prefetchProjectProfitability,
-} from "@/lib/project-profitability-client";
+import { loadProjectProfitability, peekProjectProfitability } from "@/lib/project-profitability-client";
 
 // ---- formatters ------------------------------------------------------------
 
@@ -32,17 +28,23 @@ function fmtHours(value: number | null | undefined): string {
   return `${(Math.round(n * 10) / 10).toLocaleString("ja-JP")}h`;
 }
 
-// ---- 会社に残った率のバー ---------------------------------------------------
+/** "202604" → "26年4月" */
+function fmtYm(ym: string): string {
+  if (!/^\d{6}$/.test(ym)) return ym;
+  return `${ym.slice(2, 4)}年${Number(ym.slice(4, 6))}月`;
+}
 
-function RetentionBar({ rate }: { rate: number | null }) {
-  if (rate === null) return <span className="text-muted-foreground">—</span>;
-  const pct = Math.max(0, Math.min(100, rate * 100));
+// ---- 配分の内訳バー ---------------------------------------------------------
+
+/** 原資を100として、外部へ出た分・会社に残った分・まだ配っていない分を1本で見せる。 */
+function AllocationBar({ row }: { row: ProjectProfitabilityRow }) {
+  if (row.seasonBudgetYen <= 0) return <span className="text-muted-foreground">—</span>;
+  const ext = Math.max(0, Math.min(100, (row.externalPaidYen / row.seasonBudgetYen) * 100));
+  const ret = Math.max(0, Math.min(100 - ext, (row.retainedYen / row.seasonBudgetYen) * 100));
   return (
-    <div className="flex items-center justify-end gap-2">
-      <div className="h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-emerald-500/70" style={{ width: `${pct}%` }} />
-      </div>
-      <span className="w-9 text-right tabular-nums">{fmtPct(rate)}</span>
+    <div className="flex h-2 w-full min-w-[90px] overflow-hidden rounded-full bg-muted">
+      <div className="h-full bg-amber-500/80" style={{ width: `${ext}%` }} title="外部へ現金" />
+      <div className="h-full bg-emerald-500/80" style={{ width: `${ret}%` }} title="会社に残る" />
     </div>
   );
 }
@@ -51,7 +53,7 @@ function RetentionBar({ rate }: { rate: number | null }) {
 
 function MemberDetailTable({ row }: { row: ProjectProfitabilityRow }) {
   if (row.members.length === 0) {
-    return <p className="px-4 py-3 text-xs text-muted-foreground">この年は、まだ報酬計算が回っていない。</p>;
+    return <p className="px-4 py-3 text-xs text-muted-foreground">このシーズンは、まだ報酬計算が回っていない。</p>;
   }
   return (
     <div className="overflow-x-auto py-1 pl-6">
@@ -61,7 +63,7 @@ function MemberDetailTable({ row }: { row: ProjectProfitabilityRow }) {
             <th className="px-3 py-1.5 text-left font-normal">メンバー</th>
             <th className="w-[130px] px-3 py-1.5 text-right font-normal">稼働需要額</th>
             <th className="w-[130px] px-3 py-1.5 text-right font-normal">現金で支払</th>
-            <th className="w-[130px] px-3 py-1.5 text-right font-normal">会社に残った</th>
+            <th className="w-[130px] px-3 py-1.5 text-right font-normal">会社に残る</th>
           </tr>
         </thead>
         <tbody>
@@ -90,7 +92,7 @@ function MemberDetailTable({ row }: { row: ProjectProfitabilityRow }) {
 
 // ---- 一覧 ------------------------------------------------------------------
 
-const COLS = 10;
+const COLS = 9;
 
 function ProfitabilityTable({
   rows,
@@ -99,93 +101,81 @@ function ProfitabilityTable({
 }: {
   rows: ProjectProfitabilityRow[];
   expandedId: string | null;
-  onToggle: (projectId: string) => void;
+  onToggle: (id: string) => void;
 }) {
   if (rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">この年に配分枠のある PJ が無い。</p>;
+    return <p className="text-sm text-muted-foreground">原資の入ったシーズンが無い。</p>;
   }
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="w-full min-w-[1180px] text-sm">
+      <table className="w-full min-w-[1120px] text-sm">
         <thead className="bg-muted/50 text-xs text-muted-foreground">
           <tr>
-            <th className="px-3 py-2 text-left font-normal">PJ</th>
+            <th className="px-3 py-2 text-left font-normal">PJ / シーズン</th>
             <th className="px-3 py-2 text-right font-normal">
               請求額<span className="ml-0.5 text-[10px]">(推定)</span>
             </th>
-            <th className="px-3 py-2 text-right font-normal">配分枠 65%</th>
-            <th className="px-3 py-2 text-right font-normal">外部へ支払</th>
-            <th className="px-3 py-2 text-right font-normal">会社に残った</th>
-            <th className="px-3 py-2 text-right font-normal">残った率</th>
-            <th className="px-3 py-2 text-right font-normal">
-              働いた分<span className="mx-0.5 text-[10px]">÷</span>配れる額
-            </th>
-            <th className="px-3 py-2 text-right font-normal">未払残</th>
+            <th className="px-3 py-2 text-right font-normal">シーズン原資</th>
+            <th className="px-3 py-2 text-right font-normal">外部へ現金</th>
+            <th className="px-3 py-2 text-right font-normal">会社に残る</th>
+            <th className="px-3 py-2 text-left font-normal">配分</th>
+            <th className="px-3 py-2 text-right font-normal">残る率</th>
             <th className="px-3 py-2 text-right font-normal">まさ時間</th>
             <th className="px-3 py-2 text-right font-normal">まさ1時間あたり</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => {
-            const expanded = expandedId === row.projectId;
+            const expanded = expandedId === row.planCycleId;
+            const unallocated = Math.max(0, row.seasonBudgetYen - row.allocatedYen);
             return (
-              <Fragment key={row.projectId}>
+              <Fragment key={row.planCycleId}>
                 <tr
                   className="cursor-pointer border-t border-border hover:bg-accent/40"
-                  onClick={() => onToggle(row.projectId)}
+                  onClick={() => onToggle(row.planCycleId)}
                 >
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="font-medium">{row.projectName}</span>
-                      {row.warnings.capOverage ? (
+                      {row.cycleStatus === "active" ? (
+                        <span className="rounded bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:text-sky-400">
+                          進行中
+                        </span>
+                      ) : null}
+                      {row.warnings.demandOverBudget ? (
                         <span
                           className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400"
-                          title="働いた分が、その月に配れる額の1.5倍を超えている。配りきれない分が翌月へ送られ続けている"
+                          title="ポイントの消化量がシーズン原資の1.5倍を超えている。マイルストーンの設定が原資に対して大きすぎる"
                         >
-                          未払いが積み上がる
+                          需要 {fmtRatio(row.demandBudgetRatio)}
                         </span>
                       ) : null}
                       {row.warnings.noRewardCalc ? (
-                        <span
-                          className="rounded bg-slate-500/15 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300"
-                          title="配分枠はあるが、この年の報酬計算がまだ動いていない"
-                        >
+                        <span className="rounded bg-slate-500/15 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300">
                           報酬計算まだ
                         </span>
                       ) : null}
                     </div>
                     <div className="text-[11px] text-muted-foreground">
-                      {row.projectId} · 実績{row.monthsActual}ヶ月
-                      {row.monthsPlanned > 0 ? ` / 計画${row.monthsPlanned}ヶ月` : ""}
+                      {row.projectId} · {fmtYm(row.periodStartYm)}〜{fmtYm(row.periodEndYm)}
+                      {row.monthsUnconfirmed > 0 ? ` · 未確定${row.monthsUnconfirmed}ヶ月を含む見込み` : ""}
                     </div>
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmtYen(row.estimatedRevenueYen)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{fmtYen(row.capBudgetYen)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{fmtYen(row.externalPaidYen)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums font-medium text-emerald-700 dark:text-emerald-400">
+                  <td className="px-3 py-2 text-right font-medium tabular-nums">{fmtYen(row.seasonBudgetYen)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-amber-700 dark:text-amber-400">
+                    {fmtYen(row.externalPaidYen)}
+                  </td>
+                  <td className="px-3 py-2 text-right font-medium tabular-nums text-emerald-700 dark:text-emerald-400">
                     {fmtYen(row.retainedYen)}
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    <RetentionBar rate={row.retentionRate} />
+                  <td className="px-3 py-2">
+                    <AllocationBar row={row} />
+                    {unallocated > 0 ? (
+                      <div className="mt-1 text-[10px] text-muted-foreground">未配分 {fmtYen(unallocated)}</div>
+                    ) : null}
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    <span
-                      className={
-                        row.warnings.capOverage ? "font-semibold text-amber-700 dark:text-amber-400" : undefined
-                      }
-                    >
-                      {fmtRatio(row.demandCapRatio)}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {row.unpaidExternalYen > 0 ? (
-                      <span className="font-medium text-amber-700 dark:text-amber-400">
-                        {fmtYen(row.unpaidExternalYen)}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
+                  <td className="px-3 py-2 text-right font-medium tabular-nums">{fmtPct(row.retentionRate)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmtHours(row.masaHours)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {row.revenuePerMasaHour === null ? "—" : fmtYen(row.revenuePerMasaHour)}
@@ -209,86 +199,46 @@ function ProfitabilityTable({
 
 // ---- root ------------------------------------------------------------------
 
-function currentYear(): number {
-  return new Date().getFullYear();
-}
-
 export function AdminProjectProfitabilityClient() {
-  const years = useMemo(() => {
-    const y = currentYear();
-    return [y - 2, y - 1, y, y + 1];
-  }, []);
-  const [year, setYear] = useState<number>(currentYear());
   const [rows, setRows] = useState<ProjectProfitabilityRow[] | null>(
-    () => peekProjectProfitability(currentYear())?.rows ?? null,
+    () => peekProjectProfitability()?.rows ?? null,
   );
   const [loading, setLoading] = useState(rows === null);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const load = useCallback((y: number) => {
-    const cached = peekProjectProfitability(y);
-    if (cached) {
-      setRows(cached.rows);
-      setLoading(false);
-    } else {
-      setLoading(true);
-    }
+  const load = useCallback(() => {
     setError(null);
-    loadProjectProfitability(y)
+    loadProjectProfitability()
       .then((payload) => setRows(payload.rows))
       .catch((err) => setError(err instanceof Error ? err.message : "PJ別利益構造を読み込めなかった"))
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
-    load(year);
-    setExpandedId(null);
-  }, [year, load]);
+    load();
+  }, [load]);
 
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-border bg-muted/20 px-4 py-3 text-xs leading-5 text-muted-foreground">
         <p>
-          クライアントへの請求額のうち<span className="font-medium text-foreground">65%がメンバーへの配分枠</span>
-          で、メンバーはマイルストーンのポイントを消化してこの枠を分け合う。
-          まさがポイントを多く取るほど外部メンバーへ配る額が減り、その分が
-          <span className="font-medium text-emerald-700 dark:text-emerald-400">会社に残る</span>。
-          <span className="font-medium text-foreground">残った率が高いPJほど、現金が出ていっていない</span>。
+          <span className="font-medium text-foreground">シーズン原資</span>
+          ＝そのシーズンでメンバーに配ると決まっている総額（請求額から契約バッファを引いた65%）。
+          月ごとの支払は<span className="font-medium text-foreground">いつ払うか</span>を決めているだけで、
+          総額は最初から動かない。だからこの画面は月ではなくシーズンで通して見る。
         </p>
         <p className="mt-1.5">
-          <span className="font-medium text-foreground">配れる額</span>
-          ＝その月に配分枠から実際に配れるお金の上限（前月の使い残しを含む）。
-          <span className="font-medium text-foreground">働いた分</span>
-          ＝メンバーがポイントを消化して発生した、本来もらえるはずの額の合計。
-          配った額がこの上限を超えることはない。超えるのは働いた分のほうで、
-          配りきれなかった差額は<span className="font-medium text-foreground">未払残</span>として翌月へ送られる。
+          原資は
+          <span className="font-medium text-amber-700 dark:text-amber-400">外部メンバーへの現金</span>と
+          <span className="font-medium text-emerald-700 dark:text-emerald-400">会社に残る分</span>
+          に分かれる。まさがポイントを多く取るほど外部へ配る額が減り、会社に残る。
+          <span className="font-medium text-foreground">残る率が高いシーズンほど利益が出ている</span>。
         </p>
         <p className="mt-1.5">
-          <span className="font-medium text-amber-700 dark:text-amber-400">未払いが積み上がる</span>
-          ：働いた分が配れる額の1.5倍を超えている。売上に対して仕事が多すぎるか、
-          マイルストーンのポイント設定が実態より大きい。
+          <span className="font-medium text-amber-700 dark:text-amber-400">需要 N×</span>
+          ：ポイントの消化量が原資の1.5倍を超えている。マイルストーンの設定が原資に対して大きすぎる。
         </p>
-      </div>
-
-      <div className="flex items-center gap-1.5">
-        {years.map((y) => (
-          <button
-            key={y}
-            type="button"
-            onClick={() => setYear(y)}
-            onMouseEnter={() => prefetchProjectProfitability(y)}
-            onFocus={() => prefetchProjectProfitability(y)}
-            className={
-              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors " +
-              (year === y
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground")
-            }
-          >
-            {y}年
-          </button>
-        ))}
       </div>
 
       {error ? (
@@ -304,11 +254,11 @@ export function AdminProjectProfitabilityClient() {
           <ProfitabilityTable
             rows={rows ?? []}
             expandedId={expandedId}
-            onToggle={(projectId) => setExpandedId((prev) => (prev === projectId ? null : projectId))}
+            onToggle={(id) => setExpandedId((prev) => (prev === id ? null : id))}
           />
           <p className="text-[11px] leading-4 text-muted-foreground">
-            行をクリックすると、そのPJのメンバー別の内訳が開く。請求額は配分枠から逆算した推定値で、
-            契約バッファ（旅費・営業費）を先取りしている月はやや大きく出る。
+            行をクリックすると、そのシーズンのメンバー別の内訳が開く。進行中のシーズンは未確定の月も見込みとして
+            合算している。請求額は原資から逆算した推定値で、契約バッファ（旅費・営業費）のぶん実際より小さく出る。
           </p>
         </>
       )}

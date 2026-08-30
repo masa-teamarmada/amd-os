@@ -1,26 +1,29 @@
 // PJ別 利益構造ダッシュボード — service_role 読み取り層。
 //
 // この画面が答える問い:
-//   「配分枠のうち、どれだけが外部への現金支払として出ていき、どれだけが会社に残ったか」
+//   「シーズンで決まっている原資のうち、どれだけが外部への現金支払として出ていき、
+//     どれだけが会社に残るか」
+//
+// 【なぜ年ではなくシーズン単位か】2026-08-30 まさ確定。
+// シーズン(plan cycle)で払う総額は最初から決まっている (value_plan_cycles.budget_yen)。
+// 月ごとの cap 按分は「いつ払うか」を決めているだけで、「いくら払うか」ではない。
+// だから月末時点の未払残は収益率を見るうえでノイズにしかならない。
+// 実際、配分が進んだシーズンでは 外部支払 + 会社留保 = シーズン原資 にぴったり一致する
+// (KUTE 202605-202703 = 4,679,994円、CX 202606-202609 = 585,000円)。
+// 総額は固定で、変わるのは外部と社内の配分比だけ。それが収益率そのもの。
+// シーズンは年をまたぐ (SX は 202604-202703)。年で切ると1シーズンが分断される。
 //
 // 【報酬モデルの前提】正本 pwa/manual/7-1-reward-calc-spec.md
-//   - 請求額 × 65% が PJ メンバー配分枠 (= billing_cycles.budget_yen)。残り35%は
-//     AMD運営費30% + クローザー報酬5% の外枠で、reward_summary_json には入らない。
-//   - メンバーは MS のポイントを消化して稼働需要 (grossDueYen) を発生させ、配分枠を按分する。
+//   - シーズン原資 = (請求額 − 契約バッファ) × 65%。残り35%は AMD運営費30% +
+//     クローザー報酬5% の外枠で、reward_summary_json には入らない。
+//   - メンバーは MS のポイントを消化して稼働需要 (grossDueYen) を発生させ、原資を按分する。
 //   - `payoutExcluded` (= members.exclude_from_payout_notice) のメンバーへ按分された分は
 //     現金支払されず `companyReserveYen` として会社に残る。まさはこの区分。
-//   - つまり **まさがポイントを多く消化するほど、外部メンバーへ配る枠が減り、会社に残る額が増える**。
-//     まさの現金支払が0円なのは設計どおりで、放棄でも持ち出しでもない。
+//   - つまり **まさがポイントを多く消化するほど、外部メンバーへ配る額が減り、会社に残る額が増える**。
+//     まさへの現金支払が0円なのは設計どおりで、配分の放棄でも持ち出しでもない。
 //
-// 【この画面で使う列の対応】
-//   配分枠     = budget_yen + extra_budget_yen        (請求額そのものではない。65%後の額)
-//   実効枠     = effectiveCapBudgetYen                 (前月からの未使用枠繰越を含む、実際の按分上限)
-//   外部支払   = externalPayoutCapYen                  (支払対象メンバーへ実際に出た現金)
-//   会社に残る = companyReserveYen                     (支払対象外メンバーへの非現金配賦)
-//   稼働需要   = totalGrossDueYen                      (cap前の請求可能稼働の総額)
-//
-// 【参照系キャッシュ】billing_cycles は月次締め処理でしか更新されない参照系。
-// 年単位でまとめて読み、プロセス内に5分持つ (同時アクセスは1本へ束ねる)。
+// 【参照系キャッシュ】billing_cycles / value_plan_cycles は月次締めでしか更新されない参照系。
+// 全シーズンをまとめて1回読み、プロセス内に5分持つ (同時アクセスは1本へ束ねる)。
 // 規範: pwa/spec/5-10-reference-data-caching-current-spec.md
 import "server-only";
 
@@ -29,10 +32,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const MASA_MEMBER_ID = "ID001";
 /** 請求額のうちメンバー配分枠に回る比率。請求額を逆算するためだけに使う。 */
 const MEMBER_SHARE_RATE = 0.65;
-/** 稼働需要が実効枠のこの倍数を超えたら「枠に対して稼働が過剰」警報。 */
-const DEMAND_OVER_CAP_THRESHOLD = 1.5;
-/** billing_cycles を実績とみなさない status。未来の計画月を実績に混ぜない。 */
-const FUTURE_BILLING_STATUSES = new Set(["not_started"]);
+/** 稼働需要がシーズン原資のこの倍数を超えたら「ポイント設定が原資に対して大きすぎる」警報。 */
+const DEMAND_OVER_BUDGET_THRESHOLD = 1.5;
 
 function numberValue(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value ?? 0);
@@ -64,20 +65,40 @@ async function fetchAllRows<T>(
   }
 }
 
+/** "202604" → "2026-04-01"。まさの投下時間を週次テーブルから引くのに使う。 */
+function ymToStartDate(ym: string): string {
+  return `${ym.slice(0, 4)}-${ym.slice(4, 6)}-01`;
+}
+/** "202703" → "2027-03-31"。月末は翌月0日で求める。 */
+function ymToEndDate(ym: string): string {
+  const y = Number(ym.slice(0, 4));
+  const m = Number(ym.slice(4, 6));
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return `${ym.slice(0, 4)}-${ym.slice(4, 6)}-${String(last).padStart(2, "0")}`;
+}
+
+type PlanCycleRow = {
+  id: string;
+  plan_cycle_id: string | null;
+  project_id: string;
+  status: string | null;
+  budget_yen: number | string | null;
+  period_start_ym: string | null;
+  period_end_ym: string | null;
+};
+
 type BillingRow = {
   project_id: string;
   ym: string;
   status: string | null;
-  budget_yen: number | string | null;
-  extra_budget_yen: number | string | null;
   reward_summary_json: unknown;
-  payment_confirmed_at: string | null;
 };
 
 type ProjectRow = { project_id: string; project_name: string | null };
 type MemberRow = { member_id: string; code_name: string | null; member_name: string | null };
 type EffortRow = {
   project_id: string;
+  week_start: string;
   development_hours: number | string | null;
   meeting_hours: number | string | null;
 };
@@ -85,102 +106,96 @@ type EffortRow = {
 export type ProjectProfitabilityMember = {
   memberId: string;
   memberName: string;
-  /** 支払対象外 (= 現金支払されず会社に残る区分)。まさはここ。 */
+  /** 支払対象外 (= 現金支払されず会社に残る区分)。まさ・きよはここ。 */
   payoutExcluded: boolean;
-  /** 稼働需要額 (cap前にそのメンバーが本来もらえる額) */
+  /** シーズン累計の稼働需要額 */
   grossDueYen: number;
-  /** 現金で支払われた額 */
+  /** シーズン累計の現金支払額 */
   paidYen: number;
-  /** 非現金配賦 = 会社に残った額 */
+  /** シーズン累計の非現金配賦 = 会社に残った額 */
   retainedYen: number;
 };
 
 export type ProjectProfitabilityWarnings = {
-  /** 稼働需要が実効枠の1.5倍を超えた = 枠に対して稼働が過剰 */
-  capOverage: boolean;
-  /** 配分枠はあるのに稼働需要が0 = 報酬計算がまだ回っていない */
+  /** 稼働需要がシーズン原資の1.5倍超。ポイント設定が原資に対して大きすぎる */
+  demandOverBudget: boolean;
+  /** 原資はあるが、このシーズンの報酬計算がまだ動いていない */
   noRewardCalc: boolean;
 };
 
 export type ProjectProfitabilityRow = {
+  planCycleId: string;
   projectId: string;
   projectName: string;
-  /** 配分枠 = Σ(budget_yen + extra_budget_yen)。請求額の65%であって請求額ではない。 */
-  capBudgetYen: number;
-  /** 実効枠 = Σ effectiveCapBudgetYen。前月からの未使用枠繰越を含む実際の按分上限。 */
-  effectiveCapYen: number;
-  /** 請求額(推定) = 配分枠 ÷ 0.65。契約バッファがある月はやや過大に出る。 */
+  periodStartYm: string;
+  periodEndYm: string;
+  /** value_plan_cycles.status。active = 進行中、fixed = 確定済み */
+  cycleStatus: string;
+  /** シーズン原資 = value_plan_cycles.budget_yen。(請求額 − バッファ) × 65% の確定値 */
+  seasonBudgetYen: number;
+  /** 請求額(推定) = シーズン原資 ÷ 0.65。契約バッファのぶん実際より小さく出る */
   estimatedRevenueYen: number;
-  /** 外部メンバーへ現金で出た額 = Σ externalPayoutCapYen */
+  /** 外部メンバーへ現金で出る額 = Σ externalPayoutCapYen */
   externalPaidYen: number;
-  /** 会社に残った配分 = Σ companyReserveYen (支払対象外メンバーへの非現金配賦) */
+  /** 会社に残る額 = Σ companyReserveYen */
   retainedYen: number;
+  /** 配分済み合計 = 外部 + 会社。シーズンが進みきると原資に一致する */
+  allocatedYen: number;
+  /** 会社に残る率 = 会社に残る ÷ シーズン原資 */
+  retentionRate: number | null;
+  /** 外部へ出る率 = 外部へ現金 ÷ シーズン原資 */
+  externalRate: number | null;
   /** 稼働需要総額 = Σ totalGrossDueYen */
   grossDueYen: number;
-  /** 会社に残った率 = 会社に残った配分 ÷ 配分枠。高いほど現金が出ていっていない。 */
-  retentionRate: number | null;
-  /** 働いた分 ÷ 配れる額。1.0を超えるほど、配れる額に対して仕事が多い。 */
-  demandCapRatio: number | null;
-  /**
-   * 外部メンバーへの未払残（最新の実績月の残高スナップショット）。
-   * 配れる上限に当たって今月配りきれなかった分が翌月へ送られる。7-1章のとおり
-   * stockYen は残高なので月をまたいで合計しない。最新の実績月の値だけを読む。
-   */
-  unpaidExternalYen: number;
-  /** まさ投下時間 (開発+MTG) */
+  /** 稼働需要 ÷ シーズン原資 */
+  demandBudgetRatio: number | null;
+  /** シーズン期間で billing_cycles が存在する月数 */
+  months: number;
+  /** うち status='not_started' の未確定月 */
+  monthsUnconfirmed: number;
+  /** まさ投下時間 (シーズン期間、開発+MTG) */
   masaHours: number;
-  /** まさ時間あたり請求額(推定) */
+  /** まさ1時間あたり請求額(推定) */
   revenuePerMasaHour: number | null;
-  monthsActual: number;
-  monthsPlanned: number;
   warnings: ProjectProfitabilityWarnings;
   members: ProjectProfitabilityMember[];
 };
 
 export type ProjectProfitabilitySnapshot = {
-  year: number;
   storedAt: number;
   rows: ProjectProfitabilityRow[];
 };
 
 function computeRow(
-  projectId: string,
+  cycle: PlanCycleRow,
   projectName: string,
   billings: BillingRow[],
   memberMap: Map<string, string>,
   masaHours: number,
 ): ProjectProfitabilityRow {
-  let capBudgetYen = 0;
-  let effectiveCapYen = 0;
   let externalPaidYen = 0;
   let retainedYen = 0;
   let grossDueYen = 0;
-  let monthsActual = 0;
-  let monthsPlanned = 0;
-  let unpaidExternalYen = 0;
+  let months = 0;
+  let monthsUnconfirmed = 0;
   const memberAgg = new Map<
     string,
     { grossDueYen: number; paidYen: number; retainedYen: number; payoutExcluded: boolean }
   >();
 
   for (const billing of billings) {
-    const isFutureStatus = FUTURE_BILLING_STATUSES.has(String(billing.status ?? "").trim());
+    months += 1;
+    if (String(billing.status ?? "").trim() === "not_started") monthsUnconfirmed += 1;
     const summary = asRecord(billing.reward_summary_json);
-    if (isFutureStatus || !summary) {
-      monthsPlanned += 1;
-      continue;
-    }
-    monthsActual += 1;
-    capBudgetYen += Math.max(0, numberValue(billing.budget_yen)) + Math.max(0, numberValue(billing.extra_budget_yen));
-    effectiveCapYen += Math.max(0, numberValue(summary.effectiveCapBudgetYen));
+    if (!summary) continue;
+
+    // シーズン全体の試算なので、未確定月 (not_started) の見込みも合算する。
+    // 月次の cap 按分は「いつ払うか」でしかなく、シーズン総額は最初から決まっているため。
     externalPaidYen += Math.max(0, numberValue(summary.externalPayoutCapYen));
     retainedYen += Math.max(0, numberValue(summary.companyReserveYen));
     grossDueYen += Math.max(0, numberValue(summary.totalGrossDueYen));
 
-    const members = Array.isArray(summary.members) ? summary.members : [];
-    // 残高なので加算しない。実績月を新しい順に上書きし、最後に残った値が最新月の未払残になる。
-    let monthUnpaidExternal = 0;
-    for (const raw of members) {
+    for (const raw of Array.isArray(summary.members) ? summary.members : []) {
       const member = asRecord(raw);
       if (!member) continue;
       const memberId = typeof member.memberId === "string" ? member.memberId : null;
@@ -195,10 +210,8 @@ function computeRow(
       agg.paidYen += Math.max(0, numberValue(member.totalPay));
       agg.retainedYen += Math.max(0, numberValue(member.companyReserveYen));
       if (member.payoutExcluded === true) agg.payoutExcluded = true;
-      else monthUnpaidExternal += Math.max(0, numberValue(member.stockYen));
       memberAgg.set(memberId, agg);
     }
-    unpaidExternalYen = monthUnpaidExternal;
   }
 
   const members: ProjectProfitabilityMember[] = [...memberAgg.entries()]
@@ -213,49 +226,55 @@ function computeRow(
     .filter((m) => m.grossDueYen > 0 || m.paidYen > 0 || m.retainedYen > 0)
     .sort((a, b) => b.grossDueYen - a.grossDueYen);
 
-  const retentionRate = capBudgetYen > 0 ? retainedYen / capBudgetYen : null;
-  const demandCapRatio = effectiveCapYen > 0 ? grossDueYen / effectiveCapYen : null;
-  const estimatedRevenueYen = Math.round(capBudgetYen / MEMBER_SHARE_RATE);
-  const revenuePerMasaHour = masaHours > 0 ? estimatedRevenueYen / masaHours : null;
+  const seasonBudgetYen = Math.max(0, numberValue(cycle.budget_yen));
+  const allocatedYen = externalPaidYen + retainedYen;
+  const estimatedRevenueYen = Math.round(seasonBudgetYen / MEMBER_SHARE_RATE);
 
   return {
-    projectId,
+    planCycleId: cycle.plan_cycle_id || cycle.id,
+    projectId: cycle.project_id,
     projectName,
-    capBudgetYen: Math.round(capBudgetYen),
-    effectiveCapYen: Math.round(effectiveCapYen),
+    periodStartYm: cycle.period_start_ym ?? "",
+    periodEndYm: cycle.period_end_ym ?? "",
+    cycleStatus: cycle.status ?? "",
+    seasonBudgetYen,
     estimatedRevenueYen,
     externalPaidYen: Math.round(externalPaidYen),
     retainedYen: Math.round(retainedYen),
+    allocatedYen: Math.round(allocatedYen),
+    retentionRate: seasonBudgetYen > 0 ? retainedYen / seasonBudgetYen : null,
+    externalRate: seasonBudgetYen > 0 ? externalPaidYen / seasonBudgetYen : null,
     grossDueYen: Math.round(grossDueYen),
-    retentionRate,
-    demandCapRatio,
-    unpaidExternalYen: Math.round(unpaidExternalYen),
+    demandBudgetRatio: seasonBudgetYen > 0 ? grossDueYen / seasonBudgetYen : null,
+    months,
+    monthsUnconfirmed,
     masaHours: Math.round(masaHours * 100) / 100,
-    revenuePerMasaHour,
-    monthsActual,
-    monthsPlanned,
+    revenuePerMasaHour: masaHours > 0 ? estimatedRevenueYen / masaHours : null,
     warnings: {
-      capOverage: demandCapRatio !== null && demandCapRatio > DEMAND_OVER_CAP_THRESHOLD,
-      noRewardCalc: capBudgetYen > 0 && grossDueYen === 0,
+      demandOverBudget:
+        seasonBudgetYen > 0 && grossDueYen / seasonBudgetYen > DEMAND_OVER_BUDGET_THRESHOLD,
+      noRewardCalc: seasonBudgetYen > 0 && grossDueYen === 0,
     },
     members,
   };
 }
 
-async function loadSnapshotFromDb(year: number): Promise<ProjectProfitabilitySnapshot> {
+async function loadSnapshotFromDb(): Promise<ProjectProfitabilitySnapshot> {
   const service: ServiceClient = createAdminClient();
-  const ymFrom = `${year}01`;
-  const ymTo = `${year}12`;
 
-  const [billingRows, projectRows, memberRows, effortRows] = await Promise.all([
+  const [cycleRows, billingRows, projectRows, memberRows, effortRows] = await Promise.all([
+    fetchAllRows<PlanCycleRow>("value_plan_cycles", (from, to) =>
+      service
+        .from("value_plan_cycles")
+        .select("id, plan_cycle_id, project_id, status, budget_yen, period_start_ym, period_end_ym")
+        .order("project_id")
+        .range(from, to)),
     fetchAllRows<BillingRow>("billing_cycles", (from, to) =>
       service
         .from("billing_cycles")
-        .select("project_id, ym, status, budget_yen, extra_budget_yen, reward_summary_json, payment_confirmed_at")
-        .gte("ym", ymFrom)
-        .lte("ym", ymTo)
-        .order("project_id", { ascending: true })
-        .order("ym", { ascending: true })
+        .select("project_id, ym, status, reward_summary_json")
+        .order("project_id")
+        .order("ym")
         .range(from, to)),
     fetchAllRows<ProjectRow>("projects", (from, to) =>
       service.from("projects").select("project_id, project_name").order("project_id").range(from, to)),
@@ -264,18 +283,16 @@ async function loadSnapshotFromDb(year: number): Promise<ProjectProfitabilitySna
     fetchAllRows<EffortRow>("tally_weekly_effort_entries", (from, to) =>
       service
         .from("tally_weekly_effort_entries")
-        .select("project_id, development_hours, meeting_hours")
+        .select("project_id, week_start, development_hours, meeting_hours")
         .eq("member_id", MASA_MEMBER_ID)
-        .gte("week_start", `${year}-01-01`)
-        .lte("week_start", `${year}-12-31`)
         .range(from, to)),
   ]);
 
   const projectNameMap = new Map<string, string>(
-    projectRows.map((row) => [row.project_id, row.project_name || row.project_id]),
+    projectRows.map((r) => [r.project_id, r.project_name || r.project_id]),
   );
   const memberMap = new Map<string, string>(
-    memberRows.map((row) => [row.member_id, row.code_name || row.member_name || row.member_id]),
+    memberRows.map((r) => [r.member_id, r.code_name || r.member_name || r.member_id]),
   );
 
   const billingsByProject = new Map<string, BillingRow[]>();
@@ -284,32 +301,49 @@ async function loadSnapshotFromDb(year: number): Promise<ProjectProfitabilitySna
     list.push(row);
     billingsByProject.set(row.project_id, list);
   }
-
-  const masaHoursByProject = new Map<string, number>();
+  const effortByProject = new Map<string, EffortRow[]>();
   for (const row of effortRows) {
-    const hours = Math.max(0, numberValue(row.development_hours)) + Math.max(0, numberValue(row.meeting_hours));
-    masaHoursByProject.set(row.project_id, (masaHoursByProject.get(row.project_id) ?? 0) + hours);
+    const list = effortByProject.get(row.project_id) ?? [];
+    list.push(row);
+    effortByProject.set(row.project_id, list);
   }
 
-  // 対象年に billing_cycles が1行でもある PJ だけを行にする (完全未稼働PJはノイズ)。
-  const rows = [...billingsByProject.keys()]
-    .sort()
-    .map((projectId) =>
-      computeRow(
-        projectId,
-        projectNameMap.get(projectId) ?? projectId,
-        billingsByProject.get(projectId) ?? [],
+  const rows = cycleRows
+    // 原資が入っていないシーズンは収益率を出せないので行にしない。
+    .filter((c) => c.period_start_ym && c.period_end_ym && numberValue(c.budget_yen) > 0)
+    .map((cycle) => {
+      const start = cycle.period_start_ym as string;
+      const end = cycle.period_end_ym as string;
+      const billings = (billingsByProject.get(cycle.project_id) ?? []).filter(
+        (b) => b.ym >= start && b.ym <= end,
+      );
+      const startDate = ymToStartDate(start);
+      const endDate = ymToEndDate(end);
+      const masaHours = (effortByProject.get(cycle.project_id) ?? [])
+        .filter((e) => e.week_start >= startDate && e.week_start <= endDate)
+        .reduce(
+          (sum, e) =>
+            sum + Math.max(0, numberValue(e.development_hours)) + Math.max(0, numberValue(e.meeting_hours)),
+          0,
+        );
+      return computeRow(
+        cycle,
+        projectNameMap.get(cycle.project_id) ?? cycle.project_id,
+        billings,
         memberMap,
-        masaHoursByProject.get(projectId) ?? 0,
-      ),
-    )
-    // 配分枠も稼働需要も無い月だけの PJ は出さない。
-    .filter((row) => row.capBudgetYen > 0 || row.grossDueYen > 0);
+        masaHours,
+      );
+    });
 
-  // 配分枠の大きい順。警報は色で出すので並び順には混ぜない。
-  rows.sort((a, b) => b.capBudgetYen - a.capBudgetYen);
+  // 進行中を上、その中で原資の大きい順。
+  rows.sort((a, b) => {
+    const aActive = a.cycleStatus === "active";
+    const bActive = b.cycleStatus === "active";
+    if (aActive !== bActive) return aActive ? -1 : 1;
+    return b.seasonBudgetYen - a.seasonBudgetYen;
+  });
 
-  return { year, storedAt: Date.now(), rows };
+  return { storedAt: Date.now(), rows };
 }
 
 /** 既定5分。月次締めの直後に確認したいときは環境変数で短縮する。 */
@@ -317,46 +351,37 @@ export const PROJECT_PROFITABILITY_CACHE_TTL_MS = Number(
   process.env.PROJECT_PROFITABILITY_CACHE_TTL_MS ?? 5 * 60 * 1000,
 );
 
-const snapshots = new Map<number, ProjectProfitabilitySnapshot>();
-const inflight = new Map<number, Promise<ProjectProfitabilitySnapshot>>();
+let snapshot: ProjectProfitabilitySnapshot | null = null;
+let inflight: Promise<ProjectProfitabilitySnapshot> | null = null;
 
 /** TTL 内はメモリから返し、同時アクセスは1回のロードに束ねる (single-flight)。 */
 export async function loadProjectProfitabilitySnapshot(
-  year: number,
   options?: { force?: boolean },
 ): Promise<ProjectProfitabilitySnapshot> {
-  const cached = snapshots.get(year);
-  if (!options?.force && cached && Date.now() - cached.storedAt < PROJECT_PROFITABILITY_CACHE_TTL_MS) {
-    return cached;
+  if (!options?.force && snapshot && Date.now() - snapshot.storedAt < PROJECT_PROFITABILITY_CACHE_TTL_MS) {
+    return snapshot;
   }
-  if (options?.force) inflight.delete(year);
-  let pending = inflight.get(year);
-  if (!pending) {
-    pending = loadSnapshotFromDb(year)
-      .then((snapshot) => {
-        snapshots.set(year, snapshot);
-        return snapshot;
+  if (options?.force) inflight = null;
+  if (!inflight) {
+    const pending = loadSnapshotFromDb()
+      .then((next) => {
+        snapshot = next;
+        return next;
       })
       .finally(() => {
-        if (inflight.get(year) === pending) inflight.delete(year);
+        if (inflight === pending) inflight = null;
       });
-    inflight.set(year, pending);
+    inflight = pending;
   }
-  return pending;
+  return inflight;
 }
 
-export function projectProfitabilityCacheAgeMs(year: number): number | null {
-  const cached = snapshots.get(year);
-  return cached ? Date.now() - cached.storedAt : null;
+export function projectProfitabilityCacheAgeMs(): number | null {
+  return snapshot ? Date.now() - snapshot.storedAt : null;
 }
 
-/** 月次締め・報酬再計算の直後に呼ぶ。引数なしで全年度分。 */
-export function invalidateProjectProfitabilityCache(year?: number): void {
-  if (year === undefined) {
-    snapshots.clear();
-    inflight.clear();
-    return;
-  }
-  snapshots.delete(year);
-  inflight.delete(year);
+/** 月次締め・報酬再計算の直後に呼ぶ。 */
+export function invalidateProjectProfitabilityCache(): void {
+  snapshot = null;
+  inflight = null;
 }
