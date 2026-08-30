@@ -77,7 +77,15 @@ L2のcoverageが薄い、古い、根拠不足、または no-data 候補のと�
 `project_meeting_summaries` の要約だけを根拠に本文を書いてはいけない。要約層は名称変更や申請可否のような単発の意思決定を落とすことがある (実例: 2026-08 に SX のラウンドテーブル改称 EWIR→SIER と、KUTE の GTIE 9月エントリー申請断念の両方が要約層に無く、月報へ旧情報が載った)。各PJについて、本文を書く前に次を必ず行う。
 
 1. 当月の会議一覧のうち、`source_kinds='upcoming'` のみ・`narrative_md` が空・要約が会議実施の事実しか持たない会議を列挙する。
-2. それらの会議と、当月最後の定例・経営会議について、**書き起こし本文・議事メモの一次ソース**を読む。読む順序は (a) Notion 議事録 (routineはNotion connector、ローカルセッションは `GET /api/internal/notion-context?q=<会議名や人名>` に `Authorization: Bearer $CRON_SECRET`)、(b) Gmail の Gemini 自動メモ (`from:gemini-notes@google.com`) と議事メモ送付メール、(c) Drive の当月会議フォルダの資料 (`YYMMDD_<会議名>` 配下)。
+2. それらの会議と、当月最後の定例・経営会議について、**書き起こし本文・議事メモの一次ソース**を読む。読む順序は次のとおり。
+
+   (a) **Notion 議事録。ローカルセッションはまずローカルDBを叩く**（ネットもデプロイも不要、これが最短）:
+   ```sh
+   npm run --silent h1:local-notion-fallback -- --title "<会議名>" --date "YYYY-MM-DD"
+   ```
+   `summary_text` に Notion AI の要約・アクションアイテム・議事本文が返る。**Notion AI の文字起こしはAPIの子ブロック取得では0件になる**ので、API経路を新規に作りにいかない。クラウドの routine は Notion connector、無ければ `GET /api/internal/notion-context?q=|pageId=|blockId=` に `Authorization: Bearer $CRON_SECRET`。
+   (b) Gmail の Gemini 自動メモ (`from:gemini-notes@google.com`) と議事メモ送付メール。
+   (c) Drive の当月会議フォルダの資料 (`YYMMDD_<会議名>` 配下)。
 3. 読んだ本文から、**固有名詞の現在値**を確認する: 枠組み・組織・製品の名称 (改称があれば新名称を正、旧名称は「旧称」として一度だけ)、公募・申請の採否/断念/見送りの確定、日程の確定値、金額の確定値。前月版や要約層の値と食い違う場合は、一次ソース側を正とする。
 4. 一次ソースでも確認できない意思決定を本文へ書かない。「協議した」「検討中」と、「決定した」を混同しない。
 
