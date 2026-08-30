@@ -187,4 +187,11 @@ async function main() {
   throw lastErr;
 }
 
-main().catch((err) => { console.error(err.message || err); process.exit(1); });
+// 直接実行されたときだけ走らせる。`toInit` は感度の曲線を計算する側
+// （model/tools/bzm30_sensitivity.cjs）からも使う——DB の入力を参照実装の init へ写す規則を
+// 二か所に書くと、曲線の基準点と保存済みのスコアが静かに食い違う。
+if (require.main === module) {
+  main().catch((err) => { console.error(err.message || err); process.exit(1); });
+}
+
+module.exports = { toInit, ceilingTotal, db, MODEL_VERSION, APPROVAL_REF, IMPL_PATH };
