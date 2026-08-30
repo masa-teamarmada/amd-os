@@ -5,7 +5,9 @@ _external_gas
 cockpit.png
 dashboard_hud.png
 pwa/design/assets
-.git
+# .git は消さない。pwa/vercel.json の ignoreCommand が git diff で
+# ビルド要否を判定するため、ここで消すと ignoreStep が exit 129 で落ちる
+# （2026-08-30: これで 235b333f 以降の PWA 本番反映が全部 ERROR になっていた）
 **/node_modules
 **/.next/dev
 **/.next/cache
