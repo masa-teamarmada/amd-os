@@ -215,18 +215,33 @@ async function main() {
   console.log(`${seedId} ${spec.type}×${spec.reg} ${rows.length}点 ${elapsed}s`);
   if (dry) return;
 
-  // 同じ案件・同じ承認の古い曲線は捨てて入れ直す（append-only にすると画面が版を選ぶ必要が出る）
-  const delQ = supabase.from(TABLE).delete()
-    .eq('seed_id', seedId).eq('model_version', seeds.MODEL_VERSION).eq('approval_ref', seeds.APPROVAL_REF);
-  const { error: e3 } = only ? await delQ.eq('param', only) : await delQ;
-  if (e3) throw e3;
+  // 20分以上かけて計算した結果を、書き込みの一過性の失敗で捨てない。
+  // 並列で回すと Supabase への fetch がときどき落ちる（`TypeError: fetch failed`）。
+  // 落ちるのは戻り値の error ではなく **throw** なので、try/catch で受けないと外へ抜ける
+  // （bzm30_score_seeds.cjs は受けている。同じ形にする）。
+  const retry = async (label, fn) => {
+    let last = null;
+    for (let attempt = 1; attempt <= 6; attempt += 1) {
+      try {
+        const { error } = await fn();
+        if (!error) return;
+        last = error;
+      } catch (err) {
+        last = err;
+      }
+      console.error(`  ${label} 失敗（${attempt}回目）: ${last.message || last}`);
+      await new Promise((r) => setTimeout(r, 3000 * attempt));
+    }
+    throw last;
+  };
 
-  for (let attempt = 1; attempt <= 5; attempt += 1) {
-    const { error: e4 } = await supabase.from(TABLE).insert(rows);
-    if (!e4) return;
-    if (attempt === 5) throw e4;
-    await new Promise((r) => setTimeout(r, 2000 * attempt));
-  }
+  // 同じ案件・同じ承認の古い曲線は捨てて入れ直す（append-only にすると画面が版を選ぶ必要が出る）
+  await retry('古い曲線の削除', () => {
+    const q = supabase.from(TABLE).delete()
+      .eq('seed_id', seedId).eq('model_version', seeds.MODEL_VERSION).eq('approval_ref', seeds.APPROVAL_REF);
+    return only ? q.eq('param', only) : q;
+  });
+  await retry('曲線の書き込み', () => supabase.from(TABLE).insert(rows));
 }
 
 main().catch((err) => { console.error(err.message || err); process.exit(1); });
