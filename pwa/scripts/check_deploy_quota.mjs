@@ -77,7 +77,7 @@ if (total > BLOCK_AT) {
   if (gate && process.env.AMD_OS_DEPLOY_QUOTA_OVERRIDE !== "1") process.exit(1);
 } else if (total > WARN_AT) {
   console.error(`\n⚠️  Vercel デプロイ枠 注意: 直近24時間で ${total}/${LIMIT} 件 (${breakdown})`);
-  console.error("   残りが少ない。細かい push を束ねて。docs だけの変更は build されないので気にしなくてよい。\n");
+  console.error("   残りが少ない。**main への push は内容によらず必ず1件消費する**（2026-08-30 15:13 に pwa 側のパス判定を外したため）。\n   commit は小刻みでよいが、push はまとめる。\n");
 } else if (!gate) {
   console.log(`Vercel デプロイ: 直近24時間 ${total}/${LIMIT} 件 (${breakdown})`);
 }
