@@ -28,6 +28,7 @@ const clientCode = codeOnly(client);
 const clientHeaders = [...client.matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map((m) => m[1]).join(" | ");
 const page = read("../src/app/(app)/admin/project-profitability/page.tsx");
 const spec = read("../spec/5-14-project-profitability-current-spec.md");
+const shared = read("../src/lib/project-profitability-shared.ts");
 const migration = read("./migrations/354_project_fee_payee.sql");
 
 // --- 1. まさの稼働を織り込む -------------------------------------------------
@@ -53,7 +54,17 @@ assert.match(client, /まさ込み利益/, "画面に「まさ込み利益」の
 
 // --- 2. 時間単価は PJ 横断で1つ。画面で動かせる -------------------------------
 // PJごとに変えると PJ 間の比較へ配分設計 (= ポイント) の差が混ざる。
-assert.match(lib, /DEFAULT_MASA_HOURLY_RATE_YEN/, "時間単価の既定値を lib が正本として持つ");
+assert.match(shared, /export const DEFAULT_MASA_HOURLY_RATE_YEN/, "時間単価の既定値は共有モジュールが正本");
+assert.match(lib, /DEFAULT_MASA_HOURLY_RATE_YEN/, "サーバはその既定値を payload へ載せる");
+// 画面は server-only の集計モジュールから「値」を import できない (型だけなら消える)。
+// tsc は通るのに実行時に落ちるので、定数の置き場所を guard で固定する。
+assert.doesNotMatch(
+  clientCode,
+  /import\s*\{[^}]*\}\s*from\s*"@\/lib\/project-profitability";/,
+  "画面が server-only の集計モジュールから値を import しない (型は import type で取る)",
+);
+assert.match(lib, /import "server-only";/, "集計モジュールは server-only のままにする");
+assert.doesNotMatch(codeOnly(shared), /server-only/, "共有モジュールは server-only にしない (画面から読むため)");
 assert.doesNotMatch(
   libCode,
   /hourlyRate.*(?:\[|Map<|per(?:Project|Pj))/i,
@@ -61,9 +72,9 @@ assert.doesNotMatch(
 );
 assert.match(client, /type="range"/, "時間単価はスライダーで動かせる");
 assert.match(
-  lib,
-  /export const MASA_HOURLY_RATE_(?:MIN|MAX)_YEN/,
-  "スライダーの範囲も lib 側の定数にする",
+  shared,
+  /export const MASA_HOURLY_RATE_MIN_YEN[\s\S]*export const MASA_HOURLY_RATE_MAX_YEN/,
+  "スライダーの範囲も共有モジュールの定数にする",
 );
 // 単価を掛けた値をサーバが返すと、画面で単価を動かしても数字が変わらない。
 assert.doesNotMatch(libCode, /\bprofitYen\b/, "単価を掛けた利益をサーバ側で確定させない (画面で掛ける)");

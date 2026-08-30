@@ -38,25 +38,13 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { DEFAULT_MASA_HOURLY_RATE_YEN } from "@/lib/project-profitability-shared";
 
 /** tally は まさ専用の週次記録アプリ。他メンバーの行は1件も存在しない。 */
 const MASA_MEMBER_ID = "ID001";
 
 /** 請求額のうちメンバー配分枠に回る比率。請求額を逆算するために使う。 */
 const MEMBER_SHARE_RATE = 0.65;
-
-/**
- * まさの時間単価の既定値 (円/時)。
- *
- * 根拠: OSがまさの労働へ実際に配賦している額 (members[].companyReserveYen の
- * シーズン合計) を、同じ期間のまさの投下時間で割った実績平均が 25,514円/時
- * (8,306,769円 / 325.6時間、2026-08-30 時点)。それを丸めた値。
- * PJ別では 2,344〜38,913円/時 とばらつくので、PJ横断で1つの単価に固定する。
- * 画面のスライダーで動かせる。
- */
-export const DEFAULT_MASA_HOURLY_RATE_YEN = 25000;
-export const MASA_HOURLY_RATE_MIN_YEN = 5000;
-export const MASA_HOURLY_RATE_MAX_YEN = 60000;
 
 function numberValue(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value ?? 0);
@@ -201,6 +189,13 @@ export type PersonalFeeRow = {
   /** まさ個人への報酬総額 = 月額 × 月数 */
   personalIncomeYen: number;
   masaHours: number;
+  /**
+   * 対象期間のうち、tally に投下時間の記録が1件でもある月数。
+   * LST のように契約期間が tally の記録開始 (2025-08) より前から続くPJでは、
+   * 報酬は全期間分なのに時間は一部の月しか無い。両者を割ると桁が壊れるので、
+   * そろっていないときは1時間あたりの額を出さない。
+   */
+  monthsWithHours: number;
   /** 期間の終わりが projects.end_ym ではなく当月であること (= 進行中) */
   ongoing: boolean;
 };
@@ -306,12 +301,12 @@ async function loadSnapshotFromDb(): Promise<ProjectProfitabilitySnapshot> {
     effortByProject.set(row.project_id, list);
   }
 
-  const masaHoursIn = (projectId: string, startYm: string, endYm: string) =>
-    sumMasaHours(
-      (effortByProject.get(projectId) ?? []).filter(
-        (e) => e.week_start >= ymToStartDate(startYm) && e.week_start <= ymToEndDate(endYm),
-      ),
+  const effortRowsIn = (projectId: string, startYm: string, endYm: string) =>
+    (effortByProject.get(projectId) ?? []).filter(
+      (e) => e.week_start >= ymToStartDate(startYm) && e.week_start <= ymToEndDate(endYm),
     );
+  const masaHoursIn = (projectId: string, startYm: string, endYm: string) =>
+    sumMasaHours(effortRowsIn(projectId, startYm, endYm));
 
   const currentYm = currentYmJst();
   const companySeasons: CompanySeasonRow[] = [];
@@ -409,6 +404,13 @@ async function loadSnapshotFromDb(): Promise<ProjectProfitabilitySnapshot> {
     if (endYm < startYm) continue;
     const months = monthSpan(startYm, endYm);
 
+    const effortRows = effortRowsIn(project.project_id, startYm, endYm);
+    const monthsWithHours = new Set(
+      effortRows
+        .filter((e) => numberValue(e.development_hours) + numberValue(e.meeting_hours) > 0)
+        .map((e) => `${e.week_start.slice(0, 4)}${e.week_start.slice(5, 7)}`),
+    ).size;
+
     personalFees.push({
       projectId: project.project_id,
       projectName: projectName(project.project_id),
@@ -417,7 +419,8 @@ async function loadSnapshotFromDb(): Promise<ProjectProfitabilitySnapshot> {
       months,
       monthlyFeeYen,
       personalIncomeYen: monthlyFeeYen * months,
-      masaHours: round1(masaHoursIn(project.project_id, startYm, endYm)),
+      masaHours: round1(sumMasaHours(effortRows)),
+      monthsWithHours,
       ongoing,
     });
   }

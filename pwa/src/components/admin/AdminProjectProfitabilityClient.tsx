@@ -11,7 +11,7 @@ import type {
 import {
   MASA_HOURLY_RATE_MAX_YEN,
   MASA_HOURLY_RATE_MIN_YEN,
-} from "@/lib/project-profitability";
+} from "@/lib/project-profitability-shared";
 import { loadProjectProfitability, peekProjectProfitability } from "@/lib/project-profitability-client";
 
 type Snapshot = Omit<ProjectProfitabilitySnapshot, "storedAt">;
@@ -242,10 +242,17 @@ function PersonalFeeTable({ rows, rate }: { rows: PersonalFeeRow[]; rate: number
   const scored = rows
     .map((r) => {
       const masaCostYen = Math.round(r.masaHours * rate);
-      const profitYen = r.personalIncomeYen - masaCostYen;
-      return { ...r, masaCostYen, profitYen };
+      // 時間の記録が期間の全月ぶんそろっていないと、報酬と時間の分母がずれる。
+      // LST は41ヶ月の報酬に対して記録が5ヶ月しか無く、割ると時給53万円になってしまう。
+      const hoursCoverPeriod = r.monthsWithHours >= r.months;
+      return {
+        ...r,
+        masaCostYen,
+        profitYen: r.personalIncomeYen - masaCostYen,
+        hoursCoverPeriod,
+      };
     })
-    .sort((a, b) => b.profitYen - a.profitYen);
+    .sort((a, b) => b.personalIncomeYen - a.personalIncomeYen);
 
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
@@ -279,7 +286,12 @@ function PersonalFeeTable({ rows, rate }: { rows: PersonalFeeRow[]; rate: number
               </td>
               <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{fmtYen(row.monthlyFeeYen)}</td>
               <td className="px-3 py-2 text-right font-medium tabular-nums">{fmtYen(row.personalIncomeYen)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{fmtHours(row.masaHours)}</td>
+              <td className="px-3 py-2 text-right tabular-nums">
+                {fmtHours(row.masaHours)}
+                <div className="text-[10px] text-muted-foreground">
+                  記録 {row.monthsWithHours}/{row.months}ヶ月
+                </div>
+              </td>
               <td className="px-3 py-2 text-right tabular-nums text-sky-700 dark:text-sky-400">
                 {fmtYen(row.masaCostYen)}
               </td>
@@ -287,7 +299,16 @@ function PersonalFeeTable({ rows, rate }: { rows: PersonalFeeRow[]; rate: number
                 {fmtYen(row.profitYen)}
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
-                {row.masaHours > 0 ? fmtYen(row.personalIncomeYen / row.masaHours) : "—"}
+                {row.hoursCoverPeriod && row.masaHours > 0 ? (
+                  fmtYen(row.personalIncomeYen / row.masaHours)
+                ) : (
+                  <span
+                    className="text-muted-foreground"
+                    title="時間の記録が期間の全月ぶんそろっていないので、報酬を時間で割ると桁が壊れる"
+                  >
+                    —
+                  </span>
+                )}
               </td>
             </tr>
           ))}
@@ -598,7 +619,7 @@ export function AdminProjectProfitabilityClient() {
             <section>
               <SectionHeading
                 title="まさ個人へ報酬が支払われるPJ"
-                note="会社の売上ではなく、まさ個人へ直接振り込まれる分。期間はPJの開始月から数えている"
+                note="会社の売上ではなく、まさ個人へ直接振り込まれる分。期間はPJの開始月から数えているので、支払開始が違えば教えてほしい"
               />
               <PersonalFeeTable rows={snapshot.personalFees} rate={effectiveRate} />
             </section>
