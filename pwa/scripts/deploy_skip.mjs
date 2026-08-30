@@ -149,8 +149,10 @@ try {
 }
 
 const visible = visibleChanges(changed);
-const headMsg = git(["log", "-1", "--pretty=%B"]);
-const marked = headMsg.includes(SKIP_MARK);
+// **件名（1行目）だけを見る。** 本文に「[skip ci] を入れても止まらなかった」のような
+// 説明を書いただけで飛ばす判定になると、画面の変更が本番へ出ないまま残る（実際に踏んだ）。
+const headSubject = git(["log", "-1", "--pretty=%s"]);
+const marked = headSubject.includes(SKIP_MARK);
 
 if (explain) {
   console.log(`本番の地点: ${sha.slice(0, 8)}`);
