@@ -13,7 +13,7 @@ import {
   peekReferenceData,
   prefetchReferenceData,
 } from "@/lib/reference-data-cache";
-import type { Bzm30SensitivityDetail, Bzm30SensitivityOverview } from "@/lib/bzm30/sensitivity";
+import type { Bzm30SensitivityDetail, Bzm30SensitivityOverview } from "@/lib/bzm30/sensitivity-types";
 
 const KEY_PREFIX = "bzm30-sensitivity:";
 const OVERVIEW_KEY = `${KEY_PREFIX}overview`;

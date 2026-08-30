@@ -33,8 +33,8 @@ import type {
   Bzm30SensitivityParam,
   Bzm30SensitivityPoint,
   Bzm30SensitivitySeedRow,
-} from "@/lib/bzm30/sensitivity";
-import { BZM30_SENSITIVITY_PARAMS } from "@/lib/bzm30/sensitivity";
+} from "@/lib/bzm30/sensitivity-types";
+import { BZM30_SENSITIVITY_PARAMS } from "@/lib/bzm30/sensitivity-types";
 import { STAGE_LABEL, PROCESS_TYPE_LABEL, REG_CLASS_LABEL } from "@/lib/bzm30/seed-inputs";
 
 /** AMD の基調色。この画面だけの独自色を作らない。 */
