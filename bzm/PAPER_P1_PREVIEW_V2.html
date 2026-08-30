@@ -1018,9 +1018,8 @@ evaluation systems<sup>[67,68,69]</sup>: gates cannot be self-attested,
 evidence demotes on withdrawal, plans are registered by the evaluator
 with second-person approval, and exit thresholds looser than default
 require logged justification. It does not hold everywhere. The two
-highest-leverage inputs — the ceilings, to which
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>V</mi><annotation encoding="application/x-tex">V</annotation></semantics></math>
-is constructively proportional, and the counterfactual deduction — sit
+highest-leverage inputs — the ceilings, to which the score responds more
+than proportionally (§7.7), and the counterfactual deduction — sit
 outside the calibration plan, one a per-project investigation item, the
 other unidentifiable. Four further openings are worth naming because a
 determined applicant would find them faster than a reviewer: the process
@@ -1327,25 +1326,38 @@ at all — among it the branch whose absence empties the pivot class
 (§4.5) — and SM-C carries both.</p>
 <h2 id="ceiling-sensitivity-as-a-property-of-the-object">7.7 Ceiling
 sensitivity as a property of the object</h2>
-<p>Because
+<p>The ceiling enters the score twice, and the second entry is easy to
+miss. The value is computed per yen of annual net domestic value added
+and then multiplied by the ceiling, so
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>V</mi><annotation encoding="application/x-tex">V</annotation></semantics></math>
-is constructively proportional to the ceiling (A6), the single largest
-lever on any score is how the addressable market is sliced. Re-basing
-the same project’s ceiling across the standard market conventions moves
-its value by two to three orders of magnitude, dwarfing every
-coefficient elasticity in §7.6. We treat this as a property of the
-measurement object rather than a defect to be smoothed: <em>ex-ante
-selection output is order-of-magnitude sensitive to market-slicing
-conventions</em>, and a framework that conceals this behind a
-stable-looking composite is not more robust, only less honest. Three
-governance rules follow and are implemented: the convention is fixed
-once — the obtainable slice, net of the share already carried by the
-take-rate parameter, so the same uncertainty is not counted twice;
-per-project ceilings are versioned with approval records; and the
-reported bands are labelled as <strong>not</strong> propagating ceiling
-uncertainty, since calling a band a confidence interval while its
-largest driver sits outside it would be the quiet lie this section
-exists to prevent.</p>
+is proportional to it by construction (A6); but the ceiling also sets an
+economics multiplier that raises the award hazard, on the reasoning that
+a larger addressable slice attracts funders, and that multiplier is
+bounded above and below so the second channel saturates. The response is
+therefore super-proportional up to the bound, and the single largest
+lever on any score is how the addressable market is sliced. The one
+re-basing we can document at project level shows the size: narrowing a
+project’s ceiling from its full addressable slice to the range the
+project could actually carry — a factor of five — moved its score by a
+factor of seven, from ¥0.98bn to ¥0.14bn, and its rank by four places.
+We do not claim a general magnitude for re-basing across market
+conventions, because we have re-based one project, not twenty-one. We
+treat this as a property of the measurement object rather than a defect
+to be smoothed: <em>ex-ante selection output is order-of-magnitude
+sensitive to market-slicing conventions</em>, and a framework that
+conceals this behind a stable-looking composite is not more robust, only
+less honest. Three governance rules follow and are implemented: the
+convention is fixed once — the obtainable slice, net of the share
+already carried by the take-rate parameter, so the same uncertainty is
+not counted twice; per-project ceilings are versioned with approval
+records; and the reported bands are labelled as <strong>not</strong>
+propagating ceiling uncertainty. One consequence of that last rule
+should be read alongside every number in §7: at the frozen version all
+twenty-one ceilings carry the lowest evidence grade — the slicing ratios
+are provisional throughout — so the input to which the score is most
+sensitive is also the input the ledger currently supports least, since
+calling a band a confidence interval while its largest driver sits
+outside it would be the quiet lie this section exists to prevent.</p>
 <h2 id="limits">7.8 Limits</h2>
 <p>Everything here is implementation verification plus retrospective
 application under judgment-quality inputs on one builder’s ledger, at
