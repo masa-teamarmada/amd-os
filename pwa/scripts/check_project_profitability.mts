@@ -57,6 +57,11 @@ assert.doesNotMatch(client, /持ち出し/, "「持ち出し」という表示�
 // 「枠超え」は予算オーバーと誤読される (2026-08-30 まさ「そもそも枠ってなに？」)。
 // 配った額が上限を超えることはなく、超えるのは働いた分の請求権のほう。
 assert.doesNotMatch(client, /枠超え/, "「枠超え」という表示を戻さない。予算オーバーと誤読される");
+const page = fs.readFileSync(
+  new URL("../src/app/(app)/admin/project-profitability/page.tsx", import.meta.url),
+  "utf8",
+);
+assert.doesNotMatch(page, /枠を?超え/, "画面上部の説明にも「枠を超え」を戻さない");
 assert.match(client, /未払いが積み上がる/, "警報は実際に起きること (未払いが積み上がる) で呼ぶ");
 assert.match(client, /未払残/, "実際に残っている未払残を金額の列として出す");
 assert.match(

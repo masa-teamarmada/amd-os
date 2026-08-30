@@ -11,7 +11,7 @@ export default function AdminProjectProfitabilityPage() {
       </div>
       <p className="mb-4 text-xs text-muted-foreground">
         PJごとに、配分枠のうちいくらが外部メンバーへの現金支払として出ていき、いくらが会社に残ったかを年単位で並べる。
-        どのPJが現金を残せていて、どのPJで稼働が枠を超えているかを判定する画面。
+        どのPJが現金を残せていて、どのPJで未払いが積み上がっているかを判定する画面。
       </p>
       <AdminProjectProfitabilityClient />
     </div>
