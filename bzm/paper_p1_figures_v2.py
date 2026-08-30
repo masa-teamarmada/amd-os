@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """P1論文 (v2) の図を生成する。出力: bzm/figures_v2/*.png
 
-データはすべて凍結版 a149fc30 の正本から取る。
+図ごとにデータの版が違う。**版を混ぜないこと**（混ぜると比較の意味が壊れる）。
 - fig1: §4.1 の枠組み (図式のみ・数値なし)
-- fig2: 21件のスコア分布。DB seed_bzm30_scores / model/cases/SCORES.md (凍結版)
-- fig3: 二重採点。bzm/tools/dual_scoring.cjs の出力 (/tmp/dual_data.json)
-- fig4/fig5: モデルページ §6.I-11-2 の縮退検査表 (凍結版) と、その前身の吸収壁ありの版
+- fig2: 21件のスコア分布。**凍結版 a149fc30** = DB seed_bzm30_scores / model/cases/SCORES.md
+- fig3: 二重採点。**凍結版 a149fc30** = bzm/tools/dual_scoring.cjs の出力 (/tmp/dual_data.json)
+- fig5: 出口構造。**凍結版 a149fc30** = §6.I-11-2 の縮退検査表 (下の FROZEN)
+- fig4: 二つの前提の比較。**承認 #2026-08-29-3 の前の係数（34aaa284）で両腕をそろえる**
+  (下の ABSORB_* と SPEED_PRE3)。#-3 は Tier 0 の既定に効くので、片腕だけ凍結版へ上げると
+  前提の差と係数改訂の差が混ざる。吸収壁ありの側を凍結版で取り直すには参照実装の改変が要り、
+  model/ はロックされているためできない。版のずれはキャプションで開示する。
 ラベルは出版慣習に従い英語。
 """
 import os
@@ -38,22 +42,30 @@ CELLS = ["F1", "F2", "F3", "F4"]
 REGS = ["REG-0", "REG-1", "REG-2"]
 CELL_NAMES = {"F1": "Process", "F2": "Device", "F3": "Software", "F4": "Service"}
 
-# 凍結版 §6.I-11-2: key=(type,reg) -> dict
+# 凍結版 a149fc30 の §6.I-11-2 縮退検査表 (承認 #2026-08-29-1・-2・-3 反映後)。fig5 が使う。
 FROZEN = {
- ("F1","REG-0"): dict(m4=28.2, self_=28.2, rec=0.0, lic=10.8, ip=3.2, ma=4.0, term=50.2, und=3.7, cont=53.4, v=0.393),
- ("F1","REG-1"): dict(m4=20.6, self_=20.6, rec=0.0, lic=12.8, ip=3.6, ma=5.9, term=52.9, und=4.2, cont=56.5, v=0.336),
- ("F1","REG-2"): dict(m4=0.0,  self_=0.0,  rec=0.0, lic=25.6, ip=4.4, ma=9.6, term=55.9, und=4.3, cont=75.1, v=0.216),
- ("F2","REG-0"): dict(m4=31.2, self_=31.2, rec=0.0, lic=11.9, ip=3.5, ma=4.5, term=46.7, und=2.2, cont=50.3, v=0.437),
- ("F2","REG-1"): dict(m4=23.1, self_=23.1, rec=0.0, lic=14.1, ip=4.0, ma=6.7, term=49.6, und=2.5, cont=53.3, v=0.381),
- ("F2","REG-2"): dict(m4=3.2,  self_=3.2,  rec=0.0, lic=26.7, ip=4.8, ma=12.1, term=50.9, und=2.2, cont=58.2, v=0.268),
- ("F3","REG-0"): dict(m4=31.3, self_=38.6, rec=7.3, lic=13.1, ip=3.0, ma=11.4, term=33.9, und=0.0, cont=38.0, v=0.531),
- ("F3","REG-1"): dict(m4=23.6, self_=29.2, rec=5.6, lic=18.0, ip=4.4, ma=10.8, term=37.5, und=0.1, cont=40.6, v=0.456),
- ("F3","REG-2"): dict(m4=9.1,  self_=13.1, rec=4.0, lic=27.7, ip=5.0, ma=18.4, term=35.8, und=0.0, cont=43.0, v=0.426),
- ("F4","REG-0"): dict(m4=17.3, self_=52.3, rec=35.0, lic=9.8, ip=2.2, ma=8.5, term=27.2, und=0.0, cont=33.5, v=0.458),
- ("F4","REG-1"): dict(m4=13.1, self_=44.0, rec=31.0, lic=13.9, ip=3.5, ma=8.3, term=30.3, und=0.0, cont=35.3, v=0.421),
- ("F4","REG-2"): dict(m4=4.3,  self_=32.4, rec=28.2, lic=20.9, ip=3.8, ma=13.9, term=29.0, und=0.0, cont=37.0, v=0.406),
+ ("F1","REG-0"): dict(m4=29.9, self_=29.9, rec=0.0, lic=10.0, ip=3.3, ma=1.0,  term=52.0, und=3.8, cont=53.6, v=0.374),
+ ("F1","REG-1"): dict(m4=22.9, self_=22.9, rec=0.0, lic=11.7, ip=3.8, ma=1.2,  term=56.1, und=4.3, cont=56.8, v=0.311),
+ ("F1","REG-2"): dict(m4=0.0,  self_=0.0,  rec=0.0, lic=22.9, ip=4.4, ma=9.6,  term=58.7, und=4.3, cont=75.2, v=0.215),
+ ("F2","REG-0"): dict(m4=33.2, self_=33.2, rec=0.0, lic=11.1, ip=3.6, ma=1.1,  term=48.7, und=2.2, cont=50.5, v=0.424),
+ ("F2","REG-1"): dict(m4=25.7, self_=25.7, rec=0.0, lic=13.0, ip=4.2, ma=1.4,  term=53.1, und=2.6, cont=53.6, v=0.356),
+ ("F2","REG-2"): dict(m4=3.2,  self_=3.2,  rec=0.0, lic=24.5, ip=4.8, ma=11.9, term=53.4, und=2.2, cont=58.3, v=0.262),
+ ("F3","REG-0"): dict(m4=34.4, self_=42.2, rec=7.8, lic=10.5, ip=3.1, ma=4.0,  term=40.2, und=0.0, cont=38.5, v=0.481),
+ ("F3","REG-1"): dict(m4=26.5, self_=32.7, rec=6.1, lic=15.0, ip=4.7, ma=2.1,  term=45.4, und=0.1, cont=41.2, v=0.403),
+ ("F3","REG-2"): dict(m4=9.1,  self_=13.1, rec=4.0, lic=25.4, ip=5.0, ma=16.8, term=39.7, und=0.0, cont=43.1, v=0.394),
+ ("F4","REG-0"): dict(m4=18.8, self_=55.1, rec=36.3, lic=7.8, ip=2.3, ma=3.0,  term=31.8, und=0.0, cont=33.6, v=0.431),
+ ("F4","REG-1"): dict(m4=14.5, self_=46.9, rec=32.4, lic=11.6, ip=3.7, ma=1.6, term=36.1, und=0.1, cont=35.3, v=0.369),
+ ("F4","REG-2"): dict(m4=4.3,  self_=32.4, rec=28.2, lic=19.2, ip=3.8, ma=12.8, term=31.8, und=0.0, cont=36.9, v=0.392),
 }
-# 吸収壁あり (会社化前も資金切れで終端する定式化) の同一検査
+# 承認 #2026-08-29-3 の前 (34aaa284) の同じ表。fig4 の「速度変化」側だけが使う。
+SPEED_PRE3 = {
+ ("F1","REG-0"): dict(term=50.2), ("F1","REG-1"): dict(term=52.9), ("F1","REG-2"): dict(term=55.9),
+ ("F2","REG-0"): dict(term=46.7), ("F2","REG-1"): dict(term=49.6), ("F2","REG-2"): dict(term=50.9),
+ ("F3","REG-0"): dict(term=33.9), ("F3","REG-1"): dict(term=37.5), ("F3","REG-2"): dict(term=35.8),
+ ("F4","REG-0"): dict(term=27.2), ("F4","REG-1"): dict(term=30.3), ("F4","REG-2"): dict(term=29.0),
+}
+# 吸収壁あり (会社化前も資金切れで終端する定式化)。承認 #2026-08-29-1 の前の実装で取った値。
+# SPEED_PRE3 と同じ係数の組（#-2 は Tier 0 の既定を変えない）なので、この2つの差は前提の差だけ。
 ABSORB_TERM = {("F1","REG-0"):80.0, ("F1","REG-1"):81.0, ("F1","REG-2"):81.4,
  ("F2","REG-0"):76.6, ("F2","REG-1"):77.8, ("F2","REG-2"):77.6,
  ("F3","REG-0"):63.8, ("F3","REG-1"):65.8, ("F3","REG-2"):65.4,
@@ -132,7 +144,7 @@ def fig4_fifth_premise():  # Figure 4 (§7.5)
     keys = [(t, r) for t in CELLS for r in REGS]
     x = np.arange(len(keys)); w = 0.38
     a = [ABSORB_TERM[k] for k in keys]
-    b = [FROZEN[k]["term"] for k in keys]
+    b = [SPEED_PRE3[k]["term"] for k in keys]   # 版をそろえる（docstring 参照）
     ax.bar(x - w/2, a, w, label="Cash-out as death (firm premise imported)",
            color="#b8b3aa", edgecolor=INK, linewidth=0.6)
     ax.bar(x + w/2, b, w, label="Cash-out as speed change (fifth premise)",
@@ -147,6 +159,8 @@ def fig4_fifth_premise():  # Figure 4 (§7.5)
     ax.legend(frameon=False, loc="upper right", ncol=1)
     ax.set_title("Modelling pre-incorporation cash-out as death, versus as a change of speed",
                  loc="left", pad=8)
+    ax.text(0.0, -0.30, "Both arms at the coefficient set preceding approval #2026-08-29-3.",
+            transform=ax.transAxes, fontsize=8.4, color=MUTED)
     save(fig, "fig4_fifth_premise.png")
 
 # ---------------------------------------------------------------- Figure 3
