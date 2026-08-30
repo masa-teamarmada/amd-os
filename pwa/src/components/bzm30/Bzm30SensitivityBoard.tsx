@@ -115,6 +115,7 @@ interface CurveValue {
   label: string;
   /** 目盛りの上に乗っているか。乗っていれば計算した点そのもの */
   onTick: boolean;
+  v_median: number | null;
   score_lower_yen: number | null;
   score_median_yen: number | null;
   score_upper_yen: number | null;
@@ -130,6 +131,7 @@ function pointValue(p: Bzm30SensitivityPoint): CurveValue {
     param_value: p.param_value,
     label: p.param_label,
     onTick: true,
+    v_median: p.v_median,
     score_lower_yen: p.score_lower_yen,
     score_median_yen: p.score_median_yen,
     score_upper_yen: p.score_upper_yen,
@@ -155,6 +157,7 @@ function valueAt(curve: Bzm30SensitivityCurve, t: number): CurveValue {
     // 数字の整形を画面側で作り直さない（param_label は DB のものだけを使う）。
     label: `${a.param_label} 〜 ${b.param_label} のあいだ`,
     onTick: false,
+    v_median: lerp(a.v_median, b.v_median, f),
     score_lower_yen: lerp(a.score_lower_yen, b.score_lower_yen, f),
     score_median_yen: lerp(a.score_median_yen, b.score_median_yen, f),
     score_upper_yen: lerp(a.score_upper_yen, b.score_upper_yen, f),
@@ -163,17 +166,25 @@ function valueAt(curve: Bzm30SensitivityCurve, t: number): CurveValue {
   };
 }
 
-type Metric = "score_lower_yen" | "score_median_yen" | "score_upper_yen" | "p_reach_m4" | "months_to_m4";
+type Metric =
+  | "score_lower_yen"
+  | "score_median_yen"
+  | "score_upper_yen"
+  | "v_median"
+  | "p_reach_m4"
+  | "months_to_m4";
 
 export interface AppliedResult {
   moved: Bzm30SensitivityParam[];
-  /** 2つ以上動かしているか。1つだけなら計算した値そのもので、近似ではない */
+  /** 2本以上動かしているか。1本だけなら計算した値そのもので、近似ではない */
   approximate: boolean;
   score_lower_yen: number | null;
   score_median_yen: number | null;
   score_upper_yen: number | null;
+  v_median: number | null;
   p_reach_m4: number | null;
   months_to_m4: number | null;
+  ceiling_total_yen: number | null;
   free_cash_yen: number | null;
   burn_rate_yen_month: number | null;
   runway_months: number | null;
@@ -183,68 +194,69 @@ export interface AppliedResult {
 /**
  * つまみの位置から、その案件の結果を出す。
  *
- * **1本だけ動かしているあいだは計算した値そのもの。** 2本以上動かしたときは、
- * それぞれの倍率（その点の値 ÷ いまの入力の点の値）を掛け合わせた近似で、厳密な計算ではない。
- * 曲線は1本ずつ振ったものしか無いので、同時に動かした組み合わせは計算されていない。
+ * **1本だけ動かしているあいだは、その曲線の点の値そのもの。近似ではない。**
+ * 2本以上動かしたときは、それぞれの倍率（その点の値 ÷ いまの入力の点の値）を掛け合わせた近似で、
+ * 厳密な計算ではない。曲線は1本ずつ振ったものしか無いので、同時に動かした組み合わせは計算されていない。
+ * 基準の値が0で、動かした先が0でないときは倍率を作れないので、近似せずに「—」を返す。
  */
 export function applyPositions(
   row: Bzm30SensitivitySeedRow,
   curves: Bzm30SensitivityCurve[],
   positions: Partial<Record<Bzm30SensitivityParam, number>>,
 ): AppliedResult {
-  const moved: Bzm30SensitivityParam[] = [];
-  const factors: Record<Metric, number | null> = {
-    score_lower_yen: 1,
-    score_median_yen: 1,
-    score_upper_yen: 1,
-    p_reach_m4: 1,
-    months_to_m4: 1,
-  };
-  let freeCash = row.free_cash_yen;
-  let burn = row.burn_rate_yen_month;
-
+  const movedCurves: { curve: Bzm30SensitivityCurve; t: number }[] = [];
   for (const curve of curves) {
     const base = curve.baseIndex;
     const t = positions[curve.param];
     if (base === null || t === undefined || Math.abs(t - base) < 1e-6) continue;
-    moved.push(curve.param);
-
-    const here = valueAt(curve, t);
-    const there = pointValue(curve.points[base]);
-    if (curve.param === "free_cash") freeCash = here.param_value;
-    if (curve.param === "burn") burn = here.param_value;
-
-    for (const metric of Object.keys(factors) as Metric[]) {
-      const denom = there[metric];
-      const numer = here[metric];
-      if (factors[metric] === null) continue;
-      if (denom === null || numer === null || denom === 0) {
-        factors[metric] = null; // 基準が0か未調査だと倍率を作れない。近似しない
-        continue;
-      }
-      factors[metric] = (factors[metric] as number) * (numer / denom);
-    }
+    movedCurves.push({ curve, t });
   }
 
-  const applied = (metric: Metric): number | null => {
+  let freeCash = row.free_cash_yen;
+  let burn = row.burn_rate_yen_month;
+  let ceiling = row.ceiling_total_yen;
+  for (const { curve, t } of movedCurves) {
+    const here = valueAt(curve, t);
+    if (curve.param === "free_cash") freeCash = here.param_value;
+    if (curve.param === "burn") burn = here.param_value;
+    if (curve.param === "ceiling") ceiling = here.param_value;
+  }
+
+  const metricValue = (metric: Metric): number | null => {
+    if (movedCurves.length === 0) return row[metric];
+    if (movedCurves.length === 1) {
+      const { curve, t } = movedCurves[0];
+      return valueAt(curve, t)[metric];
+    }
+    let factor = 1;
+    for (const { curve, t } of movedCurves) {
+      const denom = pointValue(curve.points[curve.baseIndex as number])[metric];
+      const numer = valueAt(curve, t)[metric];
+      if (denom === null || numer === null) return null;
+      if (denom === 0) {
+        if (numer === 0) continue; // 動かしても0のままなので、掛け算に影響しない
+        return null; // 0からの倍率は作れない
+      }
+      factor *= numer / denom;
+    }
     const anchor = row[metric];
-    const factor = factors[metric];
-    if (anchor === null || factor === null) return moved.length === 0 ? anchor : null;
-    return anchor * factor;
+    return anchor === null ? null : anchor * factor;
   };
 
-  const pReach = applied("p_reach_m4");
-  const months = applied("months_to_m4");
+  const pReach = metricValue("p_reach_m4");
+  const months = metricValue("months_to_m4");
   const runway = freeCash !== null && burn !== null && burn > 0 ? freeCash / burn : null;
 
   return {
-    moved,
-    approximate: moved.length >= 2,
-    score_lower_yen: applied("score_lower_yen"),
-    score_median_yen: applied("score_median_yen"),
-    score_upper_yen: applied("score_upper_yen"),
+    moved: movedCurves.map((m) => m.curve.param),
+    approximate: movedCurves.length >= 2,
+    score_lower_yen: metricValue("score_lower_yen"),
+    score_median_yen: metricValue("score_median_yen"),
+    score_upper_yen: metricValue("score_upper_yen"),
+    v_median: metricValue("v_median"),
     p_reach_m4: pReach === null ? null : Math.min(1, Math.max(0, pReach)),
     months_to_m4: months,
+    ceiling_total_yen: ceiling,
     free_cash_yen: freeCash,
     burn_rate_yen_month: burn,
     runway_months: runway,
@@ -410,31 +422,31 @@ export function Bzm30SensitivityBoard() {
           <TableSkeleton />
         ) : (
           <div className="overflow-auto border border-slate-200">
-            <table className="w-full min-w-[1320px] border-collapse text-[12px]">
+            <table className="w-full min-w-[1120px] table-fixed border-collapse text-[12px]">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-slate-100 text-left text-[10px] font-semibold text-slate-500">
-                  <th className="w-[78px] border-b border-slate-200 px-2 py-2">順位</th>
-                  <th className="w-[54px] border-b border-slate-200 px-2 py-2">PJ</th>
-                  <th className="min-w-[176px] border-b border-slate-200 px-2 py-2">案件</th>
-                  <th className="w-[66px] border-b border-slate-200 px-2 py-2 text-right">下限</th>
-                  <th className="w-[132px] border-b border-slate-200 px-2 py-2 text-right">中央</th>
-                  <th className="w-[66px] border-b border-slate-200 px-2 py-2 text-right">上限</th>
-                  <th className="w-[96px] border-b border-slate-200 px-2 py-2 text-right" title="国内で年あたりに生む付加価値の上限（純増）">
+                  <th className="w-[72px] border-b border-slate-200 px-2 py-2">順位</th>
+                  <th className="w-[52px] border-b border-slate-200 px-2 py-2">PJ</th>
+                  <th className="w-[164px] border-b border-slate-200 px-2 py-2">案件</th>
+                  <th className="w-[62px] border-b border-slate-200 px-2 py-2 text-right">下限</th>
+                  <th className="w-[118px] border-b border-slate-200 px-2 py-2 text-right">中央</th>
+                  <th className="w-[62px] border-b border-slate-200 px-2 py-2 text-right">上限</th>
+                  <th className="w-[86px] border-b border-slate-200 px-2 py-2 text-right" title="国内で年あたりに生む付加価値の上限（純増）">
                     天井（年額の純増）
                   </th>
-                  <th className="w-[82px] border-b border-slate-200 px-2 py-2 text-right" title="天井1円あたりの現在価値。天井の大きさを外して案件の筋の良さを比べる">
+                  <th className="w-[66px] border-b border-slate-200 px-2 py-2 text-right" title="天井1円あたりの現在価値。天井の大きさを外して案件の筋の良さを比べる">
                     天井1円あたり
                   </th>
-                  <th className="w-[84px] border-b border-slate-200 px-2 py-2">型×規制</th>
-                  <th className="w-[116px] border-b border-slate-200 px-2 py-2">現在地</th>
-                  <th className="w-[74px] border-b border-slate-200 px-2 py-2 text-right" title="自力で量産採用まで届く確率。0の案件は価値がライセンス・M&A・知財売却の裾から立っている">
-                    自力の量産到達率
+                  <th className="w-[78px] border-b border-slate-200 px-2 py-2">型×規制</th>
+                  <th className="w-[108px] border-b border-slate-200 px-2 py-2">現在地</th>
+                  <th className="w-[66px] border-b border-slate-200 px-2 py-2 text-right" title="自力で量産採用まで届く確率。0の案件は価値がライセンス・M&A・知財売却の裾から立っている">
+                    量産到達率
                   </th>
-                  <th className="w-[80px] border-b border-slate-200 px-2 py-2 text-right" title="いまの現在地から量産採用までにかかる平均の月数">
-                    残るゲートまで
+                  <th className="w-[70px] border-b border-slate-200 px-2 py-2 text-right" title="いまの現在地から量産採用までにかかる平均の月数">
+                    ゲートまで
                   </th>
-                  <th className="w-[104px] border-b border-slate-200 px-2 py-2 text-right" title="資金の残り月数 ÷ 残るゲートまでの月数。1前後の案件は残高が価値をそのまま決める">
-                    資金の残り ÷ ゲートまで
+                  <th className="w-[76px] border-b border-slate-200 px-2 py-2 text-right" title="資金の残り月数 ÷ 残るゲートまでの月数。1前後の案件は残高が価値をそのまま決める">
+                    資金÷ゲート
                   </th>
                 </tr>
               </thead>
@@ -568,6 +580,8 @@ function OverviewRow({
   const pReach = moved ? applied?.p_reach_m4 ?? null : row.p_reach_m4;
   const months = moved ? applied?.months_to_m4 ?? null : row.months_to_m4;
   const ratio = moved ? applied?.cash_gate_ratio ?? null : row.cash_gate_ratio;
+  const ceiling = moved ? applied?.ceiling_total_yen ?? null : row.ceiling_total_yen;
+  const perYen = moved ? applied?.v_median ?? null : row.v_median;
 
   const ceilingUnknown = row.ceiling_total_yen === null;
 
@@ -590,7 +604,7 @@ function OverviewRow({
       }`}
       style={selected ? { boxShadow: `inset 3px 0 0 0 ${AMD_BLUE}` } : undefined}
     >
-      <td className="px-2 py-1.5 tabular-nums">
+      <td className="whitespace-nowrap px-2 py-1.5 tabular-nums">
         {liveRank === null ? (
           <span className="text-slate-400">—</span>
         ) : rankChanged ? (
@@ -604,19 +618,28 @@ function OverviewRow({
           <span className="font-semibold text-slate-700">{liveRank}</span>
         )}
       </td>
-      <td className="px-2 py-1.5 text-slate-600">{row.project_id ?? "—"}</td>
-      <td className="max-w-[240px] truncate px-2 py-1.5 font-medium text-slate-900" title={row.name}>
-        {row.name}
-        {!row.curves_ready && (
-          <span className="ml-1.5 whitespace-nowrap border border-slate-300 bg-white px-1 py-px text-[9px] font-semibold text-slate-500" title="曲線をまだ計算していない。計算が終わるとつまみが出る">
-            計算中
-          </span>
-        )}
+      <td className="truncate px-2 py-1.5 text-slate-600" title={row.project_id ?? "PJ未設定"}>
+        {row.project_id ?? "—"}
       </td>
-      <td className="px-2 py-1.5 text-right tabular-nums text-slate-600">
+      <td className="px-2 py-1.5 font-medium text-slate-900">
+        <span className="flex items-center gap-1.5">
+          <span className="min-w-0 truncate" title={row.name}>
+            {row.name}
+          </span>
+          {!row.curves_ready && (
+            <span
+              className="shrink-0 whitespace-nowrap border border-slate-300 bg-white px-1 py-px text-[9px] font-semibold text-slate-500"
+              title="曲線をまだ計算していない。計算が終わるとつまみが出る"
+            >
+              計算中
+            </span>
+          )}
+        </span>
+      </td>
+      <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums text-slate-600">
         {ceilingUnknown ? "—" : yenLabel(lower)}
       </td>
-      <td className="px-2 py-1.5 text-right tabular-nums">
+      <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">
         {ceilingUnknown ? (
           <span className="text-[11px] text-amber-700">天井が未調査</span>
         ) : moved ? (
@@ -631,17 +654,17 @@ function OverviewRow({
           <span className="font-bold text-slate-950">{yenLabel(median)}</span>
         )}
       </td>
-      <td className="px-2 py-1.5 text-right tabular-nums text-slate-600">
+      <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums text-slate-600">
         {ceilingUnknown ? "—" : yenLabel(upper)}
       </td>
-      <td className="px-2 py-1.5 text-right tabular-nums text-slate-600">
-        {ceilingUnknown ? <span className="text-amber-700">未調査</span> : `${yenLabel(row.ceiling_total_yen)}／年`}
+      <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums text-slate-600">
+        {ceilingUnknown ? <span className="text-amber-700">未調査</span> : `${yenLabel(ceiling)}／年`}
       </td>
-      <td className="px-2 py-1.5 text-right tabular-nums text-slate-600">
-        {row.v_median === null ? "—" : row.v_median.toFixed(3)}
+      <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums text-slate-600">
+        {perYen === null ? "—" : perYen.toFixed(3)}
       </td>
       <td
-        className="px-2 py-1.5 text-slate-600"
+        className="truncate px-2 py-1.5 text-slate-600"
         title={
           row.process_type && row.reg_class
             ? `${PROCESS_TYPE_LABEL[row.process_type]} / ${REG_CLASS_LABEL[row.reg_class]}`
@@ -651,13 +674,13 @@ function OverviewRow({
         {laneLabel(row)}
       </td>
       <td
-        className="px-2 py-1.5 text-slate-600"
+        className="truncate px-2 py-1.5 text-slate-600"
         title={row.evidence_stage === null ? "証拠水準が未入力" : STAGE_LABEL[row.evidence_stage] ?? ""}
       >
         {stageLabel(row)}
       </td>
-      <td className="px-2 py-1.5 text-right tabular-nums text-slate-600">{pctLabel(pReach)}</td>
-      <td className="px-2 py-1.5 text-right tabular-nums text-slate-600">
+      <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums text-slate-600">{pctLabel(pReach)}</td>
+      <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums text-slate-600">
         {months === null ? (
           <span className="text-slate-400" title="自力の量産到達がほぼ無いので、到達までの月数が出ない">
             —
@@ -666,7 +689,7 @@ function OverviewRow({
           monthLabel(months)
         )}
       </td>
-      <td className="px-2 py-1.5 text-right tabular-nums">
+      <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">
         {ratio === null ? (
           <span className="text-slate-400" title="残るゲートまでの月数が出ないので、この比は出せない">
             —
@@ -897,7 +920,17 @@ function ParameterRow({
             step={0.01}
             value={t}
             onChange={(e) => onChange(snapToTick(Number(e.target.value), last))}
+            onKeyDown={(e) => {
+              // 矢印キーは目盛りから目盛りへ動かす。細かい刻みのままだと、
+              // 目盛りへの吸い付きに打ち消されて1回押しても動かない。
+              const step = e.key === "ArrowRight" || e.key === "ArrowUp" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowDown" ? -1 : 0;
+              if (step === 0) return;
+              e.preventDefault();
+              const next = step > 0 ? Math.floor(t + 1e-6) + 1 : Math.ceil(t - 1e-6) - 1;
+              onChange(Math.min(last, Math.max(0, next)));
+            }}
             aria-label={`${meta.label}を動かす`}
+            aria-valuetext={here.label}
             className="h-4 w-full cursor-pointer accent-[#027FDC]"
           />
           <div className="pointer-events-none relative mt-0.5 h-2">

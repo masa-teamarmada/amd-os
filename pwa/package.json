@@ -60,6 +60,7 @@
     "test:next-period-ui": "node scripts/check_next_period_ms_period_ui.cjs",
     "test:critical-ui": "node scripts/check_pwa_critical_ui.cjs",
     "test:reference-data-cache": "node scripts/check_reference_data_cache_contract.mjs",
+    "check:bzm30-sensitivity-base": "node scripts/check_bzm30_sensitivity_base.mjs",
     "test:project-profitability": "node --experimental-strip-types scripts/check_project_profitability.mts",
     "test:monthly-report-quality": "node scripts/test_monthly_report_quality.mjs",
     "test:monthly-report-history": "node --experimental-strip-types scripts/test_monthly_report_history.mts",
