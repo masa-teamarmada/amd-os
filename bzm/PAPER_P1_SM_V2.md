@@ -84,8 +84,8 @@ Table SM-A.1 reproduces the closure table of the model canon (§5.10). Its closu
 | $B_0(\theta)$ | the prior over project parameters | §3 | §8, §9 | A.4, A.11 |
 | $\kappa_g$ | gate coefficients — the base speed of gate $g$ | §4 | §4 | A.5 |
 | $\eta_t$ | the carrier-fill factor | §4 | §4, §5, §6 | A.5 |
-| $d_{f,g}$ | gate distance — the delay coefficient of a vacancy in function $f$ at gate $g$ | §4 | §4 | A.5 |
-| $\mathcal F$ | the gate family — the decomposition of carrier functions | §4 | §4 | A.5 |
+| $d_{f,g}$ | vacancy delay coefficient — the delay coefficient of a vacancy in function $f$ at gate $g$ | §4 | §4 | A.5 |
+| $\mathcal F$ | the decomposition of management-team functions — the decomposition of carrier functions | §4 | §4 | A.5 |
 | $\gamma$ | drag term — the degree to which contract work slows gate passage | §4 | §4 | A.5 |
 | $\phi$ | award rate | §4 | §5 | A.5 |
 | $\nu^{\mathrm{win}}$ | window-arrival rate | §4 | §5 | A.5 |
@@ -105,8 +105,8 @@ Table SM-A.1 reproduces the closure table of the model canon (§5.10). Its closu
 | $v(\theta)$ | the value conditional on project parameters | §8 | §8 | A.11 |
 | $V$ | the score | §8 | §8 | A.11 |
 | $q_o$ | terminal-class probabilities | §8 | §8 | A.8, A.11 |
-| $P_o$ | path probabilities — the value of a scenario conditional on its terminal class | §8 | §8 | A.11 |
-| $Q(h)$ | history multiplier — the cumulative probability of reaching capital self-sufficiency by elapsed month $h$ | §8 | §8 | A.11 |
+| $P_o$ | the value conditional on ending in each terminal class — the value of a scenario conditional on its terminal class | §8 | §8 | A.11 |
+| $Q(h)$ | cumulative probability of reaching capital self-sufficiency by month $h$ — the cumulative probability of reaching capital self-sufficiency by elapsed month $h$ | §8 | §8 | A.11 |
 
 **Table SM-A.2. Symbols that appear in equations but not in the canon's closure table.** The canon's closure table was written at the model definition of 24 August 2026 and has not been extended for the amendments N1 (the four routes), N2 (the economic multiplier), the private-funding arrival rate, the permanent-loss hazard on the technical core, or the permanent form of the continuation term settled in the canon's operating kit. Every symbol below is defined in the canon, and every one is used in an equation reproduced in this section; none of them is in the closure table. We list them rather than quietly extending Table SM-A.1, because the discrepancy is a property of the frozen version and a reader reconstructing the model from the canon alone will meet it.
 
@@ -264,7 +264,7 @@ $P^{\mathrm{ref}}$ is the reference ceiling at which the multiplier equals one; 
 
 $m_\theta$ is a function of the project parameters and not of the observable state. The distinction is what keeps the construction free of circularity: "this project has money now, so it scores well" would be a dependence on the state, whereas "this project is sound, so it attracts money" is a dependence on the parameters, and only the second is represented.
 
-The history argument $n_t$ is present in the award function's argument list but its multiplier is pinned to unity at this version, because state dependence cannot be separated from unobserved heterogeneity without rejection data and the builder's ledger records no rejections at all (§7.5 of the paper; SM-F). Placing a value for something unidentified would leave an unidentified structure carrying a number.
+The history argument $n_t$ is present in the award function's argument list but its multiplier is pinned to unity at this version, because state dependence cannot be separated from unobserved heterogeneity without rejection data and the builder's ledger records no rejections at all (§6.6 of the paper, where the constraint is stated; §6.4, where it is also named as a gaming opening; SM-F). Placing a value for something unidentified would leave an unidentified structure carrying a number.
 
 #### A.5.4 Realization offers and the quiet period
 
@@ -448,7 +448,7 @@ The score computed under the registered plan is the score. The value under the o
 
 **Reported quantities.** A score is reported as three numbers — the 10th, 50th and 90th percentiles of $v(\theta)$ under $B_0$, with the mean $V$ alongside for reference — plus the ratio of upper to lower as an explicit statement of how much is not yet known. The percentiles quantify parameter ignorance alone, scenario uncertainty being already integrated inside each $v(\theta)$.
 
-The path probabilities reported are only those on which value arises: capital self-sufficiency, licensing, M&A and IP sale, and their sum. The zero-value paths — withdrawal, liquidation, undecided continuation — are the remainder and are not indicators. The terminal-class probabilities are not listed as headline figures, and the withdrawal share in particular is not placed in the leading columns of a ledger: the instrument measures industrial value creation, not the probability of failure.
+The the value conditional on ending in each terminal class reported are only those on which value arises: capital self-sufficiency, licensing, M&A and IP sale, and their sum. The zero-value paths — withdrawal, liquidation, undecided continuation — are the remainder and are not indicators. The terminal-class probabilities are not listed as headline figures, and the withdrawal share in particular is not placed in the leading columns of a ledger: the instrument measures industrial value creation, not the probability of failure.
 
 Three further quantities are defined as outputs of the same computation:
 
@@ -562,7 +562,7 @@ The management team is decomposed into eight functions, extending a seven-functi
 | # | Function | Content | Transferable? | How a vacancy is filled |
 |---|---|---|---|---|
 | 1 | Evangelist function | Explains the significance and destination of the technology in a way that moves the judgment of buyers, investors, or reviewers. A function, not a title — anyone may hold it, and it may be combined with any other function | No | A search process (the fill prospect $e$ is its success probability) |
-| 2 | Technical core | How far is established, and past what point the unknown begins; the feel for replication conditions, rooted in experience that cannot be fully written down | No | In principle, the researcher personally. A **permanent** loss (e.g., on transfer or retirement, with no return) is treated not as a delay but on the hazard side, as a dated constraint or loss — connected to the obsolescence hazard $\lambda^{\mathrm{obs}}$ in a later release |
+| 2 | Technical core | How far is established, and past what point the unknown begins; the feel for replication conditions, rooted in experience that cannot be fully written down | No | In principle, the researcher personally. A **permanent** loss (e.g., on transfer or retirement, with no return) is treated not as a delay but on the hazard side, as a dated constraint or loss — carried by the dedicated technical-core loss hazard $\lambda^{\mathrm{core}}$ (0.8% per year), not by the obsolescence hazard $\lambda^{\mathrm{obs}}$, which applies to active applications and is a different quantity. Where a project declares the technical core vacant on an observed loss, $\lambda^{\mathrm{core}}$ is switched off for that project so the same fact is not counted twice |
 | 3 | Application and buyer development | Designing application hypotheses; selecting and developing buyers; judgment on unit economics and pricing terms | Yes | The AMD supply process |
 | 4 | Final decision-making and accountability | Deciding to proceed, wait, or stop, and owning the outcome | Yes | The AMD supply process |
 | 5 | Fundraising execution | Preparing materials, running meetings, closing terms | Yes | The AMD supply process |
@@ -1780,7 +1780,7 @@ found everything, and we report the sequence rather than only its endpoint.
 
 **What the rounds changed.** Round 1 found that the scoring step had no closed expression at all — a
 skeleton rather than a function — that the terminal-class set was not derived so the output type was not
-closed, and that the top-level expression assumed independence between path probabilities and path
+closed, and that the top-level expression assumed independence between values conditional on the terminal class and path
 values, which violated the framework's own stated discipline. Round 2 found that optional stopping had
 been collapsed into a pre-chosen calendar date, losing the content of the theory it cited. Round 3
 found the arithmetic error above, and that a policy-search object the text described could not be
@@ -1861,7 +1861,7 @@ plan behind §6.6's claim that "every coefficient carries a grade... and a calib
 explicit identification constraints"; the three identification constraints §6.6 names as binding
 hardest; and the five-condition falsification registry §8.4 commits to depositing. It also reports
 where the main text's own cross-references to that registry do not, on inspection, line up with the
-registry's five conditions. It does not repeat the coefficient-by-coefficient provenance-grade table,
+registry's seven conditions. It does not repeat the coefficient-by-coefficient provenance-grade table,
 the sixteen declared approximations, or the elasticity and reporting-band tables — those are SM-C's.
 
 **Version.** The calibration plan (F.1) and the identification constraints (F.2) are read from the
@@ -1890,7 +1890,7 @@ full.
 | Coefficient family | What it governs | Data source | Independent events required | Identification constraint | Priority |
 |---|---|---|---|---|---|
 | Window-arrival rate and baseline award rate ($\nu^{\mathrm{win}}$, $\phi_{\mathrm{base}}$) | How often a funding opportunity appears, and how often an application to it succeeds | Application, award and **rejection** records | 150 applications | Enters observation only as a product of the two rates; splitting them needs application counts and award outcomes as separate observations. Until rejections accumulate, restricted to a hierarchical model over public statistics | Top |
-| Gate-speed common multiplier ($\mathrm{scale}$ on $M_g$) and conversion capacity ($c$) | How fast a project clears its next gate, and how much of that speed is the project's own | Gate-passage dates, progress reports | 100 gate passages | $c$'s population median is fixed at 1.0 as an identification convention, not an estimate. $\mathrm{scale}$, the gate-distance coefficients, and $c$ cannot be told apart from one another given only gate-passage timing, so are estimated jointly around that fixed point, with a shrinkage prior on the type-level multiplier | Top |
+| Gate-speed common multiplier ($\mathrm{scale}$ on $M_g$) and conversion capacity ($c$) | How fast a project clears its next gate, and how much of that speed is the project's own | Gate-passage dates, progress reports | 100 gate passages | $c$'s population median is fixed at 1.0 as an identification convention, not an estimate. $\mathrm{scale}$, the vacancy delay coefficients, and $c$ cannot be told apart from one another given only gate-passage timing, so are estimated jointly around that fixed point, with a shrinkage prior on the type-level multiplier | Top |
 | Burn rate ($\mu$) | Monthly cash consumption | Monthly profit-and-loss records, headcount/structure changes | 6 months per project | The spend boundary (what counts) and the free/restricted allocation rule must be fixed before fitting | Top |
 | Counterfactual schedule and share parameter ($\alpha_u$, $\phi_u$) | What a competitor would have realized anyway; how much of an application's value the project system captures | Industry statistics, competitor inventories | — | $\alpha_u$ describes a world that does not occur and is unobservable **in principle**. It is bounded per project from a competitor audit and reported through sensitivity, not fitted | Excluded from calibration |
 | Vacancy-delay coefficients ($d_{f,g}$) | How much a vacant carrier function slows gate advancement | Vacancy/fill transition dates, gate-passage dates | 130 transitions | Joint estimation as a proportional-hazards model with project-level random effects and time-varying covariates; collapsed to two parameters until the count is reached. $d_{2,g}$ (the technical core) is excluded from estimation by the convention that function 2 is never marked vacant | High |
@@ -1953,7 +1953,7 @@ needs one fixed point against which gate speed is measured, and BZM 3.0 supplies
 population median of conversion capacity ($c$) to be 1.0. That half of the constraint does not
 resolve with more data, because it is not a claim about the world to be estimated — it is the
 definition of the ruler's zero point. What *does* depend on data is the other half: the gate-speed
-common multiplier, the gate-distance coefficients, and $c$ cannot be told apart from one another given
+common multiplier, the vacancy delay coefficients, and $c$ cannot be told apart from one another given
 only how fast projects actually clear gates, so the three are fitted jointly, anchored at the fixed
 median, once roughly 100 gate passages have accumulated, with a shrinkage prior on the type-level
 multiplier to keep the joint fit from wandering. In short: the ruler's zero point is fixed by
@@ -2016,18 +2016,20 @@ $\mathrm{scale}$ — it is one piece of work, not two.
 
 ### F.4 The falsification registry
 
-§8.4 of the main text commits to depositing "the five conditions below" with a public repository,
-each stated against an observable proxy, with a judge, a horizon and a threshold, so that a later
-reader can check what was claimed before outcomes were known. The length trim that produced the
-current main text (v4.0, 29 August 2026) compressed that paragraph to a cross-reference, moving its
-detail here while stating that no claim was dropped in doing so. Table F-2 restates the five
-conditions as they stood immediately before that compression; nothing has altered them since.
+§8.4 of the main text deposits seven conditions with a public repository, each stated against an
+observable proxy, with a judge, a horizon and a threshold, so that a later reader can check what was
+claimed before outcomes were known. The history is worth recording because it bears on how much the
+deposit is worth: the length trim that produced v4.0 (29 August 2026) removed all five conditions
+then in force while leaving the sentence that promised them, so for one day the main text committed
+to conditions it did not state. They were restored on 30 August from the pre-trim text, and two more
+were added at the same time (below). Table F-2 restates conditions (1)–(5) as they stood before the
+trim; nothing has altered them since.
 
-**Shared elements, stated once.** The judge for all five conditions is the evaluation-version
+**Shared elements, stated once.** The judge for all seven conditions is the evaluation-version
 approver — under the separation of duties the main text describes at §6.5 and the source of record
 requires at §6.D-3, a role held by someone other than the person who estimated the project's
-parameters. The horizon is 24 months from deposit for conditions (1)–(4) and 60 months for condition
-(5); condition (5)'s own threshold is stated in terms of that 60-month mark, which is the same
+parameters. The horizon is 24 months from deposit for conditions (1)–(4) and (6), and 60 months for conditions
+(5) and (7); condition (5)'s own threshold is stated in terms of that 60-month mark, which is the same
 plan-horizon constant (source of record, revision K8) that elsewhere separates within-horizon from
 after-horizon capital self-sufficiency.
 
@@ -2046,29 +2048,33 @@ quarter of ceilings, the factor of two, the 5% significance level, the 130 trans
 the half of projects, the 24 months of no further gate passage — is quoted from the source. Where the
 source gives a mechanism without a further number, this supplement says so rather than supplying one.
 
-**Where this registry does not close the loop the main text opens elsewhere.** Two claims are
-cross-referenced to this registry in other sections of the main text and correspond to none of the
-five conditions above.
+**Two conditions added on 30 August 2026 to close cross-references the main text was making.** Two
+claims elsewhere in the main text cited this registry while corresponding to none of conditions
+(1)–(5). Rather than weaken the cross-references, both were operationalized in the same form as the
+five above and are now conditions (6) and (7) of §8.4.
 
 - §2.5 states that enterprise-level and investor-level additionality "coincide only under an
   assumption we state and register for falsification (§8.4): that in the current Japanese Before Zero
   population, projects not carried by a dedicated builder are, with high probability, not carried at
-  all." No condition above tests this. (In the working draft, this cross-reference read "(§8)" — the
-  policy section as a whole — before the same length-trim commit that compressed the registry
-  tightened the citation to "(§8.4)" specifically; the five conditions were not changed to match.)
+  all." This is now **condition (6), builder substitutability**: the registry records projects the
+  builder declines or exits, so the assumption is testable directly — if more than a quarter of them
+  are carried to incorporation by another party within 24 months of the builder's exit, the two
+  additionality concepts do not coincide in this population and must be reported separately.
 - §4.3 states that "monotone drift of posteriors across versions is one of the registered
-  falsification signals (§8)." This cites the section generally rather than §8.4 by number, and no
-  condition above operationalizes it either — though the source of record already requires a related
+  falsification signals." This is now **condition (7), parameter constancy**: once three consecutive
+  evaluation versions have accumulated, if the posterior median of any project parameter moves in the
+  same direction across all three for more than a quarter of projects, the constant-parameter
+  approximation is absorbing real variation rather than ignorance. Like condition (4) it is not
+  testable until the count is reached, and the main text says so rather than implying an ongoing test.
+  Independently of this registry, the source of record already requires a related
   check as ordinary practice, independent of this registry: every new evaluation version is checked
   for time-consistency across the version sequence, i.e., whether $B_0$, the funding-opportunity list,
   or the rules have been drifting in one direction rather than settling.
 
-This supplement reports both as open items rather than resolving them by assumption. Either the
-additionality-equivalence claim and the posterior-drift signal need their own numbered conditions,
-each with a proxy, judge, horizon and threshold, or the cross-references at §2.5 and §4.3 should be
-corrected to cite the general commitment to falsifiability (§8, or §8.4's framing paragraph) rather
-than "the five conditions" specifically. Which correction is right is an authorial decision this
-supplement does not make.
+The thresholds in (6) and (7) — a quarter of exits, a quarter of projects across three versions —
+are stated choices rather than derived quantities, exactly as the thresholds in (1)–(5) are, and the
+main text says so. What makes them binding is not their derivation but that they are deposited before
+the outcomes arrive.
 
 **One further looseness, smaller than the two above.** Table 2 of the main text (§3.2) states that
 DP9 — "carrier vacancy delays, it does not disqualify" — is, together with DP2, "registered for

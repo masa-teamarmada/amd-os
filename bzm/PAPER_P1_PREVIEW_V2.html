@@ -530,7 +530,7 @@ scarcity where the descending arm is unobserved; <em>Monte Carlo
 simulation</em> over judgment-quality inputs, since draws add no
 information to elicited ranges — the implementation uses deterministic
 grids, at the cost of propagating only four of the thirteen parameters
-(§7.7); <em>irreversibility points</em> as a standalone requirement,
+(§4.7); <em>irreversibility points</em> as a standalone requirement,
 their decision content being carried by slack and the timing window; and
 <em>IP ownership</em> as a standalone requirement, rights being one of
 several gate-blocking items rather than a category above shareholder
@@ -701,24 +701,28 @@ carrier-fill factor of §6.2, and a drag term for contract work; the
 expression is in SM-A. Scenarios terminate in nine classes measured on
 one scale: capital self-sufficiency within or after the 60-month plan
 horizon, licensing, M&amp;A, IP sale, pivot, withdrawal, liquidation,
-and undecided continuation. One of the nine carries no probability mass
-at this version: the branch that would route a repeatedly failing
-project into an application pivot is specified but not implemented, so
-the pivot class is structurally empty rather than empirically rare
-(§7.5). We keep the class in the reporting frame rather than dropping
-it, so that its absence stays visible. When self-propulsion fails,
-probability mass does not fall into a single death state but splits
-across four routes — application pivot, exit-class conversion, licensing
-fold-down, and return of the rights to the institution (value zero; any
-later revival is a new project) — with evidence-level asymmetries that
-prevent early-stage projects from claiming exit value they cannot show.
-Before incorporation the process does not absorb at zero cash at all:
-when free funds cannot cover the burn, progress continues at a reduced
-rate with running expenses carried by the institutional base, and the
-project re-accelerates on the next award — the fifth premise of §2.1
-implemented as a speed rule rather than a death state. After
-incorporation, cash-out routes into the four-path split, because a
-company, unlike a laboratory, cannot pause.</p>
+and undecided continuation. Two of the nine carry no probability mass at
+this version, for one reason. The branch that would route a repeatedly
+failing project into an application pivot is specified but not
+implemented, so the pivot class is structurally empty rather than
+empirically rare; and because an incorporated project that exhausts its
+funds cannot pivot — dissolution requires a legal procedure — the
+specification sends that mass to liquidation instead, so liquidation is
+fed only by the route it cannot receive. Both classes are kept in the
+reporting frame rather than dropped, so that their absence stays visible
+(§7.5). When self-propulsion fails, probability mass does not fall into
+a single death state but splits across four routes — application pivot,
+exit-class conversion, licensing fold-down, and return of the rights to
+the institution (value zero; any later revival is a new project) — with
+evidence-level asymmetries that prevent early-stage projects from
+claiming exit value they cannot show. Before incorporation the process
+does not absorb at zero cash at all: when free funds cannot cover the
+burn, progress continues at a reduced rate with running expenses carried
+by the institutional base, and the project re-accelerates on the next
+award — the fifth premise of §2.1 implemented as a speed rule rather
+than a death state. After incorporation, cash-out routes into the
+four-path split, because a company, unlike a laboratory, cannot
+pause.</p>
 <h2 id="the-score-and-its-two-kinds-of-uncertainty">4.6 The score and
 its two kinds of uncertainty</h2>
 <p>For a fixed
@@ -1290,8 +1294,11 @@ comparable rather than ranked by form.</p>
 <p>At the frozen version the termination mass runs 32–59% across cells
 and is reported <em>with</em> the value-bearing classes rather than
 behind them: a selector should see the mortality its instrument implies.
-Two classes sit at 0.0% because their mechanisms are unimplemented
-(application pivot; the plan-vs-optimal timing diagnosis), and the
+Two classes sit at 0.0% because one unimplemented branch empties both
+(application pivot, and the liquidation route it feeds; §4.5). A third
+gap is not a class but a missing output: the diagnosis of whether
+incorporation came too early or too late requires a policy search the
+implementation does not perform, so no score reports it, and the
 continuation-value share spans 33.6–75.2% across cells, with the six
 majority-continuation cells flagged under §5.6’s own rule.
 Grid-convergence checks bound numerical error below 0.3% — removing the

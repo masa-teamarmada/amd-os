@@ -424,7 +424,8 @@ months by default)</td>
 </tr>
 <tr>
 <td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>d</mi><mrow><mi>f</mi><mo>,</mo><mi>g</mi></mrow></msub><annotation encoding="application/x-tex">d_{f,g}</annotation></semantics></math></td>
-<td>gate distance — the delay coefficient of a vacancy in function
+<td>vacancy delay coefficient — the delay coefficient of a vacancy in
+function
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>f</mi><annotation encoding="application/x-tex">f</annotation></semantics></math>
 at gate
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math></td>
@@ -434,7 +435,8 @@ at gate
 </tr>
 <tr>
 <td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi mathvariant="script">ℱ</mi><annotation encoding="application/x-tex">\mathcal F</annotation></semantics></math></td>
-<td>the gate family — the decomposition of carrier functions</td>
+<td>the decomposition of management-team functions — the decomposition
+of carrier functions</td>
 <td>§4</td>
 <td>§4</td>
 <td>A.5</td>
@@ -582,16 +584,18 @@ domestic value added the project system can bring into being</td>
 </tr>
 <tr>
 <td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>P</mi><mi>o</mi></msub><annotation encoding="application/x-tex">P_o</annotation></semantics></math></td>
-<td>path probabilities — the value of a scenario conditional on its
-terminal class</td>
+<td>the value conditional on ending in each terminal class — the value
+of a scenario conditional on its terminal class</td>
 <td>§8</td>
 <td>§8</td>
 <td>A.11</td>
 </tr>
 <tr>
 <td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Q</mi><mo stretchy="false" form="prefix">(</mo><mi>h</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">Q(h)</annotation></semantics></math></td>
-<td>history multiplier — the cumulative probability of reaching capital
-self-sufficiency by elapsed month
+<td>cumulative probability of reaching capital self-sufficiency by month
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>h</mi><annotation encoding="application/x-tex">h</annotation></semantics></math>
+— the cumulative probability of reaching capital self-sufficiency by
+elapsed month
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>h</mi><annotation encoding="application/x-tex">h</annotation></semantics></math></td>
 <td>§8</td>
 <td>§8</td>
@@ -1194,9 +1198,10 @@ dependence on the parameters, and only the second is represented.</p>
 is present in the award function’s argument list but its multiplier is
 pinned to unity at this version, because state dependence cannot be
 separated from unobserved heterogeneity without rejection data and the
-builder’s ledger records no rejections at all (§7.5 of the paper; SM-F).
-Placing a value for something unidentified would leave an unidentified
-structure carrying a number.</p>
+builder’s ledger records no rejections at all (§6.6 of the paper, where
+the constraint is stated; §6.4, where it is also named as a gaming
+opening; SM-F). Placing a value for something unidentified would leave
+an unidentified structure carrying a number.</p>
 <h4 id="a.5.4-realization-offers-and-the-quiet-period">A.5.4 Realization
 offers and the quiet period</h4>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>p</mi><mrow><mi>k</mi><mo>,</mo><mi>t</mi></mrow><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">f</mi><mi mathvariant="normal">f</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">r</mi></mrow></msubsup><mo>=</mo><mn>1</mn><mo>−</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mspace width="-0.167em"></mspace><mo minsize="120%" maxsize="120%" stretchy="true" form="prefix">(</mo><mo>−</mo><mspace width="0.167em"></mspace><msub><mi>ν</mi><mi>k</mi></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>κ</mi><mrow><mi mathvariant="normal">I</mi><mi mathvariant="normal">P</mi></mrow></msub><mo>,</mo><mspace width="0.222em"></mspace><msub><mi>g</mi><mi>t</mi></msub><mo>,</mo><mspace width="0.222em"></mspace><mi>σ</mi><mo>,</mo><mspace width="0.222em"></mspace><msub><mi>η</mi><mi>t</mi></msub><mo>,</mo><mspace width="0.222em"></mspace><msub><mi>m</mi><mi>q</mi></msub><mo stretchy="false" form="postfix">)</mo><mo minsize="120%" maxsize="120%" stretchy="true" form="postfix">)</mo><mo>,</mo><mspace width="2.0em"></mspace><mi>k</mi><mo>∈</mo><mo stretchy="false" form="prefix">{</mo><mtext mathvariant="normal">licensing</mtext><mo>,</mo><mspace width="0.222em"></mspace><mtext mathvariant="normal">M&amp;A</mtext><mo>,</mo><mspace width="0.222em"></mspace><mtext mathvariant="normal">IP sale</mtext><mo stretchy="false" form="postfix">}</mo><mo>,</mo></mrow><annotation encoding="application/x-tex">
@@ -1703,14 +1708,14 @@ explicit statement of how much is not yet known. The percentiles
 quantify parameter ignorance alone, scenario uncertainty being already
 integrated inside each
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>v</mi><mo stretchy="false" form="prefix">(</mo><mi>θ</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">v(\theta)</annotation></semantics></math>.</p>
-<p>The path probabilities reported are only those on which value arises:
-capital self-sufficiency, licensing, M&amp;A and IP sale, and their sum.
-The zero-value paths — withdrawal, liquidation, undecided continuation —
-are the remainder and are not indicators. The terminal-class
-probabilities are not listed as headline figures, and the withdrawal
-share in particular is not placed in the leading columns of a ledger:
-the instrument measures industrial value creation, not the probability
-of failure.</p>
+<p>The the value conditional on ending in each terminal class reported
+are only those on which value arises: capital self-sufficiency,
+licensing, M&amp;A and IP sale, and their sum. The zero-value paths —
+withdrawal, liquidation, undecided continuation — are the remainder and
+are not indicators. The terminal-class probabilities are not listed as
+headline figures, and the withdrawal share in particular is not placed
+in the leading columns of a ledger: the instrument measures industrial
+value creation, not the probability of failure.</p>
 <p>Three further quantities are defined as outputs of the same
 computation:</p>
 <ul>
@@ -2388,9 +2393,15 @@ fully written down</td>
 <td>In principle, the researcher personally. A
 <strong>permanent</strong> loss (e.g., on transfer or retirement, with
 no return) is treated not as a delay but on the hazard side, as a dated
-constraint or loss — connected to the obsolescence hazard
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>λ</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">b</mi><mi mathvariant="normal">s</mi></mrow></msup><annotation encoding="application/x-tex">\lambda^{\mathrm{obs}}</annotation></semantics></math>
-in a later release</td>
+constraint or loss — carried by the dedicated technical-core loss hazard
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>λ</mi><mrow><mi mathvariant="normal">c</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">r</mi><mi mathvariant="normal">e</mi></mrow></msup><annotation encoding="application/x-tex">\lambda^{\mathrm{core}}</annotation></semantics></math>
+(0.8% per year), not by the obsolescence hazard
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>λ</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">b</mi><mi mathvariant="normal">s</mi></mrow></msup><annotation encoding="application/x-tex">\lambda^{\mathrm{obs}}</annotation></semantics></math>,
+which applies to active applications and is a different quantity. Where
+a project declares the technical core vacant on an observed loss,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>λ</mi><mrow><mi mathvariant="normal">c</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">r</mi><mi mathvariant="normal">e</mi></mrow></msup><annotation encoding="application/x-tex">\lambda^{\mathrm{core}}</annotation></semantics></math>
+is switched off for that project so the same fact is not counted
+twice</td>
 </tr>
 <tr>
 <td>3</td>
@@ -6555,13 +6566,14 @@ than only its endpoint.</p>
 scoring step had no closed expression at all — a skeleton rather than a
 function — that the terminal-class set was not derived so the output
 type was not closed, and that the top-level expression assumed
-independence between path probabilities and path values, which violated
-the framework’s own stated discipline. Round 2 found that optional
-stopping had been collapsed into a pre-chosen calendar date, losing the
-content of the theory it cited. Round 3 found the arithmetic error
-above, and that a policy-search object the text described could not be
-computed on the rule class the framework had defined. Each of these
-changed the specification, not the prose about it.</p>
+independence between values conditional on the terminal class and path
+values, which violated the framework’s own stated discipline. Round 2
+found that optional stopping had been collapsed into a pre-chosen
+calendar date, losing the content of the theory it cited. Round 3 found
+the arithmetic error above, and that a policy-search object the text
+described could not be computed on the rule class the framework had
+defined. Each of these changed the specification, not the prose about
+it.</p>
 <h3 id="sm-e.3-what-the-audit-did-not-resolve">SM-E.3 What the audit did
 not resolve</h3>
 <p>Eight items survived round 3 as non-blocking residuals and are
@@ -6653,7 +6665,7 @@ identification constraints”; the three identification constraints §6.6
 names as binding hardest; and the five-condition falsification registry
 §8.4 commits to depositing. It also reports where the main text’s own
 cross-references to that registry do not, on inspection, line up with
-the registry’s five conditions. It does not repeat the
+the registry’s seven conditions. It does not repeat the
 coefficient-by-coefficient provenance-grade table, the sixteen declared
 approximations, or the elasticity and reporting-band tables — those are
 SM-C’s.</p>
@@ -6731,7 +6743,7 @@ is the project’s own</td>
 population median is fixed at 1.0 as an identification convention, not
 an estimate.
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">s</mi><mi mathvariant="normal">c</mi><mi mathvariant="normal">a</mi><mi mathvariant="normal">l</mi><mi mathvariant="normal">e</mi></mrow><annotation encoding="application/x-tex">\mathrm{scale}</annotation></semantics></math>,
-the gate-distance coefficients, and
+the vacancy delay coefficients, and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>c</mi><annotation encoding="application/x-tex">c</annotation></semantics></math>
 cannot be told apart from one another given only gate-passage timing, so
 are estimated jointly around that fixed point, with a shrinkage prior on
@@ -6906,7 +6918,7 @@ declaring the population median of conversion capacity
 to be 1.0. That half of the constraint does not resolve with more data,
 because it is not a claim about the world to be estimated — it is the
 definition of the ruler’s zero point. What <em>does</em> depend on data
-is the other half: the gate-speed common multiplier, the gate-distance
+is the other half: the gate-speed common multiplier, the vacancy delay
 coefficients, and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>c</mi><annotation encoding="application/x-tex">c</annotation></semantics></math>
 cannot be told apart from one another given only how fast projects
@@ -6989,25 +7001,27 @@ recalibration as
 <hr />
 <h3 id="f.4-the-falsification-registry">F.4 The falsification
 registry</h3>
-<p>§8.4 of the main text commits to depositing “the five conditions
-below” with a public repository, each stated against an observable
-proxy, with a judge, a horizon and a threshold, so that a later reader
-can check what was claimed before outcomes were known. The length trim
-that produced the current main text (v4.0, 29 August 2026) compressed
-that paragraph to a cross-reference, moving its detail here while
-stating that no claim was dropped in doing so. Table F-2 restates the
-five conditions as they stood immediately before that compression;
-nothing has altered them since.</p>
-<p><strong>Shared elements, stated once.</strong> The judge for all five
-conditions is the evaluation-version approver — under the separation of
-duties the main text describes at §6.5 and the source of record requires
-at §6.D-3, a role held by someone other than the person who estimated
-the project’s parameters. The horizon is 24 months from deposit for
-conditions (1)–(4) and 60 months for condition (5); condition (5)’s own
-threshold is stated in terms of that 60-month mark, which is the same
-plan-horizon constant (source of record, revision K8) that elsewhere
-separates within-horizon from after-horizon capital
-self-sufficiency.</p>
+<p>§8.4 of the main text deposits seven conditions with a public
+repository, each stated against an observable proxy, with a judge, a
+horizon and a threshold, so that a later reader can check what was
+claimed before outcomes were known. The history is worth recording
+because it bears on how much the deposit is worth: the length trim that
+produced v4.0 (29 August 2026) removed all five conditions then in force
+while leaving the sentence that promised them, so for one day the main
+text committed to conditions it did not state. They were restored on 30
+August from the pre-trim text, and two more were added at the same time
+(below). Table F-2 restates conditions (1)–(5) as they stood before the
+trim; nothing has altered them since.</p>
+<p><strong>Shared elements, stated once.</strong> The judge for all
+seven conditions is the evaluation-version approver — under the
+separation of duties the main text describes at §6.5 and the source of
+record requires at §6.D-3, a role held by someone other than the person
+who estimated the project’s parameters. The horizon is 24 months from
+deposit for conditions (1)–(4) and (6), and 60 months for conditions (5)
+and (7); condition (5)’s own threshold is stated in terms of that
+60-month mark, which is the same plan-horizon constant (source of
+record, revision K8) that elsewhere separates within-horizon from
+after-horizon capital self-sufficiency.</p>
 <p><strong>Table F-2. The falsification registry.</strong></p>
 <table style="width:100%;">
 <colgroup>
@@ -7128,39 +7142,46 @@ the factor of two, the 5% significance level, the 130 transitions, the
 passage — is quoted from the source. Where the source gives a mechanism
 without a further number, this supplement says so rather than supplying
 one.</p>
-<p><strong>Where this registry does not close the loop the main text
-opens elsewhere.</strong> Two claims are cross-referenced to this
-registry in other sections of the main text and correspond to none of
-the five conditions above.</p>
+<p><strong>Two conditions added on 30 August 2026 to close
+cross-references the main text was making.</strong> Two claims elsewhere
+in the main text cited this registry while corresponding to none of
+conditions (1)–(5). Rather than weaken the cross-references, both were
+operationalized in the same form as the five above and are now
+conditions (6) and (7) of §8.4.</p>
 <ul>
 <li>§2.5 states that enterprise-level and investor-level additionality
 “coincide only under an assumption we state and register for
 falsification (§8.4): that in the current Japanese Before Zero
 population, projects not carried by a dedicated builder are, with high
-probability, not carried at all.” No condition above tests this. (In the
-working draft, this cross-reference read “(§8)” — the policy section as
-a whole — before the same length-trim commit that compressed the
-registry tightened the citation to “(§8.4)” specifically; the five
-conditions were not changed to match.)</li>
+probability, not carried at all.” This is now <strong>condition (6),
+builder substitutability</strong>: the registry records projects the
+builder declines or exits, so the assumption is testable directly — if
+more than a quarter of them are carried to incorporation by another
+party within 24 months of the builder’s exit, the two additionality
+concepts do not coincide in this population and must be reported
+separately.</li>
 <li>§4.3 states that “monotone drift of posteriors across versions is
-one of the registered falsification signals (§8).” This cites the
-section generally rather than §8.4 by number, and no condition above
-operationalizes it either — though the source of record already requires
-a related check as ordinary practice, independent of this registry:
-every new evaluation version is checked for time-consistency across the
-version sequence, i.e., whether
+one of the registered falsification signals.” This is now
+<strong>condition (7), parameter constancy</strong>: once three
+consecutive evaluation versions have accumulated, if the posterior
+median of any project parameter moves in the same direction across all
+three for more than a quarter of projects, the constant-parameter
+approximation is absorbing real variation rather than ignorance. Like
+condition (4) it is not testable until the count is reached, and the
+main text says so rather than implying an ongoing test. Independently of
+this registry, the source of record already requires a related check as
+ordinary practice, independent of this registry: every new evaluation
+version is checked for time-consistency across the version sequence,
+i.e., whether
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>B</mi><mn>0</mn></msub><annotation encoding="application/x-tex">B_0</annotation></semantics></math>,
 the funding-opportunity list, or the rules have been drifting in one
 direction rather than settling.</li>
 </ul>
-<p>This supplement reports both as open items rather than resolving them
-by assumption. Either the additionality-equivalence claim and the
-posterior-drift signal need their own numbered conditions, each with a
-proxy, judge, horizon and threshold, or the cross-references at §2.5 and
-§4.3 should be corrected to cite the general commitment to
-falsifiability (§8, or §8.4’s framing paragraph) rather than “the five
-conditions” specifically. Which correction is right is an authorial
-decision this supplement does not make.</p>
+<p>The thresholds in (6) and (7) — a quarter of exits, a quarter of
+projects across three versions — are stated choices rather than derived
+quantities, exactly as the thresholds in (1)–(5) are, and the main text
+says so. What makes them binding is not their derivation but that they
+are deposited before the outcomes arrive.</p>
 <p><strong>One further looseness, smaller than the two above.</strong>
 Table 2 of the main text (§3.2) states that DP9 — “carrier vacancy
 delays, it does not disqualify” — is, together with DP2, “registered for

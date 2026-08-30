@@ -8,9 +8,10 @@
 供給元の正本は日本語（`../model/MODEL_VERSION_LEDGER.md`）、成果物は英語。
 **訳ではなく、稿がすでに使っている英語へ合わせる作業**であることに注意する。
 
-> **この表自体の訂正履歴（2026-08-30）**: 初版で英訳を4件誤っていた——$\ell_t$（失効を「受託の稼ぎ」と誤訳）、
+> **この表自体の訂正履歴（2026-08-30）**: 初版で英訳を6件誤っていた——$\ell_t$（失効を「受託の稼ぎ」と誤訳）、
 > $\beta_i$（権利の解決率を「金融商品の係数」と誤訳）、$d_{f,g}$（空席の遅延を「ゲート距離」と誤訳）、
-> $Q(h)$（累積確率を「履歴の乗数」と誤訳）。いずれも並列で書いていた worker が見つけ、正本を引いて確認のうえ直した。
+> $Q(h)$（累積確率を「履歴の乗数」と誤訳）、$\mathcal F$（機能の分解表を「ゲート族」と誤訳）、
+> $P_o$（区分ごとの条件付き価値を「経路の確率」と誤訳）。いずれも並列で書いていた worker と検収が見つけ、正本を引いて確認のうえ直した。
 > **記号は閉包表の並びから推測せず、その記号を定義している節を必ず開いて確認すること。**
 
 ---
@@ -79,7 +80,8 @@
 
 | 記号 | 稿の英語 |
 |---|---|
-| $\kappa_g,\ \eta_t,\ d_{f,g},\ \mathcal F,\ \gamma,\ \rho_t$ | gate coefficients; carrier-fill factor; **vacancy delay coefficient**; the gate family; drag term; contract-work share |
+| $\kappa_g,\ \eta_t,\ d_{f,g},\ \mathcal F,\ \gamma,\ \rho_t$ | gate coefficients; carrier-fill factor; **vacancy delay coefficient**; **the decomposition of management-team functions**; drag term; contract-work share |
+| | 訂正 2026-08-30: $\mathcal F$ を the gate family と書いていたのは誤り。正本は「経営チームが持つべき機能の分解表」。稿は gate family という語を一度も使っていない |
 | | 訂正 2026-08-30: $d_{f,g}$ を gate distance と書いていたのは誤り。正本は「機能 $f$ の空席がもたらす遅延係数（0〜1）、ゲートごとに添字づける」と定義しており、距離ではない |
 | $\phi,\ \nu^{\mathrm{win}},\ \nu_k,\ \nu_c,\ \beta_i,\ \psi_g$ | award rate; window-arrival rate; offer-arrival rates; contract-arrival rate; rights-resolution rates; gate-specific technical-core loading |
 | $t_q,\ m_q$ | the quiet period and its multiplier |
@@ -92,7 +94,8 @@
 | $m_u = w_u - \underline{c}_u$ | the unit margin |
 | $v(\theta)$ | the value conditional on project parameters |
 | $V$ | the score |
-| $q_o,\ P_o,\ Q(h)$ | terminal-class probabilities; path probabilities; **the cumulative probability of reaching capital self-sufficiency by month $h$** |
+| $q_o,\ P_o,\ Q(h)$ | terminal-class probabilities; **the value conditional on ending in class $o$**; **the cumulative probability of reaching capital self-sufficiency by month $h$** |
+| | 訂正 2026-08-30: $P_o$ を path probabilities と書いていたのは誤り。正本 §5.8 は $P_o(\theta)=\mathbb E[\Pi\mid\theta,o]$「区分ごとの条件付き価値」で、確率ではない |
 | $m_n$ | the history multiplier | 較正可能になるまで **1 に固定**（正本 §6.I）。稿 §6.4 の「失敗が無料」はこれ |
 | | 訂正 2026-08-30: $Q(h)$ を history multiplier と書いていたのは誤り。正本 §5.8 は「経過月 $h$ までに資本自立へ届く累積確率」と定義している。history multiplier は $m_n$ |
 

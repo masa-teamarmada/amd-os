@@ -5,7 +5,7 @@ plan behind §6.6's claim that "every coefficient carries a grade... and a calib
 explicit identification constraints"; the three identification constraints §6.6 names as binding
 hardest; and the five-condition falsification registry §8.4 commits to depositing. It also reports
 where the main text's own cross-references to that registry do not, on inspection, line up with the
-registry's five conditions. It does not repeat the coefficient-by-coefficient provenance-grade table,
+registry's seven conditions. It does not repeat the coefficient-by-coefficient provenance-grade table,
 the sixteen declared approximations, or the elasticity and reporting-band tables — those are SM-C's.
 
 **Version.** The calibration plan (F.1) and the identification constraints (F.2) are read from the
@@ -34,7 +34,7 @@ full.
 | Coefficient family | What it governs | Data source | Independent events required | Identification constraint | Priority |
 |---|---|---|---|---|---|
 | Window-arrival rate and baseline award rate ($\nu^{\mathrm{win}}$, $\phi_{\mathrm{base}}$) | How often a funding opportunity appears, and how often an application to it succeeds | Application, award and **rejection** records | 150 applications | Enters observation only as a product of the two rates; splitting them needs application counts and award outcomes as separate observations. Until rejections accumulate, restricted to a hierarchical model over public statistics | Top |
-| Gate-speed common multiplier ($\mathrm{scale}$ on $M_g$) and conversion capacity ($c$) | How fast a project clears its next gate, and how much of that speed is the project's own | Gate-passage dates, progress reports | 100 gate passages | $c$'s population median is fixed at 1.0 as an identification convention, not an estimate. $\mathrm{scale}$, the gate-distance coefficients, and $c$ cannot be told apart from one another given only gate-passage timing, so are estimated jointly around that fixed point, with a shrinkage prior on the type-level multiplier | Top |
+| Gate-speed common multiplier ($\mathrm{scale}$ on $M_g$) and conversion capacity ($c$) | How fast a project clears its next gate, and how much of that speed is the project's own | Gate-passage dates, progress reports | 100 gate passages | $c$'s population median is fixed at 1.0 as an identification convention, not an estimate. $\mathrm{scale}$, the vacancy delay coefficients, and $c$ cannot be told apart from one another given only gate-passage timing, so are estimated jointly around that fixed point, with a shrinkage prior on the type-level multiplier | Top |
 | Burn rate ($\mu$) | Monthly cash consumption | Monthly profit-and-loss records, headcount/structure changes | 6 months per project | The spend boundary (what counts) and the free/restricted allocation rule must be fixed before fitting | Top |
 | Counterfactual schedule and share parameter ($\alpha_u$, $\phi_u$) | What a competitor would have realized anyway; how much of an application's value the project system captures | Industry statistics, competitor inventories | — | $\alpha_u$ describes a world that does not occur and is unobservable **in principle**. It is bounded per project from a competitor audit and reported through sensitivity, not fitted | Excluded from calibration |
 | Vacancy-delay coefficients ($d_{f,g}$) | How much a vacant carrier function slows gate advancement | Vacancy/fill transition dates, gate-passage dates | 130 transitions | Joint estimation as a proportional-hazards model with project-level random effects and time-varying covariates; collapsed to two parameters until the count is reached. $d_{2,g}$ (the technical core) is excluded from estimation by the convention that function 2 is never marked vacant | High |
@@ -97,7 +97,7 @@ needs one fixed point against which gate speed is measured, and BZM 3.0 supplies
 population median of conversion capacity ($c$) to be 1.0. That half of the constraint does not
 resolve with more data, because it is not a claim about the world to be estimated — it is the
 definition of the ruler's zero point. What *does* depend on data is the other half: the gate-speed
-common multiplier, the gate-distance coefficients, and $c$ cannot be told apart from one another given
+common multiplier, the vacancy delay coefficients, and $c$ cannot be told apart from one another given
 only how fast projects actually clear gates, so the three are fitted jointly, anchored at the fixed
 median, once roughly 100 gate passages have accumulated, with a shrinkage prior on the type-level
 multiplier to keep the joint fit from wandering. In short: the ruler's zero point is fixed by
@@ -160,18 +160,20 @@ $\mathrm{scale}$ — it is one piece of work, not two.
 
 ### F.4 The falsification registry
 
-§8.4 of the main text commits to depositing "the five conditions below" with a public repository,
-each stated against an observable proxy, with a judge, a horizon and a threshold, so that a later
-reader can check what was claimed before outcomes were known. The length trim that produced the
-current main text (v4.0, 29 August 2026) compressed that paragraph to a cross-reference, moving its
-detail here while stating that no claim was dropped in doing so. Table F-2 restates the five
-conditions as they stood immediately before that compression; nothing has altered them since.
+§8.4 of the main text deposits seven conditions with a public repository, each stated against an
+observable proxy, with a judge, a horizon and a threshold, so that a later reader can check what was
+claimed before outcomes were known. The history is worth recording because it bears on how much the
+deposit is worth: the length trim that produced v4.0 (29 August 2026) removed all five conditions
+then in force while leaving the sentence that promised them, so for one day the main text committed
+to conditions it did not state. They were restored on 30 August from the pre-trim text, and two more
+were added at the same time (below). Table F-2 restates conditions (1)–(5) as they stood before the
+trim; nothing has altered them since.
 
-**Shared elements, stated once.** The judge for all five conditions is the evaluation-version
+**Shared elements, stated once.** The judge for all seven conditions is the evaluation-version
 approver — under the separation of duties the main text describes at §6.5 and the source of record
 requires at §6.D-3, a role held by someone other than the person who estimated the project's
-parameters. The horizon is 24 months from deposit for conditions (1)–(4) and 60 months for condition
-(5); condition (5)'s own threshold is stated in terms of that 60-month mark, which is the same
+parameters. The horizon is 24 months from deposit for conditions (1)–(4) and (6), and 60 months for conditions
+(5) and (7); condition (5)'s own threshold is stated in terms of that 60-month mark, which is the same
 plan-horizon constant (source of record, revision K8) that elsewhere separates within-horizon from
 after-horizon capital self-sufficiency.
 
@@ -190,29 +192,33 @@ quarter of ceilings, the factor of two, the 5% significance level, the 130 trans
 the half of projects, the 24 months of no further gate passage — is quoted from the source. Where the
 source gives a mechanism without a further number, this supplement says so rather than supplying one.
 
-**Where this registry does not close the loop the main text opens elsewhere.** Two claims are
-cross-referenced to this registry in other sections of the main text and correspond to none of the
-five conditions above.
+**Two conditions added on 30 August 2026 to close cross-references the main text was making.** Two
+claims elsewhere in the main text cited this registry while corresponding to none of conditions
+(1)–(5). Rather than weaken the cross-references, both were operationalized in the same form as the
+five above and are now conditions (6) and (7) of §8.4.
 
 - §2.5 states that enterprise-level and investor-level additionality "coincide only under an
   assumption we state and register for falsification (§8.4): that in the current Japanese Before Zero
   population, projects not carried by a dedicated builder are, with high probability, not carried at
-  all." No condition above tests this. (In the working draft, this cross-reference read "(§8)" — the
-  policy section as a whole — before the same length-trim commit that compressed the registry
-  tightened the citation to "(§8.4)" specifically; the five conditions were not changed to match.)
+  all." This is now **condition (6), builder substitutability**: the registry records projects the
+  builder declines or exits, so the assumption is testable directly — if more than a quarter of them
+  are carried to incorporation by another party within 24 months of the builder's exit, the two
+  additionality concepts do not coincide in this population and must be reported separately.
 - §4.3 states that "monotone drift of posteriors across versions is one of the registered
-  falsification signals (§8)." This cites the section generally rather than §8.4 by number, and no
-  condition above operationalizes it either — though the source of record already requires a related
+  falsification signals." This is now **condition (7), parameter constancy**: once three consecutive
+  evaluation versions have accumulated, if the posterior median of any project parameter moves in the
+  same direction across all three for more than a quarter of projects, the constant-parameter
+  approximation is absorbing real variation rather than ignorance. Like condition (4) it is not
+  testable until the count is reached, and the main text says so rather than implying an ongoing test.
+  Independently of this registry, the source of record already requires a related
   check as ordinary practice, independent of this registry: every new evaluation version is checked
   for time-consistency across the version sequence, i.e., whether $B_0$, the funding-opportunity list,
   or the rules have been drifting in one direction rather than settling.
 
-This supplement reports both as open items rather than resolving them by assumption. Either the
-additionality-equivalence claim and the posterior-drift signal need their own numbered conditions,
-each with a proxy, judge, horizon and threshold, or the cross-references at §2.5 and §4.3 should be
-corrected to cite the general commitment to falsifiability (§8, or §8.4's framing paragraph) rather
-than "the five conditions" specifically. Which correction is right is an authorial decision this
-supplement does not make.
+The thresholds in (6) and (7) — a quarter of exits, a quarter of projects across three versions —
+are stated choices rather than derived quantities, exactly as the thresholds in (1)–(5) are, and the
+main text says so. What makes them binding is not their derivation but that they are deposited before
+the outcomes arrive.
 
 **One further looseness, smaller than the two above.** Table 2 of the main text (§3.2) states that
 DP9 — "carrier vacancy delays, it does not disqualify" — is, together with DP2, "registered for

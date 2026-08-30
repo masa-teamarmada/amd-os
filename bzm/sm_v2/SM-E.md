@@ -48,7 +48,7 @@ found everything, and we report the sequence rather than only its endpoint.
 
 **What the rounds changed.** Round 1 found that the scoring step had no closed expression at all — a
 skeleton rather than a function — that the terminal-class set was not derived so the output type was not
-closed, and that the top-level expression assumed independence between path probabilities and path
+closed, and that the top-level expression assumed independence between values conditional on the terminal class and path
 values, which violated the framework's own stated discipline. Round 2 found that optional stopping had
 been collapsed into a pre-chosen calendar date, losing the content of the theory it cited. Round 3
 found the arithmetic error above, and that a policy-search object the text described could not be

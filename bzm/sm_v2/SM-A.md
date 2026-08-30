@@ -60,8 +60,8 @@ Table SM-A.1 reproduces the closure table of the model canon (§5.10). Its closu
 | $B_0(\theta)$ | the prior over project parameters | §3 | §8, §9 | A.4, A.11 |
 | $\kappa_g$ | gate coefficients — the base speed of gate $g$ | §4 | §4 | A.5 |
 | $\eta_t$ | the carrier-fill factor | §4 | §4, §5, §6 | A.5 |
-| $d_{f,g}$ | gate distance — the delay coefficient of a vacancy in function $f$ at gate $g$ | §4 | §4 | A.5 |
-| $\mathcal F$ | the gate family — the decomposition of carrier functions | §4 | §4 | A.5 |
+| $d_{f,g}$ | vacancy delay coefficient — the delay coefficient of a vacancy in function $f$ at gate $g$ | §4 | §4 | A.5 |
+| $\mathcal F$ | the decomposition of management-team functions — the decomposition of carrier functions | §4 | §4 | A.5 |
 | $\gamma$ | drag term — the degree to which contract work slows gate passage | §4 | §4 | A.5 |
 | $\phi$ | award rate | §4 | §5 | A.5 |
 | $\nu^{\mathrm{win}}$ | window-arrival rate | §4 | §5 | A.5 |
@@ -81,8 +81,8 @@ Table SM-A.1 reproduces the closure table of the model canon (§5.10). Its closu
 | $v(\theta)$ | the value conditional on project parameters | §8 | §8 | A.11 |
 | $V$ | the score | §8 | §8 | A.11 |
 | $q_o$ | terminal-class probabilities | §8 | §8 | A.8, A.11 |
-| $P_o$ | path probabilities — the value of a scenario conditional on its terminal class | §8 | §8 | A.11 |
-| $Q(h)$ | history multiplier — the cumulative probability of reaching capital self-sufficiency by elapsed month $h$ | §8 | §8 | A.11 |
+| $P_o$ | the value conditional on ending in each terminal class — the value of a scenario conditional on its terminal class | §8 | §8 | A.11 |
+| $Q(h)$ | cumulative probability of reaching capital self-sufficiency by month $h$ — the cumulative probability of reaching capital self-sufficiency by elapsed month $h$ | §8 | §8 | A.11 |
 
 **Table SM-A.2. Symbols that appear in equations but not in the canon's closure table.** The canon's closure table was written at the model definition of 24 August 2026 and has not been extended for the amendments N1 (the four routes), N2 (the economic multiplier), the private-funding arrival rate, the permanent-loss hazard on the technical core, or the permanent form of the continuation term settled in the canon's operating kit. Every symbol below is defined in the canon, and every one is used in an equation reproduced in this section; none of them is in the closure table. We list them rather than quietly extending Table SM-A.1, because the discrepancy is a property of the frozen version and a reader reconstructing the model from the canon alone will meet it.
 
@@ -240,7 +240,7 @@ $P^{\mathrm{ref}}$ is the reference ceiling at which the multiplier equals one; 
 
 $m_\theta$ is a function of the project parameters and not of the observable state. The distinction is what keeps the construction free of circularity: "this project has money now, so it scores well" would be a dependence on the state, whereas "this project is sound, so it attracts money" is a dependence on the parameters, and only the second is represented.
 
-The history argument $n_t$ is present in the award function's argument list but its multiplier is pinned to unity at this version, because state dependence cannot be separated from unobserved heterogeneity without rejection data and the builder's ledger records no rejections at all (§7.5 of the paper; SM-F). Placing a value for something unidentified would leave an unidentified structure carrying a number.
+The history argument $n_t$ is present in the award function's argument list but its multiplier is pinned to unity at this version, because state dependence cannot be separated from unobserved heterogeneity without rejection data and the builder's ledger records no rejections at all (§6.6 of the paper, where the constraint is stated; §6.4, where it is also named as a gaming opening; SM-F). Placing a value for something unidentified would leave an unidentified structure carrying a number.
 
 #### A.5.4 Realization offers and the quiet period
 
@@ -424,7 +424,7 @@ The score computed under the registered plan is the score. The value under the o
 
 **Reported quantities.** A score is reported as three numbers — the 10th, 50th and 90th percentiles of $v(\theta)$ under $B_0$, with the mean $V$ alongside for reference — plus the ratio of upper to lower as an explicit statement of how much is not yet known. The percentiles quantify parameter ignorance alone, scenario uncertainty being already integrated inside each $v(\theta)$.
 
-The path probabilities reported are only those on which value arises: capital self-sufficiency, licensing, M&A and IP sale, and their sum. The zero-value paths — withdrawal, liquidation, undecided continuation — are the remainder and are not indicators. The terminal-class probabilities are not listed as headline figures, and the withdrawal share in particular is not placed in the leading columns of a ledger: the instrument measures industrial value creation, not the probability of failure.
+The the value conditional on ending in each terminal class reported are only those on which value arises: capital self-sufficiency, licensing, M&A and IP sale, and their sum. The zero-value paths — withdrawal, liquidation, undecided continuation — are the remainder and are not indicators. The terminal-class probabilities are not listed as headline figures, and the withdrawal share in particular is not placed in the leading columns of a ledger: the instrument measures industrial value creation, not the probability of failure.
 
 Three further quantities are defined as outputs of the same computation:
 
