@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { isKuteCompletedTask, KUTE_COMPLETED_BADGE, KUTE_COMPLETED_COLOR } from "@/lib/kute-gantt-completion";
 import {
   ChevronsDownUp,
   ChevronsUpDown,
@@ -391,6 +392,7 @@ const DRAG_HIT_HEIGHT = 44;
 const DRAG_HIT_TOP = (ROW_H - DRAG_HIT_HEIGHT) / 2;
 
 function RowBar({
+  projectId,
   row,
   accent,
   selected,
@@ -412,6 +414,7 @@ function RowBar({
   onKeyboardStartDependency,
   onCompleteDependency,
 }: {
+  projectId?: string | null;
   row: DisplayRow;
   accent: string;
   selected: boolean;
@@ -440,6 +443,7 @@ function RowBar({
   const plannedEnd = row.plannedEndPct;
   const hasBar = plannedEnd != null;
   const provisional = row.dateCertainty === "provisional";
+  const completed = isKuteCompletedTask(projectId, row);
   const counts = sxGateRequirementCounts(row.requirements);
   // Any timelineKind==="milestone" row renders as a diamond, not a bar — rendering must read
   // this column, never infer from slug. The 2 founding-prerequisite gates keep their
@@ -549,17 +553,18 @@ function RowBar({
       {hasBar && !isMilestoneMarker && (
         <span
           data-gantt-task-bar={row.id}
+          data-task-completed={completed || undefined}
           className="pointer-events-none absolute overflow-hidden rounded-sm border"
           style={{
             top: TASK_BAR_TOP_PX,
             height: TASK_BAR_HEIGHT_PX,
             left: barGeometry!.left,
             width: barGeometry!.width,
-            borderColor: `${accent}99`,
-            background: `${accent}${provisional ? "24" : "3d"}`,
+            borderColor: completed ? KUTE_COMPLETED_COLOR : `${accent}99`,
+            background: completed ? KUTE_COMPLETED_COLOR : `${accent}${provisional ? "24" : "3d"}`,
           }}
         >
-          {row.progressRegistered && row.progressPct > 0 && (
+          {!completed && row.progressRegistered && row.progressPct > 0 && (
             <span
               className="absolute inset-y-0 left-0"
               style={{ width: `${row.progressPct}%`, background: accent }}
@@ -2734,7 +2739,7 @@ export function SxUnifiedTimeline({
                             {row.title}
                           </b>
                           <i className="border border-[#cbd5e1] px-1 text-[8px] not-italic text-[#3c3c43]">タスク</i>
-                          <i className="border border-[#cbd5e1] px-1 text-[8px] not-italic text-[#3c3c43]">
+                          <i className={`border px-1 text-[8px] not-italic ${isKuteCompletedTask(projectId, row) ? KUTE_COMPLETED_BADGE : "border-[#cbd5e1] text-[#3c3c43]"}`}>
                             {ROW_STATE_TEXT[row.state]}
                           </i>
                         </span>
@@ -3018,7 +3023,7 @@ export function SxUnifiedTimeline({
                             )}
                           </span>
                           <span className="mt-0.5 flex items-center gap-2 overflow-hidden whitespace-nowrap text-[10px] text-[#3c3c43]">
-                            <em className="not-italic">
+                            <em className={`not-italic ${isKuteCompletedTask(projectId, row) ? `border px-1 ${KUTE_COMPLETED_BADGE}` : ""}`}>
                               {ROW_STATE_TEXT[row.state]}
                             </em>
                             <span>{row.ownerLabel}</span>
@@ -3401,6 +3406,7 @@ export function SxUnifiedTimeline({
                           style={{ height: ROW_H }}
                         >
                           <RowBar
+                            projectId={projectId}
                             row={displayRow}
                             accent={lane.accent}
                             selected={

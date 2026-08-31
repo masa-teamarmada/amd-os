@@ -1,5 +1,7 @@
 # DESIGN.md — AMD OS 全画面設計の正本
 
+2026-08-31: PWAのKUTEガントは完了登録済みタスクを緑の全幅期間バーと「完了」表示で識別する。日付や進捗率のみで完了判定しない。KUTE限定、共通DB変更なし。iOS/macOS/Androidのネイティブ画面は未移植。詳細は `../pwa/spec/3-8-cockpit-current-spec.md`。
+
 > See also: [CLAUDE.md](CLAUDE.md) — 最重要ルール / [HANDOFF.md](HANDOFF.md) — 現在の配布状況 / [HANDOFF_ios_to_android.md](HANDOFF_ios_to_android.md) — 直近の Android 向け引き継ぎ / [BUGS.md](BUGS.md) — 既知バグ
 >
 > **目的**: AMD OS（iOS / macOS / Android）に存在する **すべての画面 / 機能** の一覧と仕様。

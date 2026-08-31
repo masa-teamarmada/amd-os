@@ -1,5 +1,11 @@
 # HANDOFF - AMD OS PWA
 
+## 2026-08-31 KUTE完了表示とタスク棚卸し
+
+- p25の明示的なcompletedタスクだけを緑の全幅バーと完了badgeで示す。desktop/mobileに適用、他PJとMSは不変。DB変更なし、ネイティブ未移植。
+- 今期の再編案は `/Users/masa/projects/AMD/kute/docs/FY2026_TASK_REVIEW.md`。契約期間は5/1〜翌3/31。既存6工程の入替え、完了状態の更新、将来日程の採用はまさの確認後。Before Zeroの未承認システム設計やファンド組成を自動採用しない。
+- 回帰チェック: `node pwa/scripts/check_kute_gantt_completion.cjs`、既存KUTEタブ契約チェック。
+
 ## 2026-08-31 ZMPテーマ作業画面（全クライアント向け）
 
 - PWAのp19ワークスペースは`#theme-progress`の「テーマ」を既定表示する。順序はKR経営改革、水素循環PJ、OkuDoor運営、OkuDoorシステム開発＆運用。既存9成果目標を4/2/2/1件で接続し、進捗値は変更しない。
