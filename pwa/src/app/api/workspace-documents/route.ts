@@ -124,51 +124,51 @@ export async function GET(request: Request) {
   const projectId = scope.kind === "project" ? access.projectId : null;
   if (projectId && surface === "cockpit" && access.canReadInternal) {
     const [internalReports, submissionReports] = await Promise.all([
-      db.from("monthly_reports").select("ym,generated_at,fixed_at,updated_at")
+      db.from("monthly_reports").select("ym,generated_at,fixed_at,created_at")
         .eq("project_id", projectId),
       db.from("monthly_reports_external").select("ym,updated_at,created_at")
         .eq("project_id", projectId),
     ]);
     if (internalReports.error || submissionReports.error) {
       console.error("[workspace-documents] monthly report list failed:", internalReports.error?.message ?? submissionReports.error?.message);
-      return json({ ok: false, error: "月次報告書を読み込めなかったよ。" }, 500);
+    } else {
+      const months = new Map<string, string>();
+      for (const report of [...(internalReports.data ?? []), ...(submissionReports.data ?? [])] as Array<Record<string, string | null>>) {
+        const normalized = typeof report.ym === "string" ? normalizeMonthlyReportYm(report.ym) : null;
+        if (normalized) months.set(normalized, report.updated_at ?? report.fixed_at ?? report.generated_at ?? report.created_at ?? new Date(0).toISOString());
+      }
+      monthlyReportEntries = Array.from(months.entries()).flatMap(([ym, updatedAt]) => {
+        const folderPath = monthlyReportDriveFolderPath(ym);
+        return [
+          {
+            documentId: `monthly-report:${projectId}:${ym}:internal`,
+            entryKind: "report",
+            visibility: "amd_internal",
+            folderPath,
+            displayName: "社内版 月次報告書",
+            mimeType: "application/x-amd-monthly-report",
+            fileSizeBytes: 0,
+            sourceKind: "monthly_report_internal",
+            createdAt: updatedAt,
+            updatedAt,
+            reportHref: `/project/${encodeURIComponent(projectId)}/report/${ym}/print?template=internal`,
+          },
+          {
+            documentId: `monthly-report:${projectId}:${ym}:submission`,
+            entryKind: "report",
+            visibility: "amd_internal",
+            folderPath,
+            displayName: "提出版 月次報告書",
+            mimeType: "application/x-amd-monthly-report",
+            fileSizeBytes: 0,
+            sourceKind: "monthly_report_submission",
+            createdAt: updatedAt,
+            updatedAt,
+            reportHref: `/project/${encodeURIComponent(projectId)}/report/${ym}/print?template=submission`,
+          },
+        ];
+      });
     }
-    const months = new Map<string, string>();
-    for (const report of [...(internalReports.data ?? []), ...(submissionReports.data ?? [])] as Array<Record<string, string | null>>) {
-      const normalized = typeof report.ym === "string" ? normalizeMonthlyReportYm(report.ym) : null;
-      if (normalized) months.set(normalized, report.updated_at ?? report.fixed_at ?? report.generated_at ?? report.created_at ?? new Date(0).toISOString());
-    }
-    monthlyReportEntries = Array.from(months.entries()).flatMap(([ym, updatedAt]) => {
-      const folderPath = monthlyReportDriveFolderPath(ym);
-      return [
-        {
-          documentId: `monthly-report:${projectId}:${ym}:internal`,
-          entryKind: "report",
-          visibility: "amd_internal",
-          folderPath,
-          displayName: "社内版 月次報告書",
-          mimeType: "application/x-amd-monthly-report",
-          fileSizeBytes: 0,
-          sourceKind: "monthly_report_internal",
-          createdAt: updatedAt,
-          updatedAt,
-          reportHref: `/project/${encodeURIComponent(projectId)}/report/${ym}/print?template=internal`,
-        },
-        {
-          documentId: `monthly-report:${projectId}:${ym}:submission`,
-          entryKind: "report",
-          visibility: "amd_internal",
-          folderPath,
-          displayName: "提出版 月次報告書",
-          mimeType: "application/x-amd-monthly-report",
-          fileSizeBytes: 0,
-          sourceKind: "monthly_report_submission",
-          createdAt: updatedAt,
-          updatedAt,
-          reportHref: `/project/${encodeURIComponent(projectId)}/report/${ym}/print?template=submission`,
-        },
-      ];
-    });
   }
 
   return json({

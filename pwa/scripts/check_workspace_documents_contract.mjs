@@ -248,6 +248,7 @@ assert.match(source.middleware, /workspace\(\?:\\\/files\)\?/, "外部workspace 
 assert.match(source.cockpit, /aria-label="ドライブ"[\s\S]*?<WorkspaceDocumentRoom/s, "cockpitは資料一覧でなくドライブタブを置く");
 assert.match(source.list, /monthly_report_internal[\s\S]*?monthly_report_submission/s, "社内版・提出版は月次報告書folderの仮想entryとして並べる");
 assert.match(source.list, /surface === "cockpit" && access\.canReadInternal/, "月次帳票は内部cockpit面だけに限定する");
+assert.doesNotMatch(source.list, /monthly report list failed:[\s\S]*?return json\(\{ ok: false, error: "月次報告書を読み込めなかったよ。" \}, 500\)/s, "月次帳票の補助読込失敗で既存ドライブ一覧を空にしない");
 assert.match(source.room, /item\.entryKind !== "report"/, "月次帳票の仮想entryは移動・削除できない");
 assert.doesNotMatch(source.cockpit, /WorkspaceDocumentLauncher/, "進捗管理タブへ資料室launcherを戻さない (2026-08-21 まさ確定)");
 assert.doesNotMatch(source.cockpit, /WorkspaceDocumentSummary/, "cockpitの資料サマリ一覧を復活させない");
