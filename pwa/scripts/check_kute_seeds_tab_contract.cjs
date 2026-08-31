@@ -35,33 +35,31 @@ if (cockpit.includes("CockpitKuteAnnualRoadmap") || fs.existsSync(path.join(root
 if (!/hasKuteSeedsTab && hasVisitedSeeds[\s\S]*?hidden=\{activeTab !== "seeds"\}[\s\S]*?<ProjectInstitutionSeeds/.test(cockpit))
   throw new Error("KUTE seeds must remain mounted in their own hidden panel after the first visit");
 
-const migration = read("../ios/supabase/migrations/20260831223000_kute_annual_roadmap_gantt.sql");
+const migration = read("../ios/supabase/migrations/20260901184500_kute_fy2026_task_rebuild.sql");
 const sql = migration.replace(/--[^\n]*/g, "");
-if (/\b(UPDATE|DELETE|ALTER|DROP|TRUNCATE)\b/i.test(sql))
-  throw new Error("KUTE seed migration must never overwrite user data or change schema");
-if ((sql.match(/ON CONFLICT DO NOTHING/g) || []).length !== 5)
-  throw new Error("every KUTE ledger insert must be idempotent");
-if (/'p(?!25')[0-9]+'/.test(sql)) throw new Error("KUTE migration must not affect another PJ");
-const taskValues = sql.slice(sql.lastIndexOf("FROM (VALUES"));
-const expected = [
-  ["301", "認定規程の着地", "2026-06-01", "2026-06-30", "6/22教授総会で通せる状態にする", "認定規程修正案 / 委員会規程 / 支援細則 / 想定問答"],
-  ["302", "7規程の全体設計", "2026-07-01", "2026-07-31", "認定制度と残り6規程の接続を整理する", "規程マップ / 既存規程突合表 / 他大学比較 / 優先順位"],
-  ["303", "残り6規程の素案化", "2026-08-01", "2026-08-31", "既存改訂・新規作成の条文たたきを作る", "兼業 / 新株予約権 / 共有機器 / 知財 / 共同研究 / 利益相反"],
-  ["304", "学内議論・修正", "2026-09-01", "2026-11-30", "教授総会・関係部署・法務論点を反映する", "修正版 / 論点管理表 / 学内説明資料 / 施行準備メモ"],
-  ["305", "規程整備完了", "2026-12-01", "2027-01-31", "条文だけでなく、運用に必要な付属物まで揃える", "施行版 / 様式 / 運用フロー / FAQ"],
-  ["306", "シーズ発掘・after GTIE", "2026-06-01", "2027-03-31", "規程整備と並行して支援実務の型を作る", "桑折先生パイロット / ヒアリング設計 / 連携先マップ / 資金循環モデル"],
-];
-const tuples = [...taskValues.matchAll(/\('25000000-2026-4000-8000-000000000(30[1-6])',[\s\S]*?\)/g)];
-if (tuples.length !== 6) throw new Error("roadmap must seed exactly six normal tasks");
-for (const [id, ...texts] of expected) {
-  const tuple = tuples.find(match => match[1] === id)?.[0] || "";
-  for (const text of texts) if (!tuple.includes(`'${text}'`)) throw new Error(`roadmap ${id} lost ${text}`);
-}
-for (const anchor of ["'regulation', '制度整備'", "'seed', 'シーズ発掘・after GTIE'", "'2026-06-01', '2027-01-31'", "'2026-06-01', '2027-03-31'", "'unassessed', 0, 'provisional'", "月単位計画", "担当未確認"])
-  if (!sql.includes(anchor)) throw new Error(`gantt migration missing ${anchor}`);
-if ((sql.match(/'phase',/g) || []).length !== 2 || (sql.match(/'milestone',/g) || []).length !== 2)
-  throw new Error("gantt needs two hidden date-domain containers and two terminal point milestones");
-console.log("KUTE seeds tab and annual-roadmap gantt data contract OK");
+if (/'p(?!25')[0-9]+'/.test(sql)) throw new Error("KUTE task rebuild must not affect another PJ");
+for (const anchor of [
+  "KUTE old task preflight failed",
+  "KUTE has active tasks outside the reviewed six-row import",
+  "deleted_by = 'kute-fy2026-task-rebuild'",
+  "KUTE rebuilt task count is not 38",
+  "KUTE completed task count is not 9",
+  "認定規程と内規の決裁結果を確認する",
+  "株式と新株予約権の取得管理ルールを原案にする",
+  "研究者への接触と情報共有の承認手順を決める",
+  "実証を受け入れる事業会社を探す",
+  "大学の支援運営費と収入源を整理する",
+  "今期3領域の業務成果報告書を提出する",
+]) if (!sql.includes(anchor)) throw new Error(`KUTE rebuilt ledger missing ${anchor}`);
+const taskIds = [...sql.matchAll(/'25000000-2026-4000-8000-000000000(4\d\d)'/g)]
+  .map(match => match[1])
+  .filter(id => Number(id) >= 401 && Number(id) <= 438);
+if (new Set(taskIds).size !== 38) throw new Error("KUTE rebuilt ledger must define 38 stable task IDs");
+if ((sql.match(/,'completed','confirmed'/g) || []).length !== 9)
+  throw new Error("KUTE rebuilt ledger must mark exactly nine evidence-backed tasks complete");
+for (const track of ["認定制度", "関連6規程", "シーズ発掘", "桑折先生", "自走化・連携", "年度報告"])
+  if (!sql.includes(`'${track}'`)) throw new Error(`KUTE rebuilt ledger missing track ${track}`);
+console.log("KUTE seeds tab and reviewed FY2026 gantt data contract OK");
 
 // Run the actual pure row classifier without loading React/browser modules.
 const vm = require("vm");

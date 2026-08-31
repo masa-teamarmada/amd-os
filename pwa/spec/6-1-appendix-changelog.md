@@ -1,5 +1,7 @@
 # 附則（設計書変更履歴）
 
+| 2026-09-01 18:45 JST | 3-8 PJ Cockpit | KUTE FY2026業務台帳の再編 | p25の旧6タスクをpreflight後にsoft-deleteし、6 track・38 taskへ置換。完了9件は100%・actual_endあり。作成完了と大学決裁、調査完了と実証受注を分離。日程根拠なしはNULL。既存objective/outcome/phaseを再利用し、schema/RLS/API/他PJは不変。migration `20260901184500_kute_fy2026_task_rebuild.sql` | 旧タスク名だけでは実作業と完了条件が分からなかったため | まさ・えいみ |
+
 | 2026-09-01 JST | 3-16 | テーマ資料の形式別閲覧 | 資料・成果物・作業関連・経緯出典の5導線を既存open APIへ統一。HTMLをMarkdown専用routeへ送る404を修正。認可不変 | 本番で出典資料を開く導線を確認 | えいみ |
 
 | 2026-09-01 JST | 3-16 | 本番外枠を含む初期表示密度 | desktopのthemeHubSectionはpadding-top 0、テーマ状態/経緯header操作は局所32px。mobileと他タブは不変 | 外枠込みで水素7行を初期画面へ収める | えいみ |
