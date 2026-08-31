@@ -397,7 +397,7 @@ export async function GET(req: NextRequest) {
   // 成果物は月次報告書フォルダに置かれたfile/linkだけを参照する。upload日時は
   // 成果日ではないため、帳票では月だけ確定した「◯月中」として表示する。
   const monthlyDeliverablesRes = await db.from("workspace_documents")
-    .select("document_id,display_name,mime_type,created_at,updated_at")
+    .select("document_id,display_name,mime_type,created_at,updated_at,source_ref")
     .eq("scope_kind", "project")
     .eq("project_id", projectId)
     .eq("folder_path", monthlyReportDriveFolderPath(ymStr))
@@ -549,7 +549,7 @@ export async function GET(req: NextRequest) {
     webViewLink: d.web_view_link || null,
     receivedAt: d.received_at,
   }));
-  const monthlyDeliverables = ((monthlyDeliverablesRes.data || []) as Array<{ document_id: string; display_name: string; mime_type: string; created_at: string; updated_at: string }>).map((d) => ({
+  const monthlyDeliverables = ((monthlyDeliverablesRes.data || []) as Array<{ document_id: string; display_name: string; mime_type: string; created_at: string; updated_at: string; source_ref: string | null }>).map((d) => ({
     documentId: d.document_id,
     fileName: d.display_name,
     webViewLink: `/api/workspace-documents/${encodeURIComponent(d.document_id)}/open?download=0`,

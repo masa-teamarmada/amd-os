@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-31 15:33 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-31 16:27 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -7216,7 +7216,7 @@ UNIQUE: `(slug)` (constraint: `vcs_slug_key`)
 
 ## workspace_access_audit_logs
 
-行数 (概算): 311
+行数 (概算): 480
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -7313,7 +7313,7 @@ UNIQUE: `(document_id,revision_no)` (constraint: `workspace_document_revisions_u
 
 ## workspace_documents
 
-行数 (概算): 103
+行数 (概算): 237
 PRIMARY KEY: `document_id`
 
 | # | column | type | nullable | default |
