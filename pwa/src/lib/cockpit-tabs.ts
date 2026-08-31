@@ -12,6 +12,7 @@
  */
 export const COCKPIT_TABS = [
   "progress",
+  "themes",
   "weekly",
   "gantt",
   "partners",

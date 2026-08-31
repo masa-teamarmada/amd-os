@@ -2882,6 +2882,7 @@ function IssueEditor({
     return (
       <label
         key={field.key}
+        data-field-key={field.key}
         className={field.span || forceSpan ? styles.fieldSpan : styles.field}
       >
         <span>
@@ -2891,7 +2892,7 @@ function IssueEditor({
         {field.type === "textarea" ? (
           <textarea
             name={field.key}
-            rows={field.key === "completion_evidence" ? 3 : 2}
+            rows={WIDE_EDITOR_KINDS.has(editor.kind) && PRIMARY_FIELD_KEYS.has(field.key) ? 1 : field.key === "completion_evidence" ? 3 : 2}
             required={field.required}
             value={fieldValue(values, field.key)}
             onChange={(event) =>
@@ -3104,9 +3105,9 @@ function IssueEditor({
         <div className={styles.formGrid}>{renderField(primaryField, true)}</div>
       )}
       {fieldGroups ? (
-        <div className={styles.formGrid}>
+        <div className={`${styles.formGrid} ${styles.fieldGroups}`}>
           {fieldGroups.map((group) => (
-            <div key={group.key} className={styles.fieldGroup}>
+            <div key={group.key} className={styles.fieldGroup} data-field-group={group.key}>
               <p className={styles.fieldGroupLabel}>{group.label}</p>
               <div className={styles.formGrid}>
                 {group.fields.map((field) => renderField(field))}
@@ -3263,6 +3264,7 @@ function IssueEditor({
         tabIndex={-1}
         className={styles.editorPanel}
         data-editor-width={WIDE_EDITOR_KINDS.has(editor.kind) ? "wide" : undefined}
+        data-editor-density={WIDE_EDITOR_KINDS.has(editor.kind) ? "compact" : undefined}
         role="dialog"
         onFocusCapture={rememberFocusedField}
         aria-modal="true"

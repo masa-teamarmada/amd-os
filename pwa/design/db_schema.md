@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-08-31 22:22 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-09-01 00:04 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -4620,7 +4620,7 @@ PRIMARY KEY: `id`
 
 ## project_management_field_audit
 
-行数 (概算): 10,343
+行数 (概算): 11,713
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -5972,6 +5972,7 @@ UNIQUE: `(project_id,track_key)` (constraint: `project_theme_profiles_project_id
 | 11 | `deleted_at` | `timestamptz` | NULL | `` |
 | 12 | `deleted_by` | `text` | NULL | `` |
 | 13 | `version` | `int4` | NOT NULL | `1` |
+| 14 | `history_rows` | `jsonb` | NOT NULL | `'[]'::jsonb` |
 
 ## project_theme_work_links
 

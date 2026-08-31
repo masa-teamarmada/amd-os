@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { parseThemeHistory } from "@/lib/project-theme-history";
 
 type Db = ReturnType<typeof createAdminClient>;
 type PgError = { code?: string; message: string };
@@ -162,13 +163,33 @@ export async function upsertThemeProfile(
   projectId: string,
   trackKey: string,
   memberId: string,
-  fields: { purposeMd?: unknown; currentStateMd?: unknown; nextFocusNote?: unknown },
+  fields: { purposeMd?: unknown; currentStateMd?: unknown; nextFocusNote?: unknown; historyRows?: unknown },
   expectedVersion: number | null,
 ) {
   const patch: Record<string, unknown> = { updated_by_member_id: memberId };
   if ("purposeMd" in fields) patch.purpose_md = optionalText(fields.purposeMd, "目的", 4000);
   if ("currentStateMd" in fields) patch.current_state_md = optionalText(fields.currentStateMd, "現状", 4000);
   if ("nextFocusNote" in fields) patch.next_focus_note = optionalText(fields.nextFocusNote, "次の焦点", 1000);
+  if ("historyRows" in fields) {
+    let rows;
+    try { rows = parseThemeHistory(fields.historyRows); }
+    catch (error) { throw new ThemeHubError(error instanceof Error ? error.message : "経緯の形式が不正だよ"); }
+    // A source must already belong to this theme. Saving a summary never grants access or
+    // silently changes membership; the existing MTG/document linking controls own that action.
+    await Promise.all((["meeting", "document"] as const).map(async kind => {
+      const ids = [...new Set(rows.flatMap(row => row.sources).filter(source => source.kind === kind).map(source => source.id))];
+      if (!ids.length) return;
+      const isMeeting = kind === "meeting";
+      const idColumn = isMeeting ? "meeting_id" : "document_id";
+      const { data, error } = await db.from(isMeeting ? "project_theme_meetings" : "project_theme_documents")
+        .select(idColumn).eq("project_id", projectId).eq("track_key", trackKey)
+        .in(idColumn, ids).is("deleted_at", null);
+      if (error) throw new ThemeHubError("元記録の確認に失敗したよ", 500);
+      const found = new Set((data ?? []).map(row => String((row as unknown as Record<string, unknown>)[idColumn])));
+      if (ids.some(id => !found.has(id))) throw new ThemeHubError("元記録を先にこのテーマへひもづけてね", 400);
+    }));
+    patch.history_rows = rows;
+  }
 
   const { data: existing, error: existingError } = await db
     .from("project_theme_profiles")

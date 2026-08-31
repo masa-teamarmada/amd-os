@@ -49,6 +49,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - p19 theme hub (2026-08-31 拡張): ZMPは`KR経営改革` / `水素循環PJ` / `OkuDoor運営` / `OkuDoorシステム開発＆運用`の4テーマへ既存9 value milestoneを4/2/2/1件で接続する。テーマタブは運用タスク、運用MS、論点、判断、予定成果物、作業間の関連を作成でき、既存の共有管理エディタを再利用する。読み取り専用では入力を無効にし、保存と削除の操作を出さない。既定表示は明示許可リスト（現状p19のみ）で判定し、価値計画の有無に依存しない。詳細契約は`spec/3-16-project-weekly-control-current-spec.md`。回帰防止は`test:zmp-workspace-themes`と`test:project-theme-hub-helpers`。
 - テーマ画面からのMTG新規作成と編集は`src/lib/theme-hub-rollout.ts`の共有定数でAPIとUI双方から停止する。既存の匿名読取ポリシーについて、まさの明示承認、修正、権限別検証が完了するまで解除しない。既存MTGの閲覧とテーマへの紐付けは利用できる。コックピットMTGカードとホームへの遷移はportfolio/adminだけに出す。外部アカウントとPJ限定memberへ権限外の導線を出さない。
 - テーマ平均は出さず、各成果目標の`routine_auto`は予定進行、PM lockedだけ確定進捗として区別する。実コンポーネントの模擬201/503応答とDB ROLLBACK試験は確認済み。認証付き本番E2E保存は未検証。
+- p19のコックピット`?tab=themes`も同じ4テーマ作業画面を開く。テーマ上部の「これまでの流れ」は対象別の当初・経緯・現在地・次の確認と出典を持ち、MTG履歴の折りたたみだけに退行させない。`project_theme_profiles.history_rows`へ既存version付きAPIで保存し、未確認の応募・採否・合意を補完しない。MS/タスクのwide editorは主要入力を左右に配置し、desktop一画面で見渡せる密度を維持する。回帰防止は`test:theme-history`（2026-09-01）。
 
 ## /portfolio-preview — 研究ポートフォリオ構造プレビュー (2026-08-02 /dashboard へ統合済み・退役)
 

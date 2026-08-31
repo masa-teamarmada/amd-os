@@ -80,6 +80,8 @@ JST「起業後支援の手引き」は外部制度欄に置く。PSI事務局�
 
 ## Initial Modal Rules
 
+ZMP（p19）限定の`テーマ`タブは`?tab=themes`から開く。既定は進捗管理のまま、他PJの同queryは進捗管理へ戻す。`CockpitProjectControl`の既存認可済みworkspace bundleと`ProjectThemeRoutes`を再利用し、別のテーマ台帳やfetch経路を作らない。4テーマの仕事・MTG・論点・成果目標に加え、上部の「これまでの流れ」で対象別の当初・経緯・現在地・次の確認を表示する。保存はワークスペースと同じprofile API、詳細は3-16。コックピットへのアクセス権は拡大しない（2026-09-01）。
+
 KUTE限定の完了表示（2026-08-31）: `projectId=p25 && entity=task && state=complete` の期間バーを `#047857` で全幅塗りつぶし、desktop/mobileとも「完了」を緑のbadgeで示す。`status=completed` の判定を使用し、保存済み進捗率が0でも完了の表示を優先する。DBのstatus/実績/進捗率は変更しない。他PJ、MSマーカー、未確認タスクの表示は不変。契約と最新報告書に基づく今期タスクの再編は提案段階で、本変更にデータの置換は含めない。回帰チェック: `node scripts/check_kute_gantt_completion.cjs`。
 
 KUTE (`p25`) の `?tab=seeds` は専用「シーズ」タブを復元する。許可リストは `src/lib/cockpit-tabs.ts` の `COCKPIT_TABS` と共有し、他PJの同queryは `progress` へフォールバックする。KUTEの比較表は初回訪問後hidden保持で再取得と絞り込みリセットを防ぐ。他研究機関の進捗管理内の比較表は変更しない。横展開はKUTEでの設計合意後に行う（2026-08-31）。

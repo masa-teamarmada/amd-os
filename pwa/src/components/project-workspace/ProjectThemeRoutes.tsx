@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { THEME_HUB_MEETING_WRITE_ENABLED, THEME_HUB_MEETING_WRITE_BLOCKED_MESSAGE } from "@/lib/theme-hub-rollout";
 import styles from "./project-theme-routes.module.css";
+import { ThemeHistory } from "./ThemeHistory";
 
 type ThemeData = ProjectWorkspaceBundle["themes"][number];
 type MilestoneData = ThemeData["milestones"][number];
@@ -1297,7 +1298,7 @@ export function ProjectThemeRoutes({
   const selectedTheme = localThemes.find((t) => t.themeKey === selectedThemeKey) ?? localThemes[0] ?? null;
 
   async function refreshBundle() {
-    if (refreshingRef.current) return;
+    if (refreshingRef.current) return false;
     refreshingRef.current = true;
     try {
       const res = await fetch(`/api/project-workspace/${encodeURIComponent(projectId)}`, { cache: "no-store" });
@@ -1306,6 +1307,7 @@ export function ProjectThemeRoutes({
         setLocalThemes(json.bundle.themes);
         setLocalAllMeetings(json.bundle.allMeetings);
         onManagementChange?.(json.bundle.sxManagement);
+        return true;
       } else {
         setNotice(typeof json.error === "string" ? json.error : "最新の内容を読み込めなかったよ");
       }
@@ -1314,6 +1316,7 @@ export function ProjectThemeRoutes({
     } finally {
       refreshingRef.current = false;
     }
+    return false;
   }
 
   async function handleSaved() {
@@ -1528,6 +1531,22 @@ export function ProjectThemeRoutes({
             </div>
           </div>
         </div>
+
+        <ThemeHistory
+          key={selectedTheme.themeKey}
+          rows={selectedTheme.profile?.historyRows ?? []}
+          canManage={canManage}
+          sources={[
+            ...selectedTheme.meetings.map(meeting => ({ kind: "meeting" as const, id: meeting.meetingId, label: `${formatYmd(meeting.meetingDate)} ${meeting.title}`, onOpen: () => setActiveDialog({ kind: "edit_meeting", meeting }) })),
+            ...selectedTheme.documents.map(document => ({ kind: "document" as const, id: document.documentId, label: document.displayName, onOpen: () => window.open(`/workspace-document/${encodeURIComponent(document.documentId)}`, "_blank", "noopener,noreferrer") })),
+          ]}
+          onSave={async rows => {
+            await themeHubFetch(projectId, selectedTheme.themeKey, "PATCH", { resource: "profile", fields: { history_rows: rows }, expected_version: selectedTheme.profile?.version ?? null });
+          }}
+          onRefresh={async () => {
+            if (!(await refreshBundle())) throw new Error("保存は完了したけど、最新表示を読み込めなかったよ。もう一度読み込んでね。");
+          }}
+        />
 
         <div className={styles.nextWorkCard}>
           <div className={styles.nextWorkHeader}>

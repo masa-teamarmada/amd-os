@@ -31,6 +31,16 @@
 
 ## ZMPテーマ作業ハブ（p19、2026-08-26追加・2026-08-31拡張）
 
+### 経緯・計画変更（2026-09-01）
+
+テーマ上部の「これまでの流れ」は、MTGの一覧や編集ログではなく、観点別の経緯サマリーを常時表示する。列は「対象 / 当初の狙い / 動き・結果 / 現在地 / 次の確認」。水素循環PJでは研究者・連携先、助成金ごとの応募経緯と採否、ステーション計画の変更を分ける。desktopは横比較、mobileは対象ごとにラベル付きで読み下す。
+
+正本は既存`project_theme_profiles.history_rows`（migration `20260901003000_project_theme_history.sql`）。各行は安定ID、対象、当初、経緯、現在地、次の確認、記録時点、確認範囲、元MTG/資料の型付きID参照を持つ。本文・タスク・判断の正本は従来の各台帳に残し、サマリーから戻る。問い合わせ・準備・応募・採択は別状態として記す。日付不明や結果未確認を、未応募・不採択・計画通りへ変換しない。未確認の内容を自動確定しない。
+
+保存は既存profile PATCHの部分更新と`expected_version`を使う。目的・現状の編集で経緯を消さず、経緯の編集で目的・現状を消さない。保存前に40行/文字数/実在日付/重複ID/出典種別/同一PJの有効な出典を検証する。権限を増やさず、通知・外部送信・自動抽出は追加しない。
+
+ZMPコックピットにも`?tab=themes`で同じテーマ画面を組み込む。通常の既定タブは進捗管理のまま。他PJの`?tab=themes`は進捗管理へ戻す。
+
 - p19の9本のvalue milestoneは`KR経営改革`（4件）/ `水素循環PJ`（2件）/ `OkuDoor運営`（2件）/ `OkuDoorシステム開発＆運用`（1件）の4テーマへ束ねる（`ios/supabase/migrations/20260831120000_project_theme_hub.sql`が既存3テーマから改名・分割）。MSは削除・複製せず、テーマ内の「成果目標」としてそのまま残す。
 - 所属正本は `project_management_tracks` と `project_management_track_value_milestones`。同一PJの1成果目標は1テーマだけに所属し、bridgeの`project_id`とvalue milestoneのplan cycleのPJ一致をDBで強制する。
 - テーマタブ（`#theme-progress`、表示名`テーマ`、`ProjectThemeRoutes.tsx`）は成果目標の閲覧だけでなく、運用タスク・運用マイルストーン（`project_management_milestones`、objective/outcomeが未構築でもtimeline_kind='milestone'の単一予定日として作成可）・論点/仮説/決定/アクション（既存の`IssueEditor`/`IssueWorkbench`をそのまま開く。コピーのフォームは作らない）・予定成果物（`project_theme_deliverables`、既存資料への後付けひもづけ可）・作業間の関連（`project_theme_work_links`、テーマ横断のcanonical global）を実際に作成・編集できるハブ。
@@ -187,7 +197,7 @@ desktopガントは横方向だけでなく内部の縦方向にもスクロー�
 
 point-MS追加フォームは`配置するグループ（複数選択可） / MS名 / 予定日`の3項目だけを必須とし、`完了条件`は任意にする。`到達点`はpoint-MSでは完了条件と重複するため作成フォームへ出さず、`次の成果物`は次工程が未定のMSにも入力を強制しない。既存DBの非NULL列は削除せず、APIが明示的な`未設定 / 未確認`を保存して後から詳細で補えるようにする。作成時の非表示`criticality`は`medium`とし、point-MSを置くだけで重要案件・高重要度の情報不足を増やさない。工程（phase）の作成契約は変更しない。
 
-タスク/MS作成・編集のroot editorはdesktopで通常幅640px、wide 760px、最大高720px、詳細PlanInspectorは幅820px・最大高720pxを上限とし、header 54px、入力36px、footer操作38pxへ圧縮する。390px相当ではbottom sheetへ切り替え、入力・閉じる・footer操作を44px以上、入力文字16pxへ戻す。密度を上げるためにモバイルの操作性を削らない。
+タスク/MS作成・編集のroot editorはdesktopで通常幅640px、wideは最大1120px、最大高720px。wideは内容・完了条件を左、担当・状態・日程を右へ配置し、グループ名専用の空白列を作らない。MS名は1行、短い本文は2列のtextareaとし、1440×900で主要15入力と保存操作を同時に確認できる。詳細PlanInspectorは幅820px・最大高720pxを上限とし、header 54px、入力36px、footer操作38pxへ圧縮する。390px相当ではbottom sheetへ切り替え、入力・閉じる・footer操作を44px以上、入力文字16pxへ戻す。密度を上げるためにモバイルの操作性を削らない。
 
 ドラッグ中はポインタ移動のたびにローカルpreviewだけを更新し、サーバーへは何も送らない。pointerupで初めて1回だけPATCHする。4px未満の移動はドラッグではなく通常のクリック（行の詳細を開く）として扱い、クリックとドラッグを競合させない（`isWithinClickThreshold`）。Esc・pointercancelはpreviewを破棄するだけで何も送らない。ポインタキャプチャの喪失（`lostpointercapture`）は、自分自身のpointerupによる正常な解放（保存処理が既に始まっている）となら区別し、保存中のpreviewを誤って巻き戻さない — 本当にキャプチャを異常に失った場合だけpreviewを破棄する（`shouldCancelOnLostPointerCapture`、同期refで判定）。ドラッグ状態は`dragRef`（同期ref）を単一の真実として扱い、pointermoveの直後にpointerupが同じバッチで来ても最後のpreviewを取りこぼさない — PATCH送信もこのrefから読む（Reactのstate更新は次のイベントハンドラに即時反映される保証がないため）。保存に失敗した場合（409以外も含む）はベストエフォートで`management`を再取得し、その再取得自体が失敗したら「保存できたか確認できなかったので再読み込みしてね」と明示する。日付計算・しきい値判定・並行制御の正規化はすべて`src/lib/sx-gantt-drag.ts`の純関数（DOM非依存）に集約し、`npm run test:sx-gantt-drag`・`npm run test:sx-gantt-pointer-gesture`で単体テストする。
 

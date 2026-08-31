@@ -1,5 +1,23 @@
 # HANDOFF - AMD OS PWA
 
+## 2026-09-01 ZMP経緯・コックピット・編集密度（全クライアント向け）
+
+- p19コックピットの`?tab=themes`はワークスペースと同じ4テーマ画面。他PJと既定の進捗管理は不変。
+- 各テーマ上部の「これまでの流れ」に対象別の当初・動きと結果・現在地・次の確認・記録日・元記録参照を置く。水素のみ7対象を確認済み記録から初期整理し、応募・採否・合意の未確認は区別。他3テーマを推測で埋めていない。
+- `project_theme_profiles.history_rows`を既存profile API/versionで保存。出典は同一PJ・同一テーマの接続済みMTG/資料だけ。保存後の再読込失敗では保存を再送せずGETだけ再試行する。
+- migration `20260901003000_project_theme_history.sql` / `20260901004500_seed_zmp_hydrogen_history.sql`は本番適用済み、再適用禁止。seedは既存水素profileを上書きしない。RLS・MTG本文は変更なし。`THEME_HUB_MEETING_WRITE_ENABLED=false`を維持する。
+- 共通MS/タスクのwide editorはdesktop最大1120px、内容を左・状態担当日程を右に集約。1440×900で15入力と保存を同時表示。mobileは44px操作/16px入力のbottom sheetを維持。
+- iOS/macOS/Android未移植。モデル/BZM・ネイティブコード・GASに変更なし。共有checkoutの既存BZM原稿と8月セッションログの変更は今回の反映から除外する。
+
+| 同期対象 | 結果 |
+|---|---|
+| manual | 2-3の経緯入口・読方・編集密度、9-3履歴を更新 |
+| spec | 2-7、3-8、3-16、6-1履歴、db_schemaを更新 |
+| BZM | 理論・計算式に変更なし、更新不要 |
+| 全クライアント | ios/DESIGNと本節で未移植・適用済みmigrationを明記 |
+| 検証 | test:theme-history、theme-hub helpers、ZMPテーマ、KUTEタブ、critical-ui、共有保存契約、型検査。実コンポーネントの模擬保存/失敗/再読込を確認。本番の架空記録保存は行わない |
+
+
 ## 2026-08-31 KUTE完了表示とタスク棚卸し
 
 - p25の明示的なcompletedタスクだけを緑の全幅バーと完了badgeで示す。desktop/mobileに適用、他PJとMSは不変。DB変更なし、ネイティブ未移植。

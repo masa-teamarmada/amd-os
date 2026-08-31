@@ -64,6 +64,13 @@ PWAの全route・重要UI・iOS画面の対応状況は `../macos/PARITY.md` を
 > 会議記録の公開範囲ポリシー承認待ちで一時停止中（既存MTGの閲覧・紐付けは可）。macOS/iOS Nativeへの
 > 移植は未着手。
 
+> 2026-09-01: PWAのp19コックピット`?tab=themes`にも同じ画面を追加。各テーマ上部に対象別の
+> 「これまでの流れ」（当初・経緯と結果・現在地・次の確認・記録日・元MTG/資料）を表示する。
+> `project_theme_profiles.history_rows`と既存version付きprofile APIが正本。migration
+> `20260901003000_project_theme_history.sql`と`20260901004500_seed_zmp_hydrogen_history.sql`は適用済み。
+> 水素7対象の初期整理は未確認の応募・採否・合意を補わない。MS/タスク編集はdesktop左右分割へ高密度化。
+> これらもiOS/macOS/Android未移植。ネイティブ実装、MTG公開ポリシー、モデルの変更はない。
+
 ---
 
 ## 1. タブ構成（MainTabView）

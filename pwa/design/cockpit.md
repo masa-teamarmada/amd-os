@@ -3,6 +3,8 @@
 作成: 2026-05-06 (cool-booth-b72d09 セッション)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
+2026-09-01: p19のみ`テーマ`タブ（`?tab=themes`）を追加。PJワークスペースと同じ4テーマ作業画面・経緯表を`CockpitProjectControl`から表示する。現在のroute・認可契約は`../spec/3-8-cockpit-current-spec.md`、経緯の保存・出典・編集契約は`../spec/3-16-project-weekly-control-current-spec.md`。
+
 ---
 
 ## ⚠️ 既存 UI を勝手に消すな (まさのルール)

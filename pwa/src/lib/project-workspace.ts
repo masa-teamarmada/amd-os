@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectWorkspaceSession } from "@/lib/project-workspace-session";
 import { getSxManagementBundle, type SxManagementBundle } from "@/lib/sx-management";
+import { parseThemeHistory, type ThemeHistoryRow } from "@/lib/project-theme-history";
 import {
   EFFORT_CATEGORIES,
   type EffortCategory,
@@ -113,6 +114,7 @@ export type ProjectWorkspaceBundle = {
       purposeMd: string | null;
       currentStateMd: string | null;
       nextFocusNote: string | null;
+      historyRows: ThemeHistoryRow[];
       updatedAt: string;
       version: number;
     } | null;
@@ -432,7 +434,7 @@ export async function getProjectWorkspaceBundle(
     // lands on, the same as any other non-snapshotted paged read — that is an accepted, normal
     // limitation here, not something this stable order claims to solve.
     fetchAllRows((from, to) =>
-      db.from("project_theme_profiles").select("track_key,purpose_md,current_state_md,next_focus_note,updated_at,version").eq("project_id", projectId).is("deleted_at", null).order("track_key", { ascending: true }).range(from, to),
+      db.from("project_theme_profiles").select("track_key,purpose_md,current_state_md,next_focus_note,history_rows,updated_at,version").eq("project_id", projectId).is("deleted_at", null).order("track_key", { ascending: true }).range(from, to),
     ),
     fetchAllRows((from, to) =>
       db.from("project_theme_meetings").select("id,track_key,meeting_id,version").eq("project_id", projectId).is("deleted_at", null).order("id", { ascending: true }).range(from, to),
@@ -662,6 +664,7 @@ export async function getProjectWorkspaceBundle(
       purposeMd: row.purpose_md ? String(row.purpose_md) : null,
       currentStateMd: row.current_state_md ? String(row.current_state_md) : null,
       nextFocusNote: row.next_focus_note ? String(row.next_focus_note) : null,
+      historyRows: parseThemeHistory(row.history_rows ?? []),
       updatedAt: String(row.updated_at),
       version: Number(row.version || 1),
     }]),

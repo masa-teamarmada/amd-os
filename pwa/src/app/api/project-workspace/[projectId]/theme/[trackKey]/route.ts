@@ -141,7 +141,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         // `"purposeMd" in fields` presence check would then see it as "present, please clear it".
         await upsertThemeProfile(
           db, projectId, trackKey, memberId,
-          pickPresent(fields, { purpose_md: "purposeMd", current_state_md: "currentStateMd", next_focus_note: "nextFocusNote" }),
+          pickPresent(fields, { purpose_md: "purposeMd", current_state_md: "currentStateMd", next_focus_note: "nextFocusNote", history_rows: "historyRows" }),
           typeof body.expected_version === "number" ? body.expected_version : null,
         );
         return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });

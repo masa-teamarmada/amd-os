@@ -162,6 +162,7 @@
     "sps:initial:reject": "node scripts/sps_initial_assessment_tool.mjs reject",
     "test:workspace-documents-core": "node --experimental-strip-types scripts/check_workspace_documents_core.mts",
     "test:project-theme-hub-helpers": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs --import ./scripts/register_server_only_stub.mjs scripts/check_project_theme_hub_helpers.mts",
+    "test:theme-history": "node --experimental-strip-types --import ./scripts/register_ts_aliases.mjs --import ./scripts/register_server_only_stub.mjs scripts/check_theme_history.mts",
     "test:workspace-documents-contract": "node scripts/check_workspace_documents_contract.mjs",
     "test:workspace-document-revisions": "node --experimental-strip-types scripts/check_workspace_document_revisions.mts",
     "test:workspace-document-html-editing": "node --experimental-strip-types scripts/check_workspace_document_html_editing.mts",

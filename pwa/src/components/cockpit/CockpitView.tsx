@@ -264,9 +264,10 @@ export type { CockpitTab } from "@/lib/cockpit-tabs";
 /**
  * PJワークスペースの管制タブをコックピットのタブへ対応づける (2026-08-28 まさ確定)。
  * ここに載っているタブは同じ `CockpitProjectControl` を共有するので、
- * 4タブを行き来しても束を読み直さない。
+ * テーマ・週次差分・ガント・関係先・論点を行き来しても束を読み直さない。
  */
 const WORKSPACE_VIEW_BY_TAB: Partial<Record<CockpitTab, SxWeeklyControlView>> = {
+  themes: "themes",
   weekly: "weekly",
   gantt: "gantt",
   partners: "partners",
@@ -275,6 +276,7 @@ const WORKSPACE_VIEW_BY_TAB: Partial<Record<CockpitTab, SxWeeklyControlView>> = 
 
 /** 管制画面の中の導線 (「ガントで見る」等) が飛ぶ先を、コックピットのタブへ戻す。 */
 const TAB_BY_WORKSPACE_VIEW: Partial<Record<SxWeeklyControlView, CockpitTab>> = {
+  themes: "themes",
   weekly: "weekly",
   gantt: "gantt",
   partners: "partners",
@@ -286,7 +288,8 @@ const TAB_BY_WORKSPACE_VIEW: Partial<Record<SxWeeklyControlView, CockpitTab>> = 
 
 export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab, onTabChange }: CockpitViewProps) {
   const [localActiveTab, setLocalActiveTab] = useState<CockpitTab>("progress");
-  const activeTab = controlledTab ?? localActiveTab;
+  const requestedTab = controlledTab ?? localActiveTab;
+  const activeTab = requestedTab === "themes" && cockpit.project.projectId !== "p19" ? "progress" : requestedTab;
   const [modalYm, setModalYm] = useState<string | null>(initialModalYm || null);
   const [modalInitialTab, setModalInitialTab] = useState<MonthlyModalTab | undefined>(undefined);
   const [pastExpanded, setPastExpanded] = useState(false);
@@ -361,6 +364,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
   // タブ構成はここが正本。列数は tabs.length から出すので、追加時に grid の計算を直す必要はない。
   const tabs: { key: CockpitTab; label: string; onHover?: () => void }[] = [
     { key: "progress", label: "進捗管理" },
+    ...(project.projectId === "p19" ? [{ key: "themes" as const, label: "テーマ" }] : []),
     // PJワークスペースの管制4タブ (2026-08-28 まさ「コックピット側を12タブにしよう」)。
     // 実装・データは `/project/[projectId]/workspace` と同じものを共有する。
     // 外向けのワークスペースは別ルートのまま残す (認可の境界をルートで持つため)。
