@@ -12,7 +12,6 @@ import { CockpitGrants } from "./CockpitGrants";
 import { WorkspaceDocumentRoom } from "@/components/workspace-documents/WorkspaceDocumentRoom";
 import { CockpitIpPortfolio } from "@/components/cockpit/CockpitIpPortfolio";
 import { CockpitTechnology } from "@/components/cockpit/CockpitTechnology";
-import { CockpitKuteAnnualRoadmap } from "./CockpitKuteAnnualRoadmap";
 import { CockpitKuteRegulations } from "./CockpitKuteRegulations";
 import { ProjectInstitutionSeeds } from "./CockpitKuteSeeds";
 import { CockpitSeasonFinance } from "./CockpitSeasonFinance";
@@ -696,12 +695,6 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           4タブで1つのマウントを共有するので、行き来しても束を読み直さない。 */}
       {workspaceView && (
         <section role="tabpanel" aria-label="PJ管制" className="min-w-0">
-          {/* KUTE (p25) の年次ロードマップ。ガントタブの先頭にのみ表示 (2026-08-31 進捗タブから移設)。 */}
-          {activeTab === "gantt" && project.projectId === "p25" && (
-            <div className="mb-3">
-              <CockpitKuteAnnualRoadmap currentYm={currentYm} />
-            </div>
-          )}
           <CockpitProjectControl
             projectId={project.projectId}
             view={workspaceView}

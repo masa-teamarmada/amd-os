@@ -1,5 +1,11 @@
 # iOS → Android ハンドオフ
 
+## 2026-08-31 KUTE年度内ロードマップのガント統合（共通DB・PWA）
+
+- KUTE (`p25`) の既存6工程を共通 `project_management_*` 台帳へ追加し、PWAの既存ガントで表示・編集する。移行ファイルは `supabase/migrations/20260831223000_kute_annual_roadmap_gantt.sql`。スキーマ変更なし。
+- 元の月単位計画は仮日程、目的・全成果物はタスク詳細へ保持。実績未確認の工程を日付経過で完了にしない。データの再登録やクライアント側の静的複製は不要。
+- ネイティブ画面は未移植、TestFlight更新なし。他研究機関PJへの横展開はKUTEでの設計合意後。詳細は `../pwa/spec/3-8-cockpit-current-spec.md` と `DESIGN.md`。
+
 > See also: [CLAUDE.md](CLAUDE.md) — 最重要ルール / [DESIGN.md](DESIGN.md) — **全画面の正本仕様（必読）** / [HANDOFF.md](HANDOFF.md) — 配布状況 / [BUGS.md](BUGS.md) — 既知バグ
 
 最終更新: 2026-08-12 (JST)

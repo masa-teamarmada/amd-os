@@ -238,6 +238,13 @@ function dateToPct(
 function classifyTask(task: SxTask, asOf: string): DisplayRow["state"] {
   if (task.status === "completed") return "complete";
   if (task.status === "blocked") return "blocked";
+  // Imported KUTE roadmap dates are month-level plans, not verified overdue work.
+  if (
+    task.projectId === "p25" &&
+    task.status === "unassessed" &&
+    task.dateCertainty === "provisional" &&
+    task.sourceRef?.startsWith("KUTE年度内ロードマップ /")
+  ) return "unassessed";
   if (task.plannedEnd && task.plannedEnd < asOf) return "overdue";
   if (task.status === "not_started") return "not_started";
   if (task.status === "unassessed") return "unassessed";
@@ -2864,7 +2871,7 @@ export function SxUnifiedTimeline({
                   style={{ left: timelinePctCss(timeline.objectivePct), top: MONTH_YEAR_ROW_H }}
                 >
                   <Flag className="h-3 w-3" />
-                  設立 {sxFormatDate(timeline.objectiveDate)}
+                  {projectId === "p25" ? `年度末 ${timeline.objectiveDate?.slice(0, 7)}（目途）` : <>設立 {sxFormatDate(timeline.objectiveDate)}</>}
                 </span>
               )}
             </div>
