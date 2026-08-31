@@ -114,7 +114,7 @@ migration 212 / 213 / 216〜219 / 258 と対になる contract。212 / 213は202
 | principal | 外部ユーザーの識別子はメールアドレスのみ。認可はアカウント登録・機関ワークスペース所属・PJ個別アクセスの3つの明示的な付与だけ |
 | 暗黙付与の禁止 | 機関ワークスペース所属はPJアクセスを含意しない。ドメイン一致も認可の根拠にしない |
 | session | email OTP → `signOut({scope:'local'})` → 30日固定の `amd_os_workspace_session` 署名cookie。同じブラウザでは期間内のメール再認証を不要にし、毎リクエストで cookie 検証 + DB 再検証する。権限失効は30日を待たず次のリクエストで即時反映 |
-| failure mode | 未認可・不明slugは redirect せず not found。失敗時は常に閉じる側へ倒し、機関・PJの存在を漏らさない。PJ一覧取得失敗と参加0件、進捗未登録と0%を区別する |
+| failure mode | 未認可・不明slugは redirect せず not found。例外として、メールで共有した`workspace_shared`のHTML資料URLを未ログインで開いたときだけ、資料本文を返さず外部向け確認コード入口へ案内し、ログイン後に同じ資料URLへ戻す。署名済みworkspace sessionで対象外・失効の場合は従来どおりnot found。PJ一覧取得失敗と参加0件、進捗未登録と0%を区別する |
 | 213 の閉鎖範囲 | `institutions` / `institution_assessments` / `projects` / `members` / `project_members` / `institution_projects` / `seed_projects` / `seeds` / `seed_funding` / `seed_news` / `seed_contact_log` / `seed_sps_assessments` / `value_plan_cycles` / `value_milestones` / `milestone_monthly_progress` の計15テーブルで anon read を撤去し、authenticated を `amd_os_is_member()` ゲートへ寄せる。内部ブラウザreadはログイン済みSupabase browser client、server routeは明示注入したservice clientを使う。write は `is_admin()` + service_role |
 | scope (愛媛) | p30 は `ehime` ワークスペースへ `shared_surface='summary'` で登録 (サマリのみ、詳細ワークスペースは非共有)。p21 はPJ範囲に含めず個別付与のみ。シーズ範囲は `inst_ehime` 紐付け全件。公開一覧は現時点 `ehime` 1件 |
 | 評価系列 | ECR は機関の縦並び (総合 + 8軸)、SPS はシーズごと。DTO 上も別プロパティで、合成スコア・相関・因果指標を作らない |

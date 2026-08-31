@@ -11,6 +11,7 @@ import {
   type WorkspaceDocumentRow,
 } from "@/lib/workspace-documents-server";
 import { recordWorkspaceAuditEvent } from "@/lib/workspace-access-audit";
+import { getWorkspaceAccessCandidateSession } from "@/lib/workspace-access-session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,8 +24,15 @@ function contentDispositionFilename(name: string) {
   return encodeURIComponent(name).replace(/'/g, "%27");
 }
 
+function externalLoginHref(request: Request) {
+  const login = new URL("/auth/login", request.url);
+  login.searchParams.set("audience", "institution");
+  login.searchParams.set("next", new URL(request.url).pathname);
+  return login;
+}
+
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ documentId: string }> },
 ) {
   const { documentId } = await params;
@@ -43,7 +51,16 @@ export async function GET(
 
   const row = data as unknown as WorkspaceDocumentRow;
   const access = await resolveDocumentRowAccess(db, row);
-  if (!access || (row.visibility === "amd_internal" && !access.canReadInternal)) {
+  if (!access) {
+    // 外部共有済み資料へのメール直リンクは、未ログインなら資料の有無や本文を返さず
+    // 確認コードの入口だけを出す。署名済みworkspace sessionがある人は、権限失効・
+    // 対象外のどちらでも従来どおり404に閉じる。
+    if (row.visibility === "workspace_shared" && !(await getWorkspaceAccessCandidateSession())) {
+      return NextResponse.redirect(externalLoginHref(request));
+    }
+    return json({ ok: false, error: "Not found" }, 404);
+  }
+  if (row.visibility === "amd_internal" && !access.canReadInternal) {
     return json({ ok: false, error: "Not found" }, 404);
   }
   if ((row.entry_kind !== "file" && row.entry_kind !== "link") || !isWorkspaceDocumentHtml(row.mime_type, row.display_name)) {

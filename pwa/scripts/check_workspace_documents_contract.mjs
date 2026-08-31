@@ -53,6 +53,9 @@ assert.match(source.open, /!download && isWorkspaceDocumentMarkdown[\s\S]*?\/wor
 assert.match(source.open, /createSignedUrl\(row\.storage_path, 60/, "private fileは60秒の署名URLで開く");
 assert.match(source.render, /resolveDocumentRowAccess\(db, row\)/, "HTML表示も資料ごとの権限を再確認する");
 assert.match(source.render, /row\.visibility === "amd_internal" && !access\.canReadInternal/, "HTML表示も内部資料を404にする");
+assert.match(source.render, /row\.visibility === "workspace_shared" && !\(await getWorkspaceAccessCandidateSession\(\)\)/, "外部共有資料の未ログイン直リンクは確認コード入口へ案内する");
+assert.match(source.render, /login\.searchParams\.set\("audience", "institution"\)/, "外部資料の直リンクは外部向けログイン画面を開く");
+assert.match(source.render, /login\.searchParams\.set\("next", new URL\(request\.url\)\.pathname\)/, "ログイン後は元の資料表示へ戻す");
 assert.match(source.render, /isWorkspaceDocumentHtml\(row\.mime_type, row\.display_name\)/, "HTMLだけを専用表示で返す");
 assert.match(source.render, /WORKSPACE_DOCUMENT_HTML_PREVIEW_MAX_BYTES/, "HTML表示の読込量を制限する");
 assert.match(source.render, /row\.entry_kind !== "file" && row\.entry_kind !== "link"/, "HTML表示は保存fileとDrive linkの両方を扱う");
